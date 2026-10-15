@@ -115,5 +115,19 @@ console.log('E. 错配放行（引擎「携带不生效」语义）');
   ]).valid, true);
 }
 
+// ═══ F. groups 字段不再校验（cycle 分桶路由 2026-10-15 删除） ═══
+console.log('F. groups 字段不再报错（存量库条目须能重新保存）');
+{
+  check('腿带任意 groups 字符串放行（不再解析校验）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', groups: 'cycle==3' },
+  ]).valid, true);
+  check('腿带非法形态 groups 也放行（解析器已删，入库层零耦合）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', groups: 'not_a_var == 1' },
+  ]).valid, true);
+  check('腿带 cycle 数字字段放行（legacy 字段透传由引擎 fail-fast 管）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cycle: 3 },
+  ]).valid, true);
+}
+
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exitCode = fail === 0 ? 0 : 1;

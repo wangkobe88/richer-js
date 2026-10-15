@@ -136,14 +136,7 @@ console.log('A. ConditionEvaluator 字符串字面量');
     assert.strictEqual(s, 100);
   });
 
-  check('A15 groups 解析仍拒绝字符串右操作数（引号陷阱显式拒：\'3\'===3 恒 false）', () => {
-    const { parseGroupsExpression } = require(path.join(ROOT, 'src', 'strategies', 'group-variables.js'));
-    assert.throws(() => parseGroupsExpression("cycle == '3'"), /引号字符串不支持/);
-    assert.throws(() => parseGroupsExpression("cycle == 'abc'"), /数字字面量/);
-    // 裸数字照常通过（回归）
-    const ok = parseGroupsExpression('cycle == 3');
-    assert.strictEqual(ok.ast.right, '3');
-  });
+  // A15（groups 解析）已随 cycle 分桶路由机制删除（2026-10-15，group-variables.js 移除）
 }
 
 // ═══════════════ B. FA platform 键 ═══════════════

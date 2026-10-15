@@ -9,11 +9,8 @@
  * → 喂最小 factors；touch 不读 factors；fire 时 _runBuyEvaluation 独立全量重建）。
  * C 类票现状也走 touch/止损扫描/毕业消费（三段不读 factors），主循环保留防分叉。
  * 开关 backtest.tickBuildSkip：tb0 对拍收口（2026-10-13，trades/signals bit 一致
- * + 回放段 808.6→316.0s）后**默认开**，显式 false 才关；与 tokenCycle.enforce
- * 启动互斥（cycle latch 推进是 tick build 的读取副作用，skip 窗内票 = fire 时
- * tokenCycle 档位漂移）——fail-fast 拒启（unknown-factor fail-fast 同族裁定）；
- * 默认开后存量 cycle 耦合实验重跑撞拒启，显式 tickBuildSkip:false 走老口径
- * （不加自动降级兜底，2026-10-13 裁定）。
+ * + 回放段 808.6→316.0s）后**默认开**，显式 false 才关。旧 cycle 分桶互斥防线
+ * （enforce throw + 直引 cycle 键扫描）已随机制删除（2026-10-15）。
  *
  * 覆盖：
  *   A. FA.shouldSkipTickBuild 谓词矩阵（无 preFilter/state 缺失/持仓/出窗计数/
@@ -22,7 +19,7 @@
  *   B. 主循环行为（打桩驱动 _runMainLoop）：held 恒 build / 出窗 skip 全跳 /
  *      窗内 minimal factors+touch / 开关关默认全量 / buying 中 C 类不 touch /
  *      held build-null continue
- *   C. 源码口径防线：互斥 throw / cycleTag factors 门 / skip continue 在 TPA 前 /
+ *   C. 源码口径防线：skip continue 在 TPA 前 /
  *      fire 等重建点零谓词引用 / 默认 === true 形状 / C 类三段保留
  *   D. _preFilterSkipped 计数口径（谓词与 build 内部同点累计）+ 判定式两处同形
  */
@@ -197,7 +194,6 @@ console.log('B. 主循环行为（打桩驱动）');
       _faPrunedTotal: 0,
       _seenTokens: new Set(),
       _tickBuildSkip: true,
-      _cycleEnforce: false,
       _tokenPositionAnalyzer: null,
       _buyingTokens: new Set(),
       _sellingTokens: new Set(),
@@ -337,45 +333,11 @@ console.log('C. 源码口径防线');
   const beSrc = fs.readFileSync(BE_PATH, 'utf8');
   const mainLoop = beSrc.slice(beSrc.indexOf('async _runMainLoop'), beSrc.indexOf('async _syncHoldings'));
 
-  // C1 互斥 throw（cycle latch 是 tick build 的读取副作用 → skip 窗内票 = fire 时档位漂移）
+  // C1 开关形状（旧 cycle 互斥 throw 与防线 2 已随机制删除，2026-10-15）
   ok(beSrc.includes('this._tickBuildSkip = backtestConfig.tickBuildSkip !== false;'),
     'C1 开关默认开（tb0 对拍收口 2026-10-13 翻默认；显式 false 才关）');
-  ok(beSrc.includes('if (this._tickBuildSkip && this._cycleEnforce)')
-    && beSrc.includes('不可同启'),
-    'C1 tickBuildSkip × cycleEnforce 启动互斥 throw');
-  ok(beSrc.includes('this._assertNoCycleKeyReference(this._strategyEngine.getAllStrategies());'),
-    'C1 防线 2 调用点（condition 直引 cycle 键扫描挂在 enforce 互斥后）');
-
-  // C1b 防线 2 行为矩阵：直引 cycle 族键（condition/narrativeCall、string/AST、
-  // IS NULL 形状）→ throw；无关键/null → 放行（perf16 形状=直引+enforce 双有，
-  // 直引无 enforce 段的 config 靠防线 2 拦，2026-10-13 建臂时实测发现）
-  {
-    const { BacktestEngine: BE2 } = require(BE_PATH);
-    const guard = (strategies) => BE2.prototype._assertNoCycleKeyReference.call({}, strategies);
-    const throwsWith = (strategies, label) => {
-      try { guard(strategies); ok(false, label); }
-      catch (e) { ok(e.message.includes('不可同启') && /cycle/.test(e.message), label); }
-    };
-    throwsWith([{ condition: { type: 'BinaryExpression', left: { type: 'Identifier', name: 'tokenCycle' }, operator: '!=', right: { type: 'Literal', value: 1 } } }],
-      'C1b AST condition 引 tokenCycle → throw');
-    throwsWith([{ condition: 'tokenCycleRaw > 2' }], 'C1b string condition 引 tokenCycleRaw → throw');
-    throwsWith([{ condition: 'buyVolumeBnb >= 1.5', narrativeCallCondition: 'cycleTps30s >= 0.5' }],
-      'C1b narrativeCallCondition 引 cycleTps30s → throw');
-    throwsWith([{ condition: '(tokenCycle != 1 OR tokenCycle IS NULL)' }],
-      'C1b IS NULL 形状（perf16 cycle 冷档门原句）→ throw');
-    let passClean = true;
-    try { guard([{ condition: 'buyVolumeBnb >= 1.5 AND holders > 5', narrativeCallCondition: 'earlyReturn >= 100' }]); }
-    catch { passClean = false; }
-    ok(passClean, 'C1b 无 cycle 键 → 放行');
-    let passNull = true;
-    try { guard([{ condition: null }, { condition: '' }]); }
-    catch { passNull = false; }
-    ok(passNull, 'C1b null/空条件 → 放行');
-  }
-
-  // C2 cycleTag 行 factors 门（C 类票 factors=null 防线；互斥下双保险）
-  ok(mainLoop.includes('if (this._cycleEnforce && factors) token.cycleTag'),
-    'C2 cycleTag 写入有 factors 门');
+  ok(!beSrc.includes('_assertNoCycleKeyReference'),
+    'C1 防线 2 已随 cycle 机制删除（零残留）');
 
   // C3 skip continue 在 TPA/touch 之前（等价性关键顺序：现状 build-null 连 TPA 一起跳过）
   const skipIdx = mainLoop.indexOf('shouldSkipTickBuild(tick.token_address, tick.timestamp)');

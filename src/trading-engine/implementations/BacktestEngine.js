@@ -190,13 +190,6 @@ class BacktestEngine extends AbstractTradingEngine {
       ...(baseConfig[wsSection] || {}),
       ...(this._experiment?.config?.[wsSection] || {}),
     };
-    // cycle 判定配置化（2026-09-28）：与实时引擎同一注入口径——tokenCycle.params
-    // 并入 factorParams 最高优先级；不带 params 的存量回测零变化
-    const { mapCycleParams } = require('../../strategies/group-variables');
-    wsConfig.factorParams = {
-      ...(wsConfig.factorParams || {}),
-      ...mapCycleParams(this._experiment?.config?.tokenCycle?.params),
-    };
     // P2b 死重维护开关（2026-10-12 回测性能案）：回测结构性不嵌 OPB（无写表副作用）→
     // 分类器轨迹（_clsTicks/_lastBigTickAt/afterFirst9s 族/_relHighestPriceUsd）恒零读关闭；
     // TPA 双 map（_walletMaxNetTokens/_walletRoutedBuyBnb）按实验配置判定——与下方 TPA
@@ -279,8 +272,9 @@ class BacktestEngine extends AbstractTradingEngine {
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
           cooldownSec: s.cooldownSec,
-          // 组路由（策略库一期，2026-09-28）：groups 表达式透传（loadStrategies 内
-          // 归一 + 校验）；存量 cycle 数字仍在 normalizeGroups 内转换为等价表达式
+          // 已删除机制的 legacy 字段（cycle 分桶路由 2026-10-15 删除）刻意原样透传：
+          // loadStrategies fail-fast 靠它识别携带旧字段的存量实验并拒启（剥掉这里
+          // = fail-fast 失明 = 腿静默恒可见，危险方向）
           groups: s.groups,
           cycle: s.cycle,
           enabled: true,
@@ -312,8 +306,8 @@ class BacktestEngine extends AbstractTradingEngine {
     // （分钟，与 FA age 因子同锚同单位），多策略取【并集】注入 FA——未持仓 token 的
     // age 落在全部区间外 → buildFactorMap 跳过因子构建（纯提效：AND 链 condition 出
     // age 区间必 false，不漏买；持仓票豁免 = 卖腿/止损因子不受影响）。已知代价：跳过
-    // 连带跳过超龄未持仓 token 的 TPA checkAndTrigger 与 cycle latch 推进——仅观察数据
-    // 损失（该 token 已出买窗永不再买，notpa 消融实测 TPA 机制扰动 −0.80≈0）；双跑
+    // 连带跳过超龄未持仓 token 的 TPA checkAndTrigger——仅观察数据损失（该 token
+    // 已出买窗永不再买，notpa 消融实测 TPA 机制扰动 −0.80≈0）；双跑
     // 验证臂 pf0（69b43310，faPreFilter=true vs v0 关侧）trades 对拍进行中
     if (backtestConfig.faPreFilter !== false) {
       const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
@@ -411,39 +405,12 @@ class BacktestEngine extends AbstractTradingEngine {
         `🃏 卡牌仓位模式启用: perCardBNB=${this._perCardBNB}（买入金额=perCardBNB×本腿张数，卖腿按卡数比例卖余仓）`);
     }
 
-    // 6.6 行为周期分桶（卖出臂周期路由，2026-09-28）：同实时引擎——tokenCycle 段
-    //     enforce=true → 主循环 buildFactorMap 后写 token.cycleTag（tick 虚拟时刻，
-    //     _cycleFactors 防前视：判定只用 asOf 前数据）；缺段 = 带 cycle 腿全隐 fail-closed
-    this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
     // P18 tick 路径 build 条件化（2026-10-13 回测性能案）：未持仓票中「买窗内」票
     // 不再全量 build（buildFactorMap 段主体 ~49 万次全量构建是纯 CPU 大头）。
     // tb0 对拍收口（2026-10-13）后**默认开**：显式 tickBuildSkip:false 恢复恒 build
     // 旧行为；出窗票走 FA.shouldSkipTickBuild（与现状 build-null continue 副作用
-    // 序列等价）。★与 cycleEnforce 启动互斥：cycle latch 推进是 _buildFactorMap 的
-    // 读取副作用（:2440 _cycleFactors 无条件展开），skip 窗内票 = 中途不推进 latch
-    // = fire 时 tokenCycle 档位漂移（candidateSince 晚置位）——fail-fast 拒启而非
-    // 静默分叉（unknown-factor fail-fast 同族裁定）；默认开后存量 cycle 耦合实验
-    // 重跑会撞拒启，裁定=不加自动降级兜底，显式 tickBuildSkip:false 走老口径
+    // 序列等价）。旧 cycle 分桶互斥防线已随机制删除（2026-10-15）
     this._tickBuildSkip = backtestConfig.tickBuildSkip !== false;
-    if (this._tickBuildSkip && this._cycleEnforce) {
-      throw new Error('配置互斥：backtest.tickBuildSkip（现默认开）与 tokenCycle.enforce 不可同启'
-        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移；'
-        + '显式 backtest.tickBuildSkip:false 可恢复恒 build 旧行为）');
-    }
-    // 互斥防线 2（同族 fail-fast）：condition/narrativeCallCondition 直引 cycle 族键
-    // 同样不可与 skip 同启——latch 的 candidateSince 置位时刻依赖 build 调用史
-    // （per-tick 评估 vs fire-only 评估相差 δ → 30s 驻留完成晚 δ，该窗内 fire 的
-    // tokenCycle 档不同；raw 抖动时 per-tick 会清候选、fire-only 可能整个错过抖动
-    // = latch 持续分叉）。enforce 互斥只覆盖 groups 路由（cycleTag 写入），直引
-    // 无 enforce 段的 config 此前会静默漏过（perf16 实测形状：直引+enforce 双有）
-    if (this._tickBuildSkip) {
-      this._assertNoCycleKeyReference(this._strategyEngine.getAllStrategies());
-    }
-    if (this._cycleEnforce) {
-      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.groups != null).length;
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `🔁 周期路由已启用（enforce）| 标注 groups 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()}`);
-    }
 
     // 6.7 引擎级止损双腿（虚拟↔回测一致性 2026-10-10 对齐，a21fa102 配对案）：语义
     //     与实时引擎 FourMemeWssTradingEngine 完全一致——不配 stopLoss 段 = 机制完全
@@ -523,49 +490,6 @@ class BacktestEngine extends AbstractTradingEngine {
     //     其中三项不依赖 ticks，可与 ticks 拉取 165s 并行藏入）
     await this._loadTokenMetadata();
     await this._runLoadPipeline();
-  }
-
-  /**
-   * P18 互斥防线 2（见 6.6 调用点注释）：tickBuildSkip 开启时扫描全部腿的
-   * condition/narrativeCallCondition（FA 因子上下文两字段；preBuy/repeatBuy 是
-   * PreBuy 键集不含 cycle 键、groups 路由已被 enforce 互斥覆盖），直引 cycle 族
-   * 5 键任一 → throw 拒启。双形状入口（string|AST，extractBuyRangeFromCondition
-   * 同款）：loadStrategies 后 condition 恒为 AST，字符串形状为防御性直传。
-   */
-  _assertNoCycleKeyReference(strategies) {
-    const cycleKeys = ['tokenCycle', 'tokenCycleRaw', 'tokenCycleAgeSec', 'cycleTps30s', 'cycleGapMedianMs'];
-    const hit = new Set();
-    const walk = (node) => {
-      if (!node || typeof node !== 'object') return;
-      if (node.type === 'Identifier' && typeof node.name === 'string' && cycleKeys.includes(node.name)) {
-        hit.add(node.name);
-      }
-      for (const key of Object.keys(node)) {
-        const v = node[key];
-        if (Array.isArray(v)) { for (const item of v) walk(item); }
-        else if (v && typeof v === 'object') walk(v);
-      }
-    };
-    const collect = (cond) => {
-      if (!cond) return;
-      if (typeof cond === 'string') {
-        for (const k of cycleKeys) {
-          if (new RegExp('\\b' + k + '\\b').test(cond)) hit.add(k);
-        }
-      } else {
-        walk(cond);
-      }
-    };
-    for (const s of strategies || []) {
-      collect(s.condition);
-      collect(s.narrativeCallCondition);
-    }
-    if (hit.size > 0) {
-      throw new Error('配置互斥：backtest.tickBuildSkip（现默认开）与条件直引 cycle 因子（'
-        + [...hit].join(',') + '）不可同启'
-        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移；'
-        + '显式 backtest.tickBuildSkip:false 可恢复恒 build 旧行为）');
-    }
   }
 
   /**
@@ -1209,12 +1133,6 @@ class BacktestEngine extends AbstractTradingEngine {
           perf.tpa += Date.now() - _p0;
         }
 
-        // 周期路由同步（2026-09-28）：buildFactorMap(tick.timestamp) 已按虚拟时刻推进
-        // _cycleLatch（防前视），此处写 token.cycleTag 供 evaluate 桶路由。
-        // factors 门：C 类票（tickBuildSkip）factors=null 不写——tickBuildSkip 与
-        // cycleEnforce 启动互斥（enforce 时恒走全量分支 factors 非空），门为双保险
-        if (this._cycleEnforce && factors) token.cycleTag = factors.tokenCycle ?? null;
-
         // 分腿路由（与实时引擎 _onFactorsUpdated 同构）
         _p0 = Date.now();
         if (heldTick && !this._buyingTokens.has(tick.token_address)) {
@@ -1683,8 +1601,6 @@ class BacktestEngine extends AbstractTradingEngine {
 
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return Promise.resolve();
-    // 周期路由同步（fire 时刻 buildFactorMap 已按虚拟时刻推进 latch；防 cycleTag 滞后一拍）
-    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
     if (this._buyingTokens.has(tokenAddress)) return Promise.resolve();
     if (token.status === 'bought') return Promise.resolve();
     if (this._tokenBlacklist.has(tokenAddress)) return Promise.resolve();
@@ -2193,8 +2109,6 @@ class BacktestEngine extends AbstractTradingEngine {
       if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, nowTs);
       if (!factors) continue;
-      // 周期路由同步（断流票 stale 降档；对齐实时扫描点）
-      if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
       const hit = this._stopLossHit(factors);
       if (hit) {
         await this._emitStopLossSell(token, factors, hit, nowTs, null);
@@ -2267,8 +2181,6 @@ class BacktestEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token || token.status !== 'bought') return;
     if (this._buyingTokens.has(tokenAddress)) return; // 与卖腿路由门同口径
-    // 周期路由同步（fire 时刻 buildFactorMap 已按虚拟时刻推进 latch；防 cycleTag 滞后一拍）
-    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
 
     const p = this._reconfirmAndSell(token, factors, fireTs)
       .catch(e => this.logger.error(this._experimentId, 'SellEval',

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ============================================================================
 // 回测实验整包克隆重跑（2026-10-08，链上真序修复 6815516 配套）：
-//   源实验 config 整包深拷贝（窗口/策略腿/引擎段/TPA/cycle/stopLoss 零改动），
+//   源实验 config 整包深拷贝（窗口/策略腿/引擎段/TPA/stopLoss 零改动），
 //   只改 name/description。用途 = 同配置在**新回放排序口径**下重跑，与源实验
 //   （旧 id 序口径）构成天然 A/B 对，差分 = 纯排序效应。
 //
@@ -50,8 +50,7 @@ async function main() {
   console.log('== backtest ==', JSON.stringify(cfg.backtest));
   console.log('== platform ==', cfg.platform, '| 腿数: buy', buys.length, '/ sell', sells.length);
   console.log('== 买腿 condition ==', buys[0] && buys[0].condition);
-  console.log('== 引擎段 == tokenCycle:', JSON.stringify(cfg.tokenCycle),
-    '| stopLoss:', JSON.stringify(cfg.stopLoss),
+  console.log('== 引擎段 == stopLoss:', JSON.stringify(cfg.stopLoss),
     '| TPA:', JSON.stringify(cfg.tokenPositionAnalyzer?.trigger));
   console.log('== PM ==', JSON.stringify(cfg.positionManagement), '| tradeAmount:', cfg.tradeAmount);
   console.log('== 新 name ==', cfg.name);

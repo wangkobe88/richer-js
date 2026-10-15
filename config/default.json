@@ -46,7 +46,6 @@
     "factorParams": {
       "minPriceUpdateBnb": 0.002,
       "firstBlockWindowMs": 3000,
-      "slideWinMs": 30000,
       "trendWindowMs": 30000,
       "trendMinReliableTicks": 5,
       "trendAbsMinTicks": 3,

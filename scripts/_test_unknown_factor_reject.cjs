@@ -35,7 +35,7 @@ function section(t) { console.log(`\n── ${t} ──`); }
 section('A. validateCondition 矩阵');
 {
     const ev = new ConditionEvaluator();
-    const fa = new Set(['holderTrendGrowthRatio', 'tokenCycle', 'narrativeRating']);
+    const fa = new Set(['holderTrendGrowthRatio', 'crashSpeedPctPerSec', 'narrativeRating']);
 
     // A1 COMPARISON 未知左操作数
     let v = ev.validateCondition(ev.parseCondition('holderTrendGrowth >= 55'), fa);
@@ -56,7 +56,7 @@ section('A. validateCondition 矩阵');
     ok(!v.valid, 'A4 IS_NOT_NULL 未知 operand 报「未知因子」');
 
     // A5 IS_NULL 合法
-    v = ev.validateCondition(ev.parseCondition('tokenCycle IS NULL'), fa);
+    v = ev.validateCondition(ev.parseCondition('crashSpeedPctPerSec IS NULL'), fa);
     ok(v.valid, 'A5 IS_NULL 合法因子通过');
 
     // A6 事故完整形状：OR 组合里未知键必须被查出

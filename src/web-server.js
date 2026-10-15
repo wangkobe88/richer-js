@@ -21,7 +21,6 @@ const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisData
 const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
-const { CYCLE_PARAM_KEY_MAP } = require('./strategies/group-variables');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
 const newsRoutes = require('./web/routes/news.routes');
@@ -783,7 +782,6 @@ class RicherJsWebServer {
           reserveNative,
           maxPositionTokens,
           // 引擎级高级段（2026-09-28 复制保真）：表单无输入 UI，由复制链路携带
-          tokenCycle,
           stopLoss,
           tokenPositionAnalyzer,
           fourmemeWs
@@ -884,41 +882,17 @@ class RicherJsWebServer {
           };
         }
 
-        // 引擎级高级段透传（2026-09-28 复制保真）：tokenCycle（周期路由开关 + 判定参数
-        // params，无则 groups 腿全隐 fail-closed）/ stopLoss（止损双腿）/
+        // 引擎级高级段透传（2026-09-28 复制保真）：stopLoss（止损双腿）/
         // tokenPositionAnalyzer（TPA，买腿 TPAPre_* 因子源）/ fourmemeWs（onlineProfile
-        // 等实验级 ws 段）。tokenCycle 已表单化（创建页「行为周期判定」区）；其余三段
-        // 表单无输入 UI——复制链路经创建页暂存携带；形状校验 fail-fast（脏对象 400，
-        // 不静默丢弃——静默丢=复制件行为大变）。live 分支已写 fourmemeWs={live} 时合并不覆盖
-        const advancedSections = { tokenCycle, stopLoss, tokenPositionAnalyzer, fourmemeWs };
+        // 等实验级 ws 段）。表单无输入 UI——复制链路经创建页暂存携带；形状校验
+        // fail-fast（脏对象 400，不静默丢弃——静默丢=复制件行为大变）。
+        // tokenCycle 段已随 cycle 分桶路由机制删除（2026-10-15）不再透传。
+        // live 分支已写 fourmemeWs={live} 时合并不覆盖
+        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs };
         for (const [key, val] of Object.entries(advancedSections)) {
           if (val === undefined || val === null) continue;
           if (typeof val !== 'object' || Array.isArray(val)) {
             return res.status(400).json({ success: false, error: `${key} 段形状非法（须为对象）` });
-          }
-          if (key === 'tokenCycle') {
-            if (typeof val.enforce !== 'boolean') {
-              return res.status(400).json({ success: false, error: 'tokenCycle.enforce 必须为布尔值' });
-            }
-            // cycle 判定配置化（2026-09-28）：params 闭集校验——未知键 400（书写错
-            // fail-fast，同脏 groups 口径）；值须有限正数（minTicks/gapSamples 整数）
-            if (val.params !== undefined && val.params !== null) {
-              if (typeof val.params !== 'object' || Array.isArray(val.params)) {
-                return res.status(400).json({ success: false, error: 'tokenCycle.params 段形状非法（须为对象）' });
-              }
-              const knownKeys = Object.keys(CYCLE_PARAM_KEY_MAP);
-              for (const [pk, pv] of Object.entries(val.params)) {
-                if (!knownKeys.includes(pk)) {
-                  return res.status(400).json({ success: false, error: `tokenCycle.params 未知键 "${pk}"（合法键：${knownKeys.join('/')}）` });
-                }
-                if (typeof pv !== 'number' || !Number.isFinite(pv) || pv <= 0) {
-                  return res.status(400).json({ success: false, error: `tokenCycle.params.${pk} 必须为有限正数` });
-                }
-                if ((pk === 'minTicks' || pk === 'gapSamples') && !Number.isInteger(pv)) {
-                  return res.status(400).json({ success: false, error: `tokenCycle.params.${pk} 必须为正整数` });
-                }
-              }
-            }
           }
           if (key === 'fourmemeWs') {
             config.fourmemeWs = { ...val, ...(config.fourmemeWs || {}) };
@@ -2120,22 +2094,6 @@ class RicherJsWebServer {
         res.json(data);
       } catch (error) {
         this.logger.error('WebServer', '获取信号失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 获取卖出信号的 cycle 档位序列（token-returns 页「行为周期」列数据源）
-    // 轻量窄列端点：只拉卖信号 trendFactors cycle 键 + 腿名，不拉 metadata 大字段
-    this.app.get('/api/experiment/:id/cycle-signals', async (req, res) => {
-      try {
-        const data = await this.dataService.getCycleSellSignals(req.params.id);
-        res.json({
-          success: true,
-          data,
-          count: data.length
-        });
-      } catch (error) {
-        this.logger.error('WebServer', '获取卖出信号 cycle 档位失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

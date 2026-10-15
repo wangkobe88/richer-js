@@ -11,7 +11,7 @@
  *      空数组与 null 清除 / 探针计数）
  *
  * 红线（默认关的理由）：跳过 = buildFactorMap null → 引擎侧 TPA
- * checkAndTrigger 与 cycle latch 推进一并跳过 = 决策行为变化；本测试只保证
+ * checkAndTrigger 一并跳过 = 决策行为变化；本测试只保证
  * 「因子构建层跳过判定与 condition 语义一致」（不漏买方向），开启前还须
  * 开/关双跑 trades 一致（plan 验收节）。
  */

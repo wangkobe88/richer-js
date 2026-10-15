@@ -11,20 +11,19 @@
  * dbManager 在方法内 lazy require：require 本文件零 DB（validateLegs 纯函数供单测）。
  */
 
-const { parseGroupsExpression } = require('../../strategies/group-variables');
-
 /**
  * 腿集合入库校验（纯函数，service.create/update 与库页「从实验导入」共用同一校验，
  * 避免双路径漂移）：
  *   - legs 非空数组；side ∈ {buy, sell}
  *   - 每腿 condition 必填（非空字符串）
- *   - 每腿 groups 过 parseGroupsExpression（库是 groups 第一编辑面，脏值入库前拦截）
  *   - 条件表达式未知因子拦截（2026-10-03 hg55 事故防线前移：库是条件第一编辑面，
  *     写错因子名的腿入库前 400；condition/narrativeCallCondition 用 FA 因子集，
  *     preBuyCheckCondition/repeatBuyCheckCondition 用 PreBuyCheckService 评估上下文键集；
  *     语法错同样拦——parseCondition throw 视为腿非法）
  *   - side 与腿字段错配放行（买腿带 sellPercentage / 卖腿带 preBuyCheckCondition 等
  *     引擎本就「携带不生效」，不构成危险）
+ *   - groups/cycle 字段（cycle 分桶路由 2026-10-15 删除）不再校验也不再报错——
+ *     存量库条目重新保存时自然剥离该字段
  * @param {string} side - 'buy' | 'sell'
  * @param {Array} legs - 腿集合
  * @returns {{valid: boolean, errors: Array<string>}}
@@ -70,13 +69,6 @@ function validateLegs(side, legs) {
                 if (!v.valid) errors.push(`腿[${i}] ${field} ${v.errors.join('; ')}`);
             } catch (e) {
                 errors.push(`腿[${i}] ${field} 语法错误: ${e.message}`);
-            }
-        }
-        if (typeof leg.groups === 'string' && leg.groups.trim() !== '') {
-            try {
-                parseGroupsExpression(leg.groups);
-            } catch (e) {
-                errors.push(`腿[${i}] ${e.message}`);
             }
         }
     });

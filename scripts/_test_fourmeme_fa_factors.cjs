@@ -24,13 +24,15 @@ const BASELINE_COMMIT = '7cbbdee'; // 2026-10-13 因子清理（删 68 死键）
 const BASELINE_PATH = path.join(ROOT, 'src', 'services', '_fa_baseline_tmp.cjs');
 
 // 2026-10-13 清理删除的 68 死键（DB 策略/实验零引用 + 观察快照白名单零引用；
-// 裁定记录见 auto-memory）。scenarioFactorKeys 断言丢失集与此精确相等。
+// 裁定记录见 auto-memory）+ 2026-10-15 cycle 分桶路由机制删除的 5 键。
+// scenarioFactorKeys 断言丢失集与此精确相等。
 const DELETED_KEYS = [
     'bigHolderDumpBnb3s', 'bigHolderDumpBnb9s', 'bigHolderEarlyPresent', 'bigHolderEarlyShare',
     'bigHolderLatePresent', 'bigHolderLateShare', 'bigHolderPresentRatio',
     'blockLowMcapBnb', 'blockLowMcapUsd', 'blocksSinceHighest', 'bnbPerSecondSlide',
     'buySellVolumeRatio5m', 'buyVolumeBnb5m', 'buysPerMin',
     'creatorPriorCnt24h', 'creatorRecentHitRate3', 'cumBuyTop5Share', 'ddConfirmSellFlag',
+    'cycleGapMedianMs', 'cycleTps30s',
     'klineBarReturn', 'klineBodyPct', 'klineBsRatio', 'klineConsecUp',
     'klineRange5', 'klineTrendSampleSize', 'klineTrendSlope', 'klineVolBnb',
     'lastSwingLowPrice', 'lastSwingLowRsi',
@@ -44,7 +46,8 @@ const DELETED_KEYS = [
     'rsi14PostProtect', 'rsi30Sec', 'rsi60Sec',
     'rsi9', 'rsi9Bar15m', 'rsi9Bar15mRt', 'rsi9Bar5m', 'rsi9PostProtect', 'rsi9Sec',
     'secondsSinceDeepDrop70', 'sellVolumeBnb5m', 'sellsPerMin', 'slopePct20',
-    'spikeCurveRatio', 'tickFlowOk', 'tradesPerMin', 'tradesPerSecondSlide',
+    'spikeCurveRatio', 'tickFlowOk', 'tokenCycle', 'tokenCycleRaw',
+    'tokenCycleAgeSec', 'tradesPerMin', 'tradesPerSecondSlide',
 ];
 
 let passed = 0;
@@ -468,7 +471,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         { extraLost: lost.filter(k => !expect.includes(k)), missingLost: expect.filter(k => !lost.includes(k)) });
     // 存活抽查（清理时最易误删的活性键；完备性由零 diff + 丢失集双向锁定）
     const MUST_KEEP = [
-        'tokenCycle', 'cycleTps30s', 'cycleGapMedianMs', 'tokenAgeSec', 'platform',
+        'tokenAgeSec', 'platform',
         'crashSpeedPctPerSec', 'risePct5m', 'riseVel5m', 'priceTrendSlope',
         'recentRiseFromWindowLowPct', 'rsi14Sec', 'rsi9Bar5mRt', 'graduationProgress',
         'peakProfitPct', 'peakMarketCapSinceLastBuy', 'maxBlockDropPct',

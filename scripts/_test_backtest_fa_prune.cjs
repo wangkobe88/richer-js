@@ -344,7 +344,7 @@ console.log('H. 复流重锚（prune 后复流首 tick 权威锚重注册）');
         _createPortfolioSnapshot: async () => {},
         _lastFaPruneTs: null, _faPrunedTotal: 0,
         _seenTokens: new Set(), _tokenMeta: new Map(),
-        _tickBuildSkip: false, _cycleEnforce: false,
+        _tickBuildSkip: false,
         _tokenPositionAnalyzer: null,
         _buyingTokens: new Set(), _sellingTokens: new Set(),
         _buyDebouncer: { pending: new Set(), touch: () => {}, advance: () => {} },

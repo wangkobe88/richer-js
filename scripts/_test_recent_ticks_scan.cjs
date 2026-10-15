@@ -2,11 +2,14 @@
 /**
  * P2c _recentTicks 单趟扫描单测（2026-10-12 回测性能案）——零 DB。
  *
- * 改动语义：FA _recentTicks 的四个读取消费方原先各自遍历（_cycleFactors filter /
- * crashSpeed 窗高点 / risePct5m 谷 / trend reliable 提取；rate 族随 2026-10-13
- * 因子清理删除），合并为 _scanRecentTicks 单趟产出 {winTicks, reliable, csWh,
- * csWhT, riseTrough, riseTroughTs, riseRn}。对拍等价红线：
+ * 改动语义：FA _recentTicks 的读取消费方原先各自遍历（crashSpeed 窗高点 /
+ * risePct5m 谷 / trend reliable 提取；rate 族随 2026-10-13 因子清理删除、
+ * cycle 族随 2026-10-15 分桶路由机制删除），合并为 _scanRecentTicks 单趟产出
+ * {winTicks, reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn}。
+ * 对拍等价红线：
  *   - winTicks = filter(now - t.ts <= RATE_WINDOW_MS) 保原序逐位一致
+ *     （cycle 删除后 FA 内已无 winTicks 消费方，保留产出=扫描契约形状由本测试
+ *     A1 逐位锁定，最小爆炸半径）
  *   - reliable = 全数组 priceReliable && priceBnb>0 提取 {t,p} 原序收集后稳定升序 sort
  *     （trend widened 全历史分支用全量 reliable，不可预切 5min 窗）
  *   - csWh/csWhT：crashSpeed 窗高点，`>` 严格大于 = 首达峰优先（原序敏感）
@@ -63,7 +66,7 @@ function mkTick(o) {
 // ═════════════════ reference：旧口径独立重算（filter/循环复刻）═════════════════
 const ref = {
   winTicks(ticks, now) {
-    return ticks.filter(t => now - t.ts <= RATE_WINDOW_MS); // 保原序（旧 _rateFactors/_cycleFactors 同式）
+    return ticks.filter(t => now - t.ts <= RATE_WINDOW_MS); // 保原序（旧 _rateFactors/_cycleFactors 同式；cycle 已删）
   },
   reliable(ticks) {
     const out = [];
@@ -210,9 +213,8 @@ console.log('\nB 节：buildFactorMap 关键因子 vs reference');
   const now = ts + 90000;
   const f = fa.buildFactorMap(ADDR, now);
 
-  // rate 族（tradesPerMin/buyVolumeBnb5m 等）已随 2026-10-13 因子清理删除——
+  // rate 族（2026-10-13 删除）与 cycle 族（2026-10-15 删除）不再对拍——
   // winTicks 本身的等价性由 A1 锁定，B 节直接从 crashSpeed 起
-  const rW = ref.winTicks(st._recentTicks, now);
 
   // crashSpeed
   const rC = ref.crashHigh(st._recentTicks, now, FACTOR_PARAM_DEFAULTS.crashSpeedWindowMs);
@@ -247,21 +249,7 @@ console.log('\nB 节：buildFactorMap 关键因子 vs reference');
       a: tf.priceTrendSlope, c: tf.recentRiseFromWindowLowPct,
     })));
 
-  // cycleGapMedianMs（尾部样本 + 负间隔丢弃）
-  const gaps = [];
-  for (let i = Math.max(1, rW.length - FACTOR_PARAM_DEFAULTS.cycleGapSamples); i < rW.length; i++) {
-    const g = rW[i].ts - rW[i - 1].ts;
-    if (g > 0) gaps.push(g);
-  }
-  const gapSorted = [...gaps].sort((a, b) => a - b);
-  const m = Math.floor(gapSorted.length / 2);
-  const gapExp = gapSorted.length > 0
-    ? (gapSorted.length % 2 === 1 ? gapSorted[m] : (gapSorted[m - 1] + gapSorted[m]) / 2) : null;
-  check('B6 cycleGapMedianMs 一致（含乱序负间隔丢弃）',
-    () => assert.strictEqual(JSON.stringify(f.cycleGapMedianMs), JSON.stringify(gapExp)));
-
-  check('B7 tokenCycle/tokenCycleRaw 为数值（latch 已推进非 null）',
-    () => assert.ok(f.tokenCycle !== null && f.tokenCycleRaw !== null));
+  // B6/B7（cycleGapMedianMs/tokenCycle）已随 cycle 分桶路由机制删除（2026-10-15）
 }
 
 // ═══════════ C 节：防前视红线——扫描窗 now 全由 asOf 传入 ═══════════
@@ -277,7 +265,8 @@ console.log('\nC 节：防前视红线');
   const sB = fa._scanRecentTicks(st, T0 + 400000, 0); // 远点：两 tick 全出 5min 窗
   check('C1 窗判定吃 asOf（近点 win=2 / 远点 win=0）',
     () => assert.strictEqual(sA.winTicks.length, 2) && assert.strictEqual(sB.winTicks.length, 0));
-  // 源码口径：_scanRecentTicks / _cycleFactors / _computePriceTrendFactors 内无 Date.now
+  // 源码口径：_scanRecentTicks / _computePriceTrendFactors 内无 Date.now
+  //（_cycleFactors 已随 cycle 机制删除，2026-10-15）
   const src = fs.readFileSync(FA_PATH, 'utf8');
   const slice = (fromName, toName) => {
     const i = src.indexOf(fromName);
@@ -285,12 +274,11 @@ console.log('\nC 节：防前视红线');
     return src.slice(i, j);
   };
   const scanBody = slice('_scanRecentTicks(state, now, buyTs) {', '_pruneClsTicks');
-  const cycleBody = slice('_cycleFactors(state, winTicks, now) {', '_logCycleSwitch');
-  const trendBody = slice('_computePriceTrendFactors(reliable, now, firstTickAt) {', '_cycleFactors');
+  const trendBody = slice('_computePriceTrendFactors(reliable, now, firstTickAt) {', '_positionFactors(state, pos, now)');
   // 匹配真实调用形式 Date.now()——注释里的红线说明文字（「禁 Date.now」）无括号不误报
-  check('C2 三函数体内零 Date.now() 调用（防前视红线）',
+  check('C2 两函数体内零 Date.now() 调用（防前视红线）',
     () => assert.ok(!/Date\.now\(\)/.test(scanBody)
-      && !/Date\.now\(\)/.test(cycleBody) && !/Date\.now\(\)/.test(trendBody)));
+      && !/Date\.now\(\)/.test(trendBody) && scanBody.length > 0 && trendBody.length > 0));
 }
 
 // ═══════════ D 节：源码口径——_recentTicks 引用收口 ═══════════
@@ -303,18 +291,17 @@ console.log('\nD 节：源码口径（防第六个直接遍历）');
     () => assert.strictEqual(hits.length, 3, `实际 ${hits.length} 处: ${hits.join(' | ')}`)
       && assert.ok(hits[0].includes('push(') || hits.some(h => h.includes('push(')))
       && assert.ok(hits.some(h => h.includes('const ticks = state._recentTicks'))));
-  // 消费方签名收口：cycle 收 winTicks、trend 收 reliable（不再自己摸 state；
-  // rate 族消费方已随 2026-10-13 因子清理删除）
-  check('D2 消费方签名已收口（_cycleFactors(state, winTicks, now) / _computePriceTrendFactors(reliable, now, firstTickAt)）',
-    () => assert.ok(/_cycleFactors\(state, winTicks, now\)/.test(src.join('\n'))
-      && /_computePriceTrendFactors\(reliable, now, firstTickAt\)/.test(src.join('\n'))));
+  // 消费方签名收口：trend 收 reliable（不再自己摸 state；rate/cycle 消费方已随
+  // 2026-10-13 / 2026-10-15 两轮因子清理删除，winTicks 暂无 FA 内消费方——保留
+  // 产出形状，A1 锁定）
+  check('D2 消费方签名已收口（_computePriceTrendFactors(reliable, now, firstTickAt)）',
+    () => assert.ok(/_computePriceTrendFactors\(reliable, now, firstTickAt\)/.test(src.join('\n'))));
   // buildFactorMap 挂载点：单次 _scanRecentTicks 调用喂全部消费方
   const joined = src.join('\n');
-  check('D3 挂载点单次调用（_scan 调用恰一处）且四消费方全吃 _scan 产物',
+  check('D3 挂载点单次调用（_scan 调用恰一处）且消费方全吃 _scan 产物',
     () => {
       const calls = joined.match(/this\._scanRecentTicks\(/g) || [];
       return assert.strictEqual(calls.length, 1)
-        && assert.ok(/_cycleFactors\(state, _scan\.winTicks, now\)/.test(joined))
         && assert.ok(/_computePriceTrendFactors\(_scan\.reliable, now, state\.firstTickAt\)/.test(joined))
         && assert.ok(/_scan\.csWh/.test(joined) && /_scan\.riseTrough/.test(joined));
     });

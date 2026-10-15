@@ -112,12 +112,6 @@ function buildFactorValuesForTimeSeries(factorResults) {
     rsi9Bar5mRt: factorResults.rsi9Bar5mRt ?? null,
     risePct5m: factorResults.risePct5m ?? null,
     riseVel5m: factorResults.riseVel5m ?? null,
-    // 行为周期分桶（卖出臂周期路由，2026-09-28）：档位快照进时序供事后校准阈值
-    // （tokenCycleAgeSec 不进快照——可由相邻行差分推）；旧 FA 无这些键 → null，不掩盖
-    tokenCycle: factorResults.tokenCycle ?? null,
-    tokenCycleRaw: factorResults.tokenCycleRaw ?? null,
-    cycleTps30s: factorResults.cycleTps30s ?? null,
-    cycleGapMedianMs: factorResults.cycleGapMedianMs ?? null,
   };
 }
 
@@ -473,14 +467,6 @@ function buildSlimFactorValues(factorResults) {
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
     dataCollectionRound: factorResults.dataCollectionRound ?? 1,
-    // 行为周期 4 键（2026-09-28）：tokenCycle 依赖 _cycleLatch 状态推进（hysteresis），
-    // 回测的 FactorReplayEngine 只重建趋势/回撤类纯函数因子——cycle 档不可重建，
-    // 不落库即丢；本表是阈值校准的唯一数据源（tps30s/gapMed 实测分布）。null 显式
-    // 保留（证据不足/热身期），不掩盖
-    tokenCycle: factorResults.tokenCycle ?? null,
-    tokenCycleRaw: factorResults.tokenCycleRaw ?? null,
-    cycleTps30s: factorResults.cycleTps30s ?? null,
-    cycleGapMedianMs: factorResults.cycleGapMedianMs ?? null,
     // holderTrend 11 键（2026-10-14 slot 化）：blockNumber 桶序列是 FA 状态机产物，
     // 回测 FactorReplayEngine 与 web 时序重算均不可重建（30s 快照行无块级分辨率），
     // 不落库即丢；本表是买门（holderTrendSlope > 0 fail-closed）复盘唯一数据源。

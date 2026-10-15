@@ -46,7 +46,6 @@ function makeEngine(fields = {}) {
     _stopLossScanMs: null,
     _sellLegScanEnabled: true,             // 本测默认开启（被测新机制）
     _sellLegStallMs: 60 * 1000,
-    _cycleEnforce: false,
     _graduationSoldTokens: new Set(),
     _isLive: false,
     ...fields,
@@ -176,7 +175,11 @@ console.log('C. fire 锚 + 扫描启用源码口径');
     loopSrc.includes('(this._stopLossEnabled && this._stopLossScanMs != null) || this._sellLegScanEnabled'), true);
 
   // C4 周期解析：stopLoss.scanIntervalSec ?? sellScanIntervalSec ?? 30s 缺省
-  const cfgSrc = src.slice(src.indexOf('6.5b 持仓卖腿兜底扫描'), src.indexOf('6.6 行为周期分桶'));
+  // （切片终点原锚 '6.6 行为周期分桶' 已随 cycle 机制删除，2026-10-15 改锚 '7. live 执行层'）
+  const cfgStart = src.indexOf('6.5b 持仓卖腿兜底扫描');
+  const cfgEnd = src.indexOf('7. live 执行层');
+  check('C4 切片锚点健康（起止均在位）', cfgStart > 0 && cfgEnd > cfgStart, true);
+  const cfgSrc = src.slice(cfgStart, cfgEnd);
   check('C4 周期三级回落（stopLoss 段优先 → sellScanIntervalSec → 30s）',
     cfgSrc.includes('this._stopLossScanMs != null ? this._stopLossScanMs') &&
     cfgSrc.includes('experimentConfig.sellScanIntervalSec') && cfgSrc.includes(': 30000'), true);

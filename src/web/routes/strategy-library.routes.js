@@ -1,8 +1,8 @@
 /**
  * 策略库 API 路由（策略库一期，2026-09-28）
  *
- * 七端点：GET list / GET :id / POST / PUT :id（乐观并发 409）/ DELETE :id /
- * GET :id/usage / GET meta/variables（组变量注册表下发，前端帮助单源）。
+ * 六端点：GET list / GET :id / POST / PUT :id（乐观并发 409）/ DELETE :id /
+ * GET :id/usage（/meta/variables 已随 cycle 分桶路由机制删除，2026-10-15）。
  *
  * ⚠️ 表 RLS service_role-only——全部走 dbManager.getClient()（service key）。
  */
@@ -11,7 +11,6 @@ const express = require('express');
 const router = express.Router();
 
 const { StrategyLibraryService } = require('../services/StrategyLibraryService');
-const { GROUP_VARIABLES } = require('../../strategies/group-variables');
 
 const service = new StrategyLibraryService();
 
@@ -33,15 +32,6 @@ router.get('/', async (req, res) => {
     } catch (error) {
         fail(res, error);
     }
-});
-
-/**
- * GET /api/strategy-library/meta/variables
- * 组变量注册表（前端帮助/表达式提示单一事实源）
- * ⚠️ 必须声明在 /:id 之前（否则 "meta" 会被当成 id）
- */
-router.get('/meta/variables', (req, res) => {
-    res.json({ success: true, data: GROUP_VARIABLES });
 });
 
 /**

@@ -85,7 +85,6 @@ const OUTLIER_RATIO = 1000;
 const FACTOR_PARAM_DEFAULTS = {
     minPriceUpdateBnb: 0.002,    // 可靠价尘门（母版 minTickSol 0.005 SOL；BSC tradeAmount 0.1 的 1/50）
     firstBlockWindowMs: 3000,    // 首块脉冲窗（母版首秒 1000ms；BSC 1 block≈3s）
-    slideWinMs: 30000,           // cycle tps30s 滑窗（母版 6000ms）
     trendWindowMs: 30000,        // 趋势窗（母版 5000ms）
     trendMinReliableTicks: 5,    // 主窗最少 reliable tick（母版同）
     trendAbsMinTicks: 3,         // widened fallback 最少总数（母版同）
@@ -120,23 +119,6 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   rich-js minTicks=窗口分钟数，tick 秒级更密故起步 8）
     riseMinElapsedMin: 0.1,      // 针臂速度分母下限（分钟；rich-js 钳 1min 是 1m bar 粒度，tick 秒级可小；
                                  //   谷=最新 tick 时防除零）
-    // ── 行为周期分桶（卖出臂周期路由，2026-09-28）：双主量三档判定 + hysteresis ──
-    cycleHotTps: 0.5,            // 热桶门：30s 滑窗 tps ≥0.5（30s ≥15 笔，秒级行为）
-    cycleMidTps: 0.08,           // 中桶门：30s 滑窗 tps ≥0.08（30s ≥2.4 笔，分钟级行为）
-    cycleHotGapMs: 2000,         // 热桶门：相邻 tick 间隔中位数 ≤2s（与 tps 双主量 OR）
-    cycleMidGapMs: 12000,        // 中桶门：间隔中位数 ≤12s（5-15min 周期票落冷桶）
-    cycleMinTicks: 12,           // 证据门：5min 窗 tick < 此数且已过 warmup → 判冷桶 1（熄火票保护腿
-                                 //   不隐身；2026-09-28 1c68478f 回测 36 强平票根因修正）
-    cycleWarmupSec: 15,          // 热身门：token 年龄 < 此数不判定 → null（开盘脉冲不算行为周期；
-                                 //   tps30s 分母已改实际存活时长，新票不再天然减半——见 _cycleFactors）
-    cycleEarlySec: 90,           // 早期窗：存活 < 此值的升档免驻留（2026-10-04 0xe5e15117 案裁定：
-                                 //   冷档起步新票追热被 30s 驻留钉住，90s 买窗内最早可买点被推到 ~48s；
-                                 //   对齐买窗 tokenAgeSec<90，降档驻留不受此豁免）
-    cycleUpDwellSec: 30,         // 升档驻留秒（追热要快；早期窗内豁免——cycleEarlySec）
-    cycleDownDwellSec: 30,       // 降档驻留秒（2026-09-29 120→30：8bd5ef0b 断流票案，衰减段
-                                 //   降档太慢致冷桶保护腿迟到；与升档对称）
-    cycleStaleMs: 30 * 1000,     // 断流快速降档窗：now−lastTickAt 超此值且 current>1 立即降 1（同案 120→30）
-    cycleGapSamples: 120,        // gap 中位数样本数（5min 窗尾部 N 个相邻间隔）
 };
 
 // ── 市场截面 regime 观测（market* 5 键，回迁批 2.6；pumpfun 08-30 观察版口径）──
@@ -737,7 +719,6 @@ class FourMemeFactorAggregator extends EventEmitter {
         // ── 滑窗速率原料（附价可靠性/块号，供 trend/crash 窗扫描；既有 5min 摊销窗不变）──
         state._recentTicks.push({ ts, isBuy, bnb: bnbAmount, priceBnb, priceReliable, blockNumber });
         this._pruneRecentTicks(state, ts);
-        this._updateSlideWin(state, ts);
 
         // ── 分类器轨迹（回迁批 3.1：OPB/离线挖掘共用 slim shape，全量 tick 记录——
         //    大额断流/活跃度判定需全 tick，价格判定由消费方按 priceReliable 过滤。
@@ -950,7 +931,7 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 传 null/undefined/空数组清除（不过滤）。
      *
      * ⚠语义边界：跳过 = buildFactorMap 返回 null → 引擎侧超龄未持仓 token 的
-     * TPA checkAndTrigger / cycle latch 推进一并跳过（仅观察数据损失——token 已
+     * TPA checkAndTrigger 一并跳过（仅观察数据损失——token 已
      * 出买窗永不再买，notpa 消融实测 TPA 机制扰动 −0.80≈0）；买卖零影响由
      * AND 链出 age 区间必 false 保证；双跑对拍臂 pf0（69b43310）验证中
      * @param {Array<{minAgeMinutes?:number, maxAgeMinutes?:number}>|null} ranges
@@ -1195,8 +1176,6 @@ class FourMemeFactorAggregator extends EventEmitter {
             _holderEvents: [],          // holderTrend 事件缓冲（defer 乱序回推路径）：{block,wallet,buy,amt}
             _holderSeriesDirty: false,  // 重放脏标记（buildFactorMap 消费前刷新）
 
-            _slideTicks: [],            // 30s 滑窗 {ts}（_cycleFactors tps30s 原料，写时进出窗）
-
             // ── 分类器轨迹与 running 标量（回迁批 3.1：OPB 专用，不进因子键/时序存储。
             //    口径 = scripts/shared/token-classifier.js computeTickMetrics，两处修改须同步）──
             _clsTicks: [],             // 分类器轨迹 {ts,isBuy,bnbAmount,priceBnb,priceUsd,blockNumber,priceReliable}
@@ -1207,11 +1186,6 @@ class FourMemeFactorAggregator extends EventEmitter {
             _beforeFirst9sPeakMinBnb: Infinity,  // 到峰为止锁定的 min（ratio 分母；Infinity=未锁定）
             _afterFirst9sReliableCount: 0,       // afterFirst9s 达标 tick 数（<2 → ratio null）
             _lastBigTickAt: null,      // 最近大额（≥clsBigTickBnb）tick 时间（OPB bigTickIdle 触发）
-
-            // ── 行为周期分桶（卖出臂周期路由，2026-09-28）：hysteresis 闩锁。
-            //    current=生效档 / since=档位起点 / candidate+candidateSince=异档候选及其起点
-            //    （dwell 期满才切换；_cycleFactors 内每次 buildFactorMap 推进）──
-            _cycleLatch: { current: null, since: null, candidate: null, candidateSince: null },
 
             dataCollectionRound: 1, // 引擎 30s 时序快照轮次
         };
@@ -1473,13 +1447,14 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     /**
      * _recentTicks 单趟扫描（P2c，2026-10-12 回测性能案）：各读取方原先自行遍历
-     * （_cycleFactors 窗过滤 / crashSpeed 窗高点 / risePct5m 谷 /
+     * （5min 窗过滤 / crashSpeed 窗高点 / risePct5m 谷 /
      * _computePriceTrendFactors reliable 提取）——百万 tick 回放下每 tick 多趟是固定
      * 成本大头。本方法单趟产出共享中间结构，消费方判定逻辑逐字搬入（对拍等价红线）：
      *
-     * - winTicks：5min 窗内子数组，**保持原数组序（到达序）**——rate 的 spanMin 用
-     *   inWindow[0].ts（乱序下≠时间最早 tick）、cycle 尾部 gap 丢弃负间隔、crashSpeed
+     * - winTicks：5min 窗内子数组，**保持原数组序（到达序）**——crashSpeed
      *   `_p > _wh` 严格大于=首达峰、risePct `<= _trough`=最近触谷，全部遍历序敏感
+     *   （cycle 分桶 2026-10-15 删除后 FA 内已无消费方，保留产出=扫描契约形状由
+     *   _test_recent_ticks_scan A1 逐位锁定，防后续消费方重新自遍历）
      * - reliable：全数组（非 5min 窗）priceReliable && priceBnb>0 的 {t,p}，原序收集
      *   ——trend 的 widened 全历史分支要用全量 reliable，不可预切窗；sort 留在消费方
      *   （V8 稳定排序，输入序不变 → 与旧「提取后 sort」bit-identical）
@@ -1499,7 +1474,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         let csWh = 0, csWhT = 0;
         let riseTrough = Infinity, riseTroughTs = 0, riseRn = 0;
         for (const tk of ticks) {
-            // rate/cycle 窗（两处原 filter 同式：now - t.ts <= RATE_WINDOW_MS，保原序）
+            // 5min 窗（原 filter 同式：now - t.ts <= RATE_WINDOW_MS，保原序）
             if (now - tk.ts <= RATE_WINDOW_MS) winTicks.push(tk);
             // trend reliable 提取（原 _computePriceTrendFactors 内部循环逐字）
             if (tk.priceReliable && Number(tk.priceBnb) > 0) {
@@ -1539,15 +1514,6 @@ class FourMemeFactorAggregator extends EventEmitter {
         while (ticks.length > 0 && ticks[0].ts < cutoff) ticks.shift();
         if (ticks.length > this._fp.clsTicksMaxPerToken) {
             state._clsTicks = ticks.slice(-this._fp.clsTicksMaxPerToken);
-        }
-    }
-
-    /** 30s 滑窗增量维护（写时进出窗；唯一在读者 = _cycleFactors tps30s 密度，只吃 ts） */
-    _updateSlideWin(state, now) {
-        state._slideTicks.push({ ts: now });
-        const cutoff = now - this._fp.slideWinMs;
-        while (state._slideTicks.length > 0 && state._slideTicks[0].ts < cutoff) {
-            state._slideTicks.shift();
         }
     }
 
@@ -1666,116 +1632,6 @@ class FourMemeFactorAggregator extends EventEmitter {
             priceTrendSlope,
             recentRiseFromWindowLowPct,
         };
-    }
-
-    /**
-     * 行为周期分桶因子（卖出臂周期路由，2026-09-28 用户思路 v1）。
-     * 双主量：tps30s（30s 滑窗 tick 密度——读取时按 now 过滤，_slideTicks 写时裁剪断流后会
-     * 滞留老 tick 使 length 虚高；分母 = min(实际存活时长, 滑窗)，2026-10-04 修正：固定 30s
-     * 分母对 <30s 新票天然减半）+ gapMedianMs（5min 窗相邻 tick 间隔中位数，尾部
-     * cycleGapSamples 个样本；乱序 tick 的负间隔丢弃）。
-     * 三档：3=热桶秒级 / 2=中桶分钟级 / 1=冷桶 5-15min 级。null 仅两源（2026-09-28
-     * 修正，1c68478f 回测 36 强平票根因）：tokenAge < cycleWarmupSec（新票未分桶，
-     * 多为火票早买，短窗代价小）/ 无 createdAtMs 锚点。「5min 窗 tick < cycleMinTicks
-     * 且已过 warmup」不再 null 而判冷桶 1——从热到冷的衰减必经段恰是最需要保护腿的
-     * 时点，minTicks 门拦它 = 冷桶时间衰减腿隐身 → 无人接管 → 回放结束强平。
-     * tokenCycle 经 _cycleLatch hysteresis 稳定化：升/降档驻留 30s（2026-09-29 降档 120→30，
-     * 8bd5ef0b 断流票案：衰减段降档太慢致冷桶保护腿迟到）；存活 < cycleEarlySec 的升档免驻留
-     * 即时生效（2026-10-04 0xe5e15117 案裁定：冷档起步新票追热被 30s 驻留钉住，90s 买窗内
-     * 最早可买点被推到 ~48s；降档驻留不豁免）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
-     * 断流增长，stale 时 raw 压回 1 不进升档候选）。tokenCycleRaw 为本帧原始判定。
-     * ★红线：内部禁 Date.now——now 由 buildFactorMap(state, asOf) 传入，回测虚拟时钟防前视。
-     */
-    _cycleFactors(state, winTicks, now) {
-        const fp = this._fp;
-        const ageSec = state.createdAtMs ? (now - state.createdAtMs) / 1000 : null;
-        const slideCutoff = now - fp.slideWinMs;
-        let hotCount = 0;
-        for (const t of state._slideTicks) {
-            if (t.ts >= slideCutoff) hotCount++;
-        }
-        // tps 分母 = min(实际存活时长, 滑窗)（2026-10-04 0xe5e15117 案裁定：固定 30s 分母对
-        // 15s 新票天然减半——9 tick 真速率 0.6 被算成 0.30 → 误判非热。存活不足一个滑窗时按
-        // 实际时长归一，1s 下限防除零；成熟 token（≥滑窗）与无锚点票分母不变）
-        const ageMs = ageSec != null ? ageSec * 1000 : null;
-        const tpsDenomMs = ageMs != null && ageMs < fp.slideWinMs
-            ? Math.max(ageMs, 1000)
-            : fp.slideWinMs;
-        const tps30s = hotCount / (tpsDenomMs / 1000);
-        // P2c：winTicks 由 _scanRecentTicks 单趟产出（5min 窗原序子数组）传入
-        const gaps = [];
-        for (let i = Math.max(1, winTicks.length - fp.cycleGapSamples); i < winTicks.length; i++) {
-            const g = winTicks[i].ts - winTicks[i - 1].ts;
-            if (g > 0) gaps.push(g);
-        }
-        const gapMedianMs = gaps.length > 0 ? this._median(gaps) : null;
-
-        let raw = null;
-        if (ageSec != null && ageSec >= fp.cycleWarmupSec) {
-            if (winTicks.length >= fp.cycleMinTicks) {
-                if (tps30s >= fp.cycleHotTps || (gapMedianMs != null && gapMedianMs <= fp.cycleHotGapMs)) raw = 3;
-                else if (tps30s >= fp.cycleMidTps || (gapMedianMs != null && gapMedianMs <= fp.cycleMidGapMs)) raw = 2;
-                else raw = 1;
-            } else {
-                // 证据不足但已过 warmup：判冷桶而非 null——熄火票（5min 窗凑不满
-                // minTicks）的冷桶保护腿不再 fail-closed 隐身（稀疏 tick 仍触发评估，
-                // P17/P18 时间衰减可接管）；warmup 期照旧 null（新票未分桶正常）
-                raw = 1;
-            }
-        }
-
-        const latch = state._cycleLatch;
-        const stale = state.lastTickAt != null && (now - state.lastTickAt) > fp.cycleStaleMs;
-        if (stale && raw != null && raw > 1) raw = 1;
-
-        if (raw != null) {
-            if (latch.current == null) {
-                latch.current = raw; latch.since = now;
-                latch.candidate = null; latch.candidateSince = null;
-                this._logCycleSwitch(state, null, raw, tps30s, gapMedianMs, 'init');
-            } else if (raw === latch.current) {
-                latch.candidate = null; latch.candidateSince = null;
-            } else {
-                // 早期升档免驻留（2026-10-04 0xe5e15117 案裁定）：新票 warmup 后证据不足
-                // init=1 冷档起步，升热若还要等 30s 驻留，90s 买窗内最早可买点被推到 ~48s
-                // ——存活 < cycleEarlySec 内升档即时生效；降档驻留不豁免（瞬抖误降档防线
-                // 语义不变），成熟 token 升档照旧走驻留
-                const isUp = raw > latch.current;
-                const earlyUp = isUp && ageSec != null && ageSec < fp.cycleEarlySec;
-                if (latch.candidate !== raw) { latch.candidate = raw; latch.candidateSince = now; }
-                const dwellMs = (isUp ? fp.cycleUpDwellSec : fp.cycleDownDwellSec) * 1000;
-                if (earlyUp || now - latch.candidateSince >= dwellMs) {
-                    const from = latch.current;
-                    latch.current = raw; latch.since = now;
-                    latch.candidate = null; latch.candidateSince = null;
-                    this._logCycleSwitch(state, from, raw, tps30s, gapMedianMs,
-                        earlyUp ? 'earlyUp' : (isUp ? 'upDwell' : 'downDwell'));
-                }
-            }
-        }
-        // stale 快速通道：跳过降档 dwell（断流即冷）；断流期 raw==null（warmup 前
-        // 不可能持有仓位，实际仅无锚点场景）时也跑，恢复后从冷档重新 dwell 升档
-        if (stale && latch.current != null && latch.current > 1) {
-            const from = latch.current;
-            latch.current = 1; latch.since = now;
-            latch.candidate = null; latch.candidateSince = null;
-            this._logCycleSwitch(state, from, 1, tps30s, gapMedianMs, 'stale');
-        }
-
-        return {
-            tokenCycle: raw == null ? null : latch.current,
-            tokenCycleRaw: raw,
-            tokenCycleAgeSec: latch.current != null && latch.since != null ? (now - latch.since) / 1000 : null,
-            cycleTps30s: tps30s,
-            cycleGapMedianMs: gapMedianMs,
-        };
-    }
-
-    /** 周期档位切换固定格式日志（182 部署后观察切换频率与档位分布） */
-    _logCycleSwitch(state, from, to, tps30s, gapMedianMs, reason) {
-        console.log(`[CycleSwitch] token=${state.tokenAddress} from=${from == null ? 'null' : from} to=${to}`
-            + ` tps30s=${tps30s.toFixed(3)} gapMedMs=${gapMedianMs == null ? 'null' : gapMedianMs.toFixed(0)}`
-            + ` reason=${reason}`);
     }
 
     /** per-position 持仓期因子 */
@@ -1992,8 +1848,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             rsi9Bar5mRt = this._rsi(_rt5, 9);
         }
 
-        // P2c 单趟扫描（2026-10-12 回测性能案）：本函数内原先五个消费方各自遍历
-        // _recentTicks（rate/cycle filter ×2、crashSpeed 窗高点、risePct5m 谷、trend
+        // P2c 单趟扫描（2026-10-12 回测性能案）：本函数内原先多个消费方各自遍历
+        // _recentTicks（5min 窗过滤、crashSpeed 窗高点、risePct5m 谷、trend
         // reliable 提取）合并为一趟；rise 的 buyTs 在此提前解析（纯读 state._positions）
         const _rsPos = state._lastPositionKey ? state._positions.get(state._lastPositionKey) : null;
         const _rsBuyTs = Number(_rsPos?.buyTime) || 0;
@@ -2097,9 +1953,6 @@ class FourMemeFactorAggregator extends EventEmitter {
             uniqueTraderCount: state.uniqueTraders.size,
             buyVolumeBnb: state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
-            // 行为周期分桶（卖出臂周期路由，2026-09-28）：tokenCycle/tokenCycleRaw/tokenCycleAgeSec/
-            // cycleTps30s/cycleGapMedianMs——latch 推进副作用在读取路径（hysteresis 需状态）
-            ...this._cycleFactors(state, _scan.winTicks, now),
 
             trendDataPoints: prices.length,
 
@@ -2331,8 +2184,7 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 }
 
-// 静态挂载（cycle 判定配置化 2026-09-28）：单测用——创建页模板预填默认值须与
-// FACTOR_PARAM_DEFAULTS 的 cycle* 十键一致（防双源漂移，见 _test_strategy_library_groups H 段）
+// 静态挂载：单测用（FACTOR_PARAM_DEFAULTS 默认值对拍；实验级覆盖走 fourmemeWs.factorParams）
 FourMemeFactorAggregator.FACTOR_PARAM_DEFAULTS = FACTOR_PARAM_DEFAULTS;
 
 module.exports = FourMemeFactorAggregator;

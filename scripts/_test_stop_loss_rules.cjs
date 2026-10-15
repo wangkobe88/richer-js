@@ -44,7 +44,6 @@ function makeEngine(fields = {}) {
     _stopLossPricePct: null,
     _stopLossScanMs: null,
     _sellLegScanEnabled: false,           // 卖腿兜底扫描未启用（2026-10-13 改造后存量语义）
-    _cycleEnforce: false,                 // 周期路由未启用（扫描内 cycleTag 同步分支跳过）
     _graduationSoldTokens: new Set(),     // 毕业兜底分支（virtual）读取
     ...fields,
   });
@@ -230,7 +229,6 @@ console.log('E. BacktestEngine 止损双腿（回测版，虚拟时钟）');
       _stopLossPricePct: null,
       _stopLossScanMs: null,
       _lastStopLossScanTs: null,
-      _cycleEnforce: false,
       ...fields,
     });
   }

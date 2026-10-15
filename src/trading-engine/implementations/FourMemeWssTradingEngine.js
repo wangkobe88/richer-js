@@ -303,15 +303,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 3. 因子聚合器 + 事件链路
     // （键名固定 fourmemeWs：FA 仅读该节的 maxTrackedTokens，flap 子类传 flap merged 配置同键）
     const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
-    // cycle 判定配置化（2026-09-28）：实验级显式入口 tokenCycle.params 并入 factorParams，
-    // 三级合并最高优先级（FACTOR_PARAM_DEFAULTS < ws.factorParams < tokenCycle.params）；
-    // 不带 params 的存量实验 mapCycleParams 返回 {} 行为零变化。flap/both 同此处注入
-    const { mapCycleParams } = require('../../strategies/group-variables');
     const wsMerged = this._mergedWsConfig();
-    wsMerged.factorParams = {
-      ...(wsMerged.factorParams || {}),
-      ...mapCycleParams(this._experiment?.config?.tokenCycle?.params),
-    };
     // P2b 死重维护开关（2026-10-12 回测性能案）：FA 先于 TPA/OPB 构造 → 用 config 判定
     // 而非实例存在性。cls 轨迹跟随 OPB enabled（false 时 OPB start/扫描早退对 cls 字段零读，
     // 与 3.5 节 OPB 构造段同判据）；TPA 双 map 跟随 3.4 节 TPA 构造条件（config 段存在）
@@ -439,8 +431,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
           cooldownSec: s.cooldownSec,
-          // 组路由（策略库一期，2026-09-28）：groups 表达式透传（loadStrategies 内
-          // 归一 + 校验）；存量 cycle 数字仍在 normalizeGroups 内转换为等价表达式
+          // 已删除机制的 legacy 字段（cycle 分桶路由 2026-10-15 删除）刻意原样透传：
+          // loadStrategies fail-fast 靠它识别携带旧字段的存量实验并拒启（剥掉这里
+          // = fail-fast 失明 = 腿静默恒可见，危险方向）
           groups: s.groups,
           cycle: s.cycle,
           enabled: true,
@@ -465,8 +458,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           // 卡牌仓位（迁自 rich-js）：同买腿透传（卖腿额外接受 'all'）
           cards: s.cards,
           cooldownSec: s.cooldownSec,
-          // 组路由（策略库一期，2026-09-28）：groups 表达式透传（loadStrategies 内
-          // 归一 + 校验）；存量 cycle 数字仍在 normalizeGroups 内转换为等价表达式
+          // 已删除机制的 legacy 字段（cycle 分桶路由 2026-10-15 删除）刻意原样透传：
+          // loadStrategies fail-fast 靠它识别携带旧字段的存量实验并拒启
           groups: s.groups,
           cycle: s.cycle,
           enabled: true,
@@ -546,17 +539,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
         `🛡️ 持仓卖腿兜底扫描已启用 | 周期=${this._holdingsScanMs / 1000}s 断流判据=${this._sellLegStallMs / 1000}s无tick` +
         `${this._stopLossEnabled ? '' : '（stopLoss 段未配置，引擎级止损关闭）'}`);
-    }
-
-    // 6.6 行为周期分桶（卖出臂周期路由，2026-09-28 用户思路 v1）：tokenCycle 段存在且
-    //   enforce=true → 每 tick 把 factors.tokenCycle 写进 token.cycleTag，带 cycle 腿按桶
-    //   路由（evaluate 内过滤）；缺段 = 不写 cycleTag = 带 cycle 腿全隐（fail-closed，
-    //   止损双腿兜底），不带 cycle 腿恒可见（存量实验零变化）
-    this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
-    if (this._cycleEnforce) {
-      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.groups != null).length;
-      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `🔁 周期路由已启用（enforce）| 标注 groups 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()} | 桶标签=token.cycleTag（FA _cycleFactors 判定）`);
     }
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
@@ -1173,11 +1155,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return;
 
-    // 行为周期分桶（2026-09-28）：tokenCycle 写进 token.cycleTag 供 evaluate 桶路由
-    //（_evaluateSellPath/买腿去抖重评传同一 token 对象引用）。仅 enforce 实验写；
-    // null（证据不足）也写——带 cycle 腿全隐 fail-closed
-    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
-
     // 重启恢复的持仓锚点：FA 首个可靠价到达时落锚（BNB 锚点以重启后首价近似）
     if (this._restoreAnchors.has(tokenAddress)) {
       const state = this._factorAggregator.getTokenState(tokenAddress);
@@ -1310,8 +1287,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return;
-    // 周期路由同步（fire 时刻 buildFactorMap 已推进 latch；避免 cycleTag 滞后末 tick 一拍）
-    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
     if (this._buyingTokens.has(tokenAddress)) return;
     if (token.status === 'bought') return; // 单仓语义
 
@@ -1814,9 +1789,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
       if (!factors) continue;
-      // 周期路由同步点（断流票 stale 降档）：buildFactorMap 顺带推进 _cycleLatch，
-      // 此处把结果写进 token.cycleTag（恢复零星 tick 后 evaluate 用最新档）
-      if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
       // 毕业兜底（盘古案，virtual）：graduation 事件路径的卖出失败（幂等标记后置到
       // 成功，失败不标记）在此重试——毕业票断流，扫描是唯一重试路径。先于止损判定
       //（毕业全清语义正确且卖出价更可靠）
@@ -1886,8 +1858,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token || token.status !== 'bought') return;
     if (this._buyingTokens.has(tokenAddress)) return; // 与卖腿路由门同口径
-    // 周期路由同步（fire 时刻 buildFactorMap 已推进 latch；避免 cycleTag 滞后末 tick 一拍）
-    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
 
     this._reconfirmAndSell(token, factors)
       .catch(e => this.logger.error(this._experimentId, 'SellEval',
@@ -2591,8 +2561,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  /** FA 当前价（USD/token）：手工交易 L1 锚来源。无状态/无价返回 0（buildFactorMap 的
-   * cycleLatch 推进副作用无害——纯观察标签） */
+  /** FA 当前价（USD/token）：手工交易 L1 锚来源。无状态/无价返回 0 */
   _manualTradePriceUsd(tokenAddress) {
     const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
     return Number(factors?.currentPrice) || 0;
