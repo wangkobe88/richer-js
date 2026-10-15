@@ -243,6 +243,7 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     gmgnIssuerTokenCount: preBuyCheckResult.gmgnIssuerTokenCount ?? 0,
     gmgnBundlerWalletRatio: preBuyCheckResult.gmgnBundlerWalletRatio ?? 0,
     gmgnRiskCovered: preBuyCheckResult.gmgnRiskCovered ?? 0,
+    gmgnVisitingCount: preBuyCheckResult.gmgnVisitingCount ?? 0,
     // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
     tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
     // 数据采集轮数因子

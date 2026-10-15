@@ -1669,7 +1669,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         if (!gmgnCheckInfo.passed) {
           this.logger.info(this._experimentId, 'BuyEval',
             `GMGN 条件拒买 | ${token.symbol} ${gmgnCheckInfo.reason}` +
-            (gmgnCheckInfo.factors ? ` bundler=${gmgnCheckInfo.factors.gmgnBundlerWalletRatio}` : ''));
+            (gmgnCheckInfo.factors ? ` bundler=${gmgnCheckInfo.factors.gmgnBundlerWalletRatio} visiting=${gmgnCheckInfo.factors.gmgnVisitingCount}` : ''));
           if (signalId) {
             try {
               await this._updateSignalMetadata(signalId, { gmgnCheck: gmgnCheckInfo });

@@ -24,11 +24,13 @@ const { extractGmgnRisk } = require('../../core/gmgn-api/risk-fields');
 const { mapGmgnRiskFactors } = require('./NarrativeDirectCaller');
 const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 
-// gmgnCheckCondition 可引用的因子键（固定三键；mapGmgnRiskFactors 单点映射产物）
+// gmgnCheckCondition 可引用的因子键（mapGmgnRiskFactors 单点映射产物；2026-10-15
+// 加 gmgnVisitingCount 注意力观测键——「流动性跟注意力背离」用户裁定）
 const GMGN_CONDITION_FACTOR_KEYS = [
   'gmgnIssuerTokenCount',
   'gmgnBundlerWalletRatio',
   'gmgnRiskCovered',
+  'gmgnVisitingCount',
 ];
 
 const DEFAULTS = {
@@ -58,6 +60,7 @@ class GmgnRiskCheckService {
    * @param {string} chain - BSC-only 项目，恒 'bsc'
    * @returns {Promise<{covered: number, gmgnIssuerTokenCount: number,
    *   gmgnBundlerWalletRatio: number, gmgnRiskCovered: number,
+   *   gmgnVisitingCount: number,
    *   durationMs: number, fromCache: boolean, failReason: string|null}>}
    */
   async check(tokenAddress, chain = 'bsc') {
@@ -110,12 +113,13 @@ class GmgnRiskCheckService {
   }
 
   _noDataResult(failReason, durationMs = 0) {
-    // 与 mapGmgnRiskFactors(null) 同款 0 值形状（covered=0 三键全 0），外加审计字段
+    // 与 mapGmgnRiskFactors(null) 同款 0 值形状（covered=0 四键全 0），外加审计字段
     return {
       covered: 0,
       gmgnIssuerTokenCount: 0,
       gmgnBundlerWalletRatio: 0,
       gmgnRiskCovered: 0,
+      gmgnVisitingCount: 0,
       durationMs,
       fromCache: false,
       failReason,
@@ -157,7 +161,7 @@ class GmgnRiskCheckService {
   }
 
   /**
-   * gmgnCheckCondition 可引用的因子键集（固定三键；StrategyEngine.loadStrategies
+   * gmgnCheckCondition 可引用的因子键集（StrategyEngine.loadStrategies
    * 第四键集 / StrategyLibraryService.validateLegs 同口径消费）
    */
   static getConditionFactorKeys() {

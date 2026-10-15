@@ -275,9 +275,9 @@ console.log('6. BacktestEngine options 键名源码防线');
   if (m) {
     const block = m[0];
     const keys = Object.keys(mkSvc()._buildKnownFactorContext({}));
-    // GMGN 三键/router 两键经展开注入（...mapGmgnRiskFactors / ...routerGateFactors），
+    // GMGN 四键/router 两键经展开注入（...mapGmgnRiskFactors / ...routerGateFactors），
     // 调用块无字面键名——单独断言两处展开存在，其余键断言字面传参
-    const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered',
+    const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered', 'gmgnVisitingCount',
       'earlyTradesRouterLowSideSeen', 'earlyTradesRouterRejectCount'];
     const literal = keys.filter(k => !SPREAD.includes(k));
     const missing = literal.filter(k => !block.includes(`${k}:`) && !block.includes(`${k},`));
@@ -296,7 +296,7 @@ console.log('7. excludeKeys：龙头三键无值时的防线');
   // 7a: 龙头键排除后不在 knownCtx；其余 14 键在
   const ctx = svc._buildKnownFactorContext({ narrativeRating: 1 }, LEADER);
   ok(LEADER.every(k => !(k in ctx)), '7a1. 排除键不进 knownCtx（hasOwnProperty 不中）');
-  ok(Object.keys(ctx).length === 14, '7a2. 其余 14 键保留', `n=${Object.keys(ctx).length}`);
+  ok(Object.keys(ctx).length === 15, '7a2. 其余 15 键保留（2026-10-15 加 gmgnVisitingCount）', `n=${Object.keys(ctx).length}`);
   // 7b 核心反证：龙头键无值（引擎层形状 undefined）+ 条件 `narrativeLeaderHot != 0`
   // ——不排除时默认 0 → 项恒假 → 误短路（演示风险）；排除 → 不短路（防线生效）
   const COND_LEADER = 'narrativeLeaderHot != 0 AND earlyReturn >= 100';
@@ -338,7 +338,7 @@ console.log('8. BacktestEngine P4b 接线源码防线');
     '8c. 龙头检查前置 preCheckPassed（短路后不跑龙头）');
   // 8d: P4b options 块键与 performAllChecks options 单源对齐——9 个字面键 +
   // GMGN/router 两族展开（与第 6 节同口径，排除龙头三键）
-  const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered',
+  const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered', 'gmgnVisitingCount',
     'earlyTradesRouterLowSideSeen', 'earlyTradesRouterRejectCount'];
   const literal = ['drawdownFromHighest', 'buyRound', 'lastPairReturnRate', 'narrativeRating',
     'narrativeCorpusLagSec', 'earlyReturn', 'tweetAuthorType', 'dataCollectionRound', 'platform'];

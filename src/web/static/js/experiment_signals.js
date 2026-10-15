@@ -2411,9 +2411,10 @@ class ExperimentSignals {
               <div class="text-xs font-semibold text-amber-900">🛡️ GMGN 风险检查（买前第三层实时）</div>
               ${gmgnPassBadge}
             </div>
-            <div class="grid grid-cols-3 gap-2 text-xs">
+            <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
               <div><span class="text-amber-800">bundler 钱包占比:</span> <span class="${valueCls}">${num(gf.gmgnBundlerWalletRatio)}%</span></div>
               <div><span class="text-amber-800">推特关联发币数:</span> <span class="${valueCls}">${num(gf.gmgnIssuerTokenCount, 0)}</span></div>
+              <div><span class="text-amber-800">实时访问人数:</span> <span class="${valueCls}">${num(gf.gmgnVisitingCount, 0)}</span></div>
               <div><span class="text-amber-800">covered:</span> <span class="${covered ? 'text-green-600' : 'text-red-600'}">${covered ? '1（有数据）' : '0（无数据 fail-closed）'}</span></div>
               ${auditBits.length > 0 ? `<div class="col-span-3 text-gray-500">${auditBits.join(' · ')}</div>` : ''}
               ${gmgnCheckInfo.reason ? `<div class="col-span-3 text-red-700">📝 ${this._escapeHtml(gmgnCheckInfo.reason)}</div>` : ''}

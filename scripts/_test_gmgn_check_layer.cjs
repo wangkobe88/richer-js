@@ -65,6 +65,7 @@ const FAKER_INFO = {
     creator_token_status: 'creator_hold', fund_from: null },
   wallet_tags_stat: { bundler_wallets: 7, top_wallets: 8, sniper_wallets: 7, fresh_wallets: 1 },
   image_dup_count: 3,
+  visiting_count: 3,
 };
 
 const savedKey = process.env.GMGN_API_KEY;
@@ -106,9 +107,20 @@ async function main() {
     check('未知因子（键集外）→ 评估 false → 拒（fail-closed 方向）',
       unknownKey.passed === false && unknownKey.evaluated === true, JSON.stringify(unknownKey));
 
-    check('键集=固定三键',
+    // gmgnVisitingCount（2026-10-15 加键：「流动性跟注意力背离」观测，用户裁定）
+    const visit4 = GmgnRiskCheckService.evaluateFactors(
+      { gmgnRiskCovered: 1, gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0, gmgnVisitingCount: 4 },
+      'gmgnVisitingCount >= 1');
+    check('visiting=4 → 注意力门过', visit4.passed === true && visit4.evaluated === true, JSON.stringify(visit4));
+    const visit0 = GmgnRiskCheckService.evaluateFactors(
+      { gmgnRiskCovered: 1, gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0, gmgnVisitingCount: 0 },
+      'gmgnVisitingCount >= 1');
+    check('visiting=0（无人看）→ 注意力门拦', visit0.passed === false, JSON.stringify(visit0));
+
+    check('键集=固定四键（含 gmgnVisitingCount）',
       JSON.stringify(GmgnRiskCheckService.getConditionFactorKeys()) === JSON.stringify(GMGN_CONDITION_FACTOR_KEYS)
-      && GMGN_CONDITION_FACTOR_KEYS.includes('gmgnBundlerWalletRatio'));
+      && GMGN_CONDITION_FACTOR_KEYS.includes('gmgnBundlerWalletRatio')
+      && GMGN_CONDITION_FACTOR_KEYS.includes('gmgnVisitingCount'));
   }
 
   console.log('B. service check()（打桩 GMGNTokenAPI，零网络）');
@@ -117,8 +129,8 @@ async function main() {
     {
       apiCalls.length = 0; stubBehavior = { response: FAKER_INFO };
       const r = await freshSvc().check('0xABC', 'bsc');
-      check('成功 → covered=1 bundler=87.5（mapGmgnRiskFactors 单点映射）',
-        r.covered === 1 && r.gmgnBundlerWalletRatio === 87.5 && r.gmgnRiskCovered === 1 && r.failReason === null,
+      check('成功 → covered=1 bundler=87.5 visiting=3（mapGmgnRiskFactors 单点映射）',
+        r.covered === 1 && r.gmgnBundlerWalletRatio === 87.5 && r.gmgnRiskCovered === 1 && r.gmgnVisitingCount === 3 && r.failReason === null,
         JSON.stringify(r));
     }
     // 未索引（info 无 dev/tags → extractGmgnRisk null）
@@ -126,6 +138,15 @@ async function main() {
       stubBehavior = { response: {} };
       const r = await freshSvc().check('0xABC', 'bsc');
       check('未索引 → covered=0 not_indexed', r.covered === 0 && r.failReason === 'not_indexed', JSON.stringify(r));
+    }
+    // 仅 visiting_count 有值（dev/tags 全缺）：covered 语义零漂移防线——注意力计数
+    // 不参与 hasAny，「仅注意力可观测」的票不得翻 covered=1（否则 issuerCount=0 /
+    // ratio=0 的 0 值会被当作可信数据消费）
+    {
+      stubBehavior = { response: { visiting_count: 5 } };
+      const r = await freshSvc().check('0xVISITONLY', 'bsc');
+      check('仅 visiting_count 有值 → 仍 not_indexed（covered 语义防漂移）',
+        r.covered === 0 && r.failReason === 'not_indexed', JSON.stringify(r));
     }
     // API 抛错
     {
@@ -309,7 +330,7 @@ async function main() {
     check('两路径 metadata 均落 gmgnCheck 轨迹', (src.match(/gmgnCheck: gmgnCheckInfo/g) || []).length === 2);
     check('构造点接线 _mergedWsConfig().gmgnCheck',
       src.includes('new GmgnRiskCheckService(\n      this._mergedWsConfig().gmgnCheck') || src.includes("new GmgnRiskCheckService(this._mergedWsConfig().gmgnCheck") || src.includes('new GmgnRiskCheckService(\n'));
-    check('实时引擎 loadStrategies 传第四键集（GMGN 三键）',
+    check('实时引擎 loadStrategies 传第四键集（GMGN 四键）',
       src.includes('new Set(_GmgnRiskCheckService.getConditionFactorKeys())'));
     // ★v15 事故现场反证（2026-10-15）：两引擎 _initializeDataSources 的买腿映射是
     // 字段白名单，漏透传 gmgnCheckCondition → 运行时第三层静默跳过、GMGN 门整体

@@ -472,8 +472,11 @@ function isAccountOnlySource(classifiedUrls) {
  *   保留 1 位小数（x-0：35/46=76.1%；分母不可得→0）
  * - gmgnRiskCovered：1=GMGN 查到（上两因子可信），0=未触发/失败/未索引——
  *   放行值语义（宁漏拦不误杀，与净流入因子 covered 同方向）
+ * - gmgnVisitingCount：当前访问人数（2026-10-15 加键，用户裁定「流动性跟注意力
+ *   背离」观测——GMGN 顶层 visiting_count，实时在线语义非累计 UV，死盘/秒新盘=0；
+ *   历史 gmgn_info 快照行无此字段 → 0=无观测）
  * @param {Object|null} risk - analyze 返回的 gmgnRisk（null=未查到）
- * @returns {{gmgnIssuerTokenCount: number, gmgnBundlerWalletRatio: number, gmgnRiskCovered: number}}
+ * @returns {{gmgnIssuerTokenCount: number, gmgnBundlerWalletRatio: number, gmgnRiskCovered: number, gmgnVisitingCount: number}}
  */
 function mapGmgnRiskFactors(risk) {
   return {
@@ -483,6 +486,7 @@ function mapGmgnRiskFactors(risk) {
       ? Math.round(risk.bundlerWallets / risk.topWallets * 1000) / 10
       : 0,
     gmgnRiskCovered: risk ? 1 : 0,
+    gmgnVisitingCount: typeof risk?.visitingCount === 'number' ? risk.visitingCount : 0,
   };
 }
 

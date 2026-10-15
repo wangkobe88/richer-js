@@ -416,6 +416,12 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'critical'
   },
+  gmgnVisitingCount: {
+    name: 'GMGN实时访问人数',
+    format: v => v.toString(),
+    unit: '人',
+    severity: 'info'
+  },
   // 严格同名代币因子（AVE 检索；strictSameNameMaxFDV = 严格同名（排除自己）且
   // 过滤 AVE 虚假数据后的最大 FDV，用于"同名老币已存在且市值不低"拒买门）
   strictSameNameMaxFDV: {
@@ -545,7 +551,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, sourceExperimentId, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, sourceExperimentId, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, gmgnVisitingCount, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -680,6 +686,7 @@ class PreBuyCheckService {
           gmgnIssuerTokenCount: gmgnIssuerTokenCount,
           gmgnBundlerWalletRatio: gmgnBundlerWalletRatio,
           gmgnRiskCovered: gmgnRiskCovered,
+          gmgnVisitingCount: gmgnVisitingCount,
           // 平台标签（router 平台分门，2026-10-02）：引擎/回测侧透传
           // 'fourmeme'/'flap'；null 语义 = 未知平台（分门 fail-closed 落 router 门）
           platform: options.platform ?? null,
@@ -778,6 +785,7 @@ class PreBuyCheckService {
       gmgnIssuerTokenCount: options.gmgnIssuerTokenCount ?? 0,
       gmgnBundlerWalletRatio: options.gmgnBundlerWalletRatio ?? 0,
       gmgnRiskCovered: options.gmgnRiskCovered ?? 0,
+      gmgnVisitingCount: options.gmgnVisitingCount ?? 0,
       // 推文作者类型因子
       tweetAuthorType: options.tweetAuthorType ?? 0,
       // 数据采集轮数因子
@@ -894,6 +902,7 @@ class PreBuyCheckService {
       gmgnIssuerTokenCount: options.gmgnIssuerTokenCount ?? 0,
       gmgnBundlerWalletRatio: options.gmgnBundlerWalletRatio ?? 0,
       gmgnRiskCovered: options.gmgnRiskCovered ?? 0,
+      gmgnVisitingCount: options.gmgnVisitingCount ?? 0,
       tweetAuthorType: options.tweetAuthorType ?? 0,
       dataCollectionRound: options.dataCollectionRound ?? 0,
       drawdownFromHighest: options.drawdownFromHighest ?? 0,
@@ -1016,6 +1025,7 @@ class PreBuyCheckService {
       gmgnIssuerTokenCount: extraContext.gmgnIssuerTokenCount ?? 0,
       gmgnBundlerWalletRatio: extraContext.gmgnBundlerWalletRatio ?? 0,
       gmgnRiskCovered: extraContext.gmgnRiskCovered ?? 0,
+      gmgnVisitingCount: extraContext.gmgnVisitingCount ?? 0,
       // 推文作者类型因子
       tweetAuthorType: extraContext.tweetAuthorType ?? 0,
       // 数据采集轮数因子
@@ -1160,6 +1170,7 @@ class PreBuyCheckService {
         gmgnIssuerTokenCount: extraContext.gmgnIssuerTokenCount ?? 0,
         gmgnBundlerWalletRatio: extraContext.gmgnBundlerWalletRatio ?? 0,
         gmgnRiskCovered: extraContext.gmgnRiskCovered ?? 0,
+        gmgnVisitingCount: extraContext.gmgnVisitingCount ?? 0,
         // 推文作者类型因子（允许在条件表达式中使用）
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
@@ -1879,6 +1890,7 @@ class PreBuyCheckService {
       gmgnIssuerTokenCount: 0,
       gmgnBundlerWalletRatio: 0,
       gmgnRiskCovered: 0,
+      gmgnVisitingCount: 0,
       // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
       tweetAuthorType: 0,
       // 数据采集轮数因子

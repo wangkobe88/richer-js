@@ -31,8 +31,12 @@ function extractGmgnRisk(info) {
     freshWallets: num(tags.fresh_wallets),
     topWallets: num(tags.top_wallets),                     // 标签统计分母（x-0=46）
     imageDupCount: num(info?.image_dup_count),             // 头像/图片重复数（批量盘特征）
+    visitingCount: num(info?.visiting_count),              // 当前访问人数（注意力观测；死盘/秒新盘=0）
   };
-  const hasAny = Object.values(risk).some(v => v !== null);
+  // visitingCount 刻意不参与 hasAny：covered 的语义是「dev/holder 风险数据已覆盖」，
+  // 注意力计数几乎恒有值（0 也是有效观测）——让它参与会把「仅注意力可观测」的票翻成
+  // covered=1，issuerCount/ratio 的 0 值会被当作可信数据消费（2026-10-15 加键防线）
+  const hasAny = Object.entries(risk).some(([k, v]) => k !== 'visitingCount' && v !== null);
   return hasAny ? risk : null;
 }
 
