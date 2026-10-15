@@ -95,6 +95,9 @@ class FourMemeAnkrWsCollector {
         this._tickFlushIntervalMs = this._tickBufferCfg.flushIntervalMs || 2000;
         this._tickFlushThreshold = this._tickBufferCfg.flushThreshold || 100;
         this._tickBatchSize = this._tickBufferCfg.batchSize || 500;
+        // 水位监控（绝不丢行）：超阈告警节流 + 回落恢复 info；默认 10 万行 / 10min 重告
+        this._tickAlertThresholdRows = this._tickBufferCfg.alertThresholdRows ?? 100_000;
+        this._tickAlertReAlertMs = this._tickBufferCfg.alertReAlertMs ?? 600_000;
         this._bnbUsdRefreshMs = this.config.bnbUsd?.refreshMs || 60000;
 
         // 小额 tick 过滤：低于阈值的交易仍落表但不参与因子计算（尘价污染防护）
@@ -122,6 +125,8 @@ class FourMemeAnkrWsCollector {
         this._tickBuffer = [];
         this._tickFlushTimer = null;
         this._flushInProgress = false;
+        this._tickBufferHighWatermark = false; // 当前处于高水位告警态（回落一次性恢复）
+        this._tickLastAlertAt = 0;
         this._supabase = null;
 
         this._bnbUsd = 0;
@@ -150,6 +155,8 @@ class FourMemeAnkrWsCollector {
             ticksBuffered: 0,
             ticksWritten: 0,
             ticksFlushFailed: 0,
+            tickBufferHighWatermarkPeak: 0,
+            tickBufferHighWatermarkAlerts: 0,
             bnbUsdUpdates: 0,
             reconnects: 0,
         };
@@ -677,6 +684,34 @@ class FourMemeAnkrWsCollector {
         if (this._onTickBuffered) this._onTickBuffered(tickRow);
         if (this._tickBuffer.length >= this._tickFlushThreshold) {
             this._flushTickBuffer();
+        }
+        this._checkTickBufferWatermark();
+    }
+
+    /**
+     * tickBuffer 水位监控（O(1)，绝不丢行）：落库速度跟不上时 buffer 无界增长——
+     * 超阈 error 告警（节流重告）+ 峰值/计数入 stats；回落阈值下一次 push 时恢复 info 恰一次。
+     * 引擎可选回调 _onTickBufferHighWatermark(len)（缺省不传=零变化，live 转发 Telegram）。
+     */
+    _checkTickBufferWatermark() {
+        const len = this._tickBuffer.length;
+        if (len >= this._tickAlertThresholdRows) {
+            const now = Date.now();
+            if (now - this._tickLastAlertAt >= this._tickAlertReAlertMs) {
+                this._tickLastAlertAt = now;
+                this._tickBufferHighWatermark = true;
+                this.stats.tickBufferHighWatermarkPeak = Math.max(this.stats.tickBufferHighWatermarkPeak, len);
+                this.stats.tickBufferHighWatermarkAlerts++;
+                this.logger.error('', 'FourMemeAnkrWsCollector',
+                    `[TickBuffer高水位] buffer=${len} 阈值=${this._tickAlertThresholdRows} 累计写失败=${this.stats.ticksFlushFailed}——落库速度跟不上，绝不丢行`);
+                if (this._onTickBufferHighWatermark) {
+                    try { this._onTickBufferHighWatermark(len); } catch { /* 回调失败不影响采集 */ }
+                }
+            }
+        } else if (this._tickBufferHighWatermark) {
+            this._tickBufferHighWatermark = false;
+            this.logger.info('', 'FourMemeAnkrWsCollector',
+                `[TickBuffer高水位恢复] buffer=${len} 已回落至阈值 ${this._tickAlertThresholdRows} 以下`);
         }
     }
 

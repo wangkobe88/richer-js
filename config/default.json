@@ -23,7 +23,9 @@
     "tickBuffer": {
       "flushIntervalMs": 500,
       "flushThreshold": 100,
-      "batchSize": 500
+      "batchSize": 500,
+      "alertThresholdRows": 100000,
+      "alertReAlertMs": 600000
     },
     "wssDownGuardMs": 900000,
     "downGuardSelfHealMs": 300000,
@@ -105,7 +107,9 @@
     "tickBuffer": {
       "flushIntervalMs": 500,
       "flushThreshold": 100,
-      "batchSize": 500
+      "batchSize": 500,
+      "alertThresholdRows": 100000,
+      "alertReAlertMs": 600000
     },
     "wssDownGuardMs": 900000,
     "downGuardSelfHealMs": 300000,

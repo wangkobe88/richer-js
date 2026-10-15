@@ -654,6 +654,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (this._tokenPositionAnalyzer) {
         collector._onTickBuffered = (tickRow) => this._tokenPositionAnalyzer.ingestLiveTick(tickRow);
       }
+      // tickBuffer 高水位转发（批次 3a）：collector 侧已打 error 日志+stats 峰值/计数，
+      // 这里只在 live Telegram 通知器可用时补值班通道（virtual/backtest 恒 null=零变化）；
+      // fire-and-forget，推送失败不打日志（collector error 日志已是主告警）
+      collector._onTickBufferHighWatermark = (len) => {
+        if (!this._telegramNotifier) return;
+        Promise.resolve(this._telegramNotifier.sendMessage(
+          `⚠️ [${this._experimentId}] TickBuffer高水位\n${platform} collector buffer=${len}——落库速度跟不上，绝不丢行`
+        )).catch(() => {});
+      };
       collector._platformLabel = platform; // 日志/getStats 标签
       this._collectors.push(collector);
     }
