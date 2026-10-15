@@ -1892,20 +1892,31 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
 
         // K 组：对敲重叠（双边地址并集上的两栖占比；量口径抗人头稀释）
+        // 两趟无分配遍历（2026-10-15 批次 5a）：旧 new Set([...buyers,...sellers]) 物化
+        // 并集每 build 一次纯分配浪费。迭代序与旧 Set 迭代序恒同（buyers 插入序 →
+        // sellers 中非 buyer 插入序），_v 取值表达式逐字不变 → 浮点加法链 bit 一致；
+        // 并集大小=计数。依赖键集不变式 _buyerVolume≡_buyerAddresses /
+        // _sellerVolume≡_sellerAddresses（processTick 同点成对写）
         let counterpartyOverlapRate = 0, counterpartyOverlapVolume = 0;
         {
-            const _all = new Set([...state._buyerAddresses, ...state._sellerAddresses]);
-            if (_all.size > 0) {
-                let _overlap = 0, _unionVol = 0, _interVol = 0;
-                for (const _addr of _all) {
-                    const _v = (state._buyerVolume.get(_addr) || 0) + (state._sellerVolume.get(_addr) || 0);
-                    _unionVol += _v;
-                    if (state._buyerAddresses.has(_addr) && state._sellerAddresses.has(_addr)) {
-                        _overlap++;
-                        _interVol += _v;
-                    }
+            let _overlap = 0, _unionCount = 0, _unionVol = 0, _interVol = 0;
+            for (const _addr of state._buyerAddresses) {
+                const _v = (state._buyerVolume.get(_addr) || 0) + (state._sellerVolume.get(_addr) || 0);
+                _unionCount++;
+                _unionVol += _v;
+                if (state._sellerAddresses.has(_addr)) {
+                    _overlap++;
+                    _interVol += _v;
                 }
-                counterpartyOverlapRate = _overlap / _all.size;
+            }
+            for (const _addr of state._sellerAddresses) {
+                if (state._buyerAddresses.has(_addr)) continue; // 两栖地址已入第一趟
+                const _v = (state._buyerVolume.get(_addr) || 0) + (state._sellerVolume.get(_addr) || 0);
+                _unionCount++;
+                _unionVol += _v;
+            }
+            if (_unionCount > 0) {
+                counterpartyOverlapRate = _overlap / _unionCount;
                 counterpartyOverlapVolume = _unionVol > 0 ? _interVol / _unionVol : 0;
             }
         }
