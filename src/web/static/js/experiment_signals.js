@@ -30,6 +30,11 @@ class ExperimentSignals {
     this.candleChart = null;
     this.candleVolumeChart = null;
 
+    // 🔥 Holder 走势图（2026-10-15 ticks 化重建：/api/tokens/holder-series 全量重放，
+    // 与引擎 holderCount 同口径；不再依赖已停写的 experiment_time_series_data 时序表）
+    this.holderChart = null;
+    this._lastHolderSeries = null; // 缓存 holder 序列（窗口切换不重新 fetch）
+
     // 🔥 区块链信息（用于生成GMGN链接）
     this.blockchain = 'bsc';  // 默认BSC
 
@@ -166,6 +171,7 @@ class ExperimentSignals {
     if (this._lastTickData && this._lastToken) {
       this.initBubbleChart(this._lastTickData, this._lastToken);
       this.initCandleChart(this._lastTickData, this._lastToken);
+      this._renderHolderForWindow();
     }
   }
 
@@ -180,6 +186,7 @@ class ExperimentSignals {
     if (this._lastTickData && this._lastToken) {
       this.initBubbleChart(this._lastTickData, this._lastToken);
       this.initCandleChart(this._lastTickData, this._lastToken);
+      this._renderHolderForWindow();
     }
   }
 
@@ -238,6 +245,7 @@ class ExperimentSignals {
 
       this.initBubbleChart(all, token);
       this.initCandleChart(all, token);
+      this._renderHolderForWindow();
 
       if (btn) btn.textContent = `已加载全量 ${all.length} 条`;
     } catch (error) {
@@ -544,21 +552,31 @@ class ExperimentSignals {
       const chartWrapper = document.getElementById('kline-chart-wrapper');
       if (chartWrapper) chartWrapper.style.display = 'block';
 
-      // tick 数据拉取（experiment_time_series_data 时序表 2026-10-15 停写，Holder 走势图整链已移除）
-      const tickResponse = await this.fetchTickData(token.address);
+      // tick 散点/K线 与 Holder 走势序列并行拉取（Holder=ticks 全量重放重建，
+      // 与引擎 holderCount 同口径；不依赖已停写的 experiment_time_series_data）
+      const [tickResponse, holderResponse] = await Promise.all([
+        this.fetchTickData(token.address),
+        this.fetchHolderSeries(token.address),
+      ]);
       // 切换代币后过期响应直接丢弃
       if (this.selectedToken !== token.address) return;
+
+      this._lastHolderSeries = (holderResponse?.success && Array.isArray(holderResponse.data))
+        ? holderResponse.data
+        : [];
 
       if (!tickResponse?.success || !tickResponse?.data?.length) {
         console.warn('⚠️ 没有 tick 数据，隐藏图表');
         if (chartWrapper) chartWrapper.style.display = 'none';
         const candleWrapper = document.getElementById('candle-chart-wrapper');
         if (candleWrapper) candleWrapper.classList.add('hidden');
+        this._renderHolderForWindow(); // 价格图缺数据不影响 Holder 图独立展示
         return;
       }
 
       this.initBubbleChart(tickResponse.data, token);
       this.initCandleChart(tickResponse.data, token);
+      this._renderHolderForWindow();
 
       console.log(`✅ Tick charts loaded for ${token.symbol}, ${tickResponse.data.length} ticks`);
     } catch (error) {
@@ -571,6 +589,8 @@ class ExperimentSignals {
       }
       const candleWrapper = document.getElementById('candle-chart-wrapper');
       if (candleWrapper) candleWrapper.classList.add('hidden');
+      const holderChartWrapper = document.getElementById('holder-chart-wrapper');
+      if (holderChartWrapper) holderChartWrapper.style.display = 'none';
     }
   }
 
@@ -587,6 +607,233 @@ class ExperimentSignals {
     } catch (error) {
       console.error('获取tick数据失败:', error);
       return { success: false, data: [] };
+    }
+  }
+
+  /**
+   * 拉取 Holder 走势序列（后端 wss_price_ticks 全量重放，与引擎 holderCount 同口径）
+   * @param {string} tokenAddress
+   * @returns {Promise<{success: boolean, data: Array<{t:number, holders:number}>}>}
+   */
+  async fetchHolderSeries(tokenAddress) {
+    try {
+      const params = new URLSearchParams({ tokenAddress });
+      const response = await fetch(`/api/tokens/holder-series?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('获取 Holder 序列失败:', error);
+      return { success: false, data: [] };
+    }
+  }
+
+  /**
+   * 用最近一次窗口（散点图/K线图同口径）渲染 Holder 走势图
+   * 窗口外数据剔除，保持三图 X 轴显示范围一致；窗口内无点时回退全量
+   */
+  _renderHolderForWindow() {
+    if (!this._lastToken) return;
+    const all = this._lastHolderSeries;
+    if (!Array.isArray(all) || !all.length) {
+      this.showHolderPlaceholder('暂无 Holder 数据');
+      return;
+    }
+    const win = this._lastWindow;
+    const windowed = win
+      ? all.filter(p => Number.isFinite(p.t) && p.t >= win.trimStart && p.t <= win.trimEnd)
+      : all;
+    this.initHolderChart(windowed.length > 0 ? windowed : all, this._lastToken, win || undefined);
+  }
+
+  /**
+   * Holder 走势图（ticks 重放重建版）
+   * @param {Array<{t:number, holders:number}>} series 后端重放的 holder 时序（时间单调升）
+   * @param {Object} token
+   * @param {{trimStart:number, trimEnd:number}} [win] 当前展示窗口（信号标注只画窗口内）
+   */
+  initHolderChart(series, token, win) {
+    try {
+      const chartWrapper = document.getElementById('holder-chart-wrapper');
+      if (chartWrapper) {
+        chartWrapper.classList.remove('hidden');
+        chartWrapper.style.display = 'block';
+      }
+
+      let canvas = document.getElementById('holder-chart');
+      if (!canvas) {
+        const chartContainer = chartWrapper ? chartWrapper.querySelector('.chart-container') : null;
+        if (!chartContainer) {
+          console.error('❌ 找不到 holder chart container');
+          return;
+        }
+        canvas = document.createElement('canvas');
+        canvas.id = 'holder-chart';
+        chartContainer.innerHTML = '';
+        chartContainer.appendChild(canvas);
+      }
+      canvas.style.display = 'block';
+
+      if (this.holderChart) {
+        this.holderChart.destroy();
+        this.holderChart = null;
+      }
+
+      const points = series
+        .filter(p => Number.isFinite(p.t) && Number.isFinite(p.holders))
+        .map(p => ({ x: p.t, y: p.holders }));
+      if (!points.length) {
+        this.showHolderPlaceholder('暂无 Holder 数据');
+        return;
+      }
+
+      // 信号标注：买卖垂直线直接画在信号时刻——不绑数据点宿主（降采样后点距
+      // 可能远大于信号间隔，原时序版 30s 宿主匹配的形状在 ticks 重建版会丢标注）
+      const annotations = [];
+      const tokenSignals = this.signals.filter(s =>
+        (s.token_address || s.tokenAddress) === token.address
+      );
+      tokenSignals.forEach(signal => {
+        const signalTime = new Date(signal.timestamp || signal.created_at).getTime();
+        if (!Number.isFinite(signalTime)) return;
+        if (win && (signalTime < win.trimStart || signalTime > win.trimEnd)) return;
+
+        const signalType = signal.signal_type || signal.action?.toUpperCase();
+        const isBuy = signalType === 'BUY';
+        const isExecuted = signal.executed === true || signal.executed === 'true';
+
+        let borderColor, borderWidth, borderDash, labelText;
+        if (isExecuted) {
+          borderColor = isBuy ? '#22c55e' : '#dc2626'; // 深绿/深红
+          borderWidth = 3;
+          borderDash = [];
+          labelText = (isBuy ? '买入' : '卖出') + ' ✓';
+        } else {
+          borderColor = isBuy ? '#86efac' : '#fca5a5'; // 浅绿/浅红
+          borderWidth = 2;
+          borderDash = [5, 5];
+          labelText = (isBuy ? '买入' : '卖出') + ' ✗';
+        }
+
+        annotations.push({
+          type: 'line',
+          xMin: signalTime,
+          xMax: signalTime,
+          yMin: 0,
+          yMax: 'max',
+          borderColor: borderColor,
+          borderWidth: borderWidth,
+          borderDash: borderDash,
+          label: {
+            display: true,
+            content: labelText,
+            position: 'start',
+            backgroundColor: borderColor,
+            color: '#fff',
+            font: {
+              size: isExecuted ? 12 : 11,
+              weight: isExecuted ? 'bold' : 'normal'
+            }
+          }
+        });
+      });
+
+      const ctx = canvas.getContext('2d');
+      this.holderChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: `${token.symbol || ''} Holders`,
+            data: points,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            annotation: {
+              annotations: annotations
+            },
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                title(items) {
+                  if (!items.length) return '';
+                  return new Date(items[0].parsed.x).toLocaleString('zh-CN');
+                },
+                label: (context) => {
+                  const value = context.parsed.y;
+                  return (value !== null && value !== undefined) ? `Holders: ${value}` : 'Holders: N/A';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                displayFormats: {
+                  minute: 'HH:mm',
+                  hour: 'MM-dd HH:mm'
+                }
+              },
+              title: {
+                display: true,
+                text: '时间'
+              }
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Holders 数量'
+              }
+            }
+          }
+        }
+      });
+
+      console.log(`✅ Holder 走势图已初始化（ticks 重建），${points.length} 个数据点 / ${annotations.length} 个信号标记`);
+    } catch (error) {
+      console.error('❌ initHolderChart 失败:', error);
+      this.showHolderPlaceholder('图表初始化失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 显示 Holder 图表占位符
+   * @param {string} message - 提示消息
+   */
+  showHolderPlaceholder(message) {
+    const chartWrapper = document.getElementById('holder-chart-wrapper');
+    if (!chartWrapper) return;
+    // 有占位仍展示卡片区域（用户已知该 token 无 Holder 数据，而非图被删了）
+    chartWrapper.classList.remove('hidden');
+    chartWrapper.style.display = 'block';
+    const chartContainer = chartWrapper.querySelector('.chart-container');
+    if (chartContainer) {
+      chartContainer.innerHTML = `
+        <div id="holder-chart-placeholder" class="flex items-center justify-center h-full text-gray-400">${message}</div>
+      `;
+    }
+    if (this.holderChart) {
+      this.holderChart.destroy();
+      this.holderChart = null;
     }
   }
 

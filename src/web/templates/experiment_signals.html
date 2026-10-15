@@ -285,6 +285,16 @@
                     <div style="height:140px; padding:0 12px 12px;"><canvas id="candle-volume-chart"></canvas></div>
                 </div>
 
+                <!-- Holder走势图（wss_price_ticks 全量重放重建，与引擎 holderCount 同口径；不再依赖已停写的时序快照表） -->
+                <div id="holder-chart-wrapper" class="hidden bg-gray-800 rounded-lg border border-gray-700 mb-4">
+                    <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-lg font-semibold text-white">Holder走势与交易信号</h2>
+                        <span class="text-xs text-gray-400">ticks 重放重建 · 实线=已执行信号 · 虚线=未执行</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="holder-chart"></canvas>
+                    </div>
+                </div>
 
                 <!-- 信号筛选控件 -->
                 <div id="signal-filters" class="bg-gray-800 rounded-lg p-4 mb-8 border border-gray-700">

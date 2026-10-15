@@ -108,14 +108,17 @@ console.log('D 节：web-server 路由零残留');
 console.log('E 节：前端消费链零残留');
 {
   const signals = read('src/web/static/js/experiment_signals.js');
-  check('E1 signals 页 Holder 图链零残留（时序表是唯一数据源）', () => {
-    for (const pat of ['initHolderChart', '_renderHolderForWindow', 'fetchTimeSeriesData', 'showHolderPlaceholder', 'holder-chart-wrapper']) {
+  // 2026-10-15 Holder 走势图按用户裁定恢复（ticks 重建版，数据源=/api/tokens/holder-series，
+  // 见 _test_holder_series_rebuild.cjs）——此处只锁时序表依赖零回流，不再锁 holder 重建链
+  check('E1 signals 页时序表 API 依赖零残留（Holder 图已改 ticks 重建源）', () => {
+    for (const pat of ['fetchTimeSeriesData', '/api/experiment/time-series']) {
       if (signals.includes(pat)) throw new Error(`残留: ${pat}`);
     }
   });
   const signalsHtml = read('src/web/templates/experiment_signals.html');
-  check('E2 signals 页 html holder-chart 容器零残留', () => {
-    if (signalsHtml.includes('holder-chart')) throw new Error('holder-chart 容器残留');
+  check('E2 signals 页 html holder-chart 容器在（ticks 重建版恢复）且不引用时序端点', () => {
+    if (!signalsHtml.includes('id="holder-chart-wrapper"')) throw new Error('holder-chart 容器缺失（走势图被误删）');
+    if (signalsHtml.includes('time-series')) throw new Error('时序端点引用残留');
   });
   const trades = read('src/web/static/js/experiment_trades.js');
   check('E3 trades 页时序价格线图链零残留（trades-K线链 initTradeKlineChart 刻意保留）', () => {

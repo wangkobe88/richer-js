@@ -20,6 +20,7 @@ const { TokenHolderDataService } = require('./web/services/TokenHolderDataServic
 const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisDataService');
 const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
+const { buildHolderSeries } = require('./web/services/holder-series');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
@@ -2499,6 +2500,60 @@ class RicherJsWebServer {
         });
       } catch (error) {
         this.logger.error('WebServer', '获取tick数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // Holder 走势图数据（2026-10-15 ticks 化重建）：单 token 全量 ticks 重放 holderCount
+    // 时序，口径与 FA _applyWalletAggregation bit 一致（五要素见 holder-series.js 头注）。
+    // 全局口径不挂实验（holderCount 是 token 全局属性，虚拟/回测实验同图同值）；
+    // 不复用 /api/ticks（其 price_outlier/price_usd 过滤是价格图口径，holder 重放须含全行）。
+    this.app.get('/api/tokens/holder-series', async (req, res) => {
+      try {
+        const { tokenAddress } = req.query;
+        if (!tokenAddress) {
+          return res.status(400).json({ success: false, error: '缺少必需参数: tokenAddress' });
+        }
+
+        const supabase = this.dataService.supabase; // dbManager service key（RLS 红线）
+
+        const PAGE = 5000;
+        const MAX_ROWS = 500000; // 行数护栏 fail-loud：静默截断会画失真曲线
+        const rows = [];
+        let offset = 0;
+        while (true) {
+          // offset 按实际返回推进 + count total 终止：单页可能被托管层截到 < PAGE，
+          // 按 page.length < PAGE 提前退出会漏页（signals 页加载全量同款坑）
+          const { data, error, count } = await supabase
+            .from('wss_price_ticks')
+            .select('block_time, block_number, log_index, trade_type, token_amount, bnb_amount, sender_address, trader_address', { count: 'exact' })
+            .eq('token_address', tokenAddress)
+            .order('block_time', { ascending: true })
+            .range(offset, offset + PAGE - 1);
+          if (error) throw error;
+
+          const page = data || [];
+          rows.push(...page);
+          offset += page.length;
+          const total = Number.isFinite(count) ? count : null;
+          if (!page.length || (total !== null && rows.length >= total)) break;
+          if (rows.length > MAX_ROWS) {
+            return res.status(400).json({
+              success: false,
+              error: `token ticks 行数超护栏 ${MAX_ROWS}（已拉 ${rows.length}），拒绝重建`,
+            });
+          }
+        }
+
+        const series = buildHolderSeries(rows);
+        this.logger.info('WebServer', `holder-series 重建: ${tokenAddress} rows=${series.totalRows} points=${series.points.length} holders=${series.holders}`);
+        res.json({
+          success: true,
+          data: series.points,
+          meta: { totalRows: series.totalRows, holders: series.holders },
+        });
+      } catch (error) {
+        this.logger.error('WebServer', 'holder-series 重建失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
