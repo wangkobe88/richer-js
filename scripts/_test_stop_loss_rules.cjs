@@ -53,21 +53,29 @@ function makeEngine(fields = {}) {
 console.log('A. _stopLossHit 判定矩阵（time=60min / price=-50）');
 {
   const eng = makeEngine({ _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: -50 });
-  check('未启用 → null', makeEngine()._stopLossHit({ profitPercent: -90, holdDuration: 99999 }), null);
-  check('价格命中 -51 <= -50', eng._stopLossHit({ profitPercent: -51, holdDuration: 100 }).kind, 'price');
-  check('价格边界恰 -50（<= 含等值）', eng._stopLossHit({ profitPercent: -50, holdDuration: 100 }).kind, 'price');
-  check('-49 未到价（time 未触发条件）→ null', eng._stopLossHit({ profitPercent: -49, holdDuration: 100 }), null);
-  check('时间命中 61min 且亏损', eng._stopLossHit({ profitPercent: -1, holdDuration: 3601 }).kind, 'time');
-  check('浅亏 -0.1% 也算亏损（时间腿）', eng._stopLossHit({ profitPercent: -0.1, holdDuration: 3601 }).kind, 'time');
-  check('超时但盈利 → null', eng._stopLossHit({ profitPercent: 1, holdDuration: 3700 }), null);
-  check('超时 + 恰 0% → time 命中（<=0，断流冻结票盘古案盲区）', eng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }).kind, 'time');
-  check('亏损但未超时（59min）→ null', eng._stopLossHit({ profitPercent: -30, holdDuration: 3540 }), null);
-  check('双命中取 price（更深的优先标注）', eng._stopLossHit({ profitPercent: -60, holdDuration: 3700 }).kind, 'price');
-  check('profit null → null', eng._stopLossHit({ profitPercent: null, holdDuration: 3700 }), null);
-  check('hold null 时价格腿仍可判', eng._stopLossHit({ profitPercent: -60, holdDuration: null }).kind, 'price');
+  // 2026-10-15 双口径：时间臂改读 realHoldDuration（物理持有时长——止损语义=持有
+  // 超时，须真实成交起算；holdDuration 信号口径不参与止损判定）
+  check('未启用 → null', makeEngine()._stopLossHit({ profitPercent: -90, realHoldDuration: 99999 }), null);
+  check('价格命中 -51 <= -50', eng._stopLossHit({ profitPercent: -51, realHoldDuration: 100 }).kind, 'price');
+  check('价格边界恰 -50（<= 含等值）', eng._stopLossHit({ profitPercent: -50, realHoldDuration: 100 }).kind, 'price');
+  check('-49 未到价（time 未触发条件）→ null', eng._stopLossHit({ profitPercent: -49, realHoldDuration: 100 }), null);
+  check('时间命中 61min 且亏损', eng._stopLossHit({ profitPercent: -1, realHoldDuration: 3601 }).kind, 'time');
+  check('浅亏 -0.1% 也算亏损（时间腿）', eng._stopLossHit({ profitPercent: -0.1, realHoldDuration: 3601 }).kind, 'time');
+  check('超时但盈利 → null', eng._stopLossHit({ profitPercent: 1, realHoldDuration: 3700 }), null);
+  check('超时 + 恰 0% → time 命中（<=0，断流冻结票盘古案盲区）', eng._stopLossHit({ profitPercent: 0, realHoldDuration: 3700 }).kind, 'time');
+  check('亏损但未超时（59min）→ null', eng._stopLossHit({ profitPercent: -30, realHoldDuration: 3540 }), null);
+  check('双命中取 price（更深的优先标注）', eng._stopLossHit({ profitPercent: -60, realHoldDuration: 3700 }).kind, 'price');
+  check('profit null → null', eng._stopLossHit({ profitPercent: null, realHoldDuration: 3700 }), null);
+  check('hold null 时价格腿仍可判', eng._stopLossHit({ profitPercent: -60, realHoldDuration: null }).kind, 'price');
+  // 双口径锁定：时间臂只认 realHoldDuration——信号口径 holdDuration 超时而物理未超时
+  // 不触发（防 fire→成交延迟被重复计入持有）；反向物理超时即触发
+  check('信号口径超时但物理未超时 → null（时间臂只认 realHoldDuration）',
+    eng._stopLossHit({ profitPercent: -1, holdDuration: 3700, realHoldDuration: 100 }), null);
+  check('物理超时（信号口径很短）→ time',
+    eng._stopLossHit({ profitPercent: -1, holdDuration: 100, realHoldDuration: 3700 }).kind, 'time');
   // 仅配单腿
   const onlyTime = makeEngine({ _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: null });
-  check('仅时间腿：深亏 -80 不触发价格（未配）', onlyTime._stopLossHit({ profitPercent: -80, holdDuration: 100 }), null);
+  check('仅时间腿：深亏 -80 不触发价格（未配）', onlyTime._stopLossHit({ profitPercent: -80, realHoldDuration: 100 }), null);
 }
 
 // ═══ B. _emitStopLossSell strategy 构造 ═══
@@ -233,13 +241,15 @@ console.log('E. BacktestEngine 止损双腿（回测版，虚拟时钟）');
     });
   }
 
-  // E1 判定矩阵（与实时引擎逐字一致）
+  // E1 判定矩阵（与实时引擎逐字一致；2026-10-15 时间臂同改 realHoldDuration）
   const btEng = makeBacktestEngine({ _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: -50 });
-  check('回测·价格命中 -51', btEng._stopLossHit({ profitPercent: -51, holdDuration: 100 }).kind, 'price');
-  check('回测·时间命中 61min 亏 0%（<=0 盘古案）', btEng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }).kind, 'time');
-  check('回测·超时盈利 null', btEng._stopLossHit({ profitPercent: 5, holdDuration: 3700 }), null);
-  check('回测·未启用 null', makeBacktestEngine()._stopLossHit({ profitPercent: -90, holdDuration: 99999 }), null);
-  check('回测·双命中取 price', btEng._stopLossHit({ profitPercent: -60, holdDuration: 3700 }).kind, 'price');
+  check('回测·价格命中 -51', btEng._stopLossHit({ profitPercent: -51, realHoldDuration: 100 }).kind, 'price');
+  check('回测·时间命中 61min 亏 0%（<=0 盘古案）', btEng._stopLossHit({ profitPercent: 0, realHoldDuration: 3700 }).kind, 'time');
+  check('回测·超时盈利 null', btEng._stopLossHit({ profitPercent: 5, realHoldDuration: 3700 }), null);
+  check('回测·未启用 null', makeBacktestEngine()._stopLossHit({ profitPercent: -90, realHoldDuration: 99999 }), null);
+  check('回测·双命中取 price', btEng._stopLossHit({ profitPercent: -60, realHoldDuration: 3700 }).kind, 'price');
+  check('回测·时间臂只认 realHoldDuration（与实时引擎同口径）',
+    btEng._stopLossHit({ profitPercent: -1, holdDuration: 3700, realHoldDuration: 100 }), null);
 
   // E2 _emitStopLossSell：nowTs 签名（5 参）+ 全清语义
   let captured = null;

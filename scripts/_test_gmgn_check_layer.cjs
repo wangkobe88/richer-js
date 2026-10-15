@@ -228,7 +228,7 @@ async function main() {
           getCurrentRound: () => 0,
           getLastPairReturnRate: () => 0,
         },
-        _factorAggregator: { getTokenState: () => null },
+        _factorAggregator: { getTokenState: () => null, markBuyFire: () => {}, clearBuyFire: () => {} },
         logger: { info: () => {}, warn: () => {}, error: () => {} },
         _narrativeCaller: {
           async getRating() {

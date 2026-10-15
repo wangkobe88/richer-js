@@ -33,7 +33,18 @@ function buildFactorValuesForTimeSeries(factorResults) {
     earlyReturn: factorResults.earlyReturn,
     riseSpeed: factorResults.riseSpeed,
     buyPrice: factorResults.buyPrice,
+    // 双时长（2026-10-15 用户裁定）：holdDuration=信号（fire）时刻起算（条件触发口径）；
+    // realHoldDuration=成交时刻起算（物理持有）。旧 FA/无仓 → null 不掩盖
     holdDuration: factorResults.holdDuration,
+    realHoldDuration: factorResults.realHoldDuration ?? null,
+    // 双口径执行键（2026-10-15）：buySignalAt=fire 时刻 ms / buyExecutedAt=成交时刻 ms /
+    // buyExecutedPriceBnb=live 余额差法成交价（虚拟/回测 null=执行价即信号价无独立真相）；
+    // 顺手补 peakProfitPct/buyPriceBnb 两审计键（P11 回撤臂复盘需要）
+    buySignalAt: factorResults.buySignalAt ?? null,
+    buyExecutedAt: factorResults.buyExecutedAt ?? null,
+    buyExecutedPriceBnb: factorResults.buyExecutedPriceBnb ?? null,
+    peakProfitPct: factorResults.peakProfitPct ?? null,
+    buyPriceBnb: factorResults.buyPriceBnb ?? null,
     profitPercent: factorResults.profitPercent,
     highestPrice: factorResults.highestPrice,
     highestPriceTimestamp: factorResults.highestPriceTimestamp,

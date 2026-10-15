@@ -258,7 +258,7 @@
                     <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h2 class="text-lg font-semibold text-white">Tick 交易散点图与交易信号</h2>
-                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行</span>
+                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             <span class="text-gray-400 whitespace-nowrap">只显示代币发出后</span>
@@ -279,7 +279,7 @@
                 <div id="candle-chart-wrapper" class="hidden bg-gray-800 rounded-lg border border-gray-700 mb-4">
                     <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-lg font-semibold text-white">K线图（按区块 OHLC + 买卖信号）</h2>
-                        <span class="text-xs text-gray-400">每根=一个区块 · 绿涨红跌 · 实线=已执行信号 · 虚线=未执行</span>
+                        <span class="text-xs text-gray-400">每根=一个区块 · 绿涨红跌 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）</span>
                     </div>
                     <div style="height:360px; padding:12px;"><canvas id="candle-chart"></canvas></div>
                     <div style="height:140px; padding:0 12px 12px;"><canvas id="candle-volume-chart"></canvas></div>
@@ -289,7 +289,7 @@
                 <div id="holder-chart-wrapper" class="hidden bg-gray-800 rounded-lg border border-gray-700 mb-4">
                     <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-2">
                         <h2 class="text-lg font-semibold text-white">Holder走势与交易信号</h2>
-                        <span class="text-xs text-gray-400">ticks 重放重建 · 实线=已执行信号 · 虚线=未执行</span>
+                        <span class="text-xs text-gray-400">ticks 重放重建 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻</span>
                     </div>
                     <div class="chart-container">
                         <canvas id="holder-chart"></canvas>
@@ -418,6 +418,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.22"></script>
-    <script src="/static/js/experiment_signals.js?v=4.23"></script>
+    <script src="/static/js/experiment_signals.js?v=4.24"></script>
 </body>
 </html>

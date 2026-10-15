@@ -1657,6 +1657,11 @@ class BacktestEngine extends AbstractTradingEngine {
         return { success: false, reason: '无有效价格' };
       }
 
+      // 双口径对称（2026-10-15）：fire 时刻标记 pending 峰——串行回放 mark 与
+      // setBuyState 之间零 tick（inflight evals await 后才进下一 processTick），
+      // pending 峰恒=fire 价 → setBuyState 回填 max(fire,current)=旧行为 bit 一致
+      this._factorAggregator.markBuyFire(token.token, factorResults.currentPriceBnb || 0);
+
       // 信号先落库（预检查失败也留痕），时间戳用回放时点
       const signal = {
         action: 'buy',
@@ -2025,6 +2030,9 @@ class BacktestEngine extends AbstractTradingEngine {
           buyPriceBnb: faState?.currentPriceBnb || 0,
           buyPriceUsd: latestPrice,
           buyTime: nowTs,
+          // 双口径对称（2026-10-15）：fire==成交同 tick → signalAt=buyTime（holdDuration
+          // 公式 bit 一致）；回测执行=信号价无独立执行价 → buyExecutedPriceBnb 缺省 null
+          buySignalAt: nowTs,
         });
 
         this._bufferSignalUpdate(signalId, { executed: true, metadata: { execution_status: 'executed' } });
@@ -2050,6 +2058,8 @@ class BacktestEngine extends AbstractTradingEngine {
       return { success: false, reason: result?.reason || result?.message || '交易执行失败' };
     } finally {
       this._buyingTokens.delete(tokenAddress);
+      // pending fire 峰兜底清理（成功路径 setBuyState 已消费；失败/异常防残峰）
+      this._factorAggregator.clearBuyFire(tokenAddress);
     }
   }
 
@@ -2059,12 +2069,14 @@ class BacktestEngine extends AbstractTradingEngine {
    * 引擎级止损双腿判定（与实时引擎 FourMemeWssTradingEngine._stopLossHit 逐字一致；
    * 配置 stopLoss 段启用；纯读 factors 不动状态）。返回命中描述或 null；price 先判
    * （两条同时命中时标注更深的那条，全清同效）。因子口径与策略腿同源：
-   * profitPercent=相对 FA buyState 成本（%）/ holdDuration=秒。时间腿 <=0 而非 <0。
+   * profitPercent=相对 FA buyState 成本（%）/ realHoldDuration=物理持有秒
+   * （2026-10-15 双口径：holdDuration 已改信号口径起算，回测两值恒等零影响）。
+   * 时间腿 <=0 而非 <0。
    */
   _stopLossHit(factors) {
     if (!this._stopLossEnabled) return null;
     const profit = factors.profitPercent;
-    const hold = factors.holdDuration;
+    const hold = factors.realHoldDuration;
     if (this._stopLossPricePct != null && Number.isFinite(profit) && profit <= this._stopLossPricePct) {
       return { kind: 'price', profitPercent: profit };
     }

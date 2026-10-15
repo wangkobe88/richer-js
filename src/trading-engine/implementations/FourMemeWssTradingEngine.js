@@ -1576,6 +1576,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const firePriceBnb = Number.isFinite(factorResults.currentPriceBnb) && factorResults.currentPriceBnb > 0
         ? factorResults.currentPriceBnb : null;
 
+      // 双口径裁定（2026-10-15，0xc7fe…7777 案）：fire 时刻开启 pending 峰追踪——
+      // preBuy/GMGN 检查窗（live 实测 10-17s）内的冲高由 FA 双轨推进记账，买入成功
+      // setBuyState 消费回填（信号口径峰值从 fire 起算）；失败路径 finally 兜底清理
+      this._factorAggregator.markBuyFire(token.token, firePriceBnb || factorResults.currentPriceBnb || 0);
+
       // ── 信号先落库 ──
       const signal = {
         action: 'buy',
@@ -1913,13 +1918,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // FA 持仓锚点（per-position 止盈/止损因子原料；单仓 'default'）。
         // buyPriceBnb = fire 时刻因子价（2026-10-13 口径统一裁定；fire 后市场移动
         // 不再漂移成本锚）；fire 价缺失（quote 映射未就绪等）回落执行时刻价旧口径。
-        // highestPriceSinceBuyBnb 在 setBuyState 内以 max(成本, 现价) 初始化——
-        // fire→执行间的真实价格史不回撤（peakProfitPct 含 preBuy 窗内冲高）
+        // buySignalAt=信号（fire）时刻——holdDuration 因子起算锚（2026-10-15 双口径
+        // 裁定）；buyExecutedPriceBnb=live 余额差法成交价（虚拟无独立执行价 → null）。
+        // pending fire 峰在 setBuyState 内消费回填 highestPriceSinceBuyBnb/peakProfitPct
+        //（preBuy 窗内冲高计入信号口径峰值）
         const faState = this._factorAggregator.getTokenState(token.token);
         this._factorAggregator.setBuyState(token.token, {
           buyPriceBnb: firePriceBnb || faState?.currentPriceBnb || 0,
           buyPriceUsd: execPriceUsd,
           buyTime: Date.now(),
+          buySignalAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : Date.now(),
+          buyExecutedPriceBnb: result.priceBnb ?? null,
         });
 
         // 毕业竞态补卖（盘古案 2026-09-28，virtual）：graduation 事件先于买入到达时
@@ -1940,6 +1949,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       return { success: false, reason: result?.reason || result?.message || '交易执行失败' };
     } finally {
       this._buyingTokens.delete(tokenAddress);
+      // pending fire 峰兜底清理：成功路径 setBuyState 已消费（此处 no-op），失败/异常
+      // 路径防残峰跨 fire 窗污染下一次回填
+      this._factorAggregator.clearBuyFire(tokenAddress);
     }
   }
 
@@ -1948,13 +1960,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   /**
    * 引擎级止损双腿判定（配置 stopLoss 段启用；纯读 factors 不动状态）。
    * 返回命中描述或 null；price 先判（两条同时命中时标注更深的那条，全清同效）。
-   * 因子口径与策略腿同源：profitPercent=相对 FA buyState 成本（%）/ holdDuration=秒。
+   * 因子口径与策略腿同源：profitPercent=相对 FA buyState 成本（%）/ realHoldDuration=
+   * 物理持有秒（2026-10-15 双口径：holdDuration 已改信号口径起算，时间止损语义=
+   * 成交后 N 秒仍亏损 → 用 realHoldDuration，虚拟/回测两值恒等零影响）。
    * 时间腿 <=0 而非 <0：断流冻结票 FA 价格不动 profit 恒 0，<0 永不触发（盘古案盲区）
    */
   _stopLossHit(factors) {
     if (!this._stopLossEnabled) return null;
     const profit = factors.profitPercent;
-    const hold = factors.holdDuration;
+    const hold = factors.realHoldDuration;
     if (this._stopLossPricePct != null && Number.isFinite(profit) && profit <= this._stopLossPricePct) {
       return { kind: 'price', profitPercent: profit };
     }
@@ -2509,9 +2523,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 实际成交数量：receipt 解析为准，失败按信号价估算（bnbUsd 沿用上方锚定值）
       let actualTokenAmount = parseFloat(buyResult.actualAmountOut);
       if (!isFinite(actualTokenAmount) || actualTokenAmount <= 0) {
-        const fallbackPrice = signal.price || 0;
-        actualTokenAmount = fallbackPrice > 0
-          ? new Decimal(amountInBNB).div(fallbackPrice).toNumber() : 0;
+        actualTokenAmount = this._estimateBuyTokenOut(amountInBNB, signal.price || 0, bnbUsd);
         this.logger.warn(this._experimentId, '_executeBuyLive',
           `实际成交数量未知（receipt 解析失败），按信号价估算 ${actualTokenAmount}`);
       }
@@ -2521,6 +2533,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const actualPriceUsd = bnbUsd > 0
         ? new Decimal(amountInBNB).mul(bnbUsd).div(actualTokenAmount).toNumber()
         : (signal.price || 0);
+      // 执行口径 BNB 价（2026-10-15 双口径因子 buyExecutedPriceBnb 原料；与 USD 价
+      // 同源——余额差法 amountIn/actualTokenAmount，免汇率）
+      const actualPriceBnb = new Decimal(amountInBNB).div(actualTokenAmount).toNumber();
 
       await this._liveRecordTrade('buy', signal, actualTokenAmount, actualPriceUsd);
 
@@ -2570,12 +2585,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 成功清零连败（竞争型「2 败 1 成」翻正不拉黑——喝水小猴/龙龙币一实证模式）
       this._buyFailStreak.delete(signal.tokenAddress);
 
-      return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd };
+      return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd, priceBnb: actualPriceBnb };
     } catch (error) {
       this.logger.error(this._experimentId, '_executeBuyLive', `异常 | ${error.message}`);
       this._registerBuyFailure(signal, error.message);
       return { success: false, reason: error.message || 'live 买入执行异常', error: error.message };
     }
+  }
+
+  /**
+   * 买腿 receipt 解析失败时的成交数量估算（2026-10-15 妹珠 0xa4b8…7777 案）：
+   * signal.price 是 USD/token 口径、amountInBNB 是 BNB——必须 ×bnbUsd 换算（与上方
+   * expectedTokenOut 同公式）。旧版漏乘 → 数量低估 bnbUsd 倍（719×）：链上实收
+   * 603,940 记账 847 → PM 按错误账面只卖 847，残仓 603,093 滞留钱包。锚缺失
+   * （price/bnbUsd 任一 ≤0）返回 0 → 上游「成交数量无效」失败，不写错账。
+   */
+  _estimateBuyTokenOut(amountInBNB, signalPriceUsd, bnbUsd) {
+    if (!(signalPriceUsd > 0) || !(bnbUsd > 0)) return 0;
+    return new Decimal(amountInBNB).mul(bnbUsd).div(signalPriceUsd).toNumber();
   }
 
   /**

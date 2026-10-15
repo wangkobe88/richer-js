@@ -215,6 +215,30 @@ class BaseTrader extends ITrader {
     }
 
     /**
+     * 成交后余额读零重读（2026-10-15 妹珠 0xa4b8…7777 案）：余额差法的 after 读撞上
+     * LB RPC 端点后面的滞后节点会答出交易前状态 → 差值 0（当日实测 3 次），而
+     * status=1 的成功 swap 实收为 0 是不可能事件。isOk 判定不过时延迟重读一次
+     * （balanceSettleRetryMs 默认 1500ms ≈ BSC 0.45s 出块 3 块，单测可注入缩时），
+     * 仍不过则原样返回 + error 留痕（引擎侧按信号价估算兜底，不在此静默造数）。
+     * @param {() => Promise<bigint>} readAfter 成交后余额读取（token balanceOf / BNB getBalance）
+     * @param {(after: bigint) => boolean} isOk 差值有效性判定（买=diff>0；卖=diff+gas 补偿>0）
+     * @param {string} label 日志标签
+     * @returns {Promise<bigint>} 重读后的 after 余额
+     */
+    async _settleBalanceRead(readAfter, isOk, label) {
+        let after = await readAfter();
+        if (isOk(after)) return after;
+        const waitMs = this.balanceSettleRetryMs ?? 1500;
+        this.log(`⚠️ ${label} 读零疑似 RPC 滞后，${waitMs}ms 后重读一次`, 'warning');
+        await new Promise((res) => setTimeout(res, waitMs));
+        after = await readAfter();
+        if (!isOk(after)) {
+            this.log(`❌ ${label} 重读仍无效（after=${after.toString()}），原始值保留交引擎估算兜底`, 'error');
+        }
+        return after;
+    }
+
+    /**
      * 验证钱包连接
      */
     async verifyWalletConnection() {

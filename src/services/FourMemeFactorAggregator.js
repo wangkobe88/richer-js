@@ -585,6 +585,9 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // ── 价格追踪（离群剔除；chainLate 时跳过——_acceptPrice 有副作用（recentPrices 窗
         //    push/shift），迟到旧价喂窗会污染离群基线）──
+        // pending fire 峰（2026-10-15 双口径）：与持仓峰同门同价流——任意接受价轨在此块、
+        // 可靠价轨在下方 priceReliable 块；outlier/chainLate 天然不推进
+        const _pend = state._pendingBuyFire;
         const priceOutlier = !chainLate && priceBnb > 0 && !this._acceptPrice(state, priceBnb);
         let priceAccepted = false;
         if (!chainLate && priceBnb > 0 && !priceOutlier) {
@@ -609,6 +612,11 @@ class FourMemeFactorAggregator extends EventEmitter {
                     pos.highestHoldersSinceBuy = state.holderCount;
                     pos.highestHoldersSinceBuyAt = ts;
                 }
+            }
+            // fire→成交窗冲高（任意接受价轨 → highestPriceSinceBuyBnb 回填原料）
+            if (_pend && priceBnb > _pend.peakAnyBnb) {
+                _pend.peakAnyBnb = priceBnb;
+                _pend.peakAnyAt = ts;
             }
             this._pushPriceSeriesPoint(state, ts);
         } else if (priceOutlier) {
@@ -682,6 +690,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (priceBnb > state._relHighestPriceBnb) {
                 state._relHighestPriceBnb = priceBnb;
                 state._relHighestAt = ts;
+            }
+            // fire→成交窗冲高（可靠价轨 → peakProfitPct 回填原料；0 哨兵起算只吃窗内可靠价）
+            if (_pend && priceBnb > _pend.peakRelBnb) {
+                _pend.peakRelBnb = priceBnb;
             }
 
             // ── 单块跌幅链（相邻块收盘对 + 块内瞬时；block 单调 guard，迟到/回退 tick 忽略）──
@@ -1001,27 +1013,69 @@ class FourMemeFactorAggregator extends EventEmitter {
     // ═══════════════ 持仓状态（per-position）═══════════════
 
     /**
+     * 买信号 fire 时刻标记（引擎 _runBuyEvaluation fire 价捕获后调用，2026-10-15 双口径
+     * 裁定）：开启 fire→成交窗的峰值追踪——preBuy/GMGN 检查窗（live 实测 10-17s）内的
+     * 冲高由双轨推进点记账，买入成功 setBuyState 消费回填（信号口径峰值从 fire 起算，
+     * 0xc7fe…7777 案：preBuy 窗 +23.6% 冲高漏计致 P11 回撤臂永不具资格）。
+     * 覆写式单槽——同 token 再次 fire 自然重置（上次失败窗的残峰不跨 fire）；引擎
+     * finally clearBuyFire 兜底清理。peakAny 轨以 fire 价初始化（fire 价=已接受价链
+     * 产物）；peakRel 轨 0 哨兵——严格只吃 priceReliable tick，不注入未经尘门的 fire 价。
+     */
+    markBuyFire(tokenAddress, firePriceBnb) {
+        const state = this._states.get(tokenAddress);
+        if (!state) return;
+        state._pendingBuyFire = {
+            peakAnyBnb: Math.max(firePriceBnb || 0, state.currentPriceBnb || 0),
+            peakAnyAt: null,
+            peakRelBnb: 0,
+        };
+    }
+
+    /** 清除 pending fire 峰（买路径失败/异常兜底；泄漏本身无害——只被 setBuyState 消费） */
+    clearBuyFire(tokenAddress) {
+        const state = this._states.get(tokenAddress);
+        if (!state) return;
+        state._pendingBuyFire = null;
+    }
+
+    /**
      * 引擎买入成功后登记持仓（买入价/时间锚点，takeProfit/stopLoss 因子原料）。
      * @param {string} tokenAddress
-     * @param {{buyPriceBnb: number, buyPriceUsd: number|null, buyTime: number}} buyState
+     * @param {{buyPriceBnb: number, buyPriceUsd: number|null, buyTime: number,
+     *          buySignalAt?: number, buyExecutedPriceBnb?: number|null}} buyState
+     *   - buySignalAt：信号（fire）时刻 ms——holdDuration 因子起算锚，缺省回落 buyTime
+     *     （旧调用形状 bit 一致：手工交易/重启恢复锚点/回测无延迟场景）
+     *   - buyExecutedPriceBnb：执行口径 BNB 价（live=余额差法成交价；虚拟/回测执行=信号
+     *     价无独立真相 → null）
      * @param {string} [positionKey] - 多仓键（默认 'default'）；最新仓决定顶层 buyPrice 族因子
      */
     setBuyState(tokenAddress, buyState, positionKey = 'default') {
         const state = this._states.get(tokenAddress);
         if (!state) return;
+        // pending fire 峰消费：highest（任意接受价轨）吃 peakAny、peakProfitPct（可靠价轨）
+        // 吃 peakRel；无标记（回测串行/手工/恢复锚点/旧调用形状）三项逐位退化为旧行为
+        // （回测 parity 红线：无 mark 的 setBuyState 与旧版 bit 一致）
+        const pend = state._pendingBuyFire || null;
+        const anchorBnb = buyState.buyPriceBnb || 0;
         const pos = {
-            buyPriceBnb: buyState.buyPriceBnb || 0,
+            buyPriceBnb: anchorBnb,
             buyPriceUsd: buyState.buyPriceUsd || null,
             buyTime: buyState.buyTime || Date.now(),
-            highestPriceSinceBuyBnb: Math.max(buyState.buyPriceBnb || 0, state.currentPriceBnb || 0),
-            highestPriceSinceBuyAt: buyState.buyTime || Date.now(),
+            buySignalAt: buyState.buySignalAt ?? buyState.buyTime ?? null,
+            buyExecutedPriceBnb: buyState.buyExecutedPriceBnb ?? null,
+            highestPriceSinceBuyBnb: Math.max(anchorBnb, state.currentPriceBnb || 0, pend ? pend.peakAnyBnb : 0),
+            highestPriceSinceBuyAt: (pend && pend.peakAnyAt) || buyState.buyTime || Date.now(),
             highestHoldersSinceBuy: state.holderCount || 0,
             highestHoldersSinceBuyAt: buyState.buyTime || Date.now(),
-            // 回迁批 1 H 组：峰值利润 running max（新仓归零）
-            peakProfitPct: 0,
+            // 回迁批 1 H 组：峰值利润 running max（新仓归零；fire 窗内有可靠价冲高则
+            // 直接以回填值起步——peakProfitPct 语义=信号口径峰值利润，从 fire 起算）
+            peakProfitPct: (pend && pend.peakRelBnb > 0 && anchorBnb > 0)
+                ? Math.max(0, (Math.max(anchorBnb, pend.peakRelBnb) / anchorBnb - 1) * 100)
+                : 0,
         };
         state._positions.set(positionKey, pos);
         state._lastPositionKey = positionKey;
+        state._pendingBuyFire = null; // 消费即清（失败重 fire 由引擎 finally clearBuyFire 兜底）
     }
 
     /**
@@ -1159,6 +1213,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 持仓（positionKey → pos）
             _positions: new Map(),
             _lastPositionKey: null,
+            // pending fire 峰（2026-10-15 双口径裁定，0xc7fe 案）：fire→成交窗内的冲高
+            // 追踪，setBuyState 消费回填 highest/peakProfitPct 后即清；null=无进行中 fire
+            _pendingBuyFire: null,
 
             // ── 回迁批 1 状态 ──
             _firstBuyAt: null,        // 首笔买 anchor（首块脉冲窗起算）
@@ -1710,7 +1767,12 @@ class FourMemeFactorAggregator extends EventEmitter {
     /** per-position 持仓期因子 */
     _positionFactors(state, pos, now) {
         const currentBnb = state.currentPriceBnb || 0;
-        const holdDuration = pos.buyTime ? (now - pos.buyTime) / 1000 : 0;
+        // 双时长（2026-10-15 用户裁定）：holdDuration=信号（fire）时刻起算（条件触发口径，
+        // 与成本锚 fire 价同一语义）；realHoldDuration=成交时刻起算（物理持有时长）。
+        // buySignalAt 缺省（手工/恢复锚点/回测无延迟）回落 buyTime → 两值相等=旧公式 bit 一致
+        const holdAnchor = pos.buySignalAt ?? pos.buyTime;
+        const holdDuration = holdAnchor ? (now - holdAnchor) / 1000 : 0;
+        const realHoldDuration = pos.buyTime ? (now - pos.buyTime) / 1000 : 0;
         let profitPercent = 0;
         if (pos.buyPriceBnb > 0 && currentBnb > 0) {
             profitPercent = ((currentBnb - pos.buyPriceBnb) / pos.buyPriceBnb) * 100;
@@ -1729,7 +1791,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             buyPrice: pos.buyPriceUsd || pos.buyPriceBnb, // USD 优先（买入时点锁定），缺 USD 时退 BNB（比值因子不受影响）
             buyPriceBnb: pos.buyPriceBnb,
             buyTime: pos.buyTime,
+            // 执行口径键（2026-10-15 双口径）：buySignalAt=fire 时刻（holdDuration 起算锚）、
+            // buyExecutedAt=成交时刻、buyExecutedPriceBnb=live 余额差法成交价（虚拟/回测 null）
+            buySignalAt: pos.buySignalAt ?? pos.buyTime ?? null,
+            buyExecutedAt: pos.buyTime ?? null,
+            buyExecutedPriceBnb: pos.buyExecutedPriceBnb ?? null,
             holdDuration,
+            realHoldDuration,
             profitPercent,
             highestPriceSinceLastBuy: pos.highestPriceSinceBuyBnb * (state.lastImpliedBnbUsd || 0),
             highestPriceSinceLastBuyBnb: pos.highestPriceSinceBuyBnb,
@@ -1801,7 +1869,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             buyPrice: 0,
             buyPriceBnb: 0,
             buyTime: null,
+            buySignalAt: null,
+            buyExecutedAt: null,
+            buyExecutedPriceBnb: null,
             holdDuration: 0,
+            realHoldDuration: 0,
             profitPercent: 0,
             highestPriceSinceLastBuy: null,
             highestPriceSinceLastBuyBnb: 0,
@@ -2002,6 +2074,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             riseSpeed,
 
             buyPrice: positionFactors.buyPrice,
+            buyPriceBnb: positionFactors.buyPriceBnb, // 成本锚 BNB（fire 价口径；快照审计键，2026-10-15 补映射）
             holdDuration: positionFactors.holdDuration,
             profitPercent: positionFactors.profitPercent,
 
@@ -2113,6 +2186,14 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             // H 组：持仓后（顶层=最新仓，无仓 null）
             peakProfitPct: positionFactors.peakProfitPct,
+            // 双口径执行键（2026-10-15 用户裁定；顶层显式映射=getFactorKeys 探针收录的
+            // 必要条件——只进 _positionFactors/无仓字面量不映射则策略 condition 引用会被
+            // 未知因子防线拒启）：holdDuration=信号口径起算 / realHoldDuration=物理持有；
+            // buySignalAt/buyExecutedAt/buyExecutedPriceBnb=两套时间/价格（无仓 null）
+            buySignalAt: positionFactors.buySignalAt,
+            buyExecutedAt: positionFactors.buyExecutedAt,
+            buyExecutedPriceBnb: positionFactors.buyExecutedPriceBnb,
+            realHoldDuration: positionFactors.realHoldDuration,
         };
         factors.fdv = factors.marketCap; // 内盘 fdv = 价格 × 总量
 

@@ -461,11 +461,16 @@ function scenarioFactorKeys(FA, baselineKeys) {
     // ADDED_KEYS：清理后新增因子（拼写防回归）——2026-10-14 gmgnUserPct（GMGN 用户实时占比，
     // 小王子案替换 TPAPre 快照口径，详见 _test_gmgn_user_pct_factor.cjs）；
     // 2026-10-15 act* 8 键（交易活跃度滑窗，取代同日删除的 cycle 分桶路由，
-    // 详见 _test_activity_window_factors.cjs）
+    // 详见 _test_activity_window_factors.cjs）；
+    // 2026-10-15 双口径 5 键（0xc7fe…7777 案：holdDuration 重定义=信号口径 + realHoldDuration
+    // 物理持有 + buySignalAt/buyExecutedAt/buyExecutedPriceBnb 执行口径透传，
+    // 详见 _test_prebuy_peak_backfill.cjs；buyPriceBnb 同日补顶层映射供快照审计）
     const ADDED_KEYS = [
         'gmgnUserPct',
         'actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades',
         'actTraders', 'actBuyers', 'actSellers', 'actNewTraders',
+        'buySignalAt', 'buyExecutedAt', 'buyExecutedPriceBnb', 'realHoldDuration',
+        'buyPriceBnb',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

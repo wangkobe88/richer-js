@@ -53,8 +53,9 @@ function makeStub(opts) {
       getLastPairReturnRate: () => 0,
     },
     // P4b 上移同款：FA 出生锚（getTokenState=null → narrativeCorpusLagSec=null，
-    // 与直调未进的 null 语义一致）
-    _factorAggregator: { getTokenState: () => null },
+    // 与直调未进的 null 语义一致）；markBuyFire/clearBuyFire=fire 峰回填打桩
+    // （2026-10-15 双口径，_evaluateBuyPath fire 点挂调）
+    _factorAggregator: { getTokenState: () => null, markBuyFire: () => {}, clearBuyFire: () => {} },
     logger: { info: () => {}, warn: () => {}, error: () => {} },
     _narrativeCaller: {
       getRatingCalls: 0,

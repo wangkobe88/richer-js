@@ -694,8 +694,11 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.log(`   Gas 使用: ${receipt.gasUsed.toString()}`);
                 this.log(`   Gas 价格: ${ethers.formatUnits(receipt.gasPrice || gasPrice, 'gwei')} Gwei`);
 
-                // 实得 token（B3 余额差法：税后真相）
-                const tokenBalanceAfter = await tokenContract.balanceOf(this.wallet.address);
+                // 实得 token（B3 余额差法：税后真相；after 读零重读防 RPC 滞后——妹珠案）
+                const tokenBalanceAfter = await this._settleBalanceRead(
+                    () => tokenContract.balanceOf(this.wallet.address),
+                    (after) => after - tokenBalanceBefore > 0n,
+                    `买入 token 余额差 ${tokenAddress.slice(0, 10)}`);
                 const actualAmountOut = tokenBalanceAfter - tokenBalanceBefore;
                 this.log(`   实得: ${ethers.formatUnits(actualAmountOut, 18)} tokens`);
 
@@ -977,9 +980,12 @@ class FourMemeDirectTrader extends BaseTrader {
 
                 // 实收 BNB（B3 余额差法：bnbAfter−bnbBefore+gasCost——链上到账真相，
                 // 替代旧 calculateActualBnbReceived 的「日志启发式+receipt.value」死代码路径，
-                // receipt.value 对卖出交易恒 0）
-                const bnbAfter = await this.provider.getBalance(this.wallet.address);
+                // receipt.value 对卖出交易恒 0；after 读零重读防 RPC 滞后——妹珠案）
                 const gasCost = (receipt.gasUsed || 0n) * (receipt.gasPrice || gasPrice);
+                const bnbAfter = await this._settleBalanceRead(
+                    () => this.provider.getBalance(this.wallet.address),
+                    (after) => after - bnbBefore + gasCost > 0n,
+                    `卖出 BNB 余额差 ${tokenAddress.slice(0, 10)}`);
                 const actualBnbReceived = bnbAfter - bnbBefore + gasCost;
                 this.log(`   实收: ${ethers.formatEther(actualBnbReceived)} BNB`);
 

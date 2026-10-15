@@ -89,6 +89,10 @@ class ExperimentDataService {
         if (options.tradeType) {
           query = query.eq('trade_type', options.tradeType);
         }
+        // token 过滤（2026-10-15 双口径图表：信号页按 token 拉 trades 画成交标记）
+        if (options.tokenAddress) {
+          query = query.eq('token_address', options.tokenAddress);
+        }
 
         // 分页
         query = query.range(currentOffset, currentOffset + pageSize - 1);

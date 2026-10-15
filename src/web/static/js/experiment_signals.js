@@ -553,10 +553,12 @@ class ExperimentSignals {
       if (chartWrapper) chartWrapper.style.display = 'block';
 
       // tick 散点/K线 与 Holder 走势序列并行拉取（Holder=ticks 全量重放重建，
-      // 与引擎 holderCount 同口径；不依赖已停写的 experiment_time_series_data）
-      const [tickResponse, holderResponse] = await Promise.all([
+      // 与引擎 holderCount 同口径；不依赖已停写的 experiment_time_series_data）；
+      // trades=成交记录（2026-10-15 双口径：图上标成交时刻/成交价，与信号时刻/信号价并陈）
+      const [tickResponse, holderResponse, tradesData] = await Promise.all([
         this.fetchTickData(token.address),
         this.fetchHolderSeries(token.address),
+        this.fetchTokenTrades(token.address),
       ]);
       // 切换代币后过期响应直接丢弃
       if (this.selectedToken !== token.address) return;
@@ -564,6 +566,7 @@ class ExperimentSignals {
       this._lastHolderSeries = (holderResponse?.success && Array.isArray(holderResponse.data))
         ? holderResponse.data
         : [];
+      this._lastTokenTrades = tradesData;
 
       if (!tickResponse?.success || !tickResponse?.data?.length) {
         console.warn('⚠️ 没有 tick 数据，隐藏图表');
@@ -624,6 +627,25 @@ class ExperimentSignals {
     } catch (error) {
       console.error('获取 Holder 序列失败:', error);
       return { success: false, data: [] };
+    }
+  }
+
+  /**
+   * 拉取该 token 的成功成交记录（双口径图表原料：成交时刻细线 + 成交价点位）
+   * @param {string} tokenAddress
+   * @returns {Promise<Array>} trades（toJSON 形状：trade_direction/unit_price/
+   *   executed_at/created_at/signal_id/metadata）
+   */
+  async fetchTokenTrades(tokenAddress) {
+    try {
+      const params = new URLSearchParams({ tokenAddress, success: 'true', limit: '1000' });
+      const response = await fetch(`/api/experiment/${this.experimentId}/trades?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return Array.isArray(json.data) ? json.data : [];
+    } catch (error) {
+      console.error('获取 token 成交记录失败:', error);
+      return []; // 成交标注缺席不阻塞主图
     }
   }
 
@@ -736,6 +758,14 @@ class ExperimentSignals {
           }
         });
       });
+
+      // 成交时刻细点线（双口径标注；Y 轴是 holders 数，只画线不放价格点位）
+      const tradeMarks = this._buildTradeAnnotations(
+        this._lastTokenTrades, tokenSignals,
+        win ? win.trimStart : null, win ? win.trimEnd : null
+      );
+      tradeMarks.annotations.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
+      annotations.push(...tradeMarks.annotations);
 
       const ctx = canvas.getContext('2d');
       this.holderChart = new Chart(ctx, {
@@ -896,7 +926,10 @@ class ExperimentSignals {
       }
 
       // 信号标注（仅展示当前裁剪窗口内的信号，避免窗口外的信号垂直线撑开 X 轴）
+      // + 成交标注（双口径）：细点线并入；成交价点位（▲买/▼卖）以 scatter 叠加
       const annotations = this._buildSignalAnnotations(tokenSignals, trimStart, trimEnd);
+      const tradeMarks = this._buildTradeAnnotations(this._lastTokenTrades, tokenSignals, trimStart, trimEnd);
+      annotations.push(...tradeMarks.annotations);
 
       this.chart = new Chart(ctx, {
         type: 'bubble',
@@ -916,6 +949,29 @@ class ExperimentSignals {
               borderColor: 'rgba(220,38,38,0.9)',
               borderWidth: 1,
             },
+            {
+              label: `成交▲ (${tradeMarks.buyPoints.length})`,
+              data: tradeMarks.buyPoints,
+              type: 'scatter',
+              pointStyle: 'triangle',
+              radius: 8,
+              hoverRadius: 10,
+              backgroundColor: 'rgba(21,128,61,0.95)',
+              borderColor: '#bbf7d0',
+              borderWidth: 1.5,
+            },
+            {
+              label: `成交▼ (${tradeMarks.sellPoints.length})`,
+              data: tradeMarks.sellPoints,
+              type: 'scatter',
+              pointStyle: 'triangle',
+              rotation: 180,
+              radius: 8,
+              hoverRadius: 10,
+              backgroundColor: 'rgba(185,28,28,0.95)',
+              borderColor: '#fecaca',
+              borderWidth: 1.5,
+            },
           ],
         },
         options: {
@@ -932,6 +988,18 @@ class ExperimentSignals {
                   return new Date(items[0].raw.x).toLocaleString('zh-CN');
                 },
                 label(item) {
+                  // 成交点（双口径标注）：展示成交价/信号价/延迟/滑移，与 tick 气泡（_raw）区分
+                  if (item.raw._trade) {
+                    const t = item.raw;
+                    const price = t.y;
+                    const lines = [
+                      `${t._trade.trade_direction === 'buy' ? '成交▲ BUY' : '成交▼ SELL'} | $${price.toExponential(3)}`,
+                    ];
+                    if (t._signalPrice != null) lines.push(`信号价: $${t._signalPrice.toExponential(3)}`);
+                    if (t._delaySec != null) lines.push(`信号→成交延迟: ${t._delaySec.toFixed(1)}s`);
+                    if (t._slipPct != null) lines.push(`价差: ${t._slipPct >= 0 ? '+' : ''}${t._slipPct.toFixed(2)}%`);
+                    return lines;
+                  }
                   const raw = item.raw._raw;
                   const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
                   const price = parseFloat(raw.price_usd || 0);
@@ -1119,6 +1187,62 @@ class ExperimentSignals {
   }
 
   /**
+   * 生成成交标注（2026-10-15 双口径裁定）：成交时刻细点线 + 成交价点位（▲买/▼卖）。
+   * 时刻 = executed_at || created_at（回测/虚拟 executed_at=NULL → created_at=回放
+   * 历史时间；不可用 metadata.executed_at=回测墙钟）。窗口外剔除（防撑开 X 轴，
+   * 与信号标注同门）。返回 {annotations, buyPoints, sellPoints}——点位 y=unit_price
+   * （USD，与散点图气泡/K线价格轴同刻度）；Holder 图 Y 轴是 holders 数，只取
+   * annotations（细线）不放点位。
+   */
+  _buildTradeAnnotations(trades, tokenSignals, trimStart, trimEnd) {
+    const annotations = [];
+    const buyPoints = [], sellPoints = [];
+    if (!Array.isArray(trades)) return { annotations, buyPoints, sellPoints };
+
+    // signal_id 精确配对（延迟/滑移=成交 vs 信号两套口径的分叉可见化；配不上不显示）
+    const signalById = new Map();
+    for (const s of (tokenSignals || [])) {
+      if (s && s.id) signalById.set(s.id, s);
+    }
+
+    trades.forEach(trade => {
+      const execMs = new Date(trade.executed_at || trade.created_at).getTime();
+      if (!Number.isFinite(execMs)) return;
+      if (trimStart != null && trimEnd != null && (execMs < trimStart || execMs > trimEnd)) return;
+
+      const isBuy = (trade.trade_direction || trade.direction) === 'buy';
+      const color = isBuy ? '#16a34a' : '#b91c1c';
+
+      // 成交时刻细点线（与信号粗实线视觉区分：宽 1 + 点状 dash + 无标签）
+      annotations.push({
+        type: 'line',
+        xMin: execMs,
+        xMax: execMs,
+        borderColor: color,
+        borderWidth: 1,
+        borderDash: [2, 3],
+      });
+
+      // 成交价点位（tooltip 展示两套时间/价格分叉）
+      const price = parseFloat(trade.unit_price);
+      if (!Number.isFinite(price) || price <= 0) return;
+      const signal = trade.signal_id ? signalById.get(trade.signal_id) : null;
+      const signalMs = signal
+        ? new Date(signal.timestamp || signal.created_at).getTime() : null;
+      const signalPrice = signal ? parseFloat(signal.metadata?.price) : NaN;
+      const delaySec = Number.isFinite(signalMs) ? (execMs - signalMs) / 1000 : null;
+      const slipPct = (Number.isFinite(signalPrice) && signalPrice > 0)
+        ? ((price - signalPrice) / signalPrice) * 100 : null;
+      (isBuy ? buyPoints : sellPoints).push({
+        x: execMs, y: price, _trade: trade,
+        _signalPrice: Number.isFinite(signalPrice) ? signalPrice : null,
+        _delaySec: delaySec, _slipPct: slipPct,
+      });
+    });
+    return { annotations, buyPoints, sellPoints };
+  }
+
+  /**
    * 按区块(block_number)聚合 OHLC + 成交量，供 candlestick K 线图使用
    * （BSC 无 slot 概念，每根蜡烛=一个区块，与 pumpfun 按 block_slot 聚合同口径）
    * @returns {{ohlc:Array, buyVol:Array, sellVol:Array}|null}
@@ -1175,6 +1299,9 @@ class ExperimentSignals {
     if (this.candleVolumeChart) { this.candleVolumeChart.destroy(); this.candleVolumeChart = null; }
 
     const signalAnnotations = this._buildSignalAnnotations(tokenSignals, trimStart, trimEnd);
+    // 成交标注（双口径）：细点线 + 成交价点位（与散点图同款）
+    const tradeMarks = this._buildTradeAnnotations(this._lastTokenTrades, tokenSignals, trimStart, trimEnd);
+    signalAnnotations.push(...tradeMarks.annotations);
     // 涨跌配色：close>=open 绿，否则红（与散点图 buy绿/sell红 一致）
     const up = 'rgba(34,197,94,0.85)', down = 'rgba(239,68,68,0.85)';
 
@@ -1182,8 +1309,16 @@ class ExperimentSignals {
     if (!canvas) return;
     this.candleChart = new Chart(canvas, {
       type: 'candlestick',
-      data: { datasets: [{ label: 'OHLC(USD)', data: data.ohlc,
-        backgroundColors: { up, down, unchanged: up }, borderColors: { up, down, unchanged: up } }] },
+      data: { datasets: [
+        { label: 'OHLC(USD)', data: data.ohlc,
+          backgroundColors: { up, down, unchanged: up }, borderColors: { up, down, unchanged: up } },
+        { label: `成交▲ (${tradeMarks.buyPoints.length})`, data: tradeMarks.buyPoints, type: 'scatter',
+          pointStyle: 'triangle', radius: 8, hoverRadius: 10,
+          backgroundColor: 'rgba(21,128,61,0.95)', borderColor: '#bbf7d0', borderWidth: 1.5 },
+        { label: `成交▼ (${tradeMarks.sellPoints.length})`, data: tradeMarks.sellPoints, type: 'scatter',
+          pointStyle: 'triangle', rotation: 180, radius: 8, hoverRadius: 10,
+          backgroundColor: 'rgba(185,28,28,0.95)', borderColor: '#fecaca', borderWidth: 1.5 },
+      ] },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
         plugins: {
@@ -1192,6 +1327,15 @@ class ExperimentSignals {
           tooltip: { callbacks: {
             title: items => items.length ? `区块序号 ${items[0].raw.blockSeq} · ${new Date(items[0].raw.x).toLocaleTimeString('zh-CN')}` : '',
             label: it => {
+              // 成交点（双口径标注）：成交价/信号价/延迟/滑移
+              if (it.raw._trade) {
+                const t = it.raw;
+                const lines = [`${t._trade.trade_direction === 'buy' ? '成交▲ BUY' : '成交▼ SELL'} | $${t.y.toExponential(3)}`];
+                if (t._signalPrice != null) lines.push(`信号价: $${t._signalPrice.toExponential(3)}`);
+                if (t._delaySec != null) lines.push(`信号→成交延迟: ${t._delaySec.toFixed(1)}s`);
+                if (t._slipPct != null) lines.push(`价差: ${t._slipPct >= 0 ? '+' : ''}${t._slipPct.toFixed(2)}%`);
+                return lines;
+              }
               const p = it.raw, dir = p.c >= p.o ? '▲' : '▼';
               return [`${dir} O $${p.o.toExponential(2)}  H $${p.h.toExponential(2)}`, `   L $${p.l.toExponential(2)}  C $${p.c.toExponential(2)}`];
             },
@@ -2164,6 +2308,24 @@ class ExperimentSignals {
     if (metadata.sellCalculatedRatio !== undefined && metadata.sellCalculatedRatio !== null && !isNaN(metadata.sellCalculatedRatio)) {
       const ratioPercent = (metadata.sellCalculatedRatio * 100).toFixed(0);
       extraInfo.push(`卖出比例: ${ratioPercent}%`);
+    }
+    // 执行口径（2026-10-15 双口径裁定）：成交价 vs 信号价、信号→成交延迟。
+    // 延迟合理性门 [0,600s]：回测 metadata.executed_at 是回测墙钟、signal_timestamp
+    // 是回放虚拟时间，差值荒谬——不合理不显示，避免误导
+    const execPrice = parseFloat(metadata.tradeResult?.trade?.unitPrice);
+    if (Number.isFinite(execPrice) && execPrice > 0) {
+      const sigPrice = parseFloat(priceValue);
+      let priceDiff = null;
+      if (Number.isFinite(sigPrice) && sigPrice > 0) {
+        priceDiff = ((execPrice - sigPrice) / sigPrice) * 100;
+      }
+      extraInfo.push(`成交价: ${execPrice.toExponential(3)}${priceDiff !== null ? ` (${priceDiff >= 0 ? '+' : ''}${priceDiff.toFixed(2)}%)` : ''}`);
+    }
+    if (metadata.executed_at && signal.signal_timestamp) {
+      const delaySec = (new Date(metadata.executed_at).getTime() - new Date(signal.signal_timestamp).getTime()) / 1000;
+      if (Number.isFinite(delaySec) && delaySec >= 0 && delaySec <= 600) {
+        extraInfo.push(`延迟: ${delaySec.toFixed(1)}s`);
+      }
     }
     if (extraInfo.length > 0) {
       extraInfoHtml = `<div class="flex items-center space-x-3 text-xs text-gray-500 mt-1">

@@ -251,8 +251,11 @@ class FlapPortalTrader extends BaseTrader {
 
             const receipt = await this._awaitReceipt(tx, '买入');
 
-            // 实得 token（余额差，税后真相）
-            const balanceAfter = await tokenContract.balanceOf(this.wallet.address);
+            // 实得 token（余额差，税后真相；after 读零重读防 RPC 滞后——妹珠案）
+            const balanceAfter = await this._settleBalanceRead(
+                () => tokenContract.balanceOf(this.wallet.address),
+                (after) => after - balanceBefore > 0n,
+                `买入 token 余额差 ${tokenAddress.slice(0, 10)}`);
             const actualAmountOut = balanceAfter - balanceBefore;
             this.log(`✅ 购买成功 | 区块 ${receipt.blockNumber} 实得 ${ethers.formatUnits(actualAmountOut, 18)}`);
 
@@ -368,9 +371,12 @@ class FlapPortalTrader extends BaseTrader {
 
             const receipt = await this._awaitReceipt(tx, '卖出');
 
-            // 实收 BNB（余额差 + gas 补偿——交易费也出自钱包）
-            const bnbAfter = await this.provider.getBalance(this.wallet.address);
+            // 实收 BNB（余额差 + gas 补偿——交易费也出自钱包；after 读零重读防 RPC 滞后）
             const gasCost = (receipt.gasUsed || 0n) * (receipt.gasPrice || gasPrice);
+            const bnbAfter = await this._settleBalanceRead(
+                () => this.provider.getBalance(this.wallet.address),
+                (after) => after - bnbBefore + gasCost > 0n,
+                `卖出 BNB 余额差 ${tokenAddress.slice(0, 10)}`);
             const actualBnbReceived = bnbAfter - bnbBefore + gasCost;
             this.log(`✅ 卖出成功 | 区块 ${receipt.blockNumber} 实收 ${ethers.formatEther(actualBnbReceived)} BNB`);
 
