@@ -119,6 +119,9 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   rich-js minTicks=窗口分钟数，tick 秒级更密故起步 8）
     riseMinElapsedMin: 0.1,      // 针臂速度分母下限（分钟；rich-js 钳 1min 是 1m bar 粒度，tick 秒级可小；
                                  //   谷=最新 tick 时防除零）
+    // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
+    activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
+                                 //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
 };
 
 // ── 市场截面 regime 观测（market* 5 键，回迁批 2.6；pumpfun 08-30 观察版口径）──
@@ -854,6 +857,20 @@ class FourMemeFactorAggregator extends EventEmitter {
                 this._pushHolderSeriesPoint(state, blockNumber);
             }
         }
+
+        // ── act* 8 键原料（2026-10-15 交易活跃度滑窗，取代已删的 cycle 分桶路由）：
+        //    到达序 push + 首见 min 更新 + 摊销裁剪。照计语义（无 priceReliable/chainLate
+        //    过滤，与 tradeCount/_recentTicks 同口径——活跃度看的是「有人动了」）；
+        //    wallet null 行照计交易量、不进人数集。本方法每 tick 恰跑一次（直推或 defer
+        //    回推），事件不重不漏 ──
+        state._activityEvents.push({ ts: tick.timestamp, w: walletAddr, buy: isBuy, bnb: bnbAmount });
+        if (walletAddr) {
+            const _fs = state._walletFirstSeenTs.get(walletAddr);
+            if (_fs === undefined || tick.timestamp < _fs) {
+                state._walletFirstSeenTs.set(walletAddr, tick.timestamp);
+            }
+        }
+        this._pruneActivityEvents(state, tick.timestamp);
     }
 
     /**
@@ -1134,6 +1151,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             holderCount: 0,
 
             _recentTicks: [],    // 滑窗速率原料 {ts, isBuy, bnb, priceBnb, priceReliable, blockNumber}
+            _activityEvents: [], // act* 8 键原料 {ts, w, buy, bnb}（到达序 push，读点按 ts 过滤容忍
+                                 // defer 乱序回推；摊销裁剪 _pruneActivityEvents，2026-10-15）
+            _walletFirstSeenTs: new Map(), // wallet → 首次参与时刻（min 语义保链上真相；actNewTraders 判据）
 
             // 持仓（positionKey → pos）
             _positions: new Map(),
@@ -1446,6 +1466,21 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
+     * act* 原料裁剪（2026-10-15 交易活跃度滑窗）：摊销——长度>64 且头部已滑出
+     * 2×activityWinMs 才批量 splice。2× 余量：defer 乱序回推行晚到数秒仍落余量带
+     * 不误删；到达序≠严格 ts 序（乱序行可停在中间）→ 从头连续判 ts，遇首个未出局
+     * 即停（中部老行保守滞留，读点 ts 过滤天然不可见，无损）。
+     */
+    _pruneActivityEvents(state, now) {
+        const evts = state._activityEvents;
+        if (evts.length <= 64) return;
+        const cutoff = now - 2 * this._fp.activityWinMs;
+        let i = 0;
+        while (i < evts.length && evts[i].ts < cutoff) i++;
+        if (i > 0) evts.splice(0, i);
+    }
+
+    /**
      * _recentTicks 单趟扫描（P2c，2026-10-12 回测性能案）：各读取方原先自行遍历
      * （5min 窗过滤 / crashSpeed 窗高点 / risePct5m 谷 /
      * _computePriceTrendFactors reliable 提取）——百万 tick 回放下每 tick 多趟是固定
@@ -1497,6 +1532,47 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 直接用，无「首个消费方原地 sort 污染」的隐性状态依赖）
         reliable.sort((a, b) => a.t - b.t);
         return { winTicks, reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn };
+    }
+
+    /**
+     * act* 8 键派生（2026-10-15 交易活跃度滑窗，取代同日删除的 cycle 分桶路由）：
+     * activityWinMs（默认 10s，factorParams 可覆盖）窗内单趟全扫。
+     *   actBuyBnb/actSellBnb/actNetBnb —— 窗内买/卖/净 BNB 量；
+     *   actTrades   —— 窗内笔数（含 wallet null 行，照计）；
+     *   actTraders/actBuyers/actSellers —— 窗内独立钱包数（sender||trader 口径；
+     *     null wallet 行计量不计人）；
+     *   actNewTraders —— 窗内钱包中「首次参与时刻也落窗内」者（_walletFirstSeenTs
+     *     是全史 min，先于窗参与过的钱包不算新；per-wallet 恰计一次）。
+     * 纯函数读取：无 latch/无副作用 → 与 backtest.tickBuildSkip 天然无互斥（写点在
+     * _applyWalletAggregation 每 tick 照跑，build 跳过的只是本读点，重建时数据完整）。
+     * ★防前视红线：禁 Date.now——now 由 buildFactorMap(state, asOf) 传入。
+     * 空/空窗全 0（有证据零值非 null——「窗内无交易」是有效证据）。
+     */
+    _activityFactors(state, now) {
+        const cutoff = now - this._fp.activityWinMs;
+        let buyBnb = 0, sellBnb = 0, trades = 0, newTraders = 0;
+        const traders = new Set(), buyers = new Set(), sellers = new Set();
+        for (const e of state._activityEvents) {
+            if (e.ts < cutoff) continue;
+            trades++;
+            if (e.buy) buyBnb += e.bnb; else sellBnb += e.bnb;
+            if (e.w === null) continue;
+            // 新钱包 per-wallet 恰计一次（首个窗内事件时判）；firstSeen 缺失（不可达）
+            // → undefined >= cutoff 为 false 不计新，保守方向
+            if (!traders.has(e.w) && state._walletFirstSeenTs.get(e.w) >= cutoff) newTraders++;
+            traders.add(e.w);
+            if (e.buy) buyers.add(e.w); else sellers.add(e.w);
+        }
+        return {
+            actBuyBnb: buyBnb,
+            actSellBnb: sellBnb,
+            actNetBnb: buyBnb - sellBnb,
+            actTrades: trades,
+            actTraders: traders.size,
+            actBuyers: buyers.size,
+            actSellers: sellers.size,
+            actNewTraders: newTraders,
+        };
     }
 
     /**
@@ -1896,6 +1972,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 趋势窗 2 因子（可靠价切片；P2c reliable 升序数组来自 _scanRecentTicks）
         const trendFactors = this._computePriceTrendFactors(_scan.reliable, now, state.firstTickAt);
 
+        // 交易活跃度滑窗（act* 8 键，2026-10-15；取代已删的 cycle 分桶路由）
+        const activity = this._activityFactors(state, now);
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -1953,6 +2032,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             uniqueTraderCount: state.uniqueTraders.size,
             buyVolumeBnb: state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
+
+            // ── 交易活跃度滑窗 act* 8 键（2026-10-15；取代已删的 cycle 分桶路由。
+            //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null）──
+            actBuyBnb: activity.actBuyBnb,
+            actSellBnb: activity.actSellBnb,
+            actNetBnb: activity.actNetBnb,
+            actTrades: activity.actTrades,
+            actTraders: activity.actTraders,
+            actBuyers: activity.actBuyers,
+            actSellers: activity.actSellers,
+            actNewTraders: activity.actNewTraders,
 
             trendDataPoints: prices.length,
 

@@ -112,6 +112,17 @@ function buildFactorValuesForTimeSeries(factorResults) {
     rsi9Bar5mRt: factorResults.rsi9Bar5mRt ?? null,
     risePct5m: factorResults.risePct5m ?? null,
     riseVel5m: factorResults.riseVel5m ?? null,
+    // 交易活跃度滑窗 act* 8 键（2026-10-15，原 cycle 4 键位）：FA 内存事件环不可重算
+    // （30s 快照行无 tick 级分辨率），不落库即丢（holderTrend 先例）；
+    // 0=空窗有证据零值（非 null），旧 FA 无这些键 → null，不掩盖
+    actBuyBnb: factorResults.actBuyBnb ?? null,
+    actSellBnb: factorResults.actSellBnb ?? null,
+    actNetBnb: factorResults.actNetBnb ?? null,
+    actTrades: factorResults.actTrades ?? null,
+    actTraders: factorResults.actTraders ?? null,
+    actBuyers: factorResults.actBuyers ?? null,
+    actSellers: factorResults.actSellers ?? null,
+    actNewTraders: factorResults.actNewTraders ?? null,
   };
 }
 
@@ -467,6 +478,17 @@ function buildSlimFactorValues(factorResults) {
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
     dataCollectionRound: factorResults.dataCollectionRound ?? 1,
+    // 交易活跃度滑窗 act* 8 键（2026-10-15，原 cycle 4 键位）：FA 内存事件环不可重算
+    // （30s 快照行无 tick 级分辨率），不落库即丢（holderTrend 先例）；
+    // 0=空窗有证据零值（非 null），旧 FA 无这些键 → null，不掩盖
+    actBuyBnb: factorResults.actBuyBnb ?? null,
+    actSellBnb: factorResults.actSellBnb ?? null,
+    actNetBnb: factorResults.actNetBnb ?? null,
+    actTrades: factorResults.actTrades ?? null,
+    actTraders: factorResults.actTraders ?? null,
+    actBuyers: factorResults.actBuyers ?? null,
+    actSellers: factorResults.actSellers ?? null,
+    actNewTraders: factorResults.actNewTraders ?? null,
     // holderTrend 11 键（2026-10-14 slot 化）：blockNumber 桶序列是 FA 状态机产物，
     // 回测 FactorReplayEngine 与 web 时序重算均不可重建（30s 快照行无块级分辨率），
     // 不落库即丢；本表是买门（holderTrendSlope > 0 fail-closed）复盘唯一数据源。

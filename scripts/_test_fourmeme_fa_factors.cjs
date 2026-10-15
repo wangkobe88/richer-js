@@ -459,8 +459,14 @@ function scenarioFactorKeys(FA, baselineKeys) {
     const keys = fa.getFactorKeys();
     // 2026-10-13 清理后键集契约：相对删除前基线（7cbbdee），新增恰 = 白名单新键、丢失恰 = 68 删除键。
     // ADDED_KEYS：清理后新增因子（拼写防回归）——2026-10-14 gmgnUserPct（GMGN 用户实时占比，
-    // 小王子案替换 TPAPre 快照口径，详见 _test_gmgn_user_pct_factor.cjs）
-    const ADDED_KEYS = ['gmgnUserPct'];
+    // 小王子案替换 TPAPre 快照口径，详见 _test_gmgn_user_pct_factor.cjs）；
+    // 2026-10-15 act* 8 键（交易活跃度滑窗，取代同日删除的 cycle 分桶路由，
+    // 详见 _test_activity_window_factors.cjs）
+    const ADDED_KEYS = [
+        'gmgnUserPct',
+        'actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades',
+        'actTraders', 'actBuyers', 'actSellers', 'actNewTraders',
+    ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));
     ok(addedOk, `键集新增恰 = ${ADDED_KEYS.length} 白名单键（无意外键）`, added);
