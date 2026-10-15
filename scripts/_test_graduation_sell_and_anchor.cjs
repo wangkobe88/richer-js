@@ -15,6 +15,8 @@
  *   B. graduationProgress 端到端（buildFactorMap：flap 有效锚 / 退锚 / four.meme 72）
  *   C. _handleGraduation（virtual+bought 触发全清 / 重复派发幂等 / sold·monitoring
  *      不触发 / live 走告警不走卖出 / buildFactorMap null 安全 / 失败 catch 记日志）
+ *   E. 毕业卖出幂等标记后置 + 扫描毕业兜底（2026-10-15 迁自
+ *      _test_token_cycle_routing G1/G2——cycle 分桶机制删除拆迁）
  *
  * 用法：node scripts/_test_graduation_sell_and_anchor.cjs
  */
@@ -206,6 +208,55 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   await new Promise(r => setImmediate(r));
   check('live → 告警触发', alerts, 1);
   check('live → 不走引擎卖出（人工处置）', [liveSells, e6._graduationSoldTokens.size], [0, 0]);
+
+  // ═══ E. 毕业卖出幂等标记后置 + 扫描毕业兜底（迁自 _test_token_cycle_routing G1/G2）═══
+  console.log('E. 毕业卖出幂等标记后置 + 扫描毕业兜底（2026-10-15 cycle 机制删除拆迁）');
+
+  // E1 _emitGraduationSell 幂等标记后置到卖出成功（失败不标记 → 扫描可重试）
+  {
+    const eng = makeEngine({
+      _factorAggregator: { buildFactorMap: () => ({ graduationProgress: 0.9, profitPercent: 10 }) },
+      _emitSellSignal: async () => ({ success: false, reason: '卖出执行中' }),
+    });
+    const r1 = await eng._emitGraduationSell({ token: '0xg1', symbol: 'G1' }, { fundsBnb: 15 });
+    check('卖出失败 → 幂等集不标记（可重试）', [r1.success, eng._graduationSoldTokens.size], [false, 0]);
+
+    eng._emitSellSignal = async () => ({ success: true });
+    const r2 = await eng._emitGraduationSell({ token: '0xg1', symbol: 'G1' }, {});
+    check('卖出成功 → 幂等集标记', [r2.success, eng._graduationSoldTokens.size], [true, 1]);
+
+    let calls = 0;
+    eng._emitSellSignal = async () => { calls++; return { success: true }; };
+    const r3 = await eng._emitGraduationSell({ token: '0xg1', symbol: 'G1' }, {});
+    check('已标记 → 短路不再调卖出链', [calls, r3], [0, undefined]);
+  }
+
+  // E2 _scanHoldingsStopLoss 毕业兜底（先于止损；Set 已含走止损；live 不走）
+  {
+    async function runScan({ graduated, inSet, isLive }) {
+      const stopCalls = [], gradCalls = [];
+      const eng = makeEngine({
+        _isLive: isLive,
+        _stopLossEnabled: true, _stopLossPricePct: -50,
+        _graduationSoldTokens: new Set(inSet ? ['0xscan'] : []),
+        _getAllHoldings: () => [{ tokenAddress: '0xscan' }],
+        _tokenPool: { getToken: () => ({ token: '0xscan', status: 'bought' }) },
+        _factorAggregator: {
+          buildFactorMap: () => ({ profitPercent: -55, holdDuration: 100 }),
+          getTokenState: () => ({ graduated, lastFundsBnb: 15 }),
+        },
+        _sellingTokens: new Set(), _buyingTokens: new Set(),
+        _emitStopLossSell: async () => { stopCalls.push(1); },
+        _emitGraduationSell: async () => { gradCalls.push(1); return { success: true }; },
+      });
+      await eng._scanHoldingsStopLoss();
+      return { stopCalls: stopCalls.length, gradCalls: gradCalls.length };
+    }
+    check('已毕业未卖 → 毕业补卖且不走止损', await runScan({ graduated: true, inSet: false, isLive: false }), { stopCalls: 0, gradCalls: 1 });
+    check('已毕业已卖（Set 含）→ 走止损（回归）', await runScan({ graduated: true, inSet: true, isLive: false }), { stopCalls: 1, gradCalls: 0 });
+    check('未毕业 → 走止损（回归）', await runScan({ graduated: false, inSet: false, isLive: false }), { stopCalls: 1, gradCalls: 0 });
+    check('live → 不走毕业补卖（人工处置语义）', await runScan({ graduated: true, inSet: false, isLive: true }), { stopCalls: 1, gradCalls: 0 });
+  }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
   process.exitCode = fail === 0 ? 0 : 1;
