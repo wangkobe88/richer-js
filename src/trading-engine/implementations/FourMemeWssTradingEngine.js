@@ -36,6 +36,7 @@
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
+const { TxSeenSignal } = require('../core/TxSeenSignal.js');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
@@ -184,6 +185,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._sellCbFailures = liveConfig.sellCircuitBreakerFailures ?? 5;   // 卖出连续失败熔断阈值
     this._sellCbCooldownMs = liveConfig.sellCircuitBreakerCooldownMs ?? 30 * 60 * 1000; // 熔断后长冷却
     this._liveTxWaitTimeoutMs = liveConfig.txWaitTimeoutMs ?? 120000;    // trader 交易回执等待超时（防 pending 永久挂起）
+    this._liveTxReceiptViaWss = liveConfig.txReceiptViaWss !== false;    // WSS 快速回执（2026-10-15 提速①）：collector tick 信号 race waitForTransaction，默认开；显式 false=纯原路径
     this._buyCbFailures = liveConfig.buyCircuitBreakerFailures ?? 3;     // 买入连续失败熔断阈值（2026-10-14 龙龙币二 0x2831fdfa revert 死循环案用户裁定：连败 3 拉黑；前置拒绝不计——只计发单后失败）
   }
 
@@ -699,6 +701,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._eventWriter = new WssEventWriter(this.logger);
     this._eventWriter.start();
 
+    // WSS 快速回执信号（2026-10-15 提速①，뮤오23 案 8.2s 回执纯工程延迟）：自家
+    // collector 在 tx 上链后 ~0.3s 即见成交 tick，比 ethers v6 4s 轮询+ANKR receipt
+    // 索引快一个量级。仅 live 构造；virtual/backtest 恒 null=零变化
+    this._txSeenSignal = (this._isLive && this._liveTxReceiptViaWss)
+      ? new TxSeenSignal()
+      : null;
+    if (this._txSeenSignal) {
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        '⚡ WSS 快速回执已启用（collector tick→_awaitReceipt race）');
+    }
+
     const PLATFORMS = {
       fourmeme: {
         section: 'fourmemeWs',
@@ -747,6 +760,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (this._tokenPositionAnalyzer) {
         collector._onTickBuffered = (tickRow) => this._tokenPositionAnalyzer.ingestLiveTick(tickRow);
       }
+      // WSS 快速回执（提速①）：tick 到达即通知（collector 侧恒发，引擎无信号器时
+      // no-op；与 _onTickBuffered 独立属性共存）
+      collector._onTickEmitted = (txHash) => {
+        if (this._txSeenSignal) this._txSeenSignal.notify(txHash);
+      };
       // tickBuffer 高水位转发（批次 3a）：collector 侧已打 error 日志+stats 峰值/计数，
       // 这里只在 live Telegram 通知器可用时补值班通道（virtual/backtest 恒 null=零变化）；
       // fire-and-forget，推送失败不打日志（collector error 日志已是主告警）
@@ -892,6 +910,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     for (const platform of this._wsPlatforms()) {
       const trader = traderFactory.createTrader(this._liveTraderTypeFor(platform), traderConfig);
       trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
+      trader.txSeenSignal = this._txSeenSignal;   // WSS 快速回执（提速①）；null=纯原路径
       await trader.setWallet(privateKey);
       if (this._liveTraderMap.size > 0) {
         await trader.shareSignerFrom(this._trader);

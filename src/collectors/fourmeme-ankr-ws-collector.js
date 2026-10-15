@@ -547,6 +547,11 @@ class FourMemeAnkrWsCollector {
     // ═══════════════ tick：单一咽喉点三路输出 ═══════════════
 
     _emitTick(decoded) {
+        // WSS 快速回执信号（2026-10-15 live 提速①）：成交 tick 到达即通知——先于
+        // tokenPool/resolver 一切后续处理，恒同步零延迟。live 引擎注册（TxSeenSignal
+        // notify→trader._awaitReceipt 快路径）；未注册时零成本 no-op
+        if (this._onTickEmitted) this._onTickEmitted(decoded.txHash);
+
         const bnbUsd = this._bnbUsd;
         const priceUsd = bnbUsd > 0 ? decoded.priceBnb * bnbUsd : null;
         const receivedAt = Date.now();

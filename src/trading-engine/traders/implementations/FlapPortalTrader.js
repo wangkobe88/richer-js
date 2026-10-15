@@ -144,9 +144,14 @@ class FlapPortalTrader extends BaseTrader {
     /** 带超时的交易回执等待（与 FourMemeDirectTrader._awaitReceipt 同语义：超时不重发防双买） */
     async _awaitReceipt(tx, label) {
         const timeoutMs = this.txWaitTimeoutMs ?? 120000;
+        // WSS 快速回执（2026-10-15 提速①）：与 FourMemeDirectTrader 同构——collector tick
+        // 信号 race waitForTransaction；未见/超窗永续 pending 让位原路径，绝不 reject
+        const wssPath = this.txSeenSignal ? this._receiptViaWssSeen(tx.hash, timeoutMs) : null;
         let receipt;
         try {
-            receipt = await this.provider.waitForTransaction(tx.hash, 1, timeoutMs);
+            receipt = await (wssPath
+                ? Promise.race([wssPath, this.provider.waitForTransaction(tx.hash, 1, timeoutMs)])
+                : this.provider.waitForTransaction(tx.hash, 1, timeoutMs));
         } catch (error) {
             const isTimeout = String(error.message || '').toLowerCase().includes('timeout')
                 || error.code === 'TIMEOUT';
@@ -164,6 +169,27 @@ class FlapPortalTrader extends BaseTrader {
             throw new Error(`${label}链上执行失败(reverted): ${tx.hash}`);
         }
         return receipt;
+    }
+
+    /**
+     * WSS 快速回执路径（2026-10-15 提速①）：与 FourMemeDirectTrader 同构——seen 后
+     * 短间隔轮询拿真回执；拿不到 → 永续 pending 让位 waitForTransaction 原路径。
+     */
+    async _receiptViaWssSeen(hash, timeoutMs) {
+        const seen = await this.txSeenSignal.waitFor(hash, timeoutMs);
+        if (!seen) return new Promise(() => {});
+        const interval = this.seenReceiptPollMs ?? 400;
+        const t0 = Date.now();
+        const deadline = t0 + (this.seenReceiptPollMaxMs ?? 10000);
+        while (Date.now() < deadline) {
+            const r = await this.provider.getTransactionReceipt(hash);
+            if (r) {
+                this.log(`⚡ WSS 快速回执 | seen→receipt ${Date.now() - t0}ms: ${hash}`, 'info');
+                return r;
+            }
+            await new Promise((res) => setTimeout(res, interval));
+        }
+        return new Promise(() => {});
     }
 
     /**

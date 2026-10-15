@@ -194,9 +194,17 @@ class FourMemeDirectTrader extends BaseTrader {
      */
     async _awaitReceipt(tx, label) {
         const timeoutMs = this.txWaitTimeoutMs ?? 120000;
+        // WSS 快速回执（2026-10-15 提速①，뮤오23 案 8.2s 纯工程延迟）：自家 collector
+        // 在 tx 上链后 ~0.3s 即见成交 tick（tx_hash 匹配），远快于 ethers v6 4s 轮询+
+        // ANKR receipt 索引。seen 后短间隔轮询拿**真 receipt**（绝不用「WSS 见过」冒充
+        // 回执）；未见/超窗 → 永续 pending 让位 waitForTransaction（绝不 reject 抢跑
+        // 原超时语义）。approve/PCS 卖出 tx 不在订阅事件内 → 永不 seen → 原路径不变
+        const wssPath = this.txSeenSignal ? this._receiptViaWssSeen(tx.hash, timeoutMs) : null;
         let receipt;
         try {
-            receipt = await this.provider.waitForTransaction(tx.hash, 1, timeoutMs);
+            receipt = await (wssPath
+                ? Promise.race([wssPath, this.provider.waitForTransaction(tx.hash, 1, timeoutMs)])
+                : this.provider.waitForTransaction(tx.hash, 1, timeoutMs));
         } catch (error) {
             const isTimeout = String(error.message || '').toLowerCase().includes('timeout')
                 || error.code === 'TIMEOUT';
@@ -216,6 +224,30 @@ class FourMemeDirectTrader extends BaseTrader {
             throw new Error(`${label}链上执行失败(reverted): ${tx.hash}`);
         }
         return receipt;
+    }
+
+    /**
+     * WSS 快速回执路径（2026-10-15 提速①）：collector 已见该 tx 的成交 tick（tx_hash
+     * 匹配）后，短间隔轮询 getTransactionReceipt 拿**真回执**（绝不用「WSS 见过」冒充
+     * ——revert tx 无事件 log 永不进此路径）。任一环节拿不到 → 返回永续 pending 的
+     * Promise 让位 Promise.race 另一侧的 waitForTransaction 原路径（绝不 reject，
+     * 不抢跑原超时语义：超时回查/reset/throw 由 _awaitReceipt 原逻辑统一处理）。
+     */
+    async _receiptViaWssSeen(hash, timeoutMs) {
+        const seen = await this.txSeenSignal.waitFor(hash, timeoutMs);
+        if (!seen) return new Promise(() => {});  // timeoutMs 内 WSS 未见（approve/PCS 卖出/订阅静默丢失）→ 让位
+        const interval = this.seenReceiptPollMs ?? 400;     // 单测缩时用实例字段（不进 config）
+        const t0 = Date.now();
+        const deadline = t0 + (this.seenReceiptPollMaxMs ?? 10000);  // WSS 已见成交 log ⇒ 链上必有 receipt；此窗纯等 RPC 索引
+        while (Date.now() < deadline) {
+            const r = await this.provider.getTransactionReceipt(hash);
+            if (r) {
+                this.log(`⚡ WSS 快速回执 | seen→receipt ${Date.now() - t0}ms: ${hash}`, 'info');
+                return r;
+            }
+            await new Promise((res) => setTimeout(res, interval));
+        }
+        return new Promise(() => {});             // RPC 索引滞后超窗 → 让位原路径
     }
 
     /**
