@@ -183,6 +183,19 @@ const FACTOR_METADATA = {
     unit: '个',
     severity: 'info'
   },
+  // 每钱包笔数因子（对倒高频作业拦截，猪五花案 2026-10-15）
+  earlyTradesPerWallet: {
+    name: '每钱包交易笔数',
+    format: v => v.toFixed(2) + ' 笔/钱包',
+    unit: '',
+    severity: 'critical'
+  },
+  earlyTradesMaxWalletTrades: {
+    name: '单钱包最大笔数',
+    format: v => v.toString() + ' 笔',
+    unit: '个',
+    severity: 'warning'
+  },
   // sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）
   earlyTradesSniperHoldingPct: {
     name: 'sniper 持仓占比',
@@ -1095,6 +1108,10 @@ class PreBuyCheckService {
         earlyTradesUniformBuyClusterN: earlyParticipantCheck.earlyTradesUniformBuyClusterN ?? 0,
         earlyTradesUniformBuyClusterRatio: earlyParticipantCheck.earlyTradesUniformBuyClusterRatio ?? 0,
         earlyTradesUniformBuyCovered: earlyParticipantCheck.earlyTradesUniformBuyCovered ?? 0,
+        // 每钱包笔数因子（对倒高频作业拦截，猪五花案 2026-10-15）：缺省 0 放行
+        //（拦截写法 <N，0 恒放行——同 uniformBuy/sniper 族方向）
+        earlyTradesPerWallet: earlyParticipantCheck.earlyTradesPerWallet ?? 0,
+        earlyTradesMaxWalletTrades: earlyParticipantCheck.earlyTradesMaxWalletTrades ?? 0,
         // sniper 持仓比例因子（虚假流动性拦截）：缺省 0 放行（拦截写法 pct<50，
         // 0 恒放行——与净流入因子的高值放行方向相反，同 uniformBuy 族）
         earlyTradesSniperHoldingPct: earlyParticipantCheck.earlyTradesSniperHoldingPct ?? 0,

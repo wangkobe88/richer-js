@@ -67,11 +67,15 @@ const MAX_ANALYSES_PER_TOKEN = 3;
  * @param {number} numericRating - 直调评级 {1,2,3,9}
  * @param {string|null} precheckStage - precheck 挂点（'address'=宣告竞态；null=非 precheck fail）
  * @param {number|null} ageMinutes - 代币年龄（分钟；fire 因子 age，缺=null）
+ * @param {number} [windowSec] - 豁免窗秒数（C70 实验级参数化；缺省=全局 300s
+ *   常量，存量调用零影响）。⚠️ 不得低于 worker PrecheckFailRetry 的
+ *   retryWindowSec——拉黑先于末次重析翻正 = 误拉黑且 _narrativeBlockedTokens
+ *   无撤销路径（引擎构造点校验下限 60s，创建页 route 校验 [60,7200]）
  * @returns {boolean} 是否登记叙事否决短路
  */
-function shouldBlockOnNarrative(numericRating, precheckStage, ageMinutes) {
+function shouldBlockOnNarrative(numericRating, precheckStage, ageMinutes, windowSec = PRECHECK_FAIL_RETRY_WINDOW_SEC) {
   if (numericRating !== 1) return false;
-  if (precheckStage === 'address' && ageMinutes !== null && ageMinutes * 60 < PRECHECK_FAIL_RETRY_WINDOW_SEC) {
+  if (precheckStage === 'address' && ageMinutes !== null && ageMinutes * 60 < windowSec) {
     return false; // 宣告竞态重试窗内：豁免（等 PrecheckFailRetryService 重析翻正）
   }
   return true;
@@ -116,6 +120,18 @@ class NarrativeDirectCaller {
      * （virtual/live）构造点显式开 true
      */
     this._accountFailTtl = options.accountFailTtlReanalyze === true;
+    /**
+     * C70 参数化（2026-10-15 实验级配置，bunker 案）：穿透 TTL/次数上限由引擎
+     * 构造点经 narrativeRetry 段注入（fourmemeWs.narrativeRetry.intervalMs /
+     * maxAnalyses）；缺省回落全局常量（存量构造点零变化）。maxAnalyses 计含首析
+     * 的全部真跑（_analysisCounts 口径），名实对齐故不用 maxRetries 键名
+     */
+    this._accountFailTtlMs = Number.isInteger(options.accountFailTtlMs) && options.accountFailTtlMs > 0
+      ? options.accountFailTtlMs
+      : ACCOUNT_FAIL_REANALYZE_TTL_MS;
+    this._maxAnalysesPerToken = Number.isInteger(options.maxAnalysesPerToken) && options.maxAnalysesPerToken > 0
+      ? options.maxAnalysesPerToken
+      : MAX_ANALYSES_PER_TOKEN;
     /** tokenAddress(小写) → 本进程真跑 analyze 次数（缓存命中不计；TTL 穿透域上限判据） */
     this._analysisCounts = new Map();
     /**
@@ -280,14 +296,17 @@ class NarrativeDirectCaller {
         timeout,
       ]).finally(() => clearTimeout(timer));
 
-      // 账号型未过缓存 10s TTL 穿透（2026-10-14 用户裁定，Virusking 案）：首次调用
-      // 命中该形状缓存行且行龄≥10s、本进程分析计数<3 → 当次强制重析（不等 worker
-      // PrecheckFailRetry ~30s 周期，宣告推晚发场景 ~10s 内可翻案）。穿透结果
-      // 覆盖 result 走下方统一构造；穿透超时抛进外层 catch = 既有 9 语义不变
+      // 账号型未过缓存 TTL 穿透（2026-10-14 用户裁定，Virusking 案；C70 参数化）：
+      // 首次调用命中该形状缓存行且行龄≥TTL、本进程分析计数<上限 → 当次强制重析
+      // （不等 worker PrecheckFailRetry ~30s 周期，宣告推晚发场景 ~TTL 内可翻案）。
+      // C70（bunker 案）起穿透必带 invalidateAccountCorpus——ignoreCache 只跳过
+      // token_narrative 行缓存，数据层 twitter_user_info 30 天缓存不失效则重析
+      // 吃的还是首析快照（穿透结果 = 旧数据重算）。穿透结果覆盖 result 走下方
+      // 统一构造；穿透超时抛进外层 catch = 既有 9 语义不变
       let ttlReanalyzed = false;
       if (result?.meta?.fromCache && this._shouldTtlReanalyze(result, cacheKey)) {
         const timingSink2 = [];
-        const entry2 = this._startAnalysis(tokenAddress, timingSink2, { ignoreCache: true });
+        const entry2 = this._startAnalysis(tokenAddress, timingSink2, { ignoreCache: true, invalidateAccountCorpus: true });
         let timer2 = null;
         const timeout2 = new Promise((_, reject) => {
           timer2 = setTimeout(() => reject(Object.assign(
@@ -398,6 +417,7 @@ class NarrativeDirectCaller {
    *
    * - 开关 accountFailTtlReanalyze 默认 false（回测禁穿透——历史行 analyzed_at
    *   恒早于墙钟，开了等于每 token 穿透 + 用「现在」的推文重评历史时点=前视）
+   * - TTL/上限取实例字段（C70 实验级参数化；缺省=全局常量）
    * - analyzedAt 缺失/不可解析 → 不穿透（保守：形状不完整宁不烧配额）
    * @private
    * @param {Object} result - analyze 缓存命中返回（meta.fromCache=true 路径）
@@ -410,8 +430,8 @@ class NarrativeDirectCaller {
     if (!isAccountOnlySource(result?.classifiedUrls)) return false;
     const analyzedAt = Date.parse(result?.meta?.analyzedAt ?? '');
     if (isNaN(analyzedAt)) return false;
-    if (Date.now() - analyzedAt < ACCOUNT_FAIL_REANALYZE_TTL_MS) return false;
-    if ((this._analysisCounts.get(cacheKey) || 0) >= MAX_ANALYSES_PER_TOKEN) return false;
+    if (Date.now() - analyzedAt < this._accountFailTtlMs) return false;
+    if ((this._analysisCounts.get(cacheKey) || 0) >= this._maxAnalysesPerToken) return false;
     return true;
   }
 }

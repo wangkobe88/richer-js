@@ -19,6 +19,9 @@
  *      GMGN 缓存定点失效（url 小写）/ 独立 1800s 窗（与 address 300s 互不影响）
  *  12. GMGN 失效失败跳过本轮（不烧 analyze、attempts 不计）+ 仍 no_public_info
  *      不计成功、拿到语料后计成功
+ *  13. C70 address 域收窄：analyzeOpts 带 invalidateAccountCorpus:true（重取账号
+ *      语料）；语料形状门——非账号型（推文/混合/缺失）address 行 skip
+ *      not-account-source 不重试；no_public_info 域不受此门（推文型照旧重试）
  *
  * 用法：node scripts/_test_precheck_fail_retry.cjs
  */
@@ -84,12 +87,23 @@ function check(name, cond, detail) {
 
 const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
 
-/** token_narrative 行（address-fail 形状缺省；validationStage=null = 通过行/其他形状） */
-function narrativeRow(addr, { analyzedAtMsAgo = 60000, validationStage = 'address' } = {}) {
+/** 账号型语料（C70 address 域形状门判据：twitter 桶非空且全部 type==='account'） */
+const ACCOUNT_ONLY_URLS = { twitter: [
+    { url: 'https://x.com/ProjDev', type: 'account', platform: 'twitter', priority: 2 },
+] };
+/** 推文型语料（静态语料：address 域重取无意义 → skip） */
+const TWEET_URLS = { twitter: [
+    { url: 'https://x.com/ProjDev/status/123', type: 'tweet', platform: 'twitter', priority: 1 },
+] };
+
+/** token_narrative 行（address-fail 形状缺省=账号型语料（C70 形状门内）；
+ *  validationStage=null = 通过行/其他形状；classifiedUrls 可覆盖形状门判据） */
+function narrativeRow(addr, { analyzedAtMsAgo = 60000, validationStage = 'address', classifiedUrls = ACCOUNT_ONLY_URLS } = {}) {
     return {
         token_address: addr,
         analyzed_at: iso(analyzedAtMsAgo),
         is_valid: true,
+        classified_urls: classifiedUrls,
         pre_check_result: validationStage === null ? null : {
             rating: 'low', pass: false, reason: '账号质量不达标',
             details: { addressVerified: false, validationStage },
@@ -98,11 +112,12 @@ function narrativeRow(addr, { analyzedAtMsAgo = 60000, validationStage = 'addres
 }
 
 /** token_narrative 行（no_public_info 规则 fail 形状：ruleName，无 validationStage——两类形状互斥） */
-function narrativeNoInfoRow(addr, { analyzedAtMsAgo = 40000 } = {}) {
+function narrativeNoInfoRow(addr, { analyzedAtMsAgo = 40000, classifiedUrls = null } = {}) {
     return {
         token_address: addr,
         analyzed_at: iso(analyzedAtMsAgo),
         is_valid: true,
+        classified_urls: classifiedUrls,
         pre_check_result: {
             rating: 'low', pass: false, reason: '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值',
             details: { ruleName: 'no_public_info', scores: { credibility: 5, virality: 5 }, total_score: 10 },
@@ -193,6 +208,8 @@ async function main() {
         check('ignoreCache:true 透传（address 域无 enrichSocialByGmgn）',
             analyzeCalls[0]?.options?.ignoreCache === true
             && analyzeCalls[0]?.options?.enrichSocialByGmgn === undefined);
+        check('C70 address 域带 invalidateAccountCorpus:true（重取账号语料）',
+            analyzeCalls[0]?.options?.invalidateAccountCorpus === true);
         check('候选计数含过滤前形状', svc.stats.candidates === 1);
         check('重析成功计数（stub 返回非 address-fail）', svc.stats.retrySuccess === 1);
     }
@@ -360,6 +377,8 @@ async function main() {
         check('enrichSocialByGmgn:true + ignoreCache:true 透传',
             analyzeCalls[0]?.options?.ignoreCache === true
             && analyzeCalls[0]?.options?.enrichSocialByGmgn === true);
+        check('no_public_info 域不带 invalidateAccountCorpus（GMGN 补语料与账号缓存无关）',
+            analyzeCalls[0]?.options?.invalidateAccountCorpus === undefined);
         check('GMGN 缓存定点失效（url 小写 + gmgn_token_info）',
             invalidateCalls.length === 1
             && invalidateCalls[0].url === `gmgn:token:bsc:${J1.toLowerCase()}`
@@ -411,6 +430,68 @@ async function main() {
         await svc._scanOnce();
         check('拿到语料后计成功（语料到位，评级归 Jev）',
             analyzeCalls.length === 2 && svc.stats.retrySuccess === 1);
+    }
+
+    // ═══ L. C70 语料形状门：address 域只重试账号型语料票 ═══
+    {
+        activeDb.tables.token_narrative.length = 0;
+        activeDb.tables.wss_events.length = 0;
+        activeDb.tables.wss_price_ticks.length = 0;
+        analyzeCalls.length = 0;
+        invalidateCalls.length = 0;
+        analyzeImpl = async () => ({
+            llmAnalysis: { preCheck: null, summary: { rating: 'mid' }, prestage: { category: 'project' } },
+            meta: { promptType: 'standard' },
+        });
+
+        const L1 = '0x1212121212121212121212121212121212121212'; // address-fail + 推文型 → skip
+        const L2 = '0x2323232323232323232323232323232323232323'; // address-fail + 混合型 → skip
+        const L3 = '0x3434343434343434343434343434343434343434'; // address-fail + 语料缺失 → skip（保守）
+        const L4 = '0x4545454545454545454545454545454545454545'; // no_public_info + 推文型 → 照旧重试（域不受此门）
+        const MIXED = { twitter: [
+            { url: 'https://x.com/ProjDev', type: 'account', platform: 'twitter', priority: 2 },
+            { url: 'https://x.com/ProjDev/status/123', type: 'tweet', platform: 'twitter', priority: 1 },
+        ] };
+        activeDb.tables.token_narrative.push(
+            narrativeRow(L1, { classifiedUrls: TWEET_URLS }),
+            narrativeRow(L2, { classifiedUrls: MIXED }),
+            narrativeRow(L3, { classifiedUrls: null }),
+            narrativeNoInfoRow(L4, { classifiedUrls: TWEET_URLS }),
+        );
+        activeDb.tables.wss_events.push(
+            evCreateRow(L1, 120000), evCreateRow(L2, 120000),
+            evCreateRow(L3, 120000), evCreateRow(L4, 120000),
+        );
+        for (const [i, a] of [L1, L2, L3, L4].entries()) {
+            for (let j = 0; j < 30; j++) {
+                activeDb.tables.wss_price_ticks.push(tickRow(11000 + i * 100 + j, a, 10000));
+            }
+        }
+
+        const svc = new PrecheckFailRetryService({});
+        await svc._scanOnce();
+        check('非账号型 address 行零重析（推文/混合/缺失 3 行全 skip）',
+            analyzeCalls.filter(c => c.addr !== L4).length === 0);
+        check('no_public_info 推文型照旧重试（域不受形状门）',
+            analyzeCalls.length === 1 && analyzeCalls[0].addr === L4);
+        check('形状门 skip 计数=3', svc.stats.notAccountSourceSkips === 3, `got ${svc.stats.notAccountSourceSkips}`);
+        check('被 skip 行不计 attempts', svc._retryCounts.get(L1) === undefined);
+
+        // 对照：账号型 address 行照旧触发（B 节已锁，此处形状门顺序确认——
+        // 非账号型 skip 先于窗口判定，账号型行到窗口分支）
+        activeDb.tables.token_narrative.length = 0;
+        activeDb.tables.wss_events.length = 0;
+        activeDb.tables.wss_price_ticks.length = 0;
+        analyzeCalls.length = 0;
+        activeDb.tables.token_narrative.push(narrativeRow('0x5656565656565656565656565656565656565656'));
+        activeDb.tables.wss_events.push(evCreateRow('0x5656565656565656565656565656565656565656', 120000));
+        for (let j = 0; j < 30; j++) {
+            activeDb.tables.wss_price_ticks.push(
+                tickRow(12000 + j, '0x5656565656565656565656565656565656565656', 10000));
+        }
+        const svc2 = new PrecheckFailRetryService({});
+        await svc2._scanOnce();
+        check('账号型 address 行照旧触发（形状门只拦非账号型）', analyzeCalls.length === 1);
     }
 
     // ═══ H. enabled=false ═══

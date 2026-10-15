@@ -182,9 +182,14 @@ export class NarrativeAnalyzer {
    *   命中 → 跳过 findByAddress DB 往返；无键/未预载 → 现场 DB 查原路径。
    *   真析 upsert 的新行只会发生在非预载行上（预载行命中路径不重析），无快照
    *   覆盖竞态
+   * @param {boolean} options.invalidateAccountCorpus - 失效账号语料缓存重取（C70
+   *   bunker 案，2026-10-15「重取数重析」）：仅账号型语料票（twitter 桶非空且全部
+   *   type==='account'，形状门在本函数内）生效——把 invalidateCache 并入账号链
+   *   tweetsWindowOptions 与 prestage 规则验证的 tweetsOptions，getAccountWithFullTweets
+   *   层 0 失效三键后重拉。推文型/website 型语料静态无重取价值，传了也零失效
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false, visionPrefetch = false } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false, visionPrefetch = false, invalidateAccountCorpus = false } = options;
 
     // 分段计时（N1 探针，2026-10-13 叙事提速案）：options._timing 为调用方持有的
     // 收集数组 → 各段 push { seg, ms }；缺省旁路模式（不计时，零行为变化）
@@ -364,6 +369,16 @@ export class NarrativeAnalyzer {
     const tweetsWindowOptions = tweetWindowUntilSec
       ? { untilSec: tweetWindowUntilSec, tokenAddress: normalizedAddress }
       : { tokenAddress: normalizedAddress };
+
+    // ── 语料形状门（C70，用户裁定 2026-10-15：「重取数重析」机制仅限依托推特
+    // 账号类的代币，其它不需要）──：invalidateAccountCorpus 只在 twitter 桶非空
+    // 且全部 type==='account'（账号型语料=动态时间线，重取有意义）时并入。
+    // 判据与引擎侧 isAccountOnlySource 同构（narrative 侧自建，勿跨 ESM/CJS
+    // import）；推文型/website 型语料静态无重取价值，传了 option 也零失效零重取
+    const shouldInvalidateAccountCorpus = invalidateAccountCorpus
+      && (classifiedUrls?.twitter?.length || 0) > 0
+      && classifiedUrls.twitter.every(tw => tw.type === 'account');
+    if (shouldInvalidateAccountCorpus) tweetsWindowOptions.invalidateCache = true;
 
     // ── 三泳道并发（2026-10-13 叙事提速第二批）──
     // 值层面互不消费已核验：performPreCheck 入参不含 relatedAccounts；issuerCa 的
@@ -561,7 +576,10 @@ export class NarrativeAnalyzer {
             const analysisResult = await timing.wrap('jev.prestage', () => analyzeAccountCommunityToken(tokenData, fetchResults, {
               // CA 实锤与项目币网站验证同级：地址已被作者时间线宣告，prestage 规则走
               // 项目币通道（名称只记录不拦截——蝴蝶轮回↔熔炉 名称不匹配不能拦 project 评级）
-              skipAddressValidation: isProjectCoinResult || !!issuerCaTimeline
+              skipAddressValidation: isProjectCoinResult || !!issuerCaTimeline,
+              // C70「重取数重析」：prestage 规则验证的账号拉取同样失效重取
+              //（形状门已在上方算出，此处只透传布尔）
+              ...(shouldInvalidateAccountCorpus ? { invalidateAccountCorpus: true } : {})
             }));
 
             // 检查是否是规则验证失败（返回preCheckData）

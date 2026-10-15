@@ -64,9 +64,20 @@ P1.9：token 类型判据补社区 meme 主账号形状（2026-10-01 用户裁�
    配套 mapper：web3ip 评级不再吃 P1.3 年龄降档/P1.5 实度门（项目信用框架对
    meme 范畴错配——实度题要求产品陈述，meme 无产品可陈述；MarsCoin 实度 2.76
    的低分正是范畴错配产物）。同 token 两版本下的类型判定/评级不可直接比较
+P1.10：题面未动（token_type 判据措辞一处修正）——mapper 端账号基本面门全删
+   （2026-10-15 用户裁定，bunker 案 C70 0x2ec1e08c…7777：flap 当天新号 2 粉
+   发币 21 分钟毕业被粉丝底线拦 low；近 7 天底线拦截 168 票 16 票毕业 9.5%
+   判别力接近随机；发币后 5 秒快照对当天新号系统性失真——「交易者不会因为
+   粉丝少/账号新/推文少拒绝一个项目」）。粉丝底线 <20、推文 <5、账号年龄
+   <30 天三道门 + P1.5 实度豁免全删；prestage_project_quality 题随豁免逻辑
+   一并删除（唯一消费方已不存在，5 题→4 题）；token_type 判据
+   中 "its follower baseline is checked separately in code" 措辞改为
+   "follower count decides nothing here — it only sets the rating tier in
+   code, it never blocks"。粉丝/成员数只剩定档（0-299 mid / ≥300 high）。
+   同 token 两版本下的评级不可直接比较（low→mid 单向翻转）
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.9';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.10';
 
 /**
  * 构建 prestage 问题集
@@ -79,7 +90,7 @@ export function buildPrestageQuestions() {
     prestage_token_type: {
       type: 'choice',
       instructions: `Token type behind this coin. The contract address IS verified in the account/community's bio or posts (or on its official website), so this is an official token of that account/community.
-Decide by the account's MAIN narrative: is the story a functional product/service, or is the COIN ITSELF the IP that people rally around? Follower count alone decides nothing here — a tiny account promoting a concrete product is still project (its follower baseline is checked separately in code), and a community meme account is web3_native_ip_early even if it also has a simple website.
+Decide by the account's MAIN narrative: is the story a functional product/service, or is the COIN ITSELF the IP that people rally around? Follower count alone decides nothing here — a tiny account promoting a concrete product is still project (it only sets the rating tier in code, it never blocks), and a community meme account is web3_native_ip_early even if it also has a simple website.
 - project: the account/community introduces a concrete product, technology, service or development plan; posts cover tech updates / product launches / development progress / partnerships; formal language emphasizing function and utility. Bot/tool accounts (launch bots, fee bots) that describe a functional service are also project. ⚠️ NOT project: a community meme coin's main/official account whose posts are meme/culture/community-rallying content around the coin itself — even when it has an official website, branding, or a verification badge. Website + branding alone does not make a product.
 - web3_native_ip_early: the coin itself IS the IP — the account's main story is the meme/coin identity, not a product's features. Two common shapes: (a) a brand-new invented IP title/concept/role that people could rally around ("币安之王" King of Binance, "ETH之神" God of ETH, "火星CEO" Mars CEO, "币安女英雄" Heroine of Binance); (b) a community/culture meme themed on a hot topic or public figure — e.g. MarsCoin: an Elon/SpaceX/Mars-themed community meme whose account bio says "Community account" and whose posts are all Mars-culture memes with zero product content. It may take public figures/topics as INSPIRATION but does not reuse an existing token's identity as its product. The account is typically born together with the token or built by the community after the coin grew — account age relative to token creation is NOT a counter-signal for this type. Typical accompanying signals: early-stage community, meme-style posts, community rallying language.`,
       criteria: {
@@ -130,24 +141,7 @@ Does NOT count (common false positives):
       },
     },
 
-    // ── 5. 项目实度（P1.5 恒带；P1.8 尺度校准：一篇产品陈述即达标 + 链上新币相对尺度；project/web3ip 评级消费，abm 型不消费）──
-    prestage_project_quality: {
-      type: 'score',
-      instructions: `项目实度（project substance）——从语料（账号信息、推文、网站内容）评估该代币背后项目的价值，以产品价值与推文内容质量为根本。
-⚠️ 判据只来自语料文本本身——不要求也无法实证产品真实存在/可用，不要因「无法验证产品是否真实」而压分；判断的是语料呈现的项目图景是否扎实。
-⚠️ 账号注册时间不是判据（项目方常为发币新开专用号）；粉丝数/认证状态可短期采购，同样不构成价值证据。
-⚠️ 评估基准：对比对象是链上每天数以万计的新发 meme 币（绝大多数纯喊单、无任何产品、抄袭蹭热点）。用这个相对尺度评，不要用成熟创业公司的绝对尺度。
-两维度同时评估：
-①产品价值——账号推文中【有一篇】讲清项目在做什么的具体产品陈述（在解决什么问题、有什么功能——网站/dapp/Telegram bot/链上基础设施皆可）即视为达标：一篇足够，不要求多篇佐证、不要求进展证据。只有通篇都没有产品陈述（只剩口号/宣传页/白皮书式空洞宣称）才不达标。
-②推文内容质量——有产品陈述推垫底时，其余推文为正常营销（常规宣传、同一内容多语言分发、热点借势、定期造势）不扣分；只有「零产品描述 + 纯营销空话/喊单/刷量」才是低分形状。`,
-      criteria: [
-        '0分：完全空壳——语料无任何产品描述，只有发币本身',
-        '1分：无产品描述，推文为纯营销/喊单/刷量',
-        '2分：通篇没有任何一篇产品陈述——只有口号/宣传页式宣称，或推文全部为营销空话模板',
-        '3分：及格线——有一篇讲清具体产品功能/所解决问题的推文（一篇即够）AND 推文整体不是纯营销空话（营销推允许存在，不要求多数为运营内容）',
-        '4分：产品描述具体扎实 + 高频运营（多渠道功能上线、技术更新、用户引导俱全）',
-        '5分：语料呈现成熟产品生态——用户/数据/第三方集成迹象丰富，持续技术演进的完整基础设施',
-      ],
-    },
+    // P1.10（C70）：prestage_project_quality 题删除——唯一消费方（P1.5 实度豁免）
+    // 随账号基本面门全删，无消费方的题不烧 Jev 配额（5 题 → 4 题）
   };
 }

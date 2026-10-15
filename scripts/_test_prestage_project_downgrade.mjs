@@ -1,15 +1,20 @@
 /**
- * prestage project 信用降档本地零 DB 单测（x-0 案 C15，P1.3，2026-09-27）
+ * prestage 账号基本面门删除单测（P1.10，C70 bunker 案，2026-10-15 用户裁定）
+ *
+ * 「交易者不会因为项目方粉丝少/账号新/推文少拒绝一个项目」——粉丝底线 <20、
+ * 推文 <5、账号年龄 <30 天三道门 + P1.5 实度豁免全删；粉丝/成员数只定档：
+ * 账号 0-299 mid / ≥300 high，社区 ≥100 且活跃 high / 其余 mid，均不拦截。
  *
  * 覆盖：
- * 1. rateProject 降档边界（少推文/新号/正常号/缺 created_at/社区型不受影响）
- * 2. 年龄锚定幂等性（token 创建时点锚，与"何时分析"无关）
- * 3. mapPrestageAnswers 透传（tokenCreatedAtSec → downgrade 进 jevDetails）
- * 4/5. P1.5 项目实度豁免（WIRED 案）
- * 6. P1.9 accountAgeGate（C46 MarsCoin 案：web3ip 评级不吃年龄门/实度门，
- *    推文 <5 保留；project 路径默认 opts 零回归）
+ * 1. bunker 事故现场反证（0x2ec1e08c…7777：当天新号 2 粉 4 推 → 双路径 mid）
+ * 2. 历史案形状回归（x-0 C15 / WIRED C35 删门后走向）
+ * 3. 粉丝带定档边界（299/300、社区 99/100×活跃度矩阵）
+ * 4. 输入不再消费锁定（改 statuses_count/created_at/多传实参 → rating 不变）
+ * 5. mapPrestageAnswers 全链（P1.10 promptType / jevDetails 无 downgrade 键 /
+ *    abm/web3ip/project 三分支 shape）
  */
 import { rateProject, mapPrestageAnswers } from '../src/narrative/analyzer/llm/jev-prestage-mapper.mjs';
+import { buildPrestageQuestions, JEV_PRESTAGE_QUESTIONS_VERSION } from '../src/narrative/analyzer/llm/jev-prestage-questions.mjs';
 
 let pass = 0, fail = 0;
 function check(name, actual, expected) {
@@ -18,79 +23,84 @@ function check(name, actual, expected) {
   else { fail++; console.log(`  ✗ ${name}\n    期望 ${e}\n    实际 ${a}`); }
 }
 
-// x-0 案形状：131 粉、09-15 注册、token 09-26 铸（11 天）、1 条推文
+// bunker 案形状（0x2ec1e08c…7777，flap 2026-10-15 07:20 创建，21 分钟毕业）：
+// @bunkeronbnb 发币后 5s 首析快照：2 粉、4 推、当天 04:26 注册（3h 新号）——
+// P1.9 下 project 路径「粉丝 2<20 底线」拦 low；P1.10 只定档不拦截
+const BUNKER = {
+  type: 'account', followers_count: 2, statuses_count: 4,
+  created_at: 'Thu Oct 15 04:26:00 +0000 2026', verified: false, is_blue_verified: false,
+};
+const BUNKER_TOKEN_AT = new Date('2026-10-15T07:20:16Z').getTime() / 1000;
+
+// x-0 案形状（C15）：131 粉、11 天号、1 条推文——P1.3 下信用降档 low；
+// P1.10 下 131 粉 → mid（信用由 CA 验证+nameMatch 承担）
 const X0 = {
   type: 'account', followers_count: 131, statuses_count: 1,
   created_at: 'Mon Sep 15 08:00:00 +0000 2026', verified: false, is_blue_verified: true,
 };
 const X0_TOKEN_AT = new Date('2026-09-26T12:02:17Z').getTime() / 1000;
 
-console.log('== 1. 降档边界 ==');
-// x-0：双触发（1 推文 <5 且 11 天 <30）→ low
-let r = rateProject(X0, null, X0_TOKEN_AT);
-check('x-0 形状（1推文+11天）→ low', { rating: r.rating, met: r.baselineMet },
-  { rating: 'low', met: true });
-check('x-0 downgrade 记录', r.downgrade, { statuses: 1, accountAgeDays: 11 });
+console.log('== 1. bunker 事故现场反证（C70）==');
+// project 路径：2 粉 4 推 3h 新号 → mid（旧：low 底线拦）
+let r = rateProject(BUNKER, null);
+check('bunker project 形状（2粉4推当天号）→ mid（不再拦）', { rating: r.rating, met: r.baselineMet },
+  { rating: 'mid', met: true });
+// web3ip 路径（ratingLabel 差异）：同数据同结论
+r = rateProject(BUNKER, null, { ratingLabel: '账号基本面评级' });
+check('bunker web3ip 形状 → mid（双路径一致）', r.rating, 'mid');
+check('reason 标注定档不拦截', r.reason.includes('粉丝带只定档不拦截'), true);
+check('reason 用 ratingLabel', r.reason.startsWith('账号基本面评级：'), true);
+// 0 粉（比底线更极端）：仍 mid——存在性下限一并删除
+r = rateProject({ ...BUNKER, followers_count: 0 }, null);
+check('0 粉 → mid（底线存在性下限同删）', { rating: r.rating, met: r.baselineMet }, { rating: 'mid', met: true });
 
-// 只有推文少（老号 3 条）：OR 触发 → low
-r = rateProject({ ...X0, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }, null, X0_TOKEN_AT);
-check('老号但 3 条推文 → low（OR）', r.rating, 'low');
+console.log('== 2. 历史案形状回归 ==');
+// x-0（C15 降档案形状）：131 粉 → mid（不再降档 low）
+r = rateProject(X0, null);
+check('x-0 形状（131粉 11天号 1推）→ mid（降档已删）', r.rating, 'mid');
+// WIRED（C35 实度豁免案形状）：1041 粉 → high（豁免逻辑已删，纯粉丝带直达）
+const WIRED = {
+  type: 'account', followers_count: 1041, statuses_count: 109,
+  created_at: new Date((X0_TOKEN_AT + 15 * 60) * 1000).toUTCString().replace('GMT', '+0000'),
+  verified: true, is_blue_verified: true,
+};
+r = rateProject(WIRED, null);
+check('WIRED 形状（1041粉 0天号）→ high（纯粉丝带）', r.rating, 'high');
 
-// 只有号新（推文多）：OR 触发 → low
-r = rateProject({ ...X0, statuses_count: 500 }, null, X0_TOKEN_AT);
-check('11 天号但 500 条推文 → low（OR）', r.rating, 'low');
+console.log('== 3. 粉丝带定档边界 ==');
+// 账号 299/300
+r = rateProject({ ...X0, followers_count: 299 }, null);
+check('299 粉 → mid', r.rating, 'mid');
+r = rateProject({ ...X0, followers_count: 300 }, null);
+check('300 粉 → high（≥ 语义）', r.rating, 'high');
+// 社区矩阵：99/100 × high/medium/low/null
+r = rateProject({ type: 'community', members_count: 99 }, 'high');
+check('社区 99 成员活跃 → mid', r.rating, 'mid');
+r = rateProject({ type: 'community', members_count: 100 }, 'high');
+check('社区 100 成员活跃 → high', r.rating, 'high');
+r = rateProject({ type: 'community', members_count: 100 }, 'medium');
+check('社区 100 成员不活跃 → mid', r.rating, 'mid');
+r = rateProject({ type: 'community', members_count: 500 }, null);
+check('社区 500 成员活跃度缺失 → mid（宁 mid 不冒充 high）', r.rating, 'mid');
+// 社区 <20 不再拦（旧底线分支删除的机器证明）
+r = rateProject({ type: 'community', members_count: 5 }, 'low');
+check('社区 5 成员 → mid（底线分支已删）', { rating: r.rating, met: r.baselineMet }, { rating: 'mid', met: true });
 
-// 正常项目方：老号 + 推文足 + 131 粉 → mid（P1.2 行为不变）
-r = rateProject({ ...X0, statuses_count: 120, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }, null, X0_TOKEN_AT);
-check('老号 120 推文 131 粉 → mid 零回归', { rating: r.rating, dg: r.downgrade }, { rating: 'mid', dg: null });
+console.log('== 4. 输入不再消费锁定（防回流）==');
+// 只改 statuses_count（旧 P1.3 推文项）/ created_at（旧年龄项）→ rating 不变
+const base = rateProject(X0, null).rating;
+check('statuses_count 1→500 rating 不变', rateProject({ ...X0, statuses_count: 500 }, null).rating, base);
+check('created_at 当天→2020 rating 不变',
+  rateProject({ ...X0, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }, null).rating, base);
+check('created_at 缺失 rating 不变', rateProject({ ...X0, created_at: null }, null).rating, base);
+check('verified/blue 不影响 rating', rateProject({ ...X0, verified: true }, null).rating, base);
+// 多传旧实参（第三参数字 = 旧 tokenCreatedAtSec 位、第四参 = 旧实度分位）：
+// 新签名第三参是 opts 对象，传数字会落 opts.ratingLabel 无效但 rating 不变——
+// 旧调用方若漏改不会改变评级方向（防御性锁定）
+check('第三参传数字（旧调用残留）→ rating 不变',
+  rateProject({ ...X0, followers_count: 500 }, null, X0_TOKEN_AT).rating, 'high');
 
-// 老号 ≥300 粉 → high 不变
-r = rateProject({ ...X0, followers_count: 500, statuses_count: 120, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }, null, X0_TOKEN_AT);
-check('老号 120 推文 500 粉 → high 零回归', r.rating, 'high');
-
-// 边界值：恰好 30 天 / 恰好 5 条推文 → 不拦（< 严格）
-const exactly30d = X0_TOKEN_AT - 30 * 86400;
-r = rateProject({ ...X0, statuses_count: 5, created_at: new Date(exactly30d * 1000).toUTCString().replace('GMT', '+0000') }, null, X0_TOKEN_AT);
-check('恰好 5 推文 + 恰好 30 天 → mid（严格小于不拦）', r.rating, 'mid');
-
-// 29.9 天 → 拦
-r = rateProject({ ...X0, statuses_count: 5, created_at: new Date((X0_TOKEN_AT - 29.9 * 86400) * 1000).toUTCString().replace('GMT', '+0000') }, null, X0_TOKEN_AT);
-check('29.9 天 → low', r.rating, 'low');
-
-console.log('== 2. 缺数据 fail-open 与社区型 ==');
-// created_at 缺失：跳过年龄项，推文够 → mid
-r = rateProject({ ...X0, statuses_count: 120, created_at: null }, null, X0_TOKEN_AT);
-check('created_at 缺失 + 推文足 → mid（跳过年龄项）', r.rating, 'mid');
-// created_at 缺失 + 推文少 → 仍降档（推文项独立）
-r = rateProject({ ...X0, statuses_count: 2, created_at: null }, null, X0_TOKEN_AT);
-check('created_at 缺失 + 2 推文 → low（推文项独立生效）', r.rating, 'low');
-// tokenCreatedAtSec 缺失（raw_api_data.created_at 无）：年龄项跳过
-r = rateProject(X0, null, null);
-check('tokenAt 缺失 → 只看推文（1<5 拦）', r.rating, 'low');
-r = rateProject({ ...X0, statuses_count: 120, created_at: 'Mon Sep 25 08:00:00 +0000 2026' }, null, null);
-check('tokenAt 缺失 + 推文足 → mid（年龄不可算不拦）', r.rating, 'mid');
-// created_at 解析失败（垃圾串）
-r = rateProject({ ...X0, statuses_count: 120, created_at: 'not-a-date' }, null, X0_TOKEN_AT);
-check('created_at 垃圾串 + 推文足 → mid（解析失败跳过）', r.rating, 'mid');
-// 社区型：无降档概念，500 成员活跃 high 不变
-r = rateProject({ type: 'community', members_count: 500 }, 'high', X0_TOKEN_AT);
-check('社区型 500 成员活跃 → high 不受降档影响', { rating: r.rating, dg: r.downgrade }, { rating: 'high', dg: null });
-// 粉丝底线以下仍走原 low（baselineMet=false；§六-23 底线 60→20 后 30 粉已过线，
-// 用 10 粉测底线分支）
-r = rateProject({ ...X0, followers_count: 10 }, null, X0_TOKEN_AT);
-check('10 粉 < 底线 → low（baselineMet=false 原语义）', { rating: r.rating, met: r.baselineMet }, { rating: 'low', met: false });
-
-console.log('== 3. 年龄锚定幂等性 ==');
-// 同一账号同一 token：无论何时重放（tokenAt 锚定不变），评级一致
-const late = rateProject(X0, null, X0_TOKEN_AT);
-const replayDaysLater = rateProject(X0, null, X0_TOKEN_AT); // tokenAt 同值即同结果
-check('重放同 tokenAt → 同结果', late.rating, replayDaysLater.rating);
-// 对照：若用分析时刻锚，一年后重放会从 low 翻 mid（错误方向）；tokenAt 锚不受影响
-const aYearLater = Math.floor(Date.now() / 1000) + 0; // 不使用——仅文档性说明
-check('tokenAt 锚定（非墙钟）：账号年龄仅由 token 创建时点决定',
-  late.downgrade.accountAgeDays, 11);
-
-console.log('== 4. mapPrestageAnswers 透传 ==');
+console.log('== 5. mapPrestageAnswers 全链（P1.10）==');
 const answers = {
   prestage_token_type: { choice: 'project', probabilities: { project: 0.8 } },
   prestage_abm_name_link: { choice: 'exact', probabilities: { exact: 0.9 } },
@@ -101,89 +111,53 @@ const callInfo = {
   model: 'test', questions: { q1: { type: 'choice' } }, state: 's', stateStats: { totalChars: 1 },
   usage: {}, startedAt: 't0', finishedAt: 't1',
 };
+// project 分支：bunker 形状 → mid + P1.10 promptType + jevDetails 无 downgrade/qualityExempt
 const mapped = mapPrestageAnswers(answers, {
-  fullAccountOrCommunityData: X0,
+  fullAccountOrCommunityData: BUNKER,
   addressVerified: true,
   rulesResult: { nameMatch: true },
-  tokenCreatedAtSec: X0_TOKEN_AT,
   callInfo,
 });
-check('x-0 全链形状 → rating low + promptType P1.9', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'low', pt: 'prestage-jev(P1.9/project)' });
-check('jevDetails 含 downgrade', mapped.jevDetails.downgrade, { statuses: 1, accountAgeDays: 11 });
-check('reason 含降档依据', mapped.reasoning.includes('信用降档'), true);
-
-const mappedOk = mapPrestageAnswers(answers, {
-  fullAccountOrCommunityData: { ...X0, statuses_count: 120, created_at: 'Wed Jan 01 08:00:00 +0000 2020' },
-  addressVerified: true, rulesResult: { nameMatch: true },
-  tokenCreatedAtSec: X0_TOKEN_AT, callInfo,
+check('bunker 全链 project → mid + promptType P1.10', { rating: mapped.rating, pt: mapped.promptType },
+  { rating: 'mid', pt: `prestage-jev(P1.10/project)` });
+check('jevDetails 无 downgrade/qualityExempt 键',
+  { dg: 'downgrade' in mapped.jevDetails, qe: 'qualityExempt' in mapped.jevDetails },
+  { dg: false, qe: false });
+check('category=project', mapped.tokenType, 'project');
+// context 带旧键 tokenCreatedAtSec（旧调用残留）→ 被忽略不炸
+const mappedLegacyCtx = mapPrestageAnswers(answers, {
+  fullAccountOrCommunityData: BUNKER,
+  addressVerified: true,
+  rulesResult: { nameMatch: true },
+  tokenCreatedAtSec: BUNKER_TOKEN_AT,
+  callInfo,
 });
-check('正常号全链 → mid 无 downgrade 键', { rating: mappedOk.rating, has: 'downgrade' in mappedOk.jevDetails },
-  { rating: 'mid', has: false });
-
-console.log('== 5. P1.5 项目实度豁免（WIRED 案 C35，2026-10-01）==');
-// WIRED 形状：1041 粉、109 推文、账号比 token 晚 15 分钟（负年龄）、实度 4 分
-const WIRED = {
-  type: 'account', followers_count: 1041, statuses_count: 109,
-  created_at: new Date((X0_TOKEN_AT + 15 * 60) * 1000).toUTCString().replace('GMT', '+0000'),
-  verified: true, is_blue_verified: true,
-};
-r = rateProject(WIRED, null, X0_TOKEN_AT, 4);
-check('WIRED 形状（0天号+109推文+实度4）→ high 豁免降档', { rating: r.rating, dg: r.downgrade },
-  { rating: 'high', dg: null });
-check('豁免审计 qualityExempt', r.qualityExempt.accountAgeDays <= 0 && r.qualityExempt.projectQuality === 4, true);
-check('豁免 reason 标注', r.reason.includes('项目实度4分≥3豁免降档'), true);
-// 同形状但实度低分 → 维持拦
-r = rateProject(WIRED, null, X0_TOKEN_AT, 2);
-check('0天号+实度2分<3 → low 维持拦', { rating: r.rating, q: r.downgrade.projectQuality }, { rating: 'low', q: 2 });
-// 缺分（fail-closed：题未答/未带）→ 维持拦（= 旧调用零回归的机器证明）
-r = rateProject(WIRED, null, X0_TOKEN_AT, null);
-check('0天号+实度缺分 → low（fail-closed）', { rating: r.rating, has: 'projectQuality' in (r.downgrade || {}) },
-  { rating: 'low', has: false });
-// 边界：恰好 3 分 → 豁免（≥ 语义）
-r = rateProject({ ...WIRED, followers_count: 131 }, null, X0_TOKEN_AT, 3);
-check('0天号+131粉+实度3分（边界）→ mid 豁免', r.rating, 'mid');
-// 推文 <5 保留拦：实度分救不了无内容（x-0 语义维持）
-r = rateProject({ ...WIRED, statuses_count: 1 }, null, X0_TOKEN_AT, 5);
-check('0天号+1推文+实度5分 → low（推文项独立，无内容=质量无从评估）', r.rating, 'low');
-// 老号低分：分数只对账号新的生效，老号不消费（不因低分误伤老项目）
-r = rateProject({ ...WIRED, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }, null, X0_TOKEN_AT, 1);
-check('老号+实度1分 → high 不消费分数（1041粉带；零回归）', { rating: r.rating, qe: r.qualityExempt }, { rating: 'high', qe: null });
-// 全链：豁免形状进 jevDetails
-const mappedExempt = mapPrestageAnswers({
-  ...answers, prestage_project_quality: { score: 4, probabilities: {} },
+check('context 残留 tokenCreatedAtSec → 忽略不炸同结果', mappedLegacyCtx.rating, 'mid');
+// web3ip 分支
+const mappedIp = mapPrestageAnswers({
+  ...answers, prestage_token_type: { choice: 'web3_native_ip_early', probabilities: {} },
 }, {
-  fullAccountOrCommunityData: WIRED,
-  addressVerified: true, rulesResult: { nameMatch: true },
-  tokenCreatedAtSec: X0_TOKEN_AT, callInfo,
+  fullAccountOrCommunityData: { ...WIRED, followers_count: 131 },
+  addressVerified: true, rulesResult: { nameMatch: true }, callInfo,
 });
-check('WIRED 全链 → high + qualityExempt 进 jevDetails',
-  { rating: mappedExempt.rating, qe: mappedExempt.jevDetails.qualityExempt.projectQuality },
-  { rating: 'high', qe: 4 });
-// 全链：低分形状降档 reason 带分
-const mappedLowQ = mapPrestageAnswers({
-  ...answers, prestage_project_quality: { score: 2, probabilities: {} },
-}, {
-  fullAccountOrCommunityData: WIRED,
-  addressVerified: true, rulesResult: { nameMatch: true },
-  tokenCreatedAtSec: X0_TOKEN_AT, callInfo,
+check('web3ip 分支 131 粉 → mid + promptType 带 web3_native_ip_early',
+  { rating: mappedIp.rating, pt: mappedIp.promptType },
+  { rating: 'mid', pt: 'prestage-jev(P1.10/web3_native_ip_early)' });
+check('web3ip reason 含 IP 前缀', mappedIp.reasoning.startsWith('Web3原生IP早期'), true);
+// abm 分支（addressVerified=false）：判定不消费 rateProject，两条件逻辑不变
+const mappedAbm = mapPrestageAnswers(answers, {
+  fullAccountOrCommunityData: BUNKER,
+  addressVerified: false,
+  callInfo,
 });
-check('低分全链 → low + reason 含实度分', mappedLowQ.rating === 'low' && mappedLowQ.reasoning.includes('项目实度2分<3'), true);
-
-console.log('== 6. P1.9 accountAgeGate（C46 MarsCoin 案，web3ip 不吃年龄门）==');
-// 默认 opts（project 路径）：11 天号零回归 → low
-r = rateProject({ ...X0, statuses_count: 120 }, null, X0_TOKEN_AT);
-check('11 天号 120 推文（默认 opts）→ low 零回归', r.rating, 'low');
-// accountAgeGate=false：同形状年龄臂关闭 → mid（131 粉粉丝带）
-r = rateProject({ ...X0, statuses_count: 120 }, null, X0_TOKEN_AT, null, { accountAgeGate: false, ratingLabel: '账号基本面评级' });
-check('同形状 accountAgeGate=false → mid（年龄不构成反证）', r.rating, 'mid');
-check('reason 用 ratingLabel', r.reason.startsWith('账号基本面评级：'), true);
-// 推文 <5 不受 gate 开关影响（C15 x-0 防线保留）
-r = rateProject(X0, null, X0_TOKEN_AT, null, { accountAgeGate: false });
-check('gate=false 但 1 推文 → 仍 low（推文项独立）', r.rating, 'low');
-// 实度门随年龄臂一并失效（web3ip 不消费实度：负年龄+缺分不再 fail-closed）
-r = rateProject(WIRED, null, X0_TOKEN_AT, null, { accountAgeGate: false });
-check('0天号+实度缺分+gate=false → high（meme 无产品可陈述，实度门不适用）', r.rating, 'high');
+check('abm 分支 nameLink=exact+traffic 0.1 → low（双证据逻辑零改动）',
+  { rating: mappedAbm.rating, cat: mappedAbm.tokenType }, { rating: 'low', cat: 'account_based_meme' });
+// 实度题已删：buildPrestageQuestions 无 prestage_project_quality 键
+const qs = buildPrestageQuestions();
+check('问题集无 prestage_project_quality（题随豁免逻辑删）',
+  'prestage_project_quality' in qs, false);
+check('问题集 4 题', Object.keys(qs).length, 4);
+check('版本 P1.10', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.10');
 
 console.log(`\n${pass}/${pass + fail}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -183,6 +183,9 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesUniformBuyClusterN: preBuyCheckResult.earlyTradesUniformBuyClusterN ?? 0,
     earlyTradesUniformBuyClusterRatio: preBuyCheckResult.earlyTradesUniformBuyClusterRatio ?? 0,
     earlyTradesUniformBuyCovered: preBuyCheckResult.earlyTradesUniformBuyCovered ?? 0,
+    // 每钱包笔数因子（对倒高频作业拦截，猪五花案 2026-10-15）：缺省 0 值放行
+    earlyTradesPerWallet: preBuyCheckResult.earlyTradesPerWallet ?? 0,
+    earlyTradesMaxWalletTrades: preBuyCheckResult.earlyTradesMaxWalletTrades ?? 0,
     // sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）：covered=0 时为 0 值放行
     earlyTradesSniperHoldingPct: preBuyCheckResult.earlyTradesSniperHoldingPct ?? 0,
     earlyTradesSniperWallets: preBuyCheckResult.earlyTradesSniperWallets ?? 0,

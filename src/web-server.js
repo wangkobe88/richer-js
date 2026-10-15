@@ -811,6 +811,35 @@ class RicherJsWebServer {
           }
         }
 
+        // narrativeRetry 形状校验（C70，2026-10-15 bunker 案——「叙事未通过→重取数
+        // →重析」实验级配置）：enabled 布尔 / intervalMs∈[1000,600000]（穿透 TTL 毫秒）/
+        // maxAnalyses∈[1,50]（含首析的真跑上限）/ windowSec∈[60,7200]（叙事否决豁免
+        // 窗秒）均须整数。无条件表达式字段，不进未知因子三防线。both/fourmeme 配
+        // fourmemeWs.narrativeRetry、flap 单平台配 flapWs.narrativeRetry（引擎
+        // _wsConfigSectionName 分段读）；缺段=引擎默认开（enabled!==false）
+        {
+          const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+          for (const secKey of ['fourmemeWs', 'flapWs']) {
+            const nr = (config[secKey] || {}).narrativeRetry;
+            if (nr === undefined || nr === null) continue;
+            if (typeof nr !== 'object' || Array.isArray(nr)) {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry 段形状非法（须为对象）` });
+            }
+            if (nr.enabled !== undefined && typeof nr.enabled !== 'boolean') {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.enabled 须为布尔` });
+            }
+            if (nr.intervalMs !== undefined && !intInRange(nr.intervalMs, 1000, 600000)) {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.intervalMs 须为整数 [1000,600000]（穿透 TTL 毫秒）` });
+            }
+            if (nr.maxAnalyses !== undefined && !intInRange(nr.maxAnalyses, 1, 50)) {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.maxAnalyses 须为整数 [1,50]（含首析的真跑上限）` });
+            }
+            if (nr.windowSec !== undefined && !intInRange(nr.windowSec, 60, 7200)) {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.windowSec 须为整数 [60,7200]（秒；不得低于 worker retryWindowSec——拉黑先于重析翻正=误拉黑且无撤销路径）` });
+            }
+          }
+        }
+
         // 如果提供了策略参数，添加到配置中
         if (strategy) {
           // 策略系统

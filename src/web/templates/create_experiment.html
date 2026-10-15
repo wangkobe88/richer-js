@@ -821,6 +821,41 @@
                     </p>
                 </div>
 
+                <!-- 叙事重试（C70，2026-10-15 bunker 案 0x2ec1e08c…7777）：「叙事未通过
+                     →重取数→重析」实验级配置（仅账号型语料票生效）。默认开=引擎缺省行为
+                     （穿透 TTL 10s / 真跑上限 3 / 豁免窗 300s）；不勾=显式关。与数据预取门
+                     的「关=删段」刻意不同——本段引擎默认开，删段=静默重开，须显式 enabled:false
+                     才关（物化语义）；回测提交时自动剥离该段 -->
+                <div class="border border-gray-200 rounded-lg p-3" id="narrative-retry-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">🔁 叙事重试（账号型重取数重析）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                账号型语料票评级未过且缓存过期 → 失效推特账号缓存重取（bio 后补 CA /
+                                宣告推晚发场景）；穿透 TTL 与真跑上限可调。默认开；回测不适用
+                            </p>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                        <input type="checkbox" id="nr-enabled" class="rounded" checked>
+                        启用叙事重试
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                        <span class="whitespace-nowrap">穿透 TTL(ms)</span>
+                        <input type="text" id="nr-interval-ms" placeholder="10000"
+                               class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">真跑上限</span>
+                        <input type="text" id="nr-max-analyses" placeholder="3"
+                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        空值=引擎默认（TTL 10000ms / 上限 3 次含首析）；真跑上限计包含首次分析在内的
+                        全部真实分析（缓存命中不计）。豁免窗 windowSec 无表单项（复制链路整段携带）
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -1192,6 +1227,21 @@
                         const dpInp = document.getElementById('dp-condition');
                         if (dpCb) dpCb.checked = true;
                         if (dpInp && typeof dp.condition === 'string') dpInp.value = dp.condition;
+                    }
+                }
+
+                // 叙事重试回填（C70，2026-10-15）：复制携带的 narrativeRetry 回填表单。
+                // 物化语义（与 dataPrefetch「关=删段」刻意不同）：引擎默认开——源段
+                // enabled===false 才显示为关（缺段=开）；数字键有值才回填，空=默认
+                {
+                    const nr = copyData.fourmemeWs?.narrativeRetry || copyData.flapWs?.narrativeRetry;
+                    if (nr) {
+                        const nrCb = document.getElementById('nr-enabled');
+                        const nrInterval = document.getElementById('nr-interval-ms');
+                        const nrMax = document.getElementById('nr-max-analyses');
+                        if (nrCb) nrCb.checked = !(nr && nr.enabled === false);
+                        if (nrInterval && Number.isInteger(nr.intervalMs)) nrInterval.value = nr.intervalMs;
+                        if (nrMax && Number.isInteger(nr.maxAnalyses)) nrMax.value = nr.maxAnalyses;
                     }
                 }
 
@@ -1976,6 +2026,44 @@
                     for (const k of ['fourmemeWs', 'flapWs']) {
                         if (adv[k]) delete adv[k].dataPrefetch;
                     }
+                }
+            }
+            // 叙事重试（C70，2026-10-15）：物化语义与 dataPrefetch 刻意不同——引擎
+            // 默认开，删段=静默重开，显式关才写 enabled:false。「显式关 或 任一数字已填」
+            // 才写段（浅合并保留复制携带的 windowSec）；按平台选段+删另一段同键
+            //（防双段并存）；回测模式整段剥离（引擎不消费+防前视配置漂移）
+            {
+                const nrCb = document.getElementById('nr-enabled');
+                const nrIntervalRaw = (document.getElementById('nr-interval-ms')?.value || '').trim();
+                const nrMaxRaw = (document.getElementById('nr-max-analyses')?.value || '').trim();
+                const nrInterval = /^\d+$/.test(nrIntervalRaw) ? parseInt(nrIntervalRaw, 10) : null;
+                const nrMax = /^\d+$/.test(nrMaxRaw) ? parseInt(nrMaxRaw, 10) : null;
+                const nrChecked = nrCb?.checked ?? true;
+                const hasNumeric = nrInterval !== null || nrMax !== null;
+                for (const k of ['fourmemeWs', 'flapWs']) {
+                    if (adv[k]) adv[k] = { ...(adv[k] || {}) };
+                }
+                if (tradingMode === 'backtest') {
+                    for (const k of ['fourmemeWs', 'flapWs']) {
+                        if (adv[k]) delete adv[k].narrativeRetry;
+                    }
+                } else {
+                    const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
+                    const sec = (_plat === 'flap') ? 'flapWs' : 'fourmemeWs';
+                    const other = (sec === 'flapWs') ? 'fourmemeWs' : 'flapWs';
+                    if (other !== sec && adv[other]) delete adv[other].narrativeRetry;
+                    if (!nrChecked) {
+                        // 显式关：写 enabled:false（数字键即便填了也不写——引擎消费
+                        // enabled!==false 短路在先，写了是死配置）
+                        adv[sec] = { ...(adv[sec] || {}),
+                            narrativeRetry: { ...(adv[sec]?.narrativeRetry || {}), enabled: false } };
+                    } else if (hasNumeric) {
+                        adv[sec] = { ...(adv[sec] || {}),
+                            narrativeRetry: { ...(adv[sec]?.narrativeRetry || {}),
+                                ...(nrInterval !== null ? { intervalMs: nrInterval } : {}),
+                                ...(nrMax !== null ? { maxAnalyses: nrMax } : {}) } };
+                    }
+                    // 开且无数字输入：复制携带的段原样保留（可能带 windowSec）；无段=引擎默认
                 }
             }
             const config = {

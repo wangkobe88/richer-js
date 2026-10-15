@@ -254,12 +254,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 实验级开关 fourmemeWs.visionPrefetch.enabled 默认 false（flap 实验配 flapWs
     // 段同键；N3 narrativePrefetch 同款缺省段形状）；开启 = 该实验显式放弃 C58
     // 「预检拦截票不烧视觉调用」约束（配额消耗观察 24-48h 后再定默认值）
+    // C70 参数化（2026-10-15 bunker 案，实验级 fourmemeWs.narrativeRetry）：
+    // enabled 默认开（显式 false 才关——UI 物化语义：删段=静默重开）；
+    // intervalMs=穿透 TTL（默认 10s）/ maxAnalyses=真跑上限（默认 3，计含首析
+    // 故名 maxAnalyses 非 maxRetries）/ windowSec=叙事否决豁免窗（默认 300s）；
+    // flap 实验经 _mergedWsConfig 自动读 flapWs 段
+    const narrativeRetry = this._mergedWsConfig().narrativeRetry || {};
     this._narrativeCaller = new NarrativeDirectCaller({
       analyzeOptions: { visionPrefetch: (this._mergedWsConfig().visionPrefetch || {}).enabled === true },
       // 账号型未过缓存 10s TTL 穿透重析（2026-10-14 用户裁定，Virusking 案）：宣告推
       // 晚发场景直调 ~10s 内重析翻案，不等 worker PrecheckFailRetry ~30s 周期；仅实时
       // 链路开——回测禁穿透（历史行 analyzed_at 恒老，开了=语料前视）
-      accountFailTtlReanalyze: true,
+      accountFailTtlReanalyze: narrativeRetry.enabled !== false,
+      ...(Number.isInteger(narrativeRetry.intervalMs) ? { accountFailTtlMs: narrativeRetry.intervalMs } : {}),
+      ...(Number.isInteger(narrativeRetry.maxAnalyses) ? { maxAnalysesPerToken: narrativeRetry.maxAnalyses } : {}),
     });
     // 叙事否决短路集（2026-09-27 用户裁定：叙事评级确认为 low 的代币不再重复生成
     // 买信号——每次 fire 白落 signal 行 + 全套 preBuyCheck；address-fail 宣告竞态
@@ -278,7 +286,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 派发两遍 → Set 挡第二次触发；内存语义与 _narrativeBlockedTokens 同款——重启丢失
     // 安全（事件不重放，重启后无仓则不触发、已卖则 status 已变）
     this._graduationSoldTokens = new Set();
-    this._shouldBlockOnNarrative = shouldBlockOnNarrative;
+    // 叙事否决豁免窗（C70 实验级参数化）：windowSec 缺省 300=worker retryWindowSec
+    // 缺省同款全局常量；⚠️ 不得低于 worker 的 retryWindowSec——拉黑先于末次重析
+    // 翻正 = 误拉黑且 _narrativeBlockedTokens 无撤销路径。闭包包装：三个消费点
+    // （拉黑登记/买腿短路）签名零改动
+    this._narrativeRetryWindowSec = Number.isInteger(narrativeRetry.windowSec) && narrativeRetry.windowSec >= 60
+      ? narrativeRetry.windowSec : 300;
+    this._shouldBlockOnNarrative = (r, s, a) => shouldBlockOnNarrative(r, s, a, this._narrativeRetryWindowSec);
     // 挂 this：解构是 _initializeDataSources 函数级作用域，_evaluateBuyPath 裸引用会
     // ReferenceError（2026-09-27 蝴蝶轮回案：60 次 BUY 信号全挂「mapGmgnRiskFactors is not defined」）
     this._mapGmgnRiskFactors = mapGmgnRiskFactors;

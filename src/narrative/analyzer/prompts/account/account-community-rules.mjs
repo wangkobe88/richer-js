@@ -257,6 +257,36 @@ export function buildAccountCacheKeys(screenName, tweetCount = 50, options = {})
 }
 
 /**
+ * 账号语料缓存失效（C70 bunker 案 2026-10-15，「重取数重析」机制的数据层落点）
+ *
+ * 背景：穿透/重析的 ignoreCache 只跳过 token_narrative 行缓存，数据抓取层全吃
+ * external_resource_cache——twitter_user_info maxAge 30 天，发币后 5 秒的粉丝/
+ * 推文数快照会被整个重试窗（300s）内的全部重析命中（bunker 案三次 worker 重试
+ * 全命中首析行实证）；且项目方把 CA 后补进 bio 时 30 天缓存导致永远匹配不到。
+ * 失效最小三键：
+ * - twitter_user_info:<handle>（bio 后补 CA 载体 + 粉丝/推文数快照）
+ * - twitter_user_tweets:<userId>（宣告推载体，6h maxAge）
+ * - twitter_user_tweets:<userId>:ca:<addr>（本 token CA 早停截断列表）
+ * twitter_account 层刻意不动（已核验 address 验证/prestage state 只消费本两层）。
+ * userId 缺失时只失效 userKey（推文层 key 不可构造；首析成功 ⇒ userInfo 行必在，
+ * 重试域内罕见，台账记边界）。失效不 throw：invalidate 单键失败返回 false，其余
+ * 键照常——后续 get 对未删净行照常命中，宁用过期数据不冒充失败。
+ *
+ * @param {string} screenName - Twitter 用户名
+ * @param {Object} [opts]
+ * @param {string|null} [opts.userId] - 推文层 key 所需 userId（缺省只失效 userInfo）
+ * @param {string|null} [opts.tokenAddress] - 目标代币地址（CA 专属 key）
+ * @returns {Promise<Object>} { userKey: boolean, [tweetsKey]: boolean, [caKey]: boolean }
+ */
+export async function invalidateAccountCorpusCache(screenName, { userId = null, tokenAddress = null } = {}) {
+  const { userKey, tweetsKey, caKey } = buildAccountCacheKeys(screenName, 20, { userId, tokenAddress });
+  const results = { userKey: await ExternalResourceCache.invalidate(userKey, 'twitter_user_info') };
+  if (tweetsKey) results.tweetsKey = await ExternalResourceCache.invalidate(tweetsKey, 'twitter_user_tweets');
+  if (caKey) results.caKey = await ExternalResourceCache.invalidate(caKey, 'twitter_user_tweets');
+  return results;
+}
+
+/**
  * 获取账号信息（含完整推文，用于规则验证）
  *
  * 两层 ExternalResourceCache（2026-10-02 d46b1b6c 叙事耗时案）：账号收集是叙事
@@ -277,10 +307,25 @@ export function buildAccountCacheKeys(screenName, tweetCount = 50, options = {})
  *   三点方案）：传入时真拉走 getUserTweets matchAddress 每页匹配命中即停；命中截断列表
  *   落 CA 专属 key，翻满全量列表落 userId 级 key。项目方 CA 公告通常在最新几条/置顶
  *   → 项目票通常 1 页即停；非项目票翻满窗口与原行为一致（早停点恒 ≤ 原停点，零覆盖损失）
+ * @param {boolean} [options.invalidateCache] - 失效账号语料缓存后重取（C70，2026-10-15
+ *   「重取数重析」）：先 getRow 旧 userInfo 行取 userId → invalidateAccountCorpusCache
+ *   三键失效 → 层1/层2 miss 真拉。调用方（NarrativeAnalyzer invalidateAccountCorpus
+ *   option）带语料形状门，仅账号型语料票传入；同次 analyze 内首调用失效+真拉+回写，
+ *   后续调用点命中新行（幂等）
  * @returns {Promise<Object>} 账号信息
  */
 export async function getAccountWithFullTweets(screenName, tweetCount = 50, options = {}) {
   try {
+    // ── 层0：失效账号语料缓存（C70 invalidateCache 分支）──
+    if (options.invalidateCache) {
+      const { userKey: ikUserKey } = buildAccountCacheKeys(screenName, tweetCount, options);
+      const oldRow = await ExternalResourceCache.getRow(ikUserKey, 'twitter_user_info');
+      await invalidateAccountCorpusCache(screenName, {
+        userId: oldRow?.content?.id || options.userId || null,
+        tokenAddress: options.tokenAddress || null,
+      });
+    }
+
     // ── 层1：userInfo（handle 级）──
     const { userKey } = buildAccountCacheKeys(screenName, tweetCount, options);
     const userTTL = getCacheTTL('twitter_user_info');

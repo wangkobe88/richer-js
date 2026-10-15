@@ -131,7 +131,9 @@ async function main() {
       'C7 全局配置无此键（开关只在实验级 fourmemeWs/flapWs 段，182 实验显式开启观察）');
 
     const na = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
-    assert(na.includes('skipIntermediateSave = false, visionPrefetch = false } = options'),
+    // C70 在同一解构尾追加了 invalidateAccountCorpus = false（账号语料失效开关，
+    // 默认关）；visionPrefetch 默认 false 主题不变，两键一并锁定
+    assert(na.includes('skipIntermediateSave = false, visionPrefetch = false, invalidateAccountCorpus = false } = options'),
       'C8 analyze 解构默认 false（默认关主题；行为级 A4/B4 见 _test_narrative_middle_parallel）');
   }
 

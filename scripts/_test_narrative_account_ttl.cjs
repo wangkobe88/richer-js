@@ -17,6 +17,13 @@
  *   H. 并发穿透 join：两个并发 getRating 同 token → analyze 恰 2 次（!ttl inflight 共享）
  *   I. Virusking 事故现场反证：首析 address-fail low（真跑不判穿透）→ 次轮命中
  *      旧行穿透拉到翻正 3 → shouldBlockOnNarrative 不拉黑
+ *   J. C70 参数化生效：accountFailTtlMs/maxAnalysesPerToken 实验级注入（31s 行龄
+ *      11s 不穿透 / 11s 行龄 31s 穿透 / 封顶 2 / 非法值回落默认）
+ *   K. 穿透 options 断言：ignoreCache && invalidateAccountCorpus 双真（bunker 根因
+ *      修复=数据层缓存同失效），常规轮 undefined
+ *   L. bunker 事故现场反证（0x2ec1e08c…7777）：首析 address-fail（发币后 5s 的
+ *      2 粉快照）→ 次轮穿透带失效重取 → P1.10 粉丝带只定档翻正 mid
+ *   M. shouldBlockOnNarrative windowSec 第 4 参矩阵（C70 实验级豁免窗）
  *
  * 用法：node scripts/_test_narrative_account_ttl.cjs
  */
@@ -210,6 +217,107 @@ async function main() {
     check('翻正后不拉黑（宣告竞态豁免链闭环）', announcementPosted
       && shouldBlockOnNarrative(r2.numericRating, r2.precheckStage, 1) === false);
   }
+
+  console.log('J. C70 参数化生效（accountFailTtlMs / maxAnalysesPerToken 实验级注入）');
+  {
+    // TTL 参数化上调：31s 窗口下行龄 11s 不再穿透（默认 10s 会——D/E 节对照）
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true, accountFailTtlMs: 31000 });
+    const s = stubAnalyzer(caller, () => cachedLow(11000));
+    const r = await caller.getRating('0xp11');
+    check('accountFailTtlMs=31s 行龄 11s → 不穿透（实例字段生效）',
+      s.reanalyzeCalls() === 0 && r.numericRating === 1);
+  }
+  {
+    // TTL 参数化下调：11s 窗口下行龄 31s 穿透
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true, accountFailTtlMs: 11000 });
+    const s = stubAnalyzer(caller, (i, options) => (options?.ignoreCache ? freshPass() : cachedLow(31000)));
+    const r = await caller.getRating('0xp12');
+    check('accountFailTtlMs=11s 行龄 31s → 穿透（降 TTL 提频）',
+      s.reanalyzeCalls() === 1 && r.numericRating === 3);
+  }
+  {
+    // maxAnalyses 封顶 2：命中-穿透循环第 3 次起封顶（默认 3——F 节对照）
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true, maxAnalysesPerToken: 2 });
+    const s = stubAnalyzer(caller, (i, options) => (options?.ignoreCache ? freshLow() : cachedLow(11000)));
+    for (let i = 0; i < 5; i++) await caller.getRating('0xp13');
+    check('maxAnalysesPerToken=2 → 穿透恰 2 次（提前封顶）', s.reanalyzeCalls() === 2, `实际 ${s.reanalyzeCalls()}`);
+    check('真跑计数=2', caller._analysisCounts.get('0xp13') === 2);
+  }
+  {
+    // 非法值回落默认常量（Number.isInteger 正值校验）
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true, accountFailTtlMs: 0, maxAnalysesPerToken: '3' });
+    check('非法参数回落默认（TTL=10000 / 上限=3）',
+      caller._accountFailTtlMs === 10000 && caller._maxAnalysesPerToken === 3);
+    const s = stubAnalyzer(caller, (i, options) => (options?.ignoreCache ? freshPass() : cachedLow(11000)));
+    const r = await caller.getRating('0xp14');
+    check('回落后行龄 11s 正常穿透', s.reanalyzeCalls() === 1 && r.numericRating === 3);
+  }
+
+  console.log('K. 穿透 options 断言（invalidateAccountCorpus 双真，常规轮 undefined）');
+  {
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true });
+    const s = stubAnalyzer(caller, (i, options) => (options?.ignoreCache ? freshPass() : cachedLow(11000)));
+    await caller.getRating('0xki');
+    const last = s.lastOptions();
+    check('穿透轮 ignoreCache && invalidateAccountCorpus 双真（bunker 根因：数据层缓存同失效）',
+      last?.ignoreCache === true && last?.invalidateAccountCorpus === true);
+  }
+  {
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true });
+    const s = stubAnalyzer(caller, () => cachedLow(5000)); // TTL 未到 → 仅常规轮
+    await caller.getRating('0xki2');
+    const last = s.lastOptions();
+    check('常规轮两键均 undefined（存量零变化）',
+      last?.invalidateAccountCorpus === undefined && last?.ignoreCache === undefined);
+  }
+
+  console.log('L. bunker 事故现场反证（0x2ec1e08c…7777：穿透不带失效=吃首析旧快照）');
+  {
+    const caller = new NarrativeDirectCaller({ accountFailTtlReanalyze: true });
+    const s = stubAnalyzer(caller, (i, options) => {
+      if (options?.ignoreCache) {
+        // 穿透带 invalidateAccountCorpus → twitter_user_info（30 天缓存）失效 → 重取
+        // 实时数据 → P1.10 粉丝带只定档（0-299 mid）→ 翻正
+        return { numericRating: 2, rating: 'medium', reason: null, meta: { fromCache: false },
+          classifiedUrls: ACCOUNT_URLS, gmgnRisk: null, llmAnalysis: null, twitter: null };
+      }
+      if (i === 1) {
+        // 首析（发币后 5s）：@bunkeronbnb 快照 2 粉 4 推当天号 → CA 未公示 address fail
+        return {
+          numericRating: 1, rating: 'low', reason: '未在账号简介或推文中找到完整代币地址',
+          meta: { fromCache: false }, classifiedUrls: ACCOUNT_URLS, gmgnRisk: null,
+          llmAnalysis: { preCheck: { details: { validationStage: 'address' } } }, twitter: null,
+        };
+      }
+      if (i === 2) return cachedLow(12000); // 次轮命中首析旧行（行龄 > 10s）
+      // 翻正后的 mid 缓存行
+      return { numericRating: 2, rating: 'medium', reason: null,
+        meta: { fromCache: true, analyzedAt: new Date().toISOString() },
+        classifiedUrls: ACCOUNT_URLS, gmgnRisk: null, llmAnalysis: null, twitter: null };
+    });
+    const r1 = await caller.getRating('0x2ec1');
+    check('首析=address fail low（真跑，宣告推未发）',
+      r1.numericRating === 1 && r1.precheckStage === 'address' && r1.fromCache === false);
+    const r2 = await caller.getRating('0x2ec1');
+    check('次轮穿透翻正 mid（失效重取 + P1.10 粉丝带只定档）',
+      r2.numericRating === 2 && r2.ttlReanalyze === true);
+    const last = s.lastOptions();
+    check('穿透带 invalidateAccountCorpus（若不带=重析吃 30 天 userInfo 旧行=bunker 事故）',
+      last?.ignoreCache === true && last?.invalidateAccountCorpus === true);
+    const r3 = await caller.getRating('0x2ec1');
+    check('翻正后命中 mid 行零新增穿透', r3.numericRating === 2 && s.reanalyzeCalls() === 1);
+  }
+
+  console.log('M. shouldBlockOnNarrative windowSec 第 4 参矩阵（C70 实验级豁免窗）');
+  check('默认窗（无第 4 参）age 2min 豁免', shouldBlockOnNarrative(1, 'address', 2) === false);
+  check('默认窗 age 6min 拉黑', shouldBlockOnNarrative(1, 'address', 6) === true);
+  check('windowSec=120 age 2min 恰出窗拉黑（>= 语义）', shouldBlockOnNarrative(1, 'address', 2, 120) === true);
+  check('windowSec=120 age 1min 豁免', shouldBlockOnNarrative(1, 'address', 1, 120) === false);
+  check('windowSec=7200 age 60min 仍豁免', shouldBlockOnNarrative(1, 'address', 60, 7200) === false);
+  check('windowSec=7200 age 121min 拉黑', shouldBlockOnNarrative(1, 'address', 121, 7200) === true);
+  check('非豁免形状不受 windowSec 影响（stage=null）', shouldBlockOnNarrative(1, null, 1, 7200) === true);
+  check('年龄缺失按出窗（fail-closed 对齐 worker 无锚不重试）', shouldBlockOnNarrative(1, 'address', null, 7200) === true);
+  check('rating 3 恒不拉黑', shouldBlockOnNarrative(3, 'address', 1, 120) === false);
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);

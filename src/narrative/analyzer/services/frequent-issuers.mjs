@@ -118,6 +118,8 @@ export const FREQUENT_ISSUERS = new Set([
   'angle7544455',            // 12次
   '0xjiaodu',                // 12次
   'aliaydn718195',           // 12次
+  // === 2026-10-15 追加（猪五花案 0x7603c74b…7777，pumpfun 找角度号 SOL 拷贝盘嫌疑） ===
+  'gampsito',                // 英文找角度体「Imma redeploy it」；4642 粉落分类器 [2000,5000) 盲区
 
 ]);
 

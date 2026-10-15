@@ -8,6 +8,39 @@
       "enabled": false
     }
   },
+  "narrative": {
+    "enableImageAnalysis": true,
+    "enableVideoAnalysis": false,
+    "twitterBlacklist": [
+      "Cortaviousloma1",
+      "goxpv32196782",
+      "heyi1f",
+      "IsuzkaAruna",
+      "CDaneliak56999",
+      "trenchsiu",
+      "gampsito"
+    ],
+    "angleTweetCjkGate": {
+      "enabled": true,
+      "minCjkRatio": 0.2
+    },
+    "sameNameCheck": {
+      "enabled": true,
+      "rules": {
+        "priceChangeThreshold": 300,
+        "txVolumeThreshold": 30000,
+        "txCountThreshold": 300
+      },
+      "blueChip": {
+        "minFdv": 100000,
+        "minTvl": 50000,
+        "minHolders": 10000,
+        "minTxCount": 300,
+        "matureAgeDays": 7,
+        "maxValidFdv": 1000000000000
+      }
+    }
+  },
   "fourmemeWs": {
     "endpointFrom": "env",
     "contracts": {
@@ -170,34 +203,6 @@
     "kindCacheLimit": 200000,
     "txFromCacheLimit": 50000,
     "logEvery": 10000
-  },
-  "narrative": {
-    "enableImageAnalysis": true,
-    "enableVideoAnalysis": false,
-    "twitterBlacklist": [
-      "Cortaviousloma1",
-      "goxpv32196782",
-      "heyi1f",
-      "IsuzkaAruna",
-      "CDaneliak56999",
-      "trenchsiu"
-    ],
-    "sameNameCheck": {
-      "enabled": true,
-      "rules": {
-        "priceChangeThreshold": 300,
-        "txVolumeThreshold": 30000,
-        "txCountThreshold": 300
-      },
-      "blueChip": {
-        "minFdv": 100000,
-        "minTvl": 50000,
-        "minHolders": 10000,
-        "minTxCount": 100,
-        "matureAgeDays": 7,
-        "maxValidFdv": 1000000000000
-      }
-    }
   },
   "preBuyCheck": {
     "holderCheckEnabled": true,

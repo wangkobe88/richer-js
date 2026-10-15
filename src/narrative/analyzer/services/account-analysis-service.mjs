@@ -152,6 +152,9 @@ export async function detectIssuerByCaTimeline(tokenAddress, twitterInfo, option
  * @param {Object} fetchResults - 获取的数据结果
  * @param {Object} [options]
  * @param {boolean} [options.skipAddressValidation] - 项目币跳过地址验证（网站已验证）
+ * @param {boolean} [options.invalidateAccountCorpus] - C70「重取数重析」：失效账号
+ *   语料缓存（twitter_user_info/tweets 三键）后重拉——形状门在 NarrativeAnalyzer
+ *   侧算好才透传，此处直接并入规则验证的 tweetsOptions
  * @returns {Promise<Object>} 分析结果
  *   成功：{ rating, category, reasoning, scores:null, total_score:null, promptType,
  *           prestageData, [baselineMet], [preCheckData 规则失败时], [addressVerified/nameMatch] }
@@ -214,6 +217,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
   const tweetsOptions = { tokenAddress: tokenData.address || null };
   if (tweetWindowUntilSec) tweetsOptions.untilSec = tweetWindowUntilSec;
+  if (options.invalidateAccountCorpus) tweetsOptions.invalidateCache = true;
   const fullAccountOrCommunityData = accountOrCommunityRef.type === 'account'
     ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20, tweetsOptions)
     : await getCommunityWithFullTweets(accountOrCommunityRef.community_id, 20);
@@ -315,7 +319,6 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     fullAccountOrCommunityData,
     addressVerified: rulesResult.addressVerified,
     rulesResult,
-    tokenCreatedAtSec: tokenCreatedAtSec || null, // P1.3 账号年龄锚点（token 创建时点，重跑幂等）
     callInfo: {
       model: result.model, questions, state, stateStats: stats,
       usage: result.usage, startedAt, finishedAt,

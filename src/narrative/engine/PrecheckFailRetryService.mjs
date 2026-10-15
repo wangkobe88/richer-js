@@ -6,6 +6,17 @@
  * 晚于首析 6s / FOMOPAY 晚 5s 两例实证），首次叙事分析常跑在宣告推文之前 → 账号
  * 质量门不达标 + 地址未公示 → precheck fail（validationStage='address'），且
  * token_narrative 全局缓存把「宣告前」fail 永久固化。
+ * C70（2026-10-15 bunker 案 0x2ec1e08c…7777）：address 域两处收窄——
+ *   a. 重析传 invalidateAccountCorpus:true：ignoreCache 只跳过 token_narrative 行
+ *      缓存，数据层 twitter_user_info（maxAge 30 天）不失效则重析吃首析快照
+ *      （bunker 三次重试全命中发币后 5s 的 2 粉快照），且项目方把 CA 后补进 bio
+ *      时 30 天缓存导致永远匹配不到。失效在 analyze 内部执行且自带语料形状门；
+ *      与 no_public_info 分支的 GMGN 前置 skip 语义刻意不同——后者失效失败
+ *      跳过本轮不烧配额，前者 DB delete 失败≈DB 故障 analyze 自会失败，不前置跳过
+ *   b. 语料形状门：address 域只重试账号型语料票（twitter 桶非空且全部
+ *      type==='account'）——用户裁定「重取数重析」机制仅限依托推特账号类的代币，
+ *      推文型/website 型语料静态重取无意义还烧 Jev/抓取配额。no_public_info 域
+ *      不动（GMGN 补语料入口，FOMOON 案独立裁定）
  *
  * 背景 B（no_public_info 域）：「先发币、后补推文/官网」（FOMOON 0xb5e1…7777 实证
  * 推文比创建晚 12m38s、比首析晚 8m30s）——首析时 four.meme 元数据与 IPFS 均空
@@ -63,6 +74,16 @@ function classifyFailShape(preCheckResult) {
   return null;
 }
 
+/**
+ * classified_urls 账号型语料判据（C70）：twitter 桶非空且全部 type==='account'。
+ * 与引擎侧 NarrativeDirectCaller.isAccountOnlySource、narrative 侧 NarrativeAnalyzer
+ * analyze 形状门三方同构（判据镜像自建，勿跨 ESM/CJS import）
+ */
+function isAccountOnlyCorpus(classifiedUrls) {
+  const tw = classifiedUrls?.twitter;
+  return Array.isArray(tw) && tw.length > 0 && tw.every(t => t?.type === 'account');
+}
+
 export class PrecheckFailRetryService {
   /**
    * @param {Object} config - engine.precheckFailRetry 配置段
@@ -99,6 +120,7 @@ export class PrecheckFailRetryService {
       volumeBelowSkips: 0,
       maxRetriesSkips: 0,
       gmgnInvalidateFailSkips: 0, // GMGN 缓存定点失效失败（跳过本轮不烧配额）
+      notAccountSourceSkips: 0,   // C70 形状门：address 域非账号型语料（静态无重取价值）
     };
   }
 
@@ -134,7 +156,7 @@ export class PrecheckFailRetryService {
       const lookbackMs = (Math.max(this.retryWindowSec, this.noPublicInfoRetryWindowSec) + 300) * 1000;
       const { data: rows, error } = await client
         .from('token_narrative')
-        .select('token_address, analyzed_at, pre_check_result')
+        .select('token_address, analyzed_at, pre_check_result, classified_urls')
         .eq('is_valid', true)
         .gt('analyzed_at', new Date(Date.now() - lookbackMs).toISOString())
         .order('analyzed_at', { ascending: false })
@@ -171,6 +193,15 @@ export class PrecheckFailRetryService {
     if ((this._retryCounts.get(addr) || 0) >= this.maxRetriesPerToken) {
       this.stats.maxRetriesSkips++;
       return 'max-retries';
+    }
+
+    // C70 语料形状门（用户裁定 2026-10-15）：address 域只重试账号型语料票——
+    // 重取的语义=账号时间线（bio/宣告推）可变；推文型/website 型语料静态，重取
+    // 无意义还烧 Jev/抓取配额。no_public_info 域不受此门（GMGN 补语料与语料
+    // 形状无关）
+    if (row.failShape === 'address' && !isAccountOnlyCorpus(row.classified_urls)) {
+      this.stats.notAccountSourceSkips++;
+      return 'not-account-source';
     }
 
     // 代币创建时间锚：wss_events 最早 token_create（与 token-info-service 回退同口径）。
@@ -248,9 +279,12 @@ export class PrecheckFailRetryService {
       if (!this._analyzerMod) {
         this._analyzerMod = await import('../analyzer/NarrativeAnalyzer.mjs');
       }
+      // C70：address 域重析带 invalidateAccountCorpus——重取账号语料（bio 后补 CA
+      // 载体 + 粉丝/推文快照；失效在 analyze 内部执行且自带形状门，失败不前置
+      // 跳过，与 GMGN 分支 skip 语义差异见文件头）
       const analyzeOpts = failShape === 'no_public_info'
         ? { ignoreCache: true, enrichSocialByGmgn: true }
-        : { ignoreCache: true };
+        : { ignoreCache: true, invalidateAccountCorpus: true };
       const result = await this._analyzerMod.NarrativeAnalyzer.analyze(addr, analyzeOpts);
       // 仍是触发形状 = 未解决（address：宣告仍没发/账号仍不达标；no_public_info：
       // GMGN 仍没聚合出社媒）。拿到语料后 Jev 评 low 属「已解决」——语料到位，

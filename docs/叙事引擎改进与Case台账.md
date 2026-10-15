@@ -20,7 +20,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
    （C62/C63 提速：N1 分段探针 / N2 平台桶并发+IPFS 竞速 / N3 叙事预触发 /
    三泳道并发 / websiteFetch 总开关 / undici keepAlive / precheck 四查询并行）
    → Pre-Check（纯规则，无 LLM）
-                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.9，5 题）
+                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.10，4 题）
                                    ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分；referent_memeability/图豁免 C59）
                                    └─ 标准路径 → 单次 Jev 调用（J1.30：16 常驻题——web3_fit 第 14 /
                                       subject_entity 15 / referent_memeability 16a / subject_carrier 16b
@@ -31,13 +31,13 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
 - **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.30）/
-  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.9）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.30/…)`、`prestage-jev(P1.9/…)`）
-- **prestage P1.9 五题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
-  主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度 /
-  **项目实度 prestage_project_quality**（恒带；账号新 <30d + 实度 ≥3 豁免 P1.3 年龄降档，
-  <3/缺分 fail-closed——**仅 project 消费，web3ip 不吃年龄门/实度门**（P1.9 C46），
-  推文 <5 保留拦）
+  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.10）；DB 列 prompt_type/prompt_version 标识
+  （`jev(J1.30/…)`、`prestage-jev(P1.10/…)`）
+- **prestage P1.10 四题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
+  主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
+  全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
+  （`prestage_project_quality` 题随之删除）全删——粉丝带**只定档不拦截**（账号 0-299
+  mid / ≥300 high；社区 ≥100+high 才 high）
 - **代码门族**（mapper 端确定性切分）：nameReferentBlock（阻断侧合计 ≥0.5，全域
   仅累计 minor+common——J1.26 notable_other 全域退出，知名度轴移交 web3_fit）/
   rideDetourBelow（B/C 骑乘改道 W）/ cashtag 改道 W（J1.17）/ detectPublisherProxy
@@ -67,6 +67,20 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C70 bunker 案 0x2ec1e08c2c6343671728ef7c6e7fde0bd6f07777——prestage 账号基本面三道门全删（粉丝带只定档不拦截）+ 账号语料缓存失效（穿透必重取数）+ 叙事重试实验级参数化：「交易者不会因为项目方粉丝少/账号新/推文少拒绝一个项目」（2026-10-15 用户裁定）★
+
+- **案发**：flap 盘 bunker 2026-10-15 07:20:16 UTC 创建（依托 @bunkeronbnb），**21 分钟毕业**。时间线复盘：发币后 5 秒（07:20:21）首析拉取 userInfo——2 粉、4 推、当天 04:26 注册（3h 新号）；**宣告推（含 CA）07:22:31 才发**；worker PrecheckFailRetry 三次重试（07:21:49 / 07:22:19 / 07:23:49）**全部命中 07:20:21 的 `twitter_user_info` 缓存行**（maxAge 30 天，日志「缓存命中」×3 实证）；第三次推文层拉到 CA（新号「覆盖深度不足」判据使推文层每次真拉）→ address 验证过 → prestage Jev 判 project → **粉丝 2 < 20 底线 → low 终判**（07:23:51）。实时：94 粉、17 推——发币后 10 小时全部涨出来，粉丝轴对「当天新号发币」场景系统性失真（首析 5 秒快照必然是最低点）。
+- **数据背书**：近 7 天粉丝底线拦截 168 票、其中 16 票毕业（9.5%）——底线门判别力接近随机；删门方向由此定案。
+- **用户裁定**（多条原文）：①「我的想法是，我们要模拟用户（交易者）的思维，交易者会不会因为粉丝量/注册时间拒绝这个一个项目？我觉得不会。所以我还是觉得把分析量/账号注册时间等要求删除即可」②方案三边界（AskUserQuestion）：删门范围=三道全删（粉丝<20/推文<5/注册<30 天 + P1.5 实度豁免）；worker 去留=实验级为主 worker 兜底保留；触发形态=扩展 C67 fire 时顺带穿透；`performRulesValidation` 质量门保留 ③（强调）「叙事未通过→重新取数→重析」机制**仅仅限于依托推特账号类的代币，其它不需要**——三层形状门收窄（引擎 isAccountOnlySource / analyze 内失效形状门 / worker 语料形状门）。
+- **改动面 1（mapper 删门，P1.9 → P1.10）**：`rateProject` 重写为纯粉丝带定档——账号 0-299 mid / ≥300 high（**不拦截只定档**）；社区 ≥100 且 activityChoice==='high' 才 high；`baselineMet` 恒 true。删三道门 + P1.5 实度豁免逻辑（`qualityExempt`/`downgrade` 全删）；`prestage_project_quality` 题随豁免逻辑删除（唯一消费方已不存在，**5 题→4 题**，无消费方的题不烧 Jev 配额）；`prestage_token_type` 判据措辞同步（"follower baseline is checked separately in code" → "follower count decides nothing here — it only sets the rating tier in code, it never blocks"）。题面判据一处修正+mapper 语义变更，按 a3de68c/31d1bc4 先例 bump 版本（P1.10），同 token 两版本评级不可比（**low→mid 单向翻转**）。
+- **改动面 2（账号语料缓存失效——C67 机制缺陷修复）**：C67 `ignoreCache` 只跳过 `token_narrative` 行缓存，**数据抓取层全吃 external_resource_cache**——`twitter_user_info` 30 天 TTL 使穿透重析不重拉 bio/时间线（= bunker 三次重试吃同一份 2 粉快照的根因；项目方把 CA 后补进 bio 时 30 天缓存导致永远匹配不到）。修复：失效下沉 `getAccountWithFullTweets` 内部（外部失效提取 handle 会漏 worker 被析账号），`invalidateAccountCorpusCache` 失效**三键最小集**：`twitter_user_info:<handle>`（30d，bio 后补 CA 载体）+ `twitter_user_tweets:<userId>`（宣告推载体）+ `…:ca:<addr>`（CA 早停行）；userId 从失效前旧行 getRow 读，读不到只失效 userKey（首析成功⇒userInfo 行必在，重试域内罕见）。**`twitter_account` 层刻意不失效**（已核验 address 验证/prestage state 只消费上两层；少删一行少一次真拉）。option 线程穿透 `analyze({invalidateAccountCorpus})` 带语料形状门（twitter 桶非空且全部 type==='account' 才失效——非账号型票传了也零失效零重取，静态语料无重取价值）。
+- **改动面 3（C67 参数化 → 实验级 `fourmemeWs.narrativeRetry` 四键）**：`enabled`（默认开 `!== false`——与 dataPrefetch「关=删段」物化语义**刻意相反**，引擎默认开删段=静默重开）/ `intervalMs`（穿透 TTL 毫秒，校验 [1000,600000] 缺省 10000）/ `maxAnalyses`（真跑上限 [1,50] 缺省 3；**计含首析的全部真实分析故名 maxAnalyses 非 maxRetries**，缓存命中不计）/ `windowSec`（叙事否决豁免窗 [60,7200] 缺省 300；⚠️**不得低于 worker retryWindowSec**——拉黑先于末次重析翻正=误拉黑且 `_narrativeBlockedTokens` 无撤销路径，引擎构造点 ≥60 校验）。穿透执行点带 `{ignoreCache:true, invalidateAccountCorpus:true}` 双键（穿透必失效账号缓存）；`shouldBlockOnNarrative` 第 4 参 windowSec（缺省 300 存量零影响）+ 引擎闭包包装（三个消费点签名零改动）；flap 实验经 `_mergedWsConfig` 自动读 flapWs 段；**BacktestEngine 零接线保持**（历史行 analyzed_at 恒早于墙钟，穿透=语料前视）。
+- **改动面 4（worker 兜底同构）**：`_shouldRetry` 加语料形状门——address 域非账号型（推文型/混合型/null 语料）skip `'not-account-source'`（计 `stats.notAccountSourceSkips`，不烧 Jev 配额）；address 分支 `analyzeOpts` 改 `{ignoreCache:true, invalidateAccountCorpus:true}`（失效在 analyze 内部执行且自带形状门，与 GMGN 分支「失效失败前置跳过」语义刻意不同——DB delete 失败≈DB 故障 analyze 自会失败）。**no_public_info 域不动**（GMGN 补语料入口，FOMOON 案独立裁定，不在收窄范围）。
+- **边界（已裁定/已记录）**：①`performRulesValidation` 账号质量门保留（粉≥500+推≥20 等——address 重试域**构成机制**，CA 命中后不参与评级）②穿透成本放大（缓存读 ~70ms → apidance 真拉+Jev 秒级）：C67 已接受 N+3 口径，失效后单价再升（每穿透=真拉 userInfo+UserTweets），配额由 maxAnalyses 封顶③机制适用域仅账号类语料（三层形状门收窄）。
+- **UI**：创建页「🔁 叙事重试」区块（nr-enabled 默认勾选 / 穿透 TTL ms / 真跑上限；windowSec 无表单项=复制链路整段携带）；collectFormData 物化语义三分支：回测剥离 / 显式关写 `enabled:false`（数字键不写——引擎 `enabled!==false` 短路在先，写了是死配置）/ 开+数字写段（浅合并保留复制携带的 windowSec、按平台选段删另一段防双段并存）。
+- **单测（6 个）**：`_test_prestage_project_downgrade.mjs` 重写 29（bunker 反证：2 粉 4 推当天号双路径 mid + baselineMet true；299/300 边界；**输入不再消费锁定**——只改 statuses/created_at rating 不变；全链 P1.10）；`_test_unrated_elimination.cjs` 32（版本锁+四门形改 mid）；`_test_narrative_account_ttl.cjs` 53（+J 参数化生效/K 穿透 options 双键/L bunker 现场反证/M windowSec 第 4 参矩阵）；新 `_test_account_corpus_invalidation.cjs` 20（A 三键纯断言/B 失效→真拉→回写时序**事故现场反证**——不带失效=吃 2 粉旧行零网络即 bunker 事故/C 未传 invalidateCache 零失效机器证明/D 源码口径五锚）；`_test_precheck_fail_retry.cjs` 42（+address 域失效断言+L 形状门矩阵：推文/混合/null skip，no_public_info 照旧）；新 `_test_narrative_retry_config.cjs` 31（源码口径四层：引擎构造段/BacktestEngine 零接线残留反证/route 校验/模板三处物化语义）。回归 17 项全绿（vision_prefetch 18——C8 destructure 行尾随追加 `invalidateAccountCorpus = false` 同步锁双默认值）。
+- **生效面与缓存**：无 DDL；**实验引擎进程与叙事 worker 两者都必须重启**（各自缓存旧 mapper 直到重启；顺序可互换）；P1.10 前存量 low 缓存行不自动重评（同 token 跨版本评级不可比）；worker 形状门对存量非账号型 address-fail 候选即刻生效（skip 不再烧配额）。
 
 ### C69 Hatchan 双盘案 0x40b4b42b6b3c18e67e0fdc9755ac32c9ae8a7777 / 0x5f107c3aadf89fb784acaf997df3b8a0d9c87777——expired_tweet 6h 窗唯二误杀（新闻发酵型形态）：双盘同叙事 105 秒前后脚全毕业，256 票全量扫描背书规则整体健康（误杀率 2/256 且同一事件），存档不改（2026-10-15 用户裁定「先存档」）
 
@@ -377,6 +391,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| P1.10 | 2026-10-15 | **账号基本面门全删**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免逻辑删除；`prestage_project_quality` 题随之删除（唯一消费方已不存在，5 题→4 题）；`rateProject` 重写为纯粉丝带定档（账号 0-299 mid / ≥300 high 不拦截；社区 ≥100+activity high 才 high；baselineMet 恒 true）；token_type 判据措辞同步（follower count "only sets the rating tier, never blocks"）；web3ip/project 双路径同删（mapPrestageAnswers 的 downgrade/qualityExempt 键全删）。同 token 两版本评级不可比（low→mid 单向翻转） | C70 bunker 案 0x2ec1e08c…7777（用户裁定「交易者不会因为粉丝量/注册时间拒绝一个项目」；近 7 天底线拦截 168 票 16 票毕业 9.5% 判别力接近随机；发币后 5 秒快照对当天新号系统性失真） | 本 commit |
 | J1.30 | 2026-10-14 | 新增第 17 题 `name_image_consistency`（名图一致 choice 三档：same_entity 同一对象 / same_visual_category 同类视觉主体 / unrelated 无视觉对应）**条件题**——仅 `options.imageConsistency=true`（主推配图分析挂载）时问，brand_hijack 同款模式无图不问防幻觉作答；meme 盘惯例锚（名字是动物/角色词、图主体恰是该类形象→至少 same_visual_category）+ 图内文字与币名关系计入 + 反例锚；mapper `imgNameExempt` 三门豁免 Stage3 关联≤10 截断：①imageEvidence（twitterInfo.image_analysis 存在）②same_entity+same_visual_category 合并 ≥0.5（答案缺失 nicMatchP=0 fail-closed，旧缓存行零影响）③0<relevance≤10（纯零关联不救）；relevance 分照常计入总分（J1.24/C59 同款计分语义）；与 punExempt 正交并存；劫持/拼写/质量门不受豁免；superIP 快车道不消费本题（C59 的 meme≥3 门语义分工）；审计 `jev.imgNameExempt {relType,relScore,matchP}` 命中才落 + reason 前缀「名图一致豁免(J1.30)｜」；配套 img-v3 图分析（visible_text 逐字转写+maxTokens 1500→2500+config 显式覆盖同步）；历史窗口回测前置失效 `scripts/narrative/invalidate-nameimage-window.cjs`；单测 `node scripts/_test_name_image_consistency.cjs`（36 断言） | C65 巴巴鸡案 0x1ea2152c…7777（用户裁定「都做」：P1 根治梗名只在配图图内文字里的形状（字面证据被 img-v2 截断吞掉→Jev 只剩弱证据判 cultural lv1=5 分触截断拉黑），P2 兜「图里没有文字、只有视觉主体」的现金猫型形状；fixture 取整教训=写 RELEVANCE_TABLE 锚定断言前先对表） | 9ed48ef |
 | （C64 交易侧，题集不动） | 2026-10-14 | `narrativeCorpusLagSec` 语料锚语义反转：主推/父推/第二推文取 **Math.max（最新）** 不取更早——「旧梗新盘/热点二次发酵」形状（最新宣告推贴开盘=早票）不再被 min 语义误判预热盘；负值=宣告竞态按早票放行、null=晚票严格门 fail-closed 不变 | C64 朴蛋案 0x3c4ca09c…7777（用户裁定「lag 卡最新的不要卡老的」；旧口径锚定旧梗推 lag=3263s 整窗拦死、右臂 earlyReturn 峰值 77 够不着 100；同案价格口径分裂疑云查否留档=快照 firstPrice 是 USD 因子勿当 firstPriceBnb） | d1fbca4 |
 | J1.29 | 2026-10-09 | 新增第 16 题 `subject_carrier`（形象载体存在性 choice 三档：existing_entity 已真实出现 / improvised_entity 脑补许愿形象 / no_visual_entity 非形象存在形式）**恒带**（dry-run opt-in 参数 `carrier` 废弃，传不传均含——J1.28 先例）；superIP 快车道复用同题集但不消费本题答案；题面钉死三判别（形象须真实出现/名字含形象词≠载体/人物公司产品事件不以形象为存在形式）；mapper `subjectCarrierBlock`（M2）：C/D+非existing 拦、E+no_visual 拦、A/B/F/G/W 不进门，挂 rmBlock 后、量级 D/E 门前；审计 `subjectCarrier` 恒落（旧缓存行 null）/ `subjectCarrierBlock {carrier}` 命中才落；历史窗口回测前置失效 `scripts/narrative/invalidate-carrier-window.cjs`；单测 `node scripts/_test_subject_carrier.cjs`（43 断言） | C61 bddd3578 案（用户裁定病根「叙事主体没有具体的形象/梗载体」+ 否决 5 个外围代理方向「没有针对这个问题」+「可以按照你的想法挂门…292 票全部跑一遍过滤后虚拟算总收益」；dry-run 236 票：existing 140 票 winR 39% +11.694 / improvised 24 票 8% −1.111 / no_visual 72 票 24% −3.784；虚拟收益 +21.895 → +26.225 净效应 +4.33，winR 35%→41%；E 只拦 no_visual 依据 = E+improvised 6 票 +1.19 Ants 戏谑票有肉；已知误伤 = 「XX人生」概念梗家族 ~+1.6） | 本 commit |

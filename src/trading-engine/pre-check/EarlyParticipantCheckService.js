@@ -185,6 +185,12 @@ class EarlyParticipantCheckService {
         earlyTradesHighValueCount: basicStats.highValueCount,
         earlyTradesFilteredCount: basicStats.filteredCount,
 
+        // 每钱包笔数因子（对倒高频作业拦截，猪五花案 2026-10-15）：
+        // earlyTradesPerWallet=窗口笔数/独立钱包数；earlyTradesMaxWalletTrades=单钱包最大笔数。
+        // 拦截写法 `earlyTradesPerWallet < N`（低于才放行）；对倒作业 7.6 笔/钱包 vs 散户 1~2
+        earlyTradesPerWallet: basicStats.tradesPerWallet,
+        earlyTradesMaxWalletTrades: basicStats.maxWalletTrades,
+
         // 新增因子
         earlyTradesFinalLiquidity: basicStats.earlyTradesFinalLiquidity,
         earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
@@ -485,6 +491,7 @@ class EarlyParticipantCheckService {
     let filteredCount = 0;
     let highValueCount = 0;
     const uniqueWallets = new Set();
+    const perWalletCounts = new Map();
 
     // 新增：用于计算价格相关因子
     let highestPrice = 0;
@@ -497,7 +504,11 @@ class EarlyParticipantCheckService {
 
       // 使用 wallet_address（真实用户地址），而非 from_address（可能是路由合约）
       const participant = t.wallet_address || t.from_address;
-      if (participant) uniqueWallets.add(participant.toLowerCase());
+      if (participant) {
+        const key = participant.toLowerCase();
+        uniqueWallets.add(key);
+        perWalletCounts.set(key, (perWalletCounts.get(key) || 0) + 1);
+      }
 
       if (value >= this.config.lowValueThreshold) filteredCount++;
       if (value >= this.config.highValueThreshold) highValueCount++;
@@ -538,6 +549,12 @@ class EarlyParticipantCheckService {
       uniqueWallets: uniqueWallets.size,
       filteredCount,
       highValueCount,
+      // 每钱包笔数因子（对倒高频作业拦截，猪五花案 2026-10-15：14 钱包 90s 183 笔=7.6 笔/钱包 vs 散户 1~2）
+      // 注：age>90s 滚动窗丢早期密集段 → 两值系统性偏低 → 偏放行方向（fail-open），无需 covered 键
+      tradesPerWallet: uniqueWallets.size > 0
+        ? parseFloat((trades.length / uniqueWallets.size).toFixed(2)) : 0,
+      maxWalletTrades: perWalletCounts.size > 0
+        ? Math.max(...perWalletCounts.values()) : 0,
       // 新增因子
       earlyTradesFinalLiquidity: finalLiquidity,
       earlyTradesDrawdownFromHighest: parseFloat(drawdownFromHighest.toFixed(2))
@@ -934,6 +951,10 @@ class EarlyParticipantCheckService {
       earlyTradesUniformBuyClusterN: 0,
       earlyTradesUniformBuyClusterRatio: 0,
       earlyTradesUniformBuyCovered: 0,
+
+      // 每钱包笔数因子：查询异常 0 值放行（拦截写法 <N，0 恒放行——同簇因子方向）
+      earlyTradesPerWallet: 0,
+      earlyTradesMaxWalletTrades: 0,
 
       // sniper 持仓比例因子：查询异常 0 值放行（拦截写法 pct<50，0 恒放行；
       // 与同额度簇因子同方向——9999/null 会误拦）
