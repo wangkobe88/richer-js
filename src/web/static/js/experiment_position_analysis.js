@@ -47,7 +47,6 @@ class ExperimentPositionAnalysis {
     setHref('link-detail', baseUrl);
     setHref('link-signals', `${baseUrl}/signals`);
     setHref('link-trades', `${baseUrl}/trades`);
-    setHref('link-strategy-analysis', `${baseUrl}/strategy-analysis`);
 
     this.buildProfileFilter();
     document.getElementById('verdictFilter').addEventListener('change', () => this.loadList());

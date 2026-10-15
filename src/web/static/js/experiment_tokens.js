@@ -592,9 +592,7 @@ class ExperimentTokens {
     const gmgnChain = gmgnChainMap[chain.toLowerCase()] || 'bsc';
     const gmgnUrl = `https://gmgn.ai/${gmgnChain}/token/${token.token_address}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
-    const observerUrl = `/experiment/${this.experimentId}/observer#token=${token.token_address}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${token.token_address}`;
-    const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${token.token_address}`;
     const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${token.token_address}`;
 
     // 涨幅（来自离线分类管线 token_profiles，BNB 计价；null = 未分类/无可用价 tick）
@@ -635,11 +633,7 @@ class ExperimentTokens {
             <div class="flex items-center gap-1 text-[9px] text-gray-500 flex-wrap">
               <a href="${gmgnUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">GMGN</a>
               <span class="text-gray-600">|</span>
-              <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
-              <span class="text-gray-600">|</span>
               <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
-              <span class="text-gray-600">|</span>
-              <a href="${strategyUrl}" target="_blank" class="hover:text-pink-400 flex-shrink-0">策略</a>
               <span class="text-gray-600">|</span>
               <a href="${tokenDetailUrl}" target="_blank" class="hover:text-cyan-400 flex-shrink-0" title="代币详情">详情</a>
               <span class="text-gray-600">|</span>

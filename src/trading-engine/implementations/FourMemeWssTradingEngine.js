@@ -30,8 +30,8 @@
  *     repeatBuyCheckCondition）与旧引擎轮次语义保持一致。
  *   - 单仓语义：token.status==='bought' 期间不再触发买入（旧引擎允许 condition 命中
  *     即加仓）；FA 的多仓能力保留给后续 live。
- *   - 时序快照 30s 一轮，只记录最近 timeSeriesActiveWindowMs 内有 tick 的活跃代币
- *     （旧引擎 10s 轮询对全池记录）。
+ *   - 组合快照 30s 一轮（portfolio_snapshots；experiment_time_series_data 时序表
+ *     2026-10-15 停写，表与历史数据保留）。
  */
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
@@ -158,8 +158,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._sellDebounceMs = this._wsConfig.sellDebounceMs ?? 0;
     this._pruneIntervalMs = this._wsConfig.pruneIntervalMs ?? 5 * 60 * 1000;
     this._pruneMaxAgeMs = this._wsConfig.pruneMaxAgeMs ?? 30 * 60 * 1000;
-    this._timeSeriesIntervalMs = this._wsConfig.timeSeriesIntervalMs ?? 30 * 1000;
-    this._timeSeriesActiveWindowMs = this._wsConfig.timeSeriesActiveWindowMs ?? 60 * 1000;
+    // 组合快照周期（experiment_time_series_data 时序表 2026-10-15 停写，表保留）
+    this._portfolioSnapshotIntervalMs = this._wsConfig.portfolioSnapshotIntervalMs ?? 30 * 1000;
     this._wssDownThresholdMs = this._wsConfig.wssDownGuardMs ?? 15 * 60 * 1000;
     // 断流自愈阈值（消息静默 ≥ 此值每轮踢 forceReconnect；自 watcher 迁回实验进程，2026-10-09）
     this._wssSelfHealMs = this._wsConfig.downGuardSelfHealMs ?? 5 * 60 * 1000;
@@ -921,12 +921,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       c.start();
     }
 
-    // 30s 时序快照（experiment_time_series_data 30s 节奏 + 组合快照）
-    this._intervals.timeSeries = setInterval(() => {
-      this._recordTimeSeriesSnapshot().catch(err => {
-        this.logger.error(this._experimentId, 'TimeSeries', `时序快照失败: ${err.message}`);
+    // 30s 组合快照（portfolio_snapshots；experiment_time_series_data 时序表 2026-10-15 停写）
+    this._intervals.portfolioSnapshot = setInterval(() => {
+      this._loopCount++;
+      this._createPortfolioSnapshot().catch(err => {
+        this.logger.error(this._experimentId, 'Portfolio', `组合快照失败: ${err.message}`);
       });
-    }, this._timeSeriesIntervalMs);
+    }, this._portfolioSnapshotIntervalMs);
 
     // 定期统计（experiments.stats，间隔来自实验配置，默认 30min）
     this._intervals.stats = setInterval(() => {
@@ -996,7 +997,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
-      `时序=${this._timeSeriesIntervalMs / 1000}s 断流阈值=${this._wssDownThresholdMs / 60000}min），等待 WSS 事件...`);
+      `组合快照=${this._portfolioSnapshotIntervalMs / 1000}s 断流阈值=${this._wssDownThresholdMs / 60000}min），等待 WSS 事件...`);
   }
 
   /**
@@ -1060,10 +1061,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `对账 | 链上 ${native.toFixed(4)} BNB ≈ ${native.mul(rate).toFixed(2)} USD vs cash ${portfolio.cashBalance.toFixed(2)}` +
         `（持仓 ${portfolio.positions.size} 个）`);
     }
-  }
-
-  _shouldRecordTimeSeries() {
-    return true;
   }
 
   async stop() {
@@ -2952,50 +2949,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, 'WssDownGuard', 'WSS 已恢复收数，实验状态回写 running');
       await this._updateExperimentStatus('running');
     }
-  }
-
-  /**
-   * 30s 时序快照：对最近 activeWindow 内有 tick 的活跃代币记录 experiment_time_series_data
-   * + 写组合快照（portfolio_snapshots）。dataCollectionRound 随轮次自增（对齐旧语义）。
-   */
-  async _recordTimeSeriesSnapshot() {
-    if (this._isStopped) return;
-    this._loopCount++;
-
-    const now = Date.now();
-    const { buildSlimFactorValues } = require('../core/FactorBuilder');
-
-    let recorded = 0;
-    for (const tokenAddress of this._factorAggregator.getTrackedTokens()) {
-      const state = this._factorAggregator.getTokenState(tokenAddress);
-      if (!state || !state.lastTickAt) continue;
-      if (now - state.lastTickAt > this._timeSeriesActiveWindowMs) continue; // 只记活跃代币
-
-      state.dataCollectionRound++;
-      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
-      const factors = this._factorAggregator.buildFactorMap(tokenAddress, now);
-      if (!factors) continue;
-
-      const recordResult = await this._timeSeriesService.recordRoundData({
-        experimentId: this._experimentId,
-        tokenAddress,
-        tokenSymbol: token?.symbol || state.symbol || '',
-        timestamp: new Date(),
-        loopCount: this._loopCount,
-        priceUsd: factors.currentPrice,
-        priceNative: null,
-        factorValues: buildSlimFactorValues(factors),
-        blockchain: 'bsc',
-      });
-      if (recordResult) recorded++;
-    }
-
-    if (recorded > 0) {
-      this.logger.debug(this._experimentId, 'TimeSeries',
-        `第 ${this._loopCount} 轮时序快照: ${recorded} 个活跃代币`);
-    }
-
-    await this._createPortfolioSnapshot();
   }
 
   // ==================== 辅助 ====================

@@ -320,34 +320,25 @@ console.log('I. tickBuildSkip 无互斥（condition 直引 actTrades 正常装�
 }
 
 // ═══════════════ J. 快照透传 ═══════════════
-console.log('J. FactorBuilder 两处快照透传');
+console.log('J. FactorBuilder signal 快照透传（experiment_time_series_data 时序表 2026-10-15 停写，slim 构建器已删）');
 {
-  const { buildFactorValuesForTimeSeries, buildSlimFactorValues } =
+  const { buildFactorValuesForTimeSeries } =
     require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
   const ACT_KEYS = ['actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades', 'actTraders', 'actBuyers', 'actSellers', 'actNewTraders'];
   const sample = {
     actBuyBnb: 1.9, actSellBnb: 0.5, actNetBnb: 1.4, actTrades: 6,
     actTraders: 3, actBuyers: 2, actSellers: 2, actNewTraders: 3,
   };
-  check('J1 时序快照 8 键透传', () => {
+  check('J1 signal 快照（trendFactors）8 键透传', () => {
     const snap = buildFactorValuesForTimeSeries(sample);
     for (const k of ACT_KEYS) assert.strictEqual(snap[k], sample[k], k);
   });
-  check('J2 slim 快照 8 键透传（signal metadata trendFactors）', () => {
-    const slim = buildSlimFactorValues(sample);
-    for (const k of ACT_KEYS) assert.strictEqual(slim[k], sample[k], k);
-  });
-  check('J3 旧输入（FA 无键）→ null 不掩盖', () => {
+  check('J2 旧输入（FA 无键）→ null 不掩盖', () => {
     const snap = buildFactorValuesForTimeSeries({ currentPrice: 1 });
-    const slim = buildSlimFactorValues({ currentPrice: 1 });
-    for (const k of ACT_KEYS) {
-      assert.strictEqual(snap[k], null, `${k} 时序`);
-      assert.strictEqual(slim[k], null, `${k} slim`);
-    }
+    for (const k of ACT_KEYS) assert.strictEqual(snap[k], null, k);
   });
-  check('J4 null 输入早 return {}（两处同防）', () => {
+  check('J3 null 输入早 return {}', () => {
     assert.deepStrictEqual(buildFactorValuesForTimeSeries(null), {});
-    assert.deepStrictEqual(buildSlimFactorValues(null), {});
   });
 }
 

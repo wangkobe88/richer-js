@@ -2,8 +2,8 @@
  * 持仓分析服务（TokenPositionAnalyzer 落表数据展示；pumpfun 回迁批 4 web 展示）
  *
  * 数据源：token_position_analyses 表（每触发代币一行，v1 trigger_no=1）。
- * 与 StrategyAnalysisService 的区别：strategy-analysis 是 per-tick replay（重算因子），
- *   本服务是「读模块已落表的 as-of 分析结果」（verdict / holding 因子）。
+ * 本服务是「读模块已落表的 as-of 分析结果」（verdict / holding 因子），
+ *   不做 per-tick 重算（原 strategy-analysis 时序回放链已随 experiment_time_series_data 停写移除）。
  *
  * BSC 适配（对齐母版 PositionAnalysisService）：
  *   - token 分类读 token_profiles 全局表（token_address PK，无 experiment 维度）——

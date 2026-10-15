@@ -414,9 +414,7 @@ class ExperimentSignalStats {
     const gmgnUrl = `https://gmgn.ai/${gmgnChain}/token/${stat.tokenAddress}`;
 
     // 各个页面链接
-    const observerUrl = `/experiment/${this.experimentId}/observer#token=${stat.tokenAddress}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${stat.tokenAddress}`;
-    const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${stat.tokenAddress}`;
     const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${stat.tokenAddress}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${stat.tokenAddress}`;
 
@@ -460,11 +458,7 @@ class ExperimentSignalStats {
             <div class="flex items-center gap-1">
               <a href="${gmgnUrl}" target="_blank" class="inline-flex items-center p-0.5 rounded bg-gray-600 hover:bg-blue-700 transition-colors flex-shrink-0" title="在GMGN中查看"><img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4"></a>
               <span class="text-gray-600">|</span>
-              <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
-              <span class="text-gray-600">|</span>
               <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
-              <span class="text-gray-600">|</span>
-              <a href="${strategyUrl}" target="_blank" class="hover:text-pink-400 flex-shrink-0">策略</a>
             </div>
             <div class="flex items-center gap-1">
               <a href="${tokenDetailUrl}" target="_blank" class="hover:text-cyan-400 flex-shrink-0" title="代币详情">详情</a>

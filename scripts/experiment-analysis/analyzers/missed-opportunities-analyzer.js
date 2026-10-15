@@ -42,49 +42,10 @@ class MissedOpportunitiesAnalyzer extends AnalyzerBase {
       let suggestion = '';
 
       if (missedAnalysis.reason === 'no_signal') {
-        // 需要分析时序数据，看为什么没触发信号
-        // 这里暂时简化处理
+        // 买入信号未触发（时序逐点回放深挖链已随 experiment_time_series_data 停写移除，
+        // 因子级归因请查 strategy_signals 行 metadata.trendFactors 快照）
         detailedReason = '买入信号未触发';
-        suggestion = '需要分析时序数据查看因子变化';
-
-        // 尝试获取策略分析数据进行深入分析
-        try {
-          let strategyAnalysis = await this.dataLoader.getStrategyAnalysis(token.token_address, 'buy', 0);
-          let usedAddress = token.token_address;
-
-          // 如果当前地址没有数据，尝试查找同symbol的其他地址
-          if (!strategyAnalysis || !strategyAnalysis.timePoints || strategyAnalysis.timePoints.length === 0) {
-            const sameSymbolTokens = goodTokens.filter(t => t.token_symbol === token.token_symbol && t.token_address !== token.token_address);
-            for (const altToken of sameSymbolTokens) {
-              const altAnalysis = await this.dataLoader.getStrategyAnalysis(altToken.token_address, 'buy', 0);
-              if (altAnalysis && altAnalysis.timePoints && altAnalysis.timePoints.length > 0) {
-                strategyAnalysis = altAnalysis;
-                usedAddress = altToken.token_address;
-                break;
-              }
-            }
-          }
-
-          if (strategyAnalysis && strategyAnalysis.timePoints && strategyAnalysis.timePoints.length > 0) {
-            // 有时序数据，分析为什么不触发信号
-            const factorAnalysis = this.analyzeWhyNoSignal(strategyAnalysis);
-            detailedReason = factorAnalysis.reason;
-            suggestion = factorAnalysis.suggestion;
-
-            // 如果使用了不同的地址，添加说明
-            if (usedAddress !== token.token_address) {
-              detailedReason += ` (使用同symbol代币数据)`;
-            }
-          } else {
-            // 所有同symbol地址都没有数据
-            detailedReason = '无策略分析数据';
-            suggestion = '该symbol的所有代币地址都没有时序因子数据，可能未进入监控池';
-          }
-        } catch (e) {
-          // 策略分析数据获取失败
-          detailedReason = '无法获取分析数据';
-          suggestion = 'API请求失败: ' + e.message;
-        }
+        suggestion = '该代币未满足买腿触发条件（时序回放分析已下线，查 signal metadata trendFactors）';
       } else if (missedAnalysis.reason === 'signal_rejected') {
         detailedReason = `买入信号被拒绝: ${missedAnalysis.description}`;
         suggestion = missedAnalysis.suggestion;
@@ -168,78 +129,6 @@ class MissedOpportunitiesAnalyzer extends AnalyzerBase {
     };
 
     return this.results;
-  }
-
-  /**
-   * 分析为什么没有触发信号
-   */
-  analyzeWhyNoSignal(strategyAnalysis) {
-    // strategyAnalysis 包含 timePoints 数组，每个元素包含 data.factor_values
-    const timePoints = strategyAnalysis.timePoints || [];
-
-    if (timePoints.length === 0) {
-      return {
-        reason: '无策略分析数据',
-        suggestion: '无法分析'
-      };
-    }
-
-    // 检查是否在任何时间点触发过信号
-    const triggeredPoint = timePoints.find(tp => tp.satisfied === true);
-
-    if (triggeredPoint) {
-      return {
-        reason: '信号曾触发',
-        suggestion: '信号在某个时间点触发过，但最终没有执行交易'
-      };
-    }
-
-    // 获取最新的数据点来分析为什么不满足条件
-    const latest = timePoints[timePoints.length - 1];
-    const factors = latest.data?.factor_values || {};
-
-    // 检查常见的购买条件
-    const issues = [];
-
-    // trendRiseRatio
-    if ((factors.trendRiseRatio || 0) < 0.7) {
-      issues.push(`trendRiseRatio不达标 (${(factors.trendRiseRatio || 0).toFixed(2)} < 0.7)`);
-    }
-
-    // age
-    if ((factors.age || 0) < 1.2) {
-      issues.push(`age未达标 (${(factors.age || 0).toFixed(2)} < 1.2)`);
-    }
-    if ((factors.age || 0) > 10) {
-      issues.push(`age过大 (${(factors.age || 0).toFixed(2)} > 10)`);
-    }
-
-    // earlyReturn
-    if ((factors.earlyReturn || 0) < 15) {
-      issues.push(`earlyReturn过低 (${(factors.earlyReturn || 0).toFixed(1)} < 15)`);
-    }
-
-    // drawdownFromHighest
-    if ((factors.drawdownFromHighest || 0) < -25) {
-      issues.push(`回撤过大 (${(factors.drawdownFromHighest || 0).toFixed(1)} < -25)`);
-    }
-
-    // trendCV
-    if ((factors.trendCV || 0) < 0.02) {
-      issues.push(`trendCV过低 (${(factors.trendCV || 0).toFixed(3)} < 0.02)`);
-    }
-
-    if (issues.length > 0) {
-      return {
-        reason: '条件不满足: ' + issues.join(', '),
-        suggestion: '可以考虑调整相关因子的阈值'
-      };
-    }
-
-    return {
-      reason: '未知原因',
-      suggestion: '需要更详细的分析'
-    };
   }
 
   formatReport() {

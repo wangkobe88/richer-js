@@ -6,7 +6,7 @@
 
 const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregator');
 const { ConditionEvaluator } = require('../src/strategies/ConditionEvaluator');
-const { getAvailableFactorIds, buildFactorsFromTimeSeries, buildFactorValuesForTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
+const { getAvailableFactorIds, buildFactorValuesForTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
 const fs = require('fs');
 const path = require('path');
 
@@ -119,14 +119,11 @@ console.log('E. FA preFilter 集成（tokenAgeSec 策略的越界 token 跳过�
   check('E2 越界（age 120s 未持仓）→ null 跳过', fa.buildFactorMap('0xb1', T0 + 120_000), null);
 }
 
-console.log('F. FactorBuilder 时序重建路径（tokenAgeSec = age×60 同源推导）');
+console.log('F. FactorBuilder 时序重建路径（随 experiment_time_series_data 停写移除，2026-10-15）');
 {
-  const tokenState = { tokenCreatedAt: new Date(T0).toISOString(), firstPrice: 5e-9 };
-  const f = buildFactorsFromTimeSeries({}, tokenState, 3e-9, T0 + 90_000);
-  check('F1 tokenAgeSec = age×60（90s）', f.tokenAgeSec, 90);
-  check('F2 age 同步 1.5 分钟', f.age, 1.5);
-  const f2 = buildFactorsFromTimeSeries({ age: 2 }, {}, 3e-9, T0); // fv.age 优先路径
-  check('F3 fv.age 优先时同样 ×60', f2.tokenAgeSec, 120);
+  const fbSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/core/FactorBuilder.js'), 'utf8');
+  check('F1 buildFactorsFromTimeSeries 零残留（tokenAgeSec=age×60 推导随函数删除，FA 字面量键为唯一源）',
+    fbSrc.includes('buildFactorsFromTimeSeries'), false);
 }
 
 console.log('G. 快照白名单落库（2026-10-01 裁定 A/B 都做之 B：trendFactors 直读）');

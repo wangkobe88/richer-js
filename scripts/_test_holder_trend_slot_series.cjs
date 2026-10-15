@@ -197,24 +197,22 @@ console.log('\nC 节：源码口径断言');
     () => assert.ok(/state\._holderSeries\.map\(h => h\.count\)/.test(faSrc)));
 
   const fbSrc = fs.readFileSync(FACTOR_BUILDER_PATH, 'utf8');
-  check('C4 FactorBuilder slim 含 11 个 holderTrend 键（?? null 形态）',
+  check('C4 FactorBuilder signal 快照（buildFactorValuesForTimeSeries）含 11 个 holderTrend 键（直接透传形态）',
     () => {
-      const slimStart = fbSrc.indexOf('function buildSlimFactorValues');
-      const slimEnd = fbSrc.indexOf('\n}', slimStart);
-      const slim = fbSrc.slice(slimStart, slimEnd);
+      const snapStart = fbSrc.indexOf('function buildFactorValuesForTimeSeries');
+      const snapEnd = fbSrc.indexOf('\n}', snapStart);
+      const snap = fbSrc.slice(snapStart, snapEnd);
       const keys = ['holderTrendDataPoints', 'holderTrendGrowthRatio', 'holderTrendRiseRatio',
         'holderTrendCV', 'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio',
         'holderTrendConsecutiveDecreases', 'holderTrendHolderCountUp', 'holderTrendMedianUp',
         'holderTrendSlope', 'holderTrendStrengthScore'];
-      const missing = keys.filter(k => !new RegExp(`${k}: factorResults\\.${k} \\?\\? null`).test(slim));
-      assert.strictEqual(missing.length, 0, 'slim 缺键: ' + missing.join(','));
+      const missing = keys.filter(k => !new RegExp(`${k}: factorResults\\.${k},`).test(snap));
+      assert.strictEqual(missing.length, 0, 'signal 快照缺键: ' + missing.join(','));
     });
 
-  const tsSrc = fs.readFileSync(TS_SERVICE_PATH, 'utf8');
-  check('C5 web 直读分支在 + 重算侧 holderHistory/_holders 零残留（死代码已删）',
-    () => assert.ok(/HOLDER_TREND_FACTOR_KEYS\.has\(factorName\)/.test(tsSrc))
-      && assert.ok(!tsSrc.includes('holderHistory'))
-      && assert.ok(!/_holders\b/.test(tsSrc.split('_rebuildFactorTimeSeries')[1] || '')));
+  check('C5 时序机制零残留（experiment_time_series_data 2026-10-15 停写：slim 构建器与 web 时序服务文件已删）',
+    () => assert.ok(!fbSrc.includes('buildSlimFactorValues'))
+      && assert.ok(!fs.existsSync(TS_SERVICE_PATH)));
 
   const detSrc = fs.readFileSync(DETECTOR_PATH, 'utf8');
   const detMaxPoints = (detSrc.match(/const maxPoints = 8;/g) || []).length;

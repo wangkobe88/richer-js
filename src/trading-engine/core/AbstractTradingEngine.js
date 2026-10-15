@@ -20,7 +20,6 @@ let TokenPool = null;
 let StrategyEngine = null;
 let PortfolioManager = null;
 let RoundSummary = null;
-let ExperimentTimeSeriesService = null;
 
 /**
  * 获取延迟导入的模块
@@ -34,10 +33,8 @@ function getLazyModules() {
     PortfolioManager = PM.PortfolioManager;
     const RS = require('../utils/RoundSummary');
     RoundSummary = RS.RoundSummary;
-    const ETSS = require('../../web/services/ExperimentTimeSeriesService');
-    ExperimentTimeSeriesService = ETSS.ExperimentTimeSeriesService;
   }
-  return { TokenPool, StrategyEngine, PortfolioManager, RoundSummary, ExperimentTimeSeriesService };
+  return { TokenPool, StrategyEngine, PortfolioManager, RoundSummary };
 }
 
 class AbstractTradingEngine extends ITradingEngine {
@@ -64,7 +61,6 @@ class AbstractTradingEngine extends ITradingEngine {
     this._strategyEngine = null;
     this._portfolioManager = null;
     this._roundSummary = null;
-    this._timeSeriesService = null;
     this._logger = null;
 
     // 实验相关
@@ -129,11 +125,6 @@ class AbstractTradingEngine extends ITradingEngine {
   /** @type {Experiment} */
   get experiment() {
     return this._experiment;
-  }
-
-  /** @type {number} */
-  get loopCount() {
-    return this._loopCount;
   }
 
   /** @type {boolean} */
@@ -208,7 +199,7 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Promise<void>}
    */
   async _initializeComponents() {
-    const { TokenPool, StrategyEngine, PortfolioManager, RoundSummary, ExperimentTimeSeriesService } = getLazyModules();
+    const { TokenPool, StrategyEngine, PortfolioManager, RoundSummary } = getLazyModules();
 
     // TokenPool - 代币池管理
     this._tokenPool = new TokenPool({
@@ -244,11 +235,6 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // RoundSummary - 轮次总结
     this._roundSummary = new RoundSummary(this._experimentId, this._logger, this._blockchain);
-
-    // ExperimentTimeSeriesService - 时序数据服务
-    if (this._shouldRecordTimeSeries()) {
-      this._timeSeriesService = new ExperimentTimeSeriesService();
-    }
   }
 
   /**
@@ -409,16 +395,6 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _executeSell(signal, signalId, metadata) {
     throw new Error('_executeSell() 必须由子类实现');
-  }
-
-  /**
-   * 是否记录时序数据
-   * @abstract
-   * @protected
-   * @returns {boolean}
-   */
-  _shouldRecordTimeSeries() {
-    throw new Error('_shouldRecordTimeSeries() 必须由子类实现');
   }
 
   // ==================== 策略构建方法（共同逻辑）====================

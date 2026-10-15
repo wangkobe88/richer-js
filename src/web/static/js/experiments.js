@@ -96,22 +96,6 @@ class ExperimentMonitor {
           return;
         }
 
-        const compressBtn = e.target.closest('[data-action="compress"]');
-        if (compressBtn) {
-          const id = compressBtn.getAttribute('data-id');
-          const name = compressBtn.getAttribute('data-name');
-          this.compressTimeSeries(id, name);
-          return;
-        }
-
-        const cleanupBtn = e.target.closest('[data-action="cleanup"]');
-        if (cleanupBtn) {
-          const id = cleanupBtn.getAttribute('data-id');
-          const name = cleanupBtn.getAttribute('data-name');
-          this.cleanupTokens(id, name);
-          return;
-        }
-
         const backfillBtn = e.target.closest('[data-action="backfill-material-id"]');
         if (backfillBtn) {
           const id = backfillBtn.getAttribute('data-id');
@@ -129,19 +113,6 @@ class ExperimentMonitor {
 
     document.getElementById('save-name-btn')?.addEventListener('click', () => {
       this.saveExperimentName();
-    });
-
-    // 绑定压缩模态框事件
-    document.getElementById('cancel-compress-btn')?.addEventListener('click', () => {
-      this.closeCompressModal();
-    });
-
-    // 绑定压缩档位按钮事件
-    document.querySelectorAll('.compress-threshold-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const threshold = parseInt(e.currentTarget.dataset.threshold);
-        this.executeCompress(threshold);
-      });
     });
   }
 
@@ -455,11 +426,8 @@ class ExperimentMonitor {
             <div class="flex items-center gap-1 flex-wrap">
               <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-xs px-1.5 py-0.5 text-orange-400 hover:bg-orange-900 rounded transition-colors">收益</a>
               <a href="/experiment/${exp.id}/narrative" target="_blank" class="text-xs px-1.5 py-0.5 text-emerald-400 hover:bg-emerald-900 rounded transition-colors">叙事</a>
-              <a href="/experiment/${exp.id}/strategy-analysis" target="_blank" class="text-xs px-1.5 py-0.5 text-pink-400 hover:bg-pink-900 rounded transition-colors">策略</a>
               <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-cyan-400 hover:bg-cyan-900 rounded transition-colors">持有者</a>
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-indigo-400 hover:bg-indigo-900 rounded transition-colors" title="复制">📋复制</button>
-              ${exp.tradingMode !== 'backtest' ? `<button data-action="compress" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-amber-400 hover:bg-amber-900 rounded transition-colors" title="压缩时序数据">🗜️压缩</button>` : ''}
-              ${exp.tradingMode !== 'backtest' ? `<button data-action="cleanup" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="清理无价格数据的代币">🧹清理</button>` : ''}
               ${exp.tradingMode !== 'backtest' ? `<button data-action="backfill-material-id" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-violet-400 hover:bg-violet-900 rounded transition-colors" title="补充叙事语料ID">🔗语料ID</button>` : ''}
               <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="删除">🗑️删除</button>
             </div>
@@ -1006,202 +974,6 @@ class ExperimentMonitor {
       if (analyzeBtn) {
         analyzeBtn.disabled = false;
         analyzeBtn.textContent = '📊 分析';
-      }
-    }
-  }
-
-  /**
-   * 压缩实验时序数据
-   * @param {string} experimentId - 实验ID
-   * @param {string} experimentName - 实验名称
-   */
-  async compressTimeSeries(experimentId, experimentName) {
-    // 打开压缩档位选择模态框
-    this.openCompressModal(experimentId, experimentName);
-  }
-
-  /**
-   * 打开压缩档位选择模态框
-   * @param {string} experimentId - 实验ID
-   * @param {string} experimentName - 实验名称
-   */
-  openCompressModal(experimentId, experimentName) {
-    const modal = document.getElementById('compress-modal');
-    const nameDisplay = document.getElementById('compress-experiment-name');
-
-    if (modal && nameDisplay) {
-      nameDisplay.textContent = `实验: ${experimentName}`;
-      modal.dataset.experimentId = experimentId;
-      modal.classList.remove('hidden');
-    }
-  }
-
-  /**
-   * 关闭压缩档位选择模态框
-   */
-  closeCompressModal() {
-    const modal = document.getElementById('compress-modal');
-    if (modal) {
-      modal.classList.add('hidden');
-      delete modal.dataset.experimentId;
-    }
-  }
-
-  /**
-   * 执行压缩操作
-   * @param {number} threshold - 涨幅阈值
-   */
-  async executeCompress(threshold) {
-    const modal = document.getElementById('compress-modal');
-    const experimentId = modal?.dataset.experimentId;
-
-    if (!experimentId) {
-      alert('❌ 无法获取实验ID');
-      return;
-    }
-
-    // 关闭模态框
-    this.closeCompressModal();
-
-    // 最终确认
-    const confirmed = confirm(
-      `🗜️ 确定要压缩时序数据吗？\n\n` +
-      `此操作将：\n` +
-      `📊 删除最大涨幅低于 ${threshold}% 的代币的时序数据\n` +
-      `💾 大幅减少存储空间和回测时间\n` +
-      `⚠️ 被删除的数据无法恢复！\n\n` +
-      `注意：已离线分类且有涨幅的代币会被处理，未分类/无涨幅的会被跳过。`
-    );
-
-    if (!confirmed) return;
-
-    // 禁用按钮并显示加载状态
-    const compressBtn = document.querySelector(`[data-action="compress"][data-id="${experimentId}"]`);
-    if (compressBtn) {
-      compressBtn.disabled = true;
-      compressBtn.textContent = '⏳ 压缩中...';
-    }
-
-    try {
-      const response = await fetch(`/api/experiment/${experimentId}/compress-time-series`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threshold })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        const data = result.data;
-
-        let message = `✅ 压缩完成！\n\n`;
-        message += `📊 总代币数: ${data.totalTokens}\n`;
-        message += `🗑️ 删除代币数: ${data.tokensToDelete}\n`;
-        message += `⏭️ 跳过代币数: ${data.skippedTokens}\n\n`;
-        message += `📈 数据统计:\n`;
-        message += `   压缩前: ${data.beforeCount} 条记录\n`;
-        message += `   压缩后: ${data.afterCount} 条记录\n`;
-        message += `   删除: ${data.deletedRecords} 条记录 (${data.compressionRatio}%)\n`;
-
-        if (data.orphanCleanedCount > 0) {
-          message += `\n🧹 孤儿清理:\n`;
-          message += `   清理了 ${data.orphanCleanedCount} 个孤儿代币的时序数据\n`;
-        }
-
-        if (data.protectedTokens > 0 || data.protectedOrphanCount > 0) {
-          message += `\n🛡️ 保护机制:\n`;
-          if (data.protectedTokens > 0) {
-            message += `   ${data.protectedTokens} 个代币因有信号未被删除\n`;
-          }
-          if (data.protectedOrphanCount > 0) {
-            message += `   ${data.protectedOrphanCount} 个孤儿代币因有信号未被删除\n`;
-          }
-        }
-
-        alert(message);
-
-        // 刷新实验列表
-        await this.loadExperiments();
-      } else {
-        alert('❌ 压缩失败: ' + (result.error || '未知错误'));
-      }
-    } catch (error) {
-      console.error('❌ 压缩时序数据失败:', error);
-      alert('❌ 压缩失败: ' + error.message);
-    } finally {
-      if (compressBtn) {
-        compressBtn.disabled = false;
-        compressBtn.textContent = '🗜️压缩';
-      }
-    }
-  }
-
-  /**
-   * 清理无价格数据的代币
-   * @param {string} experimentId - 实验ID
-   * @param {string} experimentName - 实验名称
-   */
-  async cleanupTokens(experimentId, experimentName) {
-    const confirmed = confirm(
-      `⚠️ 请先运行离线分类（build-token-profiles）后再清理！\n\n` +
-      '未分类的代币会被直接清理（视为无价格数据），可能误删仍有价值的代币。\n\n' +
-      '操作步骤：\n' +
-      '1️⃣ 先在服务器上运行 node scripts/build-token-profiles.cjs --experiment <实验ID>\n' +
-      '2️⃣ 分类完成后再进行清理\n\n' +
-      '是否已运行过离线分类，确认继续清理？'
-    );
-
-    if (!confirmed) return;
-
-    // 禁用按钮并显示加载状态
-    const cleanupBtn = document.querySelector(`[data-action="cleanup"][data-id="${experimentId}"]`);
-    if (cleanupBtn) {
-      cleanupBtn.disabled = true;
-      cleanupBtn.textContent = '⏳ 清理中...';
-    }
-
-    try {
-      const response = await fetch(`/api/experiment/${experimentId}/cleanup-tokens`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        const data = result.data;
-
-        let message = `✅ 清理完成！\n\n`;
-        message += `📊 总代币数: ${data.totalTokens}\n`;
-        message += `🗑️ 删除代币数: ${data.deletedTokens} (无价格数据)\n`;
-        message += `⏭️ 保留代币数: ${data.remainingTokens} (有价格数据)\n`;
-
-        if (data.protectedTokens > 0) {
-          message += `🛡️ 受保护: ${data.protectedTokens} 个代币因有信号未被删除\n`;
-        }
-
-        alert(message);
-
-        // 刷新实验列表
-        await this.loadExperiments();
-      } else {
-        alert('❌ 清理失败: ' + (result.error || '未知错误'));
-      }
-    } catch (error) {
-      console.error('❌ 清理代币失败:', error);
-      alert('❌ 清理失败: ' + error.message);
-    } finally {
-      if (cleanupBtn) {
-        cleanupBtn.disabled = false;
-        cleanupBtn.textContent = '🧹清理';
       }
     }
   }

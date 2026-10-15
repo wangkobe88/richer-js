@@ -264,7 +264,6 @@ class ExperimentDetail {
     const linkSignals = document.getElementById('link-signals');
     const linkTokens = document.getElementById('link-tokens');
     const linkTrades = document.getElementById('link-trades');
-    const linkObserver = document.getElementById('link-observer');
     const linkReturns = document.getElementById('link-returns');
     const linkPosition = document.getElementById('link-position');
 
@@ -279,9 +278,6 @@ class ExperimentDetail {
     }
     if (linkTrades) {
       linkTrades.href = `/experiment/${this.experimentId}/trades`;
-    }
-    if (linkObserver) {
-      linkObserver.href = `/experiment/${this.experimentId}/observer`;
     }
     if (linkReturns) {
       linkReturns.href = `/experiment/${this.experimentId}/token-returns`;

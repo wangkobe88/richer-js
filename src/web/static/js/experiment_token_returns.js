@@ -764,12 +764,6 @@ class ExperimentTokenReturns {
             <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="action-link text-purple-400 hover:text-purple-300">
               查看信号
             </a>
-            <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.tokenAddress}" target="_blank" class="action-link text-pink-400 hover:text-pink-300">
-              策略分析
-            </a>
-            <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="action-link text-emerald-400 hover:text-emerald-300">
-              时序数据
-            </a>
             <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
               持有者
             </a>
@@ -1284,17 +1278,6 @@ class ExperimentTokenReturns {
     const changeClass = maxChange > 0 ? 'text-green-400' : maxChange < 0 ? 'text-red-400' : 'text-gray-400';
     const sign = maxChange > 0 ? '+' : '';
     return `<span class="${changeClass}">${sign}${maxChange.toFixed(2)}%</span>`;
-  }
-
-  /**
-   * 获取时序数据页面的URL
-   * @param {string} tokenAddress - 代币地址
-   * @returns {string} 时序数据页面URL
-   */
-  getTimeSeriesUrl(tokenAddress) {
-    // 如果是回测实验，使用源实验ID；否则使用当前实验ID
-    const targetExperimentId = this.judgeExperimentId || this.experimentId;
-    return `/experiment/${targetExperimentId}/observer#token=${tokenAddress}`;
   }
 
   /**

@@ -36,8 +36,7 @@
     "sellDebounceMs": 2000,
     "pruneIntervalMs": 300000,
     "pruneMaxAgeMs": 1800000,
-    "timeSeriesIntervalMs": 30000,
-    "timeSeriesActiveWindowMs": 60000,
+    "portfolioSnapshotIntervalMs": 30000,
     "minTickBnb": 0.001,
     "factorParams": {
       "minPriceUpdateBnb": 0.002,
@@ -119,8 +118,7 @@
     "sellDebounceMs": 2000,
     "pruneIntervalMs": 300000,
     "pruneMaxAgeMs": 1800000,
-    "timeSeriesIntervalMs": 30000,
-    "timeSeriesActiveWindowMs": 60000,
+    "portfolioSnapshotIntervalMs": 30000,
     "minTickBnb": 0.001,
     "quoteRate": {
       "ttlMs": 30000,

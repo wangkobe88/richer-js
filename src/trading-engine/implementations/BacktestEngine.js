@@ -1502,10 +1502,6 @@ class BacktestEngine extends AbstractTradingEngine {
     await super.stop();
   }
 
-  _shouldRecordTimeSeries() {
-    return false; // 回测不写 experiment_time_series_data（tick 重算，时序表是实时引擎产物）
-  }
-
   /**
    * 虚拟时钟推进 + drain：advance 同步触发 onFire → _runBuyEvaluation /
    * _onSellDebounceFire（async fire-and-forget，与实时引擎同构）；回放串行语义

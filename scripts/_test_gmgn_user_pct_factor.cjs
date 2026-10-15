@@ -187,14 +187,16 @@ function build(fa) {
     ok('gmgnUserPct' in emptyFactors, '因子字面量无条件出键（空 state 亦有键，值 0）');
 }
 
-// ─────────── 8) FactorBuilder 两快照白名单含键（源码口径） ───────────
+// ─────────── 8) FactorBuilder signal 快照白名单含键（源码口径） ───────────
 
 {
     const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/core/FactorBuilder.js'), 'utf8');
     ok(/buildFactorValuesForTimeSeries[\s\S]{0,4000}gmgnUserPct:\s*factorResults\.gmgnUserPct/.test(src),
         'signal 快照（buildFactorValuesForTimeSeries）含 gmgnUserPct 键');
-    ok(/buildSlimFactorValues[\s\S]{0,2000}gmgnUserPct:\s*factorResults\.gmgnUserPct/.test(src),
-        'slim 时序快照（buildSlimFactorValues）含 gmgnUserPct 键');
+    // experiment_time_series_data 时序表 2026-10-15 停写：buildSlimFactorValues 已删，零残留由
+    // _test_timeseries_removal.cjs 锁定
+    ok(!src.includes('buildSlimFactorValues'),
+        'slim 时序快照构建器零残留（时序机制停写）');
 }
 
 // ─────────── 汇总 ───────────
