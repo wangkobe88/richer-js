@@ -68,6 +68,13 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C69 Hatchan 双盘案 0x40b4b42b6b3c18e67e0fdc9755ac32c9ae8a7777 / 0x5f107c3aadf89fb784acaf997df3b8a0d9c87777——expired_tweet 6h 窗唯二误杀（新闻发酵型形态）：双盘同叙事 105 秒前后脚全毕业，256 票全量扫描背书规则整体健康（误杀率 2/256 且同一事件），存档不改（2026-10-15 用户裁定「先存档」）
+
+- **案发**：秋田犬机器狗防熊真实新闻（日文媒体，秋田县立大学，RT 160/赞 332，2026-10-14 06:00:50 UTC）→ 18:44:34 **Hatchan**（英文 symbol，creator `0x5ad4…10d1`，**quote=宇树股票代币 `0x34b658a2815f2a34c752a051a7c84bbc39b07777`** ERC20 盘——主题契合创意部署：机器狗叙事 × 机器人顶级股票）13 分钟 ×14.3 **毕业**；+105 秒 `0x5f10` **ハッチャン**（日文 symbol，不同 creator `0x10e2…a8a7`，另一 ERC20 盘 `0x02fc…7436`）69 分钟 ×12.1 **毕业**。双盘均被 precheck `expired_tweet` 终判 low 20 分（主推 lag 12.7h/12.8h > 360min 窗）未进 Jev；v15 引擎层 fire 门未满足零 signal（无实际交易损失，纯信号层失明）。
+- **256 票全量扫描**（2026-10-15，182 `scripts/tmp-scan-expired-tweet.cjs` 可复跑）：expired_tweet 历史拦截 256 票中 **x3+ 或毕业的仅此双盘 2 票（0.8%，且同一条主推文=同一个事件）**，其余 254 票全部 x<3 零毕业——规则整体校准正确，无放宽依据（放行进 Jev = 烧 256 次调用换 1 个事件召回）。
+- **反思存档**：①「lag 单变量终判」的结构性风险在**真实新闻发酵型**形态失灵——媒体转载链 12h 后仍处上升期（与 C68 找角度形态相反方向的压力 case，时效轴一收一放两面挨打记录在案）；②**宇树股票交易对=部署用心度维度引擎零感知**（quote 选材契合、105 秒克隆盘跟进=叙事跨盘持续拉力信号，用户观察）；③250/256 历史 reason 文本 lag 不可解析（格式漂移），未来常态化监控此桶须换锚源（twitter_info 主推 created_at）。候选信号（媒体型推文高互动 + lag 6-24h 发酵窗 + 部署创意）挂 §四-16 未决，**再攒 2-3 个同类 case 才议分窗/豁免**。
+- **裁定**：不改规则、不建机制——用户 2026-10-15「这个币的部署方式是有一些创新的，它使用了宇树科技股票作为交易对……如果你没有更好的主意，可以先存档」；扫描数据出来后确认存档正确（误杀率极低，双盘为孤立事件）。
+
 ### C68 제로案 0x0a27c1232ffe46f296af9afb68448dff7ad37777——找角度推文时效门（双层）：「找角度推文都是发出来后立马发币的」——载体推文→发币 lag 是 angle_seeking 的时效锚，不是叙事首次发生时间；IPFS 语料行锚缺失静默跳过=漏网根因（2026-10-14 用户裁定「1/2 都做」）★
 
 - **案发**：fourmeme 盘 제로(Zero) 2026-10-14 14:00 发币，依托推文是 @rega_sport 2026-10-03 02:04 的「陈述韩国网红猫 Zero 叙事」找角度推文（`tweetType=angle_seeking`，Jev 判 A 类 character_ip 0.99 / B 档 3.4 / within_30d 0.96）——**载体推文 lag=993367s≈11.5 天**。叙事评级 high 73.89（stage2 事件 27+传播 26.8+时效 10=63.8 压线过）；实跑 8e271a2d 买门 `narrativeCorpusLagSec<300 OR earlyReturn>=100` 前几轮拦截（lag 993367），**earlyReturn 涨破 100 从 OR 通道翻入买入**（0.004 BNB，31 秒后 +6.8% 卖出——结果侥幸，机制漏网坐实）。
@@ -419,6 +426,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
     与版本表 mapper-only 行）：FlapGuy 0x2fb77ad0…7777 low→high 74.42/75.87；
     BOB 0xf2fca4cf…7777 定性修正为 228 粉路人号 @zhangxuanhui 回复 CZ 玩香蕉梗
     （父推才是 cz_binance）——非官方源不豁免，common_word 拦截维持合理
+16. **新闻发酵型 expired_tweet 误杀观察**（C69）：真实新闻事件（媒体转载链）发币
+    lag 6-24h 仍可能处上升期，expired_tweet 6h 终判对此形态失明——256 票扫描
+    误杀仅 Hatchan 双盘（同一事件），暂不改；特征组合（媒体型推文高互动+发酵窗
+    lag+部署创意如宇树股票 quote）再攒 2-3 个同类 case 才议分窗/豁免
 16. **token_narrative 非持久化语料列缺口**（C56 校准方法论发现）：fetch 结果只有
     twitter_info/classified_urls/extracted_info 等落列，binance_square_info/
     instagram_info/website_info/douyin_info/xiaohongshu_info/weixin_info/
