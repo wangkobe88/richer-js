@@ -113,13 +113,17 @@ class GmgnRiskCheckService {
   }
 
   _noDataResult(failReason, durationMs = 0) {
-    // 与 mapGmgnRiskFactors(null) 同款 0 值形状（covered=0 四键全 0），外加审计字段
+    // 与 mapGmgnRiskFactors(null) 同款 0 值形状（covered=0 八键全 0），外加审计字段
     return {
       covered: 0,
       gmgnIssuerTokenCount: 0,
       gmgnBundlerWalletRatio: 0,
       gmgnRiskCovered: 0,
       gmgnVisitingCount: 0,
+      gmgnRenownedWallets: 0,
+      gmgnSmartWallets: 0,
+      gmgnWhaleWallets: 0,
+      gmgnCreatorCreatedCount: 0,
       durationMs,
       fromCache: false,
       failReason,

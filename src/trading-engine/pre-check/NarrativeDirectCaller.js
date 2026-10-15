@@ -495,8 +495,13 @@ function isAccountOnlySource(classifiedUrls) {
  * - gmgnVisitingCount：当前访问人数（2026-10-15 加键，用户裁定「流动性跟注意力
  *   背离」观测——GMGN 顶层 visiting_count，实时在线语义非累计 UV，死盘/秒新盘=0；
  *   历史 gmgn_info 快照行无此字段 → 0=无观测）
+ * - 猪五花案四观测键（2026-10-15，钱包真人标签全零=机器盘指纹）：gmgnRenownedWallets
+ *   （KOL 持有，候选正信号豁免通道）/ gmgnSmartWallets / gmgnWhaleWallets /
+ *   gmgnCreatorCreatedCount（creator EOA 发币总数——用户裁定仅观测不进门：老发币
+ *   Dev 发新币是常态，硬门误伤）
  * @param {Object|null} risk - analyze 返回的 gmgnRisk（null=未查到）
- * @returns {{gmgnIssuerTokenCount: number, gmgnBundlerWalletRatio: number, gmgnRiskCovered: number, gmgnVisitingCount: number}}
+ * @returns {{gmgnIssuerTokenCount: number, gmgnBundlerWalletRatio: number, gmgnRiskCovered: number, gmgnVisitingCount: number,
+ *           gmgnRenownedWallets: number, gmgnSmartWallets: number, gmgnWhaleWallets: number, gmgnCreatorCreatedCount: number}}
  */
 function mapGmgnRiskFactors(risk) {
   return {
@@ -507,6 +512,10 @@ function mapGmgnRiskFactors(risk) {
       : 0,
     gmgnRiskCovered: risk ? 1 : 0,
     gmgnVisitingCount: typeof risk?.visitingCount === 'number' ? risk.visitingCount : 0,
+    gmgnRenownedWallets: typeof risk?.renownedWallets === 'number' ? risk.renownedWallets : 0,
+    gmgnSmartWallets: typeof risk?.smartWallets === 'number' ? risk.smartWallets : 0,
+    gmgnWhaleWallets: typeof risk?.whaleWallets === 'number' ? risk.whaleWallets : 0,
+    gmgnCreatorCreatedCount: typeof risk?.creatorCreatedCount === 'number' ? risk.creatorCreatedCount : 0,
   };
 }
 
