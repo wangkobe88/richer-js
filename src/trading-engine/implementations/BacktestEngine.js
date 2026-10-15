@@ -31,6 +31,10 @@ const Decimal = require('decimal.js');
 
 const baseConfig = require('../../../config/default.json');
 
+// 永久阻断条件编译缓存（批次 4c）：key=jsExpr\0keys（形参列表决定 fn），命中免每
+// tick new Function。FIFO 1000 上限纯防呆（实际条目数=distinct(条件,键集)，极小）
+const _permBlockFnCache = new Map();
+
 const TICK_PAGE_SIZE = 500;       // keyset 分页页大小（单 token 长尾路径；必须 < Supabase
                                   // 默认 max rows 1000，否则响应被服务端截断、终止条件误判）
 const TICK_UNORDERED_LIMIT = 1000; // 无序合一拉取上限（对齐 Supabase max rows 硬上限——
@@ -2770,7 +2774,15 @@ class BacktestEngine extends AbstractTradingEngine {
         .replace(/\bNOT\b/gi, '!');
       const keys = Object.keys(context);
       const values = Object.values(context);
-      const fn = new Function(...keys, `return ${jsExpr};`);
+      const cacheKey = `${jsExpr}\0${keys.join(',')}`;
+      let fn = _permBlockFnCache.get(cacheKey);
+      if (!fn) {
+        fn = new Function(...keys, `return ${jsExpr};`);
+        if (_permBlockFnCache.size >= 1000) {
+          _permBlockFnCache.delete(_permBlockFnCache.keys().next().value);
+        }
+        _permBlockFnCache.set(cacheKey, fn);
+      }
       const blocked = fn(...values);
       return blocked
         ? { blocked: true, reason: `永久阻断: ${condition}` }
