@@ -297,6 +297,32 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
     this._sameNarrativeLeaderService = new SameNarrativeLeaderService(supabase, this.logger);
 
+    // 1.5.3 数据预取门（2026-10-15 立项，YOYO号案 0xa16c…7777）：fire→上链 10.4s 里
+    // 叙事直调 8.95s（vision 6.24s + 语料抓取 2.4s）是延迟主体；语料补采入池 ~2.3s
+    // 已拿到宣告推文 URL，「等买门证据」窗口空闲——tick 买腿分支按条件表达式（FA
+    // 因子表，N3 narrativePrefetch 同上下文）评热度门，过门后台预取推文+vision（均
+    // 缓存健全幂等），fire 直调命中同缓存塌缩耗时。Jev/GMGN 决策类调用不预取。
+    // 实验级开关 fourmemeWs.dataPrefetch {enabled, condition} 默认关（flap 实验配
+    // flapWs 段同键）；BacktestEngine 不嵌（回测 preloadCache 语义 + 纯 API 优化）。
+    // evaluate 闭包引用 _strategyEngine（第 5 步构造）——首调用在 tick 时刻，构造早已完成
+    this._dataPrefetchService = null;
+    if ((this._mergedWsConfig().dataPrefetch || {}).enabled === true) {
+      const { DataPrefetchService } = require('../pre-check/DataPrefetchService');
+      this._dataPrefetchService = new DataPrefetchService({
+        condition: this._mergedWsConfig().dataPrefetch.condition,
+        evaluate: (cond, factors) => this._strategyEngine.evaluateCondition(cond, factors),
+        fetchersProvider: () => this._dataPrefetchFetchers(),
+        logger: this.logger,
+        experimentId: this._experimentId,
+      });
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `✅ 数据预取门开启 | condition=${this._mergedWsConfig().dataPrefetch.condition}`);
+    }
+    // 语料内存镜像（数据预取门的语料来源）：_enrichCorpus 拿到 corpusFields 同步存
+    // 内存，预取读零 DB 往返；stop 清空（实例随实验销毁，防同进程接续实验读到旧实验行）
+    this._tokenCorpusMap = new Map();
+    this._dataPrefetchFetchersCache = null;  // ESM dynamic import 结果缓存（一次）
+
     // 1.6 叙话语料补采（新代币入池时抓平台附属信息进 raw_api_data；
     // 配置段 corpusEnrich（默认/实验级覆盖经 _mergedWsConfig 合并；flap 子类同键生效））
     const { TokenCorpusEnricher } = require('../core/TokenCorpusEnricher');
@@ -482,6 +508,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds,
       new Set(_PreBuyCheckService.getConditionFactorKeys()),
       new Set(_GmgnRiskCheckService.getConditionFactorKeys()));
+
+    // 数据预取门因子校验（2026-10-15）：condition 引用 FA 因子集——未知因子 = 写错名
+    // 静默恒假（比较恒 false），门永不过 = 预取整体失效无日志可查，与腿 fail-fast
+    // 同方向拒启。仅 enabled 时校验（段缺失/关 = 存量实验零变化）
+    if (this._dataPrefetchService) {
+      const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+      const _ev = new ConditionEvaluator();
+      const _v = _ev.validateCondition(
+        _ev.parseCondition(this._mergedWsConfig().dataPrefetch.condition), availableFactorIds);
+      if (!_v.valid) {
+        throw new Error(`fourmemeWs.dataPrefetch.condition 引用未知因子: ${_v.errors.join(', ')}——因子名写错会让热度门静默恒不过，拒绝启动`);
+      }
+    }
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存时最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化）
@@ -1152,6 +1191,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._tokenPositionAnalyzer.destroy();
     }
 
+    // 数据预取门态清理（2026-10-15）：语料镜像/write-once 清空——main.js 同进程
+    // 接续起下一实验时不读到旧实验行（进行中的后台预取无需等：缓存幂等无害）
+    if (this._tokenCorpusMap) this._tokenCorpusMap.clear();
+
     await super.stop();
 
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
@@ -1220,6 +1263,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 叙事预触发（N3，2026-10-13 叙事提速案）：tick 时刻后台提前发起 fire 时会做的
       // 叙事直调（fire 前置 ~200-1000ms 去抖窗 + 条件先满足的 token 更早），见方法头注
       this._narrativePrefetchCheck(tokenAddress, factors, token);
+      // 数据预取门（2026-10-15）：等买门证据的空闲窗后台预取宣告推文+vision
+      // （fire 直调命中同缓存；语料 miss=补采未完成，write-once 未标下 tick 天然重试）
+      if (this._dataPrefetchService) {
+        this._dataPrefetchCheck(tokenAddress, factors);
+      }
       this._scheduleDebouncedBuy(tokenAddress, tick);
     }
   }
@@ -1290,6 +1338,38 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (c) { this._narrativePrefetchCond = c; break; }
     }
     return this._narrativePrefetchCond;
+  }
+
+  /**
+   * 数据预取门 tick 检查（2026-10-15 立项）：热路径尽量零成本——write-once 早退 +
+   * 语料镜像 miss 早退（补采 fire-and-forget 入池 ~2.3s 内完成，miss=还没到，下 tick
+   * 天然重试）。过门判断与预取本体在 DataPrefetchService（含日志/账号 URL 分流）。
+   * @private
+   */
+  _dataPrefetchCheck(tokenAddress, factors) {
+    if (this._dataPrefetchService.isDone(tokenAddress)) return;
+    const corpus = this._tokenCorpusMap.get(tokenAddress);
+    if (!corpus) return;
+    this._dataPrefetchService.maybePrefetch(tokenAddress, factors, corpus);
+  }
+
+  /**
+   * 预取 fetchers（惰性构建一次）：叙事侧 ESM 用 dynamic import 跨 CJS/ESM 边界
+   * （NarrativeDirectCaller 先例）；被调侧自带 DB 缓存+inflight 去重，预取与
+   * fire 直调并发幂等。import 失败由 service 的 .catch 兜底 warn（fire 直调全链自兜底）
+   * @private
+   */
+  async _dataPrefetchFetchers() {
+    if (this._dataPrefetchFetchersCache) return this._dataPrefetchFetchersCache;
+    const [{ TwitterFetcher }, { analyzeTweetImage }] = await Promise.all([
+      import('../../narrative/utils/twitter-fetcher.mjs'),
+      import('../../narrative/analyzer/services/image-analysis-service.mjs'),
+    ]);
+    this._dataPrefetchFetchersCache = {
+      fetchTweet: (url) => TwitterFetcher.fetchFromUrl(url),
+      analyzeImage: (twitterInfo) => analyzeTweetImage(twitterInfo),
+    };
+    return this._dataPrefetchFetchersCache;
   }
 
   /**
@@ -2907,6 +2987,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._corpusEnricher.enrich(info.token, platform, info.meta)
       .then(corpusFields => {
         if (!corpusFields) return;
+        // 语料内存镜像（数据预取门的语料来源，2026-10-15）：拿到即存——DB 落库失败
+        // 也不影响预取读内存（两者用途独立，落库失败已有自己的 warn）
+        this._tokenCorpusMap.set(info.token, corpusFields);
         return this.dataService.updateTokenCorpus(this._experimentId, info.token, corpusFields)
           .then(ok => {
             if (ok) {

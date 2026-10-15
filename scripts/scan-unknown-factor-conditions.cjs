@@ -62,6 +62,18 @@ async function main() {
                 }
             });
         }
+        // 数据预取门（2026-10-15）：fourmemeWs/flapWs 段的 dataPrefetch.condition
+        // 用 FA 因子集（引擎启动同口径校验），同集扫描
+        for (const secKey of ['fourmemeWs', 'flapWs']) {
+            const dp = (exp.config || {})[secKey]?.dataPrefetch;
+            if (dp?.enabled !== true || typeof dp.condition !== 'string' || dp.condition.trim() === '') continue;
+            try {
+                const v = ev.validateCondition(ev.parseCondition(dp.condition), FA);
+                if (!v.valid) findings.push(`实验[${exp.experiment_name}] ${secKey}.dataPrefetch.condition: ${v.errors.join('; ')}`);
+            } catch (e) {
+                findings.push(`实验[${exp.experiment_name}] ${secKey}.dataPrefetch.condition 语法错误: ${e.message}`);
+            }
+        }
     }
 
     const { data: libs, error: e2 } = await db.from('strategy_library')

@@ -660,7 +660,10 @@ class RicherJsWebServer {
           // 引擎级高级段（2026-09-28 复制保真）：表单无输入 UI，由复制链路携带
           stopLoss,
           tokenPositionAnalyzer,
-          fourmemeWs
+          fourmemeWs,
+          // flapWs（2026-10-15 数据预取门起创建页 UI 也会提交：flap 单平台实验的
+          // ws 段覆盖；此前复制链路只透传 fourmemeWs——flap 段一直是脚本/手配路径）
+          flapWs
         } = req.body;
 
         // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
@@ -760,20 +763,49 @@ class RicherJsWebServer {
 
         // 引擎级高级段透传（2026-09-28 复制保真）：stopLoss（止损双腿）/
         // tokenPositionAnalyzer（TPA，买腿 TPAPre_* 因子源）/ fourmemeWs（onlineProfile
-        // 等实验级 ws 段）。表单无输入 UI——复制链路经创建页暂存携带；形状校验
-        // fail-fast（脏对象 400，不静默丢弃——静默丢=复制件行为大变）。
-        // tokenCycle 段已随 cycle 分桶路由机制删除（2026-10-15）不再透传。
-        // live 分支已写 fourmemeWs={live} 时合并不覆盖
-        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs };
+        // 等实验级 ws 段）/ flapWs（flap 单平台实验的对应段）。表单部分无输入 UI——
+        // 复制链路经创建页暂存携带；形状校验 fail-fast（脏对象 400，不静默丢弃——
+        // 静默丢=复制件行为大变）。tokenCycle 段已随 cycle 分桶路由机制删除
+        // （2026-10-15）不再透传。live 分支已写 fourmemeWs/flapWs={live} 时合并不覆盖
+        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs };
         for (const [key, val] of Object.entries(advancedSections)) {
           if (val === undefined || val === null) continue;
           if (typeof val !== 'object' || Array.isArray(val)) {
             return res.status(400).json({ success: false, error: `${key} 段形状非法（须为对象）` });
           }
-          if (key === 'fourmemeWs') {
-            config.fourmemeWs = { ...val, ...(config.fourmemeWs || {}) };
+          if (key === 'fourmemeWs' || key === 'flapWs') {
+            config[key] = { ...val, ...(config[key] || {}) };
           } else {
             config[key] = val;
+          }
+        }
+
+        // 数据预取门形状+因子校验（2026-10-15 立项）：condition 用 FA 因子集（引擎
+        // tick 评估同集）——未知因子=写错名静默恒不过，创建时 400 拒绝（三层防线
+        // 的 web 层；引擎启动还有一道）。both/fourmeme 配 fourmemeWs.dataPrefetch、
+        // flap 单平台配 flapWs.dataPrefetch（引擎 _wsConfigSectionName 分段读）
+        {
+          const { ConditionEvaluator } = require('./strategies/ConditionEvaluator');
+          const { getAvailableFactorIds } = require('./trading-engine/core/FactorBuilder');
+          const factorIds = getAvailableFactorIds();
+          for (const secKey of ['fourmemeWs', 'flapWs']) {
+            const dp = (config[secKey] || {}).dataPrefetch;
+            if (dp === undefined || dp === null) continue;
+            if (typeof dp !== 'object' || Array.isArray(dp)) {
+              return res.status(400).json({ success: false, error: `${secKey}.dataPrefetch 段形状非法（须为对象）` });
+            }
+            if (dp.enabled !== true) continue;  // 关/未启用=零校验零行为（enabled 非布尔也视为关）
+            if (typeof dp.condition !== 'string' || dp.condition.trim() === '') {
+              return res.status(400).json({ success: false, error: `${secKey}.dataPrefetch.enabled=true 但 condition 未配置` });
+            }
+            const ev = new ConditionEvaluator();
+            const v = ev.validateCondition(ev.parseCondition(dp.condition), factorIds);
+            if (!v.valid) {
+              return res.status(400).json({
+                success: false,
+                error: `${secKey}.dataPrefetch.condition 引用未知因子: ${v.errors.join(', ')}`
+              });
+            }
           }
         }
 

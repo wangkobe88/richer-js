@@ -7,7 +7,9 @@
  * 经 twitter-section 既有渲染块（【图片内容分析】）进入 Jev state——渲染层零改动。
  *
  * 用户两点约束（2026-10-07）：
- *   1. 同一图片分析结果缓存（external_resource_cache 按图片 URL 键控，90 天；
+ *   1. 同一图片分析结果缓存（external_resource_cache 按图片 URL 键控；TTL 2026-10-15
+ *      用户裁定 90 天→730 天——同图结论跨 token/跨进程复用是主要省钱机制，行带
+ *      promptVersion/dl 版本号，升版自动判 miss 重析，长 TTL 不会复用旧形状结论；
  *      另有进程内 in-flight 去重——复蹭簇同分钟并发分析同图只打一次 API）；
  *   2. 每个代币只分析主推文的第一张图（多图/第二推文/引用推文的图都不分析，
  *      时间成本考量）。
@@ -108,7 +110,7 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
 
   // 1) 缓存命中直接挂（用户约束 1：同图不重复分析；版本不符视为 miss）
   const cached = await ExternalResourceCache.get(imageUrl, CACHE_RESOURCE_TYPE, {
-    maxAge: vision.cacheTtlSec || 90 * 24 * 60 * 60,
+    maxAge: vision.cacheTtlSec || 730 * 24 * 60 * 60,
   });
   if (cached && cached.promptVersion === IMAGE_PROMPT_VERSION && cached.analysis) {
     twitterInfo.image_analysis = cached;
@@ -130,7 +132,7 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
 
   twitterInfo.image_analysis = result;
   await ExternalResourceCache.set(imageUrl, CACHE_RESOURCE_TYPE, result, {
-    ttl: vision.cacheTtlSec || 90 * 24 * 60 * 60,
+    ttl: vision.cacheTtlSec || 730 * 24 * 60 * 60,
   });
   return true;
 }
@@ -144,7 +146,7 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
  * 返回 downloadAsBase64 同形状对象（消费侧 mimeType/base64/compressed 零改动）。
  */
 async function _downloadForAnalysis(imageUrl, vision) {
-  const ttl = vision.cacheTtlSec || 90 * 24 * 60 * 60;
+  const ttl = vision.cacheTtlSec || 730 * 24 * 60 * 60;
   const cached = await ExternalResourceCache.get(imageUrl, RAW_CACHE_TYPE, { maxAge: ttl });
   if (cached && cached.v === IMAGE_DL_VERSION && cached.base64 && cached.mimeType) {
     return {

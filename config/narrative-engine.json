@@ -29,7 +29,7 @@
     "timeoutMs": 30000,
     "maxTokens": 2500,
     "retryCount": 2,
-    "cacheTtlSec": 7776000
+    "cacheTtlSec": 63072000
   },
   "websiteFetch": {
     "enabled": false

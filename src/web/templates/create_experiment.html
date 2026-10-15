@@ -792,6 +792,35 @@
                     </p>
                 </div>
 
+                <!-- 数据预取门（2026-10-15 立项，YOYO号案 0xa16c…7777）：fire→上链 10.4s
+                     里叙事直调 8.95s（vision 6.24s+语料 2.4s）是延迟主体；语料补采入池
+                     ~2.3s 已拿到宣告推文 URL，「等买门证据」窗口空闲——按 FA 因子热度门
+                     过门即后台预取宣告推文+配图 vision 分析（全部缓存幂等，fire 直调命中
+                     同缓存提速）。Jev/GMGN 决策类调用不预取。仅虚拟/实盘引擎（回测提交
+                     时自动剥离该段）；默认关。复制携带的 dataPrefetch 会回填本表单（UI 为准） -->
+                <div class="border border-gray-200 rounded-lg p-3" id="data-prefetch-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">⚡ 数据预取门（推文 + vision）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                发现期按热度门后台预取宣告推文与配图 vision 分析——fire 时叙事直调命中缓存，
+                                省下语料抓取+vision 的 ~8s；Jev/GMGN 决策类调用不预取。默认关；回测不适用
+                            </p>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                        <input type="checkbox" id="dp-enabled" class="rounded">
+                        启用数据预取门
+                    </label>
+                    <input type="text" id="dp-condition" placeholder="buyVolumeBnb >= 0.5"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                           spellcheck="false">
+                    <p class="text-xs text-gray-500 mt-1">
+                        过门条件（FA 因子表，与买腿 fire 同集、AND/OR 比较；写错因子名会被 400 拒绝）——
+                        门不过不预取不浪费配额，后续 tick 满足再发起；每 token 至多预取一次
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -1148,7 +1177,23 @@
                     ...(copyData.stopLoss ? { stopLoss: copyData.stopLoss } : {}),
                     ...(copyData.tokenPositionAnalyzer ? { tokenPositionAnalyzer: copyData.tokenPositionAnalyzer } : {}),
                     ...(copyData.fourmemeWs ? { fourmemeWs: copyData.fourmemeWs } : {}),
+                    // flapWs（2026-10-15 数据预取门起）：flap 单平台实验的实验级 ws 段
+                    // （引擎 _wsConfigSectionName 分段读），与 fourmemeWs 同款整段保真
+                    ...(copyData.flapWs ? { flapWs: copyData.flapWs } : {}),
                 };
+
+                // 数据预取门回填（2026-10-15 立项）：复制携带的 ws 段 dataPrefetch 回填
+                // UI 表单（fourmemeWs/flapWs 任一带即取）。提交以 UI 为准——不动开关
+                // =源值等价保真；关掉开关 = 显式删段（collectFormData 里删）
+                {
+                    const dp = copyData.fourmemeWs?.dataPrefetch || copyData.flapWs?.dataPrefetch;
+                    if (dp && dp.enabled === true) {
+                        const dpCb = document.getElementById('dp-enabled');
+                        const dpInp = document.getElementById('dp-condition');
+                        if (dpCb) dpCb.checked = true;
+                        if (dpInp && typeof dp.condition === 'string') dpInp.value = dp.condition;
+                    }
+                }
 
                 // TPA 触发条件只读展示（2026-10-11）：复制携带段可视化（纯展示零数据面
                 // 改动——提交仍走上方 _copyAdvancedConfig 整包透传；源实验无 TPA 段则
@@ -1906,6 +1951,33 @@
             // 非复制模式 window._copyAdvancedConfig 为 undefined → 无段 → 与现状一致。
             // 浅拷贝防污染：不得改写暂存对象（污染值仍经 spread 透传）
             const adv = { ...(window._copyAdvancedConfig || {}) };
+            // 数据预取门（2026-10-15 立项）：UI 值为准，按平台选段（flap 单平台 →
+            // flapWs，both/fourmeme → fourmemeWs；引擎分段读）。开关开且条件非空才写；
+            // UI 关/回测模式 = 显式删段（复制携带的 dataPrefetch 一并删——UI 表单已
+            // 回填源值，不动开关=等价保真，关掉=显式删）。ws 段先浅拷贝再改（防污染暂存）
+            {
+                const dpCb = document.getElementById('dp-enabled');
+                const dpInp = document.getElementById('dp-condition');
+                const dpCond = (dpInp?.value || '').trim();
+                const dpOn = (dpCb?.checked || false) && dpCond !== '' && tradingMode !== 'backtest';
+                for (const k of ['fourmemeWs', 'flapWs']) {
+                    if (adv[k]) adv[k] = { ...(adv[k] || {}) };
+                }
+                if (dpOn) {
+                    // 平台段选择与下方 config.platform 同式（此处 config 尚未构建）
+                    const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
+                    const sec = (_plat === 'flap') ? 'flapWs' : 'fourmemeWs';
+                    adv[sec] = { ...(adv[sec] || {}), dataPrefetch: { enabled: true, condition: dpCond } };
+                    // 另一段的 dataPrefetch 剥离（防双段并存：复制源 fourmeme 实验开预取门、
+                    // 新实验选 flap 时 fourmemeWs.dataPrefetch 残留为死配置）
+                    const other = (sec === 'flapWs') ? 'fourmemeWs' : 'flapWs';
+                    if (adv[other]) delete adv[other].dataPrefetch;
+                } else {
+                    for (const k of ['fourmemeWs', 'flapWs']) {
+                        if (adv[k]) delete adv[k].dataPrefetch;
+                    }
+                }
+            }
             const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),
