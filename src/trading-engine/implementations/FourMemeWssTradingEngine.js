@@ -427,6 +427,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           maxExecutions: s.maxExecutions || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
+          // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）。★此白名单映射漏透传
+          // =运行时 strategy.gmgnCheckCondition 恒 undefined = 第三层静默跳过、GMGN 门
+          // 整体失效（v15 事故 2026-10-15：起跑 9h 三笔已执行买入全都没过 GMGN 检查，
+          // metadata.gmgnCheck 恒 null）——单测 D 段源码口径已锁此透传
+          gmgnCheckCondition: s.gmgnCheckCondition || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
           // N3 叙事预触发条件（2026-10-13）：不配 = 预触发用 narrativeCallCondition
           narrativePrefetchCondition: s.narrativePrefetchCondition || null,

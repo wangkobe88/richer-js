@@ -263,6 +263,10 @@ class BacktestEngine extends AbstractTradingEngine {
           maxExecutions: s.maxExecutions || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
+          // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14；买腿消费，卖腿携带不
+          // 生效与 preBuy* 对称）。★此白名单映射漏透传=回测第三层同样静默失效
+          //（v15 事故 2026-10-15 与实时引擎同坑，单测已锁两处透传）
+          gmgnCheckCondition: s.gmgnCheckCondition || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
           // pumpfun 回迁批 2 卖腿机制字段（卖腿消费；买腿携带不生效，与 preBuy* 字段对称）
           bypassDebounce: !!s.bypassDebounce,

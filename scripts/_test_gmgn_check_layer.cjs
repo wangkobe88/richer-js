@@ -311,6 +311,20 @@ async function main() {
       src.includes('new GmgnRiskCheckService(\n      this._mergedWsConfig().gmgnCheck') || src.includes("new GmgnRiskCheckService(this._mergedWsConfig().gmgnCheck") || src.includes('new GmgnRiskCheckService(\n'));
     check('实时引擎 loadStrategies 传第四键集（GMGN 三键）',
       src.includes('new Set(_GmgnRiskCheckService.getConditionFactorKeys())'));
+    // ★v15 事故现场反证（2026-10-15）：两引擎 _initializeDataSources 的买腿映射是
+    // 字段白名单，漏透传 gmgnCheckCondition → 运行时第三层静默跳过、GMGN 门整体
+    // 失效（v15 起跑 9h 三笔已执行买入全都没过 GMGN 检查、metadata.gmgnCheck 恒 null）
+    const iBuyMap = src.indexOf('strategiesConfig.buyStrategies.forEach');
+    const iSellMap = src.indexOf('strategiesConfig.sellStrategies.forEach');
+    check('实时引擎买腿映射白名单透传 gmgnCheckCondition（事故现场反证）',
+      iBuyMap !== -1 && iSellMap > iBuyMap
+      && src.slice(iBuyMap, iSellMap).includes('gmgnCheckCondition: s.gmgnCheckCondition || null'),
+      `iBuyMap=${iBuyMap} iSellMap=${iSellMap}`);
+    const btsrc = fs.readFileSync('src/trading-engine/implementations/BacktestEngine.js', 'utf8');
+    const iBtMap = btsrc.indexOf('.forEach((s, idx) => {');
+    check('回测引擎策略映射白名单透传 gmgnCheckCondition（同坑同锁）',
+      iBtMap !== -1 && btsrc.slice(iBtMap, iBtMap + 3000).includes('gmgnCheckCondition: s.gmgnCheckCondition || null'),
+      `iBtMap=${iBtMap}`);
   }
 
   console.log('E. 校验链（未知因子 fail-fast）');
