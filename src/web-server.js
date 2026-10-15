@@ -83,7 +83,6 @@ class RicherJsWebServer {
         }
       }
     }));
-    this.app.use(express.static(path.join(__dirname, 'web/public')));
 
     // 请求日志
     this.app.use((req, res, next) => {
@@ -312,11 +311,6 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/monitor.html'));
     });
 
-    // 市场截面 Regime 监控页（pumpfun 回迁批 2.6 观察版，纯只读）
-    this.app.get('/market-regime', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/market_regime.html'));
-    });
-
     // Daily 更新流程监控页（daily-model-update 例行编排 step3/step4，纯只读——cron 专属无手动触发）
     this.app.get('/model-metrics', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/model_metrics.html'));
@@ -476,50 +470,6 @@ class RicherJsWebServer {
         }
       } catch (error) {
         this.logger.error('WebServer', '清空事件失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // ============ API路由：市场截面 Regime（回迁批 2.6 观察版，只读） ============
-
-    // 快照时序：market_regime_snapshots 按时间窗查询（ts 游标分页防服务端 max rows 截断）；
-    // >2500 行时服务端等距抽样（响应带 stride 与 total，前端展示抽样说明——不静默截断）。
-    // null 行原样返回（null≠0，前端暖机态展示）。pumpfun 母版同口径，列名 SOL→BNB。
-    this.app.get('/api/market-regime', async (req, res) => {
-      try {
-        const { from, to } = req.query;
-        const toMs = to ? Date.parse(to) : Date.now();
-        const fromMs = from ? Date.parse(from) : toMs - 24 * 3600 * 1000;
-        if (!Number.isFinite(toMs) || !Number.isFinite(fromMs) || fromMs >= toMs) {
-          return res.status(400).json({ success: false, error: 'from/to 时间窗参数无效' });
-        }
-        if (toMs - fromMs > 8 * 24 * 3600 * 1000) {
-          return res.status(400).json({ success: false, error: '时间窗最大 8 天' });
-        }
-        const rows = [];
-        let lastTs = new Date(fromMs).toISOString();
-        const toIso = new Date(toMs).toISOString();
-        for (;;) {
-          const { data: page, error } = await this.dataService.supabase
-            .from('market_regime_snapshots')
-            .select('ts,newborn_count_1h,rocket_rate_30m,young_mean_ret_30m,death_rate_30m,flow_bs_ratio_10m,cohort_n,flow_buy_bnb,flow_sell_bnb,fed_age_ms,source')
-            .gt('ts', lastTs).lte('ts', toIso).order('ts', { ascending: true }).limit(1000);
-          if (error) throw error;
-          if (!page || !page.length) break;
-          rows.push(...page);
-          lastTs = page[page.length - 1].ts;
-          if (page.length < 1000) break;
-        }
-        // 服务端等距抽样至 ≤2500 点（保留最新一行；stride=每 stride 行取 1）
-        let stride = 1;
-        let out = rows;
-        if (rows.length > 2500) {
-          stride = Math.ceil(rows.length / 2500);
-          out = rows.filter((_, i) => i % stride === 0 || i === rows.length - 1);
-        }
-        res.json({ success: true, rows: out, total: rows.length, stride, from: new Date(fromMs).toISOString(), to: toIso });
-      } catch (error) {
-        this.logger.error('WebServer', '市场截面快照查询失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -944,13 +894,6 @@ class RicherJsWebServer {
             }
           }
 
-          // 叙事分析配置
-          // [DECOUPLED] 叙事分析配置传递已禁用
-          // if (strategy.narrativeAnalysis) {
-          //   config.strategiesConfig = config.strategiesConfig || {};
-          //   config.strategiesConfig.narrativeAnalysis = strategy.narrativeAnalysis;
-          // }
-
           // Super IP 快速通道配置
           if (strategy.superIpFastTrack) {
             config.strategiesConfig = config.strategiesConfig || {};
@@ -962,13 +905,6 @@ class RicherJsWebServer {
             config.strategiesConfig = config.strategiesConfig || {};
             config.strategiesConfig.stats = strategy.stats;
           }
-
-          // 电报通知配置
-          // [DECOUPLED] 电报通知配置传递已禁用
-          // if (strategy.telegramNotifications) {
-          //   config.strategiesConfig = config.strategiesConfig || {};
-          //   config.strategiesConfig.telegramNotifications = strategy.telegramNotifications;
-          // }
 
           // 合约审计风控配置（兼容旧数据）
           if (strategy.contractRiskCheck) {
@@ -2619,80 +2555,6 @@ class RicherJsWebServer {
         res.status(500).json({ success: false, error: error.message });
       }
     });
-
-    // ============ 叙事人工标注 API ============
-    // [DECOUPLED] 叙事人工标注 API 已禁用
-
-    // 保存/更新叙事人工标注（token_address在请求体中）
-    // this.app.post('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
-    //   try {
-    //     const { experimentId } = req.params;
-    //     const { token_address, category, note } = req.body;
-    //
-    //     if (!token_address) {
-    //       return res.status(400).json({ success: false, error: '缺少token_address参数' });
-    //     }
-    //
-    //     // 验证 category
-    //     const validCategories = ['fake_pump', 'no_user', 'low_quality', 'mid_quality', 'high_quality'];
-    //     if (!category || !validCategories.includes(category)) {
-    //       return res.status(400).json({ success: false, error: '无效的类别' });
-    //     }
-    //
-    //     const judgeData = {
-    //       category,
-    //       note: note || null,
-    //       judge_at: new Date().toISOString()
-    //     };
-    //
-    //     const { error } = await this.dataService.supabase
-    //       .from('experiment_tokens')
-    //       .update({ human_judges: judgeData })
-    //       .eq('experiment_id', experimentId)
-    //       .eq('token_address', token_address);
-    //
-    //     if (error) throw error;
-    //
-    //     res.json({
-    //       success: true,
-    //       data: {
-    //         token_address: token_address,
-    //         human_judges: judgeData
-    //       }
-    //     });
-    //   } catch (error) {
-    //     this.logger.error('WebServer', '保存叙事人工标注失败:', { details: error });
-    //     res.status(500).json({ success: false, error: error.message });
-    //   }
-    // });
-
-    // 删除叙事人工标注（token_address在请求体中）
-    // this.app.delete('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
-    //   try {
-    //     const { experimentId } = req.params;
-    //     const { token_address } = req.body;
-    //
-    //     if (!token_address) {
-    //       return res.status(400).json({ success: false, error: '缺少token_address参数' });
-    //     }
-    //
-    //     const { error } = await this.dataService.supabase
-    //       .from('experiment_tokens')
-    //       .update({ human_judges: null })
-    //       .eq('experiment_id', experimentId)
-    //       .eq('token_address', token_address);
-    //
-    //     if (error) throw error;
-    //
-    //     res.json({
-    //       success: true,
-    //       message: '标注已删除'
-    //     });
-    //   } catch (error) {
-    //     this.logger.error('WebServer', '删除叙事人工标注失败:', { details: error });
-    //     res.status(500).json({ success: false, error: error.message });
-    //   }
-    // });
 
     // ============ API路由：Twitter功能 ============
 
