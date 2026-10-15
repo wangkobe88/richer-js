@@ -940,9 +940,9 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * 注入 buy condition age 区间粗筛（pumpfun 回迁；回测专属，引擎侧
-     * BacktestEngine 默认调用——2026-10-12 用户裁定默认开，backtest.faPreFilter
-     * ===false 显式关闭；live 恒不注入零变化）。
+     * 注入 buy condition age 区间粗筛（pumpfun 回迁；引擎侧注入——BacktestEngine
+     * 2026-10-12 默认开；实时引擎批次 6（2026-10-15）平移同默认开，
+     * fourmemeWs.faPreFilter===false / backtest.faPreFilter===false 显式关闭）。
      * 多买策略并行：传区间数组（每策略一个，从各自 buy condition AST 提取），
      * token 落在【任一】区间内即计算（并集）；数组元素字段缺省填 0/Infinity；
      * 传 null/undefined/空数组清除（不过滤）。
@@ -982,7 +982,8 @@ class FourMemeFactorAggregator extends EventEmitter {
      * backtest.tickBuildSkip 开启时，未持仓票先走本谓词——出窗票免掉整次 build 调用
      * （等价性：谓词 true ⇔ buildFactorMap 返回 null，单测对拍锁定）。
      * state 缺失 / preFilter 未注入 / 持仓票 → false（交回 buildFactorMap 的
-     * state-null / 内部判定现状路径）。live 引擎不调用（零变化）。
+     * state-null / 内部判定现状路径）。live 引擎不调用（批次 6 平移后 live 出窗票
+     * 经 _buildFactorMap 返回 null 不 emit——同族副作用序列，无需本谓词）。
      */
     shouldSkipTickBuild(tokenAddress, now) {
         if (!this._preFilter) return false;

@@ -531,6 +531,39 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
+    // 6.0.5 FA preFilter 平移实时（批次 6，2026-10-15；对齐回测 2026-10-12 默认开裁定）：
+    //   从每个买腿 condition AST 提取 age 区间（分钟，与 FA age 因子同锚同单位）注入 FA
+    //   ——未持仓 token 的 age 落在全部区间外 → FA _buildFactorMap 返回 null →
+    //   processTick/applyWalletTick 尾部不 emit factorsUpdated（出窗票零买腿/卖腿/TPA/
+    //   OPB per-tick 评估，副作用序列与回测 tickBuildSkip build-null 同族）。持仓票豁免
+    //   由 FA _positions.size===0 门结构性保证（卖腿/止损不受影响）；AND 链出 age 区间必
+    //   false 不漏买；fire 评估 _runBuyEvaluation 独立全量重建零影响。live 刻意不调
+    //   shouldSkipTickBuild/不做 C 类 minimal factors（出窗=不 emit，与回测 build-null
+    //   continue 同族）。观察通道代价（回测已接受同族损失）：出窗票 TPA 不再触发、OPB
+    //   per-tick 入口停→60s 扫描兜底。开关 fourmemeWs.faPreFilter !== false 默认开
+    //   （flap 实验经 _mergedWsConfig 同键继承）；显式 false 恢复恒 emit 旧行为
+    if (this._mergedWsConfig().faPreFilter !== false) {
+      const { ConditionEvaluator: _CE } = require('../../strategies/ConditionEvaluator');
+      const ranges = [];
+      for (const s of this._strategyEngine.getAllStrategies()) {
+        if (s.action !== 'buy') continue;
+        // ★s.condition 是 loadStrategies 存的 AST 对象（非字符串）——原 String(s.condition)
+        // 化成 "[object Object]" → parse 恒 throw → 提取恒 null（e50 3fcea181 三次实测形状，
+        // preFilter 从未生效）。extractBuyRangeFromCondition 双形状入口（string|AST）直传
+        const pf = s.condition ? _CE.extractBuyRangeFromCondition(s.condition) : null;
+        if (pf) ranges.push(pf);
+      }
+      this._factorAggregator.setPreFilter(ranges.length > 0 ? ranges : null);
+      if (ranges.length > 0) {
+        const fmt = pf => `age∈[${pf.minAgeMinutes ?? '-∞'},${pf.maxAgeMinutes ?? '∞'})`;
+        this.logger.info(this._experimentId, 'preFilter',
+          `FA preFilter 已启用（默认开，fourmemeWs.faPreFilter=false 可关）：${ranges.length} 个买腿区间并集 ${ranges.map(fmt).join(' | ')}`);
+      } else {
+        this.logger.info(this._experimentId, 'preFilter',
+          'FA preFilter 开启但无可提取 age 区间的买腿（OR 结构/无 age 子句）→ 不过滤');
+      }
+    }
+
     // 6. 交易金额 / 永久阻断 / 卡牌仓位
     const experimentConfig = this._experiment?.config || {};
     this._tradeAmount = experimentConfig.tradeAmount || 0.1;
