@@ -30,11 +30,14 @@ async function main() {
 
   // ── 构造：只满足规则5前提，其余规则的触发字段全部缺失 ──
   // classifiedUrls 带 twitter 条目（真实链路必有；缺了会落规则4 no_public_info）
+  // author_followers_count 必带：真实 apidance 链路恒有该字段，缺了会被
+  // classifyTweetType 按 0 粉落 angle_seeking → 找角度语言门（2026-10-15）误拦
   const baseUrls = { twitter: [{ url: 'https://x.com/elonmusk/status/1', type: 'tweet', platform: 'twitter', priority: 1 }] };
   const baseToken = { symbol: 'NIGGALON', name: 'niggalon', address: '0xb62e'.padEnd(42, '0'), raw_api_data: {} };
   const mediaTw = (over = {}) => ({
     type: 'tweet',
     author_screen_name: 'elonmusk',
+    author_followers_count: 150000000,
     text: 'RT @AlyssaSolen: Stop the Model.',
     media: { has_media: true, images: [{ url: 'https://x/y.jpg' }], videos: [] },
     metrics: { retweet_count: 243, like_count: null },
@@ -56,6 +59,7 @@ async function main() {
     logs.length = 0;
     const r = await performPreCheck(baseToken, mediaTw({
       author_screen_name: 'random_guy',
+      author_followers_count: 8000,
       metrics: { like_count: 8000, retweet_count: 100 },
     }), {}, null, baseUrls, {}, null, null);
     assert.strictEqual(r, null, 'B1: 高交互+媒体应放行（原同样直发 mid，随规则整体废除）');
@@ -67,7 +71,8 @@ async function main() {
   {
     logs.length = 0;
     const r = await performPreCheck(baseToken, {
-      type: 'tweet', author_screen_name: 'elonmusk', text: 'plain text no media',
+      type: 'tweet', author_screen_name: 'elonmusk', author_followers_count: 150000000,
+      text: 'plain text no media',
       media: { has_media: false, images: [], videos: [] },
       metrics: { like_count: 10, retweet_count: 2 },
     }, {}, null, baseUrls, {}, null, null);

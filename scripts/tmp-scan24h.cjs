@@ -21,6 +21,8 @@ const DUST_UNIFORM = 0.01;      // uniform 簇尘埃门槛（EarlyParticipant �
 const WIN_MS = 90 * 1000;       // 首窗
 const END1_MS = 600 * 1000;     // 结局观察点 1
 const END2_MS = 1800 * 1000;    // 结局观察点 2
+const BC_ONLY = process.argv[2] === 'bc';  // 跳过 A 段（已跑完，B/C 独立点查结局）
+const UUID0 = '00000000-0000-0000-0000-000000000000';
 
 function cjkRatio(text) {
   if (!text) return null;
@@ -36,8 +38,9 @@ async function main() {
 
   // ===== A. 24h token_create（id keyset 分页：order(block_time) 形状会 planner 超时，无 order 被 max-rows=1000 截断）=====
   const tokens = [];
-  {
-    let curId = 0;
+  const rows = [];
+  if (!BC_ONLY) {
+  let curId = 0;
     for (;;) {
       const r = await db.from('wss_events')
         .select('id,token_address,block_time,payload->meta->>platform,payload->>symbol')
@@ -52,9 +55,8 @@ async function main() {
       curId = Math.max(...page.map(p => p.id));
     }
   }
-  console.log(`[A] 24h token_create 票数: ${tokens.length}`);
+  console.log(`[A] 24h token_create 票数: ${tokens.length}${BC_ONLY ? '（bc 模式跳过）' : ''}`);
 
-  const rows = [];
   let done = 0;
   // 窗口结构统计（尘剔除，wallet=sender||trader；买入口径累计）
   const winStats = (ticks, createMs, winMs) => {
@@ -139,6 +141,7 @@ async function main() {
       console.log(`  ${label}: 票数=${sub.length} t90→600中位=${med(sub.map(r => r.ret600))}% t90→1800中位=${med(sub.map(r => r.ret1800))}% 崩盘率(ret600<-50)=${(sub.filter(r => r.ret600 !== null && r.ret600 < -50).length / sub.filter(r => r.ret600 !== null).length * 100 || 0).toFixed(0)}%`);
     }
   };
+  if (!BC_ONLY) {
   console.log('\n=== tradesPerWallet(90s) 分布 × 结局 ===');
   bucketize(rows, r => r.tpw, [['tpw 1.0-2.0', 1, 2], ['tpw 2.0-3.0', 2, 3], ['tpw 3.0-4.0', 3, 4], ['tpw 4.0-5.0', 4, 5], ['tpw 5.0-7.0', 5, 7], ['tpw 7+', 7, 1e9]]);
   console.log('\n=== maxPerWallet(90s) 分布 × 结局 ===');
@@ -178,16 +181,18 @@ async function main() {
   // 参照票：猪五花 + v17 买过的
   const ref = rows.find(r => r.addr.startsWith('0x7603c74b'));
   if (ref) console.log('\n参照(猪五花):', JSON.stringify(ref));
+  }
 
-  // ===== B. 近 7d signals lag 分析（id keyset 分页）=====
+  // ===== B. 近 7d signals lag 分析（id=uuid：keyset 游标零 uuid 起点 + 小写字典序推进）=====
   console.log('\n===== B. 近 7d signals lag/earlyReturn 分析 =====');
   const sigByToken = new Map();
   {
-    let curId = 0;
+    let curId = UUID0;
     for (;;) {
       const r = await db.from('strategy_signals').select('id,token_address,created_at,metadata->preBuyCheckFactors')
         .gte('created_at', new Date(NOW - 7 * D24H).toISOString())
         .gt('id', curId)
+        .order('id', { ascending: true })
         .limit(1000);
       const page = r.data || [];
       if (r.error) { console.log('B 分页 error:', r.error.message); break; }
@@ -197,11 +202,46 @@ async function main() {
         if (!sigByToken.has(s.token_address)) sigByToken.set(s.token_address, f); // 首条
       }
       if (page.length < 1000) break;
-      curId = Math.max(...page.map(p => p.id));
+      curId = page.reduce((m, p) => (p.id > m ? p.id : m), curId);
     }
   }
   console.log(`[B] 7d 有 preBuy 因子的 token 数: ${sigByToken.size}`);
-  const rowByAddr = new Map(rows.map(r => [r.addr.toLowerCase(), r]));
+
+  // 结局独立点查（bc 模式不依赖 A 段内存 rows）：create 锚改 per-token 点查——
+  // 批量 keyset 分页（无序+max 游标）在 block_time 索引序下会跳行漏锚（7d 实测
+  // 17133/15998 两次漂移），点查 eq(token_address) 有索引且秒回
+  const createMsCache = new Map();
+  const getCreateMs = async (addr) => {
+    const k = (addr || '').toLowerCase();
+    if (createMsCache.has(k)) return createMsCache.get(k);
+    let ms = null;
+    const r = await db.from('wss_events').select('block_time')
+      .eq('kind', 'token_create').eq('token_address', k).limit(1);
+    if (r.data && r.data[0]) ms = new Date(r.data[0].block_time).getTime();
+    createMsCache.set(k, ms);
+    return ms;
+  };
+  const endCache = new Map();
+  const getRet600 = async (addr) => {
+    const k = (addr || '').toLowerCase();
+    if (endCache.has(k)) return endCache.get(k);
+    let ret = null;
+    const createMs = await getCreateMs(addr);
+    if (createMs) {
+      const r = await db.from('wss_price_ticks')
+        .select('block_time,price_bnb')
+        .eq('token_address', k)
+        .gte('block_time', new Date(createMs).toISOString())
+        .lte('block_time', new Date(createMs + END1_MS).toISOString())
+        .limit(1000);
+      const pts = (r.data || []).map(t => [new Date(t.block_time).getTime() - createMs, Number(t.price_bnb)]).filter(([, p]) => p > 0);
+      const at = (ms) => { let v = null; for (const [d, p] of pts) if (d <= ms) v = p; return v; };
+      const p90 = at(WIN_MS), p600 = at(END1_MS);
+      if (p90 && p600) ret = +((p600 / p90 - 1) * 100).toFixed(1);
+    }
+    endCache.set(k, ret);
+    return ret;
+  };
   const lagBuckets = [['lag<0(宣告竞态)', -1e9, 0], ['lag 0-300', 0, 300], ['lag 300-600', 300, 600], ['lag 600-3600', 600, 3600], ['lag>=3600', 3600, 1e9], ['lag null', null, null]];
   for (const [label, lo, hi] of lagBuckets) {
     const sub = [...sigByToken.entries()].filter(([, f]) => {
@@ -209,31 +249,38 @@ async function main() {
       if (lo === null) return lag === null || lag === undefined;
       return lag !== null && lag !== undefined && lag >= lo && lag < hi;
     }).map(([a]) => a);
-    const withEnd = sub.map(a => rowByAddr.get(a)).filter(Boolean).map(r => r.ret600).filter(x => x !== null);
-    // 7d 范围大于 24h，很多 token 结局不在 A 集；统计有结局的部分
+    const withEnd = [];
+    for (const a of sub) { const r = await getRet600(a); if (r !== null) withEnd.push(r); }
+    // 7d 范围大于 create 锚覆盖，锚外的票无结局；统计有结局的部分
     console.log(`  ${label}: tokens=${sub.length} 有结局=${withEnd.length} ret600中位=${med(withEnd)}%`);
   }
   // earlyReturn>=100 豁免分支的受益者（lag>=300 且 earlyReturn>=100 才能进的票）
   const exempt = [...sigByToken.entries()].filter(([, f]) => (f.narrativeCorpusLagSec ?? 1e9) >= 300 && (f.earlyReturn ?? 0) >= 100);
-  const exemptEnd = exempt.map(([a]) => rowByAddr.get(a)).filter(Boolean).map(r => r.ret600).filter(x => x !== null);
+  const exemptEnd = [];
+  for (const [a] of exempt) { const r = await getRet600(a); if (r !== null) exemptEnd.push(r); }
   console.log(`  删 earlyReturn>=100 豁免 → 额外被拦的 token: ${exempt.length}（有结局 ${exemptEnd.length}，ret600 中位=${med(exemptEnd)}%，正收益 ${exemptEnd.filter(x => x > 0).length}）`);
-  const exemptList = exempt.slice(0, 40).map(([a, f]) => `${a.slice(0, 10)}… lag=${f.narrativeCorpusLagSec} er=${(f.earlyReturn || 0).toFixed(0)} ret600=${rowByAddr.get(a)?.ret600 ?? 'NA'}`);
+  const exemptList = [];
+  for (const [a, f] of exempt.slice(0, 40)) {
+    const r = await getRet600(a);
+    exemptList.push(`${a.slice(0, 10)}… lag=${f.narrativeCorpusLagSec} er=${(f.earlyReturn || 0).toFixed(0)} ret600=${r ?? 'NA'}`);
+  }
   console.log(exemptList.join('\n'));
 
-  // ===== C. 近 24h token_narrative 语言分布 =====
+  // ===== C. 近 24h token_narrative 语言分布（id=uuid keyset 同款）=====
   console.log('\n===== C. 近 24h 宣告推文语言分布 =====');
   {
-    let curId = 0; const nars = [];
+    let curId = UUID0; const nars = [];
     for (;;) {
       const r = await db.from('token_narrative').select('id,token_address,created_at,twitter_info->text,twitter_info->author_screen_name,twitter_info->author_followers_count,pre_check_result->rating,prompt_type')
         .gte('created_at', new Date(NOW - D24H).toISOString())
         .gt('id', curId)
+        .order('id', { ascending: true })
         .limit(1000);
       const page = r.data || [];
       if (r.error) { console.log('C 分页 error:', r.error.message); break; }
       nars.push(...page);
       if (page.length < 1000) break;
-      curId = Math.max(...page.map(p => p.id));
+      curId = page.reduce((m, p) => (p.id > m ? p.id : m), curId);
     }
     console.log(`[C] 24h narrative 行数: ${nars.length}`);
     const langB = [['纯英文(cjk<5%)', 0, 0.05], ['微中文(5-20%)', 0.05, 0.2], ['中英混(20-50%)', 0.2, 0.5], ['中文为主(>=50%)', 0.5, 1.01], ['无语料', null, null]];
@@ -243,12 +290,16 @@ async function main() {
         if (lo === null) return ratio === null;
         return ratio !== null && ratio >= lo && ratio < hi;
       });
-      const ends = sub.map(n => rowByAddr.get(n.token_address)?.ret600).filter(x => x !== null);
+      const ends = [];
+      for (const n of sub) { const r = await getRet600(n.token_address); if (r !== null) ends.push(r); }
       console.log(`  ${label}: 票数=${sub.length} 有结局=${ends.length} ret600中位=${med(ends)}% rating分布=${JSON.stringify(countBy(sub.map(n => n.rating ?? (n.prompt_type || '?'))))}`);
     }
     // 纯英文语料明细（前 30）
     const en = nars.filter(n => { const r0 = cjkRatio(n.text); return r0 !== null && r0 < 0.05; }).slice(0, 30);
-    for (const n of en) console.log(`  EN ${n.token_address.slice(0, 10)}… @${n.author_screen_name} 粉=${n.author_followers_count} ret600=${rowByAddr.get(n.token_address)?.ret600 ?? 'NA'}`);
+    for (const n of en) {
+      const r = await getRet600(n.token_address);
+      console.log(`  EN ${n.token_address.slice(0, 10)}… @${n.author_screen_name} 粉=${n.author_followers_count} ret600=${r ?? 'NA'}`);
+    }
   }
 
   await dbManager.close?.();

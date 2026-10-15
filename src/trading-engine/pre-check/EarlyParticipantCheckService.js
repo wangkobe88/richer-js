@@ -1026,6 +1026,11 @@ class EarlyParticipantCheckService {
       earlyTradesUniformBuyClusterRatio: 0,
       earlyTradesUniformBuyCovered: 0,
 
+      // 每钱包笔数因子（对倒高频作业拦截，猪五花案 2026-10-15）：未执行检查 0 值
+      // ——同上双向安全（null 会让 `<N` 放行写法恒 false 误拦）
+      earlyTradesPerWallet: 0,
+      earlyTradesMaxWalletTrades: 0,
+
       // sniper 持仓比例因子（虚假流动性拦截）：未执行检查 0 值——同上双向安全
       earlyTradesSniperHoldingPct: 0,
       earlyTradesSniperWallets: 0,
