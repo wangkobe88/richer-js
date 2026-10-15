@@ -275,8 +275,9 @@ console.log('\nE 节：链路透传');
   check('E5 holderCount 由 _walletNetTokens 派生（P2a 起增量维护：_prev/_cur 跨 0 边界 ±1，等价性对拍见 G 节）',
     () => assert.ok(/const _prev = state\._walletNetTokens\.get\(walletAddr\) \|\| 0;/.test(faSrc)
       && /if \(_prev <= 0 && _cur > 0\) state\.holderCount\+\+;/.test(faSrc)));
-  check('E6 P 组集中度遍历 _walletNetTokens',
-    () => assert.ok(/for \(const v of state\._walletNetTokens\.values\(\)\)/.test(faSrc)));
+  check('E6 P 组集中度遍历 _walletNetTokens（批次 5b 起单趟合并，top3/5 从 top20 前缀派生）',
+    () => assert.ok(/for \(const \[addr, v\] of state\._walletNetTokens\) \{/.test(faSrc)
+      && /const _holderTop3 = _nA \+ _nB \+ _nC;/.test(faSrc)));
 
   // E7：TPA 基准已切 wallet 双 map（二期 2026-10-10 与画像库同批）——旧 trader map 名不得复活
   const tpaSrc = fs.readFileSync(TPA_PATH, 'utf8');

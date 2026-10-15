@@ -1824,17 +1824,32 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // ═══ 回迁批 1：读取时聚合族（pumpfun 模式，避免 per-tick 全遍历）═══
 
-        // P 组：净持仓集中度 top3/top5（五变量插入排序，v<=0 跳过——净口径免疫拆单；
-        // wallet 口径 _walletNetTokens——trader 口径下 GMGN 盘全员合并成单一巨户，集中度虚高）
-        let _nA = 0, _nB = 0, _nC = 0, _nD = 0, _nE = 0;
-        for (const v of state._walletNetTokens.values()) {
+        // 单趟合并（2026-10-15 批次 5b）：P 组 top3/top5 + GMGN 实时占比 + sniper top20
+        // 旧实现三趟全遍历 _walletNetTokens——本段合一（bigHolder 遍 _buyerVolume / K 组遍
+        // 双边地址集是不同 map 保持独立）。top20 槽无条件构建（P 组 top3/top5 从降序前缀
+        // 派生：值多重集合与五变量插入排序恒同——两算法均严格 > 稳定插入，仅消费值求和，
+        // 降序左结合同序 → bit 一致）；_posTotal/_gmgnPos/_sum20/_sumSn 累加链次序逐字保持
+        // P 组口径：净持仓集中度（v<=0 跳过——净口径免疫拆单；wallet 口径 _walletNetTokens
+        // ——trader 口径下 GMGN 盘全员合并成单一巨户，集中度虚高）
+        const _top20 = [];
+        let _posTotal = 0, _gmgnPos = 0;
+        for (const [addr, v] of state._walletNetTokens) {
             if (v <= 0) continue;
-            if (v > _nA) { _nE = _nD; _nD = _nC; _nC = _nB; _nB = _nA; _nA = v; }
-            else if (v > _nB) { _nE = _nD; _nD = _nC; _nC = _nB; _nB = v; }
-            else if (v > _nC) { _nE = _nD; _nD = _nC; _nC = v; }
-            else if (v > _nD) { _nE = _nD; _nD = v; }
-            else if (v > _nE) { _nE = v; }
+            if (this._maintainTpa) {
+                _posTotal += v;
+                if ((state._walletRoutedBuyBnb.get(addr) || 0) > 0) _gmgnPos += v;
+            }
+            let i = _top20.length;
+            while (i > 0 && _top20[i - 1][1] < v) i--;
+            if (i >= 20) continue;
+            _top20.splice(i, 0, [addr, v]);
+            if (_top20.length > 20) _top20.pop();
         }
+        const _nA = _top20[0] ? _top20[0][1] : 0;
+        const _nB = _top20[1] ? _top20[1][1] : 0;
+        const _nC = _top20[2] ? _top20[2][1] : 0;
+        const _nD = _top20[3] ? _top20[3][1] : 0;
+        const _nE = _top20[4] ? _top20[4][1] : 0;
         const _holderTop3 = _nA + _nB + _nC;
         const _holderTop5 = _nA + _nB + _nC + _nD + _nE;
 
@@ -1842,32 +1857,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         // Σ(GMGN 用户 net>0)/Σ(net>0)×100，量加权——公式与 TPA _gmgnShareStats 逐字一致；TPA 消费点
         // 在触发/分析时刻（write-once 快照），对后期 GMGN 流入盲视（好票前期 GMGN 用户少、后面
         // 涨上来快照也不翻案）。此处每 tick 实时重算。_maintainTpa=false（实验无 TPA 段，
-        // _walletRoutedBuyBnb 零写入）→ null fail-closed——区别于 0=「有证据零占比」（纯直连盘）
+        // _walletRoutedBuyBnb 零写入）→ null fail-closed——区别于 0=「有证据零占比」（纯直联盘）
         let _gmgnUserPct = null;
         if (this._maintainTpa) {
-            let _posTotal = 0, _gmgnPos = 0;
-            for (const [_addr, _net] of state._walletNetTokens) {
-                if (_net <= 0) continue;
-                _posTotal += _net;
-                if ((state._walletRoutedBuyBnb.get(_addr) || 0) > 0) _gmgnPos += _net;
-            }
             _gmgnUserPct = _posTotal > 0 ? Number(((_gmgnPos / _posTotal) * 100).toFixed(2)) : 0;
         }
 
         // 名单因子（回迁批 3.3）：sniperHolderShare = top20 净持仓中 sniper 占比×100
-        // （20 槽插入排序，v<=0 跳过；分母=_sum20 top20 净和【非 totalSupply】——母版口径；
-        //   creator 豁免；名单 null 或 _sum20<=0 → null fail-closed=引用键的门不放行）
+        // （分母=_sum20 top20 净和【非 totalSupply】——母版口径；creator 豁免；
+        //   名单 null 或 _sum20<=0 → null fail-closed=引用键的门不放行）
         let _sniperHolderShare = null;
         if (_sniperWallets) {
-            const _top20 = [];
-            for (const [addr, v] of state._walletNetTokens) {
-                if (v <= 0) continue;
-                let i = _top20.length;
-                while (i > 0 && _top20[i - 1][1] < v) i--;
-                if (i >= 20) continue;
-                _top20.splice(i, 0, [addr, v]);
-                if (_top20.length > 20) _top20.pop();
-            }
             let _sum20 = 0, _sumSn = 0;
             for (const [addr, v] of _top20) {
                 _sum20 += v;
