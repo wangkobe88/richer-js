@@ -6,7 +6,6 @@
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
 import { classifyTweetType } from './tweet-type-classifier.mjs';
-import { SameNameCheckService } from './same-name-check-service.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
 import { readFileSync } from 'fs';
@@ -15,12 +14,6 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// SameName 服务模块级单例（2026-10-13 叙事提速第二批 2a）：AVE BSC 搜索缓存
-// （实例级 _bscSearchCache：同 keyword 60s 内不重复搜）——原每次 performPreCheck
-// new 一份实例，缓存跨调用永不命中，复蹭簇同 symbol 每 token 真拉 AVE（10s 超时）。
-// constructor 纯内存（存 logger + AveTokenAPI 配置包装），模块级实例化零 IO
-const sameNameService = new SameNameCheckService(console);
 
 // 读取配置文件
 const configPath = join(__dirname, '../../../../config/default.json');
@@ -44,6 +37,22 @@ function _cjkRatio(text) {
   const latin = (s.match(/[a-zA-Z]/g) || []).length;
   if (cjk + latin === 0) return null;
   return cjk / (cjk + latin);
+}
+
+/**
+ * symbol 归一化（规则 0.55/0.58 消费）：去零宽/不可见 Unicode（含韩文填充符
+ * U+3164 隐形字符规避）→ 小写 → trim。
+ * 原为 SameNameCheckService 静态方法——AVE 同名搜索链 2026-10-15 死代码删除
+ * （appendix 仅 AVE 发现链路≤2026-05 写入，wss 组装行恒无 → no-appendix 短路
+ * AVE 一次不发、copycat_token 拦截 2026-06 起=0；same-name-check-service.mjs
+ * 整文件已删）后迁入本地，行为逐字不变。
+ */
+function _normalizeName(str) {
+  if (!str) return '';
+  return str
+    .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\u3164\uFEFF\uFE00-\uFE0F]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 /**
@@ -178,51 +187,25 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
-  // 规则0.5：同名代币检查（检测蹭热度作弊币）
-  // 检查代币发布前是否存在大量同名代币，这通常是蹭热度行为
-  const sameNameConfig = NARRATIVE_CONFIG.sameNameCheck || { enabled: true };
-  // sameNameService 用模块级单例（文件头 2a 注释：实例级 60s AVE 搜索缓存跨调用生效）
-
-  if (sameNameConfig.enabled) {
-    // 获取代币创建时间——wss 行 raw_api_data 无 created_at（flap builder 只存
-    // eventTs 存档字段）→ tokenCreatedAtSec 回退（token-info-service 的
-    // wss_events token_create 补全），口径与 NarrativeAnalyzer 创建时间基准
-    // 一致；原裸读 raw_api_data.created_at 使全部 wss 新票同名规则静默失效
-    // （2026-09-28 富贵案 0x5e888…7777）
-    const tokenCreatedAt = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
-    if (tokenCreatedAt) {
-      const sameNameCheck = await sameNameService.checkIfCopycatToken(
-        tokenSymbol,
-        tokenName,
-        Math.floor(tokenCreatedAt),
-        tokenData  // 传入完整代币数据，用于 appendix 对比
-      );
-
-      if (sameNameCheck.success && sameNameCheck.isCopycat) {
-        const { details } = sameNameCheck;
-        console.log(`[NarrativeAnalyzer] 预检查触发: 检测到蹭热度同名代币 (一周内${details.withinOneWeek}个, 其中已"起来过")`);
-
-        return buildPreCheckResult('low', `检测到蹭热度行为：在代币发布前一周内有${details.withinOneWeek}个共享相同叙事的同名代币，且其中已有代币"起来过"（有过明显涨幅/活跃），说明这个叙事已经被市场验证过`, 'copycat_token', { scores: { credibility: 0, virality: 0 }, total_score: 0, sameNameTokens: details.withinOneDayTokens || [], totalOlder: details.totalOlder, duplicateNarrativeCount: details.duplicateNarrativeCount, withinOneWeek: details.withinOneWeek });
-      } else if (sameNameCheck.success) {
-        console.log(`[NarrativeAnalyzer] 同名代币检查通过 (同名总数: ${sameNameCheck.details.totalOlder}, 重复叙事: ${sameNameCheck.details.duplicateNarrativeCount}, 一周内${sameNameCheck.details.withinOneWeek}个)`);
-      } else {
-        console.warn(`[NarrativeAnalyzer] 同名代币检查失败: ${sameNameCheck.error || '未知错误'}，跳过此项检查`);
-      }
-    } else {
-      console.log('[NarrativeAnalyzer] 代币无创建时间数据，跳过同名代币检查');
-    }
-  }
+  // （rule 0.5 同名代币 AVE 搜索链已废除——2026-10-15 v17 提速案 ③' 用户裁定：
+  //   appendix 仅 AVE 发现链路（≤2026-05）写入，wss 组装行（2026-06 起全部新票）
+  //   恒无 → no-appendix 短路使 AVE BSC/Solana 搜索一次不发（d46b1b6c 回测 960/960
+  //   「重复叙事：0」纯死重实证）；copycat_token 拦截 2026-06 以来 = 0 条。死代码
+  //   保留=再误导排查（本次调研即被误导一次）+ AVE 10s 超时风险尾巴。same-name-
+  //   check-service.mjs 整文件已删，_normalizeName 迁入本文件；2026-05 appendix
+  //   老票重析失去回放拦截已接受（重析仅 300s 竞态窗内、老票不在窗内））
 
   // （rule 0.52 same_name_blue_chip 已废除——2026-10-01 AST 案 0x265b…ffff 用户
   // 裁定 A+C 根治：纯缩写巧合撞名（ast.fun vs Alpha Struct Token，完全不同的
   // 两个代币）证明「同名≠蹭名」，symbol 巧合不该一票否决；蹭名判定移交叙事层
   // ——挂 CA 自发宣告票走 prestage account 路径评级、无认领蹭名票吃
   // nameReferentBlock / brand_hijack / cashtag 改道门。C29/C34/C37/C45 四层
-  // 豁免补丁随之成为死代码一并移除；规则 0.5/0.55/0.58 不受影响）
+  // 豁免补丁随之成为死代码一并移除；规则 0.55/0.58 不受影响）
 
-  // 规则0.55-0.7：四条 DB 查询互不依赖（各自只读 tokenData 输入），原串行 await
-  // 三段白付 ~75ms；并行发起后按原顺序消费，判定输入/优先级/返回形状与原 bit 一致
-  // （2026-10-13 叙事提速第二批 2b）。代价 = 高优先规则命中时低优先查询已发出
+  // 规则0.55-0.7：三条 DB 查询互不依赖（各自只读 tokenData 输入），原串行 await
+  // 白付 ~75ms；并行发起后按原顺序消费，判定输入/优先级/返回形状与原 bit 一致
+  // （2026-10-13 叙事提速第二批 2b；2026-10-15 q60 随 0.5/0.6 死代码删除后余三条）。
+  // 代价 = 高优先规则命中时低优先查询已发出
   // （轻查询浪费换常态并行收益）。各规则失败语义（warn 文案+视为不触发继续）与原
   // 分规则 try/catch 一致——reject 由 safeQuery 归一为 error 形状消费（同时防后位
   // 规则的 rejection 在前位消费 await 前悬空 unhandled）
@@ -231,7 +214,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     return { data: null, error: err };
   });
 
-  // ── 同步前置（0.55/0.6 共解析一次 appendix；0.55/0.58 创建时间同口径回退）──
+  // ── 同步前置（0.55 解析 appendix；0.55/0.58 创建时间同口径回退）──
   let appendixTwitterId = null;
   const currentAppendix = tokenData.raw_api_data?.appendix;
   if (currentAppendix) {
@@ -241,12 +224,11 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         : currentAppendix;
       appendixTwitterId = extractTwitterStatusId(parsedCurrentAppendix?.twitter);
     } catch (err) {
-      // 原分规则 catch 语义：两规则各自 parse 同一 appendix，坏 JSON 双 warn 后跳过
+      // 原分规则 catch 语义：坏 JSON warn 后跳过
       console.warn('[NarrativeAnalyzer] 同名+同推文重复叙事检查失败:', err.message);
-      console.warn('[NarrativeAnalyzer] 近期重复叙事检查失败:', err.message);
     }
   }
-  // wss 行 created_at 口径回退（与规则0.5 同修复，2026-09-28）
+  // wss 行 created_at 口径回退（原与规则0.5 同修复，2026-09-28）
   const createdAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
   // 0.7 原口径：只用 raw_api_data.created_at（无 tokenCreatedAtSec 回退——wss 行
   // 跳过 0.7，与 0.55/0.58 的回退口径刻意不同，勿合并）
@@ -266,7 +248,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 规则0.55：同 narrative_material_id 的更早代币，再用归一化 symbol 过滤同名
   // 归一化处理隐形字符（如韩文填充符 U+3164）规避同名检测的情况
   const normalizedCurrentSymbol = (appendixTwitterId && tokenSymbol && createdAtSec)
-    ? SameNameCheckService._normalizeName(tokenSymbol)
+    ? _normalizeName(tokenSymbol)
     : null;
   const q55Promise = (appendixTwitterId && tokenSymbol && createdAtSec)
     ? safeQuery(Promise.resolve(supabase
@@ -280,7 +262,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         .limit(10)), '同名+同推文重复叙事检查失败')
     : null;
   // 规则0.58：同时查询原始 symbol 和归一化后的 symbol（处理隐形字符规避）
-  const normalizedSymbol58 = tokenSymbol ? SameNameCheckService._normalizeName(tokenSymbol) : null;
+  const normalizedSymbol58 = tokenSymbol ? _normalizeName(tokenSymbol) : null;
   const q58Promise = (tokenSymbol && createdAtSec)
     ? safeQuery(Promise.resolve(supabase
         .from('experiment_tokens')
@@ -292,14 +274,9 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         .order('discovered_at', { ascending: true })
         .limit(10)), '同名代币活跃跟风检查失败')
     : null;
-  // 规则0.6：近期被 copycat_token 阻断的代币（Date.now 提前几 ms 无语义影响）
-  const q60Promise = appendixTwitterId
-    ? safeQuery(Promise.resolve(supabase
-        .from('token_narrative')
-        .select('token_address, token_symbol, raw_api_data')
-        .contains('pre_check_result', { details: { ruleName: 'copycat_token' } })
-        .gte('analyzed_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())), '近期重复叙事检查失败')
-    : null;
+  // （rule 0.6 近期重复叙事已随 0.5 连带废除——2026-10-15：命中要求「24h 内存在
+  //   copycat_token 行」（唯一生产者 0.5 已删，老行早出 24h 窗）+「当前票有
+  //   appendixTwitterId」（wss 行恒 null）双恒空，传递性死代码）
   // 规则0.7：同 narrative_material_id 的更早代币
   const q70Promise = (currentMaterialId && createdAtSec70)
     ? safeQuery(Promise.resolve(supabase
@@ -315,14 +292,14 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 规则0.55：同名+同推文重复叙事检查
   // 当两个代币使用相同推文（相同Twitter Status ID）且代币Symbol相同时，后者应被阻断为重复叙事
-  // 与规则0.5（同名检查，需"起来过"）和规则0.7（语料复用，3分钟豁免）互补
+  // 与规则0.7（语料复用，3分钟豁免）互补
   // 豁免窗口：2分钟（同一叙事素材在2分钟内的多个代币视为同时发现，不阻断）
   try {
     const { data: earlierTokensRaw, error: queryError } = (await q55Promise) || {};
 
     // 在 JS 中用归一化后的 symbol 过滤同名代币
     const earlierTokens = (earlierTokensRaw || []).filter(t =>
-      SameNameCheckService._normalizeName(t.token_symbol) === normalizedCurrentSymbol
+      _normalizeName(t.token_symbol) === normalizedCurrentSymbol
     );
 
     if (!queryError && earlierTokens.length > 0) {
@@ -346,14 +323,14 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 规则0.58：同名代币活跃跟风检查
   // 当一个同名代币在10分钟-2小时前发布且有一定交易活跃度，当前代币判定为跟风作弊
-  // 与规则0.5（需"起来过"，1周窗口，高阈值）互补：此规则用更短时间窗口+更低阈值捕捉早期跟风者
-  // 活跃度阈值低于"起来过"：txCount>=30 或 txVolume>=3000 即视为有基础活跃度
+  // 短时间窗口+低阈值捕捉早期跟风者
+  // 活跃度阈值：txCount>=30 或 txVolume>=3000 即视为有基础活跃度
   try {
     const { data: earlierSameNameTokensRaw, error: queryError58 } = (await q58Promise) || {};
 
     // 用归一化后的 symbol 二次过滤
     const earlierSameNameTokens = (earlierSameNameTokensRaw || []).filter(t =>
-      SameNameCheckService._normalizeName(t.token_symbol) === normalizedSymbol58
+      _normalizeName(t.token_symbol) === normalizedSymbol58
     );
 
     if (!queryError58 && earlierSameNameTokens && earlierSameNameTokens.length > 0) {
@@ -384,43 +361,6 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   } catch (err) {
     console.warn('[NarrativeAnalyzer] 同名代币活跃跟风检查失败:', err.message);
-  }
-
-  // 规则0.6：近期重复叙事检查
-  // 查询近期被 copycat_token 阻断的代币，如果当前代币共享相同的 Twitter Status ID，也阻断
-  // 解决全中文名代币无法通过 Solana 搜索发现蹭热度的问题
-  try {
-    const { data: recentBlocked, error: queryError } = (await q60Promise) || {};
-
-    if (!queryError && recentBlocked && recentBlocked.length > 0) {
-      for (const blocked of recentBlocked) {
-        // 跳过自身
-        if (blocked.token_address === normalizedAddress) continue;
-
-        const blockedAppendix = blocked.raw_api_data?.appendix;
-        if (!blockedAppendix) continue;
-        const parsedBlockedAppendix = typeof blockedAppendix === 'string'
-          ? JSON.parse(blockedAppendix)
-          : blockedAppendix;
-        const blockedTwitterId = extractTwitterStatusId(parsedBlockedAppendix?.twitter);
-
-        if (appendixTwitterId === blockedTwitterId) {
-          // 只在匹配代币创建更早时才阻断（当前代币是后来者）
-          const blockedCreatedAt = blocked.raw_api_data?.created_at;
-          const currentCreatedAt = tokenData.raw_api_data?.created_at;
-          if (blockedCreatedAt && currentCreatedAt && blockedCreatedAt >= currentCreatedAt) {
-            continue; // 匹配代币创建更晚或同时，不能用它阻断当前代币
-          }
-          const timeDiff = currentCreatedAt && blockedCreatedAt
-            ? `当前代币创建于 ${new Date(currentCreatedAt * 1000).toISOString()}, 匹配代币创建于 ${new Date(blockedCreatedAt * 1000).toISOString()}`
-            : '';
-          console.log(`[NarrativeAnalyzer] 预检查触发: 近期重复叙事 (Twitter Status: ${appendixTwitterId}, 匹配代币: ${blocked.token_symbol || ''} ${blocked.token_address}, ${timeDiff})`);
-          return buildPreCheckResult('low', `近期已有代币 ${blocked.token_symbol || ''}(${blocked.token_address.slice(0, 10)}...) 因蹭热度被阻断，且共享同一推特链接，判定为重复叙事`, 'recent_duplicate_narrative', { scores: { credibility: 0, virality: 0 }, total_score: 0, matchedTokenAddress: blocked.token_address, matchedTokenSymbol: blocked.token_symbol, matchedTwitterId: appendixTwitterId });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[NarrativeAnalyzer] 近期重复叙事检查失败:', err.message);
   }
 
   // 规则0.7：叙事表征语料去重检查
@@ -550,12 +490,12 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     // 2026-10-14 用户裁定）：IPFS/flap 语料行无平台 created_at → 过期检查静默跳过，
     // 11.5 天 lag 的找角度推文漏网拿 high（叙事 high 与买门 narrativeCorpusLagSec
     // 拦截语义分裂，earlyReturn≥100 通道翻入买入）。回退 tokenCreatedAtSec
-    // （fetchTokenData 的 wss_events token_create 回退锚）——与上方 0.5/0.55/0.58
+    // （fetchTokenData 的 wss_events token_create 回退锚）——与上方 0.55/0.58
     // 规则同链，原裸读是同文件内不一致
     const tokenCreatedAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
 
     if (!tokenCreatedAtSec) {
-      // 代币无创建时间数据时跳过过期检查（与规则0.5 无创建时间跳过同名检查的模式一致）
+      // 代币无创建时间数据时跳过过期检查
       console.log('[NarrativeAnalyzer] 代币无创建时间数据，跳过过期内容检查');
     } else {
       const refNow = new Date(tokenCreatedAtSec * 1000);

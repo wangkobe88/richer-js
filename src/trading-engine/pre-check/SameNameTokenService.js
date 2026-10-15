@@ -271,7 +271,8 @@ class SameNameTokenService {
 
   /**
    * 归一化名称：去除不可见/零宽字符后再 toLowerCase + trim
-   * 防止用隐形字符（如韩文填充符 U+3164）规避同名检测（与叙事版 SameNameCheckService 同源）
+   * 防止用隐形字符（如韩文填充符 U+3164）规避同名检测（原与叙事版同源；
+   * 叙事版 AVE 死代码 2026-10-15 删除后本引擎侧链路独立存续）
    * @param {string} str - 原始字符串
    * @returns {string} 归一化后的字符串
    * @private

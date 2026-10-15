@@ -23,22 +23,6 @@
     "angleTweetCjkGate": {
       "enabled": true,
       "minCjkRatio": 0.2
-    },
-    "sameNameCheck": {
-      "enabled": true,
-      "rules": {
-        "priceChangeThreshold": 300,
-        "txVolumeThreshold": 30000,
-        "txCountThreshold": 300
-      },
-      "blueChip": {
-        "minFdv": 100000,
-        "minTvl": 50000,
-        "minHolders": 10000,
-        "minTxCount": 300,
-        "matureAgeDays": 7,
-        "maxValidFdv": 1000000000000
-      }
     }
   },
   "fourmemeWs": {
