@@ -103,6 +103,10 @@ class TokenCorpusEnricher {
     this.experimentId = experimentId;
 
     this._fourMemeApi = new FourMemeTokenAPI();
+    // IPFS 缓存共用（2026-10-15 提速②b）：引擎注入 createIpfsCacheWriter().write——
+    // flap IPFS 分支拿到 metadata 后写入叙事侧 external_resource_cache（键与直调读键
+    // 一致），fire 直调 ipfs 段塌缩为 DB 读；未注入（null）= 缓存共用关闭零变化
+    this.ipfsCacheWriter = null;
     // 4everland 的 Cloudflare 对非浏览器 UA 返回 403 挑战页（实测 axios 默认 UA
     // 被挡、浏览器 UA 200），IPFS 请求统一带浏览器 UA
     this._ipfsClient = axios.create({
@@ -202,6 +206,9 @@ class TokenCorpusEnricher {
       metadata = await this._fetchIpfsJson(cid);
       if (!metadata) return null; // 网关均失败/非 JSON——已在 _fetchIpfsJson 记日志
       corpus = { provider: 'flap_ipfs', cid, fetchedAt: new Date().toISOString() };
+      // IPFS 缓存共用（提速②b）：await 后才返回 corpusFields，保证缓存先于 fire 直调
+      // 可见；writer 内部自 catch（写失败只 warn 不阻补采）；S3/fourmeme 分支不写
+      await this.ipfsCacheWriter?.(metaUrl, metadata);
     } else if (/^https?:\/\//i.test(metaUrl || '')) {
       // S3 等直链 metadata（同一套 JSON 键：twitter/website/description/name）
       metadata = await this._fetchJsonUrl(metaUrl);

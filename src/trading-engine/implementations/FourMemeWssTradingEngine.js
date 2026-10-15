@@ -37,6 +37,7 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { TxSeenSignal } = require('../core/TxSeenSignal.js');
+const { createIpfsCacheWriter } = require('../core/IpfsCacheWriter.js');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
@@ -344,6 +345,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { TokenCorpusEnricher } = require('../core/TokenCorpusEnricher');
     this._corpusEnricher = new TokenCorpusEnricher(
       this._mergedWsConfig().corpusEnrich || {}, this.logger, this._experimentId);
+    // IPFS 缓存共用（2026-10-15 提速②b）：补采拿到的 metadata 写叙事侧缓存（键与
+    // 直调读键一致），fire 直调 ipfs 段塌缩为 DB 读。无条件注入——写幂等无害不设开关
+    this._corpusEnricher.ipfsCacheWriter = createIpfsCacheWriter(this.logger).write;
 
     // 2. 代币池（FA 自带趋势序列，池不再需要价格/持有者历史缓存）
     this._tokenPool = new TokenPool(this.logger);
@@ -1417,6 +1421,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const corpus = this._tokenCorpusMap.get(tokenAddress);
     if (!corpus) return;
     this._dataPrefetchService.maybePrefetch(tokenAddress, factors, corpus);
+  }
+
+  /**
+   * 语料就绪即评门（提速②a，2026-10-15）：_enrichCorpus 回调刻直接评数据预取门，
+   * 不等下一 factorsUpdated tick（极速票 5s 内 fire，等 tick=预取必然来不及）。
+   * 三重门对齐 _onFactorsUpdated 买腿路径（池内 + 非 bought + 非 buying）；
+   * buildFactorMap null（state 缺失/faPreFilter 出窗）→ 跳过且不标 done，下 tick
+   * 既有路径兜底（maybePrefetch 三守卫不变，门不过不标记天然重试）。
+   * live 引擎钩子用 Date.now 合法（红线⑥限 FA 周期判定/回测，此处均非）。
+   * @private
+   */
+  _dataPrefetchOnCorpusReady(tokenAddress) {
+    if (!this._dataPrefetchService) return;
+    const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+    if (!token || token.status === 'bought' || this._buyingTokens.has(tokenAddress)) return;
+    const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+    if (!factors) return;
+    this._dataPrefetchCheck(tokenAddress, factors);
   }
 
   /**
@@ -3056,6 +3078,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // 语料内存镜像（数据预取门的语料来源，2026-10-15）：拿到即存——DB 落库失败
         // 也不影响预取读内存（两者用途独立，落库失败已有自己的 warn）
         this._tokenCorpusMap.set(info.token, corpusFields);
+        // 语料就绪即评门（提速②a，2026-10-15 뮤오23 案：预取仅比 fire 早 0.29s，根因=
+        // 补采 resolve 后要等下一 factorsUpdated tick 才评门，fire 前空窗全浪费）。
+        // 微任务即刻评（不等 tick 也不等 DB 落库）；try/catch 解耦——评门异常不阻断
+        // 落库链，warn 可见不静默
+        queueMicrotask(() => {
+          try {
+            this._dataPrefetchOnCorpusReady(info.token);
+          } catch (e) {
+            this.logger.warn(this._experimentId, 'NewToken',
+              `语料就绪预取评门异常 | ${info.token} ${e.message}`);
+          }
+        });
         return this.dataService.updateTokenCorpus(this._experimentId, info.token, corpusFields)
           .then(ok => {
             if (ok) {
