@@ -158,6 +158,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._sellDebounceMs = this._wsConfig.sellDebounceMs ?? 0;
     this._pruneIntervalMs = this._wsConfig.pruneIntervalMs ?? 5 * 60 * 1000;
     this._pruneMaxAgeMs = this._wsConfig.pruneMaxAgeMs ?? 30 * 60 * 1000;
+    // TokenPool 监控票淘汰门槛（批次 3c）：null=不淘汰（默认，pool 零淘汰旧行为）；
+    //   建议 24h——比 pool 自身 maxAge(20min) 更保守的引擎级第二道闸
+    this._tokenPoolEvictMinAgeMs = this._wsConfig.tokenPoolEvictMinAgeMs ?? null;
     // 组合快照周期（experiment_time_series_data 时序表 2026-10-15 停写，表保留）
     this._portfolioSnapshotIntervalMs = this._wsConfig.portfolioSnapshotIntervalMs ?? 30 * 1000;
     this._wssDownThresholdMs = this._wsConfig.wssDownGuardMs ?? 15 * 60 * 1000;
@@ -971,6 +974,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           this.logger.error(this._experimentId, 'Prune', `TPA live ticks 裁剪失败: ${err.message}`);
         }
       }
+      // TokenPool 监控票淘汰（tokenPoolEvictMinAgeMs 缺省 null=no-op）
+      try {
+        this._evictStaleMonitoringTokens();
+      } catch (err) {
+        this.logger.error(this._experimentId, 'Prune', `监控票淘汰失败: ${err.message}`);
+      }
     }, this._pruneIntervalMs);
 
     // 市场截面快照落表（60s，纯观察通道；写失败仅计数不重试不阻塞——显式设计非吞错兜底；
@@ -1782,6 +1791,52 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `${hit.kind === 'time' ? ` holdDuration=${(hit.holdDuration / 60).toFixed(1)}min` : ''}` +
       `${tick ? '' : ' | 持仓扫描触发(断流兜底)'}`);
     return this._emitSellSignal(token, strategy, factors, tick);
+  }
+
+  /**
+   * TokenPool 监控票淘汰（批次 3c，2026-10-15；tokenPoolEvictMinAgeMs 缺省 null=关）。
+   * pool Map 长跑零淘汰无界增长（cleanup() 引擎路径零调用）——本方法在 5min prune
+   * 周期内删「monitoring 且 age≥minAgeMs」条目。安全子集（刻意不做 pool 全量清理）：
+   *   - 仅删 status==='monitoring'：sold 票观察窗后仍可再买（_onFactorsUpdated 买腿
+   *     status!=='bought' 语义锁定）、inactive/exited 历史语义未审计一律不动
+   *   - 双重防线：① protected set（持仓 ∪ 买/卖执行中 ∪ 两 debouncer pending ∪
+   *     重启恢复锚点）——pool status 与引擎状态可能脱钩（重启恢复/手工交易），脱钩
+   *     时以引擎侧为准；② minAgeMs 门槛在 pool maxAge(20min) 之上再设闸（建议 24h）
+   *   - createdAt 缺失/非有限 → 不删（fail-safe）
+   * 副作用（已论证接受）：被删票 OPB 分类时延从 tick 级粗化到 ≤60s 扫描兜底。
+   * @returns {number} 本次淘汰数
+   */
+  _evictStaleMonitoringTokens() {
+    if (this._tokenPoolEvictMinAgeMs == null || !(this._tokenPoolEvictMinAgeMs > 0)) return 0;
+    const now = Date.now();
+    // protected set：引擎侧真状态（一律小写归一）
+    const protectedSet = new Set(
+      this._getAllHoldings().map(h => h.tokenAddress?.toLowerCase()).filter(Boolean),
+    );
+    for (const t of this._buyingTokens || []) protectedSet.add(t.toLowerCase());
+    for (const t of this._sellingTokens || []) protectedSet.add(t.toLowerCase());
+    if (this._buyDebouncer?.pending) {
+      for (const t of this._buyDebouncer.pending.keys()) protectedSet.add(t.toLowerCase());
+    }
+    if (this._sellConfirmDebouncer?.pending) {
+      for (const t of this._sellConfirmDebouncer.pending.keys()) protectedSet.add(t.toLowerCase());
+    }
+    if (this._restoreAnchors) {
+      for (const t of this._restoreAnchors.keys()) protectedSet.add(t.toLowerCase());
+    }
+    let evicted = 0;
+    for (const token of this._tokenPool.getAllTokens()) {
+      if (token.status !== 'monitoring') continue; // 安全子集：sold/inactive/exited/bought/selling 全不动
+      const ageMs = now - token.createdAt * 1000;
+      if (!Number.isFinite(ageMs) || ageMs < this._tokenPoolEvictMinAgeMs) continue;
+      const addr = (token.token || '').toLowerCase();
+      if (protectedSet.has(addr)) continue;
+      this._tokenPool.removeToken(token.token, token.chain);
+      evicted++;
+      this.logger.info(this._experimentId, 'TokenPoolEvict',
+        `监控超时票淘汰 | ${token.symbol || addr.slice(0, 10)} ${addr} age=${(ageMs / 3600000).toFixed(1)}h`);
+    }
+    return evicted;
   }
 
   /**
