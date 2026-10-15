@@ -2755,6 +2755,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
 
     let signalId = existingSignalId;
+    let signalRow = null; // INSERT 回读行（通知侧免 SELECT * 重复读，批次 4a）
     let result = { success: false, message: '交易未执行' };
 
     // 卖腿信号（及无预落库场景）在此创建；买腿信号已在 _evaluateBuyPath 落库
@@ -2780,6 +2781,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         createdAt: signal.timestamp || new Date(),
       });
       signalId = await tradeSignal.save();
+      signalRow = tradeSignal._insertedRow || null;
     }
 
     const signalTime = signal.timestamp || new Date();
@@ -2799,11 +2801,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         result = { success: false, message: `未知动作: ${signal.action}` };
       }
 
-      await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result);
+      await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result, signalRow);
     } catch (error) {
       this.logger.error(this._experimentId, 'processSignal',
         `信号执行失败 | signalId=${signalId} error=${error.message}`);
-      await this._updateSignalStatus(signalId, 'failed', { message: error.message, error: error.stack });
+      await this._updateSignalStatus(signalId, 'failed', { message: error.message, error: error.stack }, signalRow);
       result = { success: false, message: error.message };
     }
 

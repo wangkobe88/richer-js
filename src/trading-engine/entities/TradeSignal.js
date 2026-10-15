@@ -189,6 +189,10 @@ class TradeSignal {
       throw new Error(`保存信号失败: ${error.message}`);
     }
 
+    // 保留 INSERT .select() 回读的完整行（DB 侧默认值已回填）——进程内缓存/通知
+    // 组装用（批次 4a）；对只取 id 的既有调用方零影响
+    this._insertedRow = data[0];
+
     // 返回插入的记录ID
     return data[0].id;
   }

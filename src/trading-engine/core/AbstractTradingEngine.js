@@ -526,8 +526,9 @@ class AbstractTradingEngine extends ITradingEngine {
         result = { success: false, message: `未知动作: ${signal.action}` };
       }
 
-      // 更新信号状态
-      await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result);
+      // 更新信号状态（signalRow=INSERT 回读行，通知侧免 SELECT * 重复读）
+      await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result,
+        tradeSignal._insertedRow || null);
 
     } catch (error) {
       this._logger.error('信号执行失败', {
@@ -547,7 +548,7 @@ class AbstractTradingEngine extends ITradingEngine {
       };
 
       try {
-        await this._updateSignalStatus(signalId, 'failed', result);
+        await this._updateSignalStatus(signalId, 'failed', result, tradeSignal._insertedRow || null);
       } catch (updateError) {
         this._logger.error('更新信号状态失败', {
           signalId,
@@ -566,9 +567,11 @@ class AbstractTradingEngine extends ITradingEngine {
    * @param {string} signalId - 信号ID
    * @param {string} status - 新状态 ('executed' | 'failed')
    * @param {Object} result - 执行结果
+   * @param {Object|null} [signalRow] - 信号完整行（INSERT .select() 回读；缺省走
+   *        SELECT 兜底——批次 4a 通知侧去重复读）
    * @returns {Promise<void>}
    */
-  async _updateSignalStatus(signalId, status, result) {
+  async _updateSignalStatus(signalId, status, result, signalRow = null) {
     const supabase = dbManager.getClient();
 
     // 确保 result 是一个对象
@@ -639,8 +642,14 @@ class AbstractTradingEngine extends ITradingEngine {
       return;
     }
 
-    // 数据库更新成功后，发送 Telegram 通知（带过滤逻辑）
-    await this._sendSignalNotificationWithFilter(signalId, newMetadata);
+    // 数据库更新成功后，发送 Telegram 通知（带过滤逻辑）。signalRow 已知时本地
+    // 组装完整行（消费字段闭包：metadata/action/executed/token_address/token_symbol/
+    // chain/experiment_id/created_at——createEvent/_shouldSendBuyNotification 已核）
+    // 免去通知侧 SELECT * 重复读（该行刚 UPDATE 完，值即 updateData+newMetadata）
+    const composedSignal = signalRow
+      ? { ...signalRow, metadata: newMetadata, executed: updateData.executed }
+      : null;
+    await this._sendSignalNotificationWithFilter(signalId, newMetadata, composedSignal);
   }
 
   /**
@@ -650,9 +659,11 @@ class AbstractTradingEngine extends ITradingEngine {
    * @private
    * @param {string} signalId - 信号ID
    * @param {Object} metadata - 信号元数据
+   * @param {Object|null} [composedSignal] - 本地组装的完整信号行（批次 4a）；缺省
+   *        SELECT 兜底（既有调用形状零变化）
    * @returns {Promise<void>}
    */
-  async _sendSignalNotificationWithFilter(signalId, metadata) {
+  async _sendSignalNotificationWithFilter(signalId, metadata, composedSignal = null) {
     try {
       // 回测模式不需要实时通知和事件记录
       if (this._mode === TradingMode.BACKTEST) {
@@ -664,17 +675,21 @@ class AbstractTradingEngine extends ITradingEngine {
         return;
       }
 
-      // 获取完整信号数据
-      const supabase = dbManager.getClient();
-      const { data: signal, error } = await supabase
-        .from('strategy_signals')
-        .select('*')
-        .eq('id', signalId)
-        .single();
+      // 完整信号行：调用方组装（免重复读）或 SELECT 兜底
+      let signal = composedSignal;
+      if (!signal) {
+        const supabase = dbManager.getClient();
+        const { data, error } = await supabase
+          .from('strategy_signals')
+          .select('*')
+          .eq('id', signalId)
+          .single();
 
-      if (error || !signal) {
-        this._logger.warn('获取信号数据失败，跳过通知', { signalId, error: error?.message });
-        return;
+        if (error || !data) {
+          this._logger.warn('获取信号数据失败，跳过通知', { signalId, error: error?.message });
+          return;
+        }
+        signal = data;
       }
 
       const isExecuted = signal.executed === true;
