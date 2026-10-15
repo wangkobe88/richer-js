@@ -99,10 +99,69 @@ class TokenDetailPage {
       // 渲染页面
       this.render();
 
+      // 叙事分析独立加载（失败不影响主页面，卡片内自带容错文案）
+      this.loadNarrative();
+
     } catch (error) {
       console.error('加载数据失败:', error);
       this.showError(`加载失败: ${error.message}`);
     }
+  }
+
+  /**
+   * 加载叙事分析（token_narrative 全局缓存，404=无数据属正常态）
+   */
+  async loadNarrative() {
+    const body = document.getElementById('narrative-card-body');
+    const fullLink = document.getElementById('narrative-full-link');
+    if (fullLink) fullLink.href = `/narrative-analyzer?address=${this.tokenAddress}`;
+    try {
+      const response = await fetch(`/api/narrative/result/${this.tokenAddress}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      this.renderNarrativeCard(result.success ? result.data : null);
+    } catch (error) {
+      body.innerHTML = '<span class="text-gray-500 text-xs">暂无叙事分析数据</span>';
+    }
+  }
+
+  /**
+   * 渲染叙事卡片：评级 badge + 预检查规则名 + 不通过理由
+   */
+  renderNarrativeCard(data) {
+    const body = document.getElementById('narrative-card-body');
+    const llm = data?.llmAnalysis;
+    const summary = llm?.summary;
+    if (!summary || !summary.rating) {
+      body.innerHTML = '<span class="text-gray-500 text-xs">暂无叙事分析数据（叙事 worker 未覆盖或未触发）</span>';
+      return;
+    }
+
+    const RATING_STYLE = {
+      high: { cls: 'bg-green-900 text-green-300 border-green-700', label: '高质量 🚀' },
+      mid: { cls: 'bg-blue-900 text-blue-300 border-blue-700', label: '中质量 📊' },
+      low: { cls: 'bg-orange-900 text-orange-300 border-orange-700', label: '低质量 📉' },
+      unrated: { cls: 'bg-gray-700 text-gray-300 border-gray-600', label: '未评级 ❓' }
+    };
+    const style = RATING_STYLE[summary.rating] || RATING_STYLE.unrated;
+    const scoreText = (typeof summary.score === 'number' && !isNaN(summary.score))
+      ? ` · ${summary.score.toFixed(0)}分` : '';
+    const analyzedAt = data?.meta?.analyzedAt
+      ? `<span class="text-[11px] text-gray-500">${this.formatDateTime(data.meta.analyzedAt)}</span>` : '';
+    const ruleName = llm.preCheck?.details?.ruleName;
+    const ruleTag = ruleName
+      ? `<span class="px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 border border-gray-600" title="预检查拦截规则">🚫 ${this.escapeHtml(ruleName)}</span>` : '';
+
+    let html = `
+      <div class="flex items-center gap-3 mb-2 flex-wrap">
+        <span class="px-2 py-0.5 rounded text-xs font-medium border ${style.cls}">${style.label}${scoreText}</span>
+        ${analyzedAt}
+        ${ruleTag}
+      </div>`;
+
+    const reason = summary.reason || '暂无分析理由';
+    html += `<div class="text-xs text-gray-300 leading-relaxed max-h-28 overflow-y-auto">${this.escapeHtml(reason)}</div>`;
+    body.innerHTML = html;
   }
 
   render() {
@@ -493,6 +552,13 @@ class TokenDetailPage {
       return (num / 1000).toFixed(1) + 'K';
     }
     return num.toString();
+  }
+
+  escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   formatDateTime(dateStr) {

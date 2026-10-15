@@ -1381,6 +1381,7 @@ class ExperimentTokens {
 
   /**
    * 渲染叙事评级（Jev 方案：numericRating 3/2/1/9，reason/score 在 summary）
+   * low（1）时 badge 下常显短理由——「为什么没过」第一眼可见（title 悬浮仍是全文）
    */
   renderNarrativeRating(tokenAddress) {
     const narrative = this.narrativeDataMap.get(tokenAddress);
@@ -1400,7 +1401,17 @@ class ExperimentTokens {
     const totalScore = summary.score;
     const scoreText = (typeof totalScore === 'number' && !isNaN(totalScore)) ? ` ${totalScore.toFixed(0)}分` : '';
 
-    return `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="px-1.5 py-0.5 rounded text-[10px] ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity inline-block" title="${summaryTitle || ratingInfo.label}" style="cursor:pointer;text-decoration:none;">${ratingInfo.emoji} ${rating}${scoreText}</a>`;
+    const badge = `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="px-1.5 py-0.5 rounded text-[10px] ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity inline-block" title="${summaryTitle || ratingInfo.label}" style="cursor:pointer;text-decoration:none;">${ratingInfo.emoji} ${rating}${scoreText}</a>`;
+
+    // 预检查拦截规则名 + 短理由（仅 low 常显；两行截断，全文靠 title/详情页）
+    if (rating === 1 && summaryStr) {
+      const ruleName = narrative.narrative?.llmAnalysis?.preCheck?.details?.ruleName;
+      const ruleTag = ruleName
+        ? `<span class="text-[9px] text-orange-400/80 leading-tight block">${this.escapeHtml(ruleName)}</span>` : '';
+      const shortReason = summaryStr.length > 42 ? summaryStr.slice(0, 42) + '…' : summaryStr;
+      return `<div class="min-w-0">${badge}${ruleTag}<span class="text-[9px] text-gray-500 leading-tight block" title="${summaryTitle}">${this.escapeHtml(shortReason)}</span></div>`;
+    }
+    return badge;
   }
 }
 
