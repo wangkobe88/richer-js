@@ -1486,10 +1486,6 @@ class FourMemeFactorAggregator extends EventEmitter {
      * _computePriceTrendFactors reliable 提取）——百万 tick 回放下每 tick 多趟是固定
      * 成本大头。本方法单趟产出共享中间结构，消费方判定逻辑逐字搬入（对拍等价红线）：
      *
-     * - winTicks：5min 窗内子数组，**保持原数组序（到达序）**——crashSpeed
-     *   `_p > _wh` 严格大于=首达峰、risePct `<= _trough`=最近触谷，全部遍历序敏感
-     *   （cycle 分桶 2026-10-15 删除后 FA 内已无消费方，保留产出=扫描契约形状由
-     *   _test_recent_ticks_scan A1 逐位锁定，防后续消费方重新自遍历）
      * - reliable：全数组（非 5min 窗）priceReliable && priceBnb>0 的 {t,p}，原序收集
      *   ——trend 的 widened 全历史分支要用全量 reliable，不可预切窗；sort 留在消费方
      *   （V8 稳定排序，输入序不变 → 与旧「提取后 sort」bit-identical）
@@ -1498,19 +1494,19 @@ class FourMemeFactorAggregator extends EventEmitter {
      *   `if (_buyTs > 0)` 整块跳过，等价于不累积任何谷样本）
      * - 窗口全部读取时 now 相关（防前视红线：now 由 buildFactorMap(state, asOf) 传入；
      *   禁 Date.now / 禁移到 processTick 写入侧）
+     * - winTicks 已删（2026-10-15 批次 5c）：cycle 分桶 2026-10-15 删除后 FA 内零
+     *   消费方，子数组物化=纯死产出；后续若需 5min 窗内序列请自遍 _recentTicks
+     *   （同式 now - t.ts <= RATE_WINDOW_MS 保原序），勿复活本产出
      */
     _scanRecentTicks(state, now, buyTs) {
         const rateCut = now - RATE_WINDOW_MS;
         const csCut = now - this._fp.crashSpeedWindowMs;
         const rsCut = buyTs > 0 ? Math.max(rateCut, buyTs) : Infinity;
         const ticks = state._recentTicks;
-        const winTicks = [];
         const reliable = [];
         let csWh = 0, csWhT = 0;
         let riseTrough = Infinity, riseTroughTs = 0, riseRn = 0;
         for (const tk of ticks) {
-            // 5min 窗（原 filter 同式：now - t.ts <= RATE_WINDOW_MS，保原序）
-            if (now - tk.ts <= RATE_WINDOW_MS) winTicks.push(tk);
             // trend reliable 提取（原 _computePriceTrendFactors 内部循环逐字）
             if (tk.priceReliable && Number(tk.priceBnb) > 0) {
                 reliable.push({ t: Number(tk.ts), p: Number(tk.priceBnb) });
@@ -1531,7 +1527,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         // sort」同式稳定排序，逐元素恒等；共享结构恒以时间升序终态存在（消费方
         // 直接用，无「首个消费方原地 sort 污染」的隐性状态依赖）
         reliable.sort((a, b) => a.t - b.t);
-        return { winTicks, reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn };
+        return { reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn };
     }
 
     /**

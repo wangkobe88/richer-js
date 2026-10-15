@@ -5,11 +5,11 @@
  * 改动语义：FA _recentTicks 的读取消费方原先各自遍历（crashSpeed 窗高点 /
  * risePct5m 谷 / trend reliable 提取；rate 族随 2026-10-13 因子清理删除、
  * cycle 族随 2026-10-15 分桶路由机制删除），合并为 _scanRecentTicks 单趟产出
- * {winTicks, reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn}。
+ * {reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn}。
+ * winTicks 产出已删（2026-10-15 批次 5c：cycle 删除后 FA 内零消费方，子数组
+ * 物化=纯死产出；cycle 会话「保留产出防自遍历」的决定由本批裁定覆盖）——
+ * A1 锁死返回键缺位 + 源码零标识符。
  * 对拍等价红线：
- *   - winTicks = filter(now - t.ts <= RATE_WINDOW_MS) 保原序逐位一致
- *     （cycle 删除后 FA 内已无 winTicks 消费方，保留产出=扫描契约形状由本测试
- *     A1 逐位锁定，最小爆炸半径）
  *   - reliable = 全数组 priceReliable && priceBnb>0 提取 {t,p} 原序收集后稳定升序 sort
  *     （trend widened 全历史分支用全量 reliable，不可预切 5min 窗）
  *   - csWh/csWhT：crashSpeed 窗高点，`>` 严格大于 = 首达峰优先（原序敏感）
@@ -65,9 +65,6 @@ function mkTick(o) {
 
 // ═════════════════ reference：旧口径独立重算（filter/循环复刻）═════════════════
 const ref = {
-  winTicks(ticks, now) {
-    return ticks.filter(t => now - t.ts <= RATE_WINDOW_MS); // 保原序（旧 _rateFactors/_cycleFactors 同式；cycle 已删）
-  },
   reliable(ticks) {
     const out = [];
     for (const tk of ticks) {
@@ -140,12 +137,11 @@ console.log('\nA 节：_scanRecentTicks vs reference');
   for (const [label, buyTs] of probes) {
     const now = ts + 120000; // 2min 后（含窗边界滑动）
     const s = fa._scanRecentTicks(st, now, buyTs);
-    const rW = ref.winTicks(ticks, now);
     const rR = ref.reliable(ticks);
     const rC = ref.crashHigh(ticks, now, FACTOR_PARAM_DEFAULTS.crashSpeedWindowMs);
     const rRise = ref.rise(ticks, now, buyTs);
-    check(`A1 [${label}] winTicks 逐位一致（含 ts/bnb/priceReliable 全字段）`,
-      () => assert.deepStrictEqual(s.winTicks, rW));
+    check(`A1 [${label}] winTicks 死产出已删（返回键缺位）`,
+      () => assert.ok(!('winTicks' in s)));
     check(`A2 [${label}] reliable 提取+升序一致`,
       () => assert.deepStrictEqual(s.reliable, rR));
     check(`A3 [${label}] crashSpeed 窗高点/首达时刻一致`,
@@ -214,7 +210,7 @@ console.log('\nB 节：buildFactorMap 关键因子 vs reference');
   const f = fa.buildFactorMap(ADDR, now);
 
   // rate 族（2026-10-13 删除）与 cycle 族（2026-10-15 删除）不再对拍——
-  // winTicks 本身的等价性由 A1 锁定，B 节直接从 crashSpeed 起
+  // winTicks 死产出已删（批次 5c），B 节直接从 crashSpeed 起
 
   // crashSpeed
   const rC = ref.crashHigh(st._recentTicks, now, FACTOR_PARAM_DEFAULTS.crashSpeedWindowMs);
@@ -260,11 +256,13 @@ console.log('\nC 节：防前视红线');
   fa.processTick(mkTick({ timestamp: T0, price_bnb: 0.001, bnb_amount: 1 }));
   fa.processTick(mkTick({ timestamp: T0 + 10000, price_bnb: 0.002, bnb_amount: 1 }));
   const st = fa._states.get(ADDR);
-  // 同一 state，不同 asOf → 窗内容不同（证明窗口判定吃 asOf 而非墙钟）
+  // 同一 state，不同 asOf → 窗内容不同（证明窗口判定吃 asOf 而非墙钟；
+  // winTicks 已删，改用 crashSpeed 窗高点观察：近点两 tick 在窗内高点 0.002 /
+  // 远点全出窗高点 0——crashSpeedWindowMs 默认 60s 窄于 5min 窗，判据同族）
   const sA = fa._scanRecentTicks(st, T0 + 11000, 0);
-  const sB = fa._scanRecentTicks(st, T0 + 400000, 0); // 远点：两 tick 全出 5min 窗
-  check('C1 窗判定吃 asOf（近点 win=2 / 远点 win=0）',
-    () => assert.strictEqual(sA.winTicks.length, 2) && assert.strictEqual(sB.winTicks.length, 0));
+  const sB = fa._scanRecentTicks(st, T0 + 400000, 0); // 远点：两 tick 全出 crashSpeed 窗
+  check('C1 窗判定吃 asOf（近点 csWh=0.002 / 远点 csWh=0）',
+    () => assert.strictEqual(sA.csWh, 0.002) && assert.strictEqual(sB.csWh, 0));
   // 源码口径：_scanRecentTicks / _computePriceTrendFactors 内无 Date.now
   //（_cycleFactors 已随 cycle 机制删除，2026-10-15）
   const src = fs.readFileSync(FA_PATH, 'utf8');
@@ -292,10 +290,12 @@ console.log('\nD 节：源码口径（防第六个直接遍历）');
       && assert.ok(hits[0].includes('push(') || hits.some(h => h.includes('push(')))
       && assert.ok(hits.some(h => h.includes('const ticks = state._recentTicks'))));
   // 消费方签名收口：trend 收 reliable（不再自己摸 state；rate/cycle 消费方已随
-  // 2026-10-13 / 2026-10-15 两轮因子清理删除，winTicks 暂无 FA 内消费方——保留
-  // 产出形状，A1 锁定）
+  // 2026-10-13 / 2026-10-15 两轮因子清理删除；winTicks 死产出批次 5c 删除）
   check('D2 消费方签名已收口（_computePriceTrendFactors(reliable, now, firstTickAt)）',
     () => assert.ok(/_computePriceTrendFactors\(reliable, now, firstTickAt\)/.test(src.join('\n'))));
+  // winTicks 产出形状零残留（死产出删除防回流；头注历史说明文字刻意保留不算）
+  check('D2b winTicks 产出形状零残留（无物化/无返回键）',
+    () => assert.ok(!/winTicks\s*=\s*\[\]|winTicks\.push|winTicks,/.test(src.join('\n'))));
   // buildFactorMap 挂载点：单次 _scanRecentTicks 调用喂全部消费方
   const joined = src.join('\n');
   check('D3 挂载点单次调用（_scan 调用恰一处）且消费方全吃 _scan 产物',
