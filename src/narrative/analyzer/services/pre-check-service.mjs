@@ -5,7 +5,6 @@
 
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
-import { classifyTweetType } from './tweet-type-classifier.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
 import { readFileSync } from 'fs';
@@ -26,18 +25,6 @@ const NARRATIVE_CONFIG = config.narrative || {
   // 详见 NarrativeAnalyzer.mjs 同键注释——族五形状 B：10min 预拦抢了 Jev timing 判断）
   expiredTweetMinutesThreshold: 360
 };
-
-// 推文文本 CJK 占比（找角度语言门用）：CJK 字符 / (CJK + 拉丁字母)。
-// 不能「含任一汉字」判定——gampsito 英文找角度推文里带「猪五花」3 个汉字（猪五花案
-// 2026-10-15）。纯符号/数字文本返回 null（fail-open 放行）
-function _cjkRatio(text) {
-  if (!text) return null;
-  const s = String(text);
-  const cjk = (s.match(/[一-鿿㐀-䶿]/g) || []).length;
-  const latin = (s.match(/[a-zA-Z]/g) || []).length;
-  if (cjk + latin === 0) return null;
-  return cjk / (cjk + latin);
-}
 
 /**
  * symbol 归一化（规则 0.55/0.58 消费）：去零宽/不可见 Unicode（含韩文填充符
@@ -425,29 +412,6 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   if (authorScreenName && NARRATIVE_CONFIG.twitterBlacklist?.includes(authorScreenName)) {
     console.log(`[NarrativeAnalyzer] 预检查触发: 推文作者 @${authorScreenName} 在黑名单中`);
     return buildPreCheckResult('low', `推文作者@${authorScreenName}在黑名单中，该账号专门制造虚假叙事`, 'blacklist', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
-  }
-
-  // 规则1.2：找角度推文语言门（猪五花案 2026-10-15 用户裁定：找角度发币是常见方式，
-  // 策略性收窄——找角度盘只玩中文，英文找角度推文 low 终判；非找角度/中文/无文本全放行）
-  const cjkGate = NARRATIVE_CONFIG.angleTweetCjkGate;
-  if (cjkGate?.enabled !== false) {
-    const minRatio = typeof cjkGate?.minCjkRatio === 'number' ? cjkGate.minCjkRatio : 0.2;
-    try {
-      const cls = classifyTweetType(twitterInfo);
-      if (cls?.type === 'angle_seeking') {
-        const ratio = _cjkRatio(twitterInfo?.text);
-        if (ratio !== null && ratio < minRatio) {
-          console.log(`[NarrativeAnalyzer] 预检查触发: 找角度推文非中文（CJK 占比 ${(ratio * 100).toFixed(0)}%`);
-          return buildPreCheckResult('low',
-            `找角度推文为非中文（CJK 占比 ${(ratio * 100).toFixed(0)}%），策略只做中文找角度盘`,
-            'angle_tweet_not_chinese',
-            { scores: { credibility: 0, virality: 0 }, total_score: 0, cjkRatio: ratio, tweetClassification: cls.type });
-        }
-      }
-    } catch (err) {
-      // fail-open：分类器异常不拦（语言门是策略收窄不是安全防线）
-      console.warn('[NarrativeAnalyzer] 找角度语言门分类失败（放行）:', err.message);
-    }
   }
 
   // 规则1.7：应用商店链接检查

@@ -19,11 +19,7 @@
       "CDaneliak56999",
       "trenchsiu",
       "gampsito"
-    ],
-    "angleTweetCjkGate": {
-      "enabled": true,
-      "minCjkRatio": 0.2
-    }
+    ]
   },
   "fourmemeWs": {
     "endpointFrom": "env",

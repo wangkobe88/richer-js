@@ -304,11 +304,12 @@ class FlapPortalTrader extends BaseTrader {
                 throw new Error('卖出数量钳制后为 0（链上无余额）');
             }
 
-            // approve（精确额度，与 four.meme 同口径）
+            // approve（大额一次授权，与 four.meme 同口径；2026-10-15 GROK 案：旧精确额度=卖出即耗光，
+            // 每笔卖出重发 approve+等回执 3.5-8s，改 MaxUint256 首卖一笔此后恒充足）
             const currentAllowance = await tokenContract.allowance(this.wallet.address, this.flapConfig.portalAddress);
             if (currentAllowance < amountOutWei) {
-                this.log('授权 Portal 使用代币...');
-                const approveTx = await this._nonceGuard(() => tokenContract.approve(this.flapConfig.portalAddress, amountOutWei));
+                this.log('授权 Portal 使用代币（MaxUint256 一次授权）...');
+                const approveTx = await this._nonceGuard(() => tokenContract.approve(this.flapConfig.portalAddress, ethers.MaxUint256));
                 await this._awaitReceipt(approveTx, 'approve');
                 this.log('✅ 授权完成');
             }

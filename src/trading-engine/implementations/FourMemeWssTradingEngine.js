@@ -1025,6 +1025,25 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       return await this._portfolioManager.executeTrade(
         this._portfolioId, signal.tokenAddress, direction, tokenAmount, priceUsd, 0);
     } catch (firstError) {
+      // P11 幽灵持仓案（GROK 2026-10-15）：qtySold 链上 formatEther→parseEther 往返 …907 vs
+      // 账面 Decimal …906（相对差 ~6e-17）被 PM 以 Insufficient token balance 拒绝——全清后账面
+      // 永久挂账、SyncHoldings 每 5min 误报「外部处置」。卖出方向差值 ≤相对 1e-9 时钳到账面
+      // 持有量（与执行层重放精度钳制同语义；真超卖照常失败）
+      if (direction === 'sell' && /Insufficient token balance/.test(firstError.message || '')) {
+        // 全 Decimal 比较：qtySold 是链上 formatEther 高精度值（…907 vs 账面 …906 差 1e-11），
+        // double 会吞掉该差异（两字面量同 double），Number 化 held 后 Decimal>Number 比较经
+        // valueOf→字符串→double 同样吞 → 钳制静默失效；new Decimal(tokenAmount) 与 PM 内
+        // 同款转换，判断口径与 lt 恒一致
+        const position = this._portfolioManager.getPortfolio(this._portfolioId)
+          ?.positions?.get(String(signal.tokenAddress).toLowerCase());
+        const heldDec = position ? new Decimal(position.amount) : new Decimal(0);
+        const sellDec = new Decimal(tokenAmount);
+        if (heldDec.gt(0) && sellDec.gt(heldDec) && sellDec.minus(heldDec).div(heldDec).lte(1e-9)) {
+          this.logger.warn(this._experimentId, '_liveRecordTrade',
+            `卖出记账数量 ${sellDec.toString()} 略超账面 ${heldDec.toString()}（相对差≤1e-9），钳到账面持有量重试`);
+          tokenAmount = heldDec; // Decimal 原值：executeTrade 内 new Decimal(Decimal) 恒等清零
+        }
+      }
       this.logger.warn(this._experimentId, '_liveRecordTrade',
         `记账失败（${firstError.message}），对账修正 cash 后重试`);
       await this._reconcileLiveCash();

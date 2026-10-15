@@ -5,8 +5,7 @@
  * 背景（猪五花案 2026-10-15，0x7603c74b…7777）：14 钱包 t+6s 同刻起跑等额分仓，
  * 90s 183 笔/24 钱包=7.6 笔/钱包（散户 1~2）。门被绕过根因之一是「笔数/钱包」
  * 维度缺失——top1/bundler/sniper 全被分仓摊薄，routerPct 反超门上限。
- * 同案衍生：找角度语言门（用户裁定：找角度发币是常见方式，策略性收窄只玩
- * 中文盘；gampsito 英文找角度推「Imma redeploy it（猪五花）」）。
+ * 同案衍生：gampsito 黑名单（用户终裁 2026-10-15：语言门撤销不加，只黑名单单拦）。
  *
  * 覆盖：
  *   A. _calculateBasicStats 每钱包聚合矩阵（多钱包多笔 / 单钱包 / 大小写归一 / 空窗 0）
@@ -14,8 +13,8 @@
  *   C. performCheck 集成（复用同一 ticks 查询零新增 / 因子键与数值 / FactorBuilder 透传）
  *   D. 查询异常 → empty 两路径新键 0 值放行（拦截写法 <N，0 恒放行）
  *   E. 源码口径：PreBuyCheckService context / FactorBuilder / empty 两路径含新键
- *   F. 语言门矩阵（classifyTweetType gampsito 形态 → angle_seeking；
- *      _cjkRatio 源码提取 eval：猪五花 3 汉字英文推 ≈0.097；规则键源码口径）
+ *   F. gampsito 黑名单与分类路由（classifyTweetType frequent-issuers 命中 angle_seeking；
+ *      语言门零残留防回流）
  *
  * 用法：node scripts/_test_early_per_wallet_factors.cjs
  */
@@ -188,8 +187,9 @@ async function main() {
     check('E5 FactorBuilder 映射含两键', fbSrc.includes('earlyTradesPerWallet:') && fbSrc.includes('earlyTradesMaxWalletTrades:'), true);
   }
 
-  // ════════ F. 语言门矩阵（ESM：classifyTweetType + _cjkRatio 源码提取） ════════
-  console.log('\nF. 找角度语言门矩阵');
+  // ════════ F. gampsito 黑名单与分类路由（2026-10-15 用户终裁：不加语言门，
+  // 中文门代码已撤——本段只锁黑名单与 frequent-issuers 分类路由） ════════
+  console.log('\nF. gampsito 黑名单与分类路由');
   {
     const { classifyTweetType } = await import(
       path.join(__dirname, '..', 'src', 'narrative', 'analyzer', 'services', 'tweet-type-classifier.mjs')
@@ -201,35 +201,22 @@ async function main() {
       metrics: { favorite_count: 2, retweet_count: 0 },
     };
     check('F1 gampsito 形态 → angle_seeking（frequent-issuers）', classifyTweetType(g).type, 'angle_seeking');
-    // 中文找角度推：非名单账号 → 门罩不住=放行（fail-open，策略只收窄英文盘）
+    // 中文找角度推：非名单账号 → unknown（无门状态，C68 时效门照常消费载体）
     const zh = { ...g, author_screen_name: 'someone_cn', text: '兄弟们 猪五花 这个梗太好了 我要发一个币' };
-    check('F2 中文推不拦（unknown 放行）', classifyTweetType(zh).type === 'angle_seeking', false);
-    // 大号英文推：direct_tweet → 门不触发
+    check('F2 中文推不再被语言门消费（unknown 分类）', classifyTweetType(zh).type === 'angle_seeking', false);
+    // 大号英文推：direct_tweet
     const big = { ...g, author_screen_name: 'binance', author_followers_count: 10000000, metrics: { favorite_count: 5000, retweet_count: 1000 }, text: 'Exciting launch today!' };
-    check('F3 大号英文不拦（direct_tweet）', classifyTweetType(big).type, 'direct_tweet');
+    check('F3 大号英文 direct_tweet', classifyTweetType(big).type, 'direct_tweet');
 
-    // _cjkRatio：从 pre-check-service.mjs 源码提取函数体 eval（源码口径对拍，防实现漂移）
+    // 语言门零残留源码口径（防回流：用户终裁撤销该门）
     const pcSrc = readFileSync(path.join(__dirname, '..', 'src', 'narrative', 'analyzer', 'services', 'pre-check-service.mjs'), 'utf8');
-    const fnMatch = pcSrc.match(/function _cjkRatio\(text\) \{[\s\S]*?\n\}/);
-    check('F4 _cjkRatio 函数存在于源码', Boolean(fnMatch), true);
-    if (fnMatch) {
-      const _cjkRatio = eval('(' + fnMatch[0] + ')');
-      check('F5 猪五花 3 汉字英文推 cjk≈0.097 <0.2 拦', +(_cjkRatio('Imma redeploy it 猪五花 PorkBelly on BSC').toFixed(3)), 0.097);
-      check('F6 中文推 cjk=1', _cjkRatio('兄弟们猪五花'), 1);
-      check('F7 纯符号 null 放行（fail-open）', _cjkRatio('!!! 123 😂'), null);
-    }
-    // 规则挂点与默认值源码口径
-    check('F8 规则键 angle_tweet_not_chinese', pcSrc.includes("'angle_tweet_not_chinese'"), true);
-    check('F9 门默认开（enabled !== false）', pcSrc.includes('cjkGate?.enabled !== false'), true);
-    check('F10 默认阈值 0.2', pcSrc.includes('? cjkGate.minCjkRatio : 0.2'), true);
-    check('F11 fail-open 分类异常放行', pcSrc.includes('找角度语言门分类失败'), true);
-    // 配置文件显式声明
+    check('F4 语言门规则键零残留', pcSrc.includes('angle_tweet_not_chinese') || pcSrc.includes('_cjkRatio') || pcSrc.includes('angleTweetCjkGate'), false);
     const cfg = JSON.parse(readFileSync(path.join(__dirname, '..', 'config', 'default.json'), 'utf8'));
-    check('F12 config 门配置', cfg.narrative.angleTweetCjkGate, { enabled: true, minCjkRatio: 0.2 });
-    check('F13 gampsito 在黑名单', cfg.narrative.twitterBlacklist.includes('gampsito'), true);
+    check('F5 config 语言门段零残留', 'angleTweetCjkGate' in cfg.narrative, false);
+    check('F6 gampsito 在黑名单', cfg.narrative.twitterBlacklist.includes('gampsito'), true);
     // frequent-issuers 源码口径
     const fiSrc = readFileSync(path.join(__dirname, '..', 'src', 'narrative', 'analyzer', 'services', 'frequent-issuers.mjs'), 'utf8');
-    check('F14 frequent-issuers 含 gampsito', /'gampsito'/.test(fiSrc), true);
+    check('F7 frequent-issuers 含 gampsito', /'gampsito'/.test(fiSrc), true);
   }
 
   console.log(`\n═══════ _test_early_per_wallet_factors: ${pass} passed, ${fail} failed ═══════`);

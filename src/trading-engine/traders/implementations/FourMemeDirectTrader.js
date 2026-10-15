@@ -801,12 +801,12 @@ class FourMemeDirectTrader extends BaseTrader {
             }
 
             const currentAllowance = await tokenContract.allowance(this.wallet.address, platformAddress);
-            this.log(`当前授权额度: ${currentAllowance} (${ethers.formatUnits(currentAllowance, 18)} tokens)`);
-            this.log(`需要授权额度: ${amountOutWei} (${ethers.formatUnits(amountOutWei, 18)} tokens)`);
 
+            // 大额一次授权（2026-10-15 GROK 案：旧精确额度=卖出即耗光，每笔卖出重发 approve+等
+            // 回执 3.5-8s；flap/four.meme 同口径改 MaxUint256，首卖一笔授权此后恒充足）
             if (currentAllowance < amountOutWei) {
-                this.log('授权 TokenManager2 使用代币...');
-                const approveTx = await this._nonceGuard(() => tokenContract.approve(platformAddress, amountOutWei));
+                this.log('授权 TokenManager2 使用代币（MaxUint256 一次授权）...');
+                const approveTx = await this._nonceGuard(() => tokenContract.approve(platformAddress, ethers.MaxUint256));
                 await this._awaitReceipt(approveTx, 'approve');
                 this.log('✅ 授权完成');
             } else {
