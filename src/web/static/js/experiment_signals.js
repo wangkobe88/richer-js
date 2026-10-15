@@ -1205,10 +1205,16 @@ class ExperimentSignals {
       if (s && s.id) signalById.set(s.id, s);
     }
 
+    // 窗口校验带 ±5min 缓冲：窗口边界=窗内 ticks 边界，而断流票的止损卖出可能发生在
+    // 最后一个 tick 之后（0xc7fe 案实测晚 8.2s）——成交紧随信号且条数极少（≤几条），
+    // 轻微扩轴可接受；缓冲外仍剔除（防异常长尾记录撑开 X 轴）
+    const PAD = 5 * 60 * 1000;
+
     trades.forEach(trade => {
       const execMs = new Date(trade.executed_at || trade.created_at).getTime();
       if (!Number.isFinite(execMs)) return;
-      if (trimStart != null && trimEnd != null && (execMs < trimStart || execMs > trimEnd)) return;
+      if (trimStart != null && execMs < trimStart - PAD) return;
+      if (trimEnd != null && execMs > trimEnd + PAD) return;
 
       const isBuy = (trade.trade_direction || trade.direction) === 'buy';
       const color = isBuy ? '#16a34a' : '#b91c1c';
