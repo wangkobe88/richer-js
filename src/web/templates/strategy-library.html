@@ -72,7 +72,6 @@
                             class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium">
                         加载该实验策略腿
                     </button>
-                    <span class="text-xs text-gray-500">腿上的 cycle 数字标注自动转为 groups 表达式（cycle==N）</span>
                 </div>
                 <div id="import-legs-area" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="border border-green-200 rounded-lg p-3">
@@ -160,7 +159,6 @@
         // ============ 状态 ============
         let allItems = [];          // 列表缓存（编辑回填用）
         let formLegs = [];          // 表单腿原始 JSON（保真基底，表单字段覆盖）
-        let groupVariables = null;  // 组变量注册表（帮助单源）
 
         const $ = (id) => document.getElementById(id);
 
@@ -190,8 +188,6 @@
             for (const item of allItems) {
                 const legLines = (item.legs || []).map(l => {
                     const bits = [`P${l.priority ?? '-'}`, l.condition || '(无 condition)'];
-                    if (l.groups) bits.push(`[${l.groups}]`);
-                    else if (l.cycle != null) bits.push(`[cycle:${l.cycle}]`);
                     return bits.join(' ');
                 }).map(t => `<div class="text-xs text-gray-600 truncate" title="${escapeAttr(t)}">${escapeHtml(t)}</div>`).join('');
                 const card = document.createElement('div');
@@ -303,12 +299,6 @@
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-0.5">🏷️ groups（组路由，留空=全周期）</label>
-                            <input type="text" data-k="groups" value="${escapeAttr(leg.groups || (leg.cycle != null ? `cycle==${leg.cycle}` : ''))}"
-                                   placeholder="cycle==3"
-                                   class="w-full px-2 py-1.5 border border-indigo-200 rounded-md text-xs">
-                        </div>
-                        <div>
                             <label class="block text-xs font-medium text-gray-600 mb-0.5">卖出比例（0-1，卖腿）</label>
                             <input type="number" data-k="sellPercentage" value="${leg.sellPercentage ?? ''}" placeholder="卡牌模式留空" min="0" max="1" step="any"
                                    class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
@@ -358,7 +348,10 @@
         function collectFormLegs() {
             return [...$('lib-legs').children].map((row, i) => {
                 const merged = { ...formLegs[i] };
-                delete merged.cycle; // 已转 groups，避免双源
+                // cycle 分桶路由已删（2026-10-15）：legacy groups/cycle 字段保存时
+                // 剥离——存量库条目重存一次即净，引用侧引擎 fail-fast 不会命中
+                delete merged.cycle;
+                delete merged.groups;
                 const get = (k) => row.querySelector(`[data-k="${k}"]`);
 
                 merged.condition = get('condition').value.trim();
@@ -377,8 +370,6 @@
                     const v = get(k).value.trim();
                     if (v === '') delete merged[k]; else merged[k] = parseFloat(v);
                 }
-                const groups = get('groups').value.trim();
-                if (groups === '') delete merged.groups; else merged.groups = groups;
 
                 merged.bypassDebounce = get('bypassDebounce').checked; // 勾选才落 true
                 if (!merged.bypassDebounce) delete merged.bypassDebounce;
@@ -496,8 +487,6 @@
             }
             legs.forEach((leg, i) => {
                 const bits = [`P${leg.priority ?? '-'}`, leg.condition || '(无 condition)'];
-                if (leg.groups) bits.push(`[${leg.groups}]`);
-                else if (leg.cycle != null) bits.push(`[cycle:${leg.cycle} → groups]`);
                 const label = document.createElement('label');
                 label.className = 'flex items-start gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer';
                 label.innerHTML = `
@@ -513,10 +502,10 @@
             const legs = importLegCache[side] || [];
             const picked = [...box.querySelectorAll('input[type="checkbox"]:checked')].map(cb => legs[parseInt(cb.dataset.i)]);
             if (!picked.length) { alert('请至少勾选一条腿'); return; }
-            // cycle 数字 → groups 表达式预填（单点转换语义与 loadStrategies normalizeGroups 一致）
+            // cycle 分桶路由已删（2026-10-15）：导入时剥离 legacy groups/cycle 字段
+            // （源实验存量腿可能仍携带；带着入库/入引用会让引擎 fail-fast 拒启）
             const converted = picked.map(l => {
-                const { cycle, ...rest } = l;
-                if (rest.groups == null && cycle != null && [1, 2, 3].includes(cycle)) rest.groups = `cycle==${cycle}`;
+                const { cycle, groups, ...rest } = l;
                 return rest;
             });
             // 填充表单（覆盖式：导入即整组换入）
@@ -540,15 +529,6 @@
             return escapeHtml(s).replace(/"/g, '&quot;');
         }
 
-        // ============ 帮助：组变量注册表（单源下发） ============
-        async function loadGroupVariables() {
-            try {
-                const res = await fetch('/api/strategy-library/meta/variables');
-                const result = await res.json();
-                if (result.success) groupVariables = result.data;
-            } catch (e) { /* 帮助性质，失败静默 */ }
-        }
-
         // ============ 事件绑定 + 启动 ============
         $('btn-new').addEventListener('click', startNew);
         $('btn-cancel-form').addEventListener('click', () => $('lib-form-card').classList.add('hidden'));
@@ -566,7 +546,6 @@
         $('btn-import-sell').addEventListener('click', () => importSelectedLegs('sell'));
 
         loadList();
-        loadGroupVariables();
     </script>
 </body>
 </html>

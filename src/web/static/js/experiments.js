@@ -743,9 +743,9 @@ class ExperimentMonitor {
       }
 
       // 引擎级高级段（2026-09-28 复制保真）：表单无对应输入，创建页暂存 window
-      // 后提交时顶层透传。不带则复制件行为大变——cycle/groups 卖腿无
-      // tokenCycle.enforce 全隐、无止损双腿、TPA 买腿 fail-closed、OPB 不采集
-      if (config.tokenCycle) copyData.tokenCycle = config.tokenCycle;
+      // 后提交时顶层透传。不带则复制件行为大变——无止损双腿、TPA 买腿
+      // fail-closed、OPB 不采集（tokenCycle 段已随 cycle 分桶路由机制删除，
+      // 2026-10-15）
       if (config.stopLoss) copyData.stopLoss = config.stopLoss;
       if (config.tokenPositionAnalyzer) copyData.tokenPositionAnalyzer = config.tokenPositionAnalyzer;
       if (config.fourmemeWs) copyData.fourmemeWs = config.fourmemeWs;

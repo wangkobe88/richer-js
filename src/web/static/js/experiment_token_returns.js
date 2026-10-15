@@ -49,9 +49,6 @@ class ExperimentTokenReturns {
     this.tokenSymbolMap = new Map();
     // 代币分类（token_profiles：wash/pump_dump/high_mcap_wash/quality/high_mcap/normal/low_quality/low_activity）
     this.tokenCategoryMap = new Map();
-    // 卖信号 cycle 档位序列（token → [{ts, cycle, tps30s, gapMedianMs, strategyName}]，
-    // 数据源 strategy_signals.metadata.trendFactors——fire 精确时刻，实时/回测全覆盖）
-    this.cycleSellSignalsMap = new Map();
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -302,13 +299,10 @@ class ExperimentTokenReturns {
 
       this.showContent(true);
 
-      // 叙事/cycle 数据后置加载、到达后补渲染（2026-10-09 慢页修复：
+      // 叙事数据后置加载、到达后补渲染（2026-10-09 慢页修复：
       // 实验级全量叙事拉取在万级 token 回测源实验上要数分钟，此前硬阻塞首屏——
-      // 叙事评级列先渲染为「点击分析」、cycle 列先渲染为 '-'，数据到达即重绘）
+      // 叙事评级列先渲染为「点击分析」，数据到达即重绘）
       this.loadNarrativeData()
-        .then(() => this.applyFilterAndSort())
-        .catch(() => {});
-      this.loadCycleSignals()
         .then(() => this.applyFilterAndSort())
         .catch(() => {});
     } catch (error) {
@@ -734,9 +728,6 @@ class ExperimentTokenReturns {
         </td>
         <td class="px-2 py-2 text-center">
           ${this.renderNarrativeRating(item.tokenAddress)}
-        </td>
-        <td class="px-2 py-2 text-center">
-          ${this.renderCycleCell(item.tokenAddress)}
         </td>
         <td class="px-2 py-2 text-right">
           ${this.renderMaxChange(item.tokenAddress)}
@@ -1281,55 +1272,6 @@ class ExperimentTokenReturns {
   }
 
   /**
-   * 渲染行为周期列（各笔卖出信号 fire 时刻的 cycle 档位徽章序列）
-   * 3=🔥热 2=🌤️中 1=❄️冷 ∅=null（证据不足期/无 groups 腿如止损触发）；
-   * hover title 逐笔显示 时间/档位/tps30s/gapMedianMs/触发腿名
-   * @param {string} tokenAddress - 代币地址
-   * @returns {string} 徽章序列 HTML（无卖信号返回 '-'）
-   */
-  renderCycleCell(tokenAddress) {
-    const list = this.cycleSellSignalsMap.get(tokenAddress);
-    if (!list || list.length === 0) return '<span class="text-gray-600 text-xs">-</span>';
-    const CYCLE_CFG = {
-      3: { icon: '🔥', label: '热', cls: 'bg-red-700' },
-      2: { icon: '🌤️', label: '中', cls: 'bg-yellow-600' },
-      1: { icon: '❄️', label: '冷', cls: 'bg-blue-700' },
-    };
-    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    // 北京时间简短格式 MM-DD HH:mm（与 formatBeijingTime 同 UTC+8 口径）
-    const shortTime = (ts) => {
-      if (!ts) return '?';
-      const d = new Date(ts);
-      let h = d.getUTCHours() + 8;
-      let day = d.getUTCDate();
-      const month = d.getUTCMonth() + 1;
-      if (h >= 24) {
-        h -= 24;
-        day = new Date(Date.UTC(d.getUTCFullYear(), month - 1, day + 1)).getUTCDate();
-      }
-      const p = (n) => String(n).padStart(2, '0');
-      return `${p(month)}-${p(day)} ${p(h)}:${p(d.getUTCMinutes())}`;
-    };
-    const badges = list.map(s => {
-      const cfg = CYCLE_CFG[s.cycle];
-      return cfg
-        ? `<span class="px-1.5 py-0.5 rounded text-xs ${cfg.cls} text-white">${cfg.icon}</span>`
-        : '<span class="px-1.5 py-0.5 rounded text-xs bg-gray-700 text-white">∅</span>';
-    }).join('');
-    const lines = list.map(s => {
-      const cfg = CYCLE_CFG[s.cycle];
-      const tag = cfg ? `${cfg.icon}${cfg.label}档` : '∅无档位';
-      const tps = s.tps30s != null ? ` tps=${s.tps30s}` : '';
-      const gap = s.gapMedianMs != null ? ` gap=${s.gapMedianMs}ms` : '';
-      const leg = (s.strategyName || s.strategyId) ? ` ${esc(s.strategyName || s.strategyId)}` : '';
-      return `${shortTime(s.ts)} ${tag}${tps}${gap}${leg}`;
-    });
-    const allNull = list.every(s => s.cycle == null);
-    const note = allNull ? '\n（卖信号均无 cycle 档位：旧代码期信号或判定证据不足）' : '';
-    return `<span class="cursor-help whitespace-nowrap" title="${esc(lines.join('\n'))}${note}">${badges}</span>`;
-  }
-
-  /**
    * 渲染最高涨幅
    * @param {string} tokenAddress - 代币地址
    * @returns {string} 最高涨幅 HTML
@@ -1596,31 +1538,6 @@ class ExperimentTokenReturns {
       console.log(`加载了 ${this.narrativeDataMap.size} 条叙事分析数据`);
     } catch (error) {
       console.error('加载叙事分析数据失败:', error);
-    }
-  }
-
-  /**
-   * 加载卖出信号 cycle 档位数据（「行为周期」列数据源）
-   * 实验自身信号（回测实验不跳源实验——回测的 strategy_signals 挂回测实验名下）；
-   * 独立 try/catch（loadNarrativeData 惯例）失败不阻塞，列显示 '-'
-   */
-  async loadCycleSignals() {
-    try {
-      const res = await fetch(`/api/experiment/${this.experimentId}/cycle-signals`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result = await res.json();
-      if (!result.success || !Array.isArray(result.data)) return;
-      this.cycleSellSignalsMap.clear();
-      for (const row of result.data) {
-        if (!row.tokenAddress) continue;
-        if (!this.cycleSellSignalsMap.has(row.tokenAddress)) {
-          this.cycleSellSignalsMap.set(row.tokenAddress, []);
-        }
-        this.cycleSellSignalsMap.get(row.tokenAddress).push(row);
-      }
-      console.log(`加载了 ${result.data.length} 条卖出信号 cycle 档位数据`);
-    } catch (e) {
-      console.warn('加载卖出信号 cycle 档位失败:', e);
     }
   }
 
