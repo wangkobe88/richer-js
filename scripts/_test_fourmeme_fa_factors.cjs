@@ -464,13 +464,17 @@ function scenarioFactorKeys(FA, baselineKeys) {
     // 详见 _test_activity_window_factors.cjs）；
     // 2026-10-15 双口径 5 键（0xc7fe…7777 案：holdDuration 重定义=信号口径 + realHoldDuration
     // 物理持有 + buySignalAt/buyExecutedAt/buyExecutedPriceBnb 执行口径透传，
-    // 详见 _test_prebuy_peak_backfill.cjs；buyPriceBnb 同日补顶层映射供快照审计）
+    // 详见 _test_prebuy_peak_backfill.cjs；buyPriceBnb 同日补顶层映射供快照审计）；
+    // 2026-10-16 bundle* 6 键（同 block 首买簇捆绑检测，BITCAT 案 Phase 1 观察键，
+    // 详见 _test_bundle_cluster_factors.cjs）
     const ADDED_KEYS = [
         'gmgnUserPct',
         'actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades',
         'actTraders', 'actBuyers', 'actSellers', 'actNewTraders',
         'buySignalAt', 'buyExecutedAt', 'buyExecutedPriceBnb', 'realHoldDuration',
         'buyPriceBnb',
+        'bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
+        'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

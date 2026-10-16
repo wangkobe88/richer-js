@@ -1720,7 +1720,7 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 环里留同钱包双事件，去重是唯一序无关解。★防前视红线：禁 Date.now——now 由
      * buildFactorMap(state, asOf) 传入。空/空窗全 0（有证据零值非 null）。
      */
-    _bundleClusterFactors(state, now) {
+    _bundleClusterFactors(state, now, out) {
         const cutoff = now - this._fp.bundleWinMs;
         // 窗内首买事件 → 按钱包去重（保链序最早）
         const perWallet = new Map();
@@ -1795,6 +1795,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (agg.t >= cutoff && agg.b > maxBlkB) maxBlkB = agg.b;
         }
         const circPct = maxBlkB > 0 && state._circTokens > 0 ? maxBlkB / state._circTokens * 100 : 0;
+        // 可选簇明细（扫描脚本对拍 B 用：簇钱包名单 → GMGN bundler 地址库 precision/recall）；
+        // 引擎路径不传 out，零变化
+        if (out) {
+            out.blk = best ? best.blk : null;
+            out.wallets = rows.map(r => r.w);
+            out.windowBuyBnb = winBuyBnb;
+            out.circTokens = state._circTokens;
+        }
         return {
             bundleClusterSize: size,
             bundleClusterSharePct: Math.round(sharePct * 10) / 10,

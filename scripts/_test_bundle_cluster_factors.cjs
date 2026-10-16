@@ -334,8 +334,8 @@ console.log('I. factorParams.bundleWinMs 覆盖 + blk 缺失行');
 console.log('J. 源码口径断言（防前视/防误删防线）');
 {
   const src = read('src/services/FourMemeFactorAggregator.js');
-  check('J1 读点/裁剪点无 Date.now（防前视红线）', () => {
-    for (const name of ['_bundleClusterFactors(state, now) {', '_pruneBundleEvents(state, now) {']) {
+  check('J1 读点/裁剪点无 Date.now（防前视红线；第三参 out=扫描明细容器，引擎路径不传零变化）', () => {
+    for (const name of ['_bundleClusterFactors(state, now, out) {', '_pruneBundleEvents(state, now) {']) {
       const start = src.indexOf(name);
       assert.ok(start > 0, `${name} 未找到`);
       const end = src.indexOf('\n    }', start);
