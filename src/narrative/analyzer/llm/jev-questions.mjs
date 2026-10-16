@@ -701,6 +701,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     } : {}),
 
     // ── 11. 无背景拼写错误（原 Stage3 截断规则 2）─────────────────────
+    // C78 鲸元卷案实证：题面加「图内文字写法对照」判据后 Jev 仍答 0.13-0.27
+    // （题面改锚分不动家族），拼写对照改由 mapper 纯代码门接管
+    // （detectNameImageSpellingMismatch，jev-result-mapper.mjs）
     block_misspelling: {
       type: 'noul',
       instructions: `无背景拼写错误（misspelling without background）。

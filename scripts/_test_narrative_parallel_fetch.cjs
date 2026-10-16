@@ -30,6 +30,14 @@ function src(p) { return fs.readFileSync(path.join(ROOT, p), 'utf8'); }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
+  // C79 语料充分门 fixture：本测试锁 N2 桶并发原形状，门必须关（门开时
+  // github/justoneapi 桶会先等 twitter+门判定，A1 时序反例翻车；且会真发
+  // Jev POST 破坏零网络约定）——门的独立行为由 _test_corpus_gate.cjs 覆盖
+  const { getConfig } = await import('../src/narrative/engine/config.mjs');
+  const cfg = getConfig();
+  const savedGate = cfg.corpusGate;
+  cfg.corpusGate = { enabled: false };
+  try {
   // ═══ A. 行为级桶并发 ═══
   console.log('══ A. 平台桶并发（fetchDataSequentially 真 ESM）══');
   const dfs = await import('../src/narrative/analyzer/services/data-fetch-service.mjs');
@@ -193,20 +201,22 @@ async function main() {
   console.log('══ C. 源码口径（锁防线）══');
   {
     const dfs = src('src/narrative/analyzer/services/data-fetch-service.mjs');
-    // C1 四桶调度形状：twitter / justoneapi 串行链闭包 / github / website
-    assert(/await Promise\.allSettled\(\[\n\s*runTwitter\(\),\n\s*\(async \(\) => \{/.test(dfs)
-      && /runGithub\(\),\n\s*runWebsite\(\),\n\s*\]\);/.test(dfs),
-      'C1 四桶 allSettled 调度形状');
-    // C2 justoneapi 桶内 await 链（原全局顺序子列）
-    const chain = ['runWeibo', 'runYoutube', 'runDouyin', 'runTiktok', 'runBilibili',
-      'runBinanceSquare', 'runWeixin', 'runAmazon', 'runXiaohongshu', 'runInstagram'];
-    const chainSrc = chain.map(n => `await ${n}();`).join('\n      ');
+    // C1 四桶调度形状（C79 语料充分门版）：twitterPromise hoist → 门 promise →
+    // allSettled[twitter, justoneapi 门控闭包, github 门控闭包, website 直调]
+    assert(/const twitterPromise = runTwitter\(\);\n  const pendingSources = pendingCorpusPlatforms\(classifiedUrls\);\n  const corpusGatePromise = \(async \(\) => \{\n    if \(!isCorpusGateOn\(\) \|\| pendingSources\.length === 0\) return \{ skipped: false \};\n    await twitterPromise\.catch\(\(\) => \{\}\);\n    if \(!shouldAskCorpusGate\(results\.twitterInfo, pendingSources\)\) return \{ skipped: false \};/.test(dfs)
+      && /await Promise\.allSettled\(\[\n\s*twitterPromise,\n\s*\(async \(\) => \{/.test(dfs)
+      && /const gate = await corpusGatePromise;\n      if \(gate\.skipped\) return;\n      await runGithub\(\);\n\s*\}\)\(\),\n\s*runWebsite\(\),\n\s*\]\);/.test(dfs),
+      'C1 四桶 allSettled 调度形状（twitterPromise hoist + C79 语料充分门双闭包）');
+    // C2 justoneapi 桶内 await 链（原全局顺序子列；门跳过分支在链前）
+    const chain = ['runWeibo()', 'runYoutube()', 'runDouyin()', 'runTiktok()', 'runBilibili()',
+      'runBinanceSquare()', 'runWeixin()', 'runAmazon()', 'runXiaohongshu()', 'runInstagram()'];
+    const chainSrc = chain.map(n => `await ${n};`).join('\n      ');
     assert(dfs.includes(chainSrc), 'C2 justoneapi 桶内 10 平台 await 串行链（桶内序=原全局序）');
-    // C3 13 段函数定义
-    const segs = ['Twitter', 'Weibo', 'Github', 'Youtube', 'Douyin', 'Tiktok', 'Bilibili',
+    // C3 13 段函数定义（C79 后 runDouyin 恢复无参，门上移编排层）
+    const segs = ['Twitter', 'Weibo', 'Douyin', 'Github', 'Youtube', 'Tiktok', 'Bilibili',
       'BinanceSquare', 'Weixin', 'Amazon', 'Xiaohongshu', 'Instagram', 'Website'];
     assert(segs.every(n => new RegExp(`^  const run${n} = async \\(\\) => \\{`, 'm').test(dfs)),
-      'C3 13 段函数定义齐全');
+      'C3 13 段空参函数定义齐全');
     // C4 IPFS∥GMGN 前缀并行（#2）
     assert(/const \[metadata, gmgnSocials\] = await Promise\.all\(\[\n\s*metaUrl \? timing\.wrap\('ipfs'/.test(dfs)
       && dfs.includes("timing.wrap('gmgn'"), 'C4 IPFS∥GMGN 前缀同发');
@@ -228,7 +238,7 @@ async function main() {
 
     const na = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
     // 2026-10-13 叙事提速第二批（1B）后解构行尾新增 visionPrefetch 键
-    assert(na.includes('skipIntermediateSave = false, visionPrefetch = false } = options'),
+    assert(na.includes('skipIntermediateSave = false, visionPrefetch = false,'),
       'C8a analyze 解构 skipIntermediateSave + visionPrefetch（1B 穿透链）');
     assert(/if \(!skipIntermediateSave\) \{\s*\n\s*await timing\.wrap\('dbSave\.intermediate'/.test(na),
       'C8b 中段 save 条件化');
@@ -237,6 +247,9 @@ async function main() {
       'C8c fallback 早退恰补一次同形状 save（skip 语境字段仍落库）');
     const ndc = src('src/trading-engine/pre-check/NarrativeDirectCaller.js');
     assert(ndc.includes('skipIntermediateSave: true,'), 'C8d 直调传 true');
+  }
+  } finally {
+    cfg.corpusGate = savedGate;
   }
 
   console.log(`\n${fail === 0 ? '✅ 全部通过' : '❌ 有失败'}：${pass} passed, ${fail} failed`);

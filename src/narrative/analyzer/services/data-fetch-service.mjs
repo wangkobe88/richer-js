@@ -14,6 +14,7 @@ import { YoutubeFetcher } from '../../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../../utils/douyin-fetcher.mjs';
 import { isHighInfluenceAccount } from '../prompts/account/account-backgrounds.mjs';
 import { fetchTikTokVideoInfo, fetchTikTokUserProfile } from '../../utils/tiktok-fetcher.mjs';
+import { isCorpusGateOn, pendingCorpusPlatforms, shouldAskCorpusGate, runCorpusGate } from './corpus-gate-service.mjs';
 
 // TikTok 影响力等级函数（从原始 NarrativeAnalyzer.mjs 中提取）
 function getTikTokInfluenceLevel(tiktokInfo) {
@@ -887,9 +888,39 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   //   websites：目标网站各异（互不同域天然并发）
   // allSettled：单桶异常不拖死其它桶（各段自带 recordDataFetch 吞错，与串行版
   // 「单平台失败继续下一段」的鲁棒性对齐）
+  // C79：twitterPromise 提取（runTwitter 仍第一个发起，调用顺序 bit 一致；hoist
+  // 与 allSettled 之间无 await = 同 tick 挂 handler，无 unhandled rejection 窗口）
+  // ——语料充分门判「现有语料够不够」需 twitter 主语料。
+  // ── C79 语料充分门（2026-10-16 用户裁定，照 C72 vision gate 模式泛化）──
+  // twitter 主语料等齐后判一次「其余待抓平台语料还需要吗」：sufficient 则
+  // justoneapi 串行桶 + github 桶全部待抓段整段跳过（results.<x>Info 保持
+  // null = 无该平台 URL / 抓取失败同形状，下游零改动；dataFetchResults 落
+  // additive skipped='corpus_gate' 标记）。门关 / 无待抓平台 / twitter 失败
+  // → 立即 resolve {skipped:false}，两桶照原样并发（N2 形状 bit 一致）。
+  // twitterInfo 资格判定与 partial state 的 {...results} 展开都必须在 await
+  // twitterPromise 之后——runTwitter 完成时才原地写 results.twitterInfo，
+  // 提前判定/展开会拿到 null 永不更新。
+  const twitterPromise = runTwitter();
+  const pendingSources = pendingCorpusPlatforms(classifiedUrls);
+  const corpusGatePromise = (async () => {
+    if (!isCorpusGateOn() || pendingSources.length === 0) return { skipped: false };
+    await twitterPromise.catch(() => {});
+    if (!shouldAskCorpusGate(results.twitterInfo, pendingSources)) return { skipped: false };
+    const run = () => runCorpusGate(tokenData, { ...results, extractedInfo }, { pending: pendingSources });
+    return timing ? timing.wrap('fetch.corpusGate', run) : run();
+  })();
   await Promise.allSettled([
-    runTwitter(),
+    twitterPromise,
     (async () => {
+      const gate = await corpusGatePromise;
+      if (gate.skipped) {
+        const ts = new Date().toISOString();
+        for (const p of pendingSources) {
+          dataFetchResults[p.platform] = { success: true, url: p.url,
+            started_at: ts, finished_at: ts, error: null, skipped: 'corpus_gate' };
+        }
+        return;
+      }
       await runWeibo();
       await runYoutube();
       await runDouyin();
@@ -901,7 +932,11 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       await runXiaohongshu();
       await runInstagram();
     })(),
-    runGithub(),
+    (async () => {
+      const gate = await corpusGatePromise;
+      if (gate.skipped) return;
+      await runGithub();
+    })(),
     runWebsite(),
   ]);
 

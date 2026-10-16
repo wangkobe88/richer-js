@@ -475,6 +475,73 @@ function detectPlatformOfficial(twitterInfo) {
 }
 
 /**
+ * 图文名不符拼写门（纯代码，无 LLM）——C78 鲸元卷案（2026-10-16 用户裁定
+ * 「拼写错误这个肯定要阻断（除非是引申等等，但这里就是拼写错误了）」）：
+ * 币名「鲸元卷」0xe0cf0905…7777 的配图图内文字写的是正字「鲸元券」（vision
+ * img-v3 visible_text 逐字转写多次出现），全图无一「卷」字——名称连自己的
+ * 宣告图都没抄对，只能是无意抄写错误。Jev 探针实证拦不住：block_misspelling
+ * 线上答 0.28，题面加「图内文字写法对照」判据后重放反降 0.13（题面改锚分
+ * 不动家族第三实证）→ 判据改由代码接管（C28 cashtag 改道同款先例）。
+ *
+ * 判据（substitution 一字差对照，600 票历史扫描后收紧三道）：
+ *   ① 币名含 CJK（Han/Hangul/Kana）且长度 ≥3——拉丁名不判（3-4 字母名与
+ *     图内任意词一字符差全是 OCR 噪声：CTS/ces、RAM/rom 实测族；英文真实
+ *     case 未出现，出现后再定参数）
+ *   ② 图内文字存在与币名等长、恰一位不同的**独立段**（非子串滑窗——语流
+ *     内部黏连如「中国的龙」不产生段级命中），且全文出现 ≥2 次（核心名称
+ *     主体 vs 一次性语料语境词：中国龙↔「中国的」单次出现实测不命中）
+ *   ③ 币名整体不在图内文字出现（出现了=名字在图内被使用过——有意变形/图内
+ *     双写法都不拦，天然编码用户例外口径「除非是引申等等」：有意谐音/引申
+ *     通常全语料一致地用变形写法，图内也是「卷」→ 不触发）
+ * 分段口径=非字母数字全当分隔符（标点黏连是最大噪声源：neon》/调教”/航小-
+ * 实测族），故「“鲸元券”」独立成段 ✓。
+ * 图内文字源=twitterInfo.image_analysis 整体 stringify（结构无关：visible_text/
+ * key_elements/description 任意形状都覆盖）；无 image_analysis（无图票/C72 门跳过
+ * 剥除）→ 无从对照不触发（fail-safe 偏拦方向与 C72 一致）。
+ *
+ * 残余误伤面声明（600 票扫描实测，收紧后 mid/high 误伤≈0）：同角色双译写
+ * （爱丽丝/艾丽丝族）与 vision 形近转错（땅/당）若独立段 ≥2 次仍会命中——
+ * 偏拦方向（fail-safe），审计字段 spellingMismatch 可追溯；转错成币名同字则
+ * 币名出现 → 不触发（安全漂移）。换位形状（pepe/peep 两位置差）刻意不覆盖。
+ *
+ * @returns {{hit: boolean, variant: string|null}} hit=命中拦截；variant=图内命中的
+ *   近似写法（审计用）
+ */
+export function detectNameImageSpellingMismatch(tokenData, twitterInfo) {
+  const ia = twitterInfo?.image_analysis;
+  if (!ia) return { hit: false, variant: null };
+  const name = String(tokenData?.name || tokenData?.raw_api_data?.name || '').toLowerCase().replace(/\s+/g, '');
+  // ① 仅 CJK 名（Han/Hangul/Kana），长度 ≥3
+  if (name.length < 3 || !/[一-鿿가-힯぀-ヿ]/.test(name)) return { hit: false, variant: null };
+
+  // 图内文字全文（结构无关）；小写 + 非字母数字全当分隔符（标点黏连防误伤）
+  let fullText;
+  try { fullText = JSON.stringify(ia); } catch { return { hit: false, variant: null }; }
+  if (!fullText || fullText.length < name.length) return { hit: false, variant: null };
+  const tokens = fullText.toLowerCase().split(/[^0-9a-z一-鿿가-힯぀-ヿ]+/).filter(Boolean);
+
+  // ③ 币名整体在图内任一段出现（段内子串）→ 名字被图内使用过，不拦
+  for (const t of tokens) {
+    if (t.includes(name)) return { hit: false, variant: null };
+  }
+  // ② 等长独立段恰一位不同（substitution 距离 1）且全文出现 ≥2 次
+  let best = null, bestCount = 0;
+  const counts = new Map();
+  for (const t of tokens) {
+    if (t.length !== name.length) continue;
+    let diff = 0;
+    for (let j = 0; j < name.length; j++) {
+      if (t[j] !== name[j] && ++diff > 1) break;
+    }
+    if (diff === 1) {
+      counts.set(t, (counts.get(t) || 0) + 1);
+      if (counts.get(t) > bestCount) { bestCount = counts.get(t); best = t; }
+    }
+  }
+  return bestCount >= 2 ? { hit: true, variant: best } : { hit: false, variant: null };
+}
+
+/**
  * 产品实体接纳门（J1.27，2026-10-03 用户裁定，C55 华为麒麟案族——评3 161 票
  * 东西方归类发现「中国公司产品发布」簇 ~15 票几乎全亏：麒麟 0x967e4a52…7777
  * 实测 mag S71%/dim2 五档84% =「华为」的世界级影响力整体转移给「麒麟芯片」产品
@@ -1046,6 +1113,8 @@ export function mapStandardAnswers(answers, context) {
   const quality = qualityFrom(answers, symbol);
   const brandHijackP = includeBrandHijack ? (answers.brand_hijack?.noul ?? 0) : 0;
   const misspellingP = answers.block_misspelling?.noul ?? 0;
+  // C78 图文名不符拼写门（纯代码判据，Jev 探针 0.13-0.28 拦不住的铁证形状）
+  const spellingMismatch = detectNameImageSpellingMismatch(tokenData, twitterInfo);
 
   // J1.24 戏谑关联豁免（C40 Binance Inu 案 0xcaf66eb2…7777，2026-10-01 用户裁定
   // 「不是劫持，而是web3用户特有的戏谑/趣味性关联。当然它也必须得是当前的热门
@@ -1089,9 +1158,11 @@ export function mapStandardAnswers(answers, context) {
   if (brandHijackP >= 0.5 && !punExempt) {
     stage3Blocked = true;
     stage3BlockReason = '品牌劫持';
-  } else if (misspellingP >= 0.5) {
+  } else if (misspellingP >= 0.5 || spellingMismatch.hit) {
     stage3Blocked = true;
-    stage3BlockReason = '无背景拼写错误';
+    stage3BlockReason = spellingMismatch.hit
+      ? `图文名不符（图内“${spellingMismatch.variant}”≠币名，无背景拼写错误）`
+      : '无背景拼写错误';
   } else if (relevance.score <= 10 && !punExempt && !imgNameExempt) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
@@ -1146,6 +1217,10 @@ export function mapStandardAnswers(answers, context) {
             // J1.30 审计标记：名图一致豁免命中详情（关联档位/一致性质量可追溯，
             // brand_hijack 同款「命中才落」模式——未触发不落键）
             imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP) } : null,
+            // C78 图文名不符拼写门审计（命中才落：图内近似写法可追溯）
+            spellingMismatch: spellingMismatch.hit
+              ? { name: String(tokenData?.name || tokenData?.raw_api_data?.name || ''), variant: spellingMismatch.variant }
+              : null,
             misspellingP,
             probabilities: {
               relevance_type: answers.relevance_type?.probabilities,

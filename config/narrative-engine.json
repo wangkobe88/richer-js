@@ -38,6 +38,10 @@
   "websiteFetch": {
     "enabled": false
   },
+  "corpusGate": {
+    "enabled": true,
+    "minSufficientProb": 0.6
+  },
   "searchFallback": {
     "enabled": false,
     "corpusMode": "empty",

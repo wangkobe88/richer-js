@@ -68,7 +68,40 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C77 空语料推特搜索兜底（C73 提案①落地）——apidance SearchTimeline 事件量级证据 + `no_public_info` 旁路（2026-10-16，默认关待部署）★
+### C79 偷窥狂案 0x57efcdb41b8107fd6b6db8d06591d67274e27777——语料充分门（非主语料外部抓取前置 Jev 预判，CG1.0）：twitter 等齐后一次判「其余待抓平台还需要吗」（2026-10-16 用户裁定「跟之前设置的『需不需要走图片分析流程』一样，我觉得如果对叙事理解已经没问题了，也就不需要再调用抖音」+ 当日泛化裁定「不仅仅是抖音的调用，很多外部资源的调用都是类似思路，就是如果对叙事的理解已经不需要其它信息补充，那就不用去取了」）★
+
+- **现象（延迟解剖，非评级错误）**：live v19 fire→成交 7.54s 中叙事直调占 5.35s，其中 **douyin fetch 4.37s（82%）**是买腿关键路径最大单点（DouyinFetcher 走 JustOneAPI，182 当日 6 次实测 2.8-4.4s 全在直调链路，worker 侧零调用）。票本身终局 -9.52%（买点/卖点归因另案：fire 卡 holderTrendSlope、卖腿 debounce 差 3.7s——本 case 只治外部抓取耗时）。当日先实现 douyin 专属门（D1.0），用户随即泛化裁定推广到全部非主语料外部抓取——**同日重构为语料充分门（corpusGate，CG1.0），douyin 专属版未上线即被替换，不留双机制**。
+- **机制（照 C72 vision gate 模式，CG1.0 题集）**：`fetchDataSequentially` 编排层 hoist `twitterPromise` 后构造 `corpusGatePromise`——**twitter 主语料等齐后 1 题 Choice `corpus_gate_sufficiency` 判「其余待抓平台语料还需要吗」**，sufficient 且 p≥0.6 则 justoneapi 串行桶（weibo/youtube/douyin/tiktok/bilibili/binanceSquare/weixin/amazon/xiaohongshu/instagram）+ github 桶**全部待抓段整段跳过**（各 `results.<x>Info` 保持 null=无该平台 URL/抓取失败同形状，下游零改动）。题面锚定「未抓内容会不会**改变判定**」非「有没有用」（G1.0 同款锚法）；need_fetch 三判据：①叙事主体疑在未抓平台原生（**中文梗源头常在抖音/微博、tech 盘常吃 github 仓库证据**）②币名指代可能只在视频标题/创作者名/图内文字/仓库文档③推文没说清指代。待抓平台清单+首 URL 作 `[UNFETCHED SOURCES]` 附加段进 state 末尾（Jev 平台敏感地整体判）。
+- **泛化架构裁定（一次门判全部待抓平台，非 per-platform 门）**：JevClient 最坏 3×30s+退避≈105s，per-platform 门会把 insufficient 票拖成 N 次门调用（串行桶 10 平台）——**清单进 state 一次整体判**是成本下限；全或无语义也贴用户原话（「不需要**其它信息**补充」是整体判断）。多数票待抓平台 ≤2 个，全或无与 per-platform 实际差异小。
+- **门管清单口径**：twitter 刻意不在（判据来源/主语料，不可跳）；**websites 刻意不在**（`websiteFetch.enabled` 独立开关=显式 opt-in，尊重显式意愿，且默认关）；telegram/discord 无抓取段不计。**资格判定=门开+存在待抓平台+twitterInfo 非空**（account 型也算；纯非 twitter 票不问门直接抓——主语料缺席无从判「已足够」；twitter 抓取失败同 fail-safe 照抓）。
+- **twitter 主语料依赖（与 C72 的结构差异①）**：挂点在 fetch 编排层而非 analyzer 主链，N2 四桶并行下门判定时 twitter 未完——`corpusGatePromise` 内先 `await twitterPromise.catch(()=>{})` 再判。**`isCorpusGateOn()`+待抓非空守卫包住 twitter await，门关/无待抓=零等待零行为变化**（桶并发形状 bit 一致）。**陷阱①（单测锁定）：twitterInfo 资格判定与 partial state 的 `{...results}` 展开都必须在 await 之后**——runTwitter 完成时才原地写 `results.twitterInfo`，提前判定/展开会拿到 null 永不更新。
+- **外层 race 2s（结构差异②）**：JevClient 内部重试最坏 ≈105s，换的是 4.4s 级抓取段——超时尾部不可接受，`runCorpusGate` 内 `Promise.race` 2s 上限（服务内常量非配置键：安全界不是校准旋钮，单测可经 `options.gateTimeoutMs` 注入）；超时/失败→`{skipped:false}` fail-safe 照抓，飞行中的门调用自然作废（单 POST 无副作用）。
+- **方向安全性（对齐 C72 裁定）**：误 sufficient→待抓段缺席→证据少载体最坏评级偏 low→**偏拦**（损失是错过票不是买入风险）；误 need_fetch/Jev 失败/超时→照抓原行为（多付 ≤2s）。
+- **已知边界**：①跳过使消费对应语料的 precheck 规则静默（如规则 3.5.6 douyin user_profile 粉丝数）+binanceCorpus 豁免链（跳过=币安广场语料缺席=豁免判不到）——全偏拦方向；②insufficient 票 justoneapi/github 桶多付 twitter await+门调用（偷窥狂口径 ~0.9s；github 桶原本与 twitter 并行，现在被门串到 twitter 之后——N2 桶间并行的局部让渡，墙钟由 max 桶主导影响有限）；③跳过票不写各平台外部缓存（90/30 天 TTL）——提速与缓存预热不可兼得，接受；④prestage 共用 fetchAllData：prestage state 不消费 douyinInfo，github 缺席对产品盘 prestage 的影响=偏拦（sufficient 判定本身就含「tech 盘常吃 github 证据」反向判据）。
+- **延迟收支（偷窥狂口径）**：sufficient 时 fetch 相 ≈0.93s vs 原 4.37s（**省 ~3.4s**，门调用 ~0.4s+twitter 0.53s 并行重叠）；多平台票（weibo+douyin+weixin）跳过收益更大；insufficient ~5.3s；门失败上界 +2s。
+- **审计**：timing 段 `fetch.corpusGate`（跳过时无 `fetch.<platform>` 段，镜像 C72「跳过时无 vision 段」口径）+ 日志 `[CorpusGate] 门判定=… p=… Xms → 跳过待抓语料[weibo,douyin]/照抓待抓语料 v=CG1.0` + `dataFetchResults.<platform>.skipped='corpus_gate'`（additive，无消费方，事后可区分「门跳过 vs 无 URL vs 抓取失败」）。
+- **改动面**：新 `llm/jev-corpusgate-questions.mjs`（CG1.0）+ 新 `services/corpus-gate-service.mjs`（`pendingCorpusPlatforms`/`isCorpusGateOn`/`shouldAskCorpusGate`/`runCorpusGate`）+ `data-fetch-service.mjs` 编排层接线（`corpusGatePromise` hoist+两桶闭包门控+跳过标记循环；`runDouyin` 恢复无参原形状）+ `config/narrative-engine.json` 顶层 `"corpusGate": {"enabled": true, "minSufficientProb": 0.6}`（默认开=部署即生效；worker/直调 config 同源同时生效；race 2s 是安全界非配置键）。
+- **单测**：`scripts/_test_corpus_gate.cjs`（54 断言零 DB 零网络）：A 纯函数/B 服务行为（state 含主语料+[UNFETCHED SOURCES] 附加段/4xx fail-safe/race 上界/options.config 注入）/C 资格矩阵（清单剔 twitter/websites/telegram）/D 源码口径锁（陷阱①/D11 douyin 专属门文件已删防双机制回流）/E 端到端（fetchDataSequentially 级类静态打桩：sufficient 三平台桩零调用+跳过标记+timing 门段无抓取段/need_fetch 照抓/门关不等 twitter 时序反证/慢 twitter 门后置/github 待跳/websites-only 不问门/门挂起 2s race 照抓/twitter 失败照抓/门 4xx 照抓）。`_test_narrative_parallel_fetch.cjs` A 段 fixture 关门（N2 并发原形状锁定+防真 Jev POST）+ C1/C2/C3 源码锁随形状升级（+顺手修 C8a 存量漂移：C70 加 invalidateAccountCorpus 键时锁未跟上）。
+- **部署**：182 git pull+单测回归 → 重启叙事 worker+实验进程（双进程吃 configCache；重启前持仓确认规程）→ 观察 24-48h CorpusGate 跳过率与 timing 分布 → 校准 minSufficientProb。
+
+### C78 鲸元卷案 0xe0cf0905310fc63cd8192513883d7426fc1e7777——功能性补偿券过 meme 名门（rating 2 / 66.31 贴线 60）：J1.27 产品实体切分未覆盖 referent_memeability + 假叙事账号黑名单（2026-10-16 用户裁定「鲸元券不能当 meme 名字，币安发的才行；名字还错了（鲸元卷）」）★
+
+- **现象**：v19 首亏票 -28.6%（交易侧结构另案：as-of-fire 同块等额簇占买量 82%，auto-memory `equal-amt-cluster-jingyuanjuan-case`）。主推 @in927772（1869 粉/0 赞/0 转，bio「SOL、BSC、Base、Robinhood 全链建设玩家」）lag 13s：「？？？DeepSeek 的 Token 货币？DeepSeek 官方给大家的补偿通知」+3 图。vision 逐字转写假券全貌（手绘「鲸元**券**」面额 10,000,000、反向乱码 'biegleew indnse mep'、宣传语「宕机 5 小时，DeepSeek 给钱啦！」、底部署名机器之心 1047）——蹭 2026-10-15 DeepSeek 真宕机补偿事件；**token 名还写错一字：鲸元卷 ≠ 鲸元券**。
+- **用户双裁定（定调，推翻首轮「冒充官方轴」提案）**：① **叙事描述一律当真——真伪不可验证是基本原则**，分析层不做信源真伪/冒充判定（首轮 fake_official 题面提案作废）；② **给过假叙事的账号事后拉黑**（罕见路径）：`config/default.json → narrative.twitterBlacklist`（precheck 硬 low，ruleName='blacklist'，文案即「该账号专门制造虚假叙事」，gampsito 先例）。@in927772 候选（DeepSeek 事后可验证未发币）待确认入册。
+- **探针级解剖（用户轴=「鲸元券能不能当 meme 名」）**：Jev 其实**认对了主体**——`subject_entity=product_functional`（0.38 argmax）= 功能性产品（补偿券）；但下游三探针全部失守：
+  - **`referent_memeability=3.48`（峰在 4 档 0.58）**——J1.28 的 1 分档 legend 就是「严肃对象/事务性名称——机构日常事务、普通公司/组织名」，补偿券 100% 落此形状；Jev 被手绘荒诞假券的讽刺艺术抬到 4 档。**锚定失守**（「题面改锚分不动」家族——修法必须是 mapper 代码侧门）。
+  - **`block_misspelling=0.28`（noul）**——鲸元卷≠鲸元券一字差只答 0.28；quality 已扣（reasonability 1.32/spelling 2.53 → quality 14.85 低分）但权重不足以翻。
+  - **`web3_fit=strong_fit 0.97`**——J1.27 题面边界「纯功能型产品不高于 marginal」彻底失守（产品簇预期 sf+f 19-60%，此票 100%）；J1.27 接纳门方向是「fit 低才拦」，探针被「有人想买」污染 → 门没开。
+  - **连锁放大**：mem 3.48≥3 恰好满足 C59 图载体豁免第三条件（+name_image_consistency same_entity 0.88）→ relevance 15 不被截断——mem 虚高不只放过 J1.28 门，还放大图证据信任。stage2 60.76=事件 22（C 档）+传播 23.76+时效 15（事件真新鲜）→ 66.31 贴线过 60。
+- **修复终局（2026-10-16 用户第二轮双裁定）**：① **mem 钳制不落地**——「它理解这是个荒诞事件，我觉得也有道理，可以先不改」（Jev 被手绘假券荒诞讽刺感抬 4 档被判可接受，荒诞事件本身可以当梗）；② **拼写错误必须阻断**——「这个肯定要阻断（除非是引申等等，但这里就是拼写错误了）」→ **图文名不符拼写门已落地**：
+  - 先试题面改（block_misspelling 加「图内文字写法对照」判据）+ 本票线上 state 逐字重放 → **实证失败**：misspelling 0.270 → 0.130 反降（「题面改锚分不动」家族第三实证）→ 题面回滚 J1.30 零漂移，判据改代码接管（C28 cashtag 改道同款先例）
+  - **`detectNameImageSpellingMismatch`**（jev-result-mapper.mjs 纯函数，stage3 截断 `misspellingP >= 0.5 || spellingMismatch.hit` 双臂）：币名 CJK（Han/Hangul/Kana）≥3 字 + 图内文字存在等长独立段恰一位不同（substitution-1）且全文 ≥2 次 + 币名整体不在图内（名字被图内使用过=有意变形/双写法不拦——**天然编码「除非是引申」例外口径**：有意变形全语料一致，图内也是「卷」不触发）。图内文字源=twitterInfo.image_analysis stringify（结构无关，visible_text/key_elements 全覆盖）；C72 门跳过已剥 image_analysis → 无从对照不触发（fail-safe 偏拦）。审计 stage3.jev.spellingMismatch {name, variant} 命中才落
+  - **误伤面两轮扫描**（600+ 票只读）：初版 30 命中暴露三噪声源——标点黏连（neon》/调教”）、短拉丁 OCR（CTS/ces、RAM/rom）、语流语境词（中国龙↔「中国的」）→ 收紧（非字母数字全当分隔符/拉丁名不判/独立段+≥2 次）→ 终版 646 票 **5 命中**：鲸元卷（本案）+ 萌宝特攻队（图内「特工队」≠币名「特攻队」，真拼写错误，正确命中）+ 오케어（真不一致）+ 喵喵瞄/우땅이（2 票 high 疑 vision 形近转写，偏拦方向残余误伤 ≈0.3%）
+  - 单测 `_test_name_image_spelling_mismatch`（24 项：事故现场反证/例外口径/独立段噪声三源/原门共存/源码锁定）；换位形状（pepe/peep）与 2 字名刻意不覆盖，真实 case 再扩
+- **@in927772 黑名单候选**（假叙事账号：宣称 DeepSeek 官方补偿币，事后可验证未发币）→ `config/default.json → narrative.twitterBlacklist`，**待用户确认入册**。
+- **关联证据（同票全景）**：GMGN issuerTokenCount 54（观测键，用户裁定不进拦截）；bundlerRatio 64.3 过 75 门；…7777 尾号；首窗 9 秒 shove（oneShot 87.5%/span 9s）+ fire→成交滑 -20.8%。
+
+
 
 - **机制**：token 语料为空（classifiedUrls 各桶全空 + twitterInfo null，FTR `0x109afc17…7777` 形状）→ 泳道 4 并发按 token 全名 + `since:<创建-7d>` 搜推特（Top+Latest 各 1 调，timeout 5s）；证据=`[TWITTER_SEARCH]` 独立段进 state header（**不占四区配额**，段内显式声明「非本代币宣告语料，代币与事件关联需自行判断」）；双达标（去重剔转推 ≥3 条 && 单推最大互动 fav+2×rt ≥200）→ **旁路 `no_public_info` 让 Jev 用真实事件量级判定**。CA 直搜 404 死（C73 冒烟），主用例是事件量级证据非宣告推救援。
 - **裁定①旁路行 `pre_check_result=null`（不是保留 low）**——四消费方反证：保留 low 则 ①resolveFinalRating 阶段优先级遮蔽 Jev 结论（旁路白做）②直调 enrichSocialByGmgn 每次穿透重析（烧配额）③PrecheckFailRetryService 无限重试已终态结论 ④preloadCache 永久排除（回测退化）。**未达阈值/搜索失败/零结果则 ruleName 原样保留**（1800s 重试域保真——重析再搜，晚到的推文/涨上去的互动能翻案）+ additive `details.searchEvidence` 摘要（观测为什么搜索没救它）。
