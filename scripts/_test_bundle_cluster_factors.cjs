@@ -413,18 +413,91 @@ console.log('K. StrategyEngine 装载 + ConditionEvaluator 求值（纯读无互
   });
 }
 
+// ═══════════════ M. TOP1 持仓集中度（2026-10-16 用户裁定门键）═══════════════
+console.log('M. top1HolderCircPct（TOP1 净持仓 ÷ 流通）');
+{
+  // M1 BITCAT 场景：5 bundler 等额各 24.986M → top1 = 24.986M / 197.36M ≈ 12.66
+  // （捆绑团伙刻意分散持仓时 top1 不高——本键拦的是囤筹集中，团伙盘靠 share 门）
+  {
+    const fa = newFA();
+    for (const tk of bitcatTicks()) fa.processTick(tk, {});
+    const f = fa.buildFactorMap('0xtoken', T0 + 24000);
+    check('M1 BITCAT top1 ≈ 12.66（等额簇单钱包 24.986M/流通 197.36M）', () =>
+      assert.ok(Math.abs(f.top1HolderCircPct - 12.66) < 0.05, `got ${f.top1HolderCircPct}`));
+  }
+  // M2 巨鲸囤筹：wX 独买 80M、wY/wZ 各 10M → top1=80（单巨鲸垄断筹码）
+  {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wX', block_number: 50, log_index: 1, bnb_amount: 8, token_amount: 80 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wY', block_number: 51, log_index: 1, bnb_amount: 1, token_amount: 10 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wZ', block_number: 52, log_index: 1, bnb_amount: 1, token_amount: 10 * M }), {});
+    check('M2 巨鲸囤筹 top1 = 80（80M/100M）', () =>
+      assert.ok(Math.abs(fa.buildFactorMap('0xtoken', T0 + 5000).top1HolderCircPct - 80) < 1e-9));
+    // wX 清仓 → 负净持仓出局，top1 降为 wY/wZ 的 10M/30M
+    fa.processTick(mkTick({ timestamp: T0 + 8000, trader_address: 'wX', block_number: 60, log_index: 1,
+      trade_type: 'sell', bnb_amount: 8, token_amount: 80 * M }), {});
+    check('M3 巨鲸清仓后 top1 = 50（wX 归零出局；流通同步缩至 20M，10M/20M——分母随卖腿收缩是口径特性）', () =>
+      assert.ok(Math.abs(fa.buildFactorMap('0xtoken', T0 + 9000).top1HolderCircPct - 50) < 0.05));
+  }
+  // M4 空 state / 全卖光 → 0（有证据零值非 null；流通 0 防除零）
+  {
+    const fa = newFA();
+    check('M4 无 tick → top1 = 0（流通 0 防除零）', () =>
+      assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 6000).top1HolderCircPct, 0));
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wX', block_number: 50, log_index: 1,
+      bnb_amount: 1, token_amount: 10 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wX', block_number: 51, log_index: 1,
+      trade_type: 'sell', bnb_amount: 1, token_amount: 10 * M }), {});
+    check('M5 全卖光流通=0 → top1 = 0（Σ买−Σ卖=0 防除零）', () =>
+      assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 6000).top1HolderCircPct, 0));
+  }
+  // M6 乱序 parity：巨鲸场景逆序喂（_walletNetTokens 加减法交换律 + max 序无关）
+  {
+    const faA = newFA(), faB = newFA();
+    const tks = [
+      mkTick({ timestamp: T0 + 1000, trader_address: 'wX', block_number: 50, log_index: 1, bnb_amount: 8, token_amount: 80 * M }),
+      mkTick({ timestamp: T0 + 2000, trader_address: 'wY', block_number: 51, log_index: 1, bnb_amount: 1, token_amount: 10 * M }),
+      mkTick({ timestamp: T0 + 3000, trader_address: 'wX', block_number: 52, log_index: 1, trade_type: 'sell', bnb_amount: 3, token_amount: 30 * M }),
+    ];
+    for (const tk of tks) faA.processTick(tk, {});
+    for (const tk of [tks[2], tks[1], tks[0]]) faB.processTick(tk, {});
+    const a = faA.buildFactorMap('0xtoken', T0 + 5000), b = faB.buildFactorMap('0xtoken', T0 + 5000);
+    check('M6 逆序喂 top1 bit 一致（50/60 净持仓，交换律）', () =>
+      assert.strictEqual(b.top1HolderCircPct, a.top1HolderCircPct));
+  }
+  // M7 探针与白名单
+  {
+    const fa = newFA();
+    const keys = fa.getFactorKeys();
+    check('M7 getFactorKeys 含 top1HolderCircPct（出键自动性）', () =>
+      assert.ok(keys.has('top1HolderCircPct')));
+    const { getAvailableFactorIds } = require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
+    check('M8 getAvailableFactorIds 含键（引擎装载）', () =>
+      assert.ok(getAvailableFactorIds().has('top1HolderCircPct')));
+    const fb = read('src/trading-engine/core/FactorBuilder.js');
+    check('M9 FactorBuilder 快照白名单含键（内存环不可重算，不落库即丢）', () =>
+      assert.ok(fb.includes('factorResults.top1HolderCircPct ?? null')));
+    const src = read('src/services/FourMemeFactorAggregator.js');
+    check('M10 字面量与读段在场（防误删；读段单趟扫 max 纯读）', () => {
+      assert.ok(src.includes('top1HolderCircPct,'));
+      assert.ok(/let _top1Net = 0;\s*\n\s*for \(const v of state\._walletNetTokens\.values\(\)\) if \(v > _top1Net\) _top1Net = v;/.test(src));
+    });
+  }
+}
+
 // ═══════════════ L. FactorBuilder 快照透传 ═══════════════
 console.log('L. FactorBuilder 快照透传');
 {
   const { buildFactorValuesForTimeSeries } =
     require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
   const KEYS = ['bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
-    'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct'];
+    'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct', 'top1HolderCircPct'];
   const sample = {
     bundleClusterSize: 5, bundleClusterSharePct: 52.6, bundleClusterAmountRatio: 1.0,
     bundleClusterEvenGap: 1, bundleClusterSameTrader: 100, maxBlockBuyCircPct: 63.3,
+    top1HolderCircPct: 12.66,
   };
-  check('L1 signal 快照 6 键透传', () => {
+  check('L1 signal 快照 7 键透传（6 bundle + top1）', () => {
     const snap = buildFactorValuesForTimeSeries(sample);
     for (const k of KEYS) assert.strictEqual(snap[k], sample[k], k);
   });

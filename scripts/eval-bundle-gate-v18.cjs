@@ -6,9 +6,10 @@
  * 并给出被拦/放行两组的实际盈亏（live 票 buy BNB vs sell BNB）。
  *
  * 在 182 跑（ticks 拉取重查询；本地只读小结果）。
- * 双门（2026-10-16 用户裁定）：sharePct < 50（簇占比）+ maxBlockBuyCircPct < 50
- * （单 block 吞流通）——AND 放行=任一超阈即拦。
- * 用法：node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [circThreshold=50]
+ * 双门（2026-10-16 用户裁定）：sharePct < 50（簇占比）+ top1HolderCircPct < X
+ * （TOP1 持仓集中度，maxBlockBuyCircPct 的存量替代）——AND 放行=任一超阈即拦。
+ * 用法：node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [top1Threshold]
+ *   top1Threshold 缺省=不拦（纯观察输出）；circ 键保留观察列。
  */
 'use strict';
 
@@ -23,8 +24,8 @@ const WIN_MS = 10000;         // 现行默认 bundleWinMs
 
 const EXP = process.argv[2];
 const THRESHOLD = Number(process.argv[3] || 50);
-const CIRC_THRESHOLD = Number(process.argv[4] || 50);
-if (!EXP) { console.error('用法: node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [circThreshold=50]'); process.exit(1); }
+const TOP1_THRESHOLD = process.argv[4] !== undefined ? Number(process.argv[4]) : Infinity;   // 缺省不拦（纯观察）
+if (!EXP) { console.error('用法: node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [top1Threshold]'); process.exit(1); }
 
 const PAGE = 1000;
 const rowToTick = (r) => ({
@@ -108,9 +109,9 @@ async function fetchTicks(token, untilIso) {
       sym: firstBuy.token_symbol, token: tok, fireAt: new Date(fireTs).toISOString(),   // 展示用（本地时区无关）
       share: f.bundleClusterSharePct, size: f.bundleClusterSize,
       amtRatio: f.bundleClusterAmountRatio, sameTrader: f.bundleClusterSameTrader,
-      circ: f.maxBlockBuyCircPct,
+      circ: f.maxBlockBuyCircPct, top1: f.top1HolderCircPct,
       blockedShare: f.bundleClusterSharePct >= THRESHOLD,
-      blockedCirc: f.maxBlockBuyCircPct >= CIRC_THRESHOLD,
+      blockedTop1: f.top1HolderCircPct >= TOP1_THRESHOLD,
       spentBnb: p.spent, gotBnb: p.got,
       pnlPct: p.spent > 0 ? ((p.got / p.spent - 1) * 100) : null,
       ticks: ticks.length, sigFound: !!sig,
@@ -119,25 +120,26 @@ async function fetchTicks(token, untilIso) {
   }
 
   // ── 3. 汇总 ──
-  for (const r of results) r.blocked = r.blockedShare || r.blockedCirc;
+  for (const r of results) r.blocked = r.blockedShare || r.blockedTop1;
   const blocked = results.filter(r => r.blocked), passed = results.filter(r => !r.blocked);
-  const byShare = results.filter(r => r.blockedShare), byCirc = results.filter(r => r.blockedCirc);
-  const onlyCirc = results.filter(r => r.blockedCirc && !r.blockedShare);
+  const byShare = results.filter(r => r.blockedShare), byTop1 = results.filter(r => r.blockedTop1);
+  const onlyTop1 = results.filter(r => r.blockedTop1 && !r.blockedShare);
   const sum = (a, k) => a.reduce((s, x) => s + (x[k] || 0), 0);
-  console.log('\n════════ 门评估：sharePct < ' + THRESHOLD + ' AND maxBlockBuyCircPct < ' + CIRC_THRESHOLD + ' ════════');
-  console.log(`买入 ${results.length} 笔：被拦 ${blocked.length}（share 门 ${byShare.length} + circ 门独立贡献 ${onlyCirc.length}）/ 放行 ${passed.length}`);
-  console.log('\n--- 明细 ---');
-  for (const r of results) {
-    const why = r.blockedShare && r.blockedCirc ? '双拦' : r.blockedShare ? 'share拦' : r.blockedCirc ? 'circ拦' : '放行';
-    console.log(`${r.blocked ? '⛔' : '✅'}${why.padEnd(6)} ${r.sym.padEnd(12)} fire=${r.fireAt.slice(11, 19)} share=${r.share.toFixed(1).padStart(5)} circ=${r.circ.toFixed(1).padStart(6)} size=${r.size} | 盈亏=${r.pnlPct === null ? 'n/a' : r.pnlPct.toFixed(1) + '%'} (${r.spentBnb.toFixed(4)}→${r.gotBnb.toFixed(4)}) ${r.token}`);
+  const t1Txt = Number.isFinite(TOP1_THRESHOLD) ? ' AND top1HolderCircPct < ' + TOP1_THRESHOLD : '（top1 观察模式）';
+  console.log('\n════════ 门评估：sharePct < ' + THRESHOLD + t1Txt + ' ════════');
+  console.log(`买入 ${results.length} 笔：被拦 ${blocked.length}（share 门 ${byShare.length} + top1 门独立贡献 ${onlyTop1.length}）/ 放行 ${passed.length}`);
+  console.log('\n--- 明细（按 top1 降序）---');
+  for (const r of [...results].sort((a, b) => b.top1 - a.top1)) {
+    const why = r.blockedShare && r.blockedTop1 ? '双拦' : r.blockedShare ? 'share拦' : r.blockedTop1 ? 'top1拦' : '放行';
+    console.log(`${r.blocked ? '⛔' : '✅'}${why.padEnd(6)} ${r.sym.padEnd(12)} fire=${r.fireAt.slice(11, 19)} top1=${r.top1.toFixed(1).padStart(5)} share=${r.share.toFixed(1).padStart(5)} circ=${r.circ.toFixed(1).padStart(6)} size=${r.size} | 盈亏=${r.pnlPct === null ? 'n/a' : r.pnlPct.toFixed(1) + '%'} (${r.spentBnb.toFixed(4)}→${r.gotBnb.toFixed(4)}) ${r.token}`);
   }
   const bPnl = sum(blocked, 'pnlPct'), pPnl = sum(passed, 'pnlPct');
   const bNet = sum(blocked, 'gotBnb') - sum(blocked, 'spentBnb');
   const pNet = sum(passed, 'gotBnb') - sum(passed, 'spentBnb');
-  const ocNet = sum(onlyCirc, 'gotBnb') - sum(onlyCirc, 'spentBnb');
+  const otNet = sum(onlyTop1, 'gotBnb') - sum(onlyTop1, 'spentBnb');
   console.log('\n--- 净效应（若门一直在场）---');
   console.log(`被拦 ${blocked.length} 票：合计盈亏 ${bPnl.toFixed(1)}%，净 BNB ${bNet.toFixed(4)}`);
-  console.log(`  其中 circ 门独立拦下（share 放行的）：${onlyCirc.length} 票，净 BNB ${ocNet.toFixed(4)}（负=门赚）`);
+  console.log(`  其中 top1 门独立拦下（share 放行的）：${onlyTop1.length} 票，净 BNB ${otNet.toFixed(4)}（负=门赚）`);
   console.log(`放行 ${passed.length} 票：合计盈亏 ${pPnl.toFixed(1)}%，净 BNB ${pNet.toFixed(4)}`);
   console.log(`门净贡献 = 避损 ${(-bNet).toFixed(4)} BNB（被拦票实际为亏则正贡献）`);
   process.exit(0);

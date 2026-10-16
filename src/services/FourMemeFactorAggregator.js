@@ -2242,6 +2242,15 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
         const bundle = this._bundleClusterFactors(state, now);
 
+        // TOP1 持仓集中度（2026-10-16 用户裁定：门键，单巨鲸/团伙囤筹拦截；
+        // maxBlockBuyCircPct 的存量替代——不受「早期流通分母小」的流量假象污染）：
+        // 链上买入者最大净持仓 ÷ 流通(_circTokens)×100。口径注意：creator 预 mint 无
+        // buy tick 不进 _walletNetTokens（测的是交易者集中度非全持有人）；负净持仓
+        // （净卖者）自然出局；单趟扫 max 序无关（_walletNetTokens 任意序收敛前提）
+        let _top1Net = 0;
+        for (const v of state._walletNetTokens.values()) if (v > _top1Net) _top1Net = v;
+        const top1HolderCircPct = state._circTokens > 0 ? _top1Net / state._circTokens * 100 : 0;
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -2322,6 +2331,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             bundleClusterEvenGap: bundle.bundleClusterEvenGap,
             bundleClusterSameTrader: bundle.bundleClusterSameTrader,
             maxBlockBuyCircPct: bundle.maxBlockBuyCircPct,
+            // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；
+            // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
+            top1HolderCircPct,
 
             trendDataPoints: prices.length,
 

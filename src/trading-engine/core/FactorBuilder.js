@@ -143,6 +143,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     bundleClusterEvenGap: factorResults.bundleClusterEvenGap ?? null,
     bundleClusterSameTrader: factorResults.bundleClusterSameTrader ?? null,
     maxBlockBuyCircPct: factorResults.maxBlockBuyCircPct ?? null,
+    top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
   };
 }
 
