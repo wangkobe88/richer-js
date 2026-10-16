@@ -104,12 +104,21 @@ async function fetchTicks(token, untilIso) {
     let j = 0;
     while (j < ticks.length && ticks[j].timestamp <= fireTs) { fa.processTick(ticks[j], {}); j++; }
     const f = fa.buildFactorMap(tok, fireTs);
+    // 观察列：topN 净持仓 ÷ 流通（FLY 案 2026-10-16：TOP5 占 93.2% 同步清仓一砸砸死；
+    // 现有键 top3/top5HolderShare 分母=totalSupply 被 ~4× 稀释，测的是换手筹码集中度）
+    const st = fa._states.get(tok);
+    const _nets = [];
+    for (const v of st._walletNetTokens.values()) if (v > 0) _nets.push(v);
+    _nets.sort((a, b) => b - a);
+    const _sumN = (n) => _nets.slice(0, n).reduce((s, v) => s + v, 0);
+    const top3Circ = st._circTokens > 0 ? _sumN(3) / st._circTokens * 100 : 0;
+    const top5Circ = st._circTokens > 0 ? _sumN(5) / st._circTokens * 100 : 0;
     const p = pnl.get(tok) || { spent: 0, got: 0, sym: firstBuy.token_symbol };
     results.push({
       sym: firstBuy.token_symbol, token: tok, fireAt: new Date(fireTs).toISOString(),   // 展示用（本地时区无关）
       share: f.bundleClusterSharePct, size: f.bundleClusterSize,
       amtRatio: f.bundleClusterAmountRatio, sameTrader: f.bundleClusterSameTrader,
-      circ: f.maxBlockBuyCircPct, top1: f.top1HolderCircPct,
+      circ: f.maxBlockBuyCircPct, top1: f.top1HolderCircPct, top3Circ, top5Circ,
       blockedShare: f.bundleClusterSharePct >= THRESHOLD,
       blockedTop1: f.top1HolderCircPct >= TOP1_THRESHOLD,
       spentBnb: p.spent, gotBnb: p.got,
@@ -128,10 +137,10 @@ async function fetchTicks(token, untilIso) {
   const t1Txt = Number.isFinite(TOP1_THRESHOLD) ? ' AND top1HolderCircPct < ' + TOP1_THRESHOLD : '（top1 观察模式）';
   console.log('\n════════ 门评估：sharePct < ' + THRESHOLD + t1Txt + ' ════════');
   console.log(`买入 ${results.length} 笔：被拦 ${blocked.length}（share 门 ${byShare.length} + top1 门独立贡献 ${onlyTop1.length}）/ 放行 ${passed.length}`);
-  console.log('\n--- 明细（按 top1 降序）---');
-  for (const r of [...results].sort((a, b) => b.top1 - a.top1)) {
+  console.log('\n--- 明细（按 top5/流通 降序）---');
+  for (const r of [...results].sort((a, b) => b.top5Circ - a.top5Circ)) {
     const why = r.blockedShare && r.blockedTop1 ? '双拦' : r.blockedShare ? 'share拦' : r.blockedTop1 ? 'top1拦' : '放行';
-    console.log(`${r.blocked ? '⛔' : '✅'}${why.padEnd(6)} ${r.sym.padEnd(12)} fire=${r.fireAt.slice(11, 19)} top1=${r.top1.toFixed(1).padStart(5)} share=${r.share.toFixed(1).padStart(5)} circ=${r.circ.toFixed(1).padStart(6)} size=${r.size} | 盈亏=${r.pnlPct === null ? 'n/a' : r.pnlPct.toFixed(1) + '%'} (${r.spentBnb.toFixed(4)}→${r.gotBnb.toFixed(4)}) ${r.token}`);
+    console.log(`${r.blocked ? '⛔' : '✅'}${why.padEnd(6)} ${r.sym.padEnd(12)} fire=${r.fireAt.slice(11, 19)} top5=${r.top5Circ.toFixed(1).padStart(5)} top3=${r.top3Circ.toFixed(1).padStart(5)} top1=${r.top1.toFixed(1).padStart(5)} share=${r.share.toFixed(1).padStart(5)} | 盈亏=${r.pnlPct === null ? 'n/a' : r.pnlPct.toFixed(1) + '%'} (${r.spentBnb.toFixed(4)}→${r.gotBnb.toFixed(4)}) ${r.token}`);
   }
   const bPnl = sum(blocked, 'pnlPct'), pPnl = sum(passed, 'pnlPct');
   const bNet = sum(blocked, 'gotBnb') - sum(blocked, 'spentBnb');
