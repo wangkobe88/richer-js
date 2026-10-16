@@ -242,17 +242,25 @@ async function fetchFirePoints(cutoffIso) {
     return new Map(Object.entries(j.map).map(([k, v]) => [k, v]));
   }
   console.log(`[fires] 拉取 strategy_signals action=buy（created_at >= ${cutoffIso}）…`);
+  // ⚠ strategy_signals.id 是 uuid 不是 bigint——id keyset 起点必炸（猪五花案第三犯同型），
+  // 必须走 (created_at, id) 双键 keyset（同刻多行不跳行）
   const map = new Map();
-  let cursor = 0, count = 0;
+  let lastTs = null, lastId = null, count = 0;
   while (true) {
-    const r = await qRetry('strategy_signals 拉取', () => sb()
-      .from('strategy_signals')
-      .select('id, token_address, created_at')
-      .eq('action', 'buy')
-      .gte('created_at', cutoffIso)
-      .gt('id', cursor)
-      .order('id', { ascending: true })
-      .limit(PAGE));
+    const r = await qRetry('strategy_signals 拉取', () => {
+      let q = sb()
+        .from('strategy_signals')
+        .select('id, token_address, created_at')
+        .eq('action', 'buy')
+        .gte('created_at', cutoffIso)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .limit(PAGE);
+      if (lastTs !== null) {
+        q = q.or(`created_at.gt.${lastTs},and(created_at.eq.${lastTs},id.gt.${lastId})`);
+      }
+      return q;
+    });
     const data = r.data || [];
     for (const row of data) {
       if (!row.token_address) continue;
@@ -263,7 +271,8 @@ async function fetchFirePoints(cutoffIso) {
       count++;
     }
     if (data.length < PAGE) break;
-    cursor = data[data.length - 1].id;
+    lastTs = data[data.length - 1].created_at;
+    lastId = data[data.length - 1].id;
   }
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(file, JSON.stringify({ cutoffIso, count, map: Object.fromEntries(map) }));
