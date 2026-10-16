@@ -254,6 +254,40 @@ async function main() {
       "I8 ruleName 保持 'expired_tweet'（历史行/监控口径连续）");
   }
 
+  // ═══ J. 找角度博主名单（C76 扩编：形状 + 名单压豁免机制锁）═══
+  console.log('══ J. 频繁发币者名单 C76 扩编 ══');
+  {
+    const fiMod = await import('../src/narrative/analyzer/services/frequent-issuers.mjs');
+    const roster = [...fiMod.FREQUENT_ISSUERS];
+    assert(roster.length >= 147, `J1 名单规模 ≥147（95 旧 + 52 新，实际 ${roster.length}）`);
+    assert(roster.every(h => h === h.toLowerCase()), 'J2 全部小写');
+    assert(new Set(roster).size === roster.length, 'J3 无重复');
+    // 抽查收录号在名单（2026-10-16 高频段样本）
+    for (const h of ['shanyizk9', 'burbering1', 'haze0x', 'burneth888', 'mayilong0', 'gampsito']) {
+      assert(fiMod.isFrequentIssuer(h), `J4 收录号在名单: ${h}`);
+    }
+    // 事件源剔除反证（C74 语义：媒体/官方/名人是 direct_tweet 新闻豁免对象，绝不进名单）
+    const banned = ['whitehouse', 'pmarca', 'cnbc', 'blockbeatsasia', 'jessepollak',
+      'binance', 'flapdotsh', 'bnbchainzh', 'aster_dex', 'flaps_launchpad',
+      'fourdotmemezh', 'bnbveil', 'elonmusk', 'cz_binance', 'heyibinance'];
+    for (const h of banned) {
+      assert(!fiMod.isFrequentIssuer(h), `J5 事件源不在名单: ${h}`);
+    }
+    // 名单压豁免机制锁：名单号哪怕 50 万粉（过 direct_tweet 粉丝臂）仍判 angle_seeking——
+    // 优先级 2（名单）高于优先级 3（高粉豁免），C76 收录即生效的机制本质
+    const { classifyTweetType } = await import('../src/narrative/analyzer/services/tweet-type-classifier.mjs');
+    const rosterTweetHighFollowers = {
+      type: 'tweet', text: 'unit test roster tweet',
+      author_screen_name: 'shanyizk9', author_followers_count: 500000,
+      metrics: { favorite_count: 5000, retweet_count: 1000 },
+      created_at: iso(ANCHOR_SEC - 3600),
+    };
+    const cls = classifyTweetType(rosterTweetHighFollowers);
+    assert(cls.type === 'angle_seeking' && cls.reason.includes('shanyizk9'),
+      `J6 名单号 50 万粉+5 千赞仍判 angle_seeking（名单优先于 direct_tweet 豁免臂）：${cls.type}/${cls.reason}`,
+      JSON.stringify(cls));
+  }
+
   console.log(`\n${fail === 0 ? '✅ 全部通过' : '❌ 有失败'}：${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }

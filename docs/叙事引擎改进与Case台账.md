@@ -68,6 +68,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C76 找角度博主名单扩编——frequent-issuers 95→147：「收集一部分找角度博主放到名单中加快判断速度」（2026-10-16 用户指令）★
+
+- **动机**：C74 分桶落地后名单价值放大——`classifyTweetType` 优先级 2（名单）先于优先级 3（direct_tweet 高粉/高互动豁免臂），名单号哪怕 10 万粉也直接落 angle_seeking 桶走 300s 硬拦，**不烧 Jev 配额不进软评**；而老名单（94+gampsito=95 个）自 2026-04-17 停更，这半年头部发币作业号已换血（≥100 次档老名单仅占 10/233）。
+- **扫描 v1 频次口径的坑**：全量 562,494 行 experiment_tokens（207,776 带宣告推 / 28,410 唯一 handle）扫出的 TOP 全是**被蹭大 IP**——cz_binance 9169 次 / binance 6192 / heyibinance 4406 / elonmusk 3539 / flapdotsh 3093（别人发币挂他们的推）。频次≠找角度博主。
+- **v2 creator 聚合甄别**（`scripts/scan-frequent-issuers.cjs`，182 只读 0.6min）：handle 关联 `creator_address` 集中度三分类——self_issuer（top1≥0.6 或 top3≥0.9=自营发币号 19 个）/ hijacked_ip（top1<0.2 且 ≥10 creator=被蹭 IP，**自动排除 1644 个**含全部大 V）/ hybrid（共享作业源 1253 个：多人共用同一宣告号作业，如 shanyizk9 428 次 167 creator）。
+- **人工分拣裁定**（C74 语义：事件源享受 direct_tweet 新闻豁免不收；无名作业号/共享角度源收录）：用户裁定**只收 ≥30 次高频段**。收录 52 个（shanyizk9 428/burbering1 200/bobod9vv 172/…/fcmao_bsc 30，币名全中文乱炖+symbol 复制粘贴画像）；剔除 10 个事件源——whitehouse/pmarca/cnbc/blockbeatsasia（媒体；某 dev 固定蹭快讯致 creator 集中 0.74 仍剔——creator 集中度是辅助非充分证据）/jessepollak（Base 创始人）/bnbchainzh/aster_dex/flaps_launchpad（平台官方）+ fourdotmemezh/bnbveil（疑似生态官方，用户裁定剔除）。**低频段不收**（8-29 次 1194 个 + 自营批量号 15 个如 kamojo×4/币安羊×4——观察期后重跑脚本降 `--min` 再补）。
+- **爆炸半径可控**：名单命中只是落非豁免桶 300s 窗（挂该号推 **300 秒内**发币照放进 Jev），不杀快发票只拦迟发跟风票；存量 token_narrative 缓存行不受影响。
+- **验证**：`_test_precheck_tweet_freshness_bucket` J 组 25 断言——名单规模 ≥147/全小写/无重复/收录抽查在册/**事件源 15 个剔除反证**（whitehouse…cz_binance 不在名单防回流）/**名单压豁免机制锁**（shanyizk9 50 万粉+5 千赞仍判 angle_seeking，reason 落「频繁发币者」）。53/53 全绿；关联回归 5 测（angle_timing 31/narrator_two_shapes 22/parallel_queries 18/vision_gate 35/fail_retry 42）全绿。
+- **部署注意**：与 C74/C75 同批——182 磁盘同步后，叙事 worker + 实验进程重启生效（直调走引擎进程内 NarrativeAnalyzer）；名单维护入口=`scripts/scan-frequent-issuers.cjs`（可复跑，`--min N` 降阈值收低频段）。
+
 ### C75 FLY 案 0x4ec2c14230a818fcb8947c3999f7a4a872437777——叙事源头陈旧门（direct_tweet 主推>30d → mapper 时效归 older）：「找角度推文是新的，但币安的推文已经一年多以前了，这种控一下吧」（2026-10-16 用户裁定）★
 
 - **案发**：four.meme 2026-10-16 02:25 发币。语料两推：主推=**币安 2025-06-08 FLY 上线公告**（1612 万粉，lag **495 天**）；第二语料 website_tweet=gapJ 当天宣告推（「币安发过的 FLY 1 token，我们应该在链上发射它，今天是最好的发射时机」，lag 7s）。Jev 被当天宣告推误答 `within_7d` 拿满时效分 → **77.32 high 放行**，v18 实跑 0.004 BNB 买入 -36%。
