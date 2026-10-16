@@ -8,12 +8,18 @@
  * 在 182 跑（ticks 拉取重查询；本地只读小结果）。
  * 双门（2026-10-16 用户裁定）：sharePct < 50（簇占比）+ top1HolderCircPct < X
  * （TOP1 持仓集中度，maxBlockBuyCircPct 的存量替代）——AND 放行=任一超阈即拦。
- * 用法：node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [top1Threshold]
- *   top1Threshold 缺省=不拦（纯观察输出）；circ 键保留观察列。
+ * 第三门观察列 copyMax=maxCopyWalletHolderCircPct（跟单簇名单钱包最大净持仓÷流通，
+ * FLY 案 2026-10-16）：config/rosters/copy-wallet-roster.json 存在则注入名单，
+ * 文件缺失=因子恒 null（fail-closed 同引擎）。
+ *   ⚠前视声明：名单是全史扫描产物，13 票回放仅参考非严格 as-of（sniper 名单
+ *   「启动加载当前态」parity 先例一致）。
+ * 用法：node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [top1Threshold] [copyThreshold]
+ *   top1/copy 阈值缺省=不拦（纯观察输出）。
  */
 'use strict';
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', 'config', '.env') });
+const fs = require('fs');
 const { dbManager } = require('../src/services/dbManager');
 const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregator.js');
 
@@ -25,7 +31,18 @@ const WIN_MS = 10000;         // 现行默认 bundleWinMs
 const EXP = process.argv[2];
 const THRESHOLD = Number(process.argv[3] || 50);
 const TOP1_THRESHOLD = process.argv[4] !== undefined ? Number(process.argv[4]) : Infinity;   // 缺省不拦（纯观察）
-if (!EXP) { console.error('用法: node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [top1Threshold]'); process.exit(1); }
+const COPY_THRESHOLD = process.argv[5] !== undefined ? Number(process.argv[5]) : Infinity;   // 缺省不拦（纯观察）
+if (!EXP) { console.error('用法: node scripts/eval-bundle-gate-v18.cjs <experiment_id> [shareThreshold=50] [top1Threshold] [copyThreshold]'); process.exit(1); }
+
+// 跟单簇名单注入（文件存在才注；缺失=factor 恒 null 与引擎 fail-closed 同形）
+const ROSTER = require('path').join(__dirname, '..', 'config', 'rosters', 'copy-wallet-roster.json');
+if (fs.existsSync(ROSTER)) {
+  const parsed = JSON.parse(fs.readFileSync(ROSTER, 'utf8'));
+  FourMemeFactorAggregator.setCopyWalletsForTest(new Set((parsed.wallets || []).map(w => w.address)));
+  console.log(`[名单] copy-wallet-roster 注入 ${(parsed.wallets || []).length} 钱包（生成于 ${parsed.generatedAt}）`);
+} else {
+  console.log('[名单] copy-wallet-roster 不存在——copyMax 恒 null（观察列空）');
+}
 
 const PAGE = 1000;
 const rowToTick = (r) => ({
@@ -119,8 +136,10 @@ async function fetchTicks(token, untilIso) {
       share: f.bundleClusterSharePct, size: f.bundleClusterSize,
       amtRatio: f.bundleClusterAmountRatio, sameTrader: f.bundleClusterSameTrader,
       circ: f.maxBlockBuyCircPct, top1: f.top1HolderCircPct, top3Circ, top5Circ,
+      copyMax: f.maxCopyWalletHolderCircPct,
       blockedShare: f.bundleClusterSharePct >= THRESHOLD,
       blockedTop1: f.top1HolderCircPct >= TOP1_THRESHOLD,
+      blockedCopy: f.maxCopyWalletHolderCircPct !== null && f.maxCopyWalletHolderCircPct >= COPY_THRESHOLD,
       spentBnb: p.spent, gotBnb: p.got,
       pnlPct: p.spent > 0 ? ((p.got / p.spent - 1) * 100) : null,
       ticks: ticks.length, sigFound: !!sig,
@@ -129,26 +148,32 @@ async function fetchTicks(token, untilIso) {
   }
 
   // ── 3. 汇总 ──
-  for (const r of results) r.blocked = r.blockedShare || r.blockedTop1;
+  for (const r of results) r.blocked = r.blockedShare || r.blockedTop1 || r.blockedCopy;
   const blocked = results.filter(r => r.blocked), passed = results.filter(r => !r.blocked);
   const byShare = results.filter(r => r.blockedShare), byTop1 = results.filter(r => r.blockedTop1);
   const onlyTop1 = results.filter(r => r.blockedTop1 && !r.blockedShare);
+  const byCopy = results.filter(r => r.blockedCopy);
+  const onlyCopy = results.filter(r => r.blockedCopy && !r.blockedShare && !r.blockedTop1);
   const sum = (a, k) => a.reduce((s, x) => s + (x[k] || 0), 0);
-  const t1Txt = Number.isFinite(TOP1_THRESHOLD) ? ' AND top1HolderCircPct < ' + TOP1_THRESHOLD : '（top1 观察模式）';
-  console.log('\n════════ 门评估：sharePct < ' + THRESHOLD + t1Txt + ' ════════');
-  console.log(`买入 ${results.length} 笔：被拦 ${blocked.length}（share 门 ${byShare.length} + top1 门独立贡献 ${onlyTop1.length}）/ 放行 ${passed.length}`);
+  const t1Txt = Number.isFinite(TOP1_THRESHOLD) ? ' AND top1HolderCircPct < ' + TOP1_THRESHOLD : '（top1 观察）';
+  const cpTxt = Number.isFinite(COPY_THRESHOLD) ? ' AND maxCopyWalletHolderCircPct < ' + COPY_THRESHOLD : '（copy 观察）';
+  console.log('\n════════ 门评估：sharePct < ' + THRESHOLD + t1Txt + cpTxt + ' ════════');
+  console.log(`买入 ${results.length} 笔：被拦 ${blocked.length}（share 门 ${byShare.length} + top1 独立 ${onlyTop1.length} + copy 独立 ${onlyCopy.length}）/ 放行 ${passed.length}`);
   console.log('\n--- 明细（按 top5/流通 降序）---');
   for (const r of [...results].sort((a, b) => b.top5Circ - a.top5Circ)) {
-    const why = r.blockedShare && r.blockedTop1 ? '双拦' : r.blockedShare ? 'share拦' : r.blockedTop1 ? 'top1拦' : '放行';
-    console.log(`${r.blocked ? '⛔' : '✅'}${why.padEnd(6)} ${r.sym.padEnd(12)} fire=${r.fireAt.slice(11, 19)} top5=${r.top5Circ.toFixed(1).padStart(5)} top3=${r.top3Circ.toFixed(1).padStart(5)} top1=${r.top1.toFixed(1).padStart(5)} share=${r.share.toFixed(1).padStart(5)} | 盈亏=${r.pnlPct === null ? 'n/a' : r.pnlPct.toFixed(1) + '%'} (${r.spentBnb.toFixed(4)}→${r.gotBnb.toFixed(4)}) ${r.token}`);
+    const why = r.blockedCopy && (r.blockedShare || r.blockedTop1) ? 'copy+拦' : r.blockedCopy ? 'copy拦'
+      : r.blockedShare && r.blockedTop1 ? '双拦' : r.blockedShare ? 'share拦' : r.blockedTop1 ? 'top1拦' : '放行';
+    console.log(`${r.blocked ? '⛔' : '✅'}${why.padEnd(6)} ${r.sym.padEnd(12)} fire=${r.fireAt.slice(11, 19)} top5=${r.top5Circ.toFixed(1).padStart(5)} top1=${r.top1.toFixed(1).padStart(5)} copy=${r.copyMax === null ? ' null' : r.copyMax.toFixed(1).padStart(5)} share=${r.share.toFixed(1).padStart(5)} | 盈亏=${r.pnlPct === null ? 'n/a' : r.pnlPct.toFixed(1) + '%'} (${r.spentBnb.toFixed(4)}→${r.gotBnb.toFixed(4)}) ${r.token}`);
   }
   const bPnl = sum(blocked, 'pnlPct'), pPnl = sum(passed, 'pnlPct');
   const bNet = sum(blocked, 'gotBnb') - sum(blocked, 'spentBnb');
   const pNet = sum(passed, 'gotBnb') - sum(passed, 'spentBnb');
   const otNet = sum(onlyTop1, 'gotBnb') - sum(onlyTop1, 'spentBnb');
+  const ocNet = sum(onlyCopy, 'gotBnb') - sum(onlyCopy, 'spentBnb');
   console.log('\n--- 净效应（若门一直在场）---');
   console.log(`被拦 ${blocked.length} 票：合计盈亏 ${bPnl.toFixed(1)}%，净 BNB ${bNet.toFixed(4)}`);
-  console.log(`  其中 top1 门独立拦下（share 放行的）：${onlyTop1.length} 票，净 BNB ${otNet.toFixed(4)}（负=门赚）`);
+  console.log(`  其中 top1 门独立拦下：${onlyTop1.length} 票，净 BNB ${otNet.toFixed(4)}（负=门赚）`);
+  console.log(`  其中 copy 门独立拦下（share/top1 都放行的）：${onlyCopy.length} 票，净 BNB ${ocNet.toFixed(4)}（负=门赚）`);
   console.log(`放行 ${passed.length} 票：合计盈亏 ${pPnl.toFixed(1)}%，净 BNB ${pNet.toFixed(4)}`);
   console.log(`门净贡献 = 避损 ${(-bNet).toFixed(4)} BNB（被拦票实际为亏则正贡献）`);
   process.exit(0);
