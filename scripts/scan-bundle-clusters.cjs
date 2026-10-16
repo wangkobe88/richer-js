@@ -50,6 +50,7 @@
 
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', 'config', '.env') });
 const FourMemeFactorAggregator = require(path.join(__dirname, '..', 'src', 'services', 'FourMemeFactorAggregator.js'));
 const { extractGmgnRisk } = require(path.join(__dirname, '..', 'src', 'core', 'gmgn-api', 'risk-fields.js'));
 
