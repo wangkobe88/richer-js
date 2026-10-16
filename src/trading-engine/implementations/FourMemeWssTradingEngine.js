@@ -389,6 +389,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `sniper 名单加载失败(fail-open, sniperHolderShare 将恒 null): ${e.message}`);
     }
+    // 跟单簇名单（2026-10-16 FLY 案）：读 config/rosters/copy-wallet-roster.json。
+    // fail-closed 方向（文件缺失=因子恒 null=引用键的门不放行）与 sniper 同向；
+    // 名单文件随仓库部署，正常 pull 即在——缺失=部署异常，warn 提示后继续启动
+    // （门语义安全侧：宁可错过不可放过），人工补名单后重启生效。
+    try {
+      await FourMemeFactorAggregator.loadCopyWalletRoster();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `跟单簇名单加载失败(fail-closed, maxCopyWalletHolderCircPct 将恒 null=门拦): ${e.message}`);
+    }
 
     // 3.4 TPA 触发点持仓分析（回迁批 4 shadow 先行）：opt-in——实验 config 整段无
     //     tokenPositionAnalyzer → 不构造（存量实验零影响）；段存在才构造，trigger 缺配/非法

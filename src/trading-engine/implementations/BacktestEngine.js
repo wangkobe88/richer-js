@@ -237,6 +237,14 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `sniper 名单加载失败(fail-open, sniperHolderShare 将恒 null): ${e.message}`);
     }
+    // 跟单簇名单（2026-10-16 FLY 案）：读文件，与 WSS 引擎同入口同名单（parity）。
+    // ⚠回测前视声明：名单是扫描时点的静态快照（含全史跟单关系），历史窗口回测引用
+    // 它有前视面——与 sniper 名单「启动加载当前态」同款已接受近似；实盘无此问题。
+    try {
+      await FourMemeFactorAggregator.loadCopyWalletRoster();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `跟单簇名单加载失败(fail-closed, maxCopyWalletHolderCircPct 将恒 null=门拦): ${e.message}`);
+    }
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');

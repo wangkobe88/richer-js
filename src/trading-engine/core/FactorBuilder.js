@@ -144,6 +144,8 @@ function buildFactorValuesForTimeSeries(factorResults) {
     bundleClusterSameTrader: factorResults.bundleClusterSameTrader ?? null,
     maxBlockBuyCircPct: factorResults.maxBlockBuyCircPct ?? null,
     top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
+    // 跟单簇名单是进程级静态 Set，名单缺失=null（fail-closed 语义随快照透传，不掩盖）
+    maxCopyWalletHolderCircPct: factorResults.maxCopyWalletHolderCircPct ?? null,
   };
 }
 

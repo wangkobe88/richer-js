@@ -467,7 +467,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
     // 详见 _test_prebuy_peak_backfill.cjs；buyPriceBnb 同日补顶层映射供快照审计）；
     // 2026-10-16 bundle* 6 键（同 block 首买簇捆绑检测，BITCAT 案 Phase 1 观察键，
     // 详见 _test_bundle_cluster_factors.cjs）；同日 top1HolderCircPct（TOP1 持仓
-    // 集中度门键，maxBlockBuyCircPct 的存量替代——用户裁定）
+    // 集中度门键，maxBlockBuyCircPct 的存量替代——用户裁定）；
+    // 同日 maxCopyWalletHolderCircPct（最大跟单钱包持仓，FLY 案钱包标签方案，
+    // 详见 _test_copy_wallet_roster_factors.cjs）
     const ADDED_KEYS = [
         'gmgnUserPct',
         'actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades',
@@ -477,6 +479,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
         'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct',
         'top1HolderCircPct',
+        'maxCopyWalletHolderCircPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

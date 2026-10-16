@@ -153,6 +153,15 @@ let _smartBotWallets = null;
 let _smartBotLoadPromise = null;   // 在途去重（并发调用复用同一 promise）
 let _sniperWallets = null;
 let _sniperLoadPromise = null;
+// ── 跟单簇名单（2026-10-16 FLY 案用户正式方案）──
+// 来源=config/rosters/copy-wallet-roster.json（scripts/scan-copy-trade-clusters.cjs 离线
+// 扫描产物，182 重跑 --commit → git push → 重启进程生效——静态快照语义与 sniper 名单同款）。
+// 读文件非 DB：名单与代码同仓库同部署（182 pull 即得，杜绝手动同步），零 RLS 坑。
+// null 语义 fail-closed（对齐 _sniperWallets 方向）：maxCopyWalletHolderCircPct 恒 null →
+// ConditionEvaluator 恒 false = 引用键的门不放行（名单缺失=证据不足必须拦，宁可错过）。
+// 空 Set=有证据零值 0（名单在但无命中钱包=放行）。
+let _copyWallets = null;
+let _copyLoadPromise = null;
 // ── TPA 持仓因子回填缓存（回迁批 4；母版 :56-70 同款装置）──
 // _holdingFactorOverrides（tokenAddress → { TPAPre_walletHoldingPct, 庄散派生键, ... 17 键 }）：
 //   TokenPositionAnalyzer 触发点 as-of 画像算出持仓因子后 setHoldingFactors 回填，
@@ -435,6 +444,47 @@ class FourMemeFactorAggregator extends EventEmitter {
     /** 测试专用：直接注入 sniper 名单 Set（绕过 DB；探针零 DB 断言用）。传 null 还原「未加载」态（因子恢复恒 null fail-closed）。 */
     static setSniperWalletsForTest(setOrNullOrUndefined) {
         _sniperWallets = setOrNullOrUndefined ?? null;
+    }
+
+    /**
+     * 跟单簇名单（maxCopyWalletHolderCircPct 因子原料）：读 config/rosters/copy-wallet-roster.json
+     * （scan-copy-trade-clusters.cjs 扫描产物）。幂等+在途去重（对齐 loadSniperWallets 模板）。
+     * 文件缺失/损坏/解析失败 → 保持 null 抛错（调用方 warn + fail-closed：因子恒 null=门拦）。
+     * 无需 supabase 参数——文件读与 DB 无关；幂等返回后名单只增不改（静态快照）。
+     */
+    static async loadCopyWalletRoster() {
+        if (_copyWallets) return _copyWallets;
+        if (_copyLoadPromise) return _copyLoadPromise;
+        _copyLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const rosterPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'copy-wallet-roster.json');
+            const raw = fs.readFileSync(rosterPath, 'utf8');
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
+                throw new Error(`[FourMemeFA] loadCopyWalletRoster: 名单 schema 不符（${rosterPath}）`);
+            }
+            const addresses = [];
+            for (const w of parsed.wallets) {
+                if (w && typeof w.address === 'string' && w.address) addresses.push(w.address.toLowerCase());
+            }
+            _copyWallets = new Set(addresses);
+            this._logInfo(`加载跟单簇名单: ${_copyWallets.size} 个（${rosterPath}，generatedAt=${parsed.generatedAt || '?'}）`);
+            return _copyWallets;
+        })();
+        try {
+            return await _copyLoadPromise;
+        } finally {
+            _copyLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：直接注入跟单簇名单 Set（注入侧统一 toLowerCase 归一——名单唯一规范形=小写，
+     * 与 loader 同口径）。传 null 还原「未加载」态（因子恢复恒 null fail-closed）。 */
+    static setCopyWalletsForTest(setOrNullOrUndefined) {
+        _copyWallets = setOrNullOrUndefined
+            ? new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()))
+            : null;
     }
 
     /** static 上下文的日志出口（无实例 logger 时落 console；与母版 console.log 口径一致） */
@@ -2257,6 +2307,22 @@ class FourMemeFactorAggregator extends EventEmitter {
         for (const v of state._walletNetTokens.values()) if (v > _top1Net) _top1Net = v;
         const top1HolderCircPct = state._circTokens > 0 ? _top1Net / state._circTokens * 100 : 0;
 
+        // 最大跟单钱包持仓（2026-10-16 FLY 案用户正式方案）：名单钱包（协同簇：持续有
+        // 跟单、同步买/卖）在当前票的**单钱包最大**净持仓 ÷ 流通 ×100。刻意取 max 而非
+        // 名单合计——热门票聪明钱都参与，合计误伤；单钱包持仓才反映控盘度（FLY：0xbf00
+        // 单持 ~25%+镜像 22%，一砸砸死）。名单 null → 恒 null（fail-closed：门
+        // maxCopyWalletHolderCircPct < 20 恒 false=拒买）；空 Set → 0 放行。键域小写
+        // （scan 脚本 toLowerCase 落盘；_walletNetTokens 键=wallet=sender||trader 原样，
+        // 命中侧 toLowerCase 对齐）。纯读单趟扫 max，序无关（乱序 parity 同 top1 前提）
+        let maxCopyWalletHolderCircPct = null;
+        if (_copyWallets) {
+            let _maxCopyNet = 0;
+            for (const [addr, v] of state._walletNetTokens) {
+                if (v > _maxCopyNet && v > 0 && _copyWallets.has(addr.toLowerCase())) _maxCopyNet = v;
+            }
+            maxCopyWalletHolderCircPct = state._circTokens > 0 ? _maxCopyNet / state._circTokens * 100 : 0;
+        }
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -2340,6 +2406,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；
             // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
             top1HolderCircPct,
+            maxCopyWalletHolderCircPct,
 
             trendDataPoints: prices.length,
 
