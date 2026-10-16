@@ -453,13 +453,18 @@ function gmgnApi() {
 
 /** 从 top holders 响应提取 bundler 地址集（data.list[].wallet_address——文档形状；miss 即 throw fail-loud） */
 function extractHolderAddresses(resp) {
+  // 实测形状（2026-10-16 BITCAT --probe-holders 核验）：data.list[].address
+  // （文档写 wallet_address 是错的；maker_token_tags 含 'bundler'，amount_percentage 已清仓恒 0）
   const list = resp && resp.list;
   if (!Array.isArray(list)) {
     throw new Error(`token_top_holders 响应形状异常（无 data.list）：${JSON.stringify(resp).slice(0, 200)}`);
   }
   const out = [];
   for (const h of list) {
-    if (h && h.wallet_address) out.push(String(h.wallet_address).toLowerCase());
+    if (!h || typeof h.address !== 'string' || !h.address) {
+      throw new Error(`token_top_holders 行缺 address 字段（形状漂移）：${JSON.stringify(h).slice(0, 120)}`);
+    }
+    out.push(h.address.toLowerCase());
   }
   return out;
 }

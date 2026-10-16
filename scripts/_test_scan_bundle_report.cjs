@@ -91,20 +91,21 @@ console.log('D. pct/mean');
   check('D2 mean 空数组 null', () => assert.strictEqual(mean([]), null));
 }
 
-// ═══ E. extractHolderAddresses（GMGN 形状 fail-loud）═══
+// ═══ E. extractHolderAddresses（GMGN 形状 fail-loud；字段=实测 address 非文档 wallet_address）═══
 console.log('E. GMGN top holders 响应形状');
 {
   const resp = { list: [
-    { wallet_address: '0xAA', amount_percentage: 12.5 },
-    { wallet_address: '0xBB', amount_percentage: 8 },
+    { address: '0xAA', amount_percentage: 12.5 },
+    { address: '0xBB', amount_percentage: 8 },
   ] };
-  check('E1 data.list[].wallet_address 提取 + 小写归一', () =>
+  check('E1 data.list[].address 提取 + 小写归一（2026-10-16 BITCAT probe 实测形状）', () =>
     assert.deepStrictEqual(extractHolderAddresses(resp), ['0xaa', '0xbb']));
   check('E2 空 list = 空数组（无 bundler 是合法答案）', () =>
     assert.deepStrictEqual(extractHolderAddresses({ list: [] }), []));
-  check('E3 缺 list → throw fail-loud（无兜底——形状漂移必须炸）', () => {
+  check('E3 缺 list / 行缺 address → throw fail-loud（无兜底——形状漂移必须炸，BITCAT probe 抓到的静默空数组陷阱反证）', () => {
     assert.throws(() => extractHolderAddresses({ holders: [] }), /形状异常/);
     assert.throws(() => extractHolderAddresses(null), /形状异常/);
+    assert.throws(() => extractHolderAddresses({ list: [{ wallet_address: '0xX' }] }), /缺 address/);
   });
 }
 
