@@ -436,6 +436,9 @@ function loadSamples() {
 // ═══════════════ Phase 3：对拍 A（token_narrative gmgn_info）═══════════════
 
 async function fetchNarrativeGmgn(tokens) {
+  // token_narrative.gmgn_info 实存形状 = {risk: <extractGmgnRisk 扁平产物>, fetchedAt}
+  // （叙事侧存的就是提取后结果——2026-10-16 182 实查），这里剥 .risk 直接当 risk 用，
+  // buildReport 消费端不再二次 extractGmgnRisk（原实现把它当原始响应二次提取 → 全 null）
   const map = new Map();
   const arr = [...tokens];
   for (let i = 0; i < arr.length; i += 50) {   // .in() URL 上限（批 50 红线）
@@ -445,7 +448,7 @@ async function fetchNarrativeGmgn(tokens) {
       .select('token_address, gmgn_info')
       .in('token_address', batch));
     for (const row of r.data || []) {
-      if (!map.has(row.token_address)) map.set(row.token_address, row.gmgn_info || null);
+      if (!map.has(row.token_address)) map.set(row.token_address, (row.gmgn_info && row.gmgn_info.risk) || null);
     }
   }
   return map;
@@ -482,12 +485,24 @@ async function phaseGmgnHolders(samples) {
   const file = path.join(DATA_DIR, 'gmgn-bundlers.jsonl');
   const done = new Set();
   if (!ARGS.refresh && fs.existsSync(file)) {
+    // checkpoint 只认 ok=true 行；失败行（429 类瞬态）剔除重写待重试——
+    // 2026-10-16 首跑教训：失败行进 done = 279 票永不重试
+    const kept = [];
+    let dropped = 0;
     for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
       const t = line.trim();
       if (!t) continue;
-      try { done.add(JSON.parse(t).token); } catch (_e) { break; }
+      try {
+        const j = JSON.parse(t);
+        if (j.ok) { done.add(j.token); kept.push(t); } else dropped++;
+      } catch (_e) { break; }
     }
-    console.log(`[gmgn] checkpoint 命中：${done.size} 票`);
+    if (dropped > 0) {
+      fs.writeFileSync(file, kept.length ? kept.join('\n') + '\n' : '');
+      console.log(`[gmgn] checkpoint：${done.size} 票保留，${dropped} 失败行剔除待重试`);
+    } else {
+      console.log(`[gmgn] checkpoint 命中：${done.size} 票`);
+    }
   }
   // 分层抽样（确定性哈希序内）：簇富票（任一采样 size>=3）优先 2/3 + 其余 1/3
   const clusterRich = [], rest = [];
@@ -498,25 +513,43 @@ async function phaseGmgnHolders(samples) {
   const want = Math.round(ARGS.apiTokens * 2 / 3);
   const targets = [...clusterRich.slice(0, want), ...rest.slice(0, ARGS.apiTokens - Math.min(want, clusterRich.length))]
     .filter(s => !done.has(s.token));
-  console.log(`[gmgn] 对拍 B 目标 ${targets.length} 票（簇富 ${Math.min(want, clusterRich.length)} + 其余），~1 req/s`);
+  console.log(`[gmgn] 对拍 B 目标 ${targets.length} 票（簇富 ${Math.min(want, clusterRich.length)} + 其余），3s 节拍+429 长退避`);
   const api = gmgnApi();
   const stream = fs.createWriteStream(file, { flags: 'a' });
+  // GMGN top holders 限速实测（2026-10-16 首跑）：1 req/s 21 票即 429，且 ban 期续打
+  // 会延长 ban（BANNED_MAX 5 分钟）——必须停等 + 节拍自适应放大
+  let gapMs = 3000;
   for (let i = 0; i < targets.length; i++) {
     const s = targets[i];
-    const t0 = Date.now();
-    let rec;
-    try {
-      const resp = await api.getTokenTopHolders('bsc', s.token, { tag: 'bundler', limit: 100, order_by: 'amount_percentage' });
-      const addrs = extractHolderAddresses(resp);
-      rec = { token: s.token, ok: true, bundlers: addrs };
-    } catch (e) {
-      rec = { token: s.token, ok: false, error: String(e.message || e).slice(0, 200) };
+    for (let attempt = 0; ; attempt++) {
+      const t0 = Date.now();
+      try {
+        const resp = await api.getTokenTopHolders('bsc', s.token, { tag: 'bundler', limit: 100, order_by: 'amount_percentage' });
+        const addrs = extractHolderAddresses(resp);
+        stream.write(JSON.stringify({ token: s.token, ok: true, bundlers: addrs }) + '\n');
+        done.add(s.token);
+        gapMs = Math.max(3000, gapMs / 2);   // 连续成功缓慢恢复节拍
+        break;
+      } catch (e) {
+        const msg = String(e.message || e);
+        if (/429|RATE_LIMIT/.test(msg) && attempt < 12) {
+          // BANNED_MAX=5 分钟硬 ban；其余解析 "resets in ~Ns"，缺省 65s；等待期不打（续打延长 ban）
+          const waitMs = /BANNED_MAX/.test(msg) ? 320000
+            : ((parseInt((msg.match(/~(\d+)s/) || [])[1], 10) || 60) + 5) * 1000;
+          gapMs = Math.min(12000, gapMs * 2);
+          console.log(`[gmgn] 429（${i + 1}/${targets.length} 第 ${attempt + 1} 次）：停 ${Math.round(waitMs / 1000)}s，节拍升 ${Math.round(gapMs)}ms`);
+          await sleep(waitMs);
+          continue;
+        }
+        // 非 429（形状漂移/网络）留痕跳过；429 超次数也留痕（下次续跑重试）
+        stream.write(JSON.stringify({ token: s.token, ok: false, error: msg.slice(0, 200) }) + '\n');
+        break;
+      } finally {
+        const el = Date.now() - t0;
+        if (el < gapMs) await sleep(gapMs - el);
+      }
     }
-    stream.write(JSON.stringify(rec) + '\n');
-    done.add(s.token);
-    if ((i + 1) % 20 === 0) console.log(`[gmgn] ${i + 1}/${targets.length}…`);
-    const el = Date.now() - t0;
-    if (el < 1050) await sleep(1050 - el);    // ~1 req/s 限速
+    if ((i + 1) % 20 === 0) console.log(`[gmgn] ${i + 1}/${targets.length}…（gap ${Math.round(gapMs)}ms）`);
   }
   stream.end();
   // 读回全量
@@ -629,7 +662,7 @@ function buildReport(samples, narrative, gmgn) {
   const gmgnPairs = []; // {token, share, ratio, bundlers, top}
   for (const [token, st] of stats) {
     const info = narrative.get(token);
-    const risk = info ? extractGmgnRisk(info) : null;
+    const risk = info || null;   // fetchNarrativeGmgn 已剥 .risk（extractGmgnRisk 扁平产物）
     if (!risk || risk.topWallets === null || risk.bundlerWallets === null) continue;
     for (const w of ARGS.windows) {
       gmgnPairs.push({
@@ -748,7 +781,7 @@ function buildReport(samples, narrative, gmgn) {
       if (!bs) continue;
       const risk = (() => {
         const info = narrative.get(token);
-        return info ? extractGmgnRisk(info) : null;
+        return info || null;     // 同上：已剥 .risk
       })();
       const bundlers = risk && risk.bundlerWallets !== null ? risk.bundlerWallets : null;
       if (bundlers === 0) cands.push({  // 有叙事快照且 bundler=0 才是干净误报面

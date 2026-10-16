@@ -132,7 +132,7 @@ console.log('F. buildReport 端到端');
     ladder.push(mkSampleRec(tok, [
       { kind: 'age10', ts: 10, evals: ev({ bundleClusterSize: i, bundleClusterSharePct: i }) },
     ]));
-    ladderNarr.set(tok, { wallet_tags_stat: { bundler_wallets: bundlers, top_wallets: 20 } });
+    ladderNarr.set(tok, { bundlerWallets: bundlers, topWallets: 20 });   // fetchNarrativeGmgn 已剥 .risk（提取产物直用）
   }
   const r1 = buildReport(ladder, ladderNarr, null);
 
@@ -174,9 +174,9 @@ console.log('F. buildReport 端到端');
     mkSampleRec('0xt4', [{ kind: 'age10', ts: 10, evals: ev({ bundleClusterSize: 1, bundleClusterSharePct: 8 }) }]),               // TN
   ];
   const mixNarr = new Map([
-    ['0xt1', { wallet_tags_stat: { bundler_wallets: 5, top_wallets: 20 } }],
-    ['0xt2', { wallet_tags_stat: { bundler_wallets: 0, top_wallets: 20 } }],
-    ['0xt3', { wallet_tags_stat: { bundler_wallets: 3, top_wallets: 20 } }],
+    ['0xt1', { bundlerWallets: 5, topWallets: 20 }],
+    ['0xt2', { bundlerWallets: 0, topWallets: 20 }],
+    ['0xt3', { bundlerWallets: 3, topWallets: 20 }],
     // 0xt4 无叙事行（narrative miss 不进对拍 A/误报面）
   ]);
   const mixGmgn = new Map([
@@ -262,8 +262,17 @@ console.log('G. 源码口径断言');
     assert.ok(/while \(j < ticks\.length && ticks\[j\]\.timestamp <= s\.ts\)/.test(src)));
   check('G7 token_narrative 批查 .in 批 50（URL 上限红线）', () =>
     assert.ok(/i \+= 50/.test(src) && src.includes(".in('token_address', batch)")));
-  check('G8 GMGN 限速 ~1 req/s', () =>
-    assert.ok(/1050/.test(src)));
+  check('G8 GMGN 节拍 3s 起步 + 429 停等退避（ban 期续打延长 ban；1 req/s 实测 21 票即雪崩）', () => {
+    assert.ok(/let gapMs = 3000/.test(src), '缺 3s 起步节拍');
+    assert.ok(/BANNED_MAX/.test(src) && /320000/.test(src), '缺 BANNED_MAX 5 分钟停等');
+    assert.ok(/gapMs \* 2/.test(src) && /Math\.min\(12000/.test(src), '缺节拍翻倍上限 12s');
+    assert.ok(/attempt < 12/.test(src), '缺 429 重试上限');
+  });
+  check('G9 checkpoint 只认 ok 行（失败行剔除重写待重试——首跑 279 票灭于失败行进 done）', () => {
+    assert.ok(/if \(j\.ok\)/.test(src) && /dropped\+\+/.test(src), '缺 ok 过滤+剔除重写');
+  });
+  check('G10 token_narrative.gmgn_info 剥 .risk（实存=extractGmgnRisk 提取产物非原始响应；二次提取全 null 事故反证）', () =>
+    assert.ok(/gmgn_info && row\.gmgn_info\.risk/.test(src)));
 }
 
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
