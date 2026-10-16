@@ -34,7 +34,7 @@ const rowToTick = (r) => ({
   price_bnb: r.price_bnb !== null ? Number(r.price_bnb) : null,
   price_usd: r.price_usd !== null ? Number(r.price_usd) : null,
   bnb_amount: Number(r.bnb_amount), token_amount: Number(r.token_amount),
-  block_number: r.block_number, timestamp: new Date(r.block_time + 'Z').getTime(),
+  block_number: r.block_number, timestamp: new Date(r.block_time).getTime(),   // timestamptz 自带偏移，勿补 Z（补了 Invalid Date）
   tx_hash: r.tx_hash, log_index: r.log_index, price_outlier: r.price_outlier,
 });
 const cmpChain = (a, b) => a.block_number - b.block_number || a.log_index - b.log_index || a.id - b.id;
@@ -94,7 +94,7 @@ async function fetchTicks(token, untilIso) {
     const tok = tokens[ti];
     const firstBuy = buys.find(b => b.token_address === tok);
     const sig = sigMap.get(firstBuy.signal_id);
-    const fireTs = sig ? new Date(sig.created_at + 'Z').getTime() : new Date(firstBuy.created_at + 'Z').getTime() - 12000;  // signal miss 回退成交前 12s
+    const fireTs = sig ? new Date(sig.created_at).getTime() : new Date(firstBuy.created_at).getTime() - 12000;  // signal miss 回退成交前 12s
     const untilIso = new Date(fireTs + 15000).toISOString();
     const ticks = (await fetchTicks(tok, untilIso)).filter(t => !(t.bnb_amount < MIN_TICK_BNB));   // 尘 tick 不进因子（collector _feedFa 同口径，不分买卖）
     const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
@@ -105,7 +105,7 @@ async function fetchTicks(token, untilIso) {
     const f = fa.buildFactorMap(tok, fireTs);
     const p = pnl.get(tok) || { spent: 0, got: 0, sym: firstBuy.token_symbol };
     results.push({
-      sym: firstBuy.token_symbol, token: tok, fireAt: new Date(fireTs).toISOString(),
+      sym: firstBuy.token_symbol, token: tok, fireAt: new Date(fireTs).toISOString(),   // 展示用（本地时区无关）
       share: f.bundleClusterSharePct, size: f.bundleClusterSize,
       amtRatio: f.bundleClusterAmountRatio, sameTrader: f.bundleClusterSameTrader,
       circ: f.maxBlockBuyCircPct,
