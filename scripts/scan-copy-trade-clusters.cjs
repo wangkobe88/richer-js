@@ -53,6 +53,10 @@ const ANCHORS = [
 ];
 const FLY_TOKEN = '0x4ec2c14230a818fcb8947c3999f7a4a872437777';   // 40 位（trades 原样核验；抄录一位=全空假象 2026-10-16 事故）
 const ROSTER_PATH = path.join(__dirname, '..', 'config', 'rosters', 'copy-wallet-roster.json');
+// pair 统计缓存（2026-10-16 用户裁定：取数尽量有缓存）——参数无关中间产物，
+// dump 一次后调参/矩阵全走本地零网络。含 meta（days/params/tick 数/FLY 买家集）
+const PAIRS_CACHE = path.join(__dirname, '..', 'data', 'offline-cache', 'copy-trade-pairs.json.gz');
+const FROM_CACHE = argv.includes('--from-cache');
 
 const sinceMs = Date.now() - DAYS * 86400e3;
 const sinceIso = new Date(sinceMs).toISOString();
@@ -215,22 +219,44 @@ function buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers }) {
   return { edges, wallets };
 }
 
-// ── 报告（锚检查 + FLY 簇检查 + top 样本）──
-function report(wallets, rows) {
-  const inRoster = new Set(wallets.map(w => w.address));
-  console.log(`\n════════ 名单 ${wallets.length} 钱包（leader ${wallets.filter(w => w.role === 'leader').length} / member ${wallets.filter(w => w.role === 'member').length}）════════`);
-  let anchorOk = true;
-  for (const a of ANCHORS) {
-    const hit = wallets.find(w => w.address === a);
-    if (!hit) anchorOk = false;
-  }
-  const flyBuyers = new Set(rows.filter(r => r.t === FLY_TOKEN && r.buy).map(r => r.w));
-  const flyHits = [...flyBuyers].filter(w => inRoster.has(w));
-  return { anchorOk, flyBuyers: flyBuyers.size, flyHits };
+// ── pair 统计缓存读写（zlib gzip JSON；meta 携带生成参数与 FLY 买家集）──
+function dumpPairs(pairs, rows, meta) {
+  const zlib = require('zlib');
+  const arr = [];
+  for (const [k, st] of pairs) arr.push({ k, ...st });
+  const flyBuyers = [...new Set(rows.filter(r => r.t === FLY_TOKEN && r.buy).map(r => r.w))];
+  meta.flyBuyers = flyBuyers;   // 回写调用方 meta，fresh 路径与 cache 路径同形
+  const payload = JSON.stringify({ meta: { ...meta, pairCount: arr.length }, pairs: arr });
+  fs.mkdirSync(path.dirname(PAIRS_CACHE), { recursive: true });
+  fs.writeFileSync(PAIRS_CACHE, zlib.gzipSync(payload));
+  console.log(`[缓存] pair 统计 dump → ${PAIRS_CACHE}（${arr.length.toLocaleString()} 对，${(fs.statSync(PAIRS_CACHE).size / 1e6).toFixed(1)} MB）`);
 }
 
-function fullReport(wallets, rows) {
-  const r = report(wallets, rows);
+function loadPairsCache() {
+  const zlib = require('zlib');
+  const parsed = JSON.parse(zlib.gunzipSync(fs.readFileSync(PAIRS_CACHE)).toString('utf8'));
+  const pairs = new Map();
+  for (const p of parsed.pairs) {
+    const { k, ...st } = p;
+    pairs.set(k, st);
+  }
+  console.log(`[缓存] 读回 pair 统计 ${pairs.size.toLocaleString()} 对（meta=${JSON.stringify({ ...parsed.meta, flyBuyers: parsed.meta.flyBuyers?.length + ' 个 FLY 买家' })}）`);
+  return { pairs, meta: parsed.meta };
+}
+
+// ── 报告（锚检查 + FLY 簇检查 + top 样本）──
+function report(wallets, flyBuyerSet) {
+  const inRoster = new Set(wallets.map(w => w.address));
+  let anchorOk = true;
+  for (const a of ANCHORS) {
+    if (!wallets.some(w => w.address === a)) anchorOk = false;
+  }
+  const flyHits = [...flyBuyerSet].filter(w => inRoster.has(w));
+  return { anchorOk, flyBuyers: flyBuyerSet.size, flyHits };
+}
+
+function fullReport(wallets, flyBuyerSet) {
+  const r = report(wallets, flyBuyerSet);
   console.log(`\n════════ 名单 ${wallets.length} 钱包（leader ${wallets.filter(w => w.role === 'leader').length} / member ${wallets.filter(w => w.role === 'member').length}）════════`);
   console.log('\n[锚检查]（未命中=判据失准，调参重跑，绝不 --commit）');
   for (const a of ANCHORS) {
@@ -246,40 +272,53 @@ function fullReport(wallets, rows) {
 }
 
 (async () => {
-  console.log(`[参数] days=${DAYS} minTokens=${MIN_TOKENS} blockWin=${BLOCK_WIN} sellWin=${SELL_WIN} commit=${COMMIT}`);
-  const rows = await fetchAll();
-  if (!rows.length) { console.error('空数据，中止'); process.exit(1); }
-  const active = pass1(rows);
-  const { pairs } = pass2(rows, active);
+  console.log(`[参数] days=${DAYS} minTokens=${MIN_TOKENS} blockWin=${BLOCK_WIN} sellWin=${SELL_WIN} commit=${COMMIT}${FROM_CACHE ? '（读缓存，取数参数以缓存 meta 为准）' : ''}`);
+  let pairs, fetchMeta;
+  if (FROM_CACHE) {
+    ({ pairs, meta: fetchMeta } = loadPairsCache());
+  } else {
+    const rows = await fetchAll();
+    if (!rows.length) { console.error('空数据，中止'); process.exit(1); }
+    const active = pass1(rows);
+    ({ pairs } = pass2(rows, active));
+    fetchMeta = { days: DAYS, minTokens: MIN_TOKENS, blockWin: BLOCK_WIN, sellWin: SELL_WIN };
+    dumpPairs(pairs, rows, fetchMeta);
+  }
+  const flyBuyerSet = new Set(fetchMeta.flyBuyers);
 
-  // ── 定标矩阵（首跑教训：co>=3 宽判据 11866 名单/FLY 28/34 命中——同场抢盘 bot 污染。
-  //    强度指纹=金额复制（等额）/同步清仓；矩阵一次跑完选档）──
+  // ── 定标矩阵 v2（目标：名单收敛到 10 几~几十「著名钱包」档）。
+  //    v1 教训：co>=3 宽判据 11866 名单/FLY 28/34 买家命中=同场抢盘 bot 污染；
+  //    锚钱包实测（v1 全宽口径）：0xbf00 followers=483/co=629/等额=1044，
+  //    0xa83b73f5 followers=768/co=245/卖同步=1576 —— 三轴高档（co/指纹/minFollowers）才收敛。
+  //    矩阵全走内存 pair 统计，from-cache 秒级重跑──
   const MATRIX = [];
-  for (const coThr of [3, 10, 20, 50]) {
-    for (const [sellSyncThr, evenThr] of [[0, 0], [2, 3], [3, 5], [5, 10]]) {
-      const { wallets } = buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers: MIN_FOLLOWERS });
-      const { anchorOk, flyBuyers, flyHits } = report(wallets, rows);
-      MATRIX.push({ coThr, sellSyncThr, evenThr, size: wallets.length,
-        leaders: wallets.filter(w => w.role === 'leader').length, anchorOk, flyHits: flyHits.length });
+  for (const coThr of [50, 100, 200, 500]) {
+    for (const [sellSyncThr, evenThr] of [[0, 0], [5, 10], [20, 40], [100, 200]]) {
+      for (const minFollowers of [2, 20, 100]) {
+        const { wallets } = buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers });
+        const { anchorOk, flyHits } = report(wallets, flyBuyerSet);
+        MATRIX.push({ coThr, sellSyncThr, evenThr, minFollowers, size: wallets.length,
+          leaders: wallets.filter(w => w.role === 'leader').length, anchorOk, flyHits: flyHits.length });
+      }
     }
   }
-  console.log('\n════════ 定标矩阵（名单规模 | leader | 锚 | FLY 命中/34 买家）════════');
-  console.log('coThr  sellSync/even  名单   leader  锚   FLY命中');
+  console.log('\n════════ 定标矩阵 v2（名单规模 | leader | 锚 | FLY 命中）════════');
+  console.log('coThr  sync/even  minFol  名单   leader  锚   FLY命中');
   for (const m of MATRIX) {
-    console.log(`${String(m.coThr).padStart(5)}  ${String(m.sellSyncThr).padStart(3)}/${String(m.evenThr).padStart(3)}       ${String(m.size).padStart(5)}  ${String(m.leaders).padStart(5)}  ${m.anchorOk ? '✅' : '❌'}  ${m.flyHits}`);
+    console.log(`${String(m.coThr).padStart(5)}  ${String(m.sellSyncThr).padStart(3)}/${String(m.evenThr).padStart(3)}   ${String(m.minFollowers).padStart(5)}  ${String(m.size).padStart(5)}  ${String(m.leaders).padStart(5)}  ${m.anchorOk ? '✅' : '❌'}  ${m.flyHits}`);
   }
 
   // ── 终版参数（CLI 覆盖或矩阵选档后写死于此）跑正式名单 ──
   const finalParams = { coThr: CO_TOKEN_THR, sellSyncThr: argOf('--sell-sync-thr', 0), evenThr: argOf('--even-thr', 0), minFollowers: MIN_FOLLOWERS };
   console.log(`\n[终版] coThr=${finalParams.coThr} sellSyncThr=${finalParams.sellSyncThr} evenThr=${finalParams.evenThr} minFollowers=${finalParams.minFollowers}`);
   const { wallets } = buildRoster(pairs, finalParams);
-  const r = fullReport(wallets, rows);
+  const r = fullReport(wallets, flyBuyerSet);
   if (!COMMIT) { console.log('\n（dry-run：未写名单文件。矩阵选档后带参数加 --commit 重跑）'); process.exit(0); }
   if (!r.anchorOk) { console.error('\n锚检查失败——拒绝写名单，调参重跑'); process.exit(1); }
   const out = {
     version: 1,
     generatedAt: new Date().toISOString(),
-    params: { days: DAYS, minTokens: MIN_TOKENS, blockWin: BLOCK_WIN, sellWin: SELL_WIN,
+    params: { days: fetchMeta.days, minTokens: fetchMeta.minTokens, blockWin: fetchMeta.blockWin, sellWin: fetchMeta.sellWin,
       coTokenThr: finalParams.coThr, sellSyncThr: finalParams.sellSyncThr, evenThr: finalParams.evenThr, minFollowers: finalParams.minFollowers },
     wallets,
   };
