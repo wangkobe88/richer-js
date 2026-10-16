@@ -296,7 +296,7 @@ console.log('7. excludeKeys：龙头三键无值时的防线');
   // 7a: 龙头键排除后不在 knownCtx；其余 14 键在
   const ctx = svc._buildKnownFactorContext({ narrativeRating: 1 }, LEADER);
   ok(LEADER.every(k => !(k in ctx)), '7a1. 排除键不进 knownCtx（hasOwnProperty 不中）');
-  ok(Object.keys(ctx).length === 15, '7a2. 其余 15 键保留（2026-10-15 加 gmgnVisitingCount）', `n=${Object.keys(ctx).length}`);
+  ok(Object.keys(ctx).length === 16, '7a2. 其余 16 键保留（2026-10-15 加 gmgnVisitingCount / 2026-10-16 加 gmgnUserPct）', `n=${Object.keys(ctx).length}`);
   // 7b 核心反证：龙头键无值（引擎层形状 undefined）+ 条件 `narrativeLeaderHot != 0`
   // ——不排除时默认 0 → 项恒假 → 误短路（演示风险）；排除 → 不短路（防线生效）
   const COND_LEADER = 'narrativeLeaderHot != 0 AND earlyReturn >= 100';
@@ -341,7 +341,7 @@ console.log('8. BacktestEngine P4b 接线源码防线');
   const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered', 'gmgnVisitingCount',
     'earlyTradesRouterLowSideSeen', 'earlyTradesRouterRejectCount'];
   const literal = ['drawdownFromHighest', 'buyRound', 'lastPairReturnRate', 'narrativeRating',
-    'narrativeCorpusLagSec', 'earlyReturn', 'tweetAuthorType', 'dataCollectionRound', 'platform'];
+    'narrativeCorpusLagSec', 'earlyReturn', 'gmgnUserPct', 'tweetAuthorType', 'dataCollectionRound', 'platform'];
   const missing = literal.filter(k => !block.includes(`${k}:`) && !block.includes(`${k},`));
   ok(missing.length === 0, `8d. P4b options 块字面传 ${literal.length} 个 known 键（与 performAllChecks 同源）`, `missing=${missing}`);
   ok(block.includes('_mapGmgnRiskFactors(') && block.includes('routerGateFactors('),

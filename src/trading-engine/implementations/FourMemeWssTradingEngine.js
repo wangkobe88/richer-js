@@ -1756,6 +1756,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               // earlyReturn 注入 preBuy context（drawdownFromHighest 同款先例：晚票门
               // 右臂 `earlyReturn >= N` 是 preBuy 条件可引用的「用户认同」证据）
               earlyReturn: factorResults.earlyReturn ?? null,
+              // gmgnUserPct 注入（2026-10-16 u40 门挪层）：FA 实时占比 fire 时点快照；
+              // null=无 TPA 段 fail-closed（preBuy 键集经 getConditionFactorKeys 自动放行）
+              gmgnUserPct: factorResults.gmgnUserPct ?? null,
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,

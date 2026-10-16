@@ -1796,6 +1796,10 @@ class BacktestEngine extends AbstractTradingEngine {
               narrativeRating: narrativeCallInfo.numericRating,
               narrativeCorpusLagSec,
               earlyReturn: factorResults.earlyReturn ?? null,
+              // gmgnUserPct（2026-10-16 u40 门挪层）：P4b 判定与 performAllChecks 必须
+              // 同值透传——漏传则恒取 ?? null 默认，gmgnUserPct >= 40 单项恒假会在
+              // 回测侧误触发引擎层短路（单测第 6 节源码防线防此漏）
+              gmgnUserPct: factorResults.gmgnUserPct ?? null,
               ...this._mapGmgnRiskFactors(narrativeCallInfo.gmgnRisk),
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
@@ -1871,6 +1875,8 @@ class BacktestEngine extends AbstractTradingEngine {
               narrativeCorpusLagSec, // 早晚票分级（上方注释）；null=晚票门 fail-closed
               // earlyReturn 注入 preBuy context（实时引擎同款；晚票门右臂证据）
               earlyReturn: factorResults.earlyReturn ?? null,
+              // gmgnUserPct 注入（2026-10-16 u40 门挪层，实时引擎同款 fire 时点快照）
+              gmgnUserPct: factorResults.gmgnUserPct ?? null,
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,

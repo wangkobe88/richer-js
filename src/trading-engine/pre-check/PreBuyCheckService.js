@@ -564,7 +564,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, sourceExperimentId, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, gmgnVisitingCount, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, sourceExperimentId, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, gmgnVisitingCount, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount, gmgnUserPct } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -690,6 +690,11 @@ class PreBuyCheckService {
           // fire 因子 earlyReturn 注入（drawdownFromHighest 同款先例）：晚票门右臂
           // `earlyReturn >= N` 的「用户认同」证据；null=无首价锚（罕见）
           earlyReturn: earlyReturn ?? null,
+          // fire 因子 gmgnUserPct 注入（2026-10-16 Yoon 案用户裁定：u40 门从 fire
+          // condition 挪进 preBuy——低 GMGN 占比票 fire 落行留审计痕迹，被本门拒）：
+          // FA 实时净持仓量加权占比的 fire 时点快照；null=无 TPA 段（_maintainTpa
+          // false 不算）→ 条件恒 false fail-closed，与小王子案 u40 语义一致
+          gmgnUserPct: gmgnUserPct ?? null,
           narrativeLeaderHot: narrativeLeaderHot,
           narrativeLeaderCount: narrativeLeaderCount,
           narrativeLeaderMaxMultiple: narrativeLeaderMaxMultiple,
@@ -909,6 +914,7 @@ class PreBuyCheckService {
       narrativeRating: options.narrativeRating ?? 9,
       narrativeCorpusLagSec: options.narrativeCorpusLagSec ?? null,
       earlyReturn: options.earlyReturn ?? null,
+      gmgnUserPct: options.gmgnUserPct ?? null,
       narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
       narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
       narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
@@ -1030,6 +1036,8 @@ class PreBuyCheckService {
       narrativeCorpusLagSec: extraContext.narrativeCorpusLagSec ?? null,
       // fire 因子 earlyReturn（晚票门右臂证据；null=无首价锚）
       earlyReturn: extraContext.earlyReturn ?? null,
+      // fire 因子 gmgnUserPct（u40 门挪层注入；null=无 TPA 段 fail-closed）
+      gmgnUserPct: extraContext.gmgnUserPct ?? null,
       // 同叙事龙头因子（引擎侧算好透传；默认 0=未查/无源推文/失败 fail-open 放行）
       narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
       narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
@@ -1179,6 +1187,9 @@ class PreBuyCheckService {
         // fire 因子 earlyReturn（允许在条件表达式中使用——晚票门右臂证据；
         // 与 FA fire 因子同名同值同刻，platform 键同款双域存在）
         earlyReturn: extraContext.earlyReturn ?? null,
+        // fire 因子 gmgnUserPct（2026-10-16 u40 门挪层进 preBuy；与 FA fire 因子
+        // 同名同值同刻，earlyReturn 同款双域存在；null=无 TPA 段 fail-closed）
+        gmgnUserPct: extraContext.gmgnUserPct ?? null,
         // 同叙事龙头因子（允许在条件表达式中使用；默认 0 不用 null——null 比较恒 false 会误拒）
         narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
         narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
