@@ -122,6 +122,9 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
     activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
                                  //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
+    // ── 同 block 首买簇捆绑检测（2026-10-16 BITCAT 案）──
+    bundleWinMs: 10000,          // bundle* 6 键窗口（对齐 act*；扫描 Phase 2 对比 10s/30s/60s
+                                 //   后再定默认值）；原料 _bundleEvents/_blockBuyAgg/_circTokens
 };
 
 // ── 市场截面 regime 观测（market* 5 键，回迁批 2.6；pumpfun 08-30 观察版口径）──
@@ -883,6 +886,36 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
         this._pruneActivityEvents(state, tick.timestamp);
+
+        // ── bundle* 6 键原料（2026-10-16 BITCAT 案：5 bundler 同 block 首买 52.5% 窗内
+        //    买盘推价，引擎 fire 峰顶买入后同 block 清仓 -35.8%；gmgnBundlerWalletRatio
+        //    个数口径 27.8 未拦）：流通 = Σ买−Σ卖 双腿进出（加减交换律 → defer 乱序收敛）；
+        //    block 买量含非首买行；首买事件仅 wallet 非空行入环（null wallet 无法按钱包
+        //    聚簇，其买盘照计 sharePct 分母）。首买判定 = 全史 min 替换（不是 Set 到达序
+        //    判重——乱序回推下晚到的更早首买要顶掉先记的伪首买，读点再按钱包去重保最早）──
+        state._circTokens += isBuy ? tokenAmount : -tokenAmount;
+        if (isBuy) {
+            if (blockNumber !== null) {
+                const _bb = state._blockBuyAgg.get(blockNumber);
+                if (_bb) _bb.b += tokenAmount;
+                else state._blockBuyAgg.set(blockNumber, { t: tick.timestamp, b: tokenAmount });
+            }
+            if (walletAddr) {
+                const _pb = state._walletFirstBuyTs.get(walletAddr);
+                if (_pb === undefined || tick.timestamp < _pb) {
+                    state._walletFirstBuyTs.set(walletAddr, tick.timestamp);
+                    state._bundleEvents.push({
+                        ts: tick.timestamp,
+                        blk: blockNumber,
+                        li: tick.log_index != null ? Number(tick.log_index) : null,
+                        w: walletAddr,
+                        bnb: bnbAmount,
+                        trader: tick.trader_address || null,
+                    });
+                }
+            }
+        }
+        this._pruneBundleEvents(state, tick.timestamp);
     }
 
     /**
@@ -1209,6 +1242,18 @@ class FourMemeFactorAggregator extends EventEmitter {
             _activityEvents: [], // act* 8 键原料 {ts, w, buy, bnb}（到达序 push，读点按 ts 过滤容忍
                                  // defer 乱序回推；摊销裁剪 _pruneActivityEvents，2026-10-15）
             _walletFirstSeenTs: new Map(), // wallet → 首次参与时刻（min 语义保链上真相；actNewTraders 判据）
+
+            // ── bundle* 6 键原料（2026-10-16 BITCAT 案同 block 首买簇捆绑检测）──
+            _bundleEvents: [],       // 首买事件环 {ts, blk, li, w, bnb, trader}（到达序 push + min
+                                     //   替换：更早首买晚到时追加推送，读点按钱包去重保最早——defer
+                                     //   乱序免疫；摊销裁剪 _pruneBundleEvents）
+            _walletFirstBuyTs: new Map(), // wallet → 首买时刻（全史 min，永不裁剪——事件环可裁而此
+                                     //   Map 不可：裁后同钱包再买会被误判为新首买混进簇）
+            _blockBuyAgg: new Map(), // blk → {t, b}（单 block 买入 token 累计，含非首买行；
+                                     //   maxBlockBuyCircPct 分子；t=该 block 行的 block_time）
+            _circTokens: 0,          // 流通 = Σ买入 − Σ卖出 token（净流出池子筹码；全史增量累计
+                                     //   永不裁剪，加减法交换律 → defer 乱序收敛；creator 初始持仓
+                                     //   未经买入不计入——口径与 BITCAT 重放对拍一致 63.3%）
 
             // 持仓（positionKey → pos）
             _positions: new Map(),
@@ -1539,6 +1584,30 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
+     * bundle* 原料裁剪（2026-10-16，_pruneActivityEvents 同款摊销）：
+     * - _bundleEvents：长度>64 且头部 ts 已滑出 2×bundleWinMs 才批量 splice（从头连续判，
+     *   遇首个未出局即停——min 替换追加的更早事件可停在尾部，滞留无害：读点 ts 过滤
+     *   不可见）。_walletFirstBuyTs 全史 Map 不裁（裁=同钱包再买误判新首买混进簇）。
+     * - _blockBuyAgg：size>64 时删 t 已滑出 2× 窗的 block 条目（Map 迭代中删除安全；
+     *   _circTokens 是全史标量，不在此列）。
+     */
+    _pruneBundleEvents(state, now) {
+        const evts = state._bundleEvents;
+        if (evts.length > 64) {
+            const cutoff = now - 2 * this._fp.bundleWinMs;
+            let i = 0;
+            while (i < evts.length && evts[i].ts < cutoff) i++;
+            if (i > 0) evts.splice(0, i);
+        }
+        if (state._blockBuyAgg.size > 64) {
+            const cutoff = now - 2 * this._fp.bundleWinMs;
+            for (const [blk, agg] of state._blockBuyAgg) {
+                if (agg.t < cutoff) state._blockBuyAgg.delete(blk);
+            }
+        }
+    }
+
+    /**
      * _recentTicks 单趟扫描（P2c，2026-10-12 回测性能案）：各读取方原先自行遍历
      * （5min 窗过滤 / crashSpeed 窗高点 / risePct5m 谷 /
      * _computePriceTrendFactors reliable 提取）——百万 tick 回放下每 tick 多趟是固定
@@ -1626,6 +1695,113 @@ class FourMemeFactorAggregator extends EventEmitter {
             actBuyers: buyers.size,
             actSellers: sellers.size,
             actNewTraders: newTraders,
+        };
+    }
+
+    /**
+     * 同 block 首买簇 6 键（2026-10-16 BITCAT 案捆绑检测）：
+     *   bundleClusterSize       —— 窗内最大「同 block 首买簇」钱包数（空窗 0 有证据零值）
+     *   bundleClusterSharePct   —— 该簇合计 BNB ÷ 窗内总买入 BNB ×100（分母含非首买买盘，
+     *                              扫 _activityEvents；BITCAT 真簇 52.5 vs 散户簇 11.9）
+     *   bundleClusterAmountRatio —— 簇内 max/min 首买金额比（等额≈1；观察键不进门——
+     *                              用户裁定等额非捆绑必要条件；size<2 或 min≤0 → 0）
+     *   bundleClusterEvenGap    —— 簇内 log_index 排序后差分等间隔 0/1（观察键；li 缺失 → 0）
+     *   bundleClusterSameTrader —— 簇内模态 trader_address 占比 ×100（BITCAT 5 行全
+     *                              GMGN 聚合路由=100；tx 级同 calldata 的 tick 层代理）
+     *   maxBlockBuyCircPct      —— 窗内最大单 block 买入 token ÷ 读取时刻累计流通 ×100
+     *                              （流通=_circTokens Σ买−Σ卖；用户裁定新增——修正
+     *                              pre-check 侧 maxBlockBuyRatio 除总供应 1e9 被稀释的
+     *                              硬伤，BITCAT 真簇 63.3%；分母含该 block 及其后已喂
+     *                              买入，读取时刻口径 defer 乱序收敛；流通≤0 → 0）
+     * 簇选取：钱包数最大者优先，并列取 bnb 大者、再取 blk 小者（确定性）。
+     * 纯函数读取：无 latch/无副作用 → 与 backtest.tickBuildSkip 天然无互斥（写点在
+     * _applyWalletAggregation 每 tick 照跑，build 跳过的只是本读点，重建时数据完整）。
+     * defer 乱序免疫：窗内事件按钱包去重保最早（ts→blk→li 链序真值），min 替换可能在
+     * 环里留同钱包双事件，去重是唯一序无关解。★防前视红线：禁 Date.now——now 由
+     * buildFactorMap(state, asOf) 传入。空/空窗全 0（有证据零值非 null）。
+     */
+    _bundleClusterFactors(state, now) {
+        const cutoff = now - this._fp.bundleWinMs;
+        // 窗内首买事件 → 按钱包去重（保链序最早）
+        const perWallet = new Map();
+        for (const e of state._bundleEvents) {
+            if (e.ts < cutoff) continue;
+            const prev = perWallet.get(e.w);
+            const earlier = prev === undefined
+                || e.ts < prev.ts
+                || (e.ts === prev.ts && e.blk !== null && prev.blk !== null
+                    && (e.blk < prev.blk || (e.blk === prev.blk
+                        && e.li !== null && prev.li !== null && e.li < prev.li)));
+            if (earlier) perWallet.set(e.w, e);
+        }
+        // 按 block 聚簇（blk 缺失行无法聚簇——不造兜底）
+        const byBlock = new Map();
+        for (const e of perWallet.values()) {
+            if (e.blk === null) continue;
+            let c = byBlock.get(e.blk);
+            if (!c) { c = { bnb: 0, rows: [] }; byBlock.set(e.blk, c); }
+            c.bnb += e.bnb;
+            c.rows.push(e);
+        }
+        let best = null;
+        for (const [blk, c] of byBlock) {
+            if (best === null
+                || c.rows.length > best.c.rows.length
+                || (c.rows.length === best.c.rows.length
+                    && (c.bnb > best.c.bnb || (c.bnb === best.c.bnb && blk < best.blk)))) {
+                best = { blk, c };
+            }
+        }
+        // sharePct 分母：窗内总买入 BNB（含非首买买盘与 null wallet 行；扫 act* 事件环）
+        let winBuyBnb = 0;
+        for (const e of state._activityEvents) {
+            if (e.ts >= cutoff && e.buy) winBuyBnb += e.bnb;
+        }
+        const rows = best ? best.c.rows : [];
+        const size = rows.length;
+        const sharePct = best && winBuyBnb > 0 ? best.c.bnb / winBuyBnb * 100 : 0;
+        // 金额比 max/min（size<2 或 min≤0 → 0 无证据零值）
+        let amountRatio = 0;
+        if (size >= 2) {
+            let mn = Infinity, mx = 0;
+            for (const r of rows) { if (r.bnb < mn) mn = r.bnb; if (r.bnb > mx) mx = r.bnb; }
+            if (mn > 0) amountRatio = mx / mn;
+        }
+        // log_index 等间隔（排序在读取时做，defer 乱序免疫；任一 li 缺失 → 0）
+        let evenGap = 0;
+        if (size >= 2) {
+            const lis = rows.map(r => r.li);
+            if (lis.every(v => v !== null)) {
+                lis.sort((a, b) => a - b);
+                evenGap = 1;
+                for (let i = 2; i < lis.length; i++) {
+                    if (lis[i] - lis[i - 1] !== lis[1] - lis[0]) { evenGap = 0; break; }
+                }
+            }
+        }
+        // 模态 trader 占比（trader 全 null 时模态计数=行数 → 100；wallet 口径与 trader 层
+        // 刻意并存：sameTrader 观察的是「同一执行路由」，null trader 视为同一未知执行者）
+        let sameTrader = 0;
+        if (size >= 1) {
+            const cnt = new Map();
+            for (const r of rows) cnt.set(r.trader, (cnt.get(r.trader) || 0) + 1);
+            let mode = 0;
+            for (const v of cnt.values()) if (v > mode) mode = v;
+            sameTrader = mode / size * 100;
+        }
+        // 单 block 吞噬率：窗内最大 block 买入 token ÷ 读取时刻累计流通
+        let maxBlkB = 0;
+        for (const agg of state._blockBuyAgg.values()) {
+            if (agg.t >= cutoff && agg.b > maxBlkB) maxBlkB = agg.b;
+        }
+        const circPct = maxBlkB > 0 && state._circTokens > 0 ? maxBlkB / state._circTokens * 100 : 0;
+        return {
+            bundleClusterSize: size,
+            bundleClusterSharePct: Math.round(sharePct * 10) / 10,
+            bundleClusterAmountRatio: amountRatio,
+            bundleClusterEvenGap: evenGap,
+            bundleClusterSameTrader: Math.round(sameTrader * 10) / 10,
+            maxBlockBuyCircPct: Math.round(circPct * 10) / 10,
         };
     }
 
@@ -2055,6 +2231,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 交易活跃度滑窗（act* 8 键，2026-10-15；取代已删的 cycle 分桶路由）
         const activity = this._activityFactors(state, now);
 
+        // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
+        const bundle = this._bundleClusterFactors(state, now);
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -2124,6 +2303,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             actBuyers: activity.actBuyers,
             actSellers: activity.actSellers,
             actNewTraders: activity.actNewTraders,
+
+            // ── 同 block 首买簇捆绑检测 bundle* 6 键（2026-10-16 BITCAT 案：
+            //    5 bundler 同 block 首买 52.5% 窗内买盘，fire 峰顶买入后同 block 清仓
+            //    -35.8%。Phase 1 纯观察键不进任何条件；0=空窗有证据零值非 null；
+            //    语义/口径详见 _bundleClusterFactors 注释）──
+            bundleClusterSize: bundle.bundleClusterSize,
+            bundleClusterSharePct: bundle.bundleClusterSharePct,
+            bundleClusterAmountRatio: bundle.bundleClusterAmountRatio,
+            bundleClusterEvenGap: bundle.bundleClusterEvenGap,
+            bundleClusterSameTrader: bundle.bundleClusterSameTrader,
+            maxBlockBuyCircPct: bundle.maxBlockBuyCircPct,
 
             trendDataPoints: prices.length,
 
