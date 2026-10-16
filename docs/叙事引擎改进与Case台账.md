@@ -68,7 +68,40 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C72 小黑案 0x9641293a72d25a00982dc711425c9a2f74fc7777——vision 前置 Jev 预判门（G1.0）：「文字已足够确认叙事就免掉 vision 图像分析」（2026-10-15 用户裁定）★
+### C75 FLY 案 0x4ec2c14230a818fcb8947c3999f7a4a872437777——叙事源头陈旧门（direct_tweet 主推>30d → mapper 时效归 older）：「找角度推文是新的，但币安的推文已经一年多以前了，这种控一下吧」（2026-10-16 用户裁定）★
+
+- **案发**：four.meme 2026-10-16 02:25 发币。语料两推：主推=**币安 2025-06-08 FLY 上线公告**（1612 万粉，lag **495 天**）；第二语料 website_tweet=gapJ 当天宣告推（「币安发过的 FLY 1 token，我们应该在链上发射它，今天是最好的发射时机」，lag 7s）。Jev 被当天宣告推误答 `within_7d` 拿满时效分 → **77.32 high 放行**，v18 实跑 0.004 BNB 买入 -36%。
+- **分类路径**：主推=币安高粉 → `classifyTweetType` 判 **direct_tweet**（推文即事件源）→ C68 找角度门（angle/interpretive 专用）不适用；C74 分桶后 direct_tweet 又是 precheck 豁免桶（无硬拦）→ 该形态此前**无任何时效防线**，全靠 Jev event_timing 软评——而软评恰恰被宣告推污染。
+- **裁定**（用户 2026-10-16）：源头语料太老的 direct 票要控。落地=**mapper-only 分轴 override**（J1.16/J1.23/J1.24/C68 同款：分数锚定类必须代码侧，题集/版本不动）：`tweet_type=direct_tweet` 且主推 lag > `SOURCE_STALE_SEC=30d`（对齐 Jev within_30d/older 档边界）→ timing 归 older=0 分。
+- **判定轴（与 C68 刻意相反）**：只看**主推**（twitterInfo）时间且仅主推——direct_tweet 语义「主推即事件源」，主推=源头本体；website_tweet/quoted/retweeted **刻意不进集合**：发币人当天的宣告推新是当然的，不构成「事件新鲜」证据（C68 载体集合取最新一条「任一新即活」救 angle 类，本门宣告推救不了 direct 类）。angle_seeking/interpretive_reply 不触达（C68 域，两门 type 互斥精确实位）；unknown 不触达（留给 Jev 自判）；锚=tokenCreatedAtSec||raw_api_data.created_at（与 C68 同链）缺失 fail-open。
+- **与 C74 协同**：C74 把 direct_tweet 从 precheck 硬拦豁免交 Jev 软评（高粉新闻推被人发现得晚，300s 硬拦误杀啾啾案）——豁免口子打开后，真·陈旧源头（翻旧闻发币）正是本门在软评层接住：30d 客观锚替代被宣告推污染的 Jev 时效判断。两案同日裁定，一放一收互为补丁。
+- **存量影响面**（182 扫描 7177 有效行）：主推>30d 的 direct 票 117——**high 20 票全是骑 CZ/币安/何一/雷军 35d~5.7y 老推形状**（CZ 同一条 2087 天前的推被骑两个盘；评级两极分布无 mid 残例：Jev 答新鲜=high、答 older=low）；48 low 零变化；49 rating undefined（precheck 拦形状）。实跑对照：6 票被买过 **5 亏 1 赢**（麻婆豆腐 -25%/价值币 -51%/Cherry -21%/币安侠 -25%/FLY -36%，唯 CRAZYCOIN +139%）——门上线后连偶发大赢一起拦，方向与裁定一致。
+- **验证**：`_test_angle_timing_override` D 组（D1 事故现场反证：direct+495d+宣告推当天不救 → 53.4<60 翻 low，对照 unknown 同形状 71.54 high；D2 边界 2592001/2591999；D3 type 互斥；D4/D5 锚与主推时间缺失 fail-open；D6 Jev 已答 older 零变化审计仍落）+ C3 源码口径（`SOURCE_STALE_SEC = 30 * 86400` + 仅 direct_tweet 域锁定），31 断言全绿。
+- **部署注意**：mapper 属叙事 worker/直调共用代码——生效=叙事 worker 重启（182 `nohup node src/narrative/engine/start.mjs`）+ 实验进程重启（直调走引擎内 NarrativeAnalyzer）；存量 token_narrative 缓存行不自动重析（与 C74 同款混合期语义）；FLY 本票已死无需失效缓存，后续同类新票自然生效。审计键 `stage1.jev.staleSourceOverride`（lagSec/staleSec/rawTiming 可追溯）。
+
+### C74 啾啾案 0x21bfeeddb550e3e84d3c9783523e1153e19a7777——推文时效分桶（expired_tweet 6h→300s relocate 买腿 lag 门）+ direct_tweet 高影响力新闻推豁免：「时效三情况——新闻热点选早票/找角度须立即发币严格，高影响力用户发的新闻被人发现得晚应豁免」（2026-10-16 用户裁定）★
+
+- **案发**：flap 非 BNB 盘 2026-10-15 22:51 发币，语料=@KarluskaP（41.7 万粉 verified）新闻转发推（视频源 Douyin→IG→Twitter 跨平台扩散），推文 14:01 UTC → **lag 8.8h**。token **116 秒毕业、峰值 11.6x**，但被 precheck `expired_tweet`（6h 一刀切）拦成 rating=1 → 一票否决永久拉黑（precheckStage=null 无重试窗），**Jev 从未运行**；即使过了，v12 买腿裸 `narrativeCorpusLagSec < 300`（C71 删 earlyReturn 右支后残余左支）也独立拦死；earlyReturn 检查时已 92%（最终 11.6x）逃生通道同样失效——三层杀伤链。
+- **结构性发现**：粗筛（precheck 6h 一刀切）杀得比细筛（C68 mapper 6h 只打 angle/interpretive 两桶）狠且挡在前面；direct_tweet 类（推文即事件源）没有任何精细时效评估路径——而「高影响力用户的新闻推文」正是最不该按「发推→立即发币」假设对待的形态（被人发现得晚，不一定有推文立即有人发币）。
+- **三情况裁定**（用户 2026-10-16）：①新闻时事热点（买家选早票）→时效严格；②找角度推文（找到角度立即发币，迟发有问题）→时效严格（C68 已有）；③**高影响力用户发的新闻**（≠找角度，易混淆）→**时效大幅放宽**。架构裁定：买腿 `narrativeCorpusLagSec < 300` **移入叙事引擎**。
+- **四决策**（AskUserQuestion 确认）：情况③判定线=复用 `classifyTweetType` 现行 `direct_tweet` 线（粉≥5000 或 赞≥500 或 转≥100）；放宽幅度=**不设硬界**，全交 Jev `event_timing` 软评（7d/30d/older 事件尺度，正在发酵=满档；题面零改动 JEV_QUESTIONS_VERSION 不动）；规则位置=precheck 层按桶参数化窗宽；无推文锚语料（account 型/纯 IG 型）=**接受放宽**（旧买门 null-lag 拦截是因子形状副作用非有意设计，迁移后评级 2/3 即可买——观察期盯这类票实际盈亏）。
+- **改动面**：①`pre-check-service.mjs` 规则 2.1 分桶——`classifyTweetType(twitterInfo)` 判 direct_tweet 跳过 kill（日志「规则2.1豁免」），其余桶（angle_seeking/interpretive_reply/unknown 含中间地带字段缺失兜底）窗 6h→**300s**（`NON_EXEMPT_TWEET_FRESH_SEC=300`，秒粒度 `<`：299 放/300 整拦，对齐旧买门口径；旧 precheck 是分钟粒度 `<=`）；ruleName 保持 `'expired_tweet'`（监控口径连续），details 新增 `tweetType`+`freshWindowSec`；**豁免是语料级**（主推判 direct 即整组放，旧 website_tweet 也放——时效全交软评）。②旧分钟窗 config 键 `expiredTweetMinutesThreshold` 废止删除（pre-check-service fallback + NarrativeAnalyzer 死拷贝两处；config/default.json 本就未设）。③C68 mapper `ANGLE_TWEET_STALE_SEC` 6h **保留作纵深防御**（兜 ignoreExpired 穿透/precheck 锚缺失跳过/缓存残例），注释更新不再同窗。④库 buy-v2 v12→**v13**（`scripts/bump-buy-v2-v13.cjs`）：删 preBuyCheckCondition 裸 lag 子句；因子计算链不动转**纯观察键**（signal metadata 照落）。
+- **边界/风险**：301s~6h 非豁免票从「precheck 放、买门拦」变「评级直接 low」（评级层爆炸半径）；豁免桶反向翻案；**存量 token_narrative 缓存行不重析 → 新旧评级混合期分布不可比**；中间态安全（v18 持 v12 快照+新引擎=豁免票 rating 翻 2/3 也被残余 lag<300 拦住，双门一致无空窗，v13 引用实验建出才真正放开）；分类器依赖字段缺失落 unknown 偏拦 fail-safe。
+- **锚集合不一致备忘**（刻意不统一，差异边际）：因子 `narrativeCorpusLagSec` 3 源（主推/父推/第二推文 Math.max）/ precheck 4 源（+website_tweet 任一新即活）/ C68 4 源（最新一条）——逻辑上 quoted/retweeted/in_reply_to 都早于主推，主推为准的因子口径最严。
+- **验证**：`_test_precheck_tweet_freshness_bucket`（28 断言：啾啾现场豁免 A/现场反证 A'（同形状只改粉丝 1500→angle 拦，证翻转来自分桶非窗变宽）/边界 299-300-301/三桶回归/负 lag/多源对称/互动臂 7d30d/account/ignoreExpired/源码八防）；`_test_angle_timing_override` 同步（B2 窗内 fixture 1h→60s 表新窗，C2 改「6h 纵深防御+300s 分桶共存」）；`_test_precheck_tweet_freshness_bucket`+回归七测全绿；`scan-unknown-factor-conditions` 零新命中（9 处存量 tokenCycle 不变）。
+- **部署注意**：改库 copy-in 不即时生效（v18 持 v12 快照）；生效=叙事 worker + 实验进程重启 + 新实验引用 v13；啾啾端到端现场反证（182：`updateIsValid(addr,false)` → `analyze(addr,{ignoreCache:true})` 断言无 expired_tweet、stage1.jev.* 有落）待跑。
+
+### C73 特斯拉飞行汽车三票案——轰动事件波三票三种病：①量级证据缺失撞载体门 ②空语料 no_public_info ③gmgnUserPct fire 门（叙事未触达）；裁定=空语料推特搜索兜底先行（SearchTimeline 冒烟已过）+「大事件」跨票共享记忆立项（2026-10-16 用户裁定）★
+
+- **背景**：Tesla Roadster「飞行」reveal 2026-10-15 直播（官方 @Tesla 24.8M 粉 43.7K 赞；SawyerMerritt 26.8K 赞"OMG the Tesla Roadster just flew"；Polymarket 2M 粉 BREAKING）→ 同波 36+ 同名票（0xec2a 分析时 strictSameNameTokenCount 已=36），且 0x109a 与 0xec2a 同 creator `0x9049…f4c06` 九小时两发（波 farming）。三票全部毕业（2.5/4/10 分钟）但零买入。
+- **票 1 `0xec2a0f1c…7777` 特斯拉能飞（flap）**：fire 21s，直调 5.7s，**J1.29 形象载体门拦**（C 类 + subject_carrier=no_visual_entity 0.44，existing 0.34 惜败）。语料其实有：宣告推文+YouTube+图分析（vision 0ms=dataPrefetch 预取缓存命中，链路正常）。**主死因是量级证据缺失**：推文文本「ONDO stocks, NOT BSTOCKS」与事件无关、配图是预测市场截图（TSLAON/SPCXON）、推文 20s 龄 metrics 全 null → **Jev event_magnitude 只打 1-2 档（magnitudeTier=C）**，它不知道这是世界级事件。关键推断：单独给载体门加轰动豁免救不了这票（C 档量级评分数学上本就不过线）——先修事件证据，豁免才有触发面。
+- **票 2 `0x109afc17…7777` FTR（flap）**：fire 67s，**precheck no_public_info 拦**（IPFS metadata 抓到但 creator 零字段）→ 搜索兜底的标准场景。
+- **票 3 `0x20613905…7777` Rocket Car（four.meme）**：**无 signal 无叙事行**。90s 窗 92 ticks 重建：buyVolumeBnb t=44s 过 1.5 ✅ / holders t=45s 过 5 ✅ / mcap 7-13K ✅ / slope>0 ✅，**唯独 gmgnUserPct 峰值 16% 撞 40% fire 门**——轰动事件 FOMO 买单直连进场不走 GMGN 路由。票内 GMGN 钱包 11 个（52 参与钱包 21%）、买入 top1 1.97 BNB 占 26%（庄拉盘观感成立但不极端）。用户裁定：**不动门**（「不能因为一个票完全改底层规则…如果砸盘同样的限制就对了」）；组合规则 `pct OR gmgnWallets>=K` 语义成立但 K 无消融数据支撑（holderTrendCV 单类拟合否决案同款），列为可选后续（gmgnWallets 尚非 FA 因子，_walletRoutedBuyBnb size 现成）。
+- **冒烟验证（apidance SearchTimeline，2026-10-16）**：`GET /graphql/SearchTimeline?variables={rawQuery,count,product,…}` apikey 头，与既有调用同基座。**事件名搜索可用**（"Flying Tesla Roadster" Latest 1.6s 22 条带互动数据；Top 给出官方高互动证据链）；**CA 直搜 404 死**（裸/引号均拒）——宣告推救援走不通，事件证据为主用例。
+- **三提案裁定**：①空语料→推特搜索兜底（挂 precheck 空 classified_urls 路径，本就必拒零回退风险，搜索结果互动数据同时是量级证据）**先行**；②轰动事件免形象载体门（形状窄：effTier∈{S,A}）**等①落地**（本案实证 Jev 从 token 局部语料打量级不可靠，题面改锚分不动教训又+1）；③**「大事件」跨票共享记忆立项**（用户 2026-10-16 提出）：分析发现大事件→存全局事件行（key=事件词根，value=量级/关联票数/互动样本，TTL 7d），后续票 state-builder 注入「已知热点事件背景」**作证据不作 override**（匹配须语料级防错配放行）；自家同名簇计数（strictSameNameTokenCount）即是波规模硬证据可同管道进 state；23.5k 历史行可离线回填事件库。①③共享「事件证据进 state」管道。
+- **教训**：轰动事件的 token 局部语料（宣告推 20s 龄无 metrics/预测市场截图/角度推）撑不起量级判定——事件量级是**外部+跨票累积**证据，单票孤岛 state 结构性缺这个信息。
+
+### C72 小黑案 0x9641293a72d25a00982dc711425c9a2f74fc7777——vision 前置 Jev 预判门（G1.0）：「文字已足够确认叙事就免掉 vision 图分析」（2026-10-15 用户裁定）★
 
 - **案发**：v17 live 买入延迟归因（用户问「也稍微晚了一点」）。21.9s 总延迟三分：fire 门市场积累 8.5s（39%，策略语义不动）+ **vision 图像分析 6.6s（30%，真正瓶颈）** + live 发单执行 4.6s（21%，正常水位）。细看直调 8054ms 内 vision 段 6625ms 占 82%——单图全程 11.17s（下载+Qwen3-Omni 推理），dataPrefetch 预取门已工作（提前 3.4s 发起）但预取追不上 fire。
 - **用户思路与裁定**：「如果通过文字已经足够确认代币的叙事，是可以免去 vision 的。在真正进行图像分析之前，让 Jev 给个『是否需要分析图片』的判断。当然这个 Jev 的判断流程不影响图片信息的预先获取流程」；①`vision.gate.enabled` **默认 true** 直接全链生效；②本地完成后即部署 182。

@@ -7,6 +7,7 @@ import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-uti
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
+import { classifyTweetType } from './tweet-type-classifier.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -20,11 +21,23 @@ const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
-  twitterBlacklist: [],
-  // 过期推文窗 10min → 6h（2026-10-01 用户裁定「10分钟确实有点太窄了」；
-  // 详见 NarrativeAnalyzer.mjs 同键注释——族五形状 B：10min 预拦抢了 Jev timing 判断）
-  expiredTweetMinutesThreshold: 360
+  twitterBlacklist: []
 };
+
+// ── C74 啾啾案 0x21bfeeddb550e3e84d3c9783523e1153e19a7777（2026-10-16 用户裁定）：
+// 规则 2.1 expired_tweet 按推文类型分桶，时效硬拦迁入叙事引擎（relocate 买腿
+// `narrativeCorpusLagSec < 300` 门语义）。非豁免桶（classifyTweetType ∈
+// {angle_seeking, interpretive_reply, unknown}，unknown 含中间地带/字段缺失兜底）
+// 窗宽 6h→300s——旧「新闻热点选早票/找角度须立即发币」两类严格时效；边界对齐旧
+// 买门秒粒度：lag < 300 放、300 整拦（旧 precheck 是分钟粒度 <=）。豁免桶
+// （direct_tweet：粉≥5000 或 赞≥500 或 转≥100，高影响力用户的新闻推文——非找
+// 角度，被人发现得晚、不一定有推文立即有人发币）跳过硬拦，时效全交 Jev
+// event_timing 软评（7d/30d/older 事件尺度）不设硬界。旧 6h 硬窗残存 =
+// jev-result-mapper ANGLE_TWEET_STALE_SEC 纵深防御（ignoreExpired 穿透残例）。
+// 啾啾现场：41.7 万粉新闻推 lag 8.8h 被 6h 一刀切误杀（rating=1 永久拉黑，Jev
+// 未跑），token 116s 毕业峰值 11.6x。旧「过期推文分钟窗」config 键随分桶废止
+// （残值删除，本文件与 NarrativeAnalyzer 死拷贝两处）。
+const NON_EXEMPT_TWEET_FRESH_SEC = 300;
 
 /**
  * symbol 归一化（规则 0.55/0.58 消费）：去零宽/不可见 Unicode（含韩文填充符
@@ -463,10 +476,11 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       console.log('[NarrativeAnalyzer] 代币无创建时间数据，跳过过期内容检查');
     } else {
       const refNow = new Date(tokenCreatedAtSec * 1000);
-      const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 360;
 
-      // 2.1 检查推文过期（仅推文类型，不适用账号）
+      // 2.1 检查推文时效（仅推文类型，不适用账号；C74 分桶，见文件头常量注释）
       // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可
+      // （豁免是语料级：主推文判 direct_tweet 即整组跳过，旧推 website_tweet 也放——
+      // 「时效全交 Jev 软评」）
       if (twitterInfo?.type === 'tweet') {
         const tweetSources = [
           twitterInfo,
@@ -476,24 +490,29 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         ].filter(t => t?.created_at);
 
         if (tweetSources.length > 0) {
-          let allExpired = true;
-          for (const tweet of tweetSources) {
-            try {
-              const tweetDate = new Date(tweet.created_at);
-              const minutesDiff = (refNow - tweetDate) / (1000 * 60);
-              if (minutesDiff <= expiredMinutesThreshold) {
-                allExpired = false;
-                break;
+          const classification = classifyTweetType(twitterInfo);
+          if (classification.type === 'direct_tweet') {
+            console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免: direct_tweet（${classification.reason}），跳过 expired_tweet 硬拦，时效交 Jev event_timing 软评`);
+          } else {
+            let allExpired = true;
+            for (const tweet of tweetSources) {
+              try {
+                const tweetDate = new Date(tweet.created_at);
+                const lagSec = (refNow - tweetDate) / 1000;
+                if (lagSec < NON_EXEMPT_TWEET_FRESH_SEC) {
+                  allExpired = false;
+                  break;
+                }
+              } catch (e) {
+                // 解析失败不视为有效推文
               }
-            } catch (e) {
-              // 解析失败不视为有效推文
             }
-          }
 
-          if (allExpired) {
-            const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
-            console.log(`[NarrativeAnalyzer] 预检查触发: 发币时所有推文发布时间已超过${expiredMinutesThreshold}分钟 (主推文: ${mainTweetDate})`);
-            return buildPreCheckResult('low', `发币时所有推文发布时间已超过${expiredMinutesThreshold}分钟（主推文：${mainTweetDate}），叙事价值已耗尽`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+            if (allExpired) {
+              const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
+              console.log(`[NarrativeAnalyzer] 预检查触发: 发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒 (非豁免桶 type=${classification.type}, 主推文: ${mainTweetDate})`);
+              return buildPreCheckResult('low', `发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒（推文类型=${classification.type}，主推文：${mainTweetDate}），叙事时效已过`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20, tweetType: classification.type, freshWindowSec: NON_EXEMPT_TWEET_FRESH_SEC });
+            }
           }
         }
       }

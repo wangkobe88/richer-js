@@ -153,15 +153,13 @@ const configPath = join(__dirname, '../../../config/default.json');
 const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 
 // 叙事分析配置
+// 旧「过期推文分钟窗」config 键已随 C74（2026-10-16）规则 2.1 分桶废止删除：
+// 时效硬拦迁入 pre-check-service NON_EXEMPT_TWEET_FRESH_SEC（非豁免桶 300s /
+// direct_tweet 豁免跳过），本文件不再消费该键
 const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
-  twitterBlacklist: [],
-  // 过期推文窗（分钟）：语料推文距 mint > 窗口 → low 硬拦「叙事价值耗尽」。
-  // 2026-10-01 用户裁定 10min → 6h：10min 比 Jev timing 题自己的「当前」档
-  // （within_7d）严 4 个数量级，代码预拦抢了叙事新鲜度判断；6h 内放行进 Jev，
-  // 由 timing 题分档（族五形状 B：TRUMAN 32min / 9 3.9h 放行实证）
-  expiredTweetMinutesThreshold: 360
+  twitterBlacklist: []
 };
 
 export class NarrativeAnalyzer {

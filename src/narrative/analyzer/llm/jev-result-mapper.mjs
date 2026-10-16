@@ -42,10 +42,27 @@ const TIMING_SCORES_W = {
 /** 找角度载体推文时效窗（秒）——C68 제로案（2026-10-14 用户裁定「找角度推文都是
  * 发出来后立马发币的」）：angle_seeking/interpretive_reply 语料的时效锚=载体推文
  * 发布时间（角度曝光窗口），不是叙事首次发生时间——叙事再热、载体推文过期=角度
- * 已死。与 pre-check-service expiredTweetMinutesThreshold（config 默认 360min）同窗：
- * precheck 规则2 是第一道（6h 窗直接拦 low），本 override 是 Jev 层兜底（precheck
- * 放行残例：tweetSources 任一新即放 / 锚缺失跳过）。改窗须两处同步。 */
+ * 已死。C74 啾啾案（2026-10-16）后与 precheck 不再同窗：precheck 规则 2.1 已分桶
+ * （非豁免桶 300s relocate 买门 / direct_tweet 豁免跳过硬拦），上游 300s 已吞主力
+ * 拦截——本 override 保留作 Jev 层纵深防御，覆盖 ignoreExpired 穿透（web 重析
+ * 勾选）、precheck 锚缺失跳过、存量缓存残例；本窗改不再有与 precheck 的联动义务。 */
 const ANGLE_TWEET_STALE_SEC = 6 * 3600;
+
+/** 叙事源头陈旧窗（秒）——C75 FLY 案（2026-10-16 用户裁定「币安的推文已经一年多
+ * 以前了，这种控一下吧」）：direct_tweet 语料的主推本身就是事件来源（分类器语义：
+ * 高粉/高互动作者直发），事件窗=主推发布时间（客观锚）。发币人当天的宣告/找角度
+ * 推文（website_tweet 等第二语料）刻意不计入——宣告推新是当然的，不构成「事件
+ * 新鲜」证据；Jev 会被宣告推误导把一年前的源头推答成新鲜档拿满时效分（FLY
+ * 0x4ec2…7777：币安 2025-06 公告为主推+gapJ 当天宣告推在第二语料，77.32 high
+ * 放行，实跑 -36%）。与 C68 载体窗对称互补：C68 管 angle 类「角度曝光窗」（载体
+ * 最新一条 6h，「任一新即活」），本门管 direct 类「叙事源头窗」（主推 30d，对齐
+ * Jev within_30d/older 档边界——主推超窗=事件客观上至少 older 档）。与 C74 啾啾案
+ * 分桶协同：C74 把 direct_tweet 从 precheck 硬拦豁免交 Jev event_timing 软评
+ * （高粉新闻推被人发现得晚，300s 硬拦误杀）——本门=软评层的客观时效锚，豁免的
+ * 口子由 30d 软窗接住真陈旧源头。存量扫描（2026-10-16，7177 行）：主推>30d 的
+ * direct 票 117，其中 high 20 票全是骑 CZ/币安/何一/雷军 35d-5.7y 老推形状，
+ * 6 买 5 亏（唯 CRAZYCOIN +139%），用户裁定控。 */
+const SOURCE_STALE_SEC = 30 * 86400;
 
 /**
  * C68 找角度时效 override 判定（纯代码，mapper-only，题集版本不动——时效分本来就
@@ -77,6 +94,30 @@ function overrideAngleTiming(tweetClassification, twitterInfo, tokenData, rawTim
   const lagSec = anchorSec - latestMs / 1000;
   if (!Number.isFinite(lagSec) || lagSec <= ANGLE_TWEET_STALE_SEC) return null;
   return { lagSec: Math.round(lagSec), rawTiming: rawTiming || null };
+}
+
+/**
+ * C75 叙事源头陈旧 override（纯代码，mapper-only，题集版本不动——时效分本来
+ * 就是代码查表，J1.16/J1.23/J1.24/C68 同款：分数锚定类必须代码侧）：
+ * tweet_type=direct_tweet 且主推 lag 超 SOURCE_STALE_SEC → 返回详情（调用方
+ * 把 timing 归 older=0 分）；否则 null 不干预。
+ * 判定轴=主推（twitterInfo）时间且仅主推：direct_tweet 语义「推文本身就是事件
+ * 来源」，主推=源头本体；第二语料（website_tweet/quoted/retweeted）刻意不进
+ * 集合——与 C68 载体集合（最新一条，「任一新即活」）刻意相反：宣告推再新也
+ * 不构成事件新鲜证据。angle_seeking/interpretive_reply 不触达（C68 域，两门
+ * type 互斥精确实位）；unknown 不触达（留给 Jev 自判）。
+ * 锚=tokenCreatedAtSec||raw_api_data.created_at（与 C68 同链）；任一不可得
+ * fail-open 不干预（不误伤数据缺失票）。
+ */
+function overrideStaleSourceTiming(tweetClassification, twitterInfo, tokenData, rawTiming) {
+  if (!tweetClassification || tweetClassification.type !== 'direct_tweet') return null;
+  const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
+  if (!anchorSec || !twitterInfo?.created_at) return null;
+  const ms = new Date(twitterInfo.created_at).getTime();
+  if (!Number.isFinite(ms)) return null;
+  const lagSec = anchorSec - ms / 1000;
+  if (!Number.isFinite(lagSec) || lagSec <= SOURCE_STALE_SEC) return null;
+  return { lagSec: Math.round(lagSec), staleSec: SOURCE_STALE_SEC, rawTiming: rawTiming || null };
 }
 
 /**
@@ -700,7 +741,13 @@ export function mapStandardAnswers(answers, context) {
   const angleTimingOverride = angleTiming
     ? { lagSec: angleTiming.lagSec, staleSec: ANGLE_TWEET_STALE_SEC, rawTiming: angleTiming.rawTiming }
     : null;
-  const timing = angleTiming ? 'older' : (answers.event_timing?.choice || 'unknown');
+  // C75 叙事源头陈旧 override：direct_tweet 主推超 30d → timing 归 older（与 C68
+  // 同在 timing 变量源头生效，W/标准数学 + 全下游一致消费；两门 type 互斥不双命中）
+  const staleSourceTiming = overrideStaleSourceTiming(tweetClassification, twitterInfo, tokenData, answers.event_timing?.choice);
+  const staleSourceOverride = staleSourceTiming
+    ? { lagSec: staleSourceTiming.lagSec, staleSec: SOURCE_STALE_SEC, rawTiming: staleSourceTiming.rawTiming }
+    : null;
+  const timing = (angleTiming || staleSourceTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
   // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
   // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
@@ -753,6 +800,9 @@ export function mapStandardAnswers(answers, context) {
         // C68 审计标记：找角度时效 override 命中详情（载体推文 lag/窗/Jev 原判档
         // 可追溯；null=未命中——形态不符/窗内/锚或载体时间缺失）
         angleTimingOverride,
+        // C75 审计标记：叙事源头陈旧 override 命中详情（direct_tweet 主推 lag/窗/
+        // Jev 原判档可追溯；null=未命中——形态不符/窗内/锚或主推时间缺失）
+        staleSourceOverride,
         magnitudeTier: tier,
         timing,
         blockChoice,
