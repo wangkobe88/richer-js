@@ -1713,7 +1713,12 @@ class FourMemeFactorAggregator extends EventEmitter {
      *                              pre-check 侧 maxBlockBuyRatio 除总供应 1e9 被稀释的
      *                              硬伤，BITCAT 真簇 63.3%；分母含该 block 及其后已喂
      *                              买入，读取时刻口径 defer 乱序收敛；流通≤0 → 0）
-     * 簇选取：钱包数最大者优先，并列取 bnb 大者、再取 blk 小者（确定性）。
+     * 簇选取（2026-10-16 FLY 案用户裁定改金额优先）：簇 BNB 金额最大者优先，并列取
+     * size 大者、再取 blk 小者（确定性）。旧「size 优先」漏等额镜像对——FLY 案
+     * 0xbf00+0xd6ab395c 同 block 等额 0.3705×2=0.741 BNB（占窗内买盘 60%）输给
+     * size=4 散户簇 0.271 BNB 只显 22%；金额优先下单巨鲸（size=1 大额簇）与多钱包
+     * 团伙簇（size≥2）统一为「买盘集中度」一个语义。★历史断代：share/size 键值
+     * 与旧口径不可比（v19 起门用新口径）。
      * 纯函数读取：无 latch/无副作用 → 与 backtest.tickBuildSkip 天然无互斥（写点在
      * _applyWalletAggregation 每 tick 照跑，build 跳过的只是本读点，重建时数据完整）。
      * defer 乱序免疫：窗内事件按钱包去重保最早（ts→blk→li 链序真值），min 替换可能在
@@ -1746,9 +1751,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         let best = null;
         for (const [blk, c] of byBlock) {
             if (best === null
-                || c.rows.length > best.c.rows.length
-                || (c.rows.length === best.c.rows.length
-                    && (c.bnb > best.c.bnb || (c.bnb === best.c.bnb && blk < best.blk)))) {
+                || c.bnb > best.c.bnb
+                || (c.bnb === best.c.bnb
+                    && (c.rows.length > best.c.rows.length
+                        || (c.rows.length === best.c.rows.length && blk < best.blk)))) {
                 best = { blk, c };
             }
         }

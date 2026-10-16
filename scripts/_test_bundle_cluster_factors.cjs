@@ -111,8 +111,8 @@ console.log('A. BITCAT 事故现场反证（真簇 block 1023）');
     assert.strictEqual(fa._states.get('0xtoken')._circTokens, 197360000));
 }
 
-// ═══════════════ B. 散户簇对照 ═══════════════
-console.log('B. 散户簇对照（假簇 block 1015，bg 低价大 token 量）');
+// ═══════════════ B. 巨鲸单买簇（金额优先选择：size1 大额簇 > size4 散户簇）═══════════════
+console.log('B. 巨鲸单买簇（bg3 单钱包 3.59 BNB > 散户簇 0.89——FLY 案后的金额优先口径）');
 {
   const fa = newFA();
   const t = [];
@@ -131,14 +131,16 @@ console.log('B. 散户簇对照（假簇 block 1015，bg 低价大 token 量）'
   }
   for (const tk of t) fa.processTick(tk, {});
   const f = fa.buildFactorMap('0xtoken', T0 + 16000); // cutoff=6000：bg+假簇全窗
-  check('B1 bundleClusterSize = 4（散户簇是窗内最大簇）', () => assert.strictEqual(f.bundleClusterSize, 4));
-  check('B2 bundleClusterSharePct ≈ 11.9（0.89/7.48，BITCAT 假簇实测 11.9）', () =>
-    assert.ok(Math.abs(f.bundleClusterSharePct - 11.9) < 0.05, `got ${f.bundleClusterSharePct}`));
-  check('B3 bundleClusterAmountRatio ≈ 5（0.40/0.08 金额离散）', () =>
-    assert.ok(Math.abs(f.bundleClusterAmountRatio - 5) < 1e-9, `got ${f.bundleClusterAmountRatio}`));
-  check('B4 bundleClusterEvenGap = 0（li 差分 [15,6,29] 不等间隔）', () => assert.strictEqual(f.bundleClusterEvenGap, 0));
-  check('B5 bundleClusterSameTrader = 25（4 个各异 trader，模态 1/4）', () =>
-    assert.strictEqual(f.bundleClusterSameTrader, 25));
+  check('B1 bundleClusterSize = 1（best=bg3 巨鲸单买簇——金额 3.59 > 散户簇 0.89）', () =>
+    assert.strictEqual(f.bundleClusterSize, 1));
+  check('B2 bundleClusterSharePct ≈ 48.0（3.59/7.48——巨鲸占近半买盘，旧 size 口径只显 11.9 是漏检）', () =>
+    assert.ok(Math.abs(f.bundleClusterSharePct - 48.0) < 0.05, `got ${f.bundleClusterSharePct}`));
+  check('B3 size<2 无金额比证据 → amountRatio=0 / evenGap=0', () => {
+    assert.strictEqual(f.bundleClusterAmountRatio, 0);
+    assert.strictEqual(f.bundleClusterEvenGap, 0);
+  });
+  check('B4 bundleClusterSameTrader = 100（单行模态 1/1）', () =>
+    assert.strictEqual(f.bundleClusterSameTrader, 100));
   check('B6 maxBlockBuyCircPct = 45.4（bg3 单 block 179.5M/流通 395.34M——block 级吞噬与簇键独立）', () =>
     assert.ok(Math.abs(f.maxBlockBuyCircPct - 45.4) < 0.05, `got ${f.maxBlockBuyCircPct}`));
 }
@@ -481,6 +483,67 @@ console.log('M. top1HolderCircPct（TOP1 净持仓 ÷ 流通）');
     check('M10 字面量与读段在场（防误删；读段单趟扫 max 纯读）', () => {
       assert.ok(src.includes('top1HolderCircPct,'));
       assert.ok(/let _top1Net = 0;\s*\n\s*for \(const v of state\._walletNetTokens\.values\(\)\) if \(v > _top1Net\) _top1Net = v;/.test(src));
+    });
+  }
+}
+
+// ═══════════════ N. FLY 等额镜像对现场反证（2026-10-16 金额优先改口径驱动案）═══════════════
+console.log('N. FLY 等额镜像对（0xbf00+0xd6ab395c 同 block 等额 0.3705×2 vs 散户簇）');
+{
+  // FLY 真实形状缩微：散买垫分母 + 093 散户簇 0.271 + 092 等额对 0.741（全走 GMGN）
+  const fa = newFA();
+  const t = [];
+  t.push(mkTick({ timestamp: T0 + 16000, trader_address: 'eoa1', sender_address: 'wbg1',
+    block_number: 1016, log_index: 5, bnb_amount: 0.10, token_amount: 20 * M }));
+  t.push(mkTick({ timestamp: T0 + 17000, trader_address: 'eoa2', sender_address: 'wbg2',
+    block_number: 1017, log_index: 7, bnb_amount: 0.065, token_amount: 13 * M }));
+  const famts = [0.08, 0.16, 0.011, 0.02], flis = [10, 25, 31, 60];   // 093 散户簇 0.271
+  for (let i = 0; i < 4; i++) {
+    t.push(mkTick({ timestamp: T0 + 15000, trader_address: `eoaF${i}`, sender_address: `wf${i}`,
+      block_number: 1015, log_index: flis[i], bnb_amount: famts[i], token_amount: famts[i] * 200 * M }));
+  }
+  // 等额镜像对 block 1023（FLY：0xbf004bff/0xd6ab395c 各 0.3705 同 block 首买）
+  t.push(mkTick({ timestamp: T0 + 23000, trader_address: ROUTER, sender_address: 'wm1',
+    block_number: 1023, log_index: 18, bnb_amount: 0.3705, token_amount: 64.93 * M }));
+  t.push(mkTick({ timestamp: T0 + 23000, trader_address: ROUTER, sender_address: 'wm2',
+    block_number: 1023, log_index: 41, bnb_amount: 0.3705, token_amount: 57.2 * M }));
+  for (const tk of t) fa.processTick(tk, {});
+  const f = fa.buildFactorMap('0xtoken', T0 + 24000); // cutoff=14000：全部窗内
+  check('N1 best=等额对（0.741 > 散户簇 0.271）→ size=2（旧 size 口径选 size4 散户簇只显 22% 是漏检）', () =>
+    assert.strictEqual(f.bundleClusterSize, 2));
+  check('N2 sharePct ≈ 62.9（0.741/1.1775——钱包簇真实占比，远超 50 门线）', () =>
+    assert.ok(Math.abs(f.bundleClusterSharePct - 62.9) < 0.15, `got ${f.bundleClusterSharePct}`));
+  check('N3 amountRatio = 1（等额镜像）', () =>
+    assert.ok(Math.abs(f.bundleClusterAmountRatio - 1) < 1e-9));
+  check('N4 sameTrader = 100（双行全 GMGN 路由）', () =>
+    assert.strictEqual(f.bundleClusterSameTrader, 100));
+  // N5 巨鲸单买也是簇：单钱包 0.8 BNB vs 散户簇 0.89——0.8<0.89 时仍选散户簇，
+  //    金额 1.2 时选巨鲸（「一个钱包占五成买盘」语义由 size1 簇承载）
+  {
+    const fa2 = newFA();
+    fa2.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'eoaW', sender_address: 'wW',
+      block_number: 500, log_index: 1, bnb_amount: 1.2, token_amount: 200 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'eoa1', sender_address: 'ws1',
+      block_number: 501, log_index: 1, bnb_amount: 0.3, token_amount: 50 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'eoa2', sender_address: 'ws2',
+      block_number: 501, log_index: 2, bnb_amount: 0.3, token_amount: 50 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 4000, trader_address: 'eoa3', sender_address: 'ws3',
+      block_number: 501, log_index: 3, bnb_amount: 0.3, token_amount: 50 * M }), {});
+    const f2 = fa2.buildFactorMap('0xtoken', T0 + 6000);
+    check('N5 巨鲸单买簇（1.2 > 0.9）→ size=1 share=57.1（1.2/2.1）', () => {
+      assert.strictEqual(f2.bundleClusterSize, 1);
+      assert.ok(Math.abs(f2.bundleClusterSharePct - 57.1) < 0.15, `got ${f2.bundleClusterSharePct}`);
+    });
+  }
+  // N6 源码锁：best 选择段金额优先（防回退到 size 优先——FLY 漏检现场）
+  {
+    const src = read('src/services/FourMemeFactorAggregator.js');
+    const start = src.indexOf('_bundleClusterFactors(state, now, out) {');
+    const end = src.indexOf('\n    }', start);
+    const body = src.slice(start, end);
+    check('N6 源码锁：簇选择 c.bnb > best.c.bnb 金额优先', () => {
+      assert.ok(/c\.bnb > best\.c\.bnb/.test(body), '金额优先比较不在读点体内');
+      assert.ok(!/c\.rows\.length > best\.c\.rows\.length\s*\|\|\s*\(c\.rows\.length === best\.c\.rows\.length\s*&&\s*\(c\.bnb/.test(body), '旧 size 优先形状不得回流');
     });
   }
 }
