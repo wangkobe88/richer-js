@@ -1,0 +1,1565 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-16T09:30:01.087Z",
+  "params": {
+    "days": 14,
+    "minTokens": 5,
+    "blockWin": 5,
+    "sellWin": 8,
+    "coTokenThr": 50,
+    "sellSyncThr": 5,
+    "evenThr": 10,
+    "minFollowers": 20,
+    "memberNeedsLeader": true
+  },
+  "wallets": [
+    {
+      "address": "0xa44039d10d4883a7353ee729a48fda88fa5d2333",
+      "role": "leader",
+      "followers": 62,
+      "coTokens": 365,
+      "syncedSells": 2175,
+      "evenBuys": 803,
+      "laterBuys": 2236
+    },
+    {
+      "address": "0x7e86eee4417e1a9ab3621889b0d15aeb1de1a09d",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3658,
+      "evenBuys": 670,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xb8d7da848c36ea714d0a20c581bc68be237efc89",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 658,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x1434bdd9bbdb0d88be47ff399fd2a2e1a4a9e57c",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3658,
+      "evenBuys": 897,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x1a6e423fd784b6a7c220c1c94b8969daa795193a",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 912,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x7de5393f907d62d5137a873bbe446c3523d453f3",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3658,
+      "evenBuys": 1035,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x514e5bd19af57dc2e3580e6c152d5f347b952ce7",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 1033,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xc977aab1d8640b2d86874c77737efbb691b843e1",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 1035,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x0a868eabe3f8ed7830ff1562c95bed98862cf80b",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 1018,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x4b4d494da98880b60162e7ebb429ef80845112c8",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 937,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xcd3141d052368a35e659f4fa36934deab109741b",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 924,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x164ce8dad0ad2d444a24e18bc87132485dab885c",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 904,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xc4d18b2d18c89a720b65e6f1d57e2b75f900807a",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 462,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x9bd7c71b38c778b4fa865270d8302a1246b5cfb6",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 861,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x473f7fa1b7a9f58c76c8b953e42881a552ce7606",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 800,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xea415d38ecf3e8ebeed3862ae3c4ae70aee23c07",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 781,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xc4e36153282d7f22a8d3c84cb949e7591e58ed86",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 792,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x58b2e8fcce2f8b4e36528e2c1c081e15fb194e2d",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 775,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xb0e2c7b7de8d6a07fcfb55a3e1bf540d2667b7ec",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 727,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x8c70703c3903651d34cc83cf4c9e209ca548843b",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 690,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x412ab2921ff406b0854f1d5cfce69bbdd0dba6d0",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 641,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xdb2cbad147722ff2954394a3cc20b6ebb8725c11",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 627,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x915eaa72a8360338c599809f97c3aaaf3e7a0118",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 559,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x7b7190f921aeccf800e809170e2b76d4c838f3de",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 538,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xc0f670f40712ec9c311ea2d473adadec0ba5c228",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 520,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xbcaa91806efb69bf4a74715e83ce44a8c6356540",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 553,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xf08864cdcf031fa46a28ac6154c4d94b1963952e",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 546,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xf07e8e0ed65740def3bf328d5cd1d9e374834632",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 508,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xa0540d5628bb919df2dacd44ee0f6cf2c1201491",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3658,
+      "evenBuys": 446,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xea62588ba54999bc7e9dbcbec0beb2636b13e712",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3678,
+      "evenBuys": 471,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x76dc9ec7cdd7ef4f979e26701aac9abd7637618c",
+      "role": "leader",
+      "followers": 29,
+      "coTokens": 131,
+      "syncedSells": 3658,
+      "evenBuys": 464,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xc798c4f0fc569fb6059a70f20d51a811d0d23cbf",
+      "role": "leader",
+      "followers": 27,
+      "coTokens": 680,
+      "syncedSells": 3459,
+      "evenBuys": 395,
+      "laterBuys": 1917
+    },
+    {
+      "address": "0x3472ccf6209925204b9cf352171ee150904fda7e",
+      "role": "leader",
+      "followers": 21,
+      "coTokens": 1154,
+      "syncedSells": 2392,
+      "evenBuys": 1409,
+      "laterBuys": 545
+    },
+    {
+      "address": "0x95b998b3ebc4c04fac037ff451144af5c90eda8f",
+      "role": "leader",
+      "followers": 21,
+      "coTokens": 1154,
+      "syncedSells": 2381,
+      "evenBuys": 1409,
+      "laterBuys": 1865
+    },
+    {
+      "address": "0xcd5c511b76bff57c5d30d2f9412490cf77a05168",
+      "role": "leader",
+      "followers": 21,
+      "coTokens": 680,
+      "syncedSells": 2501,
+      "evenBuys": 1409,
+      "laterBuys": 1151
+    },
+    {
+      "address": "0x1682185830c7e5fd90f2b13f3a2485f4aace23bc",
+      "role": "leader",
+      "followers": 21,
+      "coTokens": 108,
+      "syncedSells": 469,
+      "evenBuys": 441,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x1ee074f311ac5594448deb36dff2281e7928472b",
+      "role": "leader",
+      "followers": 20,
+      "coTokens": 195,
+      "syncedSells": 435,
+      "evenBuys": 1253,
+      "laterBuys": 83
+    },
+    {
+      "address": "0x36f9e9c8d5414bc7b346c0e0fc3e77f5c9722b09",
+      "role": "member",
+      "followers": 18,
+      "coTokens": 319,
+      "syncedSells": 1670,
+      "evenBuys": 1068,
+      "laterBuys": 218
+    },
+    {
+      "address": "0xd47c30fa5ee36d2af228d98f5eb9218e287b9231",
+      "role": "member",
+      "followers": 17,
+      "coTokens": 574,
+      "syncedSells": 1442,
+      "evenBuys": 506,
+      "laterBuys": 256
+    },
+    {
+      "address": "0x6b61ea723f9a5e63ac7ad5eeb607099e9013286b",
+      "role": "member",
+      "followers": 17,
+      "coTokens": 303,
+      "syncedSells": 1523,
+      "evenBuys": 152,
+      "laterBuys": 530
+    },
+    {
+      "address": "0xbe74e835a5327e0f56dd0abcb47d81c7c3b8c7aa",
+      "role": "member",
+      "followers": 16,
+      "coTokens": 373,
+      "syncedSells": 1864,
+      "evenBuys": 131,
+      "laterBuys": 1210
+    },
+    {
+      "address": "0x1bfe5d082085bff49734dad6647c1fd100db48cf",
+      "role": "member",
+      "followers": 16,
+      "coTokens": 289,
+      "syncedSells": 832,
+      "evenBuys": 434,
+      "laterBuys": 196
+    },
+    {
+      "address": "0x3ae81ea6bb0b7cfc05997d22de1b65940927a218",
+      "role": "member",
+      "followers": 15,
+      "coTokens": 265,
+      "syncedSells": 784,
+      "evenBuys": 1259,
+      "laterBuys": 320
+    },
+    {
+      "address": "0x6aba5bd5c0b4e3e14d649213dcb12f73e9ea55ee",
+      "role": "member",
+      "followers": 14,
+      "coTokens": 265,
+      "syncedSells": 406,
+      "evenBuys": 1150,
+      "laterBuys": 437
+    },
+    {
+      "address": "0x9a213971f8749e087c6f8d5f5d1daabef0e14191",
+      "role": "member",
+      "followers": 14,
+      "coTokens": 238,
+      "syncedSells": 935,
+      "evenBuys": 108,
+      "laterBuys": 518
+    },
+    {
+      "address": "0x279f38c6eda060f153e8498861ea8ea7fd0ebcf0",
+      "role": "member",
+      "followers": 14,
+      "coTokens": 195,
+      "syncedSells": 315,
+      "evenBuys": 834,
+      "laterBuys": 68
+    },
+    {
+      "address": "0xbf004bff64725914ee36d03b87d6965b0ced4903",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 627,
+      "syncedSells": 746,
+      "evenBuys": 831,
+      "laterBuys": 902
+    },
+    {
+      "address": "0xd80bf2b4d8158b21da727c3a510284a5f73747c3",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 409,
+      "syncedSells": 1571,
+      "evenBuys": 862,
+      "laterBuys": 1100
+    },
+    {
+      "address": "0xf7a934528d38e2f2865a7cd30c335c6d115928b8",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 409,
+      "syncedSells": 1582,
+      "evenBuys": 862,
+      "laterBuys": 1104
+    },
+    {
+      "address": "0x9d41e99374e4bceebb4c0bd070e814e72b7e7ace",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 409,
+      "syncedSells": 1575,
+      "evenBuys": 862,
+      "laterBuys": 589
+    },
+    {
+      "address": "0x727864fad9aef9b1049b1a724c66d2f91ecc0bf2",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 319,
+      "syncedSells": 1178,
+      "evenBuys": 65,
+      "laterBuys": 344
+    },
+    {
+      "address": "0x85a86e23c6d76f9b2fe0a54f98b8f43ac4e18a94",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 148,
+      "syncedSells": 823,
+      "evenBuys": 197,
+      "laterBuys": 220
+    },
+    {
+      "address": "0xc6a3958b19a11dab5407663b749f4fb226bc4ad1",
+      "role": "member",
+      "followers": 13,
+      "coTokens": 103,
+      "syncedSells": 313,
+      "evenBuys": 636,
+      "laterBuys": 329
+    },
+    {
+      "address": "0xe4ae9947056c49e6b6845260b212c1daa426861d",
+      "role": "member",
+      "followers": 12,
+      "coTokens": 641,
+      "syncedSells": 1909,
+      "evenBuys": 920,
+      "laterBuys": 2372
+    },
+    {
+      "address": "0x0dc1fa69faa8021f13cf882d6da9ed03364bd9da",
+      "role": "member",
+      "followers": 12,
+      "coTokens": 352,
+      "syncedSells": 1498,
+      "evenBuys": 109,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xccf3ebf38b52fadc9ce8fb14d9f3bceec05f2d75",
+      "role": "member",
+      "followers": 12,
+      "coTokens": 209,
+      "syncedSells": 413,
+      "evenBuys": 805,
+      "laterBuys": 467
+    },
+    {
+      "address": "0x6f15ce312cf5181346344ffdbbb7bc4b2ea0218d",
+      "role": "member",
+      "followers": 12,
+      "coTokens": 180,
+      "syncedSells": 614,
+      "evenBuys": 860,
+      "laterBuys": 378
+    },
+    {
+      "address": "0x3c8b73e24bb1a9feb315f871128266ed164d409e",
+      "role": "member",
+      "followers": 12,
+      "coTokens": 129,
+      "syncedSells": 144,
+      "evenBuys": 151,
+      "laterBuys": 282
+    },
+    {
+      "address": "0x006b030115b7d488927576147dc01bfd1dea600d",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 1171,
+      "syncedSells": 573,
+      "evenBuys": 1356,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xfbb81bca57f822f2c9c8dd97ba9ee3110d7de629",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 782,
+      "syncedSells": 768,
+      "evenBuys": 45,
+      "laterBuys": 895
+    },
+    {
+      "address": "0x6c1dfed4ee3fbcedaa98056d4dcde8ffe06037ed",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 460,
+      "syncedSells": 1605,
+      "evenBuys": 1631,
+      "laterBuys": 223
+    },
+    {
+      "address": "0x58fbb36e8e01c36fa5f3b4038aa72262b3737e1c",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 460,
+      "syncedSells": 1604,
+      "evenBuys": 1623,
+      "laterBuys": 89
+    },
+    {
+      "address": "0x4411dbfbd55ec0947d76ed90544b74989ed70753",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 432,
+      "syncedSells": 1520,
+      "evenBuys": 1562,
+      "laterBuys": 75
+    },
+    {
+      "address": "0xa4e0aaceb8d703c97f1826e09fd741f7975e1f7d",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 414,
+      "syncedSells": 1456,
+      "evenBuys": 812,
+      "laterBuys": 905
+    },
+    {
+      "address": "0xd735b94a47b96791aabb00391319a86ac4f85049",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 414,
+      "syncedSells": 1444,
+      "evenBuys": 731,
+      "laterBuys": 1181
+    },
+    {
+      "address": "0xf46ae52a5a4c65a75cbd7cde79f01e3145bef4b3",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 268,
+      "syncedSells": 897,
+      "evenBuys": 387,
+      "laterBuys": 746
+    },
+    {
+      "address": "0x47db6ed492fbc824b20bb1debef01908d9883693",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 186,
+      "syncedSells": 277,
+      "evenBuys": 668,
+      "laterBuys": 175
+    },
+    {
+      "address": "0xf58d725b4ace6d2a9116f557574a609f7e393acb",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 176,
+      "syncedSells": 431,
+      "evenBuys": 784,
+      "laterBuys": 455
+    },
+    {
+      "address": "0xfd55af1358b2d858937684103b4b898c5d63211a",
+      "role": "member",
+      "followers": 11,
+      "coTokens": 172,
+      "syncedSells": 422,
+      "evenBuys": 809,
+      "laterBuys": 561
+    },
+    {
+      "address": "0x3f8c5dc2c15290abe06b8b8e617bcb8c9491e478",
+      "role": "member",
+      "followers": 10,
+      "coTokens": 471,
+      "syncedSells": 921,
+      "evenBuys": 6,
+      "laterBuys": 472
+    },
+    {
+      "address": "0xe942844163633caf082041a08965bdb860e21c0d",
+      "role": "member",
+      "followers": 10,
+      "coTokens": 302,
+      "syncedSells": 856,
+      "evenBuys": 377,
+      "laterBuys": 920
+    },
+    {
+      "address": "0x339b8cc0fc27c231ecf00d729ae8fccb57451bb4",
+      "role": "member",
+      "followers": 10,
+      "coTokens": 253,
+      "syncedSells": 606,
+      "evenBuys": 856,
+      "laterBuys": 67
+    },
+    {
+      "address": "0x68f92bafcc065460ebdc3119181ee80230662b1b",
+      "role": "member",
+      "followers": 10,
+      "coTokens": 164,
+      "syncedSells": 840,
+      "evenBuys": 419,
+      "laterBuys": 335
+    },
+    {
+      "address": "0x9fa87c04031f69c391f615944c039417e14309e8",
+      "role": "member",
+      "followers": 10,
+      "coTokens": 163,
+      "syncedSells": 456,
+      "evenBuys": 739,
+      "laterBuys": 286
+    },
+    {
+      "address": "0x7b32cbc58b39b6aee497373427c9d67f89b5d11e",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 423,
+      "syncedSells": 682,
+      "evenBuys": 190,
+      "laterBuys": 756
+    },
+    {
+      "address": "0x7ab8fb2aec5aba6f47c06167ce48f0719e484b27",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 373,
+      "syncedSells": 1250,
+      "evenBuys": 1394,
+      "laterBuys": 210
+    },
+    {
+      "address": "0xb8dd09e6912adbc74596a4188165875398031ccf",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 341,
+      "syncedSells": 995,
+      "evenBuys": 1322,
+      "laterBuys": 195
+    },
+    {
+      "address": "0x372872e1ac768db97ef99fdc44830efe350d358f",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 316,
+      "syncedSells": 765,
+      "evenBuys": 364,
+      "laterBuys": 28
+    },
+    {
+      "address": "0xee50e7766f71c524da5f93b90396cbd96c49055b",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 315,
+      "syncedSells": 1572,
+      "evenBuys": 1778,
+      "laterBuys": 155
+    },
+    {
+      "address": "0x950f87406b0d8511a83c92b6ea5a850b7b9ba0b5",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 315,
+      "syncedSells": 1582,
+      "evenBuys": 1785,
+      "laterBuys": 25
+    },
+    {
+      "address": "0x4cba2a757554e609e1185b7aaaf9c1cc0a1add0e",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 210,
+      "syncedSells": 564,
+      "evenBuys": 47,
+      "laterBuys": 85
+    },
+    {
+      "address": "0x43dcf4cb1c6d84e54f0b11025a8fbb845e8e212a",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 193,
+      "syncedSells": 268,
+      "evenBuys": 251,
+      "laterBuys": 59
+    },
+    {
+      "address": "0xf738b3f8995f12e6e10d5ba428fd1bf9821bb304",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 159,
+      "syncedSells": 53,
+      "evenBuys": 95,
+      "laterBuys": 591
+    },
+    {
+      "address": "0x78b91c7485cb29acb5367fcc53ba62998f3e47d0",
+      "role": "member",
+      "followers": 9,
+      "coTokens": 62,
+      "syncedSells": 412,
+      "evenBuys": 249,
+      "laterBuys": 104
+    },
+    {
+      "address": "0x92deb73329794a517f1a8be4925446300f159400",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 627,
+      "syncedSells": 462,
+      "evenBuys": 627,
+      "laterBuys": 335
+    },
+    {
+      "address": "0x7793377cba84f09fbc6611cc116ee0e76068dd27",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 313,
+      "syncedSells": 1574,
+      "evenBuys": 1832,
+      "laterBuys": 22
+    },
+    {
+      "address": "0x9b038a4d7bcb07caf8e9a37cd30536d71fd3c696",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 313,
+      "syncedSells": 1574,
+      "evenBuys": 1832,
+      "laterBuys": 23
+    },
+    {
+      "address": "0x6704043f2c37e112c65a06c1794e52c31d8dc6a8",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 313,
+      "syncedSells": 1592,
+      "evenBuys": 1836,
+      "laterBuys": 22
+    },
+    {
+      "address": "0xa0817e753a4dc9431c5ef720212d9ecca3dcc3fb",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 193,
+      "syncedSells": 261,
+      "evenBuys": 245,
+      "laterBuys": 312
+    },
+    {
+      "address": "0x3e318dbd4b3a6a503a4d034eb93e40ae4348da4d",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 164,
+      "syncedSells": 318,
+      "evenBuys": 597,
+      "laterBuys": 165
+    },
+    {
+      "address": "0x6fb6fc4afb51b3b74381927578f1ce62cd71b795",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 164,
+      "syncedSells": 379,
+      "evenBuys": 682,
+      "laterBuys": 243
+    },
+    {
+      "address": "0x1b6bb5c51b0162a6f23d92cb93ae014ec76194e8",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 160,
+      "syncedSells": 368,
+      "evenBuys": 740,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xee106951d291cc5fc73b2bbd1e566485bae7be8d",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 159,
+      "syncedSells": 401,
+      "evenBuys": 25,
+      "laterBuys": 590
+    },
+    {
+      "address": "0x0ba26bb14422b312eedfcf1938c58ff1438b1efc",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 303,
+      "syncedSells": 425,
+      "evenBuys": 122,
+      "laterBuys": 46
+    },
+    {
+      "address": "0x5fad4974c51080e3319d663cc49bf60fd6d19f2f",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 243,
+      "syncedSells": 766,
+      "evenBuys": 299,
+      "laterBuys": 107
+    },
+    {
+      "address": "0xa5cba55f06fb33582ce4b0da03ae76b9c24f596e",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 243,
+      "syncedSells": 767,
+      "evenBuys": 388,
+      "laterBuys": 130
+    },
+    {
+      "address": "0x42773930f98efe8c6952d14eb231e7cb290ca9e2",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 221,
+      "syncedSells": 236,
+      "evenBuys": 310,
+      "laterBuys": 209
+    },
+    {
+      "address": "0x75f83a71d94b0b533e0687cc7e7d68a96cd97fc3",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 201,
+      "syncedSells": 461,
+      "evenBuys": 208,
+      "laterBuys": 326
+    },
+    {
+      "address": "0x13bd0d1a6c7330a1063790a298ba33936a000000",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 188,
+      "syncedSells": 81,
+      "evenBuys": 8,
+      "laterBuys": 109
+    },
+    {
+      "address": "0xd1b980a3a2110c0bfcc2b8cb5082ec3d35c10000",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 165,
+      "syncedSells": 397,
+      "evenBuys": 243,
+      "laterBuys": 371
+    },
+    {
+      "address": "0x47dc06fb7065710d12fdea7008ed57d16f52c55d",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 152,
+      "syncedSells": 500,
+      "evenBuys": 188,
+      "laterBuys": 98
+    },
+    {
+      "address": "0x49568cccdc95974f45420bb4fa692e584792228f",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 93,
+      "syncedSells": 160,
+      "evenBuys": 368,
+      "laterBuys": 57
+    },
+    {
+      "address": "0xecee11e95562abe149c926bdaa44241d4a04ffeb",
+      "role": "member",
+      "followers": 7,
+      "coTokens": 84,
+      "syncedSells": 126,
+      "evenBuys": 19,
+      "laterBuys": 60
+    },
+    {
+      "address": "0xffbd5a03e1e936bfae82c567f8b41e0a95296dcc",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 782,
+      "syncedSells": 784,
+      "evenBuys": 439,
+      "laterBuys": 1106
+    },
+    {
+      "address": "0x3544af3cde7f5ccf3a435c0a20637f5621b3e46f",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 627,
+      "syncedSells": 474,
+      "evenBuys": 737,
+      "laterBuys": 103
+    },
+    {
+      "address": "0xa8662c60c79e467d1c8e3a24327a27061f09a6e6",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 340,
+      "syncedSells": 263,
+      "evenBuys": 185,
+      "laterBuys": 263
+    },
+    {
+      "address": "0xf967e46eb7399ca5d4368fe50affb9d8a6446ad7",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 253,
+      "syncedSells": 62,
+      "evenBuys": 26,
+      "laterBuys": 392
+    },
+    {
+      "address": "0xa83b73f5644cde337b61da79589f10ea15548811",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 245,
+      "syncedSells": 552,
+      "evenBuys": 190,
+      "laterBuys": 365
+    },
+    {
+      "address": "0xb730514de4c012ebcc649cd9018cb3753467c656",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 142,
+      "syncedSells": 127,
+      "evenBuys": 433,
+      "laterBuys": 169
+    },
+    {
+      "address": "0x45327ad9f0c3a5dc16a52657baa6ec0a93e6aaea",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 135,
+      "syncedSells": 217,
+      "evenBuys": 33,
+      "laterBuys": 157
+    },
+    {
+      "address": "0x81eab38f8344f9ad1a9fa8f100081f83497fdddc",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 134,
+      "syncedSells": 99,
+      "evenBuys": 136,
+      "laterBuys": 154
+    },
+    {
+      "address": "0xfc88eae70413f124539f8140889170d8e8e59d7d",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 133,
+      "syncedSells": 441,
+      "evenBuys": 196,
+      "laterBuys": 388
+    },
+    {
+      "address": "0x66453f2597bdba8faebf54ca9b07dd2b37eb09f0",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 122,
+      "syncedSells": 187,
+      "evenBuys": 178,
+      "laterBuys": 127
+    },
+    {
+      "address": "0x1b18e37cd0c55c9a4308c34631948dfe721cce93",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 112,
+      "syncedSells": 413,
+      "evenBuys": 147,
+      "laterBuys": 100
+    },
+    {
+      "address": "0x0d6b5789d778cfbbfdb6d5e603402deea9d87bf3",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 98,
+      "syncedSells": 244,
+      "evenBuys": 19,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x2ce9d43d1cba6ae31d7f07bfe0098dfa2d833373",
+      "role": "member",
+      "followers": 6,
+      "coTokens": 85,
+      "syncedSells": 76,
+      "evenBuys": 0,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xb6864c017e9d9d89012d4f90ee382bf1461e4c90",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 627,
+      "syncedSells": 476,
+      "evenBuys": 718,
+      "laterBuys": 306
+    },
+    {
+      "address": "0xc2dee6ab44cec9ef3b54c3e8e0966361499c4aeb",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 380,
+      "syncedSells": 511,
+      "evenBuys": 380,
+      "laterBuys": 185
+    },
+    {
+      "address": "0x90a176651da5419fbb44abe7ada84de51a88c5e9",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 344,
+      "syncedSells": 438,
+      "evenBuys": 371,
+      "laterBuys": 197
+    },
+    {
+      "address": "0xc28c51c8769fa7518a3d13e6400760058b779e21",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 344,
+      "syncedSells": 437,
+      "evenBuys": 371,
+      "laterBuys": 312
+    },
+    {
+      "address": "0x4b7f601abc634b25d6cb21d33e6f7d2d672d6727",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 245,
+      "syncedSells": 561,
+      "evenBuys": 195,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x05c17a86a0399412273fc6a9a745b6302a109295",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 180,
+      "syncedSells": 163,
+      "evenBuys": 63,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xd92144c0b1559f6fe75ce2b30668fba7fc48ac10",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 152,
+      "syncedSells": 92,
+      "evenBuys": 0,
+      "laterBuys": 265
+    },
+    {
+      "address": "0xe1b24f67df14192719f552a0b7fdd27bcf546469",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 121,
+      "syncedSells": 145,
+      "evenBuys": 79,
+      "laterBuys": 305
+    },
+    {
+      "address": "0x11e0290cf30c4a7aa4f041b2660470c9bf1fb7b4",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 102,
+      "syncedSells": 164,
+      "evenBuys": 100,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x0171a61cbbc734d330294e61437cac5233f90f0f",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 84,
+      "syncedSells": 212,
+      "evenBuys": 3,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x18eab5a50f50190ae7be956052f456c86bd92eb7",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 61,
+      "syncedSells": 211,
+      "evenBuys": 5,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x56228b1349eac138656e3a15dd5462404569f14d",
+      "role": "member",
+      "followers": 5,
+      "coTokens": 60,
+      "syncedSells": 198,
+      "evenBuys": 28,
+      "laterBuys": 21
+    },
+    {
+      "address": "0xb750f03e86980a3dffdfad269a88f008bb78ea51",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 522,
+      "syncedSells": 747,
+      "evenBuys": 270,
+      "laterBuys": 597
+    },
+    {
+      "address": "0xd6ab395c3aa21499e50e13bc87d134f2c54e0244",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 203,
+      "syncedSells": 185,
+      "evenBuys": 203,
+      "laterBuys": 143
+    },
+    {
+      "address": "0x00a1e7fa36e3c846d7959baddd5bb5633e3822a8",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 201,
+      "syncedSells": 229,
+      "evenBuys": 121,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x83f180436ed05051f30df0bfbeecea6c13941197",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 201,
+      "syncedSells": 229,
+      "evenBuys": 120,
+      "laterBuys": 96
+    },
+    {
+      "address": "0xdb115a42a6760bffea651d97d38549c1fabc1b11",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 175,
+      "syncedSells": 162,
+      "evenBuys": 0,
+      "laterBuys": 356
+    },
+    {
+      "address": "0x2c1807dd9d2080ae2b23a7dc275a1077fe4dd738",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 153,
+      "syncedSells": 70,
+      "evenBuys": 5,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xe9bd425ae50bc3e7d548d501f4e12f475c1a01e9",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 132,
+      "syncedSells": 77,
+      "evenBuys": 53,
+      "laterBuys": 89
+    },
+    {
+      "address": "0xa516803fcc6802b3d91a49911d2c2d7a0ae368ba",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 116,
+      "syncedSells": 194,
+      "evenBuys": 388,
+      "laterBuys": 66
+    },
+    {
+      "address": "0xe1973ca40d8929777924f85387988f74fc1f41f8",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 116,
+      "syncedSells": 183,
+      "evenBuys": 386,
+      "laterBuys": 64
+    },
+    {
+      "address": "0xe89ff93a40042de77a231eaeaff904bfcdec72d8",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 116,
+      "syncedSells": 35,
+      "evenBuys": 3,
+      "laterBuys": 285
+    },
+    {
+      "address": "0x422a7ae1956854ce753b9fce53eed33942952b2f",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 115,
+      "syncedSells": 197,
+      "evenBuys": 383,
+      "laterBuys": 65
+    },
+    {
+      "address": "0xb3f1dfd86b5a42394065cda4eb3d06d5cd180176",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 109,
+      "syncedSells": 166,
+      "evenBuys": 366,
+      "laterBuys": 68
+    },
+    {
+      "address": "0xa91d6e8bb66e4659677e76f43f0c677f2b0fac54",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 109,
+      "syncedSells": 0,
+      "evenBuys": 183,
+      "laterBuys": 12
+    },
+    {
+      "address": "0xe53352a96710242330b52e715f64f3366999971d",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 71,
+      "syncedSells": 150,
+      "evenBuys": 0,
+      "laterBuys": 194
+    },
+    {
+      "address": "0x3be4ddc6e67c88de7ef78ac208fb997906dfbb7a",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 522,
+      "syncedSells": 748,
+      "evenBuys": 0,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x550647e8faf10116f0367526080c1005809b4653",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 207,
+      "syncedSells": 300,
+      "evenBuys": 261,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x24f80bc9c5f67d2e1b36fe2246e837bf34a85348",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 121,
+      "syncedSells": 55,
+      "evenBuys": 0,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x9d2a6621f704c3e50370aa51f567e42210222ab5",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 112,
+      "syncedSells": 46,
+      "evenBuys": 6,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xd25e504a607bf277d009b8356315a6e5a9fb145c",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 102,
+      "syncedSells": 205,
+      "evenBuys": 41,
+      "laterBuys": 151
+    },
+    {
+      "address": "0xf4b7b29e8b0363e217898076679ddd5b3c270065",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 85,
+      "syncedSells": 122,
+      "evenBuys": 2,
+      "laterBuys": 62
+    },
+    {
+      "address": "0xdfb3608778168eac59fa243084e486792f6c5234",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 82,
+      "syncedSells": 19,
+      "evenBuys": 0,
+      "laterBuys": 169
+    },
+    {
+      "address": "0x3add1dd14016e3cbb104854cb9cc24a3f9a9b88a",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 75,
+      "syncedSells": 114,
+      "evenBuys": 76,
+      "laterBuys": 55
+    },
+    {
+      "address": "0x6ec8cda0ae18fd861f9909b0b2b0cbc5e0dae99b",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 75,
+      "syncedSells": 110,
+      "evenBuys": 76,
+      "laterBuys": 103
+    },
+    {
+      "address": "0x0e7800e31aff4908b33d88a4be77aa4426c4c4eb",
+      "role": "member",
+      "followers": 3,
+      "coTokens": 62,
+      "syncedSells": 34,
+      "evenBuys": 114,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xe90da7f4461b666cc89f30a78b6ea808810d3f4d",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 461,
+      "syncedSells": 500,
+      "evenBuys": 461,
+      "laterBuys": 120
+    },
+    {
+      "address": "0xf2042ea95949929a28d8e75faa9b1dca58e88955",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 461,
+      "syncedSells": 497,
+      "evenBuys": 461,
+      "laterBuys": 115
+    },
+    {
+      "address": "0x812ae60a75423be649db4f1fb85da1338a379b52",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 340,
+      "syncedSells": 223,
+      "evenBuys": 150,
+      "laterBuys": 25
+    },
+    {
+      "address": "0x199776730d88cfa1aa54e7f41df386b80ac150c5",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 284,
+      "syncedSells": 276,
+      "evenBuys": 284,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x35dded53f08cb0a11e37a09fe86039c1876fb692",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 284,
+      "syncedSells": 276,
+      "evenBuys": 284,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x934d66f14373ce0c6e2a6c473156458e512b74fb",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 282,
+      "syncedSells": 262,
+      "evenBuys": 282,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xd3a71f80906876d063321ccb125f2f214993de17",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 282,
+      "syncedSells": 263,
+      "evenBuys": 282,
+      "laterBuys": 70
+    },
+    {
+      "address": "0x648faa18f10c33aba83373a5123f340843863180",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 218,
+      "syncedSells": 212,
+      "evenBuys": 218,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x914e8893763d3a63a4d58e842504737898663992",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 218,
+      "syncedSells": 212,
+      "evenBuys": 218,
+      "laterBuys": 1
+    },
+    {
+      "address": "0x77eb0565643915602e91eb5aef503abcdcac6612",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 207,
+      "syncedSells": 233,
+      "evenBuys": 207,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x42160026564d1cf2b5b4d37bbd4bc44bdd0f9e96",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 102,
+      "syncedSells": 44,
+      "evenBuys": 4,
+      "laterBuys": 102
+    },
+    {
+      "address": "0x8ec780eab83ae68071b0c155612d66344db98f87",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 90,
+      "syncedSells": 91,
+      "evenBuys": 99,
+      "laterBuys": 43
+    },
+    {
+      "address": "0x6c979a64c3545a6534081be1189d366b87eca5bc",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 73,
+      "syncedSells": 124,
+      "evenBuys": 0,
+      "laterBuys": 73
+    },
+    {
+      "address": "0xcc4f8d002ee219bd3840c0abdee2485674a8bbab",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 86,
+      "syncedSells": 76,
+      "evenBuys": 0,
+      "laterBuys": 86
+    },
+    {
+      "address": "0x2314afbf116f450dad7fe0bb830a7ea296369715",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 85,
+      "syncedSells": 69,
+      "evenBuys": 83,
+      "laterBuys": 0
+    },
+    {
+      "address": "0x2d2ec19f80a7996a51e0a2a1e94be93089e8db3a",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 84,
+      "syncedSells": 47,
+      "evenBuys": 0,
+      "laterBuys": 33
+    },
+    {
+      "address": "0x4c5f09561a15ad51438ffdc12252c36f6d8511ee",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 80,
+      "syncedSells": 69,
+      "evenBuys": 80,
+      "laterBuys": 0
+    },
+    {
+      "address": "0xa9b2d6d86ce5a74cfe9fd2b59be4ec838d81afac",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 79,
+      "syncedSells": 54,
+      "evenBuys": 0,
+      "laterBuys": 79
+    },
+    {
+      "address": "0x3e1ea4b8f7398aaa80e187570a8bf7cc3166de15",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 62,
+      "syncedSells": 27,
+      "evenBuys": 8,
+      "laterBuys": 52
+    },
+    {
+      "address": "0xd216cf8ee73da8438a3e57dc63703043cfb6e075",
+      "role": "member",
+      "followers": 1,
+      "coTokens": 53,
+      "syncedSells": 26,
+      "evenBuys": 0,
+      "laterBuys": 53
+    }
+  ]
+}
