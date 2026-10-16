@@ -176,11 +176,18 @@ function pass2(rows, active) {
   return { pairs, firstBuy };
 }
 
-// ── 判据 → 名单 ──
-function buildRoster(pairs) {
-  const edges = new Map();   // wallet → {neighbors:Set, coMax, sellSyncSum, evenSum, later}
+// ── 判据 → 名单（边级过滤参数化：co 下限 + 强度指纹任一达标）──
+function buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers }) {
+  const edges = new Map();   // wallet → {neighbors:Set, coMax, sellSyncSum, evenSum, laterSum}
   for (const [k, st] of pairs) {
-    if (st.co < CO_TOKEN_THR) continue;
+    if (st.co < coThr) continue;
+    // 强度指纹（2026-10-16 首跑定标：co>=3 宽判据产出 11866 名单/FLY 28/34 命中——
+    // 高频 bot 同场抢新盘的首买同步≠跟单。真跟单特征=金额复制（等额镜像）或
+    // 同步清仓（FLY 三连 block 全清）。两条任一达标才算跟单边；0 档=关该指纹）
+    if (sellSyncThr > 0 && evenThr > 0) {
+      if (st.sellSync < sellSyncThr && st.even < evenThr) continue;
+    } else if (sellSyncThr > 0 && st.sellSync < sellSyncThr) continue;
+    else if (evenThr > 0 && st.even < evenThr) continue;
     const [w1, w2] = k.split('|');
     for (const [me, myLater] of [[w1, st.laterA], [w2, st.laterB]]) {
       let e = edges.get(me);
@@ -196,7 +203,7 @@ function buildRoster(pairs) {
   for (const [w, e] of edges) {
     wallets.push({
       address: w,
-      role: e.neighbors.size >= MIN_FOLLOWERS ? 'leader' : 'member',
+      role: e.neighbors.size >= minFollowers ? 'leader' : 'member',
       followers: e.neighbors.size,
       coTokens: e.coMax,
       syncedSells: e.sellSyncSum,
@@ -212,38 +219,68 @@ function buildRoster(pairs) {
 function report(wallets, rows) {
   const inRoster = new Set(wallets.map(w => w.address));
   console.log(`\n════════ 名单 ${wallets.length} 钱包（leader ${wallets.filter(w => w.role === 'leader').length} / member ${wallets.filter(w => w.role === 'member').length}）════════`);
-  console.log('\n[锚检查]（未命中=判据失准，调参重跑，绝不 --commit）');
   let anchorOk = true;
   for (const a of ANCHORS) {
     const hit = wallets.find(w => w.address === a);
-    console.log(`  ${a} ${hit ? '✅ leader=' + hit.role + ' followers=' + hit.followers + ' co=' + hit.coTokens : '❌ 未命中'}`);
     if (!hit) anchorOk = false;
   }
-  console.log('\n[FLY 簇检查]（0x4ec2…37777 买家中名单命中）');
   const flyBuyers = new Set(rows.filter(r => r.t === FLY_TOKEN && r.buy).map(r => r.w));
   const flyHits = [...flyBuyers].filter(w => inRoster.has(w));
-  console.log(`  FLY 买家 ${flyBuyers.size}，名单命中 ${flyHits.length}${flyHits.length ? '：' + flyHits.join(', ') : ''}`);
+  return { anchorOk, flyBuyers: flyBuyers.size, flyHits };
+}
+
+function fullReport(wallets, rows) {
+  const r = report(wallets, rows);
+  console.log(`\n════════ 名单 ${wallets.length} 钱包（leader ${wallets.filter(w => w.role === 'leader').length} / member ${wallets.filter(w => w.role === 'member').length}）════════`);
+  console.log('\n[锚检查]（未命中=判据失准，调参重跑，绝不 --commit）');
+  for (const a of ANCHORS) {
+    const hit = wallets.find(w => w.address === a);
+    console.log(`  ${a} ${hit ? '✅ role=' + hit.role + ' followers=' + hit.followers + ' co=' + hit.coTokens + ' 卖同步=' + hit.syncedSells + ' 等额=' + hit.evenBuys : '❌ 未命中'}`);
+  }
+  console.log(`\n[FLY 簇检查] 买家 ${r.flyBuyers}，名单命中 ${r.flyHits.length}${r.flyHits.length ? '：' + r.flyHits.join(', ') : ''}`);
   console.log('\n[Top 强度样本 20]');
   for (const w of wallets.slice(0, 20)) {
     console.log(`  ${w.role.padEnd(6)} followers=${String(w.followers).padStart(3)} co=${String(w.coTokens).padStart(3)} 卖同步=${String(w.syncedSells).padStart(3)} 等额=${String(w.evenBuys).padStart(3)} ${w.address}`);
   }
-  return anchorOk;
+  return r;
 }
 
 (async () => {
-  console.log(`[参数] days=${DAYS} minTokens=${MIN_TOKENS} blockWin=${BLOCK_WIN} sellWin=${SELL_WIN} coTokenThr=${CO_TOKEN_THR} minFollowers=${MIN_FOLLOWERS} commit=${COMMIT}`);
+  console.log(`[参数] days=${DAYS} minTokens=${MIN_TOKENS} blockWin=${BLOCK_WIN} sellWin=${SELL_WIN} commit=${COMMIT}`);
   const rows = await fetchAll();
   if (!rows.length) { console.error('空数据，中止'); process.exit(1); }
   const active = pass1(rows);
   const { pairs } = pass2(rows, active);
-  const { wallets } = buildRoster(pairs);
-  const anchorOk = report(wallets, rows);
-  if (!COMMIT) { console.log('\n（dry-run：未写名单文件。确认报告后加 --commit 重跑）'); process.exit(0); }
-  if (!anchorOk) { console.error('\n锚检查失败——拒绝写名单，调参重跑'); process.exit(1); }
+
+  // ── 定标矩阵（首跑教训：co>=3 宽判据 11866 名单/FLY 28/34 命中——同场抢盘 bot 污染。
+  //    强度指纹=金额复制（等额）/同步清仓；矩阵一次跑完选档）──
+  const MATRIX = [];
+  for (const coThr of [3, 10, 20, 50]) {
+    for (const [sellSyncThr, evenThr] of [[0, 0], [2, 3], [3, 5], [5, 10]]) {
+      const { wallets } = buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers: MIN_FOLLOWERS });
+      const { anchorOk, flyBuyers, flyHits } = report(wallets, rows);
+      MATRIX.push({ coThr, sellSyncThr, evenThr, size: wallets.length,
+        leaders: wallets.filter(w => w.role === 'leader').length, anchorOk, flyHits: flyHits.length });
+    }
+  }
+  console.log('\n════════ 定标矩阵（名单规模 | leader | 锚 | FLY 命中/34 买家）════════');
+  console.log('coThr  sellSync/even  名单   leader  锚   FLY命中');
+  for (const m of MATRIX) {
+    console.log(`${String(m.coThr).padStart(5)}  ${String(m.sellSyncThr).padStart(3)}/${String(m.evenThr).padStart(3)}       ${String(m.size).padStart(5)}  ${String(m.leaders).padStart(5)}  ${m.anchorOk ? '✅' : '❌'}  ${m.flyHits}`);
+  }
+
+  // ── 终版参数（CLI 覆盖或矩阵选档后写死于此）跑正式名单 ──
+  const finalParams = { coThr: CO_TOKEN_THR, sellSyncThr: argOf('--sell-sync-thr', 0), evenThr: argOf('--even-thr', 0), minFollowers: MIN_FOLLOWERS };
+  console.log(`\n[终版] coThr=${finalParams.coThr} sellSyncThr=${finalParams.sellSyncThr} evenThr=${finalParams.evenThr} minFollowers=${finalParams.minFollowers}`);
+  const { wallets } = buildRoster(pairs, finalParams);
+  const r = fullReport(wallets, rows);
+  if (!COMMIT) { console.log('\n（dry-run：未写名单文件。矩阵选档后带参数加 --commit 重跑）'); process.exit(0); }
+  if (!r.anchorOk) { console.error('\n锚检查失败——拒绝写名单，调参重跑'); process.exit(1); }
   const out = {
     version: 1,
     generatedAt: new Date().toISOString(),
-    params: { days: DAYS, minTokens: MIN_TOKENS, blockWin: BLOCK_WIN, sellWin: SELL_WIN, coTokenThr: CO_TOKEN_THR, minFollowers: MIN_FOLLOWERS },
+    params: { days: DAYS, minTokens: MIN_TOKENS, blockWin: BLOCK_WIN, sellWin: SELL_WIN,
+      coTokenThr: finalParams.coThr, sellSyncThr: finalParams.sellSyncThr, evenThr: finalParams.evenThr, minFollowers: finalParams.minFollowers },
     wallets,
   };
   fs.mkdirSync(path.dirname(ROSTER_PATH), { recursive: true });
