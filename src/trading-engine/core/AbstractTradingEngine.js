@@ -633,6 +633,9 @@ class AbstractTradingEngine extends ITradingEngine {
       newMetadata.tradeResult = {
         success: result.success ?? false,
         tradeId: result.tradeId || null,
+        // 失败原因进 tradeResult（2026-10-16 蓝蛙案：旧形状只有 execution_reason，
+        // signals 页失败卡片无从展示 revert 现场原因）
+        reason: result.reason || null,
         trade: (result.trade && typeof result.trade === 'object') ? {
           id: result.trade.id || null,
           tokenSymbol: result.trade.tokenSymbol || 'UNKNOWN',

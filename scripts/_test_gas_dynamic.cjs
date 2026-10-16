@@ -37,6 +37,7 @@ function gwei(n) { return ethers.parseUnits(String(n), 'gwei'); }
 /** 构造打桩 trader：provider.getFeeData/estimateGas 可控 */
 function mkTrader({ feeDataGasPrice = null, feeDataThrows = false, estimate = null, estimateThrows = false, gasStrategy } = {}) {
     const t = Object.create(BaseTrader.prototype);
+    t.log = () => {}; // BaseTrader 日志走子类 log（裸原型桩补齐）
     t.gasStrategy = gasStrategy || 'dynamic';
     t.tradingConfig = { maxGasPrice: 10 }; // 上限 10 gwei
     t.wallet = { address: '0x' + 'ab'.repeat(20) };

@@ -22,6 +22,7 @@
  */
 
 const { ethers } = require('ethers');
+const Decimal = require('decimal.js');
 const BaseTrader = require('../core/BaseTrader');
 const { assertMinOut } = require('../core/preTradeCheck');
 
@@ -72,7 +73,9 @@ class FlapPortalTrader extends BaseTrader {
         if (this.logger) {
             try {
                 const logMethod = type === 'error' ? 'error' : type === 'success' ? 'info' : type === 'warning' ? 'warn' : 'info';
-                this.logger[logMethod](`[FlapPortalTrader] ${message}`);
+                // 三参标准形状（experimentId, module, message）：单参形状会落 Logger 默认
+                // experimentId 的文件（experiment-main-*.log），实验现场与引擎行割裂
+                this.logger[logMethod](this._logExperimentId || 'trader', 'FlapPortalTrader', message);
             } catch {
                 console.log(`[${prefix}] [FlapPortalTrader] ${message}`);
             }
@@ -81,8 +84,9 @@ class FlapPortalTrader extends BaseTrader {
         }
     }
 
-    setLogger(logger) {
+    setLogger(logger, experimentId = null) {
         this.logger = logger;
+        this._logExperimentId = experimentId;
     }
 
     /** 交易器配置验证（连通性：Portal 代理合约 bytecode 存在） */
@@ -223,9 +227,23 @@ class FlapPortalTrader extends BaseTrader {
             });
             this.log(`[预成交校验通过] ratio=${assertRes.ratio} 报价到手=${assertRes.quoteOutUi}（minOutRatio=${minOutRatio}）`);
 
+            // minOut 锚取 quote 与信号价期望的较低者（2026-10-16 蓝蛙 0x9499…7777 案）：
+            // quote staticCall 基于滞后块状态，暴涨盘瞬时偏差可 >5% 滑点容忍——本案
+            // quote=551,500（对应价 5.27e-6）而 tx 上块真实可得仅 ~501k，minOut=523,926
+            // 卡死 revert 烧 gas；信号价期望（WSS 实时 tick 锚，498,800）更接近上块真实。
+            // 取 min=两口径中更悲观的输出估计：平稳盘 expected≈quote 行为不变；暴跌盘
+            // quote 更低锚 quote（保护语义不变）；暴涨盘 quote 虚高时锚信号价期望。
+            // expectedTokenOut 为 UI 单位，assertMinOut 已保证其存在（契约必传）。
+            const expectedOutRaw = (options.expectedTokenOut && options.expectedTokenOut > 0)
+                ? BigInt(new Decimal(options.expectedTokenOut).mul(1e18).toFixed(0))
+                : null;
+            const minOutAnchor = (expectedOutRaw && expectedOutRaw < quoteOut) ? expectedOutRaw : quoteOut;
+            if (expectedOutRaw && expectedOutRaw < quoteOut) {
+                this.log(`minOut 锚取较低者（quote 滞后块虚高防 revert）: quote=${ethers.formatUnits(quoteOut, 18)} expected=${ethers.formatUnits(expectedOutRaw, 18)}`, 'warning');
+            }
             const minOutputAmount = options.slippageTolerance
-                ? (quoteOut * BigInt(10000 - Math.round(options.slippageTolerance * 100))) / BigInt(10000)
-                : (quoteOut * BigInt(9900)) / BigInt(10000); // 默认 1% 滑点容忍（fee 已在报价内）
+                ? (minOutAnchor * BigInt(10000 - Math.round(options.slippageTolerance * 100))) / BigInt(10000)
+                : (minOutAnchor * BigInt(9900)) / BigInt(10000); // 默认 1% 滑点容忍（fee 已在报价内）
 
             // B4 动态 gas：链上价≤上限用链上价；gasLimit=估算×1.3 钳 cap
             const gasPrice = await this._resolveGasPrice(options.maxGasPrice);

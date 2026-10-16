@@ -2266,7 +2266,7 @@ class ExperimentSignals {
     const metadata = signal.metadata || {};
     const strategyName = metadata.strategyName || signal.strategyName || signal.reason || '策略信号';
     const strategyId = metadata.strategyId || signal.strategyId || null;
-    const executionReason = signal.execution_reason || metadata.execution_reason || '';
+    const executionReason = signal.execution_reason || metadata.execution_reason || metadata.tradeResult?.reason || '';
 
     // 构建拒绝原因HTML
     let rejectionInfoHtml = '';

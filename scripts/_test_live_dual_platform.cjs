@@ -84,6 +84,7 @@ require.cache[TRADERS_PATH] = {
                     this.provider = p;
                 },
                 async getNativeBalance() { return '1.234'; },
+                setLogger(logger, experimentId) { this._logger = logger; this._logExperimentId = experimentId; },
                 async shareSignerFrom(other) {
                     shareCalls.push({ from: this._type, to: other._type });
                     if (!other.wallet || !other.signer) throw new Error('shareSignerFrom: 源 trader 未初始化钱包');

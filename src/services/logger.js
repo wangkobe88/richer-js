@@ -56,6 +56,40 @@ class Logger {
         return stream;
     }
 
+    /**
+     * console 复读是否与日志文件同目标（2026-10-16 蓝蛙 0x9499…7777 案）：
+     * 启动命令 nohup … > logs/experiment-<id>-<date>.log 把 stdout 重定向到与
+     * WriteStream 相同的文件时，console 输出走 shell 打开的 truncate 继承 fd
+     * （独立偏移、非 append），与 WriteStream 的原子 append 互相踩踏——蓝蛙首笔
+     * revert 的 trader 现场/引擎 ERROR 行因此在「长名文件」里随机被覆盖丢失
+     * （现场藏在 stdout 短名文件才找回）。比对 fd1/fd2 与目标文件的 dev+ino，
+     * 同文件时跳过 console 复读（文件里已有同内容，复读纯属覆盖风险）；
+     * 判定按 filePath 缓存。fd stat 失败/平台不支持 → false 保守保留复读。
+     * @private
+     */
+    _consoleEchoDisabledFor(filePath) {
+        if (this._consoleEchoDisabled == null) this._consoleEchoDisabled = new Map();
+        if (this._consoleEchoDisabled.has(filePath)) return this._consoleEchoDisabled.get(filePath);
+        let disabled = false;
+        try {
+            const fileStat = fs.statSync(filePath);
+            // console.log→fd1 / console.error·warn→fd2，任一与目标文件同 inode 即禁复读
+            for (const fd of [1, 2]) {
+                try {
+                    const fdStat = fs.fstatSync(fd);
+                    if (fdStat.dev === fileStat.dev && fdStat.ino === fileStat.ino) {
+                        disabled = true;
+                        break;
+                    }
+                } catch { /* fd 关闭等 → 该 fd 不比对 */ }
+            }
+        } catch {
+            disabled = false;
+        }
+        this._consoleEchoDisabled.set(filePath, disabled);
+        return disabled;
+    }
+
     ensureLogDirectory() {
         if (!fs.existsSync(this.logDir)) {
             fs.mkdirSync(this.logDir, { recursive: true });
@@ -129,7 +163,9 @@ class Logger {
             console.error('Failed to write log:', err);
         }
 
-        // Console output
+        // Console output（stdout/stderr 重定向到日志文件本身时跳过——truncate fd
+        // 与 append WriteStream 互覆盖，见 _consoleEchoDisabledFor）
+        if (this._consoleEchoDisabledFor(filePath)) return;
         if (level === 'ERROR') {
             console.error(logLine);
         } else if (level === 'WARN') {

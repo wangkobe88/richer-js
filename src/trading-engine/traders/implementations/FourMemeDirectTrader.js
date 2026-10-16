@@ -154,12 +154,11 @@ class FourMemeDirectTrader extends BaseTrader {
 
         if (this.logger) {
             // 使用外部设置的 logger（FourMemeWssTradingEngine live 模式的 logger）
-            // 使用 Logger 的标准调用方式：logger.info(experimentId, module, message)
-            // 但这里我们只有 message，所以简化为直接调用 info 方法
             try {
                 const logMethod = type === 'error' ? 'error' : type === 'success' ? 'info' : type === 'warning' ? 'warn' : 'info';
-                // 直接调用，让 Logger 的 _formatLogMessage 处理
-                this.logger[logMethod](`[FourMemeDirectTrader] ${message}`);
+                // 三参标准形状（experimentId, module, message）：单参形状会落 Logger 默认
+                // experimentId 的文件（experiment-main-*.log），实验现场与引擎行割裂
+                this.logger[logMethod](this._logExperimentId || 'trader', 'FourMemeDirectTrader', message);
             } catch (logError) {
                 // 如果 logger 调用失败，回退到 console
                 console.log(`[${timestamp}] ${prefix} [FourMemeDirectTrader] ${message}`);
@@ -173,9 +172,11 @@ class FourMemeDirectTrader extends BaseTrader {
     /**
      * 设置外部 logger
      * @param {Object} logger - 外部 logger 对象
+     * @param {string|null} experimentId - 实验ID（日志归属实验文件）
      */
-    setLogger(logger) {
+    setLogger(logger, experimentId = null) {
         this.logger = logger;
+        this._logExperimentId = experimentId;
     }
 
     /**

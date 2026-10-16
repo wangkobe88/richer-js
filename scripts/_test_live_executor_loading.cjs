@@ -71,6 +71,7 @@ require.cache[TRADERS_PATH] = {
                     this.provider = p;
                 },
                 async getNativeBalance() { return '1.234'; },
+                setLogger(logger, experimentId) { this._logger = logger; this._logExperimentId = experimentId; },
             };
             created.push(t);
             return t;

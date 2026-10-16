@@ -924,6 +924,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const trader = traderFactory.createTrader(this._liveTraderTypeFor(platform), traderConfig);
       trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
       trader.txSeenSignal = this._txSeenSignal;   // WSS 快速回执（提速①）；null=纯原路径
+      trader.setLogger(this.logger, this._experimentId); // trader 行进实验日志文件（2026-10-16 蓝蛙案：裸 console 落 stdout 重定向文件，现场与引擎行割裂）
       await trader.setWallet(privateKey);
       if (this._liveTraderMap.size > 0) {
         await trader.shareSignerFrom(this._trader);
@@ -2529,6 +2530,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const buyResult = await this._liveTraderFor(signal.tokenAddress).buyToken(signal.tokenAddress, amountInWei, options);
       if (!buyResult.success) {
         this._registerBuyFailure(signal, buyResult.error);
+        // 单次失败必打行（2026-10-16 蓝蛙 0x9499…7777 案：revert 失败只在熔断阈值才打，
+        // 8.6s 静默期实验日志零行，定位全靠 DB execution_reason 考古）
+        this.logger.warn(this._experimentId, '_executeBuyLive',
+          `❌ live 买入失败 | ${signal.symbol} ${signal.tokenAddress} | ${String(buyResult.error || 'live 买入交易失败').slice(0, 300)}`);
         return { success: false, reason: buyResult.error || 'live 买入交易失败' };
       }
 

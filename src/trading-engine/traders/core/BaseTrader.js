@@ -49,7 +49,7 @@ class BaseTrader extends ITrader {
     initProvider() {
         try {
             this.provider = new ethers.JsonRpcProvider(this.network.rpcUrl);
-            console.log(`📡 ${this.constructor.name}: Provider initialized for ${this.network.name}`);
+            this.log(`📡 Provider initialized for ${this.network.name}`);
         } catch (error) {
             throw new Error(`Failed to initialize provider: ${error.message}`);
         }
@@ -82,7 +82,7 @@ class BaseTrader extends ITrader {
             // 的 getAddress 是 async，不能顶替 this.wallet。
             this.signer = new ethers.NonceManager(this.wallet);
 
-            console.log(`👛 ${this.constructor.name}: Wallet set: ${this.wallet.address}`);
+            this.log(`👛 Wallet set: ${this.wallet.address}`);
 
             // 验证钱包连接
             await this.verifyWalletConnection();
@@ -175,10 +175,10 @@ class BaseTrader extends ITrader {
             const buffered = (est * 13n) / 10n;
             const cap = BigInt(hardCapLimit);
             const resolved = buffered > cap ? cap : buffered;
-            console.log(`⛽ ${this.constructor.name}: gasLimit estimate=${est} ×1.3 → ${resolved}（cap ${cap}）`);
+            this.log(`⛽ gasLimit estimate=${est} ×1.3 → ${resolved}（cap ${cap}）`);
             return resolved;
         } catch (error) {
-            console.warn(`⚠️ ${this.constructor.name}: estimateGas 失败，gasLimit 回落固定值 ${fallback}: ${error.message}`);
+            this.log(`⚠️ estimateGas 失败，gasLimit 回落固定值 ${fallback}: ${error.message}`, 'warning');
             return fallback;
         }
     }
@@ -244,7 +244,7 @@ class BaseTrader extends ITrader {
     async verifyWalletConnection() {
         try {
             const balance = await this.provider.getBalance(this.wallet.address);
-            console.log(`💰 ${this.constructor.name}: Wallet balance: ${ethers.formatEther(balance)} BNB`);
+            this.log(`💰 Wallet balance: ${ethers.formatEther(balance)} BNB`);
         } catch (error) {
             console.warn(`⚠️ ${this.constructor.name}: Could not verify wallet connection: ${error.message}`);
         }
