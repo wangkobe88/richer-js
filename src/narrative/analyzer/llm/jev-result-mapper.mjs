@@ -356,6 +356,43 @@ function subjectCarrierBlock(answers, category) {
 }
 
 /**
+ * J1.31 E 类情绪感染力折损系数（2026-10-16 用户裁定，C80 蝙蝠侠摇案
+ * 0x4547dae7757fb4043e034d27ed02dfabe9aa7777：「蝙蝠侠式蹦迪」抖音舞蹈现象票，
+ * Jev E 类 0.99 + B 档量级 0.97 → 事件分 27+28.68+15=70.68 过线 high 放行，
+ * 实测 18 分钟 54 tick 冷盘、买入 31s -12.4%。裁定原话「对时事现象热度，其实也
+ * 应该度量事件对Web3用户的情绪感染力。这个事件没啥情绪感染力，我不会被它有任何
+ * 触动，也并非一个大时事」——E 类事件分的 magnitude/dim2 量的是现象传播广度
+ * （烧了多大），不是情绪转化（Web3 用户会不会被触动到想参与）：观众≠买家。
+ * 折损作用于标准数学的 tierScore+effDim2 两项（时效不折——新鲜是客观属性，
+ * 与情绪无关；W 数学不消费本题，cashtag/骑乘改道票 category==='W' 天然不触达）：
+ *   strong_reaction 1（圈内情绪卷入不折——啾啾案 C74 新闻大时事形状）
+ *   mild_amusement 0.5（轻度有趣：上限组合 (39+30)×0.5+15=49.5<60，数学上
+ *     全档拦——「觉得有趣但不驱动参与」按裁定语义就是不该买，现象量级再大也
+ *     不构成参与冲动；真被 crypto 圈主动传播的现象按题面锚应判 strong 而非
+ *     mild。刻意保留系数形式而非阻断门：折损后事件分照常落库（档间梯度可
+ *     观察，阈值事后校准免重跑，J1.28 referentMemeabilityScore 同款语义））
+ *   indifferent 0.25（无感：B 档 28.92 / A 档 32.25 / S 档 33.5 全拦——圈层
+ *     无感的现象对 meme 买盘无意义，传播量级再大也不折算成情绪）
+ * 仅 category==='E' 消费（A/B/C/D/W/F/G 不折——用户裁定域=时事现象热度；A 类
+ * 另有 J1.23 Web3 偏好锚、B 类产品另有 J1.27 接纳门、C/D 人物机构量级是客观
+ * 影响力不依赖情绪转化）。答案缺失（旧缓存行/手写 fixture）→ 不折（fail-open，
+ * J1.28/J1.29 同款；生产链 JevClient.ask 对缺答案 id 直接 throw，缺失形状只在
+ * 旧缓存）。superIP 快车道 mapSuperIPAnswers 不消费本题答案（零影响）。
+ * 窗口回测要触发折损须先失效缓存（scripts/narrative/invalidate-resonance-
+ * window.cjs，照 J1.28/J1.29 模式）。
+ */
+const RESONANCE_COEFFICIENTS = {
+  strong_reaction: 1,
+  mild_amusement: 0.5,
+  indifferent: 0.25,
+};
+const RESONANCE_LABELS = {
+  strong_reaction: '强感染',
+  mild_amusement: '轻度有趣',
+  indifferent: '无感',
+};
+
+/**
  * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
  * 蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级直接喂饱事件分 74.65
  * → 80.32 high 放行后 -55%。裁定原文「第一，这是一个负面事件；第二，它没有啥
@@ -918,6 +955,10 @@ export function mapStandardAnswers(answers, context) {
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
+  // J1.31 E 类情绪感染力折损（C80）：resonance=Jev 原判档；resonanceCoef=生效
+  // 系数（null=未触达——非 E 类/答案缺失/strong 不折），标准数学分支赋值
+  let resonance = null;
+  let resonanceCoef = null;
   let wProduct = null;
   let wInteraction = null;
   let wInteractionExempt = false;
@@ -1041,9 +1082,20 @@ export function mapStandardAnswers(answers, context) {
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
-    stage2Total = round2(tierScore + effDim2 + timeliness);
+    // J1.31 E 类情绪感染力折损（C80 蝙蝠侠摇案）：现象传播广度≠Web3 用户情绪
+    // 转化（观众≠买家）——E 类且系数<1 时 tierScore+effDim2 两项整体乘系数，
+    // 时效不折（新鲜是客观属性）；非 E 类 / 答案缺失（旧缓存行 fail-open）/
+    // strong 档 → 原公式 bit-identical。W 数学与骑乘改道在上分支（isW ||
+    // rideMass），进入本分支的票天然不受改道干扰
+    resonance = answers.event_resonance?.choice ?? null;
+    resonanceCoef = category === 'E' && resonance && RESONANCE_COEFFICIENTS[resonance] !== undefined
+      ? RESONANCE_COEFFICIENTS[resonance] : null;
+    const resonanceDamped = resonanceCoef !== null && resonanceCoef < 1;
+    stage2Total = resonanceDamped
+      ? round2((tierScore + effDim2) * resonanceCoef + timeliness)
+      : round2(tierScore + effDim2 + timeliness);
     stage2Blocked = stage2Total < 60;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}=${stage2Total}（pass线60）`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(${RESONANCE_LABELS[resonance]})` : ''}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 
@@ -1095,6 +1147,13 @@ export function mapStandardAnswers(answers, context) {
         // 无此题 → null）；block 命中才落（referentMemeabilityBlock 同款模式）
         subjectCarrier: answers.subject_carrier?.choice ?? null,
         subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
+        // J1.31 审计标记：E 类情绪感染力折损。档位恒落（旧缓存行无此题 → null，
+        // 阈值事后校准免重跑）；系数生效（<1）才落折损详情（subjectCarrierBlock
+        // 同款模式）。stage2Total/事件分不足拦截由折损后值直接承载，原值可由
+        // tierScore+dimension2 反推
+        eventResonance: answers.event_resonance?.choice ?? null,
+        resonanceDamp: resonanceCoef !== null && resonanceCoef < 1
+          ? { resonance, coef: resonanceCoef } : null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
           dimension2: answers.dimension2?.probabilities,
@@ -1103,6 +1162,7 @@ export function mapStandardAnswers(answers, context) {
           web3_fit: answers.web3_fit?.probabilities,
           subject_entity: answers.subject_entity?.probabilities,
           subject_carrier: answers.subject_carrier?.probabilities,
+          event_resonance: answers.event_resonance?.probabilities,
         },
       },
     },
