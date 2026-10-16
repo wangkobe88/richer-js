@@ -24,6 +24,7 @@ import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
 import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
+import { collectSearchEvidence, meetsBypassThreshold, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 
 // Jev 判定（主路径 + 超大IP快速通道 + prestage 前置判定）
 import { JevClient } from './llm/JevClient.mjs';
@@ -379,6 +380,20 @@ export class NarrativeAnalyzer {
       && classifiedUrls.twitter.every(tw => tw.type === 'account');
     if (shouldInvalidateAccountCorpus) tweetsWindowOptions.invalidateCache = true;
 
+    // ── 泳道 4：空语料推特搜索兜底（C76，2026-10-16 特斯拉飞行汽车案 C73 提案①）──
+    // 空语料（classifiedUrls 各桶全空 + twitterInfo null）→ 按 token 全名搜推特拿
+    // 「事件量级证据」（no_public_info 秒拒票分析器根本不知道事件存在）。与三泳道
+    // 并发零墙钟损失；collectSearchEvidence 永不 throw（失败 null 维持原拒
+    // bit-identical），无需悬空 catch。config 驱动（narrative-engine.json
+    // searchFallback 段，段缺失=静默关；enabled 残缺 throw fail-loud 只在 enabled 时发生）
+    const searchCfg = getSearchFallbackConfig();
+    const isEmptyCorpus = twitterInfo === null
+      && classifiedUrls && Object.values(classifiedUrls).every(bucket => !bucket || bucket.length === 0);
+    const shouldLaunchSearch = isEmptyCorpus && !!searchCfg;
+    const searchPromise = shouldLaunchSearch
+      ? timing.wrap('search.twitter', () => collectSearchEvidence(tokenData, { config: searchCfg }))
+      : null;
+
     // ── 三泳道并发（2026-10-13 叙事提速第二批）──
     // 值层面互不消费已核验：performPreCheck 入参不含 relatedAccounts；issuerCa 的
     // push 判定只读 relatedAccounts.length → 移 join 后。唯一强耦合在缓存层：账号
@@ -471,9 +486,10 @@ export class NarrativeAnalyzer {
 
     // join（null 成员 Promise.all 直接透过；链 reject 时 issuerCa 的 .then 链传播
     // 同因，precheck/issuerCa 的 rejection 均被 Promise.all 内部 handler 观察，
-    // 无 unhandled rejection 面）
-    const [chainAccounts, preCheckResult, issuerCaTimeline] = await Promise.all([
-      accountChainPromise, precheckPromise, issuerCaPromise,
+    // 无 unhandled rejection 面；searchPromise 同 issuerCa 形状条件发起 null 透传，
+    // 且 collectSearchEvidence 永不 reject）
+    let [chainAccounts, preCheckResult, issuerCaTimeline, searchEvidence] = await Promise.all([
+      accountChainPromise, precheckPromise, issuerCaPromise, searchPromise,
     ]);
     relatedAccounts = chainAccounts;
 
@@ -485,6 +501,40 @@ export class NarrativeAnalyzer {
       if (relatedAccounts.length === 0 && issuerCaTimeline.account) {
         relatedAccounts.push({ ...issuerCaTimeline.account, role: 'primary' });
       }
+    }
+    // ── 搜索证据旁路判定（C76）── 三场景：
+    //   达阈值 → preCheckResult=null 走 Jev（事件量级判定）。★必须置 null 而非保留
+    //     low 形状：resolveFinalRating 阶段优先级会让 low 形状 pre_check_result 遮蔽
+    //     Jev 结论（旁路白做）+ 直调 enrichSocialByGmgn 对该行每次穿透重析（烧配额）
+    //     + preloadCache 永久排除（回测退化），三重反证。Jev 结论终态不再进
+    //     PrecheckFailRetryService 重试域（classifyFailShape 读 null → 不重试）
+    //   未达阈值/零结果 → ruleName 不动保 1800s 重试域（重析再搜，晚到的推文能翻案），
+    //     additive 记 details.searchEvidence 摘要供观测「为什么搜索没救它」
+    //   搜索失败（evidence=null）→ 零触碰，与关闭功能 bit-identical
+    const searchEvidenceReady = !!(searchEvidence && meetsBypassThreshold(searchEvidence, searchCfg));
+    const bypassedBySearch = preCheckResult?.details?.ruleName === 'no_public_info' && searchEvidenceReady;
+    if (bypassedBySearch) {
+      logger.info('NarrativeAnalyzer', '搜索证据达阈值，旁路 no_public_info 走 Jev（事件量级判定）', {
+        query: searchEvidence.query.rawQuery, uniqueTweets: searchEvidence.uniqueTweets,
+        maxEngagement: searchEvidence.maxEngagement,
+      });
+      preCheckResult = null;
+      // 证据挂 tokenData：state 构建（buildJevState 读 raw_api_data.search_evidence）与
+      // 最终 save（:885 raw_api_data 整体替换语义）共用这一次浅拷贝
+      tokenData.raw_api_data = { ...tokenData.raw_api_data, search_evidence: searchEvidence };
+    } else if (preCheckResult?.details?.ruleName === 'no_public_info' && searchEvidence) {
+      preCheckResult = {
+        ...preCheckResult,
+        details: {
+          ...preCheckResult.details,
+          searchEvidence: {
+            query: searchEvidence.query.rawQuery,
+            tweets: searchEvidence.uniqueTweets,
+            maxEngagement: searchEvidence.maxEngagement,
+            bypass: false,
+          },
+        },
+      };
     }
     const issuerDetected = issuerSelfLaunch || issuerCaTimeline;
     let isPreCheckTriggered = preCheckResult !== null;
@@ -564,8 +614,9 @@ export class NarrativeAnalyzer {
           ? { ...fetchResults, twitterInfo: { ...twitterInfo, image_analysis: undefined } }
           : fetchResults;
 
-        // 检查是否有任何有效数据供分析
-        const hasAnyData = hasValidDataForAnalysis(fetchResults);
+        // 检查是否有任何有效数据供分析（C76：搜索旁路票同条件放行——否则旁路后死在
+        // 这道 no_data 兜底；hasValidDataForAnalysis 本体不动，被 pre-check 规则 4-B 共用）
+        const hasAnyData = hasValidDataForAnalysis(fetchResults) || bypassedBySearch;
         if (!hasAnyData) {
           // 2026-09-27 裁定：分析完成必须有结论，无语料 → low（fail-closed 不买）
           logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回low（fail-closed）');
@@ -949,7 +1000,9 @@ export class NarrativeAnalyzer {
         preCheckReason: isPreCheckTriggered ? preCheckDataToSave?.details?.ruleName : null,
         analyzedAt: saveResult.analyzed_at,
         promptVersion: promptVersion,
-        promptType: promptType
+        promptType: promptType,
+        // C76 搜索旁路标记（关/未触发时缺键，meta 形状 bit-parity）
+        ...(bypassedBySearch ? { searchBypassed: true } : {})
       },
       debugInfo: {
         promptUsed: promptUsed,

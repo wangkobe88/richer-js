@@ -37,5 +37,21 @@
   },
   "websiteFetch": {
     "enabled": false
+  },
+  "searchFallback": {
+    "enabled": false,
+    "corpusMode": "empty",
+    "minNameChars": 4,
+    "sinceDays": 7,
+    "products": ["Top", "Latest"],
+    "count": 20,
+    "stateTopTweets": 5,
+    "stateMaxChars": 2500,
+    "bypass": {
+      "minTweets": 3,
+      "minTopEngagement": 200
+    },
+    "timeoutMs": 5000,
+    "cacheTtlSec": 1800
   }
 }

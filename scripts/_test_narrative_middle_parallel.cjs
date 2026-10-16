@@ -278,9 +278,9 @@ async function main() {
       && na.includes(': null;'),
       'D4 issuerCa 条件分派（非 tweet/自发→null；链拉→排链后；不拉→立发）');
 
-    // D5: join 形状
-    assert(na.includes('await Promise.all([\n      accountChainPromise, precheckPromise, issuerCaPromise,\n    ])'),
-      'D5 Promise.all 三泳道 join');
+    // D5: join 形状（C76 起四泳道：+searchPromise 空语料推特搜索兜底）
+    assert(na.includes('await Promise.all([\n      accountChainPromise, precheckPromise, issuerCaPromise, searchPromise,\n    ])'),
+      'D5 Promise.all 四泳道 join（三泳道 + C76 searchPromise）');
 
     // D6: issuerCa push 判定移 join 后
     const joinIdx = na.indexOf('await Promise.all([\n      accountChainPromise');

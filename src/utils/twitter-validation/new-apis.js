@@ -24,7 +24,8 @@ const NEW_ENDPOINTS = {
   userByScreenName: `${API_CONFIG.baseUrl}/graphql/UserByScreenName`,
   userTweets: `${API_CONFIG.baseUrl}/sapi/UserTweets`,
   tweetDetail: `${API_CONFIG.baseUrl}/sapi/TweetDetail`,
-  tweetDetailGraphQL: `${API_CONFIG.baseUrl}/graphql/TweetDetail`
+  tweetDetailGraphQL: `${API_CONFIG.baseUrl}/graphql/TweetDetail`,
+  searchTimeline: `${API_CONFIG.baseUrl}/graphql/SearchTimeline`
 };
 
 /**
@@ -32,7 +33,9 @@ const NEW_ENDPOINTS = {
  */
 async function makeRequest(url, options = {}) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
+  // timeoutMs 透传（C76 搜索兜底）：默认仍走 API_CONFIG.timeout，其余调用点零变化
+  const timeoutMs = options.timeoutMs || API_CONFIG.timeout;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -666,10 +669,86 @@ function _parseQuotedTweet(quotedResult) {
   };
 }
 
+/**
+ * 推文搜索（C76 空语料搜索兜底，2026-10-16 冒烟验证）
+ *
+ * 用途：token 语料为空时按 token 全名搜推特拿「事件量级证据」，不是宣告推救援
+ * （CA 直搜 404 死）。零结果返回 {tweets:[]} 不 throw——调用方（叙事侧
+ * twitter-search-fallback）把零结果当「未达阈值」而非错误处理。
+ *
+ * @param {Object} params
+ * @param {string} params.rawQuery - Twitter 搜索语法（如 `"特斯拉 Roadster" since:2026-10-08`）
+ * @param {string} [params.product] - 'Top'（按互动排序）| 'Latest'（按时间排序）
+ * @param {number} [params.count] - 每页条数
+ * @param {number} [params.timeoutMs] - 覆盖默认超时
+ * @returns {Promise<{tweets: Array<Object>}>} 归一化推文列表
+ * @throws HTTP 非 200 / fetch 异常 / abort（零结果不 throw）
+ */
+async function searchTimeline({ rawQuery, product = 'Top', count = 20, timeoutMs } = {}) {
+  const variables = JSON.stringify({
+    rawQuery,
+    count,
+    cursor: '',
+    querySource: 'typed_query',
+    product,
+    includePromotedContent: false,
+  });
+  const params = new URLSearchParams({ variables });
+
+  const response = await makeRequest(`${NEW_ENDPOINTS.searchTimeline}?${params}`, timeoutMs ? { timeoutMs } : {});
+
+  // 解析：instructions → entries 两条路径（itemContent 单推 / items 模块推）；
+  // result.__typename==='TweetWithVisibilityResults' 时下钻 .tweet
+  const rawTweets = [];
+  const instructions = response?.data?.search_by_raw_query?.search_timeline?.timeline?.instructions || [];
+  for (const instruction of instructions) {
+    const entries = [
+      ...(instruction.entries || []),
+      ...(instruction.entry ? [instruction.entry] : []),
+    ];
+    for (const entry of entries) {
+      const content = entry?.content;
+      if (content?.itemContent?.tweet_results?.result) {
+        rawTweets.push(content.itemContent.tweet_results.result);
+      }
+      // 模块推（TimelineModule）：items[] 内多个 itemContent
+      for (const item of content?.items || []) {
+        if (item?.itemContent?.tweet_results?.result) {
+          rawTweets.push(item.itemContent.tweet_results.result);
+        }
+      }
+    }
+  }
+
+  const tweets = [];
+  for (const result of rawTweets) {
+    const tweet = result?.__typename === 'TweetWithVisibilityResults' ? result.tweet : result;
+    const legacy = tweet?.legacy || {};
+    const userResult = tweet?.core?.user_results?.result;
+    const userLegacy = userResult?.legacy || {};
+    const userCore = userResult?.core || {};
+    const tweetId = tweet?.rest_id || legacy.id_str;
+    if (!tweetId) continue;
+    tweets.push({
+      tweet_id: tweetId,
+      text: legacy.full_text || legacy.text || '',
+      created_at: legacy.created_at || null,
+      author_screen_name: userCore.screen_name || userLegacy.screen_name || '',
+      author_followers_count: userLegacy.followers_count || 0,
+      favorite_count: legacy.favorite_count || 0,
+      retweet_count: legacy.retweet_count || 0,
+      reply_count: legacy.reply_count || 0,
+    });
+  }
+
+  return { tweets };
+}
+
 module.exports = {
   getUserByScreenName,
   getUserTweets,
   getTweetDetail,
   getTweetDetailGraphQL,
-  textContainsAddress
+  textContainsAddress,
+  searchTimeline
 };

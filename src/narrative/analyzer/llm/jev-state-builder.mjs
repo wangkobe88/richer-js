@@ -25,6 +25,7 @@ import { buildAmazonSection } from '../prompts/sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from '../prompts/sections/xiaohongshu-section.mjs';
 import { buildInstagramSection } from '../prompts/sections/instagram-section.mjs';
 import { buildBinanceSquareSection } from '../prompts/sections/binance-square-section.mjs';
+import { buildTwitterSearchSection } from '../prompts/sections/twitter-search-section.mjs';
 
 export const STATE_CHAR_BUDGET = 60000;
 
@@ -154,7 +155,13 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
     },
   ];
 
-  const headerStr = headerParts.join('\n') + '\n' + precomputed.filter(Boolean).join('\n');
+  // ── 搜索事件背景段（C76 空语料搜索兜底）：证据走 tokenData.raw_api_data.search_evidence
+  // （analyzer 旁路时浅拷贝附加），无证据返回 '' → headerStr 逐字节与现状一致（bit-parity）。
+  // 挂 header 与 [PRECOMPUTED] 同位形，不占四区配额（背景证据非代币自有语料）。
+  // prestage 路径刻意不接（账号/社区判定不消费搜索背景）
+  const searchSection = buildTwitterSearchSection(tokenData.raw_api_data?.search_evidence, { now: nowMs });
+  const headerStr = headerParts.join('\n') + '\n' + precomputed.filter(Boolean).join('\n')
+    + (searchSection ? '\n\n' + searchSection : '');
   let remaining = STATE_CHAR_BUDGET - headerStr.length;
   const bodyParts = [];
 

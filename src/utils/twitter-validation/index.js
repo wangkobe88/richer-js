@@ -908,7 +908,7 @@ function sleep(ms) {
 }
 
 // 导入新增的API功能
-const { getUserByScreenName, getUserTweets, getTweetDetail, getTweetDetailGraphQL } = require('./new-apis');
+const { getUserByScreenName, getUserTweets, getTweetDetail, getTweetDetailGraphQL, searchTimeline } = require('./new-apis');
 
 // 导入 Communities API
 const {
@@ -941,6 +941,7 @@ module.exports = {
   getUserTweets,
   getTweetDetail,
   getTweetDetailGraphQL,
+  searchTimeline,
   fetchCommunityTweets,
 
   // 类（高级用法）

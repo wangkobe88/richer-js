@@ -68,7 +68,18 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C76 找角度博主名单扩编——frequent-issuers 95→147：「收集一部分找角度博主放到名单中加快判断速度」（2026-10-16 用户指令）★
+### C77 空语料推特搜索兜底（C73 提案①落地）——apidance SearchTimeline 事件量级证据 + `no_public_info` 旁路（2026-10-16，默认关待部署）★
+
+- **机制**：token 语料为空（classifiedUrls 各桶全空 + twitterInfo null，FTR `0x109afc17…7777` 形状）→ 泳道 4 并发按 token 全名 + `since:<创建-7d>` 搜推特（Top+Latest 各 1 调，timeout 5s）；证据=`[TWITTER_SEARCH]` 独立段进 state header（**不占四区配额**，段内显式声明「非本代币宣告语料，代币与事件关联需自行判断」）；双达标（去重剔转推 ≥3 条 && 单推最大互动 fav+2×rt ≥200）→ **旁路 `no_public_info` 让 Jev 用真实事件量级判定**。CA 直搜 404 死（C73 冒烟），主用例是事件量级证据非宣告推救援。
+- **裁定①旁路行 `pre_check_result=null`（不是保留 low）**——四消费方反证：保留 low 则 ①resolveFinalRating 阶段优先级遮蔽 Jev 结论（旁路白做）②直调 enrichSocialByGmgn 每次穿透重析（烧配额）③PrecheckFailRetryService 无限重试已终态结论 ④preloadCache 永久排除（回测退化）。**未达阈值/搜索失败/零结果则 ruleName 原样保留**（1800s 重试域保真——重析再搜，晚到的推文/涨上去的互动能翻案）+ additive `details.searchEvidence` 摘要（观测为什么搜索没救它）。
+- **裁定②只有达阈值才落缓存**（`twitter_search:<product>:<query>`，TTL 1800s）：未达阈值若缓存会把重试窗内全部 ≤5 次重析冻死在首析快照上（=no_public_info 重试域时长）。手工 get/set 不走 CachedFetcher.fetchWithCache（失败 1h 冷却灭重试窗，getAccountWithFullTweets 同款先例）；模块级 inflight Map 按 rawQuery 去重。
+- **裁定③lag 隔离红线**：证据只走 `tokenData.raw_api_data.search_evidence`，与 `extractCorpusTs` 三路径（主推/父推 in_reply_to/第二推文 website_tweet，从不读 raw_api_data）**结构性无交叠**——`narrativeCorpusLagSec` 不被搜索结果污染（搜索结果日期≠宣告日期）；两新模块可执行代码零 `twitterInfo` 引用（单测源码锁）。回测 fresh 分析实时搜属已声明「回测时漏」家族（无 until: 上界，硬化留扩展）。
+- **失败语义**：搜索永不 throw（失败→null→analyzer 维持原拒 **bit-identical**，J2 逐键锁定）；段缺失=静默关、enabled:false=零触达（J4）；enabled 但 products/count/bypass 残缺=throw fail-loud（vision 同语义）。无证据时 state 逐字节与现状一致（H2 关系锁：空语料票四区恒空，state1=state0+section+'\n\n'）。
+- **改动面**：`new-apis.js` searchTimeline（GraphQL 两路径+TweetWithVisibilityResults 下钻+timeoutMs 透传）/ `services/twitter-search-fallback.mjs`（新建）/ `prompts/sections/twitter-search-section.mjs`（新建）/ `jev-state-builder.mjs` 两行接线（prestage 刻意不接）/ `NarrativeAnalyzer.mjs` 五处（泳道 4 发起+四元 join+旁路判定+第二道门 `|| bypassedBySearch`+meta.searchBypassed）/ `config/narrative-engine.json` searchFallback 段（enabled:false）。旁路挂 analyzer 层，performPreCheck 9 参签名不动。
+- **验证**：`_test_search_fallback.cjs` 90 断言全绿（A API 层/B 查询构造/短名无锚 fail-safe/C 阈值边界/D ★达阈值才 set+缓存命中零真调+get throw 降级/E inflight+失败清理/F section 渲染截断/G lag 隔离事故反证/H state bit-parity/I 源码口径锁/J 端到端 J1-J6：旁路/失败 bit-identical/未达阈值保重试域/关零触达/残缺 fail-loud/非空语料不触发）；回归九件全绿（`_test_narrative_middle_parallel` D5 三元→四元 join 断言随形状升级）。
+- **部署注意**：182 代码同步→单测+回归→重启叙事 worker+实验进程（d3be1662 重启前按规程确认无持仓）+web 3010→观察 24h 零 [SearchFallback] 日志→flip enabled:true→再重启→首例旁路票（`0x109a` 形状零 URL 新票）记台账。回滚=enabled:false+重启（J4 保证）。**误归因风险 R3**（token 名撞大热词）由 section 来源声明+Jev name_referent/brand_hijack 题兜底，Jev 评 low 即终态不误买。
+
+
 
 - **动机**：C74 分桶落地后名单价值放大——`classifyTweetType` 优先级 2（名单）先于优先级 3（direct_tweet 高粉/高互动豁免臂），名单号哪怕 10 万粉也直接落 angle_seeking 桶走 300s 硬拦，**不烧 Jev 配额不进软评**；而老名单（94+gampsito=95 个）自 2026-04-17 停更，这半年头部发币作业号已换血（≥100 次档老名单仅占 10/233）。
 - **扫描 v1 频次口径的坑**：全量 562,494 行 experiment_tokens（207,776 带宣告推 / 28,410 唯一 handle）扫出的 TOP 全是**被蹭大 IP**——cz_binance 9169 次 / binance 6192 / heyibinance 4406 / elonmusk 3539 / flapdotsh 3093（别人发币挂他们的推）。频次≠找角度博主。
