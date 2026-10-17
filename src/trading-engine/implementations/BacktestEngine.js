@@ -485,11 +485,15 @@ class BacktestEngine extends AbstractTradingEngine {
       onFire: (tokenAddress, tick, fireTs) => this._runBuyEvaluation(tokenAddress, tick, fireTs),
     });
 
-    // 8.5 卖出确认去抖（虚拟时钟模式：首真 tick 起计不重置；默认 0=关闭=存量实验零变化）
+    // 8.5 卖出确认去抖（虚拟时钟模式：首真 tick 起计不重置；默认 0=关闭=存量实验零变化；
+    // minTicks 双门同键透传——virtual 时钟只在 tick 到达时推进，maxWait 强制门对死票
+    // 无法触发（时钟静止），活票 advance 检查等价 real，见 SellConfirmDebouncer 头注）
     const { SellConfirmDebouncer } = require('../core/SellConfirmDebouncer');
     this._sellDebounceMs = wsConfig.sellDebounceMs ?? 0;
     this._sellConfirmDebouncer = new SellConfirmDebouncer({
       debounceMs: this._sellDebounceMs,
+      minTicks: wsConfig.sellDebounceMinTicks ?? 0,
+      maxWaitMs: wsConfig.sellDebounceMaxWaitMs ?? 120000,
       mode: 'virtual',
       onFire: (tokenAddress, tick, fireTs) => this._onSellDebounceFire(tokenAddress, tick, fireTs),
     });

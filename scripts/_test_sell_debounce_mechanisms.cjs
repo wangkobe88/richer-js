@@ -109,6 +109,124 @@ async function testRealMode() {
     ok(fired3.length === 0, 'real：clearAll 后无 fire', fired3.length);
 }
 
+// ── 双门槛确认（2026-10-16 蓝筹蛙/RIBBIT 断流案：minTicks + maxWaitMs）──────────
+
+function testMinTicksDualGateVirtual() {
+    // 时间到 ticks 不足不 fire；凑齐后 advance fire
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 10000, minTicks: 2, maxWaitMs: 60000, mode: 'virtual',
+        onFire: (t, tick, fireTs) => fired.push({ t, fireTs }),
+    });
+    d.touch('T_V1', { timestamp: 1000 });   // 首真起计
+    d.touch('T_V1', { timestamp: 5000 });   // ticks=1
+    d.advance(12000);                        // 时间窗过，ticks=1 < 2
+    ok(fired.length === 0, 'virtual 双门：时间到 ticks 不足不 fire', fired.length);
+    d.touch('T_V1', { timestamp: 12500 });  // ticks=2（virtual touch 只凑数不即时 fire）
+    d.advance(13000);
+    ok(fired.length === 1, 'virtual 双门：凑齐后 advance fire', fired.length);
+    ok(d.stats.forceFired === 0, 'virtual 双门：凑齐 fire 非 force', d.stats.forceFired);
+
+    // maxWait 强制逃生（时钟推进到上限才触发——死票时钟静止永不 fire，见头注）
+    const fired2 = [];
+    const d2 = new SellConfirmDebouncer({
+        debounceMs: 10000, minTicks: 5, maxWaitMs: 30000, mode: 'virtual',
+        onFire: t => fired2.push(t),
+    });
+    d2.touch('T_V2', { timestamp: 0 });
+    d2.touch('T_V2', { timestamp: 5000 });  // ticks=1
+    d2.advance(20000);                       // 时间过 ticks 不足，未到上限
+    ok(fired2.length === 0, 'virtual maxWait：上限前不 fire', fired2.length);
+    d2.advance(31000);                       // 越过 maxWait 30s
+    ok(fired2.length === 1 && d2.stats.forceFired === 1,
+        'virtual maxWait：到上限强制 fire + forceFired 计数',
+        { n: fired2.length, f: d2.stats.forceFired });
+
+    // minTicks=0（缺省）：纯时间语义存量行为不变
+    const fired3 = [];
+    const d3 = new SellConfirmDebouncer({
+        debounceMs: 10000, mode: 'virtual',
+        onFire: () => fired3.push(1),
+    });
+    d3.touch('T_V3', { timestamp: 0 });
+    d3.advance(9999);
+    ok(fired3.length === 0, 'virtual minTicks=0：窗口内不 fire', fired3.length);
+    d3.advance(10000);
+    ok(fired3.length === 1 && d3.stats.forceFired === 0,
+        'virtual minTicks=0：到点 fire 非 force',
+        { n: fired3.length, f: d3.stats.forceFired });
+}
+
+async function testMinTicksDualGateReal() {
+    // 时间窗到 ticks 不足 → 转等待；后续 touch 凑齐 → 即时 fire
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 200, minTicks: 3, maxWaitMs: 5000, mode: 'real',
+        onFire: (t, tick) => fired.push({ t, tick }),
+    });
+    const tick1 = { timestamp: 1 };
+    d.touch('T_G', tick1);
+    d.touch('T_G', { timestamp: 2 });        // ticks=1
+    d.touch('T_G', { timestamp: 3 });        // ticks=2（同步块内 <200ms，不即时 fire）
+    await sleep(260);                         // debounce timer 到点：时间过 ticks=2<3 → 转等待
+    ok(fired.length === 0, 'real 双门：时间到 ticks 不足转等待不 fire', fired.length);
+    d.touch('T_G', { timestamp: 4 });        // ticks=3 → 即时 fire
+    ok(fired.length === 1, 'real 双门：后续 touch 凑齐即时 fire', fired.length);
+    ok(fired[0].tick === tick1, 'real 双门：fire 携带首真 tick');
+    ok(d.stats.forceFired === 0, 'real 双门：凑齐 fire 非 force', d.stats.forceFired);
+
+    // 时间未到 ticks 已凑齐 → 不提前 fire（AND 语义非 OR）
+    const fired2 = [];
+    const d2 = new SellConfirmDebouncer({
+        debounceMs: 200, minTicks: 1, maxWaitMs: 5000, mode: 'real',
+        onFire: t => fired2.push(t),
+    });
+    d2.touch('T_H', { timestamp: 1 });
+    d2.touch('T_H', { timestamp: 2 });       // ticks 已凑齐但时间未到
+    ok(fired2.length === 0, 'real 双门：时间未到 ticks 凑齐不提前 fire', fired2.length);
+    await sleep(300);
+    ok(fired2.length === 1, 'real 双门：timer 到点 ticks 已凑齐 → fire', fired2.length);
+
+    // maxWait 强制逃生：长时间凑不齐到上限强制 fire
+    const fired3 = [];
+    const d3 = new SellConfirmDebouncer({
+        debounceMs: 30, minTicks: 5, maxWaitMs: 150, mode: 'real',
+        onFire: t => fired3.push(t),
+    });
+    d3.touch('T_I', { timestamp: 1 });
+    d3.touch('T_I', { timestamp: 2 });       // ticks=1 < 5，此后断流
+    await sleep(60);                          // debounce timer 到点转等待
+    ok(fired3.length === 0, 'real maxWait：转等待中不 fire', fired3.length);
+    await sleep(150);                         // 越 maxWait 150ms
+    ok(fired3.length === 1, 'real maxWait：凑不齐到上限强制 fire', fired3.length);
+    ok(d3.stats.forceFired === 1, 'real maxWait：forceFired 计数', d3.stats.forceFired);
+
+    // clear 取消转等待项：两 timer 全清，maxWait 不再触发
+    const fired4 = [];
+    const d4 = new SellConfirmDebouncer({
+        debounceMs: 30, minTicks: 5, maxWaitMs: 150, mode: 'real',
+        onFire: t => fired4.push(t),
+    });
+    d4.touch('T_J', {});
+    await sleep(60);                          // 转等待中
+    d4.clear('T_J');
+    await sleep(150);                         // 原 maxWait 时刻已过
+    ok(fired4.length === 0, 'real clear：转等待项清除后 maxWait 不触发', fired4.length);
+    ok(d4.size === 0, 'real clear：pending 已删', d4.size);
+
+    // minTicks=0（缺省）：纯时间语义存量行为 bit-identical（零后续 tick 到点即 fire）
+    const fired5 = [];
+    const d5 = new SellConfirmDebouncer({
+        debounceMs: 40, mode: 'real',
+        onFire: t => fired5.push(t),
+    });
+    d5.touch('T_K', {});
+    await sleep(90);
+    ok(fired5.length === 1 && d5.stats.forceFired === 0,
+        'real minTicks=0：纯时间语义存量行为不变（非 force）',
+        { n: fired5.length, f: d5.stats.forceFired });
+}
+
 function testStrategyEnginePassthrough() {
     const { StrategyEngine } = require(path.join(ROOT, 'src/strategies/StrategyEngine'));
     const se = new StrategyEngine({
@@ -148,6 +266,10 @@ async function main() {
     console.log('  ✓ virtual 模式（首真起计/advance/clear/多 token/零窗口）');
     await testRealMode();
     console.log('  ✓ real 模式（timer fire/首真 tick/clear/clearAll）');
+    testMinTicksDualGateVirtual();
+    console.log('  ✓ 双门 virtual（时间 AND ticks/maxWait 强制/minTicks=0 存量）');
+    await testMinTicksDualGateReal();
+    console.log('  ✓ 双门 real（转等待/凑齐即时 fire/maxWait 逃生/clear/minTicks=0 存量）');
     testStrategyEnginePassthrough();
     console.log('  ✓ StrategyEngine 腿字段透传');
 

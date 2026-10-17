@@ -115,9 +115,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     });
 
     // 卖出确认去抖（real 模式；首真 tick 起计不重置，语义见 SellConfirmDebouncer）
+    // minTicks 双门（2026-10-16 蓝筹蛙/RIBBIT 断流案）：时间窗 AND 窗后新 tick 数，
+    // maxWaitMs 强制逃生（缺省 120s）；minTicks=0 纯时间语义存量零变化
     const { SellConfirmDebouncer } = require('../core/SellConfirmDebouncer');
     this._sellConfirmDebouncer = new SellConfirmDebouncer({
       debounceMs: this._sellDebounceMs,
+      minTicks: this._sellDebounceMinTicks,
+      maxWaitMs: this._sellDebounceMaxWaitMs,
       mode: 'real',
       onFire: (tokenAddress, tick) => this._onSellDebounceFire(tokenAddress, tick),
     });
@@ -162,6 +166,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._signalDebounceMaxWaitMs = this._wsConfig.signalDebounceMaxWaitMs ?? 5000;
     // 卖出确认去抖（pumpfun 回迁批 2；默认 0=关闭，存量实验行为零变化）
     this._sellDebounceMs = this._wsConfig.sellDebounceMs ?? 0;
+    // 双门确认（2026-10-16 蓝筹蛙/RIBBIT 断流案）：minTicks=0 纯时间语义零变化；
+    // maxWaitMs 仅 minTicks>0 时武装（缺省 120s 强制逃生）
+    this._sellDebounceMinTicks = this._wsConfig.sellDebounceMinTicks ?? 0;
+    this._sellDebounceMaxWaitMs = this._wsConfig.sellDebounceMaxWaitMs ?? 120000;
     this._pruneIntervalMs = this._wsConfig.pruneIntervalMs ?? 5 * 60 * 1000;
     this._pruneMaxAgeMs = this._wsConfig.pruneMaxAgeMs ?? 30 * 60 * 1000;
     // TokenPool 监控票淘汰门槛（批次 3c）：null=不淘汰（默认，pool 零淘汰旧行为）；
@@ -232,6 +240,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { SellConfirmDebouncer } = require('../core/SellConfirmDebouncer');
     this._sellConfirmDebouncer = new SellConfirmDebouncer({
       debounceMs: this._sellDebounceMs,
+      minTicks: this._sellDebounceMinTicks,
+      maxWaitMs: this._sellDebounceMaxWaitMs,
       mode: 'real',
       onFire: (tokenAddress, tick) => this._onSellDebounceFire(tokenAddress, tick),
     });
@@ -1165,6 +1175,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
+      `卖确认=${this._sellDebounceMs}ms/${this._sellDebounceMinTicks}tick/上限${this._sellDebounceMaxWaitMs / 1000}s ` +
       `组合快照=${this._portfolioSnapshotIntervalMs / 1000}s 断流阈值=${this._wssDownThresholdMs / 60000}min），等待 WSS 事件...`);
   }
 
