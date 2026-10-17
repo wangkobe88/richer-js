@@ -140,9 +140,12 @@ async function main() {
   check('A6 载体时间缺失 fail-open', a6.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a6.stage1DataToSave.parsed_output.jev.angleTimingOverride);
 
   // A7 主推 11.5 天前 + quoted 2h 前：最新载体活 → 不 override（与 precheck tweetSources 任一新即放对称）
-  const mixedTwitter = { ...staleTwitter, quoted_tweet: { created_at: twitterDate(ANCHOR_SEC - 7200) } };
+  // C86 幽灵字段修复：夹具改用生产真实键 quoted_status（twitter-fetcher 产出）——
+  // 修复前 mapper 读 quoted_tweet 时本用例自洽掩盖（夹具错名=断言照样过），现在
+  // 键名即生产形状，引用推作为「最新载体」真实可见是本案事故反证
+  const mixedTwitter = { ...staleTwitter, quoted_status: { created_at: twitterDate(ANCHOR_SEC - 7200) } };
   const a7 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, mixedTwitter, 'angle_seeking'));
-  check('A7 主推老+quoted 新（任一新即活）', a7.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a7.stage1DataToSave.parsed_output.jev.angleTimingOverride);
+  check('A7 主推老+quoted 新（任一新即活，quoted_status 生产形状）', a7.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a7.stage1DataToSave.parsed_output.jev.angleTimingOverride);
 
   // A8 6h 边界：21601 命中 / 21599 不命中
   const b1 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, { ...staleTwitter, created_at: twitterDate(ANCHOR_SEC - 21601) }, 'angle_seeking'));
@@ -174,16 +177,23 @@ async function main() {
   const b2r = await performPreCheck(...precheckArgs(zeroToken, freshTwitter60));
   check('B2 窗内 60s 放行（不再误杀；C74 后非豁免窗=300s）', b2r === null, b2r);
 
+  // B4 C86 引用推反证：主推 11.5 天老 + 引用推 60s 新（quoted_status=生产形状）→
+  // 「任一新即放」必须把引用推算进语料源（修复前读 quoted_tweet 恒 undefined，
+  // 引用推新不算数 → 误拦 expired_tweet）
+  const b4Twitter = { ...staleTwitter, quoted_status: { created_at: twitterDate(ANCHOR_SEC - 60) } };
+  const b4r = await performPreCheck(...precheckArgs(zeroToken, b4Twitter));
+  check('B4 主推老+引用推新：引用推算进「任一新即放」→ 放行', b4r === null, b4r);
+
   // B3 两锚皆缺：跳过过期检查（现状回归，不因缺锚拦）
   const b3r = await performPreCheck(...precheckArgs(noAnchorToken, staleTwitter));
   check('B3 两锚皆缺跳过（不误杀，现状语义）',
     b3r === null || b3r.details?.ruleName !== 'expired_tweet', b3r);
 
-  // B4 raw_api_data.created_at 在（老路径）：仍拦（原行为不变）
+  // B5 raw_api_data.created_at 在（老路径）：仍拦（原行为不变）
   const rawAnchorToken = { symbol: '제로', name: 'Zero', raw_api_data: { name: 'Zero', created_at: ANCHOR_SEC } };
-  const b4r = await performPreCheck(...precheckArgs(rawAnchorToken, staleTwitter));
-  check('B4 raw created_at 在仍拦（原行为不变）',
-    b4r?.rating === 'low' && b4r.details?.ruleName === 'expired_tweet', b4r);
+  const b5r = await performPreCheck(...precheckArgs(rawAnchorToken, staleTwitter));
+  check('B5 raw created_at 在仍拦（原行为不变）',
+    b5r?.rating === 'low' && b5r.details?.ruleName === 'expired_tweet', b5r);
 
   // ═══ D. C75 叙事源头陈旧 override（mapper 层，FLY 案 0x4ec2…7777）═══
   console.log('\n── D. C75 叙事源头陈旧 override（direct_tweet 主推>30d）──');

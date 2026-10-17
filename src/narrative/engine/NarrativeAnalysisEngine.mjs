@@ -70,6 +70,7 @@ export class NarrativeAnalysisEngine {
     this.isRunning = false;
     this.activeWorkers = new Map(); // taskId -> Worker
     this.workerStartTime = new Map(); // taskId -> startTime
+    this._dispatchInProgress = false; // 轮询防重入锁（C86：Realtime 推送/3s timer/完成回调三入口并发）
     this._realtimeChannel = null;
     this._realtimeConnected = false;
     this._fallbackTimer = null;
@@ -104,6 +105,26 @@ export class NarrativeAnalysisEngine {
     console.log(`  最大重试次数: ${this.maxRetries}`);
     console.log(`  模式: Supabase Realtime + 3秒兜底轮询`);
     console.log('='.repeat(60));
+
+    // 0. 回收孤儿 processing 行（C86）：Worker 仅存活于本进程，启动时刻仍处
+    // processing 的行必为上次进程崩溃/被杀的残留（24h 清理只清终态行）——复位
+    // pending 重跑，否则僵尸行永久占坑
+    try {
+      const { data: recovered, error: recoverError } = await this.supabase
+        .from('narrative_analysis_tasks')
+        .update({ status: 'pending', error_message: 'recovered: orphaned processing at engine restart' })
+        .eq('status', 'processing')
+        .select('id');
+      if (recoverError) {
+        this._log('ERROR', '孤儿 processing 回收失败', { error: recoverError.message });
+      } else if (recovered && recovered.length > 0) {
+        this._log('WARN', `回收 ${recovered.length} 条孤儿 processing 任务复位 pending`, {
+          taskIds: recovered.map(r => r.id)
+        });
+      }
+    } catch (error) {
+      this._log('ERROR', '孤儿 processing 回收异常', { error: error.message });
+    }
 
     // 1. 首次全量轮询：处理引擎离线期间积压的任务
     try {
@@ -178,6 +199,20 @@ export class NarrativeAnalysisEngine {
    * @private
    */
   async _pollAndDispatchTasks() {
+    // C86 防重入锁：Realtime 推送 / 3s fallback timer / worker 完成回调三入口并发
+    // 到达时，SELECT→updateTaskStatus('processing') 的 DB 往返窗口内同一 pending
+    // 任务会被双 SELECT 双 spawn（对照 PrecheckFailRetryService._scanInProgress）。
+    // 持锁期间的新触发由既有 3s 兜底轮询接走，不丢任务
+    if (this._dispatchInProgress) return;
+    this._dispatchInProgress = true;
+    try {
+      await this._pollAndDispatchTasksLocked();
+    } finally {
+      this._dispatchInProgress = false;
+    }
+  }
+
+  async _pollAndDispatchTasksLocked() {
     const availableSlots = this.maxConcurrency - this.activeWorkers.size;
 
     if (availableSlots <= 0) {
@@ -347,16 +382,23 @@ export class NarrativeAnalysisEngine {
     }
 
     // 更新 narrative（设置 task_id 和 analyzed_at）
-    const { error } = await this.supabase
-      .from('token_narrative')
-      .update({
-        task_id: taskId,
-        analyzed_at: new Date().toISOString()
-      })
-      .eq('token_address', task.token_address);
+    // C86：缓存命中（meta.fromCache）时本任务并未真正写该行——不刷 analyzed_at/
+    // task_id。直调侧 TTL 穿透（_shouldTtlReanalyze）按 token_narrative 行龄判，
+    // 缓存命中的 worker 任务把行龄推新会人为冻住穿透窗
+    if (result?.meta?.fromCache) {
+      this._log('INFO', '缓存命中，保留 token_narrative 原行 analyzed_at', { taskId });
+    } else {
+      const { error } = await this.supabase
+        .from('token_narrative')
+        .update({
+          task_id: taskId,
+          analyzed_at: new Date().toISOString()
+        })
+        .eq('token_address', task.token_address);
 
-    if (error) {
-      this._log('ERROR', '更新叙事表失败', { taskId, error: error.message });
+      if (error) {
+        this._log('ERROR', '更新叙事表失败', { taskId, error: error.message });
+      }
     }
 
     await this._updateTaskStatus(taskId, 'completed', {

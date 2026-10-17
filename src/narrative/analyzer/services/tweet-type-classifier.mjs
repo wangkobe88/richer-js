@@ -50,7 +50,10 @@ export function classifyTweetType(twitterInfo) {
   }
 
   // --- 提取基础数据 ---
-  const followers = twitterInfo.author_followers_count ?? 0;
+  // C86：followers 缺失（producer 写 null=API 拿不到）≠ 真 0 粉——原 `?? 0` 把字段
+  // 缺失归零落进 angle_seeking 桶（吃 C68 6h override），与注释声称的「缺失→unknown」
+  // 不符。likes/retweets 的 ?? 0 保留（producer 恒写数字，0 赞是真 0）
+  const followers = twitterInfo.author_followers_count ?? null;
   const likes = twitterInfo.metrics?.favorite_count ?? 0;
   const retweets = twitterInfo.metrics?.retweet_count ?? 0;
 
@@ -71,7 +74,8 @@ export function classifyTweetType(twitterInfo) {
   }
 
   // --- 优先级 2：angle_seeking（条件 B：低影响力 + 低互动）---
-  const isLowInfluence = followers < THRESHOLDS.LOW_FOLLOWERS;
+  // 粉丝数缺失不参与数值分桶（unknown 兜底，C74 非豁免桶 300s 拦截不受影响）
+  const isLowInfluence = followers !== null && followers < THRESHOLDS.LOW_FOLLOWERS;
   const isLowEngagement = likes < THRESHOLDS.LOW_LIKES && retweets < THRESHOLDS.LOW_RETWEETS;
 
   if (isLowInfluence && isLowEngagement) {
@@ -83,7 +87,7 @@ export function classifyTweetType(twitterInfo) {
   }
 
   // --- 优先级 3：direct_tweet（高粉丝）---
-  if (followers >= THRESHOLDS.HIGH_FOLLOWERS) {
+  if (followers !== null && followers >= THRESHOLDS.HIGH_FOLLOWERS) {
     return {
       type: 'direct_tweet',
       confidence: 'high',
@@ -104,7 +108,9 @@ export function classifyTweetType(twitterInfo) {
   return {
     type: 'unknown',
     confidence: 'medium',
-    reason: `中间地带: ${followers}粉, ${likes}赞, ${retweets}转发`,
+    reason: followers === null
+      ? `粉丝数字段缺失: ${likes}赞, ${retweets}转发`
+      : `中间地带: ${followers}粉, ${likes}赞, ${retweets}转发`,
   };
 }
 

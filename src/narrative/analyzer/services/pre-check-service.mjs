@@ -4,7 +4,6 @@
  */
 
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
-import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
 import { classifyTweetType } from './tweet-type-classifier.mjs';
@@ -415,8 +414,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   let authorScreenName = twitterInfo?.author_screen_name;
 
   // 1.2 如果twitterInfo为空，尝试从URL提取用户名
+  // （C86：补 twitter.com 域并锚定边界——原 /x\.com\/()/ 只匹配 x.com 子串且
+  // 会误吃 vx.com 之类前缀）
   if (!authorScreenName && extractedInfo?.twitter_url) {
-    const urlMatch = extractedInfo.twitter_url.match(/x\.com\/([^\/]+)/);
+    const urlMatch = extractedInfo.twitter_url.match(/(?:^|[/@.])(?:x|twitter)\.com\/([^\/]+)/);
     if (urlMatch) {
       authorScreenName = urlMatch[1];
     }
@@ -481,14 +482,15 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const refNow = new Date(tokenCreatedAtSec * 1000);
 
       // 2.1 检查推文时效（仅推文类型，不适用账号；C74 分桶，见文件头常量注释）
-      // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可
+      // 多推文场景：主推文、website_tweet、quoted_status、retweeted_status 中任一满足即可
       // （豁免是语料级：主推文判 direct_tweet 即整组跳过，旧推 website_tweet 也放——
-      // 「时效全交 Jev 软评」）
+      // 「时效全交 Jev 软评」）。quoted_status=twitter-fetcher 产出键（C86 幽灵字段
+      // 修复：原读 quoted_tweet 恒 undefined，引用推从不算进「任一新即放」）
       if (twitterInfo?.type === 'tweet') {
         const tweetSources = [
           twitterInfo,
           twitterInfo.website_tweet,
-          twitterInfo.quoted_tweet,
+          twitterInfo.quoted_status,
           twitterInfo.retweeted_status
         ].filter(t => t?.created_at);
 
@@ -533,8 +535,11 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       ];
 
       for (const video of videos) {
-        // 获取视频发布时间（不同平台字段名不同）
-        const videoTime = video.info?.create_time || video.info?.publish_date || video.info?.create;
+        // 获取视频发布时间（不同平台字段名不同；C86 对齐 fetcher 产出键：
+        // youtube=published_at、weixin=publish_time 原取值链读不到=这两平台
+        // 静默跳过；tiktok 产出原本无时间字段，fetcher 侧已补 create_time）
+        const videoTime = video.info?.create_time || video.info?.publish_date
+          || video.info?.published_at || video.info?.publish_time || video.info?.create;
         if (videoTime) {
           try {
             const videoDate = new Date(videoTime);
@@ -809,40 +814,9 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     console.log(`[NarrativeAnalyzer] TikTok用户"@${tiktokInfo.unique_id}"影响力中等（粉丝${followers}，视频${videoCount}），进入LLM分析`);
   }
 
-  // 规则3.6：微信文章传播力检查
-  if (weixinInfo) {
-    const readCount = weixinInfo.read_num || 0;
-    const likeCount = weixinInfo.like_num || 0;
-
-    // 2026-10-14 用户裁定（C66）：阅读数终判删除——主体不是陈述者，单篇文章阅读低
-    // 不代表叙事主体传播力低，交给 Jev 结合主体综合评
-    if (readCount > 0 && readCount < 1000) {
-      console.log(`[NarrativeAnalyzer] 微信文章阅读数低（${readCount}），不再终判，交给Jev综合评估`);
-    }
-
-    // 阅读数为0但有文章内容 → 无法获取统计数据，跳过此检查，交给LLM评估
-    if (readCount === 0 && weixinInfo.title) {
-      console.log(`[NarrativeAnalyzer] 微信文章无法获取阅读统计数据，跳过微信传播力检查`);
-    }
-  }
-
-  // 规则3.7：微博交互数据检查（2026-10-14 用户裁定 C66：终判删除——主体不是陈述者）
-  // 红山动物园案：同叙事三票，推特源评 high 买入、微博源被单帖交互 17<150 硬拦后
-  // 毕业 13.26 BNB；「土谛」引新华社帖（交互 104）同被拦。单帖交互只代表该帖触达，
-  // 不代表叙事主体（机构/事件本身）的传播力——交互数据随语料进 state 由 Jev 综合
-  // 主体知名度和量级评级，precheck 不再用陈述者数据毙票
-  if (backgroundInfo && backgroundInfo.source === 'weibo' && backgroundInfo.metrics) {
-    const repostsCount = backgroundInfo.metrics.reposts_count || 0;
-    const commentsCount = backgroundInfo.metrics.comments_count || 0;
-    const attitudesCount = backgroundInfo.metrics.attitudes_count || 0;
-
-    // 总交互数 = 转发 + 评论 + 点赞
-    const totalEngagement = repostsCount + commentsCount + attitudesCount;
-
-    if (totalEngagement < 150) {
-      console.log(`[NarrativeAnalyzer] 微博总交互数(${totalEngagement})较低，不再终判，交给Jev综合评估`);
-    }
-  }
+  // （规则3.6 微信阅读数 / 3.7 微博交互终判：C66 2026-10-14 裁定删除——「主体不是
+  // 陈述者」，单帖交互/阅读只代表该帖触达不代表叙事主体传播力，数据随语料进 state
+  // 由 Jev 综合评；C86 清掉残余 log-only 骨架，裁定记录见台账 C66/红山动物园案）
 
   // 规则4：公开信息检查（基于 classifiedUrls）
   // 区分两种情况：没有公开信息 vs 有信息但获取失败（均 low）
@@ -879,114 +853,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 有有效数据，继续后续规则检查
 
-  // 规则5：高影响力推文 + 媒体 →（2026-10-06 废除直发 mid，放行进 Jev——见下方
-  // [新逻辑 v2] 决策记录；2026-09-27 曾裁定直发 mid 替代 unrated）
-  // 检查条件：
-  // 1. 推文作者属于高影响力账号（Elon、Trump等）
-  // 2. 或者推文交互数据高（点赞>5000 或 转发>2000）
-  // 3. 并且推文带有图片/视频
-
-  // 收集所有可能的推文信息
-  const allTweets = [];
-  if (twitterInfo?.type === 'tweet') {
-    allTweets.push(twitterInfo);
-  }
-  if (twitterInfo?.website_tweet?.type === 'tweet') {
-    allTweets.push(twitterInfo.website_tweet);
-  }
-  if (twitterInfo?.quoted_status?.type === 'tweet') {
-    allTweets.push(twitterInfo.quoted_status);
-  }
-
-  for (const tweet of allTweets) {
-    // 检查是否有媒体
-    const hasMedia = tweet?.media?.has_media ||
-                     (tweet?.media?.images && tweet.media.images.length > 0) ||
-                     (tweet?.media?.videos && tweet.media.videos.length > 0);
-
-    if (!hasMedia) continue;
-
-    // 检查作者是否是高影响力账号
-    const authorScreenName = tweet?.author_screen_name;
-    const isHighInfluence = isHighInfluenceAccount(authorScreenName);
-
-    // 检查交互数据是否高
-    const metrics = tweet?.metrics || {};
-    const likeCount = metrics.like_count || 0;
-    const retweetCount = metrics.retweet_count || 0;
-    const isHighEngagement = likeCount > 5000 || retweetCount > 2000;
-
-    // [旧逻辑] 高影响力账号 + 图片 → 下载图片 + LLM识别 → 继续分析
-    // 已弃用：图片下载耗时久，识别准确率不稳定，改为直接返回 unrated 抢最早的筹码
-    // if (isHighInfluence || isHighEngagement) {
-    //   const hasImages = tweet?.media?.images && tweet.media.images.length > 0;
-    //   const hasVideos = tweet?.media?.videos && tweet.media.videos.length > 0;
-    //
-    //   if (isHighInfluence && hasImages) {
-    //     console.log(`[NarrativeAnalyzer] 高影响力账号 @${authorScreenName} 的推文包含图片，启动图片识别...`);
-    //     const images = tweet.media.images;
-    //     const analysisResults = [];
-    //     const maxImages = Math.min(images.length, 3);
-    //     for (let i = 0; i < maxImages; i++) {
-    //       const imageUrl = images[i].url;
-    //       try {
-    //         const imageData = await ImageDownloader.downloadAsBase64(imageUrl, {
-    //           maxSize: 5 * 1024 * 1024, timeout: 15000
-    //         });
-    //         if (!imageData) { console.warn(`[NarrativeAnalyzer] 图片下载失败: ${imageUrl}`); continue; }
-    //         const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
-    //         analysisResults.push({ image_url: imageUrl, analysis: imageAnalysis });
-    //         console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 图片分析成功`);
-    //       } catch (error) {
-    //         console.warn(`[NarrativeAnalyzer] 图片分析失败: ${error.message}`);
-    //       }
-    //     }
-    //     if (analysisResults.length > 0) {
-    //       if (!twitterInfo._imageAnalysis) twitterInfo._imageAnalysis = [];
-    //       twitterInfo._imageAnalysis.push({
-    //         account: authorScreenName,
-    //         accountBackground: getHighInfluenceAccountBackground(authorScreenName),
-    //         images_analyzed: analysisResults.length,
-    //         results: analysisResults
-    //       });
-    //       console.log(`[NarrativeAnalyzer] 图片识别完成（${analysisResults.length}张），继续LLM分析`);
-    //       continue;
-    //     }
-    //   }
-    //   // 有视频或高交互数据（非高影响力账号）→ 返回 unrated
-    //   const reasons = [];
-    //   if (isHighInfluence) { ... }
-    //   if (isHighEngagement) { ... }
-    //   reasons.push(hasVideos ? '推文带有视频内容' : '推文带有其他类型媒体内容（非图片）');
-    //   return buildPreCheckResult('unrated', `${reasons.join('，')}，暂不支持解析该类型媒体`, 'high_influence_with_media');
-    // }
-
-    // [新逻辑 v2]（2026-10-06 NIGGALON 案裁定废除直发，方案 A）：
-    // 高影响力账号/高交互 + 媒体不再直发 mid，放行走 Jev（superIP fast-track /
-    // 标准路径）。原直发的存在理由是「图片识别耗时久、准确率不稳定」（旧逻辑
-    // 注释原文）——Jev 单次秒级后该理由已消失。
-    //
-    // 直发盲区实测（776 票扫描，data/high-influence-media-scan-*.json）：
-    // twitterUrl 是发币者自填的，贴一条高影响力账号的带媒体推文即可白拿 mid，
-    // 与语料内容是否相关无关——79% 票集中在 133 个同推文复蹭簇（存量热门推文
-    // 库批量蹭，能解析语料时间的 121/127 张 >30 天）；被买 147 票 win rate 28%
-    // / 净 -1.718 BNB，而 Jev 路径 mid 均值 +0.303（差 25 倍）、被买 mid 票 65%
-    // 来自本规则（mid 信号被稀释）。放行后语料作者（elonmusk/cz/binance 系在
-    // super-ip-registry）走 fast-track + J1.21 referent_memeability 条件题，
-    // 蹭名/无指代关联票由叙事层拦下；TradersLeague 类真关联票仍能凭叙事拿级。
-    if (isHighInfluence || isHighEngagement) {
-      const reasons = [];
-      if (isHighInfluence) {
-        const background = getHighInfluenceAccountBackground(authorScreenName);
-        reasons.push(`推文作者@${authorScreenName}是高影响力账号（${background}）`);
-      }
-      if (isHighEngagement) {
-        reasons.push(`推文交互数据高（点赞${likeCount}，转发${retweetCount}）`);
-      }
-      console.log(`[NarrativeAnalyzer] 规则5放行: ${reasons.join('，')}，进入Jev叙事分析（不再直发mid）`);
-      // 不 return：预检查通过，继续 LLM/Jev 流程
-    }
-  }
+  // 规则5：已废（2026-10-06 NIGGALON 案裁定直发 mid 删除，776 票扫描+决策记录见
+  // 台账）——高影响力/高交互+媒体票不再有 precheck 特殊路径，走标准 Jev 流程。
+  // C86 删除残余 log-only 骨架（~108 行，含 :915 metrics.like_count 字段名错——
+  // twitter 产出键是 favorite_count，幸而从不生效）
 
   // 规则6：已移除 - Twitter社区名称匹配不再直接返回unrated
   // 社区代币将通过LLM流程进行分析（见shouldUseAccountCommunityAnalysis）

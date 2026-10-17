@@ -159,11 +159,12 @@ export class GithubFetcher {
 
       const html = await response.text();
 
-      // 尝试从 HTML 中解析 star 数
-      const starMatch = html.match(/data-view-component="true" aria-label="([\\d,]+) users starred this repository"/);
+      // 尝试从 HTML 中解析 star 数（C86：正则字符类原写成 [\\d,]——字面反斜杠/d/逗号，
+      // 恒不匹配数字，star/fork 回退解析产出恒 null；修为 \d 数字类）
+      const starMatch = html.match(/data-view-component="true" aria-label="([\d,]+) users starred this repository"/);
       const starCount = starMatch ? parseInt(starMatch[1].replace(/,/g, '')) : null;
 
-      const forkMatch = html.match(/data-view-component="true" aria-label="([\\d,]+) users forked this repository"/);
+      const forkMatch = html.match(/data-view-component="true" aria-label="([\d,]+) users forked this repository"/);
       const forkCount = forkMatch ? parseInt(forkMatch[1].replace(/,/g, '')) : null;
 
       // 尝试提取描述

@@ -9,12 +9,14 @@
  * 过期规则的触发前提全部缺失，天然跳过），twitterInfo 只带规则5所需字段。
  *
  * 节：
- *   A. 高影响力账号 + 媒体 → 放行（null）+ 放行日志
+ *   A. 高影响力账号 + 媒体 → 放行（null）+ 无规则5日志
  *   B. 高交互腿（非名单账号 赞>5000）+ 媒体 → 同样放行
  *   C. 无媒体的高影响力推文 → 不触发规则5（null，与旧行为一致）
  *   D. 其他规则不受影响：symbol_too_long 仍拦截（管线有效性对照）
  *   E. 放行后 registry 覆盖存在：super-ip-registry 覆盖直发盲区头部账号（C83 起=state 注入）
- *   F. 源码口径：规则5块无 return buildPreCheckResult（防回退）
+ *   F. 源码口径：规则5骨架整块不存在（C86 死代码清理升级——2026-10-06 废除时
+ *      保留了放行骨架+日志，C86 review 确认 twitterUrl 产出链已死（0.6 duplicateNarrative
+ *      整链删除）后骨架删除；行为断言 A-D 保留=防直发复活）
  */
 'use strict';
 
@@ -49,7 +51,7 @@ async function main() {
     logs.length = 0;
     const r = await performPreCheck(baseToken, mediaTw(), {}, null, baseUrls, {}, null, null);
     assert.strictEqual(r, null, 'A1: 名单账号+媒体应放行返回 null（不再直发 mid）');
-    assert.ok(logs.some(l => l.includes('规则5放行')), 'A2: 放行日志应带「规则5放行」: ' + logs.join('|'));
+    assert.ok(!logs.some(l => l.includes('规则5')), 'A2: 规则5骨架已删（C86），不应再有规则5日志: ' + logs.join('|'));
     assert.ok(!logs.some(l => l.includes('给mid')), 'A3: 不应再有「给mid」直发日志');
     origLog('  A. 名单账号+媒体放行 ✓');
   }
@@ -63,7 +65,7 @@ async function main() {
       metrics: { like_count: 8000, retweet_count: 100 },
     }), {}, null, baseUrls, {}, null, null);
     assert.strictEqual(r, null, 'B1: 高交互+媒体应放行（原同样直发 mid，随规则整体废除）');
-    assert.ok(logs.some(l => l.includes('规则5放行') && l.includes('推文交互数据高')), 'B2: 高交互放行日志');
+    assert.ok(!logs.some(l => l.includes('规则5')), 'B2: 规则5骨架已删（C86），高交互腿零规则5日志');
     origLog('  B. 高交互腿放行 ✓');
   }
 
@@ -103,18 +105,17 @@ async function main() {
     origLog('  E. superIP registry 覆盖头部账号 ✓');
   }
 
-  // F. 源码口径：规则5块内不得再有 return buildPreCheckResult（防直发回退）
+  // F. 源码口径：规则5骨架整块不存在（C86 死代码清理后防复活直发）
   {
     const fs = require('fs');
     const src = fs.readFileSync('src/narrative/analyzer/services/pre-check-service.mjs', 'utf8');
-    const m = src.match(/\/\/ \[新逻辑 v2\][\s\S]*?\n  \}/);
-    assert.ok(m, 'F1: [新逻辑 v2] 块存在');
-    assert.ok(!/return buildPreCheckResult/.test(m[0]), 'F2: 规则5块内不应有 return buildPreCheckResult');
-    assert.ok(src.includes('规则5放行'), 'F3: 放行日志锚点存在');
-    origLog('  F. 源码口径 ✓');
+    assert.ok(!src.includes('[新逻辑 v2]'), 'F1: [新逻辑 v2] 规则5骨架应已删除（C86）');
+    assert.ok(!src.includes('high_influence_with_media'), 'F2: 规则5标识符应已删除');
+    assert.ok(!src.includes('规则5放行'), 'F3: 规则5放行日志锚点应已删除');
+    origLog('  F. 源码口径（骨架整块不存在）✓');
   }
 
-  origLog('\n全部通过：A 放行 / B 高交互腿 / C 无媒体不触发 / D 他规则不变 / E registry 覆盖（state 注入）/ F 源码防回退');
+  origLog('\n全部通过：A 放行 / B 高交互腿 / C 无媒体不触发 / D 他规则不变 / E registry 覆盖（state 注入）/ F 骨架整块删除防复活');
 }
 
 main().then(() => process.exit(0)).catch(e => { origLog('\nFAIL:', e.message); process.exit(1); });

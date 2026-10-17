@@ -450,8 +450,9 @@ function _isAmazonProductUrl(url) {
 }
 
 function _isTelegramUrl(url) {
-  // 匹配 t.me 或 telegram.org
-  return /t\.me|telegram\.org/i.test(url);
+  // 匹配 t.me 或 telegram.org。t.me 臂必须锚定域名边界（C86）：.meme 是 meme 币
+  // 常用域（rocket.meme 等），未锚定的 /t\.me/ 子串匹配把它们全误归 telegram 桶
+  return /(?:^|[/@.])t\.me|telegram\.org/i.test(url);
 }
 
 function _isDiscordUrl(url) {

@@ -101,10 +101,12 @@ export class YoutubeFetcher {
     const url = `${JUSTONEAPI_URL}?token=${JUSTONEAPI_KEY}&videoId=${videoId}`;
 
     try {
+      // C86：JustOneAPI 请求补 30s 超时（同家族 fetcher 纪律，原裸 fetch 无 signal）
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        signal: AbortSignal.timeout(30000)
       });
 
       if (!response.ok) {

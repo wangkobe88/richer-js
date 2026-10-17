@@ -521,8 +521,8 @@ export function isProjectCoin(tokenAddress, fetchResults) {
     return true;
   }
 
-  // 检查引用推文
-  if (twitterInfo?.quoted_tweet?.text && twitterInfo.quoted_tweet.text.toLowerCase().includes(address)) {
+  // 检查引用推文（quoted_status=twitter-fetcher 产出键，C86 幽灵字段修复）
+  if (twitterInfo?.quoted_status?.text && twitterInfo.quoted_status.text.toLowerCase().includes(address)) {
     return true;
   }
 

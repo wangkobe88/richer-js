@@ -5,7 +5,6 @@
 import twitterValidationModule from '../../utils/twitter-validation/index.js';
 const { getTweetDetail, getTweetDetailGraphQL, getUserByScreenName } = twitterValidationModule;
 import { fetchWebsiteContent, isFetchableUrl } from './web-fetcher.mjs';
-import { TwitterMediaExtractor } from './twitter-media-extractor.mjs';
 import { CachedFetcher, ExternalResourceCache } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 import { getConfig } from '../engine/config.mjs';
@@ -23,10 +22,13 @@ const NARRATIVE_TWITTER_BLACKLIST = [
 
 /**
  * 检查用户是否在黑名单中
+ * 大小写不敏感比对（与 config 层 pre-check-service 黑名单同款判比，d8dac73 只修了
+ * config 层——推特 handle 平台侧不区分大小写，API 回传大小写漂移会静默绕过本层）
  */
 function isUserBlacklisted(username) {
   if (!username) return false;
-  return NARRATIVE_TWITTER_BLACKLIST.includes(username);
+  const lower = username.toLowerCase();
+  return NARRATIVE_TWITTER_BLACKLIST.some(h => h.toLowerCase() === lower);
 }
 
 /**

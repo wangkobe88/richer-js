@@ -82,7 +82,10 @@ function overrideAngleTiming(tweetClassification, twitterInfo, tokenData, rawTim
   }
   const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
   if (!anchorSec || !twitterInfo) return null;
-  const sources = [twitterInfo, twitterInfo.website_tweet, twitterInfo.quoted_tweet, twitterInfo.retweeted_status];
+  // C86：载体集字段名=quoted_status（twitter-fetcher 产出键，state 组装主链同款）。
+  // 原读 quoted_tweet 是幽灵字段（producer 从不写）——引用推作为「最新载体」实际
+  // 永远缺席，C68「任一新即活」对引用推场景失效偏拦；与 precheck tweetSources 同集修复
+  const sources = [twitterInfo, twitterInfo.website_tweet, twitterInfo.quoted_status, twitterInfo.retweeted_status];
   let latestMs = NaN;
   for (const t of sources) {
     if (!t?.created_at) continue;

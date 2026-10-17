@@ -68,7 +68,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C85 Nightshift 案 0x3ff9da6fd5f4608307bc4b71ec82c313a224ffff——叙事类型因子化（narrativeCategory）+ GMGN issuerTokenCount 分档门：serial issuer 的推特维度拦截（2026-10-17 用户裁定「把叙事分析分析出的叙事类型作为一个因子，Web3项目应该是其中某一类，如果属于这一类，那么GMGN中返回信息的账号创建代币数量就不能超过1」+ AskUserQuestion 双裁定=适用集/fail-open）★
+### C86 叙事模块全量 Review 修复批——quoted_status 幽灵字段三消费点 + A/B/C 三级 15 项收口（2026-10-17 开放性 review 任务 → 用户裁定「修一下这些小问题」；全档案 `docs/叙事模块Review与流程整理-2026-10-17.md` §十一）★
+
+- **A-1 幽灵字段（头条）**：producer `twitter-fetcher:186` 写 `quoted_status`，状态组装主链（twitter-section/account-backgrounds/tweet-type-classifier）读 `quoted_status` 本就正确；但三个消费点读 `quoted_tweet`（生产恒 undefined）——①mapper C68 找角度 6h override 载体源（引用推永远缺席=门退化）②precheck C74 分桶 tweetSources（引用推不计入「任一新即放」）③narrative-utils isProjectCoin CA 检查。**修复方向勘误：review 文档初稿写「统一 quoted_tweet」是反的**——多数正确+上游 API 归一（new-apis.js:573）双重证据，改三消费点读 `quoted_status`。**测试自洽掩盖教训**：`_test_angle_timing_override` 夹具同款错名 → 断言与错名自洽全绿但生产瞎（夹具改生产形状后 A7/B4 即事故反证）。
+- **A-2~A-5**：fetcher 层黑名单大小写归一（d8dac73 只修了 config 层）；classifyTweetType followers 缺失 `?? 0` 归 angle 桶 → 改 `?? null` 落 unknown「粉丝数字段缺失」（**行为变化：粉丝缺失票移出 angle 桶=C68 override 覆盖面收窄，unknown 桶 300s 硬拦不受影响，偏放方向**；显式 0 粉仍 angle、likes/retweets `?? 0` 刻意保留=真 0 语义）；rule 2.2 视频时效五平台键对齐（youtube=published_at/weixin=publish_time 原取值链静默跳过 + tiktok fetcher 补 create_time 产出键）；t.me 正则边界锚 `/(?:^|[/@.])t\.me|telegram\.org/i`（rocket.meme 子串误归修复，`[/@.]` 不误伤 foo.t.me 子域）。
+- **B-1~B-9 工程缺陷**：引擎轮询防重入锁（`_dispatchInProgress` try/finally）+ start() 孤儿 processing→pending 回收；B-4 缓存命中刷 analyzed_at（`meta.fromCache` 现成标记零新机制）；web-fetcher body 读取纳入超时窗（clearTimeout 移 finally）；weibo/tiktok/youtube JustOneAPI 家族 30s 超时纪律补齐；github 回退正则字面量 `[\\d,]` 死字符类（永不匹配数字）→ `[\d,]`；规则 1.2 回退正则补 twitter.com+边界锚；Worker dotenv 4 级出仓库→3 级；Worker parentPort error/exit 死监听删除。
+- **C 级 ~850 行死代码**：response-parser 旧协议三解析器（:8-591，保留段零依赖 awk 核验）；twitter-media-extractor 整文件（含 data-fetch-service 第二处死 import——review 初稿漏记删除时补获）；rule 5 骨架（墓碑注 NIGGALON 案源流；`_test_rule5_pass_through` 升级「骨架整块不存在」源码反证+行为断言保留防直发复活）；rule 3.6/3.7 骨架（墓碑注 C66）；weibo 死函数对。prompt-builder 刻意保留（单调用点内联收益小）。
+- **D-1 未修待裁定**：Stage2 量级门（tier+dim2）在 else-if 短路序中先于 C40 戏谑豁免/J1.30 名图豁免执行——豁免只豁 Stage3 截断不豁量级门，「蹭热点戏谑币 tier 不足仍被量级拦」是有意硬门还是遗漏，C40/C65 台账未明说。
+- **测试**：新 `_test_narrative_review_fixes.cjs` 22 断言（A-3 三态真值表/A-4 五平台键/A-5 边界含子域正形/源码口径六条）+ `_test_rule5_pass_through` 升级 + `_test_angle_timing_override` 夹具修正（A7/B4 事故反证 + b4r 重声明笔误修复）；回归 30 叙事文件全绿。
+- **部署**：本地 commit；**182 需重启叙事 worker + 引擎进程才生效**（未部署待用户指令）。
+
+### C85 Nightshift 案 0x3ff9da6fd5f4608307bc4b71ec82c313a224ffff——叙事类型因子化（narrativeCategory）+ GMGN issuerTokenCount 分档门：serial issuer 的推特维度拦截（2026-10-17 用户裁定「把叙事分析分析出的叙事类型作为一个因子，Web3项目应该是其中一类，如果属于这一类，那么GMGN中返回信息的账号创建代币数量就不能超过1」+ AskUserQuestion 双裁定=适用集/fail-open）★
 
 - **案情**：v21 双跑期买入净 -0.004116 BNB。作弊指纹：GMGN `twitter_create_token_count=6`（serial issuer）+ 回收 2011 年休眠老号 `___nightshift`（仅 1 条宣告推）+ top20 持仓 90% fresh 钱包 + 链上 creator=首买 0.4854 庄家已清仓。**fire 时刻（token 40s）该字段=0**（GMGN 索引未填充，covered=1 调用成功 251ms ≠ 数据就绪）——门对 40s 快 fire 天然失效，有效面=关联已建立的票/repeat 轮/晚 fire 票（用户接受 fail-open）。
 - **信号方向否决史（本案三轮收敛）**：①「15 年号龄但只发过 1 条推文」被否——正常项目同形状（老号休眠多年、发币才发首推）②`gmgnIssuerTokenCount` 全量收紧被否——事件源账号被多方蹭发多币是常态，需按叙事类型分档 ③本案 category=`project`（prestage 路径，rating=mid 过门）而非标准路径 W——适用集经用户修正为「反而是 project/account_based_meme，Web3 原生项目也可以遵照这个标准，但是一般来讲，我们不要求Web3原生项目发币，而是一个特别有趣的项目，由其它用户自己发币（meme）了，也算适用」。

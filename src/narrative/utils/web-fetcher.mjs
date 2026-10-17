@@ -63,13 +63,13 @@ async function _fetchDirect(url, options = {}) {
       }
     });
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
       console.warn(`[WebFetcher] HTTP错误: ${response.status}`);
       return null;
     }
 
+    // body 读取保持在超时窗内（C86：原 clearTimeout 在 text() 之前，慢 body 挂
+    // undici 默认 300s——abort 信号同样管 body 消费，clear 挪到 finally）
     const html = await response.text();
 
     // 提取正文内容
@@ -96,6 +96,8 @@ async function _fetchDirect(url, options = {}) {
   } catch (error) {
     console.error(`[WebFetcher] 获取网页失败: ${error.message}`);
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

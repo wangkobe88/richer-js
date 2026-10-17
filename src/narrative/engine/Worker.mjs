@@ -34,8 +34,9 @@ import dotenv from 'dotenv';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// 加载环境变量
-dotenv.config({ path: resolve(__dirname, '../../../../config/.env') });
+// 加载环境变量（3 级上溯到仓库根，与 config.mjs 同款——原 4 级路径已出仓库，
+// 靠继承父进程 env 兜底才没暴露；独立 spawn 时读不到 .env）
+dotenv.config({ path: resolve(__dirname, '../../../config/.env') });
 
 // 导入配置模块
 import { getEngineConfig } from './config.mjs';
@@ -116,14 +117,6 @@ parentPort.on('message', async (task) => {
   }
 });
 
-// Worker 错误处理
-parentPort.on('error', (error) => {
-  console.error('[WORKER] Worker 线程错误:', error);
-});
-
-// 退出处理
-parentPort.on('exit', (code) => {
-  if (code !== 0) {
-    console.error(`[WORKER] Worker 线程异常退出，代码: ${code}`);
-  }
-});
+// （C86 删除 parentPort.on('error')/.on('exit')：MessagePort 只有 message/close
+// 事件，两监听永不触发——worker 级错误/退出处理在父进程 Worker 对象上
+// （NarrativeAnalysisEngine._spawnWorker 的 error/exit 监听），此处删除死监听）

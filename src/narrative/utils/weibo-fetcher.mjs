@@ -164,15 +164,24 @@ export class WeiboFetcher {
 
       console.log(`[WeiboFetcher] 获取微博内容: ${weiboId}`);
 
-      // 调用 JustOneAPI
+      // 调用 JustOneAPI（C86：补 30s 超时——原裸 fetch 无 signal，同 justoneapi
+      // 家族 fetcher（douyin/tiktok 用户页）超时纪律）
       const apiUrl = `${JUSTONEAPI_URL}?token=${JUSTONEAPI_KEY}&id=${encodeURIComponent(weiboId)}`;
 
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      let response;
+      try {
+        response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timer);
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -285,103 +294,9 @@ export class WeiboFetcher {
     return 0;
   }
 
-  /**
-   * 从微博URL获取用户信息
-   * @param {string} weiboUrl - 微博URL
-   * @returns {Promise<Object|null>} 用户信息
-   */
-  static async fetchAccountInfo(weiboUrl) {
-    return CachedFetcher.fetchWithCache(
-      weiboUrl,
-      'weibo_user',
-      async (url) => {
-        return this._fetchUserInfo(url);
-      },
-      getCacheTTL('weibo_user')
-    );
-  }
-
-  /**
-   * 实际获取用户信息
-   * @param {string} weiboUrl - 微博URL
-   * @returns {Promise<Object|null>}
-   * @private
-   */
-  static async _fetchUserInfo(weiboUrl) {
-    if (!weiboUrl) {
-      return null;
-    }
-
-    try {
-      // 提取用户ID
-      const userId = WeiboExtractor.extractUserId(weiboUrl);
-      if (!userId) {
-        console.warn('[WeiboFetcher] 无法提取用户ID:', weiboUrl);
-        return null;
-      }
-
-      console.log(`[WeiboFetcher] 获取用户信息: ${userId}`);
-
-      // 调用 RapidAPI
-      const apiUrl = `https://${RAPIDAPI_HOST}/api/weibo/get-user-detail/v3?uid=${encodeURIComponent(userId)}`;
-
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-rapidapi-host': RAPIDAPI_HOST,
-          'x-rapidapi-key': RAPIDAPI_KEY
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      // 检查返回状态
-      if (data.code !== 0) {
-        console.warn('[WeiboFetcher] API返回错误:', data.message);
-        return null;
-      }
-
-      if (!data.data) {
-        console.warn('[WeiboFetcher] 用户数据为空');
-        return null;
-      }
-
-      const userInfo = data.data;
-
-      // 格式化返回结果
-      const result = {
-        type: 'weibo_account',
-        user_id: userInfo.id?.toString(),
-        screen_name: userInfo.screen_name,
-        name: userInfo.name,
-        description: userInfo.description,
-        profile_image_url: userInfo.profile_image_url,
-        cover_image: userInfo.cover_image_phone,
-        followers_count: parseInt(userInfo.followers_count) || 0,
-        follow_count: userInfo.follow_count || 0,
-        statuses_count: userInfo.statuses_count || 0,
-        verified: userInfo.verified || false,
-        verified_reason: userInfo.verified_reason,
-        verified_type: userInfo.verified_type,
-        gender: userInfo.gender === 'm' ? 'male' : userInfo.gender === 'f' ? 'female' : 'unknown',
-        location: userInfo.location,
-        url: userInfo.url,
-        raw: userInfo
-      };
-
-      console.log(`[WeiboFetcher] 成功获取用户: ${result.screen_name} (${result.followers_count} 粉丝)`);
-      return result;
-
-    } catch (error) {
-      console.error('[WeiboFetcher] 获取用户信息失败:', error.message);
-      throw error;
-    }
-  }
+  // （C86 删除 fetchAccountInfo/_fetchUserInfo 死函数对：零外部调用者，且引用了
+  // 未定义的 RAPIDAPI_HOST/RAPIDAPI_KEY——真被调用只会 ReferenceError。微博账号
+  // 画像走下方 JustOneAPI 用户主页方法）
 
   // ========== 用户主页方法（JustOneAPI） ==========
 

@@ -28,6 +28,8 @@ async function extractTikTokVideoId(url) {
       console.log('[TikTokFetcher] 检测到短链接，尝试解析...');
       const response = await fetch(url, {
         redirect: 'follow',
+        // C86：短链解析补 10s 超时（轻请求，原裸 fetch 无 signal）
+        signal: AbortSignal.timeout(10000),
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
@@ -62,7 +64,8 @@ async function extractTikTokVideoId(url) {
 async function fetchViaJustOneAPI(videoId) {
   const url = `${JUSTONEAPI_URL}?token=${JUSTONEAPI_KEY}&postId=${videoId}`;
 
-  const response = await fetch(url);
+  // C86：详情请求补 30s 超时（同 douyin/tiktok 用户页超时纪律，原裸 fetch 无 signal）
+  const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
 
   if (!response.ok) {
     console.warn('[TikTokFetcher] JustOneAPI 请求失败:', response.status);
@@ -124,6 +127,9 @@ async function _fetchTikTokVideoInfoInternal(url) {
       url: url,
       video_id: videoId,
       description: itemStruct.desc || '',
+      // C86：补发布时间（precheck 规则2.2 视频过期检查消费，douyin 同款秒→ISO）。
+      // 原产出无时间字段=该平台静默跳过过期检查
+      create_time: itemStruct.createTime ? new Date(itemStruct.createTime * 1000).toISOString() : '',
       author_name: author.nickname || author.name || '',
       author_username: author.uniqueId || author.username || '',
       // 统计信息 - API使用camelCase

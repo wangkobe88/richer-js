@@ -52,7 +52,6 @@ import { fetchWebsiteContent, isFetchableUrl } from '../../utils/web-fetcher.mjs
 import { createSegmentTimer } from '../../utils/segment-timer.mjs';
 import { CachedFetcher } from '../../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../../db/cache-ttl-config.mjs';
-import { TwitterMediaExtractor } from '../../utils/twitter-media-extractor.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { detectLanguage, standardizeTranslatedNames } from '../utils/language-utils.mjs';
 import { getConfig } from '../../engine/config.mjs';
