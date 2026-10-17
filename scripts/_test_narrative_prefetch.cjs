@@ -238,9 +238,10 @@ async function main() {
     check('D2 fire 点 lead 计算形状（get→lead→delete）',
       m[0].includes('narrativeCallInfo.prefetchLeadMs = Date.now() - prefetchStartedAt;')
       && m[0].includes('this._narrativePrefetchStartedAt.delete(tokenAddress);'));
-    // D3 开关默认 false 形状（narrativePrefetch 段缺省 → {} → enabled!==true → false）
-    check('D3 开关形状（缺省段恒 false）',
-      eng.includes('this._narrativePrefetchEnabled = (this._mergedWsConfig().narrativePrefetch || {}).enabled === true;'));
+    // D3 开关默认 true 形状（2026-10-17 用户裁定默认开：narrativePrefetch 段缺省 →
+    // {} → enabled!==false → true；显式 false 才关，narrativeRetry 同款物化语义）
+    check('D3 开关形状（缺省段恒 true，显式 false 才关）',
+      eng.includes('this._narrativePrefetchEnabled = (this._mergedWsConfig().narrativePrefetch || {}).enabled !== false;'));
     // D4 构造区四成员
     check('D4 构造区四成员（enabled/write-once 集/startedAt/cond 缓存）',
       eng.includes('this._narrativePrefetchedTokens = new Set();')

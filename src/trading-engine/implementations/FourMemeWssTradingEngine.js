@@ -289,9 +289,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._narrativeBlockedTokens = new Set();
     // 叙事预触发（N3，2026-10-13 叙事提速案）：tick 先于买门 fire 后台发起直调，
     // fire 时 inflight join 同一 promise / 已完成则行缓存命中秒回（直调路径零改动）。
-    // 实验级开关 fourmemeWs.narrativePrefetch.enabled（默认 false；flap 实验配
-    // flapWs 段同键）；回测不适用（BacktestEngine 有 preloadCache 预载机制）
-    this._narrativePrefetchEnabled = (this._mergedWsConfig().narrativePrefetch || {}).enabled === true;
+    // 实验级开关 fourmemeWs.narrativePrefetch.enabled（2026-10-17 用户裁定默认开：
+    // 0xd97a…7777 案 fire→成交 10.85s 中叙事直调同步段占 9.1s；删段=开、显式 false
+    // 才关，narrativeRetry 同款物化语义；flap 实验配 flapWs 段同键）；回测不适用
+    // （BacktestEngine 有 preloadCache 预载机制）。默认开代价：过叙事条件的 token
+    // 全部后台跑一次叙事链（不只最终 fire 的），配额放大由条件门槛控制
+    this._narrativePrefetchEnabled = (this._mergedWsConfig().narrativePrefetch || {}).enabled !== false;
     this._narrativePrefetchedTokens = new Set();   // write-once per-token（无论成败，失败由 fire 直调兜底）
     this._narrativePrefetchStartedAt = new Map();  // token → 预触发发起时刻（prefetchLeadMs 度量）
     this._narrativePrefetchCond = undefined;       // 惰性解析的预触发条件（undefined=未算过）
@@ -1400,8 +1403,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * 与 fire 侧同款 shouldBlockOnNarrative 判定）——fire 到来直接短路不落 signal 行。
    *
    * 回测不适用（BacktestEngine 装载时 preloadCache 全量预载）；实验级开关
-   * fourmemeWs.narrativePrefetch.enabled 默认 false（live/虚拟通用）。
-   * fire-and-forget + catch（OPB/TPA 同款先例），不阻塞 tick 管线。
+   * fourmemeWs.narrativePrefetch.enabled 默认 true（2026-10-17 用户裁定；删段=开、
+   * 显式 false 才关；live/虚拟通用）。fire-and-forget + catch（OPB/TPA 同款先例），
+   * 不阻塞 tick 管线。
    */
   _narrativePrefetchCheck(tokenAddress, factors, token) {
     if (!this._narrativePrefetchEnabled) return;
