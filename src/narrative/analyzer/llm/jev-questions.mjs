@@ -341,9 +341,15 @@
  *       行动力（动态感染）——圈内乐子大梗是 strong 不是 mild。旧缓存行无此答案
  *       → 折损不触发（fail-open，J1.28/J1.29 同款），窗口级缓存失效配套
  *       scripts/narrative/invalidate-resonance-window.cjs
+ * J1.32（2026-10-17，C83 bbbe2561 体检案）：题面零改动；变更在 state 输入形状——
+ *       superIP 注册表命中票改走标准路径全量 18 题（快车道 mapSuperIPAnswers
+ *       删除），state PRECOMPUTED 注入 super_ip_hit 认证事实行 + super_ip_note
+ *       反混淆提示（不再注入 tier 预分）。评级可比性断代：superIP 语料票的
+ *       量级/时效由 Jev 自判（原 S40+时效15 代码喂饱取消），institution_routine
+ *       豁免收紧为仅平台官方 handle。校准/对账按 prompt_version 过滤。
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.31';
+export const JEV_QUESTIONS_VERSION = 'J1.32';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）

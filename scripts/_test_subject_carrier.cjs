@@ -188,8 +188,10 @@ async function main() {
   const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category)))');
   const tierIdx = mapperSrc.indexOf("effTier === 'E' || effTier === 'D'");
   check('G2 阻断链序：rm 门 → 载体门 → 量级 D/E 门（索引严格递增）', rmIdx > 0 && scIdx > rmIdx && tierIdx > scIdx, { rmIdx, scIdx, tierIdx });
-  const superFnBody = mapperSrc.slice(mapperSrc.indexOf('export function mapSuperIPAnswers'));
-  check('G3 superIP 快车道不消费 subject_carrier（零出现）', !superFnBody.includes('subject_carrier'), null);
+  // C83：mapSuperIPAnswers 快车道删除——J1.29 载体门对 superIP 语料票经标准
+  // 路径真实可达（旧「不消费」欠账终结），不存在性断言锁定
+  check('G3 superIP 快车道已删（subject_carrier 经标准路径对 superIP 语料可达）',
+    !mapperSrc.includes('mapSuperIPAnswers'), null);
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('G4 题集头部含 J1.29 条目（bddd 案档案）', qsSrc.includes('* J1.29（2026-10-09') && qsSrc.includes('bddd3578'), null);
   check('G5 窗口缓存失效脚本配套（J1.28 模式）', readFileSync(join(__dirname, '..', 'scripts', 'narrative', 'invalidate-carrier-window.cjs'), 'utf8').length > 0, null);

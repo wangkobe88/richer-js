@@ -291,11 +291,10 @@ async function main() {
       && /instagramInfoFetched !== true && dim2 < 18/.test(mapperSrc)
       && /const effDim2 = igDim2Anchor \? 18 : dim2/.test(mapperSrc)
       && /tierScore \+ effDim2 \+ timeliness/.test(mapperSrc));
-  // 切片锚点=函数定义（C55 起 productEntityAcceptanceBlock JSDoc 先含 mapSuperIPAnswers
-  // 字样，裸 indexOf 会切进 mapStandardAnswers 尾段误命中 IG 键——存量断言修复）
-  const superipSeg = mapperSrc.slice(mapperSrc.indexOf('export function mapSuperIPAnswers'));
-  check('F3 superIP 快车道不挂 IG 兜底（一期范围）',
-    !superipSeg.includes('igDim2Anchor') && !superipSeg.includes('instagramLinked'));
+  // C83：mapSuperIPAnswers 快车道删除——C44 IG 影响力两层兜底对 superIP 语料票
+  // 经标准路径真实可达（旧「一期不挂」欠账终结），不存在性断言锁定
+  check('F3 superIP 快车道已删（igDim2Anchor 兜底经标准路径对 superIP 语料可达）',
+    !mapperSrc.includes('mapSuperIPAnswers'));
 
   console.log('\n── G. state section 形状兼容 ──');
   const section = buildInstagramSection(post);

@@ -11,8 +11,8 @@
  *      unfit 0.3 放行对照 / 边界 0.5 拦 0.49 放 / 概率缺失放（miss 不误拦）/
  *      nhn 门优先级在前 / stage1+stage2 概率落库审计（probabilities.web3_fit、
  *      web3FitMass）
- *   C. mapSuperIPAnswers：unfit 0.7 拦（superIP 通道无豁免）/ unfit 0.2 放
  *   D. performPreCheck 规则 3 收窄：爆款+有推文文本或视频标题任一非空 → null
+ *      （C83 起 superIP 语料票同走标准路径，本门对 superIP 票经同一 mapper 可达）
  *      （进 Jev，C31 Training season/显化之歌案二次收窄——标题也算语料）/
  *      爆款+两者皆空 → mid 短路（video_unrated 原行为）/ 非爆款 → null（原行为）
  *
@@ -61,7 +61,7 @@ function makeContext(td, answers, twitterInfo) {
 
 async function main() {
   const mapper = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
-  const { mapStandardAnswers, mapSuperIPAnswers } = mapper;
+  const { mapStandardAnswers } = mapper;
   const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const { performPreCheck } = await import('../src/narrative/analyzer/services/pre-check-service.mjs');
 
@@ -113,24 +113,8 @@ async function main() {
   const s2r = r7.stage2DataToSave.parsed_output;
   check('B11 对照组事件分 ≥60 过线（拦的是偏好门）', s2r.scoringResult.totalScore >= 60 && s2r.pass === true, { totalScore: s2r.scoringResult.totalScore, pass: s2r.pass });
 
-  // ═══ C. mapSuperIPAnswers（superIP 通道无豁免）═══
-  console.log('\n── C. superIP 快车道同门 ──');
-  const superIPCtx = {
-    superIPInfo: { name: '埃隆·马斯克', type: 'person', tier: 'S', desc: '世界级名人' },
-    preScores: { tierScore: 40, timeliness: 15, baseEventScore: 40 },
-    callInfo: { model: 'stub', questions: { q1: {} }, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
-  };
-  const superAnswers = (w3) => ({
-    dimension2: { score: 4.0, probabilities: { '4': 0.6 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.95, institution_routine: 0.05 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.9, notable_other: 0.1 } },
-    web3_fit: { choice: 'unfit', probabilities: w3 },
-  });
-  const rs1 = mapSuperIPAnswers(superAnswers({ unfit: 0.7, marginal: 0.2, fit: 0.1 }), superIPCtx);
-  check('C1 superIP unfit 0.7 → 拦 + reason 含标签', rs1.llmResult.rating === 'low' && rs1.llmResult.reason.includes('Web3用户偏好不合'), rs1.llmResult);
-  check('C2 prestage 审计 web3FitMass', rs1.prestageDataToSave.parsed_output.jev.web3FitMass === 0.7, rs1.prestageDataToSave.parsed_output.jev.web3FitMass);
-  const rs2 = mapSuperIPAnswers(superAnswers({ unfit: 0.2, fit: 0.6, strong_fit: 0.2 }), superIPCtx);
-  check('C3 superIP unfit 0.2 → 放（不因偏好拦）', rs2.llmResult.rating !== 'low' || !rs2.llmResult.reason.includes('Web3用户偏好不合'), rs2.llmResult);
+  // ═══ C 段已删（C83）：mapSuperIPAnswers 快车道同门矩阵随通道删除——superIP
+  // 语料票现走标准路径，本门（B 段矩阵）对 superIP 票经同一 mapStandardAnswers 可达 ═══
 
   // ═══ D. performPreCheck 规则 3 收窄（J1.19 收窄 + C31 二次收窄：推文文本或视频标题任一非空进 Jev）═══
   console.log('\n── D. video_unrated 爆款短路收窄 ──');

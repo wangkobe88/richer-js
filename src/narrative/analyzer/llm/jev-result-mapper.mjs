@@ -25,7 +25,7 @@ const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
  * C 档从期望 26.8 下调至 22——Jev 的 C 档混有旧 B/A 样本（期望被拉高），
  * 但"C 档主体难过 pass 线"是旧管线核心语义（C22+dim2均值21.5+时效15=58.5<60）。
  * D/E 档不进表：维持主体量级不足阻断。
- * superIP 路径不用此表（注册表 tier 可信，走 TIER_SCORES 预评分）。
+ * （C83 起全语料走标准路径——superIP 快车道的 TIER_SCORES 预评分已随通道删除）
  */
 const MAGNITUDE_TIER_SCORES = { S: 39, A: 34, B: 27, C: 22 };
 
@@ -214,14 +214,6 @@ const NAME_REFERENT_BLOCK_LABELS = {
 const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G', 'B', 'W'];
 
 /**
- * J1.21 指代对象 meme 价值豁免门槛（C33 MTAT 案）：超级IP转发/提及的指代对象
- * referent_memeability ≥3（内容作品有玩味点 AND 与 web3 用户有可感知共鸣的双达
- * 标下限档）→ 豁免 superIP 通道 nameReferentBlock。3 档即题面 AND 语义下限，
- * 0-2（人名/账号/严肃对象/玩味弱或圈外）维持拦截（YAYA 案形状不变）。
- */
-const REFERENT_MEME_EXEMPT_MIN = 3;
-
-/**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
  * - A 类（形象化IP）：主体资格不足/小圈子亚文化/低质衍生(简单替换拼贴/抄袭)/IP二次利用
  * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
@@ -297,8 +289,8 @@ function nameReferentBlock(answers, category) {
  * 净 -0.354（避亏，误拦仅 卷王 +0.013）；mem>1 合计 +3.035。语义边界（刻意）：
  * 本题量「指代对象本身的梗性」非「组合体可接纳性」——点名亏票（币安汽车 1.75/
  * 2.35、隔音舱 1.77、日产途乐 2.12）中间档（1.5-2.5）无单调性，不设门。
- *
- * 仅标准路径（mapStandardAnswers）；superIP 快车道不动（J1.21 豁免语义自洽）。
+ * （C83 起全语料走标准路径，J1.21 的 superIP 通道 ≥3 豁免随快车道删除——
+ * 低档拦截域反而扩至 superIP 语料票）
  * 答案缺失（旧缓存行/旧题集手写 fixture）→ 不拦——生产链 JevClient.ask 对缺
  * 答案 id 直接 throw，缺失形状只在单测 fixture 出现；旧缓存要触发门须先失效
  * （scripts/narrative/invalidate-referent-window.cjs）。
@@ -331,8 +323,8 @@ function referentMemeabilityLowBlock(answers) {
  * 故 E 只拦 no_visual（M3 E 全拦净效应反而 -1.19）；②A 类（形象 IP）不进门——
  * 类别本身就是形象载体判定，量级门已把关；③W/F/G 样本内无此病根信号不碰。
  *
- * 仅标准路径（mapStandardAnswers）；superIP 快车道 mapSuperIPAnswers 不消费
- * subject_carrier 答案（零影响）；56 票 prestage/superIP 无 stage1 不适用。
+ * （C83 起全语料走标准路径，subject_carrier 对 superIP 语料票同样生效）；
+ * 56 票 prestage/superIP 历史无 stage1 不适用。
  * 答案缺失（旧缓存行/旧题集手写 fixture）→ 不拦——生产链 JevClient.ask 对缺
  * 答案 id 直接 throw，缺失形状只在旧缓存/fixture；窗口回测要触发门须先失效
  * 缓存（scripts/narrative/invalidate-carrier-window.cjs，照 J1.28 模式）。
@@ -377,7 +369,7 @@ function subjectCarrierBlock(answers, category) {
  * 另有 J1.23 Web3 偏好锚、B 类产品另有 J1.27 接纳门、C/D 人物机构量级是客观
  * 影响力不依赖情绪转化）。答案缺失（旧缓存行/手写 fixture）→ 不折（fail-open，
  * J1.28/J1.29 同款；生产链 JevClient.ask 对缺答案 id 直接 throw，缺失形状只在
- * 旧缓存）。superIP 快车道 mapSuperIPAnswers 不消费本题答案（零影响）。
+ * 旧缓存）。（C83 起全语料走标准路径，event_resonance 对 superIP 语料票同样生效）。
  * 窗口回测要触发折损须先失效缓存（scripts/narrative/invalidate-resonance-
  * window.cjs，照 J1.28/J1.29 模式）。
  */
@@ -427,14 +419,14 @@ function negativeHardNewsBlock(answers) {
  * 周期，角色名币≠蹭作品宣传）：category=A（形象IP，event_category 主体归属规则同版本
  * 新增）时本门豁免，把关交给 A 类量级门（无名/未出圈角色 D/E 档直接拦、事件分 <60 拦；
  * Jev 对角色豁免的题目层措辞实证只能把 rcp 概率压到 0.57-0.70 压不过 0.5 线，与 J1.13
- * word_extraction 六轮措辞教训一致——Jev 分不动的边界由代码确定性切分）。仅标准路径
- * 豁免；superIP 通道不豁免（注册表账号推自己参与的常规作品宣传仍拦，C23 域语义不变）。
+ * word_extraction 六轮措辞教训一致——Jev 分不动的边界由代码确定性切分）。
+ * （C83 起全语料走标准路径：注册表账号语料票同样享受 A 类豁免——通道差异消失）
  */
 function routineContentProductBlock(answers, category, opts) {
   if (category === 'A') return null;
   // C56 平台官方源豁免：币安/flap 等币安链原生平台官方账号发的自家内容（吉祥物
-  // IP/产品公告）不算「机构日常运营」拦截对象——自家场子官方票（FlapGuy 案）。
-  // 仅标准路径豁免；superIP 通道不传 opts（C23 域语义不变）
+  // IP/产品公告）不算「机构日常运营」拦截对象——自家场子官方票（FlapGuy 案）
+  // （C83 起全语料走本路径，豁免面即全部豁免面）
   if (opts?.platformOfficial) return null;
   const p = answers?.block_reason?.probabilities?.routine_content_product ?? 0;
   if (p < 0.5) return null;
@@ -491,10 +483,10 @@ function detectBinanceCorpus(tokenData, twitterInfo) {
  * J1.27 下 cat=D + se=character_ip，实际拦截点 = block_reason argmax
  * institution_routine「机构日常运营」双轮稳定，rcp 概率只有 0.1——所以豁免位
  * 有三处：① rcp 概率门（routineContentProductBlock opts）② argmax 链
- * institution_routine / routine_content_product 子句（与 superIP 通道
- * institution_routine 豁免同语义：S/A 级平台官方号的实质内容推不算日常运营）
- * ③ 产品实体接纳门（productEntityAcceptanceBlock opts）。币安官方号在
- * superIP 注册表走快车道（本就豁免 institution_routine），此处置标准路径兜底位。
+ * institution_routine / routine_content_product 子句（S/A 级平台官方号的实质
+ * 内容推不算日常运营）③ 产品实体接纳门（productEntityAcceptanceBlock opts）。
+ * （C83 起快车道删除，此处豁免面对全部语料生效；注册表内其余机构账号的
+ * institution_routine argmax 按收紧语义拦截——BI 案教训方向）
  *
  * 刻意用主推作者 handle 硬集而非文本关键词：flap/four 等词在 BSC meme 语料里
  * 高频出现（平台链接/普通英文词），裸查会把蹭名票误豁免；只查主推作者不查
@@ -600,8 +592,7 @@ export function detectNameImageSpellingMismatch(tokenData, twitterInfo) {
  * 天然高、门无增益）；③binanceCorpus（C55 补充裁定：币安系产品对链上买家
  * 天然高接纳，币安影响力可正常转移给其产品——C35 币安支付/C40 BI 不拦）；
  * ③b platformOfficial（C56 补充裁定：flap 等币安链原生平台官方账号源，与
- * 币安同理）；④superIP 快车道不消费本题（mapSuperIPAnswers 独立 mapper，
- * phase 1 边界同 C44）。
+ * 币安同理）。（C83 起全语料走标准路径，本题对 superIP 语料票同样生效）
  */
 function productEntityAcceptanceBlock(answers, opts) {
   const se = answers?.subject_entity?.choice;
@@ -806,7 +797,7 @@ export function mapStandardAnswers(answers, context) {
   //   噱头定义直接矛盾（CUE 本轮 argmax gimmick 0.30/none 0.29 抖动即此形状）；
   // - 量级 A 档锚（effTier）——题面「领域知名大IP→A档起」Jev 执行不下去（magnitude
   //   稳定 B 档），发布者知名度由代码事实锚定；superIP 快车道 S 级预评分同构
-  //   （量级代码判定的体系先例）。
+  //   （量级代码判定的体系先例；C83 起快车道删除，pubProxy 锚保留为唯一同构物）。
   // 边界：仅 B/C 域（与 rideDetourBelow 同域，防 B/C 边界跨 run 抖动）；cashtag
   // 改道优先（推文含 $TICKER = 讨论已存在 web3 资产，W 数学语义不变）；rcp /
   // negativeHardNews 门不豁免（内容型产品 C12 绣春刀裁定维持——发布者指代不适用
@@ -1207,7 +1198,8 @@ export function mapStandardAnswers(answers, context) {
   //     nameReferentBlock 同思路；阈值与 punExempt/阻断侧惯例一致）
   //   ③ 0 < relevance ≤ 10（只救会被本截断拦的票；纯零关联 none 0 分不救，
   //     与 C59 条件②同——图再像也救不了与事件毫无关系的名字）
-  // 与 punExempt 正交并存；superIP 快车道不消费（C59 的 meme≥3 门语义自洽不动）。
+  // 与 punExempt 正交并存（C83 起全语料走标准路径，superIP 语料票同样可获豁免；
+  // 快车道时代的 C59 meme≥3 门随通道删除，意图由本门+J1.28 覆盖）。
   const nicProbs = answers.name_image_consistency?.probabilities ?? {};
   const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
   const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
@@ -1335,247 +1327,3 @@ export function mapStandardAnswers(answers, context) {
   };
 }
 
-/**
- * superIP 快速通道映射（原 fast track 单次 LLM 的等价物）
- *
- * 与主路径的差异：
- * - 量级分不用 event_magnitude（注册表 tier 已确定：S40/A32）
- * - 时效分不用 event_timing（代码端 calculateTimeliness 已算）
- * - W 类两题不采信（superIP 是 C/D 类事件）
- * - 结果写 prestage（category='super_ip_fast'），stage1/2/3 全 __clear
- *
- * @param {Object} answers - JevClient answers（与主路径同一问题集）
- * @param {Object} context
- * @param {Object} context.superIPInfo - 注册表命中信息 {name, type, tier, desc}
- * @param {Object} context.preScores - {tierScore, timeliness, baseEventScore}
- * @param {string} context.symbol - 代币 Symbol（质量长度分用）
- * @param {boolean} [context.includeBrandHijack] - 品牌劫持预检是否命中
- * @param {boolean} [context.imageEvidence] - 配图视觉证据是否存在（C59 指代载体在图
- *   豁免条件①，analyzer 传 imageEvidence = twitterInfo.image_analysis 存在）
- * @param {Object} context.callInfo - 同 mapStandardAnswers
- * @returns {Object} { prestageDataToSave, stageFinalData, llmResult, promptType }
- */
-export function mapSuperIPAnswers(answers, context) {
-  const { superIPInfo, preScores, callInfo } = context;
-  // prestage 单列承载，无 stage2/3 冗余，直接存完整 prompt（state+questions 全文）
-  const promptMeta = buildCallPromptMeta(callInfo.questions, callInfo.stateStats, callInfo.state, { full: true });
-  const rawOutput = JSON.stringify({ answers, usage: callInfo.usage });
-
-  const blockChoice = answers.block_reason?.choice || 'none';
-  const blockProb = answers.block_reason?.probabilities?.[blockChoice];
-  const noneProb = answers.block_reason?.probabilities?.none ?? 0;
-  const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
-
-  // superIP 阻断：注册表账号的日常闲聊（如 S 级人物发纯问候）没有叙事价值
-  // （阻断门槛与主路径一致：P(none)≥0.5 才放行；作用域按注册表 type → C/D 类）
-  // 例外：institution_routine 对注册表账号豁免——旧 fast track 语义是
-  // "S/A 级账号的实质内容推文不算日常运营"（校准实证：币安中文/BNB Chain 的
-  // 实质内容推被 P=0.02-0.09 的日常运营误阻断）
-  const superIPCategory = superIPInfo.type === 'person' ? 'C' : 'D';
-  // name_referent 阻断（J1.10）同样适用于快车道：注册表账号的量级分不能被
-  // "其推文中@到/提到的无名对象"蹭走（YAYA 案例：何一推文@的周边账号名）
-  const nameReferent = answers.name_referent?.choice || null;
-  const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
-  const blockedByBlockReason = blockChoice !== 'none' && blockChoice !== 'institution_routine'
-    && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
-  const nrBlock = nameReferentBlock(answers, superIPCategory);
-  // C59 关联分提前算（截断豁免与下方 Stage3 else 分支共用；纯函数无副作用）
-  const relevance = relevanceFrom(answers);
-  // J1.21 内容作品豁免（C33 MTAT 案，用户裁定「要看被转发的指代对象 meme 程度，
-  // 以及被 web3 用户喜欢的程度」）：超级IP转发/提及的指代对象按对象类型分流——
-  // 人名/账号（YAYA 型）无内容可玩味维持拦截；内容作品 meme 玩味 + web3 契合
-  // 双达标（referent_memeability ≥3，superIP 通道条件题）豁免 nameReferentBlock
-  // 走正常评分管线。仅 superIP 通道（无名对象须有超级IP曝光背书才有生命力）；
-  // web3FitBlock unfit≥0.5 负门独立保底不受豁免影响；分缺失（null）不豁免
-  // （fail-closed：豁免是放行方向，缺数据不放行）
-  const referentMemeScore = answers.referent_memeability?.score ?? null;
-  const nameReferentExempt = !!nrBlock && referentMemeScore != null && referentMemeScore >= REFERENT_MEME_EXEMPT_MIN;
-  const blockedByNameReferent = !!nrBlock && !nameReferentExempt;
-  // C59 指代载体在图豁免（2026-10-07 现金猫案 0x56dc26bd…7777 用户裁定「我认为
-  // 关联应该很强了」，mapper-only 不 bump 题集）：图分析开启后，币名与语料的
-  // 指代映射唯一载体在配图（cashcat ↔ 白猫举金币）——Jev 带图后判 cultural 10 分
-  // （弱字面关联，exact_match 判据的字面语义不允许更强档），同时 referent_
-  // memeability 3.47（指代对象内容作品 + web3 共鸣双达标）已高置信认定指代对象
-  // 有 meme 生命力。三门全中时豁免 Stage3 关联≤10 截断（relevance 分照常计入
-  // 总分，弱字面关联的代价在分数上体现——J1.24 戏谑关联豁免同款计分语义）：
-  //   ① 图证据（analyzer 传 imageEvidence = twitterInfo.image_analysis 存在）——
-  //     精确限定「指代载体在配图」子形状；无此门会误放「文化词蹭 superIP 语料」
-  //     票（182 扫描实证：GM×2/HODL 泛化概念、牛马×4 同名量产家族共 8 行）
-  //   ② 0 < relevance ≤ 10——Jev 已判出关联（>0）且本会被截断（≤10，只救会被
-  //     拦的票）；纯零关联（none 0 分）不救
-  //   ③ referent_memeability ≥ 3（J1.21 双达标阈，superIP 通道恒带此题）
-  // 存量影响面（182 扫描 1311 行/可解析 336）：三门全中恰现金猫 1 行，零外溢
-  const imgReferentExempt = !!context.imageEvidence
-    && relevance.score > 0 && relevance.score <= 10
-    && referentMemeScore != null && referentMemeScore >= REFERENT_MEME_EXEMPT_MIN;
-  // J1.11 负面硬新闻质量门（全域，与标准路径同门；superIP 通道无豁免——
-  // 超级 IP 的被盗/事故公告同样无 meme 空间，蹭名盘照样拦）
-  const nhnBlock = negativeHardNewsBlock(answers);
-  const blockedByNegativeNews = !!nhnBlock;
-  // J1.13 常规内容产品宣传质量门（全域，与标准路径同门；superIP 通道无豁免——
-  // 注册表账号推自己参与的常规电影/剧集宣传，蹭名盘同样拦）
-  const rcpBlock = routineContentProductBlock(answers);
-  const blockedByRoutineContent = !!rcpBlock;
-  // J1.19 Web3用户偏好质量门（全域，与标准路径同门；superIP 通道无豁免——
-  // 超级 IP 语境下同样存在不合链上买家口味的事件，蹭名盘照样拦）
-  const w3Block = web3FitBlock(answers);
-  const blockedByWeb3Unfit = !!w3Block;
-  const blocked = blockedByBlockReason || blockedByNameReferent || blockedByNegativeNews
-    || blockedByRoutineContent || blockedByWeb3Unfit;
-
-  const prestageDataToSave = {
-    category: 'super_ip_fast',
-    model: callInfo.model,
-    prompt: promptMeta,
-    raw_output: rawOutput,
-    parsed_output: {
-      pass: !blocked,
-      blockReason: blocked
-        ? (blockedByNegativeNews ? nhnBlock.label
-          : (blockedByRoutineContent ? rcpBlock.label
-            : (blockedByWeb3Unfit ? w3Block.label
-              : (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label))))
-        : null,
-      dimension2Score: dim2,
-      ipInfo: superIPInfo,
-      tierScore: preScores.tierScore,
-      timeliness: preScores.timeliness,
-      baseEventScore: preScores.baseEventScore,
-      jev: {
-        blockChoice,
-        blockProbability: blockProb ?? null,
-        nameReferent,
-        nameReferentProbability: nameReferentProb,
-        nameReferentBlockMass: nrBlock?.mass ?? null,
-        // J1.21 豁免审计：分数 + 是否豁免（nrBlock 未命中时 exempt 恒 false、
-        // 分数照落库观察；标准路径无此题恒 null）
-        referentMemeability: referentMemeScore,
-        nameReferentExempt,
-        // C59 审计标记：指代载体在图豁免命中详情（relType/relScore/memeScore
-        // 可追溯；未命中不落键，与 J1.24 命中才落的审计模式一致）
-        imgReferentExempt: imgReferentExempt
-          ? { relType: relevance.type, relScore: relevance.score, memeScore: referentMemeScore }
-          : null,
-        negativeHardNewsMass: nhnBlock?.mass ?? null,
-        routineContentProductMass: rcpBlock?.mass ?? null,
-        web3FitMass: w3Block?.mass ?? null,
-        probabilities: {
-          dimension2: answers.dimension2?.probabilities,
-          block_reason: answers.block_reason?.probabilities,
-          name_referent: answers.name_referent?.probabilities,
-          web3_fit: answers.web3_fit?.probabilities,
-        },
-      },
-    },
-    started_at: callInfo.startedAt,
-    finished_at: callInfo.finishedAt,
-    success: true,
-    error: null,
-  };
-
-  let stageFinalData = null;
-  let llmResult;
-
-  if (blocked) {
-    llmResult = blockedByNegativeNews
-      ? {
-          rating: 'low',
-          reason: `阻断:${nhnBlock.label}｜P=${nhnBlock.mass}`,
-          score: null,
-          pass: false,
-        }
-      : blockedByRoutineContent
-      ? {
-          rating: 'low',
-          reason: `阻断:${rcpBlock.label}｜P=${rcpBlock.mass}`,
-          score: null,
-          pass: false,
-        }
-      : blockedByWeb3Unfit
-      ? {
-          rating: 'low',
-          reason: `阻断:${w3Block.label}｜P=${w3Block.mass}`,
-          score: null,
-          pass: false,
-        }
-      : blockedByBlockReason
-      ? {
-          rating: 'low',
-          reason: `阻断:${BLOCK_LABELS[blockChoice] || blockChoice}｜P=${blockProb ?? '-'}`,
-          score: null,
-          pass: false,
-        }
-      : {
-          rating: 'low',
-          reason: `阻断:${nrBlock.label}｜P=${nrBlock.mass}`,
-          score: null,
-          pass: false,
-        };
-  } else {
-    // 原 fast track 聚合公式：eventTotal = baseEventScore + dimension2
-    const eventTotal = round2(preScores.baseEventScore + dim2);
-    const eventWeighted = round2(eventTotal * 0.6);
-    const quality = qualityFrom(answers, context.symbol || '');
-
-    // superIP 同样做 Stage3 截断检查（品牌劫持/拼写/关联/质量）；
-    // C59 指代载体在图豁免在此挂（imgReferentExempt 上方判定，条件与注释见上）
-    const brandHijackP = context.includeBrandHijack ? (answers.brand_hijack?.noul ?? 0) : 0;
-    const misspellingP = answers.block_misspelling?.noul ?? 0;
-    let truncated = false;
-    let truncateReason = null;
-    if (brandHijackP >= 0.5) { truncated = true; truncateReason = '品牌劫持'; }
-    else if (misspellingP >= 0.5) { truncated = true; truncateReason = '无背景拼写错误'; }
-    else if (relevance.score <= 10 && !imgReferentExempt) { truncated = true; truncateReason = `关联性不足（${relevance.score}分）`; }
-    else if (quality.total <= 4) { truncated = true; truncateReason = `代币质量过低（${quality.total}分）`; }
-
-    if (truncated) {
-      llmResult = {
-        rating: 'low',
-        reason: `截断:${truncateReason}｜事件分${eventWeighted}(${eventTotal}×0.6)`,
-        score: null,
-        pass: false,
-      };
-      stageFinalData = {
-        category: 'low',
-        totalScore: null,
-        eventScore: eventWeighted,
-        relevanceScore: relevance.score,
-        qualityScore: quality.total,
-        eventWeight: 0.6,
-        stage2TotalScore: eventTotal,
-        blockReason: truncateReason,
-      };
-    } else {
-      const totalScore = round2(eventWeighted + relevance.score + quality.total);
-      const rating = totalScore >= 70 ? 'high' : totalScore >= 50 ? 'mid' : 'low';
-      llmResult = {
-        rating,
-        reason: `${imgReferentExempt ? '指代载体在图豁免(C59)｜' : ''}事件分${eventWeighted}(${eventTotal}×0.6:${preScores.tierScore}+时效${preScores.timeliness}+传播${dim2})｜关联${relevance.score}(${relevance.type})｜质量${quality.total}｜总分${totalScore}→${rating}`,
-        score: totalScore,
-        pass: true,
-      };
-      stageFinalData = {
-        category: rating,
-        totalScore,
-        eventScore: eventWeighted,
-        relevanceScore: relevance.score,
-        qualityScore: quality.total,
-        eventWeight: 0.6,
-        stage2TotalScore: eventTotal,
-        blockReason: null,
-      };
-    }
-  }
-
-  const promptType = `super_ip_fast(${superIPInfo.name}/${superIPInfo.tier}级/jev-${JEV_QUESTIONS_VERSION})`;
-
-  return {
-    prestageDataToSave,
-    stage1DataToSave: { __clear: true },
-    stage2DataToSave: { __clear: true },
-    stage3DataToSave: { __clear: true },
-    stageFinalData,
-    llmResult,
-    promptType,
-  };
-}

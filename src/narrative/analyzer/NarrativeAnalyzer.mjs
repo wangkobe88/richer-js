@@ -23,15 +23,15 @@ import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
 import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
-import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
+import { detectSuperIP } from './prompts/super-ip/super-ip-registry.mjs';
 import { collectSearchEvidence, meetsBypassThreshold, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 
-// Jev 判定（主路径 + 超大IP快速通道 + prestage 前置判定）
+// Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
 import { JevClient } from './llm/JevClient.mjs';
 import { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
 import { JEV_PRESTAGE_QUESTIONS_VERSION } from './llm/jev-prestage-questions.mjs';
 import { buildJevState } from './llm/jev-state-builder.mjs';
-import { mapStandardAnswers, mapSuperIPAnswers } from './llm/jev-result-mapper.mjs';
+import { mapStandardAnswers } from './llm/jev-result-mapper.mjs';
 import { classifyTweetType } from './services/tweet-type-classifier.mjs';
 
 // 获取supabase客户端
@@ -113,11 +113,12 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
  * - prestage 路径（账号/社区/项目币/发行方自发）：prestageDataToSave.category = tokenType
  *   （project / account_based_meme / web3_native_ip_early）
  * - superIP 快速通道：同一 prestage 位承载 category='super_ip_fast'（jev-result-mapper）
+ *   （C83 起快车道删除不再产生；分支保留防御旧行重放）
  * - 标准路径：stage1 事件类别 → 'event:<A~W>'
  * - precheck fail / no_data：未走到分类环节 → null
  *
  * @param {Object} prestageDataToSave - prestage 阶段数据（含 __clear 标记形态）
- * @param {Object} stage1DataToSave - 标准/superIP 路径 stage1 数据
+ * @param {Object} stage1DataToSave - 标准路径 stage1 数据
  * @returns {string|null} 分类值
  */
 export function deriveTokenCategory(prestageDataToSave, stage1DataToSave) {
@@ -702,66 +703,22 @@ export class NarrativeAnalyzer {
           }
 
           // ═══════════════════════════════════════════════════════════════════════════
-          // 超大IP快速通道：Jev 单次调用完成所有评估
-          // 条件：推文来自注册表中的超大IP账号（CZ/何一/币安官方/Elon/Trump等）
-          // 与主路径共用同一问题集；tier/时效用代码预评分，W 类两题不采信
-          // ═══════════════════════════════════════════════════════════════════════════
-          if (superIPInfo && !shouldUseAccountCommunity) {
-            logger.info('NarrativeAnalyzer', `使用超大IP快速通道（Jev）：${superIPInfo.name}（${superIPInfo.type}/${superIPInfo.tier}级）`);
-
-            const preScores = calculatePreScores(superIPInfo, twitterInfo?.created_at, jevNowMs);
-            logger.info('NarrativeAnalyzer', '超大IP预评分', preScores);
-
-            const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
-            const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
-            const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, preScores, now: jevNowMs });
-            // J1.21：superIP 通道携带 referent_memeability 条件题（nameReferentBlock
-            // 命中时的内容作品豁免评分，标准路径不问）
-            const questions = buildStandardQuestions({ includeBrandHijack, referentMemeability: true });
-            const startedAt = new Date().toISOString();
-            const result = await timing.wrap('jev.superip', () => JevClient.ask(state, questions, { label: `jev-superip:${tokenData.symbol}` }));
-            const finishedAt = new Date().toISOString();
-
-            const mapped = mapSuperIPAnswers(result.answers, {
-              superIPInfo,
-              preScores,
-              symbol: tokenData.symbol,
-              includeBrandHijack,
-              // C59 指代载体在图豁免条件①：配图视觉证据存在（analyzeTweetImage
-              // 已在上方正常流程分支挂载 image_analysis）；C72 门跳过时恒 false
-              imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis,
-              callInfo: {
-                model: result.model, questions, state, stateStats: stats,
-                usage: result.usage, startedAt, finishedAt,
-              },
-            });
-
-            prestageDataToSave = mapped.prestageDataToSave;
-            stage1DataToSave = mapped.stage1DataToSave;
-            stage2DataToSave = mapped.stage2DataToSave;
-            stage3DataToSave = mapped.stage3DataToSave;
-            stageFinalData = mapped.stageFinalData;
-            llmResult = mapped.llmResult;
-            promptType = mapped.promptType;
-
-            logger.info('NarrativeAnalyzer', '超大IP快速通道评分（Jev）', {
-              rating: mapped.llmResult.rating,
-              score: mapped.llmResult.score,
-              reason: mapped.llmResult.reason,
-            });
-
-          // ═══════════════════════════════════════════════════════════════════════════
           // 主路径：Jev 单次 speculative fan-out 判定（原 3 阶段串行 LLM 的替代）
           // 一次调用问完分类/量级/时效/阻断/W类/关联/质量全部原子问题，
-          // 聚合/阈值/截断在 jev-result-mapper 代码端完成
+          // 聚合/阈值/截断在 jev-result-mapper 代码端完成。
+          // superIP 注册表命中的语料（C83）：不再走已删除的快车道，统一本路径
+          // 全量 18 题；注册表命中事实行注入 state（jev-state-builder PRECOMPUTED）
           // ═══════════════════════════════════════════════════════════════════════════
-          } else if (!shouldUseAccountCommunity) {
+          if (!shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用 Jev 单次判定（原3阶段架构的替代）');
 
             // Jev 单次 speculative fan-out：全部原子问题一次问完，代码端聚合
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
-            const { state, stats } = buildJevState(tokenData, jevFetchResults, { now: jevNowMs });
+            // superIP 注册表命中（C83）：命中事实行进 state PRECOMPUTED（认证标注 +
+            // 反混淆提示），量级/关联/主体资格全归 Jev 按题集判定——非 superIP 票
+            // superIPInfo=null，builder guard 跳过注入，state 与旧版逐字节一致
+            const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, now: jevNowMs });
             // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
             // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
             const questions = buildStandardQuestions({

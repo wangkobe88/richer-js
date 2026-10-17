@@ -73,7 +73,7 @@ function stage2Of(mapped) { return mapped?.stage2DataToSave?.parsed_output || {}
 function stage3Of(mapped) { return mapped?.stage3DataToSave?.parsed_output || {}; }
 
 async function main() {
-  const { mapStandardAnswers, mapSuperIPAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
+  const { mapStandardAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
   const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
 
   console.log('\n── A. 狮鹫案数值复现（B 0.71 / tierB 3:0.65 / notable 0.45 / strong_fit 0.96）──');
@@ -165,18 +165,8 @@ async function main() {
   check('B6 三项全低（super_ip 0.55 主）：不拦 + 无审计字段',
     stage2Of(mn).jev?.nameReferentBlockMass === null && stage1Of(mn).jev?.nrNotableExempt === null);
 
-  // B7 superIP 通道（person→C 域）同样解除：notable 主导不再拦，走评分管线
-  const spAnswers = griffinAnswers();
-  spAnswers.name_referent = { choice: 'notable_other', probabilities: { notable_other: 0.6, minor_other: 0.05, common_word: 0.02 } };
-  const msp = mapSuperIPAnswers(spAnswers, {
-    ...makeContext(),
-    superIPInfo: { name: 'CZ', type: 'person', tier: 'S' },
-    preScores: { tierScore: 39, timeliness: 25, baseEventScore: 59 },
-  });
-  const spPrestage = msp?.prestageDataToSave?.parsed_output || {};
-  check('B7 superIP 通道（person→C 域）notable 0.67 旧合计：name 门不再拦 + 评分管线走通',
-    spPrestage.jev?.nameReferentBlockMass == null && spPrestage.pass === true,
-    { mass: spPrestage.jev?.nameReferentBlockMass, pass: spPrestage.pass, reason: msp?.llmResult?.reason });
+  // B7 已删（C83）：superIP 快车道（person→C 域）随通道删除——notable 甄别终结
+  // 由 B1a/D1 的标准路径等价物锁定，superIP 语料票同走 mapStandardAnswers
 
   // B7b YAYA 边缘形状（minor 0.41+notable 0.14，旧合计 0.55 曾拦；A2 后 minor
   // 单项不过线 → name 门放）：新兜底 = web3_fit unfit 负门拦截

@@ -1,10 +1,11 @@
 /**
  * 超大IP注册表
- * 用于快速通道：识别超大IP账号后，跳过3阶段分析，单次LLM完成评估
+ * C83 起用于：注册表命中信息注入标准 Jev 路径 state（认证事实行）+
+ * tweet-type-classifier 回复目标判定 + C51 GMGN 补源并入判据。
+ * （C83 前为快车道预评分源——tier 分值/时效预分已随通道删除）
  *
  * 注册表包含：
  * - screen_name → IP信息（名称、类型、级别、描述）
- * - 维度一分值映射
  * - 检测函数
  */
 
@@ -52,33 +53,6 @@ export const SUPER_IP_REGISTRY = {
   'pumpfun':          { name: 'Pump.fun',          type: 'institution', tier: 'A', desc: 'Solana最大meme平台' },
   'four_meme_fora':   { name: 'FourMeme',          type: 'institution', tier: 'A', desc: 'BSC链发币平台' },
 };
-
-/**
- * 维度一分值映射（与C类/D类Stage2 prompt一致）
- */
-export const TIER_SCORES = { S: 40, A: 32, B: 24, C: 12 };
-
-/**
- * 计算时效性加分（与Stage2 prompt一致）
- * @param {string|number} tweetCreatedAt - 推文创建时间
- * @param {number} [nowMs] - 时间基准毫秒时间戳（默认当前时刻）；
- *   传代币创建时间使时效与何时分析无关（补跑/回测幂等，与 pre-check 规则2 同裁定）
- * @returns {number} 时效性加分 (0/10/15)
- */
-export function calculateTimeliness(tweetCreatedAt, nowMs) {
-  if (!tweetCreatedAt) return 0;
-  try {
-    const createdDate = new Date(tweetCreatedAt);
-    if (isNaN(createdDate.getTime())) return 0;
-    const age = (nowMs ?? Date.now()) - createdDate.getTime();
-    const days = age / (1000 * 60 * 60 * 24);
-    if (days <= 7) return 15;
-    if (days <= 30) return 10;
-    return 0;
-  } catch {
-    return 0;
-  }
-}
 
 /**
  * 从Twitter URL提取screen_name
@@ -137,18 +111,4 @@ export function detectSuperIP(twitterUrl, twitterInfo) {
 export function isSuperIpTweetUrl(url) {
   if (!url || !/\/status\/\d+/.test(url)) return null;
   return detectSuperIP(url);
-}
-
-/**
- * 计算预评分（规则确定的部分，无需LLM）
- * @param {Object} ipInfo - 注册表中的IP信息
- * @param {string|number} tweetCreatedAt - 推文创建时间
- * @param {number} [nowMs] - 时间基准毫秒时间戳（透传给 calculateTimeliness）
- * @returns {Object} 预评分 { tierScore, timeliness, baseEventScore }
- */
-export function calculatePreScores(ipInfo, tweetCreatedAt, nowMs) {
-  const tierScore = TIER_SCORES[ipInfo.tier] || 0;
-  const timeliness = calculateTimeliness(tweetCreatedAt, nowMs);
-  const baseEventScore = tierScore + timeliness;
-  return { tierScore, timeliness, baseEventScore };
 }

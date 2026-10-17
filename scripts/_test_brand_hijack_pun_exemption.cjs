@@ -167,10 +167,10 @@ async function main() {
     /credibleEventAnchor: !!\(superIPInfo \|\| issuerDetected \|\| binanceSquareInfo\?\.authorVerified\)/.test(analyzerSrc));
   check('D3 题面：豁免③含戏谑关联语义 + 新鲜事锚条件',
     /戏谑性关联是meme创作手法而非劫持/.test(questionsSrc) && /无新鲜事件锚时纯玩品牌词根才是劫持/.test(questionsSrc));
-  // D4 superIP 快车道（mapSuperIPAnswers）一期不挂豁免——范围断言
-  const superipSeg = mapperSrc.slice(mapperSrc.indexOf('export function mapSuperIPAnswers'));
-  check('D4 superIP 路径一期不挂 punExempt（版本注释+台账记观察点）',
-    !superipSeg.includes('punExempt'));
+  // C83：mapSuperIPAnswers 快车道删除——J1.24 戏谑豁免对 superIP 语料票经标准
+  // 路径 credibleEventAnchor（superIPInfo 项真实可达）终结「一期不挂」欠账
+  check('D4 superIP 快车道已删（punExempt 经标准路径对 superIP 语料可达）',
+    !mapperSrc.includes('mapSuperIPAnswers'));
   check('D5 预检函数对 C40 票命中（Binance Inu 含 binance 关键词）',
     shouldIncludeBrandHijackCheck('BI', 'Binance Inu') === true);
 

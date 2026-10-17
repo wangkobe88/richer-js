@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.31（J1.31=E 类感染力折损题，名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.31', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.32（J1.32=C83 快车道退役 state 形状断代；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.32', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);
@@ -208,9 +208,10 @@ async function main() {
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
   check('F1 mapper 截断链形状（!imgNameExempt 锁定）',
     mapperSrc.includes('relevance.score <= 10 && !punExempt && !imgNameExempt'), null);
-  const superFnBody = mapperSrc.slice(mapperSrc.indexOf('export function mapSuperIPAnswers'));
-  check('F2 superIP 快车道不消费 name_image_consistency（C59 的 meme≥3 门语义不动）',
-    !superFnBody.includes('name_image_consistency') && !superFnBody.includes('imgNameExempt'), null);
+  // C83：mapSuperIPAnswers 快车道删除——J1.30 名图一致豁免对 superIP 语料票
+  // 经标准路径真实可达（旧「一期不挂」欠账终结），不存在性断言锁定
+  check('F2 mapSuperIPAnswers 快车道已删（J1.30 对 superIP 语料经标准路径可达）',
+    !mapperSrc.includes('mapSuperIPAnswers'), null);
   const analyzerSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'NarrativeAnalyzer.mjs'), 'utf8');
   // C72 vision 预判门：布尔前缀 !visionSkipped &&（门跳过=确定性无图语义，J1.30 不问）
   check('F3 analyzer 标准分支接线：buildStandardQuestions imageConsistency 条件',

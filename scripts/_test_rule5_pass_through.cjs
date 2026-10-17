@@ -3,7 +3,7 @@
  * 规则5（high_influence_with_media）直发废除单测（2026-10-06 NIGGALON 案，方案 A）
  *
  * 改动语义：高影响力账号/高交互 + 媒体推文不再直发 mid，pre-check 放行
- * （返回 null）走 Jev（superIP fast-track / 标准路径）。
+ * （返回 null）走 Jev 标准路径（superIP 注册表命中 → state 注入认证行，C83 起无快车道）。
  *
  * 零 DB 零网络：输入不携带 appendix/created_at/tokenCreatedAtSec（同名族与
  * 过期规则的触发前提全部缺失，天然跳过），twitterInfo 只带规则5所需字段。
@@ -13,7 +13,7 @@
  *   B. 高交互腿（非名单账号 赞>5000）+ 媒体 → 同样放行
  *   C. 无媒体的高影响力推文 → 不触发规则5（null，与旧行为一致）
  *   D. 其他规则不受影响：symbol_too_long 仍拦截（管线有效性对照）
- *   E. 放行后 fast-track 通路存在：super-ip-registry 覆盖直发盲区头部账号
+ *   E. 放行后 registry 覆盖存在：super-ip-registry 覆盖直发盲区头部账号（C83 起=state 注入）
  *   F. 源码口径：规则5块无 return buildPreCheckResult（防回退）
  */
 'use strict';
@@ -88,7 +88,7 @@ async function main() {
     origLog('  D. symbol_too_long 不受影响 ✓');
   }
 
-  // E. 放行后 fast-track 通路：registry 覆盖直发盲区头部账号
+  // E. 放行后 registry 覆盖：头部账号命中进 state 认证行（C83 起无快车道）
   {
     const { detectSuperIP } = await import('../src/narrative/analyzer/prompts/super-ip/super-ip-registry.mjs');
     for (const [handle, note] of [
@@ -98,7 +98,7 @@ async function main() {
       ['heyibinance', '31 票'],
     ]) {
       const hit = detectSuperIP(`https://x.com/${handle}/status/123`, null);
-      assert.ok(hit && hit.tier === 'S', `E: @${handle}（${note}）应在 superIP registry（fast-track 通路）`);
+      assert.ok(hit && hit.tier === 'S', `E: @${handle}（${note}）应在 superIP registry（C83 起=state 认证行注入）`);
     }
     origLog('  E. superIP registry 覆盖头部账号 ✓');
   }
@@ -114,7 +114,7 @@ async function main() {
     origLog('  F. 源码口径 ✓');
   }
 
-  origLog('\n全部通过：A 放行 / B 高交互腿 / C 无媒体不触发 / D 他规则不变 / E fast-track 通路 / F 源码防回退');
+  origLog('\n全部通过：A 放行 / B 高交互腿 / C 无媒体不触发 / D 他规则不变 / E registry 覆盖（state 注入）/ F 源码防回退');
 }
 
 main().then(() => process.exit(0)).catch(e => { origLog('\nFAIL:', e.message); process.exit(1); });

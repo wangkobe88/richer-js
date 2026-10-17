@@ -2,13 +2,12 @@
 /**
  * P2 校准对比：历史 token 旧 3 阶段评级 vs Jev 单次判定评级
  *
- * 抽样：按旧 prompt_type 分层（8 类各 2-5 条 + super_ip_fast 若干），
- * 排除已是 jev-* 的行。语料优先 twitter_info 列快照（时间基准=analyzed_at，
+ * 抽样：按旧 prompt_type 分层（8 类各 2-5 条），排除已是 jev-* 的行。
+ * super_ip_fast 历史行不抽样（C83 起快车道删除，无对应重放通道）。
+ * 语料优先 twitter_info 列快照（时间基准=analyzed_at，
  * 时效项与旧评级同基准可比），不重新抓取。
  *
  * 输出：逐条明细 + 汇总（一致率 / 混淆矩阵 / 分歧归因）。
- * 注意：superIP 样本的时效分由 calculatePreScores 内部 Date.now() 计算
- * （旧评级是当时算的），归因时需考虑该偏移。
  *
  * 用法：node scripts/narrative/jev_calibration.mjs [--limit-peq-class N]
  */
@@ -26,11 +25,10 @@ const { ExternalResourceCache } = await import('../../src/narrative/db/ExternalR
 const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
 const { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } = await import('../../src/narrative/analyzer/llm/jev-questions.mjs');
 const { buildJevState } = await import('../../src/narrative/analyzer/llm/jev-state-builder.mjs');
-const { mapStandardAnswers, mapSuperIPAnswers } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
-const { detectSuperIP, calculatePreScores } = await import('../../src/narrative/analyzer/prompts/super-ip/super-ip-registry.mjs');
+const { mapStandardAnswers } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
 
-/** 各旧类别的抽样上限（总数 ≈ 26-30；--scale N 按比例放大用于远程扩样定参） */
-const BASE_QUOTA = { 'A': 3, 'W': 3, 'B': 3, 'F': 3, 'C': 5, 'D': 4, 'G': 2, 'E': 4, super_ip_fast: 4 };
+/** 各旧类别的抽样上限（总数 ≈ 22-27；--scale N 按比例放大用于远程扩样定参） */
+const BASE_QUOTA = { 'A': 3, 'W': 3, 'B': 3, 'F': 3, 'C': 5, 'D': 4, 'G': 2, 'E': 4 };
 const scaleIdx = process.argv.indexOf('--scale');
 const scale = scaleIdx > 0 ? Math.max(1, parseInt(process.argv[scaleIdx + 1], 10) || 1) : 1;
 const QUOTA = Object.fromEntries(Object.entries(BASE_QUOTA).map(([k, v]) => [k, v * scale]));
@@ -55,7 +53,8 @@ async function main() {
   for (const row of rows) {
     const pt = row.prompt_type || '';
     if (pt.startsWith('jev')) continue; // 已是 Jev 行（端到端验证产生的）
-    const cls = pt.startsWith('super_ip_fast') ? 'super_ip_fast' : (pt.match(/stage1\+stage2\(([A-H])类\)/)?.[1]);
+    // super_ip_fast 历史行 match 不到 A-H 类 → cls=null → skip（C83 起无重放通道）
+    const cls = pt.match(/stage1\+stage2\(([A-H])类\)/)?.[1];
     if (!cls || !QUOTA[cls]) continue;
     if ((counts[cls] || 0) >= QUOTA[cls]) continue;
     counts[cls] = (counts[cls] || 0) + 1;
@@ -98,19 +97,8 @@ async function main() {
     const oldScore = row.stage_final_result?.score ?? row.stage2_result?.score ?? null;
     const oldBlock = row.stage_final_result?.details?.blockReason || row.stage2_result?.reason || null;
 
-    // superIP 样本：从语料重新命中注册表（旧 prompt_type 已带名字，重算一致即命中）
-    const superIPInfo = row.oldClass === 'super_ip_fast'
-      ? detectSuperIP(row.extracted_info?.twitterUrl || row.classified_urls?.twitter?.[0]?.url, twitterInfo)
-      : null;
-
-    const isSuperIP = !!superIPInfo;
-    const { state, stats } = buildJevState(tokenData, fetchResults, isSuperIP ? {
-      superIPInfo,
-      preScores: calculatePreScores(superIPInfo, twitterInfo?.created_at),
-      now: analyzedAtMs,
-    } : { now: analyzedAtMs });
-    // J1.21：superIP 样本与线上同口径携带 referent_memeability（nameReferentBlock 豁免评分）
-    const questions = buildStandardQuestions({ includeBrandHijack, referentMemeability: isSuperIP });
+    const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
+    const questions = buildStandardQuestions({ includeBrandHijack });
 
     const t0 = Date.now();
     const result = await JevClient.ask(state, questions, { label: `calib:${row.token_symbol}` });
@@ -121,9 +109,7 @@ async function main() {
       usage: result.usage,
       startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(),
     };
-    const mapped = isSuperIP
-      ? mapSuperIPAnswers(result.answers, { superIPInfo, preScores: calculatePreScores(superIPInfo, twitterInfo?.created_at), symbol: tokenData.symbol, includeBrandHijack, callInfo })
-      : mapStandardAnswers(result.answers, { tokenData, includeBrandHijack, twitterInfo, callInfo });
+    const mapped = mapStandardAnswers(result.answers, { tokenData, includeBrandHijack, twitterInfo, callInfo });
 
     const newRating = mapped.llmResult.rating;
     const newScore = mapped.llmResult.score ?? null;
@@ -139,24 +125,23 @@ async function main() {
     // 分歧归因（对比旧 stage 数据与新 answers 的关键差异）
     let attributions = [];
     if (verdict !== '一致') {
-      const oldCat = isSuperIP ? 'superIP' : (row.stage1_result?.details?.eventClassification?.primaryCategory || row.stage1_result?.category || '?');
-      const newCat = isSuperIP ? 'superIP' : a.event_category?.choice;
+      const oldCat = row.stage1_result?.details?.eventClassification?.primaryCategory || row.stage1_result?.category || '?';
+      const newCat = a.event_category?.choice;
       const newTier = mapped.jevDetails?.tier || a.event_magnitude?.score?.toFixed(1);
-      if (!isSuperIP && oldCat !== newCat) attributions.push(`分类 ${oldCat}→${newCat}(conf=${a.event_category?.confidence})`);
+      if (oldCat !== newCat) attributions.push(`分类 ${oldCat}→${newCat}(conf=${a.event_category?.confidence})`);
       const blockC = a.block_reason?.choice;
       if (blockC !== 'none' && !(oldBlock)) attributions.push(`新阻断:${blockC}(noneP=${a.block_reason?.probabilities?.none?.toFixed(2)})`);
       if (oldBlock && blockC === 'none') attributions.push(`旧阻断消失:${String(oldBlock).slice(0, 20)}`);
-      if (!isSuperIP) attributions.push(`tier=${newTier} timing=${a.event_timing?.choice} dim2=${a.dimension2?.score?.toFixed(1)}`);
-      else attributions.push(`dim2=${a.dimension2?.score?.toFixed(1)}(时效按当前时间算)`);
+      attributions.push(`tier=${newTier} timing=${a.event_timing?.choice} dim2=${a.dimension2?.score?.toFixed(1)}`);
       attributions.push(`rel=${a.relevance_type?.choice}/lv${a.relevance_level?.score?.toFixed(1)}`);
     }
 
     details.push({
-      symbol: row.token_symbol, cls: row.oldClass, isSuperIP,
+      symbol: row.token_symbol, cls: row.oldClass,
       oldRating, oldScore, newRating, newScore, verdict, elapsed,
       reason: mapped.llmResult.reason, attributions,
       // 量表校准用原始数据
-      newClass: isSuperIP ? null : a.event_category?.choice,
+      newClass: a.event_category?.choice,
       newTier: mapped.jevDetails?.tier || null,
       dim2Raw: a.dimension2?.score,
       oldTierScore: row.stage2_result?.details?.raw?.scoringResult?.magnitudeScore ?? null,
@@ -164,7 +149,7 @@ async function main() {
       blockChoice: a.block_reason?.choice, noneProb: a.block_reason?.probabilities?.none,
     });
 
-    console.log(`[${verdict}] ${row.oldClass}${isSuperIP ? '(superIP)' : ''} ${row.token_symbol}: ${oldRating}(${oldScore ?? '-'}) → ${newRating}(${newScore ?? '-'}) [${elapsed}ms]`);
+    console.log(`[${verdict}] ${row.oldClass} ${row.token_symbol}: ${oldRating}(${oldScore ?? '-'}) → ${newRating}(${newScore ?? '-'}) [${elapsed}ms]`);
     if (attributions.length) console.log(`      └ ${attributions.join(' | ')}`);
   }
 
@@ -192,8 +177,7 @@ async function main() {
   }
 
   // ── 量表校准数据（代码端 tierScore/dim2 映射定参用）──
-  const std = details.filter(d => !d.isSuperIP);
-  const tierPairs = std.filter(d => d.oldTierScore != null);
+  const tierPairs = details.filter(d => d.oldTierScore != null);
   if (tierPairs.length) {
     console.log(`\ntier 对照（旧 magnitudeScore ↔ 新 Jev 档，n=${tierPairs.length}）:`);
     const byOld = {};
@@ -206,7 +190,7 @@ async function main() {
       console.log(`  旧${oldS}分 → ${JSON.stringify(dist)}`);
     }
   }
-  const dim2Pairs = std.filter(d => d.oldDim2 != null && d.dim2Raw != null);
+  const dim2Pairs = details.filter(d => d.oldDim2 != null && d.dim2Raw != null);
   if (dim2Pairs.length) {
     const oldAvg = (dim2Pairs.reduce((s, d) => s + d.oldDim2, 0) / dim2Pairs.length).toFixed(1);
     // Jev raw score 0-6 档 → 现行插值分的均值
@@ -218,8 +202,8 @@ async function main() {
     const rawHist = dim2Pairs.reduce((m, d) => (m[Math.floor(d.dim2Raw)] = (m[Math.floor(d.dim2Raw)] || 0) + 1, m), {});
     console.log(`\ndim2 对照（n=${dim2Pairs.length}）: 旧均值 ${oldAvg} | 现行映射均值 ${curAvg} | Jev raw 档直方图 ${JSON.stringify(rawHist)}`);
   }
-  const catMatch = std.filter(d => d.newClass === d.cls.replace('super_ip_fast', ''));
-  console.log(`\n分类一致率: ${catMatch.length}/${std.length} (${(catMatch.length / std.length * 100).toFixed(0)}%)`);
+  const catMatch = details.filter(d => d.newClass === d.cls);
+  console.log(`\n分类一致率: ${catMatch.length}/${details.length} (${(catMatch.length / details.length * 100).toFixed(0)}%)`);
   const blockHits = details.filter(d => d.blockChoice !== 'none');
   console.log(`block_reason≠none: ${blockHits.length}/${details.length}（含 scope 外与 noneP≥0.5 放行的）`);
 

@@ -163,10 +163,11 @@ async function main() {
   {
     const na = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
     for (const seg of ['cacheLookup', 'tokenData', 'dbSave.intermediate', 'accountCollect',
-      'issuerCa', 'precheck', 'vision', 'jev.prestage', 'jev.superip', 'jev.standard',
+      'issuerCa', 'precheck', 'vision', 'jev.prestage', 'jev.standard',
       'dbSave.final', 'reassemble']) {
       assert(na.includes(`timing.wrap('${seg}'`), `D1 NarrativeAnalyzer 段 ${seg} 存在`);
     }
+    assert(!na.includes("timing.wrap('jev.superip'"), 'D1b jev.superip 段已删（C83 快车道退役）');
     assert(na.includes('createSegmentTimer(options._timing)'), 'D2 analyze 入口 _timing → collector');
     assert(na.includes('{ enrichSocialByGmgn, timing }'), 'D3 timing 传入 fetchAllDataViaClassifier');
     // accountCollect 三处调用点（主路径/项目币 twitterInfo/issuer 补收）+ getFullAccountInfo

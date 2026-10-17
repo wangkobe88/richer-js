@@ -193,8 +193,11 @@ async function main() {
     && src.includes('const platformOfficial = detectPlatformOfficial(twitterInfo);')
     && src.includes('rcpPlatformExempt,')
     && src.includes('twitterInfo?.author_screen_name || twitterInfo?.screen_name'));
-  check('D2c superIP 通道不传 opts（C23 域语义不变，币安官方号走注册表快车道本就豁免）',
-    src.includes('const rcpBlock = routineContentProductBlock(answers);'));
+  // C83：mapSuperIPAnswers 快车道删除（无 opts 的 routineContentProductBlock(answers)
+  // 调用仅存于快车道）——rcp 门走全作用域 + platformOfficial 豁免，superIP 语料票
+  // 经标准路径可达（旧全域注册表豁免收紧为 {binance, flapdotsh}）
+  check('D2c superIP 快车道已删（rcp 门经标准路径全作用域可达，platformOfficial 豁免面收紧）',
+    !src.includes('mapSuperIPAnswers') && !src.includes('routineContentProductBlock(answers);'));
   check('D3 阈值 0.5 与 unfit 负门/strong_fit 正门同线', src.includes('const fitMass = (p.strong_fit ?? 0) + (p.fit ?? 0);') && src.includes('if (fitMass >= 0.5) return null;'));
   check('D3b detectBinanceCorpus 关键词与语料源（binance/币安 × 主推+父推+代币名）',
     src.includes("const BINANCE_KEYWORDS = ['binance', '币安'];") && src.includes('twitterInfo?.in_reply_to?.text'));

@@ -48,8 +48,8 @@ const MIN_SECTION_KEEP_CHARS = 200;
  * @param {Object} tokenData - 代币数据（同 buildStage1Preprocessing 的输入）
  * @param {Object} fetchResults - 数据获取结果（同 Stage1）
  * @param {Object} [options]
- * @param {Object|null} [options.superIPInfo] - 超大IP注册表命中信息
- * @param {Object|null} [options.preScores] - 超大IP预评分 {tierScore, timeliness, baseEventScore}
+ * @param {Object|null} [options.superIPInfo] - 超大IP注册表命中信息（C83：注入
+ *   认证事实行 + 反混淆提示行进 PRECOMPUTED，不再预评分——评分全归 Jev 题集）
  * @param {Object|null} [options.tweetClassification] - 预分类结果（不传则现场分类）
  * @param {number} [options.now] - 时间基准（毫秒时间戳；默认 Date.now()）。
  *   生产传代币创建时间（时效=发币时语料新鲜度，与何时分析无关——补跑/回测/延迟分析幂等，
@@ -107,7 +107,9 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
   if (options.superIPInfo) {
     precomputed.push(
       `super_ip_hit: ${options.superIPInfo.name}（${options.superIPInfo.type}/${options.superIPInfo.tier}级，${options.superIPInfo.desc}）`,
-      options.preScores ? `super_ip_pre_scores: tierScore=${options.preScores.tierScore}, timeliness=${options.preScores.timeliness}, baseEventScore=${options.preScores.baseEventScore}` : null,
+      // C83 反混淆提示（BI 簇案）：身份事实进直接采信块，但「作者是 IP」≠「票属于
+      // IP」——关联/主体资格/量级仍归题集判定，防 Jev 把作者认证误当代币背书
+      `super_ip_note: 以上仅为语料作者的身份认证事实（该账号确为注册表在册IP）。代币与该IP的实际关联、代币主体资格与事件量级仍须按题集逐题判定；作者身份不构成对该代币的背书`,
     );
   }
 
