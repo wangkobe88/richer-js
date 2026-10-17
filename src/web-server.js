@@ -745,10 +745,13 @@ class RicherJsWebServer {
 
           // live 执行层参数（引擎读实验 config 的对应平台 ws 段 live；仅落用户可调项，
           // 加固参数 minOutRatio/熔断/超时走 config/default.json 默认）
+          // 缺省值读 config/default.json 对应平台 live 段（单一真相源）——BI 案滑点 5→20 教训：
+          // 表单兜底硬编码 5 曾覆盖 default 的 20，实验级显式值反向压过用户裁定
+          const liveDefaults = require('../config/default.json')[resolvedPlatform === 'flap' ? 'flapWs' : 'fourmemeWs']?.live || {};
           const liveParams = {
-            reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : 0.1,
-            slippageTolerance: strategy?.live?.slippageTolerance || 5,
-            maxGasPrice: strategy?.live?.maxGasPrice || 10,
+            reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : liveDefaults.reserveNative ?? 0.01,
+            slippageTolerance: strategy?.live?.slippageTolerance ?? liveDefaults.slippageTolerance ?? 20,
+            maxGasPrice: strategy?.live?.maxGasPrice ?? liveDefaults.maxGasPrice ?? 10,
             maxPositionTokens: maxPositionTokens !== undefined ? parseInt(maxPositionTokens, 10) || 0 : 0
           };
           if (resolvedPlatform === 'flap') {
