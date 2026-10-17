@@ -978,6 +978,61 @@ export function mapStandardAnswers(answers, context) {
       || rcpArgmaxWouldBlock)
     ? true : null;
 
+  // ── Stage3 豁免判定前移（C86 D-1，2026-10-17 用户裁定「豁免应贯穿」）──
+  // J1.24 戏谑豁免 / J1.30 名图一致豁免原本定义在 Stage3 段（只豁 Stage3 截断），
+  // 但 Stage2 量级门在门链中先于 Stage3 执行——豁免票若 tier D/E（J1.30 可达）或
+  // 事件分<60 会在到达豁免语义前被量级门拦下 = 遗漏。豁免判定是纯函数（依赖
+  // answers/timing/effTier/relevanceFrom/context，全部在上方已就绪），整块前移到
+  // 门链之前；豁免本体条件一字不动（J1.24 仍要求 effTier S/A——tier 不足的纯蹭
+  // 名盘是 C40 裁定原文的拦截方向，由 punExempt 自身条件继续承担；J1.30 三门
+  // 原样）。W 数学分支 pass 线刻意不豁免（W 有自己的 C42 豁免机制与 cashtag
+  // 改道拦截语义，量级门不属于 W 数学）
+  const relevance = relevanceFrom(answers);
+  const brandHijackP = includeBrandHijack ? (answers.brand_hijack?.noul ?? 0) : 0;
+
+  // J1.24 戏谑关联豁免（C40 Binance Inu 案 0xcaf66eb2…7777，2026-10-01 用户裁定
+  // 「不是劫持，而是web3用户特有的戏谑/趣味性关联。当然它也必须得是当前的热门
+  // 新鲜事，否则就成了无病呻吟」）：品牌关键词票在「当前热门新鲜事锚」下——
+  // timing within_7d（当前）+ effTier S/A（热门）+ 可信事件源锚（superIP 语料锚/
+  // 广场官方认证/发行方自发宣告，analyzer 传入 credibleEventAnchor，事件真实性有
+  // 背书）三条件全中时，缩写双关/谐音/形象嫁接类名字不算品牌劫持：蹭的是事件
+  // 增量热度，不是品牌存量认知。两层截断同豁免：品牌劫持截断 + relevance≤10
+  // 截断（戏谑关联的本质=弱字面关联+强语境关联，缩写双关在 relevance 体系天然
+  // 落低档，是特性不是缺陷；10 分照常计入总分，弱关联代价在分数上体现）。
+  // 不豁免：misspelling/quality 门（与戏谑语义无关）；brandHijackP<0.5 的票
+  // （本就不会被劫持门拦，relevance 弱关联照常截断——那是普通弱关联票）；
+  // timing 非 within_7d / 量级不足的纯蹭名盘（无病呻吟，裁定原文的拦截方向）。
+  const punExempt = includeBrandHijack && brandHijackP >= 0.5
+    && timing === 'within_7d'
+    && (effTier === 'S' || effTier === 'A')
+    && !!context.credibleEventAnchor;
+
+  // J1.30 名图一致豁免（C64 巴巴鸡案 0x1ea2152c…7777，2026-10-14 用户裁定「如果
+  // 名字是一只鸡，图片也是一只鸡，恐怕认为这俩有关联就好了，因为给的信息可能很难
+  // 判断」）：配图与币名视觉一致时豁免 Stage3 关联≤10 截断——弱字面关联的根源常
+  // 是证据缺失（本案梗名「巴巴鸡」只在配图的图内文字里，旧版图分析无转写指令且
+  // maxTokens 截断，Jev 只剩「名字含鸡+图是鸡形角色」弱证据判 cultural 5 分），
+  // 配图与名字同类视觉主体是更直接的一手关联证据。三门全中才豁免（relevance 分
+  // 照常计入总分——弱字面关联的代价在分数上体现，J1.24/C59 同款计分语义）：
+  //   ① 图证据（context.imageEvidence = twitterInfo.image_analysis 存在，与 C59
+  //     条件①同源）且题已问（name_image_consistency 条件题与 imageEvidence 同源，
+  //     答案缺失 → nicMatchP=0 → 不豁免——旧缓存行/无图票 fail-closed 零影响）
+  //   ② same_entity+same_visual_category 合并质量 ≥0.5（合并对抗跨 run 抖动，
+  //     nameReferentBlock 同思路；阈值与 punExempt/阻断侧惯例一致）
+  //   ③ 0 < relevance ≤ 10（只救会被本截断拦的票；纯零关联 none 0 分不救，
+  //     与 C59 条件②同——图再像也救不了与事件毫无关系的名字）
+  // 与 punExempt 正交并存（C83 起全语料走标准路径，superIP 语料票同样可获豁免；
+  // 快车道时代的 C59 meme≥3 门随通道删除，意图由本门+J1.28 覆盖）。
+  const nicProbs = answers.name_image_consistency?.probabilities ?? {};
+  const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
+  const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
+    && relevance.score > 0 && relevance.score <= 10;
+
+  // C86 D-1：量级门豁免聚合标记（magExemptTags=救援标注与审计用）
+  const magExempt = punExempt || imgNameExempt;
+  const magExemptTags = [punExempt ? 'J1.24戏谑' : null, imgNameExempt ? 'J1.30名图' : null]
+    .filter(Boolean).join('+');
+
   // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
   // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
@@ -1032,8 +1087,13 @@ export function mapStandardAnswers(answers, context) {
     // 之前（载体缺失是主体层缺陷，先于量级判定）；无概率 mass（choice 档位门）
     stage2Blocked = true;
     stage2BlockReason = scBlock.label;
-  } else if (!isW && (effTier === 'E' || effTier === 'D')) {
-    // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）
+  } else if (!isW && (effTier === 'E' || effTier === 'D') && !punExempt && !imgNameExempt) {
+    // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）。
+    // C86 D-1 豁免贯穿：J1.30 名图一致豁免无 tier 前置（图证据+一致性质量+弱关联
+    // 三门全中即可），主体量级弱但名字与配图视觉一致的票不在此拦——落入标准数学
+    // 分支按 tierScore=0 计分，弱量级代价在总分上体现；J1.24 punExempt 要求
+    // effTier S/A，在本臂结构性不可达，保留守卫是豁免定义漂移的防线（同 C85
+    // IS NULL 前置臂的防漂移语义）
     stage2Blocked = true;
     stage2BlockReason = `事件主体量级不足（${tier}档）`;
   } else if (isW || rideMass != null) {
@@ -1088,8 +1148,17 @@ export function mapStandardAnswers(answers, context) {
     stage2Total = resonanceDamped
       ? round2((tierScore + effDim2) * resonanceCoef + timeliness)
       : round2(tierScore + effDim2 + timeliness);
-    stage2Blocked = stage2Total < 60;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(${RESONANCE_LABELS[resonance]})` : ''}=${stage2Total}（pass线60）`;
+    // C86 D-1 豁免贯穿（事件分不足臂）：豁免票的 stage2Total<60 不拦，弱量级
+    // 代价照常在总分（0.6×低事件分）上体现——与豁免原本「relevance 10 分照常
+    // 计入」的计分语义同款。magExemptRescuedArm=D/E 档臂被豁免放行（本分支
+    // tierScore=0 的票）；两臂任一被救都在 reason 落可检索标注
+    const magExemptRescuedArm = magExempt && (effTier === 'E' || effTier === 'D');
+    const magExemptRescuedPass = magExempt && stage2Total < 60;
+    const magExemptSuffix = (magExemptRescuedArm || magExemptRescuedPass)
+      ? `｜量级门豁免(${magExemptTags}：${[magExemptRescuedArm ? `${effTier}档臂` : null, magExemptRescuedPass ? '事件分<60臂' : null].filter(Boolean).join('与')}不拦，弱量级代价在总分)`
+      : '';
+    stage2Blocked = stage2Total < 60 && !magExempt;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(${RESONANCE_LABELS[resonance]})` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 
@@ -1163,50 +1232,12 @@ export function mapStandardAnswers(answers, context) {
   };
 
   // ── Stage3：截断检查 + 关联/质量 ───────────────────────────────────
-  const relevance = relevanceFrom(answers);
+  // relevance/brandHijackP/punExempt/nicMatchP/imgNameExempt 已前移至 Stage2 门链
+  // 之前（C86 D-1 豁免贯穿，见上方案释）；本段只留 Stage3 专属计算
   const quality = qualityFrom(answers, symbol);
-  const brandHijackP = includeBrandHijack ? (answers.brand_hijack?.noul ?? 0) : 0;
   const misspellingP = answers.block_misspelling?.noul ?? 0;
   // C78 图文名不符拼写门（纯代码判据，Jev 探针 0.13-0.28 拦不住的铁证形状）
   const spellingMismatch = detectNameImageSpellingMismatch(tokenData, twitterInfo);
-
-  // J1.24 戏谑关联豁免（C40 Binance Inu 案 0xcaf66eb2…7777，2026-10-01 用户裁定
-  // 「不是劫持，而是web3用户特有的戏谑/趣味性关联。当然它也必须得是当前的热门
-  // 新鲜事，否则就成了无病呻吟」）：品牌关键词票在「当前热门新鲜事锚」下——
-  // timing within_7d（当前）+ effTier S/A（热门）+ 可信事件源锚（superIP 语料锚/
-  // 广场官方认证/发行方自发宣告，analyzer 传入 credibleEventAnchor，事件真实性有
-  // 背书）三条件全中时，缩写双关/谐音/形象嫁接类名字不算品牌劫持：蹭的是事件
-  // 增量热度，不是品牌存量认知。两层截断同豁免：品牌劫持截断 + relevance≤10
-  // 截断（戏谑关联的本质=弱字面关联+强语境关联，缩写双关在 relevance 体系天然
-  // 落低档，是特性不是缺陷；10 分照常计入总分，弱关联代价在分数上体现）。
-  // 不豁免：misspelling/quality 门（与戏谑语义无关）；brandHijackP<0.5 的票
-  // （本就不会被劫持门拦，relevance 弱关联照常截断——那是普通弱关联票）；
-  // timing 非 within_7d / 量级不足的纯蹭名盘（无病呻吟，裁定原文的拦截方向）。
-  const punExempt = includeBrandHijack && brandHijackP >= 0.5
-    && timing === 'within_7d'
-    && (effTier === 'S' || effTier === 'A')
-    && !!context.credibleEventAnchor;
-
-  // J1.30 名图一致豁免（C64 巴巴鸡案 0x1ea2152c…7777，2026-10-14 用户裁定「如果
-  // 名字是一只鸡，图片也是一只鸡，恐怕认为这俩有关联就好了，因为给的信息可能很难
-  // 判断」）：配图与币名视觉一致时豁免 Stage3 关联≤10 截断——弱字面关联的根源常
-  // 是证据缺失（本案梗名「巴巴鸡」只在配图的图内文字里，旧版图分析无转写指令且
-  // maxTokens 截断，Jev 只剩「名字含鸡+图是鸡形角色」弱证据判 cultural 5 分），
-  // 配图与名字同类视觉主体是更直接的一手关联证据。三门全中才豁免（relevance 分
-  // 照常计入总分——弱字面关联的代价在分数上体现，J1.24/C59 同款计分语义）：
-  //   ① 图证据（context.imageEvidence = twitterInfo.image_analysis 存在，与 C59
-  //     条件①同源）且题已问（name_image_consistency 条件题与 imageEvidence 同源，
-  //     答案缺失 → nicMatchP=0 → 不豁免——旧缓存行/无图票 fail-closed 零影响）
-  //   ② same_entity+same_visual_category 合并质量 ≥0.5（合并对抗跨 run 抖动，
-  //     nameReferentBlock 同思路；阈值与 punExempt/阻断侧惯例一致）
-  //   ③ 0 < relevance ≤ 10（只救会被本截断拦的票；纯零关联 none 0 分不救，
-  //     与 C59 条件②同——图再像也救不了与事件毫无关系的名字）
-  // 与 punExempt 正交并存（C83 起全语料走标准路径，superIP 语料票同样可获豁免；
-  // 快车道时代的 C59 meme≥3 门随通道删除，意图由本门+J1.28 覆盖）。
-  const nicProbs = answers.name_image_consistency?.probabilities ?? {};
-  const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
-  const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
-    && relevance.score > 0 && relevance.score <= 10;
 
   let stage3Blocked = false;
   let stage3BlockReason = null;

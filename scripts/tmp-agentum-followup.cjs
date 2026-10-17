@@ -12,19 +12,19 @@ const { dbManager } = require('../src/services/dbManager');
 const FLOOR_MC = 5500;
 
 async function pageAll(db, table, cols, extra, pageSize = 1000) {
-  // keyset 分页（order id + gt cursor），防 max-rows 静默截断
+  // range 分页（trades.id 是 uuid，keyset 数字游标不可用；总量几千行量级）
   const out = [];
-  let cursor = 0, round = 0;
+  let offset = 0, round = 0;
   for (;;) {
-    let q = db.from(table).select(cols).order('id', { ascending: true }).gt('id', cursor).limit(pageSize);
+    let q = db.from(table).select(cols).range(offset, offset + pageSize - 1);
     if (extra) q = extra(q);
     const { data, error } = await q;
     if (error) throw new Error(`${table} page ${round}: ${error.message}`);
     if (!data.length) break;
     out.push(...data);
-    cursor = data[data.length - 1].id;
+    offset += pageSize;
     round++;
-    if (round % 50 === 0) console.log(`  [page] ${table} ${out.length} rows...`);
+    if (round % 10 === 0) console.log(`  [page] ${table} ${out.length} rows...`);
     if (data.length < pageSize) break;
   }
   return out;
@@ -173,20 +173,20 @@ async function main() {
   const catMap = new Map();
   for (let i = 0; i < tokens.length; i += 50) {
     const batch = tokens.slice(i, i + 50);
-    const { data, error } = await db.from('token_narrative').select('token_address,token_category,numeric_rating').in('token_address', batch);
+    const { data, error } = await db.from('token_narrative').select('token_address,token_category').in('token_address', batch);
     if (error) throw new Error('token_narrative: ' + error.message);
     for (const r of data || []) catMap.set(r.token_address, r);
   }
   const projectTokens = tokens.filter(a => catMap.get(a)?.token_category === 'project');
   console.log('买过的票里有叙事分类的:', catMap.size, '；project:', projectTokens.length);
   // 对照分布：各类 mcap 是否曾破 5500（用买信号 mcap + ticks 最低价近似）
-  // 拉 buy signals 的 fire mcap/price（供 supply 推导）
+  // 拉 buy signals 的 fire mcap/price（供 supply 推导）——per-token 拉取（id 是 uuid，
+  // 避开 uuid keyset 跳行坑；买过的票量级几百，一票一查可接受）
   const sigInfo = new Map();
-  for (let i = 0; i < tokens.length; i += 50) {
-    const batch = tokens.slice(i, i + 50);
+  for (const addr of tokens) {
     const { data, error } = await db.from('strategy_signals')
       .select('id,token_address,created_at,metadata->>price,metadata->trendFactors->>marketCap')
-      .in('token_address', batch).order('created_at', { ascending: true }).limit(1000);
+      .eq('token_address', addr).order('created_at', { ascending: true }).limit(200);
     if (error) throw new Error('signals: ' + error.message);
     for (const r of data || []) {
       if (!sigInfo.has(r.token_address) && r.marketCap && r.price) sigInfo.set(r.token_address, { mcap0: Number(r.marketCap), price0: Number(r.price), at: r.created_at });

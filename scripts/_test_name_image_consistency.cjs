@@ -46,7 +46,7 @@ const TOKEN_ADDR = '0x1ea2152c68a3cba1cd3ffe68abd97d95f9ac7777';
  * cultural lv1=5 分（RELEVANCE_TABLE.cultural[1]，线上真实档位）——专测
  * Stage3 关联截断与豁免。nic 可传答案或 undefined（旧缓存行形状）。
  */
-function babaJiAnswers(nic) {
+function babaJiAnswers(nic, over = {}) {
   const answers = {
     event_category: { choice: 'A', probabilities: { A: 0.7 } },
     event_magnitude: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
@@ -68,7 +68,7 @@ function babaJiAnswers(nic) {
   if (nic !== undefined) {
     answers.name_image_consistency = nic;
   }
-  return answers;
+  return { ...answers, ...over };
 }
 
 const stdCtx = (over = {}) => ({
@@ -231,6 +231,55 @@ async function main() {
     cfg.vision?.maxTokens === 2500, cfg.vision?.maxTokens);
   check('F10 窗口缓存失效脚本配套（J1.28/J1.29 模式）',
     readFileSync(join(__dirname, '..', 'scripts', 'narrative', 'invalidate-nameimage-window.cjs'), 'utf8').length > 0, null);
+
+  // ═══ G. C86 D-1 量级门豁免贯穿（D/E 档臂，2026-10-17 用户裁定「豁免应贯穿」）═══
+  // 病根：量级门 D/E 档臂在门链中先于 Stage3 豁免执行——J1.30 豁免无 tier 前置
+  // （图证据+一致性+弱关联三门），主体量级弱但名图视觉一致的票在到达豁免前被
+  // 「事件主体量级不足」拦死 = 遗漏。修复：豁免票落入标准数学按 tierScore=0 计分
+  // （弱量级代价在总分），punExempt 臂（要求 S/A）结构性死守保留=防定义漂移
+  console.log('\n── G. D-1 量级门 D/E 档臂豁免贯穿 ──');
+
+  // G1 事故反证：D 档（magnitude 1）+ 全条件名图票 → 修复前 事件主体量级不足（D档）
+  // 拦死；修复后流入标准数学 tierScore=0：0+28+15=43<60 再被事件分臂豁免放行。
+  // web3_fit 刻意置 undefined 摘掉巴巴鸡夹具的 strong_fit 锚（锚上会把 D 档抬成
+  // effTier B，绕不进 D/E 臂——锚救票是 J1.23 机制，与本节正交）
+  const rG1 = mapStandardAnswers(babaJiAnswers(NIC_MATCH, {
+    event_magnitude: { score: 1, probabilities: { '1': 0.7 } },
+    web3_fit: undefined,
+  }), stdCtx());
+  const s2G1 = rG1.stage2DataToSave?.parsed_output || {};
+  check('G1a D 档名图票：stage2 放行（pass=true + totalScore=43 + tierScore=0 精确值）',
+    s2G1.pass === true && s2G1.scoringResult?.totalScore === 43 && s2G1.scoringResult?.tierScore === 0,
+    { pass: s2G1.pass, totalScore: s2G1.scoringResult?.totalScore, tierScore: s2G1.scoringResult?.tierScore });
+  check('G1b stage2 reason 双臂救援标注（J1.30名图：D档臂与事件分<60臂不拦）',
+    /量级门豁免\(J1\.30名图：D档臂与事件分<60臂不拦，弱量级代价在总分\)/.test(s2G1.reason || ''),
+    s2G1.reason);
+  check('G1c 放行后正常计分：stage3 pass + imgNameExempt 审计 + 关联 5 分照常计入',
+    rG1.stage3DataToSave?.parsed_output?.pass === true
+      && !!stage3Jev(rG1)?.imgNameExempt
+      && rG1.stage3DataToSave?.parsed_output?.relevanceScore === 5,
+    { pass: rG1.stage3DataToSave?.parsed_output?.pass, imgNameExempt: stage3Jev(rG1)?.imgNameExempt });
+
+  // G2 对照：无图证据（imageEvidence=false）同 D 档 → 量级门照拦（豁免三门 fail-closed）
+  const rG2 = mapStandardAnswers(babaJiAnswers(NIC_MATCH, {
+    event_magnitude: { score: 1, probabilities: { '1': 0.7 } },
+    web3_fit: undefined,
+  }), stdCtx({ imageEvidence: false }));
+  const s2G2 = rG2.stage2DataToSave?.parsed_output || {};
+  check('G2 无图 D 档：仍拦 事件主体量级不足（D档）+ stage3 清段',
+    s2G2.pass === false && s2G2.blockReason === '事件主体量级不足（D档）'
+      && rG2.stage3DataToSave?.__clear === true,
+    { pass: s2G2.pass, blockReason: s2G2.blockReason });
+
+  // G3 对照：E 档 + 图证据在但一致性不足（unrelated 0.15<0.5）→ 量级门照拦
+  const rG3 = mapStandardAnswers(babaJiAnswers(NIC_UNRELATED, {
+    event_magnitude: { score: 0, probabilities: { '0': 0.8 } },
+    web3_fit: undefined,
+  }), stdCtx());
+  const s2G3 = rG3.stage2DataToSave?.parsed_output || {};
+  check('G3 E 档一致性 0.15<0.5：仍拦 事件主体量级不足（E档）',
+    s2G3.pass === false && s2G3.blockReason === '事件主体量级不足（E档）',
+    { blockReason: s2G3.blockReason });
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_name_image_consistency: ${passed} passed, ${failed} failed ══════`);

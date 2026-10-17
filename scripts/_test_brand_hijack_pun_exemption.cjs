@@ -37,12 +37,12 @@ function check(name, cond, detail) {
 // name_referent super_ip 0.79 / relevance semantic lv1（10分，压 ≤10 截断线）
 const biTokenData = { symbol: 'BI', name: 'Binance Inu', raw_api_data: { name: 'Binance Inu' } };
 
-function biAnswers({ timing = 'within_7d', magnitude = 4, hijackP = 0.72, relType = 'semantic', relLevel = 1.2, misspell = 0.1 } = {}) {
+function biAnswers({ timing = 'within_7d', magnitude = 4, hijackP = 0.72, relType = 'semantic', relLevel = 1.2, misspell = 0.1, dim2Score = 3.5 } = {}) {
   return {
     event_category: { choice: 'D', probabilities: { D: 0.78, W: 0.19, B: 0.02 } },
     event_magnitude: { score: magnitude, probabilities: { '5': 0.43, '4': 0.25 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.96 } },
-    dimension2: { score: 3.5, probabilities: { '4': 0.5, '3': 0.3 } },
+    dimension2: { score: dim2Score, probabilities: { '4': 0.5, '3': 0.3 } },
     block_reason: { choice: 'none', probabilities: { none: 0.37, low_quality_derivative: 0.18 } },
     name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.79 } },
     relevance_type: { choice: relType, probabilities: { [relType]: 0.47, none: 0.2, exact_match: 0.12 } },
@@ -176,6 +176,61 @@ async function main() {
 
   console.log('\n── E. 版本断言 ──');
   check('E1 JEV_QUESTIONS_VERSION ≥J1.24（J1.24 裁定仍在 mapper；现 J1.28=referent_memeability 恒带 bump）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 24, JEV_QUESTIONS_VERSION);
+
+  // ═══ F. C86 D-1 量级门豁免贯穿（2026-10-17 用户裁定「豁免应贯穿」）═══
+  // 病根：Stage2 量级门在 else-if 门链中先于 Stage3 豁免语义执行——全条件戏谑票
+  // 若事件分<60 会在到达豁免前被「事件分不足」拦死（豁免只挂 Stage3 截断=遗漏）。
+  // 修复：豁免判定前移至门链前，事件分不足臂对 magExempt 票放行；弱量级代价照常
+  // 在总分（0.6×低事件分）上体现——与豁免「relevance 10 分照常计入」同款计分语义
+  console.log('\n── F. D-1 量级门豁免贯穿 ──');
+
+  // F1 事故反证：全条件戏谑票 + 传播极弱（dim2 1 档 → effDim2 10）→ 事件分
+  // 34(A)+10+15(within_7d)=59<60——修复前 事件分不足（59<60）拦死；修复后放行计分
+  const mF1 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext());
+  const s2F1 = mF1.stage2DataToSave?.parsed_output || {};
+  check('F1a 事件分 59<60 的全条件戏谑票：stage2 放行（pass=true + totalScore=59 精确值）',
+    s2F1.pass === true && s2F1.scoringResult?.totalScore === 59,
+    { pass: s2F1.pass, totalScore: s2F1.scoringResult?.totalScore });
+  check('F1b stage2 reason 落量级门豁免标注（J1.24戏谑：事件分<60臂不拦）',
+    /量级门豁免\(J1\.24戏谑：事件分<60臂不拦，弱量级代价在总分\)/.test(s2F1.reason || ''),
+    s2F1.reason);
+  check('F1c 放行后正常计分：stage3 pass + punExempt 审计 + rating 非 stage2 拦截形状',
+    stage3Of(mF1).pass === true && !!stage3Of(mF1).jev?.punExempt
+      && mF1.llmResult.pass === true && mF1.llmResult.analysis_stage === 3,
+    { pass: stage3Of(mF1).pass, stage: mF1.llmResult.analysis_stage });
+
+  // F2 对照：anchor 缺（punExempt 关）同分数 → 量级门照拦（豁免不是无条件放水）
+  const mF2 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext({ credibleEventAnchor: false }));
+  const s2F2 = mF2.stage2DataToSave?.parsed_output || {};
+  check('F2 同分数无豁免：仍拦 事件分不足（59<60）+ stage3 清段（__clear）',
+    s2F2.pass === false && s2F2.blockReason === '事件分不足（59<60）'
+      && mF2.stage3DataToSave?.__clear === true && mF2.llmResult.rating === 'low',
+    { pass: s2F2.pass, blockReason: s2F2.blockReason });
+
+  // F3 W 数学 pass 线刻意不豁免（设计锁定）：W 类戏谑票 W 总分不足照拦——W 有
+  // 自己的 C42 豁免机制与 cashtag 改道拦截语义，量级门不属于 W 数学。夹具交互
+  // 刻意 ≥10（20 分带）避开 C42 两轴归一，走纯三轴数学
+  const wAns = {
+    ...biAnswers(),
+    event_category: { choice: 'W', probabilities: { W: 0.9 } },
+    w_product_score: { score: 0.5, probabilities: {} },
+    w_binance_interaction: { score: 2, probabilities: {} },
+  };
+  const mF3 = mapStandardAnswers(wAns, makeContext());
+  const s2F3 = mF3.stage2DataToSave?.parsed_output || {};
+  check('F3 W 类戏谑票（产品4+交互20+时效25=49<60）：W 总分不足照拦（豁免不贯穿 W 数学）',
+    s2F3.pass === false && s2F3.blockReason === 'W类总分不足（49<60）'
+      && !/量级门豁免/.test(s2F3.reason || ''),
+    { pass: s2F3.pass, blockReason: s2F3.blockReason });
+
+  // F4 源码口径：D/E 臂守卫 + 事件分不足臂守卫 + W pass 线保持裸线（各恰好一处）
+  const mapperSrcF = require('fs').readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
+  check('F4a D/E 量级臂带双豁免守卫（punExempt 臂结构性死守=防定义漂移）',
+    /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrcF));
+  check('F4b 事件分不足臂 = stage2Total < 60 && !magExempt',
+    /stage2Blocked = stage2Total < 60 && !magExempt;/.test(mapperSrcF));
+  check('F4c W 数学 pass 线保持裸线（stage2Blocked = stage2Total < 60; 恰好一处=W 分支）',
+    mapperSrcF.split('stage2Blocked = stage2Total < 60;').length - 1 === 1);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═══════`);
   process.exit(failed > 0 ? 1 : 0);
