@@ -151,6 +151,10 @@ const FACTOR_PARAM_DEFAULTS = {
     //    DB trailing 90s 窗 → FA 出生锚定累计窗，单一买条件消除两阶段因子漂移）──
     earlyTradesWindowMs: 90000,  // 首窗宽（对齐 legacy fixedWindowSeconds=90）
     earlyUniformDustBnb: 0.01,   // uniform 簇尘埃门（对齐 legacy uniformDustThresholdBnb）
+    // ── launch* 出生锚定捆绑簇（2026-10-17 Agentum 案方向 C：10s 滑窗在 fire+61s 时
+    //    创建块捆绑簇已滑出（Konasu 时序洗白同根因），出生锚定窗让出生期指纹在任意
+    //    迟到 fire 时刻可见；对齐 earlyTradesWindowMs）──
+    launchBundleWinMs: 90000,    // 出生窗宽（首买簇累计+冻结）
 };
 
 // earlyTrades* 防御帽：窗内参与钱包数上限（对倒作业票 90s 内 <1 千钱包；超帽只停
@@ -1008,6 +1012,8 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    晚到的窗内行在冻结后到达=丢弃（边缘：resolver 回查延迟 > 窗尾距离，台账
         //    C84 记录）。防御帽 _EARLY_MAX_WALLETS 只停新钱包入册 ──
         this._earlyWindowAdvance(state, tick.timestamp);
+        // launch 窗推进与 early 并列（首买 map 写点/分母累计均在后——触发出窗行不入窗）
+        this._launchWindowAdvance(state, tick.timestamp);
         if (!state._earlyWindowClosed && walletAddr) {
             if (state._earlyWallets.size < _EARLY_MAX_WALLETS || state._earlyWallets.has(walletAddr)) {
                 state._earlyWallets.add(walletAddr);
@@ -1066,9 +1072,30 @@ class FourMemeFactorAggregator extends EventEmitter {
                         bnb: bnbAmount,
                         trader: tick.trader_address || null,
                     });
+                    // launch 首买（出生窗内；挂本 min 替换判定点=仅首买行入 map，更早
+                    // 首买晚到覆盖 → defer 乱序序无关收敛；_EARLY_MAX_WALLETS 帽同款。
+                    // 窗推进已在上文 _earlyWindowAdvance 旁先行——触发出窗行不入 map）
+                    if (!state._launchWindowClosed
+                        && (state._launchFirstBuys.size < _EARLY_MAX_WALLETS
+                            || state._launchFirstBuys.has(walletAddr))) {
+                        state._launchFirstBuys.set(walletAddr, {
+                            ts: tick.timestamp,
+                            blk: blockNumber,
+                            li: tick.log_index != null ? Number(tick.log_index) : null,
+                            w: walletAddr,
+                            bnb: bnbAmount,
+                            trader: tick.trader_address || null,
+                        });
+                    }
                 }
             }
         }
+
+        // ── launch* 4 键分母（2026-10-17 Agentum 案方向 C：出生锚定捆绑簇）：出生窗内
+        //    总买入 BNB（null wallet 行照计——本方法每 tick 恰跑一次，与 _activityEvents
+        //    同到达面；对齐现行 bundleClusterSharePct 分母语义）。窗推进在 early advance
+        //    旁已调（early 同构：触发冻结的出窗行不进窗=分子分母对称）──
+        if (!state._launchWindowClosed && isBuy) state._launchBuyBnb += bnbAmount;
         this._pruneBundleEvents(state, tick.timestamp);
     }
 
@@ -1424,6 +1451,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             _earlyTop1WalletBuyBnb: 0, // 协议剔除后的最大单钱包买入（增量 max：窗内 cum 单调不减）
             _earlyUniformBuckets: new Map(), // toFixed(2) 金额桶 → 尘埃门以上钱包数（增量维护）
             _earlyUniformDustWallets: 0,     // 尘埃门（≥earlyUniformDustBnb）以上钱包数（uniform 分母）
+
+            // ── launch* 4 键原料（2026-10-17 Agentum 案方向 C：出生锚定捆绑簇——10s 滑窗
+            //    在迟到 fire 下结构性漏创建块簇；同块臂+跨块等额臂，出窗冻结 _launchFrozen）──
+            _launchWindowClosed: false, // 出窗冻结标记（冻结后首买行照推 _walletFirstBuyTs 但不入 map）
+            _launchFrozen: null,        // 出窗冻结的四键输出（_launchBundleFactors 直读）
+            _launchFirstBuys: new Map(), // wallet → 首买行 {ts, blk, li, bnb, trader}（窗内；
+                                         //   覆盖式 min 替换保最早=defer 乱序收敛；_EARLY_MAX_WALLETS 帽同款）
+            _launchBuyBnb: 0,           // 出生窗内总买入 BNB（sharePct 分母，含非首买/null wallet 行）
 
             // 持仓（positionKey → pos）
             _positions: new Map(),
@@ -2062,6 +2097,86 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
+     * launch* 出生窗推进（_earlyWindowAdvance 同构，仅 wallet 层调用——原料全在 wallet 段）：
+     * 首个 ts−firstTickAt > launchBundleWinMs 的行触发一次冻结（幂等——后到调用者见
+     * _launchWindowClosed 直接返回），按当前状态算出四键快照存 _launchFrozen；触发行自身
+     * 不入窗（early 同构）。★防前视红线：ts 由 tick 传入，禁 Date.now。
+     */
+    _launchWindowAdvance(state, ts) {
+        if (state._launchWindowClosed) return;
+        if (ts - state.firstTickAt <= this._fp.launchBundleWinMs) return;
+        state._launchWindowClosed = true;
+        state._launchFrozen = this._launchBundleFactors(state);
+    }
+
+    /**
+     * launch* 出生锚定捆绑簇 4 键（2026-10-17 Agentum 案方向 C，用户裁定）：
+     *   launchBundleClusterSize     —— 出生窗（firstTickAt+launchBundleWinMs）内最大
+     *                                  「同 block 首买簇」钱包数（10s 滑窗的出生期结构版）
+     *   launchBundleClusterSharePct —— 该簇 BNB ÷ 出生窗总买入 BNB ×100（分母含非首买/
+     *                                  null wallet 行，与现行 bundleClusterSharePct 分母
+     *                                  同语义；Agentum 现场复算：簇 A 0.7239/2.5283=28.6）
+     *   launchEqualClusterWallets   —— 出生窗内最大「等额首买簇」钱包数（★跨块——把同块
+     *                                  放宽到出生窗短窗，拦时序洗白；相邻相对差<1e-5 链式
+     *                                  聚簇，尘埃门 earlyUniformDustBnb 以下不参与；<3 → 0：
+     *                                  2 钱包等额常见巧合且 FLY 形状由现行 10s 臂管）
+     *   launchEqualClusterBnb       —— 该等额簇合计 BNB（观察键；wallets<3 → 0）
+     * 与现行 bundle* 6 键双臂并存：10s 滑窗管「当下对敲」（FLY 形状），launch* 管「出生期
+     * 捆绑指纹」（Konasu/鲸元卷同块等额、Agentum 0.1485×3 跨块等额——迟至 fire 时刻簇
+     * 已完成即可见；fire 早于簇完成的快枪形状（Agentum fire+61s 第三笔+70s 才到）天然
+     * 拦不住，非本族目标）。出窗后恒返回 _launchFrozen 冻结快照（断流票读现值=终值）。
+     * 纯读取无副作用（tickBuildSkip 无互斥）；首买 map 覆盖式 min 替换 → defer 乱序收敛。
+     * ★防前视红线：禁 Date.now（本方法无时参依赖——全部累计态，冻结由 write 侧 ts 推进）。
+     * 空/空窗全 0（有证据零值非 null）。
+     */
+    _launchBundleFactors(state) {
+        if (state._launchFrozen) return state._launchFrozen;
+        const rows = [...state._launchFirstBuys.values()];
+        // 同块簇（现行 _bundleClusterFactors 同款选取：金额最大 → size 大 → blk 小）
+        const byBlock = new Map();
+        for (const e of rows) {
+            if (e.blk === null) continue;
+            let c = byBlock.get(e.blk);
+            if (!c) { c = { bnb: 0, n: 0 }; byBlock.set(e.blk, c); }
+            c.bnb += e.bnb;
+            c.n++;
+        }
+        let best = null;
+        for (const [blk, c] of byBlock) {
+            if (best === null
+                || c.bnb > best.c.bnb
+                || (c.bnb === best.c.bnb
+                    && (c.n > best.c.n || (c.n === best.c.n && blk < best.blk)))) {
+                best = { blk, c };
+            }
+        }
+        const size = best ? best.c.n : 0;
+        const sharePct = best && state._launchBuyBnb > 0 ? best.c.bnb / state._launchBuyBnb * 100 : 0;
+        // 等额簇（跨块短窗臂）：尘埃门以上首买金额排序，相邻相对差<1e-5 链式归簇
+        const dust = this._fp.earlyUniformDustBnb;
+        const eq = rows.filter(r => r.bnb >= dust).sort((a, b) => a.bnb - b.bnb);
+        let eqN = 0, eqBnb = 0;
+        let i = 0;
+        while (i < eq.length) {
+            let j = i + 1, bnb = eq[i].bnb;
+            while (j < eq.length
+                && Math.abs(eq[j].bnb - eq[j - 1].bnb) / Math.max(eq[j - 1].bnb, 1e-12) < 1e-5) {
+                bnb += eq[j].bnb;
+                j++;
+            }
+            if (j - i > eqN || (j - i === eqN && bnb > eqBnb)) { eqN = j - i; eqBnb = bnb; }
+            i = j;
+        }
+        if (eqN < 3) { eqN = 0; eqBnb = 0; } // <3 钱包非簇（2 钱包等额=常见巧合，FLY 由 10s 臂管）
+        return {
+            launchBundleClusterSize: size,
+            launchBundleClusterSharePct: Math.round(sharePct * 10) / 10,
+            launchEqualClusterWallets: eqN,
+            launchEqualClusterBnb: parseFloat(eqBnb.toFixed(4)),
+        };
+    }
+
+    /**
      * 分类器轨迹修剪（回迁批 3.1，母版 _pruneRecentTicks 动态窗同构）：
      * 有可靠价峰时从峰起保留全部（供 OPB 闪崩检测看完整 peak→crash 路径——修固定短窗
      * 「crash 不落在分类时刻窗口内就漏判闪崩」），无峰时用最小窗口兜底；超上限截断。
@@ -2493,6 +2608,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
         const bundle = this._bundleClusterFactors(state, now);
 
+        // 出生锚定捆绑簇（launch* 4 键，2026-10-17 Agentum 案方向 C；出窗后恒返回冻结快照）
+        const launch = this._launchBundleFactors(state);
+
         // TOP1 持仓集中度（2026-10-16 用户裁定：门键，单巨鲸/团伙囤筹拦截；
         // maxBlockBuyCircPct 的存量替代——不受「早期流通分母小」的流量假象污染）：
         // 链上买入者最大净持仓 ÷ 流通(_circTokens)×100。口径注意：creator 预 mint 无
@@ -2615,6 +2733,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             bundleClusterEvenGap: bundle.bundleClusterEvenGap,
             bundleClusterSameTrader: bundle.bundleClusterSameTrader,
             maxBlockBuyCircPct: bundle.maxBlockBuyCircPct,
+            // ── 出生锚定捆绑簇 launch* 4 键（2026-10-17 Agentum 案方向 C：10s 滑窗迟到
+            //    fire 漏创建块簇；同块臂+跨块等额臂，出窗冻结；口径见 _launchBundleFactors）──
+            launchBundleClusterSize: launch.launchBundleClusterSize,
+            launchBundleClusterSharePct: launch.launchBundleClusterSharePct,
+            launchEqualClusterWallets: launch.launchEqualClusterWallets,
+            launchEqualClusterBnb: launch.launchEqualClusterBnb,
             // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；
             // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
             top1HolderCircPct,

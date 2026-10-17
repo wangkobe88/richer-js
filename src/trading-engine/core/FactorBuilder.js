@@ -143,6 +143,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     bundleClusterEvenGap: factorResults.bundleClusterEvenGap ?? null,
     bundleClusterSameTrader: factorResults.bundleClusterSameTrader ?? null,
     maxBlockBuyCircPct: factorResults.maxBlockBuyCircPct ?? null,
+    // 出生锚定捆绑簇 launch* 4 键（2026-10-17 Agentum 案方向 C）：出生窗累计+冻结
+    // 不可离线重算（act* 先例），不落库即丢；0=空窗有证据零值，旧 FA 无键 → null 不掩盖
+    launchBundleClusterSize: factorResults.launchBundleClusterSize ?? null,
+    launchBundleClusterSharePct: factorResults.launchBundleClusterSharePct ?? null,
+    launchEqualClusterWallets: factorResults.launchEqualClusterWallets ?? null,
+    launchEqualClusterBnb: factorResults.launchEqualClusterBnb ?? null,
     top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
     // 跟单簇名单是进程级静态 Set，名单缺失=null（fail-closed 语义随快照透传，不掩盖）
     maxCopyWalletHolderCircPct: factorResults.maxCopyWalletHolderCircPct ?? null,
