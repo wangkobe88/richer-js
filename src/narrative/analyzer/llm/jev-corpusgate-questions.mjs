@@ -24,9 +24,17 @@
  *   判据保留平台敏感性提示：中文梗源头常在抖音/微博、tech 盘常吃 github 仓
  *   库证据。题面锚定「未抓内容会不会改变判定」而非「有没有用」——文字指代
  *   已清晰时纯氛围/重复链接也算 sufficient）
+ * CG2.0（2026-10-17 用户裁定，롱캣 0xd97a…7777 案）：判据从「未抓内容会不会
+ *   改变判定」改为「推文能否直接理解叙事」。基本原则=采信推文陈述：宣告推
+ *   对热度/来源/叙事对象的陈述默认为真，验证其真实性不是本门的任务（验证代
+ *   价 douyin 2.8-4.4s 买腿不可接受）。CG1.0 的「meme 源头可能在未抓平台」
+ *   独立 need_fetch 臂正是本案翻车点（롱캣推文已说清韩国跑者 meme+抖音官方
+ *   账号，Jev 仍按源头平台臂判 need_fetch）——删除；need_fetch 收紧为仅剩
+ *   「文本无法辨认叙事主体 / 名字唯一载体在未抓内容」两臂。误判方向不变：
+ *   误 sufficient=证据少=评级偏 low=偏拦（fail-closed）
  */
 
-export const JEV_CORPUSGATE_QUESTIONS_VERSION = 'CG1.0';
+export const JEV_CORPUSGATE_QUESTIONS_VERSION = 'CG2.0';
 
 /**
  * 构建语料充分门问题集
@@ -36,19 +44,17 @@ export function buildCorpusGateQuestions() {
   return {
     corpus_gate_sufficiency: {
       type: 'choice',
-      instructions: `Narrative corpus sufficiency for skipping the remaining external-source fetches. The corpus below is the TWITTER-primary corpus (tweet text, account profile / timeline). At the very end, an [UNFETCHED SOURCES] annex lists the platforms whose links appear in the token's sources but whose content has NOT been fetched yet, each with its URL. Answer ONE question only: based on the available textual corpus alone, is the evidence for the narrative judgment already sufficient? That is, could the unfetched platforms' content (video titles / captions / creator profiles / follower or play counts / posts / repo info / in-content text) possibly carry key evidence that would CHANGE the judgment?
-Pick need_fetch if ANY of these holds:
-- The narrative subject plausibly lives on an unfetched platform: the token appears to ride a platform-native creator, a trending topic there, or a meme whose point of origin is commonly there (Chinese-language memes often originate on douyin or weibo; tech / project tokens often hinge on github repo evidence such as stars or maintainer identity).
-- The name evidence may live in the unfetched content: the token Symbol/Name has no literal or semantic link to the textual corpus, and the only possible carrier of the reference is a video title, a creator's username, in-video/in-image text, or a repo/doc on an unfetched platform.
-- Weak textual reference: the tweet text does not clearly state what this coin refers to or which event it rides, and the unfetched content is needed to complete the reference.
-Pick sufficient only if ALL of these hold:
-- The textual corpus already names the narrative subject and event clearly (who, what happened, and the link to the coin name is judgeable).
-- The coin name's reference has literal or semantic evidence in the text and does not depend on the unfetched content.
-- Every unfetched link is most likely just a secondary carrier of the same event / an atmospheric supplement that carries no judgment-changing evidence.
-⚠️ The judgment target is "could the unfetched content CHANGE the verdict", NOT "is it useful" — when the textual reference is already clear, pure atmospheric or duplicate links still count as sufficient.`,
+      instructions: `Narrative corpus sufficiency for skipping the remaining external-source fetches. The corpus below is the TWITTER-primary corpus (tweet text, account profile / timeline). At the very end, an [UNFETCHED SOURCES] annex lists the platforms whose links appear in the token's sources but whose content has NOT been fetched yet, each with its URL.
+TRUST PRINCIPLE (governs everything below): statements in the tweet corpus itself are taken at face value. What the announcement tweet says about the narrative — what the meme/subject is, where it comes from, how popular it is, who created it — is ASSUMED TRUE. Verifying those claims is NOT this judgment's job. The only question: can the narrative be understood clearly from the textual corpus ALONE?
+Pick need_fetch ONLY if the narrative itself is NOT understandable from the text, i.e. ANY of:
+- Unidentifiable subject: the corpus does not state and does not allow inferring what this coin refers to — the narrative subject cannot be made out from the text.
+- Name evidence only in unfetched content: the token Symbol/Name has no literal or semantic link to the textual corpus, and the only possible carrier of the reference is unfetched content (a video title, a creator's username, in-video/in-image text, a repo/doc on an unfetched platform).
+Popularity / authenticity / whether the claimed origin is real are NEVER reasons to pick need_fetch — the tweet's word is accepted. An unfetched link that merely re-hosts, illustrates, or supplements an already-understandable narrative (e.g. the announcement tweet itself references a douyin/youtube video of the meme it already describes in words) is NOT a reason to fetch.
+Pick sufficient if the text makes the narrative subject, event, and its link to the coin name understandable — even if the claims are unverified.
+⚠️ The bar for need_fetch is high: only genuine textual incomprehension qualifies, not absence of verification.`,
       criteria: {
-        sufficient: 'Textual corpus is already sufficient: subject / event / reference are clear, no unfetched platform carries key evidence that would change the judgment — skipping all remaining fetches loses nothing',
-        need_fetch: 'Textual corpus is insufficient: the narrative subject is plausibly native to an unfetched platform / the coin name reference may only exist in unfetched content / the reference is otherwise unclear — the remaining fetches are needed',
+        sufficient: 'The narrative is understandable from the text alone (subject / event / link to the coin name are clear, tweet claims accepted at face value) — skipping all remaining fetches loses nothing for understanding',
+        need_fetch: 'The narrative is NOT understandable from the text: the subject cannot be identified, or the coin name reference can only be resolved via unfetched content — the remaining fetches are needed',
       },
     },
   };

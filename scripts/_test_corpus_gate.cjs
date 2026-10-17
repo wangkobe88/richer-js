@@ -101,11 +101,14 @@ async function main() {
     const r5 = q.judgeCorpusGate({}, {});
     assert(r5.choice === 'need_fetch' && r5.prob === null && r5.skipped === false,
       'A5 答案缺席 → need_fetch/null 不跳过');
-    assert(q.JEV_CORPUSGATE_QUESTIONS_VERSION === 'CG1.0', 'A6 版本常量 CG1.0');
+    assert(q.JEV_CORPUSGATE_QUESTIONS_VERSION === 'CG2.0', 'A6 版本常量 CG2.0');
     const qq = q.buildCorpusGateQuestions().corpus_gate_sufficiency;
     assert(qq.type === 'choice' && !!qq.criteria.sufficient && !!qq.criteria.need_fetch
-      && qq.instructions.includes('[UNFETCHED SOURCES]') && qq.instructions.includes('CHANGE the verdict'),
-      'A7 题集形状（choice/双 criteria/待抓清单语境/「会否改变判定」锚）');
+      && qq.instructions.includes('[UNFETCHED SOURCES]')
+      && qq.instructions.includes('TRUST PRINCIPLE')
+      && qq.instructions.includes('taken at face value')
+      && qq.instructions.includes('NEVER reasons to pick need_fetch'),
+      'A7 题集形状（choice/双 criteria/待抓清单语境/CG2.0 采信原则锚）');
     assert(q.judgeCorpusGate(ans('sufficient', { sufficient: 0.7 }), { minSufficientProb: 0.75 }).skipped === false,
       'A8 minSufficientProb 注入生效');
   }

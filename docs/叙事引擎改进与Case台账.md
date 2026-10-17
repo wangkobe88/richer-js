@@ -68,6 +68,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C81 롱캣案 0xd97a9847ee249c36b01b14eecffa73c425d57777——语料充分门判据改「推文可理解即 sufficient」（CG2.0 采信原则）：验证宣告陈述不是门的任务，douyin 2.8-4.4s 验证代价买腿不可接受（2026-10-17 用户裁定「我们基本原则是相信推文的陈述，不要去验证，验证的代价太大」「只要能通过推文直接理解清楚叙事的，就都不要去取进一步语料」）★
+
+- **现象（CG1.0 判据漂移）**：롱캣（韩国跑者 meme，宣告推自述「甚至在抖音都有了官方账号…特别火爆」+尾部抖音分享口令残留 → douyin 桶非空）fire 时票龄 2.95s，叙事直调 9105ms 中 **douyin fetch 3625ms**。corpusGate 260ms 正常返回判 **need_fetch**——宣告推已把叙事说清（韩国 meme/롱캣/情绪表达载体/未代币化），但 CG1.0 need_fetch 判据①「叙事主体疑在未抓平台原生（中文梗源头常在抖音/微博）」被 Jev 按平台敏感性命中：**「meme 源头在抖音」被当成了抓取理由，尽管推文文字已经完成了叙事转述**。事后 douyin 语料确实进了 state（传播分 28.76=评级 70.76 过线第二大项），但用户裁定验证本身就不该做——发币者陈述默认采信，一手验证的秒级代价拖延买腿（本案 fire→成交 10.85s，成交价较 fire 价 +66%，N3 预触发同批默认开对冲）。
+- **机制（CG2.0 题面重锚）**：`corpus_gate_sufficiency` 题面重写——**TRUST PRINCIPLE 段置顶**：推文语料中的陈述（meme 是什么/来自哪/多火爆/谁创作）默认为真，验证真实性不是本判断的任务；唯一问题=**叙事能否仅凭文本理解**。need_fetch 收紧为两臂：①主体不可辨（文本无法陈述也无法推断指代什么）②名字指代唯一载体在未抓内容（视频标题/创作者名/图内文字/仓库文档）；**明确写出「热度/真实性/来源是否属实 NEVER 是 need_fetch 理由」+「未抓链接仅是对已可理解叙事的再承载/插图/补充（如宣告推文字已描述的 meme 的抖音视频）不是抓取理由」**。删除 CG1.0 的「源头平台敏感性」独立臂（中文梗源头常在抖音/微博、tech 盘吃 github——github 场景并入名字指代臂：推文没说清+repo 名=token 名才算）。`judgeCorpusGate` 聚合零改动（choice+p≥0.6 语义不变，题面语义修正翻 argmax 正是 CLAUDE.md 修正教训①的「语义修正类措辞」有效方向）；版本 bump CG1.0→CG2.0（`JEV_CORPUSGATE_QUESTIONS_VERSION`）。
+- **误判方向不变**：误 sufficient=证据少=评级偏 low=偏拦（fail-closed）；误 need_fetch/失败/超时=照抓原行为。CG2.0 整体向 sufficient 移动=跳过率上升=直调更快，代价是部分票非主语料证据缺席（评级证据变薄，方向仍安全）。
+- **同批裁定**：N3 `narrativePrefetch.enabled` 默认开（`!== false`，46f7a1a）——本案 fire→成交 10.85s 中叙事直调同步段占 9.1s 的另一半对冲；maxCopyWalletHolderCircPct 门本案如实工作无 bug（fire=0 真实值，0xddac…2127=GMGN renowned 不在 172 名单且 fire 后 6s 才进场，成交时 15.74%<20 即使在名单也拦不住——亏损结构是极速票 fire→成交窗口漂移，非控盘集中度，另见 memory d97a-7777 案档案）。
+- **审计**：沿用 CG1.0 三件套（timing `fetch.corpusGate`/日志 `[CorpusGate] … v=CG2.0`/`dataFetchResults.skipped='corpus_gate'`），版本号进日志可直接区分两代判据的线上分布。
+- **改动面**：`llm/jev-corpusgate-questions.mjs` 题面重写+版本 bump；单测 `_test_corpus_gate.cjs` A6/A7 断言同步（A7 锚从「会否改变判定」换「TRUST PRINCIPLE/采信/NEVER 理由」三锚）；部署=实验进程（直调内嵌）+narrative worker 双重启。
+- **观察项**：CG2.0 上线后 sufficient 率应显著上升（日志 v=CG2.0 分布）；若跳过过猛致评级整体下移（偏拦放大），再校 minSufficientProb（0.6 是唯一旋钮，题面不动）。
+
 ### C80 蝙蝠侠摇案 0x4547dae7757fb4043e034d27ed02dfabe9aa7777——E 类情绪感染力折损（event_resonance，J1.31）：现象传播广度≠Web3 用户情绪转化（观众≠买家），mild ×0.5 / indifferent ×0.25 只折事件分+传播分（2026-10-16 用户裁定「我觉对时事现象热度，其实也应该度量事件对Web3用户度的情绪感染力。这个事件没啥情绪感染力，我不会被它有任何触动，也并非一个大时事。」）★
 
 - **现象（E 类高分买入 31 秒 -12.4%）**：蝙蝠侠式蹦迪（flap，2026-10-16 12:29 创建）Jev E 类 0.99 + B 档 27 + 传播 28.68 + 时效 15 = 事件分 70.68 过线 → 总分 75.68 high → v20 买 0.004 BNB（4 卡）→ **31 秒后 -12.4% 卖出**；全程 54 ticks / 18min 冷市场。证据链全在：subject_entity character_ip 仅 0.14（**无形象纯现象**，meme_word 0.67 是借名）；vision 对抖音搜索页截图判「动作非角色」；宣告者=105 粉小布丁（C76 找角度名单形状）；借 DC 蝙蝠侠名 super_ip 0.43。用户诊断「没有形象只是现象，不太能成为 meme 币」——**现有题集的量级/传播/时效三轴全是「现象在圈外有多大」的旁观者度量，缺「Web3 买家会不会被触动」的转化率轴**：土味舞蹈挑战在抖音百万级刷屏，crypto 圈纯旁观。
