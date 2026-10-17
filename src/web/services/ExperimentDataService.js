@@ -1449,6 +1449,7 @@ class ExperimentDataService {
       // 拉回来（getTokens 17MB/17s 的同款教训）；详情页 prompt 展示走 /api/narrative/result
       const NARRATIVE_LIGHT_COLUMNS = [
         'token_address', 'analyzed_at', 'is_valid', 'prompt_version',
+        'token_category',
         'pre_check_result', 'prestage_result', 'prestage_raw_output',
         'stage1_result', 'stage1_raw_output',
         'stage2_result', 'stage2_raw_output',
@@ -1509,6 +1510,8 @@ class ExperimentDataService {
             narrative: {
               rating: rating,
               analyzed_at: narrative.analyzed_at,
+              // 叙事分类（deriveTokenCategory：'event:<A~W>' 或 prestage 三类；null=precheck fail/no_data）
+              token_category: narrative.token_category ?? null,
               llmAnalysis: llmAnalysis
             },
             human_judge: token.human_judges || null,

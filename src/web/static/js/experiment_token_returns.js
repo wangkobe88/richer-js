@@ -19,6 +19,24 @@ const NARRATIVE_RATING_MAP = {
   9: { label: '未评级', emoji: '❓', colorClass: 'text-gray-400', bgClass: 'bg-gray-700', borderClass: 'border-gray-600' }
 };
 
+// 叙事分类映射（token_narrative.token_category：标准路径 'event:<A~W>' + prestage 三类；
+// 语义对齐 jev-questions event_category 题集）
+const NARRATIVE_CATEGORY_MAP = {
+  'event:A': { label: '形象IP', cls: 'text-purple-300', title: 'A · 形象 IP：meme 角色/吉祥物/虚拟形象/卡通 IP/表情包角色' },
+  'event:B': { label: '产品', cls: 'text-indigo-300', title: 'B · 非 Web3 产品：app/游戏/硬件/网站/消费品发布或更新' },
+  'event:C': { label: '个人', cls: 'text-teal-300', title: 'C · 个人声明：个人身份发言（非机构官方口径）' },
+  'event:D': { label: '机构', cls: 'text-blue-300', title: 'D · 机构行动：公司/组织官方账号公告或行动' },
+  'event:E': { label: '热点', cls: 'text-orange-300', title: 'E · 社会热点：正在平台传播的趋势/病毒内容/热梗' },
+  'event:F': { label: '发现', cls: 'text-cyan-300', title: 'F · 发现：作者原创的隐藏模式/数据洞察/叙事发现' },
+  'event:G': { label: '预测', cls: 'text-yellow-300', title: 'G · 预测：未来事件预测（有推理但证据不足）' },
+  'event:W': { label: 'Web3', cls: 'text-green-300', title: 'W · Web3 项目：区块链/加密产品发布或更新' },
+  'project':               { label: '项目', cls: 'text-pink-300', title: 'prestage · 项目币/发行方自发' },
+  'account_based_meme':    { label: '账号型', cls: 'text-fuchsia-300', title: 'prestage · 账号型 meme（账号/社区 token）' },
+  'web3_native_ip_early':  { label: '原生IP', cls: 'text-lime-300', title: 'prestage · Web3 原生 IP 早期' },
+  // C83 快车道删除前的旧行（分支保留防御旧行重放），历史行仍可能读到
+  'super_ip_fast':         { label: '快车道', cls: 'text-rose-300', title: '已废弃 · superIP 快车道（C83 前旧行）' },
+};
+
 class ExperimentTokenReturns {
   constructor() {
     this.experimentId = null;
@@ -1558,8 +1576,15 @@ class ExperimentTokenReturns {
     const totalScore = summary.score;
     const scoreText = (typeof totalScore === 'number' && !isNaN(totalScore)) ? ` (${totalScore.toFixed(0)}分)` : '';
 
+    // 叙事分类（event:A~W / prestage 三类；null = precheck fail/no_data 未走到分类环节）
+    const tokenCategory = narrative.narrative.token_category;
+    const catInfo = tokenCategory ? NARRATIVE_CATEGORY_MAP[tokenCategory] : null;
+    const categoryHtml = tokenCategory
+      ? `<div class="mt-0.5 text-[10px] leading-tight cursor-help ${catInfo ? catInfo.cls : 'text-gray-400'}" title="${catInfo ? catInfo.title : tokenCategory}">${catInfo ? catInfo.label : tokenCategory}</div>`
+      : '';
+
     return `
-      <div class="flex items-center justify-center">
+      <div class="flex flex-col items-center justify-center">
         <a href="/narrative-analyzer?address=${tokenAddress}"
            target="_blank"
            class="px-2 py-1 rounded text-xs ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity"
@@ -1567,6 +1592,7 @@ class ExperimentTokenReturns {
            style="cursor: pointer; text-decoration: none;">
           ${ratingInfo.emoji} ${rating}${scoreText}
         </a>
+        ${categoryHtml}
       </div>
     `;
   }
