@@ -68,6 +68,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C82 JDI 案 0x4688681cd5f1882b3ba12f6f4a79951914e87777——「缩写低置信降档」门（候选 A）存量扫描否决：abbrP/weakP 对盈亏无区分度，命中族=7777 sybil 缩写盘（2026-10-17 用户裁定「那就先不做吧」）；附 @Fouzia69513878 入推特黑名单 ★
+
+- **现象（B 类高分买入 15 秒 -31.7%）**：JDI（flap，2026-10-16 20:10 创建，尾号 7777）语料=空 description IPFS + @Polymarket（202 万粉）20:09 新闻推「中国机器人公司发布 13 英尺/2400 磅人形机器人」。唯一名字线索=vision 图内文字转写「**JD 阿尔法工业**」（展厅背景墙）。Jev：B 类 0.93/product_functional 0.85/web3_fit 0.69（机器人=极客风不触 J1.27 产品实体门）/notable_other 0.37（J1.26 退出阻断）/no_visual_entity 0.86（J1.29 不碰 B 类）/mild_amusement 不折（J1.31 仅 E 类）→ 事件分 39.31+**关联 17（abbreviation_alias，但 argmax 置信仅 0.48：none 0.18/exact 0.18/semantic 0.15）**+质量 14.87=71.18 high → v20 买 0.004 BNB 15 秒后 -31.7% 清仓。**名字↔事件绑定弱只减分不阻断，事件分+传播分（202 万粉大 V 报道=传播 23.52）把底分抬过线**。
+- **候选 A（缩写低置信降档，mapper 侧）**：argmax=abbreviation_alias 且置信<T1 且弱侧（none+semantic）合计≥T2 时 relevance 降档计。182 全表扫描 26335 行（`scripts/scan-abbrev-low-confidence.cjs`，74 票 abbreviation 评分票）：**A-semantic 变体天然无效**（lv2=12>10 截断线→只降 5 分 high→mid，买腿 ==2 OR ==3 照买，整表仅翻 1 票）；A-none 变体拦截面真实（T1<0.6/T2≥0.25 命中 26 票全翻 low，JDI 反证命中）但**实际买入票净效应负**：救回 0.58（优优 -0.33/SSI -0.15/UNI -0.10/JDI ≈0）< 误伤 0.90（村村 +0.54/UNI +0.24/马上U钱 +0.12）= **净 -0.32 BNB**；窄参数（<0.35/≥0.4）只拦优优净 +0.33 但 **JDI 不命中**（救不了立案票）。7 买入票 4 亏 3 赢方向随机=与 holderTrendCV 门否决案（拦放胜率 52%=52%）同形状。
+- **意外发现（观察项）**：26 票翻拦明细几乎全部尾号 7777（SI×5/U 族×8/村村×2/SSI/SXSICAT/SANTACZ/SIF/Umi/ZeroK/JDI/尊界V800/이상혁…，集中 10-03~10-11）——**低置信 abbreviation ≈ 7777 sybil 团伙指纹**（vanity-7777-sybil-gang 族）。若未来要拦这族，正确轴在地址尾号/发射簇特征（pre-buy 因子层，如 vanityTailCount）而非叙事层；叙事门不动。
+- **@Fouzia69513878 入黑名单**（同日用户指令）：`config/default.json → narrative.twitterBlacklist` 第 8 账号（1 粉小号；precheck 层命中即 low）。注意 twitter-fetcher.mjs 硬编码 `NARRATIVE_TWITTER_BLACKLIST`（fetch 层 4 账号）与 config 层（8 账号）历史漂移未同步——权威层=config（precheck 拦截），fetcher 层旧名单未动。
+- **改动面**：config 一行 + 本台账 + 扫描脚本入库（零机制改动、无单测负担）；叙事 worker 重启生效（实验进程不依赖该名单无需动）。
+
 ### C81 롱캣案 0xd97a9847ee249c36b01b14eecffa73c425d57777——语料充分门判据改「推文可理解即 sufficient」（CG2.0 采信原则）：验证宣告陈述不是门的任务，douyin 2.8-4.4s 验证代价买腿不可接受（2026-10-17 用户裁定「我们基本原则是相信推文的陈述，不要去验证，验证的代价太大」「只要能通过推文直接理解清楚叙事的，就都不要去取进一步语料」）★
 
 - **现象（CG1.0 判据漂移）**：롱캣（韩国跑者 meme，宣告推自述「甚至在抖音都有了官方账号…特别火爆」+尾部抖音分享口令残留 → douyin 桶非空）fire 时票龄 2.95s，叙事直调 9105ms 中 **douyin fetch 3625ms**。corpusGate 260ms 正常返回判 **need_fetch**——宣告推已把叙事说清（韩国 meme/롱캣/情绪表达载体/未代币化），但 CG1.0 need_fetch 判据①「叙事主体疑在未抓平台原生（中文梗源头常在抖音/微博）」被 Jev 按平台敏感性命中：**「meme 源头在抖音」被当成了抓取理由，尽管推文文字已经完成了叙事转述**。事后 douyin 语料确实进了 state（传播分 28.76=评级 70.76 过线第二大项），但用户裁定验证本身就不该做——发币者陈述默认采信，一手验证的秒级代价拖延买腿（本案 fire→成交 10.85s，成交价较 fire 价 +66%，N3 预触发同批默认开对冲）。
