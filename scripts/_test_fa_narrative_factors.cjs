@@ -2,10 +2,11 @@
 /**
  * FA 叙事触发模型因子单测（C84 2026-10-17 买腿重构）——本地零 DB 零网络。
  *
- * 三键：narrativeRating（null=未完成/1=low/2=mid/3=high/9=失败超时归一）/
+ * 四键：narrativeRating（null=未完成/1=low/2=mid/3=high/9=失败超时归一）/
  * narrativeRounds / narrativeRetryDue（=1 当且仅当 rating===1 ∧ accountOnly ∧
  * !inFlight ∧ rounds<maxAnalyses ∧ now−completedAt≥intervalMs——「… OR
- * narrativeRetryDue == 1」并入触发条件的重试轮臂）。
+ * narrativeRetryDue == 1」并入触发条件的重试轮臂）/ narrativeCategory（叙事类型，
+ * Nightshift 案 2026-10-17——GMGN 条件层分档门因子源）。
  *
  * 覆盖：
  *   A. setNarrativeFactors/getNarrativeFactors/clearNarrativeFactors 生命周期
@@ -81,9 +82,10 @@ console.log('B. buildFactorMap 注入');
 {
   const fa = newFA();
   const f0 = fa.buildFactorMap(ADDR, T0 + 2000);
-  check('B1 未回填 → rating null / rounds 0 / retryDue 0（条件恒 false fail-closed）',
+  check('B1 未回填 → rating null / rounds 0 / retryDue 0 / category null（条件恒 false fail-closed）',
     () => assert.deepStrictEqual(
-      [f0.narrativeRating, f0.narrativeRounds, f0.narrativeRetryDue], [null, 0, 0]));
+      [f0.narrativeRating, f0.narrativeRounds, f0.narrativeRetryDue, f0.narrativeCategory],
+      [null, 0, 0, null]));
 
   FourMemeFactorAggregator.setNarrativeFactors(ADDR, {
     rating: 2, rounds: 1, completedAt: T0 + 1500, accountOnly: false, inFlight: false,
@@ -105,6 +107,25 @@ console.log('B. buildFactorMap 注入');
     });
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 2000).narrativeRating, 9);
   });
+  check('B6 category 注入（Nightshift 案 2026-10-17）：project 透传 / 缺键 null / 回退 null',
+    () => {
+      FourMemeFactorAggregator.setNarrativeFactors(ADDR, {
+        rating: 2, rounds: 1, completedAt: T0 + 1500, accountOnly: false, inFlight: false,
+        category: 'project',
+      });
+      assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 2000).narrativeCategory, 'project');
+      // 缺 category 键（老调用形状）→ null（IS NULL 臂放行语义）
+      FourMemeFactorAggregator.setNarrativeFactors(ADDR, {
+        rating: 2, rounds: 1, completedAt: T0 + 1500, accountOnly: false, inFlight: false,
+      });
+      assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 2000).narrativeCategory, null);
+      // 事件类带前缀形状原样透传（不做值域改写）
+      FourMemeFactorAggregator.setNarrativeFactors(ADDR, {
+        rating: 2, rounds: 1, completedAt: T0 + 1500, accountOnly: false, inFlight: false,
+        category: 'event:W',
+      });
+      assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 2000).narrativeCategory, 'event:W');
+    });
   check('B5 同进程其它 token 不串读（Map 按 token 键控）', () => {
     fa.registerToken('0xother', { createdAtMs: T0, totalSupply: 1e9, symbol: 'O', creatorAddress: null });
     const fo = fa.buildFactorMap('0xother', T0 + 2000);
@@ -217,10 +238,11 @@ console.log('E. config 锁死/部分注入');
 console.log('F. 探针收录');
 {
   const keys = newFA().getFactorKeys();
-  check('F1 三键入探针集（策略 condition 可直引）', () => {
+  check('F1 四键入探针集（策略 condition 可直引）', () => {
     assert.ok(keys.has('narrativeRating'), 'narrativeRating 缺');
     assert.ok(keys.has('narrativeRounds'), 'narrativeRounds 缺');
     assert.ok(keys.has('narrativeRetryDue'), 'narrativeRetryDue 缺');
+    assert.ok(keys.has('narrativeCategory'), 'narrativeCategory 缺');
   });
 }
 

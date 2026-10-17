@@ -2829,6 +2829,11 @@ class FourMemeFactorAggregator extends EventEmitter {
                 : null;
             factors.narrativeRating = _nar ? (_nar.rating ?? null) : null;
             factors.narrativeRounds = _nar ? (_nar.rounds ?? 0) : 0;
+            // 叙事类型（2026-10-17 Nightshift 案）：deriveTokenCategory 产物三选一形状
+            // （prestage 裸值 / event:X / null）。GMGN 条件层 narrativeCategory 键的
+            // 因子源——project/account_based_meme/web3_native_ip_early/event:W 适用
+            // issuerTokenCount<=1 门；null（未分析/未分类/legacy 腿）= IS NULL 臂放行
+            factors.narrativeCategory = _nar ? (_nar.category ?? null) : null;
             factors.narrativeRetryDue = (_nar
                 && _nar.rating === 1 && _nar.accountOnly === true && _nar.inFlight !== true
                 && _nar.rounds < _narrativeFactorConfig.maxAnalyses
@@ -2886,10 +2891,11 @@ class FourMemeFactorAggregator extends EventEmitter {
      * preload 后逐 token 注入）。整包替换——调用方持全量状态。
      * @param {string} tokenAddress
      * @param {{rating: number|null, rounds: number, completedAt: number|null,
-     *          accountOnly: boolean, inFlight: boolean}} snapshot
+     *          accountOnly: boolean, inFlight: boolean, category?: string|null}} snapshot
      *   rating ∈ null|1|2|3|9；completedAt=最后一轮完成时刻 ms（retryDue 判据）；
      *   accountOnly=语料只有账号入口（isAccountOnlySource，重试域判据）；
-     *   inFlight=引擎分析进行中（抑制重复发起）
+     *   inFlight=引擎分析进行中（抑制重复发起）；
+     *   category=叙事类型（token_category 同形状，narrativeCategory 因子源）
      */
     static setNarrativeFactors(tokenAddress, snapshot) {
         if (!tokenAddress) return false;

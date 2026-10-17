@@ -177,6 +177,7 @@ const COND_BASE = {
     assert.strictEqual(proj.rating, null); // inFlight 期 rating null → 买门恒 false
     assert.strictEqual(proj.rounds, 1);
     assert.strictEqual(proj.inFlight, true);
+    assert.strictEqual(proj.category, null); // inFlight 期无分类（Nightshift 案第四键）
     const ins = dbOps.find(o => o.kind === 'insert' && o.row.token_address === eng.__addr);
     assert.ok(ins, 'insert 行缺失');
     assert.strictEqual(ins.table, 'narrative_analysis_rounds');
@@ -204,17 +205,20 @@ const COND_BASE = {
     await settle(); // 等 insert id 回填 currentRowId（生产时序：DB ms 级 < 分析秒级）
     eng._narrativeCaller.resolve({
       numericRating: 2, rating: 'mid', durationMs: 80, fromCache: false, accountOnly: false,
+      narrativeCategory: 'project', // Nightshift 案第四键：analyzer 顶层透出回填 st
     });
     await settle();
     const st = eng._narrativeTriggerStates.get(eng.__addr);
     assert.strictEqual(st.inFlight, false);
     assert.strictEqual(st.hasInitial, true);
     assert.strictEqual(st.lastRating, 2);
+    assert.strictEqual(st.category, 'project'); // 完成时刻分类回填
     assert.ok(Number.isFinite(st.lastCompletedAt));
     const proj = FourMemeFactorAggregator.getNarrativeFactors(eng.__addr);
     assert.strictEqual(proj.rating, 2);
     assert.strictEqual(proj.inFlight, false);
     assert.strictEqual(proj.accountOnly, false);
+    assert.strictEqual(proj.category, 'project'); // 投影含第四键（FA narrativeCategory 源）
     const upd = dbOps.filter(o => o.kind === 'update').pop();
     assert.strictEqual(upd.table, 'narrative_analysis_rounds');
     assert.strictEqual(upd.eq[0], 'id');
@@ -314,6 +318,7 @@ const COND_BASE = {
     const st = eng._narrativeTriggerStates.get(eng.__addr);
     assert.strictEqual(st.inFlight, false);
     assert.strictEqual(st.lastRating, 9);
+    assert.strictEqual(st.category, null); // 异常轮无分类回填（保持 null=门放行）
     assert.strictEqual(FourMemeFactorAggregator.getNarrativeFactors(eng.__addr).rating, 9);
     FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
   });
@@ -365,6 +370,13 @@ const COND_BASE = {
     check('E4 ctor 参数投影（FA.setNarrativeFactorConfig 两键全传）', () => {
       assert.ok(/setNarrativeFactorConfig\(\{\s*intervalMs:\s*this\._narrativeTriggerIntervalMs,\s*maxAnalyses:\s*this\._narrativeTriggerMaxAnalyses,?\s*\}\)/.test(src),
         'ctor 投影形状漂移');
+    });
+    check('E5 category 链源码口径（Nightshift 案 2026-10-17：st 初始/完成回填/投影/挂点透传四点）', () => {
+      assert.ok(/rounds: 0, inFlight: false, hasInitial: false, lastRating: null,\s*\n\s*lastCompletedAt: null, accountOnly: false, currentRowId: null, category: null,/.test(src),
+        'st 初始对象缺 category:null');
+      assert.ok(/st\.category = r\.narrativeCategory \?\? null;/.test(src), '完成回填缺 category 赋值');
+      assert.ok(/category: st\.category \?\? null,/.test(src), '_projectNarrativeFactors 缺 category');
+      assert.ok(/factorResults\?\.narrativeCategory \?\? null\);/.test(src), 'GMGN 挂点缺第四参透传');
     });
   }
 

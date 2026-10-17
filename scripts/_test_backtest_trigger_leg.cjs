@@ -83,10 +83,10 @@ const PRELOAD = BacktestEngine.prototype._preloadNarrativeRows;
 
   // ═══════════════ B. FA 常量注入 ═══════════════
   console.log('B. FA 常量注入');
-  await checkAsync('B1 mid 行 → rating=2 / rounds=1 / completedAt=Date.parse(analyzed_at)', async () => {
+  await checkAsync('B1 mid 行 → rating=2 / rounds=1 / completedAt=Date.parse(analyzed_at) / category 透传', async () => {
     const { stub } = makePreloadStub({
       strategies: [{ action: 'buy', condition: 'x', narrativeTriggerCondition: 'c' }],
-      rows: new Map([['0xb1', { stage_final_result: { rating: 'mid' }, analyzed_at: ISO }]]),
+      rows: new Map([['0xb1', { stage_final_result: { rating: 'mid' }, analyzed_at: ISO, token_category: 'project' }]]),
       tokens: ['0xB1'], // 键用 _tokenMeta 原键，rowCache 小写查表
     });
     await PRELOAD.call(stub);
@@ -96,16 +96,19 @@ const PRELOAD = BacktestEngine.prototype._preloadNarrativeRows;
     assert.strictEqual(g.completedAt, Date.parse(ISO));
     assert.strictEqual(g.accountOnly, false);
     assert.strictEqual(g.inFlight, false);
+    assert.strictEqual(g.category, 'project'); // Nightshift 案第四键：row.token_category 透传
     FourMemeFactorAggregator.clearNarrativeFactors('0xB1');
   });
-  await checkAsync('B2 unrated 行 → 归 9（非 1/2/3 fail 归一）', async () => {
+  await checkAsync('B2 unrated 行 → 归 9（非 1/2/3 fail 归一）；缺 token_category 列 → category null', async () => {
     const { stub } = makePreloadStub({
       strategies: [{ action: 'buy', condition: 'x', narrativeTriggerCondition: 'c' }],
       rows: new Map([['0xb2', { stage_final_result: { rating: 'unrated' } }]]),
       tokens: ['0xB2'],
     });
     await PRELOAD.call(stub);
-    assert.strictEqual(FourMemeFactorAggregator.getNarrativeFactors('0xB2').rating, 9);
+    const g2 = FourMemeFactorAggregator.getNarrativeFactors('0xB2');
+    assert.strictEqual(g2.rating, 9);
+    assert.strictEqual(g2.category, null); // 缺列 null（IS NULL 臂放行语义）
     FourMemeFactorAggregator.clearNarrativeFactors('0xB2');
   });
   await checkAsync('B3 缺行 token 不注入 → null → 条件恒 false 不买（fail-closed 同向）', async () => {

@@ -728,6 +728,11 @@ export function formatResult(record) {
     },
     rating: rating,
     numericRating: categoryToRating(rating),
+    // 顶层透出代币分类（2026-10-17 Nightshift 案 narrativeCategory 因子化）：缓存/
+    // fallback 路的 record 来自 select('*') 含 token_category；新鲜路 save 回读瘦列
+    // 不含该键，由 NarrativeAnalyzer 新鲜路 return 显式覆盖。null = 未分类/precheck
+    // fail（「null 不带键」语义），门侧 IS NULL 臂放行
+    tokenCategory: record.token_category ?? null,
     reason: reason,
     score: score,
     scores: scores,

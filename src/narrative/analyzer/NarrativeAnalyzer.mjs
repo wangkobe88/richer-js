@@ -932,6 +932,9 @@ export class NarrativeAnalyzer {
 
     return {
       ...formatResult(saveResult),
+      // 新鲜路显式覆盖：save 回读瘦列（SAVE_RETURN_COLS 闭集）不含 token_category，
+      // 用 :855 在手变量透出本票分类（与缓存/fallback 路三路同形）
+      tokenCategory: tokenCategory ?? null,
       llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段供前端使用
       gmgnRisk,  // GMGN dev 风险字段（直调语境透传给 NarrativeDirectCaller）
       twitter: twitterInfo,  // 添加 twitter 字段供前端使用

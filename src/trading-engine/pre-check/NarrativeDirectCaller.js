@@ -352,6 +352,10 @@ class NarrativeDirectCaller {
         // （账号时间线=动态语料，重取可翻案；推文型语料静态重析无意义）——引擎
         // narrativeRetryDue 因子的 accountOnly 臂；不外露 classifiedUrls 本体
         accountOnly: isAccountOnlySource(result?.classifiedUrls) === true,
+        // 叙事类型（2026-10-17 Nightshift 案）：analyzer 顶层 tokenCategory 三路
+        // （新鲜/缓存/fallback）透出；null = 未分类/precheck fail——GMGN 条件层
+        // narrativeCategory 键的消费源（触发状态机 st.category 投影）
+        narrativeCategory: result?.tokenCategory ?? null,
         // 账号型 TTL 穿透观测标记：本次评级来自 10s 过期后的强制重析（仅穿透轮带）
         ...(ttlReanalyzed ? { ttlReanalyze: true } : {}),
       };
@@ -389,6 +393,7 @@ class NarrativeDirectCaller {
         corpusTs: null,
         precheckStage: null,
         accountOnly: false,
+        narrativeCategory: null,
       };
     }
   }

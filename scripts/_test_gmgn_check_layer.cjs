@@ -79,6 +79,13 @@ async function withKey(fn) {
 
 function freshSvc(config = {}) { return new GmgnRiskCheckService(config, { info() {}, warn() {}, error() {} }); }
 
+// Nightshift 案分档门条件串（2026-10-17 用户裁定终稿形状，A/C 段共用）：
+// 适用集内 issuerTokenCount<=1，IS NULL 臂保 null 放行，bundler 现行门并联前置
+const NS_COND = 'gmgnBundlerWalletRatio <= 75 AND ((narrativeCategory IS NULL OR '
+  + "(narrativeCategory != 'project' AND narrativeCategory != 'account_based_meme' "
+  + "AND narrativeCategory != 'web3_native_ip_early' AND narrativeCategory != 'event:W')) "
+  + 'OR gmgnIssuerTokenCount <= 1)';
+
 async function main() {
   console.log('A. evaluateFactors 纯评估');
   {
@@ -117,10 +124,48 @@ async function main() {
       'gmgnVisitingCount >= 1');
     check('visiting=0（无人看）→ 注意力门拦', visit0.passed === false, JSON.stringify(visit0));
 
-    check('键集=固定四键（含 gmgnVisitingCount）',
+    check('键集=固定五键（含 gmgnVisitingCount + narrativeCategory）',
       JSON.stringify(GmgnRiskCheckService.getConditionFactorKeys()) === JSON.stringify(GMGN_CONDITION_FACTOR_KEYS)
       && GMGN_CONDITION_FACTOR_KEYS.includes('gmgnBundlerWalletRatio')
-      && GMGN_CONDITION_FACTOR_KEYS.includes('gmgnVisitingCount'));
+      && GMGN_CONDITION_FACTOR_KEYS.includes('gmgnVisitingCount')
+      && GMGN_CONDITION_FACTOR_KEYS.includes('narrativeCategory'));
+
+    // ── Nightshift 案分档门（2026-10-17 用户裁定）：叙事类型 × issuerTokenCount ──
+    // 适用集 {project, account_based_meme, web3_native_ip_early, event:W} 内发币数
+    // 须 <=1；事件/梗/名人类（event:A-E/F/G）不适用；null（未分类/legacy）放行
+    // fail-open。IS NULL 前置臂是 null 放行的必要条件——ConditionEvaluator 对左值
+    // null 的任何比较（含 !=）恒 false，裸 != 链在 null+issuer>1 时误拒
+    const nsEval = (category, issuer, bundler = 30.3) => GmgnRiskCheckService.evaluateFactors(
+      { gmgnRiskCovered: 1, gmgnIssuerTokenCount: issuer, gmgnBundlerWalletRatio: bundler,
+        narrativeCategory: category }, NS_COND).passed;
+    check('Nightshift 反证：project+issuer=6+bundler=30.3 → 拒（0x3ff9…ffff 事故现场：serial issuer 拦截面）',
+      nsEval('project', 6) === false);
+    check('project+issuer=0 → 放（fire 时 GMGN 索引未填充 fail-open，用户裁定）',
+      nsEval('project', 0) === true);
+    check('account_based_meme+issuer=2 → 拒（适用集第二类）',
+      nsEval('account_based_meme', 2) === false);
+    check('web3_native_ip_early+issuer=2 → 拒（适用集第三类——W3 原生项目早期）',
+      nsEval('web3_native_ip_early', 2) === false);
+    check('event:W+issuer=3 → 拒（适用集第四类——同一项目号被反复发盘同样可疑）',
+      nsEval('event:W', 3) === false);
+    check('event:C+issuer=6 → 放（事件类不适用——事件源账号被多方蹭发多币是常态）',
+      nsEval('event:C', 6) === true);
+    check('event:A+issuer=6+bundler=87.5 → 拒（bundler 现行门不受新臂影响）',
+      nsEval('event:A', 6, 87.5) === false);
+    check('适用集内 issuer=1 → 放（首币合规）',
+      nsEval('project', 1) === true);
+    const nsNullPass = nsEval(null, 6);
+    check('null+issuer=6 → 放（未分类/legacy 腿 IS NULL 臂 fail-open）', nsNullPass === true);
+    // ★锁死防线：剥掉 IS NULL 臂的旧形状在 null+issuer>1 处=拒（null 短路误拒事故
+    // 形状反证——防未来把条件串「简化」回裸 != 链）
+    const noNullArmCond = 'gmgnBundlerWalletRatio <= 75 AND ((narrativeCategory != \'project\' '
+      + "AND narrativeCategory != 'account_based_meme' AND narrativeCategory != 'web3_native_ip_early' "
+      + "AND narrativeCategory != 'event:W') OR gmgnIssuerTokenCount <= 1)";
+    const noNullArm = GmgnRiskCheckService.evaluateFactors(
+      { gmgnRiskCovered: 1, gmgnIssuerTokenCount: 6, gmgnBundlerWalletRatio: 30.3,
+        narrativeCategory: null }, noNullArmCond).passed;
+    check('反证：无 IS NULL 臂的形状在 null+6 处=拒（ConditionEvaluator null 短路——IS NULL 臂不可省）',
+      noNullArm === false);
   }
 
   console.log('B. service check()（打桩 GMGNTokenAPI，零网络）');
@@ -200,6 +245,19 @@ async function main() {
         v.passed === false && v.factors.gmgnBundlerWalletRatio === 87.5 && v.condition === 'gmgnBundlerWalletRatio <= 75',
         JSON.stringify(v));
     }
+    // checkAndEvaluate 第四参 narrativeCategory（Nightshift 案 2026-10-17）：合并进
+    // context 供条件评估 + factors 返回携带（拒单复盘可见）；缺省 null 同形
+    {
+      apiCalls.length = 0;
+      stubBehavior = { response: { ...FAKER_INFO, dev: { ...FAKER_INFO.dev, twitter_create_token_count: 6 } } };
+      const v = await freshSvc().checkAndEvaluate('0xCE2', 'bsc', NS_COND, 'project');
+      check('第四参 project + issuer=6 → 拒且 factors.narrativeCategory 留痕',
+        v.passed === false && v.factors.narrativeCategory === 'project' && v.factors.gmgnIssuerTokenCount === 6,
+        JSON.stringify(v));
+      const v2 = await freshSvc().checkAndEvaluate('0xCE3', 'bsc', NS_COND);
+      check('缺省第四参 → narrativeCategory=null 进 context（IS NULL 臂放行）',
+        v2.factors.narrativeCategory === null, JSON.stringify(v2.factors.narrativeCategory));
+    }
   });
   // 无 key
   {
@@ -264,6 +322,9 @@ async function main() {
     const TOKEN_OBJ = { token: '0xT1', chain: 'bsc', symbol: 'TST', strategyExecutions: { preset: 1 } };
     const runPath = (stub) => BacktestEngine.prototype._evaluateBuyPath.call(
       stub, TOKEN_OBJ, { currentPrice: 1e-6, age: 10 }, { platform: 'fourmeme' }, Date.now());
+    // 带 narrativeCategory 的 fire 因子表变体（Nightshift 案：因子表 → GMGN 层透传）
+    const runPathCat = (stub, category) => BacktestEngine.prototype._evaluateBuyPath.call(
+      stub, TOKEN_OBJ, { currentPrice: 1e-6, age: 10, narrativeCategory: category }, { platform: 'fourmeme' }, Date.now());
 
     apiCalls.length = 0; stubBehavior = null;
 
@@ -303,6 +364,19 @@ async function main() {
       });
       const r = await runPath(stub);
       check('无 gmgnCheckCondition → 不经第三层直达下单', executed === 1 && r.reason === 'stub-no-buy');
+    }
+    // C4b. 回测 narrativeCategory 透传（Nightshift 案）：fire 因子表 → evaluateFactors
+    // spread 同刻同源；快照 issuer=6 + 因子表 project → 拒；因子表 null → 放
+    {
+      const nsRisk = { ...FAKER_RISK, issuerTokenCount: 6, bundlerWallets: 3, topWallets: 60 };
+      const stubP = makeStub({ strategy: STRAT(NS_COND), gmgnRisk: nsRisk });
+      const rP = await runPathCat(stubP, 'project');
+      check('回测透传：project+issuer=6+bundler 5% → 拒（spread 生效）',
+        rP.success === false && String(rP.reason).includes('gmgn_check_failed'), JSON.stringify(rP));
+      const stubN = makeStub({ strategy: STRAT(NS_COND), gmgnRisk: nsRisk });
+      const rN = await runPathCat(stubN, null);
+      check('回测透传：null+issuer=6 → 放（IS NULL 臂 fail-open 同实时）',
+        rN.success === false && rN.reason === 'stub-no-buy', JSON.stringify(rN));
     }
     // C5. 回测不真调 API：源码口径
     {
@@ -346,6 +420,14 @@ async function main() {
     check('回测引擎策略映射白名单透传 gmgnCheckCondition（同坑同锁）',
       iBtMap !== -1 && btsrc.slice(iBtMap, iBtMap + 3000).includes('gmgnCheckCondition: s.gmgnCheckCondition || null'),
       `iBtMap=${iBtMap}`);
+    // Nightshift 案（2026-10-17）：narrativeCategory 从 fire 因子表透传进 GMGN 层——
+    // 与单一买条件同刻同源（防 Pingus 案式两门错位：状态机投影 → FA → fire 因子表）
+    check('实时引擎挂点传第四参（fire 因子表 narrativeCategory）',
+      /checkAndEvaluate\(\s*token\.token,\s*token\.chain \|\| 'bsc',\s*gmgnCheckCondition,\s*[^)]*factorResults\?\.narrativeCategory/s.test(src),
+      '实时引擎 checkAndEvaluate 未透传 factorResults?.narrativeCategory');
+    check('回测挂点 spread narrativeCategory（fire 因子表同源）',
+      btsrc.includes('narrativeCategory: factorResults?.narrativeCategory ?? null'),
+      '回测 evaluateFactors 因子表未 spread narrativeCategory');
   }
 
   console.log('E. 校验链（未知因子 fail-fast）');

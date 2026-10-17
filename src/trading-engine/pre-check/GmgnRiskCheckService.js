@@ -25,12 +25,15 @@ const { mapGmgnRiskFactors } = require('./NarrativeDirectCaller');
 const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 
 // gmgnCheckCondition 可引用的因子键（mapGmgnRiskFactors 单点映射产物；2026-10-15
-// 加 gmgnVisitingCount 注意力观测键——「流动性跟注意力背离」用户裁定）
+// 加 gmgnVisitingCount 注意力观测键——「流动性跟注意力背离」用户裁定；
+// 2026-10-17 Nightshift 案加 narrativeCategory——非 GMGN 键，由引擎从 fire 因子表
+// 透传进 context，供「叙事类型 × issuerTokenCount 分档门」条件引用）
 const GMGN_CONDITION_FACTOR_KEYS = [
   'gmgnIssuerTokenCount',
   'gmgnBundlerWalletRatio',
   'gmgnRiskCovered',
   'gmgnVisitingCount',
+  'narrativeCategory',
 ];
 
 const DEFAULTS = {
@@ -132,13 +135,22 @@ class GmgnRiskCheckService {
 
   /**
    * 买前实时检查 + 条件评估（实时引擎消费点）。
+   * @param {string} tokenAddress
+   * @param {string} chain
+   * @param {string} condition
+   * @param {string|null} [narrativeCategory] - 叙事类型（fire 因子表透传；null =
+   *   未分析/未分类/legacy 腿——条件串 IS NULL 臂放行）
    * @returns {Promise<{passed: boolean, evaluated: boolean, factors: Object,
-   *   condition: string|null, reason: string|null}>} factors 含三键+审计字段
+   *   condition: string|null, reason: string|null}>} factors 含四键+审计字段
+   *   +narrativeCategory（拒单复盘可见）
    */
-  async checkAndEvaluate(tokenAddress, chain, condition) {
+  async checkAndEvaluate(tokenAddress, chain, condition, narrativeCategory = null) {
     const factors = await this.check(tokenAddress, chain);
-    const verdict = GmgnRiskCheckService.evaluateFactors(factors, condition);
-    return { ...verdict, factors, condition: String(condition || '').trim() || null };
+    // narrativeCategory 非 GMGN 产物——合并进 context 供条件评估（covered=0 前置
+    // 硬拒不受影响：它只看 gmgnRiskCovered）
+    const context = { ...factors, narrativeCategory: narrativeCategory ?? null };
+    const verdict = GmgnRiskCheckService.evaluateFactors(context, condition);
+    return { ...verdict, factors: context, condition: String(condition || '').trim() || null };
   }
 
   /**

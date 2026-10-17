@@ -1490,7 +1490,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 首轮：条件过门即发起（写入状态后交给 launch）
       this._narrativeTriggerLaunch(tokenAddress, {
         rounds: 0, inFlight: false, hasInitial: false, lastRating: null,
-        lastCompletedAt: null, accountOnly: false, currentRowId: null,
+        lastCompletedAt: null, accountOnly: false, currentRowId: null, category: null,
       }, 'condition', token);
       return;
     }
@@ -1536,6 +1536,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         st.lastRating = [1, 2, 3, 9].includes(r.numericRating) ? r.numericRating : null;
         st.lastCompletedAt = Date.now();
         st.accountOnly = r.accountOnly === true;
+        // 叙事类型回填（Nightshift 案 2026-10-17）：GMGN 条件层 narrativeCategory 的
+        // 真值源——完成时刻取 analyzer 顶层透出值（catch 异常轮保持 null=门放行）
+        st.category = r.narrativeCategory ?? null;
         this._projectNarrativeFactors(tokenAddress, st);
         this.logger.info(this._experimentId, 'NarrativeTrigger',
           `${sym} 析毕 R${roundNo}(${reason}) | rating=${r.numericRating}(${r.rating})` +
@@ -1569,6 +1572,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       completedAt: st.lastCompletedAt,
       accountOnly: st.accountOnly === true,
       inFlight: st.inFlight === true,
+      category: st.category ?? null,
     });
   }
 
@@ -2025,7 +2029,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (gmgnCheckCondition && this._gmgnRiskCheckService) {
         try {
           gmgnCheckInfo = await this._gmgnRiskCheckService.checkAndEvaluate(
-            token.token, token.chain || 'bsc', gmgnCheckCondition);
+            token.token, token.chain || 'bsc', gmgnCheckCondition,
+            // narrativeCategory 从 fire 因子表透传（Nightshift 案 2026-10-17）：与单一
+            // 买条件同刻同源，防 Pingus 案式两门错位
+            factorResults?.narrativeCategory ?? null);
         } catch (e) {
           // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常，同 fail-closed
           gmgnCheckInfo = { passed: false, evaluated: false, reason: `gmgn_check_error(${e?.message || e})` };

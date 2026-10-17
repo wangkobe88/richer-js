@@ -620,6 +620,9 @@ class BacktestEngine extends AbstractTradingEngine {
           completedAt: row.analyzed_at ? Date.parse(row.analyzed_at) : null,
           accountOnly: false,
           inFlight: false,
+          // 叙事类型常量注入（Nightshift 案 2026-10-17）：rowCache select('*') 已含
+          // token_category 列零额外查询；GMGN 条件层 narrativeCategory 因子源
+          category: row.token_category ?? null,
         });
         _injected++;
       }
@@ -2039,7 +2042,12 @@ class BacktestEngine extends AbstractTradingEngine {
         const { GmgnRiskCheckService } = require('../pre-check/GmgnRiskCheckService');
         gmgnCheckInfo = {
           ...GmgnRiskCheckService.evaluateFactors(
-            this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk), gmgnCheckCondition),
+            {
+              ...this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
+              // 叙事类型从 fire 因子表透传（Nightshift 案 2026-10-17）：与实时引擎
+              // checkAndEvaluate 第四参同刻同源——preload 注入的 token 级常量
+              narrativeCategory: factorResults?.narrativeCategory ?? null,
+            }, gmgnCheckCondition),
           condition: gmgnCheckCondition,
         };
         if (!gmgnCheckInfo.passed) {
