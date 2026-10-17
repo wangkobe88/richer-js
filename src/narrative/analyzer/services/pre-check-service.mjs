@@ -422,7 +422,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
-  if (authorScreenName && NARRATIVE_CONFIG.twitterBlacklist?.includes(authorScreenName)) {
+  // 大小写不敏感比对（推特 handle 平台侧不区分大小写，语料携带 API 原样大小写——
+  // 精确 includes 会因名单/语料大小写漂移静默不命中）
+  const blacklistSet = new Set((NARRATIVE_CONFIG.twitterBlacklist || []).map(h => String(h).toLowerCase()));
+  if (authorScreenName && blacklistSet.has(authorScreenName.toLowerCase())) {
     console.log(`[NarrativeAnalyzer] 预检查触发: 推文作者 @${authorScreenName} 在黑名单中`);
     return buildPreCheckResult('low', `推文作者@${authorScreenName}在黑名单中，该账号专门制造虚假叙事`, 'blacklist', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
   }
