@@ -17,9 +17,11 @@
  *   - legs 非空数组；side ∈ {buy, sell}
  *   - 每腿 condition 必填（非空字符串）
  *   - 条件表达式未知因子拦截（2026-10-03 hg55 事故防线前移：库是条件第一编辑面，
- *     写错因子名的腿入库前 400；condition/narrativeCallCondition 用 FA 因子集，
- *     preBuyCheckCondition/repeatBuyCheckCondition 用 PreBuyCheckService 评估上下文键集；
- *     语法错同样拦——parseCondition throw 视为腿非法）
+ *     写错因子名的腿入库前 400；condition/narrativeCallCondition/narrativePrefetchCondition/
+ *     narrativeTriggerCondition（C84 叙事发起条件）用 FA 因子集，preBuyCheckCondition/
+ *     repeatBuyCheckCondition 用 PreBuyCheckService 评估上下文键集；语法错同样拦——
+ *     parseCondition throw 视为腿非法）
+ *   - narrativeTriggerCondition ∧ narrativeCallCondition 同腿互斥（C84 2026-10-17）→ 400
  *   - side 与腿字段错配放行（买腿带 sellPercentage / 卖腿带 preBuyCheckCondition 等
  *     引擎本就「携带不生效」，不构成危险）
  *   - groups/cycle 字段（cycle 分桶路由 2026-10-15 删除）不再校验也不再报错——
@@ -44,10 +46,13 @@ function validateLegs(side, legs) {
     const faIds = getAvailableFactorIds();
     const preBuyIds = new Set(PreBuyCheckService.getConditionFactorKeys());
     const gmgnIds = new Set(GmgnRiskCheckService.getConditionFactorKeys());
-    // [字段, 校验集]：与 StrategyEngine.loadStrategies 同一分集口径
+    // [字段, 校验集]：与 StrategyEngine.loadStrategies 同一分集口径（narrativePrefetchCondition
+    // 此前漏列 2026-10-17 补齐；narrativeTriggerCondition = C84 叙事发起条件，FA 集）
     const CONDITION_FIELDS = [
         ['condition', faIds],
         ['narrativeCallCondition', faIds],
+        ['narrativePrefetchCondition', faIds],
+        ['narrativeTriggerCondition', faIds],
         ['preBuyCheckCondition', preBuyIds],
         ['repeatBuyCheckCondition', preBuyIds],
         ['gmgnCheckCondition', gmgnIds],
@@ -60,6 +65,12 @@ function validateLegs(side, legs) {
         }
         if (typeof leg.condition !== 'string' || leg.condition.trim() === '') {
             errors.push(`腿[${i}]缺少 condition`);
+        }
+        // C84 互斥（2026-10-17）：narrativeTriggerCondition（新链）与 narrativeCallCondition
+        //（legacy 同步直调）同腿并存行为未定义——入库即 400（与引擎 loadStrategies 拒启同口径）
+        if (String(leg.narrativeTriggerCondition || '').trim() !== ''
+            && String(leg.narrativeCallCondition || '').trim() !== '') {
+            errors.push(`腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（C84：触发轮后台分析新链 vs fire 同步直调旧链）`);
         }
         for (const [field, ids] of CONDITION_FIELDS) {
             const raw = leg[field];

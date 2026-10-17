@@ -311,7 +311,7 @@
                         </div>
                     </div>
                     <details class="text-xs">
-                        <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/再检/GMGN 门；展开编辑）</summary>
+                        <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/叙事发起/再检/GMGN 门；展开编辑）</summary>
                         <div class="grid grid-cols-1 gap-2 mt-2">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">首次购买检查条件</label>
@@ -324,8 +324,13 @@
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事评级直调触发条件</label>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事评级直调触发条件（legacy：fire 同步直调；与下行互斥）</label>
                                 <input type="text" data-k="narrativeCallCondition" value="${escapeAttr(leg.narrativeCallCondition || '')}" placeholder="留空=不调用"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事分析发起条件（C84 新链：满足即后台发起分析，含账号型重试轮；携带此字段的腿=单一买条件模型）</label>
+                                <input type="text" data-k="narrativeTriggerCondition" value="${escapeAttr(leg.narrativeTriggerCondition || '')}" placeholder="留空=legacy 链；如 buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1"
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                             <div>
@@ -374,7 +379,7 @@
                 merged.bypassDebounce = get('bypassDebounce').checked; // 勾选才落 true
                 if (!merged.bypassDebounce) delete merged.bypassDebounce;
 
-                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'gmgnCheckCondition']) {
+                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'narrativeTriggerCondition', 'gmgnCheckCondition']) {
                     const v = get(k).value.trim();
                     if (v === '') delete merged[k]; else merged[k] = v;
                 }

@@ -75,8 +75,11 @@ function check(name, cond, detail) {
     check('B2 _shouldBlockOnNarrative 直挂（无闭包无 windowSec 定制，缺省 300）',
         src.includes('this._shouldBlockOnNarrative = shouldBlockOnNarrative;'));
 
-    check('B3 全文件零 narrativeRetry 残留',
-        !src.includes('narrativeRetry'));
+    // B3 改剥注释口径（C84 2026-10-17）：锁死注释「narrativeRetryDue 恒 0」合法在场，
+    // 防线本体=代码级零 narrativeRetry 接线（无配置读取/无参数透传）
+    const noComments = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    check('B3 代码级零 narrativeRetry 接线（回测禁穿透防线，注释豁免）',
+        !noComments.includes('narrativeRetry'));
 
     check('B4 全文件零 C67 参数化键残留（accountFailTtlReanalyze/accountFailTtlMs/maxAnalysesPerToken）',
         !src.includes('accountFailTtlReanalyze') && !src.includes('accountFailTtlMs') && !src.includes('maxAnalysesPerToken'));

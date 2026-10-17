@@ -469,7 +469,12 @@ function scenarioFactorKeys(FA, baselineKeys) {
     // 详见 _test_bundle_cluster_factors.cjs）；同日 top1HolderCircPct（TOP1 持仓
     // 集中度门键，maxBlockBuyCircPct 的存量替代——用户裁定）；
     // 同日 maxCopyWalletHolderCircPct（最大跟单钱包持仓，FLY 案钱包标签方案，
-    // 详见 _test_copy_wallet_roster_factors.cjs）
+    // 详见 _test_copy_wallet_roster_factors.cjs）；
+    // 2026-10-17 C84 买腿链路重构：earlyTrades* 10 键迁 FA（出生锚 90s tick 窗增量
+    // 聚合，双宿主并存——EarlyParticipantCheckService DB 版继续服务 legacy 预检查腿，
+    // 口径 delta 见 FA 头注）+ narrative 三键注入（narrativeRating/narrativeRounds/
+    // narrativeRetryDue，_narrativeFactorOverrides 静态映射，叙事发起条件/单一买条件
+    // 消费，详见 _test_fa_early_trades_factors.cjs / _test_fa_narrative_factors.cjs）
     const ADDED_KEYS = [
         'gmgnUserPct',
         'actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades',
@@ -480,6 +485,12 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct',
         'top1HolderCircPct',
         'maxCopyWalletHolderCircPct',
+        'earlyTradesPerWallet', 'earlyTradesMaxWalletTrades', 'earlyTradesNetBuyRatio',
+        'earlyTradesTop1BuySharePct', 'earlyTradesTop1BuyBnb', 'earlyTradesBuyBnb',
+        'earlyTradesRouterPct',
+        'earlyTradesUniformBuyClusterRatio', 'earlyTradesUniformBuyWallets',
+        'earlyTradesUniformBuyClusterN',
+        'narrativeRating', 'narrativeRounds', 'narrativeRetryDue',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

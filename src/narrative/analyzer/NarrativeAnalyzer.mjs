@@ -190,7 +190,7 @@ export class NarrativeAnalyzer {
    *   层 0 失效三键后重拉。推文型/website 型语料静态无重取价值，传了也零失效
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false, visionPrefetch = false, invalidateAccountCorpus = false } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false, invalidateAccountCorpus = false } = options;
 
     // 分段计时（N1 探针，2026-10-13 叙事提速案）：options._timing 为调用方持有的
     // 收集数组 → 各段 push { seg, ms }；缺省旁路模式（不计时，零行为变化）
@@ -301,20 +301,9 @@ export class NarrativeAnalyzer {
       gmgnRisk  // GMGN dev 风险字段（x-0 案：发币史/捆绑钱包，直调语境才有值）
     } = await fetchAllDataViaClassifier(tokenData, extractedInfo, { enrichSocialByGmgn, timing });
 
-    // ── 泳道 0：vision 预启动（2026-10-13 叙事提速第二批）──
-    // 图 URL 在数据抓取返回时即已知，但下载+压缩+视觉 API 原挂 pre-check 后串行
-    // （N1 实测 20 次真拉均值 5.9s 全在临界路径）。开关开（引擎构造点
-    // visionPrefetch 注入，默认 false）且主推文有图 → 立即后台发起完整链
-    // （缓存查→下载→API；analyzeTweetImage 三层幂等：已挂门/inflight join/
-    // 90 天外部缓存），主链 pre-check 后 join（原挂点 visionPromise ?? 直调）。
-    // 开启 = 该实验显式放弃 C58「预检拦截票不烧视觉调用」约束（isPreCheck-
-    // Triggered 分支不 await 此 promise → 挂 catch 防悬空 rejection；join 点
-    // 配置残缺 throw 语义与原路径一致）
-    let visionPromise = null;
-    if (visionPrefetch && twitterInfo?.type === 'tweet' && twitterInfo.media?.images?.[0]?.url && !twitterInfo.image_analysis) {
-      visionPromise = analyzeTweetImage(twitterInfo);
-      visionPromise.catch(() => { /* 悬空防护：被预检拦截时无 join 点消费 */ });
-    }
+    //（泳道 0 vision 预启动已随 dataPrefetch/visionPrefetch 退役删除，C84 2026-10-17：
+    // 分析提前到叙事发起条件触发时刻，图分析预启动失去意义——analyzeTweetImage
+    // 自带三层幂等，调用时序回到 pre-check 后原路径）
 
     // 保存URL提取和数据获取结果
     urlExtractionResult = url_extraction_result;
@@ -597,16 +586,14 @@ export class NarrativeAnalyzer {
         // 推文配图视觉分析（2026-10-07 现金猫案 0x56dc26bd…7777 裁定开启，智谱 glm-5.3）：
         // 主推文首图 → twitterInfo.image_analysis（twitter-section 既有渲染块进 Jev state；
         // 同图 90 天缓存 + 进程内并发去重，分析 token 无关可跨 token 复用）。挂在 pre-check
-        // 之后——预检拦截票不烧视觉调用（visionPrefetch 开启的实验显式放弃此约束，见
-        // 泳道 0 注释）；下载/API 失败在服务内降级为无图证据（= 开启前行为），配置残缺
-        // throw fail-loud。join：泳道 0 预启动的 promise 优先（同 twitterInfo 引用，三层
-        // 幂等保证双调安全；未预启动 null ?? 直调 = 原路径——配置残缺时 await reject
-        // 与原直调 throw 语义一致）。C72 门跳过时整个 await 不执行
+        // 之后——预检拦截票不烧视觉调用；下载/API 失败在服务内降级为无图证据
+        //（= 开启前行为），配置残缺 throw fail-loud。C72 门跳过时整个 await 不执行；
+        // 预启动 join 点已随 visionPrefetch 退役删除（C84 2026-10-17）
         if (!visionSkipped) {
-          await timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo));
+          await timing.wrap('vision', () => analyzeTweetImage(twitterInfo));
         }
 
-        // 竞态屏蔽拷贝（C72）：跳过时 visionPrefetch 预启动的 visionPromise 仍会在后台
+        // 竞态屏蔽拷贝（C72）：跳过时后台预取仍可能在
         // 跑完并原地挂 twitterInfo.image_analysis——下游 state 构建/条件题/豁免统一走
         // 本拷贝（image_analysis 剥除），保证门跳过 = 本票确定性无图语义；浅拷贝不动
         // 原对象（后台挂载/预取写缓存/DB 快照不受影响，下次重析 reassemble 复原后

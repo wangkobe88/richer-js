@@ -206,7 +206,8 @@ async function main() {
     const A = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
     assert(A.includes("import { runVisionGate, shouldAskVisionGate } from './services/vision-gate-service.mjs'"), 'D1 import 门服务');
     const gateIdx = A.indexOf("timing.wrap('vision.gate'");
-    const visionIdx = A.indexOf("await timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo))");
+    // C84（2026-10-17）visionPrefetch 预启动退役：vision await 不再有 visionPromise join 臂
+    const visionIdx = A.indexOf("await timing.wrap('vision', () => analyzeTweetImage(twitterInfo))");
     assert(gateIdx > -1 && visionIdx > -1 && gateIdx < visionIdx, 'D2 门 wrap 在原 vision await 之前', `gate@${gateIdx} vision@${visionIdx}`);
     assert(A.includes('if (!visionSkipped) {\n          await timing.wrap(\'vision\''), 'D3 外层 if 跳过形状（跳过时无 vision 段）');
     assert(count(A, 'imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis') === 1, 'D4 imageEvidence 屏蔽恰 1 处（C83 后仅 standard 分支）', count(A, 'imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis'));
@@ -217,9 +218,11 @@ async function main() {
     const cfg = src('config/narrative-engine.json');
     const gateCfg = JSON.parse(cfg).vision?.gate;
     assert(gateCfg?.enabled === true && typeof gateCfg?.minSufficientProb === 'number', 'D8 config 默认开防线（用户裁定默认 true）', JSON.stringify(gateCfg));
-    // options 解构行无新增键（_test_narrative_vision_prefetch C8 同口径）
-    const destructure = A.match(/const \{[^}]*visionPrefetch[^}]*\} = options/s);
-    assert(destructure !== null && !destructure[0].includes('visionGate'), 'D9 analyze options 解构行无 visionGate 键（门是 config 驱动非 options 驱动）');
+    // options 层零 vision 键（C84 visionPrefetch 退役：options 无 visionPrefetch 键；
+    // 门恒 config 驱动非 options 驱动——runVisionGate 大写 V 不会被小写子串误中）
+    const noCommentsA = A.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    assert(!noCommentsA.includes('visionPrefetch'), 'D9a options 零 visionPrefetch 键（C84 预启动机制退役，注释豁免）');
+    assert(!A.includes('visionGate'), 'D9b 全文件零 visionGate options 键（门是 config 驱动非 options 驱动）');
   }
 
   // ═══ E. 端到端 analyze() ═══
@@ -297,27 +300,9 @@ async function main() {
       cacheMod.ExternalResourceCache.get = async (url, type) => { cacheGets.push({ url, type }); return null; };
     }
 
-    // E3: 门开 + visionPrefetch 预启动 → 竞态屏蔽（后台挂载不影响主 Jev state）
-    cfg.vision.gate = { enabled: true, minSufficientProb: 0.6 };
-    jevCalls.length = 0; cacheGets.length = 0; visionApiCalls = 0; imgDlCalls = 0;
-    gateAnswer = { choice: 'sufficient', probabilities: { sufficient: 0.95 } };
-    visionDelayMs = 80; // 预启动 visionPromise 慢于门+主 Jev（桩世界瞬间 resolve 会在门判定前挂载完毕→走「已挂=直接用图」分支，非竞态场景）
-    {
-      tokenRow = { token_symbol: 'TEST', raw_api_data: { twitter: 'https://x.com/author_gate/status/111222444' }, blockchain: 'bsc', platform: 'fourmeme' };
-      tweetStub = makeTStub();
-      accountStub = makeAStub();
-      const timing = [];
-      const r = await NarrativeAnalyzer.analyze('0xeeee3333eeee3333eeee3333eeee3333eeee3333', { visionPrefetch: true, _timing: timing });
-      await new Promise(res => setTimeout(res, 200)); // 后台 visionPromise 排空
-      const segs = (timing || []).map(t => t.seg);
-      assert(segs.includes('vision.gate') && !segs.includes('vision'), 'E7 门跳过（visionPrefetch 场景同跳）', JSON.stringify(segs));
-      const mainAsk = jevCalls.find(c => !c.gate);
-      assert(mainAsk != null && !mainAsk.body.state.includes('【图片内容分析】'),
-        'E8 竞态屏蔽：后台 vision 完成后主 Jev state 仍无图块');
-      assert(r?.twitter?.image_analysis?.analysis?.description === 'e3-vision-stub' || visionApiCalls > 0 || cacheGets.some(c => c.type === 'tweet_image'),
-        'E9 后台 visionPromise 照常跑（原对象挂载/缓存写不受门影响）', `api=${visionApiCalls} gets=${JSON.stringify(cacheGets.map(c => c.type))}`);
-    }
-    visionDelayMs = 0;
+    // E3（visionPrefetch 预启动竞态场景）已随 C84（2026-10-17）机制退役删除：
+    // dataPrefetch/visionPrefetch 整链下线，analyze() 不再有后台 visionPromise 挂载路径，
+    // 「后台挂载不影响主 Jev state」竞态无从构造。C72 门本体覆盖=E1-E6。
 
     // 恢复真实 config 门态（本地 config 默认 true，写回原值）
     if (origGate) cfg.vision.gate = origGate;

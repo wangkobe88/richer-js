@@ -261,6 +261,31 @@ class ExperimentDataService {
   }
 
   /**
+   * 获取实验的叙事分析轮次（C84 买腿重构 2026-10-17：新模型腿后台叙事分析留痕，
+   * 信号页叙事事件列表/图表标注数据源）。上限护栏：单次 ≤2000 行（轮次表按
+   * token 轮数膨胀，远小于 signals；分 token 查询时更小），超限截断由调用方
+   * 分 token 拉——不引入 offset 翻页（该表消费面是「本实验全部轮次」小结果）。
+   * @param {string} experimentId - 实验ID
+   * @param {Object} [options] - { tokenAddress } 可选过滤
+   * @returns {Promise<Array>} 轮次行（experiment_id, token_address, round_no,
+   *   trigger_reason, started_at, completed_at, rating, from_cache, error）
+   */
+  async getExperimentNarrativeRounds(experimentId, options = {}) {
+    let query = this.supabase
+      .from('narrative_analysis_rounds')
+      .select('id, token_address, round_no, trigger_reason, started_at, completed_at, rating, from_cache, error, created_at')
+      .eq('experiment_id', experimentId)
+      .order('started_at', { ascending: true })
+      .limit(2000);
+    if (options.tokenAddress) {
+      query = query.eq('token_address', options.tokenAddress);
+    }
+    const { data, error } = await query;
+    if (error) throw new Error(`叙事轮次查询失败: ${error.message}`);
+    return data || [];
+  }
+
+  /**
    * 获取实验的统计数据
    * @param {string} experimentId - 实验ID
    * @returns {Promise<Object>} 统计数据

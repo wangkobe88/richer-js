@@ -1001,6 +1001,18 @@ class ExperimentDetail {
           <code class="text-sm text-blue-800 font-mono break-all">${this._escapeHtml(strategy.repeatBuyCheckCondition)}</code>
         </div>
         ` : ''}
+        ${isBuy && strategy.narrativeTriggerCondition ? `
+        <div class="bg-purple-50 rounded-lg px-3 py-2 border border-purple-200 mb-2">
+          <div class="text-xs text-purple-600 mb-1">🧠 叙事分析发起条件（C84：量门/重试到期 → 后台分析轮 → 单一买条件）</div>
+          <code class="text-sm text-purple-800 font-mono break-all">${this._escapeHtml(strategy.narrativeTriggerCondition)}</code>
+        </div>
+        ` : ''}
+        ${isBuy && strategy.narrativeCallCondition ? `
+        <div class="bg-purple-50 rounded-lg px-3 py-2 border border-purple-200 mb-2">
+          <div class="text-xs text-purple-600 mb-1">🗣️ 叙事直调条件（legacy：fire 同步直调）</div>
+          <code class="text-sm text-purple-800 font-mono break-all">${this._escapeHtml(strategy.narrativeCallCondition)}</code>
+        </div>
+        ` : ''}
         <div class="flex items-center justify-between text-sm">
           ${strategy.description ? `<span class="text-gray-500 text-xs">${this._escapeHtml(strategy.description)}</span>` : ''}
         </div>

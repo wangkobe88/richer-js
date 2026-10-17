@@ -240,8 +240,8 @@ section('E. 源码接线断言');
     }
     ok(bt.includes('tokenPlatform,\n') && /updateRouterGateState\(\s*\n?\s*this\._routerGateState\.get\(token\.token\),\s*\n?\s*tokenPlatform,/.test(bt),
         'E 回测引擎回填用 tokenPlatform（tick 行级平台）');
-    ok(svc.includes('earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options'),
-        'E service options 解构');
+    ok(svc.includes('earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount, gmgnUserPct } = options'),
+        'E service options 解构（C84 尾部新增 gmgnUserPct 已知因子键）');
     ok((svc.match(/earlyTradesRouterLowSideSeen \?\? null/g) || []).length >= 2,
         'E service extraContext/baseResult/context null 默认');
 }

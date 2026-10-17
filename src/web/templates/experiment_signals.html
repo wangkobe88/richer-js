@@ -258,7 +258,7 @@
                     <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h2 class="text-lg font-semibold text-white">Tick 交易散点图与交易信号</h2>
-                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）</span>
+                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）· 紫虚线=叙事析起 / 琥珀虚线=析毕（C84）</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             <span class="text-gray-400 whitespace-nowrap">只显示代币发出后</span>
@@ -294,6 +294,16 @@
                     <div class="chart-container">
                         <canvas id="holder-chart"></canvas>
                     </div>
+                </div>
+
+                <!-- 叙事分析轮次面板（C84 2026-10-17）：新模型腿（narrativeTriggerCondition）
+                     后台分析轮次留痕——被拒 token 的分析轨迹也可查（观测 fail-open 独立于交易门） -->
+                <div id="narrative-rounds-wrapper" class="hidden bg-gray-800 rounded-lg border border-gray-700 mb-4">
+                    <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-lg font-semibold text-white">叙事分析轮次</h2>
+                        <span class="text-xs text-gray-400">触发条件发起的后台分析轮 · 图上紫虚线=析起 / 琥珀虚线=析毕 · 评级 2/3 才可进买门</span>
+                    </div>
+                    <div id="narrative-rounds-body" class="p-4 overflow-x-auto"></div>
                 </div>
 
                 <!-- 信号筛选控件 -->

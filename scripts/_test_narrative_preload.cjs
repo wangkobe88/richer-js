@@ -173,9 +173,12 @@ async function main() {
     eq('D3b offset 循环全列拉取已移除（statement timeout 事故形状防回归）',
       /static\s+async\s+fetchAllRows/.test(repSrc) || analyzerSrc.includes('fetchAllRows'), false);
     const beSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
-    eq('D4 BacktestEngine 挂点：仅 narrativeCallCondition 实验预载',
-      /getAllStrategies\(\)\.some\(s => s\.action === 'buy' && s\.narrativeCallCondition\)/.test(beSrc)
-      && /this\._narrativeCaller\.preload\(\[\.\.\.this\._tokenMeta\.keys\(\)\]\)/.test(beSrc), true);
+    // C84（2026-10-17）门扩：narrativeCallCondition（legacy 直调）∨ narrativeTriggerCondition
+    //（触发腿，rating 预载 FA 常量）任一携带即预载
+    eq('D4 BacktestEngine 挂点：narrativeCallCondition/narrativeTriggerCondition 实验预载',
+      /getAllStrategies\(\)\.some\(s => s\.action === 'buy'\n      && \(s\.narrativeCallCondition \|\| s\.narrativeTriggerCondition\)\)/.test(beSrc)
+      && /this\._narrativeCaller\.preload\(\[\.\.\.this\._tokenMeta\.keys\(\)\]\)/.test(beSrc)
+      && /setNarrativeFactors\(addr, \{/.test(beSrc), true);
     const dcSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/pre-check/NarrativeDirectCaller.js'), 'utf8');
     eq('D5 直调透传形状（rowCache: this._rowCache || undefined）',
       /rowCache: this\._rowCache \|\| undefined/.test(dcSrc), true);

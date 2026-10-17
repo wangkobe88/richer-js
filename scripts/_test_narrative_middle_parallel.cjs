@@ -2,9 +2,10 @@
 /**
  * 中段三泳道并发单测（2026-10-13 叙事提速第二批 1A）——零 DB 零网络
  *
- * 被测：NarrativeAnalyzer.analyze L296-475 区间重构——泳道 0 vision 预启动 /
- * 泳道 1 账号链 IIFE / 泳道 2 precheck 立发 / 泳道 3 issuerCa 按 chainPullsAuthor
- * 条件分派 / Promise.all join。
+ * 被测：NarrativeAnalyzer.analyze 中段并发——泳道 1 账号链 IIFE /
+ * 泳道 2 precheck 立发 / 泳道 3 issuerCa 按 chainPullsAuthor 条件分派 /
+ * Promise.all join。（泳道 0 vision 预启动已随 dataPrefetch/visionPrefetch
+ * 退役删除，C84 2026-10-17——D8 退役反证锁定防回流）
  *
  * 打桩手法（先例 _test_tweet_image_analysis / _test_narrative_timing_probe）：
  *   - twitter-validation/index.js 是 CJS：在任何 narrative ESM 加载**前** require 并
@@ -18,15 +19,13 @@
  * 场景：
  *   A. 链拉作者（独立网站+推文）：precheck 立发不等链；issuerCa 排链后吃
  *      userId 级缓存 handoff（getUserByScreenName/getUserTweets 各恰 1 次——
- *      盲并行会双真拉）；visionPrefetch 泳道 0 发起先于 precheck
+ *      盲并行会双真拉）
  *   B. 链不拉（纯推文无网站非项目币）：issuerCa 立即真拉（各恰 1 次来自
- *      issuerCa 自身）；visionPrefetch 缺省 false 不发起（C58/默认关防线）
+ *      issuerCa 自身）；预检分支零视觉调用（C84 泳道 0 退役后天然成立）
  *   D. 源码口径：IIFE 三段顺序无提前 return / chainPullsAuthor 三条件宽判 /
- *      issuerCa 三元分派 / Promise.all join / push 判定后移 / 泳道 0 形状
+ *      issuerCa 三元分派 / Promise.all join / push 判定后移 / 泳道 0 退役反证
  *
  * 依赖的前置状态（显式依赖非兜底，变更时应更新本测试）：
- *   - config/narrative-engine.json vision.enabled=true（场景 A 泳道 0 才会真发起；
- *     结论缓存预置行命中 → 零下载零 API）
  *   - symbol 超长（>8 英文词）触发 precheck 第一规则 symbol_too_long——
  *     全程走预检分支，LLM/Jev 零触达，AVE 同名规则（0.5）不可达
  *
@@ -127,9 +126,6 @@ async function main() {
 
   const { NarrativeAnalyzer } = await import('../src/narrative/analyzer/NarrativeAnalyzer.mjs');
 
-  // vision 结论缓存预置行的 promptVersion 从源码提取（防 IMAGE_PROMPT_VERSION bump 后预置失效走真下载）
-  const svcSrc = src('src/narrative/analyzer/services/image-analysis-service.mjs');
-  const IMAGE_PROMPT_VERSION = svcSrc.match(/IMAGE_PROMPT_VERSION = '([^']+)'/)[1];
   const IMG_URL = 'https://pbs.twimg.com/media/UNITTEST.jpg';
 
   const resetScenario = () => {
@@ -170,23 +166,17 @@ async function main() {
     tweetStub = makeTweetStub(authorA);
     accountStub = makeAccountStub('u-author-a');
     accountStub.userInfo.screen_name = authorA;
-    // vision 结论缓存预置（泳道 0 发起 → 命中挂载，零下载零 API）
-    memCache.set(`tweet_image::${IMG_URL}`, {
-      url: IMG_URL, analysis: { description: '泳道0测试图', key_elements: [], meme_type: '', meme_meaning: '' },
-      promptVersion: IMAGE_PROMPT_VERSION,
-    });
 
     const t0 = Date.now();
     const r = await runAnalyze(ADDR, {
       twitter: `https://x.com/${authorA}/status/111222333`,
       website: 'https://project-UnitTest.example.com', // 独立网站（非免费托管域）→ shouldCollectAccounts
-    }, { visionPrefetch: true });
+    });
     const wall = Date.now() - t0;
 
     const snEvents = events.filter(e => e.name.startsWith('sn:'));
     const tweetsEvents = events.filter(e => e.name.startsWith('tweets:'));
     const precheckEv = idx(events, e => e.name === 'precheck:fired');
-    const visionGet = idx(cacheCalls, c => c.type === 'tweet_image' && c.url === IMG_URL);
     const firstSn = idx(events, e => e.name.startsWith('sn:'));
 
     assert(r.meta.preCheckTriggered === true, 'A1 预检触发（symbol_too_long）且走预检分支',
@@ -197,18 +187,12 @@ async function main() {
     assert(snEvents.length === 1 && tweetsEvents.length === 1,
       'A3 issuerCa 吃链 handoff：getUserByScreenName/getUserTweets 各恰 1 次（盲并行=2）',
       `sn=${snEvents.length} tweets=${tweetsEvents.length}`);
-    assert(visionGet > -1 && visionGet < precheckEv,
-      'A4 泳道 0 vision 预启动先于 precheck 发起（结论缓存 get）',
-      `vision@${visionGet} precheck@${precheckEv}`);
     const finalSave = saves[saves.length - 1];
     assert(finalSave?.pre_check_result?.details?.ruleName === 'symbol_too_long',
-      'A5 最终 save 落预检结果 symbol_too_long');
-    assert(r.meta.preCheckReason === 'symbol_too_long', 'A6 返回 reason=symbol_too_long');
-    // issuerCa fail-open：未检测到发行方 → 未转 prestage（预检分支保持）——A1/A6 共同证明
-    await new Promise(res => setTimeout(res, 30)); // fire-and-forget 挂载排空
-    assert(r.twitter?.image_analysis?.analysis?.description === '泳道0测试图',
-      'A7 泳道 0 命中挂载 image_analysis（fire-and-forget 完成语义）');
-    assert(wall < 10000, 'A8 全链零真网络（墙钟 <10s）', `${wall}ms`);
+      'A4 最终 save 落预检结果 symbol_too_long');
+    assert(r.meta.preCheckReason === 'symbol_too_long', 'A5 返回 reason=symbol_too_long');
+    // issuerCa fail-open：未检测到发行方 → 未转 prestage（预检分支保持）——A1/A5 共同证明
+    assert(wall < 10000, 'A6 全链零真网络（墙钟 <10s）', `${wall}ms`);
     console.log('A 段事件序:', events.map(e => e.name).join(' → '));
   }
 
@@ -241,7 +225,7 @@ async function main() {
       'B3 issuerCa 在 precheck 之后立即发起（链不拉不排队）',
       `precheck@${precheckEv} sn@${firstSn}`);
     assert(!cacheCalls.some(c => c.type === 'tweet_image'),
-      'B4 visionPrefetch 缺省 false → 泳道 0 不发起（C58/默认关防线）');
+      'B4 全程零 tweet_image 缓存 get（C84 泳道 0 退役后预检分支天然无视觉调用）');
     assert(r.twitter && !r.twitter.image_analysis, 'B5 无 vision 挂载（预检分支零视觉调用）');
     console.log('B 段事件序:', events.map(e => e.name).join(' → '));
   }
@@ -290,15 +274,15 @@ async function main() {
     // D7: issuerDetected 融合
     assert(na.includes('const issuerDetected = issuerSelfLaunch || issuerCaTimeline;'), 'D7 issuerDetected 融合两路径');
 
-    // D8: 泳道 0 形状（fire + catch 悬空防护）
-    assert(na.includes('if (visionPrefetch && twitterInfo?.type === \'tweet\' && twitterInfo.media?.images?.[0]?.url && !twitterInfo.image_analysis)')
-      && na.includes('visionPromise = analyzeTweetImage(twitterInfo);')
-      && /visionPromise\.catch\(\(\) => \{/.test(na),
-      'D8 泳道 0 形状（条件 fire + catch 悬空防护）');
+    // D8（C84 2026-10-17 退役反证）：泳道 0 预启动形状已删——剥注释后源码零
+    // visionPrefetch/visionPromise（退役注释里的字样剥除后再判，防回流）
+    const naStripped = na.replace(/\/\/[^\n]*/g, '');
+    assert(!naStripped.includes('visionPrefetch') && !naStripped.includes('visionPromise'),
+      'D8 泳道 0 退役（visionPrefetch/visionPromise 源码零残留）');
 
-    // D9: vision join 形状（未预启动 null ?? 直调 = 原路径）
-    assert(na.includes("await timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo))"),
-      'D9 vision join 形状（visionPromise ?? 直调）');
+    // D9: vision join 形状（C84 后唯一路径=visionSkipped 门 + 直调，无预启动 join）
+    assert(na.includes('if (!visionSkipped) {\n          await timing.wrap(\'vision\', () => analyzeTweetImage(twitterInfo));\n        }'),
+      'D9 vision join 形状（visionSkipped 门 + 直调）');
 
     // D10: precheck 立发先于 issuerCa 分派声明（源码顺序 = 泳道序）
     const precheckDecl = na.indexOf('const precheckPromise = timing.wrap(\'precheck\'');

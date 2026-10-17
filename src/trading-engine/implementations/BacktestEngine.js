@@ -20,6 +20,9 @@
  *   - 数据源换为 tick 级（AVE 时代旧实验的时序数据不再是回测源，历史行不删）
  *   - 叙事评级直调（同实时引擎 narrativeCallCondition）：analyze 用当前语料分析
  *     历史 token（时序穿越），绝对收益不代表当时实时可得，结论看相对增量
+ *   - C84 新模型腿（2026-10-17，narrativeTriggerCondition）：发起/重试轮状态机是
+ *     实时引擎语义，回测无状态机——rating 预载为 FA token 常量（同上时序穿越
+ *     声明）、retryDue 恒 0、fire 直调仅为取 gmgnRisk 快照
  */
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
@@ -273,6 +276,10 @@ class BacktestEngine extends AbstractTradingEngine {
           //（v15 事故 2026-10-15 与实时引擎同坑，单测已锁两处透传）
           gmgnCheckCondition: s.gmgnCheckCondition || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
+          // C84 新模型腿（2026-10-17）：叙事发起条件——与 narrativeCallCondition 同为
+          // FA 集条件字段（loadStrategies 第四集校验+互斥）。★此白名单映射漏透传=
+          // 回测触发腿失明（v15 GMGN 透传事故同坑，单测锁两处透传）
+          narrativeTriggerCondition: s.narrativeTriggerCondition || null,
           // pumpfun 回迁批 2 卖腿机制字段（卖腿消费；买腿携带不生效，与 preBuy* 字段对称）
           bypassDebounce: !!s.bypassDebounce,
           lockTokenAfterSell: !!s.lockTokenAfterSell,
@@ -379,6 +386,11 @@ class BacktestEngine extends AbstractTradingEngine {
     // 消除暖缓存下每次直调的 token_narrative 表 DB 往返；live 构造点不传=零变化
     const { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller({ memoryCacheResults: true });
+    // C84：回测无叙事触发状态机（发起/重试轮=实时引擎语义）——FA 叙事因子 config
+    // 关死 retry（intervalMs=Infinity/maxAnalyses=0 → narrativeRetryDue 恒 0）。
+    // 两键恒全传：防同进程先跑回测再起实时（或反向）时继承对方 config 串台
+    require('../../services/FourMemeFactorAggregator')
+      .setNarrativeFactorConfig({ intervalMs: Infinity, maxAnalyses: 0 });
     // 挂 this：解构是函数级作用域，_evaluateBuyPath 裸引用会 ReferenceError（同实时引擎蝴蝶轮回案）
     this._mapGmgnRiskFactors = mapGmgnRiskFactors;
     // 叙事否决短路集（镜像实时引擎 _narrativeBlockedTokens，2026-09-27 用户裁定：
@@ -574,20 +586,47 @@ class BacktestEngine extends AbstractTradingEngine {
 
   /**
    * 9.1 叙事结果预载（回测性能 2026-10-12；P13 抽方法入组 A）：带
-   * narrativeCallCondition 的实验回放中每 token 首次直调走 analyze 缓存命中
-   * 路径 = 2 次 DB 往返（token_narrative 行 + 语料推文缓存行）≈34ms×N 串行
-   * （e50 实测 4007 次命中=137s）。装载时按 token 集合批量预拉灌内存层，
-   * 组装代码不变只换数据源——行为 bit-identical；无 narrativeCallCondition
-   * 的实验不预载（无直调 = 预载白拉）
+   * narrativeCallCondition / narrativeTriggerCondition（C84 触发腿）的实验回放中
+   * 每 token 首次直调走 analyze 缓存命中路径 = 2 次 DB 往返（token_narrative 行 +
+   * 语料推文缓存行）≈34ms×N 串行（e50 实测 4007 次命中=137s）。装载时按 token
+   * 集合批量预拉灌内存层，组装代码不变只换数据源——行为 bit-identical；无叙事
+   * 条件字段的实验不预载（无直调 = 预载白拉）
    */
   async _preloadNarrativeRows() {
-    if (!this._strategyEngine.getAllStrategies().some(s => s.action === 'buy' && s.narrativeCallCondition)) {
+    if (!this._strategyEngine.getAllStrategies().some(s => s.action === 'buy'
+      && (s.narrativeCallCondition || s.narrativeTriggerCondition))) {
       return;
     }
     const _npT0 = Date.now();
     const _np = await this._narrativeCaller.preload([...this._tokenMeta.keys()]);
+    // C84 新模型腿：预载行灌 FA 叙事因子常量（单一买 condition 内 narrativeRating
+    // 门的数据源）。rating=token 级全局快照——时序穿越与 narrativeRating 直调同
+    // 声明（当前语料分析历史 token，结论只看相对增量）；数值链与 caller 命中路径
+    // 同源（categoryToRating(resolveFinalRating(row))，非 1/2/3 归 9）。键用
+    // _tokenMeta 原键（FA state 键=registerToken 实参原样），rowCache 小写查表。
+    // 缺行 token 不注入 → narrativeRating=null → 条件恒 false 不买（fail-closed，
+    // 与实时「分析未完成不交易」同向）
+    let _injected = 0;
+    if (this._strategyEngine.getAllStrategies().some(s => s.action === 'buy' && s.narrativeTriggerCondition)) {
+      const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+      const { resolveFinalRating, categoryToRating } = await import('../../narrative/utils/rating-utils.mjs');
+      for (const addr of this._tokenMeta.keys()) {
+        const row = _np.rowCache.get(String(addr).toLowerCase());
+        if (!row) continue;
+        const _n = categoryToRating(resolveFinalRating(row));
+        FourMemeFactorAggregator.setNarrativeFactors(addr, {
+          rating: [1, 2, 3].includes(_n) ? _n : 9,
+          rounds: 1,
+          completedAt: row.analyzed_at ? Date.parse(row.analyzed_at) : null,
+          accountOnly: false,
+          inFlight: false,
+        });
+        _injected++;
+      }
+    }
     this.logger.info(this._experimentId, 'BacktestEngine',
-      `叙事预载: ${_np.rowCache.size}/${this._tokenMeta.size} 行 + 语料推文 ${_np.tweetRows} 行（${Date.now() - _npT0}ms）`);
+      `叙事预载: ${_np.rowCache.size}/${this._tokenMeta.size} 行 + 语料推文 ${_np.tweetRows} 行` +
+      `（${Date.now() - _npT0}ms${_injected ? `，FA 叙事常量注入 ${_injected}` : ''}）`);
   }
 
   /**
@@ -1515,6 +1554,10 @@ class BacktestEngine extends AbstractTradingEngine {
     if (this._writeBufferEnabled && this._writeBuffer && this._writeBuffer.pendingCount > 0) {
       await this._writeBuffer.flush(this._experimentId);
     }
+    // C84：清 FA 叙事常量注入（模块级 Map 单例，防同进程下一引擎继承上轮回测的
+    // 预载 rating；与实时引擎 stop 清 _narrativeTriggerStates 同族防线）
+    const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+    for (const addr of this._tokenMeta.keys()) FourMemeFactorAggregator.clearNarrativeFactors(addr);
     await super.stop();
   }
 
@@ -1755,7 +1798,21 @@ class BacktestEngine extends AbstractTradingEngine {
       let narrativeCorpusLagSec = null;
       const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
         ? String(strategy.narrativeCallCondition).trim() : null;
-      if (narrativeCallCondition && preCheckPassed
+      // C84 新模型腿（2026-10-17）：narrativeTriggerCondition 触发腿——发起/重试轮由
+      // 实时引擎状态机驱动，回测无状态机；narrativeRating 门在单一买 condition 内由
+      // FA 预载常量承担（_preloadNarrativeRows 注入）。fire 链不评触发条件直接
+      // getRating（预载后 memoryCache≈0ms）仅为取 gmgnRisk 供 GMGN 快照层——刻意
+      // 不登记拉黑/不算 lag/不跑 P4b 与同叙事龙头检查（新条件未引用这些键；拉黑语义
+      // =条件即门、重试预算=轮次状态机，回测均无对应物）
+      const narrativeTriggerCondition = strategy.narrativeTriggerCondition && String(strategy.narrativeTriggerCondition).trim() !== ''
+        ? String(strategy.narrativeTriggerCondition).trim() : null;
+      if (preCheckPassed && narrativeTriggerCondition) {
+        narrativeCallInfo = await this._narrativeCaller.getRating(token.token);
+        this.logger.info(this._experimentId, 'BuyEval',
+          `叙事直调(触发腿,回放) | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
+          ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
+          (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+      } else if (narrativeCallCondition && preCheckPassed
           && this._strategyEngine.evaluateCondition(narrativeCallCondition, factorResults)) {
         narrativeCallInfo = await this._narrativeCaller.getRating(token.token);
         this.logger.info(this._experimentId, 'BuyEval',

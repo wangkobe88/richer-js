@@ -1,8 +1,14 @@
+我想再发起一个需求，进一步的整理一下虚拟/实盘实验引擎的流程，希望更加清晰，效率更快，风险更低。
 
-9-23
-1. 0x355c11826d33ac0cce61f4c1f71eef9363707777
-币安agent广场
-推文 https://x.com/_OSBook/status/2101673737015947354 有地址，没有匹配上
-账号的质量达标短路了地址验证，bug已经修复
+第一，代币的叙事分析，需要一个“叙事分析发起条件”，这里就是很简单 “buyVolumeBnb >= 0.5”。废除图片预先下载等等流程，通过这个简单的条件，直接发起叙事分析即可（主要是现在有了Jev的语料前置判断，Jev本身很便宜，只要语料需求不大，整体成本可控）。叙事分析的发起时间点以及完成时间点，都需要在信号页面（http://localhost:3010/experiment/bbbe2561-6a98-46a5-bf65-6038800dfb62/signals#token=0x74b538c08d2d9063a4223cfc43939cf8e2bc7777）进行标记；
+如果代币是账号代币，并且上次没有通过，且等待了一段时间，也要触发新一轮叙事分析，并且语料信息需要重新获取，最多分析3次。这个特殊的处理逻辑已经有了，也请使用因子表达式，发到“叙事分析发起条件”中。
 
-2. 
+第二，如果叙事分析未完成或者不通过，那么该代币不参与交易信号生成；
+
+第三，代币的购买条件，需要叙事通过 “(narrativeRating == 2 OR narrativeRating == 3)” ，以及其它条件，合并在一起：buyVolumeBnb >= 1.0 AND tokenAgeSec < 90 AND holders > 3 AND (marketCap < 4500 OR holderTrendSlope > 0) AND marketCap < 12000 AND (marketCap < 5000 OR (bundleClusterSharePct < 50 AND top1HolderCircPct < 35 AND maxCopyWalletHolderCircPct < 20)) AND (narrativeRating == 2 OR narrativeRating == 3) AND (platform != 'flap' OR earlyTradesRouterPct >= 30) AND earlyTradesPerWallet < 4
+
+这里我把 “narrativeCorpusLagSec < 300” 给删除了（还有其它的微调），这是叙事分析模块应该做的事，不应该放到购买因子中。这样，购买条件就一个，所以不会出现之前的 信号发起/购买前预检查 两个阶段时间差距大，所以因子不一致的情况；
+
+第四，代币的购买条件通过后，还有一轮 “GMGN 检查”，保持不变，只是由第3层改为了第2层判断。
+
+请评估我的需求是否合理，如果没问题，请出具方案。注意实验的创建页面/信号页面等等都需要调整。

@@ -164,10 +164,14 @@ console.log('D. 源码口径（防回流）');
     [/const _nA = _top20\[0\] \? _top20\[0\]\[1\] : 0;/.test(SRC),
      /const _holderTop3 = _nA \+ _nB \+ _nC;/.test(SRC),
      /const _holderTop5 = _nA \+ _nB \+ _nC \+ _nD \+ _nE;/.test(SRC)].every(Boolean), true);
-  check('D4 _walletNetTokens 全遍历恰一趟（主聚合段内）',
-    (SRC.match(/for \(const \[addr, v\] of state\._walletNetTokens\)/g) || []).length
-    + (SRC.match(/for \(const v of state\._walletNetTokens\.values\(\)\)/g) || []).length
-    + (SRC.match(/for \(const \[_addr, _net\] of state\._walletNetTokens\)/g) || []).length, 1);
+  // D4 计数范围 2026-10-17 收回单趟合并段（seg）：原全文件计数在 10-16
+  // top1HolderCircPct（TOP1 门键单趟扫 max）与 maxCopyWalletHolderCircPct（FLY 案
+  // 跟单名单扫）两个合法读时全量扫入库后失真（全文件恒 3），与检查名「主聚合段内」
+  // 不符；本断言只锁批次 5b 合并段自身不回流三趟
+  const segLoops = (seg[0].match(/for \(const \[addr, v\] of state\._walletNetTokens\)/g) || []).length
+    + (seg[0].match(/for \(const v of state\._walletNetTokens\.values\(\)\)/g) || []).length
+    + (seg[0].match(/for \(const \[_addr, _net\] of state\._walletNetTokens\)/g) || []).length;
+  check('D4 _walletNetTokens 全遍历恰一趟（主聚合段内）', segLoops, 1);
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

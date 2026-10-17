@@ -792,47 +792,25 @@
                     </p>
                 </div>
 
-                <!-- 数据预取门（2026-10-15 立项，YOYO号案 0xa16c…7777）：fire→上链 10.4s
-                     里叙事直调 8.95s（vision 6.24s+语料 2.4s）是延迟主体；语料补采入池
-                     ~2.3s 已拿到宣告推文 URL，「等买门证据」窗口空闲——按 FA 因子热度门
-                     过门即后台预取宣告推文+配图 vision 分析（全部缓存幂等，fire 直调命中
-                     同缓存提速）。Jev/GMGN 决策类调用不预取。仅虚拟/实盘引擎（回测提交
-                     时自动剥离该段）；默认关。复制携带的 dataPrefetch 会回填本表单（UI 为准） -->
-                <div class="border border-gray-200 rounded-lg p-3" id="data-prefetch-section">
-                    <div class="flex items-center justify-between mb-2">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-800">⚡ 数据预取门（推文 + vision）</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">
-                                发现期按热度门后台预取宣告推文与配图 vision 分析——fire 时叙事直调命中缓存，
-                                省下语料抓取+vision 的 ~8s；Jev/GMGN 决策类调用不预取。默认关；回测不适用
-                            </p>
-                        </div>
-                    </div>
-                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                        <input type="checkbox" id="dp-enabled" class="rounded">
-                        启用数据预取门
-                    </label>
-                    <input type="text" id="dp-condition" placeholder="buyVolumeBnb >= 0.5"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                           spellcheck="false">
-                    <p class="text-xs text-gray-500 mt-1">
-                        过门条件（FA 因子表，与买腿 fire 同集、AND/OR 比较；写错因子名会被 400 拒绝）——
-                        门不过不预取不浪费配额，后续 tick 满足再发起；每 token 至多预取一次
-                    </p>
-                </div>
+                <!-- 数据预取门已随 dataPrefetch 机制退役删除（C84 2026-10-17）：分析提前到
+                     叙事发起条件触发时刻（策略腿 narrativeTriggerCondition），预取链路
+                     失去意义；复制携带的 dataPrefetch 段在提交侧无条件剥离 -->
 
                 <!-- 叙事重试（C70，2026-10-15 bunker 案 0x2ec1e08c…7777）：「叙事未通过
                      →重取数→重析」实验级配置（仅账号型语料票生效）。默认开=引擎缺省行为
-                     （穿透 TTL 10s / 真跑上限 3 / 豁免窗 300s）；不勾=显式关。与数据预取门
-                     的「关=删段」刻意不同——本段引擎默认开，删段=静默重开，须显式 enabled:false
-                     才关（物化语义）；回测提交时自动剥离该段 -->
+                     （穿透 TTL 10s / 真跑上限 3 / 豁免窗 300s）；不勾=显式关。与已退役
+                     dataPrefetch 的「关=删段」刻意不同——本段引擎默认开，删段=静默重开，
+                     须显式 enabled:false 才关（物化语义）；C84 起本段同时供新模型腿的
+                     触发轮重试参数（intervalMs/maxAnalyses=引擎触发状态机）；回测提交时
+                     自动剥离该段 -->
                 <div class="border border-gray-200 rounded-lg p-3" id="narrative-retry-section">
                     <div class="flex items-center justify-between mb-2">
                         <div>
                             <h2 class="text-lg font-semibold text-gray-800">🔁 叙事重试（账号型重取数重析）</h2>
                             <p class="text-xs text-gray-500 mt-0.5">
                                 账号型语料票评级未过且缓存过期 → 失效推特账号缓存重取（bio 后补 CA /
-                                宣告推晚发场景）；穿透 TTL 与真跑上限可调。默认开；回测不适用
+                                宣告推晚发场景）；C84 触发腿由同一组 TTL/上限参数驱动后台重试轮。
+                                默认开；回测不适用
                             </p>
                         </div>
                     </div>
@@ -1217,18 +1195,8 @@
                     ...(copyData.flapWs ? { flapWs: copyData.flapWs } : {}),
                 };
 
-                // 数据预取门回填（2026-10-15 立项）：复制携带的 ws 段 dataPrefetch 回填
-                // UI 表单（fourmemeWs/flapWs 任一带即取）。提交以 UI 为准——不动开关
-                // =源值等价保真；关掉开关 = 显式删段（collectFormData 里删）
-                {
-                    const dp = copyData.fourmemeWs?.dataPrefetch || copyData.flapWs?.dataPrefetch;
-                    if (dp && dp.enabled === true) {
-                        const dpCb = document.getElementById('dp-enabled');
-                        const dpInp = document.getElementById('dp-condition');
-                        if (dpCb) dpCb.checked = true;
-                        if (dpInp && typeof dp.condition === 'string') dpInp.value = dp.condition;
-                    }
-                }
+                // dataPrefetch 回填已随机制退役删除（C84 2026-10-17）：表单元素不
+                // 存在；复制携带的残留段在提交侧无条件 delete
 
                 // 叙事重试回填（C70，2026-10-15）：复制携带的 narrativeRetry 回填表单。
                 // 物化语义（与 dataPrefetch「关=删段」刻意不同）：引擎默认开——源段
@@ -1819,8 +1787,9 @@
             const subConds = [];
             if (cfg.preBuyCheckCondition) subConds.push(['预检查', cfg.preBuyCheckCondition]);
             if (cfg.repeatBuyCheckCondition) subConds.push(['复购检查', cfg.repeatBuyCheckCondition]);
-            if (cfg.gmgnCheckCondition) subConds.push(['GMGN 检查（第三层，买前实时调）', cfg.gmgnCheckCondition]);
-            if (cfg.narrativeCallCondition) subConds.push(['叙事直调', cfg.narrativeCallCondition]);
+            if (cfg.gmgnCheckCondition) subConds.push(['GMGN 检查（买前实时调）', cfg.gmgnCheckCondition]);
+            if (cfg.narrativeTriggerCondition) subConds.push(['叙事发起（后台分析轮，C84 新链）', cfg.narrativeTriggerCondition]);
+            if (cfg.narrativeCallCondition) subConds.push(['叙事直调（legacy：fire 同步直调）', cfg.narrativeCallCondition]);
             if (cfg.permanentBlockCondition) subConds.push(['永久阻断', cfg.permanentBlockCondition]);
             const subBox = card.querySelector('.leg-subconds');
             if (subConds.length) {
@@ -2001,31 +1970,12 @@
             // 非复制模式 window._copyAdvancedConfig 为 undefined → 无段 → 与现状一致。
             // 浅拷贝防污染：不得改写暂存对象（污染值仍经 spread 透传）
             const adv = { ...(window._copyAdvancedConfig || {}) };
-            // 数据预取门（2026-10-15 立项）：UI 值为准，按平台选段（flap 单平台 →
-            // flapWs，both/fourmeme → fourmemeWs；引擎分段读）。开关开且条件非空才写；
-            // UI 关/回测模式 = 显式删段（复制携带的 dataPrefetch 一并删——UI 表单已
-            // 回填源值，不动开关=等价保真，关掉=显式删）。ws 段先浅拷贝再改（防污染暂存）
-            {
-                const dpCb = document.getElementById('dp-enabled');
-                const dpInp = document.getElementById('dp-condition');
-                const dpCond = (dpInp?.value || '').trim();
-                const dpOn = (dpCb?.checked || false) && dpCond !== '' && tradingMode !== 'backtest';
-                for (const k of ['fourmemeWs', 'flapWs']) {
-                    if (adv[k]) adv[k] = { ...(adv[k] || {}) };
-                }
-                if (dpOn) {
-                    // 平台段选择与下方 config.platform 同式（此处 config 尚未构建）
-                    const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
-                    const sec = (_plat === 'flap') ? 'flapWs' : 'fourmemeWs';
-                    adv[sec] = { ...(adv[sec] || {}), dataPrefetch: { enabled: true, condition: dpCond } };
-                    // 另一段的 dataPrefetch 剥离（防双段并存：复制源 fourmeme 实验开预取门、
-                    // 新实验选 flap 时 fourmemeWs.dataPrefetch 残留为死配置）
-                    const other = (sec === 'flapWs') ? 'fourmemeWs' : 'flapWs';
-                    if (adv[other]) delete adv[other].dataPrefetch;
-                } else {
-                    for (const k of ['fourmemeWs', 'flapWs']) {
-                        if (adv[k]) delete adv[k].dataPrefetch;
-                    }
+            // dataPrefetch 机制已退役（C84 2026-10-17）：提交侧无条件剥离两 ws 段的
+            // dataPrefetch 键（复制链路保真透传会把旧实验的该段带进新实验=死配置）
+            for (const k of ['fourmemeWs', 'flapWs']) {
+                if (adv[k] && adv[k].dataPrefetch) {
+                    adv[k] = { ...(adv[k]) };
+                    delete adv[k].dataPrefetch;
                 }
             }
             // 叙事重试（C70，2026-10-15）：物化语义与 dataPrefetch 刻意不同——引擎

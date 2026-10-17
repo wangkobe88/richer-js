@@ -297,8 +297,8 @@ async function main() {
     check('L1: import 存在', src.includes("import { analyzeTweetImage } from './services/image-analysis-service.mjs'"));
     // N1 探针（3918e4d）后挂点包 timing.wrap('vision')/precheck 包 wrap——位置语义不变；
     // 2026-10-13 叙事提速第二批后 join 形状 = visionPromise ?? analyzeTweetImage
-    //（泳道 0 预启动优先，未预启动 null ?? 直调 = 原路径）
-    const hookIdx = src.indexOf("timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo))");
+    //（C84 2026-10-17 visionPrefetch 预启动退役：vision await 无 join 臂直调）
+    const hookIdx = src.indexOf("timing.wrap('vision', () => analyzeTweetImage(twitterInfo))");
     const precheckIdx = src.indexOf("timing.wrap('precheck', () => performPreCheck");
     check('L2: 挂点在 pre-check 之后（预检拦截票不烧视觉调用）', hookIdx > precheckIdx && hookIdx > 0);
     const svcSrc = fs.readFileSync('src/narrative/analyzer/services/image-analysis-service.mjs', 'utf8');

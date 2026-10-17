@@ -63,6 +63,8 @@ function makeFakeThis(overrides = {}) {
       pendingCount: 0,
       flush: async () => { order.push('flush'); },
     },
+    // C84（2026-10-17）：stop 尾段清 FA 叙事常量注入迭代本 Map（真引擎 ctor 恒建）
+    _tokenMeta: new Map(),
     logger: { info: () => { order.push('log'); }, error: () => { order.push('log-error'); } },
     _logger: { info: () => { order.push('log'); }, error: () => { order.push('log-error'); } },
     _createPortfolioSnapshot: async () => { order.push('snapshot'); },

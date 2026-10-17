@@ -186,6 +186,7 @@ class RicherJsWebServer {
           },
           data: {
             'GET /api/experiment/:id/signals': '获取交易信号',
+            'GET /api/experiment/:id/narrative-rounds': '获取叙事分析轮次（C84）',
             'GET /api/experiment/:id/trades': '获取交易记录',
             'GET /api/experiment/:id/metrics': '获取运行时指标',
             'GET /api/experiment/:id/stats': '获取实验统计'
@@ -782,34 +783,9 @@ class RicherJsWebServer {
           }
         }
 
-        // 数据预取门形状+因子校验（2026-10-15 立项）：condition 用 FA 因子集（引擎
-        // tick 评估同集）——未知因子=写错名静默恒不过，创建时 400 拒绝（三层防线
-        // 的 web 层；引擎启动还有一道）。both/fourmeme 配 fourmemeWs.dataPrefetch、
-        // flap 单平台配 flapWs.dataPrefetch（引擎 _wsConfigSectionName 分段读）
-        {
-          const { ConditionEvaluator } = require('./strategies/ConditionEvaluator');
-          const { getAvailableFactorIds } = require('./trading-engine/core/FactorBuilder');
-          const factorIds = getAvailableFactorIds();
-          for (const secKey of ['fourmemeWs', 'flapWs']) {
-            const dp = (config[secKey] || {}).dataPrefetch;
-            if (dp === undefined || dp === null) continue;
-            if (typeof dp !== 'object' || Array.isArray(dp)) {
-              return res.status(400).json({ success: false, error: `${secKey}.dataPrefetch 段形状非法（须为对象）` });
-            }
-            if (dp.enabled !== true) continue;  // 关/未启用=零校验零行为（enabled 非布尔也视为关）
-            if (typeof dp.condition !== 'string' || dp.condition.trim() === '') {
-              return res.status(400).json({ success: false, error: `${secKey}.dataPrefetch.enabled=true 但 condition 未配置` });
-            }
-            const ev = new ConditionEvaluator();
-            const v = ev.validateCondition(ev.parseCondition(dp.condition), factorIds);
-            if (!v.valid) {
-              return res.status(400).json({
-                success: false,
-                error: `${secKey}.dataPrefetch.condition 引用未知因子: ${v.errors.join(', ')}`
-              });
-            }
-          }
-        }
+        // 数据预取门校验已随 dataPrefetch 机制退役删除（C84 2026-10-17——分析提前到
+        // 叙事发起条件触发时刻，预取链路整体退役；存量实验携带该段=新代码静默忽略，
+        // 上线前 SQL 前置核查）
 
         // narrativeRetry 形状校验（C70，2026-10-15 bunker 案——「叙事未通过→重取数
         // →重析」实验级配置）：enabled 布尔 / intervalMs∈[1000,600000]（穿透 TTL 毫秒）/
@@ -848,6 +824,19 @@ class RicherJsWebServer {
               buyStrategies: strategy.buyStrategies || [],
               sellStrategies: strategy.sellStrategies || []
             };
+
+            // C84 互斥（2026-10-17）：narrativeTriggerCondition（新链：触发轮后台分析+
+            // 单一买条件）与 narrativeCallCondition（legacy：fire 同步直调）同腿并存
+            // 行为未定义——创建时 400（与 loadStrategies 拒启/validateLegs 入库同口径）
+            const clashLeg = (config.strategiesConfig.buyStrategies || []).find(leg =>
+              String(leg?.narrativeTriggerCondition || '').trim() !== ''
+              && String(leg?.narrativeCallCondition || '').trim() !== '');
+            if (clashLeg) {
+              return res.status(400).json({
+                success: false,
+                error: '买腿同时携带 narrativeTriggerCondition 与 narrativeCallCondition（C84 互斥：触发轮后台分析新链 vs fire 同步直调旧链）'
+              });
+            }
 
             // 策略库引用元数据（策略库一期，2026-09-28）：前端「从库引用」展开腿后
             // 随载荷上报的 provenance（libId/name/side/version/legCount/snapshotAt）。
@@ -1960,6 +1949,20 @@ class RicherJsWebServer {
         res.json(data);
       } catch (error) {
         this.logger.error('WebServer', '获取信号失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取叙事分析轮次（C84 买腿重构 2026-10-17：新模型腿后台分析留痕——
+    // 信号页叙事事件列表/图表标注数据源；被拒 token 的分析轨迹也可查）
+    this.app.get('/api/experiment/:id/narrative-rounds', async (req, res) => {
+      try {
+        const rounds = await this.dataService.getExperimentNarrativeRounds(req.params.id, {
+          tokenAddress: req.query.tokenAddress,
+        });
+        res.json({ success: true, rounds, count: rounds.length });
+      } catch (error) {
+        this.logger.error('WebServer', '获取叙事分析轮次失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

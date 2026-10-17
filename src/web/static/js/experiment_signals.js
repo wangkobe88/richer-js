@@ -554,11 +554,13 @@ class ExperimentSignals {
 
       // tick 散点/K线 与 Holder 走势序列并行拉取（Holder=ticks 全量重放重建，
       // 与引擎 holderCount 同口径；不依赖已停写的 experiment_time_series_data）；
-      // trades=成交记录（2026-10-15 双口径：图上标成交时刻/成交价，与信号时刻/信号价并陈）
-      const [tickResponse, holderResponse, tradesData] = await Promise.all([
+      // trades=成交记录（2026-10-15 双口径：图上标成交时刻/成交价，与信号时刻/信号价并陈）；
+      // rounds=叙事分析轮次（C84：新模型腿后台分析留痕，图表标注+轮次面板共用）
+      const [tickResponse, holderResponse, tradesData, roundsData] = await Promise.all([
         this.fetchTickData(token.address),
         this.fetchHolderSeries(token.address),
         this.fetchTokenTrades(token.address),
+        this.fetchNarrativeRounds(token.address),
       ]);
       // 切换代币后过期响应直接丢弃
       if (this.selectedToken !== token.address) return;
@@ -567,6 +569,7 @@ class ExperimentSignals {
         ? holderResponse.data
         : [];
       this._lastTokenTrades = tradesData;
+      this._lastNarrativeRounds = roundsData;
 
       if (!tickResponse?.success || !tickResponse?.data?.length) {
         console.warn('⚠️ 没有 tick 数据，隐藏图表');
@@ -574,12 +577,14 @@ class ExperimentSignals {
         const candleWrapper = document.getElementById('candle-chart-wrapper');
         if (candleWrapper) candleWrapper.classList.add('hidden');
         this._renderHolderForWindow(); // 价格图缺数据不影响 Holder 图独立展示
+        this._renderNarrativeRoundsPanel(token); // 轮次面板独立于价格图展示
         return;
       }
 
       this.initBubbleChart(tickResponse.data, token);
       this.initCandleChart(tickResponse.data, token);
       this._renderHolderForWindow();
+      this._renderNarrativeRoundsPanel(token);
 
       console.log(`✅ Tick charts loaded for ${token.symbol}, ${tickResponse.data.length} ticks`);
     } catch (error) {
@@ -647,6 +652,126 @@ class ExperimentSignals {
       console.error('获取 token 成交记录失败:', error);
       return []; // 成交标注缺席不阻塞主图
     }
+  }
+
+  /**
+   * 拉取该 token 的叙事分析轮次（C84 新模型腿留痕：被拒 token 的轨迹也可查）
+   * @param {string} tokenAddress
+   * @returns {Promise<Array>} rounds（narrative_analysis_rounds 行）
+   */
+  async fetchNarrativeRounds(tokenAddress) {
+    try {
+      const params = new URLSearchParams({ tokenAddress });
+      const response = await fetch(`/api/experiment/${this.experimentId}/narrative-rounds?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return Array.isArray(json.rounds) ? json.rounds : [];
+    } catch (error) {
+      console.error('获取叙事分析轮次失败:', error);
+      return []; // 轮次缺席不阻塞图表
+    }
+  }
+
+  /**
+   * 生成叙事分析轮次标注（C84）：析起=紫虚线[6,4]、析毕=琥珀虚线[2,3]。
+   * 与信号/成交标注同窗过滤（防撑开 X 轴）；标签放顶部（position 'end'）与
+   * 底部信号标签错位。轮次时间轴与 ticks 同墙钟（引擎发起/完成时刻）。
+   */
+  _buildNarrativeRoundAnnotations(rounds, trimStart, trimEnd) {
+    const annotations = [];
+    if (!Array.isArray(rounds)) return annotations;
+    const stack = new Map(); // 同刻多轮错位
+    rounds.forEach(r => {
+      const marks = [
+        { t: r.started_at, color: '#a855f7', dash: [6, 4], text: `析起R${r.round_no}` },
+        r.completed_at && { t: r.completed_at, color: '#f59e0b', dash: [2, 3], text: `析毕R${r.round_no}=${r.rating == null ? '?' : r.rating}` },
+      ].filter(Boolean);
+      for (const m of marks) {
+        const ms = new Date(m.t).getTime();
+        if (!Number.isFinite(ms)) continue;
+        if (trimStart != null && ms < trimStart) continue;
+        if (trimEnd != null && ms > trimEnd) continue;
+        const idx = stack.get(ms) || 0;
+        stack.set(ms, idx + 1);
+        annotations.push({
+          type: 'line',
+          xMin: ms,
+          xMax: ms,
+          borderColor: m.color,
+          borderWidth: 1.5,
+          borderDash: m.dash,
+          label: {
+            display: true,
+            content: m.text,
+            position: 'end',
+            yAdjust: idx * 15, // 同刻多标注逐条下移
+            backgroundColor: m.color,
+            color: '#fff',
+            font: { size: 10 },
+          },
+        });
+      }
+    });
+    return annotations;
+  }
+
+  /**
+   * 叙事分析轮次面板（C84）：轮次表 + 终评 + fire 提前量。
+   * leadMs 取自该 token 买信号 metadata.narrativeRoundsSummary（fire−末轮完成）；
+   * 无轮次（legacy 实验/token 未触发）面板隐藏。
+   */
+  _renderNarrativeRoundsPanel(token) {
+    const wrapper = document.getElementById('narrative-rounds-wrapper');
+    const body = document.getElementById('narrative-rounds-body');
+    if (!wrapper || !body) return;
+    const rounds = Array.isArray(this._lastNarrativeRounds) ? this._lastNarrativeRounds : [];
+    if (!rounds.length) { wrapper.classList.add('hidden'); body.innerHTML = ''; return; }
+    wrapper.classList.remove('hidden');
+
+    const RATING_LABEL = { 1: '1·low', 2: '2·mid', 3: '3·high', 9: '9·未知/失败' };
+    const fmtTs = (v) => v ? new Date(v).toLocaleTimeString('zh-CN') : '—';
+    const fmtDur = (r) => (r.started_at && r.completed_at)
+      ? ((new Date(r.completed_at) - new Date(r.started_at)) / 1000).toFixed(1) + 's' : '—';
+
+    const lastDone = [...rounds].reverse().find(r => r.completed_at && r.rating != null);
+    const finalBits = [];
+    if (lastDone) {
+      const pass = lastDone.rating === 2 || lastDone.rating === 3;
+      finalBits.push(`<span class="mr-3">终评: <span class="${pass ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}">${RATING_LABEL[lastDone.rating] || lastDone.rating}</span>${pass ? '（可进买门）' : '（拦截）'}</span>`);
+    }
+    // fire 提前量：该 token 已执行买信号的 narrativeRoundsSummary.leadMs
+    const buySig = (this.signals || []).find(s =>
+      (s.action || '').toUpperCase() === 'BUY'
+      && (s.token_address || s.tokenAddress) === token.address
+      && s.metadata?.narrativeRoundsSummary);
+    if (buySig) {
+      const nr = buySig.metadata.narrativeRoundsSummary;
+      const lead = Number(nr.leadMs);
+      finalBits.push(`<span class="mr-3">fire→买信号用轮数: ${nr.rounds}${Number.isFinite(lead) ? ` · 分析提前量 ${(lead / 1000).toFixed(1)}s` : ''}</span>`);
+    }
+
+    const rows = rounds.map(r => `
+      <tr class="border-t border-gray-700">
+        <td class="py-1.5 pr-3">R${r.round_no}</td>
+        <td class="py-1.5 pr-3">${r.trigger_reason === 'retry' ? '🔁 retry（账号型到期）' : '⚡ condition（量门首发）'}</td>
+        <td class="py-1.5 pr-3">${fmtTs(r.started_at)}</td>
+        <td class="py-1.5 pr-3">${fmtTs(r.completed_at)}${r.completed_at ? `（${fmtDur(r)}）` : '<span class="text-gray-500">（进行中/未回填）</span>'}</td>
+        <td class="py-1.5 pr-3">${r.rating == null ? '—' : `<span class="${r.rating === 2 || r.rating === 3 ? 'text-green-400' : 'text-red-400'}">${RATING_LABEL[r.rating] || r.rating}</span>`}</td>
+        <td class="py-1.5 pr-3">${r.from_cache == null ? '—' : (r.from_cache ? '缓存命中' : '真跑')}</td>
+        <td class="py-1.5 text-red-400">${this._escapeHtml(r.error || '')}</td>
+      </tr>`).join('');
+
+    body.innerHTML = `
+      <div class="text-sm text-gray-300 mb-2">${finalBits.join('')}</div>
+      <table class="w-full text-xs text-gray-300">
+        <thead><tr class="text-gray-400 border-b border-gray-600">
+          <th class="py-1 pr-3 text-left">轮次</th><th class="py-1 pr-3 text-left">发起</th>
+          <th class="py-1 pr-3 text-left">开始</th><th class="py-1 pr-3 text-left">完成</th>
+          <th class="py-1 pr-3 text-left">评级</th><th class="py-1 pr-3 text-left">来源</th>
+          <th class="py-1 text-left">错误</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
 
   /**
@@ -766,6 +891,13 @@ class ExperimentSignals {
       );
       tradeMarks.annotations.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
       annotations.push(...tradeMarks.annotations);
+
+      // 叙事分析轮次标注（C84）：析起/析毕虚线（Y 轴同款全幅）
+      const narrativeMarks = this._buildNarrativeRoundAnnotations(
+        this._lastNarrativeRounds, win ? win.trimStart : null, win ? win.trimEnd : null
+      );
+      narrativeMarks.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
+      annotations.push(...narrativeMarks);
 
       const ctx = canvas.getContext('2d');
       this.holderChart = new Chart(ctx, {
@@ -927,9 +1059,11 @@ class ExperimentSignals {
 
       // 信号标注（仅展示当前裁剪窗口内的信号，避免窗口外的信号垂直线撑开 X 轴）
       // + 成交标注（双口径）：细点线并入；成交价点位（▲买/▼卖）以 scatter 叠加
+      // + 叙事轮次标注（C84）：析起/析毕虚线
       const annotations = this._buildSignalAnnotations(tokenSignals, trimStart, trimEnd);
       const tradeMarks = this._buildTradeAnnotations(this._lastTokenTrades, tokenSignals, trimStart, trimEnd);
       annotations.push(...tradeMarks.annotations);
+      annotations.push(...this._buildNarrativeRoundAnnotations(this._lastNarrativeRounds, trimStart, trimEnd));
 
       this.chart = new Chart(ctx, {
         type: 'bubble',
@@ -1308,6 +1442,8 @@ class ExperimentSignals {
     // 成交标注（双口径）：细点线 + 成交价点位（与散点图同款）
     const tradeMarks = this._buildTradeAnnotations(this._lastTokenTrades, tokenSignals, trimStart, trimEnd);
     signalAnnotations.push(...tradeMarks.annotations);
+    // 叙事轮次标注（C84）：析起/析毕虚线（与散点图同款）
+    signalAnnotations.push(...this._buildNarrativeRoundAnnotations(this._lastNarrativeRounds, trimStart, trimEnd));
     // 涨跌配色：close>=open 绿，否则红（与散点图 buy绿/sell红 一致）
     const up = 'rgba(34,197,94,0.85)', down = 'rgba(239,68,68,0.85)';
 
@@ -1627,11 +1763,14 @@ class ExperimentSignals {
           await this.loadKlineForToken(selectedToken);
         }
       } else {
-        // 选择"全部代币"时，隐藏整个图表区域
+        // 选择"全部代币"时，隐藏整个图表区域与轮次面板（token 级面板无全量视图）
         const chartWrapper = document.getElementById('kline-chart-wrapper');
         if (chartWrapper) {
           chartWrapper.style.display = 'none';
         }
+        const roundsWrapper = document.getElementById('narrative-rounds-wrapper');
+        if (roundsWrapper) roundsWrapper.classList.add('hidden');
+        this._lastNarrativeRounds = [];
       }
 
       // 过滤并渲染信号列表
@@ -2439,6 +2578,25 @@ class ExperimentSignals {
         `;
       }
 
+      // 叙事分析轮次摘要（C84 新模型腿）：fire 时刻快照 metadata.narrativeRoundsSummary
+      //（轮数/终评/分析提前量 leadMs=fire−末轮完成；rating 门在单一买条件内）
+      let narrativeRoundsHtml = '';
+      const nrs = metadata.narrativeRoundsSummary;
+      if (nrs) {
+        const pass = nrs.finalRating === 2 || nrs.finalRating === 3;
+        const lead = Number(nrs.leadMs);
+        narrativeRoundsHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">🧠 叙事分析轮次（触发条件链）</div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-amber-800">轮数:</span> <span class="text-gray-900">${nrs.rounds}</span></div>
+              <div><span class="text-amber-800">终评:</span> <span class="${pass ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}">${nrs.finalRating == null ? 'null' : nrs.finalRating}${pass ? '（过门）' : '（拦截）'}</span></div>
+              <div><span class="text-amber-800">分析提前量:</span> <span class="text-gray-900">${Number.isFinite(lead) ? (lead / 1000).toFixed(1) + 's' : '—'}</span></div>
+            </div>
+          </div>
+        `;
+      }
+
       // 构建条件检查详情
       let failedConditionsHtml = '';
       if (pr.failedConditions && pr.failedConditions.length > 0) {
@@ -2554,6 +2712,7 @@ class ExperimentSignals {
           ${failedConditionsHtml}
           ${gmgnCheckHtml}
           ${tpaFactorsHtml}
+          ${narrativeRoundsHtml}
         </div>
       `;
     }

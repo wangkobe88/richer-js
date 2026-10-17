@@ -124,8 +124,9 @@ class StrategyEngine {
                 }
                 if (availableFactorIds) {
                     // narrativePrefetchCondition（N3 预触发，2026-10-13 叙事提速案）：
-                    // 评估上下文与 narrativeCallCondition 同为 fire factors，同集校验
-                    for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition']) {
+                    // 评估上下文与 narrativeCallCondition 同为 fire factors，同集校验；
+                    // narrativeTriggerCondition（C84 2026-10-17 叙事发起条件）同集
+                    for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition', 'narrativeTriggerCondition']) {
                         const raw = config[field];
                         if (typeof raw === 'string' && raw.trim() !== '') {
                             const v = this._evaluator.validateCondition(
@@ -135,6 +136,15 @@ class StrategyEngine {
                             }
                         }
                     }
+                }
+
+                // C84 互斥 fail-fast（2026-10-17）：narrativeTriggerCondition（新模型：
+                // 触发轮后台分析+单一买条件）与 narrativeCallCondition（legacy：fire 同步
+                // 直调）语义互斥——同腿并存 = 旧链同步直调块与新链状态机同时激活，
+                // 行为未定义。groups/cycle 先例风格：携带即拒启，由用户清理
+                if (String(config.narrativeTriggerCondition || '').trim() !== ''
+                    && String(config.narrativeCallCondition || '').trim() !== '') {
+                    throw new Error(`策略[${config.id}] 同时携带 narrativeTriggerCondition 与 narrativeCallCondition（C84 互斥）：前者=触发轮后台分析+单一买条件新链，后者=fire 同步直调旧链，拒绝启动`);
                 }
 
                 // gmgnCheckCondition（买腿第三层 GMGN 条件，FAKER 团伙盘案 2026-10-14）：
@@ -172,6 +182,12 @@ class StrategyEngine {
                     // narrativeCallCondition；配更宽松条件 = 更早发起（API 消耗与提前量
                     // 由策略侧权衡）；fire 时直调仍按 narrativeCallCondition
                     narrativePrefetchCondition: config.narrativePrefetchCondition || null,
+                    // 叙事分析发起条件（C84 2026-10-17 买腿重构）：FA 因子表达式（如
+                    // `buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1`）满足即后台发起
+                    // 叙事分析（触发态状态机驱动，含账号型重试轮）；携带此字段的腿 =
+                    // 新模型腿（无 fire 同步直调/无 preBuy 检查，narrativeRating 门在
+                    // 主 condition 内）。与 narrativeCallCondition 互斥（上方 fail-fast）
+                    narrativeTriggerCondition: config.narrativeTriggerCondition || null,
                     // pumpfun 回迁批 2 卖腿机制字段（引擎侧消费：去抖分流/止损闩锁/累亏闩锁）
                     bypassDebounce: !!config.bypassDebounce,
                     lockTokenAfterSell: !!config.lockTokenAfterSell,

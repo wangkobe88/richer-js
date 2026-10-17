@@ -112,15 +112,16 @@ async function main() {
       'C2 _startAnalysis options 展开（skipIntermediateSave 后、_timing 前）');
 
     const eng = src('src/trading-engine/implementations/FourMemeWssTradingEngine.js');
-    assert(eng.includes("analyzeOptions: { visionPrefetch: (this._mergedWsConfig().visionPrefetch || {}).enabled === true }"),
-      'C3 引擎构造点缺省段形状（段缺/键缺/false 全 → false 严格默认关）');
+    // C3（C84 2026-10-17 退役反证）：visionPrefetch 注入点已删——引擎源码零残留
+    assert(!eng.includes('visionPrefetch'),
+      'C3 引擎源码零 visionPrefetch（C84 退役：注入点随 dataPrefetch 机制整体删除）');
     assert((eng.match(/new NarrativeDirectCaller\(/g) || []).length === 1,
-      'C4 引擎内 NarrativeDirectCaller 单实例（N3 预触发与 fire 共用 → 预启动自动同享，无需单独处理）');
+      'C4 引擎内 NarrativeDirectCaller 单实例（N3 预触发/触发状态机与 fire 共用一个 caller）');
 
     const flap = src('src/trading-engine/implementations/FlapWssTradingEngine.js');
     assert(/class FlapWssTradingEngine extends FourMemeWssTradingEngine/.test(flap)
       && !flap.includes('new NarrativeDirectCaller('),
-      'C5 flap 引擎继承父类构造点（flapWs.visionPrefetch 由 _wsConfigSectionName 段名机制接管，无重复构造）');
+      'C5 flap 引擎继承父类构造点（_mergedWsConfig 段名机制接管，无重复构造）');
 
     const worker = src('src/narrative/engine/Worker.mjs');
     assert(!worker.includes('visionPrefetch'),
@@ -131,10 +132,11 @@ async function main() {
       'C7 全局配置无此键（开关只在实验级 fourmemeWs/flapWs 段，182 实验显式开启观察）');
 
     const na = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
-    // C70 在同一解构尾追加了 invalidateAccountCorpus = false（账号语料失效开关，
-    // 默认关）；visionPrefetch 默认 false 主题不变，两键一并锁定
-    assert(na.includes('skipIntermediateSave = false, visionPrefetch = false, invalidateAccountCorpus = false } = options'),
-      'C8 analyze 解构默认 false（默认关主题；行为级 A4/B4 见 _test_narrative_middle_parallel）');
+    // C8（C84 2026-10-17 退役反证）：analyze 解构无 visionPrefetch 键（泳道 0 已删，
+    // invalidateAccountCorpus 默认关仍锁定；退役注释里的字样剥除后再判）
+    assert(!na.replace(/\/\/[^\n]*/g, '').includes('visionPrefetch')
+      && na.includes('skipIntermediateSave = false, invalidateAccountCorpus = false } = options'),
+      'C8 analyze 解构无 visionPrefetch（C84 退役）+ invalidateAccountCorpus 默认关形状');
   }
 
   console.log(`\n${fail === 0 ? '✅ 全部通过' : '❌ 有失败'}：${pass} passed, ${fail} failed`);

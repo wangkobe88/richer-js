@@ -106,10 +106,10 @@ class NarrativeDirectCaller {
      */
     this._rowCache = null;
     /**
-     * analyze options 透传集（vision 预启动，2026-10-13 叙事提速第二批）：引擎构造点
-     * 经 analyzeOptions 注入（如 { visionPrefetch: true }），_startAnalysis 原样展开进
-     * analyze options——开关语义与默认值在 analyze 侧定义；不传 = 空对象 = analyze
-     * 全默认（worker / web routes / 回测零变化）
+     * analyze options 透传集：引擎构造点经 analyzeOptions 注入，_startAnalysis 原样
+     * 展开进 analyze options——开关语义与默认值在 analyze 侧定义；不传 = 空对象 =
+     * analyze 全默认（worker / web routes / 回测零变化）。
+     *（首个消费者 visionPrefetch 已随 C84 2026-10-17 退役；机制保留供后续注入）
      */
     this._analyzeOptions = options.analyzeOptions || {};
     /**
@@ -248,9 +248,13 @@ class NarrativeDirectCaller {
   /**
    * 获取叙事评级（永不抛错）
    * @param {string} tokenAddress - 代币地址
+   * @param {Object} [opts] - 调用选项（2026-10-17 C84 叙事发起条件起支持）
+   * @param {Object} [opts.overrideOptions] - analyze 覆盖选项原样透传 _startAnalysis
+   *   （引擎 retry 轮传 { ignoreCache: true, invalidateAccountCorpus: true } 走
+   *   '!ttl' inflight 槽强制重取重析；legacy 调用不传 = 行为不变）
    * @returns {Promise<{numericRating: number, rating: string, reason: string|null,
    *   fromCache: boolean, durationMs: number, timedOut: boolean, error: string|null,
-   *   sourceTweetId: string|null, gmgnRisk: Object|null}>}
+   *   sourceTweetId: string|null, gmgnRisk: Object|null, accountOnly: boolean}>}
    *   numericRating ∈ {1=低, 2=中, 3=高, 9=未评级(未触发/失败/超时/null 归一)}
    *   sourceTweetId：analyze 三条返回路径顶层均带 classifiedUrls，从 twitter 桶提取；
    *   超时/异常/无推文语料 → null（下游同叙事龙头检查因子按 0 放行）
@@ -266,7 +270,7 @@ class NarrativeDirectCaller {
    *     ipfs、gmgn、fetch.<platform>、accountCollect、precheck、jev.*、dbSave.* 段）；
    *     fromCache 命中只含 cacheLookup/reassemble；超时/异常 → null（数组此刻不完整）
    */
-  async getRating(tokenAddress) {
+  async getRating(tokenAddress, opts = {}) {
     const cacheKey = tokenAddress.toLowerCase();
     // 直调计时子计数器（P1 探针）：三条 return 路径都累计
     this._totalCalls++;
@@ -290,7 +294,13 @@ class NarrativeDirectCaller {
           { code: TIMEOUT_CODE },
         )), DIRECT_CALL_TIMEOUT_MS);
       });
-      let entry = this._startAnalysis(tokenAddress, timingSink);
+      // 外部 override 透传（2026-10-17 C84 叙事发起条件）：引擎 retry 轮传
+      // { ignoreCache: true, invalidateAccountCorpus: true } 强制重取重析——走
+      // 既有 '!ttl' inflight 槽（与常规调用互不 join，ignoreCache 发起即计
+      // _analysisCounts 预算）；轮次上限由引擎触发状态机自管（本类内部
+      // _shouldTtlReanalyze 的 MAX_ANALYSES_PER_TOKEN 门只管 legacy TTL 穿透，
+      // 两机制无交集）
+      let entry = this._startAnalysis(tokenAddress, timingSink, opts?.overrideOptions);
       let result = await Promise.race([
         entry.promise,
         timeout,
@@ -338,6 +348,10 @@ class NarrativeDirectCaller {
         // = 宣告竞态形状（PrecheckFailRetryService 重试域），引擎侧叙事否决短路的
         // 豁免判据；非 precheck fail / 超时 / 异常 → null
         precheckStage: result?.llmAnalysis?.preCheck?.details?.validationStage ?? null,
+        // 账号型语料形状（2026-10-17 C84 叙事发起条件）：rating=1 时是否可重试轮
+        // （账号时间线=动态语料，重取可翻案；推文型语料静态重析无意义）——引擎
+        // narrativeRetryDue 因子的 accountOnly 臂；不外露 classifiedUrls 本体
+        accountOnly: isAccountOnlySource(result?.classifiedUrls) === true,
         // 账号型 TTL 穿透观测标记：本次评级来自 10s 过期后的强制重析（仅穿透轮带）
         ...(ttlReanalyzed ? { ttlReanalyze: true } : {}),
       };
@@ -374,6 +388,7 @@ class NarrativeDirectCaller {
         gmgnRisk: null,
         corpusTs: null,
         precheckStage: null,
+        accountOnly: false,
       };
     }
   }

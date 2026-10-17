@@ -253,8 +253,9 @@ async function main() {
     // D6 回测不适用：BacktestEngine 零预触发引用（回测有 preloadCache 预载机制）
     check('D6 BacktestEngine 无预触发', !be.includes('_narrativePrefetchCheck') && !be.includes('narrativePrefetch'));
     // D7 StrategyEngine：双键同集校验 + 策略对象字段透传
-    check('D7 StrategyEngine 双键校验循环',
-      se.includes("for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition'])"));
+    // D7 三键同集校验（C84 2026-10-17 加 narrativeTriggerCondition，同 FA 集循环）
+    check('D7 StrategyEngine 三键校验循环',
+      se.includes("for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition', 'narrativeTriggerCondition'])"));
     check('D7b StrategyEngine 策略对象透传 prefetch 字段',
       se.includes('narrativePrefetchCondition: config.narrativePrefetchCondition || null,'));
     // D8 引擎策略加载透传

@@ -68,6 +68,26 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C84 买腿链路重构——叙事分析发起条件（narrativeTriggerCondition）+ 单一购买条件 + GMGN 第二层（2026-10-17 用户四点需求+AskUserQuestion 双裁定=信号页加叙事事件列表 / sniper·同名簇观察键不保留）★
+
+- **动机（两阶段因子漂移）**：legacy 链 fire（FA 因子表）与预检查（EarlyParticipant 查 `wss_price_ticks` trailing 90s 窗+引擎注入键）两套数据源两套时刻——用户立项原文「消除信号发起/购买前预检查两阶段时间差导致的因子不一致」。新链路 `叙事发起条件（buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1）→ 后台多轮叙事分析 → 单一买条件（含 narrativeRating == 2 OR == 3）→ GMGN 第二层 → 执行`，全部因子 fire 时刻同一 FA 表上评估，virtual/live/backtest 三态同源。
+- **机制（按腿激活，legacy 整链原样保留——v20 bbbe2561 零变化）**：
+  | 部件 | 要点 |
+  |---|---|
+  | FA 叙事三键 | 模块级 Map（RAW 地址键）`narrativeRating/narrativeRounds/narrativeRetryDue`；retryDue 的 now 用 buildFactorMap 入参（禁 Date.now 红线）；config 由引擎 ctor 从 narrativeRetry 段投影（intervalMs/maxAnalyses 同源 C70 键） |
+  | 触发状态机 | `_narrativeTriggerCheck` 挂 `_onFactorsUpdated` 买腿分支（N3 同位）；per-token `{rounds,inFlight,hasInitial,lastRating,lastCompletedAt,accountOnly,currentRowId}`；首轮 reason='condition'/补轮 reason='retry'（判据与 FA retryDue 逐字一致=双侧冗余把刻意的，补轮走 '!ttl' 槽 ignoreCache+invalidateAccountCorpus）；完成回填 identity 校验防 stop 后旧投影污染下一实验 |
+  | earlyTrades\* 10 键 | 迁自 EarlyParticipant DB trailing 90s 窗 → FA 出生锚定累计窗（firstTickAt 锚、窗 90000 含边界、首出窗 tick 冻结、`_EARLY_MAX_WALLETS` 5000 帽）；trader 层（总量/router/rows）无 outlier/price_usd 过滤照计、wallet 层 defer 乱序收敛 |
+  | 轮次留痕 | 新表 `narrative_analysis_rounds`（CASCADE 挂 experiments，trigger_reason∈{condition,retry}）；insert/update catch+warn 观测 fail-open；信号页叙事事件列表（`GET /api/experiment/:id/narrative-rounds`）+图表标注（析起紫虚线/析毕琥珀虚线）+信号卡 narrativeRoundsSummary{rounds,finalRating,leadMs} |
+  | 互斥 fail-fast | 同腿 trigger×call 共存 → loadStrategies throw / validateLegs 400 / scan 同口径；trigger 字段进未知因子 FA 集三防线 |
+  | 回测口径 | 无状态机（不发起不补轮）；preload 门扩至 trigger 腿+FA 常量注入（categoryToRating 数值链，非 1/2/3 归 9；**rating=token 常量=已知时序穿越，结论只看相对增量**）；ctor `setNarrativeFactorConfig({intervalMs:Infinity,maxAnalyses:0})` 锁死 retryDue；fire 链不评触发条件直接 getRating（memoryCache≈0ms）仅为取 gmgnRisk 供 GMGN 快照层；**不登记拉黑/不算 lag/不跑 P4b 与同叙事龙头检查**；stop 清 FA 注入防同进程下轮回测继承上轮 rating |
+- **单一买条件（库条目逐字，`narrativeCorpusLagSec < 300` 刻意删——时效归叙事 precheck C74 管）**：`buyVolumeBnb >= 1.0 AND tokenAgeSec < 90 AND holders > 3 AND (marketCap < 4500 OR holderTrendSlope > 0) AND marketCap < 12000 AND (marketCap < 5000 OR (bundleClusterSharePct < 50 AND top1HolderCircPct < 35 AND maxCopyWalletHolderCircPct < 20)) AND (narrativeRating == 2 OR narrativeRating == 3) AND (platform != 'flap' OR earlyTradesRouterPct >= 30) AND earlyTradesPerWallet < 4`。**关键不变量：发起门 0.5 < 买门 1.0（量轴序保证分析先于买门可满足而发起，库条目维护该序）**。
+- **earlyTrades\* 口径 delta（vs legacy preBuy，实现与方案的偏差=有意）**：①trader 层无 outlier/price_usd 过滤（照计）②尘埃门 earlyUniformDustBnb 0.01 **只影响 uniform 簇**（钱包计数/总买/top1 无尘埃过滤——方案稿曾有 dust 过滤钱包计数，实现裁定偏放行）③协议双地址层剔除只作用于 top1 ④null wallet 行进分子不计人 ⑤perWallet 分子偏 SQL 行数略低 → `<4` 门偏放行（首月观察）。
+- **删除清单（dataPrefetch/visionPrefetch 退役）**：分析提前到触发时刻发起，预取失去意义——`DataPrefetchService.js` 整文件/引擎 ctor 段/挂点/启动校验/web 校验+UI 三段/scan 段/`_tokenCorpusMap` 镜像/`analyzeOptions.visionPrefetch` 穿透全删（C72 vision 门本体不动）；**ipfsCacheWriter 注入保留**（语料链路通用加速）。存量实验带 dataPrefetch 段=静默丢机制，上线前 SQL 核查 running 实验。
+- **刻意行为变化（用户裁定或条件内含）**：①rating=9（失败/超时归一）拦截——**unrated 放行政策在新链路废止**（条件只写 ==2|3）②sniper 持仓/同名簇观察键不再采集（AVE 快照全局资产停增）③同叙事龙头检查不跑（新条件未引用龙头键）④`_narrativeBlockedTokens` 不消费（条件即门，retry 上限即调用预算）。
+- **测试（5 新文件 117 断言 + 存量回归 153 文件全绿）**：`_test_fa_narrative_factors`（28）/`_test_fa_early_trades_factors`（33）/`_test_narrative_trigger_condition`（35，含**launch 不入 Map 重复发起真 bug 反证**——实现期被单测抓出修复）/`_test_narrative_rounds_route`（9）/`_test_backtest_trigger_leg`（12）；存量锚点同步 6 处（retry_config B3 剥注释口径/prefetch D7 三键/vision_gate D2·D9·E3 段退役/tweet_image L2/parallel_fetch C8a/router_gate E）；`_narrativeTriggerCheck` 补激活门（`_narrativeTriggerStates` ctor 成员，`_narrativePrefetchEnabled` 同款先例）。
+- **部署**：DDL `narrative_analysis_rounds` **先于** web 重启（红线 4）→ scan-unknown-factor 零命中 → dataPrefetch SQL 核查 → 库条目 buy-v2 升 v16（narrativeTriggerCondition=`buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1` + 单一买条件全文 + gmgnCheckCondition 照抄）→ 新实验（both、narrativeRetry={enabled:true,intervalMs:10000,maxAnalyses:3}）→ 观察 leadMs 分布/轮次轨迹/评级分布对照 v20。
+
+
 ### C83 BI 簇案 0x2f8d…7777 等——super_ip_fast 快车道整体退役：registry 命中信息（认证事实行+反混淆提示行）注入标准路径 state，评分全归 Jev 题集（2026-10-17 用户裁定「随着Jev的引入，叙事分析速度提升巨大，其实已经不必要非要有"快车道"了……对于顶级IP的处理方式与普通IP会有不同」；AskUserQuestion 双裁定=registry 进 state 评分归 Jev 不加代码侧 tier 锚定 / 本案只动叙事模块同源簇限频另行立项）★
 
 - **现象（「引用即 IP」结构性敞口）**：bbbe2561（v20 live both）全量叙事体检 11 项机制健康，唯一造成实际亏损的结构性问题=快车道判据仅「语料推文作者 screen_name 在 SUPER_IP_REGISTRY（34 账号）」，无「票与 IP 真实关联」甄别。**BI 簇 6 票**（Binance Inu 系，均引用同一条 binance/status/2111291116364464469 推文）全拿 S 级 84-86 分 high 且 **6 票全亏**；快车道整体 10 票 9 亏净 **-0.0085 BNB（占总亏 21%）**。三重病因：①量级被 S40/A32+时效15/10/0 代码预分**喂饱**（蹭票与真热点票同分，event_magnitude 题被绕过）；②reason 不落库（35/35 全空，复盘无据）；③J1.21≥3 豁免+institution_routine 全域注册表豁免使 9/18 题的消费被绕过。对照组 0x2919d3（CZ 转发特朗普晚宴真热点）拿 95 分 high 盈利——快车道对真热点票的多付溢价（量级恒满格）与蹭票无区分度。

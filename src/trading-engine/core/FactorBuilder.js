@@ -146,6 +146,27 @@ function buildFactorValuesForTimeSeries(factorResults) {
     top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
     // 跟单簇名单是进程级静态 Set，名单缺失=null（fail-closed 语义随快照透传，不掩盖）
     maxCopyWalletHolderCircPct: factorResults.maxCopyWalletHolderCircPct ?? null,
+    // 平台标签（2026-10-17 C84 起进快照）：新模型单一买条件 platform != 'flap' 分门 +
+    // signals 页因子 chip 直读；旧 FA/历史信号无此键 → null 不掩盖
+    platform: factorResults.platform ?? null,
+    // earlyTrades* 首窗 90s 族 10 键（2026-10-17 C84 迁 FA，双宿主——DB 版继续服务
+    // legacy 预检查腿）：FA 出生锚窗增量聚合不可离线重算（回测 replay 亦走 FA 实算），
+    // 不落库即丢（act* 先例）；0=空窗有证据零值（非 null），旧 FA 无这些键 → null 不掩盖
+    earlyTradesPerWallet: factorResults.earlyTradesPerWallet ?? null,
+    earlyTradesMaxWalletTrades: factorResults.earlyTradesMaxWalletTrades ?? null,
+    earlyTradesNetBuyRatio: factorResults.earlyTradesNetBuyRatio ?? null,
+    earlyTradesTop1BuySharePct: factorResults.earlyTradesTop1BuySharePct ?? null,
+    earlyTradesTop1BuyBnb: factorResults.earlyTradesTop1BuyBnb ?? null,
+    earlyTradesBuyBnb: factorResults.earlyTradesBuyBnb ?? null,
+    earlyTradesRouterPct: factorResults.earlyTradesRouterPct ?? null,
+    earlyTradesUniformBuyClusterRatio: factorResults.earlyTradesUniformBuyClusterRatio ?? null,
+    earlyTradesUniformBuyWallets: factorResults.earlyTradesUniformBuyWallets ?? null,
+    earlyTradesUniformBuyClusterN: factorResults.earlyTradesUniformBuyClusterN ?? null,
+    // narrative 三键（2026-10-17 C84 叙事发起条件 + 单一买条件消费）：fire 时刻评级/
+    // 轮次/重试到期快照（_narrativeFactorOverrides 投影）；未发起/旧 FA → null 不掩盖
+    narrativeRating: factorResults.narrativeRating ?? null,
+    narrativeRounds: factorResults.narrativeRounds ?? null,
+    narrativeRetryDue: factorResults.narrativeRetryDue ?? null,
   };
 }
 

@@ -22,9 +22,11 @@ const ev = new ConditionEvaluator();
 const FA = getAvailableFactorIds();
 const PB = new Set(PreBuyCheckService.getConditionFactorKeys());
 const GM = new Set(GmgnRiskCheckService.getConditionFactorKeys());
-// [字段, 校验集]——与 StrategyEngine.loadStrategies 同一分集口径
+// [字段, 校验集]——与 StrategyEngine.loadStrategies 同一分集口径（narrativePrefetchCondition
+// 补齐 + narrativeTriggerCondition = C84 叙事发起条件，2026-10-17）
 const FIELDS = [
     ['condition', FA], ['narrativeCallCondition', FA],
+    ['narrativePrefetchCondition', FA], ['narrativeTriggerCondition', FA],
     ['preBuyCheckCondition', PB], ['repeatBuyCheckCondition', PB],
     ['gmgnCheckCondition', GM],
 ];
@@ -60,20 +62,14 @@ async function main() {
                 for (const msg of checkLeg(`实验[${exp.experiment_name}] ${side}腿[${i}]`, leg)) {
                     findings.push(msg);
                 }
+                // C84 互斥（2026-10-17）：与 loadStrategies/validateLegs 同口径
+                if (String(leg.narrativeTriggerCondition || '').trim() !== ''
+                    && String(leg.narrativeCallCondition || '').trim() !== '') {
+                    findings.push(`实验[${exp.experiment_name}] ${side}腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（重启将被拒）`);
+                }
             });
         }
-        // 数据预取门（2026-10-15）：fourmemeWs/flapWs 段的 dataPrefetch.condition
-        // 用 FA 因子集（引擎启动同口径校验），同集扫描
-        for (const secKey of ['fourmemeWs', 'flapWs']) {
-            const dp = (exp.config || {})[secKey]?.dataPrefetch;
-            if (dp?.enabled !== true || typeof dp.condition !== 'string' || dp.condition.trim() === '') continue;
-            try {
-                const v = ev.validateCondition(ev.parseCondition(dp.condition), FA);
-                if (!v.valid) findings.push(`实验[${exp.experiment_name}] ${secKey}.dataPrefetch.condition: ${v.errors.join('; ')}`);
-            } catch (e) {
-                findings.push(`实验[${exp.experiment_name}] ${secKey}.dataPrefetch.condition 语法错误: ${e.message}`);
-            }
-        }
+        // 数据预取门已随 dataPrefetch 机制退役删除（C84 2026-10-17），段不再扫描
     }
 
     const { data: libs, error: e2 } = await db.from('strategy_library')
@@ -84,6 +80,10 @@ async function main() {
         (lib.legs || []).forEach((leg, i) => {
             for (const msg of checkLeg(`库[${lib.name}] 腿[${i}]`, leg)) {
                 findings.push(msg);
+            }
+            if (String(leg.narrativeTriggerCondition || '').trim() !== ''
+                && String(leg.narrativeCallCondition || '').trim() !== '') {
+                findings.push(`库[${lib.name}] 腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（更新将被 400）`);
             }
         });
     }

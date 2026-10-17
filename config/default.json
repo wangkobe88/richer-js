@@ -83,7 +83,7 @@
     },
     "live": {
       "reserveNative": 0.01,
-      "slippageTolerance": 5,
+      "slippageTolerance": 20,
       "maxGasPrice": 10,
       "holdingsSyncMs": 300000,
       "sellFailureCooldownMs": 60000,
@@ -156,7 +156,7 @@
     },
     "live": {
       "reserveNative": 0.01,
-      "slippageTolerance": 5,
+      "slippageTolerance": 20,
       "maxGasPrice": 10,
       "holdingsSyncMs": 300000,
       "sellFailureCooldownMs": 60000,

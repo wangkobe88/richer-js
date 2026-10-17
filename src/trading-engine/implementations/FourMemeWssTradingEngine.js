@@ -262,19 +262,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     // 1.5 叙事评级直调（策略 narrativeCallCondition 触发时同步调 NarrativeAnalyzer.analyze，Jev 秒级）
     const { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative } = require('../pre-check/NarrativeDirectCaller');
-    // vision 预启动（2026-10-13 叙事提速第二批）：图 URL 就绪即后台发起视觉分析，
-    // 主链 pre-check 后 join——真调用从串行段折叠进数据抓取窗（20 次真拉均值 5.9s）。
-    // 实验级开关 fourmemeWs.visionPrefetch.enabled 默认 false（flap 实验配 flapWs
-    // 段同键；N3 narrativePrefetch 同款缺省段形状）；开启 = 该实验显式放弃 C58
-    // 「预检拦截票不烧视觉调用」约束（配额消耗观察 24-48h 后再定默认值）
     // C70 参数化（2026-10-15 bunker 案，实验级 fourmemeWs.narrativeRetry）：
     // enabled 默认开（显式 false 才关——UI 物化语义：删段=静默重开）；
     // intervalMs=穿透 TTL（默认 10s）/ maxAnalyses=真跑上限（默认 3，计含首析
     // 故名 maxAnalyses 非 maxRetries）/ windowSec=叙事否决豁免窗（默认 300s）；
-    // flap 实验经 _mergedWsConfig 自动读 flapWs 段
+    // flap 实验经 _mergedWsConfig 自动读 flapWs 段。
+    // C84（2026-10-17）起 intervalMs/maxAnalyses 兼供叙事触发状态机的重试轮臂
+    //（FA narrativeRetryDue 因子，见 _narrativeTriggerCheck）
     const narrativeRetry = this._mergedWsConfig().narrativeRetry || {};
     this._narrativeCaller = new NarrativeDirectCaller({
-      analyzeOptions: { visionPrefetch: (this._mergedWsConfig().visionPrefetch || {}).enabled === true },
       // 账号型未过缓存 10s TTL 穿透重析（2026-10-14 用户裁定，Virusking 案）：宣告推
       // 晚发场景直调 ~10s 内重析翻案，不等 worker PrecheckFailRetry ~30s 周期；仅实时
       // 链路开——回测禁穿透（历史行 analyzed_at 恒老，开了=语料前视）
@@ -298,6 +294,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._narrativePrefetchedTokens = new Set();   // write-once per-token（无论成败，失败由 fire 直调兜底）
     this._narrativePrefetchStartedAt = new Map();  // token → 预触发发起时刻（prefetchLeadMs 度量）
     this._narrativePrefetchCond = undefined;       // 惰性解析的预触发条件（undefined=未算过）
+    // ── C84 叙事发起条件触发状态机（2026-10-17 买腿链路重构）──
+    // 新模型腿（携带 narrativeTriggerCondition）：tick 时刻按因子表达式发起/续跑后台
+    // 叙事分析（首轮 reason='condition'；账号型 rating=1 到期补轮 reason='retry'，上限
+    // narrativeRetry.maxAnalyses），结果投影回 FA（narrativeRating/narrativeRounds/
+    // narrativeRetryDue）供单一买条件消费——分析未完成/未通过 = 条件恒 false =
+    // 不产生买信号（无 signal 行）。每轮留痕 narrative_analysis_rounds（信号页叙事
+    // 事件列表）。legacy 腿不携带字段 = 状态机零激活（_narrativeTriggerCheck 首行
+    // 早退），旧链路 bit 一致。fire-and-forget + catch（N3/OPB 同款先例）
+    this._narrativeTriggerStates = new Map();  // token → 触发态（字段见 _narrativeTriggerCheck 头注）
+    this._narrativeTriggerCondCache = undefined; // 惰性解析的发起条件（undefined=未算过）
     // 毕业事件全清幂等集（2026-09-28 王之蔑视案裁定「2+1」）：graduation 事件实测重复
     // 派发两遍 → Set 挡第二次触发；内存语义与 _narrativeBlockedTokens 同款——重启丢失
     // 安全（事件不重放，重启后无仓则不触发、已卖则 status 已变）
@@ -327,31 +333,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
     this._sameNarrativeLeaderService = new SameNarrativeLeaderService(supabase, this.logger);
 
-    // 1.5.3 数据预取门（2026-10-15 立项，YOYO号案 0xa16c…7777）：fire→上链 10.4s 里
-    // 叙事直调 8.95s（vision 6.24s + 语料抓取 2.4s）是延迟主体；语料补采入池 ~2.3s
-    // 已拿到宣告推文 URL，「等买门证据」窗口空闲——tick 买腿分支按条件表达式（FA
-    // 因子表，N3 narrativePrefetch 同上下文）评热度门，过门后台预取推文+vision（均
-    // 缓存健全幂等），fire 直调命中同缓存塌缩耗时。Jev/GMGN 决策类调用不预取。
-    // 实验级开关 fourmemeWs.dataPrefetch {enabled, condition} 默认关（flap 实验配
-    // flapWs 段同键）；BacktestEngine 不嵌（回测 preloadCache 语义 + 纯 API 优化）。
-    // evaluate 闭包引用 _strategyEngine（第 5 步构造）——首调用在 tick 时刻，构造早已完成
-    this._dataPrefetchService = null;
-    if ((this._mergedWsConfig().dataPrefetch || {}).enabled === true) {
-      const { DataPrefetchService } = require('../pre-check/DataPrefetchService');
-      this._dataPrefetchService = new DataPrefetchService({
-        condition: this._mergedWsConfig().dataPrefetch.condition,
-        evaluate: (cond, factors) => this._strategyEngine.evaluateCondition(cond, factors),
-        fetchersProvider: () => this._dataPrefetchFetchers(),
-        logger: this.logger,
-        experimentId: this._experimentId,
-      });
-      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `✅ 数据预取门开启 | condition=${this._mergedWsConfig().dataPrefetch.condition}`);
-    }
-    // 语料内存镜像（数据预取门的语料来源）：_enrichCorpus 拿到 corpusFields 同步存
-    // 内存，预取读零 DB 往返；stop 清空（实例随实验销毁，防同进程接续实验读到旧实验行）
-    this._tokenCorpusMap = new Map();
-    this._dataPrefetchFetchersCache = null;  // ESM dynamic import 结果缓存（一次）
+    //（1.5.3 数据预取门已随 C84 2026-10-17 退役：分析提前到叙事发起条件触发时刻，
+    // 预取失去意义——机制整体删除，档案见台账 C84）
 
     // 1.6 叙话语料补采（新代币入池时抓平台附属信息进 raw_api_data；
     // 配置段 corpusEnrich（默认/实验级覆盖经 _mergedWsConfig 合并；flap 子类同键生效））
@@ -379,6 +362,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       maintainTpaTracks: this._experiment?.config?.tokenPositionAnalyzer != null,
     }, this.logger);
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
+    // C84 叙事触发轮参数投影（两键全传——setNarrativeFactorConfig 部分注入语义下，
+    // 同进程先跑过回测（Infinity/0）再起实时引擎会继承回测值；用 FA 默认值单一
+    // 真相源补全防字面量漂移）：narrativeRetry.intervalMs/maxAnalyses 兼供 FA
+    // narrativeRetryDue 臂（引擎触发状态机与 FA 因子判据共用同一组数=行为一致）
+    {
+      const _nrDefaults = FourMemeFactorAggregator.getNarrativeFactorDefaults();
+      this._narrativeTriggerIntervalMs = Number.isInteger(narrativeRetry.intervalMs) && narrativeRetry.intervalMs > 0
+        ? narrativeRetry.intervalMs : _nrDefaults.intervalMs;
+      this._narrativeTriggerMaxAnalyses = Number.isInteger(narrativeRetry.maxAnalyses) && narrativeRetry.maxAnalyses >= 0
+        ? narrativeRetry.maxAnalyses : _nrDefaults.maxAnalyses;
+      FourMemeFactorAggregator.setNarrativeFactorConfig({
+        intervalMs: this._narrativeTriggerIntervalMs,
+        maxAnalyses: this._narrativeTriggerMaxAnalyses,
+      });
+    }
     // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：web 侧裸 FA 不 feed → 读恒 null 零污染；
     // 红线：任何交易策略 condition 不得引用 market* 键。stop() 关 feed 防同进程下一实验继承）
     FourMemeFactorAggregator.setMarketFeedEnabled(true);
@@ -502,6 +500,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           narrativeCallCondition: s.narrativeCallCondition || null,
           // N3 叙事预触发条件（2026-10-13）：不配 = 预触发用 narrativeCallCondition
           narrativePrefetchCondition: s.narrativePrefetchCondition || null,
+          // C84 叙事发起条件（2026-10-17 买腿链路重构）：新模型腿标识——携带即激活
+          // 触发状态机（tick 后台多轮叙事分析 + FA 投影），且与 narrativeCallCondition
+          // 互斥（loadStrategies fail-fast）。★白名单映射漏透传 = 状态机永不激活 =
+          // narrativeRating 恒 null = 新模型腿永不买（gmgnCheckCondition 透传事故同款
+          // 形状，v15 教训），单测锁此透传
+          narrativeTriggerCondition: s.narrativeTriggerCondition || null,
           // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
@@ -551,18 +555,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       new Set(_PreBuyCheckService.getConditionFactorKeys()),
       new Set(_GmgnRiskCheckService.getConditionFactorKeys()));
 
-    // 数据预取门因子校验（2026-10-15）：condition 引用 FA 因子集——未知因子 = 写错名
-    // 静默恒假（比较恒 false），门永不过 = 预取整体失效无日志可查，与腿 fail-fast
-    // 同方向拒启。仅 enabled 时校验（段缺失/关 = 存量实验零变化）
-    if (this._dataPrefetchService) {
-      const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
-      const _ev = new ConditionEvaluator();
-      const _v = _ev.validateCondition(
-        _ev.parseCondition(this._mergedWsConfig().dataPrefetch.condition), availableFactorIds);
-      if (!_v.valid) {
-        throw new Error(`fourmemeWs.dataPrefetch.condition 引用未知因子: ${_v.errors.join(', ')}——因子名写错会让热度门静默恒不过，拒绝启动`);
-      }
-    }
+    //（数据预取门因子校验已随 C84 2026-10-17 机制退役删除；narrativeTriggerCondition
+    // 的未知因子校验在 loadStrategies FA 集内完成）
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存时最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化）
@@ -1304,9 +1298,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._tokenPositionAnalyzer.destroy();
     }
 
-    // 数据预取门态清理（2026-10-15）：语料镜像/write-once 清空——main.js 同进程
-    // 接续起下一实验时不读到旧实验行（进行中的后台预取无需等：缓存幂等无害）
-    if (this._tokenCorpusMap) this._tokenCorpusMap.clear();
+    // C84 叙事触发态清理（2026-10-17）：状态机 Map 清空 + FA narrative 静态投影逐
+    // token 清除——main.js 同进程接续起下一实验时不读到旧实验评级。进行中的后台
+    // 分析无需等：完成回填带 identity 校验（states.get !== st 即跳过投影，见
+    // _narrativeTriggerLaunch），轮次行落库归属本实验无害
+    if (this._narrativeTriggerStates) {
+      for (const addr of this._narrativeTriggerStates.keys()) {
+        require('../../services/FourMemeFactorAggregator').clearNarrativeFactors(addr);
+      }
+      this._narrativeTriggerStates.clear();
+    }
 
     await super.stop();
 
@@ -1376,11 +1377,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 叙事预触发（N3，2026-10-13 叙事提速案）：tick 时刻后台提前发起 fire 时会做的
       // 叙事直调（fire 前置 ~200-1000ms 去抖窗 + 条件先满足的 token 更早），见方法头注
       this._narrativePrefetchCheck(tokenAddress, factors, token);
-      // 数据预取门（2026-10-15）：等买门证据的空闲窗后台预取宣告推文+vision
-      // （fire 直调命中同缓存；语料 miss=补采未完成，write-once 未标下 tick 天然重试）
-      if (this._dataPrefetchService) {
-        this._dataPrefetchCheck(tokenAddress, factors);
-      }
+      // C84 叙事发起条件触发状态机（新模型腿）：tick 后台多轮叙事分析 + FA 投影
+      //（legacy 腿首行早退零成本；dataPrefetch 已退役，档案见台账 C84）
+      this._narrativeTriggerCheck(tokenAddress, factors, token);
       this._scheduleDebouncedBuy(tokenAddress, tick);
     }
   }
@@ -1455,53 +1454,182 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 数据预取门 tick 检查（2026-10-15 立项）：热路径尽量零成本——write-once 早退 +
-   * 语料镜像 miss 早退（补采 fire-and-forget 入池 ~2.3s 内完成，miss=还没到，下 tick
-   * 天然重试）。过门判断与预取本体在 DataPrefetchService（含日志/账号 URL 分流）。
+   * C84 叙事发起条件触发状态机（2026-10-17 买腿链路重构，台账 C84）
+   *
+   * 新模型腿（携带 narrativeTriggerCondition 的买腿）tick 时刻驱动：
+   * - 发起条件（FA 因子表达式，如 `buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1`）
+   *   在 tick 因子表上评估，过门 → 发起后台叙事分析（NarrativeDirectCaller.getRating）
+   * - 首轮 reason='condition'（常规调用，token 级缓存命中秒回）；此后仅补轮臂可再发：
+   *   lastRating===1 ∧ accountOnly（账号型语料=动态，重取可翻案）∧ rounds<maxAnalyses
+   *   ∧ 距末轮完成 ≥ intervalMs → reason='retry'（override ignoreCache+
+   *   invalidateAccountCorpus 强制重取重析，getRating '!ttl' inflight 槽）。条件首臂
+   *   （量门）持续为真不重复发起——hasInitial 后按状态机真值结构化把关，与 FA
+   *   narrativeRetryDue 判据同参数源（FA config 由 ctor 投影，双侧一致）
+   * - 每轮发起/完成即 FA.setNarrativeFactors 投影（rating/rounds/completedAt/
+   *   accountOnly/inFlight）→ 下一 tick buildFactorMap 注入 narrative 三键 →
+   *   单一买条件（含 narrativeRating == 2 OR == 3）裁决；分析未完成/未通过/失败(9)
+   *   = 条件恒 false = 不产生买信号（无 signal 行，用户需求第二点）
+   *
+   * 状态 per token：{rounds, inFlight, hasInitial, lastRating, lastCompletedAt,
+   * accountOnly, currentRowId}——重启全内存语义（首 tick 重走 round 1，缓存命中
+   * from_cache=true 留痕，_analysisCounts 同款先例；rounds 按进程计）。轮次行
+   * narrative_analysis_rounds insert/update 各自 catch+warn（观测 fail-open 不中断
+   * 交易链；交易门本身 fail-closed 在买条件里）。fire-and-forget + catch。
    * @private
    */
-  _dataPrefetchCheck(tokenAddress, factors) {
-    if (this._dataPrefetchService.isDone(tokenAddress)) return;
-    const corpus = this._tokenCorpusMap.get(tokenAddress);
-    if (!corpus) return;
-    this._dataPrefetchService.maybePrefetch(tokenAddress, factors, corpus);
+  _narrativeTriggerCheck(tokenAddress, factors, token) {
+    // 激活门（ctor 恒建成员；极简桩/机制未初始化=未激活，_narrativePrefetchEnabled
+    // 同款先例——真引擎不可能走到这里缺 Map，ctor 接线错误在首 tick 前已 fail-fast）
+    if (!this._narrativeTriggerStates) return;
+    const cond = this._narrativeTriggerCondition();
+    if (!cond) return; // 无新模型腿（legacy）→ 整机零激活
+    const st = this._narrativeTriggerStates.get(tokenAddress);
+    if (st?.inFlight) return;
+    if (!this._strategyEngine.evaluateCondition(cond, factors)) return;
+    if (!st) {
+      // 首轮：条件过门即发起（写入状态后交给 launch）
+      this._narrativeTriggerLaunch(tokenAddress, {
+        rounds: 0, inFlight: false, hasInitial: false, lastRating: null,
+        lastCompletedAt: null, accountOnly: false, currentRowId: null,
+      }, 'condition', token);
+      return;
+    }
+    // 补轮资格（状态机真值二次把关——tick 因子表的 narrativeRetryDue 投影可能滞后
+    // 一轮；判据与 FA retryDue 逐字一致，刻意的双侧冗余）
+    if (!st.hasInitial) return;
+    if (st.lastRating !== 1 || st.accountOnly !== true) return;
+    if (st.rounds >= this._narrativeTriggerMaxAnalyses) return;
+    if (!Number.isFinite(st.lastCompletedAt)
+        || Date.now() - st.lastCompletedAt < this._narrativeTriggerIntervalMs) return;
+    this._narrativeTriggerLaunch(tokenAddress, st, 'retry', token);
   }
 
   /**
-   * 语料就绪即评门（提速②a，2026-10-15）：_enrichCorpus 回调刻直接评数据预取门，
-   * 不等下一 factorsUpdated tick（极速票 5s 内 fire，等 tick=预取必然来不及）。
-   * 三重门对齐 _onFactorsUpdated 买腿路径（池内 + 非 bought + 非 buying）；
-   * buildFactorMap null（state 缺失/faPreFilter 出窗）→ 跳过且不标 done，下 tick
-   * 既有路径兜底（maybePrefetch 三守卫不变，门不过不标记天然重试）。
-   * live 引擎钩子用 Date.now 合法（红线⑥限 FA 周期判定/回测，此处均非）。
+   * 发起一轮叙事分析（状态推进 + FA 投影 + 轮次行留痕 + fire-and-forget 调用）。
    * @private
    */
-  _dataPrefetchOnCorpusReady(tokenAddress) {
-    if (!this._dataPrefetchService) return;
-    const token = this._tokenPool.getToken(tokenAddress, 'bsc');
-    if (!token || token.status === 'bought' || this._buyingTokens.has(tokenAddress)) return;
-    const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
-    if (!factors) return;
-    this._dataPrefetchCheck(tokenAddress, factors);
+  _narrativeTriggerLaunch(tokenAddress, st, reason, token) {
+    // 入 Map（首轮由 _narrativeTriggerCheck 传新鲜对象进来——不 set 则每 tick 重复
+    // 发起首轮 + 完成回填 identity 校验恒不中（states.get 恒 undefined），单测
+    // _test_narrative_trigger_condition B1 反证锁定）
+    this._narrativeTriggerStates.set(tokenAddress, st);
+    const sym = token?.symbol || tokenAddress.slice(0, 10);
+    const roundNo = st.rounds + 1;
+    st.rounds = roundNo;
+    st.inFlight = true;
+    this._projectNarrativeFactors(tokenAddress, st);
+    this.logger.info(this._experimentId, 'NarrativeTrigger',
+      `${sym} 析起 R${roundNo}(${reason})`);
+    // 轮次行 insert（观测 fail-open）：异步拿 id，完成点回填 update 用
+    this._insertNarrativeRoundRow(tokenAddress, roundNo, reason, Date.now())
+      .then(id => { st.currentRowId = id; })
+      .catch(e => this.logger.warn(this._experimentId, 'NarrativeTrigger',
+        `${sym} 轮次行插入失败（观测 fail-open）: ${e.message}`));
+    const callOpts = reason === 'retry'
+      ? { overrideOptions: { ignoreCache: true, invalidateAccountCorpus: true } } : {};
+    this._narrativeCaller.getRating(tokenAddress, callOpts)
+      .then(r => {
+        // stop() 已清态（identity 校验）→ 只收尾不投影（防同进程下一实验读到旧投影）
+        if (this._narrativeTriggerStates.get(tokenAddress) !== st) return;
+        st.inFlight = false;
+        st.hasInitial = true;
+        st.lastRating = [1, 2, 3, 9].includes(r.numericRating) ? r.numericRating : null;
+        st.lastCompletedAt = Date.now();
+        st.accountOnly = r.accountOnly === true;
+        this._projectNarrativeFactors(tokenAddress, st);
+        this.logger.info(this._experimentId, 'NarrativeTrigger',
+          `${sym} 析毕 R${roundNo}(${reason}) | rating=${r.numericRating}(${r.rating})` +
+          ` ${r.durationMs}ms fromCache=${r.fromCache} accountOnly=${st.accountOnly}` +
+          (r.error ? ` error=${r.error}` : ''));
+        this._completeNarrativeRoundRow(st.currentRowId, r, st.lastCompletedAt)
+          .catch(e => this.logger.warn(this._experimentId, 'NarrativeTrigger',
+            `${sym} 轮次行完成更新失败（观测 fail-open）: ${e.message}`));
+      })
+      .catch(e => {
+        // getRating 契约永不抛错，此处兜接线级异常——inFlight 必须复位防状态机卡死
+        if (this._narrativeTriggerStates.get(tokenAddress) !== st) return;
+        st.inFlight = false;
+        st.hasInitial = true;
+        st.lastRating = 9;
+        st.lastCompletedAt = Date.now();
+        this._projectNarrativeFactors(tokenAddress, st);
+        this.logger.warn(this._experimentId, 'NarrativeTrigger',
+          `${sym} R${roundNo}(${reason}) 分析异常（rating 归 9 拦截）: ${e?.message || e}`);
+      });
   }
 
   /**
-   * 预取 fetchers（惰性构建一次）：叙事侧 ESM 用 dynamic import 跨 CJS/ESM 边界
-   * （NarrativeDirectCaller 先例）；被调侧自带 DB 缓存+inflight 去重，预取与
-   * fire 直调并发幂等。import 失败由 service 的 .catch 兜底 warn（fire 直调全链自兜底）
+   * 状态机真值 → FA 静态投影（buildFactorMap narrative 三键的唯一数据源）。
    * @private
    */
-  async _dataPrefetchFetchers() {
-    if (this._dataPrefetchFetchersCache) return this._dataPrefetchFetchersCache;
-    const [{ TwitterFetcher }, { analyzeTweetImage }] = await Promise.all([
-      import('../../narrative/utils/twitter-fetcher.mjs'),
-      import('../../narrative/analyzer/services/image-analysis-service.mjs'),
-    ]);
-    this._dataPrefetchFetchersCache = {
-      fetchTweet: (url) => TwitterFetcher.fetchFromUrl(url),
-      analyzeImage: (twitterInfo) => analyzeTweetImage(twitterInfo),
-    };
-    return this._dataPrefetchFetchersCache;
+  _projectNarrativeFactors(tokenAddress, st) {
+    require('../../services/FourMemeFactorAggregator').setNarrativeFactors(tokenAddress, {
+      rating: st.lastRating,
+      rounds: st.rounds,
+      completedAt: st.lastCompletedAt,
+      accountOnly: st.accountOnly === true,
+      inFlight: st.inFlight === true,
+    });
+  }
+
+  /**
+   * 轮次行 insert（narrative_analysis_rounds；dbManager service key，红线③）。
+   * @returns {Promise<number>} 新行 id
+   * @private
+   */
+  async _insertNarrativeRoundRow(tokenAddress, roundNo, reason, startedAtMs) {
+    const { dbManager } = require('../../services/dbManager');
+    const { data, error } = await dbManager.getClient()
+      .from('narrative_analysis_rounds')
+      .insert({
+        experiment_id: this._experimentId,
+        token_address: tokenAddress,
+        round_no: roundNo,
+        trigger_reason: reason,
+        started_at: new Date(startedAtMs).toISOString(),
+      })
+      .select('id')
+      .single();
+    if (error) throw new Error(error.message);
+    return data.id;
+  }
+
+  /**
+   * 轮次行完成 update（rating/from_cache/error/completed_at）。
+   * @private
+   */
+  async _completeNarrativeRoundRow(rowId, r, completedAtMs) {
+    if (!rowId) return;
+    const { dbManager } = require('../../services/dbManager');
+    const { error } = await dbManager.getClient()
+      .from('narrative_analysis_rounds')
+      .update({
+        completed_at: new Date(completedAtMs).toISOString(),
+        rating: [1, 2, 3, 9].includes(r.numericRating) ? r.numericRating : null,
+        from_cache: r.fromCache === true,
+        error: r.error || null,
+      })
+      .eq('id', rowId);
+    if (error) throw new Error(error.message);
+  }
+
+  /**
+   * 叙事发起条件（惰性解析缓存）：首条携带 narrativeTriggerCondition 的买腿。
+   * 策略启动后不变（重启进程才换策略）；多腿模型各腿自带（当前取首条，与
+   * _narrativePrefetchCondition 同款先例）。
+   * @private
+   */
+  _narrativeTriggerCondition() {
+    if (this._narrativeTriggerCondCache !== undefined) return this._narrativeTriggerCondCache;
+    this._narrativeTriggerCondCache = null;
+    for (const s of this._strategyEngine.getAllStrategies()) {
+      if (s.action !== 'buy') continue;
+      if (typeof s.narrativeTriggerCondition === 'string' && s.narrativeTriggerCondition.trim() !== '') {
+        this._narrativeTriggerCondCache = s.narrativeTriggerCondition.trim();
+        break;
+      }
+    }
+    return this._narrativeTriggerCondCache;
   }
 
   /**
@@ -1638,6 +1766,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             price: signal.price,
             strategyId: signal.strategyId,
             strategyName: signal.strategyName,
+            // C84 新模型腿：fire 时刻叙事轮次摘要（leadMs=fire−末轮完成=评级新鲜度
+            // 观测，秒级~几十秒、tokenAgeSec<90 封顶；null=从未完成=不该出现——
+            // 条件含 narrativeRating==2|3 恒 false 不会走到这里，防御性留观测）
+            ...(this._narrativeTriggerStates.has(tokenAddress) ? {
+              narrativeRoundsSummary: (() => {
+                const st = this._narrativeTriggerStates.get(tokenAddress);
+                return {
+                  rounds: st.rounds,
+                  finalRating: st.lastRating,
+                  leadMs: Number.isFinite(st.lastCompletedAt) ? Date.now() - st.lastCompletedAt : null,
+                };
+              })(),
+            } : {}),
             ...signal.factors,
           },
         });
@@ -3153,21 +3294,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._corpusEnricher.enrich(info.token, platform, info.meta)
       .then(corpusFields => {
         if (!corpusFields) return;
-        // 语料内存镜像（数据预取门的语料来源，2026-10-15）：拿到即存——DB 落库失败
-        // 也不影响预取读内存（两者用途独立，落库失败已有自己的 warn）
-        this._tokenCorpusMap.set(info.token, corpusFields);
-        // 语料就绪即评门（提速②a，2026-10-15 뮤오23 案：预取仅比 fire 早 0.29s，根因=
-        // 补采 resolve 后要等下一 factorsUpdated tick 才评门，fire 前空窗全浪费）。
-        // 微任务即刻评（不等 tick 也不等 DB 落库）；try/catch 解耦——评门异常不阻断
-        // 落库链，warn 可见不静默
-        queueMicrotask(() => {
-          try {
-            this._dataPrefetchOnCorpusReady(info.token);
-          } catch (e) {
-            this.logger.warn(this._experimentId, 'NewToken',
-              `语料就绪预取评门异常 | ${info.token} ${e.message}`);
-          }
-        });
+        //（语料内存镜像与就绪即评门已随 dataPrefetch 退役删除，C84 2026-10-17；
+        // corpusFields 仍原样落库供叙事分析器语料链路消费）
         return this.dataService.updateTokenCorpus(this._experimentId, info.token, corpusFields)
           .then(ok => {
             if (ok) {
