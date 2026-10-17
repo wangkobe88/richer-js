@@ -68,6 +68,26 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C83 BI 簇案 0x2f8d…7777 等——super_ip_fast 快车道整体退役：registry 命中信息（认证事实行+反混淆提示行）注入标准路径 state，评分全归 Jev 题集（2026-10-17 用户裁定「随着Jev的引入，叙事分析速度提升巨大，其实已经不必要非要有"快车道"了……对于顶级IP的处理方式与普通IP会有不同」；AskUserQuestion 双裁定=registry 进 state 评分归 Jev 不加代码侧 tier 锚定 / 本案只动叙事模块同源簇限频另行立项）★
+
+- **现象（「引用即 IP」结构性敞口）**：bbbe2561（v20 live both）全量叙事体检 11 项机制健康，唯一造成实际亏损的结构性问题=快车道判据仅「语料推文作者 screen_name 在 SUPER_IP_REGISTRY（34 账号）」，无「票与 IP 真实关联」甄别。**BI 簇 6 票**（Binance Inu 系，均引用同一条 binance/status/2111291116364464469 推文）全拿 S 级 84-86 分 high 且 **6 票全亏**；快车道整体 10 票 9 亏净 **-0.0085 BNB（占总亏 21%）**。三重病因：①量级被 S40/A32+时效15/10/0 代码预分**喂饱**（蹭票与真热点票同分，event_magnitude 题被绕过）；②reason 不落库（35/35 全空，复盘无据）；③J1.21≥3 豁免+institution_routine 全域注册表豁免使 9/18 题的消费被绕过。对照组 0x2919d3（CZ 转发特朗普晚宴真热点）拿 95 分 high 盈利——快车道对真热点票的多付溢价（量级恒满格）与蹭票无区分度。
+- **机制（净减法+state 两行注入）**：NarrativeAnalyzer 快车道分支整段删除；superIP 语料票改走标准 18 题全量评估。`buildJevState` PRECOMPUTED 块注入两行：`super_ip_hit: {name}（{type}/{tier}级，{desc}）` 认证事实行（格式与快车道时代一致，Jev 见惯形状）+ `super_ip_note` 反混淆提示行（**作者身份≠代币背书**——代币与该 IP 的实际关联、主体资格、事件量级仍须按题集逐题判定）。preScores 代码预分刻意废（用户裁定：Jev 自判 event_magnitude，题面档带与注册表 tier 语义对齐）。
+- **五项能力迁移去向**：
+  | 快车道能力 | 去向 |
+  |---|---|
+  | preScores 量级预分（S40/A32+时效15/10/0） | 刻意废（评分归 Jev） |
+  | J1.21 指代豁免（≥3 双达标） | J1.28 低档门（mem≤1 拦）覆盖同意图 |
+  | C59 图豁免（meme≥3） | J1.30 名图一致豁免（C65）覆盖 |
+  | institution_routine 全域注册表豁免 | **刻意收紧**为仅 platformOfficial {binance, flapdotsh}（mapper 既有标准路径豁免面） |
+  | token_category='super_ip_fast' 落库 | 不再产生；deriveTokenCategory 分支保留读旧行（历史行重放防御） |
+
+- **快车道语义分叉欠账自动修复**（卷一§六-25/卷二:727 记录的已知欠账）：cashtag 改道 W（C28）与 J1.24 punExempt 快车道均未挂，删除后 superIP 票自动获得；`credibleEventAnchor` 的 superIPInfo 项从恒 false 残留变真实可达。
+- **版本断代**：`JEV_QUESTIONS_VERSION` J1.31→J1.32——题面零改动，变更在 state 输入形状（superIP 票 state 从「预分行」变「认证行+提示行」）；新行评级与 J1.31 前不可比，按 prompt_version 过滤（项目惯例）。
+- **CUE 教训风险标注**（J1.18 历史）：「语料里看不出知名度」的失败模式靠直接采信块补盲区——super_ip_hit 进 [PRECOMPUTED]（直接采信，无需 Jev 重判身份）。若 182 观察 superIP 票量级仍系统性低估，属题面校准问题另行处理，不是回加代码锚的理由。
+- **诚实预期**：BI 簇不保证翻 low——brand_hijack 0.28-0.30<0.5 不触发 J1.24；marketing_gimmick 概率门不拦；拦它们的希望在 relevance 带反混淆行重判（Jev 对「引用币安推文的第三方盘」关联度/主体资格的重新评估）。**系统性防线是同源簇限频（另行立项）**。本轮观察重点：量级不再恒 S（蹭票预期 A/B 档）+ 18 题跑齐 + reason 完整落库。
+- **测试**：新增 `_test_superip_standard_path.cjs`（20 断言：注入形状/源码口径/detectSuperIP 回归/边界；**A5 红线=非 superIP 票 state 逐字节 bit-parity**）；删 `_test_superip_relevance_exempt.cjs`（C59 意图由 J1.30 标准链覆盖）；14 文件同步改造——快车道切片断言 `slice(indexOf('mapSuperIPAnswers'))` 删后 indexOf=-1 变空真假绿，统一改 `!includes('mapSuperIPAnswers')` 不存在性断言（防语义反转）。校准脚本 super_ip_fast 类不再抽样（无重放通道）。
+- **部署**：182 git pull → 重启叙事 worker → v20 实验进程**先按 live-restart-positions-check 规程处置死仓**（兔星星/菲菲鼠）再重启（叙事直调在实验进程内，不重启实验不生效）。验证：BI 簇 6 票+0x2919d3 ignoreCache 重析，观察 prompt_type=jev-*、token_category=event:X、state 含 super_ip_hit+super_ip_note 无 pre_scores、量级自判、reason 落库、institution_routine 收紧面（binancezh/BNB Chain 注册表机构票 argmax 拦=预期，误伤实质内容推按 C56 模式扩 PLATFORM_OFFICIAL_HANDLES）。
+
 ### C82 JDI 案 0x4688681cd5f1882b3ba12f6f4a79951914e87777——「缩写低置信降档」门（候选 A）存量扫描否决：abbrP/weakP 对盈亏无区分度，命中族=7777 sybil 缩写盘（2026-10-17 用户裁定「那就先不做吧」）；附 @Fouzia69513878 入推特黑名单 ★
 
 - **现象（B 类高分买入 15 秒 -31.7%）**：JDI（flap，2026-10-16 20:10 创建，尾号 7777）语料=空 description IPFS + @Polymarket（202 万粉）20:09 新闻推「中国机器人公司发布 13 英尺/2400 磅人形机器人」。唯一名字线索=vision 图内文字转写「**JD 阿尔法工业**」（展厅背景墙）。Jev：B 类 0.93/product_functional 0.85/web3_fit 0.69（机器人=极客风不触 J1.27 产品实体门）/notable_other 0.37（J1.26 退出阻断）/no_visual_entity 0.86（J1.29 不碰 B 类）/mild_amusement 不折（J1.31 仅 E 类）→ 事件分 39.31+**关联 17（abbreviation_alias，但 argmax 置信仅 0.48：none 0.18/exact 0.18/semantic 0.15）**+质量 14.87=71.18 high → v20 买 0.004 BNB 15 秒后 -31.7% 清仓。**名字↔事件绑定弱只减分不阻断，事件分+传播分（202 万粉大 V 报道=传播 23.52）把底分抬过线**。
@@ -535,6 +555,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.32 | 2026-10-17 | **题面零改动；变更在 state 输入形状**——superIP 注册表命中票改走标准路径全量 18 题（快车道删除），state PRECOMPUTED 注入 `super_ip_hit` 认证事实行（name/type/tier/desc，格式与快车道时代一致）+ `super_ip_note` 反混淆提示行（作者身份认证≠代币背书，关联/主体资格/量级仍归题集逐题判定）；preScores 预分行删除（评分归 Jev）；非 superIP 票 state 逐字节 bit-parity（单测 A5 红线）；新行评级与 J1.31 前不可比按 prompt_version 过滤 | C83 BI 簇案（bbbe2561 体检：快车道「引用即 IP」6 票引用同一 binance 推文全拿 S 级 84-86 high 全亏，10 票 9 亏净 -0.0085 BNB 占总亏 21%；量级被预分喂饱+reason 不落库；用户裁定 registry 进 state 评分归 Jev） | 本 commit |
 | J1.31 | 2026-10-16 | 新增第 18 题 `event_resonance`（事件情绪感染力 choice 三档：strong_reaction 强感染 / mild_amusement 轻度有趣 / indifferent 无感）**恒带**；题面锚定 BSC meme 买家立场的情绪行动性（主动讨论/玩梗/二创/站队/参与冲动），与 web3_fit 分工=静态口味 vs 动态感染，圈外传播量级明确排除（另有题评）；mapper 标准数学分支 E 类系数折损：`category==='E'` 且系数<1 时 `stage2Total=(tierScore+effDim2)×coef+timeliness`（时效不折），strong ×1 bit-identical；mild 0.5/indifferent 0.25 数学上拦死全部档位（max 49.5<60）但刻意保留系数形式（梯度可观察+阈值校准留口）；旧缓存行缺答案 fail-open 不折；superIP 快车道不消费；审计 `jev.eventResonance` 恒落/`jev.resonanceDamp {resonance,coef}` 命中才落/`probabilities.event_resonance`；历史窗口回测前置失效 `scripts/narrative/invalidate-resonance-window.cjs`；单测 `node scripts/_test_jev_resonance.cjs`（14 断言；fixture 坑=quality 原始分需从 DB breakdown 反解 bandInterpolate） | C80 蝙蝠侠摇案 0x4547dae7…7777（用户裁定「对时事现象热度，其实也应该度量事件对Web3用户的情绪感染力」；E 类 70.68→75.68 high 买入 31s -12.4%，无形象纯现象+抖音搜索页截图+105 粉宣告者；折损后 mild 42.84/indifferent 28.92 双拦） | 本 commit |
 | G1.0 | 2026-10-15 | **vision 前置预判门题集（独立小调用非标准题集成员）**：1 题 Choice `vision_gate_sufficiency`（sufficient/need_image），state=与主 Jev 同语料无图形态；`judgeVisionGate` 概率门 sufficient≥minSufficientProb(0.6, config `vision.gate`)，probabilities 缺失→0 宁跑勿跳；误判方向 fail-safe（误 sufficient→无图=偏拦；误 need_image/失败→跑 vision 原行为）；接线与竞态屏蔽见 C72；单测 `_test_vision_gate`（35 断言） | C72 小黑案 0x9641293a…7777（用户裁定「文字已足够确认叙事就免掉 vision」+默认开；vision 6.6s 占直调 8.05s 的 82% 为最大延迟单点） | 本 commit |
 | P1.10 | 2026-10-15 | **账号基本面门全删**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免逻辑删除；`prestage_project_quality` 题随之删除（唯一消费方已不存在，5 题→4 题）；`rateProject` 重写为纯粉丝带定档（账号 0-299 mid / ≥300 high 不拦截；社区 ≥100+activity high 才 high；baselineMet 恒 true）；token_type 判据措辞同步（follower count "only sets the rating tier, never blocks"）；web3ip/project 双路径同删（mapPrestageAnswers 的 downgrade/qualityExempt 键全删）。同 token 两版本评级不可比（low→mid 单向翻转） | C70 bunker 案 0x2ec1e08c…7777（用户裁定「交易者不会因为粉丝量/注册时间拒绝一个项目」；近 7 天底线拦截 168 票 16 票毕业 9.5% 判别力接近随机；发币后 5 秒快照对当天新号系统性失真） | 本 commit |

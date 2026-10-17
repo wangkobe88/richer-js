@@ -177,8 +177,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 ```
 Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-Check（纯规则）
    ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（4 题 P1.10，粉丝带只定档不拦截）
-   ├─ superIP（prompts/super-ip/super-ip-registry.mjs）→ 快车道（标准题集+代码预分）
-   └─ 标准路径：单次 Jev 调用（18 题+brand_hijack/name_image_consistency 条件题，J1.31）
+   └─ 标准路径：单次 Jev 调用（18 题+brand_hijack/name_image_consistency 条件题，J1.32；superIP 注册表命中 → state 注入 super_ip_hit 认证行+super_ip_note 反混淆行，评分全归 Jev，C83 起快车道删除）
 ```
 
 - **文件**（`analyzer/llm/`）：`JevClient.mjs`（缺答案 id 直接 throw 无吞错；429/5xx 退避，Retry-After 头优先于固定表、钳 [500,15000]ms）/ `jev-questions.mjs`（标准题集，`buildStandardQuestions`）/ `jev-prestage-questions.mjs`（P1.10：4 题；`rateProject` 粉丝带只定档 0-299 mid/≥300 high 不拦截）/ `jev-state-builder.mjs`（60k/20k 预算）/ `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`（**聚合/阈值/截断全在代码侧**）
@@ -205,18 +204,18 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 | 戏谑关联豁免（J1.24） | 缩写/谐音/拼名梗蹭新鲜热点：brandHijackP≥0.5+within_7d+effTier S/A+可信事件锚全中 → 豁免劫持与关联≤10 截断（关联分照常计入） | C40 |
 | W 交互豁免（C42） | native W+effTier S/A+新产品带 P(2)+P(3)≥0.5+wInteraction<10 → 产品/时效双轴归一百分制 | C42 |
 | IG 影响力两层（C44） | IG 真数据进 state 评分（无锚）；有链接没抓到数据：A 类+dim2<18 → 锚 18 | C44 |
-| notable_other 退出（J1.26） | 知名度是错误轴：nameReferent 阻断质量只留 minor_other+common_word；全类+superIP 通道退出 | C54 |
-| 产品实体+接纳门（J1.27） | 主体=产品实体非母公司；se∈{product_functional,product_character} 且 (strong_fit+fit)<0.5 拦；豁免链 pubProxy/rideMass/binanceCorpus/平台官方账号（PLATFORM_OFFICIAL_HANDLES={binance,flapdotsh}）/superIP | C56 |
+| notable_other 退出（J1.26） | 知名度是错误轴：nameReferent 阻断质量只留 minor_other+common_word；全类退出（C83 起无独立 superIP 通道） | C54 |
+| 产品实体+接纳门（J1.27） | 主体=产品实体非母公司；se∈{product_functional,product_character} 且 (strong_fit+fit)<0.5 拦；豁免链 pubProxy/rideMass/binanceCorpus/平台官方账号（PLATFORM_OFFICIAL_HANDLES={binance,flapdotsh}；C83 起注册表全域豁免收紧为仅此） | C56 |
 | 指代 meme 低档门（J1.28） | referent_memeability 标准路径恒带；mem≤1（人名/账号/严肃事务性名称）拦；挂 nameReferent 后、量级门前 | C60 |
 | 形象载体门（J1.29） | subject_carrier 三档恒带；C/D 类+carrier∈{improvised,no_visual} 拦；E 类只拦 no_visual；A/B/W/F/G 不碰 | C61 |
-| superIP 指代豁免（J1.21） | superIP 语料里的无名对象按类型分流：人名 0 档拦/内容作品 ≥3 双达标豁免 | C33 |
+| superIP 指代豁免（J1.21） | 【已废 C83】superIP 语料里的无名对象按类型分流：人名 0 档拦/内容作品 ≥3 双达标豁免——快车道删除后意图由 J1.28 低档门覆盖 | C33 |
 | 图载体豁免（C59） | 图证据（image_analysis 存在）+0&lt;关联≤10+referent_memeability≥3 → 豁免 Stage3 关联截断（分照常计入） | C59 |
-| 名图一致豁免（J1.30） | **标准路径**：图证据+name_image_consistency（条件题，有图才问）same_entity/same_visual_category 合并≥0.5+0&lt;关联≤10 → 豁免 Stage3 关联截断（分照常计入；答案缺失 fail-closed；superIP 不消费） | C65 |
+| 名图一致豁免（J1.30） | **标准路径**：图证据+name_image_consistency（条件题，有图才问）same_entity/same_visual_category 合并≥0.5+0&lt;关联≤10 → 豁免 Stage3 关联截断（分照常计入；答案缺失 fail-closed；superIP 语料 C83 起经标准路径可达） | C65 |
 | 找角度时效门（C68） | angle_seeking/interpretive_reply 载体推文→发币 lag>6h → mapper 时效归 older=0（mapper-only 代码侧 override，题集不动；载体取主推/website/quoted/retweeted 最新一条「任一新即活」）；C74 后与 precheck 不再同窗——上游 300s 分桶吞主力拦截，本门降级纵深防御（兜 ignoreExpired 穿透/锚缺失/缓存残例）；precheck expired_tweet 锚回退 tokenCreatedAtSec（IPFS 行 created_at 缺失静默跳过） | C68 |
 | 推文时效分桶（C74） | precheck 规则 2.1 按 classifyTweetType 分桶：非豁免桶（angle/interpretive/unknown）lag<300s 放、≥300 拦（relocate 买腿 `narrativeCorpusLagSec < 300`，秒粒度 300 整拦）；direct_tweet（粉≥5000 或 赞≥500 或 转≥100=高影响力新闻推，非找角度被人发现得晚）豁免跳过硬拦、时效全交 Jev event_timing 软评不设硬界；豁免是语料级（主推判 direct 即整组放）；ruleName 保持 'expired_tweet'+details 落 tweetType/freshWindowSec | C74 |
 | 叙事源头陈旧门（C75） | direct_tweet **主推**（仅主推，宣告/第二语料刻意不计入）距 token 创建锚 >30d（SOURCE_STALE_SEC，对齐 within_30d/older 档边界）→ mapper 时效归 older=0 分（C74 豁免桶的软评层客观锚——Jev 被当天宣告推误答新鲜档的防线；与 C68 type 互斥：C68 管 angle 类载体窗 6h，本门管 direct 类源头窗 30d）；angle/interpretive/unknown 不触达；锚缺失 fail-open；审计 stage1.jev.staleSourceOverride | C75 |
 | 图文名不符拼写门（C78） | 币名 CJK ≥3 字 + 图内文字（image_analysis stringify 全文，标点当分隔符）存在等长独立段恰一位不同且 ≥2 次 + 币名整体不在图内 → Stage3 截断（`detectNameImageSpellingMismatch` 纯代码，与 misspellingP≥0.5 双臂 OR——Jev 探针 0.28 拦不住+题面加判据重放反降 0.13）；例外天然编码：有意变形全语料一致（图内也是变形字）不触发；拉丁名不判/换位形状不覆盖；审计 stage3.jev.spellingMismatch | C78 |
-| E 类感染力折损（J1.31） | `event_resonance` 恒带三档（强感染/轻度有趣/无感，判据=BSC 买家立场情绪行动性，与 web3_fit=静态口味 vs 动态感染分工）；**仅 category=E** 消费：系数<1 时 `事件分+传播分整体 ×coef`（mild 0.5/indifferent 0.25）+时效不折——mild 数学上拦死全部档位（max 49.5<60）刻意保留系数形式（梯度可观察）；strong ×1/缺答案 fail-open/superIP 不消费；审计 jev.eventResonance 恒落+resonanceDamp 命中才落 | C80 |
+| E 类感染力折损（J1.31） | `event_resonance` 恒带三档（强感染/轻度有趣/无感，判据=BSC 买家立场情绪行动性，与 web3_fit=静态口味 vs 动态感染分工）；**仅 category=E** 消费：系数<1 时 `事件分+传播分整体 ×coef`（mild 0.5/indifferent 0.25）+时效不折——mild 数学上拦死全部档位（max 49.5<60）刻意保留系数形式（梯度可观察）；strong ×1/缺答案 fail-open（superIP 语料 C83 起经标准路径同样消费）；审计 jev.eventResonance 恒落+resonanceDamp 命中才落 | C80 |
 
 ### Live 交易
 
