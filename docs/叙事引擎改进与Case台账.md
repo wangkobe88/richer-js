@@ -68,6 +68,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C87 pumpfun 专职找角度 dev 批量黑名单——「大量发币 + 宣发全英文」跨链作业号 51 个收录（2026-10-18 用户标准「我所谓的专职 pumpfun dev 的特点是，大量发币，并且都使用英文」+「基于这些账号的推文，不应该在 BSC 链发币」；黑名单 11→62，cef31a6/13addcf/09c121c）★
+
+- **语义（与 C76 对立分层）**：黑名单命中=precheck 规则 1 `low/'blacklist'` **终判全拦**（先于 classifyTweetType）；C76 frequent-issuers 命中=angle_seeking→C74 300s 快发票窗（放行语义）。同号在两侧时黑名单先执行。
+- **收录构成**：点名 2（grok12_john/thedudethatdev）+ A 档 43（低粉 <2000 + 英文推样本验证 + 被挂 n≥25 实锤；wangzbnb 1 粉被挂 186 次；推文模板直提 pumpfun）+ B 档 8（dev/sol 风格高 n 无语料证据：quantsdev1223 n=619 等 + gewortra 经 tundukbsc/bleachfan2000 推文 @ 它作业交叉实锤）。
+- **甄别链（可复跑）**：`scripts/scan-angle-devs-blacklist.cjs`（182 跑，experiment_tokens 579216 行全量 (creator,handle) 边表——v1 只存 creator top6 会漏轮换号）→ token 全名零 CJK 过滤候选 725（n≥15）→ `scripts/fetch-followers-for-candidates.cjs`（token_narrative.**twitter_info 独立 jsonb 列** contains 单号查，非 raw_api_data 内）取粉丝+推文文本 → 分层。
+- **必剔原则**：①品牌/官方（robinhoodapp/pancakeswap/pumpfun/kalshi/google/openai/vladtenev/binance 系）②真人媒体/名人（≥5 万粉 52 个）③中文推文号（genyrational/beyourloverboy/haishenling 等 6 个——token 名全英文但推文中文，**语言判定必须用推文文本不能只看 token 名**）④大 IP（uniqC 巨大+creator 长尾）。
+- **关键数据洞察**：bigC 高（被 ≥100 高发 creator 挂）=公共英文语料源信号（媒体/品牌），不是 dev 自有号；自有号签名=低粉+英文+creator 相对集中（top1Share）。139 rich-js DB 无 pumpfun creator/twitter 元数据——BSC 投影（experiment_tokens）是唯一可行源。
+- **待裁定**：C 档 28（2k-5万粉，cis_binance 推文带未洗涤 `<think>` 标签=AI 假号嫌疑、esotericpigeon n=319/4073 粉）+ B 档无风格 15（sonny_crypto n=635 等）；C76 frequent-issuers 148 成员中的英文号是否升级黑名单（语义冲突需用户拍板）。
+- **生效**：182 git pull + 重启叙事 worker + live 实验（重启前查持仓）；全档案 memory `pumpfun-angle-dev-blacklist-batch`。
+
 ### C86 叙事模块全量 Review 修复批——quoted_status 幽灵字段三消费点 + A/B/C 三级 15 项收口 + D-1 量级门豁免贯穿（2026-10-17 开放性 review 任务 → 用户裁定「修一下这些小问题」；全档案 `docs/叙事模块Review与流程整理-2026-10-17.md` §十一）★
 
 - **A-1 幽灵字段（头条）**：producer `twitter-fetcher:186` 写 `quoted_status`，状态组装主链（twitter-section/account-backgrounds/tweet-type-classifier）读 `quoted_status` 本就正确；但三个消费点读 `quoted_tweet`（生产恒 undefined）——①mapper C68 找角度 6h override 载体源（引用推永远缺席=门退化）②precheck C74 分桶 tweetSources（引用推不计入「任一新即放」）③narrative-utils isProjectCoin CA 检查。**修复方向勘误：review 文档初稿写「统一 quoted_tweet」是反的**——多数正确+上游 API 归一（new-apis.js:573）双重证据，改三消费点读 `quoted_status`。**测试自洽掩盖教训**：`_test_angle_timing_override` 夹具同款错名 → 断言与错名自洽全绿但生产瞎（夹具改生产形状后 A7/B4 即事故反证）。
