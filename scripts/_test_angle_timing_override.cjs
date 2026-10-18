@@ -20,6 +20,11 @@
  *      precheck tweetSources 同集对称）/ 6h 边界 21601|21599 / rawTiming 审计
  *   B. precheck 修复①：tokenCreatedAtSec 回退生效拦 expired_tweet / 窗内放行 /
  *      两锚皆缺跳过（现状回归）/ raw created_at 在仍拦（原行为不变）
+ *   D. C75 叙事源头陈旧 override：direct_tweet 主推>30d（FLY 案）
+ *   E. C102 借壳语料父推源头窗：binanceCorpus 票 in_reply_to 父推>24h（BAI 案
+ *      0x11efcbd0…27777——binancezh 活动 3 天后第二波蹭，78.78 high→载体门接管拦；
+ *      不限 type / 帕鲁贴线 88835s / 86400 边界 / 非借壳 bit-identical / 父推
+ *      时间与锚缺失 fail-open / 载体不救 / 与 C75 并存双 override 各落）
  *   C. 源码口径：pre-check-service 规则2 含 tokenCreatedAtSec 回退链 / mapper
  *      6h 纵深防御与 precheck 300s 分桶（C74）共存
  *
@@ -256,6 +261,142 @@ async function main() {
     && d6.stage1DataToSave.parsed_output.jev.timing === 'older',
     d6.stage1DataToSave.parsed_output.jev);
 
+  // ═══ E. C102 借壳语料父推源头窗（mapper 层，BAI 案 0x11efcbd0…27777）═══
+  console.log('\n── E. C102 借壳语料父推源头窗（binanceCorpus 父推>24h → older）──');
+  // BAI 事故现场（DB 实证）：binancezh 活动推 2026-10-15T12:15:25Z → 帕鲁 10-16
+  // 第一波蹭 → zhuifei008 参赛推 10-18 09:05:10 → 50 秒后发币（锚=eventTsSec
+  // 1792314360）。Jev 判 within_7d + 五腿全中（super_ip 0.94/关联 0.74/mem 3.2/
+  // fresh/strong_fit 0.99）→ C88 豁免 J1.29 载体门 → 78.78 high 放行。
+  // 时效三件套全盲：C74 锚主推 50s+粉豁免 / C75 只锚主推 / C97 只查主推作者
+  // ——父推位（binancezh）全盲。答案=stage1_raw_output 全 17 题逐字抄录。
+  const BAI_ANCHOR = 1792314360;            // 2026-10-18T09:06:00Z token 创建
+  const BAI_PARENT_SEC = BAI_ANCHOR - 247835; // 2026-10-15T12:15:25Z 父推（lag=2d20h50m35s）
+  const makeBaiAnswers = () => JSON.parse(JSON.stringify({
+    event_category: { choice: 'D', probabilities: { A: 0, W: 0, B: 0, F: 0, G: 0, C: 0, D: 0.68, E: 0.32 } },
+    event_magnitude: { score: 3.87, probabilities: { '0': 0, '1': 0.01, '2': 0.06, '3': 0.37, '4': 0.15, '5': 0.41 } },
+    event_timing: { choice: 'within_7d', probabilities: { within_7d: 1, within_30d: 0, older: 0, expected_within_30d: 0, expected_beyond_30d: 0, unknown: 0 } },
+    dimension2: { score: 4.02, probabilities: { '0': 0.01, '1': 0.01, '2': 0.03, '3': 0.21, '4': 0.4, '5': 0.34 } },
+    block_reason: { choice: 'low_quality_derivative', probabilities: { none: 0.09, subject_unqualified: 0, niche_subculture: 0, empty_content: 0.02, institution_routine: 0.18, low_quality_derivative: 0.56, marketing_gimmick: 0.1, baseless_speculation: 0, ip_reuse: 0.04, regional_event: 0, negative_hard_news: 0, routine_content_product: 0 } },
+    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.99, fit: 0.01, marginal: 0, unfit: 0 } },
+    subject_entity: { choice: 'product_functional', probabilities: { company: 0.12, product_functional: 0.65, product_character: 0.01, character_ip: 0, person: 0, event_hotspot: 0.22 } },
+    w_product_score: { score: 0.17, probabilities: { '0': 0.87, '1': 0.09, '2': 0.03, '3': 0.01 } },
+    w_binance_interaction: { score: 2.26, probabilities: { '0': 0.14, '1': 0.05, '2': 0.22, '3': 0.59 } },
+    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.55, translation_match: 0.01, abbreviation_alias: 0.07, semantic: 0.11, cultural: 0, generic_content: 0, none: 0.06 } },
+    relevance_level: { score: 2.69, probabilities: { '0': 0.03, '1': 0.12, '2': 0.21, '3': 0.41, '4': 0.23 } },
+    name_referent: { choice: 'super_ip', probabilities: { subject_self: 0.01, super_ip: 0.94, notable_other: 0.02, minor_other: 0.01, common_word: 0.01, none_related: 0.01 } },
+    referent_memeability: { score: 3.2, probabilities: { '0': 0.05, '1': 0.03, '2': 0.02, '3': 0.54, '4': 0.26, '5': 0.1 } },
+    subject_carrier: { choice: 'no_visual_entity', probabilities: { existing_entity: 0, improvised_entity: 0, no_visual_entity: 1 } },
+    block_misspelling: { noul: 0.16 },
+    quality_spelling: { score: 2.77, probabilities: { '0': 0.03, '1': 0.04, '2': 0.06, '3': 0.87 } },
+    quality_reasonability: { score: 0.96, probabilities: { '0': 0.36, '1': 0.31, '2': 0.33 } },
+  }));
+  const baiToken = { symbol: 'BAI', name: 'BAI', tokenCreatedAtSec: BAI_ANCHOR, raw_api_data: { name: 'BAI' } };
+  const makeBaiTwitter = (parentSec, extra = {}) => ({
+    type: 'tweet', text: '币安ai\n币安ai\n币安ai https://t.co/PXr89964YI',
+    created_at: twitterDate(BAI_ANCHOR - 50),  // 载体 50s 新鲜（洗白路径本体）
+    author_screen_name: 'zhuifei008', author_followers_count: 12905,
+    in_reply_to: {
+      text: 'bStocks 不用卖不用卖！……参与「创意广告大赛」，赢iPhone Duo与BNB……宣传任意币安产品，包括但不限于 Binance AI、bStocks等',
+      created_at: twitterDate(parentSec),
+      author_screen_name: 'binancezh', author_followers_count: 464326,
+    },
+    ...extra,
+  });
+
+  // E1 事故现场反证：fixture 逐位重现 78.78 high（门上线前形态=父推换成 1h 新鲜）
+  const e1before = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, makeBaiTwitter(BAI_ANCHOR - 3600), 'direct_tweet'));
+  check('E1a fixture 逐位重现事故：78.78 high pass=true（父推新鲜=门不触）',
+    e1before.stageFinalData.totalScore === 78.78
+    && e1before.stageFinalData.category === 'high'
+    && e1before.stage1DataToSave.parsed_output.jev.staleParentOverride === null,
+    { total: e1before.stageFinalData.totalScore, cat: e1before.stageFinalData.category });
+  const e1 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'));
+  const e1j = e1.stage1DataToSave.parsed_output.jev;
+  check('E1b override 命中：lagSec=247835（2d20h50m35s）staleSec=86400 rawTiming=within_7d',
+    e1j.staleParentOverride?.lagSec === 247835
+    && e1j.staleParentOverride?.staleSec === 86400
+    && e1j.staleParentOverride?.rawTiming === 'within_7d',
+    e1j.staleParentOverride);
+  check('E1c timing 归 older + C75 不触（主推 50s 新鲜——载体洗白路径正是事故根因）',
+    e1j.timing === 'older' && e1j.staleSourceOverride === null,
+    { timing: e1j.timing, staleSource: e1j.staleSourceOverride });
+  check('E1d 翻 low：C88 五腿第四腿（FRESH_TIMING）断 → J1.29 载体门接管拦截',
+    e1.stage2DataToSave.parsed_output.pass === false
+    && e1.stage2DataToSave.parsed_output.blockReason === '叙事主体无形象载体（无形象实体）',
+    { pass: e1.stage2DataToSave.parsed_output.pass, block: e1.stage2DataToSave.parsed_output.blockReason });
+
+  // E2 帕鲁案贴线形状：同活动推 10-16 12:56 蹭（lag=1d40m35s=88835s>86400）也拦
+  const PALU_LAG_SEC = 88835;
+  const e2 = mapStandardAnswers(makeBaiAnswers(), makeContext(
+    { ...baiToken, tokenCreatedAtSec: BAI_PARENT_SEC + PALU_LAG_SEC }, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'));
+  check('E2 帕鲁形状（父推 lag=88835s 第一波蹭）命中',
+    e2.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === PALU_LAG_SEC,
+    e2.stage1DataToSave.parsed_output.jev.staleParentOverride);
+
+  // E3 24h 边界：86401 命中 / 86400 严格 > 不命中
+  const e3a = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, makeBaiTwitter(BAI_ANCHOR - 86401), 'direct_tweet'));
+  const e3b = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, makeBaiTwitter(BAI_ANCHOR - 86400), 'direct_tweet'));
+  check('E3 边界 lag=86401 命中 / 86400 放',
+    e3a.stage1DataToSave.parsed_output.jev.staleParentOverride !== null
+    && e3b.stage1DataToSave.parsed_output.jev.staleParentOverride === null,
+    { hi: e3a.stage1DataToSave.parsed_output.jev.staleParentOverride, lo: e3b.stage1DataToSave.parsed_output.jev.staleParentOverride });
+
+  // E4 非借壳对照（bit-identical 防线）：语料/币名全无 binance/币安 → 同 3d 父推形状不触
+  const e4Twitter = makeBaiTwitter(BAI_PARENT_SEC);
+  e4Twitter.text = '某游戏活动参与推'; e4Twitter.in_reply_to.text = '某游戏官方活动推';
+  const e4 = mapStandardAnswers(makeBaiAnswers(), makeContext(
+    { ...baiToken, symbol: 'GAME', name: 'Game token', raw_api_data: { name: 'Game token' } }, e4Twitter, 'direct_tweet'));
+  check('E4 非借壳语料同形状不触（宽判据是前置门，误伤零）',
+    e4.stage1DataToSave.parsed_output.jev.staleParentOverride === null
+    && e4.stage1DataToSave.parsed_output.jev.timing === 'within_7d',
+    e4.stage1DataToSave.parsed_output.jev);
+
+  // E5 父推时间缺失：fail-open 不干预（与 C68 A6/C75 D5 对称）
+  const e5Twitter = makeBaiTwitter(BAI_PARENT_SEC);
+  delete e5Twitter.in_reply_to.created_at;
+  const e5 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, e5Twitter, 'direct_tweet'));
+  check('E5 父推时间缺失 fail-open', e5.stage1DataToSave.parsed_output.jev.staleParentOverride === null,
+    e5.stage1DataToSave.parsed_output.jev.staleParentOverride);
+
+  // E6 无 in_reply_to（主推非回复形态）：fail-open
+  const e6Twitter = makeBaiTwitter(BAI_PARENT_SEC);
+  delete e6Twitter.in_reply_to;
+  const e6 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, e6Twitter, 'direct_tweet'));
+  check('E6 无 in_reply_to fail-open', e6.stage1DataToSave.parsed_output.jev.staleParentOverride === null,
+    e6.stage1DataToSave.parsed_output.jev.staleParentOverride);
+
+  // E7 载体不救：主推+quoted 都 50s 新鲜仍拦（载体不构成源头新鲜证据，C75 同理）
+  const e7 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken,
+    makeBaiTwitter(BAI_PARENT_SEC, { quoted_status: { created_at: twitterDate(BAI_ANCHOR - 50) } }), 'direct_tweet'));
+  check('E7 载体（主推/quoted）新鲜不救：仍 override',
+    e7.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835,
+    e7.stage1DataToSave.parsed_output.jev.staleParentOverride);
+
+  // E8 不限 type：angle_seeking 载体 50s（C68 窗内不拦）+ 父推 3d → 本门单拦
+  const e8 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'angle_seeking'));
+  check('E8 angle_seeking 同形状也拦（判据轴=源头事件年龄非载体行为）+ C68 不双拦（载体 50s 窗内）',
+    e8.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835
+    && e8.stage1DataToSave.parsed_output.jev.angleTimingOverride === null,
+    { p: e8.stage1DataToSave.parsed_output.jev.staleParentOverride, a: e8.stage1DataToSave.parsed_output.jev.angleTimingOverride });
+
+  // E9 与 C75 并存：主推 495d（FLY 形状）+ 父推 25h → 双 override 各落审计键，同归 older
+  const e9Twitter = {
+    ...makeBaiTwitter(BAI_ANCHOR - 86400 - 3600),
+    created_at: twitterDate(BAI_ANCHOR - FLY_LAG_SEC),
+  };
+  const e9 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, e9Twitter, 'direct_tweet'));
+  check('E9 C75+C102 并存：双 override 各落（495d 主推 + 25h 父推），timing older',
+    e9.stage1DataToSave.parsed_output.jev.staleSourceOverride?.lagSec === FLY_LAG_SEC
+    && e9.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 90000
+    && e9.stage1DataToSave.parsed_output.jev.timing === 'older',
+    { s: e9.stage1DataToSave.parsed_output.jev.staleSourceOverride, p: e9.stage1DataToSave.parsed_output.jev.staleParentOverride });
+
+  // E10 锚缺失：fail-open 不干预（与 C68 A5/C75 D4 对称）
+  const e10 = mapStandardAnswers(makeBaiAnswers(), makeContext(
+    { symbol: 'BAI', name: 'BAI', raw_api_data: { name: 'BAI' } }, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'));
+  check('E10 锚缺失 fail-open', e10.stage1DataToSave.parsed_output.jev.staleParentOverride === null,
+    e10.stage1DataToSave.parsed_output.jev.staleParentOverride);
+
   // ═══ C. 源码口径（防线锁定）═══
   console.log('\n── C. 源码口径 ──');
   const { readFileSync } = await import('fs');
@@ -274,6 +415,10 @@ async function main() {
   check('C3 C75 源头陈旧窗常量与互斥锁定（30d 对齐 within_30d/older 档边界；仅 direct_tweet 域）',
     mapperSrc.includes('SOURCE_STALE_SEC = 30 * 86400')
     && mapperSrc.includes("tweetClassification.type !== 'direct_tweet'"), null);
+  check('C4 C102 借壳语料父推源头窗锁定（24h 窗常量 + in_reply_to 判定轴 + binanceCorpus 前置门）',
+    mapperSrc.includes('BINANCE_PARENT_STALE_SEC = 24 * 3600')
+    && mapperSrc.includes('twitterInfo?.in_reply_to?.created_at')
+    && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
 
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

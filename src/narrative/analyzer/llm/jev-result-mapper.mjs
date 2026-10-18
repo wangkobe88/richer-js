@@ -66,6 +66,12 @@ const ANGLE_TWEET_STALE_SEC = 6 * 3600;
  * 6 买 5 亏（唯 CRAZYCOIN +139%），用户裁定控。 */
 const SOURCE_STALE_SEC = 30 * 86400;
 
+/** C102 借壳语料父推源头窗：binanceCorpus 票的叙事源头（in_reply_to 父推）>24h
+ * → timing 归 older。用户裁定 2026-10-18（BAI 案）：「借币安语料发币，3 天前的
+ * 币安推文肯定不行，早就被人用烂了」——币安活动的注意力半衰期小时级，24h 线外
+ * 全是接力尾部（帕鲁 10-16 第一波 / BAI 10-18 第二波，同一活动推两波蹭票实证）。 */
+const BINANCE_PARENT_STALE_SEC = 24 * 3600;
+
 /**
  * C68 找角度时效 override 判定（纯代码，mapper-only，题集版本不动——时效分本来就
  * 是代码查表，J1.16/J1.23/J1.24 教训：分数锚定类必须代码侧）：
@@ -123,6 +129,31 @@ function overrideStaleSourceTiming(tweetClassification, twitterInfo, tokenData, 
   const lagSec = anchorSec - ms / 1000;
   if (!Number.isFinite(lagSec) || lagSec <= SOURCE_STALE_SEC) return null;
   return { lagSec: Math.round(lagSec), staleSec: SOURCE_STALE_SEC, rawTiming: rawTiming || null };
+}
+
+/**
+ * C102 借壳语料父推源头窗 override（纯代码，mapper-only，题集版本不动——C68/C75
+ * 同款：时效分本来就是代码查表）——BAI 案 0x11efcbd0…27777（2026-10-18 用户裁定）：
+ * binancezh「创意广告大赛」活动推（10-15）→ 第一波帕鲁 10-16 蹭 → zhuifei008 参赛推
+ * 10-18 09:05:10 → 50 秒后发币 BAI。载体 lag=50s 极新鲜洗白源头 lag≈3d，Jev 给
+ * rating=3 high（eventScore 45 拿满事件分）——时效三件套全盲：C74 锚主推 lag+粉豁免、
+ * C75 只锚主推（BOB 案先例刻意排除父推）、C97 只查主推作者（binancezh 在父推位）。
+ * 本门补父推位：判据=binanceCorpus（C97 宽判据现成：币名/主推/父推含 binance/币安）
+ * ∧ 主推 in_reply_to.created_at 存在 ∧ 父推 lag > BINANCE_PARENT_STALE_SEC(24h)
+ * → timing 归 older=0。**不限 tweet_type**（判据轴是「源头事件年龄」，不是「载体
+ * 行为」——angle/direct/unknown 载体都能挂旧源头）；与 C68/C75 可同票并存（同归
+ * older 不冲突，审计键各落各的）。锚=tokenCreatedAtSec||raw_api_data.created_at
+ * （C68/C75 同链）；父推时间缺失/无 in_reply_to fail-open 不干预。载体推（主推/
+ * quoted/retweeted）刻意不进判定——新载体不构成源头新鲜证据（C75 同理）。
+ */
+function overrideStaleParentTiming(binanceCorpus, twitterInfo, tokenData, rawTiming) {
+  if (!binanceCorpus) return null;
+  const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
+  const parentMs = new Date(twitterInfo?.in_reply_to?.created_at || '').getTime();
+  if (!anchorSec || !Number.isFinite(parentMs)) return null;
+  const lagSec = anchorSec - parentMs / 1000;
+  if (!Number.isFinite(lagSec) || lagSec <= BINANCE_PARENT_STALE_SEC) return null;
+  return { lagSec: Math.round(lagSec), staleSec: BINANCE_PARENT_STALE_SEC, rawTiming: rawTiming || null };
 }
 
 /**
@@ -949,7 +980,13 @@ export function mapStandardAnswers(answers, context) {
   const staleSourceOverride = staleSourceTiming
     ? { lagSec: staleSourceTiming.lagSec, staleSec: SOURCE_STALE_SEC, rawTiming: staleSourceTiming.rawTiming }
     : null;
-  const timing = (angleTiming || staleSourceTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
+  // C102 借壳语料父推源头窗：binanceCorpus 票父推 lag 超 24h → timing 归 older
+  //（BAI 案；不限 type，与 C68/C75 同票并存不冲突——三条 override 同归 older）
+  const staleParentTiming = overrideStaleParentTiming(binanceCorpus, twitterInfo, tokenData, answers.event_timing?.choice);
+  const staleParentOverride = staleParentTiming
+    ? { lagSec: staleParentTiming.lagSec, staleSec: BINANCE_PARENT_STALE_SEC, rawTiming: staleParentTiming.rawTiming }
+    : null;
+  const timing = (angleTiming || staleSourceTiming || staleParentTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
   // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
   // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
@@ -1015,6 +1052,9 @@ export function mapStandardAnswers(answers, context) {
         // C75 审计标记：叙事源头陈旧 override 命中详情（direct_tweet 主推 lag/窗/
         // Jev 原判档可追溯；null=未命中——形态不符/窗内/锚或主推时间缺失）
         staleSourceOverride,
+        // C102 审计标记：借壳语料父推源头窗命中详情（binanceCorpus 父推 lag/24h 窗/
+        // Jev 原判档可追溯；null=未命中——非借壳语料/窗内/锚或父推时间缺失）
+        staleParentOverride,
         magnitudeTier: tier,
         timing,
         blockChoice,
