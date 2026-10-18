@@ -17,6 +17,19 @@ function cleanTweetText(text) {
 }
 
 /**
+ * 被引述推文（父推/引用/转发）互动行（C92：事件层量化数据进 state——
+ * 父推常是事件源头帖，互动数是 E 类量级/传播的事件层证据）
+ * metrics 缺失（存量缓存行旧形状）不渲染——新形状 fetcher 恒带 metrics 键
+ */
+function pushQuotedEngagement(parts, metrics) {
+  if (!metrics) return;
+  const segs = [`点赞 ${metrics.favorite_count ?? 0}`, `转发 ${metrics.retweet_count ?? 0}`];
+  if (metrics.view_count != null) segs.push(`浏览 ${metrics.view_count}`);
+  if (metrics.quote_count != null) segs.push(`引用 ${metrics.quote_count}`);
+  parts.push(`【推文互动】${segs.join(' / ')}`);
+}
+
+/**
  * 构建推文部分
  * @param {Object} tweet - 推文数据
  * @param {string} label - 标签
@@ -82,6 +95,7 @@ function buildTweetPart(tweet, label = '推文', options = {}) {
     if (inReplyTo.author_followers_count) {
       parts.push(`粉丝数: ${inReplyTo.author_followers_count}`);
     }
+    pushQuotedEngagement(parts, inReplyTo.metrics);
     const cleanedReplyText = cleanTweetText(inReplyTo.text);
     parts.push(`内容：${cleanedReplyText}`);
   }
@@ -193,6 +207,7 @@ export function buildTwitterSection(twitterInfo, options = {}) {
     if (quoted.author_followers_count) {
       parts.push(`粉丝数: ${quoted.author_followers_count}`);
     }
+    pushQuotedEngagement(parts, quoted.metrics);
     const cleanedQuotedText = cleanTweetText(quoted.text);
     parts.push(`内容：${cleanedQuotedText}`);
   }
@@ -212,6 +227,7 @@ export function buildTwitterSection(twitterInfo, options = {}) {
     if (retweeted.author_followers_count) {
       parts.push(`粉丝数: ${retweeted.author_followers_count}`);
     }
+    pushQuotedEngagement(parts, retweeted.metrics);
     const cleanedRetweetedText = cleanTweetText(retweeted.text);
     parts.push(`内容：${cleanedRetweetedText}`);
   }

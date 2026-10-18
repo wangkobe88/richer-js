@@ -258,6 +258,14 @@ export class TwitterFetcher {
               created_at: rawCreatedAt,
               formatted_created_at: formatTwitterTime(rawCreatedAt),
               tweet_id: replyToTweetId,
+              // 互动数透传（C92：getTweetDetail 响应本就携带 favorite/retweet/view/quote，
+              // 此前组装丢弃——父推常是事件源头帖，其互动数是事件层量化数据）
+              metrics: {
+                favorite_count: originalTweet.favorite_count ?? null,
+                retweet_count: originalTweet.retweet_count ?? null,
+                view_count: originalTweet.view_count ?? null,
+                quote_count: originalTweet.quote_count ?? null
+              },
               media: originalMedia
             };
           }
