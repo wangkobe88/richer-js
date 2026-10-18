@@ -27,13 +27,19 @@ const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 // gmgnCheckCondition 可引用的因子键（mapGmgnRiskFactors 单点映射产物；2026-10-15
 // 加 gmgnVisitingCount 注意力观测键——「流动性跟注意力背离」用户裁定；
 // 2026-10-17 Nightshift 案加 narrativeCategory——非 GMGN 键，由引擎从 fire 因子表
-// 透传进 context，供「叙事类型 × issuerTokenCount 分档门」条件引用）
+// 透传进 context，供「叙事类型 × issuerTokenCount 分档门」条件引用；
+// 2026-10-18 GMGN 钱包画像层并入 gwp* 18 键——非 token-api 产物，由
+// GmgnWalletStatsService 从首窗 top-N 买家跨盘画像聚合（引擎第五参透传，缺省不并
+// =存量零影响；Phase 1 观察期只落 metadata 不进条件串））
+const { GWP_FACTOR_KEYS } = require('./GmgnWalletStatsService');
+
 const GMGN_CONDITION_FACTOR_KEYS = [
   'gmgnIssuerTokenCount',
   'gmgnBundlerWalletRatio',
   'gmgnRiskCovered',
   'gmgnVisitingCount',
   'narrativeCategory',
+  ...GWP_FACTOR_KEYS,
 ];
 
 const DEFAULTS = {
@@ -140,15 +146,18 @@ class GmgnRiskCheckService {
    * @param {string} condition
    * @param {string|null} [narrativeCategory] - 叙事类型（fire 因子表透传；null =
    *   未分析/未分类/legacy 腿——条件串 IS NULL 臂放行）
+   * @param {Object|null} [gwpFactors] - GMGN 钱包画像层 gwp 因子（引擎第五参透传；
+   *   null/缺省=未启用/回测 → 不并键=存量零影响；gwpCovered=null 走条件串 IS NULL 臂）
    * @returns {Promise<{passed: boolean, evaluated: boolean, factors: Object,
    *   condition: string|null, reason: string|null}>} factors 含四键+审计字段
-   *   +narrativeCategory（拒单复盘可见）
+   *   +narrativeCategory+gwp*（拒单复盘可见）
    */
-  async checkAndEvaluate(tokenAddress, chain, condition, narrativeCategory = null) {
+  async checkAndEvaluate(tokenAddress, chain, condition, narrativeCategory = null, gwpFactors = null) {
     const factors = await this.check(tokenAddress, chain);
-    // narrativeCategory 非 GMGN 产物——合并进 context 供条件评估（covered=0 前置
-    // 硬拒不受影响：它只看 gmgnRiskCovered）
+    // narrativeCategory/gwp* 非 GMGN token-api 产物——合并进 context 供条件评估
+    //（covered=0 前置硬拒不受影响：它只看 gmgnRiskCovered）
     const context = { ...factors, narrativeCategory: narrativeCategory ?? null };
+    if (gwpFactors) Object.assign(context, gwpFactors);
     const verdict = GmgnRiskCheckService.evaluateFactors(context, condition);
     return { ...verdict, factors: context, condition: String(condition || '').trim() || null };
   }

@@ -2047,6 +2047,7 @@ class BacktestEngine extends AbstractTradingEngine {
       const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();
       if (gmgnCheckCondition) {
         const { GmgnRiskCheckService } = require('../pre-check/GmgnRiskCheckService');
+        const { GmgnWalletStatsService } = require('../pre-check/GmgnWalletStatsService');
         gmgnCheckInfo = {
           ...GmgnRiskCheckService.evaluateFactors(
             {
@@ -2054,6 +2055,10 @@ class BacktestEngine extends AbstractTradingEngine {
               // 叙事类型从 fire 因子表透传（Nightshift 案 2026-10-17）：与实时引擎
               // checkAndEvaluate 第四参同刻同源——preload 注入的 token 级常量
               narrativeCategory: factorResults?.narrativeCategory ?? null,
+              // gwp 钱包画像键显式 null（2026-10-18）：回测不接线——gwp 动态计数
+              //（buy_7d 等）是今日取值，对历史 fire 时刻是已知时序穿越，跳过比
+              // 穿越诚实（IS NULL 臂放行；结论口径=「不含 gwp 门的相对增量」）
+              ...GmgnWalletStatsService.emptyFactors(),
             }, gmgnCheckCondition),
           condition: gmgnCheckCondition,
         };

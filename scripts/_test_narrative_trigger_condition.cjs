@@ -381,7 +381,9 @@ const COND_BASE = {
         'st 初始对象缺 category:null');
       assert.ok(/st\.category = r\.narrativeCategory \?\? null;/.test(src), '完成回填缺 category 赋值');
       assert.ok(/category: st\.category \?\? null,/.test(src), '_projectNarrativeFactors 缺 category');
-      assert.ok(/factorResults\?\.narrativeCategory \?\? null\);/.test(src), 'GMGN 挂点缺第四参透传');
+      // 2026-10-18 gwp 钱包画像层第五参接尾（第四参不再以 ) 结尾）；第五参透传=新形状
+      assert.ok(/factorResults\?\.narrativeCategory \?\? null,/.test(src), 'GMGN 挂点缺第四参透传');
+      assert.ok(/factorResults\?\.narrativeCategory \?\? null,\s*\n\s*gwpFactors\);/.test(src), 'GMGN 挂点缺第五参 gwpFactors 透传');
     });
     check('E6 C88 标签链源码口径三件套（2026-10-18 CZ 出书簇：st 初始/完成回填/投影——漏一处=三态分裂红线）', () => {
       assert.ok(/superIp: null, superIpSlogan: null,/.test(src), 'st 初始对象缺两标签 null');
@@ -463,8 +465,8 @@ const COND_BASE = {
       assert.ok(/this\._narrativePrefetchCheck\(tokenAddress, factors, token\);/.test(src), 'N3 钩子漂移');
       assert.ok(/narrativeCallCondition/.test(src), '同步直调块字段门漂移');
     });
-    check('H5 挂点在买腿分支且先于去抖买评估（C84 挂点序）', () =>
-      assert.ok(/this\._narrativeTriggerCheck\(tokenAddress, factors, token\);\s*\n\s*this\._scheduleDebouncedBuy\(tokenAddress, tick\);/.test(src),
+    check('H5 挂点在买腿分支且先于去抖买评估（C84 挂点序；2026-10-18 gwp 预取插位——至多隔其调用块）', () =>
+      assert.ok(/this\._narrativeTriggerCheck\(tokenAddress, factors, token\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*(?:\/\/[^\n]*\n\s*this\._walletProfilePrefetchCheck\(tokenAddress, factors, token\);\s*\n)?\s*this\._scheduleDebouncedBuy\(tokenAddress, tick\);/.test(src),
         '挂点序漂移'));
   }
 

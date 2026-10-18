@@ -158,6 +158,25 @@
       "timeoutMs": 5000,
       "perTokenTtlMs": 5000,
       "failCooldownMs": 10000
+    },
+    "gmgnWalletStats": {
+      "enabled": false,
+      "topWallets": 5,
+      "minBuyBnb": 0.01,
+      "tableTtlMs": 21600000,
+      "missJoinMs": 1500,
+      "refetchBudget": 2,
+      "dailyBudget": 2000,
+      "fetchTimeoutMs": 5000,
+      "failCooldownMs": 10000,
+      "globalCooldownMs": 60000,
+      "prefetchMinAgeSec": 25,
+      "prefetchIntervalMs": 500,
+      "youngMaxAgeDays": 7,
+      "createdWinSec": 300,
+      "mirrorBuyRelTol": 0.01,
+      "mirrorTokRelTol": 0.1,
+      "mirrorMinBuy": 5
     }
   },
   "flapWs": {

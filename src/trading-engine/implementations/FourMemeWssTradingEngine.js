@@ -328,6 +328,23 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._gmgnRiskCheckService = new GmgnRiskCheckService(
       this._mergedWsConfig().gmgnCheck || {}, this.logger);
 
+    // 1.5.2b GMGN 钱包画像层（2026-10-18 Agentum/Konasu/7777 sybil 案调研接入）：fire
+    // 时刻首窗 top-N 买家的跨盘画像（gmgn_wallet_profiles 表离线回填为主 + 触发窗后台
+    // 增量回写 + miss 轻量补查），gwp* 18 键并入 GMGN 第三层 context。架构=用户裁定
+    // 离线建库优先（fire 查表毫秒级，绝不逐钱包实时 API 主路径）。默认关
+    //（enabled !== true 才开——观察模式物化语义，与 narrativePrefetch 相反方向：新
+    // 机制默认零影响）；flap 实验经 _mergedWsConfig 同键。回测不接线（BacktestEngine
+    // GMGN 快照层 spread emptyFactors）——gwp 动态计数对历史 fire 是已知时序穿越，
+    // 跳过比穿越诚实（台账显式声明）
+    const gwpCfg = this._mergedWsConfig().gmgnWalletStats || {};
+    this._walletStatsEnabled = gwpCfg.enabled === true;
+    this._walletStatsService = this._walletStatsEnabled
+      ? new (require('../pre-check/GmgnWalletStatsService').GmgnWalletStatsService)(gwpCfg, this.logger)
+      : null;
+    // per-token 预取状态：{ lastCheckAt, firstPrefetchAt }（gwpLeadMs=首次预取→fire 提前量）
+    this._walletProfileStates = new Map();
+    this._gwpCondLeg = undefined;     // 惰性解析：任一买腿带 gmgnCheckCondition（_narrativePrefetchCondCache 同款）
+
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
     // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
@@ -1309,6 +1326,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._narrativeTriggerStates.clear();
     }
 
+    // gwp 钱包画像层清态（2026-10-18）：预取状态 Map 清空防同进程下一实验读到旧
+    // leadMs/节流锚；service 是实例级（ctor 重建），无需单独销毁——进行中的后台
+    // 拉取写表是全局资产（写行无害）
+    if (this._walletProfileStates) this._walletProfileStates.clear();
+
     await super.stop();
 
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
@@ -1380,6 +1402,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // C84 叙事发起条件触发状态机（新模型腿）：tick 后台多轮叙事分析 + FA 投影
       //（legacy 腿首行早退零成本；dataPrefetch 已退役，档案见台账 C84）
       this._narrativeTriggerCheck(tokenAddress, factors, token);
+      // GMGN 钱包画像触发窗预取（默认关；miss 钱包后台拉取回写表，fire 查表毫秒级）
+      this._walletProfilePrefetchCheck(tokenAddress, factors, token);
       this._scheduleDebouncedBuy(tokenAddress, tick);
     }
   }
@@ -1451,6 +1475,60 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (c) { this._narrativePrefetchCond = c; break; }
     }
     return this._narrativePrefetchCond;
+  }
+
+  /**
+   * GMGN 钱包画像触发窗预取（2026-10-18，默认关 fourmemeWs.gmgnWalletStats.enabled）：
+   * early 窗内（首批买家成形后）查 top-N miss 钱包后台拉取回写 gmgn_wallet_profiles 表
+   * +进程内存——fire 时刻 GMGN 层查表毫秒级（架构=用户裁定离线建库优先）。
+   *
+   * 时机=tokenAgeSec ≥ prefetchMinAgeSec（默认 25s；此前 top-N 未成形无意义）且
+   * FA early 窗未关闭（getEarlyTopBuyers 出窗返回 []=天然短路）。非 write-once：
+   * top-N 随窗内买入漂移（触发后补买逃预取的规避形状），per-token 检查节流
+   * 500ms + service 层 inflight/冷却/日预算去重——每 tick 真实 API 次数收敛于
+   * 新进 top-N 的 miss 钱包数。只有配了 gmgnCheckCondition 的实验才预取
+   * （没配 GMGN 条件的实验 fire 不消费 gwp 键，预取白烧配额）。
+   * fire-and-forget + catch（N3/触发状态机同款先例），不阻塞 tick 管线。
+   * @private
+   */
+  _walletProfilePrefetchCheck(tokenAddress, factors, token) {
+    if (!this._walletStatsService) return;
+    if (!this._gwpConditionLegExists()) return;
+    const ageSec = factors.tokenAgeSec ?? (factors.age != null ? factors.age * 60 : null);
+    const minAge = this._walletStatsService._c.prefetchMinAgeSec;
+    if (ageSec == null || ageSec < minAge) return;
+    let st = this._walletProfileStates.get(tokenAddress);
+    const now = Date.now();
+    if (!st) { st = { lastCheckAt: 0, firstPrefetchAt: null }; this._walletProfileStates.set(tokenAddress, st); }
+    if (now - st.lastCheckAt < this._walletStatsService._c.prefetchIntervalMs) return;
+    st.lastCheckAt = now;
+    const topWallets = this._factorAggregator.getEarlyTopBuyers(tokenAddress, {
+      limit: this._walletStatsService._c.topWallets,
+      minBnb: this._walletStatsService._c.minBuyBnb,
+    });
+    if (topWallets.length === 0) return;
+    if (st.firstPrefetchAt == null) st.firstPrefetchAt = now;
+    const sym = token?.symbol || tokenAddress.slice(0, 10);
+    this._walletStatsService.prefetchMiss(topWallets)
+      .then(r => {
+        if (r.fetched > 0) {
+          this.logger.info(this._experimentId, 'GwpPrefetch',
+            `${sym} 钱包画像预取 ${r.fetched}/${r.fetched + r.skipped}（lead 供 gwpLeadMs 观测）`);
+        }
+      })
+      .catch(e => this.logger.warn(this._experimentId, 'GwpPrefetch',
+        `${sym} 钱包画像预取失败（fire 补查兜底）: ${e.message}`));
+  }
+
+  /**
+   * gwp 消费腿存在性（惰性缓存）：任一买腿携带 gmgnCheckCondition 才预取/构建 gwp 键
+   * @private
+   */
+  _gwpConditionLegExists() {
+    if (this._gwpCondLeg !== undefined) return this._gwpCondLeg;
+    this._gwpCondLeg = this._strategyEngine.getAllStrategies().some(
+      s => s.action === 'buy' && String(s.gmgnCheckCondition || '').trim() !== '');
+    return this._gwpCondLeg;
   }
 
   /**
@@ -2035,11 +2113,25 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();
       if (gmgnCheckCondition && this._gmgnRiskCheckService) {
         try {
+          // gwp 钱包画像层（默认关）：fire 时刻 top-N 买家查表聚合（miss 补查 ≤1.5s 上界，
+          // 常态 0=触发窗预取已暖/离线库命中）。未启用 → 第五参 null=存量零影响
+          let gwpFactors = null;
+          if (this._walletStatsService && this._gwpConditionLegExists()) {
+            const topWallets = this._factorAggregator.getEarlyTopBuyers(token.token, {
+              limit: this._walletStatsService._c.topWallets,
+              minBnb: this._walletStatsService._c.minBuyBnb,
+            });
+            const gwpState = this._walletProfileStates.get(token.token);
+            gwpFactors = await this._walletStatsService.buildFactors(topWallets, {
+              leadMs: gwpState?.firstPrefetchAt != null ? Date.now() - gwpState.firstPrefetchAt : null,
+            });
+          }
           gmgnCheckInfo = await this._gmgnRiskCheckService.checkAndEvaluate(
             token.token, token.chain || 'bsc', gmgnCheckCondition,
             // narrativeCategory 从 fire 因子表透传（Nightshift 案 2026-10-17）：与单一
             // 买条件同刻同源，防 Pingus 案式两门错位
-            factorResults?.narrativeCategory ?? null);
+            factorResults?.narrativeCategory ?? null,
+            gwpFactors);
         } catch (e) {
           // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常，同 fail-closed
           gmgnCheckInfo = { passed: false, evaluated: false, reason: `gmgn_check_error(${e?.message || e})` };
@@ -2047,7 +2139,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         if (!gmgnCheckInfo.passed) {
           this.logger.info(this._experimentId, 'BuyEval',
             `GMGN 条件拒买 | ${token.symbol} ${gmgnCheckInfo.reason}` +
-            (gmgnCheckInfo.factors ? ` bundler=${gmgnCheckInfo.factors.gmgnBundlerWalletRatio} visiting=${gmgnCheckInfo.factors.gmgnVisitingCount}` : ''));
+            (gmgnCheckInfo.factors
+              ? ` bundler=${gmgnCheckInfo.factors.gmgnBundlerWalletRatio} visiting=${gmgnCheckInfo.factors.gmgnVisitingCount}`
+                + (gmgnCheckInfo.factors.gwpCovered != null
+                  ? ` gwp=${gmgnCheckInfo.factors.gwpCovered}/${gmgnCheckInfo.factors.gwpSelected}` +
+                    ` cCluster=${gmgnCheckInfo.factors.gwpCreatedClusterWallets} nMirror=${gmgnCheckInfo.factors.gwpNearMirrorClusterWallets} young=${gmgnCheckInfo.factors.gwpYoungCount}`
+                  : '')
+              : ''));
           if (signalId) {
             try {
               await this._updateSignalMetadata(signalId, { gmgnCheck: gmgnCheckInfo });

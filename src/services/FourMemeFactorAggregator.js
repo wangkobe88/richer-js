@@ -353,6 +353,31 @@ class FourMemeFactorAggregator extends EventEmitter {
         return this._states.get(tokenAddress) || null;
     }
 
+    /**
+     * 首窗 top-N 买家（2026-10-18 GMGN 钱包画像层消费口）：earlyTrades 窗内 per-wallet
+     * 累计纯买入（_earlyWalletBuyBnb 原料——C84 出生锚 90s 窗，与 preBuy legacy 同源）
+     * 按 BNB 降序取前 N。只读访问器——因子表/键探针/快照白名单零改动（GmgnWalletStats
+     * 层在 GMGN 第三层内聚合，不进 FA 因子体系）。
+     * 出窗冻结后原料已清（_earlyWindowAdvance 冻结即释放）→ 返回 []：fire 场景
+     * 恒在窗内（买腿条件自带 tokenAgeSec < 90），出窗调用=无证据空集（上游落
+     * gwpCovered=null 放行形状）。null wallet 行天然不在 Map（无法按钱包归户）。
+     * @param {string} tokenAddress
+     * @param {Object} [opts] - { limit=5, minBnb=0 }（minBnb=尘埃门，拆单规避由提高门槛应对）
+     * @returns {Array<{wallet:string, bnb:number}>}
+     */
+    getEarlyTopBuyers(tokenAddress, opts = {}) {
+        const state = this._states.get(tokenAddress);
+        if (!state || state._earlyWindowClosed) return [];
+        const limit = Number.isInteger(opts.limit) && opts.limit > 0 ? opts.limit : 5;
+        const minBnb = Number.isFinite(opts.minBnb) ? opts.minBnb : 0;
+        const rows = [];
+        for (const [wallet, cum] of state._earlyWalletBuyBnb) {
+            if (cum >= minBnb) rows.push({ wallet, bnb: cum });
+        }
+        rows.sort((a, b) => b.bnb - a.bnb);
+        return rows.slice(0, limit).map(r => ({ wallet: r.wallet, bnb: parseFloat(r.bnb.toFixed(4)) }));
+    }
+
     getStats() {
         return {
             ...this._stats,
