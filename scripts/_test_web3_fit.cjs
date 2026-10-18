@@ -96,7 +96,11 @@ async function main() {
   const r3 = mapStandardAnswers(makeAnswers({ unfit: 0.5, marginal: 0.3, fit: 0.2 }), makeContext(tokenData));
   check('B7 边界 unfit=0.5 → 拦（≥0.5 语义）', r3.llmResult.rating === 'low' && r3.llmResult.reason.includes('Web3用户偏好不合'), r3.llmResult.reason);
   const r4 = mapStandardAnswers(makeAnswers({ unfit: 0.49, marginal: 0.31, fit: 0.2 }), makeContext(tokenData));
-  check('B8 边界 unfit=0.49 → 放', r4.llmResult.rating !== 'low', r4.llmResult);
+  // B8 只锁 web3FitBlock 阈值轴（0.49<0.5 不拦）：该 fixture 是 E 类且 fit mass
+  // 0.2<0.5，J1.36 共振折损（C93）会把总分砍半致「事件分不足」拦——那是折损
+  // 轴的正确行为非本门漏拦，断言按 B9 模式隔离被测轴
+  check('B8 边界 unfit=0.49 → web3FitBlock 不拦（0.49<0.5 阈值下界；E 类低 fit mass 票由 J1.36 折损另拦）',
+    !((r4.llmResult.reason || '').includes('Web3用户偏好不合')), r4.llmResult.reason);
 
   // B9 概率缺失（JevClient 缺 answer 会 throw，到 mapper 的一般是完整集；miss 不误拦）
   const r5 = mapStandardAnswers(makeAnswers(null), makeContext(tokenData));

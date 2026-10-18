@@ -30,9 +30,9 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.30）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.37）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.10）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.30/…)`、`prestage-jev(P1.10/…)`）
+  （`jev(J1.37/…)`、`prestage-jev(P1.10/…)`）
 - **prestage P1.10 四题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
   主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
   全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
@@ -67,6 +67,28 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C97 币安地域子账号量级锚——@BinanceArabic 借壳母机构「币安游戏」rating 3 过审案（2026-10-18 用户裁定原话「虽然是币安的事件，但是只是阿拉伯账号，并且只是要上一个游戏节目罢了，撑不起"币安游戏"这个meme币。币安的地域账号，所发布的局部地域的事件，也不要被视为超级IP事件」；币安游戏 0xf37bbaea289a67af00ac0ee58421553e11987777 案）★
+
+- **案发现场（币安游戏）**：@BinanceArabic（179,946 粉，币安阿语地域子账号）发假设性互动推「想象币安要办电视问答节目帮起名」（0 赞 0 转），token 名「币安游戏」直取该概念 → rating 3 / 74.45 high 过审。三重放行链还原：①**量级借壳**——binanceCorpus（币安 superIP 语料）命中 → J1.36 判 D 0.84 档的同时 magnitude 档判 A（4.2 分）借壳母机构全球影响力 → 事件分吃满 34；②**五腿豁载体门**——C88 superIpSlogan 五腿全中（sipProb 0.55/relMass 0.55/mem 2.39/strong_fit 0.73/时效新鲜）把 subjectCarrier no_visual 0.98 豁出 J1.29 载体门（E 类 no_visual 原本拦死）；③baseless_speculation 0.3 只在 G 域不拦 D 类（线上放行一致）。
+- **结构基础（为何锚 D 即拦）**：量级门 D/E 档臂（tierScore<2 → 事件分不足拦）**只有 punExempt（J1.24）与 imgNameExempt（J1.30）两条豁免路径，五腿不豁该臂**——这是 C88 上线时刻意保留的形状（五腿借壳口号放行的是「载体/截断/劫持」三截断位，量级硬门永不豁）。因此 regionalAnchorActive 锚 D 后即使五腿全中仍拦，锚是本案唯一新增拦截位。
+- **修复（mapper-only，C42 先例不 bump 版本）**：`detectBinanceRegionalAccount`——主推作者 handle 以 `binance` 前缀开头 ∧ 不在 `GLOBAL_BINANCE_HANDLES`（binance/binancelabs/binanceresearch/binancesquare 四全球号白名单）→ 且 binanceCorpus 借壳语料在场 → `regionalAnchorActive=true` → `effTier='D'`。**锚降优先于两锚升**：effTier 三元链 `regionalAnchorActive ? 'D' : (pubProxy 锚 A / web3FitAnchored 锚 B / 原判 tier)`——地域子账号不借壳把 A/B 两锚升全部压住，量级门 label 落 `A档→D档·币安地域子账号不借壳`；magnitudeTier 原判保留（审计不受锚影响）。
+- **口径细节**：只查主推不查父推（BOB 案先例——转发链上的地域号不构成借壳源）；`binancefan123` 类冒充号一并命中（fail-safe 偏拦方向，刻意不加 verified 门）；作者字段双形状 `author_screen_name ?? screen_name`；作者缺失/null 语料 → 不锚 fail-open。作用域刻意限 binance 前缀：注册表其余机构（特斯拉/SpaceX 等）无「全球主号+海量地域子号」的账号矩阵形状，不做泛化。
+- **四对照臂（防误伤验证）**：@binance 全球主号不锚（真全球事件照常借壳）/ @binancelabs 等职能臂不锚 / 非 binance 前缀大 V（如 cz_binance 个人号）不锚走原判 / binance 前缀但无借壳语料（binanceCorpus 缺席）不锚——四臂全维持原行为，锚只在「地域子号 + 语料确实在借母机构壳」同时成立时激活。
+- **事故反证（单测 C 组）**：C1 案值全值快照（D 0.84/A 档 4.2/super_ip 0.55/mem 2.39/strong_fit 0.73/no_visual 0.98/baseless 0.3）五腿 hit 形状下 rating 仍 low=锚是唯一拦截位；C2 `subjectCarrierBlock=null` 证拦截来自量级门非载体门；C3 label 带 `A档→D档·币安地域子账号不借壳`；C4 magnitudeTier 原判 4.2 保留。D 组锚互斥：regional 赢 web3FitAnchored（同票双锚只有锚降生效）；对照 cz_binance 个人号源不锚 → 原 A 档锚 B 翻案路径不受影响。
+- **断言**：`_test_jev_regional_binance_anchor` 28 断言（A 检测真值表/B 四对照臂/C 事故反证/D 锚互斥/E 审计 stage1 `regionalSubAccount:{handle,followers}`/F 源码口径——F6 父推地域号+主推路人号不锚）。28/28 绿；mapper 家族 13+6 全绿回归。
+- **部署语义**：零 DDL、零版本 bump（mapper 纯切分）、存量行不重评；182 narrative worker 未重启=生产仍 J1.32 快照（C88 起所有 mapper 改动含本案均待重启生效，见 C96 部署段）。
+
+### C96「币安上电视」陈述句名目击转述 rating 3 过审——J1.37 双新题（finding_vs_recap + name_form）+ F→E 改道（2026-10-18 用户裁定双立项「1」+「陈述句门 我认为也对，也加吧」；币安上电视 0xc6d089d749409f7646de440d637ac9db0e047777 案）★
+
+- **案发现场（币安上电视）**：token 名「币安上电视」= 新闻转述的目击事件（CZ 转推币安上电视节目的新闻），rating 3 过审。**三借壳病根**（用户「这算哪门子meme币？这是一个陈述不是一个实体」直指要害）：量级轴（CZ 1,299 万粉媒体事件吃满）/ mem 轴（币安 super_ip 指代分借给陈述句名字）/ web3_fit 轴（BNB strong_fit 0.93 借给转述内容）——**三轴全是事件成分属性，无一轴衡量「名字本身」作为 meme 载体的资格**。名字是主谓宾陈述句（谁+做了什么），不是可指代的实体/梗词，买家喊不出「币安上电视」这个名。
+- **分类逃逸（为何既有门全不拦）**：J1.32 把「目击新闻」判进 F 类（Discovery 的 author-discovered 臂被「spotted/发现」转述语气满足）——F 不吃 J1.29 载体门、不吃 J1.36 折损、mem 轴借壳照常给分；若同语料判 E/D，no_visual 0.97 会被载体门当场拦死。**F 档成了「新闻转述币」的逃逸通道**。
+- **修复①（F→E 改道，方向 1）**：新题 `finding_vs_recap`（三态 narrative_finding/news_recap/unclear；判别锚=「发现语气不构成发现」——作者转述目击的新闻是 recap，作者本人发掘出未被公众注意的事实才是 finding）+ F 档 criteria 澄清（NOT a news event the author merely witnessed/reported）。mapper：`recapForced = (category==F ∧ finding_vs_recap==news_recap)` → category 强制改道 E——**改道不是放行是换考官**：E 类既有门（J1.29 载体门 no_visual 拦 / J1.36 折损 / mem 轴不再借 super_ip）全部接管。
+- **修复②（陈述句门，方向 2）**：新题 `name_form`（三态 entity_phrase/statement/unclear；锚=「判名字本身的语言结构，不判指向对象的影响力」「口号/宣言不算陈述」「中英文名取更完整的一个判」）。mapper：`statementNameBlock`——choice!=='statement' 短路 null 零开销；=='statement' → 全类别硬拦（label「币名是事件陈述非实体指代（陈述句门）」），**C88 五腿不豁本门**（借壳口号豁的是载体/截断位，救不了名字本身不合格）。unclear fail-open 不拦。门链序 rm→st(atement)→memFloor→sc→tier（陈述句门先于 C88 mem 地板与载体门）。
+- **事故反证（单测 D 组，J1.32 答案快照重放）**：D1 双门同命中（news_recap+statement）；D2 recap+entity → 改道 E 后载体门拦（mem 2.5+super_ip 0.3 破五腿隔离，防 C88 地板先手遮蔽）；D2b 案值 mem 1.72 → C88 地板拦（J1.32 线上漏放位今已被 C88 收编）；D3 narrative_finding+entity 维持 F 仍拦（真发现不误伤）；D4 mem 2.5 五腿全中形状 → **陈述句门是唯一拦截位**（其余门全被豁）；D5 statement 换 entity 对照 pass=true（门的必要性正证）。
+- **断言**：`_test_jev_finding_recap_statement_gate` 52 断言（A 问卷形状 19 题+两新题三态/B 改道真值表/B4 改道后 E 载体门接管/C 陈述句门全域 8 类别+放行臂+五腿不豁专项/D 事故现场反证/E 审计 stage1 nameForm/findingVsRecap/categoryForced+stage2 双写+probabilities 两键/F 源码口径门链序+改道公式+fail-open）。52/52 绿。
+- **随动与回归**：版本 bump J1.36→J1.37（两新题 17→19），三个 pin 随动 `_test_jev_resonance` D5（题数 17→19）/_test_superip_standard_path D2/_test_name_image_consistency A1；`_test_web3_fit` B8 断言改隔离轴（E 类 fit mass 0.2<0.5 由 J1.36 折损另拦属正确行为，C93 遗留非本次引入，git stash 验证 HEAD 同败）。mapper 家族 13+6 全绿（`_test_jev_product_entity` D2b 存量失败已知非本次引入）。
+- **部署语义**：零 DDL；**版本 bump=断代**——J1.37 起旧缓存行（J1.32 快照）与新题集不互评，存量行不重评（观察期语义）；新题答案缺失（旧调用形状）fail-open 不拦不误伤。182 narrative worker 未重启=生产仍 J1.32（C88/C93/C96 改动全部待重启生效，重启前须核实实验持仓）。
 
 ### C95 永生蝴蝶「代币名=账号名」项目形状调查——整案撤销：名单号=作弊嫌疑，现状拦截即正确防线（2026-10-18 用户终裁原话「实际命中分支 A 频繁发币者名单，如果是这样，这个票可以不改。恐怕是作弊」；永生蝴蝶 0x6ac90ad607ead644148962458f298f1e42e27777 案）★
 

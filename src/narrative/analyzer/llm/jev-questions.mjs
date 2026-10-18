@@ -394,9 +394,36 @@
  *       折损机制保留但判据源换 web3_fit（mapper 侧，阈值/系数见 J1.36 注释）；
  *       蝙蝠侠摇形状放行为用户明示接受（实测 web3_fit strong 0.38+fit 0.38=0.76
  *       ≥0.5 不折——Jev 认为口味契合，当年 -12.4% 归盘面非叙事错判）
+ * J1.37（2026-10-18，C96 币安上电视 0xc6d089d749409f7646de440d637ac9db0e047777
+ *       CZ 推文 1 秒快枪案）：新增两题（17→19 题）+ event_category F 档澄清——
+ *       用户裁定「币安上电视算是个哪门子 meme 币？这是一个陈述不是一个实体」
+ *       +方向 1（修分类逃逸）/方向 2（陈述句门）双立项。案发现场：CZ（1299 万粉）
+ *       17:21:14 UTC 转发「BNB 上越南国家电视」→ token 创建 17:21:15（1 秒快枪
+ *       监听 bot）→ J1.32 判 F 类（Discovery「author-discovered」被 CZ 的
+ *       spotted 目击语气满足）A 档 34+传播 28+时效 15=77 high 放行，买入 22 秒
+ *       -33.4%。三借壳：量级（CZ 粉借给快枪盘）/mem（币安 super_ip 1.72 借给
+ *       陈述句名字）/web3_fit（BNB strong 0.93 借给「上电视」转述）——三轴全是
+ *       事件成分的属性，无一轴衡量名字本身作为 meme 载体。两新题：
+ *       ①finding_vs_recap（三态恒带）：F 类细化——叙事内容是「作者自己的发现」
+ *         还是「新闻转述」。mapper：event_category=F 且 news_recap → 强制改道
+ *         E（categoryForced='f_recap_e'，cashtag 改道同构），E 类既有门自动接管
+ *         （J1.29 载体门 E+no_visual / J1.36 web3_fit 折损）。分类逃逸是过关
+ *         钥匙：no_visual_entity 0.97 若按语义判 E/D 会被载体门当场拦死，逃进
+ *         F 不吃载体门不吃折损。
+ *       ②name_form（三态恒带）：币名语言形态——实体指代（名词短语：人物/角色/
+ *         IP/机构/产品/梗词/口号）vs 事件陈述（主谓结构转述发生的事：X 上电视/
+ *         X 破产/X 涨到 Y——新闻标题非实体，无 meme 载体）。mapper 全域硬拦
+ *         statementNameBlock（挂 rm 后 mem 地板前），superIpSlogan 五腿刻意不
+ *         豁——C88 mem 地板（mem<2 拦）拦不住 J1.34 后币安指代 mem≥2+五腿全中
+ *         的「币安上电视」形状（mem 轴量不到名字形态，C90「尺子量不到名字」
+ *         同款教训），陈述句门是该形状唯一拦截位。
+ *       两题答案缺失（旧缓存行）fail-open 零影响（J1.28/J1.29 同款；生产链
+ *       JevClient 缺答案 throw）。存量 J1.32-J1.36 行不重评（观察期语义）。
+ *       event_category F 档 criteria 补一句澄清（目击/报道新闻≠发现→判 E/D）
+ *       ——与 mapper 改道门同向双保险（题面澄清非决定性，教训①家族）。
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.36';
+export const JEV_QUESTIONS_VERSION = 'J1.37';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -492,11 +519,27 @@ Subject attribution rules (critical):
         A: 'Visual IP: meme character / mascot / virtual image / cartoon IP',
         W: 'Web3 project: blockchain/crypto launch or update (token/DeFi/NFT/chain/tool)',
         B: 'Non-Web3 product: app/game/hardware/website/consumer product launch or update',
-        F: 'Discovery: hidden pattern / data insight / narrative finding, evidence-backed, author-discovered',
+        F: 'Discovery: hidden pattern / data insight / narrative finding, evidence-backed, author-discovered. NOT a news event the author merely witnessed/reported (e.g. "X appeared on national TV" is E; an institution/person making news is D/C) — even if phrased as a discovery ("spotted", "noticed"): F requires the finding itself (the pattern/insight/connection) to be the subject, not a publicly happening news event',
         G: 'Speculation: future prediction with reasoning but insufficient evidence',
         C: 'Personal statement: an individual speaking personally (not as institutional official mouthpiece)',
         D: 'Institutional action: official account announcement/action of a company or organization',
         E: 'Social hotspot: trend/viral content spreading on social platforms now',
+      },
+    },
+
+    // ── 1.5 发现 vs 新闻转述（J1.37 恒带：mapper F→E 改道判据源——C96 币安
+    //     上电视案；非 F 类时为观察答案，落库不消费）──────────────────
+    finding_vs_recap: {
+      type: 'choice',
+      instructions: `叙事内容的性质（finding vs recap）。判定语料承载的故事内容属于哪类：
+⚠️ 评估对象=叙事内容本身（不是发币者、不是事件主体）：故事讲的是「一个发现」还是「一条新闻」。
+- 发现（narrative_finding）：作者声称自己发现/揭示了一个隐藏的模式、数据洞察、异常现象或叙事关联——发现的内容本身是卖点（如：鲸鱼地址在悄悄吸筹、链上出现异常模式、两个看似无关的事物被揭示出联系、一个被所有人忽略的信号）。发现的动作是「揭示」，揭示出的东西在此之前不为人知。
+- 新闻转述（news_recap）：语料在报道/目击/搬运/庆祝一条已经发生的新闻事件（X 出现在电视上 / X 发布了新产品 / X 达到了某价格 / X 发生了某事）——「发现」「spotted」「看到了」只是目击动作，事件主体是外部实体，目击者只是报道者，事件的新闻价值属于事件本身。
+⚠️ 关键判别：作者的「发现语气」（我看到了/我发现/spotted/noticed）不构成发现——要看「被发现的东西」是隐藏的模式/洞察，还是一条公开发生的新闻。大V 发推报道自己看到的新闻事件（如某人发推说某币上了电视、某产品出现在某处）→ news_recap。`,
+      criteria: {
+        narrative_finding: '作者自己的发现——隐藏模式/数据洞察/异常现象/叙事关联，发现内容本身是卖点（发现前不为人知）',
+        news_recap: '新闻转述——报道/目击/搬运一条已发生的新闻事件，「发现」只是目击动作，事件主体是外部实体',
+        unclear: '无法判断——语料不足以区分两者',
       },
     },
 
@@ -730,6 +773,23 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         existing_entity: '已存在的形象实体——指代对象是一个真实存在的具体形象：动物/角色/吉祥物/表情包/meme图/虚拟形象/实物玩偶等，且在事件语料/推文配图/官方渠道展示中真实出现过（如语料本体就是那只动物的视频、推文配图里出现的玩偶/动物、官方产品页面置顶展示的吉祥物形象、知名meme角色）',
         improvised_entity: '脑补/许愿的形象——代币名暗示了一个形象（如「XX猫」「XX INU」「要是叫XX就好了」），但该形象并非已存在的实体：是发币者/第三方的联想、谐音嫁接、许愿（"should be"/"why not"）或对尚未发布/从未展示之物的想象，事件/官方本体中从未出现该形象（官方只提到概念/名字，从未画出或展示过这个形象）',
         no_visual_entity: '无形象载体——指代对象不以形象实体为存在形式：真人人物（叙事玩的是其言行/观点/事件，非形象玩梗）、公司/机构名、产品功能/型号/服务、事件/新闻/热点、抽象概念、梗词、缩写代号',
+      },
+    },
+
+    // ── 10.8 币名语言形态（J1.37 恒带：mapper 陈述句门 statementNameBlock
+    //     判据源——C96 币安上电视案「这是一个陈述不是一个实体」）──────────
+    name_form: {
+      type: 'choice',
+      instructions: `币名语言形态（token name form）。判定代币 Name/Symbol（去 emoji/数字/特殊字符后）的语言结构：
+- 实体指代（entity phrase）：名词短语——名字指向一个「东西」：人物/角色/动物/形象/机构/产品/地点/梗词/口号/抽象概念名（如 CZ、PEPE、币安、狗狗币、暗号資産の覹者、货币自由）。名字可被抓住当一个符号去玩梗、二创、传播。
+- 事件陈述（statement）：主谓/主谓宾结构——名字在转述「一件发生的事」，是新闻标题不是实体（如「币安上电视」「XX 破产了」「比特币破十万」「XX 涨疯了」「XX 出事了」）。名字里有一个动作/事件在发生，但它只是对新闻事件的转述：事件冷了名字就死，无独立 meme 载体——读者记住的是那件事，不是这个名字。
+⚠️ 判名字本身的语言结构，不判名字指向对象的影响力：名字含动词性陈述结构（上电视/发布了/涨到/跌破/官宣了/出事/登顶）→ statement——陈述句里含知名实体（「币安上电视」含「币安」）不改变句子是陈述。
+⚠️ 口号/宣言/祈愿（「货币自由」「HODL」「LFG」）不是陈述——没有「发生了什么事」的转述，算 entity phrase。
+⚠️ 中英文名取更完整的一个判（Name 通常比 Symbol 完整）。`,
+      criteria: {
+        entity_phrase: '实体指代——名词短语：人物/角色/动物/形象/机构/产品/地点/梗词/口号/概念名，可作符号玩梗传播',
+        statement: '事件陈述——主谓结构转述一件发生的事：新闻标题式名字（X 上电视/X 破产/X 涨到 Y/X 发布了 Z），无独立 meme 载体',
+        unclear: '无法判断——名字结构无法归入上述两类',
       },
     },
 

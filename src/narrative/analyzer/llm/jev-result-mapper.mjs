@@ -358,6 +358,34 @@ function subjectCarrierBlock(answers, category, opts) {
 }
 
 /**
+ * C96 陈述句门（J1.37 name_form 题，2026-10-18 用户裁定「币安上电视算是个哪门子
+ * meme 币？这是一个陈述不是一个实体」+「陈述句门我认为也对，也加吧」方向 2）：
+ * 币名=事件陈述（主谓结构转述一件发生的事：X 上电视/X 破产/X 涨到 Y）而非实体
+ * 指代（名词短语）→ 无独立 meme 载体——名字是新闻标题不是可玩梗的符号，事件冷了
+ * 名字就死，蹭其命名只是消费时效红利（案发：0xc6d0…7777「币安上电视」，CZ 转发
+ * 「BNB 上越南国家电视」1 秒后快枪发币，J1.32 判 F 类 A 档 77 分 high 放行，
+ * 22 秒 -33.4%）。
+ *
+ * 与既有轴的分工（三借壳的补位）：
+ * - J1.28/C88 mem 轴评「指代对象的玩味价值」——币安上电视的指代对象=币安
+ *   （super_ip），J1.34 后按对象 web3 影响力评，币安指代 mem≥2 完全可能 →
+ *   mem 地板拦不住；mem 轴量不到「名字是陈述句」（C90「尺子量不到名字」同款
+ *   教训），本题正是那把尺子。
+ * - J1.29 载体门评「叙事主体有无形象」——陈述句名字的判定不依赖主体形象：
+ *   名字本身的结构缺陷，独立轴。
+ * - C88 superIpSlogan 五腿刻意不豁：五腿票的前提是「口号票」（名字=口号=NP
+ *   实体形态），name_form=statement 的名字连口号都不是、是新闻标题——五腿
+ *   全中的「币安上电视」形状（super_ip 0.6+relPositive 0.99+mem≥2+fresh+
+ *   strong_fit 0.93）在 mem 地板/载体门均豁出后，本门是唯一拦截位。
+ * 全域（不限类别）；答案缺失（旧缓存行/unclear）fail-open 不拦（J1.28/J1.29
+ * 同款；生产链 JevClient 缺答案 throw，缺失形状只在旧缓存）。
+ */
+function statementNameBlock(answers) {
+  if (answers?.name_form?.choice !== 'statement') return null;
+  return { label: '币名是事件陈述非实体指代（陈述句门）', form: 'statement' };
+}
+
+/**
  * J1.31 E 类情绪感染力折损系数（2026-10-16 用户裁定，C80 蝙蝠侠摇案
  * 0x4547dae7757fb4043e034d27ed02dfabe9aa7777：「蝙蝠侠式蹦迪」抖音舞蹈现象票，
  * Jev E 类 0.99 + B 档量级 0.97 → 事件分 27+28.68+15=70.68 过线 high 放行，
@@ -520,6 +548,32 @@ const PLATFORM_OFFICIAL_HANDLES = new Set(['binance', 'flapdotsh']);
 function detectPlatformOfficial(twitterInfo) {
   const h = String(twitterInfo?.author_screen_name || twitterInfo?.screen_name || '').toLowerCase().trim();
   return h !== '' && PLATFORM_OFFICIAL_HANDLES.has(h);
+}
+
+/**
+ * C97 币安地域子账号检测（纯代码，无 LLM）——0xf37b…7777「币安游戏」案
+ * （2026-10-18 用户裁定「币安的地域账号，所发布的局部地域的事件，也不要被
+ * 视为超级IP事件」）：主推作者=@BinanceArabic ✓（币安阿拉伯地域子账号，
+ * 17.99 万粉）发「想象币安要办电视问答节目，帮节目起个名」——零赞零转的
+ * 假设性互动推，token 名「币安游戏」即起名梗参赛。J1.36 判 D 类（机构）
+ * A 档 34 分借壳母机构量级放行（74.45 high）。代码确定性切分（J1.16/J1.23
+ * 家族教训：题面锚移不动 Jev 的分）：handle 以 binance 开头且非全球主号/
+ * 全球职能臂 → 地域子账号；冒充号一并命中（方向 fail-safe 偏拦——冒充号
+ * 更不配借壳量级，无需 verified 门）。
+ *
+ * 全球号集合（GLOBAL_BINANCE_HANDLES）：主号 + 全球职能臂（Labs=风投 /
+ * Research=研究 / Square=内容平台）。新全球职能臂遇 case 再扩
+ * （PLATFORM_OFFICIAL_HANDLES 同款维护语义）；地域号（Arabic/Africa/
+ * Turkiye/…）全部视为地域子账号。只查主推作者不查父推（BOB 案先例：主推
+ * 是路人号玩梗、父推才是官方——主体判定以主推作者为准）。作者字段双形状：
+ * tweet 型 author_screen_name / account 型 screen_name（detectPlatformOfficial
+ * 同款）；handle 缺失 → null fail-open（旧缓存行/无推语料票不锚）。
+ */
+const GLOBAL_BINANCE_HANDLES = new Set(['binance', 'binancelabs', 'binanceresearch', 'binancesquare']);
+function detectBinanceRegionalAccount(twitterInfo) {
+  const h = String(twitterInfo?.author_screen_name || twitterInfo?.screen_name || '').toLowerCase().trim();
+  if (!h.startsWith('binance') || GLOBAL_BINANCE_HANDLES.has(h)) return null;
+  return { handle: h, followers: Number(twitterInfo?.author_followers_count ?? 0) || 0 };
 }
 
 /**
@@ -804,7 +858,22 @@ export function mapStandardAnswers(answers, context) {
   // 概率不再有决定权——iNu 案 W 0.25 输给 C 0.52 的 argmax 逃逸正是漏放根因。
   const cashtagHit = detectCorpusCashtag(tokenData, twitterInfo);
   const cashtagForced = !!(cashtagHit && answers.event_category?.choice !== 'W');
-  const category = cashtagForced ? 'W' : (answers.event_category?.choice || null);
+  // C96 F→E 改道（2026-10-18 用户裁定，币安上电视 0xc6d0…7777 CZ 推文 1 秒快枪案：
+  // 「币安上电视算是个哪门子 meme 币？这是一个陈述不是一个实体」方向 1）：Jev 把
+  // 「目击新闻」判进 F（Discovery「author-discovered」被 spotted 目击语气满足——
+  // CZ 转发「BNB 上越南国家电视」→ F 类 A 档 34+28+15=77 high 放行，22 秒 -33.4%）
+  // 是分类逃逸：no_visual_entity 0.97 若按语义判 E/D 会被 J1.29 载体门当场拦死，
+  // 逃进 F 不吃载体门不吃 J1.36 折损。改道判据=J1.37 新题 finding_vs_recap：
+  // event_category=F 且 news_recap（叙事内容是对新闻事件的报道/目击/搬运，发现
+  // 语气只是目击动作）→ 强制改 E，E 类既有门自动接管（载体门 E+no_visual /
+  // web3_fit 折损 / E 类时效与量级语义）。cashtag 改道优先（F 与 cashtagHit 互斥
+  // 无竞争：cashtagForced 时改 W 数学，本改道不触达）。finding_vs_recap=
+  // narrative_finding/unclear/缺失（旧缓存行 fail-open，J1.28/J1.29 同款）→ 维持
+  // F 零变化。审计 categoryForced='f_recap_e'（cashtag_w 同款，Jev 原 choice 见
+  // event_category probabilities 可追溯）。
+  const recapForced = !!(answers.event_category?.choice === 'F'
+    && answers.finding_vs_recap?.choice === 'news_recap');
+  const category = cashtagForced ? 'W' : (recapForced ? 'E' : (answers.event_category?.choice || null));
   // J1.18 发布者指代（C29 Cue/Manus 案 0x5074546c，2026-09-29 用户裁定「骑乘第三方
   // 产品：①独立产品发布/重大升级；②产品影响力由发布者指代——领域知名发布者算
   // 大IP」）：领域知名发布者官宣独立新产品（判据全代码可读，detectPublisherProxy：
@@ -829,6 +898,15 @@ export function mapStandardAnswers(answers, context) {
   // C56 补充裁定（flap 官方源）：主推作者=币安链原生平台官方账号（binance/
   // flapdotsh）——rcp 门 + 产品门双豁免位（detectPlatformOfficial 见上）
   const platformOfficial = detectPlatformOfficial(twitterInfo);
+  // C97 币安地域子账号量级锚：主推作者=binance 前缀非全球号（detectBinanceRegionalAccount）
+  // 且语料/币名借币安（binanceCorpus）→ 量级不按母机构借壳。锚降优先于
+  // pubProxy/web3Fit 两锚升（effTier 天花板——地域子账号运营内容不再翻案）；
+  // 量级门 D/E 臂无 superIpSlogan 豁免（C88 五腿只豁载体门/rcp/劫持/关联
+  // 截断/事件分不足臂）——本案五腿全中（superIp 0.55/mem 2.39/relPositive 0.8）
+  // 把 no_visual 0.98 豁出载体门后，本锚是唯一拦截位。cashtag/骑乘改道走
+  // W 数学 tier 不参与，天然无竞争。
+  const binanceRegional = detectBinanceRegionalAccount(twitterInfo);
+  const regionalAnchorActive = !!(binanceRegional && binanceCorpus);
   const magnitude = answers.event_magnitude?.score ?? 0;
   const tier = magnitudeTier(magnitude);
   // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
@@ -857,7 +935,7 @@ export function mapStandardAnswers(answers, context) {
   const web3FitAnchored = !tierAnchored && (category === 'A' || category === 'B')
     && web3FitStrongP >= 0.5
     && tier !== 'S' && tier !== 'A' && tier !== 'B';
-  const effTier = tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier);
+  const effTier = regionalAnchorActive ? 'D' : (tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier));
   // C68 找角度时效 override：Jev event_timing 锚「叙事首次发生时间」（제로案判
   // within_30d=10 分压线过），找角度推文的时效语义是「载体推文→发币」的 lag——
   // override 在 timing 变量源头生效，W/标准数学 + J1.24 punExempt 全下游一致消费
@@ -941,13 +1019,25 @@ export function mapStandardAnswers(answers, context) {
         timing,
         blockChoice,
         // J1.17 审计标记：category 被代码端 cashtag 判据改写为 W（原 Jev choice 见
-        // event_category probabilities），落库行可追溯改道来源
-        categoryForced: cashtagForced ? 'cashtag_w' : null,
+        // event_category probabilities），落库行可追溯改道来源；C96 F→E 改道同位
+        // （'f_recap_e'——news_recap 改道 E，Jev 原 choice=F 可追溯）
+        categoryForced: cashtagForced ? 'cashtag_w' : (recapForced ? 'f_recap_e' : null),
         cashtagMatched: cashtagHit?.cashtag ?? null,
+        // C96 审计标记：币名语言形态恒落（J1.37 name_form 题，旧缓存行 → null；
+        // statement 命中 statementNameBlock 拦截时 stage2 jev.statementBlock 落详情）
+        nameForm: answers.name_form?.choice ?? null,
+        // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap 题，旧缓存行 →
+        // null——非 F 类也落纯观察，改道只消费 F+news_recap 组合）
+        findingVsRecap: answers.finding_vs_recap?.choice ?? null,
         // J1.18 审计标记：发布者指代门命中详情（判据/豁免可追溯，Jev 原判 tier
         // 保留在 magnitudeTier 键不受锚定影响）
         publisherProxy: pubProxy ? { domain: pubProxy.domain, followers: pubProxy.followers } : null,
         publisherProxyActive: pubProxyActive || null,
+        // C97 审计标记：币安地域子账号量级锚命中详情（handle/粉丝数可追溯；
+        // null=未命中——全球号/无借壳语料/非 binance 前缀源/handle 缺失；
+        // 原判档在 magnitudeTier 键不受锚影响）
+        regionalSubAccount: binanceRegional && binanceCorpus
+          ? { handle: binanceRegional.handle, followers: binanceRegional.followers } : null,
         tierAnchored: tierAnchored ? 'A' : null,
         // J1.23 审计标记：A/B 类（C94 起 B 类同享）+ web3_fit strong_fit≥0.5 的
         // 偏好量级锚（Jev 原判 tier 保留在 magnitudeTier 键不受锚定影响）
@@ -981,6 +1071,7 @@ export function mapStandardAnswers(answers, context) {
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   let rmBlock = null; // 指代对象 meme 价值低档门信息 {label, score}（J1.28）
+  let stBlock = null; // 陈述句门信息 {label, form}（C96，J1.37 name_form）
   let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
   let memFloorFired = false; // C88 mem 口径地板命中标记（审计用）
   let tierScore = 0;
@@ -1146,6 +1237,16 @@ export function mapStandardAnswers(answers, context) {
     // 分数门，finalReason 的 P 段落 '-'（stage2BlockReason 已含分数）
     stage2Blocked = true;
     stage2BlockReason = rmBlock.label;
+  } else if ((stBlock = statementNameBlock(answers))) {
+    // C96 陈述句门（J1.37 name_form=statement）：币名=事件陈述非实体指代——名字
+    // 是新闻标题不是可玩梗符号，无独立 meme 载体。挂 rm 之后（指代层门链中段：
+    // nr/rm 先拦的票 label 归属前者；本票形状「币安上电视」mem 1.72>1 rm 不拦、
+    // label 归属本门点题）、C88 mem 地板之前（mem<2 与 statement 常伴生但独立轴
+    // ——mem≥2 的陈述句票 mem 地板放行、本门仍拦）。全域无豁免（superIpSlogan
+    // 五腿不豁——五腿前提是口号票 NP 名字，statement 名字连口号都不是，见
+    // statementNameBlock 注释）；无概率 mass（choice 档位门）
+    stage2Blocked = true;
+    stage2BlockReason = stBlock.label;
   } else if (!isW && rideMass == null && FRESH_TIMING_C88.has(timing)
     && memScoreC88 != null && memScoreC88 < 2) {
     // C88 mem 口径地板（J1.28 扩展臂，2026-10-18 CZ 出书簇裁定）：蹭新鲜热点但
@@ -1172,7 +1273,7 @@ export function mapStandardAnswers(answers, context) {
     // effTier S/A，在本臂结构性不可达，保留守卫是豁免定义漂移的防线（同 C85
     // IS NULL 前置臂的防漂移语义）
     stage2Blocked = true;
-    stage2BlockReason = `事件主体量级不足（${tier}档）`;
+    stage2BlockReason = `事件主体量级不足（${tier}档${regionalAnchorActive ? '→D档·币安地域子账号不借壳' : ''}）`;
   } else if (isW || rideMass != null) {
     // W 数学（W 类原生 / B 类骑乘改道 / J1.17 cashtag 改道共用：产品分量 + 币安交互 + 时效，pass 线 60）
     wProduct = bandInterpolate(answers.w_product_score?.score ?? 0, W_PRODUCT_BANDS);
@@ -1294,6 +1395,14 @@ export function mapStandardAnswers(answers, context) {
         // 无此题 → null）；block 命中才落（referentMemeabilityBlock 同款模式）
         subjectCarrier: answers.subject_carrier?.choice ?? null,
         subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
+        // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap；旧缓存行 → null
+        // ——阈值/口径事后校准免重跑）；改道详情在 stage1 jev.categoryForced
+        // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
+        // 的消费位（referentMemeabilityScore 恒落同款先例）
+        findingVsRecap: answers.finding_vs_recap?.choice ?? null,
+        // C96 审计标记：陈述句门命中才落（subjectCarrierBlock 同款模式）；档位
+        // 恒落在 stage1 jev.nameForm
+        statementBlock: stBlock ? { form: stBlock.form } : null,
         // C88 审计标记①：超级IP口号票五腿快照。恒落含 hit:false（标签零列推导消费
         // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存
         // 行）→null——0/null 语义分离，referentMemeabilityScore 恒落同款）
@@ -1325,6 +1434,8 @@ export function mapStandardAnswers(answers, context) {
           web3_fit: answers.web3_fit?.probabilities,
           subject_entity: answers.subject_entity?.probabilities,
           subject_carrier: answers.subject_carrier?.probabilities,
+          name_form: answers.name_form?.probabilities,
+          finding_vs_recap: answers.finding_vs_recap?.probabilities,
         },
       },
     },
