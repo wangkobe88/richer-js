@@ -380,17 +380,22 @@ function subjectCarrierBlock(answers, category, opts) {
  * 旧缓存）。（C83 起全语料走标准路径，event_resonance 对 superIP 语料票同样生效）。
  * 窗口回测要触发折损须先失效缓存（scripts/narrative/invalidate-resonance-
  * window.cjs，照 J1.28/J1.29 模式）。
+ *
+ * J1.36（2026-10-18，C93 유과 강아지案续）：event_resonance 题删除（18→17 题），
+ * 折损判据源换 web3_fit——用户裁定「meme 币发币哪里有什么圈内圈外一说，web3
+ * 用户喜欢就行了」（B 案：折损机制保留、判据源替换）。根因：resonance 量的
+ * 「情绪行动力」对 Jev 不可观测（只见语料不见链上），推断素材与 web3_fit 完全
+ * 同源，独立作答只产生矛盾面（유과 案同次作答 web3_fit strong_fit 0.97 vs
+ * resonance mild 0.79 互斥）；例文「圈外」焊死 mild 档定义，轴腐化为圈层归属。
+ * 新判据：E 类且 web3_fit (strong_fit+fit) < 0.5（marginal 占优）→ tierScore+
+ * effDim2 ×0.5（时效不折不变）；≥0.5 → 原公式（유과 0.97 / 蝙蝠侠摇 0.76 均
+ * 不折——后者形状放行为用户明示接受：当年 -12.4% 归盘面非叙事错判）。0.5 阈值
+ * 与 J1.19 负门/J1.23 锚/J1.27 接纳门同一条线。unfit≥0.5 的票全域负门已拦，
+ * 折损层不再管。web3_fit 答案整体缺失（J1.19 前旧缓存行）→ fail-open 不折；
+ * J1.31-J1.35 行有 web3_fit 答案可重放新逻辑（存量不重评，回测/校准重放生效）。
  */
-const RESONANCE_COEFFICIENTS = {
-  strong_reaction: 1,
-  mild_amusement: 0.5,
-  indifferent: 0.25,
-};
-const RESONANCE_LABELS = {
-  strong_reaction: '强感染',
-  mild_amusement: '轻度有趣',
-  indifferent: '无感',
-};
+const RESONANCE_FIT_COEF = 0.5;
+const RESONANCE_FIT_THRESHOLD = 0.5;
 
 /**
  * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
@@ -959,9 +964,10 @@ export function mapStandardAnswers(answers, context) {
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
-  // J1.31 E 类情绪感染力折损（C80）：resonance=Jev 原判档；resonanceCoef=生效
-  // 系数（null=未触达——非 E 类/答案缺失/strong 不折），标准数学分支赋值
-  let resonance = null;
+  // J1.36 E 类感染力折损（C93 判据源迁移）：resonanceCoef=生效系数（null=未
+  // 触达——非 E 类 / web3_fit 答案缺失 fail-open / fitMass≥0.5 不折），标准数学
+  // 分支赋值；fitMass 恒落审计（resonanceFitMass）
+  let w3fFitMass = null;
   let resonanceCoef = null;
   let wProduct = null;
   let wInteraction = null;
@@ -1185,14 +1191,18 @@ export function mapStandardAnswers(answers, context) {
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
-    // J1.31 E 类情绪感染力折损（C80 蝙蝠侠摇案）：现象传播广度≠Web3 用户情绪
-    // 转化（观众≠买家）——E 类且系数<1 时 tierScore+effDim2 两项整体乘系数，
-    // 时效不折（新鲜是客观属性）；非 E 类 / 答案缺失（旧缓存行 fail-open）/
-    // strong 档 → 原公式 bit-identical。W 数学与骑乘改道在上分支（isW ||
-    // rideMass），进入本分支的票天然不受改道干扰
-    resonance = answers.event_resonance?.choice ?? null;
-    resonanceCoef = category === 'E' && resonance && RESONANCE_COEFFICIENTS[resonance] !== undefined
-      ? RESONANCE_COEFFICIENTS[resonance] : null;
+    // J1.36 E 类感染力折损判据源=web3_fit（C93：event_resonance 题已删，原 C80
+    // 蝙蝠侠摇案折损机制保留）：E 类且 (strong_fit+fit)<0.5（marginal 占优=Web3
+    // 用户不太喜欢）→ tierScore+effDim2 两项整体 ×0.5，时效不折（新鲜是客观
+    // 属性）；非 E 类 / web3_fit 答案整体缺失（J1.19 前旧缓存行 fail-open）/
+    // ≥0.5 → 原公式 bit-identical。unfit≥0.5 全域负门（J1.19）已拦不归本层。
+    // W 数学与骑乘改道在上分支（isW || rideMass），进入本分支的票天然不受改道
+    // 干扰
+    const w3fProbs = answers?.web3_fit?.probabilities;
+    const hasW3f = w3fProbs != null && Object.keys(w3fProbs).length > 0;
+    w3fFitMass = hasW3f ? (w3fProbs.strong_fit ?? 0) + (w3fProbs.fit ?? 0) : null;
+    resonanceCoef = category === 'E' && hasW3f && w3fFitMass < RESONANCE_FIT_THRESHOLD
+      ? RESONANCE_FIT_COEF : null;
     const resonanceDamped = resonanceCoef !== null && resonanceCoef < 1;
     stage2Total = resonanceDamped
       ? round2((tierScore + effDim2) * resonanceCoef + timeliness)
@@ -1207,7 +1217,7 @@ export function mapStandardAnswers(answers, context) {
       ? `｜量级门豁免(${magExemptTags}：${[magExemptRescuedArm ? `${effTier}档臂` : null, magExemptRescuedPass ? '事件分<60臂' : null].filter(Boolean).join('与')}不拦，弱量级代价在总分)`
       : '';
     stage2Blocked = stage2Total < 60 && !magExempt;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(${RESONANCE_LABELS[resonance]})` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(web3_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 
@@ -1273,13 +1283,15 @@ export function mapStandardAnswers(answers, context) {
         },
         // C88 审计标记②：mem 地板命中详情（命中才落，subjectCarrierBlock 同款）
         memFloorBlock: memFloorFired ? { mem: memScoreC88, timing } : null,
-        // J1.31 审计标记：E 类情绪感染力折损。档位恒落（旧缓存行无此题 → null，
+        // J1.36 审计标记（C93 判据源迁移）：E 类感染力折损详情。fitMass 恒落
+        // （=web3_fit strong_fit+fit 概率和，J1.19 前旧缓存行无答案 → null，
         // 阈值事后校准免重跑）；系数生效（<1）才落折损详情（subjectCarrierBlock
         // 同款模式）。stage2Total/事件分不足拦截由折损后值直接承载，原值可由
-        // tierScore+dimension2 反推
-        eventResonance: answers.event_resonance?.choice ?? null,
+        // tierScore+dimension2 反解。eventResonance 档位字段随题删除退役——
+        // J1.31-J1.35 历史行的该键不再产生
+        resonanceFitMass: w3fFitMass,
         resonanceDamp: resonanceCoef !== null && resonanceCoef < 1
-          ? { resonance, coef: resonanceCoef } : null,
+          ? { fitMass: w3fFitMass, coef: resonanceCoef } : null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
           dimension2: answers.dimension2?.probabilities,
@@ -1288,7 +1300,6 @@ export function mapStandardAnswers(answers, context) {
           web3_fit: answers.web3_fit?.probabilities,
           subject_entity: answers.subject_entity?.probabilities,
           subject_carrier: answers.subject_carrier?.probabilities,
-          event_resonance: answers.event_resonance?.probabilities,
         },
       },
     },
