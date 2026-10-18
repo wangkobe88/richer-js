@@ -212,6 +212,55 @@ export function hasValidDataForAnalysis(fetchResults) {
 }
 
 /**
+ * 自动代币聚合页域名（C99 传奇蝴蝶案 2026-10-18）
+ *
+ * 这些站点对链上任意代币自动生成 token 页（URL 路径天然含本币 CA，如
+ * dex.coinmarketcap.com/token/bsc/<addr>），页面存在性不构成「项目方在自有渠道
+ * 公示了 CA」的证据。isProjectCoin 的网站内容/URL 臂与 hasIndependentWebsite
+ * 的独立站判定均不得采信（账号简介/推文宣告臂不受影响——那是发行方亲手贴的）。
+ * 与 material-id-extractor 的 NON_STANDALONE_DOMAINS 刻意分开维护：用途不同
+ * （那边还含搜索引擎/短链），演化方向不同。
+ */
+const AUTO_TOKEN_PAGE_DOMAINS = [
+  'coinmarketcap.com',   // dex.coinmarketcap.com/token/bsc/<CA>（本案事故域名）
+  'coingecko.com',
+  'dexscreener.com',
+  'geckoterminal.com',
+  'dextools.io',
+  'birdeye.so',
+  'ave.ai',
+  'avedex.com',
+  'gmgn.ai',
+  'photon.xyz',
+  'bullx.io',
+  'bogged.io',
+  'pancakeswap.finance',
+  'pancakeswap.com',
+  'uniswap.org',
+  'jupiter.ag',
+  'raydium.io',
+  'four.meme',
+  'flap.sh',
+  'pump.fun',
+  'moonshot.money',
+];
+
+/**
+ * URL 是否指向自动代币聚合页（域名或其子域）
+ * @param {string} url - 任意 URL
+ * @returns {boolean}
+ */
+export function isAutoTokenPageUrl(url) {
+  if (!url) return false;
+  try {
+    const domain = new URL(url).hostname.toLowerCase();
+    return AUTO_TOKEN_PAGE_DOMAINS.some(d => domain === d || domain.endsWith(`.${d}`));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 检测是否有独立网站（非第三方平台域名）
  * @param {Object} classifiedUrls - 分类后的URL列表
  * @returns {boolean} 是否有独立网站
@@ -239,6 +288,9 @@ export function hasIndependentWebsite(classifiedUrls) {
       const isThirdParty = thirdPartyDomains.some(d =>
         domain === d || domain.endsWith(`.${d}`)
       );
+
+      // 自动代币聚合页（C99）同样不算独立网站
+      if (isAutoTokenPageUrl(website.url)) return false;
 
       // 有网站且不是第三方平台 → 算独立网站
       return !isThirdParty;
@@ -531,8 +583,9 @@ export function isProjectCoin(tokenAddress, fetchResults) {
     return true;
   }
 
-  // 检查网站内容
-  if (websiteInfo?.content && websiteInfo.content.toLowerCase().includes(address)) {
+  // 检查网站内容（C99：聚合器自动页除外——页面含本币 CA 是机械事实非项目方公示）
+  if (!isAutoTokenPageUrl(websiteInfo?.url)
+      && websiteInfo?.content && websiteInfo.content.toLowerCase().includes(address)) {
     return true;
   }
 
@@ -542,14 +595,16 @@ export function isProjectCoin(tokenAddress, fetchResults) {
   }
 
   // 检查网站原始HTML中是否包含地址（extractMainContent会去掉标签属性中的地址）
-  if (websiteInfo?.rawHtml && websiteInfo.rawHtml.toLowerCase().includes(address)) {
+  if (!isAutoTokenPageUrl(websiteInfo?.url)
+      && websiteInfo?.rawHtml && websiteInfo.rawHtml.toLowerCase().includes(address)) {
     return true;
   }
 
-  // 检查classifiedUrls中所有URL是否包含地址（项目币网站链接中常包含合约地址）
+  // 检查classifiedUrls中所有URL是否包含地址（项目币网站链接中常包含合约地址；
+  // C99：聚合器自动页 URL 除外——token 页路径天然含本币地址）
   if (classifiedUrls) {
     const allUrls = Object.values(classifiedUrls).flat().map(u => u?.url).filter(Boolean);
-    if (allUrls.some(url => url.toLowerCase().includes(address))) {
+    if (allUrls.some(url => url.toLowerCase().includes(address) && !isAutoTokenPageUrl(url))) {
       return true;
     }
   }
