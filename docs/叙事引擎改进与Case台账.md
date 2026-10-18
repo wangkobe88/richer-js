@@ -20,7 +20,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
    （C62/C63 提速：N1 分段探针 / N2 平台桶并发+IPFS 竞速 / N3 叙事预触发 /
    三泳道并发 / websiteFetch 总开关 / undici keepAlive / precheck 四查询并行）
    → Pre-Check（纯规则，无 LLM）
-                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.10，4 题）
+                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.11，4 题）
                                    ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分；referent_memeability/图豁免 C59）
                                    └─ 标准路径 → 单次 Jev 调用（J1.30：16 常驻题——web3_fit 第 14 /
                                       subject_entity 15 / referent_memeability 16a / subject_carrier 16b
@@ -31,10 +31,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
 - **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.38）/
-  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.10）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.38/…)`、`prestage-jev(P1.10/…)`）
-- **prestage P1.10 四题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
-  主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
+  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.11）；DB 列 prompt_type/prompt_version 标识
+  （`jev(J1.38/…)`、`prestage-jev(P1.11/…)`）
+- **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
+  社区/文化 meme 主账号，年龄非反证；**C101：推文语料不采信 web3ip，回落 abm 双条件**）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
   全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
   （`prestage_project_quality` 题随之删除）全删——粉丝带**只定档不拦截**（账号 0-299
   mid / ≥300 high；社区 ≥100+high 才 high）
@@ -67,6 +67,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C101 OK❌ t.me URL 假 addressVerified + 推文语料 web3ip 双洞修复——「网址里头有CA不算命中CA」「web3_native_ip_early 仅限于账号」（2026-10-18 用户裁定；OK❌ 0x0195119e4806441c871adada6256296265ed7777 案，flap 税币净 -12.75%）★
+
+- **案发现场（OK❌/何必东奔西走欧易啥也没有）**：flap 盘 2026-10-18 08:22:45 创建（税币），语料=推文 @Notickernowif（509 粉快照/落库 state 实为 0 粉 3 推、简介「404」、找角度作业号——近推全为热点梗转述）08:22:32 早创建 13s，文本「何必东奔西走，欧易啥也没有=OK❌」**无 CA**；token metadata URLs 含本币 CA：`t.me/#0x0195…` + CMC dex 自动页 → 08:22:55 买 0.004 BNB（mcap $4.2K）→ 08:25:33 P4 清仓 **-12.75%**。**孪生票对照**：欧抑 0xe8d526c4…7777（同梗「尽管东奔西走 欧易全部没有」、同窗口、不同账号）走标准路径 jev-J1.36 rating=1 low 拦住——同梗双票两种结局，路由形状是唯一差异。
+- **伪造链还原（prestage state 实证）**：`isProjectCoin` classifiedUrls URL 臂命中（t.me 不在 C99 聚合器清单内；CMC 自动页 pre-C99 算独立站→账号链收集 relatedAccounts）→ 路由进 prestage + `skipAddressValidation=true` → `performRulesValidation` skip 分支直接返回 `addressVerified: true`（stage='project_coin_website_verified'——**账号简介/推文压根没验，唯一伪造位**；state 6734 字中全地址仅出现 1 次且位于 [TOKEN] 元数据段，[ACCOUNT] 简介「404」、6 推零 CA、无 [WEBSITE] 段=websiteFetch 默认关内容臂也不可能命中→URL 臂是唯一命中源）→ prestage token_type 二分（P1.10 无名字质量门）→ web3_native_ip_early 0.96 → 粉丝带 0-299 → mid=rating 2 → GMGN 过（创作者首币 issuerTokenCount=0，C85 连发门拦不住首犯）→ 买。
+- **用户裁定三连**：①「web3_native_ip_early 仅限于账号」「这不是账号，这就是个推文」「这个也需要修」②「把假 addressVerified 给修了」③「说白了网址里头有CA不算命中CA」。
+- **修复一（假 addressVerified 断源）**：`isProjectCoin` 加 `options.includeUrlArm`（默认 true=路由/账号补充收集等存量消费点全语义零变化；false=强证据模式——只认内容臂：推文文本/回复/引用/website_tweet/账号简介/网站正文）；`NarrativeAnalyzer` 的 `skipAddressValidation` 证据源换 `isProjectCoinContentVerified`（强证据模式）`|| issuerCaTimeline`；URL 臂独命中时打点观测。**修复后 OK❌ 形状走向**：URL 臂仍路由进 prestage（存量语义），真实验证 0 粉 3 推质量不达标 + 简介推文零 CA → stage='address' → low（fail-closed，零 Jev 配额）；质量达标账号无 CA 宣告 → account_quality_no_address → abm 两条件（addressVerified=false 不伪造）；skip 分支保留给真强证据（issuerCa 宣告/网站内容公示，C35 语义）。
+- **修复二（web3ip 仅限账号语料）**：`mapPrestageAnswers` 加 `corpusType`（fetchResults.twitterInfo.type 透传）——`'tweet'` 时 web3_native_ip_early 答案**不采信**，回落 abm 双条件评定（两题恒带已答零额外调用；abm 评定块提取 `evaluateAbmAnswers` 两路共用 bit 一致）；'account'/'community'/缺省 null 放行（存量调用零影响）；project 答案不受限（仅 web3ip）；`jevDetails.web3ipRejectedCorpusType='tweet'` 观测键；parsed_output.addressVerified 事实保留 true。**两道防线独立**：修复一断源后 OK❌ 死在规则验证；修复二兜住「真宣告推文含 CA 的找角度票」（addressVerified=true 合法但语料是推文）不得按 web3ip 定档。
+- **版本**：P1.10→**P1.11**（题面未动——mapper 采信语义变化，P1.3 先例「聚合语义变化须可按版本筛历史行」；同 token 两版本下推文语料票的类型判定不可直接比较）。修复一是路由级不 bump（C99 先例）。
+- **测试**：`_test_isproject_coin_url_not_ca_hit.cjs` 19 断言（OK❌ 现场反证 includeUrlArm 双模式/内容臂六臂保留/C99 聚合臂兼容留/performRulesValidation 三通道真值表含对照组 skip=true 强证据通道保留/源码口径锁防 skip 退回 `isProjectCoinResult`）；`_test_prestage_web3ip_account_only.cjs` 17 断言（OK❌ 反证回落 abm low/abm 双过 mid/账号社区语料回归/缺省 null 放行/project 不受限/观测键/promptType P1.11/corpusType 透传源码锁）。回归全绿：C99 37、unrated_elimination 32、prestage_downgrade 29（版本断言随 bump 更新）、issuer_ca 15、account_ttl 53、corpus_invalidation 20、middle_parallel 22。
+- **部署语义**：182 worker + v23 实验进程（b07fbe84）重启后生效（与 C94/C98/C99/C100 同批待办；重启 v23 前按规程确认持仓）。存量影响面沿用 C99 裁定不扫（修复方向=拦截向，功能无 bug 即可）。
 
 ### C100 弹跳猫法国骚乱同事件「语料零暴力词」J1.38 补丁未翻转——接受边界不修结案（2026-10-18 用户裁定原话「那就先不修了」；chat rebondit 0xed389dfed0568f07b71ff678b92da1c052957777 案）★
 
@@ -731,6 +742,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| P1.11 | 2026-10-18 | **题面零改动；mapper 采信语义变化（P1.3 先例 bump）**：`mapPrestageAnswers` 新增 `corpusType`（fetchResults.twitterInfo.type 透传）——'tweet'（挂链语料是一条推文）时 web3_native_ip_early 答案不采信，回落 abm 双条件评定（两题恒带已答零额外调用，`evaluateAbmAnswers` 提取共用）；'account'/'community'/缺省 null 放行；project 不受限；`jevDetails.web3ipRejectedCorpusType` 观测键；同日配套修复一（isProjectCoin includeUrlArm——URL 含 CA 不算命中 CA，skipAddressValidation 证据源换内容臂强证据，路由级不 bump，C99 先例）。同 token 两版本下推文语料票的类型判定不可直接比较 | C101 OK❌ 案 0x0195119e…7777（用户裁定「web3_native_ip_early 仅限于账号」「这不是账号，这就是个推文」「说白了网址里头有CA不算命中CA」；找角度推文宣告+t.me/#CA 伪造 addressVerified → web3ip 0.96 mid → 买 -12.75%；孪生票欧抑同梗标准路径 low 对照） | 本 commit |
 | J1.32 | 2026-10-17 | **题面零改动；变更在 state 输入形状**——superIP 注册表命中票改走标准路径全量 18 题（快车道删除），state PRECOMPUTED 注入 `super_ip_hit` 认证事实行（name/type/tier/desc，格式与快车道时代一致）+ `super_ip_note` 反混淆提示行（作者身份认证≠代币背书，关联/主体资格/量级仍归题集逐题判定）；preScores 预分行删除（评分归 Jev）；非 superIP 票 state 逐字节 bit-parity（单测 A5 红线）；新行评级与 J1.31 前不可比按 prompt_version 过滤 | C83 BI 簇案（bbbe2561 体检：快车道「引用即 IP」6 票引用同一 binance 推文全拿 S 级 84-86 high 全亏，10 票 9 亏净 -0.0085 BNB 占总亏 21%；量级被预分喂饱+reason 不落库；用户裁定 registry 进 state 评分归 Jev） | 本 commit |
 | J1.31 | 2026-10-16 | 新增第 18 题 `event_resonance`（事件情绪感染力 choice 三档：strong_reaction 强感染 / mild_amusement 轻度有趣 / indifferent 无感）**恒带**；题面锚定 BSC meme 买家立场的情绪行动性（主动讨论/玩梗/二创/站队/参与冲动），与 web3_fit 分工=静态口味 vs 动态感染，圈外传播量级明确排除（另有题评）；mapper 标准数学分支 E 类系数折损：`category==='E'` 且系数<1 时 `stage2Total=(tierScore+effDim2)×coef+timeliness`（时效不折），strong ×1 bit-identical；mild 0.5/indifferent 0.25 数学上拦死全部档位（max 49.5<60）但刻意保留系数形式（梯度可观察+阈值校准留口）；旧缓存行缺答案 fail-open 不折；superIP 快车道不消费；审计 `jev.eventResonance` 恒落/`jev.resonanceDamp {resonance,coef}` 命中才落/`probabilities.event_resonance`；历史窗口回测前置失效 `scripts/narrative/invalidate-resonance-window.cjs`；单测 `node scripts/_test_jev_resonance.cjs`（14 断言；fixture 坑=quality 原始分需从 DB breakdown 反解 bandInterpolate） | C80 蝙蝠侠摇案 0x4547dae7…7777（用户裁定「对时事现象热度，其实也应该度量事件对Web3用户的情绪感染力」；E 类 70.68→75.68 high 买入 31s -12.4%，无形象纯现象+抖音搜索页截图+105 粉宣告者；折损后 mild 42.84/indifferent 28.92 双拦） | 本 commit |
 | G1.0 | 2026-10-15 | **vision 前置预判门题集（独立小调用非标准题集成员）**：1 题 Choice `vision_gate_sufficiency`（sufficient/need_image），state=与主 Jev 同语料无图形态；`judgeVisionGate` 概率门 sufficient≥minSufficientProb(0.6, config `vision.gate`)，probabilities 缺失→0 宁跑勿跳；误判方向 fail-safe（误 sufficient→无图=偏拦；误 need_image/失败→跑 vision 原行为）；接线与竞态屏蔽见 C72；单测 `_test_vision_gate`（35 断言） | C72 小黑案 0x9641293a…7777（用户裁定「文字已足够确认叙事就免掉 vision」+默认开；vision 6.6s 占直调 8.05s 的 82% 为最大延迟单点） | 本 commit |

@@ -7,7 +7,11 @@
  *   不再 unrated——分析完成必须有 low/mid/high 结论，9 只保留给直调失败/超时/未触发）
  * - addressVerified=true → token_type 二分（V2.0 第一步）：
  *   - web3_native_ip_early → 按账号基本面定档（rateProject 粉丝带；2026-09-27 裁定
- *     不再 unrated"等社区成长"——过与不过要有结论）
+ *     不再 unrated"等社区成长"——过与不过要有结论）。
+ *     P1.11（C101，2026-10-18 用户裁定「web3_native_ip_early 仅限于账号」）：
+ *     仅账号/社区语料（corpusType!=='tweet'）可采信；推文语料（挂链 URL 是一条
+ *     推文，token 不是该账号的 IP——OK❌ 案）不采信，回落 abm 双条件评定
+ *     （两题恒带已答，零额外调用；corpusType 缺省 null=放行，存量调用零影响）
  *   - project 评级（V2.0 第三步表，就高处理——认证记 details 不参与）：
  *     账号 0-299 mid / ≥300 high；社区 ≥100 且活跃 high / 其余 mid。
  *     P1.10 账号基本面门全删（2026-10-15 用户裁定，bunker 案 C70）：粉丝底线 <20、
@@ -28,6 +32,40 @@ const NAME_LINK_LABELS = {
   semantic: '语义关联',
   none: '无关联',
 };
+
+/**
+ * abm 双条件评定（addressVerified=false 路径与 C101 推文语料回落共用；
+ * 输入仅为恒带两题的 answers，输出与旧内联块 bit 一致）
+ * @returns {{rating: string, reasoning: string, details: Object, jevDetails: Object, pass: boolean}}
+ */
+function evaluateAbmAnswers(answers, { followers, members }) {
+  const nameLink = answers.prestage_abm_name_link?.choice || 'none';
+  const trafficChoice = answers.prestage_abm_web3_traffic?.choice || 'no_traffic';
+  const trafficP = answers.prestage_abm_web3_traffic?.probabilities?.has_traffic ?? 0;
+
+  const nameOk = nameLink !== 'none';
+  const trafficOk = trafficP >= 0.5;
+  const rating = (nameOk && trafficOk) ? 'mid' : 'low';
+
+  const failed = [];
+  if (!nameOk) failed.push('名称关联不成立');
+  if (!trafficOk) failed.push('无30天内Web3流量事件');
+
+  const reasoning = `名称关联:${NAME_LINK_LABELS[nameLink] || nameLink}｜Web3流量:${trafficOk ? `有(P=${round2(trafficP)})` : `无(P=${round2(trafficP)}，choice=${trafficChoice})`}｜${rating === 'mid' ? '两条件同时满足→mid（账号背景 meme 双证据成立）' : `不满足:${failed.join('、')}→low`}`;
+
+  return {
+    rating,
+    reasoning,
+    pass: true, // 对齐旧 abm 分支的 prestageData.pass=true（判定本身完成）
+    details: {
+      followers,
+      members,
+      accountMatchDetails: `${NAME_LINK_LABELS[nameLink] || nameLink}（Jev choice=${nameLink}）`,
+      web3Interaction: trafficOk ? '有近期Web3流量事件' : `无近期Web3流量事件（P=${round2(trafficP)}）`,
+    },
+    jevDetails: { nameLink, trafficChoice, trafficP },
+  };
+}
 
 /**
  * project / web3ip 评级（纯确定性，V2.0 评级表下沉；high 档就高处理：
@@ -76,11 +114,13 @@ export function rateProject(data, activityChoice, opts = {}) {
  * @param {Object} context.fullAccountOrCommunityData - 账号/社区完整数据
  * @param {boolean} context.addressVerified - 规则验证地址命中结果
  * @param {Object|null} [context.rulesResult] - performRulesValidation 结果
+ * @param {string|null} [context.corpusType] - 语料 URL 形状（fetchResults.twitterInfo.type：
+ *   'account'/'community'/'tweet'；C101 推文语料 web3ip 不采信，缺省 null=放行）
  * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @returns {Object} { tokenType, rating, reasoning, baselineMet, prestageDataToSave, promptType, jevDetails }
  */
 export function mapPrestageAnswers(answers, context) {
-  const { fullAccountOrCommunityData, addressVerified, rulesResult, callInfo } = context;
+  const { fullAccountOrCommunityData, addressVerified, rulesResult, corpusType = null, callInfo } = context;
   const data = fullAccountOrCommunityData;
   const isAccount = data.type === 'account';
   const followers = isAccount ? (data.followers_count || 0) : null;
@@ -125,33 +165,31 @@ export function mapPrestageAnswers(answers, context) {
   if (!addressVerified) {
     // ── 地址未命中：固定 account_based_meme 判定（V1.0 两条件）──────────
     tokenType = 'account_based_meme';
-    const nameLink = answers.prestage_abm_name_link?.choice || 'none';
-    const trafficChoice = answers.prestage_abm_web3_traffic?.choice || 'no_traffic';
-    const trafficP = answers.prestage_abm_web3_traffic?.probabilities?.has_traffic ?? 0;
-
-    const nameOk = nameLink !== 'none';
-    const trafficOk = trafficP >= 0.5;
-    rating = (nameOk && trafficOk) ? 'mid' : 'low';
-
-    const failed = [];
-    if (!nameOk) failed.push('名称关联不成立');
-    if (!trafficOk) failed.push('无30天内Web3流量事件');
-
-    reasoning = `名称关联:${NAME_LINK_LABELS[nameLink] || nameLink}｜Web3流量:${trafficOk ? `有(P=${round2(trafficP)})` : `无(P=${round2(trafficP)}，choice=${trafficChoice})`}｜${rating === 'mid' ? '两条件同时满足→mid（账号背景 meme 双证据成立）' : `不满足:${failed.join('、')}→low`}`;
-    pass = true; // 对齐旧 abm 分支的 prestageData.pass=true（判定本身完成）
-
-    details = {
-      followers,
-      members,
-      accountMatchDetails: `${NAME_LINK_LABELS[nameLink] || nameLink}（Jev choice=${nameLink}）`,
-      web3Interaction: trafficOk ? '有近期Web3流量事件' : `无近期Web3流量事件（P=${round2(trafficP)}）`,
-    };
-    jevDetails = { nameLink, trafficChoice, trafficP };
+    const abm = evaluateAbmAnswers(answers, { followers, members });
+    rating = abm.rating;
+    reasoning = abm.reasoning;
+    pass = abm.pass;
+    details = abm.details;
+    jevDetails = abm.jevDetails;
   } else {
     // ── 地址命中：token_type 二分（V2.0）────────────────────────────────
     tokenType = answers.prestage_token_type?.choice || 'project';
 
-    if (tokenType === 'web3_native_ip_early') {
+    if (tokenType === 'web3_native_ip_early' && corpusType === 'tweet') {
+      // P1.11（C101，2026-10-18 用户裁定「web3_native_ip_early 仅限于账号」「这不是
+      // 账号，这就是个推文」）：挂链语料是一条推文时 web3ip 不采信——「币本身即
+      // 该账号的 IP」需要账号叙事承载，单条推文不构成（OK❌ 案：找角度推文宣告
+      // 的 web3ip 0.96 → mid → 买 -12.75%）。回落 abm 双条件评定（两题恒带已答，
+      // 零额外调用），addressVerified=true 事实保留在 parsed_output
+      tokenType = 'account_based_meme';
+      const abm = evaluateAbmAnswers(answers, { followers, members });
+      rating = abm.rating;
+      reasoning = `推文语料不采信web3ip（C101：web3_native_ip_early仅限账号语料，回落abm双条件）｜${abm.reasoning}`;
+      pass = abm.pass;
+      baselineMet = null;
+      details = abm.details;
+      jevDetails = { ...abm.jevDetails, web3ipRejectedCorpusType: 'tweet' };
+    } else if (tokenType === 'web3_native_ip_early') {
       // 按账号基本面定档（2026-09-27 裁定：不再 unrated"等社区成长"——过与不过要有
       // 结论）。P1.10（C70）：账号基本面门全删，粉丝带只定档不拦截
       const rated = rateProject(data, null, { ratingLabel: '账号基本面评级' });

@@ -611,8 +611,9 @@ export function isProjectCoin(tokenAddress, fetchResults, options = {}) {
   }
 
   // 检查classifiedUrls中所有URL是否包含地址（项目币网站链接中常包含合约地址；
-  // C99：聚合器自动页 URL 除外——token 页路径天然含本币地址）
-  if (classifiedUrls) {
+  // C99：聚合器自动页 URL 除外——token 页路径天然含本币地址；
+  // C100：includeUrlArm=false 时整臂不评——URL 含 CA 不算命中 CA，只作路由线索）
+  if (includeUrlArm && classifiedUrls) {
     const allUrls = Object.values(classifiedUrls).flat().map(u => u?.url).filter(Boolean);
     if (allUrls.some(url => url.toLowerCase().includes(address) && !isAutoTokenPageUrl(url))) {
       return true;

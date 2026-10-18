@@ -580,6 +580,9 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 项目币跳过地址验证（已通过网站内容验证地址）
+  // C100 后到达域收窄：skip 只由内容臂强证据（推文/简介/网站正文含 CA）或
+  // issuerCaTimeline（作者时间线真宣告）触发——URL 含 CA 不再进入本分支
+  // （此处是 addressVerified 的唯一伪造位，证据源收窄=伪造链断源）
   // ═══════════════════════════════════════════════════════════════════════════
   if (options.skipAddressValidation) {
     console.log(`[AccountCommunityRules] 项目币跳过地址验证（网站已验证地址）`, {

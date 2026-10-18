@@ -75,9 +75,16 @@ P1.10：题面未动（token_type 判据措辞一处修正）——mapper 端账
    "follower count decides nothing here — it only sets the rating tier in
    code, it never blocks"。粉丝/成员数只剩定档（0-299 mid / ≥300 high）。
    同 token 两版本下的评级不可直接比较（low→mid 单向翻转）
+P1.11：题面未动——mapper 端采信语义变化（P1.3 同例 bump：聚合语义变化须可按版本
+   筛历史行）。C101（2026-10-18 用户裁定「web3_native_ip_early 仅限于账号」「这不是
+   账号，这就是个推文」）：corpusType==='tweet'（挂链语料是一条推文）时
+   web3_native_ip_early 答案不采信，回落 abm 双条件评定（两题恒带已答零额外调用）
+   ——「币本身即该账号的 IP」需要账号叙事承载，单条推文不构成。触发案：OK❌
+   0x0195119e…7777（flap 税币，找角度推文宣告 + 假 addressVerified 双洞，同日
+   修复）净 -12.75%。同 token 两版本下推文语料票的类型判定不可直接比较
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.10';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.11';
 
 /**
  * 构建 prestage 问题集

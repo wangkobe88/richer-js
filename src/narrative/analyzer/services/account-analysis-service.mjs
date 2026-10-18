@@ -319,6 +319,9 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     fullAccountOrCommunityData,
     addressVerified: rulesResult.addressVerified,
     rulesResult,
+    // C101：语料 URL 形状（'tweet' 时 mapper 不采信 web3ip——「web3_native_ip_early
+    // 仅限于账号」，OK❌ 案找角度推文宣告不得按 web3ip 定档）
+    corpusType: twitterInfo?.type || null,
     callInfo: {
       model: result.model, questions, state, stateStats: stats,
       usage: result.usage, startedAt, finishedAt,

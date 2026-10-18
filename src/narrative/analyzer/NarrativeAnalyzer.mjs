@@ -401,6 +401,14 @@ export class NarrativeAnalyzer {
     if (isProjectCoinResult) {
       logger.info('NarrativeAnalyzer', '检测到项目币（地址出现在内容中）');
     }
+    // C100（OK❌ 案用户裁定「网址里头有CA不算命中CA」）：skipAddressValidation 的
+    // 证据源只认内容臂（推文/简介/网站正文含 CA）；URL 含 CA 只作路由线索，
+    // 不得伪造 addressVerified。URL 臂独命中时打点观测（此类票进 prestage 后
+    // 走真实验证：简介/时间线无 CA → 质量不达标账号 stage='address' 拒 low）
+    const isProjectCoinContentVerified = isProjectCoin(normalizedAddress, { twitterInfo, websiteInfo, classifiedUrls }, { includeUrlArm: false });
+    if (isProjectCoinResult && !isProjectCoinContentVerified) {
+      logger.info('NarrativeAnalyzer', '项目币证据仅 URL 含 CA（C100：不作为地址验证依据，规则验证正常执行）');
+    }
     // 发行方自发币检测（路径二，方案 A，2026-09-24）：推文作者与代币品牌同一且
     // 作者自己宣告了该品牌 → 转账号判定（不要求当前影响力；截词借势盘不满足
     // 品牌同一性，仍走标准路径 W 数学）
@@ -639,8 +647,11 @@ export class NarrativeAnalyzer {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
             const analysisResult = await timing.wrap('jev.prestage', () => analyzeAccountCommunityToken(tokenData, fetchResults, {
               // CA 实锤与项目币网站验证同级：地址已被作者时间线宣告，prestage 规则走
-              // 项目币通道（名称只记录不拦截——蝴蝶轮回↔熔炉 名称不匹配不能拦 project 评级）
-              skipAddressValidation: isProjectCoinResult || !!issuerCaTimeline,
+              // 项目币通道（名称只记录不拦截——蝴蝶轮回↔熔炉 名称不匹配不能拦 project 评级）。
+              // C100：项目币侧只认内容臂强证据（isProjectCoinContentVerified）——
+              // URL 含 CA 不算命中 CA，不得伪造 addressVerified（OK❌ 案：
+              // t.me/#<CA> 触发 skip → 假 addressVerified=true → web3ip mid → 买 -12.75%）
+              skipAddressValidation: isProjectCoinContentVerified || !!issuerCaTimeline,
               // C70「重取数重析」：prestage 规则验证的账号拉取同样失效重取
               //（形状门已在上方算出，此处只透传布尔）
               ...(shouldInvalidateAccountCorpus ? { invalidateAccountCorpus: true } : {})

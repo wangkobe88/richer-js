@@ -39,7 +39,7 @@ function check(desc, actual, expected) {
   const { resolveFinalRating } = await import('../src/narrative/utils/rating-utils.mjs');
 
   console.log('== 0. 版本 bump ==');
-  check('P1.10', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.10');
+  check('P1.11', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.11');
 
   // ── mapper 测试基础设施 ────────────────────────────────────────────
   const callInfo = {
@@ -90,7 +90,7 @@ function check(desc, actual, expected) {
   check('mid 带 pass=true', wl.prestageDataToSave.pass, true);
   check('baselineMet=true', wl.baselineMet, true);
   check('category=web3_native_ip_early', wl.tokenType, 'web3_native_ip_early');
-  check('promptType 带 P1.10', wl.promptType, `prestage-jev(P1.10/web3_native_ip_early)`);
+  check('promptType 带 P1.11', wl.promptType, `prestage-jev(P1.11/web3_native_ip_early)`);
   check('reason 前缀 = 账号基本面评级（P1.9 标签）',
     wl.reasoning.startsWith('Web3原生IP早期（币本身即IP') && wl.reasoning.includes('账号基本面评级'), true);
 

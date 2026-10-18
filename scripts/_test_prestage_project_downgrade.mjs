@@ -119,7 +119,7 @@ const mapped = mapPrestageAnswers(answers, {
   callInfo,
 });
 check('bunker 全链 project → mid + promptType P1.10', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'mid', pt: `prestage-jev(P1.10/project)` });
+  { rating: 'mid', pt: `prestage-jev(P1.11/project)` });
 check('jevDetails 无 downgrade/qualityExempt 键',
   { dg: 'downgrade' in mapped.jevDetails, qe: 'qualityExempt' in mapped.jevDetails },
   { dg: false, qe: false });
@@ -142,7 +142,7 @@ const mappedIp = mapPrestageAnswers({
 });
 check('web3ip 分支 131 粉 → mid + promptType 带 web3_native_ip_early',
   { rating: mappedIp.rating, pt: mappedIp.promptType },
-  { rating: 'mid', pt: 'prestage-jev(P1.10/web3_native_ip_early)' });
+  { rating: 'mid', pt: 'prestage-jev(P1.11/web3_native_ip_early)' });
 check('web3ip reason 含 IP 前缀', mappedIp.reasoning.startsWith('Web3原生IP早期'), true);
 // abm 分支（addressVerified=false）：判定不消费 rateProject，两条件逻辑不变
 const mappedAbm = mapPrestageAnswers(answers, {
@@ -157,7 +157,7 @@ const qs = buildPrestageQuestions();
 check('问题集无 prestage_project_quality（题随豁免逻辑删）',
   'prestage_project_quality' in qs, false);
 check('问题集 4 题', Object.keys(qs).length, 4);
-check('版本 P1.10', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.10');
+check('版本 P1.11', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.11');
 
 console.log(`\n${pass}/${pass + fail}`);
 process.exit(fail === 0 ? 0 : 1);
