@@ -1,0 +1,1471 @@
+<meta charset="utf-8">
+<title>叙事引擎一次心跳</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* ═══ ① 主题 token（dark-first 霓虹）═══ */
+:root{
+  --bg:#070b14; --bg-2:#0a1120; --panel:#0e1830; --panel-2:#13203c; --panel-3:#0b1326;
+  --fg:#e7eef9; --fg-dim:#93a4c3; --fg-faint:#7488ad;
+  --line:#1d2b47; --line-2:#2b4066;
+  --accent:#2fd8f0; --accent-2:#e879f9;
+  --ok:#3ddc97; --warn:#fbbf24; --bad:#fb7185;
+  --glow-a:color-mix(in srgb,var(--accent) 42%,transparent);
+  --glow-b:color-mix(in srgb,var(--accent-2) 38%,transparent);
+  --glow-ok:color-mix(in srgb,var(--ok) 40%,transparent);
+  --glow-bad:color-mix(in srgb,var(--bad) 42%,transparent);
+  --wire-base:#20304f; --wire-flow:var(--accent);
+  --star:#33456b;
+  --font:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#eef3fb; --bg-2:#e6edf8; --panel:#ffffff; --panel-2:#f3f7fd; --panel-3:#f8fafd;
+    --fg:#17253f; --fg-dim:#4c5f82; --fg-faint:#5b6e93;
+    --line:#cfdcee; --line-2:#b7cbe2;
+    --accent:#0b7fa0; --accent-2:#9333b8;
+    --ok:#0e7a4b; --warn:#8a5a00; --bad:#c0271f;
+    --glow-a:color-mix(in srgb,var(--accent) 22%,transparent);
+    --glow-b:color-mix(in srgb,var(--accent-2) 20%,transparent);
+    --glow-ok:color-mix(in srgb,var(--ok) 22%,transparent);
+    --glow-bad:color-mix(in srgb,var(--bad) 22%,transparent);
+    --wire-base:#b9cbe0; --star:#a9bcd6;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#eef3fb; --bg-2:#e6edf8; --panel:#ffffff; --panel-2:#f3f7fd; --panel-3:#f8fafd;
+  --fg:#17253f; --fg-dim:#4c5f82; --fg-faint:#5b6e93;
+  --line:#cfdcee; --line-2:#b7cbe2;
+  --accent:#0b7fa0; --accent-2:#9333b8;
+  --ok:#0e7a4b; --warn:#8a5a00; --bad:#c0271f;
+  --glow-a:color-mix(in srgb,var(--accent) 22%,transparent);
+  --glow-b:color-mix(in srgb,var(--accent-2) 20%,transparent);
+  --glow-ok:color-mix(in srgb,var(--ok) 22%,transparent);
+  --glow-bad:color-mix(in srgb,var(--bad) 22%,transparent);
+  --wire-base:#b9cbe0; --star:#a9bcd6;
+}
+
+/* ═══ ② 壳层 ═══ */
+html,body{height:100%}
+body{
+  margin:0; font-family:var(--font); background:var(--bg); color:var(--fg);
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+#app{height:100%; display:flex; flex-direction:column; gap:8px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); padding-block:10px 12px; box-sizing:border-box}
+header{
+  flex:0 0 auto; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  padding-bottom:8px; border-bottom:1px solid var(--line);
+}
+header .brand{font-size:17px; font-weight:700; letter-spacing:.02em}
+header .brand em{font-style:normal; color:var(--accent)}
+header .tagline{font-size:12px; color:var(--fg-faint); font-family:var(--mono)}
+header .chname{margin-left:auto; font-size:12px; color:var(--fg-dim); display:flex; gap:8px; align-items:baseline}
+header .chname b{color:var(--accent); font-family:var(--mono); font-weight:600}
+#stageWrap{
+  flex:1 1 auto; position:relative; min-height:0; border-radius:14px;
+  border:1px solid var(--line);
+  background:
+    radial-gradient(1100px 650px at 72% -12%, var(--glow-a), transparent 62%),
+    radial-gradient(880px 560px at 12% 112%, var(--glow-b), transparent 58%),
+    var(--bg-2);
+  overflow:hidden;
+}
+#stageWrap::after{
+  content:''; position:absolute; inset:0; pointer-events:none; opacity:.6;
+  background-image:
+    radial-gradient(1.4px 1.4px at 9% 22%, var(--star), transparent 100%),
+    radial-gradient(1px 1px at 22% 68%, var(--star), transparent 100%),
+    radial-gradient(1.6px 1.6px at 31% 14%, var(--star), transparent 100%),
+    radial-gradient(1px 1px at 44% 82%, var(--star), transparent 100%),
+    radial-gradient(1.3px 1.3px at 56% 34%, var(--star), transparent 100%),
+    radial-gradient(1px 1px at 66% 74%, var(--star), transparent 100%),
+    radial-gradient(1.5px 1.5px at 78% 18%, var(--star), transparent 100%),
+    radial-gradient(1px 1px at 86% 58%, var(--star), transparent 100%),
+    radial-gradient(1.2px 1.2px at 94% 34%, var(--star), transparent 100%),
+    radial-gradient(1px 1px at 15% 44%, var(--star), transparent 100%);
+  animation:twinkle 5.5s ease-in-out infinite alternate;
+}
+#stageInner{
+  position:absolute; left:50%; top:50%; width:960px; height:540px;
+  margin:-270px 0 0 -480px; transform-origin:center center;
+}
+#wires{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:1}
+.scene{position:absolute; inset:0; z-index:2}
+#subBar{flex:0 0 auto; display:flex; align-items:baseline; gap:12px; min-height:40px}
+#chEyebrow{
+  flex:0 0 auto; font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+  color:var(--accent); text-transform:uppercase; white-space:nowrap;
+}
+#subText{font-size:14.5px; line-height:1.5; color:var(--fg-dim); min-width:0}
+#timeline{flex:0 0 auto; display:flex; gap:3px; height:34px; align-items:stretch}
+.tl-seg{
+  flex:1 1 auto; position:relative; border:1px solid var(--line); border-radius:6px;
+  background:var(--panel-3); cursor:pointer; overflow:hidden; padding:0;
+  display:flex; align-items:center; justify-content:center; gap:4px;
+  transition:border-color .3s, background .3s;
+}
+.tl-seg:hover{border-color:var(--line-2)}
+.tl-seg .fill{
+  position:absolute; inset:0; width:0%; background:linear-gradient(90deg,var(--glow-a),color-mix(in srgb,var(--accent) 24%,transparent));
+  border-radius:5px; transition:width .2s linear;
+}
+.tl-seg .lbl{
+  position:relative; font-family:var(--mono); font-size:10px; color:var(--fg-faint);
+  white-space:nowrap; transition:color .3s;
+}
+.tl-seg.cur{border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.tl-seg.cur .lbl{color:var(--fg)}
+.tl-seg.done .lbl{color:var(--fg-dim)}
+#controls{flex:0 0 auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.btn{
+  appearance:none; border:1px solid var(--line); background:var(--panel); color:var(--fg-dim);
+  font-family:var(--mono); font-size:12.5px; border-radius:8px; padding:8px 13px; cursor:pointer;
+  transition:border-color .25s, color .25s, background .25s;
+}
+.btn:hover{border-color:var(--line-2); color:var(--fg)}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.btn.primary{border-color:color-mix(in srgb,var(--accent) 55%,transparent); color:var(--accent); min-width:74px}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 10%,var(--panel))}
+.btn.active{border-color:var(--accent); color:var(--accent); background:color-mix(in srgb,var(--accent) 10%,var(--panel))}
+#speedGroup{display:flex; gap:0; margin-left:auto}
+#speedGroup .btn{border-radius:0; margin-left:-1px}
+#speedGroup .btn:first-child{border-radius:8px 0 0 8px; margin-left:0}
+#speedGroup .btn:last-child{border-radius:0 8px 8px 0}
+
+/* ═══ ③ 通用组件 ═══ */
+.node{
+  position:absolute; left:var(--x); top:var(--y); width:var(--w,180px);
+  background:color-mix(in srgb,var(--panel) 88%,transparent);
+  border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+  box-sizing:border-box; z-index:2;
+  transition:border-color .45s, box-shadow .45s, opacity .5s, transform .5s;
+}
+.node .nt{font-size:13px; font-weight:700; letter-spacing:.01em; margin-bottom:3px}
+.node .nd{font-size:11px; line-height:1.45; color:var(--fg-dim)}
+.node .nm{font-family:var(--mono); font-size:10px; color:var(--fg-faint); margin-top:4px}
+.node.lit{border-color:color-mix(in srgb,var(--accent) 65%,transparent); box-shadow:0 0 16px var(--glow-a)}
+.node.lit-ok{border-color:color-mix(in srgb,var(--ok) 60%,transparent); box-shadow:0 0 14px var(--glow-ok)}
+.node.lit-bad{border-color:color-mix(in srgb,var(--bad) 65%,transparent); box-shadow:0 0 14px var(--glow-bad)}
+.node.hot .nt{color:var(--accent)}
+.node[data-tip]{cursor:help}
+.badge{
+  display:inline-flex; align-items:center; gap:4px; font-family:var(--mono); font-size:10px;
+  border:1px solid var(--line-2); border-radius:5px; padding:2px 6px; color:var(--fg-dim);
+  background:var(--panel-2); white-space:nowrap;
+}
+.badge.b-a{border-color:color-mix(in srgb,var(--accent) 50%,transparent); color:var(--accent)}
+.badge.b-ok{border-color:color-mix(in srgb,var(--ok) 50%,transparent); color:var(--ok)}
+.badge.b-bad{border-color:color-mix(in srgb,var(--bad) 55%,transparent); color:var(--bad)}
+.badge.b-warn{border-color:color-mix(in srgb,var(--warn) 55%,transparent); color:var(--warn)}
+.badge.b-mag{border-color:color-mix(in srgb,var(--accent-2) 55%,transparent); color:var(--accent-2)}
+.chip{display:inline-block; font-family:var(--mono); font-size:10px; color:var(--fg-faint); margin-right:5px}
+[data-a]{opacity:0; transform:translateY(12px) scale(.97); transition:opacity .55s ease, transform .55s cubic-bezier(.2,.85,.25,1)}
+[data-a].on{opacity:1; transform:none}
+.stamp{
+  position:absolute; font-family:var(--mono); font-weight:800; font-size:15px; letter-spacing:.1em;
+  color:var(--bad); border:2.5px solid currentColor; border-radius:8px; padding:4px 10px;
+  transform:rotate(-8deg); background:color-mix(in srgb,var(--bg) 60%,transparent);
+  z-index:5; pointer-events:none;
+}
+.stamp.ok{color:var(--ok)}
+.stamp.mag{color:var(--accent-2)}
+.stamp.hit{animation:stampIn .5s cubic-bezier(.2,1.6,.4,1) both}
+.ghost{
+  border-style:dashed; opacity:.5;
+  border-color:color-mix(in srgb,var(--accent-2) 60%,transparent);
+}
+.ghost .nt, .ghost .nd{color:var(--fg-dim)}
+.branch-tag{
+  position:absolute; top:-9px; right:10px; font-family:var(--mono); font-size:9px; letter-spacing:.12em;
+  color:var(--accent-2); background:var(--bg-2); border:1px dashed color-mix(in srgb,var(--accent-2) 60%,transparent);
+  border-radius:4px; padding:1px 6px; z-index:6;
+}
+.prob{margin:6px 0 2px}
+.prob .pr-l{display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--fg-faint); margin-bottom:3px}
+.prob .pr-l b{color:var(--fg-dim); font-weight:600}
+.prob .pr-t{height:7px; border-radius:4px; background:var(--panel-3); border:1px solid var(--line); overflow:hidden}
+.prob .pr-f{height:100%; width:0%; border-radius:4px; background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 55%,var(--accent-2))); transition:width 1s cubic-bezier(.25,.8,.3,1)}
+.prob .pr-f.ok{background:linear-gradient(90deg,var(--ok),color-mix(in srgb,var(--ok) 70%,var(--accent)))}
+.prob .pr-f.mag{background:linear-gradient(90deg,var(--accent-2),color-mix(in srgb,var(--accent-2) 70%,var(--accent)))}
+.prob .pr-t .thresh{position:absolute}
+.big{font-family:var(--mono); font-weight:700; font-size:30px; letter-spacing:.02em; line-height:1}
+.big.ok{color:var(--ok)} .big.bad{color:var(--bad)} .big.acc{color:var(--accent)} .big.mag{color:var(--accent-2)}
+.mono{font-family:var(--mono)}
+.dim{color:var(--fg-dim)} .faint{color:var(--fg-faint)}
+.acc{color:var(--accent)} .okc{color:var(--ok)} .badc{color:var(--bad)} .magc{color:var(--accent-2)} .warnc{color:var(--warn)}
+.glow-t{text-shadow:0 0 14px var(--glow-a)}
+.hr{height:1px; background:var(--line); margin:7px 0; border:0}
+.pt{
+  position:absolute; width:5px; height:5px; border-radius:50%; z-index:4; pointer-events:none;
+  background:var(--accent); box-shadow:0 0 8px var(--glow-a); left:0; top:0; opacity:.9;
+}
+.pt.mag{background:var(--accent-2); box-shadow:0 0 8px var(--glow-b)}
+.wire-base{fill:none; stroke:var(--wire-base); stroke-width:1.6}
+.wire-base.mag{stroke:color-mix(in srgb,var(--accent-2) 45%,var(--wire-base))}
+.wire-flow{fill:none; stroke:var(--wire-flow); stroke-width:2; stroke-linecap:round;
+  stroke-dasharray:9 27; opacity:0; transition:opacity .5s; filter:drop-shadow(0 0 4px var(--glow-a))}
+.wire-flow.mag{stroke:var(--accent-2); filter:drop-shadow(0 0 4px var(--glow-b))}
+.wire-flow.run{opacity:.95; animation:flow 1.1s linear infinite}
+.wire-flow.once{opacity:.95; animation:flowOnce 1s linear 1}
+.card-list{display:flex; flex-direction:column; gap:6px}
+.mini{font-size:10.5px; line-height:1.5; color:var(--fg-dim)}
+.door{
+  position:absolute; background:var(--panel-2); border:1.5px solid var(--line-2); border-radius:8px;
+  font-family:var(--mono); font-size:10.5px; color:var(--fg-dim); padding:6px 9px; z-index:3;
+  transition:border-color .4s, box-shadow .4s, color .4s, opacity .5s, transform .5s;
+}
+.door.open{border-color:color-mix(in srgb,var(--ok) 60%,transparent); color:var(--ok); box-shadow:0 0 12px var(--glow-ok)}
+.klabel{
+  position:absolute; font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; color:var(--fg-faint);
+  text-transform:uppercase; z-index:3; transition:color .4s;
+}
+.klabel.acc{color:var(--accent)}
+/* ═══ ④ 各章场景 ═══ */
+/* ch1 代币卡 */
+.tokcard{--w:330px; padding:16px 18px}
+.tokcard .tk-sym{font-family:var(--mono); font-weight:800; font-size:30px; color:var(--accent); text-shadow:0 0 18px var(--glow-a)}
+.tokcard .tk-row{display:flex; align-items:center; gap:7px; margin-top:7px; font-family:var(--mono); font-size:11px; color:var(--fg-dim); min-width:0}
+.tokcard .tk-row .u{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:250px}
+.urlbox{
+  position:absolute; --w:400px; background:color-mix(in srgb,var(--panel) 88%,transparent);
+  border:1px solid var(--line); border-radius:10px; padding:9px 12px; box-sizing:border-box;
+}
+.urlbox .ub-h{font-family:var(--mono); font-size:9.5px; letter-spacing:.12em; color:var(--fg-faint); text-transform:uppercase; margin-bottom:4px}
+.urlbox .ub-r{display:flex; gap:8px; align-items:baseline; font-family:var(--mono); font-size:11px; margin-top:4px; transition:color .4s, opacity .4s}
+.urlbox .ub-r .k{color:var(--fg-faint); flex:0 0 58px}
+.urlbox .ub-r .v{color:var(--fg-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.urlbox .ub-r.on .v{color:var(--accent)}
+.qmark{
+  position:absolute; font-size:19px; font-weight:700; color:var(--accent-2); z-index:5;
+  text-shadow:0 0 16px var(--glow-b); transition:opacity .6s, transform .6s;
+}
+/* ch2/ch12 DB 圆柱 */
+.dbcyl{
+  position:absolute; --w:210px; display:flex; flex-direction:column; align-items:center; z-index:2;
+  transition:opacity .5s, transform .5s;
+}
+.dbcyl .cyl{
+  width:120px; height:104px; position:relative;
+  background:linear-gradient(180deg, color-mix(in srgb,var(--panel-2) 92%,transparent), var(--panel-3));
+  border:1.5px solid var(--line-2); border-radius:14px/26px;
+}
+.dbcyl .cyl::before{
+  content:''; position:absolute; left:-1.5px; right:-1.5px; top:-11px; height:24px;
+  background:var(--panel-2); border:1.5px solid var(--line-2); border-radius:50%;
+}
+.dbcyl .db-n{font-family:var(--mono); font-size:11px; color:var(--fg-dim); margin-top:10px}
+.dbcyl .db-s{font-family:var(--mono); font-size:9.5px; color:var(--fg-faint); margin-top:2px}
+.dbcyl.lit .cyl{border-color:color-mix(in srgb,var(--accent) 60%,transparent); box-shadow:0 0 22px var(--glow-a)}
+/* ch3 桶与平台 */
+.bucket{--w:200px; min-height:96px}
+.bucket .bk-i{display:flex; flex-wrap:wrap; gap:4px; margin-top:6px}
+.platch{
+  display:inline-block; font-family:var(--mono); font-size:9.5px; border:1px solid var(--line);
+  border-radius:4px; padding:2px 5px; color:var(--fg-faint); background:var(--panel-3);
+  transition:color .35s, border-color .35s, box-shadow .35s;
+}
+.platch.on{color:var(--accent); border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.platch.off{opacity:.42; text-decoration:line-through}
+.chainrow{display:flex; gap:3px; flex-wrap:nowrap; margin-top:6px}
+.chainrow .platch{transition-delay:0s}
+/* ch4/ch7 门题卡 */
+.gatecard{--w:250px}
+.gatecard .gc-h{display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10px; letter-spacing:.1em; color:var(--accent); text-transform:uppercase}
+.skipgrid{position:absolute; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; z-index:2}
+.skipgrid .platch{font-size:9px; text-align:center; position:relative}
+.skipgrid .platch.sk{opacity:.38}
+/* ch5 泳道 */
+.lane{
+  position:absolute; left:70px; right:90px; height:44px; background:var(--panel-3);
+  border:1px solid var(--line); border-radius:9px; z-index:2; display:flex; align-items:center;
+  padding:0 12px; gap:10px; box-sizing:border-box;
+  transition:border-color .4s, opacity .5s;
+}
+.lane .ln-n{font-family:var(--mono); font-size:10px; color:var(--fg-faint); flex:0 0 auto; width:26px}
+.lane .ln-t{font-size:12px; font-weight:600; flex:0 0 178px}
+.lane .ln-p{flex:1 1 auto; height:7px; border-radius:4px; background:var(--panel); border:1px solid var(--line); overflow:hidden}
+.lane .ln-p i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width 1.4s cubic-bezier(.3,.7,.3,1)}
+.lane .ln-s{font-family:var(--mono); font-size:10px; color:var(--fg-faint); flex:0 0 auto; transition:color .4s}
+.lane.done{border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.lane.done .ln-s{color:var(--ok)}
+.lane.idle{opacity:.4}
+/* ch6 规则墙 */
+.rwall{position:absolute; display:grid; grid-template-columns:repeat(4,1fr); gap:7px; z-index:2}
+.brick{
+  background:var(--panel-3); border:1px solid var(--line); border-radius:8px; padding:7px 8px;
+  transition:border-color .35s, box-shadow .35s, opacity .5s;
+}
+.brick .bk-c{font-family:var(--mono); font-size:11px; font-weight:700; color:var(--fg-dim)}
+.brick .bk-d{font-size:9.8px; line-height:1.35; color:var(--fg-faint); margin-top:2px}
+.brick.pass{border-color:color-mix(in srgb,var(--ok) 50%,transparent); box-shadow:0 0 9px var(--glow-ok)}
+.brick.pass .bk-c{color:var(--ok)}
+.brick.fail{border-color:color-mix(in srgb,var(--bad) 60%,transparent); box-shadow:0 0 12px var(--glow-bad)}
+.brick.fail .bk-c{color:var(--bad)}
+.brick.hot{border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.wallscan{
+  position:absolute; width:2px; height:0; background:linear-gradient(180deg,transparent,var(--accent),transparent);
+  box-shadow:0 0 14px 3px var(--glow-a); z-index:4; opacity:0;
+}
+/* ch8 路由 */
+.router{
+  --w:230px; display:flex; flex-direction:column; align-items:center; text-align:center; padding:14px;
+}
+.router .rt-c{width:52px; height:52px; border-radius:50%; border:2px solid var(--line-2); position:relative; margin-bottom:8px;
+  background:radial-gradient(circle at 50% 40%, var(--panel-2), var(--panel-3)); transition:border-color .5s, box-shadow .5s}
+.router .rt-c::after{content:''; position:absolute; inset:16px; border-radius:50%; background:var(--accent); opacity:.85; box-shadow:0 0 16px var(--glow-a); transition:opacity .5s}
+.router.lit .rt-c{border-color:var(--accent); box-shadow:0 0 20px var(--glow-a)}
+/* ch9 题卡轮播 */
+.qstage{position:absolute; inset:0; z-index:2}
+.qcard{
+  position:absolute; --w:300px; transition:opacity .6s, transform .6s;
+}
+.qcard.qout{opacity:0; transform:translateX(-26px) scale(.96); pointer-events:none}
+.qcard.qin{opacity:0; transform:translateX(26px) scale(.96)}
+.qcard .qc-h{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px}
+.qcard .qc-id{font-family:var(--mono); font-size:11px; color:var(--accent); font-weight:700}
+.qcard .qc-ty{font-family:var(--mono); font-size:9px; color:var(--fg-faint); letter-spacing:.12em}
+.qcard .qc-q{font-size:12px; color:var(--fg); line-height:1.45; margin-bottom:2px}
+.qbar{display:flex; align-items:center; gap:7px; margin-top:5px}
+.qbar .qb-k{font-family:var(--mono); font-size:10px; flex:0 0 86px; color:var(--fg-dim)}
+.qbar .qb-t{flex:1 1 auto; height:8px; border-radius:4px; background:var(--panel-3); border:1px solid var(--line); overflow:hidden}
+.qbar .qb-f{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); border-radius:4px; transition:width .9s cubic-bezier(.25,.8,.3,1)}
+.qbar .qb-f.top{background:linear-gradient(90deg,var(--ok),var(--accent))}
+.qbar .qb-v{font-family:var(--mono); font-size:10px; color:var(--fg-dim); flex:0 0 40px; text-align:right}
+.qcond{opacity:.38; filter:saturate(.5)}
+.qcount{
+  position:absolute; font-family:var(--mono); font-size:12px; color:var(--fg-dim); z-index:5;
+}
+.qcount b{color:var(--accent); font-size:22px; font-weight:800}
+/* ch10 齿轮 */
+.gear{
+  position:absolute; width:64px; height:64px; border-radius:50%; border:2.5px solid var(--line-2); z-index:3;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 8px, var(--panel-2) 9px, transparent 10px),
+    repeating-conic-gradient(var(--line-2) 0deg 14deg, transparent 14deg 45deg);
+  transition:border-color .5s;
+}
+.gear.spin{animation:spin 5s linear infinite}
+.gear.lit{border-color:var(--accent)}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* ch11 仪表 */
+.gauge{position:absolute; z-index:3}
+.gauge svg{overflow:visible}
+.gauge .gg-arc{fill:none; stroke:var(--panel-3); stroke-width:13}
+.gauge .gg-val{fill:none; stroke:url(#ggGrad); stroke-width:13; stroke-linecap:round; transition:stroke-dashoffset 1.6s cubic-bezier(.3,.8,.3,1)}
+.gauge .gg-needle{stroke:var(--fg); stroke-width:2.5; stroke-linecap:round; transform-origin:100px 92px; transition:transform 1.6s cubic-bezier(.3,.8,.3,1)}
+.gauge .gg-c{fill:var(--fg); font-weight:800; font-family:var(--mono)}
+.gauge .gg-tick{stroke:var(--fg-faint); stroke-width:2}
+.gauge .gg-ticklab{fill:var(--fg-faint); font-family:var(--mono); font-size:9px; transition:fill .5s}
+.gauge .gg-ticklab.lit{fill:var(--ok); font-weight:700}
+.mathline{
+  position:absolute; font-family:var(--mono); font-size:13px; color:var(--fg-dim); z-index:3;
+  display:flex; gap:8px; align-items:baseline; white-space:nowrap;
+}
+.mathline b{color:var(--accent); font-weight:700}
+.mathline .op{color:var(--fg-faint)}
+.mathline b.sum{color:var(--accent-2)}
+/* ch12 闸刀 */
+.blade{
+  position:absolute; width:46px; height:64px; z-index:3;
+  display:flex; flex-direction:column; align-items:center; transition:transform .55s cubic-bezier(.5,0,.7,.4);
+}
+.blade .bl-k{width:34px; height:34px; border:2px solid var(--line-2); border-radius:6px; background:var(--panel-2);
+  display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:9px; color:var(--fg-dim);
+  transition:border-color .4s, color .4s}
+.blade .bl-s{width:3px; flex:1 1 auto; background:var(--line-2); margin-top:2px; transition:background .4s}
+.blade.dropped{transform:translateY(40px)}
+.blade.passed .bl-k{border-color:color-mix(in srgb,var(--ok) 60%,transparent); color:var(--ok)}
+.blade.passed .bl-s{background:color-mix(in srgb,var(--ok) 45%,transparent)}
+.blade .bl-l{position:absolute; bottom:-22px; font-family:var(--mono); font-size:9px; color:var(--fg-faint); white-space:nowrap; text-align:center}
+/* ch13 recap */
+.recap{position:absolute; display:flex; gap:6px; z-index:2}
+.recap .rc{
+  flex:1 1 0; border:1px solid var(--line); border-radius:8px; padding:7px 6px; text-align:center;
+  background:var(--panel-3); transition:border-color .4s, box-shadow .4s;
+}
+.recap .rc .rc-n{font-family:var(--mono); font-size:9px; color:var(--fg-faint)}
+.recap .rc .rc-t{font-size:11px; font-weight:600; color:var(--fg-dim); margin-top:2px}
+.recap .rc.on{border-color:color-mix(in srgb,var(--accent) 55%,transparent); box-shadow:0 0 10px var(--glow-a)}
+.recap .rc.on .rc-t{color:var(--fg)} .recap .rc.on .rc-n{color:var(--accent)}
+.endcard{--w:200px; text-align:center; padding:13px 10px}
+.endcard .ec-r{font-family:var(--mono); font-weight:800; font-size:34px; line-height:1.1}
+.endcard .ec-d{font-size:10.5px; color:var(--fg-dim); margin-top:4px}
+.replay{
+  position:absolute; z-index:6; appearance:none; cursor:pointer; font-family:var(--mono); font-size:14px;
+  color:var(--accent); background:color-mix(in srgb,var(--accent) 9%,var(--panel)); border:1.5px solid color-mix(in srgb,var(--accent) 55%,transparent);
+  border-radius:10px; padding:10px 22px; letter-spacing:.06em;
+  transition:box-shadow .3s, transform .3s;
+}
+.replay:hover{box-shadow:0 0 18px var(--glow-a); transform:translateY(-1px)}
+/* 抽屉 */
+#drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(380px,92vw); z-index:60;
+  background:var(--panel); border-left:1px solid var(--line-2);
+  transform:translateX(102%); transition:transform .38s cubic-bezier(.3,.8,.3,1);
+  display:flex; flex-direction:column; box-shadow:-18px 0 44px rgba(0,0,0,.32);
+}
+#drawer.open{transform:none}
+#drawer .dw-h{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line)}
+#drawer .dw-t{font-size:14px; font-weight:700; flex:1 1 auto; min-width:0}
+#drawer .dw-x{appearance:none; border:1px solid var(--line); background:var(--panel-2); color:var(--fg-dim); border-radius:7px; width:30px; height:30px; cursor:pointer; font-size:14px; line-height:1}
+#drawer .dw-b{flex:1 1 auto; overflow-y:auto; padding:14px 18px 24px; font-size:13px; line-height:1.7; min-width:0}
+#drawer .dw-b h4{margin:14px 0 6px; font-size:12px; letter-spacing:.1em; color:var(--accent); text-transform:uppercase; font-family:var(--mono)}
+#drawer .dw-b h4:first-child{margin-top:2px}
+#drawer .dw-b table{border-collapse:collapse; width:100%; font-size:11.5px}
+#drawer .dw-b td{border-top:1px solid var(--line); padding:5px 6px; vertical-align:top}
+#drawer .dw-b td:first-child{font-family:var(--mono); color:var(--accent); white-space:nowrap; width:1%}
+#drawer .dw-b code{font-family:var(--mono); font-size:11px; color:var(--accent); background:var(--panel-2); border-radius:4px; padding:1px 5px}
+#drawer .dw-b ul{margin:6px 0; padding-left:20px}
+#drawer .dw-b li{margin:3px 0}
+#tooltip{
+  position:fixed; z-index:70; max-width:280px; background:var(--panel); border:1px solid var(--line-2);
+  border-radius:8px; padding:8px 11px; font-size:11.5px; line-height:1.5; color:var(--fg-dim);
+  box-shadow:0 8px 26px rgba(0,0,0,.35); pointer-events:none; opacity:0; transition:opacity .18s;
+}
+#tooltip.show{opacity:1}
+#tooltip b{color:var(--fg)}
+
+/* ═══ ⑤ keyframes ═══ */
+@keyframes flow{from{stroke-dashoffset:0}to{stroke-dashoffset:-36}}
+@keyframes flowOnce{from{stroke-dashoffset:36}to{stroke-dashoffset:-36}}
+@keyframes twinkle{from{opacity:.32}to{opacity:.75}}
+@keyframes stampIn{
+  0%{opacity:0; transform:rotate(-8deg) scale(2.4)}
+  60%{opacity:1; transform:rotate(-8deg) scale(.94)}
+  100%{opacity:1; transform:rotate(-8deg) scale(1)}
+}
+@keyframes blink1{
+  0%,100%{box-shadow:0 0 0 transparent}
+  45%{box-shadow:0 0 18px var(--glow-a)}
+}
+@keyframes breathe{0%,100%{box-shadow:0 0 10px var(--glow-a)}50%{box-shadow:0 0 22px var(--glow-a)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.breath{animation:breathe 2.6s ease-in-out infinite}
+.floaty{animation:floaty 5s ease-in-out infinite}
+
+/* ═══ ⑥ instant（seek 快进）/暂停 ═══ */
+.instant, .instant *{transition-duration:0s!important; transition-delay:0s!important}
+.instant .wire-flow{animation:none!important}
+.instant .breath, .instant .floaty, .instant .spin, .instant #stageWrap::after{animation:none!important}
+.paused .wire-flow, .paused .breath, .paused .floaty, .paused .gear.spin{animation-play-state:paused}
+body.paused #stageWrap::after{animation-play-state:paused}
+
+/* ═══ ⑦ 响应式 ≤640px：纵向堆叠 ═══ */
+@media (max-width:640px){
+  body{overflow-y:auto}
+  #app{height:auto; min-height:100%}
+  #stageWrap{flex:0 0 auto; overflow:visible; min-height:0}
+  #stageInner{
+    position:relative; left:auto; top:auto; margin:0; width:auto; height:auto;
+    transform:none!important; padding:10px 0 4px;
+  }
+  #wires{display:none}
+  .scene{position:relative; inset:auto; display:flex; flex-direction:column; gap:9px; counter-reset:stepn}
+  .scene>*{position:relative!important; left:auto!important; top:auto!important; right:auto!important; bottom:auto!important; margin-left:0!important}
+  .node,.urlbox,.door,.gatecard,.tokcard,.router,.endcard,.bucket{position:relative; left:auto!important; top:auto!important; width:auto!important; --w:auto}
+  .node[data-anim-order]::before,.scene>.node::before{
+    counter-increment:stepn; content:counter(stepn); position:absolute; top:-8px; left:-8px;
+    width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--bg);
+    font-family:var(--mono); font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center;
+    z-index:8; box-shadow:0 0 10px var(--glow-a);
+  }
+  .dbcyl{position:relative; left:auto!important; top:auto!important; --w:auto; align-items:flex-start}
+  .rwall{position:relative; grid-template-columns:repeat(2,1fr)}
+  .skipgrid{position:relative; grid-template-columns:repeat(4,1fr)}
+  .lane{position:relative; left:auto; right:auto; flex-wrap:wrap; height:auto; padding:8px 12px}
+  .chainrow{flex-wrap:wrap}
+  .lane .ln-t{flex-basis:100%}
+  .qcard,.qstage{position:relative; left:auto!important; top:auto!important; --w:auto; width:auto!important}
+  .qcard{opacity:1!important; transform:none!important; margin-bottom:10px}
+  .gauge,.mathline,.klabel,.wallscan,.qmark,.qcount,.gear,.blade,.recap,.replay,.stamp,.branch-tag,.pt{position:relative}
+  .mathline{white-space:normal; flex-wrap:wrap; font-size:12px; left:auto!important}
+  .qcount{left:auto!important}
+  .recap{flex-wrap:wrap; left:auto!important; top:auto!important; width:auto!important} .recap .rc{flex:1 1 30%}
+  .gauge svg{width:230px; height:auto}
+  .gear{margin:4px auto}
+  .stamp{position:relative; display:inline-block; margin:6px 0; animation:none}
+  .replay{display:block; margin:12px auto 4px}
+  .qcount{margin:4px 0}
+  .qmark{display:none}
+  header .tagline{display:none}
+  .tl-seg .lbl{font-size:8.5px}
+  #subText{font-size:13px}
+  #drawer{top:auto; width:100%; max-height:78vh; border-left:0; border-top:1px solid var(--line-2);
+    transform:translateY(103%)}
+  #drawer.open{transform:none}
+}
+/* ═══ ⑧ reduced-motion ═══ */
+@media (prefers-reduced-motion: reduce){
+  #stageWrap::after{animation:none; opacity:.4}
+  .wire-flow.run{animation:none; stroke-dasharray:none; opacity:.7}
+  .breath,.floaty,.spin{animation:none!important}
+  .stamp.hit{animation:none; opacity:1}
+  .pt{display:none}
+  #timeline .fill{transition:none}
+}
+</style>
+
+<div id="app">
+<header>
+  <span class="brand">叙事引擎<em>·</em>一次心跳</span>
+  <span class="tagline">richer-js · narrative pipeline · J1.36</span>
+  <span class="chname"><b id="chNum">01/13</b><span id="chTitle">开场 · HIPPO 登场</span></span>
+</header>
+<main id="stageWrap" aria-label="叙事引擎流程动画舞台">
+  <div id="stageInner">
+    <svg id="wires" viewBox="0 0 960 540" aria-hidden="true"></svg>
+    <!-- 场景由 JS 注入 -->
+  </div>
+</main>
+<div id="subBar">
+  <span id="chEyebrow">CH 01 · OPENING</span>
+  <span id="subText" aria-live="polite"></span>
+</div>
+<nav id="timeline" aria-label="章节时间轴"></nav>
+<div id="controls">
+  <button class="btn" id="btnPrev" title="上一章（←）">⏮ 上一章</button>
+  <button class="btn primary" id="btnPlay" title="播放/暂停（空格）">▶ 播放</button>
+  <button class="btn" id="btnNext" title="下一章（→）">下一章 ⏭</button>
+  <button class="btn" id="btnReplay" title="重播本章">↻ 重播</button>
+  <div id="speedGroup" role="group" aria-label="播放速度">
+    <button class="btn spd" data-s="0.75">0.75×</button>
+    <button class="btn spd active" data-s="1">1×</button>
+    <button class="btn spd" data-s="1.5">1.5×</button>
+    <button class="btn spd" data-s="2">2×</button>
+  </div>
+</div>
+</div>
+<aside id="drawer" aria-label="详解面板" aria-hidden="true">
+  <div class="dw-h"><div class="dw-t" id="dwTitle"></div><button class="dw-x" id="dwClose" title="关闭（Esc）">✕</button></div>
+  <div class="dw-b" id="dwBody"></div>
+</aside>
+<div id="tooltip" role="tooltip"></div>
+<script>
+'use strict';
+/* ═══════════ ① CONTENT（全部文案与数据，渲染层只读） ═══════════
+   示例代币 HIPPO 为虚构演示票：动物园河马视频爆火 → E 类社会热点。
+   全部规则码/平台/阈值与 src/narrative/ 源码一致（J1.36 / P1.10 / 2026-10）。 */
+const C = {
+  chapters: [
+    { t:'开场 · HIPPO 登场',        e:'OPENING',      d:12, sub:'一枚新代币 HIPPO 出现了。叙事引擎要在几秒内回答一个问题：它讲的故事，值不值得买？' },
+    { t:'缓存门',                   e:'CACHE GATE',   d:14, sub:'第一步不是分析，而是查缓存——同一个代币，全系统只认真分析一次。' },
+    { t:'URL 分桶',                 e:'URL BUCKETS',  d:18, sub:'把简介里的每一条链接拆开、分类，分进四条抓取通道；10 个平台按固定顺序串行走。' },
+    { t:'语料充分门',               e:'CORPUS GATE',  d:16, sub:'推特语料到手后先问一题：剩下的平台还要不要抓？多数时候，答案是不用。' },
+    { t:'中段四泳道',               e:'LANES',        d:16, sub:'抓取中段四条泳道同时开工——预检查、账号链、发币方 CA 核对，谁也不等谁。' },
+    { t:'Pre-Check 规则墙',         e:'PRE-CHECK WALL', d:22, sub:'12 条纯代码规则组成第一道墙：没有模型，只有 if-else；挡得住的，绝不浪费一次 LLM 调用。' },
+    { t:'图分析门',                 e:'VISION GATE',  d:16, sub:'带图推文先过一道预判门：文字语料够不够？够，就整段跳过图分析。' },
+    { t:'Jev 分流',                 e:'ROUTING',      d:14, sub:'两种身份，两条路：自发宣告的账号币走 4 题快速通道，其余走 17 题全套。' },
+    { t:'Jev 答题室',               e:'JEV ROOM',     d:22, sub:'17 道题，一次调用，全部以概率分布返回——模型只做判断，不做写作，所以秒级。' },
+    { t:'Mapper · 定类',            e:'MAPPING',      d:14, sub:'分类、改道、豁免全在映射层完成：这里没有模型，只有一张写死的表。' },
+    { t:'Mapper · 评分',            e:'SCORING',      d:20, sub:'评分是一台计算器：75 分事件底子打六折，加上关联与名称质量，74.4，过 high 线。' },
+    { t:'截断 · 落库',              e:'COMMIT',       d:18, sub:'四把截断闸刀全部弹起，评级圆章砸落——high。结果落库，全系统共享。' },
+    { t:'终幕 · 全景',              e:'FINALE',       d:20, sub:'从一条 URL 到一个评级，一次心跳 6-11 秒。放大屏之外，这套心跳每天跳上千次。' },
+  ],
+  hippo: {
+    sym:'HIPPO', addr:'0xHIPPO…7777',
+    tweet:'@CityZoo · 河马泡澡视频 · 播放 2300 万 · 点赞 89 万 · 上热搜',
+    second:'第二推文：媒体转载「全国都在看这只河马」',
+    site:'zoo.example (website 桶 · 内容抓取默认关)',
+  },
+  buckets: [
+    { k:'twitter',  n:'Twitter 桶', d:'apidance 主推 + 第二推文并发拉取', hot:true },
+    { k:'joa',      n:'justoneapi 串行桶', d:'10 平台固定顺序串行（下图）', chain:true },
+    { k:'github',   n:'GitHub 桶', d:'仓库与 README 语料' },
+    { k:'web',      n:'website 桶', d:'内容抓取默认关 · t.co 展开保留' },
+  ],
+  platforms: ['weibo','youtube','douyin','tiktok','bilibili','binanceSquare','weixin','amazon','xiaohongshu','instagram'],
+  rules: [
+    { c:'0',    n:'币名过长',     d:'symbol 超长直接拦' },
+    { c:'0.55', n:'同名同推',     d:'同名盘 + 同一宣告推 = 仿盘' },
+    { c:'0.58', n:'同名活跃仿盘', d:'AVE 查同名活跃盘拦截' },
+    { c:'0.7',  n:'叙事素材已用', d:'同语料 3 分钟内已发过盘' },
+    { c:'1',    n:'黑名单博主',   d:'推特账号黑名单（61 个）' },
+    { c:'1.7',  n:'应用商店链接', d:'语料只是商店下载页 → 拦' },
+    { c:'2.1',  n:'推文过期',     d:'非豁免桶 lag ≥ 300s 拦 · direct_tweet 豁免', hot:true },
+    { c:'2.2',  n:'视频过期',     d:'视频语料超 365d' },
+    { c:'3',    n:'视频未评级',   d:'纯视频无评级 → mid 直通' },
+    { c:'3.5',  n:'平台影响力',   d:'IG/抖音/微博/YT/TikTok 三向：高粉 mid 直通 · 低粉拦 · 中间进 Jev' },
+    { c:'4A',   n:'无公开信息',   d:'语料全空 → low 落库' },
+    { c:'4B',   n:'抓取失败',     d:'有链接抓不到 → low 落库' },
+  ],
+  questions: [
+    { id:'event_category',        ty:'Choice', d:'事件八类：A 形象IP > W Web3 > B 产品 > F 发现 > G 预测 > C 个人 > D 机构 > E 热点' },
+    { id:'event_magnitude',       ty:'Score',  d:'主体量级六档 E/D/C/B/A/S（形状①②③：主体≠发推人）' },
+    { id:'event_timing',          ty:'Choice', d:'时效档：7 天内 / 30 天内 / 更早 …' },
+    { id:'dimension2',            ty:'Score',  d:'传播第二维 0-30' },
+    { id:'block_reason',          ty:'Choice', d:'阻断原因（none / bad_action / …）' },
+    { id:'web3_fit',              ty:'Score',  d:'Web3 用户偏好：strong_fit / fit / unfit' },
+    { id:'subject_entity',        ty:'Choice', d:'主体切分：产品实体 or 发布方' },
+    { id:'w_product_score',       ty:'Score',  d:'W 类专属：产品分 0-35' },
+    { id:'w_binance_interaction', ty:'Score',  d:'W 类专属：币安互动 0-40' },
+    { id:'relevance_type',        ty:'Choice', d:'关联类型：exact / translation / …' },
+    { id:'relevance_level',       ty:'Score',  d:'关联强度' },
+    { id:'name_referent',         ty:'Choice', d:'币名指代对象' },
+    { id:'referent_memeability',  ty:'Score',  d:'指代对象 meme 潜力 0-5（mem<2 地板拦）' },
+    { id:'subject_carrier',       ty:'Choice', d:'载体三档：visual_rich / improvised / no_visual' },
+    { id:'block_misspelling',     ty:'Choice', d:'拼写伪装阻断探针（C78）' },
+    { id:'quality_spelling',      ty:'Score',  d:'名称拼写质量' },
+    { id:'quality_reasonability', ty:'Score',  d:'名称合理性' },
+  ],
+  condQuestions: [
+    { id:'name_image_consistency', d:'条件题：图分析真的跑过才问' },
+    { id:'brand_hijack',           d:'条件题：品牌关键词命中才问' },
+  ],
+  prestage: ['prestage_token_type','prestage_abm_name_link','prestage_abm_web3_traffic','prestage_community_activity'],
+};
+/* 详解面板内容（key → HTML） */
+C.details = {
+  cache: `<h4>token_narrative 全局缓存</h4>
+    <p>叙事结果按 <code>token_address</code> upsert 进 <code>token_narrative</code>，跨实验共享。命中缓存的分析毫秒级返回；只有行被删除或被标 <code>is_valid=false</code> 才会重析。</p>
+    <h4>历史窗口回测</h4><p>题集变更后旧缓存行缺新题答案，回测前须先跑 invalidate 脚本收窄基底 token 的缓存。</p>`,
+  buckets: `<h4>四桶 + IPFS 并行</h4>
+    <p>URL 分类器把简介里的链接分进四桶；IPFS metadata 解包与四桶并行。twitter 桶 = apidance 主推 + 第二推文并发拉取。website 内容抓取默认关（<code>websiteFetch.enabled=false</code>），但 t.co 展开保留——URL 分类与发布者代理判据要用。</p>
+    <h4>justoneapi 串行桶 · 10 平台固定顺序</h4>
+    <table><tr><td>1-5</td><td>weibo → youtube → douyin → tiktok → bilibili</td></tr>
+    <tr><td>6-10</td><td>binanceSquare → weixin → amazon → xiaohongshu → instagram</td></tr></table>
+    <p class="dim">串行是接口侧限制；语料充分门（CH04）通常把整段桶直接跳过。</p>`,
+  corpusGate: `<h4>CG2.0 · 采信陈述原则</h4>
+    <p>twitter 主语料等齐后，先花一题问 Jev「其余待抓平台还需要吗」（<code>minSufficientProb=0.6</code>，超时 2000ms）。判据是「推文陈述可理解即 sufficient」——验证陈述真伪不是门的任务。</p>
+    <ul><li>sufficient → justoneapi + github 待抓段整段跳过，省 3-4s</li>
+    <li>need_fetch / 失败 / 超时 → 照抓（fail-safe 方向：偏慢不偏拦）</li></ul>
+    <p class="dim">门管清单刻意剔除 twitter（判据来源）与 websites（独立开关）。</p>`,
+  lanes: `<h4>中段并发（提速改造 N1-N3）</h4>
+    <table>
+    <tr><td>PreCheck 泳道</td><td>12 条规则墙（CH06），值层不依赖账号链</td></tr>
+    <tr><td>账号链泳道</td><td>twitter 用户信息 + 时间线全量翻页，两层缓存</td></tr>
+    <tr><td>issuerCa 泳道</td><td>发币方 CA 检测：宣告人是否就是发币钱包</td></tr>
+    <tr><td>搜索兜底泳道</td><td>仅空语料票（C77，默认关）：按 token 全名搜推特作独立语料段</td></tr></table>
+    <p class="dim">三泳道值层互不消费才能并发；HIPPO 语料非空，搜索兜底本例不跑。</p>`,
+  rules: `<h4>Pre-Check · 12 条现行规则</h4>
+    <table>${C.rules.map(r=>`<tr><td>${r.c}</td><td><b>${r.n}</b> — ${r.d}</td></tr>`).join('')}</table>
+    <h4>三个出口</h4>
+    <ul><li><b class="badc">拦截落库</b>：直接写 low，不调 LLM（规则 2.2/3.5 低粉/4A/4B 等）</li>
+    <li><b class="warnc">mid 直通</b>：影响力达标（3.5 高粉）或视频未评级（3）→ rating 2，跳过 Jev</li>
+    <li><b class="okc">放行</b>：全部通过 → 进 Jev 标准路径</li></ul>
+    <h4>已废除（不再存在）</h4><p class="dim">0.5 同名蓝筹 / 0.52 / 0.6 / 5 高影响力直发 / 6 社区名 / 3.6 微信阅读数 / 3.7 微博交互终判</p>`,
+  vision: `<h4>C72 · vision 预判门</h4>
+    <p>主推带图时，先 1 题 Choice 判「文字语料是否已足够确认叙事」（阈 0.6）。sufficient → 整段跳过图分析 = 本票无图语义，条件题 <code>name_image_consistency</code> 不触发。</p>
+    <h4>真的跑图分析时</h4>
+    <ul><li>模型：Qwen/Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow</li>
+    <li>prompt 不含 token 名 → 视觉层跨 token 缓存健全</li>
+    <li>图内可见文字逐字转写（梗名常只在配图里）</li>
+    <li>同图结论缓存 730 天，版本号升版自动判 miss</li>
+    <li>失败 = warn + 无图证据，不写缓存</li></ul>
+    <p class="dim">误判方向 fail-safe：误 sufficient 偏拦，误 need_fetch 只是多花时间。</p>`,
+  routing: `<h4>prestage 分流（P1.10 · 4 题）</h4>
+    <table>${C.prestage.map((q,i)=>`<tr><td>${i+1}</td><td><code>${q}</code></td></tr>`).join('')}</table>
+    <p>代码判 <code>detectIssuerSelfLaunch</code>：账号/社区 token 或自发宣告 → 走 prestage 快速道，产出 project / web3_native_ip_early / account_based_meme 三型之一；粉丝带只定档不拦截。</p>
+    <h4>标准路径（HIPPO 走这条）</h4><p>17 基础题 + 2 条件题，单次 Jev 调用全量返回。</p>`,
+  jev: `<h4>三原语</h4>
+    <table><tr><td>Choice</td><td>单选（附每选项概率）</td></tr><tr><td>Score</td><td>多档打分（附每档概率）</td></tr><tr><td>Noul</td><td>开放结构化（本管线未用文本生成）</td></tr></table>
+    <h4>标准题集 J1.36 · 17 题</h4>
+    <table>${C.questions.map((q,i)=>`<tr><td>${i+1}</td><td><code>${q.id}</code><br><span class="dim">${q.ty} · ${q.d}</span></td></tr>`).join('')}</table>
+    <h4>条件题 ×2</h4>
+    <table>${C.condQuestions.map(q=>`<tr><td><code>${q.id}</code></td><td>${q.d}</td></tr>`).join('')}</table>
+    <p class="dim">缺答案 id 直接 throw，不吞错；429/5xx 指数退避。改题面必须 bump 版本号并跑校准。</p>`,
+  mapper: `<h4>Stage1 定类（纯代码）</h4>
+    <ul><li>event_category argmax 定八类之一，优先级 A > W > B > F > G > C > D > E</li>
+    <li>cashtag 改道：语料（含父推）$TICKER 与 token symbol 全等 → 强制 W 数学</li>
+    <li>发布者代理 / 角色IP / 产品实体等豁免全部在 mapper 代码侧</li></ul>
+    <h4>HIPPO 判定</h4><p>E 类社会热点（河马视频爆火，陈述者只是发布通道）→ 标准数学，不改道。</p>`,
+  scoring: `<h4>标准数学（HIPPO）</h4>
+    <table>
+    <tr><td>量级 A 档</td><td>tierScore 34（S=39/A=34/B=27/C=22，D/E 拦）</td></tr>
+    <tr><td>传播第二维</td><td>dimension2 26 / 30</td></tr>
+    <tr><td>时效</td><td>within_7d → 15（30 天内 10 / 更早 0）</td></tr>
+    <tr><td>事件分</td><td>34+26+15 = <b>75</b> ≥ 60 过量级门</td></tr>
+    <tr><td>感染力折损</td><td>C93：web3_fit (strong_fit+fit)=0.68 ≥ 0.5 → 不折损</td></tr>
+    <tr><td>打折</td><td>round(75 × 0.6) = 45</td></tr>
+    <tr><td>关联</td><td>exact_match → +20（顶格）</td></tr>
+    <tr><td>质量</td><td>拼写 + 合理 + 长度 → +9.4</td></tr>
+    <tr><td>总分</td><td>45+20+9.4 = <b>74.4</b></td></tr></table>
+    <h4>评级线</h4><p>≥70 → <b class="okc">high(3)</b>；≥50 → <b class="warnc">mid(2)</b>；其余 → <b class="badc">low(1)</b></p>
+    <h4>W 类独立数学</h4><p>产品 0-35 + 币安互动 0-40 + 时效 0-25 = 100，pass ≥ 60，不打六折。</p>`,
+  truncate: `<h4>Stage3 截断闸（依序检查）</h4>
+    <table>
+    <tr><td>1</td><td>品牌劫持 brandHijack ≥ 0.5 且无豁免 → 截断</td></tr>
+    <tr><td>2</td><td>图文名不符拼写门（C78 纯代码对照 + 探针 ≥0.5 双臂）</td></tr>
+    <tr><td>3</td><td>关联分 ≤ 10 → 截断</td></tr>
+    <tr><td>4</td><td>质量分 ≤ 4 → 截断</td></tr></table>
+    <p>HIPPO 四闸全弹起：无品牌关键词、拼写正常、关联 20、质量 9.4。</p>
+    <h4>落库</h4><p>upsert <code>token_narrative</code>，token 级全局缓存（CH02 的那张表）。</p>`,
+  retry: `<h4>低评级重析环</h4>
+    <ul><li>rating=1 且账号型语料 → 失效账号缓存三键后穿透重析（<code>ignoreCache</code>）</li>
+    <li>每 token 每进程上限 <b>5 次</b>（PrecheckFailRetryService）</li>
+    <li>宣告竞态（address 域）与语料晚到（no_public_info 域）分别计时</li>
+    <li>回测禁穿透——历史语料前视防线</li></ul>`,
+  finale: `<h4>三种结局</h4>
+    <table><tr><td>1 · low</td><td>规则墙拦截 / Jev 评 low / Stage3 截断 → 落库终态（可重试域带窗重试）</td></tr>
+    <tr><td>2 · mid</td><td>平台影响力直通 / Jev 评 mid → 买腿条件按 ==2 消费</td></tr>
+    <tr><td>3 · high</td><td>标准数学过 70 线 → 买腿条件按 ==3 消费</td></tr></table>
+    <p class="dim">本动画只画叙事引擎内部；买腿触发与 GMGN 门在交易引擎侧，另案。</p>`,
+};
+</script>
+<script>
+'use strict';
+/* ═══════════ ② dom 工厂 ═══════════ */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MOBILE = () => matchMedia('(max-width:640px)').matches;
+const HOVERABLE = matchMedia('(hover:hover)').matches;
+function el(tag, cls, html){
+  const e=document.createElement(tag);
+  if(cls) e.className=cls;
+  if(html!=null) e.innerHTML=html;
+  return e;
+}
+/* 画布节点：绝对定位 + 入场动画（data-a/.on） */
+function node(S, o){
+  const n=el('div','node'+(o.cls?' '+o.cls:''));
+  n.style.setProperty('--x',(o.x||0)+'px');
+  n.style.setProperty('--y',(o.y||0)+'px');
+  if(o.w) n.style.setProperty('--w',o.w+'px');
+  n.innerHTML=(o.t?`<div class="nt">${o.t}</div>`:'')
+    +(o.d?`<div class="nd">${o.d}</div>`:'')
+    +(o.m?`<div class="nm">${o.m}</div>`:'');
+  if(o.tip) n.dataset.tip=o.tip;
+  if(o.detail) n.dataset.detail=o.detail;
+  if(o.still==null || !o.still) n.setAttribute('data-a','');
+  S.root.appendChild(n);
+  return n;
+}
+function klabel(S, x, y, text, w){
+  const k=el('div','klabel'+(w?' acc':''), text);
+  k.style.left=x+'px'; k.style.top=y+'px';
+  S.root.appendChild(k); return k;
+}
+function stampAt(S, x, y, text, cls){
+  const st=el('div','stamp '+(cls||''), text);
+  st.style.left=x+'px'; st.style.top=y+'px';
+  S.root.appendChild(st); return st;
+}
+function branchTag(n){ n.appendChild(el('div','branch-tag','分支')); }
+/* SVG 走线（桌面画布模式） */
+function wire(S, a, b, opts={}){
+  const NS='http://www.w3.org/2000/svg';
+  const mk=t=>document.createElementNS(NS,t);
+  const flow=mk('path'); flow.setAttribute('class','wire-flow'+(opts.mag?' mag':''));
+  if(!MOBILE()){
+    const p=mk('path'); p.setAttribute('class','wire-base'+(opts.mag?' mag':''));
+    const ax=a.offsetLeft+(opts.aRight==null||opts.aRight?a.offsetWidth:0);
+    const ay=a.offsetTop+a.offsetHeight/2+(opts.ady||0);
+    const bx=b.offsetLeft+(opts.bLeft==null||opts.bLeft?0:b.offsetWidth);
+    const by=b.offsetTop+b.offsetHeight/2+(opts.bdy||0);
+    const k=opts.curv==null?46:opts.curv;
+    const d=`M ${ax} ${ay} C ${ax+k} ${ay}, ${bx-k} ${by}, ${bx} ${by}`;
+    p.setAttribute('d',d); flow.setAttribute('d',d);
+    $('#wires').appendChild(p); $('#wires').appendChild(flow);
+  }
+  return flow;
+}
+
+/* ═══════════ ③ FX（全部读场景时钟，暂停即停） ═══════════ */
+const FX = {
+  parts: [], counts: [],
+  flow(S, path, n, mag){
+    if(REDUCED || MOBILE() || !path) return;
+    const len=path.getTotalLength();
+    for(let i=0;i<n;i++){
+      const p=el('span','pt'+(mag?' mag':''));
+      S.root.appendChild(p);
+      this.parts.push({el:p, path, len, off:i/n+Math.random()*.05, spd:.5+Math.random()*.3});
+    }
+  },
+  count(S, e, to, dur, fmt){
+    const toStr=v=>fmt?fmt(v):(Math.abs(to%1)>0? v.toFixed(1): String(Math.round(v)));
+    e.textContent=toStr(0);
+    this.counts.push({e, to, dur, t0:Player.t, toStr});
+  },
+  settle(){ for(const c of this.counts){ c.e.textContent=c.toStr(c.to); } this.counts=[]; },
+  frame(t){
+    for(const p of this.parts){
+      const u=(t*p.spd+p.off)%1;
+      const pt=p.path.getPointAtLength(u*p.len);
+      p.el.style.transform=`translate(${pt.x-2.5}px,${pt.y-2.5}px)`;
+    }
+    if(this.counts.length){
+      const keep=[];
+      for(const c of this.counts){
+        const u=Math.min(1,(t-c.t0)/c.dur);
+        const v=c.to*(1-Math.pow(1-u,3));
+        c.e.textContent=c.toStr(v);
+        if(u<1) keep.push(c);
+      }
+      this.counts=keep;
+    }
+  },
+  reset(){ this.parts.forEach(p=>p.el.remove()); this.parts=[]; this.counts=[]; },
+};
+
+/* ═══════════ ④ Player（单 rAF 主时钟 + 章节状态机 + cue 表） ═══════════ */
+const Player = {
+  idx:0, t:0, playing:false, speed:1, cues:[], scene:null, last:0,
+  get chapter(){ return C.chapters[this.idx]; },
+  seekToChapter(i){
+    this.idx=Math.max(0,Math.min(C.chapters.length-1,i));
+    this.buildScene();
+    const n=this.idx;
+    $('#chNum').textContent=String(n+1).padStart(2,'0')+'/13';
+    $('#chTitle').textContent=C.chapters[n].t;
+    $('#chEyebrow').textContent='CH '+String(n+1).padStart(2,'0')+' · '+C.chapters[n].e;
+    $('#subText').textContent=C.chapters[n].sub;
+    $$('.tl-seg').forEach((s,j)=>{
+      s.classList.toggle('cur',j===n);
+      s.classList.toggle('done',j<n);
+      s.querySelector('.fill').style.width='0%';
+    });
+    try{ history.replaceState(null,'','#c'+(n+1)); }catch(_){}
+  },
+  buildScene(){
+    FX.reset();
+    $$('#wires *').forEach(x=>x.remove());
+    if(this.scene) this.scene.remove();
+    const root=el('div','scene'+(REDUCED?' instant':''));
+    $('#stageInner').appendChild(root);
+    this.scene=root;
+    const S={root, cues:[]};
+    S.cues=SCENES[this.idx](S)||S.cues;
+    this.cues=S.cues;
+    this.t=0;
+    if(REDUCED) this.fire(true);
+  },
+  fire(all){
+    for(const c of this.cues){
+      if(!c.fired && (all || this.t>=c.t)){ c.fired=true; c.fn(!!all); }
+    }
+  },
+  play(){
+    this.playing=true; this.last=0;
+    $('#btnPlay').innerHTML='❚❚ 暂停';
+    document.body.classList.remove('paused');
+  },
+  pause(){
+    this.playing=false;
+    $('#btnPlay').innerHTML='▶ 播放';
+    document.body.classList.add('paused');
+  },
+  toggle(){ this.playing?this.pause():this.play(); },
+  replay(){ this.buildScene(); if(REDUCED) this.fire(true); },
+};
+function loop(now){
+  const dt=Player.last?Math.min((now-Player.last)/1000,.05):0;
+  Player.last=now;
+  if(Player.playing){
+    Player.t+=dt*Player.speed;
+    const ch=Player.chapter;
+    if(Player.t>=ch.d){
+      if(Player.idx<C.chapters.length-1){ Player.seekToChapter(Player.idx+1); }
+      else { Player.t=ch.d; Player.pause(); Player.fire(true); }
+    }
+  }
+  Player.fire(false);
+  const seg=document.querySelector('.tl-seg.cur .fill');
+  if(seg) seg.style.width=Math.min(100,Player.t/Player.chapter.d*100)+'%';
+  FX.frame(Player.t);
+  requestAnimationFrame(loop);
+}
+function fitStage(){
+  if(MOBILE()){ $('#stageInner').style.transform='none'; return; }
+  const w=$('#stageWrap');
+  const s=Math.min(w.clientWidth/960, w.clientHeight/540);
+  $('#stageInner').style.transform=`scale(${s})`;
+}
+</script>
+<script>
+'use strict';
+/* ═══════════ ⑤ Scenes ch01-05 ═══════════ */
+const cue=(t,fn)=>({t,fn,fired:false});
+const SCENES=[];
+const on=(...els)=>els.forEach(e=>e&&e.classList.add('on'));
+
+/* ── CH1 开场 · HIPPO 登场 ─────────────────────────── */
+SCENES[0]=function(S){
+  const tk=node(S,{x:66,y:104,w:340,cls:'tokcard floaty',t:'$HIPPO',d:'BSC · four.meme 新票 · 动物园河马视频爆火',m:C.hippo.addr+' · 虚构示例',
+    tip:'<b>HIPPO</b>：虚构演示代币——动物园官号发布的河马泡澡视频全网爆火后出现的 meme 币'});
+  tk.querySelector('.nt').classList.add('tk-sym');
+  const ub=node(S,{x:470,y:88,w:420,cls:'urlbox',t:'',tip:'代币简介里能抓到的全部线索', detail:'buckets'});
+  ub.innerHTML='<div class="ub-h">Token 简介 · 原始线索</div>';
+  const rows=[
+    ['宣告推','x.com/CityZoo/status/…（主推 · 带视频）'],
+    ['第二推文','媒体转载「全国都在看这只河马」'],
+    ['website','zoo.example'],
+  ].map(([k,v])=>{
+    const r=el('div','ub-r','<span class="k">'+k+'</span><span class="v mono">'+v+'</span>');
+    r.setAttribute('data-a',''); ub.appendChild(r); return r;
+  });
+  const q=el('div','qmark','这故事，值不值得买？');
+  q.style.left='520px'; q.style.top='318px'; q.setAttribute('data-a',''); S.root.appendChild(q);
+  const eng=node(S,{x:470,y:392,w:420,t:'叙事引擎 · narrative pipeline',d:'URL → 语料 → 规则 → Jev → 评级，一次心跳 6-11 秒',m:'数据源：src/narrative/ · J1.36'});
+  return [
+    cue(1.0,i=>{ on(tk); if(!i) tk.classList.add('lit'); else tk.classList.add('lit'); }),
+    cue(2.6,i=>on(ub)),
+    cue(3.6,i=>{ rows[0].classList.add('on','on'); }),
+    cue(4.8,i=>{ rows[1].classList.add('on'); rows[0].classList.add('lit'); }),
+    cue(6.0,i=>{ rows[2].classList.add('on'); rows[1].classList.add('lit'); }),
+    cue(7.6,i=>on(q)),
+    cue(9.8,i=>{ on(eng); eng.classList.add('lit','hot'); if(!i) eng.classList.add('breath'); }),
+  ];
+};
+
+/* ── CH2 缓存门 ────────────────────────────────────── */
+SCENES[1]=function(S){
+  const tk=node(S,{x:56,y:196,w:210,t:'HIPPO',d:'新 token · 首次分析请求',m:C.hippo.addr,tip:'先查缓存，再谈分析'});
+  const db=el('div','dbcyl');
+  db.style.left='400px'; db.style.top='140px'; db.setAttribute('data-a','');
+  db.innerHTML='<div class="cyl"></div><div class="db-n">token_narrative</div><div class="db-s">token 级全局缓存 · 跨实验共享</div>';
+  db.dataset.tip='<b>token_narrative</b>：按 token_address upsert，全系统共享一份'; db.dataset.detail='cache';
+  S.root.appendChild(db);
+  const w=wire(S,tk,db);
+  const miss=node(S,{x:620,y:96,w:300,still:true,t:'查无此行',d:'SELECT … WHERE token_address = 0xHIPPO…7777'});
+  miss.style.display='none';
+  const ghit=node(S,{x:560,y:318,w:330,cls:'ghost',t:'命中 → 秒回',d:'上次评级连缓存一起返回（毫秒级），分析链路整段不走',tip:'分支：缓存命中时直接返回历史评级', detail:'cache'});
+  branchTag(ghit);
+  const wg=wire(S,tk,ghit,{mag:true,ady:-40,bdy:-30});
+  const fast=el('div','stamp mag','毫秒返回');
+  fast.style.left='556px'; fast.style.top='282px'; S.root.appendChild(fast);
+  const kl=klabel(S,56,352,'同一 token 全系统只认真分析一次',true);
+  kl.setAttribute('data-a','');
+  return [
+    cue(1.0,i=>on(tk)),
+    cue(2.4,i=>{ on(db); db.classList.add('lit'); w.classList.add('run'); FX.flow(S,w,5); }),
+    cue(4.4,i=>{ miss.style.display=''; miss.classList.add('lit-bad'); const st=stampAt(S,636,252,'MISS'); if(!i) st.classList.add('hit'); }),
+    cue(7.0,i=>{ on(ghit); wg.classList.add('run'); }),
+    cue(9.6,i=>{ fast.classList.add('hit'); }),
+    cue(11.4,i=>on(kl)),
+  ];
+};
+
+/* ── CH3 URL 分桶 ──────────────────────────────────── */
+SCENES[2]=function(S){
+  const cls=node(S,{x:330,y:30,w:300,t:'URL 分类器',d:'逐条链接归类 + IPFS metadata 并行解包',tip:'分类是纯代码；IPFS 解包读 token 元数据', detail:'buckets'});
+  const ipfs=el('span','badge b-a','IPFS 并行解包');
+  ipfs.setAttribute('data-a',''); cls.appendChild(ipfs);
+  const bk=C.buckets.map(b=>{
+    const n=node(S,{x:{twitter:56,joa:286,github:516,web:746}[b.k],y:168,w:212,cls:'bucket',t:b.n,d:b.d,
+      tip:b.k==='twitter'?'apidance：主推 + 第二推文并发拉取':(b.k==='web'?'websiteFetch.enabled 默认 false，只有 t.co 展开保留':''),
+      detail:'buckets'});
+    if(b.hot) n.dataset.hot='1';
+    return n;
+  });
+  const chainWrap=bk[1].querySelector('.nd');
+  const chain=el('div','chainrow');
+  C.platforms.forEach((p,i)=>{
+    const c=el('span','platch',p);
+    c.style.transitionDelay=(i*0.05)+'s';
+    chain.appendChild(c);
+  });
+  bk[1].appendChild(chain);
+  const ws=bk.map(b=>wire(S,cls,b,{ady:30,bdy:-20,curv:40}));
+  const kl=klabel(S,56,330,'twitter 桶：主推 + 第二推文并发');
+  kl.setAttribute('data-a','');
+  const kl2=klabel(S,56,354,'串行是接口侧限制 → 下一章的门负责把它跳掉');
+  kl2.setAttribute('data-a','');
+  return [
+    cue(0.8,i=>{ on(cls); cls.classList.add('lit'); }),
+    cue(2.2,i=>on(ipfs)),
+    cue(3.0,i=>{ on(bk[0]); ws[0].classList.add('run'); FX.flow(S,ws[0],4); }),
+    cue(3.7,i=>{ on(bk[1]); ws[1].classList.add('run'); FX.flow(S,ws[1],4); }),
+    cue(4.4,i=>{ on(bk[2]); ws[2].classList.add('run'); FX.flow(S,ws[2],3); }),
+    cue(5.1,i=>{ on(bk[3]); ws[3].classList.add('run'); bk[3].style.opacity='.55'; }),
+    cue(6.2,i=>{ chain.querySelectorAll('.platch').forEach((p,j)=>setTimeout(()=>p.classList.add('on'), i?0:j*520)); }),
+    cue(13.2,i=>{ bk[0].classList.add('lit'); on(kl); on(kl2); }),
+    cue(15.6,i=>{ bk[3].querySelector('.nd').innerHTML='内容抓取默认关 · t.co 展开保留'; bk[3].classList.add('lit-bad'); }),
+  ];
+};
+
+/* ── CH4 语料充分门 ────────────────────────────────── */
+SCENES[3]=function(S){
+  const tw=node(S,{x:56,y:64,w:250,t:'twitter 语料已等齐',d:'主推（视频+互动数）+ 第二推文并发到手',tip:'门只在 twitter 主语料等齐后才问', detail:'corpusGate'});
+  const gate=node(S,{x:352,y:64,w:264,cls:'gatecard',t:'语料充分门 · 先问一题',d:'「其余待抓平台，还需要吗？」',tip:'CG2.0 · 采信陈述：推文可理解即 sufficient',
+    detail:'corpusGate'});
+  const pr=el('div','prob','<div class="pr-l"><span>sufficient</span><b>0.00</b></div><div class="pr-t"><div class="pr-f"></div></div>');
+  gate.appendChild(pr);
+  const pv=pr.querySelector('b'), pf=pr.querySelector('.pr-f');
+  const th=el('div','badge','阈 0.6 · 超时 2s'); gate.appendChild(th);
+  const grid=el('div','skipgrid');
+  grid.style.left='668px'; grid.style.top='64px'; grid.style.width='236px';
+  C.platforms.forEach(p=>grid.appendChild(el('span','platch',p)));
+  grid.setAttribute('data-a',''); S.root.appendChild(grid);
+  const gh=node(S,{x:726,y:216,w:178,cls:'ghost',t:'GitHub 桶',d:'同属门管清单，一并跳过',tip:''});
+  branchTag(gh);
+  const gbr=node(S,{x:56,y:250,w:250,cls:'ghost',t:'need_fetch → 照抓',d:'判「不够」或超时/失败：justoneapi 串行段照常全跑（fail-safe：偏慢不偏拦）',tip:'分支：语料不足时', detail:'corpusGate'});
+  branchTag(gbr);
+  const save=el('div','stamp ok','省 3-4s');
+  save.style.left='700px'; save.style.top='330px'; S.root.appendChild(save);
+  const verdict=node(S,{x:352,y:238,w:264,still:true,t:'sufficient = 0.86',d:'推文陈述可理解 → 判「其余平台不用抓」',cls:''});
+  verdict.style.display='none';
+  return [
+    cue(0.8,i=>on(tw)),
+    cue(2.2,i=>{ on(gate); gate.classList.add('lit'); }),
+    cue(3.6,i=>{ pf.style.width='86%'; if(i){ pv.textContent='0.86'; } else FX.count(S,pv,.86,1.1,v=>v.toFixed(2)); }),
+    cue(5.4,i=>{ verdict.style.display=''; verdict.classList.add('lit-ok'); }),
+    cue(7.2,i=>{ on(grid); on(gh); }),
+    cue(8.6,i=>{ grid.querySelectorAll('.platch').forEach((p,j)=>setTimeout(()=>p.classList.add('sk'), i?0:j*200)); }),
+    cue(12.4,i=>{ save.classList.add('hit'); }),
+    cue(13.8,i=>on(gbr)),
+  ];
+};
+
+/* ── CH5 中段四泳道 ───────────────────────────────── */
+SCENES[4]=function(S){
+  const lanes=[
+    {t:'PreCheck 规则墙',d:'12 条纯代码规则',s:'…',detail:'rules'},
+    {t:'账号链',d:'twitter 用户信息 + 时间线全量翻页（两层缓存）',s:'…',detail:'lanes'},
+    {t:'issuerCa 检测',d:'宣告人 = 发币钱包？（自发宣告判据）',s:'…',detail:'routing'},
+    {t:'搜索兜底（C77 · 默认关）',d:'空语料票专属 · HIPPO 语料非空，本泳道不跑',s:'跳过',idle:true,detail:'lanes'},
+  ].map((o,j)=>{
+    const L=el('div','lane'+(o.idle?' idle':''));
+    L.style.top=(66+j*82)+'px';
+    L.innerHTML='<span class="ln-n">0'+(j+1)+'</span><span class="ln-t">'+o.t+'</span><span class="ln-p"><i></i></span><span class="ln-s">'+o.s+'</span>';
+    L.querySelector('.ln-t').innerHTML+='<div class="mini">'+o.d+'</div>';
+    L.dataset.tip='<b>'+o.t+'</b>：'+o.d; if(o.detail) L.dataset.detail=o.detail;
+    L.setAttribute('data-a','');
+    S.root.appendChild(L);
+    return {L, bar:L.querySelector('.ln-p i'), st:L.querySelector('.ln-s')};
+  });
+  const hub=node(S,{x:800,y:190,w:130,t:'中段汇合',d:'语料与预检结论齐备',tip:'汇合后进入规则墙终审（下一章）'});
+  const ws=[lanes[0],lanes[1],lanes[2]].map(l=>wire(S,l.L,hub,{aRight:true,bLeft:true,curv:-40,ady:0}));
+  return [
+    cue(0.8,i=>on(lanes[0].L)),
+    cue(1.4,i=>{ lanes[0].bar.style.width='100%'; }),
+    cue(3.2,i=>{ lanes[0].L.classList.add('done'); lanes[0].st.textContent='12 条全过 →'; }),
+    cue(2.2,i=>on(lanes[1].L)),
+    cue(2.8,i=>{ lanes[1].bar.style.width='100%'; }),
+    cue(5.4,i=>{ lanes[1].L.classList.add('done'); lanes[1].st.textContent='语料就绪'; }),
+    cue(3.4,i=>on(lanes[2].L)),
+    cue(4.0,i=>{ lanes[2].bar.style.width='100%'; }),
+    cue(6.8,i=>{ lanes[2].L.classList.add('done'); lanes[2].st.textContent='非自发宣告'; }),
+    cue(5.2,i=>on(lanes[3].L)),
+    cue(9.2,i=>on(hub)),
+    cue(10.4,i=>{ hub.classList.add('lit'); ws.forEach(w=>w.classList.add('run')); ws.forEach((w,j)=>FX.flow(S,w,3)); }),
+    cue(13.2,i=>{ hub.classList.add('hot'); hub.querySelector('.nt').textContent='→ 进规则墙'; }),
+  ];
+};
+</script>
+<script>
+'use strict';
+/* ═══════════ ⑤ Scenes ch06-09 ═══════════ */
+
+/* ── CH6 Pre-Check 规则墙 ──────────────────────────── */
+SCENES[5]=function(S){
+  const hd=klabel(S,66,84,'PRE-CHECK · 纯代码 · 零 LLM 调用',true);
+  hd.setAttribute('data-a','');
+  const wall=el('div','rwall');
+  wall.style.left='66px'; wall.style.top='118px'; wall.style.right='66px';
+  const bricks=C.rules.map(r=>{
+    const b=el('div','brick');
+    b.innerHTML='<div class="bk-c">'+r.c+' · '+r.n+'</div><div class="bk-d">'+r.d+'</div>';
+    b.dataset.tip='<b>规则 '+r.c+'</b> '+r.n+'：'+r.d;
+    b.setAttribute('data-a','');
+    wall.appendChild(b); return b;
+  });
+  wall.dataset.detail='rules'; wall.dataset.tip='点开看 12 条规则全表与三出口';
+  S.root.appendChild(wall);
+  const scan=el('div','wallscan');
+  scan.style.left='66px'; scan.style.top='112px';
+  S.root.appendChild(scan);
+  const exits=[
+    {x:70, cls:'lit-bad', t:'拦截落库', d:'直接写 low · 不调 LLM', c:'badc'},
+    {x:365, cls:'', t:'mid 直通', d:'影响力达标 → rating 2 · 跳过 Jev', c:'warnc'},
+    {x:660, cls:'lit-ok', t:'放行 → 进 Jev', d:'HIPPO 走这里', c:'okc'},
+  ].map(o=>node(S,{x:o.x,y:436,w:236,cls:'',t:'<span class="'+o.c+'">'+o.t+'</span>',d:o.d,tip:'',detail:'rules'}));
+  const hotBrick=bricks[6]; /* 2.1 */
+  const demo=bricks[2];     /* 0.58 分支演示 */
+  const badge=el('span','badge b-a','direct_tweet 豁免：粉 41.7 万 ≥ 5000');
+  badge.setAttribute('data-a',''); hotBrick.appendChild(badge);
+  const demoTag=el('div','branch-tag','分支');
+  demo.appendChild(demoTag);
+  return [
+    cue(0.8,i=>on(hd)),
+    cue(1.4,i=>{ bricks.forEach((b,j)=>setTimeout(()=>b.classList.add('on'), i?0:j*110)); }),
+    cue(2.6,i=>{
+      if(i){ scan.style.opacity='0'; }
+      else{ scan.style.opacity='1'; scan.style.height='216px';
+        scan.style.transition='left 6.5s linear, height .4s, opacity .4s';
+        requestAnimationFrame(()=>{ scan.style.left='880px'; }); }
+    }),
+    cue(3.0,i=>{ bricks.forEach((b,j)=>setTimeout(()=>b.classList.add('pass'), i?0:j*520)); }),
+    cue(10.0,i=>{ hotBrick.classList.add('hot'); on(badge); }),
+    cue(12.0,i=>{ demo.classList.add('fail'); }),
+    cue(13.6,i=>{ demo.classList.remove('fail'); demoTag.style.opacity='0'; }),
+    cue(15.2,i=>{ exits.forEach((e,j)=>setTimeout(()=>e.classList.add('on'), i?0:j*350)); }),
+    cue(17.2,i=>{ exits[2].classList.add('lit-ok','hot'); }),
+    cue(19.2,i=>{ exits[0].classList.add('lit-bad'); exits[1].classList.add('lit'); }),
+  ];
+};
+
+/* ── CH7 图分析门 ──────────────────────────────────── */
+SCENES[6]=function(S){
+  const tw=node(S,{x:56,y:76,w:262,t:'主推 · 带图',d:'@CityZoo 河马视频 · 播放 2300 万 · 点赞 89 万',m:'图片=视频封面帧',tip:'带图推文才进这道门'});
+  const gate=node(S,{x:372,y:76,w:264,cls:'gatecard',t:'图分析预判门（C72）',d:'「文字语料是否已足够确认叙事？」',tip:'vision.gate · minSufficientProb 0.6', detail:'vision'});
+  const pr=el('div','prob','<div class="pr-l"><span>sufficient</span><b>0.00</b></div><div class="pr-t"><div class="pr-f"></div></div>');
+  gate.appendChild(pr);
+  const pv=pr.querySelector('b'), pf=pr.querySelector('.pr-f');
+  gate.appendChild(el('div','badge','阈 0.6 · Jev 1 题 Choice'));
+  const skip=el('div','stamp ok','跳过图分析');
+  skip.style.left='400px'; skip.style.top='252px'; S.root.appendChild(skip);
+  const link=node(S,{x:372,y:300,w:264,cls:'',t:'联动：条件题不触发',d:'name_image_consistency 只在图分析真的跑过时才问 → 本票无图语义',tip:'C72 与 J1.30 的联动', detail:'jev'});
+  link.querySelector('.nt').style.fontSize='12px';
+  const g=node(S,{x:668,y:66,w:236,cls:'ghost',t:'分支：真的看图',d:'Qwen/Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow · 图内可见文字逐字转写',tip:'分支：need_fetch 时整段图分析照跑', detail:'vision'});
+  branchTag(g);
+  const g1=el('span','badge b-mag','prompt 不含 token 名');
+  const g2=el('span','badge b-mag','同图缓存 730 天');
+  const g3=el('span','badge b-mag','失败=无图证据');
+  [g1,g2,g3].forEach(b=>{ b.setAttribute('data-a',''); b.style.marginTop='4px'; g.appendChild(b); });
+  const kl=klabel(S,56,440,'误判方向 fail-safe：误跳过=偏拦；误不跳=多花几秒');
+  kl.setAttribute('data-a','');
+  return [
+    cue(0.8,i=>on(tw)),
+    cue(2.0,i=>{ tw.classList.add('lit'); on(gate); gate.classList.add('lit'); }),
+    cue(3.6,i=>{ pf.style.width='78%'; if(i) pv.textContent='0.78'; else FX.count(S,pv,.78,1.1,v=>v.toFixed(2)); }),
+    cue(5.8,i=>{ skip.classList.add('hit'); gate.classList.add('lit-ok'); }),
+    cue(8.0,i=>on(link)),
+    cue(10.0,i=>{ on(g); }),
+    cue(11.4,i=>{ on(g1); on(g2); }),
+    cue(13.0,i=>{ on(g3); on(kl); }),
+  ];
+};
+
+/* ── CH8 Jev 分流 ──────────────────────────────────── */
+SCENES[7]=function(S){
+  const rt=node(S,{x:76,y:196,w:230,cls:'router',t:'分流判据（代码判）',d:'detectIssuerSelfLaunch：账号/社区 token 或自发宣告？',tip:'纯代码判据，不是模型', detail:'routing'});
+  const pre=node(S,{x:420,y:56,w:264,t:'prestage 快速道 · P1.10',d:'4 题：token 类型 / 账号名关联 / Web3 流量 / 社区活跃度',m:'产出三型之一',tip:'粉丝带只定档（0-299 mid / ≥300 high），不拦截', detail:'routing'});
+  const types=['project','web3_native_ip_early','account_based_meme'];
+  types.forEach(t=>{ const b=el('span','badge'); b.textContent=t; b.setAttribute('data-a',''); b.style.margin='3px 3px 0 0'; pre.appendChild(b); });
+  const std=node(S,{x:420,y:300,w:264,t:'标准路径',d:'17 基础题 + 2 条件题 · 单次 Jev 调用全量返回',m:'HIPPO 走这条',tip:'外部热点、非自发宣告 → 标准全套', detail:'jev'});
+  const jev=node(S,{x:762,y:178,w:150,t:'Jev',d:'api.typesafe.ai',m:'Choice / Score / Noul',tip:'结构化三原语，无文本生成', detail:'jev'});
+  jev.classList.add('hot');
+  const wPre=wire(S,rt,pre,{mag:true,curv:60});
+  const wStd=wire(S,rt,std,{curv:-60});
+  const wJev=wire(S,std,jev,{curv:40});
+  const tag=el('div','branch-tag','本例不走');
+  pre.appendChild(tag);
+  const verdict=node(S,{x:76,y:410,w:420,still:true,t:'HIPPO：外部热点 · 非自发宣告',d:'宣告人是动物园官号，币是围观者发的 → 标准路径'});
+  verdict.style.display='none';
+  return [
+    cue(0.8,i=>on(rt)),
+    cue(2.0,i=>{ rt.classList.add('lit'); }),
+    cue(3.2,i=>{ on(pre); wPre.classList.add('run'); }),
+    cue(5.0,i=>{ on(std); wStd.classList.add('run'); FX.flow(S,wStd,5); }),
+    cue(7.4,i=>{ on(jev); jev.classList.add('lit'); wJev.classList.add('run'); FX.flow(S,wJev,4); }),
+    cue(9.6,i=>{ verdict.style.display=''; verdict.classList.add('lit-ok'); std.classList.add('lit-ok'); }),
+    cue(11.6,i=>{ pre.style.opacity='.55'; tag.style.opacity='1'; }),
+  ];
+};
+
+/* ── CH9 Jev 答题室 ───────────────────────────────── */
+SCENES[8]=function(S){
+  const prim=el('div','node'); prim.style.cssText='left:66px;top:34px;width:340px;position:absolute';
+  prim.innerHTML='<div class="nd" style="display:flex;gap:6px;align-items:center">'
+    +'<span class="badge b-a">Choice 单选</span><span class="badge b-a">Score 打分</span><span class="badge b-a">Noul 结构化</span></div>';
+  prim.setAttribute('data-a','');
+  prim.dataset.tip='三原语都返回概率分布，没有自由文本'; prim.dataset.detail='jev';
+  S.root.appendChild(prim);
+  const qn=node(S,{x:430,y:34,w:470,t:'',d:'',tip:''});
+  qn.innerHTML='<div class="nd" style="display:flex;gap:10px;align-items:center">'
+    +'<span class="badge">单次调用</span><span class="badge">无文本生成</span><span class="badge">每题概率分布</span><span class="badge b-ok">秒级返回</span></div>';
+  const qdef=[
+    { id:'event_category', ty:'CHOICE', q:'这条推文构成的事件，属于哪一类？（A>W>B>F>G>C>D>E）',
+      bars:[['E 社会热点',.87,1],['W Web3 项目',.05,0],['A 形象 IP',.04,0],['B 产品发布',.02,0]] },
+    { id:'event_magnitude', ty:'SCORE', q:'事件主体量级六档（主体≠发推人：视频爆火本身）',
+      bars:[['S 头部',.09,0],['A 全国级',.62,1],['B 平台级',.19,0],['C 社区级',.07,0]] },
+    { id:'web3_fit', ty:'SCORE', q:'Web3 用户会不会喜欢？（strong_fit+fit=0.68 ≥ 0.5 → C93 不折损）',
+      bars:[['strong_fit',.42,1],['fit',.26,0],['unfit',.32,0]] },
+    { id:'block_reason', ty:'CHOICE', q:'有没有必须阻断的理由？',
+      bars:[['none',.91,1],['bad_action',.05,0],['reused',.03,0]] },
+  ];
+  const qstage=el('div','qstage'); S.root.appendChild(qstage);
+  const cards=qdef.map((d,j)=>{
+    const c=el('div','qcard'+(j?' qin':''));
+    c.style.cssText='left:66px;top:120px;width:420px';
+    c.innerHTML='<div class="qc-h"><span class="qc-id">'+d.id+'</span><span class="qc-ty">'+d.ty+'</span></div>'
+      +'<div class="qc-q">'+d.q+'</div>'
+      +d.bars.map(b=>'<div class="qbar"><span class="qb-k">'+b[0]+'</span><span class="qb-t"><div class="qb-f'+(b[2]?' top':'')+'"></div></span><span class="qb-v">0</span></div>').join('');
+    c.setAttribute('data-a','');
+    c.dataset.tip='<code>'+d.id+'</code>：一次调用里与其它 16 题一起返回'; c.dataset.detail='jev';
+    qstage.appendChild(c); return c;
+  });
+  const fills=cards.map(c=>Array.from(c.querySelectorAll('.qb-f')));
+  const vals=cards.map(c=>Array.from(c.querySelectorAll('.qb-v')));
+  const qd=C.questions;
+  const qc=el('div','qcount');
+  qc.style.cssText='left:530px;top:120px';
+  qc.innerHTML='<b>17</b>/17 基础题';
+  qc.setAttribute('data-a','');
+  S.root.appendChild(qc);
+  const cond=node(S,{x:530,y:186,w:370,cls:'',t:'条件题 ×2（本题未触发）',d:'name_image_consistency（有图才问）· brand_hijack（关键词命中才问）',tip:'条件题的触发条件在别章决定', detail:'jev'});
+  cond.classList.add('qcond');
+  const grow=(j)=>{ qdef[j].bars.forEach((b,k)=>{ fills[j][k].style.width=(b[1]*100)+'%'; }); };
+  return [
+    cue(0.8,i=>on(prim)),
+    cue(1.6,i=>on(qn)),
+    cue(2.4,i=>{ on(cards[0]); on(qc); if(i){ vals[0].forEach((v,k)=>v.textContent=qdef[0].bars[k][1].toFixed(2)); } else qdef[0].bars.forEach((b,k)=>FX.count(S,vals[0][k],b[1],1,v=>v.toFixed(2))); grow(0); }),
+    cue(6.4,i=>{ cards[0].classList.add('qout'); cards[1].classList.remove('qin'); cards[1].classList.add('on'); if(i){ vals[1].forEach((v,k)=>v.textContent=qdef[1].bars[k][1].toFixed(2)); } else qdef[1].bars.forEach((b,k)=>FX.count(S,vals[1][k],b[1],1,v=>v.toFixed(2))); grow(1); }),
+    cue(10.4,i=>{ cards[1].classList.add('qout'); cards[2].classList.remove('qin'); cards[2].classList.add('on'); if(i){ vals[2].forEach((v,k)=>v.textContent=qdef[2].bars[k][1].toFixed(2)); } else qdef[2].bars.forEach((b,k)=>FX.count(S,vals[2][k],b[1],1,v=>v.toFixed(2))); grow(2); }),
+    cue(14.4,i=>{ cards[2].classList.add('qout'); cards[3].classList.remove('qin'); cards[3].classList.add('on'); if(i){ vals[3].forEach((v,k)=>v.textContent=qdef[3].bars[k][1].toFixed(2)); } else qdef[3].bars.forEach((b,k)=>FX.count(S,vals[3][k],b[1],1,v=>v.toFixed(2))); grow(3); }),
+    cue(18.0,i=>on(cond)),
+  ];
+};
+</script>
+<script>
+'use strict';
+/* ═══════════ ⑤ Scenes ch10-13 ═══════════ */
+
+/* ── CH10 Mapper · 定类 ────────────────────────────── */
+SCENES[9]=function(S){
+  const pri=klabel(S,66,56,'优先级 A > W > B > F > G > C > D > E',true);
+  pri.style.fontSize='12px'; pri.setAttribute('data-a','');
+  const src=node(S,{x:66,y:118,w:210,t:'event_category',d:'argmax = E（0.87）',m:'J1.36 题集',tip:'分类来自 CH09 答案', detail:'mapper'});
+  const g1=el('div','gear'); g1.style.cssText='left:330px;top:120px'; S.root.appendChild(g1);
+  const g2=el('div','gear'); g2.style.cssText='left:392px;top:168px;width:48px;height:48px'; S.root.appendChild(g2);
+  const est=el('div','stamp mag','E 类 · 社会热点');
+  est.style.cssText='left:300px;top:290px;font-size:17px'; S.root.appendChild(est);
+  const noCas=node(S,{x:66,y:280,w:210,still:true,t:'HIPPO 无 cashtag',d:'语料 $TICKER 与 symbol 不全等 → 不改道'});
+  noCas.style.display='none';
+  const ghost=node(S,{x:620,y:80,w:290,cls:'ghost',t:'cashtag 改道 W',d:'语料（含父推）$TICKER 与 token symbol 全等 → 这枚币强制走 W 类数学',tip:'J1.17 改道闸（本例不触发）', detail:'mapper'});
+  branchTag(ghost);
+  const ex=node(S,{x:620,y:262,w:290,t:'映射层还有一堆豁免',d:'发布者代理 / 角色 IP / 产品实体切分 / 戏谑关联 / 名图一致…全部在 mapper 代码侧，不占题集',tip:'豁免=救援通道：让边缘票不被硬规则误杀', detail:'mapper'});
+  return [
+    cue(0.8,i=>on(pri)),
+    cue(1.6,i=>on(src)),
+    cue(2.6,i=>{ g1.classList.add('spin','lit'); g2.classList.add('spin'); }),
+    cue(4.4,i=>{ est.classList.add('hit'); src.classList.add('lit'); }),
+    cue(6.6,i=>{ on(ghost); }),
+    cue(9.0,i=>{ noCas.style.display=''; noCas.classList.add('lit-ok'); }),
+    cue(11.0,i=>on(ex)),
+  ];
+};
+
+/* ── CH11 Mapper · 评分 ────────────────────────────── */
+SCENES[10]=function(S){
+  const hd=klabel(S,66,40,'评分 = 纯代码计算器（题面不参与算术）',true);
+  hd.setAttribute('data-a','');
+  const gate=node(S,{x:66,y:74,w:250,t:'量级门',d:'事件分 ≥ 60 才继续，否则 D/E 档拦截',tip:'门链第一关', detail:'scoring'});
+  const lines=[
+    {y:170,h:'34 <span class="op">+</span> 26 <span class="op">+</span> 15 <span class="op">=</span> <b>75</b>',l:'量级 A 档 + 传播 26/30 + 7 天内 15'},
+    {y:212,h:'75 <span class="op">≥</span> 60 → <b class="okc">过线</b>',l:'事件分过关'},
+    {y:254,h:'75 <span class="op">×</span> 0.6 <span class="op">=</span> <b>45</b>',l:'六折'},
+    {y:296,h:'45 <span class="op">+</span> 20 <span class="op">+</span> 9.4 <span class="op">=</span> <b class="sum">74.4</b>',l:'+ 关联 exact 20 + 名称质量 9.4'},
+  ].map((o,j)=>{
+    const m=el('div','mathline');
+    m.style.cssText='left:66px;top:'+o.y+'px';
+    m.innerHTML=o.h+'<span class="op" style="font-size:10px;margin-left:10px">'+o.l+'</span>';
+    m.setAttribute('data-a',''); S.root.appendChild(m); return m;
+  });
+  const gwrap=el('div','gauge');
+  gwrap.style.cssText='left:636px;top:120px';
+  gwrap.innerHTML=
+    '<svg width="212" height="132" viewBox="0 0 200 126">'
+    +'<defs><linearGradient id="ggGrad" x1="0" y1="0" x2="1" y2="0">'
+    +'<stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/></linearGradient></defs>'
+    +'<path class="gg-arc" d="M 16 92 A 84 84 0 1 1 184 92"/>'
+    +'<path class="gg-val" d="M 16 92 A 84 84 0 1 1 184 92" stroke-dasharray="264" stroke-dashoffset="264"/>'
+    +'<line class="gg-tick" x1="100" y1="22" x2="100" y2="8"/><text class="gg-ticklab" x="100" y="34" text-anchor="middle">50 mid</text>'
+    +'<line class="gg-tick" x1="141.2" y1="35.4" x2="149.4" y2="24"/><text class="gg-ticklab" x="152" y="22" text-anchor="middle">70 high</text>'
+    +'<line class="gg-needle" x1="100" y1="92" x2="100" y2="34" style="transform:rotate(-90deg)"/>'
+    +'<text class="gg-c" x="100" y="86" text-anchor="middle" font-size="24" id="ggRead">0.0</text>'
+    +'</svg>';
+  gwrap.setAttribute('data-a',''); gwrap.dataset.tip='评级线：≥70 high · ≥50 mid · 其余 low';
+  gwrap.dataset.detail='scoring';
+  S.root.appendChild(gwrap);
+  const readEl=gwrap.querySelector('#ggRead');
+  const needle=gwrap.querySelector('.gg-needle');
+  const arc=gwrap.querySelector('.gg-val');
+  const labs=gwrap.querySelectorAll('.gg-ticklab');
+  const fit=node(S,{x:66,y:346,w:280,t:'感染力折损检查（C93）',d:'web3_fit：strong_fit 0.42 + fit 0.26 = 0.68 ≥ 0.5 → E 类不折损（<0.5 才 ×0.5）',tip:'J1.36：判据源已从 event_resonance 换成 web3_fit', detail:'scoring'});
+  const tm=node(S,{x:380,y:346,w:200,t:'时效分表',d:'7 天内 15 · 30 天内 10 · 更早 0',tip:'TIMING_SCORES_STANDARD', detail:'scoring'});
+  const wm=node(S,{x:620,y:300,w:300,cls:'ghost',t:'分支：W 类独立数学',d:'产品 0-35 + 币安互动 0-40 + 时效 0-25 = 100，pass ≥ 60，不打六折',tip:'cashtag 改道或 W 类票走这边', detail:'scoring'});
+  branchTag(wm);
+  return [
+    cue(0.8,i=>on(hd)),
+    cue(1.4,i=>on(gate)),
+    cue(2.4,i=>on(lines[0])),
+    cue(4.2,i=>{ on(lines[1]); gate.classList.add('lit-ok'); }),
+    cue(5.8,i=>on(lines[2])),
+    cue(7.4,i=>on(lines[3])),
+    cue(8.8,i=>{ on(gwrap); needle.style.transform='rotate(43.9deg)'; arc.style.strokeDashoffset='67.6';
+      if(i) readEl.textContent='74.4'; else FX.count(S,readEl,74.4,1.6,v=>v.toFixed(1)); }),
+    cue(10.6,i=>{ labs.forEach(l=>l.classList.add('lit')); gwrap.classList.add('done'); }),
+    cue(11.8,i=>on(fit)),
+    cue(13.4,i=>on(tm)),
+    cue(15.0,i=>on(wm)),
+  ];
+};
+
+/* ── CH12 截断 · 落库 ──────────────────────────────── */
+SCENES[11]=function(S){
+  const blades=[
+    ['品牌劫持','brandHijack 未触发'],
+    ['拼写门 C78','图文名不符：未中'],
+    ['关联 ≤ 10','实际关联 20 → 弹起'],
+    ['质量 ≤ 4','实际质量 9.4 → 弹起'],
+  ].map((b,j)=>{
+    const d=el('div','blade');
+    d.style.cssText='left:'+(120+j*190)+'px;top:70px';
+    d.innerHTML='<div class="bl-k">闸 '+(j+1)+'</div><div class="bl-s"></div><div class="bl-l">'+b[0]+'<br><span class="faint">'+b[1]+'</span></div>';
+    d.setAttribute('data-a',''); d.dataset.tip='<b>'+b[0]+'</b>：'+b[1];
+    S.root.appendChild(d); return d;
+  });
+  const st=el('div','stamp ok hit');
+  st.style.cssText='left:392px;top:180px;font-size:22px;padding:8px 18px';
+  st.textContent='3 · HIGH';
+  st.style.opacity='0';
+  const sc=node(S,{x:66,y:200,w:250,t:'总分 74.4',d:'≥ 70 → high（3 级）',m:'≥50 mid · 其余 low',tip:'评级三档对应买腿 ==2 / ==3 消费', detail:'scoring'});
+  const db=el('div','dbcyl');
+  db.style.cssText='left:700px;top:120px';
+  db.innerHTML='<div class="cyl"></div><div class="db-n">token_narrative</div><div class="db-s">upsert · 全局缓存</div>';
+  db.setAttribute('data-a',''); db.dataset.tip='落库=下一枚同 token 查缓存毫秒返回（CH02）'; db.dataset.detail='truncate';
+  S.root.appendChild(db);
+  const w=wire(S,sc,db);
+  const g=node(S,{x:66,y:340,w:330,cls:'ghost',t:'分支：低评级重析环',d:'rating=1 且账号型语料 → 失效账号缓存穿透重析 · 每 token 上限 5 次 · 回测禁穿透',tip:'PrecheckFailRetryService', detail:'retry'});
+  branchTag(g);
+  const kl=klabel(S,430,420,'high 落库 → 交易引擎买腿按 narrativeRating == 3 消费（本动画不含买腿）');
+  kl.setAttribute('data-a','');
+  return [
+    cue(0.8,i=>{ blades.forEach((b,j)=>setTimeout(()=>b.classList.add('on'), i?0:j*160)); }),
+    cue(2.0,i=>{ if(i){ blades.forEach(b=>b.classList.add('passed')); }
+      else blades.forEach((b,j)=>setTimeout(()=>{ b.classList.add('dropped'); setTimeout(()=>{ b.classList.remove('dropped'); b.classList.add('passed'); },700); }, j*1400)); }),
+    cue(8.4,i=>{ st.style.opacity=''; sc.classList.add('lit-ok'); }),
+    cue(10.4,i=>{ on(db); db.classList.add('lit'); w.classList.add('run'); FX.flow(S,w,5); }),
+    cue(13.0,i=>on(g)),
+    cue(15.6,i=>on(kl)),
+  ];
+};
+
+/* ── CH13 终幕 · 全景 ──────────────────────────────── */
+SCENES[12]=function(S){
+  const steps=['URL 分类','四桶抓取','语料充分门','中段四泳道','规则墙','图分析门','Jev 分流','17 题作答','评分落库'];
+  const rc=el('div','recap');
+  rc.style.cssText='left:56px;top:70px;width:848px';
+  steps.forEach((t,j)=>{
+    const c=el('div','rc');
+    c.innerHTML='<div class="rc-n">0'+(j+1)+'</div><div class="rc-t">'+t+'</div>';
+    c.setAttribute('data-a','');
+    rc.appendChild(c);
+  });
+  S.root.appendChild(rc);
+  const ends=[
+    {t:'1 · low',c:'bad',d:'规则墙拦截 / 评 low / 截断 → 落库终态（带窗重试）'},
+    {t:'2 · mid',c:'warn',d:'影响力直通 / 评 mid → 买腿 ==2'},
+    {t:'3 · high',c:'ok',d:'HIPPO：74.4 过线 → 买腿 ==3'},
+  ].map((o,j)=>node(S,{x:96+j*290,y:210,w:230,cls:'endcard',t:'<span class="ec-r '+o.c+'">'+o.t+'</span><div class="ec-d">'+o.d+'</div>',tip:'',detail:'finale'}));
+  const rb=el('button','replay','↻ 再看一次');
+  rb.style.cssText='left:400px;top:428px';
+  rb.setAttribute('data-a','');
+  rb.addEventListener('click',()=>{ Player.seekToChapter(0); Player.play(); });
+  S.root.appendChild(rb);
+  const kl=klabel(S,56,420,'J1.36 · 一次心跳 6-11 秒 · 纯规则零 LLM 的墙挡掉大部分流量，Jev 只留给值得的票',true);
+  kl.setAttribute('data-a','');
+  return [
+    cue(0.6,i=>{ rc.querySelectorAll('.rc').forEach((c,j)=>setTimeout(()=>c.classList.add('on'), i?0:j*520)); }),
+    cue(6.2,i=>{ ends.forEach((e,j)=>setTimeout(()=>e.classList.add('on'), i?0:j*400)); }),
+    cue(8.8,i=>{ ends[2].classList.add('lit-ok','hot'); }),
+    cue(11.4,i=>on(kl)),
+    cue(13.0,i=>on(rb)),
+  ];
+};
+</script>
+<script>
+'use strict';
+/* ═══════════ ⑥ Panel（tooltip + 详解抽屉） ═══════════ */
+const drawer=$('#drawer');
+let drawerWasPlaying=false;
+function openDrawer(key, title){
+  if(!C.details[key]) return;
+  drawerWasPlaying=Player.playing;
+  if(drawerWasPlaying) Player.pause();
+  $('#dwTitle').textContent=title||'详解';
+  $('#dwBody').innerHTML=C.details[key];
+  if(!drawer.classList.contains('open')) drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden','false');
+}
+function closeDrawer(){
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden','true');
+  if(drawerWasPlaying){ drawerWasPlaying=false; Player.play(); }
+}
+document.addEventListener('click',e=>{
+  const x=e.target.closest('#dwClose');
+  if(x){ closeDrawer(); return; }
+  if(e.target.closest('#drawer')) return;
+  const d=e.target.closest('[data-detail]');
+  if(d){
+    const t=d.querySelector('.nt,.ln-t,.rc-t');
+    openDrawer(d.dataset.detail, t?t.textContent.trim():'详解');
+  }
+});
+const tipEl=$('#tooltip');
+if(HOVERABLE){
+  document.addEventListener('pointermove',e=>{
+    const t=e.target.closest('[data-tip]');
+    if(t && t.dataset.tip && !drawer.classList.contains('open')){
+      tipEl.innerHTML=t.dataset.tip;
+      tipEl.classList.add('show');
+      const r=tipEl.getBoundingClientRect();
+      tipEl.style.left=Math.max(8,Math.min(e.clientX+14, innerWidth-r.width-12))+'px';
+      tipEl.style.top=Math.min(e.clientY+16, innerHeight-r.height-12)+'px';
+    } else tipEl.classList.remove('show');
+  });
+}
+
+/* ═══════════ ⑦ Controls ═══════════ */
+const SHORT=['开场','缓存','分桶','语料门','泳道','规则墙','图门','分流','答题','定型','评分','落库','全景'];
+(function buildTimeline(){
+  const tl=$('#timeline');
+  C.chapters.forEach((ch,j)=>{
+    const s=el('button','tl-seg');
+    s.type='button';
+    s.style.flexGrow=String(ch.d);
+    s.setAttribute('aria-label','第'+(j+1)+'章 '+ch.t);
+    s.innerHTML='<div class="fill"></div><div class="lbl">'+(j+1)+' '+SHORT[j]+'</div>';
+    s.addEventListener('click',()=>Player.seekToChapter(j));
+    tl.appendChild(s);
+  });
+})();
+$('#btnPlay').addEventListener('click',()=>Player.toggle());
+$('#btnPrev').addEventListener('click',()=>Player.seekToChapter(Player.idx-1));
+$('#btnNext').addEventListener('click',()=>Player.seekToChapter(Player.idx+1));
+$('#btnReplay').addEventListener('click',()=>Player.replay());
+$$('.spd').forEach(b=>b.addEventListener('click',()=>{
+  Player.speed=+b.dataset.s;
+  $$('.spd').forEach(x=>x.classList.toggle('active',x===b));
+  try{ localStorage.setItem('hb-speed',b.dataset.s); }catch(_){}
+}));
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){ e.preventDefault(); Player.toggle(); }
+  else if(e.code==='ArrowLeft'){ Player.seekToChapter(Player.idx-1); }
+  else if(e.code==='ArrowRight'){ Player.seekToChapter(Player.idx+1); }
+  else if(e.code==='Escape'){ closeDrawer(); }
+});
+
+/* ═══════════ ⑧ Boot ═══════════ */
+new ResizeObserver(fitStage).observe($('#stageWrap'));
+let wasMobile=MOBILE();
+addEventListener('resize',()=>{
+  fitStage();
+  if(MOBILE()!==wasMobile){
+    wasMobile=MOBILE();
+    Player.buildScene();
+    if(REDUCED) Player.fire(true);
+  }
+});
+(function boot(){
+  fitStage();
+  let sp='1';
+  try{ sp=localStorage.getItem('hb-speed')||'1'; }catch(_){}
+  Player.speed=Math.min(2,Math.max(.75,+sp||1));
+  $$('.spd').forEach(b=>b.classList.toggle('active',+b.dataset.s===Player.speed));
+  const m=(location.hash||'').match(/^#c(\d+)/);
+  Player.seekToChapter(m?Math.min(C.chapters.length-1,Math.max(0,+m[1]-1)):0);
+  Player.play();
+  requestAnimationFrame(loop);
+  addEventListener('hashchange',()=>{
+    const n=(location.hash||'').match(/^#c(\d+)/);
+    if(n) Player.seekToChapter(Math.min(C.chapters.length-1,Math.max(0,+n[1]-1)));
+  });
+})();
+</script>
