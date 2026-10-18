@@ -36,6 +36,35 @@ const CATEGORY_LABELS = {
   web3_native_ip_early: 'W3早期'
 };
 
+// 类别释义（判据源=jev-questions.mjs event_category criteria + jev-prestage-questions.mjs P1.10）
+// short=图例简版；full=chip 悬浮完整定义
+const EVENT_MEANINGS = {
+  A: { short: '形象IP', full: 'A 形象IP：meme 角色/吉祥物/虚拟形象/卡通 IP/表情包角色——主体=角色本身（作品官推只是语料源，不按机构产品评）' },
+  B: { short: '非Web3产品', full: 'B 非Web3产品：app/游戏/硬件/网站/消费品等非 Web3 产品的发布或更新' },
+  C: { short: '个人言行', full: 'C 个人言行：个人账号以个人身份的发言/行动（即使本人是 CEO，非机构官方口径即归 C）' },
+  D: { short: '机构行为', full: 'D 机构行为：公司/组织官方账号的公告或行动（含交易所官宣自家产品——机构公告归 D 不归 W）' },
+  E: { short: '社会热点', full: 'E 社会热点：正在平台传播的趋势/病毒内容（梗/挑战/热帖/热搜话题），推文只是报道或骑乘已有热度' },
+  F: { short: '独家发现', full: 'F 独家发现：作者自己声称的发现——隐藏规律/数据洞察/叙事关联（即使对象是热点，原创发现声明归 F 不归 E）' },
+  G: { short: '预测', full: 'G 预测：对未来事件的推测（有推理但证据不足）' },
+  W: { short: 'Web3项目', full: 'W Web3项目：区块链/加密原生产品发布或更新（token/DeFi/NFT/公链/工具/协议），主体=项目/产品本身' }
+};
+const CATEGORY_MEANINGS = {
+  project: { short: '产品/服务项目', full: 'project 项目（prestage 路径）：账号主叙事=具体产品/服务的功能型项目' },
+  account_based_meme: { short: '账号本体梗', full: 'account_based_meme 账号梗（prestage 路径）：以账号本体为梗的代币（地址未验证命中的固定判定）' },
+  web3_native_ip_early: { short: '币即IP/社区梗', full: 'web3_native_ip_early W3早期（prestage 路径）：币本身就是 IP——自创头衔/概念/角色，或社区文化梗型账号' },
+  __null__: { short: '未走完分类', full: '未分类：token_category 为 null（precheck fail / no_data，叙事未走完分类）' }
+};
+// 取释义：event:* → EVENT_MEANINGS[字母]；其余 → CATEGORY_MEANINGS
+function categoryMeaning(cat) {
+  if (cat === '__null__') return CATEGORY_MEANINGS.__null__;
+  if (cat && cat.startsWith('event:')) {
+    const m = EVENT_MEANINGS[cat.slice(6)];
+    if (m) return m;
+    return { short: cat.slice(6), full: `event:${cat.slice(6)}（题集外类别字母）` };
+  }
+  return CATEGORY_MEANINGS[cat] || { short: CATEGORY_LABELS[cat] || cat || '未分类', full: cat || 'null' };
+}
+
 // 时效档简写（event_timing / superIpSlogan.timing 同枚举）
 const TIMING_LABELS = {
   within_7d: '7d内',
@@ -386,10 +415,22 @@ class ExperimentNarrative {
       : cat.startsWith('event:') ? `事件${cat.slice(6)}`
       : (CATEGORY_LABELS[cat] || cat);
     const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    container.innerHTML = `<span class="text-xs text-gray-500 mr-1">叙事类型</span>` + entries.map(([cat, cnt]) => `
-      <button class="cat-chip ${this.state.cats.has(cat) ? 'active' : ''}" data-cat="${esc(cat)}" title="${esc(cat === '__null__' ? 'null（precheck fail / no_data）' : cat)}">
+    container.innerHTML = `<span class="text-xs text-gray-500 mr-1">叙事类型</span>` + entries.map(([cat, cnt]) => {
+      const meaning = categoryMeaning(cat);
+      return `
+      <button class="cat-chip ${this.state.cats.has(cat) ? 'active' : ''}" data-cat="${esc(cat)}" title="${esc(meaning.full)}">
         ${esc(label(cat))} ${cnt}
-      </button>`).join('');
+      </button>`;
+    }).join('');
+    // 底部常显图例：仅列当前数据中出现的类别（悬浮 chip 看完整定义）
+    const legend = document.getElementById('cat-legend');
+    if (legend) {
+      legend.innerHTML = `<span class="text-gray-600">图例：</span>` + entries.map(([cat]) => {
+        const meaning = categoryMeaning(cat);
+        const name = cat === '__null__' ? '未分类' : (cat.startsWith('event:') ? `事件${cat.slice(6)}` : (CATEGORY_LABELS[cat] || cat));
+        return `<span class="text-gray-500" title="${esc(meaning.full)}">${esc(name)}=${esc(meaning.short)}</span>`;
+      }).join('<span class="text-gray-700 mx-0.5">·</span>');
+    }
   }
 
   // ═══════════════ 筛选 + 排序 ═══════════════
@@ -511,7 +552,8 @@ class ExperimentNarrative {
     const cat = item.narrative.token_category;
     if (cat) {
       const catLabel = cat.startsWith('event:') ? `E:${cat.slice(6)}` : (CATEGORY_LABELS[cat] || cat);
-      chips.push(`<span class="feat-chip" title="叙事类型 ${esc(cat)}">${esc(catLabel)}</span>`);
+      const meaning = categoryMeaning(cat);
+      chips.push(`<span class="feat-chip" title="${esc(meaning.full)}（token_category=${esc(cat)}）">${esc(catLabel)}</span>`);
     }
     if (item.narrative.narrativeSuperIp === 1) chips.push(`<span class="feat-chip feat-superip" title="超级IP（name_referent.super_ip ≥ 0.5，C88）">★超级IP</span>`);
     if (item.narrative.narrativeSuperIpSlogan === 1) chips.push(`<span class="feat-chip feat-slogan" title="口号票（五腿全中，C88）">📣口号</span>`);
