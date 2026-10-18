@@ -1560,6 +1560,61 @@
       "syncedSells": 26,
       "evenBuys": 0,
       "laterBuys": 53
+    },
+    {
+      "address": "0x8e0f6784f7b8fa6327943f9beaf041e3a983b086",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 1101,
+      "syncedSells": 1154,
+      "evenBuys": 1145,
+      "laterBuys": 65,
+      "manual": true,
+      "note": "2026-10-18 0x8e0f 镜像对案手工补录（极强边救援臂判据款）"
+    },
+    {
+      "address": "0x77ae5eac1fddd5043a2568415c7737d42615b072",
+      "role": "member",
+      "followers": 4,
+      "coTokens": 1101,
+      "syncedSells": 1153,
+      "evenBuys": 1145,
+      "laterBuys": 65,
+      "manual": true,
+      "note": "2026-10-18 0x8e0f 镜像对案手工补录（极强边救援臂判据款）"
+    },
+    {
+      "address": "0xaaeb59201a1258a41ab9d7d2a57859d6d26dbde7",
+      "role": "member",
+      "followers": 8,
+      "coTokens": 577,
+      "syncedSells": 1220,
+      "evenBuys": 2,
+      "laterBuys": 1005,
+      "manual": true,
+      "note": "2026-10-18 0x8e0f 镜像对案手工补录（极强边救援臂判据款）"
+    },
+    {
+      "address": "0x425edfccc825606bab15fd72f4ee315f2393086d",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 65,
+      "syncedSells": 99,
+      "evenBuys": 0,
+      "laterBuys": 0,
+      "manual": true,
+      "note": "2026-10-18 0x8e0f 镜像对案手工补录（极强边救援臂判据款）"
+    },
+    {
+      "address": "0x95661d036bc79b20144b64b3e164b3347ee581c9",
+      "role": "member",
+      "followers": 2,
+      "coTokens": 54,
+      "syncedSells": 56,
+      "evenBuys": 88,
+      "laterBuys": 108,
+      "manual": true,
+      "note": "2026-10-18 0x8e0f 镜像对案手工补录（极强边救援臂判据款）"
     }
   ]
 }

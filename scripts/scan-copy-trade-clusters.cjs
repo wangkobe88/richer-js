@@ -19,8 +19,15 @@
  * 在 182 跑（红线：重查询不去本地）：
  *   NODE_OPTIONS=--max-old-space-size=12288 node scripts/scan-copy-trade-clusters.cjs \
  *     [--days 14] [--min-tokens 5] [--block-win 5] [--sell-win 8] \
- *     [--co-token-thr 3] [--min-followers 2] [--commit]
+ *     [--co-token-thr 3] [--min-followers 2] [--commit] \
+ *     [--extreme-co 200] [--extreme-ratio 0.8] [--rescue-hops 1] [--no-orphan-rescue]
  * --commit 缺省只打印报告不写名单文件。
+ *
+ * 孤立强指纹簇救援臂（2026-10-18 0x8e0f6784 镜像对案，默认开）：memberNeedsLeader
+ * 剪「双开镜像对」这类无 leader 桥的孤立簇（与 0x77ae5eac 同分钟注资、co=1101 全
+ * 等额、96.6% 同步清仓）。救援=无 leader 连通分量含极强指纹边（co>=extreme-co 且
+ * even/co 或 sellSync/co >= extreme-ratio）→ 整簇收编。--no-orphan-rescue 关闭
+ * （对照臂）。判据实现与单测：scripts/shared/copy-roster-build.js。
  *
  * 名单维护口径（sniper 静态快照同款）：182 重跑扫描 --commit → git push →
  * 重启实验进程生效。锚检查失败（0xbf00/0xa83b73f5 未命中）= 判据失准，
@@ -42,6 +49,11 @@ const BLOCK_WIN = argOf('--block-win', 5);
 const SELL_WIN = argOf('--sell-win', 8);
 const CO_TOKEN_THR = argOf('--co-token-thr', 3);
 const MIN_FOLLOWERS = argOf('--min-followers', 2);
+// 孤立强指纹簇救援臂（2026-10-18 0x8e0f6784 镜像对案）：默认开
+const ORPHAN_RESCUE = !argv.includes('--no-orphan-rescue');
+const EXTREME_CO = argOf('--extreme-co', 200);
+const EXTREME_RATIO = argOf('--extreme-ratio', 0.8);
+const RESCUE_HOPS = argOf('--rescue-hops', 1);
 const COMMIT = argv.includes('--commit');
 const MIN_TICK_BNB = 0.001;   // collector 尘 tick 口径（不进因子域）
 const PAGE = 1000;            // PostgREST max-rows 上限（keyset 分页红线）
@@ -181,54 +193,9 @@ function pass2(rows, active) {
   return { pairs, firstBuy };
 }
 
-// ── 判据 → 名单（边级过滤参数化：co 下限 + 强度指纹任一达标）──
-function buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers, memberNeedsLeader }) {
-  const edges = new Map();   // wallet → {neighbors:Set, coMax, sellSyncSum, evenSum, laterSum}
-  for (const [k, st] of pairs) {
-    if (st.co < coThr) continue;
-    // 强度指纹（2026-10-16 首跑定标：co>=3 宽判据产出 11866 名单/FLY 28/34 命中——
-    // 高频 bot 同场抢新盘的首买同步≠跟单。真跟单特征=金额复制（等额镜像）或
-    // 同步清仓（FLY 三连 block 全清）。两条任一达标才算跟单边；0 档=关该指纹）
-    if (sellSyncThr > 0 && evenThr > 0) {
-      if (st.sellSync < sellSyncThr && st.even < evenThr) continue;
-    } else if (sellSyncThr > 0 && st.sellSync < sellSyncThr) continue;
-    else if (evenThr > 0 && st.even < evenThr) continue;
-    const [w1, w2] = k.split('|');
-    for (const [me, myLater] of [[w1, st.laterA], [w2, st.laterB]]) {
-      let e = edges.get(me);
-      if (!e) { e = { neighbors: new Set(), coMax: 0, sellSyncSum: 0, evenSum: 0, laterSum: 0 }; edges.set(me, e); }
-      e.neighbors.add(w1 === me ? w2 : w1);
-      e.coMax = Math.max(e.coMax, st.co);
-      e.sellSyncSum += st.sellSync;
-      e.evenSum += st.even;
-      e.laterSum += myLater;   // 我在该 pair 中后买的 token 数（0=常先手/镜像同步）
-    }
-  }
-  const wallets = [];
-  // member 挂靠门（2026-10-16 v2 矩阵教训：member 只要有一条合格边就收编，
-  // minFollowers 完全缩不动名单 1565→1565）。开启后 member 必须至少一条
-  // 合格边连到 leader——「著名钱包 + 挂靠它的跟单群」的心智模型
-  const leaders = new Set();
-  if (memberNeedsLeader) for (const [w, e] of edges) if (e.neighbors.size >= minFollowers) leaders.add(w);
-  for (const [w, e] of edges) {
-    if (memberNeedsLeader && !leaders.has(w)) {
-      let linked = false;
-      for (const n of e.neighbors) if (leaders.has(n)) { linked = true; break; }
-      if (!linked) continue;
-    }
-    wallets.push({
-      address: w,
-      role: e.neighbors.size >= minFollowers ? 'leader' : 'member',
-      followers: e.neighbors.size,
-      coTokens: e.coMax,
-      syncedSells: e.sellSyncSum,
-      evenBuys: e.evenSum,
-      laterBuys: e.laterSum,
-    });
-  }
-  wallets.sort((a, b) => b.followers - a.followers || b.coTokens - a.coTokens);
-  return { edges, wallets };
-}
+// ── 判据 → 名单（scripts/shared/copy-roster-build.js 共享纯函数：边级过滤参数化
+//    + 孤立强指纹簇救援臂；2026-10-18 0x8e0f6784 镜像对案抽出，单测锁定真值表）──
+const { buildRoster } = require('./shared/copy-roster-build');
 
 // ── pair 统计缓存读写（zlib gzip JSON；meta 携带生成参数与 FLY 买家集）──
 function dumpPairs(pairs, rows, meta) {
@@ -300,29 +267,39 @@ function fullReport(wallets, flyBuyerSet) {
   // ── 定标矩阵 v3（目标：名单收敛到 10 几~几十「著名钱包+其跟单群」档）。
   //    v1 教训：co>=3 宽判据 11866 名单/FLY 28/34 买家命中=同场抢盘 bot 污染；
   //    v2 教训：member 无挂靠门时 minFollowers 缩不动名单（1565 恒定）；co 500 掉锚
-  //    （0xa83b73f5 co=245）。v3=memberNeedsLeader 开 + minFollowers 真正起效 ──
+  //    （0xa83b73f5 co=245）。v3=memberNeedsLeader 开 + minFollowers 真正起效。
+  //    救援臂列（rescue）= 开/关两跑差值：孤立强指纹簇增量（0x8e0f 镜像对案）──
+  const rescueParams = { orphanRescue: ORPHAN_RESCUE, extremeCo: EXTREME_CO, extremeRatio: EXTREME_RATIO, rescueHops: RESCUE_HOPS };
   const MATRIX = [];
   for (const coThr of [50, 100, 200, 240]) {
     for (const [sellSyncThr, evenThr] of [[0, 0], [5, 10], [20, 40], [100, 200]]) {
       for (const minFollowers of [2, 5, 10, 20]) {
-        const { wallets } = buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers, memberNeedsLeader: true });
-        const { anchorOk, flyHits } = report(wallets, flyBuyerSet);
-        MATRIX.push({ coThr, sellSyncThr, evenThr, minFollowers, size: wallets.length,
-          leaders: wallets.filter(w => w.role === 'leader').length, anchorOk, flyHits: flyHits.length });
+        const on = buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers, memberNeedsLeader: true, ...rescueParams });
+        const off = buildRoster(pairs, { coThr, sellSyncThr, evenThr, minFollowers, memberNeedsLeader: true, orphanRescue: false });
+        const { anchorOk, flyHits } = report(on.wallets, flyBuyerSet);
+        MATRIX.push({ coThr, sellSyncThr, evenThr, minFollowers, size: on.wallets.length,
+          leaders: on.wallets.filter(w => w.role === 'leader').length, anchorOk, flyHits: flyHits.length,
+          rescue: on.wallets.length - off.wallets.length });
       }
     }
   }
   console.log('\n════════ 定标矩阵 v3（memberNeedsLeader=on）════════');
-  console.log('coThr  sync/even  minFol  名单   leader  锚   FLY命中');
+  console.log('coThr  sync/even  minFol  名单   leader  锚   FLY命中  救援+');
   for (const m of MATRIX) {
-    console.log(`${String(m.coThr).padStart(5)}  ${String(m.sellSyncThr).padStart(3)}/${String(m.evenThr).padStart(3)}   ${String(m.minFollowers).padStart(5)}  ${String(m.size).padStart(5)}  ${String(m.leaders).padStart(5)}  ${m.anchorOk ? '✅' : '❌'}  ${m.flyHits}`);
+    console.log(`${String(m.coThr).padStart(5)}  ${String(m.sellSyncThr).padStart(3)}/${String(m.evenThr).padStart(3)}   ${String(m.minFollowers).padStart(5)}  ${String(m.size).padStart(5)}  ${String(m.leaders).padStart(5)}  ${m.anchorOk ? '✅' : '❌'}  ${String(m.flyHits).padStart(5)}  ${m.rescue ? '+' + m.rescue : '  0'}`);
   }
 
   // ── 终版参数（CLI 覆盖或矩阵选档后写死于此）跑正式名单 ──
   const finalParams = { coThr: CO_TOKEN_THR, sellSyncThr: argOf('--sell-sync-thr', 0), evenThr: argOf('--even-thr', 0),
-    minFollowers: MIN_FOLLOWERS, memberNeedsLeader: argv.includes('--member-needs-leader') };
-  console.log(`\n[终版] coThr=${finalParams.coThr} sellSyncThr=${finalParams.sellSyncThr} evenThr=${finalParams.evenThr} minFollowers=${finalParams.minFollowers} memberNeedsLeader=${finalParams.memberNeedsLeader}`);
-  const { wallets } = buildRoster(pairs, finalParams);
+    minFollowers: MIN_FOLLOWERS, memberNeedsLeader: argv.includes('--member-needs-leader'), ...rescueParams };
+  console.log(`\n[终版] coThr=${finalParams.coThr} sellSyncThr=${finalParams.sellSyncThr} evenThr=${finalParams.evenThr} minFollowers=${finalParams.minFollowers} memberNeedsLeader=${finalParams.memberNeedsLeader} orphanRescue=${finalParams.orphanRescue} extremeCo=${finalParams.extremeCo} extremeRatio=${finalParams.extremeRatio}`);
+  const { wallets, rescued } = buildRoster(pairs, finalParams);
+  if (rescued.size) {
+    console.log(`\n[救援臂收编] ${rescued.size} 个（孤立强指纹簇全体成员）：`);
+    for (const w of wallets.filter(x => rescued.has(x.address))) {
+      console.log(`  co=${String(w.coTokens).padStart(4)} 卖同步=${String(w.syncedSells).padStart(4)} 等额=${String(w.evenBuys).padStart(4)} ${w.address}`);
+    }
+  }
   const r = fullReport(wallets, flyBuyerSet);
   if (!COMMIT) { console.log('\n（dry-run：未写名单文件。矩阵选档后带参数加 --commit 重跑）'); process.exit(0); }
   if (!r.anchorOk) { console.error('\n锚检查失败——拒绝写名单，调参重跑'); process.exit(1); }
@@ -331,7 +308,8 @@ function fullReport(wallets, flyBuyerSet) {
     generatedAt: new Date().toISOString(),
     params: { days: fetchMeta.days, minTokens: fetchMeta.minTokens, blockWin: fetchMeta.blockWin, sellWin: fetchMeta.sellWin,
       coTokenThr: finalParams.coThr, sellSyncThr: finalParams.sellSyncThr, evenThr: finalParams.evenThr,
-      minFollowers: finalParams.minFollowers, memberNeedsLeader: finalParams.memberNeedsLeader },
+      minFollowers: finalParams.minFollowers, memberNeedsLeader: finalParams.memberNeedsLeader,
+      orphanRescue: finalParams.orphanRescue, extremeCo: finalParams.extremeCo, extremeRatio: finalParams.extremeRatio },
     wallets,
   };
   fs.mkdirSync(path.dirname(ROSTER_PATH), { recursive: true });
