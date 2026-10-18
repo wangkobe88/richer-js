@@ -269,6 +269,104 @@ console.log('G. 源码锁（防前视/语义/接线防线）');
       condition: 'buyVolumeBnb >= 1.5 AND maxCopyWalletHolderCircPct < 20' }], getAvailableFactorIds());
     assert.strictEqual(se._strategies.length, 1);
   });
+  // famous 因子接线锁（2026-10-18 币安人生案）
+  check('G7 famous 接线四点（FA 字面量 + FactorBuilder 透传 + 两引擎挂点 + loader fail-open ENOENT 臂）', () => {
+    assert.ok(src.includes('famousCopyWalletCircPct,'), 'FA 字面量缺键');
+    assert.ok(read('src/trading-engine/core/FactorBuilder.js').includes('factorResults.famousCopyWalletCircPct ?? null'), 'FactorBuilder 透传缺');
+    assert.ok(wss.includes('loadFamousCopyWallets()'), 'Wss 引擎缺挂点');
+    assert.ok(bt.includes('loadFamousCopyWallets()'), 'Backtest 引擎缺挂点');
+    const fStart = src.indexOf('static async loadFamousCopyWallets() {');
+    assert.ok(fStart > 0, 'famous loader 未找到');
+    const fEnd = src.indexOf('static setFamousCopyWalletsForTest', fStart);
+    assert.ok(src.slice(fStart, fEnd).includes("e.code === 'ENOENT'"), 'ENOENT fail-open 臂缺（文件缺失=未启用非异常）');
+  });
+}
+
+// ═══════════════ H. 极著名钱包因子 famousCopyWalletCircPct（2026-10-18 币安人生案）═══════════════
+console.log('H. famousCopyWalletCircPct（用户点名极著名钱包单独门 <15）');
+{
+  const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+  const ev = new ConditionEvaluator();
+  const FAMOUS_GATE = '(famousCopyWalletCircPct IS NULL OR famousCopyWalletCircPct < 15)';
+
+  // 现场形状：BF（用户点名极著名）持 17% 流通——主门 <20 放行、famous 门 <15 拦
+  const fa = newFA();
+  const t = [];
+  for (let i = 0; i < 5; i++) {
+    t.push(mkTick({ timestamp: T0 + 1000 + i, trader_address: `eoaR${i}`, sender_address: `wr${i}`,
+      block_number: 500 + i, log_index: i, bnb_amount: 0.5, token_amount: 10 * M }));
+  }
+  t.push(mkTick({ timestamp: T0 + 3000, trader_address: 'eoaBF', sender_address: BF,
+    block_number: 600, log_index: 18, bnb_amount: 0.37, token_amount: 12.5 * M }));
+  // 流通 62.5M；BF 净 12.5M = 20%
+  for (const tk of t) fa.processTick(tk, {});
+
+  FourMemeFactorAggregator.setCopyWalletsForTest(new Set([BF, MIRROR]));
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([BF]));
+  const f = fa.buildFactorMap('0xtoken', T0 + 5000);
+  check('H1 命中计算：famous={BF} → 20（与主键同公式同分母，名单=famous 子集）', () =>
+    assert.ok(Math.abs(f.famousCopyWalletCircPct - 20) < 0.05, `got ${f.famousCopyWalletCircPct}`));
+  check('H2 门语义：20% 时主门 <20 恰过、famous 门 <15 拦（单独收紧生效）', () => {
+    assert.strictEqual(ev.evaluate('maxCopyWalletHolderCircPct < 20', f), false);   // 20.0 不小于 20
+    assert.strictEqual(ev.evaluate(FAMOUS_GATE, f), false);
+  });
+
+  // 非著名名单钱包持仓（MIRROR 22M）不进 famous 因子
+  const fa2 = newFA();
+  const t2 = [];
+  for (let i = 0; i < 5; i++) {
+    t2.push(mkTick({ timestamp: T0 + 1000 + i, trader_address: `eoaR${i}`, sender_address: `wr${i}`,
+      block_number: 500 + i, log_index: i, bnb_amount: 0.5, token_amount: 10 * M }));
+  }
+  t2.push(mkTick({ timestamp: T0 + 3000, trader_address: 'eoaM', sender_address: MIRROR,
+    block_number: 600, log_index: 18, bnb_amount: 0.37, token_amount: 15 * M }));
+  for (const tk of t2) fa2.processTick(tk, {});
+  FourMemeFactorAggregator.setCopyWalletsForTest(new Set([BF, MIRROR]));
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([BF]));
+  const f2 = fa2.buildFactorMap('0xtoken', T0 + 5000);
+  check('H3 非著名名单钱包大持仓不进 famous 因子（MIRROR 23% 主键计、famous=0 放行）', () => {
+    assert.ok(f2.maxCopyWalletHolderCircPct > 23, `主键应计 MIRROR，got ${f2.maxCopyWalletHolderCircPct}`);
+    assert.strictEqual(f2.famousCopyWalletCircPct, 0);
+    assert.strictEqual(ev.evaluate(FAMOUS_GATE, f2), true);
+  });
+
+  // 未启用三态：null（未加载）/ 空 Set（已加载未配置）→ 恒 null → IS NULL 臂放行
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
+  const f3 = fa.buildFactorMap('0xtoken', T0 + 5000);
+  check('H4 未加载 → 恒 null + IS NULL 臂放行（fail-open：收紧门未启用=存量零影响）', () => {
+    assert.strictEqual(f3.famousCopyWalletCircPct, null);
+    assert.strictEqual(ev.evaluate(FAMOUS_GATE, f3), true);
+    assert.strictEqual(ev.evaluate('famousCopyWalletCircPct < 15', f3), false, '裸比较臂 null 恒 false——条件串必须带 IS NULL 前置臂');
+  });
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set());
+  check('H5 空 Set（已加载未配置）→ 恒 null（区分「未启用」与「无命中=0」）', () =>
+    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 5000).famousCopyWalletCircPct, null));
+
+  // 小写归一（大写注入命中）
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([BF.toUpperCase()]));
+  check('H6 大写 famous 条目命中（消费侧 addr.toLowerCase() 双防线）', () => {
+    const v = fa.buildFactorMap('0xtoken', T0 + 5000).famousCopyWalletCircPct;
+    assert.ok(Math.abs(v - 20) < 0.05, `got ${v}`);
+  });
+
+  // 出键自动性 + 快照透传
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([BF]));
+  check('H7 getFactorKeys/getAvailableFactorIds 自动含键（三防线零登记）', () => {
+    assert.ok(newFA().getFactorKeys().has('famousCopyWalletCircPct'));
+    const { getAvailableFactorIds } = require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
+    assert.ok(getAvailableFactorIds().has('famousCopyWalletCircPct'));
+  });
+  // 装载引用键的腿（G6 同款 + IS NULL 臂写法）
+  check('H8 StrategyEngine 装载带 famous 门的腿成功（纯读无互斥）', () => {
+    const { StrategyEngine } = require(path.join(ROOT, 'src', 'strategies', 'StrategyEngine.js'));
+    const { getAvailableFactorIds } = require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
+    const se = new StrategyEngine();
+    se.loadStrategies([{ id: 's1', name: 'copy-leg', action: 'buy', priority: 1,
+      condition: 'buyVolumeBnb >= 1.5 AND maxCopyWalletHolderCircPct < 20 AND ' + FAMOUS_GATE }], getAvailableFactorIds());
+    assert.strictEqual(se._strategies.length, 1);
+  });
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
+  FourMemeFactorAggregator.setCopyWalletsForTest(null);
 }
 
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

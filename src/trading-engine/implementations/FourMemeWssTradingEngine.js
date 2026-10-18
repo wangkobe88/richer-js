@@ -426,6 +426,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `跟单簇名单加载失败(fail-closed, maxCopyWalletHolderCircPct 将恒 null=门拦): ${e.message}`);
     }
+    // 极著名钱包子集（2026-10-18 币安人生案用户点名）：famousCopyWalletCircPct 原料。
+    // fail-open 方向（与主名单相反——它是收紧门不是防线）：文件缺失 → 空集合；加载
+    // 抛错 → 保持 null——两者因子都恒 null=条件串 IS NULL 臂放行（未启用零影响）。
+    try {
+      await FourMemeFactorAggregator.loadFamousCopyWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+    }
 
     // 3.4 TPA 触发点持仓分析（回迁批 4 shadow 先行）：opt-in——实验 config 整段无
     //     tokenPositionAnalyzer → 不构造（存量实验零影响）；段存在才构造，trigger 缺配/非法

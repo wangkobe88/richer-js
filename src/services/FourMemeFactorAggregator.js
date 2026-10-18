@@ -196,6 +196,15 @@ let _sniperLoadPromise = null;
 // 空 Set=有证据零值 0（名单在但无命中钱包=放行）。
 let _copyWallets = null;
 let _copyLoadPromise = null;
+// ── 极著名钱包子集（2026-10-18 币安人生案用户点名）──
+// 来源=config/rosters/famous-copy-wallets.json（用户裁定集合，独立文件——scan
+// --commit 重写主名单不影响它）。famousCopyWalletCircPct 因子原料：被跟单特别
+// 重的钱包（跟单大军放大实际控盘度），单独更紧的门（<15）。null 语义 fail-open
+// （刻意与主名单 fail-closed 相反）：文件缺失/空集合 → 因子恒 null → 条件串
+// IS NULL 臂放行——famous 是收紧门不是防线，未启用=零影响（存量 bit 一致）；
+// 非空集合 → 0 起（有证据零值，与主名单同款）。
+let _famousCopyWallets = null;
+let _famousCopyLoadPromise = null;
 // ── TPA 持仓因子回填缓存（回迁批 4；母版 :56-70 同款装置）──
 // _holdingFactorOverrides（tokenAddress → { TPAPre_walletHoldingPct, 庄散派生键, ... 17 键 }）：
 //   TokenPositionAnalyzer 触发点 as-of 画像算出持仓因子后 setHoldingFactors 回填，
@@ -557,6 +566,57 @@ class FourMemeFactorAggregator extends EventEmitter {
         _copyWallets = setOrNullOrUndefined
             ? new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()))
             : null;
+    }
+
+    /**
+     * 极著名钱包子集（famousCopyWalletCircPct 因子原料）：读
+     * config/rosters/famous-copy-wallets.json（用户点名集合）。幂等+在途去重
+     * （loadCopyWalletRoster 模板）。与主名单两处刻意不同：①文件缺失 → 不抛错，
+     * 解析为空 Set（fail-open：收紧门未启用=零影响，非部署异常）②返回的是
+     * 「是否启用 + 名单」——空 Set 时因子恒 null（区分「未启用」与「无命中」，
+     * 前者 IS NULL 臂放行）。schema 不符（wallets 非数组）才抛错。
+     */
+    static async loadFamousCopyWallets() {
+        if (_famousCopyWallets) return _famousCopyWallets;
+        if (_famousCopyLoadPromise) return _famousCopyLoadPromise;
+        _famousCopyLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const rosterPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'famous-copy-wallets.json');
+            let parsed = null;
+            try {
+                parsed = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
+            } catch (e) {
+                if (e.code === 'ENOENT') {
+                    // 文件不存在=功能未启用（用户点名集合尚未建立），非异常
+                    this._logInfo(`极著名钱包名单未配置（${rosterPath} 缺失），famousCopyWalletCircPct 恒 null=未启用`);
+                    _famousCopyWallets = new Set();
+                    return _famousCopyWallets;
+                }
+                throw e;
+            }
+            if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
+                throw new Error(`[FourMemeFA] loadFamousCopyWallets: 名单 schema 不符（${rosterPath}）`);
+            }
+            _famousCopyWallets = new Set(parsed.wallets
+                .filter(w => typeof w === 'string' && w)
+                .map(w => w.toLowerCase()));
+            this._logInfo(`加载极著名钱包名单: ${_famousCopyWallets.size} 个（${rosterPath}）`);
+            return _famousCopyWallets;
+        })();
+        try {
+            return await _famousCopyLoadPromise;
+        } finally {
+            _famousCopyLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：注入极著名钱包集合（loader 同口径小写归一）。传 null 还原「未加载」
+     * 态；空 Set=「已加载但未启用」（因子恒 null）。 */
+    static setFamousCopyWalletsForTest(setOrNullOrUndefined) {
+        _famousCopyWallets = setOrNullOrUndefined === null
+            ? null
+            : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
     }
 
     /** static 上下文的日志出口（无实例 logger 时落 console；与母版 console.log 口径一致） */
@@ -2661,6 +2721,20 @@ class FourMemeFactorAggregator extends EventEmitter {
             maxCopyWalletHolderCircPct = state._circTokens > 0 ? _maxCopyNet / state._circTokens * 100 : 0;
         }
 
+        // 极著名钱包单钱包最大净持仓（2026-10-18 币安人生案用户点名）：与上键同公式
+        // 换名单=用户点名集合（被跟单特别重，跟单大军放大控盘度）→ 单独更紧的门
+        // （<15，主门 20 不变）。null 语义刻意 fail-open（与上键 fail-closed 相反）：
+        // 集合 null（未加载）或空（未启用）→ 恒 null → 条件串 IS NULL 臂放行
+        // （收紧门未启用=存量零影响）；非空 → 0 起（有证据零值）。
+        let famousCopyWalletCircPct = null;
+        if (_famousCopyWallets && _famousCopyWallets.size > 0) {
+            let _famousNet = 0;
+            for (const [addr, v] of state._walletNetTokens) {
+                if (v > _famousNet && v > 0 && _famousCopyWallets.has(addr.toLowerCase())) _famousNet = v;
+            }
+            famousCopyWalletCircPct = state._circTokens > 0 ? _famousNet / state._circTokens * 100 : 0;
+        }
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -2768,6 +2842,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
             top1HolderCircPct,
             maxCopyWalletHolderCircPct,
+            // 极著名钱包单钱包最大净持仓占比（2026-10-18 用户点名集合；null=未启用
+            // IS NULL 臂放行 / 0 起=有证据零值；见上方注释块）
+            famousCopyWalletCircPct,
 
             trendDataPoints: prices.length,
 

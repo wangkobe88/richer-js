@@ -248,6 +248,13 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `跟单簇名单加载失败(fail-closed, maxCopyWalletHolderCircPct 将恒 null=门拦): ${e.message}`);
     }
+    // 极著名钱包子集（famousCopyWalletCircPct 原料）：与 WSS 引擎同入口同集合（parity）；
+    // fail-open 同款（加载失败/文件缺失 → 因子恒 null=IS NULL 臂放行，快照同形）
+    try {
+      await FourMemeFactorAggregator.loadFamousCopyWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+    }
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');

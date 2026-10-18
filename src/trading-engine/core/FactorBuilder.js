@@ -152,6 +152,8 @@ function buildFactorValuesForTimeSeries(factorResults) {
     top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
     // 跟单簇名单是进程级静态 Set，名单缺失=null（fail-closed 语义随快照透传，不掩盖）
     maxCopyWalletHolderCircPct: factorResults.maxCopyWalletHolderCircPct ?? null,
+    // 极著名钱包子集（2026-10-18 用户点名）：null=未启用（IS NULL 臂放行），随快照透传
+    famousCopyWalletCircPct: factorResults.famousCopyWalletCircPct ?? null,
     // 平台标签（2026-10-17 C84 起进快照）：新模型单一买条件 platform != 'flap' 分门 +
     // signals 页因子 chip 直读；旧 FA/历史信号无此键 → null 不掩盖
     platform: factorResults.platform ?? null,
