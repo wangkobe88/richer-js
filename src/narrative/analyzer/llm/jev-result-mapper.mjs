@@ -4,6 +4,8 @@
  * 全部确定性聚合在本文件完成（原 3 阶段管线的公式原样保留）：
  * - 量级档 S/A/B/C → 39/34/27/22（MAGNITUDE_TIER_SCORES，108 样本校准定参），D/E 档阻断
  * - 标准类 stage2Total = tierScore + dimension2(0-30) + 时效(0-20)，pass ≥ 60
+ * - J1.23 Web3 偏好锚（A/B 类 + strong_fit≥0.5 → effTier 锚 B；C94 起 B 类同享
+ *   dim2<18 锚 18——web3 用户喜欢是根本判据，发布主体量级无所谓）
  * - W 类独立数学：产品(0-35) + 币安交互(0-40) + 时效(0-25) = 100，pass ≥ 60
  * - 最终 = round(stage2Total×0.6, 2) + 关联分 + 质量分，≥70 high / ≥50 mid / else low
  * - Stage3 截断顺序：品牌劫持 → 无背景拼写错误 → 关联≤10 → 质量≤4
@@ -840,10 +842,20 @@ export function mapStandardAnswers(answers, context) {
   // strong_fit ≥0.5（与 unfit 负门同阈值，两档概率互斥无冲突）时量级锚 B：
   // B 档=过线最低量级带；不越权 A/S——圈内喜好不证明世界级知名度，大众知名
   // 通道（A/S）仍由知名度证据决定。原判 B/A/S 不动；D/E 档随之放行（偏好
-  // 证据推翻「量级不足」）。仅 A 类：B 类有 pubProxy 锚、C/D/E 类量级是人物
-  // 影响力/热点传播的客观规模，偏好不替代规模。
+  // 证据推翻「量级不足」）。
+  // C94 扩展臂（2026-10-18 用户裁定，京小安案 0xcb98accaa8040a7e839c305b8aca
+  // 08e113c87777：「web3_fit 如果高，豁免发布主体…web3 用户喜欢，发布这个
+  // 新闻的是什么主体就无所谓了，地方媒体全国媒体都可以」）：B 类（非 Web3
+  // 产品票）同享量级锚——J1.27 形状③已把产品实体的发布方知名度切掉，剩余
+  // 量级判据（自传播/形象玩梗）在小号转述+原始语料数据缺失时必然 D 档
+  // （京小安：北京日报官微源未抓到，1 粉转述 0 赞 0 转 → 1.35/D 档 75%），
+  // 偏好证据（strong_fit 0.57）推翻「量级不足」。纯功能产品天然 strong_fit
+  // <0.5（题面限制「不高于 marginal」），豁免臂结构性不触达无形象产品票。
+  // 仍仅 A/B 类：C/D/E 类量级是人物影响力/热点传播的客观规模，偏好不替代
+  // 规模（维持）；事件影响力特别大的票走 S/A 档高分既有通路，与本豁免正交。
   const web3FitStrongP = answers?.web3_fit?.probabilities?.strong_fit ?? 0;
-  const web3FitAnchored = !tierAnchored && category === 'A' && web3FitStrongP >= 0.5
+  const web3FitAnchored = !tierAnchored && (category === 'A' || category === 'B')
+    && web3FitStrongP >= 0.5
     && tier !== 'S' && tier !== 'A' && tier !== 'B';
   const effTier = tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier);
   // C68 找角度时效 override：Jev event_timing 锚「叙事首次发生时间」（제로案判
@@ -874,7 +886,17 @@ export function mapStandardAnswers(answers, context) {
   // 仍拦（交互安全）
   const igDim2Anchor = category === 'A' && instagramLinked === true
     && instagramInfoFetched !== true && dim2 < 18;
-  const effDim2 = igDim2Anchor ? 18 : dim2;
+  // C94 Web3 偏好传播轴锚（2026-10-18 用户裁定双锚：web3_fit 强时发布主体
+  // 无所谓，量级轴（上 web3FitAnchored）+传播轴（本锚）一并豁免）：B 类 dim2
+  // 语义=发布方权重，小号转述票的 dim2 实际量的是转述者（京小安 1 粉小号→7
+  // 分），原始事件源数据缺失（微博原文未抓到）是证据缺失而非零影响力——C44
+  // IG 锚同款语义。strong_fit≥0.5 同阈值同条件；只升不降（dim2<18 才锚，
+  // 18=J1.23 dimension2「风格契合 Web3 偏好」带下限=圈内吸引力基线）。
+  // 仅 B 类：A 类已有 IG 锚+J1.23 锚组合覆盖（互斥不叠加），C/D/E 类量级是
+  // 客观规模维持不豁。锚不改门只改分（mem 地板/量级门各自的拦截语义不动——
+  // 京小安 mem 1.88<2 仍被 C88 地板拦是 2026-10-18 用户裁定「维持拦」）。
+  const web3FitDim2Anchor = category === 'B' && web3FitStrongP >= 0.5 && dim2 < 18;
+  const effDim2 = igDim2Anchor ? 18 : (web3FitDim2Anchor ? 18 : dim2);
   const blockChoice = answers.block_reason?.choice || 'none';
   const blockProb = answers.block_reason?.probabilities?.[blockChoice];
   // 原 prompt 语义是"命中任一阻断条件即阻断"（二值）。Choice 摊成 10 路分布后
@@ -927,8 +949,8 @@ export function mapStandardAnswers(answers, context) {
         publisherProxy: pubProxy ? { domain: pubProxy.domain, followers: pubProxy.followers } : null,
         publisherProxyActive: pubProxyActive || null,
         tierAnchored: tierAnchored ? 'A' : null,
-        // J1.23 审计标记：A 类 + web3_fit strong_fit≥0.5 的偏好量级锚（Jev 原判
-        // tier 保留在 magnitudeTier 键不受锚定影响）
+        // J1.23 审计标记：A/B 类（C94 起 B 类同享）+ web3_fit strong_fit≥0.5 的
+        // 偏好量级锚（Jev 原判 tier 保留在 magnitudeTier 键不受锚定影响）
         web3FitAnchored: web3FitAnchored ? 'B' : null,
         web3FitStrongP: web3FitAnchored ? web3FitStrongP : null,
         // J1.26 审计标记：B 类 notable_other 退出阻断侧的豁免详情（翻案票可追溯）
@@ -1217,7 +1239,7 @@ export function mapStandardAnswers(answers, context) {
       ? `｜量级门豁免(${magExemptTags}：${[magExemptRescuedArm ? `${effTier}档臂` : null, magExemptRescuedPass ? '事件分<60臂' : null].filter(Boolean).join('与')}不拦，弱量级代价在总分)`
       : '';
     stage2Blocked = stage2Total < 60 && !magExempt;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(web3_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}${web3FitDim2Anchor ? `·Web3偏好传播豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(web3_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 
@@ -1251,6 +1273,9 @@ export function mapStandardAnswers(answers, context) {
         // C44 审计标记：IG 影响力兜底锚命中详情（原 dim2 可追溯，锚后值在
         // scoringResult.dimension2）
         instagramDim2Anchor: igDim2Anchor ? { from: dim2 } : null,
+        // C94 审计标记：B 类 + web3_fit strong_fit≥0.5 的传播轴锚命中详情
+        // （原 dim2 可追溯；null=未命中——非 B 类/贴线/dim2≥18 只升不降）
+        web3FitDim2Anchor: web3FitDim2Anchor ? { from: dim2 } : null,
         // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
         // 可追溯；wInteractionScore 键照常落库不受豁免影响）
         wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
@@ -1351,7 +1376,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}${web3FitDim2Anchor ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据

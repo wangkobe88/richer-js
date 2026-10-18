@@ -6,11 +6,17 @@
  * 覆盖：
  *   A. 锚矩阵（mapStandardAnswers 路由）：久留美 J1.23 实测 answers 数值复现
  *      （A类 + C档0.94 + strong_fit 0.88 → 锚B → 61.12 过线 high + 审计标记）/
- *      strong_fit 0.49 贴线不锚 / 非 A 类不锚 / B/A/S 原判不动 / D/E 档锚后放行 /
- *      web3_fit 缺失 fail-closed
+ *      strong_fit 0.49 贴线不锚 / C-D-E 类不锚（作用域 A/B）/ B/A/S 原判不动 /
+ *      D/E 档锚后放行 / web3_fit 缺失 fail-closed
  *   B. 负门正锚共存：unfit 0.88 拦截维持（对称负门不被正锚干扰）
  *   C. 审计与 reason：magnitudeTier 原判保留 / reason 带「Web3偏好锚」/
  *      stage1 jev.web3FitAnchored 落位
+ *   D. C94 B 类双锚（2026-10-18 用户裁定，京小安案 0xcb98accaa8040a7e839c30
+ *      5b8aca08e113c87777「web3 用户喜欢是根本判据，发布主体无所谓」）：
+ *      B 类 + strong_fit≥0.5 → effTier 锚 B + dim2<18 锚 18 双锚；京小安 DB 实测
+ *      answers 快照复现（mem 1.88<2 仍被 C88 mem 地板拦=「维持拦」裁定反证；
+ *      mem≥2 形状 27+18+15=60 恰过线）/ 贴线不锚 / dim2 只升不降 /
+ *      C 类维持不豁 / unfit 负门 B 类共存
  *
  * 用法：node scripts/_test_web3_fit_anchor.cjs
  */
@@ -80,11 +86,11 @@ async function main() {
     s2b.pass === false && /事件分不足/.test(s2b.blockReason || '') && s2b.scoringResult?.tierScore === 22,
     { r: s2b.blockReason, t: s2b.scoringResult?.tierScore });
 
-  // A3 非 A 类（B 类同形状）→ 不锚
-  const bAnswers = { ...kurumiAnswers(), event_category: { choice: 'B', probabilities: { B: 0.6, A: 0.2 } } };
-  const m3 = mapStandardAnswers(bAnswers, makeContext(kurumiTokenData, bAnswers));
+  // A3 非 A/B 类（C 类同形状）→ 不锚（C94 扩展后作用域 A/B，C/D/E 维持）
+  const cCatAnswers = { ...kurumiAnswers(), event_category: { choice: 'C', probabilities: { C: 0.6, A: 0.2 } } };
+  const m3 = mapStandardAnswers(cCatAnswers, makeContext(kurumiTokenData, cCatAnswers));
   const j3 = m3?.stage1DataToSave?.parsed_output?.jev || {};
-  check('A3 B 类不锚（作用域仅 A）', j3.web3FitAnchored == null, j3.web3FitAnchored);
+  check('A3 C 类不锚（作用域 A/B，C/D/E 维持客观规模口径）', j3.web3FitAnchored == null, j3.web3FitAnchored);
 
   // A4 原判 B 档 → 不锚（原判即 B，无审计标记）
   const bTierAnswers = kurumiAnswers({ tier: 3, tierProbs: { '3': 0.6 } });
@@ -145,6 +151,91 @@ async function main() {
 
   // C2 reason 带 Web3偏好锚说明
   check('C2 reason 展示锚来源（原判档+strong_fit 百分比）', /Web3偏好锚\(原判C档,strong_fit 88%\)/.test(s2.reason || ''), s2.reason);
+
+  console.log('\n── D. C94 B 类双锚（京小安案现场） ──');
+
+  // 京小安 DB 实测 answers 快照（token_narrative 2026-10-17T14:41 分析行，
+  // stage1_raw_output 原样：B 0.52 / magnitude 1.35(D档 0.75) / strong_fit 0.57 /
+  // dim2 0.7→7 / mem 1.88 / minor_other 0.40 / none 0.66 / within_7d
+  const jxaTokenData = { symbol: '京小安', name: '首款AI警犬', raw_api_data: { name: '首款AI警犬' } };
+  function jxaAnswers({ memScore = 1.88, strongFit = 0.57, dim2Score = 0.7, category = 'B' } = {}) {
+    return {
+      event_category: { choice: category, probabilities: { [category]: 0.52, A: 0.2, W: 0.1, D: 0.08, E: 0.05, C: 0.04, F: 0.01 } },
+      event_magnitude: { score: 1.35, probabilities: { '0': 0.01, '1': 0.75, '2': 0.16, '3': 0.05, '4': 0.03, '5': 0 } },
+      event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.96, within_30d: 0.01, older: 0.01, unknown: 0.01 } },
+      dimension2: { score: dim2Score, probabilities: { '0': 0.45, '1': 0.48, '2': 0.03, '3': 0.02, '4': 0.02, '5': 0 } },
+      block_reason: { choice: 'none', probabilities: { none: 0.66, subject_unqualified: 0.15, regional_event: 0.1, marketing_gimmick: 0.05, routine_content_product: 0.02, institution_routine: 0.01, low_quality_derivative: 0.01 } },
+      web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.21, marginal: 0.21, unfit: 0.01 } },
+      subject_entity: { choice: 'product_character', probabilities: { product_character: 0.53, product_functional: 0.34, character_ip: 0.11, event_hotspot: 0.01 } },
+      name_referent: { choice: 'minor_other', probabilities: { minor_other: 0.39999999999999997, subject_self: 0.33999999999999997, notable_other: 0.19, super_ip: 0.04, common_word: 0.02, none_related: 0.01 } },
+      referent_memeability: { score: memScore, probabilities: { '2': 0.88, '0': 0.03, '1': 0.08, '3': 0.01 } },
+      subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.49, improvised_entity: 0.42, no_visual_entity: 0.09 } },
+      relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.96, semantic: 0.04 } },
+      relevance_level: { score: 3.55, probabilities: { '4': 0.75, '3': 0.13, '1': 0.05, '2': 0.04, '0': 0.03 } },
+      block_misspelling: { noul: 0.1 },
+      quality_spelling: { score: 2.88 },
+      quality_reasonability: { score: 1.88 },
+    };
+  }
+
+  // D1 京小安实测形状（mem 1.88<2）：量级豁免不为它开洞——仍被 C88 mem 地板拦
+  // （2026-10-18 用户裁定「维持拦」：名字玩味是独立于发布主体的拦截轴）
+  const d1a = jxaAnswers();
+  const md1 = mapStandardAnswers(d1a, makeContext(jxaTokenData, d1a));
+  const sd1 = md1?.stage2DataToSave?.parsed_output || {};
+  check('D1 京小安 mem 1.88<2：C88 mem 地板拦（维持拦裁定，先于量级门）',
+    sd1.pass === false && /名字无口号性/.test(sd1.blockReason || ''), sd1.blockReason);
+
+  // D2 同形状 mem 2.2（过地板）：D 档 → 量级锚 B + dim2 锚 18 双锚 →
+  // 27+18+15=60 恰过线 pass + reason 双锚标注 + 审计键
+  const d2a = jxaAnswers({ memScore: 2.2 });
+  const md2 = mapStandardAnswers(d2a, makeContext(jxaTokenData, d2a));
+  const sd2 = md2?.stage2DataToSave?.parsed_output || {};
+  const jd2 = md2?.stage1DataToSave?.parsed_output?.jev || {};
+  check('D2 B类 D档+strong_fit 0.57 双锚：27+18+15=60 恰过线 pass',
+    sd2.pass === true && sd2.scoringResult?.totalScore === 60
+      && sd2.scoringResult?.tierScore === 27 && sd2.scoringResult?.dimension2 === 18,
+    sd2.scoringResult);
+  check('D2 审计：magnitudeTier=D 原判保留 + web3FitAnchored=B + web3FitDim2Anchor={from:7}',
+    jd2.magnitudeTier === 'D' && jd2.web3FitAnchored === 'B'
+      && sd2.jev?.web3FitDim2Anchor?.from === 7,
+    { t: jd2.magnitudeTier, a: jd2.web3FitAnchored, d: sd2.jev?.web3FitDim2Anchor });
+  check('D2 reason 双锚标注（Web3偏好锚 + Web3偏好传播豁免）',
+    /Web3偏好锚\(原判D档,strong_fit 57%\)/.test(sd2.reason || '')
+      && /Web3偏好传播豁免\(原7\)/.test(sd2.reason || ''), sd2.reason);
+
+  // D3 strong_fit 0.49 贴线（B 类）→ 不锚不豁：量级门 D 档拦截维持（fail-closed）
+  const d3a = jxaAnswers({ strongFit: 0.49, memScore: 2.2 });
+  const md3 = mapStandardAnswers(d3a, makeContext(jxaTokenData, d3a));
+  const sd3 = md3?.stage2DataToSave?.parsed_output || {};
+  check('D3 strong_fit 0.49 贴线不锚：量级不足拦截维持',
+    sd3.pass === false && /量级不足/.test(sd3.blockReason || ''), sd3.blockReason);
+
+  // D4 dim2≥18 只升不降：锚不触发（审计 null），量级锚照常生效
+  const d4a = jxaAnswers({ memScore: 2.2, dim2Score: 3.0 });
+  const md4 = mapStandardAnswers(d4a, makeContext(jxaTokenData, d4a));
+  const sd4 = md4?.stage2DataToSave?.parsed_output || {};
+  check('D4 dim2 高带不锚（只升不降）：量级锚照常、传播锚审计 null',
+    sd4.scoringResult?.tierScore === 27 && sd4.jev?.web3FitDim2Anchor == null
+      && sd4.scoringResult?.dimension2 > 18,
+    { t: sd4.scoringResult?.tierScore, d: sd4.scoringResult?.dimension2, a: sd4.jev?.web3FitDim2Anchor });
+
+  // D5 C 类维持不豁（裁定「C/D/E 类量级是客观规模」）：同形状 category C → 无双锚
+  const d5a = jxaAnswers({ memScore: 2.2, category: 'C' });
+  const md5 = mapStandardAnswers(d5a, makeContext(jxaTokenData, d5a));
+  const jd5 = md5?.stage1DataToSave?.parsed_output?.jev || {};
+  const sd5 = md5?.stage2DataToSave?.parsed_output || {};
+  check('D5 C 类不豁：量级/传播双锚均不触达',
+    jd5.web3FitAnchored == null && sd5.jev?.web3FitDim2Anchor == null,
+    { a: jd5.web3FitAnchored, d: sd5.jev?.web3FitDim2Anchor });
+
+  // D6 unfit 负门 B 类共存：Web3 用户不喜欢 → 量级/传播锚不救（对称负门）
+  const d6a = jxaAnswers({ memScore: 2.2, strongFit: 0.02 });
+  d6a.web3_fit = { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } };
+  const md6 = mapStandardAnswers(d6a, makeContext(jxaTokenData, d6a));
+  const sd6 = md6?.stage2DataToSave?.parsed_output || {};
+  check('D6 B 类 unfit 0.88 负门拦截维持（偏好不合先于锚）',
+    sd6.pass === false && sd6.blockReason === 'Web3用户偏好不合', sd6.blockReason);
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);
