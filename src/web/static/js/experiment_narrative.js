@@ -94,6 +94,7 @@ class ExperimentNarrative {
     this.filteredData = [];
     this.features = new Map();   // addr → extractFeatures 产物（加载后一次算好）
     this.roundsMap = new Map();  // addr → { count, rows[] }（后置异步，C84）
+    this._ticksGain = new Map(); // addr → { status:'loading'|'done'|'error', maxChange, finalChange }（profile 缺行票的 ticks 重建涨幅缓存）
     this.stats = {};
     this.state = {
       tab: 'all',             // all|high|mid|low|unrated|superip|slogan
@@ -527,10 +528,11 @@ class ExperimentNarrative {
       ? `<span class="text-xs text-red-400" title="${esc(f.blockFull || f.blockLabel)}">${esc(f.blockLabel)}</span>`
       : '<span class="text-gray-600">—</span>';
 
-    // 涨幅
+    // 涨幅（'-' = token_profiles 缺行，展开明细有 ticks 重建）
     const mc = item.max_change_percent;
     const maxChange = mc != null
-      ? `<span class="${mc > 0 ? 'text-green-400' : (mc < 0 ? 'text-red-400' : 'text-gray-400')}">${mc.toFixed(1)}%</span>` : '-';
+      ? `<span class="${mc > 0 ? 'text-green-400' : (mc < 0 ? 'text-red-400' : 'text-gray-400')}">${mc.toFixed(1)}%</span>`
+      : '<span class="text-gray-600" title="token_profiles 无数据——点击行展开明细可见 ticks 重建涨幅">-</span>';
 
     // 轮次（C84）
     const rounds = this.roundsMap.get((item.token_address || '').toLowerCase());
@@ -607,6 +609,52 @@ class ExperimentNarrative {
   _kv(k, v, title) {
     if (v == null || v === '') return '';
     return `<div class="kv"><span class="k">${esc(k)}</span><span class="v" ${title ? `title="${esc(title)}"` : ''}>${esc(v)}</span></div>`;
+  }
+
+  // profile 缺行票：懒加载 /api/tokens/price-series（per-token 全量 ticks 降采样）现算最高/最终涨幅。
+  // 缓存防重拉；行重渲染/收起时占位元素不在 → no-op，下次展开直接吃缓存。
+  async _loadTicksGain(addr) {
+    const cached = this._ticksGain.get(addr);
+    if (cached && cached.status !== 'error') return; // loading 在途 / done 已有值
+    this._ticksGain.set(addr, { status: 'loading' });
+    try {
+      const res = await fetch(`/api/tokens/price-series?tokenAddress=${encodeURIComponent(addr)}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      const pts = (json.data || []).filter(p => p != null && Number.isFinite(p.p) && p.p > 0);
+      if (!pts.length) {
+        this._ticksGain.set(addr, { status: 'done', maxChange: null, finalChange: null });
+      } else {
+        const first = pts[0].p;
+        let max = -Infinity, last = pts[0].p;
+        for (const pt of pts) { if (pt.p > max) max = pt.p; last = pt.p; }
+        this._ticksGain.set(addr, {
+          status: 'done',
+          maxChange: (max / first - 1) * 100,
+          finalChange: (last / first - 1) * 100,
+        });
+      }
+    } catch (e) {
+      this._ticksGain.set(addr, { status: 'error', error: String(e && e.message || e) });
+    }
+    this._applyTicksGain(addr);
+  }
+
+  _applyTicksGain(addr) {
+    const el = document.querySelector(`[data-ticks-gain="${addr}"]`);
+    if (!el) return; // 行已收起/重渲染，下次展开吃缓存
+    const tg = this._ticksGain.get(addr);
+    if (!tg) return;
+    if (tg.status === 'done') {
+      if (tg.maxChange == null) { el.textContent = '无 tick 价格数据'; return; }
+      // 收起所在 stage-card 前的整体重渲染代价大，这里就地展开成两行 kv
+      el.outerHTML =
+        `<div class="kv"><span class="k">最高涨幅</span><span class="v">≈${tg.maxChange.toFixed(1)}%</span></div>` +
+        `<div class="kv"><span class="k">最终涨幅</span><span class="v">≈${tg.finalChange.toFixed(1)}%</span></div>`;
+    } else if (tg.status === 'error') {
+      el.textContent = 'ticks 重建失败';
+      el.title = tg.error || '';
+    }
   }
 
   renderDetail(item, f) {
@@ -733,17 +781,37 @@ class ExperimentNarrative {
         </div>`
       : '';
 
-    // ── 涨幅面板 ──
+    // ── 涨幅面板（profile 缺行票懒加载 ticks 重建：OPB 只扫监控域内票，实验重启时已死票永久缺 token_profiles 行）──
     const mc = item.max_change_percent;
     const fc = item.final_change_percent;
     const pm = item.peak_mcap_usd;
+    const ticksNote = 'token_profiles 无此票行（OPB 覆盖缺口），涨幅由 wss_price_ticks 价格序列重建（降采样近似、基线=首个有效价，峰值市值不可重建）';
+    let gainTitleTag, gainBody;
+    if (mc != null || fc != null || pm != null) {
+      gainTitleTag = 'token_profiles';
+      gainBody =
+        this._kv('最高涨幅', mc != null ? `${mc.toFixed(1)}%` : null) +
+        this._kv('最终涨幅', fc != null ? `${fc.toFixed(1)}%` : null) +
+        this._kv('峰值市值', pm != null ? `$${Number(pm).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}` : null);
+    } else {
+      gainTitleTag = 'ticks 重建';
+      const addrKey = (item.token_address || '').toLowerCase();
+      const tg = this._ticksGain.get(addrKey);
+      if (tg?.status === 'done') {
+        gainBody = tg.maxChange == null
+          ? '<div class="text-xs text-gray-500">无 tick 价格数据</div>'
+          : this._kv('最高涨幅', `≈${tg.maxChange.toFixed(1)}%`) +
+            this._kv('最终涨幅', `≈${tg.finalChange.toFixed(1)}%`) +
+            `<div class="text-xs text-gray-500" title="${esc(ticksNote)}">≈ ticks 降采样近似</div>`;
+      } else {
+        gainBody = `<div class="text-xs text-gray-400" data-ticks-gain="${esc(addrKey)}">${tg?.status === 'error' ? 'ticks 重建失败' : '⏳ ticks 重建中…'}</div>`;
+        this._loadTicksGain(addrKey);
+      }
+    }
     const gainPanel = `
       <div class="stage-card">
-        <div class="stage-title"><span>📈 涨幅面板（token_profiles）</span></div>
-        ${this._kv('最高涨幅', mc != null ? `${mc.toFixed(1)}%` : null)}
-        ${this._kv('最终涨幅', fc != null ? `${fc.toFixed(1)}%` : null)}
-        ${this._kv('峰值市值', pm != null ? `$${Number(pm).toLocaleString('zh-CN', { maximumFractionDigits: 0 })}` : null)}
-        ${mc == null && fc == null && pm == null ? '<div class="text-xs text-gray-500">无分类管线数据</div>' : ''}
+        <div class="stage-title"><span title="${esc(gainTitleTag === 'ticks 重建' ? ticksNote : 'OPB 在线分类管线写入 token_profiles')}">📈 涨幅面板（${gainTitleTag}）</span></div>
+        ${gainBody}
       </div>`;
 
     // ── C84 轮次表 ──
