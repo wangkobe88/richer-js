@@ -59,7 +59,7 @@ async function main() {
   check('A2 J1.28 起默认恒带 referent_memeability（标准路径低档门判据源）', 'referent_memeability' in qsDefault, Object.keys(qsDefault).length);
   const mq = qsDefault.referent_memeability;
   check('A3 题面钉死评估对象=指代对象本身', mq && mq.instructions.includes('指代对象') && mq.instructions.includes('不加分'), null);
-  check('A4 分档承载两维度（人名 0 档 + AND 下限 3 档）', mq && /0分：人名/.test(mq.criteria[0]) && /3分：内容作品/.test(mq.criteria[3]) && mq.criteria[3].includes('同时满足'), null);
+  check('A4 分档承载两维度（无名普通人 0 档（J1.33 收窄，人物按高度评）+ AND 下限 3 档）', mq && /0分：无名普通人名/.test(mq.criteria[0]) && mq.criteria[0].includes('只有无名普通人才归本档') && /3分：内容作品/.test(mq.criteria[3]) && mq.criteria[3].includes('同时满足'), null);
   check('A5 与品牌劫持条件题互不影响', buildStandardQuestions({ includeBrandHijack: true }).brand_hijack != null && !('brand_hijack' in qsDefault), null);
 
   // ═══ G. 标准路径：nrBlock 照拦 + J1.28 低档门矩阵 ═══

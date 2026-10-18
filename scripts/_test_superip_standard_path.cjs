@@ -159,9 +159,9 @@ const run = async () => {
   catch (e) { threw = e.message; }
   check('D1 注入 + twitterInfo=null 不 throw', threw === null, threw);
 
-  // D2 JEV_QUESTIONS_VERSION 已 bump 至 J1.32（state 形状断代标识）
+  // D2 JEV_QUESTIONS_VERSION 已 bump（J1.33=C89 mem 人物高度口径；J1.32=state 形状断代）
   const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('D2 JEV_QUESTIONS_VERSION === J1.32', JEV_QUESTIONS_VERSION === 'J1.32', JEV_QUESTIONS_VERSION);
+  check('D2 JEV_QUESTIONS_VERSION === J1.33', JEV_QUESTIONS_VERSION === 'J1.33', JEV_QUESTIONS_VERSION);
 
   // ═══ 汇总 ═══
   console.log(`\n═══ _test_superip_standard_path: ${passed} passed, ${failed} failed ═══`);
