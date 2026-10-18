@@ -25,8 +25,13 @@
  *      0x11efcbd0…27777——binancezh 活动 3 天后第二波蹭，78.78 high→载体门接管拦；
  *      不限 type / 帕鲁贴线 88835s / 86400 边界 / 非借壳 bit-identical / 父推
  *      时间与锚缺失 fail-open / 载体不救 / 与 C75 并存双 override 各落）
+ *   F. C103 载体↔父推关系源头窗（J1.39 条件题判关系+代码 24h 窗）：Jean Phil 翻译
+ *      洗白案 0x6915bec6…7777——主推位 Dexerto 原生新闻推 20 天老+website_tweet 位
+ *      小号翻译推 token 前 2s 洗白，63.65 压线过→翻译/二手解读臂归 older 53.65 拦；
+ *      new_angle 豁免臂照放 / 86400 边界 / 槽位覆盖（主推位=BAI 形状）/ 父推窗内
+ *      放 / 旧缓存行+unclear fail-open / 与 C102 并存双落 / hasReplyParent 四槽位
  *   C. 源码口径：pre-check-service 规则2 含 tokenCreatedAtSec 回退链 / mapper
- *      6h 纵深防御与 precheck 300s 分桶（C74）共存
+ *      6h 纵深防御与 precheck 300s 分桶（C74）共存 / C103 三点锁（题面门控+接线+窗）
  *
  * 用法：node scripts/_test_angle_timing_override.cjs
  */
@@ -397,6 +402,153 @@ async function main() {
   check('E10 锚缺失 fail-open', e10.stage1DataToSave.parsed_output.jev.staleParentOverride === null,
     e10.stage1DataToSave.parsed_output.jev.staleParentOverride);
 
+  // ═══ F. C103 载体↔父推关系源头窗（Jean Phil 翻译洗白案 0x6915bec6…7777）═══
+  console.log('\n── F. C103 载体↔父推关系源头窗（J1.39 条件题 + mapper 24h 窗）──');
+  // 事故现场（DB stage1_raw_output 实证，J1.36 17 题原答案逐字段转录）：
+  // 主推位=Dexerto 原生新闻推（145 万粉，9-28 报道 Jean Phil 币 $8M=20 天老）+
+  // website_tweet 位=229 粉「热点挖掘机」token 前 2s 的中文翻译推（reply Dexerto）
+  const JP_ANCHOR = 1792306117;            // token 创建锚（raw_api_data.eventTs）
+  const JP_PARENT_SEC = 1790587807;        // Dexerto 父推 created_at（Sep 28 09:30:07Z）
+  const JP_PARENT_LAG = 1718310;           // 20 天老源头（19.89d）——C75 30d 窗内漏过
+  function makeJeanPhilAnswers(relChoice) {
+    const base = {
+      event_category: { choice: 'A', probabilities: { A: 0.8, W: 0.1, B: 0, F: 0, G: 0, C: 0, D: 0, E: 0.1 } },
+      event_magnitude: { score: 3.04, probabilities: { '0': 0, '1': 0.01, '2': 0.05, '3': 0.81, '4': 0.12, '5': 0 } },
+      event_timing: { choice: 'within_30d', probabilities: { within_7d: 0.03, within_30d: 0.96, older: 0.01, expected_within_30d: 0, expected_beyond_30d: 0, unknown: 0 } },
+      dimension2: { score: 3.73, probabilities: { '0': 0.01, '1': 0.03, '2': 0.04, '3': 0.19, '4': 0.63, '5': 0.1 } },
+      block_reason: { choice: 'none', probabilities: { none: 0.97, subject_unqualified: 0.01, niche_subculture: 0, empty_content: 0, institution_routine: 0, low_quality_derivative: 0.02, marketing_gimmick: 0, baseless_speculation: 0, ip_reuse: 0, regional_event: 0, negative_hard_news: 0, routine_content_product: 0 } },
+      web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.98, fit: 0.02, marginal: 0, unfit: 0 } },
+      subject_entity: { choice: 'character_ip', probabilities: { company: 0, product_functional: 0, product_character: 0, character_ip: 0.96, person: 0, event_hotspot: 0.04, meme_word: 0, none_of_above: 0 } },
+      w_product_score: { score: 0.66, probabilities: { '0': 0.66, '1': 0.09, '2': 0.19, '3': 0.06 } },
+      w_binance_interaction: { score: 0, probabilities: { '0': 1, '1': 0, '2': 0, '3': 0 } },
+      relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.93, translation_match: 0.01, abbreviation_alias: 0.03, semantic: 0.03, cultural: 0, generic_concept: 0, none: 0 } },
+      relevance_level: { score: 3.79, probabilities: { '0': 0, '1': 0.01, '2': 0.02, '3': 0.13, '4': 0.84 } },
+      name_referent: { choice: 'minor_other', probabilities: { subject_self: 0.21, super_ip: 0.01, notable_other: 0.28, minor_other: 0.5, common_word: 0, none_related: 0 } },
+      referent_memeability: { score: 3.61, probabilities: { '0': 0.02, '1': 0, '2': 0.03, '3': 0.39, '4': 0.41, '5': 0.15 } },
+      subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.99, improvised_entity: 0, no_visual_entity: 0.01 } },
+      block_misspelling: { noul: 0.12 },
+      quality_spelling: { score: 2.5, probabilities: { '0': 0.11, '1': 0.05, '2': 0.07, '3': 0.77 } },
+      quality_reasonability: { score: 1.73, probabilities: { '0': 0.05, '1': 0.17, '2': 0.78 } },
+    };
+    return relChoice ? { ...base, parent_relationship: { choice: relChoice } } : base;
+  }
+  const jpToken = { symbol: 'Jean Phil', name: 'Jean Phil', tokenCreatedAtSec: JP_ANCHOR, raw_api_data: { name: 'Jean Phil' } };
+  const makeJeanPhilTwitter = (parentSec, extra = {}) => ({
+    type: 'tweet',
+    text: 'AI-generated influencer Jean Phil has spawned a meme coin valued at over $8 million\n\nNow copycat AI characters are emerging with their own fake rivalries and crypto tokens https://t.co/iXvhcuzPmm',
+    created_at: twitterDate(parentSec),  // 主推位=Dexerto 原推本体（20 天老，非 binance 语料）
+    author_screen_name: 'Dexerto', author_followers_count: 1450108,
+    metrics: { retweet_count: 108, favorite_count: 3449 },
+    website_tweet: {
+      text: 'AI 生成的虚拟爆红网红 Jean Phil，靠一段巴黎街头打空气拳的视频爆火，身后催生出一枚市值超 800 万美元的 meme 币。',
+      created_at: twitterDate(JP_ANCHOR - 2),  // 翻译推 token 前 2s（洗白载体本体）
+      author_screen_name: 'rega_sport', author_followers_count: 229,
+      in_reply_to: {
+        text: 'AI-generated influencer Jean Phil has spawned a meme coin valued at over $8 million\n\nNow copycat AI characters are emerging with their own fake rivalries and crypto tokens',
+        created_at: twitterDate(parentSec),
+        author_screen_name: 'Dexerto', author_followers_count: 1450108,
+      },
+    },
+    ...extra,
+  });
+
+  // F1 事故现场反证：fixture 逐位重现 63.65 压线过（J1.38- 旧答案无 parent_relationship
+  // = 门上线前形态；主推 20d<30d C75 不触、载体集 website_tweet 2s 新鲜 C68 不触）
+  const f1before = mapStandardAnswers(makeJeanPhilAnswers(), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
+  check('F1a fixture 逐位重现事故：stage2 63.65 压线过（翻译推洗白 20 天源头，三时效门全盲）',
+    f1before.stage2DataToSave.parsed_output.scoringResult.totalScore === 63.65
+    && f1before.stage2DataToSave.parsed_output.pass === true
+    && f1before.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
+    && f1before.stage1DataToSave.parsed_output.jev.timing === 'within_30d',
+    { t: f1before.stage2DataToSave.parsed_output.scoringResult.totalScore, o: f1before.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
+  const f1 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
+  const f1j = f1.stage1DataToSave.parsed_output.jev;
+  check('F1b override 命中：lagSec=1718310（19.89d）staleSec=86400 choice=translation_or_repost rawTiming=within_30d',
+    f1j.staleRelParentOverride?.lagSec === JP_PARENT_LAG
+    && f1j.staleRelParentOverride?.staleSec === 86400
+    && f1j.staleRelParentOverride?.choice === 'translation_or_repost'
+    && f1j.staleRelParentOverride?.rawTiming === 'within_30d',
+    f1j.staleRelParentOverride);
+  check('F1c 翻转：timing older → 事件分 53.65<60 拦（63.65−10 时效分）',
+    f1j.timing === 'older'
+    && f1.stage2DataToSave.parsed_output.pass === false
+    && f1.stage2DataToSave.parsed_output.blockReason === '事件分不足（53.65<60）'
+    && f1.stage2DataToSave.category === 'low',
+    { pass: f1.stage2DataToSave.parsed_output.pass, block: f1.stage2DataToSave.parsed_output.blockReason });
+  // F1d 用户裁定豁免臂：新角度解读原生父推 → 父推可老，不 override（63.65 原样）
+  const f1d = mapStandardAnswers(makeJeanPhilAnswers('new_angle_on_original'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
+  check('F1d 豁免臂：new_angle_on_original（找角度推文解释原生推文）父推 20 天照放',
+    f1d.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
+    && f1d.stage2DataToSave.parsed_output.pass === true
+    && f1d.stage2DataToSave.parsed_output.scoringResult.totalScore === 63.65,
+    { o: f1d.stage1DataToSave.parsed_output.jev.staleRelParentOverride, t: f1d.stage2DataToSave.parsed_output.scoringResult.totalScore });
+
+  // F2 解释二手找角度推臂：与翻译臂同拦（用户裁定两臂并列）
+  const f2 = mapStandardAnswers(makeJeanPhilAnswers('explains_derivative'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
+  check('F2 explains_derivative（解释另一个找角度推文）同拦 lagSec=1718310',
+    f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_PARENT_LAG
+    && f2.stage1DataToSave.parsed_output.jev.timing === 'older',
+    f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
+
+  // F3 24h 边界：86401 命中 / 86400 严格 > 不命中
+  const f3a = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 86401), 'direct_tweet'));
+  const f3b = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 86400), 'direct_tweet'));
+  check('F3 边界 lag=86401 命中 / 86400 放',
+    f3a.stage1DataToSave.parsed_output.jev.staleRelParentOverride !== null
+    && f3b.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null,
+    { hi: f3a.stage1DataToSave.parsed_output.jev.staleRelParentOverride, lo: f3b.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
+
+  // F4 槽位覆盖：父推在主推位（BAI 案形状）同拦——两案实证全集扫描必要性
+  const f4Twitter = makeJeanPhilTwitter(JP_PARENT_SEC);
+  f4Twitter.in_reply_to = { ...f4Twitter.website_tweet.in_reply_to };
+  delete f4Twitter.website_tweet;
+  const f4 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, f4Twitter, 'direct_tweet'));
+  check('F4 槽位覆盖：父推在主推位（无 website_tweet）同拦',
+    f4.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_PARENT_LAG,
+    f4.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
+
+  // F5 父推新鲜（1h）：关系差但源头新 → 不干预（24h 窗内=用户裁定「时效性足够」）
+  const f5 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 3600), 'direct_tweet'));
+  check('F5 父推 1h 新鲜：翻译关系也不拦（24h 窗内放行）',
+    f5.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
+    && f5.stage2DataToSave.parsed_output.pass === true,
+    f5.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
+
+  // F6 答案缺失（J1.38- 旧缓存行 fail-open）：F1a 已证（同形状无答案=不干预）；
+  // F7 unclear fail-open：与 C96 name_form/finding_vs_recap 同语义
+  const f7 = mapStandardAnswers(makeJeanPhilAnswers('unclear'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
+  check('F7 unclear fail-open（语料不足以区分三者不干预）',
+    f7.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
+    && f7.stage2DataToSave.parsed_output.pass === true,
+    f7.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
+
+  // F8 与 C102 并存：币安借壳票（C102 无条件拦）+ 关系答案同票 → 双 override 各落审计键
+  const f8 = mapStandardAnswers(
+    { ...makeBaiAnswers(), parent_relationship: { choice: 'translation_or_repost' } },
+    makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'));
+  check('F8 C102+C103 并存：binanceCorpus 无条件 + 关系臂双落，timing older',
+    f8.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835
+    && f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === 247835
+    && f8.stage1DataToSave.parsed_output.jev.timing === 'older',
+    { c102: f8.stage1DataToSave.parsed_output.jev.staleParentOverride, c103: f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
+
+  // F9 锚缺失：fail-open（与 C68 A5/C75 D4/C102 E10 对称）
+  const f9 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(
+    { symbol: 'Jean Phil', name: 'Jean Phil', raw_api_data: { name: 'Jean Phil' } }, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
+  check('F9 锚缺失 fail-open', f9.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null,
+    f9.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
+
+  // F10 hasReplyParent 导出闸（J1.39 条件题问出判据，analyzer/mapper 共用防漂移）
+  const { hasReplyParent } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
+  check('F10 hasReplyParent 四槽位判定（主推/website/quoted/retweeted 任一有父推=true，无=false）',
+    hasReplyParent(makeJeanPhilTwitter(JP_PARENT_SEC)) === true
+    && hasReplyParent({ in_reply_to: { created_at: 'x' } }) === true
+    && hasReplyParent({ quoted_status: { in_reply_to: {} } }) === true
+    && hasReplyParent({ retweeted_status: { in_reply_to: {} } }) === true
+    && hasReplyParent({ type: 'tweet', text: '无父推' }) === false
+    && hasReplyParent(null) === false,
+    { a: hasReplyParent(makeJeanPhilTwitter(JP_PARENT_SEC)), b: hasReplyParent({ type: 'tweet' }) });
+
   // ═══ C. 源码口径（防线锁定）═══
   console.log('\n── C. 源码口径 ──');
   const { readFileSync } = await import('fs');
@@ -419,6 +571,16 @@ async function main() {
     mapperSrc.includes('BINANCE_PARENT_STALE_SEC = 24 * 3600')
     && mapperSrc.includes('twitterInfo?.in_reply_to?.created_at')
     && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
+  const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
+  const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
+  check('C5 C103 源码口径（题面/门控/接线三点锁）：J1.39 版本 bump + 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.39'")
+    && questionsSrc.includes('...(parentRelationship ? {')
+    && questionsSrc.includes('parent_relationship:')
+    && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')
+    && mapperSrc.includes('PARENT_REL_STALE_SEC = 24 * 3600')
+    && mapperSrc.includes('function overrideStaleRelParentTiming(answers')
+    && mapperSrc.includes('staleRelParentOverride,'), null);
 
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

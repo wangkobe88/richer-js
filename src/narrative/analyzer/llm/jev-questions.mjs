@@ -438,9 +438,26 @@
  *       而非 IP 自身玩梗文化，消费苦难不是梗。反向窄边界同刻：和平政治事件/
  *       政策辩论/选举玩梗（无暴力与灾难）显式不选，正常评估。mapper 零改动
  *       （BLOCK_SCOPE all argmax + ≥0.5 概率门 negativeHardNewsBlock 双挂已就位）
+ * J1.39（2026-10-18，C103 Jean Phil 翻译洗白案 0x6915bec6e90dd26d282f544c91304b0846e97777）：
+ *       新增条件题 parent_relationship（19→20 题，语料有【回复的推文】块才问——
+ *       brand_hijack/name_image_consistency 同款条件题模式防幻觉作答）。案发现场：
+ *       主推位=Dexerto 原生新闻推（145 万粉，9-28 报道「AI 网红 Jean Phil 币值
+ *       $8M」=20 天老）+ website_tweet 位=229 粉小号「热点挖掘机」token 创建前
+ *       13s 发的中文翻译推（reply 到 Dexerto 原推，逐句对应无新解读）——C68 载体
+ *       集「任一新即活」被翻译推洗白、C75 主推 20d<30d 不触、Jev within_30d 给
+ *       10 分 63.65 压线 high 放行。用户裁定：「找角度推文引用某推文解释现象，
+ *       被引用的可以老（解释原生推文）；但仅翻译老推、或解释另一个找角度推文，
+ *       被翻译/被解释的实效性也要够（24h 内）」。题判载体↔父推内容关系三态+unclear：
+ *       new_angle_on_original（新解读，父推可老——豁免臂）/ translation_or_repost
+ *       （翻译搬运无新解读）/ explains_derivative（父推本身是二手找角度/转述）。
+ *       mapper overrideStaleRelParentTiming：后两态 ∧ 任一载体槽位（主推/
+ *       website_tweet/quoted/retweeted）父推 lag>24h → timing 归 older（Jean Phil
+ *       63.65→53.65<60 事件分不足拦）。与 C102 分工：C102=币安语料无条件（借壳
+ *       不分关系一律拦），本门=通用语料按关系分档。答案缺失（J1.38- 旧缓存行）
+ *       /unclear fail-open 零影响
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.38';
+export const JEV_QUESTIONS_VERSION = 'J1.39';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -504,11 +521,19 @@ export const TIMING_OPTIONS = [
  *   （J1.30，仅语料含【图片内容分析】块——主推配图分析成功挂载——时为 true）：
  *   mapper 名图一致豁免（imgNameExempt）判据源。条件题与 brand_hijack 同模式：
  *   无图不问（防幻觉作答），题集形状按语料有无图分叉
+ * @param {boolean} [options.parentRelationship] - 是否包含载体与父推关系题
+ *   （J1.39，仅语料任一载体槽位（主推/website_tweet/quoted/retweeted）带
+ *   【回复的推文】块时为 true）：mapper C103 源头窗（翻译/二手解读 + 父推
+ *   >24h → timing older）判据源。条件题同模式：无父推不问防幻觉作答
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildStandardQuestions(options = {}) {
   const includeBrandHijack = options.includeBrandHijack === true;
   const imageConsistency = options.imageConsistency === true;
+  // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】块才问
+  // （无父推不问防幻觉作答；twitter-section 渲染条件同源——tweet.in_reply_to
+  // 存在即渲染）。mapper hasReplyParent 同判定，两端共用防漂移
+  const parentRelationship = options.parentRelationship === true;
 
   const questions = {
 
@@ -604,6 +629,28 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         unknown: '无法判断',
       },
     },
+
+    // ── 3.5 载体与父推关系（J1.39 条件题，仅 parentRelationship（语料任一载体
+    //    槽位带【回复的推文】块）时加入：mapper C103 源头窗判据源——Jean Phil
+    //    翻译洗白案。条件题与 brand_hijack/name_image_consistency 同模式：无父推
+    //    不问防幻觉作答）──
+    ...(parentRelationship ? {
+      parent_relationship: {
+      type: 'choice',
+      instructions: `载体推文与被回复（引用）推文的内容关系（时效洗白判据）。语料中的推文（载体）回复/引用了另一条推文（被回复推文，见【回复的推文】块）时，判定两者内容的实质关系：
+⚠️ 评估对象=内容关系本身（载体是否贡献了新东西 × 被回复推文是否一手来源），不是影响力、不是真实性、不是时效。
+- 新角度解读（new_angle_on_original）：载体推文借被回复的原生推文解释某个现象，有自己的新解读/新角度——被回复推文是原生素材（一手新闻/官方发布/当事人原创），载体的解读本身是新的内容。
+- 翻译搬运（translation_or_repost）：载体推文基本是被回复推文的翻译（含跨语言逐句对应）、复述或搬运——内容一一对应，没有新增解读。
+- 解读二手解读（explains_derivative）：被回复的推文本身是找角度/解读/转述类内容（不是一手来源，它自己也在解读别处的内容），载体是在解释/传播一条二手内容。
+⚠️ 判别锚：跨语言逐句对应=翻译搬运；被回复推文自己就是二手解读=解读二手解读；载体有自己的观点/角度/发现且被回复推文是一手内容=新角度解读。`,
+      criteria: {
+        new_angle_on_original: '新角度解读——载体借原生父推（一手素材）解释现象，有自己的新解读',
+        translation_or_repost: '翻译搬运——载体基本是父推的翻译/复述/搬运，无新增解读',
+        explains_derivative: '解读二手解读——父推本身是找角度/解读/转述内容，载体在解释二手内容',
+        unclear: '无法判断——语料不足以区分三者',
+      },
+      },
+    } : {}),
 
     // ── 4. 维度二：主体影响力/传播权重（原各类 Stage2 第二维度，0-30）─
     dimension2: {

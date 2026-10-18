@@ -25,7 +25,7 @@ const { ExternalResourceCache } = await import('../../src/narrative/db/ExternalR
 const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
 const { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } = await import('../../src/narrative/analyzer/llm/jev-questions.mjs');
 const { buildJevState } = await import('../../src/narrative/analyzer/llm/jev-state-builder.mjs');
-const { mapStandardAnswers } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
+const { mapStandardAnswers, hasReplyParent } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
 
 /** 各旧类别的抽样上限（总数 ≈ 22-27；--scale N 按比例放大用于远程扩样定参） */
 const BASE_QUOTA = { 'A': 3, 'W': 3, 'B': 3, 'F': 3, 'C': 5, 'D': 4, 'G': 2, 'E': 4 };
@@ -98,7 +98,8 @@ async function main() {
     const oldBlock = row.stage_final_result?.details?.blockReason || row.stage2_result?.reason || null;
 
     const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
-    const questions = buildStandardQuestions({ includeBrandHijack });
+    // C103：条件题 parentRelationship 镜像生产接线（analyzer 同款 hasReplyParent 门）
+    const questions = buildStandardQuestions({ includeBrandHijack, parentRelationship: hasReplyParent(twitterInfo) });
 
     const t0 = Date.now();
     const result = await JevClient.ask(state, questions, { label: `calib:${row.token_symbol}` });

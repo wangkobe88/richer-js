@@ -116,7 +116,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带）──');
-  check('A1 版本号 = J1.38（C96 起两新题；C98 negative_hard_news 题面扩政治暴力边界）', JEV_QUESTIONS_VERSION === 'J1.38', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.39（C96 起两新题；C98 题面扩边界；J1.39=C103 条件题 parent_relationship）', JEV_QUESTIONS_VERSION === 'J1.39', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 finding_vs_recap 恒带（默认题集）', 'finding_vs_recap' in qs, Object.keys(qs).length);
   check('A3 name_form 恒带（默认题集）', 'name_form' in qs, null);

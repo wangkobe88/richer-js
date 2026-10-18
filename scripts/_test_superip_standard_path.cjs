@@ -159,9 +159,9 @@ const run = async () => {
   catch (e) { threw = e.message; }
   check('D1 注入 + twitterInfo=null 不 throw', threw === null, threw);
 
-  // D2 JEV_QUESTIONS_VERSION 已 bump（J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；J1.35=C92 E类证据层级）
+  // D2 JEV_QUESTIONS_VERSION 已 bump（J1.39=C103 条件题 parent_relationship；J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；J1.35=C92 E类证据层级）
   const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('D2 JEV_QUESTIONS_VERSION === J1.38', JEV_QUESTIONS_VERSION === 'J1.38', JEV_QUESTIONS_VERSION);
+  check('D2 JEV_QUESTIONS_VERSION === J1.39', JEV_QUESTIONS_VERSION === 'J1.39', JEV_QUESTIONS_VERSION);
 
   // ═══ 汇总 ═══
   console.log(`\n═══ _test_superip_standard_path: ${passed} passed, ${failed} failed ═══`);

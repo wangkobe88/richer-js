@@ -32,7 +32,7 @@ import { JevClient } from './llm/JevClient.mjs';
 import { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
 import { JEV_PRESTAGE_QUESTIONS_VERSION } from './llm/jev-prestage-questions.mjs';
 import { buildJevState } from './llm/jev-state-builder.mjs';
-import { mapStandardAnswers } from './llm/jev-result-mapper.mjs';
+import { mapStandardAnswers, hasReplyParent } from './llm/jev-result-mapper.mjs';
 import { classifyTweetType } from './services/tweet-type-classifier.mjs';
 
 // 获取supabase客户端
@@ -720,9 +720,12 @@ export class NarrativeAnalyzer {
             const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, now: jevNowMs });
             // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
             // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
+            // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】
+            // 块才问（无父推不问防幻觉作答；与 mapper hasReplyParent 同判定）
             const questions = buildStandardQuestions({
               includeBrandHijack,
               imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis,
+              parentRelationship: hasReplyParent(twitterInfo),
             });
             const startedAt = new Date().toISOString();
             const result = await timing.wrap('jev.standard', () => JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` }));

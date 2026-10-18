@@ -72,6 +72,15 @@ const SOURCE_STALE_SEC = 30 * 86400;
  * 全是接力尾部（帕鲁 10-16 第一波 / BAI 10-18 第二波，同一活动推两波蹭票实证）。 */
 const BINANCE_PARENT_STALE_SEC = 24 * 3600;
 
+/** C103 载体↔父推关系源头窗（秒）——Jean Phil 案 0x6915bec6…7777（2026-10-18
+ * 用户裁定）：主推位=Dexerto 原生新闻推（145 万粉，20 天老）、website_tweet 位=
+ * 229 粉小号发币前 13s 的中文翻译推（reply 到 Dexerto 原推）——C68 载体集「任一
+ * 新即活」被翻译推洗白、C75 主推 20d<30d 不触、Jev 按 within_30d 给 10 分
+ * 63.65 压线过。裁定：找角度推文借原生父推解释现象（有新解读）父推可老；但
+ * 「仅翻译老推」或「解释二手找角度推」的被翻译/被解释推必须 24h 内。与 C102
+ * 分工：C102=币安语料无条件（借壳不加区别），本门=通用语料按关系分档。 */
+const PARENT_REL_STALE_SEC = 24 * 3600;
+
 /**
  * C68 找角度时效 override 判定（纯代码，mapper-only，题集版本不动——时效分本来就
  * 是代码查表，J1.16/J1.23/J1.24 教训：分数锚定类必须代码侧）：
@@ -154,6 +163,56 @@ function overrideStaleParentTiming(binanceCorpus, twitterInfo, tokenData, rawTim
   const lagSec = anchorSec - parentMs / 1000;
   if (!Number.isFinite(lagSec) || lagSec <= BINANCE_PARENT_STALE_SEC) return null;
   return { lagSec: Math.round(lagSec), staleSec: BINANCE_PARENT_STALE_SEC, rawTiming: rawTiming || null };
+}
+
+/** 语料载体槽位（C68 载体集同集）：主推/website_tweet/quoted/retweeted 四位。
+ * C103 判定轴=各槽位 in_reply_to 父推；Jean Phil 案父推在 website_tweet 位、
+ * BAI 案父推在主推位——两案实证必须全集扫描。 */
+const CARRIER_SLOTS = (twitterInfo) => [
+  twitterInfo,
+  twitterInfo?.website_tweet,
+  twitterInfo?.quoted_status,
+  twitterInfo?.retweeted_status,
+];
+
+/** 语料是否携带【回复的推文】块（任一载体槽位有 in_reply_to）——J1.39 条件题
+ * parent_relationship 的问出闸（无父推不问防幻觉作答，brand_hijack/imageConsistency
+ * 同款条件题模式）；与 twitter-section 渲染条件（tweet.in_reply_to 存在即渲染）
+ * 同源。导出供 NarrativeAnalyzer 门控，mapper C103 判定共用槽位集防漂移。 */
+export function hasReplyParent(twitterInfo) {
+  return CARRIER_SLOTS(twitterInfo).some((t) => t?.in_reply_to != null);
+}
+
+/**
+ * C103 载体↔父推关系源头窗 override（J1.39 条件题 parent_relationship 判关系
+ * + 代码侧 24h 窗——语义判断归题面、阈值聚合归代码，J1.16/J1.23/C68 教训）：
+ * Jev 判定载体与被回复父推的关系 ∈ {translation_or_repost, explains_derivative}
+ * （仅翻译搬运 / 父推本身是二手找角度推——两种形状载体都不贡献新叙事，新鲜
+ * 义务落在源头）∧ 任一载体槽位父推 lag > PARENT_REL_STALE_SEC(24h)
+ * → timing 归 older=0。new_angle_on_original 臂（载体借原生父推解释现象、有
+ * 新解读）刻意放行——用户裁定「找角度推文解释一个原生推文，被引用的可以老
+ * 一些」；unclear/答案缺失（旧缓存行 J1.38- 无此题）fail-open 不干预。
+ * 与 C102 并存互补：C102=币安语料无条件拦（借壳豁免不适用），本门=通用语料
+ * 按 Jev 关系分档；同票双中各自落审计键同归 older。锚=tokenCreatedAtSec||
+ * raw_api_data.created_at（C68/C75/C102 同链）缺失 fail-open。
+ */
+function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming) {
+  const choice = answers?.parent_relationship?.choice;
+  if (choice !== 'translation_or_repost' && choice !== 'explains_derivative') return null;
+  const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
+  if (!anchorSec || !twitterInfo) return null;
+  let worst = null;
+  for (const slot of CARRIER_SLOTS(twitterInfo)) {
+    const parentMs = new Date(slot?.in_reply_to?.created_at || '').getTime();
+    if (!Number.isFinite(parentMs)) continue;
+    const lagSec = anchorSec - parentMs / 1000;
+    if (Number.isFinite(lagSec) && lagSec > PARENT_REL_STALE_SEC
+      && (worst === null || lagSec > worst.lagSec)) {
+      worst = { lagSec: Math.round(lagSec), slotMs: parentMs };
+    }
+  }
+  if (!worst) return null;
+  return { lagSec: worst.lagSec, staleSec: PARENT_REL_STALE_SEC, choice, rawTiming: rawTiming || null };
 }
 
 /**
@@ -986,7 +1045,13 @@ export function mapStandardAnswers(answers, context) {
   const staleParentOverride = staleParentTiming
     ? { lagSec: staleParentTiming.lagSec, staleSec: BINANCE_PARENT_STALE_SEC, rawTiming: staleParentTiming.rawTiming }
     : null;
-  const timing = (angleTiming || staleSourceTiming || staleParentTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
+  // C103 载体↔父推关系源头窗（Jean Phil 案）：Jev 判翻译/二手解读 + 父推 lag
+  // 超 24h → timing 归 older（四条 override 同归 older，审计键各落各的）
+  const staleRelParentTiming = overrideStaleRelParentTiming(answers, twitterInfo, tokenData, answers.event_timing?.choice);
+  const staleRelParentOverride = staleRelParentTiming
+    ? { lagSec: staleRelParentTiming.lagSec, staleSec: PARENT_REL_STALE_SEC, choice: staleRelParentTiming.choice, rawTiming: staleRelParentTiming.rawTiming }
+    : null;
+  const timing = (angleTiming || staleSourceTiming || staleParentTiming || staleRelParentTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
   // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
   // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
@@ -1055,6 +1120,7 @@ export function mapStandardAnswers(answers, context) {
         // C102 审计标记：借壳语料父推源头窗命中详情（binanceCorpus 父推 lag/24h 窗/
         // Jev 原判档可追溯；null=未命中——非借壳语料/窗内/锚或父推时间缺失）
         staleParentOverride,
+        staleRelParentOverride,
         magnitudeTier: tier,
         timing,
         blockChoice,

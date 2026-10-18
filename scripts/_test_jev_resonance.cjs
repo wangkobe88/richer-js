@@ -169,13 +169,16 @@ async function main() {
     !('eventResonance' in j1) && !('event_resonance' in (j1.probabilities || {})),
     { keys: Object.keys(j1), pkeys: Object.keys(j1.probabilities || {}) });
 
-  // D5 题集源码锁：event_resonance 题已删（C93 18→17；C96 再 +2 新题 17→19）+ 版本 J1.38（C98 起题面版）
+  // D5 题集源码锁：event_resonance 题已删（C93 18→17；C96 再 +2 新题 17→19）+ 版本 J1.39
+  //（C98 起题面版；J1.39=C103 条件题 parent_relationship——默认关 19 题，开 parentRelationship 20 题）
   const qm = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
-  check('D5 题集 19 题无 event_resonance + JEV_QUESTIONS_VERSION=J1.38（C93 判据源迁移；C96 两新题；C98 题面版）',
-    qKeys.length === 19 && !qKeys.includes('event_resonance') && qm.JEV_QUESTIONS_VERSION === 'J1.38',
-    { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION });
+  const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
+  check('D5 题集 19 题无 event_resonance + JEV_QUESTIONS_VERSION=J1.39（C103 条件题默认关 19/开 20）',
+    qKeys.length === 19 && !qKeys.includes('event_resonance') && qm.JEV_QUESTIONS_VERSION === 'J1.39'
+    && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 20 && qsRel.parent_relationship != null,
+    { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);
