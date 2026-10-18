@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.37（J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；J1.35=C92 E类证据层级；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.37', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.38（J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.38', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);

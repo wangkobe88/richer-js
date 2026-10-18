@@ -169,12 +169,12 @@ async function main() {
     !('eventResonance' in j1) && !('event_resonance' in (j1.probabilities || {})),
     { keys: Object.keys(j1), pkeys: Object.keys(j1.probabilities || {}) });
 
-  // D5 题集源码锁：event_resonance 题已删（C93 18→17；C96 再 +2 新题 17→19）+ 版本 J1.37
+  // D5 题集源码锁：event_resonance 题已删（C93 18→17；C96 再 +2 新题 17→19）+ 版本 J1.38（C98 起题面版）
   const qm = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
-  check('D5 题集 19 题无 event_resonance + JEV_QUESTIONS_VERSION=J1.37（C93 判据源迁移；C96 两新题）',
-    qKeys.length === 19 && !qKeys.includes('event_resonance') && qm.JEV_QUESTIONS_VERSION === 'J1.37',
+  check('D5 题集 19 题无 event_resonance + JEV_QUESTIONS_VERSION=J1.38（C93 判据源迁移；C96 两新题；C98 题面版）',
+    qKeys.length === 19 && !qKeys.includes('event_resonance') && qm.JEV_QUESTIONS_VERSION === 'J1.38',
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION });
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

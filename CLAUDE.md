@@ -206,7 +206,7 @@ GMGN 条件（两模型共用，新模型=第二层/legacy=第三层）——因
 ```
 Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-Check（纯规则）
    ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（4 题 P1.10，粉丝带只定档不拦截）
-   └─ 标准路径：单次 Jev 调用（19 题+brand_hijack/name_image_consistency 条件题，J1.37；superIP 注册表命中 → state 注入 super_ip_hit 认证行+super_ip_note 反混淆行，评分全归 Jev，C83 起快车道删除）
+   └─ 标准路径：单次 Jev 调用（19 题+brand_hijack/name_image_consistency 条件题，J1.38；superIP 注册表命中 → state 注入 super_ip_hit 认证行+super_ip_note 反混淆行，评分全归 Jev，C83 起快车道删除）
 ```
 
 - **文件**（`analyzer/llm/`）：`JevClient.mjs`（缺答案 id 直接 throw 无吞错；429/5xx 退避，Retry-After 头优先于固定表、钳 [500,15000]ms）/ `jev-questions.mjs`（标准题集，`buildStandardQuestions`）/ `jev-prestage-questions.mjs`（P1.10：4 题；`rateProject` 粉丝带只定档 0-299 mid/≥300 high 不拦截）/ `jev-state-builder.mjs`（60k/20k 预算）/ `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`（**聚合/阈值/截断全在代码侧**）
@@ -247,6 +247,7 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 | E 类感染力折损（J1.36） | event_resonance 题已删（18→17 题，C93「圈内圈外」轴废除——Jev 只见语料不见链上行为，情绪行动力不可观测量）；判据源换 **web3_fit**：`(strong_fit+fit) < 0.5`（marginal 占优=web3 用户不太喜欢）→ 仅 category=E `tierScore+effDim2 ×0.5`（时效不折），≥0.5 原公式；0.5 线与 J1.19/J1.23/J1.27 同一条线（严格 <）；unfit≥0.5 全域负门已拦不归本层；web3_fit 答案缺失（J1.19 前旧缓存行）fail-open 不折；蝙蝠侠摇 0.76 放行=用户裁定接受；审计 `resonanceFitMass` 恒落（数值=概率和）+`resonanceDamp {fitMass,coef}` 命中才落（eventResonance 档位字段随题退役） | C93 |
 | F→E 改道+陈述句门（J1.37） | **改道**：`finding_vs_recap` 题（narrative_finding/news_recap/unclear，锚「发现语气不构成发现」——作者转述目击新闻是 recap，本人发掘未被公众注意的事实才是 finding）==news_recap ∧ category==F → category 强制改道 **E**（目击新闻转述币的 F 档逃逸通道封死——F 不吃载体门不吃折损，改道不是放行是换考官，E 类既有门 J1.29/J1.36/mem 轴全部接管）+ F 档 criteria 澄清（NOT a news event the author merely witnessed/reported）；**陈述句门**：`name_form` 题（entity_phrase/statement/unclear，锚「判名字本身的语言结构不判指向对象影响力」「口号/宣言不算陈述」「中英文名取更完整的一个判」）==statement → 全类别硬拦「币名是事件陈述非实体指代」，**C88 五腿不豁本门**（借壳口号豁载体/截断位救不了名字本身不合格）；choice!=='statement' 短路 null 零开销；门链序 rm→st→memFloor→sc→tier；两题 unclear/缺失 fail-open；版本 J1.37 断代（17→19 题，旧缓存行不重评）；审计 stage1 nameForm/findingVsRecap/categoryForced + stage2 双写 + probabilities 两键 | C96 |
 | 币安地域子账号量级锚 | 主推作者 handle `binance` 前缀 ∧ 非 `GLOBAL_BINANCE_HANDLES` 四全球号（binance/binancelabs/binanceresearch/binancesquare）∧ binanceCorpus 借壳语料在场 → `regionalAnchorActive` → effTier 锚 **D**（锚降优先于 pubProxy 锚 A / web3FitAnchored 锚 B 两锚升；量级门 D/E 档臂五腿不豁=唯一新增拦截位——五腿全中仍拦）；量级门 label `A档→D档·币安地域子账号不借壳`；magnitudeTier 原判保留不受锚影响；只查主推不查父推（BOB 案先例）；`binancefan123` 冒充号一并命中偏拦不加 verified 门；作用域刻意限 binance 前缀（其余机构无全球主号+海量地域子号矩阵形状）；作者缺失/无借壳语料不锚 fail-open；mapper-only 切分不 bump（C42 先例）；审计 stage1 `regionalSubAccount:{handle,followers}` | C97 |
+| negative_hard_news 扩政治暴力边界（J1.38） | block_reason 该项题面扩：安全事故族 **+ 政治暴力/社会动荡**（抗议/示威/罢工**演变为**打砸抢烧/骚乱/纵火/冲突/恐袭/战争/动乱）+语料形态加「时事转述」+**政治暴力臂不看载体玩味空间**——IP/形象被当作抗议声援象征传播时热度来自现实暴力苦难而非自身玩梗文化，消费苦难不是梗，必选本项（粉红豹案 0.22→0.97）；反向窄边界同刻：和平政治事件/政策辩论/选举玩梗（无暴力灾难）不选正常评估（Ants 辞职新闻 none 0.93 反证）；mapper 零改动（argmax all 域+≥0.5 概率门双挂 J1.11 已就位）；版本 J1.38 断代 | C98 |
 
 ### Live 交易
 

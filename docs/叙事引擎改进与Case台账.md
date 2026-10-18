@@ -30,9 +30,9 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.37）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.38）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.10）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.37/…)`、`prestage-jev(P1.10/…)`）
+  （`jev(J1.38/…)`、`prestage-jev(P1.10/…)`）
 - **prestage P1.10 四题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
   主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
   全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
@@ -67,6 +67,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C98 粉红豹法国骚乱「IP 成为抗议象征」rating 3 过审——J1.38 negative_hard_news 题面扩政治暴力边界（2026-10-18 用户裁定原话「对应的事件是个涉及政治的负面事件，影响力也不够，不应该支持 meme 币成立」+方案 B「你先试试B」；Le Panthère rose 0x9df97d4239818411237d19a09303262269c47777 案）★
+
+- **案发现场（Le Panthère rose）**：中文转述号 @Oringold_（2,789 粉，verified）reply 挂西语发图推 @yosoyandrepro（3,293 粉，父推 11.2 万浏览/1,081 转/1.29 万赞——C92 父推互动数透传后进 state）宣告「法国失控上微博热搜第一——抗议物价上涨示威演变为打砸抢烧，143 年利摩日市政厅被纵火焚毁，这个粉红豹子成为抗议的象征」→ token 创建（07:49:25）后 40s 评级 **high 71.78**（J1.36 worker 路），v23（b07fbe84 live）07:51:06 实盘买入 0.004 BNB → 07:56:56 清仓 **-19.4%**。flap 平台、税币、creator_hold。
+- **放行链还原（为何 J1.36 拦不住）**：①**类别赌赢**——event_category A 0.52 vs E 0.47 argmax 走「角色 IP」线（粉红豹 character_ip 0.59/super_ip 0.8/exact_match 0.54 法语名 Le Panthère rose 精确=粉红豹）；②**量级+传播双借壳**——事件分 27（B 档）采信「全国级骚乱+微博热搜第一」（CG2.0 采信陈述），传播 26.24 由「粉红豹=世界级 IP」撑（dimension2 5 档 0.48），实际 meme 化传播证据只有父推 1.29 万赞（C 档社区级）；③**web3 借壳**——strong_fit 0.72（粉红豹梗在币圈确实流行，判据没错但被骚乱票借用）；④C88 五腿命中（mem 2.09/fresh/strongFit/relPositive 0.97/superIp 0.8）豁四门不送分；⑤**negative_hard_news 仅 0.22**（argmax=none 0.67 放行，概率门 0.5 也没够着）——J1.11 边界「主体是机构/平台不自嘲、无梗无二创」不含政治暴力，且明确「其他负面不选本项正常评估」：粉红豹是卡通角色有强二创空间，Jev 按题面语义判「有玩味空间」不选。**0.22 说明 Jev 语义上识别到了负面性，只差题面许可——这是题面扩边界能一次生效的结构基础**（对比 J1.13 六轮措辞分不动：那些 case Jev 语义上就不认为该拦）。
+- **修复（J1.38，题面-only，mapper 零改动）**：negative_hard_news criteria 三处扩展——①类别扩：安全事故族 + **政治暴力/社会动荡**（抗议/示威/罢工**演变为**打砸抢烧/骚乱/纵火/冲突/恐袭/战争/动乱，演变词锚定暴力门槛）；②语料形态扩：事故通报/官方公告/新闻报道 + **时事转述**（本案是转述微博热搜非事故通报）；③**政治暴力臂不看载体玩味空间**：即便有可爱形象/知名 IP 被当作抗议或声援的象征传播，其热度来自现实暴力与苦难而非该形象自身的玩梗文化——现实中的打砸烧抢不是梗，受灾受难的一方不参与自嘲式传播，蹭此类事件的命名只是消费苦难热度，必选本项。反向窄边界同刻：监管罚款/项目失败/名人去世等其他负面不选（J1.11 原文）+ **和平政治事件/政策辩论/选举玩梗（无暴力与灾难）不选本项正常评估**。拦截机制全靠 J1.11 已就位的双挂（BLOCK_SCOPE all argmax + ≥0.5 概率门 negativeHardNewsBlock，标准+superIP 双路径），本题面零 mapper 改动。
+- **定向重放验证（4 票，jev_dryrun --token）**：本案 Le Panthère rose **0.22→0.97**（argmax 命中+概率门双过）阻断「负面硬新闻」high→low ✅；同族变体 Piccolo 0xa1cc…7777（「比克大魔王现身法国骚乱😭」角色+骚乱混合形状）**0.76** 拦 ✅；防误伤臂 Ants 0x3dd8…7777（Anthropic 研究员辞职抗议，公司新闻带「抗议」词）**none 0.93** 未触发——其翻 low 来自 C88 mem 地板（J1.29→J1.38 累计版本差异）非本题面 ✅；历史回忆形状 Pepé 0x814e…7777（「多年前人们 front ran 法国骚乱发了个 Pepé」）**none 0.39** 未触发，翻 low 来自时效/量级（timing=older 事件分 45.8<60）✅。
+- **影响面扫描（存量 jev 行 35 票关键词命中）**：A 组法国骚乱同事件 10-18 当天 ~16 票（Panthère/Panther/粉红豹/Piccolo×2/Pepé/Riotter/FINE×2/ハッチャン/马卡龙×2/青蛙大军/RIOTZ/MOHA/弹跳猫）——其中 7 票 J1.36/J1.37 下 high（72.78-78.22）为正向翻转目标，8 票已被既有门拦（mem 地板/web3 unfit/事件分不足/营销噱头）；B 组印度政党镇压 3 票（CJP/蟑螂/तिलचट्टा）当时已 low；C 组撞词非政治暴力（漫蛙=平台用户抗议/蚂蚁×5=AI 辞职/Greg=CSGO 玩梗/伏羲=机器人新闻/共和=@clashreport 撞词）全数旧评级 low 或空——**无误伤面**。
+- **断言**：无新单测（题面-only 无 mapper 逻辑，红线 13 不适用）；版本锁断言同步四处（`_test_jev_resonance` D5 / `_test_name_image_consistency` A1 / `_test_jev_finding_recap_statement_gate` A1 / `_test_superip_standard_path` D2 → J1.38），题面相关七测全绿（cashtag_w_route 21/resonance 13/name_image 41/finding_recap 52/superip_standard 20/superip_slogan 51/web3_fit 26）。
+- **部署语义**：版本 J1.38 断代（存量 J1.36/J1.37 行不重评，观察期语义）；182 worker+v23 实验进程重启后生效（重启 v23 前按规程确认持仓）；7 票骚乱 high 存量行不批量失效（10-18 当天热点已过窗口，重析无买入意义）。
 
 ### C97 币安地域子账号量级锚——@BinanceArabic 借壳母机构「币安游戏」rating 3 过审案（2026-10-18 用户裁定原话「虽然是币安的事件，但是只是阿拉伯账号，并且只是要上一个游戏节目罢了，撑不起"币安游戏"这个meme币。币安的地域账号，所发布的局部地域的事件，也不要被视为超级IP事件」；币安游戏 0xf37bbaea289a67af00ac0ee58421553e11987777 案）★
 
