@@ -24,6 +24,7 @@ import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
 import { detectSuperIP } from './prompts/super-ip/super-ip-registry.mjs';
+import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
 import { collectSearchEvidence, meetsBypassThreshold, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
@@ -853,6 +854,9 @@ export class NarrativeAnalyzer {
     // 代币分类（fPay/FOMOPAY 宣告竞态案裁定 2026-09-27）：null 不带键——
     // repository 侧保留旧值（重析 precheck fail 不清掉已落库的分类）
     const tokenCategory = deriveTokenCategory(prestageDataToSave, stage1DataToSave);
+    // C88 超级IP两标签：内存 stage1DataToSave/stage2DataToSave 推导（形状与落库值
+    // 同构，superip-labels 单实现共享）；save 回读瘦列无 stage 列，return 显式覆盖
+    const superIpLabels = deriveSuperIpLabels(stage1DataToSave, stage2DataToSave);
 
     // 构建 stage_final_result
     const stageFinalSaveData = stageFinalData ? {
@@ -935,6 +939,10 @@ export class NarrativeAnalyzer {
       // 新鲜路显式覆盖：save 回读瘦列（SAVE_RETURN_COLS 闭集）不含 token_category，
       // 用 :855 在手变量透出本票分类（与缓存/fallback 路三路同形）
       tokenCategory: tokenCategory ?? null,
+      // C88 超级IP两标签新鲜路显式覆盖（与 tokenCategory 同款：formatResult(saveResult)
+      // 瘦列回读推不出，用内存值透出，扁平键与缓存路 formatResult spread 同形；
+      // prestage 路径 stage1DataToSave=null → 两键 null）
+      ...superIpLabels,
       llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段供前端使用
       gmgnRisk,  // GMGN dev 风险字段（直调语境透传给 NarrativeDirectCaller）
       twitter: twitterInfo,  // 添加 twitter 字段供前端使用

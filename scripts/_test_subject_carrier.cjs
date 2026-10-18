@@ -182,12 +182,18 @@ async function main() {
   const { readFileSync } = await import('fs');
   const { join } = await import('path');
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
-  check('G1 门函数 + CARRIER_LABELS 两键', /function subjectCarrierBlock\(answers, category\)/.test(mapperSrc)
+  // C88（2026-10-18 CZ 出书簇）：签名加第三参 opts（superIpSlogan 五腿豁免早退，
+  // 挂 if (!carrier) return null; 之后——缺答案票照旧不拦，豁免只作用于会被拦的票）
+  check('G1 门函数 + CARRIER_LABELS 两键（C88 后三参签名）', /function subjectCarrierBlock\(answers, category, opts\)/.test(mapperSrc)
     && /CARRIER_LABELS = \{[^}]*improvised_entity: '脑补形象'[^}]*no_visual_entity: '无形象实体'[^}]*\}/s.test(mapperSrc), null);
   const rmIdx = mapperSrc.indexOf('referentMemeabilityLowBlock(answers)))');
-  const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category)))');
+  const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category, { superIpSlogan }))');
   const tierIdx = mapperSrc.indexOf("effTier === 'E' || effTier === 'D'");
-  check('G2 阻断链序：rm 门 → 载体门 → 量级 D/E 门（索引严格递增）', rmIdx > 0 && scIdx > rmIdx && tierIdx > scIdx, { rmIdx, scIdx, tierIdx });
+  check('G2 阻断链序：rm 门 → mem 地板（C88）→ 载体门 → 量级 D/E 门（索引严格递增）', (() => {
+    const memFloorIdx = mapperSrc.indexOf('memScoreC88 < 2');
+    return rmIdx > 0 && memFloorIdx > rmIdx && scIdx > memFloorIdx && tierIdx > scIdx
+      ? true : { rmIdx, memFloorIdx, scIdx, tierIdx };
+  })());
   // C83：mapSuperIPAnswers 快车道删除——J1.29 载体门对 superIP 语料票经标准
   // 路径真实可达（旧「不消费」欠账终结），不存在性断言锁定
   check('G3 superIP 快车道已删（subject_carrier 经标准路径对 superIP 语料可达）',

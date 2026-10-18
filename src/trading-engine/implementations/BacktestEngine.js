@@ -609,11 +609,16 @@ class BacktestEngine extends AbstractTradingEngine {
     let _injected = 0;
     if (this._strategyEngine.getAllStrategies().some(s => s.action === 'buy' && s.narrativeTriggerCondition)) {
       const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+      const { deriveSuperIpLabels } = require('../../core/narrative/superip-labels.js');
       const { resolveFinalRating, categoryToRating } = await import('../../narrative/utils/rating-utils.mjs');
       for (const addr of this._tokenMeta.keys()) {
         const row = _np.rowCache.get(String(addr).toLowerCase());
         if (!row) continue;
         const _n = categoryToRating(resolveFinalRating(row));
+        // C88 超级IP两标签常量注入（2026-10-18 CZ 出书簇）：rowCache select('*') 已含
+        // stage1/stage2 列零额外查询，superip-labels 零列推导（与实时状态机回填
+        // 三态同形；C88 前旧行无 hit 键 → slogan null）
+        const _sip = deriveSuperIpLabels(row.stage1_result, row.stage2_result);
         FourMemeFactorAggregator.setNarrativeFactors(addr, {
           rating: [1, 2, 3].includes(_n) ? _n : 9,
           rounds: 1,
@@ -623,6 +628,8 @@ class BacktestEngine extends AbstractTradingEngine {
           // 叙事类型常量注入（Nightshift 案 2026-10-17）：rowCache select('*') 已含
           // token_category 列零额外查询；GMGN 条件层 narrativeCategory 因子源
           category: row.token_category ?? null,
+          superIp: _sip.narrativeSuperIp ?? null,
+          superIpSlogan: _sip.narrativeSuperIpSlogan ?? null,
         });
         _injected++;
       }

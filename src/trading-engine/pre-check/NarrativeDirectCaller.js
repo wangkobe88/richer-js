@@ -356,6 +356,12 @@ class NarrativeDirectCaller {
         // （新鲜/缓存/fallback）透出；null = 未分类/precheck fail——GMGN 条件层
         // narrativeCategory 键的消费源（触发状态机 st.category 投影）
         narrativeCategory: result?.tokenCategory ?? null,
+        // C88 超级IP两标签（2026-10-18 CZ 出书簇）：analyzer 顶层三路同形扁平键
+        // （新鲜路内存覆盖/缓存路 formatResult spread 零列推导）；三态 1/0/null
+        // （null=未分析/旧行无键）——触发状态机 st.superIp/st.superIpSlogan 投影，
+        // FA 因子 narrativeSuperIp/narrativeSuperIpSlogan 的值源
+        narrativeSuperIp: result?.narrativeSuperIp ?? null,
+        narrativeSuperIpSlogan: result?.narrativeSuperIpSlogan ?? null,
         // 账号型 TTL 穿透观测标记：本次评级来自 10s 过期后的强制重析（仅穿透轮带）
         ...(ttlReanalyzed ? { ttlReanalyze: true } : {}),
       };
@@ -394,6 +400,8 @@ class NarrativeDirectCaller {
         precheckStage: null,
         accountOnly: false,
         narrativeCategory: null,
+        narrativeSuperIp: null,
+        narrativeSuperIpSlogan: null,
       };
     }
   }

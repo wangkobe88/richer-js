@@ -1583,6 +1583,14 @@ class ExperimentTokenReturns {
       ? `<div class="mt-0.5 text-[10px] leading-tight cursor-help ${catInfo ? catInfo.cls : 'text-gray-400'}" title="${catInfo ? catInfo.title : tokenCategory}">${catInfo ? catInfo.label : tokenCategory}</div>`
       : '';
 
+    // C88 超级IP两标签（2026-10-18 CZ 出书簇）：super_ip===1 显「超级IP」badge，
+    // 口号票（五腿全中）再显「口号」小标；0/null 不显示（null=未分析/旧行无键）
+    const superIp = narrative.narrative.narrativeSuperIp;
+    const superIpSlogan = narrative.narrative.narrativeSuperIpSlogan;
+    const superIpHtml = superIp === 1
+      ? `<div class="mt-0.5 text-[10px] leading-tight cursor-help text-amber-400" title="名字指代超级IP（name_referent super_ip≥0.5${superIpSlogan === 1 ? '；五腿全中：关联含引申+口号性 mem≥2+事件新鲜+web3共鸣' : ''}）">超级IP${superIpSlogan === 1 ? '<span class="ml-0.5 text-emerald-400">口号</span>' : ''}</div>`
+      : '';
+
     return `
       <div class="flex flex-col items-center justify-center">
         <a href="/narrative-analyzer?address=${tokenAddress}"
@@ -1593,6 +1601,7 @@ class ExperimentTokenReturns {
           ${ratingInfo.emoji} ${rating}${scoreText}
         </a>
         ${categoryHtml}
+        ${superIpHtml}
       </div>
     `;
   }

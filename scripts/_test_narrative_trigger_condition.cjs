@@ -206,6 +206,7 @@ const COND_BASE = {
     eng._narrativeCaller.resolve({
       numericRating: 2, rating: 'mid', durationMs: 80, fromCache: false, accountOnly: false,
       narrativeCategory: 'project', // Nightshift 案第四键：analyzer 顶层透出回填 st
+      narrativeSuperIp: 1, narrativeSuperIpSlogan: 1, // C88 两标签（2026-10-18 CZ 出书簇）
     });
     await settle();
     const st = eng._narrativeTriggerStates.get(eng.__addr);
@@ -213,12 +214,16 @@ const COND_BASE = {
     assert.strictEqual(st.hasInitial, true);
     assert.strictEqual(st.lastRating, 2);
     assert.strictEqual(st.category, 'project'); // 完成时刻分类回填
+    assert.strictEqual(st.superIp, 1); // C88 标签回填（漏=live/backtest 三态分裂）
+    assert.strictEqual(st.superIpSlogan, 1);
     assert.ok(Number.isFinite(st.lastCompletedAt));
     const proj = FourMemeFactorAggregator.getNarrativeFactors(eng.__addr);
     assert.strictEqual(proj.rating, 2);
     assert.strictEqual(proj.inFlight, false);
     assert.strictEqual(proj.accountOnly, false);
     assert.strictEqual(proj.category, 'project'); // 投影含第四键（FA narrativeCategory 源）
+    assert.strictEqual(proj.superIp, 1); // 投影含 C88 两标签（FA 因子源）
+    assert.strictEqual(proj.superIpSlogan, 1);
     const upd = dbOps.filter(o => o.kind === 'update').pop();
     assert.strictEqual(upd.table, 'narrative_analysis_rounds');
     assert.strictEqual(upd.eq[0], 'id');
@@ -377,6 +382,13 @@ const COND_BASE = {
       assert.ok(/st\.category = r\.narrativeCategory \?\? null;/.test(src), '完成回填缺 category 赋值');
       assert.ok(/category: st\.category \?\? null,/.test(src), '_projectNarrativeFactors 缺 category');
       assert.ok(/factorResults\?\.narrativeCategory \?\? null\);/.test(src), 'GMGN 挂点缺第四参透传');
+    });
+    check('E6 C88 标签链源码口径三件套（2026-10-18 CZ 出书簇：st 初始/完成回填/投影——漏一处=三态分裂红线）', () => {
+      assert.ok(/superIp: null, superIpSlogan: null,/.test(src), 'st 初始对象缺两标签 null');
+      assert.ok(/st\.superIp = r\.narrativeSuperIp \?\? null;/.test(src), '完成回填缺 superIp 赋值');
+      assert.ok(/st\.superIpSlogan = r\.narrativeSuperIpSlogan \?\? null;/.test(src), '完成回填缺 superIpSlogan 赋值');
+      assert.ok(/superIp: st\.superIp \?\? null,/.test(src), '_projectNarrativeFactors 缺 superIp');
+      assert.ok(/superIpSlogan: st\.superIpSlogan \?\? null,/.test(src), '_projectNarrativeFactors 缺 superIpSlogan');
     });
   }
 

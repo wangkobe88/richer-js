@@ -1491,6 +1491,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._narrativeTriggerLaunch(tokenAddress, {
         rounds: 0, inFlight: false, hasInitial: false, lastRating: null,
         lastCompletedAt: null, accountOnly: false, currentRowId: null, category: null,
+        superIp: null, superIpSlogan: null,
       }, 'condition', token);
       return;
     }
@@ -1539,6 +1540,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // 叙事类型回填（Nightshift 案 2026-10-17）：GMGN 条件层 narrativeCategory 的
         // 真值源——完成时刻取 analyzer 顶层透出值（catch 异常轮保持 null=门放行）
         st.category = r.narrativeCategory ?? null;
+        // C88 超级IP两标签回填（2026-10-18 CZ 出书簇）：analyzer 零列推导三态
+        // 1/0/null；catch 异常轮保持 null（fail-closed：==1 臂恒 false）
+        st.superIp = r.narrativeSuperIp ?? null;
+        st.superIpSlogan = r.narrativeSuperIpSlogan ?? null;
         this._projectNarrativeFactors(tokenAddress, st);
         this.logger.info(this._experimentId, 'NarrativeTrigger',
           `${sym} 析毕 R${roundNo}(${reason}) | rating=${r.numericRating}(${r.rating})` +
@@ -1573,6 +1578,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       accountOnly: st.accountOnly === true,
       inFlight: st.inFlight === true,
       category: st.category ?? null,
+      superIp: st.superIp ?? null,
+      superIpSlogan: st.superIpSlogan ?? null,
     });
   }
 

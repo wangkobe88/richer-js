@@ -2958,6 +2958,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 因子源——project/account_based_meme/web3_native_ip_early/event:W 适用
             // issuerTokenCount<=1 门；null（未分析/未分类/legacy 腿）= IS NULL 臂放行
             factors.narrativeCategory = _nar ? (_nar.category ?? null) : null;
+            // C88 超级IP两标签（2026-10-18 CZ 出书簇）：触发状态机完成轮投影的
+            // superIp/superIpSlogan（analyzer 零列推导，1/0/null 三态——null=未
+            // 分析/旧行无键；条件 ==1 臂对 0/null 天然 false fail-closed）
+            factors.narrativeSuperIp = _nar ? (_nar.superIp ?? null) : null;
+            factors.narrativeSuperIpSlogan = _nar ? (_nar.superIpSlogan ?? null) : null;
             factors.narrativeRetryDue = (_nar
                 && _nar.rating === 1 && _nar.accountOnly === true && _nar.inFlight !== true
                 && _nar.rounds < _narrativeFactorConfig.maxAnalyses
@@ -3019,7 +3024,9 @@ class FourMemeFactorAggregator extends EventEmitter {
      *   rating ∈ null|1|2|3|9；completedAt=最后一轮完成时刻 ms（retryDue 判据）；
      *   accountOnly=语料只有账号入口（isAccountOnlySource，重试域判据）；
      *   inFlight=引擎分析进行中（抑制重复发起）；
-     *   category=叙事类型（token_category 同形状，narrativeCategory 因子源）
+     *   category=叙事类型（token_category 同形状，narrativeCategory 因子源）；
+     *   superIp/superIpSlogan=C88 超级IP两标签（1/0/null 三态，narrativeSuperIp/
+     *   narrativeSuperIpSlogan 因子源；回测 preload 由 stage1/stage2 JSON 零列推导注入）
      */
     static setNarrativeFactors(tokenAddress, snapshot) {
         if (!tokenAddress) return false;

@@ -9,6 +9,7 @@ const { dbManager } = require('../../services/dbManager');
 const Logger = require('../../services/logger');
 const { extractNarrativeMaterialId } = require('../../narrative/utils/material-id-extractor.mjs');
 const { buildLLMAnalysis } = require('../../narrative/analyzer/parsers/response-parser.mjs');
+const { deriveSuperIpLabels } = require('../../core/narrative/superip-labels.js');
 
 // .in 批量/分页拉取的并发上限：VPN 链路下串行批次往返是万级 token 页面的耗时大头
 // （2026-10-09 token-returns 慢页实测：~110 个串行往返 ≈ 474s）
@@ -1512,6 +1513,9 @@ class ExperimentDataService {
               analyzed_at: narrative.analyzed_at,
               // 叙事分类（deriveTokenCategory：'event:<A~W>' 或 prestage 三类；null=precheck fail/no_data）
               token_category: narrative.token_category ?? null,
+              // C88 超级IP两标签（2026-10-18 CZ 出书簇）：NARRATIVE_LIGHT_COLUMNS 已含
+              // stage1/stage2 列零额外查询，superip-labels 零列推导；1/0/null 三态
+              ...deriveSuperIpLabels(narrative.stage1_result, narrative.stage2_result),
               llmAnalysis: llmAnalysis
             },
             human_judge: token.human_judges || null,

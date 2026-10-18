@@ -6,6 +6,7 @@
  */
 
 import { resolveFinalRating, categoryToRating } from '../../utils/rating-utils.mjs';
+import { deriveSuperIpLabels } from '../../../core/narrative/superip-labels.js';
 
 
 /**
@@ -151,6 +152,10 @@ export function formatResult(record) {
     // 不含该键，由 NarrativeAnalyzer 新鲜路 return 显式覆盖。null = 未分类/precheck
     // fail（「null 不带键」语义），门侧 IS NULL 臂放行
     tokenCategory: record.token_category ?? null,
+    // C88 超级IP两标签（2026-10-18 CZ 出书簇）：零列推导——stage1 super_ip 概率带
+    // 与 stage2 C88 恒落 hit 键；1/0/null 三态（null=未分析/prestage/旧行无键），
+    // 新鲜路由 NarrativeAnalyzer 显式覆盖（save 回读瘦列无 stage 列）
+    ...deriveSuperIpLabels(record.stage1_result, record.stage2_result),
     reason: reason,
     score: score,
     scores: scores,

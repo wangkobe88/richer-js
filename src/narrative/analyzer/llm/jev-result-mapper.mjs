@@ -337,9 +337,14 @@ const CARRIER_LABELS = {
   no_visual_entity: '无形象实体',
 };
 
-function subjectCarrierBlock(answers, category) {
+function subjectCarrierBlock(answers, category, opts) {
   const carrier = answers?.subject_carrier?.choice;
   if (!carrier) return null;
+  // C88 超级IP口号票豁免（2026-10-18 CZ 出书簇裁定）：五腿全中的票不拦——真人
+  // 人物/机构票在 carrier 体系天然映射 no_visual/improvised（暗号資産の覹者
+  // no_visual 0.92 / BI improvised 0.62 均此位拦死），「抓不住形象载体」由口号性
+  // 腿 mem≥2 与关联腿代偿（名字本身就是玩梗载体）
+  if (opts?.superIpSlogan) return null;
   if (category === 'C' || category === 'D') {
     if (carrier === 'improvised_entity' || carrier === 'no_visual_entity') {
       return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
@@ -431,6 +436,10 @@ function routineContentProductBlock(answers, category, opts) {
   // IP/产品公告）不算「机构日常运营」拦截对象——自家场子官方票（FlapGuy 案）
   // （C83 起全语料走本路径，豁免面即全部豁免面）
   if (opts?.platformOfficial) return null;
+  // C88 超级IP口号票豁免（rcp 概率臂，与 A 类/platformOfficial 豁免同位）：五腿
+  // 全中的超级IP事件票口号名是借热度玩梗，非「常规内容产品宣传」（暗号案的
+  // argmax 臂豁免见门链内同款守卫）
+  if (opts?.superIpSlogan) return null;
   const p = answers?.block_reason?.probabilities?.routine_content_product ?? 0;
   if (p < 0.5) return null;
   return { label: BLOCK_LABELS.routine_content_product, mass: Math.round(p * 100) / 100 };
@@ -946,6 +955,7 @@ export function mapStandardAnswers(answers, context) {
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   let rmBlock = null; // 指代对象 meme 价值低档门信息 {label, score}（J1.28）
   let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
+  let memFloorFired = false; // C88 mem 口径地板命中标记（审计用）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -1028,9 +1038,32 @@ export function mapStandardAnswers(answers, context) {
   const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
     && relevance.score > 0 && relevance.score <= 10;
 
-  // C86 D-1：量级门豁免聚合标记（magExemptTags=救援标注与审计用）
-  const magExempt = punExempt || imgNameExempt;
-  const magExemptTags = [punExempt ? 'J1.24戏谑' : null, imgNameExempt ? 'J1.30名图' : null]
+  // C88 超级IP事件口号票五腿救援谓词（2026-10-18 CZ 出书簇用户裁定：暗号資産の
+  // 覹者 0x926c…7777 11.8x 毕业被 rcp argmax 臂拦死、BI 0x3891…7777 4.86x 被
+  // J1.29 拦死——「找角度借热点事件发币本身没问题，判据=发币形态/事件量级/币的
+  // 口号性」，Jev 已把信号全判对、门不消费）。五腿全中=名字指代超级IP ∧ 关联腿
+  // 含引申（直接 exact/translation 天然满足；引申=正向质量 exact+translation+
+  // abbreviation+semantic+cultural ≥0.3 且 none<0.5——「BI 应该算是引申关联」
+  // 2026-10-18 裁定，币名→超级IP→事件链成立即算关联，none 占优=链断不救）∧
+  // 口号性 mem≥2（2 分=有玩味点及格线，与地板臂 <2 构成完整分离轴）∧ 事件新鲜
+  // ∧ web3 买家共鸣。不送分：豁免只翻门，分数照算（J1.24/J1.30/C86 D-1 先例）；
+  // 刻意不豁 nhn/w3/pe/nr/rm/quality 门/D-E 量级臂/W 数学
+  const FRESH_TIMING_C88 = new Set(['within_7d', 'within_30d', 'expected_within_30d']);
+  const sipProb = answers.name_referent?.probabilities?.super_ip ?? 0;
+  const relMassC88 = answers.relevance_type?.probabilities ?? {};
+  const relPositiveMass = (relMassC88.exact_match ?? 0) + (relMassC88.translation_match ?? 0)
+    + (relMassC88.abbreviation_alias ?? 0) + (relMassC88.semantic ?? 0) + (relMassC88.cultural ?? 0);
+  const relNoneMass = relMassC88.none ?? 1;
+  const memScoreC88 = answers.referent_memeability?.score ?? null;
+  const superIpSlogan = sipProb >= 0.5 && relPositiveMass >= 0.3 && relNoneMass < 0.5
+    && memScoreC88 != null && memScoreC88 >= 2
+    && FRESH_TIMING_C88.has(timing) && web3FitStrongP >= 0.5;
+
+  // C86 D-1：量级门豁免聚合标记（magExemptTags=救援标注与审计用）；C88 口号票
+  // 并入聚合（事件分<60 臂放行——BI 同形状弱传播票由总分承担量级代价）
+  const magExempt = punExempt || imgNameExempt || superIpSlogan;
+  const magExemptTags = [punExempt ? 'J1.24戏谑' : null, imgNameExempt ? 'J1.30名图' : null,
+    superIpSlogan ? 'C88口号' : null]
     .filter(Boolean).join('+');
 
   // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
@@ -1042,7 +1075,7 @@ export function mapStandardAnswers(answers, context) {
   if ((nhnBlock = negativeHardNewsBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = nhnBlock.label;
-  } else if ((rcpBlock = routineContentProductBlock(answers, category, { platformOfficial }))) {
+  } else if ((rcpBlock = routineContentProductBlock(answers, category, { platformOfficial, superIpSlogan }))) {
     stage2Blocked = true;
     stage2BlockReason = rcpBlock.label;
   } else if ((w3Block = web3FitBlock(answers))) {
@@ -1066,6 +1099,10 @@ export function mapStandardAnswers(answers, context) {
     // 平台官方账号的实质内容推不算「机构日常运营/常规内容产品宣传」，与 superIP
     // 通道 institution_routine 豁免（blockedByBlockReason 的 blockChoice 排除）同语义
     && !(platformOfficial && (blockChoice === 'institution_routine' || blockChoice === 'routine_content_product'))
+    // C88 超级IP口号票豁免（argmax 臂）：暗号案实际拦截位（rcp 0.44 vs none 0.41
+    // 五五开抖动）——五腿全中时口号名不算常规内容产品，与 A 类/platformOfficial
+    // 豁免同位
+    && !(blockChoice === 'routine_content_product' && superIpSlogan)
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
@@ -1081,7 +1118,19 @@ export function mapStandardAnswers(answers, context) {
     // 分数门，finalReason 的 P 段落 '-'（stage2BlockReason 已含分数）
     stage2Blocked = true;
     stage2BlockReason = rmBlock.label;
-  } else if ((scBlock = subjectCarrierBlock(answers, category))) {
+  } else if (!isW && rideMass == null && FRESH_TIMING_C88.has(timing)
+    && memScoreC88 != null && memScoreC88 < 2) {
+    // C88 mem 口径地板（J1.28 扩展臂，2026-10-18 CZ 出书簇裁定）：蹭新鲜热点但
+    // 名字无口号性——mem∈(1,2) 是 J1.28 ≤1 臂与五腿 ≥2 带之间的放行死区（币安
+    // 上电视 1.72 / CZDOODOO 1.24 两票 high 在跑的真实漏放位；CZDOODOO superIp
+    // 0.02 说明拦截面不设 super_ip 带内门槛——名字无玩味点本身即拦截依据）。域=
+    // 标准数学（W 数学/骑乘改道豁出——RedCoin 类产品票 mem 天然低）；时效域与
+    // 五腿同集（older=蹭冷饭由时效分归 0 守）；superIpSlogan 票 mem≥2 结构性
+    // 不相交；mem 答案缺失（旧缓存行）不拦（J1.28 同款 fail-open）
+    stage2Blocked = true;
+    stage2BlockReason = `蹭热点但名字无口号性（mem ${memScoreC88}<2）`;
+    memFloorFired = true;
+  } else if ((scBlock = subjectCarrierBlock(answers, category, { superIpSlogan }))) {
     // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
     // 挂 rmBlock 之后（指代层门链尾，nr/rm 先拦的票 label 归属前者）、量级门
     // 之前（载体缺失是主体层缺陷，先于量级判定）；无概率 mass（choice 档位门）
@@ -1210,6 +1259,20 @@ export function mapStandardAnswers(answers, context) {
         // 无此题 → null）；block 命中才落（referentMemeabilityBlock 同款模式）
         subjectCarrier: answers.subject_carrier?.choice ?? null,
         subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
+        // C88 审计标记①：超级IP口号票五腿快照。恒落含 hit:false（标签零列推导消费
+        // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存
+        // 行）→null——0/null 语义分离，referentMemeabilityScore 恒落同款）
+        superIpSlogan: {
+          hit: superIpSlogan,
+          superIp: round2(sipProb),
+          relPositive: round2(relPositiveMass),
+          relNone: round2(relNoneMass),
+          mem: memScoreC88,
+          timing,
+          strongFit: round2(web3FitStrongP),
+        },
+        // C88 审计标记②：mem 地板命中详情（命中才落，subjectCarrierBlock 同款）
+        memFloorBlock: memFloorFired ? { mem: memScoreC88, timing } : null,
         // J1.31 审计标记：E 类情绪感染力折损。档位恒落（旧缓存行无此题 → null，
         // 阈值事后校准免重跑）；系数生效（<1）才落折损详情（subjectCarrierBlock
         // 同款模式）。stage2Total/事件分不足拦截由折损后值直接承载，原值可由
@@ -1241,7 +1304,10 @@ export function mapStandardAnswers(answers, context) {
 
   let stage3Blocked = false;
   let stage3BlockReason = null;
-  if (brandHijackP >= 0.5 && !punExempt) {
+  // C88 超级IP口号票豁免贯穿 Stage3 双截断（品牌劫持臂+关联≤10 臂）：引申关联票
+  // 不算劫持（BI 案 noul 0.56 勉强过线是 Jev 在引申/劫持边界上的保守倾斜，
+  // punExempt 因 B 档差 tier 腿救不到）——与 J1.24「两层截断同豁免」同构
+  if (brandHijackP >= 0.5 && !punExempt && !superIpSlogan) {
     stage3Blocked = true;
     stage3BlockReason = '品牌劫持';
   } else if (misspellingP >= 0.5 || spellingMismatch.hit) {
@@ -1249,7 +1315,7 @@ export function mapStandardAnswers(answers, context) {
     stage3BlockReason = spellingMismatch.hit
       ? `图文名不符（图内“${spellingMismatch.variant}”≠币名，无背景拼写错误）`
       : '无背景拼写错误';
-  } else if (relevance.score <= 10 && !punExempt && !imgNameExempt) {
+  } else if (relevance.score <= 10 && !punExempt && !imgNameExempt && !superIpSlogan) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
   } else if (quality.total <= 4) {
@@ -1274,7 +1340,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
@@ -1303,6 +1369,9 @@ export function mapStandardAnswers(answers, context) {
             // J1.30 审计标记：名图一致豁免命中详情（关联档位/一致性质量可追溯，
             // brand_hijack 同款「命中才落」模式——未触发不落键）
             imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP) } : null,
+            // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
+            // jev.superIpSlogan 恒落版——stage2 拦截票本段 __clear 不落）
+            superIpSloganExempt: superIpSlogan ? { mem: memScoreC88, timing } : null,
             // C78 图文名不符拼写门审计（命中才落：图内近似写法可追溯）
             spellingMismatch: spellingMismatch.hit
               ? { name: String(tokenData?.name || tokenData?.raw_api_data?.name || ''), variant: spellingMismatch.variant }
