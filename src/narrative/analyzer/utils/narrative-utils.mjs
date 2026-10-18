@@ -559,7 +559,17 @@ export function findCaTweetInAccount(tokenAddress, accountData) {
   return null;
 }
 
-export function isProjectCoin(tokenAddress, fetchResults) {
+/**
+ * @param {Object} [options]
+ * @param {boolean} [options.includeUrlArm=true] - C100（OK❌ 案用户裁定）：URL 含 CA
+ *   是否算「命中」。true=全语义（路由/账号补充收集等存量消费点不变）；false=强证据
+ *   模式——只认内容臂（推文文本/回复/引用/网站推文/账号简介/网站正文），URL 含
+ *   CA 一律不算（t.me/#<CA>、任何路径含地址的链接都是机械形状，非发行方公示）。
+ *   唯一消费方=skipAddressValidation 的证据源：网址里头有 CA 不算命中 CA，不得
+ *   由此伪造 addressVerified。
+ */
+export function isProjectCoin(tokenAddress, fetchResults, options = {}) {
+  const { includeUrlArm = true } = options;
   const address = tokenAddress.toLowerCase();
   const { twitterInfo, websiteInfo, classifiedUrls } = fetchResults;
 
