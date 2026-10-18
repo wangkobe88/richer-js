@@ -68,10 +68,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C87 pumpfun 专职找角度 dev 批量黑名单——「大量发币 + 宣发全英文」跨链作业号 51 个收录（2026-10-18 用户标准「我所谓的专职 pumpfun dev 的特点是，大量发币，并且都使用英文」+「基于这些账号的推文，不应该在 BSC 链发币」；黑名单 11→62，cef31a6/13addcf/09c121c）★
+### C87 pumpfun 专职找角度 dev 批量黑名单——「大量发币 + 宣发全英文」跨链作业号 51→49 收录（2026-10-18 用户标准「我所谓的专职 pumpfun dev 的特点是，大量发币，并且都使用英文」+「基于这些账号的推文，不应该在 BSC 链发币」；黑名单 11→62，cef31a6/13addcf/09c121c）★
 
 - **语义（与 C76 对立分层）**：黑名单命中=precheck 规则 1 `low/'blacklist'` **终判全拦**（先于 classifyTweetType）；C76 frequent-issuers 命中=angle_seeking→C74 300s 快发票窗（放行语义）。同号在两侧时黑名单先执行。
-- **收录构成**：点名 2（grok12_john/thedudethatdev）+ A 档 43（低粉 <2000 + 英文推样本验证 + 被挂 n≥25 实锤；wangzbnb 1 粉被挂 186 次；推文模板直提 pumpfun）+ B 档 8（dev/sol 风格高 n 无语料证据：quantsdev1223 n=619 等 + gewortra 经 tundukbsc/bleachfan2000 推文 @ 它作业交叉实锤）。
+- **收录构成**：点名 2（grok12_john/thedudethatdev）+ A 档 43（低粉 <2000 + 英文推样本验证 + 被挂 n≥25 实锤；推文模板直提 pumpfun）+ B 档 8（dev/sol 风格高 n 无语料证据：quantsdev1223 n=619 等 + gewortra 经 tundukbsc/bleachfan2000 推文 @ 它作业交叉实锤）。**2116dd5 勘误剔 2**：wangzbnb（2/4 条成段中文=CZ/BNBC/MALI 叙事 BSC 本土号，1 粉被挂 186 次）+ 123greenapple（3/8 条成句中文=BNB Chain L1/PRIVACY Cat 同款）——**误收根因=语言验证单样本 limit 1 恰为英文推；判定尺度=宣发以中文为主/成句中文才算中文号，英文推夹中文专名（乌兰察布市/猪小肠/啾啾）保留**；复查脚本 `verify-blacklist-language.cjs` 62 号×8 样本，其余无中文混发。（dev/sol 风格高 n 无语料证据：quantsdev1223 n=619 等 + gewortra 经 tundukbsc/bleachfan2000 推文 @ 它作业交叉实锤）。
 - **甄别链（可复跑）**：`scripts/scan-angle-devs-blacklist.cjs`（182 跑，experiment_tokens 579216 行全量 (creator,handle) 边表——v1 只存 creator top6 会漏轮换号）→ token 全名零 CJK 过滤候选 725（n≥15）→ `scripts/fetch-followers-for-candidates.cjs`（token_narrative.**twitter_info 独立 jsonb 列** contains 单号查，非 raw_api_data 内）取粉丝+推文文本 → 分层。
 - **必剔原则**：①品牌/官方（robinhoodapp/pancakeswap/pumpfun/kalshi/google/openai/vladtenev/binance 系）②真人媒体/名人（≥5 万粉 52 个）③中文推文号（genyrational/beyourloverboy/haishenling 等 6 个——token 名全英文但推文中文，**语言判定必须用推文文本不能只看 token 名**）④大 IP（uniqC 巨大+creator 长尾）。
 - **关键数据洞察**：bigC 高（被 ≥100 高发 creator 挂）=公共英文语料源信号（媒体/品牌），不是 dev 自有号；自有号签名=低粉+英文+creator 相对集中（top1Share）。139 rich-js DB 无 pumpfun creator/twitter 元数据——BSC 投影（experiment_tokens）是唯一可行源。
