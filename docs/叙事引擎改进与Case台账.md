@@ -68,6 +68,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C88 CZ 出书事件簇四票两向失败——超级IP事件口号票五腿救援 + mem 口径地板（J1.28 扩展臂）+ narrativeSuperIp/Slogan 零列标签（2026-10-18 用户裁定「是否超级IP，可以作为一个代币的叙事分析标签，也同样返回给实验引擎并展示在界面上」；编号撞车 09c121c 误用 C87→勘误 C88，commit 3aa0690 + bc432ad）★
+
+- **两向失败四票（同一 CZ 出书事件簇）**：①暗号資産の覹者 11.8x 毕业 rating low——rcp argmax 臂（referent_memeability 档位）拦；②BI（关联票）4.86x low——J1.29 载体门拦；③币安上电视 high 77；④CZDOODOO high 76——③④在跑全死。**同一簇「真超级IP事件+名字有口号性」被现有门系两向误拦/跑死**＝识别缺口：事件真、名字像口号（slogan-like）、关联分低是因为名字走暗号而非蹭名。
+- **五腿救援（superIpSlogan hit）**：`super_ip≥0.5 ∧ 关联腿含引申（relPositive≥0.3 且 relNone<0.5）∧ mem≥2 ∧ timing fresh ∧ strong_fit≥0.5` 全中 → 豁免 rcp 双臂 / J1.29 载体门 / Stage3 品牌劫持臂+关联≤10 截断 / C86 D-1 magExempt<60 量级门事件分不足臂；**刻意不豁**：nhn/w3/pe/nr/rm/quality、D/E 档量级臂、W 数学 pass 线（弱量级代价在总分）。**不送分**：BI 诚实 mid 56.11（五腿只拆拦截不抬分）。审计 `stage2.jev.superIpSlogan {hit,superIp,relPositive,relNone,mem,timing,strongFit}` C88 后恒落（旧行缺键→null）。
+- **mem 口径地板（J1.28 扩展臂，memFloorBlock）**：标准数学域 ∧ timing fresh ∧ `mem<2` 拦——「蹭热点但名字无口号性」（③④形状：事件真、关联可建，但名字是描述性/玩笑性蹭法而非口号，在跑全死）。审计 `stage2.jev.memFloorBlock {mem,timing}` 命中才落。
+- **narrativeSuperIp / narrativeSuperIpSlogan 零列标签**：`deriveSuperIpLabels(stage1,stage2)`（`src/core/narrative/superip-labels.js`，CJS 单实现双生态）从既有 stage JSON 推导不落 DB 列——superIp=`stage1 jev.probabilities.name_referent.super_ip≥0.5→1/0`、slogan=`stage2 jev.superIpSlogan.hit===true→1/0`；三态（1/0/null）与 narrativeCategory null 放行臂同形；三路消费（response-parser 缓存路 / NarrativeAnalyzer 新鲜路 / BacktestEngine preload）+ `getExperimentNarratives` 出列 + FA fire 因子表两字面量键（引擎可写策略腿 `narrativeSuperIpSlogan == 1`）+ token-returns badge；**GMGN 条件键集刻意不加两键**（G16 反证：爆炸面最小，只进 FA fire 因子表）。
+- **★ 落库信封 bug（上线后当日发现修复，bc432ad）**：初版 `deriveSuperIpLabels` 只认 `parsed_output` 键，而落库经 `buildStageSaveData` 把 parsed_output 整包转进 **`details`** 键——三条 DB 路（formatResult 缓存路/回测 preload/getExperimentNarratives）恒 null，v22 659 票实测全 null 实锤，仅内存新鲜路可用。修复=`s?.details ?? s?.parsed_output ?? null` 双形状（不递归搜索防掩盖形状漂移）。**漏测根因=单测 F 组只测内存形状**，补 F8（落库信封 details 形状）/F9（Supabase 惰性 text JSON 字符串）两臂，51 passed。教训：**跨形态消费的推导函数单测必须覆盖落库信封形状**（DB 行≠内存形状）。
+- **实验叙事结果页整页重写（bc432ad，web 层）**：`/experiment/:id/narrative` 从极薄页重写为实验层面叙事分析结果页（交互参考 c88-review）：评级 tab+类型 chips+搜索+排序+行展开明细（管线 6 段卡/Jev 关键答案/C88 审计盒/涨幅三键面板/C84 轮次表/拦截点五级定位）；service additive `final_change_percent/peak_mcap_usd` 两字段（profileMap 已取回零额外查询）。旧行 mem 从 raw answers 兜底、C88 审计盒正确缺席。
+- **部署门（进行中）**：182 narrative worker 未重启——`superIpSlogan`/`memFloorBlock` 键 mapper 恒落需 worker 进程加载新代码，重启前 v22 slogan 列全 null 属预期；**两清单待用户过目后才重启**（C88 五腿存量翻转面 137 行 / mem 地板拦截面 287 行，`scripts/scan-c88-flip-surface.cjs`）；superip-labels bug 修复随该次重启一并生效。存量叙事缓存行不带五腿键=救援不翻旧案，新析才生效（观察期语义，C74 同款先例）。
+- **单测**：`_test_superip_slogan_class.cjs` 51 项（四票事故反证精确值+五腿负臂+mem 地板边界+豁免域+标签三态+F8/F9 落库信封+16 源码口径断言）；`_test_fa_narrative_factors` 30 项全绿。
+
 ### C87 pumpfun 专职找角度 dev 批量黑名单——「大量发币 + 宣发全英文」跨链作业号 51→49 收录（2026-10-18 用户标准「我所谓的专职 pumpfun dev 的特点是，大量发币，并且都使用英文」+「基于这些账号的推文，不应该在 BSC 链发币」；黑名单 11→62，cef31a6/13addcf/09c121c）★
 
 - **语义（与 C76 对立分层）**：黑名单命中=precheck 规则 1 `low/'blacklist'` **终判全拦**（先于 classifyTweetType）；C76 frequent-issuers 命中=angle_seeking→C74 300s 快发票窗（放行语义）。同号在两侧时黑名单先执行。
