@@ -16,6 +16,7 @@ const { Experiment } = require('./src/trading-engine/entities/Experiment');
 const { FourMemeWssTradingEngine } = require('./src/trading-engine/implementations/FourMemeWssTradingEngine');
 const { FlapWssTradingEngine } = require('./src/trading-engine/implementations/FlapWssTradingEngine');
 const { BacktestEngine } = require('./src/trading-engine/implementations/BacktestEngine');
+const { acquireExperimentLock, releaseExperimentLock, lockDeniedMessage } = require('./src/trading-engine/core/experiment-instance-lock');
 
 const consoleLogger = {
   info: (msg) => console.log(msg),
@@ -89,6 +90,17 @@ class VirtualTradingSystem {
       console.log(`========================================`);
       console.log(``);
       console.log(`🔍 启动实验: ${experimentId}`);
+
+      // 0. 单实例锁（2026-10-18 双跑事故防线）：--force 只绕过 DB status 校验，
+      //    不检测同实验活进程——旧进程未 kill 就重启=双跑（v21/1018 两次复发）。
+      //    必须在任何 DB 状态改动之前：被拒时实验状态保持旧进程的管理不受污染。
+      //    刻意不受 --force 影响（防双跑是硬防线，绕过它 --force 就失去意义）。
+      const lock = acquireExperimentLock(experimentId);
+      if (!lock.ok) {
+        const err = new Error(lockDeniedMessage(lock));
+        err.code = 'EXPERIMENT_LOCK_HELD';
+        throw err;
+      }
 
       // 1. 加载实验配置
       const experimentFactory = ExperimentFactory.getInstance();
@@ -184,7 +196,13 @@ class VirtualTradingSystem {
       console.error(`❌ 启动失败: ${error.message}`);
       console.error(``);
 
-      // 如果已经加载了实验，更新状态为失败
+      // 锁拒启不动实验状态——旧进程还在跑，status 由它管理（置 failed 会污染）
+      if (error.code === 'EXPERIMENT_LOCK_HELD') {
+        process.exit(1);
+      }
+
+      // 如果已经加载了实验，更新状态为失败（锁已拿到但启动失败：释放防自堵）
+      releaseExperimentLock(experimentId);
       if (experimentId) {
         const factory = ExperimentFactory.getInstance();
         await factory.updateStatus(experimentId, 'failed');
@@ -260,6 +278,11 @@ class VirtualTradingSystem {
       // 停止引擎
       await this.engine.stop();
       this.isRunning = false;
+
+      // 单实例锁释放（引擎停止后；stop 抛错时锁残留由 stale 检测自愈）
+      if (this.experimentId) {
+        releaseExperimentLock(this.experimentId);
+      }
 
       // 更新实验状态
       if (this.experimentId) {

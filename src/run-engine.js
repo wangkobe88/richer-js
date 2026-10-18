@@ -11,6 +11,7 @@ const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFact
 const { FourMemeWssTradingEngine } = require('./trading-engine/implementations/FourMemeWssTradingEngine');
 const { FlapWssTradingEngine } = require('./trading-engine/implementations/FlapWssTradingEngine');
 const { BacktestEngine } = require('./trading-engine/implementations/BacktestEngine');
+const { acquireExperimentLock, releaseExperimentLock, lockDeniedMessage } = require('./trading-engine/core/experiment-instance-lock');
 
 async function runEngine(experimentId) {
   if (!experimentId) {
@@ -25,6 +26,14 @@ async function runEngine(experimentId) {
   console.log('');
 
   try {
+    // 单实例锁（2026-10-18 双跑事故防线，main.js start-experiment 同款）：
+    // 同实验活进程在跑即拒启——先于任何 DB 状态改动，被拒不污染实验状态
+    const lock = acquireExperimentLock(experimentId);
+    if (!lock.ok) {
+      console.error(`❌ ${lockDeniedMessage(lock)}`);
+      process.exit(1);
+    }
+
     // 加载实验配置：回测实验分派 BacktestEngine（自动跑完退出），
     // 实时按 platform 选引擎——'flap' → Flap 子类；'fourmeme'（缺省）与 'both'
     // （双平台 per-token 分派）→ 基类 FourMemeWssTradingEngine
@@ -55,6 +64,9 @@ async function runEngine(experimentId) {
         // 停机链异常留痕后仍退出——进程必须死，但状态可能停在 running 需人工核对
         console.error(`❌ 引擎停止失败: ${error.message}`);
         console.error(error.stack);
+      } finally {
+        // 单实例锁释放（stop 成败都放；进程即将退出，残留由 stale 检测自愈）
+        releaseExperimentLock(experimentId);
       }
       process.exit(0);
     };
@@ -79,9 +91,17 @@ async function runEngine(experimentId) {
     console.log('========================================');
     console.log('');
 
+    // 回测跑完自然走到这里：释放锁（虚拟实验不至此——进程持续运行，锁随优雅停释放）
+    if (isBacktest) {
+      releaseExperimentLock(experimentId);
+    }
+
   } catch (error) {
     console.error('❌ 启动引擎失败:', error.message);
     console.error(error.stack);
+    // 启动失败：锁已拿到但引擎没起来，释放防自堵（锁拒启的 process.exit 不经此
+    // 路径；release 幂等，无锁时 ENOENT 静默）
+    releaseExperimentLock(experimentId);
     process.exit(1);
   }
 }
