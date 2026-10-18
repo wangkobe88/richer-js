@@ -415,22 +415,14 @@ class ExperimentNarrative {
       : cat.startsWith('event:') ? `事件${cat.slice(6)}`
       : (CATEGORY_LABELS[cat] || cat);
     const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    // 分类含义直接写在按钮上（label·short 释义），悬浮 title 保留完整定义
     container.innerHTML = `<span class="text-xs text-gray-500 mr-1">叙事类型</span>` + entries.map(([cat, cnt]) => {
       const meaning = categoryMeaning(cat);
       return `
       <button class="cat-chip ${this.state.cats.has(cat) ? 'active' : ''}" data-cat="${esc(cat)}" title="${esc(meaning.full)}">
-        ${esc(label(cat))} ${cnt}
+        ${esc(label(cat))}<span class="chip-meaning">· ${esc(meaning.short)}</span> ${cnt}
       </button>`;
     }).join('');
-    // 底部常显图例：仅列当前数据中出现的类别（悬浮 chip 看完整定义）
-    const legend = document.getElementById('cat-legend');
-    if (legend) {
-      legend.innerHTML = `<span class="text-gray-600">图例：</span>` + entries.map(([cat]) => {
-        const meaning = categoryMeaning(cat);
-        const name = cat === '__null__' ? '未分类' : (cat.startsWith('event:') ? `事件${cat.slice(6)}` : (CATEGORY_LABELS[cat] || cat));
-        return `<span class="text-gray-500" title="${esc(meaning.full)}">${esc(name)}=${esc(meaning.short)}</span>`;
-      }).join('<span class="text-gray-700 mx-0.5">·</span>');
-    }
   }
 
   // ═══════════════ 筛选 + 排序 ═══════════════
