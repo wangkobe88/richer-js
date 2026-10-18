@@ -34,17 +34,30 @@ function _asObj(v) {
 }
 
 /**
+ * 取 stage 结果里的 parsed_output 等价物（双形状兼容，2026-10-18 v22 页面实测发现）：
+ * - 落库信封（buildStageSaveData 转换后）：{rating, pass, details, ...}，mapper 的
+ *   parsed_output 整包在 `details` 键——DB 行（formatResult 缓存路/回测 preload/
+ *   getExperimentNarratives）全部是该形状。初版只认 parsed_output 键 = 三条 DB 路
+ *   恒 null（v22 659 票实测全 null 实锤），只有内存新鲜路能用
+ * - 内存形状（NarrativeAnalyzer 新鲜路直传 mapper 的 *DataToSave）：原键 parsed_output
+ * 只认两形状其一，不做递归搜索（兜底搜索会掩盖形状漂移）
+ */
+function _stagePayload(s) {
+  return s?.details ?? s?.parsed_output ?? null;
+}
+
+/**
  * 从 stage1/stage2 结果推导超级IP两标签。
  * @param {Object|string|null} stage1Result - stage1_result 列值（或内存 stage1DataToSave）
  * @param {Object|string|null} stage2Result - stage2_result 列值（或内存 stage2DataToSave）
  * @returns {{narrativeSuperIp: number|null, narrativeSuperIpSlogan: number|null}}
  */
 function deriveSuperIpLabels(stage1Result, stage2Result) {
-  const s1 = _asObj(stage1Result);
-  const s2 = _asObj(stage2Result);
-  const superIpProb = s1?.parsed_output?.jev?.probabilities?.name_referent?.super_ip ?? null;
+  const s1po = _stagePayload(_asObj(stage1Result));
+  const s2po = _stagePayload(_asObj(stage2Result));
+  const superIpProb = s1po?.jev?.probabilities?.name_referent?.super_ip ?? null;
   const narrativeSuperIp = superIpProb == null ? null : (superIpProb >= 0.5 ? 1 : 0);
-  const slog = s2?.parsed_output?.jev?.superIpSlogan ?? null;
+  const slog = s2po?.jev?.superIpSlogan ?? null;
   const narrativeSuperIpSlogan = slog == null ? null : (slog.hit === true ? 1 : 0);
   return { narrativeSuperIp, narrativeSuperIpSlogan };
 }

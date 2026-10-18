@@ -312,6 +312,19 @@ async function main() {
     && deriveSuperIpLabels(S1(0.7), null).narrativeSuperIpSlogan === null);
   check('F7 坏 JSON 字符串 → null 不抛（保守）',
     deriveSuperIpLabels('not-json{', S2HIT(true)).narrativeSuperIp === null);
+  // F8/F9 落库信封形状（2026-10-18 v22 页面实测发现初版 bug：buildStageSaveData
+  // 转换后 parsed_output 整包存进 details 键——DB 行（formatResult 缓存路/回测
+  // preload/getExperimentNarratives）全部该形状；初版只认 parsed_output = 三条
+  // DB 路恒 null，v22 659 票实测全 null 实锤）
+  const S1DB = (p) => ({ rating: null, pass: true, details: { jev: { probabilities: { name_referent: { super_ip: p } } } } });
+  const S2DB = (hit) => ({ category: 'low', pass: false, details: { jev: { superIpSlogan: { hit } } } });
+  check('F8 落库信封 details 形状（DB 行）同形推导',
+    deriveSuperIpLabels(S1DB(0.7), S2DB(true)).narrativeSuperIp === 1
+    && deriveSuperIpLabels(S1DB(0.7), S2DB(true)).narrativeSuperIpSlogan === 1
+    && deriveSuperIpLabels(S1DB(0.3), S2DB(false)).narrativeSuperIp === 0);
+  check('F9 details 信封 JSON 字符串（Supabase 惰性 text）同形解析',
+    deriveSuperIpLabels(JSON.stringify(S1DB(0.66)), JSON.stringify(S2DB(true)))
+      .narrativeSuperIp === 1);
 
   console.log('\n── G. 源码口径断言（防线锁定） ──');
 

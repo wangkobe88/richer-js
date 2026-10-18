@@ -1519,7 +1519,10 @@ class ExperimentDataService {
               llmAnalysis: llmAnalysis
             },
             human_judge: token.human_judges || null,
-            max_change_percent: profileMap.get(token.token_address)?.max_change_percent ?? null
+            max_change_percent: profileMap.get(token.token_address)?.max_change_percent ?? null,
+            // 涨幅面板 additive 两键（2026-10-18 叙事结果页展开明细用；profileMap 已取回零额外查询）
+            final_change_percent: profileMap.get(token.token_address)?.final_change_percent ?? null,
+            peak_mcap_usd: profileMap.get(token.token_address)?.peak_mcap_usd ?? null
           };
         });
 
