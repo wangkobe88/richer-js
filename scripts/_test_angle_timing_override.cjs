@@ -573,8 +573,8 @@ async function main() {
     && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
-  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.41=C106 收敛最新）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.41'")
+  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.42=C108 名字门统一最新）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.42'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')

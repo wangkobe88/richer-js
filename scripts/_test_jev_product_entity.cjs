@@ -62,7 +62,7 @@ async function main() {
   console.log('\n── A. 题面完整性 ──');
   check('A1 版本 ≥J1.27（现 J1.28=referent_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 17 题含 subject_entity（J1.28 15→16；J1.29 16→17；J1.31 17→18；J1.36 C93 event_resonance 删除 18→17）', Object.keys(q).length === 17 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier && !q.event_resonance, Object.keys(q).length);
+  check('A2 题集 18 题含 subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19 默认集 18）', Object.keys(q).length === 18 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
     q.event_magnitude.instructions.includes('形状③ 产品实体') && q.event_magnitude.instructions.includes('不转移不计入') && q.event_magnitude.instructions.includes('两条都不占→C档以下'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',
@@ -187,8 +187,8 @@ async function main() {
     src.includes('opts.pubProxyActive || opts.isW || opts.rideMass != null')
     && src.includes('if (opts.binanceCorpus || opts.platformOfficial) return null;')
     && src.includes('binanceCorpus, platformOfficial }))) {'));
-  check('D2b C56 平台官方源豁免三处接线（rcp 门 opts / argmax 子句 / detectPlatformOfficial 双字段 + 审计落库）',
-    src.includes('routineContentProductBlock(answers, category, { platformOfficial })')
+  check('D2b C56 平台官方源豁免三处接线（rcp 门 opts 含 C88 superIpSlogan / argmax 子句 / detectPlatformOfficial 双字段 + 审计落库）',
+    src.includes('routineContentProductBlock(answers, category, { platformOfficial, superIpSlogan })')
     && src.includes("&& !(platformOfficial && (blockChoice === 'institution_routine' || blockChoice === 'routine_content_product'))")
     && src.includes('const platformOfficial = detectPlatformOfficial(twitterInfo);')
     && src.includes('rcpPlatformExempt,')

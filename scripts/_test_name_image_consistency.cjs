@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.41（J1.41=C106 name_form 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.41', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.42（J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.42', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);
@@ -178,8 +178,7 @@ async function main() {
   const typoAnswers = babaJiAnswers(NIC_STRONG);
   typoAnswers.block_misspelling = { noul: 0.7 };
   const rTypo = mapStandardAnswers(typoAnswers, stdCtx());
-  check('D4 拼写门（P=0.7）不受名图豁免', rTypo.llmResult.rating === 'low'
-    && (rTypo.llmResult.reason || '').includes('无背景拼写错误'), rTypo.llmResult.reason);
+  check('D4 拼写探针（P=0.7）C108 退役不再拦（无背景拼写判据并入 name_form 分支④）', rTypo.llmResult.rating !== 'low', rTypo.llmResult.reason);
   const edgeP = mapStandardAnswers(babaJiAnswers(
     { choice: 'same_visual_category', probabilities: { same_entity: 0.25, same_visual_category: 0.25, unrelated: 0.5 } }
   ), stdCtx());

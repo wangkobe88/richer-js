@@ -5,27 +5,24 @@
  * 几个，名字不是它们就不行吗」→ B 类退出；②「CONVICTION/YAYA 案的核心问题
  * 并不是实体不够知名，而是实体根本没有被接纳为 Web3 meme 币的可能」→ 知名度
  * 梯度（notable_other「知名但非超级IP」）是错误的判定轴，全域退出阻断侧。
- * 正确的轴 = Web3 meme 可接纳性，已由 web3_fit unfit 负门（J1.19 全域）承载：
- * 狮鹫 strong_fit 0.96 放、严肃词汇/普通人名 unfit 拦。真有独立拦截信息的只有
- * minor_other（无名对象，YAYA 案）与 common_word（纯截词，CONVICTION 案）。
+ * 正确的轴 = Web3 meme 可接纳性，已由 web3_fit unfit 负门（J1.19 全域）承载。
  *
- * 改动：nameReferentBlock 阻断质量在所有类别（C/D/F/G/B/W + superIP 通道）
- * 只累计 minor_other+common_word。审计字段 stage1.jev.nrNotableExempt（全域）
- * 记录「旧拦新放」形状 {minorCommon, notable}。
+ * 【C108 断代（2026-10-19）】：nr 阻断位（nameReferentBlock）连同审计键
+ * nrNotableExempt/nameReferentBlockMass 整体退役——名字拦截责任全部移交
+ * name_form 单门（J1.42「合不合适作为 meme 币」，EARLY 案触发）。minor_other
+ * （YAYA 无名对象）/common_word（纯截词）的拦截语义按 C108 四分支由
+ * name_form 判：无名实体→分支①、无圈内感知句片段→分支②。旧 J1.25 快照
+ * fixture（无 name_form 键）= 旧缓存行形状 fail-open 放行。
  *
- * 实测影响面（2026-10-02 库扫）：B 143 票 98 拦 → 52 拦 + 46 翻案候选；
- * W 88→60（28 放，含 Manus 骑乘家族）；F 26→20（6 放）；市场实证错过成本：
- * 狮鹫 7.8 分钟毕业、首→峰 12.3x。
- *
- * 覆盖：
- *   A. 狮鹫案实测 answers 快照复现：name 门解除 → 事件分 67.5 pass；
+ * 覆盖（C108 后语义）：
+ *   A. 狮鹫案实测 answers 快照复现：nr 门退役 → 事件分 67.5 pass；
  *      exact_match 全链 high(78.7)；partial_match 关联性 2 分截断仍拦（豁免≠放行）
- *   B. 全域作用域矩阵：C/W/D 类 notable 主导均不再由 name 门拦（进各自数学）/
- *      C 类 CONVICTION 形状保护移交 web3_fit unfit 负门 / minor(common) 主导
- *      仍拦 / 三项全低不拦 / superIP 通道同样解除 + YAYA 边缘形状兜底
- *   C. 审计字段矩阵：旧拦新放形状落 {minorCommon, notable}（全域含 C 类）；
- *      新口径也拦 → null
- *   D. 源码接线 + 版本断言（mapper-only 切分，题集 J1.25 不动）
+ *   B. 全域作用域矩阵：C/W/D 类 notable 主导放行（进各自数学）/ C 类
+ *      CONVICTION 形状保护移交 web3_fit unfit 负门 / minor(common) 主导
+ *      拦截移交 name_form（旧快照无键放行）/ YAYA 边缘形状 unfit 兜底
+ *   C. 审计字段矩阵：nr 概率纯观察（nameReferent/Probability 保留），
+ *      退役审计键不落（undefined）
+ *   D. 源码接线 + 版本断言（nameReferentBlock 函数/审计键退役反证）
  *
  * 用法：node scripts/_test_notable_other_exit.cjs
  */
@@ -80,14 +77,13 @@ async function main() {
 
   const m1 = mapStandardAnswers(griffinAnswers(), makeContext());
   const s2 = stage2Of(m1);
-  check('A1 name 门解除：nameReferentBlockMass null + 事件分 67.5 pass（27+25.5+15）',
-    s2.pass === true && s2.jev?.nameReferentBlockMass === null && s2.scoringResult.totalScore === 67.5,
+  check('A1 nr 门 C108 退役：mass 键不落 + 事件分 67.5 pass（27+25.5+15）',
+    s2.pass === true && s2.jev?.nameReferentBlockMass === undefined && s2.scoringResult.totalScore === 67.5,
     { pass: s2.pass, nrMass: s2.jev?.nameReferentBlockMass, total: s2.scoringResult?.totalScore });
   check('A1b 旧口径对照：minor 0.08+common 0.03+notable 0.45=0.56 曾拦（notable 唯一抬过门槛项）',
     s2.jev?.nameReferent === 'notable_other' && s2.jev?.nameReferentProbability === 0.45);
-  check('A2 审计落位：stage1.jev.nrNotableExempt = {minorCommon 0.11, notable 0.45}',
-    stage1Of(m1).jev?.nrNotableExempt?.minorCommon === 0.11
-      && stage1Of(m1).jev?.nrNotableExempt?.notable === 0.45,
+  check('A2 退役审计键不落：nrNotableExempt undefined（C108 随阻断位退役）',
+    stage1Of(m1).jev?.nrNotableExempt === undefined,
     stage1Of(m1).jev?.nrNotableExempt);
   check('A3 翻案主线（关联 exact）：总分 78.7 → high',
     stage3Of(m1).category_agg === 'high' && m1.llmResult?.rating === 'high',
@@ -100,15 +96,14 @@ async function main() {
 
   console.log('\n── B. 全域作用域矩阵（A2：notable 全域退出阻断侧）──');
 
-  // B1 C 类（旧 CONVICTION 截词语义域）：notable 主导不再由 name 门拦
+  // B1 C 类（旧 CONVICTION 截词语义域）：notable 主导放行
   const cAnswers = griffinAnswers();
   cAnswers.event_category = { choice: 'C', probabilities: { C: 0.75, B: 0.2 } };
   cAnswers.name_referent = { choice: 'notable_other', probabilities: { notable_other: 0.62, minor_other: 0.06, common_word: 0, subject_self: 0.3 } };
   const mc = mapStandardAnswers(cAnswers, makeContext());
-  check('B1a C 类 notable 0.62 主导：name 门不再拦 + 审计落位（全域）',
-    stage2Of(mc).jev?.nameReferentBlockMass === null
-      && stage1Of(mc).jev?.nrNotableExempt?.notable === 0.62
-      && stage1Of(mc).jev?.nrNotableExempt?.minorCommon === 0.06,
+  check('B1a C 类 notable 0.62 主导：nr 门退役放行 + 退役审计键不落（C108）',
+    stage2Of(mc).jev?.nameReferentBlockMass === undefined
+      && stage1Of(mc).jev?.nrNotableExempt === undefined,
     { mass: stage2Of(mc).jev?.nameReferentBlockMass, audit: stage1Of(mc).jev?.nrNotableExempt });
   check('B1b C 类放行后走标准数学：27+25.5+15=67.5 pass（量级/传播/时效自行把关）',
     stage2Of(mc).pass === true && stage2Of(mc).scoringResult?.totalScore === 67.5,
@@ -122,48 +117,53 @@ async function main() {
     mcv.llmResult?.rating === 'low' && /Web3用户偏好不合/.test(mcv.llmResult?.reason || ''),
     { rating: mcv.llmResult?.rating, reason: mcv.llmResult?.reason });
 
-  // B2 W 类（旧 ChainPulse 补位语义域）：notable 主导不再由 name 门拦 → 进 W 数学
+  // B2 W 类（旧 ChainPulse 补位语义域）：notable 主导放行 → 进 W 数学
   const wAnswers = griffinAnswers();
   wAnswers.event_category = { choice: 'W', probabilities: { W: 0.8, B: 0.15 } };
   wAnswers.name_referent = { choice: 'notable_other', probabilities: { notable_other: 0.55, minor_other: 0.13, common_word: 0.05, super_ip: 0.2 } };
   const mw = mapStandardAnswers(wAnswers, makeContext());
-  check('B2 W 类 notable 0.55 主导：name 门不再拦，改由 W 数学把关（fixture 无 w_product → 产品0+时效25=25 总分不足拦）',
-    stage2Of(mw).jev?.nameReferentBlockMass === null && stage2Of(mw).pass === false
+  check('B2 W 类 notable 0.55 主导：nr 门退役放行，改由 W 数学把关（fixture 无 w_product → 产品0+时效25=25 总分不足拦）',
+    stage2Of(mw).jev?.nameReferentBlockMass === undefined && stage2Of(mw).pass === false
       && /W类总分不足（25<60）/.test(mw.llmResult?.reason || ''),
     { mass: stage2Of(mw).jev?.nameReferentBlockMass, pass: stage2Of(mw).pass, reason: mw.llmResult?.reason });
 
-  // B3 D 类抽查：notable 旧合计 0.77 → 不再拦，走标准数学
+  // B3 D 类抽查：notable 旧合计 0.77 → 放行，走标准数学
   const dAnswers = griffinAnswers();
   dAnswers.event_category = { choice: 'D', probabilities: { D: 0.7, B: 0.25 } };
   dAnswers.name_referent = { choice: 'notable_other', probabilities: { notable_other: 0.7, minor_other: 0.05, common_word: 0.02 } };
   const md = mapStandardAnswers(dAnswers, makeContext());
-  check('B3 D 类 notable 0.77 旧合计：name 门不再拦 + 标准数学 67.5 pass + 审计落位',
-    stage2Of(md).jev?.nameReferentBlockMass === null && stage2Of(md).pass === true
-      && stage1Of(md).jev?.nrNotableExempt?.notable === 0.7,
-    { mass: stage2Of(md).jev?.nameReferentBlockMass, pass: stage2Of(md).pass, audit: stage1Of(md).jev?.nrNotableExempt });
+  check('B3 D 类 notable 0.77 旧合计：nr 门退役放行 + 标准数学 67.5 pass',
+    stage2Of(md).jev?.nameReferentBlockMass === undefined && stage2Of(md).pass === true,
+    { mass: stage2Of(md).jev?.nameReferentBlockMass, pass: stage2Of(md).pass });
 
-  // B4 minor_other 主导（YAYA 无名对象语义）：全域仍拦
+  // B4 minor_other 主导（YAYA 无名对象语义）：拦截移交 name_form 分支①——旧快照
+  // 形状（无 name_form 键=fail-open）放行；name_form 判 not_meme_name 时由名字门接住
   const yAnswers = griffinAnswers();
   yAnswers.name_referent = { choice: 'minor_other', probabilities: { minor_other: 0.55, notable_other: 0.1, common_word: 0.02, subject_self: 0.3 } };
   const my = mapStandardAnswers(yAnswers, makeContext());
-  check('B4 minor 0.55 主导：仍拦（无名对象语义保持，有独立拦截信息）',
-    stage2Of(my).pass === false && /名字指向无名对象/.test(my.llmResult?.reason || ''),
-    my.llmResult?.reason);
+  const myNf = mapStandardAnswers({ ...yAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
+  check('B4 minor 0.55 主导：nr 退役旧快照放行 / name_form=not_meme_name 名字门接住（无名对象移交分支①）',
+    my.llmResult?.rating !== 'low' && /币名不适合作为 meme 符号/.test(myNf.llmResult?.reason || ''),
+    { legacy: my.llmResult?.rating, nf: myNf.llmResult?.reason });
 
-  // B5 common_word 主导（CONVICTION 纯截词语义）：全域仍拦
+  // B5 common_word 主导（CONVICTION 纯截词语义）：拦截移交 name_form 分支②
+  // ——圈内词（EARLY 型）meme_name 放行=翻案位；无感知句片段 not_meme_name 拦
   const kAnswers = griffinAnswers();
   kAnswers.name_referent = { choice: 'common_word', probabilities: { common_word: 0.52, minor_other: 0.03, notable_other: 0.2, super_ip: 0.2 } };
   const mk = mapStandardAnswers(kAnswers, makeContext());
-  check('B5 common 0.52 主导：仍拦（纯截词语义保持，有独立拦截信息）',
-    stage2Of(mk).pass === false && /截词/.test(mk.llmResult?.reason || ''),
-    mk.llmResult?.reason);
+  const mkNf = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
+  const mkMeme = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } } }, makeContext());
+  check('B5 common 0.52 主导：旧快照放行 / not_meme_name 拦 / meme_name（圈内词 EARLY 型）放行（分支②分界=用户侧感知）',
+    mk.llmResult?.rating !== 'low' && /币名不适合作为 meme 符号/.test(mkNf.llmResult?.reason || '')
+      && mkMeme.llmResult?.rating !== 'low',
+    { legacy: mk.llmResult?.rating, nf: mkNf.llmResult?.reason });
 
-  // B6 三项全低：不拦（普通票零影响）
+  // B6 三项全低：不拦（普通票零影响；退役审计键不落）
   const nAnswers = griffinAnswers();
   nAnswers.name_referent = { choice: 'super_ip', probabilities: { super_ip: 0.55, subject_self: 0.2, minor_other: 0.1, common_word: 0.05, notable_other: 0.1 } };
   const mn = mapStandardAnswers(nAnswers, makeContext());
-  check('B6 三项全低（super_ip 0.55 主）：不拦 + 无审计字段',
-    stage2Of(mn).jev?.nameReferentBlockMass === null && stage1Of(mn).jev?.nrNotableExempt === null);
+  check('B6 三项全低（super_ip 0.55 主）：不拦 + 退役审计键不落',
+    stage2Of(mn).jev?.nameReferentBlockMass === undefined && stage1Of(mn).jev?.nrNotableExempt === undefined);
 
   // B7 已删（C83）：superIP 快车道（person→C 域）随通道删除——notable 甄别终结
   // 由 B1a/D1 的标准路径等价物锁定，superIP 语料票同走 mapStandardAnswers
@@ -178,45 +178,43 @@ async function main() {
     myaya.llmResult?.rating === 'low' && /Web3用户偏好不合/.test(myaya.llmResult?.reason || ''),
     { rating: myaya.llmResult?.rating, reason: myaya.llmResult?.reason });
 
-  console.log('\n── C. 审计字段矩阵 ──');
+  console.log('\n── C. 审计字段矩阵（C108 后：nr 概率纯观察，退役键不落）──');
 
-  // C1 边界恰好压线：minor+common 0.11 + notable 0.39 = 0.50 → 记审计
+  // C1 边界形状（原 0.50 恰过门槛审计位）：审计键退役不落，nr 概率纯观察保留
   const eAnswers = griffinAnswers();
   eAnswers.name_referent = { choice: 'notable_other', probabilities: { notable_other: 0.39, minor_other: 0.11, common_word: 0 } };
   const me = mapStandardAnswers(eAnswers, makeContext());
-  check('C1 边界：minor+common 0.11 + notable 0.39 = 0.50 恰过门槛 → 记审计',
-    stage1Of(me).jev?.nrNotableExempt?.notable === 0.39 && stage1Of(me).jev?.nrNotableExempt?.minorCommon === 0.11,
-    stage1Of(me).jev?.nrNotableExempt);
+  check('C1 边界形状：nrNotableExempt 退役不落 + nameReferentProbability=0.39 纯观察保留',
+    stage1Of(me).jev?.nrNotableExempt === undefined
+      && stage2Of(me).jev?.nameReferentProbability === 0.39,
+    { audit: stage1Of(me).jev?.nrNotableExempt, prob: stage2Of(me).jev?.nameReferentProbability });
 
-  // C2 新口径也拦（minor+common 自身 ≥0.5）：不是翻案形状 → null
+  // C2 新口径 minor+common 自身 ≥0.5 形状：阻断位退役不落
   const fAnswers = griffinAnswers();
   fAnswers.name_referent = { choice: 'minor_other', probabilities: { minor_other: 0.45, common_word: 0.1, notable_other: 0.3 } };
   const mf = mapStandardAnswers(fAnswers, makeContext());
-  check('C2 minor+common 0.55 自身过门槛（新口径也拦）：nrNotableExempt null',
-    stage2Of(mf).jev?.nameReferentBlockMass === 0.55 && stage1Of(mf).jev?.nrNotableExempt === null,
+  check('C2 minor+common 0.55 自身过门槛形状：nr 门退役不拦不落键（拦截移交 name_form）',
+    stage2Of(mf).jev?.nameReferentBlockMass === undefined && stage1Of(mf).jev?.nrNotableExempt === undefined,
     { mass: stage2Of(mf).jev?.nameReferentBlockMass, audit: stage1Of(mf).jev?.nrNotableExempt });
 
-  // C3 全域审计（A2 升级点）：C 类 notable 拦截票审计同样落位（不再限 B 类）
-  check('C3 C 类 notable 翻案票：nrNotableExempt 落位（A2 全域，B1a 的机器复核）',
-    stage1Of(mc).jev?.nrNotableExempt?.notable === 0.62,
+  // C3 全域（A2 升级点）：C 类 notable 票同形状（B1a 的机器复核）
+  check('C3 C 类 notable 票：退役键全域不落（A2 全域语义随位退役）',
+    stage1Of(mc).jev?.nrNotableExempt === undefined,
     stage1Of(mc).jev?.nrNotableExempt);
 
   console.log('\n── D. 源码接线 + 版本 ──');
 
   const fs = require('fs');
   const src = fs.readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
-  check('D1 nameReferentBlock：blockKeys 无条件只含 minor_other+common_word（无类别三元）',
-    /const blockKeys = \['minor_other', 'common_word'\];/.test(src)
-      && !/const blockKeys = category === 'B'/.test(src)
-      && /for \(const k of blockKeys\)/.test(src));
+  check('D1 nameReferentBlock 函数 C108 退役反证（blockKeys/函数调用形状不存在；仅注释档保留）',
+    !/const blockKeys = /.test(src) && !/nameReferentBlock\(answers/.test(src));
   check('D1b 阻断标签表无 notable_other 键（label 仅存历史行 reason 展示注释）',
     !/notable_other: '名字指向知名但非超级IP'/.test(src));
-  check('D2 注释含 J1.26 裁定说明 + 审计字段无条件接线（无 category === \'B\' 包裹）',
-    /J1\.26（2026-10-02 用户裁定，C54 狮鹫案/.test(src)
-      && /nrNotableExempt,/.test(src)
-      && /let nrNotableExempt = null;/.test(src)
-      && !/if \(category === 'B'\) \{\s*\n\s*const nrProbs/.test(src));
-  check('D3 题集版本 ≥J1.26（J1.26 mapper-only；现 J1.28=referent_memeability 恒带 bump）',
+  check('D2 并档注释含 J1.26 案史（C54 狮鹫案「知名度梯度是错轴」）+ nrNotableExempt 计算形状不存在',
+    /J1\.26 notable_other 全域退出\n \* （知名度梯度是错轴/.test(src)
+      && !/nrNotableExempt,/.test(src)
+      && !/let nrNotableExempt = null;/.test(src));
+  check('D3 题集版本 ≥J1.26（J1.26 mapper-only；现 J1.42=C108 名字门统一）',
     parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 26, JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═══════`);

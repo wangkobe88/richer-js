@@ -124,17 +124,17 @@ async function main() {
   check('C2b 审计 subjectCarrier=null（旧行可识别）', rNoKey.stage2DataToSave.parsed_output.jev.subjectCarrier === null, rNoKey.stage2DataToSave.parsed_output.jev.subjectCarrier);
 
   // ═══ D. 挂位顺序 ═══
-  console.log('\n── D. 挂位顺序（nr → rm → sc → 量级门）──');
+  console.log('\n── D. 挂位顺序（C108 后：nf → sc → 量级门；nr/rm 退役由 sc/nf 接管）──');
   const nrFirst = baseAnswers('C', 'improvised_entity');
   nrFirst.name_referent = { choice: 'minor_other', probabilities: { minor_other: 0.55, subject_self: 0.3 } };
   const rNr = mapStandardAnswers(nrFirst, stdCtx('TST', 'TST'));
-  check('D1 nr 先拦的票 label 归属 nr（载体门不抢）', rNr.llmResult.rating === 'low' && (rNr.llmResult.reason || '').includes('名字指向无名对象')
-    && !(rNr.llmResult.reason || '').includes(GATE_LABEL), rNr.llmResult.reason);
+  check('D1 nr（J1.10）C108 退役：原 nr 拦截形状改由载体门接住不裸放（improvised 0.55 形状）',
+    blockedByCarrier(rNr), rNr.llmResult.reason);
   const rmFirst = baseAnswers('C', 'no_visual_entity');
   rmFirst.referent_memeability = { score: 1, probabilities: {} };
   const rRm = mapStandardAnswers(rmFirst, stdCtx('TST', 'TST'));
-  check('D2 rm 先拦的票 label 归属 rm（J1.28 优先级不变）', rRm.llmResult.rating === 'low' && (rRm.llmResult.reason || '').includes('不适合成为meme币')
-    && !(rRm.llmResult.reason || '').includes(GATE_LABEL), rRm.llmResult.reason);
+  check('D2 rm（J1.28）C108 退役：原 rm 拦截形状改由载体门接住不裸放（no_visual 0.55 形状）',
+    blockedByCarrier(rRm), rRm.llmResult.reason);
   // sc 先于量级门：量级 E 档 + D 类 + improvised → 拦截原因应是载体门非量级门
   const lowTier = baseAnswers('D', 'improvised_entity');
   lowTier.event_magnitude = { score: 0.5, probabilities: { '0': 0.8 } };

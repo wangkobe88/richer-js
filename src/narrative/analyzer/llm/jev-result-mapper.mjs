@@ -257,56 +257,28 @@ const BLOCK_LABELS = {
 };
 
 /**
- * name_referent 阻断（J1.10，2026-09-23 用户裁定：截词/截名发币要成立，名字的主人
- * 得是超级 IP——被超级IP/大V提到≠名字本身有生命力）：
- * - minor_other：名字指向事件中被提到/@到/点评到的无名对象（周边小号/小公司/纠纷
- *   对象等）——YAYA（何一推文@的周边账号）、OneKey（Flork 纠纷文中的失败会展）
- * - common_word：名字取自非超级IP文本中的普通词——CONVICTION（133万粉 KOL 推文截词）
- * - notable_other：名字指向知名但非超级IP（十万粉级 KOL/行业知名公司）——同样不构成
- *   名字的独立生命力（CONVICTION 案即 133 万粉 KOL 推文截词，知名≠超级IP，不放行）
- * - super_ip（CZ 原话"not a genius"→天才）/subject_self（嫦娥：作者自创）放行
- * - super_ip 扩含「官方口号/标志性品牌主张」（J1.15，2026-09-27 用户裁定，C23
- *   货币自由案 0xced5a2ba：币安APP上线界面口号"货币自由"被第三方发现后发币，
- *   common_word 0.53 截词拦 low。裁定：口号作者=产出该口号的机构（币安），发推者
- *   只是叙事陈述者——归 super_ip 放行侧；界面功能文案仍 common_word）
- * 作用域同截词语义：C/D/F/G + **B（2026-09-24 Muse 案补入）** + **W（2026-09-25
- * ChainPulse 案补入，用户裁定「被骑对象的热度还是远远不够的，如果是超大超火的
- * 产品被骑，那没问题。但现在就是一个几千粉的用户，发了个1赞的产品介绍，被骑
- * 肯定不行的」）**：
- * - B 类：币名指向的产品/对象不是超级 IP（Muse 桌面版 0xc313：minor_other 0.32+
- *   notable_other 0.31 阻断侧合计 0.66；用户定性「只是版本更新功能改进，影响力
- *   不够」——版本更新语义在 block_reason 题面不可判，实判 none 0.98，但无论事件
- *   性质如何，骑乘非超级 IP 的产品名本身无独立生命力，由本维度拦）
- * - W 类：第三方骑乘文章/事件中的**无名构想**发币（ChainPulse 0x1fc2：3886粉
- *   1赞推文链 Article 全文不可获取，标题构想的 agent 名被第三方发币，蹭 BNB
- *   Agent Studio v4 发版；W 数学交互分 18.1 被「BNB Chain」字样喂成生态热度档、
- *   产品分 18 对标题党创意无实体约束 → 61.1 压线过；阻断侧 0.68 拦）。W 数学的
- *   交互分存在语义错位——被骑对象火反而给骑乘盘加分，与 C7「骑乘盘要求被骑
- *   产品影响力极高才放」矛盾，由名字维度补此门；super_ip≥0.5（超大超火被骑）
- *   仍在放行侧豁免，真自发盘 subject_self 高不受影响
- * - 主体自己的作品名（B/C）走骑乘改道（rideDetourBelow，放行侧语义）。E 类热点
- *   命名先例不拦；A 类不适用
- * - J1.26（2026-10-02 用户裁定，C54 狮鹫案 0xcb808ef1…7777）：**notable_other
- *   全域退出阻断侧**——裁定演化两步：①「超级IP就那么几个，名字不是它们就不行
- *   吗」；②「CONVICTION/YAYA 案的核心问题并不是实体不够知名，而是实体根本没有
- *   被接纳为 Web3 meme 币的可能——一个是一个严肃词汇（不跟实体对应），一个是
- *   个人名，只是个普通币安员工」，即「知名但非超级IP」这个知名度梯度判据本身
- *   是错的轴。正确的轴（Web3 meme 可接纳性）已由 web3_fit unfit 负门（J1.19，
- *   全域）承载：狮鹫 strong_fit 0.96 放、严肃词汇/普通人名 unfit 拦。真有独立
- *   信息的只有 minor_other（关联对象纯无名，YAYA 案）与 common_word（纯截词，
- *   CONVICTION 案——严肃词汇不跟实体对应）。阻断侧全域只累计后两项；拦截责任
- *   移交 web3_fit unfit 负门 + minor/common + magnitude/tier（热度不够）。
- *   翻案票仍需过各类事件分 60 线 + 质量门 + preBuy 全套。实测影响面：B 143 票
- *   98→52 拦（46 放）、W 88→60（28 放，含 Manus 骑乘家族）、F 26→20（6 放）；
- *   市场实证错过成本：狮鹫 7.8 分钟毕业、首→峰 12.3x
+ * name_referent 阻断（J1.10）——**C108（2026-10-19）拦截位退役**，全档案并档：
+ *
+ * 案史：J1.10（2026-09-23）立门「截词/截名发币要成立，名字的主人得是超级IP」，
+ * 阻断侧 minor_other（无名对象，YAYA 案=何一推文@的币安员工）+common_word（截词，
+ * CONVICTION 案）；J1.15 super_ip 扩含官方口号；J1.26 notable_other 全域退出
+ * （知名度梯度是错轴，移交 web3_fit unfit 负门）。
+ *
+ * 退役裁定（C108，用户三轮）：触发案 EARLY（CZ 回复 "you got in early" 逐字
+ * 发币）被 common_word「截词（非超级IP话中词）」臂 0.96 误拦——"early" 有圈内
+ * 「趁早」深意、用户侧有感知，该放行。「很多门，不如合并为『合不合适作为
+ * meme 币』门，这是根本的」「名字指向实体时实体情况仍需考量（普通币安员工
+ * 就不行），但 early 不是一个实体」「YAYA 就是币安员工所以不行」「用一个门
+ * 涵盖多种情况」——拦截责任全部移交 notMemeNameBlock（J1.42 name_form 四分支：
+ * ①指向实体——无名实体不合格 ②非实体词——圈内文化词合格/无感知句片段不合格
+ * ③形态缺陷 ④无背景拼写变体）。name_referent 题保留，概率只喂评分与豁免链
+ * （C88 五腿 sipProb / rideDetour / pubProxyActive），不再承载拦截。
+ *
+ * 术语混乱实证随案立档：本门 common_word label「截词」与 Stage3「截断:」前缀、
+ * 「拼写错误」臂三连撞，EARLY 案排查时归因即错（实拦于本门而非 misspelling）。
+ * 历史行 reason 中的「截词（非超级IP话中词）」「名字指向无名对象」label 展示
+ * 照旧，不再新增。
  */
-const NAME_REFERENT_BLOCK_LABELS = {
-  minor_other: '名字指向无名对象',
-  common_word: '截词（非超级IP话中词）',
-  // notable_other（知名但非超级IP）J1.26 全域移出阻断侧——label 保留仅供
-  // 历史行 reason 展示参考，不再参与阻断质量累计
-};
-const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G', 'B', 'W'];
 
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
@@ -346,55 +318,21 @@ const BLOCK_SCOPE = {
 };
 
 /**
- * name_referent 是否在该类别下构成阻断（独立作用域表，语义同 blockInScope）。
- * 返回 {label, mass} 或 null。label 取阻断侧各项中概率最大者的标签，mass 为合计。
- * 门槛用阻断侧合计概率（≥ 0.5）而非 argmax 单项：Jev 在 YAYA 案上
- * subject_self/minor_other 五五开（0.43/0.41，argmax 跨 run 抖动），合并阻断侧
- * 质量后稳定过半。放行侧（super_ip/subject_self/none_related）不累计
- * （B/C 类例外：subject_self 质量触发骑乘改道，见 rideDetourBelow）。
- * J1.26：notable_other 全域退出阻断侧（知名度梯度是错误的判定轴，移交 web3_fit
- * unfit 负门——见 NAME_REFERENT_BLOCK_LABELS 注释），阻断侧全域只累计
- * minor_other+common_word（无名对象/纯截词，有独立拦截信息）。
+ * nameReferentBlock（J1.10 阻断函数）——C108 随拦截位退役删除，案史与裁定见
+ * 上方并档注释。name_referent 题与概率保留（评分/豁免链消费），历史实现 git。
  */
-function nameReferentBlock(answers, category) {
-  if (category == null || !NAME_REFERENT_BLOCK_SCOPE.includes(category)) return null;
-  const probs = answers?.name_referent?.probabilities;
-  if (!probs) return null;
-  const blockKeys = ['minor_other', 'common_word'];
-  let mass = 0;
-  let bestKey = blockKeys[0];
-  let bestP = -1;
-  for (const k of blockKeys) {
-    const p = probs[k] ?? 0;
-    mass += p;
-    if (p > bestP) { bestP = p; bestKey = k; }
-  }
-  if (mass < 0.5) return null;
-  return { label: NAME_REFERENT_BLOCK_LABELS[bestKey], mass: Math.round(mass * 100) / 100 };
-}
 
 /**
- * 指代对象 meme 价值低档门（J1.28，2026-10-08 用户裁定，0fed29f9 亏损票分析续案）：
- * 「币安汽车」「日产」类蹭得过头、根本不可能成为 meme 币的票要拦——依然是 web3
- * 用户接纳/是否适合成为 meme 币的问题；但 JACKET/永生/Taigan/皮草类不敢一棒子
- * 打死，故只上低档门：referent_memeability ≤1（人名/账号名/周边人物、严肃对象/
- * 事务性名称）→ 阻断「不适合成为meme币」。
- *
- * dry-run（96 票 182 实跑，scripts/_memeability-dryrun-0fed.mjs）：mem≤1 拦 4 票
- * 净 -0.354（避亏，误拦仅 卷王 +0.013）；mem>1 合计 +3.035。语义边界（刻意）：
- * 本题量「指代对象本身的梗性」非「组合体可接纳性」——点名亏票（币安汽车 1.75/
- * 2.35、隔音舱 1.77、日产途乐 2.12）中间档（1.5-2.5）无单调性，不设门。
- * （C83 起全语料走标准路径，J1.21 的 superIP 通道 ≥3 豁免随快车道删除——
- * 低档拦截域反而扩至 superIP 语料票）
- * 答案缺失（旧缓存行/旧题集手写 fixture）→ 不拦——生产链 JevClient.ask 对缺
- * 答案 id 直接 throw，缺失形状只在单测 fixture 出现；旧缓存要触发门须先失效
- * （scripts/narrative/invalidate-referent-window.cjs）。
+ * referentMemeabilityLowBlock（J1.28 mem≤1 低档门）——**C108（2026-10-19）
+ * 拦截位退役**：拦截责任并入 notMemeNameBlock 分支①/②（无名实体名/无圈内
+ * 感知词——「用户侧不接纳」同轴）。案史：J1.28（2026-10-08，0fed29f9 亏损票
+ * 续案）「币安汽车/日产类蹭得过头根本不可能成为 meme 币的票要拦」，dry-run
+ * mem≤1 拦 4 票净 -0.354；其「无名/严肃对象」票型由 J1.42 name_form 四分支
+ * 承接（YAYA 币安员工花名对照锚）。referent_memeability 题保留，分数只喂
+ * C88 五腿（mem≥2）与恒落审计 referentMemeabilityScore；mem∈(1,2) 的 C88
+ * memFloor 拦截位同批退役（覆盖与 nf 形态判据重叠——币安上电视 mem 1.72 本
+ * 就是 not_meme_name）。历史实现 git。
  */
-function referentMemeabilityLowBlock(answers) {
-  const score = answers?.referent_memeability?.score;
-  if (typeof score !== 'number') return null;
-  return score <= 1 ? { label: `不适合成为meme币（指代对象meme价值${score}分≤1）`, score } : null;
-}
 
 /**
  * J1.29 形象载体门（2026-10-09 用户裁定挂门 M2，bddd3578 C/D/E 亏损票分析案）：
@@ -448,34 +386,40 @@ function subjectCarrierBlock(answers, category, opts) {
 }
 
 /**
- * C107 名字门（J1.41 name_form=not_meme_name 单一合格度判断；C96 陈述句门
- * （J1.37）+ C105 版本词门（J1.40）两门合并收敛——2026-10-19 用户裁定「其实
- * 我觉得可以不加新维度，就使用『是否合适作为 meme 币』这个维度就好」）。
+ * C108 名字门（J1.42 name_form=not_meme_name——**唯一名字拦截位**）。
  *
- * 案史：C96 币安上电视案（0xc6d0…7777，CZ 转发「BNB 上越南国家电视」1 秒后
- * 快枪发币，币名=新闻标题，三轴借壳全放行 J1.32 F 类 A 档 77 high，22 秒
- * -33.4%）立 statement 门；C105 日本語版案（0xe156…7777，CZ 出书推同秒蹭票，
- * Jev 感知正确无臂表达——translation_match 0.62 vs name_form entity_phrase
- * 0.96，C88 五腿全中豁载体门 → S 档 81.44 high）再立 functional_label 门。
- * 两案同根：逐形态加臂是打地鼠（陈述句→版本词→序号→……），名字资格本质是
- * 一个判断不是一套语言学分类——J1.41 起 name_form 收敛为「这名字适不适合作为
- * meme 币」三选，本门消费 not_meme_name（判定锚列举两案实例但题面明确不限
- * 列举，下一形态不用再加选）。
+ * 演化史：C96 币安上电视案立 statement 门（J1.37）→ C105 日本語版案立
+ * functional_label 门（J1.40）→ C107 收敛为单一合格度三选（J1.41「是否合适
+ * 作为 meme 币」）→ **C108 名字门统一**：nrBlock（J1.10 minor_other+
+ * common_word 概率阻断）/rmBlock（J1.28 mem≤1）/memFloor（C88 mem∈(1,2)）/
+ * misspelling 探针臂（block_misspelling noul，C78 实证失效）四个拦截位全部
+ * 退役并入本门。触发案 EARLY（0xc8a5…7777，CZ 回复 "you got in early" 逐字
+ * 发币）被 common_word「截词」臂 0.96 误拦——用户裁定三轮：
+ * ①「很多门，不如合并为『合不合适作为 meme 币』门，这是根本的」
+ * ②「如果代币的名字指向一个实体，那么这个实体到底是什么情况还是需要考量
+ *   （例如普通币安员工就不行），但是 early 并不是一个实体」
+ * ③「YAYA 我记得就是币安员工，所以不行」「meme 名字拼写错误，也肯定不行…
+ *   …用一个门涵盖多种情况」。
+ *
+ * J1.42 name_form 四分支判据（承接全部退役位的拦截责任）：
+ * ①指向实体——实体无名（普通员工花名 YAYA 型）不合格；实体是圈内符号/超级IP
+ *   合格（实体量级与玩味另有题评，本题只确认用户认得、接得住）；
+ * ②非实体词——圈内文化词（Early/趁早、HODL、LFG）合格；无圈内感知句片段
+ *   （滑雪/我要去）不合格。分界=用户侧感知，非词源身份、非是否截词
+ *   （EARLY/CONVICTION 型圈内词由「截词」误拦的票面放行）；
+ * ③形态缺陷——陈述句/版本词/序号（C96/C105/C107 继承）；
+ * ④无背景拼写变体（自 block_misspelling 探针并入；图文对照 C78 代码门
+ *   detectNameImageSpellingMismatch 保留独立兜底）。
  *
  * 旧 choice 兼容映射（断代 bit 兼容红线）：J1.37-J1.40 缓存行 choice=
- * statement/functional_label → 继续拦（语义等价 not_meme_name，两门时代各自
- * 的拦截位不变——C96 部署起 statement 行为照旧）；entity_phrase → 放行（语义
- * 等价 meme_name）；unclear/缺失 → fail-open。存量行行为与断代前逐位一致。
+ * statement/functional_label → 继续拦（语义等价 not_meme_name）；entity_phrase
+ * → 放行（语义等价 meme_name）；unclear/缺失 → fail-open。存量行行为与断代前
+ * 逐位一致（缓存行不重放 mapper，重析票按新门判）。
  *
- * 与既有轴的分工（C96/C105 论证继承）：
- * - J1.28/C88 mem 轴评「指代对象的玩味价值」量不到名字形态（币安上电视 mem
- *   1.72 / 日本語版 mem 2.5 均过地板——「尺子量不到名字」C90 同款教训）；
- * - J1.29 载体门评「叙事主体有无形象」不依赖名字结构——名字缺陷独立轴；
- * - C88 superIpSlogan 五腿刻意不豁：五腿前提是口号票（名字=口号=可传播
- *   符号），陈述句/版本词名字连口号都不是——两案五腿全中正是实际放行路径，
- *   本门是唯一拦截位。
- * 全域（不限类别）；无概率 mass（choice 档位门）；unclear/答案缺失（旧缓存
- * 行）fail-open 不拦（J1.28/J1.29 同款；生产链 JevClient 缺答案 throw）。
+ * C88 superIpSlogan 五腿刻意不豁（继承）：五腿前提是口号票（名字=口号=可
+ * 传播符号），陈述句/版本词名字连口号都不是。全域（不限类别）；无概率 mass
+ * （choice 档位门）；unclear/答案缺失 fail-open 不拦（生产链 JevClient 缺
+ * 答案 throw）。
  */
 const NOT_MEME_NAME_CHOICES = new Set(['not_meme_name', 'statement', 'functional_label']);
 
@@ -1099,23 +1043,12 @@ export function mapStandardAnswers(answers, context) {
   // 9 个阻断项共享概率质量，argmax≠none 过易触发（dry-run 实证：P=0.43 即阻断）。
   // 忠实转译：P(none)≥0.5 才视为无阻断。
   const noneProb = answers.block_reason?.probabilities?.none ?? 0;
-  // name_referent 阻断（J1.10）：名字指向无名对象/截词/仅知名，无论事件分多高都不通过
+  // name_referent（J1.10 阻断位已随 C108 退役）：choice/概率保留纯观察落库
+  // （Jev 原判可追溯；拦截责任在 notMemeNameBlock——题概率另喂 C88 五腿/骑乘改道）
   const nameReferent = answers.name_referent?.choice || null;
   const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
-  // J1.26 审计：notable_other 全域豁免（旧口径会拦、新口径放行）的形状详情——
-  // minor+common < 0.5 ≤ +notable，即 notable 是唯一把质量抬过门槛的项
-  let nrNotableExempt = null;
-  {
-    const nrProbs = answers.name_referent?.probabilities;
-    const nrMinorCommon = (nrProbs?.minor_other ?? 0) + (nrProbs?.common_word ?? 0);
-    const nrNotable = nrProbs?.notable_other ?? 0;
-    if (nrNotable > 0 && nrMinorCommon < 0.5 && nrMinorCommon + nrNotable >= 0.5) {
-      nrNotableExempt = {
-        minorCommon: Math.round(nrMinorCommon * 100) / 100,
-        notable: Math.round(nrNotable * 100) / 100,
-      };
-    }
-  }
+  // J1.26 nrNotableExempt 审计随 nr 阻断位退役删除（notable 是否抬过阻断门槛已
+  // 无判定可影响；历史行键保留展示）
 
   const stage1DataToSave = {
     category,
@@ -1165,8 +1098,7 @@ export function mapStandardAnswers(answers, context) {
         // 偏好量级锚（Jev 原判 tier 保留在 magnitudeTier 键不受锚定影响）
         web3FitAnchored: web3FitAnchored ? 'B' : null,
         web3FitStrongP: web3FitAnchored ? web3FitStrongP : null,
-        // J1.26 审计标记：B 类 notable_other 退出阻断侧的豁免详情（翻案票可追溯）
-        nrNotableExempt,
+        // J1.26 nrNotableExempt 审计键随 C108 nr 阻断位退役（历史行键保留展示）
         probabilities: {
           event_category: answers.event_category?.probabilities,
           event_magnitude: answers.event_magnitude?.probabilities,
@@ -1187,15 +1119,13 @@ export function mapStandardAnswers(answers, context) {
   const rideMass = pubProxyActive ? null : rideDetourBelow(answers, category);
   let stage2Blocked = false;
   let stage2BlockReason = null;
-  let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
   let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
   let rcpBlock = null; // routine_content_product 质量门信息 {label, mass}（J1.13）
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
-  let rmBlock = null; // 指代对象 meme 价值低档门信息 {label, score}（J1.28）
-  let nfBlock = null; // 名字门信息 {label, form}（C96/C105/C107 合并，J1.41 name_form；form=Jev 原 choice）
+  // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
+  let nfBlock = null; // 名字门信息 {label, form}（C96→C105→C107→C108 唯一名字拦截位，J1.42 name_form；form=Jev 原 choice）
   let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
-  let memFloorFired = false; // C88 mem 口径地板命中标记（审计用）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -1347,45 +1277,22 @@ export function mapStandardAnswers(answers, context) {
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
-  } else if (!pubProxyActive && (nrBlock = nameReferentBlock(answers, isW ? 'W' : category))) {
-    // J1.18 发布者指代豁免（前置 !pubProxyActive）：名字的分量由发布者知名度指代
-    // （= super_ip≥0.5 放行侧同语义），notable_other「Manus 知名非超级IP」不再构成阻断
-    stage2Blocked = true;
-    stage2BlockReason = nrBlock.label;
-  } else if ((rmBlock = referentMemeabilityLowBlock(answers))) {
-    // J1.28 指代对象 meme 价值低档门：referent_memeability ≤1（人名/严肃对象，无
-    // 梗无二创空间）→ 不适合成为meme币。挂 nameReferentBlock 之后（指代层门，nr
-    // 先拦的票 label 归属 nr）、量级门之前（事件性质层面否决）；无概率 mass——
-    // 分数门，finalReason 的 P 段落 '-'（stage2BlockReason 已含分数）
-    stage2Blocked = true;
-    stage2BlockReason = rmBlock.label;
   } else if ((nfBlock = notMemeNameBlock(answers))) {
-    // C107 名字门（J1.41 name_form=not_meme_name；C96 陈述句门+C105 版本词门
-    // 合并收敛）：币名本身不能作为 meme 符号——陈述句（新闻标题）/版本词（目录
-    // 行）/序号等「读者记住的不是这个名字」的形态。挂 rm 之后（指代层门链中段：
-    // nr/rm 先拦的票 label 归属前者；「币安上电视」mem 1.72>1 rm 不拦、「日本語
-    // 版」mem 2.5≥2 mem 地板放行——本门点题）、C88 mem 地板之前（独立轴：指代
-    // 对象再有梗，名字不合格照样拦）。全域无豁免（superIpSlogan 五腿不豁——
-    // 五腿前提是口号票，两案五腿全中正是实际放行路径，notMemeNameBlock 注释
-    // 论证）；无概率 mass（choice 档位门）
+    // C108 名字门（J1.42 name_form=not_meme_name——唯一名字拦截位；C96 陈述句门
+    // →C105 版本词门→C107 收敛→C108 四拦截位统一并入）：币名当不了 meme 符号、
+    // web3 用户不接纳这名字——四分支：①指向无名实体（YAYA 币安员工花名型）
+    // ②非实体词无圈内感知（滑雪/我要去型；圈内文化词 Early/HODL 型放行——EARLY
+    // 案翻案位）③形态缺陷（陈述句/版本词/序号，C96/C105/C107 继承）④无背景拼写
+    // 变体（自 block_misspelling 探针并入）。原 nrBlock（J1.10）/rmBlock（J1.28）
+    // /memFloor（C88）拦截位退役——案史与裁定见 notMemeNameBlock 注释。全域无
+    // 豁免（superIpSlogan 五腿不豁——五腿前提是口号票，陈述句/版本词名字连口号
+    // 都不是）；无概率 mass（choice 档位门）
     stage2Blocked = true;
     stage2BlockReason = nfBlock.label;
-  } else if (!isW && rideMass == null && FRESH_TIMING_C88.has(timing)
-    && memScoreC88 != null && memScoreC88 < 2) {
-    // C88 mem 口径地板（J1.28 扩展臂，2026-10-18 CZ 出书簇裁定）：蹭新鲜热点但
-    // 名字无口号性——mem∈(1,2) 是 J1.28 ≤1 臂与五腿 ≥2 带之间的放行死区（币安
-    // 上电视 1.72 / CZDOODOO 1.24 两票 high 在跑的真实漏放位；CZDOODOO superIp
-    // 0.02 说明拦截面不设 super_ip 带内门槛——名字无玩味点本身即拦截依据）。域=
-    // 标准数学（W 数学/骑乘改道豁出——RedCoin 类产品票 mem 天然低）；时效域与
-    // 五腿同集（older=蹭冷饭由时效分归 0 守）；superIpSlogan 票 mem≥2 结构性
-    // 不相交；mem 答案缺失（旧缓存行）不拦（J1.28 同款 fail-open）
-    stage2Blocked = true;
-    stage2BlockReason = `蹭热点但名字无口号性（mem ${memScoreC88}<2）`;
-    memFloorFired = true;
   } else if ((scBlock = subjectCarrierBlock(answers, category, { superIpSlogan }))) {
     // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
-    // 挂 rmBlock 之后（指代层门链尾，nr/rm 先拦的票 label 归属前者）、量级门
-    // 之前（载体缺失是主体层缺陷，先于量级判定）；无概率 mass（choice 档位门）
+    // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
+    // mass（choice 档位门）
     stage2Blocked = true;
     stage2BlockReason = scBlock.label;
   } else if (!isW && (effTier === 'E' || effTier === 'D') && !punExempt && !imgNameExempt) {
@@ -1489,7 +1396,7 @@ export function mapStandardAnswers(answers, context) {
         blockProbability: blockProb ?? null,
         nameReferent,
         nameReferentProbability: nameReferentProb,
-        nameReferentBlockMass: nrBlock?.mass ?? null,
+        // nameReferentBlockMass 随 C108 nr 阻断位退役（历史行键保留展示）
         negativeHardNewsMass: nhnBlock?.mass ?? null,
         routineContentProductMass: rcpBlock?.mass ?? null,
         web3FitMass: w3Block?.mass ?? null,
@@ -1509,13 +1416,13 @@ export function mapStandardAnswers(answers, context) {
         productEntityBinanceExempt: peBinanceExempt,
         // C56 审计标记：平台官方源 rcp 门豁免命中（rcp≥0.5 被官方源豁免救回）
         rcpPlatformExempt,
-        // J1.28 审计标记：指代对象 meme 价值低档门。分数恒落（阈值事后校准免重跑，
-        // 旧缓存行无此题 → null）；block 命中才落（productEntityBlock 同款模式）
+        // J1.28 审计标记：referent_memeability 分数恒落（阈值事后校准免重跑，旧缓存
+        // 行无此题 → null；C88 五腿 mem≥2 腿与 referentMemeabilityScore 恒落保留）；
+        // referentMemeabilityBlock 命中键随 C108 拦截位退役（历史行键保留展示）
         referentMemeabilityScore: answers.referent_memeability?.score ?? null,
-        referentMemeabilityBlock: rmBlock ? { score: rmBlock.score } : null,
         subjectEntity: answers.subject_entity?.choice ?? null,
         // J1.29 审计标记：形象载体门。档位恒落（门形状事后校准免重跑，旧缓存行
-        // 无此题 → null）；block 命中才落（referentMemeabilityBlock 同款模式）
+        // 无此题 → null）；block 命中才落（productEntityBlock 同款模式）
         subjectCarrier: answers.subject_carrier?.choice ?? null,
         subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
         // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap；旧缓存行 → null
@@ -1523,9 +1430,10 @@ export function mapStandardAnswers(answers, context) {
         // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
         // 的消费位（referentMemeabilityScore 恒落同款先例）
         findingVsRecap: answers.finding_vs_recap?.choice ?? null,
-        // C96/C105/C107 审计标记：名字门命中才落（subjectCarrierBlock 同款模式）；
-        // form=Jev 原 choice（not_meme_name=J1.41 新判 / statement·functional_label
-        // =J1.37-J1.40 旧缓存行兼容臂，归因可分）；档位恒落在 stage1 jev.nameForm
+        // C96/C105/C107/C108 审计标记：名字门（唯一名字拦截位）命中才落
+        // （subjectCarrierBlock 同款模式）；form=Jev 原 choice（not_meme_name=
+        // J1.41+ 新判 / statement·functional_label=J1.37-J1.40 旧缓存行兼容臂，
+        // 归因可分）；档位恒落在 stage1 jev.nameForm
         nameFormBlock: nfBlock ? { form: nfBlock.form } : null,
         // C88 审计标记①：超级IP口号票五腿快照。恒落含 hit:false（标签零列推导消费
         // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存
@@ -1539,8 +1447,8 @@ export function mapStandardAnswers(answers, context) {
           timing,
           strongFit: round2(web3FitStrongP),
         },
-        // C88 审计标记②：mem 地板命中详情（命中才落，subjectCarrierBlock 同款）
-        memFloorBlock: memFloorFired ? { mem: memScoreC88, timing } : null,
+        // C88 审计标记②：memFloorBlock 命中键随 C108 拦截位退役（历史行键保留
+        // 展示；C88 五腿快照 superIpSlogan 不受影响）
         // J1.36 审计标记（C93 判据源迁移）：E 类感染力折损详情。fitMass 恒落
         // （=web3_fit strong_fit+fit 概率和，J1.19 前旧缓存行无答案 → null，
         // 阈值事后校准免重跑）；系数生效（<1）才落折损详情（subjectCarrierBlock
@@ -1569,8 +1477,9 @@ export function mapStandardAnswers(answers, context) {
   // relevance/brandHijackP/punExempt/nicMatchP/imgNameExempt 已前移至 Stage2 门链
   // 之前（C86 D-1 豁免贯穿，见上方案释）；本段只留 Stage3 专属计算
   const quality = qualityFrom(answers, symbol);
-  const misspellingP = answers.block_misspelling?.noul ?? 0;
-  // C78 图文名不符拼写门（纯代码判据，Jev 探针 0.13-0.28 拦不住的铁证形状）
+  // C108：block_misspelling noul 探针臂退役（C78 实证失效死键——Jev 答 0.13-0.27
+  // 拦不住真拼写蹭；判据「无背景拼写变体」并入 notMemeNameBlock 分支④）。图文
+  // 拼写对照由 C78 纯代码门独立保留（确定性代码判据）
   const spellingMismatch = detectNameImageSpellingMismatch(tokenData, twitterInfo);
 
   let stage3Blocked = false;
@@ -1581,11 +1490,9 @@ export function mapStandardAnswers(answers, context) {
   if (brandHijackP >= 0.5 && !punExempt && !superIpSlogan) {
     stage3Blocked = true;
     stage3BlockReason = '品牌劫持';
-  } else if (misspellingP >= 0.5 || spellingMismatch.hit) {
+  } else if (spellingMismatch.hit) {
     stage3Blocked = true;
-    stage3BlockReason = spellingMismatch.hit
-      ? `图文名不符（图内“${spellingMismatch.variant}”≠币名，无背景拼写错误）`
-      : '无背景拼写错误';
+    stage3BlockReason = `图文名不符（图内“${spellingMismatch.variant}”≠币名，无背景拼写错误）`;
   } else if (relevance.score <= 10 && !punExempt && !imgNameExempt && !superIpSlogan) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
@@ -1608,9 +1515,9 @@ export function mapStandardAnswers(answers, context) {
   }
 
   const finalReason = stage2Blocked
-    ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
+    ? `阻断:${stage2BlockReason}｜P=${w3Block?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
-      ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
+      ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)}`
       : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}${web3FitDim2Anchor ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
@@ -1647,11 +1554,9 @@ export function mapStandardAnswers(answers, context) {
             spellingMismatch: spellingMismatch.hit
               ? { name: String(tokenData?.name || tokenData?.raw_api_data?.name || ''), variant: spellingMismatch.variant }
               : null,
-            misspellingP,
             probabilities: {
               relevance_type: answers.relevance_type?.probabilities,
               relevance_level: answers.relevance_level?.probabilities,
-              block_misspelling: answers.block_misspelling?.probabilities,
               ...(includeBrandHijack ? { brand_hijack: answers.brand_hijack } : {}),
               // J1.30 条件题：题已问才落（无图票题集无此题， probabilities 缺省）
               ...(answers.name_image_consistency ? { name_image_consistency: answers.name_image_consistency.probabilities } : {}),
@@ -1697,7 +1602,7 @@ export function mapStandardAnswers(answers, context) {
     stageFinalData,
     llmResult,
     promptType,
-    jevDetails: { tier, timing, dim2, relevance, quality, brandHijackP, misspellingP },
+    jevDetails: { tier, timing, dim2, relevance, quality, brandHijackP },
   };
 }
 

@@ -286,10 +286,10 @@ async function main() {
   check('F1 analyzer：instagramLinked 按 classifiedUrls.instagram / instagramInfoFetched 按抓取结果传入',
     /instagramLinked: !!\(classifiedUrls\?\.instagram\?\.length > 0\)/.test(analyzerSrc)
       && /instagramInfoFetched: instagramInfo != null/.test(analyzerSrc));
-  check('F2 mapper：igDim2Anchor 四条件（A类/linked/未抓到/只升不降）+ effDim2 计分',
+  check('F2 mapper：igDim2Anchor 四条件（A类/linked/未抓到/只升不降）+ effDim2 计分（C94 双锚链）',
     /const igDim2Anchor = category === 'A' && instagramLinked === true/.test(mapperSrc)
       && /instagramInfoFetched !== true && dim2 < 18/.test(mapperSrc)
-      && /const effDim2 = igDim2Anchor \? 18 : dim2/.test(mapperSrc)
+      && /const effDim2 = igDim2Anchor \? 18 : \(web3FitDim2Anchor \? 18 : dim2\)/.test(mapperSrc)
       && /tierScore \+ effDim2 \+ timeliness/.test(mapperSrc));
   // C83：mapSuperIPAnswers 快车道删除——C44 IG 影响力两层兜底对 superIP 语料票
   // 经标准路径真实可达（旧「一期不挂」欠账终结），不存在性断言锁定

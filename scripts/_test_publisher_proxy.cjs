@@ -153,15 +153,15 @@ async function main() {
   check('B2a 无语料判据不激活：无审计标记', m2.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
   check('B2b 原路径拦截：marketing_gimmick argmax（noneP 0.29<0.5）', m2.llmResult.rating === 'low' && m2.llmResult.analysis_stage === 2 && m2.llmResult.reason.includes('营销噱头'), m2.llmResult);
 
-  // B3 Muse 形状：域名门不命中 → proxy 永不激活。J1.26（2026-10-02 C54 用户裁定）
-  // notable_other 全域退出 name_referent 阻断侧——minor 0.32+notable 0.31 合计 0.66
-  // 的旧拦截形状不再由 name 门拦，兜底移交 web3_fit unfit 负门（J1.19 全域——
-  // 拦截判据从「知名度」换成「Web3 meme 可接纳性」：企业桌面软件版本更新无
-  // meme 可玩味空间）
+  // B3 Muse 形状：域名门不命中 → proxy 永不激活。J1.26 notable 退出后 C108 又将
+  // nr 阻断位整体退役——minor 0.32+notable 0.31 合计 0.66 的旧拦截形状不再由
+  // name 门拦（nrNotableExempt/nameReferentBlockMass 审计键随位退役不落），
+  // 兜底移交 web3_fit unfit 负门（J1.19 全域——拦截判据从「知名度」换成
+  // 「Web3 meme 可接纳性」：企业桌面软件版本更新无 meme 可玩味空间）
   const m3 = mapStandardAnswers(museAnswers, makeContext(museTokenData, museAnswers, museTwitter));
-  check('B3a Muse 无域名：name 门不再拦 + 翻案审计落位（J1.26）',
-    m3.stage2DataToSave.parsed_output.jev.nameReferentBlockMass === null
-      && m3.stage1DataToSave.parsed_output.jev.nrNotableExempt?.minorCommon === 0.35,
+  check('B3a Muse 无域名：nr 门 C108 退役不再拦 + 退役审计键不落（J1.26→C108）',
+    m3.stage2DataToSave.parsed_output.jev.nameReferentBlockMass === undefined
+      && m3.stage1DataToSave.parsed_output.jev.nrNotableExempt === undefined,
     { mass: m3.stage2DataToSave.parsed_output.jev?.nameReferentBlockMass, audit: m3.stage1DataToSave.parsed_output.jev?.nrNotableExempt });
   const museW3 = { ...museAnswers, web3_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.18, fit: 0.1, strong_fit: 0.1 } } };
   const m3w = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museTwitter));

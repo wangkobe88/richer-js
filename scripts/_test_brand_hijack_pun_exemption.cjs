@@ -135,11 +135,12 @@ async function main() {
     s7.pass === false && /关联性不足/.test(s7.blockReason || ''),
     { blockReason: s7.blockReason });
 
-  // B3 misspelling 高 → 豁免票仍拦（不豁免范围）
+  // B3 misspelling 高 → C108 探针臂退役不拦（C78 实证死键；无背景拼写判据并入
+  // name_form 分支④，图文对照 C78 代码门独立保留）
   const m8 = mapStandardAnswers(biAnswers({ misspell: 0.8 }), makeContext());
   const s8 = stage3Of(m8);
-  check('B3 misspellingP=0.8：豁免票仍被「无背景拼写错误」拦',
-    s8.pass === false && s8.blockReason === '无背景拼写错误',
+  check('B3 misspellingP=0.8：C108 探针退役不再拦（豁免票照过；拼写判据并入 name_form）',
+    s8.pass === true && s8.blockReason == null,
     { blockReason: s8.blockReason });
 
   console.log('\n── C. 审计与 reason ──');

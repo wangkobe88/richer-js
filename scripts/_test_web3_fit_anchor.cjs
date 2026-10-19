@@ -178,13 +178,14 @@ async function main() {
     };
   }
 
-  // D1 京小安实测形状（mem 1.88<2）：量级豁免不为它开洞——仍被 C88 mem 地板拦
-  // （2026-10-18 用户裁定「维持拦」：名字玩味是独立于发布主体的拦截轴）
+  // D1 京小安实测形状（mem 1.88<2）：C108 memFloor 退役断代——2026-10-18「维持拦」
+  // 裁定随位退役（名字玩味轴移交 name_form 判：J1.42 下重析按四分支判）。
+  // 旧快照形状（无 name_form 键 fail-open）→ 双锚 60 恰过线 pass
   const d1a = jxaAnswers();
   const md1 = mapStandardAnswers(d1a, makeContext(jxaTokenData, d1a));
   const sd1 = md1?.stage2DataToSave?.parsed_output || {};
-  check('D1 京小安 mem 1.88<2：C88 mem 地板拦（维持拦裁定，先于量级门）',
-    sd1.pass === false && /名字无口号性/.test(sd1.blockReason || ''), sd1.blockReason);
+  check('D1 京小安 mem 1.88<2：memFloor C108 退役不再拦（双锚 60 恰过线 pass；名字玩味轴移交 name_form）',
+    sd1.pass === true && sd1.blockReason == null, sd1.blockReason);
 
   // D2 同形状 mem 2.2（过地板）：D 档 → 量级锚 B + dim2 锚 18 双锚 →
   // 27+18+15=60 恰过线 pass + reason 双锚标注 + 审计键

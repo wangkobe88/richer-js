@@ -196,7 +196,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 ```
 Token URL → URL 分类（含 IPFS metadata 解包 + 迁移直链 C106 j7tracker）→ 数据抓取 → Pre-Check（纯规则）
    ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（4 题，粉丝带只定档不拦截；isProjectCoin 的网站/URL 证据臂不采信聚合器自动 token 页——AUTO_TOKEN_PAGE_DOMAINS 清单，推文/简介宣告臂不受影响）
-   └─ 标准路径：单次 Jev 调用（主干题+brand_hijack/name_image_consistency/parent_relationship 条件题，J1.41；superIP 注册表命中 → state 注入认证/反混淆行，评分全归 Jev）
+   └─ 标准路径：单次 Jev 调用（主干题+brand_hijack/name_image_consistency/parent_relationship 条件题，J1.42；superIP 注册表命中 → state 注入认证/反混淆行，评分全归 Jev）
 ```
 
 - **文件**（`analyzer/llm/`）：`JevClient.mjs`（缺答案 id 直接 throw；429/5xx 退避，Retry-After 头优先、钳 [500,15000]ms）/ `jev-questions.mjs` / `jev-prestage-questions.mjs` / `jev-state-builder.mjs`（60k/20k 预算）/ `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`（**聚合/阈值/截断全在代码侧**）
@@ -219,23 +219,23 @@ Token URL → URL 分类（含 IPFS metadata 解包 + 迁移直链 C106 j7tracke
 | cashtag 改道 W（J1.17） | 语料（含父推）$TICKER 全等 token symbol → 强制 W 数学 | C28 |
 | 发布者代理（J1.18） | 域名词根=token 名+粉丝≥10万+名互斥+非版本词（代码门） | C29 |
 | 角色 IP 豁免（J1.16） | 作品内角色（含音译）归 A 类豁 routine 门；作品名币不豁 | C25 |
-| web3 买家视角锚（J1.23+C94） | A/B 类 strong_fit≥0.5 且 tier<B → effTier 锚 B（正门，只升不封顶）；B 类另享 dim2<18 锚 18 双锚；C/D/E 维持客观规模口径；mem 地板不豁 | C38/C94 |
+| web3 买家视角锚（J1.23+C94） | A/B 类 strong_fit≥0.5 且 tier<B → effTier 锚 B（正门，只升不封顶）；B 类另享 dim2<18 锚 18 双锚；C/D/E 维持客观规模口径（mem 地板 C108 退役） | C38/C94 |
 | 戏谑关联豁免（J1.24） | brandHijackP≥0.5+within_7d+effTier S/A+可信事件锚全中 → 豁免劫持与关联≤10 截断+量级门事件分不足臂（**W 数学 pass 线刻意不豁免**） | C40/C86 |
 | W 交互豁免（C42） | native W+effTier S/A+新产品带 P(2)+P(3)≥0.5+wInteraction<10 → 产品/时效双轴归一百分制 | C42 |
 | IG 影响力两层（C44） | IG 真数据进 state 评分（无锚）；有链接没抓到数据：A 类+dim2<18 → 锚 18 | C44 |
-| notable_other 退出（J1.26） | 知名度是错误轴：nameReferent 阻断质量只留 minor_other+common_word；全类退出 | C54 |
+| notable_other 退出（J1.26） | 知名度是错误轴：nameReferent 阻断质量只留 minor_other+common_word；全类退出；**nr 拦截位 C108 整体退役**（EARLY common_word 0.92 误拦案——责任移交 J1.42 名字门；题保留只喂评分/豁免链） | C54/C108 |
 | 产品实体+接纳门（J1.27） | 主体=产品实体非母公司；se∈{product_functional,product_character} 且 (strong_fit+fit)<0.5 拦；豁免链 pubProxy/rideMass/binanceCorpus/平台官方号（PLATFORM_OFFICIAL_HANDLES={binance,flapdotsh}） | C56 |
-| 指代 meme 低档门（J1.28） | mem≤1（人名/账号/严肃事务性名称）拦；挂 nameReferent 后、量级门前 | C60 |
+| 指代 meme 低档门（J1.28） | 【已废 C108，拦截位退役并档 J1.42 名字门】原判据 mem≤1（人名/账号/严肃事务性名称）——「用户不接纳」子集由 name_form 分支①②承载；题保留喂五腿 | C60/C108 |
 | 形象载体门（J1.29） | C/D 类+carrier∈{improvised,no_visual} 拦；E 类只拦 no_visual；A/B/W/F/G 不碰 | C61 |
-| superIP 指代豁免（J1.21） | 【已废 C83，快车道删除】意图由 J1.28 覆盖 | C33 |
+| superIP 指代豁免（J1.21） | 【已废 C83，快车道删除】意图由名字门（J1.42）覆盖 | C33 |
 | 图载体豁免（C59） | 图证据+0&lt;关联≤10+referent_memeability≥3 → 豁免 Stage3 关联截断（分照常计入） | C59 |
 | 名图一致豁免（J1.30） | 图证据+name_image_consistency（条件题）合并≥0.5+0&lt;关联≤10 → 豁免关联截断+量级门两拦截位（D/E 档臂+事件分不足臂）；答案缺失 fail-closed | C65/C86 |
 | 找角度时效门（C68） | angle_seeking/interpretive_reply 载体推 lag>6h → mapper 时效归 0（mapper-only；C74 后降级纵深防御；precheck 锚回退 tokenCreatedAtSec） | C68 |
 | 推文时效分桶（C74+C104） | 非豁免桶（angle/interpretive/unknown）lag≥300s 拦；direct_tweet（粉≥5000 或 赞≥500 或 转≥100）豁免交 Jev 软评——**主从结构门：主推 lag>24h 须 website_tweet/quoted/retweeted 任一 ≤24h 新载体才豁免**，无载体裸旧推回落 300s 拦；主推 created_at 缺失 fail-open | C74/C104 |
 | 叙事源头陈旧门（C75） | direct_tweet **主推**（仅主推）距 token 创建锚 >30d → mapper 时效归 0（C74 豁免桶的客观锚层）；angle/interpretive/unknown 不触达；锚缺失 fail-open | C75 |
-| 图文名不符拼写门（C78） | 币名 CJK ≥3 字+图内文字等长独立段恰一位不同且 ≥2 次+币名整体不在图内 → Stage3 截断（纯代码，与 misspellingP≥0.5 双臂 OR；有意变形全语料一致不触发） | C78 |
+| 图文名不符拼写门（C78） | 币名 CJK ≥3 字+图内文字等长独立段恰一位不同且 ≥2 次+币名整体不在图内 → Stage3 截断（纯代码；misspellingP 探针臂 C108 退役=代码门唯一拼写拦截位；有意变形全语料一致不触发） | C78/C108 |
 | E 类感染力折损（J1.36） | 判据源=web3_fit：`(strong_fit+fit) < 0.5` → 仅 category=E `tierScore+effDim2 ×0.5`（时效不折）；≥0.5 原公式；缺失 fail-open 不折；审计 resonanceFitMass 恒落 | C93 |
-| F→E 改道（J1.37）+ 名字门（J1.41 收敛） | **改道**：finding_vs_recap==news_recap ∧ F → 强制改道 E（换考官非放行，E 既有门全部接管）；**名字门（C107 单一合格度判断，C96 陈述句门+C105 版本词门收敛合并）**：name_form==not_meme_name（「这名字适不适合作为 meme 币」唯一判据；判定锚列举两案实例但题面**不限于此**——下一形态不用再加选）→ 全类别硬拦；核心词锚「XX 完整版」核心是 XX 合格、口号/宣言合格、判名字本身不判指代对象影响力；**C88 五腿不豁**（名字不合格救援救不了）；兼容 Set {not_meme_name, statement, functional_label}——J1.37-J1.40 存量行 bit 不变；unclear/缺失 fail-open；门链序 rm→nf→memFloor→sc→tier；版本断代 | C96/C105/C107 |
+| F→E 改道（J1.37）+ 名字门（J1.42 统一） | **改道**：finding_vs_recap==news_recap ∧ F → 强制改道 E（换考官非放行，E 既有门全部接管）；**名字门（C108 四分支「合不合适作为 meme 币」=唯一名字拦截位，nr J1.10/rm J1.28/memFloor C88/misspelling 探针四拦截位退役并入；EARLY 圈内词翻案/YAYA 无名实体仍拦）**：name_form==not_meme_name → 全类别硬拦——①指向实体：圈内符号合格、无名实体（币安员工 YAYA）不合格且被大V提到不改变无名 ②非实体词：圈内文化词（Early/HODL/LFG）合格、无感知句片段（滑雪/我要去）不合格——分界=**用户侧感知**非词源非是否截词 ③形态缺陷（陈述句/版本词/序号，C107 继承）④无背景拼写变体（dogwifhat 类有文化来源不算）；「不限于此」锚保留反打地鼠；**C88 五腿不豁**；兼容 Set {not_meme_name, statement, functional_label}——旧行 bit 不变；unclear/缺失 fail-open；block_misspelling 题删（默认题集 18，C78 代码门=唯一拼写拦截位）；门链序 nf→sc→tier；版本断代 | C96/C105/C107/C108 |
 | 币安地域子账号量级锚 | 主推作者 handle `binance` 前缀 ∧ 非四全球号白名单 ∧ binanceCorpus 借壳语料在场 → effTier 锚 **D**（锚降优先于锚升两臂；量级门 D/E 档臂五腿不豁=唯一新增拦截位）；magnitudeTier 原判保留；只查主推；缺失 fail-open | C97 |
 | 借壳语料父推源头窗 | binanceCorpus 票主推 `in_reply_to.created_at` 父推 lag>24h → timing 归 older；**不限 tweet_type**；真正拦截机制=C88 五腿 FRESH_TIMING_C88 断 → J1.29 载体门接管；载体推刻意不进判定（新载体不构成源头新鲜证据）；缺失 fail-open；与 C68/C75 并存双 override 各落 | C102 |
 | 载体↔父推关系源头窗（J1.39） | **通用语料版 C102**：parent_relationship 条件题四选——new_angle_on_original（载体借原生推有新解读=豁免，父推可老）/translation_or_repost/explains_derivative/unclear；翻译/二手臂 ∧ 任一槽位（主推/website_tweet/quoted/retweeted）父推 lag>24h → timing 归 older（取最老父推）；仅 hasReplyParent 才问（无父推不问防幻觉）；答案/锚/父推时间缺失 fail-open；版本断代 | C103 |

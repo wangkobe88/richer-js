@@ -165,15 +165,14 @@ async function main() {
   check('E4 换位形状（pepe/peep 两位置不同）+拉丁 → 双重不覆盖',
     rTrans.llmResult.rating !== 'low', rTrans.llmResult.rating);
 
-  // ═══ F. Jev 原门共存与门序 ═══
-  console.log('\n── F. Jev 原门共存（misspellingP≥0.5 无图形状）──');
+  // ═══ F. Jev 探针退役与代码门独存（C108）═══
+  console.log('\n── F. Jev 探针退役（C108：block_misspelling noul 死键不拦，代码门独存）──');
   const hi = jyjAnswers(); hi.block_misspelling = { noul: 0.8 };
   const rJev = mapStandardAnswers(hi, stdCtx({ imageEvidence: false }));
-  check('F1 misspellingP=0.8 无图仍拦（原门不动）',
-    rJev.llmResult.rating === 'low' && (rJev.llmResult.reason || '').includes('无背景拼写错误'),
-    rJev.llmResult.reason);
+  check('F1 misspellingP=0.8 无图不拦（C108 探针臂退役——C78 实证死键，无图形状判据并入 name_form）',
+    rJev.llmResult.rating !== 'low', rJev.llmResult.reason);
   const rBoth = mapStandardAnswers(hi, stdCtx({ twitterInfo: { image_analysis: jyjImage('鲸元券') } }));
-  check('F2 双证据命中 reason 走代码门文案（图文名不符优先可追溯）',
+  check('F2 代码门命中 reason 走代码门文案（图文名不符=唯一拼写拦截位）',
     (rBoth.llmResult.reason || '').includes('图文名不符'), rBoth.llmResult.reason);
 
   // ═══ G. 审计字段形状 ═══
@@ -185,8 +184,8 @@ async function main() {
   const { readFileSync } = await import('fs');
   const { join } = await import('path');
   const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
-  check('H1 stage3 消费点：misspellingP>=0.5 || spellingMismatch.hit 双臂 OR',
-    mapperSrc.includes('misspellingP >= 0.5 || spellingMismatch.hit'), null);
+  check('H1 stage3 消费点：spellingMismatch.hit 单判据（C108 探针臂退役）',
+    mapperSrc.includes('else if (spellingMismatch.hit)') && !mapperSrc.includes('misspellingP'), null);
   check('H2 判据收紧三要件在源码：等长独立段 substitution（++diff > 1）/ 段内子串不拦（t.includes(name)）/ CJK 门（Han/Hangul/Kana 区间正则锚）/ 长度门 / 出现 ≥2 次（bestCount >= 2）',
     mapperSrc.includes('++diff > 1') && mapperSrc.includes('t.includes(name)')
       && mapperSrc.includes('name.length < 3') && mapperSrc.includes('bestCount >= 2')

@@ -27,19 +27,23 @@
  * 兼容映射继续拦、entity_phrase 放行（存量行为 bit 不变）。
  *
  * 覆盖：
- *   A. 问卷形状：J1.41 版本 / 恒带题态数 / F 档澄清 / 题面判别锚（单一判据+
- *      不限列举锚+核心词修饰锚）
+ *   A. 问卷形状：J1.42 版本 / 恒带题态数 / F 档澄清 / 题面判别锚（四分支+
+ *      三对照锚+不限列举锚+核心词修饰锚+探针题删除）
  *   B. F→E 改道真值表：F+news_recap→categoryForced='f_recap_e'+category=E；
  *      finding/unclear/缺失→维持 F；非 F+news_recap→不消费（观察键照落）
- *   C. 名字门全域真值表（J1.41）：not_meme_name 全类别拦；meme_name/unclear/
- *      缺失→不拦；五腿全中不豁
+ *   C. 名字门全域真值表（J1.42 唯一名字位）：not_meme_name 全类别拦；
+ *      meme_name/unclear/缺失→不拦；五腿全中不豁
  *   C2. 旧 choice 兼容映射（断代 bit 兼容红线）：statement/functional_label
  *      （J1.37-J1.40 存量行）→ 照拦；entity_phrase → 放行
  *   D. 事故现场反证（币安上电视 J1.32 快照实测值 + 日本語版 J1.39 快照实测值）
+ *   G. C108 统一门真值表：EARLY 翻案位（common_word 0.92 原拦截值+meme_name
+ *      →放行）/ 四分支（YAYA 无名实体拦、滑雪拦、拼写变体并入）/ nr/rm/
+ *      memFloor 退役位移交正反证 / block_misspelling 探针死键不拦
  *   E. 审计字段：stage1 categoryForced/nameForm/findingVsRecap 恒落；
  *      stage2 findingVsRecap 双写/nameFormBlock 命中才落（form=Jev 原 choice）
- *   F. 源码口径：门链序（rm→nf→memFloor→sc）/ 五腿刻意不豁 / 兼容 Set 形状 /
- *      cashtag 改道优先 / 旧缓存行 fail-open（无失效脚本需求）
+ *   F. 源码口径：门链序（nf→sc，rm/memFloor 退役）/ 五腿刻意不豁 / 兼容 Set
+ *      形状 / cashtag 改道优先 / 旧缓存行 fail-open（无失效脚本需求）/ C108
+ *      退役位源码反证（nrBlock/rmBlock/memFloor/探针全清+保留链完好）
  *
  * 用法：node scripts/_test_jev_finding_recap_statement_gate.cjs
  */
@@ -166,8 +170,8 @@ async function main() {
   const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
 
   // ═══ A. 问卷形状 ═══
-  console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.41 name_form 收敛三选）──');
-  check('A1 版本号 = J1.41（C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛）', JEV_QUESTIONS_VERSION === 'J1.41', JEV_QUESTIONS_VERSION);
+  console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
+  check('A1 版本号 = J1.42（C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一）', JEV_QUESTIONS_VERSION === 'J1.42', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 finding_vs_recap 恒带（默认题集）', 'finding_vs_recap' in qs, Object.keys(qs).length);
   check('A3 name_form 恒带（默认题集）', 'name_form' in qs, null);
@@ -184,8 +188,8 @@ async function main() {
     nf.instructions.includes('判名字本身，不判名字指向对象的影响力/玩味价值'), null);
   check('A7b name_form 单一判据锚：「是否合适作为 meme 币」是唯一判据（C107 裁定原话进题面）',
     nf.instructions.includes('「是否合适作为 meme 币」是唯一判据'), null);
-  check('A8 name_form 口号/宣言/祈愿是可传播符号 → 合格',
-    nf.instructions.includes('是可传播符号 → 合格'), null);
+  check('A8 name_form 口号/宣言/代号是可传播符号 → 合格',
+    nf.criteria.meme_name.includes('口号/宣言/代号'), null);
   check('A9 name_form 中英文名取更完整的一个判', nf.instructions.includes('取更完整的一个判'), null);
   check('A10 event_category F 档澄清（目击/报道新闻≠发现→判 E/D，spotted 语气不满足 F）',
     /F:\s*'Discovery:[^']*NOT a news event the author merely witnessed\/reported/.test(
@@ -193,14 +197,28 @@ async function main() {
   check('A11 两新题不受条件开关影响（includeBrandHijack 臂同带）',
     'finding_vs_recap' in buildStandardQuestions({ includeBrandHijack: true })
     && 'name_form' in buildStandardQuestions({ includeBrandHijack: true }), null);
-  // C107 收敛锚
-  check('A12 name_form 不限列举锚（判定锚列举 C96/C105 实例但下一形态不用再加选——反打地鼠）',
-    nf.instructions.includes('不限于此') && nf.instructions.includes('凡「名字本身当不了符号」的形态都算'), null);
+  // C107 收敛锚 + C108 统一门锚
+  check('A12 name_form 不限列举锚（判定锚列举实例但下一形态不用再加选——反打地鼠）',
+    nf.instructions.includes('不限于此') && nf.instructions.includes('凡「用户侧不接纳这名字当 meme 符号」的形态都算'), null);
   check('A13 name_form 核心词修饰锚（「XX 完整版」核心是 XX → 合格，防误伤）',
     nf.instructions.includes('（「XX 完整版」核心是 XX）'), null);
   check('A14 name_form 两案事故词都在判定锚（币安上电视 C96 + 日本語版 C105）',
     nf.instructions.includes('日本語版') && nf.instructions.includes('币安上电视')
-    && nf.criteria.not_meme_name.includes('version/edition'), null);
+    && nf.criteria.not_meme_name.includes('X語版/完整版/version'), null);
+  // C108 三轮裁定锚（EARLY 案触发：总判据=用户侧感知）
+  check('A15 name_form 总判据锚（C108 裁定原话：web3 用户能不能接纳 + 用户侧感知）',
+    nf.instructions.includes('web3 用户能不能接纳这个名字作为 meme 币的名字') && nf.instructions.includes('用户侧对它有没有感知'), null);
+  check('A16 name_form 三对照锚进题面（Early 合格 / 滑雪、我要去不合格——分界=用户侧感知）',
+    nf.instructions.includes('「Early」合格') && nf.instructions.includes('「我要去」都不合格')
+    && nf.instructions.includes('不是词出自谁、也不是是否截自语料'), null);
+  check('A17 name_form 无名实体锚（分支①：币安普通员工花名不合格，被大V提到不改变其无名）',
+    nf.instructions.includes('指向无名实体') && nf.instructions.includes('如币安普通员工的花名')
+    && nf.instructions.includes('被大V/超级IP提到/@到不改变其无名'), null);
+  check('A18 name_form 拼写变体锚（分支④：无背景拼写错误不合格，有文化来源变体不算——dogwifhat）',
+    nf.instructions.includes('无背景拼写错误') && nf.instructions.includes('doge→dogwifhat'), null);
+  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④，默认题集 19→18）',
+    !('block_misspelling' in qs) && Object.keys(qs).length === 18
+    && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══
   console.log('\n── B. F→E 改道真值表（event_category × finding_vs_recap）──');
@@ -322,26 +340,28 @@ async function main() {
   const rD2b = mapStandardAnswers(d2Answers, ctxBnbTv);
   check('D2 name_form=entity+破五腿 → 改道 E+载体门拦（no_visual 0.97 案值接上）',
     blockedBy(rD2b, CARRIER_LABEL) && !blockedBy(rD2b, NF_LABEL), rD2b.llmResult.reason);
-  // D2b 对照：案值原样（mem 1.72）+entity → C88 mem 地板拦（1.72∈(1,2) 死区，
-  // 线上 J1.32 漏放位——C88 上线后该形状已被地板收）
+  // D2b 对照：案值原样（mem 1.72）+entity → C88 mem 地板 C108 退役，该形状由
+  // 载体门接管（mem<2 五腿不中→载体门不被豁免→no_visual 0.97 拦）——名字门
+  // 统一后收窄方向不裸放的正证
   const rD2c = mapStandardAnswers(incidentAnswers({ nameForm: 'entity_phrase' }), ctxBnbTv);
-  check('D2b 案值原样 mem 1.72+entity → C88 mem 地板拦（1.72<2，J1.32 线上漏放位今已被地板收）',
-    rD2c.llmResult.rating === 'low' && (rD2c.llmResult.reason || '').includes('mem 1.72<2'), rD2c.llmResult.reason);
+  check('D2b 案值原样 mem 1.72+entity → 载体门拦（C88 mem 地板 C108 退役，J1.32 漏放位由载体门接管不裸放）',
+    blockedBy(rD2c, CARRIER_LABEL) && !(rD2c.llmResult.reason || '').includes('mem'), rD2c.llmResult.reason);
   // D3 finding=narrative_finding → 维持 F（不改道），但 statement 兼容臂全域仍拦（门与改道独立）
   const rD3 = mapStandardAnswers(incidentAnswers({ recap: 'narrative_finding' }), ctxBnbTv);
   check('D3 finding（维持 F）+ statement → 名字门仍拦（F 类全域覆盖）',
     blockedBy(rD3, NF_LABEL) && rD3.stage1DataToSave.category === 'F'
     && rD3.stage1DataToSave.parsed_output.jev.categoryForced === null, rD3.llmResult.reason);
   // D4 唯一拦截位反证：mem≥2（J1.34 后币安指代按对象 web3 影响力评）+五腿全中
-  //    → mem 地板放行（≥2）+ 载体门被五腿豁免 → 名字门是唯一拦截位
+  //    → 载体门被五腿豁免 → 名字门是唯一拦截位（C88 mem 地板 C108 退役后更是
+  //    结构性唯一）
   const rD4 = mapStandardAnswers(incidentAnswers({ mem: 2.5 }), ctxBnbTv);
   check('D4 mem 2.5+五腿全中 → 名字门仍拦（唯一拦截位反证）',
     blockedBy(rD4, NF_LABEL)
     && rD4.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true, rD4.llmResult.reason);
-  // D5 对照：同 D4 形状但 name_form=meme_name → 名字门/载体门/mem 地板全放
-  //    （该形状真实可过——名字门必要性正证）
+  // D5 对照：同 D4 形状但 name_form=meme_name → 名字门/载体门全放（mem 地板
+  //    已退役；该形状真实可过——名字门必要性正证）
   const rD5 = mapStandardAnswers(incidentAnswers({ mem: 2.5, nameForm: 'meme_name' }), ctxBnbTv);
-  check('D5 对照 mem 2.5+五腿全中+meme_name → 三门全放行（pass=true，名字门必要性正证）',
+  check('D5 对照 mem 2.5+五腿全中+meme_name → 全放行（pass=true，名字门必要性正证）',
     rD5.llmResult.pass === true && !blockedBy(rD5, NF_LABEL) && !blockedBy(rD5, CARRIER_LABEL),
     { pass: rD5.llmResult.pass, reason: rD5.llmResult.reason });
 
@@ -375,6 +395,80 @@ async function main() {
     && rD8st.stage2DataToSave.parsed_output.jev.nameFormBlock.form === 'statement'
     && rD8fl.stage2DataToSave.parsed_output.jev.nameFormBlock.form === 'functional_label',
     { st: rD8st.llmResult.reason, fl: rD8fl.llmResult.reason });
+
+  // ═══ G. C108 统一门行为真值表（EARLY 案翻案位+四分支+退役位移交）═══
+  console.log('\n── G. C108 统一门真值表（EARLY 0xc8a5…7777 翻案位 + 四分支 + nr/rm/memFloor 移交）──');
+  const ctxEarly = stdCtx('Early', 'Early');
+  // G1 EARLY 案翻案位：name_referent common_word 0.92（J1.10 原拦截值原样）+
+  //    name_form=meme_name（J1.42 题面锚「Early 合格」）→ 放行——nr 退役+分支②
+  const g1 = Object.assign(baseAnswers('A'), {
+    name_referent: { choice: 'common_word', probabilities: { common_word: 0.92, minor_other: 0.04, super_ip: 0.02 } },
+    name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } },
+  });
+  const rG1 = mapStandardAnswers(g1, ctxEarly);
+  check('G1 EARLY 翻案位：common_word 0.92（原拦截值）+meme_name → 放行（nr 退役+分支②圈内深意）',
+    rG1.llmResult.pass === true, { pass: rG1.llmResult.pass, reason: rG1.llmResult.reason });
+  // G1b 对照：同形状 name_form=not_meme_name → 名字门拦（Jev 判不合格时新门承载）
+  const rG1b = mapStandardAnswers(Object.assign({}, g1, {
+    name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } },
+  }), ctxEarly);
+  check('G1b 对照：common_word 0.92+not_meme_name → 名字门拦（唯一名字位承载）',
+    blockedBy(rG1b, NF_LABEL), rG1b.llmResult.reason);
+  // G1c nr 概率退役转纯观察：G1 票 nameReferentProbability=0.92 恒落（不再拦截）
+  check('G1c nr 概率退役转纯观察（nameReferentProbability 恒落审计）',
+    rG1.stage1DataToSave.parsed_output.jev.nameReferentProbability === 0.92
+    || rG1.stage2DataToSave.parsed_output.jev.nameReferentProbability === 0.92, null);
+  // G2 滑雪/我要去型（分支②）：B 类不触载体门，not_meme_name → 拦
+  const rG2 = mapStandardAnswers(baseAnswers('B', {
+    name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
+  }), stdCtx('滑雪', '滑雪'));
+  check('G2 滑雪型（分支②无圈内感知）→ 名字门拦',
+    blockedBy(rG2, NF_LABEL), rG2.llmResult.reason);
+  // G3 YAYA 型（分支①无名实体）：原 nr 摇摆形状（minor 0.41/super 0.43 五五开）
+  //    +not_meme_name → 拦；同形状 meme_name → 放行（实体考量移交 name_form）
+  const yayaNr = { choice: 'minor_other', probabilities: { minor_other: 0.41, super_ip: 0.43, common_word: 0.05 } };
+  const rG3 = mapStandardAnswers(baseAnswers('A', {
+    name_referent: yayaNr,
+    name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
+  }), stdCtx('YAYA', 'YAYA'));
+  const rG3b = mapStandardAnswers(baseAnswers('A', {
+    name_referent: yayaNr,
+    name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
+  }), stdCtx('YAYA', 'YAYA'));
+  check('G3 YAYA 型（分支①无名实体）+nr 五五开形状 → not_meme_name 拦 / meme_name 放（实体考量移交 name_form）',
+    blockedBy(rG3, NF_LABEL) && rG3b.llmResult.pass === true,
+    { blocked: rG3.llmResult.reason, pass: rG3b.llmResult.pass });
+  // G4 rm 退役位移交：mem=1（原 rmBlock mem≤1 拦）+A 类+meme_name → 放行；
+  //    同形状 not_meme_name → 名字门拦（票型责任移交）
+  const rG4 = mapStandardAnswers(baseAnswers('A', {
+    referent_memeability: { score: 1, probabilities: {} },
+    name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
+  }), stdCtx('TST', 'TST'));
+  const rG4b = mapStandardAnswers(baseAnswers('A', {
+    referent_memeability: { score: 1, probabilities: {} },
+    name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
+  }), stdCtx('TST', 'TST'));
+  check('G4 rm 退役（mem=1）：meme_name 放行 / not_meme_name 名字门拦（票型移交）',
+    rG4.llmResult.pass === true && blockedBy(rG4b, NF_LABEL),
+    { pass: rG4.llmResult.pass, blocked: rG4b.llmResult.reason });
+  // G5 memFloor 退役位：mem=1.72（原 C88 mem∈(1,2) 地板拦）+fresh+A 类+meme_name
+  //    → 放行；referentMemeabilityScore 恒落照旧（G6）
+  const rG5 = mapStandardAnswers(baseAnswers('A', {
+    referent_memeability: { score: 1.72, probabilities: {} },
+    name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
+  }), stdCtx('TST', 'TST'));
+  check('G5 memFloor 退役（mem 1.72 死区）：meme_name+A 类 → 放行（名字有圈内感知的票不再被地板拦）',
+    rG5.llmResult.pass === true, { pass: rG5.llmResult.pass, reason: rG5.llmResult.reason });
+  check('G6 referentMemeabilityScore 恒落审计保留（G5 票=1.72）',
+    rG5.stage2DataToSave.parsed_output.jev.referentMemeabilityScore === 1.72, null);
+  // G7 block_misspelling 探针退役行为臂：旧缓存行带 noul 0.9（极端高）+meme_name
+  //    → 放行（C78 实证死键；图文对照 C78 代码门独立保留）
+  const rG7 = mapStandardAnswers(baseAnswers('A', {
+    block_misspelling: { noul: 0.9 },
+    name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
+  }), stdCtx('TST', 'TST'));
+  check('G7 block_misspelling 探针退役（noul 0.9 极端高）+meme_name → 放行（死键不再拦）',
+    rG7.llmResult.pass === true, { pass: rG7.llmResult.pass, reason: rG7.llmResult.reason });
 
   // ═══ E. 审计字段 ═══
   console.log('\n── E. 审计字段（恒落/命中才落/双写/probabilities）──');
@@ -422,16 +516,13 @@ async function main() {
     /function notMemeNameBlock\(answers\) \{\s*\n\s*const choice = answers\?\.name_form\?\.choice;\s*\n\s*if \(!NOT_MEME_NAME_CHOICES\.has\(choice\)\) return null;\s*\n\s*return \{ label: '币名不适合作为 meme 符号（名字门）', form: choice \};/.test(mapperSrc), null);
   check('F1b 兼容 Set 三值锁死（not_meme_name+statement+functional_label——断代 bit 兼容红线）',
     mapperSrc.includes("const NOT_MEME_NAME_CHOICES = new Set(['not_meme_name', 'statement', 'functional_label']);"), null);
-  check('F2 门链序：rm → nf（名字门）→ C88 mem 地板 → 载体门（索引严格递增）', (() => {
-    const rmIdx = mapperSrc.indexOf('referentMemeabilityLowBlock(answers)))');
+  check('F2 门链序：nf（名字门=唯一名字位）→ 载体门（索引严格递增；C108 后 rm/memFloor 退役）', (() => {
     const nfIdx = mapperSrc.indexOf('nfBlock = notMemeNameBlock(answers)');
-    const memFloorIdx = mapperSrc.indexOf('memScoreC88 < 2');
     const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category');
-    return rmIdx > 0 && nfIdx > rmIdx && memFloorIdx > nfIdx && scIdx > memFloorIdx
-      ? true : { rmIdx, nfIdx, memFloorIdx, scIdx };
+    return nfIdx > 0 && scIdx > nfIdx ? true : { nfIdx, scIdx };
   })());
   check('F3 名字门臂无 superIpSlogan 豁免条件（五腿刻意不豁，源码形状——两案五腿全中正是线上放行路径）',
-    /else if \(\(nfBlock = notMemeNameBlock\(answers\)\)\) \{\s*\n\s*\/\/ C107 名字门/.test(mapperSrc), null);
+    /else if \(\(nfBlock = notMemeNameBlock\(answers\)\)\) \{\s*\n\s*\/\/ C108 名字门/.test(mapperSrc), null);
   check('F4 改道公式：cashtagForced 优先、recapForced 次之（互斥无竞争）',
     mapperSrc.includes("const category = cashtagForced ? 'W' : (recapForced ? 'E' : (answers.event_category?.choice || null));"), null);
   check('F5 改道判据锁死 F+news_recap 组合（choice 恒等）',
@@ -446,8 +537,31 @@ async function main() {
     (await readQuestionsSrc()).includes('* J1.41（2026-10-19')
     && (await readQuestionsSrc()).includes('可以不加新维度')
     && (await readQuestionsSrc()).includes('notMemeNameBlock'), null);
+  check('F6d 题集头部含 J1.42 changelog（C108 统一：三轮裁定原话+四拦截位退役去向+block_misspelling 删题）',
+    (await readQuestionsSrc()).includes('* J1.42（2026-10-19')
+    && (await readQuestionsSrc()).includes('合不合适作为 meme 币')
+    && (await readQuestionsSrc()).includes('early 并不是一个实体')
+    && (await readQuestionsSrc()).includes('YAYA')
+    && (await readQuestionsSrc()).includes('block_misspelling 题删除'), null);
   check('F7 存量行不重评=观察期语义，name_form 答案缺失 fail-open（E7 已验行为臂）',
-    mapperSrc.includes('fail-open 不拦（J1.28/J1.29 同款；生产链 JevClient 缺答案 throw）'), null);
+    mapperSrc.includes('unclear/答案缺失 fail-open 不拦（生产链 JevClient 缺\n * 答案 throw）'), null);
+  // C108 退役位源码反证：四拦截位调用形状全部不存在（注释并档除外）
+  check('F8 C108 退役位源码反证：nrBlock/rmBlock/memFloor 调用形状不存在', (() => {
+    const calls = [
+      'nameReferentBlock(answers', '= referentMemeabilityLowBlock(',
+      'memFloorFired', 'nrNotableExempt =',
+    ];
+    const residue = calls.filter(c => mapperSrc.includes(c));
+    return residue.length === 0 ? true : residue;
+  })());
+  check('F9 memScoreC88 只在 C88 五腿公式消费（>= 2），无 < 2 拦截臂（memFloor 退役）',
+    mapperSrc.includes('memScoreC88 >= 2') && !mapperSrc.includes('memScoreC88 < 2'), null);
+  check('F10 misspellingP/block_misspelling 探针全清（C78 代码门 spellingMismatch 保留单判据）',
+    !mapperSrc.includes('misspellingP') && !mapperSrc.includes('answers.block_misspelling')
+    && mapperSrc.includes('spellingMismatch.hit'), null);
+  check('F11 nr/rm 题保留只喂豁免链（name_referent/referent_memeability 仍在 C88 五腿+恒落审计）',
+    mapperSrc.includes('answers.name_referent?.probabilities?.super_ip')
+    && mapperSrc.includes('referentMemeabilityScore: answers.referent_memeability?.score ?? null'), null);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_jev_finding_recap_statement_gate: ${passed} passed, ${failed} failed ══════`);

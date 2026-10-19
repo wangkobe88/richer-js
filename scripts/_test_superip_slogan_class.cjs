@@ -131,26 +131,26 @@ async function main() {
     { rating: mB.llmResult?.rating });
 
   // A3 币安上电视：现网 high 77 在跑（F 类载体门不触达 + mem 1.72 在 J1.28 (1,2) 死区）
-  // → mem 地板拦（superIp 0.60 达带也不放——mem 腿独立）
+  // → C108 memFloor 退役：名字拦截责任移交 name_form（TV fixture name_form 兼容
+  // 放行臂）→ 票放行；五腿 hit:false 审计恒落（mem 腿独立观察保留）
   const mT = mapStandardAnswers(TV, makeContext({ tokenData: TOKENS.tv }));
   const s2T = stage2Of(mT);
-  check('A3 币安上电视 mem 地板拦：blockReason=蹭热点但名字无口号性（mem 1.72<2）',
-    s2T.pass === false && s2T.blockReason === '蹭热点但名字无口号性（mem 1.72<2）',
-    { pass: s2T.pass, blockReason: s2T.blockReason });
-  check('A3b 五腿审计恒落（hit:false）+ memFloorBlock 命中审计 + rating low/stage2',
+  check('A3 币安上电视 mem 地板 C108 退役：票放行 + memFloorBlock 键不落',
+    s2T.pass === true && s2T.blockReason === null && s2T.jev?.memFloorBlock === undefined,
+    { pass: s2T.pass, blockReason: s2T.blockReason, floor: s2T.jev?.memFloorBlock });
+  check('A3b 五腿审计恒落（hit:false——mem 腿独立观察保留）',
     s2T.jev?.superIpSlogan?.hit === false && s2T.jev?.superIpSlogan?.superIp === 0.6
-    && JSON.stringify(s2T.jev?.memFloorBlock) === JSON.stringify({ mem: 1.72, timing: 'within_7d' })
-    && mT.llmResult?.rating === 'low' && mT.llmResult?.analysis_stage === 2,
-    { audit: s2T.jev?.superIpSlogan, floor: s2T.jev?.memFloorBlock });
+    && s2T.jev?.superIpSlogan?.mem === 1.72,
+    { audit: s2T.jev?.superIpSlogan });
 
-  // A4 CZDOODOO：现网 high 76 在跑 → mem 地板拦（super_ip 0.02=拦截面不设 super_ip
-  // 带内门槛，名字无玩味点本身即拦截依据）
+  // A4 CZDOODOO：super_ip 0.02 → 五腿不中 hit:false 恒落观察；memFloor 退役不再拦
+  // （super_ip 0.02=观察腿，名字无玩味点的拦截责任移交 name_form 判）
   const mD = mapStandardAnswers(DOODOO, makeContext({ tokenData: TOKENS.doodoo }));
   const s2D = stage2Of(mD);
-  check('A4 CZDOODOO mem 地板拦：mem 1.24<2 + superIp 0.02 照拦（无带内门槛）',
-    s2D.pass === false && s2D.blockReason === '蹭热点但名字无口号性（mem 1.24<2）'
+  check('A4 CZDOODOO memFloor 退役：放行 + superIp 0.02 hit:false 恒落观察',
+    s2D.pass === true && s2D.blockReason === null
     && s2D.jev?.superIpSlogan?.superIp === 0.02 && s2D.jev?.superIpSlogan?.hit === false
-    && JSON.stringify(s2D.jev?.memFloorBlock) === JSON.stringify({ mem: 1.24, timing: 'within_7d' }),
+    && s2D.jev?.memFloorBlock === undefined,
     { blockReason: s2D.blockReason, audit: s2D.jev?.superIpSlogan });
 
   console.log('\n── B. 关联腿编码（直接 exact/translation 天然满足；引申=正向质量≥0.3 且 none<0.5） ──');
@@ -172,13 +172,15 @@ async function main() {
     stage2Of(m).jev?.superIpSlogan?.hit === false && stage2Of(m).blockReason === '常规内容产品宣传',
     { blockReason: stage2Of(m).blockReason });
 
-  console.log('\n── C. mem 口径地板（J1.28 扩展臂：标准数学域 ∧ fresh ∧ mem<2） ──');
+  console.log('\n── C. mem 口径（C108 后 memFloor 退役；mem 只在五腿公式 mem≥2 消费）──');
 
-  // C1 边界：mem=1.99 拦 / mem=2.0 过（与五腿 mem≥2 构成完整分离轴，无缝隙无重叠）
+  // C1 边界：mem=1.99 退役后放行（拦截责任移交 name_form）；mem=2.0 五腿全中
+  // slogan=true（与五腿 mem≥2 构成完整分离轴——地板退役后仅剩五腿一侧）
   a = clone(TV); a.referent_memeability.score = 1.99;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C1 币安上电视 mem=1.99 边界拦',
-    stage2Of(m).pass === false && stage2Of(m).blockReason === '蹭热点但名字无口号性（mem 1.99<2）',
+  check('C1 币安上电视 mem=1.99：memFloor C108 退役不再拦（名字责任移交 name_form）',
+    stage2Of(m).pass === true && stage2Of(m).blockReason === null
+    && stage2Of(m).jev?.superIpSlogan?.hit === false,
     { blockReason: stage2Of(m).blockReason });
   a = clone(TV); a.referent_memeability.score = 2;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
@@ -195,11 +197,11 @@ async function main() {
     && stage2Of(m).pass === true && stage2Of(m).scoringResult?.totalScore === 62,
     { blockReason: stage2Of(m).blockReason, total: stage2Of(m).scoringResult?.totalScore });
 
-  // C3 mem 答案缺失（旧缓存行）→ fail-open 不拦（J1.28 同款；slogan 亦 false）
+  // C3 mem 答案缺失（旧缓存行）→ fail-open 不拦（五腿 mem:null 恒落观察保留）
   a = clone(TV); delete a.referent_memeability;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C3 mem 缺失 fail-open：不拦 + memFloorBlock null + 审计 mem:null 恒落',
-    stage2Of(m).pass === true && stage2Of(m).jev?.memFloorBlock === null
+  check('C3 mem 缺失 fail-open：不拦 + 审计 mem:null 恒落（memFloorBlock 键 C108 退役不落）',
+    stage2Of(m).pass === true && stage2Of(m).jev?.memFloorBlock === undefined
     && stage2Of(m).jev?.superIpSlogan?.mem === null,
     { pass: stage2Of(m).pass, floor: stage2Of(m).jev?.memFloorBlock });
 
@@ -342,10 +344,10 @@ async function main() {
     && /subjectCarrierBlock\(answers, category, \{ superIpSlogan \}\)/.test(mapperSrc)
     && /brandHijackP >= 0\.5 && !punExempt && !superIpSlogan/.test(mapperSrc)
     && /relevance\.score <= 10 && !punExempt && !imgNameExempt && !superIpSlogan/.test(mapperSrc));
-  check('G3 mem 地板臂形状（!isW && rideMass==null ∧ fresh ∧ mem<2）+ reason 模板',
-    /!isW && rideMass == null && FRESH_TIMING_C88\.has\(timing\)/.test(mapperSrc)
-    && /memScoreC88 != null && memScoreC88 < 2/.test(mapperSrc)
-    && /蹭热点但名字无口号性（mem \$\{memScoreC88\}<2）/.test(mapperSrc));
+  check('G3 memFloor 臂 C108 退役源码反证（reason 模板/mem<2 拦截/变量赋值不存在——仅注释档保留）',
+    !/蹭热点但名字无口号性/.test(mapperSrc)
+    && !/memScoreC88 < 2/.test(mapperSrc)
+    && !/memFloorFired = /.test(mapperSrc));
   check('G4 magExempt 聚合含 C88口号 tag（C86 D-1 同款 <60 臂贯穿）',
     /const magExempt = punExempt \|\| imgNameExempt \|\| superIpSlogan;/.test(mapperSrc)
     && /superIpSlogan \? 'C88口号' : null/.test(mapperSrc));
@@ -356,9 +358,9 @@ async function main() {
     /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrc)
     && /stage2Blocked = stage2Total < 60 && !magExempt;/.test(mapperSrc)
     && mapperSrc.split('stage2Blocked = stage2Total < 60;').length - 1 === 1);
-  check('G7 stage2 审计恒落（hit:false 亦落——标签零列推导消费）+ memFloorBlock 命中才落',
+  check('G7 stage2 审计恒落（hit:false 亦落——标签零列推导消费）；memFloorBlock 键 C108 退役不落（仅注释档保留）',
     /superIpSlogan: \{\s*\n\s*hit: superIpSlogan,/.test(mapperSrc)
-    && /memFloorBlock: memFloorFired \? \{ mem: memScoreC88, timing \} : null/.test(mapperSrc));
+    && !/memFloorBlock: /.test(mapperSrc));
   check('G8 stage3 豁免审计命中才落 + finalReason 前缀',
     /superIpSloganExempt: superIpSlogan \? \{ mem: memScoreC88, timing \} : null/.test(mapperSrc)
     && /superIpSlogan \? '超级IP口号票豁免\(C88\)｜' : ''/.test(mapperSrc));
