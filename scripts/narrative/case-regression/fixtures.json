@@ -442,6 +442,17 @@
       },
       "note": "哭哭奶龙案（J1.46）：找角度语料传播力按事件判非载体推文（现场 dim2 8.2 按载体 138 粉判奶龙 IP 方权重）+ ip_reuse 有意义修改放行（错版新造型≠纯蹭名）。断言=方向性：不再被 ip_reuse 拦死；mid/high 档位不写死（A 类量级轴评，掷骰面勿锁）。",
       "addedAt": "2026-10-19"
+    },
+    {
+      "caseId": "C114",
+      "symbol": "DND",
+      "addr": "0x4dbcb10e68626b6f663bd596905d41cdc6b07777",
+      "expect": {
+        "rating": "low"
+      },
+      "note": "DND 案（BinancePk 80 万粉「DND 😾」+猫拉窗帘视频）：C114 图证在场豁免翻过 empty_content 掷骰臂（none 0.32/empty 0.31）+ J1.47 判 meme_name 合格；终态 low 由载体门接管（no_visual 0.51 掷骰+C109 名图一致 unrelated 0.85 未豁免）；断言=必拦不锁门（empty_content/载体两门掷骰波动，量级档 A/D 亦波动）",
+      "addedAt": "2026-10-19",
+      "observe": "empty_content 掷骰臂（none 0.32/empty 0.31）被 C114 图证豁免兜底；载体门 no_visual 0.51 与 C109 名图一致 unrelated 0.85 双掷骰；量级 A/D 波动但 dim2 1.23 低——事件分不足门兜底，终态 low 稳定。断言失败只看是否翻 non-low。"
     }
   ]
 }
