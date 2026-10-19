@@ -1,7 +1,7 @@
 /**
  * 叙事 case 回归集判读/断言纯函数（2026-10-19 建，同日工具正式化：--add/--update-expect 收录与预期更新）。
- * 零 DB 零网络：只消费 token_narrative 回读行快照，供 run-case-regression.mjs 与
- * _test_case_regression_lib.cjs 共用（红线：新机制配零 DB 零网络单测）。工具文档 docs/case-regression-tool.md。
+ * 零 DB 零网络：只消费 token_narrative 回读行快照，供 run.mjs（同目录 runner）与
+ * scripts/_test_case_regression_lib.cjs 共用（红线：新机制配零 DB 零网络单测）。工具文档 docs/case-regression-tool.md。
  *
  * 落库两信封是既定事实（C88 信封坑，superip-labels.js s?.details ?? s?.parsed_output
  * 同款），interpret 里 ?? 链是形状切换非兜底：

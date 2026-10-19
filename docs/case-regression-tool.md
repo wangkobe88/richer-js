@@ -6,11 +6,11 @@
 
 | 文件 | 职责 |
 |---|---|
-| `scripts/narrative/case-regression-fixtures.json` | 票集本体（caseId=台账编号；一票一 case，addr 全局唯一） |
-| `scripts/narrative/case-regression-lib.mjs` | 判读/断言/收录/预期更新纯函数（零 DB 零网络） |
-| `scripts/narrative/run-case-regression.mjs` | runner（重析对拍 + `--list`/`--add`/`--update-expect`） |
+| `scripts/narrative/case-regression/fixtures.json` | 票集本体（caseId=台账编号；一票一 case，addr 全局唯一） |
+| `scripts/narrative/case-regression/lib.mjs` | 判读/断言/收录/预期更新纯函数（零 DB 零网络） |
+| `scripts/narrative/case-regression/run.mjs` | runner（重析对拍 + `--list`/`--add`/`--update-expect`） |
 | `scripts/_test_case_regression_lib.cjs` | 断言器单测（36 断言，改 lib 必跑） |
-| `data/case-regression-result-*.csv` | 对拍交付物（期望/基线/当前同表，gitignored） |
+| `scripts/narrative/case-regression/data/` | 对拍结果存档（CSV+JSON，期望/基线/当前同表；**进 git 的长期维护资产**，.gitignore 否定规则保入；C111 首轮=`case-regression-result-2026-10-19.csv` 29 PASS/4 OBSERVE） |
 
 ## 快速开始（182 跑；本地只允许 `--list`）
 
@@ -23,7 +23,7 @@ npm run case-regression -- --update-expect C97,C102 --because "C113 裁定一句
 ```
 
 - 退出码：`0` 全过 / `1` 存在非 observe 票断言失败或收录校验失败 / `2` 重析异常（数据源不可用，验证未完成）
-- 跑前自动备份全部票现行 `token_narrative` 整行到 `/tmp/case-regression-backup-*.json`；fixtures 写回前自动备份到 `/tmp/case-regression-fixtures-backup-*.json` + tmp+rename 原子写
+- 对拍结果（JSON+CSV）默认写工具 `data/` 子目录并**提交进 git**（每次改题集后的行为快照可追溯）；跑前自动备份全部票现行 `token_narrative` 整行到 `/tmp/case-regression-backup-*.json`（整行含完整 state 大文件，刻意留 /tmp 不进 git）；fixtures 写回前自动备份到 `/tmp/case-regression-fixtures-backup-*.json` + tmp+rename 原子写
 
 ## expect DSL（断言语义键全集）
 
@@ -52,7 +52,7 @@ npm run case-regression -- --update-expect C97,C102 --because "C113 裁定一句
 
 ### C. 改题集/改门/改 mapper 后
 
-CLAUDE.md「修改 Jev 题集」流程第 6 步：先跑全量对拍（预期变化票已用工作流 B 更新过的应 PASS；未更新的偏差就是回归，修代码或修预期二选一并留痕），再部署。部署前后行为差=对拍 CSV 与 `data/case-regression-result-<ts>.csv` 对查。
+CLAUDE.md「修改 Jev 题集」流程第 6 步：先跑全量对拍（预期变化票已用工作流 B 更新过的应 PASS；未更新的偏差就是回归，修代码或修预期二选一并留痕），再部署。部署前后行为差=本次对拍 CSV 与 `data/` 内存档的历史 CSV 对查。
 
 ## 维护规则
 

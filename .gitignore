@@ -10,6 +10,9 @@ logs/
 
 # Data
 data/
+# case 回归工具的对拍结果存档进版本库（长期维护资产）
+!scripts/narrative/case-regression/data/
+!scripts/narrative/case-regression/data/**
 
 # OS
 .DS_Store

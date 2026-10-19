@@ -18,7 +18,7 @@ const check = (name, cond, detail) => {
 };
 
 async function main() {
-  const libPath = path.resolve(__dirname, 'narrative/case-regression-lib.mjs');
+  const libPath = path.resolve(__dirname, 'narrative/case-regression/lib.mjs');
   const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, csvEscape, buildCase, updateExpect } = await import(libPath);
 
   // ── interpret：落库两信封形状（C88 信封坑反证锁定）──
@@ -96,7 +96,7 @@ async function main() {
     && assertExpectation({ ...i11, tokenCategory: 'event:W' }, { tokenCategoryExcludes: ['super_ip_fast'] }).failures.length === 0);
 
   // ── loadAndValidateFixtures：真实 fixtures 全过 + 事故形状反证 ──
-  const fixturesPath = path.resolve(__dirname, 'narrative/case-regression-fixtures.json');
+  const fixturesPath = path.resolve(__dirname, 'narrative/case-regression/fixtures.json');
   const doc = JSON.parse(require('fs').readFileSync(fixturesPath, 'utf8'));
   const real = loadAndValidateFixtures(doc);
   check('F1 真实 fixtures 校验零错误', real.errors.length === 0, real.errors.join('; '));

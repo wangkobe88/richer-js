@@ -10,7 +10,7 @@
     "web": "node src/web-server.js",
     "experiment": "node main.js",
     "narrative-engine": "node src/narrative/engine/start.mjs",
-    "case-regression": "node scripts/narrative/run-case-regression.mjs",
+    "case-regression": "node scripts/narrative/case-regression/run.mjs",
     "news-daemon": "node src/news-monitor/index.js",
     "news-cli": "node src/news-monitor/cli.js"
   },

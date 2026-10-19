@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 叙事 case 回归集 runner（2026-10-19 建，同日工具正式化）——长期维护的叙事回归测试集，
+ * 叙事 case 回归集 runner（2026-10-19 建，同日工具正式化+目录收拢）——长期维护的叙事回归测试集，
  * 工具文档与工作流见 docs/case-regression-tool.md。
  *
  * 在 182 跑（重析/回读含真实 DB 访问，本地不跑）：
@@ -9,27 +9,29 @@
  *   npm run case-regression -- --add <addr> --case C112 [--note ..] [--observe ..] [--dry]   # 收录新票
  *   npm run case-regression -- --update-expect C97,C102 --because "C113 裁定.." [--dry]      # 预期更新留痕
  *
+ * - 对拍结果（JSON+CSV）默认写本目录 data/（进 git 的历史存档，长期维护资产）
  * - 跑前备份全部票现行 token_narrative 整行到 backup-dir JSON（重析 upsert 覆盖，
- *   备份留档可对查/回滚，符合「跑过的数据绝不丢」精神）
+ *   备份留档可对查/回滚，符合「跑过的数据绝不丢」精神——整行含完整 state 大文件，刻意留 /tmp 不进 git）
  * - 写回 fixtures（--add/--update-expect）：tmp+rename 原子写 + 写前备份到 backup-dir
- * - 断言器=case-regression-lib.mjs（零 DB 零网络单测 _test_case_regression_lib.cjs 锁定）
+ * - 断言器=同目录 lib.mjs（零 DB 零网络单测 scripts/_test_case_regression_lib.cjs 锁定）
  * - 退出码：0=全过；1=存在非 observe 票断言失败 / 收录或更新校验失败；2=存在重析异常（数据源不可用）
  * - observe 票（fixtures 带 observe 键）：断言失败只 ⚠️ 警示不计失败（已知分数移动面）
  */
 
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { readFileSync, writeFileSync, copyFileSync, renameSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync, renameSync, mkdirSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-process.chdir(resolve(__dirname, '../..'));
+process.chdir(resolve(__dirname, '../../..'));
 
-const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, buildCase, updateExpect } = await import('./case-regression-lib.mjs');
-const { NarrativeAnalyzer } = await import('../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
-const { NarrativeRepository } = await import('../../src/narrative/db/NarrativeRepository.mjs');
+const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, buildCase, updateExpect } = await import('./lib.mjs');
+const { NarrativeAnalyzer } = await import('../../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
+const { NarrativeRepository } = await import('../../../src/narrative/db/NarrativeRepository.mjs');
 
-const FIXTURES_PATH = resolve(__dirname, 'case-regression-fixtures.json');
+const FIXTURES_PATH = resolve(__dirname, 'fixtures.json');
+const DATA_DIR = resolve(__dirname, 'data');
 const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,stage1_result,stage2_result,stage_final_result,pre_check_result';
 
 function parseArgs(argv) {
@@ -198,12 +200,13 @@ async function main() {
   }
 
   const summary = { total: results.length, pass: results.filter((r) => r.status === 'PASS').length, fail: results.filter((r) => r.status === 'FAIL').length, observeDeviation: results.filter((r) => r.status === 'OBSERVE-DEVIATION').length, error: results.filter((r) => r.status === 'ERROR').length };
-  const resultPath = resolve(args.backupDir, `case-regression-result-${ts}.json`);
+  mkdirSync(DATA_DIR, { recursive: true }); // 对拍结果存档目录（git 否定规则保进版本库）
+  const resultPath = resolve(DATA_DIR, `case-regression-result-${ts}.json`);
   writeFileSync(resultPath, JSON.stringify({ ranAt: new Date().toISOString(), summary, results }, null, 2));
-  const csvPath = resolve(args.backupDir, `case-regression-result-${ts}.csv`);
+  const csvPath = resolve(DATA_DIR, `case-regression-result-${ts}.csv`);
   writeFileSync(csvPath, '﻿' + toCsv(results), 'utf8'); // BOM 便于 Excel 直接打开中文
   console.log(`\n汇总: ${summary.pass} PASS / ${summary.fail} FAIL / ${summary.observeDeviation} OBSERVE-DEVIATION / ${summary.error} ERROR`);
-  console.log(`结果 JSON → ${resultPath}\n结果 CSV（期望/基线/当前同表）→ ${csvPath}`);
+  console.log(`结果 JSON → ${resultPath}\n结果 CSV（期望/基线/当前同表，存档进 git）→ ${csvPath}`);
   if (summary.fail) process.exit(1);
   if (summary.error) process.exit(2);
 }
