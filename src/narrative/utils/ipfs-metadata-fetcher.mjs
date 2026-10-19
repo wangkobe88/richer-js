@@ -8,6 +8,11 @@
  *
  * 网关说明：ipfs.io 官方网关已进入 sunset（429 + sunset 响应头），多网关按序轮询；
  * metadata 内容按 IPFS 语义不可变，缓存给长期值（同 tweet 档）。
+ *
+ * C106（2026-10-19 TREE 0xd50e…7777 案）：pump.fun 迁移票 meta 直链形状
+ * （metadata.j7tracker.io/metadata/<id>.json）并入本解包器——非 /ipfs/<cid> 非
+ * 裸 CID，原 normalizeIpfsRef 返回 null 不解包，社媒锁死在 metadata JSON 里被
+ * 规则 4-B（public_info_fetch_failed）终局误杀。直链无网关可轮询，单点直抓。
  */
 import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
@@ -31,16 +36,26 @@ export function isIpfsUrl(url) {
   return typeof url === 'string' && /^https?:\/\/[^/]+\/ipfs\/[A-Za-z0-9]+/i.test(url);
 }
 
+// C106 迁移直链网关：host+路径双卡位（.json 收尾、id 段无斜杠），出现新迁移
+// 网关形状时在此追加
+const DIRECT_METADATA_URL_RE = /^https:\/\/metadata\.j7tracker\.io\/metadata\/[A-Za-z0-9_-]+\.json$/;
+
+export function isDirectMetadataUrl(url) {
+  return typeof url === 'string' && DIRECT_METADATA_URL_RE.test(url.trim());
+}
+
 /**
- * 归一化 meta 引用为可解包的网关 URL
+ * 归一化 meta 引用为可解包的 metadata URL
  *
- * four.meme 的 raw_api_data.meta 有两种形状（BRF 案实测）：
- * - http 网关 URL（ARENA 型，extractAllUrls 能提取到）
+ * raw_api_data.meta 三种形状：
+ * - http IPFS 网关 URL（ARENA 型，extractAllUrls 能提取到）
  * - 裸 CID（BRF：meta="bafkreigaw…"，extractAllUrls / isIpfsUrl 均不识别，
  *   曾导致 0-URL 早退连 IPFS 解包都不跑）
- * 裸 CID 统一转 pinata 网关 URL（fetchIpfsMetadata 多网关轮询的第一站）
+ * - 迁移直链 JSON（C106：j7tracker.io，pump.fun 迁移票——twitterUrl/webUrl
+ *   API 字段为空，真实社媒只在 JSON 里）
+ * 裸 CID 统一转 pinata 网关 URL（fetchIpfsMetadata 多网关竞速的第一站）
  * @param {string} ref - raw_api_data.meta 原始值
- * @returns {string|null} 网关 URL；非 IPFS 引用返回 null
+ * @returns {string|null} 可解包 URL；非 metadata 引用返回 null
  */
 export function normalizeIpfsRef(ref) {
   if (typeof ref !== 'string' || !ref) return null;
@@ -49,6 +64,7 @@ export function normalizeIpfsRef(ref) {
   if (/^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-z0-9]{20,})$/.test(ref.trim())) {
     return `https://gateway.pinata.cloud/ipfs/${ref.trim()}`;
   }
+  if (isDirectMetadataUrl(ref)) return ref.trim();
   return null;
 }
 
@@ -78,6 +94,23 @@ async function fetchGatewayJson(gatewayUrl) {
  * @returns {Promise<Object|null>} metadata JSON 对象；全网关失败返回 null（上层按原流程处理 meta 链接）
  */
 export async function fetchIpfsMetadata(metaUrl) {
+  // C106 迁移直链：非内容寻址、无网关可轮询——单点直抓（同款 8s 超时 + 64k
+  // JSON 校验）；失败/异常均 warn + null（对齐网关路径语义），走原
+  // 「解包失败按 website 处理」路径
+  if (isDirectMetadataUrl(metaUrl)) {
+    return CachedFetcher.fetchWithCache(metaUrl, 'ipfs_metadata', async () => {
+      try {
+        const json = await fetchGatewayJson(metaUrl);
+        if (json) return json;
+        console.warn(`[IpfsMetadataFetcher] 直链 metadata 获取失败: ${metaUrl}`);
+        return null;
+      } catch (e) {
+        console.warn(`[IpfsMetadataFetcher] 直链 metadata 获取异常: ${metaUrl} (${e.message})`);
+        return null;
+      }
+    }, getCacheTTL('ipfs_metadata'));
+  }
+
   const cid = extractCid(metaUrl);
   if (!cid) return null;
 

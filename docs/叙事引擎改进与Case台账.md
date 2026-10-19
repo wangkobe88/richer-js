@@ -68,6 +68,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C106 迁移直链 metadata 解包（j7tracker.io 第三形状）——社媒锁死在 metadata JSON 里被规则 4-B 一枪误杀（2026-10-19 用户裁定「好，修复」；BNB Tree 0xd50e11204f7f3d63598b0118ee4151bf95917777 案，pump.fun 迁移票）★
+
+- **案发现场**：TREE（BNB Tree）0xd50e…7777，v24（18032923）C84 触发模型 round 1 于 2026-10-18 20:07:03 UTC 发起分析（trigger_reason=condition），**0.4s 完成 rating=1——precheck 规则 4-B `public_info_fetch_failed` 短路，Jev 零调用**。URL 分类全语料桶仅 1 条：`raw_api_data.meta` 直链 `https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json`（落 websites 桶）；`twitterUrl`/`webUrl` API 字段均空。终局性双锁：该 ruleName 不在 PrecheckFailRetryService 两域（address/no_public_info）内；非 accountOnly 无 C84 补轮——无任何救援路径，一枪死。
+- **根因（C7 解包器形状盲区，ARENA 案同族第三形状）**：metadata JSON 实抓内含 `twitter: https://x.com/TCryptochicks/status/2111911894772576530`（`createdOn:"pump.fun"`——pump.fun 迁移票，该形状将持续出现）。C7 解包链 `normalizeIpfsRef` 只认 `/ipfs/<cid>` 网关 URL 与裸 CID（Qm/baf）两形状；j7tracker 直链 `/metadata/<id>.json` 两条皆不中 → 不解包 → 社媒锁死在 JSON 里；websites 桶抓取全局关（`websiteFetch.enabled=false` 设计口径）→ `hasValidDataForAnalysis`=false → 4-B 误拦（语义错位：metadata 里本就没有社媒=应落 no_public_info 可重试域，却按「获取失败」终局死）。
+- **修复（ipfs-metadata-fetcher，纯解包层不 bump 题集）**：新增 `isDirectMetadataUrl` host+路径双卡位（`https://metadata.j7tracker.io/metadata/<id>.json`，id 段 `[A-Za-z0-9_-]+` 收 .json 尾——新迁移网关形状出现时在此追加）；`normalizeIpfsRef` 第三形状原样透传；`fetchIpfsMetadata` 直链分支**先于 CID 提取**——单点直抓（复用 `fetchGatewayJson` 同款 8s 超时 + 64k JSON 校验），失败/异常均 warn + null（对齐网关全败语义）走原「解包失败按 website 处理」路径；缓存同 `ipfs_metadata` 档（metadata 不可变语义同 IPFS）。解包成功后 data-fetch-service 既有 splice 自动剥掉 meta URL 本身（JSON 已展开不重复抓）。
+- **验证**：`extractAllUrls(真实 TREE metadata JSON)` 解出 twitter 推文 + 配图 2 URL（集成点 sanity）；单测 `_test_ipfs_race` 扩 C 段 6 断言（形状卡位含首尾空白 + 五反例（非 https/异 host/异路径/无 .json/id 带斜杠）、normalize 透传、直抓成功**不碰 IPFS 网关**（stub 未匹配即 throw 反证）、异常 → null、源码口径直链分支先于 CID 提取 + host 卡位在源码），全套 16/16。修复过程反证一坑：直链分支首版无内部 catch，打桩直透下异常穿透 FATAL——补内部 catch 后与网关路径语义逐位对齐。
+- **存量影响面**：`token_narrative` 存量行不自动重析；本票可 `updateIsValid→reanalyze` 定向翻转验证（解包进 twitter 语料后走标准 Jev 评档，评级交 Jev——修复只解锁通路不预设结论）。
+- **部署**：182 pull + 重启叙事 worker + 实验进程（直调走引擎进程内 analyzer）；与 C104/C105（欠部署）同批；live 实验（v24）重启前走持仓确认规程。
+
 ### C105 name_form 第四选 functional_label（版本词门：版本/语言/形态/序号元词不是 meme 名字）——「日本語版根本不能作为 meme 名字，事件本身在 web3 影响力并不小」（2026-10-19 用户裁定；日本語版 0xe156aa3f3e89ded51ef0b980018ef15ae0517777 案，CZ 出书簇第 6 张蹭票）★
 
 - **案发现场**：CZ（@cz_binance 1299 万粉）2026-10-19 01:47:24 UTC 发推《Freedom of Money》日本語版本日发售（出书促销推，发推时 0 赞 0 转），**蹭票者同一秒抢发「日本語版」**（token_create block_time 与推文发布同秒；symbol/name 逐字=推文元词）。3 秒后分析完成（313ms 单次 fan-out），**S 档 39+传播 27.44+时效 15=81.44 过线，final 80.24 high**。0 信号 0 交易 0 轮次行（非 v24 触发模型发起，worker/直调通道预热缓存），但 high 已进 token_narrative 全局缓存（is_valid=true）——未来任何实验消费按 rating=2 放行。
