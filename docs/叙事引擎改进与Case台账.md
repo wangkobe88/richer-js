@@ -68,7 +68,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C108 名字门统一（J1.42 name_form 四分支：「合不合适作为 meme 币」单一门，四拦截位退役）——「所以我觉得很多门，不如合并为『合不合适作为meme币』门，这是根本的」（2026-10-19 用户三轮裁定；EARLY 0xc8a55fed2b6c539493e10f4707a26a1fbf07777 CZ 回复逐字发币案）★
+### C108 名字门统一（J1.42 name_form 四分支：「合不合适作为 meme 币」单一门，四拦截位退役）——「所以我觉得很多门，不如合并为『合不合适作为meme币』门，这是根本的」（2026-10-19 用户三轮裁定；EARLY 0xc8a55fed967db1f1be1fac90c3a453c1c4187777 CZ 回复逐字发币案）★
 
 - **案发现场与归因更正**：EARLY（0xc8a5…7777），CZ（@cz_binance 1299 万粉）回复评论者 "you got in early" 后 4 秒逐字发币。被 **nrBlock common_word 臂**（J1.10：name_referent common_word 0.92 + minor_other 0.04 = 阻断侧合计 0.96 ≥0.5）误拦为「截词」；J1.41 重析 name_form 亦判 not_meme_name（双门一致误拦——J1.41 三选缺「圈内文化词」分支）。放行侧证据全绿：web3_fit strong_fit 0.97、direct_tweet 豁免（CZ 粉丝档）、时效 lag≈0。**归因更正随案立档**：首轮排查误归因 block_misspelling 探针——错误，实拦 nr common_word；「截词」label × Stage3「截断:」前缀 ×「拼写错误」探针三术语连撞是误导源，本轮消除（nr 退役后「截词」label 源头消失）。
 - **三轮裁定原话**：①「第一 CZ 是发了这句话，第二，如果一个 meme 币的叫 Early 行不行？尤其是 early 还有着『趁早』的深意。这里最重要的，还是看这个词作为 meme 币合理与否，web3 用户能不能接纳它作为 meme 币名字。CZ 回复一句 我要去滑雪，『滑雪』肯定不行，『我要去』肯定不行……所以我觉得很多门，不如合并为『合不合适作为meme币』门，这是根本的。」②「如果代币的名字指向一个实体，那么这个实体到底是什么情况还是需要考量（例如普通币安员工就不行），但是 early 并不是一个实体。」③「YAYA 我记得就是币安员工，所以不行」＋「meme 名字拼写错误，也肯定不行，不知道是不是涵盖了，我的意思是，用一个门涵盖多种情况」。
@@ -86,7 +86,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **mapper 形状**：`notMemeNameBlock` 唯一名字拦截位（`NOT_MEME_NAME_CHOICES = Set{not_meme_name, statement, functional_label}` 兼容映射保留——J1.37-J1.40 旧行重析继续拦）；门链序 nhn→rcp→w3→pe→blockChoice argmax→**nf**→sc→量级门（rm/memFloor 位消失）；`nameReferentBlock`/`NAME_REFERENT_BLOCK_LABELS`/`referentMemeabilityLowBlock`/`memFloorFired` 函数与常量删除；退役审计键新行不落=undefined（nrNotableExempt/nameReferentBlockMass/referentMemeabilityBlock/memFloorBlock/misspellingP/block_misspelling 概率投影）；恒落保留（nameReferentProbability 纯观察/referentMemeabilityScore/memScoreC88 五腿审计）；finalReason P 段 nrBlock.mass 引用清理。退役位留 C108 指向注释（案史不删，同 J1.26 模式）。**全域无豁免五腿不豁**（继承 C96/C105/C107 分工论证）。
 - **断代语义**：J1.42 断代，存量缓存行不重放 mapper→bit 不变；重析票按新门判。**旧拦新放票型**（拦截面收窄，用户已认方向）：EARLY 型圈内词截票 / CONVICTION 型 KOL 推文截圈内信念词 / mem∈(1,2) 名字有圈内感知票（京小安 mem 1.88 双锚 60 恰过线新放行）。**仍拦**全由 nf 四分支承载：YAYA/币安员工型（分支①无名实体）、滑雪/我要去型（分支②无感知）、日本語版/币安上电视（分支③）、哦型无背景拼写变体（分支④）、C78 图文拼写（代码门不动）、无名普通人/严肃对象（原 rm mem≤1 票型→分支①②）。unclear/答案缺失 fail-open。风险点：原三门判别面由 choice 单题承载，choice 带锚判准度有 C96/C105/C107 实证背书但需扩票集对拍。
 - **测试**：`_test_jev_finding_recap_statement_gate` 扩至 102 断言——A 段四分支判据锚（总判据/三对照锚 Early·滑雪·我要去「不是词出自谁也不是是否截自语料」/无名实体锚「币安员工花名」「被大V提到不改变无名」/拼写变体锚 doge→dogwifhat/A19 题集 18 题）/ G 段九断言（G1 EARLY 翻案位 common_word 0.92+meme_name→pass+nameReferentProbability 0.92 恒落 / G2 滑雪拦 / G3 YAYA 五五开 not_meme_name 拦·meme_name 放 / G4 mem=1 meme_name 放·not_meme_name 拦 / G5 mem 1.72+A 类 meme_name 放 / G6 referentMemeabilityScore 恒落 / G7 block_misspelling noul 0.9+meme_name→pass）/ F8-F11 退役调用形状反证 + 默认题集源码锁。直接门测改造：notable_other_exit（nr 断言退役+断代头注）、publisher_proxy（nr 豁免臂随门退役）、superip_slogan_class（memFloor 退役+五腿审计恒落）、subject_carrier（原拦截形状载体门接住不裸放）、name_image_spelling_mismatch（臂单判据化）、referent_memeability（拦截位退役题保留）。邻居 12 套跑绿（cashtag/web3_fit×2/w_interaction/regional/jev_resonance/angle_timing/name_image_consistency/superip_standard_path/instagram/product_entity/freshness_bucket）；版本断言 J1.41→J1.42 四套；顺手修两处存量过期锚（instagram F2c C94 双锚链、jev_product_entity D2b C88 参数——git show HEAD 验证非本轮引入）。
-- **部署与对拍**：182 pull + 重启叙事 worker + 实验进程（直调走引擎进程内 analyzer）；与 C104/C105/C106/C107（欠部署）同批=**五案同批**；live 实验（v24）重启前走持仓确认规程。定向重析对拍清单：EARLY 0xc8a5…7777 应**翻放行**；YAYA（币安员工）应仍拦；0xe156…7777 日本語版应仍拦；0xc6d0…7777 币安上电视应仍拦；C78 鲸元卷（代码门）应仍拦；哦案 0xbefe…7770 对拍分支④；京小安 mem 1.88 形状新放行确认。
+- **部署与对拍（2026-10-19 完成）**：182 pull f61f500 + 重启叙事 worker（pid 3219718）+ v24 实验进程（持仓=0 规程通过，pid 3222355，五案同批=C104/C105/C106/C107/C108）。定向重析 8 票结果（token_symbol 核实地址；wss_events payload contains 全表扫超时坑→改走 token_narrative token_symbol 独立列）：
+
+  | 票 | 重析结果 | 判定 |
+  |---|---|---|
+  | 日本語版 0xe156…7777 | low，**名字门 P=0.83** | ✅ 仍拦（分支③） |
+  | 币安上电视 0xc6d0…7777 | low，**名字门 P=0.51** | ✅ 仍拦（分支③）——**J1.42 门判准度正证**（C107 三选下的双案在新四分支下全接住） |
+  | EARLY 0xc8a5…7777 | low，名字门**放行**（名字轴修复生效）→ 被 **J1.29 载体门**接住（C 类+no_visual P=0.43） | ⚠️ 未翻放行：名字误拦已消除，但载体门拦「EARLY 无形象载体」——subject_carrier 改造时「原拦截形状由载体门接住不裸放」的实证。是否豁载体门=新决策点交用户 |
+  | 京小安 0xad55…7777 | low，**名字门拦**（name_form 判 not_meme_name） | ⚠️ 仍拦但换门：mem 1.88 玩味不足语义被名字门继承（C88 memFloor 原判与 J1.42 判同向） |
+  | 鲸元卷 0xe0cf…7777 | low，事件分 59.24<60 量级门贴线拦 | ✅ 仍拦（拦截位=量级门；C78 图文门本轮未触发） |
+  | YAYA 0x55ff…7777 | low，routine 内容门（机构日常运营） | ✅ 仍拦（语料形状与用户记忆的 YAYA 案未必同票，10-16 stage=null 老票） |
+  | 哦 0xbefe…7777 / YAYA 0x774a…7777 | **重析异常：代币不存在** | ❌ 线上无法对拍（9 月老票 GMGN/AVE 已下架）；分支④形状由主测 G7/A18 fixture 锁定 |
 
 ### C107 名字门收敛（J1.41 name_form 三选：这名字适不适合作为 meme 币）——「其实我觉得可以不加新维度，就使用『是否合适作为 meme 币』这个维度就好」（2026-10-19 用户裁定；C105 日本語版案当日二次裁定收敛）★
 
