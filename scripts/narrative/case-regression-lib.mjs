@@ -8,6 +8,9 @@
  *   - precheck 拒票：stage_final_result=null，pre_check_result={rating,reason,details:{ruleName}}
  *   - stage2 拦截票：stage_final_result={rating:'low',details:{blockReason}}，reason 顶层 null
  *   - 评级票：stage_final_result={rating,score,...}
+ *   - prestage 路径票（C70/C85 回归揭出的第四信封）：project 票终态在
+ *     prestage_result 顶层 {rating,reason}（粉丝带定档 mid）；abm 续走标准路径时
+ *     fin 先占位不受影响（?? 链序 fin > pcr > prest）
  */
 
 /**
@@ -20,11 +23,12 @@ export function interpret(row) {
   }
   const fin = row.stage_final_result ?? null;
   const pcr = row.pre_check_result ?? null;
+  const prest = row.prestage_result ?? null;
   return {
-    // precheck 拒票终态在 pcr；stage 评级/拦截票在 fin
-    rating: fin?.rating ?? pcr?.rating ?? null,
-    // stage2 拦截文案在 fin.details.blockReason；precheck 拒文案在 pcr.reason
-    reason: fin?.details?.blockReason ?? pcr?.reason ?? null,
+    // 终态优先序：stage 评级/拦截（fin）> precheck 拒（pcr）> prestage 定档（prest）
+    rating: fin?.rating ?? pcr?.rating ?? prest?.rating ?? null,
+    // stage2 拦截文案在 fin.details.blockReason；precheck 拒文案在 pcr.reason；prestage 定档文案在 prest.reason
+    reason: fin?.details?.blockReason ?? pcr?.reason ?? prest?.reason ?? null,
     // ruleName 两形状：buildPreCheckResult 信封 details.ruleName / 顶层 ruleName（address 拒路径顶层也无）
     ruleName: pcr?.details?.ruleName ?? pcr?.ruleName ?? null,
     score: fin?.score ?? null,
@@ -33,7 +37,7 @@ export function interpret(row) {
     tokenCategory: row.token_category ?? null,
     // 审计子串匹配源：三个结果列整体序列化（superIpSlogan/subjectCarrierImgOverride 等审计键落在内）
     blob: JSON.stringify({
-      fin, pcr,
+      fin, pcr, prest,
       s1: row.stage1_result ?? null,
       s2: row.stage2_result ?? null,
     }),

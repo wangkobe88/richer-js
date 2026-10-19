@@ -50,6 +50,18 @@ async function main() {
   // 无行
   check('I4 无行全 null', interpret(null).rating === null && interpret(null).blob === '');
 
+  // 形状4：prestage 路径票（C70/C85 回归揭出的第四信封——project 票终态在 prestage_result 顶层）
+  const i5 = interpret({
+    stage_final_result: null,
+    pre_check_result: null,
+    prestage_result: { pass: true, rating: 'mid', reason: '项目币评级：粉丝2 → mid（粉丝带只定档不拦截）', details: { jev: { probabilities: {} } } },
+  });
+  check('I5 prestage 路径票判读（prestage_result 顶层 rating/reason）', i5.rating === 'mid' && i5.reason.includes('粉丝带只定档'), JSON.stringify(i5).slice(0, 120));
+
+  // 形状4b：abm 续走标准路径票（prestage 与 fin 并存，fin 优先）
+  const i5b = interpret({ stage_final_result: { rating: 'high', score: 80, details: {} }, prestage_result: { rating: 'mid', reason: 'x' } });
+  check('I5b fin 优先于 prest（abm 续走标准路径票不受 prestage 定档遮蔽）', i5b.rating === 'high', JSON.stringify(i5b).slice(0, 80));
+
   // ── assertExpectation ──
   check('A1 rating 单值命中', assertExpectation({ rating: 'low', reason: 'x', ruleName: '', blob: '' }, { rating: 'low' }).failures.length === 0);
   check('A2 rating 不命中报失败', assertExpectation({ rating: 'high', reason: '', ruleName: '', blob: '' }, { rating: 'low' }).failures.length === 1);

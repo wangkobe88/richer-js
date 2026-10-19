@@ -25,7 +25,7 @@ const { interpret, assertExpectation, loadAndValidateFixtures, toCsv } = await i
 const { NarrativeAnalyzer } = await import('../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
 const { NarrativeRepository } = await import('../../src/narrative/db/NarrativeRepository.mjs');
 
-const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,stage1_result,stage2_result,stage_final_result,pre_check_result';
+const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,stage1_result,stage2_result,stage_final_result,pre_check_result';
 
 function parseArgs(argv) {
   const out = { only: null, dry: false, backupDir: '/tmp' };

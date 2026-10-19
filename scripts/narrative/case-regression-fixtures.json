@@ -87,9 +87,10 @@
       "addr": "0x11efcbd0bfbaa5ad1c2d0db93710882722a27777",
       "expect": {
         "rating": "low",
-        "reasonIncludes": ["叙事主体无形象载体"]
+        "auditIncludes": ["staleParentOverride"]
       },
-      "note": "借壳语料父推源头窗：binanceCorpus 父推>24h→timing older→C88 五腿断→J1.29 载体门接管。维持断言。"
+      "observe": "终拦位随 Jev nameForm 掷骰在名字门/载体门间移动（C108 门链序 nf→sc→tier，nf 前置）：本轮 nameForm=not_meme_name 名字门先拦；名字若过则 sc/事件分不足路径仍拦（timing older 双保险）。核心机制断言=父推窗 override 在场（客观 lag 确定性）。",
+      "note": "借壳语料父推源头窗：binanceCorpus 父推>24h→timing older→C88 五腿断。拦住即胜，具体门不作硬断言。"
     },
     {
       "caseId": "C103",
@@ -161,11 +162,12 @@
       "symbol": "暗号資産の覇者",
       "addr": "0x926ce819b7fdcf47bd9ccb3166c489280c537777",
       "expect": {
-        "rating": ["high", "mid"],
-        "auditIncludes": ["narrativeSuperIpSlogan"]
+        "rating": null,
+        "auditIncludes": ["staleParentOverride"],
+        "reasonExcludes": ["超级IP口号票豁免"]
       },
-      "observe": "J1.44 mem 题面瘦身使分数分布移动（C88 mem≥2 腿命中面移动）；本票 mem 3.53 重心 4-5 档，瘦身余量应足（mid/high 均接受），断言失败只警示。",
-      "note": "C88 口号票覆盖 C4 mem 腿：五腿豁免链（superIpSlogan 审计在场）应维持。"
+      "observe": "C88 五腿 FRESH_TIMING 腿被父推窗确定性打断（父推 lag≈2.87d>24h→timing older）→ 救援不成立（无 superIpSlogan 审计）→ J1.29 载体门掷骰决定终态（no_visual→low / existing→评级票），rating 不断言；确定性断言=父推窗 override 在场+豁免前缀不在 reason。",
+      "note": "C88 五腿 × C102/J1.39 父推窗交互面：timing 腿断=设计内拦截（与 C102 BAI 同构）。"
     },
     {
       "caseId": "C109c",
@@ -216,9 +218,9 @@
       "addr": "0x0a27c1232ffe46f296af9afb68448dff7ad37777",
       "expect": {
         "rating": "low",
-        "auditIncludes": ["angleTimingOverride"]
+        "precheckRuleIncludes": ["expired_tweet"]
       },
-      "note": "找角度推文时效门案：angle_seeking 载体 lag 993367s（11.5 天）当年 high 73.89 漏网买入（earlyReturn 通道）。mapper override timing→0 分→52<60 翻不过线（D1 事故现场反证）。现行行 high=J1.30 部署前形状，预期变化票：low+审计键在场（载体推文时间客观不变必触发）。"
+      "note": "找角度推文时效门案：angle_seeking 载体 lag 11.5 天当年 high 73.89 漏网买入。C74 分桶后 precheck expired_tweet（非豁免桶 lag≥300s 拦）先于 mapper 拦截=主拦位，C68 angleTimingOverride 降级纵深防御（precheck 先拦时不可达、audit 不落）；断言改 precheck 规则（angle 桶分类代码侧确定性）。"
     },
     {
       "caseId": "C70",
