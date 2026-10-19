@@ -68,6 +68,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C111 叙事 case 回归集上线（33 票，C65-C110 全谱）——「把我近期提交的数十个 case 做成一个测试集合，在新的叙事分析模块上跑一遍，确认改拦住的拦住，该不拦的不拦，并且原因都是对的」（2026-10-19 用户指令三段：建集→CSV→扩至 ≥30）★
+
+- **资产（commit f5f6d3c 起，2a0b4bb 收口）**：`scripts/narrative/case-regression-fixtures.json`（33 票：C65-C110 谱系，每票 expect DSL + observe/note）+ `run-case-regression.mjs`（182 跑；跑前整行备份 /tmp；`analyze ignoreCache` 覆盖落库后回读对拍；退出码 0=全过/1=硬断言败/2=重析异常）+ `case-regression-lib.mjs`（**四信封判读** fin>pcr>prestage>+s1/s2 blob；DSL：rating 单值/数组/null、reasonIncludes|Excludes、precheckRuleIncludes|Excludes、auditIncludes（blob 子串）、tokenCategory 精确等+Excludes）+ 单测 `_test_case_regression_lib.cjs` 31 断言（零 DB 零网络）。
+- **全量首轮（2026-10-19 182 实跑 33 票，修复合并口径 29 PASS / 4 OBSERVE-DEVIATION）**。改拦住的都拦住且原因正确：C104（stage_final 残留清除修复实证：旧 high 76.99 遮蔽→expired_tweet low+源头 299637s>24h）、C98 负面硬新闻、C99/C101 地址门（AUTO_TOKEN_PAGE/OK❌ 修复生效）、C106 载体门、C103 事件分不足 52.8<60、C109c 量级锚 B→D、C110/C97 gimmick、C94/C96/C105 名字门；该放行的放行：C65 巴巴鸡图豁免翻 high 75.37、C83a/b BI 双票 C88 五腿救援 high 79.51/72.63、C100 rebondit high 73.84；C80 E 类感染力折损 55<60、C70/C85 prestage project 定档 mid、C92 黑名单。
+- **回归集自身三处修正（机制无 bug，均为预期/判读写错）**：① **prestage 第四信封**——C70/C85 两 FAIL 根因=project 票终态在 `prestage_result` 顶层 {rating,reason}（粉丝带定档），原判读只读 fin/pcr → rating=null 假偏差；interpret 补 ?? 链（fin>pcr>prest，abm 续走标准路径票不受定档遮蔽，I5/I5b 单测锁定）。② **C68 预期写死于 mapper override**——C74 分桶后 precheck expired_tweet（非豁免桶 lag≥300s）先拦=主拦位，C68 angleTimingOverride 降级纵深防御（precheck 先拦时不可达、audit 不落）；断言改 precheckRuleIncludes。③ **C102 终拦位写死 sc 门**——C108 门链序 nf→sc→tier 前置后终拦位随 nameForm 掷骰在名字门/载体门移动（首轮 nf 拦、复核轮 sc 拦，两路皆 low）；改断言 staleParentOverride（父推窗客观 lag 确定性）+拦住即胜。
+- **C109b 謎底（C88×C102 交互面）**：暗号資産の覇者五腿没救到 **≠ mem 瘦身**——父推 lag≈2.87d>24h → staleParentOverride → timing older → FRESH_TIMING 腿断 → 救援不成立（无 superIpSlogan 审计键）→ J1.29 载体门接管（与 C102 BAI 同构，设计内拦截）。**坑：score 类答案（mem/dim2）不落 stage1_result**（只落 choice+概率分布），判读 dump 勿找 mem 分。
+- **Jev 掷骰拦截面（4 张基线 high 票被概率面拦，保留警示不宽断言，是否立案另裁）**：小黑 0x9641…7777 / JDI 0x4688…7777（nameForm=not_meme_name 且 block none 0.84/0.99=**名字门唯一拦截原因**）、偷窥狂 0x57ef…7777（carrier no_visual 掷骰）、롱캣 0xd97a…7777（gimmick 0.49 argmax=C110 扩全域既定代价面）；另 啾啾/FLY 亦落名字门（时序脏票，拦向可接受）。名字门边界（单字拟声/缩写名/宠物昵称）待用户裁定是否立新案。
+- **工件**：`data/case-regression-result-2026-10-19.csv`（期望/基线/当前/tokenCat 同表 25 列，BOM Excel 直开）；两轮原始 JSON+整行备份在 182 /tmp。**后续纪律：改题集/改门后 182 跑 `node scripts/narrative/run-case-regression.mjs`**（`--only C98,C104` 可点跑；掷骰面票以 observe 警示追踪不阻塞）。
+
 ### C110 题集全面复查——逻辑错误/结构性冲突/冗余三档清单 + 低风险收敛批次（J1.44/P1.12）——「我担忧其中很多地方是有冲突以及冗余的，它们让整个流程很难继续改进」（2026-10-19 用户裁定；非单案，C109 题集收敛的自然延伸全量审计）★
 
 - **案由与复查范围**：用户提出对 case 驱动累积的全部「题/桶」做一次全面复查，找逻辑错误、冲突、冗余。复查面=16 基础题+3 条件题+4 prestage 题 ↔ `jev-result-mapper` 全消费点 + 外围（web 详情页 chips/superip-labels `sipProb`/校准脚本/jev_dryrun/扫描工具）逐一对拍。
