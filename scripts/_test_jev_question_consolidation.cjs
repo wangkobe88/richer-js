@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.44（J1.44=C110：low_quality_derivative+ip_reuse 合桶+mem 题面瘦身）', JEV_QUESTIONS_VERSION === 'J1.44', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.45（J1.44=C110：low_quality_derivative+ip_reuse 合桶+mem 题面瘦身；J1.45=C110 扫描后裁定：dim2 同轴锚删除+gimmick 扩全域）', JEV_QUESTIONS_VERSION === 'J1.45', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -101,6 +101,28 @@ async function main() {
     const rActive = mapStandardAnswers(aActive, stdCtx('TST', 'TST'));
     check('A8d 活桶对照：A 类 argmax=ip_reuse 照拦（合并不外溢）',
       (rActive.llmResult.reason || '').includes('IP二次利用') && rActive.llmResult.rating === 'low', rActive.llmResult.reason);
+  }
+
+  // A8e J1.45（C110 扫描后裁定）gimmick 扩全域行为证明：E 类票 argmax=
+  // marketing_gimmick 原跨类空洞不拦 → 现拦（261 行空洞面的机器证明）
+  {
+    const aHole = baseAnswers();
+    aHole.event_category = { choice: 'E', probabilities: { E: 0.8 } };
+    aHole.block_reason = { choice: 'marketing_gimmick', probabilities: { none: 0.2, marketing_gimmick: 0.6 } };
+    const rHole = mapStandardAnswers(aHole, stdCtx('TST', 'TST'));
+    check('A8e gimmick 扩全域：E 类 argmax=marketing_gimmick 拦（J1.45 前跨类空洞）',
+      rHole.llmResult.rating === 'low' && (rHole.llmResult.reason || '').includes('营销噱头'), rHole.llmResult.reason);
+  }
+
+  // A9 J1.45 dim2 同轴锚删除：题面不再要求「档位应基本一致」（0.85 同轴实证=
+  // 同一判断问两遍），改「同档主体传播面强弱细分」镜头 + 明确允许与档位不一致
+  {
+    const dq = qs.dimension2;
+    check('A9 dim2 题面瘦身：删同轴锚 + 传播面细分镜头 + 允许与档位不一致',
+      !dq.instructions.includes('档位应基本一致') && dq.instructions.includes('传播面的强弱细分')
+      && dq.instructions.includes('不同镜头') && dq.instructions.includes('按本题自己的证据如实评')
+      && dq.instructions.includes('两形状分流（J1.20）') && dq.instructions.includes('J1.23') && dq.instructions.includes('J1.35'),
+      dq.instructions.slice(0, 200));
   }
 
   // ═══ B. 融合关联分 ═══

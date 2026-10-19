@@ -334,7 +334,10 @@ const BLOCK_LABELS = {
  */
 const BLOCK_SCOPE = {
   empty_content: 'all',
-  marketing_gimmick: ['W', 'B'],
+  // J1.45（C110 扫描后裁定）扩全域：原 ['W','B'] 跨类空洞 261 行（E123/A104/
+  // C75/D63…，high/mid 逃逸 25 票实买 6 票，noneP 全<0.5）——「营销噱头无实质
+  // 产品」语义不分类别；pubProxy/platformOfficial 豁免仍在拦截位前置不受影响
+  marketing_gimmick: 'all',
   niche_subculture: ['A'],
   ip_reuse: ['A'],
   baseless_speculation: ['G'],
