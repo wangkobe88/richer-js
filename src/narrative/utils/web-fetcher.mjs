@@ -52,10 +52,13 @@ async function _fetchDirect(url, options = {}) {
 
   console.log(`[WebFetcher] 获取网页内容: ${url}`);
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+  // C86 的 clearTimeout 挪 finally 时 timeoutId 声明还留在 try 块内——finally 引用
+  // 不到 = 每次直抓成功都在 finally 抛 ReferenceError（2026-10-13 websiteFetch 关闭
+  // 后此路成死代码未暴露；C115 兜底复活该路径即炸）。声明提 to try 外。
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {

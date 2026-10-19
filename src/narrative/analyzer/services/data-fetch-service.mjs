@@ -73,6 +73,16 @@ const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false
 };
 
+// C115 纯 website 兜底语料判定的「全平台语料」键集（fetchDataSequentially results
+// 的全部 <x>Info 键去掉 websiteInfo 本身）：全 null = 无任何平台语料在手——
+// 平台无 URL 与抓取失败同形状；extractedInfo.description/intro 是宣告文案不算
+// 抓取语料，刻意不在集内（见 fetchDataSequentially 尾部 C115 段）
+const CORPUS_FALLBACK_INFO_KEYS = [
+  'twitterInfo', 'backgroundInfo', 'githubInfo', 'youtubeInfo', 'douyinInfo',
+  'tiktokInfo', 'bilibiliInfo', 'instagramInfo', 'xiaohongshuInfo', 'weixinInfo',
+  'amazonInfo', 'binanceSquareInfo',
+];
+
 /**
  * 基于URL分类器的统一数据获取流程
  * @param {Object} tokenData - 代币数据
@@ -846,36 +856,52 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   };
 
   // === 11. 普通网站数据 ===
-  const runWebsite = async () => {
-  // website 内容抓取总开关（2026-10-13 叙事提速第二批，用户裁定「网站内容现在基本
-  // 上没用到，网站的信息下载可以去除」）：narrative-engine.json websiteFetch.enabled
-  // 缺省/false → 整段跳过——websiteInfo 自然缺省（= 与今天「网站抓取失败」同形状，
-  // 消费点零改动；纯 website 语料票落「无语料 low」属预期漂移）。注意
-  // hasIndependentWebsite / URL 分类只看 classifiedUrls.websites 的 URL 域名不看
-  // 内容 → shouldCollectAccounts 门不受影响；回滚 = 配置改 true 重启，无代码回滚
-  if ((getConfig().websiteFetch || {}).enabled !== true) return;
-  const websiteUrlInfo = selectFirstUrl('websites');
-  if (websiteUrlInfo) {
+  // websites 桶可抓 URL 选取（enabled 桶内路径与 C115 兜底段共用；判定逐字保留
+  // 原内联——排除已由专门桶/专门 fetcher 承接的视频平台、GitHub、Amazon、币安
+  // 广场与 isFetchableUrl 不可抓形状）
+  const pickWebsiteCorpusUrl = () => {
+    const websiteUrlInfo = selectFirstUrl('websites');
+    if (!websiteUrlInfo) return null;
     const websiteUrl = websiteUrlInfo.url;
-    // 排除视频平台、GitHub和Amazon（已经处理过）
     const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin|bilibili|b23\.tv/i.test(websiteUrl);
     const isGithub = /github\.com/i.test(websiteUrl);
     const isAmazon = /amazon\.com/i.test(websiteUrl);
     const isBinanceSquare = /binance\.com\/.*\/square\//i.test(websiteUrl);
-
     if (!isVideoPlatform && !isGithub && !isAmazon && !isBinanceSquare && isFetchableUrl(websiteUrl)) {
-      const websiteFetch = await recordDataFetch(
-        () => fetchWebsiteContent(websiteUrl, { maxLength: 5000 }),
-        'website',
-        websiteUrl, timing
-      );
-      results.websiteInfo = websiteFetch.data;
-      dataFetchResults.website = websiteFetch.record;
-      if (!websiteFetch.record.success) {
-        results.fetchErrors.websiteError = websiteFetch.record.error;
-      }
+      return websiteUrlInfo;
     }
-  }
+    return null;
+  };
+
+  // 网站语料抓取单点（results/dataFetchResults/fetchErrors 写点，两路径同款；
+  // 返回实际抓取的 URL，无可抓 URL 返回 null）
+  const fetchWebsiteCorpusOnce = async () => {
+    const websiteUrlInfo = pickWebsiteCorpusUrl();
+    if (!websiteUrlInfo) return null;
+    const websiteUrl = websiteUrlInfo.url;
+    const websiteFetch = await recordDataFetch(
+      () => fetchWebsiteContent(websiteUrl, { maxLength: 5000 }),
+      'website',
+      websiteUrl, timing
+    );
+    results.websiteInfo = websiteFetch.data;
+    dataFetchResults.website = websiteFetch.record;
+    if (!websiteFetch.record.success) {
+      results.fetchErrors.websiteError = websiteFetch.record.error;
+    }
+    return websiteUrl;
+  };
+
+  const runWebsite = async () => {
+  // website 内容抓取总开关（2026-10-13 叙事提速第二批，用户裁定「网站内容现在基本
+  // 上没用到，网站的信息下载可以去除」）：narrative-engine.json websiteFetch.enabled
+  // 缺省/false → 桶内整段跳过——websiteInfo 自然缺省（= 与「网站抓取失败」同形状，
+  // 消费点零改动）。注意 hasIndependentWebsite / URL 分类只看 classifiedUrls.websites
+  // 的 URL 域名不看内容 → shouldCollectAccounts 门不受影响；回滚 = 配置改 true
+  // 重启。C115（2026-10-19 CZ4 案）修正：开关关不再等于「永不抓」——全平台语料
+  // 落空而 websites 桶提供了 URL 时，由 allSettled 后的兜底段补抓（见下）
+  if ((getConfig().websiteFetch || {}).enabled !== true) return;
+  await fetchWebsiteCorpusOnce();
   };
 
   // ── N2 平台桶并发（2026-10-13 叙事提速案）──
@@ -939,6 +965,26 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     })(),
     runWebsite(),
   ]);
+
+  // ── C115 纯 website 兜底语料（2026-10-19 CZ4 案 0xc6fe…7777，用户裁定「如果
+  // 所有的信息都不能获取，又提供了网站信息，就去获取一下 web 网站信息」）──
+  // websiteFetch.enabled 默认关（2026-10-13 提速裁定）的语义只省「有其它语料在
+  // 手」的票：全平台语料落空（以下 12 个 <x>Info 全 null——平台无 URL 与抓取
+  // 失败同形状；extractedInfo.description/intro 是宣告文案不算抓取语料，不参与
+  // 判定）而 websites 桶提供了可抓 URL 时，网站内容是该票唯一可得的语料源，
+  // 补抓一次（fetchWebsiteContent 直抓 + r.jina.ai 回退整链照常）。enabled=true
+  // 时桶内已抓过本段不重跑；有任一平台语料在手不触发（提速裁定的临界路径收益
+  // 保留）。dataFetchResults.website 落 additive 审计标记 corpusFallback=true
+  // （与 enabled 路径可区分）；抓取失败 fail-closed null——与「网站抓取失败」
+  // 旧形状一致，state/precheck/Jev 消费点零改动。
+  if ((getConfig().websiteFetch || {}).enabled !== true
+    && CORPUS_FALLBACK_INFO_KEYS.every(k => results[k] == null)) {
+    const fallbackUrl = await fetchWebsiteCorpusOnce();
+    if (fallbackUrl) {
+      if (dataFetchResults.website) dataFetchResults.website.corpusFallback = true;
+      console.log(`[NarrativeAnalyzer] C115 全平台语料落空，网站兜底抓取: ${fallbackUrl} → ${results.websiteInfo ? `成功 ${results.websiteInfo.content?.length ?? '?'} 字` : '失败'}`);
+    }
+  }
 
   return { ...results, classifiedUrls, dataFetchResults };
 }
