@@ -183,14 +183,14 @@ async function main() {
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H3 JEV_QUESTIONS_VERSION=J1.49（bump 纪律；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题）', JEV_QUESTIONS_VERSION === 'J1.49', JEV_QUESTIONS_VERSION);
+  check('H3 JEV_QUESTIONS_VERSION=J1.50（bump 纪律；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear）', JEV_QUESTIONS_VERSION === 'J1.50', JEV_QUESTIONS_VERSION);
   check('H4 题面合格分支②含通用网络梗缩写锚（DND/FOMO/LFG）',
     qSrc.includes('通用网络梗/文化缩写同构（如 DND=do not disturb、FOMO、LFG）'), null);
   check('H5 题面不合格分支含机构职位缩写（工牌 Chief Risk Officer→CRO）',
     qSrc.includes('机构职位/品牌内部缩写（如工牌上的 Chief Risk Officer→CRO）'), null);
-  check('H6 对照锚含 DND/CRO 缩写对（分界=用户侧感知）',
-    qSrc.includes('「DND」合格') && qSrc.includes('「CRO」不合格'), null);
-  check('H7 criteria 同步（meme_name 含通用网络梗缩写 / not_meme_name 含机构职位缩写）',
+  check('H6 对照锚含 DND/CRO 缩写对（J1.50 措辞：能接纳/不能接纳；分界=用户侧感知）',
+    qSrc.includes('「DND」能接纳') && qSrc.includes('「CRO」不能接纳'), null);
+  check('H7 criteria 同步（web3_user_acceptable 含通用网络梗缩写 / web3_user_not_acceptable 含机构职位缩写）',
     /通用网络梗缩写如 DND\/FOMO\/LFG/.test(qSrc) && /机构职位\/品牌内部缩写（工牌 Chief Risk Officer→CRO）/.test(qSrc), null);
 
   // ═══ 汇总 ═══

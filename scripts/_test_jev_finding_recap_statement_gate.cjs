@@ -171,7 +171,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
-  check('A1 版本号 = J1.49（C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界+not_meme_name 根本判据；J1.49=C118 image_depicts_name 条件题（载体豁免演绎臂）)', JEV_QUESTIONS_VERSION === 'J1.49', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.50（C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + relevance_type/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.50', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 finding_vs_recap 恒带（默认题集）', 'finding_vs_recap' in qs, Object.keys(qs).length);
   check('A3 name_form 恒带（默认题集）', 'name_form' in qs, null);
@@ -181,15 +181,15 @@ async function main() {
   check('A5 finding_vs_recap 关键判别锚：发现语气不构成发现（大V报道→news_recap）',
     fvr.instructions.includes('不构成发现') && fvr.instructions.includes('目击动作'), null);
   const nf = qs.name_form;
-  check('A6 name_form type=choice 三态收敛（meme_name/not_meme_name/unclear；C107 旧四分类 id 全部退役）', nf.type === 'choice'
-    && ['meme_name', 'not_meme_name', 'unclear'].every(k => k in nf.criteria)
-    && !['entity_phrase', 'statement', 'functional_label'].some(k => k in nf.criteria), Object.keys(nf.criteria));
+  check('A6 name_form type=choice 三态（J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
+    && ['web3_user_acceptable', 'web3_user_not_acceptable', 'unclear'].every(k => k in nf.criteria)
+    && !['meme_name', 'not_meme_name', 'entity_phrase', 'statement', 'functional_label'].some(k => k in nf.criteria), Object.keys(nf.criteria));
   check('A7 name_form 判名字本身不判指向对象（影响力/玩味价值另有题评）',
     nf.instructions.includes('判名字本身，不判名字指向对象的影响力/玩味价值'), null);
-  check('A7b name_form 单一判据锚：「是否合适作为 meme 币」是唯一判据（C107 裁定原话进题面）',
-    nf.instructions.includes('「是否合适作为 meme 币」是唯一判据'), null);
-  check('A8 name_form 口号/宣言/代号是可传播符号 → 合格',
-    nf.criteria.meme_name.includes('口号/宣言/代号'), null);
+  check('A7b name_form 单一判据锚：「能否接纳」是唯一问法与唯一判据（J1.50 问法收敛，C107/C108 裁定语义延续）',
+    nf.instructions.includes('能否接纳是唯一问法与唯一判据'), null);
+  check('A8 name_form 口号/宣言/代号是可传播符号 → 能接纳',
+    nf.criteria.web3_user_acceptable.includes('口号/宣言/代号'), null);
   check('A9 name_form 中英文名取更完整的一个判', nf.instructions.includes('取更完整的一个判'), null);
   check('A10 event_category F 档澄清（目击/报道新闻≠发现→判 E/D，spotted 语气不满足 F）',
     /F:\s*'Discovery:[^']*NOT a news event the author merely witnessed\/reported/.test(
@@ -199,17 +199,17 @@ async function main() {
     && 'name_form' in buildStandardQuestions({ includeBrandHijack: true }), null);
   // C107 收敛锚 + C108 统一门锚
   check('A12 name_form 不限列举锚（判定锚列举实例但下一形态不用再加选——反打地鼠）',
-    nf.instructions.includes('不限于此') && nf.instructions.includes('凡「用户侧不接纳这名字当 meme 符号」的形态都算'), null);
+    nf.instructions.includes('不限于此') && nf.instructions.includes('凡「web3 用户不接纳这名字当 meme 符号」的形态都算'), null);
   check('A13 name_form 核心词修饰锚（「XX 完整版」核心是 XX → 合格，防误伤）',
     nf.instructions.includes('（「XX 完整版」核心是 XX）'), null);
   check('A14 name_form 两案事故词都在判定锚（币安上电视 C96 + 日本語版 C105）',
     nf.instructions.includes('日本語版') && nf.instructions.includes('币安上电视')
-    && nf.criteria.not_meme_name.includes('X語版/完整版/version'), null);
-  // C108 三轮裁定锚（EARLY 案触发：总判据=用户侧感知）
-  check('A15 name_form 总判据锚（C108 裁定原话：web3 用户能不能接纳 + 用户侧感知）',
-    nf.instructions.includes('web3 用户能不能接纳这个名字作为 meme 币的名字') && nf.instructions.includes('用户侧对它有没有感知'), null);
-  check('A16 name_form 三对照锚进题面（Early 合格 / 滑雪、我要去不合格——分界=用户侧感知）',
-    nf.instructions.includes('「Early」合格') && nf.instructions.includes('「我要去」都不合格')
+    && nf.criteria.web3_user_not_acceptable.includes('X語版/完整版/version'), null);
+  // C108 三轮裁定锚（EARLY 案触发：总判据=用户侧感知；J1.50 措辞「能不能」→「能否」）
+  check('A15 name_form 总判据锚（用户视角问法：web3 用户能否接纳 + 用户侧感知）',
+    nf.instructions.includes('web3 用户能否接纳这个名字作为 meme 币的名字') && nf.instructions.includes('用户侧对它有没有感知'), null);
+  check('A16 name_form 三对照锚进题面（Early 能接纳 / 滑雪、我要去不能接纳——分界=用户侧感知）',
+    nf.instructions.includes('「Early」能接纳') && nf.instructions.includes('「我要去」都不能接纳')
     && nf.instructions.includes('不是词出自谁、也不是是否截自语料'), null);
   check('A17 name_form 无名实体锚（分支①：币安普通员工花名不合格，被大V提到不改变其无名）',
     nf.instructions.includes('指向无名实体') && nf.instructions.includes('如币安普通员工的花名')
@@ -272,8 +272,9 @@ async function main() {
     }), stdCtx('TST', 'TST'));
     check(`C ${cat} 类+not_meme_name → 拦`, blockedBy(r, NF_LABEL), r.llmResult.reason);
   }
-  // 放行臂：新形状 meme_name + fail-open 臂 + 兼容形状 entity_phrase（旧缓存行）
-  const passArms = [['meme_name', 'meme_name（J1.41 合格）'], ['entity_phrase', 'entity_phrase（J1.37-J1.40 旧缓存行兼容放行）'], ['unclear', 'unclear（fail-open）'], [null, '缺失（旧缓存行 fail-open）']];
+  // 放行臂：J1.50 新形状 web3_user_acceptable + J1.41-J1.48 旧形状 meme_name
+  // （兼容放行）+ fail-open 臂 + 兼容形状 entity_phrase（旧缓存行）
+  const passArms = [['web3_user_acceptable', 'web3_user_acceptable（J1.50 新键·能接纳）'], ['meme_name', 'meme_name（J1.41-J1.48 旧键兼容放行）'], ['entity_phrase', 'entity_phrase（J1.37-J1.40 旧缓存行兼容放行）'], ['unclear', 'unclear（fail-open）'], [null, '缺失（旧缓存行 fail-open）']];
   for (const [form, note] of passArms) {
     const a = baseAnswers('D');
     if (form) a.name_form = { choice: form, probabilities: { [form]: 0.8 } };
@@ -281,6 +282,15 @@ async function main() {
     const r = mapStandardAnswers(a, stdCtx('TST', 'TST'));
     check(`C ${note} → 不拦（rating 非 low 或 reason 无名字门）`, !blockedBy(r, NF_LABEL), r.llmResult.reason);
   }
+  // C0 J1.50 新键拦臂：web3_user_not_acceptable 同门同 label（键名断代正证）
+  const rNewKey = mapStandardAnswers(baseAnswers('D', {
+    name_form: { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.9 } },
+  }), stdCtx('TST', 'TST'));
+  check('C0 J1.50 新键 web3_user_not_acceptable → 拦（label 同门）+ stage1 nameForm 原样透传',
+    blockedBy(rNewKey, NF_LABEL)
+    && rNewKey.stage1DataToSave.parsed_output.jev.nameForm === 'web3_user_not_acceptable'
+    && JSON.stringify(rNewKey.stage2DataToSave.parsed_output.jev.nameFormBlock) === '{"form":"web3_user_not_acceptable"}',
+    rNewKey.stage1DataToSave.parsed_output.jev.nameForm);
   // C 专项：五腿全中（superIpSlogan=true）也不豁——mem 3≥2 五腿命中，not_meme_name 仍拦
   const rFive = mapStandardAnswers(baseAnswers('C', {
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
@@ -514,8 +524,8 @@ async function main() {
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
   check('F1 门函数 notMemeNameBlock（Set 成员判定，非成员短路 null）',
     /function notMemeNameBlock\(answers\) \{\s*\n\s*const choice = answers\?\.name_form\?\.choice;\s*\n\s*if \(!NOT_MEME_NAME_CHOICES\.has\(choice\)\) return null;\s*\n\s*return \{ label: '币名不适合作为 meme 符号（名字门）', form: choice \};/.test(mapperSrc), null);
-  check('F1b 兼容 Set 三值锁死（not_meme_name+statement+functional_label——断代 bit 兼容红线）',
-    mapperSrc.includes("const NOT_MEME_NAME_CHOICES = new Set(['not_meme_name', 'statement', 'functional_label']);"), null);
+  check('F1b 兼容 Set 四值锁死（web3_user_not_acceptable 新键 + not_meme_name/statement/functional_label 旧键——J1.50 键名断代 bit 兼容红线，存量缓存行照拦）',
+    /const NOT_MEME_NAME_CHOICES = new Set\(\[\s*\n\s*'web3_user_not_acceptable',[^]*?'not_meme_name', 'statement', 'functional_label',[^]*?\]\);/.test(mapperSrc), null);
   check('F2 门链序：nf（名字门=唯一名字位）→ 载体门（索引严格递增；C108 后 rm/memFloor 退役）', (() => {
     const nfIdx = mapperSrc.indexOf('nfBlock = notMemeNameBlock(answers)');
     const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category');

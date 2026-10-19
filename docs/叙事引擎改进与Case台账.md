@@ -68,6 +68,51 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C119 用户视角三题统一 + name_form 键名断代——「一切从用户角度出发」（2026-10-19 猫案三轮）★
+
+- **现场**：`0x21573053e3ecda168007315f9153be78afa17777`（「只是一只猫」，C116 案
+  三轮）。C116 名字门修掉后重析：nameForm 翻 meme_name，但**量级门拦**——
+  stage2Total 59.72<60（事件分 22·C 档+传播面 22.72+时效 15）。归因：猫梗事件
+  对 web3 用户接纳度高，但 event_magnitude/dimension2 按客观规模带（主体量级/
+  粉丝/传播数据）判档，社区级传播的猫梗被压在 C 档——「客观传播数据小」≠
+  「web3 用户无感」。
+- **用户裁定**（成体系，非单点）：「nameForm 改成『web3 用户能否接纳作为 meme
+  名字』，事件与名字的关联改为『web3 用户能否理解并接纳这种关联』，一切从
+  用户角度出发」；事件分「也改成『Web3用户对事件的接纳与被影响程度』，三个
+  维度作为参考吧，不是定死的」——三个维度=**既有公式三项**（事件分/传播面/
+  时效），从定死映射降为参考锚。键名「我的建议是 web3_user_acceptable」→
+  三态 `web3_user_acceptable / web3_user_not_acceptable / unclear`。
+- **实现**（J1.50 题集 bump，题数不变 16/条件 17）：
+  ①**name_form 问法收敛+键名断代**：问法改「web3 用户能否接纳这个名字作为
+  meme 币的名字——能否接纳是唯一问法与唯一判据」；三态键改名，对照锚措辞
+  合格/不合格→能接纳/不能接纳。mapper `NOT_MEME_NAME_CHOICES` 收新拦键
+  `web3_user_not_acceptable` + 全旧键（not_meme_name/statement/
+  functional_label 存量缓存行照拦，C107 断代 bit 兼容先例）；正臂结构不变
+  ——Set 外即放行（web3_user_acceptable/meme_name/entity_phrase/unclear/
+  缺失 fail-open），无需枚举。
+  ②**relevance_type 主轴换用户理解度**（Stage3 关联分，不进 Stage2 60 分线）：
+  「web3 用户能否理解并接纳这种关联」——各档=「关联方式×用户理解度」刻画，
+  非客观语言学自足分类；用户 get 不到的关联不因论证成立而升档。
+  ③**event_magnitude 判定主轴**改「Web3 用户对事件的接纳与被影响程度」+
+  **dimension2 同主轴**「实际被调动起来的传播面」：客观规模维度（主体量级/
+  粉丝/传播数据/关联形状）降为参考锚与证据来源；**Web3 meme 原生母题**
+  （猫狗/动物梗、doge 系、圈内梗、AI 极客梗、可爱萌系；J1.23 圈内偏好同款）
+  按用户侧实际被影响程度**升档**，圈外传统热点不因规模大而升档。**聚合/
+  阈值/截断全在代码侧不动**（MAGNITUDE_TIER_SCORES/60 分线照旧——只有判档
+  判据换轴，分数锚定不变，C108「题面改锚分不动」纪律反向适用：改的是档位
+  判据非分数映射）。
+- **验证**：`_test_jev_finding_recap_statement_gate` 104 断言全绿（新增 C0 新键
+  真值表臂：web3_user_not_acceptable 同门同 label+stage1 nameForm 透传+
+  nameFormBlock form 落新键；passArms 增 web3_user_acceptable 臂）；7 文件
+  版本锁 J1.49→J1.50；**存量漏 bump 顺手修复**：consolidation 测试 J1.47
+  （J1.48/J1.49 两轮漏）+ case_regression_lib F2 票数 34→36（C114/C117 两批
+  收录漏）。邻接 6 叙事测试全绿（subject_carrier/product_entity/
+  referent_memeability/notable_other_exit/narrative_trigger_condition/
+  case_regression_lib）。
+- **断代语义**：存量缓存行不重放 mapper，行为 bit 不变；重析票按新键新判据
+  出档。182 部署+猫票定向重析（关注 stage2Total 是否过 60——名字门已过，
+  卡点纯在事件档）+回归票收录+全量对拍待办。
+
 ### C118 载体豁免认演绎关系——image_depicts_name 条件题（2026-10-19 DND 案二轮）★
 
 - **现场**：`0x4dbcb10e68626b6f663bd596905d41cdc6b07777`（DND，BinancePk 80 万粉

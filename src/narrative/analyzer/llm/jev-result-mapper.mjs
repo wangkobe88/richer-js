@@ -470,12 +470,23 @@ function subjectCarrierBlock(answers, category, opts) {
  * → 放行（语义等价 meme_name）；unclear/缺失 → fail-open。存量行行为与断代前
  * 逐位一致（缓存行不重放 mapper，重析票按新门判）。
  *
+ * J1.50（C119 用户视角统一）键名断代：name_form 三态改名
+ * web3_user_acceptable / web3_user_not_acceptable / unclear（问法收敛「web3
+ * 用户能否接纳这个名字作为 meme 币的名字」）。本 Set 收新拦键
+ * web3_user_not_acceptable + 全部旧拦键（not_meme_name/statement/
+ * functional_label 存量缓存行照拦）；positive 侧结构不变——Set 外即放行
+ * （web3_user_acceptable/meme_name/entity_phrase/unclear/缺失 fail-open），
+ * 正臂无需枚举。
+ *
  * C88 superIpSlogan 五腿刻意不豁（继承）：五腿前提是口号票（名字=口号=可
  * 传播符号），陈述句/版本词名字连口号都不是。全域（不限类别）；无概率 mass
  * （choice 档位门）；unclear/答案缺失 fail-open 不拦（生产链 JevClient 缺
  * 答案 throw）。
  */
-const NOT_MEME_NAME_CHOICES = new Set(['not_meme_name', 'statement', 'functional_label']);
+const NOT_MEME_NAME_CHOICES = new Set([
+  'web3_user_not_acceptable', // J1.50 新键（C119）
+  'not_meme_name', 'statement', 'functional_label', // J1.37-J1.48 存量行兼容
+]);
 
 function notMemeNameBlock(answers) {
   const choice = answers?.name_form?.choice;
