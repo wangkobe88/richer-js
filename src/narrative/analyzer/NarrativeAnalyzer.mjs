@@ -872,7 +872,10 @@ export class NarrativeAnalyzer {
     // 同构，superip-labels 单实现共享）；save 回读瘦列无 stage 列，return 显式覆盖
     const superIpLabels = deriveSuperIpLabels(stage1DataToSave, stage2DataToSave);
 
-    // 构建 stage_final_result
+    // 构建 stage_final_result。stageFinalData=null（precheck 拦截/prestage 拒等未跑完
+    // stage 的路径）必须显式 __clear 清列——2026-10-19 回归实锤：空对象 spread 使列
+    // 不进 save 集，旧 high fin 残留遮蔽新拦截（バイナナンス人生案：pcr=expired_tweet
+    // 拦截 + fin 残留旧 high 76.99 并存）；stage1/2/3 同款机制在 buildStageSaveData
     const stageFinalSaveData = stageFinalData ? {
       stage_final_result: {
         rating: stageFinalData.category, // high/mid/low
@@ -889,7 +892,7 @@ export class NarrativeAnalyzer {
           blockReason: stageFinalData.blockReason
         }
       }
-    } : {};
+    } : { stage_final_result: { __clear: true } };
 
     const saveResult = await timing.wrap('dbSave.final', () => NarrativeRepository.save({
       // === 基础字段 ===

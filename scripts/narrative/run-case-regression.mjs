@@ -25,7 +25,7 @@ const { interpret, assertExpectation, loadAndValidateFixtures, toCsv } = await i
 const { NarrativeAnalyzer } = await import('../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
 const { NarrativeRepository } = await import('../../src/narrative/db/NarrativeRepository.mjs');
 
-const ROW_COLS = 'token_address,token_symbol,analyzed_at,analysis_stage,stage1_result,stage2_result,stage_final_result,pre_check_result';
+const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,stage1_result,stage2_result,stage_final_result,pre_check_result';
 
 function parseArgs(argv) {
   const out = { only: null, dry: false, backupDir: '/tmp' };
@@ -97,11 +97,11 @@ async function main() {
       failures.push(`重析异常: ${e?.message || e}`);
     }
     const tag = status === 'PASS' ? '✅' : status === 'FAIL' ? '❌' : status === 'ERROR' ? '💥' : '⚠️';
-    console.log(`${tag} ${c.caseId} ${c.symbol}: 基线 ${base.rating ?? '无'} → 现评级 ${interp?.rating ?? '-'} score=${interp?.score ?? '-'} rule=${interp?.ruleName ?? '-'} [${status}]`);
+    console.log(`${tag} ${c.caseId} ${c.symbol}: 基线 ${base.rating ?? '无'} → 现评级 ${interp?.rating ?? '-'} score=${interp?.score ?? '-'} cat=${interp?.tokenCategory ?? '-'} rule=${interp?.ruleName ?? '-'} [${status}]`);
     console.log(`   reason: ${(interp?.reason ?? '-').slice(0, 120)}`);
     for (const f of failures) console.log(`   · ${f}`);
     if (c.observe && status !== 'PASS') console.log(`   ⚠ observe: ${c.observe}`);
-    results.push({ caseId: c.caseId, symbol: c.symbol, addr: c.addr, status, expect: c.expect ?? {}, observe: c.observe ?? null, caseNote: c.note ?? '', baseline: { rating: base.rating, reason: base.reason, ruleName: base.ruleName, score: base.score }, current: interp ? { rating: interp.rating, reason: interp.reason, ruleName: interp.ruleName, score: interp.score, stage: interp.stage } : null, failures });
+    results.push({ caseId: c.caseId, symbol: c.symbol, addr: c.addr, status, expect: c.expect ?? {}, observe: c.observe ?? null, caseNote: c.note ?? '', baseline: { rating: base.rating, reason: base.reason, ruleName: base.ruleName, score: base.score, tokenCategory: base.tokenCategory }, current: interp ? { rating: interp.rating, reason: interp.reason, ruleName: interp.ruleName, score: interp.score, stage: interp.stage, tokenCategory: interp.tokenCategory } : null, failures });
   }
 
   const summary = { total: results.length, pass: results.filter((r) => r.status === 'PASS').length, fail: results.filter((r) => r.status === 'FAIL').length, observeDeviation: results.filter((r) => r.status === 'OBSERVE-DEVIATION').length, error: results.filter((r) => r.status === 'ERROR').length };

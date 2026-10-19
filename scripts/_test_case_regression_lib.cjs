@@ -75,12 +75,20 @@ async function main() {
 
   check('A10 判读输入缺失', assertExpectation(null, {}).failures.length === 1);
 
+  // A11 tokenCategory / tokenCategoryExcludes（C85 'project' 断言、C75/C83 脱离 super_ip_fast）
+  const i11 = { rating: 'mid', reason: '', ruleName: '', blob: '' };
+  check('A11 tokenCategory 精确等/不等拒/Excludes 命中拒',
+    assertExpectation({ ...i11, tokenCategory: 'project' }, { tokenCategory: 'project' }).failures.length === 0
+    && assertExpectation({ ...i11, tokenCategory: 'event:W' }, { tokenCategory: 'project' }).failures.length === 1
+    && assertExpectation({ ...i11, tokenCategory: 'super_ip_fast' }, { tokenCategoryExcludes: ['super_ip_fast'] }).failures.length === 1
+    && assertExpectation({ ...i11, tokenCategory: 'event:W' }, { tokenCategoryExcludes: ['super_ip_fast'] }).failures.length === 0);
+
   // ── loadAndValidateFixtures：真实 fixtures 全过 + 事故形状反证 ──
   const fixturesPath = path.resolve(__dirname, 'narrative/case-regression-fixtures.json');
   const doc = JSON.parse(require('fs').readFileSync(fixturesPath, 'utf8'));
   const real = loadAndValidateFixtures(doc);
   check('F1 真实 fixtures 校验零错误', real.errors.length === 0, real.errors.join('; '));
-  check('F2 票数=19', real.cases.length === 19, String(real.cases.length));
+  check('F2 票数=33（≥30 扩集）', real.cases.length === 33, String(real.cases.length));
   check('F3 caseId 无重复', new Set(real.cases.map((c) => c.caseId)).size === real.cases.length);
 
   const bad = loadAndValidateFixtures({ cases: [
@@ -95,12 +103,13 @@ async function main() {
   // ── toCsv：转义与列对齐 ──
   check('C1 csvEscape 引号双写', csvEscape('a"b,c') === '"a""b,c"', csvEscape('a"b,c'));
   check('C2 csvEscape null/undefined 空', csvEscape(null) === '' && csvEscape(undefined) === '');
-  const csv = toCsv([{ caseId: 'T', symbol: '测试,票', addr: '0xabc', status: 'PASS', expect: { rating: ['high', 'mid'] }, baseline: { rating: 'low', reason: 'r1' }, current: { rating: 'mid', reason: '含"引号"文案' }, failures: [] }]);
+  const csv = toCsv([{ caseId: 'T', symbol: '测试,票', addr: '0xabc', status: 'PASS', expect: { rating: ['high', 'mid'], tokenCategoryExcludes: ['super_ip_fast'] }, baseline: { rating: 'low', reason: 'r1' }, current: { rating: 'mid', reason: '含"引号"文案', tokenCategory: 'project' }, failures: [] }]);
   const lines = csv.split('\n');
-  check('C3 toCsv 头行+数据行', lines.length === 2 && lines[0].split(',').length === 23, lines[0]);
+  check('C3 toCsv 头行+数据行', lines.length === 2 && lines[0].split(',').length === 25, lines[0]);
   check('C4 数组 rating | 连接', /,high\|mid,/.test(lines[1]), lines[1].slice(0, 80));
   check('C5 逗号字段转义', lines[1].includes('"测试,票"'), lines[1].slice(0, 80));
   check('C6 内嵌引号双写', lines[1].includes('含""引号""'), lines[1].slice(-80));
+  check('C7 tokenCat 期望≠前缀+当前列', lines[1].includes('≠super_ip_fast') && /,project,"含/.test(lines[1]), lines[1].slice(-120));
 
   console.log(`\n全部通过 ✅（${passed} 断言，case 回归断言器）`);
 }

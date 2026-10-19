@@ -16,7 +16,7 @@
  */
 export function interpret(row) {
   if (!row) {
-    return { rating: null, reason: null, ruleName: null, score: null, stage: null, blob: '' };
+    return { rating: null, reason: null, ruleName: null, score: null, stage: null, tokenCategory: null, blob: '' };
   }
   const fin = row.stage_final_result ?? null;
   const pcr = row.pre_check_result ?? null;
@@ -29,6 +29,8 @@ export function interpret(row) {
     ruleName: pcr?.details?.ruleName ?? pcr?.ruleName ?? null,
     score: fin?.score ?? null,
     stage: row.analysis_stage ?? null,
+    // token_category（C85 断言 'project'；C75/C83 断言不再 'super_ip_fast'——快车道退役面）
+    tokenCategory: row.token_category ?? null,
     // 审计子串匹配源：三个结果列整体序列化（superIpSlogan/subjectCarrierImgOverride 等审计键落在内）
     blob: JSON.stringify({
       fin, pcr,
@@ -87,6 +89,19 @@ export function assertExpectation(interp, expect) {
     if (!interp.blob.includes(key)) failures.push(`审计键「${key}」不在场（stage1/stage2 结果列缺失该键）`);
   }
 
+  // tokenCategory：精确等（C85 断言 'project'）
+  if (e.tokenCategory !== undefined && e.tokenCategory !== null) {
+    if (interp.tokenCategory !== e.tokenCategory) {
+      failures.push(`token_category=${interp.tokenCategory ?? 'null'} ≠ 预期 ${e.tokenCategory}`);
+    }
+  }
+  // tokenCategoryExcludes：不得再出现的类别（C75/C83 断言脱离 super_ip_fast 快车道）
+  for (const cat of e.tokenCategoryExcludes ?? []) {
+    if (interp.tokenCategory === cat) {
+      failures.push(`token_category 仍为「${cat}」（预期已脱离该形状）`);
+    }
+  }
+
   return { failures };
 }
 
@@ -115,9 +130,12 @@ export function loadAndValidateFixtures(doc) {
       const allowed = Array.isArray(c.expect.rating) ? c.expect.rating : [c.expect.rating];
       for (const r of allowed) if (!RATING_SET.has(r)) errors.push(`${c.caseId} expect.rating 非法枚举: ${r}`);
     }
-    for (const arrField of ['reasonIncludes', 'reasonExcludes', 'precheckRuleIncludes', 'precheckRuleExcludes', 'auditIncludes']) {
+    for (const arrField of ['reasonIncludes', 'reasonExcludes', 'precheckRuleIncludes', 'precheckRuleExcludes', 'auditIncludes', 'tokenCategoryExcludes']) {
       const v = c.expect?.[arrField];
       if (v !== undefined && !Array.isArray(v)) errors.push(`${c.caseId} expect.${arrField} 须为数组`);
+    }
+    if (c.expect?.tokenCategory !== undefined && typeof c.expect.tokenCategory !== 'string') {
+      errors.push(`${c.caseId} expect.tokenCategory 须为字符串`);
     }
   }
   return { cases, errors };
@@ -136,17 +154,18 @@ export function csvEscape(v) {
  * 回归结果行 → CSV（期望/基线/当前/状态同表，BOM 由调用方前置）。
  */
 export function toCsv(rows) {
-  const HEADERS = ['caseId', 'symbol', 'addr', 'status', '期望rating', '期望reason关键词', '期望禁词', '期望precheck规则', '期望禁规则', '期望审计键', '期望说明', '基线rating', '基线score', '基线ruleName', '基线reason', '当前rating', '当前score', '当前ruleName', '当前stage', '当前reason', '失败明细', 'observe说明', 'case语义'];
+  const HEADERS = ['caseId', 'symbol', 'addr', 'status', '期望rating', '期望reason关键词', '期望禁词', '期望precheck规则', '期望禁规则', '期望审计键', '期望tokenCat', '期望说明', '基线rating', '基线score', '基线ruleName', '基线reason', '当前rating', '当前score', '当前ruleName', '当前stage', '当前tokenCat', '当前reason', '失败明细', 'observe说明', 'case语义'];
   const lines = [HEADERS.join(',')];
   for (const r of rows) {
+    const expectCat = r.expect?.tokenCategory ?? ((r.expect?.tokenCategoryExcludes ?? []).length ? `≠${r.expect.tokenCategoryExcludes.join('|≠')}` : '');
     lines.push([
       r.caseId, r.symbol, r.addr, r.status,
       Array.isArray(r.expect?.rating) ? r.expect.rating.join('|') : r.expect?.rating ?? '',
       (r.expect?.reasonIncludes ?? []).join('|'), (r.expect?.reasonExcludes ?? []).join('|'),
       (r.expect?.precheckRuleIncludes ?? []).join('|'), (r.expect?.precheckRuleExcludes ?? []).join('|'),
-      (r.expect?.auditIncludes ?? []).join('|'), r.expect?.note ?? '',
+      (r.expect?.auditIncludes ?? []).join('|'), expectCat, r.expect?.note ?? '',
       r.baseline?.rating, r.baseline?.score, r.baseline?.ruleName, r.baseline?.reason,
-      r.current?.rating, r.current?.score, r.current?.ruleName, r.current?.stage, r.current?.reason,
+      r.current?.rating, r.current?.score, r.current?.ruleName, r.current?.stage, r.current?.tokenCategory, r.current?.reason,
       (r.failures ?? []).join(' | '), r.observe ?? '', r.caseNote ?? '',
     ].map(csvEscape).join(','));
   }

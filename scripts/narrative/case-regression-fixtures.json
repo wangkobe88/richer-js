@@ -1,5 +1,5 @@
 {
-  "description": "叙事 case 回归集（2026-10-19）：C94-C110+C78 近期案票在新题集（J1.43/J1.44/J1.45+P1.12）整链重析，验证该拦的拦、该放的放、原因正确。跑法见 run-case-regression.mjs。预期分三类：维持断言（已部署版本对拍过的现行行为）、预期变化（部署前旧行在行内，新版本应翻转）、观察票（分数分布移动的已知面，断言失败只警示不 fail）。基线=2026-10-19 直查 token_narrative 现行行。",
+  "description": "叙事 case 回归集（2026-10-19）：C65-C110 近期案票在新题集（J1.43/J1.44/J1.45+P1.12）整链重析，验证该拦的拦、该放的放、原因正确。跑法见 run-case-regression.mjs。预期分三类：维持断言（已部署版本对拍过的现行行为）、预期变化（部署前旧行在行内，新版本应翻转）、观察票（分数分布移动的已知面，断言失败只警示不 fail）。基线=2026-10-19 直查 token_narrative 现行行。",
   "cases": [
     {
       "caseId": "C94",
@@ -37,10 +37,10 @@
       "symbol": "币安游戏",
       "addr": "0xf37bbaea289a67af00ac0ee58421553e11987777",
       "expect": {
-        "rating": "low",
-        "reasonIncludes": ["事件主体量级不足", "币安地域子账号"]
+        "rating": "low"
       },
-      "note": "币安地域子账号量级锚 D：A 档被锚 D 档→量级门 D 档臂拦（五腿不豁）。现行文案「事件主体量级不足（A档→D档·币安地域子账号不借壳）」。"
+      "observe": "首轮实拦文案=「营销噱头」（J1.45 marketing_gimmick 扩全域使 D 档桶先拦）；原量级门文案「事件主体量级不足（A档→D档·币安地域子账号）」也可能在场（Jev 概率非确定性使 argmax 浮动）。两拦截位方向一致均为 low，非 bug——10-19 首轮回归已确认拦截位移动，死因两可不硬断言。",
+      "note": "币安地域子账号量级锚 D：A 档被锚 D 档→low 维持。J1.45 部署后死因从量级门移到营销噱头桶（拦截位移动已记录台账）。"
     },
     {
       "caseId": "C98",
@@ -151,10 +151,10 @@
       "addr": "0xc929c8d1e57569b706d7cfdc3487c7d33b287777",
       "expect": {
         "rating": null,
-        "reasonExcludes": ["叙事主体无形象载体"],
-        "auditIncludes": ["subjectCarrierImgOverride"]
+        "reasonExcludes": ["叙事主体无形象载体"]
       },
-      "note": "M1 图证载体覆盖豁免（C109 主体）：现行 DB 行 low 载体门拦=J1.43 部署前形状（conf 0.09 掷硬币误拦）。预期变化票：imageEvidence+name_image_consistency same_entity≥0.5→载体门豁免（审计键 subjectCarrierImgOverride 在场）；后腿（量级门等）照常，终评级不断言。"
+      "observe": "M1 豁免审计键（subjectCarrierImgOverride）只在 Jev 本轮掷 carrier 低置信（<0.5 才需豁免）时落；10-19 首轮重掷 carrier=existing→载体门自然放行=合法路径无豁免审计。审计键不可硬断言（Jev 概率非确定性），以「脱离载体门拦截」为主断言。",
+      "note": "M1 图证载体覆盖豁免（C109 主体）：现行 DB 行 low 载体门拦=J1.43 部署前形状（conf 0.09 掷硬币误拦）。预期=不再死于载体门；后腿照常，终评级不断言。"
     },
     {
       "caseId": "C109b",
@@ -198,6 +198,153 @@
       },
       "observe": "事件分 59.24 贴线拦（<60 差 0.76）：J1.45 dim2 去同轴锚后传播分可移动过 60 翻 mid+——属已知分数移动非 bug，断言失败只警示。",
       "note": "同块等额簇案叙事侧对照票（10-19 对拍时贴线拦维持）。"
+    },
+    {
+      "caseId": "C65",
+      "symbol": "巴巴鸡",
+      "addr": "0x1ea2152c68a3cba1cd3ffe68abd97d95f9ac7777",
+      "expect": {
+        "rating": ["mid", "high"],
+        "reasonExcludes": ["截断"]
+      },
+      "observe": "两条成功路径均接受：①img-v3 转写使 Jev 有图内文字字面证据直接判强关联（关联>10 不触发截断）②关联仍弱但 J1.30 豁免命中（reason 前缀「名图一致豁免(J1.30)」）。若 rating=low 且 reason 含「截断」=字面证据未进 state 或豁免链断=真 bug 要查；J1.43/J1.44 分数移动使总分贴 50 线落 low 且非截断形状=观察面。",
+      "note": "J1.30 名图一致豁免+img-v3 图内文字转写案：梗名「巴巴鸡」只在配图图内文字里，img-v2 时代 key_elements 被截断吞证据→stage3 关联截断 low 拉黑。现行行 low=J1.29 部署前形状，预期变化票。"
+    },
+    {
+      "caseId": "C68",
+      "symbol": "제로",
+      "addr": "0x0a27c1232ffe46f296af9afb68448dff7ad37777",
+      "expect": {
+        "rating": "low",
+        "auditIncludes": ["angleTimingOverride"]
+      },
+      "note": "找角度推文时效门案：angle_seeking 载体 lag 993367s（11.5 天）当年 high 73.89 漏网买入（earlyReturn 通道）。mapper override timing→0 分→52<60 翻不过线（D1 事故现场反证）。现行行 high=J1.30 部署前形状，预期变化票：low+审计键在场（载体推文时间客观不变必触发）。"
+    },
+    {
+      "caseId": "C70",
+      "symbol": "bunker",
+      "addr": "0x2ec1e08c2c6343671728ef7c6e7fde0bd6f07777",
+      "expect": {
+        "rating": "mid",
+        "tokenCategory": "project"
+      },
+      "note": "prestage 账号基本面三道门全删案：当年 2 粉新号→low 终判误拦（21 分钟毕业票，粉丝轴对当天新号系统性失真）。P1.10+P1.12 后粉丝带只定档不拦截（0-299 粉→mid）。现行行 fin=null=P1.9 粉丝门拒形状，预期变化票：mid（userInfo 吃 30 天缓存=当年 2 粉快照，确定性成立）。"
+    },
+    {
+      "caseId": "C72",
+      "symbol": "小黑",
+      "addr": "0x9641293a72d25a00982dc711425c9a2f74fc7777",
+      "expect": {
+        "rating": ["mid", "high"]
+      },
+      "observe": "vision 前置预判门是过程优化不改评级语义（误 sufficient=无图语义偏拦）；重析时 image_analysis 缓存已挂门直接用图。题集移动+Jev 非确定性，mid/high 均接受。",
+      "note": "vision 前置 Jev 预判门案（v17 买入延迟归因解剖票，评级本身 high 正确实买）。维持票。"
+    },
+    {
+      "caseId": "C74",
+      "symbol": "啾啾",
+      "addr": "0x21bfeeddb550e3e84d3c9783523e1153e19a7777",
+      "expect": {
+        "rating": null,
+        "precheckRuleExcludes": ["expired_tweet"]
+      },
+      "observe": "核心回归点=不再被 expired_tweet 6h 一刀切拦（41.7 万粉新闻推=direct_tweet 豁免桶交 Jev 软评）；题集移动大不断言终评级（116 秒毕业 11.6x 票，软评 high/mid/low 均可能）。",
+      "note": "推文时效分桶案：当年 8.8h lag 被 6h 一刀切 rating=1 永久拉黑（Jev 从未运行）。正文遗留「啾啾端到端现场反证待跑」本轮补上。现行行 high 77.21 已是豁免后评级。"
+    },
+    {
+      "caseId": "C75",
+      "symbol": "FLY",
+      "addr": "0x4ec2c14230a818fcb8947c3999f7a4a872437777",
+      "expect": {
+        "rating": null,
+        "auditIncludes": ["staleSourceOverride"],
+        "tokenCategoryExcludes": ["super_ip_fast"]
+      },
+      "observe": "预期翻 low（timing older=0 后 53.4<60，实买 -36% 漏网票）但 J1.43/J1.44 分数结构移动，low 为预期非硬断言；硬断言=机制在场（staleSourceOverride 审计，主推 lag 495 天客观不变必触发）+脱离快车道形状。",
+      "note": "叙事源头陈旧门案：主推=币安 2025-06 公告 lag 495 天，宣告推污染时效拿满档 high 77.32 漏网。现行行 cat=super_ip_fast（快车道退役前形状），预期变化票：标准路径+源头陈旧门拦。"
+    },
+    {
+      "caseId": "C79",
+      "symbol": "偷窥狂",
+      "addr": "0x57efcdb41b8107fd6b6db8d06591d67274e27777",
+      "expect": {
+        "rating": ["mid", "high"]
+      },
+      "observe": "语料充分门是 fetch 层过程优化不改评级语义（误 sufficient=证据少偏拦方向）。题集移动接受 mid/high。",
+      "note": "语料充分门案（douyin fetch 4.37s 占直调 82% 的延迟解剖票，票本身评级正确实买）。维持票。"
+    },
+    {
+      "caseId": "C80",
+      "symbol": "蝙蝠侠摇",
+      "addr": "0x4547dae7757fb4043e034d27ed02dfabe9aa7777",
+      "expect": {
+        "rating": "low"
+      },
+      "observe": "E 类感染力折损部署后从未整链重析（当时只做校准）；折损预期翻不过 60 线落 low，但 J1.44 mem 瘦身等分数结构移动可能改变分布——断言失败只警示，dump 行看 resonanceFitMass 审计定性。",
+      "note": "E 类感染力折损案（J1.36 web3_fit (strong_fit+fit)<0.5 → tierScore+effDim2×0.5 仅 E 类）：现行行 high 75.68=J1.30 部署前形状，预期变化票。"
+    },
+    {
+      "caseId": "C81",
+      "symbol": "롱캣",
+      "addr": "0xd97a9847ee249c36b01b14eecffa73c425d57777",
+      "expect": {
+        "rating": ["mid", "high"]
+      },
+      "observe": "CG2.0 语料充分门案（0xd97a copy 门票的语料层姊妹案），fetch 层过程优化不改评级语义，mid/high 均接受。",
+      "note": "语料充分门 CG2.0 案票。维持票。"
+    },
+    {
+      "caseId": "C82",
+      "symbol": "JDI",
+      "addr": "0x4688681cd5f1882b3ba12f6f4a79951914e87777",
+      "expect": {
+        "rating": ["mid", "high"]
+      },
+      "observe": "缩写低置信门否决案=零改动票：缩写票不设额外拦截位是案内裁定本身（门 A 存量扫描否决）；题集移动接受 mid/high。",
+      "note": "JDI 案+缩写低置信门否决（推特黑名单 10 账号在 fetcher 层另行生效，与本票无交集）。否决案维持票。"
+    },
+    {
+      "caseId": "C83a",
+      "symbol": "BI",
+      "addr": "0x11bec8676fc2d9da6dacec5c8b8100941e997777",
+      "expect": {
+        "rating": null,
+        "tokenCategoryExcludes": ["super_ip_fast"]
+      },
+      "observe": "快车道退役后走标准 16 题全量评估；正文「诚实预期：BI 簇不保证翻 low」——拦它们的希望在 relevance 带反混淆行重判，评级不定只断言脱离快车道形状（正文部署验证清单同款：量级不再恒 S+reason 落库）。系统性防线=同源簇限频另行立项。",
+      "note": "super_ip_fast 快车道整体退役案 BI 簇代表票（簇 6 票全亏，本票 S 级 86.19 喂饱放行）。预期变化票：token_category 不再 super_ip_fast、量级自判。"
+    },
+    {
+      "caseId": "C83b",
+      "symbol": "BI",
+      "addr": "0x28d8d2c2dedf493f3c4193f7812f52922ab77777",
+      "expect": {
+        "rating": null,
+        "tokenCategoryExcludes": ["super_ip_fast"]
+      },
+      "observe": "同 C83a（簇内对照票，85.9 分形状）；两票独立重析观察 Jev 概率面簇内一致性。",
+      "note": "BI 簇第二票（同簇对照）。"
+    },
+    {
+      "caseId": "C85",
+      "symbol": "Nightshift",
+      "addr": "0x3ff9da6fd5f4608307bc4b71ec82c313a224ffff",
+      "expect": {
+        "rating": ["mid", "high"],
+        "tokenCategory": "project"
+      },
+      "observe": "narrativeCategory 因子化案的叙事侧形状断言（prestage 路径 token_category=project 恒定）；prestage 定档吃粉丝带（缓存内当年快照 0-299 粉→mid），mid 为主 high 宽容。",
+      "note": "叙事类型因子化+GMGN issuer 分档门案：serial issuer 作弊票（GMGN twitter_create_token_count=6+回收 2011 老号，交易侧分档门另有 56 断言单测锁定）。叙事侧回归点=token_category 透传形状稳定。"
+    },
+    {
+      "caseId": "C92",
+      "symbol": "유과 강아지",
+      "addr": "0x9d956023c76a23509b8195e9cb635178a35e7777",
+      "expect": {
+        "rating": null
+      },
+      "observe": "感染力轴矛盾未裁定案（E 类折损轴 vs 案内实证矛盾对），零改动现状票；只记录重析结果不断言（现行行 low/null=J1.32 形状）。",
+      "note": "感染力轴矛盾案：J1.36 折损上线后该票落 low，案内轴冲突对（折损方向 vs 实际盈亏方向）未裁定保留观察。"
     }
   ]
 }
