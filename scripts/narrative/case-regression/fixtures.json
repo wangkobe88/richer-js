@@ -464,6 +464,23 @@
       },
       "note": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评",
       "addedAt": "2026-10-19"
+    },
+    {
+      "caseId": "C119",
+      "symbol": "猫",
+      "addr": "0x21573053e3ecda168007315f9153be78afa17777",
+      "expect": {
+        "rating": [
+          "mid",
+          "high"
+        ],
+        "reasonExcludes": [
+          "币名不适合作为 meme 符号"
+        ],
+        "tokenCategory": "event:E"
+      },
+      "note": "猫案三轮（J1.48/J1.50/J1.51）：name_form 键名断代 web3_user_acceptable（conf 1.0 过名字门）+ 用户视角三题统一；J1.51 dim2 镜头修正后事件分 61.1 过线（22 C 档+24.1+15，档位不通胀）。断言=方向性 mid/high：margin 仅 1.1 分（dim2 掷骰面），事件分不足回拦不算翻案失败，但名字门/键名回退算",
+      "addedAt": "2026-10-19"
     }
   ]
 }

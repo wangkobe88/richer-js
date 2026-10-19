@@ -100,7 +100,7 @@ async function main() {
   const doc = JSON.parse(require('fs').readFileSync(fixturesPath, 'utf8'));
   const real = loadAndValidateFixtures(doc);
   check('F1 真实 fixtures 校验零错误', real.errors.length === 0, real.errors.join('; '));
-  check('F2 票数=36（≥30 扩集；C113 哭哭奶龙/C114 DND/C117 超大账号 prestage 收录；34→36=C114/C117 两批漏 bump 存量修复）', real.cases.length === 36, String(real.cases.length));
+  check('F2 票数=37（≥30 扩集；C113 哭哭奶龙/C114 DND/C117 超大账号 prestage/C119 猫案用户视角统一收录；34→36=C114/C117 漏 bump 存量修复，36→37=C119）', real.cases.length === 37, String(real.cases.length));
   check('F3 caseId 无重复', new Set(real.cases.map((c) => c.caseId)).size === real.cases.length);
 
   const bad = loadAndValidateFixtures({ cases: [

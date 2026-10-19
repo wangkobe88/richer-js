@@ -68,6 +68,40 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C120 interpretive_reply 桶巨粉豁免——C74 时效硬拦的作者量级旁路（2026-10-19 f8ab/Burn N Burn 案二轮）★
+
+- **现场**（C117 后续）：C117 双门修好路由后 f8ab
+  `0xf8abd6a6bdc0d87291b4f79abc6188c48a807777` 定向重析确认走标准路径（无
+  prestage 轨迹），但被 **C74 时效桶**拦——`classifyTweetType` 优先级 1 判
+  `interpretive_reply`（回复 cz_binance registry 命中；**作者量级在 classifier
+  不可见**，389 万粉官推与小号同桶）→ 非豁免桶主推 lag 23min ≥300s →
+  `expired_tweet` 硬拦 low（score 20），Jev 没见到票。原始分析未被拦的原因=
+  GMGN 未索引→created_at 缺失→时效规则跳过（两腿各归各位，C117/C120 正交）。
+- **用户交互**：「300 秒改为半小时是不是就可以了？」——存量扫描否决全局放宽：
+  417 票 expired_tweet 拦截面（10-16~10-19，批 50 查 wss_events token_create
+  锚补 lag），5-30min 窗 191 票中 angle_seeking 125 / unknown 37 /
+  interpretive_reply 29——全局放宽=放行 ~64 票/天且主力是小号找角度票。f8ab
+  的特质是**作者量级**非 lag → 方案 B（interpretive_reply 巨粉豁免）→「好，B」。
+- **实现**（pre-check 规则 2.1 消费侧豁免枝，桶分类零改动不 bump 版本）：
+  `type=interpretive_reply ∧ author_followers_count ≥ THRESHOLDS.HIGH_FOLLOWERS
+  (5000) ∧ 主推 lag ≤ 24h` → 跳过 `expired_tweet` 硬拦交 Jev event_timing
+  软评。设计要点：①**THRESHOLDS 从 classifier export**（`tweet-type-classifier.mjs`
+  单一真相源，direct_tweet 桶与豁免门同一把「高影响力」尺跟动）；②24h 上界
+  复用 `DIRECT_TWEET_STALE_SEC` 常量（C104 设计语言：豁免非无界，陈旧回流不烧
+  Jev 配额）；③粉丝缺失 fail-保守不豁免（C86 followers null≠0 同教训）；④主推
+  created_at 缺失 fail-open 豁免（对齐 C104 K7）；⑤**桶分类刻意不动**——
+  jev-state-builder 同消费 classifyTweetType 做 Jev prompt 路由，改桶=动题集
+  路由，豁免只能在 precheck 消费侧；⑥angle_seeking/unknown 刻意不豁（125+37
+  主力票型是小号找角度，豁免面缩一个数量级）；⑦独立成枝不与 C104 主从门
+  纠缠（无载体臂——巨粉回复票源头即主推本体，>24h 直接回落拦，救援臂等真案再扩）。
+- **验证**：单测 `_test_precheck_tweet_freshness_bucket.cjs` L 节 13 断言
+  （f8ab 现场反证 389 万粉 lag 23min 放 / 1500 粉同形状拦 / 4999-5000 边界 /
+  粉丝缺失照拦 / 24h 恰界放+1s 拦 / created_at 缺失 fail-open / 名单巨粉 50 万
+  angle_seeking 照拦 / 桶分类不动锁 / INTERPRETIVE_EXEMPT_STALE_SEC+
+  THRESHOLDS.HIGH_FOLLOWERS+export 三源码口径锁），全量 78/78。
+- **台账事故顺修**：C118/C119 并行会话写台账时基于旧版覆盖，C117 条目标题行
+  被碰掉（正文完好）——本次从 9e18ff5 恢复标题；跨会话动台账前先 grep 锚点。
+
 ### C119 用户视角三题统一 + name_form 键名断代——「一切从用户角度出发」（2026-10-19 猫案三轮）★
 
 - **现场**：`0x21573053e3ecda168007315f9153be78afa17777`（「只是一只猫」，C116 案
@@ -181,7 +215,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   （C72/C79/C80/C82 已知掷骰偏差票，评级方向无翻转；C115/C116/C117 并行
   票同批 PASS）。
 
-
+### C117 超大账号不走 prestage 账号判定——superIP 命中强制标准路径 + 发行方自发宣告粉丝门（2026-10-19 f8ab/Burn N Burn 案）★
 
 - **现场**：`0xf8abd6a6bdc0d87291b4f79abc6188c48a807777`（Burn N Burn /
   `BNB͏`带零宽修饰符，flap 税币，34 分钟毕业 16 BNB，同名簇 4 枚）。语料=

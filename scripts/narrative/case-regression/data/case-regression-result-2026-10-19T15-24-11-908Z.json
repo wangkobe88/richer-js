@@ -1,0 +1,39 @@
+{
+  "ranAt": "2026-10-19T15:24:13.588Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C114",
+      "symbol": "DND",
+      "addr": "0x4dbcb10e68626b6f663bd596905d41cdc6b07777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low"
+      },
+      "observe": "empty_content 掷骰臂（none 0.32/empty 0.31）被 C114 图证豁免兜底；载体门 no_visual 0.51 与 C109 名图一致 unrelated 0.85 双掷骰；量级 A/D 波动但 dim2 1.23 低——事件分不足门兜底，终态 low 稳定。断言失败只看是否翻 non-low。",
+      "caseNote": "DND 案（BinancePk 80 万粉「DND 😾」+猫拉窗帘视频）：C114 图证在场豁免翻过 empty_content 掷骰臂（none 0.32/empty 0.31）+ J1.47 判 meme_name 合格；终态 low 由载体门接管（no_visual 0.51 掷骰+C109 名图一致 unrelated 0.85 未豁免）；断言=必拦不锁门（empty_content/载体两门掷骰波动，量级档 A/D 亦波动）",
+      "baseline": {
+        "rating": "low",
+        "reason": "叙事主体无形象载体（无形象实体）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "叙事主体无形象载体（无形象实体）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    }
+  ]
+}

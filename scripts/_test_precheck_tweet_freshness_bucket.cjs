@@ -322,7 +322,7 @@ async function main() {
     const noFollowers = f8abTweet(23 * 60);
     delete noFollowers.author_followers_count;
     const rL4 = await run(makeTokenData(), noFollowers);
-    assert(rL4?.details?.ruleName === 'expired_tweet', 'L4 粉丝缺失 → 照拦（fail-保守；classifier 侧同形状落 unknown 亦不豁免）',
+    assert(rL4?.details?.ruleName === 'expired_tweet', 'L4 粉丝缺失 → 照拦（fail-保守；桶仍判 interpretive_reply，豁免判据 bigFollowers!==null 不满足）',
       JSON.stringify(rL4?.details?.ruleName));
     // 24h 上界（对齐 C104 设计语言：豁免非无界，>24h 陈旧回落拦不烧 Jev）
     const rL5a = await run(makeTokenData(), f8abTweet(DAY));

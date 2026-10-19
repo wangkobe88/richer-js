@@ -234,7 +234,7 @@ Token URL → URL 分类（含 IPFS metadata 解包——meta 任意 http(s) URL
 | 图载体豁免（C59） | 图证据+0&lt;关联≤10+referent_memeability≥3 → 豁免 Stage3 关联截断（分照常计入） | C59 |
 | 名图一致豁免（J1.30） | 图证据+name_image_consistency（条件题）合并≥0.5+0&lt;关联≤10 → 豁免关联截断+量级门两拦截位（D/E 档臂+事件分不足臂）；答案缺失 fail-closed | C65/C86 |
 | 找角度时效门（C68） | angle_seeking/interpretive_reply 载体推 lag>6h → mapper 时效归 0（mapper-only；C74 后降级纵深防御；precheck 锚回退 tokenCreatedAtSec） | C68 |
-| 推文时效分桶（C74+C104） | 非豁免桶（angle/interpretive/unknown）lag≥300s 拦；direct_tweet（粉≥5000 或 赞≥500 或 转≥100）豁免交 Jev 软评——**主从结构门：主推 lag>24h 须 website_tweet/quoted/retweeted 任一 ≤24h 新载体才豁免**，无载体裸旧推回落 300s 拦；主推 created_at 缺失 fail-open | C74/C104 |
+| 推文时效分桶（C74+C104+C120） | 非豁免桶（angle/interpretive/unknown）lag≥300s 拦；direct_tweet（粉≥5000 或 赞≥500 或 转≥100）豁免交 Jev 软评——**主从结构门：主推 lag>24h 须 website_tweet/quoted/retweeted 任一 ≤24h 新载体才豁免**，无载体裸旧推回落 300s 拦；主推 created_at 缺失 fail-open；**C120 interpretive_reply 巨粉豁免**：作者粉≥HIGH_FOLLOWERS(5000，classifier THRESHOLDS 同尺) 且主推 lag≤24h → 跳过硬拦交 Jev 软评（粉丝缺失 fail-保守不豁；桶分类不动，豁免只在 precheck 消费侧） | C74/C104/C120 |
 | 叙事源头陈旧门（C75） | direct_tweet **主推**（仅主推）距 token 创建锚 >30d → mapper 时效归 0（C74 豁免桶的客观锚层）；angle/interpretive/unknown 不触达；锚缺失 fail-open | C75 |
 | 图文名不符拼写门（C78） | 币名 CJK ≥3 字+图内文字等长独立段恰一位不同且 ≥2 次+币名整体不在图内 → Stage3 截断（纯代码；misspellingP 探针臂 C108 退役=代码门唯一拼写拦截位；有意变形全语料一致不触发） | C78/C108 |
 | E 类感染力折损（J1.36） | 判据源=web3_fit：`(strong_fit+fit) < 0.5` → 仅 category=E `tierScore+effDim2 ×0.5`（时效不折）；≥0.5 原公式；缺失 fail-open 不折；审计 resonanceFitMass 恒落 | C93 |

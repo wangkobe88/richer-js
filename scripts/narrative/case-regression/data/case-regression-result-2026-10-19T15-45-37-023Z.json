@@ -1,0 +1,42 @@
+{
+  "ranAt": "2026-10-19T15:45:37.854Z",
+  "summary": {
+    "total": 1,
+    "pass": 0,
+    "fail": 1,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C117",
+      "symbol": "BNB",
+      "addr": "0xf8abd6a6bdc0d87291b4f79abc6188c48a807777",
+      "status": "FAIL",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "account_based_meme"
+      },
+      "observe": null,
+      "caseNote": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评",
+      "baseline": {
+        "rating": "low",
+        "reason": "叙事主体无形象载体（无形象实体）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "叙事主体无形象载体（无形象实体）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C"
+      },
+      "failures": [
+        "token_category=event:C ≠ 预期 account_based_meme"
+      ]
+    }
+  ]
+}

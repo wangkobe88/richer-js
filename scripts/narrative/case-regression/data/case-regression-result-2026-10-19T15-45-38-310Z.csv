@@ -1,0 +1,2 @@
+﻿caseId,symbol,addr,status,期望rating,期望reason关键词,期望禁词,期望precheck规则,期望禁规则,期望审计键,期望tokenCat,期望说明,基线rating,基线score,基线ruleName,基线reason,当前rating,当前score,当前ruleName,当前stage,当前tokenCat,当前reason,失败明细,observe说明,case语义
+C117,BNB,0xf8abd6a6bdc0d87291b4f79abc6188c48a807777,FAIL,low,,,,,,account_based_meme,,low,,,叙事主体无形象载体（无形象实体）,low,,,2,event:C,叙事主体无形象载体（无形象实体）,token_category=event:C ≠ 预期 account_based_meme,,superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评
