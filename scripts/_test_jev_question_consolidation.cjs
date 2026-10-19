@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.45（J1.44=C110：low_quality_derivative+ip_reuse 合桶+mem 题面瘦身；J1.45=C110 扫描后裁定：dim2 同轴锚删除+gimmick 扩全域）', JEV_QUESTIONS_VERSION === 'J1.45', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.46（J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 哭哭奶龙案：找角度传播力判轴纠偏+ip_reuse 有意义/无意义边界）', JEV_QUESTIONS_VERSION === 'J1.46', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -83,8 +83,9 @@ async function main() {
     Object.keys(qs.block_reason.criteria).length === 9
     && !('regional_event' in qs.block_reason.criteria) && !('subject_unqualified' in qs.block_reason.criteria)
     && !('low_quality_derivative' in qs.block_reason.criteria), null);
-  check('A8b C110 合并桶：ip_reuse 文案吸收低质衍生判据（简单替换/拼贴/模仿）',
-    qs.block_reason.criteria.ip_reuse.includes('简单替换/拼贴/抄袭/模仿') === true, null);
+  check('A8b C113 ip_reuse 边界重写：仅拦纯蹭名+无意义修改两形状，有意义的修改/变形不拦（用户裁定「合理即可」）',
+    qs.block_reason.criteria.ip_reuse.includes('纯蹭名') && qs.block_reason.criteria.ip_reuse.includes('无意义修改')
+    && qs.block_reason.criteria.ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
   // A8c 行为级退役证明（legacy 形状行/旧缓存重放）：A 类票 argmax=low_quality_derivative
   // （none<0.5 域内）不再拦——C109 教训的机器证明：scope 显式空数组才是真退役；
   // 同形状 argmax=ip_reuse 照拦（合并不外溢）
@@ -123,6 +124,31 @@ async function main() {
       && dq.instructions.includes('不同镜头') && dq.instructions.includes('按本题自己的证据如实评')
       && dq.instructions.includes('两形状分流（J1.20）') && dq.instructions.includes('J1.23') && dq.instructions.includes('J1.35'),
       dq.instructions.slice(0, 200));
+  }
+
+  // A10 J1.46（C113 哭哭奶龙案）事故现场反证：找角度语料传播力判轴=事件本身
+  // 非载体推文数据（用户 C32 正龟裁定重申「强调一万遍」）——现场：dim2 8.2 按载体
+  // 138 粉判了奶龙 IP 方权重、magnitude D 档按「仅个别人提及」判。三处防线源码锚：
+  // ①event_magnitude A 类找角度锚 ②dimension2 A 类同款 ③state builder PRECOMPUTED
+  // 载体数据消毒行（C74 时效分桶产物顶着「直接采信」帽子污染判断现场）
+  {
+    const { readFileSync } = require('node:fs');
+    const { join } = require('node:path');
+    const qsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
+    const sbSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
+    check('A10a event_magnitude A 类找角度锚：主体=被借势 IP 本身、世界知识可判、载体账号数据不参与',
+      qs.event_magnitude.instructions.includes('找角度/借势语料（形状②，J1.46）')
+      && qs.event_magnitude.instructions.includes('不代表IP量级、不参与定档'),
+      qs.event_magnitude.instructions.slice(0, 100));
+    check('A10b dimension2 A 类找角度锚：IP 方权重按被借势 IP 知名度判、载体推文数据不参与',
+      qs.dimension2.instructions.includes('载体推文账号的粉丝/赞/转不是IP知名度证据、不参与判分')
+      && qs.dimension2.instructions.includes('不因「语料里只有小号提及」降档'),
+      qs.dimension2.instructions.slice(0, 100));
+    check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
+      sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
+      '缺消毒行');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.46'"), 'J1.46 常量缺失');
   }
 
   // ═══ B. 融合关联分 ═══

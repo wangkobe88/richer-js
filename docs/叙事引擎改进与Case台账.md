@@ -30,8 +30,8 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.41）/
-  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.11）；DB 列 prompt_type/prompt_version 标识
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.46）/
+  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
   社区/文化 meme 主账号，年龄非反证；**C101：推文语料不采信 web3ip，回落 abm 双条件**）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
@@ -67,6 +67,19 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C113 找角度语料传播力判轴纠偏 + ip_reuse 有意义/无意义边界——「传播力不参考推文的数据，而是这个事件，这个我强调了一万遍了」「有意义的修改为什么不行？」（2026-10-19 哭哭奶龙案）★
+
+- **现场**：哭哭奶龙 `0xe9356facf0558ab0d7025e2898f51d111d517777`（event:A 0.87，J1.45 分析于 11:22 UTC）被 block_reason ip_reuse 0.6（none 0.23）拦死 rating=1。主推=138 粉账号发「错版奶龙玩偶 哭哭奶龙/奶龙这波致敬哭哭马了」——Jev 两处违反既有裁定：①dim2 8.2（微弱带「新账号/千粉以下」）**按载体账号 138 粉判了 A 类 IP 方权重**（奶龙=国民级萌系 IP，题面「知名IP 20-25」没用上）、magnitude 1.61 D 档（「仅个别人提及」臂）按语料覆盖面判——正是 C32 正龟案 J1.20 两形状分流（09-30 用户裁定）明文禁止的形状；②「错版/哭哭」是**有具体新梗对象的变形**（新造型/错版变体），被「简单替换/拼贴/模仿等低质衍生」边界词扫进去。
+- **用户裁定两条**：①「这是个找角度推文，传播力不参考推文的数据，而是这个事件，这个我强调了一万遍了，不要再犯错了！」②「现有知名IP/热点的替换/拼贴/抄袭/模仿，合理即可，无意义的修改无意义，有意义的修改为什么不行？」
+- **ip_reuse 案史澄清**（用户问「什么时候多了这么个拦截理由」）：非新加——Jev 迁移初版（2026-09-20 9b76a1b）就有 ip_reuse+low_quality_derivative 双桶（A 域），对齐迁移前 legacy Stage2 prompt 阻断条件集；历史实拦「低质衍生」171 行+「IP二次利用」33 行；J1.44（C110 当日）只是两桶合一（判据吸收、拦截面等价）。哭哭奶龙=合桶后 6 小时内该桶 6 票实拦之一，label 变化引来注意。
+- **根因①（污染源）**：state 头部 `[PRECOMPUTED]（直接采信）`块注入 `tweet_type_reason: 低影响力: 138粉, 0赞, 0转发`——C74 时效分桶产物顶着「直接采信」帽子把载体数据喂到所有题判断现场。**根因②**：event_magnitude/dimension2 两形状句（J1.20）是通用锚，A 类场景缺「主体=被借势 IP 本身、知名度按世界知识判」的显式钉子，Jev 被分带 legend（「新账号/千粉以下」）锚定到载体。**根因③**：ip_reuse 边界词「简单/低质」与裁定轴（有意义/无意义）错位。
+- **改动（J1.46）四处**：①`jev-state-builder` PRECOMPUTED 加 `tweet_type_note` 划界（粉丝/赞/转仅时效分桶用、不是事件传播数据）；②`event_magnitude` A 类句加找角度锚（主体=被借势 IP 本身、可用世界知识按真实地位评档、载体账号数据与「只有小号提及」不参与定档）；③`dimension2` A 类句同款（IP 方权重按被借势 IP 知名度判、不因「只有小号提及」降档）；④`ip_reuse` criteria 重写——仅拦两形状：纯蹭名（原名原形象直接套用无任何新内容）+无意义修改（换皮改名/硬拼无关元素），**有意义的修改/变形（新造型/错版/变体/新玩法）不拦**。mapper 零改动（BLOCK_SCOPE ip_reuse:['A'] 不动）。
+- **单测**：`_test_jev_question_consolidation` A1/A8b 随版本与判据更新 + 新增 A10a-A10d 事故现场反证（三处防线源码锚+版本常量防漂移）；`_test_jev_resonance`/`_test_angle_timing_override`/`_test_jev_finding_recap_statement_gate`/`_test_superip_standard_path`/`_test_name_image_consistency` 版本钉死 J1.46；`_test_case_regression_lib` F2 票数 33→34。全绿。
+- **回归票**：C113 已收录（34 票）——expect=方向性断言 `rating∈{mid,high}` + `reasonExcludes:IP二次利用` + `tokenCategory:event:A`（mid/high 档位不写死：A 类量级轴评，掷骰面勿锁）。
+- **待办：182 部署（worker 重启）+ 哭哭奶龙定向重析对拍 + case-regression 全量对拍**（改题集流程第 4/6 步；预期变化票=C113 本票翻出 low）。
+
+
 
 ### C112 meta 任意 http(s) 直链解包（形状判定→内容判定）——「我之前的方案是，收集能收集到的所有地址（不管它填写在哪个字段里，因为用户根本不会填），然后自己进行分类」（2026-10-19 CRO 案）★
 

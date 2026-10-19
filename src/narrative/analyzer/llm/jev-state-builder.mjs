@@ -103,6 +103,10 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
     '[PRECOMPUTED] （以下事实由系统预先判定，直接采信）',
     `tweet_type: ${tweetClassification.type}（direct_tweet=推文即事件本身/angle_seeking=借势找角度/interpretive_reply=解读他人消息）`,
     `tweet_type_reason: ${tweetClassification.reason || ''}`,
+    // C113（J1.46）：上面 reason 里的粉丝/赞/转是 C74 时效分桶产物——载体推文自身
+    // 账号数据。不划清边界它就顶着「直接采信」帽子污染量级/dim2 判断现场（哭哭奶龙
+    // 案 dim2 8.2 按载体 138 粉判了奶龙 IP 方权重）
+    `tweet_type_note: reason 中的粉丝/赞/转是载体推文（陈述者）自身的账号数据，仅用于时效分桶——不是事件传播数据；量级/dimension2/传播判定不得以载体账号数据评事件主体（找角度推文按被借势事件/IP自身的传播与知名度判，J1.20形状②/J1.46）`,
   ];
   if (options.superIPInfo) {
     precomputed.push(
