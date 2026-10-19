@@ -62,7 +62,7 @@ async function main() {
   console.log('\n── A. 题面完整性 ──');
   check('A1 版本 ≥J1.27（现 J1.28=referent_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 18 题含 subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19 默认集 18）', Object.keys(q).length === 18 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
+  check('A2 题集 16 题含 subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 16 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
     q.event_magnitude.instructions.includes('形状③ 产品实体') && q.event_magnitude.instructions.includes('不转移不计入') && q.event_magnitude.instructions.includes('两条都不占→C档以下'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',
@@ -79,9 +79,10 @@ async function main() {
   check('A5 web3_fit 含产品实体边界（纯功能产品不高于 marginal）',
     q.web3_fit.instructions.includes('公司产品实体') && q.web3_fit.instructions.includes('不高于marginal'));
   const seKeys = Object.keys(q.subject_entity.criteria);
-  check('A6 subject_entity 8 档（company/product_functional/product_character/character_ip/person/event_hotspot/meme_word/none_of_above）',
-    seKeys.length === 8 && ['company', 'product_functional', 'product_character', 'character_ip', 'person', 'event_hotspot', 'meme_word', 'none_of_above'].every(k => seKeys.includes(k)), seKeys);
-  check('A7 subject_entity 题面含公司/产品区分锚', q.subject_entity.instructions.includes('区分「公司本身」与「公司发布的产品」'));
+  check('A6 subject_entity 2 档（J1.43 C109 8→2 收敛：product_entity/other_entity——J1.27 门本就功能/形象同拦）',
+    seKeys.length === 2 && ['product_entity', 'other_entity'].every(k => seKeys.includes(k)), seKeys);
+  check('A7 subject_entity 题面含公司/产品区分锚（主体是产品而非发布公司）',
+    q.subject_entity.instructions.includes('公司/机构发布的产品实体') && q.subject_entity.instructions.includes('主体是产品而非发布公司'));
 
   console.log('\n── B. 封装边界 ──');
   // productEntityAcceptanceBlock 为 mapper 私有函数（项目惯例只导出 map*Answers），

@@ -228,8 +228,16 @@ const W_PRODUCT_BANDS = [[0, 8], [9, 17], [18, 26], [27, 35]];
 const W_INTERACTION_BANDS = [[0, 9], [10, 19], [20, 29], [30, 40]];
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
 const REASONABILITY_BANDS = [[0, 1], [2, 3], [4, 5]];
+// J1.43（C109）token_quality 单题 band 索引 0-3 → 联合量纲 0-12
+// （=旧 spelling 0-7 + reasonability 0-5 的合计刻度：好名字旧≈10-12→band3 10-12，
+// 量表刻度保持，类别阈值语义不变）
+const TOKEN_QUALITY_BANDS = [[0, 2], [3, 5], [6, 9], [10, 12]];
 
-/** 关联分查表：[type][levelIdx 0-4]（levelIdx = round(relevance_level.score)） */
+/**
+ * 关联分查表：[type][levelIdx 0-4]（levelIdx = round(relevance_level.score)）。
+ * J1.43（C109）起 relevance_level 题删除——本表只服务 legacy 形状行（旧缓存行
+ * 重放/旧题集手写 fixture）；新形状走 RELEVANCE_FUSED_SCORES 单值直查。
+ */
 const RELEVANCE_TABLE = {
   exact_match:      [20, 20, 20, 20, 20],
   translation_match: [18, 18, 18, 18, 18],
@@ -240,10 +248,42 @@ const RELEVANCE_TABLE = {
   none:              [0, 1, 2, 2, 2],
 };
 
-/** block_reason 选项 → 中文标签（reason 模板用） */
+/**
+ * J1.43（C109）融合关联分：relevance_type 9 桶单值（吸收原 relevance_level
+ * 语义）。取值对齐旧表分层：exact/translation 恒值；abbreviation 取旧五档
+ * 均值 17；semantic_weak≈旧 lv0-1（8/10）、semantic_clear≈旧 lv2-4（12/15/15）
+ * 取 9/13——weak 9 仍落关联截断线（≤10）内、clear 13 过线；cultural_thin≈旧
+ * lv0-1（1/5）取 3、cultural_rich≈旧 lv2-4（10/14/15）取 12 过线（旧 lv2=10
+ * 恰在截断线上，融合后归 rich 过线——边界移动已知，定向重析对拍覆盖）；generic
+ * 取旧均值 5；none=0 而非旧均值——保住 imgNameExempt 的 relevance.score > 0
+ * 锚（旧 lv0=0 同语义）。
+ */
+const RELEVANCE_FUSED_SCORES = {
+  exact_match: 20,
+  translation_match: 18,
+  abbreviation_alias: 17,
+  semantic_clear: 13,
+  semantic_weak: 9,
+  cultural_rich: 12,
+  cultural_thin: 3,
+  generic_concept: 5,
+  none: 0,
+};
+
+/**
+ * block_reason 选项 → 中文标签（reason 模板用）。
+ * J1.43（C109）退役两桶（182 全量 10815 行实证）：regional_event 9 次 argmax/
+ * 0 次域内拦截=从未拦过票的死桶（且与 event_magnitude 的地区性/全国性范围镜头
+ * 冲突）；subject_unqualified 31 次/23 次弱概率拦截（p 0.22-0.58），与 C108 后
+ * name_form「无名实体」臂/event_magnitude 无名主体低档/referent_memeability
+ * 0 分档三重冗余，粉丝<1万量化锚由 name_form 语义承接。题集侧桶文本删除、
+ * BLOCK_SCOPE 侧显式空域退役（历史行 rating 已落库不变，重析走新题集）。
+ */
 const BLOCK_LABELS = {
   none: '无阻断',
+  // 退役桶 label 保留（空域后不可达，防未知选项 fallback 打裸键名）
   subject_unqualified: '主体资格不足',
+  regional_event: '地区性事件',
   niche_subculture: '小圈子亚文化',
   empty_content: '空洞内容',
   institution_routine: '机构日常运营',
@@ -251,7 +291,6 @@ const BLOCK_LABELS = {
   marketing_gimmick: '营销噱头',
   baseless_speculation: '无据猜测',
   ip_reuse: 'IP二次利用',
-  regional_event: '地区性事件',
   negative_hard_news: '负面硬新闻事件',
   routine_content_product: '常规内容产品宣传',
 };
@@ -282,28 +321,29 @@ const BLOCK_LABELS = {
 
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
- * - A 类（形象化IP）：主体资格不足/小圈子亚文化/低质衍生(简单替换拼贴/抄袭)/IP二次利用
+ * - A 类（形象化IP）：小圈子亚文化/低质衍生(简单替换拼贴/抄袭)/IP二次利用
  * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
  * - C/D 类：机构日常运营
  * - G 类：无据猜测
- * - E 类：地区性事件
- * - A/C/D/F/G 类：主体资格不足（J1.9 扩：小主体事件原本靠"事件分<60"下限拦截，但
- *   Jev 量级打分在 C/B 边界会漂移（OneKey 语料A：257 粉小号时过时不过），此档
- *   兜底为确定性阻断。E 类不设——热点主体按归因规则是热点主角而非搬运小号）
  * - 通用（各类均设）：空洞内容
+ * J1.43（C109）退役两域（实证死桶/三重冗余，见 BLOCK_LABELS 注释）：
+ * subject_unqualified（A/C/D/F/G）与 regional_event（E）。
  * Jev 在不知类别的情况下作答（speculative fan-out），代码端按分类结果
  * 条件采信——scope 外的 choice 不构成阻断（如 E 类蹭热点命名代币不算低质衍生）。
  */
 const BLOCK_SCOPE = {
   empty_content: 'all',
   marketing_gimmick: ['W', 'B'],
-  subject_unqualified: ['A', 'C', 'D', 'F', 'G'],
   niche_subculture: ['A'],
   low_quality_derivative: ['A'],
   ip_reuse: ['A'],
   baseless_speculation: ['G'],
   institution_routine: ['C', 'D'],
-  regional_event: ['E'],
+  // J1.43（C109）退役桶：显式空域（blockInScope 对未知选项按通用处理返回 true——
+  // 只删键会让 legacy 形状 choice 照拦，删除无效；空数组=任何类别都不拦）。
+  // 新题集已不提供这两个选项，此处只兜旧缓存行/旧 fixture 重放
+  subject_unqualified: [],
+  regional_event: [],
   // J1.11（2026-09-26 用户裁定，C9 bitget被盗案）：负面事故（被盗/暴雷）+纯硬新闻
   // 的事件无 meme 价值，全域拦截——事件热度高≠该放（A 档量级喂饱事件分 74.65、
   // 80.32 high 放行后 -55%）。质量门 negativeHardNewsBlock 同步双挂（argmax 五五开
@@ -375,6 +415,14 @@ function subjectCarrierBlock(answers, category, opts) {
   // no_visual 0.92 / BI improvised 0.62 均此位拦死），「抓不住形象载体」由口号性
   // 腿 mem≥2 与关联腿代偿（名字本身就是玩梗载体）
   if (opts?.superIpSlogan) return null;
+  // C109 图证载体覆盖（M1，交易猫 0xc929…7777 案）：同一次 Jev 调用里
+  // name_image_consistency 的事实答案（币安发猫图、币名「交易猫」same_entity
+  // 0.73/conf 0.59）证明指代对象有可视化载体时，载体题的低置信掷硬币答案
+  // （no_visual conf 仅 0.09——主体漂移到新闻发布方所致）不再单独定生死：
+  // imageEvidence ∧ nicMatchP≥0.5 → 本门豁免（高置信事实证据覆盖低置信载体
+  // 判断；终评级仍交全链其余门）。暗号資産の覹者(0.92)/BI(0.62) 校准不动：
+  // 前者本就 C88 五腿豁免，后者无图证不触发本覆盖。
+  if (opts?.imgCarrierOverride) return null;
   if (category === 'C' || category === 'D') {
     if (carrier === 'improvised_entity' || carrier === 'no_visual_entity') {
       return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
@@ -719,14 +767,17 @@ export function detectNameImageSpellingMismatch(tokenData, twitterInfo) {
  */
 function productEntityAcceptanceBlock(answers, opts) {
   const se = answers?.subject_entity?.choice;
-  if (se !== 'product_functional' && se !== 'product_character') return null;
+  // J1.43（C109）subject_entity 8→2：product_entity 新桶 + 旧两桶名兼容集
+  // （C107 先例——旧缓存行/旧 fixture choice 名继续触发，拦截语义 bit 不变）
+  const PRODUCT_ENTITY_CHOICES = new Set(['product_entity', 'product_functional', 'product_character']);
+  if (!PRODUCT_ENTITY_CHOICES.has(se)) return null;
   if (opts.pubProxyActive || opts.isW || opts.rideMass != null) return null;
   if (opts.binanceCorpus || opts.platformOfficial) return null;
   const p = answers.web3_fit?.probabilities ?? {};
   const fitMass = (p.strong_fit ?? 0) + (p.fit ?? 0);
   if (fitMass >= 0.5) return null;
   return {
-    label: `产品实体未被web3买家接纳(J1.27)（${se === 'product_functional' ? '功能产品' : '产品形象'}，接纳度${Math.round(fitMass * 100)}%<50%）`,
+    label: `产品实体未被web3买家接纳(J1.27)（${se === 'product_functional' ? '功能产品' : se === 'product_character' ? '产品形象' : '产品实体'}，接纳度${Math.round(fitMass * 100)}%<50%）`,
     subject: se,
     fitMass: round2(fitMass),
   };
@@ -825,20 +876,43 @@ export function qualityLengthScore(symbol) {
   return 0;
 }
 
-/** 从 answers 提取关联分 */
+/**
+ * 从 answers 提取关联分。J1.43（C109）两题合一：新形状（无 relevance_level 键）→
+ * choice 命中融合桶单值直查（levelIdx=null，reason 模板打点适配）；旧形状
+ * （relevance_level 键在=旧两题形影不离）→ legacy 两题查表路径原样
+ * （RELEVANCE_TABLE+round(level)），存量行/旧 fixture bit 不变。
+ */
 function relevanceFrom(answers) {
   const type = answers.relevance_type?.choice || 'none';
+  // 形状分流而非桶名分流：融合表与旧表有 5 个同名桶且分值不同
+  // （abbreviation_alias/generic_concept/none 等），旧形状判据=relevance_level 键在
+  // （旧两题形影不离），只看桶名会让 legacy 行被融合表劫持破坏 bit 不变。
+  if (answers.relevance_level == null) {
+    const fused = RELEVANCE_FUSED_SCORES[type];
+    if (fused != null) return { type, levelIdx: null, score: fused };
+  }
   const levelIdx = clamp(Math.round(answers.relevance_level?.score ?? 0), 0, 4);
   const table = RELEVANCE_TABLE[type] || RELEVANCE_TABLE.none;
   return { type, levelIdx, score: table[levelIdx] };
 }
 
-/** 从 answers 提取质量三项（长度代码算） */
+/**
+ * 从 answers 提取质量分（长度代码算）。J1.43（C109）两题合一：token_quality
+ * （band 索引 0-3）→ TOKEN_QUALITY_BANDS 联合量纲 0-12，name=合并子分、
+ * spelling/reasonability=null；旧形状（quality_spelling+quality_reasonability）
+ * → legacy 双 band 路径原样，name=null。total 两种形状同为「长+名字质量」合计
+ * 刻度，类别阈值语义不变。
+ */
 function qualityFrom(answers, symbol) {
   const length = qualityLengthScore(symbol);
+  const tq = answers.token_quality?.score;
+  if (tq != null) {
+    const name = bandInterpolate(tq, TOKEN_QUALITY_BANDS);
+    return { length, spelling: null, reasonability: null, name, total: round2(length + name) };
+  }
   const spelling = bandInterpolate(answers.quality_spelling?.score ?? 0, SPELLING_BANDS);
   const reasonability = bandInterpolate(answers.quality_reasonability?.score ?? 0, REASONABILITY_BANDS);
-  return { length, spelling, reasonability, total: round2(length + spelling + reasonability) };
+  return { length, spelling, reasonability, name: null, total: round2(length + spelling + reasonability) };
 }
 
 /**
@@ -1208,6 +1282,11 @@ export function mapStandardAnswers(answers, context) {
   const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
   const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
     && relevance.score > 0 && relevance.score <= 10;
+  // C109 图证载体覆盖（M1，交易猫案）：图证据∧名字-图匹配质量≥0.5 → subject_carrier
+  // 的低置信掷硬币不再单独拦 J1.29（与 imgNameExempt 同源同阈、独立判定——载体
+  // 存在性与关联强弱正交，不套 relevance ≤10 窗）。审计键 subjectCarrierImgOverride
+  // 命中才落（下方 imgNameExempt 同款）
+  const imgCarrierOverride = !!context.imageEvidence && nicMatchP >= 0.5;
 
   // C88 超级IP事件口号票五腿救援谓词（2026-10-18 CZ 出书簇用户裁定：暗号資産の
   // 覹者 0x926c…7777 11.8x 毕业被 rcp argmax 臂拦死、BI 0x3891…7777 4.86x 被
@@ -1222,8 +1301,12 @@ export function mapStandardAnswers(answers, context) {
   const FRESH_TIMING_C88 = new Set(['within_7d', 'within_30d', 'expected_within_30d']);
   const sipProb = answers.name_referent?.probabilities?.super_ip ?? 0;
   const relMassC88 = answers.relevance_type?.probabilities ?? {};
+  // J1.43（C109）融合桶名并入正向质量求和（semantic_clear/weak=cultural_rich/thin
+  // 拆分自旧 semantic/cultural 单桶）；旧桶名保留在求和里防回放工具旧形状
   const relPositiveMass = (relMassC88.exact_match ?? 0) + (relMassC88.translation_match ?? 0)
-    + (relMassC88.abbreviation_alias ?? 0) + (relMassC88.semantic ?? 0) + (relMassC88.cultural ?? 0);
+    + (relMassC88.abbreviation_alias ?? 0) + (relMassC88.semantic ?? 0) + (relMassC88.cultural ?? 0)
+    + (relMassC88.semantic_clear ?? 0) + (relMassC88.semantic_weak ?? 0)
+    + (relMassC88.cultural_rich ?? 0) + (relMassC88.cultural_thin ?? 0);
   const relNoneMass = relMassC88.none ?? 1;
   const memScoreC88 = answers.referent_memeability?.score ?? null;
   const superIpSlogan = sipProb >= 0.5 && relPositiveMass >= 0.3 && relNoneMass < 0.5
@@ -1289,7 +1372,7 @@ export function mapStandardAnswers(answers, context) {
     // 都不是）；无概率 mass（choice 档位门）
     stage2Blocked = true;
     stage2BlockReason = nfBlock.label;
-  } else if ((scBlock = subjectCarrierBlock(answers, category, { superIpSlogan }))) {
+  } else if ((scBlock = subjectCarrierBlock(answers, category, { superIpSlogan, imgCarrierOverride }))) {
     // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
     // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
     // mass（choice 档位门）
@@ -1514,11 +1597,18 @@ export function mapStandardAnswers(answers, context) {
       : aggregatedTotalScore >= 50 ? 'mid' : 'low';
   }
 
+  // J1.43（C109）reason 模板适配：融合形状 relevance 无 levelIdx（不落 lv 段）、
+  // token_quality 单题落「长+名」（legacy 双题形状保持「长+拼+合」原样）
+  const relPart = `${relevance.type}${relevance.levelIdx != null ? `/lv${relevance.levelIdx}` : ''}`;
+  const qualityPart = quality.name != null
+    ? `长${quality.length}+名${quality.name}`
+    : `长${quality.length}+拼${quality.spelling}+合${quality.reasonability}`;
+
   const finalReason = stage2Blocked
     ? `阻断:${stage2BlockReason}｜P=${w3Block?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}${web3FitDim2Anchor ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}${web3FitDim2Anchor ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
@@ -1536,6 +1626,8 @@ export function mapStandardAnswers(answers, context) {
             length: quality.length,
             spelling: quality.spelling,
             reasonability: quality.reasonability,
+            // J1.43（C109）token_quality 单题合并子分（legacy 双题形状为 null）
+            name: quality.name,
           },
           jev: {
             relevanceType: relevance.type,
@@ -1547,6 +1639,11 @@ export function mapStandardAnswers(answers, context) {
             // J1.30 审计标记：名图一致豁免命中详情（关联档位/一致性质量可追溯，
             // brand_hijack 同款「命中才落」模式——未触发不落键）
             imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP) } : null,
+            // C109 审计标记：图证载体覆盖命中（J1.29 豁免；命中才落——被覆盖的
+            // carrier choice 与匹配质量可追溯，交易猫案形状）
+            subjectCarrierImgOverride: imgCarrierOverride
+              ? { carrier: answers.subject_carrier?.choice ?? null, matchP: round2(nicMatchP) }
+              : null,
             // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
             // jev.superIpSlogan 恒落版——stage2 拦截票本段 __clear 不落）
             superIpSloganExempt: superIpSlogan ? { mem: memScoreC88, timing } : null,

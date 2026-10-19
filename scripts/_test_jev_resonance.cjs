@@ -176,9 +176,9 @@ async function main() {
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 18 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.42（C108 删探针题 19→18；C103 条件题默认关 18/开 19）',
-    qKeys.length === 18 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.42'
-    && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 19 && qsRel.parent_relationship != null,
+  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.43（C108 删探针题 19→18；C109 收敛两对题 18→16；C103 条件题默认关 16/开 17）',
+    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.43'
+    && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 17 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

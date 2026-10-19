@@ -17,6 +17,8 @@
  *   F. bddd 案形状锚定：BNC(D+improvised 拦) / bCAT(D+existing 过) /
  *      通透人生(E+no_visual 拦) / Ants(E+improvised 过——M2 刻意只拦 no_visual)
  *   G. 源码口径：门链序 / superIP 不消费 / CARRIER_LABELS / 失效脚本配套
+ *   H. C109 图证载体覆盖（M1）：imageEvidence∧nicMatchP≥0.5 → 门豁免（高置信
+ *      事实证据覆盖低置信载体掷硬币，交易猫 0xc929…7777 案）；无图/低匹配照拦
  *
  * 用法：node scripts/_test_subject_carrier.cjs
  */
@@ -58,11 +60,12 @@ function baseAnswers(cat, carrier) {
   return answers;
 }
 
-const stdCtx = (symbol, name) => ({
+const stdCtx = (symbol, name, imageEvidence) => ({
   tokenData: { symbol, name: name || symbol, raw_api_data: { name: name || symbol } },
   includeBrandHijack: false,
   tweetClassification: null,
   twitterInfo: null,
+  ...(imageEvidence ? { imageEvidence: true } : {}),
   callInfo: { model: 'stub', questions: { q1: {} }, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
 });
 
@@ -86,7 +89,9 @@ async function main() {
   check('A4 type=choice 三档', sc.type === 'choice' && Object.keys(sc.criteria).length === 3
     && ['existing_entity', 'improvised_entity', 'no_visual_entity'].every(k => k in sc.criteria), null);
   check('A5 题面钉死只判载体事实存在性（与热度/量级无关）', sc.instructions.includes('只判载体的事实存在性') && sc.instructions.includes('与热度/量级/时效无关'), null);
-  check('A6 题面钉死评估对象=指代对象（与 name_referent/subject_entity 同口径）', sc.instructions.includes('与 name_referent/subject_entity 同对象口径'), null);
+  check('A6 题面钉死评估对象=指代对象（J1.43 锚定 name_referent 指代对象；配图形象可达）',
+    sc.instructions.includes('按 name_referent 题判定的指代对象') && sc.instructions.includes('配图/语料中出现的形象')
+    && !sc.instructions.includes('subject_entity'), null);
   check('A7 关键判别②：名字含形象词≠载体存在', sc.instructions.includes('名字含形象词') && sc.instructions.includes('不等于载体存在'), null);
   check('A8 与品牌劫持条件题互不影响', buildStandardQuestions({ includeBrandHijack: true }).subject_carrier != null && !('brand_hijack' in qsDefault), null);
 
@@ -187,7 +192,7 @@ async function main() {
   check('G1 门函数 + CARRIER_LABELS 两键（C88 后三参签名）', /function subjectCarrierBlock\(answers, category, opts\)/.test(mapperSrc)
     && /CARRIER_LABELS = \{[^}]*improvised_entity: '脑补形象'[^}]*no_visual_entity: '无形象实体'[^}]*\}/s.test(mapperSrc), null);
   const rmIdx = mapperSrc.indexOf('referentMemeabilityLowBlock(answers)))');
-  const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category, { superIpSlogan }))');
+  const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category, { superIpSlogan, imgCarrierOverride }))');
   const tierIdx = mapperSrc.indexOf("effTier === 'E' || effTier === 'D'");
   check('G2 阻断链序：rm 门 → mem 地板（C88）→ 载体门 → 量级 D/E 门（索引严格递增）', (() => {
     const memFloorIdx = mapperSrc.indexOf('memScoreC88 < 2');
@@ -201,6 +206,41 @@ async function main() {
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('G4 题集头部含 J1.29 条目（bddd 案档案）', qsSrc.includes('* J1.29（2026-10-09') && qsSrc.includes('bddd3578'), null);
   check('G5 窗口缓存失效脚本配套（J1.28 模式）', readFileSync(join(__dirname, '..', 'scripts', 'narrative', 'invalidate-carrier-window.cjs'), 'utf8').length > 0, null);
+
+  // ═══ H. C109 图证载体覆盖（M1）═══
+  console.log('\n── H. C109 图证载体覆盖（交易猫 0xc929…7777 案：0.09 conf 载体掷硬币 vs 0.73 名图事实证据）──');
+  const nic = { choice: 'same_entity', probabilities: { same_entity: 0.73, unrelated: 0.15, same_visual_category: 0.05 } };
+  // 交易猫事故现场反证：D+no_visual（线上实测拦截形状）+ imageEvidence + nic 0.73 → 不再断
+  const maoyu = baseAnswers('D', 'no_visual_entity');
+  maoyu.name_image_consistency = nic;
+  const rMaoyu = mapStandardAnswers(maoyu, stdCtx('交易猫', '交易猫', true));
+  check('H1 交易猫形状（D+no_visual+图证 nic0.73）→ 载体门豁免不再拦',
+    !blockedByCarrier(rMaoyu), rMaoyu.llmResult.reason);
+  check('H2 审计 subjectCarrierImgOverride 命中才落（carrier+matchP 可追溯）',
+    rMaoyu.stage3DataToSave.parsed_output.jev.subjectCarrierImgOverride != null
+    && rMaoyu.stage3DataToSave.parsed_output.jev.subjectCarrierImgOverride.carrier === 'no_visual_entity'
+    && rMaoyu.stage3DataToSave.parsed_output.jev.subjectCarrierImgOverride.matchP === 0.78,
+    rMaoyu.stage3DataToSave.parsed_output.jev.subjectCarrierImgOverride);
+  // E+no_visual 同覆盖（无图证语义由下方 H4 锁死）
+  const eNo = baseAnswers('E', 'no_visual_entity');
+  eNo.name_image_consistency = nic;
+  const rENo = mapStandardAnswers(eNo, stdCtx('TST', 'TST', true));
+  check('H3 E+no_visual+图证 → 同豁免（覆盖不分门臂）', !blockedByCarrier(rENo), rENo.llmResult.reason);
+  // BI 形状（C88 案 improvised 0.62）：无图证 → 照拦（校准不动）
+  const bi = baseAnswers('D', 'improvised_entity');
+  bi.name_image_consistency = nic; // 有答案也无图证——context.imageEvidence 才是开关
+  const rBi = mapStandardAnswers(bi, stdCtx('BI', 'BI'));
+  check('H4 BI 形状（D+improvised 无图证）→ 照拦（M1 不放大打击面）', blockedByCarrier(rBi), rBi.llmResult.reason);
+  // 低匹配质量：图证在但 nicMatchP<0.5 → 照拦
+  const lowNic = baseAnswers('D', 'no_visual_entity');
+  lowNic.name_image_consistency = { choice: 'unrelated', probabilities: { unrelated: 0.6, same_entity: 0.3 } };
+  const rLowNic = mapStandardAnswers(lowNic, stdCtx('TST', 'TST', true));
+  check('H5 图证在但 nicMatchP=0.3<0.5 → 照拦（阈值不松）', blockedByCarrier(rLowNic), rLowNic.llmResult.reason);
+  // 审计未命中不落键（未拦票上核对——被拦票 stage3 本就 __clear）
+  const rNoOver = mapStandardAnswers(baseAnswers('D', 'existing_entity'), stdCtx('TST', 'TST'));
+  check('H6 无图证未拦票 subjectCarrierImgOverride=null（命中才落）',
+    rNoOver.stage3DataToSave.parsed_output.jev.subjectCarrierImgOverride === null,
+    rNoOver.stage3DataToSave.parsed_output.jev.subjectCarrierImgOverride);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_subject_carrier: ${passed} passed, ${failed} failed ══════`);

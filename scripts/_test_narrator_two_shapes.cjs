@@ -67,15 +67,15 @@ async function main() {
     tier(4).includes('②陈述者无关') && tier(4).includes('全国性监管政策与市场事件'));
   check('B7 S 档两形状同一口径', tier(5).includes('两种形状同一口径'));
   check('B8 E 档无可识别事件主体措辞维持', tier(0).includes('无可识别事件主体'));
-  check('B9 E 类升级规则「被KOL大V主动报道」含父推',
-    mag.instructions.includes('被KOL大V主动报道（含十万粉级以上父推对本事件的陈述）'));
+  check('B9 E 类升级规则「被KOL大V主动报道」含父推（C92 J1.35 重写后措辞）',
+    mag.instructions.includes('十万粉级以上父推主动陈述该事件=事件被大V扩散的证据'));
 
   // ═══ C. dimension2 同步 ═══
   console.log('\n── C. dimension2 同形状分流 ──');
   check('C1 与 event_magnitude 两形状分流引用',
     dim2.instructions.includes('两形状分流') && dim2.instructions.includes('既不代表也不封顶'));
-  check('C2 E 类行不看发推人/回复者 + 回复语料按父推',
-    dim2.instructions.includes('不看发推人/回复者的互动与粉丝数据') && dim2.instructions.includes('回复语料按父推/源头传播算'));
+  check('C2 E 类行不看发推人/回复者 + 回复语料按父推（C92 J1.35 重写后措辞）',
+    dim2.instructions.includes('陈述者（发推人/回复者）的粉丝数与互动数据既不代表也不封顶') && dim2.instructions.includes('回复/转述语料按父推/源头所陈述事件的传播计'));
   check('C3 C/D 类形状②分带指引（全国级政策/市场事件=全民话题级）',
     dim2.instructions.includes('形状②外部事件主体') && dim2.instructions.includes('全民话题级25-30'));
   check('C4 同主体一致性锚（不要重新贬低主体）维持',

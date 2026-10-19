@@ -161,7 +161,7 @@ const run = async () => {
 
   // D2 JEV_QUESTIONS_VERSION 已 bump（J1.42=C108 名字门统一四分支+block_misspelling 删题；J1.41=C107 name_form 收敛三选（meme_name/not_meme_name/unclear）；J1.40=C105 第四选（收敛后经兼容 Set 继续拦）；J1.39=C103 条件题 parent_relationship；J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；J1.35=C92 E类证据层级）
   const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('D2 JEV_QUESTIONS_VERSION === J1.42', JEV_QUESTIONS_VERSION === 'J1.42', JEV_QUESTIONS_VERSION);
+  check('D2 JEV_QUESTIONS_VERSION === J1.43（J1.43=C109 题集收敛 relevance/quality 两对合一+name_referent 6→3+subject_entity 8→2+block_reason 删两死桶）', JEV_QUESTIONS_VERSION === 'J1.43', JEV_QUESTIONS_VERSION);
 
   // ═══ 汇总 ═══
   console.log(`\n═══ _test_superip_standard_path: ${passed} passed, ${failed} failed ═══`);

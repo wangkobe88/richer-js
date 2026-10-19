@@ -171,7 +171,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
-  check('A1 版本号 = J1.42（C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一）', JEV_QUESTIONS_VERSION === 'J1.42', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.43（C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛）', JEV_QUESTIONS_VERSION === 'J1.43', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 finding_vs_recap 恒带（默认题集）', 'finding_vs_recap' in qs, Object.keys(qs).length);
   check('A3 name_form 恒带（默认题集）', 'name_form' in qs, null);
@@ -216,8 +216,8 @@ async function main() {
     && nf.instructions.includes('被大V/超级IP提到/@到不改变其无名'), null);
   check('A18 name_form 拼写变体锚（分支④：无背景拼写错误不合格，有文化来源变体不算——dogwifhat）',
     nf.instructions.includes('无背景拼写错误') && nf.instructions.includes('doge→dogwifhat'), null);
-  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④，默认题集 19→18）',
-    !('block_misspelling' in qs) && Object.keys(qs).length === 18
+  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16：relevance_level+quality_spelling+quality_reasonability 合并两题）',
+    !('block_misspelling' in qs) && Object.keys(qs).length === 16
     && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══

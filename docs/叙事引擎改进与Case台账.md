@@ -68,6 +68,32 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C109 题集收敛（J1.43 基础题 18→16）+ J1.29 图证载体覆盖——「我其实希望合并你所谓的"题"，真的要这么多判断标准吗」（2026-10-19 用户裁定；交易猫 0xc929c8d1e57569b706d7cfdc3487c7d33b287777 flap 案）★
+
+- **案发现场与用户纠错**：交易猫（0xc929…7777，flap），币安发猫图、币名=事件核心词「交易猫」。被 **J1.29 载体门**拦：`subject_carrier=no_visual_entity conf 仅 0.09`（多路 choice 掷硬币），而**同一次调用**里 `name_image_consistency same_entity=0.73/conf 0.59` 的事实答案被无视——门消费了低置信掷硬币、忽略了高置信事实证据（配图里就有一只猫=形象载体客观存在）。用户质问「叙事主体是币的名字，币安发了一张图，是一只猫。哪里不对？为什么不是个好 meme 币构思？」——归因成立，用户对。
+- **根因（name_referent 分类学缺桶→指代链断裂）**：旧 name_referent 六桶（subject_self/super_ip/notable_other/minor_other/common_word/none_related）没有「语料配图中出现的匿名实体」桶——图中的猫无名，只能落 minor_other/common_word → 主体被判为无名/普通词 → subject_carrier 锚定漂移到新闻发布方（币安=机构非形象）→ no_visual。形象载体就在语料配图里，分类学却看不见它。
+- **裁定原话（两轮）**：①「进一步思考一下，不要有那么多桶，能合并合并」②「我说错了，我其实希望合并你所谓的"题"，真的要这么多判断标准吗」+「当然，如果桶冗余也需要调整」——**合并的对象是题本身**，桶冗余跟着收。
+- **死桶实证（182 全量扫描 10815 有效行，tmp-scan-blockreason-182.cjs）**：用户追问 `regional_event` 是否与 event_magnitude 冲突、`subject_unqualified` 是否与别的题一回事——扫描证死：
+
+  | 桶 | argmax | 平均概率质量 | 域内拦截 | 裁定 |
+  |---|---|---|---|---|
+  | regional_event | 9 次(0.1%) | 0.010 | **0 次** | 死桶删——「地区性」与 magnitude 的「范围」镜头三处冲突（shape②传播规模/dim2 分带/B 档措辞都已在评地域量级） |
+  | subject_unqualified | 31 次 | 0.050 | 23 次(p 0.22-0.58) | 三重冗余删——name_form 分支①无名实体臂/magnitude 无名低档/mem 0 档三处已判「主体资格」；唯一独有元素=粉丝<1万量化锚，语义由 name_form 承接 |
+
+- **修复（J1.43，基础题 18→16；brand_hijack/name_image_consistency/parent_relationship 条件题另计）**：
+  1. **relevance 两题合一**：删 `relevance_level`；`relevance_type` 改 9 融合桶（exact_match 20/translation_match 18/abbreviation_alias 17/semantic_clear 13/semantic_weak 9/cultural_rich 12/cultural_thin 3/generic_concept 5/none 0，代码端 `RELEVANCE_FUSED_SCORES`）。none=0 保住 imgNameExempt `relevance.score>0` 锚；weak 9≤10 仍截断/clear 13 过线对齐旧 lv 分层。
+  2. **quality 两题合一**：删 `quality_spelling`+`quality_reasonability` → `token_quality`（score 0-3 band 索引，`TOKEN_QUALITY_BANDS=[[0,2],[3,5],[6,9],[10,12]]` 联合量纲=旧拼写 0-7+合理性 0-5 合刻度，类别阈值 70/50 语义不变）。
+  3. **name_referent 6→3**：`subject_self`/`super_ip`/`other_referent`（notable_other+minor_other+common_word+none_related 四桶并入；super_ip 桶文本不动=C88 sipProb 判据源）；other_referent 文案新增「**语料配图中出现的形象（动物/玩偶/吉祥物/角色等）也是可判定的指代来源**：币名与配图形象对应时按该形象自身量级归此评估」——交易猫断链修复点。
+  4. **subject_entity 8→2**：`product_entity`（功能产品/产品形象合并——J1.27 门本就同拦）/`other_entity`；mapper 兼容集 `Set{product_entity, product_functional, product_character}` 旧 choice 照拦（C107 先例）。
+  5. **subject_carrier 锚修正**：instructions 删假同口径引用（原引 name_referent/subject_entity 两题的旧桶名已不存在），改「评估对象=代币名所指代的实体本身（按 name_referent 题判定的指代对象……名字指向配图/语料中出现的形象时，评估对象就是那个形象）」。
+  6. **block_reason 删两死桶**（12→10）：mapper `BLOCK_SCOPE` 显式空数组退役（**blockInScope 坑**：`scope===undefined` 按通用拦——只删键会让 legacy 形状 choice 照拦，删除无效；空域=任何类别都不拦）；BLOCK_LABELS label 保留防未知选项 fallback 打裸键名。
+  7. **M1 图证载体覆盖（imgCarrierOverride）**：`context.imageEvidence && nicMatchP>=0.5` → J1.29 不拦（同源同阈值=J1.30 imgNameExempt 的 same_entity≥0.5，但独立无关联≤10 窗——载体存在性与关联强度正交；audit `subjectCarrierImgOverride {carrier,matchP}` 命中才落）。校准不动：暗号資産の覹者本就走 C88 豁免、BI 无图证不触发。
+- **已知边界变化（用户已批准方向内）**：①旧 cultural lv2(=10 恰好截断) 归入 cultural_rich(12 过线)——关联截断边界小幅移动；②quality 单票不再 bit 一致（题目本身变了，版本断代语义内）；③subject_unqualified 粉丝<1万量化锚退役。
+- **事故级 bug 本轮自查补刀（relevanceFrom 同名桶劫持）**：融合表首版按**桶名**优先命中，而新旧表 5 个同名桶分值不同（abbreviation_alias 16-18 vs 17 / generic_concept 2-7 vs 5 / none 0-2 vs 0）——legacy 形状行（带 relevance_level）会被融合表劫持，存量行 bit 不变承诺被打破。修正为**形状分流**：`relevance_level` 键在（旧两题形影不离）→ 旧表查表；键无 → 融合桶直查。单测 C 潜在断言锁死（abbreviation lv0→16 非 17 / none lv4→2 非 0）。
+- **测试**：新增 `_test_jev_question_consolidation`（48 断言：问卷形状/9 桶分值精确/legacy 关联+质量路径 bit 不变/同名桶防劫持/C88 relPositiveMass 新桶求和/J1.27 兼容集/退役桶空域+活桶对照）；`_test_subject_carrier` 扩 H 段 6 断言（M1：交易猫形状不拦/E+no_visual 同豁/无图证 BI 照拦/低 nic 照拦/audit 归因）。存量陈旧锚常规跟进 8 套（版本锁 J1.42→J1.43 六处、题数锁 18→16 三处、subject_entity 桶形锁、superip G2 调用形状锁）；**顺手修 C92（2e92c54）遗留存量失败** `_test_narrator_two_shapes` B9/C2（`git show HEAD` + stash 双验证非本轮引入——C92 重写 E 类证据层级措辞时漏更断言锚）。22 文件全绿。
+- **断代语义**：J1.43 断代，存量缓存行不重放 mapper → bit 不变（含 legacy 形状回退路径：relevanceFrom/qualityFrom 旧分支、PRODUCT_ENTITY_CHOICES、BLOCK_SCOPE 空域）。
+- **部署与对拍（待执行）**：182 pull + 重启叙事 worker + v24 实验进程（重启前走持仓确认规程）。定向重析对拍清单：交易猫（J1.29 不再断，终评级交全链）/暗号資産の覹者（C88 五腿仍全中）/BI（无图证仍拦）/C88 口号票（relPositiveMass 新桶名五腿仍中）/关联截断边界票（C59/C65/C86 豁免票）/23 张 subject_unqualified 拦截票+9 张 regional_event argmax 票（预期被 name_form/magnitude/mem 或其它活桶接管）。
+
 ### C108 名字门统一（J1.42 name_form 四分支：「合不合适作为 meme 币」单一门，四拦截位退役）——「所以我觉得很多门，不如合并为『合不合适作为meme币』门，这是根本的」（2026-10-19 用户三轮裁定；EARLY 0xc8a55fed967db1f1be1fac90c3a453c1c4187777 CZ 回复逐字发币案）★
 
 - **案发现场与归因更正**：EARLY（0xc8a5…7777），CZ（@cz_binance 1299 万粉）回复评论者 "you got in early" 后 4 秒逐字发币。被 **nrBlock common_word 臂**（J1.10：name_referent common_word 0.92 + minor_other 0.04 = 阻断侧合计 0.96 ≥0.5）误拦为「截词」；J1.41 重析 name_form 亦判 not_meme_name（双门一致误拦——J1.41 三选缺「圈内文化词」分支）。放行侧证据全绿：web3_fit strong_fit 0.97、direct_tweet 豁免（CZ 粉丝档）、时效 lag≈0。**归因更正随案立档**：首轮排查误归因 block_misspelling 探针——错误，实拦 nr common_word；「截词」label × Stage3「截断:」前缀 ×「拼写错误」探针三术语连撞是误导源，本轮消除（nr 退役后「截词」label 源头消失）。

@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.42（J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.42', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.43（J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.43', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);
