@@ -16,8 +16,10 @@ import { isFrequentIssuer } from './frequent-issuers.mjs';
 
 /**
  * 分类阈值常量（集中配置，便于调优）
+ * export（C120）：pre-check 规则 2.1 的 interpretive_reply 巨粉豁免复用
+ * HIGH_FOLLOWERS——同一把「高影响力」尺（direct_tweet 桶与豁免门跟动）
  */
-const THRESHOLDS = {
+export const THRESHOLDS = {
   // 找角度推文：低粉丝 + 低互动
   LOW_FOLLOWERS: 2000,
   LOW_LIKES: 100,

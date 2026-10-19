@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.50（J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一+name_form 键名断代——本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.50', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.51（J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一+name_form 键名断代——本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.51', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -144,11 +144,19 @@ async function main() {
       qs.dimension2.instructions.includes('载体推文账号的粉丝/赞/转不是IP知名度证据、不参与判分')
       && qs.dimension2.instructions.includes('不因「语料里只有小号提及」降档'),
       qs.dimension2.instructions.slice(0, 100));
+    // J1.51 事故现场反证：J1.50 版「实际被调动/多少人注意到」措辞把 dim2 镜头导向
+    // 语料实测互动 → 全量对拍 C113 哭哭奶龙回归（档位稳 B 但 dim2 28.2→13.2 塌档，
+    // 138 粉载体形状 probs 落 0-1 带 0.72）。修正锚锁死：镜头=用户侧认知面非实测互动
+    check('A10b-J51 dimension2 镜头=用户侧认知面非语料实测互动（C113 回归反证锁定）',
+      qs.dimension2.instructions.includes('不是语料推文账号的实测互动量')
+      && qs.dimension2.instructions.includes('小号载体≠小事件')
+      && !qs.dimension2.instructions.includes('实际被调动起来的传播面'),
+      qs.dimension2.instructions.slice(0, 120));
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.50'"), 'J1.50 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.51'"), 'J1.51 常量缺失');
   }
 
   // ═══ B. 融合关联分 ═══

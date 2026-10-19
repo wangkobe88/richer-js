@@ -199,7 +199,7 @@ async function main() {
   check('H4b stage2 段同形豁免键（拦截票唯一落库位，DND fallthrough 可归因）',
     mapperSrc.split('\n').filter(l => l.trim().startsWith('subjectCarrierImgOverride:')).length === 2, null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H5 JEV_QUESTIONS_VERSION=J1.50（bump 纪律；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.50', JEV_QUESTIONS_VERSION);
+  check('H5 JEV_QUESTIONS_VERSION=J1.51（bump 纪律；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.51', JEV_QUESTIONS_VERSION);
   check('H6 题面 DND/CRO 对照锚在',
     qSrc.includes('猫拉上窗帘正是「别打扰」的画面演绎') && qSrc.includes('名字 CRO 配一张猫图'), null);
   check('H7 题面正交分工声明（unrelated 与 depicts 可同票共存）',

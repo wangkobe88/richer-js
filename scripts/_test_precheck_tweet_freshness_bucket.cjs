@@ -285,12 +285,83 @@ async function main() {
     assert(pcsK.includes('function _tweetLagSec') && pcsK.includes('hasFreshCarrier'), 'K9 判定链源码锁');
   }
 
+  // ═══ L. C120 interpretive_reply 巨粉豁免（f8ab/Burn N Burn 案）═══
+  console.log('══ L. C120 interpretive_reply 巨粉豁免 ══');
+  {
+    const DAY = 24 * 3600;
+    // f8ab 现场形状：BNB Chain 官推 389 万粉回复 cz_binance（registry 命中 →
+    // 优先级 1 interpretive_reply，作者量级在 classifier 不可见）
+    const f8abTweet = (lagSec, followers = 3894479) => ({
+      type: 'tweet',
+      text: '@cz_binance Burn N Burn 🔥',
+      author_screen_name: 'bnbchain',
+      author_followers_count: followers,
+      metrics: { favorite_count: 88, retweet_count: 16 },
+      created_at: iso(ANCHOR_SEC - lagSec),
+      in_reply_to: { author_screen_name: 'cz_binance', author_followers_count: 12997788 },
+    });
+    // L0 桶分类不动：巨粉作者回复大 IP 仍进 interpretive_reply（豁免只在 precheck 层，
+    // jev-state-builder 消费同一 classifyTweetType 拿完整分类上下文）
+    const { classifyTweetType } = await import('../src/narrative/analyzer/services/tweet-type-classifier.mjs');
+    const clsL = classifyTweetType(f8abTweet(23 * 60));
+    assert(clsL.type === 'interpretive_reply', 'L0 巨粉回复大IP仍进 interpretive_reply 桶（分类不动）', clsL.type);
+
+    const rL1 = await run(makeTokenData(), f8abTweet(23 * 60));
+    assert(rL1 === null, 'L1 f8ab 现场反证：389 万粉回复 cz_binance lag 23min → 豁免放行（null=时效交 Jev；C120 前必拦）',
+      JSON.stringify(rL1?.details?.ruleName));
+    const rL2 = await run(makeTokenData(), f8abTweet(23 * 60, 1500));
+    assert(rL2?.details?.ruleName === 'expired_tweet' && rL2?.details?.tweetType === 'interpretive_reply',
+      'L2 反证：同形状粉丝 1500 → 照拦（巨粉豁免不扩到小号回复）',
+      JSON.stringify(rL2?.details?.ruleName) + '/' + String(rL2?.details?.tweetType));
+    const rL3a = await run(makeTokenData(), f8abTweet(23 * 60, 4999));
+    assert(rL3a?.details?.ruleName === 'expired_tweet', 'L3a 粉 4999（<5000）→ 拦（HIGH_FOLLOWERS 同尺）',
+      JSON.stringify(rL3a?.details?.ruleName));
+    const rL3b = await run(makeTokenData(), f8abTweet(23 * 60, 5000));
+    assert(rL3b === null, 'L3b 粉恰 5000 → 豁免（≥ 含边界）', JSON.stringify(rL3b?.details?.ruleName));
+    // 粉丝缺失 fail-保守（无证据不豁免，C86 followers null≠0 同教训）
+    const noFollowers = f8abTweet(23 * 60);
+    delete noFollowers.author_followers_count;
+    const rL4 = await run(makeTokenData(), noFollowers);
+    assert(rL4?.details?.ruleName === 'expired_tweet', 'L4 粉丝缺失 → 照拦（fail-保守；classifier 侧同形状落 unknown 亦不豁免）',
+      JSON.stringify(rL4?.details?.ruleName));
+    // 24h 上界（对齐 C104 设计语言：豁免非无界，>24h 陈旧回落拦不烧 Jev）
+    const rL5a = await run(makeTokenData(), f8abTweet(DAY));
+    assert(rL5a === null, 'L5a 主推恰 24h（86400s）→ 豁免（≤ 含边界）', JSON.stringify(rL5a?.details?.ruleName));
+    const rL5b = await run(makeTokenData(), f8abTweet(DAY + 1));
+    assert(rL5b?.details?.ruleName === 'expired_tweet', 'L5b 主推 24h+1s → 回落拦（上界严格 >）',
+      JSON.stringify(rL5b?.details?.ruleName));
+    // 主推 created_at 缺失 fail-open（对齐 C104 K7）
+    const noTs = f8abTweet(23 * 60); noTs.created_at = undefined;
+    const rL6 = await run(makeTokenData(), noTs);
+    assert(rL6 === null, 'L6 主推 created_at 缺失 + 巨粉 → fail-open 豁免', JSON.stringify(rL6?.details?.ruleName));
+    // 桶不越界：angle_seeking 巨粉（名单号优先级 2 压高粉）照拦——C120 只豁免
+    // interpretive_reply，找角度主力票型 125/191 刻意不救
+    const rosterBig = {
+      type: 'tweet', text: 'unit test roster angle tweet',
+      author_screen_name: 'shanyizk9', author_followers_count: 500000,
+      metrics: { favorite_count: 5000, retweet_count: 1000 },
+      created_at: iso(ANCHOR_SEC - 23 * 60),
+    };
+    const rL7 = await run(makeTokenData(), rosterBig);
+    assert(rL7?.details?.ruleName === 'expired_tweet' && rL7?.details?.tweetType === 'angle_seeking',
+      'L7 名单巨粉 50 万 lag 23min → 照拦（angle_seeking 桶不在豁免面）',
+      JSON.stringify(rL7?.details?.ruleName) + '/' + String(rL7?.details?.tweetType));
+    // 源码口径锁
+    const pcsL = src('src/narrative/analyzer/services/pre-check-service.mjs');
+    assert(pcsL.includes('const INTERPRETIVE_EXEMPT_STALE_SEC = DIRECT_TWEET_STALE_SEC;'),
+      'L8 24h 上界常量复用 DIRECT_TWEET_STALE_SEC 源码锁');
+    assert(pcsL.includes('interpretiveBigAcctExempt') && pcsL.includes('THRESHOLDS.HIGH_FOLLOWERS'),
+      'L9 豁免判据读 classifier THRESHOLDS（同一把尺）源码锁');
+    const ttc = src('src/narrative/analyzer/services/tweet-type-classifier.mjs');
+    assert(ttc.includes('export const THRESHOLDS'), 'L10 classifier export THRESHOLDS（单一真相源）');
+  }
+
   // ═══ I. 源码口径（锁防线）═══
   console.log('══ I. 源码口径 ═══');
   {
     const pcs = src('src/narrative/analyzer/services/pre-check-service.mjs');
-    assert(pcs.includes("import { classifyTweetType } from './tweet-type-classifier.mjs';"),
-      'I1 pre-check-service import classifyTweetType');
+    assert(pcs.includes("import { classifyTweetType, THRESHOLDS } from './tweet-type-classifier.mjs';"),
+      'I1 pre-check-service import classifyTweetType（C120 起兼 import THRESHOLDS 同尺豁免）');
     assert(pcs.includes('const NON_EXEMPT_TWEET_FRESH_SEC = 300;'),
       'I2 常量=300（relocate 旧买门口径）');
     assert(pcs.includes('lagSec < NON_EXEMPT_TWEET_FRESH_SEC'),

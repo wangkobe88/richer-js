@@ -6,7 +6,7 @@
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
-import { classifyTweetType } from './tweet-type-classifier.mjs';
+import { classifyTweetType, THRESHOLDS } from './tweet-type-classifier.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -48,6 +48,23 @@ const NON_EXEMPT_TWEET_FRESH_SEC = 300;
 // （啾啾 8.8h「发现得晚」窗口内）不依赖载体照豁免——C74 立案原型零主从结构。
 // 窗对齐 C102/C103 PARENT_REL_STALE_SEC（同窗三槽位：父推位/website 位/主推位）。
 const DIRECT_TWEET_STALE_SEC = 24 * 3600;
+
+// C120（2026-10-19 f8ab/Burn N Burn 案 0xf8abd6a6bdc0d87291b4f79abc6188c48a807777
+// 用户裁定方案 B「量级豁免轴」）：interpretive_reply 桶巨粉作者豁免——classifyTweetType
+// 优先级 1 只看回复对象是否大 IP，作者量级不可见：BNB Chain 官推（389 万粉）回复
+// cz_binance 的「Burn N Burn 🔥」（CZ BNB 季度销毁话题的官方回应，币名取自官推
+// 原话）被一刀切进非豁免桶，lag 23min ≥300s 硬拦，Jev 未跑。豁免判据=作者粉
+// ≥5000（tweet-type-classifier HIGH_FOLLOWERS 同尺）且 主推 lag ≤24h → 跳过
+// expired_tweet 硬拦交 Jev event_timing 软评。24h 上界对齐 C104 设计语言（豁免
+// 非无界：>24h 巨粉回复回落 300s 判定=必拦，陈旧语料不烧 Jev 配额）；主推
+// created_at 缺失 fail-open 豁免（对齐 C104 K7）。桶分类不动（jev-state-builder
+// 同消费 classifyTweetType，巨粉回复仍进 interpretive 桶给 Jev 完整上下文）。
+// 粉丝缺失（null）不豁免=照拦（无证据不豁免，C86 followers null≠0 同教训）。
+// 影响面实测（2026-10-16~19 拦截面 417 票扫描）：5-30min 窗共 191 票，其中
+// interpretive_reply 29 票 / unknown 37 / angle_seeking 125——本豁免只触及
+// 29 票中粉≥5000 的子集，对比全局放宽 300s→1800s（191 票全放、约 64/天）
+// 面缩一个数量级；angle_seeking/unknown 桶刻意不豁。
+const INTERPRETIVE_EXEMPT_STALE_SEC = DIRECT_TWEET_STALE_SEC;
 
 /**
  * 推文 lag（秒）——锚为规则 2.1 的 refNow（tokenCreatedAtSec 创建锚）。
@@ -534,8 +551,22 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
               }
             }
           }
+          // C120 interpretive_reply 巨粉豁免（判据/上界/fail-open 见文件头常量注释）。
+          // 置于 directExempt 判定之后独立成枝：不与 C104 主从门纠缠（无载体臂——
+          // 巨粉回复票源头即主推本体，>24h 陈旧直接回落拦，救援臂等真案再扩）
+          let interpretiveBigAcctExempt = false;
+          if (!directExempt && classification.type === 'interpretive_reply') {
+            const bigFollowers = twitterInfo.author_followers_count ?? null;
+            const mainLag = _tweetLagSec(twitterInfo, refNow);
+            if (bigFollowers !== null && bigFollowers >= THRESHOLDS.HIGH_FOLLOWERS
+              && (mainLag === null || mainLag <= INTERPRETIVE_EXEMPT_STALE_SEC)) {
+              interpretiveBigAcctExempt = true;
+            }
+          }
           if (directExempt) {
             console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免: direct_tweet（${classification.reason}），跳过 expired_tweet 硬拦，时效交 Jev event_timing 软评`);
+          } else if (interpretiveBigAcctExempt) {
+            console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免: interpretive_reply 巨粉作者（@${twitterInfo.author_screen_name} ${twitterInfo.author_followers_count}粉 ≥${THRESHOLDS.HIGH_FOLLOWERS}，回复 ${classification.reason}），跳过 expired_tweet 硬拦，时效交 Jev event_timing 软评（C120）`);
           } else {
             let allExpired = true;
             for (const tweet of tweetSources) {
