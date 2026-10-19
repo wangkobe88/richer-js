@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.46（J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 哭哭奶龙案：找角度传播力判轴纠偏+ip_reuse 有意义/无意义边界）', JEV_QUESTIONS_VERSION === 'J1.46', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.47（J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 哭哭奶龙案：找角度传播力判轴纠偏+ip_reuse 有意义/无意义边界；J1.47=C114 DND 案：name_form 通用梗缩写锚）', JEV_QUESTIONS_VERSION === 'J1.47', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -148,7 +148,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.46'"), 'J1.46 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.47'"), 'J1.47 常量缺失');
   }
 
   // ═══ B. 融合关联分 ═══

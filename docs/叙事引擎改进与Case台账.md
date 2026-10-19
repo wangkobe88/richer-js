@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.46）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.47）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -68,6 +68,42 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C114 empty_content 图证在场豁免 + J1.47 通用梗缩写锚——「从用户的角度想一下，币安发了一个推，内容 DND（do not disturb），然后视频是一只猫拉上窗帘。DND 能不能作为一个小meme币？」「dev 侧不管，只管叙事分析。选1」（2026-10-19 DND 案）★
+
+- **现场**：DND `0x4dbcb10e68626b6f663bd596905d41cdc6b07777`（four.meme）：币安地域子账号
+  BinancePk（80 万粉）发推「DND 😾」+猫拉窗帘视频，token=同名缩写票。Jev 判
+  empty_content 0.36 vs none 0.31——argmax 臂掷骰边缘拦死 rating=1。结论碰巧对
+  （该票终局确实 low），但**拦截理由不干净**：主推有配图/视频时「内容空洞」不成立
+  （图就是内容），该票的正确拦截轴是 C97 地域子账号量级锚 D 档（小号无借壳无大
+  事件）。叙事层用站不住的维度拦，长期会误伤真·大号官方梗票（同形状升 A 档即
+  误伤面）。
+- **用户视角裁定**（买家视角复盘）：「币安发 DND 推+猫拉窗帘视频」是可成立的
+  meme 形态（通用梗缩写+官方大号玩梗配图）。「dev 侧不管，只管叙事分析。选1」=
+  叙事层修两条口径：
+- **口径①（mapper 代码臂）**：block 门 empty_content 臂 ∧ `context.imageEvidence`
+  （=twitterInfo.image_analysis 存在，与 J1.30 名图一致豁免/C109 imgCarrierOverride
+  同源判据）→ 该臂不拦，fallthrough 名字门（nf）→载体门（sc）→量级门照常接管。
+  无图票不触发=纯文字空洞票照拦（fail-safe：context 键缺失回落原行为）；只翻本门
+  ——institution_routine 等其他桶不外溢；审计键 `emptyContentImgOverride
+  {emptyP, noneP}` 命中才落 stage2DataToSave.jev（拦截票 stage1 段被 __clear，
+  键必须落 stage2 才可追溯——C88 superIpSlogan 先例）。
+- **口径②（题集 J1.47 name_form 锚）**：合格分支②扩「通用网络梗/文化缩写同构
+  （DND/FOMO/LFG）——虽非圈内原生词，但圈内用户对缩写本身有感知、能拿它配梗
+  传播」；不合格分支加「机构职位/品牌内部缩写（如工牌上的 Chief Risk Officer→
+  CRO）」。**分界=用户侧感知**（同 C108 总则）：DND 合格 / CRO 不合格；对照锚
+  落题面+criteria 同步。版本 J1.46→J1.47（邻接 5 测试版本锁同步）。
+- **DND 终局推演**（单测 A 组锁定）：图证在场 → 翻过 empty_content → name_form=
+  meme_name（J1.47）不拦 → 载体 existing_entity 不拦 → **D 档量级门拦（理由
+  干净：地域小号无借壳）**；同形状升 A 档（magnitude 4.2+dim2 20=69≥60）→
+  pass（误伤面正证）；CRO 对照票 not_meme_name 0.66 → 名字门照拦（豁的是
+  empty_content 不是免检）。
+- **单测**：`_test_empty_content_img_exempt.cjs` 24 断言 8 组（事故现场反证/无图
+  照拦两臂/误伤面正证+无图对照/门链接管/桶特异性/概率门正交/审计键细节/源码
+  口径四反证）。fixture=J1.43+ 新题集形状（relevance_type 融合桶分流）。
+- **待办**：182 pull + DND/CRO 定向重析对拍（验 DND 翻过 empty_content 落 D 档
+  量级门、CRO 名字门维持）+ 名字门基线票核验不翻 + DND `--add C114` 收录回归票
+  + 全量 case-regression 对拍。
+
 ### C113 找角度语料传播力判轴纠偏 + ip_reuse 有意义/无意义边界——「传播力不参考推文的数据，而是这个事件，这个我强调了一万遍了」「有意义的修改为什么不行？」（2026-10-19 哭哭奶龙案）★
 
 - **现场**：哭哭奶龙 `0xe9356facf0558ab0d7025e2898f51d111d517777`（event:A 0.87，J1.45 分析于 11:22 UTC）被 block_reason ip_reuse 0.6（none 0.23）拦死 rating=1。主推=138 粉账号发「错版奶龙玩偶 哭哭奶龙/奶龙这波致敬哭哭马了」——Jev 两处违反既有裁定：①dim2 8.2（微弱带「新账号/千粉以下」）**按载体账号 138 粉判了 A 类 IP 方权重**（奶龙=国民级萌系 IP，题面「知名IP 20-25」没用上）、magnitude 1.61 D 档（「仅个别人提及」臂）按语料覆盖面判——正是 C32 正龟案 J1.20 两形状分流（09-30 用户裁定）明文禁止的形状；②「错版/哭哭」是**有具体新梗对象的变形**（新造型/错版变体），被「简单替换/拼贴/模仿等低质衍生」边界词扫进去。
@@ -77,7 +113,8 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **改动（J1.46）四处**：①`jev-state-builder` PRECOMPUTED 加 `tweet_type_note` 划界（粉丝/赞/转仅时效分桶用、不是事件传播数据）；②`event_magnitude` A 类句加找角度锚（主体=被借势 IP 本身、可用世界知识按真实地位评档、载体账号数据与「只有小号提及」不参与定档）；③`dimension2` A 类句同款（IP 方权重按被借势 IP 知名度判、不因「只有小号提及」降档）；④`ip_reuse` criteria 重写——仅拦两形状：纯蹭名（原名原形象直接套用无任何新内容）+无意义修改（换皮改名/硬拼无关元素），**有意义的修改/变形（新造型/错版/变体/新玩法）不拦**。mapper 零改动（BLOCK_SCOPE ip_reuse:['A'] 不动）。
 - **单测**：`_test_jev_question_consolidation` A1/A8b 随版本与判据更新 + 新增 A10a-A10d 事故现场反证（三处防线源码锚+版本常量防漂移）；`_test_jev_resonance`/`_test_angle_timing_override`/`_test_jev_finding_recap_statement_gate`/`_test_superip_standard_path`/`_test_name_image_consistency` 版本钉死 J1.46；`_test_case_regression_lib` F2 票数 33→34。全绿。
 - **回归票**：C113 已收录（34 票）——expect=方向性断言 `rating∈{mid,high}` + `reasonExcludes:IP二次利用` + `tokenCategory:event:A`（mid/high 档位不写死：A 类量级轴评，掷骰面勿锁）。
-- **待办：182 部署（worker 重启）+ 哭哭奶龙定向重析对拍 + case-regression 全量对拍**（改题集流程第 4/6 步；预期变化票=C113 本票翻出 low）。
+- **验证（2026-10-19 182 实跑）**：①定向重析哭哭奶龙 → **high 70.79**（blockChoice=none 0.7、magnitudeTier B（原 C/1.61）、prompt_type=jev(J1.46/A类)），事件分 27(B 档)+传播 19.6+时效 15=61.6 过线——两处裁定轴全部生效；②case-regression 全量（J1.46，34 票）**27 PASS / 2 FAIL / 5 OBSERVE / 0 ERROR**，C113 本票 PASS（mid 69.71，high/mid 边界 70 上下正常方差）。**2 FAIL 归因处置**（均非 J1.46 语义设计对象的误伤，方向=拦截向/等价）：**C100 弹跳猫 high→low**=J1.46 prompt 漂移使 J1.39 parent_relationship 稳定落 translation_or_repost 臂（父推 lag 89.6d>24h）→ `staleRelParentOverride` 时效 15→0 → 事件分 47<60（两次采样复现、Jev 原生 timing within_7d）；C103 门设计形状命中（载体推挂 89 天父推）且本票 10-18 按 high 实买 -8.76%，拦截盈亏正向 → expect 更新 low+auditIncludes staleRelParentOverride 留痕；**C105 日本語版**=类别掷骰 C→B（0.42→0.56）换条件题集，name_form 题不再触达、routine_content_product 0.89 argmax 先拦（CZ 出书宣传语义等价更准），终态 low 不变 → 断言收敛为必拦不锁门；C78 鲸元卷（observe）=C78 拼写门按设计命中（图内「鲸元券」一位差），终态 low 不变同款收敛。**C80 蝙蝠侠摇（observe）low→high 74.93 待用户裁定**：ip_reuse 收窄后 none 0.47 险胜 ip_reuse 0.37 不拦 + magnitude 3——蝙蝠侠=真知名 IP 按裁定轴判事件自身地位方向一致，但属买线翻转且掷骰面近贴，不擅自 update。结果存档 `case-regression-result-2026-10-19T12-37-36-229Z.*`。
+- **遗留待办：182 narrative worker 重启（J1.46 上 live 服务）**；v26 实验进程（05222b30）内嵌 analyzer 同款，重启与否用户决定。
 
 
 

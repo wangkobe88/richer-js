@@ -1363,6 +1363,15 @@ export function mapStandardAnswers(answers, context) {
     // 五五开抖动）——五腿全中时口号名不算常规内容产品，与 A 类/platformOfficial
     // 豁免同位
     && !(blockChoice === 'routine_content_product' && superIpSlogan)
+    // C114 图证在场豁免（empty_content 臂失效，DND 案 0x4dbcb10e…7777，用户裁定
+    // 「选1」）：极短主推+配图/视频证据在场 → 「空洞内容」不成立——图就是内容
+    // （DND 😾+猫拉窗帘视频，empty_content 0.36 vs none 0.31 掷骰边缘拦截；买家
+    // 视角「币安发 DND 推+猫视频」是可成立的 meme 形态）。图证判据与 J1.30 名图
+    // 一致豁免同源（context.imageEvidence = twitterInfo.image_analysis 存在）；
+    // 无图票不触发=纯文字空洞票照拦。只翻本门：名字门/载体门/量级门照常接管
+    // （DND 终局由 C97 地域子账号锚 D 档量级门拦——拦截理由干净；真·大号官方
+    // 梗票不再被空洞门误伤）。同案 name_form 通用梗缩写锚=J1.47（题集侧）
+    && !(blockChoice === 'empty_content' && !!context.imageEvidence)
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
@@ -1483,6 +1492,11 @@ export function mapStandardAnswers(answers, context) {
         magnitudeTier: tier,
         blockChoice,
         blockProbability: blockProb ?? null,
+        // C114 审计标记：图证在场 empty_content 臂失效（block 门豁免；命中才落
+        // ——被覆盖的 empty_content 概率面可追溯，DND 案形状。空图证票不落键
+        // =empty_content 照拦零歧义）
+        emptyContentImgOverride: (blockChoice === 'empty_content' && !!context.imageEvidence)
+          ? { emptyP: round2(blockProb ?? 0), noneP: round2(noneProb) } : null,
         nameReferent,
         nameReferentProbability: nameReferentProb,
         // nameReferentBlockMass 随 C108 nr 阻断位退役（历史行键保留展示）
