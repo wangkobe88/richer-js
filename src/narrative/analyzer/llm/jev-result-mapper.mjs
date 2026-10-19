@@ -448,64 +448,48 @@ function subjectCarrierBlock(answers, category, opts) {
 }
 
 /**
- * C96 陈述句门（J1.37 name_form 题，2026-10-18 用户裁定「币安上电视算是个哪门子
- * meme 币？这是一个陈述不是一个实体」+「陈述句门我认为也对，也加吧」方向 2）：
- * 币名=事件陈述（主谓结构转述一件发生的事：X 上电视/X 破产/X 涨到 Y）而非实体
- * 指代（名词短语）→ 无独立 meme 载体——名字是新闻标题不是可玩梗的符号，事件冷了
- * 名字就死，蹭其命名只是消费时效红利（案发：0xc6d0…7777「币安上电视」，CZ 转发
- * 「BNB 上越南国家电视」1 秒后快枪发币，J1.32 判 F 类 A 档 77 分 high 放行，
- * 22 秒 -33.4%）。
+ * C107 名字门（J1.41 name_form=not_meme_name 单一合格度判断；C96 陈述句门
+ * （J1.37）+ C105 版本词门（J1.40）两门合并收敛——2026-10-19 用户裁定「其实
+ * 我觉得可以不加新维度，就使用『是否合适作为 meme 币』这个维度就好」）。
  *
- * 与既有轴的分工（三借壳的补位）：
- * - J1.28/C88 mem 轴评「指代对象的玩味价值」——币安上电视的指代对象=币安
- *   （super_ip），J1.34 后按对象 web3 影响力评，币安指代 mem≥2 完全可能 →
- *   mem 地板拦不住；mem 轴量不到「名字是陈述句」（C90「尺子量不到名字」同款
- *   教训），本题正是那把尺子。
- * - J1.29 载体门评「叙事主体有无形象」——陈述句名字的判定不依赖主体形象：
- *   名字本身的结构缺陷，独立轴。
- * - C88 superIpSlogan 五腿刻意不豁：五腿票的前提是「口号票」（名字=口号=NP
- *   实体形态），name_form=statement 的名字连口号都不是、是新闻标题——五腿
- *   全中的「币安上电视」形状（super_ip 0.6+relPositive 0.99+mem≥2+fresh+
- *   strong_fit 0.93）在 mem 地板/载体门均豁出后，本门是唯一拦截位。
- * 全域（不限类别）；答案缺失（旧缓存行/unclear）fail-open 不拦（J1.28/J1.29
- * 同款；生产链 JevClient 缺答案 throw，缺失形状只在旧缓存）。
+ * 案史：C96 币安上电视案（0xc6d0…7777，CZ 转发「BNB 上越南国家电视」1 秒后
+ * 快枪发币，币名=新闻标题，三轴借壳全放行 J1.32 F 类 A 档 77 high，22 秒
+ * -33.4%）立 statement 门；C105 日本語版案（0xe156…7777，CZ 出书推同秒蹭票，
+ * Jev 感知正确无臂表达——translation_match 0.62 vs name_form entity_phrase
+ * 0.96，C88 五腿全中豁载体门 → S 档 81.44 high）再立 functional_label 门。
+ * 两案同根：逐形态加臂是打地鼠（陈述句→版本词→序号→……），名字资格本质是
+ * 一个判断不是一套语言学分类——J1.41 起 name_form 收敛为「这名字适不适合作为
+ * meme 币」三选，本门消费 not_meme_name（判定锚列举两案实例但题面明确不限
+ * 列举，下一形态不用再加选）。
+ *
+ * 旧 choice 兼容映射（断代 bit 兼容红线）：J1.37-J1.40 缓存行 choice=
+ * statement/functional_label → 继续拦（语义等价 not_meme_name，两门时代各自
+ * 的拦截位不变——C96 部署起 statement 行为照旧）；entity_phrase → 放行（语义
+ * 等价 meme_name）；unclear/缺失 → fail-open。存量行行为与断代前逐位一致。
+ *
+ * 与既有轴的分工（C96/C105 论证继承）：
+ * - J1.28/C88 mem 轴评「指代对象的玩味价值」量不到名字形态（币安上电视 mem
+ *   1.72 / 日本語版 mem 2.5 均过地板——「尺子量不到名字」C90 同款教训）；
+ * - J1.29 载体门评「叙事主体有无形象」不依赖名字结构——名字缺陷独立轴；
+ * - C88 superIpSlogan 五腿刻意不豁：五腿前提是口号票（名字=口号=可传播
+ *   符号），陈述句/版本词名字连口号都不是——两案五腿全中正是实际放行路径，
+ *   本门是唯一拦截位。
+ * 全域（不限类别）；无概率 mass（choice 档位门）；unclear/答案缺失（旧缓存
+ * 行）fail-open 不拦（J1.28/J1.29 同款；生产链 JevClient 缺答案 throw）。
  */
-function statementNameBlock(answers) {
-  if (answers?.name_form?.choice !== 'statement') return null;
-  return { label: '币名是事件陈述非实体指代（陈述句门）', form: 'statement' };
+const NOT_MEME_NAME_CHOICES = new Set(['not_meme_name', 'statement', 'functional_label']);
+
+function notMemeNameBlock(answers) {
+  const choice = answers?.name_form?.choice;
+  if (!NOT_MEME_NAME_CHOICES.has(choice)) return null;
+  return { label: '币名不适合作为 meme 符号（名字门）', form: choice };
 }
 
 /**
- * C105 功能标注词门（J1.40 name_form=functional_label，2026-10-19 日本語版案
- * 0xe156aa3f3e89ded51ef0b980018ef15ae0517777）：CZ 01:47:24 UTC 发推《Freedom
- * of Money》日本語版本日发售（出书促销推），蹭票者同秒抢发「日本語版」
- * （symbol/name 逐字=推文元词）。Jev 感知完全正确但无臂表达：stage3
- * relevance_type=translation_match 0.62（它知道名字是版本词）而 name_form 判
- * entity_phrase 0.96 → C88 五腿救援全中（superIp 0.53/mem 2.5/within_7d/
- * strongFit 0.73/relPositive 0.9）豁 J1.29 载体门（no_visual_entity 0.97 本该
- * 拦）→ S 档量级 39+27.44+15=81.44 过线 80.24 high（0 信号 0 交易，high 已进
- * token 级全局缓存）。
- * 用户裁定「日本語版根本不能作为 meme 名字，事件本身在 web3 影响力并不小」
- * ——事件量级轴（mbti 夹克案候选 B）明确不背锅，洞=名字资格：版本标注词描述
- * 「某内容的一种版本形态」，无独立指代对象无玩梗空间，是版本目录行不是符号。
- * J1.37 陈述句门同族第二轴（同为 name_form 单题两臂的名字资格层）。
- *
- * 与既有轴的分工：
- * - J1.37 statement 判「名字转述事件」，本门判「名字标注版本」——两个互斥的
- *   非实体形态，翻译标注词（translation_match 类关联）只可能命中本门；
- * - mem 轴量不到「名字是元词」（C90「尺子量不到名字」同款）：本票指代对象
- *   （CZ 的书/事件）mem 2.5 完全可能 ≥2 → mem 地板/五腿救援带内放行；
- * - C88 五腿刻意不豁：五腿前提「口号票」（名字=口号=NP 实体形态），版本词连
- *   内容词都不是、是版本目录行——本票五腿全中正是实际放行路径，本门是唯一
- *   拦截位（statement 门「五腿不豁」论证逐字同款）。
- * 全域（不限类别）；答案缺失（旧缓存行/unclear）fail-open 不拦（J1.37 同款；
- * 生产链 JevClient 缺答案 throw，缺失形状只在旧缓存）。断代 J1.40：旧缓存行
- * name_form∈{entity_phrase,statement,unclear} 行为 bit 不变，新分析起生效。
+ * C105 功能标注词门（J1.40）已随 C107 收敛并入上方 notMemeNameBlock：
+ * functional_label 旧 choice 经 NOT_MEME_NAME_CHOICES 兼容映射继续拦
+ * （案史与论证见 notMemeNameBlock 注释）。
  */
-function functionalLabelNameBlock(answers) {
-  if (answers?.name_form?.choice !== 'functional_label') return null;
-  return { label: '币名是功能标注词非实体指代（版本词门）', form: 'functional_label' };
-}
 
 /**
  * J1.31 E 类情绪感染力折损系数（2026-10-16 用户裁定，C80 蝙蝠侠摇案
@@ -1161,8 +1145,8 @@ export function mapStandardAnswers(answers, context) {
         // （'f_recap_e'——news_recap 改道 E，Jev 原 choice=F 可追溯）
         categoryForced: cashtagForced ? 'cashtag_w' : (recapForced ? 'f_recap_e' : null),
         cashtagMatched: cashtagHit?.cashtag ?? null,
-        // C96 审计标记：币名语言形态恒落（J1.37 name_form 题，旧缓存行 → null；
-        // statement 命中 statementNameBlock 拦截时 stage2 jev.statementBlock 落详情）
+        // C96 审计标记：币名 meme 合格度恒落（J1.37-J1.41 name_form 题，旧缓存行
+        // → null；命中 notMemeNameBlock 拦截时 stage2 jev.nameFormBlock 落详情）
         nameForm: answers.name_form?.choice ?? null,
         // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap 题，旧缓存行 →
         // null——非 F 类也落纯观察，改道只消费 F+news_recap 组合）
@@ -1209,8 +1193,7 @@ export function mapStandardAnswers(answers, context) {
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   let rmBlock = null; // 指代对象 meme 价值低档门信息 {label, score}（J1.28）
-  let stBlock = null; // 陈述句门信息 {label, form}（C96，J1.37 name_form）
-  let flBlock = null; // 版本词门信息 {label, form}（C105，J1.40 name_form）
+  let nfBlock = null; // 名字门信息 {label, form}（C96/C105/C107 合并，J1.41 name_form；form=Jev 原 choice）
   let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
   let memFloorFired = false; // C88 mem 口径地板命中标记（审计用）
   let tierScore = 0;
@@ -1376,25 +1359,17 @@ export function mapStandardAnswers(answers, context) {
     // 分数门，finalReason 的 P 段落 '-'（stage2BlockReason 已含分数）
     stage2Blocked = true;
     stage2BlockReason = rmBlock.label;
-  } else if ((stBlock = statementNameBlock(answers))) {
-    // C96 陈述句门（J1.37 name_form=statement）：币名=事件陈述非实体指代——名字
-    // 是新闻标题不是可玩梗符号，无独立 meme 载体。挂 rm 之后（指代层门链中段：
-    // nr/rm 先拦的票 label 归属前者；本票形状「币安上电视」mem 1.72>1 rm 不拦、
-    // label 归属本门点题）、C88 mem 地板之前（mem<2 与 statement 常伴生但独立轴
-    // ——mem≥2 的陈述句票 mem 地板放行、本门仍拦）。全域无豁免（superIpSlogan
-    // 五腿不豁——五腿前提是口号票 NP 名字，statement 名字连口号都不是，见
-    // statementNameBlock 注释）；无概率 mass（choice 档位门）
+  } else if ((nfBlock = notMemeNameBlock(answers))) {
+    // C107 名字门（J1.41 name_form=not_meme_name；C96 陈述句门+C105 版本词门
+    // 合并收敛）：币名本身不能作为 meme 符号——陈述句（新闻标题）/版本词（目录
+    // 行）/序号等「读者记住的不是这个名字」的形态。挂 rm 之后（指代层门链中段：
+    // nr/rm 先拦的票 label 归属前者；「币安上电视」mem 1.72>1 rm 不拦、「日本語
+    // 版」mem 2.5≥2 mem 地板放行——本门点题）、C88 mem 地板之前（独立轴：指代
+    // 对象再有梗，名字不合格照样拦）。全域无豁免（superIpSlogan 五腿不豁——
+    // 五腿前提是口号票，两案五腿全中正是实际放行路径，notMemeNameBlock 注释
+    // 论证）；无概率 mass（choice 档位门）
     stage2Blocked = true;
-    stage2BlockReason = stBlock.label;
-  } else if ((flBlock = functionalLabelNameBlock(answers))) {
-    // C105 版本词门（J1.40 name_form=functional_label）：币名=功能标注词非实体
-    // 指代——「日本語版」是版本目录行不是可玩梗符号。挂 st 之后（name_form 单题
-    // 两臂同族名字资格层，st 先拦的票 label 归属 st）、C88 mem 地板之前（独立轴
-    // ——本票实状 mem 2.5≥2：指代对象=CZ 的书有玩味价值，但名字是元词，mem 地
-    // 板放行、本门仍拦）。全域无豁免（五腿不豁——本票五腿全中正是实际放行路
-    // 径，functionalLabelNameBlock 注释论证）；无概率 mass（choice 档位门）
-    stage2Blocked = true;
-    stage2BlockReason = flBlock.label;
+    stage2BlockReason = nfBlock.label;
   } else if (!isW && rideMass == null && FRESH_TIMING_C88.has(timing)
     && memScoreC88 != null && memScoreC88 < 2) {
     // C88 mem 口径地板（J1.28 扩展臂，2026-10-18 CZ 出书簇裁定）：蹭新鲜热点但
@@ -1548,12 +1523,10 @@ export function mapStandardAnswers(answers, context) {
         // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
         // 的消费位（referentMemeabilityScore 恒落同款先例）
         findingVsRecap: answers.finding_vs_recap?.choice ?? null,
-        // C96 审计标记：陈述句门命中才落（subjectCarrierBlock 同款模式）；档位
-        // 恒落在 stage1 jev.nameForm
-        statementBlock: stBlock ? { form: stBlock.form } : null,
-        // C105 审计标记：版本词门命中才落（statementBlock 同款模式）；档位恒落
-        // 在 stage1 jev.nameForm（四选自动兼容）
-        functionalLabelBlock: flBlock ? { form: flBlock.form } : null,
+        // C96/C105/C107 审计标记：名字门命中才落（subjectCarrierBlock 同款模式）；
+        // form=Jev 原 choice（not_meme_name=J1.41 新判 / statement·functional_label
+        // =J1.37-J1.40 旧缓存行兼容臂，归因可分）；档位恒落在 stage1 jev.nameForm
+        nameFormBlock: nfBlock ? { form: nfBlock.form } : null,
         // C88 审计标记①：超级IP口号票五腿快照。恒落含 hit:false（标签零列推导消费
         // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存
         // 行）→null——0/null 语义分离，referentMemeabilityScore 恒落同款）

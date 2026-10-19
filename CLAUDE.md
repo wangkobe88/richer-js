@@ -196,7 +196,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 ```
 Token URL → URL 分类（含 IPFS metadata 解包 + 迁移直链 C106 j7tracker）→ 数据抓取 → Pre-Check（纯规则）
    ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（4 题，粉丝带只定档不拦截；isProjectCoin 的网站/URL 证据臂不采信聚合器自动 token 页——AUTO_TOKEN_PAGE_DOMAINS 清单，推文/简介宣告臂不受影响）
-   └─ 标准路径：单次 Jev 调用（主干题+brand_hijack/name_image_consistency/parent_relationship 条件题，J1.40；superIP 注册表命中 → state 注入认证/反混淆行，评分全归 Jev）
+   └─ 标准路径：单次 Jev 调用（主干题+brand_hijack/name_image_consistency/parent_relationship 条件题，J1.41；superIP 注册表命中 → state 注入认证/反混淆行，评分全归 Jev）
 ```
 
 - **文件**（`analyzer/llm/`）：`JevClient.mjs`（缺答案 id 直接 throw；429/5xx 退避，Retry-After 头优先、钳 [500,15000]ms）/ `jev-questions.mjs` / `jev-prestage-questions.mjs` / `jev-state-builder.mjs`（60k/20k 预算）/ `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`（**聚合/阈值/截断全在代码侧**）
@@ -235,7 +235,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + 迁移直链 C106 j7tracke
 | 叙事源头陈旧门（C75） | direct_tweet **主推**（仅主推）距 token 创建锚 >30d → mapper 时效归 0（C74 豁免桶的客观锚层）；angle/interpretive/unknown 不触达；锚缺失 fail-open | C75 |
 | 图文名不符拼写门（C78） | 币名 CJK ≥3 字+图内文字等长独立段恰一位不同且 ≥2 次+币名整体不在图内 → Stage3 截断（纯代码，与 misspellingP≥0.5 双臂 OR；有意变形全语料一致不触发） | C78 |
 | E 类感染力折损（J1.36） | 判据源=web3_fit：`(strong_fit+fit) < 0.5` → 仅 category=E `tierScore+effDim2 ×0.5`（时效不折）；≥0.5 原公式；缺失 fail-open 不折；审计 resonanceFitMass 恒落 | C93 |
-| F→E 改道+陈述句门（J1.37）+ 版本词门（J1.40） | **改道**：finding_vs_recap==news_recap ∧ F → 强制改道 E（换考官非放行，E 既有门全部接管）；**陈述句门**：name_form==statement → 全类别硬拦「币名是事件陈述非实体指代」；**版本词门（C105）**：name_form==functional_label（版本/语言/形态/序号元词——日本語版/英文版/完整版/remix 版/version/edition，无独立指代对象）→ 全类别硬拦「币名是功能标注词非实体指代」；优先级锚 functional_label>statement>entity_phrase、「XX 完整版」核心是 XX 按核心词判；**两门 C88 五腿均不豁**（名字不合格救援救不了）；unclear/缺失 fail-open；门链序 rm→st→fl→memFloor→sc→tier；版本断代 | C96/C105 |
+| F→E 改道（J1.37）+ 名字门（J1.41 收敛） | **改道**：finding_vs_recap==news_recap ∧ F → 强制改道 E（换考官非放行，E 既有门全部接管）；**名字门（C107 单一合格度判断，C96 陈述句门+C105 版本词门收敛合并）**：name_form==not_meme_name（「这名字适不适合作为 meme 币」唯一判据；判定锚列举两案实例但题面**不限于此**——下一形态不用再加选）→ 全类别硬拦；核心词锚「XX 完整版」核心是 XX 合格、口号/宣言合格、判名字本身不判指代对象影响力；**C88 五腿不豁**（名字不合格救援救不了）；兼容 Set {not_meme_name, statement, functional_label}——J1.37-J1.40 存量行 bit 不变；unclear/缺失 fail-open；门链序 rm→nf→memFloor→sc→tier；版本断代 | C96/C105/C107 |
 | 币安地域子账号量级锚 | 主推作者 handle `binance` 前缀 ∧ 非四全球号白名单 ∧ binanceCorpus 借壳语料在场 → effTier 锚 **D**（锚降优先于锚升两臂；量级门 D/E 档臂五腿不豁=唯一新增拦截位）；magnitudeTier 原判保留；只查主推；缺失 fail-open | C97 |
 | 借壳语料父推源头窗 | binanceCorpus 票主推 `in_reply_to.created_at` 父推 lag>24h → timing 归 older；**不限 tweet_type**；真正拦截机制=C88 五腿 FRESH_TIMING_C88 断 → J1.29 载体门接管；载体推刻意不进判定（新载体不构成源头新鲜证据）；缺失 fail-open；与 C68/C75 并存双 override 各落 | C102 |
 | 载体↔父推关系源头窗（J1.39） | **通用语料版 C102**：parent_relationship 条件题四选——new_angle_on_original（载体借原生推有新解读=豁免，父推可老）/translation_or_repost/explains_derivative/unclear；翻译/二手臂 ∧ 任一槽位（主推/website_tweet/quoted/retweeted）父推 lag>24h → timing 归 older（取最老父推）；仅 hasReplyParent 才问（无父推不问防幻觉）；答案/锚/父推时间缺失 fail-open；版本断代 | C103 |

@@ -30,9 +30,9 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.38）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.41）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.11）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.38/…)`、`prestage-jev(P1.11/…)`）
+  （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
   社区/文化 meme 主账号，年龄非反证；**C101：推文语料不采信 web3ip，回落 abm 双条件**）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
   全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
@@ -67,6 +67,18 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C107 名字门收敛（J1.41 name_form 三选：这名字适不适合作为 meme 币）——「其实我觉得可以不加新维度，就使用『是否合适作为 meme 币』这个维度就好」（2026-10-19 用户裁定；C105 日本語版案当日二次裁定收敛）★
+
+- **裁定与根因**：C105 落地数小时后用户裁定收敛——逐形态加臂是打地鼠（C96 陈述句→C105 版本词→下一形态序号/目录行→……每出一个新形态就要 bump 一次题面加一个 choice 加一门），而「名字资格」本质是**一个判断不是一套语言学分类**。J1.37-J1.40 的 name_form 四分类（entity_phrase/statement/functional_label/unclear）把「分类学」当判据，Jev 感知正确但只能在错误的问题上作答（日本語版案 entity_phrase 0.96 语义上没错——它确实是 NP，错的是 NP 不等于合格 meme 名）。裁定原话直接进题面做唯一判据锚。
+- **修复（J1.41，题数不变 20）**：name_form 整题重写为单一合格度三选——`meme_name`（名字是可指代/可传播的符号：实体名词短语或口号/宣言/代号，可被抓住当符号玩梗二创）/ `not_meme_name`（名字本身当不了符号：事件陈述/版本功能标注/序号——读者记住的是事件/内容/目录行，不是这个名字）/ `unclear`（fail-open）。判据锚：①「是否合适作为 meme 币」是唯一判据，语言学分类只是佐证不是答案；②判名字本身，不判指向对象的影响力/玩味价值（指代对象好不好玩梗另有题评——名字是陈述句或版本词照样不合格）；③核心词修饰锚（「XX 完整版」核心是 XX → 合格，防误伤）；④口号/宣言/祈愿（「货币自由」「HODL」「LFG」）是可传播符号 → 合格；⑤中英文名取更完整的一个判；⑥**不限列举锚**——not_meme_name 判定锚列举币安上电视（C96）/日本語版（C105）两案实例但题面明确「不限于此——凡『名字本身当不了符号』的形态都算」：下一形态出现不用再加 choice 不用再 bump（反打地鼠的制度化）。
+- **mapper 两门合并**：`statementNameBlock`（C96）+ `functionalLabelNameBlock`（C105）→ 单门 `notMemeNameBlock`，`NOT_MEME_NAME_CHOICES = Set{not_meme_name, statement, functional_label}`；门链序 rm→**nf**→memFloor→sc；label 统一「币名不适合作为 meme 符号（名字门）」。**全域无豁免五腿不豁**（分工论证继承 C96/C105：mem 轴量「指代对象的玩味价值」量不到名字形态——币安上电视 1.72/日本語版 2.5 均过地板，「尺子量不到名字」；J1.29 载体门评主体形象不依赖名字结构；五腿前提是口号票——名字=口号=可传播符号，陈述句/版本词名字连口号都不是，两案五腿全中正是线上放行路径，本门是唯一拦截位）。
+- **旧 choice 兼容映射（断代 bit 兼容红线）**：J1.37-J1.40 存量缓存行 choice=statement/functional_label → 兼容 Set 继续拦（两门时代各自拦截位不变，C96 已部署线上）；entity_phrase → 放行（语义等价 meme_name）；unclear/缺失 → fail-open。**存量行行为与断代前逐位一致**（C96 statement 行为照旧是部署红线——v24 直调进程跑的就是这套）。
+- **审计**：stage1 `jev.nameForm` 恒落（Jev 原 choice）；stage2 `jev.nameFormBlock {form}` 命中才落——form=Jev 原 choice，归因可分（not_meme_name=J1.41 新判 / statement·functional_label=旧缓存行兼容臂，校准免重跑）；旧键 statementBlock/functionalLabelBlock 退役（零消费方，已核）。C105 的「优先级锚 functional_label>statement>entity_phrase」随之作废（三选下无竞争）。
+- **断代语义**：J1.41 断代，旧缓存行不重评；新分析起生效。
+- **测试**：`_test_jev_finding_recap_statement_gate` 重构扩至 83 断言——A 段（三态收敛+旧 id 退役+单一判据锚+口号合格锚+不限列举锚+两案事故词都在锚）/ C 段收敛真值表（8 类别×not_meme_name 全拦+meme_name/entity_phrase/unclear/缺失放行+五腿全中不豁）/ **C2 段兼容映射**（statement/functional_label 存量行 8 类别照拦+form 归因可分）/ D 段币安上电视 J1.32 快照反证（statement 兼容臂同位拦截）/ D2 段日本語版 J1.39 快照逐位反证保留（D6 entity_phrase 实况=pass=true 线上形状复现——名字门必要性正证；D7 not_meme_name=拦；D8 同快照新旧三臂同门同 label）/ E4b nameFormBlock 三形状 / F1b 兼容 Set 源码锁 + F2 门链序五点索引递增 + F6c J1.41 changelog 裁定原话锁。邻居单测版本断言 J1.40→J1.41 四套常规跟进（superip_standard_path/jev_resonance/angle_timing_override/name_image_consistency）；regional_binance_anchor 用 entity_phrase 默认值天然兼容零改动。
+- **存量影响面**：断代免扫；日本語版 0xe156…7777 定向重析翻转验证与 C105 待办合并（J1.41 重析后 name_form 应判 not_meme_name→拦）。
+- **部署**：182 pull + 重启叙事 worker + 实验进程；与 C104/C105/C106（欠部署）同批；live 实验（v24）重启前走持仓确认规程。
 
 ### C106 迁移直链 metadata 解包（j7tracker.io 第三形状）——社媒锁死在 metadata JSON 里被规则 4-B 一枪误杀（2026-10-19 用户裁定「好，修复」；BNB Tree 0xd50e11204f7f3d63598b0118ee4151bf95917777 案，pump.fun 迁移票）★
 
