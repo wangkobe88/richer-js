@@ -57,7 +57,7 @@ async function fetchBuys(db, addrs) {
     const batch = addrs.slice(i, i + 50);
     const { data, error } = await db.from('trades')
       .select('token_address,experiment_id')
-      .eq('direction', 'buy')
+      .eq('trade_direction', 'buy')
       .eq('success', true)
       .in('token_address', batch);
     if (error) throw error;
