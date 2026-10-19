@@ -183,7 +183,9 @@ async function main() {
     const r2 = await run(makeTokenData(), { ...angleTweet(60), website_tweet: { type: 'tweet', created_at: stale } });
     assert(r2 === null, 'E2 主推新 60s + website_tweet stale 8h → 放（对称）',
       JSON.stringify(r2?.details?.ruleName));
-    // 豁免是语料级：主推 direct_tweet + website_tweet 30 天旧也放（时效全交 Jev）
+    // 豁免是语料级：主推 direct_tweet + website_tweet 30 天旧也放（时效全交 Jev）。
+    // C104 后本形状=「源头旧(30d)+新载体(8h≤24h)」主从结构成立 → 仍放（Jean Phil
+    // new_angle 臂同款：源头年龄交 C102/C103 父推窗在 Jev 层管）
     const r3 = await run(makeTokenData(), {
       type: 'tweet', text: 'unit test news tweet text',
       author_screen_name: 'ut_news_author', author_followers_count: 417000,
@@ -191,12 +193,12 @@ async function main() {
       created_at: iso(ANCHOR_SEC - 30 * 24 * 3600),
       website_tweet: { type: 'tweet', created_at: stale },
     });
-    assert(r3 === null, 'E3 主推 direct_tweet 30 天 + website_tweet 8h 旧 → 放（豁免语料级）',
+    assert(r3 === null, 'E3 主推 direct_tweet 30 天 + website_tweet 8h 旧 → 放（C104 主从结构：载体 ≤24h 救回）',
       JSON.stringify(r3?.details?.ruleName));
   }
 
-  // ═══ F. 豁免桶互动臂无硬界 ═══
-  console.log('══ F. 互动臂豁免（4500 粉/600 赞）7d/30d ═══');
+  // ═══ F. 豁免桶互动臂（C104 后源头旧须有新载体）═══
+  console.log('══ F. 互动臂豁免（4500 粉/600 赞）══');
   {
     const viralTweet = (lagSec) => ({
       type: 'tweet',
@@ -207,9 +209,18 @@ async function main() {
       created_at: iso(ANCHOR_SEC - lagSec),
     });
     const r7d = await run(makeTokenData(), viralTweet(7 * 24 * 3600));
-    assert(r7d === null, 'F1 互动臂 lag=7d 放（无硬界，Jev 软评）', JSON.stringify(r7d?.details?.ruleName));
+    assert(r7d?.details?.ruleName === 'expired_tweet' && r7d?.details?.tweetType === 'direct_tweet',
+      'F1 互动臂 lag=7d 裸推 → 拦（C104：源头>24h 无新载体=用烂形状；C74 旧语义无硬界放）',
+      JSON.stringify(r7d?.details));
+    const r7dc = await run(makeTokenData(), { ...viralTweet(7 * 24 * 3600), website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - 13) } });
+    assert(r7dc === null, 'F1\' 互动臂 7d + website_tweet 13s 新载体 → 放（主从结构成立交 Jev 软评）',
+      JSON.stringify(r7dc?.details?.ruleName));
     const r30d = await run(makeTokenData(), viralTweet(30 * 24 * 3600));
-    assert(r30d === null, 'F2 互动臂 lag=30d 放', JSON.stringify(r30d?.details?.ruleName));
+    assert(r30d?.details?.ruleName === 'expired_tweet',
+      'F2 互动臂 lag=30d 裸推 → 拦（同 F1）', JSON.stringify(r30d?.details));
+    const r30dq = await run(makeTokenData(), { ...viralTweet(30 * 24 * 3600), quoted_status: { created_at: iso(ANCHOR_SEC - 3600) } });
+    assert(r30dq === null, 'F2\' 30d + quoted_status 1h 新 → 放（载体臂覆盖 quoted 槽位）',
+      JSON.stringify(r30dq?.details?.ruleName));
   }
 
   // ═══ G. account 型语料（分支 A 放宽）═══
@@ -227,6 +238,51 @@ async function main() {
     const r = await run(makeTokenData(), angleTweet(8 * 3600), { ignoreExpired: true });
     assert(r === null, 'H1 ignoreExpired 跳过规则 2 整段（web 重析穿透；C68 mapper 6h 纵深防御兜 angle 类）',
       JSON.stringify(r?.details?.ruleName));
+  }
+
+  // ═══ K. C104 主从结构门（CZ 案 0x1890c934…7777，2026-10-19）═══
+  console.log('══ K. C104 direct 豁免源头年龄界（主从结构判据）══');
+  {
+    const DAY = 24 * 3600;
+    // CZ 现场形状：主推 1299 万粉官宣推 3.47d + website_tweet=同一条旧推（无新载体）
+    const czLag = Math.round(3.47 * DAY);
+    const czMain = {
+      type: 'tweet', text: 'Freedom of Money unit test 官宣',
+      author_screen_name: 'ut_cz_author', author_followers_count: 12997788,
+      metrics: { favorite_count: 2064, retweet_count: 218 },
+      created_at: iso(ANCHOR_SEC - czLag),
+    };
+    const rK1 = await run(makeTokenData(), { ...czMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - czLag) } });
+    assert(rK1?.details?.ruleName === 'expired_tweet' && rK1?.details?.tweetType === 'direct_tweet',
+      'K1 CZ 现场反证：1299 万粉主推 3.47d + website 同条旧推 → 拦（主从结构缺失=用烂旧推）',
+      JSON.stringify(rK1?.details));
+    assert(rK1?.details?.staleDirectLagSec === czLag, 'K1b staleDirectLagSec 审计落值（回落形状）');
+    // 载体救援臂（Jean Phil new_angle 形状：源头旧+载体新，关系归 Jev 层 C102/C103）
+    const rK2 = await run(makeTokenData(), { ...czMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - 13) } });
+    assert(rK2 === null, 'K2 同形状 website_tweet 13s 新载体 → 放（C103 new_angle 臂同款）',
+      JSON.stringify(rK2?.details?.ruleName));
+    // 主推窗边界（严格 >，C102/C103 同口径）
+    const rK3 = await run(makeTokenData(), { ...czMain, created_at: iso(ANCHOR_SEC - DAY) });
+    assert(rK3 === null, 'K3 主推恰 24h（86400s）无载体 → 放（严格 >）',
+      JSON.stringify(rK3?.details?.ruleName));
+    const rK4 = await run(makeTokenData(), { ...czMain, created_at: iso(ANCHOR_SEC - DAY - 1) });
+    assert(rK4?.details?.ruleName === 'expired_tweet', 'K4 主推 24h+1s 无载体 → 拦',
+      JSON.stringify(rK4?.details?.ruleName));
+    // 载体窗边界（≤ 窗算新鲜）
+    const rK5 = await run(makeTokenData(), { ...czMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - DAY) } });
+    assert(rK5 === null, 'K5 主推 3.47d + 载体恰 24h → 放（载体 ≤ 窗）',
+      JSON.stringify(rK5?.details?.ruleName));
+    const rK6 = await run(makeTokenData(), { ...czMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - DAY - 1) } });
+    assert(rK6?.details?.ruleName === 'expired_tweet', 'K6 载体 24h+1s → 不算新载体 → 拦',
+      JSON.stringify(rK6?.details?.ruleName));
+    // 主推 created_at 缺失 fail-open（缺证据不拦）
+    const rK7 = await run(makeTokenData(), { ...czMain, created_at: undefined, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - 30 * DAY) } });
+    assert(rK7 === null, 'K7 主推 created_at 缺失 → fail-open 豁免照旧',
+      JSON.stringify(rK7?.details?.ruleName));
+    // 源码口径锁
+    const pcsK = src('src/narrative/analyzer/services/pre-check-service.mjs');
+    assert(pcsK.includes('const DIRECT_TWEET_STALE_SEC = 24 * 3600;'), 'K8 常量 24h 源码锁');
+    assert(pcsK.includes('function _tweetLagSec') && pcsK.includes('hasFreshCarrier'), 'K9 判定链源码锁');
   }
 
   // ═══ I. 源码口径（锁防线）═══

@@ -38,6 +38,28 @@ const NARRATIVE_CONFIG = config.narrative || {
 // （残值删除，本文件与 NarrativeAnalyzer 死拷贝两处）。
 const NON_EXEMPT_TWEET_FRESH_SEC = 300;
 
+// C104（2026-10-19 CZ 案 0x1890c934…7777 用户裁定「要有主从推文结构才豁免
+// lag<300s 拦截」+「3 天前的推早被用烂了」）：direct_tweet 豁免加源头本体年龄界。
+// 主推 lag > 24h 时豁免须有主从结构——website_tweet/quoted_status/retweeted_status
+// 任一 ≤24h 新载体证明「实时传播正在发生」（Jean Phil 形状：源头旧但载体新，关系
+// 由 C102/C103 父推窗在 Jev 层管）；无新载体的裸旧推（源头本体直接当唯一语料：
+// CZ 1299 万粉官宣推 3.47d / Dexerto 20d 形状，同簇已发 ≥5 票=用烂）回落非豁免桶
+// 300s 判定（此形全槽位必 ≥300s → expired_tweet 拦，不烧 Jev 配额）。主推 ≤24h
+// （啾啾 8.8h「发现得晚」窗口内）不依赖载体照豁免——C74 立案原型零主从结构。
+// 窗对齐 C102/C103 PARENT_REL_STALE_SEC（同窗三槽位：父推位/website 位/主推位）。
+const DIRECT_TWEET_STALE_SEC = 24 * 3600;
+
+/**
+ * 推文 lag（秒）——锚为规则 2.1 的 refNow（tokenCreatedAtSec 创建锚）。
+ * created_at 缺失或 Date 解析失败 → null（调用方 fail-open，不参与判定）。
+ */
+function _tweetLagSec(tweet, refNow) {
+  if (!tweet?.created_at) return null;
+  const ts = new Date(tweet.created_at).getTime();
+  if (!Number.isFinite(ts)) return null;
+  return (refNow.getTime() - ts) / 1000;
+}
+
 /**
  * symbol 归一化（规则 0.55/0.58 消费）：去零宽/不可见 Unicode（含韩文填充符
  * U+3164 隐形字符规避）→ 小写 → trim。
@@ -496,7 +518,23 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
         if (tweetSources.length > 0) {
           const classification = classifyTweetType(twitterInfo);
-          if (classification.type === 'direct_tweet') {
+          // C104：direct_tweet 豁免资格判定（源头本体旧须有主从结构，见文件头
+          // DIRECT_TWEET_STALE_SEC 注释）。staleDirectLagSec 回落形状时落 details
+          // 审计（非回落恒 null 不序列化）；主推 created_at 缺失 fail-open 豁免照旧。
+          let directExempt = classification.type === 'direct_tweet';
+          let staleDirectLagSec = null;
+          if (directExempt) {
+            staleDirectLagSec = _tweetLagSec(twitterInfo, refNow);
+            if (staleDirectLagSec !== null && staleDirectLagSec > DIRECT_TWEET_STALE_SEC) {
+              const hasFreshCarrier = [twitterInfo.website_tweet, twitterInfo.quoted_status, twitterInfo.retweeted_status]
+                .some(t => { const lag = _tweetLagSec(t, refNow); return lag !== null && lag <= DIRECT_TWEET_STALE_SEC; });
+              if (!hasFreshCarrier) {
+                directExempt = false;
+                console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免失效: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s>24h 且无 ≤24h 新载体（主从结构缺失，旧推用烂形状），回落非豁免桶判定`);
+              }
+            }
+          }
+          if (directExempt) {
             console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免: direct_tweet（${classification.reason}），跳过 expired_tweet 硬拦，时效交 Jev event_timing 软评`);
           } else {
             let allExpired = true;
@@ -516,7 +554,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
             if (allExpired) {
               const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
               console.log(`[NarrativeAnalyzer] 预检查触发: 发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒 (非豁免桶 type=${classification.type}, 主推文: ${mainTweetDate})`);
-              return buildPreCheckResult('low', `发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒（推文类型=${classification.type}，主推文：${mainTweetDate}），叙事时效已过`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20, tweetType: classification.type, freshWindowSec: NON_EXEMPT_TWEET_FRESH_SEC });
+              return buildPreCheckResult('low', `发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒（推文类型=${classification.type}${staleDirectLagSec !== null ? `，源头本体 ${Math.round(staleDirectLagSec)}s>24h 无新鲜载体` : ''}，主推文：${mainTweetDate}），叙事时效已过`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20, tweetType: classification.type, freshWindowSec: NON_EXEMPT_TWEET_FRESH_SEC, ...(staleDirectLagSec !== null ? { staleDirectLagSec: Math.round(staleDirectLagSec) } : {}) });
             }
           }
         }
