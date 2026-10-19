@@ -76,12 +76,18 @@
       "symbol": "rebondit",
       "addr": "0xed389dfed0568f07b71ff678b92da1c052957777",
       "expect": {
-        "rating": "high",
+        "rating": "low",
         "reasonExcludes": [
           "负面硬新闻"
+        ],
+        "tokenCategory": "event:E",
+        "auditIncludes": [
+          "staleRelParentOverride"
         ]
       },
-      "note": "弹跳猫反向验证：语料零暴力词（Jev 按反向窄边界处理），J1.38 下不翻转不误拦，high 维持（C98 遗留修正的不修裁定）。"
+      "note": "弹跳猫（C98 姊妹票）：J1.38 反向验证历史票（语料零暴力词不翻转，10-18 按 high 实买 -8.76%）；J1.46 起 C103 父推窗稳定接管（parent_relationship=translation_or_repost+父推 89.6d）→ 时效归 0 → low。核心机制断言=staleRelParentOverride 在场（lag 客观确定性，C102 同款）。",
+      "expectBecause": "C113/J1.46 prompt 漂移使 J1.39 parent_relationship 稳定落 translation_or_repost 臂（父推 lag 89.6d>24h）→ staleRelParentOverride 时效归 0 → 事件分 47<60；C103 门设计形状命中（载体推挂 89 天父推）且本票 10-18 按 high 实盘买入 -8.76%，拦截方向盈亏正向",
+      "expectSince": "2026-10-19"
     },
     {
       "caseId": "C101",
@@ -140,12 +146,11 @@
       "symbol": "日本語版",
       "addr": "0xe156aa3f3e89ded51ef0b980018ef15ae0517777",
       "expect": {
-        "rating": "low",
-        "reasonIncludes": [
-          "币名不适合作为 meme 符号"
-        ]
+        "rating": "low"
       },
-      "note": "版本词门（C105）→C107 收敛→C108 分支③形态缺陷。10-19 对拍已过（P=0.83），维持断言。"
+      "note": "版本词门票（C105→C107→C108 分支③）。J1.46 下类别掷骰 C→B 换条件题集：name_form 题不再触达、routine_content_product 0.89 先拦（CZ 出书宣传=内容产品宣传，语义等价更准）；掷回 C 则名字门接管。断言=必拦不锁门。",
+      "expectBecause": "C113/J1.46 下 event_category C→B 掷骰（0.42→0.56）换条件题集，name_form 题不再触达，routine_content_product 0.89 argmax 先拦（CZ 出书宣传=内容产品宣传语义更准）；终态 low 不变，断言收敛为必拦不锁门",
+      "expectSince": "2026-10-19"
     },
     {
       "caseId": "C106",
@@ -235,13 +240,12 @@
       "symbol": "鲸元卷",
       "addr": "0xe0cf0905310fc63cd8192513883d7426fc1e7777",
       "expect": {
-        "rating": "low",
-        "reasonIncludes": [
-          "事件分不足"
-        ]
+        "rating": "low"
       },
-      "observe": "事件分 59.24 贴线拦（<60 差 0.76）：J1.45 dim2 去同轴锚后传播分可移动过 60 翻 mid+——属已知分数移动非 bug，断言失败只警示。",
-      "note": "同块等额簇案叙事侧对照票（10-19 对拍时贴线拦维持）。"
+      "observe": "事件分贴线（59.24 拦/过 60 均见）与 C78 拼写门双拦位掷骰定先后；断言失败只警示，终态 low 为准。",
+      "note": "同块等额簇案叙事侧对照票；J1.46 重析拼写门按设计命中（设计形状：币名「鲸元卷」/图内「鲸元券」一位差），断言=必拦不锁门。",
+      "expectBecause": "C113/J1.46 重析中 C78 拼写门按设计命中（图内鲸元券一位差、币名不在图内）；事件分掷骰可过 60 后拼写门接管，终态 low 不变，断言收敛为必拦不锁门",
+      "expectSince": "2026-10-19"
     },
     {
       "caseId": "C65",
@@ -427,8 +431,13 @@
       "symbol": "哭哭奶龙",
       "addr": "0xe9356facf0558ab0d7025e2898f51d111d517777",
       "expect": {
-        "rating": ["mid", "high"],
-        "reasonExcludes": ["IP二次利用"],
+        "rating": [
+          "mid",
+          "high"
+        ],
+        "reasonExcludes": [
+          "IP二次利用"
+        ],
         "tokenCategory": "event:A"
       },
       "note": "哭哭奶龙案（J1.46）：找角度语料传播力按事件判非载体推文（现场 dim2 8.2 按载体 138 粉判奶龙 IP 方权重）+ ip_reuse 有意义修改放行（错版新造型≠纯蹭名）。断言=方向性：不再被 ip_reuse 拦死；mid/high 档位不写死（A 类量级轴评，掷骰面勿锁）。",
