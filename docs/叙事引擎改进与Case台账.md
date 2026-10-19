@@ -68,6 +68,77 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C115 纯 website 兜底语料——「如果所有的信息都不能获取，又提供了网站信息，就去获取一下 web 网站信息」（2026-10-19 CZ4 案）★
+
+- **现场**：CZ4 `0xc6fecab1b9bf2c761d754edbe016e186e44d7777`（flap，taxToken）：
+  IPFS meta 只填了 `website=https://czfour.com`（twitter/telegram 全空），站是
+  做工完整的 CZ「4」梗页（"When bad news hits, CZ replies with one number: 4"，
+  1% 税换 BNB/Binance Life/ASTER/GIGGLE 分持仓者，中英双语）；15 分钟毕业
+  12.7 BNB。叙事分析现状：URL 分类只有 websites 桶 1 条，`websiteFetch.enabled`
+  默认关（2026-10-13 提速裁定「网站内容基本没用到」）→ 整段跳过 → Jev 裸判
+  （state 618 字符只有 meta description）掷骰「营销噱头 P=0.55」拦——**票的
+  唯一语料源被自己的总开关锁死**，判定理由与语料质量不匹配。
+- **用户裁定**：开关关的提速语义只该省「有其它语料在手」的票；全平台语料
+  落空而 websites 桶提供了 URL 时，网站内容就是该票唯一可得的语料，必须抓。
+- **实现**（`data-fetch-service.mjs`）：①runWebsite 桶体抽 `fetchWebsiteCorpusOnce`
+  单点（enabled 路径 bit 不变）；②`Promise.allSettled` 后兜底段：`websiteFetch.enabled
+  !== true` ∧ `CORPUS_FALLBACK_INFO_KEYS`（12 个非 website `<x>Info` 键）全
+  null（平台无 URL 与抓取失败同形状；**extractedInfo.description/intro 是宣告
+  文案不算抓取语料，刻意不在集内**）→ 补抓一次（直抓+r.jina.ai 回退整链照常）；
+  `dataFetchResults.website.corpusFallback=true` additive 留痕；失败 fail-closed
+  null 与「网站抓取失败」旧形状一致（precheck 规则 4/Jev 消费点零改动）。
+  enabled=true 时桶内已抓不重跑（互斥门）；有任一平台语料在手不触发（提速
+  收益保留）；websites 桶空/不可抓 URL 不触发（与 C77 搜索兜底域无交集——
+  C77 判各桶全空，本案 websites 桶非空本就不在 C77 域内）。
+- **附带修复（C86 遗留 bug 复活）**：web-fetcher `_fetchDirect` 的 C86 改动把
+  `clearTimeout` 挪进 finally 时 `timeoutId` 声明留在 try 块内——finally 引用
+  不到 = **每次直抓成功都在 finally 抛 ReferenceError**（recordDataFetch 落
+  success:false error:'timeoutId is not defined'，websiteInfo 恒 null）。10-13
+  关总开关后此路成死代码未暴露，C115 复活即炸；声明提 to try 外修复。
+- **验证**：单测 `_test_website_fetch_removal.cjs` 重写 B/B'/E 段 27 断言全绿
+  （纯 website 票兜底发生/有 twitter 语料零抓取/抓取失败形状仍兜底/桶空与
+  不可抓 URL 不兜底/enabled 桶内抓无标记/死站 fail-closed 同形状）；CZ4 定向
+  重析：czfour.com 3363 字进 state（618→1634），Jev 从掷骰「营销噱头 P=0.55」
+  变为有据打分「W 类 产品14.6+交互2.7+时效0=17.3<60」rating=low（无翻转；
+  纯网站语料无社交佐证，W 数学不过线是诚实结论——本轮只修语料可得性，
+  不动校准）。182 部署（pull+worker 重启）待办，与 C112/C113/C114 同批。
+
+### C116 name_form 整句情绪姿态分界 + not_meme_name 根本判据——「作为一个 Web3 用户，会接受这个名字吗？」「是会接受呀」「名字也是一样的，用户能不能接纳它作为 meme 币是最根本的」（2026-10-19 猫案）★
+
+- **现场**：「只是一只猫」`0x21573053e3ecda168007315f9153be78afa17777`（flap 非 BNB
+  计价盘，10-19 12:29 UTC，毕业 12:49）：主推=「NVIDIA 新模型痴迷猫 memecoin」
+  （meta 链 Nemotron-SFT 数据集 viewer 页），Jev 全维度放行（timing within_7d/
+  direct_tweet 豁免桶/block none 0.54/ip_reuse 仅 0.09/E 类 0.52/magnitude C/
+  web3_fit strong 0.96），唯 nameForm=not_meme_name 硬拦 rating=1——「只是一只
+  猫」整句形态被归入「句片段」不合格臂（C108 J1.42）。C84 链路全程正常：触发门
+  过 → round 1 4.3s 完成 → rating=1 → 非账号型语料不补轮 → 买条件 rating==2|3
+  恒 false 无 signal 行。
+- **用户裁定两条**（名字门第 5 张样本裁定，前 4 张掷骰偏差基线仍挂起待裁）：
+  ①「作为一个 Web3 用户，会接受这个名字吗？——**是会接受呀**」：「只是一只猫」
+  是自嘲/降格姿态句（just a chill guy 同款句式，just a cat），非「滑雪/我要去」
+  类无感知句片段；对 NVIDIA 猫经济宏大叙事的刻意降格反差本身就是梗；名字与热点
+  主体（The Meme Cat）不同名属 brand_hijack/ip_reuse 轴（该轴未成立 0.09），名字
+  门不替它背锅。②**not_meme_name 同样立 web3 用户视角**（与事件侧 web3_fit 用户
+  视角同构）：「用户能不能接纳它作为 meme 币是最根本的」——形态列举只是佐证，
+  不是答案。
+- **口径（题集 J1.48 纯措辞，mapper 零改动）**：①合格分支②扩「有 meme 情绪姿态
+  的整句/短语」臂（自嘲/躺平/降格反差/宣言句式，「只是一只猫」=just a chill guy
+  同款自嘲降格句式——句子本身携带可传播姿态、用户接得住当符号）；②不合格分支
+  「句片段」臂加「无情绪姿态」限定（「滑雪/我要去」=纯生活陈述，无自嘲/宣言/
+  玩梗姿态）；③对照锚加整句对（「只是一只猫」合格/「我要去滑雪」不合格），
+  句子分界=**有无 meme 情绪姿态**，非是否整句、非句子长短（总则仍是用户侧感知）；
+  ④not_meme_name criteria 立根本判据=web3 用户不接纳它作为 meme 币的名字，典型
+  形态降为佐证列举。Choice 题纯措辞翻 argmax（C114 J1.47 同款先例；C108「题面
+  改锚分不动」教训只约束分数锚定题，不适用本题）。
+- **单测**：无新增（纯题面措辞、无 mapper/逻辑改动，同 J1.46 题面部分先例）；
+  版本锁 5 处同步 `_test_name_image_consistency`/`_test_jev_resonance`/
+  `_test_jev_finding_recap_statement_gate`/`_test_empty_content_img_exempt`+
+  `_test_superip_standard_path`（后者系 C114 漏同步遗留，J1.46→J1.48 顺手修复）。
+- **待办**：182 pull + 猫票定向重析对拍（验 nameForm 翻 meme_name、名字门放行、
+  评级升档方向）+ `--add 0x21573053e3ecda168007315f9153be78afa17777 --case C116`
+  收录回归票（生成后人工复核 expect——rating 大概率升档但掷骰面勿写死）+ 全量
+  case-regression 对拍 + worker 重启。
+
 ### C114 empty_content 图证在场豁免 + J1.47 通用梗缩写锚——「从用户的角度想一下，币安发了一个推，内容 DND（do not disturb），然后视频是一只猫拉上窗帘。DND 能不能作为一个小meme币？」「dev 侧不管，只管叙事分析。选1」（2026-10-19 DND 案）★
 
 - **现场**：DND `0x4dbcb10e68626b6f663bd596905d41cdc6b07777`（four.meme）：币安地域子账号
