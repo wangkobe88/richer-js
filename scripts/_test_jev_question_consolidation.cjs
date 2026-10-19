@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.43', JEV_QUESTIONS_VERSION === 'J1.43', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.44（J1.44=C110：low_quality_derivative+ip_reuse 合桶+mem 题面瘦身）', JEV_QUESTIONS_VERSION === 'J1.44', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -79,9 +79,29 @@ async function main() {
     qs.name_referent.criteria.other_referent.includes('配图中出现的形象'), null);
   check('A7 subject_entity 2 桶（product_entity/other_entity）',
     Object.keys(qs.subject_entity.criteria).length === 2 && 'product_entity' in qs.subject_entity.criteria, null);
-  check('A8 block_reason 10 桶（退役桶不在）',
-    Object.keys(qs.block_reason.criteria).length === 10
-    && !('regional_event' in qs.block_reason.criteria) && !('subject_unqualified' in qs.block_reason.criteria), null);
+  check('A8 block_reason 9 桶（C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative）',
+    Object.keys(qs.block_reason.criteria).length === 9
+    && !('regional_event' in qs.block_reason.criteria) && !('subject_unqualified' in qs.block_reason.criteria)
+    && !('low_quality_derivative' in qs.block_reason.criteria), null);
+  check('A8b C110 合并桶：ip_reuse 文案吸收低质衍生判据（简单替换/拼贴/模仿）',
+    qs.block_reason.criteria.ip_reuse.includes('简单替换/拼贴/抄袭/模仿') === true, null);
+  // A8c 行为级退役证明（legacy 形状行/旧缓存重放）：A 类票 argmax=low_quality_derivative
+  // （none<0.5 域内）不再拦——C109 教训的机器证明：scope 显式空数组才是真退役；
+  // 同形状 argmax=ip_reuse 照拦（合并不外溢）
+  {
+    const aRetired = baseAnswers();
+    aRetired.event_category = { choice: 'A', probabilities: { A: 0.8 } };
+    aRetired.block_reason = { choice: 'low_quality_derivative', probabilities: { none: 0.1, low_quality_derivative: 0.7 } };
+    const rRetired = mapStandardAnswers(aRetired, stdCtx('TST', 'TST'));
+    check('A8c 退役桶行为：A 类 argmax=low_quality_derivative 不再拦（显式空域）',
+      !(rRetired.llmResult.reason || '').includes('低质衍生'), rRetired.llmResult.reason);
+    const aActive = baseAnswers();
+    aActive.event_category = { choice: 'A', probabilities: { A: 0.8 } };
+    aActive.block_reason = { choice: 'ip_reuse', probabilities: { none: 0.1, ip_reuse: 0.7 } };
+    const rActive = mapStandardAnswers(aActive, stdCtx('TST', 'TST'));
+    check('A8d 活桶对照：A 类 argmax=ip_reuse 照拦（合并不外溢）',
+      (rActive.llmResult.reason || '').includes('IP二次利用') && rActive.llmResult.rating === 'low', rActive.llmResult.reason);
+  }
 
   // ═══ B. 融合关联分 ═══
   console.log('\n── B. 融合关联分（RELEVANCE_FUSED_SCORES 单值直查）──');

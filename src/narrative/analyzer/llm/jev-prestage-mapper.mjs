@@ -77,15 +77,15 @@ function evaluateAbmAnswers(answers, { followers, members }) {
  * 近 7 天底线拦截 168 票其中 16 票毕业（9.5%，判别力接近随机）；发币后 5 秒的
  * userInfo 快照（30 天缓存）对「当天新号发币」场景系统性失真（bunker 发币时 2 粉
  * 4 推、10 小时后 94 粉 17 推）。粉丝/成员数只定档：账号 0-299 mid / ≥300 high，
- * 社区 ≥100 且活跃 high / 其余 mid，均不拦截（baselineMet 恒 true）。A 路径的
+ * 社区恒 mid（P1.12 删 prestage_community_activity 题后回落——原 ≥100∧活跃 high
+ * 双条件不因删题白拿 high），均不拦截（baselineMet 恒 true）。A 路径的
  * 核心价值 = CA 匹配，账号信用由 performRulesValidation 的地址验证+nameMatch
  * 承担（质量门保留：粉≥500+推≥20 等仅作为 abm 分析的准入构成机制，不拦截）。
  * @param {Object} data - fullAccountOrCommunityData
- * @param {string|null} activityChoice - prestage_community_activity 的 choice（社区型用）
  * @param {Object} [opts] - { ratingLabel='项目币评级'（reason 前缀，web3ip 传 '账号基本面评级'） }
  * @returns {{rating: string, baselineMet: boolean, reason: string}}
  */
-export function rateProject(data, activityChoice, opts = {}) {
+export function rateProject(data, opts = {}) {
   const { ratingLabel = '项目币评级' } = opts;
   const isAccount = data.type === 'account';
   const count = isAccount
@@ -93,17 +93,17 @@ export function rateProject(data, activityChoice, opts = {}) {
     : (data.members_count || 0);
   const metric = isAccount ? '粉丝' : '成员';
 
-  // 账号 0-299 mid / ≥300 high；社区 ≥100 且日活 high → high（100-999 旧表写 high、
-  // ≥100 就高），其余 mid。粉丝带只定档不拦截（P1.10）
+  // 账号 0-299 mid / ≥300 high；社区恒 mid（P1.12 社区活跃题删除，高档条件随之
+  // 退役——原 ≥100∧活跃 high 双条件不因删题白拿 high，收紧方向）。粉丝带只定档
+  // 不拦截（P1.10）
   const rating = isAccount
     ? (count >= 300 ? 'high' : 'mid')
-    : ((count >= 100 && activityChoice === 'high') ? 'high' : 'mid');
+    : 'mid';
 
-  const activityNote = !isAccount ? `，活跃度${activityChoice || '?'}` : '';
   return {
     rating,
     baselineMet: true,
-    reason: `${ratingLabel}：${metric}${count}${activityNote} → ${rating}（粉丝带只定档不拦截）`,
+    reason: `${ratingLabel}：${metric}${count} → ${rating}（粉丝带只定档不拦截）`,
   };
 }
 
@@ -146,12 +146,11 @@ export function mapPrestageAnswers(answers, context) {
     error: null,
   };
 
-  // answers 里的概率（details 概率承载，供校准分析）
+  // answers 里的概率（details 概率承载，供校准分析；P1.12 删社区活跃题）
   const jevProbabilities = {
     prestage_token_type: answers.prestage_token_type?.probabilities,
     prestage_abm_name_link: answers.prestage_abm_name_link?.probabilities,
     prestage_abm_web3_traffic: answers.prestage_abm_web3_traffic?.probabilities,
-    prestage_community_activity: answers.prestage_community_activity?.probabilities,
   };
 
   let tokenType;
@@ -192,7 +191,7 @@ export function mapPrestageAnswers(answers, context) {
     } else if (tokenType === 'web3_native_ip_early') {
       // 按账号基本面定档（2026-09-27 裁定：不再 unrated"等社区成长"——过与不过要有
       // 结论）。P1.10（C70）：账号基本面门全删，粉丝带只定档不拦截
-      const rated = rateProject(data, null, { ratingLabel: '账号基本面评级' });
+      const rated = rateProject(data, { ratingLabel: '账号基本面评级' });
       rating = rated.rating;
       baselineMet = rated.baselineMet;
       reasoning = `Web3原生IP早期（币本身即IP：新称号/概念或社区meme，账号随币而生/社区后建）→ ${rated.reason}`;
@@ -200,9 +199,9 @@ export function mapPrestageAnswers(answers, context) {
       details = { followers, members, projectReason: null, ipConcept: null };
       jevDetails = { tokenType, baselineMet: rated.baselineMet };
     } else {
-      // project：评级数学全部代码端（V2.0 评级表；P1.10 账号信用门全删，粉丝带只定档）
-      const activityChoice = answers.prestage_community_activity?.choice || null;
-      const rated = rateProject(data, activityChoice);
+      // project：评级数学全部代码端（V2.0 评级表；P1.10 账号信用门全删，粉丝带只定档；
+      // P1.12 社区活跃题删除，社区臂回落恒 mid）
+      const rated = rateProject(data);
       tokenType = 'project';
       rating = rated.rating;
       baselineMet = rated.baselineMet;
@@ -214,9 +213,9 @@ export function mapPrestageAnswers(answers, context) {
         members,
         projectReason: null, // Jev 无文本生成，判定依据由 jev probabilities 承载
         ipConcept: null,
-        ...(isAccount ? { verified: data.verified || data.is_blue_verified || false } : { communityActivity: activityChoice }),
+        ...(isAccount ? { verified: data.verified || data.is_blue_verified || false } : {}),
       };
-      jevDetails = { tokenType, activityChoice, baselineMet: rated.baselineMet };
+      jevDetails = { tokenType, baselineMet: rated.baselineMet };
     }
   }
 

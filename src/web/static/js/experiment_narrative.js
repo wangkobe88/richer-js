@@ -800,8 +800,7 @@ class ExperimentNarrative {
       this._kv('Web3 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.web3_fit)),
       this._kv('拦截原因', f.blockChoice, probTop(probs.block_reason)),
       this._kv('主体实体', f.subjectEntity ?? s2j?.subjectEntity, probTop(probs.subject_entity)),
-      this._kv('形象载体', f.subjectCarrier ?? s2j?.subjectCarrier),
-      this._kv('感染力', f.eventResonance ?? s2j?.eventResonance)
+      this._kv('形象载体', f.subjectCarrier ?? s2j?.subjectCarrier)
     ].join('');
 
     // ── C88 审计盒 ──
@@ -1060,7 +1059,7 @@ function extractFeatures(item) {
     category: item.narrative?.token_category ?? null,
     superIpProb: null, mem: null, timing: null, tier: null,
     eventCategory: null, nameReferent: null, blockChoice: null,
-    strongFit: null, subjectEntity: null, subjectCarrier: null, eventResonance: null,
+    strongFit: null, subjectEntity: null, subjectCarrier: null,
     answers: null, blockLabel: null, blockFull: null
   };
 
@@ -1098,7 +1097,6 @@ function extractFeatures(item) {
         if (f.strongFit == null) f.strongFit = answers.web3_fit?.probabilities?.strong_fit ?? null;
         if (f.subjectEntity == null) f.subjectEntity = answers.subject_entity?.choice ?? null;
         if (f.subjectCarrier == null) f.subjectCarrier = answers.subject_carrier?.choice ?? null;
-        if (f.eventResonance == null) f.eventResonance = answers.event_resonance?.choice ?? null;
       }
     } catch { /* 旧行/坏行：对应字段保持 null */ }
   }

@@ -321,7 +321,8 @@ const BLOCK_LABELS = {
 
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
- * - A 类（形象化IP）：小圈子亚文化/低质衍生(简单替换拼贴/抄袭)/IP二次利用
+ * - A 类（形象化IP）：小圈子亚文化/IP低质复用（J1.44 起 low_quality_derivative 与
+ *   ip_reuse 合一，判据同拦 A 域）
  * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
  * - C/D 类：机构日常运营
  * - G 类：无据猜测
@@ -335,7 +336,6 @@ const BLOCK_SCOPE = {
   empty_content: 'all',
   marketing_gimmick: ['W', 'B'],
   niche_subculture: ['A'],
-  low_quality_derivative: ['A'],
   ip_reuse: ['A'],
   baseless_speculation: ['G'],
   institution_routine: ['C', 'D'],
@@ -344,6 +344,9 @@ const BLOCK_SCOPE = {
   // 新题集已不提供这两个选项，此处只兜旧缓存行/旧 fixture 重放
   subject_unqualified: [],
   regional_event: [],
+  // J1.44（C110）退役桶：low_quality_derivative 并入 ip_reuse（两桶均 A 域、判据
+  // 重叠=对现有 IP/热点的低质衍生与直接复用、拦截效果等价的功能双桶合一）
+  low_quality_derivative: [],
   // J1.11（2026-09-26 用户裁定，C9 bitget被盗案）：负面事故（被盗/暴雷）+纯硬新闻
   // 的事件无 meme 价值，全域拦截——事件热度高≠该放（A 档量级喂饱事件分 74.65、
   // 80.32 high 放行后 -55%）。质量门 negativeHardNewsBlock 同步双挂（argmax 五五开

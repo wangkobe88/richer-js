@@ -82,9 +82,14 @@ P1.11：题面未动——mapper 端采信语义变化（P1.3 同例 bump：聚�
    ——「币本身即该账号的 IP」需要账号叙事承载，单条推文不构成。触发案：OK❌
    0x0195119e…7777（flap 税币，找角度推文宣告 + 假 addressVerified 双洞，同日
    修复）净 -12.75%。同 token 两版本下推文语料票的类型判定不可直接比较
+P1.12：prestage_community_activity 题删除（C110 题集全面复查，2026-10-19）——
+   唯一消费方=社区型 project 评级的高档条件（≥100 成员∧活跃 high→high），
+   窄消费点不值一题配额；mapper 社区臂回落恒 mid（原 high 需双条件，删一
+   条件后不白拿 high——收紧方向；账号臂 0-299 mid/≥300 high 不动）。
+   同 token 两版本下社区型 project 票的评级不可直接比较（high→mid 单向）
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.11';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.12';
 
 /**
  * 构建 prestage 问题集
@@ -137,18 +142,9 @@ Does NOT count (common false positives):
       },
     },
 
-    // ── 4. 社区活跃度（仅 addressVerified=true 且社区型 project 评级用；原 V2.0 社区表"日活高"门槛）──
-    prestage_community_activity: {
-      type: 'choice',
-      instructions: `Community recent activity level (evaluate only for community-type corpus, based on recent posts frequency and engagement).`,
-      criteria: {
-        high: 'High — frequent recent posts with active engagement (high daily activity)',
-        medium: 'Medium — moderately active',
-        low: 'Low — almost no recent activity',
-      },
-    },
-
     // P1.10（C70）：prestage_project_quality 题删除——唯一消费方（P1.5 实度豁免）
     // 随账号基本面门全删，无消费方的题不烧 Jev 配额（5 题 → 4 题）
+    // P1.12（C110）：prestage_community_activity 题删除——唯一消费方（社区型
+    // project 评级高档条件）窄消费点不值一题配额，社区臂回落恒 mid（4 题 → 3 题）
   };
 }

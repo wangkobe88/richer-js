@@ -68,6 +68,34 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C110 题集全面复查——逻辑错误/结构性冲突/冗余三档清单 + 低风险收敛批次（J1.44/P1.12）——「我担忧其中很多地方是有冲突以及冗余的，它们让整个流程很难继续改进」（2026-10-19 用户裁定；非单案，C109 题集收敛的自然延伸全量审计）★
+
+- **案由与复查范围**：用户提出对 case 驱动累积的全部「题/桶」做一次全面复查，找逻辑错误、冲突、冗余。复查面=16 基础题+3 条件题+4 prestage 题 ↔ `jev-result-mapper` 全消费点 + 外围（web 详情页 chips/superip-labels `sipProb`/校准脚本/jev_dryrun/扫描工具）逐一对拍。
+- **发现三档（全清单）**：
+
+  | 档 | 项 | 内容 | 处置 |
+  |---|---|---|---|
+  | 逻辑错误 | L1 | `jev_dryrun.mjs` score 类校验仍要求 C109 已删三题（relevance_level/quality_spelling/quality_reasonability）→ J1.43 形状必判非法；打印侧同病 | 修复（零行为面，仅工具） |
+  | 逻辑错误 | L2 | `event_resonance` 悬空注释头（题 J1.36/C93 已删，注释仍标「恒带」挂在 w_product_score 头上） | 删注释 |
+  | 逻辑错误 | L3 | 文档残留：image-analysis-service 注释 `none_related`（C109 融合后=other_referent）；web 详情页 eventResonance 三处恒 null 展示空行 | 修注释/删展示行 |
+  | 结构性冲突 | C1 | **mag↔dim2 同轴对**：dim2 题面明文「两题评估同一主体，档位应基本一致」=同一判断问两遍；形状①②/J1.23 锚/C94 锚语义在两题文本双份维护 | **先扫描后裁定**（扫描①） |
+  | 结构性冲突 | C2 | **block_reason 三桶跨类空洞**：institution_routine 只拦 {C,D}、marketing_gimmick 只拦 {W,B}——Jev 答题时看不见类别（那是另一题的输出），argmax 落 scope 外=该桶不拦（`blockInScope` false 短路） | **先扫描后裁定**（扫描②） |
+  | 冗余 | R1 | `low_quality_derivative`↔`ip_reuse` 功能双桶：均 A 域、判据重叠（对现有 IP/热点的低质衍生与直接复用）、共同锚「无独立叙事生命力/无新传播力」 | 合桶（J1.44） |
+  | 冗余 | R4 | `prestage_community_activity` 死消费点：唯一消费方=社区型 project 高档条件（≥100 成员 ∧ high 活跃），窄消费点不值一题配额 | 删题（P1.12） |
+  | 冗余 | C4 | `referent_memeability` 题面与 web3_fit 判据重叠：mem ②「与 web3 买家口味契合」把 web3_fit 的判断又问了一遍（且 C88 五腿谓词 mem≥2 AND strongFit≥0.5 双键并存的根源） | 题面瘦身（J1.44） |
+
+- **用户裁定（AskUserQuestion 四项）**：①mag↔dim2=先扫描再裁定；②三桶空洞=先扫描空洞频率；③低风险项全选=L1-L3 修复+R1 合桶+R4 删题+C4 瘦身。计划批准（ExitPlanMode）后实施。
+- **实施（J1.44 一次 bump 承载 R1+C4；P1.12 承载 R4）**：
+  1. **R1 合桶（block_reason 10→9）**：题面删 `low_quality_derivative` 桶；`ip_reuse` 文案吸收双方判据（直接使用现有知名 IP/热点 + 简单替换/拼贴/抄袭/模仿等低质衍生）；mapper `BLOCK_SCOPE.low_quality_derivative: []` 显式空域退役（C109 坑复用：只删键=删除无效）、`BLOCK_LABELS` 保留回放兼容、`ip_reuse:['A']` 不动。
+  2. **C4 瘦身**：mem instructions 收窄为单维度「对象自身的玩味空间与二创潜力」，末行消歧「对象与 web3 圈受众的契合度不由本题评——归 web3_fit；不给『与 crypto 圈无关』的对象压分」；6 档 criteria 全部去 web3 化（0 分类型中立锚/3 分下限档去 AND 双条件/4 分换自嘲例）；**分数 0-5 量表与 C88 mem≥2 腿判据零改动**（分数分布会移动，对拍覆盖）。
+  3. **R4 删题（prestage 4→3）**：`rateProject(data, opts)` 签名收敛（activityChoice 参删除）；社区臂恒 mid（原 high 需双条件，删一条件后不白拿 high=收紧方向）；审计键 activityNote/communityActivity 同步删；`jev_prestage_calibration.mjs` 两处跟随。
+  4. **L1-L3 修复**：dryrun 校验列 `['event_magnitude','dimension2','token_quality']`+打印侧换融合桶形状；悬空注释删；web 详情页三处 eventResonance 残留删。
+- **单测**：`_test_jev_question_consolidation` 追加 A8（9 桶+low_quality_derivative 键删除）/A8b（ip_reuse 判据吸收锚）/A8c-A8d（合桶行为级：legacy low_quality_derivative argmax 行不再独立拦、ip_reuse 照拦 A 域 rating=low）；`_test_prestage_project_downgrade` 社区矩阵改恒 mid+第二参传数字防御锁+P1.12 断言；`_test_referent_memeability` A4/A4b 瘦身锚（单维度+web3 判据剥离）；4 个版本钉死测试随 J1.44 更新。全绿。
+- **两项扫描（182 跑，tmp 脚本完成使命后删）**：①`tmp-scan-mag-dim2-correlation.cjs`——Pearson+Spearman、量级档内 dim2 均值±标准差、档位不一致样本、**合并翻转面模拟**（dim2:=档内均值重放 mapStandardAnswers 数评级翻转向）；②`tmp-scan-blockreason-scope-holes.cjs`——choice×category cross-tab（in-scope/空洞分解）、两空洞票单（现行评级+trades 买入关联）、R1 两桶 argmax 存量票单（对拍票源）。
+- **扫描结论**：（182 执行后回填）
+- **行为变化声明**：R1=low_quality_derivative argmax 新形状行不再独立拦（A 域语义等价并入 ip_reuse；存量行回放 bit 不变）；R4=社区语料项目票 prestage 恒 mid（收紧方向）；C4=mem 分数分布移动 → C88 mem≥2 腿命中面移动（对拍覆盖口号票）；C1/C2=本轮零行为变化（只扫描出数，裁定另立 case）。
+- **欠部署**：与 C104-C109 批次同批 182 pull+重启+定向重析对拍。
+
 ### C109 题集收敛（J1.43 基础题 18→16）+ J1.29 图证载体覆盖——「我其实希望合并你所谓的"题"，真的要这么多判断标准吗」（2026-10-19 用户裁定；交易猫 0xc929c8d1e57569b706d7cfdc3487c7d33b287777 flap 案）★
 
 - **案发现场与用户纠错**：交易猫（0xc929…7777，flap），币安发猫图、币名=事件核心词「交易猫」。被 **J1.29 载体门**拦：`subject_carrier=no_visual_entity conf 仅 0.09`（多路 choice 掷硬币），而**同一次调用**里 `name_image_consistency same_entity=0.73/conf 0.59` 的事实答案被无视——门消费了低置信掷硬币、忽略了高置信事实证据（配图里就有一只猫=形象载体客观存在）。用户质问「叙事主体是币的名字，币安发了一张图，是一只猫。哪里不对？为什么不是个好 meme 币构思？」——归因成立，用户对。

@@ -2,8 +2,9 @@
  * 推文配图视觉分析服务（2026-10-07 现金猫案 0x56dc26bd…7777 用户裁定开启）
  *
  * 背景：C51 龙虾案 / 现金猫案的共同形状——代币名与语料的指代映射唯一载体是推文
- * 配图（推文文本零关联字样），Jev 按纯文本语料判 name_referent none_related 完全
- * 自洽但事实上漏判。本服务把主推文首图的视觉描述注入 twitterInfo.image_analysis，
+ * 配图（推文文本零关联字样），Jev 按纯文本语料判 name_referent other_referent（原
+ * none_related 桶，J1.43 并桶）完全自洽但事实上漏判。本服务把主推文首图的视觉描述注入
+ * twitterInfo.image_analysis，
  * 经 twitter-section 既有渲染块（【图片内容分析】）进入 Jev state——渲染层零改动。
  *
  * 用户两点约束（2026-10-07）：

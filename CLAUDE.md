@@ -195,7 +195,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 
 ```
 Token URL → URL 分类（含 IPFS metadata 解包 + 迁移直链 C106 j7tracker）→ 数据抓取 → Pre-Check（纯规则）
-   ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（4 题，粉丝带只定档不拦截；isProjectCoin 的网站/URL 证据臂不采信聚合器自动 token 页——AUTO_TOKEN_PAGE_DOMAINS 清单，推文/简介宣告臂不受影响）
+   ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（3 题，粉丝带只定档不拦截——P1.12 删社区活跃题后社区臂恒 mid；isProjectCoin 的网站/URL 证据臂不采信聚合器自动 token 页——AUTO_TOKEN_PAGE_DOMAINS 清单，推文/简介宣告臂不受影响）
    └─ 标准路径：单次 Jev 调用（主干题+brand_hijack/name_image_consistency/parent_relationship 条件题，J1.43；superIP 注册表命中 → state 注入认证/反混淆行，评分全归 Jev）
 ```
 

@@ -42,21 +42,21 @@ const X0_TOKEN_AT = new Date('2026-09-26T12:02:17Z').getTime() / 1000;
 
 console.log('== 1. bunker 事故现场反证（C70）==');
 // project 路径：2 粉 4 推 3h 新号 → mid（旧：low 底线拦）
-let r = rateProject(BUNKER, null);
+let r = rateProject(BUNKER);
 check('bunker project 形状（2粉4推当天号）→ mid（不再拦）', { rating: r.rating, met: r.baselineMet },
   { rating: 'mid', met: true });
 // web3ip 路径（ratingLabel 差异）：同数据同结论
-r = rateProject(BUNKER, null, { ratingLabel: '账号基本面评级' });
+r = rateProject(BUNKER, { ratingLabel: '账号基本面评级' });
 check('bunker web3ip 形状 → mid（双路径一致）', r.rating, 'mid');
 check('reason 标注定档不拦截', r.reason.includes('粉丝带只定档不拦截'), true);
 check('reason 用 ratingLabel', r.reason.startsWith('账号基本面评级：'), true);
 // 0 粉（比底线更极端）：仍 mid——存在性下限一并删除
-r = rateProject({ ...BUNKER, followers_count: 0 }, null);
+r = rateProject({ ...BUNKER, followers_count: 0 });
 check('0 粉 → mid（底线存在性下限同删）', { rating: r.rating, met: r.baselineMet }, { rating: 'mid', met: true });
 
 console.log('== 2. 历史案形状回归 ==');
 // x-0（C15 降档案形状）：131 粉 → mid（不再降档 low）
-r = rateProject(X0, null);
+r = rateProject(X0);
 check('x-0 形状（131粉 11天号 1推）→ mid（降档已删）', r.rating, 'mid');
 // WIRED（C35 实度豁免案形状）：1041 粉 → high（豁免逻辑已删，纯粉丝带直达）
 const WIRED = {
@@ -64,48 +64,45 @@ const WIRED = {
   created_at: new Date((X0_TOKEN_AT + 15 * 60) * 1000).toUTCString().replace('GMT', '+0000'),
   verified: true, is_blue_verified: true,
 };
-r = rateProject(WIRED, null);
+r = rateProject(WIRED);
 check('WIRED 形状（1041粉 0天号）→ high（纯粉丝带）', r.rating, 'high');
 
 console.log('== 3. 粉丝带定档边界 ==');
 // 账号 299/300
-r = rateProject({ ...X0, followers_count: 299 }, null);
+r = rateProject({ ...X0, followers_count: 299 });
 check('299 粉 → mid', r.rating, 'mid');
-r = rateProject({ ...X0, followers_count: 300 }, null);
+r = rateProject({ ...X0, followers_count: 300 });
 check('300 粉 → high（≥ 语义）', r.rating, 'high');
-// 社区矩阵：99/100 × high/medium/low/null
-r = rateProject({ type: 'community', members_count: 99 }, 'high');
-check('社区 99 成员活跃 → mid', r.rating, 'mid');
-r = rateProject({ type: 'community', members_count: 100 }, 'high');
-check('社区 100 成员活跃 → high', r.rating, 'high');
-r = rateProject({ type: 'community', members_count: 100 }, 'medium');
-check('社区 100 成员不活跃 → mid', r.rating, 'mid');
-r = rateProject({ type: 'community', members_count: 500 }, null);
-check('社区 500 成员活跃度缺失 → mid（宁 mid 不冒充 high）', r.rating, 'mid');
+// 社区矩阵（P1.12 删 prestage_community_activity 题后回落恒 mid——原 ≥100∧活跃
+// high 双条件不因删题白拿 high，收紧方向）：成员数/活跃度都不再影响档位
+r = rateProject({ type: 'community', members_count: 99 });
+check('社区 99 成员 → mid', r.rating, 'mid');
+r = rateProject({ type: 'community', members_count: 100 });
+check('社区 100 成员 → mid（P1.12 社区活跃题删除，高档条件退役）', r.rating, 'mid');
+r = rateProject({ type: 'community', members_count: 5000 });
+check('社区 5000 成员 → mid（原活跃 high 档不再可达）', r.rating, 'mid');
 // 社区 <20 不再拦（旧底线分支删除的机器证明）
-r = rateProject({ type: 'community', members_count: 5 }, 'low');
+r = rateProject({ type: 'community', members_count: 5 });
 check('社区 5 成员 → mid（底线分支已删）', { rating: r.rating, met: r.baselineMet }, { rating: 'mid', met: true });
 
 console.log('== 4. 输入不再消费锁定（防回流）==');
 // 只改 statuses_count（旧 P1.3 推文项）/ created_at（旧年龄项）→ rating 不变
-const base = rateProject(X0, null).rating;
-check('statuses_count 1→500 rating 不变', rateProject({ ...X0, statuses_count: 500 }, null).rating, base);
+const base = rateProject(X0).rating;
+check('statuses_count 1→500 rating 不变', rateProject({ ...X0, statuses_count: 500 }).rating, base);
 check('created_at 当天→2020 rating 不变',
-  rateProject({ ...X0, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }, null).rating, base);
-check('created_at 缺失 rating 不变', rateProject({ ...X0, created_at: null }, null).rating, base);
-check('verified/blue 不影响 rating', rateProject({ ...X0, verified: true }, null).rating, base);
-// 多传旧实参（第三参数字 = 旧 tokenCreatedAtSec 位、第四参 = 旧实度分位）：
-// 新签名第三参是 opts 对象，传数字会落 opts.ratingLabel 无效但 rating 不变——
-// 旧调用方若漏改不会改变评级方向（防御性锁定）
-check('第三参传数字（旧调用残留）→ rating 不变',
-  rateProject({ ...X0, followers_count: 500 }, null, X0_TOKEN_AT).rating, 'high');
+  rateProject({ ...X0, created_at: 'Wed Jan 01 08:00:00 +0000 2020' }).rating, base);
+check('created_at 缺失 rating 不变', rateProject({ ...X0, created_at: null }).rating, base);
+check('verified/blue 不影响 rating', rateProject({ ...X0, verified: true }).rating, base);
+// 旧签名残留（第二参传数字 = 旧 activityChoice/tokenCreatedAtSec 位）：新签名该位
+// 是 opts，数字解构 ratingLabel 为 undefined 走默认——评级方向不变（防御性锁定）
+check('第二参传数字（旧调用残留）→ rating 不变',
+  rateProject({ ...X0, followers_count: 500 }, X0_TOKEN_AT).rating, 'high');
 
 console.log('== 5. mapPrestageAnswers 全链（P1.10）==');
 const answers = {
   prestage_token_type: { choice: 'project', probabilities: { project: 0.8 } },
   prestage_abm_name_link: { choice: 'exact', probabilities: { exact: 0.9 } },
   prestage_abm_web3_traffic: { choice: 'no_traffic', probabilities: { has_traffic: 0.1 } },
-  prestage_community_activity: { choice: null, probabilities: {} },
 };
 const callInfo = {
   model: 'test', questions: { q1: { type: 'choice' } }, state: 's', stateStats: { totalChars: 1 },
@@ -118,8 +115,8 @@ const mapped = mapPrestageAnswers(answers, {
   rulesResult: { nameMatch: true },
   callInfo,
 });
-check('bunker 全链 project → mid + promptType P1.10', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'mid', pt: `prestage-jev(P1.11/project)` });
+check('bunker 全链 project → mid + promptType P1.12', { rating: mapped.rating, pt: mapped.promptType },
+  { rating: 'mid', pt: `prestage-jev(P1.12/project)` });
 check('jevDetails 无 downgrade/qualityExempt 键',
   { dg: 'downgrade' in mapped.jevDetails, qe: 'qualityExempt' in mapped.jevDetails },
   { dg: false, qe: false });
@@ -142,7 +139,7 @@ const mappedIp = mapPrestageAnswers({
 });
 check('web3ip 分支 131 粉 → mid + promptType 带 web3_native_ip_early',
   { rating: mappedIp.rating, pt: mappedIp.promptType },
-  { rating: 'mid', pt: 'prestage-jev(P1.11/web3_native_ip_early)' });
+  { rating: 'mid', pt: 'prestage-jev(P1.12/web3_native_ip_early)' });
 check('web3ip reason 含 IP 前缀', mappedIp.reasoning.startsWith('Web3原生IP早期'), true);
 // abm 分支（addressVerified=false）：判定不消费 rateProject，两条件逻辑不变
 const mappedAbm = mapPrestageAnswers(answers, {
@@ -156,8 +153,10 @@ check('abm 分支 nameLink=exact+traffic 0.1 → low（双证据逻辑零改动�
 const qs = buildPrestageQuestions();
 check('问题集无 prestage_project_quality（题随豁免逻辑删）',
   'prestage_project_quality' in qs, false);
-check('问题集 4 题', Object.keys(qs).length, 4);
-check('版本 P1.11', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.11');
+check('问题集 3 题（P1.12 删社区活跃题）', Object.keys(qs).length, 3);
+check('版本 P1.12', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.12');
+check('问题集无 prestage_community_activity（P1.12 题随高档条件删）',
+  'prestage_community_activity' in qs, false);
 
 console.log(`\n${pass}/${pass + fail}`);
 process.exit(fail === 0 ? 0 : 1);

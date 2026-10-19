@@ -182,7 +182,7 @@ async function main() {
     // project 行：旧 LLM 评级 vs 代码表复算（转译正确性验证）
     let tableRating = null;
     if (row.oldType === 'project') {
-      tableRating = rateProject(parsed.data, a.prestage_community_activity?.choice || null).rating;
+      tableRating = rateProject(parsed.data).rating;
     }
 
     const verdict = typeOk && ratingOk ? '一致' : typeOk ? '评级分歧' : '类型翻转';
@@ -208,7 +208,6 @@ async function main() {
       nameLinkNoneP: a.prestage_abm_name_link?.probabilities?.none ?? null,
       trafficP: a.prestage_abm_web3_traffic?.probabilities?.has_traffic ?? null,
       tokenTypeProbs: a.prestage_token_type?.probabilities ?? null,
-      activity: a.prestage_community_activity?.choice ?? null,
       reason: mapped.reasoning,
     });
   }
