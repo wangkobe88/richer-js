@@ -107,9 +107,21 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   演绎图形状名字门照拦）/ decorative 不豁 / C109 原臂回归（交易猫 nicMatch
   臂 via=match）/ 源码口径+J1.49 版本锁。邻接版本锁 5 文件同步 J1.48→J1.49
   （empty_content/finding_recap/resonance/name_image/superip_standard_path，
-  顺手实证 finding_recap 102 断言全绿含 C116 题面锚）。DND 定向重析对拍
-  （预期 image_depicts_name 高概率→载体门翻过→终态仍 low 但理由换量级轴=干净）
-  与全量对拍待 182 部署后执行。
+  顺手实证 finding_recap 102 断言全绿含 C116 题面锚）。本地 fdbf352 已 push，
+  182 pull+单测 6/6，worker 重启至 J1.49 生效。
+- **DND 定向重析结果（演绎臂不触发=证据源问题，非机制问题）**：终态 low
+  PASS（C114 回归票 expect 无漂移），reason 仍「叙事主体无形象载体｜P=0.35」；
+  答案层 `image_depicts_name: decorative 0.82 / depicts_name 0.17`、审计键
+  正确未落（臂未触发）。逐层取证定位根因：**vision 图证（Qwen3-Omni img-v3，
+  只抓视频封面静态帧）描述=「暗楼群一亮窗、白猫站立窗边凝视」「对比图/
+  different=cool/脱颖而出做自己」，完全不含「拉窗帘=别打扰」动作语义**——
+  Jev 基于所见证据判 decorative 0.82 是诚实判断，C118 题面/mapper/审计全部
+  按设计工作，fail-safe 方向正确（证据不足不豁免）。结构性缺口=**视频票的
+  vision 证据只取封面帧**，演绎动作发生在视频内容里、封面帧拍不到——是否
+  要视频抽帧/多帧证据属范围外新题，待用户裁定，未擅自扩。
+- **全量对拍（J1.49，35+1 票）**：32 PASS / 0 FAIL / 4 OBSERVE-DEVIATION
+  （C72/C79/C80/C82 已知掷骰偏差票，评级方向无翻转；C115/C116/C117 并行
+  票同批 PASS）。
 
 
 
