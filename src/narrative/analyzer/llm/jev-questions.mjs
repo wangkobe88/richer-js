@@ -455,9 +455,27 @@
  *       63.65→53.65<60 事件分不足拦）。与 C102 分工：C102=币安语料无条件（借壳
  *       不分关系一律拦），本门=通用语料按关系分档。答案缺失（J1.38- 旧缓存行）
  *       /unclear fail-open 零影响
+ * J1.40（2026-10-19，C105 日本語版案 0xe156aa3f3e89ded51ef0b980018ef15ae0517777）：
+ *       name_form 加第四选 functional_label（题数不变 20）。案发现场：CZ 01:47:24
+ *       UTC 发推《Freedom of Money》日本語版本日发售（出书促销推），蹭票者同秒
+ *       抢发「日本語版」（symbol/name 逐字=推文元词）。Jev 感知完全正确但无臂表达：
+ *       stage3 relevance_type=translation_match 0.62（它知道名字是版本词）而
+ *       name_form 判 entity_phrase 0.96 → C88 五腿全中（superIp 0.53/mem 2.5/
+ *       within_7d/strongFit 0.73/relPositive 0.9）豁 J1.29 载体门（no_visual_entity
+ *       0.97 本该拦）+ block 臂 routine_content_product 0.82 → S 档 39+27.44+15=
+ *       81.44 过线 80.24 high。用户裁定「日本語版根本不能作为 meme 名字，事件本身
+ *       在 web3 影响力并不小」——量级轴不背锅（mbti 夹克案候选 B 明确不启用），
+ *       洞=名字资格：版本/语言/形态/序号元词描述「某内容的一种版本形态」，无独立
+ *       指代对象无玩梗空间，是版本目录行不是符号。判定优先级锚 functional_label >
+ *       statement > entity_phrase（版本词语法上是 NP 但语义是元词——同「陈述句里
+ *       含实体不改变它是陈述」）；名字核心词是梗/实体、版本词只是修饰（「XX
+ *       完整版」核心是 XX）按核心词判不算 functional label。mapper 代码端挂
+ *       functionalLabelNameBlock 硬拦（statement 门同族同位，全域无豁免五腿不豁，
+ *       门链序 rm→st→fl→memFloor→sc）。断代语义：旧缓存行 name_form∈
+ *       {entity_phrase,statement,unclear} 行为 bit 不变（fail-open）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.39';
+export const JEV_QUESTIONS_VERSION = 'J1.40';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -840,20 +858,24 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       },
     },
 
-    // ── 10.8 币名语言形态（J1.37 恒带：mapper 陈述句门 statementNameBlock
-    //     判据源——C96 币安上电视案「这是一个陈述不是一个实体」）──────────
+    // ── 10.8 币名语言形态（J1.37/J1.40 恒带：mapper 陈述句门 statementNameBlock
+    //     + 版本词门 functionalLabelNameBlock 判据源——C96 币安上电视案「这是
+    //     一个陈述不是一个实体」/ C105 日本語版案「版本目录行不是实体」）──────
     name_form: {
       type: 'choice',
       instructions: `币名语言形态（token name form）。判定代币 Name/Symbol（去 emoji/数字/特殊字符后）的语言结构：
 - 实体指代（entity phrase）：名词短语——名字指向一个「东西」：人物/角色/动物/形象/机构/产品/地点/梗词/口号/抽象概念名（如 CZ、PEPE、币安、狗狗币、暗号資産の覹者、货币自由）。名字可被抓住当一个符号去玩梗、二创、传播。
 - 事件陈述（statement）：主谓/主谓宾结构——名字在转述「一件发生的事」，是新闻标题不是实体（如「币安上电视」「XX 破产了」「比特币破十万」「XX 涨疯了」「XX 出事了」）。名字里有一个动作/事件在发生，但它只是对新闻事件的转述：事件冷了名字就死，无独立 meme 载体——读者记住的是那件事，不是这个名字。
+- 功能标注（functional label）：名字是版本/语言/形态/序号等元标注词——描述「某个内容的一种版本形态」，不含任何实体/事件/梗指代（如「日本語版」「英文版」「中文版」「繁体版」「完整版」「第二版」「官方版」「remix 版」「日文翻訳」「Japanese edition」）。名字依附于「某内容存在多版本」这个事实：没有独立指代对象，读者记住的是那个内容，名字只是版本目录里的一行——谁也不会拿「日本語版」当符号去玩梗二创。
 ⚠️ 判名字本身的语言结构，不判名字指向对象的影响力：名字含动词性陈述结构（上电视/发布了/涨到/跌破/官宣了/出事/登顶）→ statement——陈述句里含知名实体（「币安上电视」含「币安」）不改变句子是陈述。
+⚠️ 判定优先级 functional_label > statement > entity_phrase：版本标注词在语法上常是名词短语（entity phrase 形状）且常出现在陈述语境里，但有专门臂时必须选专门臂——「日本語版」语法上是 NP 但语义是版本目录行，不算 entity phrase（同「陈述句里含实体不改变它是陈述」）；名字核心词是梗/实体、版本词只是修饰（「XX 完整版」核心是 XX）时按核心词判，不算 functional label。
 ⚠️ 口号/宣言/祈愿（「货币自由」「HODL」「LFG」）不是陈述——没有「发生了什么事」的转述，算 entity phrase。
 ⚠️ 中英文名取更完整的一个判（Name 通常比 Symbol 完整）。`,
       criteria: {
         entity_phrase: '实体指代——名词短语：人物/角色/动物/形象/机构/产品/地点/梗词/口号/概念名，可作符号玩梗传播',
         statement: '事件陈述——主谓结构转述一件发生的事：新闻标题式名字（X 上电视/X 破产/X 涨到 Y/X 发布了 Z），无独立 meme 载体',
-        unclear: '无法判断——名字结构无法归入上述两类',
+        functional_label: '功能标注——版本/语言/形态/序号元词（X語版/X文版/英文版/完整版/第二版/官方版/remix版/翻訳/version/edition）：描述某内容的版本形态，无独立指代对象，不可作符号玩梗',
+        unclear: '无法判断——名字结构无法归入上述三类',
       },
     },
 
