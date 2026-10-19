@@ -14,6 +14,14 @@
  *
  * 防抖：GMGN 正常返回但无社媒 → 返回 null 进失败冷却（默认 1h，同 ipfs fetcher
  * 先例），冷却期内同 token 不重打；成功结果按 gmgn_token_info TTL 缓存。
+ *
+ * CRO 案后续裁定（2026-10-19，C112 台账）：①**全量 raw payload 随行落库**——
+ * 派生形状只有 twitterUrl/websiteUrl/risk 三键，原始 link 对象（twitter_username
+ * 原值/geckoterminal 等）不落即丢，晚到归因/事后审计只能现查现猜；per-token
+ * 调用极少，raw 几 KB 落 external_resource_cache 无压力（upsert 保留最新一份）。
+ * ②**缓存 5s 过期=买前新鲜语义**——原 {maxAge:1d, ttl:90d} 在 fetchWithCache
+ * 命中公式下实际命中窗 ≈91 天，把「GMGN 无社媒」结论冻结三个月（link 聚合晚到
+ * 永远吃不到，CRO 现场）；调用频次=每 token 几次，5s 重打配额无忧。
  */
 import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
@@ -26,11 +34,12 @@ import { extractGmgnRisk } from '../../core/gmgn-api/risk-fields.js';
  * 拉取 GMGN token info（社媒补源 + dev 风险字段，一次调用两用）
  * @param {string} chain - 链标识（BSC-only 项目，固定 'bsc'）
  * @param {string} address - 代币合约地址
- * @returns {Promise<Object|null>} { twitterUrl, websiteUrl, risk }：社媒字段可
+ * @returns {Promise<Object|null>} { twitterUrl, websiteUrl, risk, raw }：社媒字段可
  *   为 null（无语料补源语义由调用方按字段判）；risk 为 dev 风险字段集（GMGN
- *   未索引该 token 时可能 null）。GMGN 无该 token / 未配置 key → null（按无
- *   补源、无风险因子继续）；GMGN API 错误 → 抛错（调用方 catch 后同上）。
- *   成功调用（含无社媒但有 risk）缓存 1d——比旧「无社媒进 1h 冷却」更长。
+ *   未索引该 token 时可能 null）；raw=GMGN 原始 info 全量落库（审计/晚到归因，
+ *   2026-10-19 裁定，派生字段不满足时以 raw 为准复核）。GMGN 无该 token / 未配置
+ *   key → null（按无补源、无风险因子继续）；GMGN API 错误 → 抛错（调用方 catch
+ *   后同上）。成功调用缓存 5s（买前新鲜语义，见文件头）。
  */
 export async function fetchGmgnSocialLinks(chain, address) {
   const apiKey = process.env.GMGN_API_KEY;
@@ -58,6 +67,6 @@ export async function fetchGmgnSocialLinks(chain, address) {
     }
     console.log(`[GmgnSocialFetcher] GMGN 数据: ${address} twitter=${twitterUrl} website=${websiteUrl}` +
       ` issuerTokenCount=${risk?.issuerTokenCount ?? '-'} bundler=${risk?.bundlerWallets ?? '-'}/${risk?.topWallets ?? '-'}`);
-    return { twitterUrl, websiteUrl, risk };
+    return { twitterUrl, websiteUrl, risk, raw: info };
   }, getCacheTTL('gmgn_token_info'));
 }

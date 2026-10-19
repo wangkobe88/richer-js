@@ -67,8 +67,12 @@ const CACHE_TTL_CONFIG = {
   // four.meme 链上 metadata（IPFS 内容不可变，同 tweet 档长期缓存）
   ipfs_metadata:      { maxAge: 365 * DAY, ttl: 730 * DAY },
 
-  // GMGN token info 社媒补源（BRF 案）：link 内容稳定但可变，1 天刷新
-  gmgn_token_info:    { maxAge:   1 * DAY, ttl:  90 * DAY },
+  // GMGN token info 社媒补源（BRF 案；CRO 案 2026-10-19 改 5s）：per-token 调用
+  // 极少（仅叙事直调），5s 过期=买前新鲜语义。原 {maxAge:1d, ttl:90d} 注释写
+  // 「1 天刷新」但 fetchWithCache 命中公式（expires_at >= now - maxAge）实际
+  // 命中窗 ≈91 天，把「GMGN 无社媒」结论冻结三个月——CRO 现场 link 聚合晚到
+  // 永远吃不到。成功行含全量 raw payload（审计），过期只停命中、行仍在表可查
+  gmgn_token_info:    { maxAge: 5, ttl: 5 },
 };
 
 const DEFAULT_TTL = { maxAge: 30 * DAY, ttl: 365 * DAY };

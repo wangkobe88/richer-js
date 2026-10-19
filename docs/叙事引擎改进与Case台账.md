@@ -76,6 +76,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **边缘（接受）**：meta 填普通网页且该页恰返回合法 JSON → 会被当 metadata 消费（内容尽力而为，分类器仍是下游门）；http 明文直链放行（与 `isIpfsUrl` 口径一致）。
 - **预告**：解包修复后 BinanceDesi=`binance` 前缀地域子账号 → C97 锚 D + C102 借壳父推窗正常接管，大概率仍低档——性质从「无语料终局误杀」变「Jev 正常裁决」。
 - **单测**：`_test_ipfs_race.cjs` 19 断言（CRO 现场形状直抓出 twitter / HTML 非 JSON null 回落 / host 卡位退役源码反证 / j7tracker+C106 bit 不回归）；`_test_corpus_ready_prefetch.cjs` S3 断言随裁定更新（不写→透传写，25 过）。**待办：182 部署 + CRO 定向重析 + 视结果收录回归票**。
+- **同案后续裁定（2026-10-19，GMGN 补源层）——「理论上 GMGN API 每个代币应该很少几次调用，可以全部落库，缓存过期5秒」**：CRO 归因中发现补源层两缺陷。① `gmgn-social-fetcher` 派生形状只有 twitterUrl/websiteUrl/risk 三键，**原始 link 对象不落即丢**——CRO 现场 GMGN 分析时刻 link 聚合为空（risk 有值 → 缓存成功行），twitter_username 晚到后永远吃不到，事后归因只能裸调现查。修复=成功返回/缓存带 `raw: info` 全量 payload（upsert 保留最新一份作审计）。② `gmgn_token_info` TTL `{maxAge:1d, ttl:90d}` 注释写「1 天刷新」但 `fetchWithCache` 命中公式 `expires_at >= now - maxAge` 下实际命中窗 ≈**91 天**——「GMGN 无社媒」结论被冻结三个月，晚到的 link 聚合永远进不了缓存。修复=`{maxAge:5, ttl:5}`（买前新鲜语义：per-token 调用极少，5s 重打配额无忧；无社媒无 risk → markFailed 1h 冷却原语义不变；`PrecheckFailRetryService` no_public_info 重析前的定点失效保留为 belt-and-braces）。单测 `_test_gmgn_social_fetcher.cjs` 19 断言（raw 同引用落库/C51 推文路径/CRO link 空形状/91 天回潮源码反证）。
 
 ### C111 叙事 case 回归集上线（33 票，C65-C110 全谱）——「把我近期提交的数十个 case 做成一个测试集合，在新的叙事分析模块上跑一遍，确认改拦住的拦住，该不拦的不拦，并且原因都是对的」（2026-10-19 用户指令三段：建集→CSV→扩至 ≥30）★
 
