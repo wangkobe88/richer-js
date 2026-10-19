@@ -19,7 +19,7 @@ const check = (name, cond, detail) => {
 
 async function main() {
   const libPath = path.resolve(__dirname, 'narrative/case-regression-lib.mjs');
-  const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, csvEscape } = await import(libPath);
+  const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, csvEscape, buildCase, updateExpect } = await import(libPath);
 
   // ── interpret：落库两信封形状（C88 信封坑反证锁定）──
   // 形状1：precheck 拒票（fin=null，pcr 带 reason + details.ruleName）
@@ -111,6 +111,34 @@ async function main() {
   ] });
   check('F4 事故形状全部拒启', bad.errors.length >= 5, bad.errors.join('; '));
   check('F5 空 cases 拒', loadAndValidateFixtures({ cases: [] }).errors.length === 1);
+
+  // ── 工具化收录/预期更新（--add/--update-expect 纯函数层）──
+  const A = (h) => '0x' + h.repeat(40);
+  const bc = buildCase({ caseId: 'C112', symbol: '测试票', addr: A('a'), interp: { rating: 'low', tokenCategory: 'event:W' }, note: 'n', observe: 'o', today: '2026-10-19' });
+  check('B1 buildCase 终态确定性键复制+addedAt 留痕',
+    bc.expect.rating === 'low' && bc.expect.tokenCategory === 'event:W' && bc.addedAt === '2026-10-19' && bc.observe === 'o' && bc.note === 'n',
+    JSON.stringify(bc));
+  const bc2 = buildCase({ caseId: 'C113', symbol: 'x', addr: A('b'), interp: { rating: 'high', tokenCategory: null }, today: '2026-10-19' });
+  check('B2 buildCase 无 category 不写键/无 note-observe 不写键',
+    bc2.expect.tokenCategory === undefined && !('observe' in bc2) && !('note' in bc2) && Object.keys(bc2.expect).length === 1,
+    JSON.stringify(bc2));
+
+  const oldCase = { caseId: 'C9', symbol: 's', addr: A('c'), expect: { rating: ['high', 'mid'], reasonIncludes: ['关键词'], auditIncludes: ['staleParentOverride'] } };
+  const ue = updateExpect(oldCase, { rating: 'low', tokenCategory: null }, 'C115 裁定拦截面收紧', '2026-10-19');
+  check('U1 updateExpect rating 刷新+细节键保留+成对留痕+纯函数不改原对象',
+    ue.expect.rating === 'low' && ue.expect.reasonIncludes.length === 1 && ue.expect.auditIncludes[0] === 'staleParentOverride'
+      && ue.expectSince === '2026-10-19' && ue.expectBecause === 'C115 裁定拦截面收紧' && Array.isArray(oldCase.expect.rating) && oldCase.expect.rating.length === 2,
+    JSON.stringify(ue));
+  const ue2 = updateExpect({ caseId: 'C8', symbol: 's', addr: A('d'), expect: { rating: 'low' } }, { rating: 'high', tokenCategory: 'account_based_meme' }, 'b', '2026-10-20');
+  check('U2 updateExpect tokenCategory 在场时刷新', ue2.expect.tokenCategory === 'account_based_meme' && ue2.expect.rating === 'high', JSON.stringify(ue2));
+
+  // V1 留痕键校验：expectSince/Because 必须成对；addedAt/expectSince 须 YYYY-MM-DD
+  const meta = loadAndValidateFixtures({ cases: [
+    { caseId: 'M1', addr: A('e'), expect: { rating: 'low' }, addedAt: '2026-10-19', expectSince: '2026-10-19', expectBecause: 'x' },
+    { caseId: 'M2', addr: A('f'), expect: { rating: 'low' }, expectSince: '2026-10-19' },
+    { caseId: 'M3', addr: A('1'), expect: { rating: 'low' }, addedAt: '10-19', expectSince: '2026-10-19', expectBecause: 'y' },
+  ] });
+  check('V1 留痕键成对+ISO 日期校验（M2 缺 because / M3 addedAt 非法）', meta.errors.length === 2, meta.errors.join('; '));
 
   // ── toCsv：转义与列对齐 ──
   check('C1 csvEscape 引号双写', csvEscape('a"b,c') === '"a""b,c"', csvEscape('a"b,c'));

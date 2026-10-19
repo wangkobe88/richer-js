@@ -1,7 +1,7 @@
 /**
- * 叙事 case 回归集判读/断言纯函数（2026-10-19，C94-C110 近期案票回归）。
+ * 叙事 case 回归集判读/断言纯函数（2026-10-19 建，同日工具正式化：--add/--update-expect 收录与预期更新）。
  * 零 DB 零网络：只消费 token_narrative 回读行快照，供 run-case-regression.mjs 与
- * _test_case_regression_lib.cjs 共用（红线：新机制配零 DB 零网络单测）。
+ * _test_case_regression_lib.cjs 共用（红线：新机制配零 DB 零网络单测）。工具文档 docs/case-regression-tool.md。
  *
  * 落库两信封是既定事实（C88 信封坑，superip-labels.js s?.details ?? s?.parsed_output
  * 同款），interpret 里 ?? 链是形状切换非兜底：
@@ -110,6 +110,7 @@ export function assertExpectation(interp, expect) {
 }
 
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * fixtures 结构校验（加载时 fail-fast，防手写 JSON 错形状静默跑）。
@@ -141,8 +142,45 @@ export function loadAndValidateFixtures(doc) {
     if (c.expect?.tokenCategory !== undefined && typeof c.expect.tokenCategory !== 'string') {
       errors.push(`${c.caseId} expect.tokenCategory 须为字符串`);
     }
+    // 收录/预期更新留痕键（长期维护）：expectSince/expectBecause 必须成对，日期一律 YYYY-MM-DD
+    if ((c.expectSince !== undefined) !== (c.expectBecause !== undefined)) {
+      errors.push(`${c.caseId} expectSince/expectBecause 必须成对在场（预期更新须留痕）`);
+    }
+    if (c.expectSince !== undefined && !ISO_DATE_RE.test(c.expectSince)) errors.push(`${c.caseId} expectSince 非 YYYY-MM-DD: ${c.expectSince}`);
+    if (c.addedAt !== undefined && !ISO_DATE_RE.test(c.addedAt)) errors.push(`${c.caseId} addedAt 非 YYYY-MM-DD: ${c.addedAt}`);
   }
   return { cases, errors };
+}
+
+/**
+ * 从现行行判读生成新 case（--add 收录路径）：expect 只取判读终态的确定性键
+ * （rating + tokenCategory），意图键（reasonIncludes/auditIncludes 等）留给人工复核补写
+ * ——机器只能记录现状，断言意图必须人来定。
+ */
+export function buildCase({ caseId, symbol, addr, interp, note = '', observe = '', today = '' }) {
+  const expect = {};
+  if (interp?.rating !== null && interp?.rating !== undefined) expect.rating = interp.rating;
+  if (interp?.tokenCategory) expect.tokenCategory = interp.tokenCategory;
+  const c = { caseId, symbol: symbol ?? '', addr, expect };
+  if (note) c.note = note;
+  if (observe) c.observe = observe;
+  if (today) c.addedAt = today;
+  return c;
+}
+
+/**
+ * 预期更新（--update-expect 路径）：rating/tokenCategory 从现行判读刷新，
+ * 其余 expect 键（人工调过的 reasonIncludes/auditIncludes 等）原样保留，
+ * expectSince/expectBecause 留痕——长期维护的根：每个预期都能回答「为什么是这个值」。
+ * 纯函数不改原对象。
+ */
+export function updateExpect(caseObj, interp, because, today) {
+  const next = { ...caseObj, expect: { ...caseObj.expect } };
+  if (interp?.rating !== null && interp?.rating !== undefined) next.expect.rating = interp.rating;
+  if (interp?.tokenCategory) next.expect.tokenCategory = interp.tokenCategory;
+  if (because) next.expectBecause = because;
+  if (today) next.expectSince = today;
+  return next;
 }
 
 /**

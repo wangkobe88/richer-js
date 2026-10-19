@@ -1,39 +1,52 @@
 #!/usr/bin/env node
 /**
- * 叙事 case 回归集 runner（2026-10-19）：C94-C110 近期案票在当前题集
- * （J1.43/J1.44/J1.45+P1.12）整链重析（analyze ignoreCache，覆盖落库），对拍 fixtures 预期。
+ * 叙事 case 回归集 runner（2026-10-19 建，同日工具正式化）——长期维护的叙事回归测试集，
+ * 工具文档与工作流见 docs/case-regression-tool.md。
  *
- * 在 182 跑（重析含真实抓取+Jev 调用，本地不跑）：
- *   node scripts/narrative/run-case-regression.mjs [--only C98,C104] [--dry] [--backup-dir /tmp]
+ * 在 182 跑（重析/回读含真实 DB 访问，本地不跑）：
+ *   npm run case-regression [-- --only C98,C104] [--dry] [--backup-dir /tmp]   # 全量/选定重析对拍
+ *   npm run case-regression -- --list                                        # 集合清单（零 DB，本地可跑）
+ *   npm run case-regression -- --add <addr> --case C112 [--note ..] [--observe ..] [--dry]   # 收录新票
+ *   npm run case-regression -- --update-expect C97,C102 --because "C113 裁定.." [--dry]      # 预期更新留痕
  *
  * - 跑前备份全部票现行 token_narrative 整行到 backup-dir JSON（重析 upsert 覆盖，
  *   备份留档可对查/回滚，符合「跑过的数据绝不丢」精神）
+ * - 写回 fixtures（--add/--update-expect）：tmp+rename 原子写 + 写前备份到 backup-dir
  * - 断言器=case-regression-lib.mjs（零 DB 零网络单测 _test_case_regression_lib.cjs 锁定）
- * - 退出码：0=全过；1=存在非 observe 票断言失败；2=存在重析异常（数据源不可用，未完成验证）
+ * - 退出码：0=全过；1=存在非 observe 票断言失败 / 收录或更新校验失败；2=存在重析异常（数据源不可用）
  * - observe 票（fixtures 带 observe 键）：断言失败只 ⚠️ 警示不计失败（已知分数移动面）
  */
 
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, copyFileSync, renameSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 process.chdir(resolve(__dirname, '../..'));
 
-const { interpret, assertExpectation, loadAndValidateFixtures, toCsv } = await import('./case-regression-lib.mjs');
+const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, buildCase, updateExpect } = await import('./case-regression-lib.mjs');
 const { NarrativeAnalyzer } = await import('../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
 const { NarrativeRepository } = await import('../../src/narrative/db/NarrativeRepository.mjs');
 
+const FIXTURES_PATH = resolve(__dirname, 'case-regression-fixtures.json');
 const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,stage1_result,stage2_result,stage_final_result,pre_check_result';
 
 function parseArgs(argv) {
-  const out = { only: null, dry: false, backupDir: '/tmp' };
+  const out = { only: null, dry: false, backupDir: '/tmp', list: false, add: null, caseId: null, note: '', observe: '', updateExpect: null, because: '' };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--only') out.only = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
-    else if (argv[i] === '--dry') out.dry = true;
-    else if (argv[i] === '--backup-dir') out.backupDir = argv[++i];
-    else { console.error(`未知参数: ${argv[i]}`); process.exit(1); }
+    const a = argv[i];
+    if (a === '--only') out.only = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
+    else if (a === '--dry') out.dry = true;
+    else if (a === '--backup-dir') out.backupDir = argv[++i];
+    else if (a === '--list') out.list = true;
+    else if (a === '--add') out.add = argv[++i];
+    else if (a === '--case') out.caseId = argv[++i];
+    else if (a === '--note') out.note = argv[++i];
+    else if (a === '--observe') out.observe = argv[++i];
+    else if (a === '--update-expect') out.updateExpect = argv[++i].split(',').map((s) => s.trim()).filter(Boolean);
+    else if (a === '--because') out.because = argv[++i];
+    else { console.error(`未知参数: ${a}`); process.exit(1); }
   }
   return out;
 }
@@ -50,14 +63,94 @@ async function fetchRows(addrs) {
   return rows;
 }
 
+/** fixtures 原子写回（tmp+rename），写前先备份到 backup-dir */
+function writeFixturesSafely(doc, backupDir) {
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  copyFileSync(FIXTURES_PATH, resolve(backupDir, `case-regression-fixtures-backup-${ts}.json`));
+  const tmp = `${FIXTURES_PATH}.tmp`;
+  writeFileSync(tmp, JSON.stringify(doc, null, 2) + '\n', 'utf8');
+  renameSync(tmp, FIXTURES_PATH);
+  console.log(`fixtures 已写回 ${FIXTURES_PATH}（写前备份 → ${backupDir}/case-regression-fixtures-backup-${ts}.json）`);
+}
+
+function validateOrExit(doc) {
+  const { errors } = loadAndValidateFixtures(doc);
+  if (errors.length) {
+    console.error('写回前校验失败（未写入任何内容）:\n' + errors.map((e) => `  - ${e}`).join('\n'));
+    process.exit(1);
+  }
+}
+
+/** --list：集合清单（零 DB） */
+function cmdList(cases) {
+  console.log(`回归集共 ${cases.length} 票：`);
+  for (const c of cases) {
+    const rating = Array.isArray(c.expect.rating) ? c.expect.rating.join('|') : c.expect.rating ?? '不断言';
+    const since = c.expectSince ? ` since=${c.expectSince}${c.expectBecause ? `（${c.expectBecause}）` : ''}` : '';
+    const obs = c.observe ? ' [observe]' : '';
+    const note = (c.note ?? '').slice(0, 46).replace(/\n/g, ' ');
+    console.log(`  ${c.caseId.padEnd(6)} ${(c.symbol ?? '').padEnd(14).slice(0, 14)} ${String(rating).padEnd(8)}${obs}${since}  ${note}`);
+  }
+}
+
+/** --add：收录新票（不重析不烧 Jev 配额，快照现行行为作 rating 基线，意图键人工复核补写） */
+async function cmdAdd(args, doc, cases) {
+  if (!args.caseId) { console.error('--add 必须带 --case <caseId>（=台账 case 编号）'); process.exit(1); }
+  const addr = args.add.toLowerCase();
+  if (cases.some((c) => c.addr.toLowerCase() === addr)) { console.error(`addr 已收录（一票一 case）: ${addr}`); process.exit(1); }
+  if (cases.some((c) => c.caseId === args.caseId)) { console.error(`caseId 已存在: ${args.caseId}`); process.exit(1); }
+  const [row] = await fetchRows([addr]);
+  const interp = interpret(row ?? null);
+  if (!row || interp.rating === null) {
+    console.error('token_narrative 无行或无终态 rating——先跑一次 analyze（或回归 --only）出终态再收录；--add 刻意不重析'); process.exit(1);
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const c = buildCase({ caseId: args.caseId, symbol: row.token_symbol ?? '', addr, interp, note: args.note, observe: args.observe, today });
+  const nextDoc = { ...doc, cases: [...doc.cases, c] };
+  console.log('生成 case（请人工复核 expect——机器只记录现状，断言意图必须人来定）：');
+  console.log(JSON.stringify(c, null, 2));
+  console.log('复核要点：①rating 是否即断言语义（观察票配 observe 键）②补 reasonIncludes/auditIncludes 等意图键——只写确定性键（拦截位/审计键），勿写死 Jev 掷骰面（C111 纪律）');
+  validateOrExit(nextDoc);
+  if (args.dry) { console.log('--dry：未写回 fixtures'); return; }
+  writeFixturesSafely(nextDoc, args.backupDir);
+}
+
+/** --update-expect：预期更新留痕（rating 从现行行刷新，细节键保留，expectSince/Because 记因） */
+async function cmdUpdateExpect(args, doc, cases) {
+  if (!args.because) { console.error('--update-expect 必须带 --because "<case 编号> <裁定一句话>"（预期变更留痕，长期维护的根）'); process.exit(1); }
+  const missing = args.updateExpect.filter((id) => !cases.some((c) => c.caseId === id));
+  if (missing.length) { console.error(`caseId 不存在: ${missing.join(',')}`); process.exit(1); }
+  const byId = new Map(cases.map((c) => [c.caseId, c]));
+  const rows = await fetchRows(args.updateExpect.map((id) => byId.get(id).addr));
+  const byAddr = new Map(rows.map((r) => [r.token_address.toLowerCase(), r]));
+  const today = new Date().toISOString().slice(0, 10);
+  const idx = new Map(doc.cases.map((c, i) => [c.caseId, i]));
+  for (const id of args.updateExpect) {
+    const old = byId.get(id);
+    const row = byAddr.get(old.addr.toLowerCase());
+    const interp = interpret(row ?? null);
+    if (!row || interp.rating === null) { console.error(`${id} 现行行无终态 rating——先重析再更新预期`); process.exit(1); }
+    const next = updateExpect(old, interp, args.because, today);
+    const cat = old.expect.tokenCategory !== next.expect.tokenCategory ? ` tokenCategory ${old.expect.tokenCategory ?? '-'}→${next.expect.tokenCategory}` : '';
+    console.log(`${id}: rating ${JSON.stringify(old.expect.rating)} → ${JSON.stringify(next.expect.rating)}${cat}  because=${args.because}`);
+    doc.cases[idx.get(id)] = next;
+  }
+  validateOrExit(doc);
+  if (args.dry) { console.log('--dry：未写回 fixtures'); return; }
+  writeFixturesSafely(doc, args.backupDir);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const doc = JSON.parse(readFileSync(resolve(__dirname, 'case-regression-fixtures.json'), 'utf8'));
+  const doc = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8'));
   const { cases, errors } = loadAndValidateFixtures(doc);
   if (errors.length) {
     console.error('fixtures 校验失败:\n' + errors.map((e) => `  - ${e}`).join('\n'));
     process.exit(1);
   }
+  if (args.list) { cmdList(cases); return; }
+  if (args.add) { await cmdAdd(args, doc, cases); return; }
+  if (args.updateExpect) { await cmdUpdateExpect(args, doc, cases); return; }
   const selected = args.only ? cases.filter((c) => args.only.includes(c.caseId)) : cases;
   if (!selected.length) { console.error(`--only 过滤后无票（可用 caseId: ${cases.map((c) => c.caseId).join(',')}）`); process.exit(1); }
   console.log(`叙事 case 回归集：${selected.length}/${cases.length} 票（题集=${'J1.45+P1.12'}）`);

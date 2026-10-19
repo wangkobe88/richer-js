@@ -15,6 +15,8 @@ npm run dev
 npm run web                                # Web 界面（端口 3010）
 node src/run-engine.js <experiment_id>     # 单实验直跑（virtual；live 显式拒绝）
 npm run narrative-engine                   # 叙事分析 worker
+npm run case-regression [-- --only C98,C104 | --list | --add <addr> --case C112 --note .. | --update-expect C97 --because ..]
+                                           # 叙事 case 回归集（33 票长期维护；重析对拍在 182 跑，工具文档 docs/case-regression-tool.md）
 node scripts/scan-unknown-factor-conditions.cjs   # 存量条件未知因子扫描（退出码 1=有命中）
 NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs --threshold 3 --days 14
                                            # TPA 离线画像（只在 182 跑；须在 build-token-profiles 之后，依赖 flash_crash_period）
@@ -31,7 +33,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 - **策略/条件/stats**：strategy_library_validate_legs、unknown_factor_reject、experiment_stats_fifo
 - **web/数据服务**：trades_filter_columns（trades 过滤列名 PGRST 42703 事故形状反证）
 - **live**：live_hardening、tx_seen_receipt、live_decimals_guard、live_executor_loading、executors_routes、manual_trade_queue、fourmeme_actual_received、nonce_manager、gas_dynamic、live_nonbnb_buy_allowed、buy_circuit_breaker、live_dual_platform、approve_max_grant、live_record_trade_clamp、flap_minout_signal_anchor、live_buy_failure_observability、logger_console_same_file
-- **叙事链路**：precheck_fail_retry、narrative_signal_gate、narrative_memcache、narrative_preload、case_regression_lib（case 回归集断言器：四信封判读/expect DSL/CSV 转义；runner=scripts/narrative/run-case-regression.mjs 在 182 跑，33 票 C65-C110 谱系）、tweet_pull_optimization、narrative_timing_probe、narrative_parallel_fetch、ipfs_race（+C106 j7tracker 直链）、narrative_prefetch、same_name_appendix_shortcut、same_name_snapshot、narrative_leader_incremental、rule5_pass_through、data_fetch_failed_rating、issuer_ca_detection、narrator_two_shapes、unrated_elimination、isproject_coin_url_not_ca_hit、prestage_web3ip_account_only、prestage_project_downgrade、daily_parse_summary、news_monitor、narrative_middle_parallel、narrative_vision_prefetch、vision_gate、website_fetch_removal、precheck_parallel_queries、twitter_urls_expansion、twitter_bucket_overlap、http_keepalive、justoneapi_timeouts、narrative_repo_save_thin、jev_client_backoff、narrative_account_ttl、account_corpus_invalidation、narrative_retry_config、angle_timing_override、precheck_tweet_freshness_bucket、search_fallback、corpus_gate、corpus_ready_prefetch、narrative_rounds_route、narrative_review_fixes、parent_tweet_metrics、isproject_coin_aggregator_urls、jev_question_consolidation（C109 J1.43 题集收敛）
+- **叙事链路**：precheck_fail_retry、narrative_signal_gate、narrative_memcache、narrative_preload、case_regression_lib（case 回归集断言器+收录/预期更新纯函数：四信封判读/expect DSL/CSV 转义；runner=`npm run case-regression` 重析对拍在 182 跑，33 票 C65-C110 长期维护，工作流=docs/case-regression-tool.md）、tweet_pull_optimization、narrative_timing_probe、narrative_parallel_fetch、ipfs_race（+C106 j7tracker 直链）、narrative_prefetch、same_name_appendix_shortcut、same_name_snapshot、narrative_leader_incremental、rule5_pass_through、data_fetch_failed_rating、issuer_ca_detection、narrator_two_shapes、unrated_elimination、isproject_coin_url_not_ca_hit、prestage_web3ip_account_only、prestage_project_downgrade、daily_parse_summary、news_monitor、narrative_middle_parallel、narrative_vision_prefetch、vision_gate、website_fetch_removal、precheck_parallel_queries、twitter_urls_expansion、twitter_bucket_overlap、http_keepalive、justoneapi_timeouts、narrative_repo_save_thin、jev_client_backoff、narrative_account_ttl、account_corpus_invalidation、narrative_retry_config、angle_timing_override、precheck_tweet_freshness_bucket、search_fallback、corpus_gate、corpus_ready_prefetch、narrative_rounds_route、narrative_review_fixes、parent_tweet_metrics、isproject_coin_aggregator_urls、jev_question_consolidation（C109 J1.43 题集收敛）
 - **Jev 门/豁免**：publisher_proxy、web3_fit、web3_fit_anchor、cashtag_w_route、jev_product_entity、notable_other_exit、referent_memeability、subject_carrier、brand_hijack_pun_exemption、w_interaction_exempt、superip_standard_path、name_image_consistency、community_name_exemption、jev_resonance、jev_finding_recap_statement_gate、jev_regional_binance_anchor、gmgn_risk_factors、gmgn_superip_tweet_enrich
 - **抓取器**：instagram_pipeline、twitter_community_pipeline、tweet_image_analysis、web_fetcher_jina_fallback、youtube_fetcher
 
@@ -289,4 +291,4 @@ Token URL → URL 分类（含 IPFS metadata 解包 + 迁移直链 C106 j7tracke
 
 ### 修改 Jev 题集
 
-1. 改题面；2. bump 版本常量；3. 聚合语义变了同步对应 mapper；4. 跑定向重析对拍验证评级一致且无买线翻转；5. **case 与裁定同步台账**（卷三倒序追加）
+1. 改题面；2. bump 版本常量；3. 聚合语义变了同步对应 mapper；4. 跑定向重析对拍验证评级一致且无买线翻转；5. **case 与裁定同步台账**（卷三倒序追加）并**收录回归票**（`npm run case-regression -- --add <addr> --case C<n>`，预期变化票 `--update-expect --because` 留痕，工作流见 docs/case-regression-tool.md）；6. 部署前跑 `npm run case-regression` 全量对拍
