@@ -99,6 +99,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   粉丝缺失照拦 / 24h 恰界放+1s 拦 / created_at 缺失 fail-open / 名单巨粉 50 万
   angle_seeking 照拦 / 桶分类不动锁 / INTERPRETIVE_EXEMPT_STALE_SEC+
   THRESHOLDS.HIGH_FOLLOWERS+export 三源码口径锁），全量 78/78。
+- **部署与终局（2026-10-19）**：代码随 ed834b2 上 182（worker 3528617 加载）。
+  f8ab 定向重析行为级验证=三级拦截面接力确认——C74 放行（不再 expired_tweet）
+  → Jev 标准路径真实评价 → 终态 **J1.29 载体门拦**（「叙事主体无形象载体（无
+  形象实体）」P=0.41，C 类事件票）：rating 维持 low 但考官归位，tokenCategory
+  `account_based_meme → event:C`（prestage 旧分类翻标准路径分类）。回归票
+  `--update-expect C117` 留痕后全量对拍 37 票 **33 PASS / 0 FAIL / 4
+  OBSERVE-DEVIATION / 0 ERROR**（4 票=已知掷骰偏差，无新增）。BNB 销毁类
+  机构事件票在现行题集下的真实评价即载体门拦——是否救援属新案，未擅自扩。
 - **台账事故顺修**：C118/C119 并行会话写台账时基于旧版覆盖，C117 条目标题行
   被碰掉（正文完好）——本次从 9e18ff5 恢复标题；跨会话动台账前先 grep 锚点。
 

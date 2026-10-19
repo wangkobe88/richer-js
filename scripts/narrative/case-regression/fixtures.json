@@ -460,10 +460,12 @@
       "addr": "0xf8abd6a6bdc0d87291b4f79abc6188c48a807777",
       "expect": {
         "rating": "low",
-        "tokenCategory": "account_based_meme"
+        "tokenCategory": "event:C"
       },
       "note": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评",
-      "addedAt": "2026-10-19"
+      "addedAt": "2026-10-19",
+      "expectBecause": "C117+C120 落地：prestage abm 劫持修复后走标准路径，tokenCategory 翻 event:C（载体门拦 rating 维持 low）",
+      "expectSince": "2026-10-19"
     },
     {
       "caseId": "C119",
