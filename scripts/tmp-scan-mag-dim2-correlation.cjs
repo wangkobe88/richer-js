@@ -50,6 +50,16 @@ const pearson = (xs, ys) => {
   }
   return dx && dy ? num / Math.sqrt(dx * dy) : null;
 };
+// bandInterpolate/DIM2_BANDS 镜像（mapper 226 行同源；档位不一致阈值 18/23 是
+// band 插值后的 0-30 刻度，原始 score 是 0-5——两套量纲勿混）
+const DIM2_BANDS = [[0, 10], [10, 20], [18, 26], [23, 28], [26, 30], [28, 30]];
+const bandDim2 = (score) => {
+  const idx = Math.min(5, Math.max(0, Math.floor(score)));
+  const frac = Math.min(1, Math.max(0, score - Math.floor(score)));
+  const [lo, hi] = DIM2_BANDS[idx];
+  return Math.round((lo + frac * (hi - lo)) * 100) / 100;
+};
+
 // Spearman = 秩变换后 Pearson（同值平均秩）
 const ranks = (a) => {
   const idx = a.map((v, i) => [v, i]).sort((x, y) => x[0] - y[0]);
@@ -118,6 +128,7 @@ async function main() {
     valid.push({
       addr: row.token_address, symbol: row.token_symbol, tier,
       mag: answers.event_magnitude.score, dim2: answers.dimension2.score,
+      dim2Banded: bandDim2(answers.dimension2.score),
       rating: m.llmResult?.rating ?? null,
       score: m.llmResult?.score ?? null,
       m, row, answers,
@@ -138,13 +149,13 @@ async function main() {
     console.log(`  ${tier}: n=${a.length} dim2 mean=${r2(mean(a))} std=${r2(std(a))} min=${a.length ? Math.min(...a) : '-'} max=${a.length ? Math.max(...a) : '-'} → 档均值映射值 ${tierMean[tier]}`);
   }
 
-  console.log('\n── 档位不一致样本（A/S 档但 dim2<18；E/D 档但 dim2≥23）──');
-  const incHigh = valid.filter(v => (v.tier === 'A' || v.tier === 'S') && v.dim2 < 18);
-  const incLow = valid.filter(v => (v.tier === 'E' || v.tier === 'D') && v.dim2 >= 23);
+  console.log('\n── 档位不一致样本（A/S 档但 band(dim2)<18；E/D 档但 band(dim2)≥23——band 刻度 0-30）──');
+  const incHigh = valid.filter(v => (v.tier === 'A' || v.tier === 'S') && v.dim2Banded < 18);
+  const incLow = valid.filter(v => (v.tier === 'E' || v.tier === 'D') && v.dim2Banded >= 23);
   console.log(`  A/S 低带: ${incHigh.length} 行 / A/S 总 ${valid.filter(v => v.tier === 'A' || v.tier === 'S').length}`);
-  incHigh.slice(0, 15).forEach(v => console.log(`    ${v.symbol} ${v.addr} tier=${v.tier} mag=${v.mag} dim2=${v.dim2} rating=${v.rating}`));
+  incHigh.slice(0, 15).forEach(v => console.log(`    ${v.symbol} ${v.addr} tier=${v.tier} mag=${v.mag} dim2=${v.dim2}(band ${v.dim2Banded}) rating=${v.rating}`));
   console.log(`  E/D 高带: ${incLow.length} 行 / E/D 总 ${valid.filter(v => v.tier === 'E' || v.tier === 'D').length}`);
-  incLow.slice(0, 15).forEach(v => console.log(`    ${v.symbol} ${v.addr} tier=${v.tier} mag=${v.mag} dim2=${v.dim2} rating=${v.rating}`));
+  incLow.slice(0, 15).forEach(v => console.log(`    ${v.symbol} ${v.addr} tier=${v.tier} mag=${v.mag} dim2=${v.dim2}(band ${v.dim2Banded}) rating=${v.rating}`));
 
   // ── 第二遍：合并翻转面模拟（dim2 := 档均值，数据驱动确定性映射）──
   console.log('\n── 合并翻转面模拟（dim2 替换为档内均值后重放，评级翻转换向）──');
@@ -191,8 +202,8 @@ async function main() {
     require('fs').writeFileSync(process.argv[jsonIdx + 1], JSON.stringify({
       n: valid.length, pearson: r2(pearson(mags, dim2s)), spearman: r2(pearson(ranks(mags), ranks(dim2s))),
       perTier: Object.fromEntries(Object.entries(perTier).map(([t, a]) => [t, { n: a.length, mean: r2(mean(a)), std: r2(std(a)) }])),
-      tierMean, incHigh: incHigh.map(v => ({ addr: v.addr, tier: v.tier, mag: v.mag, dim2: v.dim2 })),
-      incLow: incLow.map(v => ({ addr: v.addr, tier: v.tier, mag: v.mag, dim2: v.dim2 })),
+      tierMean, incHigh: incHigh.map(v => ({ addr: v.addr, tier: v.tier, mag: v.mag, dim2: v.dim2, dim2Banded: v.dim2Banded })),
+      incLow: incLow.map(v => ({ addr: v.addr, tier: v.tier, mag: v.mag, dim2: v.dim2, dim2Banded: v.dim2Banded })),
       flips,
     }, null, 1));
     console.log(`\n全量 JSON 已落盘: ${process.argv[jsonIdx + 1]}`);
