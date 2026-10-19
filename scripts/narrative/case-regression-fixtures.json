@@ -1,0 +1,203 @@
+{
+  "description": "叙事 case 回归集（2026-10-19）：C94-C110+C78 近期案票在新题集（J1.43/J1.44/J1.45+P1.12）整链重析，验证该拦的拦、该放的放、原因正确。跑法见 run-case-regression.mjs。预期分三类：维持断言（已部署版本对拍过的现行行为）、预期变化（部署前旧行在行内，新版本应翻转）、观察票（分数分布移动的已知面，断言失败只警示不 fail）。基线=2026-10-19 直查 token_narrative 现行行。",
+  "cases": [
+    {
+      "caseId": "C94",
+      "symbol": "京小安",
+      "addr": "0xad55993dfd097ca2adb89ffbc2b0ccceb6dc7777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["币名不适合作为 meme 符号"]
+      },
+      "note": "B 类 web3 偏好双锚案：名字门拦（name_form not_meme_name）。10-19 f61f500 对拍已过，维持断言。"
+    },
+    {
+      "caseId": "C95",
+      "symbol": "永生蝴蝶",
+      "addr": "0x6ac90ad607ead644148962458f298f1e42e27777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["距代币创建已超过300秒"],
+        "precheckRuleIncludes": ["expired_tweet"]
+      },
+      "note": "issuer shape 案整案撤销零改动：angle_seeking 桶时效拦维持。"
+    },
+    {
+      "caseId": "C96",
+      "symbol": "币安上电视",
+      "addr": "0xc6d089d749409f7646de440d637ac9db0e047777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["币名不适合作为 meme 符号"]
+      },
+      "note": "J1.37 陈述句门→C108 并入名字门分支③（陈述句）。10-19 对拍已过，维持断言。"
+    },
+    {
+      "caseId": "C97",
+      "symbol": "币安游戏",
+      "addr": "0xf37bbaea289a67af00ac0ee58421553e11987777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["事件主体量级不足", "币安地域子账号"]
+      },
+      "note": "币安地域子账号量级锚 D：A 档被锚 D 档→量级门 D 档臂拦（五腿不豁）。现行文案「事件主体量级不足（A档→D档·币安地域子账号不借壳）」。"
+    },
+    {
+      "caseId": "C98",
+      "symbol": "Le Panthère rose",
+      "addr": "0x9df97d4239818411237d19a09303262269c47777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["负面硬新闻"]
+      },
+      "note": "粉红豹法国骚乱案：现行 DB 行 high 71.78=4daab46 部署前事故现场原行（实买 -19.4%），J1.38 政治暴力边界部署后从未整链重析（当时只做 jev_dryrun 定向重放 0.22→0.97）。预期变化票：low+负面硬新闻。"
+    },
+    {
+      "caseId": "C99",
+      "symbol": "传奇蝴蝶",
+      "addr": "0x62f829bae9f387ae399ccd0c45a1360e61857777",
+      "expect": {
+        "rating": "low"
+      },
+      "note": "CMC 聚合页假项目币洞：AUTO_TOKEN_PAGE_DOMAINS 断源后不再走假 addressVerified 短路，死法由链路决定（小号地址门/语料门），只断言不得 mid/high。现行行近乎空（部署前形状）。"
+    },
+    {
+      "caseId": "C100",
+      "symbol": "rebondit",
+      "addr": "0xed389dfed0568f07b71ff678b92da1c052957777",
+      "expect": {
+        "rating": "high",
+        "reasonExcludes": ["负面硬新闻"]
+      },
+      "note": "弹跳猫反向验证：语料零暴力词（Jev 按反向窄边界处理），J1.38 下不翻转不误拦，high 维持（C98 遗留修正的不修裁定）。"
+    },
+    {
+      "caseId": "C101",
+      "symbol": "OK❌",
+      "addr": "0x0195119e4806441c871adada6256296265ed7777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["未在账号简介或推文中找到完整代币地址"]
+      },
+      "note": "假 addressVerified 双修复：URL 含 CA 不算命中+web3ip 仅账号语料。断源后走真实验证→小号地址门拒 low（文案=地址验证拒）。"
+    },
+    {
+      "caseId": "C102",
+      "symbol": "BAI",
+      "addr": "0x11efcbd0bfbaa5ad1c2d0db93710882722a27777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["叙事主体无形象载体"]
+      },
+      "note": "借壳语料父推源头窗：binanceCorpus 父推>24h→timing older→C88 五腿断→J1.29 载体门接管。维持断言。"
+    },
+    {
+      "caseId": "C103",
+      "symbol": "Jean Phil",
+      "addr": "0x6915bec6e90dd26d282f544c91304b0846e97777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["事件分不足"]
+      },
+      "note": "载体↔父推关系源头窗（J1.39 翻译臂）：timing 归 older→时效分 0→事件分不足拦（注意：不是载体门，现行文案「事件分不足（53.25<60）」）。"
+    },
+    {
+      "caseId": "C104",
+      "symbol": "バイナンス人生",
+      "addr": "0x1890c934d59697398494cfec9f92b9e521c67777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["无新鲜载体"],
+        "precheckRuleIncludes": ["expired_tweet"]
+      },
+      "note": "direct 豁免主从结构门：现行 DB 行 high=f61f500 部署前旧形状（CZ 旧推裸 high 实买票），C104 部署后从未整链重析。预期变化票：主推>24h 无 ≤24h 新载体→回落 300s 拦（文案带「源头本体 Ns>24h 无新鲜载体」）。"
+    },
+    {
+      "caseId": "C105",
+      "symbol": "日本語版",
+      "addr": "0xe156aa3f3e89ded51ef0b980018ef15ae0517777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["币名不适合作为 meme 符号"]
+      },
+      "note": "版本词门（C105）→C107 收敛→C108 分支③形态缺陷。10-19 对拍已过（P=0.83），维持断言。"
+    },
+    {
+      "caseId": "C106",
+      "symbol": "TREE",
+      "addr": "0xd50e11204f7f3d63598b0118ee4151bf95917777",
+      "expect": {
+        "rating": null,
+        "reasonExcludes": ["内容获取失败或已失效"],
+        "precheckRuleExcludes": ["public_info_fetch_failed"]
+      },
+      "note": "j7tracker 直链解锁：现行 DB 行死于 public_info_fetch_failed（twitter 锁死 JSON 误判=f61f500 部署前形状）。预期变化票：不得再死于该规则（meta j7tracker 直链解包→抓到推文→走完评级），终评级不断言（原 high）。"
+    },
+    {
+      "caseId": "C108",
+      "symbol": "EARLY",
+      "addr": "0xc8a55fed967db1f1be1fac90c3a453c1c4187777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["叙事主体无形象载体"],
+        "reasonExcludes": ["币名不适合作为 meme 符号"]
+      },
+      "observe": "名字门已放行（圈内文化词合格=case 目标达成），但被 J1.29 载体门接住（C 类 no_visual P=0.43 掷硬币）——10-19 对拍时「是否豁载体门」留作新决策点未裁，本轮如实呈现不改断言。",
+      "note": "名字门统一案：圈内词 EARLY 不再被 common_word 误拦（拦截位已退役）。"
+    },
+    {
+      "caseId": "C109a",
+      "symbol": "交易猫",
+      "addr": "0xc929c8d1e57569b706d7cfdc3487c7d33b287777",
+      "expect": {
+        "rating": null,
+        "reasonExcludes": ["叙事主体无形象载体"],
+        "auditIncludes": ["subjectCarrierImgOverride"]
+      },
+      "note": "M1 图证载体覆盖豁免（C109 主体）：现行 DB 行 low 载体门拦=J1.43 部署前形状（conf 0.09 掷硬币误拦）。预期变化票：imageEvidence+name_image_consistency same_entity≥0.5→载体门豁免（审计键 subjectCarrierImgOverride 在场）；后腿（量级门等）照常，终评级不断言。"
+    },
+    {
+      "caseId": "C109b",
+      "symbol": "暗号資産の覇者",
+      "addr": "0x926ce819b7fdcf47bd9ccb3166c489280c537777",
+      "expect": {
+        "rating": ["high", "mid"],
+        "auditIncludes": ["narrativeSuperIpSlogan"]
+      },
+      "observe": "J1.44 mem 题面瘦身使分数分布移动（C88 mem≥2 腿命中面移动）；本票 mem 3.53 重心 4-5 档，瘦身余量应足（mid/high 均接受），断言失败只警示。",
+      "note": "C88 口号票覆盖 C4 mem 腿：五腿豁免链（superIpSlogan 审计在场）应维持。"
+    },
+    {
+      "caseId": "C109c",
+      "symbol": "BI",
+      "addr": "0x3891aeb8bf0ebb0079b4b1e6c18dd0ca26d77777",
+      "expect": {
+        "rating": null,
+        "auditIncludes": []
+      },
+      "observe": "J1.44 mem 瘦身观察票：mem 2.4 贴线——跌破 2 则 C88 五腿断→落载体门拦（mid→low）属已知命中面移动非 bug；维持 mid 亦可。只看结果如实报告。",
+      "note": "C109 对拍遗留观察票（币安猫图簇 BI 名票，10-18 mid）。"
+    },
+    {
+      "caseId": "C110",
+      "symbol": "币安菠萝",
+      "addr": "0x8ce87ffebe62e6f7ea87173b441520f659307777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["营销噱头"]
+      },
+      "note": "J1.45 marketing_gimmick 扩全域首拦面：现行 DB 行 high=部署前旧形状（D 档空洞票，argmax=gimmick 但 scope=['W','B'] 不含 D→不拦→实买）。预期变化票：low+营销噱头（D 档臂）。"
+    },
+    {
+      "caseId": "C78",
+      "symbol": "鲸元卷",
+      "addr": "0xe0cf0905310fc63cd8192513883d7426fc1e7777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["事件分不足"]
+      },
+      "observe": "事件分 59.24 贴线拦（<60 差 0.76）：J1.45 dim2 去同轴锚后传播分可移动过 60 翻 mid+——属已知分数移动非 bug，断言失败只警示。",
+      "note": "同块等额簇案叙事侧对照票（10-19 对拍时贴线拦维持）。"
+    }
+  ]
+}
