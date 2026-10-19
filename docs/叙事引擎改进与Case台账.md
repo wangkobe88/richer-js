@@ -92,7 +92,20 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   4. **L1-L3 修复**：dryrun 校验列 `['event_magnitude','dimension2','token_quality']`+打印侧换融合桶形状；悬空注释删；web 详情页三处 eventResonance 残留删。
 - **单测**：`_test_jev_question_consolidation` 追加 A8（9 桶+low_quality_derivative 键删除）/A8b（ip_reuse 判据吸收锚）/A8c-A8d（合桶行为级：legacy low_quality_derivative argmax 行不再独立拦、ip_reuse 照拦 A 域 rating=low）；`_test_prestage_project_downgrade` 社区矩阵改恒 mid+第二参传数字防御锁+P1.12 断言；`_test_referent_memeability` A4/A4b 瘦身锚（单维度+web3 判据剥离）；4 个版本钉死测试随 J1.44 更新。全绿。
 - **两项扫描（182 跑，tmp 脚本完成使命后删）**：①`tmp-scan-mag-dim2-correlation.cjs`——Pearson+Spearman、量级档内 dim2 均值±标准差、档位不一致样本、**合并翻转面模拟**（dim2:=档内均值重放 mapStandardAnswers 数评级翻转向）；②`tmp-scan-blockreason-scope-holes.cjs`——choice×category cross-tab（in-scope/空洞分解）、两空洞票单（现行评级+trades 买入关联）、R1 两桶 argmax 存量票单（对拍票源）。
-- **扫描结论**：（182 执行后回填）
+- **扫描结论（2026-10-19 182 实跑，29605 行全表/10017 标准路径有效重放，零异常）**：
+  - **①mag↔dim2 同轴性**：Pearson r=0.85 / Spearman ρ=0.87（强同轴非同一）；档内 dim2 标准差 0.37-0.83（0-5 刻度，B 档 0.83/A 档 0.71 最大=档内有真增量信号）；档位不一致罕见（A/S 档但 band(dim2)<18 → 38/1791=2.1%；E/D 档但 ≥23 → 5/1960=0.26%）。**合并翻转面**：dim2:=档内均值重放 → 597/10017（5.96%）评级翻转换向——放行向 275、拦去向 193、mid/high 互转 129（模拟是确定性档均值映射的下界估计；两轴 85% 共线但 dim2 档内残差驱动 ~6% 行为面）。
+  - **②block_reason 空洞（choice×category cross-tab 全量）**：argmax=none 占 72.5%（7259/10019）。有 scope 五桶全有空洞：
+
+    | 桶 | scope | 空洞行 | noneP<0.5（若扩全域 argmax 即拦） | 现high/mid | 被买入 |
+    |---|---|---|---|---|---|
+    | marketing_gimmick | {W,B} | 261（E123/A104/C75/D63/F33/G8） | 261/261 | 25（9.6%） | 6（如 币安菠萝 0x8ce8…7777 D 档 high 实买） |
+    | institution_routine | {C,D} | 86（A41/W21/E16/B6/F2） | 86/86 | 18（20.9%） | 4（MISO/汤姆猫等；上限口径未剔 platformOfficial 等 C56 豁免面——FlapGuy 0x2fb7…7777 即此链 high） |
+    | baseless_speculation | {G} | 74（C21/E18/F16/W8/A6/D5） | — | — | — |
+    | niche_subculture | {A} | 76（C28/E28/W12/F5/G2/D1） | — | — | — |
+    | ip_reuse | {A} | 30（W16/C7/E2/B2/D2/F1） | — | — | — |
+
+    另：low_quality_derivative（R1 已并桶）argmax 存量 674 行——cat=A 165 行分析时被拦、cat≠A 509 行走的正是该桶旧 scope 洞（R1 后新形状此桶 argmax 全不拦，A 域语义由 ip_reuse 承接）；R1 对拍票源 729 行（+ip_reuse 55）评级 low 674/high 47/mid 8、被买入 15。
+  - **裁定待决（另立 case）**：C1 合并与否（0.85 同轴 + 2.1% 不一致率 vs 6% 翻转面）；C2 空洞是否扩 scope（空洞行 noneP 全<0.5=扩域即全拦的高杠杆，但 institution_routine∧A 与 C56 豁免/superIP 通道已裁定的放行面重叠，扩域会重新暴露非豁免机构票）。
 - **行为变化声明**：R1=low_quality_derivative argmax 新形状行不再独立拦（A 域语义等价并入 ip_reuse；存量行回放 bit 不变）；R4=社区语料项目票 prestage 恒 mid（收紧方向）；C4=mem 分数分布移动 → C88 mem≥2 腿命中面移动（对拍覆盖口号票）；C1/C2=本轮零行为变化（只扫描出数，裁定另立 case）。
 - **欠部署**：与 C104-C109 批次同批 182 pull+重启+定向重析对拍。
 
