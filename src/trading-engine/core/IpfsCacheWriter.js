@@ -9,7 +9,8 @@
  * 从 1h 冷却救出，额外收益）。
  *
  * 键与读侧严格对齐：key = normalizeIpfsRef(metaUrl)（两侧原始输入同为链上 meta
- * 字段原串；S3 直链/非 IPFS 形态返回 null 不写——叙事侧也不读该缓存）。
+ * 字段原串；非 http(s)/IPFS 形态返回 null 不写——叙事侧也不读该缓存。C112 起
+ * 任意 http(s) 直链也产出键，两侧同函数自动同步泛化）。
  * CJS 跨界叙事 ESM 用 dynamic import（_dataPrefetchFetchers 先例），结果模块级
  * 惰性缓存；只写成功值、不 markFailed（补采失败语义保持：不留冷却行）。
  * write 内部自 catch：缓存写失败只 warn，绝不影响补采链（性能增强 fail-open）。

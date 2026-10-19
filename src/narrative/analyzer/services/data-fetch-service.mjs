@@ -135,7 +135,8 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // meta 指向的 JSON 里（ARENA 案：公告推文先于铸币 7m40s 发出，却因不解包被规则4-B 误拦）。
   // 解包位于 0-URL 早退之前（BRF 案前移，2026-09-27）：meta 可能是 extractAllUrls
   // 不识别的裸 CID（BRF：meta="bafkreigaw…"），0-URL 的 token 也要解包——
-  // IPFS 解包免费，先于 GMGN 付费补源
+  // IPFS 解包免费，先于 GMGN 付费补源。C112：meta 任意 http(s) URL 都尝试解包
+  // （meta 字段语义即 metadata 指针，内容判定非形状判定），非 JSON 回落原路径
   //
   // N2 前缀并行（2026-10-13 叙事提速案）：IPFS 与 GMGN 互不依赖同发（原串行
   // 8s+10s → max 并行）；两者的 links/metadata 都要先于 URL 分类，但相互无依赖。

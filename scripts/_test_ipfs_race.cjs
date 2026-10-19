@@ -8,8 +8,9 @@
  *      A3 网络层异常（fetch throw）同样归入 any reject → null
  *      A4 无效 JSON / 超长文本 → 该网关 reject，不影响成功网关
  *   B. 源码口径：Promise.any + 网关清单 4 个 + 全失败 warn 保原语义
- *   C. C106 迁移直链（j7tracker.io）：形状卡位 + normalize 透传 + 单点直抓
- *      （不轮询网关）+ 失败 null + 源码口径（直链分支先于 CID 提取）
+ *   C. C106 j7tracker 直链（bit 不回归）+ C112 任意 http(s) meta 直链
+ *      （CRO 现场形状）：normalize 透传 + 单点直抓（不轮询网关）+ 非 JSON
+ *      内容判定 null 回落 website 路径 + host 卡位退役（打地鼠防线源码断言）
  *
  * 用法：node scripts/_test_ipfs_race.cjs
  */
@@ -27,7 +28,7 @@ function assert(cond, label, extra) {
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  const { fetchIpfsMetadata, isIpfsUrl, normalizeIpfsRef, isDirectMetadataUrl } = await import('../src/narrative/utils/ipfs-metadata-fetcher.mjs');
+  const { fetchIpfsMetadata, isIpfsUrl, normalizeIpfsRef } = await import('../src/narrative/utils/ipfs-metadata-fetcher.mjs');
   const { CachedFetcher } = await import('../src/narrative/db/ExternalResourceCache.mjs');
 
   // 缓存层直透：绕过 DB 只测 fetchIpfsMetadata 的真析闭包（Promise.any 语义）
@@ -101,48 +102,52 @@ async function main() {
       'B3 归一化助手行为不回归');
   }
 
-  // ═══ C. C106 迁移直链（j7tracker.io）═══
-  console.log('══ C. C106 迁移直链（j7tracker.io）═══');
+  // ═══ C. C106 j7tracker 直链（bit 不回归）+ C112 任意 http(s) meta 直链 ═══
+  console.log('══ C. C106 j7tracker 直链 + C112 任意 http(s) meta 直链 ═══');
   {
-    // C1 形状卡位：host+路径双卡（https、allowlist host、/metadata/<id>.json）
-    assert(isDirectMetadataUrl('https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json') === true
-      && isDirectMetadataUrl('  https://metadata.j7tracker.io/metadata/abc_1.json ') === true,
-      'C1 直链形状命中（含首尾空白）');
-    assert(isDirectMetadataUrl('http://metadata.j7tracker.io/metadata/x.json') === false
-      && isDirectMetadataUrl('https://evil.io/metadata/x.json') === false
-      && isDirectMetadataUrl('https://metadata.j7tracker.io/other/x.json') === false
-      && isDirectMetadataUrl('https://metadata.j7tracker.io/metadata/x') === false
-      && isDirectMetadataUrl('https://metadata.j7tracker.io/metadata/a/b.json') === false,
-      'C1b 非 allowlist 形状不命中');
-    assert(normalizeIpfsRef('https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json')
-      === 'https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json',
-      'C2 normalizeIpfsRef 直链原样透传');
+    // C1 normalize 透传：任意 http(s) URL（C112）；j7tracker/裸 CID/IPFS 形状 bit 不回归
+    const j7 = 'https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json';
+    const cro = 'https://mil3jetlf7mwwhkea9cu.xyz/m/e6ada90384f4497afbf381eece34b380.json'; // C112 现场（随机子域网关）
+    assert(normalizeIpfsRef(j7) === j7, 'C1 j7tracker 直链透传（C106 bit 不回归）');
+    assert(normalizeIpfsRef(cro) === cro, 'C1b CRO 随机网关域直链透传（C112 现场形状）');
+    assert(normalizeIpfsRef('http://meta-7777.s3.amazonaws.com/metadata/x.json')
+      === 'http://meta-7777.s3.amazonaws.com/metadata/x.json', 'C1c S3 http 直链透传');
+    assert(normalizeIpfsRef('ftp://example.com/m.json') === null
+      && normalizeIpfsRef('ipfs://bafkreigawtest') === null
+      && normalizeIpfsRef('not a url') === null
+      && normalizeIpfsRef('https://x.com/a b') === null,
+      'C1d 非 http(s)/含空白引用不透传（解包门槛=scheme 白名单非 host）');
 
-    // C3 直抓成功：TREE 现场形状；stub 未匹配即 throw → 若碰任何 IPFS 网关即失败
+    // C2 CRO 现场直抓：解包出锁在 JSON 里的 twitter；stub 未匹配即 throw → 若碰任何 IPFS 网关即失败
     CachedFetcher.fetchWithCache = (_url, _rt, fn) => fn();
-    const treeJson = { createdOn: 'pump.fun', name: 'BNB Tree', symbol: 'TREE',
-      twitter: 'https://x.com/TCryptochicks/status/2111911894772576530', website: '' };
-    globalThis.fetch = stubFetch({
-      'https://metadata.j7tracker.io/': async () => ({ ok: true, text: async () => JSON.stringify(treeJson) }),
-    });
-    const r3 = await fetchIpfsMetadata('https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json');
-    assert(r3 && r3.twitter === treeJson.twitter, 'C3 直链单点直抓成功（不轮询 IPFS 网关）');
+    const croJson = { name: 'CHIEF RISK OFFICER', symbol: 'CRO',
+      twitter: 'https://x.com/BinanceDesi/status/2112144227757178894', website: '' };
+    globalThis.fetch = stubFetch({ [cro]: async () => ({ ok: true, text: async () => JSON.stringify(croJson) }) });
+    const r2 = await fetchIpfsMetadata(cro);
+    assert(r2 && r2.twitter === croJson.twitter, 'C2 任意直链单点直抓成功（不轮询 IPFS 网关）');
 
-    // C4 直抓失败（非 ok / 异常）→ null（上层按「解包失败，meta 作 website」原流程）
+    // C3 内容判定：非 JSON（HTML 网页 / 推文 URL 填进 meta）→ null → 回落「meta 链接按 website 处理」
     globalThis.fetch = stubFetch({
-      'https://metadata.j7tracker.io/': async () => { throw new Error('403'); },
+      'https://example.com/': async () => ({ ok: true, text: async () => '<html>hi</html>' }),
+      'https://x.com/': async () => ({ ok: true, text: async () => '<html>tweet</html>' }),
     });
-    const r4 = await fetchIpfsMetadata('https://metadata.j7tracker.io/metadata/1fc6571ba6bb4827.json');
+    assert(await fetchIpfsMetadata('https://example.com/') === null, 'C3a HTML 非 JSON → null');
+    assert(await fetchIpfsMetadata('https://x.com/BinanceDesi/status/2112144227757178894') === null,
+      'C3b 推文 URL 填 meta → 非 JSON null（回落 allUrls twitter 桶，与改前行为一致）');
+
+    // C4 j7tracker 直抓异常（403 形状）→ null（C106 bit 不回归）
+    globalThis.fetch = stubFetch({ 'https://metadata.j7tracker.io/': async () => { throw new Error('403'); } });
+    const r4 = await fetchIpfsMetadata(j7);
     assert(r4 === null, 'C4 直链异常 → null');
     globalThis.fetch = realFetch;
     CachedFetcher.fetchWithCache = origFwc;
 
-    // C5 源码口径：直链分支先于 CID 提取 + host 卡位在源码
-    const c106 = fs.readFileSync(path.join(ROOT, 'src/narrative/utils/ipfs-metadata-fetcher.mjs'), 'utf8');
-    const directIdx = c106.indexOf('if (isDirectMetadataUrl(metaUrl))');
-    const cidIdx = c106.indexOf('const cid = extractCid(metaUrl)');
-    assert(directIdx > 0 && cidIdx > directIdx, 'C5 直链分支先于 CID 提取');
-    assert(c106.includes('metadata\\.j7tracker\\.io'), 'C5b host 卡位在源码');
+    // C5 源码口径：host 卡位退役（打地鼠防线）+ CID 网关分支与直链分支并存
+    const src = fs.readFileSync(path.join(ROOT, 'src/narrative/utils/ipfs-metadata-fetcher.mjs'), 'utf8');
+    assert(!src.includes('DIRECT_METADATA_URL_RE') && !src.includes('metadata\\.j7tracker\\.io'),
+      'C5 host 卡位正则已退役（任意 http(s) 直链，新网关形状零维护）');
+    assert(src.includes('const cid = extractCid(metaUrl)') && src.includes('直链 metadata 获取异常'),
+      'C5b CID 网关竞速分支与无 CID 直链分支并存');
   }
 
   console.log(`\n${fail === 0 ? '✅ 全部通过' : '❌ 有失败'}：${pass} passed, ${fail} failed`);

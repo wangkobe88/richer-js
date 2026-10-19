@@ -12,8 +12,9 @@
  *
  *   B. ②b 行为级（enricher 打桩 axios + IpfsCacheWriter 打桩 ESM 静态方法）：
  *      flap IPFS 分支调 writer 且 await 先于返回 / S3 直链不调 / fourmeme 不调 /
- *      writer 缺失不炸 / 键归一三分支（网关原样/裸 CID 转 pinata/S3 null 不写）/
- *      set 形状（resourceType/ttl 730 天）/ set throw 自 catch 返回 false
+ *      writer 缺失不炸 / 键归一三分支（网关原样/裸 CID 转 pinata/S3 直链透传
+ *      ——C112 起任意 http(s) 直链有键）/ set 形状（resourceType/ttl 730 天）/
+ *      set throw 自 catch 返回 false
  *   C. 源码口径：引擎注入 ipfsCacheWriter / S3 分支无 writer 调用 /
  *      dataPrefetch 退役反证（引擎源码零残留）
  *
@@ -79,7 +80,8 @@ async function main() {
     check('corpusFields 正常返回（补采不受影响）', fields?.twitterUrl === METADATA.twitter && fields?.corpus?.provider === 'flap_ipfs');
   }
 
-  // B2 S3 直链分支：不调 writer（叙事侧 normalizeIpfsRef null 不读此缓存）
+  // B2 S3 直链分支：不调 writer（补采 S3 分支未接线——C112 后叙事侧已可读直链
+  // 缓存，接线为可选增强；本断言锁定现状不调，防无意识行为漂移）
   {
     const seen = [];
     const e = makeEnricher(async (...a) => { seen.push(a); return true; });
@@ -125,10 +127,10 @@ async function main() {
       await writer.write('bafyabc123def456ghi789jkl', METADATA);
       check('裸 CID 键=normalizeIpfsRef 产物（pinata 网关形态）',
         setCalls[1]?.url === 'https://gateway.pinata.cloud/ipfs/bafyabc123def456ghi789jkl', setCalls[1]?.url);
-      // S3 直链 → null 不写
-      const n0 = setCalls.length;
-      check('S3 直链不写返回 false', await writer.write('https://meta-7777.s3.amazonaws.com/metadata/x.json', METADATA) === false);
-      check('S3 直链零 set 调用', setCalls.length === n0);
+      // S3 直链：C112 起任意 http(s) 直链也有键（normalizeIpfsRef 透传），照写
+      await writer.write('https://meta-7777.s3.amazonaws.com/metadata/x.json', METADATA);
+      check('S3 直链键=原串透传（C112 泛化）',
+        setCalls[2]?.url === 'https://meta-7777.s3.amazonaws.com/metadata/x.json', setCalls[2]?.url);
       // set throw → 自 catch 返回 false（不 reject 不影响补采）
       ExternalResourceCache.set = async () => { throw new Error('DB down'); };
       check('set throw 自 catch 返回 false', await writer.write(GW_URL, METADATA) === false);

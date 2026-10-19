@@ -68,6 +68,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C112 meta 任意 http(s) 直链解包（形状判定→内容判定）——「我之前的方案是，收集能收集到的所有地址（不管它填写在哪个字段里，因为用户根本不会填），然后自己进行分类」（2026-10-19 CRO 案）★
+
+- **现场**：CRO `0xf58d7bb1a74192d615a710c5f2d5e6234dfb7777`（four.meme taxToken）被规则 4-B `public_info_fetch_failed` 终局（rating low/10，stage1 全空零 Jev 调用；该 ruleName 不在 address/no_public_info 两重试域 → 无重试）。API 字段全空，唯一链接=链上 meta 直链 `https://mil3jetlf7mwwhkea9cu.xyz/m/e6ada90384f4497afbf381eece34b380.json`（随机子域 .xyz 网关）——直抓实证 JSON 内锁着真实语料 `x.com/BinanceDesi/status/2112144227757178894`。**C106 同型复发**：j7tracker host 卡位只认单一域，换网关域即再误杀（注释「出现新迁移网关形状时在此追加」=打地鼠）。
+- **方案（用户设计原则，采集层本就如此）**：`extractAllUrls` 全字段收集没问题（.json 链接确实收进了 websites 桶），偏差唯一在**解包决策按 URL 形状猜**。meta 字段语义本身就是协议指定的 metadata 指针，无需猜：任意 http(s) URL 一律直抓 + JSON 校验——**内容判定代替形状判定**，非 JSON（网页/死链）→ null → 回落既有「meta 链接按 website 处理」路径。
+- **改动**（`src/narrative/utils/ipfs-metadata-fetcher.mjs`）：① `normalizeIpfsRef` 任意 http(s) 透传（scheme 白名单+无空白）；② `fetchIpfsMetadata` 按 `extractCid` 有无分派——CID 在→多网关竞速（不信任原 host），无 CID→单点直抓（同款 8s/64KB/JSON 校验/缓存 TTL）；③ C106 `DIRECT_METADATA_URL_RE`+`isDirectMetadataUrl` 退役（j7tracker bit 不回归由单测锁定）；④ `IpfsCacheWriter` 键门与读侧同函数自动同步泛化（S3 直链起有键，补采 S3 分支接线为可选增强未动）。推文 URL 填 meta → 非 JSON null → 回落 allUrls twitter 桶，与改前行为一致（C3b 断言）。
+- **边缘（接受）**：meta 填普通网页且该页恰返回合法 JSON → 会被当 metadata 消费（内容尽力而为，分类器仍是下游门）；http 明文直链放行（与 `isIpfsUrl` 口径一致）。
+- **预告**：解包修复后 BinanceDesi=`binance` 前缀地域子账号 → C97 锚 D + C102 借壳父推窗正常接管，大概率仍低档——性质从「无语料终局误杀」变「Jev 正常裁决」。
+- **单测**：`_test_ipfs_race.cjs` 19 断言（CRO 现场形状直抓出 twitter / HTML 非 JSON null 回落 / host 卡位退役源码反证 / j7tracker+C106 bit 不回归）；`_test_corpus_ready_prefetch.cjs` S3 断言随裁定更新（不写→透传写，25 过）。**待办：182 部署 + CRO 定向重析 + 视结果收录回归票**。
+
 ### C111 叙事 case 回归集上线（33 票，C65-C110 全谱）——「把我近期提交的数十个 case 做成一个测试集合，在新的叙事分析模块上跑一遍，确认改拦住的拦住，该不拦的不拦，并且原因都是对的」（2026-10-19 用户指令三段：建集→CSV→扩至 ≥30）★
 
 - **资产（commit f5f6d3c 起，2a0b4bb 收口）**：`scripts/narrative/case-regression-fixtures.json`（33 票：C65-C110 谱系，每票 expect DSL + observe/note）+ `run-case-regression.mjs`（182 跑；跑前整行备份 /tmp；`analyze ignoreCache` 覆盖落库后回读对拍；退出码 0=全过/1=硬断言败/2=重析异常）+ `case-regression-lib.mjs`（**四信封判读** fin>pcr>prestage>+s1/s2 blob；DSL：rating 单值/数组/null、reasonIncludes|Excludes、precheckRuleIncludes|Excludes、auditIncludes（blob 子串）、tokenCategory 精确等+Excludes）+ 单测 `_test_case_regression_lib.cjs` 31 断言（零 DB 零网络）。
