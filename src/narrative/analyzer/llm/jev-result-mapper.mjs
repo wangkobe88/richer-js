@@ -1292,7 +1292,13 @@ export function mapStandardAnswers(answers, context) {
   // 的低置信掷硬币不再单独拦 J1.29（与 imgNameExempt 同源同阈、独立判定——载体
   // 存在性与关联强弱正交，不套 relevance ≤10 窗）。审计键 subjectCarrierImgOverride
   // 命中才落（下方 imgNameExempt 同款）
-  const imgCarrierOverride = !!context.imageEvidence && nicMatchP >= 0.5;
+  // C118 演绎臂（DND 案二轮，用户裁定「载体豁免认演绎关系」）：image_depicts_name
+  // depicts≥0.5 同样触发——配图在演绎名字含义=载体存在的另一种事实证据。概念名
+  // （缩写/口号）无实体可对应，nicMatch 两档天然吃不到（DND vs 猫 unrelated 0.85
+  // 但猫拉窗帘正是「别打扰」的画面演绎）。J1.30 imgNameExempt 刻意不消费本题
+  // （演绎≠名实一致，两豁免面不互扩）；答案缺失/未问 → depictP=0 只剩 nicMatch 臂
+  const depictP = answers.image_depicts_name?.probabilities?.depicts_name ?? 0;
+  const imgCarrierOverride = !!context.imageEvidence && (nicMatchP >= 0.5 || depictP >= 0.5);
 
   // C88 超级IP事件口号票五腿救援谓词（2026-10-18 CZ 出书簇用户裁定：暗号資産の
   // 覹者 0x926c…7777 11.8x 毕业被 rcp argmax 臂拦死、BI 0x3891…7777 4.86x 被
@@ -1528,6 +1534,18 @@ export function mapStandardAnswers(answers, context) {
         // 无此题 → null）；block 命中才落（productEntityBlock 同款模式）
         subjectCarrier: answers.subject_carrier?.choice ?? null,
         subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
+        // C118 审计标记：图证载体豁免（J1.29 覆盖豁免命中才落；与 Stage3 段同形）。
+        // 拦截票 stage3 段 __clear，本段是唯一落库位——DND 形状（演绎臂救回载体
+        // 门后被量级门拦）在 stage2 段可归因「载体门为何没拦」，与 subjectCarrier
+        // =null 的「类别不适用」区分。via=match（C109 名图一致）|depicts（C118 演绎）
+        subjectCarrierImgOverride: imgCarrierOverride
+          ? {
+              carrier: answers.subject_carrier?.choice ?? null,
+              matchP: round2(nicMatchP),
+              via: nicMatchP >= 0.5 ? 'match' : 'depicts',
+              depictP: depictP > 0 ? round2(depictP) : null,
+            }
+          : null,
         // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap；旧缓存行 → null
         // ——阈值/口径事后校准免重跑）；改道详情在 stage1 jev.categoryForced
         // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
@@ -1660,9 +1678,15 @@ export function mapStandardAnswers(answers, context) {
             // brand_hijack 同款「命中才落」模式——未触发不落键）
             imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP) } : null,
             // C109 审计标记：图证载体覆盖命中（J1.29 豁免；命中才落——被覆盖的
-            // carrier choice 与匹配质量可追溯，交易猫案形状）
+            // carrier choice 与匹配质量可追溯，交易猫案形状）。C118 起 matchP=0
+            // 且 depictP>0 的命中=演绎臂触发（via:'depicts'），臂来源可归因
             subjectCarrierImgOverride: imgCarrierOverride
-              ? { carrier: answers.subject_carrier?.choice ?? null, matchP: round2(nicMatchP) }
+              ? {
+                  carrier: answers.subject_carrier?.choice ?? null,
+                  matchP: round2(nicMatchP),
+                  via: nicMatchP >= 0.5 ? 'match' : 'depicts',
+                  depictP: depictP > 0 ? round2(depictP) : null,
+                }
               : null,
             // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
             // jev.superIpSlogan 恒落版——stage2 拦截票本段 __clear 不落）

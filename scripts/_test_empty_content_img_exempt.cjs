@@ -183,7 +183,7 @@ async function main() {
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H3 JEV_QUESTIONS_VERSION=J1.48（bump 纪律；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界）', JEV_QUESTIONS_VERSION === 'J1.48', JEV_QUESTIONS_VERSION);
+  check('H3 JEV_QUESTIONS_VERSION=J1.49（bump 纪律；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题）', JEV_QUESTIONS_VERSION === 'J1.49', JEV_QUESTIONS_VERSION);
   check('H4 题面合格分支②含通用网络梗缩写锚（DND/FOMO/LFG）',
     qSrc.includes('通用网络梗/文化缩写同构（如 DND=do not disturb、FOMO、LFG）'), null);
   check('H5 题面不合格分支含机构职位缩写（工牌 Chief Risk Officer→CRO）',

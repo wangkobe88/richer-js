@@ -176,8 +176,8 @@ async function main() {
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.48（C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚（DND 合格/CRO 不合格）；J1.48 C116 name_form 整句情绪姿态分界+not_meme_name 根本判据；C103 条件题默认关 16/开 17）',
-    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.48'
+  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.49（C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚（DND 合格/CRO 不合格）；J1.48 C116 name_form 整句情绪姿态分界+not_meme_name 根本判据；C103 条件题默认关 16/开 17）',
+    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.49'
     && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 17 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 

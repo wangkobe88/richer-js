@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.47）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.49）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -68,7 +68,50 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
-### C117 超大账号不走 prestage 账号判定——superIP 命中强制标准路径 + 发行方自发宣告粉丝门（2026-10-19 f8ab/Burn N Burn 案）★
+### C118 载体豁免认演绎关系——image_depicts_name 条件题（2026-10-19 DND 案二轮）★
+
+- **现场**：`0x4dbcb10e68626b6f663bd596905d41cdc6b07777`（DND，BinancePk 80 万粉
+  「DND 😾」+猫拉窗帘视频，C114 案同票二轮）。C114 修掉 empty_content 误拦后
+  重析落**载体门拦死**：subject_carrier no_visual 0.40-0.51 掷骰（Jev 判 DND
+  概念无形象载体），C109 图证豁免不触发——name_image_consistency `unrelated`
+  0.85（DND 是概念、猫是实体，字面不同实体）。名字维度已过（J1.47 轮
+  meme_name conf 1）。用户买家视角问「web3 用户会接受 DND 在这个场景作为
+  meme 币名字嘛」→ 会（缩写是 crypto meme 命名主流）→ 卡点定位=载体豁免只认
+  名实同一/同类、不认演绎。
+- **用户裁定**：「载体豁免认演绎关系，立 case 修」——「猫拉窗帘视频=do not
+  disturb 的画面演绎」本身就是载体存在的事实证据，与名实同类（C109 交易猫）
+  平行。表述纪律同 C112/C117：借叙事发币是常态，评估轴从来不是「蹭」。
+- **实现**（J1.49 题集 bump，新条件题零污染）：
+  ①**新条件题 `image_depicts_name`**（与 name_image_consistency 同
+  imageConsistency 携带条件，仅语料含图证时问）：三档 depicts_name /
+  decorative / unclear。**与 10.7 正交分工**——10.7 问名与图【所指实体】
+  同一/同类（J1.30 消费），本题问图是否在【演绎名字含义】（J1.29 演绎臂
+  消费）；概念名（缩写/口号）无实体对应 10.7 天然 unrelated，演绎证据由
+  本题独立承接，两题答案可同票共存（unrelated+depicts_name）。对照锚：
+  DND+猫拉窗帘=depicts_name / CRO+猫图=decorative（纯装饰）/ 香蕉+真香蕉=
+  decorative（实体本身无「演绎」）。三方案取舍：扩 unrelated 判据（A）与
+  10.7 加第四选（B）都会污染 J1.30 豁免面（nicMatchP 被动变化），选新题
+  （C2）判据源分离。
+  ②**mapper 演绎臂**：`imgCarrierOverride = imageEvidence ∧ (nicMatchP≥0.5 ∨
+  depictP≥0.5)`——depictP=answers.image_depicts_name.depicts_name 概率，缺失
+  回落 0 只剩 nicMatch 臂（旧缓存行/未问零影响 fail-safe）。**J1.30
+  imgNameExempt 刻意不消费本题**（演绎≠名实一致，两豁免面不互扩，单测
+  D1/D2 行为级锁定：演绎臂触发不豁 Stage3 关联截断、match 臂触发照常豁免）。
+  ③**审计键双段**：stage2 段（拦截票唯一落库位——DND 形状=演绎臂救回载体门
+  后 fallthrough 量级门拦，stage3 段被 __clear，stage2 补 `subjectCarrierImgOverride`
+  同形键才能归因「载体门为何没拦」）+ Stage3 段原 C109 键扩 `via:
+  'match'|'depicts'` 臂来源 + `depictP`。
+- **验证**：单测 `_test_image_depicts_exempt.cjs` 22 断言全绿——DND 现场反证
+  （演绎臂翻过载体门→D 档量级门拦=理由干净）/ 0.5 阈界 / 答案缺失 fail-safe /
+  J1.30 零污染行为级（A 档票 Stage3 截断位）/ not_meme_name 门链接管（CRO+
+  演绎图形状名字门照拦）/ decorative 不豁 / C109 原臂回归（交易猫 nicMatch
+  臂 via=match）/ 源码口径+J1.49 版本锁。邻接版本锁 5 文件同步 J1.48→J1.49
+  （empty_content/finding_recap/resonance/name_image/superip_standard_path，
+  顺手实证 finding_recap 102 断言全绿含 C116 题面锚）。DND 定向重析对拍
+  （预期 image_depicts_name 高概率→载体门翻过→终态仍 low 但理由换量级轴=干净）
+  与全量对拍待 182 部署后执行。
+
+
 
 - **现场**：`0xf8abd6a6bdc0d87291b4f79abc6188c48a807777`（Burn N Burn /
   `BNB͏`带零宽修饰符，flap 税币，34 分钟毕业 16 BNB，同名簇 4 枚）。语料=
