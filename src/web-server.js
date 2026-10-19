@@ -1990,7 +1990,6 @@ class RicherJsWebServer {
         const options = {
           success: req.query.success,
           direction: req.query.direction,
-          tradeType: req.query.tradeType,
           tokenAddress: req.query.tokenAddress,
           limit: parseInt(req.query.limit) || 100,
           offset: parseInt(req.query.offset) || 0

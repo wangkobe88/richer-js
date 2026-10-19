@@ -84,11 +84,10 @@ class ExperimentDataService {
         if (options.success !== undefined) {
           query = query.eq('success', options.success === 'true');
         }
+        // 列名以 trades 表为准（2026-10-19 实测）：trade_direction（旧代码误写 'direction'，
+        // 传参必报 PGRST 42703）；trade_type 列不存在（前端无人传，死分支已删）
         if (options.direction) {
-          query = query.eq('direction', options.direction);
-        }
-        if (options.tradeType) {
-          query = query.eq('trade_type', options.tradeType);
+          query = query.eq('trade_direction', options.direction);
         }
         // token 过滤（2026-10-15 双口径图表：信号页按 token 拉 trades 画成交标记）
         if (options.tokenAddress) {
