@@ -639,9 +639,23 @@ export class NarrativeAnalyzer {
           };
         } else {
           // 检查是否应该使用账号/社区分析流程
-          const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)
+          let shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)
             || (isProjectCoinResult && fetchResults.relatedAccounts?.length > 0)
             || !!issuerDetected;
+
+          // C117（f8ab/Burn N Burn 案，2026-10-19 用户裁定「超大账号肯定不适合走
+          // 账号判断这条路」）：superIP registry 命中票强制标准路径（C83 既定语义：
+          // state 注入认证/反混淆行，评分归 Jev）——prestage abm 考官（账号质量+
+          // 30 天 web3 流量轴）对 S/A 级人物与机构失焦。案发形状：BNB Chain 官推
+          // 「Burn N Burn 🔥」（回应 CZ 的 BNB 季度销毁话题）被 detectIssuerSelfLaunch
+          // 品牌同一性(bnb⊂bnbchain)+宣告指纹(币名全串)机械命中劫进 abm，用
+          // cz_binance 流量轴评 low。三臂（账号型语料/项目币/发行方自发宣告）全短路。
+          if (superIPInfo && shouldUseAccountCommunity) {
+            logger.info('NarrativeAnalyzer', 'superIP 命中 → 强制标准路径（不走账号判定，C117）', {
+              superIp: superIPInfo.name, tier: superIPInfo.tier, type: superIPInfo.type,
+            });
+            shouldUseAccountCommunity = false;
+          }
 
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');

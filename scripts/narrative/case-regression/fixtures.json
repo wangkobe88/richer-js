@@ -453,6 +453,17 @@
       "note": "DND 案（BinancePk 80 万粉「DND 😾」+猫拉窗帘视频）：C114 图证在场豁免翻过 empty_content 掷骰臂（none 0.32/empty 0.31）+ J1.47 判 meme_name 合格；终态 low 由载体门接管（no_visual 0.51 掷骰+C109 名图一致 unrelated 0.85 未豁免）；断言=必拦不锁门（empty_content/载体两门掷骰波动，量级档 A/D 亦波动）",
       "addedAt": "2026-10-19",
       "observe": "empty_content 掷骰臂（none 0.32/empty 0.31）被 C114 图证豁免兜底；载体门 no_visual 0.51 与 C109 名图一致 unrelated 0.85 双掷骰；量级 A/D 波动但 dim2 1.23 低——事件分不足门兜底，终态 low 稳定。断言失败只看是否翻 non-low。"
+    },
+    {
+      "caseId": "C117",
+      "symbol": "BNB",
+      "addr": "0xf8abd6a6bdc0d87291b4f79abc6188c48a807777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "account_based_meme"
+      },
+      "note": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评",
+      "addedAt": "2026-10-19"
     }
   ]
 }

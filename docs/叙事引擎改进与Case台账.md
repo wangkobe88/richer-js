@@ -68,6 +68,42 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C117 超大账号不走 prestage 账号判定——superIP 命中强制标准路径 + 发行方自发宣告粉丝门（2026-10-19 f8ab/Burn N Burn 案）★
+
+- **现场**：`0xf8abd6a6bdc0d87291b4f79abc6188c48a807777`（Burn N Burn /
+  `BNB͏`带零宽修饰符，flap 税币，34 分钟毕业 16 BNB，同名簇 4 枚）。语料=
+  BNB Chain 官推（@BNBCHAIN 389 万粉）回复 CZ（父推「Which other blockchain
+  burns $1.1 billion worth of tokens each quarter?」= BNB 季度销毁话题）的
+  「@cz_binance Burn N Burn 🔥」。叙事现状：`detectSuperIP` 已命中 BNB Chain
+  （tier S institution），但 `detectIssuerSelfLaunch` 独立判定不看 superIP——
+  品牌同一性（norm(`bnb`)⊂norm(`bnbchain`) 互包含）+ 宣告指纹（币名 Burn N Burn
+  全串出现在官推文本——官推在谈 BNB 销毁，非宣告发 meme 币）双机械命中 →
+  `issuerDetected` → 劫进 prestage abm 考官 → 用 original_author=cz_binance 判
+  「30 天 Web3 流量事件 no_traffic(0.75)」→ rating=1(low) 拦截。C83 既定语义
+  「superIP registry 命中 → 标准路径 + state 注入认证行」被该门覆盖。
+- **用户裁定**：「首先超大账号肯定不适合走账号判断这条路」——prestage abm 的
+  考官（账号质量+30 天 Web3 流量轴）为中小 KOL 自发盘设计，对 S/A 级人物与
+  机构完全失焦；超大账号语料票的正确考官是标准路径（按事件/梗评估叙事质量
+  与传播力，registry 认证行注入 state）。同场裁定（表述纪律）：不说「蹭票」，
+  meme 币多数都是借叙事发币，蹭本身从来不是评估轴（C112 ip_reuse 同向）。
+- **实现**（双门，纯代码路由，题集零改动不 bump 版本）：
+  ①**A 门**（`NarrativeAnalyzer.mjs`）：`shouldUseAccountCommunity` 计算后加
+  短路——`superIPInfo` 命中（registry 命中对象非 null）→ 三臂（账号型语料/
+  项目币 CA/发行方自发宣告）全短路强制 false，打点「superIP 命中 → 强制标准
+  路径（C117）」；`issuerDetected` 变量保留原值（`credibleEventAnchor` 臂
+  `superIPInfo || issuerDetected` 不受影响）。
+  ②**C 门**（`narrative-utils.mjs detectIssuerSelfLaunch`）：粉丝量级门
+  `author_followers_count ≥ 100 万 → return null`（`options.maxFollowers` 可
+  覆盖；粉丝缺失 null/undefined fail-open 维持原判定）——兜 registry 漏网的
+  超大号；自发宣告的合理域是中小账号。
+- **验证**：单测 `_test_superip_no_prestate_route.cjs` 14 断言全绿——f8ab 现场
+  反证（389 万粉官推双门拦截）+ 粉丝 999,999/恰 100 万边界 + 缺失 fail-open +
+  maxFollowers 覆盖 + 截词借势盘反例保护（CONVICTION 不受门影响）+ A 门
+  analyzer 短路源码口径断言（短路行存在/位于 prestage 调用前/回写 false，
+  事故反证锁定）；相邻域回归 `_test_issuer_ca_detection.cjs` 15/15、
+  `_test_narrative_middle_parallel.cjs` 22/22。f8ab 定向重析对拍（预期走标准
+  路径重评）与回归票收录待 182 部署后执行；与 C112-C116 同批部署。
+
 ### C115 纯 website 兜底语料——「如果所有的信息都不能获取，又提供了网站信息，就去获取一下 web 网站信息」（2026-10-19 CZ4 案）★
 
 - **现场**：CZ4 `0xc6fecab1b9bf2c761d754edbe016e186e44d7777`（flap，taxToken）：

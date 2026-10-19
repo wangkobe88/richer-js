@@ -373,6 +373,10 @@ export function extractScreenNameFromTwitterUrl(url) {
  *
  * 语义：推文语料的事件主体（作者）与代币品牌同一，且作者自己的文本宣告了该品牌
  * → 判为"项目方/账号自己发币"，转 prestage 账号判定（不要求当前影响力，按账号语义评）。
+ * C117 粉丝量级门（2026-10-19）：author_followers_count ≥ 100 万不判自发宣告
+ * （options.maxFollowers 可覆盖）——自发宣告的合理域是中小账号，超大账号谈
+ * 自家品牌 ≠ 宣告发 meme 币；superIP registry 命中票另有 analyzer 级短路
+ * （C117 整门不走 prestage）。
  * 反例保护：截词借势盘（C3/CONVICTION 类——词取自推文但与作者身份无关）不满足
  * 品牌同一性，不路由，仍走标准路径 W 数学（路径一：骑乘盘要求项目本身影响力极高）。
  *
@@ -384,9 +388,18 @@ export function extractScreenNameFromTwitterUrl(url) {
  * @param {Object} fetchResults - { twitterInfo }
  * @returns {Object|null} 命中返回 { screenName, symbol }，未命中返回 null
  */
-export function detectIssuerSelfLaunch(tokenData, fetchResults) {
+export function detectIssuerSelfLaunch(tokenData, fetchResults, options = {}) {
   const { twitterInfo } = fetchResults;
   if (!twitterInfo || twitterInfo.type !== 'tweet' || !twitterInfo.text) return null;
+
+  // C117 粉丝量级门（f8ab 案，2026-10-19）：百万粉以上账号不可能是 meme 币的
+  // 「发行方」——品牌同一性+宣告指纹对大号天然易假阳性（大号谈自家品牌 ≠ 宣告
+  // 发 meme 币：BNB Chain 官推「Burn N Burn 🔥」谈 BNB 季度销毁被机械命中）。
+  // 兜 superIP registry 漏网的超大号；粉丝数缺失（null/undefined）fail-open
+  // 维持原判定（保守=不改既有行为）。
+  const maxFollowers = options.maxFollowers ?? 1000000;
+  const followers = twitterInfo.author_followers_count;
+  if (Number.isFinite(followers) && followers >= maxFollowers) return null;
 
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
   const symbol = norm(tokenData.symbol);
