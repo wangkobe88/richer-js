@@ -623,6 +623,15 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   // === 5. 抖音数据 ===
   const runDouyin = async () => {
   const douyinUrlInfo = selectFirstUrl('douyin');
+  // J1.68（彪弟案，用户裁定「抖音账号页只是一个信息引用，推文本身的信息够了，
+  // 无需获取其信息」）：推文语料有内容时，抖音账号页(user_profile)仅作引用跳过；
+  // 视频仍抓（视频内容可能是事件本体）。
+  if (douyinUrlInfo && douyinUrlInfo.type === 'user_profile'
+      && results.twitterInfo?.type === 'tweet' && results.twitterInfo?.text?.trim()) {
+    console.log('[NarrativeAnalyzer] 抖音账号页仅为推文引用（推文语料已足够），跳过抓取');
+    dataFetchResults.douyin = { skipped: true, reason: 'tweet_corpus_reference', url: douyinUrlInfo.url };
+    return;
+  }
   if (douyinUrlInfo) {
     const douyinFetch = await recordDataFetch(
       async () => {

@@ -337,6 +337,30 @@ export function shouldUseAccountCommunityAnalysis(fetchResults) {
 }
 
 /**
+ * 账号/社区路径路由（J1.68，彪弟 0x3b5c3271…7777 案，用户裁定）：
+ * 账号/社区语料（twitterInfo.type=account/community）→ 账号路径；
+ * 项目币（CA 在推文文本/网站等）→ 账号路径；
+ * 发行方检出（detectIssuerSelfLaunch / CA 时间线）→ **仅当语料不是「有内容的推文」时**
+ * 才转账号路径。理由：推文本身信息足够时，叙事主体是推文内容（如「彪哥的新宠物
+ * 取名彪弟」），不是账号；抖音账号页等只是引用信息，不该把票劫进 account_based_meme
+ * 的账号质量/30 天 web3 流量轴。
+ *
+ * @param {Object} p
+ * @param {Object} p.fetchResults
+ * @param {boolean} p.isProjectCoinResult
+ * @param {boolean} p.issuerDetected
+ * @returns {boolean}
+ */
+export function shouldRouteToAccountCommunity({ fetchResults, isProjectCoinResult, issuerDetected }) {
+  if (shouldUseAccountCommunityAnalysis(fetchResults)) return true;
+  if (isProjectCoinResult && fetchResults?.relatedAccounts?.length > 0) return true;
+  const twitterInfo = fetchResults?.twitterInfo;
+  const hasSubstantiveTweet = twitterInfo?.type === 'tweet' && !!twitterInfo?.text?.trim();
+  if (issuerDetected && !hasSubstantiveTweet) return true;
+  return false;
+}
+
+/**
  * 从Twitter URL中提取screen_name
  * 支持格式：
  * - https://x.com/username/status/123456 → username

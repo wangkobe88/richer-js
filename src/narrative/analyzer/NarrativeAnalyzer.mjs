@@ -12,7 +12,7 @@ import { PromptBuilder } from './prompt-builder.mjs';
 import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
-import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch, detectAuthorUtterance } from './utils/narrative-utils.mjs';
+import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, shouldRouteToAccountCommunity, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch, detectAuthorUtterance } from './utils/narrative-utils.mjs';
 import { createSegmentTimer } from '../utils/segment-timer.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
@@ -646,10 +646,11 @@ export class NarrativeAnalyzer {
             details: { category: 'no_data' }
           };
         } else {
-          // 检查是否应该使用账号/社区分析流程
-          let shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)
-            || (isProjectCoinResult && fetchResults.relatedAccounts?.length > 0)
-            || !!issuerDetected;
+          // 检查是否应该使用账号/社区分析流程（J1.68 抽出纯函数：有内容的推文语料
+          // 不被发行方检出/引用链接劫进账号路径——彪弟案，抖音账号页只是引用）
+          let shouldUseAccountCommunity = shouldRouteToAccountCommunity({
+            fetchResults, isProjectCoinResult, issuerDetected,
+          });
 
           // C117（f8ab/Burn N Burn 案，2026-10-19 用户裁定「超大账号肯定不适合走
           // 账号判断这条路」）：superIP registry 命中票强制标准路径（C83 既定语义：
