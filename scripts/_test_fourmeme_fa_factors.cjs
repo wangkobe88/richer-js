@@ -483,6 +483,14 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'buyPriceBnb',
         'bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
         'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct',
+        // 2026-10-17 Agentum 案方向 C 出生锚定捆绑簇 4 键（10s 滑窗迟到 fire 漏创建块簇；
+        // 详见 _test_bundle_cluster_factors.cjs M/N 段与 FA launch* 注释）
+        'launchBundleClusterSize', 'launchBundleClusterSharePct',
+        'launchEqualClusterWallets', 'launchEqualClusterBnb',
+        // 2026-10-18 用户点名集合（famous 门原料）+ C96/C97 叙事键（category 透传 +
+        // superIP 注入键）——并行批次追加时未同步本白名单（2026-10-20 补）
+        'famousCopyWalletCircPct', 'narrativeCategory',
+        'narrativeSuperIp', 'narrativeSuperIpSlogan',
         'top1HolderCircPct',
         'maxCopyWalletHolderCircPct',
         'earlyTradesPerWallet', 'earlyTradesMaxWalletTrades', 'earlyTradesNetBuyRatio',

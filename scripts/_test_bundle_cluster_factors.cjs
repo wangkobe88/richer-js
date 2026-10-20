@@ -4,9 +4,12 @@
  *
  * 6 键：bundleClusterSize/bundleClusterSharePct/bundleClusterAmountRatio/
  *      bundleClusterEvenGap/bundleClusterSameTrader/maxBlockBuyCircPct；
- *      窗口 bundleWinMs 默认 10000（对齐 act*），factorParams 可覆盖。
+ *      窗口 bundleWinMs 默认 10000（对齐 act*），factorParams 可覆盖；
  *      口径：wallet=sender||trader；首买=钱包本票全史首笔买（min 替换非 Set 判重）；
  *      流通=_circTokens（Σ买−Σ卖 token，BITCAT 重放对拍 63.3% 同口径）。
+ *      ★2026-10-20 口径断代（乌龟案用户裁定）：maxBlockBuyCircPct 分子由「10s 滚动窗
+ *      最大」改为「全史最大」——滚动版在大块滑出窗后归零（C2 反证：出窗后簇键 0、
+ *      吞噬率保留 100）；本键历史快照/扫描值与新口径不可比。
  *
  * 覆盖：
  *   A. BITCAT 事故现场反证（真簇：size=5/share≈52.6/amountRatio=1/evenGap=1/
@@ -105,7 +108,7 @@ console.log('A. BITCAT 事故现场反证（真簇 block 1023）');
   check('A4 bundleClusterEvenGap = 1（li 差分 [31,31,31,31]）', () => assert.strictEqual(f.bundleClusterEvenGap, 1));
   check('A5 bundleClusterSameTrader = 100（5 行全 GMGN 聚合路由）', () =>
     assert.strictEqual(f.bundleClusterSameTrader, 100));
-  check('A6 maxBlockBuyCircPct ≈ 63.3（124.93M/197.36M，BITCAT 重放同口径）', () =>
+  check('A6 maxBlockBuyCircPct ≈ 63.3（全史最大 block 124.93M/197.36M，BITCAT 重放同口径）', () =>
     assert.ok(Math.abs(f.maxBlockBuyCircPct - 63.3) < 0.05, `got ${f.maxBlockBuyCircPct}`));
   check('A7 流通分母 = Σ买−Σ卖 = 197.36M（含窗外出局行——全史累计）', () =>
     assert.strictEqual(fa._states.get('0xtoken')._circTokens, 197360000));
@@ -161,11 +164,12 @@ console.log('C. 窗边界（ts==cutoff 留 / 1ms 前出局）');
     assert.ok(fIn.maxBlockBuyCircPct > 0);
   });
   const fOut = fa.buildFactorMap('0xtoken', T0 + 20001); // cutoff=T0+10001，事件出局 1ms
-  check('C2 出局 1ms → 6 键全 0（含 block 吞噬——block agg 同窗过滤）', () => {
+  check('C2 出局 1ms → 5 个滚动簇键全 0；maxBlockBuyCircPct 全史口径保留 = 100（10M/10M 不回零）', () => {
     for (const k of ['bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
-      'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct']) {
+      'bundleClusterEvenGap', 'bundleClusterSameTrader']) {
       assert.strictEqual(fOut[k], 0, k);
     }
+    assert.strictEqual(fOut.maxBlockBuyCircPct, 100);
   });
 }
 
@@ -283,7 +287,7 @@ console.log('H. 空窗零值 + 键集探针');
 {
   const fa = newFA();
   const f = fa.buildFactorMap('0xtoken', T0 + 60000);
-  check('H1 无 tick → 6 键全 0 非 null（有证据零值）', () => {
+  check('H1 无 tick → 6 键全 0 非 null（有证据零值；maxBlockBuyCircPct 全史口径同 0）', () => {
     for (const k of ['bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
       'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct']) {
       assert.strictEqual(f[k], 0, k);
@@ -376,7 +380,7 @@ console.log('J. 源码口径断言（防前视/防误删防线）');
   check('J6 裁剪余量 2×（2 * this._fp.bundleWinMs）', () => {
     assert.ok(/_pruneBundleEvents[\s\S]{0,600}2 \* this\._fp\.bundleWinMs/.test(src));
   });
-  check('J7 因子字面量含 6 键（防误删）', () => {
+  check('J7 因子字面量含 6 键（防误删；maxBlockBuyCircPct 2026-10-20 起为全史口径）', () => {
     for (const k of ['bundleClusterSize: bundle.bundleClusterSize', 'bundleClusterSharePct: bundle.bundleClusterSharePct',
       'bundleClusterAmountRatio: bundle.bundleClusterAmountRatio', 'bundleClusterEvenGap: bundle.bundleClusterEvenGap',
       'bundleClusterSameTrader: bundle.bundleClusterSameTrader', 'maxBlockBuyCircPct: bundle.maxBlockBuyCircPct']) {

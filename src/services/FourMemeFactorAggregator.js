@@ -1144,6 +1144,15 @@ class FourMemeFactorAggregator extends EventEmitter {
                 const _bb = state._blockBuyAgg.get(blockNumber);
                 if (_bb) _bb.b += tokenAmount;
                 else state._blockBuyAgg.set(blockNumber, { t: tick.timestamp, b: tokenAmount });
+                // 全史最大单 block 买量（maxBlockBuyCircPct 分子，2026-10-20 乌龟案由
+                // 滚动 10s 窗改为全史）：块聚合按到达序只增，任一时刻的 _bb.b 都是该块
+                // 已见累计 → 单调 max 更新即可，不随窗口滑出遗忘（乌龟 0xb2782a4a…fe7777
+                // 同块 4 钱包 0.59BNB/7.70e7 token 在滚动版 +18s 后归零，全史版保留）。
+                const _bbCur = state._blockBuyAgg.get(blockNumber);
+                if (_bbCur.b > state._maxBlockBuyTokens) {
+                    state._maxBlockBuyTokens = _bbCur.b;
+                    state._maxBlockBuyBlk = blockNumber;
+                }
             }
             if (walletAddr) {
                 const _pb = state._walletFirstBuyTs.get(walletAddr);
@@ -1516,7 +1525,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             _walletFirstBuyTs: new Map(), // wallet → 首买时刻（全史 min，永不裁剪——事件环可裁而此
                                      //   Map 不可：裁后同钱包再买会被误判为新首买混进簇）
             _blockBuyAgg: new Map(), // blk → {t, b}（单 block 买入 token 累计，含非首买行；
-                                     //   maxBlockBuyCircPct 分子；t=该 block 行的 block_time）
+                                     //   b = _maxBlockBuyTokens 的增量来源；t = 该 block 行
+                                     //   的 block_time，只服务 _pruneBundleEvents 裁剪）
+            _maxBlockBuyTokens: 0, // 全史单 block 买入 token 最大值（maxBlockBuyCircPct 分子；
+                                   //   写点同 _blockBuyAgg，单调 max 永不遗忘——2026-10-20
+                                   //   乌龟案用户裁定由滚动 10s 窗改为全史）
+            _maxBlockBuyBlk: null, // 取到全史 max 的 block 号（审计/观察，不进门）
             _circTokens: 0,          // 流通 = Σ买入 − Σ卖出 token（净流出池子筹码；全史增量累计
                                      //   永不裁剪，加减法交换律 → defer 乱序收敛；creator 初始持仓
                                      //   未经买入不计入——口径与 BITCAT 重放对拍一致 63.3%）
@@ -2070,11 +2084,17 @@ class FourMemeFactorAggregator extends EventEmitter {
      *   bundleClusterEvenGap    —— 簇内 log_index 排序后差分等间隔 0/1（观察键；li 缺失 → 0）
      *   bundleClusterSameTrader —— 簇内模态 trader_address 占比 ×100（BITCAT 5 行全
      *                              GMGN 聚合路由=100；tx 级同 calldata 的 tick 层代理）
-     *   maxBlockBuyCircPct      —— 窗内最大单 block 买入 token ÷ 读取时刻累计流通 ×100
+     *   maxBlockBuyCircPct      —— 全史最大单 block 买入 token ÷ 读取时刻累计流通 ×100
      *                              （流通=_circTokens Σ买−Σ卖；用户裁定新增——修正
      *                              pre-check 侧 maxBlockBuyRatio 除总供应 1e9 被稀释的
      *                              硬伤，BITCAT 真簇 63.3%；分母含该 block 及其后已喂
      *                              买入，读取时刻口径 defer 乱序收敛；流通≤0 → 0）
+     *                              **2026-10-20 口径断代（乌龟案用户裁定）**：分子由「10s
+     *                              滚动窗内最大」改为「全史最大」（_maxBlockBuyTokens，
+     *                              单调不减）。滚动版在大块滑出窗后立即归零、只能当冷却；
+     *                              全史版把「出生期出现过过大单块」作为票的固有属性保留
+     *                              （乌龟同块 4 钱包 7.70e7 token：滚动版 +18s 归零，全史版
+     *                              持续可见）。本键历史快照/扫描值与新口径不可比。
      * 簇选取（2026-10-16 FLY 案用户裁定改金额优先）：簇 BNB 金额最大者优先，并列取
      * size 大者、再取 blk 小者（确定性）。旧「size 优先」漏等额镜像对——FLY 案
      * 0xbf00+0xd6ab395c 同 block 等额 0.3705×2=0.741 BNB（占窗内买盘 60%）输给
@@ -2157,11 +2177,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             for (const v of cnt.values()) if (v > mode) mode = v;
             sameTrader = mode / size * 100;
         }
-        // 单 block 吞噬率：窗内最大 block 买入 token ÷ 读取时刻累计流通
-        let maxBlkB = 0;
-        for (const agg of state._blockBuyAgg.values()) {
-            if (agg.t >= cutoff && agg.b > maxBlkB) maxBlkB = agg.b;
-        }
+        // 单 block 吞噬率：全史最大 block 买入 token ÷ 读取时刻累计流通
+        // （2026-10-20 乌龟案用户裁定：由「10s 滚动窗最大」改为「全史最大」——滚动版在
+        //  大块滑出窗后立即归零，只能当冷却用；全史版把「出生期出现过过大单块」作为票的
+        //  固有属性保留。口径断代：本键值不可与 2026-10-20 前的快照/扫描结果直接比较）
+        const maxBlkB = state._maxBlockBuyTokens;
         const circPct = maxBlkB > 0 && state._circTokens > 0 ? maxBlkB / state._circTokens * 100 : 0;
         // 可选簇明细（扫描脚本对拍 B 用：簇钱包名单 → GMGN bundler 地址库 precision/recall）；
         // 引擎路径不传 out，零变化
@@ -2170,6 +2190,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             out.wallets = rows.map(r => r.w);
             out.windowBuyBnb = winBuyBnb;
             out.circTokens = state._circTokens;
+            out.maxBlockBuyTokens = state._maxBlockBuyTokens;
+            out.maxBlockBuyBlk = state._maxBlockBuyBlk;
         }
         return {
             bundleClusterSize: size,
