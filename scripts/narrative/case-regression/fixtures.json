@@ -8,7 +8,7 @@
       "expect": {
         "rating": "low",
         "reasonIncludes": [
-          "币名不适合作为 meme 符号"
+          "Web3 用户不接纳该名字"
         ]
       },
       "note": "B 类 web3 偏好双锚案：名字门拦（name_form not_meme_name）。10-19 f61f500 对拍已过，维持断言。"
@@ -35,7 +35,7 @@
       "expect": {
         "rating": "low",
         "reasonIncludes": [
-          "币名不适合作为 meme 符号"
+          "Web3 用户不接纳该名字"
         ]
       },
       "note": "J1.37 陈述句门→C108 并入名字门分支③（陈述句）。10-19 对拍已过，维持断言。"
@@ -177,7 +177,7 @@
           "叙事主体无形象载体"
         ],
         "reasonExcludes": [
-          "币名不适合作为 meme 符号"
+          "Web3 用户不接纳该名字"
         ]
       },
       "observe": "名字门已放行（圈内文化词合格=case 目标达成），但被 J1.29 载体门接住（C 类 no_visual P=0.43 掷硬币）——10-19 对拍时「是否豁载体门」留作新决策点未裁，本轮如实呈现不改断言。",
@@ -477,7 +477,7 @@
           "high"
         ],
         "reasonExcludes": [
-          "币名不适合作为 meme 符号"
+          "Web3 用户不接纳该名字"
         ],
         "tokenCategory": "event:E"
       },

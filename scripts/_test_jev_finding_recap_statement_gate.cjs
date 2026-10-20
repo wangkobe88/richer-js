@@ -40,7 +40,7 @@
  *      →放行）/ 四分支（YAYA 无名实体拦、滑雪拦、拼写变体并入）/ nr/rm/
  *      memFloor 退役位移交正反证 / block_misspelling 探针死键不拦
  *   E. 审计字段：stage1 categoryForced/nameForm/findingVsRecap 恒落；
- *      stage2 findingVsRecap 双写/nameFormBlock 命中才落（form=Jev 原 choice）
+ *      stage2 findingVsRecap 双写/web3UserAcceptabilityBlock 命中才落（form=Jev 原 choice）
  *   F. 源码口径：门链序（nf→sc，rm/memFloor 退役）/ 五腿刻意不豁 / 兼容 Set
  *      形状 / cashtag 改道优先 / 旧缓存行 fail-open（无失效脚本需求）/ C108
  *      退役位源码反证（nrBlock/rmBlock/memFloor/探针全清+保留链完好）
@@ -56,7 +56,7 @@ function check(name, cond, detail) {
   else { failed++; console.log(`  ❌ ${name}${detail !== undefined ? ` —— ${JSON.stringify(detail)}` : ''}`); }
 }
 
-const NF_LABEL = '币名不适合作为 meme 符号（名字门）';
+const NF_LABEL = 'Web3 用户不接纳该名字（用户接纳度门）';
 const CARRIER_LABEL = '叙事主体无形象载体';
 
 /**
@@ -171,20 +171,20 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
-  check('A1 版本号 = J1.52（J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + relevance_type/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.52', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.53（J1.53=C122 门名断代（name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability，零行为意图）；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + relevance_type/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.53', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 finding_vs_recap 恒带（默认题集）', 'finding_vs_recap' in qs, Object.keys(qs).length);
-  check('A3 name_form 恒带（默认题集）', 'name_form' in qs, null);
+  check('A3 web3_user_acceptability 恒带（默认题集）', 'web3_user_acceptability' in qs, null);
   const fvr = qs.finding_vs_recap;
   check('A4 finding_vs_recap type=choice 三态', fvr.type === 'choice'
     && ['narrative_finding', 'news_recap', 'unclear'].every(k => k in fvr.criteria), null);
   check('A5 finding_vs_recap 关键判别锚：发现语气不构成发现（大V报道→news_recap）',
     fvr.instructions.includes('不构成发现') && fvr.instructions.includes('目击动作'), null);
-  const nf = qs.name_form;
-  check('A6 name_form type=choice 三态（J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
+  const nf = qs.web3_user_acceptability;
+  check('A6 web3_user_acceptability type=choice 三态（J1.53 C122 题键 name_form→web3_user_acceptability；J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
     && ['web3_user_acceptable', 'web3_user_not_acceptable', 'unclear'].every(k => k in nf.criteria)
     && !['meme_name', 'not_meme_name', 'entity_phrase', 'statement', 'functional_label'].some(k => k in nf.criteria), Object.keys(nf.criteria));
-  check('A7 name_form 判名字本身不判指向对象（影响力/玩味价值另有题评）',
+  check('A7 web3_user_acceptability 判名字本身不判指向对象（影响力/玩味价值另有题评）',
     nf.instructions.includes('判名字本身，不判名字指向对象的影响力/玩味价值'), null);
   check('A7b name_form 单一判据锚：「能否接纳」是唯一问法与唯一判据（J1.50 问法收敛，C107/C108 裁定语义延续）',
     nf.instructions.includes('能否接纳是唯一问法与唯一判据'), null);
@@ -196,7 +196,7 @@ async function main() {
       (await readQuestionsSrc()).replace(/\n/g, ' ')), null);
   check('A11 两新题不受条件开关影响（includeBrandHijack 臂同带）',
     'finding_vs_recap' in buildStandardQuestions({ includeBrandHijack: true })
-    && 'name_form' in buildStandardQuestions({ includeBrandHijack: true }), null);
+    && 'web3_user_acceptability' in buildStandardQuestions({ includeBrandHijack: true }), null);
   // C107 收敛锚 + C108 统一门锚
   check('A12 name_form 不限列举锚（判定锚列举实例但下一形态不用再加选——反打地鼠）',
     nf.instructions.includes('不限于此') && nf.instructions.includes('凡「web3 用户不接纳这名字当 meme 符号」的形态都算'), null);
@@ -286,11 +286,11 @@ async function main() {
   const rNewKey = mapStandardAnswers(baseAnswers('D', {
     name_form: { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.9 } },
   }), stdCtx('TST', 'TST'));
-  check('C0 J1.50 新键 web3_user_not_acceptable → 拦（label 同门）+ stage1 nameForm 原样透传',
+  check('C0 J1.50 新键 web3_user_not_acceptable → 拦（label 同门）+ stage1 web3UserAcceptability 原样透传',
     blockedBy(rNewKey, NF_LABEL)
-    && rNewKey.stage1DataToSave.parsed_output.jev.nameForm === 'web3_user_not_acceptable'
-    && JSON.stringify(rNewKey.stage2DataToSave.parsed_output.jev.nameFormBlock) === '{"form":"web3_user_not_acceptable"}',
-    rNewKey.stage1DataToSave.parsed_output.jev.nameForm);
+    && rNewKey.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'web3_user_not_acceptable'
+    && JSON.stringify(rNewKey.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock) === '{"form":"web3_user_not_acceptable"}',
+    rNewKey.stage1DataToSave.parsed_output.jev.web3UserAcceptability);
   // C 专项：五腿全中（superIpSlogan=true）也不豁——mem 3≥2 五腿命中，not_meme_name 仍拦
   const rFive = mapStandardAnswers(baseAnswers('C', {
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
@@ -322,15 +322,15 @@ async function main() {
   const rC2st = mapStandardAnswers(baseAnswers('D', {
     name_form: { choice: 'statement', probabilities: { statement: 0.9 } },
   }), stdCtx('TST', 'TST'));
-  check('C2 statement 兼容臂 → nameFormBlock.form=statement（归因可分）',
-    rC2st.stage2DataToSave.parsed_output.jev.nameFormBlock.form === 'statement',
-    rC2st.stage2DataToSave.parsed_output.jev.nameFormBlock);
+  check('C2 statement 兼容臂 → web3UserAcceptabilityBlock.form=statement（归因可分）',
+    rC2st.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock.form === 'statement',
+    rC2st.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock);
   const rC2fl = mapStandardAnswers(baseAnswers('D', {
     name_form: { choice: 'functional_label', probabilities: { functional_label: 0.9 } },
   }), stdCtx('TST', 'TST'));
-  check('C2 functional_label 兼容臂 → nameFormBlock.form=functional_label（归因可分）',
-    rC2fl.stage2DataToSave.parsed_output.jev.nameFormBlock.form === 'functional_label',
-    rC2fl.stage2DataToSave.parsed_output.jev.nameFormBlock);
+  check('C2 functional_label 兼容臂 → web3UserAcceptabilityBlock.form=functional_label（归因可分）',
+    rC2fl.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock.form === 'functional_label',
+    rC2fl.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock);
 
   // ═══ D. 事故现场反证 ═══
   console.log('\n── D. 事故现场反证（币安上电视 0xc6d0…7777 J1.32 快照）──');
@@ -394,16 +394,16 @@ async function main() {
     && rD7.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true,
     rD7.llmResult.reason);
   check('D7b stage1 nameForm=not_meme_name 恒落',
-    rD7.stage1DataToSave.parsed_output.jev.nameForm === 'not_meme_name',
-    rD7.stage1DataToSave.parsed_output.jev.nameForm);
+    rD7.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'not_meme_name',
+    rD7.stage1DataToSave.parsed_output.jev.web3UserAcceptability);
   // D8 兼容臂同门同 label：statement/functional_label 旧 choice 与 not_meme_name
   //    收敛后是同一门（无 st/fl 竞争），label 统一、form 归因可分
   const rD8st = mapStandardAnswers(jpEditionAnswers({ nameForm: 'statement' }), ctxJp);
   const rD8fl = mapStandardAnswers(jpEditionAnswers({ nameForm: 'functional_label' }), ctxJp);
   check('D8 同快照 statement/functional_label 兼容臂 → 同门同 label 拦（form 归因可分=收敛反证）',
     blockedBy(rD8st, NF_LABEL) && blockedBy(rD8fl, NF_LABEL)
-    && rD8st.stage2DataToSave.parsed_output.jev.nameFormBlock.form === 'statement'
-    && rD8fl.stage2DataToSave.parsed_output.jev.nameFormBlock.form === 'functional_label',
+    && rD8st.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock.form === 'statement'
+    && rD8fl.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock.form === 'functional_label',
     { st: rD8st.llmResult.reason, fl: rD8fl.llmResult.reason });
 
   // ═══ G. C108 统一门行为真值表（EARLY 案翻案位+四分支+退役位移交）═══
@@ -484,35 +484,35 @@ async function main() {
   console.log('\n── E. 审计字段（恒落/命中才落/双写/probabilities）──');
   const rE = mapStandardAnswers(incidentAnswers(), ctxBnbTv);
   const s1 = rE.stage1DataToSave.parsed_output.jev;
-  check('E1 stage1 nameForm 恒落（statement）', s1.nameForm === 'statement', s1.nameForm);
+  check('E1 stage1 web3UserAcceptability 恒落（statement）', s1.web3UserAcceptability === 'statement', s1.web3UserAcceptability);
   check('E2 stage1 findingVsRecap 恒落（news_recap）', s1.findingVsRecap === 'news_recap', s1.findingVsRecap);
   const s2 = rE.stage2DataToSave.parsed_output.jev;
   check('E3 stage2 findingVsRecap 双写（信号页/校准脚本消费位）', s2.findingVsRecap === 'news_recap', s2.findingVsRecap);
-  check('E4 stage2 nameFormBlock 命中才落 {form:statement}（兼容臂 form=Jev 原 choice）',
-    JSON.stringify(s2.nameFormBlock) === '{"form":"statement"}', s2.nameFormBlock);
-  check('E4b stage2 nameFormBlock 新判/not_meme_name/未命中三形状（C107 统一键）',
+  check('E4 stage2 web3UserAcceptabilityBlock 命中才落 {form:statement}（兼容臂 form=Jev 原 choice）',
+    JSON.stringify(s2.web3UserAcceptabilityBlock) === '{"form":"statement"}', s2.web3UserAcceptabilityBlock);
+  check('E4b stage2 web3UserAcceptabilityBlock 新判/not_meme_name/未命中三形状（C107 统一键）',
     (() => {
       const rNew = mapStandardAnswers(jpEditionAnswers(), ctxJp);
       const j2 = rNew.stage2DataToSave.parsed_output.jev;
-      return JSON.stringify(j2.nameFormBlock) === '{"form":"not_meme_name"}'
+      return JSON.stringify(j2.web3UserAcceptabilityBlock) === '{"form":"not_meme_name"}'
         // 未命中臂（meme_name 快照）→ null
         && (() => {
           const r2 = mapStandardAnswers(jpEditionAnswers({ nameForm: 'meme_name' }), ctxJp);
-          return r2.stage2DataToSave.parsed_output.jev.nameFormBlock === null;
+          return r2.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock === null;
         })();
     })(), null);
-  check('E5 stage2 probabilities.name_form / finding_vs_recap 落库',
-    s2.probabilities.name_form != null && s2.probabilities.finding_vs_recap != null, null);
-  // 未命中臂：meme_name/finding → nameFormBlock=null + 恒落键照落
+  check('E5 stage2 probabilities.web3_user_acceptability / finding_vs_recap 落库',
+    s2.probabilities.web3_user_acceptability != null && s2.probabilities.finding_vs_recap != null, null);
+  // 未命中臂：meme_name/finding → web3UserAcceptabilityBlock=null + 恒落键照落
   const rEm = mapStandardAnswers(baseAnswers('D'), stdCtx('TST', 'TST'));
-  check('E6 未命中 nameFormBlock=null（门形状事后校准免重跑）',
-    rEm.stage2DataToSave.parsed_output.jev.nameFormBlock === null, null);
+  check('E6 未命中 web3UserAcceptabilityBlock=null（门形状事后校准免重跑）',
+    rEm.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock === null, null);
   check('E7 旧缓存行（两题缺失）恒落键=null 可识别',
     (() => {
       const a = baseAnswers('D'); delete a.finding_vs_recap; delete a.name_form;
       const r = mapStandardAnswers(a, stdCtx('TST', 'TST'));
       const j1 = r.stage1DataToSave.parsed_output.jev;
-      return j1.nameForm === null && j1.findingVsRecap === null
+      return j1.web3UserAcceptability === null && j1.findingVsRecap === null
         && r.stage2DataToSave.parsed_output.jev.findingVsRecap === null
         && r.llmResult.pass === true; // fail-open 不拦
     })(), null);
@@ -522,8 +522,10 @@ async function main() {
   const { readFileSync } = await import('fs');
   const { join } = await import('path');
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
-  check('F1 门函数 notMemeNameBlock（Set 成员判定，非成员短路 null）',
-    /function notMemeNameBlock\(answers\) \{\s*\n\s*const choice = answers\?\.name_form\?\.choice;\s*\n\s*if \(!NOT_MEME_NAME_CHOICES\.has\(choice\)\) return null;\s*\n\s*return \{ label: '币名不适合作为 meme 符号（名字门）', form: choice \};/.test(mapperSrc), null);
+  check('F1 门函数 notMemeNameBlock（Set 成员判定，非成员短路 null；J1.53 双键读=新键优先+旧键兼容）',
+    /function notMemeNameBlock\(answers\) \{\s*\n\s*const choice = nameFormChoice\(answers\);\s*\n\s*if \(!NOT_MEME_NAME_CHOICES\.has\(choice\)\) return null;\s*\n\s*return \{ label: 'Web3 用户不接纳该名字（用户接纳度门）', form: choice \};/.test(mapperSrc), null);
+  check('F1c 题键断代双读函数（web3_user_acceptability 优先、name_form 存量兼容）',
+    /return answers\?\.web3_user_acceptability\?\.choice \?\? answers\?\.name_form\?\.choice;/.test(mapperSrc), null);
   check('F1b 兼容 Set 四值锁死（web3_user_not_acceptable 新键 + not_meme_name/statement/functional_label 旧键——J1.50 键名断代 bit 兼容红线，存量缓存行照拦）',
     /const NOT_MEME_NAME_CHOICES = new Set\(\[\s*\n\s*'web3_user_not_acceptable',[^]*?'not_meme_name', 'statement', 'functional_label',[^]*?\]\);/.test(mapperSrc), null);
   check('F2 门链序：nf（名字门=唯一名字位）→ 载体门（索引严格递增；C108 后 rm/memFloor 退役）', (() => {

@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.52（J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.52', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.53（J1.53=C122 门名断代（name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability，零行为意图）；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.53', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -156,9 +156,9 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.52'"), 'J1.52 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.53'"), 'J1.53 常量缺失');
 
-    // A11 J1.52（C121 用户视角批次一）锚句锁定：
+    // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
     // J1.51 教训同款：用户侧轴题面必须显式否定观测数据读法）；各带形态词保形
     // （C42 wNewProductP=1−P(0)−P(1) 依赖 0/1=小改进、2/3=产品发布带结构）；
@@ -174,26 +174,76 @@ async function main() {
         wp.criteria[0].includes('版本更新') && wp.criteria[1].includes('新功能')
         && wp.criteria[2].includes('新产品') && wp.criteria[3].includes('创新产品'),
         wp.criteria.join(' | ').slice(0, 160));
-      const ns = qs.block_reason.criteria.niche_subculture;
-      check('A11c niche_subculture 认知可达性锚（crypto 圈内梗≠小圈子反误伤+显式否定出圈读法）',
-        ns.includes('web3用户接不住') && ns.includes('get 不到梗')
+      const ns = qs.block_reason.criteria.web3_circle_reachability;
+      check('A11c 圈层可达性桶锚（桶名 Web3 用户圈层可达性+get 不到梗+crypto 圈内梗≠小圈子反误伤+显式否定出圈读法）',
+        ns.includes('Web3 用户圈层可达性不足') && ns.includes('get 不到梗')
         && ns.includes('crypto 圈内梗/黑话≠小圈子') && ns.includes('不是大众出圈前景')
         && !ns.includes('圈外人无法理解') && !ns.includes('无出圈可能'),
         ns.slice(0, 120));
       // A11c2 品牌营销边界（C110 币安菠萝 A/B 归因：不加此界=gimmick argmax
       // 100%→47%，币安品牌物料被当圈内梗放行）
-      check('A11c2 niche 品牌营销边界（社区自发梗≠品牌物料，带币安品牌≠圈内契合）',
+      check('A11c2 圈层可达性桶品牌营销边界（社区自发梗≠品牌物料，带币安品牌≠圈内契合）',
         ns.includes('社区自发形成的文化梗') && ns.includes('品牌营销物料')
         && ns.includes('官方周边') && ns.includes('不等于圈内契合')
         && ns.includes('仍归营销噱头'),
         ns.slice(-200));
       // 源码口径断言（BLOCK_SCOPE 模块私有未导出，A10d 同款先例；注意 BLOCK_SCOPE
-      // 在 mapper 文件非题集文件——qsSrc 是题集源码）：
+      // 在 mapper 文件非题集文件——qsSrc 是题集文件源码）：
       const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
       const scopeMatch = mapperSrc.match(/BLOCK_SCOPE = \{[\s\S]*?\n\};/);
-      check('A11d BLOCK_SCOPE.niche_subculture 仍 ["A"]（改锚不改域，改锚前 182 扫描 35 行全 A 类）',
-        !!scopeMatch && /niche_subculture:\s*\['A'\],/.test(scopeMatch[0]),
-        'mapper BLOCK_SCOPE niche 行非 ["A"]');
+      check('A11d BLOCK_SCOPE.web3_circle_reachability 仍 ["A"]（改锚不改域，改锚前 182 扫描 35 行全 A 类）',
+        !!scopeMatch && /web3_circle_reachability:\s*\['A'\],/.test(scopeMatch[0]),
+        'mapper BLOCK_SCOPE 圈层可达性行非 ["A"]');
+
+      // A12 J1.53（C122 门名断代，零行为意图）：题键/桶键改名——name_form →
+      // web3_user_acceptability、niche_subculture → web3_circle_reachability。
+      // 断言：①题集新键在场且旧键不提供 ②mapper 双键读（旧键=存量缓存行/旧
+      // fixture 兼容）③新键行为=旧键（拦/放同语义）④新桶域内拦、域外不拦
+      {
+        check('A12a 题集题键=web3_user_acceptability（旧 name_form 不再提供）',
+          qs.web3_user_acceptability != null && qs.name_form === undefined,
+          Object.keys(qs).filter(k => k.includes('accept') || k.includes('name')));
+        check('A12b 题集桶键=web3_circle_reachability（旧 niche_subculture 不再提供）',
+          qs.block_reason.criteria.web3_circle_reachability != null
+          && qs.block_reason.criteria.niche_subculture === undefined,
+          Object.keys(qs.block_reason.criteria));
+        // 新键行为=旧键（拦）
+        const aNew = baseAnswers();
+        aNew.web3_user_acceptability = { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.8 } };
+        delete aNew.name_form;
+        const rNew = mapStandardAnswers(aNew, stdCtx('TST', 'TST'));
+        check('A12c 新题键 web3_user_not_acceptable → 用户接纳度门拦（label 含「Web3 用户不接纳该名字」）',
+          rNew.llmResult.rating === 'low' && (rNew.llmResult.reason || '').includes('Web3 用户不接纳该名字'),
+          rNew.llmResult.reason);
+        // 旧键仍走同一门（存量缓存行/fixture 兼容）
+        const aOld = baseAnswers();
+        aOld.name_form = { choice: 'not_meme_name', probabilities: { not_meme_name: 0.8 } };
+        delete aOld.web3_user_acceptability;
+        const rOld = mapStandardAnswers(aOld, stdCtx('TST', 'TST'));
+        check('A12d 旧题键 name_form 仍走同一门（断代兼容：存量缓存行/旧 fixture 形状）',
+          rOld.llmResult.rating === 'low' && (rOld.llmResult.reason || '').includes('Web3 用户不接纳该名字'),
+          rOld.llmResult.reason);
+        // 新桶键：A 域拦 / B 域不拦；label 新名
+        const aBucket = baseAnswers();
+        aBucket.event_category = { choice: 'A', probabilities: { A: 0.8 } };
+        aBucket.block_reason = { choice: 'web3_circle_reachability', probabilities: { none: 0.1, web3_circle_reachability: 0.7 } };
+        const rBucket = mapStandardAnswers(aBucket, stdCtx('TST', 'TST'));
+        check('A12e 新桶键 web3_circle_reachability A 域拦（label=Web3 用户圈层可达性不足）',
+          rBucket.llmResult.rating === 'low' && (rBucket.llmResult.reason || '').includes('Web3 用户圈层可达性不足'),
+          rBucket.llmResult.reason);
+        const bBucket = baseAnswers();
+        bBucket.event_category = { choice: 'B', probabilities: { B: 0.8 } };
+        bBucket.block_reason = { choice: 'web3_circle_reachability', probabilities: { none: 0.1, web3_circle_reachability: 0.7 } };
+        const rBucketB = mapStandardAnswers(bBucket, stdCtx('TST', 'TST'));
+        check('A12f 新桶键域外不拦（B 类同 choice 不构成阻断=改锚不改域）',
+          !(rBucketB.llmResult.reason || '').includes('圈层可达性'),
+          rBucketB.llmResult.reason);
+        check('A12g 审计键改名（stage1 web3UserAcceptability / stage2 web3UserAcceptabilityBlock，旧名不落）',
+          rNew.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'web3_user_not_acceptable'
+          && rNew.stage1DataToSave.parsed_output.jev.nameForm === undefined
+          && rNew.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock?.form === 'web3_user_not_acceptable',
+          rNew.stage1DataToSave.parsed_output.jev.web3UserAcceptability);
+      }
     }
   }
 

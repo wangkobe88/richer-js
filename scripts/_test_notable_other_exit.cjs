@@ -143,7 +143,7 @@ async function main() {
   const my = mapStandardAnswers(yAnswers, makeContext());
   const myNf = mapStandardAnswers({ ...yAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
   check('B4 minor 0.55 主导：nr 退役旧快照放行 / name_form=not_meme_name 名字门接住（无名对象移交分支①）',
-    my.llmResult?.rating !== 'low' && /币名不适合作为 meme 符号/.test(myNf.llmResult?.reason || ''),
+    my.llmResult?.rating !== 'low' && /Web3 用户不接纳该名字/.test(myNf.llmResult?.reason || ''),
     { legacy: my.llmResult?.rating, nf: myNf.llmResult?.reason });
 
   // B5 common_word 主导（CONVICTION 纯截词语义）：拦截移交 name_form 分支②
@@ -154,7 +154,7 @@ async function main() {
   const mkNf = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
   const mkMeme = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } } }, makeContext());
   check('B5 common 0.52 主导：旧快照放行 / not_meme_name 拦 / meme_name（圈内词 EARLY 型）放行（分支②分界=用户侧感知）',
-    mk.llmResult?.rating !== 'low' && /币名不适合作为 meme 符号/.test(mkNf.llmResult?.reason || '')
+    mk.llmResult?.rating !== 'low' && /Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
       && mkMeme.llmResult?.rating !== 'low',
     { legacy: mk.llmResult?.rating, nf: mkNf.llmResult?.reason });
 

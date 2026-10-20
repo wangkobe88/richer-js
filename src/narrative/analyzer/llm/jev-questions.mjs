@@ -624,9 +624,19 @@
  *       活桶（非死桶故改锚不退役）。BLOCK_SCOPE ['A'] 不变、mapper 零改动。
  *       name_referent super_ip 量级锚切圈内符号级另立 J1.53 单独成版（五腿
  *       +骑乘改道+策略标签三链翻转归因隔离）。题数不变
+ * J1.53（2026-10-20，C122 门名断代，零行为意图）：用户裁定「name_form/
+ *       niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户
+ *       接纳度』/『Web3 用户圈层可达性』」——①name_form 题键改
+ *       web3_user_acceptability（内容不动，问法本就是「web3 用户能否接纳
+ *       这个名字」）；②block_reason 桶 niche_subculture 改
+ *       web3_circle_reachability（判据不动，J1.52 已切认知可达性）。题键
+ *       断代：mapper 双键读（新键优先，旧键=存量缓存行兼容），审计键
+ *       nameForm/nameFormBlock 同步改名 web3UserAcceptability/
+ *       web3UserAcceptabilityBlock，概率键跟随题键。BLOCK_SCOPE/LABELS
+ *       新旧双键并存（旧键仅存量数据/测试形状可读）。题数不变
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.52';
+export const JEV_QUESTIONS_VERSION = 'J1.53';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -859,7 +869,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         // 「币圈原生亲切感」泄漏到营销噱头判定，gimmick argmax 100%→47%）：圈内梗
         // 只指社区自发形成的文化梗，交易所/项目方的品牌物料/官方周边/活动噱头
         // 不是社区梗——带币安/crypto 品牌不等于圈内契合。
-        niche_subculture: '圈外亚文化·web3用户接不住——名字/形象源自与 crypto 圈不重叠的圈外亚文化（垂直领域黑话/圈子内部梗/地域性社群文化），web3 meme 买家看到它 get 不到梗、无从玩起。⚠️ crypto 圈内梗/黑话≠小圈子——对 web3 用户恰是原生强契合（PEPE/doge/币圈自嘲梗型形象不选本项）；但「圈内梗」只指社区自发形成的文化梗：交易所/项目方的品牌营销物料、官方周边、活动噱头不是社区梗——名字带币安/crypto 品牌不等于圈内契合，无实质产品/事件内容的仍归营销噱头；「圈外」的唯一口径=crypto 圈用户能不能 get（认知可达性），不是大众出圈前景——需不需要/想不想要另有题评（web3_fit），meme 币不需要出圈',
+        // J1.53（C122）：桶键 niche_subculture → web3_circle_reachability（门名
+        // 对齐语义；判据内容不动）。
+        web3_circle_reachability: 'Web3 用户圈层可达性不足——名字/形象源自与 crypto 圈不重叠的圈外亚文化（垂直领域黑话/圈子内部梗/地域性社群文化），web3 meme 买家看到它 get 不到梗、无从玩起。⚠️ crypto 圈内梗/黑话≠小圈子——对 web3 用户恰是原生强契合（PEPE/doge/币圈自嘲梗型形象不选本项）；但「圈内梗」只指社区自发形成的文化梗：交易所/项目方的品牌营销物料、官方周边、活动噱头不是社区梗——名字带币安/crypto 品牌不等于圈内契合，无实质产品/事件内容的仍归营销噱头；「圈外」的唯一口径=crypto 圈用户能不能 get（认知可达性），不是大众出圈前景——需不需要/想不想要另有题评（web3_fit），meme 币不需要出圈',
         empty_content: '空洞内容——纯问候/感叹/日常闲聊，无具体事件或设定',
         institution_routine: '机构日常运营——机构的例行推文：问候/转发/回复/无信息量互动。⚠️ 实质性内容不算：产品发布/功能更新/政策公告/数据报告/合作消息都是有信息量的实质事件',
         marketing_gimmick: '营销噱头——无任何实质产品/事件信息，纯标题党/引流/蹭热点包装（有具体产品或事件内容的推文不算）',
@@ -1007,8 +1019,10 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     //     分界（「只是一只猫」合格/「我要去滑雪」不合格）；J1.50 C119 用户
     //     视角统一：问法收敛「web3 用户能否接纳这个名字作为 meme 币的名字」，
     //     三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear
-    //     （mapper NOT_MEME_NAME_CHOICES 收新键+全旧键兼容））────────────
-    name_form: {
+    //     （mapper NOT_MEME_NAME_CHOICES 收新键+全旧键兼容）；J1.53 C122
+    //     题键 name_form → web3_user_acceptability（门名对齐语义，判据不动；
+    //     mapper 双键读，旧键=存量缓存行兼容））────────────────────
+    web3_user_acceptability: {
       type: 'choice',
       instructions: `web3 用户能否接纳这个名字作为 meme 币的名字（token name as meme）。仅就代币 Name/Symbol（去 emoji/数字/特殊字符后）本身判断，一切从用户角度出发：用户侧对它有没有感知、能否被记住、被抓住当一个符号去玩梗、二创、传播——**能否接纳是唯一问法与唯一判据**；名字的语言学分类只是佐证，不是答案。答案三选一（能接纳 / 不能接纳 / 无法判断），佐证形态如下：
 - 能接纳（web3_user_acceptable）——满足任一：

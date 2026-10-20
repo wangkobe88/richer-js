@@ -284,7 +284,10 @@ const BLOCK_LABELS = {
   // 退役桶 label 保留（空域后不可达，防未知选项 fallback 打裸键名）
   subject_unqualified: '主体资格不足',
   regional_event: '地区性事件',
+  // J1.53（C122）桶键断代：niche_subculture → web3_circle_reachability（门名对齐
+  // 语义「Web3 用户圈层可达性」）；旧键 label 保留=存量数据/旧 fixture 可读
   niche_subculture: '小圈子亚文化',
+  web3_circle_reachability: 'Web3 用户圈层可达性不足',
   empty_content: '空洞内容',
   institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
@@ -338,6 +341,9 @@ const BLOCK_SCOPE = {
   // C75/D63…，high/mid 逃逸 25 票实买 6 票，noneP 全<0.5）——「营销噱头无实质
   // 产品」语义不分类别；pubProxy/platformOfficial 豁免仍在拦截位前置不受影响
   marketing_gimmick: 'all',
+  // J1.53（C122）桶键断代：新键=现役；旧键 entry 保留（旧缓存行/旧 fixture
+  // 形状的 choice 仍按同域判定，不因改名改变存量语义）
+  web3_circle_reachability: ['A'],
   niche_subculture: ['A'],
   ip_reuse: ['A'],
   baseless_speculation: ['G'],
@@ -488,10 +494,19 @@ const NOT_MEME_NAME_CHOICES = new Set([
   'not_meme_name', 'statement', 'functional_label', // J1.37-J1.48 存量行兼容
 ]);
 
+/**
+ * J1.53（C122）题键断代：name_form → web3_user_acceptability（门名对齐语义
+ * 「Web3 用户接纳度」，判据不动）。新键优先、旧键兼容=存量缓存行/旧 fixture
+ * 形状仍走同一门（缓存行不重放 mapper，兼容只在重析前的旧形状测试与工具）。
+ */
+function nameFormChoice(answers) {
+  return answers?.web3_user_acceptability?.choice ?? answers?.name_form?.choice;
+}
+
 function notMemeNameBlock(answers) {
-  const choice = answers?.name_form?.choice;
+  const choice = nameFormChoice(answers);
   if (!NOT_MEME_NAME_CHOICES.has(choice)) return null;
-  return { label: '币名不适合作为 meme 符号（名字门）', form: choice };
+  return { label: 'Web3 用户不接纳该名字（用户接纳度门）', form: choice };
 }
 
 /**
@@ -1169,9 +1184,10 @@ export function mapStandardAnswers(answers, context) {
         // （'f_recap_e'——news_recap 改道 E，Jev 原 choice=F 可追溯）
         categoryForced: cashtagForced ? 'cashtag_w' : (recapForced ? 'f_recap_e' : null),
         cashtagMatched: cashtagHit?.cashtag ?? null,
-        // C96 审计标记：币名 meme 合格度恒落（J1.37-J1.41 name_form 题，旧缓存行
-        // → null；命中 notMemeNameBlock 拦截时 stage2 jev.nameFormBlock 落详情）
-        nameForm: answers.name_form?.choice ?? null,
+        // C96 审计标记：Web3 用户接纳度恒落（J1.37 起原名 name_form；J1.53
+        // C122 题键断代 → web3_user_acceptability，旧缓存行双键读；命中
+        // notMemeNameBlock 拦截时 stage2 jev.web3UserAcceptabilityBlock 落详情）
+        web3UserAcceptability: nameFormChoice(answers) ?? null,
         // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap 题，旧缓存行 →
         // null——非 F 类也落纯观察，改道只消费 F+news_recap 组合）
         findingVsRecap: answers.finding_vs_recap?.choice ?? null,
@@ -1562,11 +1578,11 @@ export function mapStandardAnswers(answers, context) {
         // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
         // 的消费位（referentMemeabilityScore 恒落同款先例）
         findingVsRecap: answers.finding_vs_recap?.choice ?? null,
-        // C96/C105/C107/C108 审计标记：名字门（唯一名字拦截位）命中才落
+        // C96/C105/C107/C108 审计标记：Web3 用户接纳度门（唯一名字拦截位）命中才落
         // （subjectCarrierBlock 同款模式）；form=Jev 原 choice（not_meme_name=
         // J1.41+ 新判 / statement·functional_label=J1.37-J1.40 旧缓存行兼容臂，
-        // 归因可分）；档位恒落在 stage1 jev.nameForm
-        nameFormBlock: nfBlock ? { form: nfBlock.form } : null,
+        // 归因可分）；档位恒落在 stage1 jev.web3UserAcceptability（J1.53 断代名）
+        web3UserAcceptabilityBlock: nfBlock ? { form: nfBlock.form } : null,
         // C88 审计标记①：超级IP口号票五腿快照。恒落含 hit:false（标签零列推导消费
         // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存
         // 行）→null——0/null 语义分离，referentMemeabilityScore 恒落同款）
@@ -1598,7 +1614,8 @@ export function mapStandardAnswers(answers, context) {
           web3_fit: answers.web3_fit?.probabilities,
           subject_entity: answers.subject_entity?.probabilities,
           subject_carrier: answers.subject_carrier?.probabilities,
-          name_form: answers.name_form?.probabilities,
+          web3_user_acceptability: answers.web3_user_acceptability?.probabilities
+            ?? answers.name_form?.probabilities,
           finding_vs_recap: answers.finding_vs_recap?.probabilities,
         },
       },

@@ -161,8 +161,8 @@ async function main() {
     rE.llmResult.rating === 'low' && (rE.llmResult.reason || '').includes('名字'),
     rE.llmResult.reason);
   check('E2 名字门拦截票两审计键各自可追溯（演绎豁免+名字门）',
-    s2jev(rE).subjectCarrierImgOverride?.via === 'depicts' && s2jev(rE).nameFormBlock != null,
-    { sc: s2jev(rE).subjectCarrierImgOverride, nf: s2jev(rE).nameFormBlock });
+    s2jev(rE).subjectCarrierImgOverride?.via === 'depicts' && s2jev(rE).web3UserAcceptabilityBlock != null,
+    { sc: s2jev(rE).subjectCarrierImgOverride, nf: s2jev(rE).web3UserAcceptabilityBlock });
 
   // ═══ F. decorative 不豁 ═══
   console.log('\n── F. decorative 不豁 ──');
@@ -199,7 +199,7 @@ async function main() {
   check('H4b stage2 段同形豁免键（拦截票唯一落库位，DND fallthrough 可归因）',
     mapperSrc.split('\n').filter(l => l.trim().startsWith('subjectCarrierImgOverride:')).length === 2, null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H5 JEV_QUESTIONS_VERSION=J1.52（bump 纪律；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.52', JEV_QUESTIONS_VERSION);
+  check('H5 JEV_QUESTIONS_VERSION=J1.53（bump 纪律；J1.53=C122 门名断代（name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability，零行为意图）；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.53', JEV_QUESTIONS_VERSION);
   check('H6 题面 DND/CRO 对照锚在',
     qSrc.includes('猫拉上窗帘正是「别打扰」的画面演绎') && qSrc.includes('名字 CRO 配一张猫图'), null);
   check('H7 题面正交分工声明（unrelated 与 depicts 可同票共存）',
