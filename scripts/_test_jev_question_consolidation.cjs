@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.53（J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.54', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.55（J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.55', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -156,7 +156,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.54'"), 'J1.53 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.55'"), 'J1.53 常量缺失');
 
     // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
@@ -245,7 +245,7 @@ async function main() {
           rNew.stage1DataToSave.parsed_output.jev.web3UserAcceptability);
       }
 
-      // A13 J1.54（C123 门名/题键语义化，零判据改动）：event_magnitude →
+      // A13 J1.55（C123 门名/题键语义化，零判据改动）：event_magnitude →
       // web3_user_impact、dimension2 → web3_user_spread + 门函数/审计键改名。
       // 断代兼容红线：mapper 双读（旧形状 answers 结果与新形状逐位一致）。
       {
@@ -329,6 +329,41 @@ async function main() {
           && !/function notMemeNameBlock/.test(mapperSrc2)
           && !/function nameFormChoice/.test(mapperSrc2)
           && !/function rideDetourBelow/.test(mapperSrc2),
+          null);
+      }
+
+      // A14 J1.55（C124 name_referent 圈内符号级锚）：super_ip 判据=「被当符号
+      // 使用」的证据级（非听说过/大众量级）；发布者指代分支/三前提/原话词/官方
+      // 产出物/配图形象臂全部保留；other_referent ① 承接句同步「知名但非符号级」
+      {
+        const nr = qs.name_referent;
+        check('A14a 主轴=web3 用户眼中的身份量级（非事件热度、非大众媒体量级）',
+          nr.instructions.includes('在 web3 用户（链上 meme 买家）眼中的身份量级')
+          && nr.instructions.includes('不是事件热度、也不是大众媒体量级')
+          && nr.instructions.includes('认作符号'),
+          nr.instructions.slice(0, 120));
+        check('A14b super_ip=「被当符号使用」证据级 + 大众量级不要求 + 圈外知名不升档 + 认得≠好玩',
+          nr.criteria.super_ip.includes('认作符号')
+          && nr.criteria.super_ip.includes('被当符号使用')
+          && nr.criteria.super_ip.includes('不是「听说过」的知晓级')
+          && nr.criteria.super_ip.includes('大众量级不高但圈内是符号')
+          && nr.criteria.super_ip.includes('圈外明星/传统品牌')
+          && nr.criteria.super_ip.includes('认得≠好玩'),
+          nr.criteria.super_ip.slice(0, 160));
+        check('A14c 保留：J1.18 发布者指代分支 + 三前提 + 原话词 + 官方产出物口号',
+          nr.criteria.super_ip.includes('发布者指代（J1.18，独立分支）')
+          && nr.criteria.super_ip.includes('三个前提')
+          && nr.criteria.super_ip.includes('关于自己的原话词')
+          && nr.criteria.super_ip.includes('官方产出物')
+          && nr.criteria.super_ip.includes('货币自由'),
+          null);
+        check('A14d other_referent ① 承接句=知名但非符号级（未达被当符号使用证据级）',
+          nr.criteria.other_referent.includes('知名但非符号级')
+          && nr.criteria.other_referent.includes('未达「被 web3 用户当符号使用」的证据级')
+          && nr.criteria.other_referent.includes('圈外明星/传统品牌'),
+          nr.criteria.other_referent.slice(0, 160));
+        check('A14e 配图形象指代臂（J1.43）保留',
+          nr.criteria.other_referent.includes('配图中出现的形象'),
           null);
       }
     }
