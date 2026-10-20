@@ -148,7 +148,7 @@ async function main() {
 
   console.log('\n── E. 版本 ──');
   check('E1 JEV_QUESTIONS_VERSION = J1.74（C134 吸引力臂替换）',
-    JEV_QUESTIONS_VERSION === 'J1.76', JEV_QUESTIONS_VERSION);
+    JEV_QUESTIONS_VERSION === 'J1.77', JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

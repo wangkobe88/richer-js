@@ -72,6 +72,10 @@ async function main() {
     && mag.instructions.includes('十万粉级以上父推'));
   check('B7 类别提示为用户视角线索而非档位映射',
     mag.instructions.includes('只作思考线索，不是档位映射') && mag.instructions.includes('形象 IP/角色'));
+  check('B9 借势票/站外热点：主体=原始事件；热度陈述直接采信；载体小号数据不参与（J1.77）',
+    mag.instructions.includes('站外热点/借势票') && mag.instructions.includes('主体=**站外热点本身**')
+    && mag.instructions.includes('直接采信') && mag.instructions.includes('不要因为载体是小号/点赞少而否定源头事件的热度')
+    && mag.instructions.includes('无事件层量化数据时直接采信热度陈述'));
   check('B8 被动波及证据口径：刚发布不看快照互动/官方内容看受众/借势看源头传播',
     mag.instructions.includes('刚发布的内容') && mag.instructions.includes('不能拿 0 赞当「没人看」的证据')
     && mag.instructions.includes('高影响力账号的官方内容') && mag.instructions.includes('被动曝光由账号受众决定')
