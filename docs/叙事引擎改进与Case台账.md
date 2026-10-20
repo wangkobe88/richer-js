@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.49）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.52）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -67,6 +67,26 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C121 web3 用户视角批次一（J1.52）——w_product_score 用户兴奋度锚 + niche_subculture 认知可达性锚（2026-10-20 用户裁定；五批次之 1）★
+
+- **案由**：用户「再次分析一下，还有哪些维度，应该切换为 web3 用户视角，我认为只有切换 web3 用户视角，从用户需求角度出发，而不是硬性匹配，效果才能好」。J1.50/J1.51（C119 猫案四题）之后全体系盘点（16 基础题+4 条件题+prestage 3 题+mapper 代码侧锚+precheck 硬窗）。用户裁定：**Tier1 全切**（niche_subculture / w_product_score / name_referent）+ **Tier2 全纳入**（prestage_abm_name_link / institution_routine 桶族 / precheck 硬数字门），分五批串行——本批=批次 1（两项正交一版）；name_referent=批次 2 单独成版保归因（翻转全部可归本版）。
+- **不切维度留档（防重复盘点）**：event_timing（时效是客观属性）/ finding_vs_recap / parent_relationship / subject_entity / name_image_consistency / image_depicts_name / brand_hijack（事实轴=反洗白防线）/ token_quality（拼写可读性≈用户可读性，边际低）/ w_binance_interaction（客观 fact-check，伪装用户镜头会放松它）/ prestage_abm_web3_traffic（反自封证据轴刻意客观）/ event_category（分类学路由）/ empty_content、baseless_speculation（内容存在性/证据轴）；mapper 代码侧数学（MAGNITUDE_TIER_SCORES / 60 线 / J1.23、C94、C97 锚）不动——「分数锚定必须代码侧」设计原则，J1.50「三维参考非定死」已在题面锚体现。
+- **改动 1（w_product_score）**：主轴切「web3 用户（链上 meme 买家）对这个发布的关注与兴奋度」——会不会被当话题讨论/转发玩梗/产生 FOMO；产品客观重要程度（创新性/功能量级/发布方规格）降为参考锚、非定死映射（客观创新高但链上无感不升带；轻量但有梗按用户兴奋度评带）；**显式否定实测读法**（「评的是预期兴奋度，不是发布后实测数据」——J1.51 教训：用户侧认知面轴必须显式否定「实际被调动/多少人注意到」类措辞，否则 Jev 读成观测数据）；四带形态结构词（版本更新/新功能/新产品/创新产品）**刻意保留**——C42 豁免 `wNewProductP = 1−P(0)−P(1)` 依赖「0/1 带=小改进、2/3 带=产品发布」带结构。mapper 零改动。
+- **改动 2（niche_subculture）**：判据从「圈外人无法理解/无出圈可能」（大众出圈视角，与用户视角原则相反）切「web3 用户接不接得住」（认知可达性）：圈外亚文化=名字/形象源自与 crypto 圈不重叠的垂直领域黑话/圈子内部梗/地域性社群文化，web3 meme 买家 get 不到；**crypto 圈内梗/黑话≠小圈子**（对 web3 用户=原生强契合，PEPE/doge/币圈自嘲梗型形象不选本项）；与 web3_fit 分工：本题问 get 得到/get 不到，web3_fit 问想要/不想要（两种失败不同）。**前置扫描（182，31388 行全表）**：niche argmax 35 行全 `event:A` **活桶**（非死桶）→ 改锚不退役；`BLOCK_SCOPE.niche_subculture` 维持 `['A']`（改锚不改域）。
+- **批内修正（C110 币安菠萝 0x8ce87ffebe62e6f7ea87173b441520f659307777 归因）**：全量回归首轮 32 PASS/1 FAIL——C110（J1.45 marketing_gimmick 扩全域的**设计票**：D 档空洞营销票，扩域前逃逸实买）low→high 75.16。同票重复跑（stateChars 1274 恒定）A/B 隔离：
+
+  | 题面组合 | 次数 | gimmick 拦截 |
+  |---|---|---|
+  | 旧/旧（J1.51 全套） | 6 | 6/6 |
+  | 混合 A（新 niche + 旧 w_product_score） | 18 | 13/18 |
+  | 混合 B（旧 niche + 新 w_product_score） | 18 | 18/18 |
+  | 新/新（J1.52 修前） | 15 | 7/15 |
+
+  元凶=niche 措辞泄漏：「crypto 圈内梗=原生强契合」被推广成「带币安/crypto 品牌=圈内契合」，block_reason argmax 从 marketing_gimmick 漂到 none（gimmick P 0.30-0.34 掷骰边缘）。**修**=niche 加品牌营销边界：「圈内梗只指社区自发形成的文化梗；交易所/项目方的品牌营销物料、官方周边、活动噱头不是社区梗——名字带币安/crypto 品牌不等于圈内契合，无实质产品/事件内容的仍归营销噱头」。修后 C110 **12/12 拦**。
+- **定向重析（182）**：20 票送重析、15 票成功（5 票「代币不存在」=老票已清）。niche 组 8 票修正后**全部维持 low 且拦截位归位**（名字门 5 / 营销噱头 1 / W 线 1 / 时效 1）——改锚后 A 域拦截由名字门等后腿接管，无意外放行。W 组近线同票对拍 6 票：**产品分 +1.7~+3.2**（新锚微升非塌档；4 张 60-61 线通过票维持 high、PHANTOM 55.33→58.99 仍拦、无 high→low）；RedCoin（C42 原型票，10-02 老行 79.05 high）重析 low 39.53——归因=w_binance_interaction 19.05→0.09（本题未改，跨版本语料漂移，非 J1.52 效应）。牛来（0x3618d1227425548a51209d591dfc11b41a717777，币安 Discord 社区梗）旧行 niche 拦 → 现达标准路径（终态=名字门掷骰面 acceptable 0.49-0.50 vs not_acceptable 0.48-0.59，15 次 low 7/high 8）——收录 C121 回归票（`rating: null` + observe 说明，链路可达即正确）。
+- **验证**：本地 7 处版本锁单测 J1.52 全绿 + consolidation A11a/A11b/A11c/A11c2/A11d（niche 锚句+品牌营销边界+C42 形态词保形+BLOCK_SCOPE 域）；182 全量回归 **33 PASS / 0 FAIL / 4 OBSERVE-DEVIATION / 0 ERROR**（4 票=C72/C79/C80/C82 已知掷骰面，与 J1.51 基线一致）；对拍存档 `data/case-regression-result-2026-10-20T03-39-17-776Z`（修前 32/1/4）+ `03-47-18-075Z`（修后 33/0/4）+ `03-49-54-617Z`（C121 收录）。
+- **方法论留档**：①「设计票在措辞改动后掷骰边缘漂移」——单次对拍只能发现翻转，**A/B 隔离（只换一处题面重复跑同票）**才能定位措辞泄漏源；②跨题面组合效应真实存在：新旧混合臂（13/18）≠ 单变量纯效应，联合调用下两处措辞可相互放大；③Jev 单次 fan-out 调用内改任一题面都可能移动其它题的 argmax——改题后对拍必须覆盖「非目标题」的既有拦截票。
 
 ### C120 interpretive_reply 桶巨粉豁免——C74 时效硬拦的作者量级旁路（2026-10-19 f8ab/Burn N Burn 案二轮）★
 
@@ -1234,6 +1254,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.52 | 2026-10-20 | 用户视角批次一（两处正交）：①`w_product_score` 主轴切 web3 用户关注与兴奋度（客观创新性降参考锚+显式否定「发布后实测数据」读法；四带形态结构词刻意保留保 C42 `wNewProductP=1−P(0)−P(1)` 带结构；mapper 零改动）②`block_reason.niche_subculture` 判据从「圈外人无法理解/无出圈可能」切「web3 用户接不接得住」（认知可达性；crypto 圈内梗≠小圈子；品牌营销物料/官方周边/活动噱头不是社区梗——无实质内容仍归营销噱头；BLOCK_SCOPE ['A'] 不动）。批内修正见 C121（C110 币安菠萝 A/B 归因） | C121 用户裁定「只有切换 web3 用户视角，从用户需求角度出发…效果才能好」；182 前置扫描 niche 35 行全 event:A 活桶→改锚不退役 | 4546bd8 + 0f9ad8b |
 | P1.11 | 2026-10-18 | **题面零改动；mapper 采信语义变化（P1.3 先例 bump）**：`mapPrestageAnswers` 新增 `corpusType`（fetchResults.twitterInfo.type 透传）——'tweet'（挂链语料是一条推文）时 web3_native_ip_early 答案不采信，回落 abm 双条件评定（两题恒带已答零额外调用，`evaluateAbmAnswers` 提取共用）；'account'/'community'/缺省 null 放行；project 不受限；`jevDetails.web3ipRejectedCorpusType` 观测键；同日配套修复一（isProjectCoin includeUrlArm——URL 含 CA 不算命中 CA，skipAddressValidation 证据源换内容臂强证据，路由级不 bump，C99 先例）。同 token 两版本下推文语料票的类型判定不可直接比较 | C101 OK❌ 案 0x0195119e…7777（用户裁定「web3_native_ip_early 仅限于账号」「这不是账号，这就是个推文」「说白了网址里头有CA不算命中CA」；找角度推文宣告+t.me/#CA 伪造 addressVerified → web3ip 0.96 mid → 买 -12.75%；孪生票欧抑同梗标准路径 low 对照） | 本 commit |
 | J1.32 | 2026-10-17 | **题面零改动；变更在 state 输入形状**——superIP 注册表命中票改走标准路径全量 18 题（快车道删除），state PRECOMPUTED 注入 `super_ip_hit` 认证事实行（name/type/tier/desc，格式与快车道时代一致）+ `super_ip_note` 反混淆提示行（作者身份认证≠代币背书，关联/主体资格/量级仍归题集逐题判定）；preScores 预分行删除（评分归 Jev）；非 superIP 票 state 逐字节 bit-parity（单测 A5 红线）；新行评级与 J1.31 前不可比按 prompt_version 过滤 | C83 BI 簇案（bbbe2561 体检：快车道「引用即 IP」6 票引用同一 binance 推文全拿 S 级 84-86 high 全亏，10 票 9 亏净 -0.0085 BNB 占总亏 21%；量级被预分喂饱+reason 不落库；用户裁定 registry 进 state 评分归 Jev） | 本 commit |
 | J1.31 | 2026-10-16 | 新增第 18 题 `event_resonance`（事件情绪感染力 choice 三档：strong_reaction 强感染 / mild_amusement 轻度有趣 / indifferent 无感）**恒带**；题面锚定 BSC meme 买家立场的情绪行动性（主动讨论/玩梗/二创/站队/参与冲动），与 web3_fit 分工=静态口味 vs 动态感染，圈外传播量级明确排除（另有题评）；mapper 标准数学分支 E 类系数折损：`category==='E'` 且系数<1 时 `stage2Total=(tierScore+effDim2)×coef+timeliness`（时效不折），strong ×1 bit-identical；mild 0.5/indifferent 0.25 数学上拦死全部档位（max 49.5<60）但刻意保留系数形式（梯度可观察+阈值校准留口）；旧缓存行缺答案 fail-open 不折；superIP 快车道不消费；审计 `jev.eventResonance` 恒落/`jev.resonanceDamp {resonance,coef}` 命中才落/`probabilities.event_resonance`；历史窗口回测前置失效 `scripts/narrative/invalidate-resonance-window.cjs`；单测 `node scripts/_test_jev_resonance.cjs`（14 断言；fixture 坑=quality 原始分需从 DB breakdown 反解 bandInterpolate） | C80 蝙蝠侠摇案 0x4547dae7…7777（用户裁定「对时事现象热度，其实也应该度量事件对Web3用户的情绪感染力」；E 类 70.68→75.68 high 买入 31s -12.4%，无形象纯现象+抖音搜索页截图+105 粉宣告者；折损后 mild 42.84/indifferent 28.92 双拦） | 本 commit |
