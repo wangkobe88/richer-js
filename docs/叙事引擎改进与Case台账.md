@@ -77,7 +77,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **改动**：①`tweet-type-classifier.mjs`：THRESHOLDS 增 `MEGA_REACH_FOLLOWERS: 500000` + 导出 `isHighWearRiskAuthor(twitterInfo)`；②`pre-check-service.mjs` 规则 2.1 C104 门：无新载体回落前判作者层级——高用烂风险照旧回落拦，否则第③类豁免（log 留痕，放行票无落库 details）；③题集/mapper 零改动（precheck 纯代码门，不 bump JEV_QUESTIONS_VERSION）。
 - **单测**（`_test_precheck_tweet_freshness_bucket.cjs` M 节 + F 节改写，97/0）：混混猫现场反证（four_meme_Fora 11d 裸推 → 放）/注册表命中+巨粉（60 万）→ 拦/未收录巨粉（80 万，Dexerto 形状）→ 拦/未收录中等粉+互动臂 → 放/cz_binance 粉缺失 → 拦（fail-保守）/未收录粉缺失（互动臂进桶）→ 放/触达门边界 499999-500000/C75 30d 软锚源码锁/`staleDirectLagSec` 审计键回落形状保持。F 节翻转=裁定内（互动臂小作者 4500 粉裸旧推从 C104 拦改第③类豁免，新增 60 万粉反证锚拦截面）。
 - **编号坑再现**：立案时 C130/C131 已被并行会话占用（돼지 H 名字门案/股城搜索兜底案），本 case 顺延 C132——**立 case 前必须 grep 台账+git log 双查**。
-- **部署**：182 pull + 叙事 worker 重启生效；live 实验 `37b19a9f` 引擎内直调须实验重启；混混猫定向重析验证（需失效缓存行）+ case-regression 全量对拍待跑。
+- **部署与验证（`cb50989`）**：182 已 pull + 叙事 worker 重启（11:56 UTC）。混混猫定向重析：C132 豁免日志生效（第③类放行）→ Jev 真跑 329ms → **low，阻断=机构日常运营（D 类 P=0.51 掷骰边缘）**——死因从「时效过期」变「叙事性质=平台日常活动播报」，拦截职责按裁定移交 Jev 软评。全量回归 41 票 **36 PASS / 0 FAIL / 5 OBSERVE / 0 ERROR**（与 C131 后基线逐位一致，零回归；存档 `case-regression-result-2026-10-20T11-56-45-881Z`）；混混猫已收录回归集（41→42，断言 rating=low+event:D，刻意不断言死因——机构日常运营 0.51 是掷骰面）。live 实验 `37b19a9f` 引擎内直调须实验重启才对新分析生效。
 
 ### C131 空语料搜索兜底不卡互动——语料非空即交 Jev 判叙事（2026-10-20 用户裁定）★
 
