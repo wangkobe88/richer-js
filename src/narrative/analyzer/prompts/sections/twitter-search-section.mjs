@@ -30,7 +30,7 @@ function _formatDate(at) {
 
 /**
  * 构建推特搜索事件背景 section
- * @param {Object|null} searchEvidence - twitter-search-fallback 采集的证据（含 products/query/thresholdMet）
+ * @param {Object|null} searchEvidence - twitter-search-fallback 采集的证据（含 products/query/hasCorpus）
  * @param {Object} [options]
  * @param {number} [options.maxChars] - 段落字符上限（默认 2500；缺省回退 evidence.meta.maxChars）
  * @returns {string} section 文本；无证据/空产品 → ''（无证据时 state 逐字节 bit-parity）

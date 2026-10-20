@@ -25,7 +25,7 @@ import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
 import { detectSuperIP } from './prompts/super-ip/super-ip-registry.mjs';
 import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
-import { collectSearchEvidence, meetsBypassThreshold, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
+import { collectSearchEvidence, hasSearchCorpus, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
 import { JevClient } from './llm/JevClient.mjs';
@@ -509,19 +509,22 @@ export class NarrativeAnalyzer {
         relatedAccounts.push({ ...issuerCaTimeline.account, role: 'primary' });
       }
     }
-    // ── 搜索证据旁路判定（C76）── 三场景：
-    //   达阈值 → preCheckResult=null 走 Jev（事件量级判定）。★必须置 null 而非保留
-    //     low 形状：resolveFinalRating 阶段优先级会让 low 形状 pre_check_result 遮蔽
-    //     Jev 结论（旁路白做）+ 直调 enrichSocialByGmgn 对该行每次穿透重析（烧配额）
-    //     + preloadCache 永久排除（回测退化），三重反证。Jev 结论终态不再进
-    //     PrecheckFailRetryService 重试域（classifyFailShape 读 null → 不重试）
-    //   未达阈值/零结果 → ruleName 不动保 1800s 重试域（重析再搜，晚到的推文能翻案），
-    //     additive 记 details.searchEvidence 摘要供观测「为什么搜索没救它」
+    // ── 搜索证据旁路判定（C76 / C130）── 三场景：
+    //   有语料（去重剔转推后非空）→ preCheckResult=null 走 Jev（由语料判叙事）。
+    //     ★2026-10-20 用户裁定「为什么要卡互动呢？不卡，只通过语料了解叙事」——
+    //     不再设 minTweets/minTopEngagement 门槛；engagement 只作 state 展示/审计。
+    //     ★必须置 null 而非保留 low 形状：resolveFinalRating 阶段优先级会让 low 形状
+    //     pre_check_result 遮蔽 Jev 结论（旁路白做）+ 直调 enrichSocialByGmgn 对该行
+    //     每次穿透重析（烧配额）+ preloadCache 永久排除（回测退化），三重反证。
+    //     Jev 结论终态不再进 PrecheckFailRetryService 重试域（classifyFailShape 读
+    //     null → 不重试）
+    //   零语料 → ruleName 不动保 1800s 重试域（重析再搜，晚到的推文能翻案），
+    //     additive 记 details.searchEvidence 摘要供观测
     //   搜索失败（evidence=null）→ 零触碰，与关闭功能 bit-identical
-    const searchEvidenceReady = !!(searchEvidence && meetsBypassThreshold(searchEvidence, searchCfg));
+    const searchEvidenceReady = !!(searchEvidence && hasSearchCorpus(searchEvidence));
     const bypassedBySearch = preCheckResult?.details?.ruleName === 'no_public_info' && searchEvidenceReady;
     if (bypassedBySearch) {
-      logger.info('NarrativeAnalyzer', '搜索证据达阈值，旁路 no_public_info 走 Jev（事件量级判定）', {
+      logger.info('NarrativeAnalyzer', '搜索到语料，旁路 no_public_info 走 Jev（由语料判断叙事）', {
         query: searchEvidence.query.rawQuery, uniqueTweets: searchEvidence.uniqueTweets,
         maxEngagement: searchEvidence.maxEngagement,
       });

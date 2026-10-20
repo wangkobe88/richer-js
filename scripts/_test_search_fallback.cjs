@@ -12,16 +12,17 @@
  *   A. API 层 searchTimeline（variables 核验 / GraphQL 两路径 + TweetWithVisibilityResults
  *      下钻 / 零结果不 throw / 非 200 throw / makeRequest timeoutMs 透传源码锁）
  *   B. buildSearchQuery（短名/名缺失/无锚 → null；sinceDate 字面）
- *   C. 阈值纯函数（engagementOf / meetsBypassThreshold 边界）
- *   D. collectSearchEvidence 缓存语义（★达阈值才 set / 未达-零结果-失败零 set /
+ *   C. 有语料判定（engagementOf / hasSearchCorpus 边界——2026-10-20 股城案用户
+ *      裁定「不卡互动，只通过语料了解叙事」：语料非空即旁路，engagement 只作展示）
+ *   D. collectSearchEvidence 缓存语义（★有语料才 set / 零结果-失败零 set /
  *      缓存命中零 stub 调用 / get throw 降级真拉 / 纯转推剔除 / Top 互动序）
  *   E. inflight（同 query 并发每产品 1 次真调 / 失败后清理可重试）
  *   F. section 渲染（null→'' / 来源声明行 / 行形状 / 截断）
  *   G. lag 隔离事故反证（extractCorpusTs 三路径 + 两侧源码断言）
  *   H. state builder bit-parity（无证据不改一字 / 有证据恰追加段 / 不占四区配额）
  *   I. 源码口径锁 analyzer 接线
- *   J. 端到端 analyze()（J1 强证据旁路 / J2 失败 bit-identical / J3 未达阈值保重试域
- *      +摘要 / J4 关=零触达 / J5 enabled 残缺 throw fail-loud）
+ *   J. 端到端 analyze()（J1 强证据旁路 / J2 失败 bit-identical / J3 低互动语料仍旁路
+ *      +零语料保重试域 / J4 关=零触达 / J5 enabled 残缺 throw fail-loud）
  *
  * 用法：node scripts/_test_search_fallback.cjs
  */
@@ -146,7 +147,7 @@ function makeTokenData(name, createdAtSec = 1792108800) { // 2026-10-16 00:00 UT
 const CFG_FULL = {
   enabled: true, corpusMode: 'empty', minNameChars: 4, sinceDays: 7,
   products: ['Top', 'Latest'], count: 20, stateTopTweets: 5, stateMaxChars: 2500,
-  bypass: { minTweets: 3, minTopEngagement: 200 }, timeoutMs: 5000, cacheTtlSec: 1800,
+  timeoutMs: 5000, cacheTtlSec: 1800,
 };
 
 async function main() {
@@ -231,17 +232,20 @@ async function main() {
     assert(q2 && q2.sinceDate === '2026-10-09', 'B5 tokenCreatedAtSec 兜底锚生效');
   }
 
-  // ═══ C. 阈值纯函数 ═══
-  console.log('══ C. engagementOf / meetsBypassThreshold ═══');
+  // ═══ C. 有语料判定 ═══
+  console.log('══ C. engagementOf / hasSearchCorpus ═══');
   {
-    const { engagementOf, meetsBypassThreshold } = await import('../src/narrative/analyzer/services/twitter-search-fallback.mjs');
-    assert(engagementOf({ favorite_count: 100, retweet_count: 50 }) === 200, 'C1 engagement = fav + 2×rt');
+    const { engagementOf, hasSearchCorpus } = await import('../src/narrative/analyzer/services/twitter-search-fallback.mjs');
+    assert(engagementOf({ favorite_count: 100, retweet_count: 50 }) === 200, 'C1 engagement = fav + 2×rt（仅展示/审计口径）');
     assert(engagementOf({}) === 0 && engagementOf({ favorite_count: 5 }) === 5, 'C1b 缺省键计 0');
     const ev = (n, m) => ({ uniqueTweets: n, maxEngagement: m });
-    assert(meetsBypassThreshold(ev(3, 200), CFG_FULL) === true, 'C2 3条+200 恰达阈值（边界含）');
-    assert(meetsBypassThreshold(ev(2, 5000), CFG_FULL) === false, 'C3 2 条不达');
-    assert(meetsBypassThreshold(ev(10, 199), CFG_FULL) === false, 'C4 199 不达');
-    assert(meetsBypassThreshold(null, CFG_FULL) === false && meetsBypassThreshold(ev(9, 9), null) === false, 'C5 null 输入 fail-safe');
+    assert(hasSearchCorpus(ev(0, 99999)) === false, 'C2 零条 → 无语料（互动再高也不放行）');
+    assert(hasSearchCorpus(ev(1, 0)) === true, 'C3 ★1 条低互动 → 有语料（C130：不卡互动）');
+    assert(hasSearchCorpus(ev(2, 3)) === true, 'C4 2 条弱互动 → 有语料');
+    assert(hasSearchCorpus(null) === false, 'C5 null 输入 fail-safe');
+    const FB = src('src/narrative/analyzer/services/twitter-search-fallback.mjs');
+    assert(!FB.includes('meetsBypassThreshold') && !FB.includes('minTopEngagement') && !FB.includes('minTweets'),
+      'C6 ★源码无互动/条数门槛（C130 裁定：只通过语料了解叙事）');
   }
 
   // ═══ D/E. collectSearchEvidence 缓存语义 + inflight ═══
@@ -263,7 +267,7 @@ async function main() {
     };
     const svc = await import('../src/narrative/analyzer/services/twitter-search-fallback.mjs');
 
-    // D1 达阈值 → 两产品各 set 一次（ttl 透传）+ evidence 形状
+    // D1 有语料 → 两产品各 set 一次（ttl 透传）+ evidence 形状
     searchStub.calls = [];
     searchStub.error = null;
     searchStub.impl = ({ product }) => ({
@@ -275,9 +279,9 @@ async function main() {
     });
     cacheMap.clear(); cacheOps.sets.length = 0; cacheOps.gets.length = 0;
     const ev1 = await svc.collectSearchEvidence(makeTokenData('Strong Event One'), { config: CFG_FULL });
-    assert(ev1 && ev1.thresholdMet === true && ev1.uniqueTweets === 6, 'D1 强证据达阈值（两产品 6 条去重）', JSON.stringify({ u: ev1?.uniqueTweets }));
+    assert(ev1 && ev1.hasCorpus === true && ev1.uniqueTweets === 6, 'D1 有语料（两产品 6 条去重）', JSON.stringify({ u: ev1?.uniqueTweets }));
     assert(cacheOps.sets.length === 2 && cacheOps.sets.every(s => s.type === 'twitter_search' && s.opts.ttl === 1800),
-      'D2 达阈值 → 两产品各 set 一次（resourceType=twitter_search, ttl=1800s）', JSON.stringify(cacheOps.sets.map(s => s.key)));
+      'D2 有语料 → 两产品各 set 一次（resourceType=twitter_search, ttl=1800s）', JSON.stringify(cacheOps.sets.map(s => s.key)));
     assert(cacheOps.sets.some(s => s.key.startsWith('twitter_search:Top:')) && cacheOps.sets.some(s => s.key.startsWith('twitter_search:Latest:')),
       'D2b 缓存键前缀 twitter_search:<product>:<query>');
     assert(ev1.products.Top.tweets[0].user === 'Tesla' && ev1.products.Top.tweets[0].fav === 43700
@@ -297,7 +301,7 @@ async function main() {
     const evTop = await svc.collectSearchEvidence(makeTokenData('Order Event Two'), { config: CFG_FULL });
     assert(evTop.products.Top.tweets.map(t => t.id).join(',') === 'Top-high,Top-mid,Top-low', 'D5 Top 块显式按互动排序（不信任 API 序）');
 
-    // D6 纯转推剔除：1 原推 + 2 条 RT@ → uniqueTweets=1 不达
+    // D6 纯转推剔除：1 原推 + 2 条 RT@ → uniqueTweets=1，仍有语料
     searchStub.impl = () => ({
       tweets: [
         normTweet('orig-1', { fav: 43700, rt: 100 }),
@@ -307,21 +311,22 @@ async function main() {
     });
     cacheMap.clear(); cacheOps.sets.length = 0;
     const evRt = await svc.collectSearchEvidence(makeTokenData('Rt Filter Three'), { config: CFG_FULL });
-    assert(evRt.uniqueTweets === 1 && evRt.thresholdMet === false, 'D6 纯转推剔除（1 原推 + 2 RT@ → unique=1 不达）');
+    assert(evRt.uniqueTweets === 1 && evRt.hasCorpus === true && cacheOps.sets.length === 2,
+      'D6 纯转推剔除（1 原推 + 2 RT@ → unique=1，仍有语料并落缓存）');
 
-    // D7 ★未达阈值零 set（防 1800s TTL 冻结重试窗）
+    // D7 ★低互动语料照常旁路并落缓存（C130：不卡互动）
     searchStub.impl = () => ({ tweets: [normTweet('w-1', { fav: 3 }), normTweet('w-2', { fav: 2 })] });
     cacheMap.clear(); cacheOps.sets.length = 0;
     const evWeak = await svc.collectSearchEvidence(makeTokenData('Weak Event Four'), { config: CFG_FULL });
-    assert(evWeak && evWeak.thresholdMet === false && cacheOps.sets.length === 0,
-      'D7 ★未达阈值 → 零 set（重试域内证据可增长）');
+    assert(evWeak && evWeak.hasCorpus === true && cacheOps.sets.length === 2,
+      'D7 ★低互动语料（2 条 maxEng=3）→ hasCorpus true 且落缓存（互动不做门槛）');
 
-    // D8 零结果 → evidence 在场（thresholdMet false）零 set
+    // D8 零结果 → evidence 在场（hasCorpus false）零 set（保 1800s 重试域）
     searchStub.impl = () => ({ tweets: [] });
     cacheOps.sets.length = 0;
     const evZero = await svc.collectSearchEvidence(makeTokenData('Zero Event Five'), { config: CFG_FULL });
-    assert(evZero && evZero.uniqueTweets === 0 && evZero.thresholdMet === false && cacheOps.sets.length === 0,
-      'D8 零结果 ≠ 错误（evidence 在场）且零 set');
+    assert(evZero && evZero.uniqueTweets === 0 && evZero.hasCorpus === false && cacheOps.sets.length === 0,
+      'D8 零结果 ≠ 错误（evidence 在场，hasCorpus false）且零 set');
 
     // D9 API 失败 → null
     searchStub.error = new Error('apidance down');
@@ -342,7 +347,7 @@ async function main() {
     await svc.collectSearchEvidence(makeTokenData('Cache Event Seven'), { config: CFG_FULL }); // 真调落缓存
     const callsAfterFirst = searchStub.calls.length;
     const evCached = await svc.collectSearchEvidence(makeTokenData('Cache Event Seven'), { config: CFG_FULL }); // 同 query 二次
-    assert(evCached.thresholdMet === true && searchStub.calls.length === callsAfterFirst,
+    assert(evCached.hasCorpus === true && searchStub.calls.length === callsAfterFirst,
       'D10 缓存命中 → 零真调（每产品 set 行复用）', `${searchStub.calls.length} vs ${callsAfterFirst}`);
 
     // D11 get throw → 降级真拉不 throw
@@ -353,7 +358,7 @@ async function main() {
     });
     const evDegrade = await svc.collectSearchEvidence(makeTokenData('Degrade Event Eight'), { config: CFG_FULL });
     cacheGetError = null;
-    assert(evDegrade && evDegrade.thresholdMet === true && searchStub.calls.length === 2, 'D11 缓存读失败 → 降级每产品真拉');
+    assert(evDegrade && evDegrade.hasCorpus === true && searchStub.calls.length === 2, 'D11 缓存读失败 → 降级每产品真拉');
 
     // E 段：inflight
     console.log('══ E. inflight 去重 ═══');
@@ -391,21 +396,22 @@ async function main() {
     const { getSearchFallbackConfig } = svc;
     assert(getSearchFallbackConfig({ config: {} }) === null, 'E5 段缺失 → null 静默关');
     assert(getSearchFallbackConfig({ config: { searchFallback: { enabled: false } } }) === null, 'E5b enabled:false → null');
-    assert(getSearchFallbackConfig({ config: { searchFallback: { enabled: true, products: ['Top', 'Latest'], count: 20, bypass: { minTweets: 3, minTopEngagement: 200 } } } }) !== null,
-      'E5c 合法段 → 完整 cfg（代码默认值兜底）');
+    assert(getSearchFallbackConfig({ config: { searchFallback: { enabled: true, products: ['Top', 'Latest'], count: 20 } } }) !== null,
+      'E5c 合法段 → 完整 cfg（代码默认值兜底；C130 起无 bypass 段）');
     for (const [label, bad] of [
-      ['缺 products', { enabled: true, count: 20, bypass: { minTweets: 3, minTopEngagement: 200 } }],
-      ['products 成员非法', { enabled: true, products: ['Media'], count: 20, bypass: { minTweets: 3, minTopEngagement: 200 } }],
-      ['缺 count', { enabled: true, products: ['Top'], bypass: { minTweets: 3, minTopEngagement: 200 } }],
-      ['缺 bypass', { enabled: true, products: ['Top'], count: 20 }],
-      ['bypass 半缺', { enabled: true, products: ['Top'], count: 20, bypass: { minTweets: 3 } }],
+      ['缺 products', { enabled: true, count: 20 }],
+      ['products 成员非法', { enabled: true, products: ['Media'], count: 20 }],
+      ['缺 count', { enabled: true, products: ['Top'] }],
     ]) {
       let threw = false;
       try { getSearchFallbackConfig({ config: { searchFallback: bad } }); } catch { threw = true; }
       assert(threw, `E5d enabled 但${label} → throw fail-loud`);
     }
+    const cfgWithStaleBypass = getSearchFallbackConfig({ config: { searchFallback: { enabled: true, products: ['Top'], count: 20, bypass: { minTweets: 3, minTopEngagement: 200 } } } });
+    assert(cfgWithStaleBypass !== null && cfgWithStaleBypass.bypass !== undefined,
+      'E5d2 存量配置带旧 bypass 段 → 忽略不报错（不参与判定）');
     let threwMode = false;
-    try { getSearchFallbackConfig({ config: { searchFallback: { enabled: true, corpusMode: 'partial', products: ['Top'], count: 20, bypass: { minTweets: 3, minTopEngagement: 200 } } } }); } catch { threwMode = true; }
+    try { getSearchFallbackConfig({ config: { searchFallback: { enabled: true, corpusMode: 'partial', products: ['Top'], count: 20 } } }); } catch { threwMode = true; }
     assert(threwMode, 'E5e corpusMode 非 empty → throw（首版仅 empty）');
   }
 

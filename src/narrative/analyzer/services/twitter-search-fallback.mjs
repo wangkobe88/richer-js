@@ -71,14 +71,10 @@ export function getSearchFallbackConfig(options = {}) {
   if (!Number.isFinite(section.count) || section.count <= 0) {
     throw new Error('searchFallback 配置残缺：count 须为正数');
   }
-  if (!Number.isFinite(section.bypass?.minTweets) || section.bypass.minTweets <= 0
-    || !Number.isFinite(section.bypass?.minTopEngagement) || section.bypass.minTopEngagement <= 0) {
-    throw new Error('searchFallback 配置残缺：bypass.minTweets / bypass.minTopEngagement 须为正数');
-  }
   if (section.corpusMode && section.corpusMode !== 'empty') {
     throw new Error(`searchFallback 配置残缺：corpusMode '${section.corpusMode}' 暂不支持（首版仅 'empty'，扩展位）`);
   }
-  return { ...CODE_DEFAULTS, ...section, bypass: { ...section.bypass } };
+  return { ...CODE_DEFAULTS, ...section };
 }
 
 /**
@@ -103,13 +99,12 @@ export function engagementOf(t) {
 }
 
 /**
- * 旁路阈值判定：去重+剔转推后的独立推文数与单推最大互动双达标
- * （minTweets=3 + minTopEngagement=200：@Tesla 43.7K 赞量级真事件轻松过，蹭词小簇过不了）
+ * 语料在场判定（2026-10-20 股城案用户裁定「为什么要卡互动呢？不卡，只通过语料
+ * 了解叙事」）：去重+剔转推后只要语料非空即视为有语料，旁路 no_public_info 交
+ * Jev 判断叙事价值。engagement 只作 state 展示/审计，绝不作为准入门槛。
  */
-export function meetsBypassThreshold(evidence, cfg) {
-  if (!evidence || !cfg) return false;
-  return evidence.uniqueTweets >= cfg.bypass.minTweets
-    && evidence.maxEngagement >= cfg.bypass.minTopEngagement;
+export function hasSearchCorpus(evidence) {
+  return !!(evidence && evidence.uniqueTweets > 0);
 }
 
 /** 持久化瘦推文形态（控制 raw_api_data 膨胀，全量 <3KB） */
@@ -172,7 +167,7 @@ async function _collectOnce(q, cfg) {
     uniqueTweets: union.length,
     maxEngagement: union.reduce((m, t) => Math.max(m, engagementOf(t)), 0),
     meta: { topN: cfg.stateTopTweets, maxChars: cfg.stateMaxChars },
-    thresholdMet: false,
+    hasCorpus: false,
   };
   for (const [product, { tweets }] of Object.entries(productsData)) {
     const ordered = product === 'Top'
@@ -185,9 +180,9 @@ async function _collectOnce(q, cfg) {
     };
   }
 
-  // ★只有达旁路阈值才落缓存（未达阈值/零结果零痕迹——保 1800s 重试域内证据可增长）
-  evidence.thresholdMet = meetsBypassThreshold(evidence, cfg);
-  if (evidence.thresholdMet) {
+  // ★只有有语料才落缓存（零结果零痕迹——保 1800s 重试域内证据可增长）
+  evidence.hasCorpus = hasSearchCorpus(evidence);
+  if (evidence.hasCorpus) {
     for (const [product, { tweets, fresh }] of Object.entries(productsData)) {
       if (!fresh) continue; // 缓存命中的行已存在
       try {
@@ -210,7 +205,7 @@ async function _collectOnce(q, cfg) {
  * @param {Object} tokenData - fetchTokenData 返回
  * @param {Object} [options] - { config }（已解析配置=getSearchFallbackConfig 结果；
  *   缺省时内部自读全局配置）
- * @returns {Promise<Object|null>} evidence（thresholdMet 标记是否达旁路阈值）；
+ * @returns {Promise<Object|null>} evidence（hasCorpus 标记语料是否非空）；
  *   null = 配置关/查询不可构造/全失败（analyzer 侧维持原拒 bit-identical）
  */
 export async function collectSearchEvidence(tokenData, options = {}) {

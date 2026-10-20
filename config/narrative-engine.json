@@ -51,10 +51,6 @@
     "count": 20,
     "stateTopTweets": 5,
     "stateMaxChars": 2500,
-    "bypass": {
-      "minTweets": 3,
-      "minTopEngagement": 200
-    },
     "timeoutMs": 5000,
     "cacheTtlSec": 1800
   }

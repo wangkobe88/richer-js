@@ -523,11 +523,28 @@
       "expect": {
         "rating": "low",
         "tokenCategory": "event:C",
-        "reasonIncludes": ["币名映射实体在 Web3 用户侧无名"]
+        "reasonIncludes": [
+          "币名映射实体在 Web3 用户侧无名"
+        ]
       },
       "note": "彪弟案：推文语料被 issuerCaTimeline 劫进 account_based_meme（抖音账号页引用），J1.68 已修路由（推文语料不掉账号路径、抖音引用页不抓取）；当前仍 low=实体低影响力门（unknown 93%）。",
       "addedAt": "2026-10-20",
       "observe": "根因=缺少背景信息：彪弟是抖音账号「彪哥」的新宠物（129 粉、圈外宠物账号），推文只有文字+引用链接，账号/视频背景未进语料——实体题判 unknown 93% 属信息不足而非事实错误；补背景信息的采集方案之后再修。rating low 为当前预期，修正后需 --update-expect 留痕。"
+    },
+    {
+      "caseId": "C130",
+      "symbol": "돼지 H",
+      "addr": "0xcfc39a869380200949685d16197e93f100207777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "事件分不足"
+        ],
+        "tokenCategory": "event:A"
+      },
+      "note": "C130 名字门看 Symbol：币名=돼지 H 可接纳（0.55/0.43 掷骰边缘）放行；事件分 56.76<60 仍 low",
+      "observe": "名字门 0.55 vs 0.43 掷骰边缘；分数若漂移过 60 会翻 mid",
+      "addedAt": "2026-10-20"
     }
   ]
 }
