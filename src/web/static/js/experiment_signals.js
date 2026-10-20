@@ -2673,8 +2673,11 @@ class ExperimentSignals {
       if (gmgnCheckInfo) {
         const gf = gmgnCheckInfo.factors || {};
         const covered = gf.gmgnRiskCovered === 1;
+        // 通过三态：真评估过=绿；无数据跳过（fail-open，2026-10-20）=琥珀；未过=红
         const gmgnPassBadge = gmgnCheckInfo.passed
-          ? '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>'
+          ? (covered
+            ? '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>'
+            : '<span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⚠️ 放行（无数据跳过）</span>')
           : '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 未过</span>';
         const num = (v, d = 1) => v == null ? 'null' : Number(v).toFixed(d);
         const valueCls = covered ? 'text-gray-900' : 'text-gray-400';
@@ -2691,9 +2694,9 @@ class ExperimentSignals {
               <div><span class="text-amber-800">bundler 钱包占比:</span> <span class="${valueCls}">${num(gf.gmgnBundlerWalletRatio)}%</span></div>
               <div><span class="text-amber-800">推特关联发币数:</span> <span class="${valueCls}">${num(gf.gmgnIssuerTokenCount, 0)}</span></div>
               <div><span class="text-amber-800">实时访问人数:</span> <span class="${valueCls}">${num(gf.gmgnVisitingCount, 0)}</span></div>
-              <div><span class="text-amber-800">covered:</span> <span class="${covered ? 'text-green-600' : 'text-red-600'}">${covered ? '1（有数据）' : '0（无数据 fail-closed）'}</span></div>
+              <div><span class="text-amber-800">covered:</span> <span class="${covered ? 'text-green-600' : 'text-amber-600'}">${covered ? '1（有数据）' : '0（无数据 → 放行）'}</span></div>
               ${auditBits.length > 0 ? `<div class="col-span-3 text-gray-500">${auditBits.join(' · ')}</div>` : ''}
-              ${gmgnCheckInfo.reason ? `<div class="col-span-3 text-red-700">📝 ${this._escapeHtml(gmgnCheckInfo.reason)}</div>` : ''}
+              ${gmgnCheckInfo.reason ? `<div class="col-span-3 ${gmgnCheckInfo.passed ? 'text-amber-700' : 'text-red-700'}">📝 ${this._escapeHtml(gmgnCheckInfo.reason)}</div>` : ''}
             </div>
           </div>
         `;
@@ -3398,9 +3401,9 @@ class ExperimentSignals {
 
   /**
    * 渲染 GMGN 条件的因子 chip（买前第三层实时快照）。
-   * 三态防误读：无 gmgnCheck 轨迹=灰注（未到第三层/元数据缺失）；covered=0=红注
-   * fail-closed 拒（零值因子若照常渲染会显示绿 ✓，与机制语义相反——表达式未评估）；
-   * 有数据=正常 chip，值取 metadata.gmgnCheck.factors 实时快照。
+   * 三态防误读：无 gmgnCheck 轨迹=灰注（未到第三层/元数据缺失）；covered=0=琥珀注
+   * 放行（2026-10-20 乌龟案改 fail-open——零值因子若照常渲染会显示绿 ✓ 误导，
+   * 表达式实际未评估）；有数据=正常 chip，值取 metadata.gmgnCheck.factors 实时快照。
    * @private
    * @param {string} condition - GMGN 条件表达式
    * @param {Object|null} gmgnCheckInfo - metadata.gmgnCheck
@@ -3413,7 +3416,7 @@ class ExperimentSignals {
     }
     const f = gmgnCheckInfo.factors;
     if (!f || f.gmgnRiskCovered !== 1) {
-      return `<span class="inline-block ml-2 text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">GMGN 无数据（${this._escapeHtml(gmgnCheckInfo.reason || 'gmgn_check_no_data')}）→ fail-closed 拒，表达式未评估</span>`;
+      return `<span class="inline-block ml-2 text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">GMGN 无数据（${this._escapeHtml(gmgnCheckInfo.reason || 'gmgn_check_no_data')}）→ 放行，表达式未评估</span>`;
     }
     return this._renderConditionFactorChips(condition, metadata, [f]);
   }

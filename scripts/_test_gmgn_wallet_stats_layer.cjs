@@ -106,12 +106,12 @@ console.log('B. checkAndEvaluate 第五参（存量零影响）');
     check('B3 传入 gwp：并键可评（Konasu 形状 cCluster=3 门拒）',
       v3.passed === false && v3.factors.gwpCovered === 1 && v3.factors.gwpCreatedClusterWallets === 3,
       JSON.stringify(v3.factors));
-    // B4 covered=0 机制硬拒优先（gwp 键在 context 也不评表达式）
+    // B4 covered=0 → token 层 fail-open 放行（2026-10-20 乌龟案裁定），gwp 键不评
     apiCalls.length = 0; stubBehavior = { error: new Error('boom') };
     const v4 = await svc().checkAndEvaluate('0xB4', 'bsc', GWP_GATE, null,
       { ...GmgnWalletStatsService.emptyFactors(), gwpCovered: 1, gwpSelected: 1, gwpProfiled: 1 });
-    check('B4 gmgnRiskCovered=0 机制硬拒优先（gwp 救不了 token 层无数据）',
-      v4.passed === false && v4.reason && v4.reason.startsWith('gmgn_check_no_data'));
+    check('B4 gmgnRiskCovered=0 → fail-open 放行（gwp 键在 context 也不评表达式，reason 留痕）',
+      v4.passed === true && v4.evaluated === false && v4.reason && v4.reason.startsWith('gmgn_check_no_data'));
     // B5 gwpCovered=null 走 IS NULL 臂放行（未启用语义在表达式层）
     apiCalls.length = 0; stubBehavior = { response: OK_INFO };
     const v5 = await svc().checkAndEvaluate('0xB5', 'bsc', GWP_GATE, null,

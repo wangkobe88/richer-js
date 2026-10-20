@@ -2113,10 +2113,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
-      // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，2026-10-14 用户裁定）：
-      // 前两层全过、下单前才真调 GMGN getTokenInfo 构建因子（配额最小化+数据天然
-      // 新鲜，与直调快照隔离——只认本层 fetch 的结果）。covered=0（失败/超时/未
-      // 索引/key 缺失/冷却）→ 机制硬拒不评表达式；repeat 轮与首轮统一同一条件串 ──
+      // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，2026-10-14 用户裁定；
+      // 2026-10-20 乌龟案改 fail-open）：前两层全过、下单前才真调 GMGN
+      // getTokenInfo 构建因子（配额最小化+数据天然新鲜，与直调快照隔离——只认本层
+      // fetch 的结果）。covered=0（失败/超时/未索引/key 缺失/冷却）→ **放行**
+      // （不评表达式，reason 留审计）——GMGN API 不可用不得拦住买点；repeat 轮与
+      // 首轮统一同一条件串 ──
       let gmgnCheckInfo = null;
       const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();
       if (gmgnCheckCondition && this._gmgnRiskCheckService) {
@@ -2141,8 +2143,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             factorResults?.narrativeCategory ?? null,
             gwpFactors);
         } catch (e) {
-          // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常，同 fail-closed
-          gmgnCheckInfo = { passed: false, evaluated: false, reason: `gmgn_check_error(${e?.message || e})` };
+          // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常（gwp buildFactors
+          // 等）——2026-10-20 用户裁定：GMGN 层拿不到数据一律放行不拦买，warn 留痕
+          //（不静默掩盖实现问题）
+          this.logger.warn(this._experimentId, 'BuyEval',
+            `GMGN 检查异常放行 | ${token.symbol} ${e?.message || e}`);
+          gmgnCheckInfo = { passed: true, evaluated: false, reason: `gmgn_check_error(${e?.message || e})` };
         }
         if (!gmgnCheckInfo.passed) {
           this.logger.info(this._experimentId, 'BuyEval',
@@ -2165,6 +2171,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           await this._updateSignalStatus(signalId, 'failed',
             { message: `GMGN 条件未过: ${gmgnCheckInfo.reason}`, reason: gmgnCheckInfo.reason });
           return { success: false, reason: `GMGN 条件未过: ${gmgnCheckInfo.reason}` };
+        }
+        // fail-open 放行留痕（2026-10-20）：reason 非空=无数据跳过（evaluated=false），
+        // 不打日志则 GMGN 故障期完全静默——可观测性靠这一条
+        if (gmgnCheckInfo.reason) {
+          this.logger.info(this._experimentId, 'BuyEval',
+            `GMGN 无数据放行 | ${token.symbol} ${gmgnCheckInfo.reason}`);
         }
       }
 

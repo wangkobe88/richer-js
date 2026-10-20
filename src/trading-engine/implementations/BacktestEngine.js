@@ -2045,11 +2045,12 @@ class BacktestEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
-      // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，同实时引擎 2026-10-14）：
-      // 回测**不真调 API**——数据=叙事直调 gmgnRisk 快照映射（预载行 gmgn_info 优先、
-      // 缺行时直调链路已真打且有既有时序穿越声明，偏拦方向）；直调未触发/GMGN 未拿到
-      // → covered=0 同款 fail-closed 硬拒。回放同一管线：同层同键同拒语义，差异仅
-      // 「实时多一次新鲜调用」。repeat 轮与首轮统一同一条件串 ──
+      // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，同实时引擎 2026-10-14；
+      // 2026-10-20 乌龟案改 fail-open）：回测**不真调 API**——数据=叙事直调
+      // gmgnRisk 快照映射（预载行 gmgn_info 优先、缺行时直调链路已真打且有既有时序
+      // 穿越声明）；直调未触发/GMGN 未拿到 → covered=0 同款 fail-open 放行。回放
+      // 同一管线：同层同键同判语义，差异仅「实时多一次新鲜调用」。repeat 轮与首轮
+      // 统一同一条件串 ──
       let gmgnCheckInfo = null;
       const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();
       if (gmgnCheckCondition) {

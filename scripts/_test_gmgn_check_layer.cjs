@@ -5,14 +5,16 @@
  *
  * 三层买腿条件：触发（fire + narrativeCallCondition）→ 预检查（preBuy/repeat）
  * → GMGN（gmgnCheckCondition）。第三层因子在前两层全过后才构建（=此时才真调
- * GMGN getTokenInfo）；fail-closed：调不到数据=拒买，机制硬保证。
+ * GMGN getTokenInfo）；fail-open（2026-10-20 乌龟案 429 拒买裁定）：调不到数据
+ * → 放行（不评表达式），只有条件写错/评估异常才拒。
  *
  *   A. evaluateFactors 纯评估：FAKER 事故现场反证（bundler 7/8=87.5>75 拒）/
- *      阈值内过 / covered=0 fail-closed / 空条件
+ *      阈值内过 / covered=0 fail-open 放行 / 429 事故现场反证 / 空条件
  *   B. service check()：成功映射 / 未索引 / API 错 / 无 key；inflight join /
  *      TTL 复用 / TTL=0 每次硬调 / 失败冷却
  *   C. BacktestEngine 挂点（prototype.call(stub)）：快照口径拒/过、直调未触发
- *      → no_data 拒、无 gmgnCheckCondition 零调用（存量兼容）、拒买 metadata 轨迹
+ *      → no_data 放行（下单触达）、无 gmgnCheckCondition 零调用（存量兼容）、
+ *      拒买 metadata 轨迹
  *   D. 实时引擎源码口径：挂点顺序（预检查拒买 return 后、processSignal 前）、
  *      两路径 metadata、构造点配置接线
  *   E. 校验链：loadStrategies 第四键集 unknown throw / validateLegs 同口径 /
@@ -102,16 +104,31 @@ async function main() {
     const noData = GmgnRiskCheckService.evaluateFactors(
       { gmgnRiskCovered: 0, gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0, failReason: 'error: timeout' },
       'gmgnBundlerWalletRatio <= 75');
-    check('covered=0 → fail-closed 拒（不评估表达式）',
-      noData.passed === false && noData.evaluated === false && noData.reason.includes('no_data') && noData.reason.includes('timeout'),
+    check('covered=0 → fail-open 放行（2026-10-20 裁定，不评估表达式，reason 留审计）',
+      noData.passed === true && noData.evaluated === false && noData.reason.includes('no_data') && noData.reason.includes('timeout'),
       JSON.stringify(noData));
+    // ★事故现场反证（2026-10-19 16:01 UTC 乌龟案 0x0adad648d69fa916fb5f30a380b9d3eaf2ac7777）：
+    // GMGN IP 级 RATE_LIMIT_BANNED，16:01:14/16/28 三连 fire 全被 fail-closed 拒（含
+    // cooldown 臂），16:02:01 恢复后成交，价格已从 6.16e-6 涨至 7.48e-6（+21%）——
+    // 本断言锁死「429/封禁形状必须放行」，防未来把判定改回 covered!==1 即拒
+    const rateBanned = GmgnRiskCheckService.evaluateFactors(
+      { gmgnRiskCovered: 0, gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0,
+        failReason: 'error: GET /v1/token/info failed: HTTP 429 code=429 error=RATE_LIMIT_BANNED '
+          + 'message=IP is temporarily banned due to repeated rate limit violations.' },
+      NS_COND);
+    check('事故现场反证：GMGN 429 RATE_LIMIT_BANNED → 放行（不再拒买点）',
+      rateBanned.passed === true && rateBanned.evaluated === false, JSON.stringify(rateBanned));
+    const cooldown = GmgnRiskCheckService.evaluateFactors(
+      { gmgnRiskCovered: 0, failReason: 'cooldown' }, 'gmgnBundlerWalletRatio <= 75');
+    check('失败冷却期 covered=0 → 同样放行（冷却只防重打不拦买）',
+      cooldown.passed === true && cooldown.evaluated === false, JSON.stringify(cooldown));
 
     const noCond = GmgnRiskCheckService.evaluateFactors({ gmgnRiskCovered: 1 }, '');
     check('空条件 → passed 且 evaluated=false', noCond.passed === true && noCond.evaluated === false);
 
     const unknownKey = GmgnRiskCheckService.evaluateFactors(
       { gmgnRiskCovered: 1, gmgnBundlerWalletRatio: 0 }, 'bundlerWalletRatio <= 75');
-    check('未知因子（键集外）→ 评估 false → 拒（fail-closed 方向）',
+    check('未知因子（键集外）→ 评估 false → 拒（条件写法错误仍 fail-closed，与 API 失败放行刻意不同）',
       unknownKey.passed === false && unknownKey.evaluated === true, JSON.stringify(unknownKey));
 
     // gmgnVisitingCount（2026-10-15 加键：「流动性跟注意力背离」观测，用户裁定）
@@ -263,7 +280,7 @@ async function main() {
   {
     delete process.env.GMGN_API_KEY;
     const r = await freshSvc().check('0xNOKEY', 'bsc');
-    check('GMGN_API_KEY 缺失 → covered=0 no_api_key（fail-closed）', r.covered === 0 && r.failReason === 'no_api_key', JSON.stringify(r));
+    check('GMGN_API_KEY 缺失 → covered=0 no_api_key（下游 fail-open 放行）', r.covered === 0 && r.failReason === 'no_api_key', JSON.stringify(r));
     if (savedKey !== undefined) process.env.GMGN_API_KEY = savedKey;
   }
 
@@ -337,12 +354,27 @@ async function main() {
       check('拒买轨迹落 buffer（gmgnCheck metadata + failed）',
         gmgnUpdates.some(u => u.patch?.metadata?.gmgnCheck?.passed === false), JSON.stringify(gmgnUpdates.map(u => u.patch?.metadata?.gmgnCheck)));
     }
-    // C2. 直调未触发（gmgnRisk null）→ fail-closed no_data 拒
+    // C2. 直调未触发（gmgnRisk null）→ fail-open 放行（2026-10-20 裁定），下单触达
     {
-      const stub = makeStub({ strategy: STRAT('gmgnBundlerWalletRatio <= 75'), gmgnRisk: null });
+      let executed = 0;
+      const stub = makeStub({
+        strategy: STRAT('gmgnBundlerWalletRatio <= 75'), gmgnRisk: null,
+        executeBuy: async () => { executed++; return { success: false, reason: 'stub-no-buy' }; },
+      });
       const r = await runPath(stub);
-      check('直调未拿到 GMGN → 拒 gmgn_check_no_data（fail-closed 同构实时）',
-        r.success === false && String(r.reason).includes('gmgn_check_no_data'), JSON.stringify(r));
+      check('直调未拿到 GMGN → 放行（fail-open 同构实时，下单触达）',
+        r.reason === 'stub-no-buy' && executed === 1, `executed=${executed} r=${JSON.stringify(r)}`);
+    }
+    // C2b. 无数据时表达式一律不评估——即便条件串本身会把 0 值判拒
+    {
+      let executed = 0;
+      const stub = makeStub({
+        strategy: STRAT('gmgnBundlerWalletRatio > 100'), gmgnRisk: null,
+        executeBuy: async () => { executed++; return { success: false, reason: 'stub-no-buy' }; },
+      });
+      const r = await runPath(stub);
+      check('无数据 → 表达式未评估（bundler>100 本应拒，仍放行）',
+        r.reason === 'stub-no-buy' && executed === 1, `executed=${executed} r=${JSON.stringify(r)}`);
     }
     // C3. 快照低 bundler → 过层，下单触达
     {

@@ -14,10 +14,13 @@
  * - 本侧独立进程内缓存：per-token 短 TTL（默认 5s，防同 token 连续 fire 重复烧）+
  *   inflight join（并发评估合一次请求）+ 失败短冷却（默认 10s，冷却期内不重打）
  *
- * fail-closed（用户裁定）：失败/超时/GMGN 未索引/key 缺失 → covered=0，引擎侧
- * 机制硬拒（不评估条件表达式）——「不确定就不买」由机制保证，不依赖条件写法
- * 带 covered==1。与 preBuy 键集里 gmgn 三键的 covered=0 放行语义（宁漏拦不误杀，
- * x-0 案）刻意相反：那是被动顺带数据的宽容，这是显式风险门的严格。
+ * fail-open（2026-10-20 用户裁定，乌龟案 0x0adad648…7777 GMGN 429 拒买现场）：
+ * 失败/超时/GMGN 未索引/key 缺失/冷却 → covered=0 → **放行**（不评估条件表达式，
+ * reason 留审计）——GMGN 是附加风控层，API 不可用时不得拦住买点。历史沿革：
+ * 2026-10-14 FAKER 团伙盘案原为 fail-closed 硬拒「不确定就不买」，2026-10-20
+ * 因 GMGN IP 级 RATE_LIMIT_BANNED（18s 封禁）连拒三枪、恢复后 47s 才买入（价格
+ * 已涨 21%）翻转为 fail-open。条件表达式评估异常（键集外/语法）仍 fail-closed
+ * 拒——那是配置/实现错误，不是 API 不可用。
  */
 
 const { extractGmgnRisk } = require('../../core/gmgn-api/risk-fields');
@@ -64,7 +67,7 @@ class GmgnRiskCheckService {
 
   /**
    * 买前实时 GMGN 风险检查。不抛错——一切失败形状归一为 covered=0 结果
-   * （fail-closed 拒买由引擎侧执行）。
+   * （fail-open 放行由 evaluateFactors 执行，2026-10-20 裁定）。
    * @param {string} tokenAddress
    * @param {string} chain - BSC-only 项目，恒 'bsc'
    * @returns {Promise<{covered: number, gmgnIssuerTokenCount: number,
@@ -165,22 +168,25 @@ class GmgnRiskCheckService {
   /**
    * 因子表 + 条件 → 判定（纯函数；回测引擎用直调快照映射出的因子表直调本方法，
    * 不经过 check() 网络路径——回放同一管线，差异仅「实时多一次新鲜调用」）。
-   * fail-closed 机制保证：covered=0 → 拒（不评估表达式）；评估异常 → 拒。
+   * fail-open 机制保证（2026-10-20 用户裁定）：covered=0（失败/超时/未索引/
+   * key 缺失/冷却）→ 放行（不评估表达式，reason 留审计，evaluated=false 供
+   * 下游区分「真评估过」与「无数据跳过」）；评估异常 → 拒（条件写法/实现错误）。
    */
   static evaluateFactors(factors, condition) {
     const cond = String(condition || '').trim();
     if (!cond) return { passed: true, evaluated: false, reason: null };
     if (!factors || factors.gmgnRiskCovered !== 1) {
       const why = factors?.failReason ? `gmgn_check_no_data(${factors.failReason})` : 'gmgn_check_no_data';
-      return { passed: false, evaluated: false, reason: why };
+      return { passed: true, evaluated: false, reason: why };
     }
     try {
       const evaluator = new ConditionEvaluator();
       const ok = evaluator.evaluate(evaluator.parseCondition(cond), factors) === true;
       return { passed: ok, evaluated: true, reason: ok ? null : `gmgn_check_failed(${cond})` };
     } catch (e) {
-      // 语法/键集在 loadStrategies 已 fail-fast 校验过，运行时异常=实现 bug——按
-      // fail-closed 拒并留 reason 供 signal metadata 定位
+      // 语法/键集在 loadStrategies 已 fail-fast 校验过，运行时异常=实现 bug——仍按
+      // fail-closed 拒（与「API 不可用放行」刻意不同：这不是数据拿不到，是条件
+      // 本身有问题），reason 供 signal metadata 定位
       return { passed: false, evaluated: true, reason: `gmgn_check_error(${e?.message || e})` };
     }
   }

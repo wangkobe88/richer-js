@@ -175,7 +175,8 @@ class StrategyEngine {
                     preBuyCheckCondition: config.preBuyCheckCondition || null,
                     repeatBuyCheckCondition: config.repeatBuyCheckCondition || null,
                     // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）：前两层全过、
-                    // 下单前实时调 GMGN API 构建因子评估；fail-closed 拒买。null=零调用
+                    // 下单前实时调 GMGN API 构建因子评估；API 不可用→fail-open 放行
+                    // （2026-10-20 乌龟案裁定）。null=零调用
                     gmgnCheckCondition: config.gmgnCheckCondition || null,
                     narrativeCallCondition: config.narrativeCallCondition || null,
                     // 叙事预触发条件（N3，2026-10-13 叙事提速案）：不配 = 预触发用

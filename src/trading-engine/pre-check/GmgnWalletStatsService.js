@@ -22,8 +22,9 @@
  * 预算耗尽/全局冷却）→ 0（Phase 2 门生效后=拒，「不确定就不买」与 GMGN token 层
  * 同语义）；全部有结论（含「GMGN 无记录」的空数据行）→ 1。
  *
- * 与 GmgnRiskCheckService 刻意分离：token 层门（gmgnRiskCovered 机制硬拒）不动，
- * 本层 gwp 键走表达式臂（gwpCovered==1 前置由条件串表达）。
+ * 与 GmgnRiskCheckService 刻意分离：本层 gwp 键走表达式臂（gwpCovered==1 前置由
+ * 条件串表达），不受 token 层 fail-open（2026-10-20 乌龟案 429 拒买裁定）影响——
+ * gwpCovered=0 在条件串内仍恒 false；gwp 是否随 token 层一并 fail-open 待用户裁定。
  */
 
 const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
