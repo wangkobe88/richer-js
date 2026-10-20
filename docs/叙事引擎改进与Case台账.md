@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.55）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.56）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.13）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -38,9 +38,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
   （`prestage_project_quality` 题随之删除）全删——粉丝带**只定档不拦截**（账号 0-299
   mid / ≥300 high；社区 ≥100+high 才 high）
-- **代码门族**（mapper 端确定性切分）：nameReferentBlock（阻断侧合计 ≥0.5，全域
-  仅累计 minor+common——J1.26 notable_other 全域退出，知名度轴移交 web3_fit）/
-  rideDetourBelow（B/C 骑乘改道 W）/ cashtag 改道 W（J1.17）/ detectPublisherProxy
+- **代码门族**（mapper 端确定性切分）：nameEntityLowBlock（J1.56：币名映射实体
+  Web3 用户不认得 unknown≥0.5，域 B/C/D/F/G/W；no_entity 中性）/ authorUtterance
+  作者原话票（J1.56：注册表作者 ∧ 币名逐字主推 → C88 第一腿补位；不要求 Jev 升档）/
+  cashtag 改道 W（J1.17）/ detectPublisherProxy
   发布者指代（J1.18，量级 A 档锚）/ routineContentProductBlock（A 类角色豁免 J1.16）/
   negativeHardNewsBlock / web3FitBlock（unfit ≥0.5）/ referent 豁免（J1.21，仅 superIP）/
   punExempt 戏谑关联豁免（J1.24：P≥0.5+within_7d+S/A 档+可信事件源全中时豁免
@@ -67,6 +68,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C126 币名映射实体接受度轴（J1.56）——概念解耦 + 命名按对象显式化（2026-10-20 用户裁定）★
+
+- **案由**：何一 `0xf0ffa405…7777`「こんにちは」（flap，CZ《Freedom of Money》日文版发售当天何一回复问候语）。C120 巨粉豁免已过时效门（主推 lag 2.88h、作者 647k 粉），Jev 真跑后仍 low：`empty_content 0.36` / `mem 1.97` / 名字门 0.90。用户裁定三条：①「super_ip 本来就应该使用语料作者身份，这应该算 super_ip 喊出的口号类」；②「name_referent 改成『币名映射实体对 Web3 用户的接受度/影响力』，低影响力例如普通币安员工就不通过——但这个 case 根本不是实体（问候语），不影响判定」；③「命名规则尽量从用户角度出发，一个针对事件、一个针对币」。
+- **改动**：①**题名按评估对象显式化**（纯 id 改名，判据零改动）：`event_finding_vs_recap` / `event_block_reason` / `event_subject_entity` / `web3_user_event_impact` / `web3_user_event_spread` / `web3_user_event_fit` / `name_event_relevance` / `name_brand_hijack` / `name_entity_memeability` / `name_entity_carrier` / `web3_user_name_acceptability` / `token_name_quality`。②`name_referent` → `web3_user_name_entity_acceptance`（**accepted / unknown / no_entity**；`no_entity` 中性不拦——问候语/截词/陈述句交名字形态门）。③`unknown ≥0.5` → **实体低影响力门**（域 B/C/D/F/G/W，规格=旧 J1.10 nrBlock；pubProxyActive 豁免；刻意 delta=截词归 no_entity 不拦，C108 已把形态责任交名字门）。④**作者原话票**：`detectAuthorUtterance`（注册表作者 ∧ 币名归一化后逐字出自主推文本）→ C88 五腿第一腿 `accepted≥0.5 ∨ authorUtterance`；state `super_ip_hit` → `corpus_author_identity`；**不要求 Jev 在实体题里因作者身份升档**（问候语如实 no_entity）。⑤`rideDetourMass` **退役**（新实体门覆盖 B/C 低影响力实体面，W 数学不触达）。⑥审计键 `nameReferent*` → `nameEntityAcceptance*`、`superIpSlogan` → `recognizedEntitySlogan`（含 FA 标签推导/前端展示链）。
+- **版本**：`JEV_QUESTIONS_VERSION` J1.55→J1.56。
+- **测试**：新增 `_test_name_entity_acceptance.cjs`（作者原话检测三形状/第一腿双源/实体门域/源码口径）；全量零 DB 单测除存量 `_test_backtest_keyset_paging` 外全绿。
+- **182 全量回归（38 票）**：31 PASS / 1 FAIL / 6 OBSERVE-DEVIATION / 0 ERROR。FAIL=C94 京小安（rating 仍 low，拦截位由名字门前移到实体门，属预期；更新 expect）；新增偏差=C100 rebondit（已知掷骰面：`parent_relationship` unclear 0.32 vs translation 0.29 → C103 fail-open → 72.7 high，fixture observe 已载）。
+- **C126 票终态（J1.56）**：`web3_user_name_entity_acceptance = no_entity 0.99`（中性）+ `authorUtterance=true`；C88 仍断在 `mem 1.55<2`；`empty_content 0.34` + 接纳度 0.90 仍拦 → **low**。结论：实体轴解耦后该票不再有额外死因，但三道形态门（空洞/mem/接纳度）仍在——是否放行属下一批裁定。
+- **部署**：commit 188ab7b；182 pull + 全量回归；worker/实验进程待重启加载 J1.56。
 
 ### C125 prestage_abm_name_link 用户感知锚（P1.13）——按 web3 用户自然联想判名称关联（2026-10-20 用户裁定；批次 3）★
 

@@ -8,10 +8,12 @@
       "expect": {
         "rating": "low",
         "reasonIncludes": [
-          "Web3 用户不接纳该名字"
+          "币名映射实体在 Web3 用户侧无名"
         ]
       },
-      "note": "B 类 web3 偏好双锚案：名字门拦（name_form not_meme_name）。10-19 f61f500 对拍已过，维持断言。"
+      "note": "B 类 web3 偏好双锚案：J1.56 起实体低影响力门先拦（unknown 97%，取代名字门；rating 仍 low）。10-20 C126 对拍更新。",
+      "expectSince": "2026-10-20",
+      "expectBecause": "C126 实体低影响力门（unknown≥0.5，域 B/C/D/F/G/W）挂在名字门之前——京小安实体用户不认得，拦截位前移、评级不变"
     },
     {
       "caseId": "C95",
