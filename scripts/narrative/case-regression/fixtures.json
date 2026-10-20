@@ -499,6 +499,21 @@
       "note": "J1.52 niche 改锚：币安 Discord 社区梗『牛来』不再判圈外亚文化（旧行 niche_subculture 拦）；现走标准路径，终态=名字门掷骰面（not_acceptable 0.48-0.59 vs acceptable 0.49-0.50）——rating 不断言仅追踪链路",
       "addedAt": "2026-10-20",
       "observe": "名字门掷骰面：web3_user_acceptable 0.49-0.50 vs web3_user_not_acceptable 0.48-0.59（实测 15 次 low 7 / high 8）——rating 刻意不断言；本票语义=niche 改锚后社区自发梗不再被判圈外亚文化（旧行 niche_subculture 拦），链路可达标准路径/名字门即为正确。"
+    },
+    {
+      "caseId": "C126",
+      "symbol": "こんにちは",
+      "addr": "0xf0ffa405a08a3abd1de1b2d88fdec7cbd9f37777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:B",
+        "auditIncludes": [
+          "authorUtterance"
+        ]
+      },
+      "note": "何一「こんにちは」flap 票：C120 巨粉豁免过时效门后 Jev 真跑；J1.56 实体题 no_entity 中性 + authorUtterance=true，仍被 empty_content/mem/接纳度三形态门拦（low）",
+      "addedAt": "2026-10-20",
+      "observe": "authorUtterance=true 为确定性代码事实（何一在册 ∧ こんにちは逐字主推）；rating 的低依赖三形态门：block_reason empty_content 掷骰面（0.34 vs institution_routine，两臂均拦）、mem 1.55-1.97<2 断 C88 口号腿、web3_user_name_acceptability 0.90 not_acceptable——若 mem≥2 且空门翻转，本票可 high（放行属未裁定面）。"
     }
   ]
 }
