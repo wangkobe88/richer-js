@@ -51,24 +51,24 @@ async function main() {
   check('A8 找角度/解读型标注形状②',
     mag.instructions.includes('找角度/解读型推文 → 形状②'));
 
-  // ═══ B. event_magnitude criteria 双锚 ═══
-  console.log('\n── B. criteria 每档双锚（①陈述者关联 ②陈述者无关）──');
-  const tier = (i) => mag.criteria[i];
-  check('B1 D 档双锚', tier(1).includes('①陈述者关联') && tier(1).includes('②陈述者无关'));
-  check('B2 C 档双锚', tier(2).includes('①陈述者关联') && tier(2).includes('②陈述者无关'));
-  check('B3 J1.64：C 档形状① 改用户侧认知锚（账号粉丝量只作覆盖上限，不再有粉丝<4万锚）',
-    !tier(2).includes('粉丝<4万') && tier(2).includes('圈内知名度但未形成用户侧可调动性')
-    && mag.instructions.includes('账号粉丝量、机构规模只是覆盖上限'));
-  check('B4 C 档「无源可溯」封顶保留（7777 无主作业票防线）',
-    tier(2).includes('无法从语料与常识追溯') && tier(2).includes('最高到此档'));
-  check('B5 B 档双锚 + 形状②含「被十万粉级以上KOL主动报道扩散」',
-    tier(3).includes('①陈述者关联') && tier(3).includes('被十万粉级以上KOL主动报道扩散的事件'));
-  check('B6 A 档形状②含全国级监管政策与市场事件（正龟案锚：A股新规）',
-    tier(4).includes('②陈述者无关') && tier(4).includes('全国性监管政策与市场事件'));
-  check('B7 S 档两形状同一口径', tier(5).includes('两种形状同一口径'));
-  check('B8 E 档无可识别事件主体措辞维持', tier(0).includes('无可识别事件主体'));
-  check('B9 E 类升级规则「被KOL大V主动报道」含父推（C92 J1.35 重写后措辞）',
-    mag.instructions.includes('十万粉级以上父推主动陈述该事件=事件被大V扩散的证据'));
+  // ═══ B. J1.72 综合影响力六档 + 两步判分 ═══
+  console.log('\n── B. criteria 综合影响力六档（量级×传播×时序）──');
+  check('B1 六档齐全（0-5）', Array.isArray(mag.criteria) && mag.criteria.length === 6);
+  check('B2 0 档=无人注意（阻断档）', mag.criteria[0].includes('无人注意') && mag.criteria[0].includes('阻断档'));
+  check('B3 2 档=圈内可见但未成势（含「主体量级大但事件已过气」臂）',
+    mag.criteria[2].includes('圈内可见但未成势') && mag.criteria[2].includes('已过气'));
+  check('B4 3 档=圈内热点（传播证据入档）', mag.criteria[3].includes('圈内热点') && mag.criteria[3].includes('正在讨论'));
+  check('B5 4 档=头部符号/全国级热点', mag.criteria[4].includes('头部符号') && mag.criteria[4].includes('全国级热点'));
+  check('B6 5 档=世界级符号/全球刷屏', mag.criteria[5].includes('世界级符号') && mag.criteria[5].includes('全球刷屏'));
+  check('B7 两步判分法在场（先定主体基础带，再按传播/时效上下调）',
+    mag.instructions.includes('评分方法（J1.72') && mag.instructions.includes('只按主体量级给分=判错')
+    && mag.instructions.includes('上下调 0.5-1'));
+  check('B8 传播面/时序调整方向明确（新鲜传播↑、过气/无人讨论↓）',
+    mag.instructions.includes('圈内已有明显讨论/扩散/二创 → 上调')
+    && mag.instructions.includes('已过峰值/已过气 → 下调')
+    && mag.instructions.includes('纯未来且无人讨论 → 下调'));
+  check('B9 同量级下新鲜传播显著高于过气事件（合并判断强制）',
+    mag.instructions.includes('同一主体量级下，正在传播的新鲜事件应显著高于已过气/无人讨论的事件'));
 
   // ═══ C. J1.71 三合一 ═══
   console.log('\n── C. J1.71 事件侧三合一 ──');
