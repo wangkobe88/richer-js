@@ -89,7 +89,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **偏差诚实记录**：计划预期「C113 型（圈内符号但大众量级不高）应升 sip→C88 五腿可达」**未成立**——Jev 对哭哭奶龙的判断是「非圈内符号」（other_referent 0.76）。该票的评级未变（事件分 58.9<60 回拦，原 J1.54 亦同）；是否要为「圈内二创/错版变体形象」补显式符号证据句，留待用户裁定（本批不擅自扩判据）。
 - **测试**：8 处版本锁 J1.55；consolidation 新增 A14a-e（主轴/符号证据级/保留分支/other 承接句/配图臂）；24 个 mapper 相关单测全绿。
 - **182 全量回归（38 票）**：**33 PASS / 0 FAIL / 5 OBSERVE-DEVIATION / 0 ERROR**（4 票已知掷骰面 + C113 本轮落事件分不足 observe 臂；C100 本轮 translation 臂通过）。
-- **部署**：commit ；182 pull + 全量回归 + worker 重启加载 J1.55；live 实验进程仍持旧题面（in-process 模块缓存）待持仓确认后重启。
+- **部署**：commit 24982b4；182 pull + 全量回归 + worker 重启加载 J1.55；live 实验进程仍持旧题面（in-process 模块缓存）待持仓确认后重启。
 
 ### C123 门名/题键语义化（J1.54）——event_magnitude→web3_user_impact、dimension2→web3_user_spread + 门函数/审计键改名（2026-10-20 用户指令）★
 
