@@ -32,7 +32,6 @@ async function main() {
   const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = mod;
   const qs = buildStandardQuestions();
   const mag = qs.web3_user_event_impact;
-  const dim2 = qs.web3_user_event_spread;
 
   // ═══ A. event_magnitude instructions ═══
   console.log('\n── A. event_magnitude instructions 两形状分流 ──');
@@ -71,18 +70,11 @@ async function main() {
   check('B9 E 类升级规则「被KOL大V主动报道」含父推（C92 J1.35 重写后措辞）',
     mag.instructions.includes('十万粉级以上父推主动陈述该事件=事件被大V扩散的证据'));
 
-  // ═══ C. dimension2 同步 ═══
-  console.log('\n── C. dimension2 同形状分流 ──');
-  check('C1 与 event_magnitude 两形状分流引用',
-    dim2.instructions.includes('两形状分流') && dim2.instructions.includes('既不代表也不封顶'));
-  check('C2 E 类行不看发推人/回复者 + 回复语料按父推（C92 J1.35 重写后措辞）',
-    dim2.instructions.includes('陈述者（发推人/回复者）的粉丝数与互动数据既不代表也不封顶') && dim2.instructions.includes('回复/转述语料按父推/源头所陈述事件的传播计'));
-  check('C3 C/D 类形状②分带指引（全国级政策/市场事件=全民话题级）',
-    dim2.instructions.includes('形状②外部事件主体') && dim2.instructions.includes('全民话题级25-30'));
-  // C4 陈旧断言修正（J1.54 顺修）：原措辞「不要在这题重新贬低主体」随 J1.45
-  // dim2 重写删除，现行同义锚=「同档主体传播面细分、不是重评一遍档位」
-  check('C4 同主体不同镜头锚（传播面细分、不重评档位）维持',
-    dim2.instructions.includes('不是重评一遍档位') && dim2.instructions.includes('同档主体之中传播面的强弱细分'));
+  // ═══ C. J1.71 三合一 ═══
+  console.log('\n── C. J1.71 事件侧三合一 ──');
+  check('C1 web3_user_event_spread 题删除（影响力单题化）', qs.web3_user_event_spread === undefined);
+  check('C2 impact 题声明唯一事件价值题 + 传播/时效内化',
+    mag.instructions.includes('唯一事件价值题') && mag.instructions.includes('传播面与时效都是影响力的内在证据'));
 
   // ═══ D. 头部历史条目 ═══
   console.log('\n── D. 版本历史 ──');

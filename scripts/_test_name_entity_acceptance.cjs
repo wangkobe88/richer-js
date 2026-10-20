@@ -191,7 +191,7 @@ async function main() {
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.70'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.71'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

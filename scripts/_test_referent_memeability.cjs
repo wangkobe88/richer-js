@@ -61,13 +61,13 @@ async function main() {
 
   console.log('\n── A. 题集形状（J1.61）──');
   const qs = buildStandardQuestions();
-  check('A1 基础题数 15（删 name_entity_memeability）', Object.keys(qs).length === 15, Object.keys(qs).length);
+  check('A1 基础题数 14（J1.71 删 web3_user_event_spread；删 name_entity_memeability）', Object.keys(qs).length === 14, Object.keys(qs).length);
   check('A2 name_entity_memeability 已删除', !('name_entity_memeability' in qs));
   check('A3 名字门题面含玩味并入臂（可玩/可二创内容 + 没有任何可玩内容）',
     qs.web3_user_name_acceptability.instructions.includes('可玩/可二创的内容')
     && qs.web3_user_name_acceptability.criteria.web3_user_acceptable.includes('所指对象有可玩')
     && qs.web3_user_name_acceptability.criteria.web3_user_not_acceptable.includes('没有任何可玩内容'), null);
-  check('A4 版本 J1.61', JEV_QUESTIONS_VERSION === 'J1.70', JEV_QUESTIONS_VERSION);
+  check('A4 版本 J1.61', JEV_QUESTIONS_VERSION === 'J1.71', JEV_QUESTIONS_VERSION);
 
   console.log('\n── B. 名字门消费（J1.61 唯一名字拦截位）──');
   const mNo = mapStandardAnswers(baseAnswers('C', { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.85 } }), makeContext());

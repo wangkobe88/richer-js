@@ -185,15 +185,14 @@ async function main() {
   // 在总分（0.6×低事件分）上体现——与豁免「relevance 10 分照常计入」同款计分语义
   console.log('\n── F. D-1 量级门豁免贯穿 ──');
 
-  // F1 事故反证：全条件戏谑票 + 传播极弱（dim2 1 档 → effDim2 10）→ 事件分
-  // 34(A)+10+15(within_7d)=59<60——修复前 事件分不足（59<60）拦死；修复后放行计分
+  // F1 事故反证：全条件戏谑票 + 影响力 2.95→59<60（J1.71 单题口径）——修复前 事件分不足（59<60）拦死；修复后放行计分
   const mF1 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext());
   const s2F1 = mF1.stage2DataToSave?.parsed_output || {};
-  check('F1a 事件分 59<60 的全条件戏谑票：stage2 放行（pass=true + totalScore=59 精确值）',
-    s2F1.pass === true && s2F1.scoringResult?.eventCompositeScore === 59,
+  check('F1a J1.71 单题口径：全条件戏谑票影响力 4.0→80（A 档≥70，<60 臂结构性不可达）stage2 放行',
+    s2F1.pass === true && s2F1.scoringResult?.eventCompositeScore === 80,
     { pass: s2F1.pass, totalScore: s2F1.scoringResult?.eventCompositeScore });
-  check('F1b stage2 reason 落量级门豁免标注（J1.24戏谑：事件分<60臂不拦）',
-    /量级门豁免\(J1\.24戏谑：事件分<60臂不拦，弱量级代价在总分\)/.test(s2F1.reason || ''),
+  check('F1b J1.71：影响力≥60 不落量级门豁免标注（<60 臂由 imgNameExempt 在 G1a 覆盖）',
+    !/量级门豁免/.test(s2F1.reason || ''),
     s2F1.reason);
   check('F1c 放行后正常计分：stage3 pass + punExempt 审计 + rating 非 stage2 拦截形状',
     stage3Of(mF1).pass === true && !!stage3Of(mF1).jev?.punExempt
@@ -203,9 +202,9 @@ async function main() {
   // F2 对照：anchor 缺（punExempt 关）同分数 → 量级门照拦（豁免不是无条件放水）
   const mF2 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext({ credibleEventAnchor: false }));
   const s2F2 = mF2.stage2DataToSave?.parsed_output || {};
-  check('F2 同分数无豁免：仍拦 事件分不足（59<60）+ stage3 清段（__clear）',
-    s2F2.pass === false && s2F2.blockReason === '事件分不足（59<60）'
-      && mF2.stage3DataToSave?.__clear === true && mF2.llmResult.rating === 'low',
+  check('F2 无锚同分数：影响力 80 直接过线（单题口径不再由 punExempt 救）',
+    s2F2.pass === true && s2F2.scoringResult?.eventCompositeScore === 80
+      && mF2.llmResult.pass === true,
     { pass: s2F2.pass, blockReason: s2F2.blockReason });
 
   // F3 W 数学 pass 线刻意不豁免（设计锁定）：W 类戏谑票 W 总分不足照拦——W 有

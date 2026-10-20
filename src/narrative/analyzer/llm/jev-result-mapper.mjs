@@ -2,8 +2,10 @@
  * Jev answers → 阶段结果映射器
  *
  * 全部确定性聚合在本文件完成（原 3 阶段管线的公式原样保留）：
- * - 量级档 S/A/B/C → 39/34/27/22（MAGNITUDE_TIER_SCORES，108 样本校准定参），D/E 档阻断
- * - 标准类 eventCompositeScore = impactTierScore + web3_user_event_spread(0-30) + 时效(0-15)，pass ≥ 60
+ * - J1.71 起标准类只有一个事件价值分：Web3 用户影响力（0-5 → 0-100，60 过线）；
+ *   D/E 档阻断由影响力档位（impactTierOf）承担
+ * - 标准类 eventCompositeScore = Web3 用户影响力（单题 0-5 → 0-100），pass ≥ 60；
+ *   传播面/时效已内化为影响力证据（J1.71）
  * - J1.23 Web3 偏好锚（A/B 类 + strong_fit≥0.5 → effTier 锚 B；C94 起 B 类同享
  *   dim2<18 锚 18——web3 用户喜欢是根本判据，发布主体量级无所谓）
  * - W 类独立数学：产品(0-35) + 币安交互(0-40) + 时效(0-25) = 100，pass ≥ 60
@@ -29,13 +31,7 @@ const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
  * D/E 档不进表：维持主体量级不足阻断。
  * （C83 起全语料走标准路径——superIP 快车道的 TIER_SCORES 预评分已随通道删除）
  */
-const MAGNITUDE_TIER_SCORES = { S: 39, A: 34, B: 27, C: 22 };
-
 /** 时效 6 档 → 分数（标准类 / W 类各自一张表，与原 prompt 逐档对齐） */
-const TIMING_SCORES_STANDARD = {
-  within_7d: 15, within_30d: 10, older: 0,
-  expected_within_30d: 10, expected_beyond_30d: 5, unknown: 0,
-};
 const TIMING_SCORES_W = {
   within_7d: 25, within_30d: 15, older: 0,
   expected_within_30d: 15, expected_beyond_30d: 0, unknown: 0,
@@ -223,7 +219,6 @@ function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming
  * 带语义（与 jev-questions web3_user_event_spread criteria 的六档对应）：
  * 无[0,10] / 微弱[10,20] / 小[18,26] / 中[23,28] / 强[26,30] / 极强[28,30]
  */
-const SPREAD_BANDS = [[0, 10], [10, 20], [18, 26], [23, 28], [26, 30], [28, 30]];
 const W_PRODUCT_BANDS = [[0, 8], [9, 17], [18, 26], [27, 35]];
 const W_INTERACTION_BANDS = [[0, 9], [10, 19], [20, 29], [30, 40]];
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
@@ -521,7 +516,7 @@ function web3UserAcceptabilityBlock(answers) {
  * 应该度量事件对Web3用户的情绪感染力。这个事件没啥情绪感染力，我不会被它有任何
  * 触动，也并非一个大时事」——E 类事件分的 magnitude/dim2 量的是现象传播广度
  * （烧了多大），不是情绪转化（Web3 用户会不会被触动到想参与）：观众≠买家。
- * 折损作用于标准数学的 impactTierScore+spreadScore 两项（时效不折——新鲜是客观属性，
+ * 折损作用于标准数学的影响力合成分（J1.71 合并后整体折损，传播/时效已内化，
  * 与情绪无关；W 数学不消费本题，cashtag/骑乘改道票 category==='W' 天然不触达）：
  *   strong_reaction 1（圈内情绪卷入不折——啾啾案 C74 新闻大时事形状）
  *   mild_amusement 0.5（轻度有趣：上限组合 (39+30)×0.5+15=49.5<60，数学上
@@ -545,8 +540,8 @@ function web3UserAcceptabilityBlock(answers) {
  * 「情绪行动力」对 Jev 不可观测（只见语料不见链上），推断素材与 web3_user_event_fit 完全
  * 同源，独立作答只产生矛盾面（유과 案同次作答 web3_user_event_fit strong_fit 0.97 vs
  * resonance mild 0.79 互斥）；例文「圈外」焊死 mild 档定义，轴腐化为圈层归属。
- * 新判据：E 类且 web3_user_event_fit (strong_fit+fit) < 0.5（marginal 占优）→ impactTierScore+
- * spreadScore ×0.5（时效不折不变）；≥0.5 → 原公式（유과 0.97 / 蝙蝠侠摇 0.76 均
+ * 新判据：E 类且 web3_user_event_fit (strong_fit+fit) < 0.5（marginal 占优）→ 影响力
+ * 合成分 ×0.5（J1.71 合并后整体折损）；≥0.5 → 原公式（유과 0.97 / 蝙蝠侠摇 0.76 均
  * 不折——后者形状放行为用户明示接受：当年 -12.4% 归盘面非叙事错判）。0.5 阈值
  * 与 J1.19 负门/J1.23 锚/J1.27 接纳门同一条线。unfit≥0.5 的票全域负门已拦，
  * 折损层不再管。web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行）→ fail-open 不折；
@@ -1064,8 +1059,9 @@ export function mapStandardAnswers(answers, context) {
   // W 数学 tier 不参与，天然无竞争。
   const binanceRegional = detectBinanceRegionalAccount(twitterInfo);
   const regionalAnchorActive = !!(binanceRegional && binanceCorpus);
-  const magnitude = answers.web3_user_event_impact?.score ?? answers.event_magnitude?.score ?? 0;
-  const tier = impactTierOf(magnitude);
+  // J1.71：唯一事件价值分（0-5）——传播面/时效已内化为题内证据
+  const influenceScore = answers.web3_user_event_impact?.score ?? answers.event_magnitude?.score ?? 0;
+  const tier = impactTierOf(influenceScore);
   // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
   const tierAnchored = pubProxyActive && tier !== 'S' && tier !== 'A';
   // J1.23 Web3 偏好量级锚生效位（C38 久留美案续，2026-10-01 用户裁定「A类判定
@@ -1119,31 +1115,22 @@ export function mapStandardAnswers(answers, context) {
     ? { lagSec: staleRelParentTiming.lagSec, staleSec: PARENT_REL_STALE_SEC, choice: staleRelParentTiming.choice, rawTiming: staleRelParentTiming.rawTiming }
     : null;
   const timing = (angleTiming || staleSourceTiming || staleParentTiming || staleRelParentTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
-  const rawSpreadScore = bandInterpolate(answers.web3_user_event_spread?.score ?? answers.dimension2?.score ?? 0, SPREAD_BANDS);
-  // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
-  // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
-  // 达标」，土豪猫猫案 0xfade76ef…7777）：IG 是封闭平台，帖子/账号传播数据经常
-  // 抓不到——语料「零传播证据」是证据缺失而非零影响力，dim2 被压 0-9 档属口径
-  // 错位。条件全中才锚：①A 类（形象 IP——IG 是形象主阵地，裁定场景）；②语料
-  // 引用了 IG 链接（instagramLinked）；③IG 数据未抓到（instagramInfoFetched
-  // false——真数据已进 state 时 Jev 按真证据判分，不兜底）；④spread < 18（只升
-  // 不降；18 = J1.23 dimension2 A 类「风格契合 Web3 偏好的角色形象」带下限）。
-  // 不救量级门（strong_fit<0.5 的 D 档票死量级门合理——偏好证据另有 web3FitAnchored
-  // 正门）；W 数学不消费 dim2 不触达；web3UnfitBlock unfit 负门在前，豁免票 unfit
-  // 仍拦（交互安全）
+  // J1.71 合并：传播面/时效不再是独立计分项——单一影响力题给分（0-5）。
+  // C44 IG 证据缺失锚：A 类+IG 链接+数据未抓到 且原判 <3 档 → 影响力下限 50
+  // （用户裁定「下限 50 不保过线」）。C94 偏好锚并入 web3FitAnchored（下限 50）。
   const instagramSpreadAnchorActive = category === 'A' && instagramLinked === true
-    && instagramInfoFetched !== true && rawSpreadScore < 18;
-  // C94 Web3 偏好传播轴锚（2026-10-18 用户裁定双锚：web3_user_event_fit 强时发布主体
-  // 无所谓，量级轴（上 web3FitAnchored）+传播轴（本锚）一并豁免）：B 类 dim2
-  // 语义=发布方权重，小号转述票的 dim2 实际量的是转述者（京小安 1 粉小号→7
-  // 分），原始事件源数据缺失（微博原文未抓到）是证据缺失而非零影响力——C44
-  // IG 锚同款语义。strong_fit≥0.5 同阈值同条件；只升不降（dim2<18 才锚，
-  // 18=J1.23 dimension2「风格契合 Web3 偏好」带下限=圈内吸引力基线）。
-  // 仅 B 类：A 类已有 IG 锚+J1.23 锚组合覆盖（互斥不叠加），C/D/E 类量级是
-  // 客观规模维持不豁。锚不改门只改分（mem 地板/量级门各自的拦截语义不动——
-  // 京小安 mem 1.88<2 仍被 C88 地板拦是 2026-10-18 用户裁定「维持拦」）。
-  const web3FitSpreadAnchorActive = category === 'B' && web3FitStrongP >= 0.5 && rawSpreadScore < 18;
-  const spreadScore = instagramSpreadAnchorActive ? 18 : (web3FitSpreadAnchorActive ? 18 : rawSpreadScore);
+    && instagramInfoFetched !== true && influenceScore < 3;
+  const web3FitSpreadAnchorActive = false;
+  const influenceBase = round2(influenceScore * 20); // 0-5 → 0-100；60 过线
+  const influenceFloor = (() => {
+    let floor = 0;
+    if (tierAnchored) floor = Math.max(floor, 40);              // 发布者指代锚 → A 档等效
+    if (web3FitAnchored) floor = Math.max(floor, 50);            // C94 偏好锚（下限 50）
+    if (instagramSpreadAnchorActive) floor = Math.max(floor, 50); // C44 IG 证据缺失（下限 50）
+    return floor > 0 ? floor : null;
+  })();
+  // 四条时效 override（C68/C75/C102/C103）合并为影响力扣分（等价旧时效项清零 ≈ -18）
+  const timingPenaltyActive = !!(angleTiming || staleSourceTiming || staleParentTiming || staleRelParentTiming);
   const blockChoice = answers.event_token_block_reason?.choice || 'none';
   const blockProb = answers.event_token_block_reason?.probabilities?.[blockChoice];
   // 原 prompt 语义是"命中任一阻断条件即阻断"（二值）。Choice 摊成 10 路分布后
@@ -1237,8 +1224,7 @@ export function mapStandardAnswers(answers, context) {
   let neBlock = null; // 实体低影响力门信息 {label, mass}
   let uaBlock = null; // 用户接纳度门信息 {label, choice}（C96→C105→C107→C108 唯一名字拦截位，J1.42 name_form；form=Jev 原 choice）
   let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
-  let impactTierScore = 0;
-  let timingScore = 0;
+  let timingScore = null;
   let eventCompositeScore = null;
   // J1.36 E 类Web3偏好折损（C93 判据源迁移）：web3FitDampCoef=生效系数（null=未
   // 触达——非 E 类 / web3_user_event_fit 答案缺失 fail-open / fitMass≥0.5 不折），标准数学
@@ -1455,7 +1441,7 @@ export function mapStandardAnswers(answers, context) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）。
     // C86 D-1 豁免贯穿：J1.30 名图一致豁免无 tier 前置（图证据+一致性质量+弱关联
     // 三门全中即可），主体量级弱但名字与配图视觉一致的票不在此拦——落入标准数学
-    // 分支按 impactTierScore=0 计分，弱量级代价在总分上体现；J1.24 punExempt 要求
+    // 分支按影响力低档计分，弱量级代价在总分上体现；J1.24 punExempt 要求
     // effTier S/A，在本臂结构性不可达，保留守卫是豁免定义漂移的防线（同 C85
     // IS NULL 前置臂的防漂移语义）
     eventScoreBlocked = true;
@@ -1498,35 +1484,29 @@ export function mapStandardAnswers(answers, context) {
       : `${wLabel} 产品${wProduct}+交互${wInteraction}+时效${timingScore}=${eventCompositeScore}（pass线60）`;
     if (eventScoreBlocked) gateBlockReason = `${wLabel}总分不足（${eventCompositeScore}<60）`;
   } else {
-    impactTierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
-    timingScore = TIMING_SCORES_STANDARD[timing] ?? 0;
-    // J1.36 E 类Web3偏好折损判据源=web3_user_event_fit（C93：event_resonance 题已删，原 C80
-    // 蝙蝠侠摇案折损机制保留）：E 类且 (strong_fit+fit)<0.5（marginal 占优=Web3
-    // 用户不太喜欢）→ impactTierScore+spreadScore 两项整体 ×0.5，时效不折（新鲜是客观
-    // 属性）；非 E 类 / web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行 fail-open）/
-    // ≥0.5 → 原公式 bit-identical。unfit≥0.5 全域负门（J1.19）已拦不归本层。
-    // W 数学在上分支（isW），进入本分支的票天然不受改道
-    // 干扰
+    // J1.71：单题影响力 → 0-100 合成分（传播/时效内化；时效 override 扣分、锚为下限）
+    eventCompositeScore = clamp(round2(influenceBase - (timingPenaltyActive ? 18 : 0)), 0, 100);
+    if (influenceFloor != null) eventCompositeScore = Math.max(eventCompositeScore, influenceFloor);
+    // J1.36/J1.71 E 类Web3偏好折损判据源=web3_user_event_fit（C93）：E 类且
+    // (strong_fit+fit)<0.5 → 影响力整体 ×系数（合并后不再区分 tier/spread/时效）
     const w3fProbs = answers?.web3_user_event_fit?.probabilities;
     const hasW3f = w3fProbs != null && Object.keys(w3fProbs).length > 0;
     w3fFitMass = hasW3f ? (w3fProbs.strong_fit ?? 0) + (w3fProbs.fit ?? 0) : null;
     web3FitDampCoef = category === 'E' && hasW3f && w3fFitMass < WEB3_FIT_DAMP_THRESHOLD
       ? WEB3_FIT_DAMP_COEF : null;
     const web3FitDamped = web3FitDampCoef !== null && web3FitDampCoef < 1;
-    eventCompositeScore = web3FitDamped
-      ? round2((impactTierScore + spreadScore) * web3FitDampCoef + timingScore)
-      : round2(impactTierScore + spreadScore + timingScore);
+    if (web3FitDamped) eventCompositeScore = round2(eventCompositeScore * web3FitDampCoef);
     // C86 D-1 豁免贯穿（事件分不足臂）：豁免票的 eventCompositeScore<60 不拦，弱量级
     // 代价照常在总分（0.6×低事件分）上体现——与豁免原本「relevance 10 分照常
     // 计入」的计分语义同款。magExemptRescuedArm=D/E 档臂被豁免放行（本分支
-    // impactTierScore=0 的票）；两臂任一被救都在 reason 落可检索标注
+    // 影响力低档的票）；两臂任一被救都在 reason 落可检索标注
     const magExemptRescuedArm = magExempt && (effTier === 'E' || effTier === 'D');
     const magExemptRescuedPass = magExempt && eventCompositeScore < 60;
     const magExemptSuffix = (magExemptRescuedArm || magExemptRescuedPass)
       ? `｜量级门豁免(${magExemptTags}：${[magExemptRescuedArm ? `${effTier}档臂` : null, magExemptRescuedPass ? '事件分<60臂' : null].filter(Boolean).join('与')}不拦，弱量级代价在总分)`
       : '';
     eventScoreBlocked = eventCompositeScore < 60 && !magExempt;
-    eventScoreReason = `事件分${impactTierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${spreadScore}${instagramSpreadAnchorActive ? `·IG影响力豁免(原${rawSpreadScore})` : ''}${web3FitSpreadAnchorActive ? `·Web3偏好传播豁免(原${rawSpreadScore})` : ''}+时效${timingScore}${web3FitDamped ? `｜Web3偏好折损×${web3FitDampCoef}(web3_user_event_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}=${eventCompositeScore}（pass线60）${magExemptSuffix}`;
+    eventScoreReason = `事件影响力${influenceScore.toFixed(1)}/5→${eventCompositeScore}${effTier !== tier ? `(${tier}档→${effTier}档锚)` : `(${effTier}档)`}${tierAnchored ? `·发布者指代锚` : ''}${web3FitAnchored ? `·Web3偏好锚(strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}${instagramSpreadAnchorActive ? '·IG证据缺失下限' : ''}${timingPenaltyActive ? `·时效override-18` : ''}${web3FitDamped ? `｜Web3偏好折损×${web3FitDampCoef}(web3_user_event_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}（pass线60）${magExemptSuffix}`;
     if (eventScoreBlocked) gateBlockReason = `事件分不足（${eventCompositeScore}<60）`;
   }
 
@@ -1539,9 +1519,11 @@ export function mapStandardAnswers(answers, context) {
       scoringResult: {
         category: isW ? 'W' : category,
         eventCompositeScore,
-        impactTierScore: isW ? null : impactTierScore,
-        spreadScore: isW ? null : spreadScore,
-        timingScore,
+        influenceScore: isW ? null : influenceScore,
+        influenceTier: isW ? null : effTier,
+        influenceFloor: isW ? null : influenceFloor,
+        timingPenalty: isW ? null : (timingPenaltyActive ? 18 : null),
+        timingScore: isW ? timingScore : null,
         wProductScore: isW ? wProduct : null,
         wInteractionScore: isW ? wInteraction : null,
       },
@@ -1571,12 +1553,8 @@ export function mapStandardAnswers(answers, context) {
         // 未命中 null（与旧 nrBlockMass 退役键区分，历史行键保留展示）
         nameEntityLowMass: neBlock?.mass ?? null,
         effectiveTiming: timing,
-        // C44 审计标记：IG 影响力兜底锚命中详情（原 dim2 可追溯，锚后值在
-        // scoringResult.spreadScore）
-        instagramSpreadAnchor: instagramSpreadAnchorActive ? { from: rawSpreadScore } : null,
-        // C94 审计标记：B 类 + web3_user_event_fit strong_fit≥0.5 的传播轴锚命中详情
-        // （原 dim2 可追溯；null=未命中——非 B 类/贴线/dim2≥18 只升不降）
-        web3FitSpreadAnchor: web3FitSpreadAnchorActive ? { from: rawSpreadScore } : null,
+        // C44 审计标记：IG 证据缺失锚命中详情（影响力下限 50）
+        instagramSpreadAnchor: instagramSpreadAnchorActive ? { fromInfluenceScore: influenceScore, floor: 50 } : null,
         // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
         // 可追溯；wInteractionScore 键照常落库不受豁免影响）
         wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
@@ -1636,7 +1614,7 @@ export function mapStandardAnswers(answers, context) {
         // （=web3_user_event_fit strong_fit+fit 概率和，J1.19 前旧缓存行无答案 → null，
         // 阈值事后校准免重跑）；系数生效（<1）才落折损详情（subjectCarrierBlock
         // 同款模式）。eventCompositeScore/事件分不足拦截由折损后值直接承载，原值可由
-        // impactTierScore+dimension2 反解。eventResonance 档位字段随题删除退役——
+        // 影响力原值反解。eventResonance 档位字段随题删除退役——
         // J1.31-J1.35 历史行的该键不再产生
         web3FitDampMass: w3fFitMass,
         web3FitDamp: web3FitDampCoef !== null && web3FitDampCoef < 1
@@ -1806,7 +1784,7 @@ export function mapStandardAnswers(answers, context) {
     stageFinalData,
     llmResult,
     promptType,
-    jevDetails: { impactTier: tier, effectiveTiming: timing, rawSpreadScore, relevance, quality, brandHijackP },
+    jevDetails: { impactTier: tier, effectiveTiming: timing, influenceScore, relevance, quality, brandHijackP },
   };
 }
 

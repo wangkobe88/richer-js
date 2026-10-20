@@ -747,8 +747,10 @@ class ExperimentNarrative {
         ${s2 ? (this._kv('总分', (sr?.eventCompositeScore ?? sr?.totalScore) != null ? `${sr.eventCompositeScore ?? sr.totalScore}（pass线60）` : null)
           + (s2IsW
             ? this._kv('W 产品分', sr?.wProductScore) + this._kv('W 交互分', sr?.wInteractionScore)
-            : this._kv('量级分', sr?.impactTierScore ?? sr?.tierScore) + this._kv('传播分', sr?.spreadScore ?? sr?.dimension2))
-          + this._kv('时效分', sr?.timingScore ?? sr?.timeliness)
+              + this._kv('时效分', sr?.timingScore ?? sr?.timeliness)
+            : this._kv('影响力', sr?.influenceScore != null ? `${sr.influenceScore}/5` : (sr?.impactTierScore ?? sr?.tierScore))
+              + this._kv('影响力档', sr?.influenceTier)
+              + this._kv('锚/扣分', [sr?.influenceFloor != null ? `下限${sr.influenceFloor}` : null, sr?.timingPenalty != null ? `时效override-${sr.timingPenalty}` : null].filter(Boolean).join('·') || null))
           + this._kv('拦截', s2po?.blockReason)
           + (s2Audit.length ? this._kv('审计', s2Audit.join('｜')) : '')
           + this._kv('算式', s2po?.reason)) : '<div class="text-xs text-gray-500">未执行</div>'}

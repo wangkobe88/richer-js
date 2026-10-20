@@ -25,7 +25,7 @@
  *      mem<2 → 拦「蹭热点但名字无口号性」；mem∈(1,2) 是旧 ≤1 臂与五腿 ≥2 带之间的死区。
  *   ③ narrativeSuperIp/narrativeSuperIpSlogan 标签：零列方案，deriveSuperIpLabels
  *      从 stage1/stage2 JSON 三路推导（缓存路/新鲜路/回测 preload），1/0/null 三态。
- * 不送分原则：豁免只翻门，分数照算（BI 关联 1 分照计=诚实 mid 56.11）。
+ * 不送分原则：豁免只翻门，分数照算（BI 关联 1 分照计=诚实 mid 53.35）。
  *
  * 覆盖：
  *   A. 四票事故反证（精确值：暗号 78.36→80.51 high / BI 65.6→56.11 mid /
@@ -116,14 +116,14 @@ async function main() {
   // no_visual 0.92 也拦）→ 修复后五腿全中放行，S 档 78.36 → high 80.51
   const mA = mapStandardAnswers(ANHO, makeContext({ tokenData: TOKENS.anho }));
   const s2A = stage2Of(mA), s3A = stage3Of(mA);
-  check('A1 暗号 stage2 放行：totalScore=78.36（S39+传播29.36+时效10）',
-    s2A.pass === true && s2A.scoringResult?.eventCompositeScore === 78.36,
+  check('A1 暗号 stage2 放行：J1.71 单题影响力 4.78→95.6',
+    s2A.pass === true && s2A.scoringResult?.eventCompositeScore === 95.6,
     { pass: s2A.pass, total: s2A.scoringResult?.eventCompositeScore });
   check('A1b 暗号五腿审计恒落：{hit:true, superIp:0.82, relPositive:0.94, relNone:0.02, mem:2, timing:expected_within_30d, strongFit:0.97}',
     JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, timing: 'expected_within_30d', strongFit: 0.97 }),
     s2A.jev?.recognizedEntitySlogan);
-  check('A1c 暗号 stage3 high 精确值：80.51（事件47.02+关联20+质量13.49）',
-    s3A.pass === true && s3A.total_score === 80.51 && s3A.category_agg === 'high'
+  check('A1c 暗号 stage3 high 精确值：J1.71 90.85（事件57.36+关联20+质量13.49）',
+    s3A.pass === true && s3A.total_score === 90.85 && s3A.category_agg === 'high'
     && s3A.relevanceScore === 20 && s3A.qualityScore === 13.49,
     { pass: s3A.pass, total: s3A.total_score, cat: s3A.category_agg });
   check('A1d 暗号 rating=high + reason 前缀「超级IP口号票豁免(C88)」+ stage3 豁免审计',
@@ -132,18 +132,18 @@ async function main() {
     { rating: mA.llmResult?.rating, exempt: s3A.jev?.recognizedEntitySloganExempt });
 
   // A2 BI：修复前 J1.29 improvised 0.62 拦（name_brand_hijack 0.56 在后）→ 修复后引申关联
-  // 入带放行；不送分：关联 1 分照计（none/lv1）→ 诚实 mid 56.11
+  // 入带放行；不送分：关联 1 分照计（none/lv1）→ 诚实 mid 53.35
   const mB = mapStandardAnswers(BI, makeContext({ tokenData: TOKENS.bi }));
   const s2B = stage2Of(mB), s3B = stage3Of(mB);
-  check('A2 BI stage2 放行：totalScore=65.6（B27+传播23.6+时效15）',
-    s2B.pass === true && s2B.scoringResult?.eventCompositeScore === 65.6,
+  check('A2 BI stage2 放行：J1.71 单题影响力 3.05→61',
+    s2B.pass === true && s2B.scoringResult?.eventCompositeScore === 61,
     { pass: s2B.pass, total: s2B.scoringResult?.eventCompositeScore });
   check('A2b BI 引申关联腿入带审计：relPositive=0.51（sem0.18+cult0.31+exact0.01+abbr0.01）/relNone=0.39',
     JSON.stringify(s2B.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.59, authorUtterance: false, relPositive: 0.51, relNone: 0.39, timing: 'within_7d', strongFit: 1 }),
     s2B.jev?.recognizedEntitySlogan);
-  check('A2c BI 不送分：关联 1 分照计 + 品牌 0.56 劫持臂放行 + 诚实 mid 56.11',
+  check('A2c BI 不送分：关联 1 分照计 + 品牌 0.56 劫持臂放行 + 诚实 mid 53.35',
     s3B.pass === true && s3B.relevanceScore === 1 && s3B.blockReason === null
-    && s3B.total_score === 56.11 && s3B.category_agg === 'mid',
+    && s3B.total_score === 53.35 && s3B.category_agg === 'mid',
     { pass: s3B.pass, rel: s3B.relevanceScore, total: s3B.total_score, cat: s3B.category_agg });
   check('A2d BI rating=mid + reason 前缀（引擎可经 narrativeSuperIpSlogan 标签消费）',
     mB.llmResult?.rating === 'mid' && /超级IP口号票豁免\(C88\)/.test(mB.llmResult?.reason || ''),
@@ -203,17 +203,17 @@ async function main() {
     { blockReason: stage2Of(m).blockReason });
   a = clone(TV); a.name_entity_memeability.score = 2;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C1b mem=2.0 边界过：五腿全中 slogan=true + stage2 pass 77',
+  check('C1b mem=2.0 边界过：五腿全中 slogan=true + stage2 pass 77.8',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === true && stage2Of(m).pass === true
-    && stage2Of(m).scoringResult?.eventCompositeScore === 77 && m.llmResult?.rating === 'high',
+    && stage2Of(m).scoringResult?.eventCompositeScore === 77.8 && m.llmResult?.rating === 'high',
     { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, pass: stage2Of(m).pass });
 
   // C2 older 豁出：蹭冷饭由时效分归 0 守（62=34+28+0），mem 地板不重复拦
   a = clone(TV); a.event_timing = { type: 'choice', choice: 'older', probabilities: { older: 1 } };
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C2 timing=older 豁出：不落 mem 地板（时效分 0 照计，62 pass）',
+  check('C2 J1.71：Jev timing 不再独立计分（override 才扣分），77.8 pass',
     stage2Of(m).blockReason !== '蹭热点但名字无口号性（mem 1.72<2）'
-    && stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 62,
+    && stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 77.8,
     { blockReason: stage2Of(m).blockReason, total: stage2Of(m).scoringResult?.eventCompositeScore });
 
   // C3 mem 答案缺失（旧缓存行）→ fail-open 不拦（五腿 mem:null 恒落观察保留）
@@ -278,21 +278,21 @@ async function main() {
     && stage2Of(m).pass === false && stage2Of(m).blockReason === '事件主体量级不足（D档）',
     { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, blockReason: stage2Of(m).blockReason });
 
-  // E2 magExempt <60 臂救（C86 D-1 聚合扩至 C88口号）：BI dim2=1 → 52<60 放行
-  a = clone(BI); a.dimension2.score = 1;
+  // E2 magExempt <60 臂救（C86 D-1 聚合扩至 C88口号）：J1.71 单题影响力 2.9→58<60 放行
+  a = clone(BI); a.event_magnitude.score = 2.9;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E2 BI dim2=1（事件分52<60）：C88实体口号 magExempt 放行 + reason 标注',
-    stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 52
+  check('E2 BI 影响力2.9→58<60：C88实体口号 magExempt 放行 + reason 标注',
+    stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 58
     && /量级门豁免\(C88实体口号：事件分<60臂不拦，弱量级代价在总分\)/.test(stage2Of(m).reason || ''),
     { pass: stage2Of(m).pass, reason: stage2Of(m).reason });
 
   // E3 对照：同 52 分无五腿（sip 0.45 断腿 + carrier existing 出 J1.29 + mass 0.47
   // 不触发骑乘改道）→ 「事件分不足（52<60）」照拦
-  a = clone(BI); a.dimension2.score = 1;
+  a = clone(BI); a.event_magnitude.score = 2.9;
   a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E3 同 52 分无豁免：照拦「事件分不足（52<60）」',
-    stage2Of(m).pass === false && stage2Of(m).blockReason === '事件分不足（52<60）',
+  check('E3 同 58 分无豁免：照拦「事件分不足（58<60）」',
+    stage2Of(m).pass === false && stage2Of(m).blockReason === '事件分不足（58<60）',
     { blockReason: stage2Of(m).blockReason });
 
   // E4 品牌劫持臂对照（BI 案发现场：name_brand_hijack 0.56 劫持了 Binance 品牌=预检关键词

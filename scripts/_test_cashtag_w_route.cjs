@@ -91,8 +91,8 @@ async function main() {
   // B2 同一答案、无 cashtag 语料 → 原 C 类路径放行（改道前后行为对照）
   const m2 = mapStandardAnswers(iNuAnswers, makeContext(iNuAnswers, null));
   check('B2a 无 cashtag 不改道：类别 C、无审计标记', m2.stage1DataToSave.category === 'C' && m2.stage1DataToSave.parsed_output.jev.categoryForced === null);
-  check('B2b C 类数学 27+26.5+15=68.5 放行', m2.stage2DataToSave.parsed_output.scoringResult.category === 'C' && m2.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 68.5 && m2.stage2DataToSave.parsed_output.pass === true, m2.stage2DataToSave.parsed_output.scoringResult);
-  check('B2c 终评 high 放行（改道前 75.68）', m2.llmResult.pass === true && m2.llmResult.rating === 'high' && m2.llmResult.score === 75.68, m2.llmResult);
+  check('B2b C 类数学 J1.71 单题影响力 3.4→68 放行', m2.stage2DataToSave.parsed_output.scoringResult.category === 'C' && m2.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 68 && m2.stage2DataToSave.parsed_output.pass === true, m2.stage2DataToSave.parsed_output.scoringResult);
+  check('B2c 终评 high 放行（改道前 75.38）', m2.llmResult.pass === true && m2.llmResult.rating === 'high' && m2.llmResult.score === 75.38, m2.llmResult);
 
   // B3 Jev 原生 W + cashtag 命中：不标改道（避免语义混乱），照常 W 数学
   const wNative = { ...iNuAnswers, event_category: { choice: 'W', probabilities: { W: 0.9, C: 0.1 } } };
