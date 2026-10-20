@@ -79,10 +79,11 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   - **J1.58 empty_content 判据收窄**（用户裁定「何一发一个问候语，在 BSC meme 币场景不是空洞行为，何况是回复另一个实质性事件」）：无主体无上下文的日常闲聊才是空洞；高影响力主体本人的公开问候/表态/简短回应=事件素材，回复实质性事件的简短回应=对该事件的参与；mapper 配套 `corpusAuthorInRegistry` → empty_content 臂不拦（审计 `emptyContentAuthorOverride`，与 C114 图证豁免同构）。
   - **J1.59 block reason 按对象分类**（用户裁定「block reason 也要划分针对事件还是针对代币」）：`event_block_reason` → `event_token_block_reason`；选项前缀化 `event_empty_content` / `event_institution_routine` / `event_marketing_gimmick` / `event_baseless_speculation` / `event_negative_hard_news` / `event_routine_content_product`（事件层）、`token_ip_reuse` / `token_circle_reachability`（代币层）；判据/阈值/作用域零改动。题面划界：empty_content/institution_routine 与 `web3_user_event_impact` 分工（是否存在事件 vs 事件多大）。
   - **J1.60 priming 修复**：J1.59 分类说明里的类别枚举（空洞/机构日常/营销噱头…）导致 C119 猫案 none 0.58→0.16、marketing 0.26→0.43（mid→low，3 次采样稳定）；删枚举只留「event_*=事件层 / token_*=代币层」短说明后恢复 mid 64.74（判据零改动）。
+  - **J1.61 玩味题删除**（用户裁定「name_entity_memeability 合并到 web3_user_name_acceptability 然后删除」）：删除独立 0-5 分玩味题（基础题 15），「内容载体/二创潜力」并入名字门（能接纳新增「所指对象有可玩/可二创内容」臂、不能接纳新增「所指对象没有任何可玩内容」臂；认知度仍归实体题）；**C88 五腿→四腿**（去 mem≥2），名字形态/玩味责任由名字门单点承担；mapper 停止读取该题、新行不再产出 referentMemeabilityScore（历史行保留）。数据依据：39 票中 mem 是唯一区分腿的仅 4 张（币安游戏/日本語版/EARLY/こんにちは），其中 3 张死因本就是名字形态、名字门已管。
 - **测试**：新增 `_test_name_entity_acceptance.cjs`（作者原话检测/第一腿双源/实体门域/empty_content 作者豁免/block 分类/源码口径）；全量零 DB 单测除存量 `_test_backtest_keyset_paging` 外全绿。
-- **182 全量回归（39 票，J1.60）**：**33 PASS / 0 FAIL / 6 OBSERVE-DEVIATION / 0 ERROR**（6 张全是既有掷骰面：C100/C72/C79/C80/C82/C113；C94 已更新 expect；C65/C81 在 J1.60 回到基线）。J1.56 首轮为 31P/1F/6O（FAIL=C94 拦截位标签变化，已更新）。
-- **C126 票终态（J1.60）**：`web3_user_name_entity_acceptance = no_entity 0.99`（中性）+ `authorUtterance=true`；**empty_content 已被作者在册豁免（J1.58）**；C88 仍断在 `mem 1.55-1.97<2`；当前拦截位=**名字门**（`web3_user_name_acceptability = not_acceptable 0.90`，P=0.29-0.37）→ **low**。结论：空洞与实体两轴已按裁定归位，剩余死因=名字形态门 + C88 口号腿（mem）——是否放行属下一批裁定。
-- **部署**：commit `aa50424`（J1.56）→ `08cf0bd`（J1.57-59）→ `cf6c171`/`36a547b`/`1bff74a`（J1.60 修复）；182 pull + 全量回归；worker/实验进程待重启加载 J1.60。
+- **182 全量回归（39 票，J1.61）**：**33 PASS / 0 FAIL / 6 OBSERVE-DEVIATION / 0 ERROR**（与 J1.60 同形；6 张=既有掷骰面 C100/C72/C79/C80/C82/C113）。J1.61 唯一显著位移：C108 EARLY low→high——mem 腿删除后四腿全中，C88 豁免接管原本的载体门（C108 fixture 的「是否豁载体门」新决策点由本裁定自动落为豁；fixture observe 面内）。J1.56 首轮为 31P/1F/6O（FAIL=C94 拦截位标签变化，已更新）。
+- **C126 票终态（J1.61）**：`web3_user_name_entity_acceptance = no_entity 0.99`（中性）+ `authorUtterance=true`；**empty_content 已被作者在册豁免（J1.58）**；**C88 四腿全中（hit:true，J1.61 去 mem 腿后）**；唯一拦截位=**名字门**（`web3_user_name_acceptability = not_acceptable 0.95`）→ **low**。结论：空洞/实体/口号三轴已全部按裁定归位，剩余死因仅「名字是否被 Web3 用户接纳」这一道题。
+- **部署**：commit `aa50424`（J1.56）→ `08cf0bd`（J1.57-59）→ `1bff74a`（J1.60 修复）→ `ef4a352`（J1.61）；182 pull + 全量回归；worker/实验进程待重启加载 J1.61。
 
 ### C125 prestage_abm_name_link 用户感知锚（P1.13）——按 web3 用户自然联想判名称关联（2026-10-20 用户裁定；批次 3）★
 
