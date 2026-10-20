@@ -73,11 +73,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **案由**：何一 `0xf0ffa405…7777`「こんにちは」（flap，CZ《Freedom of Money》日文版发售当天何一回复问候语）。C120 巨粉豁免已过时效门（主推 lag 2.88h、作者 647k 粉），Jev 真跑后仍 low：`empty_content 0.36` / `mem 1.97` / 名字门 0.90。用户裁定三条：①「super_ip 本来就应该使用语料作者身份，这应该算 super_ip 喊出的口号类」；②「name_referent 改成『币名映射实体对 Web3 用户的接受度/影响力』，低影响力例如普通币安员工就不通过——但这个 case 根本不是实体（问候语），不影响判定」；③「命名规则尽量从用户角度出发，一个针对事件、一个针对币」。
 - **改动**：①**题名按评估对象显式化**（纯 id 改名，判据零改动）：`event_finding_vs_recap` / `event_block_reason` / `event_subject_entity` / `web3_user_event_impact` / `web3_user_event_spread` / `web3_user_event_fit` / `name_event_relevance` / `name_brand_hijack` / `name_entity_memeability` / `name_entity_carrier` / `web3_user_name_acceptability` / `token_name_quality`。②`name_referent` → `web3_user_name_entity_acceptance`（**accepted / unknown / no_entity**；`no_entity` 中性不拦——问候语/截词/陈述句交名字形态门）。③`unknown ≥0.5` → **实体低影响力门**（域 B/C/D/F/G/W，规格=旧 J1.10 nrBlock；pubProxyActive 豁免；刻意 delta=截词归 no_entity 不拦，C108 已把形态责任交名字门）。④**作者原话票**：`detectAuthorUtterance`（注册表作者 ∧ 币名归一化后逐字出自主推文本）→ C88 五腿第一腿 `accepted≥0.5 ∨ authorUtterance`；state `super_ip_hit` → `corpus_author_identity`；**不要求 Jev 在实体题里因作者身份升档**（问候语如实 no_entity）。⑤`rideDetourMass` **退役**（新实体门覆盖 B/C 低影响力实体面，W 数学不触达）。⑥审计键 `nameReferent*` → `nameEntityAcceptance*`、`superIpSlogan` → `recognizedEntitySlogan`（含 FA 标签推导/前端展示链）。
-- **版本**：`JEV_QUESTIONS_VERSION` J1.55→J1.56。
-- **测试**：新增 `_test_name_entity_acceptance.cjs`（作者原话检测三形状/第一腿双源/实体门域/源码口径）；全量零 DB 单测除存量 `_test_backtest_keyset_paging` 外全绿。
-- **182 全量回归（38 票）**：31 PASS / 1 FAIL / 6 OBSERVE-DEVIATION / 0 ERROR。FAIL=C94 京小安（rating 仍 low，拦截位由名字门前移到实体门，属预期；更新 expect）；新增偏差=C100 rebondit（已知掷骰面：`parent_relationship` unclear 0.32 vs translation 0.29 → C103 fail-open → 72.7 high，fixture observe 已载）。
-- **C126 票终态（J1.56）**：`web3_user_name_entity_acceptance = no_entity 0.99`（中性）+ `authorUtterance=true`；C88 仍断在 `mem 1.55<2`；`empty_content 0.34` + 接纳度 0.90 仍拦 → **low**。结论：实体轴解耦后该票不再有额外死因，但三道形态门（空洞/mem/接纳度）仍在——是否放行属下一批裁定。
-- **部署**：commit 188ab7b；182 pull + 全量回归；worker/实验进程待重启加载 J1.56。
+- **版本**：`JEV_QUESTIONS_VERSION` J1.55→J1.56→**J1.60**（同批次三连）。
+- **后续清理（J1.57-J1.60，同日用户追加裁定）**：
+  - **J1.57 三轴归位**（「一个概念只出现一次」）：`name_entity_memeability` 删去 J1.34 越界到实体接受度轴的「影响力和符号性」措辞，只留内容载体与二创潜力（认得≠好玩；认知度归实体题、契合归偏好题）；`web3_user_name_acceptability` 收窄为纯名字形态轴——删「指向圈内符号实体」与「指向无名实体」两分支（前者归 accepted、后者归 unknown→实体门）；`token_circle_reachability` 加划界句。
+  - **J1.58 empty_content 判据收窄**（用户裁定「何一发一个问候语，在 BSC meme 币场景不是空洞行为，何况是回复另一个实质性事件」）：无主体无上下文的日常闲聊才是空洞；高影响力主体本人的公开问候/表态/简短回应=事件素材，回复实质性事件的简短回应=对该事件的参与；mapper 配套 `corpusAuthorInRegistry` → empty_content 臂不拦（审计 `emptyContentAuthorOverride`，与 C114 图证豁免同构）。
+  - **J1.59 block reason 按对象分类**（用户裁定「block reason 也要划分针对事件还是针对代币」）：`event_block_reason` → `event_token_block_reason`；选项前缀化 `event_empty_content` / `event_institution_routine` / `event_marketing_gimmick` / `event_baseless_speculation` / `event_negative_hard_news` / `event_routine_content_product`（事件层）、`token_ip_reuse` / `token_circle_reachability`（代币层）；判据/阈值/作用域零改动。题面划界：empty_content/institution_routine 与 `web3_user_event_impact` 分工（是否存在事件 vs 事件多大）。
+  - **J1.60 priming 修复**：J1.59 分类说明里的类别枚举（空洞/机构日常/营销噱头…）导致 C119 猫案 none 0.58→0.16、marketing 0.26→0.43（mid→low，3 次采样稳定）；删枚举只留「event_*=事件层 / token_*=代币层」短说明后恢复 mid 64.74（判据零改动）。
+- **测试**：新增 `_test_name_entity_acceptance.cjs`（作者原话检测/第一腿双源/实体门域/empty_content 作者豁免/block 分类/源码口径）；全量零 DB 单测除存量 `_test_backtest_keyset_paging` 外全绿。
+- **182 全量回归（39 票，J1.60）**：**33 PASS / 0 FAIL / 6 OBSERVE-DEVIATION / 0 ERROR**（6 张全是既有掷骰面：C100/C72/C79/C80/C82/C113；C94 已更新 expect；C65/C81 在 J1.60 回到基线）。J1.56 首轮为 31P/1F/6O（FAIL=C94 拦截位标签变化，已更新）。
+- **C126 票终态（J1.60）**：`web3_user_name_entity_acceptance = no_entity 0.99`（中性）+ `authorUtterance=true`；**empty_content 已被作者在册豁免（J1.58）**；C88 仍断在 `mem 1.55-1.97<2`；当前拦截位=**名字门**（`web3_user_name_acceptability = not_acceptable 0.90`，P=0.29-0.37）→ **low**。结论：空洞与实体两轴已按裁定归位，剩余死因=名字形态门 + C88 口号腿（mem）——是否放行属下一批裁定。
+- **部署**：commit `aa50424`（J1.56）→ `08cf0bd`（J1.57-59）→ `cf6c171`/`36a547b`/`1bff74a`（J1.60 修复）；182 pull + 全量回归；worker/实验进程待重启加载 J1.60。
 
 ### C125 prestage_abm_name_link 用户感知锚（P1.13）——按 web3 用户自然联想判名称关联（2026-10-20 用户裁定；批次 3）★
 

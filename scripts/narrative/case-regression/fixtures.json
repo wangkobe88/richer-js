@@ -513,7 +513,7 @@
       },
       "note": "何一「こんにちは」flap 票：C120 巨粉豁免过时效门后 Jev 真跑；J1.56 实体题 no_entity 中性 + authorUtterance=true，仍被 empty_content/mem/接纳度三形态门拦（low）",
       "addedAt": "2026-10-20",
-      "observe": "authorUtterance=true 为确定性代码事实（何一在册 ∧ こんにちは逐字主推）；rating 的低依赖三形态门：block_reason empty_content 掷骰面（0.34 vs institution_routine，两臂均拦）、mem 1.55-1.97<2 断 C88 口号腿、web3_user_name_acceptability 0.90 not_acceptable——若 mem≥2 且空门翻转，本票可 high（放行属未裁定面）。"
+      "observe": "authorUtterance=true 为确定性代码事实（何一在册 ∧ こんにちは逐字主推）；J1.58 起 empty_content 已被作者在册豁免（emptyContentAuthorOverride），当前死因=名字门（web3_user_name_acceptability not_acceptable 0.90，P=0.29-0.37）+ C88 mem 腿（1.55-1.97<2）。若名字门掷骰翻 acceptable 且 mem≥2，本票可 high（放行属未裁定面）。"
     }
   ]
 }
