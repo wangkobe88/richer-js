@@ -146,7 +146,7 @@ async function _collectOnce(q, cfg) {
   }));
   if (Object.keys(productsData).length === 0) return null; // 全失败 → null 维持原拒
 
-  // union：tweet_id 去重 + 剔除纯转推（'RT @' 开头——防 1 原推+2 转推凑 minTweets）
+  // union：tweet_id 去重 + 剔除纯转推（'RT @' 开头——防 1 原推被转推灌水成「多条语料」）
   const seen = new Set();
   const union = [];
   for (const { tweets } of Object.values(productsData)) {

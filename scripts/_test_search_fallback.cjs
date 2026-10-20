@@ -244,8 +244,10 @@ async function main() {
     assert(hasSearchCorpus(ev(2, 3)) === true, 'C4 2 条弱互动 → 有语料');
     assert(hasSearchCorpus(null) === false, 'C5 null 输入 fail-safe');
     const FB = src('src/narrative/analyzer/services/twitter-search-fallback.mjs');
-    assert(!FB.includes('meetsBypassThreshold') && !FB.includes('minTopEngagement') && !FB.includes('minTweets'),
-      'C6 ★源码无互动/条数门槛（C130 裁定：只通过语料了解叙事）');
+    const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    const FBCode = stripComments(FB);
+    assert(!FBCode.includes('meetsBypassThreshold') && !FBCode.includes('minTopEngagement') && !FBCode.includes('minTweets'),
+      'C6 ★可执行代码无互动/条数门槛（C130 裁定：只通过语料了解叙事；注释中的历史说明除外）');
   }
 
   // ═══ D/E. collectSearchEvidence 缓存语义 + inflight ═══
@@ -503,7 +505,9 @@ async function main() {
     const A = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
     assert(A.includes("timing.wrap('search.twitter'"), 'I1 timing 段名 search.twitter');
     assert(A.includes('accountChainPromise, precheckPromise, issuerCaPromise, searchPromise'), 'I2 Promise.all 恰四元含 searchPromise');
-    assert(A.includes("ruleName === 'no_public_info' && searchEvidenceReady"), 'I3 旁路条件字面（no_public_info && 证据达阈）');
+    assert(A.includes("ruleName === 'no_public_info' && searchEvidenceReady"), 'I3 旁路条件字面（no_public_info && 有语料）');
+    assert(A.includes('hasSearchCorpus(searchEvidence)') && !A.includes('meetsBypassThreshold'),
+      'I3b ★analyzer 用 hasSearchCorpus（无语料才拒），互动/条数门槛已退役');
     assert(A.includes('hasValidDataForAnalysis(fetchResults) || bypassedBySearch'), 'I4 第二道门放行');
     assert(A.includes('performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls,'), 'I5 performPreCheck 调用签名未变（旁路在 analyzer 层不在 precheck 层）');
     assert(A.includes('search_evidence: searchEvidence'), 'I6 证据浅拷贝附加 raw_api_data');
@@ -559,7 +563,7 @@ async function main() {
       const segs1 = (timing1 || []).map(t => t.seg);
       assert(segs1.includes('search.twitter'), 'J1a timing 含 search.twitter 段', JSON.stringify(segs1));
       assert(s1.pre_check_result === null, 'J1b ★save.pre_check_result === null（旁路=不再被 pre_check 形状遮蔽/穿透/排除）');
-      assert(s1.raw_api_data?.search_evidence?.thresholdMet === true, 'J1c save.raw_api_data.search_evidence 在场（达阈值）');
+      assert(s1.raw_api_data?.search_evidence?.hasCorpus === true, 'J1c save.raw_api_data.search_evidence 在场（有语料）');
       assert(r1.meta?.searchBypassed === true && r1.meta.preCheckTriggered === false, 'J1d meta.searchBypassed=true / preCheckTriggered=false');
       assert(s1.prompt_type !== 'no_data', 'J1e 未死在第二道门 no_data 兜底');
 
@@ -586,18 +590,27 @@ async function main() {
       assert(sFail.pre_check_result?.details?.ruleName === 'no_public_info', 'J2c 失败维持原拒（ruleName 不变）');
       assert(!sFail.pre_check_result?.details?.searchEvidence, 'J2d 失败（evidence=null）不注摘要键');
 
-      // J3 空语料 + 未达阈值 → ruleName 保重试域 + additive 摘要
+      // J3 空语料 + 低互动语料（2 条 maxEng=3）→ 仍旁路走 Jev（C130 核心裁定）
       cfg.searchFallback = CFG_FULL;
       searchStub.error = null; searchStub.calls = [];
       searchStub.impl = () => ({ tweets: [normTweet('w1', { fav: 3, rt: 0 }), normTweet('w2', { fav: 2, rt: 0 })] });
-      await NarrativeAnalyzer.analyze(EMPTY_TOKEN('Weak Headline X', '0xcccc1111cccc1111cccc1111cccc1111cccc1111'), { _timing: [] });
+      const r3 = await NarrativeAnalyzer.analyze(EMPTY_TOKEN('Weak Headline X', '0xcccc1111cccc1111cccc1111cccc1111cccc1111'), { _timing: [] });
       const s3 = lastSave();
-      assert(s3.pre_check_result?.details?.ruleName === 'no_public_info', 'J3a ★未达阈值 ruleName 不动（1800s 重试域保真，classifyFailShape 仍命中）');
-      assert(s3.pre_check_result?.details?.searchEvidence?.bypass === false
-        && s3.pre_check_result?.details?.searchEvidence?.tweets === 2
-        && s3.pre_check_result?.details?.searchEvidence?.maxEngagement === 3,
-        'J3b additive searchEvidence 摘要在场（观测为什么搜索没救它）', JSON.stringify(s3.pre_check_result?.details?.searchEvidence));
-      assert(!s3.raw_api_data?.search_evidence, 'J3c 未旁路不落 raw_api_data.search_evidence');
+      assert(s3.pre_check_result === null, 'J3a ★低互动语料 → pre_check_result=null（不卡互动，交 Jev 判叙事）');
+      assert(s3.raw_api_data?.search_evidence?.hasCorpus === true && s3.raw_api_data.search_evidence.uniqueTweets === 2,
+        'J3b 语料证据落 raw_api_data.search_evidence（hasCorpus=true，2 条）');
+      assert(r3.meta?.searchBypassed === true && r3.meta.preCheckTriggered === false, 'J3c meta.searchBypassed=true / preCheckTriggered=false');
+
+      // J3d 零语料 → ruleName 保重试域 + additive 摘要（无可判语料才维持原拒）
+      searchStub.calls = [];
+      searchStub.impl = () => ({ tweets: [] });
+      await NarrativeAnalyzer.analyze(EMPTY_TOKEN('Empty Headline Y', '0xcccc2222cccc2222cccc2222cccc2222cccc2222'), { _timing: [] });
+      const s3d = lastSave();
+      assert(s3d.pre_check_result?.details?.ruleName === 'no_public_info', 'J3d ★零语料 ruleName 不动（1800s 重试域保真）');
+      assert(s3d.pre_check_result?.details?.searchEvidence?.bypass === false
+        && s3d.pre_check_result?.details?.searchEvidence?.tweets === 0,
+        'J3e additive searchEvidence 摘要（tweets=0, bypass=false）', JSON.stringify(s3d.pre_check_result?.details?.searchEvidence));
+      assert(!s3d.raw_api_data?.search_evidence, 'J3f 零语料不落 raw_api_data.search_evidence');
 
       // J4 enabled:false / 段缺失 → 零触达
       cfg.searchFallback = { enabled: false };
@@ -619,7 +632,7 @@ async function main() {
       try {
         await NarrativeAnalyzer.analyze(EMPTY_TOKEN('Broken Cfg Tokn', '0xeeee1111eeee1111eeee1111eeee1111eeee1111'), { _timing: [] });
       } catch { threwJ5 = true; }
-      assert(threwJ5, 'J5 enabled 但 products/count/bypass 残缺 → analyze throw fail-loud');
+      assert(threwJ5, 'J5 enabled 但 products/count 残缺 → analyze throw fail-loud');
 
       // J6 非空语料票不触发搜索（有 twitter URL）
       cfg.searchFallback = CFG_FULL;
