@@ -197,7 +197,7 @@ async function main() {
       JSON.stringify(r3?.details?.ruleName));
   }
 
-  // ═══ F. 豁免桶互动臂（C130 后：小作者裸旧推=第③类豁免；巨触达反证拦）═══
+  // ═══ F. 豁免桶互动臂（C132 后：小作者裸旧推=第③类豁免；巨触达反证拦）═══
   console.log('══ F. 互动臂豁免（4500 粉/600 赞）══');
   {
     const viralTweet = (lagSec, followers = 4500) => ({
@@ -208,13 +208,13 @@ async function main() {
       metrics: { favorite_count: 600, retweet_count: 50 },
       created_at: iso(ANCHOR_SEC - lagSec),
     });
-    // C130 第③类：互动臂小作者（4500 粉未收录）裸旧推 → 豁免交 Jev 软评
-    // （C74 旧语义无硬界放 / C104 旧语义拦 / C130 起第③类豁免——三轮语义演进锚）
+    // C132 第③类：互动臂小作者（4500 粉未收录）裸旧推 → 豁免交 Jev 软评
+    // （C74 旧语义无硬界放 / C104 旧语义拦 / C132 起第③类豁免——三轮语义演进锚）
     const r7d = await run(makeTokenData(), viralTweet(7 * 24 * 3600));
     assert(r7d === null,
-      'F1 互动臂 4500 粉 lag=7d 裸推 → 放（C130 第③类：触达有限用不烂；C104 旧语义拦）',
+      'F1 互动臂 4500 粉 lag=7d 裸推 → 放（C132 第③类：触达有限用不烂；C104 旧语义拦）',
       JSON.stringify(r7d?.details));
-    // 巨触达反证（C130「粉≥50万即拦」）：同形状作者 60 万粉 → 回落拦
+    // 巨触达反证（C132「粉≥50万即拦」）：同形状作者 60 万粉 → 回落拦
     const r7dMega = await run(makeTokenData(), viralTweet(7 * 24 * 3600, 600000));
     assert(r7dMega?.details?.ruleName === 'expired_tweet' && r7dMega?.details?.tweetType === 'direct_tweet',
       'F1\' 互动臂 60 万粉 lag=7d 裸推 → 拦（触达量主轴：未收录巨粉旧推仍用烂形状）',
@@ -292,6 +292,83 @@ async function main() {
     assert(pcsK.includes('function _tweetLagSec') && pcsK.includes('hasFreshCarrier'), 'K9 判定链源码锁');
   }
 
+  // ═══ M. C132 高用烂风险作者门（混混猫案 0xb10b2c02…7777，2026-10-20）═══
+  console.log('══ M. C132 时效豁免四类——用烂风险触达量主轴 ══');
+  {
+    const DAY = 24 * 3600;
+    // 混混猫现场形状：four_meme_Fora（SUPER_IP_REGISTRY tier A 收录！）23917 粉
+    // 活动收官 recap，token 创建 lag ≈ 950348s(11d) 裸推无载体——C132 前必拦
+    // （expired_tweet low 终判），裁定第③类豁免。用真实 screen_name 锁「注册表
+    // 命中但触达 <50万 → 豁免」（注册表 tier 无触达维度的归类偏差由本门修正）
+    const hunmaoLag = 950348;
+    const hunmaoTweet = {
+      type: 'tweet',
+      text: '✔️ DeBox｜BNC4 社区之星交易赛圆满结束 恭喜 $混混猫 社区 荣获本活动社区之星 🌟',
+      author_screen_name: 'four_meme_Fora',
+      author_followers_count: 23917,
+      metrics: { favorite_count: 4, retweet_count: null },
+      created_at: iso(ANCHOR_SEC - hunmaoLag),
+    };
+    const rM1 = await run(makeTokenData(), hunmaoTweet);
+    assert(rM1 === null,
+      'M1 混混猫现场反证：four_meme_Fora(注册表 tier A) 23917 粉 11d 裸推 → 放（第③类慢热叙事；C132 前必拦）',
+      JSON.stringify(rM1?.details));
+    // 判定函数直测：注册表命中+中等触达=false（裁定原型）
+    const { isHighWearRiskAuthor } = await import('../src/narrative/analyzer/services/tweet-type-classifier.mjs');
+    assert(isHighWearRiskAuthor(hunmaoTweet) === false, 'M1b isHighWearRiskAuthor(four_meme_Fora 23917 粉)=false');
+    // 同形状巨触达（注册表命中+粉≥50万）→ 拦（真超级 IP 旧推）
+    const megaFora = await run(makeTokenData(), { ...hunmaoTweet, author_followers_count: 600000 });
+    assert(megaFora?.details?.ruleName === 'expired_tweet' && megaFora?.details?.tweetType === 'direct_tweet',
+      'M2 同形状粉改 60 万 → 拦（第②类：注册表命中∧巨触达）', JSON.stringify(megaFora?.details));
+    assert(megaFora?.details?.staleDirectLagSec === hunmaoLag, 'M2b staleDirectLagSec 审计落值（回落形状保持）');
+    // 未收录巨粉（Dexerto/K1 形状）→ 拦（「粉≥50万即拦」裁定）
+    const megaUnknown = await run(makeTokenData(), { ...hunmaoTweet, author_screen_name: 'ut_dexerto_shape', author_followers_count: 800000 });
+    assert(megaUnknown?.details?.ruleName === 'expired_tweet',
+      'M3 未收录 80 万粉裸旧推 → 拦（触达量主轴，收录与否无关）', JSON.stringify(megaUnknown?.details?.ruleName));
+    assert(isHighWearRiskAuthor({ author_screen_name: 'ut_dexerto_shape', author_followers_count: 800000 }) === true,
+      'M3b isHighWearRiskAuthor(未收录 80 万粉)=true');
+    // 未收录中等触达 → 第③类主体豁免
+    assert(isHighWearRiskAuthor({ author_screen_name: 'ut_mid_author', author_followers_count: 23917 }) === false,
+      'M4 isHighWearRiskAuthor(未收录 23917 粉)=false（第③类主体）');
+    // 粉缺失：注册表命中 → 拦（fail-保守：收录是唯一触达证据）；未命中 → 放
+    const czNoFollowers = { ...hunmaoTweet, author_screen_name: 'cz_binance', author_followers_count: undefined };
+    const rM5 = await run(makeTokenData(), czNoFollowers);
+    assert(rM5?.details?.ruleName === 'expired_tweet',
+      'M5 cz_binance 粉缺失 11d 裸推 → 拦（fail-保守：注册表命中即唯一触达证据，C86 null≠0）',
+      JSON.stringify(rM5?.details?.ruleName));
+    assert(isHighWearRiskAuthor(czNoFollowers) === true, 'M5b isHighWearRiskAuthor(cz_binance 粉缺失)=true');
+    // 未收录+粉缺失要在 direct 桶必须互动臂进桶（粉缺失时 classifier 粉丝臂/低粉臂
+    // 全不触发，4 赞混混推会落 unknown 桶在 300s 拦——与本门无交叠）
+    const unknownNoFollowers = {
+      ...hunmaoTweet, author_screen_name: 'ut_no_follower_data',
+      author_followers_count: undefined, metrics: { favorite_count: 600, retweet_count: 50 },
+    };
+    const rM6 = await run(makeTokenData(), unknownNoFollowers);
+    assert(rM6 === null,
+      'M6 未收录+粉缺失（互动臂进 direct 桶）11d 裸推 → 放（缺失时名单是唯一信号，未命中=普通作者默认非超级 IP）',
+      JSON.stringify(rM6?.details?.ruleName));
+    assert(isHighWearRiskAuthor(unknownNoFollowers) === false, 'M6b isHighWearRiskAuthor(未收录+粉缺失)=false');
+    assert(isHighWearRiskAuthor({}) === false, 'M6c 全缺输入=false（无触达证据按普通作者）');
+    // 触达门边界：499999/500000
+    assert(isHighWearRiskAuthor({ author_followers_count: 499999 }) === false, 'M7a 粉 499999 → 非高用烂风险');
+    assert(isHighWearRiskAuthor({ author_followers_count: 500000 }) === true, 'M7b 粉恰 500000 → 高用烂风险（≥ 含边界）');
+    // 30d 软锚保持（C132 豁免的上界在 mapper 层 C75 管，precheck 不拦）
+    const rM8 = await run(makeTokenData(), { ...hunmaoTweet, created_at: iso(ANCHOR_SEC - 40 * DAY) });
+    assert(rM8 === null,
+      'M8 中等触达 40d 裸推 → precheck 放（C75 mapper 30d 软锚管上界，Jev 层归 older）',
+      JSON.stringify(rM8?.details?.ruleName));
+    const mapperSrc = src('src/narrative/analyzer/llm/jev-result-mapper.mjs');
+    assert(mapperSrc.includes('const SOURCE_STALE_SEC = 30 * 86400;'),
+      'M8b C75 SOURCE_STALE_SEC=30d 源码锁（第③类豁免上界仍由软层锚管）');
+    // 源码口径锁：判定函数接线 + 触达门常量
+    const pcsM = src('src/narrative/analyzer/services/pre-check-service.mjs');
+    assert(pcsM.includes('isHighWearRiskAuthor') && pcsM.includes('C132'),
+      'M9a pre-check-service 接线 isHighWearRiskAuthor（C132 注释在）');
+    const ttcM = src('src/narrative/analyzer/services/tweet-type-classifier.mjs');
+    assert(ttcM.includes('MEGA_REACH_FOLLOWERS: 500000') && ttcM.includes('export function isHighWearRiskAuthor'),
+      'M9b classifier MEGA_REACH_FOLLOWERS=500000 + 导出判定函数');
+  }
+
   // ═══ L. C120 interpretive_reply 巨粉豁免（f8ab/Burn N Burn 案）═══
   console.log('══ L. C120 interpretive_reply 巨粉豁免 ══');
   {
@@ -367,8 +444,8 @@ async function main() {
   console.log('══ I. 源码口径 ═══');
   {
     const pcs = src('src/narrative/analyzer/services/pre-check-service.mjs');
-    assert(pcs.includes("import { classifyTweetType, THRESHOLDS } from './tweet-type-classifier.mjs';"),
-      'I1 pre-check-service import classifyTweetType（C120 起兼 import THRESHOLDS 同尺豁免）');
+    assert(pcs.includes("import { classifyTweetType, THRESHOLDS, isHighWearRiskAuthor } from './tweet-type-classifier.mjs';"),
+      'I1 pre-check-service import classifyTweetType（C120 起兼 import THRESHOLDS 同尺豁免；C132 起兼 import isHighWearRiskAuthor）');
     assert(pcs.includes('const NON_EXEMPT_TWEET_FRESH_SEC = 300;'),
       'I2 常量=300（relocate 旧买门口径）');
     assert(pcs.includes('lagSec < NON_EXEMPT_TWEET_FRESH_SEC'),

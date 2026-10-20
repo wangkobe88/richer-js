@@ -69,6 +69,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C132 时效豁免四类框架——用烂风险触达量主轴（C104 回落拦适用集收窄）（2026-10-20 用户裁定）★
+
+- **案由**：`0xb10b2c022a717a66fa627c9c9ce73779b5347777`（symbol `混混猫`，name `THugcat`，fourmeme，taxToken）。语料=Four.Meme Fora（`four_meme_Fora`，23917 粉认证号）2026-10-09 10:13 UTC 的「DeBox｜BNC4 社区之星交易赛圆满结束，恭喜 $混混猫 社区荣获社区之星」活动收官 recap；token 2026-10-20 10:12 UTC 创建（分析距创建仅 2s），主推 lag 950348s（≈11d）→ direct_tweet 豁免桶被 C104 主从结构门回落（源头 >24h 无新载体=「旧推用烂形状」）→ expired_tweet low，Jev 未跑。用户裁定：**主推不属于时效洗白**——「作者不是超级IP。影响力中等偏上，被发现这个叙事可能需要时间，而且也不会被用烂，反而可以豁免」。
+- **四类框架（用户裁定）**：①超级 IP 新鲜推（≤24h）：豁免（C74 立案原型保持）②**高用烂风险作者**旧推（>24h 无新载体）：拦（C104 形状保持）③**中等偏上触达作者**旧推：豁免交 Jev 软评（本裁定新增——慢热叙事发酵需要时间+触达有限用不烂，活动收官 recap 是自然节奏非洗白）④angle_seeking 等非豁免桶：300s 拦（保持）。第③类上界由 C75 mapper 30d 软锚管（precheck 层不拦，Jev 层归 older）。
+- **用烂风险判据（三轮裁定收敛，`isHighWearRiskAuthor`）**：触达量是真轴，注册表收录只是粉缺失时的辅助——**粉已知 → ≥ `MEGA_REACH_FOLLOWERS`(50万) 即拦**（收录与否无关：CZ 1299 万/未收录 Dexerto 145 万同形，「粉≥50万即拦」）；粉已知 <50万 → 第③类豁免（`four_meme_fora` 在 SUPER_IP_REGISTRY tier A 但 23917 粉——**注册表 tier 无触达维度是本案暴露的归类偏差**，机械查表与本裁定矛盾由触达门修正）；**粉缺失（null）→ 看收录**：注册表/高影响力名单命中拦（fail-保守：收录是唯一触达证据，C86 null≠0 同教训），未命中放（普通作者默认非超级 IP）。
+- **改动**：①`tweet-type-classifier.mjs`：THRESHOLDS 增 `MEGA_REACH_FOLLOWERS: 500000` + 导出 `isHighWearRiskAuthor(twitterInfo)`；②`pre-check-service.mjs` 规则 2.1 C104 门：无新载体回落前判作者层级——高用烂风险照旧回落拦，否则第③类豁免（log 留痕，放行票无落库 details）；③题集/mapper 零改动（precheck 纯代码门，不 bump JEV_QUESTIONS_VERSION）。
+- **单测**（`_test_precheck_tweet_freshness_bucket.cjs` M 节 + F 节改写，97/0）：混混猫现场反证（four_meme_Fora 11d 裸推 → 放）/注册表命中+巨粉（60 万）→ 拦/未收录巨粉（80 万，Dexerto 形状）→ 拦/未收录中等粉+互动臂 → 放/cz_binance 粉缺失 → 拦（fail-保守）/未收录粉缺失（互动臂进桶）→ 放/触达门边界 499999-500000/C75 30d 软锚源码锁/`staleDirectLagSec` 审计键回落形状保持。F 节翻转=裁定内（互动臂小作者 4500 粉裸旧推从 C104 拦改第③类豁免，新增 60 万粉反证锚拦截面）。
+- **编号坑再现**：立案时 C130/C131 已被并行会话占用（돼지 H 名字门案/股城搜索兜底案），本 case 顺延 C132——**立 case 前必须 grep 台账+git log 双查**。
+- **部署**：182 pull + 叙事 worker 重启生效；live 实验 `37b19a9f` 引擎内直调须实验重启；混混猫定向重析验证（需失效缓存行）+ case-regression 全量对拍待跑。
+
 ### C131 空语料搜索兜底不卡互动——语料非空即交 Jev 判叙事（2026-10-20 用户裁定）★
 
 - **案由**：`0xaacbc156435dbab7815a61bccba1c827e52a7777`（symbol `股城`，name `STOCKOPOLIS`，flap）。flap metadata 只有「股城是建在 BNB Chain 上的链上城市」（IPFS 不可变），无任何社媒/网站链接 → precheck 规则 4-A `no_public_info` 秒拒，Jev 从未运行（low 10）。用户指令「你再取一下数据看看。空语料搜索兜底也开启呀」→ 开启 searchFallback 后实测：英文名查询 `"STOCKOPOLIS" since:2026-10-13` 命中 9 条、最大互动 4（旧阈值 200 不可达）；手工查中文 symbol `"股城"` 命中 16 条、最大互动 155（@MEJ50749 毛毛姐官宣 131 赞+12 转，官方号 @STOCK__OPOLIS 在场）——仍低于旧阈值。用户随即裁定：「为什么要卡互动呢？不卡，只通过语料了解叙事」。
