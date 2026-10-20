@@ -291,7 +291,6 @@ const BLOCK_LABELS = {
   event_empty_content: '空洞内容',
   event_institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
-  event_marketing_gimmick: '营销噱头',
   event_baseless_speculation: '无据猜测',
   token_ip_reuse: 'IP低质复用',
   event_negative_hard_news: '负面硬新闻事件',
@@ -340,7 +339,6 @@ const BLOCK_SCOPE = {
   // J1.45（C110 扫描后裁定）扩全域：原 ['W','B'] 跨类空洞 261 行（E123/A104/
   // C75/D63…，high/mid 逃逸 25 票实买 6 票，noneP 全<0.5）——「营销噱头无实质
   // 产品」语义不分类别；pubProxy/platformOfficial 豁免仍在拦截位前置不受影响
-  event_marketing_gimmick: 'all',
   // J1.53（C122）桶键断代：新键=现役；旧键 entry 保留（旧缓存行/旧 fixture
   // 形状的 choice 仍按同域判定，不因改名改变存量语义）
   token_circle_reachability: ['A'],
@@ -1040,7 +1038,7 @@ export function mapStandardAnswers(answers, context) {
   // 第三方骑乘发币时，按发布者知名度指代计分：
   // - nameReferentBlock / 骑乘改道豁免——等同 super_ip≥0.5 放行侧语义（Jev 对
   //   发布者知名度的知识缺口五轮实测 super_ip 0.16→0.31 压不过 0.5 线）；
-  // - event_marketing_gimmick argmax 豁免——官方域名=具体产品，与「无任何实质产品」的
+  // - （J1.64 已删 event_marketing_gimmick 选项——噱头并入影响力轴）
   //   噱头定义直接矛盾（CUE 本轮 argmax gimmick 0.30/none 0.29 抖动即此形状）；
   // - 量级 A 档锚（effTier）——题面「领域知名大IP→A档起」Jev 执行不下去（magnitude
   //   稳定 B 档），发布者知名度由代码事实锚定；superIP 快车道 S 级预评分同构
@@ -1396,10 +1394,9 @@ export function mapStandardAnswers(answers, context) {
   } else if (blockChoice !== 'none' && noneProb < 0.5
     // J1.16 角色IP豁免：argmax 命中 rcp 且类别为 A（形象IP/角色）时不拦，与概率门同语义
     && !(blockChoice === 'event_routine_content_product' && category === 'A')
-    // J1.18 发布者指代豁免：官方域名=具体产品落地，与 event_marketing_gimmick
+    // J1.18 发布者指代豁免：官方域名=具体产品落地（J1.64 起 gimmick 选项已删，本注释仅存史）
     // 「无任何实质产品」的定义直接矛盾（CUE 本轮 gimmick 0.30/none 0.29 抖动即此
     // 形状——官方域名的存在本身就是反证），不拦
-    && !(pubProxyActive && blockChoice === 'event_marketing_gimmick')
     // C56 平台官方源豁免（FlapGuy 案实际拦截点在此位：argmax event_institution_routine
     // 0.55 / none 0.30，rcp 概率只有 0.1 够不着概率门）——币安/flap 等币安链原生
     // 平台官方账号的实质内容推不算「机构日常运营/常规内容产品宣传」，与 superIP

@@ -57,8 +57,9 @@ async function main() {
   const tier = (i) => mag.criteria[i];
   check('B1 D 档双锚', tier(1).includes('①陈述者关联') && tier(1).includes('②陈述者无关'));
   check('B2 C 档双锚', tier(2).includes('①陈述者关联') && tier(2).includes('②陈述者无关'));
-  check('B3 C 档形状① 保留粉丝锚（<4万普通KOL/第三方小号——形状①语义正确不动）',
-    tier(2).includes('粉丝<4万的普通KOL/第三方小号'));
+  check('B3 J1.64：C 档形状① 改用户侧认知锚（账号粉丝量只作覆盖上限，不再有粉丝<4万锚）',
+    !tier(2).includes('粉丝<4万') && tier(2).includes('圈内知名度但未形成用户侧可调动性')
+    && mag.instructions.includes('账号粉丝量、机构规模只是覆盖上限'));
   check('B4 C 档「无源可溯」封顶保留（7777 无主作业票防线）',
     tier(2).includes('无法从语料与常识追溯') && tier(2).includes('最高到此档'));
   check('B5 B 档双锚 + 形状②含「被十万粉级以上KOL主动报道扩散」',

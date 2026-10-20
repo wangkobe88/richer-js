@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.62（J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.62', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.64（J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.64', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 15, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -81,10 +81,11 @@ async function main() {
     && qs.web3_user_name_entity_acceptance.instructions.includes('配图中真实出现的形象'), null);
   check('A7 event_subject_entity 2 桶（product_entity/other_entity）',
     Object.keys(qs.event_subject_entity.criteria).length === 2 && 'product_entity' in qs.event_subject_entity.criteria, null);
-  check('A8 event_token_block_reason 9 桶（C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative）',
-    Object.keys(qs.event_token_block_reason.criteria).length === 9
+  check('A8 event_token_block_reason 8 桶（C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative + J1.64 退役 event_marketing_gimmick）',
+    Object.keys(qs.event_token_block_reason.criteria).length === 8
     && !('regional_event' in qs.event_token_block_reason.criteria) && !('subject_unqualified' in qs.event_token_block_reason.criteria)
-    && !('low_quality_derivative' in qs.event_token_block_reason.criteria), null);
+    && !('low_quality_derivative' in qs.event_token_block_reason.criteria)
+    && !('event_marketing_gimmick' in qs.event_token_block_reason.criteria), null);
   check('A8b C113 token_ip_reuse 边界重写：仅拦纯蹭名+无意义修改两形状，有意义的修改/变形不拦（用户裁定「合理即可」）',
     qs.event_token_block_reason.criteria.token_ip_reuse.includes('纯蹭名') && qs.event_token_block_reason.criteria.token_ip_reuse.includes('无意义修改')
     && qs.event_token_block_reason.criteria.token_ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
@@ -106,15 +107,15 @@ async function main() {
       (rActive.llmResult.reason || '').includes('IP低质复用') && rActive.llmResult.rating === 'low', rActive.llmResult.reason);
   }
 
-  // A8e J1.45（C110 扫描后裁定）gimmick 扩全域行为证明：E 类票 argmax=
-  // event_marketing_gimmick 原跨类空洞不拦 → 现拦（261 行空洞面的机器证明）
+  // A8e J1.64：marketing_gimmick 选项已删除（噱头并入影响力轴）——argmax 用
+  // 存活桶 event_baseless_speculation 验证全域 argmax 机制仍在
   {
     const aHole = baseAnswers();
     aHole.event_category = { choice: 'E', probabilities: { E: 0.8 } };
-    aHole.event_token_block_reason = { choice: 'event_marketing_gimmick', probabilities: { none: 0.2, event_marketing_gimmick: 0.6 } };
+    aHole.event_token_block_reason = { choice: 'event_empty_content', probabilities: { none: 0.2, event_empty_content: 0.6 } };
     const rHole = mapStandardAnswers(aHole, stdCtx('TST', 'TST'));
-    check('A8e gimmick 扩全域：E 类 argmax=event_marketing_gimmick 拦（J1.45 前跨类空洞）',
-      rHole.llmResult.rating === 'low' && (rHole.llmResult.reason || '').includes('营销噱头'), rHole.llmResult.reason);
+    check('A8e 全域 argmax 机制（J1.64 gimmick 删后以 event_empty_content 验证）：E 类照拦',
+      rHole.llmResult.rating === 'low' && (rHole.llmResult.reason || '').includes('空洞内容'), rHole.llmResult.reason);
   }
 
   // A9 J1.45 dim2 同轴锚删除：题面不再要求「档位应基本一致」（0.85 同轴实证=
@@ -158,7 +159,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.62'"), 'J1.53 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.64'"), 'J1.53 常量缺失');
 
     // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
