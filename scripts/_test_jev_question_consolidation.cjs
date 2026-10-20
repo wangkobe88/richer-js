@@ -127,8 +127,8 @@ async function main() {
     check('A9 J1.71 三合一：web3_user_event_spread 题删除；impact 题面声明唯一事件价值分+传播/时效内化',
       qs.web3_user_event_spread === undefined
       && qs.web3_user_event_impact.instructions.includes('唯一事件价值题')
-      && qs.web3_user_event_impact.instructions.includes('传播面与时效都是影响力的内在证据')
-      && qs.web3_user_event_impact.instructions.includes('不另设独立题、不单独计分'),
+      && qs.web3_user_event_impact.instructions.includes('传播面与时序不是独立加分项')
+      && qs.web3_user_event_impact.instructions.includes('反应的来源'),
       Object.keys(qs).filter(k => k.includes('spread') || k.includes('impact')));
   }
 
@@ -142,9 +142,9 @@ async function main() {
     const { join } = require('node:path');
     const qsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
     const sbSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
-    check('A10a event_magnitude A 类找角度锚：主体=被借势 IP 本身、世界知识可判、载体账号数据不参与',
-      qs.web3_user_event_impact.instructions.includes('找角度/借势语料（形状②，J1.46）')
-      && qs.web3_user_event_impact.instructions.includes('不代表IP量级、不参与定档'),
+    check('A10a 找角度/解读型主体判定：主体=被借势的原始事件主体、不是发推人',
+      qs.web3_user_event_impact.instructions.includes('找角度/解读型推文 → 形状②')
+      && qs.web3_user_event_impact.instructions.includes('不是发推人'),
       qs.web3_user_event_impact.instructions.slice(0, 100));
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),

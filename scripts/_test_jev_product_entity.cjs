@@ -64,18 +64,17 @@ async function main() {
   const q = qm.buildStandardQuestions({});
   check('A2 题集 14 题含 event_subject_entity（J1.71 删 web3_user_event_spread；J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 14 && !!q.event_subject_entity && !!q.name_entity_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
-    q.web3_user_event_impact.instructions.includes('形状③ 产品实体') && q.web3_user_event_impact.instructions.includes('不转移不计入') && q.web3_user_event_impact.instructions.includes('两条都不占→C档以下'));
+    q.web3_user_event_impact.instructions.includes('产品实体（公司发布的产品）') && q.web3_user_event_impact.instructions.includes('母公司名气不转移给产品'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',
-    q.web3_user_event_impact.instructions.includes('当且仅当事件主体确为公司/机构发布的产品实体')
-    && q.web3_user_event_impact.instructions.includes('不是全域收紧')
-    && q.web3_user_event_impact.instructions.includes('本形状是产品实体的专属切分')
-    && q.web3_user_event_impact.instructions.includes('按形状①②原有口径正常评档'));
+    q.web3_user_event_impact.instructions.includes('产品实体（公司发布的产品）')
+    && q.web3_user_event_impact.instructions.includes('母公司名气不转移给产品')
+    && q.web3_user_event_impact.instructions.includes('产品实体切分不适用于它们'));
   check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）',
     q.event_category.instructions.includes('D vs W boundary')
     && q.event_category.instructions.includes('NOT W')
-    && q.web3_user_event_impact.instructions.includes('事件类别按机构公告口径评估不判W'));
+    && q.web3_user_event_impact.instructions.includes('事件类别按机构公告口径评估，不判 W'));
   check('A4 impact 含形状③（通稿不算自传播；J1.71 合并后唯一事件价值题）',
-    q.web3_user_event_impact.instructions.includes('形状③ 产品实体') && q.web3_user_event_impact.instructions.includes('媒体通稿覆盖不算自传播'));
+    q.web3_user_event_impact.instructions.includes('产品实体（公司发布的产品）') && q.web3_user_event_impact.instructions.includes('媒体通稿不算自传播'));
   check('A5 web3_user_event_fit 含产品实体边界（纯功能产品不高于 marginal）',
     q.web3_user_event_fit.instructions.includes('公司产品实体') && q.web3_user_event_fit.instructions.includes('不高于marginal'));
   const seKeys = Object.keys(q.event_subject_entity.criteria);
@@ -205,7 +204,7 @@ async function main() {
   const qSrc = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D4 版本头条目含 C55 案号与裁定语义', qSrc.includes('J1.27') && qSrc.includes('C55') && qSrc.includes('产品（实体）'));
   check('D5 题面两处币安豁免句（impact/fit；J1.71 后 spread 题删除）',
-    q.web3_user_event_impact.instructions.includes('豁免币安等 crypto 原生机构')
+    q.web3_user_event_impact.instructions.includes('币安等 crypto 原生机构')
     && q.web3_user_event_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列'));
 
   console.log('\n── F. C56 平台官方源豁免（FlapGuy 0x2fb77ad0…7777 复验实测形状）──');

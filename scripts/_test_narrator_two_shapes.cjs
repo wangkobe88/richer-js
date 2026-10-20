@@ -51,30 +51,31 @@ async function main() {
   check('A8 找角度/解读型标注形状②',
     mag.instructions.includes('找角度/解读型推文 → 形状②'));
 
-  // ═══ B. J1.72 综合影响力六档 + 两步判分 ═══
-  console.log('\n── B. criteria 综合影响力六档（量级×传播×时序）──');
-  check('B1 六档齐全（0-5）', Array.isArray(mag.criteria) && mag.criteria.length === 6);
-  check('B2 0 档=无人注意（阻断档）', mag.criteria[0].includes('无人注意') && mag.criteria[0].includes('阻断档'));
-  check('B3 2 档=圈内可见但未成势（含「主体量级大但事件已过气」臂）',
-    mag.criteria[2].includes('圈内可见但未成势') && mag.criteria[2].includes('已过气'));
-  check('B4 3 档=圈内热点（传播证据入档）', mag.criteria[3].includes('圈内热点') && mag.criteria[3].includes('正在讨论'));
-  check('B5 4 档=头部符号/全国级热点', mag.criteria[4].includes('头部符号') && mag.criteria[4].includes('全国级热点'));
-  check('B6 5 档=世界级符号/全球刷屏', mag.criteria[5].includes('世界级符号') && mag.criteria[5].includes('全球刷屏'));
-  check('B7 两步判分法在场（先定主体基础带，再按传播/时效上下调）',
-    mag.instructions.includes('评分方法（J1.72') && mag.instructions.includes('只按主体量级给分=判错')
-    && mag.instructions.includes('上下调 0.5-1'));
-  check('B8 传播面/时序调整方向明确（新鲜传播↑、过气/无人讨论↓）',
-    mag.instructions.includes('圈内已有明显讨论/扩散/二创 → 上调')
-    && mag.instructions.includes('已过峰值/已过气 → 下调')
-    && mag.instructions.includes('纯未来且无人讨论 → 下调'));
-  check('B9 同量级下新鲜传播显著高于过气事件（合并判断强制）',
-    mag.instructions.includes('同一主体量级下，正在传播的新鲜事件应显著高于已过气/无人讨论的事件'));
+  // ═══ B. J1.72 用户模拟评分 ═══
+  console.log('\n── B. 影响力=模拟 BSC meme 买家反应（非死板分级）──');
+  check('B1 criteria 为反应强度描述（0/1-2/3/4/5）', Array.isArray(mag.criteria) && mag.criteria.length === 5
+    && mag.criteria[0].includes('完全无感') && mag.criteria[4].includes('全圈刷屏'));
+  check('B2 题面要求代入 BSC 链 Meme 币买家（第一反应）',
+    mag.instructions.includes('BSC 链的 Meme 币买家') && mag.instructions.includes('第一反应'));
+  check('B3 明确反对按粉丝/播放/机构规模查表打分',
+    mag.instructions.includes('不要按粉丝数/播放量/机构规模查表打分'));
+  check('B4 传播面与时序是反应来源（不是独立加分项）',
+    mag.instructions.includes('传播面与时序不是独立加分项') && mag.instructions.includes('反应强')
+    && mag.instructions.includes('反应弱'));
+  check('B5 反应分五档语义在场（划过去/可能参与/主动参与/全圈刷屏）',
+    mag.instructions.includes('你大概率划过去') && mag.instructions.includes('可能参与')
+    && mag.instructions.includes('你会主动去看/参与') && mag.instructions.includes('全圈刷屏'));
+  check('B6 主体判定保留（陈述者关联/外部事件/父推）',
+    mag.instructions.includes('陈述者关联事件') && mag.instructions.includes('主体=该外部事件本身')
+    && mag.instructions.includes('十万粉级以上父推'));
+  check('B7 类别提示为用户视角线索而非档位映射',
+    mag.instructions.includes('只作思考线索，不是档位映射') && mag.instructions.includes('形象 IP/角色'));
 
   // ═══ C. J1.71 三合一 ═══
   console.log('\n── C. J1.71 事件侧三合一 ──');
   check('C1 web3_user_event_spread 题删除（影响力单题化）', qs.web3_user_event_spread === undefined);
   check('C2 impact 题声明唯一事件价值题 + 传播/时效内化',
-    mag.instructions.includes('唯一事件价值题') && mag.instructions.includes('传播面与时效都是影响力的内在证据'));
+    mag.instructions.includes('唯一事件价值题') && mag.instructions.includes('传播面与时序不是独立加分项'));
 
   // ═══ D. 头部历史条目 ═══
   console.log('\n── D. 版本历史 ──');
