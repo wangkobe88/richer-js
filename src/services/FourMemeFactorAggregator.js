@@ -205,6 +205,18 @@ let _copyLoadPromise = null;
 // 非空集合 → 0 起（有证据零值，与主名单同款）。
 let _famousCopyWallets = null;
 let _famousCopyLoadPromise = null;
+// ── sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定；簇合计口径）──
+// 来源=config/rosters/sybil-clusters.json（scripts/build-sybil-clusters.cjs 从
+// copy-trade-pairs 缓存建「强边连通分量 size>=3」，182 --commit 生成；独立文件，
+// 重扫主名单/重跑 scan 不影响它）。sybilClusterHolderCircPct 因子原料 = **簇内钱包
+// 合计**净持仓 ÷ 流通 ×100——补主名单「单钱包最大」口径盲区：多钱包 sybil 簇把仓位
+// 分到四五个地址后单钱包过不了 20/15 门，但合计可达 40-70%（乌龟案四钱包 fire 时
+// 38.9%，c3 口径 72.9%）。
+// null 语义 fail-open（与 famous 同向、与主名单 fail-closed 相反）：文件缺失/空集合
+// → 因子恒 null → 条件串 IS NULL 臂放行（新门未启用=存量零影响）；非空 → 0 起
+// （有证据零值，簇钱包在场但那票没持仓=0）。
+let _sybilClusterWallets = null;
+let _sybilClusterLoadPromise = null;
 // ── TPA 持仓因子回填缓存（回迁批 4；母版 :56-70 同款装置）──
 // _holdingFactorOverrides（tokenAddress → { TPAPre_walletHoldingPct, 庄散派生键, ... 17 键 }）：
 //   TokenPositionAnalyzer 触发点 as-of 画像算出持仓因子后 setHoldingFactors 回填，
@@ -615,6 +627,55 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 态；空 Set=「已加载但未启用」（因子恒 null）。 */
     static setFamousCopyWalletsForTest(setOrNullOrUndefined) {
         _famousCopyWallets = setOrNullOrUndefined === null
+            ? null
+            : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
+    }
+
+    /**
+     * sybil 大簇钱包并集（sybilClusterHolderCircPct 因子原料）：读
+     * config/rosters/sybil-clusters.json（build-sybil-clusters.cjs 产物）。
+     * 语义模板=loadFamousCopyWallets：文件缺失 → 空 Set（未启用，因子恒 null，IS NULL
+     * 臂放行），schema 不符才抛错。簇明细（clusters 数组）保留在文件里供审计，FA 只
+     * 消费 wallets 并集。
+     */
+    static async loadSybilClusters() {
+        if (_sybilClusterWallets) return _sybilClusterWallets;
+        if (_sybilClusterLoadPromise) return _sybilClusterLoadPromise;
+        _sybilClusterLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const rosterPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'sybil-clusters.json');
+            let parsed = null;
+            try {
+                parsed = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
+            } catch (e) {
+                if (e.code === 'ENOENT') {
+                    this._logInfo(`sybil 大簇名单未配置（${rosterPath} 缺失），sybilClusterHolderCircPct 恒 null=未启用`);
+                    _sybilClusterWallets = new Set();
+                    return _sybilClusterWallets;
+                }
+                throw e;
+            }
+            if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
+                throw new Error(`[FourMemeFA] loadSybilClusters: 名单 schema 不符（${rosterPath}）`);
+            }
+            _sybilClusterWallets = new Set(parsed.wallets
+                .filter(w => typeof w === 'string' && w)
+                .map(w => w.toLowerCase()));
+            this._logInfo(`加载 sybil 大簇名单: ${_sybilClusterWallets.size} 个（${rosterPath}，generatedAt=${parsed.generatedAt || '?'}）`);
+            return _sybilClusterWallets;
+        })();
+        try {
+            return await _sybilClusterLoadPromise;
+        } finally {
+            _sybilClusterLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：注入 sybil 大簇钱包集合（loader 同口径小写归一）。null=「未加载」
+     * 态；空 Set=「已加载但未启用」（因子恒 null）。 */
+    static setSybilClustersForTest(setOrNullOrUndefined) {
+        _sybilClusterWallets = setOrNullOrUndefined === null
             ? null
             : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
     }
@@ -2757,6 +2818,24 @@ class FourMemeFactorAggregator extends EventEmitter {
             famousCopyWalletCircPct = state._circTokens > 0 ? _famousNet / state._circTokens * 100 : 0;
         }
 
+        // sybil 大簇合计净持仓占比（2026-10-20 乌龟案用户裁定）：簇内钱包
+        // （sybil-clusters.json 并集）**合计**净持仓 ÷ 流通 ×100——刻意合计非最大：
+        // 单钱包口径对「四五个地址分仓的 sybil 簇」天然漏检（乌龟案四钱包 fire 时
+        // 单钱包 10.4% 过 famous 15 门，合计 38.9%）。负净持仓（净卖者）不计入；
+        // 簇钱包在场但无持仓=0（有证据零值）。null=名单未启用（IS NULL 臂放行）。
+        // 回放定档（v22-v24 111 票，2026-10-20）：X=35 拦 26 票（误伤 5 正票 +0.0011），
+        // 被拦净 -0.0217 = 总亏损 -0.0373 的 58%，且 v22/23 与 v24 两个子集断崖一致。
+        let sybilClusterHolderCircPct = null;
+        if (_sybilClusterWallets && _sybilClusterWallets.size > 0) {
+            let _clusterNet = 0;
+            for (const [addr, v] of state._walletNetTokens) {
+                if (v > 0 && _sybilClusterWallets.has(addr.toLowerCase())) _clusterNet += v;
+            }
+            sybilClusterHolderCircPct = state._circTokens > 0
+                ? Math.round(_clusterNet / state._circTokens * 1000) / 10
+                : 0;
+        }
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -2867,6 +2946,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 极著名钱包单钱包最大净持仓占比（2026-10-18 用户点名集合；null=未启用
             // IS NULL 臂放行 / 0 起=有证据零值；见上方注释块）
             famousCopyWalletCircPct,
+            // sybil 大簇钱包合计净持仓占比（2026-10-20 乌龟案用户裁定；null=未启用
+            // IS NULL 臂放行 / 0 起=有证据零值；口径=合计非单钱包最大，见上方注释）
+            sybilClusterHolderCircPct,
 
             trendDataPoints: prices.length,
 

@@ -255,6 +255,13 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
     }
+    // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：与 WSS 引擎同入口同集合（parity）；
+    // fail-open 同款（加载失败/文件缺失 → 因子恒 null=IS NULL 臂放行）
+    try {
+      await FourMemeFactorAggregator.loadSybilClusters();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+    }
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
