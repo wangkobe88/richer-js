@@ -87,9 +87,12 @@ P1.12：prestage_community_activity 题删除（C110 题集全面复查，2026-1
    窄消费点不值一题配额；mapper 社区臂回落恒 mid（原 high 需双条件，删一
    条件后不白拿 high——收紧方向；账号臂 0-299 mid/≥300 high 不动）。
    同 token 两版本下社区型 project 票的评级不可直接比较（high→mid 单向）
+P1.13：prestage_abm_name_link 判据加「web3 用户自然联想」用户感知锚（C125，2026-10-20）——
+   四档结构/choice 键/二值消费（nameLink !== none）全部不变，只给 none 档与三档 label
+   加「web3 用户看到这个币名会不会自然联想到该账号/人物」的口径；行为边界移动属预期
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.12';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.13';
 
 /**
  * 构建 prestage 问题集
@@ -114,12 +117,12 @@ Decide by the account's MAIN narrative: is the story a functional product/servic
     // ── 2. abm 条件一：名称关联（仅 addressVerified=false 时采信；原 V1.0 第一步）──
     prestage_abm_name_link: {
       type: 'choice',
-      instructions: `Name link between the token and the account (evaluate only the token Symbol/Name vs the account's screen name, display name, bio and post content). Pick the strongest link type.`,
+      instructions: `Name link between the token and the account (evaluate only the token Symbol/Name vs the account's screen name, display name, bio and post content). Pick the strongest link type as a **web3 user** would see it: looking at the token name alone, would a web3 user naturally associate it with this account/person?`,
       criteria: {
-        exact: 'Exact match — token Symbol/Name equals the account name or display name (e.g. "PP" = "Prison Professors")',
-        abbreviation: 'Abbreviation — token Symbol is a common abbreviation of the account/display name (e.g. "MS" = "Michael Santos")',
-        semantic: 'Semantic link — token name has a clear semantic relation to the account bio or content (e.g. "Prison Professors" ↔ prison education topics)',
-        none: 'No link — token name has nothing to do with the account',
+        exact: 'Exact match — token Symbol/Name equals the account name or display name; a web3 user would immediately connect the name to the account (e.g. "PP" = "Prison Professors")',
+        abbreviation: 'Abbreviation — token Symbol is a common abbreviation of the account/display name; a web3 user would naturally read it as that account (e.g. "MS" = "Michael Santos")',
+        semantic: 'Semantic link — token name has a clear semantic relation to the account bio or content that a web3 user would naturally connect (e.g. "Prison Professors" ↔ prison education topics)',
+        none: 'No link — a web3 user seeing this token name would NOT naturally associate it with the account/person (the name has nothing to do with the account)',
       },
     },
 

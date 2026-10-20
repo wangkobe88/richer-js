@@ -116,7 +116,7 @@ const mapped = mapPrestageAnswers(answers, {
   callInfo,
 });
 check('bunker 全链 project → mid + promptType P1.12', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'mid', pt: `prestage-jev(P1.12/project)` });
+  { rating: 'mid', pt: `prestage-jev(P1.13/project)` });
 check('jevDetails 无 downgrade/qualityExempt 键',
   { dg: 'downgrade' in mapped.jevDetails, qe: 'qualityExempt' in mapped.jevDetails },
   { dg: false, qe: false });
@@ -139,7 +139,7 @@ const mappedIp = mapPrestageAnswers({
 });
 check('web3ip 分支 131 粉 → mid + promptType 带 web3_native_ip_early',
   { rating: mappedIp.rating, pt: mappedIp.promptType },
-  { rating: 'mid', pt: 'prestage-jev(P1.12/web3_native_ip_early)' });
+  { rating: 'mid', pt: 'prestage-jev(P1.13/web3_native_ip_early)' });
 check('web3ip reason 含 IP 前缀', mappedIp.reasoning.startsWith('Web3原生IP早期'), true);
 // abm 分支（addressVerified=false）：判定不消费 rateProject，两条件逻辑不变
 const mappedAbm = mapPrestageAnswers(answers, {
@@ -154,9 +154,14 @@ const qs = buildPrestageQuestions();
 check('问题集无 prestage_project_quality（题随豁免逻辑删）',
   'prestage_project_quality' in qs, false);
 check('问题集 3 题（P1.12 删社区活跃题）', Object.keys(qs).length, 3);
-check('版本 P1.12', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.12');
+check('版本 P1.13', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.13');
 check('问题集无 prestage_community_activity（P1.12 题随高档条件删）',
   'prestage_community_activity' in qs, false);
+// P1.13（C125）：name_link 用户感知锚（四档/键名不变）
+const nl = qs.prestage_abm_name_link;
+check('P1.13a name_link 主轴=web3 用户自然联想', nl.instructions.includes('as a **web3 user** would see it') && nl.instructions.includes('naturally associate'), true);
+check('P1.13b none 档=web3 用户不会自然联想', nl.criteria.none.includes('would NOT naturally associate'), true);
+check('P1.13c 四档结构/键名不变', ['exact','abbreviation','semantic','none'].every(k => k in nl.criteria), true);
 
 console.log(`\n${pass}/${pass + fail}`);
 process.exit(fail === 0 ? 0 : 1);

@@ -28,6 +28,8 @@ process.chdir(resolve(__dirname, '../../..'));
 
 const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, buildCase, updateExpect } = await import('./lib.mjs');
 const { NarrativeAnalyzer } = await import('../../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
+const { JEV_QUESTIONS_VERSION } = await import('../../../src/narrative/analyzer/llm/jev-questions.mjs');
+const { JEV_PRESTAGE_QUESTIONS_VERSION } = await import('../../../src/narrative/analyzer/llm/jev-prestage-questions.mjs');
 const { NarrativeRepository } = await import('../../../src/narrative/db/NarrativeRepository.mjs');
 
 const FIXTURES_PATH = resolve(__dirname, 'fixtures.json');
@@ -155,7 +157,7 @@ async function main() {
   if (args.updateExpect) { await cmdUpdateExpect(args, doc, cases); return; }
   const selected = args.only ? cases.filter((c) => args.only.includes(c.caseId)) : cases;
   if (!selected.length) { console.error(`--only 过滤后无票（可用 caseId: ${cases.map((c) => c.caseId).join(',')}）`); process.exit(1); }
-  console.log(`叙事 case 回归集：${selected.length}/${cases.length} 票（题集=${'J1.45+P1.12'}）`);
+  console.log(`叙事 case 回归集：${selected.length}/${cases.length} 票（题集=${JEV_QUESTIONS_VERSION}+${JEV_PRESTAGE_QUESTIONS_VERSION}）`);
 
   const addrs = selected.map((c) => c.addr);
 

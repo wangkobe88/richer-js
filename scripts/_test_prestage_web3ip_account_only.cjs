@@ -56,7 +56,7 @@ function check(desc, actual, expected) {
   };
 
   console.log('== 0. 版本 ==');
-  check('P1.12（聚合语义变化 bump）', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.12');
+  check('P1.13（name_link 用户感知锚）', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.13');
 
   console.log('== 1. OK❌ 事故反证（推文语料 web3ip 不采信） ==');
   const redirected = mapPrestageAnswers(okxAnswers, ctx(account(), { corpusType: 'tweet' }));
@@ -65,7 +65,7 @@ function check(desc, actual, expected) {
   check('category 落 account_based_meme', redirected.prestageDataToSave.category, 'account_based_meme');
   check('parsed_output.addressVerified 事实保留 true', redirected.prestageDataToSave.parsed_output.addressVerified, true);
   check('jevDetails 观测键 web3ipRejectedCorpusType', redirected.jevDetails.web3ipRejectedCorpusType, 'tweet');
-  check('promptType=P1.12/account_based_meme', redirected.promptType, 'prestage-jev(P1.12/account_based_meme)');
+  check('promptType=P1.12/account_based_meme', redirected.promptType, 'prestage-jev(P1.13/account_based_meme)');
   check('reasoning 含 C101 改道说明', redirected.reasoning.includes('C101'), true);
 
   console.log('== 2. 回落通道语义（abm 双过 → mid） ==');
