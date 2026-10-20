@@ -831,6 +831,10 @@ function productEntityAcceptanceBlock(answers, opts) {
  * - 作用域 B/C/D/F/G/W（旧 NAME_REFERENT_BLOCK_SCOPE 原样；A 类形象IP/E 类
  *   热点不在此域——形象IP的低影响力由量级门/载体门管，热点命名不是实体票）
  * - 概率门槛 ≥0.5（choice 概率 mass，跨 run 抖动容忍同旧规）
+ * - **new_entity 不拦（J1.72/C133，股城案用户裁定）**：刚诞生且已在 BSC 链
+ *   用户群发出信息的新实体（新项目/新品牌/新角色）不是「用户不认得的老实体」；
+ *   本门只读 unknown 概率，new_entity 为 argmax 时 unknown 必然 <0.5（概率和
+ *   为 1），天然不触门。新实体的名字形态/内容由名字门与下游评分题判。
  * - 与旧 nrBlock 的刻意 delta：旧规合计 minor_other + common_word；新轴的
  *   截词/普通词归 no_entity（中性不拦，C108 已把名字形态责任交给
  *   web3UserAcceptabilityBlock——EARLY 截词误拦案教训）

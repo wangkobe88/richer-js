@@ -143,6 +143,16 @@ async function main() {
   check('C4 no_entity 中性：不拦（问候语/截词责任交名字形态门）',
     stage2Of(mNone).jev?.nameEntityLowMass === null && stage2Of(mNone).jev?.nameEntityAcceptance === 'no_entity',
     { mass: stage2Of(mNone).jev?.nameEntityLowMass, choice: stage2Of(mNone).jev?.nameEntityAcceptance });
+  // C133（股城案用户裁定）：新项目/新品牌等刚诞生且已在 BSC 用户群发出信息的新实体
+  // → new_entity，不按「用户不认得」拦（与已存在但无认知的 unknown 区分）
+  const mNew = mapStandardAnswers(baseAnswers('C', { choice: 'new_entity', probabilities: { new_entity: 0.62, unknown: 0.25 } }), makeContext());
+  check('C4b new_entity 0.62 → 不触实体门（新实体不是无名老实体，C133）',
+    stage2Of(mNew).jev?.nameEntityLowMass === null && stage2Of(mNew).jev?.nameEntityAcceptance === 'new_entity'
+    && !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mNew).blockReason || ''),
+    { mass: stage2Of(mNew).jev?.nameEntityLowMass, choice: stage2Of(mNew).jev?.nameEntityAcceptance, blockReason: stage2Of(mNew).blockReason });
+  const mNewSplit = mapStandardAnswers(baseAnswers('C', { choice: 'new_entity', probabilities: { new_entity: 0.46, unknown: 0.4 } }), makeContext());
+  check('C4c new_entity argmax + unknown 0.40 <0.5 → 不拦（概率门槛不变）',
+    stage2Of(mNewSplit).jev?.nameEntityLowMass === null, stage2Of(mNewSplit).jev?.nameEntityLowMass);
 
   console.log('\n── C2. J1.58 empty_content 作者在册豁免 ──');
 
@@ -187,11 +197,12 @@ async function main() {
     && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
     && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
     && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
-  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.70（C130 名字门看 Symbol + 审计键语义化批次）',
+  check('D5 题集四选项（含 new_entity）+ 作者身份不升档红线 + 版本 J1.72（C133 新实体批次）',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
-    && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /no_entity:/.test(qsSrc)
+    && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /new_entity:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.71'/.test(qsSrc));
+    && qsSrc.includes('新实体 ≠ 无名实体')
+    && /JEV_QUESTIONS_VERSION = 'J1\.72'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
