@@ -87,7 +87,8 @@
       },
       "note": "弹跳猫（C98 姊妹票）：J1.38 反向验证历史票（语料零暴力词不翻转，10-18 按 high 实买 -8.76%）；J1.46 起 C103 父推窗稳定接管（parent_relationship=translation_or_repost+父推 89.6d）→ 时效归 0 → low。核心机制断言=staleRelParentOverride 在场（lag 客观确定性，C102 同款）。",
       "expectBecause": "C113/J1.46 prompt 漂移使 J1.39 parent_relationship 稳定落 translation_or_repost 臂（父推 lag 89.6d>24h）→ staleRelParentOverride 时效归 0 → 事件分 47<60；C103 门设计形状命中（载体推挂 89 天父推）且本票 10-18 按 high 实盘买入 -8.76%，拦截方向盈亏正向",
-      "expectSince": "2026-10-19"
+      "expectSince": "2026-10-19",
+      "observe": "J1.54 键名断代后 parent_relationship 条件题掷骰面实测：unclear 0.32 vs translation_or_repost 0.27（4 次采样 3 次 translation=low 46.1-46.3、1 次 unclear=high 72.7）——C103 父推窗机制在 translation/explains 臂确定性成立（lag 89.6d 客观），unclear 臂不触达属掷骰逃逸；核心断言 staleRelParentOverride 在场+low 仍保留。"
     },
     {
       "caseId": "C101",
