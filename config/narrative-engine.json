@@ -43,7 +43,7 @@
     "minSufficientProb": 0.6
   },
   "searchFallback": {
-    "enabled": false,
+    "enabled": true,
     "corpusMode": "empty",
     "minNameChars": 4,
     "sinceDays": 7,
