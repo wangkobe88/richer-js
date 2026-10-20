@@ -69,6 +69,13 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C129 推文语料不被发行方检出劫进账号路径 + 抖音引用页不抓取（J1.68）——彪弟案（2026-10-20 用户裁定）★
+
+- **案由**：`0x3b5c3271fb581e503389dd2c52a75065f36f7777`（symbol `彪弟`，name `小彪哥`，flap）。@jiaodudashi232 发推「彪哥的主人有了新的宠物 取名为彪弟…」+ 抖音账号页引用；作者时间线另有一条含 CA 的推文 → `detectIssuerByCaTimeline` 命中 → 旧路由 `|| !!issuerDetected` 把票劫进 account/community prestage → 标成 `account_based_meme`（web3ip 被 C101 拒后回落 abm）→ 账号 129 粉无 Web3 流量 → low。用户裁定：「这个不是 account_based_meme，account_based_meme 是指有推特账号的」；「抖音账号页，只是一个信息引用，而且推文本身的信息够了，无需获取其信息」。
+- **改动（J1.68）**：①抽出纯函数 `shouldRouteToAccountCommunity`——issuer 检出臂（`issuerSelfLaunch || issuerCaTimeline`）**仅当语料不是「有内容的推文」时**才转账号路径；账号型语料/项目币臂原样保留。②data-fetch：推文语料有内容时，抖音 `user_profile` 仅作引用**跳过抓取**（`dataFetchResults.douyin={skipped,reason:'tweet_corpus_reference'}`；视频仍抓）。③新增零 DB 单测 `_test_account_route_tweet_corpus.cjs`（路由真值表+源码口径）。
+- **实测**：彪弟案重析走**标准路径**（event:C），死因变为 **实体低影响力门**（`web3_user_name_entity_acceptance.unknown 93%≥50%`——「彪弟」这个实体 BSC 链 Meme 用户不认得），不再是误分类的 account_based_meme/无 Web3 流量。该票 11:12:52 创建、11:20:16 毕业（7.5 分钟），是未吃到的毕业盘。
+- **回归**：182 全量 39 票 **33 PASS / 0 FAIL / 6 OBSERVE / 0 ERROR**（路由改动零回归）；全量零 DB 单测除存量 `_test_backtest_keyset_paging` 外全绿。
+
 ### C128 影响力口径改用户侧（J1.64）——账号规模只作覆盖上限 + 删营销噱头桶（2026-10-20 用户裁定）★
 
 - **案由**：C110 币安菠萝 `0x8ce87ffebe62e6f7ea87173b441520f659307777` 与 C83 BI 簇（`0x11bec867…7777` / `0x28d8d2c2…7777` / `0x3891aeb8…7777`）。用户裁定原话：「走 B，A 是明显不对的，BI 我认为也可以给过」；并纠正方法论：「不是『影响力不足』，而是『影响力很大、但内容没有实质』——注意我们是从 Web3 用户侧判断影响力的，所以不应该有影响力大但内容无实质这种情况，如果有，本质就是用户侧没啥影响力，就是标准不太对」。
