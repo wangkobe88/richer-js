@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.51（J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一+name_form 键名断代——本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.51', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.52（J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.52', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -156,7 +156,38 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.51'"), 'J1.51 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.52'"), 'J1.52 常量缺失');
+
+    // A11 J1.52（C121 用户视角批次一）锚句锁定：
+    // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
+    // J1.51 教训同款：用户侧轴题面必须显式否定观测数据读法）；各带形态词保形
+    // （C42 wNewProductP=1−P(0)−P(1) 依赖 0/1=小改进、2/3=产品发布带结构）；
+    // niche_subculture 判据从大众出圈视角（与用户原则相反）切认知可达性，
+    // BLOCK_SCOPE ['A'] 不变（35 行全 A 类活桶改锚非退役，mapper 零改动）
+    {
+      const wp = qs.w_product_score;
+      check('A11a w_product_score 主轴=web3 用户关注与兴奋度+显式否定实测读法',
+        wp.instructions.includes('关注与兴奋度') && wp.instructions.includes('当话题讨论')
+        && wp.instructions.includes('不是发布后实测数据') && wp.instructions.includes('参考锚，不是定死映射'),
+        wp.instructions.slice(0, 120));
+      check('A11b w_product_score 四带形态词保形（C42 带结构反证：0/1=小改进 2/3=产品发布）',
+        wp.criteria[0].includes('版本更新') && wp.criteria[1].includes('新功能')
+        && wp.criteria[2].includes('新产品') && wp.criteria[3].includes('创新产品'),
+        wp.criteria.join(' | ').slice(0, 160));
+      const ns = qs.block_reason.criteria.niche_subculture;
+      check('A11c niche_subculture 认知可达性锚（crypto 圈内梗≠小圈子反误伤+显式否定出圈读法）',
+        ns.includes('web3用户接不住') && ns.includes('get 不到梗')
+        && ns.includes('crypto 圈内梗/黑话≠小圈子') && ns.includes('不是大众出圈前景')
+        && !ns.includes('圈外人无法理解') && !ns.includes('无出圈可能'),
+        ns.slice(0, 120));
+      // 源码口径断言（BLOCK_SCOPE 模块私有未导出，A10d 同款先例；注意 BLOCK_SCOPE
+      // 在 mapper 文件非题集文件——qsSrc 是题集源码）：
+      const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
+      const scopeMatch = mapperSrc.match(/BLOCK_SCOPE = \{[\s\S]*?\n\};/);
+      check('A11d BLOCK_SCOPE.niche_subculture 仍 ["A"]（改锚不改域，改锚前 182 扫描 35 行全 A 类）',
+        !!scopeMatch && /niche_subculture:\s*\['A'\],/.test(scopeMatch[0]),
+        'mapper BLOCK_SCOPE niche 行非 ["A"]');
+    }
   }
 
   // ═══ B. 融合关联分 ═══
