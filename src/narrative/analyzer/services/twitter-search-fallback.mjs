@@ -17,14 +17,18 @@
  *
  * 缓存（getAccountWithFullTweets 同款手工 get/set，不走 CachedFetcher.fetchWithCache
  * ——失败 1h 冷却行会灭 PrecheckFailRetryService 重试窗）：
- *   ★只缓存「达到旁路阈值」的结果（thresholdMet===true 才 set）。未达阈值/零结果/
- *   失败零痕迹——否则 1800s TTL（=no_public_info 重试域时长）会把重试窗内全部
- *   ≤5 次重析冻死在首析快照上，晚到的推文/涨上去的互动永远翻不了案。
+ *   ★只缓存「有语料」的结果（hasCorpus===true 才 set）。零结果/失败零痕迹——
+ *   否则 1800s TTL（=no_public_info 重试域时长）会把重试窗内全部 ≤5 次重析
+ *   冻死在首析快照上，晚到的推文永远翻不了案。
  *
  * 配置（config/narrative-engine.json searchFallback 节，段缺失=静默关）：
  *   { enabled, corpusMode:'empty', minNameChars, sinceDays, products:['Top','Latest'],
- *     count, stateTopTweets, stateMaxChars, bypass:{minTweets,minTopEngagement},
- *     timeoutMs, cacheTtlSec }
+ *     count, stateTopTweets, stateMaxChars, timeoutMs, cacheTtlSec }
+ *
+ * ★2026-10-20 股城（STOCKOPOLIS）案用户裁定：「为什么要卡互动呢？不卡，只通过
+ * 语料了解叙事」——搜索兜底不设互动门槛（原 bypass.minTweets/minTopEngagement
+ * 已删）。去重剔转推后只要语料非空即旁路 no_public_info 交 Jev 判断；engagement
+ * 只在 state/审计里展示，不参与准入。
  */
 
 import { getConfig } from '../../engine/config.mjs';
@@ -52,7 +56,7 @@ const CODE_DEFAULTS = {
  * 读取并校验 searchFallback 配置节
  * @param {Object} [options] - 单测注入 { config }（整个 config 对象形状，覆盖全局读取）
  * @returns {Object|null} 完整配置（含代码默认值）；段缺失 / enabled=false → null（静默关）
- * @throws enabled=true 但 products/count/bypass 残缺（部署错误 fail-loud，vision 同语义）
+ * @throws enabled=true 但 products/count 残缺（部署错误 fail-loud，vision 同语义）
  */
 export function getSearchFallbackConfig(options = {}) {
   const section = options.config
