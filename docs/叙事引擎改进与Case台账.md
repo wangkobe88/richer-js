@@ -75,6 +75,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **改动（J1.68）**：①抽出纯函数 `shouldRouteToAccountCommunity`——issuer 检出臂（`issuerSelfLaunch || issuerCaTimeline`）**仅当语料不是「有内容的推文」时**才转账号路径；账号型语料/项目币臂原样保留。②data-fetch：推文语料有内容时，抖音 `user_profile` 仅作引用**跳过抓取**（`dataFetchResults.douyin={skipped,reason:'tweet_corpus_reference'}`；视频仍抓）。③新增零 DB 单测 `_test_account_route_tweet_corpus.cjs`（路由真值表+源码口径）。
 - **实测**：彪弟案重析走**标准路径**（event:C），死因变为 **实体低影响力门**（`web3_user_name_entity_acceptance.unknown 93%≥50%`——「彪弟」这个实体 BSC 链 Meme 用户不认得），不再是误分类的 account_based_meme/无 Web3 流量。该票 11:12:52 创建、11:20:16 毕业（7.5 分钟），是未吃到的毕业盘。
 - **回归**：182 全量 39 票 **33 PASS / 0 FAIL / 6 OBSERVE / 0 ERROR**（路由改动零回归）；全量零 DB 单测除存量 `_test_backtest_keyset_paging` 外全绿。
+- **Case 收录（用户指令「先放到案例库中，其实是缺少背景信息导致的，之后再修」）**：C129 已录入 case-regression（票数 39→40），断言 `rating=low` + `reasonIncludes=币名映射实体在 Web3 用户侧无名`；observe 记录根因=**缺少背景信息**（彪弟=抖音「彪哥」的新宠物，账号 129 粉、圈外宠物账号，账号/视频背景未进语料 → 实体题 unknown 93% 属信息不足而非事实错误）——补背景信息的采集方案之后再做，届时用 `--update-expect` 留痕。
 
 ### C128 影响力口径改用户侧（J1.64）——账号规模只作覆盖上限 + 删营销噱头桶（2026-10-20 用户裁定）★
 

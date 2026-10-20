@@ -515,6 +515,19 @@
       "expectSince": "2026-10-20",
       "expectBecause": "C126 收口裁定：Web3 用户侧，何一发这一句作为 meme 名字应能被认同——名字门超IP原话臂放行；version 词反锚（C105）确保不误放版本标注",
       "observe": "确定性事实=authorUtterance true（何一在册 ∧ こんにちは逐字主推）；名字门对超IP原话的接纳仍是 Jev 概率面（本轮 acceptable 臂放行→mid；若掷骰回到 not_acceptable 则 low，属已知面）。"
+    },
+    {
+      "caseId": "C129",
+      "symbol": "彪弟",
+      "addr": "0x3b5c3271fb581e503389dd2c52a75065f36f7777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:C",
+        "reasonIncludes": ["币名映射实体在 Web3 用户侧无名"]
+      },
+      "note": "彪弟案：推文语料被 issuerCaTimeline 劫进 account_based_meme（抖音账号页引用），J1.68 已修路由（推文语料不掉账号路径、抖音引用页不抓取）；当前仍 low=实体低影响力门（unknown 93%）。",
+      "addedAt": "2026-10-20",
+      "observe": "根因=缺少背景信息：彪弟是抖音账号「彪哥」的新宠物（129 粉、圈外宠物账号），推文只有文字+引用链接，账号/视频背景未进语料——实体题判 unknown 93% 属信息不足而非事实错误；补背景信息的采集方案之后再修。rating low 为当前预期，修正后需 --update-expect 留痕。"
     }
   ]
 }
