@@ -1,0 +1,73 @@
+{
+  "ranAt": "2026-10-20T07:13:01.433Z",
+  "summary": {
+    "total": 2,
+    "pass": 2,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C94",
+      "symbol": "京小安",
+      "addr": "0xad55993dfd097ca2adb89ffbc2b0ccceb6dc7777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "币名映射实体在 Web3 用户侧无名"
+        ]
+      },
+      "observe": null,
+      "caseNote": "B 类 web3 偏好双锚案：J1.56 起实体低影响力门先拦（unknown 97%，取代名字门；rating 仍 low）。10-20 C126 对拍更新。",
+      "baseline": {
+        "rating": "low",
+        "reason": "币名映射实体在 Web3 用户侧无名（用户不认得该实体，unknown 97%≥50%）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:B"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "币名映射实体在 Web3 用户侧无名（用户不认得该实体，unknown 97%≥50%）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:B"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C126",
+      "symbol": "こんにちは",
+      "addr": "0xf0ffa405a08a3abd1de1b2d88fdec7cbd9f37777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:B",
+        "auditIncludes": [
+          "authorUtterance"
+        ]
+      },
+      "observe": "authorUtterance=true 为确定性代码事实（何一在册 ∧ こんにちは逐字主推）；rating 的低依赖三形态门：block_reason empty_content 掷骰面（0.34 vs institution_routine，两臂均拦）、mem 1.55-1.97<2 断 C88 口号腿、web3_user_name_acceptability 0.90 not_acceptable——若 mem≥2 且空门翻转，本票可 high（放行属未裁定面）。",
+      "caseNote": "何一「こんにちは」flap 票：C120 巨粉豁免过时效门后 Jev 真跑；J1.56 实体题 no_entity 中性 + authorUtterance=true，仍被 empty_content/mem/接纳度三形态门拦（low）",
+      "baseline": {
+        "rating": "low",
+        "reason": "空洞内容",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:B"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:B"
+      },
+      "failures": []
+    }
+  ]
+}
