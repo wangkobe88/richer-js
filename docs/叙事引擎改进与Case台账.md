@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.54）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.55）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -67,6 +67,29 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C124 name_referent super_ip 圈内符号级锚（J1.55）——「被当符号使用」的证据级，不是听说过/大众量级（2026-10-20 用户裁定）★
+
+- **案由与裁定**：用户原则「一切从 web3 用户视角出发」的延续。`super_ip` 旧定义以「世界级名人/顶级机构/全球性IP/全国级人物或国民级IP」为锚——大众量级即升档，与用户视角冲突。用户裁定（本批计划）：超级IP 的判据应是 **web3 用户普遍认作符号**（被拿名字/形象/绰号玩梗、当标签当口号）的**证据级**，不是「听说过」的知晓级；大众侧量级不要求——大众量级不高但圈内是符号（哭哭奶龙型）照判本档；纯大众知名但圈内不认作符号（圈外明星/传统品牌）不因大众量级升入本档。⚠️ 本题只判身份量级，不评玩味/二创潜力（referent_memeability 另评）——认得≠好玩。
+- **改动（题面判据，mapper 零改动）**：①`name_referent.instructions` 主轴改「在 web3 用户（链上 meme 买家）眼中的身份量级，不是事件热度、也不是大众媒体量级」；②`super_ip` 桶主定义切「认作符号/被当符号使用证据级」+ 大众量级不要求 + 圈外知名不升档 + 认得≠好玩；**J1.18 发布者指代分支（独立分支）/三前提/关于自己的原话词/亲口提及实体/官方产出物口号/配图形象指代臂（J1.43）全部保留**；③`other_referent ①` 承接句同步「知名但非符号级——未达『被 web3 用户当符号使用』的证据级（十万粉 KOL/行业知名机构/纯大众知名的圈外明星/传统品牌）」。
+- **182 定向对拍（8 票，sip=name_referent.super_ip 概率）**：
+
+  | 票 | sip 前→后 | 评级 前→后 | 备注 |
+  |---|---|---|---|
+  | PEPE（正向） | 0.75 → **0.97** | high → high（82.21，C88） | 圈内符号升档符合预期 |
+  | C109b 暗号資産の覇者 | 0.87 → 0.84 | low → low（常规内容产品宣传） | 稳定 |
+  | C83a BI | 0.64 → 0.70 | low → low（营销噱头） | 稳定 |
+  | 兔八哥（反向） | 0.89 → **0.35** | mid → mid（69.53） | 大众动画角色降档，符合预期 |
+  | 뽀로로（反向） | 0.88 → **0.03** | high → high（77.35，标准数学） | 降档但事件分仍够 |
+  | JENSEN（反向） | 0.90 → **0.31** | high → high（77.68） | 降档但标准数学过线 |
+  | Elmo（反向） | 0.68 → 0.61 | high → high（73.93，C88） | 仍 ≥0.5，未降穿符号门槛 |
+  | C113 哭哭奶龙（计划预期升） | 0.44 → **0.12** | low → low（58.9 事件分不足） | **未达计划预期**：模型判 other_referent 0.76（不认为奶龙是圈内符号） |
+
+  **防通胀专项**：样本 sip≥0.5 占比 **7/8 → 4/8**（PEPE 升、三个大众 IP 降、Elmo 勉强保持、C113 降）——方向=收紧符号面，未出现通胀。
+- **偏差诚实记录**：计划预期「C113 型（圈内符号但大众量级不高）应升 sip→C88 五腿可达」**未成立**——Jev 对哭哭奶龙的判断是「非圈内符号」（other_referent 0.76）。该票的评级未变（事件分 58.9<60 回拦，原 J1.54 亦同）；是否要为「圈内二创/错版变体形象」补显式符号证据句，留待用户裁定（本批不擅自扩判据）。
+- **测试**：8 处版本锁 J1.55；consolidation 新增 A14a-e（主轴/符号证据级/保留分支/other 承接句/配图臂）；24 个 mapper 相关单测全绿。
+- **182 全量回归（38 票）**：**33 PASS / 0 FAIL / 5 OBSERVE-DEVIATION / 0 ERROR**（4 票已知掷骰面 + C113 本轮落事件分不足 observe 臂；C100 本轮 translation 臂通过）。
+- **部署**：commit ；182 pull + 全量回归 + worker 重启加载 J1.55；live 实验进程仍持旧题面（in-process 模块缓存）待持仓确认后重启。
 
 ### C123 门名/题键语义化（J1.54）——event_magnitude→web3_user_impact、dimension2→web3_user_spread + 门函数/审计键改名（2026-10-20 用户指令）★
 
@@ -1283,6 +1306,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.55 | 2026-10-20 | **name_referent super_ip 圈内符号级锚**：super_ip 主定义从「世界级名人/顶级机构/全球IP/国民级人物」切「web3 用户普遍**认作符号**（被拿名字/形象/绰号玩梗、当标签当口号）的证据级」；大众量级不要求、纯大众知名但圈内不认作符号不升档；「只判身份量级、不评玩味」显式化；J1.18 发布者指代分支/三前提/原话词/官方产出物口号/配图形象臂（J1.43）全部保留；other_referent ① 承接句同步「知名但非符号级」。mapper 零改动（choice 键名不变）；行为边界移动=预期（C88 五腿/骑乘改道/标签分布） | C124（用户裁定「被当符号使用 vs 听说过」） | 24982b4 |
 | J1.54 | 2026-10-20 | **门名/题键语义化（判据零改动）**：用户指令「其它门的名字也请梳理下，以类似思路，做一下调整」——①题键 event_magnitude → `web3_user_impact`（J1.50/J1.51 起主轴已是 Web3 用户被影响程度）②题键 dimension2 → `web3_user_spread`（占位名；语义=用户侧传播面）③门函数 notMemeNameBlock→web3UserAcceptabilityBlock / nameFormChoice→web3UserAcceptabilityChoice / NOT_MEME_NAME_CHOICES→WEB3_USER_NOT_ACCEPTABLE_CHOICES / web3FitBlock→web3UnfitBlock / rideDetourBelow→rideDetourMass ④审计键 jevImpactTier+effectiveImpactTier / effectiveTiming / anchoredTier / web3FitAnchoredTier / web3FitStrongPAnchored / blockChoiceProbability / web3FitMass→web3UnfitMass / resonance*→web3FitDamp* / instagramDim2Anchor→instagramSpreadAnchor / web3FitDim2Anchor→web3FitSpreadAnchor / scoringResult.dimension2→spreadScore / jevDetails.{tier,timing,dim2}→{impactTier,effectiveTiming,spread} ⑤label ip_reuse→IP低质复用、感染力折损→Web3偏好折损。mapper answers 双键读（scan 工具读历史行）+ 前端旧键回退 | C123（门名语义梳理） | 8d63253 |
 | J1.53 | 2026-10-20 | **门名断代（零行为意图）**：用户裁定「name_form/niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户接纳度』/『Web3 用户圈层可达性』」——①题键 name_form → `web3_user_acceptability`（判据/三态键不动）②block_reason 桶键 niche_subculture → `web3_circle_reachability`（J1.52 判据不动）。mapper 双键读（新键优先、旧键=存量缓存行兼容）、审计键 nameForm/nameFormBlock → web3UserAcceptability/web3UserAcceptabilityBlock、概率键跟随题键；BLOCK_SCOPE/LABELS 新旧并存；名字门 label→「Web3 用户不接纳该名字（用户接纳度门）」、圈层桶 label→「Web3 用户圈层可达性不足」 | C122（niche 合并问询的数据裁定：不合并=不把 A 域拦截扩到全类别） | 0016126 |
 | J1.52 | 2026-10-20 | 用户视角批次一（两处正交）：①`w_product_score` 主轴切 web3 用户关注与兴奋度（客观创新性降参考锚+显式否定「发布后实测数据」读法；四带形态结构词刻意保留保 C42 `wNewProductP=1−P(0)−P(1)` 带结构；mapper 零改动）②`block_reason.niche_subculture` 判据从「圈外人无法理解/无出圈可能」切「web3 用户接不接得住」（认知可达性；crypto 圈内梗≠小圈子；品牌营销物料/官方周边/活动噱头不是社区梗——无实质内容仍归营销噱头；BLOCK_SCOPE ['A'] 不动）。批内修正见 C121（C110 币安菠萝 A/B 归因） | C121 用户裁定「只有切换 web3 用户视角，从用户需求角度出发…效果才能好」；182 前置扫描 niche 35 行全 event:A 活桶→改锚不退役 | 4546bd8 + 0f9ad8b |
