@@ -84,8 +84,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **案由**：`0xaacbc156435dbab7815a61bccba1c827e52a7777`（symbol `股城`，name `STOCKOPOLIS`，flap）。flap metadata 只有「股城是建在 BNB Chain 上的链上城市」（IPFS 不可变），无任何社媒/网站链接 → precheck 规则 4-A `no_public_info` 秒拒，Jev 从未运行（low 10）。用户指令「你再取一下数据看看。空语料搜索兜底也开启呀」→ 开启 searchFallback 后实测：英文名查询 `"STOCKOPOLIS" since:2026-10-13` 命中 9 条、最大互动 4（旧阈值 200 不可达）；手工查中文 symbol `"股城"` 命中 16 条、最大互动 155（@MEJ50749 毛毛姐官宣 131 赞+12 转，官方号 @STOCK__OPOLIS 在场）——仍低于旧阈值。用户随即裁定：「为什么要卡互动呢？不卡，只通过语料了解叙事」。
 - **改动**：①`searchFallback.enabled:true`（config 顶层）；②删除 `bypass.minTweets/minTopEngagement`（config + 服务层校验 + 文档），`meetsBypassThreshold` → `hasSearchCorpus`（去重剔转推后 `uniqueTweets > 0`）；③证据字段 `thresholdMet` → `hasCorpus`；engagement 只在 `[TWITTER_SEARCH]` state/审计里展示，**不参与准入**；④零语料不落缓存（保 1800s 重试域）；⑤单测 `_test_search_fallback.cjs` C/J 段改「低互动 2 条语料仍旁路」+ 源码反证（可执行代码无 minTweets/minTopEngagement）。
 - **实测（182，11:52:47 UTC 重析，题集 J1.69）**：搜索兜底旁路 `no_public_info`（9 条、maxEngagement 4）→ Jev 真跑 330ms → **low 41.5**：category W 0.97 / impact 2 档 0.73（effTier C）/ `w_product_score` 2 档 0.72→15.24 + `w_binance_interaction` 0 档 0.87→1.26 + 时效 25 = 41.5 < 60（W 类总分不足）。名字门 `web3_user_acceptable` 0.63 放行；实体题 `no_entity` 0.62 中性；载体门不覆盖 W。**新失败点从 precheck 前移到 W 类数学（币安交互轴）**，语料已进 Jev 判断链。
-- **遗留**：搜索查询只用 token name（`STOCKOPOLIS`），未搜中文 symbol（`股城` 语料明显更丰富）；是否扩 symbol 搜索待用户裁定。
-- **部署**：`9d73911`（enabled）+ `f6869b4`（去互动门槛）+ 台账；182 已 pull。运行中的叙事 worker / 实盘 `37b19a9f` 进程仍持旧配置（进程内 config 缓存），重启后生效。
+- **追加裁定（同日）**：用户「搜索应该主要搜索 symbol，用户看到的主要是 symbol」→ `buildSearchQuery` 搜索词 **symbol 优先**（symbol 缺失/过短才回落 name）；`minNameChars:4` → `minTermChars:2`（2 字 CJK 币名可搜）；证据字段 `query.name` → `query.term`（commit e79e7c3）。
+- **实测②（symbol 搜索，13:02:11 UTC 重析）**：查询 `"股城" since:2026-10-13` 命中 **29 条**（Top 16 / Latest 20，union 29）、maxEngagement 161；语料含 @MEJ50749 毛毛姐官宣、官方号 @STOCK__OPOLIS 进展、GMGN/涨幅转述（$4.3K→$208K, 48.3x）。→ Jev 真跑 360ms → **low**，死因变为 **实体低影响力门**：`web3_user_name_entity_acceptance unknown 0.60 ≥0.5`（category W 0.95 在域内）→ 「币名映射实体在 Web3 用户侧无名」。其后 W 类数学也不足（product 2 档 0.71 / interaction 0 档 0.81 / 时效 25），属双重拦截。
+- **遗留/裁定点**：①**新项目名本身是否应判 unknown 实体**——「股城」是当日新发布项目名（毛毛姐团队），实体门按「用户不认得该实体」拦；C126 规格针对低影响力既有实体（普通币安员工），新项目名是否应走 `no_entity`/accepted 或豁免待用户裁定；②搜索词现按 symbol，name 仅回落；Jev state 的 `[TWITTER_SEARCH]` 段已显示 29 条精选。
+- **部署**：`9d73911`（enabled）+ `f6869b4`（去互动门槛）+ `e79e7c3`（symbol 优先）+ 台账；182 已 pull。运行中的叙事 worker / 实盘 `37b19a9f` 进程仍持旧配置（进程内 config 缓存），重启后生效。
 
 ### C130 名字门判定对象收敛为链上 Symbol（币名）（J1.69）——돼지 H 案（2026-10-20 用户裁定）★
 
