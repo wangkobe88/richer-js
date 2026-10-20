@@ -120,7 +120,7 @@ async function main() {
     s2A.pass === true && s2A.scoringResult?.totalScore === 78.36,
     { pass: s2A.pass, total: s2A.scoringResult?.totalScore });
   check('A1b 暗号五腿审计恒落：{hit:true, superIp:0.82, relPositive:0.94, relNone:0.02, mem:2, timing:expected_within_30d, strongFit:0.97}',
-    JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, mem: 2, timing: 'expected_within_30d', strongFit: 0.97 }),
+    JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, timing: 'expected_within_30d', strongFit: 0.97 }),
     s2A.jev?.recognizedEntitySlogan);
   check('A1c 暗号 stage3 high 精确值：80.51（事件47.02+关联20+质量13.49）',
     s3A.pass === true && s3A.total_score === 80.51 && s3A.category_agg === 'high'
@@ -128,7 +128,7 @@ async function main() {
     { pass: s3A.pass, total: s3A.total_score, cat: s3A.category_agg });
   check('A1d 暗号 rating=high + reason 前缀「超级IP口号票豁免(C88)」+ stage3 豁免审计',
     mA.llmResult?.rating === 'high' && /超级IP口号票豁免\(C88\)/.test(mA.llmResult?.reason || '')
-    && JSON.stringify(s3A.jev?.recognizedEntitySloganExempt) === JSON.stringify({ mem: 2, timing: 'expected_within_30d' }),
+    && JSON.stringify(s3A.jev?.recognizedEntitySloganExempt) === JSON.stringify({ accepted: 0.82, authorUtterance: false, timing: 'expected_within_30d' }),
     { rating: mA.llmResult?.rating, exempt: s3A.jev?.recognizedEntitySloganExempt });
 
   // A2 BI：修复前 J1.29 improvised 0.62 拦（name_brand_hijack 0.56 在后）→ 修复后引申关联
@@ -139,7 +139,7 @@ async function main() {
     s2B.pass === true && s2B.scoringResult?.totalScore === 65.6,
     { pass: s2B.pass, total: s2B.scoringResult?.totalScore });
   check('A2b BI 引申关联腿入带审计：relPositive=0.51（sem0.18+cult0.31+exact0.01+abbr0.01）/relNone=0.39',
-    JSON.stringify(s2B.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.59, authorUtterance: false, relPositive: 0.51, relNone: 0.39, mem: 2.19, timing: 'within_7d', strongFit: 1 }),
+    JSON.stringify(s2B.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.59, authorUtterance: false, relPositive: 0.51, relNone: 0.39, timing: 'within_7d', strongFit: 1 }),
     s2B.jev?.recognizedEntitySlogan);
   check('A2c BI 不送分：关联 1 分照计 + 品牌 0.56 劫持臂放行 + 诚实 mid 56.11',
     s3B.pass === true && s3B.relevanceScore === 1 && s3B.blockReason === null
@@ -157,9 +157,9 @@ async function main() {
   check('A3 币安上电视 mem 地板 C108 退役：票放行 + memFloorBlock 键不落',
     s2T.pass === true && s2T.blockReason === null && s2T.jev?.memFloorBlock === undefined,
     { pass: s2T.pass, blockReason: s2T.blockReason, floor: s2T.jev?.memFloorBlock });
-  check('A3b 五腿审计恒落（hit:false——mem 腿独立观察保留）',
-    s2T.jev?.recognizedEntitySlogan?.hit === false && s2T.jev?.recognizedEntitySlogan?.accepted === 0.6
-    && s2T.jev?.recognizedEntitySlogan?.mem === 1.72,
+  check('A3b J1.61 四腿审计恒落（mem 腿已删——hit:true，accepted 0.6）',
+    s2T.jev?.recognizedEntitySlogan?.hit === true && s2T.jev?.recognizedEntitySlogan?.accepted === 0.6
+    && s2T.jev?.recognizedEntitySlogan?.mem === undefined,
     { audit: s2T.jev?.recognizedEntitySlogan });
 
   // A4 CZDOODOO：super_ip 0.02 → 五腿不中 hit:false 恒落观察；memFloor 退役不再拦
@@ -197,9 +197,9 @@ async function main() {
   // slogan=true（与五腿 mem≥2 构成完整分离轴——地板退役后仅剩五腿一侧）
   a = clone(TV); a.name_entity_memeability.score = 1.99;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C1 币安上电视 mem=1.99：memFloor C108 退役不再拦（名字责任移交 name_form）',
+  check('C1 J1.61：mem 腿删除后该票四腿全中 → C88 救援（hit:true）',
     stage2Of(m).pass === true && stage2Of(m).blockReason === null
-    && stage2Of(m).jev?.recognizedEntitySlogan?.hit === false,
+    && stage2Of(m).jev?.recognizedEntitySlogan?.hit === true,
     { blockReason: stage2Of(m).blockReason });
   a = clone(TV); a.name_entity_memeability.score = 2;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
@@ -219,9 +219,10 @@ async function main() {
   // C3 mem 答案缺失（旧缓存行）→ fail-open 不拦（五腿 mem:null 恒落观察保留）
   a = clone(TV); delete a.name_entity_memeability;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C3 mem 缺失 fail-open：不拦 + 审计 mem:null 恒落（memFloorBlock 键 C108 退役不落）',
+  check('C3 J1.61 mem 缺失无影响（腿已删）：四腿全中 hit:true + 审计无 mem 键',
     stage2Of(m).pass === true && stage2Of(m).jev?.memFloorBlock === undefined
-    && stage2Of(m).jev?.recognizedEntitySlogan?.mem === null,
+    && stage2Of(m).jev?.recognizedEntitySlogan?.hit === true
+    && stage2Of(m).jev?.recognizedEntitySlogan?.mem === undefined,
     { pass: stage2Of(m).pass, floor: stage2Of(m).jev?.memFloorBlock });
 
   // C4 W 数学域豁出：W 票 mem 1.5 fresh 不落 mem 地板（RedCoin 类产品票 mem 天然低；
@@ -353,9 +354,9 @@ async function main() {
   const fs = require('fs');
   const mapperSrc = fs.readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
 
-  check('G1 五腿谓词定义形状（super_ip≥0.5 ∧ relPositive≥0.3 ∧ relNone<0.5 ∧ mem≥2 ∧ fresh ∧ strongFit≥0.5）',
+  check('G1 四腿谓词定义形状（J1.61：accepted∨authorUtterance ∧ 关联 ∧ fresh ∧ strongFit；无 mem 腿）',
     /const recognizedEntitySlogan = \(entityAcceptedProb >= 0\.5 \|\| authorUtterance\)/.test(mapperSrc)
-    && /memScoreC88 != null && memScoreC88 >= 2/.test(mapperSrc)
+    && !/memScoreC88/.test(mapperSrc)
     && /FRESH_TIMING_C88\.has\(timing\) && web3FitStrongP >= 0\.5/.test(mapperSrc)
     && /const FRESH_TIMING_C88 = new Set\(\['within_7d', 'within_30d', 'expected_within_30d'\]\)/.test(mapperSrc));
   check('G2 豁免守卫五处：rcp 概率臂 opts / argmax 臂 / scBlock opts（C109 增 imgCarrierOverride 图证覆盖臂）/ Stage3 劫持臂 / 关联≤10 截断',
@@ -382,7 +383,7 @@ async function main() {
     /recognizedEntitySlogan: \{\s*\n\s*hit: recognizedEntitySlogan,/.test(mapperSrc)
     && !/memFloorBlock: /.test(mapperSrc));
   check('G8 stage3 豁免审计命中才落 + finalReason 前缀',
-    /recognizedEntitySloganExempt: recognizedEntitySlogan \? \{ mem: memScoreC88, timing \} : null/.test(mapperSrc)
+    /recognizedEntitySloganExempt: recognizedEntitySlogan \? \{ accepted: round2\(entityAcceptedProb\), authorUtterance, timing \} : null/.test(mapperSrc)
     && /recognizedEntitySlogan \? '超级IP口号票豁免\(C88\)｜' : ''/.test(mapperSrc));
 
   // 标签链 8 接线（C85 narrativeCategory 管线镜像，漏任一处=三态分裂红线）

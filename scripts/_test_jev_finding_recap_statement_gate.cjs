@@ -171,7 +171,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
-  check('A1 版本号 = J1.60（J1.57=C126 概念清理：实体轴归位；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + name_event_relevance/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.60', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.61（J1.57=C126 概念清理：实体轴归位；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + name_event_relevance/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.61', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 event_finding_vs_recap 恒带（默认题集）', 'event_finding_vs_recap' in qs, Object.keys(qs).length);
   check('A3 web3_user_name_acceptability 恒带（默认题集）', 'web3_user_name_acceptability' in qs, null);
@@ -218,7 +218,7 @@ async function main() {
   check('A18 name_form 拼写变体锚（分支④：无背景拼写错误不合格，有文化来源变体不算——dogwifhat）',
     nf.instructions.includes('无背景拼写错误') && nf.instructions.includes('doge→dogwifhat'), null);
   check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16：relevance_level+quality_spelling+quality_reasonability 合并两题）',
-    !('block_misspelling' in qs) && Object.keys(qs).length === 16
+    !('block_misspelling' in qs) && Object.keys(qs).length === 15
     && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══
@@ -351,12 +351,14 @@ async function main() {
   const rD2b = mapStandardAnswers(d2Answers, ctxBnbTv);
   check('D2 name_form=entity+破五腿 → 改道 E+载体门拦（no_visual 0.97 案值接上）',
     blockedBy(rD2b, CARRIER_LABEL) && !blockedBy(rD2b, NF_LABEL), rD2b.llmResult.reason);
-  // D2b 对照：案值原样（mem 1.72）+entity → C88 mem 地板 C108 退役，该形状由
-  // 载体门接管（mem<2 五腿不中→载体门不被豁免→no_visual 0.97 拦）——名字门
-  // 统一后收窄方向不裸放的正证
+  // D2b J1.61 断代：name_entity_memeability 题删除、C88 去 mem 腿后，同形状
+  // （entity_phrase 可接纳 + 其余四腿通过）由 C88 口号票救援 → high；名字形态/
+  // 玩味责任归名字门（本 fixture entity_phrase=可接纳，故不拦）。原「mem<2 断
+  // 五腿→载体门接管」形状已随轴删除。
   const rD2c = mapStandardAnswers(incidentAnswers({ nameForm: 'entity_phrase' }), ctxBnbTv);
-  check('D2b 案值原样 mem 1.72+entity → 载体门拦（C88 mem 地板 C108 退役，J1.32 漏放位由载体门接管不裸放）',
-    blockedBy(rD2c, CARRIER_LABEL) && !(rD2c.llmResult.reason || '').includes('mem'), rD2c.llmResult.reason);
+  check('D2b J1.61：四腿全中 → C88 救援（high），名字责任归名字门',
+    rD2c.llmResult?.rating === 'high' && /超级IP口号票豁免\(C88\)/.test(rD2c.llmResult?.reason || ''),
+    rD2c.llmResult.reason);
   // D3 finding=narrative_finding → 维持 F（不改道），但 statement 兼容臂全域仍拦（门与改道独立）
   const rD3 = mapStandardAnswers(incidentAnswers({ recap: 'narrative_finding' }), ctxBnbTv);
   check('D3 finding（维持 F）+ statement → 名字门仍拦（F 类全域覆盖）',
@@ -470,8 +472,8 @@ async function main() {
   }), stdCtx('TST', 'TST'));
   check('G5 memFloor 退役（mem 1.72 死区）：meme_name+A 类 → 放行（名字有圈内感知的票不再被地板拦）',
     rG5.llmResult.pass === true, { pass: rG5.llmResult.pass, reason: rG5.llmResult.reason });
-  check('G6 referentMemeabilityScore 恒落审计保留（G5 票=1.72）',
-    rG5.stage2DataToSave.parsed_output.jev.referentMemeabilityScore === 1.72, null);
+  check('G6 J1.61：referentMemeabilityScore 停止产出（题已删，历史行保留）',
+    rG5.stage2DataToSave.parsed_output.jev.referentMemeabilityScore === undefined, null);
   // G7 block_misspelling 探针退役行为臂：旧缓存行带 noul 0.9（极端高）+meme_name
   //    → 放行（C78 实证死键；图文对照 C78 代码门独立保留）
   const rG7 = mapStandardAnswers(baseAnswers('A', {
@@ -567,14 +569,14 @@ async function main() {
     const residue = calls.filter(c => mapperSrc.includes(c));
     return residue.length === 0 ? true : residue;
   })());
-  check('F9 memScoreC88 只在 C88 五腿公式消费（>= 2），无 < 2 拦截臂（memFloor 退役）',
-    mapperSrc.includes('memScoreC88 >= 2') && !mapperSrc.includes('memScoreC88 < 2'), null);
+  check('F9 J1.61：memScoreC88 已从 mapper 移除（C88 四腿，无 mem 腿）',
+    !mapperSrc.includes('memScoreC88'), null);
   check('F10 misspellingP/block_misspelling 探针全清（C78 代码门 spellingMismatch 保留单判据）',
     !mapperSrc.includes('misspellingP') && !mapperSrc.includes('answers.block_misspelling')
     && mapperSrc.includes('spellingMismatch.hit'), null);
-  check('F11 实体/玩味题保留只喂豁免链（web3_user_name_entity_acceptance accepted+authorUtterance / name_entity_memeability 仍在 C88 五腿+恒落审计）',
-    (mapperSrc.includes('answers.web3_user_name_entity_acceptance?.probabilities?.accepted') && mapperSrc.includes('authorUtterance'))
-    && mapperSrc.includes('referentMemeabilityScore: answers.name_entity_memeability?.score ?? null'), null);
+  check('F11 实体题保留只喂豁免链（accepted+authorUtterance）；玩味题已删并入名字门（J1.61）',
+    mapperSrc.includes('answers.web3_user_name_entity_acceptance?.probabilities?.accepted') && mapperSrc.includes('authorUtterance')
+    && !mapperSrc.includes('answers.name_entity_memeability'), null);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_jev_finding_recap_statement_gate: ${passed} passed, ${failed} failed ══════`);

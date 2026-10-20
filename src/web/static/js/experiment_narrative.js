@@ -551,7 +551,7 @@ class ExperimentNarrative {
     if (item.narrative.narrativeSuperIpSlogan === 1) chips.push(`<span class="feat-chip feat-slogan" title="口号票（五腿全中，C88）">📣口号</span>`);
     if (f.mem != null) {
       const cls = f.mem >= 2 ? 'feat-mem-hi' : 'feat-mem-lo';
-      chips.push(`<span class="feat-chip ${cls}" title="口号性 name_entity_memeability（C88 mem 地板口径 ≥2）">mem ${f.mem}</span>`);
+      chips.push(`<span class="feat-chip ${cls}" title="历史 mem 值（J1.61 起玩味判断并入名字门，C88 已无 mem 腿）">mem ${f.mem}</span>`);
     }
     if (f.timing != null) chips.push(`<span class="feat-chip" title="时效 ${esc(f.timing)}">${TIMING_LABELS[f.timing] || esc(shortChoice(f.timing))}</span>`);
     if (f.tier) chips.push(`<span class="feat-chip" title="事件量级档 ${esc(f.tier)}">${esc(f.tier)}档</span>`);
@@ -1089,7 +1089,7 @@ function extractFeatures(item) {
       const answers = parsed?.answers || null;
       if (answers) {
         f.answers = answers;
-        if (f.mem == null) f.mem = answers.name_entity_memeability?.score ?? null;
+        // J1.61：name_entity_memeability 题已删，mem 仅历史行有值
         if (f.timing == null) f.timing = answers.event_timing?.choice ?? null;
         f.eventCategory = answers.event_category?.choice ?? null;
         f.nameReferent = answers.web3_user_name_entity_acceptance?.choice ?? null;

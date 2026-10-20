@@ -62,7 +62,7 @@ async function main() {
   console.log('\n── A. 题面完整性 ──');
   check('A1 版本 ≥J1.27（现 J1.28=name_entity_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 16 题含 event_subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 16 && !!q.event_subject_entity && !!q.name_entity_memeability && !!q.name_entity_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
+  check('A2 题集 15 题含 event_subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 15 && !!q.event_subject_entity && !!q.name_entity_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
     q.web3_user_event_impact.instructions.includes('形状③ 产品实体') && q.web3_user_event_impact.instructions.includes('不转移不计入') && q.web3_user_event_impact.instructions.includes('两条都不占→C档以下'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',

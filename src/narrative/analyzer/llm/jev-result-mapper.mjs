@@ -1359,10 +1359,10 @@ export function mapStandardAnswers(answers, context) {
     + (relMassC88.semantic_clear ?? 0) + (relMassC88.semantic_weak ?? 0)
     + (relMassC88.cultural_rich ?? 0) + (relMassC88.cultural_thin ?? 0);
   const relNoneMass = relMassC88.none ?? 1;
-  const memScoreC88 = answers.name_entity_memeability?.score ?? null;
+  // J1.61：mem≥2 腿随 name_entity_memeability 题删除——名字形态/玩味责任由
+  // web3_user_name_acceptability 单点承担（C88 只做「实体口号票」的四腿判定）
   const recognizedEntitySlogan = (entityAcceptedProb >= 0.5 || authorUtterance)
     && relPositiveMass >= 0.3 && relNoneMass < 0.5
-    && memScoreC88 != null && memScoreC88 >= 2
     && FRESH_TIMING_C88.has(timing) && web3FitStrongP >= 0.5;
 
   // C86 D-1：量级门豁免聚合标记（magExemptTags=救援标注与审计用）；C88 实体
@@ -1589,10 +1589,8 @@ export function mapStandardAnswers(answers, context) {
         productEntityBinanceExempt: peBinanceExempt,
         // C56 审计标记：平台官方源 rcp 门豁免命中（rcp≥0.5 被官方源豁免救回）
         rcpPlatformExempt,
-        // J1.28 审计标记：name_entity_memeability 分数恒落（阈值事后校准免重跑，旧缓存
-        // 行无此题 → null；C88 五腿 mem≥2 腿与 referentMemeabilityScore 恒落保留）；
-        // referentMemeabilityBlock 命中键随 C108 拦截位退役（历史行键保留展示）
-        referentMemeabilityScore: answers.name_entity_memeability?.score ?? null,
+        // J1.61：name_entity_memeability 题已删（并入名字门）——历史行保留
+        // referentMemeabilityScore 键，新行不再产出
         subjectEntity: answers.event_subject_entity?.choice ?? null,
         // J1.29 审计标记：形象载体门。档位恒落（门形状事后校准免重跑，旧缓存行
         // 无此题 → null）；block 命中才落（productEntityBlock 同款模式）
@@ -1632,7 +1630,6 @@ export function mapStandardAnswers(answers, context) {
           authorUtterance,
           relPositive: round2(relPositiveMass),
           relNone: round2(relNoneMass),
-          mem: memScoreC88,
           timing,
           strongFit: round2(web3FitStrongP),
         },
@@ -1759,7 +1756,7 @@ export function mapStandardAnswers(answers, context) {
               : null,
             // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
             // jev.recognizedEntitySlogan 恒落版——stage2 拦截票本段 __clear 不落）
-            recognizedEntitySloganExempt: recognizedEntitySlogan ? { mem: memScoreC88, timing } : null,
+            recognizedEntitySloganExempt: recognizedEntitySlogan ? { accepted: round2(entityAcceptedProb), authorUtterance, timing } : null,
             // C78 图文名不符拼写门审计（命中才落：图内近似写法可追溯）
             spellingMismatch: spellingMismatch.hit
               ? { name: String(tokenData?.name || tokenData?.raw_api_data?.name || ''), variant: spellingMismatch.variant }
