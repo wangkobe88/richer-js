@@ -6,7 +6,7 @@
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
-import { classifyTweetType, THRESHOLDS } from './tweet-type-classifier.mjs';
+import { classifyTweetType, THRESHOLDS, isHighWearRiskAuthor } from './tweet-type-classifier.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -47,6 +47,12 @@ const NON_EXEMPT_TWEET_FRESH_SEC = 300;
 // 300s 判定（此形全槽位必 ≥300s → expired_tweet 拦，不烧 Jev 配额）。主推 ≤24h
 // （啾啾 8.8h「发现得晚」窗口内）不依赖载体照豁免——C74 立案原型零主从结构。
 // 窗对齐 C102/C103 PARENT_REL_STALE_SEC（同窗三槽位：父推位/website 位/主推位）。
+// C130（2026-10-20 混混猫案 0xb10b2c02…7777）回落拦适用集收窄为「高用烂风险
+// 作者」（isHighWearRiskAuthor，见 tweet-type-classifier）：时效豁免四类框架
+// ①超级IP新鲜推豁免 ②超级IP/巨触达(粉≥50万)旧推无载体=用烂拦（本门现行形状）
+// ③中等偏上作者慢热叙事豁免交 Jev 软评（four_meme_Fora 23917 粉活动 recap 11d
+// ——被发现需要时间+触达有限用不烂；粉缺失时注册表/名单命中仍拦 fail-保守）
+// ④angle_seeking 等非豁免桶 300s 拦。第③类上界由 C75 mapper 30d 软锚管。
 const DIRECT_TWEET_STALE_SEC = 24 * 3600;
 
 // C120（2026-10-19 f8ab/Burn N Burn 案 0xf8abd6a6bdc0d87291b4f79abc6188c48a807777
@@ -546,8 +552,18 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
               const hasFreshCarrier = [twitterInfo.website_tweet, twitterInfo.quoted_status, twitterInfo.retweeted_status]
                 .some(t => { const lag = _tweetLagSec(t, refNow); return lag !== null && lag <= DIRECT_TWEET_STALE_SEC; });
               if (!hasFreshCarrier) {
-                directExempt = false;
-                console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免失效: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s>24h 且无 ≤24h 新载体（主从结构缺失，旧推用烂形状），回落非豁免桶判定`);
+                // C130（2026-10-20 混混猫案 0xb10b2c02…7777 用户裁定时效豁免四类）：
+                // 无新载体的裸旧推回落拦只对「高用烂风险作者」（isHighWearRiskAuthor，
+                // 触达量主轴：粉≥50万，或粉缺失时注册表/高影响力名单命中）生效——
+                // 巨触达作者的旧推一轮蹭票即用烂（C104 CZ 案形状保持）；中等偏上
+                // 作者（four_meme_Fora 23917 粉活动 recap 11d）是慢热叙事：被发现
+                // 需要时间+触达有限用不烂，第③类豁免交 Jev 软评（C75 30d 锚管上界）
+                if (isHighWearRiskAuthor(twitterInfo)) {
+                  directExempt = false;
+                  console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免失效: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s>24h 且无 ≤24h 新载体（主从结构缺失，高用烂风险作者旧推用烂形状），回落非豁免桶判定`);
+                } else {
+                  console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免（C130 第③类）: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s>24h 无新载体，但作者中等偏上触达非巨粉（@${twitterInfo.author_screen_name}）——慢热叙事发酵需要时间且用不烂，豁免交 Jev 软评（C75 30d 锚管上界）`);
+                }
               }
             }
           }

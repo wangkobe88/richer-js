@@ -537,13 +537,10 @@
       "addr": "0xcfc39a869380200949685d16197e93f100207777",
       "expect": {
         "rating": "low",
-        "reasonIncludes": [
-          "事件分不足"
-        ],
         "tokenCategory": "event:A"
       },
-      "note": "C130 名字门看 Symbol：币名=돼지 H 可接纳（0.55/0.43 掷骰边缘）放行；事件分 56.76<60 仍 low",
-      "observe": "名字门 0.55 vs 0.43 掷骰边缘；分数若漂移过 60 会翻 mid",
+      "note": "C130 名字门看 Symbol：币名=돼지 H 按 Symbol 判（0.55/0.43 掷骰边缘）放行；事件分不足仍 low",
+      "observe": "名字门 0.55/0.43 掷骰边缘（翻 not_acceptable 时死因换名字门，评级仍 low）；事件分两次样本 56.76/51.84 均 <60（spread 2-vs-3 边缘，若过 60 会翻 mid）",
       "addedAt": "2026-10-20"
     }
   ]

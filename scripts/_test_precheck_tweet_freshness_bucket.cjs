@@ -197,28 +197,35 @@ async function main() {
       JSON.stringify(r3?.details?.ruleName));
   }
 
-  // ═══ F. 豁免桶互动臂（C104 后源头旧须有新载体）═══
+  // ═══ F. 豁免桶互动臂（C130 后：小作者裸旧推=第③类豁免；巨触达反证拦）═══
   console.log('══ F. 互动臂豁免（4500 粉/600 赞）══');
   {
-    const viralTweet = (lagSec) => ({
+    const viralTweet = (lagSec, followers = 4500) => ({
       type: 'tweet',
       text: 'unit test viral tweet text',
       author_screen_name: 'ut_viral_author',
-      author_followers_count: 4500, // < 5000 粉丝臂不触发 → 豁免只能来自赞≥500 互动臂
+      author_followers_count: followers, // 缺省 4500 < 5000 粉丝臂不触发 → 豁免只能来自赞≥500 互动臂
       metrics: { favorite_count: 600, retweet_count: 50 },
       created_at: iso(ANCHOR_SEC - lagSec),
     });
+    // C130 第③类：互动臂小作者（4500 粉未收录）裸旧推 → 豁免交 Jev 软评
+    // （C74 旧语义无硬界放 / C104 旧语义拦 / C130 起第③类豁免——三轮语义演进锚）
     const r7d = await run(makeTokenData(), viralTweet(7 * 24 * 3600));
-    assert(r7d?.details?.ruleName === 'expired_tweet' && r7d?.details?.tweetType === 'direct_tweet',
-      'F1 互动臂 lag=7d 裸推 → 拦（C104：源头>24h 无新载体=用烂形状；C74 旧语义无硬界放）',
+    assert(r7d === null,
+      'F1 互动臂 4500 粉 lag=7d 裸推 → 放（C130 第③类：触达有限用不烂；C104 旧语义拦）',
       JSON.stringify(r7d?.details));
-    const r7dc = await run(makeTokenData(), { ...viralTweet(7 * 24 * 3600), website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - 13) } });
-    assert(r7dc === null, 'F1\' 互动臂 7d + website_tweet 13s 新载体 → 放（主从结构成立交 Jev 软评）',
+    // 巨触达反证（C130「粉≥50万即拦」）：同形状作者 60 万粉 → 回落拦
+    const r7dMega = await run(makeTokenData(), viralTweet(7 * 24 * 3600, 600000));
+    assert(r7dMega?.details?.ruleName === 'expired_tweet' && r7dMega?.details?.tweetType === 'direct_tweet',
+      'F1\' 互动臂 60 万粉 lag=7d 裸推 → 拦（触达量主轴：未收录巨粉旧推仍用烂形状）',
+      JSON.stringify(r7dMega?.details));
+    const r7dc = await run(makeTokenData(), { ...viralTweet(7 * 24 * 3600, 600000), website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - 13) } });
+    assert(r7dc === null, 'F1\'\' 60 万粉 7d + website_tweet 13s 新载体 → 放（主从结构成立交 Jev 软评，载体臂与作者层级独立）',
       JSON.stringify(r7dc?.details?.ruleName));
-    const r30d = await run(makeTokenData(), viralTweet(30 * 24 * 3600));
+    const r30d = await run(makeTokenData(), viralTweet(30 * 24 * 3600, 600000));
     assert(r30d?.details?.ruleName === 'expired_tweet',
-      'F2 互动臂 lag=30d 裸推 → 拦（同 F1）', JSON.stringify(r30d?.details));
-    const r30dq = await run(makeTokenData(), { ...viralTweet(30 * 24 * 3600), quoted_status: { created_at: iso(ANCHOR_SEC - 3600) } });
+      'F2 互动臂 60 万粉 lag=30d 裸推 → 拦（同 F1\'）', JSON.stringify(r30d?.details));
+    const r30dq = await run(makeTokenData(), { ...viralTweet(30 * 24 * 3600, 600000), quoted_status: { created_at: iso(ANCHOR_SEC - 3600) } });
     assert(r30dq === null, 'F2\' 30d + quoted_status 1h 新 → 放（载体臂覆盖 quoted 槽位）',
       JSON.stringify(r30dq?.details?.ruleName));
   }

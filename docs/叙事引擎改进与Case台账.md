@@ -69,6 +69,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C130 名字门判定对象收敛为链上 Symbol（币名）（J1.69）——돼지 H 案（2026-10-20 用户裁定）★
+
+- **案由**：`0xcfc39a869380200949685d16197e93f100207777`（symbol `돼지 H`，name `구제역에서 살아 돌아온 돼지`，flap，live 实验 `37b19a9f`）。J1.55 分析（09:03:10 UTC）通过名字门以外的全部前置：`event_category A=0.91`（形象 IP·猪主角）、`jevImpactTier C`、`web3_user_impact=3`、`timing within_30d`、`subject_carrier=existing_entity`；但名字门按**链上全名**（韩语电影全名，一句陈述/作品名）判 `web3_user_not_acceptable 0.80` → low，无信号。用户裁定原话：「币名不是 돼지 H 吗？」「**币名应该看 Symbol**」。
+- **改动（J1.69，commit 495fd69）**：`web3_user_name_acceptability` 判定对象从「代币 Name/Symbol 取更完整的一个」收敛为**链上 Symbol（币名/ticker）**——链上 Name（全名/描述句）不作本题判据；判据内容（能接纳/不能接纳各形态）一字不动，只改判谁。版本 J1.67→J1.69（J1.68 已被 C129 彪弟路由案占用）。范围=**只名字门**（用户选定）：实体低影响力门/形象载体门/关联/名图一致/brand hijack/prestage name_link 仍按 Symbol+Name 识别所指对象。
+- **实测（J1.69 重析同票）**：名字门 `web3_user_acceptable 0.55` vs `not_acceptable 0.43`（掷骰边缘）→ **放行**（不再按电影全名拦）；实体门 A 类不入域、载体门 A 类不触达；最终事件分 **56.76 < 60**（27 B 档〔strong_fit 0.51 锚 B〕+ 传播 19.76 + 时效 10）→ **仍 low，但死因变为「事件分不足」**。改动改变的是拦截位，不是本票结局；回归轮二次重析 51.84 仍 low。
+- **回归（182，41 票）**：**36 PASS / 0 FAIL / 5 OBSERVE-DEVIATION / 0 ERROR**；5 张=既有掷骰面（C108/C79/C80/C82/C113）；存档 `scripts/narrative/case-regression/data/case-regression-result-2026-10-20T11-51-08-107Z.{csv,json}`。相关零 DB 单测（名字门/题集版本断言 9 个文件）全绿。
+- **Case 收录**：C130 已录入 case-regression（票数 40→41，commit 56d79f9），断言 `rating=low` + `tokenCategory=event:A`（**刻意不断言死因**——名字门 0.55/0.43 与 spread 2-vs-3 都是掷骰边缘，翻名字门时评级仍 low）；observe 记录两个边缘面。
+- **部署**：题集在 worker 与实验进程（引擎惰性 import）内，需重启 182 叙事 worker + live 实验 `37b19a9f` 才对新分析生效；存量缓存行不重放题面（断代），只有重析/新分析走 J1.69。
+- **遗留/观察点**：①名字门答案无概率 mass（choice argmax），0.55/0.43 这类边缘票会随 Jev 掷骰翻转，评级由分数兜底（本票两臂都是 low）；②Symbol 为空或纯符号（emoji/数字）票的判据未单列——按题面「去 emoji/数字/特殊字符后」自然落到无法判断/低信息，待自然案例校准。
+
 ### C129 推文语料不被发行方检出劫进账号路径 + 抖音引用页不抓取（J1.68）——彪弟案（2026-10-20 用户裁定）★
 
 - **案由**：`0x3b5c3271fb581e503389dd2c52a75065f36f7777`（symbol `彪弟`，name `小彪哥`，flap）。@jiaodudashi232 发推「彪哥的主人有了新的宠物 取名为彪弟…」+ 抖音账号页引用；作者时间线另有一条含 CA 的推文 → `detectIssuerByCaTimeline` 命中 → 旧路由 `|| !!issuerDetected` 把票劫进 account/community prestage → 标成 `account_based_meme`（web3ip 被 C101 拒后回落 abm）→ 账号 129 粉无 Web3 流量 → low。用户裁定：「这个不是 account_based_meme，account_based_meme 是指有推特账号的」；「抖音账号页，只是一个信息引用，而且推文本身的信息够了，无需获取其信息」。
@@ -1359,6 +1369,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.69 | 2026-10-20 | **名字门判定对象收敛为链上 Symbol（币名）**：`web3_user_name_acceptability` 从「代币 Name/Symbol 取更完整的一个」改为**只判链上 Symbol（ticker）**，Name（全名/描述句）不作判据；判据内容一字不动，只改判谁。范围只名字门（实体/载体/关联/名图/prestage 仍 Symbol+Name） | C130（用户裁定「币名应该看 Symbol」；돼지 H 按电影全名被陈述句误拦） | 495fd69 |
 | P1.13 | 2026-10-20 | **prestage_abm_name_link 用户感知锚（四档/choice 键/二值消费不变）**：instructions 加「按 web3 用户视角判——只看币名会不会自然联想到该账号/人物」；exact/abbreviation/semantic 三档 label 加「web3 用户会立即/自然联想到」；none 档改「web3 用户不会自然联想到该账号/人物」 | C125（用户视角批次 3；消费位仅 nameLink≠none 二值，最小改法） | 2f83a35 |
 | J1.55 | 2026-10-20 | **name_referent super_ip 圈内符号级锚**：super_ip 主定义从「世界级名人/顶级机构/全球IP/国民级人物」切「web3 用户普遍**认作符号**（被拿名字/形象/绰号玩梗、当标签当口号）的证据级」；大众量级不要求、纯大众知名但圈内不认作符号不升档；「只判身份量级、不评玩味」显式化；J1.18 发布者指代分支/三前提/原话词/官方产出物口号/配图形象臂（J1.43）全部保留；other_referent ① 承接句同步「知名但非符号级」。mapper 零改动（choice 键名不变）；行为边界移动=预期（C88 五腿/骑乘改道/标签分布） | C124（用户裁定「被当符号使用 vs 听说过」） | 24982b4 |
 | J1.54 | 2026-10-20 | **门名/题键语义化（判据零改动）**：用户指令「其它门的名字也请梳理下，以类似思路，做一下调整」——①题键 event_magnitude → `web3_user_impact`（J1.50/J1.51 起主轴已是 Web3 用户被影响程度）②题键 dimension2 → `web3_user_spread`（占位名；语义=用户侧传播面）③门函数 notMemeNameBlock→web3UserAcceptabilityBlock / nameFormChoice→web3UserAcceptabilityChoice / NOT_MEME_NAME_CHOICES→WEB3_USER_NOT_ACCEPTABLE_CHOICES / web3FitBlock→web3UnfitBlock / rideDetourBelow→rideDetourMass ④审计键 jevImpactTier+effectiveImpactTier / effectiveTiming / anchoredTier / web3FitAnchoredTier / web3FitStrongPAnchored / blockChoiceProbability / web3FitMass→web3UnfitMass / resonance*→web3FitDamp* / instagramDim2Anchor→instagramSpreadAnchor / web3FitDim2Anchor→web3FitSpreadAnchor / scoringResult.dimension2→spreadScore / jevDetails.{tier,timing,dim2}→{impactTier,effectiveTiming,spread} ⑤label ip_reuse→IP低质复用、感染力折损→Web3偏好折损。mapper answers 双键读（scan 工具读历史行）+ 前端旧键回退 | C123（门名语义梳理） | 8d63253 |

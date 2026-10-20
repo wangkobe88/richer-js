@@ -29,6 +29,13 @@ export const THRESHOLDS = {
   HIGH_FOLLOWERS: 5000,
   HIGH_LIKES: 500,
   HIGH_RETWEETS: 100,
+
+  // C130 高用烂风险触达门（2026-10-20 混混猫案用户裁定）：主推作者粉 ≥ 此值
+  // → 旧推被翻出发币=用烂洗白形状（C104 第②类维持拦，收录与否无关——巨触达
+  // 作者的旧推一轮蹭票就够用烂，CZ 1299 万/Dexerto 145 万）；粉已知且 < 此值
+  // → 第③类豁免（慢热叙事发酵需要时间+触达有限用不烂，four_meme_Fora 23917
+  // 粉活动 recap 即裁定原型）。粉缺失时的处理见 isHighWearRiskAuthor。
+  MEGA_REACH_FOLLOWERS: 500000,
 };
 
 /**
@@ -114,6 +121,34 @@ export function classifyTweetType(twitterInfo) {
       ? `粉丝数字段缺失: ${likes}赞, ${retweets}转发`
       : `中间地带: ${followers}粉, ${likes}赞, ${retweets}转发`,
   };
+}
+
+/**
+ * C130 高用烂风险作者判定（混混猫案 0xb10b2c02…7777，2026-10-20 用户裁定时效
+ * 豁免四类框架）：direct_tweet 主推作者翻出 >24h 裸旧推发币，是否属「用烂洗白」
+ * （维持 C104 回落拦）。用烂风险的真轴是**触达量**——注册表/高影响力名单收录
+ * 与否只是粉缺失时的辅助信号（four_meme_fora 在 SUPER_IP_REGISTRY tier A 但
+ * 23917 粉=中等偏上触达，裁定为第③类豁免原型；注册表 tier 无触达量维度是
+ * 混混猫案暴露的归类偏差）：
+ *   - author_followers_count 已知 → 看 ≥ MEGA_REACH_FOLLOWERS(50万)：巨触达
+ *     即拦（CZ 1299 万/未收录 Dexerto 145 万同形——「粉≥50万即拦」裁定），
+ *     <50万 → 第③类（慢热叙事发酵需要时间+触达有限用不烂）
+ *   - followers 缺失（null，C86 教训 null≠0 不冒充数值）→ 看收录：注册表/
+ *     高影响力名单命中 → 拦（fail-保守：收录是唯一可得的触达证据）；未命中
+ *     → 放（普通作者默认非超级 IP）
+ * 消费点=pre-check 规则 2.1 C104 回落判定；第③类豁免票时效全交 Jev event_timing
+ * 软评，C75 mapper SOURCE_STALE_SEC(30d) 客观锚管上界。
+ * @param {Object} twitterInfo - 主推数据（author_screen_name / author_followers_count）
+ * @returns {boolean} true=高用烂风险（无新载体的 >24h 裸旧推回落拦）
+ */
+export function isHighWearRiskAuthor(twitterInfo) {
+  const followers = twitterInfo?.author_followers_count ?? null;
+  if (followers !== null) {
+    return followers >= THRESHOLDS.MEGA_REACH_FOLLOWERS;
+  }
+  const screenName = twitterInfo?.author_screen_name;
+  if (!screenName) return false; // 作者名与粉全缺 → 无触达证据，按普通作者第③类
+  return _isInSuperIPRegistry(screenName) || isHighInfluenceAccount(screenName);
 }
 
 /**
