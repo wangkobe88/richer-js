@@ -8,7 +8,8 @@
  *   传播面/时效已内化为影响力证据（J1.71）
  * - J1.23 Web3 偏好锚（A/B 类 + strong_fit≥0.5 → effTier 锚 B；C94 起 B 类同享
  *   dim2<18 锚 18——web3 用户喜欢是根本判据，发布主体量级无所谓）
- * - W 类独立数学：产品(0-35) + 币安交互(0-40) + 时效(0-25) = 100，pass ≥ 60
+ * - W 类独立数学：产品(0-35) + 项目对 BSC 用户吸引力(0-40) + 时效(0-25) = 100，pass ≥ 60
+ *   （J1.73/C134：币安交互臂退役——刚发布的 BSC 项目不可能有币安交互；C42 豁免随之退役）
  * - 最终 = round(eventCompositeScore×0.6, 2) + 关联分 + 质量分，≥70 high / ≥50 mid / else low
  * - Stage3 截断顺序：品牌劫持 → 无背景拼写错误 → 关联≤10 → 质量≤4
  * - reason 为代码端模板拼接（Jev 不生成文本，已裁定接受损失）
@@ -220,7 +221,8 @@ function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming
  * 无[0,10] / 微弱[10,20] / 小[18,26] / 中[23,28] / 强[26,30] / 极强[28,30]
  */
 const W_PRODUCT_BANDS = [[0, 8], [9, 17], [18, 26], [27, 35]];
-const W_INTERACTION_BANDS = [[0, 9], [10, 19], [20, 29], [30, 40]];
+// J1.73（C134）：币安交互带 → 项目对 BSC 用户吸引力带（同 0-40 四分带，权重不变）
+const W_APPEAL_BANDS = [[0, 9], [10, 19], [20, 29], [30, 40]];
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
 const REASONABILITY_BANDS = [[0, 1], [2, 3], [4, 5]];
 // J1.43（C109）token_name_quality 单题 band 索引 0-3 → 联合量纲 0-12
@@ -1236,9 +1238,7 @@ export function mapStandardAnswers(answers, context) {
   let w3fFitMass = null;
   let web3FitDampCoef = null;
   let wProduct = null;
-  let wInteraction = null;
-  let wInteractionExempt = false;
-  let wNewProductP = null;
+  let wAppeal = null;
   let eventScoreReason = null;
   // C55 币安豁免审计：仅在该豁免实际改变门判定时落键（币安语料 + 无豁免时
   // 门会拦 = 豁免救票形状），与 punExempt 命中才落的模式一致
@@ -1451,41 +1451,20 @@ export function mapStandardAnswers(answers, context) {
     eventScoreBlocked = true;
     gateBlockReason = `事件主体量级不足（${tier}档${regionalAnchorActive ? '→D档·币安地域子账号不借壳' : ''}）`;
   } else if (isW) {
-    // W 数学（W 类原生 / B 类骑乘改道 / J1.17 cashtag 改道共用：产品分量 + 币安交互 + 时效，pass 线 60）
+    // W 数学（W 类原生 / B 类骑乘改道 / J1.17 cashtag 改道共用：产品分量 +
+    // 项目对 BSC 用户吸引力 + 时效，pass 线 60）
+    // J1.73（C134 股城案用户裁定）：「发在 BSC 链的项目，一开始刚发出，基本上
+    // 不可能有币安交互，把币安交互这一臂去掉，改为分析项目本身对 BSC Web3 用户
+    // 的吸引力」——w_binance_interaction 臂整链退役（题/分带/评分/审计键），
+    // 换成 w_bsc_user_appeal（0-40，同权重）。C42「世界级主体产品豁免币安交互」
+    // 随之退役（被豁免的轴已不存在），三轴恒全额参与，pass 线 60 不变。
     wProduct = bandInterpolate(answers.w_product_score?.score ?? 0, W_PRODUCT_BANDS);
-    wInteraction = bandInterpolate(answers.w_binance_interaction?.score ?? 0, W_INTERACTION_BANDS);
+    wAppeal = bandInterpolate(answers.w_bsc_user_appeal?.score ?? 0, W_APPEAL_BANDS);
     timingScore = TIMING_SCORES_W[timing] ?? 0;
-    // C42 世界级主体产品豁免币安交互（2026-10-01 用户裁定「世界级主体发布产品
-    // （不是版本更新），可以豁免跟币安交互」，RedCoin 案 0xe2881a7ac454c473a8b4
-    // c858732402154e107777：HSBC 官宣港元稳定币 RedCoin——机构本身的量级就是
-    // 叙事价值，跟币安零交互是常态而非缺陷，交互轴（W 数学最大权重 40 分，为
-    // 币安生态叙事票设计）压死这类票属语义错位（J1.17 ChainPulse 案同源注释）。
-    // 条件全中才豁免：①原生 W 类（改道票不豁免——骑乘改道/cashtag 改道各有
-    // 拦截语义，iNu 案 cashtag 改道就是要拦）；②effTier S/A（世界级/头部主体）；
-    // ③新产品带 ≥0.5（排除 0 档小改进/版本更新与 1 档一般新功能——裁定原文
-    // 「不是版本更新」；J1.27 适配 2026-10-03 RedCoin 复验案：形状③收窄后 Jev
-    // 把世界级产品发布的概率质量移向 P4/P5 高档（RedCoin P2+P3=0.47<0.5 豁免
-    // 意外失效 → 43.17 偶发低分，双轮复验 high 79.06/81.37 证实），故改按
-    // 1−P0−P1 计——P2「重要新功能/新产品」/P3「创新产品」/P4/P5 更高档全是
-    // 产品发布档，语义与 C42 原裁定一致）；
-    // ④交互已落无交互带（<10 分）——交互 ≥10 的票三轴照算，剔除反而亏分。
-    // 效果：产品+时效两轴归一化百分制（÷60×100），pass 线 60 不变；wInteraction
-    // 照常计算落库（审计可见）但不参与总分。mapper-only 切分，题集版本不动
-    // （J1.16/J1.23/J1.24 教训：题面锚移不动 Jev 的分，代码切分才决定性）。
-    const wProb = answers.w_product_score?.probabilities ?? {};
-    wNewProductP = round2(1 - (wProb['0'] ?? 0) - (wProb['1'] ?? 0));
-    wInteractionExempt = isW && !cashtagForced
-      && (effTier === 'S' || effTier === 'A')
-      && wNewProductP >= 0.5
-      && wInteraction < 10;
-    eventCompositeScore = wInteractionExempt
-      ? round2((wProduct + timingScore) / 60 * 100)
-      : round2(wProduct + wInteraction + timingScore);
+    eventCompositeScore = round2(wProduct + wAppeal + timingScore);
     eventScoreBlocked = eventCompositeScore < 60;
     const wLabel = cashtagForced ? `cashtag改道W类(${cashtagHit.cashtag})` : 'W类';
-    eventScoreReason = wInteractionExempt
-      ? `${wLabel}·世界级主体产品豁免币安交互 产品${wProduct}+时效${timingScore}=${eventCompositeScore}（两轴归一，pass线60）`
-      : `${wLabel} 产品${wProduct}+交互${wInteraction}+时效${timingScore}=${eventCompositeScore}（pass线60）`;
+    eventScoreReason = `${wLabel} 产品${wProduct}+BSC用户吸引力${wAppeal}+时效${timingScore}=${eventCompositeScore}（pass线60）`;
     if (eventScoreBlocked) gateBlockReason = `${wLabel}总分不足（${eventCompositeScore}<60）`;
   } else {
     // J1.71：单题影响力 → 0-100 合成分（传播/时效内化；时效 override 扣分、锚为下限）
@@ -1529,7 +1508,7 @@ export function mapStandardAnswers(answers, context) {
         timingPenalty: isW ? null : (timingPenaltyActive ? 18 : null),
         timingScore: isW ? timingScore : null,
         wProductScore: isW ? wProduct : null,
-        wInteractionScore: isW ? wInteraction : null,
+        wAppealScore: isW ? wAppeal : null,
       },
       reason: eventScoreReason,
       jev: {
@@ -1559,9 +1538,8 @@ export function mapStandardAnswers(answers, context) {
         effectiveTiming: timing,
         // C44 审计标记：IG 证据缺失锚命中详情（影响力下限 50）
         instagramSpreadAnchor: instagramSpreadAnchorActive ? { fromInfluenceScore: influenceScore, floor: 50 } : null,
-        // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
-        // 可追溯；wInteractionScore 键照常落库不受豁免影响）
-        wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
+        // C42 世界级主体产品豁免币安交互随交互臂退役（J1.73/C134）；历史行保留
+        // 该键展示，新行不再产出
         // J1.27 审计标记：产品实体接纳门命中详情（event_subject_entity 标注 + 接纳度
         // 可追溯；豁免票不落键）+ 币安豁免命中（C55 补充裁定，救票形状可追溯）
         productEntityBlock: peBlock ? { subject: peBlock.subject, fitMass: peBlock.fitMass } : null,
@@ -1627,7 +1605,7 @@ export function mapStandardAnswers(answers, context) {
           event_timing: answers.event_timing?.probabilities,
           web3_user_event_spread: answers.web3_user_event_spread?.probabilities ?? answers.dimension2?.probabilities,
           w_product_score: answers.w_product_score?.probabilities,
-          w_binance_interaction: answers.w_binance_interaction?.probabilities,
+          w_bsc_user_appeal: answers.w_bsc_user_appeal?.probabilities,
           web3_user_event_fit: answers.web3_user_event_fit?.probabilities,
           event_subject_entity: answers.event_subject_entity?.probabilities,
           name_entity_carrier: answers.name_entity_carrier?.probabilities,
@@ -1691,7 +1669,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${gateBlockReason}｜P=${w3Block?.mass ?? (blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${recognizedEntitySlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${instagramSpreadAnchorActive ? 'IG影响力豁免(C44)｜' : ''}${web3FitSpreadAnchorActive ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${weightedEventScore}(${eventCompositeScore}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${recognizedEntitySlogan ? '超级IP口号票豁免(C88)｜' : ''}${instagramSpreadAnchorActive ? 'IG影响力豁免(C44)｜' : ''}${web3FitSpreadAnchorActive ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${weightedEventScore}(${eventCompositeScore}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = eventScoreBlocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据

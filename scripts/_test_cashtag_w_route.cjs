@@ -32,7 +32,7 @@ const iNuAnswers = {
   },
   web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.54, no_entity: 0.04, unknown: 0.42 } },
   w_product_score: { score: 0.11, probabilities: { '0': 0.96, '1': 0.02, '2': 0.01, '3': 0.01 } },   // → 0.88
-  w_binance_interaction: { score: 0.01, probabilities: { '0': 0.99, '1': 0.01 } },                    // → 0.09
+  w_bsc_user_appeal: { score: 0.01, probabilities: { '0': 0.99, '1': 0.01 } },                    // → 0.09
   name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.5, abbreviation_alias: 0.28 } },
   relevance_level: { score: 3.4, probabilities: { '3': 0.27, '4': 0.62 } },
   block_misspelling: { noul: 0.15 },
@@ -107,7 +107,7 @@ async function main() {
   const bigAsset = {
     ...iNuAnswers,
     w_product_score: { score: 3.2, probabilities: { '3': 0.9 } },  // → 27+0.2×8=28.6
-    w_binance_interaction: { score: 2.5, probabilities: { '2': 0.9 } }, // → 20+0.5×10=25
+    w_bsc_user_appeal: { score: 2.5, probabilities: { '2': 0.9 } }, // → 20+0.5×10=25
   };
   const m5 = mapStandardAnswers(bigAsset, makeContext(bigAsset, iNuTwitter));
   check('B5 被骑资产影响力极高时 W 数学放行（28.6+24.5+25=78.1）', m5.stage2DataToSave.parsed_output.pass === true && m5.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 78.1, m5.stage2DataToSave.parsed_output.scoringResult);

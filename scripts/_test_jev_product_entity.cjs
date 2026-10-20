@@ -137,7 +137,7 @@ async function main() {
   // C6 W 类豁免：cat=W（原生 W）不触门（W 数学独立计分）
   const seW = { ...qilinAnswers, event_category: { choice: 'W', probabilities: { W: 0.8, D: 0.15 } },
     w_product_score: { score: 25, probabilities: { '2': 0.6, '3': 0.3 } },
-    w_binance_interaction: { score: 22, probabilities: { '2': 0.7 } } };
+    w_bsc_user_appeal: { score: 22, probabilities: { '2': 0.7 } } };
   const rW = mapper.mapStandardAnswers(seW, makeContext(qilinTokenData, seW));
   check('C6 cat=W 豁免（W 数学不消费产品门）',
     !(rW.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品实体未被web3买家接纳'),

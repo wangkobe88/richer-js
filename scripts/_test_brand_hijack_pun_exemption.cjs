@@ -214,7 +214,7 @@ async function main() {
     ...biAnswers(),
     event_category: { choice: 'W', probabilities: { W: 0.9 } },
     w_product_score: { score: 0.5, probabilities: {} },
-    w_binance_interaction: { score: 2, probabilities: {} },
+    w_bsc_user_appeal: { score: 2, probabilities: {} },
   };
   const mF3 = mapStandardAnswers(wAns, makeContext());
   const s2F3 = mF3.stage2DataToSave?.parsed_output || {};

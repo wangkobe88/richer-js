@@ -285,7 +285,7 @@ async function main() {
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.99, fit: 0.01, marginal: 0, unfit: 0 } },
     event_subject_entity: { choice: 'product_functional', probabilities: { company: 0.12, product_functional: 0.65, product_character: 0.01, character_ip: 0, person: 0, event_hotspot: 0.22 } },
     w_product_score: { score: 0.17, probabilities: { '0': 0.87, '1': 0.09, '2': 0.03, '3': 0.01 } },
-    w_binance_interaction: { score: 2.26, probabilities: { '0': 0.14, '1': 0.05, '2': 0.22, '3': 0.59 } },
+    w_bsc_user_appeal: { score: 2.26, probabilities: { '0': 0.14, '1': 0.05, '2': 0.22, '3': 0.59 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.55, translation_match: 0.01, abbreviation_alias: 0.07, semantic: 0.11, cultural: 0, generic_content: 0, none: 0.06 } },
     relevance_level: { score: 2.69, probabilities: { '0': 0.03, '1': 0.12, '2': 0.21, '3': 0.41, '4': 0.23 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { unknown: 0.04, accepted: 0.94, no_entity: 0.02 } },
@@ -420,7 +420,7 @@ async function main() {
       web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.98, fit: 0.02, marginal: 0, unfit: 0 } },
       event_subject_entity: { choice: 'character_ip', probabilities: { company: 0, product_functional: 0, product_character: 0, character_ip: 0.96, person: 0, event_hotspot: 0.04, meme_word: 0, none_of_above: 0 } },
       w_product_score: { score: 0.66, probabilities: { '0': 0.66, '1': 0.09, '2': 0.19, '3': 0.06 } },
-      w_binance_interaction: { score: 0, probabilities: { '0': 1, '1': 0, '2': 0, '3': 0 } },
+      w_bsc_user_appeal: { score: 0, probabilities: { '0': 1, '1': 0, '2': 0, '3': 0 } },
       name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.93, translation_match: 0.01, abbreviation_alias: 0.03, semantic: 0.03, cultural: 0, generic_concept: 0, none: 0 } },
       relevance_level: { score: 3.79, probabilities: { '0': 0, '1': 0.01, '2': 0.02, '3': 0.13, '4': 0.84 } },
       web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.99, accepted: 0.01, no_entity: 0 } },
@@ -574,7 +574,7 @@ async function main() {
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
   check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.72'")
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.74'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')

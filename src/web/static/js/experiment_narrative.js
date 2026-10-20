@@ -746,7 +746,10 @@ class ExperimentNarrative {
         <div class="stage-title"><span>④ Jev 评分（Stage2）</span>${this._stageDot(s2)}</div>
         ${s2 ? (this._kv('总分', (sr?.eventCompositeScore ?? sr?.totalScore) != null ? `${sr.eventCompositeScore ?? sr.totalScore}（pass线60）` : null)
           + (s2IsW
-            ? this._kv('W 产品分', sr?.wProductScore) + this._kv('W 交互分', sr?.wInteractionScore)
+            ? this._kv('W 产品分', sr?.wProductScore)
+              + (sr?.wAppealScore != null
+                ? this._kv('W 吸引力分', sr.wAppealScore)
+                : this._kv('W 交互分', sr?.wInteractionScore)) // 历史行（J1.73 前）
               + this._kv('时效分', sr?.timingScore ?? sr?.timeliness)
             : this._kv('影响力', sr?.influenceScore != null ? `${sr.influenceScore}/5` : (sr?.impactTierScore ?? sr?.tierScore))
               + this._kv('影响力档', sr?.influenceTier)

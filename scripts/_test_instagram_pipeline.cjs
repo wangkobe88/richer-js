@@ -262,7 +262,7 @@ async function main() {
   const wAnswers = tuhaoAnswers();
   wAnswers.event_category = { choice: 'W', probabilities: { W: 0.7 } };
   wAnswers.w_product_score = { score: 2.2, probabilities: { '2': 0.6, '3': 0.2 } };
-  wAnswers.w_binance_interaction = { score: 0.5, probabilities: { '0': 0.9 } };
+  wAnswers.w_bsc_user_appeal = { score: 0.5, probabilities: { '0': 0.9 } };
   const m5 = mapStandardAnswers(wAnswers, makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e5 = stage2Of(m5);
   check('E5 W 类走 W 数学不触达（无 spreadScore / anchor null）',

@@ -121,7 +121,7 @@ async function main() {
     const impactScore = a.web3_user_event_impact?.score ?? a.event_magnitude?.score;
     const spreadScore = a.web3_user_event_spread?.score ?? a.dimension2?.score;
     console.log(`  web3_user_event_impact=${impactScore?.toFixed(2)} timing=${a.event_timing?.choice} web3_user_event_spread=${spreadScore?.toFixed(2)}`);
-    console.log(`  event_token_block_reason=${a.event_token_block_reason?.choice}(P=${a.event_token_block_reason?.probabilities?.[a.event_token_block_reason?.choice]?.toFixed?.(2)}, noneP=${a.event_token_block_reason?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_product=${a.w_product_score?.score?.toFixed(2)} w_interaction=${a.w_binance_interaction?.score?.toFixed(2)}`);
+    console.log(`  event_token_block_reason=${a.event_token_block_reason?.choice}(P=${a.event_token_block_reason?.probabilities?.[a.event_token_block_reason?.choice]?.toFixed?.(2)}, noneP=${a.event_token_block_reason?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_product=${a.w_product_score?.score?.toFixed(2)} w_appeal=${a.w_bsc_user_appeal?.score?.toFixed(2)}`);
     console.log(`  relevance=${a.name_event_relevance?.choice}${includeBrandHijack ? ` hijackP=${a.name_brand_hijack?.noul?.toFixed(2)}` : ''}`);
     console.log(`  quality: token_name_quality=${a.token_name_quality?.score?.toFixed(2)}`);
 

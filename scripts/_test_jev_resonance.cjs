@@ -176,8 +176,8 @@ async function main() {
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 14 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.72（J1.72=C133 实体题新增 new_entity；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+token_ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
-    qKeys.length === 14 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.72'
+  check('D5 题集 14 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+token_ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
+    qKeys.length === 14 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.74'
     && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 15 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 
