@@ -112,7 +112,7 @@ async function main() {
   const j1 = a1.stage1DataToSave.parsed_output.jev;
   check('A1a override 命中：angleTimingOverride.lagSec=993367', j1.angleTimingOverride?.lagSec === LAG_SEC, j1.angleTimingOverride);
   check('A1b Jev 原判档保留审计：rawTiming=within_30d', j1.angleTimingOverride?.rawTiming === 'within_30d', j1.angleTimingOverride);
-  check('A1c timing 归 older', j1.timing === 'older', j1.timing);
+  check('A1c timing 归 older', j1.effectiveTiming === 'older', j1.effectiveTiming);
   check('A1d stage2 被翻转：pass=false（62→52 < 60）', a1.stage2DataToSave.parsed_output.pass === false, a1.stage2DataToSave.parsed_output);
   check('A1e 终评不再 high', a1.stageFinalData.rating !== 'high' && a1.stageFinalData.category !== 'high', { rating: a1.stageFinalData.rating });
 
@@ -128,7 +128,7 @@ async function main() {
   const a2 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, freshTwitter, 'angle_seeking'));
   check('A2 窗内 1h：不 override + timing 保持 within_30d',
     a2.stage1DataToSave.parsed_output.jev.angleTimingOverride === null
-    && a2.stage1DataToSave.parsed_output.jev.timing === 'within_30d',
+    && a2.stage1DataToSave.parsed_output.jev.effectiveTiming === 'within_30d',
     a2.stage1DataToSave.parsed_output.jev);
 
   // A3 direct_tweet 同 lag：不干预（推文即事件，event_timing 锚事件时间语义本就对）
@@ -222,7 +222,7 @@ async function main() {
   const d1j = d1.stage1DataToSave.parsed_output.jev;
   check('D1a override 命中：lagSec=42768000 (495d)', d1j.staleSourceOverride?.lagSec === FLY_LAG_SEC, d1j.staleSourceOverride);
   check('D1b Jev 原判档保留审计：rawTiming=within_7d', d1j.staleSourceOverride?.rawTiming === 'within_7d', d1j.staleSourceOverride);
-  check('D1c 宣告推（website_tweet 当天）不救：timing 归 older', d1j.timing === 'older', d1j.timing);
+  check('D1c 宣告推（website_tweet 当天）不救：timing 归 older', d1j.effectiveTiming === 'older', d1j.effectiveTiming);
   check('D1d 翻 low：stage2 53.4<60 拦', d1.stage2DataToSave.parsed_output.pass === false
     && d1.stageFinalData.stage2TotalScore === 53.4
     && d1.stageFinalData.category === 'low',
@@ -248,7 +248,7 @@ async function main() {
   check('D3 angle_seeking 不触 staleSource（C68 域 type 互斥）且 angle 门载体集不含宣告救活形状不拦',
     d3.stage1DataToSave.parsed_output.jev.staleSourceOverride === null
     && d3.stage1DataToSave.parsed_output.jev.angleTimingOverride === null
-    && d3.stage1DataToSave.parsed_output.jev.timing === 'within_7d',
+    && d3.stage1DataToSave.parsed_output.jev.effectiveTiming === 'within_7d',
     d3.stage1DataToSave.parsed_output.jev);
 
   // D4 锚缺失：fail-open 不干预（与 C68 A5 对称）
@@ -263,7 +263,7 @@ async function main() {
   const d6 = mapStandardAnswers(makeZeroAnswers('older'), makeContext(flyToken, flyTwitter, 'direct_tweet'));
   check('D6 Jev 已答 older：审计落 + timing 仍 older',
     d6.stage1DataToSave.parsed_output.jev.staleSourceOverride?.lagSec === FLY_LAG_SEC
-    && d6.stage1DataToSave.parsed_output.jev.timing === 'older',
+    && d6.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
     d6.stage1DataToSave.parsed_output.jev);
 
   // ═══ E. C102 借壳语料父推源头窗（mapper 层，BAI 案 0x11efcbd0…27777）═══
@@ -323,8 +323,8 @@ async function main() {
     && e1j.staleParentOverride?.rawTiming === 'within_7d',
     e1j.staleParentOverride);
   check('E1c timing 归 older + C75 不触（主推 50s 新鲜——载体洗白路径正是事故根因）',
-    e1j.timing === 'older' && e1j.staleSourceOverride === null,
-    { timing: e1j.timing, staleSource: e1j.staleSourceOverride });
+    e1j.effectiveTiming === 'older' && e1j.staleSourceOverride === null,
+    { timing: e1j.effectiveTiming, staleSource: e1j.staleSourceOverride });
   check('E1d 翻 low：C88 五腿第四腿（FRESH_TIMING）断 → J1.29 载体门接管拦截',
     e1.stage2DataToSave.parsed_output.pass === false
     && e1.stage2DataToSave.parsed_output.blockReason === '叙事主体无形象载体（无形象实体）',
@@ -353,7 +353,7 @@ async function main() {
     { ...baiToken, symbol: 'GAME', name: 'Game token', raw_api_data: { name: 'Game token' } }, e4Twitter, 'direct_tweet'));
   check('E4 非借壳语料同形状不触（宽判据是前置门，误伤零）',
     e4.stage1DataToSave.parsed_output.jev.staleParentOverride === null
-    && e4.stage1DataToSave.parsed_output.jev.timing === 'within_7d',
+    && e4.stage1DataToSave.parsed_output.jev.effectiveTiming === 'within_7d',
     e4.stage1DataToSave.parsed_output.jev);
 
   // E5 父推时间缺失：fail-open 不干预（与 C68 A6/C75 D5 对称）
@@ -393,7 +393,7 @@ async function main() {
   check('E9 C75+C102 并存：双 override 各落（495d 主推 + 25h 父推），timing older',
     e9.stage1DataToSave.parsed_output.jev.staleSourceOverride?.lagSec === FLY_LAG_SEC
     && e9.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 90000
-    && e9.stage1DataToSave.parsed_output.jev.timing === 'older',
+    && e9.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
     { s: e9.stage1DataToSave.parsed_output.jev.staleSourceOverride, p: e9.stage1DataToSave.parsed_output.jev.staleParentOverride });
 
   // E10 锚缺失：fail-open 不干预（与 C68 A5/C75 D4 对称）
@@ -459,7 +459,7 @@ async function main() {
     f1before.stage2DataToSave.parsed_output.scoringResult.totalScore === 63.65
     && f1before.stage2DataToSave.parsed_output.pass === true
     && f1before.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
-    && f1before.stage1DataToSave.parsed_output.jev.timing === 'within_30d',
+    && f1before.stage1DataToSave.parsed_output.jev.effectiveTiming === 'within_30d',
     { t: f1before.stage2DataToSave.parsed_output.scoringResult.totalScore, o: f1before.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
   const f1 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
   const f1j = f1.stage1DataToSave.parsed_output.jev;
@@ -470,7 +470,7 @@ async function main() {
     && f1j.staleRelParentOverride?.rawTiming === 'within_30d',
     f1j.staleRelParentOverride);
   check('F1c 翻转：timing older → 事件分 53.65<60 拦（63.65−10 时效分）',
-    f1j.timing === 'older'
+    f1j.effectiveTiming === 'older'
     && f1.stage2DataToSave.parsed_output.pass === false
     && f1.stage2DataToSave.parsed_output.blockReason === '事件分不足（53.65<60）'
     && f1.stage2DataToSave.category === 'low',
@@ -487,7 +487,7 @@ async function main() {
   const f2 = mapStandardAnswers(makeJeanPhilAnswers('explains_derivative'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
   check('F2 explains_derivative（解释另一个找角度推文）同拦 lagSec=1718310',
     f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_PARENT_LAG
-    && f2.stage1DataToSave.parsed_output.jev.timing === 'older',
+    && f2.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
     f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
 
   // F3 24h 边界：86401 命中 / 86400 严格 > 不命中
@@ -529,7 +529,7 @@ async function main() {
   check('F8 C102+C103 并存：binanceCorpus 无条件 + 关系臂双落，timing older',
     f8.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835
     && f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === 247835
-    && f8.stage1DataToSave.parsed_output.jev.timing === 'older',
+    && f8.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
     { c102: f8.stage1DataToSave.parsed_output.jev.staleParentOverride, c103: f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
 
   // F9 锚缺失：fail-open（与 C68 A5/C75 D4/C102 E10 对称）
@@ -573,8 +573,8 @@ async function main() {
     && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
-  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.53'")
+  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.54=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.54'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')

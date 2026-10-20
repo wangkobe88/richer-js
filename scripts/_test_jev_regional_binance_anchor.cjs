@@ -22,9 +22,9 @@
  *   B. 锚效果与对照（@binance/@cz_binance/@BinanceLabs/无借壳语料全不锚）
  *   C. 事故现场反证（币安游戏全值快照：五腿 hit 仍拦=唯一拦截位；
  *      同形状换 @cz_binance 源 pass=true=锚必要性正证）
- *   D. 锚互斥（regional 先手 web3FitAnchored：A 类 D 档原判+strong_fit≥0.5
+ *   D. 锚互斥（regional 先手 web3FitAnchoredTier：A 类 D 档原判+strong_fit≥0.5
  *      本应锚 B 翻案，regional 锚赢仍拦）
- *   E. 审计字段（regionalSubAccount 命中才落/magnitudeTier 保留原判/label）
+ *   E. 审计字段（regionalSubAccount 命中才落/jevImpactTier 保留原判/label）
  *   F. 源码口径（effTier 三元链/全球号集合/只查主推不查父推/label 模板）
  *
  * 用法：node scripts/_test_jev_regional_binance_anchor.cjs
@@ -163,12 +163,12 @@ async function main() {
     rB1.stage2DataToSave.parsed_output.jev.subjectCarrierBlock === null, null);
   check('C3 label 形状：量级不足（A档→D档·币安地域子账号不借壳）——原判档可追溯',
     (rB1.llmResult.reason || '').includes('A档→D档'), rB1.llmResult.reason);
-  check('C4 magnitudeTier 保留 Jev 原判 A（不受锚影响）',
-    rB1.stage1DataToSave.parsed_output.jev.magnitudeTier === 'A', rB1.stage1DataToSave.parsed_output.jev.magnitudeTier);
+  check('C4 jevImpactTier 保留 Jev 原判 A（不受锚影响）',
+    rB1.stage1DataToSave.parsed_output.jev.jevImpactTier === 'A', rB1.stage1DataToSave.parsed_output.jev.jevImpactTier);
 
   // ═══ D. 锚互斥（regional 先手锚升）═══
   console.log('\n── D. 锚互斥（锚降优先于 pubProxy/web3Fit 锚升）──');
-  // D1 web3FitAnchored 臂：A 类+D 档原判+strong_fit 0.9 本应锚 B 翻案 → regional 赢仍拦
+  // D1 web3FitAnchoredTier 臂：A 类+D 档原判+strong_fit 0.9 本应锚 B 翻案 → regional 赢仍拦
   const aClassD = gameShowAnswers();
   aClassD.event_category = { choice: 'A', probabilities: { A: 0.8 } };
   aClassD.event_magnitude = { score: 1.4, probabilities: { '1': 0.7 } }; // D 档
@@ -177,7 +177,7 @@ async function main() {
   const rD1 = mapStandardAnswers(aClassD, gameShowCtx(AR_TWITTER));
   check('D1 A 类 D 档原判+strong_fit 0.9（本应 web3Fit 锚 B）→ regional 锚赢仍拦',
     blockedByAnchor(rD1), rD1.llmResult.reason);
-  // D1b 对照：同形状 @cz_binance → web3FitAnchored 翻案 B 档放行
+  // D1b 对照：同形状 @cz_binance → web3FitAnchoredTier 翻案 B 档放行
   const rD1b = mapStandardAnswers(aClassD, gameShowCtx({
     author_screen_name: 'cz_binance', author_followers_count: 12990000, text: 'imagine binance show',
   }));

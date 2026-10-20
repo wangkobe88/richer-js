@@ -10,7 +10,7 @@
  *      unfit 0.72 → rating low + reason 含「Web3用户偏好不合」P=0.72）/
  *      unfit 0.3 放行对照 / 边界 0.5 拦 0.49 放 / 概率缺失放（miss 不误拦）/
  *      nhn 门优先级在前 / stage1+stage2 概率落库审计（probabilities.web3_fit、
- *      web3FitMass）
+ *      web3UnfitMass）
  *   D. performPreCheck 规则 3 收窄：爆款+有推文文本或视频标题任一非空 → null
  *      （C83 起 superIP 语料票同走标准路径，本门对 superIP 票经同一 mapper 可达）
  *      （进 Jev，C31 Training season/显化之歌案二次收窄——标题也算语料）/
@@ -84,22 +84,22 @@ async function main() {
   check('B1 unfit 0.72 → rating low', r1.llmResult.rating === 'low', r1.llmResult);
   check('B2 reason 含「Web3用户偏好不合」+ P=0.72', r1.llmResult.reason.includes('Web3用户偏好不合') && r1.llmResult.reason.includes('0.72'), r1.llmResult.reason);
   check('B3 stage2 blockReason 同标签', r1.stage2DataToSave.parsed_output.blockReason === 'Web3用户偏好不合', r1.stage2DataToSave.parsed_output.blockReason);
-  check('B4 stage2 审计 web3FitMass=0.72', r1.stage2DataToSave.parsed_output.jev.web3FitMass === 0.72, r1.stage2DataToSave.parsed_output.jev.web3FitMass);
+  check('B4 stage2 审计 web3UnfitMass=0.72', r1.stage2DataToSave.parsed_output.jev.web3UnfitMass === 0.72, r1.stage2DataToSave.parsed_output.jev.web3UnfitMass);
   check('B5 stage1 概率落库 probabilities.web3_fit', r1.stage1DataToSave.parsed_output.jev.probabilities.web3_fit?.unfit === 0.72, r1.stage1DataToSave.parsed_output.jev.probabilities.web3_fit);
 
   // B6 同形状 unfit 0.3（fit 为主）→ 不因偏好拦，评分正常走
   const r2 = mapStandardAnswers(makeAnswers({ unfit: 0.3, fit: 0.5, marginal: 0.12, strong_fit: 0.08 }), makeContext(tokenData));
   check('B6 unfit 0.3 → 不因偏好拦（rating 非 low）', r2.llmResult.rating !== 'low', r2.llmResult);
-  check('B6b 审计 web3FitMass=null（未拦）', r2.stage2DataToSave.parsed_output.jev.web3FitMass === null, r2.stage2DataToSave.parsed_output.jev.web3FitMass);
+  check('B6b 审计 web3UnfitMass=null（未拦）', r2.stage2DataToSave.parsed_output.jev.web3UnfitMass === null, r2.stage2DataToSave.parsed_output.jev.web3UnfitMass);
 
   // B7/B8 边界：0.5 拦，0.49 放
   const r3 = mapStandardAnswers(makeAnswers({ unfit: 0.5, marginal: 0.3, fit: 0.2 }), makeContext(tokenData));
   check('B7 边界 unfit=0.5 → 拦（≥0.5 语义）', r3.llmResult.rating === 'low' && r3.llmResult.reason.includes('Web3用户偏好不合'), r3.llmResult.reason);
   const r4 = mapStandardAnswers(makeAnswers({ unfit: 0.49, marginal: 0.31, fit: 0.2 }), makeContext(tokenData));
-  // B8 只锁 web3FitBlock 阈值轴（0.49<0.5 不拦）：该 fixture 是 E 类且 fit mass
+  // B8 只锁 web3UnfitBlock 阈值轴（0.49<0.5 不拦）：该 fixture 是 E 类且 fit mass
   // 0.2<0.5，J1.36 共振折损（C93）会把总分砍半致「事件分不足」拦——那是折损
   // 轴的正确行为非本门漏拦，断言按 B9 模式隔离被测轴
-  check('B8 边界 unfit=0.49 → web3FitBlock 不拦（0.49<0.5 阈值下界；E 类低 fit mass 票由 J1.36 折损另拦）',
+  check('B8 边界 unfit=0.49 → web3UnfitBlock 不拦（0.49<0.5 阈值下界；E 类低 fit mass 票由 J1.36 折损另拦）',
     !((r4.llmResult.reason || '').includes('Web3用户偏好不合')), r4.llmResult.reason);
 
   // B9 概率缺失（JevClient 缺 answer 会 throw，到 mapper 的一般是完整集；miss 不误拦）

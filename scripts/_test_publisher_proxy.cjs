@@ -139,8 +139,8 @@ async function main() {
   // B1 CUE 数值复现：proxy 激活 → 三豁免 + effTier A → 过线
   const m1 = mapStandardAnswers(cueAnswers, makeContext(cueTokenData, cueAnswers, cueTwitter));
   const j1 = m1.stage1DataToSave.parsed_output.jev;
-  check('B1a stage1 审计：publisherProxy 详情 + active + tierAnchored', j1.publisherProxy?.domain === 'cue.im' && j1.publisherProxyActive === true && j1.tierAnchored === 'A', j1);
-  check('B1b Jev 原判审计保真：magnitudeTier 保留 B（不受锚定影响）', j1.magnitudeTier === 'B', j1.magnitudeTier);
+  check('B1a stage1 审计：publisherProxy 详情 + active + anchoredTier', j1.publisherProxy?.domain === 'cue.im' && j1.publisherProxyActive === true && j1.anchoredTier === 'A', j1);
+  check('B1b Jev 原判审计保真：jevImpactTier 保留 B（不受锚定影响）', j1.jevImpactTier === 'B', j1.jevImpactTier);
   const s1 = m1.stage2DataToSave.parsed_output.scoringResult;
   check('B1c marketing_gimmick argmax 豁免（0.30-none 0.29 不再拦）+ nrBlock 豁免（阻断侧 0.84）', m1.stage2DataToSave.parsed_output.pass === true, m1.stage2DataToSave.parsed_output);
   check('B1d effTier A 锚：34+23.4+15=72.4 过线', s1.category === 'B' && s1.totalScore === 72.4 && s1.tierScore === 34, s1);
@@ -193,12 +193,12 @@ async function main() {
   // B7 锚定边界：A 原判不动 / S 不降
   const tierA = { ...cueAnswers, event_magnitude: { score: 4.2, probabilities: { '4': 0.6 } } };
   const m7a = mapStandardAnswers(tierA, makeContext(cueTokenData, tierA, cueTwitter));
-  check('B7a Jev 原判 A 档：tierAnchored=null（不动）', m7a.stage1DataToSave.parsed_output.jev.tierAnchored === null && m7a.stage2DataToSave.parsed_output.scoringResult.tierScore === 34);
+  check('B7a Jev 原判 A 档：anchoredTier=null（不动）', m7a.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7a.stage2DataToSave.parsed_output.scoringResult.tierScore === 34);
   const tierS = { ...cueAnswers, event_magnitude: { score: 4.8, probabilities: { '5': 0.5, '4': 0.3 } } };
   const m7b = mapStandardAnswers(tierS, makeContext(cueTokenData, tierS, cueTwitter));
-  check('B7b Jev 原判 S 档：不降档（39 分保留）', m7b.stage1DataToSave.parsed_output.jev.tierAnchored === null && m7b.stage2DataToSave.parsed_output.scoringResult.tierScore === 39);
+  check('B7b Jev 原判 S 档：不降档（39 分保留）', m7b.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7b.stage2DataToSave.parsed_output.scoringResult.tierScore === 39);
 
-  // B8 C 类域同样生效（B/C 边界抖动防护，与 rideDetourBelow 同域）
+  // B8 C 类域同样生效（B/C 边界抖动防护，与 rideDetourMass 同域）
   const catC = { ...cueAnswers, event_category: { choice: 'C', probabilities: { C: 0.52, B: 0.41 } } };
   const m8 = mapStandardAnswers(catC, makeContext(cueTokenData, catC, cueTwitter));
   check('B8 C 类域生效：pubProxyActive + effTier A 过线', m8.stage1DataToSave.category === 'C' && m8.stage1DataToSave.parsed_output.jev.publisherProxyActive === true && m8.stage2DataToSave.parsed_output.scoringResult.tierScore === 34 && m8.llmResult.pass === true, m8.promptType);

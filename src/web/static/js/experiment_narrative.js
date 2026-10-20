@@ -717,15 +717,15 @@ class ExperimentNarrative {
     const s1Audit = [];
     if (s1j?.categoryForced) s1Audit.push('cashtag改道W');
     if (s1j?.publisherProxyActive) s1Audit.push('发布者代理J1.18');
-    if (s1j?.tierAnchored) s1Audit.push(`指代锚${s1j.tierAnchored}`);
-    if (s1j?.web3FitAnchored) s1Audit.push(`W3偏好锚${s1j.web3FitAnchored}`);
+    const anchoredTier = s1j?.anchoredTier ?? s1j?.tierAnchored; if (anchoredTier) s1Audit.push(`指代锚${anchoredTier}`);
+    const web3FitAnchoredTier = s1j?.web3FitAnchoredTier ?? s1j?.web3FitAnchored; if (web3FitAnchoredTier) s1Audit.push(`W3偏好锚${web3FitAnchoredTier}`);
     if (s1j?.angleTimingOverride) s1Audit.push('找角度时效C68');
     if (s1j?.staleSourceOverride) s1Audit.push('源头陈旧C75');
     if (s1j?.tweetType) s1Audit.push(`载体:${s1j.tweetType}`);
     const stage1Card = `
       <div class="stage-card">
         <div class="stage-title"><span>③ Jev 分类（Stage1）</span>${this._stageDot(s1)}</div>
-        ${s1 ? (this._kv('类别', s1.category) + this._kv('量级档', s1j?.magnitudeTier) + this._kv('时效', s1j?.timing, s1j?.timing) + this._kv('载体', s1j?.tweetType) + (s1Audit.length ? this._kv('审计', s1Audit.join('｜')) : '')) : '<div class="text-xs text-gray-500">未执行</div>'}
+        ${s1 ? (this._kv('类别', s1.category) + this._kv('量级档', s1j?.jevImpactTier ?? s1j?.magnitudeTier) + this._kv('时效', s1j?.effectiveTiming ?? s1j?.timing, s1j?.effectiveTiming ?? s1j?.timing) + this._kv('载体', s1j?.tweetType) + (s1Audit.length ? this._kv('审计', s1Audit.join('｜')) : '')) : '<div class="text-xs text-gray-500">未执行</div>'}
       </div>`;
 
     const s2 = na.stage2;
@@ -735,11 +735,11 @@ class ExperimentNarrative {
     const s2IsW = sr?.category === 'W';
     const s2Audit = [];
     if (s2j?.wInteractionExempt) s2Audit.push('W交互豁免C42');
-    if (s2j?.instagramDim2Anchor) s2Audit.push('IG锚C44');
+    if (s2j?.instagramSpreadAnchor ?? s2j?.instagramDim2Anchor) s2Audit.push('IG锚C44');
     if (s2j?.productEntityBinanceExempt) s2Audit.push('币安豁免C55');
     if (s2j?.rcpPlatformExempt) s2Audit.push('平台官方豁免C56');
     if (s2j?.publisherProxyActive) s2Audit.push('发布者代理J1.18');
-    if (s2j?.resonanceDamp) s2Audit.push(`感染力折损×${s2j.resonanceDamp.coef}(C80)`);
+    const web3FitDamp = s2j?.web3FitDamp ?? s2j?.resonanceDamp; if (web3FitDamp) s2Audit.push(`Web3偏好折损×${web3FitDamp.coef}(C80)`);
     if (s2j?.memFloorBlock) s2Audit.push(`mem地板拦截(${s2j.memFloorBlock.mem})`);
     const stage2Card = `
       <div class="stage-card">
@@ -747,7 +747,7 @@ class ExperimentNarrative {
         ${s2 ? (this._kv('总分', sr?.totalScore != null ? `${sr.totalScore}（pass线60）` : null)
           + (s2IsW
             ? this._kv('W 产品分', sr?.wProductScore) + this._kv('W 交互分', sr?.wInteractionScore)
-            : this._kv('事件分', sr?.tierScore) + this._kv('传播分', sr?.dimension2))
+            : this._kv('事件分', sr?.tierScore) + this._kv('传播分', sr?.spreadScore ?? sr?.dimension2))
           + this._kv('时效分', sr?.timeliness)
           + this._kv('拦截', s2po?.blockReason)
           + (s2Audit.length ? this._kv('审计', s2Audit.join('｜')) : '')
@@ -792,7 +792,7 @@ class ExperimentNarrative {
     };
     const ansRows = [
       this._kv('事件类别', f.eventCategory, probTop(probs.event_category)),
-      this._kv('量级档', f.tier, probTop(probs.event_magnitude)),
+      this._kv('量级档', f.tier, probTop(probs.web3_user_impact ?? probs.event_magnitude)),
       this._kv('名称指代', f.nameReferent, probTop(probs.name_referent)),
       this._kv('super_ip 概率', f.superIpProb != null ? `${Math.round(f.superIpProb * 100)}%` : null),
       this._kv('口号性 mem', f.mem),
@@ -1101,7 +1101,7 @@ function extractFeatures(item) {
     } catch { /* 旧行/坏行：对应字段保持 null */ }
   }
 
-  f.tier = s2j?.magnitudeTier ?? s1j?.magnitudeTier ?? answersTier(f.answers) ?? null;
+  f.tier = s2j?.jevImpactTier ?? s1j?.jevImpactTier ?? s2j?.magnitudeTier ?? s1j?.magnitudeTier ?? answersTier(f.answers) ?? null;
 
   // 拦截点定位（优先级：precheck → mem地板 → stage2 → stage3 → prestage fail）
   const pc = na.preCheck;
@@ -1127,7 +1127,7 @@ function extractFeatures(item) {
 }
 
 function answersTier(answers) {
-  return answers?.event_magnitude?.score ?? null;
+  return answers?.web3_user_impact?.score ?? answers?.event_magnitude?.score ?? null;
 }
 
 // 初始化

@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.53（J1.53=C122 门名断代（name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability，零行为意图）；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.53', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.53（J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.54', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -101,7 +101,7 @@ async function main() {
     aActive.block_reason = { choice: 'ip_reuse', probabilities: { none: 0.1, ip_reuse: 0.7 } };
     const rActive = mapStandardAnswers(aActive, stdCtx('TST', 'TST'));
     check('A8d 活桶对照：A 类 argmax=ip_reuse 照拦（合并不外溢）',
-      (rActive.llmResult.reason || '').includes('IP二次利用') && rActive.llmResult.rating === 'low', rActive.llmResult.reason);
+      (rActive.llmResult.reason || '').includes('IP低质复用') && rActive.llmResult.rating === 'low', rActive.llmResult.reason);
   }
 
   // A8e J1.45（C110 扫描后裁定）gimmick 扩全域行为证明：E 类票 argmax=
@@ -118,7 +118,7 @@ async function main() {
   // A9 J1.45 dim2 同轴锚删除：题面不再要求「档位应基本一致」（0.85 同轴实证=
   // 同一判断问两遍），改「同档主体传播面强弱细分」镜头 + 明确允许与档位不一致
   {
-    const dq = qs.dimension2;
+    const dq = qs.web3_user_spread;
     check('A9 dim2 题面瘦身：删同轴锚 + 传播面细分镜头 + 允许与档位不一致',
       !dq.instructions.includes('档位应基本一致') && dq.instructions.includes('传播面的强弱细分')
       && dq.instructions.includes('不同镜头') && dq.instructions.includes('按本题自己的证据如实评')
@@ -137,26 +137,26 @@ async function main() {
     const qsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
     const sbSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
     check('A10a event_magnitude A 类找角度锚：主体=被借势 IP 本身、世界知识可判、载体账号数据不参与',
-      qs.event_magnitude.instructions.includes('找角度/借势语料（形状②，J1.46）')
-      && qs.event_magnitude.instructions.includes('不代表IP量级、不参与定档'),
-      qs.event_magnitude.instructions.slice(0, 100));
+      qs.web3_user_impact.instructions.includes('找角度/借势语料（形状②，J1.46）')
+      && qs.web3_user_impact.instructions.includes('不代表IP量级、不参与定档'),
+      qs.web3_user_impact.instructions.slice(0, 100));
     check('A10b dimension2 A 类找角度锚：IP 方权重按被借势 IP 知名度判、载体推文数据不参与',
-      qs.dimension2.instructions.includes('载体推文账号的粉丝/赞/转不是IP知名度证据、不参与判分')
-      && qs.dimension2.instructions.includes('不因「语料里只有小号提及」降档'),
-      qs.dimension2.instructions.slice(0, 100));
+      qs.web3_user_spread.instructions.includes('载体推文账号的粉丝/赞/转不是IP知名度证据、不参与判分')
+      && qs.web3_user_spread.instructions.includes('不因「语料里只有小号提及」降档'),
+      qs.web3_user_spread.instructions.slice(0, 100));
     // J1.51 事故现场反证：J1.50 版「实际被调动/多少人注意到」措辞把 dim2 镜头导向
     // 语料实测互动 → 全量对拍 C113 哭哭奶龙回归（档位稳 B 但 dim2 28.2→13.2 塌档，
     // 138 粉载体形状 probs 落 0-1 带 0.72）。修正锚锁死：镜头=用户侧认知面非实测互动
     check('A10b-J51 dimension2 镜头=用户侧认知面非语料实测互动（C113 回归反证锁定）',
-      qs.dimension2.instructions.includes('不是语料推文账号的实测互动量')
-      && qs.dimension2.instructions.includes('小号载体≠小事件')
-      && !qs.dimension2.instructions.includes('实际被调动起来的传播面'),
-      qs.dimension2.instructions.slice(0, 120));
+      qs.web3_user_spread.instructions.includes('不是语料推文账号的实测互动量')
+      && qs.web3_user_spread.instructions.includes('小号载体≠小事件')
+      && !qs.web3_user_spread.instructions.includes('实际被调动起来的传播面'),
+      qs.web3_user_spread.instructions.slice(0, 120));
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.53'"), 'J1.53 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.54'"), 'J1.53 常量缺失');
 
     // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
@@ -241,8 +241,95 @@ async function main() {
         check('A12g 审计键改名（stage1 web3UserAcceptability / stage2 web3UserAcceptabilityBlock，旧名不落）',
           rNew.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'web3_user_not_acceptable'
           && rNew.stage1DataToSave.parsed_output.jev.nameForm === undefined
-          && rNew.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock?.form === 'web3_user_not_acceptable',
+          && rNew.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock?.choice === 'web3_user_not_acceptable',
           rNew.stage1DataToSave.parsed_output.jev.web3UserAcceptability);
+      }
+
+      // A13 J1.54（C123 门名/题键语义化，零判据改动）：event_magnitude →
+      // web3_user_impact、dimension2 → web3_user_spread + 门函数/审计键改名。
+      // 断代兼容红线：mapper 双读（旧形状 answers 结果与新形状逐位一致）。
+      {
+        check('A13a 题键改名：web3_user_impact/web3_user_spread 在场，event_magnitude/dimension2 缺席',
+          qs.web3_user_impact?.type === 'score' && qs.web3_user_spread?.type === 'score'
+          && qs.event_magnitude === undefined && qs.dimension2 === undefined,
+          Object.keys(qs).filter(k => k.includes('impact') || k.includes('spread') || k.includes('magnitude') || k.includes('dimension')));
+        check('A13b 题面跨题引用同步（web3_user_spread 引 web3_user_impact、无旧键名）',
+          qs.web3_user_spread.instructions.includes('web3_user_impact')
+          && !qs.web3_user_spread.instructions.includes('event_magnitude')
+          && qs.subject_entity.instructions.includes('web3_user_impact'),
+          null);
+        // 双读等价：旧形状 vs 新形状（移键）逐位对拍
+        const oldShape = baseAnswers();
+        const newShape = { ...baseAnswers() };
+        newShape.web3_user_impact = oldShape.event_magnitude;
+        newShape.web3_user_spread = oldShape.dimension2;
+        delete newShape.event_magnitude;
+        delete newShape.dimension2;
+        const rOldShape = mapStandardAnswers(oldShape, stdCtx('TST', 'TST'));
+        const rNewShape = mapStandardAnswers(newShape, stdCtx('TST', 'TST'));
+        const s2Old = rOldShape.stage2DataToSave.parsed_output;
+        const s2New = rNewShape.stage2DataToSave.parsed_output;
+        check('A13c 双读等价：旧形状 answers 与新形状 answers 评级/总分/传播分/档位全等',
+          rOldShape.llmResult.rating === rNewShape.llmResult.rating
+          && s2Old.scoringResult.totalScore === s2New.scoringResult.totalScore
+          && s2Old.scoringResult.spreadScore === s2New.scoringResult.spreadScore
+          && s2Old.jev.jevImpactTier === s2New.jev.jevImpactTier,
+          { old: s2Old.scoringResult, new: s2New.scoringResult });
+        // 审计键新名落、旧名不落（mapper 只写新键）
+        const s1j = rNewShape.stage1DataToSave.parsed_output.jev;
+        check('A13d P1 审计键改名：jevImpactTier/effectiveImpactTier/effectiveTiming/anchoredTier/web3FitAnchoredTier 在场，旧名缺席',
+          s1j.jevImpactTier != null && s1j.effectiveImpactTier != null && s1j.effectiveTiming != null
+          && s1j.magnitudeTier === undefined && s1j.timing === undefined
+          && s1j.tierAnchored === undefined && s1j.web3FitAnchored === undefined,
+          Object.keys(s1j));
+        check('A13e P1 审计键值形态：anchoredTier=原判档位字符串（非布尔）；effectiveImpactTier=锚后档',
+          s1j.anchoredTier === null || typeof s1j.anchoredTier === 'string',
+          s1j.anchoredTier);
+        check('A13f 概率键/评分键改名：probabilities 新键在场旧键缺席，scoringResult.spreadScore 在场、dimension2 缺席',
+          s1j.probabilities.web3_user_impact != null && s1j.probabilities.event_magnitude === undefined
+          && s2New.jev.probabilities.web3_user_spread != null && s2New.jev.probabilities.dimension2 === undefined
+          && s2New.scoringResult.spreadScore != null && s2New.scoringResult.dimension2 === undefined,
+          { s1: Object.keys(s1j.probabilities), s2: Object.keys(s2New.jev.probabilities) });
+        check('A13g 折损审计键改名：web3UnfitMass 恒落（可 null）、web3FitMass 缺席',
+          'web3UnfitMass' in s2New.jev && s2New.jev.web3FitMass === undefined,
+          Object.keys(s2New.jev).filter(k => k.toLowerCase().includes('fitmass')));
+        // E 类 + web3_fit 正向质量<0.5 → Web3偏好折损（原感染力折损）
+        const eAns = baseAnswers();
+        eAns.event_category = { choice: 'E', probabilities: { E: 0.9 } };
+        eAns.web3_fit = { choice: 'marginal', probabilities: { marginal: 0.6, unfit: 0.2, fit: 0.1 } };
+        const rE = mapStandardAnswers(eAns, stdCtx('TST', 'TST'));
+        const s2E = rE.stage2DataToSave.parsed_output;
+        check('A13h E 类折损改名：reason 含「Web3偏好折损」、web3FitDamp.coef=0.5、旧 resonanceDamp 缺席',
+          String(s2E.reason).includes('Web3偏好折损')
+          && s2E.jev.web3FitDamp?.coef === 0.5
+          && s2E.jev.resonanceDamp === undefined
+          && !String(s2E.reason).includes('感染力折损'),
+          s2E.reason);
+        // B 类传播轴锚审计键改名
+        const bAns = baseAnswers();
+        bAns.event_category = { choice: 'B', probabilities: { B: 0.9 } };
+        bAns.event_magnitude = { score: 1.5, probabilities: { '1': 0.8 } };
+        bAns.dimension2 = { score: 1, probabilities: { '1': 0.8 } };
+        const rB = mapStandardAnswers(bAns, stdCtx('TST', 'TST'));
+        const s2B = rB.stage2DataToSave.parsed_output;
+        check('A13i B 类传播锚审计键改名：web3FitSpreadAnchor 命中、instagramSpreadAnchor 为空、旧键缺席',
+          s2B.jev.web3FitSpreadAnchor?.from === 10
+          && s2B.jev.web3FitDim2Anchor === undefined
+          && s2B.jev.instagramDim2Anchor === undefined,
+          s2B.jev.web3FitSpreadAnchor);
+        // 源码口径：门函数/常量改名（防回潮）
+        const mapperSrc2 = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
+        check('A13j 门函数/常量源码改名（web3UserAcceptabilityBlock/Choice、WEB3_USER_NOT_ACCEPTABLE_CHOICES、web3UnfitBlock、rideDetourMass、WEB3_FIT_DAMP_COEF）',
+          /function web3UserAcceptabilityBlock\(answers\)/.test(mapperSrc2)
+          && /function web3UserAcceptabilityChoice\(answers\)/.test(mapperSrc2)
+          && /WEB3_USER_NOT_ACCEPTABLE_CHOICES = new Set\(/.test(mapperSrc2)
+          && /function web3UnfitBlock\(answers\)/.test(mapperSrc2)
+          && /function rideDetourMass\(answers, category\)/.test(mapperSrc2)
+          && /WEB3_FIT_DAMP_COEF = 0\.5/.test(mapperSrc2)
+          && !/function notMemeNameBlock/.test(mapperSrc2)
+          && !/function nameFormChoice/.test(mapperSrc2)
+          && !/function rideDetourBelow/.test(mapperSrc2),
+          null);
       }
     }
   }

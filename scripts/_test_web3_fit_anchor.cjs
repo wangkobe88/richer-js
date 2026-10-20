@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Web3 偏好量级锚（web3FitAnchored）——本地零 DB 单测（J1.23，2026-10-01 用户裁定，
+ * Web3 偏好量级锚（web3FitAnchoredTier）——本地零 DB 单测（J1.23，2026-10-01 用户裁定，
  * C38 久留美案续 0xfedf19759ba9c45b1a8345a2bde916b38acc7777）
  *
  * 覆盖：
@@ -9,8 +9,8 @@
  *      strong_fit 0.49 贴线不锚 / C-D-E 类不锚（作用域 A/B）/ B/A/S 原判不动 /
  *      D/E 档锚后放行 / web3_fit 缺失 fail-closed
  *   B. 负门正锚共存：unfit 0.88 拦截维持（对称负门不被正锚干扰）
- *   C. 审计与 reason：magnitudeTier 原判保留 / reason 带「Web3偏好锚」/
- *      stage1 jev.web3FitAnchored 落位
+ *   C. 审计与 reason：jevImpactTier 原判保留 / reason 带「Web3偏好锚」/
+ *      stage1 jev.web3FitAnchoredTier 落位
  *   D. C94 B 类双锚（2026-10-18 用户裁定，京小安案 0xcb98accaa8040a7e839c30
  *      5b8aca08e113c87777「web3 用户喜欢是根本判据，发布主体无所谓」）：
  *      B 类 + strong_fit≥0.5 → effTier 锚 B + dim2<18 锚 18 双锚；京小安 DB 实测
@@ -90,21 +90,21 @@ async function main() {
   const cCatAnswers = { ...kurumiAnswers(), event_category: { choice: 'C', probabilities: { C: 0.6, A: 0.2 } } };
   const m3 = mapStandardAnswers(cCatAnswers, makeContext(kurumiTokenData, cCatAnswers));
   const j3 = m3?.stage1DataToSave?.parsed_output?.jev || {};
-  check('A3 C 类不锚（作用域 A/B，C/D/E 维持客观规模口径）', j3.web3FitAnchored == null, j3.web3FitAnchored);
+  check('A3 C 类不锚（作用域 A/B，C/D/E 维持客观规模口径）', j3.web3FitAnchoredTier == null, j3.web3FitAnchoredTier);
 
   // A4 原判 B 档 → 不锚（原判即 B，无审计标记）
   const bTierAnswers = kurumiAnswers({ tier: 3, tierProbs: { '3': 0.6 } });
   const m4 = mapStandardAnswers(bTierAnswers, makeContext(kurumiTokenData, bTierAnswers));
   const j4 = m4?.stage1DataToSave?.parsed_output?.jev || {};
   const s4 = m4?.stage2DataToSave?.parsed_output || {};
-  check('A4 原判 B 档不锚（无审计标记、B 档分原样）', j4.web3FitAnchored == null && s4.scoringResult?.tierScore === 27, { a: j4.web3FitAnchored, t: s4.scoringResult?.tierScore });
+  check('A4 原判 B 档不锚（无审计标记、B 档分原样）', j4.web3FitAnchoredTier == null && s4.scoringResult?.tierScore === 27, { a: j4.web3FitAnchoredTier, t: s4.scoringResult?.tierScore });
 
   // A5 原判 A/S 档 → 不锚（不越权降档也不重复标）
   const aTierAnswers = kurumiAnswers({ tier: 4, tierProbs: { '4': 0.6 } });
   const m5 = mapStandardAnswers(aTierAnswers, makeContext(kurumiTokenData, aTierAnswers));
   const j5 = m5?.stage1DataToSave?.parsed_output?.jev || {};
   const s5 = m5?.stage2DataToSave?.parsed_output || {};
-  check('A5 原判 A 档不动（34 分无锚标记）', j5.web3FitAnchored == null && s5.scoringResult?.tierScore === 34, { a: j5.web3FitAnchored, t: s5.scoringResult?.tierScore });
+  check('A5 原判 A 档不动（34 分无锚标记）', j5.web3FitAnchoredTier == null && s5.scoringResult?.tierScore === 34, { a: j5.web3FitAnchoredTier, t: s5.scoringResult?.tierScore });
 
   // A6 D/E 档 + A 类 + strong_fit 0.88 → 锚 B → 「量级不足」阻断分支放行
   const dTierAnswers = kurumiAnswers({ tier: 1, tierProbs: { '1': 0.7 } });
@@ -143,11 +143,11 @@ async function main() {
 
   console.log('\n── C. 审计与 reason ──');
 
-  // C1 magnitudeTier 原判 C 保留 + web3FitAnchored 落位
+  // C1 jevImpactTier 原判 C 保留 + web3FitAnchoredTier 落位
   const j1 = m1?.stage1DataToSave?.parsed_output?.jev || {};
-  check('C1 审计标记：magnitudeTier=C 原判保留 + web3FitAnchored=B + strongP 0.88',
-    j1.magnitudeTier === 'C' && j1.web3FitAnchored === 'B' && j1.web3FitStrongP === 0.88,
-    { t: j1.magnitudeTier, a: j1.web3FitAnchored, p: j1.web3FitStrongP });
+  check('C1 审计标记：jevImpactTier=C 原判保留 + web3FitAnchoredTier=B + strongP 0.88',
+    j1.jevImpactTier === 'C' && j1.web3FitAnchoredTier === 'B' && j1.web3FitStrongPAnchored === 0.88,
+    { t: j1.jevImpactTier, a: j1.web3FitAnchoredTier, p: j1.web3FitStrongPAnchored });
 
   // C2 reason 带 Web3偏好锚说明
   check('C2 reason 展示锚来源（原判档+strong_fit 百分比）', /Web3偏好锚\(原判C档,strong_fit 88%\)/.test(s2.reason || ''), s2.reason);
@@ -195,12 +195,12 @@ async function main() {
   const jd2 = md2?.stage1DataToSave?.parsed_output?.jev || {};
   check('D2 B类 D档+strong_fit 0.57 双锚：27+18+15=60 恰过线 pass',
     sd2.pass === true && sd2.scoringResult?.totalScore === 60
-      && sd2.scoringResult?.tierScore === 27 && sd2.scoringResult?.dimension2 === 18,
+      && sd2.scoringResult?.tierScore === 27 && sd2.scoringResult?.spreadScore === 18,
     sd2.scoringResult);
-  check('D2 审计：magnitudeTier=D 原判保留 + web3FitAnchored=B + web3FitDim2Anchor={from:7}',
-    jd2.magnitudeTier === 'D' && jd2.web3FitAnchored === 'B'
-      && sd2.jev?.web3FitDim2Anchor?.from === 7,
-    { t: jd2.magnitudeTier, a: jd2.web3FitAnchored, d: sd2.jev?.web3FitDim2Anchor });
+  check('D2 审计：jevImpactTier=D 原判保留 + web3FitAnchoredTier=B + web3FitSpreadAnchor={from:7}',
+    jd2.jevImpactTier === 'D' && jd2.web3FitAnchoredTier === 'B'
+      && sd2.jev?.web3FitSpreadAnchor?.from === 7,
+    { t: jd2.jevImpactTier, a: jd2.web3FitAnchoredTier, d: sd2.jev?.web3FitSpreadAnchor });
   check('D2 reason 双锚标注（Web3偏好锚 + Web3偏好传播豁免）',
     /Web3偏好锚\(原判D档,strong_fit 57%\)/.test(sd2.reason || '')
       && /Web3偏好传播豁免\(原7\)/.test(sd2.reason || ''), sd2.reason);
@@ -217,9 +217,9 @@ async function main() {
   const md4 = mapStandardAnswers(d4a, makeContext(jxaTokenData, d4a));
   const sd4 = md4?.stage2DataToSave?.parsed_output || {};
   check('D4 dim2 高带不锚（只升不降）：量级锚照常、传播锚审计 null',
-    sd4.scoringResult?.tierScore === 27 && sd4.jev?.web3FitDim2Anchor == null
-      && sd4.scoringResult?.dimension2 > 18,
-    { t: sd4.scoringResult?.tierScore, d: sd4.scoringResult?.dimension2, a: sd4.jev?.web3FitDim2Anchor });
+    sd4.scoringResult?.tierScore === 27 && sd4.jev?.web3FitSpreadAnchor == null
+      && sd4.scoringResult?.spreadScore > 18,
+    { t: sd4.scoringResult?.tierScore, d: sd4.scoringResult?.spreadScore, a: sd4.jev?.web3FitSpreadAnchor });
 
   // D5 C 类维持不豁（裁定「C/D/E 类量级是客观规模」）：同形状 category C → 无双锚
   const d5a = jxaAnswers({ memScore: 2.2, category: 'C' });
@@ -227,8 +227,8 @@ async function main() {
   const jd5 = md5?.stage1DataToSave?.parsed_output?.jev || {};
   const sd5 = md5?.stage2DataToSave?.parsed_output || {};
   check('D5 C 类不豁：量级/传播双锚均不触达',
-    jd5.web3FitAnchored == null && sd5.jev?.web3FitDim2Anchor == null,
-    { a: jd5.web3FitAnchored, d: sd5.jev?.web3FitDim2Anchor });
+    jd5.web3FitAnchoredTier == null && sd5.jev?.web3FitSpreadAnchor == null,
+    { a: jd5.web3FitAnchoredTier, d: sd5.jev?.web3FitSpreadAnchor });
 
   // D6 unfit 负门 B 类共存：Web3 用户不喜欢 → 量级/传播锚不救（对称负门）
   const d6a = jxaAnswers({ memScore: 2.2, strongFit: 0.02 });

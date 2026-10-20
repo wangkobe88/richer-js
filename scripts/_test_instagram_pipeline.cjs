@@ -221,15 +221,15 @@ async function main() {
 
   console.log('\n── E. mapper IG 影响力兜底矩阵 ──');
 
-  // E1 本案数值复现：A 类 + C 档(2.4) + strong_fit 0.9 → web3FitAnchored 锚 B(27)
+  // E1 本案数值复现：A 类 + C 档(2.4) + strong_fit 0.9 → web3FitAnchoredTier 锚 B(27)
   //    + dim2 0.97→9.7 兜底锚 18 + within_7d 15 = 60.0 恰好压线 pass
   const m1 = mapStandardAnswers(tuhaoAnswers(), makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e1 = stage2Of(m1);
   check('E1 本案复现：51.7（27+9.7+15 拦）→ 60.0（27+18+15 pass）',
-    e1.pass === true && e1.scoringResult.totalScore === 60 && e1.scoringResult.dimension2 === 18,
-    { total: e1.scoringResult.totalScore, dim2: e1.scoringResult.dimension2 });
-  check('E1b 审计：jev.instagramDim2Anchor.from = 9.7（原值可追溯）',
-    e1.jev?.instagramDim2Anchor?.from === 9.7, e1.jev?.instagramDim2Anchor);
+    e1.pass === true && e1.scoringResult.totalScore === 60 && e1.scoringResult.spreadScore === 18,
+    { total: e1.scoringResult.totalScore, spread: e1.scoringResult.spreadScore });
+  check('E1b 审计：jev.instagramSpreadAnchor.from = 9.7（原值可追溯）',
+    e1.jev?.instagramSpreadAnchor?.from === 9.7, e1.jev?.instagramSpreadAnchor);
   check('E1c reason 标注：stage2「IG影响力豁免(原9.7)」+ llm 前缀「IG影响力豁免(C44)」',
     /IG影响力豁免\(原9\.7\)/.test(e1.reason || '') && /IG影响力豁免\(C44\)/.test(m1.llmResult?.reason || ''),
     { stage2: e1.reason, llm: m1.llmResult?.reason });
@@ -238,9 +238,9 @@ async function main() {
   const m2 = mapStandardAnswers(tuhaoAnswers(), makeContext({ instagramLinked: true, instagramInfoFetched: true }));
   const e2 = stage2Of(m2);
   check('E2 instagramInfoFetched=true：不锚，dim2 照 Jev（9.7 → 51.7 拦）',
-    e2.pass === false && e2.scoringResult.dimension2 === 9.7 && e2.scoringResult.totalScore === 51.7
-      && e2.jev?.instagramDim2Anchor === null,
-    { total: e2.scoringResult.totalScore, dim2: e2.scoringResult.dimension2, anchor: e2.jev?.instagramDim2Anchor });
+    e2.pass === false && e2.scoringResult.spreadScore === 9.7 && e2.scoringResult.totalScore === 51.7
+      && e2.jev?.instagramSpreadAnchor === null,
+    { total: e2.scoringResult.totalScore, dim2: e2.scoringResult.spreadScore, anchor: e2.jev?.instagramSpreadAnchor });
 
   // E3 非 A 类（C 类）→ 不锚
   const cAnswers = tuhaoAnswers();
@@ -249,13 +249,13 @@ async function main() {
   const m3 = mapStandardAnswers(cAnswers, makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e3 = stage2Of(m3);
   check('E3 C 类不锚（IG 是形象主阵地，豁免限 A 类）',
-    e3.jev?.instagramDim2Anchor === null && e3.scoringResult.dimension2 === 9.7, e3.jev);
+    e3.jev?.instagramSpreadAnchor === null && e3.scoringResult.spreadScore === 9.7, e3.jev);
 
   // E4 dim2 已 ≥18 → 只升不降（score 2.5 落「小[18,26]」带 → 18+0.5×8=22）
   const m4 = mapStandardAnswers(tuhaoAnswers({ dim2Score: 2.5 }), makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e4 = stage2Of(m4);
   check('E4 dim2 22 ≥18：不锚不降',
-    e4.scoringResult.dimension2 === 22 && e4.jev?.instagramDim2Anchor === null, e4.scoringResult.dimension2);
+    e4.scoringResult.spreadScore === 22 && e4.jev?.instagramSpreadAnchor === null, e4.scoringResult.spreadScore);
 
   // E5 W 类 → 不触达（W 数学不消费 dim2）
   const wAnswers = tuhaoAnswers();
@@ -265,13 +265,13 @@ async function main() {
   const m5 = mapStandardAnswers(wAnswers, makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e5 = stage2Of(m5);
   check('E5 W 类走 W 数学不触达（dimension2 null / anchor null）',
-    e5.scoringResult.dimension2 === null && e5.jev?.instagramDim2Anchor === null, e5.scoringResult);
+    e5.scoringResult.spreadScore === null && e5.jev?.instagramSpreadAnchor === null, e5.scoringResult);
 
   // E6 存量调用形状（不传 IG context）→ 零行为变化（本案 J1.25 实测 51.7 拦复现）
   const m6 = mapStandardAnswers(tuhaoAnswers(), makeContext());
   const e6 = stage2Of(m6);
   check('E6 存量形状（无 IG 字段）：51.7 维持拦截（J1.25 实测 bit-identical）',
-    e6.pass === false && e6.scoringResult.totalScore === 51.7 && e6.scoringResult.dimension2 === 9.7,
+    e6.pass === false && e6.scoringResult.totalScore === 51.7 && e6.scoringResult.spreadScore === 9.7,
     e6.scoringResult);
 
   // E7 全链 pass 形状：stage3 走通（relevance 20 + 质量）
@@ -286,11 +286,11 @@ async function main() {
   check('F1 analyzer：instagramLinked 按 classifiedUrls.instagram / instagramInfoFetched 按抓取结果传入',
     /instagramLinked: !!\(classifiedUrls\?\.instagram\?\.length > 0\)/.test(analyzerSrc)
       && /instagramInfoFetched: instagramInfo != null/.test(analyzerSrc));
-  check('F2 mapper：igDim2Anchor 四条件（A类/linked/未抓到/只升不降）+ effDim2 计分（C94 双锚链）',
-    /const igDim2Anchor = category === 'A' && instagramLinked === true/.test(mapperSrc)
-      && /instagramInfoFetched !== true && dim2 < 18/.test(mapperSrc)
-      && /const effDim2 = igDim2Anchor \? 18 : \(web3FitDim2Anchor \? 18 : dim2\)/.test(mapperSrc)
-      && /tierScore \+ effDim2 \+ timeliness/.test(mapperSrc));
+  check('F2 mapper：instagramSpreadAnchor 四条件（A类/linked/未抓到/只升不降）+ effSpread 计分（C94 双锚链）',
+    /const instagramSpreadAnchorActive = category === 'A' && instagramLinked === true/.test(mapperSrc)
+      && /instagramInfoFetched !== true && spread < 18/.test(mapperSrc)
+      && /const effSpread = instagramSpreadAnchorActive \? 18 : \(web3FitSpreadAnchorActive \? 18 : spread\)/.test(mapperSrc)
+      && /tierScore \+ effSpread \+ timeliness/.test(mapperSrc));
   // C83：mapSuperIPAnswers 快车道删除——C44 IG 影响力两层兜底对 superIP 语料票
   // 经标准路径真实可达（旧「一期不挂」欠账终结），不存在性断言锁定
   check('F3 superIP 快车道已删（igDim2Anchor 兜底经标准路径对 superIP 语料可达）',

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * J1.36 E 类感染力折损判据源迁移（web3_fit 替代 event_resonance）——本地零 DB 单测
+ * J1.36 E 类Web3偏好折损判据源迁移（web3_fit 替代 event_resonance）——本地零 DB 单测
  * （2026-10-18 用户裁定 B 案，C93：原话「meme 币发币哪里有什么圈内圈外一说，
  * web3 用户喜欢就行了。event_resonance 是不是可以被替换为 web3_fit？」；
  * C80 蝙蝠侠摇案 0x4547dae7757fb4043e034d27ed02dfabe9aa7777 折损机制保留）
@@ -15,7 +15,7 @@
  *      fitMass 恰 0.5 边界不折（<0.5 严格）
  *   C. 作用域：A 类 marginal 不折（裁定域=E 类）/ W 类走 W 数学不触达 /
  *      E 类 D 档量级票折损前后同为拦（归因=量级门）
- *   D. 审计与源码口径：resonanceFitMass 恒落数值 / resonanceDamp {fitMass,coef}
+ *   D. 审计与源码口径：web3FitDampMass 恒落数值 / web3FitDamp {fitMass,coef}
  *      命中才落 / eventResonance 档位字段随题删除退役 / probabilities 无
  *      event_resonance 键 / 题集 17 题无 event_resonance（源码锁）
  *
@@ -91,7 +91,7 @@ async function main() {
   const m2 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.97, fit: 0.02, marginal: 0.01, unfit: 0 } }));
   const s2 = m2?.stage2DataToSave?.parsed_output || {};
   const f2 = m2?.stageFinalData || {};
-  check('A2 유과形状 0.97 不折：70.68/75.68 high（同款数学不再被感染力折损误拦）',
+  check('A2 유과形状 0.97 不折：70.68/75.68 high（同款数学不再被Web3偏好折损误拦）',
     s2.scoringResult?.totalScore === 70.68 && f2.totalScore === 75.68 && f2.category === 'high',
     { t: s2.scoringResult?.totalScore, fin: f2.totalScore });
 
@@ -111,16 +111,16 @@ async function main() {
   const m4 = await run(noFit);
   const s4 = m4?.stage2DataToSave?.parsed_output || {};
   const j4 = m4?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B1 web3_fit 缺失 fail-open：70.68 原样不折 / resonanceFitMass=null',
-    s4.scoringResult?.totalScore === 70.68 && j4.resonanceFitMass === null && j4.resonanceDamp === null,
-    { t: s4.scoringResult?.totalScore, m: j4.resonanceFitMass });
+  check('B1 web3_fit 缺失 fail-open：70.68 原样不折 / web3FitDampMass=null',
+    s4.scoringResult?.totalScore === 70.68 && j4.web3FitDampMass === null && j4.web3FitDamp === null,
+    { t: s4.scoringResult?.totalScore, m: j4.web3FitDampMass });
 
   // B2 fitMass 恰 0.5 边界：不折（<0.5 严格——与 J1.19/J1.23/J1.27 的 ≥0.5 线同侧）
   const m5 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.25, fit: 0.25, marginal: 0.4, unfit: 0.1 } }));
   const s5 = m5?.stage2DataToSave?.parsed_output || {};
   const j5 = m5?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B2 fitMass 恰 0.5 不折（严格 <）+ 审计恒落 0.5', s5.scoringResult?.totalScore === 70.68 && j5.resonanceFitMass === 0.5 && j5.resonanceDamp === null,
-    { t: s5.scoringResult?.totalScore, m: j5.resonanceFitMass });
+  check('B2 fitMass 恰 0.5 不折（严格 <）+ 审计恒落 0.5', s5.scoringResult?.totalScore === 70.68 && j5.web3FitDampMass === 0.5 && j5.web3FitDamp === null,
+    { t: s5.scoringResult?.totalScore, m: j5.web3FitDampMass });
 
   console.log('\n── C. 作用域 ──');
 
@@ -129,8 +129,8 @@ async function main() {
   const s6 = m6?.stage2DataToSave?.parsed_output || {};
   const j6 = m6?.stage2DataToSave?.parsed_output?.jev || {};
   check('C1 A 类不折（70.68 原样；fitMass 审计照落）',
-    s6.scoringResult?.totalScore === 70.68 && j6.resonanceFitMass === 0.3 && j6.resonanceDamp === null,
-    { t: s6.scoringResult?.totalScore, d: j6.resonanceDamp });
+    s6.scoringResult?.totalScore === 70.68 && j6.web3FitDampMass === 0.3 && j6.web3FitDamp === null,
+    { t: s6.scoringResult?.totalScore, d: j6.web3FitDamp });
 
   // C2 W 类：W 数学分支，折损不触达（tierScore null）
   const m7 = await run(bianfuAnswers({ category: 'W' }));
@@ -150,18 +150,18 @@ async function main() {
   const j3 = m3?.stage2DataToSave?.parsed_output?.jev || {};
   const j1 = m1?.stage2DataToSave?.parsed_output?.jev || {};
 
-  // D1 审计：resonanceFitMass 恒落数值（不折也落）+ resonanceDamp 命中才落 {fitMass, coef}
+  // D1 审计：web3FitDampMass 恒落数值（不折也落）+ web3FitDamp 命中才落 {fitMass, coef}
   check('D1 审计：蝙蝠侠摇 fitMass=0.76 damp=null / marginal 落 {fitMass:0.3, coef:0.5}',
-    j1.resonanceFitMass === 0.76 && j1.resonanceDamp === null
-      && j3.resonanceFitMass === 0.3 && j3.resonanceDamp?.coef === 0.5 && j3.resonanceDamp?.fitMass === 0.3,
-    { j1: { m: j1.resonanceFitMass, d: j1.resonanceDamp }, j3: j3.resonanceDamp });
+    j1.web3FitDampMass === 0.76 && j1.web3FitDamp === null
+      && j3.web3FitDampMass === 0.3 && j3.web3FitDamp?.coef === 0.5 && j3.web3FitDamp?.fitMass === 0.3,
+    { j1: { m: j1.web3FitDampMass, d: j1.web3FitDamp }, j3: j3.web3FitDamp });
 
-  // D2 reason 带「感染力折损×0.5(web3_fit契合30%<50)」段（判据源可追溯）
-  check('D2 reason 展示折损来源（web3_fit 契合度）', /感染力折损×0.5\(web3_fit契合30%<50\)/.test(s3.reason || ''),
+  // D2 reason 带「Web3偏好折损×0.5(web3_fit契合30%<50)」段（判据源可追溯）
+  check('D2 reason 展示折损来源（web3_fit 契合度）', /Web3偏好折损×0.5\(web3_fit契合30%<50\)/.test(s3.reason || ''),
     { r3: s3.reason });
 
   // D3 不折 reason 无折损段（bit-identical 的 reason 层验证）
-  check('D3 不折 reason 不带折损段', !/感染力折损/.test(s1.reason || '') && !/感染力折损/.test(s2.reason || ''),
+  check('D3 不折 reason 不带折损段', !/Web3偏好折损/.test(s1.reason || '') && !/Web3偏好折损/.test(s2.reason || ''),
     { r1: s1.reason, r2: s2.reason });
 
   // D4 旧档位审计退役：eventResonance 字段不再产生 / probabilities 无 event_resonance 键
@@ -176,8 +176,8 @@ async function main() {
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.53（J1.53=C122 门名断代（name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability，零行为意图）；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
-    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.53'
+  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.54（J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.54=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
+    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.54'
     && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 17 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 

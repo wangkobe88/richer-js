@@ -64,18 +64,18 @@ async function main() {
   const q = qm.buildStandardQuestions({});
   check('A2 题集 16 题含 subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 16 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
-    q.event_magnitude.instructions.includes('形状③ 产品实体') && q.event_magnitude.instructions.includes('不转移不计入') && q.event_magnitude.instructions.includes('两条都不占→C档以下'));
+    q.web3_user_impact.instructions.includes('形状③ 产品实体') && q.web3_user_impact.instructions.includes('不转移不计入') && q.web3_user_impact.instructions.includes('两条都不占→C档以下'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',
-    q.event_magnitude.instructions.includes('当且仅当事件主体确为公司/机构发布的产品实体')
-    && q.event_magnitude.instructions.includes('不是全域收紧')
-    && q.dimension2.instructions.includes('仅产品实体主体适用')
-    && q.dimension2.instructions.includes('按上述各类别原有口径正常评分'));
+    q.web3_user_impact.instructions.includes('当且仅当事件主体确为公司/机构发布的产品实体')
+    && q.web3_user_impact.instructions.includes('不是全域收紧')
+    && q.web3_user_spread.instructions.includes('仅产品实体主体适用')
+    && q.web3_user_spread.instructions.includes('按上述各类别原有口径正常评分'));
   check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）',
     q.event_category.instructions.includes('D vs W boundary')
     && q.event_category.instructions.includes('NOT W')
-    && q.event_magnitude.instructions.includes('事件类别按机构公告口径评估不判W'));
+    && q.web3_user_impact.instructions.includes('事件类别按机构公告口径评估不判W'));
   check('A4 dimension2 含形状③（通稿不算自传播）',
-    q.dimension2.instructions.includes('形状③ 产品实体') && q.dimension2.instructions.includes('媒体通稿覆盖量不计入'));
+    q.web3_user_spread.instructions.includes('形状③ 产品实体') && q.web3_user_spread.instructions.includes('媒体通稿覆盖量不计入'));
   check('A5 web3_fit 含产品实体边界（纯功能产品不高于 marginal）',
     q.web3_fit.instructions.includes('公司产品实体') && q.web3_fit.instructions.includes('不高于marginal'));
   const seKeys = Object.keys(q.subject_entity.criteria);
@@ -144,7 +144,7 @@ async function main() {
     !(rW.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品实体未被web3买家接纳'),
     rW.stage2DataToSave?.parsed_output?.blockReason);
 
-  // C7 unfit 负门优先级：unfit≥0.5 的产品票先被 web3FitBlock 拦（label 归属更准）
+  // C7 unfit 负门优先级：unfit≥0.5 的产品票先被 web3UnfitBlock 拦（label 归属更准）
   const unfitAnswers = { ...qilinAnswers, web3_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2, strong_fit: 0.1, fit: 0.08 } } };
   const rUnfit = mapper.mapStandardAnswers(unfitAnswers, makeContext(qilinTokenData, unfitAnswers));
   check('C7 unfit≥0.5 票先被 web3_fit 负门拦（非产品门 label）',
@@ -180,7 +180,7 @@ async function main() {
   console.log('\n── D. 源码口径（挂点/豁免接线）──');
   const fs = require('fs');
   const src = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
-  const idxW3 = src.indexOf('} else if ((w3Block = web3FitBlock(answers))) {');
+  const idxW3 = src.indexOf('} else if ((w3Block = web3UnfitBlock(answers))) {');
   const idxPe = src.indexOf('} else if ((peBlock = productEntityAcceptanceBlock(answers,');
   const idxBr = src.indexOf('} else if (blockChoice !== \'none\' && noneProb < 0.5');
   check('D1 挂点顺序：w3Block → 产品门 → block_reason argmax', idxW3 > 0 && idxPe > idxW3 && idxBr > idxPe, { idxW3, idxPe, idxBr });
@@ -205,8 +205,8 @@ async function main() {
   const qSrc = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D4 版本头条目含 C55 案号与裁定语义', qSrc.includes('J1.27') && qSrc.includes('C55') && qSrc.includes('产品（实体）'));
   check('D5 题面三处币安豁免句（magnitude/dim2/fit）',
-    q.event_magnitude.instructions.includes('豁免币安等 crypto 原生机构')
-    && q.dimension2.instructions.includes('币安等 crypto 原生机构的产品不切分')
+    q.web3_user_impact.instructions.includes('豁免币安等 crypto 原生机构')
+    && q.web3_user_spread.instructions.includes('币安等 crypto 原生机构的产品不切分')
     && q.web3_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列'));
 
   console.log('\n── F. C56 平台官方源豁免（FlapGuy 0x2fb77ad0…7777 复验实测形状）──');

@@ -31,8 +31,8 @@ async function main() {
   const mod = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = mod;
   const qs = buildStandardQuestions();
-  const mag = qs.event_magnitude;
-  const dim2 = qs.dimension2;
+  const mag = qs.web3_user_impact;
+  const dim2 = qs.web3_user_spread;
 
   // ═══ A. event_magnitude instructions ═══
   console.log('\n── A. event_magnitude instructions 两形状分流 ──');
@@ -78,8 +78,10 @@ async function main() {
     dim2.instructions.includes('陈述者（发推人/回复者）的粉丝数与互动数据既不代表也不封顶') && dim2.instructions.includes('回复/转述语料按父推/源头所陈述事件的传播计'));
   check('C3 C/D 类形状②分带指引（全国级政策/市场事件=全民话题级）',
     dim2.instructions.includes('形状②外部事件主体') && dim2.instructions.includes('全民话题级25-30'));
-  check('C4 同主体一致性锚（不要重新贬低主体）维持',
-    dim2.instructions.includes('不要在这题重新贬低主体'));
+  // C4 陈旧断言修正（J1.54 顺修）：原措辞「不要在这题重新贬低主体」随 J1.45
+  // dim2 重写删除，现行同义锚=「同档主体传播面细分、不是重评一遍档位」
+  check('C4 同主体不同镜头锚（传播面细分、不重评档位）维持',
+    dim2.instructions.includes('不是重评一遍档位') && dim2.instructions.includes('同档主体之中传播面的强弱细分'));
 
   // ═══ D. 头部历史条目 ═══
   console.log('\n── D. 版本历史 ──');

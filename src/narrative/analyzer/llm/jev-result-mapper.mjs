@@ -3,7 +3,7 @@
  *
  * 全部确定性聚合在本文件完成（原 3 阶段管线的公式原样保留）：
  * - 量级档 S/A/B/C → 39/34/27/22（MAGNITUDE_TIER_SCORES，108 样本校准定参），D/E 档阻断
- * - 标准类 stage2Total = tierScore + dimension2(0-30) + 时效(0-20)，pass ≥ 60
+ * - 标准类 stage2Total = tierScore + web3_user_spread(0-30) + 时效(0-20)，pass ≥ 60
  * - J1.23 Web3 偏好锚（A/B 类 + strong_fit≥0.5 → effTier 锚 B；C94 起 B 类同享
  *   dim2<18 锚 18——web3 用户喜欢是根本判据，发布主体量级无所谓）
  * - W 类独立数学：产品(0-35) + 币安交互(0-40) + 时效(0-25) = 100，pass ≥ 60
@@ -18,7 +18,7 @@
 import { JEV_QUESTIONS_VERSION } from './jev-questions.mjs';
 import { detectCorpusCashtag, detectPublisherProxy } from '../utils/narrative-utils.mjs';
 
-/** 量级 6 档（与 jev-questions event_magnitude criteria 顺序一致） */
+/** 量级 6 档（与 jev-questions web3_user_impact criteria 顺序一致） */
 const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
 
 /**
@@ -216,14 +216,14 @@ function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming
 }
 
 /**
- * dimension2 校准带（108 样本远程校准定参，2026-09-20）：
+ * web3_user_spread 校准带（原 dimension2；108 样本远程校准定参，2026-09-20）：
  * Jev 档位与旧 LLM 维度二分几乎不相关（旧量表 P25=18/P50=22/P75=25，近似恒 20-25
  * 的宽松输出），故按分布分位匹配而非逐点拟合——Jev 档 1-4 累计占比 29%/58%/86%/100%
  * ↔ 旧分位 15.5/22.5/26/29，映射后均值 21.5 ≈ 旧均值 21.1。
- * 带语义（与 jev-questions dimension2 criteria 的六档对应）：
+ * 带语义（与 jev-questions web3_user_spread criteria 的六档对应）：
  * 无[0,10] / 微弱[10,20] / 小[18,26] / 中[23,28] / 强[26,30] / 极强[28,30]
  */
-const DIM2_BANDS = [[0, 10], [10, 20], [18, 26], [23, 28], [26, 30], [28, 30]];
+const SPREAD_BANDS = [[0, 10], [10, 20], [18, 26], [23, 28], [26, 30], [28, 30]];
 const W_PRODUCT_BANDS = [[0, 8], [9, 17], [18, 26], [27, 35]];
 const W_INTERACTION_BANDS = [[0, 9], [10, 19], [20, 29], [30, 40]];
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
@@ -293,7 +293,7 @@ const BLOCK_LABELS = {
   low_quality_derivative: '低质衍生',
   marketing_gimmick: '营销噱头',
   baseless_speculation: '无据猜测',
-  ip_reuse: 'IP二次利用',
+  ip_reuse: 'IP低质复用',
   negative_hard_news: '负面硬新闻事件',
   routine_content_product: '常规内容产品宣传',
 };
@@ -311,7 +311,7 @@ const BLOCK_LABELS = {
  * 「趁早」深意、用户侧有感知，该放行。「很多门，不如合并为『合不合适作为
  * meme 币』门，这是根本的」「名字指向实体时实体情况仍需考量（普通币安员工
  * 就不行），但 early 不是一个实体」「YAYA 就是币安员工所以不行」「用一个门
- * 涵盖多种情况」——拦截责任全部移交 notMemeNameBlock（J1.42 name_form 四分支：
+ * 涵盖多种情况」——拦截责任全部移交 web3UserAcceptabilityBlock（J1.42 name_form 四分支：
  * ①指向实体——无名实体不合格 ②非实体词——圈内文化词合格/无感知句片段不合格
  * ③形态缺陷 ④无背景拼写变体）。name_referent 题保留，概率只喂评分与豁免链
  * （C88 五腿 sipProb / rideDetour / pubProxyActive），不再承载拦截。
@@ -376,7 +376,7 @@ const BLOCK_SCOPE = {
 
 /**
  * referentMemeabilityLowBlock（J1.28 mem≤1 低档门）——**C108（2026-10-19）
- * 拦截位退役**：拦截责任并入 notMemeNameBlock 分支①/②（无名实体名/无圈内
+ * 拦截位退役**：拦截责任并入 web3UserAcceptabilityBlock 分支①/②（无名实体名/无圈内
  * 感知词——「用户侧不接纳」同轴）。案史：J1.28（2026-10-08，0fed29f9 亏损票
  * 续案）「币安汽车/日产类蹭得过头根本不可能成为 meme 币的票要拦」，dry-run
  * mem≤1 拦 4 票净 -0.354；其「无名/严肃对象」票型由 J1.42 name_form 四分支
@@ -489,7 +489,7 @@ function subjectCarrierBlock(answers, category, opts) {
  * （choice 档位门）；unclear/答案缺失 fail-open 不拦（生产链 JevClient 缺
  * 答案 throw）。
  */
-const NOT_MEME_NAME_CHOICES = new Set([
+const WEB3_USER_NOT_ACCEPTABLE_CHOICES = new Set([
   'web3_user_not_acceptable', // J1.50 新键（C119）
   'not_meme_name', 'statement', 'functional_label', // J1.37-J1.48 存量行兼容
 ]);
@@ -499,31 +499,31 @@ const NOT_MEME_NAME_CHOICES = new Set([
  * 「Web3 用户接纳度」，判据不动）。新键优先、旧键兼容=存量缓存行/旧 fixture
  * 形状仍走同一门（缓存行不重放 mapper，兼容只在重析前的旧形状测试与工具）。
  */
-function nameFormChoice(answers) {
+function web3UserAcceptabilityChoice(answers) {
   return answers?.web3_user_acceptability?.choice ?? answers?.name_form?.choice;
 }
 
-function notMemeNameBlock(answers) {
-  const choice = nameFormChoice(answers);
-  if (!NOT_MEME_NAME_CHOICES.has(choice)) return null;
-  return { label: 'Web3 用户不接纳该名字（用户接纳度门）', form: choice };
+function web3UserAcceptabilityBlock(answers) {
+  const choice = web3UserAcceptabilityChoice(answers);
+  if (!WEB3_USER_NOT_ACCEPTABLE_CHOICES.has(choice)) return null;
+  return { label: 'Web3 用户不接纳该名字（用户接纳度门）', choice };
 }
 
 /**
- * C105 功能标注词门（J1.40）已随 C107 收敛并入上方 notMemeNameBlock：
- * functional_label 旧 choice 经 NOT_MEME_NAME_CHOICES 兼容映射继续拦
- * （案史与论证见 notMemeNameBlock 注释）。
+ * C105 功能标注词门（J1.40）已随 C107 收敛并入上方 web3UserAcceptabilityBlock：
+ * functional_label 旧 choice 经 WEB3_USER_NOT_ACCEPTABLE_CHOICES 兼容映射继续拦
+ * （案史与论证见 web3UserAcceptabilityBlock 注释）。
  */
 
 /**
- * J1.31 E 类情绪感染力折损系数（2026-10-16 用户裁定，C80 蝙蝠侠摇案
+ * J1.31 E 类情绪Web3偏好折损系数（2026-10-16 用户裁定，C80 蝙蝠侠摇案
  * 0x4547dae7757fb4043e034d27ed02dfabe9aa7777：「蝙蝠侠式蹦迪」抖音舞蹈现象票，
  * Jev E 类 0.99 + B 档量级 0.97 → 事件分 27+28.68+15=70.68 过线 high 放行，
  * 实测 18 分钟 54 tick 冷盘、买入 31s -12.4%。裁定原话「对时事现象热度，其实也
  * 应该度量事件对Web3用户的情绪感染力。这个事件没啥情绪感染力，我不会被它有任何
  * 触动，也并非一个大时事」——E 类事件分的 magnitude/dim2 量的是现象传播广度
  * （烧了多大），不是情绪转化（Web3 用户会不会被触动到想参与）：观众≠买家。
- * 折损作用于标准数学的 tierScore+effDim2 两项（时效不折——新鲜是客观属性，
+ * 折损作用于标准数学的 tierScore+effSpread 两项（时效不折——新鲜是客观属性，
  * 与情绪无关；W 数学不消费本题，cashtag/骑乘改道票 category==='W' 天然不触达）：
  *   strong_reaction 1（圈内情绪卷入不折——啾啾案 C74 新闻大时事形状）
  *   mild_amusement 0.5（轻度有趣：上限组合 (39+30)×0.5+15=49.5<60，数学上
@@ -548,14 +548,14 @@ function notMemeNameBlock(answers) {
  * 同源，独立作答只产生矛盾面（유과 案同次作答 web3_fit strong_fit 0.97 vs
  * resonance mild 0.79 互斥）；例文「圈外」焊死 mild 档定义，轴腐化为圈层归属。
  * 新判据：E 类且 web3_fit (strong_fit+fit) < 0.5（marginal 占优）→ tierScore+
- * effDim2 ×0.5（时效不折不变）；≥0.5 → 原公式（유과 0.97 / 蝙蝠侠摇 0.76 均
+ * effSpread ×0.5（时效不折不变）；≥0.5 → 原公式（유과 0.97 / 蝙蝠侠摇 0.76 均
  * 不折——后者形状放行为用户明示接受：当年 -12.4% 归盘面非叙事错判）。0.5 阈值
  * 与 J1.19 负门/J1.23 锚/J1.27 接纳门同一条线。unfit≥0.5 的票全域负门已拦，
  * 折损层不再管。web3_fit 答案整体缺失（J1.19 前旧缓存行）→ fail-open 不折；
  * J1.31-J1.35 行有 web3_fit 答案可重放新逻辑（存量不重评，回测/校准重放生效）。
  */
-const RESONANCE_FIT_COEF = 0.5;
-const RESONANCE_FIT_THRESHOLD = 0.5;
+const WEB3_FIT_DAMP_COEF = 0.5;
+const WEB3_FIT_DAMP_THRESHOLD = 0.5;
 
 /**
  * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
@@ -622,7 +622,7 @@ function routineContentProductBlock(answers, category, opts) {
  * 概率门对抗 argmax 跨 run 抖动，全域不限类别、标准 + superIP 双路径）。
  * marginal 不拦——四档概率落库观察，待校准数据后再定是否收严。
  */
-function web3FitBlock(answers) {
+function web3UnfitBlock(answers) {
   const p = answers?.web3_fit?.probabilities?.unfit ?? 0;
   if (p < 0.5) return null;
   return { label: 'Web3用户偏好不合', mass: Math.round(p * 100) / 100 };
@@ -837,7 +837,7 @@ function productEntityAcceptanceBlock(answers, opts) {
  * 不命中——真骑乘盘，或 handle 与币名无包含的漏检自发盘（语料层无法证明钱包归属）。
  * 误伤方向=漏检自发盘按产品分评（偏低）；detector 正向命中优先转 prestage 不受影响。
  */
-function rideDetourBelow(answers, category) {
+function rideDetourMass(answers, category) {
   if (category !== 'B' && category !== 'C') return null;
   const probs = answers?.name_referent?.probabilities;
   if (!probs) return null;
@@ -880,7 +880,7 @@ function bandInterpolate(score, bands) {
  * 量级档位：score 四舍五入到最近档
  * @returns {string} 'E'|'D'|'C'|'B'|'A'|'S'
  */
-function magnitudeTier(score) {
+function impactTierOf(score) {
   return MAGNITUDE_TIERS[clamp(Math.round(score), 0, MAGNITUDE_TIERS.length - 1)];
 }
 
@@ -1042,7 +1042,7 @@ export function mapStandardAnswers(answers, context) {
   // - 量级 A 档锚（effTier）——题面「领域知名大IP→A档起」Jev 执行不下去（magnitude
   //   稳定 B 档），发布者知名度由代码事实锚定；superIP 快车道 S 级预评分同构
   //   （量级代码判定的体系先例；C83 起快车道删除，pubProxy 锚保留为唯一同构物）。
-  // 边界：仅 B/C 域（与 rideDetourBelow 同域，防 B/C 边界跨 run 抖动）；cashtag
+  // 边界：仅 B/C 域（与 rideDetourMass 同域，防 B/C 边界跨 run 抖动）；cashtag
   // 改道优先（推文含 $TICKER = 讨论已存在 web3 资产，W 数学语义不变）；rcp /
   // negativeHardNews 门不豁免（内容型产品 C12 绣春刀裁定维持——发布者指代不适用
   // 于电影等内容产品）。
@@ -1063,8 +1063,8 @@ export function mapStandardAnswers(answers, context) {
   // W 数学 tier 不参与，天然无竞争。
   const binanceRegional = detectBinanceRegionalAccount(twitterInfo);
   const regionalAnchorActive = !!(binanceRegional && binanceCorpus);
-  const magnitude = answers.event_magnitude?.score ?? 0;
-  const tier = magnitudeTier(magnitude);
+  const magnitude = answers.web3_user_impact?.score ?? answers.event_magnitude?.score ?? 0;
+  const tier = impactTierOf(magnitude);
   // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
   const tierAnchored = pubProxyActive && tier !== 'S' && tier !== 'A';
   // J1.23 Web3 偏好量级锚生效位（C38 久留美案续，2026-10-01 用户裁定「A类判定
@@ -1118,20 +1118,20 @@ export function mapStandardAnswers(answers, context) {
     ? { lagSec: staleRelParentTiming.lagSec, staleSec: PARENT_REL_STALE_SEC, choice: staleRelParentTiming.choice, rawTiming: staleRelParentTiming.rawTiming }
     : null;
   const timing = (angleTiming || staleSourceTiming || staleParentTiming || staleRelParentTiming) ? 'older' : (answers.event_timing?.choice || 'unknown');
-  const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
+  const spread = bandInterpolate(answers.web3_user_spread?.score ?? answers.dimension2?.score ?? 0, SPREAD_BANDS);
   // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
   // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
   // 达标」，土豪猫猫案 0xfade76ef…7777）：IG 是封闭平台，帖子/账号传播数据经常
   // 抓不到——语料「零传播证据」是证据缺失而非零影响力，dim2 被压 0-9 档属口径
   // 错位。条件全中才锚：①A 类（形象 IP——IG 是形象主阵地，裁定场景）；②语料
   // 引用了 IG 链接（instagramLinked）；③IG 数据未抓到（instagramInfoFetched
-  // false——真数据已进 state 时 Jev 按真证据判分，不兜底）；④dim2 < 18（只升
+  // false——真数据已进 state 时 Jev 按真证据判分，不兜底）；④spread < 18（只升
   // 不降；18 = J1.23 dimension2 A 类「风格契合 Web3 偏好的角色形象」带下限）。
   // 不救量级门（strong_fit<0.5 的 D 档票死量级门合理——偏好证据另有 web3FitAnchored
-  // 正门）；W 数学不消费 dim2 不触达；web3FitBlock unfit 负门在前，豁免票 unfit
+  // 正门）；W 数学不消费 dim2 不触达；web3UnfitBlock unfit 负门在前，豁免票 unfit
   // 仍拦（交互安全）
-  const igDim2Anchor = category === 'A' && instagramLinked === true
-    && instagramInfoFetched !== true && dim2 < 18;
+  const instagramSpreadAnchorActive = category === 'A' && instagramLinked === true
+    && instagramInfoFetched !== true && spread < 18;
   // C94 Web3 偏好传播轴锚（2026-10-18 用户裁定双锚：web3_fit 强时发布主体
   // 无所谓，量级轴（上 web3FitAnchored）+传播轴（本锚）一并豁免）：B 类 dim2
   // 语义=发布方权重，小号转述票的 dim2 实际量的是转述者（京小安 1 粉小号→7
@@ -1141,8 +1141,8 @@ export function mapStandardAnswers(answers, context) {
   // 仅 B 类：A 类已有 IG 锚+J1.23 锚组合覆盖（互斥不叠加），C/D/E 类量级是
   // 客观规模维持不豁。锚不改门只改分（mem 地板/量级门各自的拦截语义不动——
   // 京小安 mem 1.88<2 仍被 C88 地板拦是 2026-10-18 用户裁定「维持拦」）。
-  const web3FitDim2Anchor = category === 'B' && web3FitStrongP >= 0.5 && dim2 < 18;
-  const effDim2 = igDim2Anchor ? 18 : (web3FitDim2Anchor ? 18 : dim2);
+  const web3FitSpreadAnchorActive = category === 'B' && web3FitStrongP >= 0.5 && spread < 18;
+  const effSpread = instagramSpreadAnchorActive ? 18 : (web3FitSpreadAnchorActive ? 18 : spread);
   const blockChoice = answers.block_reason?.choice || 'none';
   const blockProb = answers.block_reason?.probabilities?.[blockChoice];
   // 原 prompt 语义是"命中任一阻断条件即阻断"（二值）。Choice 摊成 10 路分布后
@@ -1150,7 +1150,7 @@ export function mapStandardAnswers(answers, context) {
   // 忠实转译：P(none)≥0.5 才视为无阻断。
   const noneProb = answers.block_reason?.probabilities?.none ?? 0;
   // name_referent（J1.10 阻断位已随 C108 退役）：choice/概率保留纯观察落库
-  // （Jev 原判可追溯；拦截责任在 notMemeNameBlock——题概率另喂 C88 五腿/骑乘改道）
+  // （Jev 原判可追溯；拦截责任在 web3UserAcceptabilityBlock——题概率另喂 C88 五腿/骑乘改道）
   const nameReferent = answers.name_referent?.choice || null;
   const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
   // J1.26 nrNotableExempt 审计随 nr 阻断位退役删除（notable 是否抬过阻断门槛已
@@ -1176,8 +1176,9 @@ export function mapStandardAnswers(answers, context) {
         // Jev 原判档可追溯；null=未命中——非借壳语料/窗内/锚或父推时间缺失）
         staleParentOverride,
         staleRelParentOverride,
-        magnitudeTier: tier,
-        timing,
+        jevImpactTier: tier,
+        effectiveImpactTier: effTier,
+        effectiveTiming: timing,
         blockChoice,
         // J1.17 审计标记：category 被代码端 cashtag 判据改写为 W（原 Jev choice 见
         // event_category probabilities），落库行可追溯改道来源；C96 F→E 改道同位
@@ -1186,8 +1187,8 @@ export function mapStandardAnswers(answers, context) {
         cashtagMatched: cashtagHit?.cashtag ?? null,
         // C96 审计标记：Web3 用户接纳度恒落（J1.37 起原名 name_form；J1.53
         // C122 题键断代 → web3_user_acceptability，旧缓存行双键读；命中
-        // notMemeNameBlock 拦截时 stage2 jev.web3UserAcceptabilityBlock 落详情）
-        web3UserAcceptability: nameFormChoice(answers) ?? null,
+        // web3UserAcceptabilityBlock 拦截时 stage2 jev.web3UserAcceptabilityBlock 落详情）
+        web3UserAcceptability: web3UserAcceptabilityChoice(answers) ?? null,
         // C96 审计标记：发现 vs 转述恒落（J1.37 finding_vs_recap 题，旧缓存行 →
         // null——非 F 类也落纯观察，改道只消费 F+news_recap 组合）
         findingVsRecap: answers.finding_vs_recap?.choice ?? null,
@@ -1200,15 +1201,15 @@ export function mapStandardAnswers(answers, context) {
         // 原判档在 magnitudeTier 键不受锚影响）
         regionalSubAccount: binanceRegional && binanceCorpus
           ? { handle: binanceRegional.handle, followers: binanceRegional.followers } : null,
-        tierAnchored: tierAnchored ? 'A' : null,
+        anchoredTier: tierAnchored ? 'A' : null,
         // J1.23 审计标记：A/B 类（C94 起 B 类同享）+ web3_fit strong_fit≥0.5 的
         // 偏好量级锚（Jev 原判 tier 保留在 magnitudeTier 键不受锚定影响）
-        web3FitAnchored: web3FitAnchored ? 'B' : null,
-        web3FitStrongP: web3FitAnchored ? web3FitStrongP : null,
+        web3FitAnchoredTier: web3FitAnchored ? 'B' : null,
+        web3FitStrongPAnchored: web3FitAnchored ? web3FitStrongP : null,
         // J1.26 nrNotableExempt 审计键随 C108 nr 阻断位退役（历史行键保留展示）
         probabilities: {
           event_category: answers.event_category?.probabilities,
-          event_magnitude: answers.event_magnitude?.probabilities,
+          web3_user_impact: answers.web3_user_impact?.probabilities ?? answers.event_magnitude?.probabilities,
           block_reason: answers.block_reason?.probabilities,
           name_referent: answers.name_referent?.probabilities,
           web3_fit: answers.web3_fit?.probabilities,
@@ -1220,10 +1221,10 @@ export function mapStandardAnswers(answers, context) {
 
   // ── Stage2：阻断 + 事件分 ──────────────────────────────────────────
   const isW = category === 'W';
-  // C8 骑乘改道：B 类第三方骑乘盘改走 W 数学（见 rideDetourBelow 注释）。
+  // C8 骑乘改道：B 类第三方骑乘盘改走 W 数学（见 rideDetourMass 注释）。
   // J1.18 发布者指代豁免：官方域名+领域知名发布者已实锤「独立新产品」，不再改道
   // W 数学（W 产品分对新非 Web3 产品无实体约束，语义错位），走标准数学按 effTier 计分
-  const rideMass = pubProxyActive ? null : rideDetourBelow(answers, category);
+  const rideMass = pubProxyActive ? null : rideDetourMass(answers, category);
   let stage2Blocked = false;
   let stage2BlockReason = null;
   let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
@@ -1231,16 +1232,16 @@ export function mapStandardAnswers(answers, context) {
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
-  let nfBlock = null; // 名字门信息 {label, form}（C96→C105→C107→C108 唯一名字拦截位，J1.42 name_form；form=Jev 原 choice）
+  let uaBlock = null; // 用户接纳度门信息 {label, choice}（C96→C105→C107→C108 唯一名字拦截位，J1.42 name_form；form=Jev 原 choice）
   let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
-  // J1.36 E 类感染力折损（C93 判据源迁移）：resonanceCoef=生效系数（null=未
+  // J1.36 E 类Web3偏好折损（C93 判据源迁移）：web3FitDampCoef=生效系数（null=未
   // 触达——非 E 类 / web3_fit 答案缺失 fail-open / fitMass≥0.5 不折），标准数学
-  // 分支赋值；fitMass 恒落审计（resonanceFitMass）
+  // 分支赋值；fitMass 恒落审计（web3FitDampMass）
   let w3fFitMass = null;
-  let resonanceCoef = null;
+  let web3FitDampCoef = null;
   let wProduct = null;
   let wInteraction = null;
   let wInteractionExempt = false;
@@ -1371,7 +1372,7 @@ export function mapStandardAnswers(answers, context) {
   } else if ((rcpBlock = routineContentProductBlock(answers, category, { platformOfficial, superIpSlogan }))) {
     stage2Blocked = true;
     stage2BlockReason = rcpBlock.label;
-  } else if ((w3Block = web3FitBlock(answers))) {
+  } else if ((w3Block = web3UnfitBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = w3Block.label;
   } else if ((peBlock = productEntityAcceptanceBlock(answers, { pubProxyActive, isW, rideMass, binanceCorpus, platformOfficial }))) {
@@ -1408,18 +1409,18 @@ export function mapStandardAnswers(answers, context) {
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
-  } else if ((nfBlock = notMemeNameBlock(answers))) {
+  } else if ((uaBlock = web3UserAcceptabilityBlock(answers))) {
     // C108 名字门（J1.42 name_form=not_meme_name——唯一名字拦截位；C96 陈述句门
     // →C105 版本词门→C107 收敛→C108 四拦截位统一并入）：币名当不了 meme 符号、
     // web3 用户不接纳这名字——四分支：①指向无名实体（YAYA 币安员工花名型）
     // ②非实体词无圈内感知（滑雪/我要去型；圈内文化词 Early/HODL 型放行——EARLY
     // 案翻案位）③形态缺陷（陈述句/版本词/序号，C96/C105/C107 继承）④无背景拼写
     // 变体（自 block_misspelling 探针并入）。原 nrBlock（J1.10）/rmBlock（J1.28）
-    // /memFloor（C88）拦截位退役——案史与裁定见 notMemeNameBlock 注释。全域无
+    // /memFloor（C88）拦截位退役——案史与裁定见 web3UserAcceptabilityBlock 注释。全域无
     // 豁免（superIpSlogan 五腿不豁——五腿前提是口号票，陈述句/版本词名字连口号
     // 都不是）；无概率 mass（choice 档位门）
     stage2Blocked = true;
-    stage2BlockReason = nfBlock.label;
+    stage2BlockReason = uaBlock.label;
   } else if ((scBlock = subjectCarrierBlock(answers, category, { superIpSlogan, imgCarrierOverride }))) {
     // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
     // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
@@ -1475,9 +1476,9 @@ export function mapStandardAnswers(answers, context) {
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
-    // J1.36 E 类感染力折损判据源=web3_fit（C93：event_resonance 题已删，原 C80
+    // J1.36 E 类Web3偏好折损判据源=web3_fit（C93：event_resonance 题已删，原 C80
     // 蝙蝠侠摇案折损机制保留）：E 类且 (strong_fit+fit)<0.5（marginal 占优=Web3
-    // 用户不太喜欢）→ tierScore+effDim2 两项整体 ×0.5，时效不折（新鲜是客观
+    // 用户不太喜欢）→ tierScore+effSpread 两项整体 ×0.5，时效不折（新鲜是客观
     // 属性）；非 E 类 / web3_fit 答案整体缺失（J1.19 前旧缓存行 fail-open）/
     // ≥0.5 → 原公式 bit-identical。unfit≥0.5 全域负门（J1.19）已拦不归本层。
     // W 数学与骑乘改道在上分支（isW || rideMass），进入本分支的票天然不受改道
@@ -1485,12 +1486,12 @@ export function mapStandardAnswers(answers, context) {
     const w3fProbs = answers?.web3_fit?.probabilities;
     const hasW3f = w3fProbs != null && Object.keys(w3fProbs).length > 0;
     w3fFitMass = hasW3f ? (w3fProbs.strong_fit ?? 0) + (w3fProbs.fit ?? 0) : null;
-    resonanceCoef = category === 'E' && hasW3f && w3fFitMass < RESONANCE_FIT_THRESHOLD
-      ? RESONANCE_FIT_COEF : null;
-    const resonanceDamped = resonanceCoef !== null && resonanceCoef < 1;
-    stage2Total = resonanceDamped
-      ? round2((tierScore + effDim2) * resonanceCoef + timeliness)
-      : round2(tierScore + effDim2 + timeliness);
+    web3FitDampCoef = category === 'E' && hasW3f && w3fFitMass < WEB3_FIT_DAMP_THRESHOLD
+      ? WEB3_FIT_DAMP_COEF : null;
+    const web3FitDamped = web3FitDampCoef !== null && web3FitDampCoef < 1;
+    stage2Total = web3FitDamped
+      ? round2((tierScore + effSpread) * web3FitDampCoef + timeliness)
+      : round2(tierScore + effSpread + timeliness);
     // C86 D-1 豁免贯穿（事件分不足臂）：豁免票的 stage2Total<60 不拦，弱量级
     // 代价照常在总分（0.6×低事件分）上体现——与豁免原本「relevance 10 分照常
     // 计入」的计分语义同款。magExemptRescuedArm=D/E 档臂被豁免放行（本分支
@@ -1501,7 +1502,7 @@ export function mapStandardAnswers(answers, context) {
       ? `｜量级门豁免(${magExemptTags}：${[magExemptRescuedArm ? `${effTier}档臂` : null, magExemptRescuedPass ? '事件分<60臂' : null].filter(Boolean).join('与')}不拦，弱量级代价在总分)`
       : '';
     stage2Blocked = stage2Total < 60 && !magExempt;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}${web3FitDim2Anchor ? `·Web3偏好传播豁免(原${dim2})` : ''}+时效${timeliness}${resonanceDamped ? `｜感染力折损×${resonanceCoef}(web3_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effSpread}${instagramSpreadAnchorActive ? `·IG影响力豁免(原${spread})` : ''}${web3FitSpreadAnchorActive ? `·Web3偏好传播豁免(原${spread})` : ''}+时效${timeliness}${web3FitDamped ? `｜Web3偏好折损×${web3FitDampCoef}(web3_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}=${stage2Total}（pass线60）${magExemptSuffix}`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 
@@ -1515,16 +1516,17 @@ export function mapStandardAnswers(answers, context) {
         category: (isW || rideMass != null) ? 'W' : category,
         totalScore: stage2Total,
         tierScore: isW ? null : tierScore,
-        dimension2: isW ? null : effDim2,
+        spreadScore: isW ? null : effSpread,
         timeliness,
         wProductScore: isW ? wProduct : null,
         wInteractionScore: isW ? wInteraction : null,
       },
       reason: stage2Reason,
       jev: {
-        magnitudeTier: tier,
+        jevImpactTier: tier,
+        effectiveImpactTier: effTier,
         blockChoice,
-        blockProbability: blockProb ?? null,
+        blockChoiceProbability: blockProb ?? null,
         // C114 审计标记：图证在场 empty_content 臂失效（block 门豁免；命中才落
         // ——被覆盖的 empty_content 概率面可追溯，DND 案形状。空图证票不落键
         // =empty_content 照拦零歧义）
@@ -1535,14 +1537,14 @@ export function mapStandardAnswers(answers, context) {
         // nameReferentBlockMass 随 C108 nr 阻断位退役（历史行键保留展示）
         negativeHardNewsMass: nhnBlock?.mass ?? null,
         routineContentProductMass: rcpBlock?.mass ?? null,
-        web3FitMass: w3Block?.mass ?? null,
-        timing,
+        web3UnfitMass: w3Block?.mass ?? null,
+        effectiveTiming: timing,
         // C44 审计标记：IG 影响力兜底锚命中详情（原 dim2 可追溯，锚后值在
-        // scoringResult.dimension2）
-        instagramDim2Anchor: igDim2Anchor ? { from: dim2 } : null,
+        // scoringResult.spreadScore）
+        instagramSpreadAnchor: instagramSpreadAnchorActive ? { from: spread } : null,
         // C94 审计标记：B 类 + web3_fit strong_fit≥0.5 的传播轴锚命中详情
         // （原 dim2 可追溯；null=未命中——非 B 类/贴线/dim2≥18 只升不降）
-        web3FitDim2Anchor: web3FitDim2Anchor ? { from: dim2 } : null,
+        web3FitSpreadAnchor: web3FitSpreadAnchorActive ? { from: spread } : null,
         // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
         // 可追溯；wInteractionScore 键照常落库不受豁免影响）
         wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
@@ -1582,7 +1584,7 @@ export function mapStandardAnswers(answers, context) {
         // （subjectCarrierBlock 同款模式）；form=Jev 原 choice（not_meme_name=
         // J1.41+ 新判 / statement·functional_label=J1.37-J1.40 旧缓存行兼容臂，
         // 归因可分）；档位恒落在 stage1 jev.web3UserAcceptability（J1.53 断代名）
-        web3UserAcceptabilityBlock: nfBlock ? { form: nfBlock.form } : null,
+        web3UserAcceptabilityBlock: uaBlock ? { choice: uaBlock.choice } : null,
         // C88 审计标记①：超级IP口号票五腿快照。恒落含 hit:false（标签零列推导消费
         // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存
         // 行）→null——0/null 语义分离，referentMemeabilityScore 恒落同款）
@@ -1597,18 +1599,18 @@ export function mapStandardAnswers(answers, context) {
         },
         // C88 审计标记②：memFloorBlock 命中键随 C108 拦截位退役（历史行键保留
         // 展示；C88 五腿快照 superIpSlogan 不受影响）
-        // J1.36 审计标记（C93 判据源迁移）：E 类感染力折损详情。fitMass 恒落
+        // J1.36 审计标记（C93 判据源迁移）：E 类Web3偏好折损详情。fitMass 恒落
         // （=web3_fit strong_fit+fit 概率和，J1.19 前旧缓存行无答案 → null，
         // 阈值事后校准免重跑）；系数生效（<1）才落折损详情（subjectCarrierBlock
         // 同款模式）。stage2Total/事件分不足拦截由折损后值直接承载，原值可由
         // tierScore+dimension2 反解。eventResonance 档位字段随题删除退役——
         // J1.31-J1.35 历史行的该键不再产生
-        resonanceFitMass: w3fFitMass,
-        resonanceDamp: resonanceCoef !== null && resonanceCoef < 1
-          ? { fitMass: w3fFitMass, coef: resonanceCoef } : null,
+        web3FitDampMass: w3fFitMass,
+        web3FitDamp: web3FitDampCoef !== null && web3FitDampCoef < 1
+          ? { fitMass: w3fFitMass, coef: web3FitDampCoef } : null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
-          dimension2: answers.dimension2?.probabilities,
+          web3_user_spread: answers.web3_user_spread?.probabilities ?? answers.dimension2?.probabilities,
           w_product_score: answers.w_product_score?.probabilities,
           w_binance_interaction: answers.w_binance_interaction?.probabilities,
           web3_fit: answers.web3_fit?.probabilities,
@@ -1627,7 +1629,7 @@ export function mapStandardAnswers(answers, context) {
   // 之前（C86 D-1 豁免贯穿，见上方案释）；本段只留 Stage3 专属计算
   const quality = qualityFrom(answers, symbol);
   // C108：block_misspelling noul 探针臂退役（C78 实证失效死键——Jev 答 0.13-0.27
-  // 拦不住真拼写蹭；判据「无背景拼写变体」并入 notMemeNameBlock 分支④）。图文
+  // 拦不住真拼写蹭；判据「无背景拼写变体」并入 web3UserAcceptabilityBlock 分支④）。图文
   // 拼写对照由 C78 纯代码门独立保留（确定性代码判据）
   const spellingMismatch = detectNameImageSpellingMismatch(tokenData, twitterInfo);
 
@@ -1674,7 +1676,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${w3Block?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}${web3FitDim2Anchor ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${superIpSlogan ? '超级IP口号票豁免(C88)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${instagramSpreadAnchorActive ? 'IG影响力豁免(C44)｜' : ''}${web3FitSpreadAnchorActive ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
@@ -1771,7 +1773,7 @@ export function mapStandardAnswers(answers, context) {
     stageFinalData,
     llmResult,
     promptType,
-    jevDetails: { tier, timing, dim2, relevance, quality, brandHijackP },
+    jevDetails: { impactTier: tier, effectiveTiming: timing, spread, relevance, quality, brandHijackP },
   };
 }
 
