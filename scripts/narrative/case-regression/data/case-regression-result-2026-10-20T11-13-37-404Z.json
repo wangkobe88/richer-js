@@ -1,0 +1,43 @@
+{
+  "ranAt": "2026-10-20T11:13:38.322Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C126",
+      "symbol": "こんにちは",
+      "addr": "0xf0ffa405a08a3abd1de1b2d88fdec7cbd9f37777",
+      "status": "PASS",
+      "expect": {
+        "rating": "mid",
+        "tokenCategory": "event:B",
+        "auditIncludes": [
+          "authorUtterance"
+        ]
+      },
+      "observe": "确定性事实=authorUtterance true（何一在册 ∧ こんにちは逐字主推）；名字门对超IP原话的接纳仍是 Jev 概率面（本轮 acceptable 臂放行→mid；若掷骰回到 not_acceptable 则 low，属已知面）。",
+      "caseNote": "何一「こんにちは」flap 票：C120 巨粉豁免过时效门；J1.56 实体题 no_entity 中性 + authorUtterance=true；J1.58 空洞门作者在册豁免；J1.61→J1.65 名字门增「高影响力主体本人说出的词句」能接纳臂 → mid 66.94（事件分27+传播27.04+时效15=69.04）。",
+      "baseline": {
+        "rating": "mid",
+        "reason": null,
+        "ruleName": null,
+        "score": 67.19,
+        "tokenCategory": "event:B"
+      },
+      "current": {
+        "rating": "mid",
+        "reason": null,
+        "ruleName": null,
+        "score": 67.11,
+        "stage": 3,
+        "tokenCategory": "event:B"
+      },
+      "failures": []
+    }
+  ]
+}
