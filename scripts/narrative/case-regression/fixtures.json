@@ -453,11 +453,13 @@
       "symbol": "DND",
       "addr": "0x4dbcb10e68626b6f663bd596905d41cdc6b07777",
       "expect": {
-        "rating": "low"
+        "rating": "high"
       },
-      "note": "DND 案（BinancePk 80 万粉「DND 😾」+猫拉窗帘视频）：C114 图证在场豁免翻过 empty_content 掷骰臂（none 0.32/empty 0.31）+ J1.47 判 meme_name 合格；终态 low 由载体门接管（no_visual 0.51 掷骰+C109 名图一致 unrelated 0.85 未豁免）；断言=必拦不锁门（empty_content/载体两门掷骰波动，量级档 A/D 亦波动）",
+      "note": "DND = 币安猫亮窗视频（与交易猫同一视觉资产）；用户裁定 high",
       "addedAt": "2026-10-19",
-      "observe": "empty_content 掷骰臂（none 0.32/empty 0.31）被 C114 图证豁免兜底；载体门 no_visual 0.51 与 C109 名图一致 unrelated 0.85 双掷骰；量级 A/D 波动但 dim2 1.23 低——事件分不足门兜底，终态 low 稳定。断言失败只看是否翻 non-low。"
+      "observe": "empty_content 掷骰臂（none 0.32/empty 0.31）被 C114 图证豁免兜底；载体门 no_visual 0.51 与 C109 名图一致 unrelated 0.85 双掷骰；量级 A/D 波动但 dim2 1.23 低——事件分不足门兜底，终态 low 稳定。断言失败只看是否翻 non-low。",
+      "expectBecause": "2026-10-20 用户裁定「DND 也是应该给 high 的」",
+      "expectSince": "2026-10-20"
     },
     {
       "caseId": "C117",

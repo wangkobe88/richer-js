@@ -202,7 +202,7 @@ async function main() {
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /new_entity:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.77'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.78'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
