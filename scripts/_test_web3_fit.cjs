@@ -37,7 +37,7 @@ function makeAnswers(web3FitProbs) {
     event_magnitude: { score: 3.5, probabilities: { '3': 0.5, '4': 0.3 } }, // B 档
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 4.1, probabilities: { '4': 0.5, '5': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.9, empty_content: 0.1 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_empty_content: 0.1 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.85, unknown: 0.15 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.75, semantic: 0.2 } },
     relevance_level: { score: 3.6, probabilities: { '3': 0.4, '4': 0.5 } },
@@ -108,7 +108,7 @@ async function main() {
 
   // B10 nhn 门优先级在前（双门同命中展示负面硬新闻）
   const nhnAnswers = makeAnswers({ unfit: 0.7, fit: 0.3 });
-  nhnAnswers.event_block_reason = { choice: 'none', probabilities: { none: 0.3, negative_hard_news: 0.6, empty_content: 0.1 } };
+  nhnAnswers.event_token_block_reason = { choice: 'none', probabilities: { none: 0.3, event_negative_hard_news: 0.6, event_empty_content: 0.1 } };
   const r6 = mapStandardAnswers(nhnAnswers, makeContext(tokenData));
   check('B10 nhn 0.6 + unfit 0.7 双命中 → 展示负面硬新闻（优先级在前）', r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
 

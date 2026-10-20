@@ -41,7 +41,7 @@ function jyjAnswers() {
     event_magnitude: { score: 4.4, probabilities: { '4': 0.55, '5': 0.25 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.99 } },
     dimension2: { score: 24, probabilities: { '5': 0.58, '4': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.55, low_quality_derivative: 0.26 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.55, low_quality_derivative: 0.26 } },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.6 } },
     name_entity_memeability: { score: 3.48, probabilities: { '4': 0.58, '3': 0.32 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.97 } },

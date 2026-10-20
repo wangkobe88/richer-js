@@ -43,7 +43,7 @@ const ANCHOR_LABEL = '币安地域子账号不借壳';
 /**
  * 事故快照形状（token_narrative J1.36 行实测值）：D 类 0.84 / A 档（34 分）/
  * super_ip 0.55 / mem 2.39 / strong_fit 0.73 / no_visual 0.98 / company 0.53 /
- * exact 0.24+semantic 0.49+none 0.14 / within_7d / baseless_speculation 0.3
+ * exact 0.24+semantic 0.49+none 0.14 / within_7d / event_baseless_speculation 0.3
  * （G 类域 choice，D 类不拦）。五腿全中：recognizedEntitySlogan hit=true。
  */
 function gameShowAnswers() {
@@ -52,7 +52,7 @@ function gameShowAnswers() {
     event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.89 } },
     dimension2: { score: 25, probabilities: { '3': 0.37, '4': 0.27, '5': 0.25 } },
-    event_block_reason: { choice: 'baseless_speculation', probabilities: { baseless_speculation: 0.3, none: 0.24, marketing_gimmick: 0.28, institution_routine: 0.12, routine_content_product: 0.05 } },
+    event_token_block_reason: { choice: 'event_baseless_speculation', probabilities: { event_baseless_speculation: 0.3, none: 0.24, event_marketing_gimmick: 0.28, event_institution_routine: 0.12, event_routine_content_product: 0.05 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.55, unknown: 0.35 } },
     name_entity_memeability: { score: 2.39, probabilities: {} },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, fit: 0.17, marginal: 0.09 } },

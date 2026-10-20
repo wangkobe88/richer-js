@@ -48,9 +48,9 @@ const cueAnswers = {
   event_magnitude: { score: 2.88, probabilities: { '2': 0.38, '3': 0.42 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
   dimension2: { score: 3.08, probabilities: { '3': 0.5, '4': 0.3 } },
-  event_block_reason: {
-    choice: 'marketing_gimmick',
-    probabilities: { none: 0.29, marketing_gimmick: 0.30, subject_unqualified: 0.15, empty_content: 0.1, institution_routine: 0.16 },
+  event_token_block_reason: {
+    choice: 'event_marketing_gimmick',
+    probabilities: { none: 0.29, event_marketing_gimmick: 0.30, subject_unqualified: 0.15, event_empty_content: 0.1, event_institution_routine: 0.16 },
   },
   web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.7, no_entity: 0.14, accepted: 0.16 } },
   name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.2 } },
@@ -76,7 +76,7 @@ const museAnswers = {
   event_magnitude: { score: 3.2, probabilities: { '3': 0.6 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
   dimension2: { score: 3.5, probabilities: { '3': 0.5, '4': 0.4 } },
-  event_block_reason: { choice: 'none', probabilities: { none: 0.98, institution_routine: 0.02 } },
+  event_token_block_reason: { choice: 'none', probabilities: { none: 0.98, event_institution_routine: 0.02 } },
   web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.92, no_entity: 0.03, accepted: 0.05 } },
   name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
   relevance_level: { score: 4.2, probabilities: { '4': 0.8 } },
@@ -142,7 +142,7 @@ async function main() {
   check('B1a stage1 审计：publisherProxy 详情 + active + anchoredTier', j1.publisherProxy?.domain === 'cue.im' && j1.publisherProxyActive === true && j1.anchoredTier === 'A', j1);
   check('B1b Jev 原判审计保真：jevImpactTier 保留 B（不受锚定影响）', j1.jevImpactTier === 'B', j1.jevImpactTier);
   const s1 = m1.stage2DataToSave.parsed_output.scoringResult;
-  check('B1c marketing_gimmick argmax 豁免（0.30-none 0.29 不再拦）+ nrBlock 豁免（阻断侧 0.84）', m1.stage2DataToSave.parsed_output.pass === true, m1.stage2DataToSave.parsed_output);
+  check('B1c event_marketing_gimmick argmax 豁免（0.30-none 0.29 不再拦）+ nrBlock 豁免（阻断侧 0.84）', m1.stage2DataToSave.parsed_output.pass === true, m1.stage2DataToSave.parsed_output);
   check('B1d effTier A 锚：34+23.4+15=72.4 过线', s1.category === 'B' && s1.totalScore === 72.4 && s1.tierScore === 34, s1);
   check('B1e reason 标注发布者指代锚（原判 B 档）', m1.stage2DataToSave.parsed_output.reason.includes('发布者指代锚(原判B档)'), m1.stage2DataToSave.parsed_output.reason);
   check('B1f 终评 high：43.44+20+15.51=78.95', m1.llmResult.pass === true && m1.llmResult.rating === 'high' && m1.llmResult.score === 78.95, m1.llmResult);
@@ -151,7 +151,7 @@ async function main() {
   // B2 同 answers、无 twitterInfo → 原路径：gimmick argmax 先拦（本轮 dryrun 基线拦截路径复现）
   const m2 = mapStandardAnswers(cueAnswers, makeContext(cueTokenData, cueAnswers, null));
   check('B2a 无语料判据不激活：无审计标记', m2.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
-  check('B2b 原路径拦截：marketing_gimmick argmax（noneP 0.29<0.5）', m2.llmResult.rating === 'low' && m2.llmResult.analysis_stage === 2 && m2.llmResult.reason.includes('营销噱头'), m2.llmResult);
+  check('B2b 原路径拦截：event_marketing_gimmick argmax（noneP 0.29<0.5）', m2.llmResult.rating === 'low' && m2.llmResult.analysis_stage === 2 && m2.llmResult.reason.includes('营销噱头'), m2.llmResult);
 
   // B3 Muse 形状：域名门不命中 → proxy 永不激活。J1.26 notable 退出后 C108 又将
   // nr 阻断位整体退役——minor 0.32+notable 0.31 合计 0.66 的旧拦截形状不再由
@@ -180,7 +180,7 @@ async function main() {
     && m4.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m4.llmResult.rating === 'low', m4.promptType);
 
   // B5 rcp 门不豁免（内容型产品 C12 绣春刀裁定维持）
-  const rcpAnswers = { ...cueAnswers, event_block_reason: { choice: 'routine_content_product', probabilities: { none: 0.2, routine_content_product: 0.6, marketing_gimmick: 0.2 } } };
+  const rcpAnswers = { ...cueAnswers, event_token_block_reason: { choice: 'event_routine_content_product', probabilities: { none: 0.2, event_routine_content_product: 0.6, event_marketing_gimmick: 0.2 } } };
   const m5 = mapStandardAnswers(rcpAnswers, makeContext(cueTokenData, rcpAnswers, cueTwitter));
   check('B5 rcp 门不豁免：发布者指代不适用于内容型产品', m5.llmResult.rating === 'low' && m5.llmResult.reason.includes('常规内容产品'), m5.llmResult.reason);
 
@@ -207,7 +207,7 @@ async function main() {
   // （block/nr 改成放行形状，让量级拦截路径可见——gimmick argmax 路径已由 B2b 覆盖）
   const smallPub = {
     ...cueAnswers,
-    event_block_reason: { choice: 'none', probabilities: { none: 0.9, marketing_gimmick: 0.1 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_marketing_gimmick: 0.1 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.6, unknown: 0.3, no_entity: 0.1 } },
     event_magnitude: { score: 1.2, probabilities: { '1': 0.6 } },
   };

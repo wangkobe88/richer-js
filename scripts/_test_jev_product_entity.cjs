@@ -9,7 +9,7 @@
  *   C. mapStandardAnswers 集成：麒麟形状③实测答案（J1.27 wording 实验轮2 数值）
  *      + se=product_functional → 拦（blockReason/审计字段）；同答案 se=character_ip
  *      不拦（拦截全由 se 标注驱动）；fitMass 过线放行；旧答案零行为变化
- *   D. 源码口径：挂点顺序（w3Block 后 event_block_reason 前）+ 豁免五条件接线 + C56 三处豁免位
+ *   D. 源码口径：挂点顺序（w3Block 后 event_token_block_reason 前）+ 豁免五条件接线 + C56 三处豁免位
  *   F. C56 平台官方源豁免（flap 裁定「flap 是币安链的 meme 币发布平台…跟币安链一个道理」）：
  *      FlapGuy 复验实测形状——argmax 机构日常运营豁免（实际拦截位）/ rcp 概率门豁免 /
  *      产品实体门豁免 / handle 硬集矩阵（大小写归一·单词不中·account 型双字段）/
@@ -34,7 +34,7 @@ const qilinAnswers = {
   event_magnitude: { score: 2.97, probabilities: { '3': 0.55, '4': 0.20, '5': 0.20 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
   dimension2: { score: 3.82, probabilities: { '4': 0.57, '5': 0.30 } },
-  event_block_reason: { choice: 'none', probabilities: { none: 0.9, routine_content_product: 0.06 } },
+  event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_routine_content_product: 0.06 } },
   web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.14, fit: 0.05, marginal: 0.62, unfit: 0.19 } },
   web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.8, unknown: 0.16 } },
   name_event_relevance: { choice: 'translation_match', probabilities: { translation_match: 0.51, exact_match: 0.45 } },
@@ -183,14 +183,14 @@ async function main() {
   const idxW3 = src.indexOf('} else if ((w3Block = web3UnfitBlock(answers))) {');
   const idxPe = src.indexOf('} else if ((peBlock = productEntityAcceptanceBlock(answers,');
   const idxBr = src.indexOf('} else if (blockChoice !== \'none\' && noneProb < 0.5');
-  check('D1 挂点顺序：w3Block → 产品门 → event_block_reason argmax', idxW3 > 0 && idxPe > idxW3 && idxBr > idxPe, { idxW3, idxPe, idxBr });
+  check('D1 挂点顺序：w3Block → 产品门 → event_token_block_reason argmax', idxW3 > 0 && idxPe > idxW3 && idxBr > idxPe, { idxW3, idxPe, idxBr });
   check('D2 豁免四条件接线（pubProxyActive / isW / binanceCorpus / platformOfficial；J1.56 rideMass 退役）',
     src.includes('opts.pubProxyActive || opts.isW')
     && src.includes('if (opts.binanceCorpus || opts.platformOfficial) return null;')
     && src.includes('binanceCorpus, platformOfficial }))) {'));
   check('D2b C56 平台官方源豁免三处接线（rcp 门 opts 含 C88 recognizedEntitySlogan / argmax 子句 / detectPlatformOfficial 双字段 + 审计落库）',
     src.includes('routineContentProductBlock(answers, category, { platformOfficial, recognizedEntitySlogan })')
-    && src.includes("&& !(platformOfficial && (blockChoice === 'institution_routine' || blockChoice === 'routine_content_product'))")
+    && src.includes("&& !(platformOfficial && (blockChoice === 'event_institution_routine' || blockChoice === 'event_routine_content_product'))")
     && src.includes('const platformOfficial = detectPlatformOfficial(twitterInfo);')
     && src.includes('rcpPlatformExempt,')
     && src.includes('twitterInfo?.author_screen_name || twitterInfo?.screen_name'));
@@ -212,7 +212,7 @@ async function main() {
   console.log('\n── F. C56 平台官方源豁免（FlapGuy 0x2fb77ad0…7777 复验实测形状）──');
   // FlapGuy 双轮复验（J1.27，182 真实 Jev 调用）：cat=D、mag 3.04-3.08（round→B 档，
   // P3 0.75-0.79 稳定）、dim2 3.01-3.05、se=character_ip、nr subject_self 0.6-0.72
-  // （minor+common 0.13 恒 <0.5）、block argmax=institution_routine（0.55 / none 0.30
+  // （minor+common 0.13 恒 <0.5）、block argmax=event_institution_routine（0.55 / none 0.30
   // / rcp 仅 0.10）——实际拦截点在 argmax 位而非 rcp 概率门，豁免必须三处齐备
   const flapTokenData = { symbol: 'FlapGuy', name: 'FlapGuy', raw_api_data: { name: 'FlapGuy' } };
   const flapAnswers = {
@@ -220,7 +220,7 @@ async function main() {
     event_magnitude: { score: 3.05, probabilities: { '3': 0.76, '4': 0.16 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 3.02, probabilities: { '4': 0.5, '5': 0.3 } },
-    event_block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.55, none: 0.3, routine_content_product: 0.1, marketing_gimmick: 0.05 } },
+    event_token_block_reason: { choice: 'event_institution_routine', probabilities: { event_institution_routine: 0.55, none: 0.3, event_routine_content_product: 0.1, event_marketing_gimmick: 0.05 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.55, fit: 0.25, marginal: 0.15, unfit: 0.05 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.09, no_entity: 0.01 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.88 } },
@@ -264,7 +264,7 @@ async function main() {
     exemptOf({ type: 'account', screen_name: 'flapdotsh' }) === true);
 
   // F3 rcp 概率门形状：官方源 → 概率门（routineContentProductBlock opts）+ argmax 双豁免
-  const rcpShape = { ...flapAnswers, event_block_reason: { choice: 'routine_content_product', probabilities: { routine_content_product: 0.62, none: 0.25, institution_routine: 0.1 } } };
+  const rcpShape = { ...flapAnswers, event_token_block_reason: { choice: 'event_routine_content_product', probabilities: { event_routine_content_product: 0.62, none: 0.25, event_institution_routine: 0.1 } } };
   const rF3 = mapper.mapStandardAnswers(rcpShape, flapCtx(rcpShape, flapTw('flapdotsh')));
   check('F3 rcp 0.62 概率形状 + 官方源 → 概率门豁免（不被「常规内容产品宣传」拦）+ 审计 true',
     !(rF3.stage2DataToSave?.parsed_output?.blockReason || '').includes('常规内容产品宣传')

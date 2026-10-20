@@ -52,7 +52,7 @@ function babaJiAnswers(nic, over = {}) {
     event_magnitude: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.08 } },
     name_entity_memeability: { score: 3, probabilities: {} },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.55（J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.49=C118 image_depicts_name 演绎题（与 name_image_consistency 同携带条件）；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+ mapper empty_content 图证在场豁免；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.55（J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.49=C118 image_depicts_name 演绎题（与 name_image_consistency 同携带条件）；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+ mapper event_empty_content 图证在场豁免；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.59', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);
@@ -216,7 +216,7 @@ async function main() {
   check('F3 analyzer 标准分支接线：buildStandardQuestions imageConsistency 条件',
     analyzerSrc.includes('imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis'), null);
   check('F4 analyzer 标准分支接线：mapStandardAnswers imageEvidence（题集与证据同源）',
-    /imageEvidence: !visionSkipped && !!twitterInfo\?\.image_analysis,[\s\S]{0,300}?tweetClassification/.test(analyzerSrc), null);
+    /imageEvidence: !visionSkipped && !!twitterInfo\?\.image_analysis,[\s\S]{0,800}?tweetClassification/.test(analyzerSrc), null);
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('F5 题集头部含 J1.30 条目（巴巴鸡案档案+地址）',
     qsSrc.includes('* J1.30（2026-10-14') && qsSrc.includes(TOKEN_ADDR), null);

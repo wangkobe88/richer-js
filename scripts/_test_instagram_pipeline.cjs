@@ -114,7 +114,7 @@ function tuhaoAnswers({ magnitude = 2.4, dim2Score = 0.97, strongFit = 0.9, timi
     event_magnitude: { score: magnitude, probabilities: { '2': 0.55, '3': 0.3 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.9 } },
     dimension2: { score: dim2Score, probabilities: { '1': 0.55, '2': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.08 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },

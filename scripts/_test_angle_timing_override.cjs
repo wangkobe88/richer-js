@@ -65,7 +65,7 @@ function makeZeroAnswers(timingChoice = 'within_30d') {
     event_magnitude: { score: 3.4, probabilities: { '3': 0.5, '4': 0.3 } },  // B 档 → 27 分
     event_timing: { choice: timingChoice, probabilities: { within_30d: 0.96 } },
     dimension2: { score: 4.1, probabilities: { '4': 0.5, '5': 0.54 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.88, empty_content: 0.12 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.88, event_empty_content: 0.12 } },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.43 } },
     event_subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.99 } },
     name_event_relevance: { choice: 'semantic', probabilities: { semantic: 0.9 } },
@@ -281,7 +281,7 @@ async function main() {
     event_magnitude: { score: 3.87, probabilities: { '0': 0, '1': 0.01, '2': 0.06, '3': 0.37, '4': 0.15, '5': 0.41 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 1, within_30d: 0, older: 0, expected_within_30d: 0, expected_beyond_30d: 0, unknown: 0 } },
     dimension2: { score: 4.02, probabilities: { '0': 0.01, '1': 0.01, '2': 0.03, '3': 0.21, '4': 0.4, '5': 0.34 } },
-    event_block_reason: { choice: 'low_quality_derivative', probabilities: { none: 0.09, subject_unqualified: 0, niche_subculture: 0, empty_content: 0.02, institution_routine: 0.18, low_quality_derivative: 0.56, marketing_gimmick: 0.1, baseless_speculation: 0, ip_reuse: 0.04, regional_event: 0, negative_hard_news: 0, routine_content_product: 0 } },
+    event_token_block_reason: { choice: 'low_quality_derivative', probabilities: { none: 0.09, subject_unqualified: 0, niche_subculture: 0, event_empty_content: 0.02, event_institution_routine: 0.18, low_quality_derivative: 0.56, event_marketing_gimmick: 0.1, event_baseless_speculation: 0, token_ip_reuse: 0.04, regional_event: 0, event_negative_hard_news: 0, event_routine_content_product: 0 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.99, fit: 0.01, marginal: 0, unfit: 0 } },
     event_subject_entity: { choice: 'product_functional', probabilities: { company: 0.12, product_functional: 0.65, product_character: 0.01, character_ip: 0, person: 0, event_hotspot: 0.22 } },
     w_product_score: { score: 0.17, probabilities: { '0': 0.87, '1': 0.09, '2': 0.03, '3': 0.01 } },
@@ -416,7 +416,7 @@ async function main() {
       event_magnitude: { score: 3.04, probabilities: { '0': 0, '1': 0.01, '2': 0.05, '3': 0.81, '4': 0.12, '5': 0 } },
       event_timing: { choice: 'within_30d', probabilities: { within_7d: 0.03, within_30d: 0.96, older: 0.01, expected_within_30d: 0, expected_beyond_30d: 0, unknown: 0 } },
       dimension2: { score: 3.73, probabilities: { '0': 0.01, '1': 0.03, '2': 0.04, '3': 0.19, '4': 0.63, '5': 0.1 } },
-      event_block_reason: { choice: 'none', probabilities: { none: 0.97, subject_unqualified: 0.01, niche_subculture: 0, empty_content: 0, institution_routine: 0, low_quality_derivative: 0.02, marketing_gimmick: 0, baseless_speculation: 0, ip_reuse: 0, regional_event: 0, negative_hard_news: 0, routine_content_product: 0 } },
+      event_token_block_reason: { choice: 'none', probabilities: { none: 0.97, subject_unqualified: 0.01, niche_subculture: 0, event_empty_content: 0, event_institution_routine: 0, low_quality_derivative: 0.02, event_marketing_gimmick: 0, event_baseless_speculation: 0, token_ip_reuse: 0, regional_event: 0, event_negative_hard_news: 0, event_routine_content_product: 0 } },
       web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.98, fit: 0.02, marginal: 0, unfit: 0 } },
       event_subject_entity: { choice: 'character_ip', probabilities: { company: 0, product_functional: 0, product_character: 0, character_ip: 0.96, person: 0, event_hotspot: 0.04, meme_word: 0, none_of_above: 0 } },
       w_product_score: { score: 0.66, probabilities: { '0': 0.66, '1': 0.09, '2': 0.19, '3': 0.06 } },
@@ -573,8 +573,8 @@ async function main() {
     && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
-  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.56'")
+  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.59'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')

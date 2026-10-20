@@ -34,7 +34,7 @@ function mtatAnswers(memeScore) {
     event_magnitude: { score: 3.44, probabilities: { '3': 0.27, '4': 0.17, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
     dimension2: { score: 3.71, probabilities: { '4': 0.29, '5': 0.35, '2': 0.22 } },
-    event_block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.66, none: 0.22, routine_content_product: 0.06 } },
+    event_token_block_reason: { choice: 'event_institution_routine', probabilities: { event_institution_routine: 0.66, none: 0.22, event_routine_content_product: 0.06 } },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.85, no_entity: 0.11, accepted: 0.04 } },
     web3_user_event_fit: { choice: 'marginal', probabilities: { marginal: 0.32, strong_fit: 0.28, fit: 0.23, unfit: 0.17 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.25 } },
@@ -59,9 +59,11 @@ async function main() {
   check('A2 J1.28 起默认恒带 name_entity_memeability（标准路径低档门判据源）', 'name_entity_memeability' in qsDefault, Object.keys(qsDefault).length);
   const mq = qsDefault.name_entity_memeability;
   check('A3 题面钉死评估对象=指代对象本身', mq && mq.instructions.includes('指代对象') && mq.instructions.includes('不加分'), null);
-  check('A4 C110 瘦身后单维度（只评对象自身玩味空间；无名 0 档类型中立保留；3 档知名产品例保留）', mq && /0分：无名普通对象/.test(mq.criteria[0]) && mq.criteria[0].includes('是产品」恒归本档') && mq.criteria[0].includes('只有无名对象才归本档') && mq.instructions.includes('内容载体与二创潜力') && /3分：内容作品/.test(mq.criteria[3]) && mq.criteria[3].includes('知名产品') && !mq.criteria[3].includes('同时满足'), null);
-  check('A4b C110 瘦身：web3 契合判据剥离（instructions 末行消歧归 web3_user_event_fit；criteria 各档无圈内认不认/契合轴）',
-    mq.instructions.includes('不由本题评') && mq.instructions.includes('web3_user_event_fit') && !mq.criteria.some(t => /web3 契合|圈内共鸣|crypto 圈无感/.test(t)), null);
+  check('A4 J1.57 单维度=内容载体（0 档改「无内容载体」，类型中立保留；3 档=有可玩内容）', mq && /0分：无内容载体/.test(mq.criteria[0]) && mq.criteria[0].includes('「无名」本身不是理由') && mq.instructions.includes('内容载体') && mq.instructions.includes('二创潜力') && /3分：有可玩内容/.test(mq.criteria[3]) && mq.criteria[3].includes('形象/作品/梗/口号/名场面'), null);
+  check('A4b J1.57 划界：认知度/影响力归 web3_user_name_entity_acceptance、契合归 web3_user_event_fit；旧「影响力和符号性」措辞已删',
+    mq.instructions.includes('web3_user_name_entity_acceptance') && mq.instructions.includes('web3_user_event_fit')
+    && !mq.instructions.includes('影响力和符号性') && !mq.instructions.includes('符号性即内容载体')
+    && !mq.criteria.some(t => /web3 契合|圈内共鸣|crypto 圈无感/.test(t)), null);
   check('A5 与品牌劫持条件题互不影响', buildStandardQuestions({ includeBrandHijack: true }).name_brand_hijack != null && !('name_brand_hijack' in qsDefault), null);
 
   // ═══ G. 标准路径：C108 后 nr/rm 拦截位退役（题保留喂五腿+观察）═══
@@ -74,16 +76,16 @@ async function main() {
     twitterInfo: null,
     callInfo: { model: 'stub', questions: { q1: {} }, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
   };
-  // 标准路径形状：event_block_reason none 主导（institution_routine 在标准路径 D 类作用域先拦，
+  // 标准路径形状：event_token_block_reason none 主导（event_institution_routine 在标准路径 D 类作用域先拦，
   // 压掉它以专测名字环节——ChainPulse/Muse 语义不变性）
   const stdShape = mtatAnswers(4);
-  stdShape.event_block_reason = { choice: 'none', probabilities: { none: 0.9, institution_routine: 0.06, routine_content_product: 0.02 } };
+  stdShape.event_token_block_reason = { choice: 'none', probabilities: { none: 0.9, event_institution_routine: 0.06, event_routine_content_product: 0.02 } };
   const stdBlocked = mapStandardAnswers(stdShape, stdCtx);
   const stdReason = stdBlocked.llmResult.reason || '';
   check('G1 标准路径 nr（J1.10）C108 退役不再拦（ChainPulse/Muse 形状放行；拦截责任移交 name_form）',
     stdBlocked.llmResult.rating !== 'low' || !(stdReason.includes('名字指向无名对象') || stdReason.includes('知名但非超级IP') || stdReason.includes('截词')), stdReason);
   const stdShapeNoKey = mtatAnswers(undefined);
-  stdShapeNoKey.event_block_reason = stdShape.event_block_reason;
+  stdShapeNoKey.event_token_block_reason = stdShape.event_token_block_reason;
   check('G2 无键同判（llmResult 逐字节相等——拦截退役后 mem 只影响审计不影响判定）',
     JSON.stringify(mapStandardAnswers(stdShapeNoKey, stdCtx).llmResult) === JSON.stringify(stdBlocked.llmResult), null);
 
@@ -91,7 +93,7 @@ async function main() {
   // 责任移交 name_form，mem 只剩观察（referentMemeabilityScore 恒落）+C88 五腿
   const lowGateShape = meme => {
     const a = mtatAnswers(meme);
-    a.event_block_reason = { choice: 'none', probabilities: { none: 0.9, institution_routine: 0.06, routine_content_product: 0.02 } };
+    a.event_token_block_reason = { choice: 'none', probabilities: { none: 0.9, event_institution_routine: 0.06, event_routine_content_product: 0.02 } };
     a.web3_user_name_entity_acceptance = { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.1 } };
     return a;
   };

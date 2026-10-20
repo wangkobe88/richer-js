@@ -7,7 +7,7 @@
  *   - quality_spelling+quality_reasonability 合并 token_name_quality（band 索引 0-3）
  *   - web3_user_name_entity_acceptance 6→3（other_referent 并四桶+配图形象指代源）
  *   - event_subject_entity 8→2（product_entity/other_entity，J1.27 兼容集）
- *   - event_block_reason 删 regional_event（死桶 0 拦截）/subject_unqualified（三重冗余）
+ *   - event_token_block_reason 删 regional_event（死桶 0 拦截）/subject_unqualified（三重冗余）
  *   - name_entity_carrier 锚修正（M1 图证覆盖在 _test_subject_carrier.cjs H 段）
  *
  * 覆盖：
@@ -38,7 +38,7 @@ function baseAnswers() {
     event_magnitude: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.08 } },
     name_entity_memeability: { score: 3, probabilities: {} },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.56（J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.59（J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.59', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 16 题', Object.keys(qs).length === 16, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -81,39 +81,39 @@ async function main() {
     && qs.web3_user_name_entity_acceptance.instructions.includes('配图中真实出现的形象'), null);
   check('A7 event_subject_entity 2 桶（product_entity/other_entity）',
     Object.keys(qs.event_subject_entity.criteria).length === 2 && 'product_entity' in qs.event_subject_entity.criteria, null);
-  check('A8 event_block_reason 9 桶（C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative）',
-    Object.keys(qs.event_block_reason.criteria).length === 9
-    && !('regional_event' in qs.event_block_reason.criteria) && !('subject_unqualified' in qs.event_block_reason.criteria)
-    && !('low_quality_derivative' in qs.event_block_reason.criteria), null);
-  check('A8b C113 ip_reuse 边界重写：仅拦纯蹭名+无意义修改两形状，有意义的修改/变形不拦（用户裁定「合理即可」）',
-    qs.event_block_reason.criteria.ip_reuse.includes('纯蹭名') && qs.event_block_reason.criteria.ip_reuse.includes('无意义修改')
-    && qs.event_block_reason.criteria.ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
+  check('A8 event_token_block_reason 9 桶（C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative）',
+    Object.keys(qs.event_token_block_reason.criteria).length === 9
+    && !('regional_event' in qs.event_token_block_reason.criteria) && !('subject_unqualified' in qs.event_token_block_reason.criteria)
+    && !('low_quality_derivative' in qs.event_token_block_reason.criteria), null);
+  check('A8b C113 token_ip_reuse 边界重写：仅拦纯蹭名+无意义修改两形状，有意义的修改/变形不拦（用户裁定「合理即可」）',
+    qs.event_token_block_reason.criteria.token_ip_reuse.includes('纯蹭名') && qs.event_token_block_reason.criteria.token_ip_reuse.includes('无意义修改')
+    && qs.event_token_block_reason.criteria.token_ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
   // A8c 行为级退役证明（legacy 形状行/旧缓存重放）：A 类票 argmax=low_quality_derivative
   // （none<0.5 域内）不再拦——C109 教训的机器证明：scope 显式空数组才是真退役；
-  // 同形状 argmax=ip_reuse 照拦（合并不外溢）
+  // 同形状 argmax=token_ip_reuse 照拦（合并不外溢）
   {
     const aRetired = baseAnswers();
     aRetired.event_category = { choice: 'A', probabilities: { A: 0.8 } };
-    aRetired.event_block_reason = { choice: 'low_quality_derivative', probabilities: { none: 0.1, low_quality_derivative: 0.7 } };
+    aRetired.event_token_block_reason = { choice: 'low_quality_derivative', probabilities: { none: 0.1, low_quality_derivative: 0.7 } };
     const rRetired = mapStandardAnswers(aRetired, stdCtx('TST', 'TST'));
     check('A8c 退役桶行为：A 类 argmax=low_quality_derivative 不再拦（显式空域）',
       !(rRetired.llmResult.reason || '').includes('低质衍生'), rRetired.llmResult.reason);
     const aActive = baseAnswers();
     aActive.event_category = { choice: 'A', probabilities: { A: 0.8 } };
-    aActive.event_block_reason = { choice: 'ip_reuse', probabilities: { none: 0.1, ip_reuse: 0.7 } };
+    aActive.event_token_block_reason = { choice: 'token_ip_reuse', probabilities: { none: 0.1, token_ip_reuse: 0.7 } };
     const rActive = mapStandardAnswers(aActive, stdCtx('TST', 'TST'));
-    check('A8d 活桶对照：A 类 argmax=ip_reuse 照拦（合并不外溢）',
+    check('A8d 活桶对照：A 类 argmax=token_ip_reuse 照拦（合并不外溢）',
       (rActive.llmResult.reason || '').includes('IP低质复用') && rActive.llmResult.rating === 'low', rActive.llmResult.reason);
   }
 
   // A8e J1.45（C110 扫描后裁定）gimmick 扩全域行为证明：E 类票 argmax=
-  // marketing_gimmick 原跨类空洞不拦 → 现拦（261 行空洞面的机器证明）
+  // event_marketing_gimmick 原跨类空洞不拦 → 现拦（261 行空洞面的机器证明）
   {
     const aHole = baseAnswers();
     aHole.event_category = { choice: 'E', probabilities: { E: 0.8 } };
-    aHole.event_block_reason = { choice: 'marketing_gimmick', probabilities: { none: 0.2, marketing_gimmick: 0.6 } };
+    aHole.event_token_block_reason = { choice: 'event_marketing_gimmick', probabilities: { none: 0.2, event_marketing_gimmick: 0.6 } };
     const rHole = mapStandardAnswers(aHole, stdCtx('TST', 'TST'));
-    check('A8e gimmick 扩全域：E 类 argmax=marketing_gimmick 拦（J1.45 前跨类空洞）',
+    check('A8e gimmick 扩全域：E 类 argmax=event_marketing_gimmick 拦（J1.45 前跨类空洞）',
       rHole.llmResult.rating === 'low' && (rHole.llmResult.reason || '').includes('营销噱头'), rHole.llmResult.reason);
   }
 
@@ -158,7 +158,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.56'"), 'J1.53 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.59'"), 'J1.53 常量缺失');
 
     // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
@@ -176,7 +176,7 @@ async function main() {
         wp.criteria[0].includes('版本更新') && wp.criteria[1].includes('新功能')
         && wp.criteria[2].includes('新产品') && wp.criteria[3].includes('创新产品'),
         wp.criteria.join(' | ').slice(0, 160));
-      const ns = qs.event_block_reason.criteria.web3_circle_reachability;
+      const ns = qs.event_token_block_reason.criteria.token_circle_reachability;
       check('A11c 圈层可达性桶锚（桶名 Web3 用户圈层可达性+get 不到梗+crypto 圈内梗≠小圈子反误伤+显式否定出圈读法）',
         ns.includes('Web3 用户圈层可达性不足') && ns.includes('get 不到梗')
         && ns.includes('crypto 圈内梗/黑话≠小圈子') && ns.includes('不是大众出圈前景')
@@ -193,22 +193,22 @@ async function main() {
       // 在 mapper 文件非题集文件——qsSrc 是题集文件源码）：
       const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
       const scopeMatch = mapperSrc.match(/BLOCK_SCOPE = \{[\s\S]*?\n\};/);
-      check('A11d BLOCK_SCOPE.web3_circle_reachability 仍 ["A"]（改锚不改域，改锚前 182 扫描 35 行全 A 类）',
-        !!scopeMatch && /web3_circle_reachability:\s*\['A'\],/.test(scopeMatch[0]),
+      check('A11d BLOCK_SCOPE.token_circle_reachability 仍 ["A"]（改锚不改域，改锚前 182 扫描 35 行全 A 类）',
+        !!scopeMatch && /token_circle_reachability:\s*\['A'\],/.test(scopeMatch[0]),
         'mapper BLOCK_SCOPE 圈层可达性行非 ["A"]');
 
       // A12 J1.53（C122 门名断代，零行为意图）：题键/桶键改名——name_form →
-      // web3_user_name_acceptability、niche_subculture → web3_circle_reachability。
+      // web3_user_name_acceptability、niche_subculture → token_circle_reachability。
       // 断言：①题集新键在场且旧键不提供 ②mapper 双键读（旧键=存量缓存行/旧
       // fixture 兼容）③新键行为=旧键（拦/放同语义）④新桶域内拦、域外不拦
       {
         check('A12a 题集题键=web3_user_name_acceptability（旧 name_form 不再提供）',
           qs.web3_user_name_acceptability != null && qs.name_form === undefined,
           Object.keys(qs).filter(k => k.includes('accept') || k.includes('name')));
-        check('A12b 题集桶键=web3_circle_reachability（旧 niche_subculture 不再提供）',
-          qs.event_block_reason.criteria.web3_circle_reachability != null
-          && qs.event_block_reason.criteria.niche_subculture === undefined,
-          Object.keys(qs.event_block_reason.criteria));
+        check('A12b 题集桶键=token_circle_reachability（旧 niche_subculture 不再提供）',
+          qs.event_token_block_reason.criteria.token_circle_reachability != null
+          && qs.event_token_block_reason.criteria.niche_subculture === undefined,
+          Object.keys(qs.event_token_block_reason.criteria));
         // 新键行为=旧键（拦）
         const aNew = baseAnswers();
         aNew.web3_user_name_acceptability = { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.8 } };
@@ -228,14 +228,14 @@ async function main() {
         // 新桶键：A 域拦 / B 域不拦；label 新名
         const aBucket = baseAnswers();
         aBucket.event_category = { choice: 'A', probabilities: { A: 0.8 } };
-        aBucket.event_block_reason = { choice: 'web3_circle_reachability', probabilities: { none: 0.1, web3_circle_reachability: 0.7 } };
+        aBucket.event_token_block_reason = { choice: 'token_circle_reachability', probabilities: { none: 0.1, token_circle_reachability: 0.7 } };
         const rBucket = mapStandardAnswers(aBucket, stdCtx('TST', 'TST'));
-        check('A12e 新桶键 web3_circle_reachability A 域拦（label=Web3 用户圈层可达性不足）',
+        check('A12e 新桶键 token_circle_reachability A 域拦（label=Web3 用户圈层可达性不足）',
           rBucket.llmResult.rating === 'low' && (rBucket.llmResult.reason || '').includes('Web3 用户圈层可达性不足'),
           rBucket.llmResult.reason);
         const bBucket = baseAnswers();
         bBucket.event_category = { choice: 'B', probabilities: { B: 0.8 } };
-        bBucket.event_block_reason = { choice: 'web3_circle_reachability', probabilities: { none: 0.1, web3_circle_reachability: 0.7 } };
+        bBucket.event_token_block_reason = { choice: 'token_circle_reachability', probabilities: { none: 0.1, token_circle_reachability: 0.7 } };
         const rBucketB = mapStandardAnswers(bBucket, stdCtx('TST', 'TST'));
         check('A12f 新桶键域外不拦（B 类同 choice 不构成阻断=改锚不改域）',
           !(rBucketB.llmResult.reason || '').includes('圈层可达性'),
@@ -510,16 +510,16 @@ async function main() {
   for (const [bin, cat] of [['subject_unqualified', 'C'], ['subject_unqualified', 'D'], ['regional_event', 'E']]) {
     const a = baseAnswers();
     a.event_category = { choice: cat, probabilities: { [cat]: 0.7 } };
-    a.event_block_reason = { choice: bin, probabilities: { [bin]: 0.55, none: 0.4 } }; // 旧形状域内拦截实测档位
+    a.event_token_block_reason = { choice: bin, probabilities: { [bin]: 0.55, none: 0.4 } }; // 旧形状域内拦截实测档位
     const r = mapStandardAnswers(a, stdCtx('TST', 'TST'));
     check(`G ${bin}+${cat}（旧形状原拦）→ 退役后不再拦`, r.llmResult.rating !== 'low' || !(r.llmResult.reason || '').includes('阻断:'),
       r.llmResult.reason);
   }
-  // 对照：活桶照拦（empty_content 全域）
+  // 对照：活桶照拦（event_empty_content 全域）
   const aEc = baseAnswers();
-  aEc.event_block_reason = { choice: 'empty_content', probabilities: { empty_content: 0.55, none: 0.4 } };
+  aEc.event_token_block_reason = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.55, none: 0.4 } };
   const rEc = mapStandardAnswers(aEc, stdCtx('TST', 'TST'));
-  check('G4 活桶对照：empty_content 照拦（删除不外溢）',
+  check('G4 活桶对照：event_empty_content 照拦（删除不外溢）',
     rEc.llmResult.rating === 'low' && (rEc.llmResult.reason || '').includes('空洞内容'), rEc.llmResult.reason);
 
   // ═══ 汇总 ═══

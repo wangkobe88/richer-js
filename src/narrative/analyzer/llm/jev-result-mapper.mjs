@@ -271,7 +271,7 @@ const RELEVANCE_FUSED_SCORES = {
 };
 
 /**
- * event_block_reason 选项 → 中文标签（reason 模板用）。
+ * event_token_block_reason 选项 → 中文标签（reason 模板用）。
  * J1.43（C109）退役两桶（182 全量 10815 行实证）：regional_event 9 次 argmax/
  * 0 次域内拦截=从未拦过票的死桶（且与 event_magnitude 的地区性/全国性范围镜头
  * 冲突）；subject_unqualified 31 次/23 次弱概率拦截（p 0.22-0.58），与 C108 后
@@ -284,18 +284,18 @@ const BLOCK_LABELS = {
   // 退役桶 label 保留（空域后不可达，防未知选项 fallback 打裸键名）
   subject_unqualified: '主体资格不足',
   regional_event: '地区性事件',
-  // J1.53（C122）桶键断代：niche_subculture → web3_circle_reachability（门名对齐
+  // J1.53（C122）桶键断代：niche_subculture → token_circle_reachability（门名对齐
   // 语义「Web3 用户圈层可达性」）；旧键 label 保留=存量数据/旧 fixture 可读
   niche_subculture: '小圈子亚文化',
-  web3_circle_reachability: 'Web3 用户圈层可达性不足',
-  empty_content: '空洞内容',
-  institution_routine: '机构日常运营',
+  token_circle_reachability: 'Web3 用户圈层可达性不足',
+  event_empty_content: '空洞内容',
+  event_institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
-  marketing_gimmick: '营销噱头',
-  baseless_speculation: '无据猜测',
-  ip_reuse: 'IP低质复用',
-  negative_hard_news: '负面硬新闻事件',
-  routine_content_product: '常规内容产品宣传',
+  event_marketing_gimmick: '营销噱头',
+  event_baseless_speculation: '无据猜测',
+  token_ip_reuse: 'IP低质复用',
+  event_negative_hard_news: '负面硬新闻事件',
+  event_routine_content_product: '常规内容产品宣传',
 };
 
 /**
@@ -325,7 +325,7 @@ const BLOCK_LABELS = {
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
  * - A 类（形象化IP）：小圈子亚文化/IP低质复用（J1.44 起 low_quality_derivative 与
- *   ip_reuse 合一，判据同拦 A 域）
+ *   token_ip_reuse 合一，判据同拦 A 域）
  * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
  * - C/D 类：机构日常运营
  * - G 类：无据猜测
@@ -336,37 +336,37 @@ const BLOCK_LABELS = {
  * 条件采信——scope 外的 choice 不构成阻断（如 E 类蹭热点命名代币不算低质衍生）。
  */
 const BLOCK_SCOPE = {
-  empty_content: 'all',
+  event_empty_content: 'all',
   // J1.45（C110 扫描后裁定）扩全域：原 ['W','B'] 跨类空洞 261 行（E123/A104/
   // C75/D63…，high/mid 逃逸 25 票实买 6 票，noneP 全<0.5）——「营销噱头无实质
   // 产品」语义不分类别；pubProxy/platformOfficial 豁免仍在拦截位前置不受影响
-  marketing_gimmick: 'all',
+  event_marketing_gimmick: 'all',
   // J1.53（C122）桶键断代：新键=现役；旧键 entry 保留（旧缓存行/旧 fixture
   // 形状的 choice 仍按同域判定，不因改名改变存量语义）
-  web3_circle_reachability: ['A'],
+  token_circle_reachability: ['A'],
   niche_subculture: ['A'],
-  ip_reuse: ['A'],
-  baseless_speculation: ['G'],
-  institution_routine: ['C', 'D'],
+  token_ip_reuse: ['A'],
+  event_baseless_speculation: ['G'],
+  event_institution_routine: ['C', 'D'],
   // J1.43（C109）退役桶：显式空域（blockInScope 对未知选项按通用处理返回 true——
   // 只删键会让 legacy 形状 choice 照拦，删除无效；空数组=任何类别都不拦）。
   // 新题集已不提供这两个选项，此处只兜旧缓存行/旧 fixture 重放
   subject_unqualified: [],
   regional_event: [],
-  // J1.44（C110）退役桶：low_quality_derivative 并入 ip_reuse（两桶均 A 域、判据
+  // J1.44（C110）退役桶：low_quality_derivative 并入 token_ip_reuse（两桶均 A 域、判据
   // 重叠=对现有 IP/热点的低质衍生与直接复用、拦截效果等价的功能双桶合一）
   low_quality_derivative: [],
   // J1.11（2026-09-26 用户裁定，C9 bitget被盗案）：负面事故（被盗/暴雷）+纯硬新闻
   // 的事件无 meme 价值，全域拦截——事件热度高≠该放（A 档量级喂饱事件分 74.65、
   // 80.32 high 放行后 -55%）。质量门 negativeHardNewsBlock 同步双挂（argmax 五五开
   // 抖动时概率门兜底），二者任一命中即拦
-  negative_hard_news: 'all',
+  event_negative_hard_news: 'all',
   // J1.13（2026-09-27 用户裁定，C12 绣春刀3案）：常规内容型产品（电影/剧集/综艺/
   // 动漫/小说/游戏）的发布/上映/预告宣传无 meme 价值，全域拦截——产品知名度≠该放
   // （绣春刀3 super_ip 0.66 命中 C8 豁免 → 65.95 high 放行。裁定「即使推出了，也
   // 不能作为meme币」：官宣与否无关）。质量门 routineContentProductBlock 同步双挂，
   // 二者任一命中即拦
-  routine_content_product: 'all',
+  event_routine_content_product: 'all',
 };
 
 /**
@@ -564,15 +564,15 @@ const WEB3_FIT_DAMP_THRESHOLD = 0.5;
  * meme的」——安全事故/被盗/被黑/暴雷/巨额损失类负面事件无 meme 化玩味空间
  * （主体是机构不自嘲、无梗无二创），蹭其命名只是消费热度，热度再高也不该放）。
  *
- * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂：argmax 命中 negative_hard_news 且
+ * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂：argmax 命中 event_negative_hard_news 且
  * noneProb<0.5 拦；本门按概率 ≥0.5 独立拦（覆盖 negative 是 argmax 但 none 恰
  * ≥0.5、或边界抖动 none/negative 五五开时 mass 仍过半的情况）。二者任一命中
  * 即拦，全域（不限类别）、标准 + superIP 双路径。
  */
 function negativeHardNewsBlock(answers) {
-  const p = answers?.event_block_reason?.probabilities?.negative_hard_news ?? 0;
+  const p = answers?.event_token_block_reason?.probabilities?.event_negative_hard_news ?? 0;
   if (p < 0.5) return null;
-  return { label: BLOCK_LABELS.negative_hard_news, mass: Math.round(p * 100) / 100 };
+  return { label: BLOCK_LABELS.event_negative_hard_news, mass: Math.round(p * 100) / 100 };
 }
 
 /**
@@ -581,7 +581,7 @@ function negativeHardNewsBlock(answers) {
  * super_ip 0.66 命中 C8 豁免 → B 类 65.95 high 放行。裁定「即使推出了，也不能
  * 作为meme币」——常规电影等内容型产品宣传与官宣与否无关：观众是消费者不是玩梗
  * 社区，无二创动力、无 meme 玩味空间，蹭其命名只是消费上映热度，产品知名度
- * 再高也不该放（与 negative_hard_news 同构：热度/知名度≠叙事价值））。
+ * 再高也不该放（与 event_negative_hard_news 同构：热度/知名度≠叙事价值））。
  *
  * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂，语义同 negativeHardNewsBlock：
  * 本门按概率 ≥0.5 独立拦边界抖动，二者任一命中即拦，全域、标准 + superIP 双路径。
@@ -605,9 +605,9 @@ function routineContentProductBlock(answers, category, opts) {
   // 全中的超级IP事件票口号名是借热度玩梗，非「常规内容产品宣传」（暗号案的
   // argmax 臂豁免见门链内同款守卫）
   if (opts?.recognizedEntitySlogan) return null;
-  const p = answers?.event_block_reason?.probabilities?.routine_content_product ?? 0;
+  const p = answers?.event_token_block_reason?.probabilities?.event_routine_content_product ?? 0;
   if (p < 0.5) return null;
-  return { label: BLOCK_LABELS.routine_content_product, mass: Math.round(p * 100) / 100 };
+  return { label: BLOCK_LABELS.event_routine_content_product, mass: Math.round(p * 100) / 100 };
 }
 
 /**
@@ -616,7 +616,7 @@ function routineContentProductBlock(answers, category, opts) {
  * 爆款短路（点赞≥10万 → 不进Jev直接mid）放行后 Web3 用户不买账阴跌。裁定原话
  * 「Web3用户是不会喜欢的，不符合用户胃口」：Web2 传播热度 ≠ Web3 用户偏好——
  * 事件可以完全有叙事价值（E 类爆款）只是不合链上 meme 买家口味，故独立成题
- * （web3_user_event_fit 四档）而非并入 event_block_reason 的「无叙事价值」语义）。
+ * （web3_user_event_fit 四档）而非并入 event_token_block_reason 的「无叙事价值」语义）。
  *
  * 独立题独立门：unfit 概率 ≥0.5 → rating 1（与 negativeHardNewsBlock 同构：
  * 概率门对抗 argmax 跨 run 抖动，全域不限类别、标准 + superIP 双路径）。
@@ -657,13 +657,13 @@ function detectBinanceCorpus(tokenData, twitterInfo) {
  * 「flap 是币安链的 meme 币发布平台，也是我们交易代币主要来源，跟币安链一个
  * 道理」）：flap 平台官方 IP 票与币安官方票同构——自家场子的官方内容不算
  * 拦截对象（FlapGuy 0x2fb77ad0…7777 案：主推 @flapdotsh 官方号 9.98 万粉，
- * J1.27 下 cat=D + se=character_ip，实际拦截点 = event_block_reason argmax
- * institution_routine「机构日常运营」双轮稳定，rcp 概率只有 0.1——所以豁免位
+ * J1.27 下 cat=D + se=character_ip，实际拦截点 = event_token_block_reason argmax
+ * event_institution_routine「机构日常运营」双轮稳定，rcp 概率只有 0.1——所以豁免位
  * 有三处：① rcp 概率门（routineContentProductBlock opts）② argmax 链
- * institution_routine / routine_content_product 子句（S/A 级平台官方号的实质
+ * event_institution_routine / event_routine_content_product 子句（S/A 级平台官方号的实质
  * 内容推不算日常运营）③ 产品实体接纳门（productEntityAcceptanceBlock opts）。
  * （C83 起快车道删除，此处豁免面对全部语料生效；注册表内其余机构账号的
- * institution_routine argmax 按收紧语义拦截——BI 案教训方向）
+ * event_institution_routine argmax 按收紧语义拦截——BI 案教训方向）
  *
  * 刻意用主推作者 handle 硬集而非文本关键词：flap/four 等词在 BSC meme 语料里
  * 高频出现（平台链接/普通英文词），裸查会把蹭名票误豁免；只查主推作者不查
@@ -853,7 +853,7 @@ function nameEntityLowBlock(answers, category) {
 
 /**
  * 阻断选项是否在该类别下生效
- * @param {string} choice - event_block_reason 的 choice（≠'none'）
+ * @param {string} choice - event_token_block_reason 的 choice（≠'none'）
  * @param {string|null} category - event_category 的 choice
  * @returns {boolean}
  */
@@ -1040,7 +1040,7 @@ export function mapStandardAnswers(answers, context) {
   // 第三方骑乘发币时，按发布者知名度指代计分：
   // - nameReferentBlock / 骑乘改道豁免——等同 super_ip≥0.5 放行侧语义（Jev 对
   //   发布者知名度的知识缺口五轮实测 super_ip 0.16→0.31 压不过 0.5 线）；
-  // - marketing_gimmick argmax 豁免——官方域名=具体产品，与「无任何实质产品」的
+  // - event_marketing_gimmick argmax 豁免——官方域名=具体产品，与「无任何实质产品」的
   //   噱头定义直接矛盾（CUE 本轮 argmax gimmick 0.30/none 0.29 抖动即此形状）；
   // - 量级 A 档锚（effTier）——题面「领域知名大IP→A档起」Jev 执行不下去（magnitude
   //   稳定 B 档），发布者知名度由代码事实锚定；superIP 快车道 S 级预评分同构
@@ -1146,12 +1146,12 @@ export function mapStandardAnswers(answers, context) {
   // 京小安 mem 1.88<2 仍被 C88 地板拦是 2026-10-18 用户裁定「维持拦」）。
   const web3FitSpreadAnchorActive = category === 'B' && web3FitStrongP >= 0.5 && spread < 18;
   const effSpread = instagramSpreadAnchorActive ? 18 : (web3FitSpreadAnchorActive ? 18 : spread);
-  const blockChoice = answers.event_block_reason?.choice || 'none';
-  const blockProb = answers.event_block_reason?.probabilities?.[blockChoice];
+  const blockChoice = answers.event_token_block_reason?.choice || 'none';
+  const blockProb = answers.event_token_block_reason?.probabilities?.[blockChoice];
   // 原 prompt 语义是"命中任一阻断条件即阻断"（二值）。Choice 摊成 10 路分布后
   // 9 个阻断项共享概率质量，argmax≠none 过易触发（dry-run 实证：P=0.43 即阻断）。
   // 忠实转译：P(none)≥0.5 才视为无阻断。
-  const noneProb = answers.event_block_reason?.probabilities?.none ?? 0;
+  const noneProb = answers.event_token_block_reason?.probabilities?.none ?? 0;
   // web3_user_name_entity_acceptance（J1.10 阻断位已随 C108 退役）：choice/概率保留纯观察落库
   // （Jev 原判可追溯；拦截责任在 web3UserAcceptabilityBlock——题概率另喂 C88 五腿/骑乘改道）
   const nameEntityAcceptance = answers.web3_user_name_entity_acceptance?.choice || null;
@@ -1213,7 +1213,7 @@ export function mapStandardAnswers(answers, context) {
         probabilities: {
           event_category: answers.event_category?.probabilities,
           web3_user_event_impact: answers.web3_user_event_impact?.probabilities ?? answers.event_magnitude?.probabilities,
-          event_block_reason: answers.event_block_reason?.probabilities,
+          event_token_block_reason: answers.event_token_block_reason?.probabilities,
           web3_user_name_entity_acceptance: answers.web3_user_name_entity_acceptance?.probabilities,
           web3_user_event_fit: answers.web3_user_event_fit?.probabilities,
           event_subject_entity: answers.event_subject_entity?.probabilities,
@@ -1229,8 +1229,8 @@ export function mapStandardAnswers(answers, context) {
   // 路径只保留 W 类原生与 cashtag 改道。
   let stage2Blocked = false;
   let stage2BlockReason = null;
-  let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
-  let rcpBlock = null; // routine_content_product 质量门信息 {label, mass}（J1.13）
+  let nhnBlock = null; // event_negative_hard_news 质量门信息 {label, mass}（J1.11）
+  let rcpBlock = null; // event_routine_content_product 质量门信息 {label, mass}（J1.13）
   let w3Block = null; // web3_user_event_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
@@ -1258,17 +1258,17 @@ export function mapStandardAnswers(answers, context) {
     && productEntityAcceptanceBlock(answers, { pubProxyActive, isW }) != null
     ? true : null;
   // C56 平台官方源豁免审计（FlapGuy 案）：官方源 + 无豁免时三处拦截位任一会拦
-  // （rcp 概率门 rcp≥0.5 OR argmax institution_routine/routine_content_product
+  // （rcp 概率门 rcp≥0.5 OR argmax event_institution_routine/event_routine_content_product
   // 命中且 noneProb<0.5——忠实复算下方 argmax 链的判定，含 A 类 rcp 豁免与
   // scope 检查）才落键，与 peBinanceExempt 命中才落的模式一致。FlapGuy 实测
   // 命中的是 argmax 位（rcp 概率仅 0.1），概率门位是备用形状
-  const rcpArgmaxWouldBlock = ['institution_routine', 'routine_content_product']
-    .includes(answers?.event_block_reason?.choice)
-    && (answers?.event_block_reason?.probabilities?.none ?? 1) < 0.5
-    && !(answers?.event_block_reason?.choice === 'routine_content_product' && category === 'A')
-    && blockInScope(answers?.event_block_reason?.choice, category);
+  const rcpArgmaxWouldBlock = ['event_institution_routine', 'event_routine_content_product']
+    .includes(answers?.event_token_block_reason?.choice)
+    && (answers?.event_token_block_reason?.probabilities?.none ?? 1) < 0.5
+    && !(answers?.event_token_block_reason?.choice === 'event_routine_content_product' && category === 'A')
+    && blockInScope(answers?.event_token_block_reason?.choice, category);
   const rcpPlatformExempt = platformOfficial
-    && ((answers?.event_block_reason?.probabilities?.routine_content_product ?? 0) >= 0.5
+    && ((answers?.event_token_block_reason?.probabilities?.event_routine_content_product ?? 0) >= 0.5
       || rcpArgmaxWouldBlock)
     ? true : null;
 
@@ -1390,34 +1390,39 @@ export function mapStandardAnswers(answers, context) {
   } else if ((peBlock = productEntityAcceptanceBlock(answers, { pubProxyActive, isW, binanceCorpus, platformOfficial }))) {
     // J1.27 产品实体接纳门（C55）：主体=公司产品实体且 web3 接纳度（sf+fit）<0.5 →
     // 阻断。挂位在 web3_user_event_fit unfit 负门之后（unfit 票先被负门拦，label 归属更准），
-    // event_block_reason argmax 之前（事件性质层面的否决）
+    // event_token_block_reason argmax 之前（事件性质层面的否决）
     stage2Blocked = true;
     stage2BlockReason = peBlock.label;
   } else if (blockChoice !== 'none' && noneProb < 0.5
     // J1.16 角色IP豁免：argmax 命中 rcp 且类别为 A（形象IP/角色）时不拦，与概率门同语义
-    && !(blockChoice === 'routine_content_product' && category === 'A')
-    // J1.18 发布者指代豁免：官方域名=具体产品落地，与 marketing_gimmick
+    && !(blockChoice === 'event_routine_content_product' && category === 'A')
+    // J1.18 发布者指代豁免：官方域名=具体产品落地，与 event_marketing_gimmick
     // 「无任何实质产品」的定义直接矛盾（CUE 本轮 gimmick 0.30/none 0.29 抖动即此
     // 形状——官方域名的存在本身就是反证），不拦
-    && !(pubProxyActive && blockChoice === 'marketing_gimmick')
-    // C56 平台官方源豁免（FlapGuy 案实际拦截点在此位：argmax institution_routine
+    && !(pubProxyActive && blockChoice === 'event_marketing_gimmick')
+    // C56 平台官方源豁免（FlapGuy 案实际拦截点在此位：argmax event_institution_routine
     // 0.55 / none 0.30，rcp 概率只有 0.1 够不着概率门）——币安/flap 等币安链原生
     // 平台官方账号的实质内容推不算「机构日常运营/常规内容产品宣传」，与 superIP
-    // 通道 institution_routine 豁免（blockedByBlockReason 的 blockChoice 排除）同语义
-    && !(platformOfficial && (blockChoice === 'institution_routine' || blockChoice === 'routine_content_product'))
+    // 通道 event_institution_routine 豁免（blockedByBlockReason 的 blockChoice 排除）同语义
+    && !(platformOfficial && (blockChoice === 'event_institution_routine' || blockChoice === 'event_routine_content_product'))
     // C88 超级IP口号票豁免（argmax 臂）：暗号案实际拦截位（rcp 0.44 vs none 0.41
     // 五五开抖动）——五腿全中时口号名不算常规内容产品，与 A 类/platformOfficial
     // 豁免同位
-    && !(blockChoice === 'routine_content_product' && recognizedEntitySlogan)
-    // C114 图证在场豁免（empty_content 臂失效，DND 案 0x4dbcb10e…7777，用户裁定
+    && !(blockChoice === 'event_routine_content_product' && recognizedEntitySlogan)
+    // C114 图证在场豁免（event_empty_content 臂失效，DND 案 0x4dbcb10e…7777，用户裁定
     // 「选1」）：极短主推+配图/视频证据在场 → 「空洞内容」不成立——图就是内容
-    // （DND 😾+猫拉窗帘视频，empty_content 0.36 vs none 0.31 掷骰边缘拦截；买家
+    // （DND 😾+猫拉窗帘视频，event_empty_content 0.36 vs none 0.31 掷骰边缘拦截；买家
     // 视角「币安发 DND 推+猫视频」是可成立的 meme 形态）。图证判据与 J1.30 名图
     // 一致豁免同源（context.imageEvidence = twitterInfo.image_analysis 存在）；
     // 无图票不触发=纯文字空洞票照拦。只翻本门：名字门/载体门/量级门照常接管
     // （DND 终局由 C97 地域子账号锚 D 档量级门拦——拦截理由干净；真·大号官方
     // 梗票不再被空洞门误伤）。同案 name_form 通用梗缩写锚=J1.47（题集侧）
-    && !(blockChoice === 'empty_content' && !!context.imageEvidence)
+    && !(blockChoice === 'event_empty_content' && !!context.imageEvidence)
+    // J1.58（C126 二轮）：高影响力主体（语料作者=super-ip 注册表在册）的公开
+    // 问候/表态/对实质事件的简短回应=事件素材，event_empty_content 臂不拦（用户裁定：
+    // 「何一发一个问候语，在 BSC meme 币场景不是空洞行为，何况是回复实质事件」）。
+    // 与 C114 图证豁免同构：只翻本门，名字/载体/量级门照常接管。
+    && !(blockChoice === 'event_empty_content' && !!context.corpusAuthorInRegistry)
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
@@ -1549,10 +1554,14 @@ export function mapStandardAnswers(answers, context) {
         effectiveImpactTier: effTier,
         blockChoice,
         blockChoiceProbability: blockProb ?? null,
-        // C114 审计标记：图证在场 empty_content 臂失效（block 门豁免；命中才落
-        // ——被覆盖的 empty_content 概率面可追溯，DND 案形状。空图证票不落键
-        // =empty_content 照拦零歧义）
-        emptyContentImgOverride: (blockChoice === 'empty_content' && !!context.imageEvidence)
+        // C114 审计标记：图证在场 event_empty_content 臂失效（block 门豁免；命中才落
+        // ——被覆盖的 event_empty_content 概率面可追溯，DND 案形状。空图证票不落键
+        // =event_empty_content 照拦零歧义）
+        emptyContentImgOverride: (blockChoice === 'event_empty_content' && !!context.imageEvidence)
+          ? { emptyP: round2(blockProb ?? 0), noneP: round2(noneProb) } : null,
+        // J1.58 审计：作者在册豁免 event_empty_content 臂（命中才落，可追溯被覆盖的
+        // event_empty_content 概率面；与图证豁免同构）
+        emptyContentAuthorOverride: (blockChoice === 'event_empty_content' && !!context.corpusAuthorInRegistry)
           ? { emptyP: round2(blockProb ?? 0), noneP: round2(noneProb) } : null,
         nameEntityAcceptance,
         nameEntityAcceptanceProbability: nameEntityAcceptanceProb,

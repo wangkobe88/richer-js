@@ -49,7 +49,7 @@ function redcoinAnswers({
     event_magnitude: { score: magnitude, probabilities: { '3': 0.16, '4': 0.72, '5': 0.08 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 4.49, probabilities: { '4': 0.42, '5': 0.56 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.91 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.91 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.7, unknown: 0.07 } },
     web3_user_event_fit: { choice: 'fit', probabilities: { fit: 0.45, strong_fit: 0.18 } },
     w_product_score: { score: wProductScore, probabilities: wProductProbs },

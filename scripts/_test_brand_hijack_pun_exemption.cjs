@@ -43,7 +43,7 @@ function biAnswers({ timing = 'within_7d', magnitude = 4, hijackP = 0.72, relTyp
     event_magnitude: { score: magnitude, probabilities: { '5': 0.43, '4': 0.25 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.96 } },
     dimension2: { score: dim2Score, probabilities: { '4': 0.5, '3': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.37, low_quality_derivative: 0.18 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.37, low_quality_derivative: 0.18 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.79 } },
     name_event_relevance: { choice: relType, probabilities: { [relType]: 0.47, none: 0.2, exact_match: 0.12 } },
     relevance_level: { score: relLevel, probabilities: { '1': 0.57, '0': 0.22 } },

@@ -774,6 +774,10 @@ export class NarrativeAnalyzer {
               // J1.56（C126）：作者原话票代码事实（作者在册∧币名逐字出自主推）
               // → C88 第一腿补位（实体题 accepted≥0.5 之外的作者身份通路）
               authorUtterance: !!authorUtterance,
+              // J1.58（C126 二轮）：语料作者在 super-ip 注册表在册 → event_empty_content
+              // 臂不拦（高影响力主体的公开问候/表态=事件素材，用户裁定；与 C114
+              // 图证豁免同构，只翻本门，名字/载体/量级门照常接管）
+              corpusAuthorInRegistry: !!superIPInfo,
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {

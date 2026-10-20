@@ -26,9 +26,9 @@ const iNuAnswers = {
   event_magnitude: { score: 3.4, probabilities: { '0': 0.05, '1': 0.03, '2': 0.26, '3': 0.54, '4': 0.09, '5': 0.03 } }, // → B 档
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
   dimension2: { score: 3.7, probabilities: { '3': 0.48, '4': 0.41 } }, // → 26.5
-  event_block_reason: {
+  event_token_block_reason: {
     choice: 'none',
-    probabilities: { none: 0.65, ip_reuse: 0.02, empty_content: 0.01, regional_event: 0, niche_subculture: 0.01, marketing_gimmick: 0.12, negative_hard_news: 0, institution_routine: 0.14, subject_unqualified: 0, baseless_speculation: 0.01, low_quality_derivative: 0.04, routine_content_product: 0 },
+    probabilities: { none: 0.65, token_ip_reuse: 0.02, event_empty_content: 0.01, regional_event: 0, niche_subculture: 0.01, event_marketing_gimmick: 0.12, event_negative_hard_news: 0, event_institution_routine: 0.14, subject_unqualified: 0, event_baseless_speculation: 0.01, low_quality_derivative: 0.04, event_routine_content_product: 0 },
   },
   web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.54, no_entity: 0.04, unknown: 0.42 } },
   w_product_score: { score: 0.11, probabilities: { '0': 0.96, '1': 0.02, '2': 0.01, '3': 0.01 } },   // → 0.88

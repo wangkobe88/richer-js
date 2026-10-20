@@ -37,7 +37,7 @@ function baseAnswers(cat, entity) {
     web3_user_event_impact: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     web3_user_event_spread: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
     web3_user_name_entity_acceptance: entity,
     name_entity_memeability: { score: 3, probabilities: {} },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
@@ -144,6 +144,24 @@ async function main() {
     stage2Of(mNone).jev?.nameEntityLowMass === null && stage2Of(mNone).jev?.nameEntityAcceptance === 'no_entity',
     { mass: stage2Of(mNone).jev?.nameEntityLowMass, choice: stage2Of(mNone).jev?.nameEntityAcceptance });
 
+  console.log('\n── C2. J1.58 empty_content 作者在册豁免 ──');
+
+  const mkEmpty = () => {
+    const a = baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } });
+    a.event_token_block_reason = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.16 } };
+    return a;
+  };
+  const mEmptyPlain = mapStandardAnswers(mkEmpty(), makeContext());
+  check('C5 empty_content 无作者事实 → 照拦（空洞内容）',
+    stage2Of(mEmptyPlain).pass === false && /空洞内容/.test(stage2Of(mEmptyPlain).blockReason || '')
+    && stage2Of(mEmptyPlain).jev?.emptyContentAuthorOverride === null,
+    { blockReason: stage2Of(mEmptyPlain).blockReason });
+  const mEmptyAuthor = mapStandardAnswers(mkEmpty(), makeContext({ corpusAuthorInRegistry: true }));
+  check('C6 empty_content + 作者在册 → 豁免（J1.58 高影响力主体问候=事件素材）',
+    stage2Of(mEmptyAuthor).jev?.emptyContentAuthorOverride != null
+    && !/空洞内容/.test(stage2Of(mEmptyAuthor).blockReason || ''),
+    { blockReason: stage2Of(mEmptyAuthor).blockReason, audit: stage2Of(mEmptyAuthor).jev?.emptyContentAuthorOverride });
+
   console.log('\n── D. 源码口径（防回潮）──');
 
   const mapperSrc = fs.readFileSync(path.join(__dirname, '..', 'src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
@@ -160,11 +178,16 @@ async function main() {
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
-  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.56',
+  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）',
+    qsSrc.includes('event_token_block_reason:')
+    && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
+    && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
+    && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
+  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.59',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.56'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.59'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

@@ -43,7 +43,7 @@ function griffinAnswers({ relevance = 'exact_match' } = {}) {
     event_magnitude: { score: 2.8, probabilities: { '1': 0.03, '2': 0.15, '3': 0.65, '4': 0.16, '5': 0.01 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 3.5, probabilities: { '3': 0.5, '4': 0.45 } },
-    event_block_reason: { choice: 'none', probabilities: { none: 0.81, marketing_gimmick: 0.03, subject_unqualified: 0.04, low_quality_derivative: 0.05, routine_content_product: 0.03 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.81, event_marketing_gimmick: 0.03, subject_unqualified: 0.04, low_quality_derivative: 0.05, event_routine_content_product: 0.03 } },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { accepted: 0.14, no_entity: 0.04, unknown: 0.82 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.96, fit: 0.04 } },
     name_event_relevance: { choice: relevance, probabilities: relevance === 'exact_match' ? { exact_match: 0.85 } : { partial_match: 0.6, exact_match: 0.3 } },
