@@ -237,7 +237,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 裁定 A+C 根治：纯缩写巧合撞名（ast.fun vs Alpha Struct Token，完全不同的
   // 两个代币）证明「同名≠蹭名」，symbol 巧合不该一票否决；蹭名判定移交叙事层
   // ——挂 CA 自发宣告票走 prestage account 路径评级、无认领蹭名票吃
-  // nameReferentBlock / brand_hijack / cashtag 改道门。C29/C34/C37/C45 四层
+  // nameReferentBlock / name_brand_hijack / cashtag 改道门。C29/C34/C37/C45 四层
   // 豁免补丁随之成为死代码一并移除；规则 0.55/0.58 不受影响）
 
   // 规则0.55-0.7：三条 DB 查询互不依赖（各自只读 tokenData 输入），原串行 await
@@ -686,14 +686,14 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     if (viewMeetsThreshold || likeMeetsThreshold) {
       // J1.19（2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案）：有可读语料时
       // 不再短路——语料已描述视频内容（「内容无法解析」不成立），放行进 Jev
-      // 做完整分类/量级 + Web3 用户偏好判断（web3_fit 题）；无可读语料才维持爆款
+      // 做完整分类/量级 + Web3 用户偏好判断（web3_user_event_fit 题）；无可读语料才维持爆款
       // mid 短路（此时 Jev 确实没有内容可读）。Web2 传播热度 ≠ Web3 用户偏好
       // （历史口径：video_unrated 27 成交票 25 亏全为人名梗/土味/丧文化型）
       // 二次收窄（2026-09-29 C31 Training season/显化之歌案）：可读语料从
       // 「推文文本」扩为「推文文本或视频标题任一」——抖音 fetcher 的 title
       // 完整描述内容类型（本案「Dua Lipa的显化之歌…给宇宙下的订单」身心灵
       // 内容 20.2 万赞，无推文文本维持短路 mid 放行 → 9 实验全亏 -1.19 BNB），
-      // Jev 凭标题足以判 web3_fit（state 的 video section 本就输出标题，
+      // Jev 凭标题足以判 web3_user_event_fit（state 的 video section 本就输出标题，
       // C20 时序修复同源字段）
       const hasReadableTitle = !!(video.info?.[video.titleField] && String(video.info[video.titleField]).trim().length > 0);
       if ((twitterInfo?.text && twitterInfo.text.trim().length > 0) || hasReadableTitle) {

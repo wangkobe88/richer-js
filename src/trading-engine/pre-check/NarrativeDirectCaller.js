@@ -358,7 +358,7 @@ class NarrativeDirectCaller {
         narrativeCategory: result?.tokenCategory ?? null,
         // C88 超级IP两标签（2026-10-18 CZ 出书簇）：analyzer 顶层三路同形扁平键
         // （新鲜路内存覆盖/缓存路 formatResult spread 零列推导）；三态 1/0/null
-        // （null=未分析/旧行无键）——触发状态机 st.superIp/st.superIpSlogan 投影，
+        // （null=未分析/旧行无键）——触发状态机 st.superIp/st.recognizedEntitySlogan 投影，
         // FA 因子 narrativeSuperIp/narrativeSuperIpSlogan 的值源
         narrativeSuperIp: result?.narrativeSuperIp ?? null,
         narrativeSuperIpSlogan: result?.narrativeSuperIpSlogan ?? null,

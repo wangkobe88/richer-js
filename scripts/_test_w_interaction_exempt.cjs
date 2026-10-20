@@ -32,7 +32,7 @@ function check(name, cond, detail) {
 
 // ── RedCoin 实测 answers 快照（2026-10-01 J1.24 run，DB 实证）──────────────────
 // category W 0.68 / magnitude 3.81（A 档带 4:0.72） / within_7d 0.95 / dimension2 4.49 /
-// block none 0.91 / name_referent super_ip 0.70 / web3_fit fit 0.45 /
+// block none 0.91 / web3_user_name_entity_acceptance super_ip 0.70 / web3_user_event_fit fit 0.45 /
 // w_product_score 1.92（18-26 带 0.77） / w_binance_interaction 0.01（0 档 1.00 置信 0.99） /
 // relevance exact_match 0.91 / misspelling 0.13 / reasonability 1.87
 const redcoinTokenData = { symbol: 'RedCoin', name: 'RedCoin', raw_api_data: { name: 'RedCoin' } };
@@ -49,12 +49,12 @@ function redcoinAnswers({
     event_magnitude: { score: magnitude, probabilities: { '3': 0.16, '4': 0.72, '5': 0.08 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 4.49, probabilities: { '4': 0.42, '5': 0.56 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.91 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.7, subject_self: 0.07 } },
-    web3_fit: { choice: 'fit', probabilities: { fit: 0.45, strong_fit: 0.18 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.91 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.7, unknown: 0.07 } },
+    web3_user_event_fit: { choice: 'fit', probabilities: { fit: 0.45, strong_fit: 0.18 } },
     w_product_score: { score: wProductScore, probabilities: wProductProbs },
     w_binance_interaction: { score: wInteractionScore, probabilities: { '0': 1, '1': 0, '2': 0, '3': 0 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.91 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.91 } },
     relevance_level: { score: 4, probabilities: { '4': 0.9 } },
     block_misspelling: { noul: 0.13 },
     quality_spelling: { score: 6, probabilities: { '3': 0.9 } },
@@ -138,19 +138,21 @@ async function main() {
     s2e.scoringResult.category === 'D' && s2e.jev?.wInteractionExempt === null,
     { cat: s2e.scoringResult.category, exempt: s2e.jev?.wInteractionExempt });
 
-  // B5 骑乘改道：B 类 + subject_self 0.62/super_ip 0.05 → rideDetour 改道 W 数学，
-  // 但非原生 W（isW false）→ 不豁免——改道票有各自的拦截语义（豁免范围限定原生 W）
+  // B5 J1.56（C126）骑乘改道退役：B 类 + 实体题 unknown 0.62≥0.5 → 实体低影响力门
+  // 直接拦（旧实现 subject_self+super_ip mass≥0.5 → 改道 W 数学；新轴统一 unknown，
+  // 用户裁定「低影响力实体不通过」——被拦而非降级评分，W 数学路径不再触达）
   const rideAnswers = redcoinAnswers({
     category: 'B',
     wProductScore: 2.9,
     wProductProbs: { '0': 0.03, '1': 0.05, '2': 0.8, '3': 0.12 },
   });
-  rideAnswers.name_referent = { choice: 'subject_self', probabilities: { subject_self: 0.62, super_ip: 0.05 } };
+  rideAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.62, accepted: 0.05 } };
   const m6 = mapStandardAnswers(rideAnswers, makeContext());
   const s2f = stage2Of(m6);
-  check('B5 骑乘改道票（B 类 subject_self 0.62）：进 W 数学但不豁免（三轴照算）',
-    s2f.scoringResult.category === 'W' && s2f.jev?.wInteractionExempt === null,
-    { cat: s2f.scoringResult.category, exempt: s2f.jev?.wInteractionExempt });
+  check('B5 B 类 unknown 0.62≥0.5：实体低影响力门拦（骑乘改道退役，W 数学不触达）',
+    s2f.pass === false && /币名映射实体在 Web3 用户侧无名/.test(s2f.blockReason || '')
+    && s2f.jev?.wInteractionExempt === null,
+    { blockReason: s2f.blockReason, exempt: s2f.jev?.wInteractionExempt });
 
   // B6 cashtag 改道：语料含 $RED与币名匹配 + Jev 原判 D → 强制 W 数学（iNu 案拦截
   // 语义），cashtagForced=true → 不豁免
@@ -193,7 +195,7 @@ async function main() {
   const src = fs.readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
   check('E1 mapper：wInteractionExempt 四条件（原生W/S-A档/新产品带/无交互带）',
     /const wInteractionExempt = /.test(src) === false // 声明是 let
-    && /wInteractionExempt = isW && rideMass == null && !cashtagForced/.test(src)
+    && /wInteractionExempt = isW && !cashtagForced/.test(src)
     && /\(effTier === 'S' \|\| effTier === 'A'\)/.test(src)
     && /wNewProductP >= 0\.5/.test(src)
     && /wInteraction < 10/.test(src));
@@ -202,7 +204,7 @@ async function main() {
       && /wInteractionExempt: wInteractionExempt \? \{ tier: effTier, newProductP: wNewProductP \} : null/.test(src));
   // C42 本体是 mapper-only 切分（落地时题集 J1.24 不动）；后续 J1.25 = C43
   // subject_unqualified 主体口径修正（不触 W 类题），版本随之推进
-  check('E3 题集版本 ≥J1.24（C42 mapper-only 落地；现 J1.28=referent_memeability 恒带 bump）',
+  check('E3 题集版本 ≥J1.24（C42 mapper-only 落地；现 J1.28=name_entity_memeability 恒带 bump）',
     parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 24, JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═════`);

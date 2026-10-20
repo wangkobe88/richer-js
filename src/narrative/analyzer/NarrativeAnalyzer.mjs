@@ -12,7 +12,7 @@ import { PromptBuilder } from './prompt-builder.mjs';
 import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
-import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch } from './utils/narrative-utils.mjs';
+import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch, detectAuthorUtterance } from './utils/narrative-utils.mjs';
 import { createSegmentTimer } from '../utils/segment-timer.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
@@ -332,6 +332,14 @@ export class NarrativeAnalyzer {
     );
     if (superIPInfo) {
       logger.info('NarrativeAnalyzer', '检测到超大IP账号', { name: superIPInfo.name, tier: superIPInfo.tier, type: superIPInfo.type });
+    }
+    // J1.56（C126）：作者原话票代码事实——作者在册 ∧ 币名/符号逐字出自主推文本
+    // → C88 第一腿补位（authorUtterance）。问候语等非实体词在实体题如实
+    // no_entity，不靠 Jev 升档；作者身份由本事实表达（用户裁定「super_ip 本来
+    // 就应该使用语料作者身份」）。
+    const authorUtterance = superIPInfo ? detectAuthorUtterance(tokenData, twitterInfo) : null;
+    if (authorUtterance) {
+      logger.info('NarrativeAnalyzer', '作者原话票命中（C88 第一腿补位）', { token: tokenData?.symbol || tokenData?.name, matched: authorUtterance.matchedName, author: superIPInfo.name });
     }
 
     // 新增：如果有独立网站，收集所有相关账号的完整信息
@@ -763,6 +771,9 @@ export class NarrativeAnalyzer {
               // （analyzeTweetImage 已在上方正常流程分支挂载 image_analysis）；
               // C72 门跳过时恒 false
               imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis,
+              // J1.56（C126）：作者原话票代码事实（作者在册∧币名逐字出自主推）
+              // → C88 第一腿补位（实体题 accepted≥0.5 之外的作者身份通路）
+              authorUtterance: !!authorUtterance,
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {

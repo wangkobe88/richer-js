@@ -2,7 +2,7 @@
 // ============================================================================
 // J1.28 指代对象 meme 低档门——窗口级 token_narrative 缓存失效（2026-10-08）
 //
-// 背景：referent_memeability J1.28 起标准路径恒带（旧缓存行无此答案 →
+// 背景：name_entity_memeability J1.28 起标准路径恒带（旧缓存行无此答案 →
 // referentMemeabilityLowBlock 缺分不拦）。要让门在「历史窗口回测」里生效，必须
 // 先把窗口 token 的叙事缓存行置 is_valid=false，重跑时 analyze() 缓存 miss →
 // 重析（J1.28 题集 + mapper 门）。

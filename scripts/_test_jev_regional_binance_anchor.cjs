@@ -14,7 +14,7 @@
  *
  * 机制：主推作者 handle 以 binance 开头且非全球号（GLOBAL_BINANCE_HANDLES）
  * ∧ binanceCorpus（币名/语料借币安）→ effTier 锚 D（量级不足阻断档）。
- * 量级门 D/E 臂无 superIpSlogan 豁免 → 本锚是五腿全中形状的唯一拦截位。
+ * 量级门 D/E 臂无 recognizedEntitySlogan 豁免 → 本锚是五腿全中形状的唯一拦截位。
  * 锚降优先于 pubProxy/web3Fit 两锚升。
  *
  * 覆盖：
@@ -44,7 +44,7 @@ const ANCHOR_LABEL = '币安地域子账号不借壳';
  * 事故快照形状（token_narrative J1.36 行实测值）：D 类 0.84 / A 档（34 分）/
  * super_ip 0.55 / mem 2.39 / strong_fit 0.73 / no_visual 0.98 / company 0.53 /
  * exact 0.24+semantic 0.49+none 0.14 / within_7d / baseless_speculation 0.3
- * （G 类域 choice，D 类不拦）。五腿全中：superIpSlogan hit=true。
+ * （G 类域 choice，D 类不拦）。五腿全中：recognizedEntitySlogan hit=true。
  */
 function gameShowAnswers() {
   return {
@@ -52,19 +52,19 @@ function gameShowAnswers() {
     event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.89 } },
     dimension2: { score: 25, probabilities: { '3': 0.37, '4': 0.27, '5': 0.25 } },
-    block_reason: { choice: 'baseless_speculation', probabilities: { baseless_speculation: 0.3, none: 0.24, marketing_gimmick: 0.28, institution_routine: 0.12, routine_content_product: 0.05 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.55, notable_other: 0.28, subject_self: 0.07 } },
-    referent_memeability: { score: 2.39, probabilities: {} },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, fit: 0.17, marginal: 0.09 } },
-    subject_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.98, improvised_entity: 0.01, existing_entity: 0.01 } },
-    subject_entity: { choice: 'company', probabilities: { company: 0.53, product_functional: 0.27, event_hotspot: 0.17 } },
-    relevance_type: { choice: 'semantic', probabilities: { semantic: 0.49, exact_match: 0.24, none: 0.14, generic_concept: 0.06, translation_match: 0.05 } },
+    event_block_reason: { choice: 'baseless_speculation', probabilities: { baseless_speculation: 0.3, none: 0.24, marketing_gimmick: 0.28, institution_routine: 0.12, routine_content_product: 0.05 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.55, unknown: 0.35 } },
+    name_entity_memeability: { score: 2.39, probabilities: {} },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, fit: 0.17, marginal: 0.09 } },
+    name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.98, improvised_entity: 0.01, existing_entity: 0.01 } },
+    event_subject_entity: { choice: 'company', probabilities: { company: 0.53, product_functional: 0.27, event_hotspot: 0.17 } },
+    name_event_relevance: { choice: 'semantic', probabilities: { semantic: 0.49, exact_match: 0.24, none: 0.14, generic_concept: 0.06, translation_match: 0.05 } },
     relevance_level: { score: 4.5, probabilities: { '4': 0.6, '5': 0.3 } },
     block_misspelling: { noul: 0.11 },
     quality_spelling: { score: 6.5 },
     quality_reasonability: { score: 4.5 },
     name_form: { choice: 'entity_phrase', probabilities: { entity_phrase: 0.9 } },
-    finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.6 } },
+    event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.6 } },
   };
 }
 
@@ -129,7 +129,7 @@ async function main() {
     text: 'imagine binance show',
   }));
   check('B2 对照 @binance 全球主号 → 不锚（五腿豁载体门+A 档照过）',
-    rB2.llmResult.pass === true && rB2.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true,
+    rB2.llmResult.pass === true && rB2.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true,
     { pass: rB2.llmResult.pass, reason: rB2.llmResult.reason });
   const rB3 = mapStandardAnswers(gameShowAnswers(), gameShowCtx({
     author_screen_name: 'cz_binance', author_followers_count: 12990000, author_verified: true,
@@ -156,9 +156,9 @@ async function main() {
 
   // ═══ C. 事故现场反证 ═══
   console.log('\n── C. 事故现场反证（币安游戏 0xf37b…7777 J1.36 快照全值）──');
-  check('C1 五腿全中（superIpSlogan hit）仍拦——D/E 臂无五腿豁免=唯一拦截位',
-    blockedByAnchor(rB1) && rB1.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true,
-    rB1.stage2DataToSave.parsed_output.jev.superIpSlogan);
+  check('C1 五腿全中（recognizedEntitySlogan hit）仍拦——D/E 臂无五腿豁免=唯一拦截位',
+    blockedByAnchor(rB1) && rB1.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true,
+    rB1.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan);
   check('C2 拦截时 no_visual 0.98 载体门已被五腿豁出（subjectCarrierBlock=null）——锚非载体门',
     rB1.stage2DataToSave.parsed_output.jev.subjectCarrierBlock === null, null);
   check('C3 label 形状：量级不足（A档→D档·币安地域子账号不借壳）——原判档可追溯',
@@ -172,8 +172,8 @@ async function main() {
   const aClassD = gameShowAnswers();
   aClassD.event_category = { choice: 'A', probabilities: { A: 0.8 } };
   aClassD.event_magnitude = { score: 1.4, probabilities: { '1': 0.7 } }; // D 档
-  aClassD.web3_fit = { choice: 'strong_fit', probabilities: { strong_fit: 0.9, fit: 0.05 } };
-  aClassD.referent_memeability = { score: 2.5, probabilities: {} };
+  aClassD.web3_user_event_fit = { choice: 'strong_fit', probabilities: { strong_fit: 0.9, fit: 0.05 } };
+  aClassD.name_entity_memeability = { score: 2.5, probabilities: {} };
   const rD1 = mapStandardAnswers(aClassD, gameShowCtx(AR_TWITTER));
   check('D1 A 类 D 档原判+strong_fit 0.9（本应 web3Fit 锚 B）→ regional 锚赢仍拦',
     blockedByAnchor(rD1), rD1.llmResult.reason);

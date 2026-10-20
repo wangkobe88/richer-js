@@ -42,18 +42,18 @@ const cueTwitter = {
 };
 
 // 本轮 dryrun 基线：B 0.48 / magnitude 2.88(B档) / dim2 3.08(→23.4) /
-// gimmick argmax 0.30-none 0.29 / name_referent 阻断侧 0.84 / within_7d / exact_match lv3.3
+// gimmick argmax 0.30-none 0.29 / web3_user_name_entity_acceptance 阻断侧 0.84 / within_7d / exact_match lv3.3
 const cueAnswers = {
   event_category: { choice: 'B', probabilities: { B: 0.48, C: 0.30, D: 0.15, W: 0.05 } },
   event_magnitude: { score: 2.88, probabilities: { '2': 0.38, '3': 0.42 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
   dimension2: { score: 3.08, probabilities: { '3': 0.5, '4': 0.3 } },
-  block_reason: {
+  event_block_reason: {
     choice: 'marketing_gimmick',
     probabilities: { none: 0.29, marketing_gimmick: 0.30, subject_unqualified: 0.15, empty_content: 0.1, institution_routine: 0.16 },
   },
-  name_referent: { choice: 'notable_other', probabilities: { notable_other: 0.52, minor_other: 0.18, common_word: 0.14, super_ip: 0.16, subject_self: 0, none_related: 0 } },
-  relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.2 } },
+  web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.7, no_entity: 0.14, accepted: 0.16 } },
+  name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.2 } },
   relevance_level: { score: 3.3, probabilities: { '3': 0.4, '4': 0.5 } },
   block_misspelling: { noul: 0.1 },
   quality_spelling: { score: 2.82 },      // → 4.82
@@ -76,9 +76,9 @@ const museAnswers = {
   event_magnitude: { score: 3.2, probabilities: { '3': 0.6 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
   dimension2: { score: 3.5, probabilities: { '3': 0.5, '4': 0.4 } },
-  block_reason: { choice: 'none', probabilities: { none: 0.98, institution_routine: 0.02 } },
-  name_referent: { choice: 'minor_other', probabilities: { minor_other: 0.32, notable_other: 0.31, common_word: 0.03, super_ip: 0.05, subject_self: 0.29, none_related: 0 } },
-  relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
+  event_block_reason: { choice: 'none', probabilities: { none: 0.98, institution_routine: 0.02 } },
+  web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.92, no_entity: 0.03, accepted: 0.05 } },
+  name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
   relevance_level: { score: 4.2, probabilities: { '4': 0.8 } },
   block_misspelling: { noul: 0.05 },
   quality_spelling: { score: 3.1 },
@@ -156,16 +156,16 @@ async function main() {
   // B3 Muse 形状：域名门不命中 → proxy 永不激活。J1.26 notable 退出后 C108 又将
   // nr 阻断位整体退役——minor 0.32+notable 0.31 合计 0.66 的旧拦截形状不再由
   // name 门拦（nrNotableExempt/nameReferentBlockMass 审计键随位退役不落），
-  // 兜底移交 web3_fit unfit 负门（J1.19 全域——拦截判据从「知名度」换成
+  // 兜底移交 web3_user_event_fit unfit 负门（J1.19 全域——拦截判据从「知名度」换成
   // 「Web3 meme 可接纳性」：企业桌面软件版本更新无 meme 可玩味空间）
   const m3 = mapStandardAnswers(museAnswers, makeContext(museTokenData, museAnswers, museTwitter));
   check('B3a Muse 无域名：nr 门 C108 退役不再拦 + 退役审计键不落（J1.26→C108）',
     m3.stage2DataToSave.parsed_output.jev.nameReferentBlockMass === undefined
       && m3.stage1DataToSave.parsed_output.jev.nrNotableExempt === undefined,
     { mass: m3.stage2DataToSave.parsed_output.jev?.nameReferentBlockMass, audit: m3.stage1DataToSave.parsed_output.jev?.nrNotableExempt });
-  const museW3 = { ...museAnswers, web3_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.18, fit: 0.1, strong_fit: 0.1 } } };
+  const museW3 = { ...museAnswers, web3_user_event_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.18, fit: 0.1, strong_fit: 0.1 } } };
   const m3w = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museTwitter));
-  check('B3a2 Muse 形状新兜底：web3_fit unfit 0.62 负门拦截（拦截判据=可接纳性非知名度）',
+  check('B3a2 Muse 形状新兜底：web3_user_event_fit unfit 0.62 负门拦截（拦截判据=可接纳性非知名度）',
     m3w.llmResult.rating === 'low' && /Web3/.test(m3w.llmResult.reason || ''), m3w.llmResult.reason);
   const m3b = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museWithDomain));
   check('B3b Muse 指纹词双保险：即使有 muse.im 域名仍拦（unfit 负门，proxy 不激活）',
@@ -180,12 +180,12 @@ async function main() {
     && m4.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m4.llmResult.rating === 'low', m4.promptType);
 
   // B5 rcp 门不豁免（内容型产品 C12 绣春刀裁定维持）
-  const rcpAnswers = { ...cueAnswers, block_reason: { choice: 'routine_content_product', probabilities: { none: 0.2, routine_content_product: 0.6, marketing_gimmick: 0.2 } } };
+  const rcpAnswers = { ...cueAnswers, event_block_reason: { choice: 'routine_content_product', probabilities: { none: 0.2, routine_content_product: 0.6, marketing_gimmick: 0.2 } } };
   const m5 = mapStandardAnswers(rcpAnswers, makeContext(cueTokenData, rcpAnswers, cueTwitter));
   check('B5 rcp 门不豁免：发布者指代不适用于内容型产品', m5.llmResult.rating === 'low' && m5.llmResult.reason.includes('常规内容产品'), m5.llmResult.reason);
 
   // B6 骑乘改道豁免：ss+sip≥0.5 且 sip<0.5 原本改道 W，pubProxyActive 时不改道走标准数学
-  const rideAnswers = { ...cueAnswers, name_referent: { choice: 'subject_self', probabilities: { subject_self: 0.3, super_ip: 0.25, notable_other: 0.2, minor_other: 0.15, common_word: 0.1, none_related: 0 } } };
+  const rideAnswers = { ...cueAnswers, web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.65, accepted: 0.25, no_entity: 0.1 } } };
   const m6 = mapStandardAnswers(rideAnswers, makeContext(cueTokenData, rideAnswers, cueTwitter));
   check('B6 骑乘改道豁免：rideMass=null 走 B 类标准数学（72.4），promptType 无改道后缀',
     m6.stage2DataToSave.parsed_output.scoringResult.category === 'B' && m6.stage2DataToSave.parsed_output.scoringResult.totalScore === 72.4 && !m6.promptType.includes('改道'), m6.promptType);
@@ -207,8 +207,8 @@ async function main() {
   // （block/nr 改成放行形状，让量级拦截路径可见——gimmick argmax 路径已由 B2b 覆盖）
   const smallPub = {
     ...cueAnswers,
-    block_reason: { choice: 'none', probabilities: { none: 0.9, marketing_gimmick: 0.1 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.6, notable_other: 0.2, minor_other: 0.1, common_word: 0.1, subject_self: 0, none_related: 0 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.9, marketing_gimmick: 0.1 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.6, unknown: 0.3, no_entity: 0.1 } },
     event_magnitude: { score: 1.2, probabilities: { '1': 0.6 } },
   };
   const m9a = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, cueTwitter));

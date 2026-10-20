@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 指代对象 meme 价值门（referent_memeability）——本地零 DB 单测
+ * 指代对象 meme 价值门（name_entity_memeability）——本地零 DB 单测
  *
  * 历史：J1.21（2026-09-30 用户裁定，C33 MTAT 案 0x67fd…7777）是 superIP 快车道
  * 专属豁免（nrBlock 命中 × meme≥3 豁免走评分管线）。C83（2026-10-17）快车道
@@ -27,23 +27,23 @@ function check(name, cond, detail) {
 
 // ── C33 MTAT 案真实形状（DB 实证 prestage_raw_output，G 段矩阵基底）───────
 // 币安中文（S级 institution）转发 Yuki 的歌《More Than a Trade》45 秒后抢发；
-// name_referent minor_other 0.52（阻断侧合计 0.68）/ magnitude 3.44 / dim2 3.71
+// web3_user_name_entity_acceptance minor_other 0.52（阻断侧合计 0.68）/ magnitude 3.44 / dim2 3.71
 function mtatAnswers(memeScore) {
   const answers = {
     event_category: { choice: 'D', probabilities: { D: 0.45, C: 0.21, W: 0.14, E: 0.11, B: 0.06 } },
     event_magnitude: { score: 3.44, probabilities: { '3': 0.27, '4': 0.17, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
     dimension2: { score: 3.71, probabilities: { '4': 0.29, '5': 0.35, '2': 0.22 } },
-    block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.66, none: 0.22, routine_content_product: 0.06 } },
-    name_referent: { choice: 'minor_other', probabilities: { minor_other: 0.52, subject_self: 0.27, common_word: 0.1, notable_other: 0.06, super_ip: 0.04, none_related: 0.01 } },
-    web3_fit: { choice: 'marginal', probabilities: { marginal: 0.32, strong_fit: 0.28, fit: 0.23, unfit: 0.17 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.25 } },
+    event_block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.66, none: 0.22, routine_content_product: 0.06 } },
+    web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.85, no_entity: 0.11, accepted: 0.04 } },
+    web3_user_event_fit: { choice: 'marginal', probabilities: { marginal: 0.32, strong_fit: 0.28, fit: 0.23, unfit: 0.17 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.25 } },
     relevance_level: { score: 4.2, probabilities: { '4': 0.5, '3': 0.4 } },
     block_misspelling: { noul: 0.02 },
     quality_spelling: { score: 6.5 },
     quality_reasonability: { score: 4.5 },
   };
-  if (memeScore !== undefined) answers.referent_memeability = { score: memeScore, probabilities: {} };
+  if (memeScore !== undefined) answers.name_entity_memeability = { score: memeScore, probabilities: {} };
   return answers;
 }
 
@@ -56,13 +56,13 @@ async function main() {
   console.log('\n── A. 问卷形状（J1.28 起恒带）──');
   check('A1 版本号 ≥ J1.28（J1.28 恒带+低档门；现值含 C83 断代 bump）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 28, JEV_QUESTIONS_VERSION);
   const qsDefault = buildStandardQuestions();
-  check('A2 J1.28 起默认恒带 referent_memeability（标准路径低档门判据源）', 'referent_memeability' in qsDefault, Object.keys(qsDefault).length);
-  const mq = qsDefault.referent_memeability;
+  check('A2 J1.28 起默认恒带 name_entity_memeability（标准路径低档门判据源）', 'name_entity_memeability' in qsDefault, Object.keys(qsDefault).length);
+  const mq = qsDefault.name_entity_memeability;
   check('A3 题面钉死评估对象=指代对象本身', mq && mq.instructions.includes('指代对象') && mq.instructions.includes('不加分'), null);
   check('A4 C110 瘦身后单维度（只评对象自身玩味空间；无名 0 档类型中立保留；3 档知名产品例保留）', mq && /0分：无名普通对象/.test(mq.criteria[0]) && mq.criteria[0].includes('是产品」恒归本档') && mq.criteria[0].includes('只有无名对象才归本档') && mq.instructions.includes('内容载体与二创潜力') && /3分：内容作品/.test(mq.criteria[3]) && mq.criteria[3].includes('知名产品') && !mq.criteria[3].includes('同时满足'), null);
-  check('A4b C110 瘦身：web3 契合判据剥离（instructions 末行消歧归 web3_fit；criteria 各档无圈内认不认/契合轴）',
-    mq.instructions.includes('不由本题评') && mq.instructions.includes('web3_fit') && !mq.criteria.some(t => /web3 契合|圈内共鸣|crypto 圈无感/.test(t)), null);
-  check('A5 与品牌劫持条件题互不影响', buildStandardQuestions({ includeBrandHijack: true }).brand_hijack != null && !('brand_hijack' in qsDefault), null);
+  check('A4b C110 瘦身：web3 契合判据剥离（instructions 末行消歧归 web3_user_event_fit；criteria 各档无圈内认不认/契合轴）',
+    mq.instructions.includes('不由本题评') && mq.instructions.includes('web3_user_event_fit') && !mq.criteria.some(t => /web3 契合|圈内共鸣|crypto 圈无感/.test(t)), null);
+  check('A5 与品牌劫持条件题互不影响', buildStandardQuestions({ includeBrandHijack: true }).name_brand_hijack != null && !('name_brand_hijack' in qsDefault), null);
 
   // ═══ G. 标准路径：C108 后 nr/rm 拦截位退役（题保留喂五腿+观察）═══
   console.log('\n── G. 标准路径（mapStandardAnswers）：C108 后 nr/rm 退役、score 恒落观察 ──');
@@ -74,16 +74,16 @@ async function main() {
     twitterInfo: null,
     callInfo: { model: 'stub', questions: { q1: {} }, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
   };
-  // 标准路径形状：block_reason none 主导（institution_routine 在标准路径 D 类作用域先拦，
+  // 标准路径形状：event_block_reason none 主导（institution_routine 在标准路径 D 类作用域先拦，
   // 压掉它以专测名字环节——ChainPulse/Muse 语义不变性）
   const stdShape = mtatAnswers(4);
-  stdShape.block_reason = { choice: 'none', probabilities: { none: 0.9, institution_routine: 0.06, routine_content_product: 0.02 } };
+  stdShape.event_block_reason = { choice: 'none', probabilities: { none: 0.9, institution_routine: 0.06, routine_content_product: 0.02 } };
   const stdBlocked = mapStandardAnswers(stdShape, stdCtx);
   const stdReason = stdBlocked.llmResult.reason || '';
   check('G1 标准路径 nr（J1.10）C108 退役不再拦（ChainPulse/Muse 形状放行；拦截责任移交 name_form）',
     stdBlocked.llmResult.rating !== 'low' || !(stdReason.includes('名字指向无名对象') || stdReason.includes('知名但非超级IP') || stdReason.includes('截词')), stdReason);
   const stdShapeNoKey = mtatAnswers(undefined);
-  stdShapeNoKey.block_reason = stdShape.block_reason;
+  stdShapeNoKey.event_block_reason = stdShape.event_block_reason;
   check('G2 无键同判（llmResult 逐字节相等——拦截退役后 mem 只影响审计不影响判定）',
     JSON.stringify(mapStandardAnswers(stdShapeNoKey, stdCtx).llmResult) === JSON.stringify(stdBlocked.llmResult), null);
 
@@ -91,8 +91,8 @@ async function main() {
   // 责任移交 name_form，mem 只剩观察（referentMemeabilityScore 恒落）+C88 五腿
   const lowGateShape = meme => {
     const a = mtatAnswers(meme);
-    a.block_reason = { choice: 'none', probabilities: { none: 0.9, institution_routine: 0.06, routine_content_product: 0.02 } };
-    a.name_referent = { choice: 'super_ip', probabilities: { super_ip: 0.9, notable_other: 0.1 } };
+    a.event_block_reason = { choice: 'none', probabilities: { none: 0.9, institution_routine: 0.06, routine_content_product: 0.02 } };
+    a.web3_user_name_entity_acceptance = { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.1 } };
     return a;
   };
   const rLow0 = mapStandardAnswers(lowGateShape(0), stdCtx);
@@ -132,7 +132,7 @@ async function main() {
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('H4 头部历史含 J1.21 条目（C33 MTAT 案，历史档案保留）', qsSrc.includes('* J1.21：') && qsSrc.includes('C33 MTAT'), null);
   check('H4b 头部历史含 J1.28 条目（恒带+低档门）+ 版本常量 ≥J1.28', qsSrc.includes('J1.28') && parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 28, JEV_QUESTIONS_VERSION);
-  check('H5 题面中性化（大V/超级IP）', qsDefault.referent_memeability.instructions.includes('大V/超级IP'), null);
+  check('H5 题面中性化（大V/超级IP）', qsDefault.name_entity_memeability.instructions.includes('大V/超级IP'), null);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_referent_memeability: ${passed} passed, ${failed} failed ══════`);

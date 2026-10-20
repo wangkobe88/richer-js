@@ -3,13 +3,13 @@
  * 产品实体接纳门（J1.27/C55 华为麒麟案族）——本地零 DB 零网络单测
  *
  * 覆盖：
- *   A. 题面完整性：J1.27 版本 / 15 题含 subject_entity / 三题形状③追加
+ *   A. 题面完整性：J1.27 版本 / 15 题含 event_subject_entity / 三题形状③追加
  *   B. productEntityAcceptanceBlock 纯函数矩阵：se 标注 × 接纳度阈值边界 ×
  *      三豁免（pubProxyActive / isW / rideMass）× 非 product 标不拦 × 旧答案无标注不拦
  *   C. mapStandardAnswers 集成：麒麟形状③实测答案（J1.27 wording 实验轮2 数值）
  *      + se=product_functional → 拦（blockReason/审计字段）；同答案 se=character_ip
  *      不拦（拦截全由 se 标注驱动）；fitMass 过线放行；旧答案零行为变化
- *   D. 源码口径：挂点顺序（w3Block 后 block_reason 前）+ 豁免五条件接线 + C56 三处豁免位
+ *   D. 源码口径：挂点顺序（w3Block 后 event_block_reason 前）+ 豁免五条件接线 + C56 三处豁免位
  *   F. C56 平台官方源豁免（flap 裁定「flap 是币安链的 meme 币发布平台…跟币安链一个道理」）：
  *      FlapGuy 复验实测形状——argmax 机构日常运营豁免（实际拦截位）/ rcp 概率门豁免 /
  *      产品实体门豁免 / handle 硬集矩阵（大小写归一·单词不中·account 型双字段）/
@@ -34,15 +34,15 @@ const qilinAnswers = {
   event_magnitude: { score: 2.97, probabilities: { '3': 0.55, '4': 0.20, '5': 0.20 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
   dimension2: { score: 3.82, probabilities: { '4': 0.57, '5': 0.30 } },
-  block_reason: { choice: 'none', probabilities: { none: 0.9, routine_content_product: 0.06 } },
-  web3_fit: { choice: 'marginal', probabilities: { strong_fit: 0.14, fit: 0.05, marginal: 0.62, unfit: 0.19 } },
-  name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.8, notable_other: 0.09, subject_self: 0.07 } },
-  relevance_type: { choice: 'translation_match', probabilities: { translation_match: 0.51, exact_match: 0.45 } },
+  event_block_reason: { choice: 'none', probabilities: { none: 0.9, routine_content_product: 0.06 } },
+  web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.14, fit: 0.05, marginal: 0.62, unfit: 0.19 } },
+  web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.8, unknown: 0.16 } },
+  name_event_relevance: { choice: 'translation_match', probabilities: { translation_match: 0.51, exact_match: 0.45 } },
   relevance_level: { score: 3.46, probabilities: { '4': 0.69, '3': 0.19 } },
   block_misspelling: { noul: 0.1 },
   quality_spelling: { score: 2.82 },
   quality_reasonability: { score: 1.96 },
-  subject_entity: { choice: 'product_functional', probabilities: { product_functional: 0.86, company: 0.09, product_character: 0.05 } },
+  event_subject_entity: { choice: 'product_functional', probabilities: { product_functional: 0.86, company: 0.09, product_character: 0.05 } },
 };
 
 function makeContext(tokenData, answers) {
@@ -60,29 +60,29 @@ async function main() {
   const qm = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
 
   console.log('\n── A. 题面完整性 ──');
-  check('A1 版本 ≥J1.27（现 J1.28=referent_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
+  check('A1 版本 ≥J1.27（现 J1.28=name_entity_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 16 题含 subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 16 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
+  check('A2 题集 16 题含 event_subject_entity（J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 16 && !!q.event_subject_entity && !!q.name_entity_memeability && !!q.name_entity_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
-    q.web3_user_impact.instructions.includes('形状③ 产品实体') && q.web3_user_impact.instructions.includes('不转移不计入') && q.web3_user_impact.instructions.includes('两条都不占→C档以下'));
+    q.web3_user_event_impact.instructions.includes('形状③ 产品实体') && q.web3_user_event_impact.instructions.includes('不转移不计入') && q.web3_user_event_impact.instructions.includes('两条都不占→C档以下'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',
-    q.web3_user_impact.instructions.includes('当且仅当事件主体确为公司/机构发布的产品实体')
-    && q.web3_user_impact.instructions.includes('不是全域收紧')
-    && q.web3_user_spread.instructions.includes('仅产品实体主体适用')
-    && q.web3_user_spread.instructions.includes('按上述各类别原有口径正常评分'));
+    q.web3_user_event_impact.instructions.includes('当且仅当事件主体确为公司/机构发布的产品实体')
+    && q.web3_user_event_impact.instructions.includes('不是全域收紧')
+    && q.web3_user_event_spread.instructions.includes('仅产品实体主体适用')
+    && q.web3_user_event_spread.instructions.includes('按上述各类别原有口径正常评分'));
   check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）',
     q.event_category.instructions.includes('D vs W boundary')
     && q.event_category.instructions.includes('NOT W')
-    && q.web3_user_impact.instructions.includes('事件类别按机构公告口径评估不判W'));
+    && q.web3_user_event_impact.instructions.includes('事件类别按机构公告口径评估不判W'));
   check('A4 dimension2 含形状③（通稿不算自传播）',
-    q.web3_user_spread.instructions.includes('形状③ 产品实体') && q.web3_user_spread.instructions.includes('媒体通稿覆盖量不计入'));
-  check('A5 web3_fit 含产品实体边界（纯功能产品不高于 marginal）',
-    q.web3_fit.instructions.includes('公司产品实体') && q.web3_fit.instructions.includes('不高于marginal'));
-  const seKeys = Object.keys(q.subject_entity.criteria);
-  check('A6 subject_entity 2 档（J1.43 C109 8→2 收敛：product_entity/other_entity——J1.27 门本就功能/形象同拦）',
+    q.web3_user_event_spread.instructions.includes('形状③ 产品实体') && q.web3_user_event_spread.instructions.includes('媒体通稿覆盖量不计入'));
+  check('A5 web3_user_event_fit 含产品实体边界（纯功能产品不高于 marginal）',
+    q.web3_user_event_fit.instructions.includes('公司产品实体') && q.web3_user_event_fit.instructions.includes('不高于marginal'));
+  const seKeys = Object.keys(q.event_subject_entity.criteria);
+  check('A6 event_subject_entity 2 档（J1.43 C109 8→2 收敛：product_entity/other_entity——J1.27 门本就功能/形象同拦）',
     seKeys.length === 2 && ['product_entity', 'other_entity'].every(k => seKeys.includes(k)), seKeys);
-  check('A7 subject_entity 题面含公司/产品区分锚（主体是产品而非发布公司）',
-    q.subject_entity.instructions.includes('公司/机构发布的产品实体') && q.subject_entity.instructions.includes('主体是产品而非发布公司'));
+  check('A7 event_subject_entity 题面含公司/产品区分锚（主体是产品而非发布公司）',
+    q.event_subject_entity.instructions.includes('公司/机构发布的产品实体') && q.event_subject_entity.instructions.includes('主体是产品而非发布公司'));
 
   console.log('\n── B. 封装边界 ──');
   // productEntityAcceptanceBlock 为 mapper 私有函数（项目惯例只导出 map*Answers），
@@ -91,11 +91,11 @@ async function main() {
     mapper.productEntityAcceptanceBlock === undefined && mapper.__productEntityAcceptanceBlock === undefined);
 
   console.log('\n── C. mapStandardAnswers 集成（麒麟形状③实测答案）──');
-  // C1 基线：无 subject_entity 标注（J1.26 旧答案形状）——数学照旧、无门拦截（零行为变化锚）
+  // C1 基线：无 event_subject_entity 标注（J1.26 旧答案形状）——数学照旧、无门拦截（零行为变化锚）
   const oldAnswers = { ...qilinAnswers };
-  delete oldAnswers.subject_entity;
+  delete oldAnswers.event_subject_entity;
   const rOld = mapper.mapStandardAnswers(oldAnswers, makeContext(qilinTokenData, oldAnswers));
-  check('C1 旧答案（无 subject_entity）不触发产品门（blockReason 不含 J1.27 label / 审计为 null）',
+  check('C1 旧答案（无 event_subject_entity）不触发产品门（blockReason 不含 J1.27 label / 审计为 null）',
     !(rOld.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品实体未被web3买家接纳')
     && rOld.stage2DataToSave?.parsed_output?.jev?.productEntityBlock == null,
     rOld.stage2DataToSave?.parsed_output?.blockReason);
@@ -109,12 +109,12 @@ async function main() {
   const audit = rBlocked.stage2DataToSave?.parsed_output?.jev?.productEntityBlock;
   check('C2c 审计字段 productEntityBlock={subject, fitMass}',
     audit && audit.subject === 'product_functional' && audit.fitMass === 0.19, audit);
-  check('C2d 审计字段 subjectEntity 落库 + probabilities.subject_entity 落库',
+  check('C2d 审计字段 subjectEntity 落库 + probabilities.event_subject_entity 落库',
     rBlocked.stage2DataToSave?.parsed_output?.jev?.subjectEntity === 'product_functional'
-    && rBlocked.stage2DataToSave?.parsed_output?.jev?.probabilities?.subject_entity?.product_functional === 0.86);
+    && rBlocked.stage2DataToSave?.parsed_output?.jev?.probabilities?.event_subject_entity?.product_functional === 0.86);
 
   // C3 同答案 se=character_ip → 门不拦（拦截全由 se 标注驱动，character_ip 有独立形象语义）
-  const seChar = { ...qilinAnswers, subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.8, product_character: 0.15 } } };
+  const seChar = { ...qilinAnswers, event_subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.8, product_character: 0.15 } } };
   const rChar = mapper.mapStandardAnswers(seChar, makeContext(qilinTokenData, seChar));
   check('C3 se=character_ip 不触发产品门（走原数学）',
     !(rChar.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品实体未被web3买家接纳')
@@ -122,14 +122,14 @@ async function main() {
     rChar.stage2DataToSave?.parsed_output?.blockReason);
 
   // C4 同答案 se=product_character（公司产品形象）→ 同拦（两档同门）
-  const sePc = { ...qilinAnswers, subject_entity: { choice: 'product_character', probabilities: { product_character: 0.7, character_ip: 0.2 } } };
+  const sePc = { ...qilinAnswers, event_subject_entity: { choice: 'product_character', probabilities: { product_character: 0.7, character_ip: 0.2 } } };
   const rPc = mapper.mapStandardAnswers(sePc, makeContext(qilinTokenData, sePc));
   check('C4 se=product_character 同拦（label 标「产品形象」）',
     (rPc.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品实体未被web3买家接纳') && (rPc.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品形象'),
     rPc.stage2DataToSave?.parsed_output?.blockReason);
 
   // C5 接纳度过线：sf50 恰好 ≥0.5 → 门放行（两条路统一底线）
-  const fitPass = { ...qilinAnswers, web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.5, fit: 0.1, marginal: 0.35, unfit: 0.05 } } };
+  const fitPass = { ...qilinAnswers, web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.5, fit: 0.1, marginal: 0.35, unfit: 0.05 } } };
   const rPass = mapper.mapStandardAnswers(fitPass, makeContext(qilinTokenData, fitPass));
   check('C5 sf+fit=60% 过线放行（不被产品门拦）',
     !(rPass.stage2DataToSave?.parsed_output?.blockReason || '').includes('产品实体未被web3买家接纳'),
@@ -145,9 +145,9 @@ async function main() {
     rW.stage2DataToSave?.parsed_output?.blockReason);
 
   // C7 unfit 负门优先级：unfit≥0.5 的产品票先被 web3UnfitBlock 拦（label 归属更准）
-  const unfitAnswers = { ...qilinAnswers, web3_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2, strong_fit: 0.1, fit: 0.08 } } };
+  const unfitAnswers = { ...qilinAnswers, web3_user_event_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2, strong_fit: 0.1, fit: 0.08 } } };
   const rUnfit = mapper.mapStandardAnswers(unfitAnswers, makeContext(qilinTokenData, unfitAnswers));
-  check('C7 unfit≥0.5 票先被 web3_fit 负门拦（非产品门 label）',
+  check('C7 unfit≥0.5 票先被 web3_user_event_fit 负门拦（非产品门 label）',
     (rUnfit.stage2DataToSave?.parsed_output?.blockReason || '').includes('Web3用户偏好不合'), rUnfit.stage2DataToSave?.parsed_output?.blockReason);
 
   // C8 币安豁免（C55 补充裁定「要豁免币安」）：同麒麟形状答案（19% 接纳度本应拦）
@@ -183,13 +183,13 @@ async function main() {
   const idxW3 = src.indexOf('} else if ((w3Block = web3UnfitBlock(answers))) {');
   const idxPe = src.indexOf('} else if ((peBlock = productEntityAcceptanceBlock(answers,');
   const idxBr = src.indexOf('} else if (blockChoice !== \'none\' && noneProb < 0.5');
-  check('D1 挂点顺序：w3Block → 产品门 → block_reason argmax', idxW3 > 0 && idxPe > idxW3 && idxBr > idxPe, { idxW3, idxPe, idxBr });
-  check('D2 豁免五条件接线（pubProxyActive / isW / rideMass / binanceCorpus / platformOfficial）',
-    src.includes('opts.pubProxyActive || opts.isW || opts.rideMass != null')
+  check('D1 挂点顺序：w3Block → 产品门 → event_block_reason argmax', idxW3 > 0 && idxPe > idxW3 && idxBr > idxPe, { idxW3, idxPe, idxBr });
+  check('D2 豁免四条件接线（pubProxyActive / isW / binanceCorpus / platformOfficial；J1.56 rideMass 退役）',
+    src.includes('opts.pubProxyActive || opts.isW')
     && src.includes('if (opts.binanceCorpus || opts.platformOfficial) return null;')
     && src.includes('binanceCorpus, platformOfficial }))) {'));
-  check('D2b C56 平台官方源豁免三处接线（rcp 门 opts 含 C88 superIpSlogan / argmax 子句 / detectPlatformOfficial 双字段 + 审计落库）',
-    src.includes('routineContentProductBlock(answers, category, { platformOfficial, superIpSlogan })')
+  check('D2b C56 平台官方源豁免三处接线（rcp 门 opts 含 C88 recognizedEntitySlogan / argmax 子句 / detectPlatformOfficial 双字段 + 审计落库）',
+    src.includes('routineContentProductBlock(answers, category, { platformOfficial, recognizedEntitySlogan })')
     && src.includes("&& !(platformOfficial && (blockChoice === 'institution_routine' || blockChoice === 'routine_content_product'))")
     && src.includes('const platformOfficial = detectPlatformOfficial(twitterInfo);')
     && src.includes('rcpPlatformExempt,')
@@ -205,9 +205,9 @@ async function main() {
   const qSrc = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D4 版本头条目含 C55 案号与裁定语义', qSrc.includes('J1.27') && qSrc.includes('C55') && qSrc.includes('产品（实体）'));
   check('D5 题面三处币安豁免句（magnitude/dim2/fit）',
-    q.web3_user_impact.instructions.includes('豁免币安等 crypto 原生机构')
-    && q.web3_user_spread.instructions.includes('币安等 crypto 原生机构的产品不切分')
-    && q.web3_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列'));
+    q.web3_user_event_impact.instructions.includes('豁免币安等 crypto 原生机构')
+    && q.web3_user_event_spread.instructions.includes('币安等 crypto 原生机构的产品不切分')
+    && q.web3_user_event_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列'));
 
   console.log('\n── F. C56 平台官方源豁免（FlapGuy 0x2fb77ad0…7777 复验实测形状）──');
   // FlapGuy 双轮复验（J1.27，182 真实 Jev 调用）：cat=D、mag 3.04-3.08（round→B 档，
@@ -220,15 +220,15 @@ async function main() {
     event_magnitude: { score: 3.05, probabilities: { '3': 0.76, '4': 0.16 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 3.02, probabilities: { '4': 0.5, '5': 0.3 } },
-    block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.55, none: 0.3, routine_content_product: 0.1, marketing_gimmick: 0.05 } },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.55, fit: 0.25, marginal: 0.15, unfit: 0.05 } },
-    name_referent: { choice: 'subject_self', probabilities: { subject_self: 0.7, minor_other: 0.07, common_word: 0.06, notable_other: 0.13, super_ip: 0.01, none_related: 0.03 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.88 } },
+    event_block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.55, none: 0.3, routine_content_product: 0.1, marketing_gimmick: 0.05 } },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.55, fit: 0.25, marginal: 0.15, unfit: 0.05 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.09, no_entity: 0.01 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.88 } },
     relevance_level: { score: 4.2, probabilities: { '4': 0.7, '5': 0.2 } },
     block_misspelling: { noul: 0.05 },
     quality_spelling: { score: 3.1 },
     quality_reasonability: { score: 2.2 },
-    subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.8, product_character: 0.15 } },
+    event_subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.8, product_character: 0.15 } },
   };
   const flapTw = (handle) => ({ type: 'tweet', text: 'Flap mode 🍌', author_screen_name: handle, author_followers_count: 99800 });
   const flapCtx = (answers, twitterInfo) => ({ ...makeContext(flapTokenData, answers), twitterInfo });
@@ -264,7 +264,7 @@ async function main() {
     exemptOf({ type: 'account', screen_name: 'flapdotsh' }) === true);
 
   // F3 rcp 概率门形状：官方源 → 概率门（routineContentProductBlock opts）+ argmax 双豁免
-  const rcpShape = { ...flapAnswers, block_reason: { choice: 'routine_content_product', probabilities: { routine_content_product: 0.62, none: 0.25, institution_routine: 0.1 } } };
+  const rcpShape = { ...flapAnswers, event_block_reason: { choice: 'routine_content_product', probabilities: { routine_content_product: 0.62, none: 0.25, institution_routine: 0.1 } } };
   const rF3 = mapper.mapStandardAnswers(rcpShape, flapCtx(rcpShape, flapTw('flapdotsh')));
   check('F3 rcp 0.62 概率形状 + 官方源 → 概率门豁免（不被「常规内容产品宣传」拦）+ 审计 true',
     !(rF3.stage2DataToSave?.parsed_output?.blockReason || '').includes('常规内容产品宣传')

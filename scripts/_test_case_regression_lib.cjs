@@ -43,9 +43,9 @@ async function main() {
   // 形状3：评级票
   const i3 = interpret({
     stage_final_result: { rating: 'high', score: 80.56, details: { blockReason: null } },
-    stage1_result: { jev: { audit: { superIpSlogan: 1 } } },
+    stage1_result: { jev: { audit: { recognizedEntitySlogan: 1 } } },
   });
-  check('I3 评级票判读+审计进 blob', i3.rating === 'high' && i3.score === 80.56 && i3.blob.includes('superIpSlogan'), JSON.stringify(i3).slice(0, 120));
+  check('I3 评级票判读+审计进 blob', i3.rating === 'high' && i3.score === 80.56 && i3.blob.includes('recognizedEntitySlogan'), JSON.stringify(i3).slice(0, 120));
 
   // 无行
   check('I4 无行全 null', interpret(null).rating === null && interpret(null).blob === '');

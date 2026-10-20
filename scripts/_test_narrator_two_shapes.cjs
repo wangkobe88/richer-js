@@ -31,8 +31,8 @@ async function main() {
   const mod = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = mod;
   const qs = buildStandardQuestions();
-  const mag = qs.web3_user_impact;
-  const dim2 = qs.web3_user_spread;
+  const mag = qs.web3_user_event_impact;
+  const dim2 = qs.web3_user_event_spread;
 
   // ═══ A. event_magnitude instructions ═══
   console.log('\n── A. event_magnitude instructions 两形状分流 ──');

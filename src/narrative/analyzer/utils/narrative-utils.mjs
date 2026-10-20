@@ -472,6 +472,56 @@ export function detectCorpusCashtag(tokenData, twitterInfo) {
 }
 
 /**
+ * J1.56（C126 何一「こんにちは」案）作者原话票检测（纯代码，无 LLM）——币名/
+ * 符号（归一化后）逐字出现在**语料作者本人的主推文本**中，且作者为 super-ip
+ * 注册表在册实体（由调用方保证 superIPInfo 非空）→ C88 第一腿补位
+ * （authorUtterance）：「超级IP 喊出的口号/原话」是实体票，而问候语等非实体词
+ * 在币名映射实体题里如实判 no_entity——作者身份改由本代码事实表达，不要求 Jev
+ * 升档（用户裁定「super_ip 本来就应该使用语料作者身份」+「问候语不是 entity、
+ * 不影响判定」）。
+ *
+ * 判据（刻意收窄，防普通词误命中）：
+ * - 只认主推文本（twitterInfo.text），不认父推/引用/转述——父推是他人文本，
+ *   转述/搬运不构成「作者原话」（口号作者归属由实体题判）
+ * - 归一化：NFC + 去零宽/组合字符 + 小写 + 去空白标点（保留 CJK/假名/韩文/
+ *   字母数字）；币名归一化后长度 ≥2 才参与（单字符不做逐字匹配——C11 哦案
+ *   变体拦截维持）
+ * - CJK/假名直接子串匹配；纯 ASCII 币名另做原文词边界校验（防 concatenate
+ *   命中 cat）
+ *
+ * @param {Object} tokenData - 代币数据（symbol/name/raw_api_data.name）
+ * @param {Object|null} twitterInfo - 语料推文信息（主推）
+ * @returns {Object|null} 命中返回 { hit:true, matchedName, kind, source }，未命中 null
+ */
+export function detectAuthorUtterance(tokenData, twitterInfo) {
+  const text = twitterInfo?.text;
+  if (typeof text !== 'string' || !text.trim()) return null;
+  const norm = (s) => String(s || '')
+    .normalize('NFC')
+    .replace(/[̀-ͯ​-‍﻿͏]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9一-鿿぀-ヿ가-힯]/g, '');
+  const normText = norm(text);
+  if (!normText) return null;
+  const candidates = [
+    { value: tokenData?.symbol, kind: 'symbol' },
+    { value: tokenData?.name || tokenData?.raw_api_data?.name, kind: 'name' },
+  ];
+  for (const c of candidates) {
+    const n = norm(c.value);
+    if (!n || n.length < 2) continue;
+    if (!normText.includes(n)) continue;
+    if (/^[a-z0-9]+$/.test(n)) {
+      const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`, 'i');
+      if (!re.test(text)) continue;
+    }
+    return { hit: true, matchedName: c.value, kind: c.kind, source: 'main_tweet' };
+  }
+  return null;
+}
+
+/**
  * J1.18 发布者指代检测（纯代码，无 LLM）——C29 Cue/Manus 案（0x5074546c，
  * 2026-09-29 用户裁定）：「骑乘第三方产品，必须满足两个条件，一个是产品本身不是
  * 简单"更新"，而是独立产品发布，或者重大升级；第二，就是产品的影响力，新产品

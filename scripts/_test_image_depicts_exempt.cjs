@@ -4,7 +4,7 @@
  * （2026-10-19 DND 案二轮，用户裁定「载体豁免认演绎关系，立 case 修」）
  *
  * 案发（0x4dbcb10e68626b6f663bd596905d41cdc6b07777「DND」二轮）：C114 修掉
- * empty_content 误拦后，DND 落载体门拦死——subject_carrier no_visual 0.40-0.51
+ * empty_content 误拦后，DND 落载体门拦死——name_entity_carrier no_visual 0.40-0.51
  * 掷骰 + C109 豁免不触发（name_image_consistency unrelated 0.85：DND 是概念，
  * 猫是实体，字面不同实体）。但「猫拉窗帘视频=do not disturb 的画面演绎」
  * 本身就是载体存在的事实证据——载体豁免应认演绎关系。
@@ -52,16 +52,16 @@ function dndAnswers(overrides = {}) {
     event_magnitude: { score: 1.2, probabilities: { '1': 0.6, '2': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 12, probabilities: { '2': 0.5, '3': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.5, empty_content: 0.2 } },
-    name_referent: { choice: 'other_referent', probabilities: { other_referent: 0.6, subject_self: 0.2 } },
-    referent_memeability: { score: 2.5, probabilities: {} },
-    web3_fit: { choice: 'fit', probabilities: { fit: 0.5, strong_fit: 0.3 } },
-    subject_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.5, existing_entity: 0.4 } },
-    subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
-    relevance_type: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
-    token_quality: { score: 10, probabilities: {} },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.5, empty_content: 0.2 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6, unknown: 0.2 } },
+    name_entity_memeability: { score: 2.5, probabilities: {} },
+    web3_user_event_fit: { choice: 'fit', probabilities: { fit: 0.5, strong_fit: 0.3 } },
+    name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.5, existing_entity: 0.4 } },
+    event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
+    name_event_relevance: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
+    token_name_quality: { score: 10, probabilities: {} },
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.7, not_meme_name: 0.2 } },
-    finding_vs_recap: { choice: 'finding', probabilities: { finding: 0.7 } },
+    event_finding_vs_recap: { choice: 'finding', probabilities: { finding: 0.7 } },
     name_image_consistency: { choice: 'unrelated', probabilities: { unrelated: 0.85, same_entity: 0.05, same_visual_category: 0.05 } },
     image_depicts_name: { choice: 'depicts_name', probabilities: { depicts_name: 0.8, decorative: 0.15 } },
     ...overrides,
@@ -136,7 +136,7 @@ async function main() {
     event_category: { choice: 'A', probabilities: { A: 0.7, G: 0.2 } },
     event_magnitude: { score: 3.9, probabilities: { '4': 0.6, '3': 0.3 } },
     // semantic_weak=9 落 Stage3 截断窗（0<rel≤10）——J1.30 真触发才豁免该截断
-    relevance_type: { choice: 'semantic_weak', probabilities: { semantic_weak: 0.6, semantic_clear: 0.3 } },
+    name_event_relevance: { choice: 'semantic_weak', probabilities: { semantic_weak: 0.6, semantic_clear: 0.3 } },
   };
   const rD1 = mapStandardAnswers(dndAnswers({ ...passTier }), dndCtx(true));
   check('D1 演绎臂触发（depicts 0.8）但 matchP 0.1 → Stage3 关联截断照拦（J1.30 不消费演绎题）',
@@ -199,7 +199,7 @@ async function main() {
   check('H4b stage2 段同形豁免键（拦截票唯一落库位，DND fallthrough 可归因）',
     mapperSrc.split('\n').filter(l => l.trim().startsWith('subjectCarrierImgOverride:')).length === 2, null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H5 JEV_QUESTIONS_VERSION=J1.55（bump 纪律；J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.55', JEV_QUESTIONS_VERSION);
+  check('H5 JEV_QUESTIONS_VERSION=J1.55（bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
   check('H6 题面 DND/CRO 对照锚在',
     qSrc.includes('猫拉上窗帘正是「别打扰」的画面演绎') && qSrc.includes('名字 CRO 配一张猫图'), null);
   check('H7 题面正交分工声明（unrelated 与 depicts 可同票共存）',

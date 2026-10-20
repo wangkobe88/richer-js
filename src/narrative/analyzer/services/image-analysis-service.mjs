@@ -2,7 +2,7 @@
  * 推文配图视觉分析服务（2026-10-07 现金猫案 0x56dc26bd…7777 用户裁定开启）
  *
  * 背景：C51 龙虾案 / 现金猫案的共同形状——代币名与语料的指代映射唯一载体是推文
- * 配图（推文文本零关联字样），Jev 按纯文本语料判 name_referent other_referent（原
+ * 配图（推文文本零关联字样），Jev 按纯文本语料判 web3_user_name_entity_acceptance other_referent（原
  * none_related 桶，J1.43 并桶）完全自洽但事实上漏判。本服务把主推文首图的视觉描述注入
  * twitterInfo.image_analysis，
  * 经 twitter-section 既有渲染块（【图片内容分析】）进入 Jev state——渲染层零改动。
@@ -209,7 +209,7 @@ async function _analyzeOnce(imageUrl, twitterInfo, vision, apiKey) {
  * ★刻意不含 token 名（跨 token 缓存健全性）：缓存按图片 URL 键控，复蹭簇里多个
  * token 共享同一张图——分析一旦掺入 token 名，token B 会拿到为 token A 算的关联
  * 结论（毒缓存）。视觉层只做 token 无关的图像感知，指代判定留给 Jev 的
- * name_referent 题（[TOKEN] 头 + 图片描述天然在那儿对上）。token_relevance 字段
+ * web3_user_name_entity_acceptance 题（[TOKEN] 头 + 图片描述天然在那儿对上）。token_relevance 字段
  * 因此恒空（渲染块判 truthy 跳过）。
  */
 function _buildPrompt(twitterInfo) {

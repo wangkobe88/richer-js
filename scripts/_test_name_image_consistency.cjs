@@ -18,7 +18,7 @@
  *      imgNameExempt 三门豁免 Stage3 关联≤10 截断（relevance 分照常计入）
  *
  * 覆盖：
- *   A. 问卷形状：J1.30 条件题（无图不含/有图含、三档、题面锚定、与 brand_hijack 独立）
+ *   A. 问卷形状：J1.30 条件题（无图不含/有图含、三档、题面锚定、与 name_brand_hijack 独立）
  *   B. 巴巴鸡事故现场反证：cultural lv1=5 分被豁免救回（rating 翻正/审计/reason
  *      前缀/relevance 分照常计入总分）
  *   C. 三门防线逐门 fail-closed：无图 / 旧缓存无答案 / 一致性<0.5 / 纯零关联
@@ -42,7 +42,7 @@ const TOKEN_ADDR = '0x1ea2152c68a3cba1cd3ffe68abd97d95f9ac7777';
 
 /**
  * 巴巴鸡案基础形状：A 类过 stage1/2（量级 A 档 / dim2 25 / strong_fit /
- * referent_memeability 3 / carrier existing 全部避开前置门），relevance 刻意
+ * name_entity_memeability 3 / carrier existing 全部避开前置门），relevance 刻意
  * cultural lv1=5 分（RELEVANCE_TABLE.cultural[1]，线上真实档位）——专测
  * Stage3 关联截断与豁免。nic 可传答案或 undefined（旧缓存行形状）。
  */
@@ -52,14 +52,14 @@ function babaJiAnswers(nic, over = {}) {
     event_magnitude: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.92 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.9, notable_other: 0.08 } },
-    referent_memeability: { score: 3, probabilities: {} },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
-    subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.84 } },
-    subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.8 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.08 } },
+    name_entity_memeability: { score: 3, probabilities: {} },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
+    event_subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.84 } },
+    name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.8 } },
     // 线上真实形状：cultural（弱字面证据）lv1 → 5 分
-    relevance_type: { choice: 'cultural', probabilities: { cultural: 0.29, exact_match: 0.14 } },
+    name_event_relevance: { choice: 'cultural', probabilities: { cultural: 0.29, exact_match: 0.14 } },
     relevance_level: { score: 1.4, probabilities: { '1': 0.6 } },
     block_misspelling: { noul: 0.23 },
     quality_spelling: { score: 6.5 },
@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.55（J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.49=C118 image_depicts_name 演绎题（与 name_image_consistency 同携带条件）；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+ mapper empty_content 图证在场豁免；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.55', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.55（J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.49=C118 image_depicts_name 演绎题（与 name_image_consistency 同携带条件）；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+ mapper empty_content 图证在场豁免；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);
@@ -109,8 +109,8 @@ async function main() {
     nic.instructions.includes('名字含鸡、图就是鸡形角色'), null);
   check('A6 题面钉死：图内文字计入（梗名可能只写在图里——巴巴鸡案根因）',
     nic.instructions.includes('图内文字') && nic.instructions.includes('梗名可能只写在图里'), null);
-  check('A7 与 brand_hijack 条件题独立（可同时携带）',
-    !('brand_hijack' in qsImg) && 'name_image_consistency' in buildStandardQuestions({ includeBrandHijack: true, imageConsistency: true }), null);
+  check('A7 与 name_brand_hijack 条件题独立（可同时携带）',
+    !('name_brand_hijack' in qsImg) && 'name_image_consistency' in buildStandardQuestions({ includeBrandHijack: true, imageConsistency: true }), null);
 
   // ═══ B. 巴巴鸡事故现场反证 ═══
   console.log('\n── B. 巴巴鸡事故现场反证（cultural lv1=5 分）──');
@@ -149,7 +149,7 @@ async function main() {
   check('C3 门②一致性<0.5（unrelated 0.85）→ 不豁免照拦',
     rLowP.llmResult.rating === 'low' && (rLowP.llmResult.reason || '').includes('关联性不足'), rLowP.llmResult.reason);
   const noneRel = babaJiAnswers(NIC_STRONG);
-  noneRel.relevance_type = { choice: 'none', probabilities: { none: 0.7 } };
+  noneRel.name_event_relevance = { choice: 'none', probabilities: { none: 0.7 } };
   noneRel.relevance_level = { score: 0.3, probabilities: { '0': 0.6 } }; // round→0：none lv0 = 0 分
   const rNoneRel = mapStandardAnswers(noneRel, stdCtx());
   check('C4 门③纯零关联（none lv0=0 分，0<rel 下界）→ 图再像也不救（C59 条件②同款）',
@@ -164,14 +164,14 @@ async function main() {
   check('D1 cultural lv2=10 分（窗内上界）仍可豁免', rMid.llmResult.rating !== 'low'
     && (rMid.llmResult.reason || '').includes('关联10(cultural/lv2)') && (rMid.llmResult.reason || '').includes('名图一致豁免(J1.30)｜'), rMid.llmResult.reason);
   const highRel = babaJiAnswers(NIC_MATCH);
-  highRel.relevance_type = { choice: 'exact_match', probabilities: { exact_match: 0.8 } };
+  highRel.name_event_relevance = { choice: 'exact_match', probabilities: { exact_match: 0.8 } };
   const rHigh = mapStandardAnswers(highRel, stdCtx());
   check('D2 relevance>10（exact_match 20 分，本就不拦）→ 豁免不触发（审计 null、reason 无前缀）',
     rHigh.llmResult.rating !== 'low' && stage3Jev(rHigh)?.imgNameExempt === null
     && !(rHigh.llmResult.reason || '').includes('名图一致豁免'), rHigh.llmResult.reason);
   // 品牌劫持门不受豁免（豁免只挂在关联截断分支）
   const hijackAnswers = babaJiAnswers(NIC_STRONG);
-  hijackAnswers.brand_hijack = { noul: 0.8 };
+  hijackAnswers.name_brand_hijack = { noul: 0.8 };
   const rHijack = mapStandardAnswers(hijackAnswers, stdCtx({ includeBrandHijack: true }));
   check('D3 品牌劫持门（P=0.8）不受名图豁免（正交并存，劫持照拦）',
     rHijack.llmResult.rating === 'low' && (rHijack.llmResult.reason || '').includes('品牌劫持'), rHijack.llmResult.reason);
@@ -195,7 +195,7 @@ async function main() {
   check('E1 命中：probabilities.name_image_consistency 落库（题已问）',
     stage3Jev(rAfter)?.probabilities?.name_image_consistency != null,
     stage3Jev(rAfter)?.probabilities);
-  check('E2 未问（旧缓存行）：probabilities 无键（条件落，brand_hijack 同款）',
+  check('E2 未问（旧缓存行）：probabilities 无键（条件落，name_brand_hijack 同款）',
     !('name_image_consistency' in (stage3Jev(rOldCache)?.probabilities ?? {})), null);
   check('E3 Stage2 审计段不受本题影响（subjectCarrier 等恒带键照落）',
     rAfter.stage2DataToSave?.parsed_output?.jev?.subjectCarrier != null, null);
@@ -216,7 +216,7 @@ async function main() {
   check('F3 analyzer 标准分支接线：buildStandardQuestions imageConsistency 条件',
     analyzerSrc.includes('imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis'), null);
   check('F4 analyzer 标准分支接线：mapStandardAnswers imageEvidence（题集与证据同源）',
-    /imageEvidence: !visionSkipped && !!twitterInfo\?\.image_analysis,\s*\n\s*tweetClassification/.test(analyzerSrc), null);
+    /imageEvidence: !visionSkipped && !!twitterInfo\?\.image_analysis,[\s\S]{0,300}?tweetClassification/.test(analyzerSrc), null);
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('F5 题集头部含 J1.30 条目（巴巴鸡案档案+地址）',
     qsSrc.includes('* J1.30（2026-10-14') && qsSrc.includes(TOKEN_ADDR), null);
@@ -240,11 +240,11 @@ async function main() {
 
   // G1 事故反证：D 档（magnitude 1）+ 全条件名图票 → 修复前 事件主体量级不足（D档）
   // 拦死；修复后流入标准数学 tierScore=0：0+28+15=43<60 再被事件分臂豁免放行。
-  // web3_fit 刻意置 undefined 摘掉巴巴鸡夹具的 strong_fit 锚（锚上会把 D 档抬成
+  // web3_user_event_fit 刻意置 undefined 摘掉巴巴鸡夹具的 strong_fit 锚（锚上会把 D 档抬成
   // effTier B，绕不进 D/E 臂——锚救票是 J1.23 机制，与本节正交）
   const rG1 = mapStandardAnswers(babaJiAnswers(NIC_MATCH, {
     event_magnitude: { score: 1, probabilities: { '1': 0.7 } },
-    web3_fit: undefined,
+    web3_user_event_fit: undefined,
   }), stdCtx());
   const s2G1 = rG1.stage2DataToSave?.parsed_output || {};
   check('G1a D 档名图票：stage2 放行（pass=true + totalScore=43 + tierScore=0 精确值）',
@@ -262,7 +262,7 @@ async function main() {
   // G2 对照：无图证据（imageEvidence=false）同 D 档 → 量级门照拦（豁免三门 fail-closed）
   const rG2 = mapStandardAnswers(babaJiAnswers(NIC_MATCH, {
     event_magnitude: { score: 1, probabilities: { '1': 0.7 } },
-    web3_fit: undefined,
+    web3_user_event_fit: undefined,
   }), stdCtx({ imageEvidence: false }));
   const s2G2 = rG2.stage2DataToSave?.parsed_output || {};
   check('G2 无图 D 档：仍拦 事件主体量级不足（D档）+ stage3 清段',
@@ -273,7 +273,7 @@ async function main() {
   // G3 对照：E 档 + 图证据在但一致性不足（unrelated 0.15<0.5）→ 量级门照拦
   const rG3 = mapStandardAnswers(babaJiAnswers(NIC_UNRELATED, {
     event_magnitude: { score: 0, probabilities: { '0': 0.8 } },
-    web3_fit: undefined,
+    web3_user_event_fit: undefined,
   }), stdCtx());
   const s2G3 = rG3.stage2DataToSave?.parsed_output || {};
   check('G3 E 档一致性 0.15<0.5：仍拦 事件主体量级不足（E档）',

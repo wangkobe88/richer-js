@@ -10,7 +10,7 @@
  * state，评分全归 Jev 题集，不加代码侧 tier 锚定。
  *
  * 覆盖：
- *   A. buildJevState 注入形状（super_ip_hit 事实行 + super_ip_note 反混淆
+ *   A. buildJevState 注入形状（corpus_author_identity 事实行 + corpus_author_identity_note 反混淆
  *      提示行；无 pre_scores 残留；不传命中时 bit-parity 红线——非 superIP
  *      票 state 逐字节不变，事故反证式锁定）
  *   B. 源码口径（analyzer 快车道分支删除 / 标准调用点注入 / mapper 函数
@@ -64,12 +64,12 @@ const run = async () => {
   const hit = buildJevState(tokenData, nullFetch, { superIPInfo: binance, now: FIXED_NOW });
 
   // A1 认证事实行（格式与快车道时代一致，Jev 见惯形状）
-  check('A1 super_ip_hit 事实行精确匹配',
-    hit.state.includes('super_ip_hit: 币安官方（institution/S级，全球最大加密交易所）'));
+  check('A1 corpus_author_identity 事实行精确匹配',
+    hit.state.includes('corpus_author_identity: 币安官方（institution/S级，全球最大加密交易所）'));
 
   // A2 反混淆提示行（BI 案防线：作者身份≠代币背书；只锁键名+关键词不锁全文）
-  const noteLine = hit.state.split('\n').find(l => l.startsWith('super_ip_note:'));
-  check('A2 super_ip_note 行存在且含「身份认证」「背书」关键词',
+  const noteLine = hit.state.split('\n').find(l => l.startsWith('corpus_author_identity_note:'));
+  check('A2 corpus_author_identity_note 行存在且含「身份认证」「背书」关键词',
     !!noteLine && noteLine.includes('身份认证') && noteLine.includes('背书'),
     noteLine);
 
@@ -80,7 +80,7 @@ const run = async () => {
   // A4 不传命中：两行皆无
   const miss = buildJevState(tokenData, nullFetch, { now: FIXED_NOW });
   check('A4 不传 superIPInfo → 两行皆无',
-    !miss.state.includes('super_ip_hit:') && !miss.state.includes('super_ip_note:'));
+    !miss.state.includes('corpus_author_identity:') && !miss.state.includes('corpus_author_identity_note:'));
 
   // A5 红线 bit-parity：非 superIP 票 state 与 null 命中逐字节一致，
   // 且整个 state 无 'super_ip' 子串（C83 前标准路径行为零扰动）
@@ -92,8 +92,8 @@ const run = async () => {
 
   // A6 注入行在 [PRECOMPUTED] 段内（「直接采信」块语义 = 事实非评分）
   const preIdx = hit.state.indexOf('[PRECOMPUTED]');
-  const hitIdx = hit.state.indexOf('super_ip_hit:');
-  const noteIdx = hit.state.indexOf('super_ip_note:');
+  const hitIdx = hit.state.indexOf('corpus_author_identity:');
+  const noteIdx = hit.state.indexOf('corpus_author_identity_note:');
   check('A6 注入两行均在 [PRECOMPUTED] 段内',
     preIdx !== -1 && hitIdx > preIdx && noteIdx > preIdx);
 
@@ -159,9 +159,9 @@ const run = async () => {
   catch (e) { threw = e.message; }
   check('D1 注入 + twitterInfo=null 不 throw', threw === null, threw);
 
-  // D2 JEV_QUESTIONS_VERSION 已 bump（J1.42=C108 名字门统一四分支+block_misspelling 删题；J1.41=C107 name_form 收敛三选（meme_name/not_meme_name/unclear）；J1.40=C105 第四选（收敛后经兼容 Set 继续拦）；J1.39=C103 条件题 parent_relationship；J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；J1.35=C92 E类证据层级）
+  // D2 JEV_QUESTIONS_VERSION 已 bump（J1.42=C108 名字门统一四分支+block_misspelling 删题；J1.41=C107 name_form 收敛三选（meme_name/not_meme_name/unclear）；J1.40=C105 第四选（收敛后经兼容 Set 继续拦）；J1.39=C103 条件题 parent_relationship；J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_user_event_fit；J1.35=C92 E类证据层级）
   const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('D2 JEV_QUESTIONS_VERSION === J1.55（J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代；J1.49=C118 image_depicts_name 演绎题；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+empty_content 图证豁免；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 low_quality+ip_reuse 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支+block_misspelling 删题；J1.41=C107 name_form 收敛三选；J1.40=C105 第四选（收敛后经兼容 Set 继续拦）；J1.39=C103 条件题 parent_relationship；J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_fit；J1.35=C92 E类证据层级）', JEV_QUESTIONS_VERSION === 'J1.55', JEV_QUESTIONS_VERSION);
+  check('D2 JEV_QUESTIONS_VERSION === J1.56（J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代；J1.49=C118 image_depicts_name 演绎题；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+empty_content 图证豁免；J1.46=C113 找角度判轴+ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 low_quality+ip_reuse 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支+block_misspelling 删题；J1.41=C107 name_form 收敛三选；J1.40=C105 第四选（收敛后经兼容 Set 继续拦）；J1.39=C103 条件题 parent_relationship；J1.38=C98 negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_user_event_fit；J1.35=C92 E类证据层级）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
 
   // ═══ 汇总 ═══
   console.log(`\n═══ _test_superip_standard_path: ${passed} passed, ${failed} failed ═══`);

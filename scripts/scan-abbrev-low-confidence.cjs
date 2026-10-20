@@ -35,8 +35,8 @@ const round2 = v => Math.round(v * 100) / 100;
 function rebuild(row) {
   const s3 = row.stage3_result || {};
   const jev = s3.details && s3.details.jev;
-  if (!jev || !jev.probabilities || !jev.probabilities.relevance_type) return null;
-  const dist = jev.probabilities.relevance_type;
+  if (!jev || !jev.probabilities || !jev.probabilities.name_event_relevance) return null;
+  const dist = jev.probabilities.name_event_relevance;
   const argmax = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
   if (!argmax || argmax[0] !== 'abbreviation_alias') return null;
   const fin = row.stage_final_result || {};

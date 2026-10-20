@@ -110,10 +110,15 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
   ];
   if (options.superIPInfo) {
     precomputed.push(
-      `super_ip_hit: ${options.superIPInfo.name}（${options.superIPInfo.type}/${options.superIPInfo.tier}级，${options.superIPInfo.desc}）`,
+      // J1.56（C126）：键名 super_ip_hit 与币名题选项同名=概念复用混淆源——改
+      // corpus_author_identity，只描述「语料作者是谁」这一作者侧事实。
+      `corpus_author_identity: ${options.superIPInfo.name}（${options.superIPInfo.type}/${options.superIPInfo.tier}级，${options.superIPInfo.desc}）`,
       // C83 反混淆提示（BI 簇案）：身份事实进直接采信块，但「作者是 IP」≠「票属于
-      // IP」——关联/主体资格/量级仍归题集判定，防 Jev 把作者认证误当代币背书
-      `super_ip_note: 以上仅为语料作者的身份认证事实（该账号确为注册表在册IP）。代币与该IP的实际关联、代币主体资格与事件量级仍须按题集逐题判定；作者身份不构成对该代币的背书`,
+      // IP」——关联/主体资格/量级仍归题集判定，防 Jev 把作者认证误当代币背书。
+      // J1.56 补充：作者原话票（币名逐字出自主推文本）由代码侧 authorUtterance
+      // 事实承担 C88 救援腿，**不要求 Jev 在币名实体题里因此升档**——问候语/口头
+      // 禅如实判 no_entity（C126 何一「こんにちは」裁定）。
+      `corpus_author_identity_note: 以上仅为语料作者的身份认证事实（该账号确为注册表在册IP）。代币与该实体的实际关联、代币主体资格与事件量级仍须按题集逐题判定；作者身份本身不构成对该代币的背书（作者本人原话票的识别由系统代码侧事实完成，请勿在币名映射实体题里因作者身份升档）`,
     );
   }
 

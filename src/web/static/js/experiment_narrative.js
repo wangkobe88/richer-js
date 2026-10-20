@@ -8,7 +8,7 @@
  * Jev 关键答案 + 涨幅面板 + C84 轮次留痕）+ 人工标注操作。
  *
  * 适配近期修改：C74 tweetType / C84 轮次 / C85 token_category / C86 豁免贯穿 /
- * C88 narrativeSuperIp·narrativeSuperIpSlogan 标签 + superIpSlogan 五腿审计 +
+ * C88 narrativeSuperIp·narrativeSuperIpSlogan 标签 + recognizedEntitySlogan 五腿审计 +
  * memFloorBlock。旧行（C88 前缓存）无键 → null 诚实显 `-`。
  */
 
@@ -65,7 +65,7 @@ function categoryMeaning(cat) {
   return CATEGORY_MEANINGS[cat] || { short: CATEGORY_LABELS[cat] || cat || '未分类', full: cat || 'null' };
 }
 
-// 时效档简写（event_timing / superIpSlogan.timing 同枚举）
+// 时效档简写（event_timing / recognizedEntitySlogan.timing 同枚举）
 const TIMING_LABELS = {
   within_7d: '7d内',
   within_30d: '30d内',
@@ -547,11 +547,11 @@ class ExperimentNarrative {
       const meaning = categoryMeaning(cat);
       chips.push(`<span class="feat-chip" title="${esc(meaning.full)}（token_category=${esc(cat)}）">${esc(catLabel)}</span>`);
     }
-    if (item.narrative.narrativeSuperIp === 1) chips.push(`<span class="feat-chip feat-superip" title="超级IP（name_referent.super_ip ≥ 0.5，C88）">★超级IP</span>`);
+    if (item.narrative.narrativeSuperIp === 1) chips.push(`<span class="feat-chip feat-superip" title="超级IP（web3_user_name_entity_acceptance.accepted ≥ 0.5，C88）">★超级IP</span>`);
     if (item.narrative.narrativeSuperIpSlogan === 1) chips.push(`<span class="feat-chip feat-slogan" title="口号票（五腿全中，C88）">📣口号</span>`);
     if (f.mem != null) {
       const cls = f.mem >= 2 ? 'feat-mem-hi' : 'feat-mem-lo';
-      chips.push(`<span class="feat-chip ${cls}" title="口号性 referent_memeability（C88 mem 地板口径 ≥2）">mem ${f.mem}</span>`);
+      chips.push(`<span class="feat-chip ${cls}" title="口号性 name_entity_memeability（C88 mem 地板口径 ≥2）">mem ${f.mem}</span>`);
     }
     if (f.timing != null) chips.push(`<span class="feat-chip" title="时效 ${esc(f.timing)}">${TIMING_LABELS[f.timing] || esc(shortChoice(f.timing))}</span>`);
     if (f.tier) chips.push(`<span class="feat-chip" title="事件量级档 ${esc(f.tier)}">${esc(f.tier)}档</span>`);
@@ -760,7 +760,7 @@ class ExperimentNarrative {
     const s3Audit = [];
     if (s3j?.punExempt) s3Audit.push('戏谑豁免J1.24');
     if (s3j?.imgNameExempt) s3Audit.push('名图一致豁免J1.30');
-    if (s3j?.superIpSloganExempt) s3Audit.push(`口号票豁免C88(mem ${s3j.superIpSloganExempt.mem})`);
+    if (s3j?.recognizedEntitySloganExempt) s3Audit.push(`口号票豁免C88(mem ${s3j.recognizedEntitySloganExempt.mem})`);
     if (s3j?.spellingMismatch) s3Audit.push(`图文名不符C78(${s3j.spellingMismatch.variant})`);
     const stage3Card = `
       <div class="stage-card">
@@ -792,23 +792,23 @@ class ExperimentNarrative {
     };
     const ansRows = [
       this._kv('事件类别', f.eventCategory, probTop(probs.event_category)),
-      this._kv('量级档', f.tier, probTop(probs.web3_user_impact ?? probs.event_magnitude)),
-      this._kv('名称指代', f.nameReferent, probTop(probs.name_referent)),
-      this._kv('super_ip 概率', f.superIpProb != null ? `${Math.round(f.superIpProb * 100)}%` : null),
+      this._kv('量级档', f.tier, probTop(probs.web3_user_event_impact ?? probs.event_magnitude)),
+      this._kv('名称指代', f.nameReferent, probTop(probs.web3_user_name_entity_acceptance)),
+      this._kv('实体接纳概率', f.superIpProb != null ? `${Math.round(f.superIpProb * 100)}%` : null),
       this._kv('口号性 mem', f.mem),
       this._kv('时效', f.timing),
-      this._kv('Web3 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.web3_fit)),
-      this._kv('拦截原因', f.blockChoice, probTop(probs.block_reason)),
-      this._kv('主体实体', f.subjectEntity ?? s2j?.subjectEntity, probTop(probs.subject_entity)),
+      this._kv('Web3 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.web3_user_event_fit)),
+      this._kv('拦截原因', f.blockChoice, probTop(probs.event_block_reason)),
+      this._kv('主体实体', f.subjectEntity ?? s2j?.subjectEntity, probTop(probs.event_subject_entity)),
       this._kv('形象载体', f.subjectCarrier ?? s2j?.subjectCarrier)
     ].join('');
 
     // ── C88 审计盒 ──
-    const sip = s2j?.superIpSlogan;
+    const sip = s2j?.recognizedEntitySlogan;
     const c88Box = sip
-      ? `<div class="audit-box" title="C88 超级IP口号票五腿审计（stage2 jev.superIpSlogan 恒落）">
+      ? `<div class="audit-box" title="C88 超级IP口号票五腿审计（stage2 jev.recognizedEntitySlogan 恒落）">
           ★ C88 口号票五腿：hit=${sip.hit ? '<b class="text-green-400">TRUE</b>' : 'false'} ｜
-          superIp ${sip.superIp} ｜ rel+ ${sip.relPositive} ｜ relNone ${sip.relNone} ｜
+          accepted ${sip.accepted} ｜ rel+ ${sip.relPositive} ｜ relNone ${sip.relNone} ｜
           mem ${sip.mem} ｜ timing ${esc(sip.timing ?? '-')} ｜ strongFit ${sip.strongFit}
           ${s2j?.memFloorBlock ? `｜<br>mem 地板拦截：mem ${s2j.memFloorBlock.mem} timing ${esc(s2j.memFloorBlock.timing ?? '-')}` : ''}
         </div>`
@@ -1067,11 +1067,11 @@ function extractFeatures(item) {
   // / parsed_output 内存形状，superip-labels._stagePayload 同款口径）
   const s2j = stagePayload(na.stage2)?.jev;
   if (s2j) {
-    const sip = s2j.superIpSlogan;
+    const sip = s2j.recognizedEntitySlogan;
     if (sip && typeof sip === 'object') {
       f.mem = sip.mem ?? null;
       f.timing = sip.timing ?? null;
-      f.superIpProb = sip.superIp ?? null;
+      f.superIpProb = sip.accepted ?? null;
       f.strongFit = sip.strongFit ?? null;
     }
   }
@@ -1079,8 +1079,8 @@ function extractFeatures(item) {
   // stage1 概率带 + raw answers 兜底（C88 前旧行）
   const s1j = stagePayload(na.stage1)?.jev;
   const probs = s1j?.probabilities || {};
-  if (f.superIpProb == null && probs.name_referent) f.superIpProb = probs.name_referent.super_ip ?? null;
-  if (f.strongFit == null && probs.web3_fit) f.strongFit = probs.web3_fit.strong_fit ?? null;
+  if (f.superIpProb == null && probs.web3_user_name_entity_acceptance) f.superIpProb = probs.web3_user_name_entity_acceptance.accepted ?? null;
+  if (f.strongFit == null && probs.web3_user_event_fit) f.strongFit = probs.web3_user_event_fit.strong_fit ?? null;
 
   const raw = na.stage1?.rawOutput;
   if (raw) {
@@ -1089,14 +1089,14 @@ function extractFeatures(item) {
       const answers = parsed?.answers || null;
       if (answers) {
         f.answers = answers;
-        if (f.mem == null) f.mem = answers.referent_memeability?.score ?? null;
+        if (f.mem == null) f.mem = answers.name_entity_memeability?.score ?? null;
         if (f.timing == null) f.timing = answers.event_timing?.choice ?? null;
         f.eventCategory = answers.event_category?.choice ?? null;
-        f.nameReferent = answers.name_referent?.choice ?? null;
-        f.blockChoice = answers.block_reason?.choice ?? null;
-        if (f.strongFit == null) f.strongFit = answers.web3_fit?.probabilities?.strong_fit ?? null;
-        if (f.subjectEntity == null) f.subjectEntity = answers.subject_entity?.choice ?? null;
-        if (f.subjectCarrier == null) f.subjectCarrier = answers.subject_carrier?.choice ?? null;
+        f.nameReferent = answers.web3_user_name_entity_acceptance?.choice ?? null;
+        f.blockChoice = answers.event_block_reason?.choice ?? null;
+        if (f.strongFit == null) f.strongFit = answers.web3_user_event_fit?.probabilities?.strong_fit ?? null;
+        if (f.subjectEntity == null) f.subjectEntity = answers.event_subject_entity?.choice ?? null;
+        if (f.subjectCarrier == null) f.subjectCarrier = answers.name_entity_carrier?.choice ?? null;
       }
     } catch { /* 旧行/坏行：对应字段保持 null */ }
   }
@@ -1127,7 +1127,7 @@ function extractFeatures(item) {
 }
 
 function answersTier(answers) {
-  return answers?.web3_user_impact?.score ?? answers?.event_magnitude?.score ?? null;
+  return answers?.web3_user_event_impact?.score ?? answers?.event_magnitude?.score ?? null;
 }
 
 // 初始化

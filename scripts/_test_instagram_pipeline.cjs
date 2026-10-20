@@ -114,10 +114,10 @@ function tuhaoAnswers({ magnitude = 2.4, dim2Score = 0.97, strongFit = 0.9, timi
     event_magnitude: { score: magnitude, probabilities: { '2': 0.55, '3': 0.3 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.9 } },
     dimension2: { score: dim2Score, probabilities: { '1': 0.55, '2': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
-    name_referent: { choice: 'none_related', probabilities: { none_related: 0.6 } },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.08 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6 } },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.08 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
     relevance_level: { score: 4, probabilities: { '4': 0.85 } },
     block_misspelling: { noul: 0.1 },
     quality_spelling: { score: 6, probabilities: { '3': 0.9 } },
@@ -245,7 +245,7 @@ async function main() {
   // E3 非 A 类（C 类）→ 不锚
   const cAnswers = tuhaoAnswers();
   cAnswers.event_category = { choice: 'C', probabilities: { C: 0.8 } };
-  cAnswers.web3_fit = { choice: 'fit', probabilities: { fit: 0.7 } };
+  cAnswers.web3_user_event_fit = { choice: 'fit', probabilities: { fit: 0.7 } };
   const m3 = mapStandardAnswers(cAnswers, makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e3 = stage2Of(m3);
   check('E3 C 类不锚（IG 是形象主阵地，豁免限 A 类）',

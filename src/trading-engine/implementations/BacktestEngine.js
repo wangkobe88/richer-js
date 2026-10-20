@@ -643,7 +643,7 @@ class BacktestEngine extends AbstractTradingEngine {
           // token_category 列零额外查询；GMGN 条件层 narrativeCategory 因子源
           category: row.token_category ?? null,
           superIp: _sip.narrativeSuperIp ?? null,
-          superIpSlogan: _sip.narrativeSuperIpSlogan ?? null,
+          recognizedEntitySlogan: _sip.narrativeSuperIpSlogan ?? null,
         });
         _injected++;
       }

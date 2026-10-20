@@ -62,9 +62,9 @@ async function main() {
     for (const row of rows) {
       total++;
       const answers = asObj(row.stage1_raw_output)?.answers;
-      // 标准路径行判定：18+ 题集含 name_referent（precheck/prestage/旧题集行跳过——
+      // 标准路径行判定：18+ 题集含 web3_user_name_entity_acceptance（precheck/prestage/旧题集行跳过——
       // prestage 无此题=标签恒 null 语义，本扫描与其无关）
-      if (!answers || typeof answers !== 'object' || !answers.name_referent) { noStd++; continue; }
+      if (!answers || typeof answers !== 'object' || !answers.web3_user_name_entity_acceptance) { noStd++; continue; }
 
       let m;
       try {
@@ -75,7 +75,7 @@ async function main() {
             raw_api_data: asObj(row.raw_api_data),
           },
           twitterInfo: asObj(row.twitter_info),
-          includeBrandHijack: 'brand_hijack' in answers,
+          includeBrandHijack: 'name_brand_hijack' in answers,
           credibleEventAnchor: false, // 未落库：fail-closed；只影响 J1.24，不影响两清单判定键
           tweetClassification: null,  // 未落库：C68/C75 override 不参与，timing 用 Jev 原判
           callInfo: { model: 'scan', questions: {}, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
@@ -119,7 +119,7 @@ async function main() {
     if (list.length > cap) console.log(`  …另有 ${list.length - cap} 行（--json 落盘看全量）`);
   };
 
-  console.log(`\n===== C88 存量行为面扫描（token_narrative 全表 ${total} 行；标准路径 ${total - noStd - threw}；跳过 precheck/prestage/无 name_referent ${noStd}；mapper 异常 ${threw}）=====`);
+  console.log(`\n===== C88 存量行为面扫描（token_narrative 全表 ${total} 行；标准路径 ${total - noStd - threw}；跳过 precheck/prestage/无 web3_user_name_entity_acceptance ${noStd}；mapper 异常 ${threw}）=====`);
   console.log(`\n── ① 救援翻转面（现行 low ∧ 重放 mid/high ∧ 五腿全中）${groups.rescue.length} 行 ──`);
   show(groups.rescue);
   console.log(`\n── ①b 五腿命中但未翻转（刻意不豁的门仍拦——D/E 量级臂/W 数学等）${groups.hitNoFlip.length} 行 ──`);

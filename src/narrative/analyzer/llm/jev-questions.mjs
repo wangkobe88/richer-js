@@ -12,37 +12,37 @@
  * 版本：改动任何一题的 instructions/criteria 后必须 bump JEV_QUESTIONS_VERSION
  * J1.8：问题文本与 J1.7 相同；本版变更在 jev-result-mapper.mjs 的代码端量表校准
  *       （MAGNITUDE_TIER_SCORES S39/A34/B27/C22 + DIM2_BANDS 分位带，108 样本定参）
- * J1.9：block_reason 新增 word_extraction 截词选项 + subject_unqualified 扩作用域。
+ * J1.9：event_block_reason 新增 word_extraction 截词选项 + subject_unqualified 扩作用域。
  *       ⚠️ word_extraction 方案已废弃（J1.10 拆独立题替代）；J1.9 无任何 DB 行产出
  *       （E1 回测期间 182 运行的是 J1.8），subject_unqualified 扩作用域在 J1.10 延续
- * J1.10：新增独立 name_referent 题（代币名指向）替代 word_extraction，移除该选项。
+ * J1.10：新增独立 web3_user_name_entity_acceptance 题（代币名指向）替代 word_extraction，移除该选项。
  *       2026-09-23 用户裁定（CONVICTION/OneKey/YAYA 案）：截词/截名发币要成立，
  *       名字的主人得是超级 IP——被超级IP/大V提到≠名字本身有生命力，知名≠超级IP。
- *       代码端按 name_referent 阻断（minor_other/common_word/notable_other 阻断侧
+ *       代码端按 web3_user_name_entity_acceptance 阻断（minor_other/common_word/notable_other 阻断侧
  *       合计概率≥0.5，scope C/D/F/G，见 mapper——CONVICTION 案照此不放行）。
- *       曾尝试在 block_reason 里加 word_extraction 复合选项，六轮措辞 Jev 均无法
+ *       曾尝试在 event_block_reason 里加 word_extraction 复合选项，六轮措辞 Jev 均无法
  *       同时覆盖"话中截词"与"指向文中当事人但当事人无名"两种结构，拆独立题解决。
  *       subject_unqualified 扩作用域 A→A/C/D/F/G（小主体确定性兜底，防 Jev 量级
  *       在 C/B 边界漂移漏过事件分下限）
- * J1.11：block_reason 新增 negative_hard_news 选项（2026-09-26 用户裁定，C9 bitget被盗案
+ * J1.11：event_block_reason 新增 negative_hard_news 选项（2026-09-26 用户裁定，C9 bitget被盗案
  *       0x0e323198：蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级 80.32
  *       high 放行后 -55%。裁定：事件热度高≠该放——负面事故（被盗/暴雷）+纯硬新闻
  *       （无梗/无玩味空间/主体不自嘲传播）的事件无 meme 价值，蹭其命名只是消费热度。
  *       边界收窄到"安全事故/被盗/被黑/暴雷/巨额损失/灾难"，其余负面留给 Jev 自由裁量。
  *       代码端 mapper 双挂：BLOCK_SCOPE 'all'（argmax 机制全域）+ 概率 ≥0.5 质量门
  *       negativeHardNewsBlock（标准 + superIP 双路径），见 jev-result-mapper）
- * J1.12：name_referent super_ip 加双前提（2026-09-27 用户裁定，C11 哦案 0xbefe2b70：
+ * J1.12：web3_user_name_entity_acceptance super_ip 加双前提（2026-09-27 用户裁定，C11 哦案 0xbefe2b70：
  *       name="o"/symbol="哦"，第三方骑乘 OpenAI DevDay 传闻的 always-on assistant
- *       命名"o"（ChatGPT 内部 config 曝光、未官宣未发布），name_referent super_ip 0.81
+ *       命名"o"（ChatGPT 内部 config 曝光、未官宣未发布），web3_user_name_entity_acceptance super_ip 0.81
  *       命中 C8 豁免 → B 类 S 档 80.05 high 放行。裁定「把'o'直接发成中文'哦'，感觉
  *       不行」）：①忠实呈现——币名须为该超级 IP 名字的忠实使用（原名直接出现或官方/
  *       通用标准译名），音译/形近/跨书写系统变体不算；②已官宣存在——名字所指对象须
  *       已被官方正式官宣或已公开发布，仅为传闻/泄露/内部界面曝光/未官宣计划中的名字
  *       不算。不满足前提的判 notable_other（承接语义同步写入该项 criteria）。mapper
  *       零改动（notable_other 已在阻断侧三项、scope 已含 B/C/D/F/G/W）
- * J1.13：block_reason 新增 routine_content_product（2026-09-27 用户裁定，C12 绣春刀3案
+ * J1.13：event_block_reason 新增 routine_content_product（2026-09-27 用户裁定，C12 绣春刀3案
  *       0xa7c9c86e：BTCdayu 推「绣春刀3电影即将推出」，第三方骑乘华语电影系列名发币，
- *       name_referent super_ip 0.66 命中 C8 豁免 → B 类 65.95 high 放行（BUY 信号）。
+ *       web3_user_name_entity_acceptance super_ip 0.66 命中 C8 豁免 → B 类 65.95 high 放行（BUY 信号）。
  *       裁定「即使推出了，也不能作为meme币」——常规电影等内容型产品宣传与官宣与否
  *       无关，均不构成叙事事件。J1.12 双前提对本案双满足拦不住（J1.12 下重析靠
  *       notable_other 0.53 贴线拦截，非类型确定），故立独立阻断项。边界收窄：内容
@@ -51,10 +51,10 @@
  *       产品（W 类）不适用；世界级颠覆性实体产品发布不选。代码端 mapper 双挂：
  *       BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门 routineContentProductBlock（标准+superIP
  *       双路径），与 negative_hard_news 同构，见 jev-result-mapper）
- * J1.14：name_referent super_ip 加第③前提「实体性」+ common_word 去除「文本作者非
+ * J1.14：web3_user_name_entity_acceptance super_ip 加第③前提「实体性」+ common_word 去除「文本作者非
  *       超级IP」限制（2026-09-27 用户裁定，C13 Cz黄鞋案 0x91c4c4e9：name=symbol=
  *       「Cz黄鞋」=注册表 IP 缩写 + CZ 闲聊推文物品词拼接，superIP 快车道 S 级预评分
- *       40+15 直接喂饱 + name_referent super_ip 0.44 argmax 摇摆（common_word 0.27 被
+ *       40+15 直接喂饱 + web3_user_name_entity_acceptance super_ip 0.44 argmax 摇摆（common_word 0.27 被
  *       「文本作者非超级IP」限制压低）→ high 77.15 放行。J1.12 双前提双满足拦不住
  *       ——「Cz」是忠实缩写、「黄鞋」非传闻名）。裁定原话「superIP讲了一个第三方
  *       主体也没有问题，例如CZ说了Giggle肯定没问题，但是问题在于，'yellow shoes'
@@ -65,7 +65,7 @@
  *       物品词」拼接（Cz黄鞋）或 IP 文本中无实体对应、无 meme 元素的普通词组判
  *       common_word；③common_word 承接（去作者量级限制）。自指原话词（天才）在主
  *       定义实体性满足项内，不翻转。mapper 零改动（common_word 已在阻断侧三项）
- * J1.15：name_referent super_ip 扩含「官方口号/标志性品牌主张」（2026-09-27 用户裁定，
+ * J1.15：web3_user_name_entity_acceptance super_ip 扩含「官方口号/标志性品牌主张」（2026-09-27 用户裁定，
  *       C23 货币自由案 0xced5a2ba：币安APP更新后界面出现"货币自由"（Freedom of
  *       Money 品牌口号）字样，第三方博主发现后发币，被 J1.14 实体性前提压成
  *       common_word 0.53 → 截词拦截 low。裁定原话「币安应用中的slogan，并且口号
@@ -88,7 +88,7 @@
  *       名币≠蹭作品宣传消费上映热度，与 C12 绣春刀案（币名=电影系列名，纯消费上映
  *       热度）机制不同。三处改动：①event_category 主体归属新增规则——代币名指向
  *       作品中角色（角色名而非作品名）→主体=该角色、类别A（形象IP），作品官方宣传
- *       推只是角色语料载体；②block_reason routine_content_product 边界收窄——角色
+ *       推只是角色语料载体；②event_block_reason routine_content_product 边界收窄——角色
  *       名币不选本项，改A类评估；③event_magnitude A类语义锚定——角色按自身及关联
  *       IP知名度定档，未开播/未出圈角色=无名IP低档（官号粉丝数≠角色知名度）。把关
  *       交给A类数值门：本案按A轴 C档22+dim2 18.64+时效15=55.64<60 仍拦（量级不足），
@@ -105,7 +105,7 @@
  *       $TICKER cashtag → 强制按 W 类数学评分（被骑资产影响力须极高，小项目
  *       w_product 低分拦截），Jev event_category 概率不再有决定权。判据纯代码
  *       （detectCorpusCashtag，narrative-utils），无新题
- * J1.18：name_referent super_ip 加「发布者指代」分支（2026-09-29 用户裁定，C29
+ * J1.18：web3_user_name_entity_acceptance super_ip 加「发布者指代」分支（2026-09-29 用户裁定，C29
  *       Cue/Manus 案 0x5074546cb787d5a698ec8e9a1734e33a3fae7777：Manus 官宣独立
  *       新产品 Cue，第三方骑乘发币被 notable_other 0.5（Manus=知名非超级IP）+
  *       阻断侧 0.80 拦截。裁定原话「骑乘第三方产品，必须满足两个条件，一个是
@@ -122,8 +122,8 @@
  *       发布者（产品方，非语料作者）指代：领域知名大IP→A档起/普通知名公司→B档/
  *       无名发布者→C档以下；仅「独立新产品发布/重大升级」构成B类叙事事件，版本
  *       更新/功能改进/新平台移植（桌面版/mobile版/v2迭代，Muse桌面版型）→E/D
- *       阻断档（C8 v3「版本更新 block_reason 不可判」的判定迁移：语料明示版本
- *       字样时量级题与 name_referent 双侧可判）。dimension2 B 类同步句（新产品同
+ *       阻断档（C8 v3「版本更新 event_block_reason 不可判」的判定迁移：语料明示版本
+ *       字样时量级题与 web3_user_name_entity_acceptance 双侧可判）。dimension2 B 类同步句（新产品同
  *       按发布者指代定档、版本更新按低档）。内容型产品不适用发布者指代——rcp 门
  *       （J1.13）独立于量级门拦截，C12 绣春刀裁定维持。
  *       mapper 代码门（detectPublisherProxy 四判据：官方域名 stem=币名 + 作者粉
@@ -133,7 +133,7 @@
  *       改道优先）：nameReferentBlock/骑乘改道/marketing_gimmick argmax 三处豁免
  *       + 量级 A 档锚（effTier，S 不降 A 原判不动）+ stage1 审计标记
  *       publisherProxy/tierAnchored（Jev 原判 tier 保留在 magnitudeTier 键）
- * J1.19：新增独立第 14 题 web3_fit（2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案
+ * J1.19：新增独立第 14 题 web3_user_event_fit（2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案
  *       0xd2a6d440…7777 / 0xe5fa214f…7777：两票均为抖音爆款视频票——「AI死亡
  *       短片 44.7万赞」「范小勤抽象梗 13.7万赞」，pre-check video_unrated 爆款
  *       短路（点赞≥10万 → 不进Jev直接mid）放行后 Web3 用户不买账阴跌（各实验
@@ -141,8 +141,8 @@
  *       Web2 传播热度 ≠ Web3 用户偏好——链上 meme 买家（BSC 发射平台，华语
  *       crypto 圈为主）喜欢动物萌宠/币圈梗/AI/知名IP/可玩味乐子梗，不喜欢消费
  *       弱势真人的土味网红梗、丧文化阴郁主题、纯内容欣赏无玩梗空间。两处配套：
- *       ①本版新增 web3_fit（strong_fit/fit/marginal/unfit 四档独立题，语义独立
- *       不并入 block_reason 的「无叙事价值」语义）；②pre-check 规则 3 爆款短路
+ *       ①本版新增 web3_user_event_fit（strong_fit/fit/marginal/unfit 四档独立题，语义独立
+ *       不并入 event_block_reason 的「无叙事价值」语义）；②pre-check 规则 3 爆款短路
  *       收窄——有可读推文文本（推文已描述视频内容，「内容无法解析」不成立）时
  *       不再短路，进 Jev 完整评估；无可读语料才维持爆款 mid 短路。
  *       mapper：web3FitBlock 质量门（unfit 概率 ≥0.5 → rating 1，与
@@ -166,24 +166,24 @@
  *       计入事件传播规模），回复者粉丝数不参与定档；E 类升级规则同步（被大V
  *       主动报道含父推）。C 档「无源可溯最高到此档」封顶保留——7777 家族无主
  *       作业票谎称热点仍被 C 档封顶。dimension2 同形状分流引用。mapper 零改动
- * J1.21：新增条件第 15 题 referent_memeability（2026-09-30 用户裁定，C33 MTAT案
+ * J1.21：新增条件第 15 题 name_entity_memeability（2026-09-30 用户裁定，C33 MTAT案
  *       0x67fd1190013255c3e3ddc7363f0387d2258e7777：Yuki（1.8万粉）创作歌曲《More
  *       Than a Trade》送给交易员，币安中文官推（S级）转发「建议每日循环」，45秒后
- *       MTAT 抢发——superIP 快车道 name_referent minor_other 0.52（阻断侧 0.68）
+ *       MTAT 抢发——superIP 快车道 web3_user_name_entity_acceptance minor_other 0.52（阻断侧 0.68）
  *       「名字指向无名对象」拦截。裁定原话「要看被转发的指代对象meme程度，以及
  *       被web3用户喜欢的程度。丫丫肯定不行啊是个币安员工，这首歌明显可以」：
  *       「无名对象」要按对象类型分流——人名/账号/周边人物（YAYA型）无内容可玩味
  *       维持拦截；内容作品（歌/视频/梗图/口号）看 meme 玩味空间 + web3 用户契合
  *       双达标放行。落地：①新题仅 superIP 快车道携带（buildStandardQuestions
  *       referentMemeability 参数，标准路径语料作者非超级IP、无名对象无曝光背书，
- *       ChainPulse/Muse 语义不变）；②题面钉死评估对象=name_referent 判定的指代
+ *       ChainPulse/Muse 语义不变）；②题面钉死评估对象=web3_user_name_entity_acceptance 判定的指代
  *       对象本身（被超级IP转发/提及不加分——陈述者量级另有题评）；③两维度 AND
  *       语义入 3 档分档（≥3 豁免，mapper mapSuperIPAnswers nameReferentBlock
- *       命中时查分）；④web3_fit unfit≥0.5 负门继续独立保底（豁免不放 web3 unfit
+ *       命中时查分）；④web3_user_event_fit unfit≥0.5 负门继续独立保底（豁免不放 web3 unfit
  *       盘）
- * J1.22：brand_hijack 题判断锚改「名实一致性」（2026-10-01 用户裁定，C35 币安支付案
+ * J1.22：name_brand_hijack 题判断锚改「名实一致性」（2026-10-01 用户裁定，C35 币安支付案
  *       0xfa4f58fd46fae74490a9d4cd69ed3eaf1b7d7777：@binance 官宣 Binance Pay×PayPay、
- *       何一(S级)转发、第三方铸「币安支付」——事件分 82.72 high 被 brand_hijack
+ *       何一(S级)转发、第三方铸「币安支付」——事件分 82.72 high 被 name_brand_hijack
  *       noul=0.74 硬截断 low，市场 $664K→$1.7M）。裁定原话「"币不是币安发的=劫持"
  *       这肯定不行。如果公司A发了一个产品B，那么代币名字叫B，这肯定不能算品牌
  *       劫持，但是如果发的代币叫做A，那么还是可能算品牌劫持（本质上算是IP或者说
@@ -194,10 +194,10 @@
  *       更大实体→概念不匹配/扩大正常评估；纯蹭热度→劫持）；豁免②⑤加「且币名指向
  *       该事件核心实体」限定、④补「指事件由本人发起非指发币」澄清；①③⑥不动；
  *       mapper 零改动
- * J1.23：event_magnitude/dimension2 A类量级锚改「Web3买家视角」+ web3_fit 小众边界
+ * J1.23：event_magnitude/dimension2 A类量级锚改「Web3买家视角」+ web3_user_event_fit 小众边界
  *       澄清（2026-10-01 用户裁定，C38 久留美案续 0xfedf19759ba9c45b1a8345a2bde916b38acc
  *       7777：J1.22 开播日重析 A类+C档22+传播18.56+时效15=55.56 维持 low——量级锚
- *       「角色大众知名度」未开播=C档0.82 置信锁死，web3_fit 同票只给 marginal 0.44
+ *       「角色大众知名度」未开播=C档0.82 置信锁死，web3_user_event_fit 同票只给 marginal 0.44
  *       （「主题小众」）。裁定原话「A类判定标准没有考虑到Web3用户的喜好，可爱风/
  *       极客风/奇怪的东西等等，Web3用户偏好很强。一个传统严肃的电影绣春刀宣传比
  *       这个case多得多，也不行。最根本上，还是要占到用户角度看叙事」：A类量级
@@ -207,14 +207,14 @@
  *       力定档（可到B档）；②传统严肃风格（正剧/历史/文艺向）大众知名度与宣传量
  *       不转化为 Web3 吸引力（crypto圈不会拿严肃正剧角色玩梗），通常C档以下——
  *       大众知名度排序与 Web3 吸引力排序可完全反向（绣春刀宣传量>>久留美但判定
- *       相反）；③已是圈内梗/被crypto圈广泛二创（PEPE型）=A/S档。web3_fit 边界
+ *       相反）；③已是圈内梗/被crypto圈广泛二创（PEPE型）=A/S档。web3_user_event_fit 边界
  *       同步：「小众」按 Web3 买家视角判——动漫游戏/极客/ACG 对 crypto 圈不是
  *       小众（用户群高度重叠），小众指受众与crypto圈不重叠的领域（传统行业/地域
  *       文化/严肃专业）；强契合典型补可爱萌系ACG角色/极客风题材/奇怪猎奇乐子。
  *       dimension2 A类句配套双证据源（知名度 OR Web3圈内吸引力，与magnitude同
  *       视角）。superIP 快车道量级走 preScores 代码预打分不消费本题，零影响；
  *       mapper 零改动。验证：久留美重析+绣春刀3回归+C30/C31 unfit标准样本+校准集
- * J1.24：brand_hijack 豁免③扩充「当前热门新鲜事锚定的戏谑关联」（2026-10-01 用户
+ * J1.24：name_brand_hijack 豁免③扩充「当前热门新鲜事锚定的戏谑关联」（2026-10-01 用户
  *       裁定，C40 Binance Inu 案 0xcaf66eb2c00d206d741a654face34768cf2a7777：币安
  *       广场官宣 Binance Intelligence 发布会（官方认证、token 创建前 36s），第三方
  *       铸「BI (Binance Inu)」——大系统缩写双关 × Inu 狗形象。裁定原话「这里我觉得
@@ -245,12 +245,12 @@
  *       ① event_magnitude 追加形状③产品实体（与 J1.20 陈述者两形状并列）——主体=
  *       产品实体时母公司知名度不转移不计入，分量只认两条路（事件自身大影响力
  *       ——第三方自发酵传播而非公司宣传声量；或自带可玩梗的可爱形象）；② dimension2
- *       同步形状③口径；③ web3_fit 追加产品实体边界（纯功能型产品不高于 marginal）；
- *       ④ 新增第 15 题 subject_entity（choice 8 档显式标注主体实体类型，供 mapper
+ *       同步形状③口径；③ web3_user_event_fit 追加产品实体边界（纯功能型产品不高于 marginal）；
+ *       ④ 新增第 15 题 event_subject_entity（choice 8 档显式标注主体实体类型，供 mapper
  *       干净切门，替代概率组合猜形状）。wording 实验（5 票两轮，scripts/narrative/
  *       _exp-product-entity-shape.mjs）：麒麟 mag 4.58→2.97 且 fit sf44→mg62（主体
  *       切分生效但 dim2 残留五档57%→仍 high，代码门兜底必需）、狗剩 high73→low56、
- *       多多进宝 high73→low52、中国猪能飞/小八零误伤（±0.25 分抖动内）。web3_fit
+ *       多多进宝 high73→low52、中国猪能飞/小八零误伤（±0.25 分抖动内）。web3_user_event_fit
  *       轴判别力（形状③后）：产品簇 sf+f 19-60% vs 对照赢票 99/74%。配套 mapper
  *       产品实体接纳门（J1.16/J1.23/J1.24 教训：题面切分+代码执行双防线）。
  *       同日补充裁定（用户「不过刚才说的情况，要豁免币安」）：币安等 crypto 原生
@@ -265,14 +265,14 @@
  *       （66-74 分），新题面「币安产品天然强契合」句把 Jev 推向 W 类判定，W 三
  *       轴不适配（发布会被 wProduct 打 0-8 带、wInteraction 打 0 带 → 26 分拦，
  *       违背豁免裁定）。修法三处（仍是 J1.27 零 DB 行产出前修订并入）：Ⅰ 形状③
- *       两处（magnitude/dim2）收窄为「当且仅当主体确为产品实体（subject_entity
+ *       两处（magnitude/dim2）收窄为「当且仅当主体确为产品实体（event_subject_entity
  *       =product_functional/product_character）时适用」+ 显式反向锚「主体是公司
  *       本身/人物/形象IP/热点/梗词时完全不适用，本形状不是全域收紧」；Ⅱ 币安
  *       豁免句补类别口径「事件类别按机构公告口径评估不判W」；Ⅲ event_category
  *       补 D vs W 边界句（crypto 机构官号官宣自家产品 → D 机构行为；W 留给产品/
  *       项目本身为主体的独立发布）。首轮净效应已正确（避亏 +6.850 vs 放弃
  *       2.869 BNB），修订目标是收窄打击面回产品票
- * J1.28（2026-10-08）：referent_memeability（J1.21 superIP 条件题）改为标准路径
+ * J1.28（2026-10-08）：name_entity_memeability（J1.21 superIP 条件题）改为标准路径
  *       恒带，配套 mapper 低档门（memScore≤1 → blocked「不适合成为meme币」，标准
  *       路径 Stage2 阻断链 nameReferentBlock 之后）。用户裁定（0fed29f9 亏损票
  *       分析续案）：「币安汽车」「日产」类蹭得过头、根本不可能成为 meme 币的票
@@ -284,11 +284,11 @@
  *       ⚠️ 行中性化（超级IP→超级IP/大V）。superIP 快车道 J1.21 豁免语义不动
  *       （mapSuperIPAnswers 原样读取）。旧缓存行无此答案不触发门——窗口级缓存
  *       失效脚本配套（scripts/narrative/invalidate-referent-window.cjs）
- * J1.29（2026-10-09 用户裁定挂门）：新增第 16 题 subject_carrier（形象载体存在性，
+ * J1.29（2026-10-09 用户裁定挂门）：新增第 16 题 name_entity_carrier（形象载体存在性，
  *       choice 3 档，恒带——superIP 快车道 mapSuperIPAnswers 不消费本题答案，零影响）
  *       ——bddd3578 C/D/E 亏损票分析案：C/D 35 票净 -2.85 的共同病根=叙事主体无
  *       形象/梗载体（se 无形象桶全域 70 票 winR 17% 净 -5.37；C/D 29/35 票
- *       strong_fit≥0.9 而 winR 7%——web3_fit 在蹭票上语义反向，J1.27 接纳门
+ *       strong_fit≥0.9 而 winR 7%——web3_user_event_fit 在蹭票上语义反向，J1.27 接纳门
  *       fitMass 判据失效）。三档：existing_entity（形象已在事件/语料/官方本体中
  *       真实出现）/ improvised_entity（脑补许愿形象——BNC「binance cat」型，官方
  *       从未展示）/ no_visual_entity（人物言行/公司/功能产品/事件/概念/缩写）。
@@ -305,7 +305,7 @@
  * J1.30（2026-10-14 用户裁定，C64 巴巴鸡案 0x1ea2152c68a3cba1cd3ffe68abd97d95f9ac7777）：
  *       新增第 17 题name_image_consistency（名字与配图主体一致性，choice 3 档，
  *       条件题——仅语料含【图片内容分析】块（imageConsistency=主推配图分析成功
- *       挂载）时问，与 brand_hijack 同款条件题模式，无图不问防幻觉作答）。用户
+ *       挂载）时问，与 name_brand_hijack 同款条件题模式，无图不问防幻觉作答）。用户
  *       裁定原话：「这种情况，如果名字是一只鸡，图片也是一只鸡，恐怕认为这俩有
  *       关联就好了，因为给的信息可能很难判断。」——巴巴鸡案 stage1 A 类
  *       （character_ip 0.84、strong_fit 0.92→web3FitAnchored B）/stage2 66.32 过线，
@@ -314,7 +314,7 @@
  *       推文正文未写名；旧版图分析（img-v2）无文字转写指令且 maxTokens 1500 截断
  *       （key_elements 断成「猪八'"垃圾），字面证据没进 Jev state → Jev 只剩
  *       「名字含鸡+图是鸡形角色」弱证据判 cultural；C59 图豁免又只挂 superIP 快车
- *       道（标准路径无豁免位）且 referent_memeability 1.86<3 也不满足（低估同样
+ *       道（标准路径无豁免位）且 name_entity_memeability 1.86<3 也不满足（低估同样
  *       源于证据缺失）。两改动（用户裁定「都做」）：①P1 根因修复 image-analysis-
  *       service img-v3（visible_text 逐字转写 + maxTokens 2500——图内文字进 state
  *       后 exact_match 档自然判出）；②P2 本题兜「图里没有文字、只有视觉主体」的
@@ -336,7 +336,7 @@
  *       传播而 Web3 用户纯旁观（实测 18 分钟 54 tick 冷盘、买入 31s -12.4%）。
  *       mapper（mapStandardAnswers 标准数学分支）E 类感染力折损：strong=1（不
  *       折）/mild_amusement=0.5/indifferent=0.25，作用于 tierScore+effDim2 两项
- *       （时效不折——新鲜是客观属性；系数选择依据见 mapper 注释）。与 web3_fit
+ *       （时效不折——新鲜是客观属性；系数选择依据见 mapper 注释）。与 web3_user_event_fit
  *       分工：fit=主题合不合口味（静态偏好，J1.19），本题=事件当下激起的情绪
  *       行动力（动态感染）——圈内乐子大梗是 strong 不是 mild。旧缓存行无此答案
  *       → 折损不触发（fail-open，J1.28/J1.29 同款），窗口级缓存失效配套
@@ -347,7 +347,7 @@
  *       反混淆提示（不再注入 tier 预分）。评级可比性断代：superIP 语料票的
  *       量级/时效由 Jev 自判（原 S40+时效15 代码喂饱取消），institution_routine
  *       豁免收紧为仅平台官方 handle。校准/对账按 prompt_version 过滤。
- * J1.34（2026-10-18，C91 BI 0x3891…7777 mem 1.86 案）：referent_memeability 主轴重定义
+ * J1.34（2026-10-18，C91 BI 0x3891…7777 mem 1.86 案）：name_entity_memeability 主轴重定义
  *       （J1.33 人物口径泛化）——用户裁定「币安的产品在币安链上怎么就没有 meme
  *       玩味价值？不能认为是产品就没玩味价值，跟不能认为是人一样；所谓玩味
  *       价值就是 Web3 的影响力」+补「或 Web3 的潜在影响力」：玩味价值核心=
@@ -356,7 +356,7 @@
  *       「普通公司/组织名」与 2 分档「产品功能名」的按类压分收窄为「圈外/
  *       无人知晓」限定；圈内顶流产品/平台（币安级）与禀赋足以预期圈内接住
  *       的新事物按 3-5 档评（3 分档补产品例）。消费点零改动（分数门同 J1.33）。
- * J1.33（2026-10-18，C90 暗号資産の覹者 mem 1.96 案；commit 3440275 误写 C89 已勘误）：referent_memeability
+ * J1.33（2026-10-18，C90 暗号資産の覹者 mem 1.96 案；commit 3440275 误写 C89 已勘误）：name_entity_memeability
  *       题面口径修正——原 0 分档「人名/账号名/周边人物」把一切人物压向无玩味
  *       方向（超级人物指代票 mem 概率分裂 0 档 vs 3 档、分数落带下）。用户
  *       裁定「要看人是什么样的人：普通人当然没有，CZ 当然可以」：0 档收窄为
@@ -386,13 +386,13 @@
  *       mapper 零改动
  * J1.36（2026-10-18，C93 유과 강아지案续+蝙蝠侠摇 0x4547…7777 反证）：event_resonance
  *       题删除（18→17 题）——用户裁定「meme 币发币哪里有什么圈内圈外一说，web3
- *       用户喜欢就行了。event_resonance 是不是可以被替换为 web3_fit？」（B 案）。
+ *       用户喜欢就行了。event_resonance 是不是可以被替换为 web3_user_event_fit？」（B 案）。
  *       根因：①该题量的「事件对 Web3 用户的情绪行动力」对 Jev 不可观测（只见语料
- *       不见链上行为），推断素材与 web3_fit 完全同源，独立作答只产生矛盾面（유과
- *       案同次作答 web3_fit strong_fit 0.97 vs resonance mild 0.79 直接互斥）；②例文
+ *       不见链上行为），推断素材与 web3_user_event_fit 完全同源，独立作答只产生矛盾面（유과
+ *       案同次作答 web3_user_event_fit strong_fit 0.97 vs resonance mild 0.79 直接互斥）；②例文
  *       把「圈外」焊死在 mild 档定义里，判定轴腐化为圈层归属而非情绪强度。E 类
- *       折损机制保留但判据源换 web3_fit（mapper 侧，阈值/系数见 J1.36 注释）；
- *       蝙蝠侠摇形状放行为用户明示接受（实测 web3_fit strong 0.38+fit 0.38=0.76
+ *       折损机制保留但判据源换 web3_user_event_fit（mapper 侧，阈值/系数见 J1.36 注释）；
+ *       蝙蝠侠摇形状放行为用户明示接受（实测 web3_user_event_fit strong 0.38+fit 0.38=0.76
  *       ≥0.5 不折——Jev 认为口味契合，当年 -12.4% 归盘面非叙事错判）
  * J1.37（2026-10-18，C96 币安上电视 0xc6d089d749409f7646de440d637ac9db0e047777
  *       CZ 推文 1 秒快枪案）：新增两题（17→19 题）+ event_category F 档澄清——
@@ -402,18 +402,18 @@
  *       监听 bot）→ J1.32 判 F 类（Discovery「author-discovered」被 CZ 的
  *       spotted 目击语气满足）A 档 34+传播 28+时效 15=77 high 放行，买入 22 秒
  *       -33.4%。三借壳：量级（CZ 粉借给快枪盘）/mem（币安 super_ip 1.72 借给
- *       陈述句名字）/web3_fit（BNB strong 0.93 借给「上电视」转述）——三轴全是
+ *       陈述句名字）/web3_user_event_fit（BNB strong 0.93 借给「上电视」转述）——三轴全是
  *       事件成分的属性，无一轴衡量名字本身作为 meme 载体。两新题：
- *       ①finding_vs_recap（三态恒带）：F 类细化——叙事内容是「作者自己的发现」
+ *       ①event_finding_vs_recap（三态恒带）：F 类细化——叙事内容是「作者自己的发现」
  *         还是「新闻转述」。mapper：event_category=F 且 news_recap → 强制改道
  *         E（categoryForced='f_recap_e'，cashtag 改道同构），E 类既有门自动接管
- *         （J1.29 载体门 E+no_visual / J1.36 web3_fit 折损）。分类逃逸是过关
+ *         （J1.29 载体门 E+no_visual / J1.36 web3_user_event_fit 折损）。分类逃逸是过关
  *         钥匙：no_visual_entity 0.97 若按语义判 E/D 会被载体门当场拦死，逃进
  *         F 不吃载体门不吃折损。
  *       ②name_form（三态恒带）：币名语言形态——实体指代（名词短语：人物/角色/
  *         IP/机构/产品/梗词/口号）vs 事件陈述（主谓结构转述发生的事：X 上电视/
  *         X 破产/X 涨到 Y——新闻标题非实体，无 meme 载体）。mapper 全域硬拦
- *         statementNameBlock（挂 rm 后 mem 地板前），superIpSlogan 五腿刻意不
+ *         statementNameBlock（挂 rm 后 mem 地板前），recognizedEntitySlogan 五腿刻意不
  *         豁——C88 mem 地板（mem<2 拦）拦不住 J1.34 后币安指代 mem≥2+五腿全中
  *         的「币安上电视」形状（mem 轴量不到名字形态，C90「尺子量不到名字」
  *         同款教训），陈述句门是该形状唯一拦截位。
@@ -440,7 +440,7 @@
  *       （BLOCK_SCOPE all argmax + ≥0.5 概率门 negativeHardNewsBlock 双挂已就位）
  * J1.39（2026-10-18，C103 Jean Phil 翻译洗白案 0x6915bec6e90dd26d282f544c91304b0846e97777）：
  *       新增条件题 parent_relationship（19→20 题，语料有【回复的推文】块才问——
- *       brand_hijack/name_image_consistency 同款条件题模式防幻觉作答）。案发现场：
+ *       name_brand_hijack/name_image_consistency 同款条件题模式防幻觉作答）。案发现场：
  *       主推位=Dexerto 原生新闻推（145 万粉，9-28 报道「AI 网红 Jean Phil 币值
  *       $8M」=20 天老）+ website_tweet 位=229 粉小号「热点挖掘机」token 创建前
  *       13s 发的中文翻译推（reply 到 Dexerto 原推，逐句对应无新解读）——C68 载体
@@ -459,7 +459,7 @@
  *       name_form 加第四选 functional_label（题数不变 20）。案发现场：CZ 01:47:24
  *       UTC 发推《Freedom of Money》日本語版本日发售（出书促销推），蹭票者同秒
  *       抢发「日本語版」（symbol/name 逐字=推文元词）。Jev 感知完全正确但无臂表达：
- *       stage3 relevance_type=translation_match 0.62（它知道名字是版本词）而
+ *       stage3 name_event_relevance=translation_match 0.62（它知道名字是版本词）而
  *       name_form 判 entity_phrase 0.96 → C88 五腿全中（superIp 0.53/mem 2.5/
  *       within_7d/strongFit 0.73/relPositive 0.9）豁 J1.29 载体门（no_visual_entity
  *       0.97 本该拦）+ block 臂 routine_content_product 0.82 → S 档 39+27.44+15=
@@ -493,43 +493,43 @@
  *       合格、无感知句片段（滑雪/我要去）不合格，分界=用户侧感知非词源身份；
  *       ③形态缺陷（陈述句/版本词/序号，C107 继承）；④无背景拼写变体（自
  *       block_misspelling 探针并入）。触发案 EARLY（CZ 回复 "you got in early"
- *       逐字发币）被 name_referent common_word「截词」臂误拦——非实体词不走
+ *       逐字发币）被 web3_user_name_entity_acceptance common_word「截词」臂误拦——非实体词不走
  *       实体轴。mapper 侧 nrBlock（J1.10）/rmBlock（J1.28）/memFloor（C88）
  *       拦截位与 misspellingP 探针臂全部退役并入 notMemeNameBlock 单门；
  *       block_misspelling 题删除（C78 实证失效死键：Jev 答 0.13-0.27 拦不住）；
- *       name_referent/referent_memeability 题保留，只喂评分与 C88 五腿豁免链。
+ *       web3_user_name_entity_acceptance/name_entity_memeability 题保留，只喂评分与 C88 五腿豁免链。
  *       题数 20→19
  * J1.43（2026-10-19，C109 题集收敛）：触发案交易猫（0xc929…7777，币安发猫图、
- *       币名=事件核心词）被 J1.29 载体门拦——subject_carrier=no_visual conf 仅
+ *       币名=事件核心词）被 J1.29 载体门拦——name_entity_carrier=no_visual conf 仅
  *       0.09（掷硬币），同一次调用 name_image_consistency same_entity=0.73/
- *       conf 0.59 的事实证据被门无视；根因=name_referent 分类学缺「语料配图中
+ *       conf 0.59 的事实证据被门无视；根因=web3_user_name_entity_acceptance 分类学缺「语料配图中
  *       出现的匿名实体」桶→指代链断裂→主体漂移。用户裁定「合并题/桶」：
- *       ①name_referent 6→3 桶（notable_other+minor_other+common_word+
+ *       ①web3_user_name_entity_acceptance 6→3 桶（notable_other+minor_other+common_word+
  *       none_related 并入 other_referent；合并桶明确配图中出现的形象也是可判定
  *       指代来源——交易猫断链修复点；super_ip 桶不动=C88 sipProb 判据源）；
- *       ②subject_entity 8→2 桶（product_entity/other_entity，J1.27 消费口径
- *       功能产品/产品形象本就同拦）③subject_carrier 锚修正（删「与
- *       name_referent/subject_entity 同对象口径」假引用，锚定 name_referent
- *       指代对象）④relevance_type+relevance_level 两题合一（9 融合桶吸收
+ *       ②event_subject_entity 8→2 桶（product_entity/other_entity，J1.27 消费口径
+ *       功能产品/产品形象本就同拦）③name_entity_carrier 锚修正（删「与
+ *       web3_user_name_entity_acceptance/event_subject_entity 同对象口径」假引用，锚定 web3_user_name_entity_acceptance
+ *       指代对象）④name_event_relevance+relevance_level 两题合一（9 融合桶吸收
  *       level 语义，分值代码端 RELEVANCE_FUSED_SCORES）⑤quality_spelling+
- *       quality_reasonability 合并为 token_quality（0-3 band 索引，联合量纲
- *       0-12 保量表刻度）⑥block_reason 删 regional_event（182 全量 10815 行
+ *       quality_reasonability 合并为 token_name_quality（0-3 band 索引，联合量纲
+ *       0-12 保量表刻度）⑥event_block_reason 删 regional_event（182 全量 10815 行
  *       实证：9 次 argmax/0 次域内拦截=死桶，与 magnitude 三个「范围」镜头
  *       冲突）+ subject_unqualified（31 次/23 次弱概率拦截，与 name_form 无名
  *       实体臂/magnitude 无名低档/mem 0 档三重冗余；粉丝<1万量化锚由 name_form
  *       语义承接）。mapper 同批：M1 imgCarrierOverride（图证∧nicMatchP≥0.5 →
  *       J1.29 豁免——高置信事实证据覆盖低置信载体掷硬币）。基础题数 18→16
- *       （brand_hijack/name_image_consistency/parent_relationship 条件题另计）
+ *       （name_brand_hijack/name_image_consistency/parent_relationship 条件题另计）
  * J1.44（2026-10-19，C110 题集全面复查低风险收敛）：全量复查（16+3+4 题 ↔ mapper
- *       全消费点对拍）三处冗余收敛：①block_reason low_quality_derivative+ip_reuse
+ *       全消费点对拍）三处冗余收敛：①event_block_reason low_quality_derivative+ip_reuse
  *       功能双桶合一（均 A 域、判据重叠=对现有 IP/热点的低质衍生与直接复用、拦截
  *       效果等价，并入 ip_reuse 单桶；mapper BLOCK_SCOPE 低质桶显式空数组退役）；
- *       ②referent_memeability 题面瘦身——删「②与 web3 meme 买家口味的契合」维度
- *       及全部「圈内用户认不认/受众重叠」表述（该判据唯一归 web3_fit，C88 五腿
+ *       ②name_entity_memeability 题面瘦身——删「②与 web3 meme 买家口味的契合」维度
+ *       及全部「圈内用户认不认/受众重叠」表述（该判据唯一归 web3_user_event_fit，C88 五腿
  *       内 mem≥2 与 strongFit≥0.5 双携同一判断的冗余收口），题只评对象自身玩味
  *       空间/二创潜力；分数量表 0-5 与 C88 mem≥2 腿判据不动（分数分布会移动）；
  *       ③同批清理：event_resonance 悬空注释（J1.36 已删题）。结构性两冲突
- *       （mag↔dim2 同轴对、block_reason 例行/营销三桶跨类空洞）用户裁定先 182
+ *       （mag↔dim2 同轴对、event_block_reason 例行/营销三桶跨类空洞）用户裁定先 182
  *       扫描后另立 case，本轮不动题
  * J1.45（2026-10-19，C110 扫描后裁定）：①dimension2 题面删「档位应基本一致」
  *       同轴锚（182 实证 Pearson 0.85/Spearman 0.87、档位不一致仅 2.1%/0.26%——
@@ -576,7 +576,7 @@
  *       =纯生活陈述）；③对照锚加整句对（「只是一只猫」合格/「我要去滑雪」
  *       不合格），句子分界=有无 meme 情绪姿态，非是否整句、非句子长短；④
  *       not_meme_name criteria 立根本判据=web3 用户不接纳它作为 meme 币的名字
- *       （同事件侧 web3_fit 用户视角同构），形态列举降为佐证。mapper 零改动
+ *       （同事件侧 web3_user_event_fit 用户视角同构），形态列举降为佐证。mapper 零改动
  *       （notMemeNameBlock 判据 name_form 三态不动，纯措辞翻 argmax）。
  *       题数不变 16
  * J1.49（2026-10-19，C118 DND 案 0x4dbcb10e…7777 二轮，用户裁定「载体豁免认
@@ -593,7 +593,7 @@
  *       出发」三题用户视角统一）：①name_form 问法收敛「web3 用户能否接纳
  *       这个名字作为 meme 币的名字」+ 三态键改名 web3_user_acceptable /
  *       web3_user_not_acceptable / unclear（mapper NOT_MEME_NAME_CHOICES
- *       收新键+全旧键兼容，正臂结构不变 Set 外即放行）；②relevance_type
+ *       收新键+全旧键兼容，正臂结构不变 Set 外即放行）；②name_event_relevance
  *       主轴改「web3 用户能否理解并接纳这种关联」——各档=「关联方式×用户
  *       理解度」刻画非语言学自足分类，用户 get 不到的关联不因论证成立而
  *       升档（Stage3 关联分，不进 Stage2 60 分线）；③event_magnitude 判定
@@ -616,19 +616,19 @@
  * J1.52（2026-10-20，C121 用户视角批次一）：①w_product_score 评估主轴切
  *       「web3 用户对这个发布的关注与兴奋度」（客观创新性降参考锚+显式否定
  *       发布后实测数据读法）；各带形态结构词刻意保留（C42 wNewProductP=
- *       1−P(0)−P(1) 依赖 0/1=小改进、2/3=产品发布带结构）。②block_reason
+ *       1−P(0)−P(1) 依赖 0/1=小改进、2/3=产品发布带结构）。②event_block_reason
  *       niche_subculture 判据从「圈外人无法理解/无出圈可能」（大众出圈视角，
  *       与用户视角原则相反：crypto 圈内梗对 web3 用户恰是原生强契合）切
  *       「web3 用户接不接得住」（认知可达性轴）；分工：本题问 get 得到/
- *       get 不到，web3_fit 问想要/不想要。182 前置扫描 35 行全 event:A
+ *       get 不到，web3_user_event_fit 问想要/不想要。182 前置扫描 35 行全 event:A
  *       活桶（非死桶故改锚不退役）。BLOCK_SCOPE ['A'] 不变、mapper 零改动。
- *       name_referent super_ip 量级锚切圈内符号级另立 J1.53 单独成版（五腿
+ *       web3_user_name_entity_acceptance super_ip 量级锚切圈内符号级另立 J1.53 单独成版（五腿
  *       +骑乘改道+策略标签三链翻转归因隔离）。题数不变
  * J1.53（2026-10-20，C122 门名断代，零行为意图）：用户裁定「name_form/
  *       niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户
  *       接纳度』/『Web3 用户圈层可达性』」——①name_form 题键改
- *       web3_user_acceptability（内容不动，问法本就是「web3 用户能否接纳
- *       这个名字」）；②block_reason 桶 niche_subculture 改
+ *       web3_user_name_acceptability（内容不动，问法本就是「web3 用户能否接纳
+ *       这个名字」）；②event_block_reason 桶 niche_subculture 改
  *       web3_circle_reachability（判据不动，J1.52 已切认知可达性）。题键
  *       断代：mapper 双键读（新键优先，旧键=存量缓存行兼容），审计键
  *       nameForm/nameFormBlock 同步改名 web3UserAcceptability/
@@ -636,32 +636,54 @@
  *       新旧双键并存（旧键仅存量数据/测试形状可读）。题数不变
  * J1.54（2026-10-20，C123 门名/题键语义化，零判据改动）：用户指令「其它门
  *       的名字也请梳理下，以类似思路，做一下调整」——①event_magnitude 改
- *       web3_user_impact（J1.50/J1.51 起主轴已是「Web3 用户对事件的接纳与
- *       被影响程度」，键名仍停在客观量级）②dimension2 改 web3_user_spread
+ *       web3_user_event_impact（J1.50/J1.51 起主轴已是「Web3 用户对事件的接纳与
+ *       被影响程度」，键名仍停在客观量级）②dimension2 改 web3_user_event_spread
  *       （无语义占位名；J1.23/J1.45/J1.50/J1.51 后语义=用户侧传播面/调动面）。
  *       题面判据文字零改动，仅键名与本文件内跨题引用同步改名（原
- *       event_magnitude 引用 8 处、subject_entity 引用 1 处）。mapper 双键读
+ *       event_magnitude 引用 8 处、event_subject_entity 引用 1 处）。mapper 双键读
  *       （新键优先、旧键=存量 answers 兼容——scan-c88 等工具读历史行重放）、
  *       审计键同步语义化（详见 mapper 头注释与台账 C123）。题数不变
- * J1.55（2026-10-20，C124 name_referent 圈内符号级锚）：用户裁定「超级IP 的判据
+ * J1.55（2026-10-20，C124 web3_user_name_entity_acceptance 圈内符号级锚）：用户裁定「超级IP 的判据
  *       应是 web3 用户普遍认作符号（被拿名字/形象/绰号玩梗、当标签当口号）
  *       的符号级，不是听说过/大众媒体量级」——super_ip 桶主定义切「圈内符号
  *       级」：大众量级不高但圈内是符号（哭哭奶龙型）照判本档；纯大众知名但
  *       圈内不认作符号（圈外明星/传统品牌）不因大众量级升入本档；明确「本题
- *       只判身份量级、不评玩味（referent_memeability 另评）」。J1.18 发布者
+ *       只判身份量级、不评玩味（name_entity_memeability 另评）」。J1.18 发布者
  *       指代分支/三前提/关于自己的原话词/亲口提及实体/官方产出物口号/配图
  *       形象指代臂（J1.43）全部保留不动；other_referent ① 承接句同步「知名但
  *       非符号级」。mapper 零改动（choice 键名/兼容不变）；行为边界移动属预期
  *       （C88 五腿第一腿可达性、rideDetour 改道边界、deriveSuperIpLabels 标签
  *       分布）。题数不变
+ * J1.56（2026-10-20，C126 何一「こんにちは」案 + 用户视角命名批次）：
+ *       ①**题名按评估对象显式化**（用户裁定「命名从用户角度出发，标明针对事件
+ *       还是币名」）：web3_user_event_impact / web3_user_event_spread /
+ *       web3_user_event_fit（事件轴）、web3_user_name_acceptability /
+ *       token_name_quality（币名轴）、name_event_relevance / name_brand_hijack
+ *       （名×事件联合）、event_finding_vs_recap / event_block_reason /
+ *       event_subject_entity（事件轴蛇形补齐）、name_entity_memeability /
+ *       name_entity_carrier（币名所指实体）。纯 id 改名，判据/选项零改动。
+ *       ②**name_referent → web3_user_name_entity_acceptance 语义重构**（用户
+ *       裁定「超级IP 概念复用混淆；应改为币名映射实体对 Web3 用户的接受度/
+ *       影响力」）：三选项 accepted（映射到用户认得的实体——含官方口号/发布者
+ *       指代）/ unknown（实体存在但用户不认得——普通员工/小号/周边人物）/
+ *       no_entity（不映射实体——普通词/截词/问候语/陈述句，**中性不拦**）。
+ *       作者原话票不再靠本题升档（问候语如实 no_entity），改由 state
+ *       corpus_author_identity + 代码侧 authorUtterance（币名逐字出自主推文本）
+ *       承担 C88 第一腿；旧 subject_self/super_ip/other_referent/minor_other/
+ *       common_word/notable_other 六选项退役。
+ *       ③mapper 配套：unknown ≥0.5 → 实体低影响力拦截门（域 B/C/D/F/G/W，旧
+ *       J1.10 nrBlock 规格）；recognizedEntitySlogan → recognizedEntitySlogan（第一腿
+ *       accepted≥0.5 ∨ authorUtterance）；rideDetourMass 退役（新 unknown 门
+ *       覆盖其 B/C 低影响力实体面，W 数学路径不再触达）；state super_ip_hit →
+ *       corpus_author_identity。题数不变
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.55';
+export const JEV_QUESTIONS_VERSION = 'J1.56';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
  * 代币 Symbol/Name（去 emoji/数字/特殊字符后）命中任何一项时才向 Jev 提出
- * brand_hijack 问题，否则省略（省 token、避免无品牌代币被误判）。
+ * name_brand_hijack 问题，否则省略（省 token、避免无品牌代币被误判）。
  */
 const BRAND_HIJACK_KEYWORDS = [
   // A类：头部知名代币
@@ -675,7 +697,7 @@ const BRAND_HIJACK_KEYWORDS = [
 ];
 
 /**
- * 检查代币名是否命中品牌劫持预检（决定是否问 brand_hijack 题）
+ * 检查代币名是否命中品牌劫持预检（决定是否问 name_brand_hijack 题）
  * @param {string} symbol - 代币 Symbol
  * @param {string} name - 代币 Name
  * @returns {boolean}
@@ -718,7 +740,7 @@ export const TIMING_OPTIONS = [
  *   （C/D+非existing / E+no_visual 拦）判据源
  * @param {boolean} [options.imageConsistency] - 是否包含名字与配图主体一致性题
  *   （J1.30，仅语料含【图片内容分析】块——主推配图分析成功挂载——时为 true）：
- *   mapper 名图一致豁免（imgNameExempt）判据源。条件题与 brand_hijack 同模式：
+ *   mapper 名图一致豁免（imgNameExempt）判据源。条件题与 name_brand_hijack 同模式：
  *   无图不问（防幻觉作答），题集形状按语料有无图分叉
  * @param {boolean} [options.parentRelationship] - 是否包含载体与父推关系题
  *   （J1.39，仅语料任一载体槽位（主推/website_tweet/quoted/retweeted）带
@@ -770,7 +792,7 @@ Subject attribution rules (critical):
 
     // ── 1.5 发现 vs 新闻转述（J1.37 恒带：mapper F→E 改道判据源——C96 币安
     //     上电视案；非 F 类时为观察答案，落库不消费）──────────────────
-    finding_vs_recap: {
+    event_finding_vs_recap: {
       type: 'choice',
       instructions: `叙事内容的性质（finding vs recap）。判定语料承载的故事内容属于哪类：
 ⚠️ 评估对象=叙事内容本身（不是发币者、不是事件主体）：故事讲的是「一个发现」还是「一条新闻」。
@@ -785,9 +807,9 @@ Subject attribution rules (critical):
     },
 
     // ── 2. 事件主体量级（原 Stage2 维度一，6 档有序）──────────────────
-    web3_user_impact: {
+    web3_user_event_impact: {
       type: 'score',
-      instructions: `Web3 用户对事件的接纳与被影响程度（web3_user_impact，原 event_magnitude/Stage2 维度一分量等级；J1.54 改名，判据不动），从低到高评估。判定主轴=web3 用户（链上 meme 买家）群体对这个事件的接纳度与被影响程度——多少人会注意到它、被它调动（玩梗/参与/跟风/二创）、拿它当叙事载体。下方档位描述里的客观规模维度（主体量级/粉丝数/传播数据/陈述者关联形状）是参考锚与证据来源，**不是定死的映射**：客观传播数据小但 web3 用户接纳度高——Web3 meme 文化原生母题相关事件（猫狗/动物梗、doge 系、加密圈内梗、AI 极客梗、可爱萌系；J1.23 圈内偏好同款）按用户侧实际被影响程度**升档**（社区级传播的猫梗事件≠社区级普通事件）；反之客观规模大但 web3 用户无感（圈外传统热点/严肃新闻，crypto 圈不会拿它玩梗）不因规模大而升档。
+      instructions: `Web3 用户对事件的接纳与被影响程度（web3_user_event_impact，原 event_magnitude/Stage2 维度一分量等级；J1.54 改名，判据不动），从低到高评估。判定主轴=web3 用户（链上 meme 买家）群体对这个事件的接纳度与被影响程度——多少人会注意到它、被它调动（玩梗/参与/跟风/二创）、拿它当叙事载体。下方档位描述里的客观规模维度（主体量级/粉丝数/传播数据/陈述者关联形状）是参考锚与证据来源，**不是定死的映射**：客观传播数据小但 web3 用户接纳度高——Web3 meme 文化原生母题相关事件（猫狗/动物梗、doge 系、加密圈内梗、AI 极客梗、可爱萌系；J1.23 圈内偏好同款）按用户侧实际被影响程度**升档**（社区级传播的猫梗事件≠社区级普通事件）；反之客观规模大但 web3 用户无感（圈外传统热点/严肃新闻，crypto 圈不会拿它玩梗）不因规模大而升档。
 ⚠️ 主体判定规则（重要）：主体=事件本身的核心实体，不一定是发推人。先分清两种形状（J1.20）：
 形状① 陈述者关联事件——事件就是陈述者（发推人/被回复者）本人的言行/作品/声明/行为 → 主体=该陈述者本人，按其粉丝量级/知名度定档
 形状② 陈述者无关联、只是陈述者——事件是外部实体（外部热点/他人事件/监管政策/平台现象），陈述者只是报道/搬运/评论/找角度 → 主体=该外部事件本身，按事件自身的传播规模定档，陈述者的粉丝数既不代表也不封顶事件量级
@@ -803,7 +825,7 @@ E类证据层级（J1.35，2026-10-18 用户裁定：语料形态决定判据，
 - 说爆火但事件层量化数据明显弱（源头帖互动寥寥）→ 数据推翻陈述，按数据降档
 - 发射推/找角度推/回复者自己的粉丝数与互动数不是事件传播数据，不参与定档；十万粉级以上父推陈述=事件被大V扩散的通道证据照常计入
 B类第三方限制：发布方是第三方小号（非产品官方）且影响力低→最高C档，除非第三方本身是世界级/知名机构人物
-形状③ 产品实体（J1.27 主体切分，仅产品实体主体适用）：当且仅当事件主体确为公司/机构发布的产品实体（芯片/大模型/软件/平台/功能/硬件，代币名指向该产品而非发布公司本身，对应 subject_entity 题 product_entity）时——主体=该产品实体，不是发布公司：母公司/发布方的知名度、规模、行业地位不转移不计入（世界级公司发布的常规产品仍按产品自身分量评档；知名公司发布新芯片型号/新模型版本≠世界级主体）。产品实体的分量只认两条路：①发布事件自身形成大影响力——事件出圈被第三方大范围自发报道/讨论/二创（刷屏级传播、全民话题级）；公司自己的宣传声量与媒体通稿覆盖不算自传播；②产品实体自带可玩梗的可爱/有趣形象（被当吉祥物/表情包/二创对象）。两条都不占→C档以下。⚠️ 本形状是产品实体的专属切分，不是全域收紧——主体是公司本身/人物/独立形象IP/事件热点/梗词时完全不适用，按形状①②原有口径正常评档，不受本形状的任何保守化影响。⚠️ 豁免币安等 crypto 原生机构（加密交易所/公链/Web3 平台）：其发布的产品不适用本切分——链上 meme 买家即其生态用户、其产品对 Web3 天然高接纳，机构影响力正常计入其产品事件（主体量级按机构自身量级评档，事件类别按机构公告口径评估不判W）`,
+形状③ 产品实体（J1.27 主体切分，仅产品实体主体适用）：当且仅当事件主体确为公司/机构发布的产品实体（芯片/大模型/软件/平台/功能/硬件，代币名指向该产品而非发布公司本身，对应 event_subject_entity 题 product_entity）时——主体=该产品实体，不是发布公司：母公司/发布方的知名度、规模、行业地位不转移不计入（世界级公司发布的常规产品仍按产品自身分量评档；知名公司发布新芯片型号/新模型版本≠世界级主体）。产品实体的分量只认两条路：①发布事件自身形成大影响力——事件出圈被第三方大范围自发报道/讨论/二创（刷屏级传播、全民话题级）；公司自己的宣传声量与媒体通稿覆盖不算自传播；②产品实体自带可玩梗的可爱/有趣形象（被当吉祥物/表情包/二创对象）。两条都不占→C档以下。⚠️ 本形状是产品实体的专属切分，不是全域收紧——主体是公司本身/人物/独立形象IP/事件热点/梗词时完全不适用，按形状①②原有口径正常评档，不受本形状的任何保守化影响。⚠️ 豁免币安等 crypto 原生机构（加密交易所/公链/Web3 平台）：其发布的产品不适用本切分——链上 meme 买家即其生态用户、其产品对 Web3 天然高接纳，机构影响力正常计入其产品事件（主体量级按机构自身量级评档，事件类别按机构公告口径评估不判W）`,
       criteria: [
         'E档：完全无热度/无价值——无可识别事件主体、无传播、无独特性（各类阻断档）',
         'D档：小主体——①陈述者关联：粉丝<1万普通创作者/小型不知名媒体/无特色产品；②陈述者无关：地区性本地事件/仅个别人提及的外部小事（各类阻断档）',
@@ -831,7 +853,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
 
     // ── 3.5 载体与父推关系（J1.39 条件题，仅 parentRelationship（语料任一载体
     //    槽位带【回复的推文】块）时加入：mapper C103 源头窗判据源——Jean Phil
-    //    翻译洗白案。条件题与 brand_hijack/name_image_consistency 同模式：无父推
+    //    翻译洗白案。条件题与 name_brand_hijack/name_image_consistency 同模式：无父推
     //    不问防幻觉作答）──
     ...(parentRelationship ? {
       parent_relationship: {
@@ -852,18 +874,18 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     } : {}),
 
     // ── 4. 维度二：主体影响力/传播权重（原各类 Stage2 第二维度，0-30）─
-    web3_user_spread: {
+    web3_user_event_spread: {
       type: 'score',
-      instructions: `事件第二维度：Web3 用户被事件调动的传播面（原各类Stage2维度二，0-30分）。判定主轴同 web3_user_impact=web3 用户对事件的接纳与被影响程度——本题评这个事件/母题/IP 在 web3 用户侧的调动面：圈内有多少人认得它、会被它调动去玩梗/参与/二创。评**用户侧调动面本身**（母题/IP 的圈内认知面与传染力），**不是语料推文账号的实测互动量**——小号载体≠小事件，冷启动语料不因账号小/互动少而压低（与下方形状②「载体数据不参与判分」同向；J1.51 修正：J1.50 版「实际被调动/多少人注意到」措辞曾把镜头误导向实测互动，致借势 IP 票 dim2 塌档）。各类别分带（粉丝量级/知名度/传播数据）是参考锚不是定死映射：Web3 meme 原生母题（猫狗/动物梗/圈内梗/AI 极客梗）认知面广的（猫梗/doge 系/AI 猫经济这类圈内普遍认得的母题）按母题认知面评高档，不因载体数据小而压低。
-⚠️ 本题与web3_user_impact同主体但不同镜头：magnitude定主体的量级档位，本题评**同档主体之中传播面的强弱细分**（谁在实际扩散/发酵/出圈更强）——不是重评一遍档位。传播证据与档位不一致时按本题自己的证据如实评：高档主体传播面弱就给低分，低档主体传播面强就给高分。同按web3_user_impact的两形状分流（J1.20）：陈述者无关联、只是陈述者时，本维度评估的是外部事件主体自身的传播规模，陈述者（发推人/回复者）的粉丝数与互动数据既不代表也不封顶；回复/转述语料按父推/源头所陈述事件的传播计（十万粉级以上父推陈述=事件被大V扩散的证据）。
+      instructions: `事件第二维度：Web3 用户被事件调动的传播面（原各类Stage2维度二，0-30分）。判定主轴同 web3_user_event_impact=web3 用户对事件的接纳与被影响程度——本题评这个事件/母题/IP 在 web3 用户侧的调动面：圈内有多少人认得它、会被它调动去玩梗/参与/二创。评**用户侧调动面本身**（母题/IP 的圈内认知面与传染力），**不是语料推文账号的实测互动量**——小号载体≠小事件，冷启动语料不因账号小/互动少而压低（与下方形状②「载体数据不参与判分」同向；J1.51 修正：J1.50 版「实际被调动/多少人注意到」措辞曾把镜头误导向实测互动，致借势 IP 票 dim2 塌档）。各类别分带（粉丝量级/知名度/传播数据）是参考锚不是定死映射：Web3 meme 原生母题（猫狗/动物梗/圈内梗/AI 极客梗）认知面广的（猫梗/doge 系/AI 猫经济这类圈内普遍认得的母题）按母题认知面评高档，不因载体数据小而压低。
+⚠️ 本题与web3_user_event_impact同主体但不同镜头：magnitude定主体的量级档位，本题评**同档主体之中传播面的强弱细分**（谁在实际扩散/发酵/出圈更强）——不是重评一遍档位。传播证据与档位不一致时按本题自己的证据如实评：高档主体传播面弱就给低分，低档主体传播面强就给高分。同按web3_user_event_impact的两形状分流（J1.20）：陈述者无关联、只是陈述者时，本维度评估的是外部事件主体自身的传播规模，陈述者（发推人/回复者）的粉丝数与互动数据既不代表也不封顶；回复/转述语料按父推/源头所陈述事件的传播计（十万粉级以上父推陈述=事件被大V扩散的证据）。
 各类别语义：
-- A类（形象化IP）=IP方权重：看创作者/关联IP的知名度与Web3圈内吸引力（与web3_user_impact的A类同视角，J1.23）——世界级IP 30/知名IP 20-25/风格契合Web3偏好（可爱萌系/极客风/猎奇）或语料显示圈内期待与讨论的角色形象 18-22/普通KOL 12-17/普通创作者 8-11/新账号 5-8；关联名人IP按该IP知名度定档（如吉祥物蹭总统选举IP→按世界级算）；传统严肃风格作品的角色无圈内吸引力加分；⚠️ 找角度/借势语料（形状②，J1.46）：IP方权重按被借势IP自身知名度判（可用世界知识），载体推文账号的粉丝/赞/转不是IP知名度证据、不参与判分，也不因「语料里只有小号提及」降档
-- B类（非Web3产品）=发布方权重（发布方本身的影响力）：世界级公司25-30/领域知名机构约22/知名个人约20/普通团队8-15/小号约8；新产品尚无自身影响力数据时同按发布者指代定档（与web3_user_impact同口径，如AI领域知名公司→20-24带），版本更新/功能改进/新平台移植语料按低档
+- A类（形象化IP）=IP方权重：看创作者/关联IP的知名度与Web3圈内吸引力（与web3_user_event_impact的A类同视角，J1.23）——世界级IP 30/知名IP 20-25/风格契合Web3偏好（可爱萌系/极客风/猎奇）或语料显示圈内期待与讨论的角色形象 18-22/普通KOL 12-17/普通创作者 8-11/新账号 5-8；关联名人IP按该IP知名度定档（如吉祥物蹭总统选举IP→按世界级算）；传统严肃风格作品的角色无圈内吸引力加分；⚠️ 找角度/借势语料（形状②，J1.46）：IP方权重按被借势IP自身知名度判（可用世界知识），载体推文账号的粉丝/赞/转不是IP知名度证据、不参与判分，也不因「语料里只有小号提及」降档
+- B类（非Web3产品）=发布方权重（发布方本身的影响力）：世界级公司25-30/领域知名机构约22/知名个人约20/普通团队8-15/小号约8；新产品尚无自身影响力数据时同按发布者指代定档（与web3_user_event_impact同口径，如AI领域知名公司→20-24带），版本更新/功能改进/新平台移植语料按低档
 - C/D类=人物/机构影响力权重：直接看事件主体的粉丝量级与身份——世界级名人/顶级机构25-30、知名人物/大型机构20-24、十万粉级15-19、万粉级10-14、千粉及以下5-9（形状②外部事件主体：按事件传播规模对标同分带，如全国级政策/市场事件=全民话题级25-30）
-- E类（社会热点）=热点传播量级：按web3_user_impact的E类证据层级（J1.35）同源判分——被引述源头/父推帖互动数、转述播放量/热搜位次等事件层量化数据优先；无量化数据时热度陈述直接采信（爆火/疯传/大爆=平台级20-24带，全国/全球级25-30）；说爆火但事件层数据明显弱→按数据降档。发射推/找角度推/回复者自己的粉丝与互动数不是事件传播数据，不参与判分（十万粉级以上父推=大V扩散通道证据照常计）
+- E类（社会热点）=热点传播量级：按web3_user_event_impact的E类证据层级（J1.35）同源判分——被引述源头/父推帖互动数、转述播放量/热搜位次等事件层量化数据优先；无量化数据时热度陈述直接采信（爆火/疯传/大爆=平台级20-24带，全国/全球级25-30）；说爆火但事件层数据明显弱→按数据降档。发射推/找角度推/回复者自己的粉丝与互动数不是事件传播数据，不参与判分（十万粉级以上父推=大V扩散通道证据照常计）
 - F/G类=主体影响力权重（同C类语义）
 - W类不适用本题（W类独立计分）
-形状③ 产品实体（J1.27，同web3_user_impact形状③口径，仅产品实体主体适用）：主体是产品实体（代币名指向公司发布的产品而非公司本身）时，本维度按该产品发布事件自身的传播规模计（第三方自发报道/讨论/二创/出圈），母公司知名度与公司宣传声量/媒体通稿覆盖量不计入（豁免同 web3_user_impact：币安等 crypto 原生机构的产品不切分，按机构影响力正常计）。⚠️ 本形状仅产品实体主体适用——公司本身/人物/独立形象IP/事件热点/梗词主体完全不适用，按上述各类别原有口径正常评分`,
+形状③ 产品实体（J1.27，同web3_user_event_impact形状③口径，仅产品实体主体适用）：主体是产品实体（代币名指向公司发布的产品而非公司本身）时，本维度按该产品发布事件自身的传播规模计（第三方自发报道/讨论/二创/出圈），母公司知名度与公司宣传声量/媒体通稿覆盖量不计入（豁免同 web3_user_event_impact：币安等 crypto 原生机构的产品不切分，按机构影响力正常计）。⚠️ 本形状仅产品实体主体适用——公司本身/人物/独立形象IP/事件热点/梗词主体完全不适用，按上述各类别原有口径正常评分`,
       criteria: [
         '0-4分：无——无名主体/零影响力/零互动/无传播',
         '5-9分：微弱——新账号/小号/千粉以下/极小范围传播',
@@ -875,7 +897,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     },
 
     // ── 5. 硬阻断（原各类 Stage2 阻断条件合集；J1.43 退役 2 桶、J1.44 合桶后=none+8 阻断桶）──
-    block_reason: {
+    event_block_reason: {
       type: 'choice',
       instructions: `硬阻断检查（hard-block check）。该事件是否命中任一硬阻断条件？未命中选 none。
 阻断=事件本身无叙事价值/无传播潜力，无论分数多高都不能通过。`,
@@ -883,7 +905,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         none: '无阻断——事件有明确主体和内容，有叙事价值',
         // J1.52（C121）：判据从「圈外人无法理解/无出圈可能」（大众出圈视角，与用户
         // 视角原则相反）切「web3 用户接不接得住」（认知可达性）。分工：本题问 get
-        // 得到/get 不到，web3_fit 问想要/不想要——两种失败不同（圈内能懂但严肃无梗
+        // 得到/get 不到，web3_user_event_fit 问想要/不想要——两种失败不同（圈内能懂但严肃无梗
         // ≠圈外黑话）。crypto 圈内梗对 web3 用户=原生强契合，不选本项（J1.36：meme
         // 币不需要出圈）。⚠️ 品牌营销边界（C110 币安菠萝 A/B 归因：新措辞把
         // 「币圈原生亲切感」泄漏到营销噱头判定，gimmick argmax 100%→47%）：圈内梗
@@ -891,7 +913,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         // 不是社区梗——带币安/crypto 品牌不等于圈内契合。
         // J1.53（C122）：桶键 niche_subculture → web3_circle_reachability（门名
         // 对齐语义；判据内容不动）。
-        web3_circle_reachability: 'Web3 用户圈层可达性不足——名字/形象源自与 crypto 圈不重叠的圈外亚文化（垂直领域黑话/圈子内部梗/地域性社群文化），web3 meme 买家看到它 get 不到梗、无从玩起。⚠️ crypto 圈内梗/黑话≠小圈子——对 web3 用户恰是原生强契合（PEPE/doge/币圈自嘲梗型形象不选本项）；但「圈内梗」只指社区自发形成的文化梗：交易所/项目方的品牌营销物料、官方周边、活动噱头不是社区梗——名字带币安/crypto 品牌不等于圈内契合，无实质产品/事件内容的仍归营销噱头；「圈外」的唯一口径=crypto 圈用户能不能 get（认知可达性），不是大众出圈前景——需不需要/想不想要另有题评（web3_fit），meme 币不需要出圈',
+        web3_circle_reachability: 'Web3 用户圈层可达性不足——名字/形象源自与 crypto 圈不重叠的圈外亚文化（垂直领域黑话/圈子内部梗/地域性社群文化），web3 meme 买家看到它 get 不到梗、无从玩起。⚠️ crypto 圈内梗/黑话≠小圈子——对 web3 用户恰是原生强契合（PEPE/doge/币圈自嘲梗型形象不选本项）；但「圈内梗」只指社区自发形成的文化梗：交易所/项目方的品牌营销物料、官方周边、活动噱头不是社区梗——名字带币安/crypto 品牌不等于圈内契合，无实质产品/事件内容的仍归营销噱头；「圈外」的唯一口径=crypto 圈用户能不能 get（认知可达性），不是大众出圈前景——需不需要/想不想要另有题评（web3_user_event_fit），meme 币不需要出圈',
         empty_content: '空洞内容——纯问候/感叹/日常闲聊，无具体事件或设定',
         institution_routine: '机构日常运营——机构的例行推文：问候/转发/回复/无信息量互动。⚠️ 实质性内容不算：产品发布/功能更新/政策公告/数据报告/合作消息都是有信息量的实质事件',
         marketing_gimmick: '营销噱头——无任何实质产品/事件信息，纯标题党/引流/蹭热点包装（有具体产品或事件内容的推文不算）',
@@ -903,7 +925,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     },
 
     // ── 5.5 Web3 用户偏好契合（J1.19 独立题，事件层受众判断，代码端 unfit≥0.5 质量门拦截）──
-    web3_fit: {
+    web3_user_event_fit: {
       type: 'choice',
       instructions: `Web3用户偏好契合度（web3 meme buyer fit）。判断事件主题与meme币链上买家群体的口味契合度——不是事件影响力大小。
 链上买家画像（BSC meme发射平台真实用户群）：以华语crypto圈为主、全球meme玩家参与；玩梗文化、乐子导向、财富叙事；买的是「能玩、能二创、能传播」的主题。
@@ -922,11 +944,11 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     },
 
     // ── 5.6 主体实体类型（J1.27 独立题，C55 公司产品实体主体切分——mapper 产品实体接纳门的判据源）──
-    // ── J1.43（C109）：subject_entity 8→2 桶——J1.27 产品实体接纳门消费口径
+    // ── J1.43（C109）：event_subject_entity 8→2 桶——J1.27 产品实体接纳门消费口径
     //     本就功能产品/产品形象同拦（mapper 兼容集认旧 choice 名）──────────
-    subject_entity: {
+    event_subject_entity: {
       type: 'choice',
-      instructions: `主体实体类型（subject entity type）。web3_user_impact 所评的事件主体（按其主体判定规则：主体=事件本身的核心实体，不是陈述者）属于哪类实体？
+      instructions: `主体实体类型（subject entity type）。web3_user_event_impact 所评的事件主体（按其主体判定规则：主体=事件本身的核心实体，不是陈述者）属于哪类实体？
 本题只区分一件事：主体是不是「公司/机构发布的产品实体」。产品实体=该公司发布的产品本身（功能产品或产品内形象都算：麒麟芯片/子曰模型/Temu平台/品牌吉祥物/产品内角色），主体是产品而非发布公司。其余一切（公司本身/独立IP形象/真人人物/事件热点/梗词等）一律选 other_entity。`,
       criteria: {
         product_entity: '公司/机构发布的产品实体——主体是该公司发布的产品本身：功能产品（芯片/大模型/软件/平台/功能/硬件/电商服务）或产品中的形象/IP角色（品牌吉祥物/产品内卡通形象/产品线角色）。判断锚：主体是产品→本项；主体是发布公司自身→other_entity；形象不随公司产品发布、是独立 meme 角色/卡通IP/虚拟形象（非「公司发布新产品」语境）→other_entity',
@@ -935,7 +957,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     },
 
     // ── 6-7. W 类专用（产品分 0-35 + 币安交互 0-40，仅 W 类采信）─────
-    // （5.7 事件情绪感染力题已删 J1.36/C93——E 类感染力折损判据源换 web3_fit）
+    // （5.7 事件情绪感染力题已删 J1.36/C93——E 类感染力折损判据源换 web3_user_event_fit）
     // ── J1.52（C121）：评估主轴切 web3 用户关注与兴奋度（用户视角批次）。各带
     //     形态结构词（版本更新/新功能/新产品/创新产品）刻意保留——C42 豁免的
     //     wNewProductP = 1−P(0)−P(1) 依赖「0/1 带=小改进、2/3 带=产品发布」带结构 ──
@@ -962,9 +984,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     },
 
     // ── 8-9. 关联性（原 Stage3 第一大项）─────────────────────────────
-    // ── J1.43（C109）：relevance_type+relevance_level 两题合一——9 融合桶吸收
+    // ── J1.43（C109）：name_event_relevance+relevance_level 两题合一——9 融合桶吸收
     //     原 level 语义，分值代码端 RELEVANCE_FUSED_SCORES（旧两题形状走 legacy 查表）──
-    relevance_type: {
+    name_event_relevance: {
       type: 'choice',
       instructions: `代币名与事件的关联（token-event relevance）——判定主轴=web3 用户能否理解并接纳这种关联（一切从用户角度出发）：用户看到币名与事件，能不能看懂这个关联、接不接受它。看名知梗、见名自然联想到事件=用户理解；圈内文化梗用户一眼接得住=理解且接纳；要靠语言学论证才勉强成立、用户只觉得是硬蹭=理解不了也不接纳。
 检查代币的Symbol和Name（去emoji/数字/特殊字符后）与事件核心词的关系，选**用户能理解并接纳的最强**一种类型——各档是对「关联方式×用户理解度」的刻画，不是客观语言学的自足分类：客观联系再曲折，用户一看就懂且接得住，按其实际理解度选档；反之用户 get 不到的关联，不因论证成立而升档。
@@ -982,27 +1004,35 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       },
     },
 
-    // ── 10. 代币名指向（J1.10 立题；C108 起拦截位退役——概率只喂评分与豁免链）──
-    name_referent: {
+    // ── 10. 币名映射实体对 Web3 用户的接受度/影响力（J1.56 立题，C126 何一
+    //     「こんにちは」案；替代 J1.10 name_referent——旧题把「作者侧身份」和
+    //     「币名指代对象」混在 super_ip 一个词里，概念复用。新轴=实体映射 +
+    //     实体在用户侧的接受度/影响力；作者原话票由代码侧 corpus_author_identity
+    //     + authorUtterance 事实承担，不由本题升档（问候语如实答 no_entity）──
+    web3_user_name_entity_acceptance: {
       type: 'choice',
-      instructions: `代币名指向谁（name referent）——判定代币 Symbol/Name 实际指代对象**在 web3 用户（链上 meme 买家）眼中的身份量级**，不是事件热度、也不是大众媒体量级。
-名字的价值由名字的主人对 web3 用户意味着什么决定：主人被 web3 用户普遍**认作符号**（被拿名字/形象/绰号玩梗、当标签当口号）→名字有独立 meme 生命力；主人对 web3 用户无名（无论大众侧多知名）或仅「听说过」的知晓级→名字只是蹭热度。`,
+      instructions: `币名映射实体对 Web3 用户的接受度/影响力（name-mapped entity acceptance）。判定代币 Symbol/Name（去 emoji/数字/特殊字符后）映射到哪个实体，以及该实体对 web3 用户（链上 meme 买家）的接受度与影响力。
+评估对象=币名映射到的那个实体本身（人物/机构/项目/资产/形象/IP）——不是事件整体热度、不是发推人/陈述者的量级（陈述者量级另有题评）、也不是大众媒体知名度。
+映射成立的三种方式：①直接指代——实体本名/官方译名/通用称法/形象/作品/原创梗（名字=作者本人的名称/自称/外号/作品/原创梗且出自其本人文本，映射到该作者实体）；②实体产出——该实体产出的官方口号/标志性品牌主张/官方文案（口号的作者=产出它的实体，发现/转述/搬运者不改变归属，如币安APP界面的「货币自由」）；③领域知名发布者的独立新产品/重大升级（发布者知名度指代到产品名；不含现有产品的版本更新/功能改进/新平台移植）。
+⚠️ 作者身份本身不是映射——作者的认证/粉丝数不等于币名指向该作者；币名是其本人文本里的普通词/问候语/口头禅等非实体词时，本题如实判「无实体」，不得因作者是超级 IP 而升档（作者原话票由代码侧事实另管）。
+⚠️ 语料/配图中真实出现的形象也是可判定的映射来源：币名与该形象对应时，映射到那个形象本身，按其自身在用户侧的地位评。
+接受度/影响力判据=该实体在 Web3 用户侧被认得、被当符号使用（被拿名字/形象/绰号玩梗、当标签当口号）、被二创传播的程度；「听说过」的知晓级不算，大众知名度不能替代圈内符号性。`,
       criteria: {
-        subject_self: '事件主体/作者自己——名字=主体（或推文作者）的名称/自称/外号/作品/原创梗，且名字出自其本人的文本/背景（含解读型作者自创的说法）。⚠️ 若名字指向的主体本身是无名对象（小号/普通人/小公司/周边人物），且名字来自第三者（哪怕超级IP/大V）报道/提到/@到该对象的文本→不算本项，应选 other_referent',
-        super_ip: '超级IP——名字直接指向 web3 用户普遍**认作符号**的 IP：圈内人物/机构/项目/形象/资产（CZ、币安、PEPE、doge 级——被圈内用户当符号使用：拿名字/形象/绰号玩梗、当标签当口号）。判据=「被当符号使用」的证据级，不是「听说过」的知晓级；大众侧量级不要求——大众量级不高但圈内是符号（哭哭奶龙型）照判本档，纯大众知名但圈内不认作符号（圈外明星/传统品牌）不因大众量级升入本档。⚠️ 本题只判身份量级，不评玩味/二创潜力（referent_memeability 另评）——认得≠好玩。本档包含：①圈内符号级的 IP/人物/机构/形象/资产本身；②**发布者指代（J1.18，独立分支）**：按发布者指代指向领域知名大IP发布者的独立新产品/重大升级（⚠️ 此分支不要求世界级：发布者为该产品所属领域具有显著知名度和影响力的机构/人物即算（如AI领域知名公司、其官号粉丝数十万级），新产品尚无自身影响力积累，其名字的分量由发布者的知名度指代——发布者知名度即转移给新产品名；名字本身是日常词汇不影响（产品官宣/官方域名即为其实体对应）；「独立新产品/重大升级」不含现有产品的版本更新/功能改进/新平台移植（如"桌面版/mobile版/v2上线"——Muse桌面版型，那些不满足发布者指代，仍按 other_referent 评估））（含其关于自己的原话词，如名人原话"我不是天才"→代币"天才"；含该超级IP亲口提及/讲述的具体实体——产品/项目/公司/事件，超级IP的提及本身即事件，如CZ提到的某产品名；含其官方产出物（已上线产品界面/官网/开屏/官方公告/品牌宣传）中的官方口号/标志性品牌主张——口号的作者=产出该口号的机构本身，发现/转述/解读该口号的推文作者只是叙事陈述者，不改变名字归属（如币安APP正式上线界面的品牌口号"货币自由"）；产品界面普通功能文案（菜单/按钮/功能名称，如"提现"）无口号强度不算；不含被其@到的普通人物/小号账号——那些仍是周边对象）。⚠️ 三个前提：①忠实呈现——币名须为该IP名字的忠实使用（原名直接出现，或该IP官方/通用标准译名），经变体替换的（音译字/形近字/跨书写系统字符，如"o"→"哦"）不算，不满足判 other_referent；②已官宣存在——名字所指的对象须已被官方正式官宣或已公开发布，仅为传闻/泄露/内部界面曝光/未官宣计划中的名字（"will be named X"）不算（官方产品正式上线/更新后公开可见的界面口号属已公开发布；发布会/官推正式官宣的新产品属已官宣；"内部界面曝光"仅指未发布产品的内部截图/泄露），不满足判 other_referent；③实体性——名字的主体须指向具体实体（该IP本人/其自指原话词/其实体性提及对象/其官方口号与品牌主张——口号是IP标志性资产，视为有实体对应；发布者指代的新产品/重大升级亦为具体实体），名字只是"IP名或称谓+日常物品词"的拼接（如"Cz黄鞋"=Cz+闲聊物品词"黄鞋"）、或主体词是该IP文本中无具体实体对应的普通词组（修饰+名词的日常用语，无meme元素）——判 other_referent',
-        other_referent: '其他指向（按 web3 用户眼中的实际量级评估）——四类归此：①知名但非符号级——名字指向知名人物/知名公司/知名IP/大V本身的名字，但未达「被 web3 用户当符号使用」的证据级（如十万粉级 KOL、行业知名公司/机构自身的名字、纯大众知名但圈内不认作符号的圈外明星/传统品牌），含知名发布者的版本更新/功能改进/新平台移植（桌面版/mobile版/v2迭代——不满足 super_ip 发布者指代分支）；含变体/传闻指向：币名经变体替换（音译字/形近字/跨书写系统，如"o"→"哦"）、或所指名字仅为未官宣传闻/泄露/未发布产品的命名——即使指向超级IP也归此按实际量级评估；②无名对象——名字指向事件中被提到/@到/点评到的小号、小公司、普通人、小项目、纠纷对象、周边人物（被超级IP或大V提到不改变其无名属性）；③普通词——名字是事件文本中的普通词汇/短语，不指向特定实体；含超级IP文本中的非实体词组：IP闲聊/日常里的日常用词（多为"修饰+名词"，如"Cz黄鞋"的主体词"黄鞋"——无具体实体对应、无meme元素），文本作者是超级IP不影响归此；超级IP明确提及/讲述的具体实体、及其官方产出物中的官方口号/品牌主张不是普通词（按super_ip评估；界面功能文案除外）；④与事件无关——名字在事件文本和主体背景中找不到来源。⚠️ 语料配图中出现的形象（动物/玩偶/吉祥物/角色等）也是可判定的指代来源：币名与配图中出现的形象对应时，按该形象自身的量级与知名度归此评估（图中有猫、名字是猫=名字有可追溯的来源，不是无源想象）',
+        accepted: '币名映射到 Web3 用户高接受度/高影响力的实体——圈内符号级人物/机构/项目/资产/形象（CZ、币安、PEPE、doge 级：被圈内用户当符号使用、拿名字/形象/绰号玩梗）；含该实体的官方口号/标志性品牌主张；含领域知名发布者的独立新产品/重大升级（发布者知名度指代产品名）。⚠️ 判据=实体被 Web3 用户当符号使用，不是大众知名度——大众知名但圈内不认作符号（圈外明星/传统品牌）不归本项；本题只判实体身份量级，不评玩味/二创潜力（name_entity_memeability 另评）',
+        unknown: '币名映射到具体实体，但该实体在 Web3 用户侧接受度/影响力低——普通员工/小号/小公司/周边人物/小众作品/被@的普通人/纠纷对象；被超级 IP 或大V提到不改变其无名。用户侧对这名字没有感知，接不住当符号（YAYA=币安普通员工花名型）',
+        no_entity: '币名不映射任何实体——普通词汇/短语、话中截词、问候语/口头禅等日常用语、陈述句、纯功能词；也未忠实呈现某个已知名称（音译字/形近字/跨书写系统变体、未官宣传闻/泄露命名均不构成映射）。⚠️ 本项中性：不是「用户不接纳」，是「没有实体可评」——名字形态问题交 web3_user_name_acceptability 题判',
       },
     },
 
     // ── 10.5 指代对象 meme 价值（J1.21 superIP 条件题 → J1.28 起恒带；C108 后唯一
     //     拦截消费方=C88 五腿 mem≥2 地板；J1.44 题面瘦身——删「与 web3 买家口味
-    //     契合」维度，该判据唯一归 web3_fit）──
-    referent_memeability: {
+    //     契合」维度，该判据唯一归 web3_user_event_fit）──
+    name_entity_memeability: {
       type: 'score',
-      instructions: `指代对象 meme 玩味价值（referent memeability）。评估对象=代币名指向的那个指代对象（name_referent 题判定的对象）本身——不是发推的陈述者、不是事件整体热度。
+      instructions: `指代对象 meme 玩味价值（referent memeability）。评估对象=代币名指向的那个指代对象（web3_user_name_entity_acceptance 题判定的对象）本身——不是发推的陈述者、不是事件整体热度。
 ⚠️ 对象被大V/超级IP转发/提及/@到不加分（那是陈述者量级，另有题评）——只评对象自身。
 玩味价值的核心=对象自身的内容载体与二创潜力——有没有形象/作品/梗/名场面等可玩、可二创、可共鸣的点，以及对象自身的知名度与被玩梗的传播实绩。⚠️ 对象类型（人物/产品/公司/机构/事件）不是分档依据：「是个人」或「是个产品」不构成低分理由，「无名且无潜力」才无玩味空间。已被大规模玩梗二创的对象——无论是超级人物（CZ 级，言行/绰号/名场面即梗）还是顶流产品/平台（其产品/功能/动作本身就是话题与玩梗对象）——其符号性即内容载体，按 3-5 档正常评分；尚未出名但禀赋（题材/形象/梗属性）足以预期被接住、玩起来的，按潜力上移评分。
-只评这一个维度：对象自身的玩味空间与二创潜力。⚠️ 对象与 web3 圈受众的契合度（圈内认不认）不由本题评——那是 web3_fit 题的判据；本题不给「与 crypto 圈无关」的对象压分`,
+只评这一个维度：对象自身的玩味空间与二创潜力。⚠️ 对象与 web3 圈受众的契合度（圈内认不认）不由本题评——那是 web3_user_event_fit 题的判据；本题不给「与 crypto 圈无关」的对象压分`,
       criteria: [
         '0分：无名普通对象——无名的普通人（员工花名/绰号、被@的普通人/小号、纠纷当事人）或无人在意的小东西（无名小账号/杂项），无内容载体，无玩味空间。⚠️ 对象不因「是人」或「是产品」恒归本档——已被大规模玩梗二创的对象（超级人物、顶流产品/平台）按 3-5 档评，只有无名对象才归本档',
         '1分：严肃对象/事务性名称——机构日常事务、传统公司/组织名，无梗、无二创空间。已是玩梗话题的顶流机构/平台不归本档（其产品/动作本身就是话题，按 3-5 档评）',
@@ -1015,9 +1045,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
 
     // ── 10.6 形象载体存在性（J1.29 恒带：mapper 载体门判据源——C/D+非existing
     //     拦、E+no_visual 拦；superIP 快车道不消费本题答案）──
-    subject_carrier: {
+    name_entity_carrier: {
       type: 'choice',
-      instructions: `形象载体存在性（subject carrier）。评估对象=代币名（Symbol/Name）所指代的那个实体本身（按 name_referent 题判定的指代对象——不是事件整体、不是发推人/陈述者、也不是新闻的发布方；名字指向配图/语料中出现的形象时，评估对象就是那个形象）。
+      instructions: `形象载体存在性（subject carrier）。评估对象=代币名（Symbol/Name）所指代的那个实体本身（按 web3_user_name_entity_acceptance 题判定的指代对象——不是事件整体、不是发推人/陈述者、也不是新闻的发布方；名字指向配图/语料中出现的形象时，评估对象就是那个形象）。
 判定：该指代对象是否是一个具体的、已经存在的、可视化/可形象化的形象实体——即 web3 meme 玩家能不能真的抓住一个「东西」（角色/动物/真人玩梗形象/吉祥物/表情包/meme图/实物形象）拿去做头像、二次创作、玩梗。
 ⚠️ 只判载体的事实存在性，与热度/量级/时效无关（另有题评）。
 三个关键判别：
@@ -1040,9 +1070,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     //     视角统一：问法收敛「web3 用户能否接纳这个名字作为 meme 币的名字」，
     //     三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear
     //     （mapper NOT_MEME_NAME_CHOICES 收新键+全旧键兼容）；J1.53 C122
-    //     题键 name_form → web3_user_acceptability（门名对齐语义，判据不动；
+    //     题键 name_form → web3_user_name_acceptability（门名对齐语义，判据不动；
     //     mapper 双键读，旧键=存量缓存行兼容））────────────────────
-    web3_user_acceptability: {
+    web3_user_name_acceptability: {
       type: 'choice',
       instructions: `web3 用户能否接纳这个名字作为 meme 币的名字（token name as meme）。仅就代币 Name/Symbol（去 emoji/数字/特殊字符后）本身判断，一切从用户角度出发：用户侧对它有没有感知、能否被记住、被抓住当一个符号去玩梗、二创、传播——**能否接纳是唯一问法与唯一判据**；名字的语言学分类只是佐证，不是答案。答案三选一（能接纳 / 不能接纳 / 无法判断），佐证形态如下：
 - 能接纳（web3_user_acceptable）——满足任一：
@@ -1086,7 +1116,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
 
     // ── 10. 品牌劫持（原 Stage3 1.0 节，仅预检命中时加入）────────────
     ...(includeBrandHijack ? {
-      brand_hijack: {
+      name_brand_hijack: {
         type: 'noul',
         instructions: `品牌劫持判断（brand hijacking）。
 ⚠️ 核心事实：此代币来自meme代币发行平台，平台上只能创建meme代币，不可能存在真正的知名代币。
@@ -1137,9 +1167,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
 
     // ── 12-13. 质量（原 Stage3 第二大项，长度分代码端算）─────────────
     // ── J1.43（C109）：quality_spelling+quality_reasonability 两题合一为
-    //     token_quality（拼写+合理性单维度合并判断，0-3 band 索引；旧两题形状
+    //     token_name_quality（拼写+合理性单维度合并判断，0-3 band 索引；旧两题形状
     //     走 mapper legacy bandInterpolate 路径）──────────────────────────
-    token_quality: {
+    token_name_quality: {
       type: 'score',
       instructions: '代币名质量（token name quality：拼写可读性+是否像真实词/有意义组合，合并判断），0-3分。',
       criteria: [

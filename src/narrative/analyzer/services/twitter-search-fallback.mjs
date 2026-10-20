@@ -12,7 +12,7 @@
  *      独立段，绝不触碰 twitterInfo 三键（主推/父推/第二推文）——
  *      narrativeCorpusLagSec（extractCorpusTs 三路径只读 twitterInfo）结构性隔离；
  *   2. 证据是「同名事件背景热度」，section 渲染显式声明非本代币宣告语料，
- *      代币与事件的关联由 Jev 判断（name_referent/brand_hijack 题仍是判据）；
+ *      代币与事件的关联由 Jev 判断（web3_user_name_entity_acceptance/name_brand_hijack 题仍是判据）；
  *   3. 失败永不 throw：任何失败返回 null，analyzer 维持原拒 bit-identical。
  *
  * 缓存（getAccountWithFullTweets 同款手工 get/set，不走 CachedFetcher.fetchWithCache

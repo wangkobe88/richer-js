@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Web3 用户偏好判断层（web3_fit 题 + video_unrated 爆款短路收窄）——本地零 DB 单测
+ * Web3 用户偏好判断层（web3_user_event_fit 题 + video_unrated 爆款短路收窄）——本地零 DB 单测
  * （J1.19，2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案）
  *
  * 覆盖：
- *   A. 问卷形状：web3_fit 题存在（choice 四档 strong_fit/fit/marginal/unfit）、
- *      版本号 J1.19、brand_hijack 条件题互不影响
+ *   A. 问卷形状：web3_user_event_fit 题存在（choice 四档 strong_fit/fit/marginal/unfit）、
+ *      版本号 J1.19、name_brand_hijack 条件题互不影响
  *   B. mapStandardAnswers 路由矩阵：死亡观察员形状（E 类爆款事件分过线 +
  *      unfit 0.72 → rating low + reason 含「Web3用户偏好不合」P=0.72）/
  *      unfit 0.3 放行对照 / 边界 0.5 拦 0.49 放 / 概率缺失放（miss 不误拦）/
- *      nhn 门优先级在前 / stage1+stage2 概率落库审计（probabilities.web3_fit、
+ *      nhn 门优先级在前 / stage1+stage2 概率落库审计（probabilities.web3_user_event_fit、
  *      web3UnfitMass）
  *   D. performPreCheck 规则 3 收窄：爆款+有推文文本或视频标题任一非空 → null
  *      （C83 起 superIP 语料票同走标准路径，本门对 superIP 票经同一 mapper 可达）
@@ -37,15 +37,15 @@ function makeAnswers(web3FitProbs) {
     event_magnitude: { score: 3.5, probabilities: { '3': 0.5, '4': 0.3 } }, // B 档
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 4.1, probabilities: { '4': 0.5, '5': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.9, empty_content: 0.1 } },
-    name_referent: { choice: 'common_word', probabilities: { common_word: 0.55, none_related: 0.3, minor_other: 0.15 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.75, semantic: 0.2 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.9, empty_content: 0.1 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.85, unknown: 0.15 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.75, semantic: 0.2 } },
     relevance_level: { score: 3.6, probabilities: { '3': 0.4, '4': 0.5 } },
     block_misspelling: { noul: 0.05 },
     quality_spelling: { score: 2.8 },
     quality_reasonability: { score: 1.7 },
   };
-  if (web3FitProbs) answers.web3_fit = { choice: 'unfit', probabilities: web3FitProbs };
+  if (web3FitProbs) answers.web3_user_event_fit = { choice: 'unfit', probabilities: web3FitProbs };
   return answers;
 }
 
@@ -69,15 +69,15 @@ async function main() {
   console.log('\n── A. 问卷形状（J1.19 第 14 题，版本随问题集 bump）──');
   const qs = buildStandardQuestions();
   check('A1 版本号 ≥ J1.21（随问题集 bump 不回退）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 21, JEV_QUESTIONS_VERSION);
-  const w3q = qs.web3_fit;
-  check('A2 web3_fit 题存在且 type=choice', !!w3q && w3q.type === 'choice', w3q?.type);
+  const w3q = qs.web3_user_event_fit;
+  check('A2 web3_user_event_fit 题存在且 type=choice', !!w3q && w3q.type === 'choice', w3q?.type);
   check('A3 四档选项齐全', w3q && ['strong_fit', 'fit', 'marginal', 'unfit'].every(k => typeof w3q.criteria[k] === 'string' && w3q.criteria[k].length > 0), w3q ? Object.keys(w3q.criteria) : null);
   check('A4 题面含买家画像与判据说明', w3q && w3q.instructions.includes('链上买家画像') && w3q.instructions.includes('玩梗'), null);
   const qsNoBrand = buildStandardQuestions({ includeBrandHijack: false });
-  check('A5 无品牌劫持时不含 brand_hijack（条件题互不影响）', !('brand_hijack' in qsNoBrand) && 'web3_fit' in qsNoBrand, null);
+  check('A5 无品牌劫持时不含 name_brand_hijack（条件题互不影响）', !('name_brand_hijack' in qsNoBrand) && 'web3_user_event_fit' in qsNoBrand, null);
 
   // ═══ B. mapStandardAnswers 路由矩阵 ═══
-  console.log('\n── B. 标准路径 web3_fit 质量门矩阵 ──');
+  console.log('\n── B. 标准路径 web3_user_event_fit 质量门矩阵 ──');
 
   // B1 死亡观察员形状：unfit 0.72 → 拦
   const r1 = mapStandardAnswers(makeAnswers({ unfit: 0.72, marginal: 0.12, fit: 0.1, strong_fit: 0.06 }), makeContext(tokenData));
@@ -85,7 +85,7 @@ async function main() {
   check('B2 reason 含「Web3用户偏好不合」+ P=0.72', r1.llmResult.reason.includes('Web3用户偏好不合') && r1.llmResult.reason.includes('0.72'), r1.llmResult.reason);
   check('B3 stage2 blockReason 同标签', r1.stage2DataToSave.parsed_output.blockReason === 'Web3用户偏好不合', r1.stage2DataToSave.parsed_output.blockReason);
   check('B4 stage2 审计 web3UnfitMass=0.72', r1.stage2DataToSave.parsed_output.jev.web3UnfitMass === 0.72, r1.stage2DataToSave.parsed_output.jev.web3UnfitMass);
-  check('B5 stage1 概率落库 probabilities.web3_fit', r1.stage1DataToSave.parsed_output.jev.probabilities.web3_fit?.unfit === 0.72, r1.stage1DataToSave.parsed_output.jev.probabilities.web3_fit);
+  check('B5 stage1 概率落库 probabilities.web3_user_event_fit', r1.stage1DataToSave.parsed_output.jev.probabilities.web3_user_event_fit?.unfit === 0.72, r1.stage1DataToSave.parsed_output.jev.probabilities.web3_user_event_fit);
 
   // B6 同形状 unfit 0.3（fit 为主）→ 不因偏好拦，评分正常走
   const r2 = mapStandardAnswers(makeAnswers({ unfit: 0.3, fit: 0.5, marginal: 0.12, strong_fit: 0.08 }), makeContext(tokenData));
@@ -104,11 +104,11 @@ async function main() {
 
   // B9 概率缺失（JevClient 缺 answer 会 throw，到 mapper 的一般是完整集；miss 不误拦）
   const r5 = mapStandardAnswers(makeAnswers(null), makeContext(tokenData));
-  check('B9 web3_fit 答案缺失 → 不拦（?? 0 兜底）', r5.llmResult.rating !== 'low' || !r5.llmResult.reason.includes('Web3用户偏好不合'), r5.llmResult.reason);
+  check('B9 web3_user_event_fit 答案缺失 → 不拦（?? 0 兜底）', r5.llmResult.rating !== 'low' || !r5.llmResult.reason.includes('Web3用户偏好不合'), r5.llmResult.reason);
 
   // B10 nhn 门优先级在前（双门同命中展示负面硬新闻）
   const nhnAnswers = makeAnswers({ unfit: 0.7, fit: 0.3 });
-  nhnAnswers.block_reason = { choice: 'none', probabilities: { none: 0.3, negative_hard_news: 0.6, empty_content: 0.1 } };
+  nhnAnswers.event_block_reason = { choice: 'none', probabilities: { none: 0.3, negative_hard_news: 0.6, empty_content: 0.1 } };
   const r6 = mapStandardAnswers(nhnAnswers, makeContext(tokenData));
   check('B10 nhn 0.6 + unfit 0.7 双命中 → 展示负面硬新闻（优先级在前）', r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
 
@@ -152,7 +152,7 @@ async function main() {
   check('D3 爆款+无推文+无标题 → mid 短路（无语料可读型）', d3 && d3.rating === 'mid' && d3.details.ruleName === 'video_unrated', d3);
 
   // D5 爆款 + 无 twitterInfo + 有视频标题 → null 进 Jev（C31 Training season/显化之歌案：
-  // 抖音链接票无推文文本，但 title「Dua Lipa的显化之歌…」完整描述内容类型，Jev 凭标题可判 web3_fit）
+  // 抖音链接票无推文文本，但 title「Dua Lipa的显化之歌…」完整描述内容类型，Jev 凭标题可判 web3_user_event_fit）
   const d5 = await performPreCheck(baseToken, null, { twitter_url: 'https://v.douyin.com/xxx' }, null, { douyin: [{ url: 'https://v.douyin.com/xxx', type: 'video', platform: 'douyin', priority: 1 }] }, { douyinInfo: viralDouyin }, null, null, { ignoreExpired: true });
   check('D5 爆款+无推文+有标题 → null 进 Jev（C31 二次收窄生效）', d5 === null, d5);
 

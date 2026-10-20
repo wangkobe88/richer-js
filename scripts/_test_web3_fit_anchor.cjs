@@ -7,7 +7,7 @@
  *   A. 锚矩阵（mapStandardAnswers 路由）：久留美 J1.23 实测 answers 数值复现
  *      （A类 + C档0.94 + strong_fit 0.88 → 锚B → 61.12 过线 high + 审计标记）/
  *      strong_fit 0.49 贴线不锚 / C-D-E 类不锚（作用域 A/B）/ B/A/S 原判不动 /
- *      D/E 档锚后放行 / web3_fit 缺失 fail-closed
+ *      D/E 档锚后放行 / web3_user_event_fit 缺失 fail-closed
  *   B. 负门正锚共存：unfit 0.88 拦截维持（对称负门不被正锚干扰）
  *   C. 审计与 reason：jevImpactTier 原判保留 / reason 带「Web3偏好锚」/
  *      stage1 jev.web3FitAnchoredTier 落位
@@ -30,7 +30,7 @@ function check(name, cond, detail) {
 }
 
 // ── C38 久留美 J1.23 实测 answers 快照（182 重析 2026-10-01T05:52Z，DB 实证）──────
-// category A 0.80 / magnitude 档2(C) 0.94 / web3_fit strong_fit 0.88 /
+// category A 0.80 / magnitude 档2(C) 0.94 / web3_user_event_fit strong_fit 0.88 /
 // rcp 0.63（A类豁免）/ subject_self 0.44 / dim2 2.14 → 19.12 / within_7d
 const kurumiTokenData = { symbol: '久留美', name: 'FX战士久留美', raw_api_data: { name: 'FX战士久留美' } };
 
@@ -43,13 +43,13 @@ function kurumiAnswers({ tier = 2, tierProbs = { '2': 0.94 }, strongFit = 0.88, 
     event_magnitude: { score: tier, probabilities: tierProbs },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 2.14, probabilities: { '2': 0.6, '3': 0.3 } },
-    block_reason: {
+    event_block_reason: {
       choice: 'routine_content_product',
       probabilities: { routine_content_product: 0.63, none: 0.22, institution_routine: 0.07 },
     },
-    name_referent: { choice: 'subject_self', probabilities: { subject_self: 0.44, notable_other: 0.40, minor_other: 0.14 } },
-    web3_fit: w3,
-    relevance_type: { choice: 'translation_match', probabilities: { translation_match: 0.7, exact_match: 0.15, semantic: 0.1 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.98 } },
+    web3_user_event_fit: w3,
+    name_event_relevance: { choice: 'translation_match', probabilities: { translation_match: 0.7, exact_match: 0.15, semantic: 0.1 } },
     relevance_level: { score: 3.3, probabilities: { '3': 0.4, '4': 0.5 } },
     block_misspelling: { noul: 0.1 },
     quality_spelling: { score: 2.82 },
@@ -113,12 +113,12 @@ async function main() {
   check('A6 D 档锚 B：量级不足阻断不触发、按 B 档计分', !/量级不足/.test(s6.blockReason || '无') && s6.scoringResult?.tierScore === 27,
     { r: s6.blockReason, t: s6.scoringResult?.tierScore });
 
-  // A7 web3_fit 整题缺失 / 概率缺失 → 不锚 fail-closed（C 档计分 56.12<60 拦）
+  // A7 web3_user_event_fit 整题缺失 / 概率缺失 → 不锚 fail-closed（C 档计分 56.12<60 拦）
   const noFit = kurumiAnswers({ web3Fit: undefined });
-  delete noFit.web3_fit;
+  delete noFit.web3_user_event_fit;
   const m7 = mapStandardAnswers(noFit, makeContext(kurumiTokenData, noFit));
   const s7 = m7?.stage2DataToSave?.parsed_output || {};
-  check('A7 web3_fit 缺失不锚（事件分不足拦截维持）', s7.pass === false && /事件分不足/.test(s7.blockReason || '') && s7.scoringResult?.tierScore === 22,
+  check('A7 web3_user_event_fit 缺失不锚（事件分不足拦截维持）', s7.pass === false && /事件分不足/.test(s7.blockReason || '') && s7.scoringResult?.tierScore === 22,
     { r: s7.blockReason, t: s7.scoringResult?.tierScore });
 
   // A8 W 类（cashtag 改道等）不受锚影响：A 类被改写为 W 时 category!=='A'
@@ -164,13 +164,13 @@ async function main() {
       event_magnitude: { score: 1.35, probabilities: { '0': 0.01, '1': 0.75, '2': 0.16, '3': 0.05, '4': 0.03, '5': 0 } },
       event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.96, within_30d: 0.01, older: 0.01, unknown: 0.01 } },
       dimension2: { score: dim2Score, probabilities: { '0': 0.45, '1': 0.48, '2': 0.03, '3': 0.02, '4': 0.02, '5': 0 } },
-      block_reason: { choice: 'none', probabilities: { none: 0.66, subject_unqualified: 0.15, regional_event: 0.1, marketing_gimmick: 0.05, routine_content_product: 0.02, institution_routine: 0.01, low_quality_derivative: 0.01 } },
-      web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.21, marginal: 0.21, unfit: 0.01 } },
-      subject_entity: { choice: 'product_character', probabilities: { product_character: 0.53, product_functional: 0.34, character_ip: 0.11, event_hotspot: 0.01 } },
-      name_referent: { choice: 'minor_other', probabilities: { minor_other: 0.39999999999999997, subject_self: 0.33999999999999997, notable_other: 0.19, super_ip: 0.04, common_word: 0.02, none_related: 0.01 } },
-      referent_memeability: { score: memScore, probabilities: { '2': 0.88, '0': 0.03, '1': 0.08, '3': 0.01 } },
-      subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.49, improvised_entity: 0.42, no_visual_entity: 0.09 } },
-      relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.96, semantic: 0.04 } },
+      event_block_reason: { choice: 'none', probabilities: { none: 0.66, subject_unqualified: 0.15, regional_event: 0.1, marketing_gimmick: 0.05, routine_content_product: 0.02, institution_routine: 0.01, low_quality_derivative: 0.01 } },
+      web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.21, marginal: 0.21, unfit: 0.01 } },
+      event_subject_entity: { choice: 'product_character', probabilities: { product_character: 0.53, product_functional: 0.34, character_ip: 0.11, event_hotspot: 0.01 } },
+      web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.93, accepted: 0.04, unknown: 0.03 } },
+      name_entity_memeability: { score: memScore, probabilities: { '2': 0.88, '0': 0.03, '1': 0.08, '3': 0.01 } },
+      name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.49, improvised_entity: 0.42, no_visual_entity: 0.09 } },
+      name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.96, semantic: 0.04 } },
       relevance_level: { score: 3.55, probabilities: { '4': 0.75, '3': 0.13, '1': 0.05, '2': 0.04, '0': 0.03 } },
       block_misspelling: { noul: 0.1 },
       quality_spelling: { score: 2.88 },
@@ -232,7 +232,7 @@ async function main() {
 
   // D6 unfit 负门 B 类共存：Web3 用户不喜欢 → 量级/传播锚不救（对称负门）
   const d6a = jxaAnswers({ memScore: 2.2, strongFit: 0.02 });
-  d6a.web3_fit = { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } };
+  d6a.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } };
   const md6 = mapStandardAnswers(d6a, makeContext(jxaTokenData, d6a));
   const sd6 = md6?.stage2DataToSave?.parsed_output || {};
   check('D6 B 类 unfit 0.88 负门拦截维持（偏好不合先于锚）',

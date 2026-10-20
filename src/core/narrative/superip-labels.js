@@ -5,9 +5,9 @@
  * 代币的叙事分析标签，也同样返回给实验引擎并展示在界面上」）。
  *
  * 零列方案：不落 DB 列，全部从既有 stage1/stage2 JSON 推导——
- *   narrativeSuperIp      = stage1 jev.probabilities.name_referent.super_ip ≥ 0.5 → 1，
+ *   narrativeSuperIp      = stage1 jev.probabilities.web3_user_name_entity_acceptance.accepted ≥ 0.5 → 1，
  *                           否则 0；stage1 缺失（prestage/precheck fail/未分析）→ null
- *   narrativeSuperIpSlogan = stage2 jev.superIpSlogan（mapper C88 恒落键）.hit → 1/0；
+ *   narrativeSuperIpSlogan = stage2 jev.recognizedEntitySlogan（mapper C88 恒落键）.hit → 1/0；
  *                           键缺失（C88 前旧缓存行）→ null
  *
  * 三态语义（与 narrativeCategory null 放行臂同形）：1=是，0=评估未中（有 stage 数据
@@ -55,9 +55,10 @@ function _stagePayload(s) {
 function deriveSuperIpLabels(stage1Result, stage2Result) {
   const s1po = _stagePayload(_asObj(stage1Result));
   const s2po = _stagePayload(_asObj(stage2Result));
-  const superIpProb = s1po?.jev?.probabilities?.name_referent?.super_ip ?? null;
+  // J1.56（C126）：实体题轴改 accepted（映射到用户认得的实体）；旧行无新键 → null
+  const superIpProb = s1po?.jev?.probabilities?.web3_user_name_entity_acceptance?.accepted ?? null;
   const narrativeSuperIp = superIpProb == null ? null : (superIpProb >= 0.5 ? 1 : 0);
-  const slog = s2po?.jev?.superIpSlogan ?? null;
+  const slog = s2po?.jev?.recognizedEntitySlogan ?? null;
   const narrativeSuperIpSlogan = slog == null ? null : (slog.hit === true ? 1 : 0);
   return { narrativeSuperIp, narrativeSuperIpSlogan };
 }

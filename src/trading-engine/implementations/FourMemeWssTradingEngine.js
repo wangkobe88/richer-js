@@ -1585,7 +1585,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._narrativeTriggerLaunch(tokenAddress, {
         rounds: 0, inFlight: false, hasInitial: false, lastRating: null,
         lastCompletedAt: null, accountOnly: false, currentRowId: null, category: null,
-        superIp: null, superIpSlogan: null,
+        superIp: null, recognizedEntitySlogan: null,
       }, 'condition', token);
       return;
     }
@@ -1637,7 +1637,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // C88 超级IP两标签回填（2026-10-18 CZ 出书簇）：analyzer 零列推导三态
         // 1/0/null；catch 异常轮保持 null（fail-closed：==1 臂恒 false）
         st.superIp = r.narrativeSuperIp ?? null;
-        st.superIpSlogan = r.narrativeSuperIpSlogan ?? null;
+        st.recognizedEntitySlogan = r.narrativeSuperIpSlogan ?? null;
         this._projectNarrativeFactors(tokenAddress, st);
         this.logger.info(this._experimentId, 'NarrativeTrigger',
           `${sym} 析毕 R${roundNo}(${reason}) | rating=${r.numericRating}(${r.rating})` +
@@ -1673,7 +1673,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       inFlight: st.inFlight === true,
       category: st.category ?? null,
       superIp: st.superIp ?? null,
-      superIpSlogan: st.superIpSlogan ?? null,
+      recognizedEntitySlogan: st.recognizedEntitySlogan ?? null,
     });
   }
 

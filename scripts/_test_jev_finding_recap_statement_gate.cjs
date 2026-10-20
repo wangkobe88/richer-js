@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * C96 / J1.37 F→E 改道 + 名字门单测——finding_vs_recap（改道）+ name_form
+ * C96 / J1.37 F→E 改道 + 名字门单测——event_finding_vs_recap（改道）+ name_form
  * （C96 陈述句门 → C105 版本词门 → C107/J1.41 收敛为单一合格度判断
  * 「是否合适作为 meme 币」）——本地零 DB 零网络单测（2026-10-18 C96 双立项；
  * 2026-10-19 C105 追加；同日 C107 用户裁定收敛）
@@ -9,7 +9,7 @@
  * 「BNB 上越南国家电视」1 秒后快枪发币，J1.32 判 F 类（Discovery「author-
  * discovered」被 spotted 目击语气满足）A 档 77 分 high 放行，买入 22 秒 -33.4%。
  * 分类逃逸是过关钥匙：no_visual_entity 0.97 若按语义判 E/D 会被 J1.29 载体门
- * 当场拦死，逃进 F 不吃载体门不吃折损。三借壳（量级/mem/web3_fit）全是事件
+ * 当场拦死，逃进 F 不吃载体门不吃折损。三借壳（量级/mem/web3_user_event_fit）全是事件
  * 成分属性，无一轴衡量名字本身作为 meme 载体。
  *
  * 案发二（0xe156aa3f3e89ded51ef0b980018ef15ae0517777「日本語版」，C105）：
@@ -71,21 +71,21 @@ function baseAnswers(cat, overrides = {}) {
     event_magnitude: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.92 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.9, notable_other: 0.08 } },
-    referent_memeability: { score: 3, probabilities: {} },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
-    subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.8 } },
-    subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.7 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.08 } },
+    name_entity_memeability: { score: 3, probabilities: {} },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
+    name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.8 } },
+    event_subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.7 } },
     // probabilities 带 none 低占位：relNoneMass = none ?? 1，缺键默认 1 会让
     // C88 五腿 miss（relNone<0.5 腿）——C-专项五腿全中形状依赖此键
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.8, none: 0.05 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8, none: 0.05 } },
     relevance_level: { score: 4.5, probabilities: { '4': 0.6, '5': 0.3 } },
     block_misspelling: { noul: 0.02 },
     quality_spelling: { score: 6.5 },
     quality_reasonability: { score: 4.5 },
     // J1.37 两新题默认值（不触发名字门）
-    finding_vs_recap: { choice: 'narrative_finding', probabilities: { narrative_finding: 0.8, news_recap: 0.15 } },
+    event_finding_vs_recap: { choice: 'narrative_finding', probabilities: { narrative_finding: 0.8, news_recap: 0.15 } },
     name_form: { choice: 'entity_phrase', probabilities: { entity_phrase: 0.85 } },
   };
   return Object.assign(answers, overrides);
@@ -116,18 +116,18 @@ function incidentAnswers({ recap = 'news_recap', nameForm = 'statement', mem = 1
     event_magnitude: { score: 8.2, probabilities: { '5': 0.62, '4': 0.25 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 28, probabilities: { '5': 0.6, '4': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.92 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.6, notable_other: 0.2 } },
-    referent_memeability: { score: mem, probabilities: {} },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.93, fit: 0.04 } },
-    subject_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.97, improvised_entity: 0.02 } },
-    subject_entity: { choice: 'product_functional', probabilities: { product_functional: 0.61 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.44, translation_match: 0.3, none: 0.08 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.6, unknown: 0.2 } },
+    name_entity_memeability: { score: mem, probabilities: {} },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.93, fit: 0.04 } },
+    name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.97, improvised_entity: 0.02 } },
+    event_subject_entity: { choice: 'product_functional', probabilities: { product_functional: 0.61 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.44, translation_match: 0.3, none: 0.08 } },
     relevance_level: { score: 4.5, probabilities: { '4': 0.6, '5': 0.3 } },
     block_misspelling: { noul: 0.02 },
     quality_spelling: { score: 6.5 },
     quality_reasonability: { score: 4.5 },
-    finding_vs_recap: { choice: recap, probabilities: { [recap]: 0.8 } },
+    event_finding_vs_recap: { choice: recap, probabilities: { [recap]: 0.8 } },
     name_form: { choice: nameForm, probabilities: { [nameForm]: 0.85 } },
   };
 }
@@ -148,18 +148,18 @@ function jpEditionAnswers({ nameForm = 'not_meme_name' } = {}) {
     event_magnitude: { score: 8.6, probabilities: { '5': 0.9, '4': 0.04 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 1.0 } },
     dimension2: { score: 27, probabilities: { '5': 0.8, '4': 0.06 } },
-    block_reason: { choice: 'routine_content_product', probabilities: { routine_content_product: 0.82, none: 0.14 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.53, common_word: 0.22, notable_other: 0.14 } },
-    referent_memeability: { score: 2.5, probabilities: {} },
-    web3_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, marginal: 0.16, fit: 0.08 } },
-    subject_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.97, existing_entity: 0.03 } },
-    subject_entity: { choice: 'product_functional', probabilities: { product_functional: 0.75, event_hotspot: 0.13 } },
-    relevance_type: { choice: 'translation_match', probabilities: { translation_match: 0.62, exact_match: 0.2, none: 0.08 } },
+    event_block_reason: { choice: 'routine_content_product', probabilities: { routine_content_product: 0.82, none: 0.14 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.53, no_entity: 0.22, unknown: 0.14 } },
+    name_entity_memeability: { score: 2.5, probabilities: {} },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, marginal: 0.16, fit: 0.08 } },
+    name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.97, existing_entity: 0.03 } },
+    event_subject_entity: { choice: 'product_functional', probabilities: { product_functional: 0.75, event_hotspot: 0.13 } },
+    name_event_relevance: { choice: 'translation_match', probabilities: { translation_match: 0.62, exact_match: 0.2, none: 0.08 } },
     relevance_level: { score: 2.5, probabilities: { '4': 0.33, '1': 0.27, '0': 0.23 } },
     block_misspelling: { noul: 0.12 },
     quality_spelling: { score: 4.64 },
     quality_reasonability: { score: 2.74 },
-    finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 1.0 } },
+    event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 1.0 } },
     name_form: { choice: nameForm, probabilities: { [nameForm]: 0.85 } },
   };
 }
@@ -171,20 +171,20 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
-  check('A1 版本号 = J1.55（J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + relevance_type/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.55', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.55（J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + name_event_relevance/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
-  check('A2 finding_vs_recap 恒带（默认题集）', 'finding_vs_recap' in qs, Object.keys(qs).length);
-  check('A3 web3_user_acceptability 恒带（默认题集）', 'web3_user_acceptability' in qs, null);
-  const fvr = qs.finding_vs_recap;
-  check('A4 finding_vs_recap type=choice 三态', fvr.type === 'choice'
+  check('A2 event_finding_vs_recap 恒带（默认题集）', 'event_finding_vs_recap' in qs, Object.keys(qs).length);
+  check('A3 web3_user_name_acceptability 恒带（默认题集）', 'web3_user_name_acceptability' in qs, null);
+  const fvr = qs.event_finding_vs_recap;
+  check('A4 event_finding_vs_recap type=choice 三态', fvr.type === 'choice'
     && ['narrative_finding', 'news_recap', 'unclear'].every(k => k in fvr.criteria), null);
-  check('A5 finding_vs_recap 关键判别锚：发现语气不构成发现（大V报道→news_recap）',
+  check('A5 event_finding_vs_recap 关键判别锚：发现语气不构成发现（大V报道→news_recap）',
     fvr.instructions.includes('不构成发现') && fvr.instructions.includes('目击动作'), null);
-  const nf = qs.web3_user_acceptability;
-  check('A6 web3_user_acceptability type=choice 三态（J1.55 C122 题键 name_form→web3_user_acceptability；J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
+  const nf = qs.web3_user_name_acceptability;
+  check('A6 web3_user_name_acceptability type=choice 三态（J1.55 C122 题键 name_form→web3_user_name_acceptability；J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
     && ['web3_user_acceptable', 'web3_user_not_acceptable', 'unclear'].every(k => k in nf.criteria)
     && !['meme_name', 'not_meme_name', 'entity_phrase', 'statement', 'functional_label'].some(k => k in nf.criteria), Object.keys(nf.criteria));
-  check('A7 web3_user_acceptability 判名字本身不判指向对象（影响力/玩味价值另有题评）',
+  check('A7 web3_user_name_acceptability 判名字本身不判指向对象（影响力/玩味价值另有题评）',
     nf.instructions.includes('判名字本身，不判名字指向对象的影响力/玩味价值'), null);
   check('A7b name_form 单一判据锚：「能否接纳」是唯一问法与唯一判据（J1.50 问法收敛，C107/C108 裁定语义延续）',
     nf.instructions.includes('能否接纳是唯一问法与唯一判据'), null);
@@ -195,8 +195,8 @@ async function main() {
     /F:\s*'Discovery:[^']*NOT a news event the author merely witnessed\/reported/.test(
       (await readQuestionsSrc()).replace(/\n/g, ' ')), null);
   check('A11 两新题不受条件开关影响（includeBrandHijack 臂同带）',
-    'finding_vs_recap' in buildStandardQuestions({ includeBrandHijack: true })
-    && 'web3_user_acceptability' in buildStandardQuestions({ includeBrandHijack: true }), null);
+    'event_finding_vs_recap' in buildStandardQuestions({ includeBrandHijack: true })
+    && 'web3_user_name_acceptability' in buildStandardQuestions({ includeBrandHijack: true }), null);
   // C107 收敛锚 + C108 统一门锚
   check('A12 name_form 不限列举锚（判定锚列举实例但下一形态不用再加选——反打地鼠）',
     nf.instructions.includes('不限于此') && nf.instructions.includes('凡「web3 用户不接纳这名字当 meme 符号」的形态都算'), null);
@@ -221,10 +221,10 @@ async function main() {
     && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══
-  console.log('\n── B. F→E 改道真值表（event_category × finding_vs_recap）──');
+  console.log('\n── B. F→E 改道真值表（event_category × event_finding_vs_recap）──');
   // B1 F+news_recap → 改道 E（categoryForced='f_recap_e'，category=E）
   const rB1 = mapStandardAnswers(baseAnswers('F', {
-    finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
+    event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
   }), stdCtx('TST', 'TST'));
   check('B1 F+news_recap → category=E', rB1.stage1DataToSave.category === 'E', rB1.stage1DataToSave.category);
   check('B1b categoryForced=f_recap_e（改道来源可追溯）',
@@ -236,8 +236,8 @@ async function main() {
   const keepFArms = [['narrative_finding', '发现（真 F 内容）'], ['unclear', 'unclear（fail-open）'], [null, '缺失（旧缓存行 fail-open）']];
   for (const [recap, note] of keepFArms) {
     const a = baseAnswers('F');
-    if (recap) a.finding_vs_recap = { choice: recap, probabilities: { [recap]: 0.7 } };
-    else delete a.finding_vs_recap;
+    if (recap) a.event_finding_vs_recap = { choice: recap, probabilities: { [recap]: 0.7 } };
+    else delete a.event_finding_vs_recap;
     const r = mapStandardAnswers(a, stdCtx('TST', 'TST'));
     check(`B2 ${note} → 维持 F 零变化（categoryForced=null）`,
       r.stage1DataToSave.category === 'F' && r.stage1DataToSave.parsed_output.jev.categoryForced === null,
@@ -245,7 +245,7 @@ async function main() {
   }
   // B3 非 F+news_recap → 不消费（观察键照落）
   const rB3 = mapStandardAnswers(baseAnswers('C', {
-    finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
+    event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
   }), stdCtx('TST', 'TST'));
   check('B3 非 F+news_recap → 不改道（category=C，findingVsRecap 观察键照落）',
     rB3.stage1DataToSave.category === 'C'
@@ -256,10 +256,10 @@ async function main() {
   // fixture 用 mem 2.5（过 mem 地板）+super_ip 0.3（破五腿 sipProb 臂——五腿
   // 命中会豁载体门）隔离出载体门单一变量
   const rB4 = mapStandardAnswers(baseAnswers('F', {
-    finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
-    subject_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.9 } },
-    referent_memeability: { score: 2.5, probabilities: {} },
-    name_referent: { choice: 'notable_other', probabilities: { notable_other: 0.5, super_ip: 0.3 } },
+    event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
+    name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.9 } },
+    name_entity_memeability: { score: 2.5, probabilities: {} },
+    web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.5, accepted: 0.3 } },
   }), stdCtx('TST', 'TST'));
   check('B4 F+news_recap+no_visual（mem≥2 破五腿）→ E 载体门接管拦（改道的意义）',
     blockedBy(rB4, CARRIER_LABEL), rB4.llmResult.reason);
@@ -291,16 +291,16 @@ async function main() {
     && rNewKey.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'web3_user_not_acceptable'
     && JSON.stringify(rNewKey.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock) === '{"choice":"web3_user_not_acceptable"}',
     rNewKey.stage1DataToSave.parsed_output.jev.web3UserAcceptability);
-  // C 专项：五腿全中（superIpSlogan=true）也不豁——mem 3≥2 五腿命中，not_meme_name 仍拦
+  // C 专项：五腿全中（recognizedEntitySlogan=true）也不豁——mem 3≥2 五腿命中，not_meme_name 仍拦
   const rFive = mapStandardAnswers(baseAnswers('C', {
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
     // baseAnswers 默认形状五腿天然全中：super_ip 0.9≥0.5 / relPositive 0.8≥0.3 /
     // relNone 0<0.5 / mem 3≥2 / within_7d / strong_fit 0.85≥0.5
   }), stdCtx('TST', 'TST'));
-  check('C 专项 五腿全中（superIpSlogan hit）→ not_meme_name 仍拦（刻意不豁）',
+  check('C 专项 五腿全中（recognizedEntitySlogan hit）→ not_meme_name 仍拦（刻意不豁）',
     blockedBy(rFive, NF_LABEL)
-    && rFive.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true,
-    rFive.stage2DataToSave.parsed_output.jev.superIpSlogan);
+    && rFive.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true,
+    rFive.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan);
 
   // ═══ C2. 旧 choice 兼容映射（断代 bit 兼容红线）═══
   console.log('\n── C2. 旧 choice 兼容映射（J1.37-J1.40 存量缓存行行为 bit 不变）──');
@@ -346,7 +346,7 @@ async function main() {
   // B4 变体：mem 2.5（案值 1.72<2 会先被 C88 mem 地板拦——链上先手，改道语义被
   // 遮蔽）+ super_ip 0.4 破五腿（否则载体门被豁）。no_visual 0.97 案值保留
   const d2Answers = incidentAnswers({ nameForm: 'entity_phrase', mem: 2.5 });
-  d2Answers.name_referent = { choice: 'notable_other', probabilities: { notable_other: 0.45, super_ip: 0.4 } };
+  d2Answers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.45, accepted: 0.4 } };
   const rD2b = mapStandardAnswers(d2Answers, ctxBnbTv);
   check('D2 name_form=entity+破五腿 → 改道 E+载体门拦（no_visual 0.97 案值接上）',
     blockedBy(rD2b, CARRIER_LABEL) && !blockedBy(rD2b, NF_LABEL), rD2b.llmResult.reason);
@@ -367,7 +367,7 @@ async function main() {
   const rD4 = mapStandardAnswers(incidentAnswers({ mem: 2.5 }), ctxBnbTv);
   check('D4 mem 2.5+五腿全中 → 名字门仍拦（唯一拦截位反证）',
     blockedBy(rD4, NF_LABEL)
-    && rD4.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true, rD4.llmResult.reason);
+    && rD4.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true, rD4.llmResult.reason);
   // D5 对照：同 D4 形状但 name_form=meme_name → 名字门/载体门全放（mem 地板
   //    已退役；该形状真实可过——名字门必要性正证）
   const rD5 = mapStandardAnswers(incidentAnswers({ mem: 2.5, nameForm: 'meme_name' }), ctxBnbTv);
@@ -384,14 +384,14 @@ async function main() {
   const rD6 = mapStandardAnswers(jpEditionAnswers({ nameForm: 'entity_phrase' }), ctxJp);
   check('D6 J1.39 实况（entity_phrase）→ 五腿全中高分放行（pass=true 线上 high 形状复现）',
     rD6.llmResult.pass === true
-    && rD6.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true
+    && rD6.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true
     && !blockedBy(rD6, CARRIER_LABEL),
     { pass: rD6.llmResult.pass, reason: rD6.llmResult.reason });
   // D7 J1.41 修复：同快照 name_form=not_meme_name → 名字门拦（五腿全中不豁）
   const rD7 = mapStandardAnswers(jpEditionAnswers(), ctxJp);
   check('D7 J1.41 修复（not_meme_name）→ 名字门拦（label 归属 nf，五腿全中=唯一拦截位反证）',
     blockedBy(rD7, NF_LABEL) && !blockedBy(rD7, CARRIER_LABEL)
-    && rD7.stage2DataToSave.parsed_output.jev.superIpSlogan.hit === true,
+    && rD7.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true,
     rD7.llmResult.reason);
   check('D7b stage1 nameForm=not_meme_name 恒落',
     rD7.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'not_meme_name',
@@ -409,10 +409,10 @@ async function main() {
   // ═══ G. C108 统一门行为真值表（EARLY 案翻案位+四分支+退役位移交）═══
   console.log('\n── G. C108 统一门真值表（EARLY 0xc8a5…7777 翻案位 + 四分支 + nr/rm/memFloor 移交）──');
   const ctxEarly = stdCtx('Early', 'Early');
-  // G1 EARLY 案翻案位：name_referent common_word 0.92（J1.10 原拦截值原样）+
+  // G1 EARLY 案翻案位：web3_user_name_entity_acceptance common_word 0.92（J1.10 原拦截值原样）+
   //    name_form=meme_name（J1.42 题面锚「Early 合格」）→ 放行——nr 退役+分支②
   const g1 = Object.assign(baseAnswers('A'), {
-    name_referent: { choice: 'common_word', probabilities: { common_word: 0.92, minor_other: 0.04, super_ip: 0.02 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.92, unknown: 0.04, accepted: 0.02 } },
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } },
   });
   const rG1 = mapStandardAnswers(g1, ctxEarly);
@@ -424,10 +424,10 @@ async function main() {
   }), ctxEarly);
   check('G1b 对照：common_word 0.92+not_meme_name → 名字门拦（唯一名字位承载）',
     blockedBy(rG1b, NF_LABEL), rG1b.llmResult.reason);
-  // G1c nr 概率退役转纯观察：G1 票 nameReferentProbability=0.92 恒落（不再拦截）
-  check('G1c nr 概率退役转纯观察（nameReferentProbability 恒落审计）',
-    rG1.stage1DataToSave.parsed_output.jev.nameReferentProbability === 0.92
-    || rG1.stage2DataToSave.parsed_output.jev.nameReferentProbability === 0.92, null);
+  // G1c nr 概率退役转纯观察：G1 票 nameEntityAcceptanceProbability=0.92 恒落（不再拦截）
+  check('G1c nr 概率退役转纯观察（nameEntityAcceptanceProbability 恒落审计）',
+    rG1.stage1DataToSave.parsed_output.jev.nameEntityAcceptanceProbability === 0.92
+    || rG1.stage2DataToSave.parsed_output.jev.nameEntityAcceptanceProbability === 0.92, null);
   // G2 滑雪/我要去型（分支②）：B 类不触载体门，not_meme_name → 拦
   const rG2 = mapStandardAnswers(baseAnswers('B', {
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
@@ -436,13 +436,13 @@ async function main() {
     blockedBy(rG2, NF_LABEL), rG2.llmResult.reason);
   // G3 YAYA 型（分支①无名实体）：原 nr 摇摆形状（minor 0.41/super 0.43 五五开）
   //    +not_meme_name → 拦；同形状 meme_name → 放行（实体考量移交 name_form）
-  const yayaNr = { choice: 'minor_other', probabilities: { minor_other: 0.41, super_ip: 0.43, common_word: 0.05 } };
+  const yayaNr = { choice: 'unknown', probabilities: { unknown: 0.41, accepted: 0.43, no_entity: 0.05 } };
   const rG3 = mapStandardAnswers(baseAnswers('A', {
-    name_referent: yayaNr,
+    web3_user_name_entity_acceptance: yayaNr,
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
   }), stdCtx('YAYA', 'YAYA'));
   const rG3b = mapStandardAnswers(baseAnswers('A', {
-    name_referent: yayaNr,
+    web3_user_name_entity_acceptance: yayaNr,
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
   }), stdCtx('YAYA', 'YAYA'));
   check('G3 YAYA 型（分支①无名实体）+nr 五五开形状 → not_meme_name 拦 / meme_name 放（实体考量移交 name_form）',
@@ -451,11 +451,11 @@ async function main() {
   // G4 rm 退役位移交：mem=1（原 rmBlock mem≤1 拦）+A 类+meme_name → 放行；
   //    同形状 not_meme_name → 名字门拦（票型责任移交）
   const rG4 = mapStandardAnswers(baseAnswers('A', {
-    referent_memeability: { score: 1, probabilities: {} },
+    name_entity_memeability: { score: 1, probabilities: {} },
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
   }), stdCtx('TST', 'TST'));
   const rG4b = mapStandardAnswers(baseAnswers('A', {
-    referent_memeability: { score: 1, probabilities: {} },
+    name_entity_memeability: { score: 1, probabilities: {} },
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
   }), stdCtx('TST', 'TST'));
   check('G4 rm 退役（mem=1）：meme_name 放行 / not_meme_name 名字门拦（票型移交）',
@@ -464,7 +464,7 @@ async function main() {
   // G5 memFloor 退役位：mem=1.72（原 C88 mem∈(1,2) 地板拦）+fresh+A 类+meme_name
   //    → 放行；referentMemeabilityScore 恒落照旧（G6）
   const rG5 = mapStandardAnswers(baseAnswers('A', {
-    referent_memeability: { score: 1.72, probabilities: {} },
+    name_entity_memeability: { score: 1.72, probabilities: {} },
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.9 } },
   }), stdCtx('TST', 'TST'));
   check('G5 memFloor 退役（mem 1.72 死区）：meme_name+A 类 → 放行（名字有圈内感知的票不再被地板拦）',
@@ -501,15 +501,15 @@ async function main() {
           return r2.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock === null;
         })();
     })(), null);
-  check('E5 stage2 probabilities.web3_user_acceptability / finding_vs_recap 落库',
-    s2.probabilities.web3_user_acceptability != null && s2.probabilities.finding_vs_recap != null, null);
+  check('E5 stage2 probabilities.web3_user_name_acceptability / event_finding_vs_recap 落库',
+    s2.probabilities.web3_user_name_acceptability != null && s2.probabilities.event_finding_vs_recap != null, null);
   // 未命中臂：meme_name/finding → web3UserAcceptabilityBlock=null + 恒落键照落
   const rEm = mapStandardAnswers(baseAnswers('D'), stdCtx('TST', 'TST'));
   check('E6 未命中 web3UserAcceptabilityBlock=null（门形状事后校准免重跑）',
     rEm.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock === null, null);
   check('E7 旧缓存行（两题缺失）恒落键=null 可识别',
     (() => {
-      const a = baseAnswers('D'); delete a.finding_vs_recap; delete a.name_form;
+      const a = baseAnswers('D'); delete a.event_finding_vs_recap; delete a.name_form;
       const r = mapStandardAnswers(a, stdCtx('TST', 'TST'));
       const j1 = r.stage1DataToSave.parsed_output.jev;
       return j1.web3UserAcceptability === null && j1.findingVsRecap === null
@@ -524,8 +524,8 @@ async function main() {
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
   check('F1 门函数 web3UserAcceptabilityBlock（Set 成员判定，非成员短路 null；J1.55 双键读=新键优先+旧键兼容）',
     /function web3UserAcceptabilityBlock\(answers\) \{\s*\n\s*const choice = web3UserAcceptabilityChoice\(answers\);\s*\n\s*if \(!WEB3_USER_NOT_ACCEPTABLE_CHOICES\.has\(choice\)\) return null;\s*\n\s*return \{ label: 'Web3 用户不接纳该名字（用户接纳度门）', choice \};/.test(mapperSrc), null);
-  check('F1c 题键断代双读函数（web3_user_acceptability 优先、name_form 存量兼容）',
-    /return answers\?\.web3_user_acceptability\?\.choice \?\? answers\?\.name_form\?\.choice;/.test(mapperSrc), null);
+  check('F1c 题键断代双读函数（web3_user_name_acceptability 优先、name_form 存量兼容）',
+    /return answers\?\.web3_user_name_acceptability\?\.choice \?\? answers\?\.name_form\?\.choice;/.test(mapperSrc), null);
   check('F1b 兼容 Set 四值锁死（web3_user_not_acceptable 新键 + not_meme_name/statement/functional_label 旧键——J1.50 键名断代 bit 兼容红线，存量缓存行照拦）',
     /const WEB3_USER_NOT_ACCEPTABLE_CHOICES = new Set\(\[\s*\n\s*'web3_user_not_acceptable',[^]*?'not_meme_name', 'statement', 'functional_label',[^]*?\]\);/.test(mapperSrc), null);
   check('F2 门链序：nf（名字门=唯一名字位）→ 载体门（索引严格递增；C108 后 rm/memFloor 退役）', (() => {
@@ -533,12 +533,12 @@ async function main() {
     const scIdx = mapperSrc.indexOf('subjectCarrierBlock(answers, category');
     return nfIdx > 0 && scIdx > nfIdx ? true : { nfIdx, scIdx };
   })());
-  check('F3 名字门臂无 superIpSlogan 豁免条件（五腿刻意不豁，源码形状——两案五腿全中正是线上放行路径）',
+  check('F3 名字门臂无 recognizedEntitySlogan 豁免条件（五腿刻意不豁，源码形状——两案五腿全中正是线上放行路径）',
     /else if \(\(uaBlock = web3UserAcceptabilityBlock\(answers\)\)\) \{\s*\n\s*\/\/ C108 名字门/.test(mapperSrc), null);
   check('F4 改道公式：cashtagForced 优先、recapForced 次之（互斥无竞争）',
     mapperSrc.includes("const category = cashtagForced ? 'W' : (recapForced ? 'E' : (answers.event_category?.choice || null));"), null);
   check('F5 改道判据锁死 F+news_recap 组合（choice 恒等）',
-    mapperSrc.includes("const recapForced = !!(answers.event_category?.choice === 'F'\n    && answers.finding_vs_recap?.choice === 'news_recap');"), null);
+    mapperSrc.includes("const recapForced = !!(answers.event_category?.choice === 'F'\n    && answers.event_finding_vs_recap?.choice === 'news_recap');"), null);
   check('F6 题集头部含 J1.37 changelog（C96 案档案）',
     (await readQuestionsSrc()).includes('* J1.37（2026-10-18') && (await readQuestionsSrc()).includes('0xc6d089d749409f7646de440d637ac9db0e047777'), null);
   check('F6b 题集头部含 J1.40 changelog（C105 案档案：0xe156 地址+裁定原话）',
@@ -571,9 +571,9 @@ async function main() {
   check('F10 misspellingP/block_misspelling 探针全清（C78 代码门 spellingMismatch 保留单判据）',
     !mapperSrc.includes('misspellingP') && !mapperSrc.includes('answers.block_misspelling')
     && mapperSrc.includes('spellingMismatch.hit'), null);
-  check('F11 nr/rm 题保留只喂豁免链（name_referent/referent_memeability 仍在 C88 五腿+恒落审计）',
-    mapperSrc.includes('answers.name_referent?.probabilities?.super_ip')
-    && mapperSrc.includes('referentMemeabilityScore: answers.referent_memeability?.score ?? null'), null);
+  check('F11 实体/玩味题保留只喂豁免链（web3_user_name_entity_acceptance accepted+authorUtterance / name_entity_memeability 仍在 C88 五腿+恒落审计）',
+    (mapperSrc.includes('answers.web3_user_name_entity_acceptance?.probabilities?.accepted') && mapperSrc.includes('authorUtterance'))
+    && mapperSrc.includes('referentMemeabilityScore: answers.name_entity_memeability?.score ?? null'), null);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_jev_finding_recap_statement_gate: ${passed} passed, ${failed} failed ══════`);

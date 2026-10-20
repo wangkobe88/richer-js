@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * J1.36 E 类Web3偏好折损判据源迁移（web3_fit 替代 event_resonance）——本地零 DB 单测
+ * J1.36 E 类Web3偏好折损判据源迁移（web3_user_event_fit 替代 event_resonance）——本地零 DB 单测
  * （2026-10-18 用户裁定 B 案，C93：原话「meme 币发币哪里有什么圈内圈外一说，
- * web3 用户喜欢就行了。event_resonance 是不是可以被替换为 web3_fit？」；
+ * web3 用户喜欢就行了。event_resonance 是不是可以被替换为 web3_user_event_fit？」；
  * C80 蝙蝠侠摇案 0x4547dae7757fb4043e034d27ed02dfabe9aa7777 折损机制保留）
  *
  * 覆盖：
- *   A. 双案反证：①蝙蝠侠摇（J1.30 历史行重放新逻辑）真实 web3_fit
+ *   A. 双案反证：①蝙蝠侠摇（J1.30 历史行重放新逻辑）真实 web3_user_event_fit
  *      strong 0.38+fit 0.38=0.76 ≥0.5 不折 → 70.68→75.68 high 放行（用户明示
  *      接受：当年 -12.4% 归盘面非叙事错判）；②유과 강아지形状 strong_fit 0.97
  *      同数学不折（本案 mild×0.5=35.64 误拦的修复）；③marginal 占优
  *      fitMass<0.5 → ×0.5：(27+28.68)×0.5+15=42.84 拦（C80 数字沿用）
- *   B. 边界：web3_fit 答案整体缺失（J1.19 前旧缓存行）fail-open 不折 /
+ *   B. 边界：web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行）fail-open 不折 /
  *      fitMass 恰 0.5 边界不折（<0.5 严格）
  *   C. 作用域：A 类 marginal 不折（裁定域=E 类）/ W 类走 W 数学不触达 /
  *      E 类 D 档量级票折损前后同为拦（归因=量级门）
@@ -33,7 +33,7 @@ function check(name, cond, detail) {
 // ── C80 蝙蝠侠摇 J1.30 实测 answers 快照（DB token_narrative 2026-10-16T12:29:53Z）──
 // event_category E 0.99 / magnitude 档3(B) 0.97 / dim2 5.34→28.68 / within_7d /
 // none 0.57 / exact_match 0.82 → 关联 20 / quality 4字length6+拼2.8→4.8+合1.47→2.47=13.27
-// web3_fit strong 0.38 + fit 0.38 = 0.76（J1.36 判据源——历史行重放新逻辑的实证形状）
+// web3_user_event_fit strong 0.38 + fit 0.38 = 0.76（J1.36 判据源——历史行重放新逻辑的实证形状）
 // （DB breakdown 落的是 bandInterpolate 换算后值；原始分反解：SPELLING/REASONABILITY
 //  BANDS 按 floor(score) 取带，2.8→[4,5]带 4.8、1.47→[2,3]带 2.47）
 const bianfuTokenData = { symbol: '蝙蝠侠摇', name: '蝙蝠侠式蹦迪', raw_api_data: { name: '蝙蝠侠式蹦迪' } };
@@ -46,13 +46,13 @@ function bianfuAnswers({ web3fit = BIANFU_WEB3FIT, category = 'E', tierScore = 3
     event_magnitude: { score: tierScore, probabilities: tierProbs },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 5.34, probabilities: { '5': 0.6, '4': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.57, marketing_gimmick: 0.19 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.43, common_word: 0.38 } },
-    web3_fit: { choice: 'strong_fit', probabilities: web3fit },
-    subject_entity: { choice: 'meme_word', probabilities: { meme_word: 0.67, character_ip: 0.14 } },
-    subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.5 } },
-    referent_memeability: { score: 3.5, probabilities: { '3': 0.5 } },
-    relevance_type: { choice: 'exact_match', probabilities: { exact_match: 0.82 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.57, marketing_gimmick: 0.19 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.43, no_entity: 0.38 } },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: web3fit },
+    event_subject_entity: { choice: 'meme_word', probabilities: { meme_word: 0.67, character_ip: 0.14 } },
+    name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.5 } },
+    name_entity_memeability: { score: 3.5, probabilities: { '3': 0.5 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.82 } },
     relevance_level: { score: 3.2, probabilities: { '4': 0.71, '3': 0.15 } },
     block_misspelling: { noul: 0.14 },
     quality_spelling: { score: 2.8 },
@@ -77,9 +77,9 @@ function run(answers) {
 }
 
 async function main() {
-  console.log('\n── A. 双案反证（J1.36 判据源=web3_fit）──');
+  console.log('\n── A. 双案反证（J1.36 判据源=web3_user_event_fit）──');
 
-  // A1 蝙蝠侠摇重放：真实 web3_fit 0.76 ≥0.5 不折 → 70.68 → 75.68 high（放行裁定）
+  // A1 蝙蝠侠摇重放：真实 web3_user_event_fit 0.76 ≥0.5 不折 → 70.68 → 75.68 high（放行裁定）
   const m1 = await run(bianfuAnswers());
   const s1 = m1?.stage2DataToSave?.parsed_output || {};
   const f1 = m1?.stageFinalData || {};
@@ -105,13 +105,13 @@ async function main() {
 
   console.log('\n── B. 边界 ──');
 
-  // B1 web3_fit 答案整体缺失（J1.19 前旧缓存行）→ fail-open 不折 + fitMass null
+  // B1 web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行）→ fail-open 不折 + fitMass null
   const noFit = bianfuAnswers();
-  delete noFit.web3_fit;
+  delete noFit.web3_user_event_fit;
   const m4 = await run(noFit);
   const s4 = m4?.stage2DataToSave?.parsed_output || {};
   const j4 = m4?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B1 web3_fit 缺失 fail-open：70.68 原样不折 / web3FitDampMass=null',
+  check('B1 web3_user_event_fit 缺失 fail-open：70.68 原样不折 / web3FitDampMass=null',
     s4.scoringResult?.totalScore === 70.68 && j4.web3FitDampMass === null && j4.web3FitDamp === null,
     { t: s4.scoringResult?.totalScore, m: j4.web3FitDampMass });
 
@@ -156,8 +156,8 @@ async function main() {
       && j3.web3FitDampMass === 0.3 && j3.web3FitDamp?.coef === 0.5 && j3.web3FitDamp?.fitMass === 0.3,
     { j1: { m: j1.web3FitDampMass, d: j1.web3FitDamp }, j3: j3.web3FitDamp });
 
-  // D2 reason 带「Web3偏好折损×0.5(web3_fit契合30%<50)」段（判据源可追溯）
-  check('D2 reason 展示折损来源（web3_fit 契合度）', /Web3偏好折损×0.5\(web3_fit契合30%<50\)/.test(s3.reason || ''),
+  // D2 reason 带「Web3偏好折损×0.5(web3_user_event_fit契合30%<50)」段（判据源可追溯）
+  check('D2 reason 展示折损来源（web3_user_event_fit 契合度）', /Web3偏好折损×0.5\(web3_user_event_fit契合30%<50\)/.test(s3.reason || ''),
     { r3: s3.reason });
 
   // D3 不折 reason 无折损段（bit-identical 的 reason 层验证）
@@ -176,8 +176,8 @@ async function main() {
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.55（J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
-    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.55'
+  check('D5 题集 16 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.55（J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
+    qKeys.length === 16 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.56'
     && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 17 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 

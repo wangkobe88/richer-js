@@ -55,16 +55,16 @@ function dndAnswers(overrides = {}) {
     event_magnitude: { score: 1.2, probabilities: { '1': 0.6, '2': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 12, probabilities: { '2': 0.5, '3': 0.3 } },
-    block_reason: { choice: 'empty_content', probabilities: { empty_content: 0.36, none: 0.31, institution_routine: 0.15 } },
-    name_referent: { choice: 'other_referent', probabilities: { other_referent: 0.6, subject_self: 0.2 } },
-    referent_memeability: { score: 2.5, probabilities: {} },
-    web3_fit: { choice: 'fit', probabilities: { fit: 0.5, strong_fit: 0.3 } },
-    subject_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.6, no_visual_entity: 0.3 } },
-    subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
-    relevance_type: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
-    token_quality: { score: 10, probabilities: {} },
+    event_block_reason: { choice: 'empty_content', probabilities: { empty_content: 0.36, none: 0.31, institution_routine: 0.15 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6, unknown: 0.2 } },
+    name_entity_memeability: { score: 2.5, probabilities: {} },
+    web3_user_event_fit: { choice: 'fit', probabilities: { fit: 0.5, strong_fit: 0.3 } },
+    name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.6, no_visual_entity: 0.3 } },
+    event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
+    name_event_relevance: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
+    token_name_quality: { score: 10, probabilities: {} },
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.7, not_meme_name: 0.2 } },
-    finding_vs_recap: { choice: 'finding', probabilities: { finding: 0.7 } },
+    event_finding_vs_recap: { choice: 'finding', probabilities: { finding: 0.7 } },
     ...overrides,
   };
 }
@@ -144,7 +144,7 @@ async function main() {
   // ═══ E. 桶特异性（豁免只对 empty_content）═══
   console.log('\n── E. 桶特异性 ──');
   const rE = mapStandardAnswers(dndAnswers({
-    block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.55, none: 0.3 } },
+    event_block_reason: { choice: 'institution_routine', probabilities: { institution_routine: 0.55, none: 0.3 } },
   }), dndCtx(true));
   check('E1 图证在场 institution_routine 照拦（D 类域内，豁免不外溢）',
     rE.llmResult.rating === 'low' && (rE.llmResult.reason || '').includes('机构日常运营'),
@@ -154,7 +154,7 @@ async function main() {
   // ═══ F. 概率门对照（none≥0.5 本就不拦，与图证豁免正交）═══
   console.log('\n── F. 概率门对照 ──');
   const rF = mapStandardAnswers(dndAnswers({
-    block_reason: { choice: 'empty_content', probabilities: { empty_content: 0.2, none: 0.6 } },
+    event_block_reason: { choice: 'empty_content', probabilities: { empty_content: 0.2, none: 0.6 } },
     event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } },
     dimension2: { score: 20, probabilities: { '4': 0.5, '5': 0.3 } },
   }), dndCtx(false));
@@ -166,7 +166,7 @@ async function main() {
   // ═══ G. 审计键细节 ═══
   console.log('\n── G. 审计键细节 ──');
   const rG = mapStandardAnswers(dndAnswers({
-    block_reason: { choice: 'empty_content', probabilities: { empty_content: 0.44, none: 0.28 } },
+    event_block_reason: { choice: 'empty_content', probabilities: { empty_content: 0.44, none: 0.28 } },
   }), dndCtx(true));
   check('G1 emptyP/noneP 随现场值（round2 可追溯）',
     s2jev(rG).emptyContentImgOverride.emptyP === 0.44 && s2jev(rG).emptyContentImgOverride.noneP === 0.28,
@@ -183,7 +183,7 @@ async function main() {
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H3 JEV_QUESTIONS_VERSION=J1.55（bump 纪律；J1.55=C124 name_referent 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_impact / dimension2→web3_user_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear）', JEV_QUESTIONS_VERSION === 'J1.55', JEV_QUESTIONS_VERSION);
+  check('H3 JEV_QUESTIONS_VERSION=J1.55（bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear）', JEV_QUESTIONS_VERSION === 'J1.56', JEV_QUESTIONS_VERSION);
   check('H4 题面合格分支②含通用网络梗缩写锚（DND/FOMO/LFG）',
     qSrc.includes('通用网络梗/文化缩写同构（如 DND=do not disturb、FOMO、LFG）'), null);
   check('H5 题面不合格分支含机构职位缩写（工牌 Chief Risk Officer→CRO）',

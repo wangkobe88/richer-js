@@ -118,12 +118,12 @@ async function main() {
     const a = result.answers;
     console.log(`answers:`);
     console.log(`  event_category=${a.event_category?.choice} conf=${a.event_category?.confidence}`);
-    const impactScore = a.web3_user_impact?.score ?? a.event_magnitude?.score;
-    const spreadScore = a.web3_user_spread?.score ?? a.dimension2?.score;
-    console.log(`  web3_user_impact=${impactScore?.toFixed(2)} timing=${a.event_timing?.choice} web3_user_spread=${spreadScore?.toFixed(2)}`);
-    console.log(`  block_reason=${a.block_reason?.choice}(P=${a.block_reason?.probabilities?.[a.block_reason?.choice]?.toFixed?.(2)}, noneP=${a.block_reason?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_product=${a.w_product_score?.score?.toFixed(2)} w_interaction=${a.w_binance_interaction?.score?.toFixed(2)}`);
-    console.log(`  relevance=${a.relevance_type?.choice}${includeBrandHijack ? ` hijackP=${a.brand_hijack?.noul?.toFixed(2)}` : ''}`);
-    console.log(`  quality: token_quality=${a.token_quality?.score?.toFixed(2)}`);
+    const impactScore = a.web3_user_event_impact?.score ?? a.event_magnitude?.score;
+    const spreadScore = a.web3_user_event_spread?.score ?? a.dimension2?.score;
+    console.log(`  web3_user_event_impact=${impactScore?.toFixed(2)} timing=${a.event_timing?.choice} web3_user_event_spread=${spreadScore?.toFixed(2)}`);
+    console.log(`  event_block_reason=${a.event_block_reason?.choice}(P=${a.event_block_reason?.probabilities?.[a.event_block_reason?.choice]?.toFixed?.(2)}, noneP=${a.event_block_reason?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_product=${a.w_product_score?.score?.toFixed(2)} w_interaction=${a.w_binance_interaction?.score?.toFixed(2)}`);
+    console.log(`  relevance=${a.name_event_relevance?.choice}${includeBrandHijack ? ` hijackP=${a.name_brand_hijack?.noul?.toFixed(2)}` : ''}`);
+    console.log(`  quality: token_name_quality=${a.token_name_quality?.score?.toFixed(2)}`);
 
     console.log(`聚合: ${mapped.llmResult.reason}`);
     const oldFinal = row.stage_final_result;
@@ -134,8 +134,8 @@ async function main() {
     const checks = [
       ['state 预算内', stats.totalChars <= stats.budget],
       ['全部问题有答案', expectedIds.every(id => a[id])],
-      ['choice 类答案合法', ['event_category', 'event_timing', 'block_reason', 'relevance_type'].every(id => typeof a[id]?.choice === 'string')],
-      ['score 类答案合法', [a.web3_user_impact ?? a.event_magnitude, a.web3_user_spread ?? a.dimension2, a.token_quality].every(x => typeof x?.score === 'number')],
+      ['choice 类答案合法', ['event_category', 'event_timing', 'event_block_reason', 'name_event_relevance'].every(id => typeof a[id]?.choice === 'string')],
+      ['score 类答案合法', [a.web3_user_event_impact ?? a.event_magnitude, a.web3_user_event_spread ?? a.dimension2, a.token_name_quality].every(x => typeof x?.score === 'number')],
       ['聚合产出 rating', ['high', 'mid', 'low'].includes(mapped.llmResult.rating)],
     ];
     for (const [name, ok] of checks) {

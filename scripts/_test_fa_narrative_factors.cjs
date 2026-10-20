@@ -9,7 +9,7 @@
  * Nightshift 案 2026-10-17——GMGN 条件层分档门因子源）。
  * +C88 两标签键（2026-10-18 CZ 出书簇）：narrativeSuperIp（super_ip≥0.5→1/0/
  * null 未分析）/ narrativeSuperIpSlogan（五腿全中→1/0/null）——快照键
- * superIp/superIpSlogan，策略腿可直引（`narrativeSuperIpSlogan == 1`）。
+ * superIp/recognizedEntitySlogan，策略腿可直引（`narrativeSuperIpSlogan == 1`）。
  *
  * 覆盖：
  *   A. setNarrativeFactors/getNarrativeFactors/clearNarrativeFactors 生命周期
@@ -133,7 +133,7 @@ console.log('B. buildFactorMap 注入');
   check('B7 C88 两标签注入（2026-10-18 CZ 出书簇）：1/0 三态透传 / 缺键 null', () => {
     FourMemeFactorAggregator.setNarrativeFactors(ADDR, {
       rating: 3, rounds: 1, completedAt: T0 + 1500, accountOnly: false, inFlight: false,
-      superIp: 1, superIpSlogan: 1,
+      superIp: 1, recognizedEntitySlogan: 1,
     });
     const f = fa.buildFactorMap(ADDR, T0 + 2000);
     assert.strictEqual(f.narrativeSuperIp, 1);
@@ -141,7 +141,7 @@ console.log('B. buildFactorMap 注入');
     // 0=有分析有判定的合法 0 值（super_ip<0.5 / 五腿未全中），非 null
     FourMemeFactorAggregator.setNarrativeFactors(ADDR, {
       rating: 2, rounds: 1, completedAt: T0 + 1500, accountOnly: false, inFlight: false,
-      superIp: 0, superIpSlogan: 0,
+      superIp: 0, recognizedEntitySlogan: 0,
     });
     const f0v = fa.buildFactorMap(ADDR, T0 + 2000);
     assert.strictEqual(f0v.narrativeSuperIp, 0);

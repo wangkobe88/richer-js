@@ -33,8 +33,8 @@ function check(name, cond, detail) {
 }
 
 // ── C40 BI Inu 实测 answers 快照（造行实验 2026-10-01，DB 实证）────────────────
-// category D 0.78 / magnitude 4档带(A) / within_7d 0.96 / brand_hijack noul 0.72 /
-// name_referent super_ip 0.79 / relevance semantic lv1（10分，压 ≤10 截断线）
+// category D 0.78 / magnitude 4档带(A) / within_7d 0.96 / name_brand_hijack noul 0.72 /
+// web3_user_name_entity_acceptance super_ip 0.79 / relevance semantic lv1（10分，压 ≤10 截断线）
 const biTokenData = { symbol: 'BI', name: 'Binance Inu', raw_api_data: { name: 'Binance Inu' } };
 
 function biAnswers({ timing = 'within_7d', magnitude = 4, hijackP = 0.72, relType = 'semantic', relLevel = 1.2, misspell = 0.1, dim2Score = 3.5 } = {}) {
@@ -43,11 +43,11 @@ function biAnswers({ timing = 'within_7d', magnitude = 4, hijackP = 0.72, relTyp
     event_magnitude: { score: magnitude, probabilities: { '5': 0.43, '4': 0.25 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.96 } },
     dimension2: { score: dim2Score, probabilities: { '4': 0.5, '3': 0.3 } },
-    block_reason: { choice: 'none', probabilities: { none: 0.37, low_quality_derivative: 0.18 } },
-    name_referent: { choice: 'super_ip', probabilities: { super_ip: 0.79 } },
-    relevance_type: { choice: relType, probabilities: { [relType]: 0.47, none: 0.2, exact_match: 0.12 } },
+    event_block_reason: { choice: 'none', probabilities: { none: 0.37, low_quality_derivative: 0.18 } },
+    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.79 } },
+    name_event_relevance: { choice: relType, probabilities: { [relType]: 0.47, none: 0.2, exact_match: 0.12 } },
     relevance_level: { score: relLevel, probabilities: { '1': 0.57, '0': 0.22 } },
-    brand_hijack: { noul: hijackP },
+    name_brand_hijack: { noul: hijackP },
     block_misspelling: { noul: misspell },
     quality_spelling: { score: 6 },
     quality_reasonability: { score: 4 },
@@ -113,7 +113,7 @@ async function main() {
     s5.blockReason !== '品牌劫持' && !s5.jev?.punExempt,
     { blockReason: s5.blockReason, punExempt: s5.jev?.punExempt });
 
-  // A6 预检未命中（无品牌关键词）→ 根本没有 brand_hijack 题，punExempt 恒 false
+  // A6 预检未命中（无品牌关键词）→ 根本没有 name_brand_hijack 题，punExempt 恒 false
   const m6 = mapStandardAnswers(biAnswers(), makeContext({ includeBrandHijack: false }));
   const s6 = stage3Of(m6);
   check('A6 includeBrandHijack=false：jev.brandHijackP null + punExempt null',
@@ -160,7 +160,7 @@ async function main() {
   const analyzerSrc = fs.readFileSync('src/narrative/analyzer/NarrativeAnalyzer.mjs', 'utf8');
   const questionsSrc = fs.readFileSync('src/narrative/analyzer/llm/jev-questions.mjs', 'utf8');
 
-  check('D1 mapper：punExempt 定义 + 两处截断链放行（brand_hijack 与 relevance）',
+  check('D1 mapper：punExempt 定义 + 两处截断链放行（name_brand_hijack 与 relevance）',
     /const punExempt = /.test(mapperSrc)
       && /brandHijackP >= 0\.5 && !punExempt/.test(mapperSrc)
       && /relevance\.score <= 10 && !punExempt/.test(mapperSrc));
@@ -176,7 +176,7 @@ async function main() {
     shouldIncludeBrandHijackCheck('BI', 'Binance Inu') === true);
 
   console.log('\n── E. 版本断言 ──');
-  check('E1 JEV_QUESTIONS_VERSION ≥J1.24（J1.24 裁定仍在 mapper；现 J1.28=referent_memeability 恒带 bump）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 24, JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION ≥J1.24（J1.24 裁定仍在 mapper；现 J1.28=name_entity_memeability 恒带 bump）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 24, JEV_QUESTIONS_VERSION);
 
   // ═══ F. C86 D-1 量级门豁免贯穿（2026-10-17 用户裁定「豁免应贯穿」）═══
   // 病根：Stage2 量级门在 else-if 门链中先于 Stage3 豁免语义执行——全条件戏谑票
