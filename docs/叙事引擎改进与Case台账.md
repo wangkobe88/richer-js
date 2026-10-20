@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.52）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.53）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -67,6 +67,23 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C122 门名断代（J1.53）——name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability（niche 是否合并进接纳度的数据裁定）（2026-10-20 用户问询）★
+
+- **用户问询**：「niche_subculture 是否应该合并到 Web3 用户接纳度上？」（背景：J1.52 把 niche 判据切到「web3 用户接不接得住」，与 J1.50 的 name_form「web3 用户能否接纳这个名字」字面同轴）。
+- **数据裁定（不合并）**：
+  1. **判的不是同一对象**：name_form=名字作为 meme 符号的**形态**可否被接纳（实体有名/无名、圈内词、陈述句、版本词、拼写变体；全域门、choice、无概率质量）；niche=名字/形象所指文化的**圈层可达性**（圈外黑话 get 不到；block_reason 桶、**只拦 A 类**）。
+  2. **实测不冗余**：niche 35 票中有 name_form 答案的 21 票——**11 票名字门本来就拦**（重合面）、**10 票名字门判合格**（niche 是唯一拦截位）。合并进 name_form 而不加新分支=放行这 10 票；加新分支=把 A 域拦截扩到全类别。
+  3. **机制合并的真实代价**：niche 的 A-only 域只能靠「block_reason 独立桶 + BLOCK_SCOPE 按类别过滤」实现（name_form 是全域门，无类别域）；历史 niche choice 的非 A 空洞 76 行（C28/E28/W12/F5/G2/D1）合并后会开始被拦——这是拦截面扩大决策，不是零成本重构。
+  4. **J1.52 后 niche 没死**：35 票中 27 票送重析、23 票成功——**5 票仍 niche argmax（全 pixelcats/像素猫系，P 0.46-0.53）**；其余 18 票全部被后腿门接住（名字门 5/营销噱头 6/事件分 3/W 1/ip_reuse 1/时效 2）。释放样本：SAND → mid、潘多拉佩吉 0x926bb6c24f4ecb766ae7b98ee0ca96ef1a0a7777 → high 73.51（C88 五腿豁免；语料薄：806 粉、正文「CHINESE」+链接）——两票放行质量待用户后续裁定。
+- **用户裁定**：「可以分开，不过建议 name_form/niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户接纳度』/『Web3 用户圈层可达性』」。
+- **实施（J1.53，零行为意图的键名断代）**：
+  1. 题键 `name_form` → **`web3_user_acceptability`**（题面/三态键/判据零改动）；桶键 `niche_subculture` → **`web3_circle_reachability`**（J1.52 判据零改动）。
+  2. mapper `nameFormChoice()` 双键读（新键优先、旧键=存量缓存行/旧 fixture 兼容——断代 bit 兼容红线，同 NOT_MEME_NAME_CHOICES 先例）；审计键 `nameForm`/`nameFormBlock` → `web3UserAcceptability`/`web3UserAcceptabilityBlock`；`probabilities.name_form` → `probabilities.web3_user_acceptability`。
+  3. `BLOCK_SCOPE`/`BLOCK_LABELS` 新旧双键并存（旧键 scope ['A'] 保留=存量行/旧 fixture 语义不变）；label：名字门 → 「Web3 用户不接纳该名字（用户接纳度门）」、圈层桶 → 「Web3 用户圈层可达性不足」（旧 label '小圈子亚文化' 保留给旧键）。
+  4. 回归票期望同步（意图不变、文案更新）：C94 京小安 / C96 币安上电视 reasonIncludes、C108 EARLY / C119 猫 reasonExcludes 由「币名不适合作为 meme 符号」换新 label。
+- **测试**：7 处版本锁 J1.53 全绿；consolidation 新增 A12a-g（题集新键在场/旧键缺席；双键读行为等价=新键拦且旧键同门；新桶 A 域拦/B 域不拦；审计键改名）；17 个涉及 name_form/niche_subculture 的测试全部通过（旧形状输入=断代兼容的正证）。
+- **验证与部署**：182 全量回归（38 票）**33 PASS / 0 FAIL / 4 OBSERVE-DEVIATION / 1 无断言 PASS（C121）**；worker 重启加载 J1.53。
 
 ### C121 web3 用户视角批次一（J1.52）——w_product_score 用户兴奋度锚 + niche_subculture 认知可达性锚（2026-10-20 用户裁定；五批次之 1）★
 
@@ -1254,6 +1271,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.53 | 2026-10-20 | **门名断代（零行为意图）**：用户裁定「name_form/niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户接纳度』/『Web3 用户圈层可达性』」——①题键 name_form → `web3_user_acceptability`（判据/三态键不动）②block_reason 桶键 niche_subculture → `web3_circle_reachability`（J1.52 判据不动）。mapper 双键读（新键优先、旧键=存量缓存行兼容）、审计键 nameForm/nameFormBlock → web3UserAcceptability/web3UserAcceptabilityBlock、概率键跟随题键；BLOCK_SCOPE/LABELS 新旧并存；名字门 label→「Web3 用户不接纳该名字（用户接纳度门）」、圈层桶 label→「Web3 用户圈层可达性不足」 | C122（niche 合并问询的数据裁定：不合并=不把 A 域拦截扩到全类别） | 0016126 |
 | J1.52 | 2026-10-20 | 用户视角批次一（两处正交）：①`w_product_score` 主轴切 web3 用户关注与兴奋度（客观创新性降参考锚+显式否定「发布后实测数据」读法；四带形态结构词刻意保留保 C42 `wNewProductP=1−P(0)−P(1)` 带结构；mapper 零改动）②`block_reason.niche_subculture` 判据从「圈外人无法理解/无出圈可能」切「web3 用户接不接得住」（认知可达性；crypto 圈内梗≠小圈子；品牌营销物料/官方周边/活动噱头不是社区梗——无实质内容仍归营销噱头；BLOCK_SCOPE ['A'] 不动）。批内修正见 C121（C110 币安菠萝 A/B 归因） | C121 用户裁定「只有切换 web3 用户视角，从用户需求角度出发…效果才能好」；182 前置扫描 niche 35 行全 event:A 活桶→改锚不退役 | 4546bd8 + 0f9ad8b |
 | P1.11 | 2026-10-18 | **题面零改动；mapper 采信语义变化（P1.3 先例 bump）**：`mapPrestageAnswers` 新增 `corpusType`（fetchResults.twitterInfo.type 透传）——'tweet'（挂链语料是一条推文）时 web3_native_ip_early 答案不采信，回落 abm 双条件评定（两题恒带已答零额外调用，`evaluateAbmAnswers` 提取共用）；'account'/'community'/缺省 null 放行；project 不受限；`jevDetails.web3ipRejectedCorpusType` 观测键；同日配套修复一（isProjectCoin includeUrlArm——URL 含 CA 不算命中 CA，skipAddressValidation 证据源换内容臂强证据，路由级不 bump，C99 先例）。同 token 两版本下推文语料票的类型判定不可直接比较 | C101 OK❌ 案 0x0195119e…7777（用户裁定「web3_native_ip_early 仅限于账号」「这不是账号，这就是个推文」「说白了网址里头有CA不算命中CA」；找角度推文宣告+t.me/#CA 伪造 addressVerified → web3ip 0.96 mid → 买 -12.75%；孪生票欧抑同梗标准路径 low 对照） | 本 commit |
 | J1.32 | 2026-10-17 | **题面零改动；变更在 state 输入形状**——superIP 注册表命中票改走标准路径全量 18 题（快车道删除），state PRECOMPUTED 注入 `super_ip_hit` 认证事实行（name/type/tier/desc，格式与快车道时代一致）+ `super_ip_note` 反混淆提示行（作者身份认证≠代币背书，关联/主体资格/量级仍归题集逐题判定）；preScores 预分行删除（评分归 Jev）；非 superIP 票 state 逐字节 bit-parity（单测 A5 红线）；新行评级与 J1.31 前不可比按 prompt_version 过滤 | C83 BI 簇案（bbbe2561 体检：快车道「引用即 IP」6 票引用同一 binance 推文全拿 S 级 84-86 high 全亏，10 票 9 亏净 -0.0085 BNB 占总亏 21%；量级被预分喂饱+reason 不落库；用户裁定 registry 进 state 评分归 Jev） | 本 commit |
