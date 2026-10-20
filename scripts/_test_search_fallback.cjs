@@ -141,11 +141,12 @@ function normTweet(id, over = {}) {
     reply_count: over.reply ?? 5,
   };
 }
-function makeTokenData(name, createdAtSec = 1792108800) { // 2026-10-16 00:00 UTC → since=2026-10-09
-  return { address: '0xabc', symbol: 'TST', raw_api_data: { name, created_at: createdAtSec }, tokenCreatedAtSec: createdAtSec };
+function makeTokenData(term, createdAtSec = 1792108800) { // 2026-10-16 00:00 UTC → since=2026-10-09
+  // C131 追加裁定：搜索词优先 symbol——测试里 symbol=词，保持各 case 查询互不撞键
+  return { address: '0xabc', symbol: term, raw_api_data: { name: term, symbol: term, created_at: createdAtSec }, tokenCreatedAtSec: createdAtSec };
 }
 const CFG_FULL = {
-  enabled: true, corpusMode: 'empty', minNameChars: 4, sinceDays: 7,
+  enabled: true, corpusMode: 'empty', minTermChars: 2, sinceDays: 7,
   products: ['Top', 'Latest'], count: 20, stateTopTweets: 5, stateMaxChars: 2500,
   timeoutMs: 5000, cacheTtlSec: 1800,
 };
@@ -220,15 +221,33 @@ async function main() {
   console.log('══ B. buildSearchQuery ═══');
   {
     const { buildSearchQuery } = await import('../src/narrative/analyzer/services/twitter-search-fallback.mjs');
-    const q = buildSearchQuery(makeTokenData('Tesla Flying Car', 1792108800), CFG_FULL);
-    assert(q && q.rawQuery === '"Tesla Flying Car" since:2026-10-09' && q.name === 'Tesla Flying Car',
-      'B1 查询构造（quote + since=创建-7d 的 UTC 日期；1792108800-604800=1791504000 → 2026-10-09）', JSON.stringify(q));
-    assert(buildSearchQuery(makeTokenData('ab c'), CFG_FULL) === null, 'B2 短名（去空格 3 < 4）→ null');
-    assert(buildSearchQuery(makeTokenData('   '), CFG_FULL) === null, 'B3 名缺失 → null');
-    const noAnchor = { address: '0x1', symbol: 'S', raw_api_data: { name: 'Long Name' } };
+    // B1 ★symbol 优先（用户看到的是 symbol；股城案：name=STOCKOPOLIS, symbol=股城）
+    const qSymbol = buildSearchQuery({
+      address: '0xabc', symbol: '股城',
+      raw_api_data: { name: 'STOCKOPOLIS', symbol: '股城', created_at: 1792108800 },
+      tokenCreatedAtSec: 1792108800,
+    }, CFG_FULL);
+    assert(qSymbol && qSymbol.rawQuery === '"股城" since:2026-10-09' && qSymbol.term === '股城',
+      'B1 ★搜索词优先 symbol（股城而非 STOCKOPOLIS；since=创建-7d → 2026-10-09）', JSON.stringify(qSymbol));
+    // B1b symbol 不可用（1 字符）→ 回落 name
+    const qName = buildSearchQuery({
+      address: '0xabc', symbol: 'A',
+      raw_api_data: { name: 'Stockopolis', symbol: 'A', created_at: 1792108800 },
+      tokenCreatedAtSec: 1792108800,
+    }, CFG_FULL);
+    assert(qName && qName.term === 'Stockopolis' && qName.rawQuery === '"Stockopolis" since:2026-10-09',
+      'B1b symbol 过短（1<2）→ 回落链上 name', JSON.stringify(qName));
+    // B2 两词都过短 → null
+    assert(buildSearchQuery({ address: '0x1', symbol: 'A', raw_api_data: { name: 'B', created_at: 1792108800 } }, CFG_FULL) === null,
+      'B2 symbol/name 去空格均 <2 → null');
+    // B3 名缺失 → null
+    assert(buildSearchQuery({ address: '0x1', symbol: '', raw_api_data: { name: '', created_at: 1792108800 } }, CFG_FULL) === null,
+      'B3 symbol/name 均缺失 → null');
+    // B4 无创建时间锚 → null fail-safe（词合法仍拒）
+    const noAnchor = { address: '0x1', symbol: 'STOCK', raw_api_data: { name: 'STOCK' } };
     assert(buildSearchQuery(noAnchor, CFG_FULL) === null, 'B4 无创建时间锚（tokenCreatedAtSec 与 created_at 双缺）→ null fail-safe');
     // B5 tokenCreatedAtSec 优先（raw_api_data.created_at 缺）
-    const q2 = buildSearchQuery({ address: '0x2', symbol: 'S', raw_api_data: { name: 'Long Name' }, tokenCreatedAtSec: 1792108800 }, CFG_FULL);
+    const q2 = buildSearchQuery({ address: '0x2', symbol: 'STOCK', raw_api_data: { name: 'STOCK' }, tokenCreatedAtSec: 1792108800 }, CFG_FULL);
     assert(q2 && q2.sinceDate === '2026-10-09', 'B5 tokenCreatedAtSec 兜底锚生效');
   }
 
@@ -427,7 +446,7 @@ async function main() {
 
     const evidence = {
       v: 1,
-      query: { rawQuery: '"Tesla Flying Car" since:2026-10-08', sinceDate: '2026-10-08', name: 'Tesla Flying Car' },
+      query: { rawQuery: '"Tesla Flying Car" since:2026-10-08', sinceDate: '2026-10-08', term: 'Tesla Flying Car' },
       sinceDate: '2026-10-08',
       products: {
         Top: { total: 8, maxEngagement: 43700, tweets: [ { id: '1', at: 'Wed Oct 15 08:00:00 +0000 2026', user: 'Tesla', followers: 24800000, fav: 43700, rt: 8200, reply: 3100, text: 'the flying car is real' } ] },
@@ -484,7 +503,7 @@ async function main() {
     assert(!state0.state.includes('[TWITTER_SEARCH]'), 'H1 无证据 → state 无 [TWITTER_SEARCH] 段');
 
     const evidence = {
-      query: { rawQuery: '"Plain Token" since:2026-10-08', name: 'Plain Token' }, sinceDate: '2026-10-08',
+      query: { rawQuery: '"Plain Token" since:2026-10-08', term: 'Plain Token' }, sinceDate: '2026-10-08',
       products: { Top: { total: 3, maxEngagement: 500, tweets: [{ id: '1', at: 'Wed Oct 15 08:00:00 +0000 2026', user: 'a', followers: 1, fav: 100, rt: 0, reply: 0, text: 'x' }] } },
       uniqueTweets: 3, maxEngagement: 500, meta: { topN: 5, maxChars: 2500 },
     };

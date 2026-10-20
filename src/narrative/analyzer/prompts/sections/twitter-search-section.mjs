@@ -42,7 +42,7 @@ export function buildTwitterSearchSection(searchEvidence, options = {}) {
   if (productNames.length === 0) return '';
 
   const maxChars = options.maxChars ?? searchEvidence.meta?.maxChars ?? DEFAULT_MAX_CHARS;
-  const queryName = searchEvidence.query?.name || searchEvidence.query?.rawQuery || '';
+  const queryName = searchEvidence.query?.term || searchEvidence.query?.rawQuery || '';
 
   const lines = [
     '[TWITTER_SEARCH] 推特搜索事件背景（系统预取，非代币自有语料）',

@@ -45,7 +45,7 @@
   "searchFallback": {
     "enabled": true,
     "corpusMode": "empty",
-    "minNameChars": 4,
+    "minTermChars": 2,
     "sinceDays": 7,
     "products": ["Top", "Latest"],
     "count": 20,

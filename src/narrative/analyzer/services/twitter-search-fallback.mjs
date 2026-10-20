@@ -22,13 +22,16 @@
  *   冻死在首析快照上，晚到的推文永远翻不了案。
  *
  * 配置（config/narrative-engine.json searchFallback 节，段缺失=静默关）：
- *   { enabled, corpusMode:'empty', minNameChars, sinceDays, products:['Top','Latest'],
+ *   { enabled, corpusMode:'empty', minTermChars, sinceDays, products:['Top','Latest'],
  *     count, stateTopTweets, stateMaxChars, timeoutMs, cacheTtlSec }
  *
  * ★2026-10-20 股城（STOCKOPOLIS）案用户裁定：「为什么要卡互动呢？不卡，只通过
  * 语料了解叙事」——搜索兜底不设互动门槛（原 bypass.minTweets/minTopEngagement
  * 已删）。去重剔转推后只要语料非空即旁路 no_public_info 交 Jev 判断；engagement
  * 只在 state/审计里展示，不参与准入。
+ *
+ * ★同日追加裁定：「搜索应该主要搜索 symbol，用户看到的主要是 symbol」——搜索词
+ * 优先链上 symbol，symbol 不可用才回落 name；minTermChars=2（2 字 CJK 可搜）。
  */
 
 import { getConfig } from '../../engine/config.mjs';
@@ -44,7 +47,7 @@ const inflight = new Map();
 
 /** 代码侧默认值（enabled 时必须显式配置的键见 getSearchFallbackConfig 校验；其余缺省回退此处） */
 const CODE_DEFAULTS = {
-  minNameChars: 4,
+  minTermChars: 2, // 搜索词最短字符数（去空格）：2 字 CJK 币名（股城）可搜
   sinceDays: 7,
   stateTopTweets: 5,
   stateMaxChars: 2500,
@@ -77,20 +80,33 @@ export function getSearchFallbackConfig(options = {}) {
   return { ...CODE_DEFAULTS, ...section };
 }
 
+/** 搜索词可用判定：去空格后 ≥ minTermChars（1 字符搜索无意义且噪声不可控） */
+function _usableTerm(term, minTermChars) {
+  if (!term) return null;
+  return term.replace(/\s+/g, '').length >= minTermChars ? term : null;
+}
+
 /**
  * 构造搜索查询
- * @param {Object} tokenData - fetchTokenData 返回（name 恒 undefined，取 raw_api_data.name）
+ * @param {Object} tokenData - fetchTokenData 返回（symbol=链上币名；name 恒 undefined）
  * @param {Object} cfg - 已解析配置
- * @returns {{rawQuery:string, sinceDate:string, name:string}|null}
- *   null = 短名（去空格 < minNameChars）/ 名缺失 / 无创建时间锚（fail-safe 防全史无界搜索）
+ * @returns {{rawQuery:string, sinceDate:string, term:string}|null}
+ *   null = 无可用搜索词（symbol/name 去空格均 < minTermChars）/ 无创建时间锚
+ *   （fail-safe 防全史无界搜索）
+ *
+ * ★2026-10-20 股城案追加裁定：「搜索应该主要搜索 symbol，用户看到的主要是 symbol」
+ * ——搜索词优先用链上 symbol（用户实际看到/称呼的币名），symbol 不可用（缺失/过短）
+ * 才回落 name。原 minNameChars=4 会把 2 字 CJK 币名（股城）挡掉，改 minTermChars=2。
  */
 export function buildSearchQuery(tokenData, cfg) {
+  const symbol = (tokenData.symbol || tokenData.raw_api_data?.symbol || '').trim();
   const name = (tokenData.name || tokenData.raw_api_data?.name || '').trim();
-  if (!name || name.replace(/\s+/g, '').length < cfg.minNameChars) return null;
+  const term = _usableTerm(symbol, cfg.minTermChars) || _usableTerm(name, cfg.minTermChars);
+  if (!term) return null;
   const anchorSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at || null;
   if (!anchorSec) return null;
   const sinceDate = new Date((anchorSec - cfg.sinceDays * 86400) * 1000).toISOString().slice(0, 10);
-  return { rawQuery: `"${name}" since:${sinceDate}`, sinceDate, name };
+  return { rawQuery: `"${term}" since:${sinceDate}`, sinceDate, term };
 }
 
 /** 单推互动分：点赞 + 2×转发（转发传播权重更高） */
