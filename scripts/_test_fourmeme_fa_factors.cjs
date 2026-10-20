@@ -493,6 +493,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'narrativeSuperIp', 'narrativeSuperIpSlogan',
         'top1HolderCircPct',
         'maxCopyWalletHolderCircPct',
+        // 2026-10-20 乌龟案：sybil 大簇合计持仓门原料（详见 _test_sybil_cluster_factor.cjs）
+        'sybilClusterHolderCircPct',
         'earlyTradesPerWallet', 'earlyTradesMaxWalletTrades', 'earlyTradesNetBuyRatio',
         'earlyTradesTop1BuySharePct', 'earlyTradesTop1BuyBnb', 'earlyTradesBuyBnb',
         'earlyTradesRouterPct',

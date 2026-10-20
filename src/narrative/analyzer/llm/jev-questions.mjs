@@ -705,9 +705,13 @@
  *       event_negative_hard_news / event_routine_content_product（事件层）；
  *       token_ip_reuse / token_circle_reachability（代币层：名字/形象本身缺陷）。
  *       判据/阈值/作用域零改动（纯键名+对象标注）；题面加分类说明。题数不变
+ * J1.60（2026-10-20，C126 同批次修复）：J1.59 分类说明里的类别枚举（「空洞/
+ *       机构日常/营销噱头/…」）产生 priming 漂移——C119 猫案 none 0.58→0.16、
+ *       marketing_gimmick 0.26→0.43（mid→low，3 次采样稳定）。删枚举只留
+ *       「event_*=事件层 / token_*=代币层」短说明后恢复 mid 64.74；判据零改动。
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.59';
+export const JEV_QUESTIONS_VERSION = 'J1.60';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）

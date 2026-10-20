@@ -193,8 +193,11 @@ console.log('D. 非首买不进簇（复买只计 share 分母与 block 买量�
   check('D3 _bundleEvents 恰 3 条（wX 复买不 push）', () => assert.strictEqual(st._bundleEvents.length, 3));
   check('D4 _walletFirstBuyTs 全史 min（wX → T0+1000）', () =>
     assert.strictEqual(st._walletFirstBuyTs.get('wX'), T0 + 1000));
-  check('D5 maxBlockBuyCircPct = 88.9（blk55 买 80M 含复买 / 流通 90M——block 买量含非首买行）', () =>
-    assert.ok(Math.abs(f.maxBlockBuyCircPct - 88.9) < 0.05, `got ${f.maxBlockBuyCircPct}`));
+  // ★2026-10-20 二次口径修正（가나디 120.5% 案）：分子 = 最大块买家集合的**当前净持仓**
+  // （含他们在其它块的买入/卖出），不再是块毛买入量。blk55 买家 {wX,wY,wZ} 当前净持仓
+  // = wX 10+20 + wY 30 + wZ 30 = 90M；流通 = Σ买−Σ卖 = 90M → 100%（旧毛买入口径 80/90=88.9）
+  check('D5 maxBlockBuyCircPct = 100（分子=块买家当前净持仓 90M 含 wX blk50 首买 / 流通 90M）', () =>
+    assert.ok(Math.abs(f.maxBlockBuyCircPct - 100) < 0.05, `got ${f.maxBlockBuyCircPct}`));
 }
 
 // ═══════════════ E. defer 乱序 parity（含 min 替换） ═══════════════
@@ -277,9 +280,25 @@ console.log('G. 流通口径对拍（Σ买−Σ卖 独立重算；卖出缩小�
   check('G1 _circTokens == 独立重算 Σ买−Σ卖（全量重放对拍）', () =>
     assert.strictEqual(st._circTokens, expectCirc));
   const f = fa.buildFactorMap('0xtoken', T0 + 25000); // cutoff=15000
-  check('G2 卖出抬高吞噬率（124.93/190.36 = 65.6）', () =>
-    assert.ok(Math.abs(f.maxBlockBuyCircPct - 65.6) < 0.05, `got ${f.maxBlockBuyCircPct}`));
+  // ★二次口径修正：块买家 wt1 卖 5M → 分子 124.93-5=119.93M；流通 197.36-5-2=190.36M
+  // → 63.0%（旧毛买入口径只缩分母=65.6%——块买家卖出后不再算控盘，这是新语义的核心）
+  check('G2 块买家卖出 → 分子分母同降（119.93/190.36 = 63.0）', () =>
+    assert.ok(Math.abs(f.maxBlockBuyCircPct - 63.0) < 0.05, `got ${f.maxBlockBuyCircPct}`));
   check('G3 卖腿不进首买事件（size 仍 5，簇形不变）', () => assert.strictEqual(f.bundleClusterSize, 5));
+  // G4 ★가나디现场反证（0xa270…7777，2026-10-20）：最大块买家全部清仓 → 分子归 0 → 因子 0
+  // （旧毛买入口径下该票显示 120.5%——买入 127.5M 后 7 秒卖光，筹码已不在他手上）
+  const fa2 = newFA();
+  fa2.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wBig', block_number: 700, log_index: 1,
+    bnb_amount: 0.581, token_amount: 127.5 * M }), {});
+  fa2.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wR', block_number: 701, log_index: 1,
+    bnb_amount: 0.1, token_amount: 10 * M }), {});
+  check('G4 买家未卖时 = 127.5/137.5 ≈ 92.7', () =>
+    assert.ok(Math.abs(fa2.buildFactorMap('0xtoken', T0 + 3000).maxBlockBuyCircPct - 92.7) < 0.1,
+      `got ${fa2.buildFactorMap('0xtoken', T0 + 3000).maxBlockBuyCircPct}`));
+  fa2.processTick(mkTick({ timestamp: T0 + 4000, trader_address: 'wBig', trade_type: 'sell',
+    block_number: 702, log_index: 1, bnb_amount: 0.6, token_amount: 127.5 * M }), {});
+  check('G5 买家清仓 → 因子归 0（가나디 案：卖掉的筹码不算控盘；毛买入口径会虚显 >100%）', () =>
+    assert.strictEqual(fa2.buildFactorMap('0xtoken', T0 + 5000).maxBlockBuyCircPct, 0));
 }
 
 // ═══════════════ H. 空窗零值 + 探针 ═══════════════

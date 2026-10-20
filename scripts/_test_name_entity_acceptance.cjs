@@ -183,11 +183,11 @@ async function main() {
     && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
     && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
     && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
-  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.59',
+  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.60',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.59'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.60'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
