@@ -180,6 +180,13 @@ async function main() {
         && ns.includes('crypto 圈内梗/黑话≠小圈子') && ns.includes('不是大众出圈前景')
         && !ns.includes('圈外人无法理解') && !ns.includes('无出圈可能'),
         ns.slice(0, 120));
+      // A11c2 品牌营销边界（C110 币安菠萝 A/B 归因：不加此界=gimmick argmax
+      // 100%→47%，币安品牌物料被当圈内梗放行）
+      check('A11c2 niche 品牌营销边界（社区自发梗≠品牌物料，带币安品牌≠圈内契合）',
+        ns.includes('社区自发形成的文化梗') && ns.includes('品牌营销物料')
+        && ns.includes('官方周边') && ns.includes('不等于圈内契合')
+        && ns.includes('仍归营销噱头'),
+        ns.slice(-200));
       // 源码口径断言（BLOCK_SCOPE 模块私有未导出，A10d 同款先例；注意 BLOCK_SCOPE
       // 在 mapper 文件非题集文件——qsSrc 是题集源码）：
       const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
