@@ -69,6 +69,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C133 币名映射实体新增 new_entity（新实体）——J1.72 股城案（2026-10-20 用户裁定）★
+
+- **案由**：`0xaacbc156435dbab7815a61bccba1c827e52a7777`（symbol `股城`，name `STOCKOPOLIS`，flap）。空语料搜索兜底命中 29 条（毛毛姐 @MEJ50749 官宣、官方号 @STOCK__OPOLIS 进展、涨幅转述），但 J1.69/71 实体题判 `unknown 0.60` → 实体低影响力门拦（「币名映射实体在 Web3 用户侧无名」）。用户裁定：「这是新发的项目，并且已经在 BSC 链用户群发出了信息，那为何说『用户不认得该实体』？我觉得可以算是 new_entity，也就是新实体」。
+- **改动（J1.72）**：`web3_user_name_entity_acceptance` 新增第四选 **new_entity**——刚诞生/刚发布、且已在 BSC 链用户群（推特/社区/官方渠道）发出自己的信息（官宣/自我介绍/进展/社区讨论）的新项目/新品牌/新角色/新资产；用户此前没听说过是正常的，**不按「认知度不足」判**；`unknown` 收窄为**已存在的实体**在用户侧无认知（YAYA 型）。mapper 实体门**只读 unknown 概率**（new_entity 为 argmax ⇒ unknown<0.5，概率和为 1，天然不触门），新实体的名字形态/内容由名字门与下游评分题判。题数不变。
+- **实测（182，13:34:14 UTC，J1.72）**：实体题 `unknown 0.60 → new_entity 0.99`（unknown 0）→ **实体门不再拦**；下游 W 类数学 = 产品 16.28 + 交互 1.44 + 时效 25 = **42.72 < 60** → low（死因变为「W 类总分不足」）。实体门问题收口；本票仍 low 属 W 类对独立 BSC 项目交互轴天然低分，不再是实体认知题责任。
+- **单测**：`_test_name_entity_acceptance` 31/0（新增 new_entity 0.62 不触门、new_entity argmax+unknown 0.40 不拦）；题集收敛 4 桶断言 + 10 个版本断言文件同步 J1.72，全绿。
+- **Case 收录**：C133 录入 case-regression（票数 42→43），断言 `rating=low` + `tokenCategory=event:W` + `reasonIncludes=W类总分不足`（实体门回退 unknown 会成为回归信号）。
+- **部署**：`4c0a940`；182 已 pull。题集在 worker/实验进程内，重启后对新分析生效（存量缓存行不重放题面）。
+
 ### C132 时效豁免四类框架——用烂风险触达量主轴（C104 回落拦适用集收窄）（2026-10-20 用户裁定）★
 
 - **案由**：`0xb10b2c022a717a66fa627c9c9ce73779b5347777`（symbol `混混猫`，name `THugcat`，fourmeme，taxToken）。语料=Four.Meme Fora（`four_meme_Fora`，23917 粉认证号）2026-10-09 10:13 UTC 的「DeBox｜BNC4 社区之星交易赛圆满结束，恭喜 $混混猫 社区荣获社区之星」活动收官 recap；token 2026-10-20 10:12 UTC 创建（分析距创建仅 2s），主推 lag 950348s（≈11d）→ direct_tweet 豁免桶被 C104 主从结构门回落（源头 >24h 无新载体=「旧推用烂形状」）→ expired_tweet low，Jev 未跑。用户裁定：**主推不属于时效洗白**——「作者不是超级IP。影响力中等偏上，被发现这个叙事可能需要时间，而且也不会被用烂，反而可以豁免」。

@@ -100,7 +100,7 @@ async function main() {
   const doc = JSON.parse(require('fs').readFileSync(fixturesPath, 'utf8'));
   const real = loadAndValidateFixtures(doc);
   check('F1 真实 fixtures 校验零错误', real.errors.length === 0, real.errors.join('; '));
-  check('F2 票数=41（≥30 扩集；37→38=C121，38→39=C126 何一こんにちは，39→40=C129 彪弟，40→41=C130 돼지 H）', real.cases.length === 41, String(real.cases.length));
+  check('F2 票数=43（≥30 扩集；38→39=C126 何一こんにちは，39→40=C129 彪弟，40→41=C130 돼지 H，41→42=C132 混混猫，42→43=C133 股城）', real.cases.length === 43, String(real.cases.length));
   check('F3 caseId 无重复', new Set(real.cases.map((c) => c.caseId)).size === real.cases.length);
 
   const bad = loadAndValidateFixtures({ cases: [

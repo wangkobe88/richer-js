@@ -553,6 +553,19 @@
       },
       "note": "four_meme_Fora(注册表tierA)23917粉活动收官recap 11d裸旧推：C132前expired_tweet一刀切low、C132后第③类豁免进Jev，终局low=机构日常运营P0.51(D类掷骰边缘)。断言rating=low不断言死因",
       "addedAt": "2026-10-20"
+    },
+    {
+      "caseId": "C133",
+      "symbol": "股城",
+      "addr": "0xaacbc156435dbab7815a61bccba1c827e52a7777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:W",
+        "reasonIncludes": ["W类总分不足"]
+      },
+      "note": "股城：空语料搜索兜底（symbol 搜索、不卡互动）；J1.72 new_entity 放行实体门，死因=W 类数学不足（产品/交互轴）",
+      "observe": "W 类产品/交互分随语料与 Jev 掷骰波动；若实体题回退 unknown≥0.5 会改走实体门（reason 变「币名映射实体在 Web3 用户侧无名」→ 本断言失败即回归信号）",
+      "addedAt": "2026-10-20"
     }
   ]
 }
