@@ -231,12 +231,11 @@
       "symbol": "币安菠萝",
       "addr": "0x8ce87ffebe62e6f7ea87173b441520f659307777",
       "expect": {
-        "rating": "low",
-        "reasonIncludes": [
-          "营销噱头"
-        ]
+        "rating": "high"
       },
-      "note": "J1.45 marketing_gimmick 扩全域首拦面：现行 DB 行 high=部署前旧形状（D 档空洞票，argmax=gimmick 但 scope=['W','B'] 不含 D→不拦→实买）。预期变化票：low+营销噱头（D 档臂）。"
+      "note": "J1.64 影响力 B 标准 + gimmick 桶删除：币安符号菠萝=品牌具象视觉物料（用户可抓取/二创的内容资产）→ impact B 档起评；名字/关联/时效/共鸣全过 → high。用户裁定「币安发了一个带有币安符号的菠萝，可以给过」。",
+      "expectSince": "2026-10-20",
+      "expectBecause": "C110 案 J1.64 裁定：影响力改用户侧认知/可调动性（账号规模只作覆盖上限）；品牌具象视觉物料不再被 marketing_gimmick 否决，按内容资产评档 → high"
     },
     {
       "caseId": "C78",
