@@ -30,7 +30,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.53）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.54）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.12）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
 - **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
@@ -67,6 +67,18 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C123 门名/题键语义化（J1.54）——event_magnitude→web3_user_impact、dimension2→web3_user_spread + 门函数/审计键改名（2026-10-20 用户指令）★
+
+- **用户指令**：「其它门的名字也请梳理下，以类似思路，做一下调整」——沿用 C122（J1.53）思路：门名必须表达现行语义（尤其 web3 用户视角），名不副实者统一改名，判据零改动。
+- **全量盘点（题键 16+4）**：只发现两个题键名与现行语义错位——①`event_magnitude`（J1.50/J1.51 起主轴已是「Web3 用户对事件的接纳与被影响程度」，键名仍停在客观量级）→ **`web3_user_impact`**；②`dimension2`（无语义占位名；J1.23/J1.45/J1.50/J1.51 后语义=用户侧传播面/调动面）→ **`web3_user_spread`**。其余 14 题键名与判据一致（relevance_type/brand_hijack/w_product_score/referent_memeability 的名字指代所评对象、评估镜头已在题面锚定，不改；prestage `abm` 前缀作用域已扩到 tweet 回落，属文档说明不改）。
+- **门函数/常量改名**：`notMemeNameBlock`→`web3UserAcceptabilityBlock`、`nameFormChoice`→`web3UserAcceptabilityChoice`、`NOT_MEME_NAME_CHOICES`→`WEB3_USER_NOT_ACCEPTABLE_CHOICES`、`web3FitBlock`→`web3UnfitBlock`（实为 P(unfit) 负门）、`rideDetourBelow`→`rideDetourMass`（返回 mass 非 below）、`RESONANCE_FIT_*`→`WEB3_FIT_DAMP_*`（event_resonance 题 J1.36 已删，现语义=E 类 web3_fit 折损）、`DIM2_BANDS`→`SPREAD_BANDS`、`magnitudeTier()`→`impactTierOf()`；名字门审计对象 `{form:choice}`→`{choice}`。
+- **P1 审计键语义修正（用户裁定纳入）**：`magnitudeTier`→`jevImpactTier`（Jev 原判档）+ 新增 `effectiveImpactTier`（锚后档）；`timing`→`effectiveTiming`（override 后生效；原判在 `*Override.rawTiming`）；`tierAnchored`→`anchoredTier`、`web3FitAnchored`→`web3FitAnchoredTier`（值本就是档位字符串非布尔）；`web3FitStrongP`→`web3FitStrongPAnchored`（仅锚定命中时落）；`blockProbability`→`blockChoiceProbability`（所选 choice 的概率，非拦截概率）；`web3FitMass`→`web3UnfitMass`（实为 P(unfit)，与正向 fitMass 同名不同义）；`resonanceFitMass/resonanceDamp`→`web3FitDampMass/web3FitDamp`；`instagramDim2Anchor`→`instagramSpreadAnchor`、`web3FitDim2Anchor`→`web3FitSpreadAnchor`；`scoringResult.dimension2`→`scoringResult.spreadScore`；`jevDetails.{tier,timing,dim2}`→`{impactTier,effectiveTiming,spread}`。
+- **label**：`ip_reuse`「IP二次利用」→「IP低质复用」（题面判据只拦纯蹭名/无意义修改，旧 label 过宽）；reason 段「感染力折损」→「Web3偏好折损」（判据源 J1.36 起已是 web3_fit）。
+- **兼容策略**：mapper answers 双键读（`web3_user_impact ?? event_magnitude`、`web3_user_spread ?? dimension2`）——生产工具 `scan-c88-flip-surface.cjs` 读历史行 `stage1_raw_output.answers` 重放仍可 map；概率键输出新名；审计键只写新名，前端 `experiment_narrative.js` 新键优先+旧键回退（历史行可读）；`jev_dryrun`/`jev_calibration` 双读。无 DB DDL（全部 JSONB/text）、无 config 改动、fixtures expect 数组无候选键。
+- **测试**：24 个 mapper 相关单测全绿；consolidation 新增 A13a-j（新键在场旧键缺席 / 题面跨题引用同步 / 旧形状与新形状 answers 结果逐位等价 / 审计键新名落旧名缺席 / `anchoredTier` 值形态 / 概率与 scoringResult 键 / `web3UnfitMass` / E 类 `web3FitDamp` / B 类 `web3FitSpreadAnchor` / 源码门函数改名）；8 处版本锁 J1.54；顺修两处存量陈旧断言（`_test_narrator_two_shapes` C4 措辞随 J1.45 重写失效、`_test_case_regression_lib` F2 票数 37→38 补 C121）。
+- **182 全量回归（38 票）**：首轮 33 PASS/1 FAIL/4 OBSERVE——C113 哭哭奶龙事件分 58.2-59.5 卡 60 线（原 note 已声明「事件分不足回拦不算翻案失败」，补 observe）；次轮 32 PASS/1 FAIL/5 OBSERVE——C100 rebondit `parent_relationship` 掷骰逃逸（unclear 0.32 vs translation 0.27，4 次采样 3 次 translation 拦截 46.1-46.3 / 1 次 unclear 放行 72.7，补 observe，`staleRelParentOverride` 核心断言保留）；最终轮 **32 PASS / 0 FAIL / 6 OBSERVE-DEVIATION / 0 ERROR**（4 票已知掷骰面 + C100/C113 两张新增 observe 票本轮均落偏差臂）。**方法论留档**：Jev 单次 fan-out 改题键/题面可微移条件题答案分布（C100 的 parent_relationship、C113 的 spread 带），边缘票以 observe 追踪不阻塞；改题后全量回归必须覆盖非目标题。
+- **部署**：commit `8d63253`（代码+测试）+ `4ced895`/`4a8b68b`（C113/C100 observe）；182 pull + 全量回归 + worker 重启加载 J1.54。live 实验进程仍持旧题面（in-process 模块缓存），按持仓确认规程待重启。
 
 ### C122 门名断代（J1.53）——name_form→web3_user_acceptability / niche_subculture→web3_circle_reachability（niche 是否合并进接纳度的数据裁定）（2026-10-20 用户问询）★
 
@@ -1271,6 +1283,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.54 | 2026-10-20 | **门名/题键语义化（判据零改动）**：用户指令「其它门的名字也请梳理下，以类似思路，做一下调整」——①题键 event_magnitude → `web3_user_impact`（J1.50/J1.51 起主轴已是 Web3 用户被影响程度）②题键 dimension2 → `web3_user_spread`（占位名；语义=用户侧传播面）③门函数 notMemeNameBlock→web3UserAcceptabilityBlock / nameFormChoice→web3UserAcceptabilityChoice / NOT_MEME_NAME_CHOICES→WEB3_USER_NOT_ACCEPTABLE_CHOICES / web3FitBlock→web3UnfitBlock / rideDetourBelow→rideDetourMass ④审计键 jevImpactTier+effectiveImpactTier / effectiveTiming / anchoredTier / web3FitAnchoredTier / web3FitStrongPAnchored / blockChoiceProbability / web3FitMass→web3UnfitMass / resonance*→web3FitDamp* / instagramDim2Anchor→instagramSpreadAnchor / web3FitDim2Anchor→web3FitSpreadAnchor / scoringResult.dimension2→spreadScore / jevDetails.{tier,timing,dim2}→{impactTier,effectiveTiming,spread} ⑤label ip_reuse→IP低质复用、感染力折损→Web3偏好折损。mapper answers 双键读（scan 工具读历史行）+ 前端旧键回退 | C123（门名语义梳理） | 8d63253 |
 | J1.53 | 2026-10-20 | **门名断代（零行为意图）**：用户裁定「name_form/niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户接纳度』/『Web3 用户圈层可达性』」——①题键 name_form → `web3_user_acceptability`（判据/三态键不动）②block_reason 桶键 niche_subculture → `web3_circle_reachability`（J1.52 判据不动）。mapper 双键读（新键优先、旧键=存量缓存行兼容）、审计键 nameForm/nameFormBlock → web3UserAcceptability/web3UserAcceptabilityBlock、概率键跟随题键；BLOCK_SCOPE/LABELS 新旧并存；名字门 label→「Web3 用户不接纳该名字（用户接纳度门）」、圈层桶 label→「Web3 用户圈层可达性不足」 | C122（niche 合并问询的数据裁定：不合并=不把 A 域拦截扩到全类别） | 0016126 |
 | J1.52 | 2026-10-20 | 用户视角批次一（两处正交）：①`w_product_score` 主轴切 web3 用户关注与兴奋度（客观创新性降参考锚+显式否定「发布后实测数据」读法；四带形态结构词刻意保留保 C42 `wNewProductP=1−P(0)−P(1)` 带结构；mapper 零改动）②`block_reason.niche_subculture` 判据从「圈外人无法理解/无出圈可能」切「web3 用户接不接得住」（认知可达性；crypto 圈内梗≠小圈子；品牌营销物料/官方周边/活动噱头不是社区梗——无实质内容仍归营销噱头；BLOCK_SCOPE ['A'] 不动）。批内修正见 C121（C110 币安菠萝 A/B 归因） | C121 用户裁定「只有切换 web3 用户视角，从用户需求角度出发…效果才能好」；182 前置扫描 niche 35 行全 event:A 活桶→改锚不退役 | 4546bd8 + 0f9ad8b |
 | P1.11 | 2026-10-18 | **题面零改动；mapper 采信语义变化（P1.3 先例 bump）**：`mapPrestageAnswers` 新增 `corpusType`（fetchResults.twitterInfo.type 透传）——'tweet'（挂链语料是一条推文）时 web3_native_ip_early 答案不采信，回落 abm 双条件评定（两题恒带已答零额外调用，`evaluateAbmAnswers` 提取共用）；'account'/'community'/缺省 null 放行；project 不受限；`jevDetails.web3ipRejectedCorpusType` 观测键；同日配套修复一（isProjectCoin includeUrlArm——URL 含 CA 不算命中 CA，skipAddressValidation 证据源换内容臂强证据，路由级不 bump，C99 先例）。同 token 两版本下推文语料票的类型判定不可直接比较 | C101 OK❌ 案 0x0195119e…7777（用户裁定「web3_native_ip_early 仅限于账号」「这不是账号，这就是个推文」「说白了网址里头有CA不算命中CA」；找角度推文宣告+t.me/#CA 伪造 addressVerified → web3ip 0.96 mid → 买 -12.75%；孪生票欧抑同梗标准路径 low 对照） | 本 commit |
