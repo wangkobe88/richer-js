@@ -504,15 +504,17 @@
       "symbol": "こんにちは",
       "addr": "0xf0ffa405a08a3abd1de1b2d88fdec7cbd9f37777",
       "expect": {
-        "rating": "low",
+        "rating": "mid",
         "tokenCategory": "event:B",
         "auditIncludes": [
           "authorUtterance"
         ]
       },
-      "note": "何一「こんにちは」flap 票：C120 巨粉豁免过时效门后 Jev 真跑；J1.56 实体题 no_entity 中性 + authorUtterance=true，仍被 empty_content/mem/接纳度三形态门拦（low）",
+      "note": "何一「こんにちは」flap 票：C120 巨粉豁免过时效门；J1.56 实体题 no_entity 中性 + authorUtterance=true；J1.58 空洞门作者在册豁免；J1.61→J1.65 名字门增「高影响力主体本人说出的词句」能接纳臂 → mid 66.94（事件分27+传播27.04+时效15=69.04）。",
       "addedAt": "2026-10-20",
-      "observe": "authorUtterance=true 为确定性代码事实（何一在册 ∧ こんにちは逐字主推）；J1.58 起 empty_content 已被作者在册豁免（emptyContentAuthorOverride）；J1.61 去 mem 腿后 C88 四腿全中（hit:true）。唯一死因=名字门（web3_user_name_acceptability not_acceptable 0.95）——若名字门判 acceptable，本票可 high（放行属名字门裁定面）。"
+      "expectSince": "2026-10-20",
+      "expectBecause": "C126 收口裁定：Web3 用户侧，何一发这一句作为 meme 名字应能被认同——名字门超IP原话臂放行；version 词反锚（C105）确保不误放版本标注",
+      "observe": "确定性事实=authorUtterance true（何一在册 ∧ こんにちは逐字主推）；名字门对超IP原话的接纳仍是 Jev 概率面（本轮 acceptable 臂放行→mid；若掷骰回到 not_acceptable 则 low，属已知面）。"
     }
   ]
 }
