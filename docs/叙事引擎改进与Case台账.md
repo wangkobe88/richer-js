@@ -77,7 +77,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **单测**：27 文件 972 断言全绿（`_test_web3_fit_anchor`/`_test_narrator_two_shapes` 按新标准重写；其余数值/label/题数/版本断言同步）。
 - **部署**：182 `e2bf2f3`；叙事 worker 14:58 UTC 重启（PID 4186716，JEV version 探针=`J1.79`）；live `37b19a9f` 14:59:57 UTC 重启（重启前 trades 20 行净持仓 0 核验）；新建虚拟 `6209342e-959f-4634-b190-dffd2e9695ab`（v27-虚拟-both-J1.79事件分fit-1020）15:01:44 UTC 起，config=live 行整包克隆去 wallet（strategiesConfig/positionManagement 逐字相同）。
 - **回归集**：`d3a36c7` 已将 C109a/C130/C114 期望置 high（`expectBecause`/`expectSince` 留痕）；本 case 不新增单票，沿用三票断言。
-- **待裁定**（本批遗留）：①C109a 交易猫 Stage3 关联分 none 0 分（图证关联是否给豁免）；②C114 图证豁免扩面（block_reason=none 但主推极短+配图/视频在场）；③C94 `new_entity` 与实体门交互（新实体是否绕过实体低影响力门）；④另发现 live/库 v26 买腿缺 `maxBlockBuyCircPct < 25`（疑似 05:30 sybil 批次覆盖丢门，待裁定是否补回）。
+- **待裁定**（本批遗留）：①C109a 交易猫 Stage3 关联分 none 0 分（图证关联是否给豁免）；②C114 图证豁免扩面（block_reason=none 但主推极短+配图/视频在场）；③C94 `new_entity` 与实体门交互（新实体是否绕过实体低影响力门）。④**单块门移除=同日用户裁定**（买腿 description 留痕）：`maxBlockBuyCircPct < 25` 全史口径在 111 票回放 110/111 全拦、11 笔实盘拦 10 含 3 正票，用户裁定先行移除、口径待重议；sybil 大簇门保留——live/虚拟买腿现均不含单块门，实验行 name/description 的 v27 文本为历史残留。
 
 ### C134 W 类数学去掉币安交互臂，改为项目对 BSC 用户吸引力——J1.74 股城案延续（2026-10-20 用户裁定）★
 
