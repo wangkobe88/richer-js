@@ -69,6 +69,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C135 事件层收敛为 Web3 用户口味契合——事件分=web3_user_event_fit（impact 题删除）（J1.79）（2026-10-20 用户裁定）★
+
+- **案由**：事件分从 J1.71 三合一（impact+spread+timing）起，J1.75 被动波及口径/J1.76 证据口径/J1.77 原事件采信多轮迭代仍分不开高低分（用户批评「死板的分级」，且明确否决「无条件 +1.8」校准）。用户最终裁定：「事件分，我们的方案不是改用 fit 吗？」「改吧」——事件价值直接取 Web3 用户对叙事的口味契合（`web3_user_event_fit`），叙事存在性/名字/拼写/载体/实体由既有臂负责过滤（用户：「叙事存在性、名字、拼写、载体、实体这些臂应该都有了」）。
+- **改动（J1.79，`e2bf2f3`）**：①删除 `web3_user_event_impact` 题（题库 14→13），`web3_user_event_fit` 标注为事件价值题；②标准路径 `eventCompositeScore = round2(min(1, strong_fit+fit)×100)`（pass 60）；③`influenceScore = round2(likedMass×5)` 派生 impactTier，仅供 J1.24 戏谑关联豁免/J1.30 名图一致/C86/C94 等量级锚与审计，**不再有独立影响力题**；④旧源时效 override 由「-18 分」改为「事件分封顶 30」；⑤E 类感染力折损（J1.36）与 `unfit≥0.5` 负门保留；⑥J1.78 动作/趋势名（「蝙蝠侠式蹦迪」「XX摇」）判 no_visual 载体规则随批生效；⑦DND `empty_content` 图证载体豁免接线（要求 block_reason=empty_content）。五臂过滤全部保留、零新增拦截位。
+- **回归（182，43 票，2026-10-20 14:51 UTC）**：35 PASS / 1 FAIL / 7 OBSERVE-DEVIATION / 0 ERROR。FAIL=C94 京小安 low→high 88.33（实体题 `new_entity` 放行实体门后事件分过线——C133 新实体选项与实体门的交互面，待裁定）。目标票：C130 돼지 H **high 77.89 PASS**；C109a 交易猫 low（**Stage3 关联分 none 0 分拦截**，非事件分——既有 relevance 臂，待裁定）；C114 DND low（empty_content 图证豁免要求 `block_reason=empty_content`，本跑 `blockChoice=none` 未触发；载体门仍拦，待裁定）。OBSERVE 另含 C79/C82/C100/C126 等既有掷骰面。
+- **单测**：27 文件 972 断言全绿（`_test_web3_fit_anchor`/`_test_narrator_two_shapes` 按新标准重写；其余数值/label/题数/版本断言同步）。
+- **部署**：182 `e2bf2f3`；叙事 worker 14:58 UTC 重启（PID 4186716，JEV version 探针=`J1.79`）；live `37b19a9f` 14:59:57 UTC 重启（重启前 trades 20 行净持仓 0 核验）；新建虚拟 `6209342e-959f-4634-b190-dffd2e9695ab`（v27-虚拟-both-J1.79事件分fit-1020）15:01:44 UTC 起，config=live 行整包克隆去 wallet（strategiesConfig/positionManagement 逐字相同）。
+- **回归集**：`d3a36c7` 已将 C109a/C130/C114 期望置 high（`expectBecause`/`expectSince` 留痕）；本 case 不新增单票，沿用三票断言。
+- **待裁定**（本批遗留）：①C109a 交易猫 Stage3 关联分 none 0 分（图证关联是否给豁免）；②C114 图证豁免扩面（block_reason=none 但主推极短+配图/视频在场）；③C94 `new_entity` 与实体门交互（新实体是否绕过实体低影响力门）；④另发现 live/库 v26 买腿缺 `maxBlockBuyCircPct < 25`（疑似 05:30 sybil 批次覆盖丢门，待裁定是否补回）。
+
 ### C134 W 类数学去掉币安交互臂，改为项目对 BSC 用户吸引力——J1.74 股城案延续（2026-10-20 用户裁定）★
 
 - **案由**：`0xaacbc156435dbab7815a61bccba1c827e52a7777`（symbol `股城`，name `STOCKOPOLIS`，flap）。实体门由 new_entity 放行后，W 类数学 = 产品 16.28 + 币安交互 1.44 + 时效 25 = 42.72 → low。用户裁定：「发在 BSC 链的项目，一开始刚发出，基本上不可能有币安交互，把币安交互这一臂去掉，改为分析项目本身对 BSC Web3 用户的吸引力」。
@@ -1408,6 +1418,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.79 | 2026-10-20 | **事件层收敛为 Web3 用户口味契合（事件分=fit 质量）**：删除 `web3_user_event_impact`（14→13 题）；`eventCompositeScore = round2(min(1, strong_fit+fit)×100)`（pass 60）；`influenceScore = likedMass×5` 供量级锚/豁免/审计（不再有独立影响力题）；旧源 override -18→封顶 30；E 类感染力折损/unfit≥0.5 负门/五臂过滤（叙事存在性、名字 Symbol、拼写 C78、载体 J1.29+J1.78、实体 J1.56）保留；J1.78 动作/趋势名规则保留，J1.75-J1.77 影响力口径迭代被本版取代 | C135（用户裁定「事件分改用 fit」；案源 = 交易猫 C109a/돼지 H C130/DND C114 分数面） | e2bf2f3 |
 | J1.70 | 2026-10-20 | **审计键/局部变量语义化（零判据零行为）**：用户指令「mapper 变量能否直接使用名字？」「现在还有 stage2 吗？stage2Total 还有存在价值吗？」——①局部变量：`stage2Total`→`eventCompositeScore`、`tierScore`→`impactTierScore`、`effSpread`→`spreadScore`、`spread`→`rawSpreadScore`、`timeliness`→`timingScore`、加权事件分 `eventScore`→`weightedEventScore`、`stage2Blocked`→`eventScoreBlocked`、`stage2Reason`→`eventScoreReason`、`stage2BlockReason`→`gateBlockReason` ②审计键：`scoringResult.totalScore`→`eventCompositeScore`、`scoringResult.tierScore`→`impactTierScore`、`scoringResult.timeliness`→`timingScore`；`stage_final.details.stage2TotalScore`→`eventCompositeScore`、`eventScore`→`weightedEventScore` ③前端/扫描工具双键读（新键优先、旧键=历史行兼容）④UI 文案对齐（「事件分」=合成分、「事件加权分」=×0.6 项）。**不是新题、不是新门**——「事件分」= `impactTierScore + spreadScore + timingScore` 的合成分；stage2 作为阶段已不存在（J1 单次 Jev 调用，stage1/stage2/stage_final 只是逻辑信封） | C130 同族收尾（用户问询） | 本 commit |
 | J1.69 | 2026-10-20 | **名字门判定对象收敛为链上 Symbol（币名）**：`web3_user_name_acceptability` 从「代币 Name/Symbol 取更完整的一个」改为**只判链上 Symbol（ticker）**，Name（全名/描述句）不作判据；判据内容一字不动，只改判谁。范围只名字门（实体/载体/关联/名图/prestage 仍 Symbol+Name） | C130（用户裁定「币名应该看 Symbol」；돼지 H 按电影全名被陈述句误拦） | 495fd69 |
 | P1.13 | 2026-10-20 | **prestage_abm_name_link 用户感知锚（四档/choice 键/二值消费不变）**：instructions 加「按 web3 用户视角判——只看币名会不会自然联想到该账号/人物」；exact/abbreviation/semantic 三档 label 加「web3 用户会立即/自然联想到」；none 档改「web3 用户不会自然联想到该账号/人物」 | C125（用户视角批次 3；消费位仅 nameLink≠none 二值，最小改法） | 2f83a35 |
