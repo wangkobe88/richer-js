@@ -178,16 +178,19 @@ async function main() {
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
+  check('D5c J1.65 名字门超IP原话能接纳臂 + 版本词反锚（C126/C105）',
+    qsSrc.includes('高影响力主体本人说出的词句')
+    && qsSrc.includes('即便逐字出自高影响力主体的原话也不接纳'), null);
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）',
     qsSrc.includes('event_token_block_reason:')
     && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
     && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
     && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
-  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.64',
+  check('D5 题集三选项 + 作者身份不升档红线 + 版本 J1.65',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.64'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.65'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
