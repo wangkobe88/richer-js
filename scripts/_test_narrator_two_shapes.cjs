@@ -51,20 +51,22 @@ async function main() {
   check('A8 找角度/解读型标注形状②',
     mag.instructions.includes('找角度/解读型推文 → 形状②'));
 
-  // ═══ B. J1.72 用户模拟评分 ═══
-  console.log('\n── B. 影响力=模拟 BSC meme 买家反应（非死板分级）──');
-  check('B1 criteria 为反应强度描述（0/1-2/3/4/5）', Array.isArray(mag.criteria) && mag.criteria.length === 5
-    && mag.criteria[0].includes('完全无感') && mag.criteria[4].includes('全圈刷屏'));
-  check('B2 题面要求代入 BSC 链 Meme 币买家（第一反应）',
-    mag.instructions.includes('BSC 链的 Meme 币买家') && mag.instructions.includes('第一反应'));
-  check('B3 明确反对按粉丝/播放/机构规模查表打分',
+  // ═══ B. J1.75 被动波及评分 ═══
+  console.log('\n── B. 影响力=被动波及（喜好度由 fit 单独承担）──');
+  check('B1 criteria 为被动波及六档（0-5）', Array.isArray(mag.criteria) && mag.criteria.length === 6
+    && mag.criteria[0].includes('完全无波及') && mag.criteria[5].includes('全圈刷屏'));
+  check('B2 题面定义被动波及（进入视野/占据注意力/影响情绪讨论行为，不是主动买）',
+    mag.instructions.includes('被动波及') && mag.instructions.includes('进入用户的视野')
+    && mag.instructions.includes('影响他们的情绪/讨论/行为') && mag.instructions.includes('不是问「用户喜不喜欢」'));
+  check('B3 明确不要按粉丝/播放/机构规模查表打分',
     mag.instructions.includes('不要按粉丝数/播放量/机构规模查表打分'));
-  check('B4 传播面与时序是反应来源（不是独立加分项）',
-    mag.instructions.includes('传播面与时序不是独立加分项') && mag.instructions.includes('反应强')
-    && mag.instructions.includes('反应弱'));
-  check('B5 反应分五档语义在场（划过去/可能参与/主动参与/全圈刷屏）',
-    mag.instructions.includes('你大概率划过去') && mag.instructions.includes('可能参与')
-    && mag.instructions.includes('你会主动去看/参与') && mag.instructions.includes('全圈刷屏'));
+  check('B4 传播面与时序是被动波及的证据（非独立加分项）',
+    mag.instructions.includes('传播面与时序是「被动波及」的证据') && mag.instructions.includes('波及强')
+    && mag.instructions.includes('波及弱'));
+  check('B5 波及六档语义在场（几乎无/少数人/相当一部分/大面积/全圈）',
+    mag.instructions.includes('几乎无波及') && mag.instructions.includes('少数人被波及')
+    && mag.instructions.includes('相当一部分用户会被波及') && mag.instructions.includes('大面积波及')
+    && mag.instructions.includes('全圈刷屏'));
   check('B6 主体判定保留（陈述者关联/外部事件/父推）',
     mag.instructions.includes('陈述者关联事件') && mag.instructions.includes('主体=该外部事件本身')
     && mag.instructions.includes('十万粉级以上父推'));
@@ -75,7 +77,7 @@ async function main() {
   console.log('\n── C. J1.71 事件侧三合一 ──');
   check('C1 web3_user_event_spread 题删除（影响力单题化）', qs.web3_user_event_spread === undefined);
   check('C2 impact 题声明唯一事件价值题 + 传播/时效内化',
-    mag.instructions.includes('唯一事件价值题') && mag.instructions.includes('传播面与时序不是独立加分项'));
+    mag.instructions.includes('唯一事件价值题') && mag.instructions.includes('不是独立加分项'));
 
   // ═══ D. 头部历史条目 ═══
   console.log('\n── D. 版本历史 ──');

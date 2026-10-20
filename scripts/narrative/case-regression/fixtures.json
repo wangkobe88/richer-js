@@ -191,13 +191,15 @@
       "symbol": "交易猫",
       "addr": "0xc929c8d1e57569b706d7cfdc3487c7d33b287777",
       "expect": {
-        "rating": null,
+        "rating": "high",
         "reasonExcludes": [
           "叙事主体无形象载体"
         ]
       },
       "observe": "M1 豁免审计键（subjectCarrierImgOverride）只在 Jev 本轮掷 carrier 低置信（<0.5 才需豁免）时落；10-19 首轮重掷 carrier=existing→载体门自然放行=合法路径无豁免审计。审计键不可硬断言（Jev 概率非确定性），以「脱离载体门拦截」为主断言。",
-      "note": "M1 图证载体覆盖豁免（C109 主体）：现行 DB 行 low 载体门拦=J1.43 部署前形状（conf 0.09 掷硬币误拦）。预期=不再死于载体门；后腿照常，终评级不断言。"
+      "note": "M1 图证载体覆盖豁免（C109 主体）：不再死于载体门；用户裁定终评级 high（2026-10-20）",
+      "expectBecause": "2026-10-20 用户裁定「0xc929c8d1e57569b706d7cfdc3487c7d33b287777 应该给 high」",
+      "expectSince": "2026-10-20"
     },
     {
       "caseId": "C109b",
@@ -536,12 +538,14 @@
       "symbol": "돼지 H",
       "addr": "0xcfc39a869380200949685d16197e93f100207777",
       "expect": {
-        "rating": "low",
+        "rating": "high",
         "tokenCategory": "event:A"
       },
-      "note": "C130 名字门看 Symbol：币名=돼지 H 按 Symbol 判（0.55/0.43 掷骰边缘）放行；事件分不足仍 low",
+      "note": "名字门看 Symbol（돼지 H）+ 事件影响力：用户裁定终评级 high（2026-10-20）",
       "observe": "名字门 0.55/0.43 掷骰边缘（翻 not_acceptable 时死因换名字门，评级仍 low）；事件分两次样本 56.76/51.84 均 <60（spread 2-vs-3 边缘，若过 60 会翻 mid）",
-      "addedAt": "2026-10-20"
+      "addedAt": "2026-10-20",
+      "expectBecause": "2026-10-20 用户裁定「돼지 H 也应该是 high」",
+      "expectSince": "2026-10-20"
     },
     {
       "caseId": "C132",
@@ -561,7 +565,9 @@
       "expect": {
         "rating": "low",
         "tokenCategory": "event:W",
-        "reasonIncludes": ["W类总分不足"]
+        "reasonIncludes": [
+          "W类总分不足"
+        ]
       },
       "note": "股城：空语料搜索兜底（symbol 搜索、不卡互动）；J1.72 new_entity 放行实体门；J1.74 W 数学=产品+BSC用户吸引力+时效（58.31 差 1.69）仍 low",
       "observe": "W 类产品/吸引力分随语料与 Jev 掷骰波动（吸引力 band1/2 边缘，score≥2.0 即过线）；若实体题回退 unknown≥0.5 → reason 变「币名映射实体在 Web3 用户侧无名」→ 本断言失败即回归信号",

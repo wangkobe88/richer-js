@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity（新实体）；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.74', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity（新实体）；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.75', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 14 题（J1.71 删 web3_user_event_spread）', Object.keys(qs).length === 14, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -127,8 +127,8 @@ async function main() {
     check('A9 J1.71 三合一：web3_user_event_spread 题删除；impact 题面声明唯一事件价值分+传播/时效内化',
       qs.web3_user_event_spread === undefined
       && qs.web3_user_event_impact.instructions.includes('唯一事件价值题')
-      && qs.web3_user_event_impact.instructions.includes('传播面与时序不是独立加分项')
-      && qs.web3_user_event_impact.instructions.includes('反应的来源'),
+      && qs.web3_user_event_impact.instructions.includes('传播面与时序是「被动波及」的证据')
+      && qs.web3_user_event_impact.instructions.includes('不是独立加分项'),
       Object.keys(qs).filter(k => k.includes('spread') || k.includes('impact')));
   }
 
@@ -150,7 +150,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.74'"), 'J1.53 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.75'"), 'J1.53 常量缺失');
 
     // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
