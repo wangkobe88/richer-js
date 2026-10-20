@@ -55,7 +55,7 @@ function dndAnswers(overrides = {}) {
     event_token_block_reason: { choice: 'none', probabilities: { none: 0.5, event_empty_content: 0.2 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6, unknown: 0.2 } },
     name_entity_memeability: { score: 2.5, probabilities: {} },
-    web3_user_event_fit: { choice: 'fit', probabilities: { fit: 0.5, strong_fit: 0.3 } },
+    web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.05, marginal: 0.7, unfit: 0.15 } },
     name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.5, existing_entity: 0.4 } },
     event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
     name_event_relevance: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
@@ -134,7 +134,10 @@ async function main() {
   // （0<rel≤10 截断窗内）——J1.30 若错消费 depictP 会豁免 Stage3 截断放行
   const passTier = {
     event_category: { choice: 'A', probabilities: { A: 0.7, G: 0.2 } },
-    event_magnitude: { score: 3.9, probabilities: { '4': 0.6, '3': 0.3 } },
+    event_magnitude: { score: 3.9, probabilities: { '4': 0.6, '3': 0.3 } }, // 旧 A 档形状
+    // J1.79 事件分/tier 由 fit 派生：fit 0.78 复现旧 magnitude 3.9 的 78 分/A 档
+    // （strong_fit 0 避免 C88 实体口号票五腿污染 D1 截断位）
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.78 } },
     // semantic_weak=9 落 Stage3 截断窗（0<rel≤10）——J1.30 真触发才豁免该截断
     name_event_relevance: { choice: 'semantic_weak', probabilities: { semantic_weak: 0.6, semantic_clear: 0.3 } },
   };
@@ -199,7 +202,7 @@ async function main() {
   check('H4b stage2 段同形豁免键（拦截票唯一落库位，DND fallthrough 可归因）',
     mapperSrc.split('\n').filter(l => l.trim().startsWith('subjectCarrierImgOverride:')).length === 2, null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H5 JEV_QUESTIONS_VERSION=J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.78', JEV_QUESTIONS_VERSION);
+  check('H5 JEV_QUESTIONS_VERSION=J1.79（J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
   check('H6 题面 DND/CRO 对照锚在',
     qSrc.includes('猫拉上窗帘正是「别打扰」的画面演绎') && qSrc.includes('名字 CRO 配一张猫图'), null);
   check('H7 题面正交分工声明（unrelated 与 depicts 可同票共存）',

@@ -58,7 +58,7 @@ function dndAnswers(overrides = {}) {
     event_token_block_reason: { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.31, event_institution_routine: 0.15 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6, unknown: 0.2 } },
     name_entity_memeability: { score: 2.5, probabilities: {} },
-    web3_user_event_fit: { choice: 'fit', probabilities: { fit: 0.5, strong_fit: 0.3 } },
+    web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.05, marginal: 0.7, unfit: 0.15 } },
     name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.6, no_visual_entity: 0.3 } },
     event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
     name_event_relevance: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
@@ -116,8 +116,9 @@ async function main() {
   // ═══ C. 误伤面正证（真·大号梗票被救回）═══
   console.log('\n── C. 误伤面正证 ──');
   const bigAcct = dndAnswers({
-    event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } }, // A 档
-    dimension2: { score: 20, probabilities: { '4': 0.5, '5': 0.3 } },        // 34+20+15=69≥60
+    event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } }, // 旧 A 档形状
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.8 } }, // J1.79 事件分 80/A 档
+    dimension2: { score: 20, probabilities: { '4': 0.5, '5': 0.3 } },        // 48+13+18=79≥60
   });
   const rC = mapStandardAnswers(bigAcct, dndCtx(true));
   check('C1 同形状升 A 档（大号官方梗票）→ pass=true（C114 修的误伤面）',
@@ -156,6 +157,7 @@ async function main() {
   const rF = mapStandardAnswers(dndAnswers({
     event_token_block_reason: { choice: 'event_empty_content', probabilities: { event_empty_content: 0.2, none: 0.6 } },
     event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } },
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.8 } }, // J1.79 事件分 80（pass 线另判）
     dimension2: { score: 20, probabilities: { '4': 0.5, '5': 0.3 } },
   }), dndCtx(false));
   check('F1 none 0.6≥0.5：无图证也不拦（原概率门语义不变，pass 线另判）',
@@ -183,7 +185,7 @@ async function main() {
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H3 JEV_QUESTIONS_VERSION=J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear）', JEV_QUESTIONS_VERSION === 'J1.78', JEV_QUESTIONS_VERSION);
+  check('H3 JEV_QUESTIONS_VERSION=J1.79（J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear）', JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
   check('H4 题面合格分支②含通用网络梗缩写锚（DND/FOMO/LFG）',
     qSrc.includes('通用网络梗/文化缩写同构（如 DND=do not disturb、FOMO、LFG）'), null);
   check('H5 题面不合格分支含机构职位缩写（工牌 Chief Risk Officer→CRO）',

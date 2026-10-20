@@ -23,7 +23,10 @@ function check(name, cond, detail) {
 // ── C28 iNu 案的 Jev answers 快照（token_narrative d6681041 行数值复现）────────
 const iNuAnswers = {
   event_category: { choice: 'C', probabilities: { A: 0, B: 0, C: 0.52, D: 0, E: 0.01, F: 0.02, G: 0.2, W: 0.25 } },
-  event_magnitude: { score: 3.4, probabilities: { '0': 0.05, '1': 0.03, '2': 0.26, '3': 0.54, '4': 0.09, '5': 0.03 } }, // → B 档
+  event_magnitude: { score: 3.4, probabilities: { '0': 0.05, '1': 0.03, '2': 0.26, '3': 0.54, '4': 0.09, '5': 0.03 } }, // → B 档（旧口径；J1.79 tier 由 fit 派生）
+  // J1.79：事件分=fit 质量；fit 0.68 复现旧 magnitude 3.4 的 68 分/C 档（strong_fit 0
+  // 避免 C88 实体口号票五腿与 Web3 偏好锚污染路由矩阵）
+  web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.68 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
   dimension2: { score: 3.7, probabilities: { '3': 0.48, '4': 0.41 } }, // → 26.5
   event_token_block_reason: {
@@ -91,7 +94,7 @@ async function main() {
   // B2 同一答案、无 cashtag 语料 → 原 C 类路径放行（改道前后行为对照）
   const m2 = mapStandardAnswers(iNuAnswers, makeContext(iNuAnswers, null));
   check('B2a 无 cashtag 不改道：类别 C、无审计标记', m2.stage1DataToSave.category === 'C' && m2.stage1DataToSave.parsed_output.jev.categoryForced === null);
-  check('B2b C 类数学 J1.71 单题影响力 3.4→68 放行', m2.stage2DataToSave.parsed_output.scoringResult.category === 'C' && m2.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 68 && m2.stage2DataToSave.parsed_output.pass === true, m2.stage2DataToSave.parsed_output.scoringResult);
+  check('B2b C 类数学 J1.79 fit 口径（strong0+fit68→68）放行', m2.stage2DataToSave.parsed_output.scoringResult.category === 'C' && m2.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 68 && m2.stage2DataToSave.parsed_output.pass === true, m2.stage2DataToSave.parsed_output.scoringResult);
   check('B2c 终评 high 放行（改道前 75.38）', m2.llmResult.pass === true && m2.llmResult.rating === 'high' && m2.llmResult.score === 75.38, m2.llmResult);
 
   // B3 Jev 原生 W + cashtag 命中：不标改道（避免语义混乱），照常 W 数学

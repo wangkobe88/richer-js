@@ -55,6 +55,9 @@ const cueAnswers = {
     probabilities: { none: 0.56, subject_unqualified: 0.15, event_empty_content: 0.1, event_institution_routine: 0.16 },
   },
   web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.7, no_entity: 0.14, accepted: 0.16 } },
+  // J1.79：事件分/tier 由 fit 派生——strong 0.40+fit 0.18=0.58 → 事件分 58 / B 档
+  // （替换旧 magnitude 2.88→57.6 口径；58<60 维持「锚只做下限不保过线」断言）
+  web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0.4, fit: 0.18, marginal: 0.3, unfit: 0.12 } },
   name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.7, semantic: 0.2 } },
   relevance_level: { score: 3.3, probabilities: { '3': 0.4, '4': 0.5 } },
   block_misspelling: { noul: 0.1 },
@@ -142,12 +145,12 @@ async function main() {
   const m1 = mapStandardAnswers(cueAnswers, makeContext(cueTokenData, cueAnswers, cueTwitter));
   const j1 = m1.stage1DataToSave.parsed_output.jev;
   check('B1a stage1 审计：publisherProxy 详情 + active + anchoredTier', j1.publisherProxy?.domain === 'cue.im' && j1.publisherProxyActive === true && j1.anchoredTier === 'A', j1);
-  check('B1b Jev 原判审计保真：jevImpactTier 保留 B（不受锚定影响）', j1.jevImpactTier === 'B', j1.jevImpactTier);
+  check('B1b 原判审计保真：jevImpactTier 保留 fit 派生 B 档（不受锚定影响）', j1.jevImpactTier === 'B', j1.jevImpactTier);
   const s1 = m1.stage2DataToSave.parsed_output.scoringResult;
-  check('B1c J1.71 单题口径：影响力 2.88→57.6 <60，stage2 拦（锚只做下限 40，不保过线）', m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output);
-  check('B1d effTier A 锚 → 影响力下限 40（不影响 57.6）', s1.category === 'B' && s1.eventCompositeScore === 57.6 && s1.influenceFloor === 40 && s1.influenceTier === 'A', s1);
+  check('B1c J1.79 fit 单题口径：事件分 58<60，stage2 拦（锚只做下限 40，不保过线）', m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output);
+  check('B1d effTier A 锚 → 影响力下限 40（不影响 58）', s1.category === 'B' && s1.eventCompositeScore === 58 && s1.influenceFloor === 40 && s1.influenceTier === 'A', s1);
   check('B1e reason 标注发布者指代锚', m1.stage2DataToSave.parsed_output.reason.includes('发布者指代锚'), m1.stage2DataToSave.parsed_output.reason);
-  check('B1f 终评 low（57.6<60 阻断）', m1.llmResult.pass === false && m1.llmResult.rating === 'low' && /事件分不足（57\.6<60）/.test(m1.llmResult.reason || ''), m1.llmResult);
+  check('B1f 终评 low（58<60 阻断）', m1.llmResult.pass === false && m1.llmResult.rating === 'low' && /事件分不足（58<60）/.test(m1.llmResult.reason || ''), m1.llmResult);
   check('B1g promptType 保持 B 类标准数学（不改道 W）', m1.promptType.includes('B类') && !m1.promptType.includes('改道'), m1.promptType);
 
   // B2 同 answers、无 twitterInfo → 原路径：gimmick argmax 先拦（本轮 dryrun 基线拦截路径复现）
@@ -189,21 +192,21 @@ async function main() {
   // B6 骑乘改道豁免：ss+sip≥0.5 且 sip<0.5 原本改道 W，pubProxyActive 时不改道走标准数学
   const rideAnswers = { ...cueAnswers, web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.65, accepted: 0.25, no_entity: 0.1 } } };
   const m6 = mapStandardAnswers(rideAnswers, makeContext(cueTokenData, rideAnswers, cueTwitter));
-  check('B6 骑乘改道豁免：rideMass=null 走 B 类标准数学（57.6），promptType 无改道后缀',
-    m6.stage2DataToSave.parsed_output.scoringResult.category === 'B' && m6.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 57.6 && !m6.promptType.includes('改道'), m6.promptType);
+  check('B6 骑乘改道豁免：rideMass=null 走 B 类标准数学（J1.79 fit 事件分 58），promptType 无改道后缀',
+    m6.stage2DataToSave.parsed_output.scoringResult.category === 'B' && m6.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 58 && !m6.promptType.includes('改道'), m6.promptType);
 
-  // B7 锚定边界：A 原判不动 / S 不降
-  const tierA = { ...cueAnswers, event_magnitude: { score: 4.2, probabilities: { '4': 0.6 } } };
+  // B7 锚定边界：A 原判不动 / S 不降（J1.79 档位由 fit 派生——直接覆盖 fit 质量）
+  const tierA = { ...cueAnswers, web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.7, fit: 0.14, marginal: 0.1, unfit: 0.06 } } };
   const m7a = mapStandardAnswers(tierA, makeContext(cueTokenData, tierA, cueTwitter));
-  check('B7a Jev 原判 A 档：anchoredTier=null（不动）+ 影响力 84', m7a.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7a.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m7a.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 84);
-  const tierS = { ...cueAnswers, event_magnitude: { score: 4.8, probabilities: { '5': 0.5, '4': 0.3 } } };
+  check('B7a fit 派生 A 档：anchoredTier=null（不动）+ 事件分 84', m7a.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7a.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m7a.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 84);
+  const tierS = { ...cueAnswers, web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.9, fit: 0.06, marginal: 0.03, unfit: 0.01 } } };
   const m7b = mapStandardAnswers(tierS, makeContext(cueTokenData, tierS, cueTwitter));
-  check('B7b Jev 原判 S 档：不降档（影响力 96）', m7b.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7b.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'S' && m7b.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 96);
+  check('B7b fit 派生 S 档：不降档（事件分 96）', m7b.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7b.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'S' && m7b.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 96);
 
   // B8 C 类域同样生效（B/C 边界抖动防护，与 rideDetourMass 同域）
   const catC = { ...cueAnswers, event_category: { choice: 'C', probabilities: { C: 0.52, B: 0.41 } } };
   const m8 = mapStandardAnswers(catC, makeContext(cueTokenData, catC, cueTwitter));
-  check('B8 C 类域生效：pubProxyActive + effTier A 锚（下限 40，57.6<60 仍拦）', m8.stage1DataToSave.category === 'C' && m8.stage1DataToSave.parsed_output.jev.publisherProxyActive === true && m8.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m8.stage2DataToSave.parsed_output.scoringResult.influenceFloor === 40 && m8.llmResult.pass === false, m8.promptType);
+  check('B8 C 类域生效：pubProxyActive + effTier A 锚（下限 40，J1.79 fit 事件分 58<60 仍拦）', m8.stage1DataToSave.category === 'C' && m8.stage1DataToSave.parsed_output.jev.publisherProxyActive === true && m8.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m8.stage2DataToSave.parsed_output.scoringResult.influenceFloor === 40 && m8.llmResult.pass === false, m8.promptType);
 
   // B9 原判低档 + 官方域名盘：量级锚只看 proxy 判据不看原档；粉丝不足时 D 档拦截维持
   // （block/nr 改成放行形状，让量级拦截路径可见——gimmick argmax 路径已由 B2b 覆盖）
@@ -211,10 +214,11 @@ async function main() {
     ...cueAnswers,
     event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_marketing_gimmick: 0.1 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.6, unknown: 0.3, no_entity: 0.1 } },
-    event_magnitude: { score: 1.2, probabilities: { '1': 0.6 } },
+    // J1.79：原判低档由 fit 派生（mass 0.2 → 事件分 20 / D 档）
+    web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 } },
   };
   const m9a = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, cueTwitter));
-  check('B9a 原判 D 档（粉丝足、原判低）仍被锚到 A 档（下限 40；24<60 仍拦）——锚只看 proxy 判据不看原档', m9a.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m9a.stage2DataToSave.parsed_output.scoringResult.influenceFloor === 40 && m9a.llmResult.pass === false);
+  check('B9a fit 派生 D 档（粉丝足）仍被锚到 A 档（下限 40；20<60 仍拦）——锚只看 proxy 判据不看原档', m9a.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m9a.stage2DataToSave.parsed_output.scoringResult.influenceFloor === 40 && m9a.llmResult.pass === false);
   const m9b = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, { ...cueTwitter, author_followers_count: 10000 }));
   check('B9b 粉丝不足 + D 档原判：proxy 不激活 → D 档量级拦截维持', m9b.llmResult.rating === 'low' && m9b.llmResult.reason.includes('量级不足'), m9b.llmResult.reason);
 

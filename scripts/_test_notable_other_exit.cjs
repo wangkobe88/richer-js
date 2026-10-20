@@ -110,10 +110,10 @@ async function main() {
       && stage2Of(mc).jev?.nameEntityLowMass === 0.98
       && stage1Of(mc).jev?.nrNotableExempt === undefined,
     { blockReason: stage2Of(mc).blockReason, mass: stage2Of(mc).jev?.nameEntityLowMass });
-  check('B1b 同形状改 accepted 0.8：实体门不拦；J1.71 影响力 2.8→56<60 拦',
+  check('B1b 同形状改 accepted 0.8：实体门不拦；J1.79 fit 事件分 100（strong 0.96+fit 0.04）放行',
     (() => { const x = { ...cAnswers, web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.8 } } };
       const mx = mapStandardAnswers(x, makeContext());
-      return stage2Of(mx).pass === false && stage2Of(mx).scoringResult?.eventCompositeScore === 56 && /事件分不足/.test(stage2Of(mx).blockReason || ''); })(),
+      return stage2Of(mx).pass === true && stage2Of(mx).scoringResult?.eventCompositeScore === 100; })(),
     null);
 
   // B1c CONVICTION 保护移交（裁定第②步：拦截轴=可接纳性非知名度）：同形状 +
@@ -148,8 +148,8 @@ async function main() {
   yAnswers.web3_user_name_entity_acceptance = { choice: 'accepted', probabilities: { accepted: 0.8 } };
   const my = mapStandardAnswers(yAnswers, makeContext());
   const myNf = mapStandardAnswers({ ...yAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
-  check('B4 minor 0.55 主导：旧快照按影响力 56 拦（非名字门）/ name_form=not_meme_name 名字门接住',
-    my.llmResult?.rating === 'low' && !/Web3 用户不接纳该名字/.test(my.llmResult?.reason || '') && /Web3 用户不接纳该名字/.test(myNf.llmResult?.reason || ''),
+  check('B4 minor 0.55 主导：旧快照无 name_form 键 fail-open 放行（J1.79 fit 事件分 100）/ name_form=not_meme_name 名字门接住',
+    my.llmResult?.rating !== 'low' && !/Web3 用户不接纳该名字/.test(my.llmResult?.reason || '') && /Web3 用户不接纳该名字/.test(myNf.llmResult?.reason || ''),
     { legacy: my.llmResult?.rating, nf: myNf.llmResult?.reason });
 
   // B5 common_word 主导（CONVICTION 纯截词语义）：拦截移交 name_form 分支②
@@ -159,8 +159,8 @@ async function main() {
   const mk = mapStandardAnswers(kAnswers, makeContext());
   const mkNf = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
   const mkMeme = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } } }, makeContext());
-  check('B5 common 0.52 主导：旧快照按影响力 56 拦 / not_meme_name 名字门拦 / meme_name 躲过名字门（仍低分）',
-    mk.llmResult?.rating === 'low' && /Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
+  check('B5 common 0.52 主导：旧快照无 name_form 键 fail-open 放行（J1.79 fit 事件分 100）/ not_meme_name 名字门拦 / meme_name 躲过名字门',
+    mk.llmResult?.rating !== 'low' && /Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
       && !/Web3 用户不接纳该名字/.test(mkMeme.llmResult?.reason || ''),
     { legacy: mk.llmResult?.rating, nf: mkNf.llmResult?.reason });
 

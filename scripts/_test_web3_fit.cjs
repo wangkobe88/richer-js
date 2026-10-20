@@ -88,8 +88,10 @@ async function main() {
   check('B5 stage1 概率落库 probabilities.web3_user_event_fit', r1.stage1DataToSave.parsed_output.jev.probabilities.web3_user_event_fit?.unfit === 0.72, r1.stage1DataToSave.parsed_output.jev.probabilities.web3_user_event_fit);
 
   // B6 同形状 unfit 0.3（fit 为主）→ 不因偏好拦，评分正常走
-  const r2 = mapStandardAnswers(makeAnswers({ unfit: 0.3, fit: 0.5, marginal: 0.12, strong_fit: 0.08 }), makeContext(tokenData));
-  check('B6 unfit 0.3 → 不因偏好拦（rating 非 low）', r2.llmResult.rating !== 'low', r2.llmResult);
+  // J1.79：事件分=strong_fit+fit 质量——fit 质量须 ≥0.6 才不被事件分不足另拦
+  //（旧 fit 0.58 形状在新口径下 58<60 会由事件分门拦，非本门；隔离被测轴）
+  const r2 = mapStandardAnswers(makeAnswers({ unfit: 0.3, fit: 0.62, marginal: 0.05, strong_fit: 0.03 }), makeContext(tokenData));
+  check('B6 unfit 0.3 → 不因偏好拦（rating 非 low；J1.79 fit 质量 0.65 过事件分线）', r2.llmResult.rating !== 'low', r2.llmResult);
   check('B6b 审计 web3UnfitMass=null（未拦）', r2.stage2DataToSave.parsed_output.jev.web3UnfitMass === null, r2.stage2DataToSave.parsed_output.jev.web3UnfitMass);
 
   // B7/B8 边界：0.5 拦，0.49 放

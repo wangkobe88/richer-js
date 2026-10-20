@@ -113,17 +113,17 @@ async function main() {
   console.log('\n── A. 四票事故反证（实测 answers 精确复现） ──');
 
   // A1 暗号：修复前 rcp argmax 臂拦（0.44 vs none 0.41 五五开抖动 + 反事实 J1.29
-  // no_visual 0.92 也拦）→ 修复后五腿全中放行，S 档 78.36 → high 80.51
+  // no_visual 0.92 也拦）→ 修复后五腿全中放行；J1.79 事件分=fit 质量 0.99→99 → high 92.89
   const mA = mapStandardAnswers(ANHO, makeContext({ tokenData: TOKENS.anho }));
   const s2A = stage2Of(mA), s3A = stage3Of(mA);
-  check('A1 暗号 stage2 放行：J1.71 单题影响力 4.78→95.6',
-    s2A.pass === true && s2A.scoringResult?.eventCompositeScore === 95.6,
+  check('A1 暗号 stage2 放行：J1.79 fit 质量 0.99 → 事件分 99',
+    s2A.pass === true && s2A.scoringResult?.eventCompositeScore === 99,
     { pass: s2A.pass, total: s2A.scoringResult?.eventCompositeScore });
-  check('A1b 暗号五腿审计恒落：{hit:true, superIp:0.82, relPositive:0.94, relNone:0.02, mem:2, timing:expected_within_30d, strongFit:0.97}',
+  check('A1b 暗号四腿审计恒落：{hit:true, accepted:0.82, relPositive:0.94, relNone:0.02, timing:expected_within_30d, strongFit:0.97}',
     JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, timing: 'expected_within_30d', strongFit: 0.97 }),
     s2A.jev?.recognizedEntitySlogan);
-  check('A1c 暗号 stage3 high 精确值：J1.71 90.85（事件57.36+关联20+质量13.49）',
-    s3A.pass === true && s3A.total_score === 90.85 && s3A.category_agg === 'high'
+  check('A1c 暗号 stage3 high 精确值：J1.79 92.89（事件59.4+关联20+质量13.49）',
+    s3A.pass === true && s3A.total_score === 92.89 && s3A.category_agg === 'high'
     && s3A.relevanceScore === 20 && s3A.qualityScore === 13.49,
     { pass: s3A.pass, total: s3A.total_score, cat: s3A.category_agg });
   check('A1d 暗号 rating=high + reason 前缀「超级IP口号票豁免(C88)」+ stage3 豁免审计',
@@ -132,21 +132,21 @@ async function main() {
     { rating: mA.llmResult?.rating, exempt: s3A.jev?.recognizedEntitySloganExempt });
 
   // A2 BI：修复前 J1.29 improvised 0.62 拦（name_brand_hijack 0.56 在后）→ 修复后引申关联
-  // 入带放行；不送分：关联 1 分照计（none/lv1）→ 诚实 mid 53.35
+  // 入带放行；不送分：关联 1 分照计（none/lv1）→ J1.79 fit 1.0 事件分 100 → 诚实 high 76.75
   const mB = mapStandardAnswers(BI, makeContext({ tokenData: TOKENS.bi }));
   const s2B = stage2Of(mB), s3B = stage3Of(mB);
-  check('A2 BI stage2 放行：J1.71 单题影响力 3.05→61',
-    s2B.pass === true && s2B.scoringResult?.eventCompositeScore === 61,
+  check('A2 BI stage2 放行：J1.79 fit 质量 1.0 → 事件分 100',
+    s2B.pass === true && s2B.scoringResult?.eventCompositeScore === 100,
     { pass: s2B.pass, total: s2B.scoringResult?.eventCompositeScore });
   check('A2b BI 引申关联腿入带审计：relPositive=0.51（sem0.18+cult0.31+exact0.01+abbr0.01）/relNone=0.39',
     JSON.stringify(s2B.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.59, authorUtterance: false, relPositive: 0.51, relNone: 0.39, timing: 'within_7d', strongFit: 1 }),
     s2B.jev?.recognizedEntitySlogan);
-  check('A2c BI 不送分：关联 1 分照计 + 品牌 0.56 劫持臂放行 + 诚实 mid 53.35',
+  check('A2c BI 不送分：关联 1 分照计 + 品牌 0.56 劫持臂放行 + J1.79 诚实总分 76.75 high',
     s3B.pass === true && s3B.relevanceScore === 1 && s3B.blockReason === null
-    && s3B.total_score === 53.35 && s3B.category_agg === 'mid',
+    && s3B.total_score === 76.75 && s3B.category_agg === 'high',
     { pass: s3B.pass, rel: s3B.relevanceScore, total: s3B.total_score, cat: s3B.category_agg });
-  check('A2d BI rating=mid + reason 前缀（引擎可经 narrativeSuperIpSlogan 标签消费）',
-    mB.llmResult?.rating === 'mid' && /超级IP口号票豁免\(C88\)/.test(mB.llmResult?.reason || ''),
+  check('A2d BI rating=high + reason 前缀（引擎可经 narrativeSuperIpSlogan 标签消费）',
+    mB.llmResult?.rating === 'high' && /超级IP口号票豁免\(C88\)/.test(mB.llmResult?.reason || ''),
     { rating: mB.llmResult?.rating });
 
   // A3 币安上电视：现网 high 77 在跑（F 类载体门不触达 + mem 1.72 在 J1.28 (1,2) 死区）
@@ -203,17 +203,17 @@ async function main() {
     { blockReason: stage2Of(m).blockReason });
   a = clone(TV); a.name_entity_memeability.score = 2;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C1b mem=2.0 边界过：五腿全中 slogan=true + stage2 pass 77.8',
+  check('C1b mem=2.0 边界过：五腿全中 slogan=true + J1.79 fit 事件分 97 pass',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === true && stage2Of(m).pass === true
-    && stage2Of(m).scoringResult?.eventCompositeScore === 77.8 && m.llmResult?.rating === 'high',
+    && stage2Of(m).scoringResult?.eventCompositeScore === 97 && m.llmResult?.rating === 'high',
     { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, pass: stage2Of(m).pass });
 
-  // C2 older 豁出：蹭冷饭由时效分归 0 守（62=34+28+0），mem 地板不重复拦
+  // C2 older 豁出：蹭冷饭由时限 override 封顶 30 守（J1.79 起=封顶非扣分）
   a = clone(TV); a.event_timing = { type: 'choice', choice: 'older', probabilities: { older: 1 } };
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
-  check('C2 J1.71：Jev timing 不再独立计分（override 才扣分），77.8 pass',
+  check('C2 J1.79：Jev timing 不独立计分（仅 override 封顶 30），无 override 时 97 pass',
     stage2Of(m).blockReason !== '蹭热点但名字无口号性（mem 1.72<2）'
-    && stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 77.8,
+    && stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 97,
     { blockReason: stage2Of(m).blockReason, total: stage2Of(m).scoringResult?.eventCompositeScore });
 
   // C3 mem 答案缺失（旧缓存行）→ fail-open 不拦（五腿 mem:null 恒落观察保留）
@@ -269,35 +269,50 @@ async function main() {
 
   console.log('\n── E. 豁免域边界（刻意不豁清单实证） ──');
 
-  // E1 D 档量级臂照拦（事件太小不救——保留「事件也不算小」判据；五腿无 tier 腿但
-  // D/E 臂豁免面刻意不含 recognizedEntitySlogan）
-  a = clone(BI); a.event_magnitude.score = 1.4;
+  // E1 J1.79 结构性事实：tier 由 fit 质量派生，而五腿要求 strong_fit≥0.5 →
+  // likedMass≥0.5 → influenceScore≥2.5 → round 3=B 档起——**口号五腿全中票与
+  // D/E 量级臂互斥（D/E 臂对口号票不可达）**。低 fit 票照常走 D/E 臂，但五腿断。
+  a = clone(BI);
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E1 BI magnitude=1.4（D档）：slogan hit=true 但量级臂照拦「事件主体量级不足（D档）」',
+  check('E1 fit 派生档位：五腿全中票 tier≥B（S），D/E 量级臂结构性不可达（hit=true 且无量级拦截）',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === true
+    && stage2Of(m).pass === true
+    && ['S', 'A', 'B'].includes(stage2Of(m).scoringResult?.influenceTier)
+    && !/量级不足/.test(stage2Of(m).blockReason || ''),
+    { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, tier: stage2Of(m).scoringResult?.influenceTier, blockReason: stage2Of(m).blockReason });
+  a = clone(ANHO);
+  a.web3_user_event_fit.probabilities = { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 };
+  a.event_token_block_reason = { type: 'choice', choice: 'none', probabilities: { none: 0.9 } };
+  a.name_entity_carrier = EXISTING_CARRIER;
+  m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
+  check('E1b 低 fit（mass 0.2→D 档）票：五腿断（strongFit<0.5）且量级臂照拦「事件主体量级不足（D档）」',
+    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
     && stage2Of(m).pass === false && stage2Of(m).blockReason === '事件主体量级不足（D档）',
     { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, blockReason: stage2Of(m).blockReason });
 
-  // E2 magExempt <60 臂救（C86 D-1 聚合扩至 C88口号）：J1.71 单题影响力 2.9→58<60 放行
-  a = clone(BI); a.event_magnitude.score = 2.9;
+  // E2 magExempt <60 臂救（C86 D-1 聚合扩至 C88口号）：strong_fit 恰 0.5 保五腿 +
+  // fit 0.05 → 事件分 55<60 放行（tier B：0.55×5=2.75→round 3，不触发 D/E 臂）
+  const FIVE_LEG_EDGE_FIT = { strong_fit: 0.5, fit: 0.05, marginal: 0.4, unfit: 0.05 };
+  a = clone(BI); a.web3_user_event_fit = { type: 'choice', choice: 'strong_fit', probabilities: FIVE_LEG_EDGE_FIT };
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E2 BI 影响力2.9→58<60：C88实体口号 magExempt 放行 + reason 标注',
-    stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 58
+  check('E2 BI fit 0.55→事件分 55<60：C88实体口号 magExempt 放行 + reason 标注',
+    stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 55
     && /量级门豁免\(C88实体口号：事件分<60臂不拦，弱量级代价在总分\)/.test(stage2Of(m).reason || ''),
     { pass: stage2Of(m).pass, reason: stage2Of(m).reason });
 
-  // E3 对照：同 52 分无五腿（sip 0.45 断腿 + carrier existing 出 J1.29 + mass 0.47
-  // 不触发骑乘改道）→ 「事件分不足（52<60）」照拦
-  a = clone(BI); a.event_magnitude.score = 2.9;
+  // E3 对照：同 55 分无五腿（sip 0.45 断腿 + carrier existing 出 J1.29）→「事件分不足（55<60）」照拦
+  a = clone(BI); a.web3_user_event_fit = { type: 'choice', choice: 'strong_fit', probabilities: FIVE_LEG_EDGE_FIT };
   a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E3 同 58 分无豁免：照拦「事件分不足（58<60）」',
-    stage2Of(m).pass === false && stage2Of(m).blockReason === '事件分不足（58<60）',
+  check('E3 同 55 分无豁免：照拦「事件分不足（55<60）」',
+    stage2Of(m).pass === false && stage2Of(m).blockReason === '事件分不足（55<60）',
     { blockReason: stage2Of(m).blockReason });
 
   // E4 品牌劫持臂对照（BI 案发现场：name_brand_hijack 0.56 劫持了 Binance 品牌=预检关键词
-  // 命中）：slogan 断（sip 0.45）→ 劫持臂恢复拦截
-  a = clone(BI); a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
+  // 命中）：slogan 断（sip 0.45）且 tier B（fit 0.6，punExempt 要求 S/A 不触发）→ 劫持臂拦截
+  const HIJACK_TEST_FIT = { type: 'choice', choice: 'fit', probabilities: { strong_fit: 0.4, fit: 0.2, marginal: 0.3, unfit: 0.1 } };
+  a = clone(BI); a.web3_user_event_fit = HIJACK_TEST_FIT;
+  a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
   check('E4 slogan 断 + name_brand_hijack 0.56：Stage3 劫持臂恢复拦截「品牌劫持」',
     stage2Of(m).pass === true && stage3Of(m).pass === false && stage3Of(m).blockReason === '品牌劫持',
@@ -305,7 +320,8 @@ async function main() {
 
   // E5 关联≤10 截断对照：E4 基础上 hijackP 0.49（劫持臂不触发）→ 关联性不足照拦
   // （引申关联的 rescue 只属于五腿全中票）
-  a = clone(BI); a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
+  a = clone(BI); a.web3_user_event_fit = HIJACK_TEST_FIT;
+  a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
   a.name_brand_hijack.noul = 0.49;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
   check('E5 slogan 断 + hijack 0.49 + 关联 1 分：照拦「关联性不足」',
@@ -362,7 +378,7 @@ async function main() {
   check('G2 豁免守卫五处：rcp 概率臂 opts / argmax 臂 / scBlock opts（C109 增 imgCarrierOverride 图证覆盖臂）/ Stage3 劫持臂 / 关联≤10 截断',
     /routineContentProductBlock\(answers, category, \{ platformOfficial, recognizedEntitySlogan \}\)/.test(mapperSrc)
     && /!\(blockChoice === 'event_routine_content_product' && recognizedEntitySlogan\)/.test(mapperSrc)
-    && /subjectCarrierBlock\(answers, category, \{ recognizedEntitySlogan, imgCarrierOverride \}\)/.test(mapperSrc)
+    && /subjectCarrierBlock\(answers, category, \{ recognizedEntitySlogan, imgCarrierOverride, emptyContentImgCarrierOverride/.test(mapperSrc)
     && /brandHijackP >= 0\.5 && !punExempt && !recognizedEntitySlogan/.test(mapperSrc)
     && /relevance\.score <= 10 && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
   check('G3 memFloor 臂 C108 退役源码反证（reason 模板/mem<2 拦截/变量赋值不存在——仅注释档保留）',

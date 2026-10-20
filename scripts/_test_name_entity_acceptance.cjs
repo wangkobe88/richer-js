@@ -197,12 +197,12 @@ async function main() {
     && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
     && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
     && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
-  check('D5 题集四选项（含 new_entity）+ 作者身份不升档红线 + 版本 J1.74（C134 吸引力臂替换；C133 新实体批次）',
+  check('D5 题集四选项（含 new_entity）+ 作者身份不升档红线 + 版本 J1.79（J1.79 删 web3_user_event_impact 改 fit 单一事件分）',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /new_entity:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.78'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.79'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

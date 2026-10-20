@@ -108,7 +108,7 @@ function stubFetch(routes) {
 // ── mapper 测试用：本案 J1.25 快照简化 answers（A 类 + C 档 + strong_fit + dim2 0.97）──
 const tuhaoTokenData = { symbol: '土豪猫猫', name: '土豪--猫猫', raw_api_data: { name: '土豪--猫猫' } };
 
-function tuhaoAnswers({ magnitude = 2.4, dim2Score = 0.97, strongFit = 0.9, timing = 'within_7d' } = {}) {
+function tuhaoAnswers({ magnitude = 2.4, dim2Score = 0.97, timing = 'within_7d' } = {}) {
   return {
     event_category: { choice: 'A', probabilities: { A: 0.8, E: 0.12 } },
     event_magnitude: { score: magnitude, probabilities: { '2': 0.55, '3': 0.3 } },
@@ -116,7 +116,10 @@ function tuhaoAnswers({ magnitude = 2.4, dim2Score = 0.97, strongFit = 0.9, timi
     dimension2: { score: dim2Score, probabilities: { '1': 0.55, '2': 0.3 } },
     event_token_block_reason: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6 } },
-    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.08 } },
+    // J1.79：事件分/tier 由 fit 派生——fit=magnitude/5 复现旧影响力分（2.4→48/3.2→64）。
+    // strong_fit 刻意 0：旧 web3FitAnchored（strong_fit≥0.5 → B 锚）在 fit 派生 tier
+    // 下结构性不可达（strong_fit≥0.5 ⇒ 影响力≥2.5 ⇒ round→B），故由 fit 直接给分。
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: magnitude / 5 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
     relevance_level: { score: 4, probabilities: { '4': 0.85 } },
     block_misspelling: { noul: 0.1 },
@@ -221,11 +224,10 @@ async function main() {
 
   console.log('\n── E. mapper IG 影响力兜底矩阵 ──');
 
-  // E1 本案数值复现：A 类 + C 档(2.4) + strong_fit 0.9 → web3FitAnchoredTier 锚 B(27)
-  //    + dim2 0.97→9.7 兜底锚 18 + within_7d 15 = 60.0 恰好压线 pass
+  // E1 本案数值复现：A 类 + fit 2.4 档（J1.79 事件分 48）→ IG 证据缺失锚下限 50 → 50<60 拦
   const m1 = mapStandardAnswers(tuhaoAnswers(), makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e1 = stage2Of(m1);
-  check('E1 J1.71：影响力 2.4→48，锚下限 50（不保过线）→ 50<60 拦',
+  check('E1 J1.79：fit 48，IG 锚下限 50（不保过线）→ 50<60 拦',
     e1.pass === false && e1.scoringResult.eventCompositeScore === 50 && e1.scoringResult.influenceFloor === 50,
     { total: e1.scoringResult.eventCompositeScore, floor: e1.scoringResult.influenceFloor });
   check('E1b 审计：jev.instagramSpreadAnchor = { fromInfluenceScore: 2.4, floor: 50 }',
@@ -238,24 +240,24 @@ async function main() {
   // E2 真数据已抓到 → 不兜底（Jev 按真证据判分）
   const m2 = mapStandardAnswers(tuhaoAnswers(), makeContext({ instagramLinked: true, instagramInfoFetched: true }));
   const e2 = stage2Of(m2);
-  check('E2 instagramInfoFetched=true：IG 锚不触发（C94 偏好锚仍在 → 50 拦）',
-    e2.pass === false && e2.scoringResult.eventCompositeScore === 50
+  check('E2 instagramInfoFetched=true：IG 锚不触发（J1.79 无下限 → fit 48<60 拦）',
+    e2.pass === false && e2.scoringResult.eventCompositeScore === 48
       && e2.jev?.instagramSpreadAnchor === null,
     { total: e2.scoringResult.eventCompositeScore, anchor: e2.jev?.instagramSpreadAnchor });
 
   // E3 非 A 类（C 类）→ 不锚
   const cAnswers = tuhaoAnswers();
   cAnswers.event_category = { choice: 'C', probabilities: { C: 0.8 } };
-  cAnswers.web3_user_event_fit = { choice: 'fit', probabilities: { fit: 0.7 } };
+  cAnswers.web3_user_event_fit = { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.48 } };
   const m3 = mapStandardAnswers(cAnswers, makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e3 = stage2Of(m3);
-  check('E3 C 类不锚（IG 是形象主阵地，豁免限 A 类）：影响力 2.4→48',
+  check('E3 C 类不锚（IG 是形象主阵地，豁免限 A 类）：fit 48',
     e3.jev?.instagramSpreadAnchor === null && e3.scoringResult.eventCompositeScore === 48, e3.jev);
 
   // E4 dim2 已 ≥18 → 只升不降（score 2.5 落「小[18,26]」带 → 18+0.5×8=22）
   const m4 = mapStandardAnswers(tuhaoAnswers({ magnitude: 3.2 }), makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e4 = stage2Of(m4);
-  check('E4 影响力 3.2 ≥3：不锚不降（64）',
+  check('E4 fit 3.2→64：不锚不降（64）',
     e4.scoringResult.eventCompositeScore === 64 && e4.jev?.instagramSpreadAnchor === null, e4.scoringResult.eventCompositeScore);
 
   // E5 W 类 → 不触达（W 数学不消费 dim2）
@@ -271,8 +273,8 @@ async function main() {
   // E6 存量调用形状（不传 IG context）→ 零行为变化（本案 J1.25 实测 51.7 拦复现）
   const m6 = mapStandardAnswers(tuhaoAnswers(), makeContext());
   const e6 = stage2Of(m6);
-  check('E6 存量形状（无 IG 字段）：C94 偏好锚 → 50 拦截',
-    e6.pass === false && e6.scoringResult.eventCompositeScore === 50,
+  check('E6 存量形状（无 IG 字段）：无锚无下限 → fit 48 拦截',
+    e6.pass === false && e6.scoringResult.eventCompositeScore === 48,
     e6.scoringResult);
 
   // E7 全链 pass 形状：stage3 走通（relevance 20 + 质量）

@@ -145,16 +145,16 @@ async function main() {
   const rRm = mapStandardAnswers(rmFirst, stdCtx('TST', 'TST'));
   check('D2 rm（J1.28）C108 退役：原 rm 拦截形状改由载体门接住不裸放（no_visual 0.55 形状）',
     blockedByCarrier(rRm), rRm.llmResult.reason);
-  // sc 先于量级门：量级 E 档 + D 类 + improvised → 拦截原因应是载体门非量级门
+  // sc 先于量级门：J1.79 档位由 fit 派生（mass 0.06 → E 档）+ D 类 + improvised → 拦截原因应是载体门非量级门
   const lowTier = baseAnswers('D', 'improvised_entity');
-  lowTier.event_magnitude = { score: 0.5, probabilities: { '0': 0.8 } };
+  lowTier.web3_user_event_fit = { choice: 'marginal', probabilities: { strong_fit: 0.03, fit: 0.03, marginal: 0.84, unfit: 0.1 } };
   const rSc = mapStandardAnswers(lowTier, stdCtx('TST', 'TST'));
-  check('D3 载体门先于量级门（低量级 D 类票 label 归属载体门）', blockedByCarrier(rSc) && !(rSc.llmResult.reason || '').includes('量级不足'), rSc.llmResult.reason);
-  // 反向对照：同量级 E 档 + existing → 量级门拦（载体门不参与）
+  check('D3 载体门先于量级门（fit 派生 E 档 D 类票 label 归属载体门）', blockedByCarrier(rSc) && !(rSc.llmResult.reason || '').includes('量级不足'), rSc.llmResult.reason);
+  // 反向对照：同 fit 派生 E 档 + existing → 量级门拦（载体门不参与）
   const lowTierPass = baseAnswers('D', 'existing_entity');
-  lowTierPass.event_magnitude = { score: 0.5, probabilities: { '0': 0.8 } };
+  lowTierPass.web3_user_event_fit = { choice: 'marginal', probabilities: { strong_fit: 0.03, fit: 0.03, marginal: 0.84, unfit: 0.1 } };
   const rTier = mapStandardAnswers(lowTierPass, stdCtx('TST', 'TST'));
-  check('D4 existing 低量级票照走量级门（载体门不放大打击面）', rTier.llmResult.rating === 'low' && (rTier.llmResult.reason || '').includes('量级不足'), rTier.llmResult.reason);
+  check('D4 existing 低量级（fit 派生 E 档）票照走量级门（载体门不放大打击面）', rTier.llmResult.rating === 'low' && (rTier.llmResult.reason || '').includes('量级不足'), rTier.llmResult.reason);
 
   // ═══ E. 审计字段 ═══
   console.log('\n── E. 审计字段（恒落/命中才落/probabilities）──');

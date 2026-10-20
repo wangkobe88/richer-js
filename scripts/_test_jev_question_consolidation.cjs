@@ -64,9 +64,9 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity（新实体）；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.78', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.79（J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity（新实体）；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
-  check('A2 基础 14 题（J1.71 删 web3_user_event_spread）', Object.keys(qs).length === 14, Object.keys(qs).length);
+  check('A2 基础 13 题（J1.79 删 web3_user_event_impact；J1.71 删 web3_user_event_spread）', Object.keys(qs).length === 13, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
     !('relevance_level' in qs) && !('quality_spelling' in qs) && !('quality_reasonability' in qs), null);
   check('A4 token_name_quality 在（0-3 四档）', qs.token_name_quality?.type === 'score' && qs.token_name_quality.criteria.length === 4, qs.token_name_quality?.criteria?.length);
@@ -124,12 +124,12 @@ async function main() {
 
   // A9 J1.71 事件侧三合一：web3_user_event_spread 题删除，影响力只由 impact 题给分
   {
-    check('A9 J1.71 三合一：web3_user_event_spread 题删除；impact 题面声明唯一事件价值分+传播/时效内化',
+    check('A9 J1.79 事件价值题单源：spread/impact 题均删除；fit 题声明事件分=strong_fit+fit 质量（非影响力大小）',
       qs.web3_user_event_spread === undefined
-      && qs.web3_user_event_impact.instructions.includes('唯一事件价值题')
-      && qs.web3_user_event_impact.instructions.includes('传播面与时序是「被动波及」的证据')
-      && qs.web3_user_event_impact.instructions.includes('不是独立加分项'),
-      Object.keys(qs).filter(k => k.includes('spread') || k.includes('impact')));
+      && qs.web3_user_event_impact === undefined
+      && qs.web3_user_event_fit.instructions.includes('事件分=本题 strong_fit+fit 质量')
+      && qs.web3_user_event_fit.instructions.includes('不是事件影响力大小'),
+      Object.keys(qs).filter(k => k.includes('spread') || k.includes('impact') || k.includes('fit')));
   }
 
   // A10 J1.46（C113 哭哭奶龙案）事故现场反证：找角度语料传播力判轴=事件本身
@@ -142,15 +142,15 @@ async function main() {
     const { join } = require('node:path');
     const qsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
     const sbSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
-    check('A10a 找角度/解读型主体判定：主体=被借势的原始事件主体、不是发推人',
-      qs.web3_user_event_impact.instructions.includes('找角度/解读型推文 → 形状②')
-      && qs.web3_user_event_impact.instructions.includes('不是发推人'),
-      qs.web3_user_event_impact.instructions.slice(0, 100));
+    check('A10a 找角度/解读型主体判定锚保留在 event_subject_entity：主体=事件核心实体、不是陈述者',
+      qs.event_subject_entity.instructions.includes('主体=事件本身的核心实体')
+      && qs.event_subject_entity.instructions.includes('不是陈述者'),
+      qs.event_subject_entity.instructions.slice(0, 120));
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.78'"), 'J1.53 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.79'"), 'J1.79 常量缺失');
 
     // A11 J1.53（C121 用户视角批次一）锚句锁定：
     // w_product_score 主轴=用户兴奋度（客观创新性降参考锚+显式否定实测读法——
@@ -243,16 +243,17 @@ async function main() {
       // web3_user_event_impact、dimension2 → web3_user_event_spread + 门函数/审计键改名。
       // 断代兼容红线：mapper 双读（旧形状 answers 结果与新形状逐位一致）。
       {
-        check('A13a 题键改名：web3_user_event_impact 在场（J1.71 后 spread 题删除），event_magnitude/dimension2 缺席',
-          qs.web3_user_event_impact?.type === 'score'
+        check('A13a 事件价值题键收敛：web3_user_event_impact 删除，web3_user_event_fit=唯一事件分源；event_magnitude/dimension2 缺席',
+          qs.web3_user_event_impact === undefined
+          && qs.web3_user_event_fit?.type === 'choice'
           && qs.web3_user_event_spread === undefined
           && qs.event_magnitude === undefined && qs.dimension2 === undefined,
-          Object.keys(qs).filter(k => k.includes('impact') || k.includes('spread') || k.includes('magnitude') || k.includes('dimension')));
-        check('A13b 题面跨题引用同步（event_subject_entity 引 web3_user_event_impact、无旧键名）',
-          !qs.web3_user_event_impact.instructions.includes('event_magnitude')
-          && qs.event_subject_entity.instructions.includes('web3_user_event_impact'),
+          Object.keys(qs).filter(k => k.includes('impact') || k.includes('spread') || k.includes('magnitude') || k.includes('dimension') || k.includes('fit')));
+        check('A13b 主体判定规则自洽（event_subject_entity 保留主体=事件核心实体；事件价值由 fit 题声明）',
+          qs.event_subject_entity.instructions.includes('主体=事件本身的核心实体')
+          && qs.web3_user_event_fit.instructions.includes('标准路径的事件价值题'),
           null);
-        // 双读等价：旧形状 vs 新形状（移键）逐位对拍
+        // 单源等价：旧形状事件题（magnitude/dim2）与 impact 形状同 fit → 评分/tier 逐位全等
         const oldShape = baseAnswers();
         const newShape = { ...baseAnswers() };
         newShape.web3_user_event_impact = oldShape.event_magnitude;
@@ -262,7 +263,7 @@ async function main() {
         const rNewShape = mapStandardAnswers(newShape, stdCtx('TST', 'TST'));
         const s2Old = rOldShape.stage2DataToSave.parsed_output;
         const s2New = rNewShape.stage2DataToSave.parsed_output;
-        check('A13c 双读等价：旧形状 answers 与新形状 answers 评级/总分/传播分/档位全等',
+        check('A13c fit 单源：旧事件题（magnitude/dim2/impact）不参与标准事件分——同 fit → 评级/事件分/档位全等',
           rOldShape.llmResult.rating === rNewShape.llmResult.rating
           && s2Old.scoringResult.eventCompositeScore === s2New.scoringResult.eventCompositeScore
           && s2Old.jev.jevImpactTier === s2New.jev.jevImpactTier,
@@ -277,8 +278,10 @@ async function main() {
         check('A13e P1 审计键值形态：anchoredTier=原判档位字符串（非布尔）；effectiveImpactTier=锚后档',
           s1j.anchoredTier === null || typeof s1j.anchoredTier === 'string',
           s1j.anchoredTier);
-        check('A13f 概率键/评分键：probabilities 新键在场旧键缺席；J1.71 后 scoringResult 无 spreadScore/dimension2（单题影响力）',
-          s1j.probabilities.web3_user_event_impact != null && s1j.probabilities.event_magnitude === undefined
+        check('A13f 概率键/评分键：stage1 概率键=fit（impact/event_magnitude 缺席）；J1.71 后 scoringResult 无 spreadScore/dimension2',
+          s1j.probabilities.web3_user_event_fit != null
+          && s1j.probabilities.web3_user_event_impact === undefined
+          && s1j.probabilities.event_magnitude === undefined
           && s2New.jev.probabilities.web3_user_event_spread === undefined && s2New.jev.probabilities.dimension2 === undefined
           && s2New.scoringResult.spreadScore === undefined && s2New.scoringResult.dimension2 === undefined,
           { s1: Object.keys(s1j.probabilities), s2: Object.keys(s2New.jev.probabilities) });
@@ -288,7 +291,8 @@ async function main() {
         // E 类 + web3_user_event_fit 正向质量<0.5 → Web3偏好折损（原感染力折损）
         const eAns = baseAnswers();
         eAns.event_category = { choice: 'E', probabilities: { E: 0.9 } };
-        eAns.web3_user_event_fit = { choice: 'marginal', probabilities: { marginal: 0.6, unfit: 0.2, fit: 0.1 } };
+        // fit 0.4 → influenceScore 2 → tier C（避开 D/E 档量级门先手拦截），fitMass<0.5 触折损
+        eAns.web3_user_event_fit = { choice: 'fit', probabilities: { fit: 0.4, marginal: 0.5, unfit: 0.1 } };
         const rE = mapStandardAnswers(eAns, stdCtx('TST', 'TST'));
         const s2E = rE.stage2DataToSave.parsed_output;
         check('A13h E 类折损改名：reason 含「Web3偏好折损」、web3FitDamp.coef=0.5、旧 resonanceDamp 缺席',
@@ -304,12 +308,13 @@ async function main() {
         bAns.dimension2 = { score: 1, probabilities: { '1': 0.8 } };
         const rB = mapStandardAnswers(bAns, stdCtx('TST', 'TST'));
         const s2B = rB.stage2DataToSave.parsed_output;
-        check('A13i J1.71 B 类偏好锚并入影响力下限（influenceFloor=50），旧传播锚键缺席',
-          s2B.scoringResult.influenceFloor === 50
+        check('A13i J1.79 fit 派生 tier 后 B 类偏好锚结构性不可达（strong_fit≥0.5 ⇒ tier≥B）：高 fit→tier S/floor null；旧传播锚键缺席',
+          s2B.scoringResult.influenceFloor === null
+          && s2B.scoringResult.influenceTier === 'S'
           && s2B.jev.web3FitSpreadAnchor === undefined
           && s2B.jev.web3FitDim2Anchor === undefined
           && s2B.jev.instagramDim2Anchor === undefined,
-          { floor: s2B.scoringResult.influenceFloor, keys: Object.keys(s2B.jev).filter(k => k.includes('Spread') || k.includes('Dim2')) });
+          { floor: s2B.scoringResult.influenceFloor, tier: s2B.scoringResult.influenceTier, keys: Object.keys(s2B.jev).filter(k => k.includes('Spread') || k.includes('Dim2')) });
         // 源码口径：门函数/常量改名（防回潮）
         const mapperSrc2 = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
         check('A13j 门函数/常量源码口径（web3UserAcceptabilityBlock/Choice、WEB3_USER_NOT_ACCEPTABLE_CHOICES、web3UnfitBlock、WEB3_FIT_DAMP_COEF；J1.56 骑乘改道退役）',

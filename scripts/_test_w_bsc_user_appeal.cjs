@@ -126,7 +126,7 @@ async function main() {
     qs.w_bsc_user_appeal.instructions.includes('不评与币安官方的交互')
     && qs.w_bsc_user_appeal.instructions.includes('刚发布的 BSC 项目本来就不可能有币安交互')
     && qs.w_bsc_user_appeal.instructions.includes('不是项目的吸引力证据，也不因此扣分'));
-  check('C4 基础题数仍 14（替换不增减）', Object.keys(qs).length === 14, Object.keys(qs).length);
+  check('C4 基础题数 13（J1.79 删 web3_user_event_impact）', Object.keys(qs).length === 13, Object.keys(qs).length);
 
   console.log('\n── D. 源码口径反证（防回潮）──');
 
@@ -147,8 +147,8 @@ async function main() {
     /w_bsc_user_appeal: answers\.w_bsc_user_appeal\?\.probabilities/.test(mapperSrc));
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION = J1.74（C134 吸引力臂替换）',
-    JEV_QUESTIONS_VERSION === 'J1.78', JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION = J1.79（事件分改 fit 单一来源）',
+    JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

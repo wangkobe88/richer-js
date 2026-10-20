@@ -62,19 +62,22 @@ async function main() {
   console.log('\n── A. 题面完整性 ──');
   check('A1 版本 ≥J1.27（现 J1.28=name_entity_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 14 题含 event_subject_entity（J1.71 删 web3_user_event_spread；J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 14 && !!q.event_subject_entity && !!q.name_entity_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
-  check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
-    q.web3_user_event_impact.instructions.includes('产品实体（公司发布的产品）') && q.web3_user_event_impact.instructions.includes('母公司名气不转移给产品'));
-  check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',
-    q.web3_user_event_impact.instructions.includes('产品实体（公司发布的产品）')
-    && q.web3_user_event_impact.instructions.includes('母公司名气不转移给产品')
-    && q.web3_user_event_impact.instructions.includes('产品实体切分不适用于它们'));
-  check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）',
+  check('A2 题集 13 题含 event_subject_entity（J1.79 删 web3_user_event_impact 14→13；J1.71 删 web3_user_event_spread；J1.36 C93 删 event_resonance 18→17；J1.37 两新题 17→19；C108 删 block_misspelling 20→19；C109 收敛 relevance/quality 各两题合一 19→16）', Object.keys(q).length === 13 && !!q.event_subject_entity && !!q.name_entity_carrier && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
+  check('A3 J1.79 事件价值题收敛为 web3_user_event_fit（impact 题已删，唯一事件价值题标记在场）',
+    !('web3_user_event_impact' in q)
+    && q.web3_user_event_fit.instructions.includes('标准路径的事件价值题'));
+  check('A3b 产品实体主体切分锚保留在 event_subject_entity（主体是产品而非发布公司）',
+    q.event_subject_entity.instructions.includes('主体是产品而非发布公司')
+    && q.event_subject_entity.criteria.product_entity.includes('主体是产品→本项')
+    && q.event_subject_entity.criteria.product_entity.includes('主体是发布公司自身→other_entity'));
+  check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）仍在，impact 题删除不带走该锚',
     q.event_category.instructions.includes('D vs W boundary')
     && q.event_category.instructions.includes('NOT W')
-    && q.web3_user_event_impact.instructions.includes('事件类别按机构公告口径评估，不判 W'));
-  check('A4 impact 含形状③（通稿不算自传播；J1.71 合并后唯一事件价值题）',
-    q.web3_user_event_impact.instructions.includes('产品实体（公司发布的产品）') && q.web3_user_event_impact.instructions.includes('媒体通稿不算自传播'));
+    && !('web3_user_event_impact' in q));
+  check('A4 fit 题承接产品实体边界（纯功能产品不高于 marginal）——impact 形状③随题删除',
+    !('web3_user_event_impact' in q)
+    && q.web3_user_event_fit.instructions.includes('公司产品实体')
+    && q.web3_user_event_fit.instructions.includes('不高于marginal'));
   check('A5 web3_user_event_fit 含产品实体边界（纯功能产品不高于 marginal）',
     q.web3_user_event_fit.instructions.includes('公司产品实体') && q.web3_user_event_fit.instructions.includes('不高于marginal'));
   const seKeys = Object.keys(q.event_subject_entity.criteria);
@@ -203,9 +206,9 @@ async function main() {
     src.includes("const BINANCE_KEYWORDS = ['binance', '币安'];") && src.includes('twitterInfo?.in_reply_to?.text'));
   const qSrc = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D4 版本头条目含 C55 案号与裁定语义', qSrc.includes('J1.27') && qSrc.includes('C55') && qSrc.includes('产品（实体）'));
-  check('D5 题面两处币安豁免句（impact/fit；J1.71 后 spread 题删除）',
-    q.web3_user_event_impact.instructions.includes('币安等 crypto 原生机构')
-    && q.web3_user_event_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列'));
+  check('D5 币安豁免句已随题收敛到 fit 题（J1.79：impact 题删除，fit 保留 crypto 原生机构产品例外）',
+    q.web3_user_event_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列')
+    && !('web3_user_event_impact' in q));
 
   console.log('\n── F. C56 平台官方源豁免（FlapGuy 0x2fb77ad0…7777 复验实测形状）──');
   // FlapGuy 双轮复验（J1.27，182 真实 Jev 调用）：cat=D、mag 3.04-3.08（round→B 档，
@@ -238,8 +241,8 @@ async function main() {
     && !(rF1.stage2DataToSave?.parsed_output?.blockReason || '').includes('机构日常运营')
     && rF1.stage2DataToSave?.parsed_output?.jev?.rcpPlatformExempt === true,
     { rating: rF1.llmResult.rating, blk: rF1.stage2DataToSave?.parsed_output?.blockReason });
-  check('F1b 数值锚定：J1.71 单题影响力 3.05→61 过线 → 总分 74.9（20+18.3）',
-    rF1.stageFinalData.eventCompositeScore === 61 && rF1.stageFinalData.totalScore === 74.9,
+  check('F1b 数值锚定：J1.79 fit 口径 strong55+fit25→80 过线 → 总分 86.3（48+20+18.3）',
+    rF1.stageFinalData.eventCompositeScore === 80 && rF1.stageFinalData.totalScore === 86.3,
     { s2: rF1.stageFinalData.eventCompositeScore, total: rF1.stageFinalData.totalScore });
 
   // F1c 对照：路人号（BOB 0xf2fca4cf…7777 主推 @zhangxuanhui，228 粉玩 CZ 香蕉梗）

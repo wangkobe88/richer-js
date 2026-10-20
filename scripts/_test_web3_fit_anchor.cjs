@@ -1,22 +1,35 @@
 #!/usr/bin/env node
 /**
- * Web3 偏好量级锚（web3FitAnchoredTier）——本地零 DB 单测（J1.23，2026-10-01 用户裁定，
- * C38 久留美案续 0xfedf19759ba9c45b1a8345a2bde916b38acc7777）
+ * Web3 偏好量级锚（web3FitAnchoredTier）断代 + fit 派生态——本地零 DB 单测
+ * （J1.79，2026-10-20；前身 J1.23/C38 久留美案、C94 京小安案）
+ *
+ * J1.79 变化：旧 `web3_user_event_impact` 题删除，标准事件分改为 fit 质量——
+ *   eventCompositeScore = round2(min(1, strong_fit + fit) * 100)，
+ *   tier = impactTierOf(round2(mass * 5)) 仅服务既有豁免/审计。
+ * 结构性后果：strong_fit ≥ 0.5 ⇒ mass ≥ 0.5 ⇒ influenceScore ≥ 2.5 ⇒
+ * Math.round(2.5)=3 ⇒ tier ≥ B——`web3FitAnchored`（要求 tier ∉ {S,A,B}）在
+ * 新口径下**数学上不可达**（锚即使触发也只会把 B 锚成 B，是恒等操作）。
+ * 审计键 web3FitAnchoredTier / web3FitStrongPAnchored 保留在源码但恒 null。
+ * C94「B 类 web3 用户喜欢就无所谓发布主体」的裁定由 fit 派生态结构性承接：
+ * 偏好强 = tier 自动 A/S = 量级门天然不触达，不再需要独立锚臂。
  *
  * 覆盖：
- *   A. 锚矩阵（mapStandardAnswers 路由）：久留美 J1.23 实测 answers 数值复现
- *      （A类 + C档0.94 + strong_fit 0.88 → 锚B → 61.12 过线 high + 审计标记）/
- *      strong_fit 0.49 贴线不锚 / C-D-E 类不锚（作用域 A/B）/ B/A/S 原判不动 /
- *      D/E 档锚后放行 / web3_user_event_fit 缺失 fail-closed
- *   B. 负门正锚共存：unfit 0.88 拦截维持（对称负门不被正锚干扰）
- *   C. 审计与 reason：jevImpactTier 原判保留 / reason 带「Web3偏好锚」/
- *      stage1 jev.web3FitAnchoredTier 落位
- *   D. C94 B 类双锚（2026-10-18 用户裁定，京小安案 0xcb98accaa8040a7e839c30
- *      5b8aca08e113c87777「web3 用户喜欢是根本判据，发布主体无所谓」）：
- *      B 类 + strong_fit≥0.5 → effTier 锚 B + dim2<18 锚 18 双锚；京小安 DB 实测
- *      answers 快照复现（mem 1.88<2 仍被 C88 mem 地板拦=「维持拦」裁定反证；
- *      mem≥2 形状 27+18+15=60 恰过线）/ 贴线不锚 / dim2 只升不降 /
- *      C 类维持不豁 / unfit 负门 B 类共存
+ *   A. fit 派生态矩阵：久留美快照 → 97/S 过线（reason 精确串）/
+ *      strong_fit 0.49 贴线无特殊语义（事件分 58 照拦）/
+ *      锚的数学不可达性（A/B 类 strong_fit∈{0.5,0.6,0.7,0.88,1.0} → tier 恒 ≥B、
+ *      锚审计恒 null、reason 无「Web3偏好锚」）/
+ *      event_magnitude 答案不再参与计分（0 档 vs 5 档同分）/
+ *      C 类同 fit 同分（J1.79 无类别不对称）/
+ *      低 fit A 类由 D/E 档臂拦（档位来源=fit，锚不可救）/
+ *      fit 题缺失 → mass 0 → E 档 fail-closed 拦 /
+ *      W 类走 W 数学（fit 答案不参与，无 influenceTier/influenceFloor）
+ *   B. 负门共存：unfit 0.88 拦截维持 / 脏数据双过半 unfit 门先挂
+ *   C. 审计：jevImpactTier=fit 派生档（原 magnitude 档不再保留任何影响）/
+ *      web3FitAnchoredTier + web3FitStrongPAnchored 恒 null / 概率证据照落
+ *   D. 京小安案（C94 现场）新口径：B 类 strong 0.57+fit 0.21 → 78/A 过线
+ *      （原 D 档+双锚 60 路径退役）/ mem/dim2 答案不再参与计分 /
+ *      strong_fit 0.49 且总 mass 0.54 → 事件分不足拦 / C 类同 fit 同分 /
+ *      unfit 负门 B 类共存
  *
  * 用法：node scripts/_test_web3_fit_anchor.cjs
  */
@@ -28,10 +41,12 @@ function check(name, cond, detail) {
   if (cond) { passed++; console.log(`  ✅ ${name}`); }
   else { failed++; console.log(`  ❌ ${name}${detail !== undefined ? ` —— ${JSON.stringify(detail)}` : ''}`); }
 }
+function round2(n) { return Math.round(n * 100) / 100; }
 
 // ── C38 久留美 J1.23 实测 answers 快照（182 重析 2026-10-01T05:52Z，DB 实证）──────
 // category A 0.80 / magnitude 档2(C) 0.94 / web3_user_event_fit strong_fit 0.88 /
 // rcp 0.63（A类豁免）/ subject_self 0.44 / dim2 2.14 → 19.12 / within_7d
+// J1.79：magnitude/dim2 不再计分——同快照 fit mass 0.88+0.09=0.97 → 97/S。
 const kurumiTokenData = { symbol: '久留美', name: 'FX战士久留美', raw_api_data: { name: 'FX战士久留美' } };
 
 function kurumiAnswers({ tier = 2, tierProbs = { '2': 0.94 }, strongFit = 0.88, unfit = 0.01, web3Fit = null } = {}) {
@@ -57,7 +72,29 @@ function kurumiAnswers({ tier = 2, tierProbs = { '2': 0.94 }, strongFit = 0.88, 
   };
 }
 
-function makeContext(tokenData, answers) {
+// fit 派生态通用形状：除 fit 外全部干净（无 block/实体/载体/名字门干扰），
+// 用于隔离「分与档只由 strong_fit+fit 决定」这一被测轴。
+function fitShape({ category = 'A', strong = 0.88, fit = 0.09, magnitudeScore = 3, dimension2Score = 2.1 } = {}) {
+  const rest = Math.max(0, round2(1 - strong - fit));
+  return {
+    event_category: { choice: category, probabilities: { [category]: 0.9 } },
+    // 旧题答案仍随快照存在——J1.79 起刻意不参与计分（A4 反证）
+    event_magnitude: { score: magnitudeScore, probabilities: { [String(Math.round(magnitudeScore))]: 0.9 } },
+    event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
+    dimension2: { score: dimension2Score, probabilities: { [String(Math.round(dimension2Score))]: 0.8 } },
+    event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_empty_content: 0.1 } },
+    web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.95 } },
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strong, fit, marginal: rest, unfit: 0 } },
+    name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.7, improvised_entity: 0.2, no_visual_entity: 0.1 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.9, semantic: 0.1 } },
+    relevance_level: { score: 3.5, probabilities: { '3': 0.4, '4': 0.5 } },
+    block_misspelling: { noul: 0.1 },
+    quality_spelling: { score: 2.82 },
+    quality_reasonability: { score: 1.69 },
+  };
+}
+
+function makeContext(tokenData) {
   return {
     tokenData,
     includeBrandHijack: false,
@@ -70,102 +107,156 @@ function makeContext(tokenData, answers) {
 async function main() {
   const { mapStandardAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
 
-  console.log('\n── A. 锚矩阵 ──');
+  const map = (answers, tokenData = kurumiTokenData) => mapStandardAnswers(answers, makeContext(tokenData));
+  const stage2 = (m) => m?.stage2DataToSave?.parsed_output || {};
+  const stage1Jev = (m) => m?.stage1DataToSave?.parsed_output?.jev || {};
 
-  // A1 久留美数值复现：锚 B → 27+19.12+15=61.12 过线
-  const m1 = mapStandardAnswers(kurumiAnswers(), makeContext(kurumiTokenData, kurumiAnswers()));
-  const s2 = m1?.stage2DataToSave?.parsed_output || {};
-  check('A1 久留美：A类+C档+strong_fit 0.88 → 锚 B 档（影响力下限 50；40<50）仍拦',
-    s2.scoringResult?.eventCompositeScore === 50 && s2.scoringResult?.influenceTier === 'B' && s2.scoringResult?.influenceFloor === 50 && s2.pass === false,
-    s2.scoringResult);
+  console.log('\n── A. fit 派生态矩阵（J1.79 标准） ──');
 
-  // A2 strong_fit 0.49 贴线 → 不锚（fail-closed；C 档仍计分 56.12<60 事件分不足拦）
-  const m2 = mapStandardAnswers(kurumiAnswers({ strongFit: 0.49, unfit: 0.3 }), makeContext(kurumiTokenData, kurumiAnswers()));
-  const s2b = m2?.stage2DataToSave?.parsed_output || {};
-  check('A2 strong_fit 0.49 贴线不锚：影响力 2→40，事件分不足拦截维持',
-    s2b.pass === false && /事件分不足/.test(s2b.blockReason || '') && s2b.scoringResult?.eventCompositeScore === 40 && s2b.scoringResult?.influenceFloor === null,
-    { r: s2b.blockReason, t: s2b.scoringResult?.eventCompositeScore });
+  // A1 久留美数值复现：mass 0.88+0.09=0.97 → 影响力 4.85 → 事件分 97 / S 档过线。
+  // 锚键（web3FitAnchoredTier/influenceFloor）恒 null——见 C 段。
+  const m1 = map(kurumiAnswers());
+  const s1 = stage2(m1);
+  check('A1 久留美：strong_fit 0.88+fit 0.09 → 事件分 97、S 档、无影响力下限、过线',
+    s1.scoringResult?.eventCompositeScore === 97 && s1.scoringResult?.influenceScore === 4.85
+      && s1.scoringResult?.influenceTier === 'S' && s1.scoringResult?.influenceFloor === null
+      && s1.pass === true,
+    s1.scoringResult);
 
-  // A3 非 A/B 类（C 类同形状）→ 不锚（C94 扩展后作用域 A/B，C/D/E 维持）
-  const cCatAnswers = { ...kurumiAnswers(), event_category: { choice: 'C', probabilities: { C: 0.6, A: 0.2 } } };
-  const m3 = mapStandardAnswers(cCatAnswers, makeContext(kurumiTokenData, cCatAnswers));
-  const j3 = m3?.stage1DataToSave?.parsed_output?.jev || {};
-  check('A3 C 类不锚（作用域 A/B，C/D/E 维持客观规模口径）', j3.web3FitAnchoredTier == null, j3.web3FitAnchoredTier);
+  // A2 strong_fit 0.49（旧锚阈值下界）+fit 0.09 → mass 0.58 → 事件分 58，事件分不足照拦。
+  // J1.79 无「贴线锚」语义：阈值以下只是普通低分，不再有档位/下限特判。
+  const m2 = map(kurumiAnswers({ strongFit: 0.49, unfit: 0.3 }));
+  const s2b = stage2(m2);
+  check('A2 strong_fit 0.49：mass 0.58 → 事件分 58、B 档、无下限，事件分不足（58<60）拦',
+    s2b.pass === false && /事件分不足（58<60）/.test(s2b.blockReason || '')
+      && s2b.scoringResult?.eventCompositeScore === 58 && s2b.scoringResult?.influenceFloor === null,
+    { r: s2b.blockReason, s: s2b.scoringResult });
 
-  // A4 原判 B 档 → 不锚（原判即 B，无审计标记）
-  const bTierAnswers = kurumiAnswers({ tier: 3, tierProbs: { '3': 0.6 } });
-  const m4 = mapStandardAnswers(bTierAnswers, makeContext(kurumiTokenData, bTierAnswers));
-  const j4 = m4?.stage1DataToSave?.parsed_output?.jev || {};
-  const s4 = m4?.stage2DataToSave?.parsed_output || {};
-  check('A4 原判 B 档不锚（无审计标记、影响力 3→60 原样）', j4.web3FitAnchoredTier == null && s4.scoringResult?.eventCompositeScore === 60, { a: j4.web3FitAnchoredTier, t: s4.scoringResult?.eventCompositeScore });
+  // A3 锚的数学不可达性：strong_fit ≥0.5 ⇒ mass ≥0.5 ⇒ round(2.5)=3 ⇒ tier≥B，
+  // 而 web3FitAnchored 要求 tier∉{S,A,B}——永假。A/B 两域逐一反证：
+  //   0.5 → 50/B（事件分不足拦，非量级门）/ 0.6 → 60/B 过线 / 0.7 → 70/A 过线 /
+  //   0.88+0.09 → 97/S 过线 / 1.0 → 100/S 过线。
+  for (const [category, strong, fit, expectedScore, expectedTier, expectedPass] of [
+    ['A', 0.5, 0, 50, 'B', false],
+    ['B', 0.6, 0, 60, 'B', true],
+    ['A', 0.7, 0, 70, 'A', true],
+    ['B', 0.88, 0.09, 97, 'S', true],
+    ['A', 1.0, 0, 100, 'S', true],
+  ]) {
+    const answers = fitShape({ category, strong, fit });
+    const r = stage2(map(answers));
+    check(`A3 ${category}类 strong_fit ${strong}+fit ${fit} → ${expectedScore}/${expectedTier}：tier 恒 ≥B、锚键 null、reason 无「Web3偏好锚」`,
+      r.scoringResult?.eventCompositeScore === expectedScore
+        && r.scoringResult?.influenceTier === expectedTier
+        && r.scoringResult?.influenceFloor === null
+        && stage1Jev(map(answers)).web3FitAnchoredTier === null
+        && !/Web3偏好锚/.test(r.reason || '')
+        && r.pass === expectedPass,
+      { s: r.scoringResult, r: r.reason, pass: r.pass });
+  }
+  const half = stage2(map(fitShape({ category: 'A', strong: 0.5, fit: 0 })));
+  check('A3b 阈值边界 0.5：档位已是 B（锚无操作空间），拦截归事件分不足而非量级门',
+    half.pass === false && /事件分不足（50<60）/.test(half.blockReason || '') && half.scoringResult?.influenceTier === 'B',
+    { r: half.blockReason, t: half.scoringResult?.influenceTier });
 
-  // A5 原判 A/S 档 → 不锚（不越权降档也不重复标）
-  const aTierAnswers = kurumiAnswers({ tier: 4, tierProbs: { '4': 0.6 } });
-  const m5 = mapStandardAnswers(aTierAnswers, makeContext(kurumiTokenData, aTierAnswers));
-  const j5 = m5?.stage1DataToSave?.parsed_output?.jev || {};
-  const s5 = m5?.stage2DataToSave?.parsed_output || {};
-  check('A5 原判 A 档不动（影响力 4→80 无锚标记）', j5.web3FitAnchoredTier == null && s5.scoringResult?.eventCompositeScore === 80, { a: j5.web3FitAnchoredTier, t: s5.scoringResult?.eventCompositeScore });
+  // A4 event_magnitude 答案不再参与计分：同 fit 下旧题 0 档 vs 5 档 → 完全相同结果。
+  const mag0 = stage2(map(fitShape({ magnitudeScore: 0 })));
+  const mag5 = stage2(map(fitShape({ magnitudeScore: 5 })));
+  check('A4 event_magnitude 0 档 vs 5 档同分同档（旧题答案已被忽略）',
+    mag0.scoringResult?.eventCompositeScore === 97
+      && mag0.scoringResult?.eventCompositeScore === mag5.scoringResult?.eventCompositeScore
+      && mag0.scoringResult?.influenceTier === mag5.scoringResult?.influenceTier
+      && mag0.pass === mag5.pass,
+    { mag0: mag0.scoringResult, mag5: mag5.scoringResult });
 
-  // A6 D/E 档 + A 类 + strong_fit 0.88 → 锚 B → 「量级不足」阻断分支放行
-  const dTierAnswers = kurumiAnswers({ tier: 1, tierProbs: { '1': 0.7 } });
-  const m6 = mapStandardAnswers(dTierAnswers, makeContext(kurumiTokenData, dTierAnswers));
-  const s6 = m6?.stage2DataToSave?.parsed_output || {};
-  check('A6 D 档锚 B：量级不足阻断不触发、影响力下限 50（20<50）', !/量级不足/.test(s6.blockReason || '无') && s6.scoringResult?.eventCompositeScore === 50,
-    { r: s6.blockReason, t: s6.scoringResult?.impactTierScore });
+  // A5 C 类无类别不对称：同 fit → 同分同档（旧「A/B 才可锚」的类别分流随锚退役；
+  // 身份/载体等类别门在 fitShape 干净的形状下不触达）。
+  const cHigh = stage2(map(fitShape({ category: 'C', strong: 0.88, fit: 0.09 })));
+  check('A5 C 类同 fit 同分（97/S；J1.79 计分无类别不对称、无锚）',
+    cHigh.scoringResult?.eventCompositeScore === 97 && cHigh.scoringResult?.influenceTier === 'S'
+      && cHigh.scoringResult?.influenceFloor === null && cHigh.pass === true,
+    cHigh.scoringResult);
 
-  // A7 web3_user_event_fit 整题缺失 / 概率缺失 → 不锚 fail-closed（C 档计分 56.12<60 拦）
-  const noFit = kurumiAnswers({ web3Fit: undefined });
+  // A6 低 fit A 类：mass 0.02+0.04=0.06 → 影响力 0.3 → E 档 → D/E 量级门拦。
+  // 档位来源已是 fit 本身——旧「D 档+strong_fit 0.88 锚 B 救回」的形状结构性消失。
+  const lowFit = stage2(map(fitShape({ category: 'A', strong: 0.02, fit: 0.04 })));
+  check('A6 A 类低 fit（mass 0.06→E 档）：量级门拦「事件主体量级不足（E档）」，无锚可救',
+    lowFit.pass === false && /事件主体量级不足（E档）/.test(lowFit.blockReason || '')
+      && lowFit.scoringResult?.eventCompositeScore === null && lowFit.scoringResult?.influenceTier === 'E',
+    { r: lowFit.blockReason, s: lowFit.scoringResult });
+
+  // A7 fit 题缺失：mass 0 → E 档 fail-closed（先于计分分支，composite=null）。
+  const noFit = fitShape();
   delete noFit.web3_user_event_fit;
-  const m7 = mapStandardAnswers(noFit, makeContext(kurumiTokenData, noFit));
-  const s7 = m7?.stage2DataToSave?.parsed_output || {};
-  check('A7 web3_user_event_fit 缺失不锚（影响力 40，事件分不足拦截维持）', s7.pass === false && /事件分不足/.test(s7.blockReason || '') && s7.scoringResult?.eventCompositeScore === 40 && s7.scoringResult?.influenceFloor === null,
-    { r: s7.blockReason, t: s7.scoringResult?.impactTierScore });
+  const mNoFit = map(noFit);
+  const sNoFit = stage2(mNoFit);
+  check('A7 web3_user_event_fit 缺失：mass 0 → E 档 fail-closed 拦（composite=null，锚键 null）',
+    sNoFit.pass === false && /事件主体量级不足（E档）/.test(sNoFit.blockReason || '')
+      && sNoFit.scoringResult?.eventCompositeScore === null
+      && stage1Jev(mNoFit).web3FitAnchoredTier === null,
+    { r: sNoFit.blockReason, s: sNoFit.scoringResult });
 
-  // A8 W 类（cashtag 改道等）不受锚影响：A 类被改写为 W 时 category!=='A'
-  const wAnswers = { ...kurumiAnswers(), event_category: { choice: 'W', probabilities: { W: 0.7, A: 0.2 } } };
-  const m8 = mapStandardAnswers(wAnswers, makeContext(kurumiTokenData, wAnswers));
-  const s8 = m8?.stage2DataToSave?.parsed_output || {};
-  check('A8 W 类不走锚（W 数学）', s8.scoringResult?.impactTierScore == null, s8.scoringResult);
+  // A8 W 类不走标准数学：fit 答案在场也不参与（w_* 三轴不变），无 influenceTier/下限。
+  const wAnswers = {
+    ...fitShape(),
+    event_category: { choice: 'W', probabilities: { W: 0.9, A: 0.1 } },
+    w_product_score: { score: 60, probabilities: { '60': 0.8 } },
+    w_bsc_user_appeal: { score: 30, probabilities: { '30': 0.8 } },
+  };
+  const sW = stage2(map(wAnswers));
+  check('A8 W 类走 W 数学：fit 不参与（无 influenceTier/influenceScore/下限），三轴和=事件分',
+    sW.scoringResult?.influenceTier === null && sW.scoringResult?.influenceScore === null
+      && sW.scoringResult?.influenceFloor === null
+      && sW.scoringResult?.eventCompositeScore === round2(sW.scoringResult?.wProductScore + sW.scoringResult?.wAppealScore + sW.scoringResult?.timingScore)
+      && !/Web3口味契合/.test(sW.reason || ''),
+    { s: sW.scoringResult, r: sW.reason });
 
-  console.log('\n── B. 负门正锚共存 ──');
+  console.log('\n── B. 负门共存 ──');
 
-  // B1 unfit 0.88 → 负门拦截维持（正锚对称面：Web3 用户不喜欢，量级锚不救）
+  // B1 unfit 0.88 → 负门拦截维持（偏好不合先于任何量级/计分考量）
   const unfitAnswers = kurumiAnswers({ strongFit: 0.02, unfit: 0.88, web3Fit: { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } } });
-  const mb = mapStandardAnswers(unfitAnswers, makeContext(kurumiTokenData, unfitAnswers));
-  const sb = mb?.stage2DataToSave?.parsed_output || {};
+  const mb = map(unfitAnswers);
+  const sb = stage2(mb);
   check('B1 unfit 0.88 负门拦截维持（偏好不合）', sb.pass === false && sb.blockReason === 'Web3用户偏好不合', sb.blockReason);
 
   // B2 正负不可同时 ≥0.5（概率和为 1 的天然不变式，代码防御性写法验证：unfit 门先挂）
   const both = kurumiAnswers({ strongFit: 0.6, unfit: 0.5, web3Fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.6, unfit: 0.5, fit: 0, marginal: 0 } } });
-  const mb2 = mapStandardAnswers(both, makeContext(kurumiTokenData, both));
-  const sb2 = mb2?.stage2DataToSave?.parsed_output || {};
+  const mb2 = map(both);
+  const sb2 = stage2(mb2);
   check('B2 双过半形状（脏数据）：unfit 负门先拦（w3Block 挂在量级分支前）', sb2.pass === false && sb2.blockReason === 'Web3用户偏好不合', sb2.blockReason);
 
   console.log('\n── C. 审计与 reason ──');
 
-  // C1 jevImpactTier 原判 C 保留 + web3FitAnchoredTier 落位
-  const j1 = m1?.stage1DataToSave?.parsed_output?.jev || {};
-  check('C1 审计标记：jevImpactTier=C 原判保留 + web3FitAnchoredTier=B + strongP 0.88',
-    j1.jevImpactTier === 'C' && j1.web3FitAnchoredTier === 'B' && j1.web3FitStrongPAnchored === 0.88,
-    { t: j1.jevImpactTier, a: j1.web3FitAnchoredTier, p: j1.web3FitStrongPAnchored });
+  // C1 jevImpactTier 现为 fit 派生档（不再保留旧 magnitude 原判）；锚审计键恒 null。
+  const j1 = stage1Jev(m1);
+  check('C1 审计：jevImpactTier=S（fit 派生；旧 magnitude C 档无影响）+ 锚键恒 null',
+    j1.jevImpactTier === 'S' && j1.effectiveImpactTier === 'S'
+      && j1.web3FitAnchoredTier === null && j1.web3FitStrongPAnchored === null
+      && j1.anchoredTier === null,
+    { t: j1.jevImpactTier, e: j1.effectiveImpactTier, a: j1.web3FitAnchoredTier, p: j1.web3FitStrongPAnchored });
+  check('C1b 概率证据照落：probabilities.web3_user_event_fit.strong_fit=0.88',
+    j1.probabilities?.web3_user_event_fit?.strong_fit === 0.88, j1.probabilities?.web3_user_event_fit);
 
-  // C2 reason 带 Web3偏好锚说明
-  check('C2 reason 展示锚来源（档位迁移+strong_fit 百分比）', /\(C档→B档锚\)\·Web3偏好锚\(strong_fit 88%\)/.test(s2.reason || ''), s2.reason);
+  // C2 reason 精确串：Web3口味契合X%(strong Y%+fit Z%)→分(档)（pass线60）
+  check('C2 reason 精确串（fit 来源可追溯，无锚标注）',
+    s1.reason === 'Web3口味契合97%(strong 88%+fit 9%)→97(S档)（pass线60）', s1.reason);
 
-  console.log('\n── D. C94 B 类双锚（京小安案现场） ──');
+  console.log('\n── D. 京小安案（C94 现场）新口径 ──');
 
   // 京小安 DB 实测 answers 快照（token_narrative 2026-10-17T14:41 分析行，
   // stage1_raw_output 原样：B 0.52 / magnitude 1.35(D档 0.75) / strong_fit 0.57 /
-  // dim2 0.7→7 / mem 1.88 / minor_other 0.40 / none 0.66 / within_7d
+  // dim2 0.7→7 / mem 1.88 / minor_other 0.40 / none 0.66 / within_7d）
+  // J1.79：mass 0.57+0.21=0.78 → 78/A 过线——C94「web3 用户喜欢则发布主体无所谓」
+  // 由 fit 派生档结构性承接，原「D 档+双锚恰 60」路径退役。
   const jxaTokenData = { symbol: '京小安', name: '首款AI警犬', raw_api_data: { name: '首款AI警犬' } };
-  function jxaAnswers({ memScore = 1.88, strongFit = 0.57, dim2Score = 0.7, category = 'B' } = {}) {
+  function jxaAnswers({ memScore = 1.88, strongFit = 0.57, dim2Score = 0.7, category = 'B', fitRest = 0.21 } = {}) {
     return {
       event_category: { choice: category, probabilities: { [category]: 0.52, A: 0.2, W: 0.1, D: 0.08, E: 0.05, C: 0.04, F: 0.01 } },
       event_magnitude: { score: 1.35, probabilities: { '0': 0.01, '1': 0.75, '2': 0.16, '3': 0.05, '4': 0.03, '5': 0 } },
       event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.96, within_30d: 0.01, older: 0.01, unknown: 0.01 } },
       dimension2: { score: dim2Score, probabilities: { '0': 0.45, '1': 0.48, '2': 0.03, '3': 0.02, '4': 0.02, '5': 0 } },
       event_token_block_reason: { choice: 'none', probabilities: { none: 0.66, subject_unqualified: 0.15, regional_event: 0.1, event_marketing_gimmick: 0.05, event_routine_content_product: 0.02, event_institution_routine: 0.01, low_quality_derivative: 0.01 } },
-      web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: 0.21, marginal: 0.21, unfit: 0.01 } },
+      web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: fitRest, marginal: 0.21, unfit: 0.01 } },
       event_subject_entity: { choice: 'product_character', probabilities: { product_character: 0.53, product_functional: 0.34, character_ip: 0.11, event_hotspot: 0.01 } },
       web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.93, accepted: 0.04, unknown: 0.03 } },
       name_entity_memeability: { score: memScore, probabilities: { '2': 0.88, '0': 0.03, '1': 0.08, '3': 0.01 } },
@@ -177,67 +268,65 @@ async function main() {
       quality_reasonability: { score: 1.88 },
     };
   }
+  const mapJxa = (answers) => {
+    const m = map(answers, jxaTokenData);
+    return { m, s: stage2(m), j: stage1Jev(m) };
+  };
 
-  // D1 京小安实测形状（mem 1.88<2）：C108 memFloor 退役断代——2026-10-18「维持拦」
-  // 裁定随位退役（名字玩味轴移交 name_form 判：J1.42 下重析按四分支判）。
-  // 旧快照形状（无 name_form 键 fail-open）→ 双锚 60 恰过线 pass
-  const d1a = jxaAnswers();
-  const md1 = mapStandardAnswers(d1a, makeContext(jxaTokenData, d1a));
-  const sd1 = md1?.stage2DataToSave?.parsed_output || {};
-  check('D1 京小安：J1.71 单题口径影响力 1.35→27、偏好锚下限 50<60 拦（名字玩味轴移交 name_form）',
-    sd1.pass === false && /事件分不足（50<60）/.test(sd1.blockReason || ''), sd1.blockReason);
+  // D1 实测快照：fit 0.78 → 78/A 过线；mem 1.88 不再参与（J1.61 题删除）
+  const d1 = mapJxa(jxaAnswers());
+  check('D1 京小安实测：mass 0.78 → 事件分 78、A 档、过线（原 D 档+双锚路径退役）',
+    d1.s.pass === true && d1.s.blockReason == null
+      && d1.s.scoringResult?.eventCompositeScore === 78 && d1.s.scoringResult?.influenceTier === 'A'
+      && d1.s.scoringResult?.influenceFloor === null,
+    { r: d1.s.blockReason, s: d1.s.scoringResult });
+  check('D1b reason 精确串：Web3口味契合78%(strong 57%+fit 21%)→78(A档)',
+    d1.s.reason === 'Web3口味契合78%(strong 57%+fit 21%)→78(A档)（pass线60）', d1.s.reason);
+  check('D1c 审计：jevImpactTier=A + 锚键 null（web3FitAnchoredTier/web3FitStrongPAnchored）',
+    d1.j.jevImpactTier === 'A' && d1.j.web3FitAnchoredTier === null
+      && d1.j.web3FitStrongPAnchored === null && d1.j.anchoredTier === null,
+    { t: d1.j.jevImpactTier, a: d1.j.web3FitAnchoredTier, p: d1.j.web3FitStrongPAnchored });
 
-  // D2 同形状 mem 2.2（过地板）：D 档 → 量级锚 B + dim2 锚 18 双锚 →
-  // 27+18+15=60 恰过线 pass + reason 双锚标注 + 审计键
-  const d2a = jxaAnswers({ memScore: 2.2 });
-  const md2 = mapStandardAnswers(d2a, makeContext(jxaTokenData, d2a));
-  const sd2 = md2?.stage2DataToSave?.parsed_output || {};
-  const jd2 = md2?.stage1DataToSave?.parsed_output?.jev || {};
-  check('D2 B类 D档+strong_fit 0.57：影响力下限 50（不保过线）→ 50<60 拦',
-    sd2.pass === false && sd2.scoringResult?.eventCompositeScore === 50
-      && sd2.scoringResult?.influenceTier === 'B' && sd2.scoringResult?.influenceFloor === 50,
-    sd2.scoringResult);
-  check('D2 审计：jevImpactTier=D 原判保留 + 锚后 influenceTier=B + 影响力下限 50（旧传播锚键缺席）',
-    jd2.jevImpactTier === 'D' && jd2.web3FitAnchoredTier === 'B'
-      && sd2.scoringResult?.influenceTier === 'B' && sd2.scoringResult?.influenceFloor === 50
-      && sd2.jev?.web3FitSpreadAnchor === undefined,
-    { t: jd2.jevImpactTier, a: jd2.web3FitAnchoredTier, floor: sd2.scoringResult?.influenceFloor });
-  check('D2 reason 标注 Web3偏好锚（J1.71 合并后无独立传播豁免）',
-    /Web3偏好锚\(strong_fit 57%\)/.test(sd2.reason || '')
-      && !/Web3偏好传播豁免/.test(sd2.reason || ''), sd2.reason);
+  // D2 mem 2.2 与 mem 1.88 同结果：mem 题已删，不得再影响任何结果
+  const d2 = mapJxa(jxaAnswers({ memScore: 2.2 }));
+  check('D2 mem 1.88 vs 2.2 同分同档同判定（mem 题已删、无地板门）',
+    d2.s.pass === d1.s.pass && d2.s.scoringResult?.eventCompositeScore === d1.s.scoringResult?.eventCompositeScore
+      && d2.s.scoringResult?.influenceTier === d1.s.scoringResult?.influenceTier,
+    { d1: d1.s.scoringResult, d2: d2.s.scoringResult });
+  check('D2b 传播锚键缺席：spreadScore/web3FitSpreadAnchor 不再产出',
+    d2.s.scoringResult?.spreadScore === undefined && d2.s.jev?.web3FitSpreadAnchor === undefined,
+    { spreadScore: d2.s.scoringResult?.spreadScore, anchor: d2.s.jev?.web3FitSpreadAnchor });
 
-  // D3 strong_fit 0.49 贴线（B 类）→ 不锚不豁：量级门 D 档拦截维持（fail-closed）
-  const d3a = jxaAnswers({ strongFit: 0.49, memScore: 2.2 });
-  const md3 = mapStandardAnswers(d3a, makeContext(jxaTokenData, d3a));
-  const sd3 = md3?.stage2DataToSave?.parsed_output || {};
-  check('D3 strong_fit 0.49 贴线不锚：量级不足拦截维持',
-    sd3.pass === false && /量级不足/.test(sd3.blockReason || ''), sd3.blockReason);
+  // D3 strong_fit 0.49 贴线 + fit 0.05 → mass 0.54 → 事件分 54 拦（阈值以下无锚特判）
+  const d3 = mapJxa(jxaAnswers({ strongFit: 0.49, fitRest: 0.05 }));
+  check('D3 B 类 strong_fit 0.49+fit 0.05 (mass 0.54)：事件分 54、B 档、事件分不足拦、无下限',
+    d3.s.pass === false && /事件分不足（54<60）/.test(d3.s.blockReason || '')
+      && d3.s.scoringResult?.eventCompositeScore === 54 && d3.s.scoringResult?.influenceTier === 'B'
+      && d3.s.scoringResult?.influenceFloor === null,
+    { r: d3.s.blockReason, s: d3.s.scoringResult });
 
-  // D4 J1.71：dim2 不再参与计分——偏好锚=影响力下限 50（原传播锚键缺席）
-  const d4a = jxaAnswers({ memScore: 2.2, dim2Score: 3.0 });
-  const md4 = mapStandardAnswers(d4a, makeContext(jxaTokenData, d4a));
-  const sd4 = md4?.stage2DataToSave?.parsed_output || {};
-  check('D4 J1.71 传播锚并入影响力下限：composite=50、旧 spread 键缺席',
-    sd4.scoringResult?.eventCompositeScore === 50 && sd4.scoringResult?.influenceFloor === 50
-      && sd4.scoringResult?.spreadScore === undefined && sd4.jev?.web3FitSpreadAnchor === undefined,
-    { t: sd4.scoringResult?.eventCompositeScore, a: sd4.jev?.web3FitSpreadAnchor });
+  // D4 dim2 只影响旧题、不影响计分：0.7 vs 5.0 同分
+  const d4 = mapJxa(jxaAnswers({ dim2Score: 5.0 }));
+  check('D4 dim2 0.7 vs 5.0 同分同档（dim2 不参与 J1.79 计分）',
+    d4.s.scoringResult?.eventCompositeScore === 78
+      && d4.s.scoringResult?.eventCompositeScore === d1.s.scoringResult?.eventCompositeScore
+      && d4.s.jev?.web3FitSpreadAnchor === undefined,
+    { t: d4.s.scoringResult?.eventCompositeScore, a: d4.s.jev?.web3FitSpreadAnchor });
 
-  // D5 C 类维持不豁（裁定「C/D/E 类量级是客观规模」）：同形状 category C → 无双锚
-  const d5a = jxaAnswers({ memScore: 2.2, category: 'C' });
-  const md5 = mapStandardAnswers(d5a, makeContext(jxaTokenData, d5a));
-  const jd5 = md5?.stage1DataToSave?.parsed_output?.jev || {};
-  const sd5 = md5?.stage2DataToSave?.parsed_output || {};
-  check('D5 C 类不豁：量级/传播双锚均不触达',
-    jd5.web3FitAnchoredTier == null && sd5.jev?.web3FitSpreadAnchor == null,
-    { a: jd5.web3FitAnchoredTier, d: sd5.jev?.web3FitSpreadAnchor });
+  // D5 C 类同 fit 同分：档位不因类别改写（旧「C 类不豁」在 fit 派生下无对象；
+  // 保留断言=锚键恒 null、分数照 fit 计）
+  const d5 = mapJxa(jxaAnswers({ category: 'C' }));
+  check('D5 C 类同 fit：78/A 照 fit 计分、锚键 null（无类别豁免/锚定）',
+    d5.s.scoringResult?.eventCompositeScore === 78 && d5.s.scoringResult?.influenceTier === 'A'
+      && d5.j.web3FitAnchoredTier === null && d5.s.jev?.web3FitSpreadAnchor == null,
+    { s: d5.s.scoringResult, a: d5.j.web3FitAnchoredTier });
 
-  // D6 unfit 负门 B 类共存：Web3 用户不喜欢 → 量级/传播锚不救（对称负门）
-  const d6a = jxaAnswers({ memScore: 2.2, strongFit: 0.02 });
+  // D6 unfit 负门 B 类共存：Web3 用户不喜欢 → 任何量级/计分不救（对称负门）
+  const d6a = jxaAnswers();
   d6a.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } };
-  const md6 = mapStandardAnswers(d6a, makeContext(jxaTokenData, d6a));
-  const sd6 = md6?.stage2DataToSave?.parsed_output || {};
-  check('D6 B 类 unfit 0.88 负门拦截维持（偏好不合先于锚）',
-    sd6.pass === false && sd6.blockReason === 'Web3用户偏好不合', sd6.blockReason);
+  const d6 = mapJxa(d6a);
+  check('D6 B 类 unfit 0.88 负门拦截维持（偏好不合先于计分）',
+    d6.s.pass === false && d6.s.blockReason === 'Web3用户偏好不合', d6.s.blockReason);
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);

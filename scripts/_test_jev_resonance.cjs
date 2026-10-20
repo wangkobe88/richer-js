@@ -79,57 +79,61 @@ function run(answers) {
 async function main() {
   console.log('\n── A. 双案反证（J1.36 判据源=web3_user_event_fit）──');
 
-  // A1 蝙蝠侠摇重放：真实 web3_user_event_fit 0.76 ≥0.5 不折 → 60 → 69.27 high（放行裁定）
+  // A1 蝙蝠侠摇重放：真实 web3_user_event_fit 0.76 ≥0.5 不折 → J1.79 事件分=76 → 78.87 high（放行裁定）
   const m1 = await run(bianfuAnswers());
   const s1 = m1?.stage2DataToSave?.parsed_output || {};
   const f1 = m1?.stageFinalData || {};
-  check('A1 蝙蝠侠摇 0.76 不折：事件分 60 → 总分 69.27 mid（J1.71 单题影响力）（放行裁定，J1.30 历史行重放新逻辑）',
-    s1.scoringResult?.eventCompositeScore === 60 && f1.totalScore === 69.27 && f1.category === 'mid',
+  check('A1 蝙蝠侠摇 0.76 不折：J1.79 fit 事件分 76 → 总分 78.87 high（放行裁定，J1.30 历史行重放新逻辑）',
+    s1.scoringResult?.eventCompositeScore === 76 && f1.totalScore === 78.87 && f1.category === 'high',
     { s2: s1.scoringResult?.eventCompositeScore, fin: f1.totalScore, cat: f1.category });
 
   // A2 유과 강아지形状：strong_fit 0.97 → 不折（本案 J1.31 mild×0.5=35.64 误拦的修复）
   const m2 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.97, fit: 0.02, marginal: 0.01, unfit: 0 } }));
   const s2 = m2?.stage2DataToSave?.parsed_output || {};
   const f2 = m2?.stageFinalData || {};
-  check('A2 유과形状 0.97 不折：60/69.27 mid（同款数学不再被Web3偏好折损误拦）',
-    s2.scoringResult?.eventCompositeScore === 60 && f2.totalScore === 69.27 && f2.category === 'mid',
+  check('A2 유과形状 0.99 不折：J1.79 fit 事件分 99 → 92.67 high（同款数学不再被Web3偏好折损误拦）',
+    s2.scoringResult?.eventCompositeScore === 99 && f2.totalScore === 92.67 && f2.category === 'high',
     { t: s2.scoringResult?.eventCompositeScore, fin: f2.totalScore });
 
-  // A3 marginal 占优：fitMass=0.3 <0.5 → ×0.5：(27+28.68)×0.5+15=30 <60 事件分不足拦
+  // A3 marginal 占优：fitMass=0.3 <0.5 → ×0.5：J1.79 fit 事件分 30×0.5=15 <60 事件分不足拦
   const m3 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.15, fit: 0.15, marginal: 0.6, unfit: 0.1 } }));
   const s3 = m3?.stage2DataToSave?.parsed_output || {};
   const r3 = m3?.llmResult || {};
-  check('A3 marginal 0.3 → ×0.5：影响力 60×0.5=30 拦（C80 数字沿用，「web3 用户不太喜欢」的数学化）',
-    s3.scoringResult?.eventCompositeScore === 30 && s3.pass === false && /事件分不足（30<60）/.test(s3.blockReason || '') && r3.rating === 'low',
+  check('A3 marginal 0.3 → ×0.5：J1.79 fit 事件分 30×0.5=15 拦（C80 折损数学沿用）',
+    s3.scoringResult?.eventCompositeScore === 15 && s3.pass === false && /事件分不足（15<60）/.test(s3.blockReason || '') && r3.rating === 'low',
     { t: s3.scoringResult?.eventCompositeScore, r: s3.blockReason, rating: r3.rating });
 
   console.log('\n── B. 边界 ──');
 
-  // B1 web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行）→ fail-open 不折 + fitMass null
+  // B1 web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行）→ 无数可折（审计 null）；
+  // J1.79 事件分=fit 质量 → 缺失=0 分/E 档，被 D/E 量级门拦（不再有「60 原样放行」语义）
   const noFit = bianfuAnswers();
   delete noFit.web3_user_event_fit;
   const m4 = await run(noFit);
   const s4 = m4?.stage2DataToSave?.parsed_output || {};
   const j4 = m4?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B1 web3_user_event_fit 缺失 fail-open：60 原样不折 / web3FitDampMass=null',
-    s4.scoringResult?.eventCompositeScore === 60 && j4.web3FitDampMass === null && j4.web3FitDamp === null,
-    { t: s4.scoringResult?.eventCompositeScore, m: j4.web3FitDampMass });
+  check('B1 fit 缺失：折损审计 null（无数不折）且事件分缺失态被量级门拦（fail-closed，无静默放行）',
+    s4.pass === false && /量级不足/.test(s4.blockReason || '')
+      && j4.web3FitDampMass === null && j4.web3FitDamp === null,
+    { t: s4.scoringResult?.eventCompositeScore, m: j4.web3FitDampMass, blk: s4.blockReason });
 
   // B2 fitMass 恰 0.5 边界：不折（<0.5 严格——与 J1.19/J1.23/J1.27 的 ≥0.5 线同侧）
+  // J1.79 事件分=min(1, fitMass)×100 → 恰 0.5 = 50（旧口径 60×0.5 的 60 基线已随题删除）
   const m5 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.25, fit: 0.25, marginal: 0.4, unfit: 0.1 } }));
   const s5 = m5?.stage2DataToSave?.parsed_output || {};
   const j5 = m5?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B2 fitMass 恰 0.5 不折（严格 <）+ 审计恒落 0.5', s5.scoringResult?.eventCompositeScore === 60 && j5.web3FitDampMass === 0.5 && j5.web3FitDamp === null,
+  check('B2 fitMass 恰 0.5 不折（严格 <）+ 审计恒落 0.5 + J1.79 fit 事件分 50',
+    s5.scoringResult?.eventCompositeScore === 50 && j5.web3FitDampMass === 0.5 && j5.web3FitDamp === null,
     { t: s5.scoringResult?.eventCompositeScore, m: j5.web3FitDampMass });
 
   console.log('\n── C. 作用域 ──');
 
-  // C1 A 类 + marginal 0.3 → 不折（裁定域=E 类）
+  // C1 A 类 + marginal 0.3 → 不折（裁定域=E 类）；J1.79 事件分=fit 质量 30
   const m6 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.15, fit: 0.15, marginal: 0.6, unfit: 0.1 }, category: 'A' }));
   const s6 = m6?.stage2DataToSave?.parsed_output || {};
   const j6 = m6?.stage2DataToSave?.parsed_output?.jev || {};
-  check('C1 A 类不折（60 原样；fitMass 审计照落）',
-    s6.scoringResult?.eventCompositeScore === 60 && j6.web3FitDampMass === 0.3 && j6.web3FitDamp === null,
+  check('C1 A 类不折（J1.79 fit 事件分 30 原样；fitMass 审计照落）',
+    s6.scoringResult?.eventCompositeScore === 30 && j6.web3FitDampMass === 0.3 && j6.web3FitDamp === null,
     { t: s6.scoringResult?.eventCompositeScore, d: j6.web3FitDamp });
 
   // C2 W 类：W 数学分支，折损不触达（tierScore null）
@@ -139,9 +143,10 @@ async function main() {
     s7.scoringResult);
 
   // C3 E 类 D 档量级票：量级门先拦（折损前结论不变，blockReason 归量级门）
-  const m8 = await run(bianfuAnswers({ tierScore: 1, tierProbs: { '1': 0.8 } }));
+  // J1.79：档位由 fit 派生（mass 0.2 → influenceScore 1 → D 档），旧 magnitude 题已删
+  const m8 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 } }));
   const s8 = m8?.stage2DataToSave?.parsed_output || {};
-  check('C3 E 类 D 档：量级门先拦（归因=量级不足非折损）',
+  check('C3 E 类 D 档（fit 派生）：量级门先拦（归因=量级不足非折损）',
     s8.pass === false && /量级不足/.test(s8.blockReason || ''),
     s8.blockReason);
 
@@ -169,16 +174,20 @@ async function main() {
     !('eventResonance' in j1) && !('event_resonance' in (j1.probabilities || {})),
     { keys: Object.keys(j1), pkeys: Object.keys(j1.probabilities || {}) });
 
-  // D5 题集源码锁：event_resonance 题已删（C93 18→17；C96 再 +2 新题 17→19；C108
-  // 删 block_misspelling 19→18）+ 版本 J1.42（C98 起题面版；J1.39=C103 条件题
-  // parent_relationship——默认关 18 题开 19；J1.42=C108 名字门统一+删探针题）
+  // D5 题集源码锁：event_resonance 题已删；J1.79 删 web3_user_event_impact（事件分改由
+  // web3_user_event_fit 单一来源）→ 默认 13 题 / 开 parent_relationship 14 题；
+  // 版本 J1.79（J1.78 载体题动作/趋势名判别；J1.74=C134 W 交互臂→BSC 用户吸引力；
+  // J1.55=C124 圈内符号级锚；J1.54=C123 门名/题键语义化；J1.53=C122 门名断代；
+  // J1.52=C121 用户视角批次一；C108 删探针题；C109 收敛两对题；C110 合桶删 low_quality_derivative）
   const qm = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 14 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+token_ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
-    qKeys.length === 14 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.78'
-    && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 15 && qsRel.parent_relationship != null,
+  check('D5 题集 13 题无 event_resonance/block_misspelling/web3_user_event_impact + JEV_QUESTIONS_VERSION=J1.79（fit 单一事件分来源）',
+    qKeys.length === 13 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling')
+      && !qKeys.includes('web3_user_event_impact') && !qKeys.includes('event_magnitude') && !qKeys.includes('dimension2')
+      && qm.JEV_QUESTIONS_VERSION === 'J1.79'
+      && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 14 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

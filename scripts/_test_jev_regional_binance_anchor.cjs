@@ -55,7 +55,10 @@ function gameShowAnswers() {
     event_token_block_reason: { choice: 'event_baseless_speculation', probabilities: { event_baseless_speculation: 0.3, none: 0.24, event_marketing_gimmick: 0.28, event_institution_routine: 0.12, event_routine_content_product: 0.05 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.55, unknown: 0.35 } },
     name_entity_memeability: { score: 2.39, probabilities: {} },
-    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, fit: 0.17, marginal: 0.09 } },
+    // J1.79：tier 由 fit 派生——strong 0.73+fit 0.10=0.83→influenceScore 4.15→round 4=A 档
+    // （fit 0.17 时 4.5→round 5=S，会改变 C3/C4 的原判档断言；strong_fit 保持 0.73 供
+    // C88 五腿 strong_fit≥0.5 腿命中）
+    web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.73, fit: 0.1, marginal: 0.09 } },
     name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.98, improvised_entity: 0.01, existing_entity: 0.01 } },
     event_subject_entity: { choice: 'company', probabilities: { company: 0.53, product_functional: 0.27, event_hotspot: 0.17 } },
     name_event_relevance: { choice: 'semantic', probabilities: { semantic: 0.49, exact_match: 0.24, none: 0.14, generic_concept: 0.06, translation_match: 0.05 } },

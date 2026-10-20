@@ -21,7 +21,7 @@
 import { JEV_QUESTIONS_VERSION } from './jev-questions.mjs';
 import { detectCorpusCashtag, detectPublisherProxy } from '../utils/narrative-utils.mjs';
 
-/** 量级 6 档（与 jev-questions web3_user_event_impact criteria 顺序一致） */
+/** 量级 6 档（J1.79 起由 fit 质量派生，供豁免/审计） */
 const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
 
 /**
@@ -430,6 +430,7 @@ function subjectCarrierBlock(answers, category, opts) {
   // 判断；终评级仍交全链其余门）。暗号資産の覹者(0.92)/BI(0.62) 校准不动：
   // 前者本就 C88 五腿豁免，后者无图证不触发本覆盖。
   if (opts?.imgCarrierOverride) return null;
+  if (opts?.emptyContentImgCarrierOverride) return null;
   if (category === 'C' || category === 'D') {
     if (carrier === 'improvised_entity' || carrier === 'no_visual_entity') {
       return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
@@ -1065,8 +1066,14 @@ export function mapStandardAnswers(answers, context) {
   // W 数学 tier 不参与，天然无竞争。
   const binanceRegional = detectBinanceRegionalAccount(twitterInfo);
   const regionalAnchorActive = !!(binanceRegional && binanceCorpus);
-  // J1.71：唯一事件价值分（0-5）——传播面/时效已内化为题内证据
-  const influenceScore = answers.web3_user_event_impact?.score ?? answers.event_magnitude?.score ?? 0;
+  // J1.79：事件分 = fit 质量（strong_fit+fit）；tier 由 fit 派生，供既有
+  // punExempt/magExempt/审计结构继续工作。身份/存在性由各自的臂负责。
+  const fitProbsForScore = answers?.web3_user_event_fit?.probabilities || {};
+  const fitStrongForScore = fitProbsForScore.strong_fit ?? 0;
+  const fitForScore = fitProbsForScore.fit ?? 0;
+  const likedMass = Math.min(1, fitStrongForScore + fitForScore);
+  const influenceScore = round2(likedMass * 5);   // 0-5（fit 派生；tier/豁免/审计）
+  const influenceBase = round2(likedMass * 100);  // 0-100 事件分
   const tier = impactTierOf(influenceScore);
   // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
   const tierAnchored = pubProxyActive && tier !== 'S' && tier !== 'A';
@@ -1127,7 +1134,6 @@ export function mapStandardAnswers(answers, context) {
   const instagramSpreadAnchorActive = category === 'A' && instagramLinked === true
     && instagramInfoFetched !== true && influenceScore < 3;
   const web3FitSpreadAnchorActive = false;
-  const influenceBase = round2(influenceScore * 20); // 0-5 → 0-100；60 过线
   const influenceFloor = (() => {
     let floor = 0;
     if (tierAnchored) floor = Math.max(floor, 40);              // 发布者指代锚 → A 档等效
@@ -1203,7 +1209,6 @@ export function mapStandardAnswers(answers, context) {
         // J1.26 nrNotableExempt 审计键随 C108 nr 阻断位退役（历史行键保留展示）
         probabilities: {
           event_category: answers.event_category?.probabilities,
-          web3_user_event_impact: answers.web3_user_event_impact?.probabilities ?? answers.event_magnitude?.probabilities,
           event_token_block_reason: answers.event_token_block_reason?.probabilities,
           web3_user_name_entity_acceptance: answers.web3_user_name_entity_acceptance?.probabilities,
           web3_user_event_fit: answers.web3_user_event_fit?.probabilities,
@@ -1435,7 +1440,7 @@ export function mapStandardAnswers(answers, context) {
     // 都不是）；无概率 mass（choice 档位门）
     eventScoreBlocked = true;
     gateBlockReason = uaBlock.label;
-  } else if ((scBlock = subjectCarrierBlock(answers, category, { recognizedEntitySlogan, imgCarrierOverride }))) {
+  } else if ((scBlock = subjectCarrierBlock(answers, category, { recognizedEntitySlogan, imgCarrierOverride, emptyContentImgCarrierOverride: blockChoice === 'event_empty_content' && !!context.imageEvidence }))) {
     // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
     // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
     // mass（choice 档位门）
@@ -1468,8 +1473,10 @@ export function mapStandardAnswers(answers, context) {
     if (eventScoreBlocked) gateBlockReason = `${wLabel}总分不足（${eventCompositeScore}<60）`;
   } else {
     // J1.71：单题影响力 → 0-100 合成分（传播/时效内化；时效 override 扣分、锚为下限）
-    eventCompositeScore = clamp(round2(influenceBase - (timingPenaltyActive ? 18 : 0)), 0, 100);
+    // J1.79：事件分 = fit 质量（0-100）；锚只抬下限；旧源 override 封顶 30
+    eventCompositeScore = clamp(round2(influenceBase), 0, 100);
     if (influenceFloor != null) eventCompositeScore = Math.max(eventCompositeScore, influenceFloor);
+    if (timingPenaltyActive) eventCompositeScore = Math.min(eventCompositeScore, 30);
     // J1.36/J1.71 E 类Web3偏好折损判据源=web3_user_event_fit（C93）：E 类且
     // (strong_fit+fit)<0.5 → 影响力整体 ×系数（合并后不再区分 tier/spread/时效）
     const w3fProbs = answers?.web3_user_event_fit?.probabilities;
@@ -1489,7 +1496,7 @@ export function mapStandardAnswers(answers, context) {
       ? `｜量级门豁免(${magExemptTags}：${[magExemptRescuedArm ? `${effTier}档臂` : null, magExemptRescuedPass ? '事件分<60臂' : null].filter(Boolean).join('与')}不拦，弱量级代价在总分)`
       : '';
     eventScoreBlocked = eventCompositeScore < 60 && !magExempt;
-    eventScoreReason = `事件影响力${influenceScore.toFixed(1)}/5→${eventCompositeScore}${effTier !== tier ? `(${tier}档→${effTier}档锚)` : `(${effTier}档)`}${tierAnchored ? `·发布者指代锚` : ''}${web3FitAnchored ? `·Web3偏好锚(strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}${instagramSpreadAnchorActive ? '·IG证据缺失下限' : ''}${timingPenaltyActive ? `·时效override-18` : ''}${web3FitDamped ? `｜Web3偏好折损×${web3FitDampCoef}(web3_user_event_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}（pass线60）${magExemptSuffix}`;
+    eventScoreReason = `Web3口味契合${Math.round(likedMass * 100)}%(strong ${Math.round(fitStrongForScore * 100)}%+fit ${Math.round(fitForScore * 100)}%)→${eventCompositeScore}${effTier !== tier ? `(${tier}档→${effTier}档锚)` : `(${effTier}档)`}${tierAnchored ? `·发布者指代锚` : ''}${web3FitAnchored ? `·Web3偏好锚(strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}${instagramSpreadAnchorActive ? '·IG证据缺失下限' : ''}${timingPenaltyActive ? '·旧源封顶30' : ''}${web3FitDamped ? `｜Web3偏好折损×${web3FitDampCoef}(web3_user_event_fit契合${Math.round(w3fFitMass * 100)}%<50)` : ''}（pass线60）${magExemptSuffix}`;
     if (eventScoreBlocked) gateBlockReason = `事件分不足（${eventCompositeScore}<60）`;
   }
 
@@ -1505,7 +1512,7 @@ export function mapStandardAnswers(answers, context) {
         influenceScore: isW ? null : influenceScore,
         influenceTier: isW ? null : effTier,
         influenceFloor: isW ? null : influenceFloor,
-        timingPenalty: isW ? null : (timingPenaltyActive ? 18 : null),
+        timingPenalty: isW ? null : (timingPenaltyActive ? 30 : null),
         timingScore: isW ? timingScore : null,
         wProductScore: isW ? wProduct : null,
         wAppealScore: isW ? wAppeal : null,

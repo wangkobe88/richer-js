@@ -35,12 +35,16 @@ function check(name, cond, detail) {
 // ── C40 BI Inu 实测 answers 快照（造行实验 2026-10-01，DB 实证）────────────────
 // category D 0.78 / magnitude 4档带(A) / within_7d 0.96 / name_brand_hijack noul 0.72 /
 // web3_user_name_entity_acceptance super_ip 0.79 / relevance semantic lv1（10分，压 ≤10 截断线）
+// J1.79：事件分/tier 改由 web3_user_event_fit 派生——fixture 以 fit=magnitude/5 复现
+// 原事件分（magnitude 4→fit 0.8→80 分 A 档；3→0.6→60 分 B 档），strong_fit 刻意 0
+// 避免 C88 实体口号票五腿（strong_fit≥0.5）顺手豁免劫持门污染豁免矩阵。
 const biTokenData = { symbol: 'BI', name: 'Binance Inu', raw_api_data: { name: 'Binance Inu' } };
 
 function biAnswers({ timing = 'within_7d', magnitude = 4, hijackP = 0.72, relType = 'semantic', relLevel = 1.2, misspell = 0.1, dim2Score = 3.5 } = {}) {
   return {
     event_category: { choice: 'D', probabilities: { D: 0.78, W: 0.19, B: 0.02 } },
     event_magnitude: { score: magnitude, probabilities: { '5': 0.43, '4': 0.25 } },
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: magnitude / 5 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.96 } },
     dimension2: { score: dim2Score, probabilities: { '4': 0.5, '3': 0.3 } },
     event_token_block_reason: { choice: 'none', probabilities: { none: 0.37, low_quality_derivative: 0.18 } },
@@ -185,13 +189,13 @@ async function main() {
   // 在总分（0.6×低事件分）上体现——与豁免「relevance 10 分照常计入」同款计分语义
   console.log('\n── F. D-1 量级门豁免贯穿 ──');
 
-  // F1 事故反证：全条件戏谑票 + 影响力 2.95→59<60（J1.71 单题口径）——修复前 事件分不足（59<60）拦死；修复后放行计分
+  // F1 事故反证：全条件戏谑票 + J1.79 fit 0.8→80（A 档）——修复前 事件分不足（59<60）拦死；修复后放行计分
   const mF1 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext());
   const s2F1 = mF1.stage2DataToSave?.parsed_output || {};
-  check('F1a J1.71 单题口径：全条件戏谑票影响力 4.0→80（A 档≥70，<60 臂结构性不可达）stage2 放行',
+  check('F1a J1.79 fit 口径：全条件戏谑票事件分 strong0+fit80→80（A 档≥70，<60 臂结构性不可达）stage2 放行',
     s2F1.pass === true && s2F1.scoringResult?.eventCompositeScore === 80,
     { pass: s2F1.pass, totalScore: s2F1.scoringResult?.eventCompositeScore });
-  check('F1b J1.71：影响力≥60 不落量级门豁免标注（<60 臂由 imgNameExempt 在 G1a 覆盖）',
+  check('F1b J1.79：事件分≥60 不落量级门豁免标注（<60 臂由 imgNameExempt 在 G1a 覆盖）',
     !/量级门豁免/.test(s2F1.reason || ''),
     s2F1.reason);
   check('F1c 放行后正常计分：stage3 pass + punExempt 审计 + rating 非 stage2 拦截形状',
@@ -202,7 +206,7 @@ async function main() {
   // F2 对照：anchor 缺（punExempt 关）同分数 → 量级门照拦（豁免不是无条件放水）
   const mF2 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext({ credibleEventAnchor: false }));
   const s2F2 = mF2.stage2DataToSave?.parsed_output || {};
-  check('F2 无锚同分数：影响力 80 直接过线（单题口径不再由 punExempt 救）',
+  check('F2 无锚同分数：J1.79 fit 80 直接过线（stage2 pass；stage3 仍被品牌劫持截断）',
     s2F2.pass === true && s2F2.scoringResult?.eventCompositeScore === 80
       && mF2.llmResult.pass === true,
     { pass: s2F2.pass, blockReason: s2F2.blockReason });

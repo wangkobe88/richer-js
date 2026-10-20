@@ -95,7 +95,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.30 条件题）──');
-  check('A1 版本号 = J1.74（J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.49=C118 image_depicts_name 演绎题（与 name_image_consistency 同携带条件）；J1.48=C116 name_form 整句情绪姿态分界；J1.47=C114 name_form 通用梗缩写锚+ mapper event_empty_content 图证在场豁免；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛；J1.42=C108 名字门统一四分支；J1.41=C107 收敛三选；J1.40=C105 第四选（兼容 Set 继续拦）；J1.39=C103 条件题；J1.38=C98 题面扩边界；J1.37=C96 两新题；名图一致豁免本身仍是 J1.30 引入）', JEV_QUESTIONS_VERSION === 'J1.78', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.79（J1.79 删 web3_user_event_impact 改 fit 单一事件分；名图一致豁免本身仍是 J1.30 引入；条件题 name_image_consistency 不变）', JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
   const qsNoImg = buildStandardQuestions();
   check('A2 无图（默认）不含 name_image_consistency（条件题，无图不问防幻觉作答）',
     !('name_image_consistency' in qsNoImg), null);
@@ -238,16 +238,16 @@ async function main() {
   // （弱量级代价在总分），punExempt 臂（要求 S/A）结构性死守保留=防定义漂移
   console.log('\n── G. D-1 量级门 D/E 档臂豁免贯穿 ──');
 
-  // G1 事故反证：D 档（magnitude 1）+ 全条件名图票 → 修复前 事件主体量级不足（D档）
-  // 拦死；修复后流入标准数学 tierScore=0：0+28+15=43<60 再被事件分臂豁免放行。
-  // web3_user_event_fit 刻意置 undefined 摘掉巴巴鸡夹具的 strong_fit 锚（锚上会把 D 档抬成
+  // G1 事故反证：D 档（J1.79 tier 由 fit 派生——strong 0.1+fit 0.1=0.2 → 事件分 20 /
+  // D 档）+ 全条件名图票 → 修复前 事件主体量级不足（D档）拦死；修复后流入标准数学：
+  // 20<60 再被事件分臂豁免放行。weak fit 同时避开 strong_fit 锚（锚上会把 D 档抬成
   // effTier B，绕不进 D/E 臂——锚救票是 J1.23 机制，与本节正交）
+  const WEAK_FIT = { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 } };
   const rG1 = mapStandardAnswers(babaJiAnswers(NIC_MATCH, {
-    event_magnitude: { score: 1, probabilities: { '1': 0.7 } },
-    web3_user_event_fit: undefined,
+    web3_user_event_fit: WEAK_FIT,
   }), stdCtx());
   const s2G1 = rG1.stage2DataToSave?.parsed_output || {};
-  check('G1a D 档名图票：stage2 放行（pass=true + totalScore=20 + influenceTier=D 精确值）',
+  check('G1a D 档名图票：stage2 放行（pass=true + J1.79 fit 事件分 20 + influenceTier=D 精确值）',
     s2G1.pass === true && s2G1.scoringResult?.eventCompositeScore === 20 && s2G1.scoringResult?.influenceTier === 'D',
     { pass: s2G1.pass, totalScore: s2G1.scoringResult?.eventCompositeScore, tier: s2G1.scoringResult?.influenceTier });
   check('G1b stage2 reason 双臂救援标注（J1.30名图：D档臂与事件分<60臂不拦）',
@@ -259,10 +259,9 @@ async function main() {
       && rG1.stage3DataToSave?.parsed_output?.relevanceScore === 5,
     { pass: rG1.stage3DataToSave?.parsed_output?.pass, imgNameExempt: stage3Jev(rG1)?.imgNameExempt });
 
-  // G2 对照：无图证据（imageEvidence=false）同 D 档 → 量级门照拦（豁免三门 fail-closed）
+  // G2 对照：无图证据（imageEvidence=false）同 D 档（weak fit 派生）→ 量级门照拦（豁免三门 fail-closed）
   const rG2 = mapStandardAnswers(babaJiAnswers(NIC_MATCH, {
-    event_magnitude: { score: 1, probabilities: { '1': 0.7 } },
-    web3_user_event_fit: undefined,
+    web3_user_event_fit: WEAK_FIT,
   }), stdCtx({ imageEvidence: false }));
   const s2G2 = rG2.stage2DataToSave?.parsed_output || {};
   check('G2 无图 D 档：仍拦 事件主体量级不足（D档）+ stage3 清段',
