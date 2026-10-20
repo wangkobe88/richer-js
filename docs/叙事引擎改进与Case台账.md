@@ -68,6 +68,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C125 prestage_abm_name_link 用户感知锚（P1.13）——按 web3 用户自然联想判名称关联（2026-10-20 用户裁定；批次 3）★
+
+- **案由**：web3 用户视角批次 3（计划批次 3）。`prestage_abm_name_link` 是 prestage 的 abm 条件一，消费位仅 `nameLink !== 'none'` 二值（jev-prestage-mapper.mjs:46），exact/abbreviation/semantic 三档只进 reason label——四档结构全重构性价比极低，**最小改法=只给 none 档与各档 label 加用户感知口径**，行为边界移动属预期。
+- **改动（题面文案，四档/choice 键/二值消费全不变）**：①instructions 加「按 web3 用户视角判：只看币名，web3 用户会不会自然联想到该账号/人物」；②exact/abbreviation/semantic 三档 label 加「web3 用户会立即/自然联想到」；③none 档改「web3 用户看到这个币名**不会**自然联想到该账号/人物（名字与账号无关）」。
+- **版本**：`JEV_PRESTAGE_QUESTIONS_VERSION` P1.12→P1.13 + changelog；同步更新版本锁（`_test_prestage_project_downgrade` promptType/版本、`_test_prestage_web3ip_account_only`、`_test_unrated_elimination` 的 P1.11 存量陈旧锁顺修）；`case-regression/run.mjs` 题集版本显示改动态（原硬编码 J1.45+P1.12 已陈旧）。
+- **测试**：新增 A15a-c（name_link 主轴 web3 用户自然联想 / none 档不会自然联想 / 四档结构键名不变）；prestage 相关单测全绿。
+- **182 全量回归（38 票）**：**33 PASS / 0 FAIL / 5 OBSERVE-DEVIATION / 0 ERROR**（4 票已知掷骰面 + C113 掷骰面，与 J1.55 基线一致；prestage 票 C101/C117 等全 PASS）。
+- **部署**：commit 2f83a35；182 pull + 全量回归 + worker 重启加载 J1.55+P1.13；**live 实验进程 37b19a9f（v27 both）按用户授权重启**（重启前对账 0 持仓；启动日志确认 live 持仓恢复 0 个、双 collector 订阅、事件循环启动）——J1.52→J1.55 题面与 P1.13 首次进入实盘 in-process 链路。
+
 ### C124 name_referent super_ip 圈内符号级锚（J1.55）——「被当符号使用」的证据级，不是听说过/大众量级（2026-10-20 用户裁定）★
 
 - **案由与裁定**：用户原则「一切从 web3 用户视角出发」的延续。`super_ip` 旧定义以「世界级名人/顶级机构/全球性IP/全国级人物或国民级IP」为锚——大众量级即升档，与用户视角冲突。用户裁定（本批计划）：超级IP 的判据应是 **web3 用户普遍认作符号**（被拿名字/形象/绰号玩梗、当标签当口号）的**证据级**，不是「听说过」的知晓级；大众侧量级不要求——大众量级不高但圈内是符号（哭哭奶龙型）照判本档；纯大众知名但圈内不认作符号（圈外明星/传统品牌）不因大众量级升入本档。⚠️ 本题只判身份量级，不评玩味/二创潜力（referent_memeability 另评）——认得≠好玩。
@@ -1306,6 +1315,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| P1.13 | 2026-10-20 | **prestage_abm_name_link 用户感知锚（四档/choice 键/二值消费不变）**：instructions 加「按 web3 用户视角判——只看币名会不会自然联想到该账号/人物」；exact/abbreviation/semantic 三档 label 加「web3 用户会立即/自然联想到」；none 档改「web3 用户不会自然联想到该账号/人物」 | C125（用户视角批次 3；消费位仅 nameLink≠none 二值，最小改法） | 2f83a35 |
 | J1.55 | 2026-10-20 | **name_referent super_ip 圈内符号级锚**：super_ip 主定义从「世界级名人/顶级机构/全球IP/国民级人物」切「web3 用户普遍**认作符号**（被拿名字/形象/绰号玩梗、当标签当口号）的证据级」；大众量级不要求、纯大众知名但圈内不认作符号不升档；「只判身份量级、不评玩味」显式化；J1.18 发布者指代分支/三前提/原话词/官方产出物口号/配图形象臂（J1.43）全部保留；other_referent ① 承接句同步「知名但非符号级」。mapper 零改动（choice 键名不变）；行为边界移动=预期（C88 五腿/骑乘改道/标签分布） | C124（用户裁定「被当符号使用 vs 听说过」） | 24982b4 |
 | J1.54 | 2026-10-20 | **门名/题键语义化（判据零改动）**：用户指令「其它门的名字也请梳理下，以类似思路，做一下调整」——①题键 event_magnitude → `web3_user_impact`（J1.50/J1.51 起主轴已是 Web3 用户被影响程度）②题键 dimension2 → `web3_user_spread`（占位名；语义=用户侧传播面）③门函数 notMemeNameBlock→web3UserAcceptabilityBlock / nameFormChoice→web3UserAcceptabilityChoice / NOT_MEME_NAME_CHOICES→WEB3_USER_NOT_ACCEPTABLE_CHOICES / web3FitBlock→web3UnfitBlock / rideDetourBelow→rideDetourMass ④审计键 jevImpactTier+effectiveImpactTier / effectiveTiming / anchoredTier / web3FitAnchoredTier / web3FitStrongPAnchored / blockChoiceProbability / web3FitMass→web3UnfitMass / resonance*→web3FitDamp* / instagramDim2Anchor→instagramSpreadAnchor / web3FitDim2Anchor→web3FitSpreadAnchor / scoringResult.dimension2→spreadScore / jevDetails.{tier,timing,dim2}→{impactTier,effectiveTiming,spread} ⑤label ip_reuse→IP低质复用、感染力折损→Web3偏好折损。mapper answers 双键读（scan 工具读历史行）+ 前端旧键回退 | C123（门名语义梳理） | 8d63253 |
 | J1.53 | 2026-10-20 | **门名断代（零行为意图）**：用户裁定「name_form/niche_subculture 等门的名字都改一下，现在表达的含义是『Web3 用户接纳度』/『Web3 用户圈层可达性』」——①题键 name_form → `web3_user_acceptability`（判据/三态键不动）②block_reason 桶键 niche_subculture → `web3_circle_reachability`（J1.52 判据不动）。mapper 双键读（新键优先、旧键=存量缓存行兼容）、审计键 nameForm/nameFormBlock → web3UserAcceptability/web3UserAcceptabilityBlock、概率键跟随题键；BLOCK_SCOPE/LABELS 新旧并存；名字门 label→「Web3 用户不接纳该名字（用户接纳度门）」、圈层桶 label→「Web3 用户圈层可达性不足」 | C122（niche 合并问询的数据裁定：不合并=不把 A 域拦截扩到全类别） | 0016126 |
