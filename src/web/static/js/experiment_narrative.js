@@ -744,11 +744,11 @@ class ExperimentNarrative {
     const stage2Card = `
       <div class="stage-card">
         <div class="stage-title"><span>④ Jev 评分（Stage2）</span>${this._stageDot(s2)}</div>
-        ${s2 ? (this._kv('总分', sr?.totalScore != null ? `${sr.totalScore}（pass线60）` : null)
+        ${s2 ? (this._kv('总分', (sr?.eventCompositeScore ?? sr?.totalScore) != null ? `${sr.eventCompositeScore ?? sr.totalScore}（pass线60）` : null)
           + (s2IsW
             ? this._kv('W 产品分', sr?.wProductScore) + this._kv('W 交互分', sr?.wInteractionScore)
-            : this._kv('事件分', sr?.tierScore) + this._kv('传播分', sr?.spreadScore ?? sr?.dimension2))
-          + this._kv('时效分', sr?.timeliness)
+            : this._kv('量级分', sr?.impactTierScore ?? sr?.tierScore) + this._kv('传播分', sr?.spreadScore ?? sr?.dimension2))
+          + this._kv('时效分', sr?.timingScore ?? sr?.timeliness)
           + this._kv('拦截', s2po?.blockReason)
           + (s2Audit.length ? this._kv('审计', s2Audit.join('｜')) : '')
           + this._kv('算式', s2po?.reason)) : '<div class="text-xs text-gray-500">未执行</div>'}
@@ -779,7 +779,7 @@ class ExperimentNarrative {
     const finalCard = `
       <div class="stage-card">
         <div class="stage-title"><span>⑥ 终评</span>${sf ? (sf.blockReason ? '<span class="stage-dot fail"></span>' : '<span class="stage-dot pass"></span>') : '<span class="stage-dot skip"></span>'}</div>
-        ${sf ? (this._kv('档位', sf.category) + this._kv('总分', sf.totalScore) + this._kv('事件分', sf.eventScore) + this._kv('关联分', sf.relevanceScore) + this._kv('质量分', sf.qualityScore) + this._kv('Stage2总分', sf.stage2TotalScore) + this._kv('拦截', sf.blockReason)) : '<div class="text-xs text-gray-500">未执行</div>'}
+        ${sf ? (this._kv('档位', sf.category) + this._kv('总分', sf.totalScore) + this._kv('事件加权分', sf.weightedEventScore ?? sf.eventScore) + this._kv('关联分', sf.relevanceScore) + this._kv('质量分', sf.qualityScore) + this._kv('事件分', sf.eventCompositeScore ?? sf.stage2TotalScore) + this._kv('拦截', sf.blockReason)) : '<div class="text-xs text-gray-500">未执行</div>'}
       </div>`;
 
     // ── Jev 关键答案（stage1 概率 + answers 直读）──

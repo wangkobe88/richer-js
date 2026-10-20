@@ -241,8 +241,8 @@ async function main() {
     && rF1.stage2DataToSave?.parsed_output?.jev?.rcpPlatformExempt === true,
     { rating: rF1.llmResult.rating, blk: rF1.stage2DataToSave?.parsed_output?.blockReason });
   check('F1b 数值锚定：27(B档)+23.1(dim2)+15(时效)=65.1 过线 → 总分 77.36（20+18.3）',
-    rF1.stageFinalData.stage2TotalScore === 65.1 && rF1.stageFinalData.totalScore === 77.36,
-    { s2: rF1.stageFinalData.stage2TotalScore, total: rF1.stageFinalData.totalScore });
+    rF1.stageFinalData.eventCompositeScore === 65.1 && rF1.stageFinalData.totalScore === 77.36,
+    { s2: rF1.stageFinalData.eventCompositeScore, total: rF1.stageFinalData.totalScore });
 
   // F1c 对照：路人号（BOB 0xf2fca4cf…7777 主推 @zhangxuanhui，228 粉玩 CZ 香蕉梗）
   //      同答案形状照拦——非官方源不豁免

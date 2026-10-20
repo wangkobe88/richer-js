@@ -117,8 +117,8 @@ async function main() {
   const mA = mapStandardAnswers(ANHO, makeContext({ tokenData: TOKENS.anho }));
   const s2A = stage2Of(mA), s3A = stage3Of(mA);
   check('A1 暗号 stage2 放行：totalScore=78.36（S39+传播29.36+时效10）',
-    s2A.pass === true && s2A.scoringResult?.totalScore === 78.36,
-    { pass: s2A.pass, total: s2A.scoringResult?.totalScore });
+    s2A.pass === true && s2A.scoringResult?.eventCompositeScore === 78.36,
+    { pass: s2A.pass, total: s2A.scoringResult?.eventCompositeScore });
   check('A1b 暗号五腿审计恒落：{hit:true, superIp:0.82, relPositive:0.94, relNone:0.02, mem:2, timing:expected_within_30d, strongFit:0.97}',
     JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, timing: 'expected_within_30d', strongFit: 0.97 }),
     s2A.jev?.recognizedEntitySlogan);
@@ -136,8 +136,8 @@ async function main() {
   const mB = mapStandardAnswers(BI, makeContext({ tokenData: TOKENS.bi }));
   const s2B = stage2Of(mB), s3B = stage3Of(mB);
   check('A2 BI stage2 放行：totalScore=65.6（B27+传播23.6+时效15）',
-    s2B.pass === true && s2B.scoringResult?.totalScore === 65.6,
-    { pass: s2B.pass, total: s2B.scoringResult?.totalScore });
+    s2B.pass === true && s2B.scoringResult?.eventCompositeScore === 65.6,
+    { pass: s2B.pass, total: s2B.scoringResult?.eventCompositeScore });
   check('A2b BI 引申关联腿入带审计：relPositive=0.51（sem0.18+cult0.31+exact0.01+abbr0.01）/relNone=0.39',
     JSON.stringify(s2B.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.59, authorUtterance: false, relPositive: 0.51, relNone: 0.39, timing: 'within_7d', strongFit: 1 }),
     s2B.jev?.recognizedEntitySlogan);
@@ -205,7 +205,7 @@ async function main() {
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
   check('C1b mem=2.0 边界过：五腿全中 slogan=true + stage2 pass 77',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === true && stage2Of(m).pass === true
-    && stage2Of(m).scoringResult?.totalScore === 77 && m.llmResult?.rating === 'high',
+    && stage2Of(m).scoringResult?.eventCompositeScore === 77 && m.llmResult?.rating === 'high',
     { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, pass: stage2Of(m).pass });
 
   // C2 older 豁出：蹭冷饭由时效分归 0 守（62=34+28+0），mem 地板不重复拦
@@ -213,8 +213,8 @@ async function main() {
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.tv }));
   check('C2 timing=older 豁出：不落 mem 地板（时效分 0 照计，62 pass）',
     stage2Of(m).blockReason !== '蹭热点但名字无口号性（mem 1.72<2）'
-    && stage2Of(m).pass === true && stage2Of(m).scoringResult?.totalScore === 62,
-    { blockReason: stage2Of(m).blockReason, total: stage2Of(m).scoringResult?.totalScore });
+    && stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 62,
+    { blockReason: stage2Of(m).blockReason, total: stage2Of(m).scoringResult?.eventCompositeScore });
 
   // C3 mem 答案缺失（旧缓存行）→ fail-open 不拦（五腿 mem:null 恒落观察保留）
   a = clone(TV); delete a.name_entity_memeability;
@@ -282,7 +282,7 @@ async function main() {
   a = clone(BI); a.dimension2.score = 1;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
   check('E2 BI dim2=1（事件分52<60）：C88实体口号 magExempt 放行 + reason 标注',
-    stage2Of(m).pass === true && stage2Of(m).scoringResult?.totalScore === 52
+    stage2Of(m).pass === true && stage2Of(m).scoringResult?.eventCompositeScore === 52
     && /量级门豁免\(C88实体口号：事件分<60臂不拦，弱量级代价在总分\)/.test(stage2Of(m).reason || ''),
     { pass: stage2Of(m).pass, reason: stage2Of(m).reason });
 
@@ -377,8 +377,8 @@ async function main() {
     && !/\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
   check('G6 C86 D-1 回归红线保持：F4a 守卫行 + F4b 事件分臂 + F4c W 裸线恰好一处',
     /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrc)
-    && /stage2Blocked = stage2Total < 60 && !magExempt;/.test(mapperSrc)
-    && mapperSrc.split('stage2Blocked = stage2Total < 60;').length - 1 === 1);
+    && /eventScoreBlocked = eventCompositeScore < 60 && !magExempt;/.test(mapperSrc)
+    && mapperSrc.split('eventScoreBlocked = eventCompositeScore < 60;').length - 1 === 1);
   check('G7 stage2 审计恒落（hit:false 亦落——标签零列推导消费）；memFloorBlock 键 C108 退役不落（仅注释档保留）',
     /recognizedEntitySlogan: \{\s*\n\s*hit: recognizedEntitySlogan,/.test(mapperSrc)
     && !/memFloorBlock: /.test(mapperSrc));

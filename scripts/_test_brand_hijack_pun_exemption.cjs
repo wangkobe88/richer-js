@@ -190,8 +190,8 @@ async function main() {
   const mF1 = mapStandardAnswers(biAnswers({ dim2Score: 1 }), makeContext());
   const s2F1 = mF1.stage2DataToSave?.parsed_output || {};
   check('F1a 事件分 59<60 的全条件戏谑票：stage2 放行（pass=true + totalScore=59 精确值）',
-    s2F1.pass === true && s2F1.scoringResult?.totalScore === 59,
-    { pass: s2F1.pass, totalScore: s2F1.scoringResult?.totalScore });
+    s2F1.pass === true && s2F1.scoringResult?.eventCompositeScore === 59,
+    { pass: s2F1.pass, totalScore: s2F1.scoringResult?.eventCompositeScore });
   check('F1b stage2 reason 落量级门豁免标注（J1.24戏谑：事件分<60臂不拦）',
     /量级门豁免\(J1\.24戏谑：事件分<60臂不拦，弱量级代价在总分\)/.test(s2F1.reason || ''),
     s2F1.reason);
@@ -228,10 +228,10 @@ async function main() {
   const mapperSrcF = require('fs').readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
   check('F4a D/E 量级臂带双豁免守卫（punExempt 臂结构性死守=防定义漂移）',
     /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrcF));
-  check('F4b 事件分不足臂 = stage2Total < 60 && !magExempt',
-    /stage2Blocked = stage2Total < 60 && !magExempt;/.test(mapperSrcF));
-  check('F4c W 数学 pass 线保持裸线（stage2Blocked = stage2Total < 60; 恰好一处=W 分支）',
-    mapperSrcF.split('stage2Blocked = stage2Total < 60;').length - 1 === 1);
+  check('F4b 事件分不足臂 = eventCompositeScore < 60 && !magExempt',
+    /eventScoreBlocked = eventCompositeScore < 60 && !magExempt;/.test(mapperSrcF));
+  check('F4c W 数学 pass 线保持裸线（eventScoreBlocked = eventCompositeScore < 60; 恰好一处=W 分支）',
+    mapperSrcF.split('eventScoreBlocked = eventCompositeScore < 60;').length - 1 === 1);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═══════`);
   process.exit(failed > 0 ? 1 : 0);

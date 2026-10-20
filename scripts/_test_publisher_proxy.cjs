@@ -145,7 +145,7 @@ async function main() {
   check('B1b Jev 原判审计保真：jevImpactTier 保留 B（不受锚定影响）', j1.jevImpactTier === 'B', j1.jevImpactTier);
   const s1 = m1.stage2DataToSave.parsed_output.scoringResult;
   check('B1c J1.64 gimmick 桶删除后无噱头拦截（none 0.56）+ nrBlock 豁免（阻断侧 0.84）', m1.stage2DataToSave.parsed_output.pass === true, m1.stage2DataToSave.parsed_output);
-  check('B1d effTier A 锚：34+23.4+15=72.4 过线', s1.category === 'B' && s1.totalScore === 72.4 && s1.tierScore === 34, s1);
+  check('B1d effTier A 锚：34+23.4+15=72.4 过线', s1.category === 'B' && s1.eventCompositeScore === 72.4 && s1.impactTierScore === 34, s1);
   check('B1e reason 标注发布者指代锚（原判 B 档）', m1.stage2DataToSave.parsed_output.reason.includes('发布者指代锚(原判B档)'), m1.stage2DataToSave.parsed_output.reason);
   check('B1f 终评 high：43.44+20+15.51=78.95', m1.llmResult.pass === true && m1.llmResult.rating === 'high' && m1.llmResult.score === 78.95, m1.llmResult);
   check('B1g promptType 保持 B 类标准数学（不改道 W）', m1.promptType.includes('B类') && !m1.promptType.includes('改道'), m1.promptType);
@@ -190,20 +190,20 @@ async function main() {
   const rideAnswers = { ...cueAnswers, web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.65, accepted: 0.25, no_entity: 0.1 } } };
   const m6 = mapStandardAnswers(rideAnswers, makeContext(cueTokenData, rideAnswers, cueTwitter));
   check('B6 骑乘改道豁免：rideMass=null 走 B 类标准数学（72.4），promptType 无改道后缀',
-    m6.stage2DataToSave.parsed_output.scoringResult.category === 'B' && m6.stage2DataToSave.parsed_output.scoringResult.totalScore === 72.4 && !m6.promptType.includes('改道'), m6.promptType);
+    m6.stage2DataToSave.parsed_output.scoringResult.category === 'B' && m6.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 72.4 && !m6.promptType.includes('改道'), m6.promptType);
 
   // B7 锚定边界：A 原判不动 / S 不降
   const tierA = { ...cueAnswers, event_magnitude: { score: 4.2, probabilities: { '4': 0.6 } } };
   const m7a = mapStandardAnswers(tierA, makeContext(cueTokenData, tierA, cueTwitter));
-  check('B7a Jev 原判 A 档：anchoredTier=null（不动）', m7a.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7a.stage2DataToSave.parsed_output.scoringResult.tierScore === 34);
+  check('B7a Jev 原判 A 档：anchoredTier=null（不动）', m7a.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7a.stage2DataToSave.parsed_output.scoringResult.impactTierScore === 34);
   const tierS = { ...cueAnswers, event_magnitude: { score: 4.8, probabilities: { '5': 0.5, '4': 0.3 } } };
   const m7b = mapStandardAnswers(tierS, makeContext(cueTokenData, tierS, cueTwitter));
-  check('B7b Jev 原判 S 档：不降档（39 分保留）', m7b.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7b.stage2DataToSave.parsed_output.scoringResult.tierScore === 39);
+  check('B7b Jev 原判 S 档：不降档（39 分保留）', m7b.stage1DataToSave.parsed_output.jev.anchoredTier === null && m7b.stage2DataToSave.parsed_output.scoringResult.impactTierScore === 39);
 
   // B8 C 类域同样生效（B/C 边界抖动防护，与 rideDetourMass 同域）
   const catC = { ...cueAnswers, event_category: { choice: 'C', probabilities: { C: 0.52, B: 0.41 } } };
   const m8 = mapStandardAnswers(catC, makeContext(cueTokenData, catC, cueTwitter));
-  check('B8 C 类域生效：pubProxyActive + effTier A 过线', m8.stage1DataToSave.category === 'C' && m8.stage1DataToSave.parsed_output.jev.publisherProxyActive === true && m8.stage2DataToSave.parsed_output.scoringResult.tierScore === 34 && m8.llmResult.pass === true, m8.promptType);
+  check('B8 C 类域生效：pubProxyActive + effTier A 过线', m8.stage1DataToSave.category === 'C' && m8.stage1DataToSave.parsed_output.jev.publisherProxyActive === true && m8.stage2DataToSave.parsed_output.scoringResult.impactTierScore === 34 && m8.llmResult.pass === true, m8.promptType);
 
   // B9 原判低档 + 官方域名盘：量级锚只看 proxy 判据不看原档；粉丝不足时 D 档拦截维持
   // （block/nr 改成放行形状，让量级拦截路径可见——gimmick argmax 路径已由 B2b 覆盖）
@@ -214,7 +214,7 @@ async function main() {
     event_magnitude: { score: 1.2, probabilities: { '1': 0.6 } },
   };
   const m9a = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, cueTwitter));
-  check('B9a 原判 D 档（粉丝足、原判低）仍被锚到 A 过线——量级锚只看 proxy 判据不看原档', m9a.stage2DataToSave.parsed_output.scoringResult.tierScore === 34 && m9a.llmResult.pass === true);
+  check('B9a 原判 D 档（粉丝足、原判低）仍被锚到 A 过线——量级锚只看 proxy 判据不看原档', m9a.stage2DataToSave.parsed_output.scoringResult.impactTierScore === 34 && m9a.llmResult.pass === true);
   const m9b = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, { ...cueTwitter, author_followers_count: 10000 }));
   check('B9b 粉丝不足 + D 档原判：proxy 不激活 → D 档量级拦截维持', m9b.llmResult.rating === 'low' && m9b.llmResult.reason.includes('量级不足'), m9b.llmResult.reason);
 

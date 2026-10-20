@@ -89,8 +89,8 @@ async function main() {
   const m1 = mapStandardAnswers(redcoinAnswers(), makeContext());
   const s2 = stage2Of(m1);
   check('A1 豁免命中：产品 16.36+时效 25 两轴归一 = 68.93（<60 拦截 → pass）',
-    s2.pass === true && s2.scoringResult.totalScore === 68.93,
-    { pass: s2.pass, totalScore: s2.scoringResult.totalScore });
+    s2.pass === true && s2.scoringResult.eventCompositeScore === 68.93,
+    { pass: s2.pass, totalScore: s2.scoringResult.eventCompositeScore });
   check('A1b 旧口径对照：三轴 16.36+0.09+25=41.45 曾拦——wInteraction 照常计算 0.09',
     s2.scoringResult.wInteractionScore === 0.09 && s2.scoringResult.wProductScore === 16.36,
     s2.scoringResult);
@@ -111,8 +111,8 @@ async function main() {
   const m2 = mapStandardAnswers(redcoinAnswers({ magnitude: 2.4 }), makeContext());
   const s2b = stage2Of(m2);
   check('B1 tier=C：不豁免，三轴 41.45 维持拦截',
-    s2b.pass === false && s2b.scoringResult.totalScore === 41.45 && !s2b.jev?.wInteractionExempt,
-    { total: s2b.scoringResult.totalScore, exempt: s2b.jev?.wInteractionExempt });
+    s2b.pass === false && s2b.scoringResult.eventCompositeScore === 41.45 && !s2b.jev?.wInteractionExempt,
+    { total: s2b.scoringResult.eventCompositeScore, exempt: s2b.jev?.wInteractionExempt });
 
   // B2 版本更新形状：P(0) 高（小改进/边缘更新带 0.7）→ newProductP 0.3 < 0.5 不豁免
   const m3 = mapStandardAnswers(redcoinAnswers({
@@ -128,8 +128,8 @@ async function main() {
   const m4 = mapStandardAnswers(redcoinAnswers({ wInteractionScore: 1.5 }), makeContext());
   const s2d = stage2Of(m4);
   check('B3 交互 14.5（≥10 生态热度带）：不豁免，三轴 16.36+14.5+25=55.86 拦',
-    s2d.pass === false && s2d.scoringResult.totalScore === 55.86 && !s2d.jev?.wInteractionExempt,
-    { total: s2d.scoringResult.totalScore, exempt: s2d.jev?.wInteractionExempt });
+    s2d.pass === false && s2d.scoringResult.eventCompositeScore === 55.86 && !s2d.jev?.wInteractionExempt,
+    { total: s2d.scoringResult.eventCompositeScore, exempt: s2d.jev?.wInteractionExempt });
 
   // B4 非 W 类（D）：走标准数学，豁免机制不触达
   const m5 = mapStandardAnswers(redcoinAnswers({ category: 'D' }), makeContext());
@@ -177,13 +177,13 @@ async function main() {
   const s2h = stage2Of(m8);
   // wProduct = 18+0.9×8 = 25.2; wInteraction = 30+0.9×10 = 39; timeliness 25
   check('C1 深度交互 39 分票：三轴照算 25.2+39+25=89.2（剔除反而亏，豁免正确不触）',
-    s2h.pass === true && s2h.scoringResult.totalScore === 89.2 && s2h.jev?.wInteractionExempt === null,
-    { total: s2h.scoringResult.totalScore, exempt: s2h.jev?.wInteractionExempt });
+    s2h.pass === true && s2h.scoringResult.eventCompositeScore === 89.2 && s2h.jev?.wInteractionExempt === null,
+    { total: s2h.scoringResult.eventCompositeScore, exempt: s2h.jev?.wInteractionExempt });
 
   console.log('\n── D. 审计与 reason ──');
 
-  check('D1 豁免命中时 stage2Total 不含交互轴（68.93 ≠ 三轴 41.45）',
-    s2.scoringResult.totalScore === 68.93 && s2.scoringResult.wInteractionScore === 0.09,
+  check('D1 豁免命中时 eventCompositeScore 不含交互轴（68.93 ≠ 三轴 41.45）',
+    s2.scoringResult.eventCompositeScore === 68.93 && s2.scoringResult.wInteractionScore === 0.09,
     s2.scoringResult);
   check('D2 llmResult.reason 完整链（豁免前缀 + 事件分 41.36）',
     /豁免币安交互\(C42\).*事件分41\.36/.test(m1.llmResult?.reason || ''),
@@ -200,7 +200,7 @@ async function main() {
     && /wNewProductP >= 0\.5/.test(src)
     && /wInteraction < 10/.test(src));
   check('E2 归一化计分 + 审计字段落位',
-    /\(wProduct \+ timeliness\) \/ 60 \* 100/.test(src)
+    /\(wProduct \+ timingScore\) \/ 60 \* 100/.test(src)
       && /wInteractionExempt: wInteractionExempt \? \{ tier: effTier, newProductP: wNewProductP \} : null/.test(src));
   // C42 本体是 mapper-only 切分（落地时题集 J1.24 不动）；后续 J1.25 = C43
   // subject_unqualified 主体口径修正（不触 W 类题），版本随之推进

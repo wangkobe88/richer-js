@@ -81,8 +81,8 @@ async function main() {
   // 用户侧的接受度；狮鹫 fixture 的旧 notable/minor 迁移后 unknown 0.82≥0.5 →
   // 实体低影响力门拦（C54「知名度是错轴」语义被 Web3 接受度轴取代）
   check('A1 unknown 0.82≥0.5 + B 类 → 实体低影响力门拦（C126 新轴）',
-    s2.pass === false && /币名映射实体在 Web3 用户侧无名/.test(s2.blockReason || '') && s2.scoringResult.totalScore === null,
-    { pass: s2.pass, blockReason: s2.blockReason, total: s2.scoringResult?.totalScore });
+    s2.pass === false && /币名映射实体在 Web3 用户侧无名/.test(s2.blockReason || '') && s2.scoringResult.eventCompositeScore === null,
+    { pass: s2.pass, blockReason: s2.blockReason, total: s2.scoringResult?.eventCompositeScore });
   check('A1b 审计：nameEntityAcceptance=unknown + 概率 0.82 + nameEntityLowMass=0.82',
     s2.jev?.nameEntityAcceptance === 'unknown' && s2.jev?.nameEntityAcceptanceProbability === 0.82
     && s2.jev?.nameEntityLowMass === 0.82);
@@ -113,7 +113,7 @@ async function main() {
   check('B1b 同形状改 accepted 0.8：实体门不拦，标准数学 27+25.5+15=67.5 pass',
     (() => { const x = { ...cAnswers, web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.8 } } };
       const mx = mapStandardAnswers(x, makeContext());
-      return stage2Of(mx).pass === true && stage2Of(mx).scoringResult?.totalScore === 67.5; })(),
+      return stage2Of(mx).pass === true && stage2Of(mx).scoringResult?.eventCompositeScore === 67.5; })(),
     null);
 
   // B1c CONVICTION 保护移交（裁定第②步：拦截轴=可接纳性非知名度）：同形状 +

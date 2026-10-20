@@ -41,7 +41,8 @@ function rebuild(row) {
   if (!argmax || argmax[0] !== 'abbreviation_alias') return null;
   const fin = row.stage_final_result || {};
   const fd = fin.details || {};
-  if (fd.eventScore == null || fd.qualityScore == null || fd.relevanceScore == null) return null;
+  const weightedEventScore = fd.weightedEventScore ?? fd.eventScore;
+  if (weightedEventScore == null || fd.qualityScore == null || fd.relevanceScore == null) return null;
   return {
     address: row.token_address,
     symbol: row.token_symbol || '?',
@@ -52,7 +53,7 @@ function rebuild(row) {
     weakP: (dist.none ?? 0) + (dist.semantic ?? 0),
     levelIdx: jev.relevanceLevelIdx ?? 2,
     oldRel: fd.relevanceScore,
-    eventScore: fd.eventScore,
+    eventScore: weightedEventScore,
     qualityScore: fd.qualityScore,
     oldScore: fin.score,
     oldCategory: fin.category,

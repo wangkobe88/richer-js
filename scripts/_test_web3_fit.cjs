@@ -115,7 +115,7 @@ async function main() {
   // B11 对照组：同形状无偏好门概念时事件分确实过线（证明拦的是偏好门不是量级）
   const r7 = mapStandardAnswers(makeAnswers({ fit: 0.9, strong_fit: 0.1 }), makeContext(tokenData));
   const s2r = r7.stage2DataToSave.parsed_output;
-  check('B11 对照组事件分 ≥60 过线（拦的是偏好门）', s2r.scoringResult.totalScore >= 60 && s2r.pass === true, { totalScore: s2r.scoringResult.totalScore, pass: s2r.pass });
+  check('B11 对照组事件分 ≥60 过线（拦的是偏好门）', s2r.scoringResult.eventCompositeScore >= 60 && s2r.pass === true, { totalScore: s2r.scoringResult.eventCompositeScore, pass: s2r.pass });
 
   // ═══ C 段已删（C83）：mapSuperIPAnswers 快车道同门矩阵随通道删除——superIP
   // 语料票现走标准路径，本门（B 段矩阵）对 superIP 票经同一 mapStandardAnswers 可达 ═══

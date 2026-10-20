@@ -753,9 +753,16 @@
  *       web3_user_name_acceptability 的判定对象从「代币 Name/Symbol 取更完整的一个」
  *       收敛为**链上 Symbol（币名/ticker）**——Name 是链上全名/描述句，不作本题判据。
  *       判据内容（能接纳/不能接纳的各形态）一字不动，只改判谁。题数不变
+ * J1.70（2026-10-20，C130 同族收尾，用户指令「mapper 变量能否直接使用名字」）：
+ *       审计键/局部变量语义化（**零判据零行为**）——stage2Total→eventCompositeScore、
+ *       tierScore→impactTierScore、effSpread→spreadScore、spread→rawSpreadScore、
+ *       timeliness→timingScore、加权事件分 eventScore→weightedEventScore；
+ *       scoringResult.totalScore→eventCompositeScore；stage_final.details.
+ *       stage2TotalScore→eventCompositeScore、eventScore→weightedEventScore。
+ *       前端/工具双键读（新键优先、旧键=历史行兼容）。题数不变
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.69';
+export const JEV_QUESTIONS_VERSION = 'J1.70';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）

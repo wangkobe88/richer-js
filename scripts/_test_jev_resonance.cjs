@@ -84,24 +84,24 @@ async function main() {
   const s1 = m1?.stage2DataToSave?.parsed_output || {};
   const f1 = m1?.stageFinalData || {};
   check('A1 蝙蝠侠摇 0.76 不折：事件分 70.68 → 总分 75.68 high（放行裁定，J1.30 历史行重放新逻辑）',
-    s1.scoringResult?.totalScore === 70.68 && f1.totalScore === 75.68 && f1.category === 'high',
-    { s2: s1.scoringResult?.totalScore, fin: f1.totalScore, cat: f1.category });
+    s1.scoringResult?.eventCompositeScore === 70.68 && f1.totalScore === 75.68 && f1.category === 'high',
+    { s2: s1.scoringResult?.eventCompositeScore, fin: f1.totalScore, cat: f1.category });
 
   // A2 유과 강아지形状：strong_fit 0.97 → 不折（本案 J1.31 mild×0.5=35.64 误拦的修复）
   const m2 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.97, fit: 0.02, marginal: 0.01, unfit: 0 } }));
   const s2 = m2?.stage2DataToSave?.parsed_output || {};
   const f2 = m2?.stageFinalData || {};
   check('A2 유과形状 0.97 不折：70.68/75.68 high（同款数学不再被Web3偏好折损误拦）',
-    s2.scoringResult?.totalScore === 70.68 && f2.totalScore === 75.68 && f2.category === 'high',
-    { t: s2.scoringResult?.totalScore, fin: f2.totalScore });
+    s2.scoringResult?.eventCompositeScore === 70.68 && f2.totalScore === 75.68 && f2.category === 'high',
+    { t: s2.scoringResult?.eventCompositeScore, fin: f2.totalScore });
 
   // A3 marginal 占优：fitMass=0.3 <0.5 → ×0.5：(27+28.68)×0.5+15=42.84 <60 事件分不足拦
   const m3 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.15, fit: 0.15, marginal: 0.6, unfit: 0.1 } }));
   const s3 = m3?.stage2DataToSave?.parsed_output || {};
   const r3 = m3?.llmResult || {};
   check('A3 marginal 0.3 → ×0.5：事件分 42.84 拦（C80 数字沿用，「web3 用户不太喜欢」的数学化）',
-    s3.scoringResult?.totalScore === 42.84 && s3.pass === false && /事件分不足（42.84<60）/.test(s3.blockReason || '') && r3.rating === 'low',
-    { t: s3.scoringResult?.totalScore, r: s3.blockReason, rating: r3.rating });
+    s3.scoringResult?.eventCompositeScore === 42.84 && s3.pass === false && /事件分不足（42.84<60）/.test(s3.blockReason || '') && r3.rating === 'low',
+    { t: s3.scoringResult?.eventCompositeScore, r: s3.blockReason, rating: r3.rating });
 
   console.log('\n── B. 边界 ──');
 
@@ -112,15 +112,15 @@ async function main() {
   const s4 = m4?.stage2DataToSave?.parsed_output || {};
   const j4 = m4?.stage2DataToSave?.parsed_output?.jev || {};
   check('B1 web3_user_event_fit 缺失 fail-open：70.68 原样不折 / web3FitDampMass=null',
-    s4.scoringResult?.totalScore === 70.68 && j4.web3FitDampMass === null && j4.web3FitDamp === null,
-    { t: s4.scoringResult?.totalScore, m: j4.web3FitDampMass });
+    s4.scoringResult?.eventCompositeScore === 70.68 && j4.web3FitDampMass === null && j4.web3FitDamp === null,
+    { t: s4.scoringResult?.eventCompositeScore, m: j4.web3FitDampMass });
 
   // B2 fitMass 恰 0.5 边界：不折（<0.5 严格——与 J1.19/J1.23/J1.27 的 ≥0.5 线同侧）
   const m5 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.25, fit: 0.25, marginal: 0.4, unfit: 0.1 } }));
   const s5 = m5?.stage2DataToSave?.parsed_output || {};
   const j5 = m5?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B2 fitMass 恰 0.5 不折（严格 <）+ 审计恒落 0.5', s5.scoringResult?.totalScore === 70.68 && j5.web3FitDampMass === 0.5 && j5.web3FitDamp === null,
-    { t: s5.scoringResult?.totalScore, m: j5.web3FitDampMass });
+  check('B2 fitMass 恰 0.5 不折（严格 <）+ 审计恒落 0.5', s5.scoringResult?.eventCompositeScore === 70.68 && j5.web3FitDampMass === 0.5 && j5.web3FitDamp === null,
+    { t: s5.scoringResult?.eventCompositeScore, m: j5.web3FitDampMass });
 
   console.log('\n── C. 作用域 ──');
 
@@ -129,13 +129,13 @@ async function main() {
   const s6 = m6?.stage2DataToSave?.parsed_output || {};
   const j6 = m6?.stage2DataToSave?.parsed_output?.jev || {};
   check('C1 A 类不折（70.68 原样；fitMass 审计照落）',
-    s6.scoringResult?.totalScore === 70.68 && j6.web3FitDampMass === 0.3 && j6.web3FitDamp === null,
-    { t: s6.scoringResult?.totalScore, d: j6.web3FitDamp });
+    s6.scoringResult?.eventCompositeScore === 70.68 && j6.web3FitDampMass === 0.3 && j6.web3FitDamp === null,
+    { t: s6.scoringResult?.eventCompositeScore, d: j6.web3FitDamp });
 
   // C2 W 类：W 数学分支，折损不触达（tierScore null）
   const m7 = await run(bianfuAnswers({ category: 'W' }));
   const s7 = m7?.stage2DataToSave?.parsed_output || {};
-  check('C2 W 类走 W 数学不触达（tierScore=null）', s7.scoringResult?.tierScore == null,
+  check('C2 W 类走 W 数学不触达（tierScore=null）', s7.scoringResult?.impactTierScore == null,
     s7.scoringResult);
 
   // C3 E 类 D 档量级票：量级门先拦（折损前结论不变，blockReason 归量级门）
@@ -177,7 +177,7 @@ async function main() {
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
   check('D5 题集 15 题无 event_resonance/block_misspelling + JEV_QUESTIONS_VERSION=J1.55（J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；C108 删探针题 19→18；C109 收敛两对题 18→16；C110 合桶删 low_quality_derivative；J1.45 dim2 同轴锚删除+gimmick 扩全域；J1.46 C113 找角度判轴+token_ip_reuse 边界；J1.47 C114 name_form 通用梗缩写锚；J1.48 C116 整句情绪姿态分界；J1.49 C118 image_depicts_name 条件题；J1.50 C119 用户视角统一+name_form 键名断代；C103 条件题默认关 16/开 17）',
-    qKeys.length === 15 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.69'
+    qKeys.length === 15 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && qm.JEV_QUESTIONS_VERSION === 'J1.70'
     && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 16 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 

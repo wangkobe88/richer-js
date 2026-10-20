@@ -1398,7 +1398,7 @@ class NarrativeAnalyzer {
 
     // 适配新框架：数据在 details.raw.scoringResult 下（兼容旧字段 categoryAnalysis）
     const scoringResult = parsed.raw?.scoringResult || parsed.raw?.categoryAnalysis || parsed.scoringResult || parsed.categoryAnalysis || {};
-    const totalScore = scoringResult.totalScore || 0;
+    const totalScore = scoringResult.eventCompositeScore ?? scoringResult.totalScore ?? 0;
     const categoryName = scoringResult.categoryName || '未知类别';
     const magnitudeLevel = scoringResult.magnitudeLevel || '-';
     const magnitudeScore = scoringResult.magnitudeScore || 0;
@@ -1777,7 +1777,7 @@ class NarrativeAnalyzer {
 
       const category = stageFinal.rating || 'unrated';
       const totalScore = stageFinal.score;
-      const eventScore = stageFinal.details?.eventScore;
+      const weightedEventScore = stageFinal.details?.weightedEventScore ?? stageFinal.details?.eventScore;
       const relevanceScore = stageFinal.details?.relevanceScore;
       const qualityScore = stageFinal.details?.qualityScore;
 
@@ -1817,16 +1817,16 @@ class NarrativeAnalyzer {
       // 分数明细
       let breakdownHtml = '';
       const eventWeight = stageFinal.details?.eventWeight || 0.6;
-      const stage2TotalScore = stageFinal.details?.stage2TotalScore;
-      if (eventScore !== null && eventScore !== undefined && relevanceScore !== undefined && qualityScore !== undefined) {
+      const eventCompositeScore = stageFinal.details?.eventCompositeScore ?? stageFinal.details?.stage2TotalScore;
+      if (weightedEventScore !== null && weightedEventScore !== undefined && relevanceScore !== undefined && qualityScore !== undefined) {
         breakdownHtml = `
           <div class="sub-scores">
             <div class="sub-score-item">
-              <span class="sub-score-label">事件分 (${eventWeight * 100}%)</span>
+              <span class="sub-score-label">事件加权分 (${eventWeight * 100}%)</span>
               <div class="sub-score-bar">
-                <div class="sub-score-fill" style="width: ${(eventScore / 60 * 100)}%"></div>
+                <div class="sub-score-fill" style="width: ${(weightedEventScore / 60 * 100)}%"></div>
               </div>
-              <span class="sub-score-value">${eventScore.toFixed(1)}</span>
+              <span class="sub-score-value">${weightedEventScore.toFixed(1)}</span>
             </div>
             <div class="sub-score-item">
               <span class="sub-score-label">关联分 (20%)</span>
@@ -1844,7 +1844,7 @@ class NarrativeAnalyzer {
             </div>
           </div>
           <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px; text-align: center;">
-            <strong>计算：</strong>事件分 ${stage2TotalScore ?? '-'}×${eventWeight}=${eventScore.toFixed(1)} + 关联分 ${relevanceScore} + 质量分 ${qualityScore} = ${totalScore.toFixed(1)}
+            <strong>计算：</strong>事件合成分 ${eventCompositeScore ?? '-'}×${eventWeight}=加权事件分 ${weightedEventScore.toFixed(1)} + 关联分 ${relevanceScore} + 质量分 ${qualityScore} = ${totalScore.toFixed(1)}
           </div>
         `;
       }

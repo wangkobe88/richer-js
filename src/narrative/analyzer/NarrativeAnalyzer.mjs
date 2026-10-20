@@ -81,7 +81,9 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
   // 从 parsed_output 中提取 score（支持 raw 嵌套和扁平结构）
   const po = stageData.parsed_output;
   const extractedScore = overrides.score
+    ?? po?.raw?.scoringResult?.eventCompositeScore
     ?? po?.raw?.scoringResult?.totalScore
+    ?? po?.scoringResult?.eventCompositeScore
     ?? po?.scoringResult?.totalScore
     ?? po?.total_score
     ?? null;
@@ -821,7 +823,7 @@ export class NarrativeAnalyzer {
                 llmResult = {
                   rating: 'low',
                   reason,
-                  score: stage2DataToSave.parsed_output.scoringResult?.totalScore || null,
+                  score: stage2DataToSave.parsed_output.scoringResult?.eventCompositeScore || null,
                   pass: false,
                   analysis_stage: 2,
                 };
@@ -917,11 +919,11 @@ export class NarrativeAnalyzer {
         category: stageFinalData.category,
         score: stageFinalData.totalScore,
         details: {
-          eventScore: stageFinalData.eventScore,
+          weightedEventScore: stageFinalData.weightedEventScore,
           eventWeight: stageFinalData.eventWeight,
           relevanceScore: stageFinalData.relevanceScore,
           qualityScore: stageFinalData.qualityScore,
-          stage2TotalScore: stageFinalData.stage2TotalScore,
+          eventCompositeScore: stageFinalData.eventCompositeScore,
           blockReason: stageFinalData.blockReason
         }
       }
