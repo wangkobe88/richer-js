@@ -13,6 +13,9 @@ data/
 # case 回归工具的对拍结果存档进版本库（长期维护资产）
 !scripts/narrative/case-regression/data/
 !scripts/narrative/case-regression/data/**
+# 叙事抽样测试集本体（地址清单+涨幅快照）同属长期维护资产
+!scripts/narrative/case-regression/sample-sets/
+!scripts/narrative/case-regression/sample-sets/**
 
 # OS
 .DS_Store

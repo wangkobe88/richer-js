@@ -19,7 +19,7 @@ const check = (name, cond, detail) => {
 
 async function main() {
   const libPath = path.resolve(__dirname, 'narrative/case-regression/lib.mjs');
-  const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, csvEscape, buildCase, updateExpect } = await import(libPath);
+  const { interpret, assertExpectation, loadAndValidateFixtures, toCsv, csvEscape, buildCase, updateExpect, stratifySample, mulberry32 } = await import(libPath);
 
   // ── interpret：落库两信封形状（C88 信封坑反证锁定）──
   // 形状1：precheck 拒票（fin=null，pcr 带 reason + details.ruleName）
@@ -150,6 +150,28 @@ async function main() {
   check('C5 逗号字段转义', lines[1].includes('"测试,票"'), lines[1].slice(0, 80));
   check('C6 内嵌引号双写', lines[1].includes('含""引号""'), lines[1].slice(-80));
   check('C7 tokenCat 期望≠前缀+当前列', lines[1].includes('≠super_ip_fast') && /,project,"含/.test(lines[1]), lines[1].slice(-120));
+
+  // ── stratifySample：涨幅分层抽样（抽样测试集构建的纯函数核心）──
+  const mk = (addr, max, final) => ({ addr: '0x' + addr.padStart(40, '0'), max, final });
+  const pool = [
+    mk('a1', 100, 50), mk('a2', 500, 400), mk('a3', 0, -80), mk('a4', 0, -30), mk('a5', 0, -30),
+    mk('a6', 50, null), mk('a7', 500, 300), mk('a8', 10, 5), mk('a9', 0, -10), mk('aa', 20, 8),
+  ];
+  const st = stratifySample(pool, { top: 2, bottom: 3, random: 2, seed: 20261021 });
+  check('S1 top=峰值降序（并列 final 降序）', st.top[0].addr === pool[1].addr && st.top[1].addr === pool[6].addr, JSON.stringify(st.top.map((p) => p.addr.slice(-2))));
+  check('S2 bottom=max 升序（max=0 并列 final 升序=跌最狠优先，再 addr 升序）',
+    st.bottom.map((p) => p.addr.slice(-2)).join(',') === 'a3,a4,a5', JSON.stringify(st.bottom.map((p) => p.addr.slice(-2))));
+  const allPicked = [...st.top, ...st.bottom, ...st.random].map((p) => p.addr);
+  check('S3 三层互斥且总数=配额', new Set(allPicked).size === 7 && allPicked.length === 7, JSON.stringify(allPicked.map((a) => a.slice(-2))));
+  const st2 = stratifySample(pool, { top: 2, bottom: 3, random: 2, seed: 20261021 });
+  check('S4 同 seed 随机层可复现', JSON.stringify(st.random.map((p) => p.addr)) === JSON.stringify(st2.random.map((p) => p.addr)), '');
+  const st3 = stratifySample(pool, { top: 2, bottom: 3, random: 2, seed: 99 });
+  check('S5 异 seed 随机层不同（洗牌真随机化）', JSON.stringify(st.random.map((p) => p.addr)) !== JSON.stringify(st3.random.map((p) => p.addr)) || st.random.length < 2, '');
+  let threw = false;
+  try { stratifySample(pool.slice(0, 3), { top: 2, bottom: 2, random: 2, seed: 1 }); } catch { threw = true; }
+  check('S6 池不足 fail-fast throw', threw, '池 3 < 配额 6 未拒');
+  check('S7 mulberry32 输出域 [0,1)', mulberry32(7)() >= 0 && mulberry32(7)() < 1, '');
+  check('S8 抽样不改入参池（纯函数）', pool.length === 10 && pool[0].addr === mk('a1', 0, 0).addr, '');
 
   console.log(`\n全部通过 ✅（${passed} 断言，case 回归断言器）`);
 }

@@ -69,6 +69,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C136 叙事抽样测试集（180 票三实验分层抽样）——评级与涨幅首轮零相关观察（2026-10-21 用户指令）★
+
+- **案由**：用户指令「基于 6209342e/37b19a9f/05222b30 实验，取样代币加入叙事分析测试集合，涨幅最高/最低各 50+随机 50（后扩至各 60+60=180），取样后跑当前叙事分析结果」。两项裁定：①**独立抽样集资产**（不并入 case 回归集 fixtures——回归集保持 caseId=台账编号纯净，抽样集 `--set` 单独跑）；②**随机层仅从涨幅已知池抽**（180 票全带涨幅，三层都可做「评级 vs 涨幅」对拍）。
+- **资产**（`scripts/narrative/case-regression/`）：`build-sample.mjs`（构建器，`npm run narrative-sample-build`：experiment_tokens 并集 → token_profiles 涨幅已知池 → 排除回归集票 → 分层落盘）；`run-sample.mjs`（runner，`npm run narrative-sample`：整链重析 + 分层×评级矩阵 + CSV/JSON 存档 data/，`--only top|bottom|random`/`--dry`）；`sample-sets/2026-10-21-three-exp-180.json`（本体，seed=20261021 可复现，.gitignore 否定规则保入）；分层纯函数 `stratifySample`/`mulberry32` 收进 lib.mjs（单测 36→44 断言，红线 13）。
+- **抽样口径**：涨幅=`token_profiles.max_change_percent`（峰值涨幅，BNB 计价可用价链）；三实验并集 15290（6209342e 3167/37b19a9f 8761/05222b30 6529），涨幅已知 2525（**flap 2368/fourmeme 157**——fourmeme 票画像行覆盖仅 24% 且有行者 86% 无可用价 tick=尘票，两层叠加致池结构性偏 flap，抽样 171/180 flap），排除回归集票 9 → 抽样池 2516；top60 max∈[520.9%,1420.5%]；bottom60 并列 max=0 按 final 升序（跌最狠优先）。
+- **首轮结果**（题集 J1.79+P1.13，2026-10-21 182 跑，180/180 完成 0 异常 ~5min；存档 `data/sample-2026-10-21-three-exp-180-result-*.csv/json`）：top60 low54/mid1/high5；bottom60 low55/mid0/high5；random60 low53/mid2/high5——**三层评级分布几乎相同，与涨幅零相关**（high 组 maxGain 均值 292.1% vs low 组 297.2%，中位 16.0% vs 15.6%）；15 票基线→现评翻转（10 翻 high=跨题集版本差，实验期旧行多为 J1.7x 前版本）；21 票 precheck 硬拒（expired_tweet 8/blacklist 6/no_public_info 5/fetch_failed 2/symbol_too_long 1/instagram_high_influence 1）。
+- **观察（未裁定不动门）**：评级对结局涨幅无区分度的两种读法——①评级测叙事质量而非涨幅预测（样本以尘票为主、本就不是买候选，且涨幅 top 里 54/60 仍 low 说明「会涨」≠「叙事合格」）；②若诉求是涨幅区分度，需与人气门联合评估而非单看叙事层。方向待用户裁定。
+
 ### C135 事件层收敛为 Web3 用户口味契合——事件分=web3_user_event_fit（impact 题删除）（J1.79）（2026-10-20 用户裁定）★
 
 - **案由**：事件分从 J1.71 三合一（impact+spread+timing）起，J1.75 被动波及口径/J1.76 证据口径/J1.77 原事件采信多轮迭代仍分不开高低分（用户批评「死板的分级」，且明确否决「无条件 +1.8」校准）。用户最终裁定：「事件分，我们的方案不是改用 fit 吗？」「改吧」——事件价值直接取 Web3 用户对叙事的口味契合（`web3_user_event_fit`），叙事存在性/名字/拼写/载体/实体由既有臂负责过滤（用户：「叙事存在性、名字、拼写、载体、实体这些臂应该都有了」）。

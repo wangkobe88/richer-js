@@ -7,10 +7,13 @@
 | 文件 | 职责 |
 |---|---|
 | `scripts/narrative/case-regression/fixtures.json` | 票集本体（caseId=台账编号；一票一 case，addr 全局唯一） |
-| `scripts/narrative/case-regression/lib.mjs` | 判读/断言/收录/预期更新纯函数（零 DB 零网络） |
+| `scripts/narrative/case-regression/lib.mjs` | 判读/断言/收录/预期更新/涨幅分层抽样纯函数（零 DB 零网络） |
 | `scripts/narrative/case-regression/run.mjs` | runner（重析对拍 + `--list`/`--add`/`--update-expect`） |
-| `scripts/_test_case_regression_lib.cjs` | 断言器单测（36 断言，改 lib 必跑） |
+| `scripts/_test_case_regression_lib.cjs` | 断言器单测（44 断言，改 lib 必跑） |
 | `scripts/narrative/case-regression/data/` | 对拍结果存档（CSV+JSON，期望/基线/当前同表；**进 git 的长期维护资产**，.gitignore 否定规则保入；C111 首轮=`case-regression-result-2026-10-19.csv` 29 PASS/4 OBSERVE） |
+| `scripts/narrative/case-regression/build-sample.mjs` | 抽样集构建器（182 跑：实验并集→涨幅已知池→分层落盘 sample-sets/） |
+| `scripts/narrative/case-regression/run-sample.mjs` | 抽样集 runner（182 跑：整链重析→分层×评级矩阵→data/ 存档；无 expect 断言） |
+| `scripts/narrative/case-regression/sample-sets/` | 抽样集本体（地址清单+涨幅快照+seed，**进 git**；首轮=C136 `2026-10-21-three-exp-180`） |
 
 ## 快速开始（182 跑；本地只允许 `--list`）
 
@@ -20,6 +23,10 @@ npm run case-regression -- --only C98,C104       # 选定票
 npm run case-regression -- --list                # 集合清单（零 DB，本地可跑）
 npm run case-regression -- --add <addr> --case C112 --note "案由一句话" [--observe "已知面"] [--dry]
 npm run case-regression -- --update-expect C97,C102 --because "C113 裁定一句话" [--dry]
+
+# 姊妹资产：叙事抽样测试集（统计评估，非 case 断言；见下节）
+npm run narrative-sample-build -- --exps <id1>,<id2>,<id3> --name <set> --top 60 --bottom 60 --random 60 --seed <N>
+npm run narrative-sample -- --set <set> [--only top|bottom|random] [--dry]
 ```
 
 - 退出码：`0` 全过 / `1` 存在非 observe 票断言失败或收录校验失败 / `2` 重析异常（数据源不可用，验证未完成）
@@ -60,3 +67,11 @@ CLAUDE.md「修改 Jev 题集」流程第 6 步：先跑全量对拍（预期变
 - 集合只增不删——票的语义过时就改 expect 配 observe 说明，案票本身是历史资产
 - 改 lib 任何判读/断言语义 → 跑 `node scripts/_test_case_regression_lib.cjs`（36 断言）+ 事故形状反证仍在
 - 重析会覆盖 `token_narrative` 行（跑前自动整行备份）；fixtures 写回原子化，撕裂=丢弃 tmp 重来
+
+## 姊妹资产：叙事抽样测试集（C136，2026-10-21 建）
+
+与 case 回归集的分工：回归集=**断言集**（该拦的拦该放的放，一票一 case 人工 expect）；抽样集=**统计评估集**（按涨幅分层的统计样本，机器只记录现状不断言，看评级分布与「评级 vs 涨幅」相关性）。
+
+- **构建**（182）：`npm run narrative-sample-build -- --exps <id,...> --name <set> --top N --bottom N --random N --seed N`——experiment_tokens 并集 → token_profiles.max_change_percent 非空（涨幅已知池）→ 排除回归集已收录票 → top（max 降序）/bottom（max 升序，max=0 并列按 final 升序=跌最狠优先）/random（剩余池 mulberry32(seed) 洗牌，seed 落盘可复现）→ `sample-sets/<set>.json`（tmp+rename 原子写）。分层纯函数 `stratifySample`/`mulberry32` 在 lib.mjs，单测锁定。
+- **跑**（182）：`npm run narrative-sample -- --set <set> [--only top|bottom|random] [--dry]`——跑前备份现行 token_narrative 判读列到 /tmp；串行整链重析（`ignoreCache:true`）；输出分层×评级矩阵 + `data/sample-<set>-result-<ts>.{json,csv}`（CSV 含涨幅列，进 git）。`--dry` 只回读现行行不烧 Jev 配额。退出码 0=全完成 / 2=有重析异常。
+- **维护**：抽样集只增不建重复（同一实验组合要新样本时换 name+seed 重抽）；样本快照与涨幅口径（峰值 BNB 可用价链）绑定在集合元数据里，涨幅后续变化不回填——对拍时以集合内快照为准。

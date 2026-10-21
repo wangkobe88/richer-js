@@ -213,3 +213,44 @@ export function toCsv(rows) {
   }
   return lines.join('\n');
 }
+
+/**
+ * 确定性 PRNG（mulberry32）——抽样集随机层可复现（seed 落盘在集合元数据里）。
+ */
+export function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * 涨幅分层抽样（build-sample.mjs 消费；零 DB 零网络纯函数）。
+ *
+ * pool: [{addr, max, final, ...}]（涨幅已知池，final 可 null；addr 池内唯一）
+ * 口径：top = max 降序前 N（并列 final 降序、addr 升序定序）；
+ *      bottom = max 升序前 N（并列 final 升序——max=0 尘票里最终跌最狠的优先、addr 升序）；
+ *      random = 剩余池 mulberry32(seed) 洗牌取 N。
+ * @returns {{top: Array, bottom: Array, random: Array}} 三层互斥（同一 pool 的元素引用）
+ */
+export function stratifySample(pool, { top, bottom, random, seed }) {
+  if (!Array.isArray(pool)) throw new Error('pool 须为数组');
+  if (pool.length < top + bottom + random) {
+    throw new Error(`抽样池不足: ${pool.length} < top${top}+bottom${bottom}+random${random}`);
+  }
+  const desc = [...pool].sort((x, y) => (y.max - x.max) || ((y.final ?? -Infinity) - (x.final ?? -Infinity)) || (x.addr < y.addr ? -1 : 1));
+  const asc = [...pool].sort((x, y) => (x.max - y.max) || ((x.final ?? Infinity) - (y.final ?? Infinity)) || (x.addr < y.addr ? -1 : 1));
+  const topPicks = desc.slice(0, top);
+  const bottomPicks = asc.slice(0, bottom);
+  const chosen = new Set([...topPicks, ...bottomPicks].map((p) => p.addr));
+  const rest = pool.filter((p) => !chosen.has(p.addr));
+  const rnd = mulberry32(seed);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  return { top: topPicks, bottom: bottomPicks, random: rest.slice(0, random) };
+}
