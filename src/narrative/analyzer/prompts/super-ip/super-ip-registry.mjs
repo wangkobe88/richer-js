@@ -38,6 +38,12 @@ export const SUPER_IP_REGISTRY = {
   'bitcoin':         { name: 'Bitcoin',            type: 'institution', tier: 'A', desc: 'Bitcoin官方' },
   'earthcurated':    { name: 'Earth Curated',      type: 'person',  tier: 'A', desc: 'Web3知名KOL' },
   'haze0x':          { name: 'haze0x',              type: 'person',  tier: 'A', desc: 'GMGN创始人' },
+  // C137（MEMES 案，2026-10-21 用户裁定「BSC 链 meme 币场景影响力极高，注册」）：
+  // flap 平台 dev。粉丝 4.6 万但场景内是双发射平台之一的开发核心——注册表
+  // 消费臂（J1.58 表态豁免/C117 强制标准路径/J1.56 作者原话票）均不看 tier，
+  // tier 仅入 state 认证行，按 haze0x（GMGN 创始人）同级 A，不给 S（4.6 万粉
+  // 与 S 档世界级认证行矛盾）
+  'eth_cedric':      { name: 'Cedric',              type: 'person',  tier: 'A', desc: 'Flap平台dev' },
 
   // ═══ 机构类（D类：机构言论/动作）═══
   'binance':          { name: '币安官方',         type: 'institution', tier: 'S', desc: '全球最大加密交易所' },

@@ -69,6 +69,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C137 eth_cedric（Flap dev）注册 super-ip——J1.58 表态豁免臂吃到（2026-10-21 用户裁定）★
+
+- **案由**：`0xeeed1ed1b6bd0eae15bb651490a7e8b3057f7777`（MEMES / "Memes will continue"，four.meme，2026-10-20 15:02 UTC）——@eth_cedric（46539 粉认证号）发纯文字表态「Memes will continue.」（无图、无父推、9 赞 1 转），60s 后发币。J1.79 判 `event_empty_content` 0.93 拦（low）。用户质询「web3_user_event_fit 说明接受度高，为何又是空洞内容」后裁定：**eth_cedric 是 flap 的 dev，在 BSC 链 meme 币场景影响力极高，注册进 super-ip 注册表**。
+- **归因**：fit（strong 0.49，confidence 仅 0.32）与 empty_content 是正交轴（口味质量 vs 叙事存在性，题面明文分工）不构成矛盾；真拦截原因是 J1.58 表态豁免两层都没吃到——题面豁免口径被 Jev 锚在「CZ/何一/币安」级符号人物（4.6 万粉腰部 KOL 没够档），代码臂 `corpusAuthorInRegistry` 注册表 miss。注册后表态票豁 empty_content 臂（mapper `emptyContentAuthorOverride`），名字/载体/量级门照常接管（与 C114 图证豁免同构）。注意本案 symbol=MEMES 逐字出自主推文本——J1.56 作者原话票（C88 第一腿补位）随注册同时激活，但五腿 strongFit 腿 0.49<0.5 是否随 state 认证行翻过待重析验证。
+- **改动**：`super-ip-registry.mjs` 加 `'eth_cedric': { name: 'Cedric', type: 'person', tier: 'A', desc: 'Flap平台dev' }`。tier=A 对齐 haze0x（GMGN 创始人）/four_meme_fora 同级——注册表消费臂（J1.58 豁免/C117 强制标准路径/J1.56 原话票）均不看 tier，tier 仅入 state 认证行；4.6 万粉给 S 会与世界级认证行措辞矛盾。影响面=注册表六消费点全激活：①J1.58 empty_content 豁免 ②C117 强制标准路径（eth_cedric 自发宣告票不再被 prestage abm 评）③J1.56 作者原话票 ④state `corpus_author_identity` 认证行 ⑤J1.24 戏谑豁免可信事件锚 ⑥tweet-type-classifier。
+- **单测**：注册表消费相关 7 文件全绿（superip_standard_path / superip_no_prestage_route / brand_hijack_pun_exemption / gmgn_superip_tweet_enrich / name_entity_acceptance / precheck_tweet_freshness_bucket / vision_gate）。
+- **部署**：182 worker + live 实验进程重启 + MEMES 定向重析对拍待执行（live 直调链路在实验进程内，重启实验前须持仓核验）。
+
 ### C136 叙事抽样测试集（180 票三实验分层抽样）——评级与涨幅首轮零相关观察（2026-10-21 用户指令）★
 
 - **案由**：用户指令「基于 6209342e/37b19a9f/05222b30 实验，取样代币加入叙事分析测试集合，涨幅最高/最低各 50+随机 50（后扩至各 60+60=180），取样后跑当前叙事分析结果」。两项裁定：①**独立抽样集资产**（不并入 case 回归集 fixtures——回归集保持 caseId=台账编号纯净，抽样集 `--set` 单独跑）；②**随机层仅从涨幅已知池抽**（180 票全带涨幅，三层都可做「评级 vs 涨幅」对拍）。
