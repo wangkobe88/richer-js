@@ -171,13 +171,44 @@ async function main() {
     assert(rec.stage3_result === null, '既有 null 阶段保持 null');
   }
 
+  // ── C3：C146 token_category 终态清空语义（重跑数据必须反映本次判定）──
+  console.log('[C3] token_category 终态清空/保留');
+  {
+    // 1) 终态无分类 + clearTokenCategory → 显式 null（覆盖旧值）
+    const clearRun = makeFakeSupabase({ existingRow, thinRow });
+    NarrativeRepository.getSupabase = () => clearRun.client;
+    await NarrativeRepository.save({ ...baseResult }, { existing: existingRow, clearTokenCategory: true });
+    NarrativeRepository.getSupabase = realGetSupabase;
+    assert(clearRun.calls[0].record.token_category === null,
+      '终态无分类 → token_category=null（重跑覆盖旧分类）');
+
+    // 2) 无分类 + 无标记（中间 save）→ 不写键，保留旧值
+    const keepRun = makeFakeSupabase({ existingRow, thinRow });
+    NarrativeRepository.getSupabase = () => keepRun.client;
+    await NarrativeRepository.save({ ...baseResult }, { existing: existingRow });
+    NarrativeRepository.getSupabase = realGetSupabase;
+    assert(!('token_category' in keepRun.calls[0].record),
+      '中间 save 无标记 → 不触碰 token_category（保旧值）');
+
+    // 3) 有新分类 → 直写新值（clear 标记不遮蔽非空分类）
+    const setRun = makeFakeSupabase({ existingRow, thinRow });
+    NarrativeRepository.getSupabase = () => setRun.client;
+    await NarrativeRepository.save({ ...baseResult, token_category: 'event:E' },
+      { existing: existingRow, clearTokenCategory: true });
+    NarrativeRepository.getSupabase = realGetSupabase;
+    assert(setRun.calls[0].record.token_category === 'event:E',
+      '本次有分类 → 直写新分类（不被 clear 标记覆盖）');
+  }
+
   // ── D 段：源码口径（防线锁定）──
   console.log('[D] 源码口径');
   {
     const repoSrc = fs.readFileSync(
       path.join(__dirname, '../src/narrative/db/NarrativeRepository.mjs'), 'utf8');
-    assert(repoSrc.includes('static async save(result, { existing: existingHint } = {})'),
-      'save 签名带第二参 { existing: existingHint }');
+    assert(repoSrc.includes('static async save(result, { existing: existingHint, clearTokenCategory = false } = {})'),
+      'save 签名带第二参 { existing, clearTokenCategory }');
+    assert(repoSrc.includes('else if (clearTokenCategory)'),
+      'C146：终态无分类显式清空分支存在');
     assert(repoSrc.includes('let existing = existingHint || null;'),
       '非 null 快照才复用（|| null 归一）');
     assert(repoSrc.includes('const { data, error: existError } = await this.getSupabase()'),
@@ -200,10 +231,14 @@ async function main() {
     const finalBlock = anaSrc.split("timing.wrap('dbSave.final'")[1] || '';
     assert(finalBlock.includes('existing: cached'),
       'dbSave.final 调用点传 {existing: cached}');
+    assert(finalBlock.includes('clearTokenCategory: !tokenCategory'),
+      'C146：dbSave.final 无分类时传 clearTokenCategory（重跑覆盖旧分类）');
     // 中段 save 不传 existing（worker 语境保持现查，本批不动）
     const interBlocks = anaSrc.split("timing.wrap('dbSave.intermediate'").slice(1);
     assert(interBlocks.every(b => !b.split('}));')[0].includes('existing:')),
       'dbSave.intermediate 调用点不传 existing（刻意不动）');
+    assert(interBlocks.every(b => !b.split('}));')[0].includes('clearTokenCategory')),
+      'dbSave.intermediate 调用点不传 clearTokenCategory（中间保存保旧值）');
   }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

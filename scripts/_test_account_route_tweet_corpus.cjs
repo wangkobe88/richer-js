@@ -39,8 +39,36 @@ async function main() {
     shouldRouteToAccountCommunity({ fetchResults: { twitterInfo: tweet }, isProjectCoinResult: false, issuerDetected: true }) === false);
   check('A2 有内容的推文 + 无任何信号 → 标准路径（false）',
     shouldRouteToAccountCommunity({ fetchResults: { twitterInfo: tweet }, isProjectCoinResult: false, issuerDetected: false }) === false);
-  check('A3 项目币臂保留：isProjectCoin + relatedAccounts → 账号路径（true）',
-    shouldRouteToAccountCommunity({ fetchResults: { twitterInfo: tweet, relatedAccounts: [{}] }, isProjectCoinResult: true, issuerDetected: false }) === true);
+  check('A3 项目币臂 + 独立站点 + relatedAccounts → 账号路径（true，C149b 站点资格）',
+    shouldRouteToAccountCommunity({
+      fetchResults: {
+        twitterInfo: tweet,
+        relatedAccounts: [{}],
+        classifiedUrls: { websites: [{ url: 'https://myproject.example.com' }] },
+      },
+      isProjectCoinResult: true,
+      issuerDetected: false,
+    }) === true);
+  check('A3b 项目币臂 + 仅推文/系统子页面（无独立站点）→ 标准路径（false，C149b）',
+    shouldRouteToAccountCommunity({
+      fetchResults: {
+        twitterInfo: tweet,
+        relatedAccounts: [{}],
+        classifiedUrls: { websites: [{ url: 'https://dex.coinmarketcap.com/token/bsc/0xabc' }], telegram: [{ url: 'https://t.me/#0xabc' }] },
+      },
+      isProjectCoinResult: true,
+      issuerDetected: false,
+    }) === false);
+  check('A3c 项目币臂 + Twitter 账号语料（account 有文本）→ 账号路径（true，C149b 推特账号资格）',
+    shouldRouteToAccountCommunity({
+      fetchResults: {
+        twitterInfo: { type: 'account', text: '项目官号简介与推文' },
+        relatedAccounts: [{}],
+        classifiedUrls: {},
+      },
+      isProjectCoinResult: true,
+      issuerDetected: false,
+    }) === true);
   const account = { type: 'account', text: '' };
   check('A4 账号型语料 → 账号路径（true）',
     shouldRouteToAccountCommunity({ fetchResults: { twitterInfo: account }, isProjectCoinResult: false, issuerDetected: false }) === true);
@@ -60,6 +88,10 @@ async function main() {
   check('B2 utils 导出 shouldRouteToAccountCommunity + 推文语料门',
     utilsSrc.includes('export function shouldRouteToAccountCommunity')
     && utilsSrc.includes("twitterInfo?.type === 'tweet' && !!twitterInfo?.text?.trim()"));
+  check('B2b C149b 项目币臂须有 Twitter 账号或独立站点资格',
+    utilsSrc.includes('const hasAccountCorpus = twitterInfo?.type === \'account\' || twitterInfo?.type === \'community\';')
+    && utilsSrc.includes('const hasOwnSite = hasIndependentWebsite(fetchResults?.classifiedUrls);')
+    && utilsSrc.includes('isProjectCoinResult && (hasAccountCorpus || hasOwnSite) && fetchResults?.relatedAccounts?.length > 0'));
   check('B3 data-fetch 跳过「推文引用的抖音账号页」抓取',
     fetchSrc.includes('tweet_corpus_reference')
     && fetchSrc.includes("douyinUrlInfo.type === 'user_profile'")

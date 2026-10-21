@@ -1,0 +1,278 @@
+{
+  "ranAt": "2026-10-21T07:30:38.152Z",
+  "summary": {
+    "total": 9,
+    "pass": 8,
+    "fail": 1,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C96",
+      "symbol": "币安上电视",
+      "addr": "0xc6d089d749409f7646de440d637ac9db0e047777",
+      "status": "FAIL",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "Web3 用户不接纳该名字"
+        ]
+      },
+      "observe": null,
+      "caseNote": "J1.37 陈述句门→C108 并入名字门分支③（陈述句）。10-19 对拍已过，维持断言。",
+      "baseline": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 84.05,
+        "stage": 3,
+        "tokenCategory": "event:C"
+      },
+      "failures": [
+        "rating=high 不在预期 [low]",
+        "reason 缺少关键词「Web3 用户不接纳该名字」（实际: null）"
+      ]
+    },
+    {
+      "caseId": "C97",
+      "symbol": "币安游戏",
+      "addr": "0xf37bbaea289a67af00ac0ee58421553e11987777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low"
+      },
+      "observe": "J1.62 起 event_marketing_gimmick 收窄（有实质对象/参与机制的营销活动不选）→ C97 gimmick 0.48→0.28（argmax none）、impact 5档→3档（S→B）；effTier 仍 D（地域子账号锚）→ low 维持。当前首拦=名字门（「币安游戏」不可接纳），D 档量级门在其后；两轴同向，死因不硬断言。",
+      "caseNote": "币安地域子账号量级锚 D；J1.62 后营销噱头不再代判「事件撑不起币」，改由 impact/量级轴承担（事件本身影响力 3档 0.45）。",
+      "baseline": {
+        "rating": "low",
+        "reason": "机构日常运营",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "机构日常运营",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C102",
+      "symbol": "BAI",
+      "addr": "0x11efcbd0bfbaa5ad1c2d0db93710882722a27777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "auditIncludes": [
+          "staleParentOverride"
+        ]
+      },
+      "observe": "终拦位随 Jev nameForm 掷骰在名字门/载体门间移动（C108 门链序 nf→sc→tier，nf 前置）：本轮 nameForm=not_meme_name 名字门先拦；名字若过则 sc/事件分不足路径仍拦（timing older 双保险）。核心机制断言=父推窗 override 在场（客观 lag 确定性）。",
+      "caseNote": "借壳语料父推源头窗：binanceCorpus 父推>24h→timing older→C88 五腿断。拦住即胜，具体门不作硬断言。",
+      "baseline": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "常规内容产品宣传",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C104",
+      "symbol": "バイナンス人生",
+      "addr": "0x1890c934d59697398494cfec9f92b9e521c67777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "无新鲜载体"
+        ],
+        "precheckRuleIncludes": [
+          "expired_tweet"
+        ]
+      },
+      "observe": null,
+      "caseNote": "direct 豁免主从结构门：现行 DB 行 high=f61f500 部署前旧形状（CZ 旧推裸 high 实买票），C104 部署后从未整链重析。预期变化票：主推>24h 无 ≤24h 新载体→回落 300s 拦（文案带「源头本体 Ns>24h 无新鲜载体」）。",
+      "baseline": {
+        "rating": "low",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=direct_tweet，源头本体 299637s>24h 无新鲜载体，主推文：2026年10月15日 03:16 (UTC)），叙事时效已过",
+        "ruleName": "expired_tweet",
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=direct_tweet，源头本体 299637s>24h 无新鲜载体，主推文：2026年10月15日 03:16 (UTC)），叙事时效已过",
+        "ruleName": "expired_tweet",
+        "score": null,
+        "stage": 3,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C109c",
+      "symbol": "BI",
+      "addr": "0x3891aeb8bf0ebb0079b4b1e6c18dd0ca26d77777",
+      "status": "PASS",
+      "expect": {
+        "rating": null,
+        "auditIncludes": []
+      },
+      "observe": "J1.44 mem 瘦身观察票：mem 2.4 贴线——跌破 2 则 C88 五腿断→落载体门拦（mid→low）属已知命中面移动非 bug；维持 mid 亦可。只看结果如实报告。",
+      "caseNote": "C109 对拍遗留观察票（币安猫图簇 BI 名票，10-18 mid）。",
+      "baseline": {
+        "rating": "low",
+        "reason": "事件主体量级不足（S档→D档·币安地域子账号不借壳）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "机构日常运营",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C110",
+      "symbol": "币安菠萝",
+      "addr": "0x8ce87ffebe62e6f7ea87173b441520f659307777",
+      "status": "PASS",
+      "expect": {
+        "rating": "high"
+      },
+      "observe": null,
+      "caseNote": "J1.64 影响力 B 标准 + gimmick 桶删除：币安符号菠萝=品牌具象视觉物料（用户可抓取/二创的内容资产）→ impact B 档起评；名字/关联/时效/共鸣全过 → high。用户裁定「币安发了一个带有币安符号的菠萝，可以给过」。",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 94.07,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 89.84,
+        "stage": 3,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C83a",
+      "symbol": "BI",
+      "addr": "0x11bec8676fc2d9da6dacec5c8b8100941e997777",
+      "status": "PASS",
+      "expect": {
+        "rating": null,
+        "tokenCategoryExcludes": [
+          "super_ip_fast"
+        ]
+      },
+      "observe": "快车道退役后走标准 16 题全量评估；正文「诚实预期：BI 簇不保证翻 low」——拦它们的希望在 relevance 带反混淆行重判，评级不定只断言脱离快车道形状（正文部署验证清单同款：量级不再恒 S+reason 落库）。系统性防线=同源簇限频另行立项。",
+      "caseNote": "super_ip_fast 快车道整体退役案 BI 簇代表票（簇 6 票全亏，本票 S 级 86.19 喂饱放行）。预期变化票：token_category 不再 super_ip_fast、量级自判。",
+      "baseline": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 85.92,
+        "stage": 3,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C83b",
+      "symbol": "BI",
+      "addr": "0x28d8d2c2dedf493f3c4193f7812f52922ab77777",
+      "status": "PASS",
+      "expect": {
+        "rating": null,
+        "tokenCategoryExcludes": [
+          "super_ip_fast"
+        ]
+      },
+      "observe": "同 C83a（簇内对照票，85.9 分形状）；两票独立重析观察 Jev 概率面簇内一致性。",
+      "caseNote": "BI 簇第二票（同簇对照）。",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 88.32,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 82.77,
+        "stage": 3,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C117",
+      "symbol": "BNB",
+      "addr": "0xf8abd6a6bdc0d87291b4f79abc6188c48a807777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:C"
+      },
+      "observe": null,
+      "caseNote": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评",
+      "baseline": {
+        "rating": "low",
+        "reason": "叙事主体无形象载体（无形象实体）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "机构日常运营",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    }
+  ]
+}

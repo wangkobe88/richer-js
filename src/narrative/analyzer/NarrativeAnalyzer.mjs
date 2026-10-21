@@ -12,7 +12,7 @@ import { PromptBuilder } from './prompt-builder.mjs';
 import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
-import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, shouldRouteToAccountCommunity, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch, detectAuthorUtterance } from './utils/narrative-utils.mjs';
+import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, shouldRouteToAccountCommunity, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch, detectAuthorUtterance, shouldExemptIssuerCaExpired } from './utils/narrative-utils.mjs';
 import { createSegmentTimer } from '../utils/segment-timer.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
@@ -549,6 +549,21 @@ export class NarrativeAnalyzer {
       };
     }
     const issuerDetected = issuerSelfLaunch || issuerCaTimeline;
+    // C153（2026-10-21 REPEG 案用户裁定）：发行方 CA 证据豁免 expired_tweet——
+    // 小项目主推直接晒 CA（或作者时间线 CA 宣告命中）时 lag>300s 不硬拦，时效交
+    // Jev event_timing 软评。频繁发币者名单仍优先（C95 作业号照拦）。
+    if (shouldExemptIssuerCaExpired(preCheckResult, {
+      issuerCaTimeline,
+      authorScreenName: twitterInfo?.author_screen_name || twitterInfo?.screen_name || null,
+      mainTweetText: twitterInfo?.text || null,
+      tokenAddress: normalizedAddress,
+    })) {
+      logger.info('NarrativeAnalyzer', '发行方 CA 证据豁免 expired_tweet（C153）', {
+        author: twitterInfo?.author_screen_name || twitterInfo?.screen_name || null,
+        tweetId: issuerCaTimeline?.tweetId || null,
+      });
+      preCheckResult = null;
+    }
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -741,6 +756,9 @@ export class NarrativeAnalyzer {
 
             // Jev 单次 speculative fan-out：全部原子问题一次问完，代码端聚合
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
+            // J1.85（C143）：品牌关键词预检不再决定题集形状（name_brand_hijack 题
+            // 已并入实体题 brand_mismatch 桶）；仅作 mapper 门开关传参——非关键词
+            // 票不启用 brand_mismatch 拦截位/punExempt
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
             // superIP 注册表命中（C83）：命中事实行进 state PRECOMPUTED（认证标注 +
             // 反混淆提示），量级/关联/主体资格全归 Jev 按题集判定——非 superIP 票
@@ -751,7 +769,7 @@ export class NarrativeAnalyzer {
             // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】
             // 块才问（无父推不问防幻觉作答；与 mapper hasReplyParent 同判定）
             const questions = buildStandardQuestions({
-              includeBrandHijack,
+              brandMismatch: includeBrandHijack,
               imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis,
               parentRelationship: hasReplyParent(twitterInfo),
             });
@@ -900,8 +918,8 @@ export class NarrativeAnalyzer {
     const stage2SaveData = buildStageSaveData('stage2', stage2DataToSave);
     const stage3SaveData = buildStageSaveData('stage3', stage3DataToSave);
 
-    // 代币分类（fPay/FOMOPAY 宣告竞态案裁定 2026-09-27）：null 不带键——
-    // repository 侧保留旧值（重析 precheck fail 不清掉已落库的分类）
+    // 代币分类（fPay/FOMOPAY 宣告竞态案裁定 2026-09-27；C146 修订）：null 时
+    // 由 final save 的 clearTokenCategory 显式清空旧分类——重跑必须反映本次判定
     const tokenCategory = deriveTokenCategory(prestageDataToSave, stage1DataToSave);
     // C88 超级IP两标签：内存 stage1DataToSave/stage2DataToSave 推导（形状与落库值
     // 同构，superip-labels 单实现共享）；save 回读瘦列无 stage 列，return 显式覆盖
@@ -966,7 +984,11 @@ export class NarrativeAnalyzer {
     }, {
       // 3b（2026-10-13 叙事提速第二批）：入口 cacheLookup/rowCache 已持有的行快照
       // 直传——非 null 行跳过 save 内 pre-select 肥行往返；null 传 falsy 仍走现查
-      existing: cached
+      existing: cached,
+      // C146（2026-10-21）：终态重析无分类（precheck fail/no_data）时显式清空旧分类——
+      // 重跑数据必须反映本次判定（C101 实证：precheck fail 行残留修复前的
+      // web3_native_ip_early）。中间 save 不传此标记，保留旧值。
+      clearTokenCategory: !tokenCategory
     }));
 
     // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）

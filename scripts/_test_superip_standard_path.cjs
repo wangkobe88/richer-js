@@ -161,7 +161,7 @@ const run = async () => {
 
   // D2 JEV_QUESTIONS_VERSION 已 bump（J1.42=C108 名字门统一四分支+block_misspelling 删题；J1.41=C107 name_form 收敛三选（meme_name/not_meme_name/unclear）；J1.40=C105 第四选（收敛后经兼容 Set 继续拦）；J1.39=C103 条件题 parent_relationship；J1.38=C98 event_negative_hard_news 题面扩政治暴力边界；J1.37=C96 F→E 改道+陈述句门两新题；J1.36=C93 resonance 判据源换 web3_user_event_fit；J1.35=C92 E类证据层级）
   const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('D2 JEV_QUESTIONS_VERSION === J1.80（J1.80=C138 超IP来源判据；J1.79 删 web3_user_event_impact 改 fit 单一事件分；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.55=C124 圈内符号级锚；J1.54=C123 门名/题键语义化；J1.42=C108 名字门统一）', JEV_QUESTIONS_VERSION === 'J1.80', JEV_QUESTIONS_VERSION);
+  check('D2 JEV_QUESTIONS_VERSION === J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.82=C140 圈层可达性桶退役并入 event_fit unfit 档（并行会话同批）；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.80=C138 超IP来源判据；J1.79 删 web3_user_event_impact 改 fit 单一事件分；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.55=C124 圈内符号级锚；J1.54=C123 门名/题键语义化；J1.42=C108 名字门统一）', JEV_QUESTIONS_VERSION === 'J1.97', JEV_QUESTIONS_VERSION);
 
   // ═══ 汇总 ═══
   console.log(`\n═══ _test_superip_standard_path: ${passed} passed, ${failed} failed ═══`);

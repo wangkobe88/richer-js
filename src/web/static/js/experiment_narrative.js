@@ -744,12 +744,12 @@ class ExperimentNarrative {
     const stage2Card = `
       <div class="stage-card">
         <div class="stage-title"><span>④ Jev 评分（Stage2）</span>${this._stageDot(s2)}</div>
-        ${s2 ? (this._kv('总分', (sr?.eventCompositeScore ?? sr?.totalScore) != null ? `${sr.eventCompositeScore ?? sr.totalScore}（pass线60）` : null)
+        ${s2 ? (this._kv('总分', (sr?.eventCompositeScore ?? sr?.totalScore) != null ? `${sr.eventCompositeScore ?? sr.totalScore}（pass线${s2IsW ? 57 : 60}）` : null)
           + (s2IsW
-            ? this._kv('W 产品分', sr?.wProductScore)
+            ? (sr?.wProductScore != null ? this._kv('W 产品分(历史)', sr.wProductScore) : '') // J1.84/C142 前历史行
               + (sr?.wAppealScore != null
                 ? this._kv('W 吸引力分', sr.wAppealScore)
-                : this._kv('W 交互分', sr?.wInteractionScore)) // 历史行（J1.73 前）
+                : this._kv('W 交互分', sr?.wInteractionScore)) // 历史行（J1.74 前）
               + this._kv('时效分', sr?.timingScore ?? sr?.timeliness)
             : this._kv('影响力', sr?.influenceScore != null ? `${sr.influenceScore}/5` : (sr?.impactTierScore ?? sr?.tierScore))
               + this._kv('影响力档', sr?.influenceTier)
@@ -803,7 +803,7 @@ class ExperimentNarrative {
       this._kv('口号性 mem', f.mem),
       this._kv('时效', f.timing),
       this._kv('Web3 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.web3_user_event_fit)),
-      this._kv('拦截原因', f.blockChoice, probTop(probs.event_token_block_reason)),
+      this._kv('拦截原因', f.blockChoice, probTop(probs.event_quality_veto ?? probs.event_token_block_reason)),
       this._kv('主体实体', f.subjectEntity ?? s2j?.subjectEntity, probTop(probs.event_subject_entity)),
       this._kv('形象载体', f.subjectCarrier ?? s2j?.subjectCarrier)
     ].join('');
@@ -1098,10 +1098,10 @@ function extractFeatures(item) {
         if (f.timing == null) f.timing = answers.event_timing?.choice ?? null;
         f.eventCategory = answers.event_category?.choice ?? null;
         f.nameReferent = answers.web3_user_name_entity_acceptance?.choice ?? null;
-        f.blockChoice = answers.event_token_block_reason?.choice ?? null;
+        f.blockChoice = answers.event_quality_veto?.choice ?? answers.event_token_block_reason?.choice ?? null; // J1.82 双键读旧缓存行
         if (f.strongFit == null) f.strongFit = answers.web3_user_event_fit?.probabilities?.strong_fit ?? null;
         if (f.subjectEntity == null) f.subjectEntity = answers.event_subject_entity?.choice ?? null;
-        if (f.subjectCarrier == null) f.subjectCarrier = answers.name_entity_carrier?.choice ?? null;
+        if (f.subjectCarrier == null) f.subjectCarrier = answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null; // J1.81 双键读旧缓存行
       }
     } catch { /* 旧行/坏行：对应字段保持 null */ }
   }

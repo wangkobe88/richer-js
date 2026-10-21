@@ -50,7 +50,7 @@ const cueAnswers = {
   dimension2: { score: 3.08, probabilities: { '3': 0.5, '4': 0.3 } },
   // J1.64：event_marketing_gimmick 选项已删（噱头并入影响力轴）；原 0.30 gimmick
   // argmax 形状不复存在，改为 none 主导（其余旧桶键仅历史 fixture 形状）
-  event_token_block_reason: {
+  event_quality_veto: {
     choice: 'none',
     probabilities: { none: 0.56, subject_unqualified: 0.15, event_empty_content: 0.1, event_institution_routine: 0.16 },
   },
@@ -81,7 +81,7 @@ const museAnswers = {
   event_magnitude: { score: 3.2, probabilities: { '3': 0.6 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
   dimension2: { score: 3.5, probabilities: { '3': 0.5, '4': 0.4 } },
-  event_token_block_reason: { choice: 'none', probabilities: { none: 0.98, event_institution_routine: 0.02 } },
+  event_quality_veto: { choice: 'none', probabilities: { none: 0.98, event_institution_routine: 0.02 } },
   web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.92, no_entity: 0.03, accepted: 0.05 } },
   name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
   relevance_level: { score: 4.2, probabilities: { '4': 0.8 } },
@@ -184,10 +184,12 @@ async function main() {
     && m4.stage1DataToSave.parsed_output.jev.publisherProxyActive === null
     && m4.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m4.llmResult.rating === 'low', m4.promptType);
 
-  // B5 rcp 门不豁免（内容型产品 C12 绣春刀裁定维持）
-  const rcpAnswers = { ...cueAnswers, event_token_block_reason: { choice: 'event_routine_content_product', probabilities: { none: 0.2, event_routine_content_product: 0.6, event_marketing_gimmick: 0.2 } } };
+  // B5 J1.87/C145：routine 桶退役——同形状不再由「常规内容产品宣传」拦，
+  // 事件分 58<60 接管（发布者指代仍不适用于内容型产品，评级 low 维持）
+  const rcpAnswers = { ...cueAnswers, event_quality_veto: { choice: 'event_routine_content_product', probabilities: { none: 0.2, event_routine_content_product: 0.6, event_marketing_gimmick: 0.2 } } };
   const m5 = mapStandardAnswers(rcpAnswers, makeContext(cueTokenData, rcpAnswers, cueTwitter));
-  check('B5 rcp 门不豁免：发布者指代不适用于内容型产品', m5.llmResult.rating === 'low' && m5.llmResult.reason.includes('常规内容产品'), m5.llmResult.reason);
+  check('B5 routine 桶退役后由事件分不足接管（58<60，评级 low 维持；发布者指代不适用于内容型产品）',
+    m5.llmResult.rating === 'low' && m5.llmResult.reason.includes('事件分不足（58<60）') && !m5.llmResult.reason.includes('常规内容产品'), m5.llmResult.reason);
 
   // B6 骑乘改道豁免：ss+sip≥0.5 且 sip<0.5 原本改道 W，pubProxyActive 时不改道走标准数学
   const rideAnswers = { ...cueAnswers, web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.65, accepted: 0.25, no_entity: 0.1 } } };
@@ -212,7 +214,7 @@ async function main() {
   // （block/nr 改成放行形状，让量级拦截路径可见——gimmick argmax 路径已由 B2b 覆盖）
   const smallPub = {
     ...cueAnswers,
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_marketing_gimmick: 0.1 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.9, event_marketing_gimmick: 0.1 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.6, unknown: 0.3, no_entity: 0.1 } },
     // J1.79：原判低档由 fit 派生（mass 0.2 → 事件分 20 / D 档）
     web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 } },
@@ -220,7 +222,9 @@ async function main() {
   const m9a = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, cueTwitter));
   check('B9a fit 派生 D 档（粉丝足）仍被锚到 A 档（下限 40；20<60 仍拦）——锚只看 proxy 判据不看原档', m9a.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'A' && m9a.stage2DataToSave.parsed_output.scoringResult.influenceFloor === 40 && m9a.llmResult.pass === false);
   const m9b = mapStandardAnswers(smallPub, makeContext(cueTokenData, smallPub, { ...cueTwitter, author_followers_count: 10000 }));
-  check('B9b 粉丝不足 + D 档原判：proxy 不激活 → D 档量级拦截维持', m9b.llmResult.rating === 'low' && m9b.llmResult.reason.includes('量级不足'), m9b.llmResult.reason);
+  // J1.83/C141：proxy 不激活 → 不豁契合证据门——fitMass 0.2（D 档域 [0.1,0.3) ⊂ 门域
+  // [0,0.5)）同轴遮蔽，归因从量级门迁移至契合门（对照 B9a：proxy 激活豁门，锚路径原样）
+  check('B9b 粉丝不足 + D 档原判：proxy 不激活 → 拦截维持（J1.83 归因=契合证据门，同轴遮蔽量级门）', m9b.llmResult.rating === 'low' && m9b.llmResult.reason.includes('Web3用户契合证据不足'), m9b.llmResult.reason);
 
   console.log(`\n结果：${passed} 通过 / ${failed} 失败`);
   process.exit(failed ? 1 : 0);

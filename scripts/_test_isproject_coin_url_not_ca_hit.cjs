@@ -16,8 +16,12 @@
  *
  * 用户裁定（2026-10-18）：「把假 addressVerified 给修了」「说白了网址里头
  * 有CA不算命中CA」→ isProjectCoin 加 includeUrlArm 选项；skipAddressValidation
- * 的证据源只认内容臂（isProjectCoinContentVerified）|| issuerCaTimeline；
- * URL 臂保留给路由/账号补充收集（存量语义不变）。
+ * 的证据源只认内容臂（isProjectCoinContentVerified）|| issuerCaTimeline。
+ *
+ * C149（2026-10-21 用户裁定「t.me（电报）存在不能作为账号币的证据，只有推特
+ * 账号才可以」）：URL 臂再排除 Telegram——C101 的 t.me/#<CA> 单臂触发账号链
+ * 补收 → prestage 路由（修复假 addressVerified 后仍进 address 校验）。现
+ * Telegram 链接不再命中 isProjectCoin；推特/独立站 URL 与内容臂保留。
  *
  * 用法：node scripts/_test_isproject_coin_url_not_ca_hit.cjs
  */
@@ -41,11 +45,12 @@ function check(desc, actual, expected) {
 
   const ADDR = '0x0195119e4806441c871adada6256296265ed7777';
 
-  console.log('== 1. OK❌ 事故现场反证（URL 臂 gated） ==');
+  console.log('== 1. OK❌ 事故现场反证（URL 臂 gated；C149 起 Telegram 不采信） ==');
   // 本案落库 classified_urls 原样形状：twitter 推文 URL + telegram t.me/#CA +
   // websites CMC dex 自动页（C99 前算独立站 → 触发账号链收集）；twitterInfo
   // 为推文语料（@Notickernowif 19 粉，文本无 CA，简介「404」）；websiteInfo=null
-  //（websiteFetch 默认关）。URL 臂全语义命中（t.me 非 C99 聚合器域）。
+  //（websiteFetch 默认关）。C149 后：CMC 自动页（C99）+ t.me（C149）均排除 →
+  // URL 臂不再命中，不再因 Telegram 链接劫进账号/prestage 路由。
   const incidentFetchResults = {
     twitterInfo: {
       type: 'tweet',
@@ -62,12 +67,21 @@ function check(desc, actual, expected) {
       ],
     },
   };
-  check('事故形状 isProjectCoin 全语义（t.me URL 臂）→ true（路由/收集线索保留）',
-    isProjectCoin(ADDR, incidentFetchResults), true);
+  check('事故形状 isProjectCoin 全语义 → false（t.me 不作账号币证据，C149）',
+    isProjectCoin(ADDR, incidentFetchResults), false);
   check('事故形状 isProjectCoin 强证据模式（includeUrlArm:false）→ false（不命中 CA）',
     isProjectCoin(ADDR, incidentFetchResults, { includeUrlArm: false }), false);
-  check('options 缺省=全语义（存量调用点零变化）',
-    isProjectCoin(ADDR, incidentFetchResults, {}), true);
+  check('options 缺省=全语义（存量调用点零变化；Telegram 已排除）',
+    isProjectCoin(ADDR, incidentFetchResults, {}), false);
+  const twitterUrlOnly = {
+    twitterInfo: null,
+    websiteInfo: null,
+    classifiedUrls: {
+      twitter: [{ url: `https://x.com/someone/status/1900000000000000000?ca=${ADDR}`, type: 'tweet', platform: 'twitter', priority: 1 }],
+    },
+  };
+  check('推特 URL 含 CA：全语义 → true（只有推特账号才可以，C149）',
+    isProjectCoin(ADDR, twitterUrlOnly), true);
 
   console.log('== 2. 通用 URL 臂形状（非聚合器独立站路径含 CA） ==');
   const urlOnlyFetchResults = {
@@ -174,6 +188,11 @@ function check(desc, actual, expected) {
     "isProjectCoin(normalizedAddress, { twitterInfo, websiteInfo, classifiedUrls }, { includeUrlArm: false })");
   check('isProjectCoinContentVerified 由 includeUrlArm:false 构造',
     contentVarOk, true);
+  const utilsSrc = fs.readFileSync('src/narrative/analyzer/utils/narrative-utils.mjs', 'utf8');
+  check('C149：URL 臂引用 isTelegramUrl（Telegram 不入证据）',
+    utilsSrc.includes('!isTelegramUrl(url)'), true);
+  check('C149：isTelegramUrl 覆盖 t.me / telegram.me / telegram.dog',
+    utilsSrc.includes("const TELEGRAM_URL_HOSTS = ['t.me', 'telegram.me', 'telegram.dog']"), true);
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   if (failed > 0) process.exit(1);

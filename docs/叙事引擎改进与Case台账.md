@@ -69,6 +69,227 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C161 巨大影响力事件载体门豁免——全球级爆火事件不要求形象载体（J1.97）（2026-10-21 用户裁定）★
+
+- **裁定**：用户「需要形象载体是大部分情况，某则 meme 币没有一个落脚点。但是对于影响力巨大的事件（这个网站确实爆火），是应该可以豁免的」——`0x1214a8cceff27ef355f803e06ec5511cb4f97777`（80억분의1，韩国爆火人生模拟网站）因 E 类 `no_visual_entity` 0.99 被载体门拦；vision 门判文本 sufficient 1.0 跳过图片，图内其实有网站名/界面。
+- **机制（题面 J1.97）**：新增 `event_influence` Choice 3 档（只作载体门豁免输入，**不参与事件分/评级**）：`massive`=全球级/全网级爆火、跨平台跨圈层、主流媒体或大量外部报道；`notable`=单一平台/单一圈层热搜；`limited`=小范围/无外部传播证据。明确锚：写出「一经推出全球爆火/全球热议/全球刷屏」+ 官网/维基/新闻报道等外部来源 → massive（采信陈述，不因没逐条列媒体降档）；单平台热搜不选 massive；作者自夸无外部证据不选 massive。fit 题同步加全球级爆火产品/网站/游戏锚：至少 fit，可参与/讨论/二创可 strong_fit。
+- **机制（mapper C161）**：`event_influence=massive` → `entityVisualBlock` 早退（覆盖 C/D/E 三类载体门：C/D 的 improvised+no_visual、E 的 no_visual）；审计 `subjectCarrierMassiveInfluenceExempt {carrier,influence:'massive'}`，`eventInfluence` 恒落观察。旧缓存行无本题 → null 不豁免（fail-closed，存量行为不变）。
+- **验证**：80억분의1 3 连跑 **high 95.02/95.56/94.87**（event:E；fit 98–99% strong）；C79 偷窥狂 3 连跑 low（influence=notable，载体门照拦）；全量 45 票 **39 PASS / 3 FAIL / 3 OBSERVE**（FAIL=C109c/C129/C133——C133 为已知 W 阈值抖动：全量 30.7<32，隔离 3 连跑 mid 32.5–33.76；OBSERVE=C72/C126/C130）；`_test_massive_influence_carrier` 13P + 相关套件 0 失败。
+- **观察项**：全球爆火是强影响力声明，也可能被虚假叙事利用；`eventInfluence`/`subjectCarrierMassiveInfluenceExempt` 已落库，后续按买点结果回看，必要时收紧为「跨平台外部报道/维基/官网证据」。
+- **部署**：随 J1.97 一批；worker/live 未重启。
+
+### C160 强情感冲击/动物救助路径——真实公益纪念故事可作为 fit 路径（J1.96）（2026-10-21 用户裁定）★
+
+- **裁定**：用户「这个币出内盘了，这是属于对 web3 用户能造成强情感冲击的事件，算是另一条能打动用户的路径」「尤其是 web3 用户，喜欢猫猫狗狗」——秦思雨 `0x843b2515ccc775bbe4c9e56dbed710e602317777`（中国狗妈，一生救助流浪猫狗后早逝）原判 W 类 + `web3_user_event_fit` unfit 0.91 拦死。
+- **机制（题面 J1.96）**：①`event_category` 加 memorial/charity real-person 归属：事件主体=人物/故事 → **E**，不因文本提到「部署代币」判 W；W 只留给 crypto 产品/项目本身是事件主体。②`web3_user_event_fit` 加强情感冲击/动物救助路径：真实正向公益/纪念（尤其流浪猫狗救助，web3 用户天然喜欢猫狗）→ 至少 fit，强共鸣可 strong_fit；情感币/纪念币是真实路径，不要求玩梗/二创。边界=消费弱势真人苦难/土味网红悲剧/疾病死亡猎奇/虚假未证实悲情仍 unfit。
+- **机制（mapper C160 载体豁免）**：E 类 + fit 质量（strong_fit+fit）≥0.5 + 文本事实锚（动物救助词 ∧ 纪念/离世词）→ `entityVisualBlock` 不拦；审计 `subjectCarrierEmotionalImpactExempt {carrier,fitMass,animalRescueMemorial}`。代码锚只防泛 E 热点（C79 偷窥狂无救助/纪念词），语义是否真实正向仍归 Jev。
+- **验证**：秦思雨 3 连跑 **high 83.41/81.67/80.62**（event:E；fit 79/76/74%；载体门豁免）；C79 偷窥狂仍 low（载体门照拦）；C114 DND high、C133 mid PASS；全量 45 票 **39 PASS / 2 FAIL / 4 OBSERVE**（FAIL=C109c/C129；OBSERVE=C100/C72/C126/C130）；`_test_emotional_impact_carrier` 11P（A/B/C/D/E 五段）+ 既有套件 0 失败。
+- **观察项（承接 C159 用户担忧）**：动物救助/纪念是强情感路径，也可能被虚假叙事利用；`subjectCarrierEmotionalImpactExempt` 与 `emptyContentMass` 均落库可回看，后续按买点结果收紧为「真实报道/公益主体证据」。
+- **部署**：随 J1.96 一批；worker/live 未重启。
+
+### C159 event_empty_content 与 fit 矛盾修正——短句点名具体 meme 不算空洞（J1.95）（2026-10-21 用户裁定）★
+
+- **裁定**：用户「这个矛盾了，又认为空洞，又认为符合 web3 审美」——短尾猫 `0x25e1c479a91f0108591ac6e156bda79127b27777` 主推「chinese nubcat?」，Jev 判 event_empty_content 0.54，同时 web3_user_event_fit strong_fit 0.83，两层自相矛盾。
+- **机制（J1.95 题面）**：event_empty_content 加排除——短句/疑问句点名具体 meme/实体/已知 IP 的**完整名称/名词主体**（chinese nubcat?/XX猫？）→ 主体指代明确，属有内容的叙事素材，不选空洞；纯缩写/符号/表情+缩写组合（DND 😾）不适用本锚；低质 IP 复用交 token_ip_reuse 另判。版本 J1.94→J1.95。
+- **机制（mapper C159 近 tie）**：J1.95 让 DND 类票的 empty vs none 变 0.43/0.47 掷骰；C114 图证载体豁免原本只在 blockChoice=event_empty_content 触发，argmax 翻 none 会重开载体门。新增 `emptyContentImgLike = imageEvidence ∧ (blockChoice=event_empty_content ∨ (blockChoice=none ∧ emptyP≥0.4))` 作为 `emptyContentImgCarrierOverride`；审计 `subjectCarrierEmptyImgOverride {carrier,emptyP,noneP}` 只记近 tie 新增面，既有 `emptyContentImgOverride` 不变。
+- **验证**：短尾猫 3 连跑 **high 88.18/90.46/89.35**（event:A；empty 0.16 / none 0.52 / ip_reuse 0.32 → 无否决）；C114 DND 3 连跑 **high 85.64/86.80/85.68**（近 tie 豁免，载体门不拦）；C79 偷窥狂仍 low（文本已讲清热点 meme，G1.2 门 sufficient 跳过 vision）；全量 45 票 **40 PASS / 2 FAIL / 3 OBSERVE**（FAIL=C109c/C129；C133 本轮 mid PASS）；`_test_empty_content_img_exempt` 27P（I1/I2 近 tie + H8 题面锚）。
+- **观察项（用户 2026-10-21 追加担忧）**：短句点名 meme 的锚可能被虚假叙事利用（只蹭名字、无实质事件）——`emptyContentMass` 恒落 stage2 jev 作为观察键（不参与任何门），后续按买点结果回看；必要时收紧为「完整名称 + 至少一条实质证据（图/链接内容/账号宣告）」。
+- **部署**：随 J1.95 一批；worker/live 未重启。
+
+### C158 vision 前置门判据校准——文本讲清叙事才免图，裸口号/官方措辞无上下文必须走图片流程（G1.1+G1.2）（2026-10-21 用户裁定）★
+
+- **裁定**：用户「『这里只能相信陈述的叙事，不需要去验证』如果文本已经把叙事陈述清楚了，就无需再去验证，如果叙事无法单独从文本搞明白，那就再走图片下载与处理流程」。
+- **现象**：智能时代 `0xd633b60f8eb0beac680185bce7f57cbe84a77777` 主推只有「币安官方称之为智能时代」+ 下载链接/二维码截图；G1.0 门以「币名有字面证据」判 sufficient 0.91 跳过 vision → 无图语义 → 载体门（D + no_visual）拦死 low。图片缓存其实已有 img-v3 结论（visible_text「欢迎来到智能时代」），但门跳过连缓存都不读。
+- **机制（G1.1，先）**：`vision_gate_sufficiency` 的 sufficient 判据加「文本须独立讲清叙事（读者看图前不会问『这是什么』）」；need_image 新增裸口号/官方措辞引用臂——只断言/引用口号、只重复币名、只给链接/二维码/下载页 = 叙事无法仅凭文本理解，必须走图片流程。版本 G1.0→G1.1。
+- **机制（G1.2，回归校准）**：G1.1 让偷窥狂 C79（抖音热搜 meme，文本已说明名字/来源/二创）也判 need_image → 图证救活为 high，破坏用户 2026-10-21「期望 low」。补充分侧反锚：文本已讲清热点 meme 是什么/来源/二创时，附带视频/截图只是佐证，不得仅因「看视频」或附图判 need_image。版本 G1.1→G1.2。
+- **验证（3 连跑）**：智能时代 need_image p=0.01~0.02 → 跑 vision（tweet_image 缓存命中）→ **high 85.25/87.05/87.05**（event:D，载体门图证豁免）；C79 sufficient p=0.97~0.98 → 跳过 vision → **low 3/3**（载体门原样）。全量 45 票 **38 PASS / 3 FAIL / 4 OBSERVE** 不变（FAIL=C109c/C129/C133）；`_test_vision_gate` 37P，相关叙事套件 0 失败。
+- **部署**：随 J1.94 一批；worker/live 未重启。
+
+### C157 官方措辞引用纳入超级IP来源臂——只相信陈述、不验证来源（J1.94）（2026-10-21 用户裁定）★
+
+- **裁定**：用户「把官方措辞引用纳入超级IP来源臂；这里只能相信陈述的叙事，不需要去验证」。
+- **机制**：`web3_user_phrase_acceptability` 的超级IP极端否证段新增官方措辞引用臂——语料陈述某词句是超级IP/平台官方渠道的官方措辞/口号/命名（如「币安官方称之为智能时代」），采信陈述，不要求验证来源/页面；第三方转述也按超级IP来源判；官方命名/口号优先于通用短语判据（即使字面是通用词也不按非实体普通词拦）。版本 J1.93→J1.94。
+- **验证**：币安时代 `0x5137927f6ecd2f096278536b7b023a253dc17777` **high 86.46**（acceptable 0.91）；智能时代词句接纳度门由 not_acceptable 0.67 翻 acceptable 0.69，但当时仍被载体门（D+no_visual）拦为 low——载体门的图片流程缺口由 C158 收口；全量 45 票 **38 PASS / 3 FAIL / 4 OBSERVE**。
+- **部署**：随 J1.94 一批；worker/live 未重启。
+
+### C156 name_event_relevance 题键改名 web3_user_name_event_acceptance——全部用户视角命名（J1.93）（2026-10-21 用户裁定）★
+
+- **裁定**：用户「name_event_relevance 我建议也是把名字换了，全部都是用户角度」——与 `web3_user_event_fit` / `web3_user_name_entity_acceptance` / `web3_user_phrase_acceptability` / `web3_user_entity_visuality` 前缀对齐。
+- **改动（J1.93）**：题集键 `name_event_relevance` → **`web3_user_name_event_acceptance`**；判据/3 桶/分值零改动。mapper 双键读：`answers.web3_user_name_event_acceptance?.choice ?? answers.name_event_relevance?.choice`（旧缓存行 bit 不变）；stage3 审计 `probabilities` 新键落库（旧行历史键保留展示）；C88 关联腿/relMass 同款双读。版本 J1.92→J1.93。
+- **验证**：C137 MEMES **high 96.34**、币安时代 **high 87.54**（J1.92 行为不变）；智能时代仍 low（词句接纳度门）；全量 45 票 **38 PASS / 3 FAIL / 4 OBSERVE**（与 J1.92 同集：FAIL=C109c/C129/C133；OBSERVE=C100/C72/C126/C130）。全叙事套件 0 失败；question_consolidation A5 新键 89P。
+- **部署**：随 J1.79→J1.93 一批（题集+mapper；无 DDL）。worker/live 未重启。
+
+### C155 name_event_relevance 收敛为 3 用户视角桶——明确匹配 / 用户能接受 / 不接受（J1.92）（2026-10-21 用户裁定）★
+
+- **案由**：币安时代 `0x5137927f6ecd2f096278536b7b023a253dc17777`（何一「大人，时代变了。💁‍♀️」）J1.91 被 Stage3 关联判 `semantic_weak 9` 截断（事件分 96、fit 0.96 本来过线）。用户裁定：「如果不是何一说的，我可以认同；但是因为是何一说的，meme 币用户去如此引申理解是正常的」——name_event_relevance 改成「**BSC meme 用户能不能理解与接受事件跟代币的关联关系**」，不要 semantic_clear 等细分；「要不明确匹配上，要不就是看用户能不能接纳」；并明确「币安/何一等超级IP的陈述被一定程度引申关联是正常的」。
+- **改动（J1.92）**：题集 9 桶 → **3 桶**：`exact_match` / `acceptable` / `unacceptable`；instructions 只问「用户能不能理解并接受」。mapper 新桶分 **exact_match 20 / acceptable 15 / unacceptable 5**（旧 9 桶分数保留供旧缓存行重放；Stage3 ≤10 截断不变——acceptable 过线、unacceptable 截断）。**逐字锚**：币名（去 emoji/大小写）逐字出现在事件文本/主推中 → exact_match（含普通词/问候语/圈内文化词，不因通用概念降档；C108 EARLY/C114 DND/C126 こんにちは/C137 MEMES 案）。**超级IP引申锚**：币安/何一等超级IP的公开陈述被一定程度引申关联是正常的（「时代变了」→「币安时代」判 acceptable）。版本 J1.91→J1.92。
+- **验证**：币安时代 **high 86.4**（事件分 95 + 关联 15 acceptable + 质量 14.4）；智能时代 `0xd633b60f…7777` 仍 **low**（词句接纳度门 `web3_user_not_acceptable`，名字门未动）；C137 MEMES **high 96.28**（exact_match 20，3 连跑稳定）；C108 EARLY **high 91.69 **、C114 DND **high 86.22**、C126 こんにちは **high 90.46**（observe 票，期望 mid）。全量 45 票（J1.92）：**38 PASS / 3 FAIL / 4 OBSERVE**——FAIL=C109c（high 78.94，快照 low/Jev 方差面）、C129（unknown 59%）、C133（W appeal 23.68<32，Jev 方差）；OBSERVE=C100/C72/C126/C130。
+- **单测**：question_consolidation A5 3 桶（89P）、name_entity/name_image/jev_finding_recap/empty_content/image_depicts/jev_resonance/superip_slogan/brand_hijack/referent/narrator/angle/W 版本锁 J1.92 全绿；全叙事套件 **0 失败**。
+- **部署**：随 J1.79→J1.92 一批（题集+mapper；无 DDL）。worker/live 未重启。
+
+### C154 时效体系清理批次 1→3——C68 退役 + event_timing 收窄 + W 正向时效表删除（J1.91）（2026-10-21 用户裁定）★
+
+- **裁定链**：用户先问「正向分只有 W 的 TIMING_SCORES_W 一张表，是不是可以删除？」→「这个时效体系中哪些机制是冗余或者无意义的，都可以删除」→「好，搞吧」→「按 1→2→3 逐批改」。
+- **批次 1（C68 退役 + unknown 不再归零）**：`ANGLE_TWEET_STALE_SEC`/`overrideAngleTiming`/`angleTimingOverride` 审计整链删除——最近 774 行 **0 命中**；angle_seeking >300s 已由 precheck 2.1 拦，interpretive 有 C120 巨粉豁免，C68 6h 窗被上游吃掉。W 表 `unknown:0` 一并消失（原 247 张 W 票 raw timing unknown 60 张/24.3%，走到 W 评分 16 张全部被 0 分——unknown=没证据不是 old）。
+- **批次 2（event_timing 收窄，J1.90→J1.91）**：题集删 `expected_within_30d`/`expected_beyond_30d`（247 张 W 票：expected_beyond 0 次、expected_within 6 次）——未来事件预期 30 天内归 within_30d，超过 30 天/无法判断归 unknown；题面/单测版本锁同步 J1.91。
+- **批次 3（W 正向时效表删除）**：删 `TIMING_SCORES_W`（within_7d=25/within_30d=15/older=0）——J1.79+ W 评分 81 张中 within_7d 55（69.6%），25 分是常数偏移；W 数学改 **wAppeal(0-75) 单轴，pass 57→32**（=57-25，保持 fresh 通过集）；时效不再正向计分，仅对 `older/unknown` 或 C75/C102/C103 override **封顶 30**（与标准路径 J1.71 后同构）；`scoringResult.timingScore=null`、`timingPenalty=30` 审计。
+- **验证**：C133 股城 J1.91 **mid 56.17 PASS**（J1.90 旧表 55.52<57 low；新表 appeal-only 过 32）；REPEG J1.91 **low 13.14 / W**（吸引力 13.14<32；C153 豁免后不再 precheck 硬拒）；C95 永生蝴蝶仍 **low/expired_tweet PASS**（名单号防线）。单测 `_test_angle_timing_override` 47P（C68 退役反证+保留 C75/C102/C103）、`_test_w_bsc_user_appeal` 19P（单轴/pass32/cap30）、question_consolidation 89P；全叙事套件 **0 失败**；14 个版本锁 J1.91。
+- **全量 45 票（J1.91）**：**38 PASS / 4 FAIL / 3 OBSERVE-DEVIATION / 0 ERROR**——FAIL=C109a 交易猫（关联 0）、C109c BI（high 82.88，快照 low；非时效清理链，J1.90/Jev 方差面待复核）、C114 DND（关联 0）、C129 彪弟（unknown 57%）；OBSERVE=C100/C72/C130（已知面）。C133 已从 FAIL 转 PASS。
+- **保留**：precheck 300s + C74/C104/C132/C120/C153 豁免；C75（4 命中）/C102（17）/C103（13）backstop；`narrativeCorpusLagSec` 仍为纯观察因子（策略库 0 引用，删 metadata 单独裁定）。
+- **部署**：随 J1.79→J1.91 一批（题集+mapper+utils+analyzer；无 DDL）。worker/live 未重启。
+
+### C153 发行方 CA 证据豁免 expired_tweet 硬窗——小项目自己晒地址不卡 300 秒（2026-10-21 用户裁定）★
+
+- **案由**：REPEG `0x88900da3c4b3418708d99d880129cacd9b037777`，@thresiltech（894 粉/1 赞/0 转）发「重启一场关于稳定币的实验 / 重新锚定 / Restarting a stablecoin experiment. / Re-pegging.」，作者时间线另有含 CA 的宣告（issuerCaTimeline 命中）。主推早于创建 4,315s（约 72 分钟）→ classifyTweetType=angle_seeking（低粉+低互动）→ precheck 规则 2.1 的 300s 硬窗拦，LLM 未跑。用户裁定：「这个推文直接在推文中晒了地址，其实是一个小项目，确实不应该卡 300 秒」。
+- **改动**：`narrative-utils.mjs` 新增 `shouldExemptIssuerCaExpired(preCheckResult, {issuerCaTimeline, authorScreenName, mainTweetText, tokenAddress})`——仅对 `details.ruleName='expired_tweet'` 生效；主推文本逐字含 CA **或** 作者时间线 CA 宣告命中；作者必须在册且**不在频繁发币者名单**（C95 防线）；issuerCa 作者与语料作者不一致/作者缺失 → fail-closed 不豁免。`NarrativeAnalyzer` 在 issuerCa 泳道 join 之后、`isPreCheckTriggered` 判定之前调用，命中则 `preCheckResult=null` 继续走 Jev（时效交 event_timing/C68/C75 软评）。题集不变；precheck 代码层豁免。
+- **验证**：REPEG 重析——日志「发行方 CA 证据豁免 expired_tweet（C153）」→ Jev **W 类 / low 13.32**（W 吸引力 13.32<57），不再是 precheck 硬拒；C95 永生蝴蝶（@burnfloor_ 频繁发币者）重跑 **PASS low / expired_tweet**（防线生效）。单测 `_test_issuer_ca_expired_exempt` 11P（issuerCA/主推 CA/名单号/非 expired/作者不一致/缺失/大小写 + 源码口径）。
+- **全量 45 票（J1.90+C153）**：35 PASS / 6 FAIL / 4 OBSERVE——FAIL=C109a/C109c/C114/C129/C133/C137；C109c（high 82.91）、C133（low 55.52）、C126（OBSERVE high 77.15）为本轮 Jev/J1.90 方差面，非 C153 直接改道；C137 仍卡 Stage3 关联（generic_concept 5，J1.91 未实施）。
+- **REPEG 期望留档（2026-10-21 用户追加）**：REPEG 的期望评级是 **high/mid**，但当前 J1.91 结果 low 13.14（W 吸引力<32）**接受、不进一步修**；C153 只负责解除 300s 硬窗，叙事分不再追改。
+- **部署**：随 J1.79→J1.90/C153 一批（precheck+utils+analyzer；无 DDL）。worker/live 未重启。
+
+### C152 MEMES fit 锚——圈内平台/项目核心开发者本人表态至少 fit（J1.90）（2026-10-21 用户裁定「可以」）★
+
+- **案由**：C137 MEMES `0xeeed1ed1b6bd0eae15bb651490a7e8b3057f7777`，@eth_cedric（Flap 平台 dev，46,539 粉）发「Memes will continue.」；empty_content 已被作者豁免翻掉，但 fit 判 unfit 0.33 / marginal 0.29 / strong_fit 0.27 / fit 0.11（sf+fit 0.38<0.5）→ `web3FitMassBlock` low。用户：「这个事件本身就是 Flap 的开发者自己说的话，跟何一说的话类似（弱一档），怎么会不符合 web3 用户呢？」
+- **改动（J1.90，纯 Prompt）**：①`web3_user_event_fit` instructions 加强契合锚——圈内平台/项目官方账号或核心开发者本人的公开表态/口号（Flap dev「Memes will continue」、何一/币安高管发言）发言者身份本身是 web3 圈内事件，不因字面普通短语/口号/无具体形象判 unfit/marginal，至少 fit，按发言者层级/话题强度可 strong_fit；普通路人/媒体账号不适用。②strong_fit/fit criteria 同步补该档。③`jev-state-builder` 的 `corpus_author_identity_note` 补作用域澄清：本约束仅针对币名映射实体题，fit 题可按发言者身份判。mapper 零改动；版本 J1.89→J1.90。
+- **验证**：C137 重析 fit **strong_fit 0.85 / fit 0.15 / unfit 0 / marginal 0**，fit 门放行；但随后卡 **Stage3 关联**——`name_event_relevance: generic_concept 0.73 / exact_match 0.18` → relevance 5≤10 截断，仍 low。即 C152 只解决了 fit 层，C137 达 high/mid 还需 J1.91 关联锚（未实施）。
+- **单测**：`_test_web3_fit` A6/A7 锁新锚与 state note（28P）；13 个版本锁测试 J1.90；全叙事套件 0 失败。
+- **部署**：随 J1.79→J1.90 一批（题集+state builder；无 DDL）。
+
+### C151 哭哭奶龙 wrong_entity 误判修正——有意义错版/二创造型不选 wrong_entity（J1.89）（2026-10-21 用户裁定「改吧」）★
+
+- **案由**：用户观察 C113 哭哭奶龙（`0xe9356facf0558ab0d7025e2898f51d111d517777`）被判 `wrong_entity` 有点奇怪，怀疑是 Prompt 问题。现场：币名「哭哭奶龙」，主推「错版奶龙玩偶 哭哭奶龙 / 奶龙这波致敬哭哭马了 / 这个号是第七印象，奶龙官方」；Jev 实体题 **wrong_entity 0.51 / unknown 0.25 / accepted 0.15 / new_entity 0.03**，wrong_entity≥0.5 全域门拦死（event:A 0.89 / fit strong 0.92，ips 0.24 非拦点）。根因=J1.81/C139 实体题的 `wrong_entity` 锚把「错版」误读为「版本/形态标注残片」、把「哭哭奶龙」误读为「不忠实呈现」——而 C113 原裁定（J1.46）早已确认「错版/哭哭是有具体新梗对象的变形，有意义的修改为什么不行？」；ip_reuse 轴已修，实体轴又误伤一次。
+- **改动（J1.89，纯 Prompt）**：①实体题 instructions「指歪≠指到」段后加显式排除——有独立背景故事/文化来源的有意义变形（错版/错印/玩偶/新造型/二创造型/致敬变体/联名，如「错版奶龙玩偶→哭哭奶龙」「doge→dogwifhat」）不选 wrong_entity；映射原 IP 可判 accepted/unknown，作为新角色/新变体可判 **new_entity**。②`wrong_entity` criteria 同步加排除句（J1.89/C151）；③`new_entity` criteria 明确「已知 IP 的有意义衍生新造型/错版玩偶/二创角色也归本项」。mapper 零改动（wrong_entity≥0.5 门不变，靠 Jev 判读翻正）；题数不变；版本 J1.88→J1.89。
+- **验证（182 定向重析，2026-10-21）**：C113 **high 92 / event:A PASS**——实体题翻为 **new_entity 0.94 / wrong_entity 0**；对照 C105 日本語版仍 **low**（真版本残片）、C78 鲸元卷仍 **low**（真拼写错误），证明排除只放有意义变形、不放真指歪。全量 45 票（J1.89）**39 PASS / 4 FAIL / 2 OBSERVE**——FAIL=C109a 交易猫（关联 0）、C114 DND（关联 0）、C129 彪弟（unknown 59%）、C137 MEMES（fit 38%<50%）；C113 已从 FAIL 转 PASS。
+- **单测**：`_test_name_entity_acceptance` D5d 锁新锚句（41P）；14 个版本锁测试 J1.89；全叙事测试套件 0 失败。
+- **部署**：随 J1.80-J1.89 一批（题集；无 DDL）。worker/live 仍 J1.79 未重启。
+
+### C150 event_quality_veto 删除 event_institution_routine 桶——机构日常交 web3_user_event_fit（J1.88）（2026-10-21 用户裁定）★
+
+- **案由**：C132 混混猫（`0xb10b2c022a717a66fa627c9c9ce73779b5347777`）复核时发现其唯一拦点是 `event_institution_routine` argmax（0.85 / none 0.14，D 类域内）——用户问「现在不是已经没有机构日常运营这一门了吗？」澄清后裁定：「那我觉得 event_institution_routine 也没必要存在，都让 web3_user_event_fit 去判断」。与 C145 同族：机构日常/重要度属第二层用户口味，不作第一层事件质量否决。
+- **改动（J1.88）**：①题集 `event_quality_veto` 删 `event_institution_routine` criterion（6→5 桶含 none：`none / event_empty_content / event_baseless_speculation / token_ip_reuse / event_negative_hard_news`），instructions 第一层从「三问」收为「是否有意义/是否负面」，明确机构日常与产品/内容日常都交第二层 `web3_user_event_fit`；②mapper `BLOCK_SCOPE.event_institution_routine = []` 显式空域（旧缓存行/旧 fixture 的 institution choice 不再拦），argmax 链 `platformOfficial ∧ event_institution_routine` 子句删除（platformOfficial 仍服务 web3FitMassBlock），`BLOCK_LABELS` 保留历史展示；③`JEV_QUESTIONS_VERSION J1.87 → J1.88`。
+- **行为变化（实测）**：C132 **high 91.18 / event:D PASS**（原 low 机构日常）；C117 BNB **high 81.63 / event:C PASS**（原 low 机构日常，同版本另一跑 high 的掷骰面消失）；C97 币安游戏、C109c BI 仍 low（由名字/载体/事件分等其它门接管，非机构日常）；C133 股城 high 70.68 不受影响。
+- **回归（J1.88 全量 45 票，2026-10-21 11:39 UTC）**：**38 PASS / 5 FAIL / 2 OBSERVE-DEVIATION / 0 ERROR**——FAIL=C109a 交易猫（关联 0 分）、C113 哭哭奶龙（wrong_entity 51%）、C114 DND（关联 0 分）、C129 彪弟（unknown 68%）、C137 MEMES（sf+fit 40%<50%）；OBSERVE=C72 小黑（负面硬新闻）、C100 rebondit（负面硬新闻/已知面）。C117/C132 两个机构日常目标票全 PASS。
+- **单测**：question_consolidation 89P（A8 5 桶）、name_entity 40P（D5b 删 institution 源锚）、empty_content 24P（E1 改为退役反证）、product_entity 38P（D2b 删 argmax 子句断言 / F1c/F2 退役行为）、angle_timing 59P；9 个版本锁测试 J1.88；全叙事测试套件 **0 失败**。
+- **部署**：随 J1.80-J1.87→J1.88 一批（题集+mapper；无 DDL）。live/worker 仍 J1.79 未重启。
+
+### C149 Telegram 链接不作账号币证据 + 原生项目/IP 须推特账号或独立站点（2026-10-21 用户裁定）★
+
+- **裁定原话**：「t.me（电报）存在不能作为账号币的证据，只有推特账号才可以」「提供推特账号或者提供站点（不是系统中的子页面）才能是被判为原生项目或者原生IP」。
+- **改动一（Telegram 断源）**：`narrative-utils.mjs` 新增 `isTelegramUrl`（t.me/telegram.me/telegram.dog），`isProjectCoin` 的 URL 臂在 `isAutoTokenPageUrl`（C99）之外再排除 Telegram——`t.me/#<CA>` 只是社群入口线索，不构成项目方自公示/账号币证据。C101 OK❌ 的 t.me 单臂触发账号链补收 → prestage 路由链被切断。
+- **改动二（原生项目/IP 资格门）**：`shouldRouteToAccountCommunity` 的项目币臂从 `isProjectCoinResult && relatedAccounts.length > 0` 收紧为 **`isProjectCoinResult && (hasAccountCorpus || hasOwnSite) && relatedAccounts.length > 0`**——`hasAccountCorpus`=twitterInfo.type account/community（推特账号资格）；`hasOwnSite`=`hasIndependentWebsite`（独立站点，已剔聚合器自动页与第三方平台）。只有推文/系统子页面（CMC dex、t.me 等）皆无资格；账号/社区语料与 issuerDetected 两臂不变。
+- **行为变化（C101 实证）**：C101 的 metadata 只有 status 推文 URL + t.me/#CA + CMC dex 自动页 → `isProjectCoin=false`、路由条件不满足 → 走**标准路径**，Jev 判 `event:C`、low（空洞内容）；原「地址验证拒」文案退役。fixture C101 期望更新为 `{rating:'low', tokenCategory:'event:C', reasonExcludes:['未在账号简介或推文中找到完整代币地址']}`，重跑 **PASS**。真正的项目币（独立站正文含 CA）与 Twitter 账号票（account/community）路由不变。
+- **单测**：`_test_isproject_coin_url_not_ca_hit` 22P（事故形状全语义 false + 推特 URL 含 CA true + 源码锁）、`_test_account_route_tweet_corpus` 12P（A3 独立站 true / A3b 仅推文+系统子页面 false / A3c 账号语料 true）、`_test_isproject_coin_aggregator_urls` 37P、`_test_narrative_middle_parallel` 22P 全绿。
+- **部署**：随 J1.80-J1.87 一批（路由层，无题集 bump/DDL）。站点-only 且无 relatedAccounts 的票当前仍不路由（prestage 账号链需要账号入口；必要条件门已保证「无账号无站点不得判 project/web3ip」）。
+
+### C148 剔除 @GETGEORGEMEME 推特黑名单（2026-10-21 用户指令）★
+
+- **裁定**：用户指令「GETGEORGEMEME 从黑名单剔除」。`config/default.json → narrative.twitterBlacklist` 删除该 handle（唯一在册处，无其它变体）。
+- **影响与验证**：C92 유과 강아지（`0x9d956023c76a23509b8195e9cb635178a35e7777`）原 low 单因即该黑名单（「推文作者@GETGEORGEMEME在黑名单中」）；剔除后重跑 **high 95.5 / event:E / PASS**（observe 票，fixture 只记录不断言）。该票的「E 类感染力折损」案内矛盾（J1.36 折损方向 vs 实际盈亏）随之回到观察面，不再被黑名单遮蔽。
+- **部署**：config 改动需重启叙事 worker / 实验进程生效；随 J1.80-J1.87 一批。无代码/DDL/版本 bump。
+
+### C147 回归集 12 票期望按用户裁定修正（2026-10-21）★
+
+- **裁定原话**：「首先修正一轮数据，以我发的为准，写到数据集合中」——12 票期望值以用户当次消息为准：
+  - `0xc8a55fed967db1f1be1fac90c3a453c1c4187777`（C108 EARLY）→ **high**
+  - `0xc929c8d1e57569b706d7cfdc3487c7d33b287777`（C109a 交易猫）→ **high**
+  - `0x57efcdb41b8107fd6b6db8d06591d67274e27777`（C79 偷窥狂）→ **low**
+  - `0x4688681cd5f1882b3ba12f6f4a79951914e87777`（C82 JDI）→ **low**
+  - `0xe9356facf0558ab0d7025e2898f51d111d517777`（C113 哭哭奶龙）→ **high**
+  - `0x4dbcb10e68626b6f663bd596905d41cdc6b07777`（C114 DND）→ **high/mid**
+  - `0x9d956023c76a23509b8195e9cb635178a35e7777`（C92 유과 강아지）→ **high/mid**（追加裁定）
+  - `0x3b5c3271fb581e503389dd2c52a75065f36f7777`（C129 彪弟）→ **high/mid**（追加裁定）
+  - `0xf8abd6a6bdc0d87291b4f79abc6188c48a807777`（C117 BNB）→ **high/mid**（追加裁定）
+  - `0xb10b2c022a717a66fa627c9c9ce73779b5347777`（C132 混混猫）→ **high/mid**（追加裁定）
+  - `0xaacbc156435dbab7815a61bccba1c827e52a7777`（C133 股城）→ **high/mid**（追加裁定）
+  - `0xeeed1ed1b6bd0eae15bb651490a7e8b3057f7777`（C137 MEMES）→ **high/mid**（追加裁定）
+- **改动**：`fixtures.json` 十二票 `expect.rating` 按上表直写，删除原 `observe` 软断言（改为硬断言），逐票补 `expectSince/expectBecause` 留痕；C108 删除与新期望冲突的 `reasonIncludes: 叙事主体无形象载体`，保留名字门 reasonExcludes；C113 保留 `reasonExcludes: IP低质复用` 与 `tokenCategory: event:A`；C114 期望改为 `["mid","high"]`；C92 由 `rating:null` 观察票改为 high/mid；C129 删除原 low/event:C/unknown reason 断言，改为 high/mid；C117 删除 observe，改 high/mid；C132/C133/C137 改 high/mid（C133 删除原 W总分不足 reason 断言）。
+- **验证（重跑，2026-10-21）**：6 票首轮 **3 PASS / 3 FAIL**——C108 EARLY high 84.03 PASS、C79 low PASS、C82 low PASS；C109a low「关联性不足」FAIL、C113 low「wrong_entity」FAIL、C114 low「关联性不足」FAIL。追加两票：C92 **high 95.47 PASS**（黑名单剔除后）；C129 重跑 **low event:C（unknown 实体）FAIL**——同票另有 high event:A 84.34 跑次（Jev 掷骰；根因=抖音背景未进语料），目标 high/mid 尚未稳定达成。追加四票：C117 **high 81.57 PASS**、C133 **high 70.65 PASS**（W 分掷骰，前跑 low 54.26）、C132 **low「机构日常运营」FAIL**、C137 **low「载体门 no_visual」FAIL**。**全量 45 票（11:31 UTC）：36 PASS / 7 FAIL / 2 OBSERVE**——FAIL=C109a/C113/C114/C117/C129/C132/C137；其中 C117（institution_routine 掷骰）与 C113（wrong_entity 51% 边缘）在同版本另一跑为 high（PASS），C133 本轮 high 通过。当前工作集=这 7 张；C113 本轮 high 已通过（掷骰）。
+- **验证纪律修订（2026-10-21 用户裁定「叙事引擎跑出来是什么结果就是什么结果呀」）**：case 回归**每票必须有 `rating` 主断言**，禁用 `rating:null`/「禁 expired_tweet」这类替代性机制断言——原写法只能证明门没回来，不能证明结果对（引擎落 low 仍可 PASS）。8 张 null 票全部补引擎实际结果：C74 high、C75 low、C106 low、C109b low、C109c low、C83a high、C83b high、C121 high（+observe 标注掷骰面）；审计/分类键只作附加定位。重跑 **8 PASS / 0 FAIL**。`docs/case-regression-tool.md` DSL 规则同步（rating 必填，null 禁用）。
+- **部署**：纯 fixtures 数据改动，随 J1.80-J1.87 一批；无代码/DDL/版本 bump。
+
+### C146 终态重析无分类时清空 token_category——重跑数据必须反映本次判定（2026-10-21 回归发现）★
+
+- **案由**：C145 全量回归展示 C101 OK❌ 时，用户质疑「0x0195119e…7777 为什么被判为 web3_native_ip_early？」并指出「我让你重新跑数据的呀」。核查：本轮 J1.87 该票 precheck 硬拒（`validationStage=address`，0 粉/3 推/简介推文无 CA），prestage/stage1 均 null，`deriveTokenCategory` 返回 null；但 `token_narrative.token_category` 仍显示旧值 `web3_native_ip_early`（C101 修复前 t.me URL 臂伪造 addressVerified 那轮 prestage 的产物）。根因=落库规则「有分类才写键，null 不覆盖旧值」（2026-09-27 裁定，原意保护瞬时失败重析不清旧分类），导致重跑数据不刷新分类，回归表与 web 展示均可能误导。
+- **改动**：`NarrativeRepository.save` 第二参新增 `clearTokenCategory`（默认 false）；`result.token_category` 非空仍直写新值，为空且 `clearTokenCategory=true` 时显式写 null。`NarrativeAnalyzer` **只在 `dbSave.final`** 传 `clearTokenCategory: !tokenCategory`；`dbSave.intermediate` 不传=保留旧值（避免分析中途清列）。终态分析失败无缓存（unrated）同样清空——该行评级已是本次结果，旧分类不应残留。
+- **语义变化**：推翻 2026-09-27「失败重析不抹旧分类」规则中「precheck fail/no_data 不写键」的部分；瞬时失败且命中缓存 fallback 的路径仍在 final save 前返回，不受影响。无题集版本 bump（save 层）。
+- **测试**：`_test_narrative_repo_save_thin` 31P——C3 三态（无分类+clear→null / 无标记→不写键 / 有分类→直写）+ D 源码锁（final 传标记、intermediate 不传）。
+- **数据修正（重跑实证）**：J1.87 全量 45 票重跑（`case-regression-result-2026-10-21T10-50-22-093Z`）后，5 张 precheck fail 行的旧分类全部清空——C101 OK❌、C99 传奇蝴蝶（原 web3_native_ip_early）、C68 제로（原 event:A）、C92 유과 강아지（原 event:E）、C104 バイナンス人生（原 event:C）现均为 `null`；终态 **37 PASS / 0 FAIL / 8 OBSERVE-DEVIATION / 0 ERROR**，与 C145 基线一致（无票翻档）。未手工改库。
+- **部署**：随 J1.80-J1.87 一批（save 层无 DDL）。
+
+### C145 event_quality_veto 删除 event_routine_content_product 桶——产品日常交 web3_user_event_fit（J1.87）（2026-10-21 用户裁定）★
+
+- **案由**：C119 猫票复核时确认其唯一拦截位是 `event_quality_veto` 的 `event_routine_content_product` argmax 桶（其他门全过）。用户裁定原话：「event_routine_content_product 我认为应该直接删除（从 event_quality_veto 中也删），是不是 产品日常 不应该是事件符不符合要求的最终判定，应该直接到 web3 用户那边，看用户接纳度」「也就是说使用 web3_user_event_fit 即可」。定位：产品/内容型日常宣传是否成立属**第二层 Web3 用户口味**，不属**第一层事件质量否决**；质量层只保留「是否有意义/重要度/是否负面」的客观否决（空洞/机构日常/无据猜测/负面硬新闻/IP 复用）。
+- **改动（J1.87）**：①题集 `event_quality_veto` 删 `event_routine_content_product` criterion（7→6 桶含 none：`none / event_empty_content / event_institution_routine / event_baseless_speculation / token_ip_reuse / event_negative_hard_news`），instructions 明示产品/内容日常不再由本题判、交 `web3_user_event_fit`；②mapper 删 `routineContentProductBlock` 概率门、`rcpBlock/rcpArgmaxWouldBlock/rcpPlatformExempt` 审计键与 argmax 子句、`routineContentProductMass`；`BLOCK_SCOPE.event_routine_content_product = []` 显式空域（旧缓存行/旧 fixture 的 routine choice 不再拦，J1.43 先例），`BLOCK_LABELS` 保留历史展示；③`event_institution_routine` **保留**（机构日常仍是事件质量/重要度臂，scope [C,D] + platformOfficial argmax 豁免不变）——本次只删「产品/内容日常」而不是整个日常运营轴。
+- **行为变化（刻意）**：产品/内容日常票不再被第一层截断，改由第二层 `web3_user_event_fit` + 名字/载体/关联/质量门判定。C119 猫 high；C94 京小安（用户裁定替换为 `0xcb98accaa8040a7e839c305b8aca08e113c87777`，旧票 `0xad55993d…7777` 保留 DB 行不删）high；C138 heyi.ai 随之按本意翻 high（routine 原是其唯一残余拦截位，名字门/载体门已由 J1.80/J1.81 放行）。
+- **C94 替换裁定**：用户原话「0xad55993…7777 low 是对的，改数据」→（删桶后该票翻 high 与用户刚确认的 low 冲突）→ 用户改裁「京小安替换为 0xcb98accaa8040a7e839c305b8aca08e113c87777，可以过。它的叙事没问题，只是有的币起来，有的没有」。fixture C94 换地址，断言 `mid|high` + 不得出现「常规内容产品宣传」；旧地址数据保留。
+- **C117 掷骰面（本批发现，已改 observe）**：同版本 J1.87 多跑对 C117 BNB 给出不同结果——6 次重析 **3 low / 3 high**（全量两跑 low/high 各一，单票 3 连探 2 high/1 low，末跑 low）。低分跑 `event_institution_routine` argmax 拦，高分跑该桶仅 0.33 < none 0.45 未达 argmax（high 82-83）；所有跑次都走标准路径（stage≥2，未进 prestage abm），C117 的确定性语义（superIP 强制标准路径）未被破坏。按 C111 纪律「勿写死 Jev 掷骰面」已将 fixture 改 `observe`（保留 low 期望作方向参考，失败只警示）；确定性断言目标是路由而非终评。
+- **回归**：J1.87 全量 45 票三跑（182 temp repo `richer-js-j185`）——首跑（C138 期望仍 low）**34 PASS / 1 FAIL / 10 OBSERVE-DEVIATION / 0 ERROR**，FAIL=C138 low→high（预期）；更新 C138 期望 `mid|high` 后次跑 **36 PASS / 1 FAIL / 8 OBSERVE-DEVIATION / 0 ERROR**（FAIL=C117 掷骰）；C117 改 observe 后末跑 **37 PASS / 0 FAIL / 8 OBSERVE-DEVIATION / 0 ERROR**。目标票：C94 新票 **high 84.01 PASS**、C119 猫 **high 83.79 PASS**、C138 heyi.ai **high 80.18 PASS**；C102/C105/C109b 维持 low（载体门/名字门接管）。C100 rebondit 三跑在 low/high 间摆动（observe 票），同证 Jev 采样方差。
+- **单测**：`_test_jev_question_consolidation` 89P（A8 6 桶 + routine 缺席反证）、`_test_name_entity_acceptance` 40P（D5b 删 routine 源锚）、`_test_jev_product_entity` 38P、`_test_publisher_proxy` 29P、`_test_superip_slogan_class` 52P、`_test_jev_finding_recap_statement_gate` 106P、`_test_subject_carrier` 60P、`_test_web3_fit_anchor` 27P 等 16 文件全绿。
+- **部署语义**：未部署——182 主仓 worker 仍 J1.79、live `37b19a9f` 未重启；J1.87 与 J1.80-J1.86（C138/C139/C140/C141/C142/C143/C144）一批待用户裁定后部署；部署前按规程跑全量回归 + live 持仓核验。
+
+### C144 叙事 save PGRST102 lone surrogate 清洗（2026-10-21 全量回归发现）★
+
+- **案由**：全量 45 票 J1.86 case-regression 中 **C133 股城** 重析成功（Jev low / W 总分 49.58<57）但落库报 `PGRST102 Empty or invalid json`。定位：save payload 的 `raw_api_data.search_evidence.products.Latest.tweets[0].text` 结尾截断在 emoji 代理对中间（孤立 `\ud83d`）——`JSON.stringify` 产出 lone surrogate escape，PostgREST 解析拒绝；NUL（`\u0000`）Postgres 同样不接受。与题集/门无关，是 save 路径对搜索兜底推文截断的 Unicode 健壮性缺口。
+- **修复**：`NarrativeRepository` 新增纯函数 `sanitizeJsonValue`（递归替换 lone surrogate/NUL 为 U+FFFD，合法代理对保留，不 mutate 入参；copy-on-write，干净子树返回原引用以保 save 快照 identity；`stats.replaced` 供观测），save 落库前清洗并 warn 计数。单测 `_test_narrative_save_sanitize.cjs` 11P（合法对/孤立高低代理/NUL/嵌套/不 mutate/JSON 往返/Date）。C133 重跑 **PASS**（low, W 49.58<57），清洗日志命中 1 处。
+- **影响**：所有叙事 save 路径（搜索兜底推文/state/answers/stage 载荷）；有效文本不变，只修非法 Unicode。**题集版本不动**（save 层修复）。
+- **回归**：全量 45 票（J1.86 + C144）原始 34 PASS / 2 FAIL / 8 OBSERVE-DEVIATION / 1 ERROR（C133 PGRST102）。C133 清洗后重跑 PASS；用户裁定 **C94 京小安评级 low 正确**（2026-10-21），fixture expect 收敛为 `{rating:'low'}`（移除 stale reasonIncludes；expectSince/Because 留痕），C94 重跑 PASS。最终 **36 PASS / 1 FAIL / 8 OBSERVE-DEVIATION / 0 ERROR**；C143 品牌票 C96/C97/C109c/C110/C117 全 PASS。唯一 FAIL=**C119 猫**（low vs 预期 mid|high，routine gate 0.43/none 0.28 argmax 拦；非品牌关键词，走五桶实体题，非 C143；待裁）。
+
+### C143 品牌劫持并入实体轴——name_brand_hijack 条件题退役，实体题新增 brand_mismatch 桶（J1.86）（2026-10-21 用户裁定「C」）★
+
+- **案由**：用户在 W 双轴合并后继续观察「name_brand_hijack 本质上是事件/代币的概念扩大或者不匹配」，提议并入 `name_event_relevance`。数据复核否掉 relevance 落点：J1.79 **123 条 brand 题 / 39 条 brandP≥0.5 中品牌门实际拦截 0 条**（最终拦截位 name 接纳度 22 / 机构日常 6 / W 分 5 / 无形象 3 / 地域锚 2 / 放行 1）；**33/39 brand-high 的 relevance>10**（exact_match 17 / semantic_clear 10 / abbreviation_alias 6）——relevance 认为它们强相关，且真正的拦截位是 name 接纳度门（品牌门在 Stage3，位于 name 门之后，多数票到不了）。历史 140 条品牌门拦截中可解析 48 条 relevance 全 `none`/0-2（≤10），relevance 截断本可接住。用户裁定改并入实体轴（方案 C）。
+- **改动（J1.85）**：①`name_brand_hijack` 条件题**整题退役**（题/概率审计键/问出闸）；②`web3_user_name_entity_acceptance` 新增第六桶 **`brand_mismatch`**（品牌劫持/概念扩大：币名指向知名品牌/机构/人物/资产但事件核心实体不是它，且无正当关系；**优先于 accepted**；官方/本人/事件主体不选）；③mapper `brandMismatchP = includeBrandHijack ? 实体题 brand_mismatch 概率 : 0`；`punExempt`/Stage3 品牌劫持臂改吃它；`brandHijackP` 审计键改名 `brandMismatchP`（历史行保留展示）；④keyword 预检 `shouldIncludeBrandHijackCheck` 保留为**题集/门开关**——仅关键词票实体题携带 `brand_mismatch` 桶（六桶）并启用该门/`punExempt`；非关键词票实体题保持 J1.84 五桶原形（防新增桶稀释 accepted/unknown 概率扰动既有门）；⑤基础题仍 11（brand 为条件题）。
+- **punExempt 保留**：显式戏谑双关仍由 mapper 政策层豁免（题面不预豁免，保证 `brandMismatchP` 信号仍在）；C88 `superIpSlogan` 豁免链不变。
+- **J1.86 校准（182 定向重析 9 票，2026-10-21）**：J1.85 首版暴露两个题面锚问题——①**C96 币安上电视回归**（含品牌名陈述句：entity accepted 0.53 / not_entity 0.24 → 词句门被实体票跳过，low→high）；②**C110 币安菠萝**（官方品牌产物：entity brand_mismatch 0.49 阈值边缘，虽保持 high 但语义错误）。J1.86 补两条题面锚：含品牌名的陈述句/短语（币安上电视/バイナンス人生/币安游戏）判 `not_entity`，不选 accepted/unknown/brand_mismatch；官方品牌事件的具体产物/符号（币安官方菠萝→「币安菠萝」）不选 brand_mismatch。桶集/判据结构不变，仅题面锚点。
+- **J1.85 首轮重析结果（9 票）**：8 PASS / 1 FAIL（C96）；C97/C102/C104/C109c/C110/C117/C83a/C83b 通过。C109c BI entity `brand_mismatch` 0.59（最终被「机构日常运营」先拦）；C83a/C83b 用 BI 名未命中关键词预检（旧品牌题同样不问）。
+- **J1.86 重跑（9 票，2026-10-21）**：**9 PASS / 0 FAIL / 0 OBSERVE-DEVIATION / 0 ERROR**——C96 entity **not_entity** 0.03 → 词句门 low（回归修复）；C110 entity **accepted** / brand_mismatch **0.16** → high（官方产物语义修复）；C109c BI entity **brand_mismatch 0.54**（「机构日常运营」先拦，low）；C117 BNB not_entity 0.11 low；C97 not_entity 0.04 low。存档 `data/case-regression-result-2026-10-21T07-33-13-443Z.{json,csv}`（J1.85 首轮同目录 `07-30-26`）。**观察**：C83a BI（名 BI 未命中关键词预检，走五桶实体题）baseline low→high，非 C143 影响（J1.8x 工作树既有变化），留待后续裁定。重析覆盖 9 票 token_narrative 行为 J1.86；跑前备份在 182 `/tmp/case-regression-backup-*.json`；live worker 仍 J1.79 未重启。
+- **单测**：`_test_brand_hijack_pun_exemption` 重写（26P：豁免矩阵/实体 brand_mismatch 信号/审计/relevance 接力/源码反证）；question_consolidation A1/A6、name_entity D5、name_image A7/D3、web3_fit A5、subject_carrier A8、superip_slogan E4/E5/G2 同步；版本锁 J1.85。
+- **遗留**：实体题新增桶=题集语义变化，历史行无 `brand_mismatch` 概率（重放=0，不回溯拦截）；上线前需 182 定向重析样本验证 Jev 判读（官方 Binance / BI 戏谑 / 纯蹭品牌三类），并跑 case-regression；部署随 J1.85。
+
+### C142 W 数学双轴合并为单轴——w_product_score 退役，BSC 用户吸引力 0-75 + 时效 25（J1.84）（2026-10-21 用户裁定「方案A」）★
+
+- **案由**：用户观察「w_product_score 跟 w_bsc_user_appeal 两个轴基本上是重叠的」。复核确认这是两次改锚叠加的结果：①J1.52/C121 把 product 主轴从「客观创新性」切到「web3 用户关注与兴奋度」；②J1.74/C134 把币安交互轴换成「项目对 BSC 用户吸引力」——两题都变成「用户会不会讨论/参与/FOMO」的同一构念。J1.79 实跑（10-19~10-21，1088 行 / 141 张 W 票）：W 票 Pearson 0.843 / Spearman 0.847 / R² 0.711；两轴合计方差仅 ~9.6% 独立；97.2% 两轴差 <1 带；product 系统性高 0.28 带（111/141 product>appeal，29 张反号）；非地板样本（两轴 max≥0.5，n=84）Spearman 0.699、两轴都≥1（n=26）0.540、top20 重合 14/20。对照旧设计（J1.55 product+币安交互，W n≈32）Spearman 0.231、独立方差 62.5%——旧第二轴是「0/3 档」双峰外部验证信号，换成 appeal 后变成 product 的连续影子。product 的残差主要是已退役 C42 的形态先验（新产品基线 20；wNewProductP 代码零消费，仅注释/测试 A11b 锁形态词）。
+- **改动（J1.84）**：①`w_product_score` 整题退役（0-35 轴/形态锚/`W_PRODUCT_BANDS`/`scoringResult.wProductScore`/`probabilities.w_product_score` 全删；旧缓存行残留答案键 mapper 忽略，历史行 UI 保留展示）；②`w_bsc_user_appeal` 0-40→**0-75**（四带 [0,18]/[19,37]/[38,56]/[57,75]，语义档位不变；Jev Score 原语仍回 0-3 期望带，mapper band 映射）；③W 数学 = 吸引力(0-75)+时效(0-25)，pass 线 60→**57**——J1.79 141 张 W 票按新轴分布校准：60→1 张、57→4 张（精确保持旧三轴 top4 通过集）、56→6、55→7、50→11；选 57=保持现状，放宽留待用户另裁；④题数 12→11（W 专用题 2→1）。
+- **行为变化（刻意）**：W 通过集在 J1.79 样本上不变（4 张，旧分 60.89-61.62 / 新分 57.14-60.02）；product 不能再给低 appeal 票补分（旧 C42 形状 product 2.9+appeal 0.1 由 51.1 变 26.8 拦）；C134 案主股城新轴 0.94→16.92+25=41.92<57 仍 low——C134「新 BSC 项目可过」的动机未由本合并解决，留待 appeal 判据/刻度单独裁定。
+- **遗留校准问题（本版刻意不动）**：appeal argmax band3 在 J1.79 实跑 0/881（product 1/881），W 门实质仍是「band2 高位+时效」；通过率 4/141=2.8%，全部依赖 timing=within_7d。合并只解决双轴重复计权，不解决刻度压缩；是否放宽 pass 线/改带界另裁。
+- **单测**：`_test_w_bsc_user_appeal` 重写（19P：单轴数学/时效两档/product 残留零消费/旧 C42 形状不救/题集形状 11 题/源码反证/版本）；`_test_cashtag_w_route` B1c/B5、`_test_web3_fit_anchor` A8、`_test_brand_hijack_pun_exemption` F3、`_test_superip_slogan_class` C4、`_test_jev_question_consolidation` A1/A2/A11、`_test_jev_product_entity` A1/A2、`_test_referent_memeability` A1、`_test_jev_resonance` D5、`_test_jev_finding_recap_statement_gate` A19 同步；13 个版本锁测试 J1.84；叙事链 70+ 测试全绿（存量 `_test_instagram_pipeline`/`_test_publisher_proxy`/`_test_case_regression_lib` 失败为 J1.83/C141 工作树与回归集票数存量问题，本版未引入）。
+- **部署**：待用户裁定——需 182 重启叙事 worker 加载 J1.84；全量 case-regression 对拍（W 票看新轴通过集/股城仍 low）；live 实验进程按持仓核验规程重启。
+
+### C141 event_subject_entity 题退役——判据并入 event_fit unfit 桶 + 契合证据通用硬门 web3FitMassBlock（J1.83）（2026-10-21 用户裁定）★
+
+- **案由**：用户质询「event_subject_entity 存在的价值是？」后裁定原话「我觉得这个也是口味契合的大类，应该放到 web3_user_event_fit 中，如果C/D 类没有通用硬门 可以加。」——事件主体是不是「产品实体/公司产物」本质是 web3 用户口味问题（用户接不接纳该主体做梗），不是独立叙事轴。与 C140（圈层并入 unfit）、J1.36（resonance 并入 fit）同族：判据素材同源的独立题只产生矛盾面。
+- **两件套**：①**题整题退役**（标准 13→12 题）：`event_subject_entity`（J1.27 立，se∈{product_functional,product_character} 桶）删除；判据并入 `web3_user_event_fit` unfit 桶新臂「公司产品实体不被接纳」（锚句：华为发布麒麟芯片≠链上用户接纳麒麟；天然强契合刻意不选本项——强契合票本就该落 fit 档）+ fit 题尾三锚句（公司产品实体 J1.27/J1.83；无形象无玩梗空间→unfit；母公司影响力/规格不转移给产品）。②**门一般化**：mapper `productEntityAcceptanceBlock`（域=se 两桶×fitMass<0.5）退役 → `web3FitMassBlock` 通用硬门——**strong_fit+fit 合计 <0.5 → 拦，全域**（用户裁定「C/D 类没有通用硬门可以加」的落地取全域：口味不足对任何类别都是拦截理由，与 C140 unfit 负门全域化同构）。拦截 label「Web3用户契合证据不足(J1.83)（sf+fit 合计 N%<50%）」。
+- **门链挂点与豁免集**：挂 `web3UnfitBlock`（负门）之后、veto argmax 链之前——「明显不想要（unfit）」先拦，「想要证据不足（sf+fit<0.5）」后拦，两层口味门与质量门（nhn/rcp）构成完整序。豁免四条件 `pubProxyActive || isW || binanceCorpus || platformOfficial`（发布者代理/W 数学/币安语料/平台官方号——C86 D-1、C88 五腿、C44 IG 锚、J1.18 锚等豁免路径的行为面完整保留）。**刻意不豁 punExempt/imgNameExempt**：punExempt 前提 effTier S/A（fitMass≥0.7）与新门结构无冲突；imgNameExempt 低 fit 票豁免救回后总分必 <60（事件分 20×0.6+关联 5 上界），评级等价不变——直接拦归因更干净（豁免救一个必拦票无意义）。`magExempt`（pun/imgName/口号票聚合）只豁量级门两臂不豁新门。
+- **同轴遮蔽（J1.79 派生数学的必然后果）**：J1.79 后 tier 完全由 fitMass 派生（`MAGNITUDE_TIERS[round(fitMass*5)]`）→ ①量级门 D/E 档臂域 [0.1,0.3) ⊂ 新门域 [0,0.5)：非豁免票「事件主体量级不足（D/E 档）」label 被遮蔽，归因迁移至契合门（拦截语义等价迁移，无票翻放）；②「事件分不足（<60）」臂域 [0.3,0.6) 只剩 [0.5,0.6) 段活跃；③C44 IG 锚 floor 50 的有效抬分域 fitMass<0.5 与门域完全重合——非豁免票抬分路径死代码（锚计算/审计 `instagramSpreadAnchor`/`influenceFloor` 照落，归因在门）；④J1.36 E 类折损臂收窄为豁免路径（非豁免低 fit 票先被门拦，折损数学对豁免票照常工作）。
+- **单向收紧证明**：旧门拦截条件（se 两桶 ∧ fitMass<0.5）⊂ 新门拦截条件（fitMass<0.5，豁免链相同）→ 无票翻放；历史行 se 答案键 mapper 忽略、`subjectEntity` 审计键照落只读展示（断代不删值）。
+- **单测**：`_test_jev_product_entity` 整文件重写（38P：题退役/锚句/unfit 桶臂/无 se 照拦/label/审计 `{fitMass}`/历史行 se 照落/character_ip 行为翻转/C/D 通用硬门/豁免链四条件/FlapGuy 官方源豁免/挂点序/版本头条目）；22 个测试同步——遮蔽 label 迁移（web3_fit_anchor A6/A7、publisher_proxy B9b、resonance B1/C3、narrator B5、empty_content A2、image_depicts A2、instagram E1/E1c）；fixture 双策略保豁免链可达（币安语料豁门=name_image_consistency G 段 C86 D-1 原断言全保/subject_carrier D3/D4 门链序/superip_slogan E1b 五腿/resonance A3 折损数学；fitOk 过线=empty_content/image_depicts B+ 段豁免链）；版本链头插 J1.83=C141。
+- **部署**：随 C138+C139+C140+C142 四案一批 182（J1.84 题集）——定向重析对拍 + 全量回归 + worker/live 重启（live 重启前持仓核验）。
+
+
+
+- **案由**：用户裁定原话「token_circle_reachability 是不是没必要单独存在？放到 web3_user_event_fit 即可？」「web3 圈层不可达，就是不适合 web3 用户呗」。`event_token_block_reason.token_circle_reachability`（J1.53 由 niche_subculture 改名，A 域 argmax 桶）与 `web3_user_event_fit` 判定素材完全同源（同一份语料+同一 web3 用户视角），「get 不到」与「不想要」处置完全相同（都拦）——独立作答只产生矛盾面，同 **J1.36 删 event_resonance** 先例（用户同款问法第二次）。C122「不合并」裁定对象=并入名字接纳度，不冲突；其「A-only 域只能靠独立桶」前提在 unfit 负门（`web3UnfitBlock`，全域）已生效下不成立。
+- **三件套（缺一即开洞）**：①题集删桶；②**unfit 档吸收圈层判据**（圈外亚文化 get 不到梗=unfit；「圈外」唯一口径=crypto 圈用户能不能 get 非大众出圈前景；PEPE/doge 圈内梗反向臂+品牌营销物料边界句随迁——C110 实证缺句会漂移 argmax）；③**marginal 圈外臂删除**（原「不重叠小众领域落 marginal 不拦」=删桶逃逸洞——圈外亚文化形象票有形象可玩恰落 marginal；C122 时 5/23 张票靠该桶独活拦截即此形状）——marginal 收窄为「圈内能 get、有部分契合要素、玩味空间有限」；可达性轴（get 不到）整体归 unfit。
+- **拦截形状迁移**：原 A 域 argmax 桶（须独占最突出阻断才拦）→ 全域 unfit≥0.5 概率门（`web3UnfitBlock` 零逻辑改动承接）。mapper `BLOCK_SCOPE` 新旧键（token_circle_reachability/niche_subculture）显式空域退役（J1.43 先例，防 legacy choice 照拦）；BLOCK_LABELS 保留防 fallback 裸键名。
+- **同批两层定位句（用户裁定「先判断事件质量，然后事件是否符合 web3 用户，这两个过了，事件算过了」）**：`event_token_block_reason` 定位句从「硬阻断检查/无叙事价值」改**事件质量否决三问**——①是否有意义（空洞/无据）②重要度（机构日常/常规内容产品宣传）③是否负面（硬新闻）——题头显式声明两层结构（本题=第一层质量，event_fit=第二层口味）；桶群零改动（现有桶天然映射三问）。门链执行顺序不动：nhn/rcp 质量概率门本就在 unfit 口味门前，argmax 链归因顺序维持现状（调序只改标签会致回归票 reason 无谓漂移）。
+- **键名断代（同裁定「event_token_block_reason 的名字也要改」）**：`event_token_block_reason` → **`event_quality_veto`**——对齐定位句「事件质量否决」两层结构第一层（与第二层 `web3_user_event_fit` 构成 veto↔fit 对仗；J1.17 曾因 token_* 桶加对象前缀，现定位收敛为质量否决）。mapper `blockAnswers()` 双键归一读存量 token_narrative 行（C123 改名先例：改名不改判据，旧行 bit 不变——J1.82 上线后未重析行拦截不丢失）；审计 probabilities 新行落新键（旧行历史键保留展示）；Web 叙事页/jev_calibration 双键读；dryrun 题集 id 校验切新键；22 个测试 fixture 切新键（superip_slogan 的 JSON 历史行快照刻意保留旧键=顺带覆盖旧键路径）。
+- **行为变化（刻意）**：全域原 marginal 圈外票（E/C/D 传统行业/地域文化热点）移档 unfit≥0.5 → rating 1，**拦截面扩大**；A 域圈外票从「argmax 独占才拦」变「unfit 概率门」。
+- **单测**：question_consolidation 87P（A11c/c2 锚句迁址断言+A11d 空域+A11e marginal 圈外臂删除=A11c2 同级防线+A12b 桶退役反证+A12e/f unfit 0.62 概率门 A/B 域同拦=全域语义+**G5 旧键行双键归一照拦断言**）；angle_timing_override C5 版本断言存量债修复（J1.79→J1.82）+ E1d 已由 J1.81 会话修复（59P 全绿）。改名批次 22 个测试 fixture 切新键全绿（含 product_entity D1 挂点序/name_entity_acceptance D5b 键存在两处源码锚点断言同步）。
+- **部署**：随 C138+C139 三案一批（见 C139 部署行）；**定向重析对拍=C122 5 张存活拦截票（防逃逸）+ SAND/潘多拉佩吉两张待裁释放样本（看移档后反被 unfit 拦的正反两向数据）**；全量回归 46 票对拍。
+
+
+### C139 名字三轴重构（J1.81）——实体五桶 wrong_entity + 词句题 phrase 收窄 + 载体题 visuality + 著名免形象资格（2026-10-21 用户裁定）★
+
+- **案由**：用户发现名字门三题职责纠缠（`web3_user_name_entity_acceptance`/`name_entity_carrier`/`web3_user_name_acceptability`），裁定理顺为三轴：「通过实体题判断是否是实体，对于非著名实体，要求有形象；词句题改名，用于判断非实体（口号/玩梗等）的情况」。锚票：日本語版（wrong_entity 正主，C105 版本臂）/EARLY/CRO（拼写臂）/币安上电视（陈述句→not_entity）/heyi.ai（著名免形象资格）。
+- **三轴结构**：①**实体轴** `web3_user_name_entity_acceptance` 五桶判「指向什么」——accepted（著名实体）/unknown（已存在实体无认知，B/C/D/F/G/W 域拦，J1.56 不变）/new_entity（不触门，J1.72 不变）/**wrong_entity（新桶：指向实体但指歪/指残——拼写错/不忠实呈现/版本标注残片；版本残片即便逐字出自高影响力主体原话也不接纳，日本語版案）**/**not_entity（原 no_entity 改名：不映射实体=口号/玩梗/陈述句，拦截责任交词句门）**；②**形象轴** `web3_user_entity_visuality`（原 name_entity_carrier 改名，三态档位与判定不变）——非著名实体要求有形象；③**词句轴** `web3_user_phrase_acceptability`（原 web3_user_name_acceptability 改名）**只评不映射实体的名字**——实体票（accepted/unknown/new_entity/wrong_entity）全跳过；J1.80/C138 超IP来源判据段随行（判据文字不动）。
+- **wrong_entity 门（全域）**：`wrongEntityBlock` = `probabilities.wrong_entity >= 0.5` **全域拦（A/E 域也拦）**——与 ne 门 B/C/D/F/G/W 域刻意不同（指歪是客观错误非认知度问题）；审计 `nameWrongEntityMass`；C105 版本臂+C108 拼写臂拦截责任迁入（词句题版本/拼写两 choice 删除，判据文字挪实体题）。
+- **词句门收窄**：`web3UserAcceptabilityBlock` 头部分流——entityChoice ∈ {accepted, unknown, new_entity, wrong_entity} → return null 跳过；not_entity 照评；no_entity=旧行兼容读（旧行 bit 不变）；缺失照评（fail-open 语义不变）；拦截 Set 兼容不动。
+- **著名免形象资格（用户裁定「1，可以」）**：`famousEntity = accepted_prob ≥ 0.5 ∨ 超IP认证行在册（corpusAuthorInRegistry）∨ authorUtterance` → 形象门整门跳过（前两源在调用点 hoist，authorUtterance 臂留门内）；审计 `subjectCarrierFamousExempt` 命中才落。**C88 五腿豁免臂中载体门臂退役**（rcp/劫持/关联豁免与评分贡献不动；图证覆盖豁免 C109/C118 保留）——行为不可见论证：五腿第一腿前提=accepted≥0.5（→著名资格仍豁免）∨ authorUtterance（→臂保留仍豁免），载体门行为完全一致；**新增豁免面=著名但五腿其余腿不达标的票**（heyi.ai 认证行型：S 级+fit 0.94 达标但非五腿全绿，原被载体门管、现著名资格直通——配合 C138 题面判据即本案预期翻案路径）。
+- **载体门域维持现状（用户裁定「2.维持现状」）**：C/D 拦 improvised+no_visual、E 只拦 no_visual、A/B/W/F/G 不碰。
+- **门链序**：ne 实体门 → we 指歪门 → ua 词句门 → sc 形象门 → 量级 D/E 门。**键名断代**：词句三键读 `web3_user_phrase_acceptability ?? web3_user_name_acceptability ?? name_form`；visuality 双键读（新旧）；审计 dump 键 `name_entity_carrier` 沿用历史名（行格式稳定）；Web 叙事页旧缓存行双键读。
+- **边界效应观察位**：A 类 unknown 五五开票 J1.81 三轴全放（原 C108 靠 name_form 兜底拦——词句门收窄后不再管非 not_entity 票）；C 类 unknown 0.62 仍被 ne 门拦（无名实体拦截语义保住）。A 类著名边缘票留观察。
+- **单测**：subject_carrier 全文件重写（60P：visuality 键名/著名资格 I 组/五腿退役反证 G1b+G2c/链序 G2）；name_entity_acceptance 40P（E 组 wrong_entity 全域+阈值 0.5+entityChoice 分流）；finding_recap 106P（fixture 实体调参「choice 迁 not_entity+accepted 概率保留」同时保五腿/著名两路径——mapper 只读 probabilities 不校验 argmax）；question_consolidation 85P；referent_memeability/product_entity/notable_other_exit 适配（B4 改写=accepted 实体票词句门同放为分流边界）；jev_resonance/narrator_two_shapes 补 J1.80 起漏 bump 的版本断言存量债。叙事链 35+ 测试全绿。
+- **并行案备注**：C140/J1.82（圈层可达性桶退役并入 event_fit unfit 档）由并行会话同批追加，版本常量现为 J1.82（C138+C139+C140 三案一批）；各测试版本断言统一 J1.82 并标注归属。
+- **部署（用户裁定「3.一起吧」C138+C139 合并一轮）**：182 定向重析对拍（heyi.ai 预期翻案 mid/high、日本語版预期 wrong_entity 维持拦、EARLY/CRO 维持）→ 全量回归对拍（45 票——日本語版已以 C105 在集，断言=必拦不锁门，J1.81 换门 wrong_entity 拦亦满足，一票一 case 不重复收录）→ 翻案票 `--update-expect --because` 留痕 → worker+live 37b19a9f 重启（live 重启前持仓核验）——待执行。
+
 ### C138 名字门超IP来源判据（J1.80）——heyi.ai 案：原判据不动，超IP票不能接纳标准提高为极端否证（2026-10-21 用户裁定「方案B」）★
 
 - **案由**：`0x1774c0cc851a777c89fb0e1d73712bc7564b7777`（heyi.ai，flap 非 BNB quote 盘、税币；叙事行 platform 误标 fourmeme，2026-10-20 15:17 UTC）——何一 @heyibinance 推文宣告 Binance Agent ID 后 **10 秒**发币、**14 秒拉满毕业**（内盘 6.7x）、PCS 毕业盘 vol24 $103K 后 h24 -89%（庄家砸盘）。J1.79 判读：tier S / strong_fit 0.94 / relPositive 1 / new_entity 0.78 / 载体被 C109 图证豁免（match 0.86）/ authorUtterance=false（推文无「heyi.ai」逐字）——全门放行，唯 J1.42 名字门 `web3_user_not_acceptable 0.62` 拦（读法=「heyi.ai=产品/域名」，忽视「heyi=何一圈内代称+.ai 概念后缀」的符号面）。
@@ -1443,6 +1664,9 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.86 | 2026-10-21 | **C143 校准（题面锚点，桶集/判据结构不变）**：①含品牌名的陈述句/短语（币安上电视/バイナンス人生/币安游戏）判 `not_entity`，不选 accepted/unknown/brand_mismatch；②官方品牌事件的具体产物/符号（币安官方菠萝→「币安菠萝」）不选 brand_mismatch | C143 校准（182 定向重析 9 票：8 PASS/1 FAIL——C96 entity accepted 0.53/not_entity 0.24 致 low→high 回归；C110 brand_mismatch 0.49 阈值边缘） | 本 commit |
+| J1.85 | 2026-10-21 | **品牌劫持并入实体轴**：`name_brand_hijack` 条件题整题退役（题/概率审计键/问出闸全删）；`web3_user_name_entity_acceptance` **关键词票**新增第六桶 `brand_mismatch`（品牌劫持/概念扩大，优先于 accepted；非关键词票保持五桶原形）；mapper `brandMismatchP`=实体题 brand_mismatch 概率（keyword 预检同时作题集/门开关），`punExempt`/Stage3 品牌劫持臂改吃它，`brandHijackP` 审计键改名（历史行保留展示）。基础题仍 11 | C143（用户裁定「C」；J1.79 123 条 brand 题/39 条 P≥0.5、品牌门拦截 0；33/39 brand-high relevance>10；历史可解析 48 条品牌拦截 relevance 全 ≤10） | 本 commit |
+| J1.84 | 2026-10-21 | **W 数学双轴合并为单轴**：`w_product_score`（0-35）整题退役（`W_PRODUCT_BANDS`/`scoringResult.wProductScore`/概率审计键全删；旧行残留键忽略、历史展示保留）；`w_bsc_user_appeal` 0-40→0-75（四带 [0,18]/[19,37]/[38,56]/[57,75]，语义档位不变）；W 数学 = 吸引力+时效，pass 60→57（J1.79 141 张 W 票校准：60→1、57→4=保持旧 top4、56→6、55→7、50→11）。题数 12→11 | C142（用户裁定「方案A」；J1.79 W 票 Spearman 0.847/R² 0.711/独立方差 ~9.6%；product 系统性高 0.28 带；旧 J1.55 product+交互 Spearman 0.231 对照） | 本 commit |
 | J1.79 | 2026-10-20 | **事件层收敛为 Web3 用户口味契合（事件分=fit 质量）**：删除 `web3_user_event_impact`（14→13 题）；`eventCompositeScore = round2(min(1, strong_fit+fit)×100)`（pass 60）；`influenceScore = likedMass×5` 供量级锚/豁免/审计（不再有独立影响力题）；旧源 override -18→封顶 30；E 类感染力折损/unfit≥0.5 负门/五臂过滤（叙事存在性、名字 Symbol、拼写 C78、载体 J1.29+J1.78、实体 J1.56）保留；J1.78 动作/趋势名规则保留，J1.75-J1.77 影响力口径迭代被本版取代 | C135（用户裁定「事件分改用 fit」；案源 = 交易猫 C109a/돼지 H C130/DND C114 分数面） | e2bf2f3 |
 | J1.70 | 2026-10-20 | **审计键/局部变量语义化（零判据零行为）**：用户指令「mapper 变量能否直接使用名字？」「现在还有 stage2 吗？stage2Total 还有存在价值吗？」——①局部变量：`stage2Total`→`eventCompositeScore`、`tierScore`→`impactTierScore`、`effSpread`→`spreadScore`、`spread`→`rawSpreadScore`、`timeliness`→`timingScore`、加权事件分 `eventScore`→`weightedEventScore`、`stage2Blocked`→`eventScoreBlocked`、`stage2Reason`→`eventScoreReason`、`stage2BlockReason`→`gateBlockReason` ②审计键：`scoringResult.totalScore`→`eventCompositeScore`、`scoringResult.tierScore`→`impactTierScore`、`scoringResult.timeliness`→`timingScore`；`stage_final.details.stage2TotalScore`→`eventCompositeScore`、`eventScore`→`weightedEventScore` ③前端/扫描工具双键读（新键优先、旧键=历史行兼容）④UI 文案对齐（「事件分」=合成分、「事件加权分」=×0.6 项）。**不是新题、不是新门**——「事件分」= `impactTierScore + spreadScore + timingScore` 的合成分；stage2 作为阶段已不存在（J1 单次 Jev 调用，stage1/stage2/stage_final 只是逻辑信封） | C130 同族收尾（用户问询） | 本 commit |
 | J1.69 | 2026-10-20 | **名字门判定对象收敛为链上 Symbol（币名）**：`web3_user_name_acceptability` 从「代币 Name/Symbol 取更完整的一个」改为**只判链上 Symbol（ticker）**，Name（全名/描述句）不作判据；判据内容一字不动，只改判谁。范围只名字门（实体/载体/关联/名图/prestage 仍 Symbol+Name） | C130（用户裁定「币名应该看 Symbol」；돼지 H 按电影全名被陈述句误拦） | 495fd69 |
@@ -1454,6 +1678,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 | P1.11 | 2026-10-18 | **题面零改动；mapper 采信语义变化（P1.3 先例 bump）**：`mapPrestageAnswers` 新增 `corpusType`（fetchResults.twitterInfo.type 透传）——'tweet'（挂链语料是一条推文）时 web3_native_ip_early 答案不采信，回落 abm 双条件评定（两题恒带已答零额外调用，`evaluateAbmAnswers` 提取共用）；'account'/'community'/缺省 null 放行；project 不受限；`jevDetails.web3ipRejectedCorpusType` 观测键；同日配套修复一（isProjectCoin includeUrlArm——URL 含 CA 不算命中 CA，skipAddressValidation 证据源换内容臂强证据，路由级不 bump，C99 先例）。同 token 两版本下推文语料票的类型判定不可直接比较 | C101 OK❌ 案 0x0195119e…7777（用户裁定「web3_native_ip_early 仅限于账号」「这不是账号，这就是个推文」「说白了网址里头有CA不算命中CA」；找角度推文宣告+t.me/#CA 伪造 addressVerified → web3ip 0.96 mid → 买 -12.75%；孪生票欧抑同梗标准路径 low 对照） | 本 commit |
 | J1.32 | 2026-10-17 | **题面零改动；变更在 state 输入形状**——superIP 注册表命中票改走标准路径全量 18 题（快车道删除），state PRECOMPUTED 注入 `super_ip_hit` 认证事实行（name/type/tier/desc，格式与快车道时代一致）+ `super_ip_note` 反混淆提示行（作者身份认证≠代币背书，关联/主体资格/量级仍归题集逐题判定）；preScores 预分行删除（评分归 Jev）；非 superIP 票 state 逐字节 bit-parity（单测 A5 红线）；新行评级与 J1.31 前不可比按 prompt_version 过滤 | C83 BI 簇案（bbbe2561 体检：快车道「引用即 IP」6 票引用同一 binance 推文全拿 S 级 84-86 high 全亏，10 票 9 亏净 -0.0085 BNB 占总亏 21%；量级被预分喂饱+reason 不落库；用户裁定 registry 进 state 评分归 Jev） | 本 commit |
 | J1.31 | 2026-10-16 | 新增第 18 题 `event_resonance`（事件情绪感染力 choice 三档：strong_reaction 强感染 / mild_amusement 轻度有趣 / indifferent 无感）**恒带**；题面锚定 BSC meme 买家立场的情绪行动性（主动讨论/玩梗/二创/站队/参与冲动），与 web3_fit 分工=静态口味 vs 动态感染，圈外传播量级明确排除（另有题评）；mapper 标准数学分支 E 类系数折损：`category==='E'` 且系数<1 时 `stage2Total=(tierScore+effDim2)×coef+timeliness`（时效不折），strong ×1 bit-identical；mild 0.5/indifferent 0.25 数学上拦死全部档位（max 49.5<60）但刻意保留系数形式（梯度可观察+阈值校准留口）；旧缓存行缺答案 fail-open 不折；superIP 快车道不消费；审计 `jev.eventResonance` 恒落/`jev.resonanceDamp {resonance,coef}` 命中才落/`probabilities.event_resonance`；历史窗口回测前置失效 `scripts/narrative/invalidate-resonance-window.cjs`；单测 `node scripts/_test_jev_resonance.cjs`（14 断言；fixture 坑=quality 原始分需从 DB breakdown 反解 bandInterpolate） | C80 蝙蝠侠摇案 0x4547dae7…7777（用户裁定「对时事现象热度，其实也应该度量事件对Web3用户的情绪感染力」；E 类 70.68→75.68 high 买入 31s -12.4%，无形象纯现象+抖音搜索页截图+105 粉宣告者；折损后 mild 42.84/indifferent 28.92 双拦） | 本 commit |
+| G1.2 | 2026-10-21 | **vision 前置门判据校准**：sufficient 要求「文本独立讲清叙事」（读者看图前不会问『这是什么』）；need_image 新增裸口号/官方措辞无上下文臂（只断言/引用口号、只重复币名、只给链接/二维码/下载页）；G1.2 补充分侧反锚——文本已讲清热点 meme（名字/来源/二创）时附视频/截图只是佐证，不得仅因「看视频」/附图判 need_image。判定/概率门/接线零改动；版本 G1.0→G1.1→G1.2；单测 `_test_vision_gate`（37 断言） | C158 智能时代 0xd633b60f…7777（用户裁定「文本已陈述清楚就无需验证，叙事无法单独从文本搞明白才走图片流程」；G1.0 把短句「币安官方称之为智能时代」判 sufficient 跳过 vision→载体门拦死；G1.1 误伤 C79 偷窥狂→G1.2 反锚校准） | 本 commit |
 | G1.0 | 2026-10-15 | **vision 前置预判门题集（独立小调用非标准题集成员）**：1 题 Choice `vision_gate_sufficiency`（sufficient/need_image），state=与主 Jev 同语料无图形态；`judgeVisionGate` 概率门 sufficient≥minSufficientProb(0.6, config `vision.gate`)，probabilities 缺失→0 宁跑勿跳；误判方向 fail-safe（误 sufficient→无图=偏拦；误 need_image/失败→跑 vision 原行为）；接线与竞态屏蔽见 C72；单测 `_test_vision_gate`（35 断言） | C72 小黑案 0x9641293a…7777（用户裁定「文字已足够确认叙事就免掉 vision」+默认开；vision 6.6s 占直调 8.05s 的 82% 为最大延迟单点） | 本 commit |
 | P1.10 | 2026-10-15 | **账号基本面门全删**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免逻辑删除；`prestage_project_quality` 题随之删除（唯一消费方已不存在，5 题→4 题）；`rateProject` 重写为纯粉丝带定档（账号 0-299 mid / ≥300 high 不拦截；社区 ≥100+activity high 才 high；baselineMet 恒 true）；token_type 判据措辞同步（follower count "only sets the rating tier, never blocks"）；web3ip/project 双路径同删（mapPrestageAnswers 的 downgrade/qualityExempt 键全删）。同 token 两版本评级不可比（low→mid 单向翻转） | C70 bunker 案 0x2ec1e08c…7777（用户裁定「交易者不会因为粉丝量/注册时间拒绝一个项目」；近 7 天底线拦截 168 票 16 票毕业 9.5% 判别力接近随机；发币后 5 秒快照对当天新号系统性失真） | 本 commit |
 | J1.30 | 2026-10-14 | 新增第 17 题 `name_image_consistency`（名图一致 choice 三档：same_entity 同一对象 / same_visual_category 同类视觉主体 / unrelated 无视觉对应）**条件题**——仅 `options.imageConsistency=true`（主推配图分析挂载）时问，brand_hijack 同款模式无图不问防幻觉作答；meme 盘惯例锚（名字是动物/角色词、图主体恰是该类形象→至少 same_visual_category）+ 图内文字与币名关系计入 + 反例锚；mapper `imgNameExempt` 三门豁免 Stage3 关联≤10 截断：①imageEvidence（twitterInfo.image_analysis 存在）②same_entity+same_visual_category 合并 ≥0.5（答案缺失 nicMatchP=0 fail-closed，旧缓存行零影响）③0<relevance≤10（纯零关联不救）；relevance 分照常计入总分（J1.24/C59 同款计分语义）；与 punExempt 正交并存；劫持/拼写/质量门不受豁免；superIP 快车道不消费本题（C59 的 meme≥3 门语义分工）；审计 `jev.imgNameExempt {relType,relScore,matchP}` 命中才落 + reason 前缀「名图一致豁免(J1.30)｜」；配套 img-v3 图分析（visible_text 逐字转写+maxTokens 1500→2500+config 显式覆盖同步）；历史窗口回测前置失效 `scripts/narrative/invalidate-nameimage-window.cjs`；单测 `node scripts/_test_name_image_consistency.cjs`（36 断言） | C65 巴巴鸡案 0x1ea2152c…7777（用户裁定「都做」：P1 根治梗名只在配图图内文字里的形状（字面证据被 img-v2 截断吞掉→Jev 只剩弱证据判 cultural lv1=5 分触截断拉黑），P2 兜「图里没有文字、只有视觉主体」的现金猫型形状；fixture 取整教训=写 RELEVANCE_TABLE 锚定断言前先对表） | 9ed48ef |

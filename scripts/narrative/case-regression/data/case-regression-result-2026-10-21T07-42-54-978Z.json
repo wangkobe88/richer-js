@@ -1,0 +1,43 @@
+{
+  "ranAt": "2026-10-21T07:42:55.678Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C133",
+      "symbol": "股城",
+      "addr": "0xaacbc156435dbab7815a61bccba1c827e52a7777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:W",
+        "reasonIncludes": [
+          "W类总分不足"
+        ]
+      },
+      "observe": "W 类产品/吸引力分随语料与 Jev 掷骰波动（吸引力 band1/2 边缘，score≥2.0 即过线）；若实体题回退 unknown≥0.5 → reason 变「币名映射实体在 Web3 用户侧无名」→ 本断言失败即回归信号",
+      "caseNote": "股城：空语料搜索兜底（symbol 搜索、不卡互动）；J1.72 new_entity 放行实体门；J1.74 W 数学=产品+BSC用户吸引力+时效（58.31 差 1.69）仍 low",
+      "baseline": {
+        "rating": "low",
+        "reason": "W类总分不足（48.7<60）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:W"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "W类总分不足（49.58<57）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W"
+      },
+      "failures": []
+    }
+  ]
+}

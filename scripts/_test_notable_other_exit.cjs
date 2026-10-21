@@ -43,7 +43,7 @@ function griffinAnswers({ relevance = 'exact_match' } = {}) {
     event_magnitude: { score: 2.8, probabilities: { '1': 0.03, '2': 0.15, '3': 0.65, '4': 0.16, '5': 0.01 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 3.5, probabilities: { '3': 0.5, '4': 0.45 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.81, event_marketing_gimmick: 0.03, subject_unqualified: 0.04, low_quality_derivative: 0.05, event_routine_content_product: 0.03 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.81, event_marketing_gimmick: 0.03, subject_unqualified: 0.04, low_quality_derivative: 0.05, event_routine_content_product: 0.03 } },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { accepted: 0.14, no_entity: 0.04, unknown: 0.82 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.96, fit: 0.04 } },
     name_event_relevance: { choice: relevance, probabilities: relevance === 'exact_match' ? { exact_match: 0.85 } : { partial_match: 0.6, exact_match: 0.3 } },
@@ -142,14 +142,17 @@ async function main() {
     stage2Of(md).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(md).blockReason || ''),
     { blockReason: stage2Of(md).blockReason, pass: stage2Of(md).pass });
 
-  // B4 minor_other 主导（YAYA 无名对象语义）：拦截移交 name_form 分支①——旧快照
-  // 形状（无 name_form 键=fail-open）放行；name_form 判 not_meme_name 时由名字门接住
+  // B4 minor_other 主导（YAYA 无名对象语义）：J1.81 三轴后实体票（accepted）不经
+  // 词句门——「name_form 接住」臂退役，无名实体拦截唯一位=ne 门 unknown（B3 形状）；
+  // 旧快照（无 name_form 键）fail-open 放行不变；not_meme_name 同形状同样放行
+  // （词句门分流——原 C108 四分支①迁移语义）
   const yAnswers = griffinAnswers();
   yAnswers.web3_user_name_entity_acceptance = { choice: 'accepted', probabilities: { accepted: 0.8 } };
   const my = mapStandardAnswers(yAnswers, makeContext());
   const myNf = mapStandardAnswers({ ...yAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
-  check('B4 minor 0.55 主导：旧快照无 name_form 键 fail-open 放行（J1.79 fit 事件分 100）/ name_form=not_meme_name 名字门接住',
-    my.llmResult?.rating !== 'low' && !/Web3 用户不接纳该名字/.test(my.llmResult?.reason || '') && /Web3 用户不接纳该名字/.test(myNf.llmResult?.reason || ''),
+  check('B4 minor 0.55 主导：旧快照无 name_form 键 fail-open 放行 / not_meme_name 实体票同放（J1.81 分流：词句门只评 not_entity 形状）',
+    my.llmResult?.rating !== 'low' && !/Web3 用户不接纳该名字/.test(my.llmResult?.reason || '')
+    && !/Web3 用户不接纳该名字/.test(myNf.llmResult?.reason || ''),
     { legacy: my.llmResult?.rating, nf: myNf.llmResult?.reason });
 
   // B5 common_word 主导（CONVICTION 纯截词语义）：拦截移交 name_form 分支②

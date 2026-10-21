@@ -52,7 +52,7 @@ function gameShowAnswers() {
     event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.89 } },
     dimension2: { score: 25, probabilities: { '3': 0.37, '4': 0.27, '5': 0.25 } },
-    event_token_block_reason: { choice: 'event_baseless_speculation', probabilities: { event_baseless_speculation: 0.3, none: 0.24, event_marketing_gimmick: 0.28, event_institution_routine: 0.12, event_routine_content_product: 0.05 } },
+    event_quality_veto: { choice: 'event_baseless_speculation', probabilities: { event_baseless_speculation: 0.3, none: 0.24, event_marketing_gimmick: 0.28, event_institution_routine: 0.12, event_routine_content_product: 0.05 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.55, unknown: 0.35 } },
     name_entity_memeability: { score: 2.39, probabilities: {} },
     // J1.79：tier 由 fit 派生——strong 0.73+fit 0.10=0.83→influenceScore 4.15→round 4=A 档

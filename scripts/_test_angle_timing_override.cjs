@@ -65,7 +65,7 @@ function makeZeroAnswers(timingChoice = 'within_30d') {
     event_magnitude: { score: 3.4, probabilities: { '3': 0.5, '4': 0.3 } },  // B 档 → 27 分
     event_timing: { choice: timingChoice, probabilities: { within_30d: 0.96 } },
     dimension2: { score: 4.1, probabilities: { '4': 0.5, '5': 0.54 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.88, event_empty_content: 0.12 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.88, event_empty_content: 0.12 } },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.43 } },
     event_subject_entity: { choice: 'character_ip', probabilities: { character_ip: 0.99 } },
     name_event_relevance: { choice: 'semantic', probabilities: { semantic: 0.9 } },
@@ -107,63 +107,12 @@ async function main() {
     created_at: twitterDate(TWEET_SEC), formatted_created_at: '2026年10月3日 02:04',
   };
 
-  // A1 事故现场反证：angle_seeking + lag 993367 → override older → stage2 62→52 翻不过线
+  // A1 C68 退役（J1.91/C154）：旧 제로 形状不再 override，保持 Jev 原判 within_30d
   const a1 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, staleTwitter, 'angle_seeking'));
   const j1 = a1.stage1DataToSave.parsed_output.jev;
-  check('A1a override 命中：angleTimingOverride.lagSec=993367', j1.angleTimingOverride?.lagSec === LAG_SEC, j1.angleTimingOverride);
-  check('A1b Jev 原判档保留审计：rawTiming=within_30d', j1.angleTimingOverride?.rawTiming === 'within_30d', j1.angleTimingOverride);
-  check('A1c timing 归 older', j1.effectiveTiming === 'older', j1.effectiveTiming);
-  check('A1d stage2 被翻转：pass=false（62→52 < 60）', a1.stage2DataToSave.parsed_output.pass === false, a1.stage2DataToSave.parsed_output);
-  check('A1e 终评不再 high', a1.stageFinalData.rating !== 'high' && a1.stageFinalData.category !== 'high', { rating: a1.stageFinalData.rating });
-
-  // 对照组：同形状但非找角度形态（tweetClassification=null=unknown）→ 不 override、压线过（62）
-  const a1c = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, staleTwitter, null));
-  check('A1f 对照（非找角度形态）：override 未触发且 stage2 过线（62>60）',
-    a1c.stage1DataToSave.parsed_output.jev.angleTimingOverride === null
-    && a1c.stage2DataToSave.parsed_output.pass === true,
-    { o: a1c.stage1DataToSave.parsed_output.jev.angleTimingOverride, p: a1c.stage2DataToSave.parsed_output.pass });
-
-  // A2 窗内（1h）：不干预，保持 Jev 原判
-  const freshTwitter = { ...staleTwitter, created_at: twitterDate(ANCHOR_SEC - 3600) };
-  const a2 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, freshTwitter, 'angle_seeking'));
-  check('A2 窗内 1h：不 override + timing 保持 within_30d',
-    a2.stage1DataToSave.parsed_output.jev.angleTimingOverride === null
-    && a2.stage1DataToSave.parsed_output.jev.effectiveTiming === 'within_30d',
-    a2.stage1DataToSave.parsed_output.jev);
-
-  // A3 direct_tweet 同 lag：不干预（推文即事件，event_timing 锚事件时间语义本就对）
-  const a3 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, staleTwitter, 'direct_tweet'));
-  check('A3 direct_tweet 不干预', a3.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a3.stage1DataToSave.parsed_output.jev.angleTimingOverride);
-
-  // A4 interpretive_reply：命中（蹭大IP事件窗口同构，与 angle_seeking 同门）
-  const a4 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, staleTwitter, 'interpretive_reply'));
-  check('A4 interpretive_reply 命中 override', a4.stage1DataToSave.parsed_output.jev.angleTimingOverride?.lagSec === LAG_SEC, a4.stage1DataToSave.parsed_output.jev.angleTimingOverride);
-
-  // A5 锚缺失（无 tokenCreatedAtSec/raw created_at）：fail-open 不干预（与 precheck 跳过对称）
-  const noAnchorToken = { symbol: '제로', name: 'Zero', raw_api_data: { name: 'Zero' } };
-  const a5 = mapStandardAnswers(makeZeroAnswers(), makeContext(noAnchorToken, staleTwitter, 'angle_seeking'));
-  check('A5 锚缺失 fail-open', a5.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a5.stage1DataToSave.parsed_output.jev.angleTimingOverride);
-
-  // A6 载体推文时间缺失：fail-open
-  const noDateTwitter = { type: 'tweet', text: '无时间戳语料' };
-  const a6 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, noDateTwitter, 'angle_seeking'));
-  check('A6 载体时间缺失 fail-open', a6.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a6.stage1DataToSave.parsed_output.jev.angleTimingOverride);
-
-  // A7 主推 11.5 天前 + quoted 2h 前：最新载体活 → 不 override（与 precheck tweetSources 任一新即放对称）
-  // C86 幽灵字段修复：夹具改用生产真实键 quoted_status（twitter-fetcher 产出）——
-  // 修复前 mapper 读 quoted_tweet 时本用例自洽掩盖（夹具错名=断言照样过），现在
-  // 键名即生产形状，引用推作为「最新载体」真实可见是本案事故反证
-  const mixedTwitter = { ...staleTwitter, quoted_status: { created_at: twitterDate(ANCHOR_SEC - 7200) } };
-  const a7 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, mixedTwitter, 'angle_seeking'));
-  check('A7 主推老+quoted 新（任一新即活，quoted_status 生产形状）', a7.stage1DataToSave.parsed_output.jev.angleTimingOverride === null, a7.stage1DataToSave.parsed_output.jev.angleTimingOverride);
-
-  // A8 6h 边界：21601 命中 / 21599 不命中
-  const b1 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, { ...staleTwitter, created_at: twitterDate(ANCHOR_SEC - 21601) }, 'angle_seeking'));
-  const b2 = mapStandardAnswers(makeZeroAnswers(), makeContext(zeroToken, { ...staleTwitter, created_at: twitterDate(ANCHOR_SEC - 21599) }, 'angle_seeking'));
-  check('A8 边界 lag=21601 命中 / 21599 放',
-    b1.stage1DataToSave.parsed_output.jev.angleTimingOverride !== null
-    && b2.stage1DataToSave.parsed_output.jev.angleTimingOverride === null,
-    { hi: b1.stage1DataToSave.parsed_output.jev.angleTimingOverride, lo: b2.stage1DataToSave.parsed_output.jev.angleTimingOverride });
+  check('A1 C68 angleTimingOverride 已退役：旧 제로 形状不再归 older（保持 within_30d）',
+    j1.angleTimingOverride === undefined && j1.effectiveTiming === 'within_30d',
+    { o: j1.angleTimingOverride, t: j1.effectiveTiming });
 
   // ═══ B. precheck 修复①（锚回退）═══
   console.log('\n── B. precheck 规则2 锚回退（IPFS 语料行无平台 created_at）──');
@@ -195,6 +144,7 @@ async function main() {
   check('B4 主推老+引用推新：引用推算进「任一新即放」→ 放行', b4r === null, b4r);
 
   // B3 两锚皆缺：跳过过期检查（现状回归，不因缺锚拦）
+  const noAnchorToken = { symbol: '제로', name: 'Zero', raw_api_data: { name: 'Zero' } };
   const b3r = await performPreCheck(...precheckArgs(noAnchorToken, staleTwitter));
   check('B3 两锚皆缺跳过（不误杀，现状语义）',
     b3r === null || b3r.details?.ruleName !== 'expired_tweet', b3r);
@@ -245,13 +195,12 @@ async function main() {
   // D3 type 互斥：angle_seeking 同 lag 不触新门（C68 域），由 angle 门接管（载体集合
   // 另算——本案 website_tweet 当天=最新载体活，angle 门也不拦=angle 语义保留）
   const d3 = mapStandardAnswers(makeZeroAnswers('within_7d'), makeContext(flyToken, flyTwitter, 'angle_seeking'));
-  check('D3 angle_seeking 不触 staleSource（C68 域 type 互斥）且 angle 门载体集不含宣告救活形状不拦',
+  check('D3 angle_seeking 不触 staleSource（C68 已退役，type 域互斥维持）',
     d3.stage1DataToSave.parsed_output.jev.staleSourceOverride === null
-    && d3.stage1DataToSave.parsed_output.jev.angleTimingOverride === null
     && d3.stage1DataToSave.parsed_output.jev.effectiveTiming === 'within_7d',
     d3.stage1DataToSave.parsed_output.jev);
 
-  // D4 锚缺失：fail-open 不干预（与 C68 A5 对称）
+  // D4 锚缺失：fail-open 不干预
   const d4 = mapStandardAnswers(makeZeroAnswers('within_7d'), makeContext(noAnchorToken, flyTwitter, 'direct_tweet'));
   check('D4 锚缺失 fail-open', d4.stage1DataToSave.parsed_output.jev.staleSourceOverride === null, d4.stage1DataToSave.parsed_output.jev.staleSourceOverride);
 
@@ -281,7 +230,7 @@ async function main() {
     event_magnitude: { score: 3.87, probabilities: { '0': 0, '1': 0.01, '2': 0.06, '3': 0.37, '4': 0.15, '5': 0.41 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 1, within_30d: 0, older: 0, expected_within_30d: 0, expected_beyond_30d: 0, unknown: 0 } },
     dimension2: { score: 4.02, probabilities: { '0': 0.01, '1': 0.01, '2': 0.03, '3': 0.21, '4': 0.4, '5': 0.34 } },
-    event_token_block_reason: { choice: 'low_quality_derivative', probabilities: { none: 0.09, subject_unqualified: 0, niche_subculture: 0, event_empty_content: 0.02, event_institution_routine: 0.18, low_quality_derivative: 0.56, event_marketing_gimmick: 0.1, event_baseless_speculation: 0, token_ip_reuse: 0.04, regional_event: 0, event_negative_hard_news: 0, event_routine_content_product: 0 } },
+    event_quality_veto: { choice: 'low_quality_derivative', probabilities: { none: 0.09, subject_unqualified: 0, niche_subculture: 0, event_empty_content: 0.02, event_institution_routine: 0.18, low_quality_derivative: 0.56, event_marketing_gimmick: 0.1, event_baseless_speculation: 0, token_ip_reuse: 0.04, regional_event: 0, event_negative_hard_news: 0, event_routine_content_product: 0 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.99, fit: 0.01, marginal: 0, unfit: 0 } },
     event_subject_entity: { choice: 'product_functional', probabilities: { company: 0.12, product_functional: 0.65, product_character: 0.01, character_ip: 0, person: 0, event_hotspot: 0.22 } },
     w_product_score: { score: 0.17, probabilities: { '0': 0.87, '1': 0.09, '2': 0.03, '3': 0.01 } },
@@ -325,9 +274,9 @@ async function main() {
   check('E1c timing 归 older + C75 不触（主推 50s 新鲜——载体洗白路径正是事故根因）',
     e1j.effectiveTiming === 'older' && e1j.staleSourceOverride === null,
     { timing: e1j.effectiveTiming, staleSource: e1j.staleSourceOverride });
-  check('E1d 翻 low：C88 五腿第四腿（FRESH_TIMING）断 → J1.29 载体门接管拦截',
+  check('E1d 翻 low：C88 五腿第四腿（FRESH_TIMING）断 → 接管拦截（J1.81/C139：实体 accepted 0.94≥0.5 著名资格豁免载体门——新增豁免面正型，接管位=C102 override 事件分封顶 30<60；必拦不锁门）',
     e1.stage2DataToSave.parsed_output.pass === false
-    && e1.stage2DataToSave.parsed_output.blockReason === '叙事主体无形象载体（无形象实体）',
+    && e1.stage2DataToSave.parsed_output.blockReason.includes('事件分不足'),
     { pass: e1.stage2DataToSave.parsed_output.pass, block: e1.stage2DataToSave.parsed_output.blockReason });
 
   // E2 帕鲁案贴线形状：同活动推 10-16 12:56 蹭（lag=1d40m35s=88835s>86400）也拦
@@ -379,10 +328,9 @@ async function main() {
 
   // E8 不限 type：angle_seeking 载体 50s（C68 窗内不拦）+ 父推 3d → 本门单拦
   const e8 = mapStandardAnswers(makeBaiAnswers(), makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'angle_seeking'));
-  check('E8 angle_seeking 同形状也拦（判据轴=源头事件年龄非载体行为）+ C68 不双拦（载体 50s 窗内）',
-    e8.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835
-    && e8.stage1DataToSave.parsed_output.jev.angleTimingOverride === null,
-    { p: e8.stage1DataToSave.parsed_output.jev.staleParentOverride, a: e8.stage1DataToSave.parsed_output.jev.angleTimingOverride });
+  check('E8 angle_seeking 同形状也拦（判据轴=源头事件年龄非载体行为；C68 已退役）',
+    e8.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835,
+    { p: e8.stage1DataToSave.parsed_output.jev.staleParentOverride });
 
   // E9 与 C75 并存：主推 495d（FLY 形状）+ 父推 25h → 双 override 各落审计键，同归 older
   const e9Twitter = {
@@ -416,7 +364,7 @@ async function main() {
       event_magnitude: { score: 3.04, probabilities: { '0': 0, '1': 0.01, '2': 0.05, '3': 0.81, '4': 0.12, '5': 0 } },
       event_timing: { choice: 'within_30d', probabilities: { within_7d: 0.03, within_30d: 0.96, older: 0.01, expected_within_30d: 0, expected_beyond_30d: 0, unknown: 0 } },
       dimension2: { score: 3.73, probabilities: { '0': 0.01, '1': 0.03, '2': 0.04, '3': 0.19, '4': 0.63, '5': 0.1 } },
-      event_token_block_reason: { choice: 'none', probabilities: { none: 0.97, subject_unqualified: 0.01, niche_subculture: 0, event_empty_content: 0, event_institution_routine: 0, low_quality_derivative: 0.02, event_marketing_gimmick: 0, event_baseless_speculation: 0, token_ip_reuse: 0, regional_event: 0, event_negative_hard_news: 0, event_routine_content_product: 0 } },
+      event_quality_veto: { choice: 'none', probabilities: { none: 0.97, subject_unqualified: 0.01, niche_subculture: 0, event_empty_content: 0, event_institution_routine: 0, low_quality_derivative: 0.02, event_marketing_gimmick: 0, event_baseless_speculation: 0, token_ip_reuse: 0, regional_event: 0, event_negative_hard_news: 0, event_routine_content_product: 0 } },
       web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.98, fit: 0.02, marginal: 0, unfit: 0 } },
       event_subject_entity: { choice: 'character_ip', probabilities: { company: 0, product_functional: 0, product_character: 0, character_ip: 0.96, person: 0, event_hotspot: 0.04, meme_word: 0, none_of_above: 0 } },
       w_product_score: { score: 0.66, probabilities: { '0': 0.66, '1': 0.09, '2': 0.19, '3': 0.06 } },
@@ -560,8 +508,10 @@ async function main() {
   const rule2Seg = precheckSrc.slice(rule2Idx, rule2Idx + 1200);
   check('C1 precheck 规则2 锚链含 tokenCreatedAtSec 回退（防回退链被删）',
     rule2Idx > 0 && rule2Seg.includes('tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at'), null);
-  check('C2 mapper 6h 纵深防御 + precheck 300s 分桶共存（C74 后不再同窗：上游 300s 吞主力拦截，6h 兜 ignoreExpired 穿透/锚缺失/缓存残例）',
-    mapperSrc.includes('ANGLE_TWEET_STALE_SEC = 6 * 3600')
+  check('C2 C68 已退役（J1.91/C154）：mapper 无 6h 常量/函数/审计键；precheck 300s 分桶仍在',
+    !mapperSrc.includes('ANGLE_TWEET_STALE_SEC')
+    && !mapperSrc.includes('overrideAngleTiming')
+    && !mapperSrc.includes('angleTimingOverride')
     && precheckSrc.includes('NON_EXEMPT_TWEET_FRESH_SEC = 300')
     && precheckSrc.includes('classifyTweetType(twitterInfo)'), null);
   check('C3 C75 源头陈旧窗常量与互斥锁定（30d 对齐 within_30d/older 档边界；仅 direct_tweet 域）',
@@ -573,8 +523,8 @@ async function main() {
     && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
-  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.79'")
+  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79=事件分改 fit；J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.97'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')

@@ -29,13 +29,14 @@ const iNuAnswers = {
   web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.68 } },
   event_timing: { choice: 'within_7d', probabilities: { within_7d: 1 } },
   dimension2: { score: 3.7, probabilities: { '3': 0.48, '4': 0.41 } }, // → 26.5
-  event_token_block_reason: {
+  event_quality_veto: {
     choice: 'none',
     probabilities: { none: 0.65, token_ip_reuse: 0.02, event_empty_content: 0.01, regional_event: 0, niche_subculture: 0.01, event_marketing_gimmick: 0.12, event_negative_hard_news: 0, event_institution_routine: 0.14, subject_unqualified: 0, event_baseless_speculation: 0.01, low_quality_derivative: 0.04, event_routine_content_product: 0 },
   },
   web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.54, no_entity: 0.04, unknown: 0.42 } },
-  w_product_score: { score: 0.11, probabilities: { '0': 0.96, '1': 0.02, '2': 0.01, '3': 0.01 } },   // → 0.88
-  w_bsc_user_appeal: { score: 0.01, probabilities: { '0': 0.99, '1': 0.01 } },                    // → 0.09
+  // J1.84/C142：w_product_score 已退役——保留快照键仅证明 mapper 对旧行答案零消费
+  w_product_score: { score: 0.11, probabilities: { '0': 0.96, '1': 0.02, '2': 0.01, '3': 0.01 } },
+  w_bsc_user_appeal: { score: 0.01, probabilities: { '0': 0.99, '1': 0.01 } },                    // → 0+0.01×18=0.18
   name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.5, abbreviation_alias: 0.28 } },
   relevance_level: { score: 3.4, probabilities: { '3': 0.27, '4': 0.62 } },
   block_misspelling: { noul: 0.15 },
@@ -86,7 +87,7 @@ async function main() {
   const m1 = mapStandardAnswers(iNuAnswers, makeContext(iNuAnswers, iNuTwitter));
   check('B1a stage1 类别改写为 W + 原概率保留', m1.stage1DataToSave.category === 'W' && m1.stage1DataToSave.parsed_output.jev.probabilities.event_category.C === 0.52, m1.stage1DataToSave.parsed_output.jev);
   check('B1b stage1 审计标记 categoryForced/cashtagMatched', m1.stage1DataToSave.parsed_output.jev.categoryForced === 'cashtag_w' && m1.stage1DataToSave.parsed_output.jev.cashtagMatched === '$INU');
-  check('B1c stage2 走 W 数学：25.97<60 拦截', m1.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m1.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 25.97 && m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output.scoringResult);
+  check('B1c stage2 走 W 数学：0.18+25=25.18<57 拦截', m1.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m1.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 25.18 && m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output.scoringResult);
   check('B1d reason 标注 cashtag 改道来源', typeof m1.stage2DataToSave.parsed_output.reason === 'string' && m1.stage2DataToSave.parsed_output.reason.includes('cashtag改道W类($INU)'), m1.stage2DataToSave.parsed_output.reason);
   check('B1e 拦截链：stage2 low + stage3 清空 + rating low', m1.stage2DataToSave.category === 'low' && m1.stage3DataToSave.__clear === true && m1.llmResult.rating === 'low' && m1.llmResult.pass === false && m1.llmResult.analysis_stage === 2);
   check('B1f promptType 版本+类别随改道更新（动态版本号防 bump 断裂）', m1.promptType.includes(JEV_QUESTIONS_VERSION) && m1.promptType.includes('W类'), m1.promptType);
@@ -109,11 +110,11 @@ async function main() {
   // B5 高影响力被骑资产：W 数学可放行（改道≠必拦，W 高分照过）
   const bigAsset = {
     ...iNuAnswers,
-    w_product_score: { score: 3.2, probabilities: { '3': 0.9 } },  // → 27+0.2×8=28.6
-    w_bsc_user_appeal: { score: 2.5, probabilities: { '2': 0.9 } }, // → 20+0.5×10=25
+    w_product_score: { score: 3.2, probabilities: { '3': 0.9 } },  // J1.84 起零消费
+    w_bsc_user_appeal: { score: 2.5, probabilities: { '2': 0.9 } }, // → 38+0.5×18=47
   };
   const m5 = mapStandardAnswers(bigAsset, makeContext(bigAsset, iNuTwitter));
-  check('B5 被骑资产影响力极高时 W 数学放行（28.6+24.5+25=78.1）', m5.stage2DataToSave.parsed_output.pass === true && m5.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 78.1, m5.stage2DataToSave.parsed_output.scoringResult);
+  check('B5 被骑资产影响力极高时 W 数学放行（47+25=72）', m5.stage2DataToSave.parsed_output.pass === true && m5.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 72, m5.stage2DataToSave.parsed_output.scoringResult);
 
   console.log(`\n结果：${passed} 通过 / ${failed} 失败`);
   process.exit(failed ? 1 : 0);

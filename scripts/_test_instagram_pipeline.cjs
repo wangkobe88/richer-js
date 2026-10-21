@@ -114,7 +114,7 @@ function tuhaoAnswers({ magnitude = 2.4, dim2Score = 0.97, timing = 'within_7d' 
     event_magnitude: { score: magnitude, probabilities: { '2': 0.55, '3': 0.3 } },
     event_timing: { choice: timing, probabilities: { [timing]: 0.9 } },
     dimension2: { score: dim2Score, probabilities: { '1': 0.55, '2': 0.3 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.62, subject_unqualified: 0.2 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6 } },
     // J1.79：事件分/tier 由 fit 派生——fit=magnitude/5 复现旧影响力分（2.4→48/3.2→64）。
     // strong_fit 刻意 0：旧 web3FitAnchored（strong_fit≥0.5 → B 锚）在 fit 派生 tier
@@ -224,35 +224,40 @@ async function main() {
 
   console.log('\n── E. mapper IG 影响力兜底矩阵 ──');
 
-  // E1 本案数值复现：A 类 + fit 2.4 档（J1.79 事件分 48）→ IG 证据缺失锚下限 50 → 50<60 拦
+  // E1 本案数值复现：A 类 + fit 0.48 → IG 证据缺失锚下限 50。J1.83/C141 契合证据门
+  //（sf+fit<0.5 全域，挂计分门前）同轴遮蔽锚抬分路径——IG 锚 floor 50 的有效抬分域
+  // fitMass<0.5 与门域完全重合，非豁免票先被门拦（composite=null）。锚计算本身照落：
+  // influenceFloor=50 + 审计 instagramSpreadAnchor 非 null（E1b），归因迁移至契合门。
   const m1 = mapStandardAnswers(tuhaoAnswers(), makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e1 = stage2Of(m1);
-  check('E1 J1.79：fit 48，IG 锚下限 50（不保过线）→ 50<60 拦',
-    e1.pass === false && e1.scoringResult.eventCompositeScore === 50 && e1.scoringResult.influenceFloor === 50,
-    { total: e1.scoringResult.eventCompositeScore, floor: e1.scoringResult.influenceFloor });
+  check('E1 fit 0.48 落 J1.83 契合证据门（同轴遮蔽 IG 锚抬分路径），锚计算照落（floor 50）',
+    e1.pass === false && /Web3用户契合证据不足/.test(e1.blockReason || '')
+      && e1.scoringResult.eventCompositeScore === null && e1.scoringResult.influenceFloor === 50,
+    { r: e1.blockReason, total: e1.scoringResult.eventCompositeScore, floor: e1.scoringResult.influenceFloor });
   check('E1b 审计：jev.instagramSpreadAnchor = { fromInfluenceScore: 2.4, floor: 50 }',
     e1.jev?.instagramSpreadAnchor?.fromInfluenceScore === 2.4 && e1.jev?.instagramSpreadAnchor?.floor === 50,
     e1.jev?.instagramSpreadAnchor);
-  check('E1c reason 标注：stage2「IG证据缺失下限」（阻断票 llm reason 无豁免前缀）',
-    /IG证据缺失下限/.test(e1.reason || '') && !/IG影响力豁免\(C44\)/.test(m1.llmResult?.reason || ''),
+  check('E1c 门拦票 stage2 reason 空（计分 reason 仅门链全过后构造）；llm reason=契合证据门',
+    (e1.reason == null || e1.reason === '') && /Web3用户契合证据不足/.test(m1.llmResult?.reason || ''),
     { stage2: e1.reason, llm: m1.llmResult?.reason });
 
-  // E2 真数据已抓到 → 不兜底（Jev 按真证据判分）
-  const m2 = mapStandardAnswers(tuhaoAnswers(), makeContext({ instagramLinked: true, instagramInfoFetched: true }));
+  // E2 真数据已抓到 → 不兜底（Jev 按真证据判分）。fit 0.52 过门（≥0.5）保「不锚→原分」
+  // 对照可达（对照 E1：锚条件同在，fetched=true 使计算面 anchor=null）
+  const m2 = mapStandardAnswers(tuhaoAnswers({ magnitude: 2.6 }), makeContext({ instagramLinked: true, instagramInfoFetched: true }));
   const e2 = stage2Of(m2);
-  check('E2 instagramInfoFetched=true：IG 锚不触发（J1.79 无下限 → fit 48<60 拦）',
-    e2.pass === false && e2.scoringResult.eventCompositeScore === 48
+  check('E2 instagramInfoFetched=true：IG 锚不触发（fit 52 原分 <60 拦，无下限）',
+    e2.pass === false && e2.scoringResult.eventCompositeScore === 52
       && e2.jev?.instagramSpreadAnchor === null,
     { total: e2.scoringResult.eventCompositeScore, anchor: e2.jev?.instagramSpreadAnchor });
 
-  // E3 非 A 类（C 类）→ 不锚
-  const cAnswers = tuhaoAnswers();
+  // E3 非 A 类（C 类）→ 不锚（fit 0.52 过门保对照可达）
+  const cAnswers = tuhaoAnswers({ magnitude: 2.6 });
   cAnswers.event_category = { choice: 'C', probabilities: { C: 0.8 } };
-  cAnswers.web3_user_event_fit = { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.48 } };
+  cAnswers.web3_user_event_fit = { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.52 } };
   const m3 = mapStandardAnswers(cAnswers, makeContext({ instagramLinked: true, instagramInfoFetched: false }));
   const e3 = stage2Of(m3);
-  check('E3 C 类不锚（IG 是形象主阵地，豁免限 A 类）：fit 48',
-    e3.jev?.instagramSpreadAnchor === null && e3.scoringResult.eventCompositeScore === 48, e3.jev);
+  check('E3 C 类不锚（IG 是形象主阵地，豁免限 A 类）：fit 52 原分',
+    e3.jev?.instagramSpreadAnchor === null && e3.scoringResult.eventCompositeScore === 52, e3.jev);
 
   // E4 dim2 已 ≥18 → 只升不降（score 2.5 落「小[18,26]」带 → 18+0.5×8=22）
   const m4 = mapStandardAnswers(tuhaoAnswers({ magnitude: 3.2 }), makeContext({ instagramLinked: true, instagramInfoFetched: false }));
@@ -270,11 +275,11 @@ async function main() {
   check('E5 W 类走 W 数学不触达（无 spreadScore / anchor null）',
     e5.scoringResult.spreadScore === undefined && e5.jev?.instagramSpreadAnchor === null, e5.scoringResult);
 
-  // E6 存量调用形状（不传 IG context）→ 零行为变化（本案 J1.25 实测 51.7 拦复现）
-  const m6 = mapStandardAnswers(tuhaoAnswers(), makeContext());
+  // E6 存量调用形状（不传 IG context）→ 零行为变化（fit 0.52 过门，无锚无下限原分拦）
+  const m6 = mapStandardAnswers(tuhaoAnswers({ magnitude: 2.6 }), makeContext());
   const e6 = stage2Of(m6);
-  check('E6 存量形状（无 IG 字段）：无锚无下限 → fit 48 拦截',
-    e6.pass === false && e6.scoringResult.eventCompositeScore === 48,
+  check('E6 存量形状（无 IG 字段）：无锚无下限 → fit 52 拦截',
+    e6.pass === false && e6.scoringResult.eventCompositeScore === 52,
     e6.scoringResult);
 
   // E7 全链 pass 形状：stage3 走通（relevance 20 + 质量）

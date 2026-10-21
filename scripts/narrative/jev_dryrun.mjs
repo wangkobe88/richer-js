@@ -87,8 +87,8 @@ async function main() {
     // 1) state 构建（时间基准=旧分析时刻，保证时效项与旧评级同基准可比）
     const analyzedAtMs = row.analyzed_at ? new Date(row.analyzed_at).getTime() : undefined;
     const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
-    // 2) 问题集
-    const questions = buildStandardQuestions({ includeBrandHijack });
+    // 2) 问题集（J1.85/C143：品牌题已退役；关键词票在实体题加 brand_mismatch 桶）
+    const questions = buildStandardQuestions({ brandMismatch: includeBrandHijack });
 
     // 3) 真实调用
     const startedAt = new Date().toISOString();
@@ -113,7 +113,7 @@ async function main() {
     console.log(`state: ${stats.totalChars} chars (budget ${stats.budget}) | dropped: ${stats.droppedSections.length ? stats.droppedSections.join(',') : '无'}`);
     const g = stats.groups;
     console.log(`配额: twitter ${g.twitter?.used}/${g.twitter?.quota} wg ${g.websiteGithub?.used}/${g.websiteGithub?.quota} video ${g.video?.used}/${g.video?.quota} others ${g.others?.used}/${g.others?.quota}`);
-    console.log(`jev: ${result.model} ${elapsed}ms tokens=${result.usage?.input_tokens ?? '?'} 题数=${Object.keys(questions).length}${includeBrandHijack ? '（含品牌劫持）' : ''}`);
+    console.log(`jev: ${result.model} ${elapsed}ms tokens=${result.usage?.input_tokens ?? '?'} 题数=${Object.keys(questions).length}${includeBrandHijack ? '（品牌关键词票：brand_mismatch 门启用）' : ''}`);
 
     const a = result.answers;
     console.log(`answers:`);
@@ -121,8 +121,8 @@ async function main() {
     const impactScore = a.web3_user_event_impact?.score ?? a.event_magnitude?.score;
     const spreadScore = a.web3_user_event_spread?.score ?? a.dimension2?.score;
     console.log(`  web3_user_event_impact=${impactScore?.toFixed(2)} timing=${a.event_timing?.choice} web3_user_event_spread=${spreadScore?.toFixed(2)}`);
-    console.log(`  event_token_block_reason=${a.event_token_block_reason?.choice}(P=${a.event_token_block_reason?.probabilities?.[a.event_token_block_reason?.choice]?.toFixed?.(2)}, noneP=${a.event_token_block_reason?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_product=${a.w_product_score?.score?.toFixed(2)} w_appeal=${a.w_bsc_user_appeal?.score?.toFixed(2)}`);
-    console.log(`  relevance=${a.name_event_relevance?.choice}${includeBrandHijack ? ` hijackP=${a.name_brand_hijack?.noul?.toFixed(2)}` : ''}`);
+    console.log(`  event_quality_veto=${a.event_quality_veto?.choice}(P=${a.event_quality_veto?.probabilities?.[a.event_quality_veto?.choice]?.toFixed?.(2)}, noneP=${a.event_quality_veto?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_appeal=${a.w_bsc_user_appeal?.score?.toFixed(2)}`);
+    console.log(`  relevance=${a.name_event_relevance?.choice}${includeBrandHijack ? ` brandMismatchP=${a.web3_user_name_entity_acceptance?.probabilities?.brand_mismatch?.toFixed?.(2)}` : ''}`);
     console.log(`  quality: token_name_quality=${a.token_name_quality?.score?.toFixed(2)}`);
 
     console.log(`聚合: ${mapped.llmResult.reason}`);
@@ -134,7 +134,7 @@ async function main() {
     const checks = [
       ['state 预算内', stats.totalChars <= stats.budget],
       ['全部问题有答案', expectedIds.every(id => a[id])],
-      ['choice 类答案合法', ['event_category', 'event_timing', 'event_token_block_reason', 'name_event_relevance'].every(id => typeof a[id]?.choice === 'string')],
+      ['choice 类答案合法', ['event_category', 'event_timing', 'event_quality_veto', 'name_event_relevance'].every(id => typeof a[id]?.choice === 'string')],
       ['score 类答案合法', [a.web3_user_event_impact ?? a.event_magnitude, a.web3_user_event_spread ?? a.dimension2, a.token_name_quality].every(x => typeof x?.score === 'number')],
       ['聚合产出 rating', ['high', 'mid', 'low'].includes(mapped.llmResult.rating)],
     ];

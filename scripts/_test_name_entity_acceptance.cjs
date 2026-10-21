@@ -12,13 +12,24 @@
  *      （旧 J1.10 nrBlock 规格：B/C/D/F/G/W），no_entity 中性不拦。
  *   ③命名从用户视角出发：题/门/审计键随对象显式化（本测试锁新键名）。
  *
+ * J1.81/C139（2026-10-21 用户裁定三轴重构）：
+ *   ①实体题加第五桶 wrong_entity（指歪/指残：无背景拼写错/不忠实呈现/版本残片）
+ *     ——全域拦截位（wrongEntityBlock，prob≥0.5，A/E 域也拦）；no_entity 断代改名
+ *     not_entity（中性不拦）。C105 版本词臂+C108 拼写臂拦截责任从词句题迁入。
+ *   ②词句题改名 web3_user_phrase_acceptability 并收窄：只评 not_entity 形状
+ *     （entity choice ∈ {accepted,unknown,new_entity,wrong_entity} → 跳过；
+ *     no_entity 旧行/缺失照评=存量 bit 不变）。
+ *   ③载体题改名 web3_user_entity_visuality（本测试只锁实体轴，载体轴见
+ *     _test_subject_carrier.cjs）。
+ *
  * 覆盖：
  *   A. detectAuthorUtterance：CJK 问候语命中 / 只认主推不认父推 / ASCII 词边界 /
  *      symbol 兜底 / 单字符与空文本不命中
  *   B. C88 第一腿双源：accepted≥0.5 / authorUtterance=true（no_entity 问候语票）
  *   C. unknown 实体低影响力门：B/C/D/F/G/W 域拦、A/E 域不拦、0.49 不拦、
  *      no_entity 中性、审计 nameEntityLowMass 恒落
- *   D. 源码口径：谓词/门/作用域/state 作者侧键名（防回潮）
+ *   E. J1.81 wrong_entity 全域拦截位 + 词句门收窄分流 + 审计 nameWrongEntityMass
+ *   D. 源码口径：谓词/门/作用域/state 作者侧键名（防回潮）/题集五桶键名断代
  *
  * 用法：node scripts/_test_name_entity_acceptance.cjs
  */
@@ -37,13 +48,13 @@ function baseAnswers(cat, entity) {
     web3_user_event_impact: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     web3_user_event_spread: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.92 } },
     web3_user_name_entity_acceptance: entity,
     name_entity_memeability: { score: 3, probabilities: {} },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
     event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
-    name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.8 } },
+    web3_user_entity_visuality: { choice: 'existing_entity', probabilities: { existing_entity: 0.8 } }, // J1.81 新键（mapper 双键读旧行）
     token_name_quality: { score: 3, probabilities: {} },
   };
 }
@@ -140,7 +151,7 @@ async function main() {
   check('C3 unknown 0.49 <0.5 → 不拦（概率门槛）',
     stage2Of(m049).jev?.nameEntityLowMass === null, stage2Of(m049).jev?.nameEntityLowMass);
   const mNone = mapStandardAnswers(baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } }), makeContext());
-  check('C4 no_entity 中性：不拦（问候语/截词责任交名字形态门）',
+  check('C4 no_entity 中性：不拦（J1.81 断代改名 not_entity；此处旧 choice 形状=存量行重放；问候语/截词责任交词句门）',
     stage2Of(mNone).jev?.nameEntityLowMass === null && stage2Of(mNone).jev?.nameEntityAcceptance === 'no_entity',
     { mass: stage2Of(mNone).jev?.nameEntityLowMass, choice: stage2Of(mNone).jev?.nameEntityAcceptance });
   // C133（股城案用户裁定）：新项目/新品牌等刚诞生且已在 BSC 用户群发出信息的新实体
@@ -158,7 +169,7 @@ async function main() {
 
   const mkEmpty = () => {
     const a = baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } });
-    a.event_token_block_reason = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.16 } };
+    a.event_quality_veto = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.16 } };
     return a;
   };
   const mEmptyPlain = mapStandardAnswers(mkEmpty(), makeContext());
@@ -171,6 +182,55 @@ async function main() {
     stage2Of(mEmptyAuthor).jev?.emptyContentAuthorOverride != null
     && !/空洞内容/.test(stage2Of(mEmptyAuthor).blockReason || ''),
     { blockReason: stage2Of(mEmptyAuthor).blockReason, audit: stage2Of(mEmptyAuthor).jev?.emptyContentAuthorOverride });
+
+  console.log('\n── E. J1.81/C139 三轴重构行为 ──');
+
+  // wrong_entity 全域拦截位（prob≥0.5，A/E 域也拦——与 ne 门（B/C/D/F/G/W）刻意不同）
+  const we = (cat, p) => {
+    const a = baseAnswers(cat, { choice: 'wrong_entity', probabilities: { wrong_entity: p } });
+    return a;
+  };
+  const mWeC = mapStandardAnswers(we('C', 0.6), makeContext());
+  check('E1 wrong_entity 0.6（C 类）→ 拦 + reason 指歪/指残 + 审计 nameWrongEntityMass=0.6',
+    stage2Of(mWeC).pass === false && /指歪|指残/.test(stage2Of(mWeC).blockReason || '')
+    && stage2Of(mWeC).jev?.nameWrongEntityMass === 0.6,
+    { blockReason: stage2Of(mWeC).blockReason, mass: stage2Of(mWeC).jev?.nameWrongEntityMass });
+  const mWeA = mapStandardAnswers(we('A', 0.6), makeContext());
+  check('E2 wrong_entity 0.6（A 类）→ 照拦（全域拦截位，不随类别放行——ne 门 A/E 不拦的对照）',
+    stage2Of(mWeA).pass === false && /指歪|指残/.test(stage2Of(mWeA).blockReason || ''),
+    stage2Of(mWeA).blockReason);
+  const mWeE = mapStandardAnswers(we('E', 0.6), makeContext());
+  check('E2b wrong_entity 0.6（E 类）→ 照拦（全域）',
+    stage2Of(mWeE).pass === false && /指歪|指残/.test(stage2Of(mWeE).blockReason || ''),
+    stage2Of(mWeE).blockReason);
+  const mWe045 = mapStandardAnswers(we('C', 0.45), makeContext());
+  check('E3 wrong_entity 0.45 <0.5 → 不拦（概率门槛）+ nameWrongEntityMass=null',
+    stage2Of(mWe045).jev?.nameWrongEntityMass === null, stage2Of(mWe045).jev?.nameWrongEntityMass);
+
+  // 词句门收窄分流：实体票不经词句门
+  const na = { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.9 } };
+  const accPhrase = baseAnswers('C', { choice: 'accepted', probabilities: { accepted: 0.8 } });
+  accPhrase.web3_user_phrase_acceptability = na;
+  const mAccP = mapStandardAnswers(accPhrase, makeContext());
+  check('E4 实体票（accepted）+ 词句答案 not_acceptable → 词句门跳过不拦（收窄：实体票名字质量归实体/形象轴）',
+    !/词句接纳度门/.test(stage2Of(mAccP).blockReason || ''), stage2Of(mAccP).blockReason);
+  const nePhrase = baseAnswers('C', { choice: 'not_entity', probabilities: { not_entity: 0.8 } });
+  nePhrase.web3_user_phrase_acceptability = na;
+  const mNeP = mapStandardAnswers(nePhrase, makeContext());
+  check('E5 not_entity 票 + 词句 not_acceptable → 词句门拦（本题唯一管辖形状）',
+    stage2Of(mNeP).pass === false && /词句接纳度门/.test(stage2Of(mNeP).blockReason || ''),
+    stage2Of(mNeP).blockReason);
+  const oldRow = baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } });
+  oldRow.web3_user_name_acceptability = { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } }; // J1.50 前更旧键
+  const mOldRow = mapStandardAnswers(oldRow, makeContext());
+  check('E6 旧缓存行（entity choice=no_entity + 旧键 name_form 系 not_meme_name）→ 照拦（旧行 bit 不变：no_entity/缺失才评）',
+    stage2Of(mOldRow).pass === false && /接纳度门|词句/.test(stage2Of(mOldRow).blockReason || ''),
+    stage2Of(mOldRow).blockReason);
+  const wrongPhrase = baseAnswers('C', { choice: 'wrong_entity', probabilities: { wrong_entity: 0.3, accepted: 0.5 } });
+  wrongPhrase.web3_user_phrase_acceptability = na;
+  const mWP = mapStandardAnswers(wrongPhrase, makeContext());
+  check('E7 wrong_entity choice（prob<0.5 未拦）+ 词句 not_acceptable → 词句门跳过（choice 分流不看 prob）',
+    !/词句接纳度门/.test(stage2Of(mWP).blockReason || ''), stage2Of(mWP).blockReason);
 
   console.log('\n── D. 源码口径（防回潮）──');
 
@@ -194,18 +254,31 @@ async function main() {
     && qsSrc.includes('模拟 BSC 链 Meme 币买家看到这句话的反应，不是套词表') && qsSrc.includes('BSC 链 Meme 币玩家群体里的特殊影响力') && qsSrc.includes('日常陈述、个人行动、礼貌套话')
     && qsSrc.includes('超级IP来源判据（J1.80/C138）')
     && qsSrc.includes('即使是超级IP即影响力超大的用户讲的话，也完全当不了符号，完全不适合作为 meme 币，不会产生购买意愿')
-    && qsSrc.includes('币名「heyi.ai」=其代称「heyi」+.ai 概念后缀'), null);
-  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）',
-    qsSrc.includes('event_token_block_reason:')
-    && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
-    && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
-    && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
-  check('D5 题集四选项（含 new_entity）+ 作者身份不升档红线 + 版本 J1.80（J1.80=C138 超IP来源判据追加段；J1.79 删 web3_user_event_impact 改 fit 单一事件分）',
+    && qsSrc.includes('币名「heyi.ai」=其代称「heyi」+.ai 概念后缀')
+    && qsSrc.includes('官方措辞引用臂（J1.94/C157）')
+    && qsSrc.includes('采信该陈述、不要求验证来源/页面'), null);
+  check('D5d J1.89/C151 有意义的错版/二创造型不选 wrong_entity（哭哭奶龙案锚）',
+    qsSrc.includes('有独立背景故事/文化来源的**有意义变形不选 wrong_entity**')
+    && qsSrc.includes('错版奶龙→哭哭奶龙')
+    && qsSrc.includes('不选本项（J1.89/C151）'), null);
+  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution',
+    qsSrc.includes('event_quality_veto:')
+    && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
+    && qsSrc.includes('event_negative_hard_news:') && !qsSrc.includes('event_routine_content_product:')
+    && qsSrc.includes('token_ip_reuse:') && !qsSrc.includes('token_circle_reachability: {')); // J1.82/C140 圈层桶退役（并行会话同批）
+  const entSeg = qsSrc.slice(qsSrc.indexOf('web3_user_name_entity_acceptance: {'), qsSrc.indexOf('web3_user_entity_visuality: {'));
+  check('D5 题集实体题六桶（J1.94/C157 官方措辞引用臂；J1.93/C156 题键改名；J1.92/C155 name_event_relevance 3 桶；J1.91/C154 时效体系清理；J1.90/C152 MEMES fit 锚；J1.89/C151 哭哭奶龙 wrong_entity 修正；J1.88/C150 删 institution 桶；J1.87/C145 删 routine 桶；J1.86/C143 校准：accepted/unknown/new_entity/wrong_entity/brand_mismatch/not_entity；no_entity 断代退役）+ 作者身份不升档红线 + 版本 J1.97；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性并入 event_fit（并行会话同批）；J1.81=C139 三轴重构；J1.80=C138 超IP来源判据追加段）',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
-    && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /new_entity:/.test(qsSrc) && /no_entity:/.test(qsSrc)
+    && /accepted:/.test(entSeg) && /unknown:/.test(entSeg) && /new_entity:/.test(entSeg)
+    && /wrong_entity:/.test(entSeg) && /brand_mismatch:/.test(entSeg) && /not_entity:/.test(entSeg) && !/no_entity:/.test(entSeg)
+    && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
+    && entSeg.includes('品牌劫持/概念扩大') && entSeg.includes('本项优先于 accepted')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.80'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.97'/.test(qsSrc));
+  check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability / 载体题 web3_user_entity_visuality 在册，旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
+    /web3_user_phrase_acceptability: \{/.test(qsSrc) && /web3_user_entity_visuality: \{/.test(qsSrc)
+    && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

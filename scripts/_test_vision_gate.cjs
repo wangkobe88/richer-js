@@ -149,6 +149,16 @@ async function main() {
     assert(qs.vision_gate_sufficiency?.type === 'choice'
       && qs.vision_gate_sufficiency?.criteria?.sufficient && qs.vision_gate_sufficiency?.criteria?.need_image,
     'A6 题形状：1 题 choice + 两选项 criteria');
+    assert(q.JEV_VISIONGATE_QUESTIONS_VERSION === 'G1.2', 'A7 版本 G1.2（裸口号 + 已讲清叙事反锚）', q.JEV_VISIONGATE_QUESTIONS_VERSION);
+    const instr = qs.vision_gate_sufficiency.instructions;
+    assert(instr.includes('Bare slogan / official-wording citation without context')
+      && instr.includes('币安官方称之为智能时代')
+      && instr.includes('independently explains the narrative'),
+    'A8 G1.1 锚：裸口号/官方措辞无上下文 → need_image；文本须独立讲清叙事');
+    assert(instr.includes('Counter-anchor (G1.2)')
+      && instr.includes('抖音热搜meme')
+      && instr.includes('NOT need_image'),
+    'A9 G1.2 反锚：文本已讲清热点 meme/二创 → 附图只是佐证，不判 need_image');
   }
 
   // ═══ B. runVisionGate 服务行为 ═══

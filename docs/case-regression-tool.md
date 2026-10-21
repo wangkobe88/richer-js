@@ -36,14 +36,14 @@ npm run narrative-sample -- --set <set> [--only top|bottom|random] [--dry]
 
 | 键 | 语义 |
 |---|---|
-| `rating` | `'low'|'mid'|'high'` 单值或数组；`null`=不断言（评级交后腿的票） |
+| `rating` | `'low'|'mid'|'high'` 单值或数组；**每票必须写引擎实际结果**（2026-10-21 用户裁定「叙事引擎跑出来是什么结果就是什么结果」；`null`/不断言禁用） |
 | `reasonIncludes` / `reasonExcludes` | 终态文案（blockReason/precheck.reason）子串全 AND / 禁词 |
 | `precheckRuleIncludes` / `precheckRuleExcludes` | 对 `pre_check_result` 的 ruleName |
 | `auditIncludes` | 审计键须在 stage1/stage2 结果列序列化内在场（如 `staleParentOverride`） |
 | `tokenCategory` / `tokenCategoryExcludes` | `token_category` 精确等 / 不得再出现的类别 |
 
 **写断言纪律（C111 三教训）**：
-1. 只断言**确定性键**（拦截位 ruleName、审计 override 键、rating 方向）；Jev 概率面掷骰的（nameForm argmax 浮动、低置信 carrier 掷硬币）**勿写死**——rating 不断言配 `observe` 键说明已知面。
+1. 每票必须写 `rating` 主断言（引擎实际结果）；机制键（拦截位 ruleName、审计 override 键、tokenCategory）只作**附加定位**，不得替代 rating——否则会出现「门没回来但评级已错，测试仍 PASS」的假验证。Jev 概率面掷骰的票用实际结果快照 + `observe` 键说明已知波动，**不再写 `rating:null`**。
 2. 拦截位会随门链序移动（C74 分桶 precheck 先拦、C108 门链序 nf→sc→tier）——断言「方向对」而非「死因恰好是某门」，除非该门是 case 的全部语义。
 3. 四信封判读（fin > pcr > prest）只在 lib `interpret` 一处实现，勿在断言或脚本里重复。
 

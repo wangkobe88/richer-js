@@ -46,7 +46,7 @@ function bianfuAnswers({ web3fit = BIANFU_WEB3FIT, category = 'E', tierScore = 3
     event_magnitude: { score: tierScore, probabilities: tierProbs },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 5.34, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.57, event_marketing_gimmick: 0.19 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.57, event_marketing_gimmick: 0.19 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.43, no_entity: 0.38 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: web3fit },
     event_subject_entity: { choice: 'meme_word', probabilities: { meme_word: 0.67, character_ip: 0.14 } },
@@ -71,10 +71,14 @@ function makeContext(tokenData) {
   };
 }
 
-function run(answers) {
+function run(answers, tokenData = bianfuTokenData) {
   // 动态 import 缓存：mapStandardAnswers 是纯函数，重复调用安全
-  return import('../src/narrative/analyzer/llm/jev-result-mapper.mjs').then(m => m.mapStandardAnswers(answers, makeContext(bianfuTokenData)));
+  return import('../src/narrative/analyzer/llm/jev-result-mapper.mjs').then(m => m.mapStandardAnswers(answers, makeContext(tokenData)));
 }
+
+// J1.83/C141 折损臂收窄为豁免路径：非豁免低 fitMass 票被契合证据门先拦
+//（门域 [0,0.5) ⊃ 折损域），折损数学对豁免票照常工作——币安语料 ctx 保路径可达
+const bianfuBinanceTokenData = { symbol: '币安蝙蝠侠摇', name: '币安蝙蝠侠摇', raw_api_data: { name: '币安蝙蝠侠摇' } };
 
 async function main() {
   console.log('\n── A. 双案反证（J1.36 判据源=web3_user_event_fit）──');
@@ -96,24 +100,26 @@ async function main() {
     { t: s2.scoringResult?.eventCompositeScore, fin: f2.totalScore });
 
   // A3 marginal 占优：fitMass=0.3 <0.5 → ×0.5：J1.79 fit 事件分 30×0.5=15 <60 事件分不足拦
-  const m3 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.15, fit: 0.15, marginal: 0.6, unfit: 0.1 } }));
+  // J1.83/C141：币安语料豁契合证据门（非豁免低 fit 票先被门拦）——折损数学对豁免票照常
+  const m3 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.15, fit: 0.15, marginal: 0.6, unfit: 0.1 } }), bianfuBinanceTokenData);
   const s3 = m3?.stage2DataToSave?.parsed_output || {};
   const r3 = m3?.llmResult || {};
-  check('A3 marginal 0.3 → ×0.5：J1.79 fit 事件分 30×0.5=15 拦（C80 折损数学沿用）',
+  check('A3 marginal 0.3 → ×0.5：J1.79 fit 事件分 30×0.5=15 拦（C80 折损数学沿用；J1.83 起折损臂=豁免路径，币安语料保路径）',
     s3.scoringResult?.eventCompositeScore === 15 && s3.pass === false && /事件分不足（15<60）/.test(s3.blockReason || '') && r3.rating === 'low',
     { t: s3.scoringResult?.eventCompositeScore, r: s3.blockReason, rating: r3.rating });
 
   console.log('\n── B. 边界 ──');
 
   // B1 web3_user_event_fit 答案整体缺失（J1.19 前旧缓存行）→ 无数可折（审计 null）；
-  // J1.79 事件分=fit 质量 → 缺失=0 分/E 档，被 D/E 量级门拦（不再有「60 原样放行」语义）
+  // J1.79 事件分=fit 质量 → 缺失=fitMass 0，J1.83 起被契合证据门拦（原 E 档量级门
+  // 同轴遮蔽——门域 [0,0.5) 覆盖缺失态，fail-closed 无静默放行不变）
   const noFit = bianfuAnswers();
   delete noFit.web3_user_event_fit;
   const m4 = await run(noFit);
   const s4 = m4?.stage2DataToSave?.parsed_output || {};
   const j4 = m4?.stage2DataToSave?.parsed_output?.jev || {};
-  check('B1 fit 缺失：折损审计 null（无数不折）且事件分缺失态被量级门拦（fail-closed，无静默放行）',
-    s4.pass === false && /量级不足/.test(s4.blockReason || '')
+  check('B1 fit 缺失：折损审计 null（无数不折）且缺失态被契合证据门拦（fail-closed，无静默放行）',
+    s4.pass === false && /Web3用户契合证据不足/.test(s4.blockReason || '')
       && j4.web3FitDampMass === null && j4.web3FitDamp === null,
     { t: s4.scoringResult?.eventCompositeScore, m: j4.web3FitDampMass, blk: s4.blockReason });
 
@@ -128,12 +134,14 @@ async function main() {
 
   console.log('\n── C. 作用域 ──');
 
-  // C1 A 类 + marginal 0.3 → 不折（裁定域=E 类）；J1.79 事件分=fit 质量 30
-  const m6 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.15, fit: 0.15, marginal: 0.6, unfit: 0.1 }, category: 'A' }));
+  // C1 A 类不折：裁定域=E 类。J1.83/C141 后 A 类低 fitMass 票被契合门先拦
+  //（「A 类 marginal 不折」的行为面已随门收敛）——0.5 恰过线形状保「A 类与
+  // 折损无交面」验证（<0.5 严格边界 + fitMass 审计照落）
+  const m6 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.25, fit: 0.25, marginal: 0.4, unfit: 0.1 }, category: 'A' }));
   const s6 = m6?.stage2DataToSave?.parsed_output || {};
   const j6 = m6?.stage2DataToSave?.parsed_output?.jev || {};
-  check('C1 A 类不折（J1.79 fit 事件分 30 原样；fitMass 审计照落）',
-    s6.scoringResult?.eventCompositeScore === 30 && j6.web3FitDampMass === 0.3 && j6.web3FitDamp === null,
+  check('C1 A 类不折（恰 0.5 过线：事件分 50 原样无折损段；fitMass 审计照落）',
+    s6.scoringResult?.eventCompositeScore === 50 && j6.web3FitDampMass === 0.5 && j6.web3FitDamp === null,
     { t: s6.scoringResult?.eventCompositeScore, d: j6.web3FitDamp });
 
   // C2 W 类：W 数学分支，折损不触达（tierScore null）
@@ -142,12 +150,13 @@ async function main() {
   check('C2 W 类走 W 数学不触达（tierScore=null）', s7.scoringResult?.impactTierScore == null,
     s7.scoringResult);
 
-  // C3 E 类 D 档量级票：量级门先拦（折损前结论不变，blockReason 归量级门）
+  // C3 E 类 D 档量级票：J1.83 前量级门拦；J1.83 后 D 档域 fitMass[0.1,0.3) ⊂ 契合门
+  // 域 [0,0.5)——同轴遮蔽，归因迁移至契合证据门（折损数学不触达，结论仍拦不变）
   // J1.79：档位由 fit 派生（mass 0.2 → influenceScore 1 → D 档），旧 magnitude 题已删
   const m8 = await run(bianfuAnswers({ web3fit: { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 } }));
   const s8 = m8?.stage2DataToSave?.parsed_output || {};
-  check('C3 E 类 D 档（fit 派生）：量级门先拦（归因=量级不足非折损）',
-    s8.pass === false && /量级不足/.test(s8.blockReason || ''),
+  check('C3 E 类 D 档（fit 派生）：契合证据门先拦（J1.83 同轴遮蔽，归因=契合证据不足非折损）',
+    s8.pass === false && /Web3用户契合证据不足/.test(s8.blockReason || ''),
     s8.blockReason);
 
   console.log('\n── D. 审计与源码口径 ──');
@@ -175,19 +184,19 @@ async function main() {
     { keys: Object.keys(j1), pkeys: Object.keys(j1.probabilities || {}) });
 
   // D5 题集源码锁：event_resonance 题已删；J1.79 删 web3_user_event_impact（事件分改由
-  // web3_user_event_fit 单一来源）→ 默认 13 题 / 开 parent_relationship 14 题；
-  // 版本 J1.79（J1.78 载体题动作/趋势名判别；J1.74=C134 W 交互臂→BSC 用户吸引力；
-  // J1.55=C124 圈内符号级锚；J1.54=C123 门名/题键语义化；J1.53=C122 门名断代；
-  // J1.52=C121 用户视角批次一；C108 删探针题；C109 收敛两对题；C110 合桶删 low_quality_derivative）
+  // web3_user_event_fit 单一来源）+ J1.83 删 event_subject_entity → 默认 12 题 /
+  // J1.84/C142 删 w_product_score → 11 题；J1.97/C161 增 event_influence → 12 题
+  // 开 parent_relationship 13 题
   const qm = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 13 题无 event_resonance/block_misspelling/web3_user_event_impact + JEV_QUESTIONS_VERSION=J1.79（fit 单一事件分来源）',
-    qKeys.length === 13 && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling')
+  check('D5 题集 12 题无 event_resonance/block_misspelling/web3_user_event_impact/event_subject_entity/w_product_score + JEV_QUESTIONS_VERSION=J1.97（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；fit 单一事件分来源）',
+    qKeys.length === 12 && qKeys.includes('event_influence') && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && !qKeys.includes('w_product_score')
       && !qKeys.includes('web3_user_event_impact') && !qKeys.includes('event_magnitude') && !qKeys.includes('dimension2')
-      && qm.JEV_QUESTIONS_VERSION === 'J1.79'
-      && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 14 && qsRel.parent_relationship != null,
+      && !qKeys.includes('event_subject_entity')
+      && qm.JEV_QUESTIONS_VERSION === 'J1.97'
+      && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 13 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

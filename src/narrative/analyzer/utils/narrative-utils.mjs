@@ -3,6 +3,8 @@
  * 包含各种辅助方法，如符号清洗、长度计算、数据验证等
  */
 
+import { isFrequentIssuer } from '../services/frequent-issuers.mjs';
+
 /**
  * 清洗代币名称，去除不可见字符和组合字符
  * @param {string} symbol - 原始代币名称
@@ -261,6 +263,25 @@ export function isAutoTokenPageUrl(url) {
 }
 
 /**
+ * Telegram 链接判定（C149，2026-10-21 用户裁定「t.me（电报）存在不能作为账号币的
+ * 证据，只有推特账号才可以」）：t.me/telegram.* 链接里含 CA 只是社群入口线索，
+ * 不构成「账号币/项目方自公示」证据——C101 OK❌ 的 t.me/#<CA> 曾单独触发
+ * isProjectCoin URL 臂 → 账号链补收 → prestage 路由（假 addressVerified 修复后
+ * 仍被路由进 address 校验）。URL 臂对 Telegram 一律不采信；推特/独立站 URL 与
+ * 内容臂不受影响。
+ */
+const TELEGRAM_URL_HOSTS = ['t.me', 'telegram.me', 'telegram.dog'];
+export function isTelegramUrl(url) {
+  if (!url) return false;
+  try {
+    const domain = new URL(url).hostname.toLowerCase();
+    return TELEGRAM_URL_HOSTS.some(d => domain === d || domain.endsWith(`.${d}`));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 检测是否有独立网站（非第三方平台域名）
  * @param {Object} classifiedUrls - 分类后的URL列表
  * @returns {boolean} 是否有独立网站
@@ -353,9 +374,16 @@ export function shouldUseAccountCommunityAnalysis(fetchResults) {
  */
 export function shouldRouteToAccountCommunity({ fetchResults, isProjectCoinResult, issuerDetected }) {
   if (shouldUseAccountCommunityAnalysis(fetchResults)) return true;
-  if (isProjectCoinResult && fetchResults?.relatedAccounts?.length > 0) return true;
   const twitterInfo = fetchResults?.twitterInfo;
   const hasSubstantiveTweet = twitterInfo?.type === 'tweet' && !!twitterInfo?.text?.trim();
+  // C149b（2026-10-21 用户裁定「提供推特账号或者提供站点（不是系统中的子页面）
+  // 才能是被判为原生项目或者原生IP」）：项目币臂不再只看 isProjectCoin + relatedAccounts——
+  // 推文/系统子页面（CMC dex/t.me）单臂不构成 project/web3ip 资格。必须同时具备：
+  // ①推特账号/社区语料（account/community）或 ②独立站点（hasIndependentWebsite
+  // 已剔聚合器自动页与第三方平台）——两者皆无时走标准路径。
+  const hasAccountCorpus = twitterInfo?.type === 'account' || twitterInfo?.type === 'community';
+  const hasOwnSite = hasIndependentWebsite(fetchResults?.classifiedUrls);
+  if (isProjectCoinResult && (hasAccountCorpus || hasOwnSite) && fetchResults?.relatedAccounts?.length > 0) return true;
   if (issuerDetected && !hasSubstantiveTweet) return true;
   return false;
 }
@@ -699,13 +727,47 @@ export function isProjectCoin(tokenAddress, fetchResults, options = {}) {
 
   // 检查classifiedUrls中所有URL是否包含地址（项目币网站链接中常包含合约地址；
   // C99：聚合器自动页 URL 除外——token 页路径天然含本币地址；
-  // C100：includeUrlArm=false 时整臂不评——URL 含 CA 不算命中 CA，只作路由线索）
+  // C100：includeUrlArm=false 时整臂不评——URL 含 CA 不算命中 CA，只作路由线索；
+  // C149：Telegram 链接除外——t.me/#<CA> 是社群入口不是账号币证据，只有推特账号
+  // 才可以（用户裁定；C101 OK❌ t.me 单臂触发账号路由的防线）
   if (includeUrlArm && classifiedUrls) {
     const allUrls = Object.values(classifiedUrls).flat().map(u => u?.url).filter(Boolean);
-    if (allUrls.some(url => url.toLowerCase().includes(address) && !isAutoTokenPageUrl(url))) {
+    if (allUrls.some(url => url.toLowerCase().includes(address) && !isAutoTokenPageUrl(url) && !isTelegramUrl(url))) {
       return true;
     }
   }
 
   return false;
+}
+
+/**
+ * C153（2026-10-21，REPEG 0x88900da3…7777 案用户裁定）：发行方 CA 证据豁免
+ * expired_tweet 硬窗——小项目自己发推晒合约地址（主推文本含 CA，或作者时间线
+ * CA 宣告 issuerCaTimeline 命中）时，lag>300s 不再一刀切拦，时效交 Jev
+ * event_timing 软评。防线：频繁发币者名单（frequent-issuers）仍然优先——C95
+ * 永生蝴蝶等作业号照拦；issuerCaTimeline 作者与语料作者不一致时不豁免。
+ *
+ * @param {Object|null} preCheckResult - performPreCheck 返回（details.ruleName）
+ * @param {Object} opts
+ * @param {Object|null} opts.issuerCaTimeline - 作者时间线 CA 宣告命中对象
+ * @param {string|null} opts.authorScreenName - 语料作者
+ * @param {string|null} opts.mainTweetText - 主推文本
+ * @param {string|null} opts.tokenAddress - 代币地址
+ * @returns {boolean}
+ */
+export function shouldExemptIssuerCaExpired(preCheckResult, {
+  issuerCaTimeline = null,
+  authorScreenName = null,
+  mainTweetText = null,
+  tokenAddress = null,
+} = {}) {
+  if (!preCheckResult || preCheckResult.details?.ruleName !== 'expired_tweet') return false;
+  if (!authorScreenName || isFrequentIssuer(authorScreenName)) return false;
+  const caInMain = !!(mainTweetText && tokenAddress
+    && mainTweetText.toLowerCase().includes(String(tokenAddress).toLowerCase()));
+  if (caInMain) return true;
+  if (!issuerCaTimeline) return false;
+  const issuerAuthor = issuerCaTimeline.screenName || issuerCaTimeline.author_screen_name || null;
+  if (issuerAuthor && issuerAuthor.toLowerCase() !== authorScreenName.toLowerCase()) return false;
+  return true;
 }

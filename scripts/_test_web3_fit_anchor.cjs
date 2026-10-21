@@ -58,7 +58,7 @@ function kurumiAnswers({ tier = 2, tierProbs = { '2': 0.94 }, strongFit = 0.88, 
     event_magnitude: { score: tier, probabilities: tierProbs },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: 2.14, probabilities: { '2': 0.6, '3': 0.3 } },
-    event_token_block_reason: {
+    event_quality_veto: {
       choice: 'event_routine_content_product',
       probabilities: { event_routine_content_product: 0.63, none: 0.22, event_institution_routine: 0.07 },
     },
@@ -82,7 +82,7 @@ function fitShape({ category = 'A', strong = 0.88, fit = 0.09, magnitudeScore = 
     event_magnitude: { score: magnitudeScore, probabilities: { [String(Math.round(magnitudeScore))]: 0.9 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.95 } },
     dimension2: { score: dimension2Score, probabilities: { [String(Math.round(dimension2Score))]: 0.8 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_empty_content: 0.1 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.9, event_empty_content: 0.1 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.95 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strong, fit, marginal: rest, unfit: 0 } },
     name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.7, improvised_entity: 0.2, no_visual_entity: 0.1 } },
@@ -177,11 +177,12 @@ async function main() {
       && cHigh.scoringResult?.influenceFloor === null && cHigh.pass === true,
     cHigh.scoringResult);
 
-  // A6 低 fit A 类：mass 0.02+0.04=0.06 → 影响力 0.3 → E 档 → D/E 量级门拦。
-  // 档位来源已是 fit 本身——旧「D 档+strong_fit 0.88 锚 B 救回」的形状结构性消失。
+  // A6 低 fit A 类：mass 0.02+0.04=0.06 → 影响力 0.3 → E 档。J1.83/C141 前被 D/E
+  // 量级门拦；J1.83 契合证据门（sf+fit<0.5 全域，挂量级门前）接管同轴拦截位
+  //（E 档域 ⊂ 门域），无锚可救语义不变——tier 派生在门链前，档位审计照落。
   const lowFit = stage2(map(fitShape({ category: 'A', strong: 0.02, fit: 0.04 })));
-  check('A6 A 类低 fit（mass 0.06→E 档）：量级门拦「事件主体量级不足（E档）」，无锚可救',
-    lowFit.pass === false && /事件主体量级不足（E档）/.test(lowFit.blockReason || '')
+  check('A6 A 类低 fit（mass 0.06→E 档）：契合证据门拦（J1.83 同轴遮蔽量级门，无锚可救）',
+    lowFit.pass === false && /Web3用户契合证据不足/.test(lowFit.blockReason || '')
       && lowFit.scoringResult?.eventCompositeScore === null && lowFit.scoringResult?.influenceTier === 'E',
     { r: lowFit.blockReason, s: lowFit.scoringResult });
 
@@ -190,8 +191,8 @@ async function main() {
   delete noFit.web3_user_event_fit;
   const mNoFit = map(noFit);
   const sNoFit = stage2(mNoFit);
-  check('A7 web3_user_event_fit 缺失：mass 0 → E 档 fail-closed 拦（composite=null，锚键 null）',
-    sNoFit.pass === false && /事件主体量级不足（E档）/.test(sNoFit.blockReason || '')
+  check('A7 web3_user_event_fit 缺失：mass 0 → 契合证据门 fail-closed 拦（0%<50%，composite=null，锚键 null）',
+    sNoFit.pass === false && /Web3用户契合证据不足/.test(sNoFit.blockReason || '')
       && sNoFit.scoringResult?.eventCompositeScore === null
       && stage1Jev(mNoFit).web3FitAnchoredTier === null,
     { r: sNoFit.blockReason, s: sNoFit.scoringResult });
@@ -200,14 +201,16 @@ async function main() {
   const wAnswers = {
     ...fitShape(),
     event_category: { choice: 'W', probabilities: { W: 0.9, A: 0.1 } },
-    w_product_score: { score: 60, probabilities: { '60': 0.8 } },
-    w_bsc_user_appeal: { score: 30, probabilities: { '30': 0.8 } },
+    // J1.84/C142：w_product_score 已退役——残留键仅证明零消费
+    w_product_score: { score: 3, probabilities: { '3': 0.8 } },
+    w_bsc_user_appeal: { score: 2.5, probabilities: { '2': 0.8 } },
   };
   const sW = stage2(map(wAnswers));
-  check('A8 W 类走 W 数学：fit 不参与（无 influenceTier/influenceScore/下限），三轴和=事件分',
+  check('A8 W 类走 W 数学：fit 不参与（无 influenceTier/influenceScore/下限），单轴和=事件分',
     sW.scoringResult?.influenceTier === null && sW.scoringResult?.influenceScore === null
       && sW.scoringResult?.influenceFloor === null
-      && sW.scoringResult?.eventCompositeScore === round2(sW.scoringResult?.wProductScore + sW.scoringResult?.wAppealScore + sW.scoringResult?.timingScore)
+      && sW.scoringResult?.wProductScore === undefined
+      && sW.scoringResult?.eventCompositeScore === round2(sW.scoringResult?.wAppealScore + sW.scoringResult?.timingScore)
       && !/Web3口味契合/.test(sW.reason || ''),
     { s: sW.scoringResult, r: sW.reason });
 
@@ -255,7 +258,7 @@ async function main() {
       event_magnitude: { score: 1.35, probabilities: { '0': 0.01, '1': 0.75, '2': 0.16, '3': 0.05, '4': 0.03, '5': 0 } },
       event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.96, within_30d: 0.01, older: 0.01, unknown: 0.01 } },
       dimension2: { score: dim2Score, probabilities: { '0': 0.45, '1': 0.48, '2': 0.03, '3': 0.02, '4': 0.02, '5': 0 } },
-      event_token_block_reason: { choice: 'none', probabilities: { none: 0.66, subject_unqualified: 0.15, regional_event: 0.1, event_marketing_gimmick: 0.05, event_routine_content_product: 0.02, event_institution_routine: 0.01, low_quality_derivative: 0.01 } },
+      event_quality_veto: { choice: 'none', probabilities: { none: 0.66, subject_unqualified: 0.15, regional_event: 0.1, event_marketing_gimmick: 0.05, event_routine_content_product: 0.02, event_institution_routine: 0.01, low_quality_derivative: 0.01 } },
       web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: strongFit, fit: fitRest, marginal: 0.21, unfit: 0.01 } },
       event_subject_entity: { choice: 'product_character', probabilities: { product_character: 0.53, product_functional: 0.34, character_ip: 0.11, event_hotspot: 0.01 } },
       web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.93, accepted: 0.04, unknown: 0.03 } },

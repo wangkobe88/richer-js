@@ -25,6 +25,65 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
+ * 递归清洗 JSON 载荷中的非法 Unicode（2026-10-21 C144，全量回归 C133 发现）：
+ * 搜索兜底推文文本可能被截断在 emoji 代理对中间（如 `\ud83d` 单独结尾）——JSON.stringify
+ * 会产出 lone surrogate escape，PostgREST 解析直接回 PGRST102「Empty or invalid json」，
+ * 整条叙事行落库失败。NUL（\u0000）Postgres text/jsonb 同样不接受，一并替换为 U+FFFD。
+ * 纯函数（不 mutate 入参），返回新对象；stats.replaced 供 save 日志观测。
+ */
+export function sanitizeJsonValue(value, stats = { replaced: 0 }) {
+  if (typeof value === 'string') {
+    let out = '';
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      if (code === 0) {
+        out += '�';
+        stats.replaced++;
+      } else if (code >= 0xD800 && code <= 0xDBFF) {
+        const next = value.charCodeAt(i + 1);
+        if (next >= 0xDC00 && next <= 0xDFFF) {
+          out += value[i] + value[i + 1];
+          i++;
+        } else {
+          out += '�';
+          stats.replaced++;
+        }
+      } else if (code >= 0xDC00 && code <= 0xDFFF) {
+        out += '�';
+        stats.replaced++;
+      } else {
+        out += value[i];
+      }
+    }
+    return out === value ? value : out;
+  }
+  if (value === null || value === undefined) return value;
+  if (value instanceof Date || Buffer.isBuffer(value)) return value;
+  // copy-on-write：子树无非法字符时返回原引用（save 快照 identity 语义不被破坏，
+  // 只克隆含 lone surrogate/NUL 的路径；stats 仍精确计数）
+  if (Array.isArray(value)) {
+    let changed = false;
+    const out = value.map((v) => {
+      const nv = sanitizeJsonValue(v, stats);
+      if (nv !== v) changed = true;
+      return nv;
+    });
+    return changed ? out : value;
+  }
+  if (typeof value === 'object') {
+    let changed = false;
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      const nv = sanitizeJsonValue(v, stats);
+      if (nv !== v) changed = true;
+      out[k] = nv;
+    }
+    return changed ? out : value;
+  }
+  return value;
+}
+
+/**
  * 新 schema 的阶段字段定义
  * 每个阶段包含 result(JSONB) + prompt(text) + raw_output(text)
  */
@@ -180,7 +239,7 @@ export class NarrativeRepository {
    *   保持）。快照与分析期间的并发写存在竞态（合并读旧值）——接受：该参数只在
    *   强制/穿透重析路径触发，同 token 双进程秒级并发写同一行属罕见。
    */
-  static async save(result, { existing: existingHint } = {}) {
+  static async save(result, { existing: existingHint, clearTokenCategory = false } = {}) {
     const tokenAddress = result.token_address.toLowerCase();
 
     // 检查是否已存在记录（3b：非 null 快照跳过该往返）
@@ -227,11 +286,15 @@ export class NarrativeRepository {
       gmgn_info: result.gmgn_info ?? existing?.gmgn_info ?? null,
     };
 
-    // === 代币分类（2026-09-27 裁定）===：有分类判定才写键——null/undefined（precheck
-    // fail 未分类）不带键保留旧值（重析 fail 不清掉已落库的分类；新分类自然覆盖）。
+    // === 代币分类（2026-09-27 裁定；2026-10-21 C146 修订）===：有分类判定才写键；
+    // 终态重析无分类（precheck fail/no_data）时由调用方显式传 clearTokenCategory——
+    // 重跑数据必须反映本次判定，旧分类不得残留（C101 回归实证：precheck fail 行
+    // 仍显示修复前 prestage 的 web3_native_ip_early）。中间 save 不传标记=保留旧值。
     // 列由 scripts/sql/add-token-narrative-token-category.sql 先行创建（部署顺序红线）
     if (result.token_category) {
       record.token_category = result.token_category;
+    } else if (clearTokenCategory) {
+      record.token_category = null;
     }
 
     // === 仅 result 的阶段（无 prompt/raw_output）===
@@ -266,10 +329,17 @@ export class NarrativeRepository {
       }
     }
 
+    // C144：落库前清洗 lone surrogate/NUL（PostgREST PGRST102 防线；观测命中数）
+    const sanitizeStats = { replaced: 0 };
+    const safeRecord = sanitizeJsonValue(record, sanitizeStats);
+    if (sanitizeStats.replaced > 0) {
+      console.warn(`[NarrativeRepository] save 清洗非法 Unicode ${sanitizeStats.replaced} 处 | token=${record.token_address}`);
+    }
+
     // 使用 upsert (insert or update)；回读瘦列（3b，见文件头 SAVE_RETURN_COLS 注释）
     const { data, error } = await this.getSupabase()
       .from('token_narrative')
-      .upsert(record, {
+      .upsert(safeRecord, {
         onConflict: 'token_address'
       })
       .select(SAVE_RETURN_COLS)

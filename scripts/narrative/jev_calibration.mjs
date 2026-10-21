@@ -99,7 +99,8 @@ async function main() {
 
     const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
     // C103：条件题 parentRelationship 镜像生产接线（analyzer 同款 hasReplyParent 门）
-    const questions = buildStandardQuestions({ includeBrandHijack, parentRelationship: hasReplyParent(twitterInfo) });
+    // J1.85/C143：品牌题已退役——includeBrandHijack 仅传 mapper 作门开关
+    const questions = buildStandardQuestions({ brandMismatch: includeBrandHijack, parentRelationship: hasReplyParent(twitterInfo) });
 
     const t0 = Date.now();
     const result = await JevClient.ask(state, questions, { label: `calib:${row.token_symbol}` });
@@ -130,8 +131,8 @@ async function main() {
       const newCat = a.event_category?.choice;
       const newTier = mapped.jevDetails?.impactTier || (a.web3_user_event_impact ?? a.event_magnitude)?.score?.toFixed(1);
       if (oldCat !== newCat) attributions.push(`分类 ${oldCat}→${newCat}(conf=${a.event_category?.confidence})`);
-      const blockC = a.event_token_block_reason?.choice;
-      if (blockC !== 'none' && !(oldBlock)) attributions.push(`新阻断:${blockC}(noneP=${a.event_token_block_reason?.probabilities?.none?.toFixed(2)})`);
+      const blockC = (a.event_quality_veto ?? a.event_token_block_reason)?.choice;
+      if (blockC !== 'none' && !(oldBlock)) attributions.push(`新阻断:${blockC}(noneP=${(a.event_quality_veto ?? a.event_token_block_reason)?.probabilities?.none?.toFixed(2)})`);
       if (oldBlock && blockC === 'none') attributions.push(`旧阻断消失:${String(oldBlock).slice(0, 20)}`);
       attributions.push(`tier=${newTier} timing=${a.event_timing?.choice} spread=${(a.web3_user_event_spread ?? a.dimension2)?.score?.toFixed(1)}`);
       attributions.push(`rel=${a.name_event_relevance?.choice}/lv${a.relevance_level?.score?.toFixed(1)}`);
@@ -147,7 +148,7 @@ async function main() {
       spreadRaw: (a.web3_user_event_spread ?? a.dimension2)?.score,
       oldTierScore: row.stage2_result?.details?.raw?.scoringResult?.magnitudeScore ?? null,
       oldDim2: row.stage2_result?.details?.raw?.scoringResult?.weightScore ?? null,
-      blockChoice: a.event_token_block_reason?.choice, noneProb: a.event_token_block_reason?.probabilities?.none,
+      blockChoice: (a.event_quality_veto ?? a.event_token_block_reason)?.choice, noneProb: (a.event_quality_veto ?? a.event_token_block_reason)?.probabilities?.none,
     });
 
     console.log(`[${verdict}] ${row.oldClass} ${row.token_symbol}: ${oldRating}(${oldScore ?? '-'}) → ${newRating}(${newScore ?? '-'}) [${elapsed}ms]`);
@@ -206,7 +207,7 @@ async function main() {
   const catMatch = details.filter(d => d.newClass === d.cls);
   console.log(`\n分类一致率: ${catMatch.length}/${details.length} (${(catMatch.length / details.length * 100).toFixed(0)}%)`);
   const blockHits = details.filter(d => d.blockChoice !== 'none');
-  console.log(`event_token_block_reason≠none: ${blockHits.length}/${details.length}（含 scope 外与 noneP≥0.5 放行的）`);
+  console.log(`event_quality_veto≠none: ${blockHits.length}/${details.length}（含 scope 外与 noneP≥0.5 放行的）`);
 
   // 点对数据落盘（量表定参用：oldDim2↔dim2Raw / oldTierScore↔newTier 精确拟合）
   writeFileSync('/tmp/jev_calib_details.json', JSON.stringify(details, null, 1));

@@ -119,8 +119,8 @@ async function main() {
   check('A1 暗号 stage2 放行：J1.79 fit 质量 0.99 → 事件分 99',
     s2A.pass === true && s2A.scoringResult?.eventCompositeScore === 99,
     { pass: s2A.pass, total: s2A.scoringResult?.eventCompositeScore });
-  check('A1b 暗号四腿审计恒落：{hit:true, accepted:0.82, relPositive:0.94, relNone:0.02, timing:expected_within_30d, strongFit:0.97}',
-    JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, timing: 'expected_within_30d', strongFit: 0.97 }),
+  check('A1b 暗号四腿审计恒落：{hit:true, accepted:0.82, relPositive:0.94, relNone:0.02, timing:within_30d, strongFit:0.97}',
+    JSON.stringify(s2A.jev?.recognizedEntitySlogan) === JSON.stringify({ hit: true, accepted: 0.82, authorUtterance: false, relPositive: 0.94, relNone: 0.02, timing: 'within_30d', strongFit: 0.97 }),
     s2A.jev?.recognizedEntitySlogan);
   check('A1c 暗号 stage3 high 精确值：J1.79 92.89（事件59.4+关联20+质量13.49）',
     s3A.pass === true && s3A.total_score === 92.89 && s3A.category_agg === 'high'
@@ -128,7 +128,7 @@ async function main() {
     { pass: s3A.pass, total: s3A.total_score, cat: s3A.category_agg });
   check('A1d 暗号 rating=high + reason 前缀「超级IP口号票豁免(C88)」+ stage3 豁免审计',
     mA.llmResult?.rating === 'high' && /超级IP口号票豁免\(C88\)/.test(mA.llmResult?.reason || '')
-    && JSON.stringify(s3A.jev?.recognizedEntitySloganExempt) === JSON.stringify({ accepted: 0.82, authorUtterance: false, timing: 'expected_within_30d' }),
+    && JSON.stringify(s3A.jev?.recognizedEntitySloganExempt) === JSON.stringify({ accepted: 0.82, authorUtterance: false, timing: 'within_30d' }),
     { rating: mA.llmResult?.rating, exempt: s3A.jev?.recognizedEntitySloganExempt });
 
   // A2 BI：修复前 J1.29 improvised 0.62 拦（name_brand_hijack 0.56 在后）→ 修复后引申关联
@@ -174,21 +174,22 @@ async function main() {
 
   console.log('\n── B. 关联腿编码（直接 exact/translation 天然满足；引申=正向质量≥0.3 且 none<0.5） ──');
 
-  // B1 none 0.6 占优（引申链断——事件与名字真无关）→ slogan false → 回归修复前
-  // argmax 拦截形状（rcp 0.44 vs none 0.41 边界抖动由 argmax 臂守）
+  // B1 none 0.6 占优（引申链断——事件与名字真无关）→ slogan false；J1.87/C145
+  // routine 桶退役后不再由「常规内容产品宣传」argmax 拦
   let a = clone(ANHO); a.name_event_relevance.probabilities.none = 0.6;
   let m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
-  check('B1 暗号 none=0.6：链断不救 → slogan false + 回归「常规内容产品宣传」argmax 拦',
+  check('B1 暗号 none=0.6：链断不救 → slogan false；routine 桶退役后不再拦',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
-    && stage2Of(m).blockReason === '常规内容产品宣传' && m.llmResult?.rating === 'low',
+    && !(stage2Of(m).blockReason || '').includes('常规内容产品宣传'),
     { blockReason: stage2Of(m).blockReason });
 
   // B2 relPositive 0.2（链太弱）→ 同 B1
   a = clone(ANHO);
   a.name_event_relevance.probabilities = { exact_match: 0.1, translation_match: 0, abbreviation_alias: 0, semantic: 0.1, cultural: 0, generic_concept: 0.1, none: 0.4 };
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
-  check('B2 暗号 relPositive=0.2：链弱不救 → slogan false + argmax 拦',
-    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false && stage2Of(m).blockReason === '常规内容产品宣传',
+  check('B2 暗号 relPositive=0.2：链弱不救 → slogan false；routine 桶退役后不再拦',
+    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
+    && !(stage2Of(m).blockReason || '').includes('常规内容产品宣传'),
     { blockReason: stage2Of(m).blockReason });
 
   console.log('\n── C. mem 口径（C108 后 memFloor 退役；mem 只在五腿公式 mem≥2 消费）──');
@@ -226,15 +227,15 @@ async function main() {
     { pass: stage2Of(m).pass, floor: stage2Of(m).jev?.memFloorBlock });
 
   // C4 W 数学域豁出：W 票 mem 1.5 fresh 不落 mem 地板（RedCoin 类产品票 mem 天然低；
-  // W 有自己的 C42/cashtag 机制）
+  // W 有自己的 cashtag 机制）。J1.84/C142 起 W 单轴：吸引力 1.0→19 + 25=44<57。
   a = clone(BI);
   a.event_category = { type: 'choice', choice: 'W', probabilities: { W: 0.9, C: 0.1 } };
-  a.w_product_score = { type: 'score', score: 0.5, probabilities: {} };
-  a.w_bsc_user_appeal = { type: 'score', score: 2, probabilities: {} };
+  a.w_product_score = { type: 'score', score: 0.5, probabilities: {} }; // J1.84 起零消费
+  a.w_bsc_user_appeal = { type: 'score', score: 1.0, probabilities: {} };
   a.name_entity_memeability.score = 1.5;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('C4 W 类 mem=1.5：mem 地板不拦（落 W 数学 49<60 照拦）',
-    stage2Of(m).blockReason === 'W类总分不足（49<60）',
+  check('C4 W 类 mem=1.5：mem 地板不拦（落 W 数学 19<32 照拦）',
+    stage2Of(m).blockReason === 'W类总分不足（19<32）',
     { blockReason: stage2Of(m).blockReason });
 
   // C5 J1.56 骑乘改道退役：B 类低影响力实体（unknown≥0.5）由实体低影响力门
@@ -252,19 +253,23 @@ async function main() {
 
   console.log('\n── D. 五腿单腿负（任一腿断 → slogan false 回归旧门） ──');
 
-  // D1 super_ip 0.48：名字不指代超级IP → slogan false → argmax 拦（现网形状）
+  // D1 super_ip 0.48：名字不指代超级IP → slogan false；J1.87/C145 routine 桶
+  // 退役后由下一层载体门接管（叙事主体无形象载体），不再落 routine
   a = clone(ANHO); a.web3_user_name_entity_acceptance.probabilities.accepted = 0.48;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
-  check('D1 暗号 accepted=0.48：slogan false + 回归 argmax 拦',
-    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false && stage2Of(m).blockReason === '常规内容产品宣传',
+  check('D1 暗号 accepted=0.48：slogan false → routine 桶退役，载体门接管',
+    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
+    && (stage2Of(m).blockReason || '').includes('叙事主体无形象载体')
+    && !(stage2Of(m).blockReason || '').includes('常规内容产品宣传'),
     { blockReason: stage2Of(m).blockReason });
 
-  // D2 strong_fit 0.4：web3 买家共鸣不足 → slogan false → argmax 拦
+  // D2 strong_fit 0.4：web3 买家共鸣不足 → slogan false；routine 桶退役后不再拦
   a = clone(ANHO);
   a.web3_user_event_fit.probabilities = { strong_fit: 0.4, fit: 0.5, marginal: 0.1, unfit: 0 };
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
-  check('D2 暗号 strongFit=0.4：slogan false + 回归 argmax 拦',
-    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false && stage2Of(m).blockReason === '常规内容产品宣传',
+  check('D2 暗号 strongFit=0.4：slogan false；routine 桶退役后不再拦',
+    stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
+    && !(stage2Of(m).blockReason || '').includes('常规内容产品宣传'),
     { blockReason: stage2Of(m).blockReason });
 
   console.log('\n── E. 豁免域边界（刻意不豁清单实证） ──');
@@ -282,9 +287,11 @@ async function main() {
     { hit: stage2Of(m).jev?.recognizedEntitySlogan?.hit, tier: stage2Of(m).scoringResult?.influenceTier, blockReason: stage2Of(m).blockReason });
   a = clone(ANHO);
   a.web3_user_event_fit.probabilities = { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 };
-  a.event_token_block_reason = { type: 'choice', choice: 'none', probabilities: { none: 0.9 } };
+  a.event_quality_veto = { type: 'choice', choice: 'none', probabilities: { none: 0.9 } };
   a.name_entity_carrier = EXISTING_CARRIER;
-  m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
+  // J1.83/C141：低 fit 票先被契合证据门拦（挂量级门前）——币安语料豁新门，
+  // 保「五腿断+量级 D 档臂拦」原断言（豁免票的量级臂照常接管）
+  m = mapStandardAnswers(a, makeContext({ tokenData: { symbol: '币安暗号', name: '币安暗号', raw_api_data: { name: '币安暗号' } } }));
   check('E1b 低 fit（mass 0.2→D 档）票：五腿断（strongFit<0.5）且量级臂照拦「事件主体量级不足（D档）」',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
     && stage2Of(m).pass === false && stage2Of(m).blockReason === '事件主体量级不足（D档）',
@@ -308,23 +315,27 @@ async function main() {
     stage2Of(m).pass === false && stage2Of(m).blockReason === '事件分不足（55<60）',
     { blockReason: stage2Of(m).blockReason });
 
-  // E4 品牌劫持臂对照（BI 案发现场：name_brand_hijack 0.56 劫持了 Binance 品牌=预检关键词
-  // 命中）：slogan 断（sip 0.45）且 tier B（fit 0.6，punExempt 要求 S/A 不触发）→ 劫持臂拦截
+  // E4 品牌劫持臂对照（BI 案发现场：J1.85 起信号=实体题 brand_mismatch 0.56 劫持了
+  // Binance 品牌=预检关键词命中）：slogan 断（sip 0.45）且 tier B（fit 0.6，punExempt
+  // 要求 S/A 不触发）→ 劫持臂拦截
   const HIJACK_TEST_FIT = { type: 'choice', choice: 'fit', probabilities: { strong_fit: 0.4, fit: 0.2, marginal: 0.3, unfit: 0.1 } };
   a = clone(BI); a.web3_user_event_fit = HIJACK_TEST_FIT;
-  a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
+  a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45;
+  a.web3_user_name_entity_acceptance.probabilities.brand_mismatch = 0.56;
+  a.name_entity_carrier = EXISTING_CARRIER;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E4 slogan 断 + name_brand_hijack 0.56：Stage3 劫持臂恢复拦截「品牌劫持」',
+  check('E4 slogan 断 + brand_mismatch 0.56：Stage3 劫持臂恢复拦截「品牌劫持」',
     stage2Of(m).pass === true && stage3Of(m).pass === false && stage3Of(m).blockReason === '品牌劫持',
     { s3block: stage3Of(m).blockReason });
 
-  // E5 关联≤10 截断对照：E4 基础上 hijackP 0.49（劫持臂不触发）→ 关联性不足照拦
+  // E5 关联≤10 截断对照：E4 基础上 brand_mismatch 0.49（劫持臂不触发）→ 关联性不足照拦
   // （引申关联的 rescue 只属于五腿全中票）
   a = clone(BI); a.web3_user_event_fit = HIJACK_TEST_FIT;
-  a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45; a.name_entity_carrier = EXISTING_CARRIER;
-  a.name_brand_hijack.noul = 0.49;
+  a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45;
+  a.web3_user_name_entity_acceptance.probabilities.brand_mismatch = 0.49;
+  a.name_entity_carrier = EXISTING_CARRIER;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E5 slogan 断 + hijack 0.49 + 关联 1 分：照拦「关联性不足」',
+  check('E5 slogan 断 + brand_mismatch 0.49 + 关联 1 分：照拦「关联性不足」',
     stage3Of(m).pass === false && /关联性不足/.test(stage3Of(m).blockReason || ''),
     { blockReason: stage3Of(m).blockReason });
 
@@ -375,11 +386,11 @@ async function main() {
     && !/memScoreC88/.test(mapperSrc)
     && /FRESH_TIMING_C88\.has\(timing\) && web3FitStrongP >= 0\.5/.test(mapperSrc)
     && /const FRESH_TIMING_C88 = new Set\(\['within_7d', 'within_30d', 'expected_within_30d'\]\)/.test(mapperSrc));
-  check('G2 豁免守卫五处：rcp 概率臂 opts / argmax 臂 / scBlock opts（C109 增 imgCarrierOverride 图证覆盖臂；C138 eth_cedric 案增 authorUtterance 作者原话票臂）/ Stage3 劫持臂 / 关联≤10 截断',
-    /routineContentProductBlock\(answers, category, \{ platformOfficial, recognizedEntitySlogan \}\)/.test(mapperSrc)
-    && /!\(blockChoice === 'event_routine_content_product' && recognizedEntitySlogan\)/.test(mapperSrc)
-    && /subjectCarrierBlock\(answers, category, \{ recognizedEntitySlogan, authorUtterance, imgCarrierOverride, emptyContentImgCarrierOverride/.test(mapperSrc)
-    && /brandHijackP >= 0\.5 && !punExempt && !recognizedEntitySlogan/.test(mapperSrc)
+  check('G2 豁免守卫（J1.87/C145 routine 桶退役后）：scBlock opts / Stage3 劫持臂 / 关联≤10 截断；routine 概率臂与 argmax 子句不存在',
+    !/routineContentProductBlock\(/.test(mapperSrc)
+    && !/blockChoice === 'event_routine_content_product' && recognizedEntitySlogan/.test(mapperSrc)
+    && /entityVisualBlock\(answers, category, \{\s*famousEntity,\s*authorUtterance, imgCarrierOverride,/.test(mapperSrc)
+    && /brandMismatchP >= 0\.5 && !punExempt && !recognizedEntitySlogan/.test(mapperSrc)
     && /relevance\.score <= 10 && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
   check('G3 memFloor 臂 C108 退役源码反证（reason 模板/mem<2 拦截/变量赋值不存在——仅注释档保留）',
     !/蹭热点但名字无口号性/.test(mapperSrc)
@@ -391,10 +402,10 @@ async function main() {
   check('G5 D/E 量级臂守卫刻意无 recognizedEntitySlogan（防漂移：事件太小不救的裁定锁死）',
     /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrc)
     && !/\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
-  check('G6 C86 D-1 回归红线保持：F4a 守卫行 + F4b 事件分臂 + F4c W 裸线恰好一处',
+  check('G6 C86 D-1 回归红线保持：F4a 守卫行 + F4b 事件分臂 + F4c W 裸线（J1.92 起 <32）恰好一处',
     /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrc)
     && /eventScoreBlocked = eventCompositeScore < 60 && !magExempt;/.test(mapperSrc)
-    && mapperSrc.split('eventScoreBlocked = eventCompositeScore < 60;').length - 1 === 1);
+    && mapperSrc.split('eventScoreBlocked = eventCompositeScore < 32;').length - 1 === 1);
   check('G7 stage2 审计恒落（hit:false 亦落——标签零列推导消费）；memFloorBlock 键 C108 退役不落（仅注释档保留）',
     /recognizedEntitySlogan: \{\s*\n\s*hit: recognizedEntitySlogan,/.test(mapperSrc)
     && !/memFloorBlock: /.test(mapperSrc));

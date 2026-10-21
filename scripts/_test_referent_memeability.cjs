@@ -33,8 +33,10 @@ function baseAnswers(cat, acceptability) {
     web3_user_event_impact: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     web3_user_event_spread: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.92 } },
-    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9, unknown: 0.08 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.92 } },
+    // J1.81：词句门只评 not_entity 形状——基底刻意 not_entity（accepted 0.9 会被
+    // 实体票分流跳过词句门 + 触发著名资格豁形象门，B1 专项形状失真）
+    web3_user_name_entity_acceptance: { choice: 'not_entity', probabilities: { not_entity: 0.9, unknown: 0.05 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
     event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.9 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8, none: 0.02 } },
@@ -61,13 +63,13 @@ async function main() {
 
   console.log('\n── A. 题集形状（J1.61）──');
   const qs = buildStandardQuestions();
-  check('A1 基础题数 13（J1.79 删 web3_user_event_impact；J1.71 删 web3_user_event_spread；删 name_entity_memeability）', Object.keys(qs).length === 13, Object.keys(qs).length);
+  check('A1 基础题数 12（J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 web3_user_event_impact；J1.71 删 web3_user_event_spread；删 name_entity_memeability）', Object.keys(qs).length === 12, Object.keys(qs).length);
   check('A2 name_entity_memeability 已删除', !('name_entity_memeability' in qs));
-  check('A3 名字门题面含玩味并入臂（可玩/可二创内容 + 没有任何可玩内容）',
-    qs.web3_user_name_acceptability.instructions.includes('可玩/可二创的内容')
-    && qs.web3_user_name_acceptability.criteria.web3_user_acceptable.includes('所指对象有可玩')
-    && qs.web3_user_name_acceptability.criteria.web3_user_not_acceptable.includes('没有任何可玩内容'), null);
-  check('A4 版本 J1.80（J1.80=C138 名字门超IP来源判据（追加段，原判据零改动）；J1.79 事件分改 fit 单一来源，删 impact 题）', JEV_QUESTIONS_VERSION === 'J1.80', JEV_QUESTIONS_VERSION);
+  check('A3 词句题（J1.81 改名 web3_user_phrase_acceptability）含玩味并入臂（可玩/可二创 + 没有任何可玩）',
+    qs.web3_user_phrase_acceptability.instructions.includes('可玩/可二创')
+    && qs.web3_user_phrase_acceptability.criteria.web3_user_acceptable.includes('有可玩')
+    && qs.web3_user_phrase_acceptability.criteria.web3_user_not_acceptable.includes('没有任何可玩'), null);
+  check('A4 版本 J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性并入 event_fit（并行会话同批）；J1.81=C139 名字三轴重构；J1.80=C138 名字门超IP来源判据（追加段，原判据零改动）；J1.79 事件分改 fit 单一来源，删 impact 题）', JEV_QUESTIONS_VERSION === 'J1.97', JEV_QUESTIONS_VERSION);
 
   console.log('\n── B. 名字门消费（J1.61 唯一名字拦截位）──');
   const mNo = mapStandardAnswers(baseAnswers('C', { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.85 } }), makeContext());

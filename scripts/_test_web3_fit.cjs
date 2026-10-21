@@ -37,7 +37,7 @@ function makeAnswers(web3FitProbs) {
     event_magnitude: { score: 3.5, probabilities: { '3': 0.5, '4': 0.3 } }, // B 档
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     dimension2: { score: 4.1, probabilities: { '4': 0.5, '5': 0.3 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.9, event_empty_content: 0.1 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.9, event_empty_content: 0.1 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.85, unknown: 0.15 } },
     name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.75, semantic: 0.2 } },
     relevance_level: { score: 3.6, probabilities: { '3': 0.4, '4': 0.5 } },
@@ -74,7 +74,25 @@ async function main() {
   check('A3 四档选项齐全', w3q && ['strong_fit', 'fit', 'marginal', 'unfit'].every(k => typeof w3q.criteria[k] === 'string' && w3q.criteria[k].length > 0), w3q ? Object.keys(w3q.criteria) : null);
   check('A4 题面含买家画像与判据说明', w3q && w3q.instructions.includes('链上买家画像') && w3q.instructions.includes('玩梗'), null);
   const qsNoBrand = buildStandardQuestions({ includeBrandHijack: false });
-  check('A5 无品牌劫持时不含 name_brand_hijack（条件题互不影响）', !('name_brand_hijack' in qsNoBrand) && 'web3_user_event_fit' in qsNoBrand, null);
+  const qsBrandMismatch = buildStandardQuestions({ brandMismatch: true });
+  check('A5 品牌题已退役（任何题集都不含 name_brand_hijack；品牌信号仅在关键词票实体题 brand_mismatch 桶）',
+    !('name_brand_hijack' in qsNoBrand) && !('name_brand_hijack' in qs)
+      && !('brand_mismatch' in qs.web3_user_name_entity_acceptance.criteria)
+      && !!qsBrandMismatch.web3_user_name_entity_acceptance?.criteria?.brand_mismatch
+      && 'web3_user_event_fit' in qsNoBrand, null);
+  check('A6 J1.90/C152 圈内平台/项目核心开发者本人表态锚（eth_cedric MEMES 案）',
+    w3q.instructions.includes('圈内平台/项目官方账号或核心开发者本人的公开表态/口号')
+    && w3q.instructions.includes('Memes will continue')
+    && w3q.instructions.includes('至少 fit')
+    && w3q.criteria.fit.includes('至少本档')
+    && w3q.criteria.strong_fit.includes('J1.90/C152'), null);
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const stateSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
+    check('A7 J1.90/C152 author identity note 作用域澄清（仅约束实体题，fit 题可按发言者身份判）',
+      stateSrc.includes('本约束仅针对币名映射实体题，web3_user_event_fit 可按发言者身份判事件与 web3 用户的契合'), null);
+  }
 
   // ═══ B. mapStandardAnswers 路由矩阵 ═══
   console.log('\n── B. 标准路径 web3_user_event_fit 质量门矩阵 ──');
@@ -110,7 +128,7 @@ async function main() {
 
   // B10 nhn 门优先级在前（双门同命中展示负面硬新闻）
   const nhnAnswers = makeAnswers({ unfit: 0.7, fit: 0.3 });
-  nhnAnswers.event_token_block_reason = { choice: 'none', probabilities: { none: 0.3, event_negative_hard_news: 0.6, event_empty_content: 0.1 } };
+  nhnAnswers.event_quality_veto = { choice: 'none', probabilities: { none: 0.3, event_negative_hard_news: 0.6, event_empty_content: 0.1 } };
   const r6 = mapStandardAnswers(nhnAnswers, makeContext(tokenData));
   check('B10 nhn 0.6 + unfit 0.7 双命中 → 展示负面硬新闻（优先级在前）', r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
 

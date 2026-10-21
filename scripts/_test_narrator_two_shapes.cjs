@@ -38,7 +38,7 @@ function answers(fitProbs, fitChoice = 'fit') {
   return {
     event_category: { choice: 'E', probabilities: { E: 0.9 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
-    event_token_block_reason: { choice: 'none', probabilities: { none: 0.7 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.7 } },
     web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.6, no_entity: 0.2 } },
     web3_user_event_fit: { choice: fitChoice, probabilities: fitProbs },
     event_subject_entity: { choice: 'event_hotspot', probabilities: { event_hotspot: 0.8 } },
@@ -65,7 +65,7 @@ async function main() {
 
   // ═══ A. 新标准题面（J1.79）═══
   console.log('\n── A. J1.79 fit 单题事件价值标准 ──');
-  check('A1 版本号 = J1.79（impact 删题 + fit 单一事件分）', JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79 impact 删题 + fit 单一事件分）', JEV_QUESTIONS_VERSION === 'J1.97', JEV_QUESTIONS_VERSION);
   check('A2 web3_user_event_impact / web3_user_event_spread / event_magnitude / dimension2 均删题',
     qs.web3_user_event_impact === undefined && qs.web3_user_event_spread === undefined
     && qs.event_magnitude === undefined && qs.dimension2 === undefined, Object.keys(qs));
@@ -75,8 +75,9 @@ async function main() {
   check('A4 fit 四档判据（strong_fit/fit/marginal/unfit）',
     ['strong_fit', 'fit', 'marginal', 'unfit'].every(k => typeof fit.criteria?.[k] === 'string' && fit.criteria[k].length > 0),
     Object.keys(fit.criteria || {}));
-  check('A5 事件主体判定保留（主体=事件本身的核心实体，不是陈述者）——C32 裁定内核',
-    qs.event_subject_entity.instructions.includes('主体=事件本身的核心实体，不是陈述者'), null);
+  check('A5 event_subject_entity 题退役（J1.83/C141）——C32 内核「陈述者不参与」由 fit 题声明+行为级 C 段承载；主体实体分类钩子随题删除，产品实体判据迁 unfit 桶',
+    qs.event_subject_entity === undefined
+    && fit.criteria.unfit.includes('公司产品实体不被接纳'), null);
   check('A6 传播数据不参与事件分（点赞/播放量大小不是本题判断依据）',
     fit.instructions.includes('传播数据（点赞/播放量）大小不是本题判断依据'), null);
 
@@ -106,8 +107,8 @@ async function main() {
 
   const rD = mapStandardAnswers(answers({ strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 }), context());
   const sD = rD.stage2DataToSave.parsed_output;
-  check('B5 fit 派生 D 档（mass 0.2 → influenceScore 1）：量级门先拦（归因=量级不足）',
-    sD.pass === false && /量级不足/.test(sD.blockReason || ''), sD.blockReason);
+  check('B5 fit 派生 D 档（mass 0.2 → influenceScore 1）：契合证据门先拦（J1.83 同轴遮蔽——D 档域 [0.1,0.3) ⊂ 门域 [0,0.5)，归因=契合证据不足）',
+    sD.pass === false && /Web3用户契合证据不足/.test(sD.blockReason || ''), sD.blockReason);
 
   // ═══ C. 陈述者不参与（C32 裁定内核的行为级反证）═══
   console.log('\n── C. 陈述者粉丝数不影响事件分 ──');
