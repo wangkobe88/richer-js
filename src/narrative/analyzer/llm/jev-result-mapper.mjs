@@ -422,6 +422,16 @@ function subjectCarrierBlock(answers, category, opts) {
   // no_visual 0.92 / BI improvised 0.62 均此位拦死），「抓不住形象载体」由口号性
   // 腿 mem≥2 与关联腿代偿（名字本身就是玩梗载体）
   if (opts?.recognizedEntitySlogan) return null;
+  // C138（MEMES 案 0xeeed1ed1…7777）：作者原话票豁免（J1.56 代码事实
+  // authorUtterance=作者在册 ∧ 币名逐字出自主推文本）——原话票叙事主体=
+  // 在册作者本人（人物/机构），形象载体由作者身份承载；币名=作者原话，
+  // 名字本身就是玩梗载体（与 C88 口号票「名字即载体」同构）。载体题评
+  // 「币名映射形象」在此形状判据错位（eth_cedric「Memes will continue.」票
+  // no_visual 0.95 拦死——J1.58 作者豁免翻掉 empty_content 后载体门接管，
+  // 用户裁定「这个票是要过的」）。刻意不依赖五腿其余腿（strongFit<0.5 时
+  // recognizedEntitySlogan 不 hit，原话票主体资格仍由 authorUtterance 独立
+  // 代码事实锚定）
+  if (opts?.authorUtterance) return null;
   // C109 图证载体覆盖（M1，交易猫 0xc929…7777 案）：同一次 Jev 调用里
   // name_image_consistency 的事实答案（币安发猫图、币名「交易猫」same_entity
   // 0.73/conf 0.59）证明指代对象有可视化载体时，载体题的低置信掷硬币答案
@@ -479,6 +489,16 @@ function subjectCarrierBlock(answers, category, opts) {
  * functional_label 存量缓存行照拦）；positive 侧结构不变——Set 外即放行
  * （web3_user_acceptable/meme_name/entity_phrase/unclear/缺失 fail-open），
  * 正臂无需枚举。
+ *
+ * J1.80（C138 heyi.ai 案，2026-10-21 用户裁定「方案B」）超IP来源判据为纯题面
+ * 追加段：原判据零改动；判断信息=state corpus_author_identity 认证行（super-ip
+ * 注册表命中注入，代码事实零掷骰——heyibinance 在册 tier S）∧ 名字与主体相关
+ * → 不能接纳标准提高为极端否证「从 BSC 链 meme 币交易者角度，即使是超级IP即
+ * 影响力超大的用户讲的话，也完全当不了符号，完全不适合作为 meme 币，不会产生
+ * 购买意愿」。choice 仍三态：mapper 本函数零改动（拦截 Set 不变），语义翻转
+ * 全部由 Jev 按新判据出 choice 承担；旧缓存行不重放 mapper 零影响。快速交易
+ * 框架：本门检验短窗购买意愿非长期生命力（heyi.ai 案 14s 毕业+vol24 $103K=
+ * 购买意愿已被市场验证，事件 S 级/strong_fit 0.94 全判对、唯名字门 0.62 拦）。
  *
  * C88 recognizedEntitySlogan 五腿刻意不豁（继承）：五腿前提是口号票（名字=口号=可
  * 传播符号），陈述句/版本词名字连口号都不是。全域（不限类别）；无概率 mass
@@ -1440,7 +1460,7 @@ export function mapStandardAnswers(answers, context) {
     // 都不是）；无概率 mass（choice 档位门）
     eventScoreBlocked = true;
     gateBlockReason = uaBlock.label;
-  } else if ((scBlock = subjectCarrierBlock(answers, category, { recognizedEntitySlogan, imgCarrierOverride, emptyContentImgCarrierOverride: blockChoice === 'event_empty_content' && !!context.imageEvidence }))) {
+  } else if ((scBlock = subjectCarrierBlock(answers, category, { recognizedEntitySlogan, authorUtterance, imgCarrierOverride, emptyContentImgCarrierOverride: blockChoice === 'event_empty_content' && !!context.imageEvidence }))) {
     // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
     // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
     // mass（choice 档位门）
@@ -1571,6 +1591,12 @@ export function mapStandardAnswers(answers, context) {
               via: nicMatchP >= 0.5 ? 'match' : 'depicts',
               depictP: depictP > 0 ? round2(depictP) : null,
             }
+          : null,
+        // C138 审计标记：作者原话票豁免载体门（命中才落，被覆盖的 carrier
+        // choice 可追溯——与 subjectCarrierImgOverride 同构；拦截票 stage3 段
+        // __clear，本段是唯一归因落库位）
+        subjectCarrierAuthorOverride: authorUtterance
+          ? { carrier: answers.name_entity_carrier?.choice ?? null }
           : null,
         // C96 审计标记：发现 vs 转述恒落（J1.37 event_finding_vs_recap；旧缓存行 → null
         // ——阈值/口径事后校准免重跑）；改道详情在 stage1 jev.categoryForced
@@ -1717,6 +1743,11 @@ export function mapStandardAnswers(answers, context) {
                   via: nicMatchP >= 0.5 ? 'match' : 'depicts',
                   depictP: depictP > 0 ? round2(depictP) : null,
                 }
+              : null,
+            // C138 审计：作者原话票豁免载体门（命中才落；与 Stage2 主段同构——
+            // 豁免后被下游门拦的票可归因「载体门为何没拦」）
+            subjectCarrierAuthorOverride: authorUtterance
+              ? { carrier: answers.name_entity_carrier?.choice ?? null }
               : null,
             // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
             // jev.recognizedEntitySlogan 恒落版——stage2 拦截票本段 __clear 不落）

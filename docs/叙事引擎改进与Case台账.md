@@ -69,6 +69,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C138 名字门超IP来源判据（J1.80）——heyi.ai 案：原判据不动，超IP票不能接纳标准提高为极端否证（2026-10-21 用户裁定「方案B」）★
+
+- **案由**：`0x1774c0cc851a777c89fb0e1d73712bc7564b7777`（heyi.ai，flap 非 BNB quote 盘、税币；叙事行 platform 误标 fourmeme，2026-10-20 15:17 UTC）——何一 @heyibinance 推文宣告 Binance Agent ID 后 **10 秒**发币、**14 秒拉满毕业**（内盘 6.7x）、PCS 毕业盘 vol24 $103K 后 h24 -89%（庄家砸盘）。J1.79 判读：tier S / strong_fit 0.94 / relPositive 1 / new_entity 0.78 / 载体被 C109 图证豁免（match 0.86）/ authorUtterance=false（推文无「heyi.ai」逐字）——全门放行，唯 J1.42 名字门 `web3_user_not_acceptable 0.62` 拦（读法=「heyi.ai=产品/域名」，忽视「heyi=何一圈内代称+.ai 概念后缀」的符号面）。
+- **归因与框架修正**：名字门拦截假设「名字当不了符号→传播不发生→热度聚不起来」被市场反证——14s 毕业=短窗聚热 S 级、购买意愿真实存在；传播动力=主体背书（何一）非名字玩味性。用户裁定框架：**引擎=新发 meme 快速交易（刚发买短窗卖），case 判断只看短窗聚热/接盘/进场点，绝不用长期价格论证**（-89% 是砸盘路径非名字质量证据）；判据错位（该不该放）与执行抓不住（叙事链 6-7s 进场=毕业顶）分开回答。
+- **改动（方案B，用户四轮措辞定稿）**：原判据一字不动；`web3_user_name_acceptability` 题 instructions/criteria 追加「超级IP来源判据（J1.80/C138）」段——判断信息=state `corpus_author_identity` 认证行在册（super-ip 注册表命中注入，代码事实零掷骰；heyibinance 在册 tier S）∧ 名字与主体相关（其代称/名字/缩写/官宣事物名/本人词句）→ 不能接纳标准提高为极端否证：「**这个名字，从 BSC 链 meme 币交易者角度，即使是超级IP即影响力超大的用户讲的话，也完全当不了符号，完全不适合作为 meme 币，不会产生购买意愿**」——只有完全没戏才拦（陈述句/版本词/纯功能词/无姿态生活陈述照拦，「币安上电视」「日本語版」语料作者本就是超IP，案史自洽）；主体背书产生购买意愿的名字（heyi+.ai 概念后缀型）算能接纳。choice 仍三态、mapper 门函数零改动（拦截 Set 不变），语义翻转全由 Jev 按新判据出 choice；旧缓存行不重放 mapper 零影响。JEV_QUESTIONS_VERSION J1.79→J1.80。
+- **单测**：版本断言 9 文件同步+D5c 锁新段存在性；superip_slogan_class G2 顺手同步并行案 scBlock 签名（authorUtterance 臂）。
+- **并行案备注**：mapper 内 eth_cedric 案注释标「C138」实为台账 C137（编号笔误，待其会话修正）。
+- **部署**：182 定向重析（heyi.ai 票预期翻案 mid/high）+ 全量回归对拍 + worker/live 实验进程重启待执行（live 重启前须持仓核验）。
+
 ### C137 eth_cedric（Flap dev）注册 super-ip——J1.58 表态豁免臂吃到（2026-10-21 用户裁定）★
 
 - **案由**：`0xeeed1ed1b6bd0eae15bb651490a7e8b3057f7777`（MEMES / "Memes will continue"，four.meme，2026-10-20 15:02 UTC）——@eth_cedric（46539 粉认证号）发纯文字表态「Memes will continue.」（无图、无父推、9 赞 1 转），60s 后发币。J1.79 判 `event_empty_content` 0.93 拦（low）。用户质询「web3_user_event_fit 说明接受度高，为何又是空洞内容」后裁定：**eth_cedric 是 flap 的 dev，在 BSC 链 meme 币场景影响力极高，注册进 super-ip 注册表**。

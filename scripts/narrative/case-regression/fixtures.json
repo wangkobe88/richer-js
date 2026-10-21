@@ -585,6 +585,17 @@
       },
       "note": "eth_cedric注册super-ip表态豁免票：empty_content臂被J1.58作者豁免翻掉(审计emptyContentAuthorOverride)，终局载体门no_visual0.95拦",
       "addedAt": "2026-10-21"
+    },
+    {
+      "caseId": "C138",
+      "symbol": "heyi.ai",
+      "addr": "0x1774c0cc851a777c89fb0e1d73712bc7564b7777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:D"
+      },
+      "note": "何一Agent ID票:14s毕业vol24 103K=购买意愿市场验证;J1.80超IP来源判据(认证行在册+heyi代称+.ai)预期翻案;原J1.79判0.62拦",
+      "addedAt": "2026-10-21"
     }
   ]
 }

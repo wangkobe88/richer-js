@@ -67,7 +67,7 @@ async function main() {
     qs.web3_user_name_acceptability.instructions.includes('可玩/可二创的内容')
     && qs.web3_user_name_acceptability.criteria.web3_user_acceptable.includes('所指对象有可玩')
     && qs.web3_user_name_acceptability.criteria.web3_user_not_acceptable.includes('没有任何可玩内容'), null);
-  check('A4 版本 J1.79（J1.79 事件分改 fit 单一来源，删 impact 题）', JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
+  check('A4 版本 J1.80（J1.80=C138 名字门超IP来源判据（追加段，原判据零改动）；J1.79 事件分改 fit 单一来源，删 impact 题）', JEV_QUESTIONS_VERSION === 'J1.80', JEV_QUESTIONS_VERSION);
 
   console.log('\n── B. 名字门消费（J1.61 唯一名字拦截位）──');
   const mNo = mapStandardAnswers(baseAnswers('C', { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.85 } }), makeContext());

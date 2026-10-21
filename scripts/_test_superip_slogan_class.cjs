@@ -375,10 +375,10 @@ async function main() {
     && !/memScoreC88/.test(mapperSrc)
     && /FRESH_TIMING_C88\.has\(timing\) && web3FitStrongP >= 0\.5/.test(mapperSrc)
     && /const FRESH_TIMING_C88 = new Set\(\['within_7d', 'within_30d', 'expected_within_30d'\]\)/.test(mapperSrc));
-  check('G2 豁免守卫五处：rcp 概率臂 opts / argmax 臂 / scBlock opts（C109 增 imgCarrierOverride 图证覆盖臂）/ Stage3 劫持臂 / 关联≤10 截断',
+  check('G2 豁免守卫五处：rcp 概率臂 opts / argmax 臂 / scBlock opts（C109 增 imgCarrierOverride 图证覆盖臂；C138 eth_cedric 案增 authorUtterance 作者原话票臂）/ Stage3 劫持臂 / 关联≤10 截断',
     /routineContentProductBlock\(answers, category, \{ platformOfficial, recognizedEntitySlogan \}\)/.test(mapperSrc)
     && /!\(blockChoice === 'event_routine_content_product' && recognizedEntitySlogan\)/.test(mapperSrc)
-    && /subjectCarrierBlock\(answers, category, \{ recognizedEntitySlogan, imgCarrierOverride, emptyContentImgCarrierOverride/.test(mapperSrc)
+    && /subjectCarrierBlock\(answers, category, \{ recognizedEntitySlogan, authorUtterance, imgCarrierOverride, emptyContentImgCarrierOverride/.test(mapperSrc)
     && /brandHijackP >= 0\.5 && !punExempt && !recognizedEntitySlogan/.test(mapperSrc)
     && /relevance\.score <= 10 && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
   check('G3 memFloor 臂 C108 退役源码反证（reason 模板/mem<2 拦截/变量赋值不存在——仅注释档保留）',

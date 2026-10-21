@@ -147,8 +147,8 @@ async function main() {
     /w_bsc_user_appeal: answers\.w_bsc_user_appeal\?\.probabilities/.test(mapperSrc));
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION = J1.79（事件分改 fit 单一来源）',
-    JEV_QUESTIONS_VERSION === 'J1.79', JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION = J1.80（J1.80=C138 超IP来源判据；J1.79 事件分改 fit 单一来源）',
+    JEV_QUESTIONS_VERSION === 'J1.80', JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

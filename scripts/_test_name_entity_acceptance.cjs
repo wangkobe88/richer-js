@@ -188,21 +188,24 @@ async function main() {
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
-  check('D5c J1.65-J1.67 名字门超IP词句臂（模拟 BSC 链 Meme 玩家、不套词表）+ 版本词反锚（C126/C105）',
+  check('D5c J1.65-J1.67 名字门超IP词句臂（模拟 BSC 链 Meme 玩家、不套词表）+ 版本词反锚（C126/C105）+ J1.80/C138 超IP来源判据段',
     qsSrc.includes('对 BSC 链 Meme 币用户有特殊影响力的主体本人说出的、玩家会当符号用的词句')
     && qsSrc.includes('即便逐字出自高影响力主体的原话也不接纳')
-    && qsSrc.includes('模拟 BSC 链 Meme 币买家看到这句话的反应，不是套词表') && qsSrc.includes('BSC 链 Meme 币玩家群体里的特殊影响力') && qsSrc.includes('日常陈述、个人行动、礼貌套话'), null);
+    && qsSrc.includes('模拟 BSC 链 Meme 币买家看到这句话的反应，不是套词表') && qsSrc.includes('BSC 链 Meme 币玩家群体里的特殊影响力') && qsSrc.includes('日常陈述、个人行动、礼貌套话')
+    && qsSrc.includes('超级IP来源判据（J1.80/C138）')
+    && qsSrc.includes('即使是超级IP即影响力超大的用户讲的话，也完全当不了符号，完全不适合作为 meme 币，不会产生购买意愿')
+    && qsSrc.includes('币名「heyi.ai」=其代称「heyi」+.ai 概念后缀'), null);
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）',
     qsSrc.includes('event_token_block_reason:')
     && qsSrc.includes('event_empty_content:') && qsSrc.includes('event_institution_routine:')
     && qsSrc.includes('event_negative_hard_news:') && qsSrc.includes('event_routine_content_product:')
     && qsSrc.includes('token_ip_reuse:') && qsSrc.includes('token_circle_reachability:'));
-  check('D5 题集四选项（含 new_entity）+ 作者身份不升档红线 + 版本 J1.79（J1.79 删 web3_user_event_impact 改 fit 单一事件分）',
+  check('D5 题集四选项（含 new_entity）+ 作者身份不升档红线 + 版本 J1.80（J1.80=C138 超IP来源判据追加段；J1.79 删 web3_user_event_impact 改 fit 单一事件分）',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(qsSrc) && /unknown:/.test(qsSrc) && /new_entity:/.test(qsSrc) && /no_entity:/.test(qsSrc)
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.79'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.80'/.test(qsSrc));
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
