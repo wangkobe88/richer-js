@@ -574,6 +574,17 @@
       "note": "股城：空语料搜索兜底（symbol 搜索、不卡互动）；J1.72 new_entity 放行实体门；J1.74 W 数学=产品+BSC用户吸引力+时效（58.31 差 1.69）仍 low",
       "observe": "W 类产品/吸引力分随语料与 Jev 掷骰波动（吸引力 band1/2 边缘，score≥2.0 即过线）；若实体题回退 unknown≥0.5 → reason 变「币名映射实体在 Web3 用户侧无名」→ 本断言失败即回归信号",
       "addedAt": "2026-10-20"
+    },
+    {
+      "caseId": "C137",
+      "symbol": "MEMES",
+      "addr": "0xeeed1ed1b6bd0eae15bb651490a7e8b3057f7777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:C"
+      },
+      "note": "eth_cedric注册super-ip表态豁免票：empty_content臂被J1.58作者豁免翻掉(审计emptyContentAuthorOverride)，终局载体门no_visual0.95拦",
+      "addedAt": "2026-10-21"
     }
   ]
 }
