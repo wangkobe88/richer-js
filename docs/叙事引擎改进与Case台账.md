@@ -88,7 +88,9 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **旧缓存行兼容**：实体题 probabilities 残留 brand_mismatch 键 mapper 不读（桶退役=不产出+不消费，双停，单测 A3 bit 一致锁定）。
 - **回归影响面**：TREE（81 分被拦→预期翻 high，expect 已是 high=fail-first 达成）；C40 BI Inu 类票在新题集下由 J1.92 acceptable 15 分自然放行（复核在案票重析）。品牌关键词票不再有预检门=Jev 少答一桶（fan-out token 微降）。
 - **单测**：`_test_brand_hijack_pun_exemption` 整体重写为退役反证（A 案票终态：acceptable 15 放行/unacceptable 5 由关联≤10 截断拦/残留键 bit 一致；B 桶退役恒五桶+传参静默忽略；C 源码防复活预检表/函数/劫持臂/punExempt/analyzer 传参+spelling 链首；D 审计停产出+magExempt 收窄；E 版本 ≥J1.103；F 量级门豁免源收窄）16/0；随动 8 文件（web3_fit A5/question_consolidation A6+A10d/name_image_consistency A7+D3+F1/superip_slogan_class D1+E4+G2+G4-G6/name_entity_acceptance D5+D6/spelling H1/angle_timing C5）；**顺手收口 C171 存量漏网**（superip_slogan_class D1/G2、name_entity D5 版本+D6 visuality 在册——两文件不在 CLAUDE.md 单测清单当时未跑）+ 本案新发现 superip_standard_path B5（credibleEventAnchor 断言随轴翻反证）。叙事侧全量单测零失败。
-- **部署**：commit → push → 182 pull → 重启叙事 worker+live v32（重启前查持仓）→ TREE 定向重析（预期 high）+ C171 遗留 6 FAIL 票同批呈报 → 全量 case-regression 对拍。
+- **部署（已完成）**：f00d4a1 push → 182 pull → worker 单实例+live v32 f04861ee 重启（13:54 UTC，重启前零持仓确认）→ 全量回归 **38P/7F/6O**（上轮 39P/6F/6O）。
+- **回归终态**：6 FAIL 与上轮完全相同（C94/C106/C79/C133/C162/C167=C171 前段遗留待裁，非本案引入）；**唯一新增漂移 = C101 OK❌ `0x0195119e…7777` expect low（空洞内容锚）→ high 70.68 四跑稳定**（69.94/71.12/72.54 复核）——删品牌维度后 Jev 各题稳定正向（accepted 0.57/phrase acceptable 0.67/exact_match 0.63/strong_fit≈0.46），「OK❌」极短符号票旧世界疑似被品牌锚（OKX 预检）带偏 empty_content，删桶后全绿放行。**待用户裁定 expect 是否 update**。
+- **TREE 死因迁移（重要发现）**：三连跑稳定 low——品牌劫持臂消失后 entity 判 not_entity 0.47 argmax → **词句题开评**（J1.139：phrase 只评 not_entity 票；**旧世界 brand_mismatch 桶曾结构性屏蔽词句题**）→ web3_user_not_acceptable 0.59-0.81 拦。关联 exact_match 0.74 与词句 not_acceptable 并存=两题轴语义可分（名字↔事件关系 vs 名字形状用户接纳），expect high 冲突待裁。
 
 ### C171 形象载体轴整轴退役——形象考量并入实体接纳度（2026-10-22 用户裁定「有形象接纳度会高，但是也不是说没有形象就不行，一切看情况」）★★
 
