@@ -643,6 +643,18 @@
       },
       "note": "BIAOQING 三连发主票：name_exact 撞熊猫头蓝筹（aliases 补录 BIAOQING/The Chinese Bear 后接住）→ 门链首臂拦 low；锁定 C168 门防线",
       "addedAt": "2026-10-22"
+    },
+    {
+      "caseId": "C138a",
+      "symbol": "Heyi",
+      "addr": "0xa1cb5a5915c43829a33c7cb508f65eebed177777",
+      "expect": {
+        "rating": "high"
+      },
+      "note": "Heyi.ai 本票=C168 dedupExempt 条目本体、Heyi 叙事最热票（ATH 1.9M USD 蓝筹在册）；旧行 10-20 卡名字门（J1.80 前），当前代码态重析卡载体门（D 类 no_visual 0.59）；用户裁定 2026-10-22 最热票肯定 high，expect 人工改 high fail-first",
+      "addedAt": "2026-10-22",
+      "expectBecause": "C138a 收录裁定（2026-10-22 用户）：Heyi.ai 本票=最热票（ATH 1.9M USD 蓝筹在册、C168 dedupExempt 条目本体），肯定给 high；现行卡载体门（D 类 no_visual）fail-first 等引擎放行",
+      "expectSince": "2026-10-22"
     }
   ]
 }
