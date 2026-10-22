@@ -275,7 +275,7 @@ async function main() {
     && entSeg.includes('品牌劫持/概念扩大') && entSeg.includes('本项优先于 accepted')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.99'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.100'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability / 载体题 web3_user_entity_visuality 在册，旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && /web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));

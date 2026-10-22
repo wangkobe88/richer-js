@@ -1366,7 +1366,18 @@ export function mapStandardAnswers(answers, context) {
   // 但猫拉窗帘正是「别打扰」的画面演绎）。J1.30 imgNameExempt 刻意不消费本题
   // （演绎≠名实一致，两豁免面不互扩）；答案缺失/未问 → depictP=0 只剩 nicMatch 臂
   const depictP = answers.image_depicts_name?.probabilities?.depicts_name ?? 0;
-  const imgCarrierOverride = !!context.imageEvidence && (nicMatchP >= 0.5 || depictP >= 0.5);
+  // J1.100/C167（梗王大乱斗案 0x4ded…7777）：图证豁免第四臂=载体性质。10.7/10.8
+  // 的「名图一致/演绎」在所指物=非形象事物（游戏/产品/网站/活动）时是同义反复
+  // （配图=所指物实录，证明所指存在不证明形象载体存在——E 类事件分已在量该
+  // 东西），image_carrier_nature≠carrier_visual → match/depict 两臂都不再豁免
+  // 载体门。答案缺失 fail-closed（J1.30 同款；imageConsistency 票必问，缺失=
+  // 异常形状防御）。题面锚=事物自我实录不算演绎（真香蕉锚升格）+图内第三方
+  // IP 形象属原 IP 不成本币载体；奠基票（交易猫/DND/短尾猫）所指物均具象形象
+  // 判 carrier_visual 不受影响
+  const carrierNature = answers.image_carrier_nature?.choice ?? null;
+  const imgArmsQualified = nicMatchP >= 0.5 || depictP >= 0.5;
+  const carrierNatureOk = carrierNature === 'carrier_visual';
+  const imgCarrierOverride = !!context.imageEvidence && imgArmsQualified && carrierNatureOk;
   // C160：动物救助/纪念 E 类强情感路径——Jev fit 质量≥0.5 且文本事实锚命中
   // （动物救助词 + 纪念/离世词）时，不要求形象载体；泛 E 热点（C79 偷窥狂）
   // 无救助/纪念词，不触发。
@@ -1497,7 +1508,10 @@ export function mapStandardAnswers(answers, context) {
     authorUtterance, imgCarrierOverride,
     emotionalImpactCarrierExempt,
     massiveInfluenceCarrierExempt,
-    emptyContentImgCarrierOverride: emptyContentImgLike,
+    // J1.100/C167：近 tie 臂同受载体性质第四臂管（referent_itself 实录图不豁免；
+    // DND 奠基票判 carrier_visual 行为不变——audit subjectCarrierEmptyImgOverride
+    // 恒落观察不受影响）
+    emptyContentImgCarrierOverride: emptyContentImgLike && carrierNatureOk,
   }))) {
     // J1.29→J1.81 实体形象门 entityVisualBlock（题键 web3_user_entity_visuality）：C/D+非existing / E+no_visual → 叙事主体无形象载体；著名免形象资格早退。
     // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
@@ -1639,6 +1653,16 @@ export function mapStandardAnswers(answers, context) {
               matchP: round2(nicMatchP),
               via: nicMatchP >= 0.5 ? 'match' : 'depicts',
               depictP: depictP > 0 ? round2(depictP) : null,
+            }
+          : null,
+        // J1.100/C167 审计标记：图证载体豁免被载体性质否决（match/depict 臂本已
+        // 够阈但配图=所指物实录/unclear → 载体门照拦；命中才落，与 subjectCarrier-
+        // ImgOverride 互斥可辨：有值=被否决、null=未触发/臂未够阈/性质放行）
+        subjectCarrierReferentVeto: !imgCarrierOverride && imgArmsQualified && !!context.imageEvidence
+          && carrierNature != null && carrierNature !== 'carrier_visual' && carrierWouldBlock
+          ? {
+              carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
+              nature: carrierNature,
             }
           : null,
         // C159 审计标记：empty_content 近 tie（none argmax 但 emptyP≥0.4）+ 图证 →
@@ -1812,6 +1836,15 @@ export function mapStandardAnswers(answers, context) {
                   matchP: round2(nicMatchP),
                   via: nicMatchP >= 0.5 ? 'match' : 'depicts',
                   depictP: depictP > 0 ? round2(depictP) : null,
+                }
+              : null,
+            // J1.100/C167：图证载体豁免被载体性质否决（与 stage2 主段同形；
+            // 拦截票本段 __clear，stage2 主段是唯一落库位）
+            subjectCarrierReferentVeto: !imgCarrierOverride && imgArmsQualified && !!context.imageEvidence
+              && carrierNature != null && carrierNature !== 'carrier_visual' && carrierWouldBlock
+              ? {
+                  carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
+                  nature: carrierNature,
                 }
               : null,
             // C138 审计：作者原话票豁免载体门（命中才落；与 Stage2 主段同构——

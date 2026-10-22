@@ -251,6 +251,8 @@ async function main() {
   // 交易猫事故现场反证：D+no_visual（线上实测拦截形状）+ imageEvidence + nic 0.73 → 不再断
   const maoyu = baseAnswers('D', 'no_visual_entity');
   maoyu.name_image_consistency = nic;
+  // J1.100/C167：鸡形角色=形象票，第四臂 carrier_visual（缺此答案=防御形状 fail-closed 照拦）
+  maoyu.image_carrier_nature = { choice: 'carrier_visual', probabilities: { carrier_visual: 0.82, referent_itself: 0.12 } };
   const rMaoyu = mapStandardAnswers(maoyu, stdCtx('交易猫', '交易猫', true));
   check('H1 交易猫形状（D+no_visual+图证 nic0.73）→ 形象门豁免不再拦',
     !blockedByCarrier(rMaoyu), rMaoyu.llmResult.reason);
@@ -262,6 +264,7 @@ async function main() {
   // E+no_visual 同覆盖（无图证语义由下方 H4 锁死）
   const eNo = baseAnswers('E', 'no_visual_entity');
   eNo.name_image_consistency = nic;
+  eNo.image_carrier_nature = { choice: 'carrier_visual', probabilities: { carrier_visual: 0.82, referent_itself: 0.12 } };
   const rENo = mapStandardAnswers(eNo, stdCtx('TST', 'TST', true));
   check('H3 E+no_visual+图证 → 同豁免（覆盖不分门臂）', !blockedByCarrier(rENo), rENo.llmResult.reason);
   // BI 形状（C88 案 improvised 0.62）：无图证 → 照拦（校准不动）

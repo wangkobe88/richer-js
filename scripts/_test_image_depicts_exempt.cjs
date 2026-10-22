@@ -64,6 +64,9 @@ function dndAnswers(overrides = {}) {
     event_finding_vs_recap: { choice: 'finding', probabilities: { finding: 0.7 } },
     name_image_consistency: { choice: 'unrelated', probabilities: { unrelated: 0.85, same_entity: 0.05, same_visual_category: 0.05 } },
     image_depicts_name: { choice: 'depicts_name', probabilities: { depicts_name: 0.8, decorative: 0.15 } },
+    // J1.100/C167：DND 猫拉窗帘=形象级载体，基座补第四臂 carrier_visual（演绎臂
+    // 语义=「臂够阈 ∧ 性质放行」两条件；纯臂验证形状由 _test_image_carrier_nature 锁）
+    image_carrier_nature: { choice: 'carrier_visual', probabilities: { carrier_visual: 0.8, referent_itself: 0.15 } },
     ...overrides,
   };
 }
@@ -199,8 +202,9 @@ async function main() {
   console.log('\n── H. 源码口径 ──');
   const mapperSrc = readFileSync(mapperPath, 'utf8');
   const qSrc = readFileSync(qPath, 'utf8');
-  check('H1 mapper 扩臂形状（nicMatchP ∨ depictP 双臂）',
-    mapperSrc.includes('(nicMatchP >= 0.5 || depictP >= 0.5)'), null);
+  check('H1 mapper 扩臂形状（nicMatchP ∨ depictP 双臂 + C167 第四臂 carrierNatureOk）',
+    mapperSrc.includes('imgArmsQualified && carrierNatureOk')
+      && mapperSrc.includes('const imgArmsQualified = nicMatchP >= 0.5 || depictP >= 0.5;'), null);
   check('H2 depictP 缺失回落 0（答案缺失=只剩 nicMatch 臂）',
     mapperSrc.includes("answers.image_depicts_name?.probabilities?.depicts_name ?? 0"), null);
   check('H3 审计键 via 臂来源字段',
@@ -210,7 +214,7 @@ async function main() {
   check('H4b stage2 段同形豁免键（拦截票唯一落库位，DND fallthrough 可归因）',
     mapperSrc.split('\n').filter(l => l.trim().startsWith('subjectCarrierImgOverride:')).length === 2, null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H5 JEV_QUESTIONS_VERSION=J1.99（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放）', JEV_QUESTIONS_VERSION === 'J1.99', JEV_QUESTIONS_VERSION);
+  check('H5 JEV_QUESTIONS_VERSION=J1.99（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放；J1.100=C167 image_carrier_nature 载体性质第四臂）', JEV_QUESTIONS_VERSION === 'J1.100', JEV_QUESTIONS_VERSION);
   check('H6 题面 DND/CRO 对照锚在',
     qSrc.includes('猫拉上窗帘正是「别打扰」的画面演绎') && qSrc.includes('名字 CRO 配一张猫图'), null);
   check('H7 题面正交分工声明（unrelated 与 depicts 可同票共存）',

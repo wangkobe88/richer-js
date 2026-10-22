@@ -65,7 +65,7 @@ async function main() {
 
   // ═══ A. 新标准题面（J1.79）═══
   console.log('\n── A. J1.79 fit 单题事件价值标准 ──');
-  check('A1 版本号 = J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79 impact 删题 + fit 单一事件分）', JEV_QUESTIONS_VERSION === 'J1.99', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79 impact 删题 + fit 单一事件分）', JEV_QUESTIONS_VERSION === 'J1.100', JEV_QUESTIONS_VERSION);
   check('A2 web3_user_event_impact / web3_user_event_spread / event_magnitude / dimension2 均删题',
     qs.web3_user_event_impact === undefined && qs.web3_user_event_spread === undefined
     && qs.event_magnitude === undefined && qs.dimension2 === undefined, Object.keys(qs));
