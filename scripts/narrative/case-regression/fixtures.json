@@ -61,13 +61,10 @@
       "addr": "0x9df97d4239818411237d19a09303262269c47777",
       "expect": {
         "rating": "high",
-        "reasonIncludes": [
-          "负面硬新闻"
-        ],
         "tokenCategory": "event:E"
       },
       "note": "粉红豹法国骚乱案：现行 DB 行 high 71.78=4daab46 部署前事故现场原行（实买 -19.4%），J1.38 政治暴力边界部署后从未整链重析（当时只做 jev_dryrun 定向重放 0.22→0.97）。预期变化票：low+负面硬新闻。",
-      "expectBecause": "C170 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」（J1.101 门退役）——原 expect low+reasonIncludes 负面硬新闻锚在死门上；重析翻 high 79.46（fit 层 80% 过线 A 档+exact_match），政治暴力票生死改由 web3_user_event_fit 判",
+      "expectBecause": "C170 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」（J1.101 门退役）——原 expect low+reasonIncludes 负面硬新闻锚在死门上；重析翻 high 79.46（fit 层 80% 过线 A 档+exact_match），政治暴力票生死改由 web3_user_event_fit 判；reasonIncludes 负面硬新闻随门退役手工移除（死锚，门没了该 reason 永不再出现）",
       "expectSince": "2026-10-22"
     },
     {
@@ -644,7 +641,10 @@
       "addr": "0x329c64d1b14c663b30fa995fef475fdaf3417777",
       "expect": {
         "rating": "low",
-        "tokenCategory": "event:A"
+        "tokenCategory": [
+          "event:A",
+          "event:E"
+        ]
       },
       "note": "BIAOQING 三连发主票：name_exact 撞熊猫头蓝筹（aliases 补录 BIAOQING/The Chinese Bear 后接住）→ 门链首臂拦 low；锁定 C168 门防线",
       "addedAt": "2026-10-22"
