@@ -78,6 +78,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **影响面**：①高频部署者（GoldenCatDev 等）前作不再作注入背景；②C106 TREE 原 high 85.15 含 tcryptochicks 姐妹 twitter_exact 注入（C165 时唯一实质漂移源、用户曾裁 expect high 收口）——退役后重析验证，结果呈报裁定；③蓝筹库条目 twitter 字段保留（数据不删，规则退役；与 C168 同惯例）。
 - **部署与验证**：worker 重启（代码变更，数据热载不覆盖代码）→ 定向重析 C106/C138a → 全量回归 50 票。
 - **C106 裁定收口（同日第三轮裁定）**：退役后 C106 重析回 low（卡载体门），与上午「expect high（85.15）」裁定冲突呈报——**用户裁定：维持 high 作 fail-first，「不要因为不符合预期就改结果」**（原则性表述：expect=意图断言，引擎实际≠预期时不改 expect 改引擎；--update-expect 只在意图本身变化时用，不因摇摆/漂移自动改）。当前 FAIL 即 fail-first 生效，等引擎从正当路径（名字/语料证据，非同 Dev 背景）放行。C138a Heyi.ai 本票同语义（expect high fail-first）。退役后全量回归 50 票 39P/6F/5O：C101/C114 摇摆回 PASS；C133 股城本轮翻 FAIL（阈值抖动既有域）；C94/C109c/C162 摇摆域。
+- **C109c expect 裁定（同日第四轮，2026-10-22）**：C109c BI `0x3891aeb8…7777`（摇摆域票）原 expect=low（2026-10-21 以引擎实际结果收录）——**用户裁定 expect 改 high**（同簇 C83a 94.27 / C83b 92.14 均 high，本票摇摆域内 high 面 78.61 与簇一致）。改后定向重析 high 79.12（名图一致豁免 J1.30+事件分 58.2）直接 PASS——意图与引擎对齐后 C109c 退出摇摆 FAIL 名单，回归终态预期 40P/5F/5O。
 
 ### C168 蓝筹去重门——新票 name/twitter 双 exact 撞已验证蓝筹 → 门链首臂拦 low（2026-10-22 用户裁定两轮）★
 

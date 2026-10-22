@@ -1,0 +1,39 @@
+{
+  "ranAt": "2026-10-22T11:56:26.603Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C109c",
+      "symbol": "BI",
+      "addr": "0x3891aeb8bf0ebb0079b4b1e6c18dd0ca26d77777",
+      "status": "PASS",
+      "expect": {
+        "rating": "high"
+      },
+      "observe": null,
+      "caseNote": "C109 对拍遗留观察票（币安猫图簇 BI 名票，同簇 C83a/C83b 均 high）。原 expect=low（2026-10-21 以引擎实际结果为准收录）；2026-10-22 用户裁定 expect 改 high——摇摆域内 high 面（78.61）与簇一致。",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 78.61,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 79.12,
+        "stage": 3,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    }
+  ]
+}
