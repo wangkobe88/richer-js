@@ -1,0 +1,3228 @@
+{
+  "kind": "bluechip",
+  "version": 1,
+  "note": "GMGN 三榜蓝筹快照（builder scripts/narrative/build-knowledge-bluechips.mjs --commit 生成；蓝筹口径=ATH 市值>$1M）；人工补录/掉榜兜底走 config/knowledge/manual-entries.json 同 id 覆盖",
+  "generatedAt": "2026-10-22T04:18:16.741Z",
+  "entries": [
+    {
+      "id": "b:0x997a58129890bbda032231a52ed1ddc845fc18e1",
+      "kind": "bluechip",
+      "name": "SIREN",
+      "symbol": "SIREN",
+      "aliases": [],
+      "address": "0x997a58129890bbda032231a52ed1ddc845fc18e1",
+      "twitter": "https://x.com/genius_sirenbsc",
+      "narrative": "",
+      "athMarketCapUsd": 4362736000,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 21,
+        "renowned24h": 91,
+        "vol24h": 80
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xd9483ea7214fcfd89b4fb8f513b544920e315a52",
+      "kind": "bluechip",
+      "name": "AVA",
+      "symbol": "AVA",
+      "aliases": [],
+      "address": "0xd9483ea7214fcfd89b4fb8f513b544920e315a52",
+      "twitter": "https://x.com/AVAFoundation",
+      "narrative": "",
+      "athMarketCapUsd": 2913125608.576141,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 96
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xfe930c2d63aed9b82fc4dbc801920dd2c1a3224f",
+      "kind": "bluechip",
+      "name": "NIGHT",
+      "symbol": "NIGHT",
+      "aliases": [],
+      "address": "0xfe930c2d63aed9b82fc4dbc801920dd2c1a3224f",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 1318099915.7041006,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 22
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xba2ae424d960c26247dd6c32edc70b295c744c43",
+      "kind": "bluechip",
+      "name": "Dogecoin",
+      "symbol": "DOGE",
+      "aliases": [
+        "DOGE"
+      ],
+      "address": "0xba2ae424d960c26247dd6c32edc70b295c744c43",
+      "twitter": "https://x.com/dogecoin",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 1295550636.934715,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 3,
+        "renowned24h": 16,
+        "vol24h": 36
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xf39e4b21c84e737df08e2c3b32541d856f508e48",
+      "kind": "bluechip",
+      "name": "Yooldo Games",
+      "symbol": "ESPORTS",
+      "aliases": [
+        "ESPORTS"
+      ],
+      "address": "0xf39e4b21c84e737df08e2c3b32541d856f508e48",
+      "twitter": "https://x.com/Yooldo_Games",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 753681906,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 46
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe",
+      "kind": "bluechip",
+      "name": "XRP Token",
+      "symbol": "XRP",
+      "aliases": [
+        "XRP"
+      ],
+      "address": "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe",
+      "twitter": "https://x.com/Ripple",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 437605000,
+      "athSource": "sanity_floor",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 1,
+        "vol24h": 19
+      },
+      "updatedAt": "2026-10-22T04:18:16.737Z"
+    },
+    {
+      "id": "b:0x3ee2200efb3400fabb9aacf31297cbdd1d435d47",
+      "kind": "bluechip",
+      "name": "Cardano Token",
+      "symbol": "ADA",
+      "aliases": [
+        "ADA"
+      ],
+      "address": "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47",
+      "twitter": "https://x.com/cardano",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 403169137.7857948,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 5,
+        "vol24h": 67
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x1ba42e5193dfa8b03d15dd1b86a3113bbbef8eeb",
+      "kind": "bluechip",
+      "name": "Zcash Token",
+      "symbol": "ZEC",
+      "aliases": [
+        "ZEC"
+      ],
+      "address": "0x1ba42e5193dfa8b03d15dd1b86a3113bbbef8eeb",
+      "twitter": "https://x.com/electriccoinco",
+      "narrative": "",
+      "athMarketCapUsd": 379853862.43736994,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 2,
+        "renowned24h": 20,
+        "vol24h": 9
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x405fbc9004d857903bfd6b3357792d71a50726b0",
+      "kind": "bluechip",
+      "name": "Plasma",
+      "symbol": "XPL",
+      "aliases": [
+        "XPL"
+      ],
+      "address": "0x405fbc9004d857903bfd6b3357792d71a50726b0",
+      "twitter": "https://x.com/Plasma",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 366267455.14845014,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 23,
+        "renowned24h": 87,
+        "vol24h": 43
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xc9882def23bc42d53895b8361d0b1edc7570bc6a",
+      "kind": "bluechip",
+      "name": "FistToken",
+      "symbol": "FIST",
+      "aliases": [
+        "FIST"
+      ],
+      "address": "0xc9882def23bc42d53895b8361d0b1edc7570bc6a",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 366239780,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 15,
+        "renowned24h": 47,
+        "vol24h": 47
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xb5761f36fdfe2892f1b54bc8ee8babb2a1b698d3",
+      "kind": "bluechip",
+      "name": "RICE AI",
+      "symbol": "RICE",
+      "aliases": [
+        "RICE"
+      ],
+      "address": "0xb5761f36fdfe2892f1b54bc8ee8babb2a1b698d3",
+      "twitter": "https://x.com/realRiceAI",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 334473940,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 50,
+        "vol24h": 97
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xeccbb861c0dda7efd964010085488b69317e4444",
+      "kind": "bluechip",
+      "name": "龙虾",
+      "symbol": "龙虾",
+      "aliases": [],
+      "address": "0xeccbb861c0dda7efd964010085488b69317e4444",
+      "twitter": "https://x.com/binancezh",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 311685630,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 25,
+        "renowned24h": 27,
+        "vol24h": 39
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xca56094722450016f280c4fd6a333e5c36903827",
+      "kind": "bluechip",
+      "name": "ShopinX Token",
+      "symbol": "SPX",
+      "aliases": [
+        "SPX"
+      ],
+      "address": "0xca56094722450016f280c4fd6a333e5c36903827",
+      "twitter": "https://x.com/ShopinxSPX",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 306957070,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "vol24h": 56
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0x0a43fc31a73013089df59194872ecae4cae14444",
+      "kind": "bluechip",
+      "name": "4",
+      "symbol": "4",
+      "aliases": [],
+      "address": "0x0a43fc31a73013089df59194872ecae4cae14444",
+      "twitter": "https://x.com/4onbsc",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 306417260,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 36,
+        "renowned24h": 17,
+        "vol24h": 65
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x8dedf84656fa932157e27c060d8613824e7979e3",
+      "kind": "bluechip",
+      "name": "STBL_Token - STBL Governance Token",
+      "symbol": "STBL",
+      "aliases": [
+        "STBL"
+      ],
+      "address": "0x8dedf84656fa932157e27c060d8613824e7979e3",
+      "twitter": "https://x.com/stbl_official",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 293851782,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 29,
+        "renowned24h": 95,
+        "vol24h": 18
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xb994882a1b9bd98a71dd6ea5f61577c42848b0e8",
+      "kind": "bluechip",
+      "name": "World of Dypians",
+      "symbol": "WoD",
+      "aliases": [
+        "WoD"
+      ],
+      "address": "0xb994882a1b9bd98a71dd6ea5f61577c42848b0e8",
+      "twitter": "https://x.com/worldofdypians",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 266947380,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 39,
+        "vol24h": 26
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xfe189e97832da1573e4e4ff034f4ffc3a15c7777",
+      "kind": "bluechip",
+      "name": "MarsCoin",
+      "symbol": "MarsCoin",
+      "aliases": [],
+      "address": "0xfe189e97832da1573e4e4ff034f4ffc3a15c7777",
+      "twitter": "https://x.com/bnbMarsCoin",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 265522070,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 8,
+        "renowned24h": 12,
+        "vol24h": 27
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x18d0e455b3491e09210292d3953157a4bf104444",
+      "kind": "bluechip",
+      "name": "比特币",
+      "symbol": "比特币",
+      "aliases": [],
+      "address": "0x18d0e455b3491e09210292d3953157a4bf104444",
+      "twitter": "https://x.com/btc2025x",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 220202330,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 7,
+        "renowned24h": 86
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x19c018e13cff682e729cc7b5fb68c8a641bf98a4",
+      "kind": "bluechip",
+      "name": "BurnedFi",
+      "symbol": "burn",
+      "aliases": [
+        "burn"
+      ],
+      "address": "0x19c018e13cff682e729cc7b5fb68c8a641bf98a4",
+      "twitter": "https://x.com/burnArmy",
+      "narrative": "",
+      "athMarketCapUsd": 191428537.23000002,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 18
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x4902c5ebc598265ed2212b559b042de8a5eeec3f",
+      "kind": "bluechip",
+      "name": "CEA Industries",
+      "symbol": "BNCB",
+      "aliases": [
+        "BNCB"
+      ],
+      "address": "0x4902c5ebc598265ed2212b559b042de8a5eeec3f",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 186358075.21216848,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 17,
+        "renowned24h": 9,
+        "vol24h": 2
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xbeea1d618e533a387d941f58a7d4c9b7bd377777",
+      "kind": "bluechip",
+      "name": "牛来",
+      "symbol": "牛来",
+      "aliases": [],
+      "address": "0xbeea1d618e533a387d941f58a7d4c9b7bd377777",
+      "twitter": "https://x.com/niulai_on_bnb",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 163278120,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 10,
+        "renowned24h": 14,
+        "vol24h": 52
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1",
+      "kind": "bluechip",
+      "name": "SpaceX",
+      "symbol": "SPCXB",
+      "aliases": [
+        "SPCXB"
+      ],
+      "address": "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 153455244.03489205,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 4,
+        "renowned24h": 1,
+        "vol24h": 4
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
+      "kind": "bluechip",
+      "name": "Uniswap",
+      "symbol": "UNI",
+      "aliases": [
+        "UNI"
+      ],
+      "address": "0xbf5140a22578168fd562dccf235e5d43a02ce9b1",
+      "twitter": "https://x.com/Uniswap",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 137692008.06895673,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 13,
+        "vol24h": 41
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x02e75d28a8aa2a0033b8cf866fcf0bb0e1ee4444",
+      "kind": "bluechip",
+      "name": "Palu",
+      "symbol": "PALU",
+      "aliases": [
+        "PALU"
+      ],
+      "address": "0x02e75d28a8aa2a0033b8cf866fcf0bb0e1ee4444",
+      "twitter": "https://x.com/palunewcto",
+      "narrative": "",
+      "athMarketCapUsd": 132923810,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 22
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x4338665cbb7b2485a8855a139b75d5e34ab0db94",
+      "kind": "bluechip",
+      "name": "Litecoin Token",
+      "symbol": "LTC",
+      "aliases": [
+        "LTC"
+      ],
+      "address": "0x4338665cbb7b2485a8855a139b75d5e34ab0db94",
+      "twitter": "https://x.com/litecoin",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 126232182.47486793,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 14,
+        "vol24h": 100
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x12b4356c65340fb02cdff01293f95febb1512f3b",
+      "kind": "bluechip",
+      "name": "Broccoli",
+      "symbol": "Broccoli",
+      "aliases": [],
+      "address": "0x12b4356c65340fb02cdff01293f95febb1512f3b",
+      "twitter": "https://x.com/FirstBroccoli",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 118170090,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 57
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x12bfe0251eb64c6e26d1a264673593d6164ca213",
+      "kind": "bluechip",
+      "name": "Kamirai",
+      "symbol": "$KAMIRAI",
+      "aliases": [
+        "$KAMIRAI"
+      ],
+      "address": "0x12bfe0251eb64c6e26d1a264673593d6164ca213",
+      "twitter": "https://x.com/KamiraiOfficial",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 98053777.77767973,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 40
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x82ec31d69b3c289e541b50e30681fd1acad24444",
+      "kind": "bluechip",
+      "name": "哈基米",
+      "symbol": "哈基米",
+      "aliases": [],
+      "address": "0x82ec31d69b3c289e541b50e30681fd1acad24444",
+      "twitter": "https://x.com/hajimi_CTO_BNB",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 96507877,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 24,
+        "renowned24h": 11,
+        "vol24h": 63
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x205812cdbed920aff76c6580abd681a46d11efc7",
+      "kind": "bluechip",
+      "name": "Invesqo QQQ",
+      "symbol": "QQQB",
+      "aliases": [
+        "QQQB"
+      ],
+      "address": "0x205812cdbed920aff76c6580abd681a46d11efc7",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 95093094.23010448,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 6,
+        "renowned24h": 2,
+        "vol24h": 3
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x6894cde390a3f51155ea41ed24a33a4827d3063d",
+      "kind": "bluechip",
+      "name": "Simons Cat",
+      "symbol": "CAT",
+      "aliases": [
+        "CAT"
+      ],
+      "address": "0x6894cde390a3f51155ea41ed24a33a4827d3063d",
+      "twitter": "https://x.com/SimonsCatMeme",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 92668158,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 32,
+        "vol24h": 99
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x3ac8e2c113d5d7824ac6ebe82a3c60b1b9d64444",
+      "kind": "bluechip",
+      "name": "客服小何",
+      "symbol": "客服小何",
+      "aliases": [],
+      "address": "0x3ac8e2c113d5d7824ac6ebe82a3c60b1b9d64444",
+      "twitter": "https://x.com/kaikaibtc",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 89648077,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 78,
+        "renowned24h": 30
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7a848a5a8169aa6a2f603d056a749f924f504444",
+      "kind": "bluechip",
+      "name": "The Final Form Bull",
+      "symbol": "CZ",
+      "aliases": [
+        "CZ"
+      ],
+      "address": "0x7a848a5a8169aa6a2f603d056a749f924f504444",
+      "twitter": null,
+      "narrative": "本系统评 mid",
+      "athMarketCapUsd": 88642121,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "mid",
+      "ranks": {
+        "mc24h": 94,
+        "renowned24h": 18
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x21caef8a43163eea865baee23b9c2e327696a3bf",
+      "kind": "bluechip",
+      "name": "Tether Gold",
+      "symbol": "XAUt",
+      "aliases": [
+        "XAUt"
+      ],
+      "address": "0x21caef8a43163eea865baee23b9c2e327696a3bf",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 87486967.03529698,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 11,
+        "renowned24h": 5,
+        "vol24h": 15
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xd270d4e1ec6e6e0d28c0ecb8be966ec75997ffff",
+      "kind": "bluechip",
+      "name": "4Stock",
+      "symbol": "4Stock",
+      "aliases": [],
+      "address": "0xd270d4e1ec6e6e0d28c0ecb8be966ec75997ffff",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 82633663,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 60,
+        "renowned24h": 28,
+        "vol24h": 38
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x3199a64bc8aabdfd9a3937a346cc59c3d81d8a9a",
+      "kind": "bluechip",
+      "name": "Mubarakah",
+      "symbol": "Mubarakah",
+      "aliases": [],
+      "address": "0x3199a64bc8aabdfd9a3937a346cc59c3d81d8a9a",
+      "twitter": "https://x.com/Mubarakah_CTO",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 81544052,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 82
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x1fa4a73a3f0133f0025378af00236f3abdee5d63",
+      "kind": "bluechip",
+      "name": "NEAR Protocol",
+      "symbol": "NEAR",
+      "aliases": [
+        "NEAR"
+      ],
+      "address": "0x1fa4a73a3f0133f0025378af00236f3abdee5d63",
+      "twitter": "https://x.com/NEARProtocol",
+      "narrative": "",
+      "athMarketCapUsd": 77586039.05929962,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 9,
+        "vol24h": 21
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x57ee375439bb01892d1f1fbbf933ad0ed16d7777",
+      "kind": "bluechip",
+      "name": "吉祥马",
+      "symbol": "吉祥马",
+      "aliases": [],
+      "address": "0x57ee375439bb01892d1f1fbbf933ad0ed16d7777",
+      "twitter": "https://x.com/JiXiangMa_BSC",
+      "narrative": "",
+      "athMarketCapUsd": 75706322,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 99
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xf263cc32caed261a819713f3dcc494a96c3e5111",
+      "kind": "bluechip",
+      "name": "OnePiece",
+      "symbol": "1Piece",
+      "aliases": [
+        "1Piece"
+      ],
+      "address": "0xf263cc32caed261a819713f3dcc494a96c3e5111",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 73319623,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 20
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x7083609fce4d1d8dc0c979aab8c869ea2c873402",
+      "kind": "bluechip",
+      "name": "Polkadot Token",
+      "symbol": "DOT",
+      "aliases": [
+        "DOT"
+      ],
+      "address": "0x7083609fce4d1d8dc0c979aab8c869ea2c873402",
+      "twitter": "https://x.com/Polkadot",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 72435121.71280462,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 30,
+        "vol24h": 75
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xa4390b901a63641c92327e5793b45fcb46954444",
+      "kind": "bluechip",
+      "name": "TCryptochicks",
+      "symbol": "TCC",
+      "aliases": [
+        "TCC"
+      ],
+      "address": "0xa4390b901a63641c92327e5793b45fcb46954444",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 70885107,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 26
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xc51a9250795c0186a6fb4a7d20a90330651e4444",
+      "kind": "bluechip",
+      "name": "我踏马来了",
+      "symbol": "我踏马来了",
+      "aliases": [],
+      "address": "0xc51a9250795c0186a6fb4a7d20a90330651e4444",
+      "twitter": null,
+      "narrative": "本系统评 mid",
+      "athMarketCapUsd": 64964955.00000001,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "mid",
+      "ranks": {
+        "mc24h": 41,
+        "renowned24h": 37
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x1ce0c2827e2ef14d5c4f29a091d735a204794041",
+      "kind": "bluechip",
+      "name": "Avalanche",
+      "symbol": "AVAX",
+      "aliases": [
+        "AVAX"
+      ],
+      "address": "0x1ce0c2827e2ef14d5c4f29a091d735a204794041",
+      "twitter": "https://x.com/Avax",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 64018417.4912,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 28,
+        "vol24h": 78
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xeb2b7d5691878627eff20492ca7c9a71228d931d",
+      "kind": "bluechip",
+      "name": "CREPE",
+      "symbol": "CREPE",
+      "aliases": [],
+      "address": "0xeb2b7d5691878627eff20492ca7c9a71228d931d",
+      "twitter": null,
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 61648775.88,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 48
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xbab528425edb1e0e36d3719bc3307d9c8cce8888",
+      "kind": "bluechip",
+      "name": "Moolah",
+      "symbol": "Moolah",
+      "aliases": [],
+      "address": "0xbab528425edb1e0e36d3719bc3307d9c8cce8888",
+      "twitter": "https://x.com/Moolah_bsc",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 61367987,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 12,
+        "renowned24h": 64,
+        "vol24h": 40
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x0d8ce2a99bb6e3b7db580ed848240e4a0f9ae153",
+      "kind": "bluechip",
+      "name": "Filecoin",
+      "symbol": "FIL",
+      "aliases": [
+        "FIL"
+      ],
+      "address": "0x0d8ce2a99bb6e3b7db580ed848240e4a0f9ae153",
+      "twitter": "https://x.com/Filecoin",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 59965461.84070437,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 34,
+        "vol24h": 96
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x82741f086b0d87b1430400ea259d703c5dc37777",
+      "kind": "bluechip",
+      "name": "YAODIE",
+      "symbol": "妖蝶",
+      "aliases": [
+        "妖蝶"
+      ],
+      "address": "0x82741f086b0d87b1430400ea259d703c5dc37777",
+      "twitter": "https://x.com/YaoD9999",
+      "narrative": "妖蝶社区",
+      "athMarketCapUsd": 57922208,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 33
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x489ce5fb31523516f3fb4aacd597508c80edffff",
+      "kind": "bluechip",
+      "name": "build",
+      "symbol": "build",
+      "aliases": [],
+      "address": "0x489ce5fb31523516f3fb4aacd597508c80edffff",
+      "twitter": "https://x.com/buildbnc",
+      "narrative": "",
+      "athMarketCapUsd": 53847569,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 94
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xb0f09ea9ae0515c3551080d4a745c8115aa30e37",
+      "kind": "bluechip",
+      "name": "DAPPOS",
+      "symbol": "DOS",
+      "aliases": [
+        "DOS"
+      ],
+      "address": "0xb0f09ea9ae0515c3551080d4a745c8115aa30e37",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 47816554.20522682,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 49,
+        "vol24h": 16
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xdf24f8c21cb404b3031a450d8e049d6e39fc1fa5",
+      "kind": "bluechip",
+      "name": "Billions Network Token",
+      "symbol": "BILL",
+      "aliases": [
+        "BILL"
+      ],
+      "address": "0xdf24f8c21cb404b3031a450d8e049d6e39fc1fa5",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 46827034.3320883,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 98,
+        "vol24h": 29
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x02fca66c1d1afb4e2a7884261eb00f63598a7436",
+      "kind": "bluechip",
+      "name": "NVIDIA Corp",
+      "symbol": "NVDAB",
+      "aliases": [
+        "NVDAB"
+      ],
+      "address": "0x02fca66c1d1afb4e2a7884261eb00f63598a7436",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 44781448.18611796,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 16,
+        "renowned24h": 3,
+        "vol24h": 5
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x87ae267002cd1ea0ec86bf3601d4a8ad76a47777",
+      "kind": "bluechip",
+      "name": "蝴蝶人生",
+      "symbol": "蝴蝶人生",
+      "aliases": [],
+      "address": "0x87ae267002cd1ea0ec86bf3601d4a8ad76a47777",
+      "twitter": "https://x.com/FlapVault0822",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 42925398,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 52
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x1a1e69f1e6182e2f8b9e8987e83c016ac9444444",
+      "kind": "bluechip",
+      "name": "人生K线",
+      "symbol": "人生K线",
+      "aliases": [],
+      "address": "0x1a1e69f1e6182e2f8b9e8987e83c016ac9444444",
+      "twitter": null,
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 41873855,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 39
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7d03759e5b41e36899833cb2e008455d69a24444",
+      "kind": "bluechip",
+      "name": "priceless",
+      "symbol": "priceless",
+      "aliases": [],
+      "address": "0x7d03759e5b41e36899833cb2e008455d69a24444",
+      "twitter": "https://x.com/PricelessBSC_",
+      "narrative": "",
+      "athMarketCapUsd": 39921895,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 54
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xcafdbce93477261db8250e42bdae6e66733f9e20",
+      "kind": "bluechip",
+      "name": "Gstock",
+      "symbol": "GSTOCK",
+      "aliases": [
+        "GSTOCK"
+      ],
+      "address": "0xcafdbce93477261db8250e42bdae6e66733f9e20",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 38444978.08507669,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 43,
+        "renowned24h": 51,
+        "vol24h": 13
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x2d2d8449ec0bb78c497c36ffaac583dff4bd4444",
+      "kind": "bluechip",
+      "name": "CrypstocksAI",
+      "symbol": "MVP",
+      "aliases": [
+        "MVP"
+      ],
+      "address": "0x2d2d8449ec0bb78c497c36ffaac583dff4bd4444",
+      "twitter": "https://x.com/CrypstocksAI",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 35704916,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 83
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xb0c2ab5af4028461ace3f6e1c33a4ee1404e7777",
+      "kind": "bluechip",
+      "name": "Cets On Gold",
+      "symbol": "CETS",
+      "aliases": [
+        "CETS"
+      ],
+      "address": "0xb0c2ab5af4028461ace3f6e1c33a4ee1404e7777",
+      "twitter": "https://x.com/cetsongold",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 34937068,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 77
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xe9bc5c6a86caa44fd7b469bf3cc7c563e4f77777",
+      "kind": "bluechip",
+      "name": "Giggle Mascot",
+      "symbol": "Max",
+      "aliases": [
+        "Max"
+      ],
+      "address": "0xe9bc5c6a86caa44fd7b469bf3cc7c563e4f77777",
+      "twitter": "https://x.com/GiggleMascotBNB",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 34221898,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 68,
+        "renowned24h": 63
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xf40592daacb3e5abf358789f5688c0b4f64d7777",
+      "kind": "bluechip",
+      "name": "FLORK",
+      "symbol": "FLORK",
+      "aliases": [],
+      "address": "0xf40592daacb3e5abf358789f5688c0b4f64d7777",
+      "twitter": "https://x.com/Flork_memes",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 32980165,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 64,
+        "renowned24h": 50
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xfa6d9b504848606eb9aec04ccc161d169b3f2159",
+      "kind": "bluechip",
+      "name": "BREW",
+      "symbol": "BREW",
+      "aliases": [],
+      "address": "0xfa6d9b504848606eb9aec04ccc161d169b3f2159",
+      "twitter": "https://x.com/brewdotfamily",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 32915542,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 62,
+        "renowned24h": 43,
+        "vol24h": 53
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x925c8ab7a9a8a148e87cd7f1ec7ecc3625864444",
+      "kind": "bluechip",
+      "name": "DOYR",
+      "symbol": "DOYR",
+      "aliases": [],
+      "address": "0x925c8ab7a9a8a148e87cd7f1ec7ecc3625864444",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 31342683.000000004,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 34
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xf74548802f4c700315f019fde17178b392ee4444",
+      "kind": "bluechip",
+      "name": "memes will continue",
+      "symbol": "memes",
+      "aliases": [
+        "memes"
+      ],
+      "address": "0xf74548802f4c700315f019fde17178b392ee4444",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 27813840,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 25
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x5b1910eaad6450e50f816082aa078c41f10c292f",
+      "kind": "bluechip",
+      "name": "Tesla, Inc. ",
+      "symbol": "TSLAB",
+      "aliases": [
+        "TSLAB"
+      ],
+      "address": "0x5b1910eaad6450e50f816082aa078c41f10c292f",
+      "twitter": "https://x.com/cz_binance",
+      "narrative": "",
+      "athMarketCapUsd": 27778841.74161887,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 19,
+        "renowned24h": 10,
+        "vol24h": 7
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x14f6a94909c407854390aa2d2462a3095d317777",
+      "kind": "bluechip",
+      "name": "WangChai",
+      "symbol": "旺柴",
+      "aliases": [
+        "旺柴"
+      ],
+      "address": "0x14f6a94909c407854390aa2d2462a3095d317777",
+      "twitter": "https://x.com/wangchaionbnb",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 24329940,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 35,
+        "vol24h": 20
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0xca750ef65f295bbecd685abf54e82caf297bdb61",
+      "kind": "bluechip",
+      "name": "SK Hynix",
+      "symbol": "SKHYB",
+      "aliases": [
+        "SKHYB"
+      ],
+      "address": "0xca750ef65f295bbecd685abf54e82caf297bdb61",
+      "twitter": null,
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 23999586.28194536,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 26,
+        "renowned24h": 15,
+        "vol24h": 6
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x3e17ee3b1895dd1a7cf993a89769c5e029584444",
+      "kind": "bluechip",
+      "name": "Freedom of Money",
+      "symbol": "Freedom of Money",
+      "aliases": [],
+      "address": "0x3e17ee3b1895dd1a7cf993a89769c5e029584444",
+      "twitter": "https://x.com/FREEDOM_CTO",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 22860020,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 84,
+        "renowned24h": 24
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x990c71fdfa761bcf500ac8753f775ff7fb1b4444",
+      "kind": "bluechip",
+      "name": "714",
+      "symbol": "9",
+      "aliases": [
+        "9"
+      ],
+      "address": "0x990c71fdfa761bcf500ac8753f775ff7fb1b4444",
+      "twitter": "https://x.com/binance",
+      "narrative": "",
+      "athMarketCapUsd": 22312018,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 87,
+        "renowned24h": 92
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x4c067de26475e1cefee8b8d1f6e2266b33a2372e",
+      "kind": "bluechip",
+      "name": "Rhea",
+      "symbol": "RHEA",
+      "aliases": [
+        "RHEA"
+      ],
+      "address": "0x4c067de26475e1cefee8b8d1f6e2266b33a2372e",
+      "twitter": "https://x.com/rhea_finance",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 22177326.419110768,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 45,
+        "vol24h": 37
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7ab8d02cbb51ff7223fde700eaaa2a91bf750314",
+      "kind": "bluechip",
+      "name": "TartSwap",
+      "symbol": "TART",
+      "aliases": [
+        "TART"
+      ],
+      "address": "0x7ab8d02cbb51ff7223fde700eaaa2a91bf750314",
+      "twitter": "https://x.com/tartprotocol",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 22023448,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 27,
+        "vol24h": 25
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x6ff45323817d1d53bbb8a8dfba9245ae74057777",
+      "kind": "bluechip",
+      "name": "memestock",
+      "symbol": "memestock",
+      "aliases": [],
+      "address": "0x6ff45323817d1d53bbb8a8dfba9245ae74057777",
+      "twitter": "https://x.com/MemeStockbnb",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 21142164,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 68
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x1a5f9d77ca46646cd4937fd8d093f460b66f4444",
+      "kind": "bluechip",
+      "name": "老子",
+      "symbol": "老子",
+      "aliases": [],
+      "address": "0x1a5f9d77ca46646cd4937fd8d093f460b66f4444",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 20885133,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 52
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xff5d99a5c16cf2ffb4e7da1d7c42a791e70e4444",
+      "kind": "bluechip",
+      "name": "Ucan fix life in1day",
+      "symbol": "1",
+      "aliases": [
+        "1"
+      ],
+      "address": "0xff5d99a5c16cf2ffb4e7da1d7c42a791e70e4444",
+      "twitter": "https://x.com/thedankoe",
+      "narrative": "",
+      "athMarketCapUsd": 20714562,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 45
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x6cfffa5bfd4277a04d83307feedfe2d18d944dd2",
+      "kind": "bluechip",
+      "name": "Aleo",
+      "symbol": "ALEO",
+      "aliases": [
+        "ALEO"
+      ],
+      "address": "0x6cfffa5bfd4277a04d83307feedfe2d18d944dd2",
+      "twitter": "https://x.com/AleoHQ",
+      "narrative": "",
+      "athMarketCapUsd": 19933918.610928137,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 90,
+        "vol24h": 92
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xc9d825e83aada475bd4d38c8ca984ed746277777",
+      "kind": "bluechip",
+      "name": "Stonks",
+      "symbol": "Stonks",
+      "aliases": [],
+      "address": "0xc9d825e83aada475bd4d38c8ca984ed746277777",
+      "twitter": "https://x.com/stonksbnb",
+      "narrative": "",
+      "athMarketCapUsd": 19496277,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 38
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7138b48df7d98d7e3cc221bfe7192d0a178182d8",
+      "kind": "bluechip",
+      "name": "SPY",
+      "symbol": "SPYB",
+      "aliases": [
+        "SPYB"
+      ],
+      "address": "0x7138b48df7d98d7e3cc221bfe7192d0a178182d8",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 17976300.52641712,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 31,
+        "renowned24h": 4,
+        "vol24h": 32
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x02bcc4c181b83a8c0a342bc003389cbecb4bc54d",
+      "kind": "bluechip",
+      "name": "Solstice",
+      "symbol": "SLX",
+      "aliases": [
+        "SLX"
+      ],
+      "address": "0x02bcc4c181b83a8c0a342bc003389cbecb4bc54d",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 17465268.443037733,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 85
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7bc70ae0f2a67d2fdc0180a697a611f21c857777",
+      "kind": "bluechip",
+      "name": "BEN",
+      "symbol": "BEN",
+      "aliases": [],
+      "address": "0x7bc70ae0f2a67d2fdc0180a697a611f21c857777",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 17105680,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 35
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x2ab8a4dd2191989ac2898006df350b236d2b7777",
+      "kind": "bluechip",
+      "name": "施工猫",
+      "symbol": "Sue",
+      "aliases": [
+        "Sue"
+      ],
+      "address": "0x2ab8a4dd2191989ac2898006df350b236d2b7777",
+      "twitter": "https://x.com/sue_bsc",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 16151579.999999998,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 57
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x13920fe6467e9e3c852b8d365a036c995f0f7777",
+      "kind": "bluechip",
+      "name": "GREEN MORNING",
+      "symbol": "GM",
+      "aliases": [
+        "GM"
+      ],
+      "address": "0x13920fe6467e9e3c852b8d365a036c995f0f7777",
+      "twitter": "https://x.com/cz_binance",
+      "narrative": "",
+      "athMarketCapUsd": 15360379,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 62,
+        "vol24h": 86
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x9212cf1f9f4a9c69bb010146ba5b0725169d4444",
+      "kind": "bluechip",
+      "name": "Binance bibi",
+      "symbol": "bibi",
+      "aliases": [
+        "bibi"
+      ],
+      "address": "0x9212cf1f9f4a9c69bb010146ba5b0725169d4444",
+      "twitter": "https://x.com/bibifansbsc",
+      "narrative": "",
+      "athMarketCapUsd": 13910836,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 23
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x265b3982ea730748100947f52561a4eab54affff",
+      "kind": "bluechip",
+      "name": "ast.fun",
+      "symbol": "AST",
+      "aliases": [
+        "AST"
+      ],
+      "address": "0x265b3982ea730748100947f52561a4eab54affff",
+      "twitter": "https://x.com/ast_dotfun",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 13129435,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 59
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xd0f2a86c7ebcee887f5bfb86771f994cd142bd04",
+      "kind": "bluechip",
+      "name": "CZ人生",
+      "symbol": "CZ人生",
+      "aliases": [],
+      "address": "0xd0f2a86c7ebcee887f5bfb86771f994cd142bd04",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 12969699.33,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 37
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x7427bd9542e64d1ac207a540cfce194b7390a07f",
+      "kind": "bluechip",
+      "name": "Anoma",
+      "symbol": "XAN",
+      "aliases": [
+        "XAN"
+      ],
+      "address": "0x7427bd9542e64d1ac207a540cfce194b7390a07f",
+      "twitter": "https://x.com/anoma",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 12891726.276924545,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "vol24h": 84
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xccfb3e8b1772bd3a9fc62deaf75127adad597777",
+      "kind": "bluechip",
+      "name": "苹果人生",
+      "symbol": "苹果人生",
+      "aliases": [],
+      "address": "0xccfb3e8b1772bd3a9fc62deaf75127adad597777",
+      "twitter": "https://x.com/apple",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 12581592,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 80,
+        "renowned24h": 65
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xe6df1162a3243e3064e43f187ea14808ddfdffff",
+      "kind": "bluechip",
+      "name": "TapeFour",
+      "symbol": "TapeFour",
+      "aliases": [],
+      "address": "0xe6df1162a3243e3064e43f187ea14808ddfdffff",
+      "twitter": "https://x.com/tapefournand",
+      "narrative": "",
+      "athMarketCapUsd": 12246533.125367941,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 88
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x1d80392d12caaaf9e333bb0bb7f021eacf297fe6",
+      "kind": "bluechip",
+      "name": "Paimon Polymarket SPV Token",
+      "symbol": "pPOLY",
+      "aliases": [
+        "pPOLY"
+      ],
+      "address": "0x1d80392d12caaaf9e333bb0bb7f021eacf297fe6",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 11768354.212009184,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 58,
+        "renowned24h": 78,
+        "vol24h": 1
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7c8d5502b544ddaf8852fc46d1174e34876d545c",
+      "kind": "bluechip",
+      "name": "Cea Industries",
+      "symbol": "BNC4",
+      "aliases": [
+        "BNC4"
+      ],
+      "address": "0x7c8d5502b544ddaf8852fc46d1174e34876d545c",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 11331646.33397055,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 51,
+        "renowned24h": 6,
+        "vol24h": 28
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xf2ec508422174ee564de98187db9359d318afb6b",
+      "kind": "bluechip",
+      "name": "Trump Media & Technology Group Corp",
+      "symbol": "DJTB",
+      "aliases": [
+        "DJTB"
+      ],
+      "address": "0xf2ec508422174ee564de98187db9359d318afb6b",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 10998437.582311612,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 97,
+        "renowned24h": 21
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x330990dae53bca4c5811c5362b44c33a47db7777",
+      "kind": "bluechip",
+      "name": "Asteroid Shiba",
+      "symbol": "ASTEROID",
+      "aliases": [
+        "ASTEROID"
+      ],
+      "address": "0x330990dae53bca4c5811c5362b44c33a47db7777",
+      "twitter": "https://x.com/astershibaplush",
+      "narrative": "本系统评 mid",
+      "athMarketCapUsd": 10875039,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "mid",
+      "ranks": {
+        "renowned24h": 29
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x5ce033b2bfca3af30b3e8c8457deaf776a8b695a",
+      "kind": "bluechip",
+      "name": "BEM",
+      "symbol": "BEM",
+      "aliases": [],
+      "address": "0x5ce033b2bfca3af30b3e8c8457deaf776a8b695a",
+      "twitter": null,
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 10744400,
+      "athSource": "sanity_floor",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 38,
+        "renowned24h": 40,
+        "vol24h": 22
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x8b9ee39195ea99d6ddd68030f44131116bc218f6",
+      "kind": "bluechip",
+      "name": "PeaqOFT",
+      "symbol": "PEAQ",
+      "aliases": [
+        "PEAQ"
+      ],
+      "address": "0x8b9ee39195ea99d6ddd68030f44131116bc218f6",
+      "twitter": "https://x.com/peaq",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 10720503.224180812,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 72,
+        "vol24h": 59
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xd8348b96c8f23e1e24c0f40f495823c98f8e7777",
+      "kind": "bluechip",
+      "name": "币安股票QQ 714815163",
+      "symbol": "币安股票",
+      "aliases": [
+        "币安股票"
+      ],
+      "address": "0xd8348b96c8f23e1e24c0f40f495823c98f8e7777",
+      "twitter": "https://x.com/heyibinance",
+      "narrative": "",
+      "athMarketCapUsd": 10669836,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 70
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x108876c3df3d893350e9b780563b3697aa3e7777",
+      "kind": "bluechip",
+      "name": "中国人能飞火箭",
+      "symbol": "中国人能飞",
+      "aliases": [
+        "中国人能飞"
+      ],
+      "address": "0x108876c3df3d893350e9b780563b3697aa3e7777",
+      "twitter": "https://x.com/Ayash71435569",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 10513973,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 92,
+        "renowned24h": 48,
+        "vol24h": 82
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xede00776439f9c49c592e43eee34777a51847777",
+      "kind": "bluechip",
+      "name": "utility token",
+      "symbol": "utility",
+      "aliases": [
+        "utility"
+      ],
+      "address": "0xede00776439f9c49c592e43eee34777a51847777",
+      "twitter": "https://x.com/cz_binance",
+      "narrative": "",
+      "athMarketCapUsd": 10442863,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 41
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x671ecbcb89ee3f85e2199294e723d309d98c4444",
+      "kind": "bluechip",
+      "name": "错版马",
+      "symbol": "哭哭马",
+      "aliases": [
+        "哭哭马"
+      ],
+      "address": "0x671ecbcb89ee3f85e2199294e723d309d98c4444",
+      "twitter": "https://x.com/KUKUMACTO",
+      "narrative": "",
+      "athMarketCapUsd": 10041836,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 36
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x4ef9d3062c7f6eba4aae4990c5036598c6eff4ec",
+      "kind": "bluechip",
+      "name": "Alibaba",
+      "symbol": "BABAB",
+      "aliases": [
+        "BABAB"
+      ],
+      "address": "0x4ef9d3062c7f6eba4aae4990c5036598c6eff4ec",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 9814222.635713616,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 42,
+        "renowned24h": 19,
+        "vol24h": 30
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x0a092e544da31150b439a1aaa1a3a2214a867f46",
+      "kind": "bluechip",
+      "name": "Concrete Token",
+      "symbol": "CT",
+      "aliases": [
+        "CT"
+      ],
+      "address": "0x0a092e544da31150b439a1aaa1a3a2214a867f46",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 9620210.758099785,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 63,
+        "vol24h": 8
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7c46508f0937a0c8fb4c34fa20fef70ec9a6bbbb",
+      "kind": "bluechip",
+      "name": "BigShort",
+      "symbol": "short",
+      "aliases": [
+        "short"
+      ],
+      "address": "0x7c46508f0937a0c8fb4c34fa20fef70ec9a6bbbb",
+      "twitter": "https://x.com/Bigshortdotxyz",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 9122357.964902923,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 86,
+        "renowned24h": 31
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xd5f6ef5deabe61e6d5cdb49bfb6f156f2c1ca715",
+      "kind": "bluechip",
+      "name": "Arcium",
+      "symbol": "ARX",
+      "aliases": [
+        "ARX"
+      ],
+      "address": "0xd5f6ef5deabe61e6d5cdb49bfb6f156f2c1ca715",
+      "twitter": "https://x.com/Arcium",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 9106273.403550945,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 59,
+        "vol24h": 46
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x87acfa3fd7a6e0d48677d070644d76905c2bdc00",
+      "kind": "bluechip",
+      "name": "Spacecoin",
+      "symbol": "SPACE",
+      "aliases": [
+        "SPACE"
+      ],
+      "address": "0x87acfa3fd7a6e0d48677d070644d76905c2bdc00",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 8768215.339915892,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 76,
+        "vol24h": 57
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x2a846aaaf896ef393ccb76398c1d96ea97374444",
+      "kind": "bluechip",
+      "name": "BORT",
+      "symbol": "BORT",
+      "aliases": [],
+      "address": "0x2a846aaaf896ef393ccb76398c1d96ea97374444",
+      "twitter": "https://x.com/BortOnBsc",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 8538084,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 95,
+        "renowned24h": 32
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x79e82e417764b0cbf0f61d178deb54fa1d1b7777",
+      "kind": "bluechip",
+      "name": "7Stock",
+      "symbol": "7Stock",
+      "aliases": [],
+      "address": "0x79e82e417764b0cbf0f61d178deb54fa1d1b7777",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 8376523.6,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 44
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x6c228dbc67d5bb73aae1522d54afb74778047777",
+      "kind": "bluechip",
+      "name": "宝贝狗",
+      "symbol": "Babydog",
+      "aliases": [
+        "Babydog"
+      ],
+      "address": "0x6c228dbc67d5bb73aae1522d54afb74778047777",
+      "twitter": "https://x.com/Babydog_onbsc",
+      "narrative": "",
+      "athMarketCapUsd": 8124949.2,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 56
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x66e0bf5ea20ca8386ac370026ca7a4db32417777",
+      "kind": "bluechip",
+      "name": "Flying Tesla Roadster",
+      "symbol": "FTR",
+      "aliases": [
+        "FTR"
+      ],
+      "address": "0x66e0bf5ea20ca8386ac370026ca7a4db32417777",
+      "twitter": "https://x.com/elonmusk",
+      "narrative": "flying tesla roadster",
+      "athMarketCapUsd": 8116086.4,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 44,
+        "vol24h": 70
+      },
+      "updatedAt": "2026-10-22T04:18:16.738Z"
+    },
+    {
+      "id": "b:0x2b90bb9683383b6a1440e116309ba0187ef67777",
+      "kind": "bluechip",
+      "name": "永生果蝇",
+      "symbol": "果蝇",
+      "aliases": [
+        "果蝇"
+      ],
+      "address": "0x2b90bb9683383b6a1440e116309ba0187ef67777",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 8113319.500000001,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 56
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x3efbfff95576e1d23cf6ead0acd2e73f4d6a7777",
+      "kind": "bluechip",
+      "name": "Binance Cat",
+      "symbol": "BNBCAT",
+      "aliases": [
+        "BNBCAT"
+      ],
+      "address": "0x3efbfff95576e1d23cf6ead0acd2e73f4d6a7777",
+      "twitter": "https://x.com/CTOBNBCAT_x",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 8099603.1,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 80
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xbb8041a8d875234c952bd92b102f8861565e7777",
+      "kind": "bluechip",
+      "name": "Chat with Anyone",
+      "symbol": "XCHAT",
+      "aliases": [
+        "XCHAT"
+      ],
+      "address": "0xbb8041a8d875234c952bd92b102f8861565e7777",
+      "twitter": "https://x.com/xchat",
+      "narrative": "",
+      "athMarketCapUsd": 7918845.399999999,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 89
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x46ceefda28dd7207059ed19b0acdc026955bb15c",
+      "kind": "bluechip",
+      "name": "GameStop",
+      "symbol": "GMEB",
+      "aliases": [
+        "GMEB"
+      ],
+      "address": "0x46ceefda28dd7207059ed19b0acdc026955bb15c",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 7901441.006134726,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 47,
+        "renowned24h": 7,
+        "vol24h": 83
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x46f2564e0fa8248d15125e7e54173cfbdef91be7",
+      "kind": "bluechip",
+      "name": "GRVT",
+      "symbol": "GRVT",
+      "aliases": [],
+      "address": "0x46f2564e0fa8248d15125e7e54173cfbdef91be7",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 7580472.1837587785,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 69,
+        "vol24h": 10
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xcd6a1b8f6e1498672724397de679a9ad19470c0c",
+      "kind": "bluechip",
+      "name": "Lity protocol",
+      "symbol": "LITY",
+      "aliases": [
+        "LITY"
+      ],
+      "address": "0xcd6a1b8f6e1498672724397de679a9ad19470c0c",
+      "twitter": "https://x.com/lityprolabs",
+      "narrative": "",
+      "athMarketCapUsd": 7523746.3,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "vol24h": 76
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xd7ccd29b6fd1464edb425f24b01115556e737777",
+      "kind": "bluechip",
+      "name": "saucecoin",
+      "symbol": "sauce",
+      "aliases": [
+        "sauce"
+      ],
+      "address": "0xd7ccd29b6fd1464edb425f24b01115556e737777",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 7495338.100000001,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 73,
+        "renowned24h": 66
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xf233146e29e982bde8de1cd9d4d3e485c6477777",
+      "kind": "bluechip",
+      "name": "宇宙所",
+      "symbol": "宇宙所",
+      "aliases": [],
+      "address": "0xf233146e29e982bde8de1cd9d4d3e485c6477777",
+      "twitter": "https://x.com/heyibinance",
+      "narrative": "",
+      "athMarketCapUsd": 6602611.8,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 88
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x198dba421a7db566a90da5de7901abe3443b4444",
+      "kind": "bluechip",
+      "name": "富贵",
+      "symbol": "富贵",
+      "aliases": [],
+      "address": "0x198dba421a7db566a90da5de7901abe3443b4444",
+      "twitter": "https://x.com/fugui_coin",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 6134218.7,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 33
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7d0443cddfc8e11af105f4fe44dd28c630237777",
+      "kind": "bluechip",
+      "name": "DAWG",
+      "symbol": "DAWG",
+      "aliases": [],
+      "address": "0x7d0443cddfc8e11af105f4fe44dd28c630237777",
+      "twitter": "https://x.com/dawgonbnb",
+      "narrative": "",
+      "athMarketCapUsd": 5910164.699999999,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 67,
+        "vol24h": 42
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a",
+      "kind": "bluechip",
+      "name": "Apple",
+      "symbol": "AAPLB",
+      "aliases": [
+        "AAPLB"
+      ],
+      "address": "0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a",
+      "twitter": "https://x.com/finder_bnb",
+      "narrative": "",
+      "athMarketCapUsd": 5678620.578915568,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 55,
+        "renowned24h": 13,
+        "vol24h": 12
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x2f8a339b5889ffac4c5a956787cda593b3c36867",
+      "kind": "bluechip",
+      "name": "CoinMarketCap 20 Index DTF",
+      "symbol": "CMC20",
+      "aliases": [
+        "CMC20"
+      ],
+      "address": "0x2f8a339b5889ffac4c5a956787cda593b3c36867",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 5669251.935291111,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 53,
+        "renowned24h": 71,
+        "vol24h": 24
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xc269d59a0d608ea0bd672f2f4616c372d8554444",
+      "kind": "bluechip",
+      "name": "ClipX",
+      "symbol": "ClipX",
+      "aliases": [],
+      "address": "0xc269d59a0d608ea0bd672f2f4616c372d8554444",
+      "twitter": "https://x.com/ClipX0_",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 5325077.1,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 61
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xabffa443547b34ab6c3b3173d26e233900527777",
+      "kind": "bluechip",
+      "name": "Truman World",
+      "symbol": "TRUMAN",
+      "aliases": [
+        "TRUMAN"
+      ],
+      "address": "0xabffa443547b34ab6c3b3173d26e233900527777",
+      "twitter": "https://x.com/WillTheRapper_",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 5315565.7,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 81
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x923cbbe402ab9adb85fbe04edad056dc35447777",
+      "kind": "bluechip",
+      "name": "CZ",
+      "symbol": "CZ",
+      "aliases": [],
+      "address": "0x923cbbe402ab9adb85fbe04edad056dc35447777",
+      "twitter": "https://x.com/cz_binance",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 5292606.4,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 93
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xa17df9706f3be0ae1bd3c90003f279d124577777",
+      "kind": "bluechip",
+      "name": "紧跟马斯克叙事，TeslaSI启航",
+      "symbol": "TeslaSI",
+      "aliases": [
+        "TeslaSI"
+      ],
+      "address": "0xa17df9706f3be0ae1bd3c90003f279d124577777",
+      "twitter": null,
+      "narrative": "⚡TeslaSI！ 马斯克官宣！SpaceXAI更名SpaceXSI，SI超级智能时代来临！TeslaSI顺势登场，紧跟顶级叙事风口！ 买卖双向3%交易税费，智能合约全自动分配！ ✅30%划入分红池，持币用户持续领取链上分红，共享生态红利 ",
+      "athMarketCapUsd": 5024240.2,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 65,
+        "vol24h": 54
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x40f4100b47189c4b41b5ae3d3156d304b3f753f2",
+      "kind": "bluechip",
+      "name": "VELLORA",
+      "symbol": "VELL",
+      "aliases": [
+        "VELL"
+      ],
+      "address": "0x40f4100b47189c4b41b5ae3d3156d304b3f753f2",
+      "twitter": "https://x.com/appvellora",
+      "narrative": "",
+      "athMarketCapUsd": 5017487,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 66
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xfeef9e068dcd8d9b662d6ad70e946cc4e31dffff",
+      "kind": "bluechip",
+      "name": "CRAZYCOIN",
+      "symbol": "CRAZYCOIN",
+      "aliases": [],
+      "address": "0xfeef9e068dcd8d9b662d6ad70e946cc4e31dffff",
+      "twitter": "https://x.com/cz_binance",
+      "narrative": "",
+      "athMarketCapUsd": 4811003.98630269,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 61,
+        "vol24h": 66
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x6a2608dabe09bc1128eec7275b92dfb939d5db3f",
+      "kind": "bluechip",
+      "name": "Toshi",
+      "symbol": "TOSHI",
+      "aliases": [
+        "TOSHI"
+      ],
+      "address": "0x6a2608dabe09bc1128eec7275b92dfb939d5db3f",
+      "twitter": "https://x.com/Toshi",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 4762288.662528224,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "vol24h": 60
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0x7425889fe94f9d693e8daefe88bcced6acfef4c0",
+      "kind": "bluechip",
+      "name": "Meta Platforms",
+      "symbol": "METAB",
+      "aliases": [
+        "METAB"
+      ],
+      "address": "0x7425889fe94f9d693e8daefe88bcced6acfef4c0",
+      "twitter": "https://x.com/bennyonbinance",
+      "narrative": "",
+      "athMarketCapUsd": 4663206.395918594,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 54,
+        "renowned24h": 58,
+        "vol24h": 31
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xb936cab857514bb917431cc8e2b7f1da5caa7777",
+      "kind": "bluechip",
+      "name": "奶龙",
+      "symbol": "Nailoong",
+      "aliases": [
+        "Nailoong"
+      ],
+      "address": "0xb936cab857514bb917431cc8e2b7f1da5caa7777",
+      "twitter": "https://x.com/NAILOONG_BNB",
+      "narrative": "",
+      "athMarketCapUsd": 4653161.3,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 77
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x43ed6706e35a1fff03e542c6ff7e58a41da37777",
+      "kind": "bluechip",
+      "name": "CoinMarketCat",
+      "symbol": "CMC",
+      "aliases": [
+        "CMC"
+      ],
+      "address": "0x43ed6706e35a1fff03e542c6ff7e58a41da37777",
+      "twitter": "https://x.com/cmcbnb",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 4389226.9,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 79
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x0598075dc4d1c9484daa80c62313aad39fc77777",
+      "kind": "bluechip",
+      "name": "Test Liquid Staking",
+      "symbol": "TLS",
+      "aliases": [
+        "TLS"
+      ],
+      "address": "0x0598075dc4d1c9484daa80c62313aad39fc77777",
+      "twitter": "https://x.com/flaptls",
+      "narrative": "",
+      "athMarketCapUsd": 4352092.3,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 91,
+        "renowned24h": 60
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xfbc0e9e64579857f7e36004995252fb76ff57777",
+      "kind": "bluechip",
+      "name": "币安蝴蝶",
+      "symbol": "币安蝴蝶",
+      "aliases": [],
+      "address": "0xfbc0e9e64579857f7e36004995252fb76ff57777",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 4193622.8000000003,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 71
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xafcc12e4040615e7afe9fb4330eb3d9120acac05",
+      "kind": "bluechip",
+      "name": "PirateCash",
+      "symbol": "PIRATE",
+      "aliases": [
+        "PIRATE"
+      ],
+      "address": "0xafcc12e4040615e7afe9fb4330eb3d9120acac05",
+      "twitter": "https://x.com/PirateCash_NET",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 4095363.93,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 75,
+        "vol24h": 71
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x39d9b36aa0e7a1fee97d6ff614420f7308ba7777",
+      "kind": "bluechip",
+      "name": "Mame Inu",
+      "symbol": "MAME",
+      "aliases": [
+        "MAME"
+      ],
+      "address": "0x39d9b36aa0e7a1fee97d6ff614420f7308ba7777",
+      "twitter": "https://x.com/mamebnb",
+      "narrative": "",
+      "athMarketCapUsd": 3722813.1999999997,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 82
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xe683a48df543d68ed96d53dd1fda73ccbd144444",
+      "kind": "bluechip",
+      "name": "Fight",
+      "symbol": "Fight",
+      "aliases": [],
+      "address": "0xe683a48df543d68ed96d53dd1fda73ccbd144444",
+      "twitter": "https://x.com/heyibinance",
+      "narrative": "",
+      "athMarketCapUsd": 3566112.5,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 42
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x975faed559b45feb8a5c5ceb940e614302947777",
+      "kind": "bluechip",
+      "name": "Zhao Cai Mao",
+      "symbol": "招财猫",
+      "aliases": [
+        "招财猫"
+      ],
+      "address": "0x975faed559b45feb8a5c5ceb940e614302947777",
+      "twitter": "https://x.com/zhao_cai_mao_",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 3564393.9000000004,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 79
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x8554d38b95e4f7ca11d391008627df30b2b07777",
+      "kind": "bluechip",
+      "name": "PIZZA",
+      "symbol": "PIZZA",
+      "aliases": [],
+      "address": "0x8554d38b95e4f7ca11d391008627df30b2b07777",
+      "twitter": "https://x.com/PizzaBTCB",
+      "narrative": "",
+      "athMarketCapUsd": 3498553.8,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 69
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xd1cab9922357fc7ae7a9861b29191b84bdb47777",
+      "kind": "bluechip",
+      "name": "SpaceX Inu",
+      "symbol": "SI",
+      "aliases": [
+        "SI"
+      ],
+      "address": "0xd1cab9922357fc7ae7a9861b29191b84bdb47777",
+      "twitter": "https://x.com/RossRupert5558",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 3401477.1,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 96
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xf225e70162837a811c77dc2bb413a5c06e97ffff",
+      "kind": "bluechip",
+      "name": "SpaceXcoin",
+      "symbol": "SpaceXcoin",
+      "aliases": [],
+      "address": "0xf225e70162837a811c77dc2bb413a5c06e97ffff",
+      "twitter": "https://x.com/spacexcoinf",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 3338695.1,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 46
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xdd806e436dda5588bf54061c11590c77ddc87777",
+      "kind": "bluechip",
+      "name": "Funds Are Safu",
+      "symbol": "SAFU",
+      "aliases": [
+        "SAFU"
+      ],
+      "address": "0xdd806e436dda5588bf54061c11590c77ddc87777",
+      "twitter": "https://x.com/cz_binance",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 3315443.7,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 89,
+        "vol24h": 49
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x183ffbed812202a4dea1ef8a86b52f3b09f6ffff",
+      "kind": "bluechip",
+      "name": "Super Inu",
+      "symbol": "四",
+      "aliases": [
+        "四"
+      ],
+      "address": "0x183ffbed812202a4dea1ef8a86b52f3b09f6ffff",
+      "twitter": "https://x.com/M_M_GA",
+      "narrative": "Super Inu｜本系统评 low",
+      "athMarketCapUsd": 3095900.6,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 75
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xf4d5765e448774ed9482870420da7c3c4c787777",
+      "kind": "bluechip",
+      "name": "Niannian_GiggleAcademy",
+      "symbol": "年年",
+      "aliases": [
+        "年年"
+      ],
+      "address": "0xf4d5765e448774ed9482870420da7c3c4c787777",
+      "twitter": "https://x.com/GiggleAcademy",
+      "narrative": "为全球教育助力！｜本系统评 low",
+      "athMarketCapUsd": 2778939.6,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "mc24h": 81,
+        "vol24h": 33
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x409f0bcdc9a70565a71af56cb50b2a6688cb7777",
+      "kind": "bluechip",
+      "name": "Binance AI",
+      "symbol": "BIBI",
+      "aliases": [
+        "BIBI"
+      ],
+      "address": "0x409f0bcdc9a70565a71af56cb50b2a6688cb7777",
+      "twitter": "https://x.com/HeyImBibi",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 2778878.4,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "vol24h": 61
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0x882b5ccbc5de8e7941e7a34691c51ee7e0447777",
+      "kind": "bluechip",
+      "name": "conviction",
+      "symbol": "conviction",
+      "aliases": [],
+      "address": "0x882b5ccbc5de8e7941e7a34691c51ee7e0447777",
+      "twitter": "https://x.com/dagouzhuanjia",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 2722069.5,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "renowned24h": 55
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x9b8e987e6fec8cf1380c4dca7071e2c7853aeea1",
+      "kind": "bluechip",
+      "name": "iShares China Large-Cap ETF (Ondo Tokenized)",
+      "symbol": "FXIon",
+      "aliases": [
+        "FXIon"
+      ],
+      "address": "0x9b8e987e6fec8cf1380c4dca7071e2c7853aeea1",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 2716775.417793468,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 74,
+        "renowned24h": 8,
+        "vol24h": 11
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x7ffcf7b3b52adcc00c76f50ce2e37bf3c7e215dc",
+      "kind": "bluechip",
+      "name": "Agentic Inu",
+      "symbol": ".ai",
+      "aliases": [
+        ".ai"
+      ],
+      "address": "0x7ffcf7b3b52adcc00c76f50ce2e37bf3c7e215dc",
+      "twitter": "https://x.com/yinghubnb",
+      "narrative": "",
+      "athMarketCapUsd": 2482371.1,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "vol24h": 14
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0x94b2df3f3c5635f8f9d1413e03307f5938cd4444",
+      "kind": "bluechip",
+      "name": "佛咪咪人生",
+      "symbol": "佛咪咪人生",
+      "aliases": [],
+      "address": "0x94b2df3f3c5635f8f9d1413e03307f5938cd4444",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 2477451.7,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 100,
+        "vol24h": 90
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0x8e11e90b463bf521382e2b88539f053270a3848c",
+      "kind": "bluechip",
+      "name": "TTAI",
+      "symbol": "TTAI",
+      "aliases": [],
+      "address": "0x8e11e90b463bf521382e2b88539f053270a3848c",
+      "twitter": "https://x.com/TagAIDAO",
+      "narrative": "",
+      "athMarketCapUsd": 2332343.4,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 49
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xd4b52d40cdc439677be7c03ad3cb00a4b4b17777",
+      "kind": "bluechip",
+      "name": "BFC",
+      "symbol": "BFC",
+      "aliases": [],
+      "address": "0xd4b52d40cdc439677be7c03ad3cb00a4b4b17777",
+      "twitter": "https://x.com/BFC_Defi",
+      "narrative": "Binance commands the world’s largest cryptocurrency ecosystem, the biggest global user base, and one of the most establi",
+      "athMarketCapUsd": 2324728.1999999997,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "mc24h": 76
+      },
+      "updatedAt": "2026-10-22T04:18:16.739Z"
+    },
+    {
+      "id": "b:0xbb013e206aa2f36f6d0b434653fab0a45d667777",
+      "kind": "bluechip",
+      "name": "The Three Wise Monkeys",
+      "symbol": "🙈",
+      "aliases": [
+        "🙈"
+      ],
+      "address": "0xbb013e206aa2f36f6d0b434653fab0a45d667777",
+      "twitter": "https://x.com/kemoi72521824",
+      "narrative": "",
+      "athMarketCapUsd": 2128754.9,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 74
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xa1cb5a5915c43829a33c7cb508f65eebed177777",
+      "kind": "bluechip",
+      "name": "Heyi.ai",
+      "symbol": "Heyi",
+      "aliases": [
+        "Heyi"
+      ],
+      "address": "0xa1cb5a5915c43829a33c7cb508f65eebed177777",
+      "twitter": "https://x.com/GoldenCatDev",
+      "narrative": "本系统评 low",
+      "athMarketCapUsd": 1916057.7,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": "low",
+      "ranks": {
+        "vol24h": 91
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xc31ae677e52d8c4d3def6b00affc9c3c19577777",
+      "kind": "bluechip",
+      "name": "Binance Square Paid",
+      "symbol": "PAID",
+      "aliases": [
+        "PAID"
+      ],
+      "address": "0xc31ae677e52d8c4d3def6b00affc9c3c19577777",
+      "twitter": "https://x.com/PAIDmanBSC",
+      "narrative": "",
+      "athMarketCapUsd": 1799363.9000000001,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 70
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xbbc1cbed3f10e896c224d31be9994a4f7f01185d",
+      "kind": "bluechip",
+      "name": "BNB Standard",
+      "symbol": "BNC",
+      "aliases": [
+        "BNC"
+      ],
+      "address": "0xbbc1cbed3f10e896c224d31be9994a4f7f01185d",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 1559424.2790242606,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 84
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0xb4705a3509c58b8fba42cf8486e4073289277777",
+      "kind": "bluechip",
+      "name": "Binance Intelligence",
+      "symbol": "币安智能",
+      "aliases": [
+        "币安智能"
+      ],
+      "address": "0xb4705a3509c58b8fba42cf8486e4073289277777",
+      "twitter": "https://x.com/MGGA_BSC",
+      "narrative": "本系统评 high",
+      "athMarketCapUsd": 1478934.4000000001,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": false,
+      "source": "gmgn",
+      "rating": "high",
+      "ranks": {
+        "renowned24h": 98
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xa37eded373c5cdf88644db7c6b89f222e756afb2",
+      "kind": "bluechip",
+      "name": "Wrapped DATAIP",
+      "symbol": "WDATAIP",
+      "aliases": [
+        "WDATAIP"
+      ],
+      "address": "0xa37eded373c5cdf88644db7c6b89f222e756afb2",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 1472643.008045929,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "vol24h": 34
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xc5df5dab6fdd4db159ebf235887e9033a7ac5b35",
+      "kind": "bluechip",
+      "name": "天才",
+      "symbol": "天才",
+      "aliases": [],
+      "address": "0xc5df5dab6fdd4db159ebf235887e9033a7ac5b35",
+      "twitter": null,
+      "narrative": "",
+      "athMarketCapUsd": 1460357.0520626653,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 83
+      },
+      "updatedAt": "2026-10-22T04:18:16.740Z"
+    },
+    {
+      "id": "b:0x610a36f996650be0561f5d74d36b7e73520a7777",
+      "kind": "bluechip",
+      "name": "flying tesla roadster",
+      "symbol": "特斯拉能飞",
+      "aliases": [
+        "特斯拉能飞"
+      ],
+      "address": "0x610a36f996650be0561f5d74d36b7e73520a7777",
+      "twitter": "https://x.com/zerohedge",
+      "narrative": "",
+      "athMarketCapUsd": 1395329.7000000002,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "renowned24h": 99
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    },
+    {
+      "id": "b:0xa754740dbaf8c116a2c351dd64462dfaf58d7777",
+      "kind": "bluechip",
+      "name": "币安人",
+      "symbol": "币安人",
+      "aliases": [],
+      "address": "0xa754740dbaf8c116a2c351dd64462dfaf58d7777",
+      "twitter": "https://x.com/binance",
+      "narrative": "币安人是什么？叙事核心是“迈向十亿用户之路，始于你们每一个人”。币安人生证明了华语Meme能在BSC上炸出亿级市值，币安人要做的是把那个高度变成起点。IP热度已经起来了，阿尔法预定通道已经就位，一生一世币安人。买卖三个点持币分红AAPLB股",
+      "athMarketCapUsd": 1147671.1,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "gmgn",
+      "rating": null,
+      "ranks": {
+        "vol24h": 93
+      },
+      "updatedAt": "2026-10-22T04:18:16.741Z"
+    }
+  ]
+}
