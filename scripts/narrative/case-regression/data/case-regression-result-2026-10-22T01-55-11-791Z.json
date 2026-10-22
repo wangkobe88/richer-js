@@ -1,0 +1,43 @@
+{
+  "ranAt": "2026-10-22T01:55:16.758Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C162",
+      "symbol": "BINA",
+      "addr": "0x3384960b045905cea62da32ac5679177ee647777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:A",
+        "reasonExcludes": [
+          "wrong_entity"
+        ]
+      },
+      "observe": null,
+      "caseNote": "双 BINA 复刻票：Jev 把宣告推 \"it should be paired to BNC\"（BNCB=交易池计价币，链上 quote_token 实锤）误读成名字证据 → wrong_entity 0.55 全域拦；J1.98 题面加交易池/计价配置语句排除句，预期 wrong_entity 消失、评级翻 mid|high（tier S + strong_fit 0.67 本就全对，38s 毕业 11×）。",
+      "baseline": {
+        "rating": "low",
+        "reason": "关联性不足（5分/unacceptable）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:E"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "关联性不足（5分/unacceptable）",
+        "ruleName": null,
+        "score": null,
+        "stage": 3,
+        "tokenCategory": "event:A"
+      },
+      "failures": []
+    }
+  ]
+}

@@ -591,13 +591,17 @@
       "addr": "0x3384960b045905cea62da32ac5679177ee647777",
       "expect": {
         "rating": "low",
-        "tokenCategory": "event:A",
+        "reasonIncludes": [
+          "关联性不足"
+        ],
         "reasonExcludes": [
           "wrong_entity"
         ]
       },
-      "note": "双 BINA 复刻票：Jev 把宣告推 \"it should be paired to BNC\"（BNCB=交易池计价币，链上 quote_token 实锤）误读成名字证据 → wrong_entity 0.55 全域拦；J1.98 题面加交易池/计价配置语句排除句，预期 wrong_entity 消失、评级翻 mid|high（tier S + strong_fit 0.67 本就全对，38s 毕业 11×）。",
-      "addedAt": "2026-10-22"
+      "note": "双 BINA 复刻票：Jev 把宣告推 \"it should be paired to BNC\"（BNCB=交易池计价币，链上 quote_token 实锤）误读成名字证据 → wrong_entity 0.55 全域拦（38s 毕业 11×）。J1.98 修复后 wrong_entity 0.37 不再拦；但暴露下一道拦截=关联题 unacceptable（复刻票自身语料通篇无币名 Bina——宣告推只说 \"the name is confirmed\" 不点名、IG slide 图内亦无名字，名字与事件的关联全靠部署者宣告+币名字段承载）；关联题判读真伪待裁定",
+      "addedAt": "2026-10-22",
+      "expectSince": "2026-10-22",
+      "expectBecause": "J1.98 生效验证（0.55→0.37 低于 0.5 门不再拦，三次独立 Jev 调用稳定）；wrong_entity 消除后现行拦截=Stage3 关联性不足（5分/unacceptable，J1.92 关联题，同样三次稳定复现）；token_category 在 event:A↔event:E 间摆动（拦截理由不变）故不钉类别键；关联题判读真伪待用户裁定，若裁定误读修 J1.92 后再 update"
     }
   ]
 }
