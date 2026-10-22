@@ -13,6 +13,7 @@
  *   node scripts/narrative/build-knowledge-bluechips.mjs --fetch    # 三榜拉取合并去重 → list.json（榜间 35s + 429 退避）
  *   node scripts/narrative/build-knowledge-bluechips.mjs --verify   # 逐票 getTokenInfo（400ms 节流）ATH 市值>$1M 过滤 → 回写 list.json
  *   node scripts/narrative/build-knowledge-bluechips.mjs --enrich   # 叙事三源拼接（DB 两源 + AVE 兜底 --ave-limit N 默认 0）
+ *   node scripts/narrative/build-knowledge-bluechips.mjs --enrich-desc # 叙事补齐：CoinGecko 公开简介（只填占位/缺失，7s 限速+断点续）
  *   node scripts/narrative/build-knowledge-bluechips.mjs --commit   # 写 config/knowledge/bluechips.json（tmp+rename；缺省 dry-run 打印）
  *
  * 429 连续 ban 5 轮 exit(2)（wallet-profiles 脚本同款）；EXCLUDE_ADDRS 稳定币剔除。
@@ -208,6 +209,7 @@ export function buildBluechipEntry(rec, ath, options = {}) {
     address: rec.address,
     twitter: rec.twitterUrl || null,
     narrative: options.narrative || '',
+    narrativeSource: options.narrativeSource || null,
     athMarketCapUsd: ath.usd,
     athSource: ath.via,
     corpusTrigger: options.corpusTrigger ?? autoCorpusTriggerForEntry([name, ...aliases]),
@@ -216,6 +218,59 @@ export function buildBluechipEntry(rec, ath, options = {}) {
     ranks: rec.ranks,
     updatedAt: options.updatedAt || new Date().toISOString(),
   };
+}
+
+/**
+ * 占位叙事判据（--enrich-desc 只重填占位，不动已有效富化）：
+ * 空 / 纯「本系统评 X」（rating 无 reason——评级信息在 narrativeRating 字段，正文零信息量）/ 超短（≤12 字）。
+ */
+export function isPlaceholderNarrative(narrative) {
+  if (!narrative) return true;
+  const s = String(narrative).trim();
+  if (s === '') return true;
+  if (/^本系统评 (low|mid|high)$/.test(s)) return true;
+  return s.length <= 12;
+}
+
+const normCgName = (v) => String(v || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * CoinGecko /coins/list 行匹配（宁缺毋冒配）：
+ * symbol 归一化全等 ∧ name 归一化全等或词级前缀（"Cardano Token"↔"Cardano"）；
+ * 词内包含不算（"NIGHT"↔"Midnight" 拒）——错背景注入的代价大于漏配，漏配条目保持占位。
+ */
+export function matchCoinGeckoId(entry, cgList) {
+  const sym = normCgName(entry.symbol);
+  const name = normCgName(entry.name).replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!sym || !name) return null;
+  for (const cg of cgList || []) {
+    if (normCgName(cg.symbol) !== sym) continue;
+    const cgName = normCgName(cg.name);
+    if (!cgName) continue;
+    if (cgName === name || cgName.startsWith(`${name} `) || name.startsWith(`${cgName} `)) {
+      return { id: cg.id, cgName: cg.name };
+    }
+  }
+  return null;
+}
+
+/**
+ * CoinGecko description 清洗：剥 HTML 标签/实体/压缩空白 → 句子边界截断 ≤maxLen（schema narrative 上限 320）。
+ * 过短（<20 字）视为空简介返回 ''（CG 存在空壳 description）。
+ */
+export function cleanCoinGeckoDescription(raw, maxLen = 320) {
+  if (!raw) return '';
+  const s = String(raw)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (s.length < 20) return '';
+  if (s.length <= maxLen) return s;
+  const cut = s.slice(0, maxLen);
+  const lastStop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('。'));
+  return (lastStop > maxLen * 0.5 ? cut.slice(0, lastStop + 1) : cut).trim() + '…';
 }
 
 // ═══════════════════ IO/命令区（只在 182 跑） ═══════════════════
@@ -450,6 +505,96 @@ async function cmdEnrich() {
   console.log(`富化完成 ${enriched} 票（narrative 已有跳过）`);
 }
 
+// ─────────────────────── --enrich-desc ───────────────────────
+
+const CG_BASE = 'https://api.coingecko.com/api/v3';
+const CG_MAP_FILE = path.join(DATA_DIR, 'cg-map.json');
+
+/** CoinGecko GET：429/5xx 退避（Retry-After 优先，缺省 65s），连续 5 轮 exit 2 断点续 */
+async function cgGet(url, params) {
+  const { default: axios } = await import('axios');
+  const headers = {};
+  if (process.env.COINGECKO_API_KEY) headers['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY;
+  let banStreak = 0;
+  for (;;) {
+    try {
+      const res = await axios.get(url, { params, headers, timeout: 30000 });
+      return res.data;
+    } catch (e) {
+      const status = e.response?.status;
+      if (status !== 429 && status !== 500 && status !== 503) throw e;
+      banStreak++;
+      if (banStreak >= 5) {
+        console.error('CG 连续 429/5xx 5 轮，退出码 2（稍后重跑 --enrich-desc 断点续）');
+        process.exit(2);
+      }
+      const retryAfter = Number(e.response?.headers?.['retry-after']) || 65;
+      console.log(`  CG ${status} 退避 ${retryAfter}s（第 ${banStreak} 轮）`);
+      await sleep(retryAfter * 1000);
+    }
+  }
+}
+
+async function cmdEnrichDesc() {
+  const store = readJson(LIST_FILE, null);
+  if (!store) throw new Error('list.json 不存在，先跑 --fetch/--verify');
+  const targets = store.tokens.filter((t) => t.athVerified && isPlaceholderNarrative(t.narrative));
+  targets.sort((a, b) => (b.athMarketCapUsd || 0) - (a.athMarketCapUsd || 0));
+  console.log(`待补叙事 ${targets.length} 票（占位/缺失；已有效富化不动）`);
+
+  const cache = readJson(CG_MAP_FILE, { byAddress: {} });
+  cache.byAddress = cache.byAddress || {};
+
+  // 一次性 /coins/list 建 id 映射（~2MB，缓存进 cg-map.json 断点复用）
+  let cgList = cache.coinList || null;
+  if (!Array.isArray(cgList) || !cgList.length) {
+    console.log('拉取 /coins/list …');
+    cgList = await cgGet(`${CG_BASE}/coins/list`);
+    cache.coinList = cgList;
+    writeJson(CG_MAP_FILE, cache);
+  }
+  console.log(`coins/list ${cgList.length} 行`);
+
+  let pulled = 0, withDesc = 0, remaining = 0;
+  for (const t of targets) {
+    const c = cache.byAddress[t.address];
+    if (c && (c.status === 'done' || c.status === 'no-match')) continue; // 断点续
+    remaining++;
+    const m = matchCoinGeckoId({ symbol: t.symbol, name: t.name }, cgList);
+    if (!m) {
+      cache.byAddress[t.address] = { status: 'no-match', ts: Date.now() };
+      continue;
+    }
+    const coin = await cgGet(`${CG_BASE}/coins/${m.id}`, {
+      localization: 'false', tickers: 'false', market_data: 'false',
+      community_data: 'false', developer_data: 'false', sparkline: 'false',
+    });
+    const desc = cleanCoinGeckoDescription(coin?.description?.en || '');
+    cache.byAddress[t.address] = { status: 'done', cgId: m.id, cgName: m.cgName, desc, ts: Date.now() };
+    pulled++; if (desc) withDesc++;
+    if (pulled % 10 === 0) {
+      writeJson(CG_MAP_FILE, cache);
+      console.log(`  进度 拉取=${pulled} 有简介=${withDesc}（最近 ${t.symbol || t.address}）`);
+    }
+    await sleep(7000); // CG 免费档 ~10 req/min
+  }
+  writeJson(CG_MAP_FILE, cache);
+  console.log(`CG 拉取完成：本轮拉取=${pulled} 有简介=${withDesc} 剩余=${remaining - pulled}（no-match/断点）`);
+
+  // 回填：占位才写（保留 narrativeRating 评级），narrativeSource 留审计；重跑 --commit 落盘
+  let filled = 0;
+  for (const t of targets) {
+    const c = cache.byAddress[t.address];
+    if (!c || c.status !== 'done' || !c.desc) continue;
+    if (!isPlaceholderNarrative(t.narrative)) continue; // 并发/中途富化防覆盖
+    t.narrative = c.desc;
+    t.narrativeSource = 'coingecko';
+    filled++;
+  }
+  writeJson(LIST_FILE, store);
+  console.log(`回填 ${filled} 票 narrative（narrativeSource=coingecko；重跑 --commit 落盘 bluechips.json）`);
+}
+
 // ─────────────────────── --commit ───────────────────────
 
 async function cmdCommit(dry) {
@@ -463,6 +608,7 @@ async function cmdCommit(dry) {
     entries.push(buildBluechipEntry(t, { usd: t.athMarketCapUsd, via: t.athSource || 'unknown' }, {
       narrative: t.narrative || '',
       rating: t.narrativeRating || null,
+      narrativeSource: t.narrativeSource || null,
       updatedAt: new Date().toISOString(),
     }));
   }
@@ -494,9 +640,10 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     else if (arg === '--fetch') await cmdFetch();
     else if (arg === '--verify') await cmdVerify();
     else if (arg === '--enrich') await cmdEnrich();
+    else if (arg === '--enrich-desc') await cmdEnrichDesc();
     else if (arg === '--commit') await cmdCommit(false);
     else {
-      console.log('用法：--smoke | --fetch | --verify | --enrich [--ave-limit N] | --commit');
+      console.log('用法：--smoke | --fetch | --verify | --enrich [--ave-limit N] | --enrich-desc | --commit');
       if (!arg) await cmdCommit(true); // 无参=dry-run 打印
     }
   } catch (e) {

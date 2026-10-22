@@ -124,6 +124,38 @@ const ADDR = A('ab1').slice(2); // 40 hex
     assert(r && Math.abs(r.usd - 1_294_819_999.495) < 1 && r.via === 'info.ath_price×supply', 'G4 正常 ATH（DOGE 冒烟实测形状）不受上界影响', r);
   }
 
+  console.log('K. --enrich-desc 叙事补齐（CoinGecko 公开简介，2026-10-22 蓝筹 147/153 占位补齐案）');
+  {
+    const { isPlaceholderNarrative, matchCoinGeckoId, cleanCoinGeckoDescription } = B;
+    assert(isPlaceholderNarrative('') && isPlaceholderNarrative(null) && isPlaceholderNarrative(undefined)
+      && isPlaceholderNarrative('本系统评 low') && isPlaceholderNarrative('本系统评 mid')
+      && isPlaceholderNarrative('妖蝶社区') === true, 'K1 占位判据：空/纯本系统评X/≤12字 全占位');
+    assert(isPlaceholderNarrative('本系统评 mid：真实理由文本足够长不被重填') === false
+      && isPlaceholderNarrative('基于柴犬 doge 梗的支付币') === false, 'K2 有效富化不动（带 reason 长文/超 12 字简介）');
+    const cgList = [
+      { id: 'dogecoin', symbol: 'doge', name: 'Dogecoin' },
+      { id: 'midnight', symbol: 'night', name: 'Midnight' },
+      { id: 'cardano', symbol: 'ada', name: 'Cardano' },
+      { id: 'xrping', symbol: 'xrp', name: 'XRping' },
+    ];
+    assert(matchCoinGeckoId({ symbol: 'DOGE', name: 'Dogecoin' }, cgList)?.id === 'dogecoin', 'K3 symbol+name 双全等命中');
+    assert(matchCoinGeckoId({ symbol: 'ADA', name: 'Cardano Token' }, cgList)?.id === 'cardano', 'K4 词级前缀命中（Cardano Token↔Cardano）');
+    assert(matchCoinGeckoId({ symbol: 'NIGHT', name: 'NIGHT' }, cgList) === null, 'K5 词内包含拒配（NIGHT↔Midnight 宁缺毋冒充）', matchCoinGeckoId({ symbol: 'NIGHT', name: 'NIGHT' }, cgList));
+    assert(matchCoinGeckoId({ symbol: 'XRP', name: 'XRP Token' }, cgList) === null, 'K6 symbol 同但 name 互斥拒配（XRP≠XRping）');
+    assert(matchCoinGeckoId({ symbol: '', name: 'X' }, cgList) === null, 'K7 空 symbol 直拒');
+    const raw = '<p>Dogecoin is a \r\npeer-to-peer <a href="/x">digital currency</a> &amp; meme coin&nbsp;based on the Shiba Inu doge meme. Launched in 2013.</p>';
+    const cleaned = cleanCoinGeckoDescription(raw);
+    assert(cleaned === 'Dogecoin is a peer-to-peer digital currency & meme coin based on the Shiba Inu doge meme. Launched in 2013.', 'K8 剥 HTML/实体解码/压空白', cleaned);
+    const long = cleanCoinGeckoDescription(('Sentence one about memes. ' + 'x'.repeat(400) + '. Sentence two.'), 60);
+    assert(long.length <= 62 && long.endsWith('…') && long.startsWith('Sentence one about memes'), 'K9 句子边界截断+省略号', long);
+    assert(cleanCoinGeckoDescription('') === '' && cleanCoinGeckoDescription('<p>short</p>') === '', 'K10 空/过短（<20字）→ 空简介');
+    const rec = normalizeRankRow({ address: '0x' + ADDR, symbol: 'BIAOGE', name: '彪哥', market_cap: 1 }, { key: 'mc24h' }, 0);
+    const e = buildBluechipEntry(rec, { usd: 2_500_000, via: 'info.ath_market_cap' }, { narrative: 'n', narrativeSource: 'coingecko', updatedAt: '2026-10-22T00:00:00Z' });
+    assert(e.narrativeSource === 'coingecko', 'K11 narrativeSource 审计字段透传（缺省 null）', e.narrativeSource);
+    const e0 = buildBluechipEntry(rec, { usd: 2_500_000, via: 'x' }, {});
+    assert(e0.narrativeSource === null, 'K12 存量条目 narrativeSource=null 对称 rating');
+  }
+
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('FATAL', e); process.exit(1); });
