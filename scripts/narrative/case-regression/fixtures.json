@@ -215,9 +215,11 @@
       "symbol": "BI",
       "addr": "0x3891aeb8bf0ebb0079b4b1e6c18dd0ca26d77777",
       "expect": {
-        "rating": "low"
+        "rating": "high"
       },
-      "note": "C109 对拍遗留观察票（币安猫图簇 BI 名票）。case 回归记录引擎实际结果 low；若翻 mid/high，回归直接红（2026-10-21 裁定：以引擎实际结果为准）。"
+      "note": "C109 对拍遗留观察票（币安猫图簇 BI 名票，同簇 C83a/C83b 均 high）。原 expect=low（2026-10-21 以引擎实际结果为准收录）；2026-10-22 用户裁定 expect 改 high——摇摆域内 high 面（78.61）与簇一致。",
+      "expectBecause": "C109c expect 裁定（2026-10-22 用户）：预期改为 high；同簇 C83a（94.27）/C83b（92.14）均 high，本票现行 high 78.61。",
+      "expectSince": "2026-10-22"
     },
     {
       "caseId": "C110",
