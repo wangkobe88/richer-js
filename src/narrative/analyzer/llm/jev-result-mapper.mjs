@@ -11,7 +11,9 @@
  * - W 类独立数学：产品(0-35) + 项目对 BSC 用户吸引力(0-40) + 时效(0-25) = 100，pass ≥ 60
  *   （J1.73/C134：币安交互臂退役——刚发布的 BSC 项目不可能有币安交互；C42 豁免随之退役）
  * - 最终 = round(eventCompositeScore×0.6, 2) + 关联分 + 质量分，≥70 high / ≥50 mid / else low
- * - Stage3 截断顺序：品牌劫持 → 无背景拼写错误 → 关联≤10 → 质量≤4
+ * - Stage3 截断顺序：无背景拼写错误 → 关联≤10 → 质量≤4（品牌劫持臂已废
+ *   J1.103/C172：名字-事件关系归 web3_user_name_event_acceptance 用户视角，真蹭
+ *   名票 unacceptable → relevance 低 → 关联≤10 截断自然拦）
  * - reason 为代码端模板拼接（Jev 不生成文本，已裁定接受损失）
  *
  * 输出形状与 NarrativeAnalyzer 旧流程的 stageXDataToSave 完全一致（旧格式），
@@ -933,9 +935,9 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
  * @param {Object} answers - JevClient 返回的 answers
  * @param {Object} context
  * @param {Object} context.tokenData - 代币数据
- * @param {boolean} context.includeBrandHijack - 品牌劫持预检是否命中（问题是否存在）
- * @param {boolean} [context.credibleEventAnchor] - 可信事件源锚（J1.24 戏谑关联豁免用：
- *   superIP 语料锚 / 广场官方认证源 / 发行方自发宣告 任一命中为 true，analyzer 层算好传入）
+ * @param {Object} context.tokenData - 代币数据
+ * （context.includeBrandHijack/credibleEventAnchor 已废 J1.103/C172：品牌劫持轴
+ *   整体退役，传参静默忽略）
  * @param {boolean} [context.instagramLinked] - 语料是否引用 Instagram 链接（C44 IG 影响力
  *   兜底锚条件①，analyzer 层按 classifiedUrls.instagram 算好传入）
  * @param {boolean} [context.instagramInfoFetched] - IG 数据是否已抓到（false=数据不可得，
@@ -950,7 +952,7 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
  */
 export function mapStandardAnswers(answers, context) {
   const {
-    tokenData, includeBrandHijack = false, callInfo, tweetClassification = null, twitterInfo = null,
+    tokenData, callInfo, tweetClassification = null, twitterInfo = null,
     // C44 IG 影响力兜底（analyzer 传入）：instagramLinked = classifiedUrls.instagram
     // 有 URL；instagramInfoFetched = IG 数据已抓到（真数据进 state，Jev 按真证据
     // 判分不兜底）
@@ -1029,7 +1031,7 @@ export function mapStandardAnswers(answers, context) {
   const binanceRegional = detectBinanceRegionalAccount(twitterInfo);
   const regionalAnchorActive = !!(binanceRegional && binanceCorpus);
   // J1.79：事件分 = fit 质量（strong_fit+fit）；tier 由 fit 派生，供既有
-  // punExempt/magExempt/审计结构继续工作。身份/存在性由各自的臂负责。
+  // magExempt/审计结构继续工作。身份/存在性由各自的臂负责。
   const fitProbsForScore = answers?.web3_user_event_fit?.probabilities || {};
   const fitStrongForScore = fitProbsForScore.strong_fit ?? 0;
   const fitForScore = fitProbsForScore.fit ?? 0;
@@ -1213,7 +1215,7 @@ export function mapStandardAnswers(answers, context) {
   let wAppeal = null;
   let eventScoreReason = null;
   // C55 币安豁免审计：仅在该豁免实际改变门判定时落键（币安语料 + 无豁免时
-  // 门会拦 = 豁免救票形状），与 punExempt 命中才落的模式一致（J1.83 起门=
+  // 门会拦 = 豁免救票形状），命中才落键模式（J1.83 起门=
   // web3FitMassBlock，豁免语义不变）
   const peBinanceExempt = binanceCorpus
     && web3FitMassBlock(answers, { pubProxyActive, isW }) != null
@@ -1223,38 +1225,21 @@ export function mapStandardAnswers(answers, context) {
   // 一并删除（platformOfficial 仍用于 web3FitMassBlock 豁免）。
 
   // ── Stage3 豁免判定前移（C86 D-1，2026-10-17 用户裁定「豁免应贯穿」）──
-  // J1.24 戏谑豁免 / J1.30 名图一致豁免原本定义在 Stage3 段（只豁 Stage3 截断），
+  // J1.30 名图一致豁免原本定义在 Stage3 段（只豁 Stage3 截断），
   // 但 Stage2 量级门在门链中先于 Stage3 执行——豁免票若 tier D/E（J1.30 可达）或
   // 事件分<60 会在到达豁免语义前被量级门拦下 = 遗漏。豁免判定是纯函数（依赖
   // answers/timing/effTier/relevanceFrom/context，全部在上方已就绪），整块前移到
-  // 门链之前；豁免本体条件一字不动（J1.24 仍要求 effTier S/A——tier 不足的纯蹭
-  // 名盘是 C40 裁定原文的拦截方向，由 punExempt 自身条件继续承担；J1.30 三门
-  // 原样）。W 数学分支 pass 线刻意不豁免（W 有自己的 C42 豁免机制与 cashtag
-  // 改道拦截语义，量级门不属于 W 数学）
+  // 门链之前；豁免本体条件一字不动（J1.24 戏谑豁免已随 J1.103/C172 品牌劫持轴
+  // 整体退役——该段历史注释见 git）。W 数学分支 pass 线刻意不豁免（W 有自己的
+  // C42 豁免机制与 cashtag 改道拦截语义，量级门不属于 W 数学）
   const relevance = relevanceFrom(answers);
-  // J1.85（C143）：品牌劫持并入实体轴——信号改吃
-  // web3_user_name_entity_acceptance.brand_mismatch 概率（原 name_brand_hijack
-  // Noul 题整题退役）。keyword 预检仍作门开关：非品牌关键词票恒 0（不启用）。
-  const brandMismatchP = includeBrandHijack
-    ? (answers.web3_user_name_entity_acceptance?.probabilities?.brand_mismatch ?? 0)
-    : 0;
-
-  // J1.24 戏谑关联豁免（C40 Binance Inu 案 0xcaf66eb2…7777，2026-10-01 用户裁定
-  // 「不是劫持，而是web3用户特有的戏谑/趣味性关联。当然它也必须得是当前的热门
-  // 新鲜事，否则就成了无病呻吟」）：品牌关键词票在「当前热门新鲜事锚」下——
-  // timing within_7d（当前）+ effTier S/A（热门）+ 可信事件源锚（superIP 语料锚/
-  // 广场官方认证/发行方自发宣告，analyzer 传入 credibleEventAnchor，事件真实性有
-  // 背书）三条件全中时，缩写双关/谐音/形象嫁接类名字不算品牌劫持：蹭的是事件
-  // 增量热度，不是品牌存量认知。两层截断同豁免：品牌劫持截断 + relevance≤10
-  // 截断（戏谑关联的本质=弱字面关联+强语境关联，缩写双关在 relevance 体系天然
-  // 落低档，是特性不是缺陷；10 分照常计入总分，弱关联代价在分数上体现）。
-  // 不豁免：misspelling/quality 门（与戏谑语义无关）；brandMismatchP<0.5 的票
-  // （本就不会被劫持门拦，relevance 弱关联照常截断——那是普通弱关联票）；
-  // timing 非 within_7d / 量级不足的纯蹭名盘（无病呻吟，裁定原文的拦截方向）。
-  const punExempt = includeBrandHijack && brandMismatchP >= 0.5
-    && timing === 'within_7d'
-    && (effTier === 'S' || effTier === 'A')
-    && !!context.credibleEventAnchor;
+  // 品牌劫持轴已废（J1.103/C172，用户裁定「品牌劫持本质是事件/代币关系层面的，
+  // 如果要放也是放到 web3_user_name_event_acceptance，而该题已站在用户视角判断，
+  // 品牌劫持可以删掉」）：brandMismatchP/punExempt（J1.24 戏谑豁免）整链删除——
+  // J1.24 豁免的前提即 brandMismatchP≥0.5，桶删后恒 0 随死；其豁免功能由
+  // J1.92 正确评分承接（真蹭名票 unacceptable → relevance 低分 → 关联≤10 截断
+  // 自然拦，不再需要「弱字面关联+强语境关联」的豁免通道）。旧缓存行残留
+  // brand_mismatch 概率键 mapper 不读。
 
   // J1.30 名图一致豁免（C64 巴巴鸡案 0x1ea2152c…7777，2026-10-14 用户裁定「如果
   // 名字是一只鸡，图片也是一只鸡，恐怕认为这俩有关联就好了，因为给的信息可能很难
@@ -1267,11 +1252,12 @@ export function mapStandardAnswers(answers, context) {
   //     条件①同源）且题已问（name_image_consistency 条件题与 imageEvidence 同源，
   //     答案缺失 → nicMatchP=0 → 不豁免——旧缓存行/无图票 fail-closed 零影响）
   //   ② same_entity+same_visual_category 合并质量 ≥0.5（合并对抗跨 run 抖动，
-  //     nameReferentBlock 同思路；阈值与 punExempt/阻断侧惯例一致）
+  //     nameReferentBlock 同思路；阈值与阻断侧惯例一致）
   //   ③ 0 < relevance ≤ 10（只救会被本截断拦的票；纯零关联 none 0 分不救，
   //     与 C59 条件②同——图再像也救不了与事件毫无关系的名字）
-  // 与 punExempt 正交并存（C83 起全语料走标准路径，superIP 语料票同样可获豁免；
-  // 快车道时代的 C59 meme≥3 门随通道删除，意图由本门+J1.28 覆盖）。
+  // （原 punExempt 并存臂已随 J1.103/C172 品牌劫持轴退役；C83 起全语料走标准
+  //   路径，superIP 语料票同样可获豁免；快车道时代的 C59 meme≥3 门随通道删除，
+  //   意图由本门+J1.28 覆盖）
   const nicProbs = answers.name_image_consistency?.probabilities ?? {};
   const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
   // C118 演绎臂（DND 案）：配图在演绎名字含义=币名↔叙事的关联证据。J1.102/C171
@@ -1323,8 +1309,8 @@ export function mapStandardAnswers(answers, context) {
 
   // C86 D-1：量级门豁免聚合标记（magExemptTags=救援标注与审计用）；C88 实体
   // 口号票并入聚合（事件分<60 臂放行——BI 同形状弱传播票由总分承担量级代价）
-  const magExempt = punExempt || imgNameExempt || recognizedEntitySlogan;
-  const magExemptTags = [punExempt ? 'J1.24戏谑' : null, imgNameExempt ? 'J1.30名图' : null,
+  const magExempt = imgNameExempt || recognizedEntitySlogan;
+  const magExemptTags = [imgNameExempt ? 'J1.30名图' : null,
     recognizedEntitySlogan ? 'C88实体口号' : null]
     .filter(Boolean).join('+');
 
@@ -1410,13 +1396,12 @@ export function mapStandardAnswers(answers, context) {
     gateBlockReason = uaBlock.label;
   // （J1.102/C171：形象载体门 scBlock 分支随门整轴退役删除——
   //  上一位=词句门 web3UserAcceptabilityBlock，下一位=量级门 D/E 档臂）
-  } else if (!isW && (effTier === 'E' || effTier === 'D') && !punExempt && !imgNameExempt) {
+  } else if (!isW && (effTier === 'E' || effTier === 'D') && !imgNameExempt) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）。
     // C86 D-1 豁免贯穿：J1.30 名图一致豁免无 tier 前置（图证据+一致性质量+弱关联
     // 三门全中即可），主体量级弱但名字与配图视觉一致的票不在此拦——落入标准数学
-    // 分支按影响力低档计分，弱量级代价在总分上体现；J1.24 punExempt 要求
-    // effTier S/A，在本臂结构性不可达，保留守卫是豁免定义漂移的防线（同 C85
-    // IS NULL 前置臂的防漂移语义）
+    // 分支按影响力低档计分，弱量级代价在总分上体现（J1.24 punExempt 已随品牌劫持
+    // 轴退役 J1.103/C172；其前提 effTier S/A 在本臂本就结构性不可达）
     eventScoreBlocked = true;
     gateBlockReason = `事件主体量级不足（${tier}档${regionalAnchorActive ? '→D档·币安地域子账号不借壳' : ''}）`;
   } else if (isW) {
@@ -1595,7 +1580,7 @@ export function mapStandardAnswers(answers, context) {
   };
 
   // ── Stage3：截断检查 + 关联/质量 ───────────────────────────────────
-  // relevance/brandMismatchP/punExempt/nicMatchP/imgNameExempt 已前移至 Stage2 门链
+  // relevance/nicMatchP/imgNameExempt 已前移至 Stage2 门链
   // 之前（C86 D-1 豁免贯穿，见上方案释）；本段只留 Stage3 专属计算
   const quality = qualityFrom(answers, symbol);
   // C108：block_misspelling noul 探针臂退役（C78 实证失效死键——Jev 答 0.13-0.27
@@ -1605,16 +1590,13 @@ export function mapStandardAnswers(answers, context) {
 
   let stage3Blocked = false;
   let stage3BlockReason = null;
-  // C88 超级IP口号票豁免贯穿 Stage3 双截断（品牌劫持臂+关联≤10 臂）：引申关联票
-  // 不算劫持（BI 案 brand_mismatch 0.56 勉强过线是 Jev 在引申/劫持边界上的保守
-  // 倾斜，punExempt 因 B 档差 tier 腿救不到）——与 J1.24「两层截断同豁免」同构
-  if (brandMismatchP >= 0.5 && !punExempt && !recognizedEntitySlogan) {
-    stage3Blocked = true;
-    stage3BlockReason = '品牌劫持';
-  } else if (spellingMismatch.hit) {
+  // C88 超级IP口号票豁免贯穿 Stage3 关联≤10 臂（原品牌劫持臂已随 J1.103/C172
+  // 品牌劫持轴退役整删：名字-事件关系归 web3_user_name_event_acceptance 用户
+  // 视角，真蹭名票 unacceptable → relevance 低分在本段自然拦）
+  if (spellingMismatch.hit) {
     stage3Blocked = true;
     stage3BlockReason = `图文名不符（图内“${spellingMismatch.variant}”≠币名，无背景拼写错误）`;
-  } else if (relevance.score <= 10 && !punExempt && !imgNameExempt && !recognizedEntitySlogan) {
+  } else if (relevance.score <= 10 && !imgNameExempt && !recognizedEntitySlogan) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
   } else if (quality.total <= 4) {
@@ -1645,8 +1627,8 @@ export function mapStandardAnswers(answers, context) {
   const finalReason = eventScoreBlocked
     ? `阻断:${gateBlockReason}｜P=${w3Block?.mass ?? (blockProb ?? '-')}`
     : stage3Blocked
-      ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandMismatchP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${recognizedEntitySlogan ? '超级IP口号票豁免(C88)｜' : ''}${instagramSpreadAnchorActive ? 'IG影响力豁免(C44)｜' : ''}${web3FitSpreadAnchorActive ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${weightedEventScore}(${eventCompositeScore}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      ? `截断:${stage3BlockReason}`
+      : `${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${recognizedEntitySlogan ? '超级IP口号票豁免(C88)｜' : ''}${instagramSpreadAnchorActive ? 'IG影响力豁免(C44)｜' : ''}${web3FitSpreadAnchorActive ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${weightedEventScore}(${eventCompositeScore}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = eventScoreBlocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
@@ -1670,12 +1652,8 @@ export function mapStandardAnswers(answers, context) {
           jev: {
             relevanceType: relevance.type,
             relevanceLevelIdx: relevance.levelIdx,
-            // J1.85（C143）：品牌劫持信号=实体题 brand_mismatch 概率（历史行
-            // brandHijackP 键保留展示；新行不再产出 name_brand_hijack 概率键）
-            brandMismatchP: includeBrandHijack ? brandMismatchP : null,
-            // J1.24 审计标记：戏谑关联豁免命中详情（timing/档位可追溯，Jev 原判
-            // brandMismatchP 保留在上一键不受豁免影响）
-            punExempt: punExempt ? { timing, tier: effTier } : null,
+            // （brandMismatchP/punExempt 审计键已废 J1.103/C172 品牌劫持轴退役；
+            //   历史行保留展示，新行不产出）
             // J1.30 审计标记：名图一致豁免命中详情（关联档位/一致性质量可追溯，
             // J1.30 审计标记：名图一致豁免命中详情（关联档位/匹配质量可追溯，
             // 命中才落模式——未触发不落键）。J1.102/C171 起 via='depicts' 臂=
@@ -1741,7 +1719,7 @@ export function mapStandardAnswers(answers, context) {
     stageFinalData,
     llmResult,
     promptType,
-    jevDetails: { impactTier: tier, effectiveTiming: timing, influenceScore, relevance, quality, brandMismatchP },
+    jevDetails: { impactTier: tier, effectiveTiming: timing, influenceScore, relevance, quality },
   };
 }
 

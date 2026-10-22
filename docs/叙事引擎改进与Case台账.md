@@ -70,6 +70,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C172 品牌劫持轴整轴退役——判据归位 web3_user_name_event_acceptance 用户视角（2026-10-22 用户裁定）★
+
+- **案由（TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777`，C106 j7tracker 直链解锁票，C171 回归遗留 expect 冲突票）**：C171 载体门退役后 TREE 仍 low，用户质疑「TREE 不应该有什么品牌劫持一说」。182 实测归因：预检表命中（BNB Tree 归一化含 bnb 关键词）→ 实体题 `brand_mismatch` 0.74 → punExempt 断第四腿 credibleEventAnchor（语料=TCC 种橙子树故事推，非 superIP 注册表/非自发宣告/非币安广场）→ **品牌劫持截断把 81 分票拦成 low**。铁证=同一次调用里 Jev 自己给出 `name_event=exact_match 0.74`（名字-事件关联明确）与 `entity=brand_mismatch 0.74`（品牌劫持）**自相矛盾**——TREE/BNB Tree 是复合创意名（品牌词作修饰、名词主体=事件主体「树」），被实体轴误吃。
+- **裁定（用户）**：「品牌劫持其实本质是事件/代币关系层面的，如果要放，也是放到 web3_user_name_event_acceptance，而如果 web3_user_name_event_acceptance 已经站在了用户视角进行判断了，那么其实 品牌劫持 可以删掉」——判据归位：J1.92 用户视角三桶（exact_match 20/acceptable 15 过 ≤10 线放行、unacceptable 5 落截断）天然覆盖「真蹭名→用户不接受→关联低分→拦」；C40 Binance Inu 类戏谑关联票的正名=acceptable。
+- **改动（J1.103）**：①题集——`BRAND_HIJACK_KEYWORDS` 预检表+`shouldIncludeBrandHijackCheck` 函数删除、实体题 `brand_mismatch` 桶删除（六桶回五桶 accepted/unknown/new_entity/wrong_entity/not_entity）、`brandMismatch:true` 传参静默忽略、版本 bump J1.102→J1.103；②mapper——`brandMismatchP` 计算+`punExempt`（J1.24 戏谑豁免，C40 立门）+品牌劫持截断臂+`credibleEventAnchor` 参数整链删除，`magExempt = imgNameExempt || recognizedEntitySlogan`（豁免源收窄，J1.24戏谑 tag 移除）、量级门 D/E 臂唯一守卫 `!imgNameExempt`、Stage3 spelling 臂升链首、关联臂守卫 `!imgNameExempt && !recognizedEntitySlogan`、审计键 brandMismatchP/punExempt 停产出（历史行保留展示）；③analyzer——includeBrandHijack/credibleEventAnchor 两处传参删除；④工具脚本（scan-c88-flip-surface/jev_dryrun/jev_calibration）随动清参。
+- **旧缓存行兼容**：实体题 probabilities 残留 brand_mismatch 键 mapper 不读（桶退役=不产出+不消费，双停，单测 A3 bit 一致锁定）。
+- **回归影响面**：TREE（81 分被拦→预期翻 high，expect 已是 high=fail-first 达成）；C40 BI Inu 类票在新题集下由 J1.92 acceptable 15 分自然放行（复核在案票重析）。品牌关键词票不再有预检门=Jev 少答一桶（fan-out token 微降）。
+- **单测**：`_test_brand_hijack_pun_exemption` 整体重写为退役反证（A 案票终态：acceptable 15 放行/unacceptable 5 由关联≤10 截断拦/残留键 bit 一致；B 桶退役恒五桶+传参静默忽略；C 源码防复活预检表/函数/劫持臂/punExempt/analyzer 传参+spelling 链首；D 审计停产出+magExempt 收窄；E 版本 ≥J1.103；F 量级门豁免源收窄）16/0；随动 8 文件（web3_fit A5/question_consolidation A6+A10d/name_image_consistency A7+D3+F1/superip_slogan_class D1+E4+G2+G4-G6/name_entity_acceptance D5+D6/spelling H1/angle_timing C5）；**顺手收口 C171 存量漏网**（superip_slogan_class D1/G2、name_entity D5 版本+D6 visuality 在册——两文件不在 CLAUDE.md 单测清单当时未跑）+ 本案新发现 superip_standard_path B5（credibleEventAnchor 断言随轴翻反证）。叙事侧全量单测零失败。
+- **部署**：commit → push → 182 pull → 重启叙事 worker+live v32（重启前查持仓）→ TREE 定向重析（预期 high）+ C171 遗留 6 FAIL 票同批呈报 → 全量 case-regression 对拍。
+
 ### C171 形象载体轴整轴退役——形象考量并入实体接纳度（2026-10-22 用户裁定「有形象接纳度会高，但是也不是说没有形象就不行，一切看情况」）★★
 
 - **案由（三票连环）**：①**股城 `0xaacbc156435dbab7815a61bccba1c827e52a7777`**（C133 已知阈值抖动票）：web3 项目票被 `no_visual_entity` 0.91 拦——用户裁定「web3 项目不适用载体门」；②**TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777`**（C106 漂移遗留）：三桶 0.44/0.39/0.17 掷骰边缘——用户裁定「实体是树，有形象载体」；③**Heyi.ai `0xa1cb5a5915c43829a33c7cb508f65eebed177777`**（C138a）：choice=accepted 但 0.25<0.5 概率线，著名豁免臂吃不到——用户裁定「实体是何一/域名不需要形象载体」。

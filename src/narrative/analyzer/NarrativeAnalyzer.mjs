@@ -33,7 +33,7 @@ import { maybeCaptureKnowledgeFeedback } from './knowledge/knowledge-feedback.mj
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
 import { JevClient } from './llm/JevClient.mjs';
-import { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
+import { buildStandardQuestions, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
 import { JEV_PRESTAGE_QUESTIONS_VERSION } from './llm/jev-prestage-questions.mjs';
 import { buildJevState } from './llm/jev-state-builder.mjs';
 import { mapStandardAnswers, hasReplyParent } from './llm/jev-result-mapper.mjs';
@@ -843,12 +843,9 @@ export class NarrativeAnalyzer {
           if (!shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用 Jev 单次判定（原3阶段架构的替代）');
 
-            // Jev 单次 speculative fan-out：全部原子问题一次问完，代码端聚合
-            const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
-            // J1.85（C143）：品牌关键词预检不再决定题集形状（name_brand_hijack 题
-            // 已并入实体题 brand_mismatch 桶）；仅作 mapper 门开关传参——非关键词
-            // 票不启用 brand_mismatch 拦截位/punExempt
-            const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
+            // （品牌关键词预检 includeBrandHijack 已废 J1.103/C172：品牌劫持轴
+            // 整体退役——brand_mismatch 桶删除，判据归 web3_user_name_event_
+            // acceptance 用户视角承接）
             // superIP 注册表命中（C83）：命中事实行进 state PRECOMPUTED（认证标注 +
             // 反混淆提示），量级/关联/主体资格全归 Jev 按题集判定——非 superIP 票
             // superIPInfo=null，builder guard 跳过注入，state 与旧版逐字节一致
@@ -859,7 +856,6 @@ export class NarrativeAnalyzer {
             // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】
             // 块才问（无父推不问防幻觉作答；与 mapper hasReplyParent 同判定）
             const questions = buildStandardQuestions({
-              brandMismatch: includeBrandHijack,
               imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis,
               parentRelationship: hasReplyParent(twitterInfo),
             });
@@ -869,14 +865,11 @@ export class NarrativeAnalyzer {
 
             const mapped = mapStandardAnswers(result.answers, {
               tokenData,
-              includeBrandHijack,
               // C168 蓝筹去重证据（analyzer 侧 detectDuplicateNarrative 产物）：
               // 命中 → mapper 门链首臂拦 low（null=无证据零侵入）
               duplicateNarrative,
-              // J1.24 戏谑关联豁免（C40 BI Inu 案）的可信事件源锚：superIP 语料锚 /
-              // 发行方自发宣告 / 广场官方认证源 任一——事件真实性有背书时「当前热门
-              // 新鲜事」才立得住，纯小道消息语料不解锁豁免
-              credibleEventAnchor: !!(superIPInfo || issuerDetected || binanceSquareInfo?.authorVerified),
+              // （J1.24 credibleEventAnchor 已废 J1.103/C172：唯一消费点 punExempt
+              //   随品牌劫持轴整链退役）
               // C44（2026-10-01 土豪猫猫案，用户裁定「如果引用了Instagram的链接，
               // 就认为影响力达标」）：IG 是封闭平台传播数据常不可得，证据缺失≠零
               // 影响力——链接存在但数据未抓到时，mapper A 类 dim2 兜底锚 18

@@ -109,11 +109,11 @@ async function main() {
     nic.instructions.includes('名字含鸡、图就是鸡形角色'), null);
   check('A6 题面钉死：图内文字计入（梗名可能只写在图里——巴巴鸡案根因）',
     nic.instructions.includes('图内文字') && nic.instructions.includes('梗名可能只写在图里'), null);
-  check('A7 品牌题已退役（J1.85/C143，品牌信号仅在关键词票实体题 brand_mismatch）；名图条件题独立在场',
+  check('A7 品牌题已退役（name_brand_hijack 题 J1.85/C143 删+brand_mismatch 桶 J1.103/C172 随品牌劫持轴删——任何形状不在）；名图条件题独立在场',
     !('name_brand_hijack' in qsImg)
     && 'name_image_consistency' in buildStandardQuestions({ imageConsistency: true })
     && !('brand_mismatch' in buildStandardQuestions().web3_user_name_entity_acceptance.criteria)
-    && !!buildStandardQuestions({ brandMismatch: true }).web3_user_name_entity_acceptance?.criteria?.brand_mismatch, null);
+    && !('brand_mismatch' in buildStandardQuestions({ brandMismatch: true }).web3_user_name_entity_acceptance.criteria), null);
 
   // ═══ B. 巴巴鸡事故现场反证 ═══
   console.log('\n── B. 巴巴鸡事故现场反证（cultural lv1=5 分）──');
@@ -177,8 +177,10 @@ async function main() {
   // J1.85/C143：品牌信号改吃实体题 brand_mismatch 概率
   hijackAnswers.web3_user_name_entity_acceptance.probabilities.brand_mismatch = 0.8;
   const rHijack = mapStandardAnswers(hijackAnswers, stdCtx({ includeBrandHijack: true }));
-  check('D3 品牌劫持门（brand_mismatch P=0.8）不受名图豁免（正交并存，劫持照拦）',
-    rHijack.llmResult.rating === 'low' && (rHijack.llmResult.reason || '').includes('品牌劫持'), rHijack.llmResult.reason);
+  // D3 改为退役反证（J1.103/C172 品牌劫持轴整体退役）：brand_mismatch 桩零影响，
+  // 同票走名图豁免路径放行（旧形状曾被劫持臂拦 low）
+  check('D3 品牌劫持臂退役反证（J1.103/C172）：brand_mismatch P=0.8 桩零影响，无「品牌劫持」拦截',
+    rHijack.llmResult.rating !== 'low' && !(rHijack.llmResult.reason || '').includes('品牌劫持'), rHijack.llmResult.reason);
   const typoAnswers = babaJiAnswers(NIC_STRONG);
   typoAnswers.block_misspelling = { noul: 0.7 };
   const rTypo = mapStandardAnswers(typoAnswers, stdCtx());
@@ -209,8 +211,8 @@ async function main() {
   const { readFileSync } = await import('fs');
   const { join } = await import('path');
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
-  check('F1 mapper 截断链形状（!imgNameExempt 锁定）',
-    mapperSrc.includes('relevance.score <= 10 && !punExempt && !imgNameExempt'), null);
+  check('F1 mapper 截断链形状（!imgNameExempt 锁定；punExempt 随品牌劫持轴退役已不在守卫）',
+    mapperSrc.includes('relevance.score <= 10 && !imgNameExempt && !recognizedEntitySlogan'), null);
   // C83：mapSuperIPAnswers 快车道删除——J1.30 名图一致豁免对 superIP 语料票
   // 经标准路径真实可达（旧「一期不挂」欠账终结），不存在性断言锁定
   check('F2 mapSuperIPAnswers 快车道已删（J1.30 对 superIP 语料经标准路径可达）',

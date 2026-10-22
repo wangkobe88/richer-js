@@ -22,7 +22,7 @@ process.chdir(resolve(__dirname, '../..'));
 const { NarrativeRepository } = await import('../../src/narrative/db/NarrativeRepository.mjs');
 const { ExternalResourceCache } = await import('../../src/narrative/db/ExternalResourceCache.mjs');
 const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
-const { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } = await import('../../src/narrative/analyzer/llm/jev-questions.mjs');
+const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = await import('../../src/narrative/analyzer/llm/jev-questions.mjs');
 const { buildJevState } = await import('../../src/narrative/analyzer/llm/jev-state-builder.mjs');
 const { mapStandardAnswers } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
 
@@ -82,13 +82,12 @@ async function main() {
       relatedAccounts: null, accountSummary: null,
     };
 
-    const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenData.name);
-
     // 1) state 构建（时间基准=旧分析时刻，保证时效项与旧评级同基准可比）
     const analyzedAtMs = row.analyzed_at ? new Date(row.analyzed_at).getTime() : undefined;
     const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
     // 2) 问题集（J1.85/C143：品牌题已退役；关键词票在实体题加 brand_mismatch 桶）
-    const questions = buildStandardQuestions({ brandMismatch: includeBrandHijack });
+    // （品牌劫持轴已废 J1.103/C172：brandMismatch/includeBrandHijack 传参删除）
+    const questions = buildStandardQuestions();
 
     // 3) 真实调用
     const startedAt = new Date().toISOString();
@@ -100,7 +99,6 @@ async function main() {
     // 4) 代码端聚合
     const mapped = mapStandardAnswers(result.answers, {
       tokenData,
-      includeBrandHijack,
       twitterInfo, // J1.17 cashtag 改道判据用（与主路径同口径）
       callInfo: {
         model: result.model, questions, stateStats: stats,
@@ -113,7 +111,7 @@ async function main() {
     console.log(`state: ${stats.totalChars} chars (budget ${stats.budget}) | dropped: ${stats.droppedSections.length ? stats.droppedSections.join(',') : '无'}`);
     const g = stats.groups;
     console.log(`配额: twitter ${g.twitter?.used}/${g.twitter?.quota} wg ${g.websiteGithub?.used}/${g.websiteGithub?.quota} video ${g.video?.used}/${g.video?.quota} others ${g.others?.used}/${g.others?.quota}`);
-    console.log(`jev: ${result.model} ${elapsed}ms tokens=${result.usage?.input_tokens ?? '?'} 题数=${Object.keys(questions).length}${includeBrandHijack ? '（品牌关键词票：brand_mismatch 门启用）' : ''}`);
+    console.log(`jev: ${result.model} ${elapsed}ms tokens=${result.usage?.input_tokens ?? '?'} 题数=${Object.keys(questions).length}`);
 
     const a = result.answers;
     console.log(`answers:`);
@@ -122,7 +120,7 @@ async function main() {
     const spreadScore = a.web3_user_event_spread?.score ?? a.dimension2?.score;
     console.log(`  web3_user_event_impact=${impactScore?.toFixed(2)} timing=${a.event_timing?.choice} web3_user_event_spread=${spreadScore?.toFixed(2)}`);
     console.log(`  event_quality_veto=${a.event_quality_veto?.choice}(P=${a.event_quality_veto?.probabilities?.[a.event_quality_veto?.choice]?.toFixed?.(2)}, noneP=${a.event_quality_veto?.probabilities?.none?.toFixed?.(2) ?? '-'}) w_appeal=${a.w_bsc_user_appeal?.score?.toFixed(2)}`);
-    console.log(`  relevance=${a.name_event_relevance?.choice}${includeBrandHijack ? ` brandMismatchP=${a.web3_user_name_entity_acceptance?.probabilities?.brand_mismatch?.toFixed?.(2)}` : ''}`);
+    console.log(`  relevance=${a.name_event_relevance?.choice}`);
     console.log(`  quality: token_name_quality=${a.token_name_quality?.score?.toFixed(2)}`);
 
     console.log(`聚合: ${mapped.llmResult.reason}`);

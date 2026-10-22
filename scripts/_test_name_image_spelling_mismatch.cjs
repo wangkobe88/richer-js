@@ -184,8 +184,8 @@ async function main() {
   const { readFileSync } = await import('fs');
   const { join } = await import('path');
   const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
-  check('H1 stage3 消费点：spellingMismatch.hit 单判据（C108 探针臂退役）',
-    mapperSrc.includes('else if (spellingMismatch.hit)') && !mapperSrc.includes('misspellingP'), null);
+  check('H1 stage3 消费点：spellingMismatch.hit 单判据（C108 探针臂退役；J1.103/C172 品牌劫持臂删除后升链首 if）',
+    mapperSrc.includes('if (spellingMismatch.hit)') && !mapperSrc.includes('misspellingP'), null);
   check('H2 判据收紧三要件在源码：等长独立段 substitution（++diff > 1）/ 段内子串不拦（t.includes(name)）/ CJK 门（Han/Hangul/Kana 区间正则锚）/ 长度门 / 出现 ≥2 次（bestCount >= 2）',
     mapperSrc.includes('++diff > 1') && mapperSrc.includes('t.includes(name)')
       && mapperSrc.includes('name.length < 3') && mapperSrc.includes('bestCount >= 2')

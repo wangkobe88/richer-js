@@ -14,7 +14,8 @@
  *      提示行；无 pre_scores 残留；不传命中时 bit-parity 红线——非 superIP
  *      票 state 逐字节不变，事故反证式锁定）
  *   B. 源码口径（analyzer 快车道分支删除 / 标准调用点注入 / mapper 函数
- *      不存在 / registry 三删除导出四保留导出 / credibleEventAnchor 可达）
+ *      不存在 / registry 三删除导出四保留导出 / credibleEventAnchor 已随
+ *      C172 品牌劫持轴退役删除）
  *   C. detectSuperIP 回归（作者备选臂 = C51 GMGN 并入语料的命中路径）
  *   D. 边界（注入 + twitterInfo=null 不 throw——旧快车道依赖 created_at 算时效）
  *
@@ -131,9 +132,10 @@ const run = async () => {
     typeof registry.SUPER_IP_REGISTRY === 'object' && typeof registry.detectSuperIP === 'function'
     && typeof registry.isSuperIpTweetUrl === 'function' && typeof registry.extractScreenNameFromUrl === 'function');
 
-  // B5 credibleEventAnchor 的 superIPInfo 项保留（C40 锚——删快车道后真实可达）
-  check('B5 credibleEventAnchor 仍含 superIPInfo 项',
-    analyzerSrc.includes('credibleEventAnchor: !!(superIPInfo ||'));
+  // B5 credibleEventAnchor 随品牌劫持轴退役删除（J1.103/C172：品牌劫持判据归位
+  // web3_user_name_event_acceptance 用户视角三桶，punExempt/anchor 整链不存在）
+  check('B5 credibleEventAnchor 构建已随 C172 删除（无传参形状；superIP 路径不再依赖它）',
+    !/credibleEventAnchor\s*[:=]/.test(analyzerSrc));
 
   // ═══ C. detectSuperIP 回归（作者备选臂 = C51 GMGN 并入语料命中路径）═══
   console.log('\n── C. detectSuperIP 回归 ──');

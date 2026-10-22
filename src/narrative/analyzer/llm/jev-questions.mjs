@@ -889,6 +889,23 @@
  *      大乱斗、截图正在乱斗=它在干它本来干的事）+图内第三方 IP 形象属原 IP 不因
  *      出现在所指物截图里就成为本币载体。审计键 subjectCarrierReferentVeto 命中才落。
  *      条件题 18（imageConsistency 票才问）
+ * J1.103（2026-10-22，C172 品牌劫持轴整体退役，用户裁定「品牌劫持其实本质
+ *      是事件/代币关系层面的，如果要放，也是放到 web3_user_name_event_acceptance，
+ *      而如果 web3_user_name_event_acceptance 已经站在了用户视角进行判断了，那么
+ *      其实品牌劫持可以删掉」）：实体题 web3_user_name_entity_acceptance 删第六桶
+ *      brand_mismatch（J1.85/C143 并入，寿命 1 天余）——品牌劫持是**名字-事件关系**
+ *      轴（币名把事件概念扩大到品牌），不是名字-实体映射轴；J1.92/C155
+ *      web3_user_name_event_acceptance（exact/acceptable/unacceptable，用户视角）
+ *      已是该轴的正确宿主。案发现场=TREE 0xd50e1120…95917777（BNB Tree，C106
+ *      j7tracker 案票）：同一次调用 name_event=exact_match 0.74（Tree=种树故事
+ *      主体，relevance 20）与 entity=brand_mismatch 0.74（BNB≠故事核心实体）
+ *      共存——两轴打架，删错的那轴。整链随桶退役：BRAND_HIJACK_KEYWORDS 预检表
+ *      + shouldIncludeBrandHijackCheck（唯一用途=mapper 门开关，门废开关废）+
+ *      mapper brandMismatchP/punExempt（J1.24 戏谑豁免前提即 brandMismatchP≥0.5，
+ *      恒 0 随死——豁免功能由 J1.92 正确评分承接：真蹭名票 unacceptable →
+ *      relevance 低 → 关联≤10 截断自然拦）+ Stage3 品牌劫持截断臂 +
+ *      credibleEventAnchor 传参（唯一消费=punExempt）。题数不变（删桶不删题），
+ *      实体题回五桶原形
  * J1.102（2026-10-22，C171 形象载体轴整体退役，用户裁定「是否去掉
  *      web3_user_entity_visuality 这一个轴？实体的可视化有形象，其实也是实体的
  *      web3 用户接纳度的一部分（web3_user_name_entity_acceptance），有形象接纳度
@@ -1086,49 +1103,11 @@
  *       题数不变
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.102';
+export const JEV_QUESTIONS_VERSION = 'J1.103';
 
-/**
- * 品牌关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
- * J1.85/C143 起品牌题已并入实体题——本表驱动 mapper 门开关：代币 Symbol/Name
- * （去 emoji/数字/特殊字符后）命中任何一项才启用 brand_mismatch 拦截位/punExempt，
- * 避免非品牌名误伤。
- */
-const BRAND_HIJACK_KEYWORDS = [
-  // A类：头部知名代币
-  'btc', 'bitcoin', '比特币', 'eth', 'ethereum', '以太坊', 'bnb', 'sol', 'solana',
-  'xrp', 'doge', 'dogecoin', 'pepe', 'shib', 'usdt', 'usdc', 'link', 'uni', 'aave', 'floki',
-  // B类：全球级名人
-  'cz', '赵长鹏', 'elon', 'musk', '马斯克', 'trump', '特朗普',
-  'vitalik', '何一', '孙宇晨', 'sbf',
-  // C类：头部知名机构
-  'binance', '币安', 'coinbase', 'openai', 'google', '谷歌',
-];
-
-/**
- * 检查代币名是否命中品牌关键词预检（J1.85/C143 起不再决定是否问题——题已并入
- * web3_user_name_entity_acceptance.brand_mismatch；本预检保留为 mapper 门开关：
- * 仅关键词票才启用 brand_mismatch 拦截位与 punExempt，防非品牌名误伤）
- * @param {string} symbol - 代币 Symbol
- * @param {string} name - 代币 Name
- * @returns {boolean}
- */
-export function shouldIncludeBrandHijackCheck(symbol, name) {
-  const normalize = (str) => {
-    if (!str) return '';
-    return str.toLowerCase()
-      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '') // 移除emoji
-      .replace(/\d/g, '')                     // 移除数字
-      .replace(/[^a-z\u4e00-\u9fff]/g, '');   // 只保留小写字母和中文
-  };
-
-  const normalizedSymbol = normalize(symbol);
-  const normalizedName = normalize(name);
-
-  return BRAND_HIJACK_KEYWORDS.some(kw =>
-    normalizedSymbol.includes(kw) || normalizedName.includes(kw)
-  );
-}
+/** 品牌 keyword 预检表+shouldIncludeBrandHijackCheck 已废（J1.103/C172 品牌劫持轴
+ * 整体退役：brand_mismatch 桶删除后预检唯一用途 mapper 门开关消失；名字-事件
+ * 关系轴归 web3_user_name_event_acceptance 用户视角承接） */
 
 /** 时效 6 档（标准类换算：15/10/0/10/5/0；W 类换算：25/15/0/15/0/0） */
 export const TIMING_OPTIONS = [
@@ -1140,8 +1119,8 @@ export const TIMING_OPTIONS = [
  * 构建主路径问题集（standard 模式，superIP 模式复用同一问题集）
  *
  * @param {Object} [options]
- * @param {boolean} [options.brandMismatch] - 是否在实体题加入 brand_mismatch 桶
- *   （J1.85/C143，仅品牌关键词预检命中时为 true；false=实体题保持 J1.84 五桶原形）
+ * （options.brandMismatch 已废 J1.103/C172：brand_mismatch 桶随品牌劫持轴
+ *   整体退役，传参静默忽略）
  * @param {boolean} [options.referentMemeability] - 已废弃（J1.28 起恒带，传不传
  *   均包含）：J1.21 时仅 superIP 快车道携带（nameReferentBlock 豁免评分）；
  *   J1.28 起标准路径恒带——mapper 低档门（memScore≤1 → 不适合成为meme币）判据源
@@ -1160,9 +1139,6 @@ export const TIMING_OPTIONS = [
  */
 export function buildStandardQuestions(options = {}) {
   const imageConsistency = options.imageConsistency === true;
-  // J1.85/C143：brand_mismatch 桶按关键词预检条件加入——非品牌票的实体题保持
-  // J1.84 五桶原形（bit 不变，防新增桶稀释 accepted/unknown 概率扰动既有门）
-  const brandMismatch = options.brandMismatch === true;
   // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】块才问
   // （无父推不问防幻觉作答；twitter-section 渲染条件同源——tweet.in_reply_to
   // 存在即渲染）。mapper hasReplyParent 同判定，两端共用防漂移
@@ -1352,11 +1328,12 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     //     + authorUtterance 事实承担，不由本题升档（问候语如实答 not_entity）；J1.81/C139
     //     加第五选 wrong_entity（全域拦）+ no_entity 断代改名 not_entity；J1.85/C143
     //     加第六选 brand_mismatch（品牌劫持/概念扩大，吸收已退役的 name_brand_hijack
-    //     条件题；优先于 accepted）──
+    //     条件题）——J1.103/C172 删（品牌劫持轴整体退役：名字-事件关系归
+    //     web3_user_name_event_acceptance 用户视角承接，实体题回五桶原形）──
     web3_user_name_entity_acceptance: {
       type: 'choice',
       instructions: `币名映射实体对 Web3 用户的接受度/影响力（name-mapped entity acceptance）。判定代币 Symbol/Name（去 emoji/数字/特殊字符后）映射到哪个实体，以及该实体对 web3 用户（链上 meme 买家）的接受度与影响力。
-评估对象=币名映射到的那个实体本身（人物/机构/项目/资产/形象/IP）——不是事件整体热度、不是发推人/陈述者的量级（陈述者量级另有题评）、也不是大众媒体知名度。${brandMismatch ? '**唯一例外：brand_mismatch 臂需要比较币名映射实体与事件核心实体（判断概念扩大/品牌劫持）。**' : ''}
+评估对象=币名映射到的那个实体本身（人物/机构/项目/资产/形象/IP）——不是事件整体热度、不是发推人/陈述者的量级（陈述者量级另有题评）、也不是大众媒体知名度。
 映射成立的三种方式：①直接指代——实体本名/官方译名/通用称法/形象/作品/原创梗（名字=作者本人的名称/自称/外号/作品/原创梗且出自其本人文本，映射到该作者实体）；②实体产出——该实体产出的官方口号/标志性品牌主张/官方文案（口号的作者=产出它的实体，发现/转述/搬运者不改变归属，如币安APP界面的「货币自由」）；③领域知名发布者的独立新产品/重大升级（发布者知名度指代到产品名；不含现有产品的版本更新/功能改进/新平台移植）。
 ⚠️ 作者身份本身不是映射——作者的认证/粉丝数不等于币名指向该作者；币名是其本人文本里的普通词/问候语/口头禅等非实体词时，本题如实判「无实体」，不得因作者是超级 IP 而升档（作者原话票由代码侧事实另管）。
 ⚠️ 语料/配图中真实出现的形象也是可判定的映射来源：币名与该形象对应时，映射到那个形象本身，按其自身在用户侧的地位评。
@@ -1364,7 +1341,6 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
 ⚠️ 指歪≠指到（J1.81/C139）：币名**试图**指向一个已知实体/概念/作品，但映射失败——无背景拼写错误、不忠实呈现（音译字/形近字/跨书写系统变体、未官宣的传闻/泄露命名）、版本标注残片（日本語版/完整版/remix——映射到的是版本目录里的一行，不是作品/产品实体本身）→ 判 **wrong_entity**。这是拦截位（全域）：试图指实体但指歪的名字无论类别都不该过；不是中性的「没映射到」（那是 not_entity）。
 ⚠️ 有独立背景故事/文化来源的**有意义变形不选 wrong_entity**（J1.89/C151）：错版/错印/玩偶/新造型/二创造型/致敬变体/联名（如「错版奶龙玩偶→哭哭奶龙」「doge→dogwifhat」）是新的玩梗对象，不是指歪——映射到原 IP 的可判 accepted/unknown，作为新角色/新变体的可判 **new_entity**；wrong_entity 只拦无背景拼写错误、音译/形近/跨书写系统的不忠实呈现、版本目录残片（日本語版/remix/version 等元标注）。
 ⚠️ 交易池/计价配置语句不是名字证据（J1.98/C162）：语料中的交易对/计价币配置说明——「paired to X / X pair / trade against X / 用 X 做交易对 / 流动性池计价币」——说的是这个币与 X 币配对交易（池子配置），与币名映射哪个实体、币名有没有指歪**毫无关系**；不得把这类语句当成「币名应该叫 X/币名与 X 不符」的证据判 wrong_entity。
-${brandMismatch ? '⚠️ 品牌/概念扩大臂（J1.85/C143）：若币名是一个知名品牌/机构/人物/资产的名字，但**事件的核心实体不是它**——事件讲的是另一个主体/普通事件，币名把事件概念扩大/替换成更大的品牌或无关品牌，且没有正当关系（非该品牌/机构/本人的官方发布/官宣/重大事件，非本人发起，非事件主体本身）→ 判 **brand_mismatch**（品牌劫持/概念扩大）。**本项优先于 accepted**：品牌名与事件核心实体不匹配时，即使该品牌本身是圈内符号级，也选 brand_mismatch，不选 accepted。⚠️ 只有币名本身是一个知名品牌/机构/人物/资产的名字时才选本项；普通词/短语/句片段不选本项（那是 not_entity）。反之，事件本身就是该品牌/机构/本人的官方发布/官宣/重大事件，或币名指向的是事件主体本身 → 不选本项，按实际映射选 accepted/not_entity 等。⚠️ 官方品牌事件的具体产物/符号（如币安官方发布的菠萝符号→币名「币安菠萝」）→ 币名指向事件主体/产物，不选本项，按实际映射选 accepted/not_entity。⚠️ 含品牌名的陈述句/短语（币安上电视/バイナンス人生/币安游戏）不是映射品牌实体——不选 accepted/unknown/brand_mismatch，判 **not_entity**（陈述句/短语），由词句接纳度门判。' : ''}
 ⚠️ 形象考量（J1.102/C171，原 web3_user_entity_visuality 轴并入）：实体是否具有可视觉化的形象（角色/动物/人物/实物等具象形象）是接纳度的**加分考量之一**——有形象、可被拿去玩梗/二创传播的实体更易被用户接纳（可上调 accepted 概率）；但**无形象本身不构成否决**——项目/平台/软件/人物本人等无具象形象的实体照样可以高接纳（新项目/域名/概念实体本来就常常没有形象）。一切按该实体在用户侧的整体接纳情况综合判断，不单因「没有形象」降档。
 接受度/影响力判据=该实体在 Web3 用户侧被认得、被当符号使用（被拿名字/形象/绰号玩梗、当标签当口号）、被二创传播的程度；「听说过」的知晓级不算，大众知名度不能替代圈内符号性。`,
       criteria: {
@@ -1372,7 +1348,6 @@ ${brandMismatch ? '⚠️ 品牌/概念扩大臂（J1.85/C143）：若币名是�
         unknown: '币名映射到**已存在的**具体实体，但该实体在 Web3 用户侧接受度/影响力低——普通员工/小号/小公司/周边人物/小众作品/被@的普通人/纠纷对象；被超级 IP 或大V提到不改变其无名。用户侧对这名字没有感知，接不住当符号（YAYA=币安普通员工花名型）。⚠️ 不用于刚诞生的新实体（新项目/新品牌/新角色——那是 new_entity）',
         new_entity: '币名映射到一个**刚诞生/刚发布的新实体**——新项目/新品牌/新角色/新资产，且已经在 BSC 链用户群（推特/社区/官方渠道）发出自己的信息（官宣/自我介绍/进展/社区讨论）。用户此前没听说过是正常的（新实体没有认知历史），不按「认知度不足」判；用户第一次见到它时名字/叙事接不接得住由名字形态/内容题评。⚠️ 已知 IP 的有意义衍生新造型/错版玩偶/二创角色（有自身的新梗对象，如「错版奶龙玩偶→哭哭奶龙」）也归本项，不选 wrong_entity。与 unknown（已存在实体但用户无认知）区分',
         wrong_entity: '币名试图指向一个已知实体/概念/作品，但指歪了/指残了——①无背景拼写错误：对已知实体/概念的明显拼写错误且无独立背景故事或文化来源（有文化来源的变体不算，如 doge→dogwifhat 是 meme 文化变体）；②不忠实呈现：音译字/形近字/跨书写系统变体、未官宣的传闻/泄露命名均不构成对已知名称的忠实映射；③版本/功能标注残片：版本/语言/形态/序号等元标注词（日本語版/英文版/完整版/remix 版/version）——映射到的是版本目录里的一行，不是作品/产品实体本身，版本标注残片即便逐字出自高影响力主体的原话也不接纳（C105 日本語版案）。⚠️ 有独立背景故事/文化来源的有意义变形（错版/错印/玩偶/新造型/二创造型/致敬变体/联名，如错版奶龙→哭哭奶龙）不选本项（J1.89/C151）——映射到原 IP 可判 accepted/unknown，作为新角色/新变体可判 new_entity。⚠️ 交易池/计价配置语句（paired to X / X pair / 用 X 币配对交易）是池子配置说明，与币名映射无关，不得据此选本项（J1.98/C162）。⚠️ 本项是拦截位（全域）：试图指实体但指歪的名字无论类别都不该过；与 not_entity（中性、没试图指实体）区分',
-        ...(brandMismatch ? { brand_mismatch: '品牌劫持/概念扩大——币名指向知名品牌/机构/人物/资产，但事件的核心实体不是它（事件讲的是另一个主体/普通事件），币名把事件概念扩大/替换成更大的品牌或无关品牌，纯蹭品牌存量认知且无正当关系（非该品牌/机构/本人的官方发布/官宣/重大事件，非本人发起，非事件主体本身）。⚠️ 本项优先于 accepted：品牌名与事件核心实体不匹配时，即使该品牌本身是圈内符号级，也选本项，不选 accepted；事件本身就是该品牌/机构/本人的官方发布/官宣/重大事件，或币名指向事件主体本身 → 不选本项。⚠️ 官方发布的具体产物/符号（币安官方菠萝符号→「币安菠萝」）不选本项；含品牌名的陈述句/短语（币安上电视/バイナンス人生/币安游戏）不是映射品牌实体，判 not_entity（陈述句/短语），不选本项' } : {}),
         not_entity: '币名不映射任何实体（也未试图指向某个已知名称——试图指但指歪的拼写错误/不忠实呈现/版本残片是 wrong_entity 拦截位）——普通词汇/短语、话中截词、问候语/口头禅等日常用语、陈述句、口号/玩梗词、纯功能词。⚠️ 本项中性：不是「用户不接纳」，是「没有实体可评」——词句形态问题交 web3_user_phrase_acceptability 题判',
       },
     },
@@ -1452,10 +1427,9 @@ ${brandMismatch ? '⚠️ 品牌/概念扩大臂（J1.85/C143）：若币名是�
       },
     } : {}),
 
-    // ── 10. 品牌劫持条件题已删（J1.85/C143）——判据并入
-    //     web3_user_name_entity_acceptance.brand_mismatch 桶；keyword 预检
-    //     （shouldIncludeBrandHijackCheck）保留为 mapper 门开关（仅关键词票
-    //     才启用 brand_mismatch 门/punExempt），不再影响题集形状 ──
+    // ── 10. 品牌劫持条件题已删（J1.85/C143）；brand_mismatch 桶亦删
+    //     （J1.103/C172 品牌劫持轴整体退役——判据归 web3_user_name_event_acceptance
+    //     用户视角，keyword 预检/门/豁免全链随死）──
 
     // ── 10.8 配图对名字的演绎关系（C118 条件题，仅 imageConsistency（语料含
     //     【图片内容分析】块）时问）。J1.102/C171 消费链迁移：原挂载体门图证豁免

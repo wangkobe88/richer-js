@@ -37,7 +37,6 @@ const r2 = (v) => (v == null ? null : Math.round(v * 100) / 100);
 async function main() {
   const db = dbManager.getClient();
   const { mapStandardAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
-  const { shouldIncludeBrandHijackCheck } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const { resolveFinalRating, categoryToRating } = await import('../src/narrative/utils/rating-utils.mjs');
 
   const COLS = [
@@ -76,9 +75,6 @@ async function main() {
             raw_api_data: asObj(row.raw_api_data),
           },
           twitterInfo: asObj(row.twitter_info),
-          // J1.85/C143：品牌题已退役；门开关改由关键词预检决定（与生产同口径）
-          includeBrandHijack: shouldIncludeBrandHijackCheck(row.token_symbol, asObj(row.raw_api_data)?.name),
-          credibleEventAnchor: false, // 未落库：fail-closed；只影响 J1.24，不影响两清单判定键
           tweetClassification: null,  // 未落库：C68/C75 override 不参与，timing 用 Jev 原判
           callInfo: { model: 'scan', questions: {}, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
         });

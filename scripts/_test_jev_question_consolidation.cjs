@@ -74,9 +74,10 @@ async function main() {
     Object.keys(qs.web3_user_name_event_acceptance.criteria).length === 3
     && ['exact_match', 'acceptable', 'unacceptable'].every(k => k in qs.web3_user_name_event_acceptance.criteria), Object.keys(qs.web3_user_name_event_acceptance.criteria));
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
-  check('A6 品牌关键词票实体题 6 桶（accepted/unknown/new_entity/wrong_entity/brand_mismatch/not_entity；J1.85/C143 加品牌劫持桶；J1.72 C133 加新实体；J1.81/C139 加 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
-    Object.keys(qsBrand.web3_user_name_entity_acceptance.criteria).length === 6
-    && ['accepted', 'unknown', 'new_entity', 'wrong_entity', 'brand_mismatch', 'not_entity'].every(k => k in qsBrand.web3_user_name_entity_acceptance.criteria)
+  check('A6 实体题五桶恒形（brand_mismatch 桶 J1.103/C172 随品牌劫持轴退役——品牌票与非品牌票同形；J1.72 C133 加新实体；J1.81/C139 加 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
+    Object.keys(qsBrand.web3_user_name_entity_acceptance.criteria).length === 5
+    && ['accepted', 'unknown', 'new_entity', 'wrong_entity', 'not_entity'].every(k => k in qsBrand.web3_user_name_entity_acceptance.criteria)
+    && !('brand_mismatch' in qsBrand.web3_user_name_entity_acceptance.criteria)
     && !('no_entity' in qsBrand.web3_user_name_entity_acceptance.criteria), null);
   check('A6b 非品牌票实体题保持 5 桶 J1.84 原形（新增桶不稀释 accepted/unknown 概率）',
     Object.keys(qs.web3_user_name_entity_acceptance.criteria).length === 5
@@ -159,8 +160,8 @@ async function main() {
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
-    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.102=C171）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.102'"), 'J1.102 常量缺失');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.103=C172 品牌劫持轴退役）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.103'"), 'J1.103 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题

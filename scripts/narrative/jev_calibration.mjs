@@ -23,7 +23,7 @@ process.chdir(resolve(__dirname, '../..'));
 const { NarrativeRepository } = await import('../../src/narrative/db/NarrativeRepository.mjs');
 const { ExternalResourceCache } = await import('../../src/narrative/db/ExternalResourceCache.mjs');
 const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
-const { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } = await import('../../src/narrative/analyzer/llm/jev-questions.mjs');
+const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = await import('../../src/narrative/analyzer/llm/jev-questions.mjs');
 const { buildJevState } = await import('../../src/narrative/analyzer/llm/jev-state-builder.mjs');
 const { mapStandardAnswers, hasReplyParent } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
 
@@ -90,7 +90,6 @@ async function main() {
       relatedAccounts: null, accountSummary: null,
     };
 
-    const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenData.name);
     const analyzedAtMs = row.analyzed_at ? new Date(row.analyzed_at).getTime() : undefined;
 
     const oldRating = row.stage_final_result?.rating || row.stage2_result?.rating || '?';
@@ -99,8 +98,8 @@ async function main() {
 
     const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
     // C103：条件题 parentRelationship 镜像生产接线（analyzer 同款 hasReplyParent 门）
-    // J1.85/C143：品牌题已退役——includeBrandHijack 仅传 mapper 作门开关
-    const questions = buildStandardQuestions({ brandMismatch: includeBrandHijack, parentRelationship: hasReplyParent(twitterInfo) });
+    // （品牌劫持轴已废 J1.103/C172：brandMismatch/includeBrandHijack 传参删除）
+    const questions = buildStandardQuestions({ parentRelationship: hasReplyParent(twitterInfo) });
 
     const t0 = Date.now();
     const result = await JevClient.ask(state, questions, { label: `calib:${row.token_symbol}` });
@@ -111,7 +110,7 @@ async function main() {
       usage: result.usage,
       startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(),
     };
-    const mapped = mapStandardAnswers(result.answers, { tokenData, includeBrandHijack, twitterInfo, callInfo });
+    const mapped = mapStandardAnswers(result.answers, { tokenData, twitterInfo, callInfo });
 
     const newRating = mapped.llmResult.rating;
     const newScore = mapped.llmResult.score ?? null;

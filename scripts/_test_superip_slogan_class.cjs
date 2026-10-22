@@ -257,9 +257,9 @@ async function main() {
   // 退役后由下一层载体门接管（叙事主体无形象载体），不再落 routine
   a = clone(ANHO); a.web3_user_name_entity_acceptance.probabilities.accepted = 0.48;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.anho }));
-  check('D1 暗号 accepted=0.48：slogan false → routine 桶退役，载体门接管',
+  check('D1 暗号 accepted=0.48：slogan false → 门链退役谱系（routine 桶 C145 退役、载体门 C171 退役、品牌劫持 C172 退役）零拦截放行',
     stage2Of(m).jev?.recognizedEntitySlogan?.hit === false
-    && (stage2Of(m).blockReason || '').includes('叙事主体无形象载体')
+    && stage2Of(m).blockReason === null
     && !(stage2Of(m).blockReason || '').includes('常规内容产品宣传'),
     { blockReason: stage2Of(m).blockReason });
 
@@ -324,8 +324,9 @@ async function main() {
   a.web3_user_name_entity_acceptance.probabilities.brand_mismatch = 0.56;
   a.name_entity_carrier = EXISTING_CARRIER;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('E4 slogan 断 + brand_mismatch 0.56：Stage3 劫持臂恢复拦截「品牌劫持」',
-    stage2Of(m).pass === true && stage3Of(m).pass === false && stage3Of(m).blockReason === '品牌劫持',
+  check('E4 slogan 断 + brand_mismatch 0.56：品牌劫持臂退役反证（J1.103/C172）——不产「品牌劫持」，弱关联 1 分由关联≤10 截断照拦',
+    stage2Of(m).pass === true && stage3Of(m).pass === false && /关联性不足/.test(stage3Of(m).blockReason || '')
+    && stage3Of(m).blockReason !== '品牌劫持',
     { s3block: stage3Of(m).blockReason });
 
   // E5 关联≤10 截断对照：E4 基础上 brand_mismatch 0.49（劫持臂不触发）→ 关联性不足照拦
@@ -386,24 +387,26 @@ async function main() {
     && !/memScoreC88/.test(mapperSrc)
     && /FRESH_TIMING_C88\.has\(timing\) && web3FitStrongP >= 0\.5/.test(mapperSrc)
     && /const FRESH_TIMING_C88 = new Set\(\['within_7d', 'within_30d', 'expected_within_30d'\]\)/.test(mapperSrc));
-  check('G2 豁免守卫（J1.87/C145 routine 桶退役后）：scBlock opts / Stage3 劫持臂 / 关联≤10 截断；routine 概率臂与 argmax 子句不存在',
+  check('G2 守卫反证（门链退役谱系）：routine 桶 C145 / 载体门 entityVisualBlock C171 / 品牌劫持臂+punExempt C172 均不存在；关联≤10 截断新形状在场',
     !/routineContentProductBlock\(/.test(mapperSrc)
     && !/blockChoice === 'event_routine_content_product' && recognizedEntitySlogan/.test(mapperSrc)
-    && /entityVisualBlock\(answers, category, \{\s*famousEntity,\s*authorUtterance, imgCarrierOverride,/.test(mapperSrc)
-    && /brandMismatchP >= 0\.5 && !punExempt && !recognizedEntitySlogan/.test(mapperSrc)
-    && /relevance\.score <= 10 && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
+    && !/entityVisualBlock\(answers, category,/.test(mapperSrc)
+    && !/brandMismatchP >= 0\.5/.test(mapperSrc)
+    && !/const punExempt/.test(mapperSrc) && !/!punExempt/.test(mapperSrc)
+    && /relevance\.score <= 10 && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
   check('G3 memFloor 臂 C108 退役源码反证（reason 模板/mem<2 拦截/变量赋值不存在——仅注释档保留）',
     !/蹭热点但名字无口号性/.test(mapperSrc)
     && !/memScoreC88 < 2/.test(mapperSrc)
     && !/memFloorFired = /.test(mapperSrc));
-  check('G4 magExempt 聚合含 C88实体口号 tag（C86 D-1 同款 <60 臂贯穿）',
-    /const magExempt = punExempt \|\| imgNameExempt \|\| recognizedEntitySlogan;/.test(mapperSrc)
-    && /recognizedEntitySlogan \? 'C88实体口号' : null/.test(mapperSrc));
-  check('G5 D/E 量级臂守卫刻意无 recognizedEntitySlogan（防漂移：事件太小不救的裁定锁死）',
-    /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrc)
-    && !/\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
+  check('G4 magExempt 聚合含 C88实体口号 tag（C86 D-1 同款 <60 臂贯穿；J1.24戏谑 tag 随品牌劫持轴 C172 退役移除）',
+    /const magExempt = imgNameExempt \|\| recognizedEntitySlogan;/.test(mapperSrc)
+    && /recognizedEntitySlogan \? 'C88实体口号' : null/.test(mapperSrc)
+    && !/J1\.24戏谑/.test(mapperSrc));
+  check('G5 D/E 量级臂守卫刻意无 recognizedEntitySlogan（防漂移：事件太小不救的裁定锁死；punExempt 随品牌劫持轴 C172 退役移除）',
+    /\(effTier === 'E' \|\| effTier === 'D'\) && !imgNameExempt/.test(mapperSrc)
+    && !/\(effTier === 'E' \|\| effTier === 'D'\) && !imgNameExempt && !recognizedEntitySlogan/.test(mapperSrc));
   check('G6 C86 D-1 回归红线保持：F4a 守卫行 + F4b 事件分臂 + F4c W 裸线（J1.92 起 <32）恰好一处',
-    /\(effTier === 'E' \|\| effTier === 'D'\) && !punExempt && !imgNameExempt/.test(mapperSrc)
+    /\(effTier === 'E' \|\| effTier === 'D'\) && !imgNameExempt/.test(mapperSrc)
     && /eventScoreBlocked = eventCompositeScore < 60 && !magExempt;/.test(mapperSrc)
     && mapperSrc.split('eventScoreBlocked = eventCompositeScore < 32;').length - 1 === 1);
   check('G7 stage2 审计恒落（hit:false 亦落——标签零列推导消费）；memFloorBlock 键 C108 退役不落（仅注释档保留）',

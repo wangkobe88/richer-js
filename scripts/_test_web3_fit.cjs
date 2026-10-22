@@ -75,10 +75,10 @@ async function main() {
   check('A4 题面含买家画像与判据说明', w3q && w3q.instructions.includes('链上买家画像') && w3q.instructions.includes('玩梗'), null);
   const qsNoBrand = buildStandardQuestions({ includeBrandHijack: false });
   const qsBrandMismatch = buildStandardQuestions({ brandMismatch: true });
-  check('A5 品牌题已退役（任何题集都不含 name_brand_hijack；品牌信号仅在关键词票实体题 brand_mismatch 桶）',
+  check('A5 品牌题已退役（name_brand_hijack 题+brand_mismatch 桶均删——J1.103/C172 品牌劫持轴整体退役，判据归 web3_user_name_event_acceptance 用户视角；任何形状实体题恒五桶）',
     !('name_brand_hijack' in qsNoBrand) && !('name_brand_hijack' in qs)
       && !('brand_mismatch' in qs.web3_user_name_entity_acceptance.criteria)
-      && !!qsBrandMismatch.web3_user_name_entity_acceptance?.criteria?.brand_mismatch
+      && !('brand_mismatch' in qsBrandMismatch.web3_user_name_entity_acceptance.criteria)
       && 'web3_user_event_fit' in qsNoBrand, null);
   check('A6 J1.90/C152 圈内平台/项目核心开发者本人表态锚（eth_cedric MEMES 案）',
     w3q.instructions.includes('圈内平台/项目官方账号或核心开发者本人的公开表态/口号')
