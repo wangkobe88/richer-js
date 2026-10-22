@@ -40,6 +40,10 @@ const ADDR = A('ab1').slice(2); // 40 hex
       && rec.openTimestampSec === 1760000000 && rec.ranks.mc24h === 1
       && rec.twitterUrl === 'https://x.com/biaoge' && rec.launchpad === 'four.meme', 'A1 字段映射 + 大写地址归一', rec);
     assert(normalizeTwitterUrl('biaoge') === 'https://x.com/biaoge' && normalizeTwitterUrl('') === null, 'A2 裸 handle 补 URL / 空为 null');
+    assert(normalizeTwitterUrl('https://x.com/yinghubnb/status/2112604032049295368') === 'https://x.com/yinghubnb'
+      && normalizeTwitterUrl('https://x.com/search?q=%244Stock') === null
+      && normalizeTwitterUrl('burbering1/status/2112831537339388189?s=20') === 'https://x.com/burbering1'
+      && normalizeTwitterUrl('https://t.me/xxx') === null, 'A2b 三形状归一：status URL 剥账号/搜索页 null/含斜杠裸串取首段/非 twitter URL 不冒充（182 冒烟实测形状）');
     const rec0 = normalizeRankRow({ address: '0x' + ADDR, market_cap: 0, volume: -5, open_timestamp: 0 }, def, 2);
     assert(rec0.marketCapUsd === null && rec0.volume24hUsd === null && rec0.openTimestampSec === null, 'A3 0/负值视为无效（pickPos 正数门）', rec0);
     assert(extractRankRows({ data: { rank: [{ address: '0x1' }] } }).length === 1
@@ -92,8 +96,8 @@ const ADDR = A('ab1').slice(2); // 40 hex
   {
     const now = 1_770_000_000;
     const rows = [
-      Q.normalizeTrenchRow({ address: '0x' + ADDR, symbol: 'QQ', name: '近期票', creation_timestamp: now - 86400, market_cap: 50000, twitter_username: 'qq' }, 'fourmeme'),
-      Q.normalizeTrenchRow({ address: '0x' + 'ee'.repeat(20), symbol: 'OLD', name: '老票', creation_timestamp: now - 30 * 86400 }, 'flap'),
+      Q.normalizeTrenchRow({ address: '0x' + ADDR, symbol: 'QQ', name: '近期票', complete_timestamp: now - 86400, market_cap: 50000, twitter_handle: 'qq' }, 'fourmeme'),
+      Q.normalizeTrenchRow({ address: '0x' + 'ee'.repeat(20), symbol: 'OLD', name: '老票', complete_timestamp: now - 30 * 86400 }, 'flap'),
       Q.normalizeTrenchRow({ address: '0x' + 'dd'.repeat(20), symbol: 'NOTS', name: '缺时间戳票' }, 'fourmeme'),
       Q.normalizeTrenchRow({ symbol: 'NOADDR', name: '缺地址' }, 'fourmeme'),
     ];

@@ -72,11 +72,25 @@ export const EXCLUDE_ADDRS = new Set([
 // ═══════════════════ 纯函数（单测锚定区） ═══════════════════
 
 /** 榜单行 twitter_username 可能是完整 URL 或裸 handle */
+/**
+ * 榜单/trenches twitter 值 → 账号 URL。182 冒烟实测三形状（2026-10-22）：
+ * 裸 handle（'Douyin_girl'）/ status URL（'https://x.com/yinghubnb/status/211...'）/
+ * 搜索页（'https://x.com/search?q=...'）——一律归一账号 URL；功能页/非 twitter URL → null
+ * （存 status URL 会污染 twitter_exact 匹配位）
+ */
 export function normalizeTwitterUrl(v) {
   if (!v || typeof v !== 'string') return null;
   const s = v.trim();
-  if (/^https?:\/\//i.test(s)) return s;
-  return s ? `https://x.com/${s}` : null;
+  if (!s) return null;
+  const m = s.match(/^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/@?([A-Za-z0-9_]{1,15})(?:[/?#]|$)/i);
+  if (m) {
+    const handle = m[1];
+    if (/^(search|intent|home|settings|hashtag|explore|i)$/i.test(handle)) return null;
+    return `https://x.com/${handle}`;
+  }
+  if (/^https?:\/\//i.test(s)) return null; // 非 twitter URL 不冒充
+  const bare = s.split('/')[0]; // 'handle/status/123?s=20' 形 → 取账号段
+  return /^[A-Za-z0-9_]{1,15}$/.test(bare) ? `https://x.com/${bare}` : null;
 }
 
 /** 榜单响应 → 行数组（蓝筹验证管线实测：外壳 {code, data:{rank:[...]}}） */

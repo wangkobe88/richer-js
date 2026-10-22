@@ -55,7 +55,11 @@ const pickPosFrom = (row, ...keys) => {
   return null;
 };
 
-/** trenches completed 行 → 标准化记录（字段名 --smoke 冒烟收敛；created_timestamp=索引时间仅作粗滤） */
+/**
+ * trenches completed 行 → 标准化记录（字段名 182 --smoke 2026-10-22 收敛：twitter 键=
+ * twitter_handle（twitter 键是 status URL 杂烩）；openTimestampSec 读毕业时间
+ * （complete_timestamp==open_timestamp，窗口语义=距毕业 7d）；market_cap=USD（price×supply 对拍吻合）
+ */
 export function normalizeTrenchRow(row, platform) {
   const addr = String(row.address || '').toLowerCase();
   return {
@@ -63,11 +67,11 @@ export function normalizeTrenchRow(row, platform) {
     symbol: row.symbol || null,
     name: row.name || null,
     platform,
-    openTimestampSec: pickPosFrom(row, 'creation_timestamp', 'open_timestamp'),
+    openTimestampSec: pickPosFrom(row, 'complete_timestamp', 'open_timestamp'),
     marketCapUsd: pickPosFrom(row, 'market_cap', 'marketCap'),
     volume24hUsd: pickPosFrom(row, 'volume'),
     holderCount: pickPosFrom(row, 'holder_count'),
-    twitterUrl: normalizeTwitterUrl(row.twitter_username),
+    twitterUrl: normalizeTwitterUrl(row.twitter_handle),
     websiteUrl: (typeof row.website === 'string' && /^https?:\/\//i.test(row.website)) ? row.website : null,
   };
 }
