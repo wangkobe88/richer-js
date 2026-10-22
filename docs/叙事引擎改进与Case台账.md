@@ -70,6 +70,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C167 移出 @BinanceAngels（误登记超级IP条目）（2026-10-22 用户裁定）★
+
+- **案由**：`binanceangels` 原在 super-ip 注册表机构类（`type:'institution'`/`tier:'A'`/desc「币安天使投资」）——但 @BinanceAngels 实际是币安**社区大使/志愿者项目**运营号，不是投资机构（desc 系误登记）。superIP 消费臂**只看在册、不看 tier**：在册即与 CZ/币安官方同权——C117 强制标准路径（绕过 prestage 账号判定）、C139 著名免形象资格（J1.29 载体门整门跳过）、J1.58 empty_content 作者豁免、J1.56 作者原话票（主推逐字含币名即命中，不看语义）、J1.24 可信事件锚、C51 GMGN 推文补源例外、C132 缺粉时的用烂风险证据。社区运营号的日常活动推不配这套权重。用户裁定移出。
+- **改动**：注册表删除该条目，原位留注释防误加回（`super-ip-registry.mjs`，删除位置在 binanceus 与 bnbchain 之间）。**JEV_QUESTIONS_VERSION 不 bump**（注册表非题面，state-only；C137 增 eth_cedric / C165 同例）。全仓无其他 `binanceangels` 引用；HIGH_INFLUENCE_ACCOUNTS 名单不含该号，无需同步。
+- **影响面（仅命中该号的票）**：恢复普通账号路径（prestage 账号判定可进）；state 不再注入 `corpus_author_identity` 认证行；`corpusAuthorInRegistry=0` → 载体门/空洞门/作者原话票/可信事件锚全部回到普通口径；GMGN 补源回到 C10 语义；回复/引用它的推不再是 interpretive_reply；缺粉旧推不再按在册判用烂。**已缓存 token_narrative 行不重析=存量结论不变**（注册表只在分析时消费）。
+- **验证**：superIP 相关单测 6 项全绿（`_test_superip_standard_path` 20/`_test_superip_no_prestage_route` 14/`_test_superip_slogan_class` 52/`_test_gmgn_superip_tweet_enrich` 15/`_test_narrative_timing_probe` 42/`_test_rule5_pass_through`）——测试只锚 binance/bnbchain/cz_binance 等条目，无 binanceangels 依赖。
+- **部署**：182 pull + 重启叙事 worker 生效；不改题面版本，case-regression 无期待翻转（重建 state 逐字复用线上语料的纪律不变）。
+
 ### C166 账号信息复检卖臂——持仓期宣告账号删号/删推检测 → issuerAccountState 因子全清（2026-10-22 用户裁定四项）★
 
 - **案情**：C164 官网核验案的交易侧延伸——SL `0x58417f3f…affff` / FOURGE `0xf9de0ca2…ffff` 一次性专号 rug 家族买入后 3 分钟内同块协同砸盘 -56%，价格止损（-35 静态甜点）永远吃残值；账号删除/宣告推删除是**比价格更早的 rug 前兆**。用户四裁定：①删推判据=宣告推被删 OR 推文清零（不含推文数骤降）；②复检窗口=持仓前 10 分钟每 30s 高频+之后每 2min 低频持续到清仓；③适用票=所有有宣告账号的持仓票（不限叙事类型）；④卖臂走双门确认（bypass=false，与现行全部卖腿一致）。

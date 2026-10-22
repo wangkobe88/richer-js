@@ -49,7 +49,10 @@ export const SUPER_IP_REGISTRY = {
   'binance':          { name: '币安官方',         type: 'institution', tier: 'S', desc: '全球最大加密交易所' },
   'binancezh':        { name: '币安中文',          type: 'institution', tier: 'S', desc: '币安中文官方' },
   'binanceus':        { name: '币安美国',          type: 'institution', tier: 'A', desc: '币安美国站' },
-  'binanceangels':    { name: '币安天使',          type: 'institution', tier: 'A', desc: '币安天使投资' },
+  // binanceangels 已移出（2026-10-22 用户裁定）：@BinanceAngels 是币安社区大使/
+  // 志愿者运营号，不是投资机构（原 desc「币安天使投资」系误登记）。消费臂只看在册、
+  // 不看 tier——在册即与 CZ/币安官方同权（C117 强制标准路径 / C139 著名免形象 /
+  // J1.58 空洞豁免 / J1.56 作者原话票），社区运营号不配这套权重。
   'bnbchain':         { name: 'BNB Chain',         type: 'institution', tier: 'S', desc: 'BNB Chain官方' },
   'bnbchainzh':       { name: 'BNB Chain中文',     type: 'institution', tier: 'A', desc: 'BNB Chain华语官方' },
   'whitehouse':       { name: '白宫',              type: 'institution', tier: 'S', desc: '美国白宫官方' },
