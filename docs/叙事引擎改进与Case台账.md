@@ -79,9 +79,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
   3. **题面** `prestage_website_check`（恒带第 4 题，五选）：website_substantiates / website_shell_or_mismatch（空壳模板页/与宣告叙事不符）/ website_unreachable / no_website_infra_claim / no_website_non_infra；判据=web3 用户两分钟尽调视角，「简单但具体的站（做什么/功能/用法）即足够，不要求精致」；不要求实证产品可用（P1.7 裁定沿袭，只判抓到的内容）。
   4. **mapper 门**（project 分支唯一拦截位，题面改锚分不动）：substantiates/non_infra 放行走粉丝带；shell_or_mismatch/unreachable/infra_claim → **low 拦**（reason 带「→ low（C164）｜原粉丝带：…」可复算）；答案值异常（不在五选项）→ 同拦 fail-closed；answer 整体缺失 JevClient throw→9→C84 无信号；归因键 `details.websiteCheck`+`jevDetails.websiteCheck`+jev probabilities。
 - **验证**：`_test_prestage_website_check` 43P（mapper 五臂+异常臂/不消费面三路/state 三态+功能关+双保险/resolveWebsiteCheck 六态含 throw 不冒泡+isProjectCoin 复用计数/接线源码口径锁）；三存量 prestage 套件 bump 后全绿（unrated_elimination 32/32、project_downgrade 32/32、web3ip_account_only 17/17——fixture 补 pass 臂）。
-- **回归票**：FOURGE `0xf9de…ffff` + SL `0x5841…ffff` 收录 C164（expect：rating low + reason 含官网核验拦截归因）。
+- **回归票**：FOURGE `0xf9de…ffff` 收录 C164（expect：rating low + reasonIncludes 官网核验未过/C164/粉丝73 原文——拦截位+粉丝带可复算）；SL `0x5841…ffff` 同案同臂（website_unreachable）按 C162「一案一票」先例不重复收录。
 - **边界（诚实面）**：本门抓的是「连站都懒得维护」的一次性专号形状；**域名活着+模板页做得像回事的 rug 拦不住**（substantiates 判过）；网站正常的项目币 rug（有真站有真产品但砸盘）不归叙事层管——协同砸盘簇的拦截走画像库买前门（待裁定）。
-- **部署**：182 定向重析（两票应翻 low）+ 全量回归 + worker/live v28 重启（重启前持仓确认 SOP）。
+- **部署（2026-10-22 执行）**：182 定向重析两票**双双翻正实锤**——FOURGE low「项目币官网核验未过（官网抓取失败（死链/超时/被拦——抓不到=拦））→ low（C164）｜原粉丝带：粉丝73 → mid」、SL 同款（粉丝67 → mid）；全量回归+worker/live v28 重启见后续。
+- **事故与修复（同日）**：eae169a 提交时混入并行 knowledge 会话在三个共享文件（state-builder/account-service/config）的未提交 hunks，而 knowledge/ 模块本体未提交 → 干净 checkout ERR_MODULE_NOT_FOUND（182 重析首跑实证失败；本地测试未暴露=对方未跟踪文件恰在本地存在）。a57f242 从 55dd507 基底仅重放 C164 hunks 修复（git-only 不动共享工作树，隔离 worktree 验证 43/32/32/17 全绿），knowledge hunks 随并行会话整包落盘时自然回归。**C164 编号归属**：本官网核验案先入台账（C107 协议=先登记者得号）；并行知识库案代码注释亦标 C164，应改用 C165。
 
 ### C163 宣告采信豁免——关联题已有门内加豁免，不立独立锚（J1.99）（2026-10-22 用户裁定）★
 
