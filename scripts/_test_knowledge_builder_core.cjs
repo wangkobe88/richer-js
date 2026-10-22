@@ -109,6 +109,17 @@ const ADDR = A('ab1').slice(2); // 40 hex
   assert(extractAthMarketCapUsd({ ath_market_cap: 999_999 }) && extractAthMarketCapUsd({ ath_market_cap: 999_999 }).usd <= ATH_MARKET_CAP_USD_MIN, 'F2 $999,999 不越门');
   assert(extractAthMarketCapUsd({ ath_market_cap: 1_000_001 }).usd > ATH_MARKET_CAP_USD_MIN, 'F3 $1,000,001 越门');
 
+  console.log('G. ATH sanity 上界（182 冒烟实证 2026-10-22：XRP 克隆票 ath_price 污染反证）');
+  {
+    let r = extractAthMarketCapUsd({ ath_price: 2190.057420151, circulating_supply: '325799999' }, { marketCapUsd: 438592000 });
+    assert(r && r.usd === 438592000 && r.via === 'sanity_floor', 'G1 ath_price×supply 越界（$713B 全球不可能）→ 降级 floor 留痕 sanity_floor', r);
+    assert(B.ATH_MCAP_SANITY_CEILING_USD === 2e10, 'G2 上界常量锁定 $20B（BSC meme 历史真实 ATH 远低于此）');
+    r = extractAthMarketCapUsd({ ath_market_cap: 5e11 }, { marketCapUsd: 1e6 });
+    assert(r && r.usd === 1e6 && r.via === 'sanity_floor', 'G3 直读形态污染同样降级 floor', r);
+    r = extractAthMarketCapUsd({ ath_price: 0.505, circulating_supply: '2563999999' });
+    assert(r && Math.abs(r.usd - 1_294_819_999.495) < 1 && r.via === 'info.ath_price×supply', 'G4 正常 ATH（DOGE 冒烟实测形状）不受上界影响', r);
+  }
+
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('FATAL', e); process.exit(1); });

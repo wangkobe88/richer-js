@@ -45,6 +45,13 @@ const OUT_FILE = path.join(ROOT, 'config', 'knowledge', 'bluechips.json');
 /** 蓝筹口径（用户裁定）：ATH 市值 > $1M */
 export const ATH_MARKET_CAP_USD_MIN = 1_000_000;
 
+/**
+ * ATH 市值合理性上界（182 冒烟实证 2026-10-22：GMGN ath_price 偶发污染——XRP 克隆票
+ * ath_price=2190.06（真 USD 单位，DOGE 0.505 校准）×supply 325.8M=$713B 全球不可能）。
+ * BSC meme 历史真实 ATH 市值远低于 $20B；越界=污染 → 降级 current floor（宁取保守真值）。
+ */
+export const ATH_MCAP_SANITY_CEILING_USD = 2e10;
+
 /** 榜单口径（蓝筹验证管线同款）：三榜各 100 */
 export const RANK_DEFS = [
   { key: 'mc24h', interval: '24h', order_by: 'marketcap' },
@@ -148,17 +155,25 @@ const toNum = (v) => {
  */
 export function extractAthMarketCapUsd(info, fallback = {}) {
   if (!info || typeof info !== 'object') return null;
+  let insane = false;
   for (const k of ['ath_market_cap', 'ath_market_cap_usd', 'athMarketCapUsd']) {
     const v = toNum(info[k]);
-    if (v && v > 0) return { usd: v, via: `info.${k}` };
+    if (v && v > 0) {
+      if (v <= ATH_MCAP_SANITY_CEILING_USD) return { usd: v, via: `info.${k}` };
+      insane = true; break; // 直读形态污染 → 降级 floor
+    }
   }
   const supply = toNum(info.circulating_supply) ?? toNum(info.total_supply);
   for (const k of ['ath_price', 'price_ath', 'all_time_high', 'ath']) {
     const p = toNum(info[k]);
-    if (p && p > 0 && supply && supply > 0) return { usd: p * supply, via: `info.${k}×supply` };
+    if (p && p > 0 && supply && supply > 0) {
+      const usd = p * supply;
+      if (usd <= ATH_MCAP_SANITY_CEILING_USD) return { usd, via: `info.${k}×supply` };
+      insane = true; break; // ×supply 污染（XRP 克隆票现场）→ 降级 floor
+    }
   }
   const cur = toNum(info?.pool?.market_cap) ?? toNum(info.market_cap) ?? toNum(fallback.marketCapUsd);
-  if (cur && cur > 0) return { usd: cur, via: 'current_floor' };
+  if (cur && cur > 0) return { usd: cur, via: insane ? 'sanity_floor' : 'current_floor' };
   return null;
 }
 
