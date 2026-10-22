@@ -2874,14 +2874,20 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 回放定档（v22-v24 111 票，2026-10-20）：X=35 拦 26 票（误伤 5 正票 +0.0011），
         // 被拦净 -0.0217 = 总亏损 -0.0373 的 58%，且 v22/23 与 v24 两个子集断崖一致。
         let sybilClusterHolderCircPct = 0;
-        if (_sybilClusterWallets && _sybilClusterWallets.size > 0) {
+        const _sybilRosterActive = !!_sybilClusterWallets && _sybilClusterWallets.size > 0;
+        let _sybilClusterBuyBnb = 0;   // 簇钱包全史买入 BNB 合计（buyVolumeBnbExSybil 扣除原料）
+        let _sybilClusterHolderN = 0;  // 簇钱包正净持仓钱包数（holdersExSybil 扣除原料）
+        if (_sybilRosterActive) {
             let _clusterNet = 0;
             for (const [addr, v] of state._walletNetTokens) {
-                if (v > 0 && _sybilClusterWallets.has(addr.toLowerCase())) _clusterNet += v;
+                if (v > 0 && _sybilClusterWallets.has(addr.toLowerCase())) { _clusterNet += v; _sybilClusterHolderN++; }
             }
             sybilClusterHolderCircPct = state._circTokens > 0
                 ? Math.round(_clusterNet / state._circTokens * 1000) / 10
                 : 0;
+            for (const [addr, v] of state._buyerVolume) {
+                if (_sybilClusterWallets.has(addr.toLowerCase())) _sybilClusterBuyBnb += v;
+            }
         }
 
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
@@ -2918,6 +2924,12 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             // ── WSS 事件流口径的「AVE 替代」因子 ──
             holders: state.holderCount,
+            // 人气门去簇口径（2026-10-22 用户裁定：buyVolumeBnb >= 1.25 OR holders >= 10
+            // 扣除协同簇钱包）：簇钱包正净持仓者不计入人气持有者数（现状口径，与
+            // sybilClusterHolderCircPct 同门同 map）；名单未启用（文件缺失/空集合）→
+            // 不扣=原值（fail-open：无 sybil 证据不减人气，与 0 语义同方向）；defer
+            // 路径 wallet 段回推滞后 1-3s 与 famous/sybil 族同窗（fire 就绪度缝隙族内一致）
+            holdersExSybil: _sybilRosterActive ? state.holderCount - _sybilClusterHolderN : state.holderCount,
             // GMGN 用户净持仓占比实时值（小写无前缀=FA 实时层；TPAPre_ 前缀=TPA 触发时快照层）
             gmgnUserPct: _gmgnUserPct,
             txVolumeU24h: bnbUsd > 0 ? (state.totalBuyBnb + state.totalSellBnb) * bnbUsd : 0,
@@ -2941,6 +2953,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             sellCount: state.sellCount,
             uniqueTraderCount: state.uniqueTraders.size,
             buyVolumeBnb: state.totalBuyBnb,
+            // 去簇人气量：totalBuyBnb − 簇钱包全史买入合计（_buyerVolume 钱包段 K 组
+            // 原料，sender 真值口径）。买入是历史量只增不减——簇钱包拉过盘再砸盘的量
+            // 照扣（对倒垫出的人气假象正是本键要剔除的）；null wallet 买入行无法归集
+            // → 留在分子（照计量不冒充归属）；名单未启用 → 不扣=原值
+            buyVolumeBnbExSybil: _sybilRosterActive ? state.totalBuyBnb - _sybilClusterBuyBnb : state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
 
             // ── 交易活跃度滑窗 act* 8 键（2026-10-15；取代已删的 cycle 分桶路由。

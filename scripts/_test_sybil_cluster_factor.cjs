@@ -205,8 +205,8 @@ console.log('D. loadSybilClusters（仓库产物 config/rosters/sybil-clusters.j
       assert.ok(body.includes('_clusterNet += v'), '合计加总缺失（若改成 max 则退化为主名单口径）'));
     check('F2 读点体内禁 Date.now（防前视红线）', () =>
       assert.ok(!body.includes('Date.now')));
-    check('F3 负/零净持仓不计（v > 0 门）+ 命中侧 toLowerCase（名单小写归一）', () => {
-      assert.ok(body.includes('if (v > 0 && _sybilClusterWallets.has(addr.toLowerCase()))'));
+    check('F3 负/零净持仓不计（v > 0 门）+ 命中侧 toLowerCase（名单小写归一；同行累加簇席数 holdersExSybil 原料）', () => {
+      assert.ok(body.includes('if (v > 0 && _sybilClusterWallets.has(addr.toLowerCase())) { _clusterNet += v; _sybilClusterHolderN++; }'));
     });
     check('F4 loader 在场（schema 校验 + 缺失→空 Set fail-open + 幂等）', () => {
       const lStart = src.indexOf('static async loadSybilClusters() {');
@@ -235,6 +235,80 @@ console.log('D. loadSybilClusters（仓库产物 config/rosters/sybil-clusters.j
       assert.ok(product.params && product.params.minSize >= 3);
       for (const w of product.wallets) assert.strictEqual(w, w.toLowerCase(), '产物必须小写落盘');
     });
+  }
+
+  // ═══════════════ H. 人气门去簇口径（buyVolumeBnbExSybil / holdersExSybil） ═══════════════
+  console.log('H. 人气门去簇口径（2026-10-22 用户裁定：人气门扣协同簇钱包）');
+  {
+    // 乌龟案现场形状：四簇钱包等额买入垫人气——原口径过门、去簇口径拒
+    const fa = newFA();
+    // 8 散户各买 0.125 BNB（量 1.0 / 8 席；二进制精确值防浮点噪声）
+    for (let i = 0; i < 8; i++) {
+      fa.processTick(mkTick({ timestamp: T0 + 1000 + i,
+        trader_address: `0x000000000000000000000000000000000000${String(2000 + i).padStart(4, '0')}`,
+        block_number: 600 + i, log_index: 1, bnb_amount: 0.125, token_amount: 5 * M }), {});
+    }
+    // 四簇钱包各买 0.25 BNB（量 1.0 / 4 席，经 GMGN 路由 sender 归真）
+    TURTLE.forEach((w, i) => {
+      fa.processTick(mkTick({ timestamp: T0 + 20000 + i, trader_address: '0x1de460f363af910f51726def188f9004276bf4bc',
+        sender_address: w, block_number: 700 + i, log_index: 1, bnb_amount: 0.25, token_amount: 10 * M }), {});
+    });
+    FourMemeFactorAggregator.setSybilClustersForTest(new Set(TURTLE));
+    const f = fa.buildFactorMap('0xtoken', T0 + 30000);
+    check('H1 公式精确：raw 2.0 BNB/12 席不动；去簇 1.0 BNB / 8 席（簇 4×0.25 量与 4 席全扣）', () => {
+      assert.strictEqual(f.buyVolumeBnb, 2);
+      assert.strictEqual(f.holders, 12);
+      assert.strictEqual(f.buyVolumeBnbExSybil, 1);
+      assert.strictEqual(f.holdersExSybil, 8);
+    });
+    check('H2 门翻转（事故现场反证）：原口径人气门过、去簇口径拒（对倒垫人气失效）', () => {
+      const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+      const ev = new ConditionEvaluator();
+      assert.strictEqual(ev.evaluate('(buyVolumeBnb >= 1.25 OR holders >= 10)', f), true);
+      assert.strictEqual(ev.evaluate('(buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10)', f), false);
+    });
+    check('H3 名单未启用/空集合 → 不扣=原值（fail-open 与 0 语义同方向：无 sybil 证据不减人气）', () => {
+      FourMemeFactorAggregator.setSybilClustersForTest(null);
+      const fNull = fa.buildFactorMap('0xtoken', T0 + 30000);
+      assert.strictEqual(fNull.buyVolumeBnbExSybil, 2);
+      assert.strictEqual(fNull.holdersExSybil, 12);
+      FourMemeFactorAggregator.setSybilClustersForTest(new Set());
+      const fEmpty = fa.buildFactorMap('0xtoken', T0 + 30000);
+      assert.strictEqual(fEmpty.buyVolumeBnbExSybil, 2);
+      assert.strictEqual(fEmpty.holdersExSybil, 12);
+      FourMemeFactorAggregator.setSybilClustersForTest(new Set(TURTLE));
+    });
+    check('H4 拉盘历史量照扣、清仓者不占人气席：簇钱包买 0.5 后全卖 → 量扣 0.5、席不扣', () => {
+      const fa2 = newFA();
+      fa2.processTick(mkTick({ timestamp: T0 + 1000, trader_address: TURTLE[0],
+        block_number: 500, log_index: 1, bnb_amount: 0.5, token_amount: 20 * M }), {});
+      fa2.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'eoaOut',
+        block_number: 501, log_index: 1, bnb_amount: 0.5, token_amount: 10 * M }), {});
+      fa2.processTick(mkTick({ timestamp: T0 + 3000, trader_address: TURTLE[0], trade_type: 'sell',
+        block_number: 502, log_index: 1, bnb_amount: 0.5, token_amount: 20 * M }), {});
+      const f2 = fa2.buildFactorMap('0xtoken', T0 + 5000);
+      assert.strictEqual(f2.buyVolumeBnb, 1);          // 0.5 + 0.5
+      assert.strictEqual(f2.buyVolumeBnbExSybil, 0.5); // 簇 0.5 照扣（历史拉盘量，只增不减）
+      assert.strictEqual(f2.holders, 1);               // TURTLE[0] 清仓出局
+      assert.strictEqual(f2.holdersExSybil, 1);        // 无簇席可扣（v>0 门）
+    });
+    check('H5 null wallet 买入行计量不扣（无法归集→留在分子，照计量不冒充归属）', () => {
+      const fa3 = newFA();
+      fa3.processTick(mkTick({ timestamp: T0 + 1000, trader_address: null, sender_address: null,
+        block_number: 500, log_index: 1, bnb_amount: 0.3, token_amount: 5 * M }), {});
+      const f3 = fa3.buildFactorMap('0xtoken', T0 + 2000);
+      assert.strictEqual(f3.buyVolumeBnb, 0.3);
+      assert.strictEqual(f3.buyVolumeBnbExSybil, 0.3);
+    });
+    check('H6 探针+白名单（三防线零登记出键自动性）', () => {
+      const fa4 = newFA();
+      assert.ok(fa4.getFactorKeys().has('buyVolumeBnbExSybil'));
+      assert.ok(fa4.getFactorKeys().has('holdersExSybil'));
+      const fb = read('src/trading-engine/core/FactorBuilder.js');
+      assert.ok(fb.includes('factorResults.buyVolumeBnbExSybil ?? null'));
+      assert.ok(fb.includes('factorResults.holdersExSybil ?? null'));
+    });
+    FourMemeFactorAggregator.setSybilClustersForTest(null);
   }
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

@@ -507,6 +507,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'narrativeRating', 'narrativeRounds', 'narrativeRetryDue',
         // 2026-10-22 C166 账号信息复检（宣告账号删号/删推卖臂因子，引擎 AccountHealthMonitor 回填）
         'issuerAccountState',
+        // 2026-10-22 人气门去簇口径两键（簇钱包买入/持有者不计人气，
+        // 详见 _test_sybil_cluster_factor.cjs H 段）
+        'buyVolumeBnbExSybil', 'holdersExSybil',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));
