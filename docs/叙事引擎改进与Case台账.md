@@ -77,6 +77,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **改动**：`knowledge-matcher.mjs` matchKnowledge 规则 2 twitter_exact **退役**（源头不评估，原位注释留档防复活）；RULE_ORDER 六级→五级；`matchInput.twitterHandle` 保留参数形状但不再归一化不消费（analyzer 调用侧零改动=最小侵入）。单测 B2-B4 改退役反证：twitter 同号落 name_exact / 同 Dev 无关票零命中 / 条目裸 handle 同号零命中。
 - **影响面**：①高频部署者（GoldenCatDev 等）前作不再作注入背景；②C106 TREE 原 high 85.15 含 tcryptochicks 姐妹 twitter_exact 注入（C165 时唯一实质漂移源、用户曾裁 expect high 收口）——退役后重析验证，结果呈报裁定；③蓝筹库条目 twitter 字段保留（数据不删，规则退役；与 C168 同惯例）。
 - **部署与验证**：worker 重启（代码变更，数据热载不覆盖代码）→ 定向重析 C106/C138a → 全量回归 50 票。
+- **C106 裁定收口（同日第三轮裁定）**：退役后 C106 重析回 low（卡载体门），与上午「expect high（85.15）」裁定冲突呈报——**用户裁定：维持 high 作 fail-first，「不要因为不符合预期就改结果」**（原则性表述：expect=意图断言，引擎实际≠预期时不改 expect 改引擎；--update-expect 只在意图本身变化时用，不因摇摆/漂移自动改）。当前 FAIL 即 fail-first 生效，等引擎从正当路径（名字/语料证据，非同 Dev 背景）放行。C138a Heyi.ai 本票同语义（expect high fail-first）。退役后全量回归 50 票 39P/6F/5O：C101/C114 摇摆回 PASS；C133 股城本轮翻 FAIL（阈值抖动既有域）；C94/C109c/C162 摇摆域。
 
 ### C168 蓝筹去重门——新票 name/twitter 双 exact 撞已验证蓝筹 → 门链首臂拦 low（2026-10-22 用户裁定两轮）★
 
