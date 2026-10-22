@@ -2,5 +2,23 @@
   "kind": "manual",
   "version": 1,
   "note": "人工补录条目（进 git）。覆盖权最高：同 id 覆盖 builder 生成件——id 约定与生成件一致（蓝筹 b:<小写地址>，准蓝筹 q:<小写地址>，如 b:0x1234…abcd 覆盖 bluechips.json 同地址条目），用于蓝筹掉榜兜底（如知名 meme 掉出 GMGN 榜单后仍需在库）。字段与 bluechips/quasi 同构；地址必须查实后录入，勿用示意地址。",
-  "entries": []
+  "entries": [
+    {
+      "id": "b:0xf3525965a4ad3ca0ac13f4d2f237113691194444",
+      "kind": "bluechip",
+      "name": "熊猫头",
+      "symbol": "熊猫头",
+      "aliases": ["Panda Head", "panda-head"],
+      "address": "0xf3525965a4ad3ca0ac13f4d2f237113691194444",
+      "twitter": null,
+      "narrative": "熊猫头 is the legendary meme that dominated Chinese internet culture for over 15 years, now immortalized on BSC. Born from a 2010 Egyptian cheese commercial and remixed by Chinese netizens into thousands of viral expressions, Panda Head became the ultimate weapon in online \"meme battles\" — the Pepe of the East.…",
+      "narrativeSource": "coingecko",
+      "athMarketCapUsd": 4052760,
+      "athSource": "manual:coingecko ath.usd×supply(1e9, 2026-09-06)",
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-22T11:30:00.000Z"
+    }
+  ]
 }
