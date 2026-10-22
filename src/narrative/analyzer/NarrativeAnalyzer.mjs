@@ -28,7 +28,7 @@ import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
 import { collectSearchEvidence, hasSearchCorpus, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 import { getKnowledgeBase } from './knowledge/knowledge-loader.mjs';
 import { getKnowledgeConfig } from './knowledge/knowledge-config.mjs';
-import { matchKnowledge } from './knowledge/knowledge-matcher.mjs';
+import { matchKnowledge, excludeSelfFeedback } from './knowledge/knowledge-matcher.mjs';
 import { maybeCaptureKnowledgeFeedback } from './knowledge/knowledge-feedback.mjs';
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
@@ -374,6 +374,16 @@ export class NarrativeAnalyzer {
           twitterHandle,
           corpusText,
         }, knowledgeBase.index, knowledgeConfig.match);
+        // feedback 自反馈排除（C164 回归现场反证：C106 票 high 回写后下轮
+        // address_exact 命中自己「本系统评 high」=自锚定锁死，reanalyze 永远翻不正）
+        const keptMatches = excludeSelfFeedback(knowledgeMatches.matches, tokenData.address);
+        if (keptMatches.length !== knowledgeMatches.matches.length) {
+          logger.info('NarrativeAnalyzer', '知识库 feedback 自反馈条目已剔除（防自锚定）', {
+            token: tokenData.symbol,
+            excluded: knowledgeMatches.matches.length - keptMatches.length,
+          });
+          knowledgeMatches = { ...knowledgeMatches, matches: keptMatches };
+        }
         if (knowledgeMatches.matches.length > 0) {
           logger.info('NarrativeAnalyzer', '知识库命中', {
             token: tokenData.symbol,

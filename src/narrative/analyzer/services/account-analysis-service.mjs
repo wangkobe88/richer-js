@@ -18,7 +18,7 @@ import { getConfig } from '../../engine/config.mjs';
 import { fetchWebsiteContent } from '../../utils/web-fetcher.mjs';
 import { getKnowledgeConfig } from '../knowledge/knowledge-config.mjs';
 import { getKnowledgeBase } from '../knowledge/knowledge-loader.mjs';
-import { matchKnowledge } from '../knowledge/knowledge-matcher.mjs';
+import { matchKnowledge, excludeSelfFeedback } from '../knowledge/knowledge-matcher.mjs';
 
 /**
  * 收集所有相关账号的完整信息
@@ -389,10 +389,12 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
         twitterHandle: fullAccountOrCommunityData.screen_name || null,
         corpusText: accountCorpusText,
       }, knowledgeBase.index, knowledgeConfig.match);
-      if (secondPass.matches.length > 0) {
+      // feedback 自反馈排除同款（防 analyzer 侧已剔条目经 prestage 肥语料路径回流）
+      const secondKept = excludeSelfFeedback(secondPass.matches, tokenAddress);
+      if (secondKept.length > 0) {
         const byEntryId = new Map((options.knowledgeMatches?.matches || [])
           .map((m) => [m.entryId, m]));
-        for (const m of secondPass.matches) {
+        for (const m of secondKept) {
           if (!byEntryId.has(m.entryId)) byEntryId.set(m.entryId, m);
         }
         const merged = [...byEntryId.values()]

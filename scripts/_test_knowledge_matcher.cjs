@@ -33,7 +33,7 @@ const KK_MA = A('cd2');  // 哭哭马
 
 (async () => {
   const M = await import('../src/narrative/analyzer/knowledge/knowledge-matcher.mjs');
-  const { normalizeForKnowledgeMatch, buildKnowledgeIndex, matchKnowledge, isValidKnowledgeEntry, autoCorpusTriggerForEntry } = M;
+  const { normalizeForKnowledgeMatch, buildKnowledgeIndex, matchKnowledge, isValidKnowledgeEntry, autoCorpusTriggerForEntry, excludeSelfFeedback } = M;
 
   console.log('A. 案例锚（彪弟/哭哭奶龙）');
   {
@@ -147,6 +147,22 @@ const KK_MA = A('cd2');  // 哭哭马
     assert(autoCorpusTriggerForEntry(['哭哭马']) === true, 'I1 正常 CJK 名 true');
     assert(autoCorpusTriggerForEntry(['PEPE 2.0', 'PEPE2']) === false, 'I2 denylist 命中 → false（alias 也压）');
     assert(autoCorpusTriggerForEntry(['DND']) === false, 'I3 3 latin < minLatin(4) 短名 → false（语料级触发不可靠）', autoCorpusTriggerForEntry(['DND']));
+  }
+
+  console.log('J. feedback 自反馈排除（C164 回归现场反证：C106 票 high 回写后 address_exact 命中自己=自锚定锁死）');
+  {
+    const selfAddr = A('d50e');
+    const fbSelf = { id: 'q:' + selfAddr, kind: 'quasi', name: 'BNB Tree', address: selfAddr, source: 'feedback' };
+    const index = buildKnowledgeIndex([fbSelf]);
+    const r = matchKnowledge({ symbol: 'TREE', name: 'BNB Tree', address: selfAddr, twitterHandle: null, corpusText: '' }, index, {});
+    assert(r.matches[0]?.rule === 'address_exact', 'J1 前置：feedback 条目对本票地址 address_exact 命中（排除逻辑挂 analyzer 侧）', r.matches[0]);
+    const kept = excludeSelfFeedback(r.matches, selfAddr);
+    assert(kept.length === 0, 'J2 feedback 自地址命中被剔除（「本系统评 high」不得当自己重析的证据）', kept);
+    assert(excludeSelfFeedback(r.matches, A('ee1')).length === 1, 'J3 同条目对姐妹票地址保留（跨票 feedback 背景是设计内信号）');
+    const bcSelf = { id: 'b:' + selfAddr, kind: 'bluechip', name: 'BNB Tree', address: selfAddr, source: 'gmgn' };
+    const rBc = matchKnowledge({ symbol: 'TREE', name: 'BNB Tree', address: selfAddr, twitterHandle: null, corpusText: '' }, buildKnowledgeIndex([bcSelf]), {});
+    assert(excludeSelfFeedback(rBc.matches, selfAddr).length === 1, 'J4 蓝筹自命中保留（客观 ATH 事实非主观评级）');
+    assert(excludeSelfFeedback(null, selfAddr).length === 0 && excludeSelfFeedback(r.matches, null).length === 1, 'J5 空输入直通（null matches=空、无地址=不过滤）');
   }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

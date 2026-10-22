@@ -128,6 +128,18 @@ export function buildKnowledgeIndex(entries) {
 }
 
 /**
+ * feedback 自反馈排除（C164 回归现场反证）：analysis 回写的 feedback 条目命中
+ * 本票自身地址时剔除——「本系统评 high」注入自己的重析=自锚定锁死（reanalyze 的
+ * 目的就是重新判断，上轮主观评级不得当本轮证据）。蓝筹（b:）自命中=客观 ATH 事实、
+ * graduations 自命中=客观毕业事实，均保留注入。
+ */
+export function excludeSelfFeedback(matches, tokenAddress) {
+  const addr = tokenAddress ? String(tokenAddress).toLowerCase() : '';
+  if (!addr || !Array.isArray(matches)) return matches || [];
+  return matches.filter((m) => !(m.entry && m.entry.source === 'feedback' && m.entry.address === addr));
+}
+
+/**
  * 匹配（分级规则，输出可审计）
  * @param {{symbol:string, name:string, address:string, twitterHandle:string|null,
  *          corpusText:string}} matchInput
