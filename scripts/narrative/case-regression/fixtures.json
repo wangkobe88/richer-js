@@ -641,9 +641,8 @@
       "addr": "0x329c64d1b14c663b30fa995fef475fdaf3417777",
       "expect": {
         "rating": "low",
-        "tokenCategory": [
-          "event:A",
-          "event:E"
+        "reasonIncludes": [
+          "蓝筹去重"
         ]
       },
       "note": "BIAOQING 三连发主票：name_exact 撞熊猫头蓝筹（aliases 补录 BIAOQING/The Chinese Bear 后接住）→ 门链首臂拦 low；锁定 C168 门防线",
