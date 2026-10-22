@@ -104,6 +104,19 @@ async function main() {
       && qsSrcA8.includes('至多 marginal**：名字与品牌的谐音匹配再巧也不能凭空造出事件（一句口号不是事件）')
       && qsSrcA8.includes('宣告者无名不减事件分量')
       && qsSrcA8.includes('本锚判的是事件有没有币外来源/分量，不是数字大小'), null);
+
+    // A9（J1.106/C175b，C106 TREE 0xd50e11204f7f3d63598b0118ee4151bf95917777 案）：
+    // C175 上线回归 TREE 翻 low 实锤（作者自述种树故事被读进「无币外分量」臂，
+    // sf+fit 30%/23%/22% 三跑全 J1.83 拦）——「至多 marginal」臂补空口号 vs
+    // 成型叙事边界：成型叙事（持续行为记录/有情节故事）本体成立，作者个人产生
+    // 不减分量，第三人称报道非必要条件
+    check('A9 J1.106/C175b 空口号 vs 成型叙事边界在场（marginal 臂只限无事可讲 + 成型叙事正常评估 + 作者个人产生不减分量）',
+      qsSrcA8.includes('边界（J1.106/C175b，TREE 案）')
+      && qsSrcA8.includes('本臂只限「空口号」形状')
+      && qsSrcA8.includes('无叙事内容、无事可讲')
+      && qsSrcA8.includes('事件是**成型的叙事**（持续的行为记录、有情节的故事、被命名的主体的来历')
+      && qsSrcA8.includes('全部由作者个人产生不减分量，正常评估契合（第三人称报道非必要条件）'),
+      null);
   }
 
   // ═══ B. mapStandardAnswers 路由矩阵 ═══

@@ -275,7 +275,7 @@ async function main() {
     && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.105'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.106'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability 在册；载体题 web3_user_entity_visuality 已随 C171 形象轴退役（题删除）；旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && !/web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
@@ -301,6 +301,19 @@ async function main() {
     && qsSrc.includes('不以知名/被广泛报道为前提（判据=可接纳性非认知度）')
     && qsSrc.includes('name/语料已给出明确可接纳的性质定义（如「首款AI警犬」）的不属本项（→ accepted，J1.105/C175）')
     && qsSrc.includes('空泛自称（无具体角色内容的「官方币/年度最强」式口号）不满足「明确定义性质」'),
+    null);
+
+  // D9（J1.106/C175b，C96 币安上电视 0xc6d089d749409f7646de440d637ac9db0e047777 案）：
+  // C175 上线回归 C96 稳定翻 high 实锤（实体题 accepted 0.40/not_entity 0.33 近 tie
+  // 掷 accepted → J1.139 词句题只评 not_entity 票 → 「Web3 用户不接纳该名字」拦截位
+  // 失效放行）——性质定义锚补陈述句反锚：陈述句/事件描述式名字不构成性质定义，
+  // 句中提及著名实体不因此 accepted，仍归 not_entity 由词句题接管
+  check('D9 J1.106/C175b 陈述句反锚在场（性质定义=定身份非说事 + 提及著名实体不因此 accepted + 仍归 not_entity 词句题接管）',
+    qsSrc.includes('反锚（J1.106/C175b，币安上电视案）')
+    && qsSrc.includes('「性质定义」是**给币名主体定身份**')
+    && qsSrc.includes('名字是**陈述句/事件描述**')
+    && qsSrc.includes('不构成性质定义，即便句中提及著名实体也**不因此 accepted**')
+    && qsSrc.includes('陈述句名字仍归 not_entity（名字不构成对该实体的命名），由词句题接管接纳判定'),
     null);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
