@@ -246,6 +246,10 @@ let _narrativeFactorOverrides = null;
 // 与 accountOnly 臂（10s×3）互斥分流，实验级 fourmemeWs.narrativeRetry.noCorpus* 可覆盖
 const _NARRATIVE_FACTOR_DEFAULTS = { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 60000, noCorpusMaxAnalyses: 8 };
 let _narrativeFactorConfig = { ..._NARRATIVE_FACTOR_DEFAULTS };
+// C166 账号信息复检注入（引擎 AccountHealthMonitor 回填；_narrativeFactorOverrides
+// 同款模块级单例——无回填恒 null → 卖臂条件 `issuerAccountState == 'deleted'` 恒
+// false = fail-closed 不误卖；引擎 stop 逐 token 清）
+let _accountHealthOverrides = null;
 // sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
 // BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
 // token_count 写入方=mine-smart-wallets.cjs --apply（入榜钱包 rawTotalRun）。⚠口径边界：当前
@@ -3226,6 +3230,22 @@ class FourMemeFactorAggregator extends EventEmitter {
                 ? 1 : 0;
         }
 
+        // ── 账号信息复检注入（C166，2026-10-22 一次性专号 rug 家族案）：issuerAccountState
+        //    ='active'|'deleted'|'tweets_gone'|null。引擎 AccountHealthMonitor 持仓期
+        //    复检宣告账号（删号/宣告推被删/推文清零）回填；null=未检测/无宣告账号/
+        //    API 故障（fail-open 不置信号）→ 卖臂条件 == 'deleted' / == 'tweets_gone'
+        //    恒 false 不误卖。回测零接线（BacktestEngine 不含复检链路，因子恒 null）
+        //    ——动态网络数据对历史 fire 是时序穿越，跳过比穿越诚实（gwp 同款裁定）。
+        //    ★本块纯投影无周期判定，不涉及 now（Date.now 红线不适用但保持零调用）──
+        {
+            const _ah = state.tokenAddress && _accountHealthOverrides
+                ? _accountHealthOverrides.get(state.tokenAddress) || null
+                : null;
+            // unknown（API 故障 fail-open）投影 null——与未检测不可区分是刻意的
+            //（故障不该产生任何信号形状）；getAccountHealthFactors 保留原值供审计
+            factors.issuerAccountState = _ah && _ah.state !== 'unknown' ? _ah.state : null;
+        }
+
         return factors;
     }
 
@@ -3301,6 +3321,34 @@ class FourMemeFactorAggregator extends EventEmitter {
     static clearNarrativeFactors(tokenAddress) {
         if (!_narrativeFactorOverrides) return false;
         return _narrativeFactorOverrides.delete(tokenAddress);
+    }
+
+    // ═══════════════ 账号信息复检回填接口（static，C166；母版=setNarrativeFactors）═══════════════
+
+    /**
+     * 回填某 token 的宣告账号健康状态（引擎 AccountHealthMonitor 单写者；
+     * 买入成功点重置、stop 逐 token 清）。整包替换。
+     * @param {string} tokenAddress
+     * @param {{state: 'active'|'deleted'|'tweets_gone'|'unknown'|null, checkedAt?: number}} snapshot
+     *   state='unknown'（API 故障 fail-open）投影为 null——卖臂条件恒 false 不误卖，
+     *   与「未检测」不可区分是刻意的（故障不该产生任何信号形状）
+     */
+    static setAccountHealthFactors(tokenAddress, snapshot) {
+        if (!tokenAddress) return false;
+        if (!_accountHealthOverrides) _accountHealthOverrides = new Map();
+        _accountHealthOverrides.set(tokenAddress, snapshot);
+        return true;
+    }
+
+    /** 取回填的宣告账号健康状态（无则 null）。 */
+    static getAccountHealthFactors(tokenAddress) {
+        return (_accountHealthOverrides && _accountHealthOverrides.get(tokenAddress)) || null;
+    }
+
+    /** 清除某 token 的账号健康回填（引擎 stop / 再买入重置）。 */
+    static clearAccountHealthFactors(tokenAddress) {
+        if (!_accountHealthOverrides) return false;
+        return _accountHealthOverrides.delete(tokenAddress);
     }
 
     /**

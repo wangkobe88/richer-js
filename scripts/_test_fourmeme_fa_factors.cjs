@@ -501,6 +501,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'earlyTradesUniformBuyClusterRatio', 'earlyTradesUniformBuyWallets',
         'earlyTradesUniformBuyClusterN',
         'narrativeRating', 'narrativeRounds', 'narrativeRetryDue',
+        // 2026-10-22 C166 账号信息复检（宣告账号删号/删推卖臂因子，引擎 AccountHealthMonitor 回填）
+        'issuerAccountState',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

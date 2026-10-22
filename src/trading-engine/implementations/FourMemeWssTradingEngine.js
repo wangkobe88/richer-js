@@ -345,6 +345,28 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._walletProfileStates = new Map();
     this._gwpCondLeg = undefined;     // 惰性解析：任一买腿带 gmgnCheckCondition（_narrativePrefetchCondCache 同款）
 
+    // 1.5.2c 账号信息复检（C166，2026-10-22 一次性专号 rug 家族案 SL/FOURGE）：持仓期
+    // 定期裸调 apidance 检测宣告账号「删号/宣告推被删/推文清零」→ FA issuerAccountState
+    // 因子 → 卖臂全清（删号删推=比价格更早的 rug 前兆；本案买入后 3 分钟砸盘 -56%，
+    // 价格止损永远吃残值）。默认关（enabled !== true 才开，gwp 同款新机制物化语义：
+    // 默认零影响）；flap 实验经 _mergedWsConfig 同键。节流双档=持仓前 firstWindowMin
+    // 每 fastIntervalSec（rug 高发窗）之后每 slowIntervalSec 持续到清仓（用户裁定）。
+    // 回测不接线：BacktestEngine 无本段（时序穿越防线，gwp 同款）。
+    const ahcCfg = this._mergedWsConfig().accountHealthCheck || {};
+    this._accountHealthEnabled = ahcCfg.enabled === true;
+    this._accountHealthMonitor = this._accountHealthEnabled
+      ? new (require('../core/AccountHealthMonitor').AccountHealthMonitor)(ahcCfg, this.logger)
+      : null;
+    // per-token 复检态：{handle, announceTweetId, lastCheckAt, firstHeldAt, resolved}
+    // resolved=true 含负缓存（token_narrative 无 twitter_info 的票 handle=null 不再重查）
+    this._accountRecheckStates = new Map();
+    this._accountHealthFirstWindowMs = Number.isFinite(ahcCfg.firstWindowMin) && ahcCfg.firstWindowMin > 0
+      ? ahcCfg.firstWindowMin * 60 * 1000 : 10 * 60 * 1000;
+    this._accountHealthFastMs = Number.isFinite(ahcCfg.fastIntervalSec) && ahcCfg.fastIntervalSec > 0
+      ? ahcCfg.fastIntervalSec * 1000 : 30 * 1000;
+    this._accountHealthSlowMs = Number.isFinite(ahcCfg.slowIntervalSec) && ahcCfg.slowIntervalSec > 0
+      ? ahcCfg.slowIntervalSec * 1000 : 120 * 1000;
+
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
     // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
@@ -1210,6 +1232,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }, _scanMs);
     }
 
+    // 账号信息复检（C166）：周期=fast 档间隔（slow 档靠 per-token 节流跳过）；只查
+    // 有宣告账号的持仓票，fire-and-forget 回填 FA（stopLossScan 同款 interval 组织）
+    if (this._accountHealthEnabled && this._accountHealthMonitor) {
+      this._intervals.accountHealth = setInterval(() => {
+        this._accountHealthScan().catch(err => {
+          this.logger.error(this._experimentId, 'AccountHealth', `账号复检扫描异常: ${err.message}`);
+        });
+      }, Math.min(this._accountHealthFastMs, 30 * 1000));
+    }
+
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
@@ -1354,6 +1386,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // leadMs/节流锚；service 是实例级（ctor 重建），无需单独销毁——进行中的后台
     // 拉取写表是全局资产（写行无害）
     if (this._walletProfileStates) this._walletProfileStates.clear();
+
+    // C166 账号复检清态：per-token FA 注入逐个清（narrative 同款）+ 复检态 Map 清空
+    // + monitor 实例释放（进行中的检测回填写的是实例外 FA Map——先清后写=新实验
+    // 首轮扫描重接线，残留窗 ≤ 一轮；getAccountHealthFactors 不进任何跨进程路径）
+    if (this._accountRecheckStates) {
+      for (const addr of this._accountRecheckStates.keys()) {
+        require('../../services/FourMemeFactorAggregator').clearAccountHealthFactors(addr);
+      }
+      this._accountRecheckStates.clear();
+    }
+    if (this._accountHealthMonitor) this._accountHealthMonitor.destroy();
 
     await super.stop();
 
@@ -2273,6 +2316,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               `买入点毕业竞态补卖失败 | ${token.symbol} ${e.message}`));
         }
 
+        // C166 账号复检重置：再买入=重新开始（清旧态防 sold→rebuy 竞态读到陈旧
+        // deleted/tweets_gone 首 tick 误卖；首检由下轮扫描重新接线）
+        this._resetAccountRecheckFor(tokenAddress);
+
         this.logger.info(this._experimentId, 'BuyEval',
           `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._buyAmountFor(signal)}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
         return { success: true };
@@ -2422,6 +2469,120 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           await this._evaluateSellPath(tokenAddress, factors, null);
         }
       }
+    }
+  }
+
+  /**
+   * 账号信息复检扫描（C166）：遍历持仓票，懒解析宣告账号（token_narrative.twitter_info，
+   * 负缓存防重查）→ per-token 双档节流（持仓 < firstWindowMs 每 fast 档，之后 slow 档）
+   * → fire-and-forget 裸调检测 → 结果回填 FA（issuerAccountState）。顺手自清理：已清仓
+   * token 的复检态与 FA 注入清掉（防 sold 票 20min 再买入读到陈旧 deleted 误卖——
+   * 再买入另有买入成功点重置双保险）。检测结果非 active 时留 warn 供审计。
+   */
+  async _accountHealthScan() {
+    if (!this._accountHealthEnabled || !this._accountHealthMonitor) return;
+    const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+    const held = new Set();
+    const now = Date.now();
+
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      held.add(tokenAddress.toLowerCase());
+
+      let st = this._accountRecheckStates.get(tokenAddress);
+      if (!st) {
+        st = await this._resolveIssuerAccount(tokenAddress);
+        if (!st) continue; // 解析失败（DB 错误）——不缓存，60s 后重试（见 _resolveIssuerAccount）
+      }
+      if (!st.resolved || st.handle == null) continue; // 负缓存：无宣告账号票不参与
+
+      // 双档节流（用户裁定 2026-10-22）：持仓前 firstWindowMs 高频，之后低频。
+      // 持仓起点=扫描首见时刻（重启后重置——重启后重新确认一轮状态，方向安全）
+      const heldMs = now - (st.firstHeldAt ?? now);
+      const interval = heldMs < this._accountHealthFirstWindowMs ? this._accountHealthFastMs : this._accountHealthSlowMs;
+      if (st.lastCheckAt && now - st.lastCheckAt < interval) continue;
+      st.lastCheckAt = now;
+
+      // fire-and-forget（_narrativeTriggerLaunch 同款）：检测慢/失败不阻塞扫描轮
+      this._accountHealthMonitor.checkAccount({ handle: st.handle, announceTweetId: st.announceTweetId })
+        .then(res => {
+          // 竞态防线：stop 清态/清仓自清理后不回填（完成晚于清理的检测丢弃，
+          // 下轮扫描/新实验重新接线——narrative identity 校验的简化同款）
+          if (!this._accountRecheckStates.has(tokenAddress)) return;
+          FourMemeFactorAggregator.setAccountHealthFactors(tokenAddress, { state: res.state, checkedAt: res.checkedAt });
+          if (res.state === 'deleted' || res.state === 'tweets_gone') {
+            this.logger.warn(this._experimentId, 'AccountHealth',
+              `🚨 宣告账号 rug 前兆: ${st.handle} → ${res.state}（${res.detail}）| ${tokenAddress}`);
+          }
+        })
+        .catch(err => this.logger.error(this._experimentId, 'AccountHealth',
+          `复检回填异常 | ${tokenAddress} ${err.message}`));
+    }
+
+    // 自清理：清仓 token 的复检态 + FA 注入（Map 不大，全量比对）
+    for (const addr of [...this._accountRecheckStates.keys()]) {
+      if (!held.has(addr.toLowerCase())) {
+        this._accountRecheckStates.delete(addr);
+        FourMemeFactorAggregator.clearAccountHealthFactors(addr);
+      }
+    }
+  }
+
+  /**
+   * 懒解析持仓票的宣告账号（token_narrative 最新一行 twitter_info；NarrativeRepository
+   * findByAddress 同语义但那是 ESM——dbManager 直查零依赖）：
+   * - type=tweet → author_screen_name + tweet_id（宣告推）
+   * - type=account → screen_name（无宣告推，只查账号级判据）
+   * - 无行/无 twitter_info → 负缓存 {resolved:true, handle:null}（防每轮重查）
+   * - DB 错误 → 不缓存返回 null（下轮重试；60s 节流防刷）
+   */
+  async _resolveIssuerAccount(tokenAddress) {
+    const prev = this._resolveIssuerLastAttempt || (this._resolveIssuerLastAttempt = new Map());
+    const now = Date.now();
+    if (now - (prev.get(tokenAddress) || 0) < 60 * 1000) return null; // 错误重试节流
+    prev.set(tokenAddress, now);
+
+    try {
+      const { dbManager } = require('../../services/dbManager');
+      const rows = await dbManager.getClient().from('token_narrative')
+        .select('twitter_info')
+        .eq('token_address', tokenAddress)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const ti = rows?.data?.[0]?.twitter_info || null;
+
+      const st = { handle: null, announceTweetId: null, lastCheckAt: 0, firstHeldAt: now, resolved: true };
+      if (ti && typeof ti === 'object') {
+        if (ti.type === 'tweet' && (ti.author_screen_name || ti.screen_name)) {
+          st.handle = ti.author_screen_name || ti.screen_name;
+          st.announceTweetId = ti.tweet_id ? String(ti.tweet_id) : null;
+        } else if (ti.type === 'account' && ti.screen_name) {
+          st.handle = ti.screen_name;
+        }
+      }
+      this._accountRecheckStates.set(tokenAddress, st);
+      if (st.handle) {
+        this.logger.info(this._experimentId, 'AccountHealth',
+          `宣告账号复检接线 | @${st.handle}${st.announceTweetId ? ` 宣告推=${st.announceTweetId}` : ''} | ${tokenAddress}`);
+      }
+      return st;
+    } catch (err) {
+      this.logger.error(this._experimentId, 'AccountHealth',
+        `宣告账号解析失败（下轮重试）| ${tokenAddress} ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * 再买入重置（买入成功点调用）：清旧复检态与 FA 注入——sold 票 20min 可再买，
+   * 残留 'deleted' 会让再买入票首 tick 即满足卖臂（自清理之外的竞态双保险）。
+   */
+  _resetAccountRecheckFor(tokenAddress) {
+    if (!tokenAddress) return;
+    if (this._accountRecheckStates) this._accountRecheckStates.delete(tokenAddress);
+    if (this._accountHealthEnabled) {
+      require('../../services/FourMemeFactorAggregator').clearAccountHealthFactors(tokenAddress);
     }
   }
 

@@ -70,6 +70,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C166 账号信息复检卖臂——持仓期宣告账号删号/删推检测 → issuerAccountState 因子全清（2026-10-22 用户裁定四项）★
+
+- **案情**：C164 官网核验案的交易侧延伸——SL `0x58417f3f…affff` / FOURGE `0xf9de0ca2…ffff` 一次性专号 rug 家族买入后 3 分钟内同块协同砸盘 -56%，价格止损（-35 静态甜点）永远吃残值；账号删除/宣告推删除是**比价格更早的 rug 前兆**。用户四裁定：①删推判据=宣告推被删 OR 推文清零（不含推文数骤降）；②复检窗口=持仓前 10 分钟每 30s 高频+之后每 2min 低频持续到清仓；③适用票=所有有宣告账号的持仓票（不限叙事类型）；④卖臂走双门确认（bypass=false，与现行全部卖腿一致）。
+- **设计四层**：①检测服务 `AccountHealthMonitor`（GmgnRiskCheckService 同款组织）：裸调 apidance `getUserByScreenName`+有宣告推时 `getTweetDetail`，四态 active/deleted/tweets_gone/unknown；**防误报三防线**=删号只认「用户不存在（apidance 空响应骨架）」特异 message（new-apis C53 分支；HTTP/网络故障走「用户信息获取失败」分支结构性不误判）、删推严格 `tweet_id` 全等比对（getTweetDetail 对不匹配 ID 有 tweets[0] 宽松兜底坑 :311-320）、失败归 unknown 保留上次确定值不回拨（fail-open 不置信号）；per-handle 30s 结果缓存+inflight join+连续失败退避。②引擎接线（FourMemeWssTradingEngine，Flap 子类继承）：start() 30s interval 扫描 `_getAllHoldings()`，宣告账号**懒解析**（dbManager 直查 token_narrative.twitter_info 最新行，tweet 型取 author_screen_name+tweet_id、account 型取 screen_name、无则负缓存防每轮重查），双档节流按持仓时长（firstHeldAt 首见时刻），fire-and-forget 回填；回填竞态防线（清态后晚到结果丢弃）；清仓自清理；再买入重置（买入成功点 `_resetAccountRecheckFor`——sold 票 20min 可再买，残留 deleted 会误卖）；stop 逐 token 清 FA+destroy。③FA 因子 `issuerAccountState`（narrativeCategory 同款字符串因子）：模块级 Map 三件套+`_buildFactorMap` 字面量投影，unknown 投影 null（故障不产生信号形状），探针自动收键（三防线零校验改动）；FactorBuilder 快照白名单透传。④卖腿（库条目 `rug-exit-account-arm`，**side='sell' 首例**）：`issuerAccountState == 'deleted' OR issuerAccountState == 'tweets_gone'`，cards:'all'/priority:2（与 -35 止损臂同级）/bypassDebounce:false（双门确认 3.5s+5tick）/maxExecutions 不设（卖出失败每轮重试）；null（未检测/无宣告账号/unknown）恒 false fail-closed 不误卖。config `fourmemeWs.accountHealthCheck` 默认关（gwp 物化语义），实验级显式开。
+- **刻意边界**：回测零接线（动态网络数据对历史 fire=时序穿越，gwp/TTL 穿透同款裁定；因子恒 null 卖臂恒 false 零影响，源码正则单测锁死）；不走 TwitterFetcher/CachedFetcher（缓存层失败写 1h 冷却行会吞删号/删推信号——**裸调红线**）；lazy 解析 DB 查询带 60s 错误重试节流；apidance 配额未知，失败退避+per-handle 去重兜底（频繁 429 再议降频）。
+- **验证**：三单测 60 断言全绿（`_test_account_health_monitor`：四态 9 例+缓存/inflight/退避+超时竞速+源码口径锁；`_test_fa_issuer_account_state`：三件套/投影/真 ConditionEvaluator 真值表含「null 对 != 恒 false」事故反证/探针收键/回测不接线反证；`_test_account_recheck_engine`：懒解析/双档节流/回填竞态/清仓自清理/再买入重置+源码口径）+存量 11 项（fa_narrative_factors/narrative_trigger_condition/stop_loss_rules 等）全绿；`_test_fourmeme_fa_factors` 键集白名单 44→45（issuerAccountState 刻意新增）。部署脚本 `deploy-c166-account-arm.cjs`（validateLegs 纯函数预检+防重复+库幂等）。
+- **部署对象待裁定**：v28 原地加腿（16→17 卖腿+开 accountHealthCheck）or 并入人气门案 v29（create-v29.cjs 防呆断言卖腿数=16 需两案协调顺序）。
+
 ### C165 叙事分析知识库——蓝筹/准蓝筹/BSC 概念三类背景匹配注入（2026-10-22 用户裁定三项）★
 
 - **案情**：理解代币叙事常缺背景知识（理解「彪弟」需知「彪哥」；「哭哭奶龙」需知「哭哭马」），系统无背景致一簇误拦（C129 彪弟案为典型）。用户三项裁定：①蓝筹口径=**ATH 市值>$1M**；②**反馈回写要**（分析完自动沉淀客观字段，不让 LLM 自由编写）；③**标准 Jev+prestage 双路径都注入**。编号归属：并行官网核验案先入台账得 C164（L85 裁定），本案改用 C165。

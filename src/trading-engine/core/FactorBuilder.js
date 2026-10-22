@@ -177,6 +177,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     narrativeRating: factorResults.narrativeRating ?? null,
     narrativeRounds: factorResults.narrativeRounds ?? null,
     narrativeRetryDue: factorResults.narrativeRetryDue ?? null,
+    // 账号信息复检（2026-10-22 C166 rug 卖臂消费）：fire/卖出时刻宣告账号状态快照
+    //（_accountHealthOverrides 投影，卖腿与买腿同 FA 因子表）；未检测/unknown/回测
+    // → null 不掩盖（unknown 投影 null 是刻意语义，见 FA 注入段）
+    issuerAccountState: factorResults.issuerAccountState ?? null,
   };
 }
 

@@ -179,6 +179,15 @@
       "mirrorBuyRelTol": 0.01,
       "mirrorTokRelTol": 0.1,
       "mirrorMinBuy": 5
+    },
+    "accountHealthCheck": {
+      "enabled": false,
+      "firstWindowMin": 10,
+      "fastIntervalSec": 30,
+      "slowIntervalSec": 120,
+      "timeoutMs": 15000,
+      "cacheTtlSec": 30,
+      "failCooldownSec": 60
     }
   },
   "flapWs": {
