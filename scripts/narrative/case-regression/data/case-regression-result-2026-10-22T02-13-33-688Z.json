@@ -1,0 +1,43 @@
+{
+  "ranAt": "2026-10-22T02:13:36.070Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C162",
+      "symbol": "BINA",
+      "addr": "0x3384960b045905cea62da32ac5679177ee647777",
+      "status": "PASS",
+      "expect": {
+        "rating": "high",
+        "reasonExcludes": [
+          "关联性不足",
+          "wrong_entity"
+        ]
+      },
+      "observe": null,
+      "caseNote": "双 BINA 复刻票三道拦截全链收口：①wrong_entity 0.55（Jev 把 \"paired to BNC\"=BNCB 计价池配置误读成名字证据，J1.98 修复 0.37）②关联题 unacceptable 5 分（语料通篇无币名 Bina，关联全靠部署者宣告+币名承载；J1.99 宣告采信豁免 → acceptable 15 分过 10 分截断，用户裁定「相信叙事的陈述」「在已有的门中加入豁免」）③终态 84.41 high（事件分 53.4=89×0.6 A 档）。38s 毕业 11× 市场最佳档",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 84.41,
+        "tokenCategory": "event:A"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 83.72,
+        "stage": 3,
+        "tokenCategory": "event:A"
+      },
+      "failures": []
+    }
+  ]
+}
