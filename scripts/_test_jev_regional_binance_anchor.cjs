@@ -162,8 +162,8 @@ async function main() {
   check('C1 五腿全中（recognizedEntitySlogan hit）仍拦——D/E 臂无五腿豁免=唯一拦截位',
     blockedByAnchor(rB1) && rB1.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan.hit === true,
     rB1.stage2DataToSave.parsed_output.jev.recognizedEntitySlogan);
-  check('C2 拦截时 no_visual 0.98 载体门已被五腿豁出（subjectCarrierBlock=null）——锚非载体门',
-    rB1.stage2DataToSave.parsed_output.jev.subjectCarrierBlock === null, null);
+  check('C2 拦截时 no_visual 0.98 载体门已被五腿豁出（C102 时即 subjectCarrierBlock=null——锚非载体门）；C171 载体门整轴退役后该键不再产出',
+    !('subjectCarrierBlock' in rB1.stage2DataToSave.parsed_output.jev), null);
   check('C3 label 形状：量级不足（A档→D档·币安地域子账号不借壳）——原判档可追溯',
     (rB1.llmResult.reason || '').includes('A档→D档'), rB1.llmResult.reason);
   check('C4 jevImpactTier 保留 Jev 原判 A（不受锚影响）',

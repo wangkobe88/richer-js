@@ -1,32 +1,29 @@
 #!/usr/bin/env node
 /**
- * C118 载体豁免演绎臂单测（image_depicts_name 条件题 + mapper 扩臂）——零 DB 零网络
- * （2026-10-19 DND 案二轮，用户裁定「载体豁免认演绎关系，立 case 修」）
+ * C118 演绎臂测试（image_depicts_name 条件题 + mapper imgNameExempt 扩臂）——零 DB 零网络
+ * （2026-10-19 DND 案二轮立题；J1.102/C171 挂点迁移改写）
  *
- * 案发（0x4dbcb10e68626b6f663bd596905d41cdc6b07777「DND」二轮）：C114 修掉
- * event_empty_content 误拦后，DND 落载体门拦死——name_entity_carrier no_visual 0.40-0.51
- * 掷骰 + C109 豁免不触发（name_image_consistency unrelated 0.85：DND 是概念，
- * 猫是实体，字面不同实体）。但「猫拉窗帘视频=do not disturb 的画面演绎」
- * 本身就是载体存在的事实证据——载体豁免应认演绎关系。
- *
- * 改动形状：
- *   题集（J1.49）：新条件题 image_depicts_name 三档（depicts_name/decorative/
- *     unclear），仅 imageConsistency 时问；与 10.7 正交（10.7=实体同一/同类，
- *     本题=含义演绎）。
- *   mapper：imgCarrierOverride = imageEvidence ∧ (nicMatchP≥0.5 ∨ depictP≥0.5)；
- *     审计键带 via:'match'|'depicts' 臂来源。J1.30 imgNameExempt 刻意不消费
- *     本题（演绎≠名实一致，两豁免面不互扩）。
+ * 案史：C118（2026-10-19）立 image_depicts_name 题（DND 案：猫拉窗帘视频=do not
+ * disturb 的画面演绎——载体存在的事实证据），原挂载体门图证豁免演绎臂。
+ * J1.102/C171（2026-10-22 用户裁定「image_depicts_name 需要保留吗？这我觉得是事/
+ * 币关联的一个维度」）：形象载体轴整轴退役后，演绎臂**从载体豁免迁入 J1.30
+ * imgNameExempt 关联豁免第二臂**——配图在演绎名字含义=币名↔叙事的关联证据，
+ * 与主体有无形象正交。判据：imageEvidence ∧ (nicMatchP≥0.5 ∨ depictP≥0.5) ∧
+ * 0<relevance≤10 → 豁免 Stage3 关联≤10 截断；magExempt 聚合自然继承（量级门
+ * D/E 臂+事件分<60 臂）。
  *
  * 覆盖：
- *   A. 事故现场反证（DND 形状：unrelated 0.85+depicts 0.8 → 载体门翻过 →
- *      D 档量级门拦=理由干净；审计键 via:'depicts' 落 stage2）
- *   B. 阈值边界（depicts 0.5 恰过 / 0.49 载体门照拦）
- *   C. 未问/答案缺失（depictP=0 → 只剩 nicMatch 臂=存量零影响 fail-safe）
- *   D. J1.30 零污染（演绎臂触发时 imgNameExempt 仍 null；match 臂不受本题影响）
- *   E. 门链接管（演绎臂触发 + not_meme_name → 名字门照拦）
- *   F. decorative 不豁（配图纯装饰 → 载体门照拦）
- *   G. C109 原臂回归（交易猫形状 nicMatch≥0.5 → via:'match' 照旧）
- *   H. 源码口径（mapper 臂/J1.49 版本/题面锚三反证）
+ *   A. DND 形状（unrelated 0.85+depicts 0.8+rel 窗内）→ J1.30 演绎臂豁免 Stage3
+ *      截断放行；审计 imgNameExempt.via='depicts' 臂来源可归因
+ *   B. 阈值边界（depicts 0.5 恰过 / 0.49 截断照拦）
+ *   C. 未问/答案缺失（depictP=0 → 只剩 nicMatch 臂=存量零影响 fail-safe）；
+ *      无图证 → 不豁免
+ *   D. match 臂回归（交易猫形状 nicMatch≥0.5 → via='match' 照旧）
+ *   E. relevance 窗边界（rel=0 纯零关联不救；rel>10 窗外不救——豁免只救弱关联
+ *      截断票，同 C59/J1.30 原臂窗）
+ *   F. 豁免≠免检（演绎臂触发 + not_meme_name → 名字门照拦）
+ *   G. magExempt 聚合（演绎臂触发 + D 档 → 量级门放行，reason 落豁免标注）
+ *   H. 源码口径（扩臂形状/版本/题面锚三反证）
  *
  * 用法：node scripts/_test_image_depicts_exempt.cjs
  */
@@ -42,9 +39,10 @@ function check(name, cond, detail) {
 }
 
 /**
- * DND 案现场形状（J1.43+ 题集）：D 类 0.7 / magnitude 1.2（D 档）/ carrier
- * no_visual 0.5 掷骰 / name_form meme_name / 名图一致 unrelated 0.85（概念 vs
- * 猫=不同实体）/ 演绎 depicts 0.8（猫拉窗帘=别打扰的画面演绎）/ semantic 13
+ * DND 案现场形状（J1.43+ 题集）：D 类 0.7 / magnitude 1.2（D 档）/ 名图一致
+ * unrelated 0.85（概念 vs 猫=不同实体——match 臂天然吃不到）/ 演绎 depicts 0.8
+ * （猫拉窗帘=别打扰的画面演绎）/ semantic 弱关联 9 分（0<rel≤10 截断窗内）。
+ * J1.102 后 visuality/nature 键仅作旧缓存行形状在场（mapper 不读）。
  */
 function dndAnswers(overrides = {}) {
   return {
@@ -55,18 +53,17 @@ function dndAnswers(overrides = {}) {
     event_quality_veto: { choice: 'none', probabilities: { none: 0.5, event_empty_content: 0.2 } },
     web3_user_name_entity_acceptance: { choice: 'no_entity', probabilities: { no_entity: 0.6, unknown: 0.2 } },
     name_entity_memeability: { score: 2.5, probabilities: {} },
-    web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.05, marginal: 0.7, unfit: 0.15 } },
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0.55, fit: 0.15, marginal: 0.25, unfit: 0.05 } },
     name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.5, existing_entity: 0.4 } },
     event_subject_entity: { choice: 'other_entity', probabilities: { other_entity: 0.7 } },
-    name_event_relevance: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.5, none: 0.2 } },
+    // semantic_weak=9 落 Stage3 截断窗（0<rel≤10）——演绎臂真触发才豁免该截断
+    // （无 relevance_level 键=J1.43 新形状走融合单值表：semantic_weak=9）
+    name_event_relevance: { choice: 'semantic_weak', probabilities: { semantic_weak: 0.6, semantic_clear: 0.3 } },
     token_name_quality: { score: 10, probabilities: {} },
     name_form: { choice: 'meme_name', probabilities: { meme_name: 0.7, not_meme_name: 0.2 } },
     event_finding_vs_recap: { choice: 'finding', probabilities: { finding: 0.7 } },
     name_image_consistency: { choice: 'unrelated', probabilities: { unrelated: 0.85, same_entity: 0.05, same_visual_category: 0.05 } },
     image_depicts_name: { choice: 'depicts_name', probabilities: { depicts_name: 0.8, decorative: 0.15 } },
-    // J1.100/C167：DND 猫拉窗帘=形象级载体，基座补第四臂 carrier_visual（演绎臂
-    // 语义=「臂够阈 ∧ 性质放行」两条件；纯臂验证形状由 _test_image_carrier_nature 锁）
-    image_carrier_nature: { choice: 'carrier_visual', probabilities: { carrier_visual: 0.8, referent_itself: 0.15 } },
     ...overrides,
   };
 }
@@ -80,145 +77,125 @@ const dndCtx = (imageEvidence) => ({
   callInfo: { model: 'stub', questions: { q1: {} }, stateStats: { chars: 0 }, state: '', usage: {}, startedAt: 't0', finishedAt: 't1' },
 });
 
-const s2jev = (r) => r.stage2DataToSave.parsed_output.jev;
+const s3jev = (r) => r.stage3DataToSave?.parsed_output?.jev || {};
 
 async function main() {
   const mapperPath = join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs');
   const qPath = join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs');
   const { mapStandardAnswers } = await import(mapperPath);
 
-  // ═══ A. 事故现场反证（DND 形状，演绎臂触发）═══
-  console.log('\n── A. 事故现场反证 ──');
+  // ═══ A. DND 形状：演绎臂豁免 Stage3 截断 ═══
+  console.log('\n── A. DND 形状（depicts 0.8 / nicMatch 0.1 / rel 9 截断窗内）──');
   const rA = mapStandardAnswers(dndAnswers(), dndCtx(true));
-  check('A1 演绎臂触发：不再被「无形象载体」拦（reason 不含载体 label）',
-    rA.llmResult.rating === 'low' && !(rA.llmResult.reason || '').includes('形象载体'),
+  check('A1 演绎臂触发：Stage3 关联截断豁免放行（reason 落名图一致豁免标注）',
+    rA.llmResult.rating !== 'low' && (rA.llmResult.reason || '').includes('名图一致豁免(J1.30)'),
     rA.llmResult.reason);
-  check('A2 fallthrough 到契合证据门=拦截理由干净（J1.83/C141 同轴遮蔽：D 档量级域 fitMass[0.1,0.3) ⊂ 门域 [0,0.5)，量级轴拦截位语义等价迁移——载体轴让位+契合证据不足照拦）',
-    (rA.llmResult.reason || '').includes('Web3用户契合证据不足') && (rA.llmResult.reason || '').includes('15%'),
-    rA.llmResult.reason);
-  check('A3 审计键落 stage2 且 via=depicts（演绎臂来源可归因）',
-    s2jev(rA).subjectCarrierImgOverride != null
-      && s2jev(rA).subjectCarrierImgOverride.via === 'depicts'
-      && s2jev(rA).subjectCarrierImgOverride.depictP === 0.8
-      && s2jev(rA).subjectCarrierImgOverride.carrier === 'no_visual_entity',
-    s2jev(rA).subjectCarrierImgOverride);
+  check('A2 审计 imgNameExempt 命中且 via=depicts（臂来源可归因）',
+    s3jev(rA).imgNameExempt?.via === 'depicts' && s3jev(rA).imgNameExempt?.depictP === 0.8,
+    s3jev(rA).imgNameExempt);
 
   // ═══ B. 阈值边界 ═══
-  // J1.83/C141：DND 实测 fitMass 15% 形状先被契合证据门拦（A2 同轴遮蔽），
-  // 本段起 fit 提过线（0.65），演绎豁免链验证目标（阈值/审计键/接管门）不变
   console.log('\n── B. 阈值边界 ──');
-  const fitOk = { choice: 'fit', probabilities: { strong_fit: 0.55, fit: 0.1, marginal: 0.3, unfit: 0.05 } };
   const rB1 = mapStandardAnswers(dndAnswers({
-    web3_user_event_fit: fitOk,
     image_depicts_name: { choice: 'depicts_name', probabilities: { depicts_name: 0.5, decorative: 0.4 } },
   }), dndCtx(true));
-  check('B1 depicts 0.5 恰过阈（≥0. 与 C109/nicMatch 同阈惯例）',
-    !(rB1.llmResult.reason || '').includes('形象载体'), rB1.llmResult.reason);
+  check('B1 depicts 0.5 恰过阈（≥0.5 与 nicMatch 同阈惯例）',
+    rB1.llmResult.rating !== 'low' && (rB1.llmResult.reason || '').includes('名图一致豁免(J1.30)'),
+    rB1.llmResult.reason);
   const rB2 = mapStandardAnswers(dndAnswers({
-    web3_user_event_fit: fitOk,
     image_depicts_name: { choice: 'depicts_name', probabilities: { depicts_name: 0.49, decorative: 0.45 } },
   }), dndCtx(true));
-  check('B2 depicts 0.49 不过阈 → 载体门照拦（掷骰低置信演绎证据不覆盖）',
-    rB2.llmResult.rating === 'low' && (rB2.llmResult.reason || '').includes('形象载体'),
+  check('B2 depicts 0.49 不过阈 → Stage3 截断照拦（低置信演绎证据不构成关联证据）',
+    rB2.llmResult.rating === 'low' && (rB2.llmResult.reason || '').includes('截断'),
     rB2.llmResult.reason);
 
   // ═══ C. 未问/答案缺失（存量零影响）═══
   console.log('\n── C. 未问/答案缺失 ──');
   const { image_depicts_name: _drop, ...noDepict0 } = dndAnswers();
-  const noDepict = { ...noDepict0, web3_user_event_fit: fitOk }; // 过线（同 B 段）
+  const noDepict = { ...noDepict0 };
   const rC1 = mapStandardAnswers(noDepict, dndCtx(true));
-  check('C1 答案缺失（旧缓存行/未问）：depictP=0 只剩 nicMatch 臂 → 载体门照拦',
-    rC1.llmResult.rating === 'low' && (rC1.llmResult.reason || '').includes('形象载体'),
+  check('C1 答案缺失（旧缓存行/未问）：depictP=0 只剩 nicMatch 臂 → 截断照拦（fail-safe）',
+    rC1.llmResult.rating === 'low' && (rC1.llmResult.reason || '').includes('截断'),
     rC1.llmResult.reason);
-  check('C2 缺失臂审计键=null（未触发不落键）',
-    s2jev(rC1).subjectCarrierImgOverride === null, s2jev(rC1).subjectCarrierImgOverride);
-  const rC2 = mapStandardAnswers(noDepict, dndCtx(false));
-  check('C3 无图证 + 缺答案：原 C109 行为 bit 一致（载体门拦）',
-    rC2.llmResult.rating === 'low' && (rC2.llmResult.reason || '').includes('形象载体'),
+  check('C2 缺失臂审计 imgNameExempt=null（未触发不落键）', s3jev(rC1).imgNameExempt == null, s3jev(rC1).imgNameExempt);
+  const rC2 = mapStandardAnswers(dndAnswers(), dndCtx(false));
+  check('C3 无图证（imageEvidence=false）→ 两臂都不豁免、截断照拦（图证是开关）',
+    rC2.llmResult.rating === 'low' && (rC2.llmResult.reason || '').includes('截断'),
     rC2.llmResult.reason);
 
-  // ═══ D. J1.30 零污染（两豁免面不互扩）═══
-  console.log('\n── D. J1.30 零污染 ──');
-  // 行为级对照（A 档票绕开载体/量级门，直击 Stage3 关联截断豁免位）：relevance 5
-  // （0<rel≤10 截断窗内）——J1.30 若错消费 depictP 会豁免 Stage3 截断放行
-  const passTier = {
-    event_category: { choice: 'A', probabilities: { A: 0.7, G: 0.2 } },
-    event_magnitude: { score: 3.9, probabilities: { '4': 0.6, '3': 0.3 } }, // 旧 A 档形状
-    // J1.79 事件分/tier 由 fit 派生：fit 0.78 复现旧 magnitude 3.9 的 78 分/A 档
-    // （strong_fit 0 避免 C88 实体口号票五腿污染 D1 截断位）
-    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.78 } },
-    // semantic_weak=9 落 Stage3 截断窗（0<rel≤10）——J1.30 真触发才豁免该截断
-    name_event_relevance: { choice: 'semantic_weak', probabilities: { semantic_weak: 0.6, semantic_clear: 0.3 } },
-  };
-  const rD1 = mapStandardAnswers(dndAnswers({ ...passTier }), dndCtx(true));
-  check('D1 演绎臂触发（depicts 0.8）但 matchP 0.1 → Stage3 关联截断照拦（J1.30 不消费演绎题）',
-    rD1.llmResult.rating === 'low' && (rD1.llmResult.reason || '').includes('截断')
-      && !(rD1.llmResult.reason || '').includes('名图一致豁免'),
-    rD1.llmResult.reason);
-  const rD2 = mapStandardAnswers(dndAnswers({
-    ...passTier,
-    name_image_consistency: { choice: 'same_entity', probabilities: { same_entity: 0.7, unrelated: 0.2 } },
-    image_depicts_name: { choice: 'decorative', probabilities: { decorative: 0.85, depicts_name: 0.1 } },
-  }), dndCtx(true));
-  check('D2 反向：match 臂 0.7 触发（depicts 仅 0.1 不拖累）→ J1.30 豁免照常生效放行',
-    rD2.llmResult.rating !== 'low' && (rD2.llmResult.reason || '').includes('名图一致豁免(J1.30)'),
-    rD2.llmResult.reason);
-
-  // ═══ E. 门链接管（豁载体 ≠ 免检）═══
-  console.log('\n── E. 门链接管 ──');
-  const rE = mapStandardAnswers(dndAnswers({
-    web3_user_event_fit: fitOk, // 过线（同 B 段）：豁免链验证不混入契合门
-    name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.66, meme_name: 0.2 } },
-  }), dndCtx(true));
-  check('E1 演绎臂触发但 not_meme_name（CRO+演绎图形状）→ 名字门照拦',
-    rE.llmResult.rating === 'low' && (rE.llmResult.reason || '').includes('名字'),
-    rE.llmResult.reason);
-  check('E2 名字门拦截票两审计键各自可追溯（演绎豁免+名字门）',
-    s2jev(rE).subjectCarrierImgOverride?.via === 'depicts' && s2jev(rE).web3UserAcceptabilityBlock != null,
-    { sc: s2jev(rE).subjectCarrierImgOverride, nf: s2jev(rE).web3UserAcceptabilityBlock });
-
-  // ═══ F. decorative 不豁 ═══
-  console.log('\n── F. decorative 不豁 ──');
-  const rF = mapStandardAnswers(dndAnswers({
-    web3_user_event_fit: fitOk, // 过线（同 B 段）：豁免链验证不混入契合门
-    image_depicts_name: { choice: 'decorative', probabilities: { decorative: 0.8, depicts_name: 0.15 } },
-  }), dndCtx(true));
-  check('F1 装饰配图（depicts 0.15）→ 载体门照拦（纯装饰非演绎=不构成载体证据）',
-    rF.llmResult.rating === 'low' && (rF.llmResult.reason || '').includes('形象载体'),
-    rF.llmResult.reason);
-
-  // ═══ G. C109 原臂回归（交易猫形状）═══
-  console.log('\n── G. C109 原臂回归 ──');
-  const rG = mapStandardAnswers(dndAnswers({
+  // ═══ D. match 臂回归（交易猫形状）═══
+  console.log('\n── D. match 臂回归 ──');
+  const rD = mapStandardAnswers(dndAnswers({
     name_image_consistency: { choice: 'same_entity', probabilities: { same_entity: 0.73, unrelated: 0.15 } },
     image_depicts_name: { choice: 'unclear', probabilities: { unclear: 0.6, depicts_name: 0.2 } },
   }), dndCtx(true));
-  check('G1 nicMatch 0.78≥0.5 原臂照旧（via=match；unclear 演绎不拖累）',
-    s2jev(rG).subjectCarrierImgOverride?.via === 'match'
-      && !(rG.llmResult.reason || '').includes('形象载体'),
-    { sc: s2jev(rG).subjectCarrierImgOverride, reason: rG.llmResult.reason });
+  check('D1 nicMatch 0.78≥0.5 原臂照旧（via=match；unclear 演绎不拖累）',
+    s3jev(rD).imgNameExempt?.via === 'match' && rD.llmResult.rating !== 'low',
+    { i: s3jev(rD).imgNameExempt, reason: rD.llmResult.reason });
+
+  // ═══ E. relevance 窗边界 ═══
+  console.log('\n── E. relevance 窗边界（豁免只救弱关联截断票）──');
+  const rE1 = mapStandardAnswers(dndAnswers({
+    name_event_relevance: { choice: 'none', probabilities: { none: 0.8 } },
+  }), dndCtx(true));
+  check('E1 rel=0（纯零关联）→ 不救（图再演绎也救不了与事件毫无关系的名字，C59 同）',
+    rE1.llmResult.rating === 'low', rE1.llmResult.reason);
+  const rE2 = mapStandardAnswers(dndAnswers({
+    name_event_relevance: { choice: 'semantic_clear', probabilities: { semantic_clear: 0.7 } },
+  }), dndCtx(true));
+  check('E2 rel>10（semantic_clear 65）→ 窗外不触发豁免（照常计分不拦）',
+    rE2.llmResult.rating !== 'low' && s3jev(rE2).imgNameExempt == null,
+    { reason: rE2.llmResult.reason, i: s3jev(rE2).imgNameExempt });
+
+  // ═══ F. 豁免≠免检 ═══
+  console.log('\n── F. 豁免≠免检 ──');
+  const rF = mapStandardAnswers(dndAnswers({
+    name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.66, meme_name: 0.2 } },
+  }), dndCtx(true));
+  check('F1 演绎臂触发但 not_meme_name（CRO+演绎图形状）→ 名字门照拦（豁免只翻关联截断）',
+    rF.llmResult.rating === 'low' && (rF.llmResult.reason || '').includes('名字'),
+    rF.llmResult.reason);
+
+  // ═══ G. magExempt 聚合继承 ═══
+  console.log('\n── G. magExempt 聚合（演绎臂 → 事件分<60 臂放行）──');
+  // J1.79 后 tier 由 fit 派生：likedMass≥0.5（过契合证据门）则档位≥B，D/E 臂只对
+  // 豁免票可达；magExempt 的可达面=事件分<60 臂（likedMass 0.55 → 事件分 55<60，
+  // 无豁免时被「事件分不足」拦，演绎臂触发 imgNameExempt → magExempt 放行）
+  const rG0 = mapStandardAnswers(dndAnswers({
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0.1, fit: 0.45, marginal: 0.35, unfit: 0.1 } },
+    image_depicts_name: { choice: 'decorative', probabilities: { decorative: 0.8, depicts_name: 0.15 } },
+  }), dndCtx(true));
+  check('G0 对照：同 fit（likedMass 0.55 事件分 55<60）演绎臂不触发 → 事件分不足拦',
+    rG0.llmResult.rating === 'low' && (rG0.llmResult.reason || '').includes('事件分不足'),
+    rG0.llmResult.reason);
+  const rA2 = mapStandardAnswers(dndAnswers({
+    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0.1, fit: 0.45, marginal: 0.35, unfit: 0.1 } },
+  }), dndCtx(true));
+  // （magExemptRescuedPass 的「量级门豁免」标注在 Stage2 eventScoreReason——仅拦截
+  //  形状外显；mid 票 reason 用 Stage3 模板带豁免前缀，G0/G1 对照即完整证明）
+  check('G1 演绎臂触发（depicts 0.8）→ magExempt 聚合放行（G0 同形状不触发则拦）',
+    rA2.llmResult.rating !== 'low' && (rA2.llmResult.reason || '').includes('名图一致豁免(J1.30)'),
+    rA2.llmResult.reason);
 
   // ═══ H. 源码口径（回潮防线）═══
   console.log('\n── H. 源码口径 ──');
   const mapperSrc = readFileSync(mapperPath, 'utf8');
   const qSrc = readFileSync(qPath, 'utf8');
-  check('H1 mapper 扩臂形状（nicMatchP ∨ depictP 双臂 + C167 第四臂 carrierNatureOk）',
-    mapperSrc.includes('imgArmsQualified && carrierNatureOk')
-      && mapperSrc.includes('const imgArmsQualified = nicMatchP >= 0.5 || depictP >= 0.5;'), null);
+  check('H1 mapper 扩臂形状（imgNameExempt 判据行 nicMatchP ∨ depictP 双臂）',
+    /\(nicMatchP >= 0\.5 \|\| depictP >= 0\.5\)/.test(mapperSrc), null);
   check('H2 depictP 缺失回落 0（答案缺失=只剩 nicMatch 臂）',
     mapperSrc.includes("answers.image_depicts_name?.probabilities?.depicts_name ?? 0"), null);
-  check('H3 审计键 via 臂来源字段',
+  check('H3 审计 imgNameExempt.via 臂来源字段（stage3 段）',
     mapperSrc.includes("via: nicMatchP >= 0.5 ? 'match' : 'depicts'"), null);
-  check('H4 imgNameExempt 赋值行不含 depictP（J1.30 零污染源码口径，行级）',
-    !mapperSrc.split('\n').some(l => /imgNameExempt\s*=/.test(l) && l.includes('depictP')), null);
-  check('H4b stage2 段同形豁免键（拦截票唯一落库位，DND fallthrough 可归因）',
-    mapperSrc.split('\n').filter(l => l.trim().startsWith('subjectCarrierImgOverride:')).length === 2, null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H5 JEV_QUESTIONS_VERSION=J1.99（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头；J1.50=C119 用户视角统一+name_form 键名断代——mapper 兼容 Set 收旧键，本测试旧 choice 形状=存量行重放；J1.100=C167 image_carrier_nature 载体性质第四臂）', JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
-  check('H6 题面 DND/CRO 对照锚在',
+  check('H4 JEV_QUESTIONS_VERSION ≥ J1.102（C171 挂点迁移：演绎臂从载体豁免迁 J1.30 关联豁免）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
+  check('H5 题面 DND/CRO 对照锚在',
     qSrc.includes('猫拉上窗帘正是「别打扰」的画面演绎') && qSrc.includes('名字 CRO 配一张猫图'), null);
-  check('H7 题面正交分工声明（unrelated 与 depicts 可同票共存）',
+  check('H6 题面正交分工声明（unrelated 与 depicts 可同票共存）',
     qSrc.includes('unrelated 与 depicts_name 可以同票共存'), null);
+  check('H7 题面注释声明消费链=J1.30 关联豁免（防复活回载体门）',
+    qSrc.includes('改挂 J1.30 imgNameExempt 关联豁免第二'), null);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_image_depicts_exempt: ${passed} passed, ${failed} failed ══════`);

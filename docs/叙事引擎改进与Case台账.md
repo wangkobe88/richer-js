@@ -70,6 +70,21 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C171 形象载体轴整轴退役——形象考量并入实体接纳度（2026-10-22 用户裁定「有形象接纳度会高，但是也不是说没有形象就不行，一切看情况」）★★
+
+- **案由（三票连环）**：①**股城 `0xaacbc156435dbab7815a61bccba1c827e52a7777`**（C133 已知阈值抖动票）：web3 项目票被 `no_visual_entity` 0.91 拦——用户裁定「web3 项目不适用载体门」；②**TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777`**（C106 漂移遗留）：三桶 0.44/0.39/0.17 掷骰边缘——用户裁定「实体是树，有形象载体」；③**Heyi.ai `0xa1cb5a5915c43829a33c7cb508f65eebed177777`**（C138a）：choice=accepted 但 0.25<0.5 概率线，著名豁免臂吃不到——用户裁定「实体是何一/域名不需要形象载体」。
+- **深度评估（呈报后用户裁定整轴退役）**：门的结构性三病灶——①argmax 无置信门槛（0.44 掷骰即定生死，TREE 案实证）；②著名豁免 `entityVisualBlock` 的 accepted≥0.5 概率线对**间接指代**卡死（Heyi 案：choice 层已判 accepted，概率层 0.25 差一分）；③类型学错位（「web3 项目有无吉祥物形象」不是用户偏好轴——股城案：发行的是完整叙事产品，有无吉祥物与用户是否买账无关）。+4.42 立门时的避亏功能（BNC/Bicat 类无形象纯口号票）九连打洞后已大幅弱化（C59 图豁免/C88 五腿/C109+C118 图证豁免/C139 著名免形象/C160 情感豁免/C161 massive 豁免/C167 第四臂），门的可达面只剩「无形象+无图+非著名+非救助+非爆火」的交集窄缝，而这条窄缝里的误拦（三票全是）已多于真拦。
+- **裁定（用户）**：「是否去掉 web3_user_entity_visuality 这一个轴？实体的可视化有形象，其实也是实体的 web3 用户接纳度的一部分（web3_user_name_entity_acceptance），有形象接纳度会高，但是也不是说没有形象就不行，一切看情况。」——形象考量并入 acceptance 题面锚句（加分项非否决项），门+豁免臂整链退役。
+- **中途裁定（image_depicts_name 保留）**：初始方案连演绎题一起退役，用户质疑「image_depicts_name 这个需要删除吗？这我觉得是事/币关联的一个维度」——**保留并改挂**：演绎臂从载体门图证豁免迁入 **J1.30 imgNameExempt 关联豁免第二臂**（判据 imageEvidence ∧ (nicMatchP≥0.5 ∨ depictP≥0.5) ∧ 0<关联≤10，同阈同窗；magExempt 聚合自然继承；审计 `imgNameExempt.via='match'|'depicts'`）。「配图在演绎名字含义」=币名↔叙事的关联证据，与主体有无形象正交。
+- **改动（J1.102，C170 后紧接着的编号撞车规避——C170/J1.101 被并行会话占用）**：
+  - **题集**：删 `web3_user_entity_visuality`（J1.81/C139 立）、`event_influence`（J1.97/C161 立，唯一消费=载体豁免）、`image_carrier_nature`（J1.100/C167 立，唯一消费=第四臂）三题——死题不白烧 fan-out token，基础题数 12→10；`image_depicts_name` 条件题保留（挂点迁移）；acceptance 题插入锚句「有形象可上调 accepted 概率，但无形象本身不构成否决」；phrase 题三处 visuality 引用清理。
+  - **mapper**：`entityVisualBlock` 门+六豁免臂（famousEntity/authorUtterance/imgCarrierOverride/emptyContentImgCarrierOverride/emotionalImpactCarrierExempt/massiveInfluenceCarrierExempt）+正则事实锚（ANIMAL_RESCUE_STORY_RE/MEMORIAL_STORY_RE）+审计十键（subjectCarrier 族+eventInfluence）+probabilities 段 name_entity_carrier dump 键整链删除；门链序变为 duplicateNarrative→w3Block→peBlock→blockChoice→neBlock→weBlock→uaBlock→量级门 D/E 臂→W 数学→标准数学（scBlock 分支消失）；imgNameExempt 扩 depictP 臂。
+  - **旧缓存行兼容**：visuality/nature/influence 残留键 mapper 不读（题退役=不产出+不消费，双停）。
+- **回归影响面（7 票行为变化，均 182 重析对拍后呈报）**：C79 偷窥狂/C80 蝦蝠侠摇/C109b 暗号資産の覹者/C167 梗王大乱斗（现 expect low 引擎跟随型，载体门退役后 E 类 strong_fit 放行翻面）；C133 股城（no_visual 0.91 拦→放行，web3Fit/量级门/实体门接棒）；C106 TREE（三桶掷骰消失）；C138a Heyi（C169 遗留 expect 冲突随本案收口——expect 本就 high，门退役后应翻 high 转 PASS）。
+- **已观察风险（呈报过）**：C61 避亏功能无等价替代（BNC/Bicat 类纯口号票改由 web3FitMassBlock/量级门/实体门接棒，无法机器证明，回归盯盈亏）；E+improvised 细分丢失；C167「实录图不产生形象信息」昨日臂撤销（与 C171 同日，寿命 <1 天——按整轴退役裁定随动，不单独恢复）。
+- **单测**：直接相关 6 文件改写全绿（subject_carrier 30/0 退役反证+源码口径防复活、image_depicts_exempt 20/0 新挂点、image_carrier_nature 8/0、emotional_impact_carrier 7/0、massive_influence_carrier 7/0、empty_content_img_exempt 28/0）；随动 13 文件（版本硬等号→≥J1.102、题数 12→10、载体门行为断言改新语义——finding_recap B4/D2 改放行、regional_binance C2 改不产出、name_image_consistency E3 同）；**顺手收口 cashtag_w_route B1c/B5**（C154 删 W 正向时效表存量失败，C170 台账标注「待另修」——0.18+25→0.18、47+25→47，pass 线 57→32，行为结论不变）；superip_standard_path D2 版本随动漏网补修。叙事链路+Jev 门+抓取器三组全量零失败。
+- **部署（待执行）**：commit（甄别并行会话脏文件）→ push → 182 pull → 重启叙事 worker+live 引擎 → 定向重析 7 票 → 全量 case-regression → 翻票 expect 逐张呈报用户裁定。
+
 ### C170 negative_hard_news 门整体退役——负面事件交 web3 契合度判（2026-10-22 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」）★
 
 - **案情（RSA4 `0x3486657430a3c3ba1cf66b3a00976e9667877777`）**：IntCyberDigest 安全新闻（印度 CA eMudhra 8 张证书私钥泄露，其中一把本应 116 位的私钥**就是「4」**，496 万浏览）发布约 1 天后，CZ（@cz_binance，1299 万粉）回复玩梗「A large part of the internet was encrypted by '4'. 🤣」——**主推发布 1 分钟内**发币 RSA4（名字=RSA 算法+那把「4」私钥，exact_match 0.58）。J1.100 判 `event_quality_veto=event_negative_hard_news` 0.88（J1.38 安全事故族边界）→ mapper 负面硬新闻门拦 low；但同票 **strong_fit 0.87 / E 类 0.7 / within_7d 0.97 / S 级 / new_angle_on_original / 词句 acceptable 0.71 / 载体门已过著名免形象豁免（CZ 在册）**——其余门全绿，唯一拦截臂即 nhn 一票否决。这是「圈内强相关安全事件 + S 级作者本人玩梗」形状：TLS/证书/私钥是 BSC 用户天然懂的话题，CZ 的调侃是圈内可玩的梗，与 J1.38 想拦的「消费苦难/灾难猎奇」距离远。

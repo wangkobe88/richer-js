@@ -146,7 +146,7 @@ async function main() {
     qs.w_bsc_user_appeal.instructions.includes('不评与币安官方的交互')
     && qs.w_bsc_user_appeal.instructions.includes('刚发布的 BSC 项目本来就不可能有币安交互')
     && qs.w_bsc_user_appeal.instructions.includes('不是项目的吸引力证据，也不因此扣分'));
-  check('C5 基础题数 12（J1.84 删 w_product_score；J1.83 删 event_subject_entity）', Object.keys(qs).length === 12, Object.keys(qs).length);
+  check('C5 基础题数 10（J1.102/C171 删 web3_user_entity_visuality/event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity）', Object.keys(qs).length === 10 && !('web3_user_entity_visuality' in qs) && !('event_influence' in qs), Object.keys(qs).length);
 
   console.log('\n── D. 源码口径反证（防回潮）──');
 
@@ -172,8 +172,8 @@ async function main() {
     /const W_APPEAL_BANDS = \[\[0, 18\], \[19, 37\], \[38, 56\], \[57, 75\]\];/.test(mapperSrc));
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION = J1.91（J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 institution 桶；J1.87=C145 删 routine 桶；J1.84=C142 W 双轴合并）',
-    JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION = J1.91（J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 institution 桶；J1.87=C145 删 routine 桶；J1.84=C142 W 双轴合并）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

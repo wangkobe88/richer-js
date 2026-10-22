@@ -181,7 +181,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.37 两新题恒带；J1.42 name_form 四分支统一门）──');
-  check('A1 版本号 = J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit 档（并行会话同批）；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理：实体轴归位；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + name_event_relevance/event_magnitude/dimension2 判定主轴换用户侧）', JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 = J1.90（J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit 档（并行会话同批）；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理：实体轴归位；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动，C113 哭哭奶龙回归修复）；C96 两新题；C98 扩边界；J1.39=C103 条件题；J1.40=C105 第四选；J1.41=C107 收敛；J1.42=C108 名字门统一；J1.43=C109 题集收敛；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 name_form 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；J1.50=C119 用户视角统一——name_form 三态键改名 web3_user_acceptable/web3_user_not_acceptable/unclear + name_event_relevance/event_magnitude/dimension2 判定主轴换用户侧）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 event_finding_vs_recap 恒带（默认题集）', 'event_finding_vs_recap' in qs, Object.keys(qs).length);
   check('A3 web3_user_phrase_acceptability 恒带（默认题集；J1.81 由 web3_user_name_acceptability 改名收窄）',
@@ -195,8 +195,8 @@ async function main() {
   check('A6 web3_user_phrase_acceptability type=choice 三态（J1.81 改名收窄=只评 not_entity 形状；J1.55 C122 题键 name_form→web3_user_name_acceptability；J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
     && ['web3_user_acceptable', 'web3_user_not_acceptable', 'unclear'].every(k => k in nf.criteria)
     && !['meme_name', 'not_meme_name', 'entity_phrase', 'statement', 'functional_label'].some(k => k in nf.criteria), Object.keys(nf.criteria));
-  check('A7 web3_user_phrase_acceptability 判词句本身不判指向对象（J1.81 措辞：实体轴/形象轴另有题评）',
-    nf.instructions.includes('判词句本身：不判词句指向对象的认知度/影响力') && nf.instructions.includes('web3_user_entity_visuality 题'), null);
+  check('A7 web3_user_phrase_acceptability 判词句本身不判指向对象（J1.81 措辞；C171 形象轴退役后题面不再引用 web3_user_entity_visuality 题）',
+    nf.instructions.includes('判词句本身：不判词句指向对象的认知度/影响力') && !nf.instructions.includes('web3_user_entity_visuality'), null);
   check('A7b name_form 单一判据锚：「能否接纳」是唯一问法与唯一判据（J1.50 问法收敛，C107/C108 裁定语义延续）',
     nf.instructions.includes('能否接纳是唯一问法与唯一判据'), null);
   check('A8 name_form 口号/宣言/代号是可传播符号 → 能接纳',
@@ -232,8 +232,8 @@ async function main() {
   check('A18 拼写变体锚 J1.81 迁移（无背景拼写错误→实体题 wrong_entity①；有文化来源变体不算——dogwifhat）',
     qs.web3_user_name_entity_acceptance.criteria.wrong_entity.includes('无背景拼写错误')
     && qs.web3_user_name_entity_acceptance.criteria.wrong_entity.includes('dogwifhat'), null);
-  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16；J1.79 删 web3_user_event_impact→13；J1.83 删 event_subject_entity→12；J1.84 删 w_product_score→11）',
-    !('block_misspelling' in qs) && Object.keys(qs).length === 12
+  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16；J1.79 删 web3_user_event_impact→13；J1.83 删 event_subject_entity→12；J1.84 删 w_product_score→11；J1.102 删 visuality/event_influence→10）',
+    !('block_misspelling' in qs) && Object.keys(qs).length === 10
     && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══
@@ -268,17 +268,17 @@ async function main() {
     && rB3.stage1DataToSave.parsed_output.jev.categoryForced === null
     && rB3.stage1DataToSave.parsed_output.jev.findingVsRecap === 'news_recap',
     rB3.stage1DataToSave.parsed_output.jev.findingVsRecap);
-  // B4 改道后 E 类既有门接管（no_visual → 载体门拦）：改道不是放行是换考官。
-  // fixture 用 mem 2.5（过 mem 地板）+super_ip 0.3（破五腿 sipProb 臂——五腿
-  // 命中会豁载体门）隔离出载体门单一变量
+  // B4 C171 前改道后由载体门接管拦（改道=换考官）；形象载体轴退役后无此拦截位
+  // ——E 类标准链（fit/量级/名字门）全部放行本形状。fixture 用 mem 2.5+super_ip
+  // 0.3（破五腿 sipProb 臂）保留原隔离变量
   const rB4 = mapStandardAnswers(baseAnswers('F', {
     event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 0.8 } },
     name_entity_carrier: { choice: 'no_visual_entity', probabilities: { no_visual_entity: 0.9 } },
     name_entity_memeability: { score: 2.5, probabilities: {} },
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.5, accepted: 0.3 } },
   }), stdCtx('TST', 'TST'));
-  check('B4 F+news_recap+no_visual（mem≥2 破五腿）→ E 载体门接管拦（改道的意义）',
-    blockedBy(rB4, CARRIER_LABEL), rB4.llmResult.reason);
+  check('B4 F+news_recap+no_visual（mem≥2 破五腿）→ 改道 E 放行（C171 载体门退役——避亏责任移交 fit/量级门，回归观察）',
+    rB4.llmResult.rating !== 'low' && !blockedBy(rB4, CARRIER_LABEL), rB4.llmResult.reason);
 
   // ═══ C. 名字门全域真值表（J1.41 收敛后单一门）═══
   console.log('\n── C. 名字门全域真值表（name_form=not_meme_name 不限类别）──');
@@ -359,14 +359,15 @@ async function main() {
   check('D1b 改道同时生效（categoryForced=f_recap_e）',
     rD1.stage1DataToSave.parsed_output.jev.categoryForced === 'f_recap_e'
     && rD1.stage1DataToSave.category === 'E', rD1.stage1DataToSave.category);
-  // D2 name_form=entity → 名字门不拦（兼容放行），改道 E 后载体门接住。fixture 同
-  // B4 变体：mem 2.5（案值 1.72<2 会先被 C88 mem 地板拦——链上先手，改道语义被
-  // 遮蔽）+ super_ip 0.4 破五腿（否则载体门被豁）。no_visual 0.97 案值保留
+  // D2 name_form=entity → 名字门不拦（兼容放行）；C171 前改道 E 后由载体门接住，
+  // 载体门退役后无拦截位 → 放行。fixture 同 B4 变体：mem 2.5（案值 1.72<2 会先
+  // 被 C88 mem 地板拦）+ super_ip 0.4 破五腿。no_visual 0.97 案值保留（旧缓存行
+  // 形状，mapper 不读）
   const d2Answers = incidentAnswers({ nameForm: 'entity_phrase', mem: 2.5 });
   d2Answers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.45, accepted: 0.4 } };
   const rD2b = mapStandardAnswers(d2Answers, ctxBnbTv);
-  check('D2 name_form=entity+破五腿 → 改道 E+载体门拦（no_visual 0.97 案值接上）',
-    blockedBy(rD2b, CARRIER_LABEL) && !blockedBy(rD2b, NF_LABEL), rD2b.llmResult.reason);
+  check('D2 name_form=entity+破五腿 → 改道 E 放行（C171 载体门退役，no_visual 0.97 残留键零影响）',
+    rD2b.llmResult.rating !== 'low' && !blockedBy(rD2b, CARRIER_LABEL) && !blockedBy(rD2b, NF_LABEL), rD2b.llmResult.reason);
   // D2b J1.61 断代：name_entity_memeability 题删除、C88 去 mem 腿后，同形状
   // （entity_phrase 可接纳 + 其余四腿通过）由 C88 口号票救援 → high；名字形态/
   // 玩味责任归名字门（本 fixture entity_phrase=可接纳，故不拦）。原「mem<2 断

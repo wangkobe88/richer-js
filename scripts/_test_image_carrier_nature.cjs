@@ -1,37 +1,27 @@
 #!/usr/bin/env node
 /**
- * C167 图证豁免载体性质第四臂单测（image_carrier_nature 条件题 + mapper 第四臂）——
- * 零 DB 零网络（2026-10-22 梗王大乱斗案，用户裁定「没有一个可视化的形象IP跟它
- * 匹配，配图也是游戏」「这是叙事本身的问题」「那就 A 吧」）
+ * C167 图证豁免载体性质第四臂——**J1.102/C171 退役反证单测**（零 DB 零网络，
+ * 2026-10-22 改写）
  *
- * 案发（0x4ded0c77fcaa9bec730e450d48abb4192a647777「梗王大乱斗」）：名字=抖音
- * 手搓网页游戏标题，载体题如实判 no_visual 0.85；但配图=该游戏界面截图（图内
- * 文字恰含 #梗王大乱斗# hashtag）→ name_image_consistency 按题面字面判
- * same_entity 0.65+same_visual_category 0.22=0.87（match 臂）∧ image_depicts_name
- * 0.98（演绎臂）→ C109/C118 图证豁免救回载体门 → S 档 92 high 放行。洞=豁免把
- * 「名-图所指对应」当「载体存在」：所指物=游戏（非形象事物）时配图=所指物实录，
- * 同一是同义反复不产生形象信息（E 类事件分已在量所指存在）。
+ * 案史：C167（2026-10-22 梗王大乱斗案 0x4ded0c77fcaa9bec730e450d48abb4192a
+ * 647777）立 image_carrier_nature 第四臂（carrier_visual 才豁免；所指物实录=
+ * 同义反复不产生形象信息）。臂的宿主是 J1.29 载体门图证豁免——C171 形象轴
+ * 整轴退役（用户裁定「有形象接纳度会高，但不是没有形象就不行，一切看情况」）
+ * 后该臂无宿主随门删除：题退役（死题不白烧 fan-out token）、mapper 计算
+ * （carrierNatureOk/subjectCarrierReferentVeto）删除、审计键停产出。
  *
- * 改动形状：
- *   题集（J1.100）：新条件题 image_carrier_nature 三档（carrier_visual/
- *     referent_itself/unclear），仅 imageConsistency 时问；题面锚=事物自我实录
- *     不算演绎（真香蕉锚升格）+图内第三方 IP 不成本币载体。
- *   mapper：imgCarrierOverride 与 emptyContentImgCarrierOverride（C159 近 tie 臂）
- *     统一加第四臂 carrierNature==='carrier_visual' 才豁免；referent_itself/
- *     unclear/答案缺失 fail-closed 不豁免；审计键 subjectCarrierReferentVeto
- *     命中才落。J1.30 imgNameExempt 关联豁免不消费本题（豁免面不互扩）。
+ * 案票终态变化：梗王大乱斗原值形状 C167 时被载体门拦（修复后 low），C171 后
+ * 载体门整体不存在 → E 类 strong_fit 0.92 事件分 92 直接放行——game/产品类
+ * 「实录图」票不再因无形象载体被拦（避亏责任移交 web3Fit/量级门，回归观察）。
  *
  * 覆盖：
- *   A. 事故现场反证（梗王大乱斗原值：nicMatch 0.87+depict 0.98 两臂够阈 +
- *      nature=referent_itself → 载体门照拦 low；两审计键互斥可辨）
- *   B. 奠基票回归（nature=carrier_visual → 豁免照旧 via=match；交易猫/DND 形状）
- *   C. 答案缺失 fail-closed（旧缓存行防御形状：两臂够阈但无 nature → 拦）
- *   D. unclear fail-closed（同 C；veto 键 nature='unclear' 可归因）
- *   E. C159 近 tie 臂同受管（emptyP≥0.4+none argmax：nature=referent_itself 拦 /
- *      carrier_visual 豁——DND 掷骰防抖语义保留给形象票）
- *   F. J1.30 零污染（nature=referent_itself 不影响 Stage3 关联豁免 imgNameExempt）
- *   G. 无图票 bit 一致（imageEvidence=false → 载体门照拦，nature 无关）
- *   H. 源码口径（版本/题面/双消费点/审计键四反证）
+ *   A. 案票终态：梗王大乱斗原值形状（nicMatch 0.87+depict 0.98+nature
+ *      referent_itself）→ 放行（rating 非 low、reason 无载体 label）
+ *   B. 题退役：image_carrier_nature 任何形状（含 imageConsistency）不再产出
+ *   C. 源码口径：mapper 无 carrierNature/imgCarrierOverride 计算、无
+ *      subjectCarrierReferentVeto 产出位
+ *   D. 审计键：subjectCarrierReferentVeto 不再产出（历史行保留展示）
+ *   E. 版本：J1.102+（C171）
  *
  * 用法：node scripts/_test_image_carrier_nature.cjs
  */
@@ -46,12 +36,7 @@ function check(name, cond, detail) {
   else { failed++; console.error(`  ❌ ${name}${detail !== undefined ? ` —— ${JSON.stringify(detail)}` : ''}`); }
 }
 
-/**
- * 梗王大乱斗案现场形状（J1.100 题集，stage2 真值回填）：E 类 0.48 / fit
- * strong 0.79+fit 0.13（sf+fit=0.92 过契合证据门，事件分 92 S 档）/ acceptance
- * new_entity 0.51 / 载体 no_visual 0.85 / 名图一致 same_entity 0.65+同类 0.22
- * / 演绎 depicts 0.98 / timing within_7d / veto none 0.81
- */
+/** 梗王大乱斗案现场形状（J1.100 题集 stage2 真值回填；nature/visuality 键作旧缓存行形状在场 mapper 不读） */
 function gwdAnswers(overrides = {}) {
   return {
     event_category: { choice: 'E', probabilities: { E: 0.48, B: 0.44, A: 0.04, W: 0.04 } },
@@ -90,122 +75,48 @@ async function main() {
   const mapperPath = join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs');
   const qPath = join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs');
   const { mapStandardAnswers } = await import(mapperPath);
-  const { JEV_QUESTIONS_VERSION } = await import(qPath);
+  const { JEV_QUESTIONS_VERSION, buildStandardQuestions } = await import(qPath);
 
-  // ═══ A. 事故现场反证（梗王大乱斗原值形状）═══
-  console.log('\n── A. 事故现场反证 ──');
+  // ═══ A. 案票终态（C167 拦截形状 → C171 放行）═══
+  console.log('\n── A. 案票终态 ──');
   const rA = mapStandardAnswers(gwdAnswers(), gwdCtx(true));
-  check('A1 载体门照拦：rating low + reason 含「形象载体」（修复前=豁免救回 S 档 92 high）',
-    rA.llmResult.rating === 'low' && (rA.llmResult.reason || '').includes('形象载体'),
+  check('A1 梗王大乱斗原值形状（C167 时被载体门拦）→ C171 放行：rating 非 low、无载体 label',
+    rA.llmResult.rating !== 'low' && !(rA.llmResult.reason || '').includes('形象载体'),
     rA.llmResult.reason);
-  check('A2 两臂够阈（nicMatch 0.87+depict 0.98）但豁免不触发：subjectCarrierImgOverride=null',
-    s2jev(rA).subjectCarrierImgOverride === null, s2jev(rA).subjectCarrierImgOverride);
-  check('A3 否决审计键可归因（carrier+nature 落 stage2 主段=拦截票唯一落库位）',
-    JSON.stringify(s2jev(rA).subjectCarrierReferentVeto) === JSON.stringify({ carrier: 'no_visual_entity', nature: 'referent_itself' }),
-    s2jev(rA).subjectCarrierReferentVeto);
+  const rA2 = mapStandardAnswers(gwdAnswers(), gwdCtx(false));
+  check('A2 无图证同形状 → 放行（门整体不存在，图证与否都不再触发载体拦截）',
+    rA2.llmResult.rating !== 'low', rA2.llmResult.reason);
 
-  // ═══ B. 奠基票回归（形象票照旧豁免：交易猫/DND/短尾猫形状）═══
-  console.log('\n── B. 奠基票回归 ──');
-  const rB = mapStandardAnswers(gwdAnswers({
-    image_carrier_nature: { choice: 'carrier_visual', probabilities: { carrier_visual: 0.8, referent_itself: 0.15 } },
-  }), gwdCtx(true));
-  check('B1 nature=carrier_visual → 豁免照旧（不因载体门拦）',
-    !(rB.llmResult.reason || '').includes('形象载体'), rB.llmResult.reason);
-  check('B2 审计键 via=match/matchP=0.87 保留臂来源可归因',
-    s2jev(rB).subjectCarrierImgOverride?.via === 'match' && s2jev(rB).subjectCarrierImgOverride?.matchP === 0.87,
-    s2jev(rB).subjectCarrierImgOverride);
-  check('B3 否决键=null（未否决不落键）',
-    s2jev(rB).subjectCarrierReferentVeto === null, s2jev(rB).subjectCarrierReferentVeto);
-  check('B4 全链放行非 low（E 类 S 档 92+exact 关联）',
-    rB.llmResult.rating !== 'low', rB.llmResult.rating);
+  // ═══ B. 题退役 ═══
+  console.log('\n── B. 题退役 ──');
+  check('B1 image_carrier_nature 任何形状不再产出（含 imageConsistency）',
+    !('image_carrier_nature' in buildStandardQuestions())
+    && !('image_carrier_nature' in buildStandardQuestions({ imageConsistency: true })), null);
 
-  // ═══ C. 答案缺失 fail-closed ═══
-  console.log('\n── C. 答案缺失 fail-closed ──');
-  const { image_carrier_nature: _drop, ...noNature0 } = gwdAnswers();
-  const noNature = { ...noNature0 };
-  const rC = mapStandardAnswers(noNature, gwdCtx(true));
-  check('C1 无 nature 答案（异常/防御形状）+ 两臂够阈 → 载体门照拦（fail-closed）',
-    rC.llmResult.rating === 'low' && (rC.llmResult.reason || '').includes('形象载体'),
-    rC.llmResult.reason);
-  check('C2 豁免/否决两键均 null（nature=null 不冒充否决也不放行）',
-    s2jev(rC).subjectCarrierImgOverride === null && s2jev(rC).subjectCarrierReferentVeto === null,
-    { sc: s2jev(rC).subjectCarrierImgOverride, veto: s2jev(rC).subjectCarrierReferentVeto });
-
-  // ═══ D. unclear fail-closed ═══
-  console.log('\n── D. unclear fail-closed ──');
-  const rD = mapStandardAnswers(gwdAnswers({
-    image_carrier_nature: { choice: 'unclear', probabilities: { unclear: 0.55, carrier_visual: 0.25, referent_itself: 0.2 } },
-  }), gwdCtx(true));
-  check('D1 unclear → 载体门照拦（判不清按无形象处理，fail-closed 方向）',
-    rD.llmResult.rating === 'low' && (rD.llmResult.reason || '').includes('形象载体'),
-    rD.llmResult.reason);
-  check('D2 否决键 nature=unclear 可归因',
-    s2jev(rD).subjectCarrierReferentVeto?.nature === 'unclear', s2jev(rD).subjectCarrierReferentVeto);
-
-  // ═══ E. C159 近 tie 臂同受第四臂管 ═══
-  console.log('\n── E. C159 近 tie 臂同受管 ──');
-  const nearTie = {
-    event_quality_veto: { choice: 'none', probabilities: { none: 0.45, event_empty_content: 0.42 } },
-    // 两臂均不够阈（unrelated 0.8 / decorative 0.85）：豁免只能来自 C159 近 tie 臂
-    name_image_consistency: { choice: 'unrelated', probabilities: { unrelated: 0.8, same_entity: 0.1 } },
-    image_depicts_name: { choice: 'decorative', probabilities: { decorative: 0.85, depicts_name: 0.1 } },
-  };
-  const rE1 = mapStandardAnswers(gwdAnswers(nearTie), gwdCtx(true));
-  check('E1 近 tie + nature=referent_itself → 载体门照拦（实录图不因 argmax 抖动防抖豁免）',
-    rE1.llmResult.rating === 'low' && (rE1.llmResult.reason || '').includes('形象载体'),
-    rE1.llmResult.reason);
-  check('E2 近 tie 形状恒落观察键不受影响（subjectCarrierEmptyImgOverride 照记）',
-    s2jev(rE1).subjectCarrierEmptyImgOverride != null, s2jev(rE1).subjectCarrierEmptyImgOverride);
-  const rE2 = mapStandardAnswers(gwdAnswers({
-    ...nearTie,
-    image_carrier_nature: { choice: 'carrier_visual', probabilities: { carrier_visual: 0.75, referent_itself: 0.2 } },
-  }), gwdCtx(true));
-  check('E3 近 tie + nature=carrier_visual → C159 臂照旧豁免（DND 掷骰防抖语义保留给形象票）',
-    !(rE2.llmResult.reason || '').includes('形象载体'), rE2.llmResult.reason);
-
-  // ═══ F. J1.30 零污染（关联豁免不消费本题）═══
-  console.log('\n── F. J1.30 零污染 ──');
-  // 行为级对照（A 档票绕开载体门，直击 Stage3 关联截断豁免位）：relevance 9
-  // （0<rel≤10 截断窗内）+ match 臂 0.7——J1.30 若错消费 nature 会丢掉关联豁免
-  const passTier = {
-    event_category: { choice: 'A', probabilities: { A: 0.7, G: 0.2 } },
-    event_magnitude: { score: 3.9, probabilities: { '4': 0.6, '3': 0.3 } },
-    web3_user_event_fit: { choice: 'fit', probabilities: { strong_fit: 0, fit: 0.78 } },
-    name_event_relevance: { choice: 'semantic_weak', probabilities: { semantic_weak: 0.6, semantic_clear: 0.3 } },
-    name_image_consistency: { choice: 'same_entity', probabilities: { same_entity: 0.7, unrelated: 0.2 } },
-    image_depicts_name: { choice: 'decorative', probabilities: { decorative: 0.8, depicts_name: 0.15 } },
-  };
-  const rF = mapStandardAnswers(gwdAnswers(passTier), gwdCtx(true));
-  check('F1 nature=referent_itself 但 J1.30 名图一致关联豁免照常生效（Stage3 截断被豁免放行）',
-    rF.llmResult.rating !== 'low' && (rF.llmResult.reason || '').includes('名图一致豁免'),
-    rF.llmResult.reason);
-
-  // ═══ G. 无图票 bit 一致 ═══
-  console.log('\n── G. 无图票 bit 一致 ──');
-  const { image_carrier_nature: _d2, image_depicts_name: _d3, name_image_consistency: _d4, ...noImg0 } = gwdAnswers();
-  const rG = mapStandardAnswers(noImg0, gwdCtx(false));
-  check('G1 imageEvidence=false（题不问/豁免无源）→ 载体门照拦（C167 前后 bit 一致）',
-    rG.llmResult.rating === 'low' && (rG.llmResult.reason || '').includes('形象载体'),
-    rG.llmResult.reason);
-
-  // ═══ H. 源码口径（回潮防线）═══
-  console.log('\n── H. 源码口径 ──');
+  // ═══ C. 源码口径（防复活）═══
+  console.log('\n── C. 源码口径 ──');
   const mapperSrc = readFileSync(mapperPath, 'utf8');
-  const qSrc = readFileSync(qPath, 'utf8');
-  check('H1 版本已 bump J1.100（题面改动版本红线）', JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
-  check('H2 题在 imageConsistency 条件块内（无图不问防幻觉）',
-    qSrc.includes('...(imageConsistency ? {\n      image_carrier_nature:'));
-  check('H3 题面带两锚（事物自我实录不算演绎 / 第三方 IP 不成本币载体）',
-    qSrc.includes('事物自我实录不算演绎') && qSrc.includes('第三方角色不算本币载体'));
-  check('H4 mapper 第四臂挂主豁免（imgArmsQualified && carrierNatureOk）',
-    mapperSrc.includes('const imgCarrierOverride = !!context.imageEvidence && imgArmsQualified && carrierNatureOk;'));
-  check('H5 C159 近 tie 臂同受管（emptyContentImgLike && carrierNatureOk）',
-    mapperSrc.includes('emptyContentImgCarrierOverride: emptyContentImgLike && carrierNatureOk'));
-  check('H6 否决审计键双段同形（stage2 主段+stage3 段）',
-    mapperSrc.split('subjectCarrierReferentVeto:').length - 1 === 2);
+  check('C1 mapper 无 carrierNature 计算（题退役后不读残留键）',
+    !/const carrierNature\b/.test(mapperSrc) && !/carrierNatureOk/.test(mapperSrc), null);
+  check('C2 mapper 无 imgCarrierOverride 豁免计算（宿主门已删）',
+    !/const imgCarrierOverride/.test(mapperSrc), null);
+  check('C3 无 subjectCarrierReferentVeto 产出位（第四臂审计随臂删除）',
+    !/subjectCarrierReferentVeto\s*:/.test(mapperSrc), null);
 
-  console.log(`\n═══ C167 image_carrier_nature：${passed} 通过 / ${failed} 失败 ═══`);
-  if (failed > 0) process.exit(1);
+  // ═══ D. 审计键 ═══
+  console.log('\n── D. 审计键 ──');
+  check('D1 stage2 段 subjectCarrierReferentVeto/subjectCarrierImgOverride 不产出（历史行保留展示）',
+    !('subjectCarrierReferentVeto' in s2jev(rA)) && !('subjectCarrierImgOverride' in s2jev(rA)),
+    { v: s2jev(rA).subjectCarrierReferentVeto, o: s2jev(rA).subjectCarrierImgOverride });
+
+  // ═══ E. 版本 ═══
+  console.log('\n── E. 版本 ──');
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.102（C171 形象轴整退役，第四臂随删）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
+
+  // ═══ 汇总 ═══
+  console.log(`\n═══ C167 image_carrier_nature 退役反证：${passed} 通过 / ${failed} 失败 ═══`);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(e => { console.error('单测异常:', e); process.exit(1); });

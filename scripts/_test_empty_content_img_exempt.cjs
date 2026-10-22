@@ -199,11 +199,10 @@ async function main() {
     token_name_quality: { score: 12, probabilities: {} },
   });
   const rI = mapStandardAnswers(nearTieAnswers, dndCtx(true));
-  check('I1 none argmax + emptyP 0.46 + 图证 → 载体门不拦（C159 近 tie 豁免）',
+  check('I1 none argmax + emptyP 0.46 + 图证 → 放行（J1.102/C171 后载体门整轴已退役；empty_content 近 tie 防抖臂随门删除，票不再有载体拦截位）',
     rI.llmResult.pass === true, rI.llmResult.reason);
-  check('I2 审计键 subjectCarrierEmptyImgOverride 命中（emptyP 可追溯）',
-    s2jev(rI).subjectCarrierEmptyImgOverride?.emptyP === 0.46
-      && s2jev(rI).subjectCarrierEmptyImgOverride?.noneP === 0.47,
+  check('I2 审计键 subjectCarrierEmptyImgOverride 不再产出（C159 载体近 tie 臂随门退役——历史行键保留展示）',
+    !('subjectCarrierEmptyImgOverride' in s2jev(rI)),
     s2jev(rI).subjectCarrierEmptyImgOverride);
   check('I3 观察键 emptyContentMass 恒落（虚假叙事未来观察，不参与门）',
     s2jev(rI).emptyContentMass === 0.46, s2jev(rI).emptyContentMass);
@@ -217,7 +216,7 @@ async function main() {
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
-  check('H3 JEV_QUESTIONS_VERSION=J1.99（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.100=C167 image_carrier_nature 载体性质第四臂）', JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
+  check('H3 JEV_QUESTIONS_VERSION=J1.99（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.100=C167 image_carrier_nature 载体性质第四臂；J1.102=C171 形象轴整退役+演绎臂迁 J1.30 关联豁免）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
   check('H4 题面合格分支②含通用网络梗缩写锚（DND/FOMO/LFG）',
     qSrc.includes('通用网络梗/文化缩写同构（如 DND=do not disturb、FOMO、LFG）'), null);
   check('H5 题面不合格分支含机构职位缩写（工牌 Chief Risk Officer→CRO）',

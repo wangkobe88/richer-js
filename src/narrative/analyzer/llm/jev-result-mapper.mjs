@@ -358,101 +358,26 @@ const BLOCK_SCOPE = {
  */
 
 /**
- * J1.29 形象载体门（2026-10-09 用户裁定挂门 M2，bddd3578 C/D/E 亏损票分析案）：
- * 「叙事主体没有具体的形象/梗载体」是 C/D 35 票（净 -2.85）的共同病根——叙事
- * 讲得再好（C/D 29/35 票 strong_fit≥0.9 而 winR 仅 7%），主体抓不住一个「东西」
- * （角色/动物/吉祥物/meme图）拿去玩梗，web3 用户就没有可参与的创作载体。配套
- * 新题 name_entity_carrier（J1.29 恒带，choice 三档：existing_entity/improvised_
- * entity/no_visual_entity），本门按类别×档位切分拦截：
+ * J1.29 形象载体门 entityVisualBlock —— **C171（2026-10-22）整轴退役**：用户裁定
+ * 「实体的可视化有形象，其实也是实体的 web3 用户接纳度的一部分（web3_user_name_
+ * entity_acceptance），有形象接纳度会高，但也不是说没有形象就不行，一切看情况」
+ * ——形象载体是用户偏好轴非资格轴，判据并入实体接纳题面锚句（J1.102）。
  *
- * 门形状（M2，用户裁定）：C/D 类 + carrier∈{improvised_entity, no_visual_entity}
- * → 拦；E 类 + carrier=no_visual_entity → 拦；A/B/W/F/G 不碰。
+ * 案史：C61（2026-10-09）立门回测 +4.42 BNB（避亏 59 张 +7.50 − 弃赢 13 张 −3.08，
+ * existing/improvised/no_visual winR 39%/8%/24%）；此后 13 天九连打洞未止——C88
+ * 五腿载体豁免臂（10-18）、C109 名图一致覆盖（10-19）、C118 演绎臂、C138 作者
+ * 原话豁免、C139 著名免形象资格、C159 近 tie 臂、C160 动物救助情感豁免、C161
+ * 巨大影响力豁免、C167 载体性质第四臂 fail-closed。三票终审实证结构性卡死：
+ * 股城（web3 项目 no_visual 0.91 拦——项目类实体本来就不该有形象）、TREE（三桶
+ * 0.44/0.35/0.21 argmax 拦——无置信门槛）、Heyi.ai（accepted choice 但概率 0.25
+ * <0.5 著名豁免线拦——间接指代结构达不到豁免线）。
  *
- * dry-run 实证（bddd3578 全 292 票标准路径 236 票，scripts/narrative/
- * _carrier-dryrun-bddd.mjs，state 保真复用线上 stage1_prompt.state）：全域判别力
- * existing 140 票 winR 39% 净 +11.69 / improvised 24 票 winR 8% 净 -1.11 /
- * no_visual 72 票 winR 24% 净 -3.78；冒烟 12/12 方向全对。虚拟收益：M2 过滤后
- * 实验净额 +21.90→+26.23 BNB（净效应 +4.33，winR 35%→41%）。
- *
- * 边界裁定依据：①E+improvised 有肉（6 票 +1.19，Ants +1.42「Anthropic 员工
- * 自称蚂蚁」型戏谑票）——E 类对脑补形象的容忍度高于 C/D（热点梗可自带传播），
- * 故 E 只拦 no_visual（M3 E 全拦净效应反而 -1.19）；②A 类（形象 IP）不进门——
- * 类别本身就是形象载体判定，量级门已把关；③W/F/G 样本内无此病根信号不碰。
- *
- * （C83 起全语料走标准路径，name_entity_carrier 对 superIP 语料票同样生效）；
- * 56 票 prestage/superIP 历史无 stage1 不适用。
- * 答案缺失（旧缓存行/旧题集手写 fixture）→ 不拦——生产链 JevClient.ask 对缺
- * 答案 id 直接 throw，缺失形状只在旧缓存/fixture；窗口回测要触发门须先失效
- * 缓存（scripts/narrative/invalidate-carrier-window.cjs，照 J1.28 模式）。
+ * 连带退役：web3_user_entity_visuality/image_depicts_name/image_carrier_nature/
+ * event_influence 四题（题集 J1.102）+ 全部豁免链 + subjectCarrier* 审计键（历史行
+ * 保留展示，新行不再产出）。避亏功能无等价替代（BNC/Bicat 类无形象亏损票改由
+ * web3FitMassBlock/量级门/nameEntityLowBlock 接棒，无法机器证明等效——回归观察）。
+ * 历史实现 git（bddd3578 立门 … J1.100/C167 最后加臂）。
  */
-const CARRIER_LABELS = {
-  improvised_entity: '脑补形象',
-  no_visual_entity: '无形象实体',
-};
-
-// C160（2026-10-21 秦思雨案，用户裁定「这个币出内盘了…对 web3 用户能造成强情感
-// 冲击的事件，算是另一条能打动用户的路径」「尤其是 web3 用户，喜欢猫猫狗狗」）：
-// 动物救助/纪念故事是 E 类强情感路径的代码事实锚。语义判定（fit/是否真实正向）
-// 仍归 Jev；这里只做「文本确实在讲动物救助 + 纪念/离世」的事实门，避免把
-// C79 偷窥狂这类泛 E 热点也豁掉载体门。
-const ANIMAL_RESCUE_STORY_RE = /(流浪(?:猫|狗|动物)|救助(?:猫|狗|动物|流浪)|猫狗|毛孩子|狗妈|猫妈|领养|stray|rescue|animal shelter)/i;
-const MEMORIAL_STORY_RE = /(离世|去世|逝世|纪念|缅怀|铭记|永存|悼念|功德|RIP|memorial|passed away)/i;
-
-function isAnimalRescueMemorialStory(context) {
-  const text = `${context?.twitterInfo?.text || ''}\n${context?.twitterInfo?.in_reply_to?.text || ''}`;
-  return ANIMAL_RESCUE_STORY_RE.test(text) && MEMORIAL_STORY_RE.test(text);
-}
-
-function entityVisualBlock(answers, category, opts) {
-  // J1.81/C139：name_entity_carrier 改名 web3_user_entity_visuality（双键读旧缓存
-  // 行）；题面判据不变=形象三态；mapper 域不变（C/D 拦 improvised+no_visual、E 只拦
-  // no_visual、A/B/W/F/G 不碰——用户裁定维持现状）
-  const carrier = answers?.web3_user_entity_visuality?.choice ?? answers?.name_entity_carrier?.choice;
-  if (!carrier) return null;
-  // 著名免形象资格（J1.81/C139 用户裁定）：实体自身 accepted≥0.5 ∨ 超IP认证行在册
-  // （corpus_author_identity）→ 免问形象（heyi.ai/何一代称家族——著名主体的名字
-  // 本身就是玩梗载体）；「名字与主体相关」由实体/词句轴 Jev 判据兜底（本门只认
-  // 代码事实）。C88 五腿豁免臂退役（recognizedEntitySlogan 不再早退本门——著名票
-  // 由本资格正门覆盖，五腿评分贡献/rcp/劫持/关联豁免不动）
-  if (opts?.famousEntity) return null;
-  // C88 五腿豁免臂已随 J1.81/C139 退役（本行原为 recognizedEntitySlogan 早退）：
-  // 口号票由上方著名免形象资格（accepted≥0.5∨超IP认证行）与 authorUtterance 正门
-  // 覆盖；mem≥2 等五腿评分贡献保留（案史：暗号資産の覹者 no_visual 0.92 / BI
-  // improvised 0.62 均曾此位拦死，C88 救回——2026-10-18 CZ 出书簇裁定）
-  // C138（MEMES 案 0xeeed1ed1…7777）：作者原话票豁免（J1.56 代码事实
-  // authorUtterance=作者在册 ∧ 币名逐字出自主推文本）——原话票叙事主体=
-  // 在册作者本人（人物/机构），形象载体由作者身份承载；币名=作者原话，
-  // 名字本身就是玩梗载体（与 C88 口号票「名字即载体」同构）。载体题评
-  // 「币名映射形象」在此形状判据错位（eth_cedric「Memes will continue.」票
-  // no_visual 0.95 拦死——J1.58 作者豁免翻掉 empty_content 后载体门接管，
-  // 用户裁定「这个票是要过的」）。刻意不依赖五腿其余腿（strongFit<0.5 时
-  // recognizedEntitySlogan 不 hit，原话票主体资格仍由 authorUtterance 独立
-  // 代码事实锚定）
-  if (opts?.authorUtterance) return null;
-  // C109 图证载体覆盖（M1，交易猫 0xc929…7777 案）：同一次 Jev 调用里
-  // name_image_consistency 的事实答案（币安发猫图、币名「交易猫」same_entity
-  // 0.73/conf 0.59）证明指代对象有可视化载体时，载体题的低置信掷硬币答案
-  // （no_visual conf 仅 0.09——主体漂移到新闻发布方所致）不再单独定生死：
-  // imageEvidence ∧ nicMatchP≥0.5 → 本门豁免（高置信事实证据覆盖低置信载体
-  // 判断；终评级仍交全链其余门）。暗号資産の覹者(0.92)/BI(0.62) 校准不动：
-  // 前者本就 C88 五腿豁免，后者无图证不触发本覆盖。
-  if (opts?.imgCarrierOverride) return null;
-  if (opts?.emptyContentImgCarrierOverride) return null;
-  // C160 强情感冲击/动物救助路径：E 类且 Jev 判 fit 质量≥0.5，文本事实锚命中
-  // 动物救助+纪念 → 不要求形象载体（故事/人物本身即载体；猫狗是情感符号）。
-  if (opts?.emotionalImpactCarrierExempt) return null;
-  // J1.97/C161：影响力巨大（全球/全网/跨平台）事件不要求形象载体——事件本身
-  // 已经有足够的跨圈层落脚点；只豁载体门，其他门照常接管。
-  if (opts?.massiveInfluenceCarrierExempt) return null;
-  if (category === 'C' || category === 'D') {
-    if (carrier === 'improvised_entity' || carrier === 'no_visual_entity') {
-      return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
-    }
-  } else if (category === 'E' && carrier === 'no_visual_entity') {
-    return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
-  }
-  return null;
-}
 
 /**
  * C108 名字门（J1.42 name_form=not_meme_name——**唯一名字拦截位**）。
@@ -533,7 +458,7 @@ function wrongEntityBlock(answers) {
 function web3UserAcceptabilityBlock(answers) {
   // J1.81/C139 词句门收窄：只评 not_entity 形状（口号/玩梗/文化词/句片段/陈述句/
   // 日常用语）；实体票（accepted/unknown/new_entity/wrong_entity）不经本题——名字
-  // 质量归实体轴（unknown/wrong_entity 拦截）+ 形象轴（entityVisualBlock）。版本臂/
+  // 质量归实体轴（unknown/wrong_entity 拦截）+ 词句轴。版本臂/
   // 拼写臂已删（C105/C108 拦截责任迁入 wrongEntityBlock）。no_entity=J1.81 前旧缓存
   // 行兼容读（旧行按原口径照评，bit 不变）
   const entityChoice = answers?.web3_user_name_entity_acceptance?.choice;
@@ -1185,16 +1110,8 @@ export function mapStandardAnswers(answers, context) {
   // 9 个阻断项共享概率质量，argmax≠none 过易触发（dry-run 实证：P=0.43 即阻断）。
   // 忠实转译：P(none)≥0.5 才视为无阻断。
   const noneProb = blockAnswers(answers)?.probabilities?.none ?? 0;
-  // J1.97/C161：巨大影响力事件载体门豁免。只认 Jev massive（全球/全网/跨平台/
-  // 主流报道）；旧缓存行无本题 → null 不豁免（fail-closed，存量行为不变）。
-  const eventInfluence = answers.event_influence?.choice ?? null;
-  const massiveInfluenceCarrierExempt = eventInfluence === 'massive';
-  // 审计用：该 carrier 档位是否本来会被载体门拦（C/D 拦 improvised+no_visual；
-  // E 只拦 no_visual；A/B/W/F/G 不进门）
-  const carrierChoiceForAudit = answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null;
-  const carrierWouldBlock = (category === 'C' || category === 'D')
-    ? (carrierChoiceForAudit === 'improvised_entity' || carrierChoiceForAudit === 'no_visual_entity')
-    : (category === 'E' && carrierChoiceForAudit === 'no_visual_entity');
+  // （J1.102/C171：event_influence/massiveInfluenceCarrierExempt/carrierWouldBlock
+  //  随载体门整轴退役删除——历史行审计键 eventInfluence/subjectCarrier* 保留展示）
   // C159（2026-10-21）：empty_content 概率质量单独保留。J1.95 把「短句点名具体
   // meme/实体」从空洞里排除后，DND 这类「纯缩写+表情+配图」票的 empty vs none
   // 会变成 0.43/0.47 掷骰；C114 的图证载体豁免原本只在 blockChoice=empty_content
@@ -1285,7 +1202,6 @@ export function mapStandardAnswers(answers, context) {
   let neBlock = null; // 实体低影响力门信息 {label, mass}
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域）
   let uaBlock = null; // 词句接纳度门信息 {label, choice}（C96→C105→C107→C108→J1.81 收窄=只评 not_entity 形状；form=Jev 原 choice）
-  let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
   let timingScore = null;
   let wTimingCapActive = false;
   let eventCompositeScore = null;
@@ -1358,42 +1274,18 @@ export function mapStandardAnswers(answers, context) {
   // 快车道时代的 C59 meme≥3 门随通道删除，意图由本门+J1.28 覆盖）。
   const nicProbs = answers.name_image_consistency?.probabilities ?? {};
   const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
-  const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
-    && relevance.score > 0 && relevance.score <= 10;
-  // C109 图证载体覆盖（M1，交易猫案）：图证据∧名字-图匹配质量≥0.5 → name_entity_carrier
-  // 的低置信掷硬币不再单独拦 J1.29（与 imgNameExempt 同源同阈、独立判定——载体
-  // 存在性与关联强弱正交，不套 relevance ≤10 窗）。审计键 subjectCarrierImgOverride
-  // 命中才落（下方 imgNameExempt 同款）
-  // C118 演绎臂（DND 案二轮，用户裁定「载体豁免认演绎关系」）：image_depicts_name
-  // depicts≥0.5 同样触发——配图在演绎名字含义=载体存在的另一种事实证据。概念名
-  // （缩写/口号）无实体可对应，nicMatch 两档天然吃不到（DND vs 猫 unrelated 0.85
-  // 但猫拉窗帘正是「别打扰」的画面演绎）。J1.30 imgNameExempt 刻意不消费本题
-  // （演绎≠名实一致，两豁免面不互扩）；答案缺失/未问 → depictP=0 只剩 nicMatch 臂
+  // C118 演绎臂（DND 案）：配图在演绎名字含义=币名↔叙事的关联证据。J1.102/C171
+  // 用户裁定「演绎关系是事/币关联的一个维度」——载体门退役后本臂从载体豁免迁入
+  // J1.30 关联豁免第二臂（概念名/缩写票 nicMatch 两档天然吃不到：DND vs 猫
+  // unrelated 0.85 但猫拉窗帘正是「别打扰」的画面演绎）；答案缺失/未问 → 0
+  // 只剩 nicMatch 臂（旧缓存行/无图票 fail-closed 零影响）
   const depictP = answers.image_depicts_name?.probabilities?.depicts_name ?? 0;
-  // J1.100/C167（梗王大乱斗案 0x4ded…7777）：图证豁免第四臂=载体性质。10.7/10.8
-  // 的「名图一致/演绎」在所指物=非形象事物（游戏/产品/网站/活动）时是同义反复
-  // （配图=所指物实录，证明所指存在不证明形象载体存在——E 类事件分已在量该
-  // 东西），image_carrier_nature≠carrier_visual → match/depict 两臂都不再豁免
-  // 载体门。答案缺失 fail-closed（J1.30 同款；imageConsistency 票必问，缺失=
-  // 异常形状防御）。题面锚=事物自我实录不算演绎（真香蕉锚升格）+图内第三方
-  // IP 形象属原 IP 不成本币载体；奠基票（交易猫/DND/短尾猫）所指物均具象形象
-  // 判 carrier_visual 不受影响
-  const carrierNature = answers.image_carrier_nature?.choice ?? null;
-  const imgArmsQualified = nicMatchP >= 0.5 || depictP >= 0.5;
-  const carrierNatureOk = carrierNature === 'carrier_visual';
-  const imgCarrierOverride = !!context.imageEvidence && imgArmsQualified && carrierNatureOk;
-  // C160：动物救助/纪念 E 类强情感路径——Jev fit 质量≥0.5 且文本事实锚命中
-  // （动物救助词 + 纪念/离世词）时，不要求形象载体；泛 E 热点（C79 偷窥狂）
-  // 无救助/纪念词，不触发。
-  const animalRescueMemorialStory = isAnimalRescueMemorialStory(context);
-  const emotionalImpactCarrierExempt = category === 'E' && likedMass >= 0.5 && animalRescueMemorialStory;
-  // C159：图证在场 + empty_content 仍有近 tie 质量（≥0.4）时，按「图就是内容」
-  // 处理载体门（C114 原语义）；argmax 翻到 none 不改变该结论，防 J1.95 锚点
-  // 让 DND 类票在 empty/none 之间掷骰时载体门随机接管。
-  const emptyContentImgLike = !!context.imageEvidence && (
-    blockChoice === 'event_empty_content' ||
-    (blockChoice === 'none' && emptyContentMass >= 0.4)
-  );
+  const imgNameExempt = !!context.imageEvidence && (nicMatchP >= 0.5 || depictP >= 0.5)
+    && relevance.score > 0 && relevance.score <= 10;
+  // （J1.102/C171：carrierNature（J1.100 第四臂）/imgCarrierOverride（C109 覆盖）/
+  //  emotionalImpactCarrierExempt（C160）/emptyContentImgLike（C159 近 tie 臂）四块
+  //  载体豁免计算随载体门整轴退役删除；event_empty_content 的图证/作者豁免
+  //  （C114/J1.58）保留——那是 block 门豁免非载体门豁免）
 
   // C88 超级IP事件口号票五腿救援谓词（2026-10-18 CZ 出书簇用户裁定：暗号資産の
   // 覹者 0x926c…7777 11.8x 毕业被 rcp argmax 臂拦死、BI 0x3891…7777 4.86x 被
@@ -1423,10 +1315,8 @@ export function mapStandardAnswers(answers, context) {
   const relNoneMass = relMassC88.none ?? 1;
   // J1.61：mem≥2 腿随 name_entity_memeability 题删除——名字形态/玩味责任由
   // web3_user_name_acceptability 单点承担（C88 只做「实体口号票」的四腿判定）
-  // J1.81/C139 著名免形象资格（实体形象门正门）：accepted≥0.5 ∨ 超IP认证行
-  // 在册（corpusAuthorInRegistry=state corpus_author_identity 认证行）——著名主体
-  // 的名字本身就是玩梗载体，形象门不问（C88 五腿载体豁免臂退役后由本资格接管）
-  const famousEntity = entityAcceptedProb >= 0.5 || !!context.corpusAuthorInRegistry;
+  // （J1.81/C139 famousEntity 变量随载体门整轴退役删除——原消费=著名免形象资格
+  //  早退+subjectCarrierFamousExempt 审计；C88 五腿直接判 entityAcceptedProb）
   const recognizedEntitySlogan = (entityAcceptedProb >= 0.5 || authorUtterance)
     && relPositiveMass >= 0.3 && relNoneMass < 0.5
     && FRESH_TIMING_C88.has(timing) && web3FitStrongP >= 0.5;
@@ -1518,21 +1408,8 @@ export function mapStandardAnswers(answers, context) {
     // 实体票不经本门。全域无豁免；无概率 mass（choice 档位门）
     eventScoreBlocked = true;
     gateBlockReason = uaBlock.label;
-  } else if ((scBlock = entityVisualBlock(answers, category, {
-    famousEntity,
-    authorUtterance, imgCarrierOverride,
-    emotionalImpactCarrierExempt,
-    massiveInfluenceCarrierExempt,
-    // J1.100/C167：近 tie 臂同受载体性质第四臂管（referent_itself 实录图不豁免；
-    // DND 奠基票判 carrier_visual 行为不变——audit subjectCarrierEmptyImgOverride
-    // 恒落观察不受影响）
-    emptyContentImgCarrierOverride: emptyContentImgLike && carrierNatureOk,
-  }))) {
-    // J1.29→J1.81 实体形象门 entityVisualBlock（题键 web3_user_entity_visuality）：C/D+非existing / E+no_visual → 叙事主体无形象载体；著名免形象资格早退。
-    // 名字门之后（主体层缺陷）、量级门之前（载体缺失先于量级判定）；无概率
-    // mass（choice 档位门）
-    eventScoreBlocked = true;
-    gateBlockReason = scBlock.label;
+  // （J1.102/C171：形象载体门 scBlock 分支随门整轴退役删除——
+  //  上一位=词句门 web3UserAcceptabilityBlock，下一位=量级门 D/E 档臂）
   } else if (!isW && (effTier === 'E' || effTier === 'D') && !punExempt && !imgNameExempt) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）。
     // C86 D-1 豁免贯穿：J1.30 名图一致豁免无 tier 前置（图证据+一致性质量+弱关联
@@ -1658,60 +1535,12 @@ export function mapStandardAnswers(answers, context) {
         // referentMemeabilityScore 键，新行不再产出。J1.83（C141）event_subject_entity
         // 题同款退役（判据并入 web3_user_event_fit unfit 桶）——历史行保留展示
         subjectEntity: answers.event_subject_entity?.choice ?? null,
-        // J1.29 审计标记：形象载体门。档位恒落（门形状事后校准免重跑，旧缓存行
-        // 无此题 → null）；block 命中才落（productEntityBlock 同款模式）
-        subjectCarrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
-        subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
-        // J1.81/C139 著名免形象豁免命中才落（famousEntity ∧ 有载体答案；与
-        // subjectCarrierBlock 互斥可辨：null=未豁免、有值=被豁免的载体档位）
-        subjectCarrierFamousExempt: famousEntity && (answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice)
-          ? { carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice }
-          : null,
-        // C118 审计标记：图证载体豁免（J1.29 覆盖豁免命中才落；与 Stage3 段同形）。
-        // 拦截票 stage3 段 __clear，本段是唯一落库位——DND 形状（演绎臂救回载体
-        // 门后被量级门拦）在 stage2 段可归因「载体门为何没拦」，与 subjectCarrier
-        // =null 的「类别不适用」区分。via=match（C109 名图一致）|depicts（C118 演绎）
-        subjectCarrierImgOverride: imgCarrierOverride
-          ? {
-              carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
-              matchP: round2(nicMatchP),
-              via: nicMatchP >= 0.5 ? 'match' : 'depicts',
-              depictP: depictP > 0 ? round2(depictP) : null,
-            }
-          : null,
-        // J1.100/C167 审计标记：图证载体豁免被载体性质否决（match/depict 臂本已
-        // 够阈但配图=所指物实录/unclear → 载体门照拦；命中才落，与 subjectCarrier-
-        // ImgOverride 互斥可辨：有值=被否决、null=未触发/臂未够阈/性质放行）
-        subjectCarrierReferentVeto: !imgCarrierOverride && imgArmsQualified && !!context.imageEvidence
-          && carrierNature != null && carrierNature !== 'carrier_visual' && carrierWouldBlock
-          ? {
-              carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
-              nature: carrierNature,
-            }
-          : null,
-        // C159 审计标记：empty_content 近 tie（none argmax 但 emptyP≥0.4）+ 图证 →
-        // 载体门按「图就是内容」豁免（C114 语义防 argmax 抖动）。blockChoice=
-        // event_empty_content 时走既有 emptyContentImgOverride，本键只记新增面。
-        subjectCarrierEmptyImgOverride: emptyContentImgLike && blockChoice !== 'event_empty_content'
-          ? { carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null, emptyP: round2(emptyContentMass), noneP: round2(noneProb) }
-          : null,
-        // C160 审计标记：动物救助/纪念 E 类强情感路径豁免载体门（命中才落；
-        // 泛 E 热点无救助/纪念词不落，可归因「载体门为何没拦」）
-        subjectCarrierEmotionalImpactExempt: emotionalImpactCarrierExempt
-          && (answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice) === 'no_visual_entity'
-          ? { carrier: 'no_visual_entity', fitMass: round2(likedMass), animalRescueMemorial: true }
-          : null,
-        // J1.97/C161 事件影响力（只作载体门豁免输入；恒落观察）
-        eventInfluence,
-        subjectCarrierMassiveInfluenceExempt: massiveInfluenceCarrierExempt && carrierWouldBlock
-          ? { carrier: carrierChoiceForAudit, influence: 'massive' }
-          : null,
-        // C138 审计标记：作者原话票豁免载体门（命中才落，被覆盖的 carrier
-        // choice 可追溯——与 subjectCarrierImgOverride 同构；拦截票 stage3 段
-        // __clear，本段是唯一归因落库位）
-        subjectCarrierAuthorOverride: authorUtterance
-          ? { carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null }
-          : null,
+        // （J1.102/C171：subjectCarrier/subjectCarrierBlock/subjectCarrierFamous-
+        //  Exempt/subjectCarrierImgOverride/subjectCarrierReferentVeto/
+        //  subjectCarrierEmptyImgOverride/subjectCarrierEmotionalImpactExempt/
+        //  eventInfluence/subjectCarrierMassiveInfluenceExempt/
+        //  subjectCarrierAuthorOverride 审计键随载体门整轴退役——历史行键保留
+        //  展示，新行不再产出；C118 演绎臂迁 J1.30 imgNameExempt 关联豁免第二臂）
         // C96 审计标记：发现 vs 转述恒落（J1.37 event_finding_vs_recap；旧缓存行 → null
         // ——阈值/口径事后校准免重跑）；改道详情在 stage1 jev.categoryForced
         // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
@@ -1755,9 +1584,8 @@ export function mapStandardAnswers(answers, context) {
           w_bsc_user_appeal: answers.w_bsc_user_appeal?.probabilities,
           web3_user_event_fit: answers.web3_user_event_fit?.probabilities,
           event_subject_entity: answers.event_subject_entity?.probabilities,
-          // J1.81 键名断代：题键 web3_user_entity_visuality；dump 键沿用历史名
-        // name_entity_carrier（行格式稳定，值双源读）
-        name_entity_carrier: answers.web3_user_entity_visuality?.probabilities ?? answers.name_entity_carrier?.probabilities,
+          // （J1.102/C171：name_entity_carrier dump 键随形象轴退役删除——历史行
+          //  保留展示；web3_user_name_acceptability 同段保留）
           web3_user_name_acceptability: answers.web3_user_name_acceptability?.probabilities
             ?? answers.name_form?.probabilities,
           event_finding_vs_recap: answers.event_finding_vs_recap?.probabilities,
@@ -1849,33 +1677,13 @@ export function mapStandardAnswers(answers, context) {
             // brandMismatchP 保留在上一键不受豁免影响）
             punExempt: punExempt ? { timing, tier: effTier } : null,
             // J1.30 审计标记：名图一致豁免命中详情（关联档位/一致性质量可追溯，
-            // 命中才落模式——未触发不落键）
-            imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP) } : null,
-            // C109 审计标记：图证载体覆盖命中（J1.29 豁免；命中才落——被覆盖的
-            // carrier choice 与匹配质量可追溯，交易猫案形状）。C118 起 matchP=0
-            // 且 depictP>0 的命中=演绎臂触发（via:'depicts'），臂来源可归因
-            subjectCarrierImgOverride: imgCarrierOverride
-              ? {
-                  carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
-                  matchP: round2(nicMatchP),
-                  via: nicMatchP >= 0.5 ? 'match' : 'depicts',
-                  depictP: depictP > 0 ? round2(depictP) : null,
-                }
-              : null,
-            // J1.100/C167：图证载体豁免被载体性质否决（与 stage2 主段同形；
-            // 拦截票本段 __clear，stage2 主段是唯一落库位）
-            subjectCarrierReferentVeto: !imgCarrierOverride && imgArmsQualified && !!context.imageEvidence
-              && carrierNature != null && carrierNature !== 'carrier_visual' && carrierWouldBlock
-              ? {
-                  carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null,
-                  nature: carrierNature,
-                }
-              : null,
-            // C138 审计：作者原话票豁免载体门（命中才落；与 Stage2 主段同构——
-            // 豁免后被下游门拦的票可归因「载体门为何没拦」）
-            subjectCarrierAuthorOverride: authorUtterance
-              ? { carrier: answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null }
-              : null,
+            // J1.30 审计标记：名图一致豁免命中详情（关联档位/匹配质量可追溯，
+            // 命中才落模式——未触发不落键）。J1.102/C171 起 via='depicts' 臂=
+            // C118 演绎臂迁入（matchP=0 且 depictP≥0.5 的命中=演绎臂触发）
+            imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP), via: nicMatchP >= 0.5 ? 'match' : 'depicts', depictP: depictP > 0 ? round2(depictP) : null } : null,
+            // （J1.102/C171：subjectCarrierImgOverride/subjectCarrierReferent-
+            //  Veto/subjectCarrierAuthorOverride 三键随载体门整轴退役删除——
+            //  历史行键保留展示，新行不再产出；演绎臂审计并入 imgNameExempt.via）
             // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
             // jev.recognizedEntitySlogan 恒落版——stage2 拦截票本段 __clear 不落）
             recognizedEntitySloganExempt: recognizedEntitySlogan ? { accepted: round2(entityAcceptedProb), authorUtterance, timing } : null,

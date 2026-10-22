@@ -87,7 +87,7 @@ async function main() {
   const m1 = mapStandardAnswers(iNuAnswers, makeContext(iNuAnswers, iNuTwitter));
   check('B1a stage1 类别改写为 W + 原概率保留', m1.stage1DataToSave.category === 'W' && m1.stage1DataToSave.parsed_output.jev.probabilities.event_category.C === 0.52, m1.stage1DataToSave.parsed_output.jev);
   check('B1b stage1 审计标记 categoryForced/cashtagMatched', m1.stage1DataToSave.parsed_output.jev.categoryForced === 'cashtag_w' && m1.stage1DataToSave.parsed_output.jev.cashtagMatched === '$INU');
-  check('B1c stage2 走 W 数学：0.18+25=25.18<57 拦截', m1.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m1.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 25.18 && m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output.scoringResult);
+  check('B1c stage2 走 W 数学：appeal 0.18<32 拦截（J1.91/C154 删 W 正向时效表→appeal-only 单轴，pass 线 57→32；原 0.18+25=25.18<57）', m1.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m1.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 0.18 && m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output.scoringResult);
   check('B1d reason 标注 cashtag 改道来源', typeof m1.stage2DataToSave.parsed_output.reason === 'string' && m1.stage2DataToSave.parsed_output.reason.includes('cashtag改道W类($INU)'), m1.stage2DataToSave.parsed_output.reason);
   check('B1e 拦截链：stage2 low + stage3 清空 + rating low', m1.stage2DataToSave.category === 'low' && m1.stage3DataToSave.__clear === true && m1.llmResult.rating === 'low' && m1.llmResult.pass === false && m1.llmResult.analysis_stage === 2);
   check('B1f promptType 版本+类别随改道更新（动态版本号防 bump 断裂）', m1.promptType.includes(JEV_QUESTIONS_VERSION) && m1.promptType.includes('W类'), m1.promptType);
@@ -111,10 +111,10 @@ async function main() {
   const bigAsset = {
     ...iNuAnswers,
     w_product_score: { score: 3.2, probabilities: { '3': 0.9 } },  // J1.84 起零消费
-    w_bsc_user_appeal: { score: 2.5, probabilities: { '2': 0.9 } }, // → 38+0.5×18=47
+    w_bsc_user_appeal: { score: 2.5, probabilities: { '2': 0.9 } }, // → 38+0.5×18=47（J1.91 后 appeal-only 不再 +timing 25）
   };
   const m5 = mapStandardAnswers(bigAsset, makeContext(bigAsset, iNuTwitter));
-  check('B5 被骑资产影响力极高时 W 数学放行（47+25=72）', m5.stage2DataToSave.parsed_output.pass === true && m5.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 72, m5.stage2DataToSave.parsed_output.scoringResult);
+  check('B5 被骑资产影响力极高时 W 数学放行（47≥32；J1.91/C154 前 47+25=72）', m5.stage2DataToSave.parsed_output.pass === true && m5.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 47, m5.stage2DataToSave.parsed_output.scoringResult);
 
   console.log(`\n结果：${passed} 通过 / ${failed} 失败`);
   process.exit(failed ? 1 : 0);

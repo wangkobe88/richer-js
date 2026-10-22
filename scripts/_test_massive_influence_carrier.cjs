@@ -1,20 +1,28 @@
 #!/usr/bin/env node
 /**
- * C161/J1.97 巨大影响力事件载体门豁免单测（2026-10-21 80억분의1 网站案）——零 DB 零网络
+ * C161 巨大影响力事件载体豁免——**J1.102/C171 退役反证单测**（零 DB 零网络，
+ * 2026-10-22 改写）
  *
- * 用户裁定：「需要形象载体是大部分情况，某则 meme 币没有一个落脚点。但是对于
- * 影响力巨大的事件（这个网站确实爆火），是应该可以豁免的」。
+ * 案史：C161（2026-10-21 80억분의1 案，用户裁定「如果事件本身是一个巨大影响力
+ * 事件，是全球爆火的，是应该可以豁免的」）立 event_influence 三档题（massive/
+ * notable/limited）+ massiveInfluenceCarrierExempt 臂（massive → 豁免载体门）。
+ * 臂的宿主是 J1.29 载体门——C171 形象轴整轴退役后无宿主随门删除：题退役
+ * （唯一消费点=载体豁免，死题不白烧 fan-out token）、mapper 计算（eventInfluence/
+ * massiveInfluenceCarrierExempt/carrierWouldBlock）删除、审计键（eventInfluence/
+ * subjectCarrierMassiveInfluenceExempt）停产出。
  *
- * 口径：event_influence=massive（全球/全网/跨平台/主流报道）→ 载体门不拦
- * （C/D/E 三类载体门；审计 subjectCarrierMassiveInfluenceExempt）。
- * notable/limited/旧缓存缺失 → 不豁免（fail-closed，存量行为不变）。
+ * 案票终态变化：80억분의1（E 类 massive+no_visual）C161 时靠豁免臂放行，C171 后
+ * 载体门整体不存在 → strong_fit 0.9 事件分高直接放行（豁免需求消失）。泛影响力
+ * 票的「事件分」本身就在量影响力，massive 不再单独豁免任何门。
  *
- * 节：
- *   A. E + massive + no_visual → pass + 审计
- *   B. E + notable / 缺失 → 载体门照拦
- *   C. D + massive + no_visual → pass（覆盖 C/D 门域）
- *   D. C + massive + improvised → pass（覆盖 improvised 档）
- *   E. 题集/源码口径锁
+ * 覆盖：
+ *   A. 案票终态：80억분의1 形状（massive+no_visual）→ 放行（无需豁免臂）
+ *   B. 题退役：event_influence 任何形状不再产出；旧缓存行残留键 mapper 不读
+ *   C. 源码口径：mapper 无 massiveInfluenceCarrierExempt/eventInfluence 活代码
+ *      （防复活）
+ *   D. 审计键：eventInfluence/subjectCarrierMassiveInfluenceExempt 不产出
+ *      （历史行保留展示）
+ *   E. 版本：J1.102+（C171）
  *
  * 用法：node scripts/_test_massive_influence_carrier.cjs
  */
@@ -38,6 +46,7 @@ function answers(overrides = {}) {
     event_finding_vs_recap: { choice: 'news_recap', probabilities: { news_recap: 1 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.98 } },
     event_quality_veto: { choice: 'none', probabilities: { none: 0.99 } },
+    // 旧缓存行形状：event_influence 键在场（J1.102 后 mapper 不读）
     event_influence: { choice: 'massive', probabilities: { massive: 0.8, notable: 0.15, limited: 0.05 } },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.6, fit: 0.3, marginal: 0.05, unfit: 0.05 } },
     web3_user_name_event_acceptance: { choice: 'exact_match', probabilities: { exact_match: 0.98 } },
@@ -67,62 +76,45 @@ const s2jev = (r) => r.stage2DataToSave?.parsed_output?.jev;
 async function main() {
   const { mapStandardAnswers } = await import(mapperPath);
 
-  console.log('── A. E + massive + no_visual ──');
+  // ═══ A. 案票终态（豁免需求消失）═══
+  console.log('\n── A. 案票终态 ──');
   const rA = mapStandardAnswers(answers(), ctx(VIRAL_TEXT));
-  check('A1 pass（载体门豁免）', rA.llmResult.pass === true, rA.llmResult.reason);
-  check('A2 audit subjectCarrierMassiveInfluenceExempt',
-    s2jev(rA).subjectCarrierMassiveInfluenceExempt?.influence === 'massive'
-      && s2jev(rA).subjectCarrierMassiveInfluenceExempt?.carrier === 'no_visual_entity',
-    s2jev(rA).subjectCarrierMassiveInfluenceExempt);
-  check('A3 eventInfluence 恒落观察', s2jev(rA).eventInfluence === 'massive', s2jev(rA).eventInfluence);
+  check('A1 80억분의1 形状（E+massive+no_visual，C161 时靠豁免臂放行）→ C171 直接放行（载体门不存在）',
+    rA.llmResult.rating !== 'low' && !(rA.llmResult.reason || '').includes('形象载体'),
+    rA.llmResult.reason);
+  check('A2 旧缓存行 event_influence 键在场无副作用（mapper 不读）',
+    rA.llmResult.rating !== 'low', null);
 
-  console.log('── B. E + notable / 缺失 ──');
-  const rB = mapStandardAnswers(answers({
-    event_influence: { choice: 'notable', probabilities: { massive: 0.1, notable: 0.85, limited: 0.05 } },
-  }), ctx(VIRAL_TEXT));
-  check('B1 notable → 载体门照拦', rB.llmResult.rating === 'low' && (rB.llmResult.reason || '').includes('无形象载体'), rB.llmResult.reason);
-  check('B2 audit null', s2jev(rB).subjectCarrierMassiveInfluenceExempt === null, s2jev(rB).subjectCarrierMassiveInfluenceExempt);
-  const rB2 = mapStandardAnswers(answers({ event_influence: undefined }), ctx(VIRAL_TEXT));
-  check('B3 旧缓存行缺 event_influence → 不豁免（fail-closed）',
-    rB2.llmResult.rating === 'low' && s2jev(rB2).subjectCarrierMassiveInfluenceExempt === null,
-    { reason: rB2.llmResult.reason, audit: s2jev(rB2).subjectCarrierMassiveInfluenceExempt });
+  // ═══ B. 题退役 ═══
+  console.log('\n── B. 题退役 ──');
+  const { buildStandardQuestions } = await import(qPath);
+  check('B1 event_influence 任何形状不再产出',
+    !('event_influence' in buildStandardQuestions())
+    && !('event_influence' in buildStandardQuestions({ imageConsistency: true })), null);
 
-  console.log('── C. D + massive + no_visual ──');
-  const rC = mapStandardAnswers(answers({
-    event_category: { choice: 'D', probabilities: { D: 0.8 } },
-    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9 } },
-  }), ctx(VIRAL_TEXT));
-  check('C1 pass（C/D 门域覆盖）', rC.llmResult.pass === true, rC.llmResult.reason);
-  check('C2 audit 命中', s2jev(rC).subjectCarrierMassiveInfluenceExempt?.influence === 'massive', s2jev(rC).subjectCarrierMassiveInfluenceExempt);
+  // ═══ C. 源码口径（防复活）═══
+  console.log('\n── C. 源码口径 ──');
+  const mapperSrc = readFileSync(mapperPath, 'utf8');
+  check('C1 mapper 无 eventInfluence/massiveInfluenceCarrierExempt 活代码（留档注释外零引用）',
+    !/const eventInfluence/.test(mapperSrc) && !/const massiveInfluenceCarrierExempt/.test(mapperSrc)
+    && !/massiveInfluenceCarrierExempt,/.test(mapperSrc), null);
+  check('C2 mapper 无 carrierWouldBlock/carrierChoiceForAudit（审计辅助随门删）',
+    !/const carrierWouldBlock/.test(mapperSrc) && !/const carrierChoiceForAudit/.test(mapperSrc), null);
 
-  console.log('── D. C + massive + improvised ──');
-  const rD = mapStandardAnswers(answers({
-    event_category: { choice: 'C', probabilities: { C: 0.8 } },
-    web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.9 } },
-    web3_user_entity_visuality: { choice: 'improvised_entity', probabilities: { improvised_entity: 0.9 } },
-  }), ctx(VIRAL_TEXT));
-  check('D1 pass（improvised 档覆盖）', rD.llmResult.pass === true, rD.llmResult.reason);
-  check('D2 audit carrier=improvised', s2jev(rD).subjectCarrierMassiveInfluenceExempt?.carrier === 'improvised_entity', s2jev(rD).subjectCarrierMassiveInfluenceExempt);
+  // ═══ D. 审计键 ═══
+  console.log('\n── D. 审计键 ──');
+  check('D1 stage2 段 eventInfluence/subjectCarrierMassiveInfluenceExempt 不产出（历史行保留展示）',
+    !('eventInfluence' in s2jev(rA)) && !('subjectCarrierMassiveInfluenceExempt' in s2jev(rA)),
+    { i: s2jev(rA).eventInfluence, m: s2jev(rA).subjectCarrierMassiveInfluenceExempt });
 
-  console.log('── E. 题集/源码口径 ──');
-  const qm = await import(qPath);
-  const qs = qm.buildStandardQuestions({});
-  check('E1 event_influence 题在册（3 档）',
-    qs.event_influence?.type === 'choice'
-      && (qs.event_influence?.criteria?.massive || '').includes('全球级')
-      && (qs.event_influence?.criteria?.notable || '').includes('单一平台')
-      && (qs.event_influence?.criteria?.limited || '').includes('小范围'), Object.keys(qs));
-  const instr = qs.event_influence?.instructions || '';
-  check('E2 判据区分全球/跨平台 vs 单一平台热搜 + 明确锚',
-    instr.includes('全球级/全网级爆火') && instr.includes('单一平台热搜') && instr.includes('明确锚（J1.97/C161）'), null);
-  const src = readFileSync(mapperPath, 'utf8');
-  check('E3 mapper massive 早退 + 审计键 + 选项接线',
-    src.includes('if (opts?.massiveInfluenceCarrierExempt) return null;')
-      && src.includes('subjectCarrierMassiveInfluenceExempt')
-      && src.includes('massiveInfluenceCarrierExempt,'), null);
+  // ═══ E. 版本 ═══
+  console.log('\n── E. 版本 ──');
+  const { JEV_QUESTIONS_VERSION } = await import(qPath);
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.102（C171 形象轴整退役，massive 豁免臂随删）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
 
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(e => { console.error('单测异常:', e); process.exit(1); });

@@ -68,8 +68,8 @@ async function main() {
   console.log('\n── A. 题面完整性（J1.83/C141）──');
   check('A1 版本 ≥J1.87', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 87, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 12 题且 event_subject_entity/w_product_score 已退役（J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 impact 14→13；C108 删 block_misspelling；C109 收敛 19→16）',
-    Object.keys(q).length === 12 && !('event_subject_entity' in q) && !('w_product_score' in q) && !!q.web3_user_entity_visuality && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
+  check('A2 题集 10 题且 event_subject_entity/w_product_score/web3_user_entity_visuality 已退役（J1.102/C171 删 visuality+event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 impact 14→13；C108 删 block_misspelling；C109 收敛 19→16）',
+    Object.keys(q).length === 10 && !('event_subject_entity' in q) && !('w_product_score' in q) && !q.web3_user_entity_visuality && !q.event_influence && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 J1.79 事件价值题收敛为 web3_user_event_fit（impact 题已删，唯一事件价值题标记在场）',
     !('web3_user_event_impact' in q)
     && q.web3_user_event_fit.instructions.includes('标准路径的事件价值题'));

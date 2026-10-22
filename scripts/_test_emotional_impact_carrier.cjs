@@ -1,22 +1,26 @@
 #!/usr/bin/env node
 /**
- * C160 强情感冲击 / 动物救助路径载体门豁免单测（2026-10-21 秦思雨案）——零 DB 零网络
+ * C160 强情感冲击/动物救助路径——**J1.102/C171 退役反证单测**（零 DB 零网络，
+ * 2026-10-22 改写）
  *
- * 用户裁定：「这个币出内盘了，这是属于对 web3 用户能造成强情感冲击的事件，算是
- * 另一条能打动用户的路径」「尤其是 web3 用户，喜欢猫猫狗狗」。
+ * 案史：C160（2026-10-21 秦思雨案，用户裁定「对 web3 用户能造成强情感冲击的
+ * 事件，算是另一条能打动用户的路径」「尤其是 web3 用户，喜欢猫猫狗狗」）立
+ * emotionalImpactCarrierExempt 臂：E 类 ∧ fit≥0.5 ∧ 文本事实锚（动物救助词 ∧
+ * 纪念词）→ 豁免载体门。臂的宿主是 J1.29 载体门——C171 形象轴整轴退役后无
+ * 宿主随门删除：ANIMAL_RESCUE_STORY_RE/MEMORIAL_STORY_RE/isAnimalRescue-
+ * MemorialStory 辅助与审计键 subjectCarrierEmotionalImpactExempt 整链退役。
  *
- * 口径：
- *   E 类 + Jev fit 质量（strong_fit+fit）≥0.5 + 文本事实锚（动物救助词 ∧
- *   纪念/离世词）→ 不要求形象载体（故事/人物本身即载体）。
- *   语义是否真实正向仍归 Jev；代码锚只防「泛 E 热点」被误豁（C79 偷窥狂无
- *   救助/纪念词 → 载体门照拦）。
+ * 案票终态变化：秦思雨（救助纪念票）与 C79 偷窥狂（泛 E 热点）C160 时行为
+ * 分叉（前者豁免放行、后者照拦），C171 后**行为一致放行**——载体门不存在，
+ * 两类票的差异回到 fit 分/其他门承担（动物救助票 fit 高事件分高自然放行，
+ * 泛 E 热点票同过 fit 门=已知的避亏弱化面，回归观察）。
  *
- * 节：
- *   A. 秦思雨形状 → pass + 审计键
- *   B. C79 泛 E 热点 → 载体门照拦 + 审计 null
- *   C. fit 质量 <0.5 → 不豁免（fit 门先拦）
- *   D. 非 E 类 → 不豁免
- *   E. 源码口径（正则/早退/审计键/选项接线）
+ * 覆盖：
+ *   A. 秦思雨形状（救助文本+fit 0.8）→ 放行；C79 偷窥狂形状同放行（行为一致）
+ *   B. 源码口径：mapper 无 emotionalImpactCarrierExempt/ANIMAL_RESCUE_STORY_RE/
+ *      isAnimalRescueMemorialStory（防复活）
+ *   C. 审计键：subjectCarrierEmotionalImpactExempt 不再产出（历史行保留展示）
+ *   D. 版本：J1.102+（C171）
  *
  * 用法：node scripts/_test_emotional_impact_carrier.cjs
  */
@@ -69,54 +73,42 @@ const s2jev = (r) => r.stage2DataToSave?.parsed_output?.jev;
 async function main() {
   const { mapStandardAnswers } = await import(mapperPath);
 
-  console.log('── A. 秦思雨形状（动物救助 + 纪念 + E 强 fit）──');
-  const rA = mapStandardAnswers(answers(), ctx(RESCUE_TEXT));
-  check('A1 载体门豁免 → pass', rA.llmResult.pass === true, rA.llmResult.reason);
-  check('A2 审计键 subjectCarrierEmotionalImpactExempt（fitMass 0.80）',
-    s2jev(rA).subjectCarrierEmotionalImpactExempt?.carrier === 'no_visual_entity'
-      && s2jev(rA).subjectCarrierEmotionalImpactExempt?.fitMass === 0.8,
-    s2jev(rA).subjectCarrierEmotionalImpactExempt);
-  check('A3 subjectCarrierBlock=null（载体门确实未拦）',
-    s2jev(rA).subjectCarrierBlock === null, s2jev(rA).subjectCarrierBlock);
+  // ═══ A. 案票终态（C160 分叉 → C171 一致放行）═══
+  console.log('\n── A. 案票终态 ──');
+  const rRescue = mapStandardAnswers(answers(), ctx(RESCUE_TEXT));
+  check('A1 秦思雨形状（救助纪念+fit 0.8）→ 放行（E 类 fit 0.8 事件分 80，无需豁免臂）',
+    rRescue.llmResult.rating !== 'low', rRescue.llmResult.reason);
+  const rC79 = mapStandardAnswers(answers(), ctx(C79_TEXT));
+  check('A2 C79 偷窥狂形状（泛 E 热点）→ 同放行（载体门不存在，C160 分叉消失——已知的避亏弱化面，回归观察）',
+    rC79.llmResult.rating !== 'low' && !(rC79.llmResult.reason || '').includes('形象载体'),
+    rC79.llmResult.reason);
+  check('A3 两票行为一致（豁免臂退役后无差分路径）',
+    (rRescue.llmResult.rating !== 'low') === (rC79.llmResult.rating !== 'low'), null);
 
-  console.log('── B. C79 泛 E 热点（无救助/纪念词）──');
-  const rB = mapStandardAnswers(answers(), ctx(C79_TEXT, {
-    tokenData: { symbol: '偷窥狂', name: '偷窥狂', raw_api_data: { name: '偷窥狂' } },
-  }));
-  check('B1 载体门照拦（叙事主体无形象载体）',
-    rB.llmResult.rating === 'low' && (rB.llmResult.reason || '').includes('无形象载体'),
-    rB.llmResult.reason);
-  check('B2 审计键 null', s2jev(rB).subjectCarrierEmotionalImpactExempt === null,
-    s2jev(rB).subjectCarrierEmotionalImpactExempt);
+  // ═══ B. 源码口径（防复活）═══
+  console.log('\n── B. 源码口径 ──');
+  const mapperSrc = readFileSync(mapperPath, 'utf8');
+  check('B1 mapper 无 emotionalImpactCarrierExempt 活代码（留档注释外零引用）',
+    !/const emotionalImpactCarrierExempt/.test(mapperSrc)
+    && !/emotionalImpactCarrierExempt,/.test(mapperSrc)
+    && !/emotionalImpactCarrierExempt\s*:/.test(mapperSrc), null);
+  check('B2 mapper 无 ANIMAL_RESCUE_STORY_RE/MEMORIAL_STORY_RE/isAnimalRescueMemorialStory（正则事实锚整链删除）',
+    !/ANIMAL_RESCUE_STORY_RE/.test(mapperSrc) && !/MEMORIAL_STORY_RE/.test(mapperSrc)
+    && !/isAnimalRescueMemorialStory/.test(mapperSrc), null);
 
-  console.log('── C. fit 质量 <0.5（marginal 占优）──');
-  const rC = mapStandardAnswers(answers({
-    web3_user_event_fit: { choice: 'marginal', probabilities: { strong_fit: 0.1, fit: 0.1, marginal: 0.7, unfit: 0.1 } },
-  }), ctx(RESCUE_TEXT));
-  check('C1 不豁免（fit 门先拦，reason 含契合证据不足/偏好不合）',
-    rC.llmResult.rating === 'low'
-      && (rC.llmResult.reason || '').includes('Web3用户')
-      && s2jev(rC).subjectCarrierEmotionalImpactExempt === null,
-    { reason: rC.llmResult.reason, audit: s2jev(rC).subjectCarrierEmotionalImpactExempt });
+  // ═══ C. 审计键 ═══
+  console.log('\n── C. 审计键 ──');
+  check('C1 stage2 段 subjectCarrierEmotionalImpactExempt 不产出（历史行保留展示）',
+    !('subjectCarrierEmotionalImpactExempt' in s2jev(rRescue)), s2jev(rRescue).subjectCarrierEmotionalImpactExempt);
 
-  console.log('── D. 非 E 类（同类文本）──');
-  const rD = mapStandardAnswers(answers({
-    event_category: { choice: 'D', probabilities: { D: 0.8, E: 0.1 } },
-  }), ctx(RESCUE_TEXT));
-  check('D1 不豁免（审计 null；D 类另有实体/载体门）',
-    s2jev(rD).subjectCarrierEmotionalImpactExempt === null,
-    s2jev(rD).subjectCarrierEmotionalImpactExempt);
-
-  console.log('── E. 源码口径 ──');
-  const src = readFileSync(mapperPath, 'utf8');
-  check('E1 动物救助 + 纪念双词锚', src.includes('ANIMAL_RESCUE_STORY_RE') && src.includes('MEMORIAL_STORY_RE')
-    && src.includes('isAnimalRescueMemorialStory(context)'), null);
-  check('E2 E 类 + fit 质量 + 文本锚三条件', src.includes("category === 'E' && likedMass >= 0.5 && animalRescueMemorialStory"), null);
-  check('E3 载体门早退', src.includes('if (opts?.emotionalImpactCarrierExempt) return null;'), null);
-  check('E4 审计键与接线', src.includes('subjectCarrierEmotionalImpactExempt') && src.includes('emotionalImpactCarrierExempt,'), null);
+  // ═══ D. 版本 ═══
+  console.log('\n── D. 版本 ──');
+  const { JEV_QUESTIONS_VERSION } = await import(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'));
+  check('D1 JEV_QUESTIONS_VERSION ≥ J1.102（C171 形象轴整退役，情感豁免臂随删）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
 
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch(e => { console.error('单测异常:', e); process.exit(1); });
