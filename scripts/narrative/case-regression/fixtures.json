@@ -166,9 +166,12 @@
       "symbol": "TREE",
       "addr": "0xd50e11204f7f3d63598b0118ee4151bf95917777",
       "expect": {
-        "rating": "low"
+        "rating": "high",
+        "tokenCategory": "event:C"
       },
-      "note": "j7tracker 直链解锁：现行 DB 行死于 public_info_fetch_failed（twitter 锁死 JSON 误判=f61f500 部署前形状）。case 回归记录引擎实际结果 low；若再死于 fetch_failed 或翻 high，回归直接红。"
+      "note": "j7tracker 直链解锁：现行 DB 行死于 public_info_fetch_failed（twitter 锁死 JSON 误判=f61f500 部署前形状）。case 回归记录引擎实际结果 low；若再死于 fetch_failed 或翻 high，回归直接红。",
+      "expectBecause": "C106 裁定（2026-10-22）：重析翻 high 85.15（C167 J1.100/C168 部署后），用户裁定当前结果没问题，expect low→high；原 low=C106 收录时载体门拦截的引擎实际值",
+      "expectSince": "2026-10-22"
     },
     {
       "caseId": "C108",
