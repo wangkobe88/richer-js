@@ -88,7 +88,8 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **效果链**：TREE → new_entity → 实体门不触+**词句题整体跳过**（J1.139 只评 not_entity 票）→ 计分 ≈81 → high（C106 expect 达成）。
 - **反向风险（呈报过）**：逃逸面要求语料确实陈述命名行为+讲故事——真蹭名票（币名=普通词、语料无命名行为）不满足锚句，仍走 not_entity→词句题照拦。
 - **单测**：name_entity_acceptance D7 故事主体锚三点在场+逃逸门断言（42/0）；版本断言随动 3 处（angle_timing C5/question_consolidation A10d/name_entity D5→J1.104）。叙事侧全量单测零失败。
-- **部署**：commit → push → 182 pull → 重启 worker+live（查持仓）→ TREE 定向重析验证 new_entity/high → 全量回归对拍。
+- **部署（已完成）**：2613482 push → 182 pull → worker 重启（14:09 UTC，J1.104）→ TREE 定向重析三跑 **high 81.55/82.21/80.44 稳定**，实体题 new_entity 0.09→**0.99**（锚生效干脆）；phrase 题照答 not_acceptable 0.58 但 new_entity 选择下词句门不消费（J1.139 结构按设计工作，答案留审计）。
+- **回归终态（52 票 40P/6F/6O）**：C106 TREE **FAIL→PASS**（expect high 达成，C174 收口）；C173 收录「4」票 PASS（51→52 票）；6 FAIL=C94/C101/C79/C133/C162/C167 **全部前段遗留待裁**（C172 后同名单），**零新增漂移**。⚠️ live v33 引擎 8eca4890（并行会话 14:00 所起）早于本次 pull=仍 J1.103 代码，是否重启待用户裁定。
 
 ### C172 品牌劫持轴整轴退役——判据归位 web3_user_name_event_acceptance 用户视角（2026-10-22 用户裁定）★
 
