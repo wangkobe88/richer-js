@@ -60,12 +60,15 @@
       "symbol": "Le Panthère rose",
       "addr": "0x9df97d4239818411237d19a09303262269c47777",
       "expect": {
-        "rating": "low",
+        "rating": "high",
         "reasonIncludes": [
           "负面硬新闻"
-        ]
+        ],
+        "tokenCategory": "event:E"
       },
-      "note": "粉红豹法国骚乱案：现行 DB 行 high 71.78=4daab46 部署前事故现场原行（实买 -19.4%），J1.38 政治暴力边界部署后从未整链重析（当时只做 jev_dryrun 定向重放 0.22→0.97）。预期变化票：low+负面硬新闻。"
+      "note": "粉红豹法国骚乱案：现行 DB 行 high 71.78=4daab46 部署前事故现场原行（实买 -19.4%），J1.38 政治暴力边界部署后从未整链重析（当时只做 jev_dryrun 定向重放 0.22→0.97）。预期变化票：low+负面硬新闻。",
+      "expectBecause": "C170 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」（J1.101 门退役）——原 expect low+reasonIncludes 负面硬新闻锚在死门上；重析翻 high 79.46（fit 层 80% 过线 A 档+exact_match），政治暴力票生死改由 web3_user_event_fit 判",
+      "expectSince": "2026-10-22"
     },
     {
       "caseId": "C99",
