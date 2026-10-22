@@ -1,0 +1,42 @@
+{
+  "ranAt": "2026-10-20T03:42:39.281Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C110",
+      "symbol": "币安菠萝",
+      "addr": "0x8ce87ffebe62e6f7ea87173b441520f659307777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "营销噱头"
+        ]
+      },
+      "observe": null,
+      "caseNote": "J1.45 marketing_gimmick 扩全域首拦面：现行 DB 行 high=部署前旧形状（D 档空洞票，argmax=gimmick 但 scope=['W','B'] 不含 D→不拦→实买）。预期变化票：low+营销噱头（D 档臂）。",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 75.16,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "营销噱头",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    }
+  ]
+}

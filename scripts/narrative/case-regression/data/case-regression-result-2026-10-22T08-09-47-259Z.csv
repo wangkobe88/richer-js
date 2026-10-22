@@ -1,0 +1,3 @@
+﻿caseId,symbol,addr,status,期望rating,期望reason关键词,期望禁词,期望precheck规则,期望禁规则,期望审计键,期望tokenCat,期望说明,基线rating,基线score,基线ruleName,基线reason,当前rating,当前score,当前ruleName,当前stage,当前tokenCat,当前reason,失败明细,observe说明,case语义
+C109a,交易猫,0xc929c8d1e57569b706d7cfdc3487c7d33b287777,PASS,high,,叙事主体无形象载体,,,,,,high,89.9,,,high,89.3,,3,event:D,,,,M1 图证载体覆盖豁免（C109 主体）：不再死于载体门；用户裁定终评级 high（2026-10-20，2026-10-21 复核维持）。M1 豁免审计键（subjectCarrierImgOverride）只在 Jev 本轮掷 carrier 低置信（<0.5 才需豁免）时落；carrier=existing→载体门自然放行=合法路径无豁免审计，审计键不可硬断言，以「脱离载体门拦截」为主断言。
+C114,DND,0x4dbcb10e68626b6f663bd596905d41cdc6b07777,FAIL,mid|high,,,,,,,,low,,,叙事主体无形象载体（无形象实体）,low,,,2,event:W,W类总分不足（6.3<32）,rating=low 不在预期 [mid|high],,DND = 币安猫亮窗视频（与交易猫同一视觉资产）；用户裁定 high（2026-10-21 复核改为 high/mid）。

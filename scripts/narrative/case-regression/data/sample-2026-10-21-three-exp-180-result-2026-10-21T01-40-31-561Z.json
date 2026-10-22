@@ -1,0 +1,1537 @@
+{
+  "ranAt": "2026-10-21T01:40:31.567Z",
+  "setName": "2026-10-21-three-exp-180",
+  "questionSet": "J1.79+P1.13",
+  "summary": {
+    "total": 60,
+    "matrix": {
+      "top": {
+        "total": 60,
+        "low": 59,
+        "mid": 0,
+        "high": 1,
+        "error": 0,
+        "noRating": 0
+      },
+      "bottom": {
+        "total": 0,
+        "low": 0,
+        "mid": 0,
+        "high": 0,
+        "error": 0,
+        "noRating": 0
+      },
+      "random": {
+        "total": 0,
+        "low": 0,
+        "mid": 0,
+        "high": 0,
+        "error": 0,
+        "noRating": 0
+      }
+    },
+    "errors": 0
+  },
+  "results": [
+    {
+      "sampleId": "TOP-01",
+      "stratum": "top",
+      "addr": "0x8e5da4b2689cf7b694ea195e6bcb078027797777",
+      "symbol": "テスラSI能飞",
+      "maxGainPct": 1420.49120963831,
+      "finalGainPct": 742.370437156271,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 57357.3727222331,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-02",
+      "stratum": "top",
+      "addr": "0x8b839aa08a00bbaab60495a1931f111f7e724444",
+      "symbol": "抖音女孩",
+      "maxGainPct": 1362.38014694041,
+      "finalGainPct": 1362.38014694041,
+      "profileCat": "pump_dump",
+      "peakMcapUsd": 48913.3678185146,
+      "platform": "fourmeme",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3用户偏好不合"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-03",
+      "stratum": "top",
+      "addr": "0x483c9746b455e296622945758437f8c7593b7777",
+      "symbol": "bi",
+      "maxGainPct": 1199.56906182599,
+      "finalGainPct": 1199.56906182599,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42587.6824472641,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": null,
+        "reason": "未在账号简介或推文中找到完整代币地址"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-04",
+      "stratum": "top",
+      "addr": "0x20b178e02f05beafc4e613c95aa476635a217777",
+      "symbol": "幸运蝴蝶",
+      "maxGainPct": 1183.89069206309,
+      "finalGainPct": 1183.89069206309,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 52297.0425261508,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": null,
+        "reason": "未在账号简介或推文中找到完整代币地址"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-05",
+      "stratum": "top",
+      "addr": "0x209ed1597b8475a43cfcf87f73d0c7e5b9557777",
+      "symbol": "CUMROCKET",
+      "maxGainPct": 1177.28783196762,
+      "finalGainPct": 839.810640262724,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 59359.666332588,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "blacklist",
+        "reason": "推文作者@meggarwicky在黑名单中，该账号专门制造虚假叙事"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-06",
+      "stratum": "top",
+      "addr": "0x5a324d0fd0b9f097a01e35f05642dc5cfe7d7777",
+      "symbol": "FATCAT",
+      "maxGainPct": 1176.38939404558,
+      "finalGainPct": 1176.38939404558,
+      "profileCat": "pump_dump",
+      "peakMcapUsd": 46349.1101913113,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-07",
+      "stratum": "top",
+      "addr": "0x1774c0cc851a777c89fb0e1d73712bc7564b7777",
+      "symbol": "heyi.ai",
+      "maxGainPct": 1160.79883653833,
+      "finalGainPct": 935.305449285812,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 45612.4897423748,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-08",
+      "stratum": "top",
+      "addr": "0x88900da3c4b3418708d99d880129cacd9b037777",
+      "symbol": "REPEG",
+      "maxGainPct": 1157.75272923101,
+      "finalGainPct": 1157.75272923101,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 45838.2110862691,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "expired_tweet",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=angle_seeking，主推文：2026年10月20日 13:34 (UTC)），叙事时效已过"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-09",
+      "stratum": "top",
+      "addr": "0x51c10d9c82d93d343e8e7e9b8ce896514f4f7777",
+      "symbol": "chibi",
+      "maxGainPct": 1129.35598609659,
+      "finalGainPct": 1129.35598609659,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42018.7449859441,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "public_info_fetch_failed",
+        "reason": "有公开信息链接但内容获取失败或已失效（推文删除、网站无法访问、视频下架等），叙事价值已耗尽"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-10",
+      "stratum": "top",
+      "addr": "0xc283bf2b2eee40e5594abfd1c50ab37711c57777",
+      "symbol": "バイナンスペイ",
+      "maxGainPct": 1113.36466938216,
+      "finalGainPct": 1113.36466938216,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42546.1493324887,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "expired_tweet",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=interpretive_reply，主推文：2026年9月30日 03:23 (UTC)），叙事时效已过"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-11",
+      "stratum": "top",
+      "addr": "0xc6fecab1b9bf2c761d754edbe016e186e44d7777",
+      "symbol": "CZ4",
+      "maxGainPct": 1110.75752321885,
+      "finalGainPct": 1110.75752321885,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 41496.3385594757,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "W类总分不足（17.3<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-12",
+      "stratum": "top",
+      "addr": "0x5731879f6d4c2bc1d1d3d7d3370875eaa19c7777",
+      "symbol": "레니니",
+      "maxGainPct": 1098.16478914241,
+      "finalGainPct": 1098.16478914241,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 37733.4090154091,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:A",
+        "ruleName": null,
+        "reason": "币名不适合作为 meme 符号（名字门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-13",
+      "stratum": "top",
+      "addr": "0xe98f5913a1d77aa2b82ab2a51a5e98429b4d7777",
+      "symbol": "heyi",
+      "maxGainPct": 1069.61261316382,
+      "finalGainPct": 1069.61261316382,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 52763.2327871179,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-14",
+      "stratum": "top",
+      "addr": "0xe9e82d1fa74283991dec5543453373ec836b7777",
+      "symbol": "天狗",
+      "maxGainPct": 1040.98846164428,
+      "finalGainPct": 1040.98846164428,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 35843.8721096403,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "cashtag改道W类($Tengu)总分不足（25.97<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-15",
+      "stratum": "top",
+      "addr": "0x25e1c479a91f0108591ac6e156bda79127b27777",
+      "symbol": "短尾猫",
+      "maxGainPct": 1014.8785223344,
+      "finalGainPct": 1014.8785223344,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 43161.8668658507,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:A",
+        "ruleName": null,
+        "reason": "事件分不足（51.8<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-16",
+      "stratum": "top",
+      "addr": "0xefbd24cf01ef3396016d212f822691cae97a7777",
+      "symbol": "진로 두꺼비",
+      "maxGainPct": 1002.17535894902,
+      "finalGainPct": 1002.17535894902,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 37662.3888456798,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:A",
+        "ruleName": null,
+        "reason": "IP二次利用"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-17",
+      "stratum": "top",
+      "addr": "0x837fc83cbdb396cf0dcd478ae30c8c603dc07777",
+      "symbol": "1",
+      "maxGainPct": 989.844493836495,
+      "finalGainPct": 664.801009784155,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 45563.412408829,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-18",
+      "stratum": "top",
+      "addr": "0x843b2515ccc775bbe4c9e56dbed710e602317777",
+      "symbol": "秦思雨",
+      "maxGainPct": 980.92849122156,
+      "finalGainPct": 980.92849122156,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 43186.8475621422,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "Web3用户偏好不合"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-19",
+      "stratum": "top",
+      "addr": "0xf3c5a7d1840b650246299d4bdcfe3f277f667777",
+      "symbol": "iphone use",
+      "maxGainPct": 975.748429955377,
+      "finalGainPct": 975.748429955377,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42517.6600253037,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:B",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-20",
+      "stratum": "top",
+      "addr": "0xeeed1ed1b6bd0eae15bb651490a7e8b3057f7777",
+      "symbol": "MEMES",
+      "maxGainPct": 954.105786933354,
+      "finalGainPct": 669.602439922779,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 45908.9370086714,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C",
+        "ruleName": null,
+        "reason": "空洞内容"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-21",
+      "stratum": "top",
+      "addr": "0xf7ccc7d9674fb4e1233d8bea613712c910857777",
+      "symbol": ".AI",
+      "maxGainPct": 948.507466564255,
+      "finalGainPct": 700.84765986153,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 46319.8294044978,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "W类总分不足（41.31<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-22",
+      "stratum": "top",
+      "addr": "0xe4e696031d9304c894584043508c6af9d5597777",
+      "symbol": "chibi",
+      "maxGainPct": 937.269214213718,
+      "finalGainPct": 937.269214213718,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42059.9341436861,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "W类总分不足（25.49<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-23",
+      "stratum": "top",
+      "addr": "0xe7b38e96bf3f3d244d558849dad907e2eff74444",
+      "symbol": "牛来人生",
+      "maxGainPct": 920.570082567756,
+      "finalGainPct": -3.79264076077056,
+      "profileCat": "wash",
+      "peakMcapUsd": 24757035.2749182,
+      "platform": "fourmeme",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": "account_based_meme",
+        "ruleName": null,
+        "reason": "名称关联:精确匹配｜Web3流量:无(P=0，choice=no_traffic)｜不满足:无30天内Web3流量事件→low"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-24",
+      "stratum": "top",
+      "addr": "0x0484372612d7a6c23959bc9492b03e047b537777",
+      "symbol": "长鹏",
+      "maxGainPct": 915.45349673318,
+      "finalGainPct": 915.45349673318,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42253.2569324809,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "high",
+        "score": 75.52
+      },
+      "current": {
+        "rating": "high",
+        "score": 75.52,
+        "stage": 3,
+        "tokenCategory": "event:F",
+        "ruleName": null,
+        "reason": null
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-25",
+      "stratum": "top",
+      "addr": "0x03055d2972ee119d1021345c00162485f1367777",
+      "symbol": "Minimax娘",
+      "maxGainPct": 912.879207704154,
+      "finalGainPct": 912.879207704154,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 43551.5652291953,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "public_info_fetch_failed",
+        "reason": "有公开信息链接但内容获取失败或已失效（推文删除、网站无法访问、视频下架等），叙事价值已耗尽"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-26",
+      "stratum": "top",
+      "addr": "0xb2f9d713eb48c2b6e9840c1900b9d19b46c47777",
+      "symbol": ".AI",
+      "maxGainPct": 905.981980764634,
+      "finalGainPct": 905.981980764634,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 44031.21932671,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 3,
+        "tokenCategory": "event:A",
+        "ruleName": null,
+        "reason": "关联性不足（5分/generic_concept）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-27",
+      "stratum": "top",
+      "addr": "0xb5f7acb40cb1dbb5e1e77c40a0dd717b6bae7777",
+      "symbol": "chibi",
+      "maxGainPct": 902.780693686789,
+      "finalGainPct": 902.780693686789,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42018.7449859441,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "public_info_fetch_failed",
+        "reason": "有公开信息链接但内容获取失败或已失效（推文删除、网站无法访问、视频下架等），叙事价值已耗尽"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-28",
+      "stratum": "top",
+      "addr": "0x1214a8cceff27ef355f803e06ec5511cb4f97777",
+      "symbol": "80억분의1",
+      "maxGainPct": 880.494554482451,
+      "finalGainPct": 880.494554482451,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 37000.3603753468,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-29",
+      "stratum": "top",
+      "addr": "0xf72aa3e166102c05eba522c6b6801f19270d7777",
+      "symbol": "スノーボール",
+      "maxGainPct": 872.217415875388,
+      "finalGainPct": 872.217415875388,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 52374.7012350316,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-30",
+      "stratum": "top",
+      "addr": "0x7ff8049891abf7b11b87f7b278af1ac2aecc4444",
+      "symbol": "蝴蝶小C总",
+      "maxGainPct": 871.836597518982,
+      "finalGainPct": 871.836597518982,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 23769716.6981053,
+      "platform": "fourmeme",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": "account_based_meme",
+        "ruleName": null,
+        "reason": "名称关联:语义关联｜Web3流量:无(P=0.01，choice=no_traffic)｜不满足:无30天内Web3流量事件→low"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-31",
+      "stratum": "top",
+      "addr": "0x3eaf0896617b319796f6cb03ddfa5efa2b1e7777",
+      "symbol": "K0",
+      "maxGainPct": 855.753381207975,
+      "finalGainPct": 4.25267930209596,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 36394.0838209489,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "仅有通讯应用链接（Telegram/Discord），缺少公开可验证的叙事信息，无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-32",
+      "stratum": "top",
+      "addr": "0x9eb3188507ffab45f5e27c7b0a7be97e36617777",
+      "symbol": "cz4",
+      "maxGainPct": 842.308559242014,
+      "finalGainPct": 842.308559242014,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42141.1677654193,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-33",
+      "stratum": "top",
+      "addr": "0xec2f0edccf2c6307a14496969596c4df8e2c7777",
+      "symbol": "heyi",
+      "maxGainPct": 824.438957811177,
+      "finalGainPct": 647.046721028679,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 45561.1660123822,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:B",
+        "ruleName": null,
+        "reason": "空洞内容"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-34",
+      "stratum": "top",
+      "addr": "0xe779abc642f5f88f1f8f59f3f23ef5e46f707777",
+      "symbol": "Lovot",
+      "maxGainPct": 816.689565145038,
+      "finalGainPct": 816.689565145038,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 43933.1868477825,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "blacklist",
+        "reason": "推文作者@captain__crunch在黑名单中，该账号专门制造虚假叙事"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-35",
+      "stratum": "top",
+      "addr": "0xa44cf67cdf97218d41ebabca08eec56bde994444",
+      "symbol": "年年人生",
+      "maxGainPct": 816.288376745365,
+      "finalGainPct": -2.29899377130861,
+      "profileCat": "wash",
+      "peakMcapUsd": 22133396.2666259,
+      "platform": "fourmeme",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": "account_based_meme",
+        "ruleName": null,
+        "reason": "名称关联:无关联｜Web3流量:无(P=0，choice=no_traffic)｜不满足:名称关联不成立、无30天内Web3流量事件→low"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-36",
+      "stratum": "top",
+      "addr": "0x2ac5e77c4e08bdd14a1f8026ea3251fd75597777",
+      "symbol": "cz4",
+      "maxGainPct": 804.604355173852,
+      "finalGainPct": 804.604355173852,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 42357.0873957566,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-37",
+      "stratum": "top",
+      "addr": "0x31e0c91432b6dfc22de7a99d4b98c49fdad54444",
+      "symbol": "牛来人生",
+      "maxGainPct": 741.40463509682,
+      "finalGainPct": 741.40463509682,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 20469877.6273601,
+      "platform": "fourmeme",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": "account_based_meme",
+        "ruleName": null,
+        "reason": "名称关联:精确匹配｜Web3流量:无(P=0，choice=no_traffic)｜不满足:无30天内Web3流量事件→low"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-38",
+      "stratum": "top",
+      "addr": "0x04e8b653455b3ce534042b5886695d0329f37777",
+      "symbol": "CryptoBro",
+      "maxGainPct": 732.065692951446,
+      "finalGainPct": 732.065692951446,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 41912.8133028683,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "叙事主体无形象载体（无形象实体）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-39",
+      "stratum": "top",
+      "addr": "0xfd7afc1e2248bfbd7a9f1175b9c451183bc67777",
+      "symbol": "SI",
+      "maxGainPct": 729.944911582196,
+      "finalGainPct": 45.3804970228518,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 34949.9393936261,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-40",
+      "stratum": "top",
+      "addr": "0x6be6f2bf3f1245b98d478d641946c30fd0b17777",
+      "symbol": "バイナ糞野郎",
+      "maxGainPct": 726.282954570733,
+      "finalGainPct": 123.039283820166,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 34419.7438566309,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "expired_tweet",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=direct_tweet，源头本体 16956571s>24h 无新鲜载体，主推文：2026年4月6日 16:26 (UTC)），叙事时效已过"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-41",
+      "stratum": "top",
+      "addr": "0x5e7ade91bda27bf83a781792e655c5709f5c7777",
+      "symbol": "bibi",
+      "maxGainPct": 699.166410125766,
+      "finalGainPct": 439.873295592777,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 46087.5530424963,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-42",
+      "stratum": "top",
+      "addr": "0xbd48247f2fc525b5b5f01d18f5bbe79776547777",
+      "symbol": "BNB͏",
+      "maxGainPct": 675.345832297363,
+      "finalGainPct": 17.6139556091823,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 34281.3515595427,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": "account_based_meme",
+        "ruleName": null,
+        "reason": "名称关联:精确匹配｜Web3流量:无(P=0.07，choice=no_traffic)｜不满足:无30天内Web3流量事件→low"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-43",
+      "stratum": "top",
+      "addr": "0x2e2de42d3b77abfb5910ee7d698bcf8381c97777",
+      "symbol": "80억분의1",
+      "maxGainPct": 669.350276452224,
+      "finalGainPct": 55.9776783648039,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 22428.4455587085,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-44",
+      "stratum": "top",
+      "addr": "0xd6e5c60097acde1add51c8869fa19ef48d8f4444",
+      "symbol": "4STOCKS",
+      "maxGainPct": 654.535813502501,
+      "finalGainPct": 654.535813502501,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 18589549.80466,
+      "platform": "fourmeme",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:A",
+        "ruleName": null,
+        "reason": "事件分不足（30<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-45",
+      "stratum": "top",
+      "addr": "0xbac09c2b267f4f160330246613587d99a0437777",
+      "symbol": "T1",
+      "maxGainPct": 647.886955780974,
+      "finalGainPct": 217.090109799119,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 26018.9504399302,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "expired_tweet",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=angle_seeking，主推文：2026年10月19日 10:49 (UTC)），叙事时效已过"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-46",
+      "stratum": "top",
+      "addr": "0x331150e0c0cf2a081b58f37d3334173011bd7777",
+      "symbol": "羊角",
+      "maxGainPct": 637.445556757577,
+      "finalGainPct": 51.9989865295119,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 31149.9789330626,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-47",
+      "stratum": "top",
+      "addr": "0xf030b7b50d5a2b8a7bbd9332dc9c67ed6bbaffff",
+      "symbol": "自由之钱",
+      "maxGainPct": 630.121288484891,
+      "finalGainPct": 630.121288484891,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 24501.7432346629,
+      "platform": "fourmeme",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C",
+        "ruleName": null,
+        "reason": "空洞内容"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-48",
+      "stratum": "top",
+      "addr": "0xc12d3ed77390eda9cdb471df4c6bf091899e7777",
+      "symbol": "绝",
+      "maxGainPct": 628.515707653897,
+      "finalGainPct": -3.86872773343256,
+      "profileCat": "wash",
+      "peakMcapUsd": 24390.6890667501,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C",
+        "ruleName": null,
+        "reason": "机构日常运营"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-49",
+      "stratum": "top",
+      "addr": "0x4e0394a87f03f086c92b59fd85ddef172b467777",
+      "symbol": "Laura",
+      "maxGainPct": 626.845706828162,
+      "finalGainPct": 65.2122978066998,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 35093.0547665812,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "blacklist",
+        "reason": "推文作者@theogdeveloper1在黑名单中，该账号专门制造虚假叙事"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-50",
+      "stratum": "top",
+      "addr": "0x43fdbccd0397c129cb233a5c5bc08226a8667777",
+      "symbol": "章鱼",
+      "maxGainPct": 616.296157648463,
+      "finalGainPct": 13.2828945207689,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 25037.7641634085,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W",
+        "ruleName": null,
+        "reason": "W类总分不足（20.25<60）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-51",
+      "stratum": "top",
+      "addr": "0xdcd74838e9a1427753c276e169366ecedf327777",
+      "symbol": "破零羊",
+      "maxGainPct": 611.702599819457,
+      "finalGainPct": 261.096176152722,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 33738.152164046,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-52",
+      "stratum": "top",
+      "addr": "0x16703d4cf3443ff37073056d171e75c6299e7777",
+      "symbol": "领导力",
+      "maxGainPct": 598.571167841048,
+      "finalGainPct": -3.76016851009307,
+      "profileCat": "wash",
+      "peakMcapUsd": 23803.9396177309,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-53",
+      "stratum": "top",
+      "addr": "0x3df9874e909ca07614d16c06f0d133a39f8b7777",
+      "symbol": "chibi",
+      "maxGainPct": 592.32021495023,
+      "finalGainPct": -0.0819295390280377,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 26095.0463267463,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-54",
+      "stratum": "top",
+      "addr": "0x6994137a5573e692cc65cc0917974acdf2357777",
+      "symbol": "HEYI",
+      "maxGainPct": 585.96853560523,
+      "finalGainPct": 421.778679072811,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 44114.2602817287,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-55",
+      "stratum": "top",
+      "addr": "0x42a188de0326fda353879c972143831b57cc7777",
+      "symbol": " POFD",
+      "maxGainPct": 581.103170630097,
+      "finalGainPct": 399.327313717724,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 52874.6891765668,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:C",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-56",
+      "stratum": "top",
+      "addr": "0x4902298a2c634406a7907f01f3b00fd7eccc7777",
+      "symbol": "币安支付",
+      "maxGainPct": 564.572828862819,
+      "finalGainPct": -0.790177995288308,
+      "profileCat": "high_mcap_wash",
+      "peakMcapUsd": 27692.8945113123,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "expired_tweet",
+        "reason": "发币时所有推文距代币创建已超过300秒（推文类型=interpretive_reply，主推文：2026年9月30日 03:23 (UTC)），叙事时效已过"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-57",
+      "stratum": "top",
+      "addr": "0xa1a38fa8146040b3e67311c4b58c1915d4b27777",
+      "symbol": "김여정",
+      "maxGainPct": 544.386799145474,
+      "finalGainPct": 15.5728723468971,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 19557.9209770751,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3用户偏好不合"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-58",
+      "stratum": "top",
+      "addr": "0x93788b3e33dc225b733ec0314e593ca523c57777",
+      "symbol": "火星酱",
+      "maxGainPct": 543.062900604301,
+      "finalGainPct": -12.2892929870213,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 25834.6577250335,
+      "platform": "flap",
+      "srcExps": "05222b30",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": null,
+        "tokenCategory": null,
+        "ruleName": "no_public_info",
+        "reason": "缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-59",
+      "stratum": "top",
+      "addr": "0xfc03fdd79bec3ab98f7dff8d9d313498e7f47777",
+      "symbol": "LUCKY",
+      "maxGainPct": 537.963647399863,
+      "finalGainPct": 36.872032013075,
+      "profileCat": "high_mcap_wash",
+      "peakMcapUsd": 31549.7904632261,
+      "platform": "flap",
+      "srcExps": "6209342e|37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:D",
+        "ruleName": null,
+        "reason": "币名映射实体在 Web3 用户侧无名（用户不认得该实体，unknown 71%≥50%）"
+      },
+      "error": null
+    },
+    {
+      "sampleId": "TOP-60",
+      "stratum": "top",
+      "addr": "0x220d237890ff23f0390f499afbdfa4a58c1b7777",
+      "symbol": "小黑",
+      "maxGainPct": 520.907878739043,
+      "finalGainPct": 424.933327623234,
+      "profileCat": "high_mcap",
+      "peakMcapUsd": 23184.0204346508,
+      "platform": "flap",
+      "srcExps": "37b19a9f",
+      "baseline": {
+        "rating": "low",
+        "score": null
+      },
+      "current": {
+        "rating": "low",
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E",
+        "ruleName": null,
+        "reason": "Web3 用户不接纳该名字（用户接纳度门）"
+      },
+      "error": null
+    }
+  ]
+}

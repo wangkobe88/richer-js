@@ -468,12 +468,14 @@
       "symbol": "牛来",
       "addr": "0x3618d1227425548a51209d591dfc11b41a717777",
       "expect": {
-        "rating": "high",
+        "rating": "low",
         "tokenCategory": "event:A"
       },
       "note": "J1.52 niche 改锚：币安 Discord 社区梗『牛来』不再判圈外亚文化（旧行 niche_subculture 拦）；现走标准路径。case 回归记录引擎实际结果 high；名字门掷骰面用 observe 标注，翻 low 只警示不 fail。",
       "addedAt": "2026-10-20",
-      "observe": "名字门掷骰面：web3_user_acceptable 0.49-0.50 vs web3_user_not_acceptable 0.48-0.59（实测 15 次 low 7 / high 8）——rating 快照取 high，翻 low 只警示（不掩盖链路可达标准路径/名字门）。"
+      "observe": "名字门掷骰面：web3_user_acceptable 0.49-0.50 vs web3_user_not_acceptable 0.48-0.59（实测 15 次 low 7 / high 8）——rating 快照取 high，翻 low 只警示（不掩盖链路可达标准路径/名字门）。",
+      "expectBecause": "C168 蓝筹去重：撞 63M 牛来大蓝筹 0xbeea1d61…7777 同名复制品（币安 Discord 牛来梗冠军票），用户裁定被拦没问题",
+      "expectSince": "2026-10-22"
     },
     {
       "caseId": "C126",
@@ -615,6 +617,28 @@
         "tokenCategory": "project"
       },
       "note": "FOURGE 一次性专号 rug 案（P1.14 触发案①）：launchpad 模板 pitch+买粉新号（73 粉 2 推）即粉丝带 mid 过门，fourge.fun 死链从未被抓过；买入后 3 分钟同块 8 钱包协同砸盘 2.06 BNB 致 -58%。官网核验门生效后 182 定向重析翻 low（website_unreachable，抓不到=拦）。expect 意图键：拦截位=官网核验门（website_unreachable）+原粉丝带 mid 原文保留（可复算）；SL 0x5841…ffff 同案同臂 182 已验证翻 low，按 C162 先例一案一票不重复收录",
+      "addedAt": "2026-10-22"
+    },
+    {
+      "caseId": "C167",
+      "symbol": "梗王大乱斗",
+      "addr": "0x4ded0c77fcaa9bec730e450d48abb4192a647777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:E"
+      },
+      "note": "梗王大乱斗：游戏本体实录被旧C109/C118豁免放行（nicMatch0.87+depict0.98但所指=非形象事物）；J1.100第四臂referent_itself否决豁免→E类载体门拦截；3连跑low稳定P=0.81/0.83/0.80",
+      "addedAt": "2026-10-22"
+    },
+    {
+      "caseId": "C168",
+      "symbol": "BIAOQING",
+      "addr": "0x329c64d1b14c663b30fa995fef475fdaf3417777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:A"
+      },
+      "note": "BIAOQING 三连发主票：name_exact 撞熊猫头蓝筹（aliases 补录 BIAOQING/The Chinese Bear 后接住）→ 门链首臂拦 low；锁定 C168 门防线",
       "addedAt": "2026-10-22"
     }
   ]

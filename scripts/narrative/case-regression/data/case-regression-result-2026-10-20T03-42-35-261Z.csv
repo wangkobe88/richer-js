@@ -1,0 +1,2 @@
+﻿caseId,symbol,addr,status,期望rating,期望reason关键词,期望禁词,期望precheck规则,期望禁规则,期望审计键,期望tokenCat,期望说明,基线rating,基线score,基线ruleName,基线reason,当前rating,当前score,当前ruleName,当前stage,当前tokenCat,当前reason,失败明细,observe说明,case语义
+C110,币安菠萝,0x8ce87ffebe62e6f7ea87173b441520f659307777,PASS,low,营销噱头,,,,,,,high,75.16,,,low,,,2,event:D,营销噱头,,,"J1.45 marketing_gimmick 扩全域首拦面：现行 DB 行 high=部署前旧形状（D 档空洞票，argmax=gimmick 但 scope=['W','B'] 不含 D→不拦→实买）。预期变化票：low+营销噱头（D 档臂）。"

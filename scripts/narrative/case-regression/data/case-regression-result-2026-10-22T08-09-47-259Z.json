@@ -1,0 +1,74 @@
+{
+  "ranAt": "2026-10-22T08:09:50.071Z",
+  "summary": {
+    "total": 2,
+    "pass": 1,
+    "fail": 1,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C109a",
+      "symbol": "交易猫",
+      "addr": "0xc929c8d1e57569b706d7cfdc3487c7d33b287777",
+      "status": "PASS",
+      "expect": {
+        "rating": "high",
+        "reasonExcludes": [
+          "叙事主体无形象载体"
+        ]
+      },
+      "observe": null,
+      "caseNote": "M1 图证载体覆盖豁免（C109 主体）：不再死于载体门；用户裁定终评级 high（2026-10-20，2026-10-21 复核维持）。M1 豁免审计键（subjectCarrierImgOverride）只在 Jev 本轮掷 carrier 低置信（<0.5 才需豁免）时落；carrier=existing→载体门自然放行=合法路径无豁免审计，审计键不可硬断言，以「脱离载体门拦截」为主断言。",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 89.9,
+        "tokenCategory": "event:D"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 89.3,
+        "stage": 3,
+        "tokenCategory": "event:D"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C114",
+      "symbol": "DND",
+      "addr": "0x4dbcb10e68626b6f663bd596905d41cdc6b07777",
+      "status": "FAIL",
+      "expect": {
+        "rating": [
+          "mid",
+          "high"
+        ]
+      },
+      "observe": null,
+      "caseNote": "DND = 币安猫亮窗视频（与交易猫同一视觉资产）；用户裁定 high（2026-10-21 复核改为 high/mid）。",
+      "baseline": {
+        "rating": "low",
+        "reason": "叙事主体无形象载体（无形象实体）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:E"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "W类总分不足（6.3<32）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:W"
+      },
+      "failures": [
+        "rating=low 不在预期 [mid|high]"
+      ]
+    }
+  ]
+}
