@@ -54,9 +54,9 @@
                 </div>
             </div>
 
-            <!-- 非 live 实验红条 -->
+            <!-- backtest 实验红条（2026-10-22 双支持批：virtual 已放开，仅 backtest 拒） -->
             <div id="not-live-banner" class="hidden text-sm text-red-700 bg-red-50 border border-red-300 rounded-lg px-4 py-3">
-                ⛔ 该实验不是 live 模式——手工交易命令队列仅由 live 实验进程消费，virtual/backtest 实验的命令将永久滞留（API 也会拒绝）。
+                ⛔ 该实验是 backtest 模式——无实验进程消费者，手工交易命令将永久滞留（API 也会拒绝）。
             </div>
 
             <div id="live-panels" class="hidden space-y-6">
@@ -175,7 +175,7 @@
                 $('link-detail').href = `/experiment/${expId}`;
                 $('exp-subtitle').textContent =
                     `${exp.experimentName}（${expId}） · ${exp.tradingMode} · ${exp.status}`;
-                if (exp.tradingMode !== 'live') {
+                if (exp.tradingMode === 'backtest') {
                     $('not-live-banner').classList.remove('hidden');
                     return; // live 面板保持 hidden
                 }

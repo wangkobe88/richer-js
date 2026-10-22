@@ -70,6 +70,16 @@ class ExperimentTokenReturns {
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
+    // 手动交易（2026-10-22 双支持批）：live/virtual 渲染按钮，backtest 不渲染
+    this.tradingMode = null;
+    this.cardsEnabled = false;   // config.positionManagement.perCardBNB > 0
+    this.perCardBNB = null;
+    this.tradeAmount = null;     // 无卡实验退化用（买入显式金额）
+    this.tokenCardsMap = new Map();   // addr → 当前卡数（trades cardTrade 重放，与引擎同口径）
+    this.manualSellLocks = new Set(); // experiment_tokens.manual_sell_locked 镜像
+    this.manualStatusTimer = null;
+    this.manualStatusActive = false;  // 上轮是否有 pending/executing 命令
+
     this.init();
   }
 
@@ -173,6 +183,16 @@ class ExperimentTokenReturns {
       this.experimentData = experimentData.data;
       this.tradesData = tradesData.trades || [];
 
+      // 手动交易上下文（trading_mode + 卡牌机制解析；backtest 不渲染按钮）
+      this.tradingMode = this.experimentData.trading_mode || this.experimentData.tradingMode || null;
+      const pm = this.experimentData.config?.positionManagement;
+      this.perCardBNB = Number(pm?.perCardBNB) > 0 ? Number(pm.perCardBNB) : null;
+      this.cardsEnabled = this.perCardBNB != null;
+      this.tradeAmount = Number(this.experimentData.config?.tradeAmount) > 0
+        ? Number(this.experimentData.config.tradeAmount) : null;
+      this.buildTokenCardsMap();
+      this.manualSellLocks.clear(); // 全量重建（行截断/解锁都能正确收敛）
+
       // 检查是否是回测实验，获取标注数据时使用源实验ID
       this.judgeExperimentId = this.experimentId;
       if (this.experimentData.config?.backtest?.sourceExperimentId) {
@@ -187,6 +207,13 @@ class ExperimentTokenReturns {
           tokensData.tokens.forEach(token => {
             if (token.human_judges) {
               this.judgesData.set(token.token_address, token.human_judges);
+            }
+            // 停止卖出锁态镜像（light 列 manual_sell_locked；补全/metadata 路径无此列=
+            // 显示层缺省未锁，引擎侧 DB 刷新为准不受影响）
+            if (token.manual_sell_locked) {
+              this.manualSellLocks.add(token.token_address);
+            } else {
+              this.manualSellLocks.delete(token.token_address);
             }
             // 保存平台信息
             if (token.platform) {
@@ -323,6 +350,9 @@ class ExperimentTokenReturns {
       this.loadNarrativeData()
         .then(() => this.applyFilterAndSort())
         .catch(() => {});
+
+      // 手动交易命令状态轮询（有 pending/executing 时 2s 加速，否则 10s 巡检）
+      this.startManualStatusPolling();
     } catch (error) {
       console.error('加载数据失败:', error);
       this.showError(error.message);
@@ -652,6 +682,7 @@ class ExperimentTokenReturns {
     this.bindCopyButtons();
     this.bindJudgeButtons();
     this.bindToggleButtons();
+    this.bindManualTradeButtons();
 
     // 清空分页容器
     document.getElementById('pagination-container').innerHTML = '';
@@ -792,6 +823,7 @@ class ExperimentTokenReturns {
               Ticks 浏览
             </a>
           </div>
+          ${this.renderManualTradeButtons(item, pnl)}
         </td>
       </tr>
     `;
@@ -1406,6 +1438,201 @@ class ExperimentTokenReturns {
         this.deleteJudge(tokenAddress);
       });
     });
+  }
+
+  // ==================== 手动交易（2026-10-22 双支持批：live/virtual）====================
+
+  /** 卡账本前端重建：trades 时间正序重放 metadata.cardTrade.after（含 0=清空），
+   * 与引擎重启重放同口径；该页已拉全量 trades 无需新 API */
+  buildTokenCardsMap() {
+    this.tokenCardsMap.clear();
+    const sorted = [...this.tradesData].sort((a, b) => {
+      const ta = new Date(a.executed_at || a.created_at || 0).getTime();
+      const tb = new Date(b.executed_at || b.created_at || 0).getTime();
+      return ta - tb;
+    });
+    for (const t of sorted) {
+      const ct = t.metadata?.cardTrade;
+      if (ct && t.token_address) {
+        this.tokenCardsMap.set(t.token_address, ct.after || 0);
+      }
+    }
+  }
+
+  /** 操作列手动交易按钮组（tradingMode ∈ live/virtual 渲染；backtest 返回空） */
+  renderManualTradeButtons(item, pnl) {
+    if (this.tradingMode !== 'live' && this.tradingMode !== 'virtual') return '';
+    const addr = item.tokenAddress;
+    const holding = !!(pnl && pnl.hasUnmatchedBuy); // 持仓判定：未匹配买入>0（status 会落 monitoring）
+    const locked = this.manualSellLocks.has(addr);
+    const cards = this.tokenCardsMap.get(addr) || 0;
+    const sym = item.symbol || '';
+    const isLive = this.tradingMode === 'live';
+    const parts = [];
+
+    if (this.cardsEnabled) {
+      parts.push(`<button class="manual-btn manual-buy" data-mt="buy-card" data-token="${addr}"
+        title="按 perCardBNB=${this.perCardBNB} 买入 1 张卡${holding ? '（加仓）' : ''}，可重复点击，不受买腿卡数上限约束">
+        买入1卡≈${this.perCardBNB}BNB</button>`);
+    } else if (this.tradeAmount != null) {
+      parts.push(`<button class="manual-btn manual-buy" data-mt="buy-amount" data-token="${addr}"
+        title="按 tradeAmount=${this.tradeAmount} BNB ${isLive ? '真实' : '模拟'}买入${holding ? '（加仓）' : ''}">
+        买入${this.tradeAmount}BNB</button>`);
+    }
+    if (holding) {
+      if (this.cardsEnabled && cards > 0) {
+        parts.push(`<button class="manual-btn manual-sell" data-mt="sell-card" data-token="${addr}"
+          title="卖出 1 张卡（当前 ${cards} 卡）">卖1卡(${cards}卡)</button>`);
+      }
+      parts.push(`<button class="manual-btn manual-sell" data-mt="sell-all" data-token="${addr}"
+        title="全清余仓">卖出全部</button>`);
+      parts.push(`<button class="manual-btn ${locked ? 'manual-unlock' : 'manual-lock'}" data-mt="lock" data-token="${addr}"
+        data-locked="${locked ? '1' : '0'}" title="${locked ? '恢复引擎自动卖出' : '拦截引擎一切自动卖出（策略卖腿/止损/毕业卖），手动卖出不受限，约 2s 生效'}">
+        ${locked ? '恢复卖出' : '停止卖出'}</button>`);
+    }
+    if (!parts.length) return '';
+    return `<div class="manual-trade-group">${locked ? '<span class="manual-lock-badge" title="停止卖出锁定中">🔒</span>' : ''}${parts.join('')}</div>`;
+  }
+
+  bindManualTradeButtons() {
+    document.querySelectorAll('.manual-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const kind = btn.dataset.mt;
+        const addr = btn.dataset.token;
+        if (!kind || !addr) return;
+        if (btn.disabled) return;
+        btn.disabled = true;
+        try {
+          if (kind === 'lock') {
+            await this.toggleSellLock(addr, btn.dataset.locked === '0');
+          } else {
+            await this.submitManualTrade(kind, addr);
+          }
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  async submitManualTrade(kind, addr) {
+    const sym = this.tokenSymbolMap.get(addr) || addr.slice(0, 8);
+    const isLive = this.tradingMode === 'live';
+    let body, msg;
+    if (kind === 'buy-card') {
+      body = { tokenAddress: addr, direction: 'buy', cards: 1 };
+      msg = `买入 ${sym} 1 张卡（≈${this.perCardBNB} BNB ${isLive ? '真实成交' : '模拟'}，可重复点击累加）`;
+    } else if (kind === 'buy-amount') {
+      body = { tokenAddress: addr, direction: 'buy', amountBnb: this.tradeAmount };
+      msg = `买入 ${sym} ${this.tradeAmount} BNB（${isLive ? '真实成交' : '模拟'}）`;
+    } else if (kind === 'sell-card') {
+      body = { tokenAddress: addr, direction: 'sell', cards: 1 };
+      msg = `卖出 ${sym} 1 张卡`;
+    } else if (kind === 'sell-all') {
+      body = { tokenAddress: addr, direction: 'sell' };
+      msg = `卖出 ${sym} 全部余仓`;
+    } else {
+      return;
+    }
+    if (!window.confirm(`${msg}？命令将由实验进程 2s 内消费执行`)) return;
+    try {
+      const resp = await fetch(`/api/experiment/${this.experimentId}/manual-trade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await resp.json();
+      if (!json.success) throw new Error(json.error || '落命令失败');
+      if (json.warning) alert(`⚠️ ${json.warning}`);
+      this.flashManualStatus(`已提交：${msg}（引擎 2s 内消费）`);
+      this.refreshManualStatus(true);
+    } catch (err) {
+      alert(`落命令失败：${err.message}`);
+    }
+  }
+
+  async toggleSellLock(addr, lock) {
+    const sym = this.tokenSymbolMap.get(addr) || addr.slice(0, 8);
+    const msg = lock
+      ? `停止卖出 ${sym}：拦截引擎一切自动卖出（策略卖腿/止损/毕业卖），手动卖出不受限，约 2s 生效`
+      : `恢复卖出 ${sym}：引擎自动卖出恢复（约 2s 生效）`;
+    if (!window.confirm(`${msg}？`)) return;
+    try {
+      const resp = await fetch(`/api/experiment/${this.experimentId}/manual-sell-lock`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenAddress: addr, locked: lock }),
+      });
+      const json = await resp.json();
+      if (!json.success) throw new Error(json.error || '写锁失败');
+      if (lock) this.manualSellLocks.add(addr); else this.manualSellLocks.delete(addr);
+      this.applyFilterAndSort(); // 🔒 徽章/按钮态重绘
+      this.flashManualStatus(lock ? `🔒 已停止卖出 ${sym}（2s 内生效）` : `已恢复卖出 ${sym}（2s 内生效）`);
+    } catch (err) {
+      alert(`停止/恢复卖出失败：${err.message}`);
+    }
+  }
+
+  /** 命令状态轮询：pending/executing 在场 2s、空闲 10s；命令全部终态后刷新表格
+   * （trades/卡数/持仓变化落地）；backtest 不轮询 */
+  startManualStatusPolling() {
+    if (this.tradingMode !== 'live' && this.tradingMode !== 'virtual') return;
+    this.refreshManualStatus();
+  }
+
+  async refreshManualStatus(immediate = false) {
+    if (this.manualStatusTimer) clearTimeout(this.manualStatusTimer);
+    let hasActive = false;
+    try {
+      const resp = await fetch(`/api/experiment/${this.experimentId}/manual-trades`);
+      const json = await resp.json();
+      const rows = (json.success && json.data) || [];
+      const active = rows.filter(r => r.status === 'pending' || r.status === 'executing');
+      hasActive = active.length > 0;
+      this.renderManualStatusBar(rows);
+      // 上一轮有活跃命令、本轮全部终态 → 表格刷新（trades 已落地）
+      if (this.manualStatusActive && !hasActive) {
+        this.loadData();
+      }
+    } catch (e) {
+      // 轮询失败静默重试（状态条非关键路径）
+    }
+    this.manualStatusActive = hasActive;
+    this.manualStatusTimer = setTimeout(() => this.refreshManualStatus(),
+      hasActive ? 2000 : 10000);
+  }
+
+  renderManualStatusBar(rows) {
+    const bar = document.getElementById('manual-status-bar');
+    if (!bar) return;
+    const recent = rows.slice(0, 5);
+    if (!recent.length) {
+      bar.classList.add('hidden');
+      return;
+    }
+    const STATUS_TEXT = {
+      pending: '⏳排队', executing: '⚡执行中', success: '✅成交',
+      failed: '❌失败', expired: '⌛过期',
+    };
+    bar.innerHTML = recent.map(r => {
+      const param = r.cards != null
+        ? `${r.cards}卡`
+        : (r.direction === 'buy' ? `${Number(r.amount_bnb)}BNB` : `${Math.round((r.sell_pct ?? 1) * 100)}%`);
+      const sym = this.tokenSymbolMap.get(r.token_address) || r.token_address.slice(0, 8);
+      const cls = r.status === 'success' ? 'ms-ok' : (r.status === 'failed' || r.status === 'expired') ? 'ms-bad' : 'ms-wait';
+      const errTip = r.error ? ` title="${String(r.error).replace(/"/g, '&quot;').slice(0, 200)}"` : '';
+      return `<span class="ms-item ${cls}"${errTip}>${r.direction === 'buy' ? '买' : '卖'} ${sym} ${param} ${STATUS_TEXT[r.status] || r.status}</span>`;
+    }).join('');
+    bar.classList.remove('hidden');
+  }
+
+  flashManualStatus(text) {
+    const bar = document.getElementById('manual-status-bar');
+    if (!bar) return;
+    bar.innerHTML = `<span class="ms-item ms-wait">${text}</span>`;
+    bar.classList.remove('hidden');
   }
 
   /**

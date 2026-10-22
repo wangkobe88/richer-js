@@ -47,6 +47,7 @@ function makeEngine(fields = {}) {
     _sellLegScanEnabled: true,             // 本测默认开启（被测新机制）
     _sellLegStallMs: 60 * 1000,
     _graduationSoldTokens: new Set(),
+    _manualSellLocks: new Set(),          // 停止卖出锁（2026-10-22 双支持批；Object.create 绕过构造器须显式给）
     _isLive: false,
     ...fields,
   });

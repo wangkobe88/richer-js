@@ -148,6 +148,53 @@
         .rotate-90 {
             transform: rotate(90deg);
         }
+
+        /* 手动交易按钮组（2026-10-22 双支持批：live/virtual） */
+        .manual-trade-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            justify-content: center;
+        }
+        .manual-btn {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: filter 0.15s;
+        }
+        .manual-btn:hover { filter: brightness(1.2); }
+        .manual-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .manual-btn.manual-buy { background-color: #16a34a; color: white; border-color: #15803d; }
+        .manual-btn.manual-sell { background-color: #dc2626; color: white; border-color: #b91c1c; }
+        .manual-btn.manual-lock { background-color: #d97706; color: white; border-color: #b45309; }
+        .manual-btn.manual-unlock { background-color: #2563eb; color: white; border-color: #1d4ed8; }
+        .manual-lock-badge { font-size: 13px; }
+
+        /* 命令状态条（表格上方，初始 hidden） */
+        #manual-status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 12px;
+            background-color: rgba(31, 41, 55, 0.9);
+            border: 1px solid #374151;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+        #manual-status-bar.hidden { display: none; }
+        .ms-item {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background-color: rgba(55, 65, 81, 0.8);
+        }
+        .ms-item.ms-ok { color: #4ade80; }
+        .ms-item.ms-bad { color: #f87171; }
+        .ms-item.ms-wait { color: #fbbf24; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -394,6 +441,9 @@
                     </div>
                 </div>
 
+                <!-- 手动交易命令状态条（JS 轮询填充；pending/executing 2s、空闲 10s） -->
+                <div id="manual-status-bar" class="hidden"></div>
+
                 <!-- 收益表格 -->
                 <div class="bg-gray-800 rounded-lg border border-gray-700">
                     <div class="p-4 border-b border-gray-700">
@@ -514,6 +564,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.3"></script>
-    <script src="/static/js/experiment_token_returns.js?v=6.4"></script>
+    <script src="/static/js/experiment_token_returns.js?v=6.5"></script>
 </body>
 </html>
