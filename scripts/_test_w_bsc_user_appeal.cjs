@@ -173,7 +173,7 @@ async function main() {
 
   console.log('\n── E. 版本 ──');
   check('E1 JEV_QUESTIONS_VERSION = J1.91（J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 institution 桶；J1.87=C145 删 routine 桶；J1.84=C142 W 双轴合并）',
-    JEV_QUESTIONS_VERSION === 'J1.98', JEV_QUESTIONS_VERSION);
+    JEV_QUESTIONS_VERSION === 'J1.99', JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

@@ -524,7 +524,7 @@ async function main() {
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
   check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79=事件分改 fit；J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.98'")
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.99'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')
