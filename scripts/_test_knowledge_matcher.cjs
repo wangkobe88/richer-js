@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 知识库匹配器单测（C164）——零 DB 零网络
+ * 知识库匹配器单测（C165）——零 DB 零网络
  *
  *   A. 案例锚（知识库立项动机的两案）：
  *      A1 彪弟×彪哥：name_substring 不命中（LCS「彪」1 CJK < minCjk 2）
@@ -149,7 +149,7 @@ const KK_MA = A('cd2');  // 哭哭马
     assert(autoCorpusTriggerForEntry(['DND']) === false, 'I3 3 latin < minLatin(4) 短名 → false（语料级触发不可靠）', autoCorpusTriggerForEntry(['DND']));
   }
 
-  console.log('J. feedback 自反馈排除（C164 回归现场反证：C106 票 high 回写后 address_exact 命中自己=自锚定锁死）');
+  console.log('J. feedback 自反馈排除（C165 回归现场反证：C106 票 high 回写后 address_exact 命中自己=自锚定锁死）');
   {
     const selfAddr = A('d50e');
     const fbSelf = { id: 'q:' + selfAddr, kind: 'quasi', name: 'BNB Tree', address: selfAddr, source: 'feedback' };

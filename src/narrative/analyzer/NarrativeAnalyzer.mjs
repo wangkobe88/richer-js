@@ -348,7 +348,7 @@ export class NarrativeAnalyzer {
       logger.info('NarrativeAnalyzer', '作者原话票命中（C88 第一腿补位）', { token: tokenData?.symbol || tokenData?.name, matched: authorUtterance.matchedName, author: superIPInfo.name });
     }
 
-    // ── 系统知识库匹配（C164）：蓝筹/准蓝筹/BSC 概念背景注入 ──────────────
+    // ── 系统知识库匹配（C165）：蓝筹/准蓝筹/BSC 概念背景注入 ──────────────
     // 知识 miss=正常态：配置关/文件全缺 → kb=null 全旁路（state bit-parity）。
     // 配置残缺（enabled:true 但键非法）getKnowledgeBase 内 throw fail-loud（部署
     // 错误不得静默，searchFallback 同语义）；匹配本身意外错误才 catch 旁路。
@@ -374,7 +374,7 @@ export class NarrativeAnalyzer {
           twitterHandle,
           corpusText,
         }, knowledgeBase.index, knowledgeConfig.match);
-        // feedback 自反馈排除（C164 回归现场反证：C106 票 high 回写后下轮
+        // feedback 自反馈排除（C165 回归现场反证：C106 票 high 回写后下轮
         // address_exact 命中自己「本系统评 high」=自锚定锁死，reanalyze 永远翻不正）
         const keptMatches = excludeSelfFeedback(knowledgeMatches.matches, tokenData.address);
         if (keptMatches.length !== knowledgeMatches.matches.length) {
@@ -757,7 +757,7 @@ export class NarrativeAnalyzer {
               // C70「重取数重析」：prestage 规则验证的账号拉取同样失效重取
               //（形状门已在上方算出，此处只透传布尔）
               ...(shouldInvalidateAccountCorpus ? { invalidateAccountCorpus: true } : {}),
-              // knowledgeMatches（C164）：prestage 二次匹配在 service 内做（账号
+              // knowledgeMatches（C165）：prestage 二次匹配在 service 内做（账号
               // bio+推文语料可命中更多条目），按 entryId 去重合并进 [KNOWLEDGE_BASE] 段
               ...(knowledgeMatches ? { knowledgeMatches } : {})
             }));
@@ -825,7 +825,7 @@ export class NarrativeAnalyzer {
             // superIP 注册表命中（C83）：命中事实行进 state PRECOMPUTED（认证标注 +
             // 反混淆提示），量级/关联/主体资格全归 Jev 按题集判定——非 superIP 票
             // superIPInfo=null，builder guard 跳过注入，state 与旧版逐字节一致
-            // knowledgeMatches（C164）：[KNOWLEDGE_BASE] 背景段；null/空命中 bit-parity
+            // knowledgeMatches（C165）：[KNOWLEDGE_BASE] 背景段；null/空命中 bit-parity
             const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs });
             // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
             // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
@@ -1054,7 +1054,7 @@ export class NarrativeAnalyzer {
       clearTokenCategory: !tokenCategory
     }));
 
-    // C164 知识库反馈回写（用户裁定自动沉淀）：终态 save 成功后 fire——高评级/
+    // C165 知识库反馈回写（用户裁定自动沉淀）：终态 save 成功后 fire——高评级/
     // 毕业票 upsert 进 quasi-feedback 知识文件。只沉淀客观字段（address/symbol/
     // name/intro/rating/reason 截断），narrative 摘要在 feedback 模块拼装；失败
     // warn 绝不影响分析主链路（内部全程 catch，此处再兜一层防御性 try）。

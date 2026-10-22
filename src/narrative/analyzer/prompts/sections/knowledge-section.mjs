@@ -1,5 +1,5 @@
 /**
- * 系统知识库背景 Section（C164 叙事分析知识库）
+ * 系统知识库背景 Section（C165 叙事分析知识库）
  *
  * 渲染匹配命中的知识条目（蓝筹/准蓝筹/BSC 概念）为 Jev state 独立段。挂 header
  * 与 [PRECOMPUTED]/[TWITTER_SEARCH] 同位形（不占四区配额）——本段是系统预取的

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 知识库加载器单测（C164）——零 DB 零网络（真实 fs + 临时目录）
+ * 知识库加载器单测（C165）——零 DB 零网络（真实 fs + 临时目录）
  *
  *   A. 五文件按 id 合并（后读覆盖）：manual 覆盖生成件 / feedback 覆盖 graduations
  *   B. 容错：损坏 JSON warn 跳过不抛；全缺失 → null；最小校验剔除（bad kind/地址形状）

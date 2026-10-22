@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 叙事知识库·准蓝筹（近期毕业票）构建管线（C164；只在 182 跑）
+ * 叙事知识库·准蓝筹（近期毕业票）构建管线（C165；只在 182 跑）
  *
  * 主路 GMGN trenches completed（fourmeme/flap 两平台各拉一批，避开 wss_events kind
  * 全局扫的 8s 超时坑），7d 窗过滤 + 上限 300；毕业时间富化优先 wss_events graduation

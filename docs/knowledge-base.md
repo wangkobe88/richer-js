@@ -1,4 +1,4 @@
-# 叙事分析知识库（C164）运维手册
+# 叙事分析知识库（C165）运维手册
 
 理解代币叙事常需背景知识（「彪弟」需知「彪哥」；「哭哭奶龙」需知「哭哭马」）。知识库在分析时按 6 级规则匹配命中条目，注入 `[KNOWLEDGE_BASE]` 段辅助 Jev 判定；分析完的毕业票/高评级票自动沉淀回写。
 
@@ -33,7 +33,7 @@
 
 - 注入段 `[KNOWLEDGE_BASE]`：header 级独立段（不占四区配额）+ 免责声明（背景≠宣告语料，关联与价值仍归题集）。null/空命中=state 逐字节 bit-parity。挂位：`jev-state-builder.mjs` 标准+prestage 两 builder；`stats.knowledgeSection` 观测。
 - 匹配命中挂 `tokenData.raw_api_data.knowledge_matches` 审计（随 save 落库）。
-- 反馈回写：analyzer 最终 save 后 `maybeCaptureKnowledgeFeedback`——rating∈captureRatings(['high']) 或（毕业 ∧ rating≠'low'）；只沉淀客观字段（intro/rating/reason），narrative=`intro截120｜本系统评 {rating}：reason截200`；tmp+rename 原子写；失败 warn 不影响分析。毕业点查 wss_events graduation（service key）。
+- 反馈回写：analyzer 最终 save 后 `maybeCaptureKnowledgeFeedback`——rating∈captureRatings(['high']) 或（毕业 ∧ rating≠'low'）；只沉淀客观字段（intro/rating/reason），narrative=`intro截120｜本系统评 {rating}：reason截200`；tmp+rename 原子写；失败 warn 不影响分析。毕业点查 wss_events graduation（service key）。**feedback 自反馈排除**（ab0e2f9，C165 回归现场反证）：feedback 条目命中本票自身地址时剔除——「本系统评 high」注入自己重析=自锚定锁死（`excludeSelfFeedback` 挂 analyzer+prestage 双点）；蓝筹（客观 ATH）/graduations（客观毕业）自命中保留，feedback 姐妹票跨地址保留。
 
 ## Builder（只在 182 跑，本地禁止）
 
@@ -60,7 +60,7 @@ node scripts/narrative/build-knowledge-quasi.mjs --commit       # 写 data/knowl
 
 ## 回归依赖（★）
 
-**case-regression 跑前知识文件必须 commit 态**（蓝筹/concepts/manual 从 git 取，data/ 两文件 182 本地）——知识条目漂移会改变 state 注入导致票面翻转。排查回归漂移先 diff 知识文件。
+**case-regression 跑前知识文件必须 commit 态**（蓝筹/concepts/manual 从 git 取，data/ 两文件 182 本地）——知识条目漂移会改变 state 注入导致票面翻转。排查回归漂移先 diff 知识文件。**且回归运行中 feedback 回写会中途改变知识态**（首轮 quasi-feedback 从无到有=轮内前后票条件不一致）——跑前确认 quasi-feedback.json 已存在且稳定。
 
 回归预期锚：C129 彪弟（知识命中「彪哥」→ 翻正 mid|high）；哭哭奶龙必须保持 high（回退=噪声入侵，迭代 denylist/corpusTrigger）。
 

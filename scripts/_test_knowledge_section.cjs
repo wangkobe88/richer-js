@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 知识库注入段单测（C164）——零 DB 零网络
+ * 知识库注入段单测（C165）——零 DB 零网络
  *
  *   A. 段构建 buildKnowledgeSection：
  *      A1 null/undefined/空 matches → ''（bit-parity 前提）

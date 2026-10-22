@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 知识库 builder 纯函数单测（C164）——零 DB 零网络
+ * 知识库 builder 纯函数单测（C165）——零 DB 零网络
  *
  *   A. normalizeRankRow → 标准化记录（字段映射/正数门/twitter URL 两形状）
  *   B. mergeRankRecords：三榜合并去重补名次/稳定币剔除/坏地址剔除

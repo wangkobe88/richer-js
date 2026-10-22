@@ -366,7 +366,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     ? await resolveWebsiteCheck(fetchResults, options)
     : null;
 
-  // C164 知识库 prestage 二次匹配：analyzer 已按 token 侧输入（symbol/name/address/
+  // C165 知识库 prestage 二次匹配：analyzer 已按 token 侧输入（symbol/name/address/
   // 主推语料）匹配一轮；prestage 手里有更肥的账号语料（bio+窗口内推文全文），补一轮
   // corpus_contains/concept_keyword 级命中，按 entryId 去重合并（analyzer 侧命中保留
   // 其原规则）。includePrestage 配置门（用户裁定双路径注入）。匹配异常 warn 旁路，
@@ -423,7 +423,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     rulesResult,
     websiteCheck,
     websiteInfo: skipAddressValidation ? fetchResults.websiteInfo : null,
-    // C164：prestage 二次匹配合并结果（null/空命中 → 段为空，state bit-parity）
+    // C165：prestage 二次匹配合并结果（null/空命中 → 段为空，state bit-parity）
     knowledgeMatches: prestageKnowledgeMatches,
     ...(tokenCreatedAtSec ? { now: tokenCreatedAtSec * 1000 } : {}),
   });

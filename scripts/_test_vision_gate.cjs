@@ -223,7 +223,7 @@ async function main() {
     assert(count(A, 'imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis') === 1, 'D4 imageEvidence 屏蔽恰 1 处（C83 后仅 standard 分支）', count(A, 'imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis'));
     assert(count(A, 'imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis') === 1, 'D5 imageConsistency 屏蔽恰 1 处');
     assert(count(A, 'buildJevState(tokenData, jevFetchResults') === 1, 'D6 jevFetchResults 传参恰 1 处（C83 后仅 standard state 构建）', count(A, 'buildJevState(tokenData, jevFetchResults'));
-    assert(count(A, 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })') === 1, 'D6b standard 调用点含 superIPInfo 注入（C83 registry 命中进 state；C164 knowledgeMatches 同点透传）', count(A, 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })'));
+    assert(count(A, 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })') === 1, 'D6b standard 调用点含 superIPInfo 注入（C83 registry 命中进 state；C165 knowledgeMatches 同点透传）', count(A, 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })'));
     assert(A.includes('const jevFetchResults = visionSkipped && twitterInfo'), 'D7 竞态屏蔽拷贝（image_analysis: undefined 浅拷贝）');
     const cfg = src('config/narrative-engine.json');
     const gateCfg = JSON.parse(cfg).vision?.gate;

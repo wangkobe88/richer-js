@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 知识库反馈回写单测（C164）——零 DB 零网络（打桩 fs + queryGraduation）
+ * 知识库反馈回写单测（C165）——零 DB 零网络（打桩 fs + queryGraduation）
  *
  *   A. _shouldCapture 三分支：captureRatings 命中 / 毕业非 low / 都不满足
  *   B. maybeCaptureKnowledgeFeedback 行为：
