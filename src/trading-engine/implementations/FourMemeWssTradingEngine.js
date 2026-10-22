@@ -3449,8 +3449,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
   /** 手工卖（2026-10-22 双支持批重写）：cards 路径=卡 sizing（镜像 _emitSellSignal：
    * soldN=min(cards,余卡) 钳制、全清恒精确 1、cardTrade 绝对值随 trade 落库由
-   * _executeSell 写回）；「卖出全部」=sellPct=1 不带 cards（全清删卡走 fullyClosed
-   * 分支）。门全前置：virtual 无价 fail-closed 拒（0 价卖出记 0 所得=脏数据；live
+   * _executeSell 写回）；「卖出全部」=sellPct=1 不带 cards，但卡牌启用且有卡时显式记
+   * cardTrade after=0（重放恢复只认绝对值，缺键全清行重放后卡数虚高）。门全前置：
+   * virtual 无价 fail-closed 拒（0 价卖出记 0 所得=脏数据；live
    * 走链上事实不受此门）；0 卡拒。毕业票（FA graduated）路由 PCS V2 外盘——live-only
    * （virtual _trader 恒 null，_ensurePcsTrader 读 _trader.network 是 TypeError；
    * virtual 毕业票走 _executeSell 虚拟记账本不需要 trader） */
@@ -3475,6 +3476,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       sellPctNum = soldN >= tokenCards ? 1 : soldN / tokenCards;
       cardTrade = { cards: soldN, before: tokenCards, after: tokenCards - soldN };
       reason = `手动卖出 ${soldN}卡（余卡 ${tokenCards}）`;
+    } else if (this._cardsEnabled) {
+      // 非 cards 卖全清（卖出全部/缺省 1）须显式记 cardTrade after=0：执行点删卡是内存态，
+      // 重放恢复只认 metadata.cardTrade 绝对值——无此键的全清行重放后卡数虚高（再买 sizing
+      // 偏大）。部分比例卖（sellPct<1）不动卡账本（与执行点「比例/卡数两套口径并行」一致）→ 恒 null
+      const tokenCards = this._tokenCards.get(tokenAddress) || 0;
+      const pct = (Number.isFinite(sellPctNum) && sellPctNum > 0 && sellPctNum <= 1) ? sellPctNum : 1;
+      if (tokenCards > 0 && pct >= 1) {
+        cardTrade = { cards: tokenCards, before: tokenCards, after: 0 };
+      }
     }
     const signal = {
       action: 'sell',

@@ -529,6 +529,15 @@ async function main() {
         const cardsGateIdx = src.indexOf('卡牌机制未启用', src.indexOf('async _executeManualBuy'));
         ok(saveDefIdx > 0 && cardsGateIdx > 0 && manualBuySaveIdx > cardsGateIdx,
             '_executeManualBuy cards 门在 _saveManualSignal 之前（门拒不落 signal 行）');
+
+        // 11.10 routes 列名事故反证（2026-10-22 实锤：experiments 表无 name 列，
+        // 写 'id, name, …' PGRST204 → 误报「实验不存在」POST 全挂；打桩 stub 拦不住
+        // 真实列名错，只能源码口径锁定——参照 trades_filter_columns PGRST 42703 先例）
+        const routesSrc = fs.readFileSync(path.join(ROOT, 'src/web/routes/manual-trades.routes.js'), 'utf8');
+        ok(routesSrc.includes("'id, experiment_name, trading_mode, status'"),
+            'POST 实验校验列名=experiment_name（真实表列）');
+        ok(!/\bfrom\('experiments'\)[\s\S]{0,80}\.select\('id, name\b/.test(routesSrc),
+            'routes 内无 experiments 裸 name 列引用（事故形状反证）');
     }
 
     // ═══════════════ 12. 外部处置熔断分流（P1）═══════════════
@@ -657,6 +666,41 @@ async function main() {
         await s3.engine._processManualTradeRequest(row3, db.client);
         ok(row3.status === 'failed' && row3.error.includes('卡账本为 0'), '0 卡 cards 卖拒（卡账本为 0）');
         ok(db.tables.strategy_signals.length === 0, '0 卡拒不留孤儿 signal 行');
+
+        // 「卖出全部」（非 cards 全清，sell_pct 缺省 1）卡牌启用且有卡 → 显式 cardTrade
+        // after=0（2026-10-22 闭环实测发现：重放恢复只认 metadata.cardTrade 绝对值，
+        // 缺键全清行重放后卡数虚高 → 再买 sizing 偏大）
+        resetTable();
+        const s4 = mkEngine({ faPrice: 0.0001 });
+        s4.engine._cardsEnabled = true;
+        s4.engine._tokenCards.set(TOKEN, 3);
+        const row4 = mkRow({ id: 'r-sellall', direction: 'sell', sell_pct: null, cards: null });
+        db.tables.manual_trade_requests.push(row4);
+        await s4.engine._processManualTradeRequest(row4, db.client);
+        ok(s4.calls.sell.length === 1 && s4.calls.sell[0].signal.sellPercentage === 1,
+            '卖出全部缺省 sellPct=1');
+        ok(JSON.stringify(s4.calls.sell[0].signal.cardTrade) === JSON.stringify({ cards: 3, before: 3, after: 0 }),
+            '非 cards 全清带 cardTrade{cards:3,before:3,after:0}（重放归零一致）');
+
+        // 部分比例卖（sellPct=0.5 无 cards）不动卡账本 → 恒 null（与执行点两套口径并行一致）
+        resetTable();
+        const s5 = mkEngine({ faPrice: 0.0001 });
+        s5.engine._cardsEnabled = true;
+        s5.engine._tokenCards.set(TOKEN, 3);
+        const row5 = mkRow({ id: 'r-sellhalf', direction: 'sell', sell_pct: 0.5, cards: null });
+        db.tables.manual_trade_requests.push(row5);
+        await s5.engine._processManualTradeRequest(row5, db.client);
+        ok(s5.calls.sell[0].signal.cardTrade == null,
+            '部分比例卖不带 cardTrade（部分卖不动卡数，重放跳过一致）');
+
+        // 非卡实验（cardsEnabled=false）卖出全部不构造 cardTrade（无卡账本概念）
+        resetTable();
+        const s6 = mkEngine({ faPrice: 0.0001 });
+        s6.engine._cardsEnabled = false;
+        const row6 = mkRow({ id: 'r-sellall-nocard', direction: 'sell', sell_pct: null, cards: null });
+        db.tables.manual_trade_requests.push(row6);
+        await s6.engine._processManualTradeRequest(row6, db.client);
+        ok(s6.calls.sell[0].signal.cardTrade == null, '非卡实验全清不带 cardTrade');
     }
 
     // ═══════════════ 16. virtual 无价卖拒 + virtual 毕业票不路由 PCS ═══════════════

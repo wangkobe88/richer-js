@@ -84,9 +84,11 @@ router.post('/experiment/:id/manual-trade', async (req, res) => {
         }
 
         const client = dbManager.getClient();
+        // ⚠️ 列名=experiment_name（experiments 表无 name 列——2026-10-22 事故：
+        // 写 'name' PGRST204 → 误报「实验不存在」POST 全挂；单测反证断言见 _test_manual_trade_queue T11.10）
         const { data: exp, error: expErr } = await client
             .from('experiments')
-            .select('id, name, trading_mode, status')
+            .select('id, experiment_name, trading_mode, status')
             .eq('id', experimentId)
             .single();
         if (expErr || !exp) {
