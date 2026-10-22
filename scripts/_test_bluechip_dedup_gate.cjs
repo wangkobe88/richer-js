@@ -13,8 +13,9 @@
  *   A. 检测真值表（detectDuplicateNarrative：exact 两级命中/quasi 不算/
  *      substring·corpus 不算/蓝筹本体自地址排除/address 传入被忽略/空形状）
  *   B. mapper 臂（证据→low+reason+audit；无证据对照=原评级不变；
- *      twitter_exact label 形状）
- *   C. 源码口径（analyzer 接线/mapper 链首序/开关默认开/config 段）
+ *      twitter_exact label 形状；B5=C173 新陈述豁免真值表——direct_tweet+
+ *      作者在册双条件缺一即拦，「4」案 CZ 直陈概念不算重复）
+ *   C. 源码口径（analyzer 接线/mapper 链首序/开关默认开/config 段/C173 判据锚）
  *
  * 用法：node scripts/_test_bluechip_dedup_gate.cjs
  */
@@ -210,6 +211,51 @@ async function main() {
   const withBoth = await mapStandardAnswers(nhnAnswers, baseCtx({ duplicateNarrative: DUP_NAME_EVIDENCE }));
   check('label=蓝筹去重（非 Web3用户偏好不合）', (withBoth.llmResult.reason || '').includes('蓝筹去重') && !(withBoth.llmResult.reason || '').includes('Web3用户偏好不合'), withBoth.llmResult.reason);
 
+  console.log('B5 C173 新陈述豁免（「4」案 0x972e6c99…7777：CZ 新推直陈概念撞前蓝筹不算重复；direct_tweet+作者在册双条件缺一即拦）');
+  const DT_CLS = { type: 'direct_tweet', confidence: 'high', reason: '高影响力作者' };
+  const exempted = await mapStandardAnswers(passAnswers(), baseCtx({
+    duplicateNarrative: DUP_NAME_EVIDENCE,
+    tweetClassification: DT_CLS,
+    corpusAuthorInRegistry: true,
+  }));
+  check('direct_tweet+在册 → 非 low（豁免，回门链正常评估）', exempted.llmResult.rating !== 'low' && exempted.llmResult.pass, { rating: exempted.llmResult.rating, reason: exempted.llmResult.reason });
+  check('豁免票 reason 不含蓝筹去重 label', !(exempted.llmResult.reason || '').includes('蓝筹去重'), exempted.llmResult.reason);
+  check('audit bluechipDedupNewStatement 命中才落（tweetType）', exempted.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewStatement?.tweetType === 'direct_tweet', exempted.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewStatement);
+  check('audit bluechipDuplicate 撞名证据照记（豁免≠没撞）', exempted.stage2DataToSave?.parsed_output?.jev?.bluechipDuplicate?.entry === 'The Chinese Bear', exempted.stage2DataToSave?.parsed_output?.jev?.bluechipDuplicate);
+
+  // 用户裁定边界：「如果是一个陈述老叙事的找角度推文，显然不行」——非 direct_tweet
+  // 分桶全照拦（即使作者在册）
+  for (const t of ['angle_seeking', 'interpretive_reply', 'unknown']) {
+    const r = await mapStandardAnswers(passAnswers(), baseCtx({
+      duplicateNarrative: DUP_NAME_EVIDENCE,
+      tweetClassification: { type: t },
+      corpusAuthorInRegistry: true,
+    }));
+    check(`${t}（作者在册）→ low 照拦`, r.llmResult.rating === 'low' && (r.llmResult.reason || '').includes('蓝筹去重'), { rating: r.llmResult.rating, reason: r.llmResult.reason });
+    check(`${t} 豁免 audit 不落`, r.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewStatement == null, r.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewStatement);
+  }
+
+  // ② 缺：direct_tweet 但作者不在册（无名小号复述=无动能复制品）→ 照拦
+  const noReg = await mapStandardAnswers(passAnswers(), baseCtx({
+    duplicateNarrative: DUP_NAME_EVIDENCE,
+    tweetClassification: DT_CLS,
+  }));
+  check('direct_tweet+不在册 → low 照拦', noReg.llmResult.rating === 'low', noReg.llmResult.rating);
+
+  // ① 缺：分类缺失（tweetClassification null）→ 保守照拦
+  const noCls = await mapStandardAnswers(passAnswers(), baseCtx({
+    duplicateNarrative: DUP_NAME_EVIDENCE,
+    corpusAuthorInRegistry: true,
+  }));
+  check('分类缺失+在册 → low 照拦（fail-保守）', noCls.llmResult.rating === 'low', noCls.llmResult.rating);
+
+  // 无撞名证据时豁免臂零侵入（audit 不落、原评级不变）
+  const noDup = await mapStandardAnswers(passAnswers(), baseCtx({
+    tweetClassification: DT_CLS,
+    corpusAuthorInRegistry: true,
+  }));
+  check('无撞名证据对照：豁免臂零侵入', noDup.llmResult.rating !== 'low' && noDup.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewStatement == null, { rating: noDup.llmResult.rating });
+
   // ═══ C. 源码口径（防线锁定） ═══
   console.log('\n── C. 源码口径断言 ──');
   const fs = await import('node:fs');
@@ -226,11 +272,15 @@ async function main() {
   check('matcher 窄跑 twitterHandle 恒 null（撤臂反证锚）', /twitterHandle:\s*null/.test(matcherSrc) && matcherSrc.includes("&& m.rule === 'name_exact' // twitter_exact 不参与"));
   check('analyzer duplicateGate 开关（缺省开，显式 false 关）', analyzerSrc.includes("duplicateGate?.enabled !== false"));
   check('analyzer 检测失败旁路（catch 置 null）', /蓝筹去重检测失败[\s\S]*?duplicateNarrative = null/.test(analyzerSrc));
-  const dupPos = mapperSrc.indexOf('if (context.duplicateNarrative)');
+  const dupPos = mapperSrc.indexOf('if (context.duplicateNarrative && !dedupNewStatement)');
   const unfitArmPos = mapperSrc.indexOf('else if ((w3Block = web3UnfitBlock(answers)))');
   check('mapper 门链首（先于 web3Unfit 消费臂；nhn 门 J1.101/C170 退役改锚）', dupPos > 0 && dupPos < unfitArmPos, { dupPos, unfitArmPos });
   check('mapper negativeHardNewsBlock 门已退役（源码口径反证锚）', !mapperSrc.includes('function negativeHardNewsBlock'), null);
   check('mapper audit bluechipDuplicate 键', mapperSrc.includes('bluechipDuplicate:'));
+  // C173 新陈述豁免源码口径（双条件缺一即拦：找角度/解读/unknown/不在册/分类缺失照拦）
+  check('mapper dedupNewStatement 判据=direct_tweet ∧ corpusAuthorInRegistry',
+    /dedupNewStatement = !!\(tweetClassification\?\.type === 'direct_tweet' && context\.corpusAuthorInRegistry\)/.test(mapperSrc));
+  check('mapper audit bluechipDedupNewStatement 键（命中才落）', mapperSrc.includes('bluechipDedupNewStatement:'));
   check('config CODE_DEFAULTS duplicateGate 默认开', /duplicateGate:\s*\{\s*enabled:\s*true\s*\}/.test(configSrc));
   // 事故现场反证（BIAOQING 三连发）：用户点名的案例必须被真实数据接住——
   // 熊猫头蓝筹条目 aliases 含三连发 symbol/name 两路（缺一路=该票漏拦）

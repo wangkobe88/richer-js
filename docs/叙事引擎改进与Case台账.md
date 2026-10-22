@@ -70,6 +70,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C173 蓝筹去重新陈述豁免——新推直陈概念不算重复（2026-10-22 用户裁定）★
+
+- **案由（「4」`0x972e6c994b45570fa46791f1cdbbfc301c8d7777`）**：eMudhra 印度 CA 私钥事故（10-20 @IntCyberDigest 496 万阅读爆推：116 位私钥其中一把就是「4」）10-21 已出同名蓝筹 `0x0a43fc31a73013089df59194872ecae4cae14444`（ATH $306M，source=gmgn，本系统当时评 low）；10-22 12:05 UTC **CZ 本人**（@cz_binance，1299 万粉，回复 IntCyberDigest 推）新推直陈概念「Can't make this sh!t up. A large part of the internet was encrypted by '4' 🤣」→ 30 秒后「4」票发出。C168 门 name_exact 撞前蓝筹 → 拦 low「蓝筹去重：撞已验证蓝筹叙事（4）」。stage1 本体面（12:06 行，J1.100）：E 0.8 / strong_fit 0.89 / S 档 / tweetType=direct_tweet。
+- **裁定（用户）**：「4 是基于当前的推文发出的币，是新的推文陈述的概念，即使跟之前名字一样，不算重复」「发起者是 CZ，有足够的动能，让它活一阵。但如果是一个陈述老叙事的找角度推文，显然不行」——名字一样 ≠ 叙事同一：新推文直接陈述的概念自带入场资格；边界=找角度/复述形状照拦。
+- **改动（mapper-only，不 bump 题集版本——C168 同款切分）**：C168 门首臂加豁免条件 `dedupNewStatement = tweetClassification.type === 'direct_tweet' && context.corpusAuthorInRegistry`。①主推=direct_tweet（新陈述形态；angle_seeking/interpretive_reply/unknown=找角度/解读复述/不确定照拦，tweet-type-classifier 既有分桶零新逻辑）；②语料作者在 super-ip 注册表在册（context.corpusAuthorInRegistry，J1.58 同源传参——CZ/何一/币安官方等=作者有足够动能再点燃同名叙事；无名小号 direct_tweet 复述=无动能复制品照拦）。缺一即拦（fail-保守），豁免后票回门链正常评估（unfit/契合门/量级门照常接管）。在册巨触达作者老推被翻出的「用烂」形状不归本臂（C104 主从结构门/C132 MEGA_REACH 时效层既有职责）。审计 `bluechipDedupNewStatement` 命中才落（tweetType；撞名证据照记 bluechipDuplicate——豁免理由与撞名事实各自可追溯，后续门拦截位不被去重 label 掩盖）。
+- **刻意不用 dedupExempt 数据侧豁免**：manual 条目级豁免是全量放行（对该条目名字的所有后续票解除去重），会把用户点名的「陈述老叙事的找角度推文」边界一起放开——条件豁免（按语料形状判定）才是本案形状；b:0x0a43…4444 条目不标 dedupExempt。
+- **存量票影响面核查（改前逐票验证）**：C121 牛来（作者 @Meechieftw/unknown 桶）、C168 BIAOQING（@Chilldev69/2830 粉/unknown 桶）均不在册非 direct_tweet → 照拦零翻转；C106 TREE/C138a Heyi 非去重路径不受影响。
+- **单测**：`_test_bluechip_dedup_gate` 扩 B5 真值表（direct_tweet+在册→豁免非 low+双 audit 键；angle_seeking/interpretive_reply/unknown 作者在册照拦；direct_tweet 不在册照拦；分类缺失照拦 fail-保守；无撞名证据豁免臂零侵入）+ C 组判据源码锚，54/0；mapper 消费面 13 门族测试+知识库五件套全绿。
+- **部署**：commit → push → 182 pull → 重启叙事 worker+live v32（重启前查持仓）→ 「4」定向重析（预期解除去重拦截翻 high，J1.101 后 nhn 桶亦不拦）→ 全量 case-regression 对拍 → 票收录回归集。
+
 ### C172 品牌劫持轴整轴退役——判据归位 web3_user_name_event_acceptance 用户视角（2026-10-22 用户裁定）★
 
 - **案由（TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777`，C106 j7tracker 直链解锁票，C171 回归遗留 expect 冲突票）**：C171 载体门退役后 TREE 仍 low，用户质疑「TREE 不应该有什么品牌劫持一说」。182 实测归因：预检表命中（BNB Tree 归一化含 bnb 关键词）→ 实体题 `brand_mismatch` 0.74 → punExempt 断第四腿 credibleEventAnchor（语料=TCC 种橙子树故事推，非 superIP 注册表/非自发宣告/非币安广场）→ **品牌劫持截断把 81 分票拦成 low**。铁证=同一次调用里 Jev 自己给出 `name_event=exact_match 0.74`（名字-事件关联明确）与 `entity=brand_mismatch 0.74`（品牌劫持）**自相矛盾**——TREE/BNB Tree 是复合创意名（品牌词作修饰、名词主体=事件主体「树」），被实体轴误吃。

@@ -1314,13 +1314,27 @@ export function mapStandardAnswers(answers, context) {
     recognizedEntitySlogan ? 'C88实体口号' : null]
     .filter(Boolean).join('+');
 
+  // C173 蓝筹去重新陈述豁免（2026-10-22 用户裁定，「4」案 0x972e6c99…7777：CZ 本人
+  // 新推直接陈述概念「A large part of the internet was encrypted by '4'」发出的票
+  // name_exact 撞前蓝筹（b:0x0a43…4444，ATH $306M）不算重复——「名字一样」≠「叙事
+  // 同一」，新推文陈述的新概念自带入场资格。豁免双条件（缺一即拦，边界=用户裁定
+  // 「如果是一个陈述老叙事的找角度推文，显然不行」）：
+  //   ① 主推=direct_tweet（新陈述形态；angle_seeking/interpretive_reply/unknown=
+  //      找角度/解读复述/不确定形状照拦——_tweet-type-classifier 既有分桶）
+  //   ② 语料作者在 super-ip 注册表在册（context.corpusAuthorInRegistry=作者有
+  //      足够动能再点燃同名叙事；无名小号 direct_tweet 复述=无动能复制品照拦）
+  // 在册巨触达作者老推被翻出的「用烂」形状不归本臂管（C104 主从结构门/C132
+  // MEGA_REACH 时效层既有职责）——本臂只回答「撞名是否等于重复叙事」这一个问题，
+  // 解除后票回到门链正常评估（unfit/契合门/量级门照常接管）
+  const dedupNewStatement = !!(tweetClassification?.type === 'direct_tweet' && context.corpusAuthorInRegistry);
+
   // J1.11 负面硬新闻质量门（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
   // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
   // J1.13 常规内容产品宣传质量门同位双挂（C12 绣春刀3案，事件性质层面否决）
   // J1.19 Web3用户偏好质量门第三位同挂（C30 死亡观察员/太阳之勤案，受众口味
   // 层面否决——事件可有叙事价值但不合链上 meme 买家口味，热度再高也不该放）
-  if (context.duplicateNarrative) {
+  if (context.duplicateNarrative && !dedupNewStatement) {
     // C168 蓝筹去重门（2026-10-22 用户裁定「蓝筹需要去重，小蓝筹不需要——短期
     // 热门叙事往往会发好些个票」）：票以 name_exact 撞已验证蓝筹（b:，ATH>$1M
     // curated 库）→ 后来的票是纯复制品，入场资格否决（链首：资格问题先于内容
@@ -1329,7 +1343,7 @@ export function mapStandardAnswers(answers, context) {
     // 库+exact）。twitter_exact 臂上线即撤（回归反证 9 票误拦：twitter=语料出处
     // 非票身份，借壳大 V 同源多票是常态）。证据=analyzer 侧
     // detectDuplicateNarrative 纯代码事实（quasi 姐妹票刻意不算、蓝筹本体自
-    // 排除）；Jev 照跑留完整档案，评级 low
+    // 排除）；Jev 照跑留完整档案，评级 low；C173 新陈述豁免见上方判据
     eventScoreBlocked = true;
     gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
     // （J1.101/C170 原 negativeHardNewsBlock 门位——退役删除，负面事件交
@@ -1482,6 +1496,12 @@ export function mapStandardAnswers(answers, context) {
           entryId: context.duplicateNarrative.entryId,
           matchedOn: context.duplicateNarrative.matchedOn,
         } : null,
+        // C173 审计标记：蓝筹去重新陈述豁免命中（命中才落，emptyContentImgOverride
+        // 同款模式；撞名证据照记在 bluechipDuplicate——豁免理由与撞名事实各自可
+        // 追溯，豁免票后续门链的拦截位不再被去重 label 掩盖）
+        bluechipDedupNewStatement: (context.duplicateNarrative && dedupNewStatement)
+          ? { tweetType: tweetClassification?.type ?? null }
+          : null,
         // C159 观察键（用户追加担忧：短句点名 meme 的锚可能被虚假叙事利用）：
         // 恒落 empty_content 概率质量，后续按买点结果回看「蹭名无实质事件」票；
         // 只观察不参与任何门。
