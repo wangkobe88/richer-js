@@ -204,11 +204,11 @@ async function main() {
   check('rating=low + label 用条目名非 @handle', withTw.llmResult.rating === 'low'
     && (withTw.llmResult.reason || '').includes('翱翔天际的巨鸟') && !(withTw.llmResult.reason || '').includes('@tcryptochicks'), withTw.llmResult.reason);
 
-  console.log('B4 蓝筹去重先手 NHN（链首资格否决：label 归属唯一）');
+  console.log('B4 蓝筹去重先手 web3Unfit（链首资格否决：label 归属唯一；nhn 门 J1.101/C170 已退役改锚）');
   const nhnAnswers = passAnswers();
-  nhnAnswers.event_negative_hard_news = { choice: 'negative_hard_news', probabilities: { negative_hard_news: 0.8 } };
+  nhnAnswers.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.8, marginal: 0.1, fit: 0.1, strong_fit: 0 } };
   const withBoth = await mapStandardAnswers(nhnAnswers, baseCtx({ duplicateNarrative: DUP_NAME_EVIDENCE }));
-  check('label=蓝筹去重（非 NHN）', (withBoth.llmResult.reason || '').includes('蓝筹去重') && !(withBoth.llmResult.reason || '').includes('负面'), withBoth.llmResult.reason);
+  check('label=蓝筹去重（非 Web3用户偏好不合）', (withBoth.llmResult.reason || '').includes('蓝筹去重') && !(withBoth.llmResult.reason || '').includes('Web3用户偏好不合'), withBoth.llmResult.reason);
 
   // ═══ C. 源码口径（防线锁定） ═══
   console.log('\n── C. 源码口径断言 ──');
@@ -227,8 +227,9 @@ async function main() {
   check('analyzer duplicateGate 开关（缺省开，显式 false 关）', analyzerSrc.includes("duplicateGate?.enabled !== false"));
   check('analyzer 检测失败旁路（catch 置 null）', /蓝筹去重检测失败[\s\S]*?duplicateNarrative = null/.test(analyzerSrc));
   const dupPos = mapperSrc.indexOf('if (context.duplicateNarrative)');
-  const nhnArmPos = mapperSrc.indexOf('else if ((nhnBlock = negativeHardNewsBlock(answers)))');
-  check('mapper 门链首（先于 NHN 消费臂）', dupPos > 0 && dupPos < nhnArmPos, { dupPos, nhnArmPos });
+  const unfitArmPos = mapperSrc.indexOf('else if ((w3Block = web3UnfitBlock(answers)))');
+  check('mapper 门链首（先于 web3Unfit 消费臂；nhn 门 J1.101/C170 退役改锚）', dupPos > 0 && dupPos < unfitArmPos, { dupPos, unfitArmPos });
+  check('mapper negativeHardNewsBlock 门已退役（源码口径反证锚）', !mapperSrc.includes('function negativeHardNewsBlock'), null);
   check('mapper audit bluechipDuplicate 键', mapperSrc.includes('bluechipDuplicate:'));
   check('config CODE_DEFAULTS duplicateGate 默认开', /duplicateGate:\s*\{\s*enabled:\s*true\s*\}/.test(configSrc));
   // 事故现场反证（BIAOQING 三连发）：用户点名的案例必须被真实数据接住——

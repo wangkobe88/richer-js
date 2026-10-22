@@ -322,10 +322,14 @@ const BLOCK_SCOPE = {
   // 重叠=对现有 IP/热点的低质衍生与直接复用、拦截效果等价的功能双桶合一）
   low_quality_derivative: [],
   // J1.11（2026-09-26 用户裁定，C9 bitget被盗案）：负面事故（被盗/暴雷）+纯硬新闻
-  // 的事件无 meme 价值，全域拦截——事件热度高≠该放（A 档量级喂饱事件分 74.65、
-  // 80.32 high 放行后 -55%）。质量门 negativeHardNewsBlock 同步双挂（argmax 五五开
-  // 抖动时概率门兜底），二者任一命中即拦
-  event_negative_hard_news: 'all',
+  // 的事件无 meme 价值，全域拦截。J1.101（C170 RSA4 案，2026-10-22 用户裁定
+  // 「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」）：整门退役——
+  // 题集删桶、negativeHardNewsBlock 概率门删除；此处显式空域防旧缓存行/旧
+  // fixture 的 negative_hard_news choice 照拦（BLOCK_LABELS 保留历史展示）。
+  // 负面事件的玩味空间与口味改由第二层 web3_user_event_fit 判
+  // （unfit≥0.5 负门 + J1.83 sf+fit<0.5 通用硬门接棒）。案史：J1.38/C98 粉豹
+  // 法国骚乱案扩政治暴力边界（「政治暴力臂不看载体玩味空间」）随门退役
+  event_negative_hard_news: [],
   // J1.87（C145，2026-10-21 用户裁定「产品日常不应该是事件符不符合要求的最终判定，
   // 应该直接到 web3 用户那边，看用户接纳度」「使用 web3_user_event_fit 即可」）：
   // 常规内容产品宣传桶退役——题集删桶、概率门 routineContentProductBlock/argmax
@@ -591,20 +595,18 @@ const WEB3_FIT_DAMP_THRESHOLD = 0.5;
  * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
  * 蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级直接喂饱事件分 74.65
  * → 80.32 high 放行后 -55%。裁定原文「第一，这是一个负面事件；第二，它没有啥
- * meme的」——安全事故/被盗/被黑/暴雷/巨额损失类负面事件无 meme 化玩味空间
- * （主体是机构不自嘲、无梗无二创），蹭其命名只是消费热度，热度再高也不该放）。
+ * meme的」）。
  *
- * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂：argmax 命中 event_negative_hard_news 且
- * noneProb<0.5 拦；本门按概率 ≥0.5 独立拦（覆盖 negative 是 argmax 但 none 恰
- * ≥0.5、或边界抖动 none/negative 五五开时 mass 仍过半的情况）。二者任一命中
- * 即拦，全域（不限类别）、标准 + superIP 双路径。
+ * **J1.101（C170 RSA4 案 0x34866574…7777，2026-10-22 用户裁定「去掉
+ * negative_hard_news 得了，直接让 web3 契合度去处理」）：门退役删除**——
+ * CZ 转发印度 CA eMudhra 私钥泄露事件（其中一把私钥就是「4」）1 分钟后发币
+ * RSA4，被本门 0.88 拦 low，但 strong_fit 0.87/exact_match 0.58/S 级/within_7d
+ * 其余门全绿——圈内强相关安全事件被 S 级作者本人玩梗（"the internet was
+ * encrypted by '4'"）。负面事件是否有 meme 玩味空间、值不值得玩，改由第二层
+ * web3_user_event_fit 判（unfit≥0.5 负门 + J1.83 sf+fit<0.5 通用硬门接棒，
+ * 与 J1.87/C145 routine 桶、J1.88/C150 institution 桶退役同构）。题集侧
+ * J1.101 删桶；BLOCK_SCOPE 显式空域兜旧缓存行/旧 fixture 重放。
  */
-function negativeHardNewsBlock(answers) {
-  const p = blockAnswers(answers)?.probabilities?.event_negative_hard_news ?? 0;
-  if (p < 0.5) return null;
-  return { label: BLOCK_LABELS.event_negative_hard_news, mass: Math.round(p * 100) / 100 };
-}
-
 /**
  * 常规内容产品宣传质量门（J1.13，2026-09-27 用户裁定，C12 绣春刀3案 0xa7c9c86e：
  * BTCdayu 推「绣春刀3电影即将推出」，第三方骑乘电影系列名发币，web3_user_name_entity_acceptance
@@ -613,8 +615,8 @@ function negativeHardNewsBlock(answers) {
  * 社区，无二创动力、无 meme 玩味空间，蹭其命名只是消费上映热度，产品知名度
  * 再高也不该放（与 event_negative_hard_news 同构：热度/知名度≠叙事价值））。
  *
- * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂，语义同 negativeHardNewsBlock：
- * 本门按概率 ≥0.5 独立拦边界抖动，二者任一命中即拦，全域、标准 + superIP 双路径。
+ * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂（语义同已退役的 negativeHardNewsBlock：
+ * 本门按概率 ≥0.5 独立拦边界抖动，二者任一命中即拦，全域、标准 + superIP 双路径）。
  *
  * J1.16 角色IP豁免（2026-09-28 用户裁定，C25 久留美案 0xfedf19759ba9c45b1a8345a2bde916b
  * 38acc7777：角色名币被本门 0.91 拦下 rating 1，实际 12.6 倍毕业实验涨幅第一。裁定「这
@@ -633,16 +635,17 @@ function negativeHardNewsBlock(answers) {
  * 事件可以完全有叙事价值（E 类爆款）只是不合链上 meme 买家口味，故独立成题
  * （web3_user_event_fit 四档）而非并入 event_token_block_reason 的「无叙事价值」语义）。
  *
- * 独立题独立门：unfit 概率 ≥0.5 → rating 1（与 negativeHardNewsBlock 同构：
- * 概率门对抗 argmax 跨 run 抖动，全域不限类别、标准 + superIP 双路径）。
+ * 独立题独立门：unfit 概率 ≥0.5 → rating 1（同已退役 negativeHardNewsBlock 的
+ * 概率门形状：对抗 argmax 跨 run 抖动，全域不限类别、标准 + superIP 双路径）。
  * marginal 不拦——四档概率落库观察，待校准数据后再定是否收严。
  *
  * J1.82（C140）吸收 token_circle_reachability 拦截责任（用户裁定「web3 圈层
  * 不可达，就是不适合 web3 用户」）：原 A 域 argmax 桶退役，圈层不可达票改由
  * 本门拦（题集侧 unfit 档已带圈外亚文化 get 不到锚句+PEPE/doge 反向臂；marginal
- * 圈外臂同批删除=原圈外落 marginal 不拦的逃逸洞封死）。门链顺序不动：nhn/rcp
- * 质量概率门（第一层·事件质量）本就在本门（第二层·口味）之前，argmax 链归因
- * 顺序维持现状（刻意：调序只改标签会致回归票 reason 无谓漂移）。
+ * 圈外臂同批删除=原圈外落 marginal 不拦的逃逸洞封死）。J1.101（C170）再吸收
+ * negativeHardNews 拦截责任（用户裁定「直接让 web3 契合度去处理」；rcp 桶
+ * J1.87 起已同交本层——第一层质量概率门至此全部退役，本门升级为事件质量/
+ * 口味唯一否决入口，argmax 链只剩 empty_content/baseless/ip_reuse 三桶）。
  */
 function web3UnfitBlock(answers) {
   const p = answers?.web3_user_event_fit?.probabilities?.unfit ?? 0;
@@ -1082,7 +1085,7 @@ export function mapStandardAnswers(answers, context) {
   // 边界：仅 B/C 域（与 rideDetourMass 同域，防 B/C 边界跨 run 抖动）；cashtag
   // 改道优先（推文含 $TICKER = 讨论已存在 web3 资产，W 数学语义不变）；rcp /
   // negativeHardNews 门不豁免（内容型产品 C12 绣春刀裁定维持——发布者指代不适用
-  // 于电影等内容产品）。
+  // 于电影等内容产品；rcp J1.87/C145、nhn J1.101/C170 两门已退役，本句存史）。
   const pubProxy = detectPublisherProxy(tokenData, twitterInfo);
   const pubProxyActive = !!(pubProxy && !cashtagForced && (category === 'B' || category === 'C'));
   // C55 补充裁定：币安系语料（代币名/主推/父推含 binance/币安）——产品实体
@@ -1272,7 +1275,8 @@ export function mapStandardAnswers(answers, context) {
   // 路径只保留 W 类原生与 cashtag 改道。
   let eventScoreBlocked = false;
   let gateBlockReason = null;
-  let nhnBlock = null; // event_negative_hard_news 质量门信息 {label, mass}（J1.11）
+  // （J1.101/C170 nhnBlock 随 negativeHardNewsBlock 门退役删除——历史行 audit
+  //  键 negativeHardNewsMass 保留展示）
   let w3Block = null; // web3_user_event_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 契合证据门信息 {label, fitMass}（J1.83/C141；前身产品实体接纳门 J1.27/C55）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
@@ -1452,9 +1456,8 @@ export function mapStandardAnswers(answers, context) {
     // 排除）；Jev 照跑留完整档案，评级 low
     eventScoreBlocked = true;
     gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
-  } else if ((nhnBlock = negativeHardNewsBlock(answers))) {
-    eventScoreBlocked = true;
-    gateBlockReason = nhnBlock.label;
+    // （J1.101/C170 原 negativeHardNewsBlock 门位——退役删除，负面事件交
+    // web3UnfitBlock/web3FitMassBlock 口径层判）
   } else if ((w3Block = web3UnfitBlock(answers))) {
     eventScoreBlocked = true;
     gateBlockReason = w3Block.label;
@@ -1633,8 +1636,8 @@ export function mapStandardAnswers(answers, context) {
         nameEntityAcceptance,
         nameEntityAcceptanceProbability: nameEntityAcceptanceProb,
         // nameReferentBlockMass（历史键名）随 C108 nr 阻断位退役——历史行键保留展示；
-        // J1.56 起本层另有 nameEntityLowBlock（unknown≥0.5，见拦截发生点审计）
-        negativeHardNewsMass: nhnBlock?.mass ?? null,
+        // J1.56 起本层另有 nameEntityLowBlock（unknown≥0.5，见拦截发生点审计）。
+        // negativeHardNewsMass 随 J1.101/C170 nhn 门退役删除（历史行键保留展示）
         web3UnfitMass: w3Block?.mass ?? null,
         // J1.56 实体低影响力门审计（C126）：命中才落 mass（unknown 概率），
         // 未命中 null（与旧 nrBlockMass 退役键区分，历史行键保留展示）

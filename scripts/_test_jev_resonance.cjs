@@ -195,7 +195,7 @@ async function main() {
     qKeys.length === 12 && qKeys.includes('event_influence') && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && !qKeys.includes('w_product_score')
       && !qKeys.includes('web3_user_event_impact') && !qKeys.includes('event_magnitude') && !qKeys.includes('dimension2')
       && !qKeys.includes('event_subject_entity')
-      && qm.JEV_QUESTIONS_VERSION === 'J1.100'
+      && qm.JEV_QUESTIONS_VERSION === 'J1.101'
       && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 13 && qsRel.parent_relationship != null,
     { n: qKeys.length, has: qKeys.includes('event_resonance'), v: qm.JEV_QUESTIONS_VERSION, nRel: Object.keys(qsRel).length });
 

@@ -190,7 +190,7 @@ async function main() {
 
   console.log('\n── E. 版本断言 ──');
   check('E1 JEV_QUESTIONS_VERSION = J1.90（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准；J1.85=C143 品牌劫持并入实体轴）',
-    JEV_QUESTIONS_VERSION === 'J1.100', JEV_QUESTIONS_VERSION);
+    JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
 
   // ═══ F. C86 D-1 量级门豁免贯穿（2026-10-17 用户裁定「豁免应贯穿」）═══
   // 病根：Stage2 量级门在 else-if 门链中先于 Stage3 豁免语义执行——全条件戏谑票

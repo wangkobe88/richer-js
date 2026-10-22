@@ -64,7 +64,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.43）──');
-  check('A1 版本 J1.93（J1.93=C156 name_event_relevance→web3_user_name_event_acceptance；J1.92=C155 3 桶；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶（机构日常交 web3_user_event_fit）；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴——name_brand_hijack 题退役、实体题加 brand_mismatch 桶；J1.84=C142 W 数学双轴合并单轴——w_product_score 退役、w_bsc_user_appeal 0-75、pass 57；J1.83=C141 event_subject_entity 题退役——判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock；J1.82=C140 圈层可达性桶退役；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity（新实体）；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.100', JEV_QUESTIONS_VERSION);
+  check('A1 版本 J1.93（J1.93=C156 name_event_relevance→web3_user_name_event_acceptance；J1.92=C155 3 桶；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶（机构日常交 web3_user_event_fit）；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴——name_brand_hijack 题退役、实体题加 brand_mismatch 桶；J1.84=C142 W 数学双轴合并单轴——w_product_score 退役、w_bsc_user_appeal 0-75、pass 57；J1.83=C141 event_subject_entity 题退役——判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock；J1.82=C140 圈层可达性桶退役；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity（新实体）；J1.71=事件侧三合一 Web3 用户影响力；J1.70=C130 审计键语义化；J1.69=C130 名字门判定对象收敛为链上 Symbol（币名）；J1.57=C126 概念清理；J1.56=C126 命名批次+实体题重构；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚（C42 形态词保留）+niche_subculture 认知可达性锚（35 行全 A 类活桶改锚非退役）；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.50=C119 用户视角统一；J1.44=C110 合桶+mem 瘦身；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.47=C114 name_form 通用梗缩写锚；J1.48=C116 整句情绪姿态分界；J1.49=C118 image_depicts_name 条件题；本测试 J1.48/J1.49 两轮漏 bump 存量修复）', JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
   const qs = buildStandardQuestions();
   check('A2 基础 12 题（J1.97 增 event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 web3_user_event_impact；J1.71 删 web3_user_event_spread）', Object.keys(qs).length === 12, Object.keys(qs).length);
   check('A3 旧题已删（relevance_level/quality_spelling/quality_reasonability 不存在）',
@@ -92,14 +92,15 @@ async function main() {
   check('A7 event_subject_entity 题已退役（J1.83/C141——判据并入 web3_user_event_fit unfit 桶产品实体臂，题集 -1；旧缓存行残留键 mapper 不再消费）',
     qs.event_subject_entity === undefined
     && qs.web3_user_event_fit.criteria.unfit.includes('公司产品实体不被接纳'), null);
-  check('A8 event_token_block_reason 5 桶（J1.88/C150 退役 event_institution_routine（机构日常交 web3_user_event_fit）；J1.87/C145 退役 event_routine_content_product（日常产品/内容宣传交 web3_user_event_fit）；J1.82/C140 退役 token_circle_reachability（圈层可达性并入 event_fit unfit 档）；C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative + J1.64 退役 event_marketing_gimmick）',
-    Object.keys(qs.event_quality_veto.criteria).length === 5
+  check('A8 event_token_block_reason 4 桶（J1.101/C170 退役 event_negative_hard_news（负面事件交 web3_user_event_fit 口径层判）；J1.88/C150 退役 event_institution_routine（机构日常交 web3_user_event_fit）；J1.87/C145 退役 event_routine_content_product（日常产品/内容宣传交 web3_user_event_fit）；J1.82/C140 退役 token_circle_reachability（圈层可达性并入 event_fit unfit 档）；C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative + J1.64 退役 event_marketing_gimmick）',
+    Object.keys(qs.event_quality_veto.criteria).length === 4
     && !('regional_event' in qs.event_quality_veto.criteria) && !('subject_unqualified' in qs.event_quality_veto.criteria)
     && !('low_quality_derivative' in qs.event_quality_veto.criteria)
     && !('event_marketing_gimmick' in qs.event_quality_veto.criteria)
     && !('event_routine_content_product' in qs.event_quality_veto.criteria)
     && !('event_institution_routine' in qs.event_quality_veto.criteria)
-    && !('token_circle_reachability' in qs.event_quality_veto.criteria), null);
+    && !('token_circle_reachability' in qs.event_quality_veto.criteria)
+    && !('event_negative_hard_news' in qs.event_quality_veto.criteria), null);
   check('A8b C113 token_ip_reuse 边界重写：仅拦纯蹭名+无意义修改两形状，有意义的修改/变形不拦（用户裁定「合理即可」）',
     qs.event_quality_veto.criteria.token_ip_reuse.includes('纯蹭名') && qs.event_quality_veto.criteria.token_ip_reuse.includes('无意义修改')
     && qs.event_quality_veto.criteria.token_ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
@@ -159,7 +160,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.100'"), 'J1.92 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.101'"), 'J1.92 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题

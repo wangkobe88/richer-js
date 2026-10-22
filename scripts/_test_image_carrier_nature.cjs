@@ -192,7 +192,7 @@ async function main() {
   console.log('\n── H. 源码口径 ──');
   const mapperSrc = readFileSync(mapperPath, 'utf8');
   const qSrc = readFileSync(qPath, 'utf8');
-  check('H1 版本已 bump J1.100（题面改动版本红线）', JEV_QUESTIONS_VERSION === 'J1.100', JEV_QUESTIONS_VERSION);
+  check('H1 版本已 bump J1.100（题面改动版本红线）', JEV_QUESTIONS_VERSION === 'J1.101', JEV_QUESTIONS_VERSION);
   check('H2 题在 imageConsistency 条件块内（无图不问防幻觉）',
     qSrc.includes('...(imageConsistency ? {\n      image_carrier_nature:'));
   check('H3 题面带两锚（事物自我实录不算演绎 / 第三方 IP 不成本币载体）',

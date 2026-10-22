@@ -126,11 +126,13 @@ async function main() {
   const r5 = mapStandardAnswers(makeAnswers(null), makeContext(tokenData));
   check('B9 web3_user_event_fit 答案缺失 → 不拦（?? 0 兜底）', r5.llmResult.rating !== 'low' || !r5.llmResult.reason.includes('Web3用户偏好不合'), r5.llmResult.reason);
 
-  // B10 nhn 门优先级在前（双门同命中展示负面硬新闻）
+  // B10 nhn 门退役反证（J1.101/C170）：旧形状 nhn 0.6 不再拦——同票 unfit 0.7
+  // 接管拦截，label 归属口味层（负面事件交 web3 契合度处理的裁定落点）
   const nhnAnswers = makeAnswers({ unfit: 0.7, fit: 0.3 });
   nhnAnswers.event_quality_veto = { choice: 'none', probabilities: { none: 0.3, event_negative_hard_news: 0.6, event_empty_content: 0.1 } };
   const r6 = mapStandardAnswers(nhnAnswers, makeContext(tokenData));
-  check('B10 nhn 0.6 + unfit 0.7 双命中 → 展示负面硬新闻（优先级在前）', r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
+  check('B10 nhn 0.6 退役不拦 + unfit 0.7 接管（reason=Web3用户偏好不合 非 负面硬新闻）',
+    r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('Web3用户偏好不合') && !r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
 
   // B11 对照组：同形状无偏好门概念时事件分确实过线（证明拦的是偏好门不是量级）
   const r7 = mapStandardAnswers(makeAnswers({ fit: 0.9, strong_fit: 0.1 }), makeContext(tokenData));

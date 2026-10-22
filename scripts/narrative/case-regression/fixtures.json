@@ -657,6 +657,25 @@
       "addedAt": "2026-10-22",
       "expectBecause": "C138a 收录裁定（2026-10-22 用户）：Heyi.ai 本票=最热票（ATH 1.9M USD 蓝筹在册、C168 dedupExempt 条目本体），肯定给 high；现行卡载体门（D 类 no_visual）fail-first 等引擎放行",
       "expectSince": "2026-10-22"
+    },
+    {
+      "caseId": "C170",
+      "symbol": "RSA4",
+      "addr": "0x3486657430a3c3ba1cf66b3a00976e9667877777",
+      "expect": {
+        "rating": [
+          "mid",
+          "high"
+        ],
+        "reasonExcludes": [
+          "负面硬新闻"
+        ],
+        "tokenCategory": "event:E"
+      },
+      "note": "C170 RSA4 案：CZ 转发 eMudhra 私钥泄露（其中一把私钥就是「4」）1 分钟后发币，nhn 0.88 拦 low 但 strong_fit 0.87/exact_match 0.58/S 级全绿——用户裁定删 negative_hard_news 门（J1.101），负面事件交 web3_user_event_fit 口径层判。expect=意图断言 fail-first：J1.101 部署重析后应翻 mid|high。",
+      "addedAt": "2026-10-22",
+      "expectSince": "2026-10-22",
+      "expectBecause": "C170 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」（J1.101 删桶+门退役）——本票强契合圈内安全梗应放行；收录时现行行仍为 J1.100 旧门拦的 low（fail-first，182 重析对拍后翻正）"
     }
   ]
 }

@@ -70,6 +70,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C170 negative_hard_news 门整体退役——负面事件交 web3 契合度判（2026-10-22 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」）★
+
+- **案情（RSA4 `0x3486657430a3c3ba1cf66b3a00976e9667877777`）**：IntCyberDigest 安全新闻（印度 CA eMudhra 8 张证书私钥泄露，其中一把本应 116 位的私钥**就是「4」**，496 万浏览）发布约 1 天后，CZ（@cz_binance，1299 万粉）回复玩梗「A large part of the internet was encrypted by '4'. 🤣」——**主推发布 1 分钟内**发币 RSA4（名字=RSA 算法+那把「4」私钥，exact_match 0.58）。J1.100 判 `event_quality_veto=event_negative_hard_news` 0.88（J1.38 安全事故族边界）→ mapper 负面硬新闻门拦 low；但同票 **strong_fit 0.87 / E 类 0.7 / within_7d 0.97 / S 级 / new_angle_on_original / 词句 acceptable 0.71 / 载体门已过著名免形象豁免（CZ 在册）**——其余门全绿，唯一拦截臂即 nhn 一票否决。这是「圈内强相关安全事件 + S 级作者本人玩梗」形状：TLS/证书/私钥是 BSC 用户天然懂的话题，CZ 的调侃是圈内可玩的梗，与 J1.38 想拦的「消费苦难/灾难猎奇」距离远。
+- **裁定（用户）**：「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」——负面事件是否有 meme 玩味空间、值不值得玩，不再由第一层质量否决一刀切，改由第二层 `web3_user_event_fit` 判（C140/C145/C150 同构第三例：质量层桶逐个交口径层）。接棒链条=**unfit≥0.5 负门（J1.19）+ C141 sf+fit<0.5 通用硬门**——真不适合 web3 用户的负面事件（纯灾难猎奇）fit 会低，口径层拦得住；圈内梗型负面事件（本案）strong_fit 放行。
+- **改动（J1.101）**：①题集 `event_quality_veto` 删 `event_negative_hard_news` 桶（J1.11/C9 bitget被盗案立、J1.38/C98 粉豹法国骚乱案扩政治暴力边界——**整门退役**），instructions 删「是否负面」维度描述+加迁移句，版本 bump J1.100→J1.101；②mapper：`BLOCK_SCOPE.event_negative_hard_news` 显式空域（防旧缓存行/旧 fixture 重放照拦，C145 先例）、`negativeHardNewsBlock` 概率门删除（门链臂退役）、audit `negativeHardNewsMass` 键退役（历史行保留展示）、BLOCK_LABELS 保留（防未知选项 fallback 打裸键名）；③第一层质量概率门至此全部退役（rcp J1.87/nhn J1.101），argmax 链只剩 empty_content/baseless/ip_reuse 三桶，web3UnfitBlock 升级为事件质量/口味唯一否决入口。
+- **验证**：`_test_web3_fit` B10 翻面为退役反证（旧形状 nhn 0.6 不再拦，同票 unfit 0.7 接管拦截）；`_test_bluechip_dedup_gate` B4 链首先手改锚 web3UnfitBlock+源码反证锚（`function negativeHardNewsBlock` 不存在）；`_test_name_entity_acceptance` D5b 桶集断言翻面；`_test_jev_question_consolidation` A8 桶数 5→4；版本断言全仓 grep 替换（C119 纪律，13 文件 14 处）。18 个受影响单测全绿（_test_cashtag_w_route B1c/B5 两处为 **C154 删 W 正向时效表的存量失败**，stash 对照原版同样挂，与本 case 无关待另修）。
+- **回归票**：收录 RSA4 本票（C170，expect=mid|high + reasonExcludes 负面硬新闻，**意图断言 fail-first**：收录时现行行仍为旧门拦的 low，J1.101 部署重析对拍后翻正）；票数 50→51（F2 同步）。**C98 粉豹 `0x9df97d42…7777` expect 待重析后 update**（现行 expect low+reasonIncludes「负面硬新闻」锚在本门上，删门后拦位消失，新死因由 fit 层/量级门/名字门何者接手需 182 定向重析实证再改写，--update-expect --because 留痕）。
+- **部署**：182 pull + 定向重析 RSA4/C98 → C98 update-expect → 全量 51 票回归对拍 → 重启叙事 worker 与 live 引擎进程（题集版本变更，C84 直调/触发链路在引擎进程内生效）。
+
 ### C169 知识注入 twitter_exact 臂退役——「同 Dev」不作叙事关联（2026-10-22 用户裁定「同一个 Dev 发的绝大多数代币叙事根本无关」）★
 
 - **案情（C138a 收录牵出）**：Heyi.ai 本票 `0xa1cb5a59…7777` 收录回归集（C138a，用户裁定「最热票肯定 high」）后排查其知识注入——BINA 复刻票 `0x3384960b…7777` 的注入命中 Heyi.ai 蓝筹条目（twitter_exact @goldencatdev，注入段带「本系统评 low」叙事给 Jev 当背景）。先做三轮对照实验（原状 / 摘 Heyi.ai 注入 / 连 quasi Bina 全摘）：stateChars 5428→5331→5130，关联题 acceptable↔unacceptable 反复横跳——**注入非稳定致拦因素**（真因=Jev 非确定性，该票语料通篇无币名=J1.99 豁免边缘形状），但实验暴露机制问题：**同 Dev 前作被当叙事背景注入**（GoldenCatDev 是高频部署者，Heyi.ai/C138/BINA 复刻都是他发的，叙事互不相干）。

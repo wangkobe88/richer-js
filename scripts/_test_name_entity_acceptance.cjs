@@ -261,10 +261,10 @@ async function main() {
     qsSrc.includes('有独立背景故事/文化来源的**有意义变形不选 wrong_entity**')
     && qsSrc.includes('错版奶龙→哭哭奶龙')
     && qsSrc.includes('不选本项（J1.89/C151）'), null);
-  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution',
+  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn',
     qsSrc.includes('event_quality_veto:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
-    && qsSrc.includes('event_negative_hard_news:') && !qsSrc.includes('event_routine_content_product:')
+    && !qsSrc.includes('event_negative_hard_news:') && !qsSrc.includes('event_routine_content_product:')
     && qsSrc.includes('token_ip_reuse:') && !qsSrc.includes('token_circle_reachability: {')); // J1.82/C140 圈层桶退役（并行会话同批）
   const entSeg = qsSrc.slice(qsSrc.indexOf('web3_user_name_entity_acceptance: {'), qsSrc.indexOf('web3_user_entity_visuality: {'));
   check('D5 题集实体题六桶（J1.94/C157 官方措辞引用臂；J1.93/C156 题键改名；J1.92/C155 name_event_relevance 3 桶；J1.91/C154 时效体系清理；J1.90/C152 MEMES fit 锚；J1.89/C151 哭哭奶龙 wrong_entity 修正；J1.88/C150 删 institution 桶；J1.87/C145 删 routine 桶；J1.86/C143 校准：accepted/unknown/new_entity/wrong_entity/brand_mismatch/not_entity；no_entity 断代退役）+ 作者身份不升档红线 + 版本 J1.99（C162/C163 批）；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性并入 event_fit（并行会话同批）；J1.81=C139 三轴重构；J1.80=C138 超IP来源判据追加段）',
@@ -275,7 +275,7 @@ async function main() {
     && entSeg.includes('品牌劫持/概念扩大') && entSeg.includes('本项优先于 accepted')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.100'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.101'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability / 载体题 web3_user_entity_visuality 在册，旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && /web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
