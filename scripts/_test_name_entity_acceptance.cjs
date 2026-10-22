@@ -275,10 +275,21 @@ async function main() {
     && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.103'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.104'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability 在册；载体题 web3_user_entity_visuality 已随 C171 形象轴退役（题删除）；旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && !/web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
+  // D7（J1.104/C174，TREE 0xd50e11204f7f3d63598b0118ee4151bf95917777 案）：
+  // 「被命名+被讲故事的故事主体」三锚在场——instructions ⚠️ 段+new_entity criteria
+  // 主锚（含逃逸门：语料无命名行为的普通词蹭名票不适用）+not_entity criteria 反锚。
+  // 修复面：Jev 曾判 TREE not_entity 0.47（new_entity 0.09）→ J1.139 结构下 not_entity
+  // 触发词句题 not_acceptable 0.59 拦 low；锚正后 new_entity → 词句题跳过 → ≈81 high
+  check('D7 J1.104/C174 故事主体锚三点在场（instructions ⚠️ 段+new_entity 主锚+not_entity 反锚）+逃逸门',
+    qsSrc.includes('被命名+被讲故事的故事主体是新实体（J1.104/C174')
+    && qsSrc.includes('不因名字字面是普通词（树/猫/橙子）判 not_entity')
+    && qsSrc.includes('语料已陈述命名行为/已讲故事的主体（有明确所指，如 BNB Tree）不属本项')
+    && qsSrc.includes('币名=普通词而语料无命名行为的蹭名票不满足本锚') && qsSrc.includes('语料无命名行为的普通词蹭名票不适用本锚'),
+    null);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

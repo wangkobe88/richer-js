@@ -80,6 +80,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **单测**：`_test_bluechip_dedup_gate` 扩 B5 真值表（direct_tweet+在册→豁免非 low+双 audit 键；angle_seeking/interpretive_reply/unknown 作者在册照拦；direct_tweet 不在册照拦；分类缺失照拦 fail-保守；无撞名证据豁免臂零侵入）+ C 组判据源码锚，54/0；mapper 消费面 13 门族测试+知识库五件套全绿。
 - **部署**：commit → push → 182 pull → 重启叙事 worker+live v32（重启前查持仓）→ 「4」定向重析（预期解除去重拦截翻 high，J1.101 后 nhn 桶亦不拦）→ 全量 case-regression 对拍 → 票收录回归集。
 
+### C174 实体题「被命名+被讲故事的故事主体」锚——TREE 归位 new_entity（2026-10-22 用户裁定「那这个不应该是 not_entity 应该是 new_entity 吧？」）★
+
+- **案由（TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777`，C172 部署后回归遗留）**：品牌劫持臂退役后 TREE 三连跑稳定 low，新死因=词句接纳度门 not_acceptable 0.59~0.81。呈报判读链后用户指出归位问题：**BNB Tree 该判 new_entity 而非 not_entity**——主推（@TCryptochicks 45412 粉）「I also call it my BNB Tree」+完整故事（种橙子树 1.5 年教儿子耐心+BNB $600 长期持有双关+实拍图）=向用户群宣告了一个新称号所指的具体故事主体；not_entity 题面定义是「不映射任何实体——普通词汇/话中截词」，BNB Tree 有明确所指，不是中性词。
+- **Jev 判歪根因**：new_entity 桶锚例全是「主体先在、币名=主体名」官宣形状（新项目/新品牌/IP 衍生角色），**缺「语料里被命名+被讲故事、名字字面是普通词」形状的锚**——Jev 看 symbol=TREE 字面普通词顺手掉 not_entity（分布 not_entity 0.47/accepted 0.35/new_entity 仅 0.09=没找到对的桶而非确信）；J1.139 结构下 not_entity 触发词句题 → not_acceptable 拦。
+- **改动（J1.104）**：实体题三锚——①instructions ⚠️ 新实体段补「被命名+被讲故事的故事主体是新实体」（TREE 案现场作锚例+不因字面普通词判 not_entity+逃逸门=语料须确实陈述命名行为/讲过故事，币名=普通词而语料无命名行为的蹭名票不满足）；②new_entity criteria 同款主锚；③not_entity criteria 反锚（语料已陈述命名行为/已讲故事的主体不属本项）。
+- **效果链**：TREE → new_entity → 实体门不触+**词句题整体跳过**（J1.139 只评 not_entity 票）→ 计分 ≈81 → high（C106 expect 达成）。
+- **反向风险（呈报过）**：逃逸面要求语料确实陈述命名行为+讲故事——真蹭名票（币名=普通词、语料无命名行为）不满足锚句，仍走 not_entity→词句题照拦。
+- **单测**：name_entity_acceptance D7 故事主体锚三点在场+逃逸门断言（42/0）；版本断言随动 3 处（angle_timing C5/question_consolidation A10d/name_entity D5→J1.104）。叙事侧全量单测零失败。
+- **部署**：commit → push → 182 pull → 重启 worker+live（查持仓）→ TREE 定向重析验证 new_entity/high → 全量回归对拍。
+
 ### C172 品牌劫持轴整轴退役——判据归位 web3_user_name_event_acceptance 用户视角（2026-10-22 用户裁定）★
 
 - **案由（TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777`，C106 j7tracker 直链解锁票，C171 回归遗留 expect 冲突票）**：C171 载体门退役后 TREE 仍 low，用户质疑「TREE 不应该有什么品牌劫持一说」。182 实测归因：预检表命中（BNB Tree 归一化含 bnb 关键词）→ 实体题 `brand_mismatch` 0.74 → punExempt 断第四腿 credibleEventAnchor（语料=TCC 种橙子树故事推，非 superIP 注册表/非自发宣告/非币安广场）→ **品牌劫持截断把 81 分票拦成 low**。铁证=同一次调用里 Jev 自己给出 `name_event=exact_match 0.74`（名字-事件关联明确）与 `entity=brand_mismatch 0.74`（品牌劫持）**自相矛盾**——TREE/BNB Tree 是复合创意名（品牌词作修饰、名词主体=事件主体「树」），被实体轴误吃。
