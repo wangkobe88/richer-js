@@ -584,6 +584,20 @@
       "expectSince": "2026-10-21",
       "expectBecause": "J1.87/C145 删除 event_routine_content_product（用户裁定日常产品/内容宣传不作事件质量最终判定，交 web3_user_event_fit）——heyi.ai 事件质量第一层不再截断；J1.80/C139 著名免形象资格（认证行在册）跳过载体门 + event_fit 过线 → 按 C138 案预期翻案 mid/high。",
       "addedAt": "2026-10-21"
+    },
+    {
+      "caseId": "C162",
+      "symbol": "BINA",
+      "addr": "0x3384960b045905cea62da32ac5679177ee647777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:A",
+        "reasonExcludes": [
+          "wrong_entity"
+        ]
+      },
+      "note": "双 BINA 复刻票：Jev 把宣告推 \"it should be paired to BNC\"（BNCB=交易池计价币，链上 quote_token 实锤）误读成名字证据 → wrong_entity 0.55 全域拦；J1.98 题面加交易池/计价配置语句排除句，预期 wrong_entity 消失、评级翻 mid|high（tier S + strong_fit 0.67 本就全对，38s 毕业 11×）。",
+      "addedAt": "2026-10-22"
     }
   ]
 }

@@ -3,8 +3,9 @@
  * FA 叙事触发模型因子单测（C84 2026-10-17 买腿重构）——本地零 DB 零网络。
  *
  * 四键：narrativeRating（null=未完成/1=low/2=mid/3=high/9=失败超时归一）/
- * narrativeRounds / narrativeRetryDue（=1 当且仅当 rating===1 ∧ accountOnly ∧
- * !inFlight ∧ rounds<maxAnalyses ∧ now−completedAt≥intervalMs——「… OR
+ * narrativeRounds / narrativeRetryDue（=1 当且仅当 rating===1 ∧（accountOnly ∨
+ * corpusEmpty（C162 零自有语料臂，走 noCorpus* 独立节奏键））∧ !inFlight ∧
+ * rounds<maxAnalyses（按臂选参）∧ now−completedAt≥intervalMs——「… OR
  * narrativeRetryDue == 1」并入触发条件的重试轮臂）/ narrativeCategory（叙事类型，
  * Nightshift 案 2026-10-17——GMGN 条件层分档门因子源）。
  * +C88 两标签键（2026-10-18 CZ 出书簇）：narrativeSuperIp（super_ip≥0.5→1/0/
@@ -19,6 +20,7 @@
  *   E. setNarrativeFactorConfig（Infinity/0 回测锁死 / 部分注入保键 / 默认值真相源）
  *   F. getFactorKeys 探针收录三键
  *   G. 源码口径反证（注入段零 Date.now / 回测锁死形状在 BacktestEngine）
+ *   H. C162 corpusEmpty 臂（60s×8 独立节奏 / 双臂 accountOnly 优先 / config 两键）
  *
  * 用法：node scripts/_test_fa_narrative_factors.cjs
  */
@@ -255,9 +257,9 @@ console.log('E. config 锁死/部分注入');
     });
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 60000).narrativeRetryDue, 1);
   });
-  check('E5 getNarrativeFactorDefaults 单一真相源 = {10000, 3}', () =>
+  check('E5 getNarrativeFactorDefaults 单一真相源 = {10000, 3, 60000, 8}（C162 noCorpus* 两键）', () =>
     assert.deepStrictEqual(FourMemeFactorAggregator.getNarrativeFactorDefaults(),
-      { intervalMs: 10000, maxAnalyses: 3 }));
+      { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 60000, noCorpusMaxAnalyses: 8 }));
   FourMemeFactorAggregator.clearNarrativeFactors(ADDR);
 }
 
@@ -283,9 +285,9 @@ console.log('G. 源码口径');
   check('G1 注入段零 Date.now（FA 周期判定禁 Date.now 红线——now 由 build 入参传入）',
     () => assert.ok(!/\bDate\.now\b/.test(seg.replace(/\/\/[^\n]*/g, '')),
       '注入段出现 Date.now'));
-  check('G2 回测锁死形状在 BacktestEngine ctor（Infinity/0 注入）', () => {
+  check('G2 回测锁死形状在 BacktestEngine ctor（四键全锁——C162 noCorpus* 同批防串台）', () => {
     const be = read('src/trading-engine/implementations/BacktestEngine.js');
-    assert.ok(/setNarrativeFactorConfig\(\{\s*intervalMs:\s*Infinity,\s*maxAnalyses:\s*0\s*\}\)/.test(be),
+    assert.ok(/setNarrativeFactorConfig\(\{\s*intervalMs:\s*Infinity,\s*maxAnalyses:\s*0,\s*noCorpusIntervalMs:\s*Infinity,\s*noCorpusMaxAnalyses:\s*0\s*\}\)/.test(be),
       'BacktestEngine 未锁死 intervalMs=Infinity/maxAnalyses=0');
   });
   check('G3 实时引擎 ctor 两键全传（补全防部分注入继承回测锁死值）', () => {
@@ -294,6 +296,64 @@ console.log('G. 源码口径');
       '引擎未用 getNarrativeFactorDefaults 补全两键');
   });
 }
+
+// ═══════════════ H. C162 corpusEmpty 臂 ═══════════════
+console.log('H. C162 corpusEmpty 零语料臂（60s×8 独立节奏）');
+beforeEachReset();
+{
+  const fa = newFA();
+  const mk = (over) => Object.assign(
+    { rating: 1, rounds: 1, completedAt: T0 + 1000, accountOnly: false, corpusEmpty: true, inFlight: false }, over);
+  check('H1 59.999s → 0（noCorpusInterval 60s 节奏，与常规臂 10s 分流）', () => {
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({}));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 59999).narrativeRetryDue, 0);
+  });
+  check('H2 60s → 1（>= 含等）', () => {
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({}));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 60000).narrativeRetryDue, 1);
+  });
+  check('H3 rounds≥noCorpusMaxAnalyses(8) → 0；7 → 1（零语料臂上限）', () => {
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 8 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 0);
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 7 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 1);
+  });
+  check('H4 双臂同真（accountOnly ∧ corpusEmpty）→ accountOnly 臂节奏优先（10s×3）', () => {
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ accountOnly: true, rounds: 3 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 0,
+      'rounds=3 按 accountOnly 臂 maxAnalyses=3 封顶（误用 noCorpus 8 则翻转）');
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ accountOnly: true, rounds: 2 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 10000).narrativeRetryDue, 1,
+      '10s 即到期（accountOnly 臂 intervalMs，非 60s）');
+  });
+  check('H5 corpusEmpty 臂 rounds=3 仍可补（常规上限 3 不约束零语料臂）', () => {
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 3 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 1);
+  });
+  check('H6 noCorpus* config 独立注入与非法值拒绝', () => {
+    FourMemeFactorAggregator.setNarrativeFactorConfig({ noCorpusIntervalMs: 1000, noCorpusMaxAnalyses: 2 });
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 1 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 999).narrativeRetryDue, 0);
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 1000).narrativeRetryDue, 1, '1s 新节奏生效');
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 2 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 0, '新上限 2 生效');
+    // 非法值（0/'x'/1.5）→ 现值不变（1000/2）
+    FourMemeFactorAggregator.setNarrativeFactorConfig({ noCorpusIntervalMs: 0, noCorpusMaxAnalyses: -1 });
+    FourMemeFactorAggregator.setNarrativeFactorConfig({ noCorpusIntervalMs: 'x', noCorpusMaxAnalyses: 1.5 });
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 1 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 1000).narrativeRetryDue, 1, 'intervalMs 仍 1000');
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 2 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 0, 'maxAnalyses 仍 2');
+  });
+  check('H7 回测四键锁死后 corpusEmpty 臂 retryDue 恒 0（语料前视防线）', () => {
+    FourMemeFactorAggregator.setNarrativeFactorConfig(
+      { intervalMs: Infinity, maxAnalyses: 0, noCorpusIntervalMs: Infinity, noCorpusMaxAnalyses: 0 });
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 0 }));
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 10 ** 9).narrativeRetryDue, 0);
+  });
+  FourMemeFactorAggregator.clearNarrativeFactors(ADDR);
+}
+beforeEachReset();
 
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed > 0 ? 1 : 0);

@@ -352,6 +352,12 @@ class NarrativeDirectCaller {
         // （账号时间线=动态语料，重取可翻案；推文型语料静态重析无意义）——引擎
         // narrativeRetryDue 因子的 accountOnly 臂；不外露 classifiedUrls 本体
         accountOnly: isAccountOnlySource(result?.classifiedUrls) === true,
+        // 零自有语料形状（2026-10-22 C162 双 BINA 案·正主 0xed71…7777）：classifiedUrls
+        // 各桶全空=token 无任何自有宣告语料入口（元数据/官网/推文全空，仅搜索兜底
+        // 背景噪声）——抢跑发币票的宣告推/GMGN link 聚合典型晚到几分钟，rating=1
+        // 大概率是语料竞态而非叙事真拒；corpusEmpty 票给补轮资格（与 accountOnly
+        // 同族的「语料晚到」语义，节奏参数独立见引擎 noCorpus* 键）
+        corpusEmpty: hasNoOwnedCorpus(result?.classifiedUrls) === true,
         // 叙事类型（2026-10-17 Nightshift 案）：analyzer 顶层 tokenCategory 三路
         // （新鲜/缓存/fallback）透出；null = 未分类/precheck fail——GMGN 条件层
         // narrativeCategory 键的消费源（触发状态机 st.category 投影）
@@ -399,6 +405,9 @@ class NarrativeDirectCaller {
         corpusTs: null,
         precheckStage: null,
         accountOnly: false,
+        // 超时/异常语料形状未知 → false（保守不补轮，不烧配额；语料真晚到的票
+        // 下一轮常规调用自然重评）
+        corpusEmpty: false,
         narrativeCategory: null,
         narrativeSuperIp: null,
         narrativeSuperIpSlogan: null,
@@ -512,6 +521,21 @@ function isAccountOnlySource(classifiedUrls) {
 }
 
 /**
+ * 零自有语料判定：classifiedUrls 缺失或所有桶全空（C162 正主案 0xed71…7777：
+ * 抢跑发币票宣告推晚发 4min、GMGN link 聚合滞后，首评 4s 时各桶全空只剩搜索
+ * 兜底同名词噪声 → rating=1 即终局拒掉了 13min 毕业 6.6× 的盘）。与
+ * isAccountOnlySource 互斥（accountOnly 要求 twitter 桶非空）——两者覆盖
+ * 「语料晚到」可重评形状的两端：入口=账号时间线 / 入口=尚不存在。
+ * 搜索兜底（[TWITTER_SEARCH] 段）不进 classifiedUrls，不影响本判据。
+ * @param {Object|null} classifiedUrls - analyze 返回的 classifiedUrls
+ * @returns {boolean}
+ */
+function hasNoOwnedCorpus(classifiedUrls) {
+  if (!classifiedUrls || typeof classifiedUrls !== 'object') return true;
+  return Object.values(classifiedUrls).every(bucket => !Array.isArray(bucket) || bucket.length === 0);
+}
+
+/**
  * GMGN 风险字段 → preBuyCheckCondition 因子（x-0 案，2026-09-27）
  * 交易引擎/回测两路径共用映射，单点维护：
  * - gmgnIssuerTokenCount：推特维度发币总数（serial issuer 核心信号——链上 EOA 每
@@ -547,4 +571,4 @@ function mapGmgnRiskFactors(risk) {
   };
 }
 
-module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative, extractCorpusTs, parseTwitterTs, isAccountOnlySource };
+module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative, extractCorpusTs, parseTwitterTs, isAccountOnlySource, hasNoOwnedCorpus };

@@ -69,6 +69,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C162 双 BINA 案——零自有语料补轮臂（corpusEmpty）+ wrong_entity 交易池语句误读排除（J1.98）（2026-10-22 用户裁定「修吧」）★
+
+- **案情（同叙事两张毕业票均被叙事层拒）**：CZ 新犬 Taigan 名字揭晓叙事，flap 平台同名 BINA 两票——**正主 `0xed71b42b07cc1664c0f82361d48d0417a6ed7777`**（13min 毕业 6.6×，最佳一档）与**复刻 `0x3384960b045905cea62da32ac5679177ee647777`**（38s 毕业 11×）。正主：首评 4s 时 classifiedUrls 各桶全空（宣告推 `@Whatsyourcards` 晚发 4min + GMGN link 聚合滞后，仅搜索兜底同名词噪声）→ rating=1，且非 accountOnly（桶全空不满足「twitter 桶非空」前提）→ 无补轮资格终局拒——**抢跑发币票的语料竞态形状，现有 accountOnly 补轮臂结构性覆盖不到**（入口=账号时间线 / 入口=尚不存在，两端）。复刻：tier S + strong_fit 0.67 全对，但 Jev 把宣告推里 "it should be paired to BNC"（**该币用 BNCB 做交易池计价币**——链上 token_quote_set quote_token symbol=BNCB 实锤）误读成「狗名应配 BNC、币名 Bina 指歪」→ wrong_entity 0.55 全域拦（用户纠正关键误读：这句是池子配置说明不是名字证据，定性=Jev 误拦非按设计工作）。
+- **机制①（引擎/FA corpusEmpty 补轮臂，正主案）**：`NarrativeDirectCaller.hasNoOwnedCorpus`（纯函数：classifiedUrls 缺失或各桶全空=true）→ getRating 返回带 `corpusEmpty`（catch 路径显式 false——超时/异常语料形状未知保守不补轮）→ 引擎补轮资格扩第二臂：`rating==1 ∧（accountOnly ∨ corpusEmpty）`，**两臂互斥分流、双臂同真 accountOnly 优先（参数选臂不叠加）**；corpusEmpty 臂走独立节奏键 `narrativeRetry.noCorpusIntervalMs`（缺省 60000）/`noCorpusMaxAnalyses`（缺省 8）——60s×8=8 分钟窗覆盖宣告推/GMGN link 分钟级晚到；FA `_NARRATIVE_FACTOR_DEFAULTS` 四键、`narrativeRetryDue` 判据同步双臂（与引擎逐字一致双侧冗余）；BacktestEngine 四键全锁 `{Infinity,0,Infinity,0}`（回测禁补轮=语料前视防线不变）；语料到位后的轮次自然 corpusEmpty=false 转常规形状（真拒不补轮）。
+- **机制②（题面 J1.98，复刻案）**：instructions + wrong_entity criteria 双处加显式排除句——交易池/计价配置语句（「paired to X / X pair / trade against X / 用 X 做交易对 / 流动性池计价币」）说的是这个币与 X 币配对交易（池子配置），与币名映射哪个实体、币名有没有指歪**毫无关系**，不得据此判 wrong_entity。mapper 零改动（门不变，靠 Jev 判读翻正，C151 先例）；题数不变。
+- **验证**：单测新增三处全绿——`_test_narrative_trigger_condition` I 组 10 项（hasNoOwnedCorpus 真值表/60s 节奏到才发/8 轮上限/双臂优先/翻常规形状即止/异常保守 false）共 47P；`_test_fa_narrative_factors` H 组 7 项（60s 边界/8 上限/config 独立注入与非法值拒绝/回测锁死）共 37P；`_test_narrative_retry_config` C8/C9/E 组（route 校验 + 引擎接线形状）共 36P；J1.97→J1.98 全仓 13 处版本钉死断言 bump 后 12 个题集套件 0 失败。**182 定向重析（0x3384 翻案预期）与全量回归对拍待部署后跑**。
+- **回归票**：0x3384…7777 收录 C162（预期 wrong_entity 消失评级翻正）；0xed71…7777 作 corpusEmpty 补轮观测票（机制在引擎侧非题面，回归集不覆盖行为）。
+- **部署**：push → 182 pull → `npm run case-regression` 全量对拍 + 0x3384 定向重析 → 重启 live v28（引擎/FA 改动须重启进程生效；重启前确认无持仓规程）。
+
 ### C161 巨大影响力事件载体门豁免——全球级爆火事件不要求形象载体（J1.97）（2026-10-21 用户裁定）★
 
 - **裁定**：用户「需要形象载体是大部分情况，某则 meme 币没有一个落脚点。但是对于影响力巨大的事件（这个网站确实爆火），是应该可以豁免的」——`0x1214a8cceff27ef355f803e06ec5511cb4f97777`（80억분의1，韩国爆火人生模拟网站）因 E 类 `no_visual_entity` 0.99 被载体门拦；vision 门判文本 sufficient 1.0 跳过图片，图内其实有网站名/界面。

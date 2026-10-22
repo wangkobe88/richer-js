@@ -241,7 +241,10 @@ let _retentionBasis = null;
 // null fail-closed；引擎 stop 逐 token 清）。★retryDue 的 now 由 buildFactorMap
 // 入参传入（FA 周期判定禁 Date.now 红线）。
 let _narrativeFactorOverrides = null;
-const _NARRATIVE_FACTOR_DEFAULTS = { intervalMs: 10000, maxAnalyses: 3 };
+// C162 零语料臂（corpusEmpty）节奏键：间隔 60s/上限 8 轮=8 分钟窗，覆盖抢跑发币票
+// 宣告推晚发+GMGN link 聚合的分钟级晚到（正主案实证：宣告推晚 4min、13min 毕业）；
+// 与 accountOnly 臂（10s×3）互斥分流，实验级 fourmemeWs.narrativeRetry.noCorpus* 可覆盖
+const _NARRATIVE_FACTOR_DEFAULTS = { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 60000, noCorpusMaxAnalyses: 8 };
 let _narrativeFactorConfig = { ..._NARRATIVE_FACTOR_DEFAULTS };
 // sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
 // BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
@@ -3185,11 +3188,12 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // ── 叙事触发模型注入（2026-10-17 买腿重构 C84）：narrativeRating（null=未完成/
         //    1=low/2=mid/3=high/9=失败超时归一）+ narrativeRounds（已完成分析轮数）+
-        //    narrativeRetryDue（=1 当且仅当 rating===1 ∧ accountOnly ∧ !inFlight ∧
-        //    rounds<maxAnalyses ∧ now−completedAt≥intervalMs——重试轮并入触发条件的
-        //    因子表达 `... OR narrativeRetryDue == 1`）。未回填（legacy 腿/web 裸 FA/
-        //    分析未完成）→ rating null → 条件 (narrativeRating == 2 OR == 3) 恒 false
-        //    = 不参与信号生成（第二点由条件表达式天然保证）。
+        //    narrativeRetryDue（=1 当且仅当 rating===1 ∧（accountOnly ∨ corpusEmpty
+        //    （C162 零自有语料臂，走 noCorpus* 独立节奏键））∧ !inFlight ∧
+        //    rounds<maxAnalyses（按臂选参）∧ now−completedAt≥intervalMs——重试轮并入
+        //    触发条件的因子表达 `... OR narrativeRetryDue == 1`）。未回填（legacy 腿/
+        //    web 裸 FA/分析未完成）→ rating null → 条件 (narrativeRating == 2 OR == 3)
+        //    恒 false = 不参与信号生成（第二点由条件表达式天然保证）。
         //    ★now 用 build 入参（FA 周期判定禁 Date.now 红线）──
         {
             const _nar = state.tokenAddress && _narrativeFactorOverrides
@@ -3208,10 +3212,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.narrativeSuperIp = _nar ? (_nar.superIp ?? null) : null;
             factors.narrativeSuperIpSlogan = _nar ? (_nar.recognizedEntitySlogan ?? null) : null;
             factors.narrativeRetryDue = (_nar
-                && _nar.rating === 1 && _nar.accountOnly === true && _nar.inFlight !== true
-                && _nar.rounds < _narrativeFactorConfig.maxAnalyses
+                && _nar.rating === 1 && _nar.inFlight !== true
+                // C162 补轮第二臂：corpusEmpty（零自有语料=宣告推/GMGN link 晚到竞态）
+                // 与 accountOnly 同为「语料晚到可重评」形状；两臂互斥（accountOnly
+                // 要求 twitter 桶非空），corpusEmpty 臂走 noCorpus* 独立节奏键——
+                // 判据与引擎 _narrativeTriggerCheck 逐字一致（刻意的双侧冗余）
+                && (_nar.accountOnly === true || _nar.corpusEmpty === true)
+                && _nar.rounds < (_nar.corpusEmpty === true && _nar.accountOnly !== true
+                    ? _narrativeFactorConfig.noCorpusMaxAnalyses : _narrativeFactorConfig.maxAnalyses)
                 && Number.isFinite(_nar.completedAt)
-                && now - _nar.completedAt >= _narrativeFactorConfig.intervalMs)
+                && now - _nar.completedAt >= (_nar.corpusEmpty === true && _nar.accountOnly !== true
+                    ? _narrativeFactorConfig.noCorpusIntervalMs : _narrativeFactorConfig.intervalMs))
                 ? 1 : 0;
         }
 
@@ -3264,9 +3275,11 @@ class FourMemeFactorAggregator extends EventEmitter {
      * preload 后逐 token 注入）。整包替换——调用方持全量状态。
      * @param {string} tokenAddress
      * @param {{rating: number|null, rounds: number, completedAt: number|null,
-     *          accountOnly: boolean, inFlight: boolean, category?: string|null}} snapshot
+     *          accountOnly: boolean, corpusEmpty: boolean, inFlight: boolean, category?: string|null}} snapshot
      *   rating ∈ null|1|2|3|9；completedAt=最后一轮完成时刻 ms（retryDue 判据）；
      *   accountOnly=语料只有账号入口（isAccountOnlySource，重试域判据）；
+     *   corpusEmpty=零自有语料（hasNoOwnedCorpus，C162 补轮第二臂——宣告推/GMGN
+     *   link 晚到竞态形状，与 accountOnly 互斥，noCorpus* 独立节奏）；
      *   inFlight=引擎分析进行中（抑制重复发起）；
      *   category=叙事类型（token_category 同形状，narrativeCategory 因子源）；
      *   superIp/recognizedEntitySlogan=C88 超级IP两标签（1/0/null 三态，narrativeSuperIp/
@@ -3291,10 +3304,11 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * 重试轮参数（引擎 ctor 注入 narrativeRetry.intervalMs/maxAnalyses；回测
-     * {intervalMs: Infinity, maxAnalyses: 0} → retryDue 恒 0=禁重试）。部分注入——
-     * 未带键保持现值（⚠ 引擎侧须两键全传：同进程先跑回测（Infinity/0）再起实时
-     * 引擎时，部分注入会继承回测值——实时引擎用 getNarrativeFactorDefaults 补全）。
+     * 重试轮参数（引擎 ctor 注入 narrativeRetry.intervalMs/maxAnalyses + C162 零语料臂
+     * noCorpusIntervalMs/noCorpusMaxAnalyses；回测全键 {Infinity, 0} → retryDue 恒 0
+     * =禁重试）。部分注入——未带键保持现值（⚠ 引擎侧须各键全传：同进程先跑回测
+     * （Infinity/0）再起实时引擎时，部分注入会继承回测值——实时引擎用
+     * getNarrativeFactorDefaults 补全）。
      */
     static setNarrativeFactorConfig(cfg) {
         if (!cfg) return;
@@ -3303,6 +3317,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
         if (Number.isInteger(cfg.maxAnalyses) && cfg.maxAnalyses >= 0) {
             _narrativeFactorConfig.maxAnalyses = cfg.maxAnalyses;
+        }
+        if (typeof cfg.noCorpusIntervalMs === 'number' && (cfg.noCorpusIntervalMs === Infinity || cfg.noCorpusIntervalMs > 0)) {
+            _narrativeFactorConfig.noCorpusIntervalMs = cfg.noCorpusIntervalMs;
+        }
+        if (Number.isInteger(cfg.noCorpusMaxAnalyses) && cfg.noCorpusMaxAnalyses >= 0) {
+            _narrativeFactorConfig.noCorpusMaxAnalyses = cfg.noCorpusMaxAnalyses;
         }
     }
 

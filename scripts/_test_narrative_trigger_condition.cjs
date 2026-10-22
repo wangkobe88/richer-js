@@ -13,6 +13,8 @@
  *   A. 触发条件解析（legacy 零激活/空白/trim/卖腿忽略/缓存）
  *   B. 首轮状态机 + inFlight 抑制 + 完成回填（FA 投影/轮次行 insert+update 形状）
  *   C. retry 四门（interval/rating≠1/accountOnly/上限）+ 条件不满足
+ *   I. C162 corpusEmpty 零语料补轮臂（hasNoOwnedCorpus 纯函数/60s 节奏/8 轮上限/
+ *      accountOnly 臂优先/非两臂不重试/完成回填投影/FA retryDue 臂投影）
  *   D. catch 兜底（rating 归 9 拦截）/ 评级归一 [1,2,3,9] 外 → null
  *   E. stop 清理 identity 反证（清态后完成回填不投影）
  *   F. 轮次表（insert 失败观测 fail-open 交易照跑 / rowId 缺失 update no-op）
@@ -74,6 +76,7 @@ const { FourMemeWssTradingEngine } = require(path.join(ROOT, 'src/trading-engine
 const FourMemeFactorAggregator = require(path.join(ROOT, 'src/services/FourMemeFactorAggregator'));
 const { ConditionEvaluator } = require(path.join(ROOT, 'src/strategies/ConditionEvaluator'));
 const { StrategyEngine } = require(path.join(ROOT, 'src/strategies/StrategyEngine'));
+const { hasNoOwnedCorpus } = require(path.join(ROOT, 'src/trading-engine/pre-check/NarrativeDirectCaller'));
 
 let passed = 0, failed = 0;
 function check(name, fn) {
@@ -111,6 +114,8 @@ function makeEng({ strategies, condTrue = true, ctl } = {}) {
   eng._narrativeTriggerCondCache = undefined;
   eng._narrativeTriggerIntervalMs = 10000;
   eng._narrativeTriggerMaxAnalyses = 3;
+  eng._narrativeTriggerNoCorpusIntervalMs = 60000; // C162 零语料臂缺省（FA defaults 同源）
+  eng._narrativeTriggerNoCorpusMaxAnalyses = 8;
   eng._strategyEngine = {
     evaluateCondition: () => condTrue,
     getAllStrategies: () => strategies || [{ action: 'buy', condition: 'buyVolumeBnb >= 1', narrativeTriggerCondition: 'buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1' }],
@@ -372,12 +377,12 @@ const COND_BASE = {
         && /leadMs:\s*Number\.isFinite\(st\.lastCompletedAt\)\s*\?\s*Date\.now\(\)\s*-\s*st\.lastCompletedAt/.test(src),
         'metadata 摘要形状漂移');
     });
-    check('E4 ctor 参数投影（FA.setNarrativeFactorConfig 两键全传）', () => {
-      assert.ok(/setNarrativeFactorConfig\(\{\s*intervalMs:\s*this\._narrativeTriggerIntervalMs,\s*maxAnalyses:\s*this\._narrativeTriggerMaxAnalyses,?\s*\}\)/.test(src),
+    check('E4 ctor 参数投影（FA.setNarrativeFactorConfig 四键全传——C162 noCorpus* 两键同批）', () => {
+      assert.ok(/setNarrativeFactorConfig\(\{\s*intervalMs:\s*this\._narrativeTriggerIntervalMs,\s*maxAnalyses:\s*this\._narrativeTriggerMaxAnalyses,\s*noCorpusIntervalMs:\s*this\._narrativeTriggerNoCorpusIntervalMs,\s*noCorpusMaxAnalyses:\s*this\._narrativeTriggerNoCorpusMaxAnalyses,?\s*\}\)/.test(src),
         'ctor 投影形状漂移');
     });
-    check('E5 category 链源码口径（Nightshift 案 2026-10-17：st 初始/完成回填/投影/挂点透传四点）', () => {
-      assert.ok(/rounds: 0, inFlight: false, hasInitial: false, lastRating: null,\s*\n\s*lastCompletedAt: null, accountOnly: false, currentRowId: null, category: null,/.test(src),
+    check('E5 category 链源码口径（Nightshift 案 2026-10-17：st 初始/完成回填/投影/挂点透传四点；C162 插 corpusEmpty 键）', () => {
+      assert.ok(/rounds: 0, inFlight: false, hasInitial: false, lastRating: null,\s*\n\s*lastCompletedAt: null, accountOnly: false, corpusEmpty: false, currentRowId: null,\s*\n\s*category: null, superIp: null, recognizedEntitySlogan: null,/.test(src),
         'st 初始对象缺 category:null');
       assert.ok(/st\.category = r\.narrativeCategory \?\? null;/.test(src), '完成回填缺 category 赋值');
       assert.ok(/category: st\.category \?\? null,/.test(src), '_projectNarrativeFactors 缺 category');
@@ -468,6 +473,120 @@ const COND_BASE = {
     check('H5 挂点在买腿分支且先于去抖买评估（C84 挂点序；2026-10-18 gwp 预取插位——至多隔其调用块）', () =>
       assert.ok(/this\._narrativeTriggerCheck\(tokenAddress, factors, token\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*(?:\/\/[^\n]*\n\s*this\._walletProfilePrefetchCheck\(tokenAddress, factors, token\);\s*\n)?\s*this\._scheduleDebouncedBuy\(tokenAddress, tick\);/.test(src),
         '挂点序漂移'));
+  }
+
+  // ═══════════════ I. C162 corpusEmpty 零语料补轮臂 ═══════════════
+  console.log('I. C162 corpusEmpty 零语料补轮臂（双 BINA 案·正主 0xed71…7777）');
+  check('I1 hasNoOwnedCorpus 纯函数真值表（缺对象/全空桶=零语料；任一桶非空=有语料）', () => {
+    assert.strictEqual(hasNoOwnedCorpus(undefined), true);
+    assert.strictEqual(hasNoOwnedCorpus(null), true);
+    assert.strictEqual(hasNoOwnedCorpus({}), true);
+    assert.strictEqual(hasNoOwnedCorpus({ twitter: [], websites: [] }), true);
+    assert.strictEqual(hasNoOwnedCorpus({ twitter: [{ url: 'x' }], websites: [] }), false);
+    assert.strictEqual(hasNoOwnedCorpus({ twitter: [], websites: [{ url: 'y' }] }), false);
+    // 非数组桶当空（形状防御——非数组≠非空）
+    assert.strictEqual(hasNoOwnedCorpus({ twitter: 'not-array' }), true);
+    assert.strictEqual(hasNoOwnedCorpus({ twitter: 'not-array', websites: [{ url: 'y' }] }), false);
+  });
+  // 零语料票完成轮形状（corpusEmpty=true + accountOnly=false——与 completeRound1 的
+  // accountOnly 形状互斥分流）
+  async function completeRound1NoCorpus(eng, over = {}) {
+    TRIG.call(eng, eng.__addr, {}, null);
+    eng._narrativeCaller.resolve({
+      numericRating: 1, rating: 'low', durationMs: 5, fromCache: true,
+      accountOnly: false, corpusEmpty: true, ...over,
+    });
+    await settle();
+  }
+  await checkAsync('I2 完成回填：st.corpusEmpty=true + FA 投影 corpusEmpty 键', async () => {
+    const eng = makeEng();
+    await completeRound1NoCorpus(eng);
+    const st = eng._narrativeTriggerStates.get(eng.__addr);
+    assert.strictEqual(st.corpusEmpty, true);
+    assert.strictEqual(st.accountOnly, false);
+    assert.strictEqual(FourMemeFactorAggregator.getNarrativeFactors(eng.__addr).corpusEmpty, true);
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  await checkAsync('I3 常规 interval（10s）到期但 noCorpusInterval（60s）未到 → 不发（正主案：4min 晚到窗须长节奏）', async () => {
+    const eng = makeEng();
+    await completeRound1NoCorpus(eng);
+    eng._narrativeTriggerStates.get(eng.__addr).lastCompletedAt = Date.now() - 15000;
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 1);
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  await checkAsync('I4 noCorpus interval（60s）到期 → 发 retry（override 同款 ignoreCache+invalidateAccountCorpus）', async () => {
+    const eng = makeEng();
+    await completeRound1NoCorpus(eng);
+    eng._narrativeTriggerStates.get(eng.__addr).lastCompletedAt = Date.now() - 61000;
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 2);
+    assert.deepStrictEqual(eng._narrativeCaller.calls[1].opts,
+      { overrideOptions: { ignoreCache: true, invalidateAccountCorpus: true } });
+    const ins = dbOps.filter(o => o.kind === 'insert' && o.row.token_address === eng.__addr).pop();
+    assert.strictEqual(ins.row.trigger_reason, 'retry');
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  await checkAsync('I5 rounds≥noCorpusMaxAnalyses(8) 不再发起（零语料臂上限）；7 仍可', async () => {
+    const eng = makeEng();
+    await completeRound1NoCorpus(eng);
+    const st = eng._narrativeTriggerStates.get(eng.__addr);
+    st.rounds = 8;
+    st.lastCompletedAt = Date.now() - 61000;
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 1, 'rounds=8 应封顶');
+    st.rounds = 7;
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 2, 'rounds=7 应可补');
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  check('I6 双臂同真（accountOnly ∧ corpusEmpty）→ accountOnly 臂参数优先（10s×3 节奏）：rounds=3 即封顶', () => {
+    const eng = makeEng();
+    eng._narrativeTriggerStates.set(eng.__addr, {
+      rounds: 3, inFlight: false, hasInitial: true, lastRating: 1,
+      lastCompletedAt: Date.now() - 61000, accountOnly: true, corpusEmpty: true, currentRowId: 1,
+    });
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 0,
+      'accountOnly 臂 maxAnalyses=3 封顶（若误用 noCorpusMaxAnalyses=8 则误发）');
+  });
+  await checkAsync('I7 非两臂票（accountOnly=false ∧ corpusEmpty=false）rating=1 → 不补轮（存量形状不变）', async () => {
+    const eng = makeEng();
+    await completeRound1(eng, { accountOnly: false, corpusEmpty: false });
+    eng._narrativeTriggerStates.get(eng.__addr).lastCompletedAt = Date.now() - 61000;
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 1);
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  await checkAsync('I8 语料到位翻常规形状：二轮 corpusEmpty=false 且仍 rating=1 → 不再补轮（翻入即止）', async () => {
+    const eng = makeEng();
+    await completeRound1NoCorpus(eng);
+    eng._narrativeTriggerStates.get(eng.__addr).lastCompletedAt = Date.now() - 61000;
+    TRIG.call(eng, eng.__addr, {}, null); // R2 发起
+    eng._narrativeCaller.resolve({
+      numericRating: 1, rating: 'low', durationMs: 5, fromCache: false,
+      accountOnly: false, corpusEmpty: false, // 语料已到位（宣告推/GMGN link 晚到已聚合）
+    });
+    await settle();
+    TRIG.call(eng, eng.__addr, {}, null);
+    assert.strictEqual(eng._narrativeCaller.calls.length, 2, '语料到位后 rating=1 = 真拒不补轮');
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  await checkAsync('I9 接线级异常（reject）→ corpusEmpty 不置位保持 false（保守不补轮）', async () => {
+    const eng = makeEng();
+    TRIG.call(eng, eng.__addr, {}, null);
+    eng._narrativeCaller.reject(new Error('接线级异常'));
+    await settle();
+    const st = eng._narrativeTriggerStates.get(eng.__addr);
+    assert.strictEqual(st.lastRating, 9);
+    assert.strictEqual(st.corpusEmpty, false, '异常轮语料形状未知，保守 false');
+    FourMemeFactorAggregator.clearNarrativeFactors(eng.__addr);
+  });
+  {
+    const src = read('src/trading-engine/pre-check/NarrativeDirectCaller.js');
+    check('I10 catch 兜底路径 corpusEmpty:false 显式（超时/异常语料形状未知保守不补轮）', () => {
+      assert.ok(/corpusEmpty:\s*false/.test(src), 'catch 路径缺 corpusEmpty:false');
+    });
   }
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

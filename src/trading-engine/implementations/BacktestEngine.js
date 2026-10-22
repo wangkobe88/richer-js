@@ -402,9 +402,10 @@ class BacktestEngine extends AbstractTradingEngine {
     this._narrativeCaller = new NarrativeDirectCaller({ memoryCacheResults: true });
     // C84：回测无叙事触发状态机（发起/重试轮=实时引擎语义）——FA 叙事因子 config
     // 关死 retry（intervalMs=Infinity/maxAnalyses=0 → narrativeRetryDue 恒 0）。
-    // 两键恒全传：防同进程先跑回测再起实时（或反向）时继承对方 config 串台
+    // 各键恒全传：防同进程先跑回测再起实时（或反向）时继承对方 config 串台
+    // （C162 零语料臂 noCorpus* 两键同批锁死——回测禁补轮=语料前视防线不变）
     require('../../services/FourMemeFactorAggregator')
-      .setNarrativeFactorConfig({ intervalMs: Infinity, maxAnalyses: 0 });
+      .setNarrativeFactorConfig({ intervalMs: Infinity, maxAnalyses: 0, noCorpusIntervalMs: Infinity, noCorpusMaxAnalyses: 0 });
     // 挂 this：解构是函数级作用域，_evaluateBuyPath 裸引用会 ReferenceError（同实时引擎蝴蝶轮回案）
     this._mapGmgnRiskFactors = mapGmgnRiskFactors;
     // 叙事否决短路集（镜像实时引擎 _narrativeBlockedTokens，2026-09-27 用户裁定：

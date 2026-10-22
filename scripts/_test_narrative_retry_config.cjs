@@ -111,6 +111,30 @@ function check(name, cond, detail) {
 
     check('C7 windowSec ∈ [60,7200] 整数（下限对齐引擎构造点 ≥60 校验）',
         src.includes('!intInRange(nr.windowSec, 60, 7200)'));
+
+    check('C8 noCorpusIntervalMs ∈ [1000,600000] 整数（C162 零语料臂补轮间隔）',
+        src.includes('!intInRange(nr.noCorpusIntervalMs, 1000, 600000)'));
+    check('C9 noCorpusMaxAnalyses ∈ [1,50] 整数（C162 零语料臂真跑上限）',
+        src.includes('!intInRange(nr.noCorpusMaxAnalyses, 1, 50)'));
+}
+
+// ═══ E. C162 noCorpus* 两键接线（引擎构造段）═══
+{
+    const src = read('src/trading-engine/implementations/FourMemeWssTradingEngine.js');
+    console.log('E. C162 noCorpus* 两键（零语料臂节奏，双 BINA 案）');
+
+    check('E1 实验级 noCorpusIntervalMs 条件注入（缺省回落 60s）',
+        src.includes('this._narrativeTriggerNoCorpusIntervalMs = Number.isInteger(narrativeRetry.noCorpusIntervalMs) && narrativeRetry.noCorpusIntervalMs > 0')
+            && src.includes('? narrativeRetry.noCorpusIntervalMs : _nrDefaults.noCorpusIntervalMs;'));
+
+    check('E2 实验级 noCorpusMaxAnalyses 条件注入（缺省回落 8）',
+        src.includes('this._narrativeTriggerNoCorpusMaxAnalyses = Number.isInteger(narrativeRetry.noCorpusMaxAnalyses) && narrativeRetry.noCorpusMaxAnalyses >= 0')
+            && src.includes('? narrativeRetry.noCorpusMaxAnalyses : _nrDefaults.noCorpusMaxAnalyses;'));
+
+    check('E3 补轮判据双臂形状（noCorpusArm 互斥分流 + 按臂选参）',
+        src.includes('const noCorpusArm = st.corpusEmpty === true && st.accountOnly !== true;')
+            && src.includes("const maxAnalyses = noCorpusArm ? this._narrativeTriggerNoCorpusMaxAnalyses : this._narrativeTriggerMaxAnalyses;")
+            && src.includes("const intervalMs = noCorpusArm ? this._narrativeTriggerNoCorpusIntervalMs : this._narrativeTriggerIntervalMs;"));
 }
 
 // ═══ D. 创建页模板三处物化语义 ═══

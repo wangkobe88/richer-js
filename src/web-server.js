@@ -816,6 +816,13 @@ class RicherJsWebServer {
             if (nr.windowSec !== undefined && !intInRange(nr.windowSec, 60, 7200)) {
               return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.windowSec 须为整数 [60,7200]（秒；不得低于 worker retryWindowSec——拉黑先于重析翻正=误拉黑且无撤销路径）` });
             }
+            // C162 零语料补轮臂节奏键（60s×8 缺省；与 intervalMs/maxAnalyses 同段独立）
+            if (nr.noCorpusIntervalMs !== undefined && !intInRange(nr.noCorpusIntervalMs, 1000, 600000)) {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.noCorpusIntervalMs 须为整数 [1000,600000]（零语料臂补轮间隔毫秒）` });
+            }
+            if (nr.noCorpusMaxAnalyses !== undefined && !intInRange(nr.noCorpusMaxAnalyses, 1, 50)) {
+              return res.status(400).json({ success: false, error: `${secKey}.narrativeRetry.noCorpusMaxAnalyses 须为整数 [1,50]（零语料臂含首析的真跑上限）` });
+            }
           }
         }
 

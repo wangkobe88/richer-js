@@ -379,19 +379,27 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       maintainTpaTracks: this._experiment?.config?.tokenPositionAnalyzer != null,
     }, this.logger);
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
-    // C84 叙事触发轮参数投影（两键全传——setNarrativeFactorConfig 部分注入语义下，
+    // C84 叙事触发轮参数投影（各键全传——setNarrativeFactorConfig 部分注入语义下，
     // 同进程先跑过回测（Infinity/0）再起实时引擎会继承回测值；用 FA 默认值单一
     // 真相源补全防字面量漂移）：narrativeRetry.intervalMs/maxAnalyses 兼供 FA
-    // narrativeRetryDue 臂（引擎触发状态机与 FA 因子判据共用同一组数=行为一致）
+    // narrativeRetryDue 臂（引擎触发状态机与 FA 因子判据共用同一组数=行为一致）；
+    // C162 零语料臂两键 noCorpusIntervalMs/noCorpusMaxAnalyses（实验级可选覆盖，
+    // 默认 60s×8=8 分钟窗，覆盖抢跑票宣告推/GMGN 聚合的分钟级晚到）
     {
       const _nrDefaults = FourMemeFactorAggregator.getNarrativeFactorDefaults();
       this._narrativeTriggerIntervalMs = Number.isInteger(narrativeRetry.intervalMs) && narrativeRetry.intervalMs > 0
         ? narrativeRetry.intervalMs : _nrDefaults.intervalMs;
       this._narrativeTriggerMaxAnalyses = Number.isInteger(narrativeRetry.maxAnalyses) && narrativeRetry.maxAnalyses >= 0
         ? narrativeRetry.maxAnalyses : _nrDefaults.maxAnalyses;
+      this._narrativeTriggerNoCorpusIntervalMs = Number.isInteger(narrativeRetry.noCorpusIntervalMs) && narrativeRetry.noCorpusIntervalMs > 0
+        ? narrativeRetry.noCorpusIntervalMs : _nrDefaults.noCorpusIntervalMs;
+      this._narrativeTriggerNoCorpusMaxAnalyses = Number.isInteger(narrativeRetry.noCorpusMaxAnalyses) && narrativeRetry.noCorpusMaxAnalyses >= 0
+        ? narrativeRetry.noCorpusMaxAnalyses : _nrDefaults.noCorpusMaxAnalyses;
       FourMemeFactorAggregator.setNarrativeFactorConfig({
         intervalMs: this._narrativeTriggerIntervalMs,
         maxAnalyses: this._narrativeTriggerMaxAnalyses,
+        noCorpusIntervalMs: this._narrativeTriggerNoCorpusIntervalMs,
+        noCorpusMaxAnalyses: this._narrativeTriggerNoCorpusMaxAnalyses,
       });
     }
     // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：web 侧裸 FA 不 feed → 读恒 null 零污染；
@@ -1554,11 +1562,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * - 发起条件（FA 因子表达式，如 `buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1`）
    *   在 tick 因子表上评估，过门 → 发起后台叙事分析（NarrativeDirectCaller.getRating）
    * - 首轮 reason='condition'（常规调用，token 级缓存命中秒回）；此后仅补轮臂可再发：
-   *   lastRating===1 ∧ accountOnly（账号型语料=动态，重取可翻案）∧ rounds<maxAnalyses
-   *   ∧ 距末轮完成 ≥ intervalMs → reason='retry'（override ignoreCache+
-   *   invalidateAccountCorpus 强制重取重析，getRating '!ttl' inflight 槽）。条件首臂
-   *   （量门）持续为真不重复发起——hasInitial 后按状态机真值结构化把关，与 FA
-   *   narrativeRetryDue 判据同参数源（FA config 由 ctor 投影，双侧一致）
+   *   lastRating===1 ∧（accountOnly（账号型语料=动态，重取可翻案）∨ corpusEmpty
+   *   （C162 零自有语料=宣告推/GMGN link 晚到竞态，60s×8 节奏独立键））∧
+   *   rounds<maxAnalyses（按臂选参数）∧ 距末轮完成 ≥ intervalMs → reason='retry'
+   *   （override ignoreCache+invalidateAccountCorpus 强制重取重析，getRating '!ttl'
+   *   inflight 槽）。条件首臂（量门）持续为真不重复发起——hasInitial 后按状态机
+   *   真值结构化把关，与 FA narrativeRetryDue 判据同参数源（FA config 由 ctor
+   *   投影，双侧一致）
    * - 每轮发起/完成即 FA.setNarrativeFactors 投影（rating/rounds/completedAt/
    *   accountOnly/inFlight）→ 下一 tick buildFactorMap 注入 narrative 三键 →
    *   单一买条件（含 narrativeRating == 2 OR == 3）裁决；分析未完成/未通过/失败(9)
@@ -1584,18 +1594,26 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 首轮：条件过门即发起（写入状态后交给 launch）
       this._narrativeTriggerLaunch(tokenAddress, {
         rounds: 0, inFlight: false, hasInitial: false, lastRating: null,
-        lastCompletedAt: null, accountOnly: false, currentRowId: null, category: null,
-        superIp: null, recognizedEntitySlogan: null,
+        lastCompletedAt: null, accountOnly: false, corpusEmpty: false, currentRowId: null,
+        category: null, superIp: null, recognizedEntitySlogan: null,
       }, 'condition', token);
       return;
     }
     // 补轮资格（状态机真值二次把关——tick 因子表的 narrativeRetryDue 投影可能滞后
-    // 一轮；判据与 FA retryDue 逐字一致，刻意的双侧冗余）
+    // 一轮；判据与 FA retryDue 逐字一致，刻意的双侧冗余）。C162（2026-10-22 双 BINA
+    // 案·正主 0xed71…7777）扩第二臂：corpusEmpty（零自有语料——抢跑发币票宣告推/
+    // GMGN link 聚合典型晚到几分钟，rating=1 大概率语料竞态）与 accountOnly 同为
+    // 「语料晚到可重评」形状；两臂互斥（accountOnly 要求 twitter 桶非空），节奏
+    // 参数独立（corpusEmpty 臂用 noCorpus* 键：间隔更长轮次更多，覆盖分钟级晚到窗）
     if (!st.hasInitial) return;
-    if (st.lastRating !== 1 || st.accountOnly !== true) return;
-    if (st.rounds >= this._narrativeTriggerMaxAnalyses) return;
+    if (st.lastRating !== 1) return;
+    const noCorpusArm = st.corpusEmpty === true && st.accountOnly !== true;
+    if (st.accountOnly !== true && !noCorpusArm) return;
+    const maxAnalyses = noCorpusArm ? this._narrativeTriggerNoCorpusMaxAnalyses : this._narrativeTriggerMaxAnalyses;
+    const intervalMs = noCorpusArm ? this._narrativeTriggerNoCorpusIntervalMs : this._narrativeTriggerIntervalMs;
+    if (st.rounds >= maxAnalyses) return;
     if (!Number.isFinite(st.lastCompletedAt)
-        || Date.now() - st.lastCompletedAt < this._narrativeTriggerIntervalMs) return;
+        || Date.now() - st.lastCompletedAt < intervalMs) return;
     this._narrativeTriggerLaunch(tokenAddress, st, 'retry', token);
   }
 
@@ -1631,6 +1649,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         st.lastRating = [1, 2, 3, 9].includes(r.numericRating) ? r.numericRating : null;
         st.lastCompletedAt = Date.now();
         st.accountOnly = r.accountOnly === true;
+        // 零自有语料形状（C162）：补轮第二臂的回填——rating=1 ∧ corpusEmpty 的
+        // 下一轮带 noCorpus 节奏重评（语料晚到翻案）；语料到位后的轮次自然
+        // corpusEmpty=false 转入常规形状（翻正即止与其他臂一致）
+        st.corpusEmpty = r.corpusEmpty === true;
         // 叙事类型回填（Nightshift 案 2026-10-17）：GMGN 条件层 narrativeCategory 的
         // 真值源——完成时刻取 analyzer 顶层透出值（catch 异常轮保持 null=门放行）
         st.category = r.narrativeCategory ?? null;
@@ -1670,6 +1692,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       rounds: st.rounds,
       completedAt: st.lastCompletedAt,
       accountOnly: st.accountOnly === true,
+      corpusEmpty: st.corpusEmpty === true,
       inFlight: st.inFlight === true,
       category: st.category ?? null,
       superIp: st.superIp ?? null,
