@@ -16,6 +16,9 @@ import { buildPrestageState } from '../llm/jev-state-builder.mjs';
 import { mapPrestageAnswers } from '../llm/jev-prestage-mapper.mjs';
 import { getConfig } from '../../engine/config.mjs';
 import { fetchWebsiteContent } from '../../utils/web-fetcher.mjs';
+import { getKnowledgeConfig } from '../knowledge/knowledge-config.mjs';
+import { getKnowledgeBase } from '../knowledge/knowledge-loader.mjs';
+import { matchKnowledge } from '../knowledge/knowledge-matcher.mjs';
 
 /**
  * 收集所有相关账号的完整信息
@@ -363,6 +366,53 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     ? await resolveWebsiteCheck(fetchResults, options)
     : null;
 
+  // C164 知识库 prestage 二次匹配：analyzer 已按 token 侧输入（symbol/name/address/
+  // 主推语料）匹配一轮；prestage 手里有更肥的账号语料（bio+窗口内推文全文），补一轮
+  // corpus_contains/concept_keyword 级命中，按 entryId 去重合并（analyzer 侧命中保留
+  // 其原规则）。includePrestage 配置门（用户裁定双路径注入）。匹配异常 warn 旁路，
+  // 绝不让知识层问题打断 prestage。
+  let prestageKnowledgeMatches = options.knowledgeMatches || null;
+  try {
+    const knowledgeConfig = getKnowledgeConfig();
+    const knowledgeBase = knowledgeConfig ? await getKnowledgeBase() : null;
+    if (knowledgeConfig?.match?.includePrestage !== false && knowledgeBase) {
+      const accountCorpusText = [
+        fullAccountOrCommunityData.description,
+        fullAccountOrCommunityData.name,
+        ...(Array.isArray(fullAccountOrCommunityData.tweets)
+          ? fullAccountOrCommunityData.tweets.map((t) => t?.text) : []),
+      ].filter(Boolean).join(' ');
+      const secondPass = matchKnowledge({
+        symbol: tokenSymbol,
+        name: tokenName,
+        address: tokenAddress,
+        twitterHandle: fullAccountOrCommunityData.screen_name || null,
+        corpusText: accountCorpusText,
+      }, knowledgeBase.index, knowledgeConfig.match);
+      if (secondPass.matches.length > 0) {
+        const byEntryId = new Map((options.knowledgeMatches?.matches || [])
+          .map((m) => [m.entryId, m]));
+        for (const m of secondPass.matches) {
+          if (!byEntryId.has(m.entryId)) byEntryId.set(m.entryId, m);
+        }
+        const merged = [...byEntryId.values()]
+          .sort((a, b) => a.entryId.localeCompare(b.entryId));
+        prestageKnowledgeMatches = {
+          matches: merged,
+          truncated: options.knowledgeMatches?.truncated || secondPass.truncated,
+          scannedEntries: secondPass.scannedEntries,
+        };
+        logger.info('AccountCommunityAnalysis', '知识库 prestage 二次匹配命中', {
+          token: tokenSymbol || tokenAddress,
+          entries: merged.map((m) => `${m.kind}:${m.entry?.name}(${m.rule})`),
+        });
+      }
+    }
+  } catch (e) {
+    logger.warn('AccountCommunityAnalysis', `知识库 prestage 二次匹配异常（旁路）| ${e.message}`);
+    prestageKnowledgeMatches = options.knowledgeMatches || null;
+  }
+
   const startedAt = new Date().toISOString();
   // 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，与何时分析无关）
   // tokenCreatedAtSec 已在上方推文时间窗处声明
@@ -371,6 +421,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     rulesResult,
     websiteCheck,
     websiteInfo: skipAddressValidation ? fetchResults.websiteInfo : null,
+    // C164：prestage 二次匹配合并结果（null/空命中 → 段为空，state bit-parity）
+    knowledgeMatches: prestageKnowledgeMatches,
     ...(tokenCreatedAtSec ? { now: tokenCreatedAtSec * 1000 } : {}),
   });
   const questions = buildPrestageQuestions();

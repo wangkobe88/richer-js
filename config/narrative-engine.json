@@ -57,5 +57,31 @@
     "stateMaxChars": 2500,
     "timeoutMs": 5000,
     "cacheTtlSec": 1800
+  },
+  "knowledgeBase": {
+    "enabled": true,
+    "match": {
+      "maxEntries": 5,
+      "minCjk": 2,
+      "minLatin": 4,
+      "includePrestage": true
+    },
+    "inject": {
+      "maxChars": 2000
+    },
+    "feedback": {
+      "enabled": true,
+      "captureRatings": ["high"],
+      "graduatedAlso": true,
+      "maxEntries": 300,
+      "path": "data/knowledge/quasi-feedback.json"
+    },
+    "files": {
+      "concepts": "config/knowledge/concepts.json",
+      "bluechips": "config/knowledge/bluechips.json",
+      "manual": "config/knowledge/manual-entries.json",
+      "quasiGraduations": "data/knowledge/quasi-graduations.json",
+      "quasiFeedback": "data/knowledge/quasi-feedback.json"
+    }
   }
 }

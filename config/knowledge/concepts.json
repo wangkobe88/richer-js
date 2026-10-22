@@ -1,0 +1,67 @@
+{
+  "kind": "concept",
+  "version": 1,
+  "note": "BSC 链基础概念种子（人工维护进 git）。concept 条目经 keywords 在语料中触发（concept_keyword 级），也可被名字/地址/twitter 规则命中。",
+  "entries": [
+    {
+      "id": "concept:flap",
+      "kind": "concept",
+      "name": "Flap",
+      "symbol": "",
+      "aliases": ["flap.sh", "Flap平台"],
+      "address": null,
+      "twitter": "https://x.com/flapdotsh",
+      "narrative": "Flap（flap.sh）是 BSC 链上的 meme 币发射平台，与 four.meme 并列为 BSC 主要发币平台。代币先在 Flap Portal 内盘交易，达到毕业阈值后迁往 PancakeSwap 外盘；部分代币以非 BNB 代币计价。官方推特 @flapdotsh。",
+      "keywords": ["flap", "flap.sh", "flapdotsh"],
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-22T00:00:00Z"
+    },
+    {
+      "id": "concept:fourmeme",
+      "kind": "concept",
+      "name": "four.meme",
+      "symbol": "",
+      "aliases": ["fourmeme"],
+      "address": null,
+      "twitter": null,
+      "narrative": "four.meme 是 BSC 链流量最大的 meme 币发射平台：新代币在内盘 bonding curve 定价交易，达到毕业线（graduation）后自动迁移 PancakeSwap 外盘；毕业前后价格与流动性机制不同，毕业是代币生命周期关键节点。",
+      "keywords": ["four.meme", "fourmeme"],
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-22T00:00:00Z"
+    },
+    {
+      "id": "concept:stock-tokens",
+      "kind": "concept",
+      "name": "股票概念币",
+      "symbol": "",
+      "aliases": ["股票代币", "股票币"],
+      "address": null,
+      "twitter": null,
+      "narrative": "以真实上市公司股票/股价走势为叙事载体的 meme 币（特斯拉、英伟达等概念），蹭美股热点，在 BSC meme 平台周期性成簇出现。绝大多数并无真实股票锚定，属蹭热点梗而非证券型代币。",
+      "keywords": ["股票", "美股", "股价", "纳斯达克"],
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-22T00:00:00Z"
+    },
+    {
+      "id": "concept:gmgn",
+      "kind": "concept",
+      "name": "GMGN",
+      "symbol": "",
+      "aliases": ["gmgn.ai"],
+      "address": null,
+      "twitter": null,
+      "narrative": "GMGN（gmgn.ai）是跨链 meme 币交易聚合与数据平台，BSC 上大量买家经 GMGN 聚合路由进场，其榜单/趋势页是 meme 币流量的主要入口之一；发倡议推常带 gmgn.ai 链接。",
+      "keywords": ["gmgn"],
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-22T00:00:00Z"
+    }
+  ]
+}

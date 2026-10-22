@@ -1,0 +1,6 @@
+{
+  "kind": "manual",
+  "version": 1,
+  "note": "人工补录条目（进 git）。覆盖权最高：同 id 覆盖 builder 生成件——id 约定与生成件一致（蓝筹 b:<小写地址>，准蓝筹 q:<小写地址>，如 b:0x1234…abcd 覆盖 bluechips.json 同地址条目），用于蓝筹掉榜兜底（如知名 meme 掉出 GMGN 榜单后仍需在库）。字段与 bluechips/quasi 同构；地址必须查实后录入，勿用示意地址。",
+  "entries": []
+}

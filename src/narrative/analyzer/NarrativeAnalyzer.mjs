@@ -14,7 +14,7 @@ import { getLogger } from '../core/logger.mjs';
 // 新增：从拆分的模块导入
 import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, shouldRouteToAccountCommunity, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch, detectAuthorUtterance, shouldExemptIssuerCaExpired } from './utils/narrative-utils.mjs';
 import { createSegmentTimer } from '../utils/segment-timer.mjs';
-import { cleanDataForDB } from './utils/data-cleaner.mjs';
+import { cleanDataForDB, safeSubstring } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
 import { analyzeTweetImage } from './services/image-analysis-service.mjs';
@@ -26,6 +26,10 @@ import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommu
 import { detectSuperIP } from './prompts/super-ip/super-ip-registry.mjs';
 import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
 import { collectSearchEvidence, hasSearchCorpus, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
+import { getKnowledgeBase } from './knowledge/knowledge-loader.mjs';
+import { getKnowledgeConfig } from './knowledge/knowledge-config.mjs';
+import { matchKnowledge } from './knowledge/knowledge-matcher.mjs';
+import { maybeCaptureKnowledgeFeedback } from './knowledge/knowledge-feedback.mjs';
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
 import { JevClient } from './llm/JevClient.mjs';
@@ -342,6 +346,51 @@ export class NarrativeAnalyzer {
     const authorUtterance = superIPInfo ? detectAuthorUtterance(tokenData, twitterInfo) : null;
     if (authorUtterance) {
       logger.info('NarrativeAnalyzer', '作者原话票命中（C88 第一腿补位）', { token: tokenData?.symbol || tokenData?.name, matched: authorUtterance.matchedName, author: superIPInfo.name });
+    }
+
+    // ── 系统知识库匹配（C164）：蓝筹/准蓝筹/BSC 概念背景注入 ──────────────
+    // 知识 miss=正常态：配置关/文件全缺 → kb=null 全旁路（state bit-parity）。
+    // 配置残缺（enabled:true 但键非法）getKnowledgeBase 内 throw fail-loud（部署
+    // 错误不得静默，searchFallback 同语义）；匹配本身意外错误才 catch 旁路。
+    let knowledgeMatches = null;
+    const knowledgeBase = await getKnowledgeBase();
+    if (knowledgeBase) {
+      try {
+        const knowledgeConfig = getKnowledgeConfig();
+        const twitterHandle = extractScreenNameFromTwitterUrl(extractedInfo.twitterUrl || classifiedUrls?.twitter?.[0]?.url)
+          ?? (twitterInfo?.author_screen_name ? String(twitterInfo.author_screen_name).toLowerCase() : null);
+        const corpusText = safeSubstring([
+          twitterInfo?.text,
+          twitterInfo?.description,
+          extractedInfo?.intro_cn,
+          extractedInfo?.intro_en,
+          tokenData.raw_api_data?.description,
+          tokenData.raw_api_data?.appendix,
+        ].filter(Boolean).join(' '), 3000);
+        knowledgeMatches = matchKnowledge({
+          symbol: tokenData.symbol,
+          name: tokenData.raw_api_data?.name,
+          address: tokenData.address,
+          twitterHandle,
+          corpusText,
+        }, knowledgeBase.index, knowledgeConfig.match);
+        if (knowledgeMatches.matches.length > 0) {
+          logger.info('NarrativeAnalyzer', '知识库命中', {
+            token: tokenData.symbol,
+            entries: knowledgeMatches.matches.map((m) => `${m.kind}:${m.entry?.name}(${m.rule})`),
+          });
+          // 审计随最终 save 落库（search_evidence 同款浅拷贝挂载位；空命中不挂键零侵入）
+          tokenData.raw_api_data = {
+            ...tokenData.raw_api_data,
+            knowledge_matches: knowledgeMatches.matches.map((m) => ({
+              id: m.entryId, kind: m.kind, name: m.entry?.name ?? null, rule: m.rule, matchedOn: m.matchedOn,
+            })),
+          };
+        }
+      } catch (e) {
+        logger.warn('NarrativeAnalyzer', `知识库匹配失败（旁路，不影响分析）| ${e.message}`);
+        knowledgeMatches = null;
+      }
     }
 
     // 新增：如果有独立网站，收集所有相关账号的完整信息
@@ -697,7 +746,10 @@ export class NarrativeAnalyzer {
               skipAddressValidation: isProjectCoinContentVerified || !!issuerCaTimeline,
               // C70「重取数重析」：prestage 规则验证的账号拉取同样失效重取
               //（形状门已在上方算出，此处只透传布尔）
-              ...(shouldInvalidateAccountCorpus ? { invalidateAccountCorpus: true } : {})
+              ...(shouldInvalidateAccountCorpus ? { invalidateAccountCorpus: true } : {}),
+              // knowledgeMatches（C164）：prestage 二次匹配在 service 内做（账号
+              // bio+推文语料可命中更多条目），按 entryId 去重合并进 [KNOWLEDGE_BASE] 段
+              ...(knowledgeMatches ? { knowledgeMatches } : {})
             }));
 
             // 检查是否是规则验证失败（返回preCheckData）
@@ -763,7 +815,8 @@ export class NarrativeAnalyzer {
             // superIP 注册表命中（C83）：命中事实行进 state PRECOMPUTED（认证标注 +
             // 反混淆提示），量级/关联/主体资格全归 Jev 按题集判定——非 superIP 票
             // superIPInfo=null，builder guard 跳过注入，state 与旧版逐字节一致
-            const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, now: jevNowMs });
+            // knowledgeMatches（C164）：[KNOWLEDGE_BASE] 背景段；null/空命中 bit-parity
+            const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs });
             // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
             // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
             // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】
@@ -990,6 +1043,27 @@ export class NarrativeAnalyzer {
       // web3_native_ip_early）。中间 save 不传此标记，保留旧值。
       clearTokenCategory: !tokenCategory
     }));
+
+    // C164 知识库反馈回写（用户裁定自动沉淀）：终态 save 成功后 fire——高评级/
+    // 毕业票 upsert 进 quasi-feedback 知识文件。只沉淀客观字段（address/symbol/
+    // name/intro/rating/reason 截断），narrative 摘要在 feedback 模块拼装；失败
+    // warn 绝不影响分析主链路（内部全程 catch，此处再兜一层防御性 try）。
+    try {
+      await maybeCaptureKnowledgeFeedback({
+        address: normalizedAddress,
+        symbol: tokenData.symbol,
+        name: tokenData.raw_api_data?.name || tokenData.symbol,
+        introCn: extractedInfo?.intro_cn || null,
+        description: tokenData.raw_api_data?.description || null,
+        rating: llmResult?.rating || null,
+        tokenCategory: tokenCategory || null,
+        reason: llmResult?.reason || llmResult?.reasoning || null,
+        twitter: extractedInfo?.twitterUrl || null,
+        analyzedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      logger.warn('NarrativeAnalyzer', `知识库反馈回写异常（不影响分析）| ${normalizedAddress} | ${e.message}`);
+    }
 
     // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）
     const llmAnalysis = {

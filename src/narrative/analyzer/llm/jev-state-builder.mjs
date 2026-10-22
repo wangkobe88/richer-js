@@ -26,6 +26,7 @@ import { buildXiaohongshuSection } from '../prompts/sections/xiaohongshu-section
 import { buildInstagramSection } from '../prompts/sections/instagram-section.mjs';
 import { buildBinanceSquareSection } from '../prompts/sections/binance-square-section.mjs';
 import { buildTwitterSearchSection } from '../prompts/sections/twitter-search-section.mjs';
+import { buildKnowledgeSection } from '../prompts/sections/knowledge-section.mjs';
 
 export const STATE_CHAR_BUDGET = 60000;
 
@@ -171,8 +172,12 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
   // 挂 header 与 [PRECOMPUTED] 同位形，不占四区配额（背景证据非代币自有语料）。
   // prestage 路径刻意不接（账号/社区判定不消费搜索背景）
   const searchSection = buildTwitterSearchSection(tokenData.raw_api_data?.search_evidence, { now: nowMs });
+  // ── 系统知识库背景段（C164）：analyzer 匹配命中透传 options.knowledgeMatches，
+  // 无命中返回 '' → bit-parity（与搜索段两段独立判空，互不干扰）
+  const knowledgeSection = buildKnowledgeSection(options.knowledgeMatches, options.knowledgeMaxChars);
   const headerStr = headerParts.join('\n') + '\n' + precomputed.filter(Boolean).join('\n')
-    + (searchSection ? '\n\n' + searchSection : '');
+    + (searchSection ? '\n\n' + searchSection : '')
+    + (knowledgeSection ? '\n\n' + knowledgeSection : '');
   let remaining = STATE_CHAR_BUDGET - headerStr.length;
   const bodyParts = [];
 
@@ -209,6 +214,13 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
 
   const state = headerStr + '\n\n' + bodyParts.join('\n\n');
   stats.totalChars = state.length;
+  if (knowledgeSection) {
+    stats.knowledgeSection = {
+      chars: knowledgeSection.length,
+      entries: options.knowledgeMatches?.matches?.length ?? 0,
+      truncated: Boolean(options.knowledgeMatches?.truncated),
+    };
+  }
   return { state, stats };
 }
 
@@ -322,7 +334,13 @@ export function buildPrestageState(tokenData, fullAccountOrCommunityData, option
     : (options.websiteInfo ? buildWebsiteSection(options.websiteInfo) : null);
 
   // ── 组装：预算内从低优先级（website）到高优先级（推文）保内容 ────────────
-  const headerStr = headerParts.join('\n') + '\n' + precomputed.filter(Boolean).join('\n');
+  // 系统知识库背景段（C164 用户裁定 prestage 也注入——股票代币/Flap 平台概念对
+  // 项目币定档同样关键；与主路径搜索段「prestage 刻意不接」是有意差异）。
+  // includePrestage 配置门在调用方（account-analysis-service）判定，builder 只认
+  // options.knowledgeMatches 传入与否；无命中返回 '' → bit-parity
+  const knowledgeSection = buildKnowledgeSection(options.knowledgeMatches, options.knowledgeMaxChars);
+  const headerStr = headerParts.join('\n') + '\n' + precomputed.filter(Boolean).join('\n')
+    + (knowledgeSection ? '\n\n' + knowledgeSection : '');
   const stats = { budget: PRESTAGE_STATE_CHAR_BUDGET, totalChars: 0, droppedSections: [] };
 
   const sections = [
@@ -345,5 +363,12 @@ export function buildPrestageState(tokenData, fullAccountOrCommunityData, option
 
   const state = headerStr + '\n\n' + bodyParts.join('\n\n');
   stats.totalChars = state.length;
+  if (knowledgeSection) {
+    stats.knowledgeSection = {
+      chars: knowledgeSection.length,
+      entries: options.knowledgeMatches?.matches?.length ?? 0,
+      truncated: Boolean(options.knowledgeMatches?.truncated),
+    };
+  }
   return { state, stats };
 }

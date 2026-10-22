@@ -459,8 +459,8 @@ async function main() {
     assert(!cfg.includes('expiredTweetMinutesThreshold'),
       'I6 config/default.json 无该键（本就未设，防回流）');
     const mapper = src('src/narrative/analyzer/llm/jev-result-mapper.mjs');
-    assert(mapper.includes('const ANGLE_TWEET_STALE_SEC = 6 * 3600;') && mapper.includes('overrideAngleTiming'),
-      'I7 C68 mapper 6h 纵深防御保留（ignoreExpired 穿透/锚缺失/缓存残例兜底）');
+    assert(!mapper.includes('ANGLE_TWEET_STALE_SEC') && !mapper.includes('overrideAngleTiming'),
+      'I7 C68 mapper 6h 纵深防御已随 C154/J1.91 时效体系清理退役（774 行 0 命中；拦截位=precheck 分桶 C74/C104）');
     assert(pcs.includes("'expired_tweet'"),
       "I8 ruleName 保持 'expired_tweet'（历史行/监控口径连续）");
   }

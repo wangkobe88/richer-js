@@ -109,7 +109,7 @@ const run = async () => {
     && !analyzerSrc.includes('calculatePreScores'));
 
   // B2 标准调用点注入形状（唯一 buildJevState 调用位）
-  const callShape = 'buildJevState(tokenData, jevFetchResults, { superIPInfo, now: jevNowMs })';
+  const callShape = 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })';
   check('B2 标准路径调用点含 superIPInfo 注入',
     analyzerSrc.includes(callShape));
   check('B2b analyzer 内 buildJevState 调用恰 1 处（快车道调用点已删）',
