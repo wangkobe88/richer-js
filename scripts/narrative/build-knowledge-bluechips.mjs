@@ -576,7 +576,7 @@ async function cmdEnrichDesc() {
       writeJson(CG_MAP_FILE, cache);
       console.log(`  进度 拉取=${pulled} 有简介=${withDesc}（最近 ${t.symbol || t.address}）`);
     }
-    await sleep(7000); // CG 免费档 ~10 req/min
+    await sleep(15000); // CG 免费档突发惩罚实测（182：7s 节流仍每请求吃 429，15s 留冷却余量）
   }
   writeJson(CG_MAP_FILE, cache);
   console.log(`CG 拉取完成：本轮拉取=${pulled} 有简介=${withDesc} 剩余=${remaining - pulled}（no-match/断点）`);
