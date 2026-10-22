@@ -70,6 +70,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C175 双臂：实体题「性质定义优先于认知度」锚 + fit 题「事件本体分量」锚（2026-10-22 用户裁定）★
+
+- **案由①（C94 京小安 `0xcb98accaa8040a7e839c305b8aca08e113c87777`，symbol=京小安/name=首款AI警犬，flap IPFS meta 票）**：长期 FAIL 票（expect mid|high），本轮死因=实体题 `unknown 0.50`（new_entity 0.43 紧随，accepted 0.01）恰压 unknown 门 50% 线（B 域拦）。判读链：name「首款AI警犬」已给币名主体明确定义（警犬角色），但 Jev 以「认知度」轴评估（评估者不认识京小安）落 unknown。
+- **案由②（C101 OK❌ `0x0195119e4806441c871adada6256296265ed7777`，symbol=OK❌/name=尽管东奔西走 欧易全部没有，无名用户 @Notickernowif 单条口号推）**：C172 删品牌劫持轴后四跑稳定 high 70.62 误放（本轮 strong 0.46+fit 0.17=63% 事件分 37.8 + J1.92 exact_match 0.58）。根因：J1.79 改造后事件分=fit 质量（口味契合），「无名作者单句口号」的事件本体量级维度被挤掉——谐音梗合口味就给高分，一句口号被当成了事件。
+- **裁定（用户，2026-10-22）**：「『首款AI警犬』给实体定了性质，我认为能被 web3 用户接受是根本的（符合我们的门控名字），而不是知名/广泛报道」「OK的匹配我觉得没问题，OK 是指欧易，但主要是『无名用户 @Notickernowif 单条口号推』这个事件对 web3 用户无影响力，不应该是 fit」——①实体接纳根本判据=性质可接纳（角色定义清晰且形象用户乐于接纳），不以认知度为前提；②J1.92 谐音匹配判定**保留**（OK❌→欧易 exact_match 无错），修的是 fit 层：无名口号=无事件分量。
+- **改动（J1.105，题面双臂）**：①实体题三锚——instructions ⚠️「性质定义优先于认知度」段（name/语料已明确性质定义+用户天然接纳的具象角色形象→accepted，不以知名/被广泛报道/评估者是否听说过为前提；unknown 限于语料未给出可接纳性质定义）+accepted criteria 主锚+unknown criteria 反锚；逃逸门=空泛自称（无具体角色内容的口号式自称）不适用。②fit 题 ⚠️「事件本体的分量是契合的前提」段——事件源自公共热点/新闻/圈内人物表态等**币外分量**时宣告者无名不减分量（无名账号报道已被传播的热点仍是热点事件，保 C94 类票活路）；事件本体只是无名作者自己的一句口号/一次玩梗（无外部热点依托、无第三方讨论）→ 不是事件，至多 marginal，名字与品牌的谐音匹配再巧也不能凭空造出事件。与传播数据锚显式划界：互动数字不作加减分依据（C130 裁定不推翻），本锚判事件有没有币外来源。
+- **单测**：`_test_name_entity_acceptance` D8（三锚+逃逸门在场，43/0）+ D5 版本随动；`_test_web3_fit` A8（事件分量锚五点在场，29/0）；angle_timing_override C5 / jev_question_consolidation A10d 版本断言 J1.105 随动（47/0、89/0）；相邻 6 单测（brand_hijack/w_bsc_appeal/superip_slogan/name_image_consistency/empty_content）全绿无锚文本碰撞。
+
 ### C173 蓝筹去重新陈述豁免——新推直陈概念不算重复（2026-10-22 用户裁定）★
 
 - **案由（「4」`0x972e6c994b45570fa46791f1cdbbfc301c8d7777`）**：eMudhra 印度 CA 私钥事故（10-20 @IntCyberDigest 496 万阅读爆推：116 位私钥其中一把就是「4」）10-21 已出同名蓝筹 `0x0a43fc31a73013089df59194872ecae4cae14444`（ATH $306M，source=gmgn，本系统当时评 low）；10-22 12:05 UTC **CZ 本人**（@cz_binance，1299 万粉，回复 IntCyberDigest 推）新推直陈概念「Can't make this sh!t up. A large part of the internet was encrypted by '4' 🤣」→ 30 秒后「4」票发出。C168 门 name_exact 撞前蓝筹 → 拦 low「蓝筹去重：撞已验证蓝筹叙事（4）」。stage1 本体面（12:06 行，J1.100）：E 0.8 / strong_fit 0.89 / S 档 / tweetType=direct_tweet。

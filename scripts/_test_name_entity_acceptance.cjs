@@ -275,7 +275,7 @@ async function main() {
     && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.104'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.105'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability 在册；载体题 web3_user_entity_visuality 已随 C171 形象轴退役（题删除）；旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && !/web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
@@ -289,6 +289,18 @@ async function main() {
     && qsSrc.includes('不因名字字面是普通词（树/猫/橙子）判 not_entity')
     && qsSrc.includes('语料已陈述命名行为/已讲故事的主体（有明确所指，如 BNB Tree）不属本项')
     && qsSrc.includes('币名=普通词而语料无命名行为的蹭名票不满足本锚') && qsSrc.includes('语料无命名行为的普通词蹭名票不适用本锚'),
+    null);
+
+  // D8（J1.105/C175，京小安 0xcb98accaa8040a7e839c305b8aca08e113c87777 案）：
+  // 用户裁定「『首款AI警犬』给实体定了性质，能被 web3 用户接受是根本的，而不是
+  // 知名/广泛报道」——性质定义优先于认知度：三锚在场+逃逸门（空泛自称不适用）
+  check('D8 J1.105/C175 性质定义优先于认知度锚三点在场（instructions ⚠️ 段+accepted 主锚+unknown 反锚）+逃逸门',
+    qsSrc.includes('性质定义优先于认知度（J1.105/C175，京小安案）')
+    && qsSrc.includes('不以「实体是否知名/被广泛报道/评估者是否听说过该实体」为前提')
+    && qsSrc.includes('性质定义即接纳证据（J1.105/C175）')
+    && qsSrc.includes('不以知名/被广泛报道为前提（判据=可接纳性非认知度）')
+    && qsSrc.includes('name/语料已给出明确可接纳的性质定义（如「首款AI警犬」）的不属本项（→ accepted，J1.105/C175）')
+    && qsSrc.includes('空泛自称（无具体角色内容的「官方币/年度最强」式口号）不满足「明确定义性质」'),
     null);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);

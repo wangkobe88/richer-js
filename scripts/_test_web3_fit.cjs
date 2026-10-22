@@ -92,6 +92,18 @@ async function main() {
     const stateSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
     check('A7 J1.90/C152 author identity note 作用域澄清（仅约束实体题，fit 题可按发言者身份判）',
       stateSrc.includes('本约束仅针对币名映射实体题，web3_user_event_fit 可按发言者身份判事件与 web3 用户的契合'), null);
+
+    // A8（J1.105/C175，OK❌ 0x0195119e4806441c871adada6256296265ed7777 案）：
+    // 用户裁定「无名用户单条口号推这个事件对 web3 用户无影响力，不应该是 fit」——
+    // fit 题加「事件本体分量是契合前提」锚：无名作者单句口号无币外依托=不是事件
+    // 至多 marginal；与传播数据锚划界（数字不作依据≠孤掌难鸣放行）
+    const qsSrcA8 = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
+    check('A8 J1.105/C175 事件本体分量锚在场（无名作者单句口号=不是事件至多 marginal + 币外分量豁免 + 传播数据锚划界句）',
+      qsSrcA8.includes('事件本体的分量是契合的前提（J1.105/C175，OK❌案）')
+      && qsSrcA8.includes('只是无名作者自己的一句口号/一次玩梗')
+      && qsSrcA8.includes('至多 marginal**：名字与品牌的谐音匹配再巧也不能凭空造出事件（一句口号不是事件）')
+      && qsSrcA8.includes('宣告者无名不减事件分量')
+      && qsSrcA8.includes('本锚判的是事件有没有币外来源/分量，不是数字大小'), null);
   }
 
   // ═══ B. mapStandardAnswers 路由矩阵 ═══
