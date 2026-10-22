@@ -70,6 +70,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C169 知识注入 twitter_exact 臂退役——「同 Dev」不作叙事关联（2026-10-22 用户裁定「同一个 Dev 发的绝大多数代币叙事根本无关」）★
+
+- **案情（C138a 收录牵出）**：Heyi.ai 本票 `0xa1cb5a59…7777` 收录回归集（C138a，用户裁定「最热票肯定 high」）后排查其知识注入——BINA 复刻票 `0x3384960b…7777` 的注入命中 Heyi.ai 蓝筹条目（twitter_exact @goldencatdev，注入段带「本系统评 low」叙事给 Jev 当背景）。先做三轮对照实验（原状 / 摘 Heyi.ai 注入 / 连 quasi Bina 全摘）：stateChars 5428→5331→5130，关联题 acceptable↔unacceptable 反复横跳——**注入非稳定致拦因素**（真因=Jev 非确定性，该票语料通篇无币名=J1.99 豁免边缘形状），但实验暴露机制问题：**同 Dev 前作被当叙事背景注入**（GoldenCatDev 是高频部署者，Heyi.ai/C138/BINA 复刻都是他发的，叙事互不相干）。
+- **裁定（用户）**：「通过『同 Dev』关联信息不恰当，因为同一个 Dev 发的绝大多数代币叙事根本无关」——部署者账号同号 ≠ 叙事相关。与 C168 撤去重 twitter 臂同判据：twitter 字段=语料出处/部署者账号，既非票身份（C168 结论）也非叙事关联（本案结论），两条链路（注入/去重）现都不消费。
+- **改动**：`knowledge-matcher.mjs` matchKnowledge 规则 2 twitter_exact **退役**（源头不评估，原位注释留档防复活）；RULE_ORDER 六级→五级；`matchInput.twitterHandle` 保留参数形状但不再归一化不消费（analyzer 调用侧零改动=最小侵入）。单测 B2-B4 改退役反证：twitter 同号落 name_exact / 同 Dev 无关票零命中 / 条目裸 handle 同号零命中。
+- **影响面**：①高频部署者（GoldenCatDev 等）前作不再作注入背景；②C106 TREE 原 high 85.15 含 tcryptochicks 姐妹 twitter_exact 注入（C165 时唯一实质漂移源、用户曾裁 expect high 收口）——退役后重析验证，结果呈报裁定；③蓝筹库条目 twitter 字段保留（数据不删，规则退役；与 C168 同惯例）。
+- **部署与验证**：worker 重启（代码变更，数据热载不覆盖代码）→ 定向重析 C106/C138a → 全量回归 50 票。
+
 ### C168 蓝筹去重门——新票 name/twitter 双 exact 撞已验证蓝筹 → 门链首臂拦 low（2026-10-22 用户裁定两轮）★
 
 - **案情**：BIAOQING 三连发 `0x329c64d1…7777` / `0xa3b903b4…7777` / `0x923168f0…7777`（The Chinese Bear，2026-10-22 07:30-07:31 一分钟内三张）全部评 high 94-95 并自动回写 quasi-feedback——同一分钟三张同叙事票全过线，没有「这叙事已经有冠军票」的概念。用户两轮裁定合并口径：**「新发的票，如果跟老 meme 币蓝筹重复（BIAOQING 三连发），那么肯定要拦住；如果是跟近期新发的小蓝筹币重复，则不需要拦住」**——撞已验证蓝筹（b: 域，ATH>$1M curated 库=叙事已定型出过冠军）= 纯复制品，入场资格否决；撞近期新发小蓝筹（q: 域=quasi feedback/graduations，未验证 $1M）= 短期热门叙事连发姐妹票，meme 常态不拦（BINA 复刻 C162/C163、毕业姐妹 C106 形状天然放行）。

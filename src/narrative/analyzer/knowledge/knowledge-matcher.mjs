@@ -3,12 +3,16 @@
  *
  * 规则分级（优先级序）：
  *   1 address_exact   本票地址 == 条目地址（本票即在册代币，最强信号）
- *   2 twitter_exact   本票挂的 twitter handle == 条目 handle
- *   3 name_exact      归一化 symbol/name == 条目 name/alias
- *   4 name_substring  名字最长公共子串达标（哭哭奶龙×哭哭马共享「哭哭」命中；
- *                     彪弟×彪哥共享 1 字不命中=设计如此，靠规则 5 语料提及）
- *   5 corpus_contains 语料文本提及完整条目名/alias（彪弟票宣告推提及「彪哥」）
- *   6 concept_keyword concept 条目按 keywords 任一词在语料出现（「股票」「flap」）
+ *   2 name_exact      归一化 symbol/name == 条目 name/alias
+ *   3 name_substring  名字最长公共子串达标（哭哭奶龙×哭哭马共享「哭哭」命中；
+ *                     彪弟×彪哥共享 1 字不命中=设计如此，靠规则 4 语料提及）
+ *   4 corpus_contains 语料文本提及完整条目名/alias（彪弟票宣告推提及「彪哥」）
+ *   5 concept_keyword concept 条目按 keywords 任一词在语料出现（「股票」「flap」）
+ *
+ * ★ twitter_exact 已退役（2026-10-22 用户裁定「同 Dev 关联不恰当——同一个 Dev
+ *   发的绝大多数代币叙事根本无关」）：票的宣告账号 == 条目 twitter 只说明同
+ *   部署者，不说明同叙事（与 C168 撤去重 twitter 臂同判据：twitter=语料出处/
+ *   部署者账号，非叙事关联）。matchInput.twitterHandle 保留参数形状但不再消费。
  *
  * 防噪三防线：a) 代码级 denylist（latin 通用 meme 词，仅压 substring/corpus 两级，
  * name_exact 同名是强信号不压）；b) 条目级 corpusTrigger:false（builder 对短名/
@@ -25,7 +29,7 @@ const CJK_RE = /[一-鿿㐀-䶿]/;
 const CJK_GLOBAL_RE = /[一-鿿㐀-䶿]/g;
 
 /** 规则优先级序（越小越高；kind 权重用于同级排序） */
-const RULE_ORDER = ['address_exact', 'twitter_exact', 'name_exact', 'name_substring', 'corpus_contains', 'concept_keyword'];
+const RULE_ORDER = ['address_exact', 'name_exact', 'name_substring', 'corpus_contains', 'concept_keyword'];
 const KIND_ORDER = { bluechip: 0, quasi: 1, concept: 2 };
 
 /**
@@ -161,7 +165,7 @@ export function excludeSelfFeedback(matches, tokenAddress) {
  *   - 自地址排除：蓝筹本体票重析（selfAddress=条目 address）不得被自己拦
  *
  * 实现复用 matchKnowledge（窄输入 corpusText=''/address=null/twitterHandle=null
- * 使 twitter/address/substring/corpus/concept 五级天然不触发），零新匹配逻辑；
+ * 使 address/name_substring/corpus/concept 四级天然不触发），零新匹配逻辑；
  * maxEntries 放大防 exact 命中被注入用的 5 条封顶挤掉。
  * @param {{symbol:string, name:string, address:string, twitterHandle:string|null,
  *          corpusText:string}} matchInput - 与注入匹配同源输入（twitterHandle/
@@ -219,7 +223,7 @@ export function matchKnowledge(matchInput, index, matchConfig) {
   const addrNorm = matchInput.address ? String(matchInput.address).toLowerCase() : '';
   const symbolNorm = normalizeForKnowledgeMatch(matchInput.symbol);
   const nameNorm = normalizeForKnowledgeMatch(matchInput.name);
-  const handleNorm = normalizeForKnowledgeMatch(matchInput.twitterHandle);
+  // twitterHandle 刻意不归一化不消费（twitter_exact 退役，见文件头归因）
   const corpusNorm = normalizeForKnowledgeMatch(matchInput.corpusText);
 
   /** entryId → Match（保留最高优先级规则） */
@@ -244,16 +248,9 @@ export function matchKnowledge(matchInput, index, matchConfig) {
       continue; // 最高级已中，不再降级评估
     }
 
-    // 2 twitter_exact（条目 twitter 为 URL 或裸 handle 皆可——归一化后只余 handle 字符）
-    if (handleNorm && entry.twitter) {
-      const entryHandle = normalizeForKnowledgeMatch(
-        String(entry.twitter).replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, ''),
-      );
-      if (entryHandle && entryHandle === handleNorm) {
-        offer(entry, 'twitter_exact', handleNorm, 'twitterHandle', 900);
-        continue;
-      }
-    }
+    // 2 twitter_exact 已退役（2026-10-22 用户裁定「同 Dev 关联不恰当——同一个 Dev
+    //   发的绝大多数代币叙事根本无关」；与 C168 撤去重 twitter 臂同判据：
+    //   部署者同号 ≠ 叙事相关），原位留档防复活——同 Dev 前作不再作为注入背景。
 
     // 3 name_exact（强信号：denylist 不压）
     if ((symbolNorm || nameNorm) && normNames.some((n) => n && (n === symbolNorm || n === nameNorm))) {

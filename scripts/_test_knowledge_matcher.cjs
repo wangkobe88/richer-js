@@ -65,13 +65,14 @@ const KK_MA = A('cd2');  // 哭哭马
     const r = matchKnowledge(input, index, { maxEntries: 5, minCjk: 2, minLatin: 4 });
     assert(r.matches.length === 1 && r.matches[0].rule === 'address_exact', 'B1 address_exact 最高级（同条目多级命中保最高）', r.matches);
     const r2 = matchKnowledge({ ...input, address: A('99') }, index, { maxEntries: 5, minCjk: 2, minLatin: 4 });
-    assert(r2.matches[0].rule === 'twitter_exact', 'B2 twitter_exact 次级', r2.matches[0]);
-    const r3 = matchKnowledge({ ...input, address: A('99'), twitterHandle: null }, index, { maxEntries: 5, minCjk: 2, minLatin: 4 });
-    assert(r3.matches[0].rule === 'name_exact', 'B3 name_exact 再次级', r3.matches[0]);
-    // 裸 handle 条目（无 URL 前缀）也可 twitter_exact
+    assert(r2.matches[0].rule === 'name_exact', 'B2 twitter 同号不再命中（twitter_exact 已退役：同 Dev 关联不恰当，2026-10-22 用户裁定），落 name_exact', r2.matches[0]);
+    // 同 Dev 反证：twitter handle 同号但名字/语料无关 → 零命中（同 Dev 前作不作注入背景）
+    const r3 = matchKnowledge({ symbol: 'ZZZ', name: '完全无关币', address: A('99'), twitterHandle: 'testcoin', corpusText: '' }, index, { maxEntries: 5, minCjk: 2, minLatin: 4 });
+    assert(r3.matches.length === 0, 'B3 同 Dev（twitter 同号）叙事无关 → 零命中（退役反证）', r3.matches);
+    // 裸 handle 条目同样不命中（退役反证第二形状）
     const idx2 = buildKnowledgeIndex([{ id: 'q:x', kind: 'quasi', name: 'X 项目', address: A('22'), twitter: 'RawHandle', corpusTrigger: false }]);
     const r4 = matchKnowledge({ symbol: 'Y', name: 'Y 币', address: A('33'), twitterHandle: '@rawhandle', corpusText: '' }, idx2, {});
-    assert(r4.matches[0]?.rule === 'twitter_exact', 'B4 条目裸 handle ↔ 输入 @handle 归一化后命中', r4.matches[0]);
+    assert(r4.matches.length === 0, 'B4 条目裸 handle ↔ 输入 @handle 同号 → 零命中（退役反证）', r4.matches);
   }
 
   console.log('C. 归一化');
