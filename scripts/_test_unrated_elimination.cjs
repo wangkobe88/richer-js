@@ -39,7 +39,7 @@ function check(desc, actual, expected) {
   const { resolveFinalRating } = await import('../src/narrative/utils/rating-utils.mjs');
 
   console.log('== 0. 版本 bump ==');
-  check('P1.13', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.13');
+  check('P1.14', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.14');
 
   // ── mapper 测试基础设施 ────────────────────────────────────────────
   const callInfo = {
@@ -61,6 +61,8 @@ function check(desc, actual, expected) {
     prestage_abm_name_link: { choice: 'exact', probabilities: { exact: 0.9 } },
     prestage_abm_web3_traffic: { choice: 'has_traffic', probabilities: { has_traffic: 0.8 } },
     prestage_community_activity: { choice: 'high', probabilities: { high: 0.6 } },
+    // P1.14 恒带官网核验题：pass 臂（存量断言测的是官网核验之外的行为）
+    prestage_website_check: { choice: 'website_substantiates', probabilities: { website_substantiates: 0.9 } },
     ...fields,
   });
 
@@ -90,7 +92,7 @@ function check(desc, actual, expected) {
   check('mid 带 pass=true', wl.prestageDataToSave.pass, true);
   check('baselineMet=true', wl.baselineMet, true);
   check('category=web3_native_ip_early', wl.tokenType, 'web3_native_ip_early');
-  check('promptType 带 P1.13', wl.promptType, `prestage-jev(P1.13/web3_native_ip_early)`);
+  check('promptType 带 P1.14', wl.promptType, `prestage-jev(P1.14/web3_native_ip_early)`);
   check('reason 前缀 = 账号基本面评级（P1.9 标签）',
     wl.reasoning.startsWith('Web3原生IP早期（币本身即IP') && wl.reasoning.includes('账号基本面评级'), true);
 

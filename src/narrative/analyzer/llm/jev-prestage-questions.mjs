@@ -90,9 +90,20 @@ P1.12：prestage_community_activity 题删除（C110 题集全面复查，2026-1
 P1.13：prestage_abm_name_link 判据加「web3 用户自然联想」用户感知锚（C125，2026-10-20）——
    四档结构/choice 键/二值消费（nameLink !== none）全部不变，只给 none 档与三档 label
    加「web3 用户看到这个币名会不会自然联想到该账号/人物」的口径；行为边界移动属预期
+P1.14：新增恒带第 4 题 prestage_website_check（C164，2026-10-22 用户裁定「原生项目币一定
+   要看一下网站了，也检查一下代币叙事，没问题才能给过」——一次性专号 rug 家族案
+   FOURGE 0xf9de0ca2…ffff / SL 0x5841…ffff：模板 pitch+买粉新号即 mid 过门，官网从未
+   被看过一眼且事后已死链）。仅 addressVerified=true 时 mapper 消费（project 分支门，
+   abm/web3ip 不消费）：website_substantiates / no_website_non_infra 过（走粉丝带），
+   website_shell_or_mismatch / website_unreachable / no_website_infra_claim → low 拦。
+   两项配套裁定：①网站抓不到=拦（fail-closed）②无官网仅「基础设施/平台类宣称」拦
+   （launchpad/交易平台/工具平台/数据服务——产品本体就是网站，无站=无产品），其它
+   类型无站不拦。state 侧 PRECOMPUTED 注入 website_check 状态行（reachable/
+   unreachable/none），reachable 时附【网页内容】段（fetchWebsiteContent 复用，
+   C99 沿袭：聚合器自动代币页不算网站证据）
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.13';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.14';
 
 /**
  * 构建 prestage 问题集
@@ -142,6 +153,26 @@ Does NOT count (common false positives):
       criteria: {
         has_traffic: 'At least one real Web3 traffic event within 30 days (proactive mention by crypto KOL/institution, significant engagement on original crypto content, or two-way interaction with a major Web3 IP)',
         no_traffic: 'No real Web3 traffic event within 30 days (self-declared claims, reposts, one-way @, or engagement-free marketing do not count)',
+      },
+    },
+
+    // ── 4. 项目币官网核验（P1.14/C164：恒带，仅 addressVerified=true 的 project
+    //    分支消费；state PRECOMPUTED 带 website_check 状态行，reachable 附【网页内容】）──
+    prestage_website_check: {
+      type: 'choice',
+      instructions: `Official website check for a verified official token (address_verified: true). Judge as a web3 user spending two minutes on due diligence before buying a "project" coin: the team claims a product — does their website back the claim up, and is it consistent with the token's announcement narrative?
+How to read the state:
+- A 【网页内容】 section is present → the site was fetched successfully; judge its CONTENT against the token's claims (what the account/posts say the project does).
+- website_check: unreachable → a website URL was provided but the site could not be fetched (dead link / timeout / blocked). Report as-is.
+- website_check: none → no valid official website was provided. Aggregator auto token pages (DEX screeners etc.) do NOT count as a website.
+- Neither line appears (address_verified: false path) → pick no_website_non_infra.
+You do NOT need to verify the product actually works — judge only what the fetched content shows. A simple but concrete site (what it does, features, usage) is enough; polish is not required.`,
+      criteria: {
+        website_substantiates: 'Site fetched OK and its content shows what the project concretely does (product / features / usage / docs / organization), consistent with the token announcement narrative',
+        website_shell_or_mismatch: 'Site fetched OK but it is a hollow shell: generic template landing page with no concrete product content, pure marketing slogans, or content unrelated / contradictory to the token narrative',
+        website_unreachable: 'A website URL was provided but could not be fetched (dead link / timeout / blocked) — report per the website_check line',
+        no_website_infra_claim: 'No valid website AND the project claims an infrastructure / platform offering that REQUIRES a website to function (launchpad, trading platform, tool platform, data service, bridge, wallet, bot service) — for such products no site means no product',
+        no_website_non_infra: 'No valid website but the project does not need one as its product carrier (content / culture / community / on-chain game / creative work), OR this check does not apply (address_verified: false)',
       },
     },
 

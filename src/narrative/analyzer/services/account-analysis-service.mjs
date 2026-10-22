@@ -9,11 +9,16 @@
  */
 
 import logger from '../../core/logger.mjs';
-import { hasIndependentWebsite, shouldUseAccountCommunityAnalysis } from '../utils/narrative-utils.mjs';
+import { hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isAutoTokenPageUrl } from '../utils/narrative-utils.mjs';
 import { JevClient } from '../llm/JevClient.mjs';
 import { buildPrestageQuestions } from '../llm/jev-prestage-questions.mjs';
 import { buildPrestageState } from '../llm/jev-state-builder.mjs';
 import { mapPrestageAnswers } from '../llm/jev-prestage-mapper.mjs';
+import { getConfig } from '../../engine/config.mjs';
+import { fetchWebsiteContent } from '../../utils/web-fetcher.mjs';
+import { getKnowledgeConfig } from '../knowledge/knowledge-config.mjs';
+import { getKnowledgeBase } from '../knowledge/knowledge-loader.mjs';
+import { matchKnowledge } from '../knowledge/knowledge-matcher.mjs';
 
 /**
  * 收集所有相关账号的完整信息
@@ -142,6 +147,58 @@ export async function detectIssuerByCaTimeline(tokenAddress, twitterInfo, option
 }
 
 /**
+ * P1.14/C164 项目币官网核验——抓取状态解析（代码端事实层）
+ *
+ * 用户裁定（2026-10-22，一次性专号 rug 家族案 FOURGE 0xf9de0ca2…ffff / SL
+ * 0x5841…ffff：模板 pitch+买粉新号即 mid 过门，官网从未被看过一眼且事后已死链）：
+ * 原生项目币必须看网站+检查叙事，没问题才能给过。本函数只做代码可判定的事实：
+ * 有没有站（websites 桶剔聚合器自动页，C99 红线）/ 抓没抓到；内容判定（空壳 vs
+ * 支撑、基础设施宣称）由 prestage_website_check 题 Jev 答案承载（mapper 门消费）。
+ *
+ * 状态语义（state PRECOMPUTED 行与 mapper 门对齐）：
+ * - reachable：抓取成功 → 附【网页内容】段，Jev 判内容与宣告叙事一致性
+ * - unreachable：有站 URL 但抓取失败 → 拦（配套裁定「抓不到=拦」fail-closed；
+ *   fetchWebsiteContent 失败缓存 null sticky——同 token 重析同形状照拦，方向一致）
+ * - none：无有效官网 → Jev 判基础设施宣称臂（配套裁定：仅基础设施/平台类宣称拦）
+ * - 返回 null = 功能关（config 显式 false）→ state 无 website_check 行 → Jev 按
+ *   instructions 默认 no_website_non_infra → 门惯性放行（关=不拦）
+ *
+ * @param {Object} fetchResults - 语料抓取结果（classifiedUrls.websites 桶 + websiteInfo）
+ * @param {Object} [options]
+ * @param {Function} [options.fetchWebsite] - 抓站函数注入（单测打桩；缺省 fetchWebsiteContent）
+ * @returns {Promise<Object|null>} {status:'reachable',url,info} | {status:'unreachable',url} | {status:'none'} | null
+ */
+export async function resolveWebsiteCheck(fetchResults, options = {}) {
+  const cfg = getConfig().prestageWebsiteCheck || {};
+  if (cfg.enabled === false) return null; // 默认开：删段=开，显式 false 才关
+
+  // 官网候选：websites 桶首个非聚合器自动页（token 页 = 自动生成页面，不算项目方官网）
+  const candidates = (fetchResults?.classifiedUrls?.websites || [])
+    .map(w => w?.url)
+    .filter(Boolean);
+  const url = candidates.find(u => !isAutoTokenPageUrl(u)) || null;
+  if (!url) return { status: 'none' };
+
+  // skipAddressValidation 路径（isProjectCoin）：语料阶段已抓过该站并验过 CA → 直接
+  // 复用不重复抓（与旧 buildPrestageState websiteInfo 注入同内容，state bit 一致）
+  const existing = fetchResults?.websiteInfo;
+  if (existing?.url === url && existing?.content) {
+    return { status: 'reachable', url, info: existing };
+  }
+
+  const timeout = cfg.fetchTimeoutMs || 10000;
+  const fetchWebsite = options.fetchWebsite
+    || ((u) => fetchWebsiteContent(u, { maxLength: 5000, timeout }));
+  let info = null;
+  try {
+    info = await fetchWebsite(url);
+  } catch (error) {
+    logger.warn('AccountCommunityAnalysis', `官网核验抓取异常: ${url}`, { error: error.message });
+  }
+  return info ? { status: 'reachable', url, info } : { status: 'unreachable', url };
+}
+
+/**
  * 执行账号/社区代币前置判定（Jev 单次调用）
  *
  * 流程：纯规则验证先行（账号质量/地址验证/名称匹配，account-community-rules.mjs）
@@ -155,6 +212,8 @@ export async function detectIssuerByCaTimeline(tokenAddress, twitterInfo, option
  * @param {boolean} [options.invalidateAccountCorpus] - C70「重取数重析」：失效账号
  *   语料缓存（twitter_user_info/tweets 三键）后重拉——形状门在 NarrativeAnalyzer
  *   侧算好才透传，此处直接并入规则验证的 tweetsOptions
+ * @param {Function} [options.fetchWebsite] - P1.14 官网核验抓站函数注入（单测打桩；
+ *   缺省 fetchWebsiteContent，timeout 10s 直抓+jina 两段）
  * @returns {Promise<Object>} 分析结果
  *   成功：{ rating, category, reasoning, scores:null, total_score:null, promptType,
  *           prestageData, [baselineMet], [preCheckData 规则失败时], [addressVerified/nameMatch] }
@@ -300,13 +359,70 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   // 第二步：Jev 前置判定（一次调用；代码端按 addressVerified 分支采信答案）
   // 未命中 → abm 两条件判定；命中 → token_type 二分 + project 评级（代码端数学）
   // ═══════════════════════════════════════════════════════════════════════════
+  // P1.14/C164 官网核验事实层（addressVerified=true 才抓——project 分支消费；abm/
+  // web3ip 题恒带但不消费）。null=功能关。tokenType 调用前不可知，故 web3ip 票也照
+  // 抓：浪费上界=一次抓取（直抓+jina ≤20s，结果进 website 缓存跨 token 复用）
+  const websiteCheck = rulesResult.addressVerified
+    ? await resolveWebsiteCheck(fetchResults, options)
+    : null;
+
+  // C164 知识库 prestage 二次匹配：analyzer 已按 token 侧输入（symbol/name/address/
+  // 主推语料）匹配一轮；prestage 手里有更肥的账号语料（bio+窗口内推文全文），补一轮
+  // corpus_contains/concept_keyword 级命中，按 entryId 去重合并（analyzer 侧命中保留
+  // 其原规则）。includePrestage 配置门（用户裁定双路径注入）。匹配异常 warn 旁路，
+  // 绝不让知识层问题打断 prestage。
+  let prestageKnowledgeMatches = options.knowledgeMatches || null;
+  try {
+    const knowledgeConfig = getKnowledgeConfig();
+    const knowledgeBase = knowledgeConfig ? await getKnowledgeBase() : null;
+    if (knowledgeConfig?.match?.includePrestage !== false && knowledgeBase) {
+      const accountCorpusText = [
+        fullAccountOrCommunityData.description,
+        fullAccountOrCommunityData.name,
+        ...(Array.isArray(fullAccountOrCommunityData.tweets)
+          ? fullAccountOrCommunityData.tweets.map((t) => t?.text) : []),
+      ].filter(Boolean).join(' ');
+      const secondPass = matchKnowledge({
+        symbol: tokenSymbol,
+        name: tokenName,
+        address: tokenAddress,
+        twitterHandle: fullAccountOrCommunityData.screen_name || null,
+        corpusText: accountCorpusText,
+      }, knowledgeBase.index, knowledgeConfig.match);
+      if (secondPass.matches.length > 0) {
+        const byEntryId = new Map((options.knowledgeMatches?.matches || [])
+          .map((m) => [m.entryId, m]));
+        for (const m of secondPass.matches) {
+          if (!byEntryId.has(m.entryId)) byEntryId.set(m.entryId, m);
+        }
+        const merged = [...byEntryId.values()]
+          .sort((a, b) => a.entryId.localeCompare(b.entryId));
+        prestageKnowledgeMatches = {
+          matches: merged,
+          truncated: options.knowledgeMatches?.truncated || secondPass.truncated,
+          scannedEntries: secondPass.scannedEntries,
+        };
+        logger.info('AccountCommunityAnalysis', '知识库 prestage 二次匹配命中', {
+          token: tokenSymbol || tokenAddress,
+          entries: merged.map((m) => `${m.kind}:${m.entry?.name}(${m.rule})`),
+        });
+      }
+    }
+  } catch (e) {
+    logger.warn('AccountCommunityAnalysis', `知识库 prestage 二次匹配异常（旁路）| ${e.message}`);
+    prestageKnowledgeMatches = options.knowledgeMatches || null;
+  }
+
   const startedAt = new Date().toISOString();
   // 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，与何时分析无关）
   // tokenCreatedAtSec 已在上方推文时间窗处声明
   const { state, stats } = buildPrestageState(tokenData, fullAccountOrCommunityData, {
     addressVerified: rulesResult.addressVerified,
     rulesResult,
+    websiteCheck,
     websiteInfo: skipAddressValidation ? fetchResults.websiteInfo : null,
+    // C164：prestage 二次匹配合并结果（null/空命中 → 段为空，state bit-parity）
+    knowledgeMatches: prestageKnowledgeMatches,
     ...(tokenCreatedAtSec ? { now: tokenCreatedAtSec * 1000 } : {}),
   });
   const questions = buildPrestageQuestions();

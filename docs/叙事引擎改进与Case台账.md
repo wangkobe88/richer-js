@@ -20,7 +20,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
    （C62/C63 提速：N1 分段探针 / N2 平台桶并发+IPFS 竞速 / N3 叙事预触发 /
    三泳道并发 / websiteFetch 总开关 / undici keepAlive / precheck 四查询并行）
    → Pre-Check（纯规则，无 LLM）
-                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.11，4 题）
+                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.14，4 题）
                                    ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分；referent_memeability/图豁免 C59）
                                    └─ 标准路径 → 单次 Jev 调用（J1.30：16 常驻题——web3_fit 第 14 /
                                       subject_entity 15 / referent_memeability 16a / subject_carrier 16b
@@ -31,13 +31,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
 - **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.56）/
-  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.13）；DB 列 prompt_type/prompt_version 标识
+  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.14）；DB 列 prompt_type/prompt_version 标识
   （`jev(J1.41/…)`、`prestage-jev(P1.11/…)`）
-- **prestage P1.11 四题**（题面=P1.10）：token 类型（「币本身即IP」双形状：新称号 OR
-  社区/文化 meme 主账号，年龄非反证；**C101：推文语料不采信 web3ip，回落 abm 双条件**）/ abm 名字关联 / abm Web3 流量 / 社区活跃度。**账号基本面门
+- **prestage P1.14 四题**：token 类型（「币本身即IP」双形状：新称号 OR
+  社区/文化 meme 主账号，年龄非反证；**C101：推文语料不采信 web3ip，回落 abm 双条件**）/ abm 名字关联 / abm Web3 流量 / **项目币官网核验（C164：恒带，
+  仅 project 分支消费——substantiates/non_infra 放行，空壳/抓不到/基础设施类无站 → low）**。社区活跃题 P1.12 已删（社区臂恒 mid）。**账号基本面门
   全删（C70 bunker 案）**：粉丝底线 <20、推文 <5、注册 <30 天三道门 + P1.5 实度豁免
   （`prestage_project_quality` 题随之删除）全删——粉丝带**只定档不拦截**（账号 0-299
-  mid / ≥300 high；社区 ≥100+high 才 high）
+  mid / ≥300 high；社区恒 mid）
 - **代码门族**（mapper 端确定性切分）：nameEntityLowBlock（J1.56：币名映射实体
   Web3 用户不认得 unknown≥0.5，域 B/C/D/F/G/W；no_entity 中性）/ authorUtterance
   作者原话票（J1.56：注册表作者 ∧ 币名逐字主推 → C88 第一腿补位；不要求 Jev 升档）/
@@ -68,6 +69,19 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 ---
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
+
+### C164 项目币官网核验——prestage project 分支加门：看网站+查叙事才能过（P1.14）（2026-10-22 用户裁定）★
+
+- **案情（一次性专号 rug 家族案，v28 exp a97e4f25 四连亏之二）**：FOURGE `0xf9de0ca25d667c7dedbc1765bb05680a1828ffff`（launchpad pitch，fourge.fun）与 SL `0x58417f3f9ac500ee40a3882119cbb8a4686affff`（sloploss.si）——一次性 creator EOA+买粉新推特号（各 1 币各 2 推，serial-issuer 门 C85 结构性失效），模板 pitch 一篇「产品陈述」即 prestage 粉丝带 mid（73/67 粉）→ narrativeRating==2 过买门；买入后 48s~3min 同块 8/9 钱包协同砸盘（2.06/2.23 BNB），卖出反应 4s 仍 -56%/-58%。**官网从未被看过一眼**（websiteFetch 默认关），事后取证 fourge.fun HTTP 000 死链、sloploss.si 503。**用户裁定**：「如果是原生项目币，一定要看一下网站了（其它类型不需要），也检查一下代币叙事，没问题才能给过」+ 两项配套裁定：①无官网**仅基础设施/平台类宣称才拦**（launchpad/交易平台/工具平台/数据服务——产品本体就是网站，无站=无产品；内容/文化/社区型无站不拦）②**网站抓不到=拦**（fail-closed）。同案提案 D（协同砸盘簇黑名单）用户否决「容易误伤」，方向改画像库买前门（另行裁定，不在本 case）。
+- **机制（分层四段，P1.14 bump）**：
+  1. **代码端事实层** `resolveWebsiteCheck`（account-analysis-service）：addressVerified=true 才抓（project 分支消费；abm/web3ip 题恒带但不消费）；URL=classifiedUrls.websites 桶首个**非聚合器自动页**（C99 红线沿袭）；三态 reachable（抓到）/unreachable（有站抓不到）/none（无有效站）——reachability 是代码判定，Jev 只判内容与宣称；isProjectCoin 路径已抓过的站直接复用零重复抓；抓取复用 `fetchWebsiteContent`（jina 回退保「源活着但被反爬挡」不死判 unreachable；timeout=config `prestageWebsiteCheck.fetchTimeoutMs` 默认 10s）；**失败缓存 null sticky**（1h 冷却）——同 token 重析同形状照拦，与「抓不到=拦」方向一致；config `prestageWebsiteCheck.enabled` 默认开（显式 false 才关，关=state 无行→Jev 默认 pass 臂→门惯性放行）。
+  2. **state 注入**（jev-state-builder）：PRECOMPUTED 加 `website_check: reachable/unreachable/none` 状态行（unreachable 行明示「死链不等于没提供站」防 Jev 误读成 none）；reachable 时【网页内容】段携带（优先于旧 websiteInfo，isProjectCoin 路径内容同源 bit 一致）。
+  3. **题面** `prestage_website_check`（恒带第 4 题，五选）：website_substantiates / website_shell_or_mismatch（空壳模板页/与宣告叙事不符）/ website_unreachable / no_website_infra_claim / no_website_non_infra；判据=web3 用户两分钟尽调视角，「简单但具体的站（做什么/功能/用法）即足够，不要求精致」；不要求实证产品可用（P1.7 裁定沿袭，只判抓到的内容）。
+  4. **mapper 门**（project 分支唯一拦截位，题面改锚分不动）：substantiates/non_infra 放行走粉丝带；shell_or_mismatch/unreachable/infra_claim → **low 拦**（reason 带「→ low（C164）｜原粉丝带：…」可复算）；答案值异常（不在五选项）→ 同拦 fail-closed；answer 整体缺失 JevClient throw→9→C84 无信号；归因键 `details.websiteCheck`+`jevDetails.websiteCheck`+jev probabilities。
+- **验证**：`_test_prestage_website_check` 43P（mapper 五臂+异常臂/不消费面三路/state 三态+功能关+双保险/resolveWebsiteCheck 六态含 throw 不冒泡+isProjectCoin 复用计数/接线源码口径锁）；三存量 prestage 套件 bump 后全绿（unrated_elimination 32/32、project_downgrade 32/32、web3ip_account_only 17/17——fixture 补 pass 臂）。
+- **回归票**：FOURGE `0xf9de…ffff` + SL `0x5841…ffff` 收录 C164（expect：rating low + reason 含官网核验拦截归因）。
+- **边界（诚实面）**：本门抓的是「连站都懒得维护」的一次性专号形状；**域名活着+模板页做得像回事的 rug 拦不住**（substantiates 判过）；网站正常的项目币 rug（有真站有真产品但砸盘）不归叙事层管——协同砸盘簇的拦截走画像库买前门（待裁定）。
+- **部署**：182 定向重析（两票应翻 low）+ 全量回归 + worker/live v28 重启（重启前持仓确认 SOP）。
 
 ### C163 宣告采信豁免——关联题已有门内加豁免，不立独立锚（J1.99）（2026-10-22 用户裁定）★
 

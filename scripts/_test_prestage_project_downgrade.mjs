@@ -103,6 +103,8 @@ const answers = {
   prestage_token_type: { choice: 'project', probabilities: { project: 0.8 } },
   prestage_abm_name_link: { choice: 'exact', probabilities: { exact: 0.9 } },
   prestage_abm_web3_traffic: { choice: 'no_traffic', probabilities: { has_traffic: 0.1 } },
+  // P1.14 恒带官网核验题：pass 臂（本测试只测 P1.10 删门语义）
+  prestage_website_check: { choice: 'website_substantiates', probabilities: { website_substantiates: 0.9 } },
 };
 const callInfo = {
   model: 'test', questions: { q1: { type: 'choice' } }, state: 's', stateStats: { totalChars: 1 },
@@ -116,7 +118,7 @@ const mapped = mapPrestageAnswers(answers, {
   callInfo,
 });
 check('bunker 全链 project → mid + promptType P1.12', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'mid', pt: `prestage-jev(P1.13/project)` });
+  { rating: 'mid', pt: `prestage-jev(P1.14/project)` });
 check('jevDetails 无 downgrade/qualityExempt 键',
   { dg: 'downgrade' in mapped.jevDetails, qe: 'qualityExempt' in mapped.jevDetails },
   { dg: false, qe: false });
@@ -139,7 +141,7 @@ const mappedIp = mapPrestageAnswers({
 });
 check('web3ip 分支 131 粉 → mid + promptType 带 web3_native_ip_early',
   { rating: mappedIp.rating, pt: mappedIp.promptType },
-  { rating: 'mid', pt: 'prestage-jev(P1.13/web3_native_ip_early)' });
+  { rating: 'mid', pt: 'prestage-jev(P1.14/web3_native_ip_early)' });
 check('web3ip reason 含 IP 前缀', mappedIp.reasoning.startsWith('Web3原生IP早期'), true);
 // abm 分支（addressVerified=false）：判定不消费 rateProject，两条件逻辑不变
 const mappedAbm = mapPrestageAnswers(answers, {
@@ -153,8 +155,8 @@ check('abm 分支 nameLink=exact+traffic 0.1 → low（双证据逻辑零改动�
 const qs = buildPrestageQuestions();
 check('问题集无 prestage_project_quality（题随豁免逻辑删）',
   'prestage_project_quality' in qs, false);
-check('问题集 3 题（P1.12 删社区活跃题）', Object.keys(qs).length, 3);
-check('版本 P1.13', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.13');
+check('问题集 4 题（P1.12 删社区活跃题/P1.14 加官网核验题）', Object.keys(qs).length, 4);
+check('版本 P1.14', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.14');
 check('问题集无 prestage_community_activity（P1.12 题随高档条件删）',
   'prestage_community_activity' in qs, false);
 // P1.13（C125）：name_link 用户感知锚（四档/键名不变）

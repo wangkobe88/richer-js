@@ -17,6 +17,12 @@
  *     P1.10 账号基本面门全删（2026-10-15 用户裁定，bunker 案 C70）：粉丝底线 <20、
  *     推文 <5、账号年龄 <30 天三道门 + P1.5 实度豁免全部删除——粉丝/成员数只定档
  *     不拦截；A 路径的核心价值=CA 匹配（performRulesValidation 保留）
+ *     P1.14/C164（2026-10-22 用户裁定「原生项目币一定要看网站+叙事，没问题才能
+ *     给过」）：project 分支加官网核验门——website_substantiates /
+ *     no_website_non_infra 放行走粉丝带；website_shell_or_mismatch /
+ *     website_unreachable / no_website_infra_claim → low 拦（配套裁定：①抓不到=拦
+ *     fail-closed ②无官网仅基础设施/平台类宣称拦）。两项均为题面 choice 承载、
+ *     代码端映射（题面改锚分不动——mapper 门是唯一拦截位）
  * - 输出 prestageDataToSave 与旧 prestageData 字段一一对应（存储契约不变），
  *   promptType 用于 prompt_type 列识别新旧格式
  */
@@ -31,6 +37,20 @@ const NAME_LINK_LABELS = {
   abbreviation: '缩写匹配',
   semantic: '语义关联',
   none: '无关联',
+};
+
+/**
+ * P1.14/C164 项目币官网核验选项 → 中文标签（reason 模板用）。
+ * pass 臂=website_substantiates / no_website_non_infra（走粉丝带）；
+ * 拦臂=website_shell_or_mismatch / website_unreachable / no_website_infra_claim → low
+ * （配套裁定：抓不到=拦 fail-closed；无官网仅基础设施/平台类宣称拦）
+ */
+const WEBSITE_GATE_LABELS = {
+  website_substantiates: '官网核验通过（内容支撑产品宣称）',
+  no_website_non_infra: '无官网但非基础设施类（产品载体不依赖网站）',
+  website_shell_or_mismatch: '网站空壳/与宣告叙事不符',
+  website_unreachable: '官网抓取失败（死链/超时/被拦——抓不到=拦）',
+  no_website_infra_claim: '基础设施/平台类宣称但无官网（无站=无产品）',
 };
 
 /**
@@ -146,11 +166,12 @@ export function mapPrestageAnswers(answers, context) {
     error: null,
   };
 
-  // answers 里的概率（details 概率承载，供校准分析；P1.12 删社区活跃题）
+  // answers 里的概率（details 概率承载，供校准分析；P1.12 删社区活跃题；P1.14 加官网核验题）
   const jevProbabilities = {
     prestage_token_type: answers.prestage_token_type?.probabilities,
     prestage_abm_name_link: answers.prestage_abm_name_link?.probabilities,
     prestage_abm_web3_traffic: answers.prestage_abm_web3_traffic?.probabilities,
+    prestage_website_check: answers.prestage_website_check?.probabilities,
   };
 
   let tokenType;
@@ -205,17 +226,31 @@ export function mapPrestageAnswers(answers, context) {
       tokenType = 'project';
       rating = rated.rating;
       baselineMet = rated.baselineMet;
-      reasoning = rated.reason;
       pass = true; // 对齐旧 project 分支
+
+      // P1.14/C164 项目币官网核验门（仅 project 分支消费；abm/web3ip 不消费）：
+      // pass 臂走原粉丝带；拦臂三选 → low。choice 不在五选项内=答案形状异常 → 同拦
+      // （fail-closed，reason 带原值可见）；answer 整体缺失 JevClient 已 throw
+      // （→9→C84 无信号），不在此兜底。配置关闭路径=state 无 website_check 行 →
+      // Jev 按 instructions 默认 no_website_non_infra → 门惯性放行（关=不拦）
+      const wcChoice = answers.prestage_website_check?.choice;
+      const wcPass = wcChoice === 'website_substantiates' || wcChoice === 'no_website_non_infra';
+      if (!wcPass) {
+        rating = 'low';
+        reasoning = `项目币官网核验未过（${WEBSITE_GATE_LABELS[wcChoice] || `答案异常:${wcChoice}`}）→ low（C164）｜原粉丝带：${rated.reason}`;
+      } else {
+        reasoning = `${rated.reason}｜官网核验：${WEBSITE_GATE_LABELS[wcChoice]}`;
+      }
 
       details = {
         followers,
         members,
         projectReason: null, // Jev 无文本生成，判定依据由 jev probabilities 承载
         ipConcept: null,
+        websiteCheck: wcChoice, // P1.14：拦截/放行归因键（choice 原值）
         ...(isAccount ? { verified: data.verified || data.is_blue_verified || false } : {}),
       };
-      jevDetails = { tokenType, baselineMet: rated.baselineMet };
+      jevDetails = { tokenType, baselineMet: rated.baselineMet, websiteCheck: wcChoice };
     }
   }
 
