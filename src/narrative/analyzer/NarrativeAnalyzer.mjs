@@ -28,7 +28,7 @@ import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
 import { collectSearchEvidence, hasSearchCorpus, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 import { getKnowledgeBase } from './knowledge/knowledge-loader.mjs';
 import { getKnowledgeConfig } from './knowledge/knowledge-config.mjs';
-import { matchKnowledge, excludeSelfFeedback } from './knowledge/knowledge-matcher.mjs';
+import { matchKnowledge, excludeSelfFeedback, detectDuplicateNarrative } from './knowledge/knowledge-matcher.mjs';
 import { maybeCaptureKnowledgeFeedback } from './knowledge/knowledge-feedback.mjs';
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
@@ -353,12 +353,16 @@ export class NarrativeAnalyzer {
     // 配置残缺（enabled:true 但键非法）getKnowledgeBase 内 throw fail-loud（部署
     // 错误不得静默，searchFallback 同语义）；匹配本身意外错误才 catch 旁路。
     let knowledgeMatches = null;
+    // 蓝筹去重证据（C168）：twitterHandle 提升出 try 块——注入与去重两条消费
+    // 各自旁路，匹配失败不得连坐去重检测（反之亦然）
+    let duplicateNarrative = null;
     const knowledgeBase = await getKnowledgeBase();
+    const knowledgeHandle = extractScreenNameFromTwitterUrl(extractedInfo.twitterUrl || classifiedUrls?.twitter?.[0]?.url)
+      ?? (twitterInfo?.author_screen_name ? String(twitterInfo.author_screen_name).toLowerCase() : null);
     if (knowledgeBase) {
       try {
         const knowledgeConfig = getKnowledgeConfig();
-        const twitterHandle = extractScreenNameFromTwitterUrl(extractedInfo.twitterUrl || classifiedUrls?.twitter?.[0]?.url)
-          ?? (twitterInfo?.author_screen_name ? String(twitterInfo.author_screen_name).toLowerCase() : null);
+        const twitterHandle = knowledgeHandle;
         const corpusText = safeSubstring([
           twitterInfo?.text,
           twitterInfo?.description,
@@ -400,6 +404,28 @@ export class NarrativeAnalyzer {
       } catch (e) {
         logger.warn('NarrativeAnalyzer', `知识库匹配失败（旁路，不影响分析）| ${e.message}`);
         knowledgeMatches = null;
+      }
+      // ── 蓝筹去重检测（C168，用户裁定「蓝筹需要去重，小蓝筹不需要——短期
+      // 热门叙事往往会发好些个票」）：name_exact/twitter_exact 撞蓝筹（b: curated
+      // 库）→ mapper 门链首臂拦 low。quasi 姐妹票刻意不算（同叙事连发是常态）；
+      // 配置关 duplicateGate → 不检测（注入不受影响）。prestage 路径不接（C72 先例）
+      if (getKnowledgeConfig()?.duplicateGate?.enabled !== false) {
+        try {
+          duplicateNarrative = detectDuplicateNarrative({
+            symbol: tokenData.symbol,
+            name: tokenData.raw_api_data?.name,
+            address: tokenData.address,
+            twitterHandle: knowledgeHandle,
+          }, knowledgeBase.index, { selfAddress: tokenData.address });
+          if (duplicateNarrative) {
+            logger.info('NarrativeAnalyzer', '蓝筹去重命中（C168）', {
+              token: tokenData.symbol, rule: duplicateNarrative.rule, bluechip: duplicateNarrative.entryName,
+            });
+          }
+        } catch (e) {
+          logger.warn('NarrativeAnalyzer', `蓝筹去重检测失败（旁路，不影响分析）| ${e.message}`);
+          duplicateNarrative = null;
+        }
       }
     }
 
@@ -843,6 +869,9 @@ export class NarrativeAnalyzer {
             const mapped = mapStandardAnswers(result.answers, {
               tokenData,
               includeBrandHijack,
+              // C168 蓝筹去重证据（analyzer 侧 detectDuplicateNarrative 产物）：
+              // 命中 → mapper 门链首臂拦 low（null=无证据零侵入）
+              duplicateNarrative,
               // J1.24 戏谑关联豁免（C40 BI Inu 案）的可信事件源锚：superIP 语料锚 /
               // 发行方自发宣告 / 广场官方认证源 任一——事件真实性有背书时「当前热门
               // 新鲜事」才立得住，纯小道消息语料不解锁豁免

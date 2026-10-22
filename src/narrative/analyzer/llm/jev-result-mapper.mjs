@@ -1434,13 +1434,23 @@ export function mapStandardAnswers(answers, context) {
     recognizedEntitySlogan ? 'C88实体口号' : null]
     .filter(Boolean).join('+');
 
-  // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
+  // J1.11 负面硬新闻质量门（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
   // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
   // J1.13 常规内容产品宣传质量门同位双挂（C12 绣春刀3案，事件性质层面否决）
   // J1.19 Web3用户偏好质量门第三位同挂（C30 死亡观察员/太阳之勤案，受众口味
   // 层面否决——事件可有叙事价值但不合链上 meme 买家口味，热度再高也不该放）
-  if ((nhnBlock = negativeHardNewsBlock(answers))) {
+  if (context.duplicateNarrative) {
+    // C168 蓝筹去重门（2026-10-22 用户裁定「蓝筹需要去重，小蓝筹不需要——短期
+    // 热门叙事往往会发好些个票」）：票以 name_exact/twitter_exact 撞已验证蓝筹
+    // （b:，ATH>$1M curated 库）→ 后来的票是纯复制品，入场资格否决（链首：资格
+    // 问题先于内容质量评估，label 归属干净——撞蓝筹票不再被 NHN/unfit 等 label
+    // 掩盖；rule 0.52「同名蓝筹废除移交叙事层」在此接棒，判据从宽口径同名升级
+    // 为 curated 库+双 exact）。证据=analyzer 侧 detectDuplicateNarrative 纯代码
+    // 事实（quasi 姐妹票刻意不算、蓝筹本体自排除）；Jev 照跑留完整档案，评级 low
+    eventScoreBlocked = true;
+    gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.rule}:${context.duplicateNarrative.rule === 'twitter_exact' ? `@${context.duplicateNarrative.matchedOn}` : context.duplicateNarrative.entryName}）`;
+  } else if ((nhnBlock = negativeHardNewsBlock(answers))) {
     eventScoreBlocked = true;
     gateBlockReason = nhnBlock.label;
   } else if ((w3Block = web3UnfitBlock(answers))) {
@@ -1596,6 +1606,15 @@ export function mapStandardAnswers(answers, context) {
         effectiveImpactTier: effTier,
         blockChoice,
         blockChoiceProbability: blockProb ?? null,
+        // C168 审计标记：蓝筹去重门命中详情（命中才落，subjectCarrierBlock 同款
+        // 模式；证据来自 analyzer 侧 detectDuplicateNarrative——撞了哪条蓝筹、
+        // 哪级规则可追溯）
+        bluechipDuplicate: context.duplicateNarrative ? {
+          rule: context.duplicateNarrative.rule,
+          entry: context.duplicateNarrative.entryName,
+          entryId: context.duplicateNarrative.entryId,
+          matchedOn: context.duplicateNarrative.matchedOn,
+        } : null,
         // C159 观察键（用户追加担忧：短句点名 meme 的锚可能被虚假叙事利用）：
         // 恒落 empty_content 概率质量，后续按买点结果回看「蹭名无实质事件」票；
         // 只观察不参与任何门。

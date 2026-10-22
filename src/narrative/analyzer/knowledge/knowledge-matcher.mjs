@@ -140,6 +140,55 @@ export function excludeSelfFeedback(matches, tokenAddress) {
 }
 
 /**
+ * 蓝筹去重检测（C168，用户裁定「蓝筹需要去重，小蓝筹不需要——短期热门叙事
+ * 往往会发好些个票」）：票以 name_exact/twitter_exact 撞**蓝筹**（b:，已验证
+ * 大叙事 ATH>$1M curated 库）→ 后来的票是纯复制品，返回证据供 mapper 拦 low。
+ *
+ * 刻意范围（三项裁定形状）：
+ *   - 仅 kind==='bluechip'：quasi（feedback/graduations 小票）**不参与**——同叙事
+ *     连发多票是 meme 常态（BIAOQING 三连发 2026-10-22 裁定不拦）；蓝筹叙事已
+ *     定型出过冠军，撞名=复制品（rule 0.52「同名蓝筹废除移交叙事层」的接棒，
+ *     判据从宽口径同名升级为 curated 库+双 exact）
+ *   - 仅 exact 两级：name_substring 是有意义变体（哭哭奶龙×哭哭马 C151）、
+ *     corpus_contains 是背景注入语义（C165），都不是重复叙事
+ *   - 自地址排除：蓝筹本体票重析（selfAddress=条目 address）不得被自己拦
+ *
+ * 实现复用 matchKnowledge（窄输入 corpusText=''/address=null 使 substring/corpus/
+ * concept/address 四级天然不触发），零新匹配逻辑；maxEntries 放大防 exact 命中
+ * 被注入用的 5 条封顶挤掉。
+ * @param {{symbol:string, name:string, address:string, twitterHandle:string|null,
+ *          corpusText:string}} matchInput - 与注入匹配同源输入（corpusText/address 被忽略）
+ * @param {Object} index - buildKnowledgeIndex 产物
+ * @param {{selfAddress?:string}} [opts]
+ * @returns {null|{rule:string, matchedOn:string, matchedField:string,
+ *                 entryId:string, entryName:string, entryAddress:string|null}}
+ */
+export function detectDuplicateNarrative(matchInput, index, opts = {}) {
+  if (!index || !matchInput) return null;
+  const narrow = matchKnowledge({
+    symbol: matchInput.symbol,
+    name: matchInput.name,
+    address: null, // address_exact=本票即在册，非重复叙事（重析形状），源头不评估
+    twitterHandle: matchInput.twitterHandle,
+    corpusText: '', // corpus_contains/concept_keyword=背景提及语义，不参与
+  }, index, { maxEntries: 50 });
+  const selfAddr = opts.selfAddress ? String(opts.selfAddress).toLowerCase() : '';
+  const hit = narrow.matches.find((m) =>
+    m.kind === 'bluechip'
+    && (m.rule === 'twitter_exact' || m.rule === 'name_exact')
+    && !(selfAddr && m.entry && String(m.entry.address || '').toLowerCase() === selfAddr));
+  if (!hit) return null;
+  return {
+    rule: hit.rule,
+    matchedOn: hit.matchedOn,
+    matchedField: hit.matchedField,
+    entryId: hit.entryId,
+    entryName: hit.entry?.name ?? null,
+    entryAddress: hit.entry?.address ?? null,
+  };
+}
+
+/**
  * 匹配（分级规则，输出可审计）
  * @param {{symbol:string, name:string, address:string, twitterHandle:string|null,
  *          corpusText:string}} matchInput

@@ -70,6 +70,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C168 蓝筹去重门——新票 name/twitter 双 exact 撞已验证蓝筹 → 门链首臂拦 low（2026-10-22 用户裁定两轮）★
+
+- **案情**：BIAOQING 三连发 `0x329c64d1…7777` / `0xa3b903b4…7777` / `0x923168f0…7777`（The Chinese Bear，2026-10-22 07:30-07:31 一分钟内三张）全部评 high 94-95 并自动回写 quasi-feedback——同一分钟三张同叙事票全过线，没有「这叙事已经有冠军票」的概念。用户两轮裁定合并口径：**「新发的票，如果跟老 meme 币蓝筹重复（BIAOQING 三连发），那么肯定要拦住；如果是跟近期新发的小蓝筹币重复，则不需要拦住」**——撞已验证蓝筹（b: 域，ATH>$1M curated 库=叙事已定型出过冠军）= 纯复制品，入场资格否决；撞近期新发小蓝筹（q: 域=quasi feedback/graduations，未验证 $1M）= 短期热门叙事连发姐妹票，meme 常态不拦（BINA 复刻 C162/C163、毕业姐妹 C106 形状天然放行）。
+- **机制（C165 知识库的消费臂，mapper-only 不 bump 题集版本）**：①检测 `detectDuplicateNarrative`（knowledge-matcher 导出纯函数）——复用 matchKnowledge **窄输入独立跑**（`address:null` 使 address_exact 不触发、`corpusText:''` 使 corpus/concept 级不触发=只可能命中 twitter_exact/name_exact 两级）+ 过滤 `kind==='bluechip'` + `selfAddress` 自排除（蓝筹本体票重析不误拦自己，如熊猫头 0xf352…4444）；maxEntries 放大 50=**门检测不依赖注入截断结果**（maxEntries=5 封顶可能把 exact 命中挤出，此为注入防噪不适用于检测）。②analyzer 挂载（NarrativeAnalyzer）：twitterHandle 提升出注入 try 块（`knowledgeHandle`）——注入与去重两条消费**各自旁路不连坐**（匹配失败不废去重、去重抛错不废注入审计）；开关 `knowledgeBase.duplicateGate`（缺省=开，显式 false 单独关去重不影响注入，残缺 throw）。③mapper 门链**首臂**（jev-result-mapper，NHN 之前）：资格否决先于内容质量评估，label 归属干净（撞蓝筹票不再被 NHN/unfit 等 label 掩盖）；`eventScoreBlocked=true` → rating low；Jev 照跑留完整档案（区别于 pre_check fail 形状）；审计 `bluechipDuplicate:{rule,entry,entryId,matchedOn}` 命中才落（subjectCarrierBlock 同款模式）。
+- **刻意边界**：quasi 全忽略（裁定核心）；name_substring 不拦（哭哭奶龙×哭哭马 C151 有意义变体）；corpus_contains 不拦（背景注入语义 C165）；prestage 路径不接（C72 先例）；**rule 0.52 谱系接棒**——引擎侧同名蓝筹门 2026-09 废除时裁定「同名≠蹭名，移交叙事层」，本门=叙事层用 curated 蓝筹库+双 exact 接住（判据从宽口径同名升级为 curated 库+双 exact）；存量 token_narrative 缓存不重析=旧结论不变。
+- **数据修复（事故现场反证）**：熊猫头蓝筹条目原 aliases 只有 `["Panda Head","panda-head"]`——三连发 symbol=BIAOQING/name=The Chinese Bear **撞不上**（用户点名案例反而漏拦）；补录 `BIAOQING`+`The Chinese Bear` 两路 alias（symbol 路+name 路）后实测命中（单测 C 段真实条目形状反证锁定）。
+- **验证**：`_test_bluechip_dedup_gate` 32 断言全绿（A 检测真值表 10 组：exact 两级命中/quasi 全等刻意不拦/substring·corpus 不拦/自地址排除大小写不敏感/address 传入被忽略/空形状/多条截断免疫；B mapper 臂 4 组：无证据对照原评级不变/证据→low+reason+audit/twitter label 带 @handle/链首先手 NHN；C 源码口径 10 条：analyzer 接线+旁路 catch+开关默认开、mapper 链首序+审计键、config 段、熊猫头 alias 数据口径+三连发形状实测命中）；knowledge 系 5 件套回归 116 断言全绿。
+- **部署**：182 pull + 重启叙事 worker（代码改动，知识文件热载不够）；重析 0x329c64d1…7777 验证翻 low + 全量 case-regression 回归（预期零漂移：回归集无撞蓝筹双 exact 票）；三连发是否收录回归票待部署后裁定。
+
 ### C167 移出 @BinanceAngels（误登记超级IP条目）（2026-10-22 用户裁定）★
 
 - **案由**：`binanceangels` 原在 super-ip 注册表机构类（`type:'institution'`/`tier:'A'`/desc「币安天使投资」）——但 @BinanceAngels 实际是币安**社区大使/志愿者项目**运营号，不是投资机构（desc 系误登记）。superIP 消费臂**只看在册、不看 tier**：在册即与 CZ/币安官方同权——C117 强制标准路径（绕过 prestage 账号判定）、C139 著名免形象资格（J1.29 载体门整门跳过）、J1.58 empty_content 作者豁免、J1.56 作者原话票（主推逐字含币名即命中，不看语义）、J1.24 可信事件锚、C51 GMGN 推文补源例外、C132 缺粉时的用烂风险证据。社区运营号的日常活动推不配这套权重。用户裁定移出。

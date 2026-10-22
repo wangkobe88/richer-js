@@ -12,6 +12,9 @@ import { getConfig } from '../../engine/config.mjs';
 const CODE_DEFAULTS = {
   match: { maxEntries: 5, minCjk: 2, minLatin: 4, includePrestage: true },
   inject: { maxChars: 2000 },
+  // C168 蓝筹去重门（缺省=开：用户裁定要门；显式 enabled:false 单独关去重，
+  // 注入不受影响）
+  duplicateGate: { enabled: true },
   feedback: {
     enabled: true, captureRatings: ['high'], graduatedAlso: true, maxEntries: 300,
     path: 'data/knowledge/quasi-feedback.json',
@@ -41,6 +44,7 @@ export function getKnowledgeConfig(options = {}) {
   const merged = {
     match: { ...CODE_DEFAULTS.match, ...(section.match || {}) },
     inject: { ...CODE_DEFAULTS.inject, ...(section.inject || {}) },
+    duplicateGate: { ...CODE_DEFAULTS.duplicateGate, ...(section.duplicateGate || {}) },
     feedback: { ...CODE_DEFAULTS.feedback, ...(section.feedback || {}) },
     files: { ...CODE_DEFAULTS.files, ...(section.files || {}) },
   };
@@ -54,6 +58,9 @@ export function getKnowledgeConfig(options = {}) {
   }
   if (!Number.isFinite(merged.inject.maxChars) || merged.inject.maxChars <= 0) {
     throw new Error('knowledgeBase 配置残缺：inject.maxChars 须为正数');
+  }
+  if (typeof merged.duplicateGate.enabled !== 'boolean') {
+    throw new Error('knowledgeBase 配置残缺：duplicateGate.enabled 须为 boolean');
   }
   if (!Array.isArray(merged.feedback.captureRatings)
     || !merged.feedback.captureRatings.every((r) => ['high', 'mid', 'low'].includes(r))) {
