@@ -281,6 +281,7 @@ async function cmdSmoke() {
 
 async function cmdFetch() {
   const { marketApi } = await getGmgnApis();
+  fs.mkdirSync(DATA_DIR, { recursive: true });
   const prevStore = readJson(LIST_FILE, null);
   const completed = new Set(prevStore?.completedRanks || []);
   const { merged } = mergeRankRecords(prevStore?.tokens || [], []);
