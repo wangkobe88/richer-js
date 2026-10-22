@@ -78,7 +78,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 - **刻意不用 dedupExempt 数据侧豁免**：manual 条目级豁免是全量放行（对该条目名字的所有后续票解除去重），会把用户点名的「陈述老叙事的找角度推文」边界一起放开——条件豁免（按语料形状判定）才是本案形状；b:0x0a43…4444 条目不标 dedupExempt。
 - **存量票影响面核查（改前逐票验证）**：C121 牛来（作者 @Meechieftw/unknown 桶）、C168 BIAOQING（@Chilldev69/2830 粉/unknown 桶）均不在册非 direct_tweet → 照拦零翻转；C106 TREE/C138a Heyi 非去重路径不受影响。
 - **单测**：`_test_bluechip_dedup_gate` 扩 B5 真值表（direct_tweet+在册→豁免非 low+双 audit 键；angle_seeking/interpretive_reply/unknown 作者在册照拦；direct_tweet 不在册照拦；分类缺失照拦 fail-保守；无撞名证据豁免臂零侵入）+ C 组判据源码锚，54/0；mapper 消费面 13 门族测试+知识库五件套全绿。
-- **部署**：commit → push → 182 pull → 重启叙事 worker+live v32（重启前查持仓）→ 「4」定向重析（预期解除去重拦截翻 high，J1.101 后 nhn 桶亦不拦）→ 全量 case-regression 对拍 → 票收录回归集。
+- **部署（已收口，2026-10-22）**：263db36+d70d4d5+87a8d33 → 182 pull → 叙事 worker 重启（旧实例 SIGTERM 不死 SIGKILL 清掉单实例确认；v32 实盘当时已停无需重启）→ 「4」定向重析 **high 86.52**（S 档 92/关联 exact_match 20；J1.103），DB 行审计 `bluechipDedupNewStatement={tweetType:'direct_tweet'}`+`bluechipDuplicate` 双落地=豁免路径精确生效；票收录回归集（expect high+双审计键，d70d4d5）。**全量回归 52 票 39P/7F/6O**（14-02-47 批，C173 票 PASS high 87.7）：7 FAIL 与 C172 收口批（12:59）同集 6 票（C94/C106/C79/C162/C167+并行会话已呈报的 C101）零新增；唯一评级漂移 **C133 股城 high 89.38→low** 经 DB 行确证与 C173 零关联（`bluechipDuplicate=null` 未撞去重门；event_category W 0.42/C 0.38/E 0.14 三方掷骰 argmax 落 W → W 数学 29.08<32 拦——C133 本即 C171 台账在案的阈值抖动票）。
 
 ### C174 实体题「被命名+被讲故事的故事主体」锚——TREE 归位 new_entity（2026-10-22 用户裁定「那这个不应该是 not_entity 应该是 new_entity 吧？」）★
 
