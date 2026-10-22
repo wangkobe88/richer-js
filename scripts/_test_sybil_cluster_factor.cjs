@@ -92,10 +92,10 @@ console.log('A. 乌龟案现场反证（四钱包等额簇：单钱包过门、�
     FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
     assert.ok(Math.abs(ff.famousCopyWalletCircPct - 15.38) < 0.1, `got ${ff.famousCopyWalletCircPct}`);
   });
-  check('A3 门语义：61.5 >= 35 → `IS NULL OR < 35` 为 false=拒买', () => {
+  check('A3 门语义：61.5 >= 35 → 裸比较为 false=拒买（2026-10-22 去 NULL 后条件串不带 IS NULL 臂）', () => {
     const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
     const ev = new ConditionEvaluator();
-    const cond = 'sybilClusterHolderCircPct IS NULL OR sybilClusterHolderCircPct < 35';
+    const cond = 'sybilClusterHolderCircPct < 35';
     assert.strictEqual(ev.evaluate(cond, f), false);
     assert.strictEqual(ev.evaluate(cond, { ...f, sybilClusterHolderCircPct: 20 }), true);
   });
@@ -122,16 +122,16 @@ console.log('B. 语义边界（负净持仓/非簇钱包/未启用）');
     assert.ok(Math.abs(fa.buildFactorMap('0xtoken', T0 + 7000).sybilClusterHolderCircPct - 44.4) < 0.1,
       `got ${fa.buildFactorMap('0xtoken', T0 + 7000).sybilClusterHolderCircPct}`));
   FourMemeFactorAggregator.setSybilClustersForTest(null);
-  check('B3 名单 null → 恒 null（未启用 fail-open：IS NULL 臂放行）', () => {
+  check('B3 名单 null → 恒 0（未启用 fail-open；2026-10-22 去 NULL 裁定裸比较放行）', () => {
     const f = fa.buildFactorMap('0xtoken', T0 + 7000);
-    assert.strictEqual(f.sybilClusterHolderCircPct, null);
+    assert.strictEqual(f.sybilClusterHolderCircPct, 0);
     const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
     assert.strictEqual(new ConditionEvaluator().evaluate(
-      'sybilClusterHolderCircPct IS NULL OR sybilClusterHolderCircPct < 35', f), true);
+      'sybilClusterHolderCircPct < 35', f), true);
   });
   FourMemeFactorAggregator.setSybilClustersForTest(new Set());
-  check('B4 空集合 → null（未启用；与「簇在场但无持仓=0」区分）', () =>
-    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 7000).sybilClusterHolderCircPct, null));
+  check('B4 空集合 → 0（未启用；2026-10-22 裁定不再与「无命中=0」区分）', () =>
+    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 7000).sybilClusterHolderCircPct, 0));
   FourMemeFactorAggregator.setSybilClustersForTest(new Set(['0xdeadbeef'.padEnd(42, '0')]));
   check('B5 名单在但全部 miss → 0（有证据零值，门放行）', () =>
     assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 7000).sybilClusterHolderCircPct, 0));
@@ -170,11 +170,11 @@ console.log('D. loadSybilClusters（仓库产物 config/rosters/sybil-clusters.j
     const set = await FourMemeFactorAggregator.loadSybilClusters();
     for (const w of TURTLE) assert.ok(set.has(w), `${w} 不在簇名单`);
   });
-  check('D3 setter 生命周期：null 还原「未加载」（因子恒 null）', () => {
+  check('D3 setter 生命周期：null 还原「未加载」（因子恒 0，2026-10-22 去 NULL）', () => {
     FourMemeFactorAggregator.setSybilClustersForTest(null);
     const fa = newFA();
     fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: TURTLE[0], bnb_amount: 1, token_amount: 50 * M }), {});
-    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 2000).sybilClusterHolderCircPct, null);
+    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 2000).sybilClusterHolderCircPct, 0);
   });
 
   // ═══════════════ E. 探针 + 白名单 + 字面量 ═══════════════
@@ -198,7 +198,7 @@ console.log('D. loadSybilClusters（仓库产物 config/rosters/sybil-clusters.j
   console.log('F. 源码锁（合计语义/防前视/接线/产物形状）');
   {
     const src = read('src/services/FourMemeFactorAggregator.js');
-    const start = src.indexOf('let sybilClusterHolderCircPct = null;');
+    const start = src.indexOf('let sybilClusterHolderCircPct = 0;');
     const end = src.indexOf('const prices', start);
     const body = src.slice(start, end);
     check('F1 读点=合计（_clusterNet += v，刻意非 max——单钱包口径的补盲机制）', () =>

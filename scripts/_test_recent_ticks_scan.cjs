@@ -212,9 +212,9 @@ console.log('\nB 节：buildFactorMap 关键因子 vs reference');
   // rate 族（2026-10-13 删除）与 cycle 族（2026-10-15 删除）不再对拍——
   // winTicks 死产出已删（批次 5c），B 节直接从 crashSpeed 起
 
-  // crashSpeed
+  // crashSpeed（2026-10-22 去 NULL 裁定：无暴跌/横盘/反弹收复 = 0 而非 null）
   const rC = ref.crashHigh(st._recentTicks, now, FACTOR_PARAM_DEFAULTS.crashSpeedWindowMs);
-  let csExp = null;
+  let csExp = 0;
   if (rC.wh > 0 && rC.whT > 0 && now > rC.whT) {
     const ddW = ((st._relPriceBnb - rC.wh) / rC.wh) * 100;
     if (ddW < 0) csExp = ddW / Math.max((now - rC.whT) / 1000, FACTOR_PARAM_DEFAULTS.crashSpeedMinDtMs / 1000);

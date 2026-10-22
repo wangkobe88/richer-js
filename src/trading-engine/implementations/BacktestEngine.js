@@ -249,18 +249,18 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.warn(this._experimentId, 'BacktestEngine', `跟单簇名单加载失败(fail-closed, maxCopyWalletHolderCircPct 将恒 null=门拦): ${e.message}`);
     }
     // 极著名钱包子集（famousCopyWalletCircPct 原料）：与 WSS 引擎同入口同集合（parity）；
-    // fail-open 同款（加载失败/文件缺失 → 因子恒 null=IS NULL 臂放行，快照同形）
+    // fail-open 同款（加载失败/文件缺失 → 因子恒 0=裸比较放行，快照同形；2026-10-22 去 NULL）
     try {
       await FourMemeFactorAggregator.loadFamousCopyWallets();
     } catch (e) {
-      this.logger.warn(this._experimentId, 'BacktestEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+      this.logger.warn(this._experimentId, 'BacktestEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 0=裸比较放行): ${e.message}`);
     }
     // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：与 WSS 引擎同入口同集合（parity）；
-    // fail-open 同款（加载失败/文件缺失 → 因子恒 null=IS NULL 臂放行）
+    // fail-open 同款（加载失败/文件缺失 → 因子恒 0=裸比较放行，2026-10-22 去 NULL 同批）
     try {
       await FourMemeFactorAggregator.loadSybilClusters();
     } catch (e) {
-      this.logger.warn(this._experimentId, 'BacktestEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+      this.logger.warn(this._experimentId, 'BacktestEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 0=裸比较放行): ${e.message}`);
     }
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）

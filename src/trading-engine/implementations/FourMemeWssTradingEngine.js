@@ -458,19 +458,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
     // 极著名钱包子集（2026-10-18 币安人生案用户点名）：famousCopyWalletCircPct 原料。
     // fail-open 方向（与主名单相反——它是收紧门不是防线）：文件缺失 → 空集合；加载
-    // 抛错 → 保持 null——两者因子都恒 null=条件串 IS NULL 臂放行（未启用零影响）。
+    // 抛错 → 保持空——两者因子都恒 0=裸比较 <15 放行（未启用零影响；2026-10-22
+    // 用户裁定去 NULL，最低 0）。
     try {
       await FourMemeFactorAggregator.loadFamousCopyWallets();
     } catch (e) {
-      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 0=裸比较放行): ${e.message}`);
     }
     // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：sybilClusterHolderCircPct 原料。
     // fail-open 同 famous（新门未启用=零影响）：文件缺失 → 空集合；加载抛错 → 保持
-    // null——两者因子恒 null=条件串 IS NULL 臂放行
+    // 空——两者因子恒 0=裸比较 <35 放行（2026-10-22 去 NULL 同批）
     try {
       await FourMemeFactorAggregator.loadSybilClusters();
     } catch (e) {
-      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 null=IS NULL 臂放行): ${e.message}`);
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 0=裸比较放行): ${e.message}`);
     }
 
     // 3.4 TPA 触发点持仓分析（回迁批 4 shadow 先行）：opt-in——实验 config 整段无

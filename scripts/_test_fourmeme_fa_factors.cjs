@@ -174,6 +174,10 @@ function runZeroDiff(baselineMod, currentMod) {
                 if (!surviving.has(k)) continue; // 2026-10-13 清理删除键：基线有、当前无（预期缺席）
                 const a = ob[k];
                 const b = oc === null ? undefined : oc[k];
+                // 2026-10-22 去 NULL 裁定：crashSpeedPctPerSec 无暴跌/横盘/反弹收复
+                // 由 null → 0（「最低是 0」，门侧裸比较 crashSpeedPctPerSec > -10 放行
+                // 与原 IS NULL 臂逐输入等价）——该形状豁免，其余任何 diff（数值变化）仍零容忍
+                if (k === 'crashSpeedPctPerSec' && a === null && b === 0) continue;
                 if (!Object.is(a, b)) {
                     diffs++;
                     diffKeys.add(`${label}:${t}:${k}(${a} → ${b})`);
@@ -309,7 +313,7 @@ function scenarioCrashSpeed(FA) {
     const tNewHigh = t0 + 20000;
     fa.processTick(mkTick(T, tNewHigh, true, 120, 0.01, '0xP', 610, 10), { emitFactors: false });
     const f2 = fa.buildFactorMap(T, tNewHigh);
-    ok(f2.crashSpeedPctPerSec === null, '创新高 → crashSpeed null（无回撤）', f2.crashSpeedPctPerSec);
+    ok(f2.crashSpeedPctPerSec === 0, '创新高 → crashSpeed 0（无暴跌=速度 0，2026-10-22 去 NULL）', f2.crashSpeedPctPerSec);
 }
 
 function scenarioMaxBlockDrop(FA) {

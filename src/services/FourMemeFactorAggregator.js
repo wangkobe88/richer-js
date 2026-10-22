@@ -592,8 +592,8 @@ class FourMemeFactorAggregator extends EventEmitter {
      * config/rosters/famous-copy-wallets.json（用户点名集合）。幂等+在途去重
      * （loadCopyWalletRoster 模板）。与主名单两处刻意不同：①文件缺失 → 不抛错，
      * 解析为空 Set（fail-open：收紧门未启用=零影响，非部署异常）②返回的是
-     * 「是否启用 + 名单」——空 Set 时因子恒 null（区分「未启用」与「无命中」，
-     * 前者 IS NULL 臂放行）。schema 不符（wallets 非数组）才抛错。
+     * 「是否启用 + 名单」——空 Set 时因子恒 0（2026-10-22 用户裁定去 NULL：未启用
+     * =无著名钱包持仓，最低 0，与放行语义一致）。schema 不符（wallets 非数组）才抛错。
      */
     static async loadFamousCopyWallets() {
         if (_famousCopyWallets) return _famousCopyWallets;
@@ -2771,10 +2771,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         const _rsBuyTs = Number(_rsPos?.buyTime) || 0;
         const _scan = this._scanRecentTicks(state, now, _rsBuyTs);
 
-        // 近期砸速 %/s：crashSpeedWindowMs 窗内自「窗内高点」的下跌速度（横盘/反弹收复 → null）。
+        // 近期砸速 %/s：crashSpeedWindowMs 窗内自「窗内高点」的下跌速度。无暴跌/横盘/
+        // 反弹收复 → 0（2026-10-22 用户裁定去 NULL：无暴跌=速度 0，门侧裸比较
+        // crashSpeedPctPerSec > -10 放行与原 IS NULL 臂逐输入等价）。
         // 分母钳 >= crashSpeedMinDtMs/1000 防同块毫秒连砸把速度放大到不可解释量级。
         // 现价用 _relPriceBnb（母版 currentPriceUsd 本身就是可靠价链产物）。
-        let crashSpeedPctPerSec = null;
+        let crashSpeedPctPerSec = 0;
         {
             const _wh = _scan.csWh, _whT = _scan.csWhT;
             if (_wh > 0 && _whT > 0 && now > _whT) {
@@ -2851,10 +2853,10 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // 极著名钱包单钱包最大净持仓（2026-10-18 币安人生案用户点名）：与上键同公式
         // 换名单=用户点名集合（被跟单特别重，跟单大军放大控盘度）→ 单独更紧的门
-        // （<15，主门 20 不变）。null 语义刻意 fail-open（与上键 fail-closed 相反）：
-        // 集合 null（未加载）或空（未启用）→ 恒 null → 条件串 IS NULL 臂放行
-        // （收紧门未启用=存量零影响）；非空 → 0 起（有证据零值）。
-        let famousCopyWalletCircPct = null;
+        // （<15，主门 20 不变）。名单未加载/未启用（文件缺失或空集合）/无命中 → 0
+        // （2026-10-22 用户裁定去 NULL「最低是 0」：0 < 15 放行与原 IS NULL 臂逐输入
+        // 等价，条件串裸比较不再带 IS NULL 前置臂）。
+        let famousCopyWalletCircPct = 0;
         if (_famousCopyWallets && _famousCopyWallets.size > 0) {
             let _famousNet = 0;
             for (const [addr, v] of state._walletNetTokens) {
@@ -2867,10 +2869,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         // （sybil-clusters.json 并集）**合计**净持仓 ÷ 流通 ×100——刻意合计非最大：
         // 单钱包口径对「四五个地址分仓的 sybil 簇」天然漏检（乌龟案四钱包 fire 时
         // 单钱包 10.4% 过 famous 15 门，合计 38.9%）。负净持仓（净卖者）不计入；
-        // 簇钱包在场但无持仓=0（有证据零值）。null=名单未启用（IS NULL 臂放行）。
+        // 名单未启用（文件缺失/空集合）或簇钱包无持仓 → 0（2026-10-22 用户裁定去
+        // NULL：0 < 35 放行与原 IS NULL 臂逐输入等价，条件串裸比较）。
         // 回放定档（v22-v24 111 票，2026-10-20）：X=35 拦 26 票（误伤 5 正票 +0.0011），
         // 被拦净 -0.0217 = 总亏损 -0.0373 的 58%，且 v22/23 与 v24 两个子集断崖一致。
-        let sybilClusterHolderCircPct = null;
+        let sybilClusterHolderCircPct = 0;
         if (_sybilClusterWallets && _sybilClusterWallets.size > 0) {
             let _clusterNet = 0;
             for (const [addr, v] of state._walletNetTokens) {

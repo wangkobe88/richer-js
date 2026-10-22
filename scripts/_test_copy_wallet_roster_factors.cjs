@@ -287,7 +287,10 @@ console.log('H. famousCopyWalletCircPct（用户点名极著名钱包单独门 <
 {
   const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
   const ev = new ConditionEvaluator();
-  const FAMOUS_GATE = '(famousCopyWalletCircPct IS NULL OR famousCopyWalletCircPct < 15)';
+  // 2026-10-22 用户裁定去 NULL：条件串裸比较（famous 恒 0 起）；FAMOUS_GATE_LEGACY
+  // 保留旧 IS NULL 臂形状验证历史 config 回放仍正确评估
+  const FAMOUS_GATE = 'famousCopyWalletCircPct < 15';
+  const FAMOUS_GATE_LEGACY = '(famousCopyWalletCircPct IS NULL OR famousCopyWalletCircPct < 15)';
 
   // 现场形状：BF（用户点名极著名）持 17% 流通——主门 <20 放行、famous 门 <15 拦
   const fa = newFA();
@@ -330,17 +333,19 @@ console.log('H. famousCopyWalletCircPct（用户点名极著名钱包单独门 <
     assert.strictEqual(ev.evaluate(FAMOUS_GATE, f2), true);
   });
 
-  // 未启用三态：null（未加载）/ 空 Set（已加载未配置）→ 恒 null → IS NULL 臂放行
+  // 未启用两态：null（未加载）/ 空 Set（已加载未配置）→ 恒 0（2026-10-22 用户裁定
+  // 去 NULL「最低是 0」：0 < 15 裸比较放行，与原 IS NULL 臂逐输入等价）
   FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
   const f3 = fa.buildFactorMap('0xtoken', T0 + 5000);
-  check('H4 未加载 → 恒 null + IS NULL 臂放行（fail-open：收紧门未启用=存量零影响）', () => {
-    assert.strictEqual(f3.famousCopyWalletCircPct, null);
-    assert.strictEqual(ev.evaluate(FAMOUS_GATE, f3), true);
-    assert.strictEqual(ev.evaluate('famousCopyWalletCircPct < 15', f3), false, '裸比较臂 null 恒 false——条件串必须带 IS NULL 前置臂');
+  check('H4 未加载 → 恒 0 + 裸比较放行（fail-open：收紧门未启用=存量零影响）', () => {
+    assert.strictEqual(f3.famousCopyWalletCircPct, 0);
+    assert.strictEqual(ev.evaluate('famousCopyWalletCircPct < 15', f3), true, '去 NULL 后裸比较即门，不再需要 IS NULL 前置臂');
+    // 历史 config（v29 及以前）带 IS NULL 臂，因子 0 化后旧串仍正确评估（0 走 <15 放行，IS NULL 臂退化为死臂）
+    assert.strictEqual(ev.evaluate(FAMOUS_GATE_LEGACY, f3), true, '旧 IS NULL 臂形状兼容');
   });
   FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set());
-  check('H5 空 Set（已加载未配置）→ 恒 null（区分「未启用」与「无命中=0」）', () =>
-    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 5000).famousCopyWalletCircPct, null));
+  check('H5 空 Set（已加载未配置）→ 恒 0（与「无命中=0」同值，2026-10-22 裁定不再区分）', () =>
+    assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 5000).famousCopyWalletCircPct, 0));
 
   // 小写归一（大写注入命中）
   FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([BF.toUpperCase()]));
