@@ -163,6 +163,24 @@ async function main() {
   r = detectDuplicateNarrative({ symbol: '熊猫头', name: '熊猫头', address: '0xfff…a', twitterHandle: null }, idxDup);
   check('两条蓝筹同 alias 全等 → 命中其一', r && r.rule === 'name_exact' && ['b:0x1111…4444', 'b:0x2222…4444'].includes(r.entryId), r);
 
+  console.log('A11 条目级豁免 dedupExempt（C137 裁定：名字一样本质叙事不一样不拦）');
+  const idxExempt = mod.buildKnowledgeIndex([
+    { id: 'b:0xf745…4444', kind: 'bluechip', name: 'memes will continue', aliases: ['memes'], address: '0xf7450000000000000000000000000000004444', source: 'gmgn', dedupExempt: true },
+  ]);
+  r = detectDuplicateNarrative({ symbol: 'memes will continue', name: 'memes will continue', address: '0xfff…b', twitterHandle: null }, idxExempt);
+  check('豁免条目 name 全等 → null（口号泛名非独占 meme 名）', r === null, r);
+  const idxExemptAlias = mod.buildKnowledgeIndex([
+    { id: 'b:0x3333…4444', kind: 'bluechip', name: '别的', aliases: ['XNAME'], address: '0x3333000000000000000000000000000000004444', source: 'gmgn', dedupExempt: true },
+  ]);
+  r = detectDuplicateNarrative({ symbol: 'XNAME', name: '无关', address: '0xfff…c', twitterHandle: null }, idxExemptAlias);
+  check('豁免条目 alias 全等也豁免', r === null, r);
+  const idxMixed = mod.buildKnowledgeIndex([
+    { id: 'b:0x4444…4444', kind: 'bluechip', name: 'memes will continue', aliases: [], address: '0x4444000000000000000000000000000000004444', source: 'gmgn', dedupExempt: true },
+    { id: 'b:0x5555…4444', kind: 'bluechip', name: 'The Chinese Bear', aliases: [], address: '0x5555000000000000000000000000000000004444', source: 'gmgn' },
+  ]);
+  r = detectDuplicateNarrative({ symbol: 'The Chinese Bear', name: 'memes will continue', address: '0xfff…d', twitterHandle: null }, idxMixed);
+  check('同票撞豁免条目+未豁免条目 → 未豁免者照拦（find 跳过豁免继续扫）', r && r.entryId === 'b:0x5555…4444', r);
+
   // ═══ B. mapper 门链首臂 ═══
   console.log('\n── B. mapper 蓝筹去重臂 ──');
   const { mapStandardAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
@@ -224,6 +242,12 @@ async function main() {
   const rBiao = detectDuplicateNarrative({ symbol: 'BIAOQING', name: 'The Chinese Bear', address: '0x329c64d1b14c663b30fa995fef475fdaf3417777', twitterHandle: null },
     mod.buildKnowledgeIndex(JSON.parse(manualSrc).entries), { selfAddress: '0x329c64d1b14c663b30fa995fef475fdaf3417777' });
   check('三连发形状实测命中（0x329c…7777 撞熊猫头蓝筹）', rBiao && rBiao.rule === 'name_exact' && rBiao.entryId === 'b:0xf3525965a4ad3ca0ac13f4d2f237113691194444', rBiao);
+  // C137/C138 豁免裁定落数据（用户裁定「名字一样本质叙事不一样不拦」）
+  const exemptEntries = JSON.parse(manualSrc).entries.filter((e) => e.dedupExempt === true);
+  check('豁免条目在册 2 条（memes will continue/Heyi.ai）',
+    exemptEntries.length === 2
+    && exemptEntries.some((e) => e.name === 'memes will continue')
+    && exemptEntries.some((e) => e.name === 'Heyi.ai'), exemptEntries.map((e) => e.name));
 
   console.log(`\n═══ 结果：${passed} 通过 / ${failed} 失败 ═══`);
   if (failed > 0) process.exit(1);

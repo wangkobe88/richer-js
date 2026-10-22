@@ -184,6 +184,10 @@ export function detectDuplicateNarrative(matchInput, index, opts = {}) {
   const hit = narrow.matches.find((m) =>
     m.kind === 'bluechip'
     && m.rule === 'name_exact' // twitter_exact 不参与（见函数头归因）
+    // 条目级豁免（C137 裁定「名字一样本质叙事不一样不拦」）：口号级泛名/同
+    // 部署者连发名等非「独占 meme 名」条目人工标 dedupExempt=true（manual
+    // 同 id 覆盖），默认拦+逐条豁免
+    && !m.entry?.dedupExempt
     && !(selfAddr && m.entry && String(m.entry.address || '').toLowerCase() === selfAddr));
   if (!hit) return null;
   return {
