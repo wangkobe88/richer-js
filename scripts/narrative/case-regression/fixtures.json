@@ -2,6 +2,22 @@
   "description": "叙事 case 回归集（2026-10-19）：C65-C110 近期案票在新题集（J1.43/J1.44/J1.45+P1.12）整链重析，验证该拦的拦、该放的放、原因正确。跑法见 run-case-regression.mjs。预期分三类：维持断言（已部署版本对拍过的现行行为）、预期变化（部署前旧行在行内，新版本应翻转）、观察票（分数分布移动的已知面，断言失败只警示不 fail）。基线=2026-10-19 直查 token_narrative 现行行。",
   "cases": [
     {
+      "caseId": "C173",
+      "symbol": "4",
+      "addr": "0x972e6c994b45570fa46791f1cdbbfc301c8d7777",
+      "expect": {
+        "rating": "high",
+        "auditIncludes": [
+          "bluechipDuplicate",
+          "bluechipDedupNewStatement"
+        ]
+      },
+      "note": "CZ 本人新推直陈概念（10-22 12:05 UTC 「encrypted by '4'」回复 IntCyberDigest）30 秒后发出的票，name_exact 撞 10-21 同名蓝筹 b:0x0a43…4444（eMudhra 私钥案 ATH $306M）被 C168 拦 low。C173 豁免=direct_tweet+语料作者在册双条件（缺一即拦：找角度/解读/unknown 桶与小号复述照拦）。重析 high 86.52（J1.103，2026-10-22 14:00 UTC）。",
+      "addedAt": "2026-10-22",
+      "expectBecause": "C173 裁定（2026-10-22 用户）：「是新的推文陈述的概念，即使跟之前名字一样，不算重复」「发起者是 CZ，有足够的动能，让它活一阵」——断言 high + 双审计键在场（撞名事实照记 bluechipDuplicate、豁免路径生效 bluechipDedupNewStatement）",
+      "expectSince": "2026-10-22"
+    },
+    {
       "caseId": "C94",
       "symbol": "京小安",
       "addr": "0xcb98accaa8040a7e839c305b8aca08e113c87777",
