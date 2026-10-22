@@ -113,9 +113,9 @@ async function main() {
   r = detectDuplicateNarrative({ symbol: 'Panda-Head!', name: '随便什么名字', address: '0xfff…2', twitterHandle: null }, idx);
   check('alias 全等命中（归一化剥符号）', r && r.rule === 'name_exact' && r.entryId === 'b:0xaaaa…4444', r);
 
-  console.log('A3 蓝筹 twitter_exact（条目 twitter=URL 形态剥前缀）');
+  console.log('A3 蓝筹 twitter_exact 已撤臂（回归反证：twitter=语料出处非票身份）');
   r = detectDuplicateNarrative({ symbol: 'BIRD2', name: '别的鸟', address: '0xfff…3', twitterHandle: 'tcryptochicks' }, idx);
-  check('handle 全等命中（URL 剥前缀）', r && r.rule === 'twitter_exact' && r.entryId === 'b:0xbbbb…4444', r);
+  check('handle 全等蓝筹条目 twitter → null（借壳大 V 同源多票是常态）', r === null, r);
 
   console.log('A4 quasi 同名不拦（裁定核心：小蓝筹不需要去重）');
   const idxQuasiOnly = buildTestIndex();
@@ -181,9 +181,10 @@ async function main() {
   check('audit 拦截 label 同步（blockReason）', (withDup.stage2DataToSave?.parsed_output?.blockReason || '').includes('蓝筹去重'), withDup.stage2DataToSave?.parsed_output?.blockReason);
   check('无证据对照 audit=null', base.stage2DataToSave?.parsed_output?.jev?.bluechipDuplicate == null, base.stage2DataToSave?.parsed_output?.jev?.bluechipDuplicate);
 
-  console.log('B3 twitter_exact 证据 → label 带 @handle');
+  console.log('B3 mapper label 统一 entryName（twitter 臂已撤；兼容 twitter 形状仍拦但不再带 @）');
   const withTw = await mapStandardAnswers(passAnswers(), baseCtx({ duplicateNarrative: DUP_TW_EVIDENCE }));
-  check('rating=low + reason 含 @tcryptochicks', withTw.llmResult.rating === 'low' && (withTw.llmResult.reason || '').includes('@tcryptochicks'), withTw.llmResult.reason);
+  check('rating=low + label 用条目名非 @handle', withTw.llmResult.rating === 'low'
+    && (withTw.llmResult.reason || '').includes('翱翔天际的巨鸟') && !(withTw.llmResult.reason || '').includes('@tcryptochicks'), withTw.llmResult.reason);
 
   console.log('B4 蓝筹去重先手 NHN（链首资格否决：label 归属唯一）');
   const nhnAnswers = passAnswers();
@@ -202,6 +203,9 @@ async function main() {
 
   check('analyzer import detectDuplicateNarrative', analyzerSrc.includes("detectDuplicateNarrative } from './knowledge/knowledge-matcher.mjs'") || analyzerSrc.includes('detectDuplicateNarrative }'));
   check('analyzer 检测传 selfAddress（蓝筹本体自排除接线）', /detectDuplicateNarrative\(\{[\s\S]*?selfAddress:\s*tokenData\.address/.test(analyzerSrc));
+  check('analyzer 检测刻意不传 twitterHandle（撤臂反证锚）', analyzerSrc.includes('twitterHandle 刻意不传') && !/twitterHandle:\s*(knowledgeHandle|tokenData)/.test(analyzerSrc));
+  const matcherSrc = fs.readFileSync(path.join(root, 'src/narrative/analyzer/knowledge/knowledge-matcher.mjs'), 'utf8');
+  check('matcher 窄跑 twitterHandle 恒 null（撤臂反证锚）', /twitterHandle:\s*null/.test(matcherSrc) && matcherSrc.includes("&& m.rule === 'name_exact' // twitter_exact 不参与"));
   check('analyzer duplicateGate 开关（缺省开，显式 false 关）', analyzerSrc.includes("duplicateGate?.enabled !== false"));
   check('analyzer 检测失败旁路（catch 置 null）', /蓝筹去重检测失败[\s\S]*?duplicateNarrative = null/.test(analyzerSrc));
   const dupPos = mapperSrc.indexOf('if (context.duplicateNarrative)');

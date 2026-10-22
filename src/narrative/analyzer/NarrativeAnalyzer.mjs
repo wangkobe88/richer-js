@@ -415,7 +415,8 @@ export class NarrativeAnalyzer {
             symbol: tokenData.symbol,
             name: tokenData.raw_api_data?.name,
             address: tokenData.address,
-            twitterHandle: knowledgeHandle,
+            // twitterHandle 刻意不传（C168 回归反证撤臂）：twitter=语料出处非
+            // 票身份，借壳大 V（binance/cz_binance 系）同源多票是常态
           }, knowledgeBase.index, { selfAddress: tokenData.address });
           if (duplicateNarrative) {
             logger.info('NarrativeAnalyzer', '蓝筹去重命中（C168）', {

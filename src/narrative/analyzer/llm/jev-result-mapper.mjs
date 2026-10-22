@@ -1442,14 +1442,16 @@ export function mapStandardAnswers(answers, context) {
   // 层面否决——事件可有叙事价值但不合链上 meme 买家口味，热度再高也不该放）
   if (context.duplicateNarrative) {
     // C168 蓝筹去重门（2026-10-22 用户裁定「蓝筹需要去重，小蓝筹不需要——短期
-    // 热门叙事往往会发好些个票」）：票以 name_exact/twitter_exact 撞已验证蓝筹
-    // （b:，ATH>$1M curated 库）→ 后来的票是纯复制品，入场资格否决（链首：资格
-    // 问题先于内容质量评估，label 归属干净——撞蓝筹票不再被 NHN/unfit 等 label
-    // 掩盖；rule 0.52「同名蓝筹废除移交叙事层」在此接棒，判据从宽口径同名升级
-    // 为 curated 库+双 exact）。证据=analyzer 侧 detectDuplicateNarrative 纯代码
-    // 事实（quasi 姐妹票刻意不算、蓝筹本体自排除）；Jev 照跑留完整档案，评级 low
+    // 热门叙事往往会发好些个票」）：票以 name_exact 撞已验证蓝筹（b:，ATH>$1M
+    // curated 库）→ 后来的票是纯复制品，入场资格否决（链首：资格问题先于内容
+    // 质量评估，label 归属干净——撞蓝筹票不再被 NHN/unfit 等 label 掩盖；rule
+    // 0.52「同名蓝筹废除移交叙事层」在此接棒，判据从宽口径同名升级为 curated
+    // 库+exact）。twitter_exact 臂上线即撤（回归反证 9 票误拦：twitter=语料出处
+    // 非票身份，借壳大 V 同源多票是常态）。证据=analyzer 侧
+    // detectDuplicateNarrative 纯代码事实（quasi 姐妹票刻意不算、蓝筹本体自
+    // 排除）；Jev 照跑留完整档案，评级 low
     eventScoreBlocked = true;
-    gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.rule}:${context.duplicateNarrative.rule === 'twitter_exact' ? `@${context.duplicateNarrative.matchedOn}` : context.duplicateNarrative.entryName}）`;
+    gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
   } else if ((nhnBlock = negativeHardNewsBlock(answers))) {
     eventScoreBlocked = true;
     gateBlockReason = nhnBlock.label;

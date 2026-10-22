@@ -141,23 +141,31 @@ export function excludeSelfFeedback(matches, tokenAddress) {
 
 /**
  * 蓝筹去重检测（C168，用户裁定「蓝筹需要去重，小蓝筹不需要——短期热门叙事
- * 往往会发好些个票」）：票以 name_exact/twitter_exact 撞**蓝筹**（b:，已验证
- * 大叙事 ATH>$1M curated 库）→ 后来的票是纯复制品，返回证据供 mapper 拦 low。
+ * 往往会发好些个票」）：票以 name_exact 撞**蓝筹**（b:，已验证大叙事 ATH>$1M
+ * curated 库）→ 后来的票是纯复制品，返回证据供 mapper 拦 low。
  *
- * 刻意范围（三项裁定形状）：
+ * 刻意范围（四项裁定形状）：
  *   - 仅 kind==='bluechip'：quasi（feedback/graduations 小票）**不参与**——同叙事
  *     连发多票是 meme 常态（BIAOQING 三连发 2026-10-22 裁定不拦）；蓝筹叙事已
  *     定型出过冠军，撞名=复制品（rule 0.52「同名蓝筹废除移交叙事层」的接棒，
- *     判据从宽口径同名升级为 curated 库+双 exact）
- *   - 仅 exact 两级：name_substring 是有意义变体（哭哭奶龙×哭哭马 C151）、
- *     corpus_contains 是背景注入语义（C165），都不是重复叙事
+ *     判据从宽口径同名升级为 curated 库+exact）
+ *   - **仅 name_exact；twitter_exact 臂上线即撤（2026-10-22 回归反证）**：
+ *     蓝筹条目的 twitter 字段记录的是该票引用的语料源（借壳大 V：binance/
+ *     cz_binance/heyibinance 等占库里 twitter 的多数），twitter 是叙事**出处**
+ *     不是票的**身份**——后来的票引用同一大 V ≠ 复制品（同源多票恰是「短期
+ *     热门叙事连发」的另一种形态）；首轮回归 9 票误拦实证（交易猫/币安菠萝/
+ *     BI 簇/何一 Agent ID/BINA 复刻全被 @binance 系撞拦，顶翻 C110/C109a/C83/
+ *     C138/C162 五个用户裁定票）
+ *   - name_substring 是有意义变体（哭哭奶龙×哭哭马 C151）、corpus_contains
+ *     是背景注入语义（C165），都不是重复叙事
  *   - 自地址排除：蓝筹本体票重析（selfAddress=条目 address）不得被自己拦
  *
- * 实现复用 matchKnowledge（窄输入 corpusText=''/address=null 使 substring/corpus/
- * concept/address 四级天然不触发），零新匹配逻辑；maxEntries 放大防 exact 命中
- * 被注入用的 5 条封顶挤掉。
+ * 实现复用 matchKnowledge（窄输入 corpusText=''/address=null/twitterHandle=null
+ * 使 twitter/address/substring/corpus/concept 五级天然不触发），零新匹配逻辑；
+ * maxEntries 放大防 exact 命中被注入用的 5 条封顶挤掉。
  * @param {{symbol:string, name:string, address:string, twitterHandle:string|null,
- *          corpusText:string}} matchInput - 与注入匹配同源输入（corpusText/address 被忽略）
+ *          corpusText:string}} matchInput - 与注入匹配同源输入（twitterHandle/
+ *          corpusText/address 被忽略）
  * @param {Object} index - buildKnowledgeIndex 产物
  * @param {{selfAddress?:string}} [opts]
  * @returns {null|{rule:string, matchedOn:string, matchedField:string,
@@ -169,13 +177,13 @@ export function detectDuplicateNarrative(matchInput, index, opts = {}) {
     symbol: matchInput.symbol,
     name: matchInput.name,
     address: null, // address_exact=本票即在册，非重复叙事（重析形状），源头不评估
-    twitterHandle: matchInput.twitterHandle,
+    twitterHandle: null, // twitter=语料出处非票身份（借壳大 V 同源多票是常态），不参与
     corpusText: '', // corpus_contains/concept_keyword=背景提及语义，不参与
   }, index, { maxEntries: 50 });
   const selfAddr = opts.selfAddress ? String(opts.selfAddress).toLowerCase() : '';
   const hit = narrow.matches.find((m) =>
     m.kind === 'bluechip'
-    && (m.rule === 'twitter_exact' || m.rule === 'name_exact')
+    && m.rule === 'name_exact' // twitter_exact 不参与（见函数头归因）
     && !(selfAddr && m.entry && String(m.entry.address || '').toLowerCase() === selfAddr));
   if (!hit) return null;
   return {
