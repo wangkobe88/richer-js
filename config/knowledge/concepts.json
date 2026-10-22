@@ -62,6 +62,21 @@
       "source": "manual",
       "rating": null,
       "updatedAt": "2026-10-22T00:00:00Z"
+    },
+    {
+      "id": "concept:biaoge-douyin-pet",
+      "kind": "concept",
+      "name": "彪哥",
+      "symbol": "",
+      "aliases": ["小彪哥"],
+      "address": null,
+      "twitter": null,
+      "narrative": "抖音知名宠物狗梗形象（C129 案背景）。「彪弟」=彪哥主人的新宠物——宣告推原文「彪哥的主人有了新的宠物 取名为彪弟」（@jiaodudashi232，flap 平台）；「彪」系名字映射的是抖音宠物梗系列的延续，非无名自造词。",
+      "keywords": ["彪哥"],
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-22T00:00:00Z"
     }
   ]
 }
