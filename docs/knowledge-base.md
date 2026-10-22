@@ -16,7 +16,9 @@
 
 **id 域**：蓝筹 `b:<小写地址>`、准蓝筹 `q:<小写地址>`（feedback 与 graduations 同 q: 域=后写覆盖；manual 用同 id 覆盖生成件兜底掉榜）、概念 `concept:<slug>`。
 
-条目 schema：`{ id, kind: bluechip|quasi|concept, name, symbol, aliases[], address, twitter, narrative(≤320字), keywords[](仅concept), corpusTrigger, source, rating, athMarketCapUsd|graduatedAt, updatedAt }`。**manual 补录地址必须查实（DB/AVE/GMGN），勿用示意地址。**
+条目 schema：`{ id, kind: bluechip|quasi|concept, name, symbol, aliases[], address, twitter, narrative(≤320字), narrativeSource(coingecko|null), keywords[](仅concept), corpusTrigger, source, rating, athMarketCapUsd|graduatedAt, updatedAt }`。**manual 补录地址必须查实（DB/AVE/GMGN），勿用示意地址。**
+
+**蓝筹叙事两级来源**：`--enrich`（token_narrative 已析行 + experiment_tokens intro + AVE）优先，`--enrich-desc`（CoinGecko 公开简介 description.en，剥 HTML/句界截 320）**只填占位**（空/纯「本系统评 X」/≤12 字），已有效富化不动；匹配收紧=symbol+name 双全等或词级前缀（词内包含拒配 NIGHT↔Midnight，宁缺毋冒配），条目带 `narrativeSource:'coingecko'` 审计。CG 免费 ~10 req/min（7s 限速+429 退避+断点续 `data/knowledge/build-bluechips/cg-map.json`；有 `COINGECKO_API_KEY` 环境变量自动带 demo key header）。
 
 ## 匹配器（`src/narrative/analyzer/knowledge/knowledge-matcher.mjs`）
 
@@ -43,6 +45,7 @@ node scripts/narrative/build-knowledge-bluechips.mjs --smoke    # Phase 0 冒烟
 node scripts/narrative/build-knowledge-bluechips.mjs --fetch    # 三榜拉取（35s 节流+429 退避+断点续跑）
 node scripts/narrative/build-knowledge-bluechips.mjs --verify   # 逐票 getTokenInfo 验 ATH（400ms 节流；429 ban 5 轮 exit 2）
 node scripts/narrative/build-knowledge-bluechips.mjs --enrich   # 叙事富化（token_narrative+experiment_tokens+AVE 可选）
+node scripts/narrative/build-knowledge-bluechips.mjs --enrich-desc # 叙事补齐：CoinGecko 公开简介填占位（7s 限速+断点续 cg-map.json）
 node scripts/narrative/build-knowledge-bluechips.mjs --commit   # 写 config/knowledge/bluechips.json（缺省 dry-run）
 
 # 准蓝筹（GMGN trenches completed 两平台 → 7d 窗+毕业时间点查 → 上限 300）
