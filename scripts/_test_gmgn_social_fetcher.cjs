@@ -17,14 +17,14 @@
  *         {maxAge:1d, ttl:90d} 命中公式下命中窗 ≈91 天，把「无社媒」结论冻结
  *         三个月（CRO 现场 link 聚合晚到永远吃不到），回潮形状直接失败
  *      B3 cache key 形状 gmgn:token:bsc:<addr 小写>
- *   C. hasTwitterLink 判据矩阵（C181 必要门单一真相，2026-10-23）
- *   D. 失败封顶（C181 用户裁定「抓不成功最多再尝试一次，就往下走」）：
+ *   C. hasTwitterLink 判据矩阵（C182 必要门单一真相，2026-10-23）
+ *   D. 失败封顶（C182 用户裁定「抓不成功最多再尝试一次，就往下走」）：
  *      D1 同 token 连续 2 次真失败 → 第 3 次调用入口直接 null、零 API 调用
  *         （进程内封死；ban 窗口「每轮重打续封」恶性循环的斩断点）
  *      D2 成功即清零：fail→success→fail→fail 后封顶（计数不跨成功累计）
  *      D3 GMGN 正常返回空数据（null 结果）不算失败（API 健康空形状不计数）
  *      D4 源码口径：GMGN_MAX_FAILS=2 + 入口封顶检查（防回潮）
- *   E. 链路接线源码口径（C181）：data-fetch 必要门在位 / NarrativeAnalyzer
+ *   E. 链路接线源码口径（C182）：data-fetch 必要门在位 / NarrativeAnalyzer
  *      缓存命中补调块退役不回潮
  *
  * 用法：node scripts/_test_gmgn_social_fetcher.cjs
@@ -160,7 +160,7 @@ async function main() {
       assert(fetcherSrc.includes('return { twitterUrl, websiteUrl, risk, raw: info };'), 'B4 源码 raw 落库形状（全量 payload 不落即丢防线）');
     }
 
-    console.log('══ C. hasTwitterLink 判据矩阵（C181 必要门）══');
+    console.log('══ C. hasTwitterLink 判据矩阵（C182 必要门）══');
     {
       assert(hasTwitterLink(['https://x.com/somecoin']) === true, 'C1 x.com 账号链接 → true');
       assert(hasTwitterLink(['https://twitter.com/somecoin?s=20']) === true, 'C2 twitter.com 带尾参 → true');
@@ -170,7 +170,7 @@ async function main() {
       assert(hasTwitterLink([]) === false && hasTwitterLink(null) === false, 'C6 空数组/null → false');
     }
 
-    console.log('══ D. 失败封顶（C181：连续 2 次真失败 → 进程内封死）══');
+    console.log('══ D. 失败封顶（C182：连续 2 次真失败 → 进程内封死）══');
     const D1 = '0xD1FAIL0000000000000000000000000000777777';
     {
       nextError = new Error('HTTP 429 code=429 error=RATE_LIMIT_BANNED');
@@ -223,7 +223,7 @@ async function main() {
       assert(/gmgnFailCounts\.get\(strikeKey\).*>=\s*GMGN_MAX_FAILS/.test(src.replace(/\n/g, ' ')), 'D4b 入口封顶检查在位');
     }
 
-    console.log('══ E. 链路接线源码口径（C181）══');
+    console.log('══ E. 链路接线源码口径（C182）══');
     {
       const dfs = fs.readFileSync(path.join(ROOT, 'src/narrative/analyzer/services/data-fetch-service.mjs'), 'utf8');
       assert(/const gmgnNeeded = options\.enrichSocialByGmgn && !hasTwitterLink\(allUrls\)/.test(dfs),

@@ -52,6 +52,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C182 GMGN 补源必要门+失败封顶——IP 级 RATE_LIMIT_BANNED 事故（2026-10-23 用户裁定「ave api 信息够了就不需要补充」+「抓不成功最多再尝试一次，就往下走」）★
+
+- **现场**：live v34 `1ecc097b`（2026-10-22 15:09 UTC 起）15h 实测——₿i `0xe3c41d37…7777` 02:54 信号 metadata `gmgn_check_no_data`（GMGN 429）；叙事侧 GmgnSocialFetcher 与交易侧 GmgnRiskCheckService 共用 182 出口 IP，叙事侧 GMGN 成功调用 **694 次/492 token**、429 共 99 次，而真正并入社媒仅 **37 次（≈5%）**——交易侧同期仅 3 次调用却陪绑被 ban。
+- **根因（x-0 案「无条件调」设计缺陷）**：2026-09-27 x-0 案把叙事直调的 GMGN 调用设计成「总是调用」——同一次 getTokenInfo 想两用（社媒补源+dev 风险快照落 token_narrative.gmgn_info），但风险快照 **live 买门不消费**（GmgnRiskCheckService 刻意隔离「只认自己 fetch 的结果」；engine legacy preBuy 注入是唯一消费点而 v34 全是 C84 trigger 腿）+ 缓存 5s TTL（CRO 案买前新鲜）=每轮分析都真打；C84 多轮（maxAnalyses 3/noCorpus 8）×N3 预取×repeat 轮放大。ban 窗口内「每轮重打续封」（Repeated requests can extend the ban）恶性循环。
+- **裁定①必要门**：data-fetch 层 `gmgnNeeded = enrichSocialByGmgn && !hasTwitterLink(allUrls)`——AVE 元数据 URL 集已含 twitter/x.com 链接（含子域/尾参）→ 整段跳过 GMGN 不发包。判据=pre-IPFS 的 allUrls（IPFS∥GMGN 并行结构不动，pre-IPFS 无 twitter 而 IPFS 解包补出的重叠接受——串行化省这点配额不值）；`hasTwitterLink` 从 gmgn-social-fetcher 导出，与社媒并入门（原 data-fetch 内联正则）**同源单一真相**。no_public_info 重试域不受伤：该域票本就无 twitter 链接，GMGN 补源照常可达。
+- **裁定②C51 例外臂随门退役**：superIP 推文并入例外（卷二 C51 龙虾案）主要触发源=「AVE 已有 twitter 仍并入」——随必要门消失（v34 实测 6/29 命中属该源）；例外分支代码保留，残余形状=pre-IPFS 无 twitter 而 IPFS 补出的罕见票仍可命中。
+- **裁定③失败封顶进程内封死**：per-token 连续 **2 次真失败**（throw 形状：429/超时/网络）→ 本进程内不再发包、入口直接 null（重启清零；封顶=ban 续封恶性循环的斩断点）。成功即清零；GMGN 正常返回空数据（null 结果）**不算失败**——API 健康空形状走既有失败冷却。null 语义与 GMGN 无数据/未索引一致，调用方按无补源继续。
+- **裁定④x-0 缓存补调退役**：NarrativeAnalyzer 缓存命中路径的 GMGN 风险字段补调块删除（`cached.gmgn_info?.risk ?? null` 直读），`NarrativeRepository.updateGmgnInfo` 死代码删除。后果=回测 GMGN 快照缺失时 fail-open 放行更常见（快照本供回测消费），与「API 不可用放行」既定语义同向；live 买门零影响（本就不消费该快照）。
+- **单测**：`_test_gmgn_social_fetcher` 扩 C/D/E 组（hasTwitterLink 判据矩阵 / 2 次封顶+成功清零+空数据不计+源码口径 / 必要门接线+补调块退役反证）38 过；`_test_gmgn_superip_tweet_enrich` 扩 B6/B6b（必要门在位+判据单一真相）17 过；16 个相邻单测重跑全绿。
+- **部署挂起**：须 182 git pull + live v34 重启生效（重启前按规程核对卡账本无持仓，待用户通知）。
+
 ### C181 RichardTeng 无名口号——veto 键名断代 + empty_content 无名口号臂（J1.110）
 
 - **现象**：`0x007f5ddb6b5d2377f17089a7835bc61beee97777`（RichardTeng，C180 观察票拆臂后 26.8 high 放行）——无名账号单条口号式提及 Richard Teng，事情全部内容只是作者自己的一句话，对 Web3 用户不构成影响力事件。

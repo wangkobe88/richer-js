@@ -216,7 +216,7 @@ export class NarrativeAnalyzer {
     // 直调穿透重析（带补源），新结果 upsert 覆盖旧行；其他行（Jev 评过/其他规则拦）照常复用
     const isNoPublicInfoBlock = cached?.pre_check_result?.details?.ruleName === 'no_public_info';
     if (cached && cached.is_valid && !ignoreCache && !(enrichSocialByGmgn && isNoPublicInfoBlock)) {
-      // x-0 案（2026-09-27）缓存行补调 GMGN 风险字段——**C181 退役（2026-10-23
+      // x-0 案（2026-09-27）缓存行补调 GMGN 风险字段——**C182 退役（2026-10-23
       // 用户裁定「ave api 信息够了就不需要补充」）**：该补调是纯风险字段调用（社媒
       // 不并入缓存行，只有整链重析才会），而快照 live 买门不消费
       // （GmgnRiskCheckService 刻意隔离自抓），是 IP 级封禁事故的重复调用源之一。

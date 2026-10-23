@@ -23,7 +23,7 @@
  * 命中公式下实际命中窗 ≈91 天，把「GMGN 无社媒」结论冻结三个月（link 聚合晚到
  * 永远吃不到，CRO 现场）；调用频次=每 token 几次，5s 重打配额无忧。
  *
- * C181 必要门+失败封顶（2026-10-23 用户裁定，GMGN IP 级 RATE_LIMIT_BANNED
+ * C182 必要门+失败封顶（2026-10-23 用户裁定，GMGN IP 级 RATE_LIMIT_BANNED
  * 事故：v34 15h 叙事补源 694 次成功调用仅 37 次真正并入社媒——「AVE api 信息
  * 够了就不需要补充，GMGN API 信息全毛病多」）：①**失败封顶在本模块**——per-token
  * 连续 2 次 API 真失败（429/超时/网络，GMGN 正常返回空数据不算）→ 本进程内
@@ -38,14 +38,14 @@ import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 // 条件（GmgnRiskCheckService）与叙事社媒补源共用同一提取——单一真相源防口径漂移
 import { extractGmgnRisk } from '../../core/gmgn-api/risk-fields.js';
 
-// 失败封顶（C181，2026-10-23 用户裁定「抓不成功最多再尝试一次，就往下走」）：
+// 失败封顶（C182，2026-10-23 用户裁定「抓不成功最多再尝试一次，就往下走」）：
 // per-token 连续 API 真失败计数，≥2 → 本进程内直接 return null 不发包（重启清零）。
 // 只对 throw 形状（429/超时/网络）计数——GMGN 正常返回但无社媒/风险（null 结果）
 // 是 API 健康的空数据，走 ExternalResourceCache 自带的失败冷却，不计入封顶。
 const GMGN_MAX_FAILS = 2;
 const gmgnFailCounts = new Map(); // key `${chain}:${addr 小写}` → 连续失败次数
 
-// twitter 链接判据（C181 必要门）：URL 集里已有 twitter/x.com 链接 = AVE/上游
+// twitter 链接判据（C182 必要门）：URL 集里已有 twitter/x.com 链接 = AVE/上游
 // 信息已够，不需要 GMGN 补——与 data-fetch-service 并入判定（原内联正则）同源
 // 单一真相，改判据两处同步变
 const TWITTER_LINK_RE = /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i;
@@ -77,7 +77,7 @@ export async function fetchGmgnSocialLinks(chain, address) {
     return null;
   }
 
-  // 失败封顶（C181）：连续 2 次真失败后本进程内不再发包——按无补源继续（null
+  // 失败封顶（C182）：连续 2 次真失败后本进程内不再发包——按无补源继续（null
   // 语义与 GMGN 无数据/未索引一致），不打日志（每轮分析都会走到，静默防刷屏；
   // 封顶达成的那一刻 warn 一次见下方 catch）
   const strikeKey = `${chain}:${address.toLowerCase()}`;

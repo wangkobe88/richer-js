@@ -14,7 +14,7 @@
  * 普通推文/账号 URL 守 C10 原语义。并入后 selectTwitterUrl 的
  * tweet 类型优先保证 superIP 推文被选中（自挂账号链接保留但靠后）。
  *
- * C181（2026-10-23 用户裁定「ave api 信息够了就不需要补充」）：AVE 已有 twitter
+ * C182（2026-10-23 用户裁定「ave api 信息够了就不需要补充」）：AVE 已有 twitter
  * 链接的票不再调 GMGN（data-fetch 必要门），本例外臂的主要触发源（AVE 有
  * twitter 的票）随门退役；例外分支代码保留，残余形状=pre-IPFS 无 twitter 而
  * IPFS 解包补出 twitter 的罕见票（B2/B3 断言锚定残余分支接线不腐）。
@@ -110,7 +110,7 @@ const run = async () => {
   check('B4 C10 原路径零回归（无 twitter 链接时 twitterUrl+websiteUrl 都补）',
     /if \(!hasTwitterUrl\) \{[\s\S]*?const addUrls = \[gmgnSocials\.twitterUrl, gmgnSocials\.websiteUrl\]/.test(dfs));
 
-  check('B6 C181 必要门在位（AVE 已有 twitter → 不调 GMGN，例外臂主要触发源随门退役）',
+  check('B6 C182 必要门在位（AVE 已有 twitter → 不调 GMGN，例外臂主要触发源随门退役）',
     /const gmgnNeeded = options\.enrichSocialByGmgn && !hasTwitterLink\(allUrls\)/.test(dfs)
       && /gmgnNeeded\s*\?\s*timing\.wrap\('gmgn'/.test(dfs));
 

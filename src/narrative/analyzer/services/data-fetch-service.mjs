@@ -154,7 +154,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // 判定基于含 IPFS 新增 URL 的 allUrls，URL 并入顺序影响 classifiedUrls 桶内
   // 顺序与 selectTwitterUrl 选择——顺序变即内容变，此处 bit 一致
   //
-  // C181 必要门（2026-10-23 用户裁定「ave api 信息够了就不需要补充」——GMGN IP
+  // C182 必要门（2026-10-23 用户裁定「ave api 信息够了就不需要补充」——GMGN IP
   // 级 RATE_LIMIT_BANNED 事故，v34 15h 实测 694 次成功调用仅 37 次真正并入社媒，
   // 95% 是 live 买门不消费的风险字段白烧）：AVE 元数据 URL 集已含 twitter 链接
   // → 整段跳过 GMGN 不发包。判据=pre-IPFS 的 allUrls（IPFS∥GMGN 并行结构不动，
@@ -191,7 +191,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
 
   // 3.5 GMGN token info（BRF 社媒补源 + x-0 风险因子，2026-09-27）：
   // enrichSocialByGmgn（仅叙事直调传 true，配额控制见 gmgn-social-fetcher）时
-  // **必要才调用**（C181 必要门，2026-10-23 裁定——原「总是调用」为同一次
+  // **必要才调用**（C182 必要门，2026-10-23 裁定——原「总是调用」为同一次
   // getTokenInfo 带出 dev 风险字段，但该快照 live 买门不消费（GmgnRiskCheckService
   // 刻意隔离自抓），v34 15h 实测 95% 调用白烧并触发 IP 级封禁）；社媒并入仍以
   // 「无 twitter 链接」为前提（C10 行为零变化——有语料的 token 不需要补源）。
@@ -202,7 +202,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // 不补」使 superIP 真语料被马甲号挡住；仅当 GMGN 推文 URL 作者在超级IP注册表
   // 时突破并入（普通推文/账号 URL 仍守 C10——superIP 推文才是强叙事锚）。并入后
   // selectTwitterUrl 的 tweet 类型优先保证它被选中而非自挂账号链接。
-  // **C181（2026-10-23）**：AVE 已有 twitter 的票不再调 GMGN，本例外臂主要触发
+  // **C182（2026-10-23）**：AVE 已有 twitter 的票不再调 GMGN，本例外臂主要触发
   // 源随必要门退役（用户裁定；残余形状=pre-IPFS 无 twitter 而 IPFS 补出的罕见票，
   // 下方 else if 分支保留对其生效）。
   // GMGN 也拿不到 / 调用失败 → 按无补源、无风险因子继续，行为与现状一致
@@ -213,7 +213,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
     if (superIpTweet) {
       console.log(`[NarrativeAnalyzer] GMGN 超级IP推文命中(C51): ${gmgnSocials.twitterUrl} → ${superIpTweet.name}（tier ${superIpTweet.tier}）`);
     }
-    // 判据改用 hasTwitterLink（C181 单一真相：与必要门同源，原内联正则逐字同形）
+    // 判据改用 hasTwitterLink（C182 单一真相：与必要门同源，原内联正则逐字同形）
     const hasTwitterUrl = hasTwitterLink(allUrls);
     if (!hasTwitterUrl) {
       const addUrls = [gmgnSocials.twitterUrl, gmgnSocials.websiteUrl]
