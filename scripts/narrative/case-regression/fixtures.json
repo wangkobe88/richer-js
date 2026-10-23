@@ -774,14 +774,12 @@
       "addr": "0x13acc80ee1802e4baac1b9165e9e047c009d7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.84、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.84、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）+重析确认：圈外消费品类型该拦；重析 low（拦截位=空洞内容门）",
       "expectSince": "2026-10-23"
     },
     {
@@ -806,14 +804,12 @@
       "addr": "0x62cce4b6ee90c3d80181873c0e940402a66a7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.72、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.72、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）+重析确认：事务性公司类型该拦；重析 low（拦截位=web3FitMassBlock sf+fit 43%<50%）",
       "expectSince": "2026-10-23"
     },
     {
@@ -822,14 +818,12 @@
       "addr": "0x52550b3628d5c4cac7408a186486f9e423087777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.79、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.79、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）+重析确认：金融机构/银行类型该拦；重析 low（拦截位=空洞内容门）",
       "expectSince": "2026-10-23"
     },
     {
@@ -838,14 +832,12 @@
       "addr": "0xbccb27a6a086517634423919dd9eec033e9c7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.68、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.68、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）+重析确认：动物品种/犬种学名类型该拦；重析 low（拦截位=实体类型门 unacceptable_type 97%——C184 类型门首次生产命中）",
       "expectSince": "2026-10-23"
     },
     {
@@ -870,14 +862,13 @@
       "addr": "0xe9e82d1fa74283991dec5543453373ec836b7777",
       "expect": {
         "rating": [
-          "low",
           "mid",
           "high"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.99、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.99、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）：天狗不该被挡；重析 mid 65.08（cashtag 改道 W 吸引力 47≥32）",
       "expectSince": "2026-10-23"
     },
     {
@@ -886,14 +877,13 @@
       "addr": "0x3ddf95a0aafa3cfdc7bd336c7c30ab5f1f9d7777",
       "expect": {
         "rating": [
-          "low",
           "mid",
           "high"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.9、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.9、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）：恩恩崽不该被挡；重析 high 88.57",
       "expectSince": "2026-10-23"
     },
     {
@@ -902,14 +892,13 @@
       "addr": "0x0a000d6f43de25855263d0ed218fdd0387c27777",
       "expect": {
         "rating": [
-          "low",
           "mid",
           "high"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）：乐宝豆不该被挡；首次重析 high 81.58",
       "expectSince": "2026-10-23"
     },
     {
