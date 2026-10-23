@@ -81,7 +81,8 @@ async function main() {
       && qs.web3_user_name_event_acceptance.instructions.includes('另一个词（≠币名）')
       && !qs.web3_user_name_event_acceptance.instructions.includes('且币名正是承载该名字的代币')
       && !qs.web3_user_name_event_acceptance.instructions.includes('semantic_clear')
-      && qs.web3_user_name_event_acceptance.criteria.acceptable.includes('发币+宣告并置即币名承载'),
+      && qs.web3_user_name_event_acceptance.criteria.acceptable.includes('发币+宣告并置即币名承载')
+      && qs.web3_user_name_event_acceptance.criteria.unacceptable.includes('不适用本桶'),
     '豁免强化句/反臂/防复活三缺一');
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
   check('A6 实体题五桶恒形（brand_mismatch 桶 J1.103/C172 随品牌劫持轴退役——品牌票与非品牌票同形；J1.72 C133 加新实体；J1.81/C139 加 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
