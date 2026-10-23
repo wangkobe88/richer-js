@@ -290,7 +290,7 @@ async function main() {
     && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.110'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.111'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability 在册；载体题 web3_user_entity_visuality 已随 C171 形象轴退役（题删除）；旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && !/web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
