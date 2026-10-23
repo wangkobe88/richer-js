@@ -1119,6 +1119,13 @@ export function mapStandardAnswers(answers, context) {
   // 三条时效 override（C75/C102/C103）合并为影响力扣分（等价旧时效项清零 ≈ -18）
   const timingPenaltyActive = !!(staleSourceTiming || staleParentTiming || staleRelParentTiming);
   const blockChoice = blockAnswers(answers)?.choice || 'none';
+  // C114b（C181b，RichardTeng 0x007f5ddb…7777 案）：C114 图证豁免收窄——图证豁免的
+  // 假设是「图就是内容」（DND 案图=梗图本体）；image_depicts_name 明确 decorative
+  // （≥0.5）=装饰图与币名无关，不构成内容 → 豁免失效，empty_content 照拦。答案
+  // 缺失/未问/unclear/depicts_name → 照旧豁免（fail-open 与 C114 原方向一致，
+  // 存量历史行零翻转；条件题与 imageEvidence 同源、无图不问=天然不触发）
+  const depictAns = answers.image_depicts_name;
+  const imgDecorative = depictAns?.choice === 'decorative' && (depictAns?.probabilities?.decorative ?? 0) >= 0.5;
   const blockProb = blockAnswers(answers)?.probabilities?.[blockChoice];
   // 原 prompt 语义是"命中任一阻断条件即阻断"（二值）。Choice 摊成 10 路分布后
   // 9 个阻断项共享概率质量，argmax≠none 过易触发（dry-run 实证：P=0.43 即阻断）。
@@ -1394,7 +1401,7 @@ export function mapStandardAnswers(answers, context) {
     // 无图票不触发=纯文字空洞票照拦。只翻本门：名字门/载体门/量级门照常接管
     // （DND 终局由 C97 地域子账号锚 D 档量级门拦——拦截理由干净；真·大号官方
     // 梗票不再被空洞门误伤）。同案 name_form 通用梗缩写锚=J1.47（题集侧）
-    && !(blockChoice === 'event_empty_content' && !!context.imageEvidence)
+    && !(blockChoice === 'event_empty_content' && !!context.imageEvidence && !imgDecorative)
     // J1.58（C126 二轮）：高影响力主体（语料作者=super-ip 注册表在册）的公开
     // 问候/表态/对实质事件的简短回应=事件素材，event_empty_content 臂不拦（用户裁定：
     // 「何一发一个问候语，在 BSC meme 币场景不是空洞行为，何况是回复实质事件」）。
@@ -1520,7 +1527,7 @@ export function mapStandardAnswers(answers, context) {
         // C114 审计标记：图证在场 event_empty_content 臂失效（block 门豁免；命中才落
         // ——被覆盖的 event_empty_content 概率面可追溯，DND 案形状。空图证票不落键
         // =event_empty_content 照拦零歧义）
-        emptyContentImgOverride: (blockChoice === 'event_empty_content' && !!context.imageEvidence)
+        emptyContentImgOverride: (blockChoice === 'event_empty_content' && !!context.imageEvidence && !imgDecorative)
           ? { emptyP: round2(blockProb ?? 0), noneP: round2(noneProb) } : null,
         // J1.58 审计：作者在册豁免 event_empty_content 臂（命中才落，可追溯被覆盖的
         // event_empty_content 概率面；与图证豁免同构）

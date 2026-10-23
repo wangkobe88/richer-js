@@ -118,6 +118,38 @@ async function main() {
     rB2.llmResult.reason);
 
   // ═══ C. 误伤面正证（真·大号梗票被救回）═══
+  // ═══ C. C114b 收窄（RichardTeng 0x007f5ddb…7777 案，J1.111/C181b）═══
+  // J1.111 事件层优先后 veto 判 empty_content 0.95/none 0.01，但仍 high 71.11
+  // ——C114 图证豁免吞掉拦截；该票配图 Jev 自判 decorative 0.93（装饰图与币名
+  // 无关）≠「图就是内容」假设 → 收窄：decorative≥0.5 明确时豁免失效照拦
+  console.log('\n── C114b. decorative 收窄（RichardTeng 0x007f5ddb…7777 反证）──');
+  const rtFit = { choice: 'strong_fit', probabilities: { strong_fit: 0.46, fit: 0.17, marginal: 0.26, unfit: 0.11 } };
+  const rtBase = {
+    web3_user_event_impact: { choice: 'event_empty_content', probabilities: { event_empty_content: 0.95, none: 0.01, token_ip_reuse: 0.04 } },
+    image_depicts_name: { choice: 'decorative', probabilities: { decorative: 0.93, depicts_name: 0.04, unclear: 0.03 } },
+  };
+  const rtCtx = (ev) => ({ ...dndCtx(ev), tokenData: { symbol: 'RichardTeng', name: 'RichardTeng', raw_api_data: { name: 'RichardTeng' } } });
+  const rtR1 = mapStandardAnswers(dndAnswers({ ...rtBase, web3_user_event_fit: rtFit }), rtCtx(true));
+  check('C1 图证在场+decorative 0.93：豁免失效照拦（空洞内容）',
+    rtR1.llmResult.rating === 'low' && (rtR1.llmResult.reason || '').includes('空洞内容'),
+    rtR1.llmResult.reason);
+  check('C1b decorative 收窄后审计键不落（emptyContentImgOverride=豁免命中才落）',
+    s2jev(rtR1).emptyContentImgOverride === null, s2jev(rtR1).emptyContentImgOverride);
+  const rtR2 = mapStandardAnswers(dndAnswers({
+    ...rtBase,
+    web3_user_event_fit: rtFit,
+    image_depicts_name: { choice: 'depicts_name', probabilities: { depicts_name: 0.9, decorative: 0.06, unclear: 0.04 } },
+  }), rtCtx(true));
+  check('C2 图描绘币名（depicts_name 0.9）：豁免照旧（图=内容假设成立，C114 原语义保留）',
+    !(rtR2.llmResult.reason || '').includes('空洞内容') || s2jev(rtR2).emptyContentImgOverride != null,
+    rtR2.llmResult.reason);
+  // 答案缺失臂（删除 image_depicts_name）：fail-open 照旧豁免（存量历史行零翻转）
+  const aC3 = dndAnswers({ ...rtBase, web3_user_event_fit: rtFit }); delete aC3.image_depicts_name;
+  const rtR3b = mapStandardAnswers(aC3, rtCtx(true));
+  check('C3 image_depicts_name 缺失（旧缓存行/无图不问）：豁免照旧（fail-open，存量零翻转）',
+    !(rtR3b.llmResult.reason || '').includes('空洞内容'),
+    rtR3b.llmResult.reason);
+
   console.log('\n── C. 误伤面正证 ──');
   const bigAcct = dndAnswers({
     event_magnitude: { score: 4.2, probabilities: { '5': 0.47, '3': 0.42 } }, // 旧 A 档形状
@@ -212,7 +244,7 @@ async function main() {
   const mapperSrc = readFileSync(mapperPath, 'utf8');
   const qSrc = readFileSync(qPath, 'utf8');
   check('H1 mapper 臂形状（blockChoice event_empty_content ∧ imageEvidence）',
-    mapperSrc.includes("&& !(blockChoice === 'event_empty_content' && !!context.imageEvidence)"), null);
+    mapperSrc.includes("&& !(blockChoice === 'event_empty_content' && !!context.imageEvidence && !imgDecorative)"), null);
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
