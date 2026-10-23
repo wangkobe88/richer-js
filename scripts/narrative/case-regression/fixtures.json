@@ -97,7 +97,11 @@
       "symbol": "rebondit",
       "addr": "0xed389dfed0568f07b71ff678b92da1c052957777",
       "expect": {
-        "rating": "low",
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ],
         "reasonExcludes": [
           "负面硬新闻"
         ],
@@ -107,8 +111,8 @@
         ]
       },
       "note": "弹跳猫（C98 姊妹票）：J1.38 反向验证历史票（语料零暴力词不翻转，10-18 按 high 实买 -8.76%）；J1.46 起 C103 父推窗稳定接管（parent_relationship=translation_or_repost+父推 89.6d）→ 时效归 0 → low。核心机制断言=staleRelParentOverride 在场（lag 客观确定性，C102 同款）。",
-      "expectBecause": "C113/J1.46 prompt 漂移使 J1.39 parent_relationship 稳定落 translation_or_repost 臂（父推 lag 89.6d>24h）→ staleRelParentOverride 时效归 0 → 事件分 47<60；C103 门设计形状命中（载体推挂 89 天父推）且本票 10-18 按 high 实盘买入 -8.76%，拦截方向盈亏正向",
-      "expectSince": "2026-10-19",
+      "expectBecause": "C100 2026-10-22 用户裁定「边缘化，高中低三档皆可」（staleRelParent 审计票）",
+      "expectSince": "2026-10-23",
       "observe": "J1.54 键名断代后 parent_relationship 条件题掷骰面实测：unclear 0.32 vs translation_or_repost 0.27（4 次采样 3 次 translation=low 46.1-46.3、1 次 unclear=high 72.7）——C103 父推窗机制在 translation/explains 臂确定性成立（lag 89.6d 客观），unclear 臂不触达属掷骰逃逸；核心断言 staleRelParentOverride 在场+low 仍保留。"
     },
     {
@@ -231,11 +235,14 @@
       "symbol": "BI",
       "addr": "0x3891aeb8bf0ebb0079b4b1e6c18dd0ca26d77777",
       "expect": {
-        "rating": "high"
+        "rating": [
+          "mid",
+          "high"
+        ]
       },
       "note": "C109 对拍遗留观察票（币安猫图簇 BI 名票，同簇 C83a/C83b 均 high）。原 expect=low（2026-10-21 以引擎实际结果为准收录）；2026-10-22 用户裁定 expect 改 high——摇摆域内 high 面（78.61）与簇一致。",
-      "expectBecause": "C109c expect 裁定（2026-10-22 用户）：预期改为 high；同簇 C83a（94.27）/C83b（92.14）均 high，本票现行 high 78.61。",
-      "expectSince": "2026-10-22"
+      "expectBecause": "C109c 2026-10-22 用户裁定「BI 期望 mid/high 皆可」（关联题 unacceptable 掷域，边缘票）",
+      "expectSince": "2026-10-23"
     },
     {
       "caseId": "C110",
@@ -334,11 +341,15 @@
       "symbol": "偷窥狂",
       "addr": "0x57efcdb41b8107fd6b6db8d06591d67274e27777",
       "expect": {
-        "rating": "low"
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
       },
       "note": "语料充分门案（douyin fetch 4.37s 占直调 82% 的延迟解剖票，票本身评级正确实买）。维持票。2026-10-21 用户裁定期望 low。",
-      "expectBecause": "2026-10-21 用户裁定「0x57efcdb41b8107fd6b6db8d06591d67274e27777 期望 low」。",
-      "expectSince": "2026-10-21"
+      "expectBecause": "C79 2026-10-22 用户裁定「边缘化，高中低三档皆可」（载体门退役后 E 类放行观察票）",
+      "expectSince": "2026-10-23"
     },
     {
       "caseId": "C80",
@@ -645,11 +656,17 @@
       "symbol": "梗王大乱斗",
       "addr": "0x4ded0c77fcaa9bec730e450d48abb4192a647777",
       "expect": {
-        "rating": "low",
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ],
         "tokenCategory": "event:E"
       },
       "note": "梗王大乱斗：游戏本体实录被旧C109/C118豁免放行（nicMatch0.87+depict0.98但所指=非形象事物）；J1.100第四臂referent_itself否决豁免→E类载体门拦截；3连跑low稳定P=0.81/0.83/0.80",
-      "addedAt": "2026-10-22"
+      "addedAt": "2026-10-22",
+      "expectBecause": "C167 2026-10-22 用户裁定「边缘化，高中低三档皆可」（演绎实录题断言域）",
+      "expectSince": "2026-10-23"
     },
     {
       "caseId": "C168",
@@ -694,6 +711,19 @@
       "addedAt": "2026-10-22",
       "expectSince": "2026-10-22",
       "expectBecause": "C170 用户裁定「去掉 negative_hard_news 得了，直接让 web3 契合度去处理」（J1.101 删桶+门退役）——本票强契合圈内安全梗应放行；收录时现行行仍为 J1.100 旧门拦的 low（fail-first，182 重析对拍后翻正）"
+    },
+    {
+      "caseId": "C176",
+      "symbol": "Nightshift",
+      "addr": "0x49c961a87b8e49e428288850ec5b7bd5f9ca7777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "project"
+      },
+      "note": "项目币已 rug：用户裁定 2026-10-22 low 没问题，期望改为 low（收录即锁定）",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C176 项目币已 rug，2026-10-22 用户裁定「low 没问题，期望也改为 low」",
+      "expectSince": "2026-10-23"
     }
   ]
 }
