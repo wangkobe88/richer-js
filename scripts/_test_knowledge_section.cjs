@@ -7,6 +7,7 @@
  *      A2 段形状（标题/免责声明/条目行/匹配规则中文名/truncated 提示）
  *      A3 单条 narrative 截 300 / 整段 safeSubstring 封顶
  *      A4 bluechip ATH 事实行 / quasi 毕业日期+评级事实行
+ *      A11-A13 蓝筹家族偏好指引行（bluechip 命中才落；quasi/concept 不落）
  *   B. buildJevState bit-parity：带/不带 knowledgeMatches（null 与空 matches）state 逐字节相等；
  *      命中时 state 含 [KNOWLEDGE_BASE] 且 stats.knowledgeSection 观测在
  *   C. buildPrestageState 同款（header 尾挂位 + bit-parity + stats 观测）
@@ -59,6 +60,11 @@ const FETCH = {};
     ], truncated: false }, { maxChars: 1000 });
     assert(capped.length <= 1050 && capped.includes('知识条目已截断'), 'A9 整段 safeSubstring 封顶 + 截断提示', capped.length);
     assert(buildKnowledgeSection(matches, { maxChars: 50 }).length <= 100, 'A10 maxChars 显式覆盖生效');
+    assert(s.includes('💡 偏好指引') && s.includes('已验证大蓝筹的叙事家族相近或强相关'), 'A11 bluechip 命中 → 蓝筹家族偏好指引行（C177 用户裁定改 Prompt 不魔改分数）', s);
+    const quasiOnly = buildKnowledgeSection({ matches: [matches.matches[1]], truncated: false });
+    assert(!quasiOnly.includes('偏好指引'), 'A12 quasi-only 命中 → 无偏好指引（小蓝筹连发常态）', quasiOnly);
+    const conceptOnly = buildKnowledgeSection({ matches: [{ entryId: 'concept:flap', kind: 'concept', rule: 'concept_keyword', matchedOn: 'flap', matchedField: 'corpus', entry: { id: 'concept:flap', kind: 'concept', name: 'Flap', narrative: 'BSC 发射平台' } }], truncated: false });
+    assert(!conceptOnly.includes('偏好指引'), 'A13 concept-only 命中 → 无偏好指引');
   }
 
   console.log('B. buildJevState bit-parity 与观测');

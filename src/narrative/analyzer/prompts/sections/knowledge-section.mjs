@@ -76,6 +76,19 @@ export function buildKnowledgeSection(knowledgeMatches, options = {}) {
       + `${fact ? `（${fact}）` : ''}。匹配：${via}${matchedOn}`,
     );
   }
+  // 蓝筹家族偏好指引（2026-10-23 用户裁定「跟大蓝筹类似/强相关的票，应该给予
+  // 一定偏好」+「不要魔改分数，也是改 Prompt 交给 LLM 处理」）：段内命中已验证
+  // 蓝筹（b: 域，ATH>$1M）才追加——叙事家族已被 BSC 市场验证有吸引力，偏好
+  // 幅度由 LLM 逐题判定（代码侧不加分）。quasi 不给偏好（小蓝筹连发是常态，
+  // C168 去重豁免同精神）；name_exact 撞名票由 C168 mapper 首臂拦 low，代码层
+  // 拦截优先，偏好指引在场不构成放行。
+  if (matches.some((m) => m.entry?.kind === 'bluechip')) {
+    lines.push(
+      `💡 偏好指引：若本代币叙事与上述已验证大蓝筹的叙事家族相近或强相关`
+        + `（同类梗/同源热点/姐妹变体），说明该叙事家族已被 BSC 市场验证对用户有吸引力，`
+        + `评估事件契合度与规模时给予一定正向偏好。`,
+    );
+  }
   if (knowledgeMatches.truncated) {
     lines.push(`（命中条目超注入上限，已按匹配优先级截断）`);
   }

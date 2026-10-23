@@ -177,6 +177,10 @@ function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming
 // 不变：无吸引力/一般/有明确吸引力/强吸引力；Jev Score 原语仍回 0-3 期望带，
 // 由 bandInterpolate 映射到 0-75）。W 数学 = 吸引力 + 时效，pass 线 57。
 const W_APPEAL_BANDS = [[0, 18], [19, 37], [38, 56], [57, 75]];
+// J1.107（2026-10-23 用户裁定「w_bsc_user_appeal 可以给弱中强三档」）：题改 Choice
+// 三桶，分值表弱 15/中 47/强 66（弱合并旧 0-18/19-37 两档取保守代表 15<32 线；
+// 中=旧 38-56 带中点；强=旧 57-75 带中点）。pass 线 32 不动；probabilities 留审计。
+const W_APPEAL_CHOICE_SCORES = { weak: 15, moderate: 47, strong: 66 };
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
 const REASONABILITY_BANDS = [[0, 1], [2, 3], [4, 5]];
 // J1.43（C109）token_name_quality 单题 band 索引 0-3 → 联合量纲 0-12
@@ -1427,7 +1431,11 @@ export function mapStandardAnswers(answers, context) {
     // 对 69.6% 的 W 票是常数偏移；W 分改为纯吸引力（0-75），pass 线 57→32
     // （=57-25，保持 fresh 通过集）；时效不再给正分，仅对「已知 older/unknown
     // 或 override 命中」做封顶 30 的 cap（与标准路径 J1.71 后同构）。
-    wAppeal = bandInterpolate(answers.w_bsc_user_appeal?.score ?? 0, W_APPEAL_BANDS);
+    // J1.107：题改 Choice 三桶（weak/moderate/strong）→ 分值表；旧缓存行 score
+    // 形状走 legacy bandInterpolate（双形状兼容，C123 门名断代先例）
+    wAppeal = answers.w_bsc_user_appeal?.choice != null
+      ? (W_APPEAL_CHOICE_SCORES[answers.w_bsc_user_appeal.choice] ?? 0)
+      : bandInterpolate(answers.w_bsc_user_appeal?.score ?? 0, W_APPEAL_BANDS);
     wTimingCapActive = timingPenaltyActive || timing === 'older' || timing === 'unknown';
     eventCompositeScore = round2(wAppeal);
     if (wTimingCapActive) eventCompositeScore = Math.min(eventCompositeScore, 30);

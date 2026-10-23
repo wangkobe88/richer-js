@@ -160,8 +160,8 @@ async function main() {
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
-    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.106'"), 'J1.105 常量缺失');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.107'"), 'J1.107 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题
@@ -172,10 +172,11 @@ async function main() {
       const wa = qs.w_bsc_user_appeal;
       check('A11a w_product_score 题退役（J1.84/C142 双轴合并；题集不再提供）',
         qs.w_product_score === undefined, Object.keys(qs));
-      check('A11b w_bsc_user_appeal 0-75 四带（语义档位不变：0-18/19-37/38-56/57-75）',
-        wa?.instructions.includes('0-75分')
-        && wa.criteria[0].includes('0-18分') && wa.criteria[1].includes('19-37分')
-        && wa.criteria[2].includes('38-56分') && wa.criteria[3].includes('57-75分'),
+      check('A11b w_bsc_user_appeal Choice 三桶（J1.107 用户裁定「给弱中强三档」：weak/moderate/strong；旧 score 四带仅 mapper legacy 消费）',
+        wa?.type === 'choice' && Object.keys(wa.criteria).length === 3
+        && wa.criteria.weak.includes('弱吸引力') && wa.criteria.moderate.includes('有明确吸引力')
+        && wa.criteria.strong.includes('强吸引力')
+        && wa.instructions.includes('弱/中/强三档'),
         wa?.criteria);
       // J1.82/C140（并行会话同批）：圈层可达性桶退役——判据并入 web3_user_event_fit
       // unfit 档（圈外亚文化 get 不到梗=unfit；crypto 圈内口径；品牌营销边界句随迁）

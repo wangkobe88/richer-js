@@ -18,7 +18,8 @@
  *   B. product 不能救低 appeal（旧 C42 形状）——合并后单轴语义
  *   C. 题集形状：w_bsc_user_appeal 0-75 在场 / w_product_score 退役 / 12 题
  *   D. 源码口径反证：无 wProduct/W_PRODUCT_BANDS/wProductScore/w_product_score 消费
- *   E. 版本 J1.87（J1.84=C142 本轴合并；J1.85=C143 品牌题并入实体轴随 bump）
+ *   E. 版本 J1.107（J1.107=W 三档 Choice；J1.84=C142 本轴合并；J1.85=C143 品牌题并入实体轴随 bump）
+ *   F. J1.107 Choice 三档映射：weak 15/moderate 47/strong 66、双形状消费、legacy 等值锚
  *
  * 用法：node scripts/_test_w_bsc_user_appeal.cjs
  */
@@ -31,7 +32,7 @@ function check(name, cond, detail) {
   else { failed++; console.log(`  ❌ ${name}${detail !== undefined ? ` —— ${JSON.stringify(detail)}` : ''}`); }
 }
 
-function wAnswers({ appeal = 2.5, timing = 'within_7d', product = null } = {}) {
+function wAnswers({ appeal = 2.5, timing = 'within_7d', product = null, appealChoice = null } = {}) {
   const a = {
     event_category: { choice: 'W', probabilities: { W: 0.9, D: 0.1 } },
     event_timing: { choice: timing, probabilities: { within_7d: 0.9, older: 0.1 } },
@@ -43,7 +44,11 @@ function wAnswers({ appeal = 2.5, timing = 'within_7d', product = null } = {}) {
     name_entity_carrier: { choice: 'existing_entity', probabilities: { existing_entity: 0.9 } },
     web3_user_name_acceptability: { choice: 'web3_user_acceptable', probabilities: { web3_user_acceptable: 0.9 } },
     token_name_quality: { score: 3, probabilities: {} },
-    w_bsc_user_appeal: { score: appeal, probabilities: { '0': 0.1, '1': 0.1, '2': 0.6, '3': 0.2 } },
+    // J1.107：题改 Choice 三桶——新答案 choice 形状；旧缓存行 score 形状走
+    // legacy bandInterpolate（双形状兼容，C123 门名断代先例）
+    w_bsc_user_appeal: appealChoice != null
+      ? { choice: appealChoice, probabilities: { [appealChoice]: 0.9 } }
+      : { score: appeal, probabilities: { '0': 0.1, '1': 0.1, '2': 0.6, '3': 0.2 } },
   };
   // J1.84：旧答案的 w_product_score 键仍可能存在（历史行/重放）——mapper 必须忽略
   if (product != null) {
@@ -132,13 +137,13 @@ async function main() {
   console.log('\n── C. 题集形状 ──');
 
   const qs = buildStandardQuestions();
-  check('C1 w_bsc_user_appeal 在场（score 0-75 四分带）',
-    qs.w_bsc_user_appeal?.type === 'score' && qs.w_bsc_user_appeal.criteria.length === 4
-    && qs.w_bsc_user_appeal.instructions.includes('0-75分')
-    && qs.w_bsc_user_appeal.criteria[0].includes('0-18分')
-    && qs.w_bsc_user_appeal.criteria[1].includes('19-37分')
-    && qs.w_bsc_user_appeal.criteria[2].includes('38-56分')
-    && qs.w_bsc_user_appeal.criteria[3].includes('57-75分'),
+  check('C1 w_bsc_user_appeal Choice 三桶（J1.107 弱/中/强——用户裁定「给弱中强三档」）',
+    qs.w_bsc_user_appeal?.type === 'choice'
+    && Object.keys(qs.w_bsc_user_appeal.criteria).length === 3
+    && 'weak' in qs.w_bsc_user_appeal.criteria
+    && 'moderate' in qs.w_bsc_user_appeal.criteria
+    && 'strong' in qs.w_bsc_user_appeal.criteria
+    && qs.w_bsc_user_appeal.instructions.includes('弱/中/强三档'),
     qs.w_bsc_user_appeal?.criteria);
   check('C2 w_product_score 已退役（J1.84/C142 双轴合并）', !('w_product_score' in qs));
   check('C3 w_binance_interaction 已退役（J1.74/C134）', !('w_binance_interaction' in qs));
@@ -168,12 +173,46 @@ async function main() {
   check('D4 答案概率审计键=w_bsc_user_appeal（w_product_score 已删）',
     /w_bsc_user_appeal: answers\.w_bsc_user_appeal\?\.probabilities/.test(mapperSrc)
     && !/w_product_score: answers\.w_product_score/.test(mapperSrc));
-  check('D5 吸引力带 0-75 四分带 [[0,18],[19,37],[38,56],[57,75]]',
+  check('D5 吸引力带 0-75 四分带 [[0,18],[19,37],[38,56],[57,75]]（legacy band，旧缓存行 score 形状消费）',
     /const W_APPEAL_BANDS = \[\[0, 18\], \[19, 37\], \[38, 56\], \[57, 75\]\];/.test(mapperSrc));
 
+  console.log('\n── F. J1.107 Choice 三档映射 ──');
+
+  const mFStrong = mapStandardAnswers(wAnswers({ appealChoice: 'strong' }), makeContext());
+  const s2FStrong = stage2Of(mFStrong);
+  check('F1 strong=66 → pass（强=旧 57-75 带中点）',
+    s2FStrong.pass === true && s2FStrong.scoringResult?.eventCompositeScore === 66
+    && s2FStrong.scoringResult?.wAppealScore === 66,
+    { pass: s2FStrong.pass, score: s2FStrong.scoringResult?.eventCompositeScore });
+  const mFMod = mapStandardAnswers(wAnswers({ appealChoice: 'moderate' }), makeContext());
+  const s2FMod = stage2Of(mFMod);
+  check('F2 moderate=47 → pass（中=旧 38-56 带中点，与 legacy 2.5 等值）',
+    s2FMod.pass === true && s2FMod.scoringResult?.eventCompositeScore === 47,
+    { pass: s2FMod.pass, score: s2FMod.scoringResult?.eventCompositeScore });
+  const mFWeak = mapStandardAnswers(wAnswers({ appealChoice: 'weak' }), makeContext());
+  const s2FWeak = stage2Of(mFWeak);
+  check('F3 weak=15<32 → 拦（弱合并旧 0-18/19-37 两档保守代表，无时效救不回）',
+    s2FWeak.pass === false && s2FWeak.scoringResult?.eventCompositeScore === 15
+    && s2FWeak.blockReason === 'W类总分不足（15<32）',
+    { pass: s2FWeak.pass, score: s2FWeak.scoringResult?.eventCompositeScore, blockReason: s2FWeak.blockReason });
+  const mFDual = mapStandardAnswers(wAnswers({ appeal: 0.1, appealChoice: 'strong' }), makeContext());
+  check('F4 双形状：choice 在场优先于残留 score（0.1+strong → 66 非 1.8）',
+    stage2Of(mFDual).scoringResult?.eventCompositeScore === 66,
+    stage2Of(mFDual).scoringResult?.eventCompositeScore);
+  const mFLegacy = mapStandardAnswers(wAnswers({ appeal: 2.5 }), makeContext());
+  check('F5 legacy score 2.5 → 47 与 moderate 同值（档位语义对齐锚）',
+    stage2Of(mFLegacy).scoringResult?.eventCompositeScore === 47
+    && stage2Of(mFLegacy).scoringResult?.eventCompositeScore === s2FMod.scoringResult?.eventCompositeScore,
+    { legacy: stage2Of(mFLegacy).scoringResult?.eventCompositeScore, choice: s2FMod.scoringResult?.eventCompositeScore });
+  check('F6 分值表源码 W_APPEAL_CHOICE_SCORES={weak:15,moderate:47,strong:66}',
+    /const W_APPEAL_CHOICE_SCORES = \{ weak: 15, moderate: 47, strong: 66 \};/.test(mapperSrc));
+  check('F7 双形状消费源码（choice 先、bandInterpolate 兜底）',
+    /answers\.w_bsc_user_appeal\?\.choice != null/.test(mapperSrc)
+    && /bandInterpolate\(answers\.w_bsc_user_appeal\?\.score \?\? 0, W_APPEAL_BANDS\)/.test(mapperSrc));
+
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION = J1.91（J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 institution 桶；J1.87=C145 删 routine 桶；J1.84=C142 W 双轴合并）',
-    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.107（J1.107=W 三档 Choice weak/moderate/strong；J1.102=C171 形象载体轴整轴退役；J1.91=C154 时效体系清理；J1.84=C142 W 双轴合并）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 107, JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
