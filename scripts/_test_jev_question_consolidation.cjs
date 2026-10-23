@@ -73,17 +73,23 @@ async function main() {
   check('A5 web3_user_name_event_acceptance 3 用户视角桶（J1.93/C156 改名；J1.92/C155：exact_match/acceptable/unacceptable）',
     Object.keys(qs.web3_user_name_event_acceptance.criteria).length === 3
     && ['exact_match', 'acceptable', 'unacceptable'].every(k => k in qs.web3_user_name_event_acceptance.criteria), Object.keys(qs.web3_user_name_event_acceptance.criteria));
-  // J1.108/C178：BINA 复刻票豁免掷骰 unacceptable 主流（六批回归+四跑定向）事故反证——
-  // 删「且币名正是承载该名字的代币」明示要求（用户裁定「这个一般来讲都不会明说」）
-  check('A5b 豁免措辞强化（J1.108：发币+宣告并置即币名承载，不要求点名/明说；反臂=名字是另一个词不豁免；防旧明示措辞与 semantic 残留句复活）',
-    qs.web3_user_name_event_acceptance.instructions.includes('不要求宣告点名说出名字')
-      && qs.web3_user_name_event_acceptance.instructions.includes('不得要求语料再明说「币名=该名字」')
-      && qs.web3_user_name_event_acceptance.instructions.includes('另一个词（≠币名）')
-      && !qs.web3_user_name_event_acceptance.instructions.includes('且币名正是承载该名字的代币')
-      && !qs.web3_user_name_event_acceptance.instructions.includes('semantic_clear')
-      && qs.web3_user_name_event_acceptance.criteria.acceptable.includes('发币+宣告并置即币名承载')
-      && qs.web3_user_name_event_acceptance.criteria.unacceptable.includes('不适用本桶'),
-    '豁免强化句/反臂/防复活三缺一');
+  // J1.109/C179：豁免段挪判轴级（用户裁定「挂在被限制桶下=逻辑冲突」）+ J1.108/C178 措辞强化
+  // 事故反证——防豁免段回挂③桶、防旧明示措辞与 semantic 残留句复活
+  const relIns = qs.web3_user_name_event_acceptance.instructions;
+  const relBucketStart = relIns.indexOf('① **exact_match');
+  const relExempt = relIns.indexOf('⚠️ 宣告采信豁免（判轴级规则，先于分桶判定）');
+  check('A5b 豁免判轴级（J1.109：豁免段在①②③分桶之前=先立规则再列桶，不挂在被限制桶下；J1.108 措辞：发币+宣告并置即币名承载不要求点名/明说；反臂=名字是另一个词不豁免；桶内 unacceptable 无自相注释）',
+    relExempt !== -1 && relBucketStart !== -1 && relExempt < relBucketStart
+      && relIns.indexOf('宣告采信豁免', relBucketStart) === -1
+      && relIns.includes('不要求宣告点名说出名字')
+      && relIns.includes('不得要求语料再明说「币名=该名字」')
+      && relIns.includes('另一个词（≠币名）')
+      && !relIns.includes('且币名正是承载该名字的代币')
+      && !relIns.includes('semantic_clear')
+      && qs.web3_user_name_event_acceptance.criteria.acceptable.includes('宣告采信豁免适用 → 本桶起步')
+      && !qs.web3_user_name_event_acceptance.criteria.unacceptable.includes('宣告采信豁免')
+      && !qs.web3_user_name_event_acceptance.criteria.unacceptable.includes('不适用本桶'),
+    '豁免判轴级位置/措辞/反臂/防回挂四缺一');
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
   check('A6 实体题五桶恒形（brand_mismatch 桶 J1.103/C172 随品牌劫持轴退役——品牌票与非品牌票同形；J1.72 C133 加新实体；J1.81/C139 加 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
     Object.keys(qsBrand.web3_user_name_entity_acceptance.criteria).length === 5
@@ -171,8 +177,8 @@ async function main() {
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
-    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.108'"), 'J1.108 常量缺失');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.109'"), 'J1.109 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题
