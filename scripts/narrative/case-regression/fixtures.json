@@ -844,14 +844,12 @@
       "addr": "0xe51bcbae82c597574964c753e400b4cb0d107777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.8、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C188 ルワールド IP 实体票：J1.114 重析 high 84.16（B 档 fit 79、实体题 accepted 88%、关联 exact_match 98%），2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -890,13 +888,14 @@
       "addr": "0x0a000d6f43de25855263d0ed218fdd0387c27777",
       "expect": {
         "rating": [
+          "low",
           "mid",
           "high"
         ]
       },
       "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C184 裁定（2026-10-23）：乐宝豆不该被挡；首次重析 high 81.58",
+      "expectBecause": "C191 乐宝豆机器人命名票：J1.114 重析 low（类型门 unacceptable_type 50% 贴线踩线），2026-10-23 用户裁定「low 能接受，预期三档均可」（50/47 贴线掷骰票）",
       "expectSince": "2026-10-23"
     },
     {
@@ -905,14 +904,12 @@
       "addr": "0xff3e7b781855bf8624c363a8996278de94cb7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.93、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C192 奶龙理论圈内梗二创票：J1.114 重析 high 71.87（C 档 fit 63、实体 accepted 83%），2026-10-23 用户裁定该放（关联 exact_match 64% 用户存疑但从用户视角可接受，留档观察）",
       "expectSince": "2026-10-23"
     },
     {
@@ -921,14 +918,12 @@
       "addr": "0x6c79cc6086c495288b0e659f9f4eb410a59a7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.98、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C193 流浪小狗：J1.114 重析 high 93.59（E 档 S 级 fit 98，C160 动物救助路径），审计期词句门独杀=误拦，2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -937,14 +932,12 @@
       "addr": "0x6cb96c4fdf9829bb9eff35353f00c8045cbe7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 1、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C194 小黑：与 C193 同主推姐妹票（CNS1952 流浪小狗视频），J1.114 重析 high 95.44（S 级 fit 98），2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -953,14 +946,12 @@
       "addr": "0x66f0e87527931a4d9414dded1b8f3797d2417777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.87、关联 acceptable）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C195 中国熊：WatcherGuru 熊市快讯票，J1.114 重析 high 84.41（E 档 A 级 fit 88），2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -985,14 +976,12 @@
       "addr": "0x1f9f6b1411e06efb3edb9ebaeccee4754de77777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.7、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C197 宇宙行：工行外号+零事件依托（搜索兜底 33 推零事件），J1.114 重析 low（web3FitMassBlock sf+fit 43%），2026-10-23 用户裁定该拦",
       "expectSince": "2026-10-23"
     },
     {

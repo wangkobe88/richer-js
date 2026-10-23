@@ -4,11 +4,33 @@
   "note": "人工补录条目（进 git）。覆盖权最高：同 id 覆盖 builder 生成件——id 约定与生成件一致（蓝筹 b:<小写地址>，准蓝筹 q:<小写地址>，如 b:0x1234…abcd 覆盖 bluechips.json 同地址条目），用于蓝筹掉榜兜底（如知名 meme 掉出 GMGN 榜单后仍需在库）。字段与 bluechips/quasi 同构；地址必须查实后录入，勿用示意地址。",
   "entries": [
     {
+      "id": "b:0x22dbe570df85c36515da1f244617123aebea7777",
+      "kind": "bluechip",
+      "name": "薄肌理论",
+      "symbol": "薄肌理论",
+      "aliases": [],
+      "address": "0x22dbe570df85c36515da1f244617123aebea7777",
+      "twitter": "https://x.com/daoguanwang91/status/2094614443472850967",
+      "narrative": "薄肌理论=华语圈「体脂/薄肌」健身梗 meme 币（与奶龙「俱乐部入会要体脂达标」同梗系），BSC DEX 票（PCS/Uniswap 双池，非 four.meme 内盘），2026-08 创建。2026-10-23 用户裁定按著名代币补录。",
+      "narrativeSource": null,
+      "athMarketCapUsd": 718700,
+      "athSource": "manual:ave 1h K线 725 根窗口（2026-09-01 起）高点×supply(1e9) 估算；8 月创建早期未覆盖",
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "updatedAt": "2026-10-23T15:00:00.000Z"
+    },
+    {
       "id": "b:0xf3525965a4ad3ca0ac13f4d2f237113691194444",
       "kind": "bluechip",
       "name": "熊猫头",
       "symbol": "熊猫头",
-      "aliases": ["Panda Head", "panda-head", "BIAOQING", "The Chinese Bear"],
+      "aliases": [
+        "Panda Head",
+        "panda-head",
+        "BIAOQING",
+        "The Chinese Bear"
+      ],
       "address": "0xf3525965a4ad3ca0ac13f4d2f237113691194444",
       "twitter": null,
       "narrative": "熊猫头 is the legendary meme that dominated Chinese internet culture for over 15 years, now immortalized on BSC. Born from a 2010 Egyptian cheese commercial and remixed by Chinese netizens into thousands of viral expressions, Panda Head became the ultimate weapon in online \"meme battles\" — the Pepe of the East.…",
@@ -25,7 +47,9 @@
       "kind": "bluechip",
       "name": "memes will continue",
       "symbol": "memes",
-      "aliases": ["memes"],
+      "aliases": [
+        "memes"
+      ],
       "address": "0xf74548802f4c700315f019fde17178b392ee4444",
       "twitter": null,
       "narrative": "The MEMES token represents an index of the top 10 meme coins (DOGE, SHIB, PEPE, WIF, FLOKI, BONK, NOT, DOGS, BOME, BRETT), calculated using a unique formula. It is the world’s first index born from the multi-million-strong MemeLand project community on Telegram and designed for the convenience of the crypto community.…",
@@ -35,7 +59,9 @@
       "corpusTrigger": false,
       "source": "gmgn",
       "rating": null,
-      "ranks": { "renowned24h": 25 },
+      "ranks": {
+        "renowned24h": 25
+      },
       "dedupExempt": true,
       "dedupNote": "C137 裁定（2026-10-22）：此票是白宫口号叙事，C137 MEMES 平台票名字一样但本质叙事不一样——口号级泛名非独占 meme 名，不参与蓝筹去重",
       "updatedAt": "2026-10-22T09:00:00.000Z"
@@ -45,7 +71,9 @@
       "kind": "bluechip",
       "name": "Heyi.ai",
       "symbol": "Heyi",
-      "aliases": ["Heyi"],
+      "aliases": [
+        "Heyi"
+      ],
       "address": "0xa1cb5a5915c43829a33c7cb508f65eebed177777",
       "twitter": "https://x.com/GoldenCatDev",
       "narrative": "本系统评 low",
@@ -55,7 +83,9 @@
       "corpusTrigger": true,
       "source": "gmgn",
       "rating": "low",
-      "ranks": { "vol24h": 91 },
+      "ranks": {
+        "vol24h": 91
+      },
       "dedupExempt": true,
       "dedupNote": "C138 同形状豁免（2026-10-22）：与 C138 票（0x1774…7777，用户裁定 mid|high）为同部署者 GoldenCatDev 同叙事连发——近期叙事非老 meme；且本条目系统自评 low（借壳蹭票过 ATH 线入册），名字撞它不应拦用户裁定票",
       "updatedAt": "2026-10-22T09:00:00.000Z"
