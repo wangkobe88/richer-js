@@ -61,13 +61,13 @@ async function main() {
   const { buildStandardQuestions, JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
   const { mapStandardAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
   const qs = buildStandardQuestions();
-  const fit = qs.web3_user_event_fit;
+  const fit = qs.bsc_meme_user_event_fit;
 
   // ═══ A. 新标准题面（J1.79）═══
   console.log('\n── A. J1.79 fit 单题事件价值标准 ──');
   check('A1 版本号 = J1.90（J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79 impact 删题 + fit 单一事件分）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
   check('A2 web3_user_event_spread / event_magnitude / dimension2 均删题；web3_user_event_impact = J1.110/C181 复活为 choice 否决题（J1.79 删除的旧题同键名撞名复活，锁 type=choice 防变回 score 事件分题）',
-    qs.web3_user_event_impact?.type === 'choice' && qs.web3_user_event_spread === undefined
+    qs.bsc_meme_user_event_impact?.type === 'choice' && qs.web3_user_event_spread === undefined
     && qs.event_magnitude === undefined && qs.dimension2 === undefined, Object.keys(qs));
   check('A3 fit 声明标准路径唯一事件价值题 + 60 过线 + 不是影响力题',
     fit.instructions.includes('标准路径的事件价值题') && fit.instructions.includes('事件分=本题 strong_fit+fit 质量（0-100，60 过线）')

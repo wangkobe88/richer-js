@@ -71,20 +71,20 @@ async function main() {
   check('A2 题集 10 题且 event_subject_entity/w_product_score/web3_user_entity_visuality 已退役（J1.102/C171 删 visuality+event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 impact 14→13；C108 删 block_misspelling；C109 收敛 19→16）',
     Object.keys(q).length === 10 && !('event_subject_entity' in q) && !('w_product_score' in q) && !q.web3_user_entity_visuality && !q.event_influence && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 J1.79 事件价值题收敛为 web3_user_event_fit（impact 旧 score 题已删；J1.110/C181 同键名复活为 choice 否决题不再承担事件分，唯一事件价值题标记仍在）',
-    q.web3_user_event_impact?.type === 'choice'
-    && q.web3_user_event_fit.instructions.includes('标准路径的事件价值题'));
+    q.bsc_meme_user_event_impact?.type === 'choice'
+    && q.bsc_meme_user_event_fit.instructions.includes('标准路径的事件价值题'));
   check('A3b event_subject_entity 题面判据迁移：fit 题尾锚句升级（纯功能型→unfit，对齐 mapper 门）+ 母公司影响力核心句',
-    q.web3_user_event_fit.instructions.includes('公司产品实体（J1.27/J1.83）')
-    && q.web3_user_event_fit.instructions.includes('无形象无玩梗空间→unfit')
-    && q.web3_user_event_fit.instructions.includes('母公司影响力/规格不转移给产品'));
+    q.bsc_meme_user_event_fit.instructions.includes('公司产品实体（J1.27/J1.83）')
+    && q.bsc_meme_user_event_fit.instructions.includes('无形象无玩梗空间→unfit')
+    && q.bsc_meme_user_event_fit.instructions.includes('母公司影响力/规格不转移给产品'));
   check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）仍在，impact 旧 score 题删除不带走该锚（J1.110 复活键为 choice 否决题）',
     q.event_category.instructions.includes('D vs W boundary')
     && q.event_category.instructions.includes('NOT W')
-    && q.web3_user_event_impact?.type === 'choice');
+    && q.bsc_meme_user_event_impact?.type === 'choice');
   check('A4 unfit 桶含产品实体臂（华为发布麒麟≠链上用户接纳麒麟）+ crypto 原生机构例外',
-    q.web3_user_event_fit.criteria.unfit.includes('公司产品实体不被接纳')
-    && q.web3_user_event_fit.criteria.unfit.includes('华为发布麒麟芯片≠链上用户接纳麒麟')
-    && q.web3_user_event_fit.criteria.unfit.includes('天然强契合不选本项'));
+    q.bsc_meme_user_event_fit.criteria.unfit.includes('公司产品实体不被接纳')
+    && q.bsc_meme_user_event_fit.criteria.unfit.includes('华为发布麒麟芯片≠链上用户接纳麒麟')
+    && q.bsc_meme_user_event_fit.criteria.unfit.includes('天然强契合不选本项'));
 
   console.log('\n── B. 封装边界 ──');
   check('B1 web3FitMassBlock 不导出（私有封装，门矩阵经 C 段集成；前身 productEntityAcceptanceBlock 同款私例）',
@@ -157,7 +157,7 @@ async function main() {
   const unfitAnswers = { ...qilinAnswers, web3_user_event_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2, strong_fit: 0.1, fit: 0.08 } } };
   const rUnfit = mapper.mapStandardAnswers(unfitAnswers, makeContext(qilinTokenData, unfitAnswers));
   check('C6 unfit≥0.5 票先被 web3_user_event_fit 负门拦（非契合证据门 label）',
-    (rUnfit.stage2DataToSave?.parsed_output?.blockReason || '').includes('Web3用户偏好不合'), rUnfit.stage2DataToSave?.parsed_output?.blockReason);
+    (rUnfit.stage2DataToSave?.parsed_output?.blockReason || '').includes('BSC meme 用户偏好不合'), rUnfit.stage2DataToSave?.parsed_output?.blockReason);
 
   // C7 币安豁免（C55 补充裁定「要豁免币安」）：同麒麟形状答案（19% 接纳度本应拦）
   //    + 代币名含「币安」→ 门不拦 + 审计 productEntityBinanceExempt=true
@@ -211,8 +211,8 @@ async function main() {
   const qSrc = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D4 版本头条目含 C141 案号与门一般化语义', qSrc.includes('J1.83') && qSrc.includes('C141') && qSrc.includes('web3FitMassBlock'));
   check('D5 币安豁免句已随题收敛到 fit 题（影响力可正常转移给产品，随 J1.83 升级措辞）',
-    q.web3_user_event_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列')
-    && q.web3_user_event_impact?.type === 'choice');
+    q.bsc_meme_user_event_fit.instructions.includes('币安等 crypto 原生机构（交易所/公链/Web3 平台）的产品不在此列')
+    && q.bsc_meme_user_event_impact?.type === 'choice');
 
   console.log('\n── F. C56 平台官方源豁免（FlapGuy 0x2fb77ad0…7777 复验实测形状）──');
   // FlapGuy 双轮复验（J1.27，182 真实 Jev 调用）：cat=D、mag 3.04-3.08（round→B 档，

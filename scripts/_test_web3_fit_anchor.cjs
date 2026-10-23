@@ -220,13 +220,13 @@ async function main() {
   const unfitAnswers = kurumiAnswers({ strongFit: 0.02, unfit: 0.88, web3Fit: { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } } });
   const mb = map(unfitAnswers);
   const sb = stage2(mb);
-  check('B1 unfit 0.88 负门拦截维持（偏好不合）', sb.pass === false && sb.blockReason === 'Web3用户偏好不合', sb.blockReason);
+  check('B1 unfit 0.88 负门拦截维持（偏好不合）', sb.pass === false && sb.blockReason === 'BSC meme 用户偏好不合', sb.blockReason);
 
   // B2 正负不可同时 ≥0.5（概率和为 1 的天然不变式，代码防御性写法验证：unfit 门先挂）
   const both = kurumiAnswers({ strongFit: 0.6, unfit: 0.5, web3Fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.6, unfit: 0.5, fit: 0, marginal: 0 } } });
   const mb2 = map(both);
   const sb2 = stage2(mb2);
-  check('B2 双过半形状（脏数据）：unfit 负门先拦（w3Block 挂在量级分支前）', sb2.pass === false && sb2.blockReason === 'Web3用户偏好不合', sb2.blockReason);
+  check('B2 双过半形状（脏数据）：unfit 负门先拦（w3Block 挂在量级分支前）', sb2.pass === false && sb2.blockReason === 'BSC meme 用户偏好不合', sb2.blockReason);
 
   console.log('\n── C. 审计与 reason ──');
 
@@ -238,7 +238,7 @@ async function main() {
       && j1.anchoredTier === null,
     { t: j1.jevImpactTier, e: j1.effectiveImpactTier, a: j1.web3FitAnchoredTier, p: j1.web3FitStrongPAnchored });
   check('C1b 概率证据照落：probabilities.web3_user_event_fit.strong_fit=0.88',
-    j1.probabilities?.web3_user_event_fit?.strong_fit === 0.88, j1.probabilities?.web3_user_event_fit);
+    j1.probabilities?.bsc_meme_user_event_fit?.strong_fit === 0.88, j1.probabilities?.bsc_meme_user_event_fit);
 
   // C2 reason 精确串：Web3口味契合X%(strong Y%+fit Z%)→分(档)（pass线60）
   check('C2 reason 精确串（fit 来源可追溯，无锚标注）',
@@ -329,7 +329,7 @@ async function main() {
   d6a.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.88, marginal: 0.06, fit: 0.03, strong_fit: 0.02 } };
   const d6 = mapJxa(d6a);
   check('D6 B 类 unfit 0.88 负门拦截维持（偏好不合先于计分）',
-    d6.s.pass === false && d6.s.blockReason === 'Web3用户偏好不合', d6.s.blockReason);
+    d6.s.pass === false && d6.s.blockReason === 'BSC meme 用户偏好不合', d6.s.blockReason);
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
   process.exit(failed ? 1 : 0);

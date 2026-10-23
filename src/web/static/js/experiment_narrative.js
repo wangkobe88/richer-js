@@ -547,7 +547,7 @@ class ExperimentNarrative {
       const meaning = categoryMeaning(cat);
       chips.push(`<span class="feat-chip" title="${esc(meaning.full)}（token_category=${esc(cat)}）">${esc(catLabel)}</span>`);
     }
-    if (item.narrative.narrativeSuperIp === 1) chips.push(`<span class="feat-chip feat-superip" title="超级IP（web3_user_name_entity_acceptance.accepted ≥ 0.5，C88）">★超级IP</span>`);
+    if (item.narrative.narrativeSuperIp === 1) chips.push(`<span class="feat-chip feat-superip" title="超级IP（bsc_meme_user_name_entity_acceptance.accepted ≥ 0.5，C88）">★超级IP</span>`);
     if (item.narrative.narrativeSuperIpSlogan === 1) chips.push(`<span class="feat-chip feat-slogan" title="口号票（五腿全中，C88）">📣口号</span>`);
     if (f.mem != null) {
       const cls = f.mem >= 2 ? 'feat-mem-hi' : 'feat-mem-lo';
@@ -797,13 +797,13 @@ class ExperimentNarrative {
     };
     const ansRows = [
       this._kv('事件类别', f.eventCategory, probTop(probs.event_category)),
-      this._kv('量级档', f.tier, probTop(probs.web3_user_event_impact ?? probs.event_magnitude)),
-      this._kv('名称指代', f.nameReferent, probTop(probs.web3_user_name_entity_acceptance)),
+      this._kv('量级档', f.tier, probTop(probs.bsc_meme_user_event_impact ?? probs.web3_user_event_impact ?? probs.event_magnitude)),
+      this._kv('名称指代', f.nameReferent, probTop(probs.bsc_meme_user_name_entity_acceptance ?? probs.web3_user_name_entity_acceptance)),
       this._kv('实体接纳概率', f.superIpProb != null ? `${Math.round(f.superIpProb * 100)}%` : null),
       this._kv('口号性 mem', f.mem),
       this._kv('时效', f.timing),
-      this._kv('Web3 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.web3_user_event_fit)),
-      this._kv('拦截原因', f.blockChoice, probTop(probs.web3_user_event_impact ?? probs.event_quality_veto ?? probs.event_token_block_reason)),
+      this._kv('BSC meme 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.bsc_meme_user_event_fit ?? probs.web3_user_event_fit)),
+      this._kv('拦截原因', f.blockChoice, probTop(probs.bsc_meme_user_event_impact ?? probs.web3_user_event_impact ?? probs.event_quality_veto ?? probs.event_token_block_reason)),
       this._kv('主体实体', f.subjectEntity ?? s2j?.subjectEntity, probTop(probs.event_subject_entity)),
       this._kv('形象载体', f.subjectCarrier ?? s2j?.subjectCarrier)
     ].join('');
@@ -1084,8 +1084,8 @@ function extractFeatures(item) {
   // stage1 概率带 + raw answers 兜底（C88 前旧行）
   const s1j = stagePayload(na.stage1)?.jev;
   const probs = s1j?.probabilities || {};
-  if (f.superIpProb == null && probs.web3_user_name_entity_acceptance) f.superIpProb = probs.web3_user_name_entity_acceptance.accepted ?? null;
-  if (f.strongFit == null && probs.web3_user_event_fit) f.strongFit = probs.web3_user_event_fit.strong_fit ?? null;
+  if (f.superIpProb == null && (probs.bsc_meme_user_name_entity_acceptance ?? probs.web3_user_name_entity_acceptance)) f.superIpProb = (probs.bsc_meme_user_name_entity_acceptance ?? probs.web3_user_name_entity_acceptance).accepted ?? null;
+  if (f.strongFit == null && (probs.bsc_meme_user_event_fit ?? probs.web3_user_event_fit)) f.strongFit = (probs.bsc_meme_user_event_fit ?? probs.web3_user_event_fit).strong_fit ?? null;
 
   const raw = na.stage1?.rawOutput;
   if (raw) {
@@ -1097,11 +1097,11 @@ function extractFeatures(item) {
         // J1.61：name_entity_memeability 题已删，mem 仅历史行有值
         if (f.timing == null) f.timing = answers.event_timing?.choice ?? null;
         f.eventCategory = answers.event_category?.choice ?? null;
-        f.nameReferent = answers.web3_user_name_entity_acceptance?.choice ?? null;
-        f.blockChoice = answers.web3_user_event_impact?.choice ?? answers.event_quality_veto?.choice ?? answers.event_token_block_reason?.choice ?? null; // J1.110 三键读旧缓存行
-        if (f.strongFit == null) f.strongFit = answers.web3_user_event_fit?.probabilities?.strong_fit ?? null;
+        f.nameReferent = answers.bsc_meme_user_name_entity_acceptance?.choice ?? answers.web3_user_name_entity_acceptance?.choice ?? null;
+        f.blockChoice = answers.bsc_meme_user_event_impact?.choice ?? answers.web3_user_event_impact?.choice ?? answers.event_quality_veto?.choice ?? answers.event_token_block_reason?.choice ?? null; // J1.112 四键读旧缓存行
+        if (f.strongFit == null) f.strongFit = (answers.bsc_meme_user_event_fit ?? answers.web3_user_event_fit)?.probabilities?.strong_fit ?? null;
         if (f.subjectEntity == null) f.subjectEntity = answers.event_subject_entity?.choice ?? null;
-        if (f.subjectCarrier == null) f.subjectCarrier = answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null; // J1.81 双键读旧缓存行
+        if (f.subjectCarrier == null) f.subjectCarrier = answers.bsc_meme_user_entity_visuality?.choice ?? answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null; // J1.81 双键读旧缓存行（题已废 C171，纯历史行）
       }
     } catch { /* 旧行/坏行：对应字段保持 null */ }
   }
@@ -1132,7 +1132,7 @@ function extractFeatures(item) {
 }
 
 function answersTier(answers) {
-  return answers?.web3_user_event_impact?.score ?? answers?.event_magnitude?.score ?? null;
+  return answers?.bsc_meme_user_event_impact?.score ?? answers?.web3_user_event_impact?.score ?? answers?.event_magnitude?.score ?? null;
 }
 
 // 初始化

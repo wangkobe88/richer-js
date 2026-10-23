@@ -1815,7 +1815,7 @@ class ExperimentTokenReturns {
     const superIp = narrative.narrative.narrativeSuperIp;
     const recognizedEntitySlogan = narrative.narrative.narrativeSuperIpSlogan;
     const superIpHtml = superIp === 1
-      ? `<div class="mt-0.5 text-[10px] leading-tight cursor-help text-amber-400" title="名字指代超级IP（web3_user_name_entity_acceptance accepted≥0.5${recognizedEntitySlogan === 1 ? '；五腿全中：关联含引申+口号性 mem≥2+事件新鲜+web3共鸣' : ''}）">超级IP${recognizedEntitySlogan === 1 ? '<span class="ml-0.5 text-emerald-400">口号</span>' : ''}</div>`
+      ? `<div class="mt-0.5 text-[10px] leading-tight cursor-help text-amber-400" title="名字指代超级IP（bsc_meme_user_name_entity_acceptance accepted≥0.5${recognizedEntitySlogan === 1 ? '；五腿全中：关联含引申+口号性 mem≥2+事件新鲜+web3共鸣' : ''}）">超级IP${recognizedEntitySlogan === 1 ? '<span class="ml-0.5 text-emerald-400">口号</span>' : ''}</div>`
       : '';
 
     return `

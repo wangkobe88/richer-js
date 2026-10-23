@@ -71,11 +71,11 @@ async function main() {
     !('relevance_level' in qs) && !('quality_spelling' in qs) && !('quality_reasonability' in qs), null);
   check('A4 token_name_quality 在（0-3 四档）', qs.token_name_quality?.type === 'score' && qs.token_name_quality.criteria.length === 4, qs.token_name_quality?.criteria?.length);
   check('A5 web3_user_name_event_acceptance 3 用户视角桶（J1.93/C156 改名；J1.92/C155：exact_match/acceptable/unacceptable）',
-    Object.keys(qs.web3_user_name_event_acceptance.criteria).length === 3
-    && ['exact_match', 'acceptable', 'unacceptable'].every(k => k in qs.web3_user_name_event_acceptance.criteria), Object.keys(qs.web3_user_name_event_acceptance.criteria));
+    Object.keys(qs.bsc_meme_user_name_event_acceptance.criteria).length === 3
+    && ['exact_match', 'acceptable', 'unacceptable'].every(k => k in qs.bsc_meme_user_name_event_acceptance.criteria), Object.keys(qs.bsc_meme_user_name_event_acceptance.criteria));
   // J1.109/C179：豁免段挪判轴级（用户裁定「挂在被限制桶下=逻辑冲突」）+ J1.108/C178 措辞强化
   // 事故反证——防豁免段回挂③桶、防旧明示措辞与 semantic 残留句复活
-  const relIns = qs.web3_user_name_event_acceptance.instructions;
+  const relIns = qs.bsc_meme_user_name_event_acceptance.instructions;
   const relBucketStart = relIns.indexOf('① **exact_match');
   const relExempt = relIns.indexOf('⚠️ 宣告采信豁免（判轴级规则，先于分桶判定）');
   check('A5b 豁免判轴级（J1.109：豁免段在①②③分桶之前=先立规则再列桶，不挂在被限制桶下；J1.108 措辞：发币+宣告并置即币名承载不要求点名/明说；反臂=名字是另一个词不豁免；桶内 unacceptable 无自相注释）',
@@ -86,42 +86,42 @@ async function main() {
       && relIns.includes('另一个词（≠币名）')
       && !relIns.includes('且币名正是承载该名字的代币')
       && !relIns.includes('semantic_clear')
-      && qs.web3_user_name_event_acceptance.criteria.acceptable.includes('宣告采信豁免适用 → 本桶起步')
-      && !qs.web3_user_name_event_acceptance.criteria.unacceptable.includes('宣告采信豁免')
-      && !qs.web3_user_name_event_acceptance.criteria.unacceptable.includes('不适用本桶'),
+      && qs.bsc_meme_user_name_event_acceptance.criteria.acceptable.includes('宣告采信豁免适用 → 本桶起步')
+      && !qs.bsc_meme_user_name_event_acceptance.criteria.unacceptable.includes('宣告采信豁免')
+      && !qs.bsc_meme_user_name_event_acceptance.criteria.unacceptable.includes('不适用本桶'),
     '豁免判轴级位置/措辞/反臂/防回挂四缺一');
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
   check('A6 实体题五桶恒形（brand_mismatch 桶 J1.103/C172 随品牌劫持轴退役——品牌票与非品牌票同形；J1.72 C133 加新实体；J1.81/C139 加 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
-    Object.keys(qsBrand.web3_user_name_entity_acceptance.criteria).length === 5
-    && ['accepted', 'unknown', 'new_entity', 'wrong_entity', 'not_entity'].every(k => k in qsBrand.web3_user_name_entity_acceptance.criteria)
-    && !('brand_mismatch' in qsBrand.web3_user_name_entity_acceptance.criteria)
-    && !('no_entity' in qsBrand.web3_user_name_entity_acceptance.criteria), null);
+    Object.keys(qsBrand.bsc_meme_user_name_entity_acceptance.criteria).length === 5
+    && ['accepted', 'unknown', 'new_entity', 'wrong_entity', 'not_entity'].every(k => k in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
+    && !('brand_mismatch' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
+    && !('no_entity' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria), null);
   check('A6b 非品牌票实体题保持 5 桶 J1.84 原形（新增桶不稀释 accepted/unknown 概率）',
-    Object.keys(qs.web3_user_name_entity_acceptance.criteria).length === 5
-    && !('brand_mismatch' in qs.web3_user_name_entity_acceptance.criteria)
-    && !qs.web3_user_name_entity_acceptance.instructions.includes('brand_mismatch'), null);
+    Object.keys(qs.bsc_meme_user_name_entity_acceptance.criteria).length === 5
+    && !('brand_mismatch' in qs.bsc_meme_user_name_entity_acceptance.criteria)
+    && !qs.bsc_meme_user_name_entity_acceptance.instructions.includes('brand_mismatch'), null);
   check('A6c new_entity 判据含「新实体不按认知度判」',
-    qs.web3_user_name_entity_acceptance.criteria.new_entity.includes('刚诞生/刚发布')
-    && qs.web3_user_name_entity_acceptance.criteria.new_entity.includes('不按「认知度不足」判')
-    && qs.web3_user_name_entity_acceptance.criteria.unknown.includes('已存在'), null);
+    qs.bsc_meme_user_name_entity_acceptance.criteria.new_entity.includes('刚诞生/刚发布')
+    && qs.bsc_meme_user_name_entity_acceptance.criteria.new_entity.includes('不按「认知度不足」判')
+    && qs.bsc_meme_user_name_entity_acceptance.criteria.unknown.includes('已存在'), null);
   check('A6b not_entity 中性声明（J1.81 断代改名）+ 配图形象指代源（交易猫断链修复点）',
-    qs.web3_user_name_entity_acceptance.criteria.not_entity.includes('中性')
-    && qs.web3_user_name_entity_acceptance.instructions.includes('配图中真实出现的形象'), null);
+    qs.bsc_meme_user_name_entity_acceptance.criteria.not_entity.includes('中性')
+    && qs.bsc_meme_user_name_entity_acceptance.instructions.includes('配图中真实出现的形象'), null);
   check('A7 event_subject_entity 题已退役（J1.83/C141——判据并入 web3_user_event_fit unfit 桶产品实体臂，题集 -1；旧缓存行残留键 mapper 不再消费）',
     qs.event_subject_entity === undefined
-    && qs.web3_user_event_fit.criteria.unfit.includes('公司产品实体不被接纳'), null);
+    && qs.bsc_meme_user_event_fit.criteria.unfit.includes('公司产品实体不被接纳'), null);
   check('A8 event_token_block_reason 4 桶（J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact——mapper 三键归一读旧行）（J1.101/C170 退役 event_negative_hard_news（负面事件交 web3_user_event_fit 口径层判）；J1.88/C150 退役 event_institution_routine（机构日常交 web3_user_event_fit）；J1.87/C145 退役 event_routine_content_product（日常产品/内容宣传交 web3_user_event_fit）；J1.82/C140 退役 token_circle_reachability（圈层可达性并入 event_fit unfit 档）；C109 退役 regional/subject_unqualified + C110 退役 low_quality_derivative + J1.64 退役 event_marketing_gimmick）',
-    Object.keys(qs.web3_user_event_impact.criteria).length === 4
-    && !('regional_event' in qs.web3_user_event_impact.criteria) && !('subject_unqualified' in qs.web3_user_event_impact.criteria)
-    && !('low_quality_derivative' in qs.web3_user_event_impact.criteria)
-    && !('event_marketing_gimmick' in qs.web3_user_event_impact.criteria)
-    && !('event_routine_content_product' in qs.web3_user_event_impact.criteria)
-    && !('event_institution_routine' in qs.web3_user_event_impact.criteria)
-    && !('token_circle_reachability' in qs.web3_user_event_impact.criteria)
-    && !('event_negative_hard_news' in qs.web3_user_event_impact.criteria), null);
+    Object.keys(qs.bsc_meme_user_event_impact.criteria).length === 4
+    && !('regional_event' in qs.bsc_meme_user_event_impact.criteria) && !('subject_unqualified' in qs.bsc_meme_user_event_impact.criteria)
+    && !('low_quality_derivative' in qs.bsc_meme_user_event_impact.criteria)
+    && !('event_marketing_gimmick' in qs.bsc_meme_user_event_impact.criteria)
+    && !('event_routine_content_product' in qs.bsc_meme_user_event_impact.criteria)
+    && !('event_institution_routine' in qs.bsc_meme_user_event_impact.criteria)
+    && !('token_circle_reachability' in qs.bsc_meme_user_event_impact.criteria)
+    && !('event_negative_hard_news' in qs.bsc_meme_user_event_impact.criteria), null);
   check('A8b C113 token_ip_reuse 边界重写：仅拦纯蹭名+无意义修改两形状，有意义的修改/变形不拦（用户裁定「合理即可」）',
-    qs.web3_user_event_impact.criteria.token_ip_reuse.includes('纯蹭名') && qs.web3_user_event_impact.criteria.token_ip_reuse.includes('无意义修改')
-    && qs.web3_user_event_impact.criteria.token_ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
+    qs.bsc_meme_user_event_impact.criteria.token_ip_reuse.includes('纯蹭名') && qs.bsc_meme_user_event_impact.criteria.token_ip_reuse.includes('无意义修改')
+    && qs.bsc_meme_user_event_impact.criteria.token_ip_reuse.includes('有意义的修改/变形不选本项') === true, null);
   // A8c 行为级退役证明（legacy 形状行/旧缓存重放）：A 类票 argmax=low_quality_derivative
   // （none<0.5 域内）不再拦——C109 教训的机器证明：scope 显式空数组才是真退役；
   // 同形状 argmax=token_ip_reuse 照拦（合并不外溢）
@@ -155,9 +155,9 @@ async function main() {
   {
     check('A9 J1.79 事件价值题单源：spread 题删除；J1.110/C181 impact 键复活为 choice 否决题（非旧 score 事件分题）；fit 题声明事件分=strong_fit+fit 质量（非影响力大小）',
       qs.web3_user_event_spread === undefined
-      && qs.web3_user_event_impact?.type === 'choice'
-      && qs.web3_user_event_fit.instructions.includes('事件分=本题 strong_fit+fit 质量')
-      && qs.web3_user_event_fit.instructions.includes('不是事件影响力大小'),
+      && qs.bsc_meme_user_event_impact?.type === 'choice'
+      && qs.bsc_meme_user_event_fit.instructions.includes('事件分=本题 strong_fit+fit 质量')
+      && qs.bsc_meme_user_event_fit.instructions.includes('不是事件影响力大小'),
       Object.keys(qs).filter(k => k.includes('spread') || k.includes('impact') || k.includes('fit')));
   }
 
@@ -173,12 +173,12 @@ async function main() {
     const sbSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-state-builder.mjs'), 'utf8');
     check('A10a event_subject_entity 题退役反证（J1.83/C141）：题集无此键；主体实体分类钩子随题删除（母公司影响力≠产品接纳判据已迁 event_fit unfit 桶）',
       qs.event_subject_entity === undefined
-      && qs.web3_user_event_fit.criteria.unfit.includes('华为发布麒麟芯片≠链上用户接纳麒麟'), null);
+      && qs.bsc_meme_user_event_fit.criteria.unfit.includes('华为发布麒麟芯片≠链上用户接纳麒麟'), null);
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
-    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.111'"), 'J1.111 常量缺失');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.112=C183 web3_user_* 全族键名断代 bsc_meme_user_*+评估主体收窄 BSC meme 币用户；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.112'"), 'J1.112 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题
@@ -198,13 +198,13 @@ async function main() {
       // J1.82/C140（并行会话同批）：圈层可达性桶退役——判据并入 web3_user_event_fit
       // unfit 档（圈外亚文化 get 不到梗=unfit；crypto 圈内口径；品牌营销边界句随迁）
       check('A11c 圈层可达性桶退役反证（J1.82/C140 并入 event_fit unfit 档）',
-        qs.web3_user_event_impact.criteria.token_circle_reachability === undefined
-        && qs.web3_user_event_fit.criteria.unfit.includes('圈外')
-        && qs.web3_user_event_fit.criteria.unfit.includes('品牌营销物料'), null);
+        qs.bsc_meme_user_event_impact.criteria.token_circle_reachability === undefined
+        && qs.bsc_meme_user_event_fit.criteria.unfit.includes('圈外')
+        && qs.bsc_meme_user_event_fit.criteria.unfit.includes('品牌营销物料'), null);
       // A11c2 品牌营销边界（C110 币安菠萝 A/B 归因：不加此界=gimmick argmax
       // 100%→47%，币安品牌物料被当圈内梗放行）
       check('A11c2 品牌营销边界句迁址（J1.82/C140：社区自发梗≠品牌物料随 unfit 档承接）',
-        qs.web3_user_event_fit.criteria.unfit.includes('品牌营销物料'), null);
+        qs.bsc_meme_user_event_fit.criteria.unfit.includes('品牌营销物料'), null);
       // 源码口径断言（BLOCK_SCOPE 模块私有未导出，A10d 同款先例；注意 BLOCK_SCOPE
       // 在 mapper 文件非题集文件——qsSrc 是题集文件源码）：
       const mapperSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
@@ -215,10 +215,10 @@ async function main() {
       // marginal 圈外臂删除（逃逸洞封死：原圈外落 marginal 不拦 → J1.82 起判 unfit；
       // 不删此臂=圈外票继续落 marginal 逃逸，删桶白删）
       check('A11e marginal 圈外臂删除（收窄为圈内能 get 但玩味空间有限；圈外=unfit 划界句在场）',
-        qs.web3_user_event_fit.criteria.marginal.includes('圈内能 get')
-        && qs.web3_user_event_fit.criteria.marginal.includes('get 不到梗=unfit')
-        && !qs.web3_user_event_fit.criteria.marginal.includes('不重叠的小众领域'),
-        qs.web3_user_event_fit.criteria.marginal.slice(0, 160));
+        qs.bsc_meme_user_event_fit.criteria.marginal.includes('圈内能 get')
+        && qs.bsc_meme_user_event_fit.criteria.marginal.includes('get 不到梗=unfit')
+        && !qs.bsc_meme_user_event_fit.criteria.marginal.includes('不重叠的小众领域'),
+        qs.bsc_meme_user_event_fit.criteria.marginal.slice(0, 160));
 
       // A12 J1.53（C122 门名断代，零行为意图）：题键/桶键改名——name_form →
       // web3_user_name_acceptability、niche_subculture → token_circle_reachability。
@@ -226,12 +226,12 @@ async function main() {
       // fixture 兼容）③新键行为=旧键（拦/放同语义）④新桶域内拦、域外不拦
       {
         check('A12a 题集题键=web3_user_phrase_acceptability（J1.81 由 web3_user_name_acceptability 改名；旧 name_form 不再提供）',
-          qs.web3_user_phrase_acceptability != null && qs.web3_user_name_acceptability === undefined && qs.name_form === undefined,
+          qs.bsc_meme_user_phrase_acceptability != null && qs.web3_user_name_acceptability === undefined && qs.name_form === undefined,
           Object.keys(qs).filter(k => k.includes('accept') || k.includes('name')));
         check('A12b 题集桶键 J1.82/C140 退役反证（token_circle_reachability/niche_subcultuab 双不存在；label 保留防 fallback 裸键名）',
-          qs.web3_user_event_impact.criteria.token_circle_reachability === undefined
-          && qs.web3_user_event_impact.criteria.niche_subculture === undefined,
-          Object.keys(qs.web3_user_event_impact.criteria));
+          qs.bsc_meme_user_event_impact.criteria.token_circle_reachability === undefined
+          && qs.bsc_meme_user_event_impact.criteria.niche_subculture === undefined,
+          Object.keys(qs.bsc_meme_user_event_impact.criteria));
         // 新键行为=旧键（拦）
         const aNew = baseAnswers();
         aNew.web3_user_name_acceptability = { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.8 } };
@@ -261,14 +261,14 @@ async function main() {
         aBucket.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2 } };
         const rBucket = mapStandardAnswers(aBucket, stdCtx('TST', 'TST'));
         check('A12e 圈层不可达形状（unfit 0.62）A 域拦（J1.82/C140 并入 unfit 负门，label=Web3用户偏好不合）',
-          rBucket.llmResult.rating === 'low' && (rBucket.llmResult.reason || '').includes('Web3用户偏好不合'),
+          rBucket.llmResult.rating === 'low' && (rBucket.llmResult.reason || '').includes('BSC meme 用户偏好不合'),
           rBucket.llmResult.reason);
         const bBucket = baseAnswers();
         bBucket.event_category = { choice: 'B', probabilities: { B: 0.8 } };
         bBucket.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2 } };
         const rBucketB = mapStandardAnswers(bBucket, stdCtx('TST', 'TST'));
         check('A12f unfit 全域（B 类同形状同拦——原 A-only 圈层桶语义升级，拦截面扩大=刻意）',
-          rBucketB.llmResult.rating === 'low' && (rBucketB.llmResult.reason || '').includes('Web3用户偏好不合'),
+          rBucketB.llmResult.rating === 'low' && (rBucketB.llmResult.reason || '').includes('BSC meme 用户偏好不合'),
           rBucketB.llmResult.reason);
         check('A12g 审计键改名（stage1 web3UserAcceptability / stage2 web3UserAcceptabilityBlock，旧名不落）',
           rNew.stage1DataToSave.parsed_output.jev.web3UserAcceptability === 'web3_user_not_acceptable'
@@ -282,14 +282,14 @@ async function main() {
       // 断代兼容红线：mapper 双读（旧形状 answers 结果与新形状逐位一致）。
       {
         check('A13a 事件价值题键收敛：web3_user_event_impact 复活为 choice 否决题（J1.110，事件分源仍是 fit 唯一）；event_magnitude/dimension2 缺席',
-          qs.web3_user_event_impact?.type === 'choice'
-          && qs.web3_user_event_fit?.type === 'choice'
+          qs.bsc_meme_user_event_impact?.type === 'choice'
+          && qs.bsc_meme_user_event_fit?.type === 'choice'
           && qs.web3_user_event_spread === undefined
           && qs.event_magnitude === undefined && qs.dimension2 === undefined,
           Object.keys(qs).filter(k => k.includes('impact') || k.includes('spread') || k.includes('magnitude') || k.includes('dimension') || k.includes('fit')));
         check('A13b 主体判定规则自洽（event_subject_entity 已退役 J1.83；事件价值由 fit 题声明——产品实体判据并入 unfit 桶）',
           qs.event_subject_entity === undefined
-          && qs.web3_user_event_fit.instructions.includes('标准路径的事件价值题'),
+          && qs.bsc_meme_user_event_fit.instructions.includes('标准路径的事件价值题'),
           null);
         // 单源等价：旧形状事件题（magnitude/dim2）与 impact 形状同 fit → 评分/tier 逐位全等
         const oldShape = baseAnswers();
@@ -317,7 +317,7 @@ async function main() {
           s1j.anchoredTier === null || typeof s1j.anchoredTier === 'string',
           s1j.anchoredTier);
         check('A13f 概率键/评分键：stage1 概率键=fit（impact/event_magnitude 缺席）；J1.71 后 scoringResult 无 spreadScore/dimension2',
-          s1j.probabilities.web3_user_event_fit != null
+          s1j.probabilities.bsc_meme_user_event_fit != null
           && s1j.probabilities.event_magnitude === undefined
           && s2New.jev.probabilities.web3_user_event_spread === undefined && s2New.jev.probabilities.dimension2 === undefined
           && s2New.scoringResult.spreadScore === undefined && s2New.scoringResult.dimension2 === undefined,
@@ -373,15 +373,15 @@ async function main() {
       // 接受度/影响力；作者身份不升档（原话票由代码侧 authorUtterance 承担）；
       // no_entity 中性（问候语/截词不拦）；发布者指代/官方口号/配图形象保留。
       {
-        const nr = qs.web3_user_name_entity_acceptance;
+        const nr = qs.bsc_meme_user_name_entity_acceptance;
         check('A14a 主轴=币名映射实体对 web3 用户的接受度/影响力（非事件热度/陈述者量级/大众知名度）',
-          nr.instructions.includes('币名映射实体对 Web3 用户的接受度/影响力')
+          nr.instructions.includes('币名映射实体对 BSC meme 币用户的接受度/影响力')
           && nr.instructions.includes('不是事件整体热度')
           && nr.instructions.includes('不是大众媒体知名度')
           && nr.instructions.includes('被当符号使用'),
           nr.instructions.slice(0, 120));
         check('A14b accepted=用户认得的实体（被当符号使用；大众知名但圈内不认不归本项）',
-          nr.criteria.accepted.includes('被 Web3 用户当符号使用')
+          nr.criteria.accepted.includes('被 BSC meme 币用户当符号使用')
           && nr.criteria.accepted.includes('不是大众知名度')
           && nr.criteria.accepted.includes('圈外明星/传统品牌'),
           nr.criteria.accepted.slice(0, 160));
@@ -397,7 +397,7 @@ async function main() {
         check('A14e not_entity 中性（J1.81 断代改名；问候语/截词/陈述句）+ 词句形态责任移交 phrase 题',
           nr.criteria.not_entity.includes('中性')
           && nr.criteria.not_entity.includes('问候语')
-          && nr.criteria.not_entity.includes('web3_user_phrase_acceptability'),
+          && nr.criteria.not_entity.includes('bsc_meme_user_phrase_acceptability'),
           nr.criteria.not_entity.slice(0, 160));
         check('A14f 作者身份不升档（C126 红线）+ 配图形象映射源保留',
           nr.instructions.includes('作者身份本身不是映射')

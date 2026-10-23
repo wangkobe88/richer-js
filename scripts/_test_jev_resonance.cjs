@@ -170,8 +170,8 @@ async function main() {
       && j3.web3FitDampMass === 0.3 && j3.web3FitDamp?.coef === 0.5 && j3.web3FitDamp?.fitMass === 0.3,
     { j1: { m: j1.web3FitDampMass, d: j1.web3FitDamp }, j3: j3.web3FitDamp });
 
-  // D2 reason 带「Web3偏好折损×0.5(web3_user_event_fit契合30%<50)」段（判据源可追溯）
-  check('D2 reason 展示折损来源（web3_user_event_fit 契合度）', /Web3偏好折损×0.5\(web3_user_event_fit契合30%<50\)/.test(s3.reason || ''),
+  // D2 reason 带「Web3偏好折损×0.5(bsc_meme_user_event_fit契合30%<50)」段（判据源可追溯）
+  check('D2 reason 展示折损来源（web3_user_event_fit 契合度）', /Web3偏好折损×0.5\(bsc_meme_user_event_fit契合30%<50\)/.test(s3.reason || ''),
     { r3: s3.reason });
 
   // D3 不折 reason 无折损段（bit-identical 的 reason 层验证）
@@ -191,9 +191,9 @@ async function main() {
   const qs = qm.buildStandardQuestions({});
   const qKeys = Object.keys(qs);
   const qsRel = qm.buildStandardQuestions({ parentRelationship: true });
-  check('D5 题集 10 题无 event_resonance/block_misspelling/event_subject_entity/w_product_score/web3_user_entity_visuality/event_influence + JEV_QUESTIONS_VERSION≥J1.102（J1.110/C181：web3_user_event_impact 键名复活为 choice 否决题——J1.79 删除的是旧 score 事件分题，撞名复活锁 type=choice；J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；fit 单一事件分来源）',
+  check('D5 题集 10 题无 event_resonance/block_misspelling/event_subject_entity/w_product_score/web3_user_entity_visuality/event_influence + JEV_QUESTIONS_VERSION≥J1.102（J1.112/C183：web3_user_* 全族断代 bsc_meme_user_*（评估主体收窄=BSC meme 币用户）；J1.110/C181：web3_user_event_impact 键名复活为 choice 否决题——J1.79 删除的是旧 score 事件分题，撞名复活锁 type=choice；J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层并入 fit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；fit 单一事件分来源）',
     qKeys.length === 10 && !qKeys.includes('event_influence') && !qKeys.includes('web3_user_entity_visuality') && !qKeys.includes('event_resonance') && !qKeys.includes('block_misspelling') && !qKeys.includes('w_product_score')
-      && qKeys.includes('web3_user_event_impact') && qs.web3_user_event_impact?.type === 'choice' && !qKeys.includes('event_magnitude') && !qKeys.includes('dimension2')
+      && qKeys.includes('bsc_meme_user_event_impact') && qs.bsc_meme_user_event_impact?.type === 'choice' && !qKeys.includes('event_magnitude') && !qKeys.includes('dimension2')
       && !qKeys.includes('event_subject_entity')
       && parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102
       && !qKeys.includes('parent_relationship') && Object.keys(qsRel).length === 11 && qsRel.parent_relationship != null,

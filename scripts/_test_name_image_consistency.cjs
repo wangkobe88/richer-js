@@ -112,8 +112,8 @@ async function main() {
   check('A7 品牌题已退役（name_brand_hijack 题 J1.85/C143 删+brand_mismatch 桶 J1.103/C172 随品牌劫持轴删——任何形状不在）；名图条件题独立在场',
     !('name_brand_hijack' in qsImg)
     && 'name_image_consistency' in buildStandardQuestions({ imageConsistency: true })
-    && !('brand_mismatch' in buildStandardQuestions().web3_user_name_entity_acceptance.criteria)
-    && !('brand_mismatch' in buildStandardQuestions({ brandMismatch: true }).web3_user_name_entity_acceptance.criteria), null);
+    && !('brand_mismatch' in buildStandardQuestions().bsc_meme_user_name_entity_acceptance.criteria)
+    && !('brand_mismatch' in buildStandardQuestions({ brandMismatch: true }).bsc_meme_user_name_entity_acceptance.criteria), null);
 
   // ═══ B. 巴巴鸡事故现场反证 ═══
   console.log('\n── B. 巴巴鸡事故现场反证（cultural lv1=5 分）──');

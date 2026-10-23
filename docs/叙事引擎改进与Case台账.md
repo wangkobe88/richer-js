@@ -52,6 +52,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C183 web3_user_* 键名族整体断代 bsc_meme_user_*——评估主体收窄 BSC meme 币用户（J1.112）
+
+- **用户裁定（2026-10-23）**：「我觉得再改一改，web3 用户 其实还是范围有点太大了，我的想法是，都改成 bsc_meme_user_ 这样其实是最准确的。有的事件不是说在 Web3 不重要，而是对 BSC 的 meme 币用户不重要。 例如 0x27ff2020350977ca43115502c976762c9e257777 ，并非对 Web3 用户偏好不和，而是对 BSC Meme 币用户的偏好不合（评 low 没有问题）。 这里不仅仅是锚的名字，Prompt 也要适当调整下」——例证票 JPM（C180 观察票，W 类）现 low 由 `web3UnfitBlock` label「Web3用户偏好不合」拦截，评级不变、**归因主体修正**。
+- **改动①（J1.112 题集）**：活题五键全族断代——`bsc_meme_user_event_impact`（veto，四代链 event_token_block_reason→event_quality_veto→web3_user_event_impact→本代）/`bsc_meme_user_event_fit`（fit）/`bsc_meme_user_name_event_acceptance`（关联三桶）/`bsc_meme_user_name_entity_acceptance`（实体五桶）/`bsc_meme_user_phrase_acceptability`（词句）；桶值 `bsc_meme_user_acceptable`/`bsc_meme_user_not_acceptable`；桶 id/choice 值域**全部不变**（五桶/四档/三桶/veto 桶）。题面评估主体措辞全量替换（34 处：veto「对 BSC meme 币用户的影响力」/fit「BSC meme 币用户偏好契合度」/实体「该实体对 BSC meme 币用户（链上 meme 买家）」/词句「BSC meme 币用户能否接纳」等）；W 题 `w_bsc_user_appeal` 不改键（已 bsc 命名），题面主体「BSC 链 Web3 用户」→「BSC 链 Meme 币用户」。顺手修 fit 题面两处 J1.110 漏改旧键引用（`event_quality_veto` 残句 → 新 veto 键）。
+- **改动②（mapper，C123 先例：改名不改判据）**：模块级 `q(answers, key, legacyKey)` 归一读 helper 覆盖全部读点（新键优先/旧键兼容=存量 token_narrative 行/旧 fixture 走同一门）；`blockAnswers` 四键链头插新键；词句链 `web3UserAcceptabilityChoice` 四键链；`WEB3_USER_NOT_ACCEPTABLE_CHOICES` 收新桶值+全旧桶值；dump 键换新名（stage1/stage2 probabilities 新行落 `bsc_meme_user_*`，旧键历史行保留展示）；`web3UnfitBlock` label「Web3用户偏好不合」→「**BSC meme 用户偏好不合**」（用户直接指出的归因锚）。mapper 内部函数名（web3UnfitBlock/web3FitMassBlock）与落 DB 历史审计键不动。历史断代注释（J1.50/J1.53/J1.93/J1.110 事件）**还原当时事实键名**防改写史档。
+- **改动③（前端）**：experiment_narrative.js 12 处双键归一读+label「Web3 适配」→「BSC meme 适配」；experiment_token_returns.js 超级IP tooltip 键名。
+- **单测**：28 个涉键文件全绿。⚠ 教训：批量正则把测试 **answers 桩访问**误改新键（`delete noFit.bsc_meme_user_event_fit` 半新半旧=桩内部断裂，5 文件行为类假红：基线 stash 对比定位）——桩键还原旧键（喂旧行形状=归一读兼容的正确测法），仅题集取题键（qs.*）换新；dump 键/label/桶值/题面锚句断言按断代事实更新（web3_fit B5、jev_finding E5/F1/F1b/F11、consolidation A13f/A14 系、nea D5/D5b/D6、angle C5、resonance D5 等 30+ 处）。
+- **fixtures**：C181（JPM 例证票）expect 全收收紧 `['low']`，because=用户裁定原文——评级不变归因修正的首张裁定票。
+- **验证/部署**：定向重析 JPM `0x27ff…7777` 保持 low 且拦截文案变「BSC meme 用户偏好不合」+ RichardTeng `0x007f…7777` 不回翻 + 带父推 high 票防误翻；全量回归攒批等用户通知（[[regression-batch-timing]]）。
+
 ### C182 GMGN 补源必要门+失败封顶——IP 级 RATE_LIMIT_BANNED 事故（2026-10-23 用户裁定「ave api 信息够了就不需要补充」+「抓不成功最多再尝试一次，就往下走」）★
 
 - **现场**：live v34 `1ecc097b`（2026-10-22 15:09 UTC 起）15h 实测——₿i `0xe3c41d37…7777` 02:54 信号 metadata `gmgn_check_no_data`（GMGN 429）；叙事侧 GmgnSocialFetcher 与交易侧 GmgnRiskCheckService 共用 182 出口 IP，叙事侧 GMGN 成功调用 **694 次/492 token**、429 共 99 次，而真正并入社媒仅 **37 次（≈5%）**——交易侧同期仅 3 次调用却陪绑被 ban。
@@ -89,6 +99,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 | 版本 | 日期 | 触发 Case | 改动 |
 |---|---|---|---|
 | J1.110 | 2026-10-23 | C181 | `event_quality_veto` 键名断代 `web3_user_event_impact`（Web3 用户视角：对 Web3 用户的影响力；桶 id 不变，mapper 三键归一读旧行）；empty_content 新增②无名口号臂（无名作者单条口号/喊话即使点名知名对象也算，三排除锚 J1.58/C159 收窄/C175b）；instructions 重写+尸体句删除 |
+| J1.112 | 2026-10-23 | C183 | `web3_user_*` 活题五键全族断代 `bsc_meme_user_*`（event_impact/event_fit/name_event_acceptance/name_entity_acceptance/phrase_acceptability）+桶值 acceptable/not_acceptable；评估主体措辞全量收窄「BSC meme 币用户」（34 处，JPM 案例证）；桶 id 不变零断代，mapper q() 归一读旧行；web3UnfitBlock label 改「BSC meme 用户偏好不合」；fit 题面两处 J1.110 漏改旧键引用顺手修 |
 | J1.111 | 2026-10-23 | C181b | veto instructions 事件层优先序（两层缺陷同命中时 empty_content 优先：无名口号的根基是没有事件）；token_ip_reuse 桶划界句（只管 meme IP/形象/梗换皮复用，仅套用人物/机构名+事件本体=无名一句话 → 归 empty_content）；C114b mapper 收窄同批（decorative≥0.5 图证豁免失效，不 bump 题集） |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。

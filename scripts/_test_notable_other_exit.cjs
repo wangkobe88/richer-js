@@ -121,7 +121,7 @@ async function main() {
   const cvAnswers = { ...cAnswers, web3_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.8 } }, web3_user_event_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.2, fit: 0.12, strong_fit: 0.06 } } };
   const mcv = mapStandardAnswers(cvAnswers, makeContext());
   check('B1c CONVICTION 形状新兜底：web3_user_event_fit unfit 0.62 负门拦截（拦截判据=可接纳性非知名度）',
-    mcv.llmResult?.rating === 'low' && /Web3用户偏好不合/.test(mcv.llmResult?.reason || ''),
+    mcv.llmResult?.rating === 'low' && /BSC meme 用户偏好不合/.test(mcv.llmResult?.reason || ''),
     { rating: mcv.llmResult?.rating, reason: mcv.llmResult?.reason });
 
   // B2 W 类（旧 ChainPulse 补位语义域）：notable 主导放行 → 进 W 数学
@@ -187,7 +187,7 @@ async function main() {
   yayaAnswers.web3_user_event_fit = { choice: 'unfit', probabilities: { unfit: 0.58, marginal: 0.22, fit: 0.14, strong_fit: 0.06 } };
   const myaya = mapStandardAnswers(yayaAnswers, makeContext());
   check('B7b YAYA 边缘形状：unfit 负门先于实体门拦截（两门同向，拦截理由=偏好不合）',
-    myaya.llmResult?.rating === 'low' && /Web3用户偏好不合/.test(myaya.llmResult?.reason || ''),
+    myaya.llmResult?.rating === 'low' && /BSC meme 用户偏好不合/.test(myaya.llmResult?.reason || ''),
     { rating: myaya.llmResult?.rating, reason: myaya.llmResult?.reason });
 
   console.log('\n── C. 审计字段矩阵（C108 后：nr 概率纯观察，退役键不落）──');

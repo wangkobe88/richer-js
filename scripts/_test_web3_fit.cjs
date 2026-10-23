@@ -69,7 +69,7 @@ async function main() {
   console.log('\n── A. 问卷形状（J1.19 第 14 题，版本随问题集 bump）──');
   const qs = buildStandardQuestions();
   check('A1 版本号 ≥ J1.21（随问题集 bump 不回退）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 21, JEV_QUESTIONS_VERSION);
-  const w3q = qs.web3_user_event_fit;
+  const w3q = qs.bsc_meme_user_event_fit;
   check('A2 web3_user_event_fit 题存在且 type=choice', !!w3q && w3q.type === 'choice', w3q?.type);
   check('A3 四档选项齐全', w3q && ['strong_fit', 'fit', 'marginal', 'unfit'].every(k => typeof w3q.criteria[k] === 'string' && w3q.criteria[k].length > 0), w3q ? Object.keys(w3q.criteria) : null);
   check('A4 题面含买家画像与判据说明', w3q && w3q.instructions.includes('链上买家画像') && w3q.instructions.includes('玩梗'), null);
@@ -77,9 +77,9 @@ async function main() {
   const qsBrandMismatch = buildStandardQuestions({ brandMismatch: true });
   check('A5 品牌题已退役（name_brand_hijack 题+brand_mismatch 桶均删——J1.103/C172 品牌劫持轴整体退役，判据归 web3_user_name_event_acceptance 用户视角；任何形状实体题恒五桶）',
     !('name_brand_hijack' in qsNoBrand) && !('name_brand_hijack' in qs)
-      && !('brand_mismatch' in qs.web3_user_name_entity_acceptance.criteria)
-      && !('brand_mismatch' in qsBrandMismatch.web3_user_name_entity_acceptance.criteria)
-      && 'web3_user_event_fit' in qsNoBrand, null);
+      && !('brand_mismatch' in qs.bsc_meme_user_name_entity_acceptance.criteria)
+      && !('brand_mismatch' in qsBrandMismatch.bsc_meme_user_name_entity_acceptance.criteria)
+      && 'bsc_meme_user_event_fit' in qsNoBrand, null);
   check('A6 J1.90/C152 圈内平台/项目核心开发者本人表态锚（eth_cedric MEMES 案）',
     w3q.instructions.includes('圈内平台/项目官方账号或核心开发者本人的公开表态/口号')
     && w3q.instructions.includes('Memes will continue')
@@ -125,10 +125,10 @@ async function main() {
   // B1 死亡观察员形状：unfit 0.72 → 拦
   const r1 = mapStandardAnswers(makeAnswers({ unfit: 0.72, marginal: 0.12, fit: 0.1, strong_fit: 0.06 }), makeContext(tokenData));
   check('B1 unfit 0.72 → rating low', r1.llmResult.rating === 'low', r1.llmResult);
-  check('B2 reason 含「Web3用户偏好不合」+ P=0.72', r1.llmResult.reason.includes('Web3用户偏好不合') && r1.llmResult.reason.includes('0.72'), r1.llmResult.reason);
-  check('B3 stage2 blockReason 同标签', r1.stage2DataToSave.parsed_output.blockReason === 'Web3用户偏好不合', r1.stage2DataToSave.parsed_output.blockReason);
+  check('B2 reason 含「Web3用户偏好不合」+ P=0.72', r1.llmResult.reason.includes('BSC meme 用户偏好不合') && r1.llmResult.reason.includes('0.72'), r1.llmResult.reason);
+  check('B3 stage2 blockReason 同标签', r1.stage2DataToSave.parsed_output.blockReason === 'BSC meme 用户偏好不合', r1.stage2DataToSave.parsed_output.blockReason);
   check('B4 stage2 审计 web3UnfitMass=0.72', r1.stage2DataToSave.parsed_output.jev.web3UnfitMass === 0.72, r1.stage2DataToSave.parsed_output.jev.web3UnfitMass);
-  check('B5 stage1 概率落库 probabilities.web3_user_event_fit', r1.stage1DataToSave.parsed_output.jev.probabilities.web3_user_event_fit?.unfit === 0.72, r1.stage1DataToSave.parsed_output.jev.probabilities.web3_user_event_fit);
+  check('B5 stage1 概率落库 probabilities.bsc_meme_user_event_fit（J1.112 dump 键断代）', r1.stage1DataToSave.parsed_output.jev.probabilities.bsc_meme_user_event_fit?.unfit === 0.72, r1.stage1DataToSave.parsed_output.jev.probabilities.bsc_meme_user_event_fit);
 
   // B6 同形状 unfit 0.3（fit 为主）→ 不因偏好拦，评分正常走
   // J1.79：事件分=strong_fit+fit 质量——fit 质量须 ≥0.6 才不被事件分不足另拦
@@ -139,17 +139,17 @@ async function main() {
 
   // B7/B8 边界：0.5 拦，0.49 放
   const r3 = mapStandardAnswers(makeAnswers({ unfit: 0.5, marginal: 0.3, fit: 0.2 }), makeContext(tokenData));
-  check('B7 边界 unfit=0.5 → 拦（≥0.5 语义）', r3.llmResult.rating === 'low' && r3.llmResult.reason.includes('Web3用户偏好不合'), r3.llmResult.reason);
+  check('B7 边界 unfit=0.5 → 拦（≥0.5 语义）', r3.llmResult.rating === 'low' && r3.llmResult.reason.includes('BSC meme 用户偏好不合'), r3.llmResult.reason);
   const r4 = mapStandardAnswers(makeAnswers({ unfit: 0.49, marginal: 0.31, fit: 0.2 }), makeContext(tokenData));
   // B8 只锁 web3UnfitBlock 阈值轴（0.49<0.5 不拦）：该 fixture 是 E 类且 fit mass
   // 0.2<0.5，J1.36 共振折损（C93）会把总分砍半致「事件分不足」拦——那是折损
   // 轴的正确行为非本门漏拦，断言按 B9 模式隔离被测轴
   check('B8 边界 unfit=0.49 → web3UnfitBlock 不拦（0.49<0.5 阈值下界；E 类低 fit mass 票由 J1.36 折损另拦）',
-    !((r4.llmResult.reason || '').includes('Web3用户偏好不合')), r4.llmResult.reason);
+    !((r4.llmResult.reason || '').includes('BSC meme 用户偏好不合')), r4.llmResult.reason);
 
   // B9 概率缺失（JevClient 缺 answer 会 throw，到 mapper 的一般是完整集；miss 不误拦）
   const r5 = mapStandardAnswers(makeAnswers(null), makeContext(tokenData));
-  check('B9 web3_user_event_fit 答案缺失 → 不拦（?? 0 兜底）', r5.llmResult.rating !== 'low' || !r5.llmResult.reason.includes('Web3用户偏好不合'), r5.llmResult.reason);
+  check('B9 web3_user_event_fit 答案缺失 → 不拦（?? 0 兜底）', r5.llmResult.rating !== 'low' || !r5.llmResult.reason.includes('BSC meme 用户偏好不合'), r5.llmResult.reason);
 
   // B10 nhn 门退役反证（J1.101/C170）：旧形状 nhn 0.6 不再拦——同票 unfit 0.7
   // 接管拦截，label 归属口味层（负面事件交 web3 契合度处理的裁定落点）
@@ -157,7 +157,7 @@ async function main() {
   nhnAnswers.event_quality_veto = { choice: 'none', probabilities: { none: 0.3, event_negative_hard_news: 0.6, event_empty_content: 0.1 } };
   const r6 = mapStandardAnswers(nhnAnswers, makeContext(tokenData));
   check('B10 nhn 0.6 退役不拦 + unfit 0.7 接管（reason=Web3用户偏好不合 非 负面硬新闻）',
-    r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('Web3用户偏好不合') && !r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
+    r6.llmResult.rating === 'low' && r6.llmResult.reason.includes('BSC meme 用户偏好不合') && !r6.llmResult.reason.includes('负面硬新闻'), r6.llmResult.reason);
 
   // B11 对照组：同形状无偏好门概念时事件分确实过线（证明拦的是偏好门不是量级）
   const r7 = mapStandardAnswers(makeAnswers({ fit: 0.9, strong_fit: 0.1 }), makeContext(tokenData));

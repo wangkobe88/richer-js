@@ -114,8 +114,8 @@ async function main() {
   const qs = buildStandardQuestions();
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
   check('B1 实体题恒五桶（accepted/unknown/new_entity/wrong_entity/not_entity）',
-    Object.keys(qs.web3_user_name_entity_acceptance.criteria).length === 5
-    && !('brand_mismatch' in qs.web3_user_name_entity_acceptance.criteria), null);
+    Object.keys(qs.bsc_meme_user_name_entity_acceptance.criteria).length === 5
+    && !('brand_mismatch' in qs.bsc_meme_user_name_entity_acceptance.criteria), null);
   check('B2 brandMismatch:true 传参静默忽略（同五桶，与默认逐字节一致）',
     JSON.stringify(qsBrand) === JSON.stringify(qs), null);
   check('B3 旧题 name_brand_hijack 不在（J1.85 已删不复活）',

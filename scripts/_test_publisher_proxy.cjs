@@ -171,7 +171,7 @@ async function main() {
   const museW3 = { ...museAnswers, web3_user_event_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.18, fit: 0.1, strong_fit: 0.1 } } };
   const m3w = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museTwitter));
   check('B3a2 Muse 形状新兜底：web3_user_event_fit unfit 0.62 负门拦截（拦截判据=可接纳性非知名度）',
-    m3w.llmResult.rating === 'low' && /Web3/.test(m3w.llmResult.reason || ''), m3w.llmResult.reason);
+    m3w.llmResult.rating === 'low' && /BSC meme 用户偏好不合/.test(m3w.llmResult.reason || ''), m3w.llmResult.reason);
   const m3b = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museWithDomain));
   check('B3b Muse 指纹词双保险：即使有 muse.im 域名仍拦（unfit 负门，proxy 不激活）',
     m3b.llmResult.rating === 'low' && m3b.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
