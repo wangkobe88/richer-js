@@ -990,14 +990,12 @@
       "addr": "0x2ddcaac3fb078ee82dd02be2bd10212c30127777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.6、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C198 SUPERCOMPUTER：J1.114 重析 low（类型门 70%）。2026-10-23 用户裁定类型拦正确，并留档关联意见：SUPERCOMPUTER 是事件配角元素（黄仁勋超算训练 Microduck），不能代表事件主体，关联题 exact_match 76% 偏高——事件配角元素命名关联判读观察点",
       "expectSince": "2026-10-23"
     },
     {
@@ -1006,14 +1004,12 @@
       "addr": "0xb31726097f9866f516423a9e5bf02df363637777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.9、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C199 ヤギ：四ツ谷站勤务山羊除草话题新闻票，J1.114 重析 high 86.41（E 档 A 级 fit 84、实体 accepted 67%），2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -1022,14 +1018,12 @@
       "addr": "0xd862061088c14a54b83d435ce1f44c3f074b7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.65、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C200 大小姐：一句无事件票，J1.114 重析 low（sf+fit 39%<50%），2026-10-23 用户裁定该拦",
       "expectSince": "2026-10-23"
     },
     {
@@ -1038,14 +1032,12 @@
       "addr": "0x4c981997877a34d3bea50e5d4ee385c51af77777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.97、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C201 罗马：币安广场 KOL 评选官方长文票，J1.114 重析 high 94.45（D 档 S 级 fit 96），2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -1054,14 +1046,12 @@
       "addr": "0x08d3e05347b939474f714c360ab75a96da047777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.98、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C202 砖：与 C201 同主推姐妹票（币安广场评选文），J1.114 重析 high 94.21（D 档 S 级 fit 97），2026-10-23 用户裁定该放",
       "expectSince": "2026-10-23"
     },
     {
@@ -1070,14 +1060,12 @@
       "addr": "0xe3bec71d099384dba6b4b4734903e35effa87777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.7、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C203 姨妈巾：卫生用品类型门 63% 拦（日本国旗视觉梗），2026-10-23 用户裁定该拦",
       "expectSince": "2026-10-23"
     },
     {
@@ -1086,14 +1074,12 @@
       "addr": "0x019fb31a221d6efb103ba35942702918abd37777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.94、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C204 4人生：CZ「4」梗后续转述票，关联题三桶 35/33/32 平铺掷骰 unacceptable 拦（score 90 高分被卡，C109c 同款待裁问题），2026-10-23 用户裁定 low 可接受",
       "expectSince": "2026-10-23"
     },
     {
@@ -1118,14 +1104,12 @@
       "addr": "0x949f21b0f64194472146c3fa14415a4d82a07777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
       "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.84、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C206 未来：何一挖角哈佛精英长文票，J1.114 重析 high 89.59（C 档 A 级 fit 88）。2026-10-23 用户裁定「相关度有点牵强但能接受，先这样」——关联牵强留档观察",
       "expectSince": "2026-10-23"
     },
     {

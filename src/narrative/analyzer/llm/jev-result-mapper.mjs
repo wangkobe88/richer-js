@@ -675,14 +675,16 @@ function detectPlatformOfficial(twitterInfo) {
  * 更不配借壳量级，无需 verified 门）。
  *
  * 全球号集合（GLOBAL_BINANCE_HANDLES）：主号 + 全球职能臂（Labs=风投 /
- * Research=研究 / Square=内容平台）。新全球职能臂遇 case 再扩
+ * Research=研究 / Square=内容平台）+ 币安中文 binancezh（2026-10-23 用户
+ * 裁定「binancezh 改为币安核心号，因为 BSC 多是中文用户」——中文主阵地
+ * 视同核心号，不锚 D）。新全球职能臂遇 case 再扩
  * （PLATFORM_OFFICIAL_HANDLES 同款维护语义）；地域号（Arabic/Africa/
  * Turkiye/…）全部视为地域子账号。只查主推作者不查父推（BOB 案先例：主推
  * 是路人号玩梗、父推才是官方——主体判定以主推作者为准）。作者字段双形状：
  * tweet 型 author_screen_name / account 型 screen_name（detectPlatformOfficial
  * 同款）；handle 缺失 → null fail-open（旧缓存行/无推语料票不锚）。
  */
-const GLOBAL_BINANCE_HANDLES = new Set(['binance', 'binancelabs', 'binanceresearch', 'binancesquare']);
+const GLOBAL_BINANCE_HANDLES = new Set(['binance', 'binancelabs', 'binanceresearch', 'binancesquare', 'binancezh']);
 function detectBinanceRegionalAccount(twitterInfo) {
   const h = String(twitterInfo?.author_screen_name || twitterInfo?.screen_name || '').toLowerCase().trim();
   if (!h.startsWith('binance') || GLOBAL_BINANCE_HANDLES.has(h)) return null;

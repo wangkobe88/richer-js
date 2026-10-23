@@ -106,6 +106,7 @@ async function main() {
     ['BinanceLabs', false, '全球职能臂 Labs'],
     ['binanceresearch', false, '全球职能臂 Research'],
     ['binancesquare', false, '全球职能臂 Square'],
+    ['binancezh', false, '币安中文=核心号（2026-10-23 用户裁定：BSC 多中文用户，不锚 D）'],
     ['cz_binance', false, '非 binance 前缀（大V 谈币安）'],
     ['binancefan123', true, '冒充号/粉丝号一并命中（fail-safe 偏拦）'],
   ];
@@ -202,8 +203,8 @@ async function main() {
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
   check('F1 effTier 三元链：regionalAnchorActive 先手（锚降 > pubProxy 锚A > web3Fit 锚B > 原判）',
     mapperSrc.includes("const effTier = regionalAnchorActive ? 'D' : (tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier));"), null);
-  check('F2 全球号集合四键（主号+Labs/Research/Square）',
-    /GLOBAL_BINANCE_HANDLES = new Set\(\['binance', 'binancelabs', 'binanceresearch', 'binancesquare'\]\)/.test(mapperSrc), null);
+  check('F2 全球号集合五键（主号+Labs/Research/Square/binancezh——2026-10-23 binancezh 核心号裁定）',
+    /GLOBAL_BINANCE_HANDLES = new Set\(\['binance', 'binancelabs', 'binanceresearch', 'binancesquare', 'binancezh'\]\)/.test(mapperSrc), null);
   check('F3 检测只查主推作者（author_screen_name || screen_name，无 in_reply_to）',
     /function detectBinanceRegionalAccount\(twitterInfo\) \{\s*\n\s*const h = String\(twitterInfo\?\.author_screen_name \|\| twitterInfo\?\.screen_name[^)]*\)/.test(mapperSrc), null);
   check('F4 锚激活=地域号 ∧ binanceCorpus 双条件',
