@@ -179,8 +179,8 @@ async function main() {
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
-    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.113=C184 实体题类型轴重构 unknown 断代 unacceptable_type+new_entity 删桶+门恢复拦截；J1.112=C183 web3_user_* 全族键名断代 bsc_meme_user_*+评估主体收窄 BSC meme 币用户；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.113'"), 'J1.113 常量缺失');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.114=C185 实体题题面精炼（去重：类型清单/认知度判据/C151/C162 各归单一宿主，判据轴不变）；J1.113=C184 实体题类型轴重构 unknown 断代 unacceptable_type+new_entity 删桶+门恢复拦截；J1.112=C183 web3_user_* 全族键名断代 bsc_meme_user_*+评估主体收窄 BSC meme 币用户；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.114'"), 'J1.114 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题
@@ -386,9 +386,8 @@ async function main() {
           nr.instructions.slice(0, 120));
         check('A14b accepted=类型可接纳实体（性质没问题即可、新旧不是维度；不评认知度；著名不救类型不合）',
           nr.criteria.accepted.includes('类型/性质可被 BSC meme 币用户接纳为 meme 币名')
-          && nr.criteria.accepted.includes('是否新旧都没事')
-          && nr.criteria.accepted.includes('不评认知度/知名度')
-          && nr.criteria.accepted.includes('著名不救类型不合'),
+          && nr.criteria.accepted.includes('新旧不是维度，认知度不是判据')
+          && nr.instructions.includes('著名只让类型更明确，不改变类型不可接纳'),
           nr.criteria.accepted.slice(0, 160));
         check('A14c 保留：发布者指代 + 官方口号/品牌主张（货币自由）',
           nr.instructions.includes('领域知名发布者的独立新产品')

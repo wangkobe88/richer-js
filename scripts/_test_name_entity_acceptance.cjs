@@ -273,16 +273,16 @@ async function main() {
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
   const entSeg = qsSrc.slice(qsSrc.indexOf('bsc_meme_user_name_entity_acceptance: {'), qsSrc.indexOf('bsc_meme_user_phrase_acceptability: {')); // 切片终点=紧邻词句题（visuality 题 C171 已删，旧终点键是死键取到文件尾）
-  check('D5 题集实体题四桶（J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 版本 J1.113',
+  check('D5 题集实体题四桶（J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 版本 J1.114（J1.114=C185 题面精炼去重：类型清单/认知度判据/C151/C162 各归单一宿主）',
     qsSrc.includes("bsc_meme_user_name_entity_acceptance: {")
     && /accepted:/.test(entSeg) && /unacceptable_type:/.test(entSeg)
     && /wrong_entity:/.test(entSeg) && /not_entity:/.test(entSeg) && !/no_entity:/.test(entSeg)
     && !/brand_mismatch:/.test(entSeg) && !/new_entity:/.test(entSeg) && !/unknown:/.test(entSeg)
-    && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
+    && entSeg.includes('指歪') && entSeg.includes('本项是拦截位（全域）')
     && entSeg.includes('不评认知度')
     && entSeg.includes('判据=类型/性质不合，不是认知度')
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.113'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.114'/.test(qsSrc));
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
@@ -301,19 +301,19 @@ async function main() {
     qsSrc.includes('被命名+被讲故事的故事主体（J1.104/C174')
     && qsSrc.includes('不因名字字面是普通词（树/猫/橙子）判 not_entity')
     && qsSrc.includes('语料已陈述命名行为/已讲故事的主体（有明确所指，如 BNB Tree）不属本项')
-    && qsSrc.includes('币名=普通词而语料无命名行为的蹭名票不满足本锚'),
+    && qsSrc.includes('无命名行为的普通词蹭名票不适用，仍走 not_entity'),
     null);
 
   // D8（J1.105/C175，京小安 0xcb98accaa8040a7e839c305b8aca08e113c87777 案）：
   // 用户裁定「『首款AI警犬』给实体定了性质，能被 web3 用户接受是根本的，而不是
   // 知名/广泛报道」——性质定义优先于认知度：三锚在场+逃逸门（空泛自称不适用）
   check('D8 J1.105/C175 性质定义优先于认知度锚三点在场（instructions ⚠️ 段+accepted 主锚+unknown 反锚）+逃逸门',
-    qsSrc.includes('性质定义优先于认知度（J1.105/C175，京小安案）')
-    && qsSrc.includes('不以「实体是否知名/被广泛报道/评估者是否听说过该实体」为前提')
-    && qsSrc.includes('性质定义即接纳证据（J1.105/C175）')
-    && qsSrc.includes('→ accepted，不以知名/被广泛报道为前提')
-    && qsSrc.includes('name/语料已给出明确可接纳的性质定义（如「首款AI警犬」）的不属本项（→ accepted，J1.105/C175）')
-    && qsSrc.includes('空泛自称（无具体角色内容的「官方币/年度最强」式口号）不满足「明确定义性质」'),
+    qsSrc.includes('性质定义优先（J1.105/C175，京小安案）')
+    && qsSrc.includes('不以知名/被广泛报道为前提')
+    && qsSrc.includes('含语料已明确定义可接纳性质的角色（J1.105/C175')
+    && qsSrc.includes('「首款AI警犬」——不以知名为前提')
+    && qsSrc.includes('语料已给出明确可接纳性质定义的（如「首款AI警犬」）不属本项（→ accepted，J1.105/C175）')
+    && qsSrc.includes('空泛自称（「官方币/年度最强」式口号）不满足明确定义'),
     null);
 
   // D9（J1.106/C175b，C96 币安上电视 0xc6d089d749409f7646de440d637ac9db0e047777 案）：
@@ -323,10 +323,9 @@ async function main() {
   // 句中提及著名实体不因此 accepted，仍归 not_entity 由词句题接管
   check('D9 J1.106/C175b 陈述句反锚在场（性质定义=定身份非说事 + 提及著名实体不因此 accepted + 仍归 not_entity 词句题接管）',
     qsSrc.includes('反锚（J1.106/C175b，币安上电视案）')
-    && qsSrc.includes('「性质定义」是**给币名主体定身份**')
-    && qsSrc.includes('名字是**陈述句/事件描述**')
-    && qsSrc.includes('不构成性质定义，即便句中提及著名实体也**不因此 accepted**')
-    && qsSrc.includes('陈述句名字仍归 not_entity（名字不构成对该实体的命名），由词句题接管接纳判定'),
+    && qsSrc.includes('（「XX上电视」「XX要来了」式说事非命名）不构成性质定义')
+    && qsSrc.includes('即便句中提及著名实体也不因此 accepted')
+    && qsSrc.includes('仍归 not_entity 由词句题接管'),
     null);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);

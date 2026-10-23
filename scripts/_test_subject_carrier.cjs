@@ -99,8 +99,8 @@ async function main() {
   check('A4 image_depicts_name 保留（用户裁定「演绎关系是事/币关联的一个维度」——迁 J1.30 关联豁免第二臂，仅 imageConsistency 时问）',
     'image_depicts_name' in qsImg && !('image_depicts_name' in qsDefault), null);
   check('A5 acceptance 题面含形象考量锚句（有形象=加分考量；无形象不否决）',
-    qsDefault.bsc_meme_user_name_entity_acceptance.instructions.includes('⚠️ 形象考量：实体是否具有可视觉化的形象')
-    && qsDefault.bsc_meme_user_name_entity_acceptance.instructions.includes('无形象本身不构成否决'), null);
+    qsDefault.bsc_meme_user_name_entity_acceptance.instructions.includes('⚠️ 形象考量：有可视觉化形象')
+    && qsDefault.bsc_meme_user_name_entity_acceptance.instructions.includes('本身不构成否决'), null);
   check('A6 phrase 题面不再引用 visuality 轴', !qsDefault.bsc_meme_user_phrase_acceptability.instructions.includes('visuality'), null);
   check('A7 J1.30 name_image_consistency 保留（量级/关联豁免仍消费）', 'name_image_consistency' in qsImg, null);
 
