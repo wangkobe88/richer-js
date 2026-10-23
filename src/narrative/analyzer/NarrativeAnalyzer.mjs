@@ -20,7 +20,6 @@ import { performPreCheck } from './services/pre-check-service.mjs';
 import { analyzeTweetImage } from './services/image-analysis-service.mjs';
 import { runVisionGate, shouldAskVisionGate } from './services/vision-gate-service.mjs';
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
-import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
 import { detectSuperIP } from './prompts/super-ip/super-ip-registry.mjs';
@@ -217,30 +216,13 @@ export class NarrativeAnalyzer {
     // 直调穿透重析（带补源），新结果 upsert 覆盖旧行；其他行（Jev 评过/其他规则拦）照常复用
     const isNoPublicInfoBlock = cached?.pre_check_result?.details?.ruleName === 'no_public_info';
     if (cached && cached.is_valid && !ignoreCache && !(enrichSocialByGmgn && isNoPublicInfoBlock)) {
-      // x-0 案（2026-09-27）：直调语境下行内无 GMGN 风险字段（engine 队列先写的行 /
-      // 存量旧行）→ 补调 GMGN（1d 缓存兜底）并 updateGmgnInfo 回写，不重析 Jev——
-      // 与 no_public_info 穿透重析同构但更轻（只补数据不重判定）。GMGN 拿不到 /
-      // 失败 → risk null 放行（gmgnRiskCovered=0，宁漏拦不误杀）
-      let gmgnRisk = cached.gmgn_info?.risk ?? null;
-      if (enrichSocialByGmgn && !cached.gmgn_info) {
-        try {
-          const socials = await fetchGmgnSocialLinks('bsc', normalizedAddress);
-          gmgnRisk = socials?.risk ?? null;
-          if (gmgnRisk) {
-            await NarrativeRepository.updateGmgnInfo(normalizedAddress, {
-              risk: gmgnRisk,
-              fetchedAt: new Date().toISOString()
-            });
-            logger.info('NarrativeAnalyzer', '缓存行补写 GMGN 风险字段', {
-              address: normalizedAddress,
-              issuerTokenCount: gmgnRisk.issuerTokenCount,
-              bundler: gmgnRisk.bundlerWallets
-            });
-          }
-        } catch (e) {
-          console.warn(`[NarrativeAnalyzer] GMGN 风险补调失败（risk=null 放行）: ${e.message}`);
-        }
-      }
+      // x-0 案（2026-09-27）缓存行补调 GMGN 风险字段——**C181 退役（2026-10-23
+      // 用户裁定「ave api 信息够了就不需要补充」）**：该补调是纯风险字段调用（社媒
+      // 不并入缓存行，只有整链重析才会），而快照 live 买门不消费
+      // （GmgnRiskCheckService 刻意隔离自抓），是 IP 级封禁事故的重复调用源之一。
+      // gmgn_info 消费只剩回测快照：行内有则用（历史行），无则 null → 回测 GMGN
+      // 门 fail-open 放行（宁漏拦不误杀，与快照缺失既有语义一致）
+      const gmgnRisk = cached.gmgn_info?.risk ?? null;
       // 检查是否是预检查触发的结果
       const isCachedPreCheck = !!cached.pre_check_result;
       const llmAnalysis = buildLLMAnalysis(cached);

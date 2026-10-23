@@ -730,14 +730,12 @@
       "addr": "0x007f5ddb6b5d2377f17089a7835bc61beee97777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定；2026-10-23 逐张过票第一张裁定 low（C181 案）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C181 裁定（2026-10-23 用户裁定）：RichardTeng 0x007f5ddb…7777 预期 low——「只是个无名氏喊了这么一句话罢了」；J1.110 无名口号臂在 web3_user_event_impact empty_content 桶堵住",
       "expectSince": "2026-10-23"
     },
     {

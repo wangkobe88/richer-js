@@ -45,10 +45,9 @@ function check(name, cond, detail) {
 function baseAnswers(cat, entity) {
   return {
     event_category: { choice: cat, probabilities: { [cat]: 0.7 } },
-    web3_user_event_impact: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     web3_user_event_spread: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_quality_veto: { choice: 'none', probabilities: { none: 0.92 } },
+    web3_user_event_impact: { choice: 'none', probabilities: { none: 0.92 } }, // J1.110/C181 键名断代（J1.79 旧 score 题同键名已删，不得再喂 score 形状——撞名会遮蔽 veto）
     web3_user_name_entity_acceptance: entity,
     name_entity_memeability: { score: 3, probabilities: {} },
     web3_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.85, fit: 0.1 } },
@@ -169,7 +168,7 @@ async function main() {
 
   const mkEmpty = () => {
     const a = baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } });
-    a.event_quality_veto = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.16 } };
+    a.web3_user_event_impact = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.16 } };
     return a;
   };
   const mEmptyPlain = mapStandardAnswers(mkEmpty(), makeContext());
@@ -177,6 +176,13 @@ async function main() {
     stage2Of(mEmptyPlain).pass === false && /空洞内容/.test(stage2Of(mEmptyPlain).blockReason || '')
     && stage2Of(mEmptyPlain).jev?.emptyContentAuthorOverride === null,
     { blockReason: stage2Of(mEmptyPlain).blockReason });
+  // 三键归一读：旧缓存行（J1.82-J1.109 时代）只有 event_quality_veto 键，须照拦
+  const aLegacy = mkEmpty(); delete aLegacy.web3_user_event_impact;
+  aLegacy.event_quality_veto = { choice: 'event_empty_content', probabilities: { event_empty_content: 0.36, none: 0.16 } };
+  const mLegacy = mapStandardAnswers(aLegacy, makeContext());
+  check('C5b 旧键 event_quality_veto 缓存行回落照拦（J1.110 三键归一读）',
+    stage2Of(mLegacy).pass === false && /空洞内容/.test(stage2Of(mLegacy).blockReason || ''),
+    { blockReason: stage2Of(mLegacy).blockReason });
   const mEmptyAuthor = mapStandardAnswers(mkEmpty(), makeContext({ corpusAuthorInRegistry: true }));
   check('C6 empty_content + 作者在册 → 豁免（J1.58 高影响力主体问候=事件素材）',
     stage2Of(mEmptyAuthor).jev?.emptyContentAuthorOverride != null
@@ -269,12 +275,13 @@ async function main() {
     qsSrc.includes('有独立背景故事/文化来源的**有意义变形不选 wrong_entity**')
     && qsSrc.includes('错版奶龙→哭哭奶龙')
     && qsSrc.includes('不选本项（J1.89/C151）'), null);
-  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn',
-    qsSrc.includes('event_quality_veto:')
+  check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact',
+    qsSrc.includes('web3_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
     && !qsSrc.includes('event_negative_hard_news:') && !qsSrc.includes('event_routine_content_product:')
+    && !qsSrc.includes('event_quality_veto: {')
     && qsSrc.includes('token_ip_reuse:') && !qsSrc.includes('token_circle_reachability: {')); // J1.82/C140 圈层桶退役（并行会话同批）
-  const entSeg = qsSrc.slice(qsSrc.indexOf('web3_user_name_entity_acceptance: {'), qsSrc.indexOf('web3_user_entity_visuality: {'));
+  const entSeg = qsSrc.slice(qsSrc.indexOf('web3_user_name_entity_acceptance: {'), qsSrc.indexOf('web3_user_phrase_acceptability: {')); // 切片终点=紧邻词句题（visuality 题 C171 已删，旧终点键是死键取到文件尾）
   check('D5 题集实体题六桶（J1.94/C157 官方措辞引用臂；J1.93/C156 题键改名；J1.92/C155 name_event_relevance 3 桶；J1.91/C154 时效体系清理；J1.90/C152 MEMES fit 锚；J1.89/C151 哭哭奶龙 wrong_entity 修正；J1.88/C150 删 institution 桶；J1.87/C145 删 routine 桶；J1.86/C143 校准：accepted/unknown/new_entity/wrong_entity/brand_mismatch/not_entity；no_entity 断代退役）+ 作者身份不升档红线 + 版本 J1.99（C162/C163 批）；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性并入 event_fit（并行会话同批）；J1.81=C139 三轴重构；J1.80=C138 超IP来源判据追加段）',
     qsSrc.includes("web3_user_name_entity_acceptance: {")
     && /accepted:/.test(entSeg) && /unknown:/.test(entSeg) && /new_entity:/.test(entSeg)
@@ -283,7 +290,7 @@ async function main() {
     && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
     && qsSrc.includes('作者身份本身不是映射')
     && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.109'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.110'/.test(qsSrc));
   check('D6 J1.81 键名断代：词句题 web3_user_phrase_acceptability 在册；载体题 web3_user_entity_visuality 已随 C171 形象轴退役（题删除）；旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /web3_user_phrase_acceptability: \{/.test(qsSrc) && !/web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));

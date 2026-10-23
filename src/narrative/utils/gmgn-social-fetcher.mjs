@@ -22,6 +22,14 @@
  * ②**缓存 5s 过期=买前新鲜语义**——原 {maxAge:1d, ttl:90d} 在 fetchWithCache
  * 命中公式下实际命中窗 ≈91 天，把「GMGN 无社媒」结论冻结三个月（link 聚合晚到
  * 永远吃不到，CRO 现场）；调用频次=每 token 几次，5s 重打配额无忧。
+ *
+ * C181 必要门+失败封顶（2026-10-23 用户裁定，GMGN IP 级 RATE_LIMIT_BANNED
+ * 事故：v34 15h 叙事补源 694 次成功调用仅 37 次真正并入社媒——「AVE api 信息
+ * 够了就不需要补充，GMGN API 信息全毛病多」）：①**失败封顶在本模块**——per-token
+ * 连续 2 次 API 真失败（429/超时/网络，GMGN 正常返回空数据不算）→ 本进程内
+ * 不再发包（重启清零；封顶斩断 ban 窗口「每轮重打续封」恶性循环）；成功即清零。
+ * ②必要门（AVE 已有 twitter 链接不调）在 data-fetch-service 消费侧，判据
+ * hasTwitterLink 也从本模块导出（单一真相，与并入门同源）。
  */
 import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
@@ -29,6 +37,27 @@ import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 // dev 风险字段提取抽到 CJS 共享层（2026-10-14，行为零变化）：买腿第三层 GMGN
 // 条件（GmgnRiskCheckService）与叙事社媒补源共用同一提取——单一真相源防口径漂移
 import { extractGmgnRisk } from '../../core/gmgn-api/risk-fields.js';
+
+// 失败封顶（C181，2026-10-23 用户裁定「抓不成功最多再尝试一次，就往下走」）：
+// per-token 连续 API 真失败计数，≥2 → 本进程内直接 return null 不发包（重启清零）。
+// 只对 throw 形状（429/超时/网络）计数——GMGN 正常返回但无社媒/风险（null 结果）
+// 是 API 健康的空数据，走 ExternalResourceCache 自带的失败冷却，不计入封顶。
+const GMGN_MAX_FAILS = 2;
+const gmgnFailCounts = new Map(); // key `${chain}:${addr 小写}` → 连续失败次数
+
+// twitter 链接判据（C181 必要门）：URL 集里已有 twitter/x.com 链接 = AVE/上游
+// 信息已够，不需要 GMGN 补——与 data-fetch-service 并入判定（原内联正则）同源
+// 单一真相，改判据两处同步变
+const TWITTER_LINK_RE = /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i;
+
+/**
+ * URL 集中是否已有 twitter/x.com 链接（GMGN 社媒补源的「必要」判据）
+ * @param {string[]|null} urls
+ * @returns {boolean}
+ */
+export function hasTwitterLink(urls) {
+  return Array.isArray(urls) && urls.some(u => typeof u === 'string' && TWITTER_LINK_RE.test(u));
+}
 
 /**
  * 拉取 GMGN token info（社媒补源 + dev 风险字段，一次调用两用）
@@ -48,25 +77,46 @@ export async function fetchGmgnSocialLinks(chain, address) {
     return null;
   }
 
+  // 失败封顶（C181）：连续 2 次真失败后本进程内不再发包——按无补源继续（null
+  // 语义与 GMGN 无数据/未索引一致），不打日志（每轮分析都会走到，静默防刷屏；
+  // 封顶达成的那一刻 warn 一次见下方 catch）
+  const strikeKey = `${chain}:${address.toLowerCase()}`;
+  if ((gmgnFailCounts.get(strikeKey) || 0) >= GMGN_MAX_FAILS) {
+    return null;
+  }
+
   const cacheKey = `gmgn:token:${chain}:${address.toLowerCase()}`;
   return CachedFetcher.fetchWithCache(cacheKey, 'gmgn_token_info', async () => {
-    // ESM → CommonJS 动态 import（先例：twitter-validation/communities-api.js）
-    const { GMGNTokenAPI } = await import('../../core/gmgn-api/index.js');
-    const api = new GMGNTokenAPI({ apiKey, timeout: 10000 });
-    const info = await api.getTokenInfo(chain, address);
-    const link = info?.link || {};
-    // GMGN 只填 handle（twitter_username），website_url/telegram 可能为空串——
-    // 空串不当有效值（上段实测 BRF 行 website/telegram 均为空串）
-    const twitterUrl = link.twitter_username ? `https://x.com/${link.twitter_username}` : null;
-    const websiteUrl = (typeof link.website_url === 'string' && /^https?:\/\//.test(link.website_url))
-      ? link.website_url : null;
-    const risk = extractGmgnRisk(info);
-    if (!twitterUrl && !websiteUrl && !risk) {
-      console.log(`[GmgnSocialFetcher] GMGN 无社媒/风险数据: ${address}`);
-      return null;
+    try {
+      // ESM → CommonJS 动态 import（先例：twitter-validation/communities-api.js）
+      const { GMGNTokenAPI } = await import('../../core/gmgn-api/index.js');
+      const api = new GMGNTokenAPI({ apiKey, timeout: 10000 });
+      const info = await api.getTokenInfo(chain, address);
+      // API 健康（含返回空数据 null 形状）→ 连续失败计数清零
+      gmgnFailCounts.delete(strikeKey);
+      const link = info?.link || {};
+      // GMGN 只填 handle（twitter_username），website_url/telegram 可能为空串——
+      // 空串不当有效值（上段实测 BRF 行 website/telegram 均为空串）
+      const twitterUrl = link.twitter_username ? `https://x.com/${link.twitter_username}` : null;
+      const websiteUrl = (typeof link.website_url === 'string' && /^https?:\/\//.test(link.website_url))
+        ? link.website_url : null;
+      const risk = extractGmgnRisk(info);
+      if (!twitterUrl && !websiteUrl && !risk) {
+        console.log(`[GmgnSocialFetcher] GMGN 无社媒/风险数据: ${address}`);
+        return null;
+      }
+      console.log(`[GmgnSocialFetcher] GMGN 数据: ${address} twitter=${twitterUrl} website=${websiteUrl}` +
+        ` issuerTokenCount=${risk?.issuerTokenCount ?? '-'} bundler=${risk?.bundlerWallets ?? '-'}/${risk?.topWallets ?? '-'}`);
+      return { twitterUrl, websiteUrl, risk, raw: info };
+    } catch (e) {
+      // API 真失败（429/超时/网络/dynamic import）→ 连续失败 +1；达到封顶 warn 一次
+      // （此后调用在函数入口直接 null，不再走到这）
+      const fails = (gmgnFailCounts.get(strikeKey) || 0) + 1;
+      gmgnFailCounts.set(strikeKey, fails);
+      if (fails >= GMGN_MAX_FAILS) {
+        console.warn(`[GmgnSocialFetcher] 连续 ${fails} 次失败封顶（${strikeKey}），本进程内不再调用 GMGN`);
+      }
+      throw e;
     }
-    console.log(`[GmgnSocialFetcher] GMGN 数据: ${address} twitter=${twitterUrl} website=${websiteUrl}` +
-      ` issuerTokenCount=${risk?.issuerTokenCount ?? '-'} bundler=${risk?.bundlerWallets ?? '-'}/${risk?.topWallets ?? '-'}`);
-    return { twitterUrl, websiteUrl, risk, raw: info };
   }, getCacheTTL('gmgn_token_info'));
 }

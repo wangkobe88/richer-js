@@ -5,7 +5,7 @@
 
 import { extractAllUrls, classifyAllUrls } from '../../utils/url-classifier.mjs';
 import { fetchIpfsMetadata, normalizeIpfsRef } from '../../utils/ipfs-metadata-fetcher.mjs';
-import { fetchGmgnSocialLinks } from '../../utils/gmgn-social-fetcher.mjs';
+import { fetchGmgnSocialLinks, hasTwitterLink } from '../../utils/gmgn-social-fetcher.mjs';
 import { isSuperIpTweetUrl } from '../prompts/super-ip/super-ip-registry.mjs';
 import { TwitterFetcher } from '../../utils/twitter-fetcher.mjs';
 import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
@@ -153,10 +153,19 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // **应用顺序刻意保持 IPFS → GMGN**（串行版同序）：GMGN 段的 hasTwitterUrl
   // 判定基于含 IPFS 新增 URL 的 allUrls，URL 并入顺序影响 classifiedUrls 桶内
   // 顺序与 selectTwitterUrl 选择——顺序变即内容变，此处 bit 一致
+  //
+  // C181 必要门（2026-10-23 用户裁定「ave api 信息够了就不需要补充」——GMGN IP
+  // 级 RATE_LIMIT_BANNED 事故，v34 15h 实测 694 次成功调用仅 37 次真正并入社媒，
+  // 95% 是 live 买门不消费的风险字段白烧）：AVE 元数据 URL 集已含 twitter 链接
+  // → 整段跳过 GMGN 不发包。判据=pre-IPFS 的 allUrls（IPFS∥GMGN 并行结构不动，
+  // pre-IPFS 无 twitter 而 IPFS 解包补出的重叠接受——串行化省这点配额不值）。
+  // C51 例外臂（已有 twitter 仍并入 superIP 推文）主要触发源随门退役；例外分支
+  // 代码保留，残余形状=pre-IPFS 无 twitter 而 IPFS 补出的罕见票仍可命中
+  const gmgnNeeded = options.enrichSocialByGmgn && !hasTwitterLink(allUrls);
   const metaUrl = normalizeIpfsRef(typeof rawData.meta === 'string' ? rawData.meta : null);
   const [metadata, gmgnSocials] = await Promise.all([
     metaUrl ? timing.wrap('ipfs', () => fetchIpfsMetadata(metaUrl)) : Promise.resolve(null),
-    options.enrichSocialByGmgn
+    gmgnNeeded
       ? timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address)
         .catch(e => {
           // 串行版同款 warn：失败按无补源、无风险因子继续，行为与现状一致
@@ -182,9 +191,10 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
 
   // 3.5 GMGN token info（BRF 社媒补源 + x-0 风险因子，2026-09-27）：
   // enrichSocialByGmgn（仅叙事直调传 true，配额控制见 gmgn-social-fetcher）时
-  // **总是调用**——同一次 getTokenInfo 带出 dev 风险字段（发币史/捆绑钱包，x-0 案
-  // serial issuer 伪装新项目骗过 prestage 粉丝评级）；社媒并入仍以「无 twitter 链接」
-  // 为前提（C10 行为零变化——有语料的 token 不需要补源）。
+  // **必要才调用**（C181 必要门，2026-10-23 裁定——原「总是调用」为同一次
+  // getTokenInfo 带出 dev 风险字段，但该快照 live 买门不消费（GmgnRiskCheckService
+  // 刻意隔离自抓），v34 15h 实测 95% 调用白烧并触发 IP 级封禁）；社媒并入仍以
+  // 「无 twitter 链接」为前提（C10 行为零变化——有语料的 token 不需要补源）。
   // **例外（C51 龙虾案，2026-10-01 用户裁定「GMGN 补源返回的 twitterUrl 是推文
   // URL——如果是超级IP再并入」）**：GMGN link.twitter_username 可能带完整推文路径
   // （龙虾 0xeccbb861…4444 实测 "binancezh/status/2027304629890072818"——币安中文
@@ -192,6 +202,9 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // 不补」使 superIP 真语料被马甲号挡住；仅当 GMGN 推文 URL 作者在超级IP注册表
   // 时突破并入（普通推文/账号 URL 仍守 C10——superIP 推文才是强叙事锚）。并入后
   // selectTwitterUrl 的 tweet 类型优先保证它被选中而非自挂账号链接。
+  // **C181（2026-10-23）**：AVE 已有 twitter 的票不再调 GMGN，本例外臂主要触发
+  // 源随必要门退役（用户裁定；残余形状=pre-IPFS 无 twitter 而 IPFS 补出的罕见票，
+  // 下方 else if 分支保留对其生效）。
   // GMGN 也拿不到 / 调用失败 → 按无补源、无风险因子继续，行为与现状一致
   let gmgnRisk = null;
   if (gmgnSocials) {
@@ -200,7 +213,8 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
     if (superIpTweet) {
       console.log(`[NarrativeAnalyzer] GMGN 超级IP推文命中(C51): ${gmgnSocials.twitterUrl} → ${superIpTweet.name}（tier ${superIpTweet.tier}）`);
     }
-    const hasTwitterUrl = allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u));
+    // 判据改用 hasTwitterLink（C181 单一真相：与必要门同源，原内联正则逐字同形）
+    const hasTwitterUrl = hasTwitterLink(allUrls);
     if (!hasTwitterUrl) {
       const addUrls = [gmgnSocials.twitterUrl, gmgnSocials.websiteUrl]
         .filter(u => u && !allUrls.includes(u));

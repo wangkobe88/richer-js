@@ -52,12 +52,25 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
-> （尚无条目——新案在此倒序追加）
+### C181 RichardTeng 无名口号——veto 键名断代 + empty_content 无名口号臂（J1.110）
+
+- **现象**：`0x007f5ddb6b5d2377f17089a7835bc61beee97777`（RichardTeng，C180 观察票拆臂后 26.8 high 放行）——无名账号单条口号式提及 Richard Teng，事情全部内容只是作者自己的一句话，对 Web3 用户不构成影响力事件。
+- **用户裁定（2026-10-23 逐张过票第一张）**：预期 **low**——「只是个无名氏喊了这么一句话罢了」。`event_quality_veto` 键名同步改 **Web3 用户视角**：`web3_user_event_impact`（对 Web3 用户的影响力），「这一锚侧重评估事情质量+重要性，也就是对 web3 用户的影响力。0x007f…应该在这层堵住」。题面中「第二层 fit 含事件重要度」与「产品/内容型日常宣传不由本题判」两段尸体句删除（用户裁定无保留意义——前者与新主轴冲突、后者指向已删桶）。
+- **改动**（J1.110，桶 id 不变零断代）：
+  1. **键名断代链**：`event_token_block_reason`（J1.82 前）→ `event_quality_veto`（J1.82）→ `web3_user_event_impact`（J1.110）。mapper `blockAnswers` 三键归一读旧行（C123 改名先例：改名不改判据）；前端 experiment_narrative.js 两处三键读；审计键 `jev.web3_user_event_impact` 落新名（旧键历史行保留展示）。⚠ 撞名史：J1.79 删除的旧 score 事件分题恰同名 `web3_user_event_impact`——缓存行直接返回评级不经 mapper=生产无害；测试基底喂旧 score 形状会遮蔽 veto（nea/referent 基底已修，narrator/resonance/product_entity/consolidation「已删题清单」断言改锁 `type === 'choice'` 防变回 score 题）。
+  2. **无名口号臂**（empty_content ②类形状，C175 fit 锚判据前移 veto 层）：无名作者的单条口号/喊话/宣言/许愿——句子是说事/喊话/表态而非具名玩梗，对人物/机构/品牌口号式提及**即使点名 Richard Teng/币安等知名对象也算**；无外部热点依托、无情节、无第三方参与 → `event_empty_content` 桶拦。三排除锚随行：①J1.58 圈内高影响力账号本人短句（影响力看作者层级不看句子）②C159 具名 meme 指认/提问/玩梗（措辞收窄「实体」→「梗主体」+句式限定，防吃掉无名喊话形状）③C175b 成型叙事（有情节/持续记录/被命名主体来历，无名作者不减已成立事件分量）。
+  3. **instructions 重写**：主轴=「评估事情的质量与重要性——是否是真实、有分量、对 Web3 用户有影响力的事件」第一层；负面事件/口味契合交第二层 fit；event_*/token_* 选项分类说明保留。
+- **验证**：单测 9 文件全绿（nea 46 含 C5 新键/C5b 旧键回落/C6 豁免、img_exempt 29 含 H9 无名口号臂四点锚、consolidation 90、resonance/product_entity/narrator/angle/referent 适配）；signal_metadata_cache E7/E13 计数断言顺手修（71b7e3a 观察信号登记点漏适配，非本批引入）；fixtures C180 expect 收紧 `low`。定向重析+全量回归挂起攒批（[[regression-batch-timing]]）。
+- **部署**：182 pull+重启 narrative worker 后 `--only C180` 定向对拍翻 low（单票定向=改动验证，全量回归等用户通知）。
 
 ## 三、Jev 问题集版本演进（卷四起）
 
 > J1.109 及之前全史见卷三归档 §三（J1.87-J1.109 为 2026-10-23 归档时补录的简式索引）；
 > 卷四起新版本行在此追加。
+
+| 版本 | 日期 | 触发 Case | 改动 |
+|---|---|---|---|
+| J1.110 | 2026-10-23 | C181 | `event_quality_veto` 键名断代 `web3_user_event_impact`（Web3 用户视角：对 Web3 用户的影响力；桶 id 不变，mapper 三键归一读旧行）；empty_content 新增②无名口号臂（无名作者单条口号/喊话即使点名知名对象也算，三排除锚 J1.58/C159 收窄/C175b）；instructions 重写+尸体句删除 |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
 

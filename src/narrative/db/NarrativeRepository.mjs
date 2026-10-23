@@ -368,22 +368,6 @@ export class NarrativeRepository {
   }
 
   /**
-   * 仅回写 GMGN 风险字段（x-0 案）：缓存命中但行内无 gmgn_info 的直调补调路径——
-   * 不重析 Jev，只补数据（与 no_public_info 穿透重析同构但更轻）
-   */
-  static async updateGmgnInfo(address, info) {
-    const { data, error } = await supabase
-      .from('token_narrative')
-      .update({ gmgn_info: info })
-      .eq('token_address', address.toLowerCase())
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  /**
    * 获取所有分析结果
    */
   static async findAll(options = {}) {

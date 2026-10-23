@@ -225,11 +225,20 @@ async function main() {
     qSrc.includes('「DND」能接纳') && qSrc.includes('「CRO」不能接纳'), null);
   check('H7 criteria 同步（web3_user_acceptable 含通用网络梗缩写 / web3_user_not_acceptable 含机构职位缩写）',
     /通用网络梗\/文化缩写（DND\/FOMO\/LFG）/.test(qSrc) && /机构职位\/品牌内部缩写（工牌 Chief Risk Officer→CRO）/.test(qSrc), null);
-  check('H8 J1.95/C159 短句点名具体 meme/实体不算空洞（chinese nubcat? 矛盾修正）',
-    qSrc.includes('短句/疑问句但点名具体 meme、实体或已知 IP')
+  check('H8 J1.95/C159 短句点名具体 meme/梗主体不算空洞（chinese nubcat? 矛盾修正；J1.110/C181 措辞收窄「实体」→「梗主体」+句式限定防吃掉无名喊话形状）',
+    qSrc.includes('短句/疑问句但点名具体 meme、梗主体或已知 IP')
     && qSrc.includes('chinese nubcat?')
     && qSrc.includes('是否为低质 IP 复用由 token_ip_reuse 另判')
     && qSrc.includes('本项只留完全没有可辨识主体/指代的内容'), null);
+  // J1.110/C181（RichardTeng 0x007f5ddb6b5d2377f17089a7835bc61beee97777 案）：
+  // 无名口号臂——C175 fit 锚判据前移 veto 层：无名作者单条口号/喊话/宣言/许愿对
+  // Web3 用户不构成影响力事件。题面四点在场：②臂主句（点名知名对象也算）+
+  // 三排除锚（J1.58 作者层级 / C159 梗主体 / C175b 成型叙事）
+  check('H9 J1.110/C181 无名口号臂四点在场（②臂主句含点名知名对象也算 + J1.58 作者层级排除 + C159 收窄 + C175b 成型叙事排除）',
+    qSrc.includes('无名作者的单条口号/喊话/宣言/许愿（J1.110/C181）')
+    && qSrc.includes('即使点名 Richard Teng/币安等知名对象')
+    && qSrc.includes('影响力看作者层级，不看句子本身')
+    && qSrc.includes('成型叙事——有情节的故事、持续的行为记录、被命名主体的来历'), null);
 
   // ═══ 汇总 ═══
   console.log(`\n══════ _test_empty_content_img_exempt: ${passed} passed, ${failed} failed ══════`);

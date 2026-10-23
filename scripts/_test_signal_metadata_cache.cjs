@@ -348,8 +348,8 @@ const FIXED = { id: '00000000-0000-4000-8000-000000000001', createdAt: new Date(
     const fm = fs.readFileSync(path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
     check('E6 FourMeme 覆盖版：save 后捕获回读行',
       /signalRow = tradeSignal\._insertedRow \|\| null;/.test(fm), true);
-    check('E7 FourMeme 两处 _updateSignalStatus 透传 signalRow',
-      (fm.match(/_updateSignalStatus\(signalId,[^)]*?, signalRow\)/g) || []).length, 2);
+    check('E7 FourMeme 三处 _updateSignalStatus 透传 signalRow（71b7e3a 观察信号 OBSERVE 写行点为第 3 处）',
+      (fm.match(/_updateSignalStatus\(signalId,[^)]*?, signalRow\)/g) || []).length, 3);
     // existingSignalId 分支（买腿 fire 链）signalRow=null 走兜底——步骤②缓存接管前形状
     const m = fm.match(/async processSignal\(signal, existingSignalId = null\) \{[\s\S]{0,2500}?let signalId/);
     check('E8 existingSignalId 免二次 save 分支保留', m !== null, true);
@@ -362,9 +362,9 @@ const FIXED = { id: '00000000-0000-4000-8000-000000000001', createdAt: new Date(
       (abs.match(/this\._signalRowCache\.delete\(signalId\);/g) || []).length >= 3, true);
     check('E12 组装基底三源（signalRow || cachedRow || SELECT 兜底）',
       /const baseRow = signalRow \|\| cachedRow \|\| null;/.test(abs), true);
-    check('E13 三登记点（Abstract processSignal/FourMeme 两处）',
+    check('E13 四登记点（Abstract processSignal/FourMeme 三处——含 71b7e3a 观察信号 OBSERVE 点）',
       (abs.match(/this\._registerSignalRow\(signalId, tradeSignal\._insertedRow\);/g) || []).length
-      + (fm.match(/this\._registerSignalRow\(signalId, tradeSignal\._insertedRow\);/g) || []).length, 3);
+      + (fm.match(/this\._registerSignalRow\(signalId, tradeSignal\._insertedRow\);/g) || []).length, 4);
     check('E14 终态 delete 在通知调用后',
       /await this\._sendSignalNotificationWithFilter\(signalId, newMetadata, composedSignal\);\s*\n\s*\/\/ 终态[\s\S]*?this\._signalRowCache\.delete\(signalId\);/.test(abs), true);
   }

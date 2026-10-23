@@ -30,10 +30,9 @@ function check(name, cond, detail) {
 function baseAnswers(cat, acceptability) {
   return {
     event_category: { choice: cat, probabilities: { [cat]: 0.7 } },
-    web3_user_event_impact: { score: 4.6, probabilities: { '4': 0.5, '5': 0.3 } },
     event_timing: { choice: 'within_7d', probabilities: { within_7d: 0.9 } },
     web3_user_event_spread: { score: 25, probabilities: { '5': 0.6, '4': 0.3 } },
-    event_quality_veto: { choice: 'none', probabilities: { none: 0.92 } },
+    web3_user_event_impact: { choice: 'none', probabilities: { none: 0.92 } }, // J1.110/C181 键名断代（旧 score 题同键名已删，不得再喂 score 形状——撞名会遮蔽 veto）
     // J1.81：词句门只评 not_entity 形状——基底刻意 not_entity（accepted 0.9 会被
     // 实体票分流跳过词句门 + 触发著名资格豁形象门，B1 专项形状失真）
     web3_user_name_entity_acceptance: { choice: 'not_entity', probabilities: { not_entity: 0.9, unknown: 0.05 } },

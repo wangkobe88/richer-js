@@ -14,6 +14,11 @@
  * 普通推文/账号 URL 守 C10 原语义。并入后 selectTwitterUrl 的
  * tweet 类型优先保证 superIP 推文被选中（自挂账号链接保留但靠后）。
  *
+ * C181（2026-10-23 用户裁定「ave api 信息够了就不需要补充」）：AVE 已有 twitter
+ * 链接的票不再调 GMGN（data-fetch 必要门），本例外臂的主要触发源（AVE 有
+ * twitter 的票）随门退役；例外分支代码保留，残余形状=pre-IPFS 无 twitter 而
+ * IPFS 解包补出 twitter 的罕见票（B2/B3 断言锚定残余分支接线不腐）。
+ *
  * 覆盖：
  *   A. isSuperIpTweetUrl 判定矩阵（龙虾案数值锚定 / 普通账号推文不并入 /
  *      superIP 账号 URL（非推文）不触发例外 / 垃圾 username 形状 / 大小写）
@@ -104,6 +109,14 @@ const run = async () => {
 
   check('B4 C10 原路径零回归（无 twitter 链接时 twitterUrl+websiteUrl 都补）',
     /if \(!hasTwitterUrl\) \{[\s\S]*?const addUrls = \[gmgnSocials\.twitterUrl, gmgnSocials\.websiteUrl\]/.test(dfs));
+
+  check('B6 C181 必要门在位（AVE 已有 twitter → 不调 GMGN，例外臂主要触发源随门退役）',
+    /const gmgnNeeded = options\.enrichSocialByGmgn && !hasTwitterLink\(allUrls\)/.test(dfs)
+      && /gmgnNeeded\s*\?\s*timing\.wrap\('gmgn'/.test(dfs));
+
+  check('B6b 判据单一真相（并入判定 hasTwitterUrl 与必要门同源 hasTwitterLink）',
+    /const hasTwitterUrl = hasTwitterLink\(allUrls\)/.test(dfs)
+      && !/allUrls\.some\(u => \/\^https\?:\/\/\(\?:\[a-z0-9-\]\+\\\.\)\*\(\?:twitter\\\.com\|x\\\.com\)\\\//.test(dfs));
 
   check('B5 并入后选择层 tweet 优先（selectTwitterUrl find type===tweet 先于 account）',
     (() => {

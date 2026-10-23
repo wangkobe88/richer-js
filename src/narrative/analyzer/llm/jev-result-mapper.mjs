@@ -228,14 +228,16 @@ const RELEVANCE_FUSED_SCORES = {
 };
 
 /**
- * J1.82（C140）题键断代：event_token_block_reason → event_quality_veto（对齐定位句
- * 「事件质量否决」两层结构第一层）。存量 token_narrative 行/旧 fixture 仍是旧键，
- * 读取一律走本 helper 双键归一（C123 改名先例：改名不改判据，旧行 bit 不变）。
+ * J1.82（C140）题键断代：event_token_block_reason → event_quality_veto；
+ * J1.110（C181）再断代：event_quality_veto → web3_user_event_impact（用户裁定
+ * 改 web3 用户视角，主轴=对 Web3 用户的影响力；桶 id 不变零断代）。存量
+ * token_narrative 行/旧 fixture 仍是旧键，读取一律走本 helper 三键归一
+ * （C123 改名先例：改名不改判据，旧行 bit 不变）。
  */
-const blockAnswers = (answers) => answers?.event_quality_veto ?? answers?.event_token_block_reason ?? null;
+const blockAnswers = (answers) => answers?.web3_user_event_impact ?? answers?.event_quality_veto ?? answers?.event_token_block_reason ?? null;
 
 /**
- * event_quality_veto（J1.82 前键名 event_token_block_reason）选项 → 中文标签（reason 模板用）。
+ * web3_user_event_impact（J1.82 前键名 event_quality_veto/event_token_block_reason）选项 → 中文标签（reason 模板用）。
  * J1.43（C109）退役两桶（182 全量 10815 行实证）：regional_event 9 次 argmax/
  * 0 次域内拦截=从未拦过票的死桶（且与 event_magnitude 的地区性/全国性范围镜头
  * 冲突）；subject_unqualified 31 次/23 次弱概率拦截（p 0.22-0.58），与 C108 后
@@ -827,7 +829,7 @@ function nameEntityLowBlock(answers, category) {
 
 /**
  * 阻断选项是否在该类别下生效
- * @param {string} choice - event_quality_veto（J1.82 前键名 event_token_block_reason）的 choice（≠'none'）
+ * @param {string} choice - web3_user_event_impact（旧键 event_quality_veto/event_token_block_reason）的 choice（≠'none'）
  * @param {string|null} category - event_category 的 choice
  * @returns {boolean}
  */
@@ -1187,8 +1189,9 @@ export function mapStandardAnswers(answers, context) {
         // J1.26 nrNotableExempt 审计键随 C108 nr 阻断位退役（历史行键保留展示）
         probabilities: {
           event_category: answers.event_category?.probabilities,
-          // J1.82 键名断代：新行落 event_quality_veto（旧行历史键保留展示）
-          event_quality_veto: blockAnswers(answers)?.probabilities,
+          // J1.110 键名断代：新行落 web3_user_event_impact（旧键 event_quality_veto/
+          // event_token_block_reason 历史行保留展示；前端双键读）
+          web3_user_event_impact: blockAnswers(answers)?.probabilities,
           web3_user_name_entity_acceptance: answers.web3_user_name_entity_acceptance?.probabilities,
           web3_user_event_fit: answers.web3_user_event_fit?.probabilities,
           event_subject_entity: answers.event_subject_entity?.probabilities,
@@ -1373,7 +1376,7 @@ export function mapStandardAnswers(answers, context) {
     // 合计 <0.5 → 阻断，全域不限类别（C/D 客观规模票的通用口味硬门=用户裁定
     // 补的位；产品实体票判据同前 bit 不变）。挂位在 web3_user_event_fit unfit
     // 负门之后（unfit 票先被负门拦，label 归属更准），
-    // event_quality_veto argmax 之前（事件性质层面的否决）
+    // web3_user_event_impact argmax 之前（事件性质层面的否决）
     eventScoreBlocked = true;
     gateBlockReason = peBlock.label;
   } else if (blockChoice !== 'none' && noneProb < 0.5

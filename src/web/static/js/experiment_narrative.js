@@ -803,7 +803,7 @@ class ExperimentNarrative {
       this._kv('口号性 mem', f.mem),
       this._kv('时效', f.timing),
       this._kv('Web3 适配', f.strongFit != null ? `strong_fit ${Math.round(f.strongFit * 100)}%` : null, probTop(probs.web3_user_event_fit)),
-      this._kv('拦截原因', f.blockChoice, probTop(probs.event_quality_veto ?? probs.event_token_block_reason)),
+      this._kv('拦截原因', f.blockChoice, probTop(probs.web3_user_event_impact ?? probs.event_quality_veto ?? probs.event_token_block_reason)),
       this._kv('主体实体', f.subjectEntity ?? s2j?.subjectEntity, probTop(probs.event_subject_entity)),
       this._kv('形象载体', f.subjectCarrier ?? s2j?.subjectCarrier)
     ].join('');
@@ -1098,7 +1098,7 @@ function extractFeatures(item) {
         if (f.timing == null) f.timing = answers.event_timing?.choice ?? null;
         f.eventCategory = answers.event_category?.choice ?? null;
         f.nameReferent = answers.web3_user_name_entity_acceptance?.choice ?? null;
-        f.blockChoice = answers.event_quality_veto?.choice ?? answers.event_token_block_reason?.choice ?? null; // J1.82 双键读旧缓存行
+        f.blockChoice = answers.web3_user_event_impact?.choice ?? answers.event_quality_veto?.choice ?? answers.event_token_block_reason?.choice ?? null; // J1.110 三键读旧缓存行
         if (f.strongFit == null) f.strongFit = answers.web3_user_event_fit?.probabilities?.strong_fit ?? null;
         if (f.subjectEntity == null) f.subjectEntity = answers.event_subject_entity?.choice ?? null;
         if (f.subjectCarrier == null) f.subjectCarrier = answers.web3_user_entity_visuality?.choice ?? answers.name_entity_carrier?.choice ?? null; // J1.81 双键读旧缓存行
