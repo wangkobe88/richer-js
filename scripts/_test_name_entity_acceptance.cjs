@@ -131,38 +131,42 @@ async function main() {
     && stage2Of(mNoUtter).jev?.recognizedEntitySlogan?.authorUtterance === false,
     stage2Of(mNoUtter).jev?.recognizedEntitySlogan);
 
-  console.log('\n── C. unknown 实体低影响力门（C180 拦截退役，纯观察落档）──');
+  console.log('\n── C. 实体类型接纳门（J1.113/C184 恢复拦截：unknown 认知度轴断代 unacceptable_type 类型轴）──');
 
   for (const cat of ['B', 'C', 'D', 'F', 'G', 'W']) {
+    const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.6 } }), makeContext());
+    check(`C1-${cat} unacceptable_type 0.6 → 拦（类型不合，可乐/银行/犬种学名类）+ 审计 nameEntityTypeUnfitMass=0.6`,
+      /币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(m).blockReason || '')
+      && stage2Of(m).jev?.nameEntityTypeUnfitMass === 0.6,
+      { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityTypeUnfitMass });
+  }
+  // 断代反证：旧 unknown（认知度轴桶值）不归一读——历史缓存行零翻转，重析后自然更新
+  for (const cat of ['B', 'C']) {
     const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unknown', probabilities: { unknown: 0.6 } }), makeContext());
-    check(`C1-${cat} unknown 0.6 → 不再由实体门拦（C180）+ 审计 nameEntityLowMass 照落 0.6`,
-      !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(m).blockReason || '')
-      && stage2Of(m).jev?.nameEntityLowMass === 0.6,
-      { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityLowMass });
+    check(`C1b-${cat} 旧 unknown 0.6 → 不拦（不归一读旧桶，J1.113 断代防线）`,
+      stage2Of(m).jev?.nameEntityTypeUnfitMass === null && !/币名实体类型不被/.test(stage2Of(m).blockReason || ''),
+      { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityTypeUnfitMass });
   }
   for (const cat of ['A', 'E']) {
-    const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unknown', probabilities: { unknown: 0.6 } }), makeContext());
-    check(`C2-${cat} unknown 0.6 → 不拦（${cat} 刻意不在实体门域）`,
-      stage2Of(m).jev?.nameEntityLowMass === null,
-      { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityLowMass });
+    const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.6 } }), makeContext());
+    check(`C2-${cat} unacceptable_type 0.6 → 不拦（${cat} 刻意不在类型门域）`,
+      stage2Of(m).jev?.nameEntityTypeUnfitMass === null,
+      { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityTypeUnfitMass });
   }
-  const m049 = mapStandardAnswers(baseAnswers('C', { choice: 'unknown', probabilities: { unknown: 0.49 } }), makeContext());
-  check('C3 unknown 0.49 <0.5 → 不拦（概率门槛）',
-    stage2Of(m049).jev?.nameEntityLowMass === null, stage2Of(m049).jev?.nameEntityLowMass);
+  const m049 = mapStandardAnswers(baseAnswers('C', { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.49 } }), makeContext());
+  check('C3 unacceptable_type 0.49 <0.5 → 不拦（概率门槛）',
+    stage2Of(m049).jev?.nameEntityTypeUnfitMass === null, stage2Of(m049).jev?.nameEntityTypeUnfitMass);
   const mNone = mapStandardAnswers(baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } }), makeContext());
   check('C4 no_entity 中性：不拦（J1.81 断代改名 not_entity；此处旧 choice 形状=存量行重放；问候语/截词责任交词句门）',
-    stage2Of(mNone).jev?.nameEntityLowMass === null && stage2Of(mNone).jev?.nameEntityAcceptance === 'no_entity',
-    { mass: stage2Of(mNone).jev?.nameEntityLowMass, choice: stage2Of(mNone).jev?.nameEntityAcceptance });
-  // C133（股城案用户裁定）：新项目/新品牌等刚诞生且已在 BSC 用户群发出信息的新实体
-  // → new_entity，不按「用户不认得」拦（与已存在但无认知的 unknown 区分）
-  const mNew = mapStandardAnswers(baseAnswers('C', { choice: 'new_entity', probabilities: { new_entity: 0.62, unknown: 0.25 } }), makeContext());
-  check('C4b new_entity 0.62 → 不触实体门（新实体不是无名老实体，C133）',
-    stage2Of(mNew).jev?.nameEntityLowMass === null && stage2Of(mNew).jev?.nameEntityAcceptance === 'new_entity'
-    && !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mNew).blockReason || ''),
-    { mass: stage2Of(mNew).jev?.nameEntityLowMass, choice: stage2Of(mNew).jev?.nameEntityAcceptance, blockReason: stage2Of(mNew).blockReason });
-  const mNewSplit = mapStandardAnswers(baseAnswers('C', { choice: 'new_entity', probabilities: { new_entity: 0.46, unknown: 0.4 } }), makeContext());
-  check('C4c new_entity argmax + unknown 0.40 <0.5 → 不拦（概率门槛不变）',
-    stage2Of(mNewSplit).jev?.nameEntityLowMass === null, stage2Of(mNewSplit).jev?.nameEntityLowMass);
+    stage2Of(mNone).jev?.nameEntityTypeUnfitMass === null && stage2Of(mNone).jev?.nameEntityAcceptance === 'no_entity',
+    { mass: stage2Of(mNone).jev?.nameEntityTypeUnfitMass, choice: stage2Of(mNone).jev?.nameEntityAcceptance });
+  // J1.113/C184 删 new_entity 桶（类型不因新旧而变——性质没问题即可）——历史缓存行
+  // 兼容反证：new_entity argmax 时概率和为 1，unacceptable_type 必 <0.5 天然不触门
+  const mNew = mapStandardAnswers(baseAnswers('C', { choice: 'new_entity', probabilities: { new_entity: 0.62, unacceptable_type: 0.25 } }), makeContext());
+  check('C4b 历史行 new_entity 0.62 → 不触类型门（桶已删 J1.113；argmax 时 unacceptable_type 必<0.5）',
+    stage2Of(mNew).jev?.nameEntityTypeUnfitMass === null && stage2Of(mNew).jev?.nameEntityAcceptance === 'new_entity'
+    && !/币名实体类型不被/.test(stage2Of(mNew).blockReason || ''),
+    { mass: stage2Of(mNew).jev?.nameEntityTypeUnfitMass, choice: stage2Of(mNew).jev?.nameEntityAcceptance, blockReason: stage2Of(mNew).blockReason });
 
   console.log('\n── C2. J1.58 empty_content 作者在册豁免 ──');
 
@@ -247,63 +251,52 @@ async function main() {
   const qsSrc = fs.readFileSync(path.join(__dirname, '..', 'src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D1 五腿第一腿=accepted ∨ authorUtterance',
     /const recognizedEntitySlogan = \(entityAcceptedProb >= 0\.5 \|\| authorUtterance\)/.test(mapperSrc));
-  check('D2 实体门函数与作用域常量（B/C/D/F/G/W；unknown≥0.5）——C180 后纯观察用途',
-    /function nameEntityLowBlock\(answers, category\)/.test(mapperSrc)
-    && /NAME_ENTITY_LOW_BLOCK_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(mapperSrc)
-    && /probabilities\?\.unknown \?\? 0/.test(mapperSrc));
-  check('D10 C180 防复活：门链不再含 unknown/词句两拦截臂（else-if 内联拦截形状禁绝；wrong_entity 臂保留）',
-    !/\(neBlock = nameEntityLowBlock/.test(mapperSrc)
+  check('D2 实体类型门函数与作用域常量（B/C/D/F/G/W；unacceptable_type≥0.5；不归一读旧 unknown）——J1.113/C184 恢复拦截',
+    /function nameEntityTypeUnfitBlock\(answers, category\)/.test(mapperSrc)
+    && /NAME_ENTITY_TYPE_UNFIT_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(mapperSrc)
+    && /probabilities\?\.unacceptable_type \?\? 0/.test(mapperSrc)
+    && !/nameEntityLowBlock\(/.test(mapperSrc.replace(/ \* .*/g, ''))); // 旧函数名仅存于注释史档
+  check('D10 门链形状：类型门恢复拦截（pubProxyActive 豁免随拦截恢复）+ 词句臂维持 C180 退役观察 + wrong_entity 臂保留',
+    /!pubProxyActive && neBlock != null/.test(mapperSrc)
     && !/\(uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc)
     && /\(weBlock = wrongEntityBlock/.test(mapperSrc)
-    && /const neBlock = nameEntityLowBlock/.test(mapperSrc)
+    && /const neBlock = nameEntityTypeUnfitBlock/.test(mapperSrc)
     && /const uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc));
   check('D3 骑乘改道退役反证（rideDetourMass 不存在）',
     !/function rideDetourMass\(answers, category\)/.test(mapperSrc));
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
-  check('D5c J1.65-J1.67 名字门超IP词句臂（模拟 BSC 链 Meme 玩家、不套词表）+ 版本词反锚（C126/C105）+ J1.80/C138 超IP来源判据段',
-    qsSrc.includes('对 BSC 链 Meme 币用户有特殊影响力的主体本人说出的、玩家会当符号用的词句')
-    && qsSrc.includes('即便逐字出自高影响力主体的原话也不接纳')
-    && qsSrc.includes('模拟 BSC 链 Meme 币买家看到这句话的反应，不是套词表') && qsSrc.includes('BSC 链 Meme 币玩家群体里的特殊影响力') && qsSrc.includes('日常陈述、个人行动、礼貌套话')
-    && qsSrc.includes('超级IP来源判据（J1.80/C138）')
-    && qsSrc.includes('即使是超级IP即影响力超大的用户讲的话，也完全当不了符号，完全不适合作为 meme 币，不会产生购买意愿')
-    && qsSrc.includes('币名「heyi.ai」=其代称「heyi」+.ai 概念后缀')
-    && qsSrc.includes('官方措辞引用臂（J1.94/C157）')
-    && qsSrc.includes('采信该陈述、不要求验证来源/页面'), null);
-  check('D5d J1.89/C151 有意义的错版/二创造型不选 wrong_entity（哭哭奶龙案锚）',
-    qsSrc.includes('有独立背景故事/文化来源的**有意义变形不选 wrong_entity**')
-    && qsSrc.includes('错版奶龙→哭哭奶龙')
-    && qsSrc.includes('不选本项（J1.89/C151）'), null);
+  const entSeg = qsSrc.slice(qsSrc.indexOf('bsc_meme_user_name_entity_acceptance: {'), qsSrc.indexOf('bsc_meme_user_phrase_acceptability: {')); // 切片终点=紧邻词句题（visuality 题 C171 已删，旧终点键是死键取到文件尾）
+  check('D5 题集实体题四桶（J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 版本 J1.113',
+    qsSrc.includes("bsc_meme_user_name_entity_acceptance: {")
+    && /accepted:/.test(entSeg) && /unacceptable_type:/.test(entSeg)
+    && /wrong_entity:/.test(entSeg) && /not_entity:/.test(entSeg) && !/no_entity:/.test(entSeg)
+    && !/brand_mismatch:/.test(entSeg) && !/new_entity:/.test(entSeg) && !/unknown:/.test(entSeg)
+    && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
+    && entSeg.includes('不评认知度')
+    && entSeg.includes('判据=类型/性质不合，不是认知度')
+    && qsSrc.includes('作者身份本身不是映射')
+    && /JEV_QUESTIONS_VERSION = 'J1\.113'/.test(qsSrc));
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
     && !qsSrc.includes('event_negative_hard_news:') && !qsSrc.includes('event_routine_content_product:')
     && !qsSrc.includes('event_quality_veto: {')
     && qsSrc.includes('token_ip_reuse:') && !qsSrc.includes('token_circle_reachability: {')); // J1.82/C140 圈层桶退役（并行会话同批）
-  const entSeg = qsSrc.slice(qsSrc.indexOf('bsc_meme_user_name_entity_acceptance: {'), qsSrc.indexOf('bsc_meme_user_phrase_acceptability: {')); // 切片终点=紧邻词句题（visuality 题 C171 已删，旧终点键是死键取到文件尾）
-  check('D5 题集实体题六桶（J1.94/C157 官方措辞引用臂；J1.93/C156 题键改名；J1.92/C155 name_event_relevance 3 桶；J1.91/C154 时效体系清理；J1.90/C152 MEMES fit 锚；J1.89/C151 哭哭奶龙 wrong_entity 修正；J1.88/C150 删 institution 桶；J1.87/C145 删 routine 桶；J1.86/C143 校准：accepted/unknown/new_entity/wrong_entity/brand_mismatch/not_entity；no_entity 断代退役）+ 作者身份不升档红线 + 版本 J1.99（C162/C163 批）；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性并入 event_fit（并行会话同批）；J1.81=C139 三轴重构；J1.80=C138 超IP来源判据追加段）',
-    qsSrc.includes("bsc_meme_user_name_entity_acceptance: {")
-    && /accepted:/.test(entSeg) && /unknown:/.test(entSeg) && /new_entity:/.test(entSeg)
-    && /wrong_entity:/.test(entSeg) && /not_entity:/.test(entSeg) && !/no_entity:/.test(entSeg)
-    && !/brand_mismatch:/.test(entSeg)
-    && entSeg.includes('指歪') && entSeg.includes('这是拦截位（全域）')
-    && qsSrc.includes('作者身份本身不是映射')
-    && qsSrc.includes('新实体 ≠ 无名实体')
-    && /JEV_QUESTIONS_VERSION = 'J1\.112'/.test(qsSrc));
   check('D6 键名断代：词句题 bsc_meme_user_phrase_acceptability 在册（J1.112/C183 web3_user_* 全族断代；J1.81 收窄前名 web3_user_phrase_acceptability）；载体题 web3_user_entity_visuality 已随 C171 形象轴退役（题删除）；旧键 name_form:/web3_user_name_acceptability:/name_entity_carrier: 退役',
     /bsc_meme_user_phrase_acceptability: \{/.test(qsSrc) && !/web3_user_entity_visuality: \{/.test(qsSrc)
     && !/^ {4}(name_form|web3_user_name_acceptability|name_entity_carrier): \{/m.test(qsSrc));
   // D7（J1.104/C174，TREE 0xd50e11204f7f3d63598b0118ee4151bf95917777 案）：
-  // 「被命名+被讲故事的故事主体」三锚在场——instructions ⚠️ 段+new_entity criteria
-  // 主锚（含逃逸门：语料无命名行为的普通词蹭名票不适用）+not_entity criteria 反锚。
-  // 修复面：Jev 曾判 TREE not_entity 0.47（new_entity 0.09）→ J1.139 结构下 not_entity
-  // 触发词句题 not_acceptable 0.59 拦 low；锚正后 new_entity → 词句题跳过 → ≈81 high
-  check('D7 J1.104/C174 故事主体锚三点在场（instructions ⚠️ 段+new_entity 主锚+not_entity 反锚）+逃逸门',
-    qsSrc.includes('被命名+被讲故事的故事主体是新实体（J1.104/C174')
+  // 「被命名+被讲故事的故事主体」锚在场——J1.113/C184 落点随 new_entity 删桶迁
+  // accepted（性质可接纳即归，新旧无关）；含逃逸门（语料无命名行为的蹭名票不适用）。
+  // 修复面：Jev 曾判 TREE not_entity 0.47 → 触发词句题 not_acceptable 0.59 拦 low；
+  // 锚正后归可接纳桶 → 词句题跳过 → ≈81 high
+  check('D7 J1.104/C174 故事主体锚在场（instructions ⚠️ 段+accepted 桶主锚+not_entity 反锚）+逃逸门',
+    qsSrc.includes('被命名+被讲故事的故事主体（J1.104/C174')
     && qsSrc.includes('不因名字字面是普通词（树/猫/橙子）判 not_entity')
     && qsSrc.includes('语料已陈述命名行为/已讲故事的主体（有明确所指，如 BNB Tree）不属本项')
-    && qsSrc.includes('币名=普通词而语料无命名行为的蹭名票不满足本锚') && qsSrc.includes('语料无命名行为的普通词蹭名票不适用本锚'),
+    && qsSrc.includes('币名=普通词而语料无命名行为的蹭名票不满足本锚'),
     null);
 
   // D8（J1.105/C175，京小安 0xcb98accaa8040a7e839c305b8aca08e113c87777 案）：
@@ -313,7 +306,7 @@ async function main() {
     qsSrc.includes('性质定义优先于认知度（J1.105/C175，京小安案）')
     && qsSrc.includes('不以「实体是否知名/被广泛报道/评估者是否听说过该实体」为前提')
     && qsSrc.includes('性质定义即接纳证据（J1.105/C175）')
-    && qsSrc.includes('不以知名/被广泛报道为前提（判据=可接纳性非认知度）')
+    && qsSrc.includes('→ accepted，不以知名/被广泛报道为前提')
     && qsSrc.includes('name/语料已给出明确可接纳的性质定义（如「首款AI警犬」）的不属本项（→ accepted，J1.105/C175）')
     && qsSrc.includes('空泛自称（无具体角色内容的「官方币/年度最强」式口号）不满足「明确定义性质」'),
     null);

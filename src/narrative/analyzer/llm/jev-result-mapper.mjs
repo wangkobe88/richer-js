@@ -482,10 +482,11 @@ function wrongEntityBlock(answers) {
 
 function web3UserAcceptabilityBlock(answers) {
   // J1.81/C139 词句门收窄：只评 not_entity 形状（口号/玩梗/文化词/句片段/陈述句/
-  // 日常用语）；实体票（accepted/unknown/new_entity/wrong_entity）不经本题——名字
-  // 质量归实体轴（unknown/wrong_entity 拦截）+ 词句轴。版本臂/
+  // 日常用语）；实体票（accepted/unacceptable_type/wrong_entity，J1.113/C184 四桶）
+  // 不经本题——名字质量归实体轴（类型不合/指歪）+ 词句轴。版本臂/
   // 拼写臂已删（C105/C108 拦截责任迁入 wrongEntityBlock）。no_entity=J1.81 前旧缓存
-  // 行兼容读（旧行按原口径照评，bit 不变）。
+  // 行兼容读（旧行按原口径照评，bit 不变）；旧 new_entity 行≠not_entity 照跳过（
+  // J1.113 删桶后历史缓存行兼容，无需枚举）。
   // C180（2026-10-23）退役拦截、纯观察落档：拦截原因混杂（审美=fit 的域/事件与
   // 代币不匹配=关联题的域/纯符号名），且与关联题打架（独杀子集 117 张里关联
   // exact/acceptable 123 张被越权拦）。判定值照算供审计键
@@ -820,28 +821,33 @@ function web3FitMassBlock(answers, opts) {
  */
 
 /**
- * 实体低影响力门（J1.56，C126；规格=旧 J1.10 nameReferentBlock 的类别域
- * 与概率门槛）：币名映射到具体实体、但该实体在 Web3 用户侧不认得（unknown）。
- * **C180（2026-10-23）退役拦截、纯观察落档**：生产审计 286 张被拦票 89% fit
- * 过线、关联题大量 exact_match 被越权拦（unknown 判定实质=事件在 Web3 用户侧
- * 无影响力=fit 的域；知名实体掷骰歪 RichardTeng/JPM、自创昵称误拦恩恩崽/乐宝豆
- * 是独占子集主体）。函数照算判定值供审计键 nameEntityLowMass 落档与迁移参考，
- * 门链不再消费（防复活=单测退役反证锁定）。拦截史档：
- * - 原作用域 B/C/D/F/G/W + 概率门槛 ≥0.5（choice 概率 mass）
- * - 原 pubProxyActive 豁免只作用于拦截（官方域名+领域知名发布者 C29 裁定），
- *   mass 观察计算不受影响
- * - **new_entity 不拦（J1.72/C133，股城案用户裁定）**：本门只读 unknown 概率，
- *   new_entity 为 argmax 时 unknown 必然 <0.5（概率和为 1），天然不触门。
+ * 实体类型接纳门（J1.113/C184）：币名映射到可辨实体、但该实体的类型/性质不能被
+ * BSC meme 币用户接纳为 meme 币名（圈外商业品牌/金融机构/品种学名等——无论著名）
+ * → unacceptable_type ≥0.5 域 B/C/D/F/G/W 拦。
+ * 用户裁定（2026-10-23，观察票 C183-C187 vs C189-C191）：可乐/银行名/犬种学名=
+ * 类型不可 meme 化该拦；天狗/恩恩崽/乐宝豆=可接纳类型该放。二轮裁定：不评认知度
+ * ——事件已成立且实体与事件关联（关联度门管）时用户已知晓该实体，判据只看实体
+ * 类型与性质（实体量级归量级门）。
+ * 断代：**不归一读旧 unknown**（C180 前认知度轴桶值）——历史缓存行零翻转，重析
+ * 后自然更新到新桶；审计键 nameEntityTypeUnfitMass（旧 nameEntityLowMass 键停
+ * 产出，历史行保留展示）。
+ * 史档——C180（2026-10-23）曾退役本门拦截（认知度轴判据下 unknown 臂 89% 被拦票
+ * fit 过线、关联题 exact 被越权拦——「拦的少惹的事多」）；C184 以类型轴判据恢复
+ * 拦截，认知度轴语义随桶值断代废弃：
+ * - pubProxyActive 豁免保留（官方域名=具体产品落地 C29 裁定，随拦截恢复）
+ * - 旧 new_entity 桶（J1.72/C133 股城案「不拦」）已随 J1.113/C184 删桶——
+ *   历史缓存行 new_entity argmax 时 unacceptable_type 必然 <0.5（概率和为 1）
+ *   天然不触门，兼容无需处理
  * - 与旧 nrBlock 的刻意 delta：旧规合计 minor_other + common_word；新轴的
- *   截词/普通词归 no_entity（中性，C108 名字形态责任史）
+ *   截词/普通词归 not_entity（中性，C108 名字形态责任史）
  */
-const NAME_ENTITY_LOW_BLOCK_SCOPE = ['B', 'C', 'D', 'F', 'G', 'W'];
+const NAME_ENTITY_TYPE_UNFIT_SCOPE = ['B', 'C', 'D', 'F', 'G', 'W'];
 
-function nameEntityLowBlock(answers, category) {
-  if (category == null || !NAME_ENTITY_LOW_BLOCK_SCOPE.includes(category)) return null;
-  const p = q(answers, 'bsc_meme_user_name_entity_acceptance', 'web3_user_name_entity_acceptance')?.probabilities?.unknown ?? 0;
+function nameEntityTypeUnfitBlock(answers, category) {
+  if (category == null || !NAME_ENTITY_TYPE_UNFIT_SCOPE.includes(category)) return null;
+  const p = q(answers, 'bsc_meme_user_name_entity_acceptance', 'web3_user_name_entity_acceptance')?.probabilities?.unacceptable_type ?? 0;
   if (p < 0.5) return null;
-  return { mass: Math.round(p * 100) / 100, label: `币名映射实体在 Web3 用户侧无名（用户不认得该实体，unknown ${Math.round(p * 100)}%≥50%）` };
+  return { mass: Math.round(p * 100) / 100, label: `币名实体类型不被 BSC meme 用户接纳为 meme 币名（可乐/银行/犬种学名类类型不合，unacceptable_type ${Math.round(p * 100)}%≥50%）` };
 }
 
 /**
@@ -1241,12 +1247,14 @@ export function mapStandardAnswers(answers, context) {
   // （≥0.5，域 B/C/D/F/G/W），挂在名字门之前（实体层否决先于形态层）
   // C180（2026-10-23 用户裁定「两门不再参与拦截，代码先保留」）：unknown 臂
   // （nameEntityLowBlock）与词句门（web3UserAcceptabilityBlock）退役拦截、纯观察
-  // 落档——判定值照算、审计键照落（nameEntityLowMass / web3UserAcceptabilityBlock），
-  // 供「有用部分迁移到其它锚」期间逐票追溯。生产审计依据：286 张被拦票 89% fit
-  // 过线、关联题大量 exact_match 被越权拦——两臂把事件影响力（fit 的域）与审美/
-  // 匹配（关联题的域）都吸进来了。名字轴唯一存留拦截位=wrongEntityBlock（全域、
-  // 客观拼写/忠实性）；拦截史档见下方门链退役注
-  const neBlock = nameEntityLowBlock(answers, category); // 纯观察 {label, mass}（原 pubProxyActive 豁免只作用于拦截，mass 计算不受影响）
+  // 落档。生产审计依据：286 张被拦票 89% fit 过线、关联题大量 exact_match 被
+  // 越权拦——两臂把事件影响力（fit 的域）与审美/匹配（关联题的域）都吸进来了。
+  // 词句门维持退役观察（C184 未推翻）。
+  // J1.113/C184（2026-10-23 用户裁定）：实体题 unknown 认知度轴桶断代
+  // unacceptable_type 类型轴（可乐/银行/犬种学名=类型不可 meme 化，无论著名；
+  // 不评认知度——事件+关联在场时用户已知晓；new_entity 桶随之删）→
+  // nameEntityTypeUnfitBlock 恢复拦截，名字轴拦截位=类型门+wrongEntityBlock
+  const neBlock = nameEntityTypeUnfitBlock(answers, category);
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
   const uaBlock = web3UserAcceptabilityBlock(answers); // 纯观察 {label, choice}（C96→C105→C107→C108→J1.81 收窄=只评 not_entity 形状；form=Jev 原 choice）
   let timingScore = null;
@@ -1428,9 +1436,12 @@ export function mapStandardAnswers(answers, context) {
     && blockInScope(blockChoice, category)) {
     eventScoreBlocked = true;
     gateBlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
-  // （C180：unknown 实体低影响力门 else-if 分支随拦截退役删除——J1.56 原规格=
-  //  unknown ≥0.5 域 B/C/D/F/G/W 拦 + pubProxyActive 豁免，史档见函数头；
-  //  判定值纯观察落档 nameEntityLowMass）
+  // J1.113/C184 实体类型接纳门恢复拦截（C180 曾退役、认知度轴判据断代为类型轴）：
+  // unacceptable_type ≥0.5 域 B/C/D/F/G/W 拦 + pubProxyActive 豁免（官方域名=
+  // 具体产品落地 C29，随拦截恢复）；不归一读旧 unknown——历史缓存行零翻转
+  } else if (!pubProxyActive && neBlock != null) {
+    eventScoreBlocked = true;
+    gateBlockReason = neBlock.label;
   } else if ((weBlock = wrongEntityBlock(answers))) {
     // J1.81/C139 指歪拦截位（全域）：币名试图指向实体但指歪/指残——拼写错/不忠实
     // 呈现/版本残片（C105 版本词臂、C108 拼写臂拦截责任迁入实体轴；「日本語版」
@@ -1557,10 +1568,10 @@ export function mapStandardAnswers(answers, context) {
         // J1.56 起本层另有 nameEntityLowBlock（unknown≥0.5，见拦截发生点审计）。
         // negativeHardNewsMass 随 J1.101/C170 nhn 门退役删除（历史行键保留展示）
         web3UnfitMass: w3Block?.mass ?? null,
-        // J1.56 实体低影响力门审计（C126）：命中才落 mass（unknown 概率），
-        // 未命中 null（与旧 nrBlockMass 退役键区分，历史行键保留展示）。
-        // C180 起纯观察落档（拦截退役，判定值供迁移参考）
-        nameEntityLowMass: neBlock?.mass ?? null,
+        // J1.113/C184 实体类型门审计：命中才落 mass（unacceptable_type 概率），
+        // 未命中 null。旧键 nameEntityLowMass（unknown 认知度轴）随桶断代停产出，
+        // 历史行键保留展示
+        nameEntityTypeUnfitMass: neBlock?.mass ?? null,
         nameWrongEntityMass: weBlock?.mass ?? null,
         effectiveTiming: timing,
         // C44 审计标记：IG 证据缺失锚命中详情（影响力下限 50）

@@ -225,9 +225,9 @@ async function main() {
   check('A16 name_form 三对照锚进题面（Early 能接纳 / 滑雪、我要去不能接纳——分界=用户侧感知）',
     nf.instructions.includes('「Early」能接纳') && nf.instructions.includes('「我要去」都不能接纳')
     && nf.instructions.includes('不是词出自谁、也不是是否截自语料'), null);
-  check('A17 J1.57 划界：无名实体轴移出词句门（指回实体题 unknown 轴），词句门只留形态轴（J1.81 另加 wrong_entity 轴划界）',
-    nf.instructions.includes('指向无名实体不在本题')
-    && nf.instructions.includes('实体题 unknown 轴') && nf.instructions.includes('实体题 wrong_entity 轴')
+  check('A17 J1.57 划界：实体票移出词句门（指回实体题类型轴 unacceptable_type，J1.113/C184 断代），词句门只留形态轴（J1.81 另加 wrong_entity 轴划界）',
+    nf.instructions.includes('实体票不在本题')
+    && nf.instructions.includes('实体题 unacceptable_type 轴') && nf.instructions.includes('实体题 wrong_entity 轴')
     && !nf.instructions.includes('如币安普通员工的花名'), null);
   check('A18 拼写变体锚 J1.81 迁移（无背景拼写错误→实体题 wrong_entity①；有文化来源变体不算——dogwifhat）',
     qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('无背景拼写错误')
@@ -483,9 +483,11 @@ async function main() {
     web3_user_name_entity_acceptance: { choice: 'unknown', probabilities: { unknown: 0.62 } },
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } },
   }), stdCtx('YAYA', 'YAYA'));
-  check('G3b 对照：C 类 unknown 0.62 → 实体门不再拦（C180；审计 mass 照落——无名实体票观察化）',
+  check('G3b 对照：C 类 unknown 0.62 → 实体类型门不拦（J1.113/C184 断代：不归一读旧 unknown，历史缓存行零翻转；两审计键均停产出/无 unacceptable_type 概率=null）',
     !/币名映射实体在 Web3 用户侧无名/.test(rG3c.llmResult.reason || '')
-    && rG3c.stage2DataToSave.parsed_output.jev.nameEntityLowMass === 0.62,
+    && !/币名实体类型不被 BSC meme 用户接纳/.test(rG3c.llmResult.reason || '')
+    && rG3c.stage2DataToSave.parsed_output.jev.nameEntityLowMass == null
+    && rG3c.stage2DataToSave.parsed_output.jev.nameEntityTypeUnfitMass == null,
     rG3c.llmResult.reason);
   // G4 rm 退役位移交：mem=1（原 rmBlock mem≤1 拦）+A 类+meme_name → 放行；
   //    同形状 not_meme_name → 名字门拦（票型责任移交）

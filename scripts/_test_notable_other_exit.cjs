@@ -77,19 +77,27 @@ async function main() {
 
   const m1 = mapStandardAnswers(griffinAnswers(), makeContext());
   const s2 = stage2Of(m1);
-  // C180（2026-10-23）：unknown 实体低影响力门退役拦截、纯观察落档——狮鹫形状
-  // 不再被实体门拦，评分链走完；nameEntityLowMass 审计照落（迁移参考）
-  check('A1 unknown 0.82≥0.5 + B 类 → 实体门不再拦（C180）+ 评分走完',
-    !/币名映射实体在 Web3 用户侧无名/.test(s2.blockReason || '') && s2.scoringResult.eventCompositeScore != null,
+  // J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——历史 unknown 形状
+  // 不归一读=零翻转不拦（断代反证）；狮鹫形状评分链走完；旧审计键 nameEntityLowMass
+  // 停产出（新键 nameEntityTypeUnfitMass 只认 unacceptable_type）
+  check('A1 旧 unknown 0.82≥0.5 + B 类 → 不拦（J1.113 不归一读断代）+ 评分走完',
+    !/币名实体类型不被 BSC meme 用户接纳/.test(s2.blockReason || '') && s2.scoringResult.eventCompositeScore != null,
     { pass: s2.pass, blockReason: s2.blockReason, total: s2.scoringResult?.eventCompositeScore });
-  check('A1b 审计：nameEntityAcceptance=unknown + 概率 0.82 + nameEntityLowMass=0.82',
+  check('A1b 审计：nameEntityAcceptance=unknown + 概率 0.82 + 旧键停产出/新键 null（断代）',
     s2.jev?.nameEntityAcceptance === 'unknown' && s2.jev?.nameEntityAcceptanceProbability === 0.82
-    && s2.jev?.nameEntityLowMass === 0.82);
+    && s2.jev?.nameEntityLowMass === undefined && s2.jev?.nameEntityTypeUnfitMass === null);
+  check('A1c 对照：unacceptable_type 0.82 + B 类 → 类型门拦（J1.113/C184 门活着）', (() => {
+    const a = griffinAnswers();
+    a.web3_user_name_entity_acceptance = { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.82 } };
+    const r = mapStandardAnswers(a, makeContext());
+    return r.llmResult?.rating === 'low' && /币名实体类型不被 BSC meme 用户接纳/.test(r.llmResult?.reason || '')
+      ? true : { rating: r.llmResult?.rating, reason: r.llmResult?.reason };
+  })());
   check('A2 退役审计键不落：nrNotableExempt undefined（C108 随阻断位退役）',
     stage1Of(m1).jev?.nrNotableExempt === undefined,
     stage1Of(m1).jev?.nrNotableExempt);
-  check('A3 J1.56 断代（C180 后）：实体门不再先拦，评分正常走完（评级由总分定）',
-    !/币名映射实体在 Web3 用户侧无名/.test(m1.llmResult?.reason || ''),
+  check('A3 J1.113 断代：旧 unknown 不归一读=类型门不拦（历史行零翻转），评分正常走完（评级由总分定）',
+    !/币名实体类型不被 BSC meme 用户接纳/.test(m1.llmResult?.reason || ''),
     { rating: m1.llmResult?.rating, reason: m1.llmResult?.reason });
 
   const m2 = mapStandardAnswers(griffinAnswers({ relevance: 'partial_match' }), makeContext());
@@ -105,9 +113,9 @@ async function main() {
   cAnswers.event_category = { choice: 'C', probabilities: { C: 0.75, B: 0.2 } };
   cAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.98, no_entity: 0.0 } };
   const mc = mapStandardAnswers(cAnswers, makeContext());
-  check('B1a C 类 unknown 0.98≥0.5：实体门不再拦（C180）+ 审计 mass 照落 0.98',
-    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mc).blockReason || '')
-      && stage2Of(mc).jev?.nameEntityLowMass === 0.98
+  check('B1a C 类旧 unknown 0.98≥0.5：类型门不拦（J1.113 断代零翻转）+ 新键 null',
+    !/币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(mc).blockReason || '')
+      && stage2Of(mc).jev?.nameEntityTypeUnfitMass === null
       && stage1Of(mc).jev?.nrNotableExempt === undefined,
     { blockReason: stage2Of(mc).blockReason, mass: stage2Of(mc).jev?.nameEntityLowMass });
   check('B1b 同形状改 accepted 0.8：实体门不拦；J1.79 fit 事件分 100（strong 0.96+fit 0.04）放行',
@@ -129,7 +137,7 @@ async function main() {
   wAnswers.event_category = { choice: 'W', probabilities: { W: 0.8, B: 0.15 } };
   wAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.68, no_entity: 0.05, accepted: 0.2 } };
   const mw = mapStandardAnswers(wAnswers, makeContext());
-  check('B2 W 类 unknown 0.68≥0.5：实体门不再拦（C180）→ W 数学触达（本 fixture 撞 W 总分线）',
+  check('B2 W 类旧 unknown 0.68≥0.5：类型门不拦（J1.113 断代）→ W 数学触达（本 fixture 撞 W 总分线）',
     !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mw).blockReason || '')
       && stage2Of(mw).blockReason != null,
     { blockReason: stage2Of(mw).blockReason, pass: stage2Of(mw).pass });
@@ -139,10 +147,10 @@ async function main() {
   dAnswers.event_category = { choice: 'D', probabilities: { D: 0.7, B: 0.25 } };
   dAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.75, no_entity: 0.02 } };
   const md = mapStandardAnswers(dAnswers, makeContext());
-  check('B3 D 类 unknown 0.75≥0.5：实体门不再拦（C180）+ mass 照落',
-    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(md).blockReason || '')
-      && stage2Of(md).jev?.nameEntityLowMass === 0.75,
-    { blockReason: stage2Of(md).blockReason, pass: stage2Of(md).pass, mass: stage2Of(md).jev?.nameEntityLowMass });
+  check('B3 D 类旧 unknown 0.75≥0.5：类型门不拦（J1.113 断代）+ 新键 null',
+    !/币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(md).blockReason || '')
+      && stage2Of(md).jev?.nameEntityTypeUnfitMass === null,
+    { blockReason: stage2Of(md).blockReason, pass: stage2Of(md).pass, mass: stage2Of(md).jev?.nameEntityTypeUnfitMass });
 
   // B4 minor_other 主导（YAYA 无名对象语义）：J1.81 三轴后实体票（accepted）不经
   // 词句门——「name_form 接住」臂退役，无名实体拦截唯一位=ne 门 unknown（B3 形状）；
@@ -196,37 +204,38 @@ async function main() {
   const eAnswers = griffinAnswers();
   eAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.5, no_entity: 0.0 } };
   const me = mapStandardAnswers(eAnswers, makeContext());
-  check('C1 边界形状：unknown=0.5 恰过门槛 → 实体门拦 + nameEntityAcceptanceProbability=0.5 审计',
+  check('C1 边界形状：旧 unknown=0.5 恰过旧门槛 → 断代后不拦（新键读 unacceptable_type=null）',
     stage1Of(me).jev?.nrNotableExempt === undefined
       && stage2Of(me).jev?.nameEntityAcceptance === 'unknown'
       && stage2Of(me).jev?.nameEntityAcceptanceProbability === 0.5
-      && stage2Of(me).jev?.nameEntityLowMass === 0.5,
+      && stage2Of(me).jev?.nameEntityTypeUnfitMass === null,
     { audit: stage1Of(me).jev?.nrNotableExempt, prob: stage2Of(me).jev?.nameEntityAcceptanceProbability });
 
   // C2 新口径 minor+common 自身 ≥0.5 形状：阻断位退役不落
   const fAnswers = griffinAnswers();
   fAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.75, no_entity: 0.1 } };
   const mf = mapStandardAnswers(fAnswers, makeContext());
-  check('C2 unknown 0.75：实体门不再拦（C180）+ 退役键不落 + mass 照落',
-    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mf).blockReason || '')
+  check('C2 旧 unknown 0.75：类型门不拦（J1.113 断代）+ 退役键不落 + 新键 null',
+    !/币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(mf).blockReason || '')
       && stage1Of(mf).jev?.nrNotableExempt === undefined
-      && stage2Of(mf).jev?.nameEntityLowMass === 0.75,
+      && stage2Of(mf).jev?.nameEntityTypeUnfitMass === null,
     { blockReason: stage2Of(mf).blockReason, audit: stage1Of(mf).jev?.nrNotableExempt });
 
   // C3 全域（A2 升级点）：C 类 notable 票同形状（B1a 的机器复核）
-  check('C3 C 类票：退役键全域不落（实体门接手）',
-    stage1Of(mc).jev?.nrNotableExempt === undefined && stage2Of(mc).jev?.nameEntityLowMass === 0.98,
-    { audit: stage1Of(mc).jev?.nrNotableExempt, mass: stage2Of(mc).jev?.nameEntityLowMass });
+  check('C3 C 类票：退役键全域不落（类型门接手）',
+    stage1Of(mc).jev?.nrNotableExempt === undefined && stage2Of(mc).jev?.nameEntityTypeUnfitMass === null,
+    { audit: stage1Of(mc).jev?.nrNotableExempt, mass: stage2Of(mc).jev?.nameEntityTypeUnfitMass });
 
   console.log('\n── D. 源码接线 + 版本 ──');
 
   const fs = require('fs');
   const src = fs.readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
-  check('D1 nameReferentBlock 退役反证 + J1.56 实体低影响力门接线（nameEntityLowBlock / unknown≥0.5 / scope 常量）',
+  check('D1 nameReferentBlock 退役反证 + J1.113/C184 实体类型门接线（nameEntityTypeUnfitBlock / unacceptable_type≥0.5 / scope 常量）',
     !/const blockKeys = /.test(src) && !/nameReferentBlock\(answers/.test(src)
-    && /function nameEntityLowBlock\(answers, category\)/.test(src)
-    && /NAME_ENTITY_LOW_BLOCK_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(src)
-    && /neBlock = nameEntityLowBlock\(answers, category\)/.test(src));
+    && /function nameEntityTypeUnfitBlock\(answers, category\)/.test(src)
+    && /NAME_ENTITY_TYPE_UNFIT_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(src)
+    && /const neBlock = nameEntityTypeUnfitBlock\(answers, category\)/.test(src)
+    && /!pubProxyActive && neBlock != null/.test(src));
   check('D1b 阻断标签表无 notable_other 键（label 仅存历史行 reason 展示注释）',
     !/unknown: '名字指向知名但非超级IP'/.test(src));
   check('D2 并档注释含 J1.26 案史（C54 狮鹫案「知名度梯度是错轴」）+ nrNotableExempt 计算形状不存在',

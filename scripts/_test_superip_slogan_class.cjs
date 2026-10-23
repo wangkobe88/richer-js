@@ -249,9 +249,11 @@ async function main() {
   a.web3_user_name_entity_acceptance.probabilities.unknown = 0.55;
   a.name_entity_memeability.score = 1.5;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('C5 B 类 unknown 0.55≥0.5：实体门不再拦（C180 退役）+ 审计 nameEntityLowMass 照落 0.55（骑乘改道谱系终态）',
+  check('C5 B 类 unknown 0.55≥0.5：实体类型门不拦（J1.113/C184 断代：不归一读旧 unknown，历史缓存行零翻转）+ 两审计键停产出/无 unacceptable_type 概率=null（骑乘改道谱系终态）',
     !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(m).blockReason || '')
-      && stage2Of(m).jev?.nameEntityLowMass === 0.55,
+      && !/币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(m).blockReason || '')
+      && stage2Of(m).jev?.nameEntityLowMass == null
+      && stage2Of(m).jev?.nameEntityTypeUnfitMass == null,
     { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityLowMass });
 
   console.log('\n── D. 五腿单腿负（任一腿断 → slogan false 回归旧门） ──');

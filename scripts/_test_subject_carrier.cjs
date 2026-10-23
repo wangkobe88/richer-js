@@ -131,13 +131,13 @@ async function main() {
   check('C2 新键 visuality 行 → 不拦（mapper 不再消费）', !blockedByCarrier(rNewKey), rNewKey.llmResult.reason);
 
   // ═══ D. 门链序 ═══
-  console.log('\n── D. 门链序（C180 后：we → 量级门；ne/ua 拦截臂退役）──');
+  console.log('\n── D. 门链序（C184 后：ne（类型轴）→ we → 量级门；ua 拦截臂维持退役）──');
   const nrFirst = baseAnswers('C', 'improvised_entity');
-  nrFirst.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.85 } };
+  nrFirst.web3_user_name_entity_acceptance = { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.85 } };
   const rNr = mapStandardAnswers(nrFirst, stdCtx('TST', 'TST'));
-  check('D1 unknown 0.85 → 实体门不再拦（C180）+ 审计 nameEntityLowMass 照落 0.85',
-    !/币名映射实体在 Web3 用户侧无名/.test(rNr.llmResult.reason || '')
-    && rNr.stage2DataToSave.parsed_output.jev.nameEntityLowMass === 0.85, rNr.llmResult.reason);
+  check('D1 unacceptable_type 0.85 → 实体类型门拦（J1.113/C184 恢复）+ 审计 nameEntityTypeUnfitMass=0.85',
+    /币名实体类型不被 BSC meme 用户接纳/.test(rNr.llmResult.reason || '')
+    && rNr.stage2DataToSave.parsed_output.jev.nameEntityTypeUnfitMass === 0.85, rNr.llmResult.reason);
   const famousWrong = baseAnswers('D', 'improvised_entity');
   famousWrong.web3_user_name_entity_acceptance = { choice: 'wrong_entity', probabilities: { wrong_entity: 0.8, accepted: 0.15 } };
   const rFW = mapStandardAnswers(famousWrong, stdCtx('TST', 'TST'));
@@ -184,12 +184,12 @@ async function main() {
   check('G2 CARRIER_LABELS / isAnimalRescueMemorialStory / famousEntity 不存在（豁免链辅助全删）',
     !/CARRIER_LABELS/.test(mapperSrc) && !/isAnimalRescueMemorialStory/.test(mapperSrc) && !/const famousEntity/.test(mapperSrc), null);
   check('G3 形象门分支变量不存在（门链分支真删，留档注释外无引用）', !/let scBlock|scBlock =|gateBlockReason = scBlock/.test(mapperSrc), null);
-  check('G4 门链序：C180 后 we 直向量级门（ne/ua 拦截臂退役，sc 位已删）', (() => {
+  check('G4 门链序：C184 后 ne（类型轴）→ we → 量级门（ua 拦截臂维持 C180 退役，sc 位已删）', (() => {
     const weIdx = mapperSrc.indexOf('(weBlock = wrongEntityBlock(answers))');
     const tierIdx = mapperSrc.indexOf("} else if (!isW && (effTier === 'E' || effTier === 'D')");
-    const neRetired = mapperSrc.indexOf('(neBlock = nameEntityLowBlock');
+    const neIdx = mapperSrc.indexOf('!pubProxyActive && neBlock != null');
     const uaRetired = mapperSrc.indexOf('(uaBlock = web3UserAcceptabilityBlock');
-    return weIdx > 0 && tierIdx > weIdx && neRetired === -1 && uaRetired === -1 ? true : { weIdx, tierIdx, neRetired, uaRetired };
+    return weIdx > 0 && tierIdx > weIdx && neIdx > 0 && neIdx < weIdx && uaRetired === -1 ? true : { neIdx, weIdx, tierIdx, uaRetired };
   })());
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('G5 题集头部含 J1.102/C171 条目（案史档案）', qsSrc.includes('J1.102') && qsSrc.includes('C171'), null);

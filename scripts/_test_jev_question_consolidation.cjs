@@ -91,19 +91,21 @@ async function main() {
       && !qs.bsc_meme_user_name_event_acceptance.criteria.unacceptable.includes('不适用本桶'),
     '豁免判轴级位置/措辞/反臂/防回挂四缺一');
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
-  check('A6 实体题五桶恒形（brand_mismatch 桶 J1.103/C172 随品牌劫持轴退役——品牌票与非品牌票同形；J1.72 C133 加新实体；J1.81/C139 加 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
-    Object.keys(qsBrand.bsc_meme_user_name_entity_acceptance.criteria).length === 5
-    && ['accepted', 'unknown', 'new_entity', 'wrong_entity', 'not_entity'].every(k => k in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
+  check('A6 实体题四桶恒形（J1.113/C184：unknown 断代 unacceptable_type 类型轴+new_entity 删桶——性质可接纳即 accepted，新旧不是维度；brand_mismatch 桶 J1.103/C172 随品牌劫持轴退役；J1.81/C139 wrong_entity 拦截位+no_entity 断代改名 not_entity）',
+    Object.keys(qsBrand.bsc_meme_user_name_entity_acceptance.criteria).length === 4
+    && ['accepted', 'unacceptable_type', 'wrong_entity', 'not_entity'].every(k => k in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
     && !('brand_mismatch' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
-    && !('no_entity' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria), null);
-  check('A6b 非品牌票实体题保持 5 桶 J1.84 原形（新增桶不稀释 accepted/unknown 概率）',
-    Object.keys(qs.bsc_meme_user_name_entity_acceptance.criteria).length === 5
+    && !('no_entity' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
+    && !('new_entity' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria)
+    && !('unknown' in qsBrand.bsc_meme_user_name_entity_acceptance.criteria), null);
+  check('A6b 非品牌票实体题保持 4 桶 J1.113 恒形（品牌票与非品牌票同形，不稀释 accepted 概率）',
+    Object.keys(qs.bsc_meme_user_name_entity_acceptance.criteria).length === 4
     && !('brand_mismatch' in qs.bsc_meme_user_name_entity_acceptance.criteria)
     && !qs.bsc_meme_user_name_entity_acceptance.instructions.includes('brand_mismatch'), null);
-  check('A6c new_entity 判据含「新实体不按认知度判」',
-    qs.bsc_meme_user_name_entity_acceptance.criteria.new_entity.includes('刚诞生/刚发布')
-    && qs.bsc_meme_user_name_entity_acceptance.criteria.new_entity.includes('不按「认知度不足」判')
-    && qs.bsc_meme_user_name_entity_acceptance.criteria.unknown.includes('已存在'), null);
+  check('A6c unacceptable_type 判据=类型/性质轴（J1.113/C184：不评认知度；新实体类型不合照样归本项）',
+    qs.bsc_meme_user_name_entity_acceptance.criteria.unacceptable_type.includes('类型/性质不合，不是认知度')
+    && qs.bsc_meme_user_name_entity_acceptance.criteria.unacceptable_type.includes('不是维度')
+    && qs.bsc_meme_user_name_entity_acceptance.instructions.includes('只看实体的类型/性质'), null);
   check('A6b not_entity 中性声明（J1.81 断代改名）+ 配图形象指代源（交易猫断链修复点）',
     qs.bsc_meme_user_name_entity_acceptance.criteria.not_entity.includes('中性')
     && qs.bsc_meme_user_name_entity_acceptance.instructions.includes('配图中真实出现的形象'), null);
@@ -177,8 +179,8 @@ async function main() {
     check('A10c state builder PRECOMPUTED 消毒行：tweet_type_note 划定载体数据用途边界（仅时效分桶）',
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
-    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.112=C183 web3_user_* 全族键名断代 bsc_meme_user_*+评估主体收窄 BSC meme 币用户；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.112'"), 'J1.112 常量缺失');
+    check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.113=C184 实体题类型轴重构 unknown 断代 unacceptable_type+new_entity 删桶+门恢复拦截；J1.112=C183 web3_user_* 全族键名断代 bsc_meme_user_*+评估主体收窄 BSC meme 币用户；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.113'"), 'J1.113 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题
@@ -374,26 +376,33 @@ async function main() {
       // no_entity 中性（问候语/截词不拦）；发布者指代/官方口号/配图形象保留。
       {
         const nr = qs.bsc_meme_user_name_entity_acceptance;
-        check('A14a 主轴=币名映射实体对 web3 用户的接受度/影响力（非事件热度/陈述者量级/大众知名度）',
-          nr.instructions.includes('币名映射实体对 BSC meme 币用户的接受度/影响力')
+        check('A14a 主轴=实体类型/性质（J1.113/C184：不评认知度/知名度/影响力——知晓由事件+关联度保证；非事件热度/陈述者量级/大众知名度）',
+          nr.instructions.includes('币名映射实体的类型/性质能否被 BSC meme 币用户接纳为 meme 币名')
+          && nr.instructions.includes('只看实体的类型/性质')
+          && nr.instructions.includes('不评认知度/知名度/影响力')
+          && nr.instructions.includes('知晓由事件与关联度保证')
           && nr.instructions.includes('不是事件整体热度')
-          && nr.instructions.includes('不是大众媒体知名度')
-          && nr.instructions.includes('被当符号使用'),
+          && nr.instructions.includes('也不是大众媒体知名度'),
           nr.instructions.slice(0, 120));
-        check('A14b accepted=用户认得的实体（被当符号使用；大众知名但圈内不认不归本项）',
-          nr.criteria.accepted.includes('被 BSC meme 币用户当符号使用')
-          && nr.criteria.accepted.includes('不是大众知名度')
-          && nr.criteria.accepted.includes('圈外明星/传统品牌'),
+        check('A14b accepted=类型可接纳实体（性质没问题即可、新旧不是维度；不评认知度；著名不救类型不合）',
+          nr.criteria.accepted.includes('类型/性质可被 BSC meme 币用户接纳为 meme 币名')
+          && nr.criteria.accepted.includes('是否新旧都没事')
+          && nr.criteria.accepted.includes('不评认知度/知名度')
+          && nr.criteria.accepted.includes('著名不救类型不合'),
           nr.criteria.accepted.slice(0, 160));
         check('A14c 保留：发布者指代 + 官方口号/品牌主张（货币自由）',
           nr.instructions.includes('领域知名发布者的独立新产品')
           && nr.instructions.includes('官方口号')
           && nr.instructions.includes('货币自由'),
           null);
-        check('A14d unknown=映射到实体但用户不认得（普通员工/小号/周边人物）',
-          nr.criteria.unknown.includes('普通员工')
-          && nr.criteria.unknown.includes('被超级 IP 或大V提到不改变其无名'),
-          nr.criteria.unknown.slice(0, 160));
+        check('A14d unacceptable_type=类型轴拦截桶（J1.113/C184：圈外品牌/银行/犬种学名例证锚——C183-C187 五案票；判据=类型不合非认知度、再著名不救）',
+          nr.criteria.unacceptable_type.includes('圈外商业品牌/消费品（可乐、快狗打车）')
+          && nr.criteria.unacceptable_type.includes('金融机构/银行（浙商银行）')
+          && nr.criteria.unacceptable_type.includes('犬种学名 TAIGAN')
+          && nr.criteria.unacceptable_type.includes('判据=类型/性质不合，不是认知度')
+          && nr.criteria.unacceptable_type.includes('实体再著名也不改变类型不可接纳')
+          && !('unknown' in nr.criteria) && !('new_entity' in nr.criteria),
+          nr.criteria.unacceptable_type.slice(0, 160));
         check('A14e not_entity 中性（J1.81 断代改名；问候语/截词/陈述句）+ 词句形态责任移交 phrase 题',
           nr.criteria.not_entity.includes('中性')
           && nr.criteria.not_entity.includes('问候语')

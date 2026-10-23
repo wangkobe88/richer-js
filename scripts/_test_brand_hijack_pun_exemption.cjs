@@ -113,10 +113,11 @@ async function main() {
 
   const qs = buildStandardQuestions();
   const qsBrand = buildStandardQuestions({ brandMismatch: true });
-  check('B1 实体题恒五桶（accepted/unknown/new_entity/wrong_entity/not_entity）',
-    Object.keys(qs.bsc_meme_user_name_entity_acceptance.criteria).length === 5
+  check('B1 实体题恒四桶（J1.113/C184：accepted/unacceptable_type/wrong_entity/not_entity——unknown 断代类型轴+new_entity 删桶）',
+    Object.keys(qs.bsc_meme_user_name_entity_acceptance.criteria).length === 4
+    && ['accepted', 'unacceptable_type', 'wrong_entity', 'not_entity'].every(k => k in qs.bsc_meme_user_name_entity_acceptance.criteria)
     && !('brand_mismatch' in qs.bsc_meme_user_name_entity_acceptance.criteria), null);
-  check('B2 brandMismatch:true 传参静默忽略（同五桶，与默认逐字节一致）',
+  check('B2 brandMismatch:true 传参静默忽略（同四桶，与默认逐字节一致）',
     JSON.stringify(qsBrand) === JSON.stringify(qs), null);
   check('B3 旧题 name_brand_hijack 不在（J1.85 已删不复活）',
     !('name_brand_hijack' in qs), null);

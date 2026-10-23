@@ -52,6 +52,21 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C184 实体题类型轴重构——unknown 断代 unacceptable_type + new_entity 删桶 + 实体类型门恢复拦截（J1.113）
+
+- **背景**：C180 拆臂后用户逐张过观察票第三批（C183-C187 五张该拦票 + C189/C190/C191 三张该放票）后的裁定。五张该拦票（回归集观察票编号，非台账案号）：DietCoke `0x13acc80ee1802e4baac1b9165e9e047c009d7777`（accepted 0.64 掷骰放行）、快狗打车 `0x497ebe5c2ef7c3393c874a9e7ecde2cf1e027777`（unknown 0.61 拆臂后放行）、行云科技 `0x62cce4b6ee90c3d80181873c0e940402a66a7777`（unknown 0.87）、浙商银行 `0x52550b3628d5c4cac7408a186486f9e423087777`（unknown 0.63）、TAIGAN `0xbccb27a6a086517634423919dd9eec033e9c7777`（犬种学名，accepted 0.68）。三张该放票：天狗 `0xe9e82d1fa74283991dec5543453373ec836b7777`、恩恩崽 `0x3ddf95a0aafa3cfdc7bd336c7c30ab5f1f9d7777`、乐宝豆 `0x0a000d6f43de25855263d0ed218fdd0387c27777`。
+- **用户裁定四轮递进（2026-10-23）**：
+  1. 「这几个事件并非对用户群体无触动，只是事件中的实体（可乐，银行名字，狗的品种），也就是币的名字无法被接纳为 meme 币。但给出的拒绝理由 unknown 并不适合——问题在于实体的性质与类型才决定不能被 web3 用户接纳，并不应该以『接受度/影响力低』为理由拒绝，而是很直接的，作为 meme 币不被用户接纳（可乐，银行名字，狗的品种）。实体的类型/性质是判断的关键点」——题存在仍必要，判据换轴；「再深入的理顺与修改一下，可以用」=授权实施。
+  2. 「我认为就不需要考虑『认知度』，因为已经有事件了，这个实体又与事件相关（关联度门），那么 bsc meme 用户就知晓了。所以并非认知度，就是看实体类型与性质」——认知度轴整体删除（推翻我最初「类型先决+符号性两问」设计，只留类型单轴）。
+  3. 「所以也就不用评 new_entity」——new_entity 桶删除。
+  4. 「性质没问题即可，是否新旧都没事」——五桶断代为四桶，新实体语义并入 accepted。
+- **改动①（J1.113 题集，五桶→四桶）**：桶=accepted / **unacceptable_type**（全新桶：圈外商业品牌/消费品（可乐、快狗打车）、金融机构/银行（浙商银行）、动物品种/生物分类学名（犬种学名 TAIGAN）、严肃机构/组织/政府主体、事务性公司/工具产品——「判据=类型/性质不合，不是认知度；实体再著名也不改变类型不可接纳；新实体类型不合照样归本项」）/ wrong_entity / not_entity。instructions 尾段单一判据版：「只看实体的类型/性质能否被 BSC meme 币用户接纳为 meme 币名，不评认知度/知名度/影响力——事件已成立且实体与事件关联在场时，用户已知晓该实体（知晓由事件与关联度保证）；量级归量级门 effTier D/E 档；玩味/二创潜力归 name_entity_memeability」。锚迁移：C174 故事主体锚（TREE/BNB Tree）落点 new_entity→**accepted**（「不因名字字面是普通词判 not_entity」+逃逸门保留）；C151 有意义变形锚（哭哭奶龙/dogwifhat）同迁 accepted（「性质没问题即可，新旧不是维度」）；**J1.105/C175 性质定义锚保留**（京小安「首款AI警犬」——活锚与类型轴兼容，曾误删后补回）；C133「新实体≠无名实体」段删除。词句题三处引用同步（instructions 划界句/J1.57 划界/not_acceptable 桶内→「实体题 unacceptable_type 轴」）。
+- **改动②（mapper 门恢复，C180 拆臂推翻）**：`nameEntityLowBlock`→`nameEntityTypeUnfitBlock`，判据 `probabilities?.unacceptable_type >= 0.5`，域 B/C/D/F/G/W 不变，**不归一读旧 unknown**（历史缓存行零翻转，重析后自然更新）；门链臂恢复于 weBlock 之前（`!pubProxyActive && neBlock != null`——pubProxyActive 豁免随拦截恢复，官方域名=具体产品落地 C29）；词句门 web3UserAcceptabilityBlock 维持 C180 退役纯观察。审计键断代：`nameEntityLowMass` 停产出（历史行保留展示），新键 `nameEntityTypeUnfitMass` 命中才落 mass。**new_entity 历史行兼容**：桶删除后旧缓存行 choice=new_entity 时词句门照跳过（`entityChoice !== 'not_entity'` 结构性兼容）；new_entity argmax 时概率和为 1 ⇒ unacceptable_type 必 <0.5 天然不触类型门。
+- **门链序（C184 后）**：…web3UnfitBlock → web3FitMassBlock → impact veto（含 C114/C126 豁免）→ **neBlock（类型门恢复）** → weBlock（wrong_entity）→ 量级门 D/E → W 数学/标准数学。
+- **单测（13 文件全绿）**：name_entity_acceptance 45P（C 段新真值表：六域 unacceptable_type 0.6 拦/旧 unknown 0.6 断代不拦/0.49 门槛/历史行 new_entity 0.62 不触门；D5 四桶断言）、subject_carrier 30P（D1 类型门+G4 门链序）、notable_other_exit 22P、jev_finding_recap 106P（A17 划界句新锚/G3b 断代零翻转）、jev_question_consolidation 90P（A6/A6c 四桶+类型轴锚）、brand_hijack 16P、angle_timing 47P（C5 版本链）、empty_content 34P、image_carrier 19P、massive_influence 9P、referent 51P、superip_slogan 52P（C5 断代零翻转）、superip_standard 20P。
+- **验证锚点（用户指定八票）**：重析后五张该拦票（C183-C187）应被类型门或既有门拦；三张该放票（天狗 mid/恩恩崽 high/乐宝豆）不被挡。乐宝豆现无 token_narrative 行=首次重析。
+- **部署/验证挂起**：commit+push → 182 pull+worker 重启 → 定向重析八票对拍呈报（带地址）；fixtures 五张该拦票 expect 收紧在重析确认后；全量回归攒批等用户通知（[[regression-batch-timing]]）。
+
 ### C183 web3_user_* 键名族整体断代 bsc_meme_user_*——评估主体收窄 BSC meme 币用户（J1.112）
 
 - **用户裁定（2026-10-23）**：「我觉得再改一改，web3 用户 其实还是范围有点太大了，我的想法是，都改成 bsc_meme_user_ 这样其实是最准确的。有的事件不是说在 Web3 不重要，而是对 BSC 的 meme 币用户不重要。 例如 0x27ff2020350977ca43115502c976762c9e257777 ，并非对 Web3 用户偏好不和，而是对 BSC Meme 币用户的偏好不合（评 low 没有问题）。 这里不仅仅是锚的名字，Prompt 也要适当调整下」——例证票 JPM（C180 观察票，W 类）现 low 由 `web3UnfitBlock` label「Web3用户偏好不合」拦截，评级不变、**归因主体修正**。
