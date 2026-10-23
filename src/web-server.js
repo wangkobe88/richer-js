@@ -826,6 +826,34 @@ class RicherJsWebServer {
           }
         }
 
+        // observationSignals 形状校验（2026-10-23 ₿DOG 案观察信号机制）：enabled 布尔
+        // （默认关，enabled===true 才开）/ maxPerToken∈[1,10] / intervalMs∈[5000,3600000]
+        //（间隔补采毫秒）/ marketCapThreshold∈[0,1000000]（USD，严格大于）均须整数。
+        // both/fourmeme 配 fourmemeWs 段、flap 单平台配 flapWs 段（_mergedWsConfig
+        // 同键）；缺段=关（引擎侧 enabled===true 才构造）
+        {
+          const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+          for (const secKey of ['fourmemeWs', 'flapWs']) {
+            const obs = (config[secKey] || {}).observationSignals;
+            if (obs === undefined || obs === null) continue;
+            if (typeof obs !== 'object' || Array.isArray(obs)) {
+              return res.status(400).json({ success: false, error: `${secKey}.observationSignals 段形状非法（须为对象）` });
+            }
+            if (obs.enabled !== undefined && typeof obs.enabled !== 'boolean') {
+              return res.status(400).json({ success: false, error: `${secKey}.observationSignals.enabled 须为布尔` });
+            }
+            if (obs.maxPerToken !== undefined && !intInRange(obs.maxPerToken, 1, 10)) {
+              return res.status(400).json({ success: false, error: `${secKey}.observationSignals.maxPerToken 须为整数 [1,10]（每票观察行上限）` });
+            }
+            if (obs.intervalMs !== undefined && !intInRange(obs.intervalMs, 5000, 3600000)) {
+              return res.status(400).json({ success: false, error: `${secKey}.observationSignals.intervalMs 须为整数 [5000,3600000]（间隔补采毫秒）` });
+            }
+            if (obs.marketCapThreshold !== undefined && !intInRange(obs.marketCapThreshold, 0, 1000000)) {
+              return res.status(400).json({ success: false, error: `${secKey}.observationSignals.marketCapThreshold 须为整数 [0,1000000]（USD 市值臂阈值）` });
+            }
+          }
+        }
+
         // 如果提供了策略参数，添加到配置中
         if (strategy) {
           // 策略系统
@@ -1950,6 +1978,7 @@ class RicherJsWebServer {
         const options = {
           action: req.query.action,
           signalType: req.query.signalType,
+          excludeSignalType: req.query.excludeSignalType,  // 观察信号：默认视图排除 OBSERVE
           tokenAddress: req.query.tokenAddress,  // 新增：按代币地址过滤
           limit: parseInt(req.query.limit) || 100,
           offset: parseInt(req.query.offset) || 0

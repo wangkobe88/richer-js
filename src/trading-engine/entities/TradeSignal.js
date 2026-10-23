@@ -27,7 +27,7 @@ class TradeSignal {
     this.chain = signalData.chain || 'bsc';
 
     // 信号类型和动作
-    this.signalType = signalData.signalType; // 'BUY' | 'SELL'
+    this.signalType = signalData.signalType; // 'BUY' | 'SELL' | 'OBSERVE'（观察信号：不触发交易）
     this.action = signalData.action || signalData.signalType?.toLowerCase(); // 'buy' | 'sell' | 'hold'
 
     // 置信度和原因
@@ -208,8 +208,8 @@ class TradeSignal {
     if (!this.tokenAddress) errors.push('tokenAddress is required');
     if (!this.tokenSymbol) errors.push('tokenSymbol is required');
     if (!this.signalType) errors.push('signalType is required');
-    if (!['BUY', 'SELL'].includes(this.signalType)) {
-      errors.push('signalType must be BUY or SELL');
+    if (!['BUY', 'SELL', 'OBSERVE'].includes(this.signalType)) {
+      errors.push('signalType must be BUY, SELL, or OBSERVE');
     }
     if (!this.action || !['buy', 'sell', 'hold'].includes(this.action)) {
       errors.push('action must be buy, sell, or hold');

@@ -176,6 +176,11 @@ class ExperimentDataService {
         if (options.signalType) {
           query = query.eq('signal_type', options.signalType);
         }
+        // 观察信号（2026-10-23）：默认视图排除 OBSERVE——全量排序 order('action',desc)
+        // 字母序 sell>hold>buy，action='hold' 的观察行会把 BUY 挤出首页 limit
+        if (options.excludeSignalType) {
+          query = query.neq('signal_type', options.excludeSignalType);
+        }
 
         // 分页
         query = query.range(currentOffset, currentOffset + pageSize - 1);

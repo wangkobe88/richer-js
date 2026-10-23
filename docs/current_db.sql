@@ -137,7 +137,7 @@ CREATE TABLE public.strategy_signals (
   token_address character varying NOT NULL,
   token_symbol character varying,
   chain character varying,
-  signal_type character varying NOT NULL CHECK (signal_type::text = ANY (ARRAY['BUY'::character varying, 'SELL'::character varying]::text[])),
+  signal_type character varying NOT NULL CHECK (signal_type::text = ANY (ARRAY['BUY'::character varying, 'SELL'::character varying, 'OBSERVE'::character varying]::text[])),
   action character varying NOT NULL CHECK (action::text = ANY (ARRAY['buy'::character varying, 'sell'::character varying, 'hold'::character varying]::text[])),
   confidence numeric,
   reason text,

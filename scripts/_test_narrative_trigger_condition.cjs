@@ -470,8 +470,8 @@ const COND_BASE = {
       assert.ok(/this\._narrativePrefetchCheck\(tokenAddress, factors, token\);/.test(src), 'N3 钩子漂移');
       assert.ok(/narrativeCallCondition/.test(src), '同步直调块字段门漂移');
     });
-    check('H5 挂点在买腿分支且先于去抖买评估（C84 挂点序；2026-10-18 gwp 预取插位——至多隔其调用块）', () =>
-      assert.ok(/this\._narrativeTriggerCheck\(tokenAddress, factors, token\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*(?:\/\/[^\n]*\n\s*this\._walletProfilePrefetchCheck\(tokenAddress, factors, token\);\s*\n)?\s*this\._scheduleDebouncedBuy\(tokenAddress, tick\);/.test(src),
+    check('H5 挂点在买腿分支且先于去抖买评估（C84 挂点序；2026-10-18 gwp 预取插位、2026-10-23 观察信号插位——观察类检查各自插位，去抖买评估恒最后）', () =>
+      assert.ok(/this\._narrativeTriggerCheck\(tokenAddress, factors, token\);\s*\n(?:\s*\/\/[^\n]*\n)*\s*(?:\/\/[^\n]*\n\s*this\._walletProfilePrefetchCheck\(tokenAddress, factors, token\);\s*\n)?(?:\s*\/\/[^\n]*\n)*\s*(?:if \(this\._observationService\) this\._observationService\.evaluate\(token, factors, tick\.timestamp\);\s*\n)?\s*this\._scheduleDebouncedBuy\(tokenAddress, tick\);/.test(src),
         '挂点序漂移'));
   }
 

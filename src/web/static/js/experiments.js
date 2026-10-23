@@ -717,6 +717,9 @@ class ExperimentMonitor {
       if (config.stopLoss) copyData.stopLoss = config.stopLoss;
       if (config.tokenPositionAnalyzer) copyData.tokenPositionAnalyzer = config.tokenPositionAnalyzer;
       if (config.fourmemeWs) copyData.fourmemeWs = config.fourmemeWs;
+      // flapWs 随复制携带（2026-10-23 补洞：此前只带 fourmemeWs——flap 实验复制丢
+      // ws 段（observationSignals/gmgnCheck/narrativeRetry 等），复制件行为大变）
+      if (config.flapWs) copyData.flapWs = config.flapWs;
 
       // 添加 strategiesConfig 中的高级配置
       if (config.strategiesConfig) {

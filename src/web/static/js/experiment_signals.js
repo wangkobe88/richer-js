@@ -426,7 +426,17 @@ class ExperimentSignals {
     });
 
     if (this.currentFilters.action !== 'all') {
-      params.append('action', this.currentFilters.action);
+      // 观察信号走 signal_type eq（signal_type 存大写）；其余 action 列值小写——
+      // toLowerCase 修复既有 bug（此前发 'BUY' 对小写列值 eq 恒空，过滤失效）
+      if (this.currentFilters.action === 'OBSERVE') {
+        params.append('signalType', 'OBSERVE');
+      } else {
+        params.append('action', this.currentFilters.action.toLowerCase());
+      }
+    } else {
+      // 默认视图排除观察行：全量排序 order(action,desc) 字母序 sell>hold>buy，
+      // action='hold' 的观察行会把 BUY 挤出首页 limit（观察行单独经上方筛选项看）
+      params.append('excludeSignalType', 'OBSERVE');
     }
 
     // 🔥 如果选择了特定代币，传递tokenAddress参数进行服务端过滤
@@ -2395,11 +2405,16 @@ class ExperimentSignals {
 
     // 检查是否是被拒绝的信号
     const isRejected = this.isSignalRejected(signal);
-    const executedStatus = signal.executed ?
-      '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
-      (isRejected ?
-        '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">🚫 被拒绝</span>' :
-        '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>');
+    // 观察信号（2026-10-23 ₿DOG 案）：OBSERVE 行恒终态（executed=false 无后续推进），
+    // 独立灰底徽章，不走三态
+    const isObserve = signal.signal_type === 'OBSERVE';
+    const executedStatus = isObserve ?
+      '<span class="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-full">👁 观察</span>' :
+      (signal.executed ?
+        '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
+        (isRejected ?
+          '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">🚫 被拒绝</span>' :
+          '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>'));
 
     // 从 metadata 中获取策略信息
     const metadata = signal.metadata || {};
@@ -2429,6 +2444,37 @@ class ExperimentSignals {
             <span class="text-purple-700 font-medium text-sm">📌 策略:</span>
             <span class="text-purple-900 font-semibold text-sm">${strategyName}</span>
             ${strategyId ? `<span class="text-purple-500 text-xs">(${strategyId})</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // 观察信号信息块（2026-10-23 ₿DOG 案）：触发原因/市值/序号 + 手工买入入口
+    //（观察票 status='monitoring' 天然在实验代币池内，manual-trade 归属校验通过；
+    // 金额逻辑镜像 token-returns 页：perCardBNB>0 按卡，否则 tradeAmount）
+    let observationInfoHtml = '';
+    if (isObserve) {
+      const obs = metadata.observation || {};
+      const triggerText = obs.trigger === 'both' ? '叙事评级 + 市值双臂'
+        : obs.trigger === 'narrative' ? `叙事评级 ${obs.rating}`
+        : `市值 > $${Number(obs.marketCapThreshold).toLocaleString()}`;
+      const mcap = Number.isFinite(obs.marketCap) ? `$${Math.round(obs.marketCap).toLocaleString()}` : '-';
+      const idx = obs.index || '?';
+      const max = obs.maxPerToken || 3;
+      const showBuyBtn = !this._isBacktest;
+      observationInfoHtml = `
+        <div class="mt-2 p-2 bg-gray-100 rounded border border-gray-300">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center flex-wrap gap-x-4 gap-y-1">
+              <span class="text-gray-700 font-medium text-sm">👁 观察</span>
+              <span class="text-xs text-gray-600">触发: <span class="font-medium">${this._escapeHtml(String(triggerText))}</span></span>
+              <span class="text-xs text-gray-600">市值: <span class="font-medium">${mcap}</span></span>
+              <span class="text-xs text-gray-500">第 ${idx}/${max} 行</span>
+            </div>
+            ${showBuyBtn ? `
+            <button class="obs-manual-buy px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition-colors">
+              手工买入
+            </button>` : ''}
           </div>
         </div>
       `;
@@ -2825,7 +2871,7 @@ class ExperimentSignals {
         <div class="flex-1">
           <div class="flex items-center space-x-3 mb-2">
             <span class="signal-badge ${badgeClass}">
-              ${signal.action.toUpperCase() === 'BUY' ? '买入' : signal.action.toUpperCase() === 'SELL' ? '卖出' : '持有'}
+              ${isObserve ? '观察' : signal.action.toUpperCase() === 'BUY' ? '买入' : signal.action.toUpperCase() === 'SELL' ? '卖出' : '持有'}
             </span>
             <span class="text-sm font-medium text-gray-700">${signal.symbol || '代币'}</span>
             <span class="text-xs text-gray-400">${signalTime}</span>
@@ -2841,6 +2887,8 @@ class ExperimentSignals {
       ${rejectionInfoHtml}
 
       ${strategyInfoHtml}
+
+      ${observationInfoHtml}
 
       ${preBuyCheckHtml}
 
@@ -2860,6 +2908,37 @@ class ExperimentSignals {
     card.addEventListener('click', () => {
       this.highlightSignal(signal);
     });
+
+    // 观察信号手工买入（2026-10-23）：落 manual_trade_requests 行，引擎 2s 轮询消费；
+    // 金额逻辑镜像 token-returns 页（perCardBNB>0 按卡，否则 tradeAmount 显式金额）
+    const obsBuyBtn = card.querySelector('.obs-manual-buy');
+    if (obsBuyBtn) {
+      obsBuyBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!confirm(`手工买入 ${signal.symbol || signal.token_address}？`)) return;
+        obsBuyBtn.disabled = true;
+        obsBuyBtn.textContent = '提交中…';
+        try {
+          const cfg = this.experimentConfig || {};
+          const perCard = cfg.positionManagement?.perCardBNB;
+          const body = perCard > 0
+            ? { tokenAddress: signal.token_address, direction: 'buy', cards: 1 }
+            : { tokenAddress: signal.token_address, direction: 'buy', amountBnb: cfg.tradeAmount || 0.5 };
+          const resp = await fetch(`/api/experiment/${this.experimentId}/manual-trade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const result = await resp.json();
+          if (!resp.ok || !result.success) throw new Error(result.error || `HTTP ${resp.status}`);
+          obsBuyBtn.textContent = '✅ 已下单（引擎 ~2s 消费）';
+        } catch (err) {
+          alert('手工买入失败: ' + err.message);
+          obsBuyBtn.disabled = false;
+          obsBuyBtn.textContent = '手工买入';
+        }
+      });
+    }
 
     return card;
   }

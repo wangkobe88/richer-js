@@ -834,6 +834,44 @@
                     </p>
                 </div>
 
+                <!-- 观察信号（2026-10-23 ₿DOG 案 0x85cd…7777）：叙事评级≥mid 或市值破
+                     阈值的未交易代币观察行（OBSERVE 信号，永不触发交易），辅助观察与
+                     手工交易。默认关（与上方叙事重试的 enabled:false 物化刻意不同——
+                     本机制「关=删段」，dataPrefetch 式：勾选才写段）；回测提交自动剥离 -->
+                <div class="border border-gray-200 rounded-lg p-3" id="observation-signals-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">👁 观察信号（未交易代币留痕）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                叙事评级 == 2 或 3，或市值 > 阈值 → 每票最多 3 行观察信号（不触发交易），
+                                供观察与手工买入。仅虚拟/实盘；回测不适用
+                            </p>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                        <input type="checkbox" id="obs-enabled" class="rounded">
+                        启用观察信号
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap">
+                        <span class="whitespace-nowrap">补采间隔(ms)</span>
+                        <input type="text" id="obs-interval-ms" placeholder="60000"
+                               class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">每票上限</span>
+                        <input type="text" id="obs-max-per-token" placeholder="3"
+                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">市值阈值(USD)</span>
+                        <input type="text" id="obs-marketcap-threshold" placeholder="12000"
+                               class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        首次满足条件即记第 1 行，之后每隔补采间隔且条件仍满足再记，达到每票上限后停；
+                        空值=默认（间隔 60000ms / 上限 3 / 市值 12000 USD 严格大于）。进程重启计数续接
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -1210,6 +1248,23 @@
                         if (nrCb) nrCb.checked = !(nr && nr.enabled === false);
                         if (nrInterval && Number.isInteger(nr.intervalMs)) nrInterval.value = nr.intervalMs;
                         if (nrMax && Number.isInteger(nr.maxAnalyses)) nrMax.value = nr.maxAnalyses;
+                    }
+                }
+
+                // 观察信号回填（2026-10-23 ₿DOG 案）：复制携带的 observationSignals 回填
+                // 表单。物化语义（dataPrefetch 式「关=删段」）：引擎默认关——源段
+                // enabled===true 才显示为开（缺段=关）；数字键有值才回填，空=默认
+                {
+                    const obs = copyData.fourmemeWs?.observationSignals || copyData.flapWs?.observationSignals;
+                    if (obs) {
+                        const obsCb = document.getElementById('obs-enabled');
+                        const obsInterval = document.getElementById('obs-interval-ms');
+                        const obsMax = document.getElementById('obs-max-per-token');
+                        const obsMcap = document.getElementById('obs-marketcap-threshold');
+                        if (obsCb) obsCb.checked = obs.enabled === true;
+                        if (obsInterval && Number.isInteger(obs.intervalMs)) obsInterval.value = obs.intervalMs;
+                        if (obsMax && Number.isInteger(obs.maxPerToken)) obsMax.value = obs.maxPerToken;
+                        if (obsMcap && Number.isInteger(obs.marketCapThreshold)) obsMcap.value = obs.marketCapThreshold;
                     }
                 }
 
@@ -2014,6 +2069,41 @@
                                 ...(nrMax !== null ? { maxAnalyses: nrMax } : {}) } };
                     }
                     // 开且无数字输入：复制携带的段原样保留（可能带 windowSec）；无段=引擎默认
+                }
+            }
+            // 观察信号收集（2026-10-23 ₿DOG 案）：物化语义与 narrativeRetry 刻意相反
+            //——dataPrefetch 式「关=删段」（引擎默认关，勾选才写段；不勾也清掉复制
+            // 携带的 enabled:true 防静默开）；回测整段剥离
+            {
+                const obsCb = document.getElementById('obs-enabled');
+                const obsInterval = /^\d+$/.test((document.getElementById('obs-interval-ms')?.value || '').trim())
+                    ? parseInt(document.getElementById('obs-interval-ms').value.trim(), 10) : null;
+                const obsMax = /^\d+$/.test((document.getElementById('obs-max-per-token')?.value || '').trim())
+                    ? parseInt(document.getElementById('obs-max-per-token').value.trim(), 10) : null;
+                const obsMcap = /^\d+$/.test((document.getElementById('obs-marketcap-threshold')?.value || '').trim())
+                    ? parseInt(document.getElementById('obs-marketcap-threshold').value.trim(), 10) : null;
+                for (const k of ['fourmemeWs', 'flapWs']) {
+                    if (adv[k]) adv[k] = { ...(adv[k] || {}) };
+                }
+                if (tradingMode === 'backtest') {
+                    for (const k of ['fourmemeWs', 'flapWs']) {
+                        if (adv[k]) delete adv[k].observationSignals;
+                    }
+                } else {
+                    const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
+                    const sec = (_plat === 'flap') ? 'flapWs' : 'fourmemeWs';
+                    const other = (sec === 'flapWs') ? 'fourmemeWs' : 'flapWs';
+                    if (other !== sec && adv[other]) delete adv[other].observationSignals;
+                    if (obsCb?.checked) {
+                        adv[sec] = { ...(adv[sec] || {}),
+                            observationSignals: { ...(adv[sec]?.observationSignals || {}), enabled: true,
+                                ...(obsInterval !== null ? { intervalMs: obsInterval } : {}),
+                                ...(obsMax !== null ? { maxPerToken: obsMax } : {}),
+                                ...(obsMcap !== null ? { marketCapThreshold: obsMcap } : {}) } };
+                    } else if (adv[sec]) {
+                        // 未勾=关：删段（含清掉复制携带的段）
+                        delete adv[sec].observationSignals;
+                    }
                 }
             }
             const config = {

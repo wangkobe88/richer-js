@@ -371,6 +371,38 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._accountHealthSlowMs = Number.isFinite(ahcCfg.slowIntervalSec) && ahcCfg.slowIntervalSec > 0
       ? ahcCfg.slowIntervalSec * 1000 : 120 * 1000;
 
+    // 1.5.2d 观察信号（2026-10-23 ₿DOG 案用户裁定：叙事 high 落地时市值已破买窗，
+    // 「叙事过但没买」的票零留痕不可见）：叙事评级==2|3 或 市值>marketCapThreshold
+    // （默认 12000 USD）→ 每票最多 maxPerToken 行 OBSERVE 观察信号（action='hold'
+    // 恒不触发交易），事件首记+intervalMs 间隔补采。默认关（enabled === true 才开，
+    // gwp/ahc 同款新机制物化语义）；flap 实验经 _mergedWsConfig 同键；仅 virtual+live
+    // ——BacktestEngine 零接线（回测是历史重放，观察信号无实时语义）
+    const obsCfg = this._mergedWsConfig().observationSignals || {};
+    this._observationService = null;
+    if (obsCfg.enabled === true) {
+      const { ObservationSignalService } = require('../core/ObservationSignalService');
+      try {
+        this._observationService = new ObservationSignalService({
+          experimentId: this._experimentId,
+          logger: this.logger,
+          db: supabase,
+          maxPerToken: obsCfg.maxPerToken,
+          intervalMs: obsCfg.intervalMs,
+          marketCapThreshold: obsCfg.marketCapThreshold,
+        });
+        await this._observationService.init();
+        this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+          `👁 观察信号已启用 | maxPerToken=${this._observationService._cfg.maxPerToken}` +
+          ` intervalMs=${this._observationService._cfg.intervalMs}` +
+          ` marketCapThreshold=${this._observationService._cfg.marketCapThreshold}`);
+      } catch (e) {
+        // 状态重建/构造失败 → 机制本次不启用（少记不错记，交易链路照跑）
+        this._observationService = null;
+        this.logger.error(this._experimentId, 'FourMemeWssTradingEngine',
+          `观察信号机制启用失败，本次不启用: ${e.message}`);
+      }
+    }
+
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
     // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
@@ -1478,6 +1510,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._narrativeTriggerCheck(tokenAddress, factors, token);
       // GMGN 钱包画像触发窗预取（默认关；miss 钱包后台拉取回写表，fire 查表毫秒级）
       this._walletProfilePrefetchCheck(tokenAddress, factors, token);
+      // 观察信号（默认关）：叙事评级==2|3 或 市值>12K → 落 OBSERVE 行纯观察零交易
+      // 副作用——挂买腿分支天然继承「非 bought、不在 buying」未持有判定（sold 票
+      // repeat-buy 轮可再观察，per-token 上限全局兜底）；同步纯内存判定+写行
+      // fire-and-forget，绝不进买腿去抖链
+      if (this._observationService) this._observationService.evaluate(token, factors, tick.timestamp);
       this._scheduleDebouncedBuy(tokenAddress, tick);
     }
   }
