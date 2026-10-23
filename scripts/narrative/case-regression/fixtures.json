@@ -788,14 +788,12 @@
       "addr": "0x497ebe5c2ef7c3393c874a9e7ecde2cf1e027777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.94、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.94、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "C184 裁定（2026-10-23）：圈外商业品牌/事务性公司类型该拦（用户指定五张该拦票之一）；C184b 方案一全域化——category 掷骰 E 不再域外豁免",
       "expectSince": "2026-10-23"
     },
     {

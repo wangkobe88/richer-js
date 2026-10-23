@@ -230,11 +230,11 @@ async function main() {
 
   const fs = require('fs');
   const src = fs.readFileSync('src/narrative/analyzer/llm/jev-result-mapper.mjs', 'utf8');
-  check('D1 nameReferentBlock 退役反证 + J1.113/C184 实体类型门接线（nameEntityTypeUnfitBlock / unacceptable_type≥0.5 / scope 常量）',
+  check('D1 nameReferentBlock 退役反证 + J1.113/C184+C184b 实体类型门接线（nameEntityTypeUnfitBlock / unacceptable_type≥0.5 / 全域无 scope 常量）',
     !/const blockKeys = /.test(src) && !/nameReferentBlock\(answers/.test(src)
-    && /function nameEntityTypeUnfitBlock\(answers, category\)/.test(src)
-    && /NAME_ENTITY_TYPE_UNFIT_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(src)
-    && /const neBlock = nameEntityTypeUnfitBlock\(answers, category\)/.test(src)
+    && /function nameEntityTypeUnfitBlock\(answers\)\s*\{/.test(src)
+    && !/NAME_ENTITY_TYPE_UNFIT_SCOPE/.test(src.replace(/ \* .*/g, ''))
+    && /const neBlock = nameEntityTypeUnfitBlock\(answers\);/.test(src)
     && /!pubProxyActive && neBlock != null/.test(src));
   check('D1b 阻断标签表无 notable_other 键（label 仅存历史行 reason 展示注释）',
     !/unknown: '名字指向知名但非超级IP'/.test(src));

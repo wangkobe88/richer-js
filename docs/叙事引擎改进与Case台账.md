@@ -65,7 +65,8 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **门链序（C184 后）**：…web3UnfitBlock → web3FitMassBlock → impact veto（含 C114/C126 豁免）→ **neBlock（类型门恢复）** → weBlock（wrong_entity）→ 量级门 D/E → W 数学/标准数学。
 - **单测（13 文件全绿）**：name_entity_acceptance 45P（C 段新真值表：六域 unacceptable_type 0.6 拦/旧 unknown 0.6 断代不拦/0.49 门槛/历史行 new_entity 0.62 不触门；D5 四桶断言）、subject_carrier 30P（D1 类型门+G4 门链序）、notable_other_exit 22P、jev_finding_recap 106P（A17 划界句新锚/G3b 断代零翻转）、jev_question_consolidation 90P（A6/A6c 四桶+类型轴锚）、brand_hijack 16P、angle_timing 47P（C5 版本链）、empty_content 34P、image_carrier 19P、massive_influence 9P、referent 51P、superip_slogan 52P（C5 断代零翻转）、superip_standard 20P。
 - **验证锚点（用户指定八票）**：重析后五张该拦票（C183-C187）应被类型门或既有门拦；三张该放票（天狗 mid/恩恩崽 high/乐宝豆）不被挡。乐宝豆现无 token_narrative 行=首次重析。
-- **部署/验证挂起**：commit+push → 182 pull+worker 重启 → 定向重析八票对拍呈报（带地址）；fixtures 五张该拦票 expect 收紧在重析确认后；全量回归攒批等用户通知（[[regression-batch-timing]]）。
+- **部署+八票重析（2026-10-23，47fd43c/a004f58，worker PID 1923082）**：七票符合裁定——TAIGAN low（**实体类型门 unacceptable_type 97%=类型门首次生产命中**）、DietCoke/浙商 low（空洞内容门）、行云 low（web3FitMassBlock）、天狗 mid 65.08（cashtag W 47≥32）/恩恩崽 high 88.57/乐宝豆 high 81.58（首次重析）；fixtures 七票收紧（a004f58）。
+- **C184b 快狗打车漏放案（`0x497ebe5c2ef7c3393c874a9e7ecde2cf1e027777`）→ 方案一全域化**：重析翻 high 86.57 漏放。勘察：**实体题判对了**（unacceptable_type 0.9、accepted 仅 0.05——「狗」字没把实体题带偏），根因=event_category 掷骰 E（置信仅 0.32，D 0.22/B 0.19 平铺）→ E 不在类型门域 B/C/D/F/G/W → 域门 miss 放行。域排除 A/E 是 J1.56 认知度轴遗留（当时理由=圈内事件/meme 类实体的认知度豁免），类型轴下「实体是银行/可乐/犬种学名」与事件分类正交、理由不成立。**用户裁定方案一（2026-10-23）：去域限制全域拦，对齐 wrong_entity**——mapper 删 `NAME_ENTITY_TYPE_UNFIT_SCOPE` 常量与 category 参数（`nameEntityTypeUnfitBlock(answers)` 单参），单测 C2 反转为快狗案形状断言（A/E 域 unacceptable_type 0.9 照拦=事故现场反证）；13 文件全绿。
 
 ### C183 web3_user_* 键名族整体断代 bsc_meme_user_*——评估主体收窄 BSC meme 币用户（J1.112）
 

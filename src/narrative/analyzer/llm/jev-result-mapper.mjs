@@ -823,11 +823,17 @@ function web3FitMassBlock(answers, opts) {
 /**
  * 实体类型接纳门（J1.113/C184）：币名映射到可辨实体、但该实体的类型/性质不能被
  * BSC meme 币用户接纳为 meme 币名（圈外商业品牌/金融机构/品种学名等——无论著名）
- * → unacceptable_type ≥0.5 域 B/C/D/F/G/W 拦。
+ * → unacceptable_type ≥0.5 **全域拦**（C184b 方案一，2026-10-23 用户裁定）。
  * 用户裁定（2026-10-23，观察票 C183-C187 vs C189-C191）：可乐/银行名/犬种学名=
  * 类型不可 meme 化该拦；天狗/恩恩崽/乐宝豆=可接纳类型该放。二轮裁定：不评认知度
  * ——事件已成立且实体与事件关联（关联度门管）时用户已知晓该实体，判据只看实体
  * 类型与性质（实体量级归量级门）。
+ * 域全域化（C184b 快狗打车案 0x497ebe5c…7777）：实体题已正确判 unacceptable_type
+ * 0.9（accepted 仅 0.05——「狗」字没有把实体题带偏），但 event_category 掷骰 E
+ * （置信 0.32，D 0.22/B 0.19 平铺）→ 旧域 B/C/D/F/G/W 不含 E → 门 miss 放行
+ * high 86.57。旧域排除 A/E 是 J1.56 认知度轴遗留（圈内事件/meme 类实体认知度豁免
+ * 的理由），类型轴下实体是银行/可乐/犬种学名与事件分类正交——裁定对齐 wrong_entity
+ * 去域限制全域拦。
  * 断代：**不归一读旧 unknown**（C180 前认知度轴桶值）——历史缓存行零翻转，重析
  * 后自然更新到新桶；审计键 nameEntityTypeUnfitMass（旧 nameEntityLowMass 键停
  * 产出，历史行保留展示）。
@@ -841,10 +847,7 @@ function web3FitMassBlock(answers, opts) {
  * - 与旧 nrBlock 的刻意 delta：旧规合计 minor_other + common_word；新轴的
  *   截词/普通词归 not_entity（中性，C108 名字形态责任史）
  */
-const NAME_ENTITY_TYPE_UNFIT_SCOPE = ['B', 'C', 'D', 'F', 'G', 'W'];
-
-function nameEntityTypeUnfitBlock(answers, category) {
-  if (category == null || !NAME_ENTITY_TYPE_UNFIT_SCOPE.includes(category)) return null;
+function nameEntityTypeUnfitBlock(answers) {
   const p = q(answers, 'bsc_meme_user_name_entity_acceptance', 'web3_user_name_entity_acceptance')?.probabilities?.unacceptable_type ?? 0;
   if (p < 0.5) return null;
   return { mass: Math.round(p * 100) / 100, label: `币名实体类型不被 BSC meme 用户接纳为 meme 币名（可乐/银行/犬种学名类类型不合，unacceptable_type ${Math.round(p * 100)}%≥50%）` };
@@ -1244,7 +1247,7 @@ export function mapStandardAnswers(answers, context) {
   let peBlock = null; // 契合证据门信息 {label, fitMass}（J1.83/C141；前身产品实体接纳门 J1.27/C55）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
   // J1.56（C126）：实体低影响力门回归——按旧 J1.10 规格吃新实体题的 unknown
-  // （≥0.5，域 B/C/D/F/G/W），挂在名字门之前（实体层否决先于形态层）
+  // （≥0.5，全域拦——C184b 方案一），挂在名字门之前（实体层否决先于形态层）
   // C180（2026-10-23 用户裁定「两门不再参与拦截，代码先保留」）：unknown 臂
   // （nameEntityLowBlock）与词句门（web3UserAcceptabilityBlock）退役拦截、纯观察
   // 落档。生产审计依据：286 张被拦票 89% fit 过线、关联题大量 exact_match 被
@@ -1254,7 +1257,10 @@ export function mapStandardAnswers(answers, context) {
   // unacceptable_type 类型轴（可乐/银行/犬种学名=类型不可 meme 化，无论著名；
   // 不评认知度——事件+关联在场时用户已知晓；new_entity 桶随之删）→
   // nameEntityTypeUnfitBlock 恢复拦截，名字轴拦截位=类型门+wrongEntityBlock
-  const neBlock = nameEntityTypeUnfitBlock(answers, category);
+  // C184b（2026-10-23 用户裁定方案一）：去 J1.56 域限制 B/C/D/F/G/W 全域拦——
+  // 快狗打车案实体题已判 unacceptable_type 0.9 但 category 掷骰 E（0.32 低置信）
+  // 域外 miss 放行；类型不合与事件分类正交，对齐 wrong_entity 全域
+  const neBlock = nameEntityTypeUnfitBlock(answers);
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
   const uaBlock = web3UserAcceptabilityBlock(answers); // 纯观察 {label, choice}（C96→C105→C107→C108→J1.81 收窄=只评 not_entity 形状；form=Jev 原 choice）
   let timingScore = null;

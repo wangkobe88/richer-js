@@ -133,9 +133,9 @@ async function main() {
 
   console.log('\n── C. 实体类型接纳门（J1.113/C184 恢复拦截：unknown 认知度轴断代 unacceptable_type 类型轴）──');
 
-  for (const cat of ['B', 'C', 'D', 'F', 'G', 'W']) {
+  for (const cat of ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'W']) {
     const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.6 } }), makeContext());
-    check(`C1-${cat} unacceptable_type 0.6 → 拦（类型不合，可乐/银行/犬种学名类）+ 审计 nameEntityTypeUnfitMass=0.6`,
+    check(`C1-${cat} unacceptable_type 0.6 → 拦（类型不合，可乐/银行/犬种学名类；C184b 全域——含 ${cat}）+ 审计 nameEntityTypeUnfitMass=0.6`,
       /币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(m).blockReason || '')
       && stage2Of(m).jev?.nameEntityTypeUnfitMass === 0.6,
       { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityTypeUnfitMass });
@@ -147,10 +147,14 @@ async function main() {
       stage2Of(m).jev?.nameEntityTypeUnfitMass === null && !/币名实体类型不被/.test(stage2Of(m).blockReason || ''),
       { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityTypeUnfitMass });
   }
+  // C184b（2026-10-23 用户裁定方案一）快狗打车案事故现场反证：实体题 unacceptable_type
+  // 0.9 但 event_category 掷骰 E（置信 0.32）→ 旧域 B/C/D/F/G/W 不含 E → miss 放行
+  // high 86.57。类型不合与事件分类正交 → 去域限制全域拦（对齐 wrong_entity）
   for (const cat of ['A', 'E']) {
-    const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.6 } }), makeContext());
-    check(`C2-${cat} unacceptable_type 0.6 → 不拦（${cat} 刻意不在类型门域）`,
-      stage2Of(m).jev?.nameEntityTypeUnfitMass === null,
+    const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.9 } }), makeContext());
+    check(`C2-${cat} 快狗案形状：unacceptable_type 0.9 → 拦（C184b 全域化——${cat} 不再域外豁免）+ 审计 mass=0.9`,
+      /币名实体类型不被 BSC meme 用户接纳/.test(stage2Of(m).blockReason || '')
+      && stage2Of(m).jev?.nameEntityTypeUnfitMass === 0.9,
       { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityTypeUnfitMass });
   }
   const m049 = mapStandardAnswers(baseAnswers('C', { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.49 } }), makeContext());
@@ -251,9 +255,10 @@ async function main() {
   const qsSrc = fs.readFileSync(path.join(__dirname, '..', 'src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D1 五腿第一腿=accepted ∨ authorUtterance',
     /const recognizedEntitySlogan = \(entityAcceptedProb >= 0\.5 \|\| authorUtterance\)/.test(mapperSrc));
-  check('D2 实体类型门函数与作用域常量（B/C/D/F/G/W；unacceptable_type≥0.5；不归一读旧 unknown）——J1.113/C184 恢复拦截',
-    /function nameEntityTypeUnfitBlock\(answers, category\)/.test(mapperSrc)
-    && /NAME_ENTITY_TYPE_UNFIT_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(mapperSrc)
+  check('D2 实体类型门函数（C184b 全域：无域常量/category 参数——类型不合与事件分类正交；unacceptable_type≥0.5；不归一读旧 unknown）——J1.113/C184 恢复拦截+C184b 方案一全域化',
+    /function nameEntityTypeUnfitBlock\(answers\)\s*\{/.test(mapperSrc)
+    && /const neBlock = nameEntityTypeUnfitBlock\(answers\);/.test(mapperSrc)
+    && !/NAME_ENTITY_TYPE_UNFIT_SCOPE/.test(mapperSrc.replace(/ \* .*/g, ''))
     && /probabilities\?\.unacceptable_type \?\? 0/.test(mapperSrc)
     && !/nameEntityLowBlock\(/.test(mapperSrc.replace(/ \* .*/g, ''))); // 旧函数名仅存于注释史档
   check('D10 门链形状：类型门恢复拦截（pubProxyActive 豁免随拦截恢复）+ 词句臂维持 C180 退役观察 + wrong_entity 臂保留',
