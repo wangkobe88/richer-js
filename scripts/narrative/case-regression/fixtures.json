@@ -579,13 +579,12 @@
         "rating": [
           "mid",
           "high"
-        ],
-        "tokenCategory": "event:W"
+        ]
       },
-      "note": "股城：空语料搜索兜底（symbol 搜索、不卡互动）；J1.72 new_entity 放行实体门；J1.74 W 数学=产品+BSC用户吸引力+时效（58.31 差 1.69）当时 low。2026-10-21 用户裁定期望 high/mid（覆盖原 low/W总分不足断言）。",
+      "note": "股城：空语料搜索兜底（symbol 搜索、不卡互动）；J1.72 new_entity 放行实体门；J1.74 W 数学=产品+BSC用户吸引力+时效（58.31 差 1.69）当时 low。2026-10-21 用户裁定期望 high/mid；2026-10-23 用户裁定维持 mid/high 并放开 tokenCategory 断言（类别 A/A/A/C 近 tie 掷骰域，rating 稳定 high，锁类别=追引擎）。",
       "addedAt": "2026-10-20",
-      "expectBecause": "2026-10-21 用户裁定「0xaacbc156435dbab7815a61bccba1c827e52a7777 期望 high/mid」。",
-      "expectSince": "2026-10-21"
+      "expectBecause": "2026-10-21 用户裁定「0xaacbc156435dbab7815a61bccba1c827e52a7777 期望 high/mid」；2026-10-23 用户裁定「High 也能接受，可以改预期为 mid/high」——rating 锁 mid/high、tokenCategory 断言移除（类别掷骰域不锁）。",
+      "expectSince": "2026-10-23"
     },
     {
       "caseId": "C137",
