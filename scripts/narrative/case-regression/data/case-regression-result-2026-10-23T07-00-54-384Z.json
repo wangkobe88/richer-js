@@ -1,0 +1,41 @@
+{
+  "ranAt": "2026-10-23T07:00:56.790Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C180",
+      "symbol": "RichardTeng",
+      "addr": "0x007f5ddb6b5d2377f17089a7835bc61beee97777",
+      "status": "PASS",
+      "expect": {
+        "rating": [
+          "low"
+        ]
+      },
+      "observe": null,
+      "caseNote": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定；2026-10-23 逐张过票第一张裁定 low（C181 案）",
+      "baseline": {
+        "rating": "low",
+        "reason": "空洞内容",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "空洞内容",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E"
+      },
+      "failures": []
+    }
+  ]
+}

@@ -74,6 +74,13 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **验证**：单测 9 文件全绿（nea 46 含 C5 新键/C5b 旧键回落/C6 豁免、img_exempt 29 含 H9 无名口号臂四点锚、consolidation 90、resonance/product_entity/narrator/angle/referent 适配）；signal_metadata_cache E7/E13 计数断言顺手修（71b7e3a 观察信号登记点漏适配，非本批引入）；fixtures C180 expect 收紧 `low`。定向重析+全量回归挂起攒批（[[regression-batch-timing]]）。
 - **部署**：182 pull+重启 narrative worker 后 `--only C180` 定向对拍翻 low（单票定向=改动验证，全量回归等用户通知）。
 
+### C181b RichardTeng 堵截三层收尾——J1.111 事件层优先划界 + C114b 图证豁免收窄
+
+- **现象（J1.110 后两道残留放行）**：①定向重析仍 **high 71.11**——Jev 答 `token_ip_reuse` 0.52 / `event_empty_content` 0.31 分票：argmax 被 token_ip_reuse 拿走但 `BLOCK_SCOPE` 域 `['A']` 对该票 category C 域外不采信 → veto 整体放行（无名口号语义已吃到 empty_content 桶、概率面只 0.31 不够赢）。②J1.111 划界后重析 veto 翻 `event_empty_content` 0.95 / none 0.01 但**仍 high 73.06**——C114 图证豁免吞掉拦截；该票配图 Jev 自判 `image_depicts_name` decorative **0.93**（装饰图与币名无关），违背 C114「图就是内容」豁免假设（DND 案图=梗图本体）。
+- **改动①（J1.111，541b474）事件层优先划界**：veto instructions 加优先序——两层缺陷同时命中时**事件层优先**：无名作者单句口号/喊话式提及（事情全部内容=作者一句话）→ 票的根基是没有事件，选 `event_empty_content`（名字是否蹭人名是次要缺陷，不由 token_* 承载）；`token_ip_reuse` 桶加划界句=只管 meme IP/形象/梗的换皮复用（仅套用真实人物/机构名而无 meme IP 复用、事件本体=无名作者一句话 → 归 empty_content）。
+- **改动②（C114b，772de13，mapper 不 bump 题集）图证豁免收窄**：`image_depicts_name` 明确 decorative（choice 且概率 ≥0.5）→ 豁免失效照拦；答案缺失/未问/unclear/depicts_name → 照旧豁免（fail-open 与 C114 同方向，存量历史行零翻转；条件题与 imageEvidence 同源、无图不问=天然不触发）。审计键 `emptyContentImgOverride` 同步收窄（decorative 不再误标豁免）。
+- **验证**：定向重析 `0x007f5ddb…7777` → **low「阻断:空洞内容｜P=0.96」**；C180 `--only` 单票 PASS（low→low）。单测 img_exempt 34/0（新增 C114b 段四断言：照拦/审计不落/depicts_name 对照照豁免/缺失臂 fail-open）+ nea/consolidation/image_depicts_exempt 等 10 相邻文件全绿。全量回归攒批等用户通知。
+
 ## 三、Jev 问题集版本演进（卷四起）
 
 > J1.109 及之前全史见卷三归档 §三（J1.87-J1.109 为 2026-10-23 归档时补录的简式索引）；
@@ -82,6 +89,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 | 版本 | 日期 | 触发 Case | 改动 |
 |---|---|---|---|
 | J1.110 | 2026-10-23 | C181 | `event_quality_veto` 键名断代 `web3_user_event_impact`（Web3 用户视角：对 Web3 用户的影响力；桶 id 不变，mapper 三键归一读旧行）；empty_content 新增②无名口号臂（无名作者单条口号/喊话即使点名知名对象也算，三排除锚 J1.58/C159 收窄/C175b）；instructions 重写+尸体句删除 |
+| J1.111 | 2026-10-23 | C181b | veto instructions 事件层优先序（两层缺陷同命中时 empty_content 优先：无名口号的根基是没有事件）；token_ip_reuse 桶划界句（只管 meme IP/形象/梗换皮复用，仅套用人物/机构名+事件本体=无名一句话 → 归 empty_content）；C114b mapper 收窄同批（decorative≥0.5 图证豁免失效，不 bump 题集） |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
 
