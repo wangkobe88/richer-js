@@ -70,6 +70,19 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C177 W 三档 Choice + 蓝筹家族偏好指引（2026-10-23 用户双裁定）★
+
+- **裁定 2（W 三档，J1.107）**：`w_bsc_user_appeal` Score 原语（0-3 期望带→四分带插值 0-75）改 Choice 三桶 weak/moderate/strong（weak 合并旧「无吸引力/一般」两档）——动机=Score 打分 Jev 倾向集中中段（J1.79 实跑 0.4/0.34/0.21/0.05 分布），三档语义化判读更果断。mapper 分值表 **weak=15/moderate=47/strong=66**（弱=合并两档保守代表 <32 线；中/强=旧 38-56/57-75 带中点），pass 线 32 不动；旧缓存行 score 形状走 legacy `bandInterpolate` 双形状兼容（C123 先例）；choice 在场优先于残留 score。
+- **裁定 10（蓝筹偏好，改 Prompt 不魔改分数）**：`0xcfc39a869380200949685d16197e93f100207777`（돼지 H，韩国民主党猪象徴+meme 家族票）语料提及「牛来」蓝筹（b:0xbeea1d…7777 corpus_contains）仍死于 B 类事件分 57<60——用户初裁「跟大蓝筹类似/强相关的票应给予一定偏好」，初版实施 mapper ×1.15 事件分臂被用户改判「**不要魔改分数，也是改 Prompt 交给 LLM 处理**」→ 撤全部 mapper 改动（knowledgeMatches 传参/偏好臂/审计键），落点改 `[KNOWLEDGE_BASE]` 段构建（`knowledge-section.mjs`）：段内命中 b: 域蓝筹时段尾追加偏好指引行（「叙事家族相近/强相关（同类梗/同源热点/姐妹变体）→事件契合度与规模给正向偏好」），**幅度由 LLM 逐题判定、代码侧零加分**。quasi/concept 不给（小蓝筹连发常态，C168 同精神）；name_exact 撞名仍由 C168 mapper 首臂拦 low（代码层拦截优先）；state-only 不 bump 题集版本（C76/C83 先例；与 J1.107 同批部署天然以版本为界）。
+- **定向验证（J1.107+偏好指引，182）**：C130 돼지 H 三跑 **low 58 / high 74.14 / high 74.14**（事件分 57→64 主流过 B 类 60 线，2/3 high 且高分侧同值——偏好指引起效；首跑 58=Jev 非确定掷骰，C165 已实证）；C133 股城重试 **high 84.34**（A 档 81 过线；知识段 4 条股票类蓝筹 name_substring 命中偏好行在场；首轮重析遇搜索 API 404 瞬时故障致语料空 low 10，环境问题非引擎漂移）。
+- **单测**：w_bsc_user_appeal F 组（26/0：三档映射 15/47/66、双形状 choice 优先、legacy 2.5 与 moderate 等值锚、分值表源码口径）+ knowledge_section A11-A13（21/0：bluechip 命中落偏好行、quasi/concept 不落、bit-parity 保持）+ consolidation A11b 三桶形状随动（89/0）。
+- **部署（d6d1c89，J1.107）**：182 pull（清 untracked 同名回归产物+工具改写的 fixtures 以本地 5eac6c2 裁定版覆盖）→ worker 重启（02:44 单实例存活）。
+- **回归终态（53 票 46P/3F/4O/0E，02-47-11 批，J1.107+偏好指引）**：较 C175b 批（52 票 41P/5F/6O）**四票转正**——**C109c BI PASS**（expect 放开 mid/high 后 mid 达档）；**C79 PASS**（三档放开）；**C100 PASS**（三档放开）；**C130 돼지 H PASS high**（偏好指引主验票达成）；C176 新收录即 PASS（mid→low 官网核验未过，C164 门工作）。3 FAIL：**C133 股城 rating high 82-85 稳定但 tokenCategory=event:W 断言挂**（四跑类别 A/A/A/C 掷骰域——引擎已不主流判 W，评级不受影响；W→A 类别漂移待用户裁定 expect 类别是否放开）；**C167 梗王大乱斗同形状**（rating high 82.5-82.6 稳定、类别三跑 A/A/B vs expect event:E）；C162 BINA 维持遗留（J1.92 关联轴 unacceptable 5 分卡，J1.99 判读=主推空文本无宣告可采信）。4 OBSERVE：C72（low 事件分 59<60 差 1 分贴边，J1.83 门已过形状变化）/C80 蝙蝠侠摇（high 81.14 维持，三正向支柱已验证）/C85（C164 核验门拦维持）/C126（high 89.62 维持）。
+
+### C176 rug 项目票收录（2026-10-22 用户裁定）
+
+- `0x49c961a87b8e49e428288850ec5b7bd5f9ca7777`（Nightshift）：项目币且已 rug——用户裁定「现在给 low 没问题，期望也改为 low」，收录回归集 expect=low+tokenCategory=project（工具自动 expect mid 按裁定手改覆写）；commit 5eac6c2 同批含 C109c mid/high 皆可+C79/C167/C100 三档边缘化放开（expectBecause/expectSince 留痕）。
+
 ### C175b 双锚边界收口——fit「空口号 vs 成型叙事」+ 实体陈述句反锚（2026-10-22，C175 回归修复）★
 
 - **误伤①（C106 TREE `0xd50e11204f7f3d63598b0118ee4151bf95917777` 翻 low，三跑 30%/23%/22% sf+fit 全 J1.83 拦）**：J1.105 fit 锚「事件本体分量」把「作者自述种树故事」读进「无币外分量」臂 → marginal 0.61（J1.104 下三跑稳定 high 81.55/82.21/80.44 的票被本锚误伤）。根因=锚句只写了空口号臂的否定面，未给「成型叙事」正例——TREE 类个人叙事（持续行为记录/有情节故事）有事可讲，不是空口号。
