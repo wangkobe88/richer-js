@@ -152,8 +152,8 @@ async function main() {
   const rF = mapStandardAnswers(dndAnswers({
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.66, meme_name: 0.2 } },
   }), dndCtx(true));
-  check('F1 演绎臂触发但 not_meme_name（CRO+演绎图形状）→ 名字门照拦（豁免只翻关联截断）',
-    rF.llmResult.rating === 'low' && (rF.llmResult.reason || '').includes('名字'),
+  check('F1 演绎臂触发但 not_meme_name（CRO+演绎图形状）→ 词句门不再拦（C180；演绎豁免只翻关联截断不变）',
+    !/Web3 用户不接纳该名字|词句/.test(rF.llmResult.reason || ''),
     rF.llmResult.reason);
 
   // ═══ G. magExempt 聚合继承 ═══

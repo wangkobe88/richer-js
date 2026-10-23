@@ -466,7 +466,12 @@ function web3UserAcceptabilityBlock(answers) {
   // 日常用语）；实体票（accepted/unknown/new_entity/wrong_entity）不经本题——名字
   // 质量归实体轴（unknown/wrong_entity 拦截）+ 词句轴。版本臂/
   // 拼写臂已删（C105/C108 拦截责任迁入 wrongEntityBlock）。no_entity=J1.81 前旧缓存
-  // 行兼容读（旧行按原口径照评，bit 不变）
+  // 行兼容读（旧行按原口径照评，bit 不变）。
+  // C180（2026-10-23）退役拦截、纯观察落档：拦截原因混杂（审美=fit 的域/事件与
+  // 代币不匹配=关联题的域/纯符号名），且与关联题打架（独杀子集 117 张里关联
+  // exact/acceptable 123 张被越权拦）。判定值照算供审计键
+  // web3UserAcceptabilityBlock 落档与迁移参考，门链不再消费（防复活=单测退役
+  // 反证锁定）
   const entityChoice = answers?.web3_user_name_entity_acceptance?.choice;
   if (entityChoice && entityChoice !== 'not_entity' && entityChoice !== 'no_entity') return null;
   const choice = web3UserAcceptabilityChoice(answers);
@@ -796,19 +801,20 @@ function web3FitMassBlock(answers, opts) {
  */
 
 /**
- * 实体低影响力拦截门（J1.56，C126；规格=旧 J1.10 nameReferentBlock 的类别域
- * 与概率门槛）：币名映射到具体实体、但该实体在 Web3 用户侧不认得（unknown）
- * → 名字没有用户侧感知，不通过。
- * - 作用域 B/C/D/F/G/W（旧 NAME_REFERENT_BLOCK_SCOPE 原样；A 类形象IP/E 类
- *   热点不在此域——形象IP的低影响力由量级门/载体门管，热点命名不是实体票）
- * - 概率门槛 ≥0.5（choice 概率 mass，跨 run 抖动容忍同旧规）
- * - **new_entity 不拦（J1.72/C133，股城案用户裁定）**：刚诞生且已在 BSC 链
- *   用户群发出信息的新实体（新项目/新品牌/新角色）不是「用户不认得的老实体」；
- *   本门只读 unknown 概率，new_entity 为 argmax 时 unknown 必然 <0.5（概率和
- *   为 1），天然不触门。新实体的名字形态/内容由名字门与下游评分题判。
+ * 实体低影响力门（J1.56，C126；规格=旧 J1.10 nameReferentBlock 的类别域
+ * 与概率门槛）：币名映射到具体实体、但该实体在 Web3 用户侧不认得（unknown）。
+ * **C180（2026-10-23）退役拦截、纯观察落档**：生产审计 286 张被拦票 89% fit
+ * 过线、关联题大量 exact_match 被越权拦（unknown 判定实质=事件在 Web3 用户侧
+ * 无影响力=fit 的域；知名实体掷骰歪 RichardTeng/JPM、自创昵称误拦恩恩崽/乐宝豆
+ * 是独占子集主体）。函数照算判定值供审计键 nameEntityLowMass 落档与迁移参考，
+ * 门链不再消费（防复活=单测退役反证锁定）。拦截史档：
+ * - 原作用域 B/C/D/F/G/W + 概率门槛 ≥0.5（choice 概率 mass）
+ * - 原 pubProxyActive 豁免只作用于拦截（官方域名+领域知名发布者 C29 裁定），
+ *   mass 观察计算不受影响
+ * - **new_entity 不拦（J1.72/C133，股城案用户裁定）**：本门只读 unknown 概率，
+ *   new_entity 为 argmax 时 unknown 必然 <0.5（概率和为 1），天然不触门。
  * - 与旧 nrBlock 的刻意 delta：旧规合计 minor_other + common_word；新轴的
- *   截词/普通词归 no_entity（中性不拦，C108 已把名字形态责任交给
- *   web3UserAcceptabilityBlock——EARLY 截词误拦案教训）
+ *   截词/普通词归 no_entity（中性，C108 名字形态责任史）
  */
 const NAME_ENTITY_LOW_BLOCK_SCOPE = ['B', 'C', 'D', 'F', 'G', 'W'];
 
@@ -1205,9 +1211,16 @@ export function mapStandardAnswers(answers, context) {
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
   // J1.56（C126）：实体低影响力门回归——按旧 J1.10 规格吃新实体题的 unknown
   // （≥0.5，域 B/C/D/F/G/W），挂在名字门之前（实体层否决先于形态层）
-  let neBlock = null; // 实体低影响力门信息 {label, mass}
-  let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域）
-  let uaBlock = null; // 词句接纳度门信息 {label, choice}（C96→C105→C107→C108→J1.81 收窄=只评 not_entity 形状；form=Jev 原 choice）
+  // C180（2026-10-23 用户裁定「两门不再参与拦截，代码先保留」）：unknown 臂
+  // （nameEntityLowBlock）与词句门（web3UserAcceptabilityBlock）退役拦截、纯观察
+  // 落档——判定值照算、审计键照落（nameEntityLowMass / web3UserAcceptabilityBlock），
+  // 供「有用部分迁移到其它锚」期间逐票追溯。生产审计依据：286 张被拦票 89% fit
+  // 过线、关联题大量 exact_match 被越权拦——两臂把事件影响力（fit 的域）与审美/
+  // 匹配（关联题的域）都吸进来了。名字轴唯一存留拦截位=wrongEntityBlock（全域、
+  // 客观拼写/忠实性）；拦截史档见下方门链退役注
+  const neBlock = nameEntityLowBlock(answers, category); // 纯观察 {label, mass}（原 pubProxyActive 豁免只作用于拦截，mass 计算不受影响）
+  let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
+  const uaBlock = web3UserAcceptabilityBlock(answers); // 纯观察 {label, choice}（C96→C105→C107→C108→J1.81 收窄=只评 not_entity 形状；form=Jev 原 choice）
   let timingScore = null;
   let wTimingCapActive = false;
   let eventCompositeScore = null;
@@ -1387,31 +1400,18 @@ export function mapStandardAnswers(answers, context) {
     && blockInScope(blockChoice, category)) {
     eventScoreBlocked = true;
     gateBlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
-  } else if (!pubProxyActive && (neBlock = nameEntityLowBlock(answers, category))) {
-    // J1.56 实体低影响力门（C126，规格=旧 J1.10 nrBlock）：币名映射到实体但
-    // Web3 用户不认得（unknown ≥0.5，域 B/C/D/F/G/W）→ 不通过。挂名字门之前
-    // （实体层否决先于名字形态层；YAYA=币安普通员工花名型的老拦截责任回到此位）。
-    // pubProxyActive 豁免：官方域名+领域知名发布者已由代码事实锚定实体
-    // （=旧 nameReferentBlock 前置 !pubProxyActive 同语义，C29 裁定）。
-    // 刻意 delta：旧规合计含 common_word（截词）——新轴截词归 no_entity（中性，
-    // C108 把名字形态责任交给 web3UserAcceptabilityBlock，EARLY 截词误拦教训）。
-    eventScoreBlocked = true;
-    gateBlockReason = neBlock.label;
+  // （C180：unknown 实体低影响力门 else-if 分支随拦截退役删除——J1.56 原规格=
+  //  unknown ≥0.5 域 B/C/D/F/G/W 拦 + pubProxyActive 豁免，史档见函数头；
+  //  判定值纯观察落档 nameEntityLowMass）
   } else if ((weBlock = wrongEntityBlock(answers))) {
     // J1.81/C139 指歪拦截位（全域）：币名试图指向实体但指歪/指残——拼写错/不忠实
     // 呈现/版本残片（C105 版本词臂、C108 拼写臂拦截责任迁入实体轴；「日本語版」
-    // 型无论类别、无论出自谁的官宣文本都拦）。实体层否决先于词句层
+    // 型无论类别、无论出自谁的官宣文本都拦）。C180 起名字轴唯一存留拦截位
     eventScoreBlocked = true;
     gateBlockReason = weBlock.label;
-  } else if ((uaBlock = web3UserAcceptabilityBlock(answers))) {
-    // C108 名字门→J1.81/C139 词句门（web3_user_phrase_acceptability，只评 not_entity
-    // 形状）：无圈内感知句片段（滑雪/我要去）/事件陈述句（币安上电视）/礼貌套话拦；
-    // 圈内文化词（Early/HODL——EARLY 案翻案位）/通用梗缩写（DND/FOMO）/有姿态整句
-    // （只是一只猫）/超IP词句（C126 こんにちは + C138 极端否证判据）放行。分支①无名
-    // 实体归实体轴 unknown、③版本词/④拼写变体归实体轴 wrong_entity（J1.81 迁出）。
-    // 实体票不经本门。全域无豁免；无概率 mass（choice 档位门）
-    eventScoreBlocked = true;
-    gateBlockReason = uaBlock.label;
+  // （C180：词句接纳度门 else-if 分支随拦截退役删除——J1.81 原规格=not_entity
+  //  形状 web3_user_not_acceptable 档位拦、史档见函数头；判定值纯观察落档
+  //  web3UserAcceptabilityBlock 审计键）
   // （J1.102/C171：形象载体门 scBlock 分支随门整轴退役删除——
   //  上一位=词句门 web3UserAcceptabilityBlock，下一位=量级门 D/E 档臂）
   } else if (!isW && (effTier === 'E' || effTier === 'D') && !imgNameExempt) {
@@ -1530,7 +1530,8 @@ export function mapStandardAnswers(answers, context) {
         // negativeHardNewsMass 随 J1.101/C170 nhn 门退役删除（历史行键保留展示）
         web3UnfitMass: w3Block?.mass ?? null,
         // J1.56 实体低影响力门审计（C126）：命中才落 mass（unknown 概率），
-        // 未命中 null（与旧 nrBlockMass 退役键区分，历史行键保留展示）
+        // 未命中 null（与旧 nrBlockMass 退役键区分，历史行键保留展示）。
+        // C180 起纯观察落档（拦截退役，判定值供迁移参考）
         nameEntityLowMass: neBlock?.mass ?? null,
         nameWrongEntityMass: weBlock?.mass ?? null,
         effectiveTiming: timing,
@@ -1559,10 +1560,11 @@ export function mapStandardAnswers(answers, context) {
         // （'f_recap_e'）。与 stage1 恒落版双写：stage2 jev 段是信号页/校准脚本
         // 的消费位（referentMemeabilityScore 恒落同款先例）
         findingVsRecap: answers.event_finding_vs_recap?.choice ?? null,
-        // C96/C105/C107/C108 审计标记：Web3 用户接纳度门（唯一名字拦截位）命中才落
+        // C96/C105/C107/C108 审计标记：Web3 用户接纳度门命中才落
         // （subjectCarrierBlock 同款模式）；form=Jev 原 choice（not_meme_name=
         // J1.41+ 新判 / statement·functional_label=J1.37-J1.40 旧缓存行兼容臂，
-        // 归因可分）；档位恒落在 stage1 jev.web3UserAcceptability（J1.53 断代名）
+        // 归因可分）；档位恒落在 stage1 jev.web3UserAcceptability（J1.53 断代名）。
+        // C180 起纯观察落档（拦截退役，「唯一名字拦截位」移交 wrongEntityBlock）
         web3UserAcceptabilityBlock: uaBlock ? { choice: uaBlock.choice } : null,
         // C88 审计标记①：实体口号票五腿快照。恒落含 hit:false（标签零列推导消费
         // 本键：hit=true→narrativeSuperIpSlogan=1 / hit=false→0 / 键缺失（旧缓存

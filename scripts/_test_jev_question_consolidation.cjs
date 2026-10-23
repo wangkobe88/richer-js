@@ -239,18 +239,20 @@ async function main() {
         // J1.81：词句门只评 not_entity 形状——fixture 实体切 not_entity（accepted 0.9 会被实体票分流跳过）
         aNew.web3_user_name_entity_acceptance = { choice: 'not_entity', probabilities: { not_entity: 0.9 } };
         const rNew = mapStandardAnswers(aNew, stdCtx('TST', 'TST'));
-        check('A12c 新题键 web3_user_not_acceptable → 用户接纳度门拦（label 含「Web3 用户不接纳该名字」）',
-          rNew.llmResult.rating === 'low' && (rNew.llmResult.reason || '').includes('Web3 用户不接纳该名字'),
+        check('A12c 新题键 web3_user_not_acceptable → 不再拦（C180 词句门退役）+ 审计 choice 照落',
+          !/Web3 用户不接纳该名字/.test(rNew.llmResult.reason || '')
+            && rNew.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock?.choice === 'web3_user_not_acceptable',
           rNew.llmResult.reason);
-        // 旧键仍走同一门（存量缓存行/fixture 兼容）
+        // 旧键判定值仍照算（存量缓存行/fixture 兼容，纯观察）
         const aOld = baseAnswers();
         aOld.name_form = { choice: 'not_meme_name', probabilities: { not_meme_name: 0.8 } };
         delete aOld.web3_user_name_acceptability;
         // J1.81：J1.50 时代旧行无实体题答案（J1.56 才立题）——删键重放（缺失→照评）
         delete aOld.web3_user_name_entity_acceptance;
         const rOld = mapStandardAnswers(aOld, stdCtx('TST', 'TST'));
-        check('A12d 旧题键 name_form 仍走同一门（断代兼容：存量缓存行/旧 fixture 形状）',
-          rOld.llmResult.rating === 'low' && (rOld.llmResult.reason || '').includes('Web3 用户不接纳该名字'),
+        check('A12d 旧题键 name_form 判定值照算不拦（C180；断代兼容读不变）',
+          !/Web3 用户不接纳该名字/.test(rOld.llmResult.reason || '')
+            && rOld.stage2DataToSave.parsed_output.jev.web3UserAcceptabilityBlock?.choice === 'not_meme_name',
           rOld.llmResult.reason);
         // J1.82/C140：圈层不可达=unfit 档（全域概率门 web3UnfitBlock，unfit≥0.5 拦）
         // ——原 A 域 argmax 桶语义升级全域；B 域不拦语义随之消失（拦截面扩大=刻意）

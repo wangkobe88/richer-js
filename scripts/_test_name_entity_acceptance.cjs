@@ -132,14 +132,14 @@ async function main() {
     && stage2Of(mNoUtter).jev?.recognizedEntitySlogan?.authorUtterance === false,
     stage2Of(mNoUtter).jev?.recognizedEntitySlogan);
 
-  console.log('\n── C. unknown 实体低影响力门（规格=旧 J1.10 nrBlock）──');
+  console.log('\n── C. unknown 实体低影响力门（C180 拦截退役，纯观察落档）──');
 
   for (const cat of ['B', 'C', 'D', 'F', 'G', 'W']) {
     const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unknown', probabilities: { unknown: 0.6 } }), makeContext());
-    check(`C1-${cat} unknown 0.6 → 实体门拦（${cat} 在域内）`,
-      stage2Of(m).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(m).blockReason || '')
+    check(`C1-${cat} unknown 0.6 → 不再由实体门拦（C180）+ 审计 nameEntityLowMass 照落 0.6`,
+      !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(m).blockReason || '')
       && stage2Of(m).jev?.nameEntityLowMass === 0.6,
-      { blockReason: stage2Of(m).blockReason });
+      { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityLowMass });
   }
   for (const cat of ['A', 'E']) {
     const m = mapStandardAnswers(baseAnswers(cat, { choice: 'unknown', probabilities: { unknown: 0.6 } }), makeContext());
@@ -217,15 +217,17 @@ async function main() {
   const nePhrase = baseAnswers('C', { choice: 'not_entity', probabilities: { not_entity: 0.8 } });
   nePhrase.web3_user_phrase_acceptability = na;
   const mNeP = mapStandardAnswers(nePhrase, makeContext());
-  check('E5 not_entity 票 + 词句 not_acceptable → 词句门拦（本题唯一管辖形状）',
-    stage2Of(mNeP).pass === false && /词句接纳度门/.test(stage2Of(mNeP).blockReason || ''),
-    stage2Of(mNeP).blockReason);
+  check('E5 not_entity 票 + 词句 not_acceptable → 不再拦（C180）+ 审计 choice 照落',
+    !/词句接纳度门/.test(stage2Of(mNeP).blockReason || '')
+    && stage2Of(mNeP).jev?.web3UserAcceptabilityBlock?.choice === 'web3_user_not_acceptable',
+    { blockReason: stage2Of(mNeP).blockReason, audit: stage2Of(mNeP).jev?.web3UserAcceptabilityBlock });
   const oldRow = baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } });
   oldRow.web3_user_name_acceptability = { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } }; // J1.50 前更旧键
   const mOldRow = mapStandardAnswers(oldRow, makeContext());
-  check('E6 旧缓存行（entity choice=no_entity + 旧键 name_form 系 not_meme_name）→ 照拦（旧行 bit 不变：no_entity/缺失才评）',
-    stage2Of(mOldRow).pass === false && /接纳度门|词句/.test(stage2Of(mOldRow).blockReason || ''),
-    stage2Of(mOldRow).blockReason);
+  check('E6 旧缓存行（no_entity + 旧键 not_meme_name）→ 不再拦（C180）+ 审计 choice 照落（兼容读不变）',
+    !/接纳度门|词句/.test(stage2Of(mOldRow).blockReason || '')
+    && stage2Of(mOldRow).jev?.web3UserAcceptabilityBlock?.choice === 'not_meme_name',
+    { blockReason: stage2Of(mOldRow).blockReason, audit: stage2Of(mOldRow).jev?.web3UserAcceptabilityBlock });
   const wrongPhrase = baseAnswers('C', { choice: 'wrong_entity', probabilities: { wrong_entity: 0.3, accepted: 0.5 } });
   wrongPhrase.web3_user_phrase_acceptability = na;
   const mWP = mapStandardAnswers(wrongPhrase, makeContext());
@@ -239,10 +241,16 @@ async function main() {
   const qsSrc = fs.readFileSync(path.join(__dirname, '..', 'src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   check('D1 五腿第一腿=accepted ∨ authorUtterance',
     /const recognizedEntitySlogan = \(entityAcceptedProb >= 0\.5 \|\| authorUtterance\)/.test(mapperSrc));
-  check('D2 实体门函数与作用域常量（B/C/D/F/G/W；unknown≥0.5）',
+  check('D2 实体门函数与作用域常量（B/C/D/F/G/W；unknown≥0.5）——C180 后纯观察用途',
     /function nameEntityLowBlock\(answers, category\)/.test(mapperSrc)
     && /NAME_ENTITY_LOW_BLOCK_SCOPE = \['B', 'C', 'D', 'F', 'G', 'W'\]/.test(mapperSrc)
     && /probabilities\?\.unknown \?\? 0/.test(mapperSrc));
+  check('D10 C180 防复活：门链不再含 unknown/词句两拦截臂（else-if 内联拦截形状禁绝；wrong_entity 臂保留）',
+    !/\(neBlock = nameEntityLowBlock/.test(mapperSrc)
+    && !/\(uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc)
+    && /\(weBlock = wrongEntityBlock/.test(mapperSrc)
+    && /const neBlock = nameEntityLowBlock/.test(mapperSrc)
+    && /const uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc));
   check('D3 骑乘改道退役反证（rideDetourMass 不存在）',
     !/function rideDetourMass\(answers, category\)/.test(mapperSrc));
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',

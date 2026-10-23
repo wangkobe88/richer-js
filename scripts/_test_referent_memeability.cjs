@@ -71,10 +71,11 @@ async function main() {
     && qs.web3_user_phrase_acceptability.criteria.web3_user_not_acceptable.includes('没有任何可玩'), null);
   check('A4 版本 J1.90（J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性并入 event_fit（并行会话同批）；J1.81=C139 名字三轴重构；J1.80=C138 名字门超IP来源判据（追加段，原判据零改动）；J1.79 事件分改 fit 单一来源，删 impact 题）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
 
-  console.log('\n── B. 名字门消费（J1.61 唯一名字拦截位）──');
+  console.log('\n── B. 名字门消费（C180 后纯观察）──');
   const mNo = mapStandardAnswers(baseAnswers('C', { choice: 'web3_user_not_acceptable', probabilities: { web3_user_not_acceptable: 0.85 } }), makeContext());
   const s2No = mNo.stage2DataToSave.parsed_output;
-  check('B1 not_acceptable → 名字门拦', s2No.pass === false && /Web3 用户不接纳该名字/.test(s2No.blockReason || ''), { blockReason: s2No.blockReason });
+  check('B1 not_acceptable → 不再拦（C180）+ 审计 choice 照落', !/Web3 用户不接纳该名字/.test(s2No.blockReason || '')
+    && s2No.jev?.web3UserAcceptabilityBlock?.choice === 'web3_user_not_acceptable', { blockReason: s2No.blockReason });
   const mOk = mapStandardAnswers(baseAnswers('C', { choice: 'web3_user_acceptable', probabilities: { web3_user_acceptable: 0.85 } }), makeContext());
   const s2Ok = mOk.stage2DataToSave.parsed_output;
   check('B2 acceptable → 不拦（后续门/数学接管）', !/Web3 用户不接纳该名字/.test(s2Ok.blockReason || ''), { blockReason: s2Ok.blockReason });

@@ -99,7 +99,7 @@ async function main() {
   check('A4 image_depicts_name 保留（用户裁定「演绎关系是事/币关联的一个维度」——迁 J1.30 关联豁免第二臂，仅 imageConsistency 时问）',
     'image_depicts_name' in qsImg && !('image_depicts_name' in qsDefault), null);
   check('A5 acceptance 题面含形象考量锚句（有形象=加分考量；无形象不否决）',
-    qsDefault.web3_user_name_entity_acceptance.instructions.includes('形象考量（J1.102/C171')
+    qsDefault.web3_user_name_entity_acceptance.instructions.includes('⚠️ 形象考量：实体是否具有可视觉化的形象')
     && qsDefault.web3_user_name_entity_acceptance.instructions.includes('无形象本身不构成否决'), null);
   check('A6 phrase 题面不再引用 visuality 轴', !qsDefault.web3_user_phrase_acceptability.instructions.includes('visuality'), null);
   check('A7 J1.30 name_image_consistency 保留（量级/关联豁免仍消费）', 'name_image_consistency' in qsImg, null);
@@ -131,12 +131,13 @@ async function main() {
   check('C2 新键 visuality 行 → 不拦（mapper 不再消费）', !blockedByCarrier(rNewKey), rNewKey.llmResult.reason);
 
   // ═══ D. 门链序 ═══
-  console.log('\n── D. 门链序（sc 分支消失：ne → we → ua → 量级门）──');
+  console.log('\n── D. 门链序（C180 后：we → 量级门；ne/ua 拦截臂退役）──');
   const nrFirst = baseAnswers('C', 'improvised_entity');
   nrFirst.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.85 } };
   const rNr = mapStandardAnswers(nrFirst, stdCtx('TST', 'TST'));
-  check('D1 实体低影响力门照拦（unknown 0.85 → 实体门，先于量级门）',
-    rNr.llmResult.rating === 'low' && /币名映射实体在 Web3 用户侧无名/.test(rNr.llmResult.reason || ''), rNr.llmResult.reason);
+  check('D1 unknown 0.85 → 实体门不再拦（C180）+ 审计 nameEntityLowMass 照落 0.85',
+    !/币名映射实体在 Web3 用户侧无名/.test(rNr.llmResult.reason || '')
+    && rNr.stage2DataToSave.parsed_output.jev.nameEntityLowMass === 0.85, rNr.llmResult.reason);
   const famousWrong = baseAnswers('D', 'improvised_entity');
   famousWrong.web3_user_name_entity_acceptance = { choice: 'wrong_entity', probabilities: { wrong_entity: 0.8, accepted: 0.15 } };
   const rFW = mapStandardAnswers(famousWrong, stdCtx('TST', 'TST'));
@@ -183,12 +184,12 @@ async function main() {
   check('G2 CARRIER_LABELS / isAnimalRescueMemorialStory / famousEntity 不存在（豁免链辅助全删）',
     !/CARRIER_LABELS/.test(mapperSrc) && !/isAnimalRescueMemorialStory/.test(mapperSrc) && !/const famousEntity/.test(mapperSrc), null);
   check('G3 形象门分支变量不存在（门链分支真删，留档注释外无引用）', !/let scBlock|scBlock =|gateBlockReason = scBlock/.test(mapperSrc), null);
-  check('G4 门链序：ne → we → ua → 量级门索引严格递增（sc 位消失）', (() => {
-    const neIdx = mapperSrc.indexOf('(neBlock = nameEntityLowBlock(answers, category))');
+  check('G4 门链序：C180 后 we 直向量级门（ne/ua 拦截臂退役，sc 位已删）', (() => {
     const weIdx = mapperSrc.indexOf('(weBlock = wrongEntityBlock(answers))');
-    const uaIdx = mapperSrc.indexOf('(uaBlock = web3UserAcceptabilityBlock(answers))');
     const tierIdx = mapperSrc.indexOf("} else if (!isW && (effTier === 'E' || effTier === 'D')");
-    return neIdx > 0 && weIdx > neIdx && uaIdx > weIdx && tierIdx > uaIdx ? true : { neIdx, weIdx, uaIdx, tierIdx };
+    const neRetired = mapperSrc.indexOf('(neBlock = nameEntityLowBlock');
+    const uaRetired = mapperSrc.indexOf('(uaBlock = web3UserAcceptabilityBlock');
+    return weIdx > 0 && tierIdx > weIdx && neRetired === -1 && uaRetired === -1 ? true : { weIdx, tierIdx, neRetired, uaRetired };
   })());
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('G5 题集头部含 J1.102/C171 条目（案史档案）', qsSrc.includes('J1.102') && qsSrc.includes('C171'), null);

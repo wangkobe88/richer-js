@@ -77,11 +77,10 @@ async function main() {
 
   const m1 = mapStandardAnswers(griffinAnswers(), makeContext());
   const s2 = stage2Of(m1);
-  // J1.56（C126）：旧 notable_other「知名但非超级IP」退出后，新轴=实体在 Web3
-  // 用户侧的接受度；狮鹫 fixture 的旧 notable/minor 迁移后 unknown 0.82≥0.5 →
-  // 实体低影响力门拦（C54「知名度是错轴」语义被 Web3 接受度轴取代）
-  check('A1 unknown 0.82≥0.5 + B 类 → 实体低影响力门拦（C126 新轴）',
-    s2.pass === false && /币名映射实体在 Web3 用户侧无名/.test(s2.blockReason || '') && s2.scoringResult.eventCompositeScore === null,
+  // C180（2026-10-23）：unknown 实体低影响力门退役拦截、纯观察落档——狮鹫形状
+  // 不再被实体门拦，评分链走完；nameEntityLowMass 审计照落（迁移参考）
+  check('A1 unknown 0.82≥0.5 + B 类 → 实体门不再拦（C180）+ 评分走完',
+    !/币名映射实体在 Web3 用户侧无名/.test(s2.blockReason || '') && s2.scoringResult.eventCompositeScore != null,
     { pass: s2.pass, blockReason: s2.blockReason, total: s2.scoringResult?.eventCompositeScore });
   check('A1b 审计：nameEntityAcceptance=unknown + 概率 0.82 + nameEntityLowMass=0.82',
     s2.jev?.nameEntityAcceptance === 'unknown' && s2.jev?.nameEntityAcceptanceProbability === 0.82
@@ -89,13 +88,14 @@ async function main() {
   check('A2 退役审计键不落：nrNotableExempt undefined（C108 随阻断位退役）',
     stage1Of(m1).jev?.nrNotableExempt === undefined,
     stage1Of(m1).jev?.nrNotableExempt);
-  check('A3 J1.56 断代：实体门先于关联分（unknown 0.82 → low，不再进入 78.7 数学）',
-    m1.llmResult?.rating === 'low' && /币名映射实体在 Web3 用户侧无名/.test(m1.llmResult?.reason || ''),
+  check('A3 J1.56 断代（C180 后）：实体门不再先拦，评分正常走完（评级由总分定）',
+    !/币名映射实体在 Web3 用户侧无名/.test(m1.llmResult?.reason || ''),
     { rating: m1.llmResult?.rating, reason: m1.llmResult?.reason });
 
   const m2 = mapStandardAnswers(griffinAnswers({ relevance: 'partial_match' }), makeContext());
-  check('A4 同形状 partial_match：实体门同位先拦（拦截理由更干净）',
-    m2.llmResult?.rating === 'low' && /币名映射实体在 Web3 用户侧无名/.test(m2.llmResult?.reason || ''),
+  check('A4 同形状 partial_match：实体门不拦（C180）+ 关联截断接力拦（关联门接管实证）',
+    m2.llmResult?.rating === 'low' && /关联性不足/.test(m2.llmResult?.reason || '')
+    && !/币名映射实体在 Web3 用户侧无名/.test(m2.llmResult?.reason || ''),
     { rating: m2.llmResult?.rating, reason: m2.llmResult?.reason });
 
   console.log('\n── B. 全域作用域矩阵（A2：notable 全域退出阻断侧）──');
@@ -105,8 +105,8 @@ async function main() {
   cAnswers.event_category = { choice: 'C', probabilities: { C: 0.75, B: 0.2 } };
   cAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.98, no_entity: 0.0 } };
   const mc = mapStandardAnswers(cAnswers, makeContext());
-  check('B1a C 类 unknown 0.98≥0.5：实体低影响力门拦（C 在域内）',
-    stage2Of(mc).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(mc).blockReason || '')
+  check('B1a C 类 unknown 0.98≥0.5：实体门不再拦（C180）+ 审计 mass 照落 0.98',
+    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mc).blockReason || '')
       && stage2Of(mc).jev?.nameEntityLowMass === 0.98
       && stage1Of(mc).jev?.nrNotableExempt === undefined,
     { blockReason: stage2Of(mc).blockReason, mass: stage2Of(mc).jev?.nameEntityLowMass });
@@ -129,8 +129,9 @@ async function main() {
   wAnswers.event_category = { choice: 'W', probabilities: { W: 0.8, B: 0.15 } };
   wAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.68, no_entity: 0.05, accepted: 0.2 } };
   const mw = mapStandardAnswers(wAnswers, makeContext());
-  check('B2 W 类 unknown 0.68≥0.5：实体低影响力门拦（W 在域内；W 数学不触达）',
-    stage2Of(mw).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(mw).blockReason || ''),
+  check('B2 W 类 unknown 0.68≥0.5：实体门不再拦（C180）→ W 数学触达（本 fixture 撞 W 总分线）',
+    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mw).blockReason || '')
+      && stage2Of(mw).blockReason != null,
     { blockReason: stage2Of(mw).blockReason, pass: stage2Of(mw).pass });
 
   // B3 D 类抽查：notable 旧合计 0.77 → 放行，走标准数学
@@ -138,9 +139,10 @@ async function main() {
   dAnswers.event_category = { choice: 'D', probabilities: { D: 0.7, B: 0.25 } };
   dAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.75, no_entity: 0.02 } };
   const md = mapStandardAnswers(dAnswers, makeContext());
-  check('B3 D 类 unknown 0.75≥0.5：实体低影响力门拦',
-    stage2Of(md).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(md).blockReason || ''),
-    { blockReason: stage2Of(md).blockReason, pass: stage2Of(md).pass });
+  check('B3 D 类 unknown 0.75≥0.5：实体门不再拦（C180）+ mass 照落',
+    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(md).blockReason || '')
+      && stage2Of(md).jev?.nameEntityLowMass === 0.75,
+    { blockReason: stage2Of(md).blockReason, pass: stage2Of(md).pass, mass: stage2Of(md).jev?.nameEntityLowMass });
 
   // B4 minor_other 主导（YAYA 无名对象语义）：J1.81 三轴后实体票（accepted）不经
   // 词句门——「name_form 接住」臂退役，无名实体拦截唯一位=ne 门 unknown（B3 形状）；
@@ -162,9 +164,10 @@ async function main() {
   const mk = mapStandardAnswers(kAnswers, makeContext());
   const mkNf = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
   const mkMeme = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } } }, makeContext());
-  check('B5 common 0.52 主导：旧快照无 name_form 键 fail-open 放行（J1.79 fit 事件分 100）/ not_meme_name 名字门拦 / meme_name 躲过名字门',
-    mk.llmResult?.rating !== 'low' && /Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
-      && !/Web3 用户不接纳该名字/.test(mkMeme.llmResult?.reason || ''),
+  check('B5 common 0.52 主导：三形状全放行（C180 词句门退役拦截——legacy/nf/meme 同局；判定值照落档）',
+    mk.llmResult?.rating !== 'low' && !/Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
+      && !/Web3 用户不接纳该名字/.test(mkMeme.llmResult?.reason || '')
+      && stage2Of(mkNf).jev?.web3UserAcceptabilityBlock?.choice === 'not_meme_name',
     { legacy: mk.llmResult?.rating, nf: mkNf.llmResult?.reason });
 
   // B6 三项全低：不拦（普通票零影响；退役审计键不落）
@@ -204,9 +207,10 @@ async function main() {
   const fAnswers = griffinAnswers();
   fAnswers.web3_user_name_entity_acceptance = { choice: 'unknown', probabilities: { unknown: 0.75, no_entity: 0.1 } };
   const mf = mapStandardAnswers(fAnswers, makeContext());
-  check('C2 unknown 0.75：实体门拦 + 退役键不落',
-    stage2Of(mf).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(mf).blockReason || '')
-      && stage1Of(mf).jev?.nrNotableExempt === undefined,
+  check('C2 unknown 0.75：实体门不再拦（C180）+ 退役键不落 + mass 照落',
+    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(mf).blockReason || '')
+      && stage1Of(mf).jev?.nrNotableExempt === undefined
+      && stage2Of(mf).jev?.nameEntityLowMass === 0.75,
     { blockReason: stage2Of(mf).blockReason, audit: stage1Of(mf).jev?.nrNotableExempt });
 
   // C3 全域（A2 升级点）：C 类 notable 票同形状（B1a 的机器复核）

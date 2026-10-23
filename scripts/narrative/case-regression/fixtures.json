@@ -723,6 +723,806 @@
       "addedAt": "2026-10-23",
       "expectBecause": "C176 项目币已 rug，2026-10-22 用户裁定「low 没问题，期望也改为 low」",
       "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C180",
+      "symbol": "RichardTeng",
+      "addr": "0x007f5ddb6b5d2377f17089a7835bc61beee97777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C181",
+      "symbol": "JPM",
+      "addr": "0x27ff2020350977ca43115502c976762c9e257777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.75、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C182",
+      "symbol": "Microsoft",
+      "addr": "0xda5f69b142be858000dab2e67ad70f9b3ea47777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.54、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C183",
+      "symbol": "DietCoke",
+      "addr": "0x13acc80ee1802e4baac1b9165e9e047c009d7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.84、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C184",
+      "symbol": "快狗打车",
+      "addr": "0x497ebe5c2ef7c3393c874a9e7ecde2cf1e027777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.94、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C185",
+      "symbol": "行云科技",
+      "addr": "0x62cce4b6ee90c3d80181873c0e940402a66a7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.72、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C186",
+      "symbol": "浙商银行",
+      "addr": "0x52550b3628d5c4cac7408a186486f9e423087777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.79、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C187",
+      "symbol": "TAIGAN",
+      "addr": "0xbccb27a6a086517634423919dd9eec033e9c7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.68、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C188",
+      "symbol": "パルワールド",
+      "addr": "0xe51bcbae82c597574964c753e400b4cb0d107777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.8、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C189",
+      "symbol": "天狗",
+      "addr": "0xe9e82d1fa74283991dec5543453373ec836b7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.99、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C190",
+      "symbol": "恩恩崽",
+      "addr": "0x3ddf95a0aafa3cfdc7bd336c7c30ab5f1f9d7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.9、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C191",
+      "symbol": "乐宝豆",
+      "addr": "0x0a000d6f43de25855263d0ed218fdd0387c27777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.88、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C192",
+      "symbol": "奶龙理论",
+      "addr": "0xff3e7b781855bf8624c363a8996278de94cb7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.93、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C193",
+      "symbol": "流浪小狗",
+      "addr": "0x6c79cc6086c495288b0e659f9f4eb410a59a7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.98、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C194",
+      "symbol": "小黑",
+      "addr": "0x6cb96c4fdf9829bb9eff35353f00c8045cbe7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 1、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C195",
+      "symbol": "中国熊",
+      "addr": "0x66f0e87527931a4d9414dded1b8f3797d2417777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.87、关联 acceptable）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C196",
+      "symbol": "PHP",
+      "addr": "0x5f6de4cd7bd63d1033b2f8417cb640951f727777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.93、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C197",
+      "symbol": "宇宙行",
+      "addr": "0x1f9f6b1411e06efb3edb9ebaeccee4754de77777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.7、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C198",
+      "symbol": "SUPERCOMPUTER",
+      "addr": "0x2ddcaac3fb078ee82dd02be2bd10212c30127777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.6、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C199",
+      "symbol": "ヤギ",
+      "addr": "0xb31726097f9866f516423a9e5bf02df363637777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.9、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C200",
+      "symbol": "大小姐",
+      "addr": "0xd862061088c14a54b83d435ce1f44c3f074b7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.65、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C201",
+      "symbol": "罗马",
+      "addr": "0x4c981997877a34d3bea50e5d4ee385c51af77777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.97、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C202",
+      "symbol": "砖",
+      "addr": "0x08d3e05347b939474f714c360ab75a96da047777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.98、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C203",
+      "symbol": "姨妈巾",
+      "addr": "0xe3bec71d099384dba6b4b4734903e35effa87777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.7、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C204",
+      "symbol": "4人生",
+      "addr": "0x019fb31a221d6efb103ba35942702918abd37777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.94、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C205",
+      "symbol": "Maya",
+      "addr": "0x1b420e70cef832de51a3556558958be5b4b57777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.88、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C206",
+      "symbol": "未来",
+      "addr": "0x949f21b0f64194472146c3fa14415a4d82a07777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.84、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C207",
+      "symbol": "无限可能",
+      "addr": "0x9d8bf36af31e1ef74e2ac32617448b1f73c87777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·具象/事件名（fit 0.96、关联 exact_match）：误拦候选面，拆臂后进评分观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C208",
+      "symbol": "1",
+      "addr": "0x2c092d46e05b2d32ff5013ea1c41d8c846067777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.54、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C209",
+      "symbol": "做",
+      "addr": "0x138f7834f8a48e651fbe0424a242234d48727777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.97、关联 acceptable）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C210",
+      "symbol": "C",
+      "addr": "0xa959ce0dd0248df36df907667ee9a44c5d3b7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.8、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C211",
+      "symbol": "No",
+      "addr": "0xd139d3b905468f544e75abca1a1a7b0376867777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.95、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C212",
+      "symbol": "Bot",
+      "addr": "0x2887546ae9524f8298884900ec135031d3cc7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.86、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C213",
+      "symbol": "here",
+      "addr": "0x191108e1479938e83cd87c0d33b8af7d545c7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.98、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C214",
+      "symbol": "P@ssw0rd!",
+      "addr": "0x14287dae87b3fb6a4545658c1aa7ac1ed8fb7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.72、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C215",
+      "symbol": "0x77",
+      "addr": "0x064a0a233ccd631d5d79afb56cc88d7ab0347777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.66、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C216",
+      "symbol": ",",
+      "addr": "0x2d58da00605bd3d2e8a4f5ab81cef2f7a4487777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.78、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C217",
+      "symbol": "中",
+      "addr": "0x241d8a0c687e5c901f47fcc3fa05d4def3257777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.94、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C218",
+      "symbol": "pool",
+      "addr": "0x27f580ea584179d3b87ca4777c12d502f3deffff",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C219",
+      "symbol": "🌮🦆🎩",
+      "addr": "0x9714e14b046aebc11aef79d1f5d9a0dbe167ffff",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C220",
+      "symbol": "功夫小猫",
+      "addr": "0xc2765441c4dc724f60ec92c2e3e5b83868c27777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C221",
+      "symbol": "小象勇士",
+      "addr": "0x28d57ff3d72b88cf0979c2fb4d50d9223d267777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.96、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C222",
+      "symbol": "久留美",
+      "addr": "0x33289c5c34c447cb21d5027bedfb2c19b6957777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.76、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C223",
+      "symbol": "福音",
+      "addr": "0x3e1610a330dfa83f1e2bad12c011c85cc2d57777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.78、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C224",
+      "symbol": "BINA",
+      "addr": "0x3ba02d6155ac4492bee1e0f752f6b5cfa6337777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.87、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C225",
+      "symbol": "태리",
+      "addr": "0x81d15edc685b29cf58dbe8ea4c7798e375197777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.8、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C226",
+      "symbol": "한글",
+      "addr": "0x0e4582f447f6f60b7b2ab5293cf0780b09457777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.6、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C227",
+      "symbol": "ジジ",
+      "addr": "0x2752ab658fc7973a420c971b0e6ae72916f77777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.54、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C228",
+      "symbol": "ATM",
+      "addr": "0x209fefa087ba1b32ae9a5a628f6e26d743b77777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.57、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C229",
+      "symbol": "지지",
+      "addr": "0x1e9ec2097922b21f028fc6d6e9866f76d8b37777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ]
+      },
+      "note": "C180 观察票-关联门重复拦截（fit 0.58、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "addedAt": "2026-10-23",
+      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectSince": "2026-10-23"
     }
   ]
 }

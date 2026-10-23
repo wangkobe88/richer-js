@@ -238,18 +238,21 @@ async function main() {
     stage2Of(m).blockReason === 'W类总分不足（19<32）',
     { blockReason: stage2Of(m).blockReason });
 
-  // C5 J1.56 骑乘改道退役：B 类低影响力实体（unknown≥0.5）由实体低影响力门
+  // C5 J1.56 骑乘改道退役：B 类低影响力实体（unknown≥0.5）曾由实体低影响力门
   // 直接拦（旧实现 subject_self+super_ip mass≥0.5 → 改道 W 数学；新轴统一 unknown，
-  // 用户裁定「低影响力实体不通过」——被拦而非降级评分）
+  // 用户裁定「低影响力实体不通过」——被拦而非降级评分）。C180（2026-10-23 用户
+  // 裁定「两个门不再参与拦截，代码先保留」）unknown 臂退役拦截、纯观察落档——
+  // 票不再由该门拦（去向=评分/后续门，不在此断言），审计 mass 照落
   a = clone(BI);
   a.event_category = { type: 'choice', choice: 'B', probabilities: { B: 0.9, C: 0.1 } };
   a.web3_user_name_entity_acceptance.probabilities.accepted = 0.45;
   a.web3_user_name_entity_acceptance.probabilities.unknown = 0.55;
   a.name_entity_memeability.score = 1.5;
   m = mapStandardAnswers(a, makeContext({ tokenData: TOKENS.bi }));
-  check('C5 B 类 unknown 0.55≥0.5：实体低影响力门拦（骑乘改道退役）',
-    stage2Of(m).pass === false && /币名映射实体在 Web3 用户侧无名/.test(stage2Of(m).blockReason || ''),
-    { blockReason: stage2Of(m).blockReason });
+  check('C5 B 类 unknown 0.55≥0.5：实体门不再拦（C180 退役）+ 审计 nameEntityLowMass 照落 0.55（骑乘改道谱系终态）',
+    !/币名映射实体在 Web3 用户侧无名/.test(stage2Of(m).blockReason || '')
+      && stage2Of(m).jev?.nameEntityLowMass === 0.55,
+    { blockReason: stage2Of(m).blockReason, mass: stage2Of(m).jev?.nameEntityLowMass });
 
   console.log('\n── D. 五腿单腿负（任一腿断 → slogan false 回归旧门） ──');
 
