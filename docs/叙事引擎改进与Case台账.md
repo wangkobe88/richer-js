@@ -60,7 +60,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **改动③（前端）**：experiment_narrative.js 12 处双键归一读+label「Web3 适配」→「BSC meme 适配」；experiment_token_returns.js 超级IP tooltip 键名。
 - **单测**：28 个涉键文件全绿。⚠ 教训：批量正则把测试 **answers 桩访问**误改新键（`delete noFit.bsc_meme_user_event_fit` 半新半旧=桩内部断裂，5 文件行为类假红：基线 stash 对比定位）——桩键还原旧键（喂旧行形状=归一读兼容的正确测法），仅题集取题键（qs.*）换新；dump 键/label/桶值/题面锚句断言按断代事实更新（web3_fit B5、jev_finding E5/F1/F1b/F11、consolidation A13f/A14 系、nea D5/D5b/D6、angle C5、resonance D5 等 30+ 处）。
 - **fixtures**：C181（JPM 例证票）expect 全收收紧 `['low']`，because=用户裁定原文——评级不变归因修正的首张裁定票。
-- **验证/部署**：定向重析 JPM `0x27ff…7777` 保持 low 且拦截文案变「BSC meme 用户偏好不合」+ RichardTeng `0x007f…7777` 不回翻 + 带父推 high 票防误翻；全量回归攒批等用户通知（[[regression-batch-timing]]）。
+- **验证/部署**：commit `0d009e9` 已 push；182 pull+worker 重启（PID 1896229）完成。定向回归三票全 PASS（`--only C180,C181,C106`，2026-10-23T07:36Z）：①C181 JPM 保持 **low**，实际拦截位=**W 类总分不足（15<32）**——比预期的 web3UnfitBlock 文案更干净：JPM 是 W 票，W 数学单轴本身就是「项目对 BSC meme 币用户吸引力」，归因与裁定语义完全一致；②C180 RichardTeng 保持 low 不回翻（拦截位=空洞内容门，非 unknown 臂）；③C106 TREE 带父推 fit 长链 high 保持 80.92（基线 81.58，-0.66 属 Jev 非确定性波动，评估主体措辞改动无翻面）。全量回归攒批等用户通知（[[regression-batch-timing]]）。
 
 ### C182 GMGN 补源必要门+失败封顶——IP 级 RATE_LIMIT_BANNED 事故（2026-10-23 用户裁定「ave api 信息够了就不需要补充」+「抓不成功最多再尝试一次，就往下走」）★
 
