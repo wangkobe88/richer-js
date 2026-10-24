@@ -3230,9 +3230,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // PCS 分支不传 minOutRatio/expectedNativeOut：旧 L1 锚=信号价（毕业断流后恒陈旧
     // 0.17-0.39×），quote 活报价对陈旧锚必拒 → 30min 熔断循环 7 连败事故形状；
     // PCS trader 自带预留量活报价 ×(1-slippage) 滑点保护。
-    // 毕业判定与 quoteToken 经 _liveGraduatedInfo：FA 内存优先；FA 无 state（重启后
-    // 毕业票不再有 token_create/tick，state 不重建——豆皮/水重启后手工卖案）走
-    // wss_events 持久回查（graduation=毕业事实 / token_quote_set=quote 终态）
+    // 毕业判定与 quoteToken 经 _liveGraduatedInfo：FA 内存 graduated=true 可信短路；
+    // false/无 state（重启后毕业票 state 重建但 graduation 事件不再到达——豆皮/水案）
+    // 走 wss_events 持久回查（graduation=毕业事实 / token_quote_set=quote 终态）
     let trader = traderOverride || null;
     const gradInfo = await this._liveGraduatedInfo(signal.tokenAddress);
     if (!trader && gradInfo.graduated) {
@@ -3654,7 +3654,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    *  漏事件的边缘接受，重启即自愈 */
   async _liveGraduatedInfo(tokenAddress) {
     const st = this._factorAggregator?.getTokenState(tokenAddress) || null;
-    if (st) return { graduated: !!st.graduated, quoteToken: st.quoteToken ?? null };
+    // write-once：内存 graduated=true 恒可信（进程内 noteGraduation 只置 true 不回退）；
+    // graduated=false **不可信**——重启后持仓回放会重建 state 而 graduation 事件不再
+    // 到达（2026-10-24 豆皮/水 05:28 实证：state 在场 graduated=false → 误走平台路径；
+    // flap Portal 对毕业票内部路由可用侥幸成交，four.meme TM2 形状必 revert）——
+    // false 一律 DB 复核（卖出低频，每次多一次 wss_events 小查询可接受）
+    if (st && st.graduated) return { graduated: true, quoteToken: st.quoteToken ?? null };
     try {
       const { dbManager } = require('../../services/dbManager');
       const { data, error } = await dbManager.getClient() // service key（RLS 红线③）

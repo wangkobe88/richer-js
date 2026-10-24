@@ -231,13 +231,33 @@ console.log('[3] _executeSellLive 毕业票路由 PCS + options 分流');
         await q9.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
         ok(q9.calls.traders[0] === 'platform', '回查失败 → 平台路径（fail-closed 可见）', q9.calls.traders);
 
-        // 4.5 FA state 在场（常态活跃票）→ 零 DB 查询（自动路径不加 DB 往返）
+        // 4.5 FA state graduated=true（活跃进程内毕业票）→ 零 DB 查询（write-once 可信短路）
         dbRows = [{ kind: 'graduation', payload: { quoteToken: QUOTE } }];
         dbError = null; dbCalls.length = 0;
-        const q10 = mkEngine({ graduated: false, quoteToken: null });
+        const q10 = mkEngine({ graduated: true, quoteToken: null });
         await q10.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
-        ok(q10.calls.traders[0] === 'platform' && dbCalls.length === 0,
-            'FA state 在场 → 零 DB 回查（活跃票自动卖零额外往返）', { traders: q10.calls.traders, db: dbCalls.length });
+        ok(q10.calls.traders[0] === 'pcs' && q10.calls.options[0].quoteToken === null
+            && dbCalls.length === 0,
+            'FA graduated=true → 内存答案零 DB（活跃进程毕业票 quoteToken 以内存为准）', { traders: q10.calls.traders, db: dbCalls.length });
+
+        // 4.5b FA state graduated=false + DB 空（活跃未毕业票常态）→ 平台 + 一次复核
+        dbRows = []; dbError = null; dbCalls.length = 0;
+        const q10b = mkEngine({ graduated: false, quoteToken: null });
+        await q10b.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q10b.calls.traders[0] === 'platform' && dbCalls.length === 1,
+            'FA graduated=false → 仍 DB 复查一次（卖出低频可接受）', { traders: q10b.calls.traders, db: dbCalls.length });
+
+        // 4.7 事故反证（2026-10-24 05:28 豆皮/水）：重启后持仓回放重建 state
+        // （graduated=false）+ wss_events 有 graduation 行 → 必须 PCS——旧实现
+        // `if (st) return 内存答案` 短路回查误走平台路径（flap Portal 侥幸成交，
+        // four.meme TM2 必 revert）
+        dbRows = [{ kind: 'graduation', payload: { token: signal.tokenAddress, quoteToken: QUOTE } }];
+        dbError = null; dbCalls.length = 0;
+        const q12 = mkEngine({ graduated: false, quoteToken: null });
+        await q12.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q12.calls.traders[0] === 'pcs' && q12.calls.options[0].quoteToken === QUOTE && dbCalls.length === 1,
+            '事故反证：state 在场 graduated=false + graduation 行 → PCS 二跳（不再短路）',
+            { traders: q12.calls.traders, options: q12.calls.options[0], db: dbCalls.length });
 
         // 4.6 手工卖路由（_executeManualSell）同样走持久回查：FA 缺失+graduation → PCS
         dbRows = [{ kind: 'graduation', payload: { token: signal.tokenAddress, quoteToken: QUOTE } }];
