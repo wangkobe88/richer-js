@@ -1428,14 +1428,12 @@
       "addr": "0x209fefa087ba1b32ae9a5a628f6e26d743b77777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.57、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.57、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-24 收口：C186 反锚重析翻 low 56（图=中国银行数字人民币 IP 圆芯侠、币名 ATM 不匹配；name_image_consistency unrelated 91% vs depicts 70% 两臂打架被 C118 演绎臂豁免救回 mid 54.1=修前形状）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 C186/J1.115 演绎题同域非演绎反锚后重析 low 56（depicts_name 70%→decorative 100%，演绎臂失效）；用户裁定方向=图内实体名（圆芯侠）与币名（ATM）不匹配不该豁免",
       "expectSince": "2026-10-23"
     },
     {
