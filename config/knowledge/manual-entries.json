@@ -89,6 +89,30 @@
       "dedupExempt": true,
       "dedupNote": "C138 同形状豁免（2026-10-22）：与 C138 票（0x1774…7777，用户裁定 mid|high）为同部署者 GoldenCatDev 同叙事连发——近期叙事非老 meme；且本条目系统自评 low（借壳蹭票过 ATH 线入册），名字撞它不应拦用户裁定票",
       "updatedAt": "2026-10-22T09:00:00.000Z"
+    },
+    {
+      "id": "b:0x108876c3df3d893350e9b780563b3697aa3e7777",
+      "kind": "bluechip",
+      "name": "中国人能飞火箭",
+      "symbol": "中国人能飞",
+      "aliases": [
+        "中国人能飞"
+      ],
+      "address": "0x108876c3df3d893350e9b780563b3697aa3e7777",
+      "twitter": "https://x.com/Ayash71435569",
+      "narrative": "中国航天发射事件承载口号 meme（Flap 平台）：火箭发射现场箭体上拼出「中国人能飞」五个大字，民族自豪/情感触动极强，口号是事件本身的组成部分、无需谁单独喊出也有来由（词句题 J1.119 事件承载臂源头案例）。ATH≈$10.5M，BSC 市场验证的事件承载口号叙事家族。2026-10-24 用户裁定蓝筹收录（旧缓存 low=已废截词门时代结论，不作数）。",
+      "narrativeSource": null,
+      "athMarketCapUsd": 10513973,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": null,
+      "ranks": {
+        "mc24h": 92,
+        "renowned24h": 48,
+        "vol24h": 82
+      },
+      "updatedAt": "2026-10-24T03:00:00.000Z"
     }
   ]
 }
