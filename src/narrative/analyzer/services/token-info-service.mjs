@@ -34,7 +34,11 @@ function rawCorpusScore(raw) {
  *
  * experiment_tokens 里同一 token_address 每个实验一行（多实验观察同一
  * token 是常态），不能 maybeSingle（多行时报错）——取回后按语料丰富度
- * 择优一行。0 行返回 null（analyze 侧报"代币不存在"）。
+ * 择优一行。0 行再走 token_narrative 旧行回退（C188 中国人能飞案裁定
+ * 2026-10-24：experiment_tokens 行随旧实验级联删 ≠ 代币不存在——全局表
+ * 旧行的分析时语料快照/身份列在库，历史票重析能力由此修复）；两层全
+ * 0 行才返回 null（analyze 侧报"代币不存在"）。回退行语料是当年快照，
+ * 链接照常重抓新数据。
  *
  * @param {string} address - 代币地址
  * @returns {Promise<Object|null>} 代币数据或null
@@ -64,7 +68,37 @@ export async function fetchTokenData(address) {
   }
 
   if (!data || data.length === 0) {
-    return null;
+    // token_narrative 旧行回退（C188 裁定选项 1）：只取身份列+raw_api_data 快照，
+    // 不碰分析结果列（缓存失效语义归 NarrativeRepository 管，与本层无关）
+    const { data: narrRows, error: narrError } = await supabase
+      .from('token_narrative')
+      .select('token_symbol, platform, blockchain, raw_api_data')
+      .eq('token_address', address)
+      .limit(1);
+    if (narrError) throw narrError;
+    if (!narrRows || narrRows.length === 0) {
+      return null;
+    }
+    const nr = narrRows[0];
+    // 创建时间锚与主路径同序：raw_api_data.created_at 优先，缺锚才消费
+    // wss_events token_create（four.meme 票事件全局表仍在，flap 票本就无此事件）
+    let tokenCreatedAtSec = nr.raw_api_data?.created_at || null;
+    if (!tokenCreatedAtSec) {
+      const { data: ev } = await evPromise;
+      if (ev && ev[0]?.created_at) {
+        tokenCreatedAtSec = Math.floor(new Date(ev[0].created_at).getTime() / 1000);
+      }
+    }
+    console.log(`[token-info] experiment_tokens 0 行，token_narrative 旧行回退命中 ${address}`
+      + `（platform=${nr.platform ?? 'null'}，created_at=${tokenCreatedAtSec ?? 'null'}）`);
+    return {
+      address: address,
+      symbol: cleanSymbol(nr.token_symbol),
+      blockchain: nr.blockchain || 'bsc',
+      platform: nr.platform || null,
+      raw_api_data: nr.raw_api_data,
+      tokenCreatedAtSec
+    };
   }
 
   const best = data.reduce((acc, row) =>
