@@ -433,7 +433,7 @@ async function main() {
 
   check('G9 缓存路（response-parser formatResult）spread 推导',
     /import \{ deriveSuperIpLabels \} from '\.\.\/\.\.\/\.\.\/core\/narrative\/superip-labels\.js';/.test(parserSrc)
-    && /\.\.\.deriveSuperIpLabels\(record\.stage1_result, record\.stage2_result\),/.test(parserSrc));
+    && /\.\.\.deriveSuperIpLabels\(record\.event_result, record\.event_score_result\),/.test(parserSrc));
   check('G10 新鲜路（NarrativeAnalyzer）与缓存路同形 flat spread',
     /const superIpLabels = deriveSuperIpLabels\(stage1DataToSave, stage2DataToSave\);/.test(analyzerSrc)
     && /\.\.\.superIpLabels,/.test(analyzerSrc));
@@ -452,10 +452,10 @@ async function main() {
     && /recognizedEntitySlogan: st\.recognizedEntitySlogan \?\? null,/.test(engineSrc));
   check('G14 回测 preload 零列推导（fetchRowsByIds 全列行零查询）',
     /require\('\.\.\/\.\.\/core\/narrative\/superip-labels\.js'\)/.test(backtestSrc)
-    && /const _sip = deriveSuperIpLabels\(row\.stage1_result, row\.stage2_result\);/.test(backtestSrc)
+    && /const _sip = deriveSuperIpLabels\(row\.event_result, row\.event_score_result\);/.test(backtestSrc)
     && /superIp: _sip\.narrativeSuperIp \?\? null,/.test(backtestSrc));
   check('G15 web 数据层 + token-returns 页 badge（超级IP/口号）',
-    /\.\.\.deriveSuperIpLabels\(narrative\.stage1_result, narrative\.stage2_result\),/.test(dataSvcSrc)
+    /\.\.\.deriveSuperIpLabels\(narrative\.event_result, narrative\.event_score_result\),/.test(dataSvcSrc)
     && /narrative\.narrative\.narrativeSuperIp/.test(webJsSrc)
     && /narrative\.narrative\.narrativeSuperIpSlogan/.test(webJsSrc));
   check('G16 GMGN 条件键集刻意不加两键（爆炸面最小：只进 FA fire 因子表）',

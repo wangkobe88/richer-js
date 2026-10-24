@@ -5,9 +5,9 @@
  *
  * 落库两信封是既定事实（C88 信封坑，superip-labels.js s?.details ?? s?.parsed_output
  * 同款），interpret 里 ?? 链是形状切换非兜底：
- *   - precheck 拒票：stage_final_result=null，pre_check_result={rating,reason,details:{ruleName}}
- *   - stage2 拦截票：stage_final_result={rating:'low',details:{blockReason}}，reason 顶层 null
- *   - 评级票：stage_final_result={rating,score,...}
+ *   - precheck 拒票：final_result=null，pre_check_result={rating,reason,details:{ruleName}}
+ *   - stage2 拦截票：final_result={rating:'low',details:{blockReason}}，reason 顶层 null
+ *   - 评级票：final_result={rating,score,...}
  *   - prestage 路径票（C70/C85 回归揭出的第四信封）：project 票终态在
  *     prestage_result 顶层 {rating,reason}（粉丝带定档 mid）；abm 续走标准路径时
  *     fin 先占位不受影响（?? 链序 fin > pcr > prest）
@@ -15,13 +15,13 @@
 
 /**
  * 判读一行 token_narrative 回读 → 统一口径。
- * @param {object|null} row 回读行（须含 stage_final_result/pre_check_result/stage1_result）
+ * @param {object|null} row 回读行（须含 final_result/pre_check_result/event_result）
  */
 export function interpret(row) {
   if (!row) {
     return { rating: null, reason: null, ruleName: null, score: null, stage: null, tokenCategory: null, blob: '' };
   }
-  const fin = row.stage_final_result ?? null;
+  const fin = row.final_result ?? null;
   const pcr = row.pre_check_result ?? null;
   const prest = row.prestage_result ?? null;
   return {
@@ -38,8 +38,8 @@ export function interpret(row) {
     // 审计子串匹配源：三个结果列整体序列化（superIpSlogan/subjectCarrierImgOverride 等审计键落在内）
     blob: JSON.stringify({
       fin, pcr, prest,
-      s1: row.stage1_result ?? null,
-      s2: row.stage2_result ?? null,
+      s1: row.event_result ?? null,
+      s2: row.event_score_result ?? null,
     }),
   };
 }

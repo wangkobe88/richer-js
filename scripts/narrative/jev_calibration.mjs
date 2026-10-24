@@ -41,9 +41,9 @@ async function main() {
   // 但校准用的是行内旧评级做对比基线，与缓存可否复用无关
   const { data: rows, error } = await supabase
     .from('token_narrative')
-    .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, prompt_type, stage1_result, stage2_result, stage_final_result, analyzed_at')
+    .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, prompt_type, event_result, event_score_result, final_result, analyzed_at')
     .not('twitter_info', 'is', null)
-    .not('stage_final_result', 'is', null)
+    .not('final_result', 'is', null)
     .order('analyzed_at', { ascending: false })
     .limit(400);
   if (error) throw new Error(`查询失败: ${error.message}`);
@@ -92,9 +92,9 @@ async function main() {
 
     const analyzedAtMs = row.analyzed_at ? new Date(row.analyzed_at).getTime() : undefined;
 
-    const oldRating = row.stage_final_result?.rating || row.stage2_result?.rating || '?';
-    const oldScore = row.stage_final_result?.score ?? row.stage2_result?.score ?? null;
-    const oldBlock = row.stage_final_result?.details?.blockReason || row.stage2_result?.reason || null;
+    const oldRating = row.final_result?.rating || row.event_score_result?.rating || '?';
+    const oldScore = row.final_result?.score ?? row.event_score_result?.score ?? null;
+    const oldBlock = row.final_result?.details?.blockReason || row.event_score_result?.reason || null;
 
     const { state, stats } = buildJevState(tokenData, fetchResults, { now: analyzedAtMs });
     // C103：条件题 parentRelationship 镜像生产接线（analyzer 同款 hasReplyParent 门）
@@ -126,7 +126,7 @@ async function main() {
     // 分歧归因（对比旧 stage 数据与新 answers 的关键差异）
     let attributions = [];
     if (verdict !== '一致') {
-      const oldCat = row.stage1_result?.details?.eventClassification?.primaryCategory || row.stage1_result?.category || '?';
+      const oldCat = row.event_result?.details?.eventClassification?.primaryCategory || row.event_result?.category || '?';
       const newCat = a.event_category?.choice;
       const newTier = mapped.jevDetails?.impactTier || (a.web3_user_event_impact ?? a.event_magnitude)?.score?.toFixed(1);
       if (oldCat !== newCat) attributions.push(`分类 ${oldCat}→${newCat}(conf=${a.event_category?.confidence})`);
@@ -145,8 +145,8 @@ async function main() {
       newClass: a.event_category?.choice,
       newTier: mapped.jevDetails?.impactTier || null,
       spreadRaw: (a.web3_user_event_spread ?? a.dimension2)?.score,
-      oldTierScore: row.stage2_result?.details?.raw?.scoringResult?.magnitudeScore ?? null,
-      oldDim2: row.stage2_result?.details?.raw?.scoringResult?.weightScore ?? null,
+      oldTierScore: row.event_score_result?.details?.raw?.scoringResult?.magnitudeScore ?? null,
+      oldDim2: row.event_score_result?.details?.raw?.scoringResult?.weightScore ?? null,
       blockChoice: (a.event_quality_veto ?? a.event_token_block_reason)?.choice, noneProb: (a.event_quality_veto ?? a.event_token_block_reason)?.probabilities?.none,
     });
 

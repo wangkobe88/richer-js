@@ -1449,17 +1449,19 @@ class ExperimentDataService {
       const addresses = tokens.map(t => t.token_address.toLowerCase());
 
       // 分批查询叙事数据（避免 URL 过长导致 414 错误）
-      // 列裁剪：Jev 迁移后 *_prompt 列携带 state+questions 全文（最大 ~70k 字符/列），
-      // 批量接口只消费 *_result 与 summary，select * 会把上百行 × 数十 k 的 prompt 全文
-      // 拉回来（getTokens 17MB/17s 的同款教训）；详情页 prompt 展示走 /api/narrative/result
+      // 列裁剪：Jev 迁移后 jev_prompt 列携带 state+questions 全文（最大 ~70k 字符），
+      // 批量接口只消费 *_result 与 jev_raw_output，select * 会把上百行 × 数十 k 的
+      // prompt 全文拉回来（getTokens 17MB/17s 的同款教训）；详情页 prompt 展示走
+      // /api/narrative/result。2026-10-24 列名重构：stage1/2/3 → 评估链语义名，
+      // legacy_* 段 raw 无读点不拉（新行恒 null，历史行=同 Jev 响应拷贝）
       const NARRATIVE_LIGHT_COLUMNS = [
         'token_address', 'analyzed_at', 'is_valid', 'prompt_version',
         'token_category',
         'pre_check_result', 'prestage_result', 'prestage_raw_output',
-        'stage1_result', 'stage1_raw_output',
-        'stage2_result', 'stage2_raw_output',
-        'stage3_result', 'stage3_raw_output',
-        'stage_final_result',
+        'event_result', 'jev_raw_output',
+        'event_score_result',
+        'relation_result',
+        'final_result',
       ].join(',');
       const batchSize = 200;
       const narrativeBatches = [];
@@ -1518,8 +1520,8 @@ class ExperimentDataService {
               // 叙事分类（deriveTokenCategory：'event:<A~W>' 或 prestage 三类；null=precheck fail/no_data）
               token_category: narrative.token_category ?? null,
               // C88 超级IP两标签（2026-10-18 CZ 出书簇）：NARRATIVE_LIGHT_COLUMNS 已含
-              // stage1/stage2 列零额外查询，superip-labels 零列推导；1/0/null 三态
-              ...deriveSuperIpLabels(narrative.stage1_result, narrative.stage2_result),
+              // event/event_score 列零额外查询，superip-labels 零列推导；1/0/null 三态
+              ...deriveSuperIpLabels(narrative.event_result, narrative.event_score_result),
               llmAnalysis: llmAnalysis
             },
             human_judge: token.human_judges || null,

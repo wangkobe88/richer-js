@@ -32,14 +32,14 @@ function check(name, cond, detail) {
   console.log('\n── B. 嵌套结构 ──');
   const input = {
     raw_api_data: { search_evidence: { products: { Latest: { tweets: [{ text: 'ok \ud83d' }] } } } },
-    stage1_prompt: 'p\u0000q',
-    stage1_raw_output: '{"answers":{}}',
+    jev_prompt: 'p\u0000q',
+    jev_raw_output: '{"answers":{}}',
     n: 1, b: true, z: null,
   };
   const out = sanitizeJsonValue(input);
   check('B1 嵌套推文文本清洗', out.raw_api_data.search_evidence.products.Latest.tweets[0].text === 'ok �', out);
-  check('B2 prompt NUL 清洗', out.stage1_prompt === 'p�q');
-  check('B3 非字符串值原样', out.n === 1 && out.b === true && out.z === null && out.stage1_raw_output === '{"answers":{}}');
+  check('B2 prompt NUL 清洗', out.jev_prompt === 'p�q');
+  check('B3 非字符串值原样', out.n === 1 && out.b === true && out.z === null && out.jev_raw_output === '{"answers":{}}');
   check('B4 不 mutate 入参', input.raw_api_data.search_evidence.products.Latest.tweets[0].text === 'ok \ud83d');
   check('B5 清洗后可 JSON 往返且无 lone surrogate',
     (() => { const s = JSON.stringify(out); try { JSON.parse(s); } catch { return false; }

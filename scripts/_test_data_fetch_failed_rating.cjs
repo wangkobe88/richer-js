@@ -133,7 +133,7 @@ console.log('\n══ 一、B1 getUserByScreenName 空 stub 源头判定（行�
 
   // 3.1 bug 复现：修复前形状（六 stage 字段全空，18 行实证）→ null
   assertEq(resolveFinalRating({}), null, '修复前形状（六字段全空）→ null（bug 复现）');
-  assertEq(resolveFinalRating({ pre_check_result: null, prestage_result: null, stage1_result: null, stage2_result: null, stage3_result: null, stage_final_result: null }), null, '六字段显式 null → null');
+  assertEq(resolveFinalRating({ pre_check_result: null, prestage_result: null, event_result: null, event_score_result: null, relation_result: null, final_result: null }), null, '六字段显式 null → null');
 
   // 3.2 修复 A：data_fetch_failed 早退 → 消费分支构造的 pre_check_result → low
   // 消费分支（NarrativeAnalyzer）：preCheckDataToSave = { rating: pcd.rating || 'low',
@@ -162,7 +162,7 @@ console.log('\n══ 一、B1 getUserByScreenName 空 stub 源头判定（行�
     pre_check_result: { rating: 'low', pass: false, reason: '名称不匹配', details: { validationStage: 'name_mismatch' } }
   };
   assertEq(resolveFinalRating(rulesValidationRecord), 'low', '回归：rules_validation 形状 → low');
-  const stageFinalRecord = { stage_final_result: { rating: 'high', pass: true, score: 77.39 } };
+  const stageFinalRecord = { final_result: { rating: 'high', pass: true, score: 77.39 } };
   assertEq(resolveFinalRating(stageFinalRecord), 'high', '回归：stage_final high → high');
   const prestagePassRecord = { prestage_result: { rating: 'mid', pass: true } };
   assertEq(resolveFinalRating(prestagePassRecord), 'mid', '回归：prestage 显式 rating → 直取');

@@ -419,9 +419,9 @@ async function cmdVerify() {
 
 // ─────────────────────── --enrich ───────────────────────
 
-/** token_narrative 已析行 → rating/reason（stage_final_result.category 优先，prestage 兜底） */
+/** token_narrative 已析行 → rating/reason（final_result.category 优先，prestage 兜底） */
 function extractNarrativeRating(row) {
-  const fin = row?.stage_final_result;
+  const fin = row?.final_result;
   const rating = fin?.category ?? fin?.rating ?? row?.prestage_result?.rating ?? null;
   const reason = fin?.reason ?? fin?.reasoning ?? row?.prestage_result?.reasoning ?? null;
   return { rating, reason };
@@ -440,7 +440,7 @@ async function cmdEnrich() {
   for (let i = 0; i < addrs.length; i += 100) {
     const batch = addrs.slice(i, i + 100);
     const { data, error } = await db.from('token_narrative')
-      .select('token_address, stage_final_result, prestage_result, analyzed_at')
+      .select('token_address, final_result, prestage_result, analyzed_at')
       .in('token_address', batch);
     if (error) throw new Error(error.message);
     for (const row of data || []) {

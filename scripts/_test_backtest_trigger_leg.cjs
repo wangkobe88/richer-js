@@ -74,7 +74,7 @@ const PRELOAD = BacktestEngine.prototype._preloadNarrativeRows;
   await checkAsync('A3 legacy-only 腿 → 预载但零 FA 注入（注入门=存在 trigger 腿）', async () => {
     const { stub } = makePreloadStub({
       strategies: [{ action: 'buy', condition: 'x', narrativeCallCondition: 'age > 1' }],
-      rows: new Map([['0xpre1'.toLowerCase(), { stage_final_result: { rating: 'mid' }, analyzed_at: ISO }]]),
+      rows: new Map([['0xpre1'.toLowerCase(), { final_result: { rating: 'mid' }, analyzed_at: ISO }]]),
     });
     await PRELOAD.call(stub);
     assert.strictEqual(FourMemeFactorAggregator.getNarrativeFactors('0xpre1'), null,
@@ -86,7 +86,7 @@ const PRELOAD = BacktestEngine.prototype._preloadNarrativeRows;
   await checkAsync('B1 mid 行 → rating=2 / rounds=1 / completedAt=Date.parse(analyzed_at) / category 透传', async () => {
     const { stub } = makePreloadStub({
       strategies: [{ action: 'buy', condition: 'x', narrativeTriggerCondition: 'c' }],
-      rows: new Map([['0xb1', { stage_final_result: { rating: 'mid' }, analyzed_at: ISO, token_category: 'project' }]]),
+      rows: new Map([['0xb1', { final_result: { rating: 'mid' }, analyzed_at: ISO, token_category: 'project' }]]),
       tokens: ['0xB1'], // 键用 _tokenMeta 原键，rowCache 小写查表
     });
     await PRELOAD.call(stub);
@@ -102,7 +102,7 @@ const PRELOAD = BacktestEngine.prototype._preloadNarrativeRows;
   await checkAsync('B2 unrated 行 → 归 9（非 1/2/3 fail 归一）；缺 token_category 列 → category null', async () => {
     const { stub } = makePreloadStub({
       strategies: [{ action: 'buy', condition: 'x', narrativeTriggerCondition: 'c' }],
-      rows: new Map([['0xb2', { stage_final_result: { rating: 'unrated' } }]]),
+      rows: new Map([['0xb2', { final_result: { rating: 'unrated' } }]]),
       tokens: ['0xB2'],
     });
     await PRELOAD.call(stub);

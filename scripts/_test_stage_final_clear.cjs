@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * stage_final_result 残留清除单测（2026-10-19 回归案バイナンス人生实锤的修复）。
+ * final_result 残留清除单测（2026-10-19 回归案バイナンス人生实锤的修复）。
  * 零 DB 零网络：源码口径断言（红线 13 事故修复配反证）+ _mergeField 纯函数。
  *
  * 事故现场：precheck 拦截路 stageFinalData=null → stageFinalSaveData={} → spread 空
- * → stage_final_result 不进 save 列集 → 旧 high fin 残留遮蔽新拦截
+ * → final_result 不进 save 列集 → 旧 high fin 残留遮蔽新拦截
  * （行实证：pcr=expired_tweet 拦截 + fin 残留旧 high 76.99 并存）。
  *
  * 用法：node scripts/_test_stage_final_clear.cjs
@@ -25,16 +25,17 @@ async function main() {
   const analyzerSrc = fs.readFileSync(path.resolve(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
 
   // A1 事故形状反证：precheck 路必须显式 __clear（空对象 spread 形状已死）
-  check('A1 stageFinalData=null 落 { stage_final_result: { __clear: true } }（源码口径）',
-    analyzerSrc.includes('} : { stage_final_result: { __clear: true } };'),
+  check('A1 stageFinalData=null 落 { final_result: { __clear: true } }（源码口径）',
+    analyzerSrc.includes('} : { final_result: { __clear: true } };'),
     'analyzer 三元 else 臂须为显式 __clear，防旧 high fin 残留');
 
-  // A2 repository 清列路径覆盖 fin：stage_final 走 RESULT_ONLY_FIELDS 的
-  // _mergeField(__clear→null) 循环（STAGE_FIELDS 只含 prestage/stage1-3）
+  // A2 repository 清列路径覆盖 fin：final 走 RESULT_ONLY_FIELDS 的
+  // _mergeField(__clear→null / null 覆盖) 循环（2026-10-24 列名重构：stage_final→final，
+  // event/event_score/relation 走 STAGE_RESULT_ONLY_FIELDS 的 __clear 分支）
   const repoSrc = fs.readFileSync(path.resolve(__dirname, '../src/narrative/db/NarrativeRepository.mjs'), 'utf8');
-  check('A2 RESULT_ONLY_FIELDS 含 stage_final（__clear→null 清列路径覆盖 fin）',
-    /RESULT_ONLY_FIELDS\s*=\s*\[[^\]]*'stage_final'[^\]]*\]/s.test(repoSrc),
-    'RESULT_ONLY_FIELDS 数组须含 stage_final');
+  check('A2 RESULT_ONLY_FIELDS 含 final（清列路径覆盖终局信封）',
+    /RESULT_ONLY_FIELDS\s*=\s*\[[^\]]*'final'[^\]]*\]/s.test(repoSrc),
+    'RESULT_ONLY_FIELDS 数组须含 final');
 
   // A3 _mergeField __clear 语义（静态纯函数）
   const { NarrativeRepository } = await import(path.resolve(__dirname, '../src/narrative/db/NarrativeRepository.mjs'));

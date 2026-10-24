@@ -24,26 +24,26 @@ async function main() {
   // ── interpret：落库两信封形状（C88 信封坑反证锁定）──
   // 形状1：precheck 拒票（fin=null，pcr 带 reason + details.ruleName）
   const i1 = interpret({
-    stage_final_result: null,
+    final_result: null,
     pre_check_result: { rating: 'low', reason: '发币时所有推文距代币创建已超过300秒（推文类型=angle_seeking）', details: { ruleName: 'expired_tweet' } },
   });
   check('I1 precheck 拒票判读', i1.rating === 'low' && i1.ruleName === 'expired_tweet' && i1.reason.includes('超过300秒'), JSON.stringify(i1));
 
   // 形状2：stage2 拦截票（blockReason 在 fin.details，reason 顶层 null）
   const i2 = interpret({
-    stage_final_result: { rating: 'low', score: null, reason: null, details: { blockReason: '币名不适合作为 meme 符号（名字门）' } },
+    final_result: { rating: 'low', score: null, reason: null, details: { blockReason: '币名不适合作为 meme 符号（名字门）' } },
     pre_check_result: null,
   });
   check('I2 stage2 拦截票判读（blockReason 非 pcr.reason）', i2.rating === 'low' && i2.reason === '币名不适合作为 meme 符号（名字门）' && i2.ruleName === null, JSON.stringify(i2));
 
   // 形状2b：ruleName 顶层信封（buildPreCheckResult 两形状既定事实）
-  const i2b = interpret({ stage_final_result: null, pre_check_result: { rating: 'low', reason: 'x', ruleName: 'public_info_fetch_failed' } });
+  const i2b = interpret({ final_result: null, pre_check_result: { rating: 'low', reason: 'x', ruleName: 'public_info_fetch_failed' } });
   check('I2b ruleName 顶层形状', i2b.ruleName === 'public_info_fetch_failed', JSON.stringify(i2b));
 
   // 形状3：评级票
   const i3 = interpret({
-    stage_final_result: { rating: 'high', score: 80.56, details: { blockReason: null } },
-    stage1_result: { jev: { audit: { recognizedEntitySlogan: 1 } } },
+    final_result: { rating: 'high', score: 80.56, details: { blockReason: null } },
+    event_result: { jev: { audit: { recognizedEntitySlogan: 1 } } },
   });
   check('I3 评级票判读+审计进 blob', i3.rating === 'high' && i3.score === 80.56 && i3.blob.includes('recognizedEntitySlogan'), JSON.stringify(i3).slice(0, 120));
 
@@ -52,14 +52,14 @@ async function main() {
 
   // 形状4：prestage 路径票（C70/C85 回归揭出的第四信封——project 票终态在 prestage_result 顶层）
   const i5 = interpret({
-    stage_final_result: null,
+    final_result: null,
     pre_check_result: null,
     prestage_result: { pass: true, rating: 'mid', reason: '项目币评级：粉丝2 → mid（粉丝带只定档不拦截）', details: { jev: { probabilities: {} } } },
   });
   check('I5 prestage 路径票判读（prestage_result 顶层 rating/reason）', i5.rating === 'mid' && i5.reason.includes('粉丝带只定档'), JSON.stringify(i5).slice(0, 120));
 
   // 形状4b：abm 续走标准路径票（prestage 与 fin 并存，fin 优先）
-  const i5b = interpret({ stage_final_result: { rating: 'high', score: 80, details: {} }, prestage_result: { rating: 'mid', reason: 'x' } });
+  const i5b = interpret({ final_result: { rating: 'high', score: 80, details: {} }, prestage_result: { rating: 'mid', reason: 'x' } });
   check('I5b fin 优先于 prest（abm 续走标准路径票不受 prestage 定档遮蔽）', i5b.rating === 'high', JSON.stringify(i5b).slice(0, 80));
 
   // ── assertExpectation ──

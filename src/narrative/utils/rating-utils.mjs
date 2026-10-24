@@ -39,13 +39,14 @@ export function categoryToRating(rating) {
 export function resolveFinalRating(record) {
   if (!record) return null;
 
+  // 六信封顺序链（2026-10-24 列名重构：stage1/2/3→评估链语义名，顺序与旧链逐位对应）
   const stages = [
     'pre_check_result',
     'prestage_result',
-    'stage1_result',
-    'stage2_result',
-    'stage3_result',
-    'stage_final_result'
+    'event_result',
+    'event_score_result',
+    'relation_result',
+    'final_result'
   ];
 
   let hasAnyStage = false;

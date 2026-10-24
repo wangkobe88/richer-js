@@ -198,19 +198,20 @@ router.post('/reanalyze/:address', async (req, res) => {
     const { ignoreExpired = false } = body;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
 
-    // 1. 先清除旧的 LLM 分析数据和预检查数据（使用 {__clear: true} 标记）
+    // 1. 先清除旧的 LLM 分析数据和预检查数据（使用 {__clear: true} 标记；
+    //    2026-10-24 列名重构：stage1/2/3/final → 评估链语义名）
     await NarrativeRepository.save({
       token_address: address,
       // 清除预检查数据
       pre_check_result: null,
-      // 清除 Stage 1 数据
-      stage1_result: { __clear: true },
-      // 清除 Stage 2 数据
-      stage2_result: { __clear: true },
-      // 清除 Stage 3 数据
-      stage3_result: { __clear: true },
-      // 清除 Stage Final 数据
-      stage_final_result: null,
+      // 清除事件判定段（__clear 联动清 jev_prompt/jev_raw_output）
+      event_result: { __clear: true },
+      // 清除事件评分段
+      event_score_result: { __clear: true },
+      // 清除关联与代币段
+      relation_result: { __clear: true },
+      // 清除终局信封
+      final_result: null,
       // 清除 PreStage 数据
       prestage_result: { __clear: true },
       // 清除 Stage 字段

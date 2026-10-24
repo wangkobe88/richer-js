@@ -632,9 +632,9 @@ class BacktestEngine extends AbstractTradingEngine {
         if (!row) continue;
         const _n = categoryToRating(resolveFinalRating(row));
         // C88 超级IP两标签常量注入（2026-10-18 CZ 出书簇）：rowCache select('*') 已含
-        // stage1/stage2 列零额外查询，superip-labels 零列推导（与实时状态机回填
+        // event/event_score 列零额外查询，superip-labels 零列推导（与实时状态机回填
         // 三态同形；C88 前旧行无 hit 键 → slogan null）
-        const _sip = deriveSuperIpLabels(row.stage1_result, row.stage2_result);
+        const _sip = deriveSuperIpLabels(row.event_result, row.event_score_result);
         FourMemeFactorAggregator.setNarrativeFactors(addr, {
           rating: [1, 2, 3].includes(_n) ? _n : 9,
           rounds: 1,

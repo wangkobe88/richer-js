@@ -30,7 +30,7 @@ const { NarrativeRepository } = await import('../../../src/narrative/db/Narrativ
 
 const SETS_DIR = resolve(__dirname, 'sample-sets');
 const DATA_DIR = resolve(__dirname, 'data');
-const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,stage1_result,stage2_result,stage_final_result,pre_check_result';
+const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,event_result,event_score_result,final_result,pre_check_result';
 const ADDR_RE = /^0x[0-9a-fA-F]{40}$/;
 const RATINGS = ['low', 'mid', 'high'];
 

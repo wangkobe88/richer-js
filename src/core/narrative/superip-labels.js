@@ -47,14 +47,14 @@ function _stagePayload(s) {
 }
 
 /**
- * 从 stage1/stage2 结果推导超级IP两标签。
- * @param {Object|string|null} stage1Result - stage1_result 列值（或内存 stage1DataToSave）
- * @param {Object|string|null} stage2Result - stage2_result 列值（或内存 stage2DataToSave）
+ * 从事件判定/事件评分段结果推导超级IP两标签（2026-10-24 列名重构：原 stage1/stage2）。
+ * @param {Object|string|null} eventResult - event_result 列值（或内存 stage1DataToSave）
+ * @param {Object|string|null} eventScoreResult - event_score_result 列值（或内存 stage2DataToSave）
  * @returns {{narrativeSuperIp: number|null, narrativeSuperIpSlogan: number|null}}
  */
-function deriveSuperIpLabels(stage1Result, stage2Result) {
-  const s1po = _stagePayload(_asObj(stage1Result));
-  const s2po = _stagePayload(_asObj(stage2Result));
+function deriveSuperIpLabels(eventResult, eventScoreResult) {
+  const s1po = _stagePayload(_asObj(eventResult));
+  const s2po = _stagePayload(_asObj(eventScoreResult));
   // J1.56（C126）：实体题轴改 accepted（映射到用户认得的实体）；旧行无新键 → null
   const superIpProb = s1po?.jev?.probabilities?.web3_user_name_entity_acceptance?.accepted ?? null;
   const narrativeSuperIp = superIpProb == null ? null : (superIpProb >= 0.5 ? 1 : 0);

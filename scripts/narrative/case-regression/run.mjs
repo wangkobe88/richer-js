@@ -34,7 +34,7 @@ const { NarrativeRepository } = await import('../../../src/narrative/db/Narrativ
 
 const FIXTURES_PATH = resolve(__dirname, 'fixtures.json');
 const DATA_DIR = resolve(__dirname, 'data');
-const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,stage1_result,stage2_result,stage_final_result,pre_check_result';
+const ROW_COLS = 'token_address,token_symbol,token_category,analyzed_at,analysis_stage,prestage_result,event_result,event_score_result,final_result,pre_check_result';
 
 function parseArgs(argv) {
   const out = { only: null, dry: false, backupDir: '/tmp', list: false, add: null, caseId: null, note: '', observe: '', updateExpect: null, because: '' };

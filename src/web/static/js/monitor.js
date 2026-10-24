@@ -445,8 +445,8 @@ function buildExpandContent(event) {
   // 阶段摘要
   if (d.stageSummaries) {
     const stages = d.stageSummaries;
-    const stageOrder = ['preCheck', 'prestage', 'stage1', 'stage2', 'stage3'];
-    const stageLabels = { preCheck: '预检查', prestage: '预处理', stage1: '事件分析', stage2: '关联性', stage3: '质量评估' };
+    const stageOrder = ['preCheck', 'prestage', 'event', 'eventScore', 'relation'];
+    const stageLabels = { preCheck: '预检查', prestage: '预处理', event: '事件判定', eventScore: '事件评分', relation: '关联与代币' };
     let stageHtml = '<div class="mt-2 text-sm"><strong>阶段详情:</strong></div>';
     for (const name of stageOrder) {
       const st = stages[name];

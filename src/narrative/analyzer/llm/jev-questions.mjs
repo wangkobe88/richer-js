@@ -293,7 +293,8 @@
  *       真实出现）/ improvised_entity（脑补许愿形象——BNC「binance cat」型，官方
  *       从未展示）/ no_visual_entity（人物言行/公司/功能产品/事件/概念/缩写）。
  *       dry-run（bddd3578 全 292 票标准路径 236 票，scripts/narrative/
- *       _carrier-dryrun-bddd.mjs，state 保真复用线上 stage1_prompt.state）：冒烟
+ *       _carrier-dryrun-bddd.mjs，state 保真复用线上 stage1_prompt.state——2026-10-24
+ *       列名重构后读 jev_prompt.state）：冒烟
  *       12/12 方向全对；全域判别力 existing 140 票 winR39% 净+11.69 / improvised
  *       24 票 winR8% 净-1.11 / no_visual 72 票 winR24% 净-3.78。用户裁定挂门 M2
  *       （C/D+非existing 拦、E+no_visual 拦、A/B/W/F/G 不碰）：实验净额 +21.90→

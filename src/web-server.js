@@ -3616,15 +3616,15 @@ class RicherJsWebServer {
 
         // 不完整检测
         const hasAnyStageData = narrative.pre_check_result || narrative.prestage_result
-          || narrative.stage1_result || narrative.stage2_result || narrative.stage3_result;
-        if (!narrative.stage_final_result && hasAnyStageData && !narrative.prestage_result?.category?.includes('super_ip_fast')) {
+          || narrative.event_result || narrative.event_score_result || narrative.relation_result;
+        if (!narrative.final_result && hasAnyStageData && !narrative.prestage_result?.category?.includes('super_ip_fast')) {
           event.summary.narrativeIncomplete = true;
           const completedStages = [];
           if (narrative.pre_check_result) completedStages.push('preCheck');
           if (narrative.prestage_result) completedStages.push('prestage');
-          if (narrative.stage1_result) completedStages.push('stage1');
-          if (narrative.stage2_result) completedStages.push('stage2');
-          if (narrative.stage3_result) completedStages.push('stage3');
+          if (narrative.event_result) completedStages.push('event');
+          if (narrative.event_score_result) completedStages.push('eventScore');
+          if (narrative.relation_result) completedStages.push('relation');
           const incompleteReason = completedStages.length > 0
             ? `叙事分析进行到 ${completedStages.join(' → ')} 后中断，等待重试完成`
             : '叙事分析尚未开始';

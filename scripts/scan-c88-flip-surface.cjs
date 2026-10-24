@@ -2,7 +2,7 @@
 // ============================================================================
 // C88 存量行为面扫描（超级IP口号票五腿救援 + mem 口径地板上线前置）
 //
-// 方法：不重实现谓词——把每行 stage1_raw_output.answers 喂给**新代码的
+// 方法：不重实现谓词——把每行 jev_raw_output.answers 喂给**新代码的
 // mapStandardAnswers** 直放（与单测 _test_superip_slogan_class 同一入口），
 // 现行评级用 resolveFinalRating（评级链单一真相源）从行内 stage 列推。
 // 两清单归属只看 C88 审计键（superIpSlogan.hit / memFloorBlock），
@@ -41,8 +41,8 @@ async function main() {
 
   const COLS = [
     'token_address', 'token_symbol', 'raw_api_data', 'twitter_info', 'is_valid',
-    'pre_check_result', 'prestage_result', 'stage1_raw_output',
-    'stage1_result', 'stage2_result', 'stage3_result', 'stage_final_result',
+    'pre_check_result', 'prestage_result', 'jev_raw_output',
+    'event_result', 'event_score_result', 'relation_result', 'final_result',
     'token_category', 'analyzed_at',
   ].join(',');
 
@@ -61,7 +61,7 @@ async function main() {
 
     for (const row of rows) {
       total++;
-      const answers = asObj(row.stage1_raw_output)?.answers;
+      const answers = asObj(row.jev_raw_output)?.answers;
       // 标准路径行判定：18+ 题集含 web3_user_name_entity_acceptance（precheck/prestage/旧题集行跳过——
       // prestage 无此题=标签恒 null 语义，本扫描与其无关）
       if (!answers || typeof answers !== 'object' || !answers.web3_user_name_entity_acceptance) { noStd++; continue; }

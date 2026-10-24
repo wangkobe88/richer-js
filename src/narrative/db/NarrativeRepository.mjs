@@ -2,27 +2,25 @@
  * 叙事分析数据库操作
  */
 
-import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import dotenv from 'dotenv';
+import { dbManager } from '../../services/dbManager.js';
+import { resolveFinalRating } from '../utils/rating-utils.mjs';
 
 // 获取当前模块的目录（ESM 中没有 __dirname）
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// 加载环境变量（使用相对于当前模块的路径）
+// 加载环境变量（使用相对于当前模块的路径；先于下方 dbManager.getSupabase()
+// 懒初始化读 env——dbManager 自身的 dotenv 按 CWD 解析不可依赖）
 dotenv.config({ path: resolve(__dirname, '../../../config/.env') });
 
-// 创建supabase客户端
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('SUPABASE_URL 和 SUPABASE_ANON_KEY 环境变量必须设置');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+// supabase 客户端：统一走 dbManager（service key 优先 + 72s fetch 超时；2026-10-24
+// 叙事 DB 适配批次切换——前身自建 createClient 且 ANON 优先，与「routes/远程脚本
+// 一律 service key」红线同源的 anon 优先坑。ExternalResourceCache.mjs 同款
+// ESM→CJS 互操作先例）
+const supabase = dbManager.getSupabase();
 
 /**
  * 递归清洗 JSON 载荷中的非法 Unicode（2026-10-21 C144，全量回归 C133 发现）：
@@ -84,27 +82,44 @@ export function sanitizeJsonValue(value, stats = { replaced: 0 }) {
 }
 
 /**
- * 新 schema 的阶段字段定义
- * 每个阶段包含 result(JSONB) + prompt(text) + raw_output(text)
+ * 阶段字段定义（2026-10-24 列名重构：旧三阶段 stage1/2/3 三件套 → 评估链语义名，
+ * 见 migrations/rename_token_narrative_stage_columns.sql）
+ *
+ * STAGE_FIELDS：result + prompt + raw_output 成组的 LLM 阶段（__clear 联动清整组）
+ * - prestage：独立 Jev 调用（3 题）三件套独立成组（prestage_result/_prompt/_raw_output）
+ * - jev：标准调用完整 IO 单份真源（原 stage1_prompt/stage1_raw_output）。result 位
+ *   挂 event（事件判定段，原 stage1_result）——event __clear 联动清 jev IO，
+ *   对齐旧 stage1 三列全 null 语义
+ *
+ * STAGE_RESULT_ONLY_FIELDS：仅 result 列的信封段（原 stage2/stage3 的 result 位）。
+ * 其旧 prompt/raw 三件套是同一 Jev IO 的冗余拷贝，新行停写（legacy_* 列只读历史）
+ *
+ * RESULT_ONLY_FIELDS：null 覆盖语义的仅 result 段（web 重析入口对 final 传裸 null
+ * 清——刻意与上面 __clear 语义区分）
  */
 const STAGE_FIELDS = [
-  'prestage',
-  'stage1',
-  'stage2',
-  'stage3',
+  { resultPrefix: 'prestage', ioPrefix: 'prestage' },
+  { resultPrefix: 'event', ioPrefix: 'jev' },
 ];
 
-// 仅 result 的阶段（无 prompt/raw_output）
+const STAGE_RESULT_ONLY_FIELDS = [
+  'event_score',
+  'relation',
+];
+
 const RESULT_ONLY_FIELDS = [
   'pre_check',
-  'stage_final',
+  'final',
 ];
 
+// event_category 投影域白名单（对齐 add_token_narrative_projection_columns.sql CHECK）
+const EVENT_CATEGORY_DOMAIN = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'W'];
+
 // save 回读瘦列清单（3b，2026-10-13 叙事提速第二批）：upsert 后 .select() 原样拉回
-// 35 列肥行（stage*_prompt/raw_output 审计列最肥）。回读值唯一消费点 =
+// 肥行（jev_prompt/jev_raw_output 审计列最肥）。回读值唯一消费点 =
 // formatResult(saveResult)（resolveFinalRating 阶段链 + reason/score 链 + token 段
 // + metadata）与 saveResult.analyzed_at——列清单按消费点闭集锁定，肥列
-// （*_prompt/*_raw_output/twitter_info/classified_urls/extracted_info/
+// （jev_prompt/jev_raw_output/twitter_info/classified_urls/extracted_info/
 // url_extraction_result/data_fetch_results/gmgn_info 等）一律不回读。
 // 单测 _test_narrative_repo_save_thin 锁清单防漂移；新增消费列须同步此处。
 const SAVE_RETURN_COLS = [
@@ -117,11 +132,77 @@ const SAVE_RETURN_COLS = [
   'prompt_version',
   'pre_check_result',
   'prestage_result',
-  'stage1_result',
-  'stage2_result',
-  'stage3_result',
-  'stage_final_result',
+  'event_result',
+  'event_score_result',
+  'relation_result',
+  'final_result',
 ].join(',');
+
+/**
+ * 投影列派生（2026-10-24 叙事 DB 适配 B2）：从合并后完整信封态 record 派生 SQL
+ * 可查投影（final_rating/block_reason/block_stage/分数四列/event_category +
+ * analysis_path/jev_version/prestage_version 透传）。真相源=各信封 jsonb，本函数
+ * 是唯一派生点（save 落库与回填脚本 backfill-projection-columns.mjs 共用）。
+ * 纯函数不 mutate 入参；intermediate 轮（信封字段取 existing 合并值）重投影同值=幂等。
+ *
+ * - final_rating 复用 resolveFinalRating 六列顺序链（单一真相源不重新发明）
+ * - precheck 终态（pass===false）→ 分数四列/event_category 强制 null（防旧 final
+ *   残留分污染——「拦截+fin 残留并存」同款坑）
+ * - event_category 仅非拦截票落：mapper 拦截票 category 被改写为掷骰值不可信
+ *   （C184 快狗案）；真低分评级票（无 blockReason）照落
+ * - block_stage：final.details.blockReason 非空→'mapper'；pre_check.pass===false
+ *   →'precheck'（prestage 定档 low 是评级非拦截，不落）
+ */
+export function projectColumns(record) {
+  const out = {
+    final_rating: resolveFinalRating(record),
+    block_reason: null,
+    block_stage: null,
+    analysis_path: record?.analysis_path ?? null,
+    total_score: null,
+    event_score: null,
+    relevance_score: null,
+    quality_score: null,
+    event_category: null,
+    jev_version: record?.jev_version ?? null,
+    prestage_version: record?.prestage_version ?? null,
+  };
+  const fin = (record && record.final_result && record.final_result.__clear !== true)
+    ? record.final_result : null;
+  const details = fin?.details || null;
+  if (fin) {
+    if (typeof fin.score === 'number') out.total_score = fin.score;
+    if (typeof details?.eventCompositeScore === 'number') out.event_score = details.eventCompositeScore;
+    if (typeof details?.relevanceScore === 'number') out.relevance_score = details.relevanceScore;
+    if (typeof details?.qualityScore === 'number') out.quality_score = details.qualityScore;
+    if (details?.blockReason) {
+      out.block_reason = details.blockReason;
+      out.block_stage = 'mapper';
+    }
+  }
+  const pcr = record?.pre_check_result;
+  const precheckTerminal = !!pcr && pcr.__clear !== true && pcr.pass === false;
+  if (precheckTerminal) {
+    out.block_stage = 'precheck';
+    out.block_reason = out.block_reason || pcr.reason || pcr.details?.ruleName || null;
+    out.total_score = null;
+    out.event_score = null;
+    out.relevance_score = null;
+    out.quality_score = null;
+    out.event_category = null;
+  }
+  // event_category：仅非拦截票（block_stage 为 null）取事件判定段原判分类；
+  // 域白名单对齐 DDL CHECK（域外值宁缺勿炸 upsert）
+  if (!out.block_stage) {
+    const ev = record?.event_result;
+    const category = (ev && ev.__clear !== true)
+      ? (ev.parsed_output?.eventClassification?.primaryCategory ?? ev.category) : null;
+    if (EVENT_CATEGORY_DOMAIN.includes(category)) {
+      out.event_category = category;
+    }
+  }
+  return out;
+}
 
 export class NarrativeRepository {
 
@@ -284,6 +365,12 @@ export class NarrativeRepository {
       // === GMGN 风险字段（x-0 案，2026-09-27）===：直调语境拿到才写；undefined
       // （非直调 / 本次未拿到）保旧行值——重析失败不清掉已积累的发币史/捆绑数据
       gmgn_info: result.gmgn_info ?? existing?.gmgn_info ?? null,
+
+      // === 投影直传三键（B2 挂点 2：Analyzer final save 携带；intermediate 轮
+      // undefined 保旧——重析路径键存在性即语义） ===
+      analysis_path: result.analysis_path ?? existing?.analysis_path ?? null,
+      jev_version: result.jev_version ?? existing?.jev_version ?? null,
+      prestage_version: result.prestage_version ?? existing?.prestage_version ?? null,
     };
 
     // === 代币分类（2026-09-27 裁定；2026-10-21 C146 修订）===：有分类判定才写键；
@@ -297,7 +384,7 @@ export class NarrativeRepository {
       record.token_category = null;
     }
 
-    // === 仅 result 的阶段（无 prompt/raw_output）===
+    // === 仅 result 的阶段（null 覆盖语义；pre_check / final 终局信封）===
     for (const stage of RESULT_ONLY_FIELDS) {
       const fieldName = stage === 'pre_check' ? 'pre_check_result' : `${stage}_result`;
       const hasField = Object.prototype.hasOwnProperty.call(result, fieldName);
@@ -308,26 +395,40 @@ export class NarrativeRepository {
       }
     }
 
-    // === LLM 阶段（result + prompt + raw_output）===
-    for (const stage of STAGE_FIELDS) {
+    // === 评估链 event_score/relation 段（仅 result 列；__clear 或传值三态合并）===
+    for (const stage of STAGE_RESULT_ONLY_FIELDS) {
       const resultField = `${stage}_result`;
-      const promptField = `${stage}_prompt`;
-      const rawOutputField = `${stage}_raw_output`;
+      const stageResult = result[resultField];
+      const isClear = stageResult && typeof stageResult === 'object' && stageResult.__clear === true;
+      record[resultField] = isClear ? null : this._mergeField(stageResult, existing?.[resultField]);
+    }
+
+    // === LLM 阶段（result + prompt + raw_output 成组，__clear 联动清整组）===
+    for (const { resultPrefix, ioPrefix } of STAGE_FIELDS) {
+      const resultField = `${resultPrefix}_result`;
+      const promptField = `${ioPrefix}_prompt`;
+      const rawOutputField = `${ioPrefix}_raw_output`;
 
       const stageResult = result[resultField];
       const isClear = stageResult && typeof stageResult === 'object' && stageResult.__clear === true;
 
       if (isClear) {
-        // 清除标记：三个字段全部置 null
+        // 清除标记：整组置 null（event 段 clear 联动清 jev IO——对齐旧 stage1
+        // 三列全 null 语义，precheck 终态重析清掉旧标准调用痕迹）
         record[resultField] = null;
         record[promptField] = null;
         record[rawOutputField] = null;
       } else {
-        record[resultField] = this._mergeField(result[resultField], existing?.[resultField]);
+        record[resultField] = this._mergeField(stageResult, existing?.[resultField]);
         record[promptField] = this._mergeField(result[promptField], existing?.[promptField]);
         record[rawOutputField] = this._mergeField(result[rawOutputField], existing?.[rawOutputField]);
       }
     }
+
+    // === 投影列派生（B2 挂点 1）：从合并后完整信封态 record 派生 SQL 可查投影。
+    // 须在所有信封合并完成之后、sanitize 之前调用；projectColumns 纯函数幂等
+    // （intermediate 轮信封值取 existing 合并值→重投影同值）。
+    Object.assign(record, projectColumns(record));
 
     // C144：落库前清洗 lone surrogate/NUL（PostgREST PGRST102 防线；观测命中数）
     const sanitizeStats = { replaced: 0 };

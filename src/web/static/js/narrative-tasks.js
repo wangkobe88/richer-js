@@ -596,11 +596,11 @@ function renderTaskDetail(task) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <div class="text-sm text-gray-500">Stage 1 分类</div>
-                        <div class="text-sm">${n.stage1_result?.category || '-'}</div>
+                        <div class="text-sm">${n.event_result?.category || '-'}</div>
                     </div>
                     <div>
                         <div class="text-sm text-gray-500">Stage 2 分类</div>
-                        <div class="text-sm">${n.stage2_result?.category || '-'}</div>
+                        <div class="text-sm">${n.event_score_result?.category || '-'}</div>
                     </div>
                     <div class="col-span-2">
                         <div class="text-sm text-gray-500">分析时间</div>

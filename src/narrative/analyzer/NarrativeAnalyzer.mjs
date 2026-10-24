@@ -69,16 +69,20 @@ function _isFreeHostingUrl(url) {
 /**
  * 将旧格式的阶段数据转换为新的统一 result 格式
  * 旧格式: { category, model, prompt, raw_output, parsed_output, started_at, finished_at, success, error }
- * 新格式: { prestage_result, prestage_prompt, prestage_raw_output }
+ * 新格式（2026-10-24 列名重构）: { [resultName]_result, [ioName]_prompt,
+ * [ioName]_raw_output }——result 列用评估链段名；LLM IO 列独立前缀（jev 单份
+ * 真源挂 event 段；event_score/relation 段 ioName=null 只产 result 键——旧三件套
+ * 冗余拷贝停写，legacy_* 列只读历史）
  *
- * @param {string} stageName - 阶段名称 (prestage/stage1/stage2/stage3)
+ * @param {string} resultName - 评估链段名 (prestage/event/event_score/relation)
  * @param {Object} stageData - 旧格式的阶段数据
  * @param {Object} overrides - 覆盖字段（如 rating, pass, reason, category, score, details）
- * @returns {Object} 新格式的保存数据 { [stageName]_result, [stageName]_prompt, [stageName]_raw_output }
+ * @param {Object} [opts] - { ioName: LLM IO 前缀（prestage/jev），null=仅 result 键 }
+ * @returns {Object} 新格式的保存数据
  */
-function buildStageSaveData(stageName, stageData, overrides = {}) {
+function buildStageSaveData(resultName, stageData, overrides = {}, { ioName = null } = {}) {
   if (!stageData || stageData.__clear) {
-    return { [`${stageName}_result`]: { __clear: true } };
+    return { [`${resultName}_result`]: { __clear: true } };
   }
 
   // 从 parsed_output 中提取 score（支持 raw 嵌套和扁平结构）
@@ -105,11 +109,12 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
     details: overrides.details ?? po ?? null,
   };
 
-  return {
-    [`${stageName}_result`]: result,
-    [`${stageName}_prompt`]: stageData.prompt || null,
-    [`${stageName}_raw_output`]: stageData.raw_output || null,
-  };
+  const out = { [`${resultName}_result`]: result };
+  if (ioName) {
+    out[`${ioName}_prompt`] = stageData.prompt || null;
+    out[`${ioName}_raw_output`] = stageData.raw_output || null;
+  }
+  return out;
 }
 
 /**
@@ -144,13 +149,13 @@ export function deriveTokenCategory(prestageDataToSave, stage1DataToSave) {
  * @param {string} stageName - 阶段名称
  * @returns {Object|null} 扁平化的阶段对象
  */
-function flattenStageForLLMAnalysis(saveData, stageName) {
-  const result = saveData?.[`${stageName}_result`];
+function flattenStageForLLMAnalysis(saveData, resultName, ioName = null) {
+  const result = saveData?.[`${resultName}_result`];
   if (!result) return null;
   return {
     ...result,
-    prompt: saveData[`${stageName}_prompt`] || null,
-    rawOutput: saveData[`${stageName}_raw_output`] || null,
+    prompt: (ioName && saveData[`${ioName}_prompt`]) || null,
+    rawOutput: (ioName && saveData[`${ioName}_raw_output`]) || null,
   };
 }
 
@@ -637,7 +642,11 @@ export class NarrativeAnalyzer {
     let llmResult;
     let promptUsed = '';
     let promptType = '';
-    let promptVersion = `jev-${JEV_QUESTIONS_VERSION}`; // prestage 分支覆盖为 P 系版本
+    let promptVersion = `jev-${JEV_QUESTIONS_VERSION}`; // prestage 分支覆盖为 P 系版本（兼容旧列照写）
+    // B2 投影双版本变量：jev_version 恒标准题集版本，prestage_version 仅 prestage
+    // 分支非空——终结 prompt_version 单列双格式互斥覆盖（历史行读法见 prompt_version 原列）
+    let jevVersion = `jev-${JEV_QUESTIONS_VERSION}`;
+    let prestageVersion = null;
     let analysisFailed = false;
     let stage1DataToSave = null;
     let stage2DataToSave = null;
@@ -808,6 +817,7 @@ export class NarrativeAnalyzer {
               promptUsed = analysisResult.prestageData?.prompt || 'prestage_jev';
               promptType = analysisResult.promptType || 'account_community';
               promptVersion = `jev-${JEV_PRESTAGE_QUESTIONS_VERSION}`;
+              prestageVersion = `jev-${JEV_PRESTAGE_QUESTIONS_VERSION}`;
               analysisFailed = false;
 
               // 保存前置LLM数据（账号/社区分析判断币种类型）
@@ -981,10 +991,10 @@ export class NarrativeAnalyzer {
     const cleanedTwitterInfo = cleanDataForDB(twitterInfo);
 
     // 构建各阶段的新格式保存数据
-    const prestageSaveData = buildStageSaveData('prestage', prestageDataToSave);
-    const stage1SaveData = buildStageSaveData('stage1', stage1DataToSave);
-    const stage2SaveData = buildStageSaveData('stage2', stage2DataToSave);
-    const stage3SaveData = buildStageSaveData('stage3', stage3DataToSave);
+    const prestageSaveData = buildStageSaveData('prestage', prestageDataToSave, {}, { ioName: 'prestage' });
+    const stage1SaveData = buildStageSaveData('event', stage1DataToSave, {}, { ioName: 'jev' });
+    const stage2SaveData = buildStageSaveData('event_score', stage2DataToSave);
+    const stage3SaveData = buildStageSaveData('relation', stage3DataToSave);
 
     // 代币分类（fPay/FOMOPAY 宣告竞态案裁定 2026-09-27；C146 修订）：null 时
     // 由 final save 的 clearTokenCategory 显式清空旧分类——重跑必须反映本次判定
@@ -993,12 +1003,13 @@ export class NarrativeAnalyzer {
     // 同构，superip-labels 单实现共享）；save 回读瘦列无 stage 列，return 显式覆盖
     const superIpLabels = deriveSuperIpLabels(stage1DataToSave, stage2DataToSave);
 
-    // 构建 stage_final_result。stageFinalData=null（precheck 拦截/prestage 拒等未跑完
-    // stage 的路径）必须显式 __clear 清列——2026-10-19 回归实锤：空对象 spread 使列
-    // 不进 save 集，旧 high fin 残留遮蔽新拦截（バイナナンス人生案：pcr=expired_tweet
-    // 拦截 + fin 残留旧 high 76.99 并存）；stage1/2/3 同款机制在 buildStageSaveData
+    // 构建 final_result（终局信封）。stageFinalData=null（precheck 拦截/prestage 拒等
+    // 未跑完 stage 的路径）必须显式 __clear 清列——2026-10-19 回归实锤：空对象 spread
+    // 使列不进 save 集，旧 high fin 残留遮蔽新拦截（バイナナンス人生案：pcr=expired_tweet
+    // 拦截 + fin 残留旧 high 76.99 并存）；event/event_score/relation 同款机制在
+    // buildStageSaveData
     const stageFinalSaveData = stageFinalData ? {
-      stage_final_result: {
+      final_result: {
         rating: stageFinalData.category, // high/mid/low
         pass: true,
         reason: null,
@@ -1013,7 +1024,16 @@ export class NarrativeAnalyzer {
           blockReason: stageFinalData.blockReason
         }
       }
-    } : { stage_final_result: { __clear: true } };
+    } : { final_result: { __clear: true } };
+
+    // B2 投影 analysis_path（三臂路由）：precheck 终态 > 纯 prestage 终局 > 标准
+    // 路径（prestage 定档后续走标准评估的 abm 形状归 standard——终局由标准链产出）
+    const analysisPath = preCheckDataToSave?.pass === false
+      ? 'precheck_terminal'
+      : (prestageDataToSave && prestageDataToSave.__clear !== true
+          && (!stage1DataToSave || stage1DataToSave.__clear === true))
+        ? 'prestage'
+        : 'standard';
 
     const saveResult = await timing.wrap('dbSave.final', () => NarrativeRepository.save({
       // === 基础字段 ===
@@ -1026,6 +1046,10 @@ export class NarrativeAnalyzer {
       analyzed_at: new Date().toISOString(),
       is_valid: true,
       prompt_version: promptVersion,
+      // B2 投影直传三键（Repository record 构建区 ?? existing 三态合并）
+      analysis_path: analysisPath,
+      jev_version: jevVersion,
+      prestage_version: prestageVersion,
       analysis_stage: llmResult?.analysis_stage || null,
       prompt_type: promptType || null,
 
@@ -1080,14 +1104,15 @@ export class NarrativeAnalyzer {
       logger.warn('NarrativeAnalyzer', `知识库反馈回写异常（不影响分析）| ${normalizedAddress} | ${e.message}`);
     }
 
-    // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）
+    // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致；
+    // 2026-10-24 列名重构：stage1/2/3/stageFinal → event/eventScore/relation/final）
     const llmAnalysis = {
       preCheck: preCheckDataToSave || null,
-      prestage: flattenStageForLLMAnalysis(prestageSaveData, 'prestage'),
-      stage1: flattenStageForLLMAnalysis(stage1SaveData, 'stage1'),
-      stage2: flattenStageForLLMAnalysis(stage2SaveData, 'stage2'),
-      stage3: flattenStageForLLMAnalysis(stage3SaveData, 'stage3'),
-      stageFinal: stageFinalSaveData?.stage_final_result || null,
+      prestage: flattenStageForLLMAnalysis(prestageSaveData, 'prestage', 'prestage'),
+      event: flattenStageForLLMAnalysis(stage1SaveData, 'event', 'jev'),
+      eventScore: flattenStageForLLMAnalysis(stage2SaveData, 'event_score'),
+      relation: flattenStageForLLMAnalysis(stage3SaveData, 'relation'),
+      final: stageFinalSaveData?.final_result || null,
       // 评分和理由（用于概览卡片）
       summary: {
         rating: stageFinalData?.category || llmResult.rating,

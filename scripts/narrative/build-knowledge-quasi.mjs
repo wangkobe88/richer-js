@@ -241,11 +241,11 @@ async function cmdCommit(dry) {
   for (let i = 0; i < addrs.length; i += 100) {
     const batch = addrs.slice(i, i + 100);
     const { data: narrRows, error: e1 } = await db.from('token_narrative')
-      .select('token_address, stage_final_result, prestage_result, analyzed_at')
+      .select('token_address, final_result, prestage_result, analyzed_at')
       .in('token_address', batch);
     if (e1) throw new Error(e1.message);
     for (const row of narrRows || []) {
-      const fin = row.stage_final_result || {};
+      const fin = row.final_result || {};
       const rating = fin.category ?? fin.rating ?? row.prestage_result?.rating ?? null;
       const reason = fin.reason ?? fin.reasoning ?? row.prestage_result?.reasoning ?? null;
       const prev = narrByAddr.get(row.token_address);

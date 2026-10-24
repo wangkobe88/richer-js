@@ -153,13 +153,13 @@ class TelegramNotifier {
         message += `${truncatedReason}\n`;
       }
 
-      // 各阶段摘要
-      const stageOrder = ['prestage', 'stage1', 'stage2', 'stage3'];
+      // 各阶段摘要（2026-10-24 列名重构：stage1/2/3 → 评估链语义名）
+      const stageOrder = ['prestage', 'event', 'eventScore', 'relation'];
       const stageLabels = {
         prestage: '预处理',
-        stage1: '事件分析',
-        stage2: '关联性',
-        stage3: '质量评估'
+        event: '事件判定',
+        eventScore: '事件评分',
+        relation: '关联与代币'
       };
 
       for (const stageName of stageOrder) {
@@ -306,7 +306,7 @@ class TelegramNotifier {
       const supabase = this.dbManager.getClient();
       const { data, error } = await supabase
         .from('token_narrative')
-        .select('pre_check_result, prestage_result, stage1_result, stage2_result, stage3_result, stage_final_result, analyzed_at')
+        .select('pre_check_result, prestage_result, event_result, event_score_result, relation_result, final_result, analyzed_at')
         .eq('token_address', tokenAddress.toLowerCase())
         .order('analyzed_at', { ascending: false })
         .limit(1)

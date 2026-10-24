@@ -11,7 +11,8 @@ import { deriveSuperIpLabels } from '../../../core/narrative/superip-labels.js';
 
 /**
  * 从数据库记录构造 llmAnalysis 对象
- * 适配新 schema：每个阶段有 *_result JSONB + *_prompt text + *_raw_output text
+ * 适配评估链 schema（2026-10-24 列名重构）：event/event_score/relation 三段
+ * result + jev_prompt/jev_raw_output 单份 IO（legacy_stage2/3_* 不再产出）
  * @param {Object} record - 数据库记录
  * @returns {Object} llmAnalysis 对象
  */
@@ -24,21 +25,23 @@ export function buildLLMAnalysis(record) {
   } : null;
 
   // 辅助函数：从 *_result JSONB 构造阶段对象（扁平格式）
-  // 展开核心字段 + 附加 prompt/rawOutput，与实时分析路径返回格式一致
-  const buildStage = (stageName) => {
-    const result = record[`${stageName}_result`];
+  // 展开核心字段 + 附加 prompt/rawOutput，与实时分析路径返回格式一致。
+  // resultName=评估链段名（result 列）；ioName=LLM IO 前缀（jev 单份真源挂 event 段；
+  // event_score/relation 段旧 prompt/raw 为冗余拷贝已停写，io 缺省读不到=null）
+  const buildStage = (resultName, ioName = null) => {
+    const result = record[`${resultName}_result`];
     if (!result) return null;
     return {
       ...result,
-      prompt: record[`${stageName}_prompt`] || null,
-      rawOutput: record[`${stageName}_raw_output`] || null,
+      prompt: (ioName && record[`${ioName}_prompt`]) || null,
+      rawOutput: (ioName && record[`${ioName}_raw_output`]) || null,
     };
   };
 
-  const prestage = buildStage('prestage');
-  const stage1 = buildStage('stage1');
-  const stage2 = buildStage('stage2');
-  const stage3 = buildStage('stage3');
+  const prestage = buildStage('prestage', 'prestage');
+  const event = buildStage('event', 'jev');
+  const eventScore = buildStage('event_score');
+  const relation = buildStage('relation');
 
   // 获取最终评级 - 使用统一解析算法
   const rating = resolveFinalRating(record);
@@ -46,10 +49,10 @@ export function buildLLMAnalysis(record) {
   // 从最近的阶段获取 reasoning
   let reasoning = '';
   for (const stageResult of [
-    record.stage_final_result,
-    record.stage3_result,
-    record.stage2_result,
-    record.stage1_result,
+    record.final_result,
+    record.relation_result,
+    record.event_score_result,
+    record.event_result,
     record.prestage_result,
     record.pre_check_result
   ]) {
@@ -61,17 +64,17 @@ export function buildLLMAnalysis(record) {
 
   // 获取 score（pre-check 兜底取 pre_check_result.score 数字；details.scores 是
   // {credibility, virality} 评分明细对象，误用会以对象流出导致前端 .toFixed 崩渲染）
-  const finalScore = record.stage_final_result?.score
-    ?? record.stage3_result?.score
-    ?? record.stage2_result?.score
+  const finalScore = record.final_result?.score
+    ?? record.relation_result?.score
+    ?? record.event_score_result?.score
     ?? record.prestage_result?.score
     ?? record.pre_check_result?.score
     ?? null;
 
   // 获取 scores（详细评分）
-  const scores = record.stage_final_result?.details
-    ?? record.stage3_result?.details
-    ?? record.stage2_result?.details?.scoringResult
+  const scores = record.final_result?.details
+    ?? record.relation_result?.details
+    ?? record.event_score_result?.details?.scoringResult
     ?? record.pre_check_result?.details?.scores
     ?? null;
 
@@ -86,10 +89,10 @@ export function buildLLMAnalysis(record) {
   return {
     preCheck,
     prestage,
-    stage1,
-    stage2,
-    stage3,
-    stageFinal: record.stage_final_result || null,
+    event,
+    eventScore,
+    relation,
+    final: record.final_result || null,
     summary
   };
 }
@@ -108,10 +111,10 @@ export function formatResult(record) {
   // 从最近的阶段获取 reason
   let reason = '';
   for (const stageResult of [
-    record.stage_final_result,
-    record.stage3_result,
-    record.stage2_result,
-    record.stage1_result,
+    record.final_result,
+    record.relation_result,
+    record.event_score_result,
+    record.event_result,
     record.prestage_result,
     record.pre_check_result
   ]) {
@@ -122,17 +125,17 @@ export function formatResult(record) {
   }
 
   // 获取 score
-  const score = record.stage_final_result?.score
-    ?? record.stage3_result?.score
-    ?? record.stage2_result?.score
+  const score = record.final_result?.score
+    ?? record.relation_result?.score
+    ?? record.event_score_result?.score
     ?? record.prestage_result?.score
     ?? record.pre_check_result?.score
     ?? null;
 
   // 获取 scores（详细评分）
-  const scores = record.stage_final_result?.details
-    ?? record.stage3_result?.details
-    ?? record.stage2_result?.details?.scoringResult
+  const scores = record.final_result?.details
+    ?? record.relation_result?.details
+    ?? record.event_score_result?.details?.scoringResult
     ?? record.pre_check_result?.details?.scores
     ?? null;
 
@@ -152,10 +155,10 @@ export function formatResult(record) {
     // 不含该键，由 NarrativeAnalyzer 新鲜路 return 显式覆盖。null = 未分类/precheck
     // fail（「null 不带键」语义），门侧 IS NULL 臂放行
     tokenCategory: record.token_category ?? null,
-    // C88 超级IP两标签（2026-10-18 CZ 出书簇）：零列推导——stage1 super_ip 概率带
-    // 与 stage2 C88 恒落 hit 键；1/0/null 三态（null=未分析/prestage/旧行无键），
+    // C88 超级IP两标签（2026-10-18 CZ 出书簇）：零列推导——event 段 super_ip 概率带
+    // 与 event_score 段 C88 恒落 hit 键；1/0/null 三态（null=未分析/prestage/旧行无键），
     // 新鲜路由 NarrativeAnalyzer 显式覆盖（save 回读瘦列无 stage 列）
-    ...deriveSuperIpLabels(record.stage1_result, record.stage2_result),
+    ...deriveSuperIpLabels(record.event_result, record.event_score_result),
     reason: reason,
     score: score,
     scores: scores,

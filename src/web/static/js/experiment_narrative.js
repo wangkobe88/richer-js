@@ -712,7 +712,7 @@ class ExperimentNarrative {
         ${ps ? (this._kv('类型', psPo?.tokenType || ps.category) + this._kv('评级', psPo?.rating ?? ps.rating) + this._kv('基线', psPo?.baselineMet == null ? null : (psPo.baselineMet ? '达标' : '未达标')) + this._kv('原因', psPo?.reason ?? ps.reason)) : '<div class="text-xs text-gray-500">未走 prestage（标准路径）</div>'}
       </div>`;
 
-    const s1 = na.stage1;
+    const s1 = na.event;
     const s1j = stagePayload(s1)?.jev;
     const s1Audit = [];
     if (s1j?.categoryForced) s1Audit.push('cashtag改道W');
@@ -728,7 +728,7 @@ class ExperimentNarrative {
         ${s1 ? (this._kv('类别', s1.category) + this._kv('量级档', s1j?.jevImpactTier ?? s1j?.magnitudeTier) + this._kv('时效', s1j?.effectiveTiming ?? s1j?.timing, s1j?.effectiveTiming ?? s1j?.timing) + this._kv('载体', s1j?.tweetType) + (s1Audit.length ? this._kv('审计', s1Audit.join('｜')) : '')) : '<div class="text-xs text-gray-500">未执行</div>'}
       </div>`;
 
-    const s2 = na.stage2;
+    const s2 = na.eventScore;
     const s2po = stagePayload(s2);
     const s2j = s2po?.jev;
     const sr = s2po?.scoringResult;
@@ -759,7 +759,7 @@ class ExperimentNarrative {
           + this._kv('算式', s2po?.reason)) : '<div class="text-xs text-gray-500">未执行</div>'}
       </div>`;
 
-    const s3 = na.stage3;
+    const s3 = na.relation;
     const s3po = stagePayload(s3);
     const s3j = s3po?.jev;
     const s3Audit = [];
@@ -780,7 +780,7 @@ class ExperimentNarrative {
             + (s3Audit.length ? this._kv('豁免', s3Audit.join('｜')) : ''))) : '<div class="text-xs text-gray-500">未执行</div>'}
       </div>`;
 
-    const sf = na.stageFinal;
+    const sf = na.final;
     const finalCard = `
       <div class="stage-card">
         <div class="stage-title"><span>⑥ 终评</span>${sf ? (sf.blockReason ? '<span class="stage-dot fail"></span>' : '<span class="stage-dot pass"></span>') : '<span class="stage-dot skip"></span>'}</div>
@@ -1070,7 +1070,7 @@ function extractFeatures(item) {
 
   // stage2：C88 五腿审计恒落（旧行缺键 → null）；payload 双形状（details 落库信封
   // / parsed_output 内存形状，superip-labels._stagePayload 同款口径）
-  const s2j = stagePayload(na.stage2)?.jev;
+  const s2j = stagePayload(na.eventScore)?.jev;
   if (s2j) {
     const sip = s2j.recognizedEntitySlogan;
     if (sip && typeof sip === 'object') {
@@ -1082,12 +1082,12 @@ function extractFeatures(item) {
   }
 
   // stage1 概率带 + raw answers 兜底（C88 前旧行）
-  const s1j = stagePayload(na.stage1)?.jev;
+  const s1j = stagePayload(na.event)?.jev;
   const probs = s1j?.probabilities || {};
   if (f.superIpProb == null && (probs.bsc_meme_user_name_entity_acceptance ?? probs.web3_user_name_entity_acceptance)) f.superIpProb = (probs.bsc_meme_user_name_entity_acceptance ?? probs.web3_user_name_entity_acceptance).accepted ?? null;
   if (f.strongFit == null && (probs.bsc_meme_user_event_fit ?? probs.web3_user_event_fit)) f.strongFit = (probs.bsc_meme_user_event_fit ?? probs.web3_user_event_fit).strong_fit ?? null;
 
-  const raw = na.stage1?.rawOutput;
+  const raw = na.event?.rawOutput;
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
@@ -1110,8 +1110,8 @@ function extractFeatures(item) {
 
   // 拦截点定位（优先级：precheck → mem地板 → stage2 → stage3 → prestage fail）
   const pc = na.preCheck;
-  const s2po = stagePayload(na.stage2);
-  const s3po = stagePayload(na.stage3);
+  const s2po = stagePayload(na.eventScore);
+  const s3po = stagePayload(na.relation);
   if (pc && pc.pass === false) {
     f.blockLabel = `pre:${pc.details?.ruleName || '?'}`;
     f.blockFull = pc.reason || null;

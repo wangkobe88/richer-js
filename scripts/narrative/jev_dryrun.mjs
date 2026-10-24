@@ -37,15 +37,15 @@ async function main() {
   if (targetToken) {
     ({ data: rows, error } = await supabase
       .from('token_narrative')
-      .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, stage1_result, stage_final_result, analyzed_at')
+      .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, event_result, final_result, analyzed_at')
       .eq('token_address', targetToken));
   } else {
     ({ data: rows, error } = await supabase
       .from('token_narrative')
-      .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, stage1_result, stage_final_result, analyzed_at')
+      .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, event_result, final_result, analyzed_at')
       // 不过滤 is_valid：dry-run 用行内语料快照走链路，与缓存可否复用无关（2026-09-23 起旧缓存行全表失效）
       .not('twitter_info', 'is', null)
-      .not('stage_final_result', 'is', null)
+      .not('final_result', 'is', null)
       .order('analyzed_at', { ascending: false })
       .limit(limit));
   }
@@ -124,8 +124,8 @@ async function main() {
     console.log(`  quality: token_name_quality=${a.token_name_quality?.score?.toFixed(2)}`);
 
     console.log(`聚合: ${mapped.llmResult.reason}`);
-    const oldFinal = row.stage_final_result;
-    console.log(`对比: 旧=${oldFinal?.rating ?? row.stage1_result?.rating ?? '?'}(${oldFinal?.score ?? '?'}) 新=${mapped.llmResult.rating}(${mapped.llmResult.score ?? '?'})`);
+    const oldFinal = row.final_result;
+    console.log(`对比: 旧=${oldFinal?.rating ?? row.event_result?.rating ?? '?'}(${oldFinal?.score ?? '?'}) 新=${mapped.llmResult.rating}(${mapped.llmResult.score ?? '?'})`);
 
     // ── 判据 ──
     const expectedIds = Object.keys(questions);

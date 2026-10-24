@@ -958,8 +958,8 @@ function qualityFrom(answers, symbol) {
 /**
  * 组装三个 stage 共用的调用元数据（prompt 列存储内容）
  * full=true 携带 state（语料全文）+ questions（问题集全文）——Jev 单次调用的完整 prompt，
- * 落库供页面回放展示；full=false 为摘要版（主路径 stage2/3 与 stage1 同一次调用，
- * 全文只存 stage1_prompt，避免一行三份 60k 语料，指针 fullPromptIn 指明全文所在列）
+ * 落库供页面回放展示；full=false 为摘要版（主路径 event_score/relation 与 event 同一次调用，
+ * 全文只存 jev_prompt，避免一行三份 60k 语料，指针 fullPromptIn 指明全文所在列）
  */
 function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}) {
   return JSON.stringify({
@@ -967,7 +967,7 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
     questionsVersion: JEV_QUESTIONS_VERSION,
     questionIds: Object.keys(questions),
     stateStats,
-    ...(full ? { state, questions } : { fullPromptIn: 'stage1_prompt' }),
+    ...(full ? { state, questions } : { fullPromptIn: 'jev_prompt' }),
   });
 }
 

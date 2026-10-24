@@ -33,13 +33,13 @@ const round2 = v => Math.round(v * 100) / 100;
 
 /** 重建单票 relevance 分布 + 假想重评（返回 null=数据不全跳过） */
 function rebuild(row) {
-  const s3 = row.stage3_result || {};
+  const s3 = row.relation_result || {};
   const jev = s3.details && s3.details.jev;
   if (!jev || !jev.probabilities || !jev.probabilities.name_event_relevance) return null;
   const dist = jev.probabilities.name_event_relevance;
   const argmax = Object.entries(dist).sort((a, b) => b[1] - a[1])[0];
   if (!argmax || argmax[0] !== 'abbreviation_alias') return null;
-  const fin = row.stage_final_result || {};
+  const fin = row.final_result || {};
   const fd = fin.details || {};
   const weightedEventScore = fd.weightedEventScore ?? fd.eventScore;
   if (weightedEventScore == null || fd.qualityScore == null || fd.relevanceScore == null) return null;
@@ -71,7 +71,7 @@ function hypothetical(t, newType) {
 
 async function fetchAll() {
   const client = dbManager.getClient();
-  const cols = 'id,token_address,token_symbol,analyzed_at,stage3_result,stage_final_result';
+  const cols = 'id,token_address,token_symbol,analyzed_at,relation_result,final_result';
   const rows = [];
   let after = null;
   for (;;) {

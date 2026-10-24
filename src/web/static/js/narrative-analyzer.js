@@ -193,7 +193,7 @@ class NarrativeAnalyzer {
 
     console.log('[NarrativeAnalyzer] displayResult called');
     console.log('[NarrativeAnalyzer] llmAnalysis:', llmAnalysis ? 'exists' : 'null');
-    console.log('[NarrativeAnalyzer] stage3:', llmAnalysis?.stage3 ? 'exists' : 'null');
+    console.log('[NarrativeAnalyzer] relation:', llmAnalysis?.relation ? 'exists' : 'null');
 
     // 保存数据用于调试信息切换
     this.lastData = { llmAnalysis, debugInfo, fetchErrors };
@@ -207,17 +207,17 @@ class NarrativeAnalyzer {
     // 3. 更新 PreStage 卡片
     this.updatePrestageCard(llmAnalysis);
 
-    // 4. 更新 Stage 1 卡片
+    // 4. 更新事件判定卡片
     this.updateStage1Card(llmAnalysis);
 
-    // 5. 更新 Stage 2 卡片
+    // 5. 更新事件评分卡片
     this.updateStage2Card(llmAnalysis);
 
-    // 6. 更新 Stage 3 卡片
+    // 6. 更新关联与代币卡片
     console.log('[NarrativeAnalyzer] About to call updateStage3Card');
     this.updateStage3Card(llmAnalysis);
 
-    // 6.5 更新 Stage Final 卡片
+    // 6.5 更新终局评分卡片
     this.updateStageFinalCard(llmAnalysis);
 
     // 7. 更新数据源卡片
@@ -1020,65 +1020,65 @@ class NarrativeAnalyzer {
         const ipName = prestageDetails.ipInfo?.name || '超大IP';
         const isFail = llmAnalysis.prestage.pass === false;
         pathSteps.push({ label: '快速通道', status: isFail ? 'fail' : 'completed', icon: '🚀' });
-        // 快速通道跳过Stage 1/2/3
+        // 快速通道跳过事件判定/评分/关联三段
         pathSteps.push({ label: `${ipName}`, status: 'completed', icon: '⚡' });
       } else {
         const icon = tokenType === 'meme' ? '🎭' : tokenType === 'project' ? '🏗️' : '🎯';
         pathSteps.push({ label: 'PreStage', status: 'completed', icon: icon });
 
-        // Stage 1
-        if (llmAnalysis.stage1) {
-          const isFail = llmAnalysis.stage1?.pass === false;
+        // 事件判定
+        if (llmAnalysis.event) {
+          const isFail = llmAnalysis.event?.pass === false;
           if (isFail) {
-            pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
+            pathSteps.push({ label: '事件判定', status: 'fail', icon: '⛔' });
           } else {
-            pathSteps.push({ label: 'Stage 1', status: 'completed', icon: '✅' });
+            pathSteps.push({ label: '事件判定', status: 'completed', icon: '✅' });
           }
         } else {
-          pathSteps.push({ label: 'Stage 1', status: 'skip', icon: '○' });
+          pathSteps.push({ label: '事件判定', status: 'skip', icon: '○' });
         }
 
-        // Stage 2
-        if (llmAnalysis.stage2) {
-          pathSteps.push({ label: 'Stage 2', status: 'completed', icon: '✅' });
+        // 事件评分
+        if (llmAnalysis.eventScore) {
+          pathSteps.push({ label: '事件评分', status: 'completed', icon: '✅' });
         } else {
-          pathSteps.push({ label: 'Stage 2', status: 'skip', icon: '○' });
+          pathSteps.push({ label: '事件评分', status: 'skip', icon: '○' });
         }
 
-        // Stage 3
-        if (llmAnalysis.stage3) {
-          pathSteps.push({ label: 'Stage 3', status: 'completed', icon: '✅' });
+        // 关联与代币
+        if (llmAnalysis.relation) {
+          pathSteps.push({ label: '关联代币', status: 'completed', icon: '✅' });
         } else {
-          pathSteps.push({ label: 'Stage 3', status: 'skip', icon: '○' });
+          pathSteps.push({ label: '关联代币', status: 'skip', icon: '○' });
         }
       }
     } else {
       pathSteps.push({ label: 'PreStage', status: 'skip', icon: '○' });
 
-      // Stage 1
-      if (llmAnalysis.stage1) {
-        const isFail = llmAnalysis.stage1?.pass === false;
+      // 事件判定
+      if (llmAnalysis.event) {
+        const isFail = llmAnalysis.event?.pass === false;
         if (isFail) {
-          pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
+          pathSteps.push({ label: '事件判定', status: 'fail', icon: '⛔' });
         } else {
-          pathSteps.push({ label: 'Stage 1', status: 'completed', icon: '✅' });
+          pathSteps.push({ label: '事件判定', status: 'completed', icon: '✅' });
         }
       } else {
-        pathSteps.push({ label: 'Stage 1', status: 'skip', icon: '○' });
+        pathSteps.push({ label: '事件判定', status: 'skip', icon: '○' });
       }
 
-      // Stage 2
-      if (llmAnalysis.stage2) {
-        pathSteps.push({ label: 'Stage 2', status: 'completed', icon: '✅' });
+      // 事件评分
+      if (llmAnalysis.eventScore) {
+        pathSteps.push({ label: '事件评分', status: 'completed', icon: '✅' });
       } else {
-        pathSteps.push({ label: 'Stage 2', status: 'skip', icon: '○' });
+        pathSteps.push({ label: '事件评分', status: 'skip', icon: '○' });
       }
 
-      // Stage 3
-      if (llmAnalysis.stage3) {
-        pathSteps.push({ label: 'Stage 3', status: 'completed', icon: '✅' });
+      // 关联与代币
+      if (llmAnalysis.relation) {
+        pathSteps.push({ label: '关联代币', status: 'completed', icon: '✅' });
       } else {
-        pathSteps.push({ label: 'Stage 3', status: 'skip', icon: '○' });
+        pathSteps.push({ label: '关联代币', status: 'skip', icon: '○' });
       }
     }
 
@@ -1097,12 +1097,12 @@ class NarrativeAnalyzer {
     } else if (llmAnalysis.prestage?.reason) {
       // Web3原生IP早期的理由
       overviewReasoning.textContent = llmAnalysis.prestage.reason;
-    } else if (llmAnalysis.stage1?.reason) {
-      // Stage 1 的理由
-      overviewReasoning.textContent = llmAnalysis.stage1.reason;
+    } else if (llmAnalysis.event?.reason) {
+      // 事件判定段的理由
+      overviewReasoning.textContent = llmAnalysis.event.reason;
     } else if (llmAnalysis.preCheck?.reason) {
       overviewReasoning.textContent = llmAnalysis.preCheck.reason;
-    } else if (!summary && !llmAnalysis.prestage && !llmAnalysis.stage1 && !llmAnalysis.stage2) {
+    } else if (!summary && !llmAnalysis.prestage && !llmAnalysis.event && !llmAnalysis.eventScore) {
       // 旧数据格式，没有分析详情
       overviewReasoning.textContent = '此为旧版分析结果，缺少分析理由。点击右上角"重新分析"获取完整数据。';
       overviewReasoning.style.color = '#e67e22';
@@ -1136,7 +1136,7 @@ class NarrativeAnalyzer {
   }
 
   updateStage1Card(llmAnalysis) {
-    const stage1 = llmAnalysis.stage1;
+    const stage1 = llmAnalysis.event;
 
     if (!stage1) {
       this.stage1CardBody.innerHTML = `
@@ -1145,7 +1145,7 @@ class NarrativeAnalyzer {
           <span>未执行</span>
         </div>
         <div class="stage-result-box empty">
-          ${llmAnalysis.preCheck ? '预检查已触发，跳过 Stage 1' : 'Stage 1 未执行'}
+          ${llmAnalysis.preCheck ? '预检查已触发，跳过事件判定' : '事件判定未执行'}
         </div>
       `;
       return;
@@ -1338,7 +1338,7 @@ class NarrativeAnalyzer {
   }
 
   updateStage2Card(llmAnalysis) {
-    const stage2 = llmAnalysis.stage2;
+    const stage2 = llmAnalysis.eventScore;
 
     if (!stage2) {
       this.stage2CardBody.innerHTML = `
@@ -1347,7 +1347,7 @@ class NarrativeAnalyzer {
           <span>未执行</span>
         </div>
         <div class="stage-result-box empty">
-          ${llmAnalysis.stage1?.category === 'low' ? 'Stage 1 检测到低质量，跳过详细评分' : 'Stage 2 未执行'}
+          ${llmAnalysis.event?.category === 'low' ? '事件判定检测到低质量，跳过详细评分' : '事件评分未执行'}
         </div>
       `;
       return;
@@ -1383,7 +1383,7 @@ class NarrativeAnalyzer {
 
       failHtml = `
         <div class="stage-result-box">
-          <strong>🚫 Stage 2 阻断</strong><br>
+          <strong>🚫 事件评分阻断</strong><br>
           <span style="font-size: 13px; color: #666;">
             ${blockReason || '未达到评分标准'}
           </span><br><br>
@@ -1556,7 +1556,7 @@ class NarrativeAnalyzer {
       }
     }
 
-    // Stage 2 状态显示：通过/未通过
+    // 事件评分状态显示：通过/未通过
     let statusClass, statusIcon, statusText;
     if (isFailed) {
       statusClass = 'fail';
@@ -1587,7 +1587,7 @@ class NarrativeAnalyzer {
 
   updateStage3Card(llmAnalysis) {
     try {
-      const stage3 = llmAnalysis.stage3;
+      const stage3 = llmAnalysis.relation;
 
       console.log('[NarrativeAnalyzer] updateStage3Card called, stage3:', stage3 ? 'exists' : 'null');
 
@@ -1598,7 +1598,7 @@ class NarrativeAnalyzer {
             <span>未执行</span>
           </div>
           <div class="stage-result-box empty">
-            ${llmAnalysis.stage2?.category === 'low' ? 'Stage 2 检测到低质量，跳过代币分析' : 'Stage 3 未执行'}
+            ${llmAnalysis.eventScore?.category === 'low' ? '事件评分检测到低质量，跳过代币分析' : '关联与代币未执行'}
           </div>
         `;
         return;
@@ -1607,7 +1607,7 @@ class NarrativeAnalyzer {
       const parsed = stage3.details || {};
       const rawData = parsed.raw || parsed;
 
-      // Stage 3 统一格式：pass/reason 在顶层，分数在 details.raw 或 details 下
+      // 关联与代币统一格式：pass/reason 在顶层，分数在 details.raw 或 details 下
       const pass = stage3.pass;
       const blockReason = stage3.reason;
       const relevanceScore = rawData.relevanceScore ?? parsed.relevanceScore ?? 0;
@@ -1763,7 +1763,7 @@ class NarrativeAnalyzer {
 
   updateStageFinalCard(llmAnalysis) {
     try {
-      const stageFinal = llmAnalysis.stageFinal;
+      const stageFinal = llmAnalysis.final;
 
       if (!stageFinal) {
         this.stageFinalCardBody.innerHTML = `
@@ -2103,20 +2103,20 @@ class NarrativeAnalyzer {
 
     // LLM调用日志
     const llmCalls = [];
-    if (llmAnalysis.stage1) {
-      const s1 = llmAnalysis.stage1;
+    if (llmAnalysis.event) {
+      const s1 = llmAnalysis.event;
       llmCalls.push({
-        stage: 'Stage 1',
+        stage: '事件判定',
         model: s1.model,
         startedAt: s1.startedAt,
         finishedAt: s1.finishedAt,
         success: s1.success
       });
     }
-    if (llmAnalysis.stage2) {
-      const s2 = llmAnalysis.stage2;
+    if (llmAnalysis.eventScore) {
+      const s2 = llmAnalysis.eventScore;
       llmCalls.push({
-        stage: 'Stage 2',
+        stage: '事件评分',
         model: s2.model,
         startedAt: s2.startedAt,
         finishedAt: s2.finishedAt,
@@ -2333,7 +2333,7 @@ class NarrativeAnalyzer {
 
     if (parsed.fullPromptIn) {
       html += `
-        <div class="jev-note">与 Stage 1 同一次 Jev 调用（一次 fan-out 问完三阶段全部问题），完整 Prompt 见 Stage 1 卡片的"展开 Prompt"。</div>
+        <div class="jev-note">与事件判定段同一次 Jev 调用（一次 fan-out 问完全部问题），完整 Prompt 见事件判定卡片的"展开 Prompt"。</div>
         <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起调用元数据' : '展开调用元数据'">▼ 展开调用元数据</button>
         <div class="expand-content">${this.escapeHtml(JSON.stringify({ ...parsed, fullPromptIn: undefined }, null, 2))}</div>`;
     } else if (parsed.questions || typeof parsed.state === 'string') {
