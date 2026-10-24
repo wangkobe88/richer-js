@@ -172,8 +172,8 @@ async function main() {
   const mk = mapStandardAnswers(kAnswers, makeContext());
   const mkNf = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.85 } } }, makeContext());
   const mkMeme = mapStandardAnswers({ ...kAnswers, name_form: { choice: 'meme_name', probabilities: { meme_name: 0.85 } } }, makeContext());
-  check('B5 common 0.52 主导：三形状全放行（C180 词句门退役拦截——legacy/nf/meme 同局；判定值照落档）',
-    mk.llmResult?.rating !== 'low' && !/Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
+  check('B5 common 0.52 主导：legacy/meme 放行、nf 形状词句门拦（C189 恢复——实体票分流与词句门各归其位；判定值照落档）',
+    mk.llmResult?.rating !== 'low' && /Web3 用户不接纳该名字/.test(mkNf.llmResult?.reason || '')
       && !/Web3 用户不接纳该名字/.test(mkMeme.llmResult?.reason || '')
       && stage2Of(mkNf).jev?.web3UserAcceptabilityBlock?.choice === 'not_meme_name',
     { legacy: mk.llmResult?.rating, nf: mkNf.llmResult?.reason });

@@ -487,11 +487,12 @@ function web3UserAcceptabilityBlock(answers) {
   // 拼写臂已删（C105/C108 拦截责任迁入 wrongEntityBlock）。no_entity=J1.81 前旧缓存
   // 行兼容读（旧行按原口径照评，bit 不变）；旧 new_entity 行≠not_entity 照跳过（
   // J1.113 删桶后历史缓存行兼容，无需枚举）。
-  // C180（2026-10-23）退役拦截、纯观察落档：拦截原因混杂（审美=fit 的域/事件与
-  // 代币不匹配=关联题的域/纯符号名），且与关联题打架（独杀子集 117 张里关联
-  // exact/acceptable 123 张被越权拦）。判定值照算供审计键
-  // web3UserAcceptabilityBlock 落档与迁移参考，门链不再消费（防复活=单测退役
-  // 反证锁定）
+  // C180（2026-10-23）曾退役拦截、纯观察落档；**C189（2026-10-24）恢复拦截**
+  // （C96 币安上电视追裁「要不被实体拒绝，要不被口号拒绝」）——拆臂期的两个
+  // 病灶已由 C187 三因素重构（J1.116-J1.119）与上方实体臂优先路由 gate 根治：
+  // 拦截原因混杂（审美=fit 的域/事件与代币不匹配=关联题的域）→ 三因素判据
+  // 理顺；越权拦实体票 → entityChoice gate（实体票不经本题）。审计键
+  // web3UserAcceptabilityBlock 照落
   const entityChoice = q(answers, 'bsc_meme_user_name_entity_acceptance', 'web3_user_name_entity_acceptance')?.choice;
   if (entityChoice && entityChoice !== 'not_entity' && entityChoice !== 'no_entity') return null;
   const choice = web3UserAcceptabilityChoice(answers);
@@ -1264,7 +1265,7 @@ export function mapStandardAnswers(answers, context) {
   // 域外 miss 放行；类型不合与事件分类正交，对齐 wrong_entity 全域
   const neBlock = nameEntityTypeUnfitBlock(answers);
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
-  const uaBlock = web3UserAcceptabilityBlock(answers); // 纯观察 {label, choice}（C96→C105→C107→C108→J1.81 收窄=只评 not_entity 形状；form=Jev 原 choice）
+  const uaBlock = web3UserAcceptabilityBlock(answers); // {label, choice}（C189 恢复拦截：not_entity 形状 web3_user_not_acceptable 档拦；C96→C105→C107→C108→J1.81 收窄→C180 拆臂→C189 恢复，实体臂优先路由 gate 在函数内）
   let timingScore = null;
   let wTimingCapActive = false;
   let eventCompositeScore = null;
@@ -1456,9 +1457,15 @@ export function mapStandardAnswers(answers, context) {
     // 型无论类别、无论出自谁的官宣文本都拦）。C180 起名字轴唯一存留拦截位
     eventScoreBlocked = true;
     gateBlockReason = weBlock.label;
-  // （C180：词句接纳度门 else-if 分支随拦截退役删除——J1.81 原规格=not_entity
-  //  形状 web3_user_not_acceptable 档位拦、史档见函数头；判定值纯观察落档
-  //  web3UserAcceptabilityBlock 审计键）
+  } else if (uaBlock) {
+    // C189（2026-10-24，C96 币安上电视追裁）词句门恢复拦截：用户裁定「先走实体
+    // 门，然后走 phrase 门——要不被实体拒绝，要不被口号拒绝」（陈述=口号类，
+    // 实体臂判 not_entity 后落词句臂）。C180 拆臂回滚——判据已由 C187 三因素
+    // 重构理顺（J1.116-J1.119），实体臂优先路由 gate 在 web3UserAcceptabilityBlock
+    // 内（entityChoice!=='not_entity' → null：实体票不经词句门，C180 前越权拦
+    // 实体票的病灶已除）；not_entity 形状 + not_acceptable 档位拦
+    eventScoreBlocked = true;
+    gateBlockReason = uaBlock.label;
   // （J1.102/C171：形象载体门 scBlock 分支随门整轴退役删除——
   //  上一位=词句门 web3UserAcceptabilityBlock，下一位=量级门 D/E 档臂）
   } else if (!isW && (effTier === 'E' || effTier === 'D') && !imgNameExempt) {

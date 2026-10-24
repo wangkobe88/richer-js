@@ -231,15 +231,15 @@ async function main() {
   const nePhrase = baseAnswers('C', { choice: 'not_entity', probabilities: { not_entity: 0.8 } });
   nePhrase.web3_user_phrase_acceptability = na;
   const mNeP = mapStandardAnswers(nePhrase, makeContext());
-  check('E5 not_entity 票 + 词句 not_acceptable → 不再拦（C180）+ 审计 choice 照落',
-    !/词句接纳度门/.test(stage2Of(mNeP).blockReason || '')
+  check('E5 not_entity 票 + 词句 not_acceptable → 拦（C189 恢复：C96 币安上电视追裁「要不被实体拒绝，要不被口号拒绝」）+ 审计 choice 照落',
+    /词句接纳度门/.test(stage2Of(mNeP).blockReason || '')
     && stage2Of(mNeP).jev?.web3UserAcceptabilityBlock?.choice === 'web3_user_not_acceptable',
     { blockReason: stage2Of(mNeP).blockReason, audit: stage2Of(mNeP).jev?.web3UserAcceptabilityBlock });
   const oldRow = baseAnswers('C', { choice: 'no_entity', probabilities: { no_entity: 0.9 } });
   oldRow.web3_user_name_acceptability = { choice: 'not_meme_name', probabilities: { not_meme_name: 0.9 } }; // J1.50 前更旧键
   const mOldRow = mapStandardAnswers(oldRow, makeContext());
-  check('E6 旧缓存行（no_entity + 旧键 not_meme_name）→ 不再拦（C180）+ 审计 choice 照落（兼容读不变）',
-    !/接纳度门|词句/.test(stage2Of(mOldRow).blockReason || '')
+  check('E6 旧缓存行（no_entity + 旧键 not_meme_name）→ 拦（C189 恢复同判）+ 审计 choice 照落（兼容读不变）',
+    /词句接纳度门/.test(stage2Of(mOldRow).blockReason || '')
     && stage2Of(mOldRow).jev?.web3UserAcceptabilityBlock?.choice === 'not_meme_name',
     { blockReason: stage2Of(mOldRow).blockReason, audit: stage2Of(mOldRow).jev?.web3UserAcceptabilityBlock });
   const wrongPhrase = baseAnswers('C', { choice: 'wrong_entity', probabilities: { wrong_entity: 0.3, accepted: 0.5 } });
@@ -261,19 +261,22 @@ async function main() {
     && !/NAME_ENTITY_TYPE_UNFIT_SCOPE/.test(mapperSrc.replace(/ \* .*/g, ''))
     && /probabilities\?\.unacceptable_type \?\? 0/.test(mapperSrc)
     && !/nameEntityLowBlock\(/.test(mapperSrc.replace(/ \* .*/g, ''))); // 旧函数名仅存于注释史档
-  check('D10 门链形状：类型门恢复拦截（pubProxyActive 豁免随拦截恢复）+ 词句臂维持 C180 退役观察 + wrong_entity 臂保留',
+  check('D10 门链形状：类型门恢复拦截（pubProxyActive 豁免随拦截恢复）+ 词句门 C189 恢复拦截（weBlock 后量级门前，全域无豁免）+ wrong_entity 臂保留',
     /!pubProxyActive && neBlock != null/.test(mapperSrc)
-    && !/\(uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc)
+    && /else if \(uaBlock\) \{/.test(mapperSrc)
     && /\(weBlock = wrongEntityBlock/.test(mapperSrc)
     && /const neBlock = nameEntityTypeUnfitBlock/.test(mapperSrc)
-    && /const uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc));
+    && /const uaBlock = web3UserAcceptabilityBlock/.test(mapperSrc)
+    && mapperSrc.indexOf('(weBlock = wrongEntityBlock') < mapperSrc.indexOf('else if (uaBlock) {')
+    && mapperSrc.indexOf('else if (uaBlock) {') < mapperSrc.indexOf("effTier === 'E' || effTier === 'D'")
+    && !/!pubProxyActive && uaBlock/.test(mapperSrc)); // 全域无豁免（8d63253 前史形状：superIpSlogan 五腿不豁）
   check('D3 骑乘改道退役反证（rideDetourMass 不存在）',
     !/function rideDetourMass\(answers, category\)/.test(mapperSrc));
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
   const entSeg = qsSrc.slice(qsSrc.indexOf('bsc_meme_user_name_entity_acceptance: {'), qsSrc.indexOf('bsc_meme_user_phrase_acceptability: {')); // 切片终点=紧邻词句题（visuality 题 C171 已删，旧终点键是死键取到文件尾）
-  check('D5 题集实体题四桶（J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 版本 J1.119（J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题同域非演绎反锚 ATM 案；J1.114=C185 题面精炼去重：类型清单/认知度判据/C151/C162 各归单一宿主）',
+  check('D5 题集实体题四桶（J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 版本 J1.120（J1.120=C189 全量回归六裁定批：C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」——事件陈述句名=口号类落词句题按三因素评（J1.118 归实体门域措辞修正）+事件承载臂重要度门槛（民族级/全球级重大事件才够格，平台级/媒体级露出不够——用户裁定「事件的重要度明显不够」）+ip_reuse 原生热点锚（C129 彪弟案：原生热点梗/人物主体自身代币化不选本项，复用=反复换皮多处收割）+mapper 同批恢复词句门拦截；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题同域非演绎反锚 ATM 案；J1.114=C185 题面精炼去重：类型清单/认知度判据/C151/C162 各归单一宿主）',
     qsSrc.includes("bsc_meme_user_name_entity_acceptance: {")
     && /accepted:/.test(entSeg) && /unacceptable_type:/.test(entSeg)
     && /wrong_entity:/.test(entSeg) && /not_entity:/.test(entSeg) && !/no_entity:/.test(entSeg)
@@ -282,7 +285,7 @@ async function main() {
     && entSeg.includes('不评认知度')
     && entSeg.includes('判据=类型/性质不合，不是认知度')
     && qsSrc.includes('作者身份本身不是映射')
-    && /JEV_QUESTIONS_VERSION = 'J1\.119'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.120'/.test(qsSrc));
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')

@@ -175,8 +175,8 @@ async function main() {
     web3_user_event_fit: fitOk, // 过线（同 B 段）：豁免链验证不混入契合门
     name_form: { choice: 'not_meme_name', probabilities: { not_meme_name: 0.66, meme_name: 0.2 } }, // CRO 对照形状
   }), dndCtx(true));
-  check('D1 图证在场但 name_form=not_meme_name（CRO 机构职位缩写形状）→ 词句门不再拦（C180；本 fixture 事件分 70 走完评分）',
-    !/Web3 用户不接纳该名字|词句/.test(rD.llmResult.reason || ''),
+  check('D1 图证在场但 name_form=not_meme_name（CRO 机构职位缩写形状）→ 词句门拦（C189 恢复：图证豁免只翻 empty_content 本门，名字门接管照拦）',
+    /词句接纳度门/.test(rD.llmResult.reason || ''),
     rD.llmResult.reason);
   check('D2 词句门纯观察落档照旧（被豁的 event_empty_content 与词句判定值各自可追溯）',
     s2jev(rD).emptyContentImgOverride != null && s2jev(rD).web3UserAcceptabilityBlock?.choice === 'not_meme_name',
