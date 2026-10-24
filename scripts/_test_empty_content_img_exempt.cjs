@@ -8,15 +8,18 @@
  * vs none 0.31 掷骰边缘拦截（argmax 臂）——结论 low 碰巧对但理由不干净：
  * 图/视频在场时「空洞内容」不成立（图就是内容），该票的正确拦截轴是
  * D 档量级（地域子账号无借壳），叙事层用站不住的维度拦会误伤真·大号
- * 官方梗票。同案 CRO（工牌 CHIEF RISK OFFICER→CRO）=名字门对照票：
- * 机构职位缩写用户无 meme 感知，not_meme_name 照拦（J1.47 锚）。
+ * 官方梗票。同案 CRO（工牌 CHIEF RISK OFFICER→CRO）原=名字门对照票
+ * （J1.47 机构职位缩写锚）——2026-10-24 C187/J1.116 用户裁定翻案：
+ * 「Chief Risk Officer 是玩梗呢，可以接受」，机构职位缩写不合格臂整条
+ * 退役（DND 正样本保留），题面不再含 CRO/机构职位缩写文本。
  *
  * 口径①（mapper）：block 门 event_empty_content 臂 ∧ context.imageEvidence →
  *   不拦（fallthrough 名字门/载体门/量级门照常接管）；审计键
  *   emptyContentImgOverride 命中才落（stage2 jev——拦截票 stage1 段被
  *   __clear，本键必须落 stage2 才可追溯）。
- * 口径②（题集 J1.47）：name_form 合格分支②扩通用网络梗/文化缩写
- *   （DND/FOMO/LFG），不合格分支加机构职位/品牌内部缩写（CRO）。
+ * 口径②（题集 J1.47→J1.116）：通用网络梗/文化缩写（DND/FOMO/LFG）
+ *   合格锚保留；机构职位/品牌内部缩写（CRO）不合格臂已随 CRO 判例翻案
+ *   退役（C187/J1.116 三因素重构：①有来由②有感染力③名字形态）。
  *
  * 覆盖：
  *   A. 事故现场反证（DND 全值形状：图证在场翻过 event_empty_content → D 档量级门
@@ -243,20 +246,24 @@ async function main() {
   console.log('\n── H. 源码口径 ──');
   const mapperSrc = readFileSync(mapperPath, 'utf8');
   const qSrc = readFileSync(qPath, 'utf8');
+  // H5/H7 反证切片=词句题题面本体（instructions/criteria）——J1.116 注释段含翻案史实
+  // 文本（记录 CRO 旧臂名），全文件切片会误伤反证
+  const qAll = qSrc;
+  const phraseSrc = qAll.slice(qAll.indexOf('bsc_meme_user_phrase_acceptability: {'), qAll.indexOf('10.7 名字与配图主体一致性'));
   check('H1 mapper 臂形状（blockChoice event_empty_content ∧ imageEvidence）',
     mapperSrc.includes("&& !(blockChoice === 'event_empty_content' && !!context.imageEvidence && !imgDecorative)"), null);
   check('H2 审计键在 stage2 jev 段（拦截票可追溯位）',
     /const stage2DataToSave = \{[\s\S]{0,3000}emptyContentImgOverride/.test(mapperSrc), null);
   const { JEV_QUESTIONS_VERSION } = await import(qPath);
   check('H3 JEV_QUESTIONS_VERSION=J1.99（J1.90=C152 MEMES fit 锚；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.86=C143 校准（题面锚点）；J1.85=C143 品牌劫持并入实体轴；J1.84=C142 W 双轴合并单轴；J1.83=C141 event_subject_entity 题退役+门一般化 web3FitMassBlock；J1.81=C139 名字三轴重构（实体题五桶 wrong_entity/词句题改 phrase 收窄/载体题改 visuality）；J1.79=事件分改 fit 质量+删 web3_user_event_impact 题；J1.74=C134 W 交互臂→BSC 用户吸引力；J1.72=C133 实体题新增 new_entity；bump 纪律；J1.55=C124 web3_user_name_entity_acceptance 圈内符号级锚（super_ip=被当符号使用证据级；发布者指代分支/三前提/配图臂保留）；J1.54=C123 门名/题键语义化（event_magnitude→web3_user_event_impact / dimension2→web3_user_event_spread + 门函数/审计键改名，判据零改动）；J1.53=C122 门名断代；J1.52=C121 用户视角批次一：w_product_score 用户兴奋度锚+niche_subculture 认知可达性锚；J1.51=C119 批内修正 dim2 镜头（认知面非实测互动）；J1.47=C114 通用梗缩写锚，J1.48=C116 整句情绪姿态分界，J1.49=C118 image_depicts_name 演绎题，J1.50=C119 用户视角统一+name_form 键名断代 web3_user_acceptable/web3_user_not_acceptable/unclear；J1.100=C167 image_carrier_nature 载体性质第四臂；J1.102=C171 形象轴整退役+演绎臂迁 J1.30 关联豁免）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 102, JEV_QUESTIONS_VERSION);
-  check('H4 题面合格分支②含通用网络梗缩写锚（DND/FOMO/LFG）',
-    qSrc.includes('通用网络梗/文化缩写同构（如 DND=do not disturb、FOMO、LFG）'), null);
-  check('H5 题面不合格分支含机构职位缩写（工牌 Chief Risk Officer→CRO）',
-    qSrc.includes('机构职位/品牌内部缩写（如工牌上的 Chief Risk Officer→CRO）'), null);
-  check('H6 对照锚含 DND/CRO 缩写对（J1.50 措辞：能接纳/不能接纳；分界=用户侧感知）',
-    qSrc.includes('「DND」能接纳') && qSrc.includes('「CRO」不能接纳'), null);
-  check('H7 criteria 同步（web3_user_acceptable 含通用网络梗缩写 / web3_user_not_acceptable 含机构职位缩写）',
-    /通用网络梗\/文化缩写（DND\/FOMO\/LFG）/.test(qSrc) && /机构职位\/品牌内部缩写（工牌 Chief Risk Officer→CRO）/.test(qSrc), null);
+  check('H4 题面含通用网络梗缩写锚（J1.116 三因素框架内：词句本身已流通=有来由①）',
+    qSrc.includes('通用网络梗/文化缩写（DND=do not disturb）'), null);
+  check('H5 CRO 判例翻案反证（C187/J1.116：工牌 Chief Risk Officer=玩梗可接受——机构职位/品牌内部缩写不合格臂整条退役防复活；切片=词句题题面本体，注释史实文本不计）',
+    !phraseSrc.includes('机构职位/品牌内部缩写') && !phraseSrc.includes('Chief Risk Officer') && !phraseSrc.includes('「CRO」不能接纳'), null);
+  check('H6 对照锚含 DND 能接纳（J1.116：官方主体+通用梗缩写流通）；CRO 反例已随翻案退役',
+    qSrc.includes('「DND」能接纳') && !qSrc.includes('「CRO」不能接纳'), null);
+  check('H7 criteria 同步（acceptable 含三因素+通用梗缩写；CRO 翻案反证=不含机构职位缩写）',
+    /通用梗缩写/.test(phraseSrc) && !/机构职位/.test(phraseSrc), null);
   check('H8 J1.95/C159 短句点名具体 meme/梗主体不算空洞（chinese nubcat? 矛盾修正；J1.110/C181 措辞收窄「实体」→「梗主体」+句式限定防吃掉无名喊话形状）',
     qSrc.includes('短句/疑问句但点名具体 meme、梗主体或已知 IP')
     && qSrc.includes('chinese nubcat?')

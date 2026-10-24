@@ -195,14 +195,14 @@ async function main() {
   check('A6 web3_user_phrase_acceptability type=choice 三态（J1.81 改名收窄=只评 not_entity 形状；J1.55 C122 题键 name_form→web3_user_name_acceptability；J1.50 键名断代：web3_user_acceptable/web3_user_not_acceptable/unclear（J1.112/C183 桶值随族断代 bsc_meme_user_*）；J1.37-J1.48 旧键 meme_name/not_meme_name 与 C107 前旧四分类 id 全部退役——旧行经 mapper 兼容 Set 照拦/照放）', nf.type === 'choice'
     && ['bsc_meme_user_acceptable', 'bsc_meme_user_not_acceptable', 'unclear'].every(k => k in nf.criteria)
     && !['meme_name', 'not_meme_name', 'entity_phrase', 'statement', 'functional_label'].some(k => k in nf.criteria), Object.keys(nf.criteria));
-  check('A7 web3_user_phrase_acceptability 判词句本身不判指向对象（J1.81 措辞；C171 形象轴退役后题面不再引用 web3_user_entity_visuality 题）',
-    nf.instructions.includes('判词句本身：不判词句指向对象的认知度/影响力') && !nf.instructions.includes('web3_user_entity_visuality'), null);
-  check('A7b name_form 单一判据锚：「能否接纳」是唯一问法与唯一判据（J1.50 问法收敛，C107/C108 裁定语义延续）',
-    nf.instructions.includes('能否接纳是唯一问法与唯一判据'), null);
-  check('A8 name_form 口号/宣言/代号是可传播符号 → 能接纳',
-    nf.criteria.bsc_meme_user_acceptable.includes('口号/宣言/代号'), null);
-  check('A9 name_form 判定对象=链上 Symbol（C130 裁定「币名应该看 Symbol」；Name 不作判据）',
-    nf.instructions.includes('仅就代币 Symbol（币名/ticker') && nf.instructions.includes('链上 Name（全名/描述句）不是本题判据')
+  check('A7 web3_user_phrase_acceptability 判词句本身不判指向对象（J1.81 措辞→J1.116/C187 三因素框架下保留：划界句实体认知度归实体题；C171 形象轴退役后题面不再引用 web3_user_entity_visuality 题）',
+    nf.instructions.includes('实体本身认不认得/有没有影响力由实体题判') && nf.instructions.includes('本题只判「词句本身」') && !nf.instructions.includes('web3_user_entity_visuality'), null);
+  check('A7b 三因素缺一不可锚（J1.116/C187 用户裁定重构：单一「名字形态可接纳性」→①有来由②有感染力③名字形态综合；「能否接纳」唯一问法句随重构退役）',
+    nf.instructions.includes('三因素缺一不可，任一不满足 → 不能接纳') && nf.instructions.includes('完全从 BSC meme 币用户角度出发'), null);
+  check('A8 口号/宣言形态 → 强影响力主体说出才有来由（J1.116/C187：①臂门槛化——普通用户喊的口号不能接纳）',
+    nf.instructions.includes('问候、口号/宣言、自创口头禅、简短情绪表达都算') && nf.instructions.includes('普通用户（无强影响力的主体）喊出的梗/口号/宣言 → 完全无来由，不能接纳'), null);
+  check('A9 name_form 判定对象=链上 Symbol（C130 裁定「币名应该看 Symbol」；Name 不作判据；J1.116 ③因素内保留）',
+    nf.instructions.includes('仅就链上 Symbol（币名/ticker') && nf.instructions.includes('链上 Name 是全名/描述句不作判据')
     && !nf.instructions.includes('取更完整的一个判'), null);
   check('A10 event_category F 档澄清（目击/报道新闻≠发现→判 E/D，spotted 语气不满足 F）',
     /F:\s*'Discovery:[^']*NOT a news event the author merely witnessed\/reported/.test(
@@ -211,8 +211,8 @@ async function main() {
     'event_finding_vs_recap' in buildStandardQuestions({ includeBrandHijack: true })
     && 'bsc_meme_user_phrase_acceptability' in buildStandardQuestions({ includeBrandHijack: true }), null);
   // C107 收敛锚 + C108 统一门锚
-  check('A12 name_form 不限列举锚（判定锚列举实例但下一形态不用再加选——反打地鼠）',
-    nf.instructions.includes('不限于此') && nf.instructions.includes('凡「BSC meme 币用户不接纳这名字当 meme 符号」的形态都算'), null);
+  check('A12 不限列举锚（三因素总则兜底任意形态——反打地鼠；J1.116 措辞迁移）',
+    nf.criteria.bsc_meme_user_not_acceptable.includes('三因素任一缺失即拦') && nf.criteria.bsc_meme_user_not_acceptable.includes('以下只是典型佐证形态'), null);
   check('A13 name_form 核心词修饰锚（「XX 完整版」核心是 XX → 合格，防误伤）',
     nf.instructions.includes('（「XX 完整版」核心是 XX）'), null);
   check('A14 两案事故词锚（J1.81 迁移：币安上电视 C96 留词句题 not_acceptable 臂；日本語版 C105 版本词迁实体题 wrong_entity 轴全域拦）',
@@ -222,12 +222,13 @@ async function main() {
   // C108 三轮裁定锚（EARLY 案触发：总判据=用户侧感知；J1.50 措辞「能不能」→「能否」）
   check('A15 词句题总判据锚（用户视角问法：web3 用户能否接纳这个词句 + 用户侧感知）',
     nf.instructions.includes('BSC meme 币用户能否接纳这个词句作为 meme 币的名字') && nf.instructions.includes('用户侧对它有没有感知'), null);
-  check('A16 name_form 三对照锚进题面（Early 能接纳 / 滑雪、我要去不能接纳——分界=用户侧感知）',
-    nf.instructions.includes('「Early」能接纳') && nf.instructions.includes('「我要去」都不能接纳')
+  check('A16 对照锚进题面（Early 能接纳 / 我要去滑雪不能接纳——分界=用户侧感知与反应；J1.116 三因素版）',
+    nf.instructions.includes('「Early」能接纳') && nf.instructions.includes('「我要去滑雪」毫无感染力')
     && nf.instructions.includes('不是词出自谁、也不是是否截自语料'), null);
-  check('A17 J1.57 划界：实体票移出词句门（指回实体题类型轴 unacceptable_type，J1.113/C184 断代），词句门只留形态轴（J1.81 另加 wrong_entity 轴划界）',
+  check('A17 J1.57 划界：实体票移出词句门（指回实体题类型轴 unacceptable_type，J1.113/C184 断代）+ J1.116/C187 实体臂优先路由（强调/提及/陈述实体的名字——heyi.ai 域名形——先实体臂，实体臂不接受判 not_entity 才落本题）',
     nf.instructions.includes('实体票不在本题')
-    && nf.instructions.includes('实体题 unacceptable_type 轴') && nf.instructions.includes('实体题 wrong_entity 轴')
+    && nf.instructions.includes('unacceptable_type 轴') && nf.instructions.includes('wrong_entity 轴全域拦')
+    && nf.instructions.includes('先走实体臂按实体评估')
     && !nf.instructions.includes('如币安普通员工的花名'), null);
   check('A18 拼写变体锚 J1.81 迁移（无背景拼写错误→实体题 wrong_entity①；有文化来源变体不算——dogwifhat）',
     qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('无背景拼写错误')
