@@ -215,9 +215,10 @@ async function main() {
     nf.criteria.bsc_meme_user_not_acceptable.includes('三因素任一缺失即拦') && nf.criteria.bsc_meme_user_not_acceptable.includes('以下只是典型佐证形态'), null);
   check('A13 name_form 核心词修饰锚（「XX 完整版」核心是 XX → 合格，防误伤）',
     nf.instructions.includes('（「XX 完整版」核心是 XX）'), null);
-  check('A14 两案事故词锚（J1.81 迁移：币安上电视 C96 留词句题 not_acceptable 臂；日本語版 C105 版本词迁实体题 wrong_entity 轴全域拦）',
-    nf.criteria.bsc_meme_user_not_acceptable.includes('X 上电视')
+  check('A14 事故词锚断代（C188/J1.118：币安上电视=具体事件形状归实体门域——词句题事件陈述臂退役防复活，not_acceptable 不再含 X 上电视/事件陈述佐证；日本語版 C105 版本词留实体题 wrong_entity 轴全域拦）',
+    !nf.criteria.bsc_meme_user_not_acceptable.includes('X 上电视') && !nf.criteria.bsc_meme_user_not_acceptable.includes('事件陈述')
     && nf.criteria.bsc_meme_user_not_acceptable.includes('版本词/拼写错不在本条')
+    && nf.instructions.includes('归实体门域')
     && qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('日本語版'), null);
   // C108 三轮裁定锚（EARLY 案触发：总判据=用户侧感知；J1.50 措辞「能不能」→「能否」）
   check('A15 词句题总判据锚（用户视角问法：web3 用户能否接纳这个词句 + 用户侧感知）',
