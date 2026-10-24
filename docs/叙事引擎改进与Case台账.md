@@ -26,16 +26,18 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化三原语（Choice/Score/Noul）无文本生成秒级；
-  版本规则=改题必 bump（现 J1.109 / P1.14），DB prompt_version 可按版本筛历史
-- **现役拦截门链**（mapper 端，C180 时点）：蓝筹去重门 C168（首臂：name_exact 撞 b: 域蓝筹拦 low；
+  版本规则=改题必 bump（现 J1.120 / P1.14），DB prompt_version 可按版本筛历史
+- **现役拦截门链**（mapper 端，C189 时点）：蓝筹去重门 C168（首臂：name_exact 撞 b: 域蓝筹拦 low；
   条目级 dedupExempt + 新陈述豁免 C173）→ web3UnfitBlock（unfit≥0.5）→ web3FitMassBlock C141
   （sf+fit<0.5 全域拦）→ quality_veto argmax（empty_content/baseless/ip_reuse 三桶；图证在场豁免
-  C114）→ wrong_entity C139（**名字轴唯一存留拦截位**，全域）→ 量级门 D/E 档臂 → W 数学
+  C114）→ 实体类型门 C184（unacceptable_type≥0.5 全域拦，pubProxy 豁免）→ wrong_entity C139
+  （全域）→ **词句门 C189 恢复拦截**（weBlock 后量级门前，全域无豁免；C187 三因素理顺判据后
+  拆 C180 两病灶自愈）→ 量级门 D/E 档臂 → W 数学
   （appeal 单轴 pass 32；三档 Choice 15/47/66 C177）/标准数学（eventCompositeScore≥60）→
   Stage3 三截断（关联≤10/拼写 C78/关联性不足）
-- **C180 纯观察化**：nameEntityLowBlock（unknown 实体低影响力）/web3UserAcceptabilityBlock（词句
-  接纳度）两臂退役拦截、题目照问、判定值照算落档（nameEntityLowMass / web3UserAcceptabilityBlock.choice），
-  供「有用部分迁移到其它锚」；50 张被拦票收回归集 C180-C229 观察票待逐张裁定
+- **C180 纯观察化（词句臂已 C189 恢复）**：nameEntityLowBlock（unknown 实体低影响力）臂维持
+  退役纯观察（题照问、nameEntityLowMass 照落档）；web3UserAcceptabilityBlock（词句接纳度）
+  C189 恢复拦截；50 张被拦票收回归集 C180-C229 观察票待逐张裁定
 - **整轴退役史**：载体轴 J1.102/C171（题集 12→10）、品牌劫持 J1.103/C172（判据归 J1.92 三桶）、
   negative_hard_news J1.101/C170、superIP 快车道 C83、superIP 指代豁免 J1.21/C83
 - **交易侧链路**（C84 主模型）：narrativeTriggerCondition（FA 因子）→ 后台多轮 getRating（重试臂
@@ -51,6 +53,20 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ---
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
+
+### C189 词句门恢复拦截（C96 币安上电视追裁）+ 事件承载臂重要度门槛 + ip_reuse 原生热点锚——103 票全量回归六裁定批（2026-10-24，J1.120，2fa48bc）
+
+（案号 C189 与回归集观察票 C189 撞号——本条为台账案号，沿用 C184-C188 台账系列连续编号）
+
+- **背景**：C188 批后全量回归 103 票（03:51 存档 90P/9F/4O/0E）呈报，用户六项裁定（2026-10-24）。本条收裁定 1/2/6 三项实施+4/5 查证留档，3（C167 梗王大乱斗接受判不对）明确不改。
+- **裁定 2（词句门恢复拦截，核心）**：C96 币安上电视 `0xc6d089d749409f7646de440d637ac9db0e047777` 用户原话「应该是先走实体门，然后走 phrase 门，因为币安上电视不是实体，是陈述，既然是陈述就属于口号类。所以要不被实体拒绝，要不应该被口号拒绝，这个是 low，不能改」——推翻 C188/J1.118「事件陈述归实体门域」的中性放行语义：**实体臂判 not_entity 后落词句臂按三因素评**，不是交评分层。mapper 门链 uaBlock 臂恢复（weBlock 后量级门前；形状=8d63253 前史：全域无豁免，五腿不豁、pubProxy 不豁）；C180 拆臂的两个病灶已根治才敢恢复——判据混杂→C187 三因素（J1.116-J1.119）理顺；越权拦实体票→函数内实体臂优先路由 gate（entityChoice!=='not_entity' → null）。**unknown 臂维持退役不动**（C184 类型门独立存续）。追加裁定：「如果要走『一个重大事件促生了一个口号』这条路（跟中国人能飞类似），那么事件的重要度明显不够的」→ **事件承载臂补重要度门槛**（题面锚：民族级/全球级重大事件（航天发射/国家级胜利）才够格；平台级/媒体级露出（上电视/上热搜/上了新闻/平台公告）不构成来由；对照=中国人能飞箭体五大字=民族级、币安上电视=媒体级露出且喊出者非币安本人）。
+- **裁定 1（ip_reuse 原生热点锚）**：C129 彪弟 `0x3b5c3271fb581e503389dd2c52a75065f36f7777` 回归 low（IP低质复用 误掷）用户裁定「低质复用明显不合适，请检查Prompt」→ token_ip_reuse 补**原生热点锚**：原生热点梗/人物/事件主体自身的代币化（名字直接取自热点主体、热点事件在场、语料可证）=meme 币正常叙事参与**不选本项**，蹭名/契合/传播由关联题/fit 题/量级题正常评估；本项只管同一 IP **反复换皮/多处收割**的复用形状（无新事件依托的重复发币）；分界=有无新的事件依托。重析实测：high 83.32（event:A 46.8+关联 20+质量 16.52）✓ mid|high 意图达成。
+- **裁定 6**：C220 功夫小猫 `0xc2765441c4dc724f60ec92c2e3e5b83868c27777` 「high 也可以」→ fixtures expect 双收 [low,high]（实体类型门 49% 贴线两可域，手编双值——--update-expect 只写单值）。
+- **裁定 4 查证（股城 GMGN 缺口，未实施待裁）**：C133 股城 `0xaacbc156435dbab7815a61bccba1c827e52a7777` 用户问「GMGN 上有语料的，没有取到吗？」——实证=**GMGN 有语料**（182 实调 GMGN API：twitter_username="MEJ50749/status/2112469093156630545" 推文 URL 在场）但正常链路取不到：`enrichSocialByGmgn` 仅 no_public_info 重试域传 true，而股城语料全空被 C77 搜索兜底救活（searchEvidence 非空旁路 no_public_info）→ GMGN 补源永不触发。即 C77 兜底与 GMGN 补源存在**覆盖空洞**（兜底救活≠语料完整，GMGN 的语料增量进不来）。修复选项（弱语料票也走 GMGN 补源 vs 不改）待用户裁定。
+- **裁定 5**：C211 No `0xd139d3b905468f544e75abca1a1a7b0376867777` 「关联门需要加强，确实也比较边缘化，主要是我不认为用户能接纳这个关联，如果处理不好可以先算了，预期结果不要改」——expect 维持 low 不动；词句门恢复后重析 low（not_acceptable 0.59）=自然 PASS，机制零改动。关联题判轴强化留档（C109c 关联掷骰家族第六例方向证据）。
+- **实施**：J1.120 四处题面（词句题首段陈述句=口号类+①事件承载臂重要度门槛+划界段重写+对照锚补币安上电视不能接纳）+ip_reuse 原生热点锚；七单测文件 C180 退役反证翻回拦截形状（nea E5/E6/D10、statement_gate C/C0/C2/D1/D3/D4/D7/D8/G1b/G2/G4/A14/F2/F3、notable B5、empty_content D1、depicts F1、consolidation A12c/A12d、referent B1）+三处版本断言 J1.119→J1.120；referent A3 顺手修 C187 漏更的陈旧措辞断言；28 个 mapper/questions 消费方单测全绿。部署=2fa48bc push→182 pull→worker 重启（PID 2524825 单实例确认）。
+- **全量回归终态（04:36 存档 91P/8F/4O/0E）**：裁定票全部落位——C96 low 词句门拦 ✓「不能改」达成、C129 high ✓、C205 Maya low 词句门 ✓（用户意图 low 自然达成，机制未动）、C211 low ✓、C220 high 91.61 双收内 ✓；C109c/C167 掷骰回正。**新增稳定翻面 6 张=词句门恢复的代价面（全部定向复跑确认稳定非掷骰，待用户裁定）**：C132 混混猫（not_acceptable 0.95 高置信）`0xb10b2c022a717a66fa627c9c9ce73779b5347777`、C201 罗马 `0x4c981997877a34d3bea50e5d4ee385c51af77777`、C202 砖 `0x08d3e05347b939474f714c360ab75a96da047777`、C206 未来 `0x949f21b0f64194472146c3fa14415a4d82a07777`、C219 🌮🦆🎩 `0x9714e14b046aebc11aef79d1f5d9a0dbe167ffff`（**当日早前用户曾裁「C219 high 维持」**——词句门恢复与之冲突，呈报最高优先）均词句门拦；C162 BINA `0x3384960b045905cea62da32ac5679177ee647777` 关联性不足 Stage3 截断（score 87 仍拦，关联题 unacceptable 稳定非掷骰）。正样本零漂移：DND high 81.22、こんにちは high 87.79（词句门恢复+重要度门槛对正样本无损）。
+- **事故留档（C96 token_narrative 行外部删除）**：04:31 直跑 C96 重析报「代币不存在」（experiment_tokens 与 token_narrative 双空，DB 实查确认）；03:51 回归备份证明行在场、04:33 仍空、04:36 回归又能全量分析（行回归）——**03:55-04:36 窗口内行被外部删除又恢复**（本仓库无任何删 token_narrative 行的代码路径，全仓 grep 确认；疑并行会话或人工直连 DB 操作，删除者待确认）。C96 的 mapper 行为验证由单测 D1-D4 事故快照锁定不受影响。
 
 ### C188 C187 对拍追裁三连——事件陈述臂退役归实体门（J1.118）+①有来由来由扩展（J1.119）+中国人能飞样本
 
