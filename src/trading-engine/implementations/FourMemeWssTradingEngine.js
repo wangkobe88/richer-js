@@ -3229,10 +3229,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 毕业对 = token/quote → 传 quoteToken 走二跳 [token,quote,WBNB]。
     // PCS 分支不传 minOutRatio/expectedNativeOut：旧 L1 锚=信号价（毕业断流后恒陈旧
     // 0.17-0.39×），quote 活报价对陈旧锚必拒 → 30min 熔断循环 7 连败事故形状；
-    // PCS trader 自带预留量活报价 ×(1-slippage) 滑点保护
+    // PCS trader 自带预留量活报价 ×(1-slippage) 滑点保护。
+    // 毕业判定与 quoteToken 经 _liveGraduatedInfo：FA 内存优先；FA 无 state（重启后
+    // 毕业票不再有 token_create/tick，state 不重建——豆皮/水重启后手工卖案）走
+    // wss_events 持久回查（graduation=毕业事实 / token_quote_set=quote 终态）
     let trader = traderOverride || null;
-    const gradState = this._factorAggregator?.getTokenState(signal.tokenAddress) || null;
-    if (!trader && gradState?.graduated) {
+    const gradInfo = await this._liveGraduatedInfo(signal.tokenAddress);
+    if (!trader && gradInfo.graduated) {
       trader = await this._ensurePcsTrader();
       this.logger.info(this._experimentId, '_executeSellLive',
         `毕业票自动卖路由 PCS V2 外盘 | ${signal.symbol} ${signal.tokenAddress}`);
@@ -3241,7 +3244,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const options = pcsRoute
       ? {
           slippage: Math.min(Math.max(this._liveSlippagePct / 100, 0.001), 0.5),
-          quoteToken: gradState?.quoteToken || null,
+          quoteToken: gradInfo.quoteToken || null,
         }
       : {
           slippageTolerance: this._liveSlippagePct,
@@ -3564,8 +3567,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     let traderOverride = null;
     if (this._isLive) {
-      const st = this._factorAggregator.getTokenState(tokenAddress);
-      if (st?.graduated) {
+      // 毕业判定持久版（2026-10-24）：FA state 缺失（重启后毕业票不再有事件，state
+      // 不重建）走 wss_events 回查——否则必路由平台内盘 trader → 毕业 revert
+      const gi = await this._liveGraduatedInfo(tokenAddress);
+      if (gi.graduated) {
         traderOverride = await this._ensurePcsTrader();
         this.logger.info(this._experimentId, 'ManualTrade', `毕业票手工卖路由 PCS V2 外盘 | ${symbol}`);
       }
@@ -3636,6 +3641,41 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       .eq('manual_sell_locked', true);
     if (error) throw new Error(`停止卖出锁查询失败: ${error.message}`);
     this._manualSellLocks = new Set((rows || []).map(r => r.token_address));
+  }
+
+  /** 毕业票判定 + quote 路由信息（live 卖路由共用）：FA state 优先（进程内真值，
+   *  常态零 DB）；FA 无 state（重启后毕业票不再有 token_create/tick，state 不重建
+   *  ——2026-10-24 豆皮/水重启后手工卖案：st?.graduated 恒 falsy → 平台内盘 trader
+   *  必 revert，quoteToken 二跳依据同丢）→ wss_events 持久回查：kind='graduation'
+   *  =毕业事实（four.meme/flap 毕业均有行）；quoteToken 取 graduation 行 payload
+   *  ?? token_quote_set 行（flap collector 两类 info 均携带；four.meme 恒 null=
+   *  WBNB 单跳正确）。回查失败 fail-closed 按未毕业走平台路径（revert 可见可归因，
+   *  不猜不冒充）；FA state 在场且 graduated=false（活跃票）不回查——WS 内进程
+   *  漏事件的边缘接受，重启即自愈 */
+  async _liveGraduatedInfo(tokenAddress) {
+    const st = this._factorAggregator?.getTokenState(tokenAddress) || null;
+    if (st) return { graduated: !!st.graduated, quoteToken: st.quoteToken ?? null };
+    try {
+      const { dbManager } = require('../../services/dbManager');
+      const { data, error } = await dbManager.getClient() // service key（RLS 红线③）
+        .from('wss_events')
+        .select('kind,payload')
+        .eq('token_address', tokenAddress)
+        .in('kind', ['graduation', 'token_quote_set'])
+        .limit(10);
+      if (error) throw new Error(error.message);
+      const rows = data || [];
+      const gradRow = rows.find(r => r.kind === 'graduation');
+      const quoteRow = rows.find(r => r.kind === 'token_quote_set');
+      return {
+        graduated: !!gradRow,
+        quoteToken: gradRow?.payload?.quoteToken || quoteRow?.payload?.quoteToken || null,
+      };
+    } catch (err) {
+      this.logger.error(this._experimentId, 'GraduatedPcs',
+        `毕业持久回查失败（按未毕业处理=平台路径，失败可见）| ${tokenAddress}: ${err.message}`);
+      return { graduated: false, quoteToken: null };
+    }
   }
 
   /** PCS V2 trader 懒加载（毕业票外盘卖——手工+自动路由共用）：与主 trader 同钱包同

@@ -100,6 +100,32 @@ console.log('[3] _executeSellLive 毕业票路由 PCS + options 分流');
             },
         },
     };
+
+    // dbManager 打桩（_liveGraduatedInfo 持久回查：FA state 缺失时查 wss_events）
+    let dbRows = [];        // 回查返回行（kind/payload）
+    let dbError = null;     // 回查错误（fail-closed 按未毕业）
+    const dbCalls = [];     // 查询审计
+    const DBM_PATH = require.resolve(path.join(ROOT, 'src/services/dbManager'));
+    require.cache[DBM_PATH] = {
+        id: DBM_PATH, filename: DBM_PATH, loaded: true,
+        exports: {
+            dbManager: {
+                getClient: () => ({
+                    from(table) {
+                        const call = { table, eqs: [], ins: [] };
+                        dbCalls.push(call);
+                        return {
+                            select(cols) { call.select = cols; return this; },
+                            eq(c, v) { call.eqs.push([c, v]); return this; },
+                            in(c, vs) { call.ins.push([c, vs]); return this; },
+                            limit(n) { call.limit = n; return this; },
+                            then(resolve) { resolve({ data: dbError ? null : dbRows, error: dbError }); },
+                        };
+                    },
+                }),
+            },
+        },
+    };
     const { FourMemeWssTradingEngine } = require(path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine'));
 
     const MARKER_PCS = { _pcs: true, async sellToken(addr, amount, options) { return { success: true, txHash: '0xpcs', actualReceived: '1.5', gasUsed: 1n }; } };
@@ -153,10 +179,11 @@ console.log('[3] _executeSellLive 毕业票路由 PCS + options 分流');
             && typeof o3.expectedNativeOut === 'number',
             '平台 options 形状不变（slippageTolerance/minOutRatio/expectedNativeOut）', o3);
 
-        // 3.4 FA 无 state（ getTokenState null）→ 平台 trader（null 安全）
+        // 3.4 FA 无 state（getTokenState null）→ 持久回查空 → 平台 trader（null 安全）
+        dbRows = []; dbError = null; dbCalls.length = 0;
         const q4 = mkEngine(null);
         await q4.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
-        ok(q4.calls.traders[0] === 'platform', 'FA state 缺失 null 安全 → 平台 trader', q4.calls.traders);
+        ok(q4.calls.traders[0] === 'platform', 'FA state 缺失+回查空 → 平台 trader（null 安全）', q4.calls.traders);
 
         // 3.5 手工卖 traderOverride（=this._pcsTrader）→ PCS options 分流同款
         const q5 = mkEngine({ graduated: true, quoteToken: null });
@@ -164,6 +191,70 @@ console.log('[3] _executeSellLive 毕业票路由 PCS + options 分流');
         await q5.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1, MARKER_PCS);
         ok(q5.calls.traders[0] === 'pcs' && q5.calls.options[0].slippage === 0.2,
             'traderOverride（手工 PCS）同走 PCS options 分流（默认滑点修复：旧路径 1%）', q5.calls.options[0]);
+
+        // ═══ 4. 毕业判定持久回查（2026-10-24 豆皮/水重启后手工卖案）═══
+        // FA state 是进程内存态：重启后毕业票不再有 token_create/tick，state 不重建
+        // → 旧读法 st?.graduated 恒 falsy → 平台内盘 trader 必 revert；quoteToken
+        //（二跳路由依据）同丢。持久源=wss_events（graduation=毕业事实；
+        // token_quote_set=flap 非 BNB 计价终态）
+        console.log('[4] _liveGraduatedInfo 持久回查（FA 缺失 → wss_events）');
+        const QUOTE = '0x55d398326f99059ff775485246999027b3197955';
+
+        // 4.1 FA 缺失 + graduation 行带 quoteToken → PCS + 二跳（豆皮重启后形状）
+        dbRows = [{ kind: 'graduation', payload: { token: signal.tokenAddress, fundsBnb: 16.0, quoteToken: QUOTE } }];
+        dbError = null; dbCalls.length = 0;
+        const q6 = mkEngine(null);
+        await q6.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q6.calls.traders[0] === 'pcs' && q6.calls.options[0].quoteToken === QUOTE,
+            'FA 缺失+回查命中 graduation → PCS + quoteToken 二跳（重启后豆皮）', q6.calls.options[0]);
+        ok(dbCalls.length === 1 && dbCalls[0].table === 'wss_events'
+            && dbCalls[0].eqs.some(([c, v]) => c === 'token_address' && v === signal.tokenAddress)
+            && dbCalls[0].ins.some(([c, vs]) => c === 'kind' && vs.includes('graduation') && vs.includes('token_quote_set')),
+            '回查形状：token_address 等值 + kind in (graduation, token_quote_set)', dbCalls[0]);
+
+        // 4.2 FA 缺失 + graduation 行 quoteToken null（BNB 盘/水）→ PCS 单跳
+        dbRows = [{ kind: 'graduation', payload: { token: signal.tokenAddress, fundsBnb: 16.0, quoteToken: null } }];
+        const q7 = mkEngine(null);
+        await q7.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q7.calls.traders[0] === 'pcs' && q7.calls.options[0].quoteToken === null,
+            'FA 缺失+回查 graduation 无 quote → PCS 单跳（重启后水）', q7.calls.options[0]);
+
+        // 4.3 FA 缺失 + 仅 token_quote_set 行（未毕业）→ 平台 trader（quote 盘未毕业走内盘正确）
+        dbRows = [{ kind: 'token_quote_set', payload: { token: signal.tokenAddress, quoteToken: QUOTE } }];
+        const q8 = mkEngine(null);
+        await q8.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q8.calls.traders[0] === 'platform', '回查无 graduation 行 → 未毕业走平台（不误路由）', q8.calls.traders);
+
+        // 4.4 FA 缺失 + 回查 DB 错误 → fail-closed 按未毕业平台路径（revert 可见不冒充）
+        dbRows = []; dbError = { message: 'vpn timeout' };
+        const q9 = mkEngine(null);
+        await q9.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q9.calls.traders[0] === 'platform', '回查失败 → 平台路径（fail-closed 可见）', q9.calls.traders);
+
+        // 4.5 FA state 在场（常态活跃票）→ 零 DB 查询（自动路径不加 DB 往返）
+        dbRows = [{ kind: 'graduation', payload: { quoteToken: QUOTE } }];
+        dbError = null; dbCalls.length = 0;
+        const q10 = mkEngine({ graduated: false, quoteToken: null });
+        await q10.eng._executeSellLive(signal, null, {}, { amount: 1000 }, 1);
+        ok(q10.calls.traders[0] === 'platform' && dbCalls.length === 0,
+            'FA state 在场 → 零 DB 回查（活跃票自动卖零额外往返）', { traders: q10.calls.traders, db: dbCalls.length });
+
+        // 4.6 手工卖路由（_executeManualSell）同样走持久回查：FA 缺失+graduation → PCS
+        dbRows = [{ kind: 'graduation', payload: { token: signal.tokenAddress, quoteToken: QUOTE } }];
+        dbError = null;
+        const q11 = mkEngine(null);
+        q11.eng._manualSellLocks = new Set();
+        q11.eng._sellingTokens = new Set();
+        q11.eng._saveManualSignal = async () => ({ signalId: 'sig-1', signalRow: null });
+        q11.eng._finalizeManualSignal = async () => {};
+        q11.eng._executeSell = async (sig, signalId, meta, traderOverride) => {
+            q11.calls.traders.push(traderOverride === MARKER_PCS ? 'pcs' : 'platform');
+            return { success: true, txHash: '0xpcs' };
+        };
+        const r11 = await q11.eng._executeManualSell(
+            { token_address: signal.tokenAddress, sell_pct: 1, cards: null, id: 'req-1' }, '豆皮', 0, {});
+        ok(r11.success === true && q11.calls.traders[0] === 'pcs',
+            '_executeManualSell FA 缺失+回查毕业 → traderOverride=PCS（重启后按钮清仓路径）', q11.calls.traders);
 
         console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
         process.exitCode = fail === 0 ? 0 : 1;

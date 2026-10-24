@@ -517,9 +517,12 @@ async function main() {
             '策略路径 3 参调用形状不变（默认 null 零影响）');
 
         // 11.7 毕业路由 live-only 门（virtual _trader 恒 null，_ensurePcsTrader 读
-        // _trader.network 是 TypeError——事故形状反证）
-        const routeIdx = src.indexOf('if (this._isLive) {\n      const st = this._factorAggregator.getTokenState(tokenAddress);\n      if (st?.graduated)');
-        ok(routeIdx > 0, '毕业票 PCS 路由包在 _isLive 门内（virtual 不路由）');
+        // _trader.network 是 TypeError——事故形状反证）；2026-10-24 持久回查版：
+        // FA state 缺失（重启后毕业票 state 不重建）走 _liveGraduatedInfo wss_events
+        // 回查——旧 getTokenState 内存读法重启后恒 falsy=平台内盘必 revert
+        const routeIdx = src.indexOf('if (this._isLive) {\n      // 毕业判定持久版');
+        ok(routeIdx > 0 && src.indexOf('await this._liveGraduatedInfo(tokenAddress)', routeIdx) > 0,
+            '毕业票 PCS 路由包在 _isLive 门内且走持久回查（virtual 不路由）');
 
         // 11.8 停止卖出锁双拦截点：唯一卖漏斗 _emitSellSignal + 卖腿评估 _evaluateSellPath
         const evalPathIdx = src.indexOf('async _evaluateSellPath(tokenAddress, factors, tick)');
