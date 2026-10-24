@@ -1260,14 +1260,12 @@
       "addr": "0x2d58da00605bd3d2e8a4f5ab81cef2f7a4487777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.78、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.78、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：low 没问题，但拦截理由「关联性不足」不合适——语料中是提及了逗号的（币名符号在语料在场、关联 arm 归因存疑），机制不动留观察",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：low 没问题，但拦截理由「关联性不足」不合适——语料中是提及了逗号的（币名符号在语料在场、关联 arm 归因存疑），机制不动留观察",
       "expectSince": "2026-10-23"
     },
     {
@@ -1276,14 +1274,12 @@
       "addr": "0x241d8a0c687e5c901f47fcc3fa05d4def3257777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.94、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.94、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：「中」作为币的名字指代什么实体很模糊，无法被理解，不合适→预期 low（重析 high 87.08=意图分歧票，回归 FAIL 属预期留档）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：「中」作为币的名字指代什么实体很模糊，无法被理解，不合适→预期 low（重析 high 87.08=意图分歧票，回归 FAIL 属预期留档）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1292,14 +1288,12 @@
       "addr": "0x27f580ea584179d3b87ca4777c12d502f3deffff",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：没问题收 low；观察点=score 98 高分被关联 unacceptable 贴线掷骰拦（C109c 掷骰第四例，@binance 链式梗图系列与 C205 同源）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：没问题收 low；观察点=score 98 高分被关联 unacceptable 贴线掷骰拦（C109c 掷骰第四例，@binance 链式梗图系列与 C205 同源）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1308,14 +1302,12 @@
       "addr": "0x9714e14b046aebc11aef79d1f5d9a0dbe167ffff",
       "expect": {
         "rating": [
-          "low",
-          "mid",
           "high"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：喊口号的对象影响力不小（TrustWallet 官方点名 3 emojis = 1 token），但代币名字太难传播，体感不太行但想不好怎么拒绝，先这么着→维持重析 high 89.8",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：喊口号的对象影响力不小（TrustWallet 官方点名 3 emojis = 1 token），但代币名字太难传播，体感不太行但想不好怎么拒绝，先这么着→维持重析 high 89.8",
       "expectSince": "2026-10-23"
     },
     {
@@ -1324,14 +1316,12 @@
       "addr": "0xc2765441c4dc724f60ec92c2e3e5b83868c27777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.98、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：抖音链接是个小猫，可拦可不拦吧→收 low；重析拦截位=实体类型门 unacceptable_type 54% 贴线（误拦嫌疑留观察）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：抖音链接是个小猫，可拦可不拦吧→收 low；重析拦截位=实体类型门 unacceptable_type 54% 贴线（误拦嫌疑留观察）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1340,14 +1330,12 @@
       "addr": "0x28d57ff3d72b88cf0979c2fb4d50d9223d267777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.96、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.96、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：没问题收 low（关联 unacceptable 95% 明确拦=正确工作样本）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：没问题收 low（关联 unacceptable 95% 明确拦=正确工作样本）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1356,14 +1344,12 @@
       "addr": "0x33289c5c34c447cb21d5027bedfb2c19b6957777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.76、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.76、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：没问题收 low（空洞内容）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：没问题收 low（空洞内容）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1372,14 +1358,12 @@
       "addr": "0x3e1610a330dfa83f1e2bad12c011c85cc2d57777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.78、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.78、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户裁定：没问题收 low（事件分不足 30<60）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户裁定：没问题收 low（事件分不足 30<60）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1388,14 +1372,12 @@
       "addr": "0x3ba02d6155ac4492bee1e0f752f6b5cfa6337777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.87、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.87、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1404,14 +1386,12 @@
       "addr": "0x81d15edc685b29cf58dbe8ea4c7798e375197777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.8、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.8、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析关联 unacceptable 47 分）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析关联 unacceptable 47 分）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1420,14 +1400,12 @@
       "addr": "0x0e4582f447f6f60b7b2ab5293cf0780b09457777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.6、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.6、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析事件分不足 59<60 贴线）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析事件分不足 59<60 贴线）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1436,14 +1414,12 @@
       "addr": "0x2752ab658fc7973a420c971b0e6ae72916f77777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.54、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.54、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1468,14 +1444,12 @@
       "addr": "0x1e9ec2097922b21f028fc6d6e9866f76d8b37777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-关联门重复拦截（fit 0.58、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定",
+      "note": "C180 观察票-关联门重复拦截（fit 0.58、关联 unacceptable）：拆臂后预期仍由关联门拦=接力不变量，待用户逐张裁定；2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "expectSince": "2026-10-23"
     }
   ]
