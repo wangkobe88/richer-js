@@ -52,7 +52,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C186 image_depicts_name 演绎题「同域非演绎」反锚——ATM 案两臂打架（J1.115）
+
+- **现场**：C228 ATM `0x209fefa087ba1b32ae9a5a628f6e26d743b77777`（第五批观察票待终裁票，重析 mid 54.1 过买线）。用户挑战「再进一步看一下感觉名字跟图里的名字不匹配，如果名字叫 圆芯侠 还好」→ 图证坐实：图内=中国银行数字人民币 IP「圆芯侠」（Yuan Xin Xia，白兔造型科技英雄，抖音帖截图，图内文字含完整 IP 介绍），币名=ATM 与图内实体名不匹配。
+- **机制层两臂打架**：`name_image_consistency=unrelated 91%`（Jev 自判名字与图**不相关**）vs `image_depicts_name=depicts_name 70%`——C118 演绎臂（depicts≥0.5）豁免关联截断，关联题 unacceptable 93% 的明确判定被兜底，救到 mid 54.1=会真买。
+- **归因（题面缝隙）**：三对照锚（DND 动作演绎→depicts / CRO 异域猫图→decorative / 香蕉实体同一→decorative）恰好漏掉「**同域但未画面化名字含义**」形状：ATM 是缩写，命中「概念名/抽象名重点」段正向鼓励，Jev 把银行吉祥物图当 ATM 金融含义的画面化——**域联想冒充演绎**。mapper 不能加「unrelated 高置信则演绎臂失效」：DND 正样本本身就是 unrelated+depicts 共存（题面明说两题独立），会误伤 C114/C118 形状。
+- **修复（J1.115，用户裁定「修一下吧」）**：对照锚补第四锚——「名字 ATM 配银行吉祥物/数字人民币 IP 图 → decorative（图与名字同在金融域，但图没有画面化 ATM（自动取款）的含义、演的是数字人民币吉祥物——同域/同话题联想不等于演绎）」+ 分界句尾「同域联想（图与名字恰好同属一个领域/话题但名字含义本身未被画面化演出）判 decorative」。事故现场反证入题面（红线 13）。mapper 零改动（演绎臂判据不变）。
+- **单测**：八个涉题文件全绿——consolidation 90P（A10d 版本链 J1.115）/name_entity_acceptance 47P（D5 版本）/angle_timing 47P（C5 版本链）/empty_content_img_exempt 34P/image_depicts_exempt 20P/image_carrier_nature 8P/jev_finding_recap 106P/subject_carrier 30P。
+- **对拍（三票定向重析）**：ATM 目标翻 low（depicts 降 → 演绎臂失效 → 关联 unacceptable 拦）；DND `0x4dbcb10e68626b6f663bd596905d41cdc6b07777`（C114/C118 双案票）保 depicts（猫拉窗帘=动作演绎正样本）；C205 Maya `0x1b420e70cef832de51a3556558958be5b4b57777` 防漂移（图内人物名命名路径）。终态待重析补记。
+
 ### C185 实体题题面精炼去重（J1.114）+ C180 批观察票逐张过票五批裁定 + binancezh 核心号 + 薄肌理论蓝筹补录（2026-10-23）
+
 
 - **起因（用户指令）**：①「bsc_meme_user_name_entity_acceptance 的 instructions/criteria 内容太多了，精炼一下（最重要的是检查逻辑是否有重复/冲突，有的话调整）」②「不要一次展示一个，一次展示多个」③观察票逐张过票继续。
 - **审查结论：无逻辑冲突**。七类逐字重复：类型清单三处（instructions 尾段/accepted 桶/unacceptable_type 桶）、「不评认知度」三处、C151 有意义变形三处、C174 故事主体三处、C175 性质定义三处、C162 交易池两处、J1.81 指歪两处。性质定义锚（京小安）与陈述句反锚（币安上电视）互为边界自洽；形象考量=加分项与类型轴兼容（C171 裁定）。
