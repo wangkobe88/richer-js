@@ -22,7 +22,7 @@
  *     repeatBuyCheckCondition 用 PreBuyCheckService 评估上下文键集；语法错同样拦——
  *     parseCondition throw 视为腿非法）
  *   - narrativeTriggerCondition ∧ narrativeCallCondition 同腿互斥（C84 2026-10-17）→ 400
- *   - side 与腿字段错配放行（买腿带 sellPercentage / 卖腿带 preBuyCheckCondition 等
+ *   - side 与腿字段错配放行（买腿带 preBuyCheckCondition 等语义上另一侧的字段
  *     引擎本就「携带不生效」，不构成危险）
  *   - groups/cycle 字段（cycle 分桶路由 2026-10-15 删除）不再校验也不再报错——
  *     存量库条目重新保存时自然剥离该字段
@@ -65,6 +65,18 @@ function validateLegs(side, legs) {
         }
         if (typeof leg.condition !== 'string' || leg.condition.trim() === '') {
             errors.push(`腿[${i}]缺少 condition`);
+        }
+        // 卖腿 sizing（2026-10-24 sellPercentage 退役）：cards 是唯一卖出张数表达
+        //（'all'=全清或正整数张数）——缺 cards=腿语义不完整（执行侧退化为全清），
+        // 携带 sellPercentage=已删字段（与引擎 loadStrategies 拒启同口径）
+        if (side === 'sell') {
+            if (leg.sellPercentage != null) {
+                errors.push(`腿[${i}] 携带已退役字段 sellPercentage（2026-10-24：卡牌 cards 是唯一卖出 sizing）`);
+            }
+            const cardsOk = leg.cards === 'all' || (Number.isInteger(leg.cards) && leg.cards >= 1);
+            if (!cardsOk) {
+                errors.push(`腿[${i}] 卖腿必须配置 cards（'all'=全清 或 ≥1 的整数张数；sellPercentage 已退役）`);
+            }
         }
         // C84 互斥（2026-10-17）：narrativeTriggerCondition（新链）与 narrativeCallCondition
         //（legacy 同步直调）同腿并存行为未定义——入库即 400（与引擎 loadStrategies 拒启同口径）

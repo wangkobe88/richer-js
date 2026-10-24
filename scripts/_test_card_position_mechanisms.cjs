@@ -60,7 +60,32 @@ function testNormalization() {
     ok(se.getStrategy('s_frac').cooldownSec === 30.5, 'cooldownSec 30.5 保留', se.getStrategy('s_frac').cooldownSec);
     ok(se.getStrategy('s_bad_cd').cooldownSec === null, 'cooldownSec -5 → null', se.getStrategy('s_bad_cd').cooldownSec);
     ok(se.getStrategy('s_str').cooldownSec === null, '未配置 cooldownSec → null', se.getStrategy('s_str').cooldownSec);
-    ok(se.getStrategy('s_str').sellPercentage === 1, '未配置 sellPercentage 缺省 1 不受影响', se.getStrategy('s_str').sellPercentage);
+    ok(se.getStrategy('s_str').sellPercentage === undefined,
+        'sellPercentage 已退役（2026-10-24）：策略对象不再携带该键（sizing 唯一表达=cards）',
+        se.getStrategy('s_str').sellPercentage);
+
+    // 退役 fail-fast（groups/cycle 同款防线）：卖腿携带 sellPercentage → 拒启
+    let threwLegacy = null;
+    try {
+        new StrategyEngine({
+            strategies: [
+                { id: 's_legacy', name: '退役字段携带', action: 'sell', condition: 'profitPercent > 50', priority: 1, cards: 1, sellPercentage: 0.5 },
+            ],
+        });
+    } catch (e) { threwLegacy = e.message; }
+    ok(threwLegacy !== null && threwLegacy.includes('sellPercentage'),
+        '卖腿携带 sellPercentage → loadStrategies throw 拒启（静默失效= sizing 静默变全清，危险方向）', threwLegacy);
+
+    // 买腿携带不拒（side 错配放行语义不变）
+    let buyOk = true;
+    try {
+        new StrategyEngine({
+            strategies: [
+                { id: 'b_mismatch', name: '买腿带卖侧字段', action: 'buy', condition: 'earlyReturn > 80', priority: 1, sellPercentage: 0.5 },
+            ],
+        });
+    } catch (e) { buyOk = false; }
+    ok(buyOk, '买腿携带 sellPercentage 放行（携带不生效语义）', buyOk);
 }
 
 // ==================== 2. 冷却 ====================

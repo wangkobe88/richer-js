@@ -358,7 +358,7 @@ console.log('F. BacktestEngine graduation 事件回放');
       { token: '0xA', tsMs: 1000, fundsBnb: 70 },
       { token: '0xB', tsMs: 2000, fundsBnb: 80 },
     ],
-    _factorAggregator: { markGraduated: () => {} },
+    _factorAggregator: { noteGraduation: () => {} },
     _tokenPool: { getToken: (a) => (a === '0xA' ? { token: a, status: 'bought', symbol: 'A' } : null) },
     _emitGraduationSell: async () => ({ success: true }),
     ...over,

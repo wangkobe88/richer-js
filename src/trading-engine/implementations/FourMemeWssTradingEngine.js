@@ -632,8 +632,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           bypassDebounce: !!s.bypassDebounce,
           lockTokenAfterSell: !!s.lockTokenAfterSell,
           cumulativeLossLockPct: typeof s.cumulativeLossLockPct === 'number' ? s.cumulativeLossLockPct : null,
-          sellPercentage: (typeof s.sellPercentage === 'number'
-            && s.sellPercentage > 0 && s.sellPercentage <= 1) ? s.sellPercentage : 1,
+          // sellPercentage 已退役（2026-10-24）：刻意原样透传（勿归一化吞掉）——
+          // loadStrategies fail-fast 靠它识别携带旧字段的存量实验并拒启（groups/cycle
+          // 同款防线；静默失效= sizing 静默变全清，危险方向）
+          sellPercentage: s.sellPercentage,
           // 卡牌仓位（迁自 rich-js）：同买腿透传（卖腿额外接受 'all'）
           cards: s.cards,
           cooldownSec: s.cooldownSec,
@@ -2735,10 +2737,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 卡牌 sizing（迁自 rich-js，与 BacktestEngine 同构）：机制启用 且 卖腿配 cards 且
       // token 有卡 → 按卡数比例卖余仓：soldN = 'all'→全清 / min(cards, 余卡) 钳制；
       // soldN>=tokenCards 时 sellPct 恒精确 1（IEEE T/T）→ Decimal.mul(1) 精确直通，
-      // PM remainingAmount.eq(0) 删仓判据成立（E5d 僵尸仓教训）。否则旧 sellPercentage
-      // 路径。cardTrade.after 为信号构造时点绝对值，随 trade metadata 落库
+      // PM remainingAmount.eq(0) 删仓判据成立（E5d 僵尸仓教训）。
+      // sellPercentage 参数已退役（2026-10-24 用户裁定「现在不都是卡牌管理方法嘛」）：
+      // sizing 唯一表达=cards；腿无 cards/机制关/无卡 → 全清（sellPct=1）。携带
+      // sellPercentage 的存量腿由 loadStrategies fail-fast 拒启（静默改全清=卖更多，
+      // 危险方向）。cardTrade.after 为信号构造时点绝对值，随 trade metadata 落库
       let cardTrade = null;
-      let sellPct = strategy.sellPercentage ?? 1;
+      let sellPct = 1;
       if (this._cardsEnabled && strategy.cards != null) {
         const tokenCards = this._tokenCards.get(tokenAddress) || 0;
         if (tokenCards > 0) {
@@ -3218,17 +3223,37 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       ? new Decimal(qtySold).mul(signalPriceUsdSell).div(bnbUsdSell).toNumber()
       : null;
 
-    const options = {
-      slippageTolerance: this._liveSlippagePct,
-      maxGasPrice: this._liveMaxGasPriceGwei,
-      minOutRatio: this._liveMinOutRatio,
-      expectedNativeOut,
-    };
+    // 毕业票 PCS 路由（2026-10-24 豆皮/水案用户裁定「FA.graduated 票也走 PCS」）：
+    // FA graduated 票内盘合约交易必 revert——自动卖（策略腿/止损/扫描兜底）与手工卖
+    // （traderOverride 已是 PCS）统一路由 PCS V2 外盘。quote 盘（flap 非 BNB 计价）
+    // 毕业对 = token/quote → 传 quoteToken 走二跳 [token,quote,WBNB]。
+    // PCS 分支不传 minOutRatio/expectedNativeOut：旧 L1 锚=信号价（毕业断流后恒陈旧
+    // 0.17-0.39×），quote 活报价对陈旧锚必拒 → 30min 熔断循环 7 连败事故形状；
+    // PCS trader 自带预留量活报价 ×(1-slippage) 滑点保护
+    let trader = traderOverride || null;
+    const gradState = this._factorAggregator?.getTokenState(signal.tokenAddress) || null;
+    if (!trader && gradState?.graduated) {
+      trader = await this._ensurePcsTrader();
+      this.logger.info(this._experimentId, '_executeSellLive',
+        `毕业票自动卖路由 PCS V2 外盘 | ${signal.symbol} ${signal.tokenAddress}`);
+    }
+    const pcsRoute = trader && trader === this._pcsTrader;
+    const options = pcsRoute
+      ? {
+          slippage: Math.min(Math.max(this._liveSlippagePct / 100, 0.001), 0.5),
+          quoteToken: gradState?.quoteToken || null,
+        }
+      : {
+          slippageTolerance: this._liveSlippagePct,
+          maxGasPrice: this._liveMaxGasPriceGwei,
+          minOutRatio: this._liveMinOutRatio,
+          expectedNativeOut,
+        };
 
     this.logger.info(this._experimentId, '_executeSellLive',
-      `📡 live 卖出 | ${signal.symbol} ${qtySold}（滑点 ${this._liveSlippagePct}%）`);
+      `📡 live 卖出 | ${signal.symbol} ${qtySold}（滑点 ${this._liveSlippagePct}%${pcsRoute ? '，PCS 外盘' : ''}）`);
 
-    const sellResult = await (traderOverride || this._liveTraderFor(signal.tokenAddress)).sellToken(signal.tokenAddress, amountOutWei, options);
+    const sellResult = await (trader || this._liveTraderFor(signal.tokenAddress)).sellToken(signal.tokenAddress, amountOutWei, options);
     if (!sellResult.success) {
       return { success: false, reason: sellResult.error || 'live 卖出交易失败' };
     }
@@ -3613,15 +3638,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._manualSellLocks = new Set((rows || []).map(r => r.token_address));
   }
 
-  /** PCS V2 trader 懒加载（毕业票手工卖专用）：与主 trader 同钱包同发单 RPC——
-   * 私钥从既有 wallet 对象取，不新增明文存储点 */
+  /** PCS V2 trader 懒加载（毕业票外盘卖——手工+自动路由共用）：与主 trader 同钱包同
+   * 发单 RPC——私钥从既有 wallet 对象取，不新增明文存储点。setWallet 各自跑通校验
+   * 路径后 shareSignerFrom 共享 wallet+NonceManager（nonce 红线：同地址进程内单一
+   * nonce 分配源，新 trader 不得自建 NonceManager 并发发单互抢 nonce） */
   async _ensurePcsTrader() {
     if (this._pcsTrader) return this._pcsTrader;
     const traderFactory = require('../traders');
     const rpcUrl = this._trader.network?.rpcUrl;
     this._pcsTrader = traderFactory.createTrader('pancakeswap-v2', rpcUrl ? { network: { rpcUrl } } : {});
+    this._pcsTrader.setLogger(this.logger, this._experimentId); // trader 行进实验日志（2026-10-24：PCS 构造期 this.log 崩溃修复同批）
     await this._pcsTrader.setWallet(this._trader.wallet.privateKey);
-    this.logger.info(this._experimentId, 'ManualTrade',
+    this._pcsTrader.shareSignerFrom(this._trader);
+    this.logger.info(this._experimentId, 'GraduatedPcs',
       `PCS V2 trader 就绪（毕业票外盘卖）: ${this._pcsTrader.wallet.address}`);
     return this._pcsTrader;
   }
@@ -3839,7 +3868,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * 人工去 PancakeSwap 处置（恰恰爆款票才会毕业——最赚钱的仓位不能静默死仓）。
    */
   _handleGraduation(info) {
-    this._factorAggregator.markGraduated(info.token);
+    this._factorAggregator.noteGraduation(info);
     const token = this._tokenPool.getToken(info.token, 'bsc');
     if (token && token.status === 'bought') {
       if (this._isLive) {

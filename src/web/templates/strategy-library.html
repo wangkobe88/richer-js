@@ -298,11 +298,6 @@
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-0.5">卖出比例（0-1，卖腿）</label>
-                            <input type="number" data-k="sellPercentage" value="${leg.sellPercentage ?? ''}" placeholder="卡牌模式留空" min="0" max="1" step="any"
-                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
-                        </div>
                         <div class="flex items-end">
                             <label class="flex items-center gap-2 text-xs text-gray-700 pb-1.5">
                                 <input type="checkbox" data-k="bypassDebounce" ${leg.bypassDebounce ? 'checked' : ''} class="w-4 h-4">
@@ -371,7 +366,7 @@
                     const v = get(k).value.trim();
                     if (v === '') delete merged[k]; else merged[k] = v;
                 }
-                for (const k of ['cooldownSec', 'sellPercentage']) {
+                for (const k of ['cooldownSec']) {
                     const v = get(k).value.trim();
                     if (v === '') delete merged[k]; else merged[k] = parseFloat(v);
                 }

@@ -226,7 +226,33 @@ class PancakeSwapV2Trader extends BaseTrader {
         this.pairCache = new Map();
         this.tokenInfoCache = new Map();
 
-        console.log('🥞 PancakeSwap V2 交易器初始化完成');
+        this.log('🥞 PancakeSwap V2 交易器初始化完成');
+    }
+
+    /**
+     * 日志（2026-10-24 豆皮/水案修复）：基类 BaseTrader.initProvider 构造期即调
+     * this.log——本类缺失该方法 → 构造直接 throw（this.log is not a function），
+     * 毕业票手工卖自 2026-10-22 上线起从未成功过。与 FlapPortalTrader 同款三参
+     * 标准形状（experimentId, module, message）：单参形状会落 Logger 默认
+     * experimentId 的文件，实验现场与引擎行割裂
+     */
+    log(message, type = 'info') {
+        const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+        if (this.logger) {
+            try {
+                const logMethod = type === 'error' ? 'error' : type === 'success' ? 'info' : type === 'warning' ? 'warn' : 'info';
+                this.logger[logMethod](this._logExperimentId || 'trader', 'PancakeSwapV2Trader', message);
+            } catch {
+                console.log(`[${prefix}] [PancakeSwapV2Trader] ${message}`);
+            }
+        } else {
+            console.log(`[${prefix}] [PancakeSwapV2Trader] ${message}`);
+        }
+    }
+
+    setLogger(logger, experimentId = null) {
+        this.logger = logger;
+        this._logExperimentId = experimentId;
     }
 
     /**
@@ -268,31 +294,48 @@ class PancakeSwapV2Trader extends BaseTrader {
     }
 
     /**
-     * 发现代币交易对
+     * 发现代币交易对（quoteAddress：配对币种，默认 WBNB——four.meme 毕业盘/flap BNB 盘
+     * 直接 token/WBNB；flap 非 BNB 计价盘毕业对 = token/quote（2026-10-24 豆皮案），需显式传）
      * @param {string} tokenAddress - 代币地址
+     * @param {string} quoteAddress - 配对币种地址
      * @returns {Promise<string>} 交易对地址
      */
-    async discoverPair(tokenAddress) {
+    async discoverPair(tokenAddress, quoteAddress = WBNB_ADDRESS) {
         // 检查缓存
-        if (this.pairCache.has(tokenAddress)) {
-            return this.pairCache.get(tokenAddress);
+        const cacheKey = `${tokenAddress.toLowerCase()}:${quoteAddress.toLowerCase()}`;
+        if (this.pairCache.has(cacheKey)) {
+            return this.pairCache.get(cacheKey);
         }
 
         try {
-            const pairAddress = await this.factoryContract.getPair(tokenAddress, WBNB_ADDRESS);
+            const pairAddress = await this.factoryContract.getPair(tokenAddress, quoteAddress);
 
             if (pairAddress === ethers.ZeroAddress) {
-                throw new Error(`未找到代币 ${tokenAddress} 与 WBNB 的交易对`);
+                throw new Error(`未找到代币 ${tokenAddress} 与 ${quoteAddress} 的交易对`);
             }
 
             // 缓存结果
-            this.pairCache.set(tokenAddress, pairAddress);
-            console.log(`🔍 发现交易对: ${pairAddress}`);
+            this.pairCache.set(cacheKey, pairAddress);
+            this.log(`🔍 发现交易对: ${pairAddress}`);
 
             return pairAddress;
         } catch (error) {
             throw new Error(`发现交易对失败: ${error.message}`);
         }
+    }
+
+    /**
+     * 卖出路由路径（纯函数，供单测锁定路由形状）：quoteToken 为空/WBNB → 单跳
+     * [token, WBNB]；flap 非 BNB 计价盘毕业对 → 二跳 [token, quote, WBNB]
+     * （swapExactTokensForETH 终点解包 WBNB → 原生 BNB，实收余额差口径不变）。
+     * 二跳比单跳储备推导多一次 0.25% 路由费——amountOutMin 按一跳推导（保守高估），
+     * 滑点须 >0.25% 才不误拒（引擎映射 live 滑点 20%，远离阈值）
+     */
+    buildSellPath(tokenAddress, quoteToken = null) {
+        if (quoteToken && String(quoteToken).toLowerCase() !== WBNB_ADDRESS.toLowerCase()) {
+            return [tokenAddress, quoteToken, WBNB_ADDRESS];
+        }
+        return [tokenAddress, WBNB_ADDRESS];
     }
 
     /**
@@ -901,7 +944,8 @@ class PancakeSwapV2Trader extends BaseTrader {
      * 卖出代币 (Token → BNB)
      * @param {string} tokenAddress - 代币地址
      * @param {string} tokenAmount - 代币数量
-     * @param {Object} options - 选项参数
+     * @param {Object} options - 选项参数：slippage(小数 0.02=2%)/gasLimit/deadline/
+     *   quoteToken(flap 非 BNB 计价盘毕业对 → 二跳 token→quote→WBNB；null=WBNB 单跳)
      * @returns {Promise<Object>} 交易结果
      */
     async sellToken(tokenAddress, tokenAmount, options = {}) {
@@ -1018,11 +1062,12 @@ class PancakeSwapV2Trader extends BaseTrader {
             throw new Error('代币授权失败');
         }
 
-        // 5. 发现交易对
-        const pairAddress = await this.discoverPair(tokenAddress);
+        // 5. 发现交易对（quote 盘毕业对 = token/quote，见 buildSellPath）
+        const path = this.buildSellPath(tokenAddress, options.quoteToken || null);
+        const pairAddress = await this.discoverPair(tokenAddress, path[1]);
         const reserves = await this.getPairReserves(pairAddress);
 
-        // 6. 确定输入输出储备
+        // 6. 确定输入输出储备（配对币种 quote 承担 WBNB 的储备角色）
         let tokenReserve, wbnbReserve;
         if (reserves.token0.toLowerCase() === tokenAddress.toLowerCase()) {
             tokenReserve = reserves.reserve0;
@@ -1046,8 +1091,7 @@ class PancakeSwapV2Trader extends BaseTrader {
         console.log(`📊 预期 BNB 输出: ${ethers.formatEther(expectedOut)}`);
         console.log(`📉 最小 BNB 输出: ${ethers.formatEther(amountOutMin)}`);
 
-        // 8. 构建交易
-        const path = [tokenAddress, WBNB_ADDRESS];
+        // 8. 构建交易（path 在第 5 步已定：单跳 WBNB / quote 盘二跳）
         // 确保deadline是Number类型，避免BigInt混合
         const deadlineNumber = typeof deadline === 'bigint' ? Number(deadline) : deadline;
         const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadlineNumber;

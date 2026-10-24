@@ -127,15 +127,17 @@ const FACTOR_PARAM_DEFAULTS = {
     //    对齐挖掘参与门 0.02 BNB；sniper 阈值是口径常量 SNIPER_TOKEN_COUNT_THR 不在此）──
     smartBotMinBuyBnb: 0.02,
     // ── E5 卖侧参数（2026-09-24）──
-    graduationAnchorBnb: 72,     // 毕业市值锚（BNB 口径）：four.meme 毕业市值 $50,585；0x47da 实测断流前
-                                 // max 7.21e-8×1e9=72.1 BNB 吻合。progress=priceBnb*totalSupply/此值
-    graduationAnchorRatio: 12.5, // flap per-token 毕业锚（2026-09-28 王之蔑视案）：毕业市值/首市值 R 恒比
-                                 //   （182 实测 4/5 样本 12.10~12.63 ±2%；断流市值/funds≈4.50、初始/funds≈0.36
-                                 //   两条恒比合成）。flap 池 funds 10.9~17.3 跨 1.6 倍 → 固定 72 锚对非标准盘
-                                 //   失真（9/77 盘断流 progress<90% 毕业臂够不着）
-    graduationAnchorFirstTickMaxMs: 60 * 1000, // 首市值锚有效性门：首 tick 距 token 创建超此窗 = 首 tick≠开盘
-                                 //   （watcher 起采晚/开盘抢拉，脏样本 0x84439e 首价 5.8 倍于开盘 R=2.17）
-                                 //   → 退 72 默认锚（口径有效性判定，非行为兜底）
+    graduationAnchorBnb: 72,     // 毕业市值锚（BNB 口径，four.meme 专用）：four.meme 毕业市值 $50,585；
+                                 // 0x47da 实测断流前 max 7.21e-8×1e9=72.1 BNB 吻合。progress=priceBnb*totalSupply/此值
+    // flap 资金口径毕业进度（2026-10-24 豆皮/水案裁定，替换旧价格锚）：旧锚=首市值×12.5
+    // （R=毕业市值/首市值恒比假设）实证不成立——豆皮/水 R=9.0/9.4，progress 峰值仅
+    // 0.716/0.754，0.9/0.98 毕业臂全程够不着（死臂）。资金口径=池净入金
+    // Σ(0.98×buy) − Σ(1.0204×sell) ÷ 毕业阈值：BNB 盘四池回归精确（16.3246 买入 →
+    // 15.9981 毕业线），quote 盘 BNB 域累积含 ±3% 汇率换算噪声
+    graduationFundsBnb: 15.99808481559237, // flap 毕业池资金阈值（BNB 域）：182 wss_events 实测
+                                 //   BNB 盘毕业 funds 恒此值（14 位小数内一致）；per-quote 学习值优先
+    graduationBuyKeep: 0.98,     // 买腿入池系数：flap 1% 协议费+1% 曲线费 → 池实收 0.98×buy（实测精确）
+    graduationSellTake: 1.0204,  // 卖腿出池系数：池实付 1.0204×sell（实测精确，含出池费）
     bar5mRsiMaxBars: 30,         // 5m bar 收盘环形窗（30 根=2.5h；rsi9Bar5mRt 原料）
     riseMinTicks: 8,             // 针臂稀疏窗门（5min 窗内可靠 tick 数 < 此数 → null fail-closed；
                                  //   rich-js minTicks=窗口分钟数，tick 秒级更密故起步 8）
@@ -295,6 +297,10 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         this._states = new Map(); // tokenAddress → state
 
+        // flap 资金口径毕业阈值学习表（2026-10-24）：quoteToken(小写|null=BNB盘) → 毕业时刻
+        // fundsBnb 快照，noteGraduation write-once 首次毕业定格（实测同 quote 恒值）
+        this._gradFundsThresholds = new Map();
+
         // preFilter（pumpfun 回迁，回测专属默认关）：age 区间数组（并集语义），
         // 未持仓 token 的 age 落在全部区间外 → _buildFactorMap 跳过因子构建。
         // null = 不过滤（live/回测未开启时的恒常态，零行为变化）
@@ -351,26 +357,27 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (info.name) state.name = info.name;
         if (info.symbol) state.symbol = info.symbol;
         if (info.creatorAddress) state.creatorAddress = info.creatorAddress;
-        if (info.platform) state.platform = info.platform; // 平台维度（flap per-token 毕业锚用；write-once 语义，平台不变）
+        if (info.platform) state.platform = info.platform; // 平台维度（flap 资金口径毕业进度/阈值学习门用；write-once 语义，平台不变）
         this._stats.tokensRegistered++;
     }
 
     /**
-     * 毕业市值锚（graduationProgress 分母）。flap 盘 per-token 定锚（2026-09-28 王之蔑视案裁定）：
-     * 锚 = 首市值（_relFirstPriceBnb × totalSupply）× graduationAnchorRatio(12.5)，
-     * 仅当首 tick 距 token 创建 < graduationAnchorFirstTickMaxMs(60s)（首 tick≈开盘，锚有效）时启用；
-     * 其余一切情况（非 flap / platform 未注册 / 首 tick 超窗=首 tick≠开盘 / 首市值缺失）
-     * 退 graduationAnchorBnb(72) 默认锚。BacktestEngine 注册不传 platform → 恒 72，回测行为零变化。
+     * flap 资金口径毕业进度分母：per-quote 毕业事件学习值（noteGraduation write-once）
+     * ?? 全局常量 graduationFundsBnb。quote 盘阈值=毕业时刻换算 BNB 域快照，吸收
+     * per-quote 系统性汇率偏移。four.meme 不用资金口径（72 市值锚原路径）。
      */
-    _graduationAnchorBnb(state) {
-        if (state.platform !== 'flap') return this._fp.graduationAnchorBnb;
-        if (state.firstTickAt === null || state.createdAtMs == null) return this._fp.graduationAnchorBnb;
-        if (state.firstTickAt - state.createdAtMs > this._fp.graduationAnchorFirstTickMaxMs) {
-            return this._fp.graduationAnchorBnb;
-        }
-        const firstMcap = state._relFirstPriceBnb * state.totalSupply;
-        if (!(firstMcap > 0)) return this._fp.graduationAnchorBnb;
-        return firstMcap * this._fp.graduationAnchorRatio;
+    _graduationFundsThreshold(state) {
+        const learned = this._gradFundsThresholds.get(state.quoteToken);
+        return (learned != null && learned > 0) ? learned : this._fp.graduationFundsBnb;
+    }
+
+    /** flap 资金口径毕业进度（2026-10-24）：池净入金 / 毕业阈值。零价格依赖（quote 盘
+     *  断价也出值——价格锚路径须 _relPriceBnb>0，断流票读 null）；累积器进程内存态，
+     *  重启后从 0 起（跨重启池进度低估 → 毕业臂可能不触发，live 兜底=毕业事件人工/
+     *  PCS 处置，virtual/backtest=毕业全清链）。 */
+    _graduationFundsProgress(state) {
+        const threshold = this._graduationFundsThreshold(state);
+        return threshold > 0 ? state.poolInflowBnb / threshold : null;
     }
 
     getTrackedTokens() {
@@ -792,6 +799,20 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
         if (tick.funds_bnb > 0) state.lastFundsBnb = tick.funds_bnb;
         if (tick.offers > 0) state.lastOffers = tick.offers;
+
+        // ── flap 毕业资金口径累积（2026-10-24 豆皮/水案）：每行恰好计一次（processTick
+        //    每行单调；chainLate 只跳价格接受链不跳流量）。platform 回填兜底 registerToken
+        //    晚到（tick 平台字段先到）。尘 tick live 侧 collector 门拦（不进 FA），回测侧
+        //    原样喂 → 回测含尘 ~+0.2% 偏差（方向=回测略早触臂，接受）──
+        if (!state.platform && tick.platform) state.platform = tick.platform;
+        if (tick.quote_token && !state.quoteToken) {
+            state.quoteToken = String(tick.quote_token).toLowerCase();
+        }
+        if (state.platform === 'flap' || tick.platform === 'flap') {
+            state.poolInflowBnb += isBuy
+                ? bnbAmount * this._fp.graduationBuyKeep
+                : -bnbAmount * this._fp.graduationSellTake;
+        }
 
         // ── 计数与地址统计（全量 tick，无 skip）──
         state.tradeCount++;
@@ -1501,9 +1522,23 @@ class FourMemeFactorAggregator extends EventEmitter {
         }));
     }
 
-    markGraduated(tokenAddress) {
-        const state = this._states.get(tokenAddress);
-        if (state) state.graduated = true;
+    /**
+     * 毕业事件登记（2026-10-24 资金口径，取代旧 markGraduated——生产调用点已全迁）：
+     * 置 graduated + 学习 per-quote 毕业资金阈值。
+     * 学习门=state.platform==='flap'（four.meme 毕业金额口径不同，混学会污染 BNB 键
+     * 阈值）+ fundsBnb>0（quote 盘换算不可得时 collector 传 null=诚实无值不学）。
+     * write-once 首次毕业定格（同 quote 实测恒值；重复毕业事件幂等）。state 缺失
+     * no-op（回测「事件先于首 tick」边缘由消费点后补）
+     */
+    noteGraduation({ token, fundsBnb, quoteToken } = {}) {
+        const state = this._states.get(token);
+        if (!state) return;
+        state.graduated = true;
+        if (state.platform !== 'flap' || !(Number(fundsBnb) > 0)) return;
+        const key = quoteToken ? String(quoteToken).toLowerCase() : null;
+        if (!this._gradFundsThresholds.has(key)) {
+            this._gradFundsThresholds.set(key, Number(fundsBnb));
+        }
     }
 
     // ═══════════════ 清理 ═══════════════
@@ -1561,6 +1596,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             creatorAddress: null,
             platform: null,
             graduated: false,
+            quoteToken: null,      // flap 非 BNB 计价盘 quote（write-once，tick 捕获）：PCS 二跳路由/毕业阈值学习键
+            poolInflowBnb: 0,      // flap 毕业资金口径累积器：Σ(0.98×buy) − Σ(1.0204×sell)（BNB 域）
 
             firstTickAt: null,
             firstBlockNumber: null, // 首 tick 所在块（bigHolder early 判定基准 s0，write-once）
@@ -2936,13 +2973,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             tvl: bnbUsd > 0 ? state.lastFundsBnb * bnbUsd : 0,
             fdv: 0,        // 见下（与 marketCap 同值）
             marketCap: state.totalSupply > 0 && currentPrice > 0 ? currentPrice * state.totalSupply : 0,
-            // 毕业进度（E5 卖侧）：可靠价市值 / 毕业锚。锚经 _graduationAnchorBnb per-token 化——
-            // flap 盘首 tick 距创建 <60s 时 = 首市值×12.5（funds 浮动 R 恒比），否则 72 默认锚
-            // （four.meme 实测 11 token 收敛 72.1）。
-            // 用 _relPriceBnb 而非 currentPrice——V1 实证尘价/异常巨量 tick 可把任意价口径推到 >1 假触发
-            graduationProgress: (state.totalSupply > 0 && state._relPriceBnb > 0)
-                ? (state._relPriceBnb * state.totalSupply) / this._graduationAnchorBnb(state)
-                : null,
+            // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
+            // flap = 资金口径 池净入金 / 毕业阈值（2026-10-24 替换价格锚：R 恒比假设实证不
+            // 成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂）。four.meme 用
+            // _relPriceBnb 而非 currentPrice——V1 实证尘价/异常巨量 tick 可把任意价口径推到 >1 假触发
+            graduationProgress: state.platform === 'flap'
+                ? this._graduationFundsProgress(state)
+                : (state.totalSupply > 0 && state._relPriceBnb > 0)
+                    ? (state._relPriceBnb * state.totalSupply) / this._fp.graduationAnchorBnb
+                    : null,
 
             tweetAuthorType: 0, // 叙事已解耦，恒 0
             dataCollectionRound: state.dataCollectionRound,

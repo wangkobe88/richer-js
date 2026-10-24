@@ -38,9 +38,9 @@ console.log('A. 合法腿集合');
 {
   const r = validateLegs('sell', [
     { condition: 'profitPercent >= 20', cards: 1 },
-    { condition: 'profitPercent >= 60 OR profitPercent IS NULL' },
+    { condition: 'profitPercent >= 60 OR profitPercent IS NULL', cards: 'all' },
   ]);
-  check('合法卖腿集合', r, { valid: true, errors: [] });
+  check('合法卖腿集合（含 cards）', r, { valid: true, errors: [] });
 
   const rb = validateLegs('buy', [{
     condition: 'profitPercent >= 20',
@@ -63,7 +63,7 @@ console.log('B. 形状校验');
   check('缺 condition 拒', validateLegs('sell', [{ priority: 1 }]).errors[0], '腿[0]缺少 condition');
   check('condition 空串拒', validateLegs('sell', [{ condition: '  ' }]).valid, false);
   check('多错误聚合（两腿各一错）', validateLegs('sell', [
-    { priority: 1 }, { condition: '  ' },
+    { priority: 1, cards: 1 }, { condition: '  ', cards: 1 },
   ]).errors.length, 2);
 }
 
@@ -111,7 +111,7 @@ console.log('E. 错配放行（引擎「携带不生效」语义）');
     { condition: 'profitPercent >= 20', sellPercentage: 0.5, bypassDebounce: true },
   ]).valid, true);
   check('卖腿带买侧字段放行', validateLegs('sell', [
-    { condition: 'profitPercent >= 20', preBuyCheckCondition: 'narrativeRating == 2' },
+    { condition: 'profitPercent >= 20', cards: 1, preBuyCheckCondition: 'narrativeRating == 2' },
   ]).valid, true);
 }
 
@@ -119,13 +119,39 @@ console.log('E. 错配放行（引擎「携带不生效」语义）');
 console.log('F. groups 字段不再报错（存量库条目须能重新保存）');
 {
   check('腿带任意 groups 字符串放行（不再解析校验）', validateLegs('sell', [
-    { condition: 'profitPercent >= 20', groups: 'cycle==3' },
+    { condition: 'profitPercent >= 20', cards: 1, groups: 'cycle==3' },
   ]).valid, true);
   check('腿带非法形态 groups 也放行（解析器已删，入库层零耦合）', validateLegs('sell', [
-    { condition: 'profitPercent >= 20', groups: 'not_a_var == 1' },
+    { condition: 'profitPercent >= 20', cards: 1, groups: 'not_a_var == 1' },
   ]).valid, true);
   check('腿带 cycle 数字字段放行（legacy 字段透传由引擎 fail-fast 管）', validateLegs('sell', [
-    { condition: 'profitPercent >= 20', cycle: 3 },
+    { condition: 'profitPercent >= 20', cards: 1, cycle: 3 },
+  ]).valid, true);
+}
+
+// ═══ G. 卖腿 sizing 退役（2026-10-24：sellPercentage 退役，cards 唯一表达）═══
+console.log('G. 卖腿 sizing 退役（sellPercentage 拒 / cards 必配）');
+{
+  check('卖腿携带 sellPercentage 拒（与引擎 loadStrategies 拒启同口径）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 1, sellPercentage: 0.5 },
+  ]).errors.some(e => e.includes('sellPercentage')), true);
+  check('卖腿缺 cards 拒（执行侧退化为全清=腿语义不完整）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20' },
+  ]).errors.some(e => e.includes('cards')), true);
+  check("卖腿 cards='all' 合法", validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 'all' },
+  ]).valid, true);
+  check('卖腿 cards 整数 ≥1 合法', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 2 },
+  ]).valid, true);
+  check('卖腿 cards 小数拒', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 1.5 },
+  ]).valid, false);
+  check('卖腿 cards 0 拒', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 0 },
+  ]).valid, false);
+  check('买腿不要求 cards（买入 sizing=perCardBNB×cards 缺省 1 卡）', validateLegs('buy', [
+    { condition: 'profitPercent >= 20' },
   ]).valid, true);
 }
 

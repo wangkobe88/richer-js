@@ -1,18 +1,21 @@
 #!/usr/bin/env node
 /**
- * 毕业事件驱动卖出 + flap per-token 毕业锚——本地零 DB 单测
+ * 毕业事件驱动卖出 + flap 资金口径毕业进度——本地零 DB 单测
  *
- * 背景（2026-09-28 王之蔑视 0x7abcc1 案，用户裁定「2+1」）：
- *   ① 方案②毕业事件驱动卖出：_handleGraduation 对 virtual 持仓 token 直接触发
+ * 背景（2026-09-28 王之蔑视 0x7abcc1 案立毕业全清；2026-10-24 豆皮/水案
+ * 用户裁定资金口径替换价格锚）：
+ *   ① 毕业事件驱动卖出：_handleGraduation 对 virtual 持仓 token 直接触发
  *      全清（等价 strategy 走 _emitSellSignal 全清链；live 维持告警人工处置）
- *   ② 方案①flap 专属毕业锚：graduationProgress 对 flap 盘 per-token 定锚
- *      = 首市值（_relFirstPriceBnb×totalSupply）×12.5（R 恒比，182 实测 4/5 样本
- *      ±2%），仅当首 tick 距 token 创建 <60s（锚有效）时启用，否则退 72 默认锚
+ *   ② flap graduationProgress = 资金口径：池净入金 Σ(0.98×buy) − Σ(1.0204×sell)
+ *      ÷ 毕业阈值（per-quote 学习值 ?? 全局 15.99808481559237）。旧价格锚
+ *      （首市值×12.5，R 恒比假设）实证不成立——豆皮/水 R=9.0/9.4，progress
+ *      峰值 0.716/0.754，0.9/0.98 毕业臂全程够不着（死臂）→ 整链退役
  *
  * 覆盖：
- *   A. _graduationAnchorBnb 矩阵（flap 有效窗 / 超窗退 72 / 边界 60s / firstTickAt
- *      null / 首市值缺失 / 非 flap / platform 未注册 / 乱序自愈回填）
- *   B. graduationProgress 端到端（buildFactorMap：flap 有效锚 / 退锚 / four.meme 72）
+ *   A. 资金口径累积（精确公式 / 卖腿 1.0204 / quote 盘 quoteToken 捕获 /
+ *      价格无关性 / platform 回填 / four.meme 口径隔离；豆皮/水事故反证在内）
+ *   B. noteGraduation 阈值学习（write-once / per-quote / four.meme 不污染 /
+ *      null 不学）+ buildFactorMap 出键（four.meme 72 原路径回归）
  *   C. _handleGraduation（virtual+bought 触发全清 / 重复派发幂等 / sold·monitoring
  *      不触发 / live 走告警不走卖出 / buildFactorMap null 安全 / 失败 catch 记日志）
  *   E. 毕业卖出幂等标记后置 + 扫描毕业兜底（2026-10-15 迁自
@@ -36,9 +39,9 @@ function approx(name, actual, expected, eps = 1e-9) {
   else { fail++; console.log(`  ✗ ${name}\n    期望 ≈${expected}\n    实际 ${actual}`); }
 }
 
-// FA 白盒辅助：registerToken 后直接操作 state 内部字段（firstTickAt/_relFirstPriceBnb
-// 正常由 processTick 设置，单测直接注入避免构造完整 tick 形状——与 _test_stop_loss_rules 同模式）
-function seededState({ platform = 'flap', firstTickOffsetMs = 5000, firstPrice = 5.7e-9, supply = 1e9 } = {}) {
+// FA 白盒辅助：registerToken 后直接操作 state 内部字段（_relPriceBnb 正常由
+// processTick 设置，单测直接注入避免构造完整 tick 形状——与 _test_stop_loss_rules 同模式）
+function seededState({ platform = 'fourmeme', firstTickOffsetMs = 5000, firstPrice = 5.7e-9, supply = 1e9 } = {}) {
   const fa = new FourMemeFactorAggregator({}, console);
   const createdAt = 1790000000000;
   fa.registerToken('0xabc', { createdAtMs: createdAt, totalSupply: supply, platform });
@@ -46,55 +49,124 @@ function seededState({ platform = 'flap', firstTickOffsetMs = 5000, firstPrice =
   if (firstTickOffsetMs !== null) state.firstTickAt = createdAt + firstTickOffsetMs;
   state._relFirstPriceBnb = firstPrice;
   state._relPriceBnb = firstPrice;
-  return { fa, state, anchor: () => fa._graduationAnchorBnb(state) };
+  return { fa, state };
 }
 
-// ═══ A. _graduationAnchorBnb 矩阵 ═══
-console.log('A. _graduationAnchorBnb（默认 72 / ratio 12.5 / 窗 60s）');
+// 资金口径喂 tick 辅助（2026-10-24）：最小 tick 形状直达 processTick
+const FUNDS_BUY_KEEP = 0.98, FUNDS_SELL_TAKE = 1.0204, FUNDS_THRESHOLD = 15.99808481559237;
+let feedSeq = 0;
+function feedTick(fa, token, { type = 'buy', bnb = 0.1, price = 5e-9, platform = 'flap', quote = null, ts = null } = {}) {
+  fa.processTick({
+    token_address: token, timestamp: ts || (1790000000000 + (++feedSeq) * 500),
+    trade_type: type, bnb_amount: bnb, price_bnb: price,
+    block_number: 48000000 + feedSeq, log_index: feedSeq,
+    trader_address: '0xfeed', sender_address: null, platform, quote_token: quote,
+  }, { emitFactors: false });
+}
+
+// ═══ A. flap 资金口径毕业进度（累积公式 + 阈值 + 事故反证）═══
+console.log('A. 资金口径累积（Σ0.98×buy − Σ1.0204×sell ÷ 15.99808481559237）');
 {
-  const ok = seededState(); // flap + 首 tick 距创建 5s + 首市值 5.7
-  approx('flap 有效窗 → 首市值×12.5（5.7×12.5）', ok.anchor(), 71.25);
-  check('flap platform 落位 state.platform', ok.state.platform, 'flap');
-
-  approx('边界恰 60s（不大于 → 有效锚）', seededState({ firstTickOffsetMs: 60000 }).anchor(), 71.25);
-  check('超窗 60001ms → 退 72', seededState({ firstTickOffsetMs: 60001 }).anchor(), 72);
-  check('firstTickAt null（尚无 tick）→ 72', seededState({ firstTickOffsetMs: null }).anchor(), 72);
-  check('首市值缺失（_relFirstPriceBnb=0）→ 72', seededState({ firstPrice: 0 }).anchor(), 72);
-  check('totalSupply=0 → 首市值 0 → 72', seededState({ supply: 0 }).anchor(), 72);
-  check('four.meme → 恒 72', seededState({ platform: 'fourmeme' }).anchor(), 72);
-  check('platform 未注册（null，回测/重启过渡态）→ 72', seededState({ platform: null }).anchor(), 72);
-
-  // 乱序自愈：tick 先到（FA 自动建 state，createdAtMs≈tick 时刻），迟到 registerToken
-  // 回填权威更早 createdAt → 窗变大超 60s → 锚自动失效退 72
   const fa = new FourMemeFactorAggregator({}, console);
-  const realCreate = 1790000000000, tickAt = realCreate + 300000; // 首 tick 距创建 5min
-  fa.registerToken('0xlate', { createdAtMs: tickAt, totalSupply: 1e9, platform: 'flap' }); // tick 自动建（createdAt=tick 时刻）
-  const st = fa.getTokenState('0xlate');
-  st.firstTickAt = tickAt; st._relFirstPriceBnb = 5.7e-9; st._relPriceBnb = 5.7e-9;
-  approx('乱序自愈前（窗≈0）误用首市值锚', fa._graduationAnchorBnb(st), 71.25);
-  fa.registerToken('0xlate', { createdAtMs: realCreate, totalSupply: 1e9, platform: 'flap' }); // 回填权威创建时间
-  approx('迟到注册回填后 → 窗 5min 超 60s → 退 72', fa._graduationAnchorBnb(st), 72);
-  check('回填不覆盖 platform', st.platform, 'flap');
+  fa.registerToken('0xwater', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  // BNB 盘 A 实测形状：纯买 16.3246 → 池实收 0.98×16.3246 = 15.998108（四池回归精确）
+  feedTick(fa, '0xwater', { bnb: 16.3246 });
+  const st = fa.getTokenState('0xwater');
+  approx('纯买 16.3246 → inflow=0.98×16.3246', st.poolInflowBnb, 16.3246 * FUNDS_BUY_KEEP);
+  approx('progress=15.998108/15.998084 ≈ 1.0000015 ≥0.98 毕业臂触发',
+    st.poolInflowBnb / FUNDS_THRESHOLD, (16.3246 * FUNDS_BUY_KEEP) / FUNDS_THRESHOLD);
+  check('progress ≥ 0.98（水案毕业臂从死臂复活）', fa.buildFactorMap('0xwater', Date.now()).graduationProgress >= 0.98, true);
+
+  // 卖腿出池系数 1.0204：再卖 1.0 → inflow 15.998108 − 1.0204
+  feedTick(fa, '0xwater', { type: 'sell', bnb: 1.0 });
+  approx('卖 1.0 → inflow=−1.0204', st.poolInflowBnb, 16.3246 * FUNDS_BUY_KEEP - 1.0 * FUNDS_SELL_TAKE);
+
+  // 事故反证（水 0x25e2…7777 案，2026-10-24）：价格锚 R=毕业市值/首市值恒比假设不成立——
+  // 该票价格 9.4×（首市值 1.7 → 峰值市值 16）时旧锚=1.7×12.5=21.25，旧 progress
+  // 峰值=16/21.25=0.753，0.9/0.98 毕业臂全程够不着（死臂）；同流量资金口径 ≈1.0 达标。
+  // 上方 16.3246 纯买即同量级流量 → 资金口径与价格倍数完全解耦（价格再高 R≠12.5 不影响）
+  const fa2 = new FourMemeFactorAggregator({}, console);
+  fa2.registerToken('0xdoupi', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  // 豆皮案形状：quote 盘（quote_token 在场）+ 多笔买卖混合，价格 9.0×——资金口径照常累积
+  feedTick(fa2, '0xdoupi', { bnb: 6.0, price: 1.7e-9, quote: '0x4902c5eb00000000000000000000000000000001' });
+  feedTick(fa2, '0xdoupi', { type: 'sell', bnb: 0.5, price: 8e-9, quote: '0x4902c5eb00000000000000000000000000000001' });
+  feedTick(fa2, '0xdoupi', { bnb: 11.4, price: 15e-9, quote: '0x4902c5eb00000000000000000000000000000001' });
+  const st2 = fa2.getTokenState('0xdoupi');
+  approx('quote 盘混合流 inflow=0.98×17.4 − 1.0204×0.5', st2.poolInflowBnb, 17.4 * FUNDS_BUY_KEEP - 0.5 * FUNDS_SELL_TAKE);
+  check('quote 盘 quoteToken write-once 捕获', st2.quoteToken, '0x4902c5eb00000000000000000000000000000001');
+  check('quote 盘 progress ≈1.06 ≥0.98（豆皮案死臂复活）', fa2.buildFactorMap('0xdoupi', Date.now()).graduationProgress >= 0.98, true);
+
+  // 价格无关性：断价盘（price_bnb=0，quote 换算不可得）资金口径照常出值（价格锚路径须
+  // _relPriceBnb>0 否则 null——断流票读 null 的旧盲区）
+  const fa3 = new FourMemeFactorAggregator({}, console);
+  fa3.registerToken('0xnopx', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  feedTick(fa3, '0xnopx', { bnb: 8.0, price: 0 });
+  check('零价 tick 资金口径照常累积出值（>0.4）', fa3.buildFactorMap('0xnopx', Date.now()).graduationProgress > 0.4, true);
+
+  // platform 回填：registerToken 晚到（tick.platform 先到）累积不漏
+  const fa4 = new FourMemeFactorAggregator({}, console);
+  feedTick(fa4, '0xlate', { bnb: 2.0 }); // state 由 tick 自动建，platform 从 tick 回填
+  check('tick.platform 回填（registerToken 晚到）', fa4.getTokenState('0xlate').platform, 'flap');
+  approx('回填后已累积（不漏首 tick）', fa4.getTokenState('0xlate').poolInflowBnb, 2.0 * FUNDS_BUY_KEEP);
+
+  // four.meme 不走资金累积（72 市值锚原路径）：同款 tick platform='fourmeme'
+  const fa5 = new FourMemeFactorAggregator({}, console);
+  fa5.registerToken('0xfm', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'fourmeme' });
+  feedTick(fa5, '0xfm', { bnb: 16.3246, platform: 'fourmeme' });
+  check('four.meme 零资金累积（口径隔离）', fa5.getTokenState('0xfm').poolInflowBnb, 0);
 }
 
-// ═══ B. graduationProgress 端到端（buildFactorMap）═══
-console.log('B. graduationProgress（buildFactorMap 出键）');
+// ═══ B. noteGraduation 阈值学习 + graduationProgress 端到端（buildFactorMap）═══
+console.log('B. noteGraduation 学习 + buildFactorMap 出键');
 {
-  // flap 有效锚：现价 5 倍首价 → mcap 28.5 / 锚 71.25 = 0.4
-  const flap = seededState();
-  const st = flap.state;
-  st._relPriceBnb = 5.7e-9 * 5;
-  approx('flap 有效锚 progress=28.5/71.25=0.4', flap.fa.buildFactorMap('0xabc', Date.now()).graduationProgress, 0.4);
-  // 超窗退 72：同一现价 → 28.5/72
-  st.firstTickAt = st.createdAtMs + 120000;
-  approx('超窗退 72 后 progress=28.5/72', flap.fa.buildFactorMap('0xabc', Date.now()).graduationProgress, 28.5 / 72);
-  // four.meme 72 锚（同现价同首市值）
+  const fa = new FourMemeFactorAggregator({}, console);
+  // B1 BNB 盘学习：quoteToken null 键
+  fa.registerToken('0xg1', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  fa.noteGraduation({ token: '0xg1', fundsBnb: 15.9, quoteToken: null });
+  check('noteGraduation 置 graduated', fa.getTokenState('0xg1').graduated, true);
+  feedTick(fa, '0xg1', { bnb: 15.9 }); // inflow 0.98×15.9
+  approx('学习阈值 15.9 生效（对全局 15.998 的偏离可分辨）',
+    fa.buildFactorMap('0xg1', Date.now()).graduationProgress, (15.9 * FUNDS_BUY_KEEP) / 15.9);
+  // write-once：重复毕业不覆盖
+  fa.noteGraduation({ token: '0xg1', fundsBnb: 20, quoteToken: null });
+  check('学习 write-once（重复毕业不覆盖）', fa._gradFundsThresholds.get(null), 15.9);
+
+  // B2 per-quote 学习：quote 盘按 quoteToken 键独立学习，未学 quote 回落全局
+  const QUOTE = '0x4902c5eb00000000000000000000000000000002';
+  fa.registerToken('0xg2', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  feedTick(fa, '0xg2', { bnb: 10, quote: QUOTE });
+  fa.getTokenState('0xg2').quoteToken = QUOTE;
+  fa.noteGraduation({ token: '0xg2', fundsBnb: 16.2, quoteToken: QUOTE });
+  approx('quote 学习值 16.2 生效', fa.buildFactorMap('0xg2', Date.now()).graduationProgress, (10 * FUNDS_BUY_KEEP) / 16.2);
+  fa.registerToken('0xg3', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  feedTick(fa, '0xg3', { bnb: 10, quote: '0xunknownquote' });
+  approx('未学 quote 回落全局 15.998', fa.buildFactorMap('0xg3', Date.now()).graduationProgress, (10 * FUNDS_BUY_KEEP) / FUNDS_THRESHOLD);
+
+  // B3 four.meme 毕业不学习（金额口径不同，混学会污染 BNB 键阈值）但 graduated 照置
+  fa.registerToken('0xfmg', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'fourmeme' });
+  const before = fa._gradFundsThresholds.get(null);
+  fa.noteGraduation({ token: '0xfmg', fundsBnb: 24.9, quoteToken: null });
+  check('four.meme 毕业不污染阈值表', fa._gradFundsThresholds.get(null), before);
+  check('four.meme 毕业仍置 graduated', fa.getTokenState('0xfmg').graduated, true);
+
+  // B4 fundsBnb null（quote 盘换算不可得）不学习
+  fa.registerToken('0xgnull', { createdAtMs: 1790000000000, totalSupply: 1e9, platform: 'flap' });
+  const sizeBefore = fa._gradFundsThresholds.size;
+  fa.noteGraduation({ token: '0xgnull', fundsBnb: null, quoteToken: '0xq' });
+  check('fundsBnb null 不学习（诚实无值）', fa._gradFundsThresholds.size, sizeBefore);
+  check('state 缺失 no-op 不抛', (() => { fa.noteGraduation({ token: '0xnostate' }); return true; })(), true);
+
+  // B5 four.meme 72 市值锚原路径回归：现价 5 倍首价 → mcap 28.5 / 72
   const fm = seededState({ platform: 'fourmeme' });
   fm.state._relPriceBnb = 5.7e-9 * 5;
-  approx('four.meme progress=28.5/72', fm.fa.buildFactorMap('0xabc', Date.now()).graduationProgress, 28.5 / 72);
-  // totalSupply=0 → null fail-closed
-  const nos = seededState({ supply: 0 });
-  check('totalSupply=0 → null', nos.fa.buildFactorMap('0xabc', Date.now()).graduationProgress, null);
+  approx('four.meme progress=28.5/72（原路径不变）', fm.fa.buildFactorMap('0xabc', Date.now()).graduationProgress, 28.5 / 72);
+  const nos = seededState({ supply: 0, platform: 'fourmeme' });
+  check('four.meme totalSupply=0 → null（原路径不变）', nos.fa.buildFactorMap('0xabc', Date.now()).graduationProgress, null);
+  // B6 语义变化记录：flap 资金口径不依赖 supply/价格 → supply=0 照常出值
+  const faF = new FourMemeFactorAggregator({}, console);
+  faF.registerToken('0xnosupply', { createdAtMs: 1790000000000, totalSupply: 0, platform: 'flap' });
+  feedTick(faF, '0xnosupply', { bnb: 10 });
+  check('flap supply=0 资金口径照常出值（不再 null）', faF.buildFactorMap('0xnosupply', Date.now()).graduationProgress > 0.6, true);
 }
 
 // ═══ C. _handleGraduation（引擎事件驱动全清）═══
@@ -116,7 +188,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   let captured = null;
   let eng = makeEngine({
     _tokenPool: { getToken: () => ({ token: '0xking', symbol: '王之蔑视', status: 'bought' }) },
-    _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => FAKE_FACTORS },
+    _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => FAKE_FACTORS },
     _emitSellSignal: async (token, strategy, factors, tick) => { captured = { token, strategy, factors, tick }; return { success: true }; },
   });
   eng._handleGraduation(gradInfo);
@@ -139,7 +211,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   const other = makeEngine({
     _graduationSoldTokens: new Set(['0xking']),
     _tokenPool: { getToken: () => ({ token: '0xother', symbol: 'OTHER', status: 'bought' }) },
-    _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => FAKE_FACTORS },
+    _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => FAKE_FACTORS },
     _emitSellSignal: async () => { throw new Error('should not reach: same-set 不同地址被误挡'); },
   });
   // 0xother 不在 Set → 应正常走卖出链（此处打桩 _emitSellSignal 计数验证）
@@ -154,7 +226,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
     let called = 0;
     const e2 = makeEngine({
       _tokenPool: { getToken: () => ({ token: '0xking', symbol: 'T', status }) },
-      _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => FAKE_FACTORS },
+      _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => FAKE_FACTORS },
       _emitSellSignal: async () => { called++; },
     });
     e2._handleGraduation(gradInfo);
@@ -164,7 +236,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   let calledNull = 0;
   const e3 = makeEngine({
     _tokenPool: { getToken: () => null },
-    _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => FAKE_FACTORS },
+    _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => FAKE_FACTORS },
     _emitSellSignal: async () => { calledNull++; },
   });
   e3._handleGraduation(gradInfo);
@@ -175,7 +247,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   let calledPrune = 0;
   const e4 = makeEngine({
     _tokenPool: { getToken: () => ({ token: '0xking', symbol: 'T', status: 'bought' }) },
-    _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => null },
+    _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => null },
     _emitSellSignal: async () => { calledPrune++; },
   });
   e4._handleGraduation(gradInfo);
@@ -186,7 +258,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   let errs = 0;
   const e5 = makeEngine({
     _tokenPool: { getToken: () => ({ token: '0xking', symbol: 'T', status: 'bought' }) },
-    _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => FAKE_FACTORS },
+    _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => FAKE_FACTORS },
     _emitSellSignal: async () => { throw new Error('sell failed'); },
     logger: { info: () => {}, warn: () => {}, debug: () => {}, error: () => { errs++; } },
   });
@@ -199,7 +271,7 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   const e6 = makeEngine({
     _isLive: true,
     _tokenPool: { getToken: () => ({ token: '0xking', symbol: 'T', status: 'bought' }) },
-    _factorAggregator: { markGraduated: () => {}, buildFactorMap: () => FAKE_FACTORS },
+    _factorAggregator: { noteGraduation: () => {}, buildFactorMap: () => FAKE_FACTORS },
     _getHolding: () => ({ amount: 123456n }),
     _notifyLiveAlert: () => { alerts++; },
     _emitSellSignal: async () => { liveSells++; },

@@ -90,8 +90,11 @@ class StrategyEngine {
                 const _legacyFields = [];
                 if (config.groups != null && String(config.groups).trim() !== '') _legacyFields.push('groups');
                 if (config.cycle != null) _legacyFields.push('cycle');
+                // sellPercentage 退役（2026-10-24 用户裁定：卡牌 cards 是唯一卖 sizing）：
+                // 静默失效 = sizing 静默变全清（卖更多，危险方向），携带即拒启
+                if (config.action === 'sell' && config.sellPercentage != null) _legacyFields.push('sellPercentage');
                 if (_legacyFields.length > 0) {
-                    throw new Error(`策略[${config.id}] 携带已删除机制的配置字段 ${_legacyFields.join('/')}（cycle 周期分桶路由，2026-10-15 删除）——静默失效会让腿恒可见（危险方向），拒绝启动；请删除该字段（如需活跃度维度改用 act* 滑窗因子族）`);
+                    throw new Error(`策略[${config.id}] 携带已删除机制的配置字段 ${_legacyFields.join('/')}（groups/cycle=cycle 周期分桶路由 2026-10-15 删除；sellPercentage=比例卖出 2026-10-24 退役）——静默失效会让腿行为偏危险方向，拒绝启动；请删除该字段（sizing 改用 cards 卡牌张数，活跃度维度改用 act* 滑窗因子族）`);
                 }
 
                 // 解析条件
@@ -194,10 +197,8 @@ class StrategyEngine {
                     lockTokenAfterSell: !!config.lockTokenAfterSell,
                     cumulativeLossLockPct: typeof config.cumulativeLossLockPct === 'number'
                         ? config.cumulativeLossLockPct : null,
-                    // E5 卖侧：卖出比例（执行时点余仓的比例，(0,1]；缺省/非法 → 1=全仓=旧语义）
-                    sellPercentage: (typeof config.sellPercentage === 'number'
-                        && config.sellPercentage > 0 && config.sellPercentage <= 1)
-                        ? config.sellPercentage : 1,
+                    // E5 卖侧：sellPercentage 已退役（2026-10-24，卡牌 cards 唯一 sizing）——
+                    // 策略对象不再携带该键（sizing 读点已删）；存量腿携带由上方 fail-fast 拒启
                     // 卡牌仓位（迁自 rich-js）：本腿买/卖张数；卖腿 'all'=全清。实验未配置
                     // positionManagement.perCardBNB 时引擎侧整体忽略（null=旧语义）
                     cards: normalizeCards(config.cards, config.action),

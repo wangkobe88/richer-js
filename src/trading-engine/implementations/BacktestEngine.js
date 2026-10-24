@@ -298,9 +298,10 @@ class BacktestEngine extends AbstractTradingEngine {
           bypassDebounce: !!s.bypassDebounce,
           lockTokenAfterSell: !!s.lockTokenAfterSell,
           cumulativeLossLockPct: typeof s.cumulativeLossLockPct === 'number' ? s.cumulativeLossLockPct : null,
-          // E5 卖侧：卖出比例（执行时点余仓比例，(0,1]；缺省/非法 → 1=全仓=旧语义）
-          sellPercentage: (typeof s.sellPercentage === 'number'
-            && s.sellPercentage > 0 && s.sellPercentage <= 1) ? s.sellPercentage : 1,
+          // sellPercentage 已退役（2026-10-24）：刻意原样透传（勿归一化吞掉）——
+          // loadStrategies fail-fast 靠它识别携带旧字段的存量实验并拒启（groups/cycle
+          // 同款防线；与实时引擎同坑，单测锁两处透传）
+          sellPercentage: s.sellPercentage,
           // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
@@ -1444,6 +1445,7 @@ class BacktestEngine extends AbstractTradingEngine {
           token: row.token_address,
           tsMs,
           fundsBnb: Number(payload.fundsBnb) || null,
+          quoteToken: payload.quoteToken ?? null,
         });
         total++;
       }
@@ -1506,7 +1508,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
   /**
    * 消费到期毕业事件（主循环每 tick 尾部 + 回放收尾 drain 调用）：
-   *   - 事件时刻 ≤ upToTs 的依次处理：markGraduated（FA 防前视：此后的
+   *   - 事件时刻 ≤ upToTs 的依次处理：noteGraduation（FA 防前视：此后的
    *     graduationProgress 判定不受影响，毕业臂策略腿语义不变）
    *   - 持仓票 → _emitGraduationSell 全清（断流前最后可靠价 = buildFactorMap(evtTs)，
    *     毕业后无新 tick，evtTs 时刻取值即最后价格史——虚拟引擎同款）
@@ -1514,13 +1516,16 @@ class BacktestEngine extends AbstractTradingEngine {
    *   - 卖出失败不推进指针（每 tick 重试，虚拟「扫描兜底」的回放等价物）；
    *     持续失败最终由回放结束强平收尾
    * 消费点在 tick 处理之后：同块「首 tick + 毕业事件」时首见注册已完成
-   * （markGraduated 需要 FA state 存在）。
+   * （noteGraduation 需要 FA state 存在）。
    */
   async _consumeGraduationEvents(upToTs) {
     while (this._gradEvtIdx < this._graduationEvents.length) {
       const evt = this._graduationEvents[this._gradEvtIdx];
       if (evt.tsMs > upToTs) break;
-      this._factorAggregator.markGraduated(evt.token);
+      // noteGraduation（2026-10-24 资金口径）：置 graduated + 学习 per-quote 毕业阈值
+      //（回放内 as-of 合法——事件按时间序消费，后续同 quote 池用学习值）。
+      // fundsBnb 缺失（quote 盘换算不可得行）只标记不学习
+      this._factorAggregator.noteGraduation({ token: evt.token, fundsBnb: evt.fundsBnb, quoteToken: evt.quoteToken });
       // 事件到达标记在消费点填充（74444a0c 数据点 B 前视事故：装载即填会把「未来
       // 毕业」提前暴露给买入成功点补卖判据——CZ 买入 fireTs 16:39:04 查到 14s 后
       // 才毕业的标记直接补卖@买价 0%，虚拟引擎对应标记是事件墙钟到达才置。
@@ -2153,7 +2158,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // 毕业事件先于买入的消费竞态补卖（虚拟引擎三挂点之一，盘古案 2026-09-28）：
         // graduation 事件消费时 status!=='bought' no-op，买入成功点查 FA graduated
-        // 标记（或事件集合——事件先于首 tick 的边缘 markGraduated 会 no-op）直接补
+        // 标记（或事件集合——事件先于首 tick 的边缘 noteGraduation 会 no-op）直接补
         // 毕业全清。回放串行直接 await（虚拟为 fire-and-forget，效果等价）
         if (faState?.graduated || this._graduatedTokens.has(token.token)) {
           if (!this._graduationSoldTokens.has(token.token)) {
@@ -2347,14 +2352,14 @@ class BacktestEngine extends AbstractTradingEngine {
       const holding = this._getHolding(tokenAddress);
       const buyPrice = holding?.averagePurchasePrice || token.buyPrice || null;
 
-      // 卡牌 sizing（迁自 rich-js）：机制启用 且 卖腿配 cards 且 token 有卡 → 按卡数比例
-      // 卖余仓：soldN = 'all'→全清 / min(cards, 余卡)（超余卡钳制）；soldN>=tokenCards 时
-      // sellPct 恒精确 1（IEEE T/T）→ Decimal.mul(1) 精确直通，PM remainingAmount.eq(0)
-      // 删仓判据成立（E5d 僵尸仓教训，详见 _executeSell 注释）。不满足任一条件 → 旧
-      // sellPercentage 路径（机制关闭/腿未配卡/无卡均不拦截）。cardTrade.after 为信号
-      // 构造时点算好的绝对值，随 trade metadata 落库（_executeSell 成功分支写回 Map）
+      // 卡牌 sizing（与实时引擎同构）：soldN = 'all'→全清 / min(cards, 余卡) 钳制；
+      // soldN>=tokenCards 时 sellPct 恒精确 1（IEEE T/T）→ Decimal.mul(1) 精确直通，
+      // PM remainingAmount.eq(0) 删仓判据成立（E5d 僵尸仓教训）。sellPercentage 已
+      // 退役（2026-10-24）：sizing 唯一表达=cards；腿无 cards/机制关/无卡 → 全清
+      // （机制关闭/腿未配卡/无卡均不拦截）。cardTrade.after 为信号构造时点算好的
+      // 绝对值，随 trade metadata 落库（_executeSell 成功分支写回 Map）
       let cardTrade = null;
-      let sellPct = strategy.sellPercentage ?? 1;
+      let sellPct = 1;
       if (this._cardsEnabled && strategy.cards != null) {
         const tokenCards = this._tokenCards.get(tokenAddress) || 0;
         if (tokenCards > 0) {

@@ -1833,7 +1833,6 @@
             badges.push(cfg.maxExecutions != null ? `执行≤${cfg.maxExecutions}` : '不限次数');
             if (cfg.cards != null) badges.push(`🃏${cfg.cards}`);
             if (cfg.cooldownSec != null) badges.push(`⏱️${cfg.cooldownSec}s`);
-            if (cfg.sellPercentage != null) badges.push(`卖${Math.round(cfg.sellPercentage * 100)}%`);
             if (cfg.bypassDebounce) badges.push('旁路去抖');
             card.querySelector('.leg-badges').innerHTML =
                 badges.map(b => `<span class="badge">${b}</span>`).join('');

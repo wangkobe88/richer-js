@@ -123,6 +123,8 @@ require.cache[TRADERS_PATH] = {
             const t = {
                 _type: type, _config: config, wallet: null,
                 async setWallet(pk) { this.wallet = { address: '0xPCS' + String(pk).slice(-4), privateKey: pk }; },
+                setLogger(logger, experimentId) { this._loggerCalls = [logger, experimentId]; },
+                shareSignerFrom(other) { this._sharedFrom = other; this.wallet = other.wallet; this.signer = other.signer; },
             };
             pcsCreated.push(t);
             return t;
@@ -418,9 +420,15 @@ async function main() {
         ok(pcsCreated[0]._config && pcsCreated[0]._config.network && pcsCreated[0]._config.network.rpcUrl === 'https://rpc.test',
             'PCS trader 继承主 trader 发单 RPC');
         ok(pcsCreated[0].wallet && pcsCreated[0].wallet.privateKey === '0xPKMAIN',
-            'PCS trader 同钱包（私钥从既有 wallet 对象取）');
+            'PCS trader 同钱包（私钥从既有 wallet 对象取；shareSignerFrom 后=主 wallet）');
         ok(calls.sell.length === 1 && calls.sell[0].traderOverride === pcsCreated[0],
             'traderOverride = PCS trader 透传 _executeSell');
+        // 2026-10-24 接线加固：日志进实验文件 + nonce 红线（同地址单一 nonce 分配源）
+        ok(Array.isArray(pcsCreated[0]._loggerCalls) && pcsCreated[0]._loggerCalls[1] === engine._experimentId
+            && typeof pcsCreated[0]._loggerCalls[0]?.info === 'function',
+            'PCS trader setLogger(logger, experimentId) 接线');
+        ok(pcsCreated[0]._sharedFrom === engine._trader,
+            'PCS trader shareSignerFrom(主 trader)（nonce 红线：不自建 NonceManager）');
 
         // 懒加载缓存：同一引擎第二笔不再创建（引用复用）
         const firstPcs = pcsCreated[0];

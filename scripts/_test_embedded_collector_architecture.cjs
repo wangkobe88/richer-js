@@ -8,7 +8,7 @@
  *  A  _createCollectors 接线：平台集合/构造类/共享 senderResolver+eventWriter/实验级 collector
  *     配置覆盖恢复生效（watcher 时代失效的反转）
  *  B  事件双投：onTokenCreate/onGraduation → wss_events 行（WssEventWriter 打桩 DB 落 inserts）
- *     + 引擎句柄（saveToken/markGraduated）；flap onQuoteSet → token_quote_set 行；fourmeme 无
+ *     + 引擎句柄（saveToken/noteGraduation）；flap onQuoteSet → token_quote_set 行；fourmeme 无
  *  C  tick 链端到端：_emitTick → 真 FA factorsUpdated + _tickBuffer 行 experiment_id=null
  *     （08-27 防线）+ TPA _onTickBuffered 钩子（启用挂/未启用不挂）
  *  D  TPA live 三件套引擎接线：initLiveTicksBuffer 已调 / preloadRecentTicks fail-open 不阻启动
@@ -260,7 +260,7 @@ async function testB() {
     check('B2a onGraduation → wss_events kind=graduation',
         !!evGrad && evGrad.rows[0].kind === 'graduation' && evGrad.rows[0].token_address === '0xB1TOK');
     const gSt = e._factorAggregator.getTokenState('0xB1TOK');
-    check('B2b onGraduation → 引擎 _handleGraduation → FA.markGraduated（无持仓不触发毕业卖出）',
+    check('B2b onGraduation → 引擎 _handleGraduation → FA.noteGraduation（无持仓不触发毕业卖出）',
         gSt && gSt.graduated === true);
 
     // B3 flap onQuoteSet → token_quote_set 行；fourmeme collector 无该回调
