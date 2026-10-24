@@ -1132,14 +1132,12 @@
       "addr": "0x2c092d46e05b2d32ff5013ea1c41d8c846067777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.54、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.54、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 收 low（低分无争议：蓝筹去重撞 Ucan fix life in1day+空洞门 73%；未附异议按无异议收）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 收 low（低分无争议：蓝筹去重撞 Ucan fix life in1day+空洞门 73%；未附异议按无异议收）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1148,14 +1146,12 @@
       "addr": "0x138f7834f8a48e651fbe0424a242234d48727777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.97、关联 acceptable）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.97、关联 acceptable）：放行风险面观察，待用户逐张裁定；2026-10-24 收 low（score 97 关联 unacceptable 47 vs 43 贴线掷骰拦=C109c 第三例；未附异议按无异议收）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 收 low（score 97 关联 unacceptable 47 vs 43 贴线掷骰拦=C109c 第三例；未附异议按无异议收）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1164,14 +1160,12 @@
       "addr": "0xa959ce0dd0248df36df907667ee9a44c5d3b7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.8、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.8、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 用户裁定 low：事件撑不起代币——GTA6 泄露 Crypto app 是普通 crypto 事件、名字是 crypto 太大了；关联题 exact_match 96% 虚高（「C」=Crypto 缩写首字母联想≠完整指代），用户不应接受事件/币名联系——bsc_meme_user_name_event_acceptance 判据观察点、机制不动（重析 high 81.76=意图分歧票）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 用户裁定 low：事件撑不起代币——GTA6 泄露 Crypto app 是普通 crypto 事件、名字是 crypto 太大了；关联题 exact_match 96% 虚高（「C」=Crypto 缩写首字母联想≠完整指代），用户不应接受事件/币名联系——bsc_meme_user_name_event_acceptance 判据观察点、机制不动（重析 high 81.76=意图分歧票）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1180,14 +1174,12 @@
       "addr": "0xd139d3b905468f544e75abca1a1a7b0376867777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.95、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.95、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 收 low（score 96 关联 unacceptable 52 vs exact_match 43 掷骰拦=C109c 第二例；词句 83% 同方向；未附异议按无异议收）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 收 low（score 96 关联 unacceptable 52 vs exact_match 43 掷骰拦=C109c 第二例；词句 83% 同方向；未附异议按无异议收）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1196,14 +1188,12 @@
       "addr": "0x2887546ae9524f8298884900ec135031d3cc7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.86、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.86、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 用户裁定 low：事件有点弱（Grok 发推点名 @Bot 帮修信用评分）；提出这个事的是马斯克不太好处理，先放放——机制不动（重析 high 84.34=意图分歧票）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 用户裁定 low：事件有点弱（Grok 发推点名 @Bot 帮修信用评分）；提出这个事的是马斯克不太好处理，先放放——机制不动（重析 high 84.34=意图分歧票）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1217,7 +1207,7 @@
           "high"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.98、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.98、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 用户裁定：可接受 high，但用户不接纳这个做 meme 币同样正常——预期 low/mid/high 皆可（维持全收观察，不收紧）",
       "addedAt": "2026-10-23",
       "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
       "expectSince": "2026-10-23"
@@ -1228,14 +1218,12 @@
       "addr": "0x14287dae87b3fb6a4545658c1aa7ac1ed8fb7777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.72、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.72、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 收 low（空洞门 48% 贴线拦；P@ssw0rd!=开发者通用密码占位符非币安隐私叙事；未附异议按无异议收）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 收 low（空洞门 48% 贴线拦；P@ssw0rd!=开发者通用密码占位符非币安隐私叙事；未附异议按无异议收）",
       "expectSince": "2026-10-23"
     },
     {
@@ -1244,14 +1232,12 @@
       "addr": "0x064a0a233ccd631d5d79afb56cc88d7ab0347777",
       "expect": {
         "rating": [
-          "low",
-          "mid",
-          "high"
+          "low"
         ]
       },
-      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.66、关联 exact_match）：放行风险面观察，待用户逐张裁定",
+      "note": "C180 观察票-词句门独杀·纯符号名（fit 0.66、关联 exact_match）：放行风险面观察，待用户逐张裁定；2026-10-24 收 low（W 类吸引力 15<32 干净拦；未附异议按无异议收）",
       "addedAt": "2026-10-23",
-      "expectBecause": "C180 收录（2026-10-23 用户裁定）：名字门 unknown/词句两臂退役拦截，历史被拦票入集观察（expect 全收），待用户逐张确认预期后 --update-expect 收紧",
+      "expectBecause": "2026-10-24 收 low（W 类吸引力 15<32 干净拦；未附异议按无异议收）",
       "expectSince": "2026-10-23"
     },
     {
