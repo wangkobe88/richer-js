@@ -243,10 +243,11 @@ let _retentionBasis = null;
 // null fail-closed；引擎 stop 逐 token 清）。★retryDue 的 now 由 buildFactorMap
 // 入参传入（FA 周期判定禁 Date.now 红线）。
 let _narrativeFactorOverrides = null;
-// C162 零语料臂（corpusEmpty）节奏键：间隔 60s/上限 8 轮=8 分钟窗，覆盖抢跑发币票
-// 宣告推晚发+GMGN link 聚合的分钟级晚到（正主案实证：宣告推晚 4min、13min 毕业）；
+// C162 零语料臂（corpusEmpty）节奏键：间隔 10s/上限 10 轮=100s 窗（2026-10-25
+// 感染者案用户裁定收紧：60s 固定节奏下宣告推 33s 到位仍要等满 60s，抢跑票买点
+// 白丢 ~40s；原 60s×8=8 分钟窗的「宣告推晚 4min」形状不再覆盖，翻正机会收窄）；
 // 与 accountOnly 臂（10s×3）互斥分流，实验级 fourmemeWs.narrativeRetry.noCorpus* 可覆盖
-const _NARRATIVE_FACTOR_DEFAULTS = { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 60000, noCorpusMaxAnalyses: 8 };
+const _NARRATIVE_FACTOR_DEFAULTS = { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 10000, noCorpusMaxAnalyses: 10 };
 let _narrativeFactorConfig = { ..._NARRATIVE_FACTOR_DEFAULTS };
 // C166 账号信息复检注入（引擎 AccountHealthMonitor 回填；_narrativeFactorOverrides
 // 同款模块级单例——无回填恒 null → 卖臂条件 `issuerAccountState == 'deleted'` 恒

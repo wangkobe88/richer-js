@@ -54,6 +54,14 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C195 零语料臂补轮节奏收紧 60s×8 → 10s×10（感染者案，2026-10-25 用户裁定）★
+
+- **案发**：感染者 `0xac823d9b973574210a3322804182e3b599e67777`（flap 税币，creator `0x904974…4c06` 批量连发簇之一）。11:07:27 token 创建同秒触发 R1，此刻 meta 只有 IPFS 描述、宣告推/GMGN link 未到（corpusEmpty）→ Jev 仅靠名字+知识库匹配评 low；**宣告推 `@agentganranzhe/status/2114312327076184250` 11:08:00 才由语料补采拿到**（晚 33s），但 noCorpus 臂固定 60s 节奏等满 → 11:08:38 才 R2，W 类吸引力 47（pass 32）翻 mid → 11:08:54 成交 @12.26e-06；R1 完成时刻价 ~6.8e-06=**晚 87s 贵 ~80%**，11:10 卖 6.84e-06 **-44.2%** 出局。语料到位后 retry 白等 38s 是主因。
+- **裁定（用户原话语义）**：完成一次分析失败后等 10s 即下一轮、每 token 最多 10 次 → `noCorpusIntervalMs` 缺省 60000→10000、`noCorpusMaxAnalyses` 8→10（缺省值改在 FA `_NARRATIVE_FACTOR_DEFAULTS` 单一真相源，引擎/CLAUDE.md/单测同步）。
+- **代价（明示 trade-off）**：总覆盖窗 480s→100s，C162 立门时「宣告推晚 4min」正案形状不再覆盖；单 token 真跑上限 +2 轮（Jev 配额微增）。实验级 `fourmemeWs.narrativeRetry.noCorpus*` 显式覆盖仍优先（键覆盖语义不变）；accountOnly 臂（intervalMs 10000/maxAnalyses 3）不动。
+- **验证**：`_test_fa_narrative_factors` E5/H1-H3 断言更新至新值（10s 边界含等/上限 10）、H4 反证文案同步；`_test_narrative_retry_config` 新增 E4 FA 字面量锁定（10000/10）+E1/E2 文案；`_test_narrative_trigger_condition` 47、`_test_jev_regional_binance_anchor` 29 全绿。
+- **生效条件**：缺省在引擎构造读取——**在跑实验须重启进程才生效**（live v37 重启前按规程核持仓）。
+
 ### C194 实体-事件影响力脱节——实体题第 5 桶 entity_event_mismatch（2026-10-25 用户裁定，J1.124）★
 
 - **案发**：同 C193 齐天大圣 `0x4a6a6c8b3c15eb8422ad7b95c5c6280ed68d7777`。C193 情感臂已把它压到 low，但用户追加指出另一条更本质的轴：「齐天大圣是中国非常著名的超级 IP，但是这个事件影响力明显不大。这样就是代币 IP 很大，事件本身影响力极小，两者脱节，事件明显支撑不起这个代币，这种情况需要据掉」。

@@ -257,9 +257,9 @@ console.log('E. config 锁死/部分注入');
     });
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 60000).narrativeRetryDue, 1);
   });
-  check('E5 getNarrativeFactorDefaults 单一真相源 = {10000, 3, 60000, 8}（C162 noCorpus* 两键）', () =>
+  check('E5 getNarrativeFactorDefaults 单一真相源 = {10000, 3, 10000, 10}（C162 noCorpus* 两键，感染者案收紧）', () =>
     assert.deepStrictEqual(FourMemeFactorAggregator.getNarrativeFactorDefaults(),
-      { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 60000, noCorpusMaxAnalyses: 8 }));
+      { intervalMs: 10000, maxAnalyses: 3, noCorpusIntervalMs: 10000, noCorpusMaxAnalyses: 10 }));
   FourMemeFactorAggregator.clearNarrativeFactors(ADDR);
 }
 
@@ -298,30 +298,30 @@ console.log('G. 源码口径');
 }
 
 // ═══════════════ H. C162 corpusEmpty 臂 ═══════════════
-console.log('H. C162 corpusEmpty 零语料臂（60s×8 独立节奏）');
+console.log('H. C162 corpusEmpty 零语料臂（10s×10 独立节奏——感染者案收紧前 60s×8）');
 beforeEachReset();
 {
   const fa = newFA();
   const mk = (over) => Object.assign(
     { rating: 1, rounds: 1, completedAt: T0 + 1000, accountOnly: false, corpusEmpty: true, inFlight: false }, over);
-  check('H1 59.999s → 0（noCorpusInterval 60s 节奏，与常规臂 10s 分流）', () => {
+  check('H1 9.999s → 0（noCorpusInterval 10s 节奏，隔值紧贴分流边界）', () => {
     FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({}));
-    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 59999).narrativeRetryDue, 0);
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 9999).narrativeRetryDue, 0);
   });
-  check('H2 60s → 1（>= 含等）', () => {
+  check('H2 10s → 1（>= 含等）', () => {
     FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({}));
-    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 60000).narrativeRetryDue, 1);
+    assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 10000).narrativeRetryDue, 1);
   });
-  check('H3 rounds≥noCorpusMaxAnalyses(8) → 0；7 → 1（零语料臂上限）', () => {
-    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 8 }));
+  check('H3 rounds≥noCorpusMaxAnalyses(10) → 0；9 → 1（零语料臂上限）', () => {
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 10 }));
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 0);
-    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 7 }));
+    FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ rounds: 9 }));
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 1);
   });
   check('H4 双臂同真（accountOnly ∧ corpusEmpty）→ accountOnly 臂节奏优先（10s×3）', () => {
     FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ accountOnly: true, rounds: 3 }));
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 100000).narrativeRetryDue, 0,
-      'rounds=3 按 accountOnly 臂 maxAnalyses=3 封顶（误用 noCorpus 8 则翻转）');
+      'rounds=3 按 accountOnly 臂 maxAnalyses=3 封顶（误用 noCorpus 10 则翻转）');
     FourMemeFactorAggregator.setNarrativeFactors(ADDR, mk({ accountOnly: true, rounds: 2 }));
     assert.strictEqual(fa.buildFactorMap(ADDR, T0 + 1000 + 10000).narrativeRetryDue, 1,
       '10s 即到期（accountOnly 臂 intervalMs，非 60s）');

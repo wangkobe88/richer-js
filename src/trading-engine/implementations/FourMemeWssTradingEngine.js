@@ -442,7 +442,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 真相源补全防字面量漂移）：narrativeRetry.intervalMs/maxAnalyses 兼供 FA
     // narrativeRetryDue 臂（引擎触发状态机与 FA 因子判据共用同一组数=行为一致）；
     // C162 零语料臂两键 noCorpusIntervalMs/noCorpusMaxAnalyses（实验级可选覆盖，
-    // 默认 60s×8=8 分钟窗，覆盖抢跑票宣告推/GMGN 聚合的分钟级晚到）
+    // 默认 10s×10=100s 窗——感染者案收紧，原 60s×8=8 分钟窗不再覆盖分钟级晚到）
     {
       const _nrDefaults = FourMemeFactorAggregator.getNarrativeFactorDefaults();
       this._narrativeTriggerIntervalMs = Number.isInteger(narrativeRetry.intervalMs) && narrativeRetry.intervalMs > 0
@@ -1652,7 +1652,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    *   在 tick 因子表上评估，过门 → 发起后台叙事分析（NarrativeDirectCaller.getRating）
    * - 首轮 reason='condition'（常规调用，token 级缓存命中秒回）；此后仅补轮臂可再发：
    *   lastRating===1 ∧（accountOnly（账号型语料=动态，重取可翻案）∨ corpusEmpty
-   *   （C162 零自有语料=宣告推/GMGN link 晚到竞态，60s×8 节奏独立键））∧
+   *   （C162 零自有语料=宣告推/GMGN link 晚到竞态，10s×10 节奏独立键））∧
    *   rounds<maxAnalyses（按臂选参数）∧ 距末轮完成 ≥ intervalMs → reason='retry'
    *   （override ignoreCache+invalidateAccountCorpus 强制重取重析，getRating '!ttl'
    *   inflight 槽）。条件首臂（量门）持续为真不重复发起——hasInitial 后按状态机

@@ -123,11 +123,11 @@ function check(name, cond, detail) {
     const src = read('src/trading-engine/implementations/FourMemeWssTradingEngine.js');
     console.log('E. C162 noCorpus* 两键（零语料臂节奏，双 BINA 案）');
 
-    check('E1 实验级 noCorpusIntervalMs 条件注入（缺省回落 60s）',
+    check('E1 实验级 noCorpusIntervalMs 条件注入（缺省回落 10s，感染者案收紧）',
         src.includes('this._narrativeTriggerNoCorpusIntervalMs = Number.isInteger(narrativeRetry.noCorpusIntervalMs) && narrativeRetry.noCorpusIntervalMs > 0')
             && src.includes('? narrativeRetry.noCorpusIntervalMs : _nrDefaults.noCorpusIntervalMs;'));
 
-    check('E2 实验级 noCorpusMaxAnalyses 条件注入（缺省回落 8）',
+    check('E2 实验级 noCorpusMaxAnalyses 条件注入（缺省回落 10）',
         src.includes('this._narrativeTriggerNoCorpusMaxAnalyses = Number.isInteger(narrativeRetry.noCorpusMaxAnalyses) && narrativeRetry.noCorpusMaxAnalyses >= 0')
             && src.includes('? narrativeRetry.noCorpusMaxAnalyses : _nrDefaults.noCorpusMaxAnalyses;'));
 
@@ -135,6 +135,11 @@ function check(name, cond, detail) {
         src.includes('const noCorpusArm = st.corpusEmpty === true && st.accountOnly !== true;')
             && src.includes("const maxAnalyses = noCorpusArm ? this._narrativeTriggerNoCorpusMaxAnalyses : this._narrativeTriggerMaxAnalyses;")
             && src.includes("const intervalMs = noCorpusArm ? this._narrativeTriggerNoCorpusIntervalMs : this._narrativeTriggerIntervalMs;"));
+
+    const faSrc = read('src/services/FourMemeFactorAggregator.js');
+    check('E4 FA 缺省 noCorpus 10s×10（感染者案 2026-10-25 收紧：60s 固定节奏丢买点）',
+        faSrc.includes('noCorpusIntervalMs: 10000, noCorpusMaxAnalyses: 10')
+            && !faSrc.includes('noCorpusIntervalMs: 60000'));
 }
 
 // ═══ D. 创建页模板三处物化语义 ═══
