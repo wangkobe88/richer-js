@@ -129,29 +129,58 @@ class BaseTrader extends ITrader {
     }
 
     /**
+     * 已上链/入池 tx 恢复轮询：tx 短暂未被节点索引时轮询数秒（already-known 恢复与
+     * nonce 错误取证共用同一窗口）；拿不到返回 null。
+     */
+    async _pollTxResponse(hash, label = '交易', context = '') {
+        for (let i = 0; i < 12; i++) {
+            const tx = await this.provider.getTransaction(hash);
+            if (tx) return tx;
+            await new Promise((res) => setTimeout(res, 500));
+        }
+        this.log(`${context || label}取证轮询超时：tx ${hash} 节点未见`, 'warning');
+        return null;
+    }
+
+    /**
      * already known 恢复：从错误 payload 提取 raw 算出 txHash，取回 tx response 交
      * 上层照常「交易已发送 + awaitReceipt」——绝不 reset 重签重发（重发=nonce+1 的
      * 第二笔同参数交易：首发已成交时=双卖；本案第二笔靠 minOut revert 才免于双卖）。
      * 错误形状 error.info.payload.params[0]（ethers v6 JsonRpcError，日志实证）。
-     * tx 短暂未被节点索引时轮询数秒；拿不到返回 null（上层原样抛，保守判失败）。
      */
     async _recoverTxFromAlreadyKnown(error, label = '交易') {
         const raw = error?.info?.payload?.params?.[0];
         if (typeof raw !== 'string' || !raw.startsWith('0x')) return null;
         const hash = ethers.Transaction.from(raw).hash;
         this.log(`already known=已在 mempool：恢复 ${label} tx ${hash} 追踪回执（不重签不重发）`, 'warning');
-        for (let i = 0; i < 12; i++) {
-            const tx = await this.provider.getTransaction(hash);
-            if (tx) return tx;
-            await new Promise((res) => setTimeout(res, 500));
-        }
-        return null;
+        return this._pollTxResponse(hash, label);
     }
 
     /**
-     * nonce 守卫（B2）：包装发单调用——catch 到 nonce 类拒收错误时 reset NonceManager
-     * 重新从链上取 nonce，重试一次。交易未被上链（拒收）故重试无双花风险；非 nonce
-     * 错误原样抛出不重试。already known 走恢复分支（tx 已入池，拒收假设不成立）。
+     * nonce 类错误取证（T2）：错误 payload 里的 raw 是首发交易——先查它的链上终态。
+     * 「nonce too low: next nonce N+1, tx nonce N」的 N+1 恰恰证明 nonce N 已被消费
+     * =首发已上链执行（成交或 revert 均算），此时重发=nonce+1 同参数第二笔=双卖。
+     * 返回 TransactionResponse=首发已在链上/入池（恢复追踪）；null=首发确认未上链
+     * （可安全重试）；undefined=无法取证（payload 缺 raw）。
+     */
+    async _probeNonceErrorTx(error, label = '交易') {
+        const raw = error?.info?.payload?.params?.[0];
+        if (typeof raw !== 'string' || !raw.startsWith('0x')) return undefined;
+        const hash = ethers.Transaction.from(raw).hash;
+        return this._pollTxResponse(hash, label, 'nonce 错误');
+    }
+
+    /**
+     * nonce 守卫（B2→T2）：包装发单调用——catch 到 nonce 类错误时，先取证首发 raw 的
+     * 链上终态再决定动作，重试必须以「首发确认未上链」为前提：
+     *   - 首发已在链上（已执行）→ 恢复追踪，绝不重发（2026-10-25 T2 K线人生
+     *     0xfeff…7777 双卖案：首发 nonce 1735 tx 0x0017…49ff 已成交，HTTP 响应丢失后
+     *     请求层重发同 raw 撞出 "nonce too low: next nonce 1736, tx nonce 1735"，
+     *     旧逻辑误当拒收 reset 重发 nonce 1736 同参数卖出 → 双卖 1 卡，卡账本虚挂、
+     *     幽灵持仓熔断循环；BNB 实收进钱包但无 trades 行）
+     *   - 首发确认未上链（真拒收/mempool 被顶）→ reset NonceManager 重试一次（旧行为）
+     *   - 提取不到 raw → 无法证明首发未上链，fail-closed 原样抛出不重试
+     * already known 走恢复分支（tx 已入池，拒收假设不成立）。
      */
     async _nonceGuard(fn, label = '交易') {
         try {
@@ -163,7 +192,16 @@ class BaseTrader extends ITrader {
                 throw error;
             }
             if (!this._isNonceError(error)) throw error;
-            console.warn(`🔁 ${this.constructor.name}: nonce 冲突拒收（${error.message}），reset 后重试一次`);
+            const probe = await this._probeNonceErrorTx(error, label);
+            if (probe === undefined) {
+                this.log(`nonce 错误但无法提取首发 raw（无法证明未上链），fail-closed 不重试: ${error.message}`, 'warning');
+                throw error;
+            }
+            if (probe) {
+                this.log(`nonce 错误但首发 tx ${probe.hash} 已在链上/入池（已执行或待打包）：恢复追踪，不重发（重发=nonce+1 双卖）`, 'warning');
+                return probe;
+            }
+            console.warn(`🔁 ${this.constructor.name}: nonce 冲突拒收（首发确认未上链），reset 后重试一次`);
             this.signer.reset();
             return await fn();
         }

@@ -9,8 +9,9 @@
  *      NonceManager.getAddress 是 async 不能顶替，这是刻意的双字段设计）
  *   3. _isNonceError 短语表：nonce 类拒收识别 / 'gas price too low' 不误伤
  *      （裸 'too low' 匹配的事故反证）
- *   4. _nonceGuard：nonce 错误 reset + 重试一次（交易未上链无双花风险）/
- *      非 nonce 错误原样抛 / 只重试一次（连续 nonce 错第二次仍抛）
+ *   4. _nonceGuard：nonce 错误取证语义（T2）——payload raw 链上未上链 → reset +
+ *      重试一次；首发已在链上 → 恢复追踪不重发（双卖事故反证）；无 payload raw →
+ *      fail-closed 原样抛 / 非 nonce 错误原样抛 / 只重试一次
  *   5. 源码口径：发送调用点全部经 _nonceGuard
  *
  * 打桩：真 Wallet + 真 NonceManager（零网络——不发交易），_nonceGuard 的 fn 桩。
@@ -91,22 +92,39 @@ async function main() {
             '_isAlreadyKnownError：嵌入 message 也能识别');
     }
 
-    // ═══════════════ 4. _nonceGuard 重试语义 ═══════════════
-    console.log('\n[3] _nonceGuard 重试语义');
+    // ═══════════════ 4. _nonceGuard 取证重试语义（T2） ═══════════════
+    console.log('\n[3] _nonceGuard 取证重试语义');
     {
+        // 真 raw（本地签名构造，合法 legacy tx，可 Transaction.from 解析算 hash——零网络）
+        const rawWallet = new ethers.Wallet(ethers.Wallet.createRandom().privateKey);
+        const raw = await rawWallet.signTransaction({
+            to: '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0', nonce: 1735,
+            gasLimit: 624952, gasPrice: ethers.parseUnits('50', 'mwei'),
+            data: '0xef7ec2e7', chainId: 56, type: 0,
+        });
+        const nonceErr = () => {
+            // T2 事故现场形状（v37 2026-10-25 日志实证）：首发 nonce 1735 已上链成交，
+            // HTTP 响应丢失后请求层重发同 raw，节点报 NONCE_EXPIRED
+            const e = new Error('nonce has already been used (info={ "error": { "code": -32000, "message": "nonce too low: next nonce 1736, tx nonce 1735" } }, code=NONCE_EXPIRED)');
+            e.info = { payload: { params: [raw] } };
+            return e;
+        };
         const t = Object.create(BaseTrader.prototype);
+        t.log = () => {};
         let resets = 0;
         t.signer = { reset: () => { resets++; } };
+        // 链上查无首发（真拒收形状：节点不索引被拒 raw）
+        t.provider = { getTransaction: async () => null };
 
-        // 4a. 首次 nonce 错、重试成功 → 返回重试值 + reset 一次
+        // 4a. 首发确认未上链 → reset + 重试一次成功
         let calls = 0;
         const result = await t._nonceGuard(async () => {
             calls++;
-            if (calls === 1) { const e = new Error('nonce too low'); throw e; }
+            if (calls === 1) throw nonceErr();
             return 'RETRY_OK';
         });
         ok(result === 'RETRY_OK' && calls === 2 && resets === 1,
-            'nonce 拒收 → reset 后重试一次成功（交易未上链无双花）');
+            'nonce 拒收（取证未上链）→ reset 后重试一次成功');
 
         // 4b. 非 nonce 错误原样抛出不重试
         calls = 0; resets = 0;
@@ -116,13 +134,57 @@ async function main() {
         );
         ok(calls === 1 && resets === 0, '非 nonce 错误不 reset 不重试（原样抛）');
 
-        // 4c. 连续 nonce 错：只重试一次，第二次仍抛
+        // 4c. 连续 nonce 错（取证均未上链）：只重试一次，第二次仍抛
         calls = 0; resets = 0;
         await assert.rejects(
-            () => t._nonceGuard(async () => { calls++; const e = new Error('nonce too low'); throw e; }),
-            /nonce too low/,
+            () => t._nonceGuard(async () => { calls++; throw nonceErr(); }),
+            /nonce has already been used/,
         );
         ok(calls === 2 && resets === 1, '连续 nonce 错只重试一次（防无限循环）');
+    }
+
+    // ═══════════════ 4b. T2 双卖事故现场反证（2026-10-25 K线人生 0xfeff…7777） ═══════════════
+    console.log('\n[3c] nonce 错误取证：首发已在链上 → 恢复追踪不重发（T2 双卖反证）');
+    {
+        const rawWallet = new ethers.Wallet(ethers.Wallet.createRandom().privateKey);
+        const raw = await rawWallet.signTransaction({
+            to: '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0', nonce: 1735,
+            gasLimit: 624952, gasPrice: ethers.parseUnits('50', 'mwei'),
+            data: '0xef7ec2e7', chainId: 56, type: 0,
+        });
+        const ghostSellErr = () => {
+            const e = new Error('nonce has already been used (info={ "error": { "code": -32000, "message": "nonce too low: next nonce 1736, tx nonce 1735" } }, code=NONCE_EXPIRED)');
+            e.info = { payload: { params: [raw] } };
+            return e;
+        };
+        const expectedHash = ethers.Transaction.from(raw).hash;
+        const t = Object.create(BaseTrader.prototype);
+        t.log = () => {};
+        let resets = 0, getCalls = 0;
+        t.signer = { reset: () => { resets++; } };
+        // 事故形状：首发（nonce 1735）已上链成交——getTransaction 立即命中
+        t.provider = { getTransaction: async (h) => { getCalls++; return { hash: h, conf: 1 }; } };
+
+        // a. 核心反证：fn 只调一次（不重发 nonce+1 第二笔）、不 reset、返回首发 tx
+        let fnCalls = 0;
+        const tx = await t._nonceGuard(async () => { fnCalls++; throw ghostSellErr(); }, '卖出');
+        ok(tx.hash === expectedHash && fnCalls === 1 && resets === 0 && getCalls === 1,
+            '首发已上链 → 恢复首发 tx 追踪（不 reset/不重发/不双卖）');
+
+        // b. 事故数字反证：next nonce 1736 > tx nonce 1735 形状判定归恢复分支而非重试
+        //    （源码口径：重试分支日志必须先过取证）
+        const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/traders/core/BaseTrader.js'), 'utf8');
+        ok(src.includes('_probeNonceErrorTx'), '源码：nonce 错误取证分支在位');
+        ok(/nonce 冲突拒收（首发确认未上链/.test(src), '源码：重试臂日志标注「首发确认未上链」（取证前置锁定）');
+
+        // c. nonce 错误无 payload raw：无法证明首发未上链 → fail-closed 原样抛
+        const bare = new Error('nonce too low: next nonce 1736, tx nonce 1735');
+        let bareCalls = 0;
+        await assert.rejects(
+            () => t._nonceGuard(async () => { bareCalls++; throw bare; }, '卖出'),
+            /nonce too low/,
+        );
+        ok(bareCalls === 1 && resets === 0, '无 payload raw → fail-closed 不重试（无法排除首发已上链）');
     }
 
     // ═══════════════ 4b. already known 恢复语义（2026-10-25 v36 幽灵卖出事故） ═══════════════
