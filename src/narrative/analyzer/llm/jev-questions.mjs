@@ -1239,19 +1239,24 @@
  *       不大均不适用。mapper entityEventMismatchBlock 概率 ≥0.5 全域拦（与类型/
  *       指歪门同形状，pubProxy 豁免同源），审计 nameEntityEventMismatchMass。
  *       旧缓存行无该桶 → 概率 0 fail-open 零翻转
- * J1.125（C196，2026-10-25 AIFLY 案 0x0baecc80…7777 用户裁定三轮）：①event_category
+ * J1.126（C230 追裁，2026-10-25 用户裁定键名再调整）：bsc_meme_user_acceptance_
+ *       and_impact → bsc_meme_user_web3_project_acceptance_and_impact（题面/桶/
+ *       分值零改动，纯键名断代加 web3_project 域限定——该题仅 W 类评估）；
+ *       mapper q() 归一读链新键→w_bsc_user_appeal 旧键，J1.125 中间键窗口仅
+ *       ~1h（182 重析即覆盖、评级终态缓存不重读 answers，不设三级 fallback）
+ * J1.125（C230，2026-10-25 AIFLY 案 0x0baecc80…7777 用户裁定三轮）：①event_category
  *       英文题面中文重写（P2 英文化=迁移期校准手段非裁定）+ Web3 项目识别强化——
  *       crypto 语境项目（AI×crypto 实验/交易终端/个人小团队自发项目）的主体性陈述
  *       归 W 不归 C；主体归属修正：项目陈述推（第一人称/单纯提及=dev 自发宣告；
  *       明确说 XX 做了=第三方陈述）主体=项目本身，「找角度」只适用借势与项目
- *       无关的外部事件。②w_bsc_user_appeal 键名断代 bsc_meme_user_acceptance_and_
- *       impact（C183 命名惯例）+ 新增资格轴：项目方自发币须 CA 背书，否则发布者
- *       （dev/第三方陈述者）须有一定影响力（股城型官宣+官方号+转述=过线原型）；
- *       全无影响力+无地址 → weak（W 数学 15<32 恒 low）。桶 id（weak/moderate/
- *       strong）与分值映射 15/47/66 不变；mapper q() 归一读旧键，旧行零翻转
+ *       无关的外部事件。②w_bsc_user_appeal 键名断代（C183 命名惯例）+ 新增资
+ *       格轴：项目方自发币须 CA 背书，否则发布者（dev/第三方陈述者）须有一定
+ *       影响力（股城型官宣+官方号+转述=过线原型）；全无影响力+无地址 → weak
+ *       （W 数学 15<32 恒 low）。桶 id（weak/moderate/strong）与分值映射 15/47/66
+ *       不变；mapper q() 归一读旧键，旧行零翻转
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.125';
+export const JEV_QUESTIONS_VERSION = 'J1.126';
 
 /** 品牌 keyword 预检表+shouldIncludeBrandHijackCheck 已废（J1.103/C172 品牌劫持轴
  * 整体退役：brand_mismatch 桶删除后预检唯一用途 mapper 门开关消失；名字-事件
@@ -1452,13 +1457,14 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
 
     // ── 6. W 类专用（Web3 项目接纳度 × 发布者影响力 0-75，仅 W 类采信）──
     // （5.7 事件情绪感染力题已删 J1.36/C93；w_product_score 已删 J1.84/C142——
-    //   与本题语义/统计双重重叠，W 数学合并为单轴。J1.125/C196 键名断代
-    //   w_bsc_user_appeal → bsc_meme_user_acceptance_and_impact，C183 bsc_meme_user_*
-    //   命名惯例：评估主体=BSC meme 币用户；新增发布者影响力资格轴）
-    bsc_meme_user_acceptance_and_impact: {
+    //   与本题语义/统计双重重叠，W 数学合并为单轴。J1.125/C230 键名断代
+    //   w_bsc_user_appeal → C183 bsc_meme_user_* 命名惯例（评估主体=BSC meme
+    //   币用户）+新增发布者影响力资格轴；J1.126 键名再调整加 web3_project
+    //   域限定——该题仅 W 类评估）
+    bsc_meme_user_web3_project_acceptance_and_impact: {
       type: 'choice',
       instructions: `Web3 项目对 BSC meme 用户的接纳度与发布者影响力（仅 W 类评估），弱/中/强三档。本题复合两轴——【资格轴：发布者/陈述者影响力】与【接纳度轴：项目对 BSC meme 用户的吸引力】，先判资格轴。
-【资格轴（J1.125/C196 用户裁定）】
+【资格轴（J1.125/C230 用户裁定）】
 - 项目方自己发的币（语料是 dev 视角：第一人称做项目/单纯提及项目无第三方主语/发币者钦定宣告推）：项目方提供了代币合约地址（CA）背书（语料/官网/元数据任一处出现该代币的合约地址）= 正经项目方行为，资格过线；未提供地址时，dev 须是有一定影响力的用户（粉丝/圈内身份/过往作品/第三方传播）才过线。
 - 纯第三方发币/第三方陈述（推文明确说「XX 做了什么项目」）：陈述者/发布者须是有一定影响力的正常用户（有粉丝/圈内身份/有运营与传播证据——官宣+官方号进展+社区转述等），资格才过线。
 - ⚠️ 发布者全无影响力（无名小号、零传播、无第三方讨论）且项目不提供地址 → 资格不合格，直接判 weak——无论项目题材看起来多有乐子，无人背书、无人传播的项目不是 BSC meme 用户会接纳的事件。

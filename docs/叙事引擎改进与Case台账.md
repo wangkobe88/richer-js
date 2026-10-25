@@ -54,7 +54,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
-### C230 Web3 项目分类/主体归属/发布者影响力资格轴（AIFLY 案，2026-10-25 用户裁定三轮，J1.125）★
+### C230 Web3 项目分类/主体归属/发布者影响力资格轴（AIFLY 案，2026-10-25 用户裁定三轮+追裁，J1.125/J1.126）★
 
 （编号跳段：C196 已被 PHP 观察票占用、C197-C229 为 C180 批回归集观察票编号段，本案取 C230。）
 
@@ -64,10 +64,10 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **判准（三段，题面资格轴原文锚）**：① 项目方自己发的币（web3 原生项目一路）需要提供地址（CA）背书；② 纯第三方发币/陈述，发布者至少是有一定影响力的正常用户（**股城 C133 先例原型**：官宣+官方号+社区转述）；③ 发布者全无影响力+项目不提供地址 → weak（W 数学 15<32 恒 low）。
 - **机制（J1.125）三件**：
   - **① event_category 中文重写 + W 强化 + 主体归属修正**：W 判据扩「不要求机构背景或协议级基础设施，个人/小团队自发项目与第三方陈述的项目同样归本类」（crypto 语境项目：AI×crypto 实验/交易终端/DeFi/工具）；主体归属新增段——项目陈述推主体=项目本身→W（第一人称/单纯提及=dev 自发宣告；明确说「XX 做了」=第三方陈述），「找角度/借势」不适用于项目陈述推（借势**与该项目无关**的外部事件才是找角度），低粉低互动作者宣告自己项目≠找角度；C 判据加反锚「宣告/陈述 crypto 项目本身归 W 不归本类」。
-  - **② w_bsc_user_appeal 键名断代 → `bsc_meme_user_acceptance_and_impact` + 资格轴**：题面复合两轴先判资格——dev 自发币须 CA 背书（语料/官网/元数据任一处）否则 dev 须有影响力；第三方陈述者须有影响力；全无影响力+无地址 → **直接判 weak**。桶 id（weak/moderate/strong）/分值 15/47/66/pass 线 32 全不变（零存量翻转）；mapper `q(answers, 新键, 旧键)` 归一读旧行、审计投影键 `w_bsc_user_appeal` 保留（跨版本前端/审计形状不变）、reason 文案改「BSC用户接纳度与影响力」（gateBlockReason 模板不动）。
+  - **② w_bsc_user_appeal 键名断代 → `bsc_meme_user_web3_project_acceptance_and_impact` + 资格轴**：题面复合两轴先判资格——dev 自发币须 CA 背书（语料/官网/元数据任一处）否则 dev 须有影响力；第三方陈述者须有影响力；全无影响力+无地址 → **直接判 weak**。桶 id（weak/moderate/strong）/分值 15/47/66/pass 线 32 全不变（零存量翻转）；mapper `q(answers, 新键, 旧键)` 归一读旧行、审计投影键 `w_bsc_user_appeal` 保留（跨版本前端/审计形状不变）、reason 文案改「BSC用户接纳度与影响力」（gateBlockReason 模板不动）。**J1.126 追裁（2026-10-25 用户裁定键名再调整）**：`bsc_meme_user_acceptance_and_impact` → `bsc_meme_user_web3_project_acceptance_and_impact`（加 web3_project 域限定——该题仅 W 类评估；题面/桶/分值零改动，纯键名断代）；q() 归一读链=新键→`w_bsc_user_appeal` 旧键（J1.125 中间键 182 存活窗口仅 ~1h，重析即覆盖、评级终态缓存不重读 answers，**不设三级 fallback**）。
   - **③ state-builder `tweet_type_note2`**：tweet_type 仅时效分桶不判事件主体（分类题主体归属修正的 state 侧同款声明，防 classifier 弱信号标签再污染主体判定）。
 - **路由层残余（不修）**：detectIssuerSelfLaunch（品牌同一性 AIFLY/bSTONK↔StockCZ 不匹配）与 isProjectCoin（内容臂 CA 命中，官网无 CA）双漏检——项目型自发宣告走标准路径：主体归属修正后标准路径本身即可正确评 W 类（分类治本，路由豁免非必需）。
-- **验证**：`_test_w_bsc_user_appeal` 36 断言（新增 G 区：新键 choice/score 双形状归一读、双键共存新键优先、审计投影、资格轴题面三锚、weak criteria「资格轴不合格」、state-builder note2、分类题锚）；存量同步 8 文件（product_entity A3c/finding_recap A10 英文锚词随中文重写、question_consolidation A10d/A11b、angle_timing C5、name_entity D5 版本断言 J1.125、china_politics/entity_event_mismatch/web2_emotional_impact 版本断言放宽 ≥、**brand_hijack B1 存量漂移修正**：C194 第五桶 entity_event_mismatch 落地时漏更的四桶断言）；32 个 event_category 相关测试全绿。
+- **验证**：`_test_w_bsc_user_appeal` 36 断言（新增 G 区：新键 choice/score 双形状归一读、双键共存新键优先、审计投影、资格轴题面三锚、weak criteria「资格轴不合格」、state-builder note2、分类题锚）；存量同步 8 文件（product_entity A3c/finding_recap A10 英文锚词随中文重写、question_consolidation A10d/A11b、angle_timing C5、name_entity D5 版本断言、china_politics/entity_event_mismatch/web2_emotional_impact 版本断言放宽 ≥、**brand_hijack B1 存量漂移修正**：C194 第五桶 entity_event_mismatch 落地时漏更的四桶断言）；32 个 event_category 相关测试全绿。J1.126 批次：测试键名全量随改+版本断言 bump（w_bsc_user_appeal E1 ≥126、question_consolidation A10d 'J1.126'、angle_timing C5/name_entity D5 严格等同步），36+90+47+47+题集批次全绿。
 - **预期对拍（待 182 部署定向重析）**：AIFLY → 主体=项目/W 类 → 资格轴 18 粉 dev+无 CA → weak 15<32 → **low**；股城 C133 `0xaacbc156435dbab7815a61bccba1c827e52a7777` → 稳定 W 类（原 A/A/A/C 掷骰消解）+有运营传播资格过线 → mid/high 兼容 expect。全量回归需用户同意后跑。
 
 ### C195 零语料臂补轮节奏收紧 60s×8 → 10s×10（感染者案，2026-10-25 用户裁定）★

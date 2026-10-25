@@ -180,8 +180,10 @@ const W_APPEAL_BANDS = [[0, 18], [19, 37], [38, 56], [57, 75]];
 // J1.107（2026-10-23 用户裁定「w_bsc_user_appeal 可以给弱中强三档」）：题改 Choice
 // 三桶，分值表弱 15/中 47/强 66（弱合并旧 0-18/19-37 两档取保守代表 15<32 线；
 // 中=旧 38-56 带中点；强=旧 57-75 带中点）。pass 线 32 不动；probabilities 留审计。
-// J1.125（C196）：题键断代 w_bsc_user_appeal → bsc_meme_user_acceptance_and_impact
-// （资格轴并入：weak 覆盖「发布者全无影响力+无 CA 背书」一票定档）——分值表不动
+// J1.125（C230）：题键断代 w_bsc_user_appeal → bsc_meme_user_* 家族（资格轴并入：
+// weak 覆盖「发布者全无影响力+无 CA 背书」一票定档）——分值表不动。
+// J1.126（C230 追裁）：键名再调整 bsc_meme_user_web3_project_acceptance_and_impact
+// （加 web3_project 域限定；题面/桶/分值零改动，纯键名断代）
 const W_APPEAL_CHOICE_SCORES = { weak: 15, moderate: 47, strong: 66 };
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
 const REASONABILITY_BANDS = [[0, 1], [2, 3], [4, 5]];
@@ -1545,10 +1547,11 @@ export function mapStandardAnswers(answers, context) {
     // 或 override 命中」做封顶 30 的 cap（与标准路径 J1.71 后同构）。
     // J1.107：题改 Choice 三桶（weak/moderate/strong）→ 分值表；旧缓存行 score
     // 形状走 legacy bandInterpolate（双形状兼容，C123 门名断代先例）
-    // J1.125（C196）：键名断代 w_bsc_user_appeal → bsc_meme_user_acceptance_and_impact
-    // （题面新增发布者影响力资格轴：项目方自发币须 CA 背书/发布者须有影响力，
-    // 全无影响力+无地址 → weak）；桶 id 与分值表不变，旧缓存行 q() 归一读同门
-    const appealAnswer = q(answers, 'bsc_meme_user_acceptance_and_impact', 'w_bsc_user_appeal');
+    // J1.125（C230）：键名断代 w_bsc_user_appeal → bsc_meme_user_* 家族（题面新增
+    // 发布者影响力资格轴：项目方自发币须 CA 背书/发布者须有影响力，全无影响力+
+    // 无地址 → weak）；J1.126 键名再调整加 web3_project 域限定。桶 id 与分值表
+    // 不变，旧缓存行 q() 归一读同门
+    const appealAnswer = q(answers, 'bsc_meme_user_web3_project_acceptance_and_impact', 'w_bsc_user_appeal');
     wAppeal = appealAnswer?.choice != null
       ? (W_APPEAL_CHOICE_SCORES[appealAnswer.choice] ?? 0)
       : bandInterpolate(appealAnswer?.score ?? 0, W_APPEAL_BANDS);
@@ -1718,8 +1721,8 @@ export function mapStandardAnswers(answers, context) {
           event_timing: answers.event_timing?.probabilities,
           web3_user_event_spread: answers.web3_user_event_spread?.probabilities ?? answers.dimension2?.probabilities,
           // J1.84（C142）：w_product_score 概率键退役（历史行保留；mapper 不再消费）
-          // J1.125（C196）：题键断代（投影键名保留 w_bsc_user_appeal=审计形状不变，值归一读）
-          w_bsc_user_appeal: q(answers, 'bsc_meme_user_acceptance_and_impact', 'w_bsc_user_appeal')?.probabilities,
+          // J1.125/C230：题键断代（投影键名保留 w_bsc_user_appeal=审计形状不变，值归一读）
+          w_bsc_user_appeal: q(answers, 'bsc_meme_user_web3_project_acceptance_and_impact', 'w_bsc_user_appeal')?.probabilities,
           bsc_meme_user_event_fit: q(answers, 'bsc_meme_user_event_fit', 'web3_user_event_fit')?.probabilities,
           event_subject_entity: answers.event_subject_entity?.probabilities,
           // （J1.102/C171：name_entity_carrier dump 键随形象轴退役删除——历史行
