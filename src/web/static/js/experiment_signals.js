@@ -433,6 +433,9 @@ class ExperimentSignals {
       } else {
         params.append('action', this.currentFilters.action.toLowerCase());
       }
+    } else if (this.selectedToken && this.selectedToken !== 'all') {
+      // 单票视图（#token= 直达/代币下拉选中）不排除观察行：单票行数少无挤占问题，
+      // 纯观察票（灰灰案：仅 OBSERVE 行无 BUY/SELL）否则整页空白
     } else {
       // 默认视图排除观察行：全量排序 order(action,desc) 字母序 sell>hold>buy，
       // action='hold' 的观察行会把 BUY 挤出首页 limit（观察行单独经上方筛选项看）
