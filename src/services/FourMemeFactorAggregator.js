@@ -1257,6 +1257,18 @@ class FourMemeFactorAggregator extends EventEmitter {
                     state._maxBlockBuyBlk = blockNumber;
                     state._maxBuyBlockWallets = _bbCur.wallets;
                 }
+                // 存量口径原料（2026-10-25 bundleClusterHoldCircPct，A/B 对比用户裁定）：
+                // 全史 blk→买家 Set。刻意不与 _blockBuyAgg 的 wallets 共引用——该条目被
+                // _pruneBundleEvents 滑窗淘汰后，同块晚到回推行会新建条目新 Set，同引用
+                // 语义断裂；本 Map 全史不裁，Set.add 幂等 → 乱序回推收敛
+                if (walletAddr) {
+                    let _bw = state._blockBuyWalletsAll.get(blockNumber);
+                    if (!_bw) {
+                        _bw = new Set();
+                        state._blockBuyWalletsAll.set(blockNumber, _bw);
+                    }
+                    _bw.add(walletAddr);
+                }
             }
             if (walletAddr) {
                 const _pb = state._walletFirstBuyTs.get(walletAddr);
@@ -1657,6 +1669,12 @@ class FourMemeFactorAggregator extends EventEmitter {
                                    //   分子 = 该集合**当前净持仓**之和（用户裁定：分子分母都随
                                    //   卖出/流通变化，毛买入量不再作分子）。prune 删 _blockBuyAgg
                                    //   条目不影响本引用（Set 仍被 state 持有）
+            _blockBuyWalletsAll: new Map(), // blk → 该块全部买家钱包 Set（bundleClusterHoldCircPct
+                                     //   分子原料，2026-10-25 A/B 对比用户裁定存量口径）；全史
+                                     //   不裁、刻意不进 _pruneBundleEvents（_blockBuyAgg 条目被
+                                     //   滑窗淘汰后晚到回推行会新建条目，同引用语义断裂——本 Map
+                                     //   独立维护，Set.add 幂等 → defer 乱序序无关收敛）；含非首买
+                                     //   买盘行，wallet 非空才入 Set（null wallet 无法归簇）
             _circTokens: 0,          // 流通 = Σ买入 − Σ卖出 token（净流出池子筹码；全史增量累计
                                      //   永不裁剪，加减法交换律 → defer 乱序收敛；creator 初始持仓
                                      //   未经买入不计入——口径与 BITCAT 重放对拍一致 63.3%）
@@ -2229,6 +2247,17 @@ class FourMemeFactorAggregator extends EventEmitter {
      *                              买家清仓 → 分子归 0；分子分母都随持仓/流通变化。
      *                              （块规模判定仍用 _maxBlockBuyTokens——哪个块「最大」）
      *                              本键历史快照/扫描值与新口径不可比。
+     *   bundleClusterHoldCircPct —— 全史 max over 块(该块买家集合**当前正净持仓**合计) ÷
+     *                              读取时刻累计流通 ×100（2026-10-25 两口径 A/B 对比用户
+     *                              裁定：替换 bundleClusterSharePct 的门位——流量口径拦
+     *                              「10s 内簇主导买盘」误伤快进快出交易簇，存量口径拦
+     *                              「簇真持仓≥阈值」）。与 maxBlockBuyCircPct 同分子分母
+     *                              口径，唯一区别=选块标准：本键按当前净持仓合计最大选块
+     *                              （恒 ≥ maxBlockBuyCircPct——后者只扫毛买入最大块）；
+     *                              买后清仓的簇本键回落（交易簇放行），真囤簇持续可见
+     *                              （对真囤簇更晚放=已知盲区，用户裁定接受）。原料
+     *                              _blockBuyWalletsAll 全史不裁（不进 prune）；无买入块/
+     *                              流通≤0 → 0（有证据零值非 null）。
      * 簇选取（2026-10-16 FLY 案用户裁定改金额优先）：簇 BNB 金额最大者优先，并列取
      * size 大者、再取 blk 小者（确定性）。旧「size 优先」漏等额镜像对——FLY 案
      * 0xbf00+0xd6ab395c 同 block 等额 0.3705×2=0.741 BNB（占窗内买盘 60%）输给
@@ -2325,6 +2354,21 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
         const circPct = maxBlkHold > 0 && state._circTokens > 0 ? maxBlkHold / state._circTokens * 100 : 0;
+        // bundleClusterHoldCircPct（2026-10-25 A/B 对比用户裁定替换流量口径门位）：全史 max
+        // over 块(该块买家集合当前正净持仓合计) ÷ 累计流通 ×100。纯函数读取同上——原料
+        // _blockBuyWalletsAll（全史不裁）× _walletNetTokens（当前净持仓），任一序收敛；
+        // 数学恒 ≥ maxBlockBuyCircPct（后者只扫毛买入最大块，前者扫全部块取 max）
+        let maxAllBlkHold = 0;
+        for (const _ws of state._blockBuyWalletsAll.values()) {
+            let _s = 0;
+            for (const _w of _ws) {
+                const _v = state._walletNetTokens.get(_w);
+                if (_v > 0) _s += _v;
+            }
+            if (_s > maxAllBlkHold) maxAllBlkHold = _s;
+        }
+        const holdCircPct = maxAllBlkHold > 0 && state._circTokens > 0
+            ? maxAllBlkHold / state._circTokens * 100 : 0;
         // 可选簇明细（扫描脚本对拍 B 用：簇钱包名单 → GMGN bundler 地址库 precision/recall）；
         // 引擎路径不传 out，零变化
         if (out) {
@@ -2335,6 +2379,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             out.maxBlockBuyTokens = state._maxBlockBuyTokens;   // 块规模（判定用毛买入）
             out.maxBlockBuyBlk = state._maxBlockBuyBlk;
             out.maxBlockBuyHoldTokens = maxBlkHold;             // 因子分子（买家当前净持仓）
+            out.maxAllBlockHoldTokens = maxAllBlkHold;          // 存量口径因子分子（全块 max）
         }
         return {
             bundleClusterSize: size,
@@ -2343,6 +2388,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             bundleClusterEvenGap: evenGap,
             bundleClusterSameTrader: Math.round(sameTrader * 10) / 10,
             maxBlockBuyCircPct: Math.round(circPct * 10) / 10,
+            bundleClusterHoldCircPct: Math.round(holdCircPct * 10) / 10,
         };
     }
 
@@ -3037,6 +3083,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             bundleClusterEvenGap: bundle.bundleClusterEvenGap,
             bundleClusterSameTrader: bundle.bundleClusterSameTrader,
             maxBlockBuyCircPct: bundle.maxBlockBuyCircPct,
+            // 存量口径簇集中度（2026-10-25 A/B 对比用户裁定进条件门，替换
+            // bundleClusterSharePct 门位；恒 ≥ maxBlockBuyCircPct；0=无买入块/
+            // 流通≤0 有证据零值非 null；口径见 _bundleClusterFactors 注释）
+            bundleClusterHoldCircPct: bundle.bundleClusterHoldCircPct,
             // ── 出生锚定捆绑簇 launch* 4 键（2026-10-17 Agentum 案方向 C：10s 滑窗迟到
             //    fire 漏创建块簇；同块臂+跨块等额臂，出窗冻结；口径见 _launchBundleFactors）──
             launchBundleClusterSize: launch.launchBundleClusterSize,

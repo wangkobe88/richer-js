@@ -14,14 +14,14 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v35 快照；live v36 cf3d8177 实跑仍 v34 形状=快照语义）
+## 一、现行买腿门链一屏（buy-v2 v36 快照；live v36 cf3d8177 实跑仍 v34 形状=快照语义）
 
 ```
 (tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) -- 时窗：90s 快窗 OR 慢热臂（T63/v35：非尘成交≥25 笔+10min 帽）
 AND marketCap > 3500 AND marketCap < 20000                -- 市值窗 USD（v34 起 20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
-AND bundleClusterSharePct < 35                            -- 同块协同簇流量占比（v30 起锚 35）
+AND bundleClusterHoldCircPct < 35                        -- 同块协同簇存量持仓占比（v36 起存量口径；v19-v35 流量口径 bundleClusterSharePct，T1）
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR earlyTradesRouterPct >= 30)    -- flap 臂：聚合路由占比
@@ -59,14 +59,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 生效路径：改库不影响已建实验（快照语义）——live v36 仍 v34 形状，起新实验/重启引用 v35 才生效
 - 归因法：182 逐 tick FA 重放（尘门 0.001/链上真序/rating 完成时刻注入/sybil roster 预载）——同 T10 迟买归因法；GMGN 第二层历史快照不可得未重放
 
-### T1 bundleClusterSharePct 两口径 A/B 对比——月亮币案（2026-10-25，待裁定）
+### T1 bundleClusterSharePct 两口径 A/B 对比——月亮币案（2026-10-25，已裁定：换门）
 - 票：实验 cf3d8177 全部 13 笔买入（月亮币 0xcb69aab56621eb562563254f682931f50d717777 / OST 0x290203a898eecc537fd89afcea281d44e2177777 / BNB Legend 0x0b66b5d4dc76dc7cae9e8f94df97026062057777 等，全清单见实验 trades）
 - 用户观点：该键名字=「最大区块协同钱包群的持仓占比」，持仓占比不应有 10s 滚动窗。B 版口径=每钱包记录其有购买行为的块簇，簇成员**当前正净持仓合计**÷流通，全块取 max
 - 方法：真 FA 逐 tick 重放（v34 全门同构、其余门逐字相同、叙事取 rounds 首个 2|3 轮完成时刻注入），对比两口径各自**首破时刻/价格**，盈亏按同卖出路径缩放
 - 结果：合计 retA（现行流量口径）66.5% → retB（存量口径）**107.8%（+41.3pp）**；9/13 票 B 更早或同刻放行、4/13 更晚。最大赢家月亮币 B 提前 15s（age 25s 放行 vs 40s）+29.5pp；最大代价 OST −40.1pp——流A=100/存B=64 说明拉升簇**真囤 64% 流通**，存量门等消化 47s 买贵 22%（票终仍 +123.8%）；BNB Legend 流A=100/存B=19=快进快出交易簇被流量门误拦 34s
 - 语义分歧本质：流量门拦「10s 内簇主导买盘」（误伤交易簇），存量门拦「簇真持仓≥35%」（对真囤簇更晚放）
-- caveat：13 票全是流量门实际放行过的票（选择偏差），无 tB=never 样本；换门是策略库/因子改动须用户裁定，建议方向=加新键（如 bundleClusterHoldCircPct）保留旧键观察
-- 详档：auto-memory `bundle-ab-compare`（待写）
+- caveat：13 票全是流量门实际放行过的票（选择偏差），无 tB=never 样本
+- **裁定（2026-10-25）**：不加键并存，**直接替换**——FA 新因子 `bundleClusterHoldCircPct`（全史 max over 块(该块买家集合当前正净持仓合计)÷流通×100；原料 `_blockBuyWalletsAll` 全史不裁刻意不与 `_blockBuyAgg` 共引用；恒 ≥ maxBlockBuyCircPct——后者按毛买入最大选块、本键按持仓最大选块；0=无买入块/流通≤0 有证据零值）替换门位，阈值 35 不动；旧键 bundleClusterSharePct 保留发射（纯观察）。库 buy-v2 v36（v35 被 T63 慢热或臂占用）、单测 O1-O8（两键分离/清仓回落/全史不裁/prune 回推并集防线）、v37 实验 create-v37.cjs（买腿整条取库 copy-in，T63+本批一并生效）
+- 详档：auto-memory `bundle-ab-compare`
 
 ### T2 buy-v2 v34 市值窗 15K→20K + 观察信号——₿DOG 案（2026-10-23，71b7e3a，live v35 ddc51b6d）
 - 票：₿DOG 0x85cd…7777（flap 11 秒毕业盘）
