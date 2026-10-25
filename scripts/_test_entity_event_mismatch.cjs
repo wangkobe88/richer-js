@@ -119,11 +119,15 @@ async function main() {
     stage2Of(mAccepted).blockReason);
 
   console.log('\n── C. 源码口径 ──');
-  const neIdx = mapperSrc.indexOf("} else if (!pubProxyActive && neBlock != null) {");
-  const emIdx = mapperSrc.indexOf("} else if (!pubProxyActive && emBlock != null) {");
+  const cpIdx = mapperSrc.indexOf('} else if ((cpBlock = chinaPoliticsBlock(answers))) {');
+  const emIdx = mapperSrc.indexOf('} else if (!pubProxyActive && emBlock != null) {');
+  const w3Idx = mapperSrc.indexOf('} else if ((w3Block = web3UnfitBlock(answers))) {');
+  const neIdx = mapperSrc.indexOf('} else if (!pubProxyActive && neBlock != null) {');
   const weIdx = mapperSrc.indexOf('} else if ((weBlock = wrongEntityBlock(answers))) {');
-  check('C1 门链顺序：类型门 ne → 脱节门 em → 指歪门 we（同层、pubProxy 豁免同源）',
-    neIdx > 0 && emIdx > neIdx && weIdx > emIdx, { neIdx, emIdx, weIdx });
+  check('C1 门链顺序：中国政治 cp → 实体-事件脱节 em → fit 概率门 w3（2026-10-25 用户裁定「可以挪」——资格层脱节先于口味概率门，label 归属更准）',
+    cpIdx > 0 && emIdx > cpIdx && w3Idx > emIdx, { cpIdx, emIdx, w3Idx });
+  check('C2b 实体题内部顺序：类型门 ne → 指歪门 we 仍相邻（em 已迁出实体段）',
+    neIdx > 0 && weIdx > neIdx && emIdx !== neIdx, { neIdx, weIdx, emIdx });
   check('C2 entityEventMismatchBlock 私有（不导出，经集成测锁定）',
     mapper.entityEventMismatchBlock === undefined && mapper.__entityEventMismatchBlock === undefined);
   check('C3 版本注释含 C194 归因（bump 纪律可追溯）',

@@ -1458,6 +1458,14 @@ export function mapStandardAnswers(answers, context) {
     // 挂位在 fit 概率门之前——主题类别否决先于概率门，label 归属更准
     eventScoreBlocked = true;
     gateBlockReason = cpBlock.label;
+  } else if (!pubProxyActive && emBlock != null) {
+    // J1.124/C194 实体-事件影响力脱节（大 IP + 小事件）：实体类型可接纳、但事件
+    // 量级远撑不起实体（齐天大圣游乐园）。**挂位在 fit 概率门之前**（2026-10-25
+    // 用户裁定「可以挪」）——资格层面的脱节先于口味概率门，label 归属更准：
+    // 齐天大圣类票不再被「契合证据不足」抢先（C193 情感臂同样命中时，真实理由
+    // 是实体/事件量级脱节）；pubProxy 豁免与类型门同源
+    eventScoreBlocked = true;
+    gateBlockReason = emBlock.label;
   } else if ((w3Block = web3UnfitBlock(answers))) {
     eventScoreBlocked = true;
     gateBlockReason = w3Block.label;
@@ -1499,11 +1507,6 @@ export function mapStandardAnswers(answers, context) {
   } else if (!pubProxyActive && neBlock != null) {
     eventScoreBlocked = true;
     gateBlockReason = neBlock.label;
-  } else if (!pubProxyActive && emBlock != null) {
-    // J1.124/C194 实体-事件影响力脱节（大 IP + 小事件）：实体类型可接纳、但事件
-    // 量级远撑不起实体（齐天大圣游乐园）；与类型轴同层、pubProxy 豁免同源
-    eventScoreBlocked = true;
-    gateBlockReason = emBlock.label;
   } else if ((weBlock = wrongEntityBlock(answers))) {
     // J1.81/C139 指歪拦截位（全域）：币名试图指向实体但指歪/指残——拼写错/不忠实
     // 呈现/版本残片（C105 版本词臂、C108 拼写臂拦截责任迁入实体轴；「日本語版」

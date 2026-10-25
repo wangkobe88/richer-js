@@ -62,7 +62,8 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **与 C193 并存**：C193=fit 层（Web2 旁观热点 → 至多 marginal，不选 strong_fit/fit）；C194=实体题层（大 IP + 小事件脱节 → 直接拦）。同一张齐天大圣两臂都命中；C194 更本质（看实体/事件量级匹配），C193 看口味契合。
 - **与 C191 的关系（待观察）**：C191「币安传奇」（大 IP=BNB + 小事件=13k 粉账号转的视频，fit strong_fit 0.70 → high 77.34，用户 2026-10-25 早间裁定「不修」）在 C194 双轴下可能被本门翻面——需实际重析确认，若翻面则 C191 的「不修」裁定需要用户复核。
 - **验证**：新单测 `_test_entity_event_mismatch` 16 断言（题面五桶/双轴锚/0.6 拦/0.49 边界/旧行 fail-open/E-W-B 全域/审计键/门链顺序/pubProxy 接线）；存量 `_test_name_entity_acceptance` 47、`_test_jev_question_consolidation` 90（A6/A6b 四桶→五桶断言同步）、`_test_jev_product_entity` 38、`_test_bluechip_dedup_gate` 54、`_test_web3_fit_anchor` 27、`_test_china_politics_gate` 16、`_test_web2_emotional_impact` 11、`_test_angle_timing_override` 47 全绿。
-- **影响面**：待全量回归（按用户要求跑前先确认）。
+- **影响面（J1.124 全量回归 98P/3F/2O/0ERR，对比 J1.123 95P/6F/2O）**：C194 命中 **1 张**——C80 蝙蝠侠摇（`entity_event_mismatch 71%`，大 IP + 小事件典型）基线 low→low **PASS**（拦截理由切换为实体-事件脱节，结果不变）；**零误伤**。中国政治门本轮命中 0 次；上一轮 4 张 FAIL（京小安/小黑/DND/BINA/股城）本轮全部 PASS=确认掷骰。3F 全为已知分歧票：C193 流浪小狗（词句门独杀观察票，0.79）、C210 C（用户 10-24 裁定 low、机制不动）、C212 Bot（同）——均与本次改动无关。
+- **门序调整（2026-10-25 用户裁定「可以挪」）**：C194 门从实体段（ne→we 之间）迁到 **fit 概率门之前**（cp→em→w3 顺序）——资格层面的脱节先于口味概率门，label 归属更准：齐天大圣类票不再被「契合证据不足」抢先，真实理由显示为实体/事件量级脱节。结果不变（两门都拦），只改归因；pubProxy 豁免随迁。
 
 ### C193 Web2 旁观热点情感冲击臂——至多 marginal（2026-10-25 用户裁定「那就这样」，J1.123）★
 
