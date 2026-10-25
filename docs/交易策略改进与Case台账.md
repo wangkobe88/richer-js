@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v36 快照；live v36 cf3d8177 实跑仍 v34 形状=快照语义）
+## 一、现行买腿门链一屏（buy-v2 v37 快照；live v38 e5438645 实跑本屏）
 
 ```
 (tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) -- 时窗：90s 快窗 OR 慢热臂（T63/v35：非尘成交≥25 笔+10min 帽）
@@ -22,6 +22,7 @@ AND marketCap > 3500 AND marketCap < 20000                -- 市值窗 USD（v34
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
 AND bundleClusterHoldCircPct < 35                        -- 同块协同簇存量持仓占比（v36 起存量口径；v19-v35 流量口径 bundleClusterSharePct，T1）
+AND top2BundleClusterHoldCircPct < 55                    -- 最大两块买家并集持仓（T67/v37；AIFLY 案第二道门，单块退化=top1）
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR earlyTradesRouterPct >= 30)    -- flap 臂：聚合路由占比
@@ -50,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T67 top2 存量第二道门 top2BundleClusterHoldCircPct < 55——AIFLY 案（2026-10-25，buy-v2 v37，0x0baecc80613610f8c6051e55c136505a4750777）
+- 案：AIFLY fire 时刻筹码结构重放——块 129715692（创建块）4 bundler 等额毛买 179.87M 后 9s 起分批协同卖出洗白到零；块 129715693 单钱包 0xf539901b4c4830ef118ccd2745ca725341577bc6 囤筹 58.58M（当时流通 88.4%）。fire 时 top1（bundleClusterHoldCircPct，存量口径）=34.8 **恰擦线低于 35 门放行**（分子=bundler 剩余持仓块），top2（最大两块买家并集）=57.2——两块合计囤筹过半的盘放行即亏
+- 因子：`top2BundleClusterHoldCircPct`=最大两块（持仓口径选块）买家集合**并集去重**当前正净持仓合计 ÷ 流通 ×100；同钱包复买跨块只计一份（相加口径双计可虚超 100%）；不足两块退化=top1；恒 ≥ top1（并集域 ⊇ top1 域）；原料 `_blockBuyWalletsAll` 全史 Map（与 T1 同源同防线）；0=无买入块/流通≤0 有证据零值
+- 阈值裁定：95 票 fire 时刻重放扫描（近 3 天 BUY 信号票、真 FA 全量重放、尘门 0.001、链上真序、喂至 fireTs）——50 拦增量含净赢家 +0.0068（拦截率 62% 误伤面大）；**55** 拦 AIFLY 57.2、增量仅漏 1 张 55.3 赢家（净 +0.0023）；60 数据最优但漏 AIFLY。用户裁定 55
+- 部署：库 buy-v2 v36→v37（`AND top2BundleClusterHoldCircPct < 55`）；live v38 e5438645-4274 实跑本屏（2026-10-25 15:32 UTC 起，库 v37 整条 copy-in，PID 3584931）；v37 ca8f9493 停前全平（BLACKBELT 0x46ea…7777 引擎卖腿 15:27:46 自动卖清 -43.5%，豆奶/K线人生/初一卡账本 after=0 手验全平）
+- 单测：`_test_bundle_cluster_factors` P1-P6（并集去重 66.7 非 133/不重叠两块 100/单块退化=top1/AIFLY 现场缩微 34.8+57.1/BITCAT 不变量 top2 85.8≥top1 63.3/逆序 parity）83/0；`_test_fourmeme_fa_factors` 白名单 +2 键（bundleClusterHoldCircPct 漏登记随本批补）34/0；create-v38.cjs 防呆（源=v36 快照形状无 top2 臂/库必须 v37/gmgn+trigger 逐字一致）
+- 编号裁定：24126eb commit message 与 create-v38 脚本注释曾误标「T65」——T65 已被卖臂矩阵案占用（11c19e9 先入台账），按「先入台账者得号」本案取 **T67**，git 历史不改
 
 ### T63 买窗慢热或臂——灰灰案（2026-10-25，buy-v2 v35，0x0da1d47f702d04e72eb8482e2f4c214eb5dd7777）
 - 案：flap 慢热票 90s 窗内人气臂差 0.109 BNB / 2 holders 没买（rating=3 age 10s 早已过）；主升全在窗外——146s 人气臂过但 bundle 100%/slope 负拦，**223s 全臂首过**（mcap 5736=1.18× 开盘），峰值 55796（x11.5）毕业；mcap<20K 永久死线 667s

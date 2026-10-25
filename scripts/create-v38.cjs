@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // ============================================================================
-// 建 v38 live both 实验（2026-10-25 T65 top2 存量门）
+// 建 v38 live both 实验（2026-10-25 T67 top2 存量门；commit 24126eb 曾误标 T65，
+//   台账裁定 T65 已被卖臂矩阵案占用、本案取 T67——先入台账者得号）
 //   克隆 v37 ca8f9493-d6ea-4d97-9b3c-1470cbbafc88（库 buy-v2 v36 快照）：买腿整条
 //   从库 buy-v2 v37 copy-in（= v36 存量 bundle 门 + 本批第二道门
 //   top2BundleClusterHoldCircPct < 55——AIFLY 0x0bae…7777 案：fire 时 top1 34.8 擦线
@@ -76,7 +77,7 @@ async function main() {
   cfg.name = 'v38-实盘-both-top2存量门-1025';
   cfg.description = 'v37 + 买腿引用库 buy-v2 v37：第二道存量门 '
     + 'top2BundleClusterHoldCircPct < 55（最大两块买家集合并集去重正净持仓÷流通×100——'
-    + 'T65 AIFLY 0x0bae…7777 案：fire 时 top1 34.8 擦线过 35 门、top2 57.2=bundler 剩仓'
+    + 'T67 AIFLY 0x0bae…7777 案：fire 时 top1 34.8 擦线过 35 门、top2 57.2=bundler 剩仓'
     + '+囤筹块并集；95 票 fire 时刻重放阈值扫描：50 拦净赢家 +0.0068 误伤（62% 拦截率）、'
     + '55 拦 AIFLY 57.2 且仅漏 1 张 55.3 赢家、60 数据最优但漏 AIFLY——用户裁定 55）。'
     + '恒 ≥ top1；不足两块退化=top1 值。代码须含 top2BundleClusterHoldCircPct（24126eb）。'
