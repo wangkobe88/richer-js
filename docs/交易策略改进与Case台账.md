@@ -56,7 +56,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 改动：v34→v35 age 门 `(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600))`——「交易数据走过一定量」（FA `tradeCount`=非尘 tick 累计，live/回测同口径）；其余 15 臂不动
 - 阈值依据：灰灰 90s 关窗 tc=19 / 223s 买点 tc=29 → N=25（高于死票终值且留 4 笔余量）；600s 帽=20K 死线圆整
 - **外层 600s 帽是必要件非参数**：裸 `OR tradeCount >= N` 臂无 age 约束 → `extractBuyRangeFromCondition` OR 侧 null 降级 → preFilter 整体失效（监控池淘汰默认关=未持仓票永久逐 tick 构建）；带帽则 OR 并包络 {max 1.5}∪{max 10}=10min 窗，构建成本有界。`_test_fa_prefilter` A13/A14 形状锁死（A14=无帽反证）
-- 生效路径：改库不影响已建实验（快照语义）——live v36 仍 v34 形状，起新实验/重启引用 v35 才生效
+- 生效路径：改库不影响已建实验（快照语义）——2026-10-25 05:01 UTC 起 live v37 ca8f9493（买腿=库 v36 整条 copy-in，T63+T1 一并生效）实跑本屏；v36 cf3d8177 已停（停前卡账本净额全零核查）
 - 归因法：182 逐 tick FA 重放（尘门 0.001/链上真序/rating 完成时刻注入/sybil roster 预载）——同 T10 迟买归因法；GMGN 第二层历史快照不可得未重放
 
 ### T1 bundleClusterSharePct 两口径 A/B 对比——月亮币案（2026-10-25，已裁定：换门）

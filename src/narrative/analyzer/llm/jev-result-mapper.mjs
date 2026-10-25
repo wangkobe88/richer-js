@@ -611,6 +611,27 @@ function web3UnfitBlock(answers) {
 }
 
 /**
+ * 中国政治主题否决门（J1.122/C192，2026-10-25 用户裁定）：BSC 链用户多是中文
+ * 用户、中国政治方面非常敏感——中国政治相关的票「这种影响力绝大多数情况并不
+ * 适合构建 meme 币」，在 bsc_meme_user_event_fit 拦住（影响力存在 ≠ 适合做
+ * meme，属第二层口味契合）。
+ *
+ * 判据源=fit 题第 5 桶 china_politics 的 **argmax choice**（独立否决桶，不参与
+ * 四档连续比较；题面钉死「不看玩味空间」——有形象征集/二创空间/正面情绪/官方
+ * IP 化不改变本判，C98 政治暴力臂同款写法）。确定性代码执行（J1.16/J1.23
+ * 题面改锚分不动家族教训）：Jev 判该桶即拦，与该票 fit 四档概率无关；旧缓存行
+ * 无该桶（choice 非 china_politics）→ fail-open 零翻转。
+ *
+ * 刻意无豁免链：pubProxy/isW/binanceCorpus/platformOfficial 均不适用于中国政治
+ * 主题（这不是契合度概率问题）；港澳台按同标准由题面判，非中国政治不选本桶。
+ */
+function chinaPoliticsBlock(answers) {
+  const c = q(answers, 'bsc_meme_user_event_fit', 'web3_user_event_fit')?.choice;
+  if (c !== 'china_politics') return null;
+  return { label: '中国政治主题不适合构建 meme 币（J1.122）' };
+}
+
+/**
  * 币安系语料检测（纯代码，无 LLM）——C55 补充裁定（2026-10-03 用户「不过刚才
  * 说的情况，要豁免币安」）：产品实体接纳门对币安豁免。币安/crypto 原生机构的
  * 产品对链上买家天然高接纳——BSC meme 平台建在币安生态上、买家即币安用户，
@@ -1248,6 +1269,7 @@ export function mapStandardAnswers(answers, context) {
   //  键 negativeHardNewsMass 保留展示）
   let w3Block = null; // bsc_meme_user_event_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 契合证据门信息 {label, fitMass}（J1.83/C141；前身产品实体接纳门 J1.27/C55）
+  let cpBlock = null; // 中国政治主题否决信息 {label}（J1.122/C192，fit 题 china_politics 桶）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
   // J1.56（C126）：实体低影响力门回归——按旧 J1.10 规格吃新实体题的 unknown
   // （≥0.5，全域拦——C184b 方案一），挂在名字门之前（实体层否决先于形态层）
@@ -1410,6 +1432,12 @@ export function mapStandardAnswers(answers, context) {
     gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
     // （J1.101/C170 原 negativeHardNewsBlock 门位——退役删除，负面事件交
     // web3UnfitBlock/web3FitMassBlock 口径层判）
+  } else if ((cpBlock = chinaPoliticsBlock(answers))) {
+    // J1.122/C192 中国政治主题否决（2026-10-25 用户裁定）：fit 题 china_politics
+    // argmax → 确定性拦（独立否决桶，不参与四档比较；不看玩味空间/无豁免）。
+    // 挂位在 fit 概率门之前——主题类别否决先于概率门，label 归属更准
+    eventScoreBlocked = true;
+    gateBlockReason = cpBlock.label;
   } else if ((w3Block = web3UnfitBlock(answers))) {
     eventScoreBlocked = true;
     gateBlockReason = w3Block.label;
@@ -1598,6 +1626,9 @@ export function mapStandardAnswers(answers, context) {
         // 旧键随题退役（历史行保留展示，新行不再产出）
         web3FitMassBlock: peBlock ? { fitMass: peBlock.fitMass } : null,
         productEntityBinanceExempt: peBinanceExempt,
+        // J1.122（C192）审计标记：中国政治主题否决命中才落键（fit 题 china_politics
+        // argmax；未命中不落=旧行形状零变化）
+        chinaPoliticsBlock: cpBlock ? { choice: 'china_politics' } : null,
         // J1.87（C145）：rcpPlatformExempt 随 routine 桶退役（历史行保留展示，新行不产出）
         // J1.61：name_entity_memeability 题已删（并入名字门）——历史行保留
         // referentMemeabilityScore 键，新行不再产出。J1.83（C141）event_subject_entity

@@ -54,6 +54,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C192 中国政治主题否决——bsc_meme_user_event_fit 新增 china_politics 桶（2026-10-25 用户裁定，J1.122）★
+
+- **案发**：`0x7f9fce00af76ac1c4cf5760f047e71b6852b7777`「强强国国」2026-10-25 05:19 UTC 分析 **mid 65.49**（event A 0.78 / impact none 0.71 / fit **strong_fit 0.43**·fit 0.2·marginal 0.17·unfit 0.2 / 实体 accepted 0.52，J1.121 标准路径；未成交：trades/signals 均 0）。语料=@Hugo_grupillo（177 粉）「学习强国最新IP 给了名字 并向全网征集形象创意 学习强国不用多说了吧」+ 配图——学习强国（中共中央宣传部出品的学习平台）官方 IP 的拟人化/征名，中国政治属性明确，Jev 因「IP 征集形象创意」给了 strong_fit。
+- **用户裁定**：「BSC 链用户多是中文用户，而且中国政治方面非常敏感，跟中国政治相关的票，建议在 bsc_meme_user_event_fit 拦住。中国政治事件对 Web3 用户并非没有影响力，但是这种影响力绝大多数情况并不适合构建 meme 币。」——判据落在**第二层口味契合**（影响力存在≠适合做 meme），不进第一层 impact 门。
+- **机制（J1.122）**：①题面 `bsc_meme_user_event_fit` 新增第 5 桶 `china_politics`（**独立否决项，不参与四档连续比较**；四档保留）——中国党政机构/官方宣传平台与符号（学习强国等）/中国领导人/中国国内政治事件政策会议/政治口号与政治表态；instructions 钉死「**本项不看玩味空间**」（形象征集/二创空间/正面情绪/官方 IP 化/可爱拟人不改变本判，C98 政治暴力臂同款写法）、港澳台同标、非中国政治（其它国家/国际关系）不选本项按四档评估。②mapper `chinaPoliticsBlock`：fit 题 **argmax choice** = china_politics → rating 1 确定性拦（不看 fit 概率；旧缓存行无该桶 fail-open 零翻转）；**无豁免链**（pubProxy/isW/binanceCorpus/platformOfficial 均不适用）。③门链挂位在 `web3UnfitBlock` 之前（主题类别否决先于概率门，label 归属更准）；审计 `jev.chinaPoliticsBlock` 命中才落。④加桶不加题（题集维持 10 题，C109 收敛纪律）。
+- **验证**：新单测 `_test_china_politics_gate` 16 断言全绿（题面/集成/门序/无豁免/旧行 fail-open/源码口径）；受影响存量 12 项全绿（`_test_jev_product_entity` 38 / `_test_bluechip_dedup_gate` 54 / `_test_web3_fit_anchor` 27 / `_test_jev_resonance` 13 / `_test_empty_content_img_exempt` 34 / `_test_jev_finding_recap_statement_gate` 106 / `_test_angle_timing_override` 47 / `_test_name_image_consistency` 41 / `_test_unrated_elimination` 32 / `_test_narrative_signal_gate` 13 / `_test_jev_question_consolidation` 90 / `_test_name_entity_acceptance` 47；后三者版本精确断言同步 J1.122）。
+- **残余面**：argmax 未判 china_politics 的票仍可能漏（如本票旧版 strong_fit 0.43 的黏性）——题面锚已钉死「不看玩味空间」，实际翻面待 182 重析该票验证；不设代码关键词兜底（避免「中国龙」类文化符号误伤，用户未裁定）。
+- **部署待办**：182 pull + 重启叙事 worker（题面版本 J1.122 生效）→ 重析本票确认翻 low → `npm run case-regression` 全量对拍（无 case 直接涉及，预期零翻转风险以回归为准）。
+- **同批**：`web3_user_event_fit` 的键名引自用户原话 `bsc_meme_user_event_fit`（J1.112/C183 已断代——用户口径与当前键名一致）。
+
 ### C191 币安传奇——impact none 与 fit strong_fit 两轴打架、实体臂不看发布者影响力（2026-10-25，J1.121，不修）
 
 （案号 C191 与回归集观察票 C191 撞号——本条为台账案号，沿用 C190 连续编号）
