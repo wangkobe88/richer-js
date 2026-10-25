@@ -983,9 +983,12 @@ class FourMemeDirectTrader extends BaseTrader {
                 // 替代旧 calculateActualBnbReceived 的「日志启发式+receipt.value」死代码路径，
                 // receipt.value 对卖出交易恒 0；after 读零重读防 RPC 滞后——妹珠案）
                 const gasCost = (receipt.gasUsed || 0n) * (receipt.gasPrice || gasPrice);
+                // 谓词必须 after > bnbBefore（勿写 after-before+gasCost>0：滞后读回 before
+                // 时 diff=0、+gasCost 恒正会把「读零」误判有效 → 实收记成纯 gas；
+                // 2026-10-25 v36 卖出实收三笔记错事故同款，FlapPortalTrader 反证单测锁死）
                 const bnbAfter = await this._settleBalanceRead(
                     () => this.provider.getBalance(this.wallet.address),
-                    (after) => after - bnbBefore + gasCost > 0n,
+                    (after) => after > bnbBefore,
                     `卖出 BNB 余额差 ${tokenAddress.slice(0, 10)}`);
                 const actualBnbReceived = bnbAfter - bnbBefore + gasCost;
                 this.log(`   实收: ${ethers.formatEther(actualBnbReceived)} BNB`);

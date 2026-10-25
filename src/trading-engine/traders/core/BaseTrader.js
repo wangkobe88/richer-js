@@ -110,22 +110,58 @@ class BaseTrader extends ITrader {
 
     /**
      * nonce 类错误识别（B2）：交易因 nonce 竞争被节点拒收的典型错误短语。
-     * 只匹配 nonce 语义明确的短语，不用裸 'too low'（会误伤 'gas price too low'）
+     * 只匹配 nonce 语义明确的短语，不用裸 'too low'（会误伤 'gas price too low'）。
+     * 刻意不含 'already known'——那不是拒收，见 _recoverTxFromAlreadyKnown。
      */
     _isNonceError(error) {
         const msg = String((error && error.message) || error || '');
-        return /nonce too low|nonce has already been used|replacement transaction|already known|incorrect nonce/i.test(msg);
+        return /nonce too low|nonce has already been used|replacement transaction|incorrect nonce/i.test(msg);
+    }
+
+    /**
+     * already known 识别：raw 已在 mempool——首次 sendRawTransaction 请求到达节点
+     * 入池但 HTTP 响应丢失，请求层重发同一 payload 撞出 already known。
+     * 不是拒收（2026-10-25 v36 BNB传奇 0xbd2a…7777 案实证：首发 nonce 1704 已成交
+     * 0xade5…bc10，引擎却判失败不记账 → 账面幽灵持仓 + 后续粉尘卖出 5 连败熔断）。
+     */
+    _isAlreadyKnownError(error) {
+        return /already known/i.test(String((error && error.message) || ''));
+    }
+
+    /**
+     * already known 恢复：从错误 payload 提取 raw 算出 txHash，取回 tx response 交
+     * 上层照常「交易已发送 + awaitReceipt」——绝不 reset 重签重发（重发=nonce+1 的
+     * 第二笔同参数交易：首发已成交时=双卖；本案第二笔靠 minOut revert 才免于双卖）。
+     * 错误形状 error.info.payload.params[0]（ethers v6 JsonRpcError，日志实证）。
+     * tx 短暂未被节点索引时轮询数秒；拿不到返回 null（上层原样抛，保守判失败）。
+     */
+    async _recoverTxFromAlreadyKnown(error, label = '交易') {
+        const raw = error?.info?.payload?.params?.[0];
+        if (typeof raw !== 'string' || !raw.startsWith('0x')) return null;
+        const hash = ethers.Transaction.from(raw).hash;
+        this.log(`already known=已在 mempool：恢复 ${label} tx ${hash} 追踪回执（不重签不重发）`, 'warning');
+        for (let i = 0; i < 12; i++) {
+            const tx = await this.provider.getTransaction(hash);
+            if (tx) return tx;
+            await new Promise((res) => setTimeout(res, 500));
+        }
+        return null;
     }
 
     /**
      * nonce 守卫（B2）：包装发单调用——catch 到 nonce 类拒收错误时 reset NonceManager
      * 重新从链上取 nonce，重试一次。交易未被上链（拒收）故重试无双花风险；非 nonce
-     * 错误原样抛出不重试。
+     * 错误原样抛出不重试。already known 走恢复分支（tx 已入池，拒收假设不成立）。
      */
-    async _nonceGuard(fn) {
+    async _nonceGuard(fn, label = '交易') {
         try {
             return await fn();
         } catch (error) {
+            if (this._isAlreadyKnownError(error)) {
+                const tx = await this._recoverTxFromAlreadyKnown(error, label);
+                if (tx) return tx;
+                throw error;
+            }
             if (!this._isNonceError(error)) throw error;
             console.warn(`🔁 ${this.constructor.name}: nonce 冲突拒收（${error.message}），reset 后重试一次`);
             this.signer.reset();

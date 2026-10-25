@@ -391,9 +391,14 @@ class FlapPortalTrader extends BaseTrader {
 
             // 实收 BNB（余额差 + gas 补偿——交易费也出自钱包；after 读零重读防 RPC 滞后）
             const gasCost = (receipt.gasUsed || 0n) * (receipt.gasPrice || gasPrice);
+            // 谓词必须 after > bnbBefore：滞后读回 before 时 diff=0、+gasCost 恒正会把
+            // 「读零」误判有效 → 实收记成纯 gas（2026-10-25 v36 三笔事故：BUDDY 真实
+            // 0.002564 记 0.0000269、传奇之路 0.003099 记 0.0000181、BNB传奇 0.000989
+            // 记 0.0000315——记错值恰=本笔 gas）。after>before ⇔ 实收>gas，正常卖出
+            // （minOut 保护）恒成立；不成立=粉尘形状，重读后原样保留走引擎估算兜底
             const bnbAfter = await this._settleBalanceRead(
                 () => this.provider.getBalance(this.wallet.address),
-                (after) => after - bnbBefore + gasCost > 0n,
+                (after) => after > bnbBefore,
                 `卖出 BNB 余额差 ${tokenAddress.slice(0, 10)}`);
             const actualBnbReceived = bnbAfter - bnbBefore + gasCost;
             this.log(`✅ 卖出成功 | 区块 ${receipt.blockNumber} 实收 ${ethers.formatEther(actualBnbReceived)} BNB`);

@@ -72,8 +72,10 @@ async function main() {
             ['nonce too low', true],
             ['nonce has already been used', true],
             ['replacement transaction underpriced', true],
-            ['transaction already known', true],
             ['incorrect nonce for transaction', true],
+            // already known ≠ 拒收（raw 已在 mempool）——走 _recoverTxFromAlreadyKnown
+            // 恢复分支，绝不 reset 重签重发（2026-10-25 v36 幽灵卖出事故语义变更）
+            ['transaction already known', false],
             // 反证：非 nonce 语义绝不匹配（'gas price too low' 若用裸 'too low' 会误伤）
             ['gas price too low', false],
             ['insufficient funds for gas', false],
@@ -85,6 +87,8 @@ async function main() {
             const got = t._isNonceError(msg instanceof Error ? msg : (msg && new Error(msg)) || msg);
             ok(got === expect, `「${msg || '(空)'}」→ ${expect}`);
         }
+        ok(t._isAlreadyKnownError(new Error('could not coalesce error (already known)')) === true,
+            '_isAlreadyKnownError：嵌入 message 也能识别');
     }
 
     // ═══════════════ 4. _nonceGuard 重试语义 ═══════════════
@@ -115,10 +119,56 @@ async function main() {
         // 4c. 连续 nonce 错：只重试一次，第二次仍抛
         calls = 0; resets = 0;
         await assert.rejects(
-            () => t._nonceGuard(async () => { calls++; const e = new Error('already known'); throw e; }),
-            /already known/,
+            () => t._nonceGuard(async () => { calls++; const e = new Error('nonce too low'); throw e; }),
+            /nonce too low/,
         );
         ok(calls === 2 && resets === 1, '连续 nonce 错只重试一次（防无限循环）');
+    }
+
+    // ═══════════════ 4b. already known 恢复语义（2026-10-25 v36 幽灵卖出事故） ═══════════════
+    console.log('\n[3b] already known 恢复（不 reset 不重发，恢复 raw→hash 追踪回执）');
+    {
+        // 真 raw（本地签名构造，合法 legacy tx，可 Transaction.from 解析算 hash——零网络）
+        const rawWallet = new ethers.Wallet(ethers.Wallet.createRandom().privateKey);
+        const raw = await rawWallet.signTransaction({
+            to: '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0', nonce: 1705,
+            gasLimit: 1015534, gasPrice: ethers.parseUnits('50', 'gwei'),
+            data: '0xef7ec2e7', chainId: 56, type: 0,
+        });
+        const mkErr = () => {
+            const e = new Error('could not coalesce error (error={ "code": -32000, "message": "already known" }, payload={ "method": "eth_sendRawTransaction" })');
+            e.info = { payload: { params: [raw] } }; // ethers v6 JsonRpcError 形状（事故日志实证）
+            return e;
+        };
+        const expectedHash = ethers.Transaction.from(raw).hash;
+        const t = Object.create(BaseTrader.prototype);
+        t.log = () => {};
+        let resets = 0, getCalls = 0;
+        t.signer = { reset: () => { resets++; } };
+        t.provider = { getTransaction: async (h) => { getCalls++; return { hash: h, conf: 1 }; } };
+
+        // a. 恢复成功：fn 只调一次（不重发）、不 reset、返回该 raw 的 tx response
+        let fnCalls = 0;
+        const tx = await t._nonceGuard(async () => { fnCalls++; throw mkErr(); }, '卖出');
+        ok(tx.hash === expectedHash && fnCalls === 1 && resets === 0 && getCalls === 1,
+            'already known → 从 payload raw 恢复 tx response（不 reset/不重发/不双卖）');
+
+        // b. 节点暂未索引：轮询直到拿到（首两轮 null）
+        getCalls = 0; fnCalls = 0;
+        t.provider = { getTransaction: async (h) => { getCalls++; return getCalls >= 3 ? { hash: h } : null; } };
+        const tx2 = await t._nonceGuard(async () => { fnCalls++; throw mkErr(); }, '卖出');
+        ok(tx2.hash === expectedHash && getCalls === 3, 'already known → 节点滞后轮询重取（第 3 轮命中）');
+
+        // c. 无 payload raw：原样抛（保守判失败，绝不臆造重发）
+        const bare = new Error('already known');
+        await assert.rejects(() => t._nonceGuard(async () => { throw bare; }, '卖出'), /already known/);
+        ok(true, 'already known 无 payload → 原样抛');
+
+        // d. 源码口径：_isNonceError 正则不再含 already known（防语义回退混入 reset 重试）
+        const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/traders/core/BaseTrader.js'), 'utf8');
+        const re = src.match(/_isNonceError\(error\) \{[\s\S]*?return ([^;]+);/);
+        ok(re && !/already known/.test(re[1]), '源码：_isNonceError 正则不含 already known');
+        ok(src.includes('_recoverTxFromAlreadyKnown'), '源码：already known 恢复分支在位');
     }
 
     // ═══════════════ 5. 源码口径：发送调用点接线 ═══════════════
