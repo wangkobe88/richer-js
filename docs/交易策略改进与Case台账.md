@@ -14,10 +14,10 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v34 快照，live v36 cf3d8177 实跑）
+## 一、现行买腿门链一屏（buy-v2 v35 快照；live v36 cf3d8177 实跑仍 v34 形状=快照语义）
 
 ```
-tokenAgeSec < 90                                          -- 时窗：90s 出生窗
+(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) -- 时窗：90s 快窗 OR 慢热臂（T63/v35：非尘成交≥25 笔+10min 帽）
 AND marketCap > 3500 AND marketCap < 20000                -- 市值窗 USD（v34 起 20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
@@ -50,6 +50,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T63 买窗慢热或臂——灰灰案（2026-10-25，buy-v2 v35，0x0da1d47f702d04e72eb8482e2f4c214eb5dd7777）
+- 案：flap 慢热票 90s 窗内人气臂差 0.109 BNB / 2 holders 没买（rating=3 age 10s 早已过）；主升全在窗外——146s 人气臂过但 bundle 100%/slope 负拦，**223s 全臂首过**（mcap 5736=1.18× 开盘），峰值 55796（x11.5）毕业；mcap<20K 永久死线 667s
+- 改动：v34→v35 age 门 `(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600))`——「交易数据走过一定量」（FA `tradeCount`=非尘 tick 累计，live/回测同口径）；其余 15 臂不动
+- 阈值依据：灰灰 90s 关窗 tc=19 / 223s 买点 tc=29 → N=25（高于死票终值且留 4 笔余量）；600s 帽=20K 死线圆整
+- **外层 600s 帽是必要件非参数**：裸 `OR tradeCount >= N` 臂无 age 约束 → `extractBuyRangeFromCondition` OR 侧 null 降级 → preFilter 整体失效（监控池淘汰默认关=未持仓票永久逐 tick 构建）；带帽则 OR 并包络 {max 1.5}∪{max 10}=10min 窗，构建成本有界。`_test_fa_prefilter` A13/A14 形状锁死（A14=无帽反证）
+- 生效路径：改库不影响已建实验（快照语义）——live v36 仍 v34 形状，起新实验/重启引用 v35 才生效
+- 归因法：182 逐 tick FA 重放（尘门 0.001/链上真序/rating 完成时刻注入/sybil roster 预载）——同 T10 迟买归因法；GMGN 第二层历史快照不可得未重放
 
 ### T1 bundleClusterSharePct 两口径 A/B 对比——月亮币案（2026-10-25，待裁定）
 - 票：实验 cf3d8177 全部 13 笔买入（月亮币 0xcb69aab56621eb562563254f682931f50d717777 / OST 0x290203a898eecc537fd89afcea281d44e2177777 / BNB Legend 0x0b66b5d4dc76dc7cae9e8f94df97026062057777 等，全清单见实验 trades）

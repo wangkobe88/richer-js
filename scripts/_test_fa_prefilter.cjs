@@ -44,6 +44,13 @@ console.log('A. extractBuyRangeFromCondition 提取矩阵');
   ok(E('age > abc') === null, 'A10. 右值非数字 → null');
   ok(E('') === null && E(null) === null && E(123) === null, 'A11. 空串/null/非字符串 → null');
   ok(E('age IS NOT NULL') === null, 'A12. IS NOT NULL 节点 → null');
+  // T63 慢热票 tradeCount 或臂（buy-v2 v35）：快窗 OR 数据充分臂。外层 age 帽是
+  // 必要件——帽缺失时 tradeCount 裸臂无 age 约束 → OR null 降级 → preFilter
+  // 整体不过滤（监控池淘汰默认关=未持仓票永久逐 tick 构建）；带帽则并包络
+  // {max 1.5} ∪ {max 10} = 10min 窗，构建成本有界
+  const slowTrack = '(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) AND marketCap < 20000';
+  ok(E(slowTrack)?.maxAgeMinutes === 10, 'A13. 慢热票或臂带外层帽 → OR 并包络 10min 窗（buy-v2 v35 形状锁定）');
+  ok(E('tokenAgeSec < 90 OR tradeCount >= 25') === null, 'A14. tradeCount 裸或臂（无帽）→ null 降级——帽是必要件反证');
 }
 
 // ---------- B. FA preFilter 判定 ----------
