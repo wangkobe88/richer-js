@@ -254,9 +254,11 @@ async function main() {
 
   // 资格轴题面锚（源码口径反证，防回潮）
   const appealInstructions = qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions;
-  check('G6 资格轴三锚：dev 自发币须 CA 背书 / 纯第三方陈述者须有影响力 / 全无影响力+无地址 → weak',
+  check('G6 资格轴三锚（J1.126 追裁第一锚改写）：dev 视角=按无地址处理（有 CA 背书走 web3 原生项目路径不进本题）/ 纯第三方陈述者须有影响力 / 全无影响力+无地址 → weak',
     appealInstructions.includes('项目方自己发的币')
-    && appealInstructions.includes('合约地址（CA）')
+    && appealInstructions.includes('web3 原生项目路径（账号路径）')
+    && appealInstructions.includes('按没有提供地址处理')
+    && !appealInstructions.includes('正经项目方行为，资格过线')
     && appealInstructions.includes('有一定影响力的正常用户')
     && appealInstructions.includes('全无影响力')
     && appealInstructions.includes('直接判 weak'),
@@ -283,7 +285,7 @@ async function main() {
     null);
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION ≥ J1.126（J1.126=C230 追裁键名再调整加 web3_project 域限定；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.126（J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
     parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 126, JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
