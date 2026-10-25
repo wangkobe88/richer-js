@@ -67,7 +67,9 @@ async function main() {
   console.log('new condition:', cond);
   const newDescription = (full.description || '') + ' | 2026-10-25 v36（用户裁定，A/B 对比 +41.3pp）：bundle 门流量口径→存量口径'
     + ' bundleClusterSharePct → bundleClusterHoldCircPct（全块 max 当前正净持仓÷流通，阈值 35 不动；'
-    + '流量门误伤快进快出交易簇，存量门拦真囤簇；代码须含新因子）。⚠️copy-in：需新建实验引用 v36 才生效。';
+    + '流量门误伤快进快出交易簇，存量门拦真囤簇；代码须含新因子）。⚠️copy-in：需新建实验引用 v36 才生效。'
+    + '（补注：v34=市值门 15000→20000（T2）、v35=T63 慢热或臂——两版 description 段佚失，此处回填；'
+    + '详档见 docs/交易策略改进与Case台账.md T2/T63）';
   console.log('description:', newDescription);
   if (!COMMIT) { console.log('[dry-run]'); process.exit(0); }
 
