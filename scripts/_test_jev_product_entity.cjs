@@ -77,9 +77,9 @@ async function main() {
     q.bsc_meme_user_event_fit.instructions.includes('公司产品实体（J1.27/J1.83）')
     && q.bsc_meme_user_event_fit.instructions.includes('无形象无玩梗空间→unfit')
     && q.bsc_meme_user_event_fit.instructions.includes('母公司影响力/规格不转移给产品'));
-  check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）仍在，impact 旧 score 题删除不带走该锚（J1.110 复活键为 choice 否决题）',
-    q.event_category.instructions.includes('D vs W boundary')
-    && q.event_category.instructions.includes('NOT W')
+  check('A3c event_category D/W 边界句（币安机构官宣自家产品→D 不判 W）仍在，impact 旧 score 题删除不带走该锚（J1.110 复活键为 choice 否决题；J1.125 题面中文重写锚词同步）',
+    q.event_category.instructions.includes('D vs W 边界')
+    && q.event_category.instructions.includes('不是 W')
     && q.bsc_meme_user_event_impact?.type === 'choice');
   check('A4 unfit 桶含产品实体臂（华为发布麒麟≠链上用户接纳麒麟）+ crypto 原生机构例外',
     q.bsc_meme_user_event_fit.criteria.unfit.includes('公司产品实体不被接纳')

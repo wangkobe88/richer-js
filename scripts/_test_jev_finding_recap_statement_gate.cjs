@@ -204,8 +204,8 @@ async function main() {
   check('A9 name_form 判定对象=链上 Symbol（C130 裁定「币名应该看 Symbol」；Name 不作判据；J1.116 ③因素内保留）',
     nf.instructions.includes('仅就链上 Symbol（币名/ticker') && nf.instructions.includes('链上 Name 是全名/描述句不作判据')
     && !nf.instructions.includes('取更完整的一个判'), null);
-  check('A10 event_category F 档澄清（目击/报道新闻≠发现→判 E/D，spotted 语气不满足 F）',
-    /F:\s*'Discovery:[^']*NOT a news event the author merely witnessed\/reported/.test(
+  check('A10 event_category F 档澄清（目击/报道新闻≠发现→判 E/D，spotted 语气不满足 F；J1.125 题面中文重写锚词同步）',
+    /F:\s*'发现型：[^']*不是作者只是目击\/报道的公开新闻事件/.test(
       (await readQuestionsSrc()).replace(/\n/g, ' ')), null);
   check('A11 两新题不受条件开关影响（includeBrandHijack 臂同带）',
     'event_finding_vs_recap' in buildStandardQuestions({ includeBrandHijack: true })

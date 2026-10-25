@@ -108,6 +108,11 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
     // 账号数据。不划清边界它就顶着「直接采信」帽子污染量级/dim2 判断现场（哭哭奶龙
     // 案 dim2 8.2 按载体 138 粉判了奶龙 IP 方权重）
     `tweet_type_note: reason 中的粉丝/赞/转是载体推文（陈述者）自身的账号数据，仅用于时效分桶——不是事件传播数据；量级/dimension2/传播判定不得以载体账号数据评事件主体（找角度推文按被借势事件/IP自身的传播与知名度判，J1.20形状②/J1.46）`,
+    // J1.125（C196 AIFLY 案）：angle_seeking 只是时效分桶的载体弱信号（低粉+低
+    // 互动），不得据此把事件主体判成「被借势的外部事件」——低粉作者宣告自己的
+    // Web3 项目不是找角度。项目陈述推的主体=项目本身（W 类），发布者影响力由
+    // bsc_meme_user_acceptance_and_impact 资格轴评（dev 无名+无 CA 背书 → weak）
+    `tweet_type_note2: tweet_type 仅用于时效分桶，不构成事件主体的判定——推文陈述/宣告一个 Web3 项目时（第一人称做项目/单纯提及项目=项目 dev 自发宣告；明确说 XX 做了什么=第三方陈述），事件主体=项目本身，按 event_category 的 W 类评估（找角度=借势与该项目无关的外部事件/热点找切入点）`,
   ];
   if (options.superIPInfo) {
     precomputed.push(

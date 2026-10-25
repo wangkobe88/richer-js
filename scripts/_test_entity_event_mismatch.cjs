@@ -64,7 +64,7 @@ async function main() {
   const mapperSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
 
   console.log('\n── A. 题面（J1.124/C194）──');
-  check('A1 版本 = J1.124', qm.JEV_QUESTIONS_VERSION === 'J1.124', qm.JEV_QUESTIONS_VERSION);
+  check('A1 版本 ≥ J1.124（J1.124=C194 实体-事件脱节桶；当前 J1.125=C196）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 124, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
   const entQ = q.bsc_meme_user_name_entity_acceptance;
   check('A2 实体题五桶（accepted/unacceptable_type/wrong_entity/not_entity/entity_event_mismatch）',

@@ -65,7 +65,7 @@ async function main() {
   const questionsSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
 
   console.log('\n── A. 题面（J1.123/C193 + C192b）──');
-  check('A1 版本 = J1.123', qm.JEV_QUESTIONS_VERSION === 'J1.124', qm.JEV_QUESTIONS_VERSION);
+  check('A1 版本 ≥ J1.123（J1.123=C193 旁观热点判据臂；当前 J1.125=C196）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 123, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
   const fitQ = q.bsc_meme_user_event_fit;
   check('A2 C193 锚句在场（Web2 旁观热点 / 情感冲击 / 哪怕有形象也不够 / 至多 marginal / 齐天大圣案）',

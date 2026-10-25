@@ -1239,9 +1239,19 @@
  *       不大均不适用。mapper entityEventMismatchBlock 概率 ≥0.5 全域拦（与类型/
  *       指歪门同形状，pubProxy 豁免同源），审计 nameEntityEventMismatchMass。
  *       旧缓存行无该桶 → 概率 0 fail-open 零翻转
+ * J1.125（C196，2026-10-25 AIFLY 案 0x0baecc80…7777 用户裁定三轮）：①event_category
+ *       英文题面中文重写（P2 英文化=迁移期校准手段非裁定）+ Web3 项目识别强化——
+ *       crypto 语境项目（AI×crypto 实验/交易终端/个人小团队自发项目）的主体性陈述
+ *       归 W 不归 C；主体归属修正：项目陈述推（第一人称/单纯提及=dev 自发宣告；
+ *       明确说 XX 做了=第三方陈述）主体=项目本身，「找角度」只适用借势与项目
+ *       无关的外部事件。②w_bsc_user_appeal 键名断代 bsc_meme_user_acceptance_and_
+ *       impact（C183 命名惯例）+ 新增资格轴：项目方自发币须 CA 背书，否则发布者
+ *       （dev/第三方陈述者）须有一定影响力（股城型官宣+官方号+转述=过线原型）；
+ *       全无影响力+无地址 → weak（W 数学 15<32 恒 low）。桶 id（weak/moderate/
+ *       strong）与分值映射 15/47/66 不变；mapper q() 归一读旧键，旧行零翻转
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.124';
+export const JEV_QUESTIONS_VERSION = 'J1.125';
 
 /** 品牌 keyword 预检表+shouldIncludeBrandHijackCheck 已废（J1.103/C172 品牌劫持轴
  * 整体退役：brand_mismatch 桶删除后预检唯一用途 mapper 门开关消失；名字-事件
@@ -1287,33 +1297,39 @@ export function buildStandardQuestions(options = {}) {
     // ── 1. 事件分类（原 Stage1，8 类 + 边界规则；英文——文档标注英文最佳，校准实证中文边界规则下 50% 样本分类漂移）──
     event_category: {
       type: 'choice',
-      instructions: `Event classification. Select the single best category for the event constituted by this tweet/content.
-Priority when multiple could apply: A > W > B > F > G > C > D > E.
-Key discriminating signals:
-- E = a trend or viral content spreading NOW on some platform (meme, challenge, hot post, trending topic). The tweet merely reports or rides content that is already hot.
-- F = the author presents THEIR OWN finding: a hidden pattern, data insight, or narrative connection they claim to have discovered. Even if the finding is about trending content, an original discovery claim is F, not E.
-- G = a PREDICTION about a future event, with some reasoning but insufficient evidence.
-- C = a statement or action by an INDIVIDUAL person speaking personally (a personal account, even if that person is a CEO — unless posting as the institution's official mouthpiece).
-- D = an announcement or action by an INSTITUTION's official account (company or organization official channel).
-- W = a blockchain/crypto product launch or update (token, DeFi, NFT, public chain, infra tool, protocol).
-- D vs W boundary: when a crypto-native institution (exchange / public chain / Web3 platform, e.g. Binance) officially announces ITS OWN new product or feature via its official account, the subject is the institution's announcement → D (institutional action), NOT W. W is reserved for standalone Web3/crypto projects or products where the product/project itself is the subject (a third party launching/announcing a Web3 project, or a non-institutional project's own release).
-- B = a non-Web3 product launch or update (app, game, hardware, website, consumer product).
-- A = a visual IP: meme character, mascot, virtual image, cartoon IP, emoji-pack character.
-Subject attribution rules (critical):
-- angle-seeking tweet / interpretive reply: the event subject is the ORIGINAL event being leveraged or interpreted, NOT the tweet author.
-- tweet reporting or relaying an external hot event: subject = the hot event's protagonist, not the relayer.
-- tweet about the author's own content/work/statement: subject = the author (only then does the author's follower count represent event magnitude).
-- token named after a CHARACTER inside a work (anime/manga/game/film character: token name = the character's own name, NOT the work's title): subject = that character as a visual IP → category A. The work's official promo/announcement tweet is merely the corpus source for the character — it does NOT make the event an institutional product announcement (D) or a routine content-product promo. Judge the character's own IP notability and meme evidence; an unknown / not-yet-aired character is a low-tier IP.
-- memorial / charity / real-person story (J1.96/C160): when the tweet tells a real person's life, charity, death or collective-mourning story and the token is merely a vehicle to remember them, the event subject is the PERSON/STORY → E (social hotspot), NOT W. W is reserved for the crypto product/project itself being the subject of a launch/update; merely saying 「部署这个代币」 inside a memorial story does NOT make the event a W-class product launch.`,
+      // J1.125（C196，AIFLY 案 0x0baecc80…7777）：英文题面中文重写（P2 英文化是
+      // 迁移期校准手段非裁定；题集主体已全中文）+ Web3 项目识别强化（分类当前
+      // 最大的功能就是把 Web3 项目识别出来——只有这一路走 bsc_meme_user_
+      // acceptance_and_impact）：crypto 语境项目（AI×crypto 实验/交易终端/个人
+      // 小团队自发项目）的主体性陈述归 W 不归 C；主体归属修正——项目陈述推
+      // 主体=项目本身，「找角度」只适用借势与项目无关的外部事件
+      instructions: `事件分类（event classification）。判断这条推文/内容构成的事件属于哪一类，只选一个最佳类别。
+优先级（同时符合多类时）：A > W > B > F > G > C > D > E。
+关键判别：
+- E = 正在平台流行/传播中的热点内容（梗/挑战/热帖/热搜话题），推文只是报道或搭载已在变热的内容；纪念/公益/真人故事（讲述真人的人生/善举/去世/集体悼念，代币只是纪念载体）→ 主体=该人物/故事，E，不是 W。
+- F = 作者呈现自己的发现：隐藏模式/数据洞察/叙事关联（有证据支撑，发现本身是卖点）；公开发生的新闻事件（「X 上了电视」「X 发布了新品」）不是发现——目击/报道语气（spotted/noticed/看到了）不构成 F，归 E/D/C。
+- G = 对未来事件的预测/猜想（有推理但无充分证据）。
+- C = 个人（非机构官方身份）的言论/动作（个人账号，即使是 CEO——除非以机构官方喉舌身份发言）。
+- D = 机构官方账号的公告/动作（公司/组织官方渠道）。
+- W = 区块链/加密（Web3）语境项目/产品/实验的发布或更新（代币/DeFi/NFT/公链/工具/协议/AI×crypto 实验/交易终端）。
+- D vs W 边界：crypto 原生机构（交易所/公链/Web3 平台，如币安）经官方账号发布自家新产品/新功能 → 主体=机构公告，D，不是 W；W 留给项目/产品本身是主体的形状（第三方发布/陈述一个 Web3 项目，或非机构项目——含个人/小团队——的自发发布）。
+- B = 非 Web3 产品发布/更新（App/游戏/硬件/网站/消费品）。
+- A = 视觉形象 IP：meme 角色/吉祥物/虚拟形象/卡通 IP/表情包形象。
+主体归属规则（最重要）：
+- 主体=事件本身的核心实体，不一定是发推人。
+- 推文陈述/宣告/介绍一个 Web3 项目时：主体=该项目本身 → W（无论陈述者是谁）。两种视角都归 W：①第一人称做项目/单纯提及项目（无明确第三方主语「XX 做了/发布了」）→ 视为项目 dev 的自发宣告；②明确说「XX 做了什么项目」→ 第三方整理陈述。⚠️「找角度/借势」不适用于项目陈述推：找角度=借势一个与该项目无关的外部事件/热点/叙事找切入点（被借势的外部事件才是主体）；低粉丝/低互动的作者宣告自己的项目不是找角度。
+- 推文报道/搬运/讨论外部热点 → 主体=该热点的主角/发起方，发推人只是信息搬运者，其粉丝数不代表事件量级。
+- 推文是作者自己的内容/作品/声明（与 crypto 项目无关）→ 主体=作者（此时才看发推人粉丝数/认证）。
+- 代币名=作品内角色名（动漫/游戏/影视角色，币名是角色自己的名字而非作品名）→ 主体=该角色的视觉 IP，A 类。作品官方宣传推只是角色的语料来源——不构成机构产品公告（D）或日常内容产品宣传；按角色自身 IP 知名度与 meme 证据判，未开播/无名角色=低档 IP。`,
       criteria: {
-        A: 'Visual IP: meme character / mascot / virtual image / cartoon IP',
-        W: 'Web3 project: blockchain/crypto launch or update (token/DeFi/NFT/chain/tool)',
-        B: 'Non-Web3 product: app/game/hardware/website/consumer product launch or update',
-        F: 'Discovery: hidden pattern / data insight / narrative finding, evidence-backed, author-discovered. NOT a news event the author merely witnessed/reported (e.g. "X appeared on national TV" is E; an institution/person making news is D/C) — even if phrased as a discovery ("spotted", "noticed"): F requires the finding itself (the pattern/insight/connection) to be the subject, not a publicly happening news event',
-        G: 'Speculation: future prediction with reasoning but insufficient evidence',
-        C: 'Personal statement: an individual speaking personally (not as institutional official mouthpiece)',
-        D: 'Institutional action: official account announcement/action of a company or organization',
-        E: 'Social hotspot: trend/viral content spreading on social platforms now',
+        A: '视觉形象IP：meme 角色/吉祥物/虚拟形象/卡通 IP/表情包形象',
+        W: 'Web3 项目：区块链/加密语境项目的发布或更新（代币/DeFi/NFT/公链/工具/协议/AI×crypto 实验/交易终端）——crypto 语境的项目本身是主体；不要求机构背景或协议级基础设施，个人/小团队自发项目与第三方陈述的项目同样归本类',
+        B: '非 Web3 产品：App/游戏/硬件/网站/消费品等非 crypto 语境产品的发布/更新',
+        F: '发现型：隐藏模式/数据洞察/叙事发现（有证据支撑、作者自己发现且发现本身是卖点）；不是作者只是目击/报道的公开新闻事件（「X 上了电视」归 E；机构/人物制造新闻归 D/C）——即使措辞是发现（spotted/noticed），F 要求发现本身（模式/洞察/关联）是主体',
+        G: '推测型：对未来事件的预测/猜想（有推理但无充分证据）',
+        C: '个人言论：个人（非机构官方身份）的声明/言论/动作——与 crypto 项目无关的个人行为；宣告/陈述 crypto 项目本身归 W 不归本类',
+        D: '机构动作：机构/公司官方账号的公告/动作（crypto 原生机构发布自家产品也是 D）',
+        E: '社会热点：社交媒体正在流行的趋势/病毒式内容/热点事件；纪念/公益/真人故事',
       },
     },
 
@@ -1434,17 +1450,25 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
     //     退役为 web3FitMassBlock 通用门（sf+fit<0.5 全域，豁免链继承）。旧缓存行
     //     残留 event_subject_entity 键无害（mapper/前端不再消费 choice）──
 
-    // ── 6. W 类专用（项目对 BSC 用户吸引力 0-75，仅 W 类采信）──
+    // ── 6. W 类专用（Web3 项目接纳度 × 发布者影响力 0-75，仅 W 类采信）──
     // （5.7 事件情绪感染力题已删 J1.36/C93；w_product_score 已删 J1.84/C142——
-    //   与本题语义/统计双重重叠，W 数学合并为单轴）
-    w_bsc_user_appeal: {
+    //   与本题语义/统计双重重叠，W 数学合并为单轴。J1.125/C196 键名断代
+    //   w_bsc_user_appeal → bsc_meme_user_acceptance_and_impact，C183 bsc_meme_user_*
+    //   命名惯例：评估主体=BSC meme 币用户；新增发布者影响力资格轴）
+    bsc_meme_user_acceptance_and_impact: {
       type: 'choice',
-      instructions: `项目对 BSC 链 Meme 币用户的吸引力（仅 Web3 项目评估），弱/中/强三档。评估对象=项目自身（叙事题材/玩法与参与机制/参与门槛/传播点），一切从用户角度出发：模拟 BSC 链的 Meme 币玩家第一次看到这个项目时的反应——会不会感兴趣、想参与、想讨论转发、想拉人来玩。评的是项目属性带来的**预期吸引力**，不是发布后的实测热度（语料里的互动量不是本题判断依据）；项目方的技术自述/路线图不直接等于用户吸引力，要看用户能不能感知到玩法/梗/参与理由。
+      instructions: `Web3 项目对 BSC meme 用户的接纳度与发布者影响力（仅 W 类评估），弱/中/强三档。本题复合两轴——【资格轴：发布者/陈述者影响力】与【接纳度轴：项目对 BSC meme 用户的吸引力】，先判资格轴。
+【资格轴（J1.125/C196 用户裁定）】
+- 项目方自己发的币（语料是 dev 视角：第一人称做项目/单纯提及项目无第三方主语/发币者钦定宣告推）：项目方提供了代币合约地址（CA）背书（语料/官网/元数据任一处出现该代币的合约地址）= 正经项目方行为，资格过线；未提供地址时，dev 须是有一定影响力的用户（粉丝/圈内身份/过往作品/第三方传播）才过线。
+- 纯第三方发币/第三方陈述（推文明确说「XX 做了什么项目」）：陈述者/发布者须是有一定影响力的正常用户（有粉丝/圈内身份/有运营与传播证据——官宣+官方号进展+社区转述等），资格才过线。
+- ⚠️ 发布者全无影响力（无名小号、零传播、无第三方讨论）且项目不提供地址 → 资格不合格，直接判 weak——无论项目题材看起来多有乐子，无人背书、无人传播的项目不是 BSC meme 用户会接纳的事件。
+【接纳度轴（资格过线后评）】
+- 评估对象=项目自身（叙事题材/玩法与参与机制/参与门槛/传播点），一切从用户角度出发：模拟 BSC 链的 Meme 币玩家第一次看到这个项目时的反应——会不会感兴趣、想参与、想讨论转发、想拉人来玩。评的是项目属性带来的**预期吸引力**，不是发布后的实测热度（语料里的互动量不是本题判断依据）；项目方的技术自述/路线图不直接等于用户吸引力，要看用户能不能感知到玩法/梗/参与理由。
 ⚠️ **不评与币安官方的交互/合作/上币预期**：刚发布的 BSC 项目本来就不可能有币安交互，这不是项目的吸引力证据，也不因此扣分（本题已取代旧「币安交互分」）。`,
       criteria: {
-        weak: '弱吸引力——没有或只有基本的概念/玩法：无叙事记忆点、同类常见无差异、参与理由弱，用户看一眼就过（合并旧「无吸引力/一般」两档）',
-        moderate: '中——有明确吸引力：有具体的玩法/参与机制或叙事记忆点，BSC 用户愿意尝试、讨论、转发',
-        strong: '强吸引力——玩法/叙事直击 BSC meme 玩家、参与门槛低且有自传播/FOMO 点，用户会主动拉人参与',
+        weak: '弱——资格轴不合格（项目方无 CA 背书且发布者无名，或第三方陈述者无名无传播）∨ 接纳度弱（无叙事记忆点、同类常见无差异、参与理由弱，用户看一眼就过）',
+        moderate: '中——资格过线 + 接纳度中：有具体的玩法/参与机制或叙事记忆点，BSC 用户愿意尝试、讨论、转发',
+        strong: '强——资格过线 + 接纳度强：玩法/叙事直击 BSC meme 玩家、参与门槛低且有自传播/FOMO 点，用户会主动拉人参与',
       },
     },
 

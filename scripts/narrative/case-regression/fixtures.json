@@ -1426,6 +1426,22 @@
       "addedAt": "2026-10-23",
       "expectBecause": "2026-10-23 用户第五批合列五张之一（未附异议，按无异议收 low；重析空洞内容）",
       "expectSince": "2026-10-23"
+    },
+    {
+      "caseId": "C230",
+      "symbol": "AIFLY",
+      "addr": "0x0baecc80613610f8c6051e55c136505a47507777",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:W",
+        "reasonIncludes": [
+          "W类总分不足"
+        ]
+      },
+      "note": "AIFLY 案（C230/J1.125）：18 粉 dev 自发币（宣告推与创建相隔 32s）无 CA 背书，引擎误判 high 75.3（event:C 压过 W+fit 0.67 派生 A 档）。裁定后 intent=low——主体=项目走 W 类+资格轴 weak 15<32。",
+      "addedAt": "2026-10-25",
+      "expectBecause": "C230 裁定（2026-10-25 用户三轮）：项目方自发币走 W 类；发布者全无影响力（18 粉）且项目不提供地址（CA）→ 资格轴不合格直接 weak（15<32 恒 low）。机器初录现状=high 75.3/event:C（误判现场），人工改写为意图。",
+      "expectSince": "2026-10-25"
     }
   ]
 }
