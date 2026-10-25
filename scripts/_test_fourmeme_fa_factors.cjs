@@ -487,6 +487,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'buyPriceBnb',
         'bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
         'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct',
+        // 2026-10-25 T1 bundle 门存量口径（漏登记随 top2 键补）
+        'bundleClusterHoldCircPct',
         // 2026-10-17 Agentum 案方向 C 出生锚定捆绑簇 4 键（10s 滑窗迟到 fire 漏创建块簇；
         // 详见 _test_bundle_cluster_factors.cjs M/N 段与 FA launch* 注释）
         'launchBundleClusterSize', 'launchBundleClusterSharePct',
@@ -510,6 +512,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-10-22 人气门去簇口径两键（簇钱包买入/持有者不计人气，
         // 详见 _test_sybil_cluster_factor.cjs H 段）
         'buyVolumeBnbExSybil', 'holdersExSybil',
+        // 2026-10-25 AIFLY 案第二道存量门（最大两块买家并集去重，详见 _test_bundle_cluster_factors.cjs P 段）
+        'top2BundleClusterHoldCircPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));
