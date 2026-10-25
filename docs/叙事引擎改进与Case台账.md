@@ -54,6 +54,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C193 Web2 旁观热点情感冲击臂——至多 marginal（2026-10-25 用户裁定「那就这样」，J1.123）★
+
+- **案发**：`0x4a6a6c8b3c15eb8422ad7b95c5c6280ed68d7777`「齐天大圣」2026-10-25 05:05 UTC **high 88.88**（E 类 0.84 / fit **strong_fit 0.78** / impact none 0.64 / 实体 accepted 1.0，J1.121）。语料=@DveBNB（1 粉）搬运「抖音博主用树枝搭了一个齐天大圣主题游乐园，门口的巨型齐天大圣特别帅，不到一天七十万点赞，还在发酵！现在博主还在直播，后面肯定很多人会去打卡」。
+- **用户裁定**：「对 BSC Meme 币用户，没有感情冲击力。因为是一件 Web2 的事情，缺少感情冲击力，哪怕有个形象，也不够。可以在 bsc_meme_user_event_fit 增加一臂试试，但是不知道这一臂会影响多少 case，可以帮我跑一下」。
+- **机制（J1.123）**：`bsc_meme_user_event_fit` 加 C193 判据臂——Web2 圈外平台（抖音/快手/微博/小红书）的**旁观式热点**（博主做了个东西/才艺/造景/打卡），无情感冲击（不引发共情/感动/愤慨/纪念，也不提供可参与可二创的玩梗空间）→ **哪怕热度极高、有知名 IP 形象（齐天大圣）、持续发酵，至多 marginal（不选 strong_fit/fit）**。**不加桶**（marginal 档 + 既有 web3FitMassBlock sf+fit<0.5 执行拦截）；边界：C161 全球级可参与产品/网站/游戏/生成器不适用（那是可玩空间）、C160 公益救助/纪念情感路径不适用。
+- **同批 C192b（中国政治门收窄）**：J1.122 首跑回归（94P/5F/4O）反证两张误拦——C94 京小安 `china_politics 0.61`（北京日报报道 AI 警犬产品）、C194 小黑 `0.54`（交警救助流浪狗 #中国故事，本属 C160 情感路径）；题面加边界：官媒/党政机构的**非政治内容**（产品发布/科技成果/萌宠/民生暖心）不选 china_politics，按事件本身评估；只拦政治议题/政治人物/政治事件/政治宣传内容与符号（学习强国官方 IP 征名仍拦）。
+- **验证（定向重析三张）**：齐天大圣 high 88.88 → **low**（sf+fit 2%）；京小安 low → **high 80.38**（china_politics 0.01，C192b 生效）；小黑 low → **high 91.01**（C160 情感路径恢复）。
+- **影响面（J1.123 全量回归 95P/6F/2O/0ERROR）**：**C193 零命中**——回归集无票 fit 概率被降档（DND strong_fit 0.57 / BINA 0.65 / 京小安 0.6 均未动），唯一实测效果=齐天大圣翻 low，影响面=精准打新票。6F 归因：C94 京小安=空洞门 empty_content 0.48 vs none 0.47 近 tie（C192b 已生效，空洞门接手，**待裁定**是否给「新闻转述+配图」形状豁免——vision 门 sufficient 跳过 vision 致 C114 图证豁免不触发）；C114 DND=category A/E/W 25/25/27 近 tie 落 W + W 总分 15<32（掷骰）；C162 BINA=关联题 unacceptable 5 分截断（掷骰）；C133 股城=W 15<32（J1.122 同形状）；C205 Maya/C212 Bot=既有意图分歧票（用户裁定留档）。
+- **裁定结果（2026-10-25）**：用户「C193 那就这样」——保留题面 marginal 臂，不升级独立桶/不加代码门；影响面已确认可控。
+- **部署**：J1.123 已 182 生效（worker 重启，05:50 UTC）。
+
 ### C192 中国政治主题否决——bsc_meme_user_event_fit 新增 china_politics 桶（2026-10-25 用户裁定，J1.122）★
 
 - **案发**：`0x7f9fce00af76ac1c4cf5760f047e71b6852b7777`「强强国国」2026-10-25 05:19 UTC 分析 **mid 65.49**（event A 0.78 / impact none 0.71 / fit **strong_fit 0.43**·fit 0.2·marginal 0.17·unfit 0.2 / 实体 accepted 0.52，J1.121 标准路径；未成交：trades/signals 均 0）。语料=@Hugo_grupillo（177 粉）「学习强国最新IP 给了名字 并向全网征集形象创意 学习强国不用多说了吧」+ 配图——学习强国（中共中央宣传部出品的学习平台）官方 IP 的拟人化/征名，中国政治属性明确，Jev 因「IP 征集形象创意」给了 strong_fit。
@@ -61,7 +72,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **机制（J1.122）**：①题面 `bsc_meme_user_event_fit` 新增第 5 桶 `china_politics`（**独立否决项，不参与四档连续比较**；四档保留）——中国党政机构/官方宣传平台与符号（学习强国等）/中国领导人/中国国内政治事件政策会议/政治口号与政治表态；instructions 钉死「**本项不看玩味空间**」（形象征集/二创空间/正面情绪/官方 IP 化/可爱拟人不改变本判，C98 政治暴力臂同款写法）、港澳台同标、非中国政治（其它国家/国际关系）不选本项按四档评估。②mapper `chinaPoliticsBlock`：fit 题 **argmax choice** = china_politics → rating 1 确定性拦（不看 fit 概率；旧缓存行无该桶 fail-open 零翻转）；**无豁免链**（pubProxy/isW/binanceCorpus/platformOfficial 均不适用）。③门链挂位在 `web3UnfitBlock` 之前（主题类别否决先于概率门，label 归属更准）；审计 `jev.chinaPoliticsBlock` 命中才落。④加桶不加题（题集维持 10 题，C109 收敛纪律）。
 - **验证**：新单测 `_test_china_politics_gate` 16 断言全绿（题面/集成/门序/无豁免/旧行 fail-open/源码口径）；受影响存量 12 项全绿（`_test_jev_product_entity` 38 / `_test_bluechip_dedup_gate` 54 / `_test_web3_fit_anchor` 27 / `_test_jev_resonance` 13 / `_test_empty_content_img_exempt` 34 / `_test_jev_finding_recap_statement_gate` 106 / `_test_angle_timing_override` 47 / `_test_name_image_consistency` 41 / `_test_unrated_elimination` 32 / `_test_narrative_signal_gate` 13 / `_test_jev_question_consolidation` 90 / `_test_name_entity_acceptance` 47；后三者版本精确断言同步 J1.122）。
 - **残余面**：argmax 未判 china_politics 的票仍可能漏（如本票旧版 strong_fit 0.43 的黏性）——题面锚已钉死「不看玩味空间」，实际翻面待 182 重析该票验证；不设代码关键词兜底（避免「中国龙」类文化符号误伤，用户未裁定）。
-- **部署待办**：182 pull + 重启叙事 worker（题面版本 J1.122 生效）→ 重析本票确认翻 low → `npm run case-regression` 全量对拍（无 case 直接涉及，预期零翻转风险以回归为准）。
+- **部署与首跑回归（2026-10-25）**：182 pull + worker 重启（05:44 UTC）→ 重析本票翻 **low**（`china_politics` P=0.69）→ 全量回归 94P/5F/4O/0ERR。5F 中两张为本门误拦（C94 京小安 0.61 / C194 小黑 0.54）→ 题面加 C192b 边界收窄（官媒非政治内容不选本项，见 C193 条目），三张为掷骰/既有分歧票。收窄后复跑 95P/6F/2O，小黑恢复 high 91.01。
 - **同批**：`web3_user_event_fit` 的键名引自用户原话 `bsc_meme_user_event_fit`（J1.112/C183 已断代——用户口径与当前键名一致）。
 
 ### C191 币安传奇——impact none 与 fit strong_fit 两轴打架、实体臂不看发布者影响力（2026-10-25，J1.121，不修）
