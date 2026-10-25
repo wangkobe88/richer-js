@@ -215,6 +215,7 @@ class ExperimentSignalStats {
           tokenAddress: addr,
           buySignals: 0,
           sellSignals: 0,
+          observeSignals: 0,
           holdSignals: 0,
           executedBuy: 0,
           executedSell: 0,
@@ -230,6 +231,10 @@ class ExperimentSignalStats {
       } else if (signalType === 'SELL') {
         stats.sellSignals++;
         if (signal.executed) stats.executedSell++;
+      } else if (signalType === 'OBSERVE') {
+        // 观察信号（2026-10-23 ₿DOG 案）：action='hold' 恒终态（executed=false 无
+        // 后续推进），只计数不进 executed 统计
+        stats.observeSignals++;
       } else if (signalType === 'HOLD') {
         stats.holdSignals++;
         if (signal.executed) stats.executedHold++;
@@ -278,7 +283,8 @@ class ExperimentSignalStats {
       // 信号筛选
       if (this.currentFilter === 'with-buy' && stat.buySignals === 0) return false;
       if (this.currentFilter === 'with-sell' && stat.sellSignals === 0) return false;
-      if (this.currentFilter === 'with-signals' && stat.buySignals === 0 && stat.sellSignals === 0) return false;
+      if (this.currentFilter === 'with-observe' && stat.observeSignals === 0) return false;
+      if (this.currentFilter === 'with-signals' && stat.buySignals === 0 && stat.sellSignals === 0 && stat.observeSignals === 0) return false;
 
       // 叙事评级筛选
       if (this.currentNarrativeFilter !== 'all') {
@@ -328,7 +334,7 @@ class ExperimentSignalStats {
     if (pageData.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="8" class="px-4 py-8 text-center text-gray-400">
+          <td colspan="10" class="px-4 py-8 text-center text-gray-400">
                 没有找到符合条件的代币
           </td>
         </tr>
@@ -443,6 +449,11 @@ class ExperimentSignalStats {
         </td>
         <td class="px-4 py-3 text-center">
           <span class="signal-count signal-count-sell">${stat.sellSignals}</span>
+        </td>
+        <td class="px-4 py-3 text-center">
+          ${stat.observeSignals > 0
+            ? `<span class="signal-count signal-count-observe" title="观察信号（叙事过/市值超阈未交易留痕）">👁 ${stat.observeSignals}</span>`
+            : '<span class="text-gray-600">-</span>'}
         </td>
         <td class="px-4 py-3 text-center">
           <span class="signal-count executed-buy">${stat.executedBuy}</span>
@@ -597,6 +608,7 @@ class ExperimentSignalStats {
     const totalSellSignals = this.tokenStats.reduce((sum, s) => sum + s.sellSignals, 0);
     const executedBuySignals = this.tokenStats.reduce((sum, s) => sum + s.executedBuy, 0);
     const executedSellSignals = this.tokenStats.reduce((sum, s) => sum + s.executedSell, 0);
+    const totalObserveSignals = this.tokenStats.reduce((sum, s) => sum + s.observeSignals, 0);
 
     document.getElementById('stat-total-tokens').textContent = totalTokens;
     document.getElementById('stat-tokens-with-signals').textContent = tokensWithSignals;
@@ -604,6 +616,7 @@ class ExperimentSignalStats {
     document.getElementById('stat-total-sell-signals').textContent = totalSellSignals;
     document.getElementById('stat-executed-buy-signals').textContent = executedBuySignals;
     document.getElementById('stat-executed-sell-signals').textContent = executedSellSignals;
+    document.getElementById('stat-total-observe-signals').textContent = totalObserveSignals;
   }
 
   updateSortButtons() {

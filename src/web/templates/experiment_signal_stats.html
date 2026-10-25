@@ -102,6 +102,10 @@
             color: #ef4444;
         }
 
+        .signal-count-observe {
+            color: #9ca3af;
+        }
+
         .executed-count {
             color: #fbbf24;
         }
@@ -204,7 +208,7 @@
                 <!-- 汇总统计 -->
                 <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
                     <h2 class="text-lg font-semibold text-white mb-4">汇总统计</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-7 gap-4">
                         <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
                             <div class="text-sm text-gray-400 mb-1">代币总数</div>
                             <div class="text-2xl font-bold text-gray-100" id="stat-total-tokens">0</div>
@@ -220,6 +224,10 @@
                         <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
                             <div class="text-sm text-gray-400 mb-1">卖出信号总数</div>
                             <div class="text-2xl font-bold text-red-400" id="stat-total-sell-signals">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">观察信号总数</div>
+                            <div class="text-2xl font-bold text-gray-300" id="stat-total-observe-signals">0</div>
                         </div>
                         <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
                             <div class="text-sm text-gray-400 mb-1">已执行买入</div>
@@ -242,6 +250,7 @@
                                     <option value="all">全部代币</option>
                                     <option value="with-buy">有买入信号</option>
                                     <option value="with-sell">有卖出信号</option>
+                                    <option value="with-observe">有观察信号</option>
                                     <option value="with-signals">有任意信号</option>
                                 </select>
                             </div>
@@ -277,6 +286,9 @@
                                     </th>
                                     <th class="px-4 py-3 text-center">
                                         <span class="sort-btn" data-sort="sellSignals">卖出信号</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="observeSignals">观察信号</span>
                                     </th>
                                     <th class="px-4 py-3 text-center">
                                         <span class="sort-btn" data-sort="executedBuy">已执行买入</span>
@@ -376,6 +388,6 @@
 </div>
 
     <script src="/static/js/simple-init.js?v=4.0"></script>
-    <script src="/static/js/experiment_signal_stats.js?v=4.10"></script>
+    <script src="/static/js/experiment_signal_stats.js?v=4.11"></script>
 </body>
 </html>
