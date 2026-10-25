@@ -69,7 +69,7 @@ async function main() {
   const questionsSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
 
   console.log('\n── A. 题面完整性（J1.122/C192）──');
-  check('A1 版本 = J1.122', qm.JEV_QUESTIONS_VERSION === 'J1.122', qm.JEV_QUESTIONS_VERSION);
+  check('A1 版本 = J1.122', qm.JEV_QUESTIONS_VERSION === 'J1.123', qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
   const fitQ = q.bsc_meme_user_event_fit;
   check('A2 fit 题存在且四档保留 + 新增 china_politics（第 5 桶，四档不删）',
