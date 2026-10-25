@@ -2465,6 +2465,17 @@ class ExperimentSignals {
       const idx = obs.index || '?';
       const max = obs.maxPerToken || 3;
       const showBuyBtn = !this._isBacktest;
+      // 跟普通买信号同款因子值 chips（2026-10-25 用户要求）：观察票无策略归属，
+      // 用实验首个买腿条件驱动展示；值=观察时刻 metadata.trendFactors 快照
+      // （绿=过买腿门/红=未过——「为何只观察没买」的对拍信息；回测无观察行天然不触发）
+      const obsBuyCondition = this._getBuyCondition('buy');
+      const obsFactorChipsHtml = obsBuyCondition ? `
+        <div class="text-xs mt-2">
+          <span class="font-semibold text-gray-700">📋 买入条件（对拍）:</span>
+          <code class="ml-2 px-2 py-0.5 bg-gray-200 rounded text-xs text-gray-900 break-all">${this._escapeHtml(obsBuyCondition)}</code>
+          ${this._renderConditionFactorChips(obsBuyCondition, metadata)}
+        </div>
+      ` : '';
       observationInfoHtml = `
         <div class="mt-2 p-2 bg-gray-100 rounded border border-gray-300">
           <div class="flex items-center justify-between">
@@ -2479,6 +2490,7 @@ class ExperimentSignals {
               手工买入
             </button>` : ''}
           </div>
+          ${obsFactorChipsHtml}
         </div>
       `;
     }
