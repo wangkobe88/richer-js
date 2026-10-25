@@ -878,6 +878,25 @@ function nameEntityTypeUnfitBlock(answers) {
 }
 
 /**
+ * 实体-事件影响力脱节门（J1.124/C194，2026-10-25 用户裁定）：齐天大圣
+ * 0x4a6a6c8b…7777——「齐天大圣是中国非常著名的超级 IP，但是这个事件影响力明显
+ * 不大。这样就是代币 IP 很大，事件本身影响力极小，两者脱节，事件明显支撑不起
+ * 这个代币，这种情况需要据掉」。
+ *
+ * 判据源=实体题第 5 桶 entity_event_mismatch 概率 ≥0.5 **全域拦**（与
+ * unacceptable_type/wrong_entity 同形状：概率门对抗 argmax 跨 run 抖动）。
+ * 域全域=大 IP + 小事件的脱节与事件分类正交（E/W/B 分类都可能是旁观小热点）。
+ * pubProxyActive 豁免保留（官方域名=具体产品落地 C29 裁定：发布者指代票的事件
+ * 就是官宣产品发布本身，不是旁观小热点）。旧缓存行无该桶 → 概率 0 fail-open
+ * 零翻转。审计键 nameEntityEventMismatchMass（命中才落）。
+ */
+function entityEventMismatchBlock(answers) {
+  const p = q(answers, 'bsc_meme_user_name_entity_acceptance', 'web3_user_name_entity_acceptance')?.probabilities?.entity_event_mismatch ?? 0;
+  if (p < 0.5) return null;
+  return { mass: Math.round(p * 100) / 100, label: `事件与代币实体影响力脱节（大 IP + 小事件撑不起代币，entity_event_mismatch ${Math.round(p * 100)}%≥50%）` };
+}
+
+/**
  * 阻断选项是否在该类别下生效
  * @param {string} choice - bsc_meme_user_event_impact（旧键 event_quality_veto/event_token_block_reason）的 choice（≠'none'）
  * @param {string|null} category - event_category 的 choice
@@ -1286,6 +1305,7 @@ export function mapStandardAnswers(answers, context) {
   // 快狗打车案实体题已判 unacceptable_type 0.9 但 category 掷骰 E（0.32 低置信）
   // 域外 miss 放行；类型不合与事件分类正交，对齐 wrong_entity 全域
   const neBlock = nameEntityTypeUnfitBlock(answers);
+  const emBlock = entityEventMismatchBlock(answers); // J1.124/C194 实体-事件影响力脱节（大 IP + 小事件）
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
   const uaBlock = web3UserAcceptabilityBlock(answers); // {label, choice}（C189 恢复拦截：not_entity 形状 web3_user_not_acceptable 档拦；C96→C105→C107→C108→J1.81 收窄→C180 拆臂→C189 恢复，实体臂优先路由 gate 在函数内）
   let timingScore = null;
@@ -1479,6 +1499,11 @@ export function mapStandardAnswers(answers, context) {
   } else if (!pubProxyActive && neBlock != null) {
     eventScoreBlocked = true;
     gateBlockReason = neBlock.label;
+  } else if (!pubProxyActive && emBlock != null) {
+    // J1.124/C194 实体-事件影响力脱节（大 IP + 小事件）：实体类型可接纳、但事件
+    // 量级远撑不起实体（齐天大圣游乐园）；与类型轴同层、pubProxy 豁免同源
+    eventScoreBlocked = true;
+    gateBlockReason = emBlock.label;
   } else if ((weBlock = wrongEntityBlock(answers))) {
     // J1.81/C139 指歪拦截位（全域）：币名试图指向实体但指歪/指残——拼写错/不忠实
     // 呈现/版本残片（C105 版本词臂、C108 拼写臂拦截责任迁入实体轴；「日本語版」
@@ -1616,6 +1641,9 @@ export function mapStandardAnswers(answers, context) {
         // 历史行键保留展示
         nameEntityTypeUnfitMass: neBlock?.mass ?? null,
         nameWrongEntityMass: weBlock?.mass ?? null,
+        // J1.124/C194 实体-事件影响力脱节审计：命中才落 mass（entity_event_mismatch
+        // 概率），旧缓存行/未命中为 null
+        nameEntityEventMismatchMass: emBlock?.mass ?? null,
         effectiveTiming: timing,
         // C44 审计标记：IG 证据缺失锚命中详情（影响力下限 50）
         instagramSpreadAnchor: instagramSpreadAnchorActive ? { fromInfluenceScore: influenceScore, floor: 50 } : null,

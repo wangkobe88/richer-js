@@ -276,10 +276,10 @@ async function main() {
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
   const entSeg = qsSrc.slice(qsSrc.indexOf('bsc_meme_user_name_entity_acceptance: {'), qsSrc.indexOf('bsc_meme_user_phrase_acceptability: {')); // 切片终点=紧邻词句题（visuality 题 C171 已删，旧终点键是死键取到文件尾）
-  check('D5 题集实体题四桶（J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 专名即实体锚（J1.121）+ 版本 J1.121（J1.121=C190 混混猫案用户裁定「not_entity 是『不是实体』，自创社区 mascot 名也是实体名字，不应该因为这个理由拦截；看的是性质，所以退役了 new_entity 门」：专名即实体锚（性质轴延伸）——名字被用作特定主体称谓（社区名/mascot 名/角色名/外号，「XX社区」式专名搭配在场）即映射该主体按类型轴评，无论自创/知名/语料是否陈述命名行为；not_entity 只留给泛称词无专名搭配+无 C174 命名故事陈述；案发=混混猫官方 recap 以「混混猫社区」称谓在场却判 not_entity 0.66 落词句臂拦；J1.120=C189 全量回归六裁定批：C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」——事件陈述句名=口号类落词句题按三因素评（J1.118 归实体门域措辞修正）+事件承载臂重要度门槛（民族级/全球级重大事件才够格，平台级/媒体级露出不够——用户裁定「事件的重要度明显不够」）+ip_reuse 原生热点锚（C129 彪弟案：原生热点梗/人物主体自身代币化不选本项，复用=反复换皮多处收割）+mapper 同批恢复词句门拦截；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题同域非演绎反锚 ATM 案；J1.114=C185 题面精炼去重：类型清单/认知度判据/C151/C162 各归单一宿主）',
+  check('D5 题集实体题五桶（J1.124/C194 加 entity_event_mismatch 实体-事件影响力脱节；J1.113/C184：unknown 认知度轴桶断代 unacceptable_type 类型轴——可乐/银行/犬种学名类无论著名；new_entity 删桶——性质没问题即可新旧无关；J1.103/C172 brand_mismatch 已删；no_entity 断代退役）+ 作者身份不升档红线 + 不评认知度锚 + 专名即实体锚（J1.121）+ 版本 J1.121（J1.121=C190 混混猫案用户裁定「not_entity 是『不是实体』，自创社区 mascot 名也是实体名字，不应该因为这个理由拦截；看的是性质，所以退役了 new_entity 门」：专名即实体锚（性质轴延伸）——名字被用作特定主体称谓（社区名/mascot 名/角色名/外号，「XX社区」式专名搭配在场）即映射该主体按类型轴评，无论自创/知名/语料是否陈述命名行为；not_entity 只留给泛称词无专名搭配+无 C174 命名故事陈述；案发=混混猫官方 recap 以「混混猫社区」称谓在场却判 not_entity 0.66 落词句臂拦；J1.120=C189 全量回归六裁定批：C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」——事件陈述句名=口号类落词句题按三因素评（J1.118 归实体门域措辞修正）+事件承载臂重要度门槛（民族级/全球级重大事件才够格，平台级/媒体级露出不够——用户裁定「事件的重要度明显不够」）+ip_reuse 原生热点锚（C129 彪弟案：原生热点梗/人物主体自身代币化不选本项，复用=反复换皮多处收割）+mapper 同批恢复词句门拦截；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题同域非演绎反锚 ATM 案；J1.114=C185 题面精炼去重：类型清单/认知度判据/C151/C162 各归单一宿主）',
     qsSrc.includes("bsc_meme_user_name_entity_acceptance: {")
     && /accepted:/.test(entSeg) && /unacceptable_type:/.test(entSeg)
-    && /wrong_entity:/.test(entSeg) && /not_entity:/.test(entSeg) && !/no_entity:/.test(entSeg)
+    && /wrong_entity:/.test(entSeg) && /not_entity:/.test(entSeg) && /entity_event_mismatch:/.test(entSeg) && !/no_entity:/.test(entSeg)
     && !/brand_mismatch:/.test(entSeg) && !/new_entity:/.test(entSeg) && !/unknown:/.test(entSeg)
     && entSeg.includes('指歪') && entSeg.includes('本项是拦截位（全域）')
     && entSeg.includes('不评认知度')
@@ -289,7 +289,7 @@ async function main() {
     && entSeg.includes('专名即实体（J1.121/C190，混混猫案')
     && entSeg.includes('被用作特定主体称谓的自创专名（J1.121/C190')
     && entSeg.includes('混混猫=自创社区 mascot 专名不落本项')
-    && /JEV_QUESTIONS_VERSION = 'J1\.123'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.124'/.test(qsSrc));
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')

@@ -54,6 +54,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C194 实体-事件影响力脱节——实体题第 5 桶 entity_event_mismatch（2026-10-25 用户裁定，J1.124）★
+
+- **案发**：同 C193 齐天大圣 `0x4a6a6c8b3c15eb8422ad7b95c5c6280ed68d7777`。C193 情感臂已把它压到 low，但用户追加指出另一条更本质的轴：「齐天大圣是中国非常著名的超级 IP，但是这个事件影响力明显不大。这样就是代币 IP 很大，事件本身影响力极小，两者脱节，事件明显支撑不起这个代币，这种情况需要据掉」。
+- **机制（J1.124）**：`bsc_meme_user_name_entity_acceptance` 新增第 5 桶 `entity_event_mismatch`（拦截位）——**双轴脱节判据**：①实体量级极大（全国级/世界级知名符号、公认超级 IP，在 BSC meme 用户认知里地位很高）∧ ②事件本身影响力极小（单个普通博主/账号的局部行为、单一平台小热点、无多方参与、无持续传播、无官方或大范围响应）→ 选本项。反向边界：事件有足够分量（官方发布/多方参与/大范围传播/全民讨论/持续发酵成社会现象）=不脱节按类型轴正常评；实体量级本身不大（普通词/小 IP/自创角色）=不适用本项。与类型轴正交：类型可接纳但事件撑不起→本项；类型不可接纳→unacceptable_type；指歪→wrong_entity。
+- **mapper**：`entityEventMismatchBlock` 概率 **≥0.5 全域拦**（与 unacceptable_type/wrong_entity 同形状的概率门，对抗 argmax 跨 run 抖动）+ pubProxyActive 豁免（官方域名=产品落地，发布者指代票事件=官宣产品发布而非旁观小热点，C29 同源）；门链 ne → em → we 同层；审计 `nameEntityEventMismatchMass` 命中才落；旧缓存行无该桶→概率 0 fail-open 零翻转。
+- **与 C193 并存**：C193=fit 层（Web2 旁观热点 → 至多 marginal，不选 strong_fit/fit）；C194=实体题层（大 IP + 小事件脱节 → 直接拦）。同一张齐天大圣两臂都命中；C194 更本质（看实体/事件量级匹配），C193 看口味契合。
+- **与 C191 的关系（待观察）**：C191「币安传奇」（大 IP=BNB + 小事件=13k 粉账号转的视频，fit strong_fit 0.70 → high 77.34，用户 2026-10-25 早间裁定「不修」）在 C194 双轴下可能被本门翻面——需实际重析确认，若翻面则 C191 的「不修」裁定需要用户复核。
+- **验证**：新单测 `_test_entity_event_mismatch` 16 断言（题面五桶/双轴锚/0.6 拦/0.49 边界/旧行 fail-open/E-W-B 全域/审计键/门链顺序/pubProxy 接线）；存量 `_test_name_entity_acceptance` 47、`_test_jev_question_consolidation` 90（A6/A6b 四桶→五桶断言同步）、`_test_jev_product_entity` 38、`_test_bluechip_dedup_gate` 54、`_test_web3_fit_anchor` 27、`_test_china_politics_gate` 16、`_test_web2_emotional_impact` 11、`_test_angle_timing_override` 47 全绿。
+- **影响面**：待全量回归（按用户要求跑前先确认）。
+
 ### C193 Web2 旁观热点情感冲击臂——至多 marginal（2026-10-25 用户裁定「那就这样」，J1.123）★
 
 - **案发**：`0x4a6a6c8b3c15eb8422ad7b95c5c6280ed68d7777`「齐天大圣」2026-10-25 05:05 UTC **high 88.88**（E 类 0.84 / fit **strong_fit 0.78** / impact none 0.64 / 实体 accepted 1.0，J1.121）。语料=@DveBNB（1 粉）搬运「抖音博主用树枝搭了一个齐天大圣主题游乐园，门口的巨型齐天大圣特别帅，不到一天七十万点赞，还在发酵！现在博主还在直播，后面肯定很多人会去打卡」。
