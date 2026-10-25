@@ -27,6 +27,7 @@ const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
 const newsRoutes = require('./web/routes/news.routes');
 const executorsRoutes = require('./web/routes/executors.routes');
+const apiStatusRoutes = require('./web/routes/api-status.routes');
 const manualTradeRoutes = require('./web/routes/manual-trades.routes');
 
 // buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
@@ -324,6 +325,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/executors.html'));
     });
 
+    // API 现状页面（各 API 提供方余额/可用性总览）
+    this.app.get('/api-status', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/api-status.html'));
+    });
+
     this.app.get('/news-accounts', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/news-accounts.html'));
     });
@@ -349,6 +355,9 @@ class RicherJsWebServer {
 
     // ============ API路由：执行器（交易钱包，实盘前置批 2026-10-13）============
     this.app.use('/api/executors', executorsRoutes);
+
+    // ============ API路由：API 现状（各提供方余额/可用性查询）============
+    this.app.use('/api/api-status', apiStatusRoutes);
 
     // ============ API路由：手工交易命令队列（P0-C 实盘前置批，路径含 /experiment/:id 前缀）============
     this.app.use('/api', manualTradeRoutes);

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - API 现状</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    <style>
+        .hidden { display: none; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="min-h-screen">
+        <!-- 导航栏（复制 executors.html，深色） -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-14">
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/experiments" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">实验监控</a>
+                        <a href="/platform-tokens" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">平台代币</a>
+                        <a href="/token-holders" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">持有者</a>
+                        <a href="/monitor" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">事件监控</a>
+                        <a href="/model-metrics" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">Daily更新</a>
+                        <a href="/strategy-library" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">策略库</a>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/api-status" class="px-2 py-1.5 bg-sky-600 hover:bg-sky-700 rounded-md text-xs font-medium text-white transition-colors">API 现状</a>
+                        <a href="/executors" target="_blank" class="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 rounded-md text-xs font-medium text-white transition-colors">执行器</a>
+                        <a href="/wallets" target="_blank" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-md text-xs font-medium text-white transition-colors">钱包</a>
+                        <a href="/wallet-analysis" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">钱包分析</a>
+                        <a href="/wallet-ave-query" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">AVE查询</a>
+                        <a href="/create-experiment" target="_blank" class="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium text-white transition-colors">创建实验</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            <!-- 标题 + 操作条 -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">🔌 API 现状</h1>
+                    <p class="text-sm text-gray-500 mt-1">
+                        各外部 API 提供方的余额与可用性总览——余额偏低/告急时及时充值。
+                        有官方余额 API 的实时显示余额；不提供的做探活或展示配置状态。每 60s 自动刷新。
+                    </p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="cache-info" class="text-xs text-gray-400"></span>
+                    <button type="button" id="btn-refresh"
+                            class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-md text-sm font-medium">
+                        强制刷新
+                    </button>
+                </div>
+            </div>
+
+            <!-- 汇总条 -->
+            <div id="summary-bar" class="flex flex-wrap gap-2 text-sm"></div>
+
+            <!-- 提供方卡片网格 -->
+            <div id="cards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div class="bg-white border border-gray-200 rounded-lg p-6 text-center text-gray-400">加载中…</div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        function esc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        const STATUS_META = {
+            ok:         { label: '正常',       badge: 'bg-green-100 text-green-700 border-green-200',  dot: '#22c55e' },
+            low:        { label: '余额偏低',   badge: 'bg-amber-100 text-amber-700 border-amber-200',  dot: '#f59e0b' },
+            critical:   { label: '余额告急',   badge: 'bg-red-100 text-red-700 border-red-200',        dot: '#ef4444' },
+            error:      { label: '查询失败',   badge: 'bg-red-100 text-red-700 border-red-200',        dot: '#ef4444' },
+            unconfigured:{ label: '未配置',    badge: 'bg-gray-100 text-gray-500 border-gray-200',     dot: '#9ca3af' },
+            unsupported:{ label: '不支持查询', badge: 'bg-slate-100 text-slate-500 border-slate-200',  dot: '#94a3b8' },
+        };
+
+        function badgeHtml(status) {
+            const meta = STATUS_META[status] || STATUS_META.unconfigured;
+            return `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${meta.badge}">
+                <span class="status-dot" style="background:${meta.dot}"></span>${esc(meta.label)}</span>`;
+        }
+
+        function cardHtml(p) {
+            const balanceBlock = p.balanceText
+                ? `<div class="mt-3 text-3xl font-bold ${p.status === 'critical' ? 'text-red-600' : p.status === 'low' ? 'text-amber-600' : 'text-gray-800'}">${esc(p.balanceText)}</div>`
+                : '';
+            const errorBlock = p.error
+                ? `<p class="mt-2 text-xs text-red-600 bg-red-50 border border-red-100 rounded px-2 py-1.5 break-all">${esc(p.error)}</p>`
+                : '';
+            const detailBlock = p.detail
+                ? `<p class="mt-2 text-xs text-gray-500 leading-relaxed">${esc(p.detail)}</p>`
+                : '';
+            const configBlock = p.status === 'unsupported'
+                ? `<p class="mt-2 text-xs ${p.configured ? 'text-green-600' : 'text-gray-400'}">● ${p.configured ? '凭据已配置' : '凭据未配置'}</p>`
+                : '';
+            const metaParts = [];
+            if (p.latencyMs != null) metaParts.push(`${p.latencyMs} ms`);
+            if (p.checkedAt) metaParts.push(new Date(p.checkedAt).toLocaleString());
+            const metaBlock = metaParts.length
+                ? `<p class="mt-3 text-xs text-gray-400">${metaParts.join(' · ')}</p>`
+                : '';
+            return `
+            <div class="bg-white border ${p.status === 'critical' || p.status === 'error' ? 'border-red-300' : p.status === 'low' ? 'border-amber-300' : 'border-gray-200'} rounded-lg p-4">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="font-semibold text-gray-800">${esc(p.name)}</div>
+                    ${badgeHtml(p.status)}
+                </div>
+                <p class="mt-1 text-xs text-gray-500">${esc(p.description)}</p>
+                ${balanceBlock}
+                ${errorBlock}
+                ${detailBlock}
+                ${configBlock}
+                ${metaBlock}
+            </div>`;
+        }
+
+        function render(body) {
+            const providers = body.providers || [];
+            // 排序：告急/偏低/异常在前，正常次之，不支持查询垫底
+            const order = { critical: 0, error: 1, low: 2, unconfigured: 3, ok: 4, unsupported: 5 };
+            const sorted = [...providers].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9));
+
+            $('cards').innerHTML = sorted.map(cardHtml).join('');
+
+            const counts = {};
+            providers.forEach(p => { counts[p.status] = (counts[p.status] || 0) + 1; });
+            const summaryOrder = ['critical', 'error', 'low', 'ok', 'unconfigured', 'unsupported'];
+            $('summary-bar').innerHTML = summaryOrder
+                .filter(s => counts[s])
+                .map(s => {
+                    const meta = STATUS_META[s];
+                    return `<span class="px-3 py-1 rounded-full border text-xs font-medium ${meta.badge}">${meta.label} ${counts[s]}</span>`;
+                }).join('');
+
+            $('cache-info').textContent = body.cachedAt
+                ? `缓存于 ${new Date(body.cachedAt).toLocaleString()}（60s 内的请求走缓存，强制刷新直查上游）`
+                : '';
+        }
+
+        async function load(refresh) {
+            $('btn-refresh').disabled = true;
+            $('btn-refresh').textContent = '查询中…';
+            try {
+                const resp = await fetch(`/api/api-status${refresh ? '?refresh=1' : ''}`);
+                const body = await resp.json();
+                if (!body.success) throw new Error(body.error || '加载失败');
+                render(body);
+            } catch (err) {
+                $('cards').innerHTML = `<div class="md:col-span-2 xl:col-span-3 bg-white border border-red-200 rounded-lg p-6 text-center text-red-500">${esc(err.message)}</div>`;
+            } finally {
+                $('btn-refresh').disabled = false;
+                $('btn-refresh').textContent = '强制刷新';
+            }
+        }
+
+        $('btn-refresh').addEventListener('click', () => load(true));
+        load(false);
+        setInterval(() => load(false), 60000);
+    </script>
+</body>
+</html>
