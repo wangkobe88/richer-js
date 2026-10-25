@@ -4,7 +4,7 @@ Richer-js：BSC four.meme + flap meme 币自动交易引擎（BSC-only）。代�
 
 **本文只留现行机制、铁律与操作入口**；决策过程、case 复盘、验证数据、事故数字一律不写入：
 - 叙事 case 全档案：`docs/叙事引擎改进与Case台账.md`（卷四 C181 起；卷三 C56-C180/卷二 C36-C54/卷一 C1-C35 = 同目录 `-卷三归档.md`/`-卷二归档.md`/`-卷一归档.md`）；**每个新 case/改进须同步追加台账**
-- 交易机制案档案：auto-memory（`~/.claude/.../memory/`，索引 MEMORY.md）
+- 交易机制案档案：`docs/交易策略改进与Case台账.md`（T 编号；买/卖腿门、因子口径、集中度、止损/毕业、live 事故、回测口径、机制迁移；详档 auto-memory）；**每个新交易侧 case/改进须同步追加台账**
 - 历史实现：git 历史
 
 ## 常用命令
