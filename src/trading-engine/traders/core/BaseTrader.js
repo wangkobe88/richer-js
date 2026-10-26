@@ -129,6 +129,26 @@ class BaseTrader extends ITrader {
     }
 
     /**
+     * 首发 raw 取证源提取（共用）：从错误对象里挖首发交易的 raw 字符串。
+     *   - error.info.payload.params[0]：JsonRpcError（eth_sendRawTransaction 响应层
+     *     错误——T2 K线人生 0xfeff…7777 / v36 BNB传奇 0xbd2a…7777 案形状）
+     *   - error.transaction：NONCE_EXPIRED（broadcastTransaction 广播后节点 getTransaction
+     *     索引滞后、轮询超时回头发现 nonce 已消费——2026-10-26 邪恶千问 0xb05b…7777 案
+     *     形状：首发 tx 已上链成交，transaction 字段携带首发 raw/TransactionResponse，
+     *     info 里只有 error 无 payload；取证源缺此臂时误判失败 → 幽灵卡熔断循环）。
+     *     raw 字符串与 TransactionResponse（serialized）两形状都收。
+     * 拿不到返回 null。
+     */
+    _errorRawTx(error) {
+        const p = error?.info?.payload?.params?.[0];
+        if (typeof p === 'string' && p.startsWith('0x')) return p;
+        const t = error?.transaction;
+        if (typeof t === 'string' && t.startsWith('0x')) return t;
+        if (t && typeof t.serialized === 'string' && t.serialized.startsWith('0x')) return t.serialized;
+        return null;
+    }
+
+    /**
      * 已上链/入池 tx 恢复轮询：tx 短暂未被节点索引时轮询数秒（already-known 恢复与
      * nonce 错误取证共用同一窗口）；拿不到返回 null。
      */
@@ -146,26 +166,28 @@ class BaseTrader extends ITrader {
      * already known 恢复：从错误 payload 提取 raw 算出 txHash，取回 tx response 交
      * 上层照常「交易已发送 + awaitReceipt」——绝不 reset 重签重发（重发=nonce+1 的
      * 第二笔同参数交易：首发已成交时=双卖；本案第二笔靠 minOut revert 才免于双卖）。
-     * 错误形状 error.info.payload.params[0]（ethers v6 JsonRpcError，日志实证）。
+     * 错误形状 error.info.payload.params[0]（ethers v6 JsonRpcError，日志实证）；
+     * NONCE_EXPIRED 形状另见 _errorRawTx（transaction 字段同取证）。
      */
     async _recoverTxFromAlreadyKnown(error, label = '交易') {
-        const raw = error?.info?.payload?.params?.[0];
-        if (typeof raw !== 'string' || !raw.startsWith('0x')) return null;
+        const raw = this._errorRawTx(error);
+        if (!raw) return null;
         const hash = ethers.Transaction.from(raw).hash;
         this.log(`already known=已在 mempool：恢复 ${label} tx ${hash} 追踪回执（不重签不重发）`, 'warning');
         return this._pollTxResponse(hash, label);
     }
 
     /**
-     * nonce 类错误取证（T2）：错误 payload 里的 raw 是首发交易——先查它的链上终态。
+     * nonce 类错误取证（T2）：错误里的 raw（payload.params[0] 或 transaction 字段，
+     * 见 _errorRawTx）是首发交易——先查它的链上终态。
      * 「nonce too low: next nonce N+1, tx nonce N」的 N+1 恰恰证明 nonce N 已被消费
      * =首发已上链执行（成交或 revert 均算），此时重发=nonce+1 同参数第二笔=双卖。
      * 返回 TransactionResponse=首发已在链上/入池（恢复追踪）；null=首发确认未上链
-     * （可安全重试）；undefined=无法取证（payload 缺 raw）。
+     * （可安全重试）；undefined=无法取证（两取证源都缺 raw）。
      */
     async _probeNonceErrorTx(error, label = '交易') {
-        const raw = error?.info?.payload?.params?.[0];
-        if (typeof raw !== 'string' || !raw.startsWith('0x')) return undefined;
+        const raw = this._errorRawTx(error);
+        if (!raw) return undefined;
         const hash = ethers.Transaction.from(raw).hash;
         return this._pollTxResponse(hash, label, 'nonce 错误');
     }

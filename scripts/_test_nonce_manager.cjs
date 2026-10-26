@@ -187,6 +187,65 @@ async function main() {
         ok(bareCalls === 1 && resets === 0, '无 payload raw → fail-closed 不重试（无法排除首发已上链）');
     }
 
+    // ═══════════════ 3d. NONCE_EXPIRED error.transaction 取证源（2026-10-26 邪恶千问 0xb05b…7777 幽灵卡案） ═══════════════
+    console.log('\n[3d] NONCE_EXPIRED 携带 error.transaction（broadcastTransaction 索引滞后形状）');
+    {
+        const rawWallet = new ethers.Wallet(ethers.Wallet.createRandom().privateKey);
+        const raw = await rawWallet.signTransaction({
+            to: '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0', nonce: 1777,
+            gasLimit: 1081854, gasPrice: ethers.parseUnits('2', 'gwei'),
+            data: '0xef7ec2e7', chainId: 56, type: 0,
+        });
+        // 千问事故现场形状（v38 2026-10-25 日志实证）：首发 nonce 1777 已上链成交
+        // （tx 0xc01d…a01，block 129737025），节点 getTransaction 索引滞后 → ethers
+        // broadcastTransaction 轮询超时后查 nonce 已消费 → 抛 NONCE_EXPIRED 且
+        // transaction 字段携带首发 raw，info 里只有 error（无 payload.params）——
+        // 旧取证只认 info.payload → undefined → fail-closed 误判失败 → 幽灵卡
+        const ghostErr = () => {
+            const e = new Error('nonce has already been used (info={ "error": { "code": -32000, "message": "nonce too low: next nonce 1778, tx nonce 1777" } }, code=NONCE_EXPIRED, version=6.16.0)');
+            e.transaction = raw;
+            return e;
+        };
+        const expectedHash = ethers.Transaction.from(raw).hash;
+        let t = Object.create(BaseTrader.prototype);
+        t.log = () => {};
+        let resets = 0, getCalls = 0, fnCalls = 0;
+        t.signer = { reset: () => { resets++; } };
+        t.provider = { getTransaction: async (h) => { getCalls++; return { hash: h, conf: 1 }; } };
+
+        // a. 核心反证：error.transaction 携带 raw → 恢复首发追踪不重发不误判失败
+        //    （事故形状：旧行为取证 undefined → fail-closed 判失败 → 账面幽灵卡+熔断循环）
+        const tx = await t._nonceGuard(async () => { fnCalls++; throw ghostErr(); }, '卖出');
+        ok(tx.hash === expectedHash && fnCalls === 1 && resets === 0,
+            'transaction 字段携带 raw → 恢复首发追踪（不 reset/不重发/不误判失败）');
+
+        // b. TransactionResponse 形状（transaction.serialized 携带 raw）同取证恢复
+        fnCalls = 0; resets = 0; getCalls = 0;
+        const respErr = () => {
+            const e = new Error('nonce has already been used (code=NONCE_EXPIRED)');
+            e.transaction = { serialized: raw, hash: expectedHash };
+            return e;
+        };
+        const tx2 = await t._nonceGuard(async () => { fnCalls++; throw respErr(); }, '卖出');
+        ok(tx2.hash === expectedHash && fnCalls === 1 && resets === 0 && getCalls === 1,
+            'transaction.serialized（Response 形状）→ 同样恢复首发追踪');
+
+        // c. 双取证源都缺 → 仍 fail-closed 原样抛（保守语义不变）
+        const bare = new Error('nonce too low: next nonce 1778, tx nonce 1777');
+        let bareCalls = 0;
+        await assert.rejects(
+            () => t._nonceGuard(async () => { bareCalls++; throw bare; }, '卖出'),
+            /nonce too low/,
+        );
+        ok(bareCalls === 1 && resets === 0, '两取证源全缺 → fail-closed 不重试（语义不变）');
+
+        // d. 源码口径：_errorRawTx 双源提取在位（防取证源回退只剩 payload 臂）
+        const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/traders/core/BaseTrader.js'), 'utf8');
+        ok(src.includes('_errorRawTx(error)'), '源码：_errorRawTx 共用取证在位');
+        ok(/_probeNonceErrorTx\(error, label = '交易'\) \{\s*\n\s*const raw = this\._errorRawTx\(error\);/.test(src),
+            '源码：nonce 取证走 _errorRawTx（payload 臂之外补 transaction 臂）');
+    }
+
     // ═══════════════ 4b. already known 恢复语义（2026-10-25 v36 幽灵卖出事故） ═══════════════
     console.log('\n[3b] already known 恢复（不 reset 不重发，恢复 raw→hash 追踪回执）');
     {

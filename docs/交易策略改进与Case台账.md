@@ -283,6 +283,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 戊、live 执行与事故
 
+### T69 nonce 取证第三形状——NONCE_EXPIRED transaction 字段（邪恶千问幽灵卡案，2026-10-26）
+- 案：v38 e5438645 邪恶千问 0xb05b2024f03fb05aa7229e168bfb014f4e567777（flap 税币，4 卡 0.004 BNB）16:23:00 第 1 卡卖出 tx nonce 1777 **已上链成交**（0xc01d…a01，block 129737025，实收 0.0014973 BNB 进钱包），但 ANKR 节点 getTransaction 索引滞后 → ethers broadcastTransaction 轮询超时后查 nonce 已消费 → 抛 NONCE_EXPIRED，首发 raw 在 **error.transaction** 字段（info 里只有 error 无 payload.params）→ T2/T38 取证只认 info.payload → 取证 undefined → fail-closed 判「卖出失败」不落账 → 账面 4 卡、链上 3 卡
+- 连锁：后续 3 次卖出全部成功但错位记账（16:26/16:28/16:29:53 各 1 卡，此后链上只剩 1.4e-11 尘埃）；16:31:14 起「账面第 4 卡」（幽灵）按链上余额 1.4e-11 报价卖出 → revert "AS" 每轮重试，每 ~31min（断流票扫描节拍）熔断+TG 告警循环，至修复已连败 21 次
+- 资金无损：4 卖合计 0.007462 BNB > 成本 0.004（+86%），幽灵卖出 BNB 真实到账，纯记账缺失
+- 修复：`_errorRawTx(error)` 共用取证源（payload.params[0] 臂 + **transaction 臂**：raw 字符串 / TransactionResponse.serialized 两形状）；`_recoverTxFromAlreadyKnown`/`_probeNonceErrorTx` 双双改走——取证命中 → 轮询 getTransaction 恢复首发追踪（上链则照常 awaitReceipt 记账）；两源全缺仍 fail-closed。至此 nonce/already-known 三形状齐（T38 payload 臂 / T2 nonce payload 臂 / 本案 transaction 臂）
+- 单测：_test_nonce_manager [3d]（transaction raw 字符串与 serialized 两形状恢复反证 / 双源全缺 fail-closed 语义不变 / 源码口径）38 断言
+- DB 修正：补 16:23 幽灵卖出 trade 行（cardTrade 4→3，metadata.manualRepair 留痕）+ 后三行 cardTrade 顺次改 3→2/2→1/1→0——重放恢复只认 cardTrade.after 绝对值（后写覆盖），**只补行不改后行=最终仍挂 1 幽灵卡**；修正后重放 0 卡 0 仓与链上一致
+- 对账方法增量：balanceOf 按 block 回放定位余额消失点（eth_call 带 blockNumber 逐块二分）；幽灵卡排查先看 SELL 信号 metadata.tradeResult.reason 是否 NONCE_EXPIRED（nonce too low: next N+1, tx nonce N 的 N+1 即证明首发已上链）
+
 ### T38 v36 三记账事故——卖出实收记零/already-known 双发/读零虚增（2026-10-25，412cb77）
 - 三独立形状（同根因族：ANKR HTTP 负载均衡滞后读+发送层 already-known 误判）：①卖出实收记零（旧谓词 `(after-before+gas)>0n` 撞滞后读 diff=0+gas 恒正→实收记成纯 gas）②already-known 当拒收重发（首发响应丢失但 tx 已入 mempool，重发撞 already known 误归类→reset+重签 nonce+1：BNB传奇 0xbd2a3d13…7777 幽灵卖出+松弛蛙 0x1d2e1ad2…7777 双买各 0.004）③余额差读零→估算兜底虚增 11%
 - 修复：谓词改 `after > bnbBefore`；`_recoverTxFromAlreadyKnown`（从 error payload 提取 raw→Transaction.from(raw).hash→getTransaction 轮询，**绝不 reset 重发**）；单测 _test_sell_settle_predicate / _test_nonce_manager
