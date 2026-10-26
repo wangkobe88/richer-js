@@ -272,6 +272,8 @@ const BLOCK_LABELS = {
   niche_subculture: '小圈子亚文化',
   token_circle_reachability: 'Web3 用户圈层可达性不足',
   event_empty_content: '空洞内容',
+  // J1.127/C231：事件成立但意义太小（黄仁勋名誉黑带案）；argmax 拦截 label
+  event_trivial: '事件意义太小',
   event_institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
   event_baseless_speculation: '无据猜测',
@@ -319,6 +321,13 @@ const BLOCK_LABELS = {
  */
 const BLOCK_SCOPE = {
   event_empty_content: 'all',
+  // J1.127（C231 BLACKBELT 案，2026-10-25 用户裁定「事件没有感情感染力/影响力，
+  // 看一眼就划过。虽然是黄仁勋，但事情本身意义很小」）：新桶 event_trivial=
+  // 事件真实成立但对 BSC meme 用户意义太小（圈外名人/机构礼节性荣誉/日常琐事/
+  // 例行公事——主体再著名不抬事件分量）。全域拦（C184b 快狗案同判：类型不合
+  // 与事件分类正交，限域 miss 会漏放）；argmax 门自动接入，旧缓存行无该桶键
+  // =fail-open 零翻转。C191 币安传奇观察点①（大 IP+小事件无仲裁位）的接棒位
+  event_trivial: 'all',
   // J1.45（C110 扫描后裁定）扩全域：原 ['W','B'] 跨类空洞 261 行（E123/A104/
   // C75/D63…，high/mid 逃逸 25 票实买 6 票，noneP 全<0.5）——「营销噱头无实质
   // 产品」语义不分类别；pubProxy/platformOfficial 豁免仍在拦截位前置不受影响
