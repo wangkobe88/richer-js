@@ -1,0 +1,21 @@
+{
+ "version": 1,
+ "generatedAt": "2026-10-26T10:30:00.000Z",
+ "note": "sybil 人工锚定名单（2026-10-26 0x2fe5 团伙案用户裁定）：铁指纹镜像对倒钱包——pair 判据咬得住但 size=2 被 minSize=3 剪掉，或新号 pair 数据不足。FA loader loadSybilClusters 与 sybil-clusters.json 合并消费；build-sybil-clusters.cjs --commit 不覆盖本文件；增删须用户裁定（famous-copy-wallets.json 同款惯例）。",
+ "wallets": [
+  "0xefb1dc922787e7326ddb691e7388353080e01ba3",
+  "0x24a57c42ee865062cfbf657d678d932625c6b992",
+  "0xcd95d6fd38cb5646558990e53bcd11580faa8d8b",
+  "0x8a2a9df0102d7ef7817c81b78d751de79f457b11",
+  "0x27ac0351e225a15fb13d6b84a8dc31d799d0fe76",
+  "0x0fcf3818a346e5aebacc7f7e2fe29f0143858ec0"
+ ],
+ "reasons": {
+  "0xefb1dc922787e7326ddb691e7388353080e01ba3": "0x2fe5 团伙案镜像对：与 0x24a57c…586 票共现 co=192 even=192（满级一档强边）size=2 被剪",
+  "0x24a57c42ee865062cfbf657d678d932625c6b992": "同上（0xefb1dc 镜像另一半）",
+  "0xcd95d6fd38cb5646558990e53bcd11580faa8d8b": "0x2fe5 团伙案同秒等额对：与 0x8a2a9d co=97 even=97 sellSync=94，0x2fe5 本票 +27s 同秒 0.222 买入 67s 同步卖；size=2 被剪",
+  "0x8a2a9df0102d7ef7817c81b78d751de79f457b11": "同上（0xcd95d6 镜像另一半）",
+  "0x27ac0351e225a15fb13d6b84a8dc31d799d0fe76": "0x2fe5 本票实证同块对倒：+3s 与 0x0fcf38 同块等额 0.2488 买入 → 同块卖出；624 票老号但 pair 比例不过半",
+  "0x0fcf3818a346e5aebacc7f7e2fe29f0143858ec0": "同上（0x27ac03 对倒另一半；2026-10-25 新号 pair 数据不足）"
+ }
+}

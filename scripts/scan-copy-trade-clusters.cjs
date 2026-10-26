@@ -204,7 +204,23 @@ function dumpPairs(pairs, rows, meta) {
   for (const [k, st] of pairs) arr.push({ k, ...st });
   const flyBuyers = [...new Set(rows.filter(r => r.t === FLY_TOKEN && r.buy).map(r => r.w))];
   meta.flyBuyers = flyBuyers;   // 回写调用方 meta，fresh 路径与 cache 路径同形
-  const payload = JSON.stringify({ meta: { ...meta, pairCount: arr.length }, pairs: arr });
+  // 钱包级统计（2026-10-26 0x2fe5 团伙案：pair 域只统计首买滑窗，零买入的分发号在
+  // pairs 里结构性隐身——0x7154c0 2686 票纯卖却查无 pair。本段供 build-sybil-clusters
+  // 的分发号通道消费；只留 active 钱包（与 pass1 同口径 tokens>=MIN_TOKENS）控制体积）
+  const wStat = new Map();
+  for (const r of rows) {
+    let st = wStat.get(r.w);
+    if (!st) { st = { tokens: new Set(), buys: 0, sells: 0 }; wStat.set(r.w, st); }
+    st.tokens.add(r.t);
+    if (r.buy) st.buys++; else st.sells++;
+  }
+  const walletsStat = {};
+  for (const [w, st] of wStat) {
+    if (st.tokens.size < MIN_TOKENS) continue;
+    walletsStat[w] = { tokens: st.tokens.size, buys: st.buys, sells: st.sells };
+  }
+  meta.walletCount = Object.keys(walletsStat).length;
+  const payload = JSON.stringify({ meta: { ...meta, pairCount: arr.length, wallets: walletsStat }, pairs: arr });
   fs.mkdirSync(path.dirname(PAIRS_CACHE), { recursive: true });
   fs.writeFileSync(PAIRS_CACHE, zlib.gzipSync(payload));
   console.log(`[缓存] pair 统计 dump → ${PAIRS_CACHE}（${arr.length.toLocaleString()} 对，${(fs.statSync(PAIRS_CACHE).size / 1e6).toFixed(1)} MB）`);

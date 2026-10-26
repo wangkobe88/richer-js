@@ -170,6 +170,15 @@ console.log('D. loadSybilClusters（仓库产物 config/rosters/sybil-clusters.j
     const set = await FourMemeFactorAggregator.loadSybilClusters();
     for (const w of TURTLE) assert.ok(set.has(w), `${w} 不在簇名单`);
   });
+  await checkAsync('D2b manual 人工锚定并入（2026-10-26 0x2fe5 团伙案镜像对，size=2 判据外）', async () => {
+    FourMemeFactorAggregator.setSybilClustersForTest(null); // 复位模块态再走 loader
+    const set = await FourMemeFactorAggregator.loadSybilClusters();
+    for (const w of [
+      '0xefb1dc922787e7326ddb691e7388353080e01ba3', // 586 票镜像对（co=192 even=192）
+      '0x24a57c42ee865062cfbf657d678d932625c6b992',
+      '0x27ac0351e225a15fb13d6b84a8dc31d799d0fe76', // 本票同块对倒实证
+    ]) assert.ok(set.has(w), `${w} 不在合并名单（manual 未并入？）`);
+  });
   check('D3 setter 生命周期：null 还原「未加载」（因子恒 0，2026-10-22 去 NULL）', () => {
     FourMemeFactorAggregator.setSybilClustersForTest(null);
     const fa = newFA();
@@ -224,8 +233,10 @@ console.log('D. loadSybilClusters（仓库产物 config/rosters/sybil-clusters.j
       assert.ok(bt.includes('loadSybilClusters()'), 'Backtest 引擎缺接线');
     });
     const gen = read('scripts/build-sybil-clusters.cjs');
-    check('F6 生成脚本在场且判据=强边连通分量（co>=50 + 同步卖/等额过半 + size>=3）', () => {
-      assert.ok(gen.includes('sellRatio') && gen.includes('evenRatio'), '强边判据缺失');
+    check('F6 生成脚本在场且判据=一二档强边+分发号通道（2026-10-26 0x2fe5 案扩档）', () => {
+      assert.ok(gen.includes('buildClustersFromPairs'), '簇构建纯函数（_test_sybil_build_clusters.cjs 真值表宿主）');
+      assert.ok(gen.includes('tier2Co') && gen.includes('tier2Ratio'), '二档强边判据缺失');
+      assert.ok(gen.includes('distTokens'), '分发号通道判据缺失');
       assert.ok(gen.includes('MIN_SIZE'), '簇最小规模参数缺失');
     });
     const product = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'rosters', 'sybil-clusters.json'), 'utf8'));

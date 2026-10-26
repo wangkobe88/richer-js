@@ -52,6 +52,16 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T72 sybil 名单扩判据——0x2fe5 flap 团伙案：二档强边+分发号通道+manual 锚定（2026-10-26，用户裁定）
+- **案**：0x2fe5328cf2ea8cd632161564464c1e6c2e347777（flap，10-26 06:12 UTC）用户盘感「前期参与者不像真实用户」——证实为 **377 票规模作业团伙**常规作业：开盘 90s 离散等额档簇（0.0987×9 / 0.1973×8，显化之歌 9-28 案同款档位制）+同块对倒（+3s 同块等额 0.2488×2→同块卖）+**+96s 场外分发货批**（8 钱包零买入纯卖同一秒进场）+同块 10 钱包齐出（blk 129847718）；GMGN 路由占买 53.3%、top1 买入占比仅 2.6%（分仓绕单钱包集中度门）；峰值 +213% 后 -54%。**flap 代币尾号 7777=平台常态非 vanity 指纹**（四.meme 语境才成立，本案修正）
+- **跨票铁证**：纯卖批 9 钱包 10-06 21:53 同批出生、39/40 团伙票必到；0xefb1dc×0x24a57c 586 票镜像共现（co=192 even=192 满级）；0x7154c0…2022 分发号 **2686 票零买入纯卖**；钱包分批滚动养号（10-06/10-16/10-17/10-20 批）
+- **名单漏网三根因**（10-25 版 570 钱包名单 vs 本团伙）：①**co≥50 物理盲区**——新批次总票数没刷够 50，比例指纹再强（三胞胎批 co=33-35、同步卖/等额 0.85-0.91）也进不了一档；②**size=2 镜像对被 minSize=3 剪**——0xefb1dc 对 co=192 满级强边照漏（FLY 形态假定主名单覆盖不成立于本案）；③**分发号 pair 域结构性隐身**——scan pair 只统计首买滑窗，零买入钱包在 pairs 里不存在（0x7154c0 2686 票查无 pair 的真因）
+- **裁定（用户）**：①重扫 pair 缓存重建名单 ②加第二档强边 co≥20 且 同步卖/等额≥0.85（补根因①；0.85 收紧防误咬真跟单——leader-follower 的 even/sellSync 比例天然高，低比例档全靠 co≥50 兜底）+分发号通道 buys==0 且 sells>0 且 tokens≥50（补根因③；真实用户零买入纯卖 50+ 票不可能）③manual 人工锚定 3 对镜像钱包（补根因②，`config/rosters/sybil-clusters-manual.json`，famous 同款惯例用户裁定增删，build --commit 不覆盖，FA loader 合并）——「谨慎一些防止误伤」：manual 只收铁指纹（pair 满级镜像对+本票同块对倒实证），扩展候选 190 个跨票钱包**刻意不收**（内含 ANCHOR 真跟车大户 0xbf004b 等，单维共现误伤）
+- **实现**：scan `dumpPairs` 增 `meta.wallets`（per 钱包 tokens/buys/sells，active 域）；build 重构抽纯函数 `buildClustersFromPairs`（一二档边+连通分量+分发号，CLI `--tier2-co/--tier2-ratio/--dist-tokens` 参数化）；产物 json params/clusters/distributors 审计；FA `loadSybilClusters` 合并 manual（缺文件 ENOENT 静默=无锚定常态，schema 错 fail-loud）
+- 单测：`_test_sybil_build_clusters.cjs` 22/0（真值表全打桩自 182 实测 pair 值：乌龟批/三胞胎二档/0xd5155c 0.846 边界外/镜像对 size=2/分发号三断言/老缓存兼容/参数化）；`_test_sybil_cluster_factor.cjs` 31/0（D2b manual 并入、F6 判据锁扩档）
+- **部署**：182 重扫 pair 缓存（fresh 路径产 wallets 段）→ build --commit → push → **重启实验进程才生效**（FA 静态快照）。探针：乌龟 0x371903ab 命中 + 0x7154c0 分发号命中
+- 遗留观察：0xd5155c×0x00c60c（co=26 比例 0.846）差 0.4pp 在二档外——重扫后 co/比例会动，连续漏网再议 tier2Ratio 0.8（F1 参数化已备）
+
 ### T71 earlyTrades\* 族整族删除——冻结窗无消费者（2026-10-26，用户裁定；T70 换载体次日收尾）
 - 裁定：用户指令「earlyTrades 的系列因子可以删除」——T70 已把净买/路由门换 `tradesNetBuyRatio`/`tradesRouterPct` 全史实时载体，FA 出生锚 90s 冻结窗 10 键（PerWallet/MaxWalletTrades/NetBuyRatio/Top1BuySharePct/Top1BuyBnb/BuyBnb/RouterPct/UniformBuyCluster{Ratio,Wallets,N}）无剩余消费者，整族退役。T70 的「十键保留观测对照」维持一日即翻案
 - **连带作废：C89 GMGN 钱包画像层数据口**——`FA.getEarlyTopBuyers`（early 窗 top-N 买家）随族删除，引擎接线整链删（ctor service 构造/`_walletProfilePrefetchCheck` 预取挂点/`_gwpConditionLegExists` 门/stop 清态/fire 补查段），`checkAndEvaluate` 第五参恒 null=存量零影响形状。纯函数层保留：`GmgnWalletStatsService`（可被任意钱包榜调用）、`gmgn_wallet_profiles` 表、离线建库脚本、单测——将来重启 gwp 层须换**全史**数据源重新接线（Phase 1 观察模式未上线即随本批搁置）

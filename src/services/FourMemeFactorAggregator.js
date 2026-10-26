@@ -654,7 +654,23 @@ class FourMemeFactorAggregator extends EventEmitter {
             _sybilClusterWallets = new Set(parsed.wallets
                 .filter(w => typeof w === 'string' && w)
                 .map(w => w.toLowerCase()));
-            this._logInfo(`加载 sybil 大簇名单: ${_sybilClusterWallets.size} 个（${rosterPath}，generatedAt=${parsed.generatedAt || '?'}）`);
+            // 人工锚定名单（2026-10-26 0x2fe5 团伙案用户裁定）：铁指纹镜像对——pair 判据
+            // 咬得住但 size=2 被 minSize 剪掉 / 新号 pair 数据不足。build --commit 不覆盖
+            // 该文件（famous-copy-wallets 同款惯例）；缺失=无人工锚定（常态），schema 错才抛
+            const manualPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'sybil-clusters-manual.json');
+            let manualCount = 0;
+            try {
+                const manual = JSON.parse(fs.readFileSync(manualPath, 'utf8'));
+                if (!manual || typeof manual !== 'object' || !Array.isArray(manual.wallets)) {
+                    throw new Error(`[FourMemeFA] loadSybilClusters: manual 名单 schema 不符（${manualPath}）`);
+                }
+                for (const w of manual.wallets) {
+                    if (typeof w === 'string' && w) { _sybilClusterWallets.add(w.toLowerCase()); manualCount++; }
+                }
+            } catch (e) {
+                if (e.code !== 'ENOENT') throw e;
+            }
+            this._logInfo(`加载 sybil 大簇名单: ${_sybilClusterWallets.size} 个（主名单 ${parsed.wallets.length} + 人工锚定 ${manualCount}，${rosterPath}，generatedAt=${parsed.generatedAt || '?'}）`);
             return _sybilClusterWallets;
         })();
         try {
