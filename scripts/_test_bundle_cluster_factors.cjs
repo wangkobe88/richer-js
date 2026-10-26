@@ -957,6 +957,49 @@ console.log('Q. top3BundleClusterHoldCircPct（最大三块买家并集去重正
       assert.strictEqual(fb2.top3BundleClusterHoldCircPct, fa2.top3BundleClusterHoldCircPct);
     });
   }
+
+  // Q6 事故现场反证（2026-10-26 v39 崩溃案）：恰两块票第二块持仓和=0（买家全清仓）——
+  //    级联第三分支 `_s(0) > _top3Sum(-1)` 恒真，零和块抢占 _top3Ws 而 _top2Ws 仍 null；
+  //    修复前读点 `_top2Ws.has(_w)` null has 崩（TickDebouncer 路径无 catch → 进程崩死×2：
+  //    v38@3914763 / v39 首启；handleLog 路径被吞成「解码失败」35+ 条）。修复后零和块
+  //    零贡献（_v>0 守卫），top2/top3 退化=top1=100（流通 30M）
+  {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+      bnb_amount: 3.0, token_amount: 30 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wB', block_number: 220, log_index: 1,
+      trade_type: 'sell', bnb_amount: 2.0, token_amount: 20 * M }), {}); // wB 清仓 → blk210 块和=0
+    const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+    check('Q6 零和块抢占第三槽不崩（v39 事故现场）：top1=top2=top3=100（30M/30M）', () => {
+      assert.ok(Math.abs(f.bundleClusterHoldCircPct - 100) < 0.05, `top1 got ${f.bundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top2BundleClusterHoldCircPct - 100) < 0.05, `top2 got ${f.top2BundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top3BundleClusterHoldCircPct - 100) < 0.05, `top3 got ${f.top3BundleClusterHoldCircPct}`);
+    });
+    // Q6b 对照：三块票第三块零和（_top2Ws 就位正常形状）值不变——真第三块被零和块顶替位无差
+    const fa2 = newFA();
+    fa2.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+      bnb_amount: 3.0, token_amount: 30 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wC', block_number: 220, log_index: 1,
+      bnb_amount: 1.0, token_amount: 10 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 3500, trader_address: 'wC', block_number: 230, log_index: 1,
+      trade_type: 'sell', bnb_amount: 1.0, token_amount: 10 * M }), {}); // wC 清仓 → blk220 块和=0（第三槽）
+    const f2 = fa2.buildFactorMap('0xtoken', T0 + 4000);
+    check('Q6b 三块票第三块清仓：top1=60 / top2=100 / top3=100（零和槽零贡献）', () => {
+      assert.ok(Math.abs(f2.bundleClusterHoldCircPct - 60) < 0.05, `top1 got ${f2.bundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f2.top2BundleClusterHoldCircPct - 100) < 0.05, `top2 got ${f2.top2BundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f2.top3BundleClusterHoldCircPct - 100) < 0.05, `top3 got ${f2.top3BundleClusterHoldCircPct}`);
+    });
+    // Q6c 源码锁：null 守卫形状在位（防回退到裸 `_top2Ws.has`——回退即复活崩溃）
+    check('Q6c 源码锁：top3 并集去重含 _top2Ws null 守卫', () => {
+      const src = read('src/services/FourMemeFactorAggregator.js');
+      assert.ok(src.includes('if (_top1Ws.has(_w) || (_top2Ws !== null && _top2Ws.has(_w))) continue;'),
+        'null 安全守卫不在位');
+    });
+  }
 }
 
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

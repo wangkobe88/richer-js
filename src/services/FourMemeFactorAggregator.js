@@ -2397,7 +2397,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         let top3UnionHold = top2UnionHold;
         if (_top3Ws) {
             for (const _w of _top3Ws) {
-                if (_top1Ws.has(_w) || _top2Ws.has(_w)) continue;
+                // 事故修复（2026-10-26 v39 崩溃案）：恰两块票第二块持仓和=0（买家全清仓）时，
+                // 级联第三分支 `_s(0) > _top3Sum(-1)` 恒真——零和块抢占 _top3Ws 而 _top2Ws 仍为
+                // null（T68 现场堆栈 2400:48 null has 崩进程×2：v38@3914763/v39 首启 TickDebouncer
+                // 无 catch 直接 uncaught）。null 安全守卫零语义变化：零和块买家净持仓非正，
+                // `_v > 0` 守卫下占哪个槽并集分子贡献都是 0
+                if (_top1Ws.has(_w) || (_top2Ws !== null && _top2Ws.has(_w))) continue;
                 const _v = state._walletNetTokens.get(_w);
                 if (_v > 0) top3UnionHold += _v;
             }
