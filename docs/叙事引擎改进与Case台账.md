@@ -60,7 +60,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **误判机制三层**：①「开始发韩语」被读成日常运营（C237 域）；②币=第三方抢注蹭平台官方语料，C230「项目主体性陈述归 W」没区分「项目币 vs 蹭项目官方语料」→ W 数学评错对象（评 밈 无项目实质→low；评平台本身对 BSC 用户吸引力显然不低——两方向都拧巴）；③主号身份失认（fourdotmemezh 被当区域子号降档——实际原主号 @four_meme_ 2025-10-28 被 X 封禁后它就是主号，生态号 @Four_FORM_ 确认）。
 - **用户三裁定**（2026-10-26）：①**打招呼=表态**——「打招呼就够了，不需要什么战略陈述/合作内容，这是一个表态（一个直接的沟通），用户看到它之后就理解平台要做什么了，注意从用户出发！这跟纯粹的日常抽个奖不是一个性质的」：平台官方直接沟通传递**市场方向信号**（开语言/开市场扩张触达）=有分量事件，推文形态再轻不降信号、不要求公告/战略陈述要件；与 C237 划界=读者获得**方向信号 vs 活动信息**；与 C235 不同轴（开语言/开市场不改变机构与加密行业关系，不走加密立场动作豁免）。②**W 域收窄**——「W 是发布新项目（评判的也是项目），不是这种成熟平台的公告」：成熟平台/产品官方运营公告与市场动作归 **D** 走事件轴+量级门（C239 同精神）；W 数学资格轴只留「币=项目币」形状（AIFLY 形状）。③**fourdotmemezh 入 superIP**（institution/A，5ecaac7 先行）——性质=Four.meme 现行主号/平台官方自我陈述语料源非 KOL；tier A 与 four_meme_fora 同档（C137 精神消费臂只看在册）。
 - **落地**：J1.138=trivial 反锚⑦（方向信号锚+用户裁定原话例证）+ W 桶排除锚（成熟平台公告归 D/W=发布新项目）+ 注册表条目 + 版本断言三处 bump（angle_timing_override/jev_question_consolidation/web3_fit）+ `_test_event_trivial_gate` C6/C7 源码断言（25 全过）。
-- **预期（对拍待跑）**：本票终态**仍 low**（词句 0.62/名字泛关联——三裁定救形状不救这张）；重析链路变化=注册表命中→C117 标准路径+认证行注入+**J1.56 authorUtterance 臂可命中**（「밈」逐字在主推「밈 놀이터」）+分类 W→D 改走事件轴+trivial 反锚⑦放行。不翻锚=C237 南瓜营/C231 黑带/NMS。
+- **对拍（182 定向重析，c755586 部署 worker 29972 后已收）**：**四票全中** ✓✓✓✓——밈 主票 `event:D`（W→D 生效）+ `blockChoice=none`（trivial 反锚⑦放行）+ `effectiveImpactTier=S`（注册表认证行生效）+ 终态 low 落**词句门 not_acceptable 0.53 近 tie**（entity=not_entity；authorUtterance 臂未命中 hit=false）=预期内「救形状不救这张」；**不翻锚三票零扰动**：BLACKBELT C231 low trivial 拦维持（礼节性荣誉不在⑦域）/BPC C237 南瓜营 low trivial 拦维持 P=0.94（营销活动不被⑦洗白，划界生效）/NMS mid 维持（真 W 项目票零扰动）。回归集 C241 expect 全中（rating=low+tokenCategoryExcludes event:W+reasonExcludes 事件意义太小）。
 
 ### C240 Web3 用户切身相关事件——fit 锚+持续运动时效豁免+impact 反锚⑥（火蚁案 불개미 姐妹票，2026-10-26 用户裁定，J1.136+J1.137 两批）★
 
