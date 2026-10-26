@@ -7,11 +7,13 @@
  * 「鲸元卷」、图内两处独立文字段都写正字「鲸元券」，全图无一「卷」字。
  *
  * 判据演进：旧=纯代码 substitution 一字差对照（读 SiliconFlow caption
- * visible_text 转写）；J1.140 图片直连（Jev 原生看图）后 caption 中介退役
- * → 判据源换条件题四桶：exact_match（币名整体在图内，不拦）/
- * one_char_diff_repeated（等长恰一位差写法 ≥2 次独立出现，拦）/
- * one_char_diff_once（仅 1 次，不拦）/ unrelated_or_none（不拦）。
- * CJK≥3 前提=isCjkLongName 代码侧（题只在前提真时问）。
+ * visible_text 转写，≥2 次出现才拦）；J1.140 图片直连（Jev 原生看图）后
+ * caption 中介退役 → 判据源换条件题。J1.141 四桶→三桶：鲸元卷票看图判
+ * one_char_diff_once 0.67（图内独立「鲸元券」只 1 处）→「≥2 次」不触发
+ * 翻 high 87.91（expect=low 必拦）；「≥2 次」本是旧代码防噪技术判据
+ * （caption 转写 key_elements 两行+正文=3 次计数），用户 C78 裁定本体=
+ * 图内出现一位差写法即「名字没抄对」——次数不构成豁免（有意变形图内
+ * 一致=exact_match 形状不受影响）。CJK≥3 前提=isCjkLongName 代码侧。
  *
  * 覆盖：
  *   A. 四桶矩阵：仅 one_char_diff_repeated ≥0.5 拦（Stage3 截断 low+
@@ -68,9 +70,9 @@ function jyjAnswers(imgNameText) {
   };
 }
 
-const q4 = (repeatedP) => ({
-  choice: repeatedP >= 0.5 ? 'one_char_diff_repeated' : 'exact_match',
-  probabilities: { exact_match: 0.08, one_char_diff_repeated: repeatedP, one_char_diff_once: 0.1, unrelated_or_none: 0.05 },
+const q4 = (rejP) => ({
+  choice: rejP >= 0.5 ? 'one_char_diff' : 'exact_match',
+  probabilities: { exact_match: 0.08, one_char_diff: rejP, unrelated_or_none: 0.05 },
 });
 
 const stdCtx = (over = {}) => ({
@@ -83,13 +85,15 @@ const stdCtx = (over = {}) => ({
   ...over,
 });
 
-console.log('══════ A. 四桶矩阵（仅 one_char_diff_repeated 拦） ══════');
+console.log('══════ A. 三桶矩阵（one_char_diff 拦；含旧四桶归一读） ══════');
 {
   const cases = [
-    ['exact_match（币名整体在图内）→ 放行', { choice: 'exact_match', probabilities: { exact_match: 0.85, one_char_diff_repeated: 0.05, one_char_diff_once: 0.03, unrelated_or_none: 0.02 } }, false],
-    ['one_char_diff_repeated 0.72（鲸元卷案形状）→ 拦截', { choice: 'one_char_diff_repeated', probabilities: { exact_match: 0.12, one_char_diff_repeated: 0.72, one_char_diff_once: 0.06, unrelated_or_none: 0.04 } }, true],
-    ['one_char_diff_once（仅一处这样写）→ 放行', { choice: 'one_char_diff_once', probabilities: { exact_match: 0.05, one_char_diff_repeated: 0.05, one_char_diff_once: 0.8, unrelated_or_none: 0.04 } }, false],
-    ['unrelated_or_none（图内无币名相关文字）→ 放行', { choice: 'unrelated_or_none', probabilities: { exact_match: 0.02, one_char_diff_repeated: 0.05, one_char_diff_once: 0.03, unrelated_or_none: 0.84 } }, false],
+    ['exact_match（币名整体在图内）→ 放行', { choice: 'exact_match', probabilities: { exact_match: 0.85, one_char_diff: 0.08, unrelated_or_none: 0.02 } }, false],
+    ['one_char_diff 0.72（鲸元卷案形状）→ 拦截', { choice: 'one_char_diff', probabilities: { exact_match: 0.12, one_char_diff: 0.72, unrelated_or_none: 0.05 } }, true],
+    ['unrelated_or_none（图内无币名相关文字）→ 放行', { choice: 'unrelated_or_none', probabilities: { exact_match: 0.02, one_char_diff: 0.05, unrelated_or_none: 0.84 } }, false],
+    // 旧四桶缓存行（J1.140 短暂期）归一读：repeated/once 概率均并网——重放零翻转
+    ['旧四桶 repeated 0.72 → 拦截（归一读）', { choice: 'one_char_diff_repeated', probabilities: { exact_match: 0.12, one_char_diff_repeated: 0.72, one_char_diff_once: 0.06, unrelated_or_none: 0.04 } }, true],
+    ['旧四桶 once 0.67（鲸元卷对拍现场答案）→ 拦截（J1.141 修正形状）', { choice: 'one_char_diff_once', probabilities: { exact_match: 0.02, one_char_diff_repeated: 0.3, one_char_diff_once: 0.67, unrelated_or_none: 0.01 } }, true],
   ];
   for (const [label, ans, shouldBlock] of cases) {
     const r = mapStandardAnswers(jyjAnswers(ans), stdCtx());
@@ -107,8 +111,8 @@ console.log('══════ B. 鲸元卷案审计形状 + 阈值边界 ═�
   const r = mapStandardAnswers(jyjAnswers(q4(0.72)), stdCtx());
   const jev = r.stage3DataToSave?.parsed_output?.jev;
   const sm = jev?.spellingMismatch;
-  check('B1 审计 spellingMismatch {name,bucket,prob}', sm && sm.name === '鲸元卷' && sm.bucket === 'one_char_diff_repeated' && Math.abs(sm.prob - 0.72) < 1e-9, sm);
-  check('B2 概率块内嵌 image_name_text_match', !!jev?.probabilities?.image_name_text_match?.one_char_diff_repeated, jev?.probabilities?.image_name_text_match);
+  check('B1 审计 spellingMismatch {name,bucket,prob}', sm && sm.name === '鲸元卷' && sm.bucket === 'one_char_diff' && Math.abs(sm.prob - 0.72) < 1e-9, sm);
+  check('B2 概率块内嵌 image_name_text_match', !!jev?.probabilities?.image_name_text_match?.one_char_diff, jev?.probabilities?.image_name_text_match);
   const r49 = mapStandardAnswers(jyjAnswers(q4(0.49)), stdCtx());
   check('B3 0.49 < 0.5 不拦', r49.llmResult.rating !== 'low');
   const r50 = mapStandardAnswers(jyjAnswers(q4(0.5)), stdCtx());
@@ -149,9 +153,11 @@ console.log('══════ E. 题集矩阵 ══════');
   check('E2 开=false 不含题', !('image_name_text_match' in qsOff));
   const q = qsOn.image_name_text_match;
   const buckets = Object.keys(q.criteria);
-  check('E3 四桶恰齐', buckets.length === 4 && ['exact_match', 'one_char_diff_repeated', 'one_char_diff_once', 'unrelated_or_none'].every(b => buckets.includes(b)), buckets);
+  check('E3 三桶恰齐（J1.141 四桶→三桶）', buckets.length === 3 && ['exact_match', 'one_char_diff', 'unrelated_or_none'].every(b => buckets.includes(b)), buckets);
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
-  check('E4 鲸元卷对照锚在题面', qsSrc.includes('币名「鲸元卷」、图内两处空间独立的文字都写「鲸元券」'));
+  check('E4 鲸元卷对照锚在题面（J1.141 修正：一处即拦）', qsSrc.includes('币名「鲸元卷」、图内手绘面额图上的独立文字段写「鲸元券」')
+    && qsSrc.includes('即使全图只有这一处这样写也是 one_char_diff'));
+  check('E4b 次数不构成豁免锚在桶描述', qsSrc.includes('出现一次还是多次'));
   check('E5 只看逐字拼写不看画面/音近锚在题面', qsSrc.includes('只看图内文字与币名的逐字拼写') && qsSrc.includes('不读音近似'));
   check('E6 子串算 exact_match 锚（原代码③分支承接）', qsSrc.includes('币名整体作为更长文字段的子串出现也算 exact_match'));
 }
@@ -178,7 +184,7 @@ console.log('══════ G. detectNameImageSpellingMismatch 防复活反�
 console.log('══════ H. 源码口径锁定 ══════');
 {
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
-  check('H1 读键形状（可选链 ?? 0）', mapperSrc.includes('answers.image_name_text_match?.probabilities?.one_char_diff_repeated ?? 0'));
+  check('H1 归一读三键 max（旧四桶行零翻转）', mapperSrc.includes('Math.max(nameTextProbs.one_char_diff ?? 0, nameTextProbs.one_char_diff_repeated ?? 0, nameTextProbs.one_char_diff_once ?? 0)'));
   check('H2 阈值 >= 0.5', mapperSrc.includes('nameTextRejP >= 0.5'));
   check('H3 审计三键 {name,bucket,prob}', /spellingMismatch\.hit[\s\S]{0,120}bucket: spellingMismatch\.bucket, prob: spellingMismatch\.prob/.test(mapperSrc));
   check('H4 概率块条件内嵌', mapperSrc.includes('...(answers.image_name_text_match ? { image_name_text_match: answers.image_name_text_match.probabilities } : {})'));

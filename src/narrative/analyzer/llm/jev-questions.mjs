@@ -1394,9 +1394,18 @@
  *       （one_char_diff_repeated ≥0.5 拦）——caption 中介退役后图内文字对照
  *       由看图的 Jev 直接判。桶=exact_match/one_char_diff_repeated/
  *       one_char_diff_once/unrelated_or_none
+ * J1.141（2026-10-26，C243 对拍修正）：image_name_text_match 四桶 → 三桶
+ *       （one_char_diff_repeated/once 并为 one_char_diff）。案发事实：鲸元卷票
+ *       看图判 one_char_diff_once 0.67（图内独立「鲸元券」文字段只 1 处）→
+ *       旧「≥2 次」判据不触发 → high 87.91 翻面（回归集 expect=low 必拦）。
+ *       ≥2 次本是旧代码门对 caption 转写文本计数的防噪判据（key_elements
+ *       两行描述+正文=3 次），C78 用户裁定本体=图内出现一位差写法即「名字没
+ *       抄对」——次数不构成豁免（有意变形图内一致=exact_match 形状不受影响）。
+ *       mapper 拦截位换读 one_char_diff ≥0.5；旧缓存行（四桶形状）归一读
+ *       one_char_diff_once → one_char_diff（缺失键照旧 fail-open）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.140';
+export const JEV_QUESTIONS_VERSION = 'J1.141';
 
 /** 品牌 keyword 预检表+shouldIncludeBrandHijackCheck 已废（J1.103/C172 品牌劫持轴
  * 整体退役：brand_mismatch 桶删除后预检唯一用途 mapper 门开关消失；名字-事件
@@ -1852,11 +1861,10 @@ BSC meme 玩家能接纳的 W 类项目分两种形态，资格门槛各不同�
 ⚠️ 只看图内文字与币名的逐字拼写，不看画面内容、不读音近似、不字形近似（同音异字/形近字都算「不同」）。
 ⚠️ 「出现」按图内独立文字段计：同一处文字只算一次，空间分离的多处各算一次。
 ⚠️ 币名整体作为更长文字段的子串出现也算 exact_match（如币名「鲸元卷」、图内标题写「鲸元卷理财」）。
-对照锚（鲸元卷案）：币名「鲸元卷」、图内两处空间独立的文字都写「鲸元券」——等长恰一位不同且该写法出现 ≥2 次 → one_char_diff_repeated；若全图只有一处这样写 → one_char_diff_once。`,
+对照锚（鲸元卷案）：币名「鲸元卷」、图内手绘面额图上的独立文字段写「鲸元券」（等长恰一位不同）——即使全图只有这一处这样写也是 one_char_diff（名称连自己的宣告图都没抄对，出现次数不改变这一事实）。`,
         criteria: {
           exact_match: '币名整体在图内文字中出现（含作为更长文字段的子串）——名字被图内文字使用过',
-          one_char_diff_repeated: '图内文字有与币名等长的独立文字段恰一位不同（替换一字），且该近似写法在图中出现 ≥2 次——反复出现的近似写法（无背景说明时的蹭名/引流信号）',
-          one_char_diff_once: '图内文字有与币名等长的独立文字段恰一位不同，但仅出现 1 次——单发近似（可能是笔误/引用不完整，不构成反复信号）',
+          one_char_diff: '图内文字有与币名等长的独立文字段恰一位不同（替换一字）——无论该近似写法在图中出现一次还是多次（一位差写法在场本身=名字没抄对/蹭名信号，次数不构成豁免）',
           unrelated_or_none: '图内文字与币名无拼写关系——无币名、无等长一位差写法，或图内无文字',
         },
       },

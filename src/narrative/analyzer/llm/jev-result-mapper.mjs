@@ -772,7 +772,7 @@ export function isCjkLongName(tokenData) {
  * detectNameImageSpellingMismatch——读 caption 转写（image_analysis
  * stringify）做 substitution 一字差对照；caption 中介随 SiliconFlow 替换退役
  * 后，图内文字对照由看图的 Jev 条件题 image_name_text_match 承接（拦截位=
- * one_char_diff_repeated ≥0.5，鲸元卷案形状承接；CJK≥3 前提=isCjkLongName
+ * one_char_diff ≥0.5（J1.141 三桶），鲸元卷案形状承接；CJK≥3 前提=isCjkLongName
  * 代码侧，题只在前提真时问）。案史：C78 鲸元卷 0xe0cf0905…7777（图内正字
  * 「鲸元券」多次出现、全图无一「卷」字——名称连自己的宣告图都没抄对）；
  * Jev 探针实证拦不住（block_misspelling 线上 0.28/加判据 0.13）系旧文本探针
@@ -1784,15 +1784,21 @@ export function mapStandardAnswers(answers, context) {
   // relevance/nicMatchP/imgNameExempt 已前移至 Stage2 门链
   // 之前（C86 D-1 豁免贯穿，见上方案释）；本段只留 Stage3 专属计算
   const quality = qualityFrom(answers, symbol);
-  // C78 图文名不符拼写门（J1.140 图片直连架构改判据源）：条件题
-  // image_name_text_match（图在场∧CJK≥3 才问）one_char_diff_repeated ≥0.5 →
-  // 拦（鲸元卷案形状：等长恰一位差写法在图内反复出现且币名整体不在图内——
-  // 题面 exact_match 桶承接原代码③分支）；题未问（无图/非 CJK 长名/旧缓存行
-  // 无答案）→ 0 不拦（fail-open 与无图票同语义；detectNameImageSpellingMismatch
-  // 纯代码门已退役，防复活断言在 _test_image_name_text_gate.cjs）
-  const nameTextRejP = answers.image_name_text_match?.probabilities?.one_char_diff_repeated ?? 0;
+  // C78 图文名不符拼写门（J1.140 图片直连改判据源；J1.141 四桶→三桶）：条件题
+  // image_name_text_match（图在场∧CJK≥3 才问）one_char_diff ≥0.5 → 拦（鲸元卷
+  // 案形状：图内出现与币名等长恰一位差的独立文字段——次数不构成豁免，J1.140
+  // 短暂四桶期「≥2 次」判据翻车实证；币名整体在图内=exact_match 放行承接原
+  // 代码③分支）；题未问（无图/非 CJK 长名/旧缓存行无答案）→ 0 不拦（fail-open
+  // 与无图票同语义；detectNameImageSpellingMismatch 纯代码门已退役，防复活断言
+  // 在 _test_image_name_text_gate.cjs）
+  // J1.141 三桶（one_char_diff ≥0.5 拦）；Math.max 三键归一读=旧四桶缓存行
+  // （repeated/once 分桶）重放零翻转——鲸元卷案图内独立「鲸元券」仅 1 处也拦
+  const nameTextProbs = answers.image_name_text_match?.probabilities;
+  const nameTextRejP = nameTextProbs
+    ? Math.max(nameTextProbs.one_char_diff ?? 0, nameTextProbs.one_char_diff_repeated ?? 0, nameTextProbs.one_char_diff_once ?? 0)
+    : 0;
   const spellingMismatch = nameTextRejP >= 0.5
-    ? { hit: true, bucket: 'one_char_diff_repeated', prob: nameTextRejP }
+    ? { hit: true, bucket: 'one_char_diff', prob: nameTextRejP }
     : { hit: false, bucket: null, prob: null };
 
   let stage3Blocked = false;
@@ -1802,7 +1808,7 @@ export function mapStandardAnswers(answers, context) {
   // 视角，真蹭名票 unacceptable → relevance 低分在本段自然拦）
   if (spellingMismatch.hit) {
     stage3Blocked = true;
-    stage3BlockReason = `图文名不符（图内反复出现与币名一位之差的写法（Jev 判 ${spellingMismatch.prob.toFixed(2)}）≠币名，无背景拼写错误）`;
+    stage3BlockReason = `图文名不符（图内出现与币名一位之差的写法（Jev 判 ${spellingMismatch.prob.toFixed(2)}）≠币名，无背景拼写错误）`;
   } else if (relevance.score <= 10 && !imgNameExempt && !recognizedEntitySlogan) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
