@@ -264,14 +264,15 @@ async function main() {
     && appealInstructions.includes('本题不假设任何票有地址背书')
     && appealInstructions.includes('形态一：极有特色的 BSC 链项目')
     && appealInstructions.includes('BSC 社区自己发的（不是 Dev 发的）')
-    && appealInstructions.includes('发布者有一定影响力')
+    && appealInstructions.includes('项目 Dev（项目的构建者）有一定影响力')
     && appealInstructions.includes('不能是完全的无名之辈，至少是一个看起来不错的 Dev')
+    && appealInstructions.includes('找角度推文/发币账号无影响力没关系')
     && appealInstructions.includes('人生K线——BSC 社区自己发的、已成 BSC 蓝筹')
     && appealInstructions.includes('形态二：Web2/Web3 领域里特别有影响力/有趣味/有梗的项目涌现')
     && appealInstructions.includes('项目主体（项目的创建者，不是找角度账号）')
     && appealInstructions.includes('需要是较为知名的组织或人')
     && appealInstructions.includes('不因陈述者无名判 low')
-    && appealInstructions.includes('形态一**发布者完全无名**')
+    && appealInstructions.includes('形态一**项目 Dev 完全无名**')
     && appealInstructions.includes('形态二**项目主体不知名**')
     && !appealInstructions.includes('dev 视角臂（资格轴唯一看发布者的形状）')
     && !appealInstructions.includes('正经项目方行为，资格过线'),
@@ -284,7 +285,7 @@ async function main() {
     null);
   check('G7 low criteria 含「资格不合格」（C234 两形态：发布者完全无名/项目主体不知名；mid/high 含「资格过线」）',
     qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('资格不合格')
-    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态一发布者完全无名')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态一项目 Dev 完全无名')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态二项目主体不知名')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.mid.includes('资格过线')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.high.includes('资格过线'),
