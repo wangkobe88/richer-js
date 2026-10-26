@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v39 快照；live v40 实跑本屏；v39 实验=库 v38 快照已过代）
+## 一、现行买腿门链一屏（buy-v2 v40 快照；live v41 实跑本屏；v40 实验=库 v39 快照已过代）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -35,7 +35,7 @@ AND drawdownFromHighest > -70                             -- 崩盘接刀门①�
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
 
-第二层（条件串外，`gmgnCheckCondition`）：`gmgnBundlerWalletRatio <= 65`（v31 起 65）；叙事类型×issuer 分档门（C85）；GMGN API 失败 fail-open 放行（T14）。
+第二层（条件串外，`gmgnCheckCondition`）：`gmgnBundlerWalletRatio <= 65`（v31 起 65）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73）；GMGN API 失败 fail-open 放行（T14）。
 
 ## 二、现行卖腿机制要点
 
@@ -51,6 +51,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T73 event:W 撤出 GMGN issuer 分档门适用集——BNC开市钟案（2026-10-26，用户裁定；buy-v2 v40）
+- **案**：0xd0b89e79167a375e93d614ee23357b8039fc777（BNC开市钟🔔，four.meme，10-26 13:50 UTC，live v40）——即 C242 新事件豁免对拍票（BNC 撞 BNB Standard 蓝筹、语料=敲纳斯达克钟）。叙事 high 75.58（rating 3）全链过门，13:50:46→13:54:42 连续 **28 次 BUY 信号全被 GMGN 条件拦**：`narrativeCategory='event:W'` 落 C85 分档门适用集 → 要求 `gmgnIssuerTokenCount <= 1`，GMGN 真调成功返回 issuer **25 连发**（bundler=0 过臂、含 5s TTL 缓存命中同数据）→ 拦 4 分钟；13:54:43 那次 GMGN **超时 5000ms → fail-open 放行**（T14 裁定设计行为，evaluated=false 留痕）买入 0.004 BNB，14:02:15 全清 0.00226 BNB **-43.5%**
+- **裁定（用户 2026-10-26）**：「event:W 本质跟其它类一样，都是基于事件/传播的 meme 币，叙事往往由第三方推文陈述，肯定不要求 gmgnIssuerTokenCount <= 1」——**event:W 撤出适用集**，剩余 `{project, account_based_meme, web3_native_ip_early}`。C85 当时把 event:W 收进适用集的映射（2026-10-17 原话「由其它用户自己发币（meme）了，也算适用」→标准路径前缀值）废止；与 C85 否决史②「事件源账号被多方蹭发多币是常态」同精神；T70 曾把该臂记为智子票残余风险（「实调时 creator serial>1 会拦」），本案实证咬人
+- **连带发现（BNC 分类错误，叙事侧）**：event_category choice=W conf 0.86（W 0.88/D 0.10/E 0.02）——但 **v40 进程 08:50 UTC 起跑锁定 J1.135**，C241 的 W 域收窄锚（J1.138：W=发布新项目、成熟平台公告/市场动作归 D、第三方抢注不进 W 数学）不在实验进程题集（引擎叙事直调进程内嵌、不消费 worker——当天 worker 已迭代至 J1.141/142）。按 J1.138 判据 BNC（第三方票 + BNB Standard 敲纳斯达克开市钟=成熟平台市场动作）应归 **D** 不进 W 数学。顺带实验进程的 J1.135 分析覆盖了 token_narrative 全局缓存行（C242 对拍写的 J1.139 行被冲掉）。→ 换代实验拉最新代码解决；v41 起跑后 BNC 定向重析验证归 D，J1.138+ 下仍 W 再立叙事侧新案补「上市敲钟/成熟项目里程碑动作→D」锚
+- **实现**：库 buy-v2 升 **v40**（gmgnCheckCondition 撤 `AND narrativeCategory != 'event:W'`，bundler 65/IS NULL 臂/其余不动）；实验 v41 config 内嵌同款；单测 `_test_gmgn_check_layer.cjs` 真值表翻新：`event:W+issuer=3 → 放`（T73 反证，防未来把 event:W 加回 != 链）、noNullArm 反证形状同步撤臂（59/0）
+- **部署**：不重启 v40（用户裁定换新实验）；v41 创建自 v40 config + 新条件串，182 拉最新代码（J1.142+C244）起跑——见部署段补记
 
 ### T72 sybil 名单扩判据——0x2fe5 flap 团伙案：二档强边+分发号通道+manual 锚定（2026-10-26，用户裁定）
 - **案**：0x2fe5328cf2ea8cd632161564464c1e6c2e347777（flap，10-26 06:12 UTC）用户盘感「前期参与者不像真实用户」——证实为 **377 票规模作业团伙**常规作业：开盘 90s 离散等额档簇（0.0987×9 / 0.1973×8，显化之歌 9-28 案同款档位制）+同块对倒（+3s 同块等额 0.2488×2→同块卖）+**+96s 场外分发货批**（8 钱包零买入纯卖同一秒进场）+同块 10 钱包齐出（blk 129847718）；GMGN 路由占买 53.3%、top1 买入占比仅 2.6%（分仓绕单钱包集中度门）；峰值 +213% 后 -54%。**flap 代币尾号 7777=平台常态非 vanity 指纹**（四.meme 语境才成立，本案修正）

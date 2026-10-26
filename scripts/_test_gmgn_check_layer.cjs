@@ -81,11 +81,12 @@ async function withKey(fn) {
 
 function freshSvc(config = {}) { return new GmgnRiskCheckService(config, { info() {}, warn() {}, error() {} }); }
 
-// Nightshift 案分档门条件串（2026-10-17 用户裁定终稿形状，A/C 段共用）：
+// Nightshift 案分档门条件串（2026-10-17 用户裁定终稿形状，A/C 段共用；
+// 2026-10-26 T73 BNC 案裁定 event:W 撤出适用集）：
 // 适用集内 issuerTokenCount<=1，IS NULL 臂保 null 放行，bundler 现行门并联前置
 const NS_COND = 'gmgnBundlerWalletRatio <= 75 AND ((narrativeCategory IS NULL OR '
   + "(narrativeCategory != 'project' AND narrativeCategory != 'account_based_meme' "
-  + "AND narrativeCategory != 'web3_native_ip_early' AND narrativeCategory != 'event:W')) "
+  + "AND narrativeCategory != 'web3_native_ip_early')) "
   + 'OR gmgnIssuerTokenCount <= 1)';
 
 async function main() {
@@ -148,10 +149,15 @@ async function main() {
       && GMGN_CONDITION_FACTOR_KEYS.includes('narrativeCategory'));
 
     // ── Nightshift 案分档门（2026-10-17 用户裁定）：叙事类型 × issuerTokenCount ──
-    // 适用集 {project, account_based_meme, web3_native_ip_early, event:W} 内发币数
+    // 适用集 {project, account_based_meme, web3_native_ip_early} 内发币数
     // 须 <=1；事件/梗/名人类（event:A-E/F/G）不适用；null（未分类/legacy）放行
     // fail-open。IS NULL 前置臂是 null 放行的必要条件——ConditionEvaluator 对左值
     // null 的任何比较（含 !=）恒 false，裸 != 链在 null+issuer>1 时误拒
+    // 2026-10-26 T73（BNC 案 0xd0b89e…7777）event:W 撤出适用集：W 类事件票与
+    // event:A-E 同族=第三方事件/传播型 meme，叙事由第三方推文陈述，发行人不是
+    // 叙事主体，serial issuer 不构成信号（与 C85 否决史②「事件源账号被多方蹭发
+    // 多币是常态」同精神；案发=issuerTokenCount=25 拦 28 次后 GMGN 超时 fail-open
+    // 放行买入 -43.5%）
     const nsEval = (category, issuer, bundler = 30.3) => GmgnRiskCheckService.evaluateFactors(
       { gmgnRiskCovered: 1, gmgnIssuerTokenCount: issuer, gmgnBundlerWalletRatio: bundler,
         narrativeCategory: category }, NS_COND).passed;
@@ -163,8 +169,8 @@ async function main() {
       nsEval('account_based_meme', 2) === false);
     check('web3_native_ip_early+issuer=2 → 拒（适用集第三类——W3 原生项目早期）',
       nsEval('web3_native_ip_early', 2) === false);
-    check('event:W+issuer=3 → 拒（适用集第四类——同一项目号被反复发盘同样可疑）',
-      nsEval('event:W', 3) === false);
+    check('event:W+issuer=3 → 放（T73 反证：2026-10-26 BNC 案裁定 event:W 撤出适用集——第三方事件/传播型票 serial issuer 不拦；防未来把 event:W 加回 != 链）',
+      nsEval('event:W', 3) === true);
     check('event:C+issuer=6 → 放（事件类不适用——事件源账号被多方蹭发多币是常态）',
       nsEval('event:C', 6) === true);
     check('event:A+issuer=6+bundler=87.5 → 拒（bundler 现行门不受新臂影响）',
@@ -176,8 +182,8 @@ async function main() {
     // ★锁死防线：剥掉 IS NULL 臂的旧形状在 null+issuer>1 处=拒（null 短路误拒事故
     // 形状反证——防未来把条件串「简化」回裸 != 链）
     const noNullArmCond = 'gmgnBundlerWalletRatio <= 75 AND ((narrativeCategory != \'project\' '
-      + "AND narrativeCategory != 'account_based_meme' AND narrativeCategory != 'web3_native_ip_early' "
-      + "AND narrativeCategory != 'event:W') OR gmgnIssuerTokenCount <= 1)";
+      + "AND narrativeCategory != 'account_based_meme' AND narrativeCategory != 'web3_native_ip_early') "
+      + 'OR gmgnIssuerTokenCount <= 1)';
     const noNullArm = GmgnRiskCheckService.evaluateFactors(
       { gmgnRiskCovered: 1, gmgnIssuerTokenCount: 6, gmgnBundlerWalletRatio: 30.3,
         narrativeCategory: null }, noNullArmCond).passed;
