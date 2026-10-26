@@ -1442,6 +1442,17 @@
       "addedAt": "2026-10-25",
       "expectBecause": "C230 裁定（2026-10-25 用户三轮）：项目方自发币走 W 类；发布者全无影响力（18 粉）且项目不提供地址（CA）→ 资格轴不合格直接 weak（15<32 恒 low）。机器初录现状=high 75.3/event:C（误判现场），人工改写为意图。",
       "expectSince": "2026-10-25"
+    },
+    {
+      "caseId": "C231",
+      "symbol": "BLACKBELT",
+      "addr": "0x46eaec0f241a0782b107d77fb5d0ed49974d7777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["事件意义太小"]
+      },
+      "note": "黄仁勋名誉黑带案：J1.127 前误 high 87.61（impact none 0.81 放行+fit strong_fit 派生 A 档）；新桶 event_trivial 0.97 接住→low。C191 观察点①接棒票",
+      "addedAt": "2026-10-26"
     }
   ]
 }
