@@ -54,13 +54,23 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C234 W 资格轴两形态判据——BSC 链项目发布者须像样 / Web2·Web3 涌现项目主体须知名（人生K线·股城·NMS 三原型，2026-10-26 用户裁定，J1.130）★
+
+- **案发动机**：C233 部署对拍发现 AIFLY（C230 回归票，18 粉 dev 自发币+无 CA，expect=low）连续两轮 W 臂 **mid 0.46/0.42 近 tie 误判**（三桶分散 low 0.21/mid 0.46/high 0.33）→ mid 60.98 过线，资格轴「直接判 low」形状 Jev 拿不稳 → 用户裁定 W 资格轴判据重构。
+- **用户裁定（四条合成）**：①机制前提——「走到 W 类的项目，应该都是没有提供 CA 的，否则会走更靠前的账号判断逻辑」；②两形态——「BSC meme 玩家能接受的项目类型分两种：**第一种极有特色的 BSC 链项目**（人生K线 `0x1a1e69f1e6182e2f8b9e8987e83c016ac9444444` 为代表，代币是 BSC 社区自己发的不是 Dev 发的，项目质量佳有特点有构建影响力的潜力，**股城是这一种**），它要求发布者有一定影响力不能是完全的无名之辈**至少是一个看起来不错的 Dev**；**第二种 Web2/Web3 领域里特别有影响力/有趣味/有梗的项目涌现**（如 NMS `0xa9cb21aa…7777`），一般来讲**发布主体就需要有更大的影响力了，需要是较为知名的组织或人发布的**，然后结合项目本身的情况进行判断」；③澄清——「发布主体」=**项目主体即项目的创建者，不是找角度账号**；④补充——**人生K线现在已经是蓝筹币**（形态一有实证赢家背书）。
+- **判据定稿**：形态一（BSC 链特色项目）代币可 Dev 发也可社区发，**发布者须有一定影响力（不能完全无名，至少是看起来不错的 Dev）**；形态二（Web2/Web3 涌现项目）**项目主体（创建者）须是较为知名的组织或人**，找角度/陈述账号无名不卡（C232 陈述者豁免维持、嵌形态二）；直接 low=形态一发布者完全无名 ∨ 形态二项目主体不知名。C232 台账观察点「无名小号报道无名小项目」就此落锤：主体不知名=资格不过线（非仅接纳度低）。
+- **实施（J1.130，纯题面+版本 bump）**：W 臂题资格轴重写两形态主轴（C232 的 dev 视角/第三方视角两臂表述退役——视角方法论融入形态描述：第一人称介绍项目=发币者即项目方〔形态一 dev 发币〕；陈述者只是载体〔形态二〕）+机制前提全局化（本题票全无 CA 背书，本题不假设任何票有地址背书——J1.126「按无地址处理」从 dev 臂提升为题级前提）；low criteria 同步两形状（dev 自发币或社区发同判）。mapper 零改动（C233 分值表双键已覆盖）。
+- **测试**：w_bsc_user_appeal G6 重写两形态锚（机制前提/形态一句锚/形态二句锚/direct low 两形状）+G6b 改 C234 例证锚（NMS 形态二原型+人生K线蓝筹实证+股城）+G7 加两形态 low 断言（37 全绿）；question_consolidation A11b 随改；三处版本断言 bump J1.130；event_trivial_gate/angle/name_entity 批次全绿。
+- **对拍（J1.130 部署后定向）**：AIFLY 期望回 low（资格形状判据强化后）；股城期望 mid 维持（形态一原型）；NMS 期望 W 臂 mid 维持（形态二原型，陈述者不卡）+终态 trivial 观察点不动。
+- **观察点**：形态一「发布者」口径=项目创建者/发币宣告者（社区发币形状下发币社区成员与项目方的影响力各算多少——首案再校）；形态二「较为知名的组织或人」的门槛边界（中型项目方/半知名团队）由 Jev 按例证锚把握。
+
 ### C233 W 臂桶 id 断代——weak/moderate/strong → low/mid/high 与评级词汇统一（2026-10-26 用户裁定，J1.129）★
 
 - **案发（词汇呈现动因）**：C232 对拍汇报「NMS W 臂 weak 0.77→moderate 0.55」时两套词汇并存——W 臂题桶叫 weak/moderate/strong、评级叫 low/mid/high，用户问「也用 low/mid/high 呗？」→ 裁定 W 臂桶 id 断代与评级词汇统一。
 - **实施（J1.129）**：`bsc_meme_user_web3_project_acceptance_and_impact` criteria 三桶 id 断代 `weak/moderate/strong → low/mid/high`（桶名措辞弱/中/强→低/中/高，instructions 全量同步「弱/中/强三档」→「低/中/高三档」、「直接判 weak」→「直接判 low」、例证锚「不因陈述者无名判 weak」→「判 low」）；**分值 15/47/66、pass 32、C230/J1.125-J1.128 资格轴语义零改动**。
 - **mapper 零行为变化**：`W_APPEAL_CHOICE_SCORES` 分值表双键同分 `{ low:15, mid:47, high:66, weak:15, moderate:47, strong:66 }`——J1.107-J1.128 旧缓存行（旧 choice）与新行（新 choice）直读同分，旧行重放零翻转（零分支归一读，同 q() 归一读旧键惯例）；消费点 `W_APPEAL_CHOICE_SCORES[appealAnswer.choice] ?? 0` 不动；审计投影键 `w_bsc_user_appeal` 不动。
 - **测试**：w_bsc_user_appeal F 区改标「旧桶名 choice 重放锚」（F1-F5 旧桶喂入 15/47/66 不变=旧行零翻转反证）+F6 分值表源码双键断言+G1/G2/G4/G5/G6/G6b/G7 随新桶名（G2=AIFLY 锚「资格轴不合格直接 low」）=37 断言全绿；question_consolidation A11b 三桶断言随新桶名+版本断言 A10d/angle C5/name_entity D5 bump J1.129；cashtag_w_route/superip_slogan_class/web3_fit_anchor/jev_product_entity/instagram_pipeline/event_trivial_gate/timing_probe/jev_client_backoff 相邻批次全绿。
-- **对拍预期（部署后定向重析三票）**：NMS/AIFLY/股城——choice 桶名出 low/mid/high、分值 15/47/66 不变、评级不变（NMS 终态仍由 C231 trivial 0.29 掷骰观察点决定，不受本改动影响）。
+- **对拍（182 定向重析，J1.129 部署 worker 3936727）**：①NMS → W 臂 choice=**mid**（low 0.25/mid 0.54/high 0.21）——新桶名生效、47 分对齐上轮 moderate 0.55；终态仍 low 拦 C231 trivial（P=0.31，掷骰观察点不受影响）✓；②股城 → mid 64.12 维持 ✓；③AIFLY → **意外翻面 low→mid 60.98**（W 臂 mid 0.46 近 tie 三桶分散 low 0.21/mid 0.46/high 0.33；impact empty_content 0.33 argmax 但图证在场走 C114 豁免不拦；上轮被 empty_content 0.59 拦=图证在场性跨轮波动）——重跑第三样本仍 mid 60.98（W 臂 mid 0.42/low 0.19/high 0.39）=Jev 对「18 粉 dev 自发币」资格形状连续两轮拿不准，**触发 C234 两形态判据重写**（C230 回归 expect=low 撞 FAIL 待 C234 修复后复验）。
 - **性质**：纯词汇统一，无拦截位变化；旧缓存行不重析即零翻转，重析亦同分（分值表双键）。
 
 ### C232 W 资格轴适用域修正——第三方视角不看陈述者影响力（NMS 纳斯达克示例 tokenized stock 案，2026-10-26 用户裁定，J1.128）★

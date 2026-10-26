@@ -258,26 +258,34 @@ async function main() {
 
   // 资格轴题面锚（源码口径反证，防回潮）
   const appealInstructions = qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions;
-  check('G6 资格轴适用域（J1.128/C232 修正）：dev 视角臂=按无地址处理+须有影响力；第三方视角臂=不看陈述者影响力按主体评（「XX做了什么」主体=XX）；low 只剩 dev 视角无名形状（J1.129 桶名随断代）',
-    appealInstructions.includes('dev 视角臂（资格轴唯一看发布者的形状）')
-    && appealInstructions.includes('web3 原生项目路径（账号路径）')
-    && appealInstructions.includes('按没有提供地址处理')
-    && appealInstructions.includes('第三方视角臂（不看陈述者/发布者影响力）')
-    && appealInstructions.includes('事件主体=XX 项目方本身')
-    && appealInstructions.includes('无名小账号报道/发现大主体项目**不失格**')
-    && appealInstructions.includes('资格不合格直接判 low 的只剩一种形状：**dev 视角自发币 + dev 全无影响力**')
-    && !appealInstructions.includes('资格不合格直接判 weak')
+  check('G6 资格轴两形态判据（J1.130/C234）：机制前提=本题票全无 CA 背书；形态一=BSC 链特色项目（可社区发币）发布者须有影响力至少是看起来不错的 Dev；形态二=Web2/Web3 涌现项目项目主体（创建者）须较为知名、找角度账号不卡；直接 low=发布者完全无名∨主体不知名',
+    appealInstructions.includes('没有提供代币合约地址（CA）背书')
+    && appealInstructions.includes('走更靠前的账号判断逻辑')
+    && appealInstructions.includes('本题不假设任何票有地址背书')
+    && appealInstructions.includes('形态一：极有特色的 BSC 链项目')
+    && appealInstructions.includes('BSC 社区自己发的（不是 Dev 发的）')
+    && appealInstructions.includes('发布者有一定影响力')
+    && appealInstructions.includes('不能是完全的无名之辈，至少是一个看起来不错的 Dev')
+    && appealInstructions.includes('人生K线——BSC 社区自己发的、已成 BSC 蓝筹')
+    && appealInstructions.includes('形态二：Web2/Web3 领域里特别有影响力/有趣味/有梗的项目涌现')
+    && appealInstructions.includes('项目主体（项目的创建者，不是找角度账号）')
+    && appealInstructions.includes('需要是较为知名的组织或人')
+    && appealInstructions.includes('不因陈述者无名判 low')
+    && appealInstructions.includes('形态一**发布者完全无名**')
+    && appealInstructions.includes('形态二**项目主体不知名**')
+    && !appealInstructions.includes('dev 视角臂（资格轴唯一看发布者的形状）')
     && !appealInstructions.includes('正经项目方行为，资格过线'),
     appealInstructions.slice(0, 200));
-  check('G6b C232 例证锚在场（纳斯达克官网示例 tokenized stock 案——326 粉陈述者不失格）+ 第三方臂落 low 禁令（J1.129 桶名）',
+  check('G6b C234 例证锚在场（NMS 纳斯达克案=形态二原型、326 粉陈述者不卡；人生K线=形态一蓝筹实证）+ 陈述账号豁免随 criteria 落档',
     appealInstructions.includes('纳斯达克官网放出示例 tokenized stock')
-    && appealInstructions.includes('主体=纳斯达克')
-    && appealInstructions.includes('不因陈述者无名判 low')
-    && appealInstructions.includes('第三方视角陈述不落本臂')
-    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('第三方视角陈述（「XX 做了什么」主体=XX）不因陈述者无名判 low'),
+    && appealInstructions.includes('326 粉小号发现报道——NMS 案')
+    && appealInstructions.includes('股城')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('找角度/陈述账号无名不是资格缺陷'),
     null);
-  check('G7 low criteria 含「资格轴不合格」（资格与接纳度复合一票定档；mid/high 含「资格过线」）',
-    qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('资格轴不合格')
+  check('G7 low criteria 含「资格不合格」（C234 两形态：发布者完全无名/项目主体不知名；mid/high 含「资格过线」）',
+    qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('资格不合格')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态一发布者完全无名')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态二项目主体不知名')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.mid.includes('资格过线')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.high.includes('资格过线'),
     qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria);
@@ -298,8 +306,8 @@ async function main() {
     null);
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION ≥ J1.129（J1.129=C233 W 臂桶 id 断代 low/mid/high 与评级词汇统一；J1.128=C232 资格轴适用域修正：第三方视角不看陈述者影响力按主体评；J1.127=C231 impact 题加 event_trivial 桶；J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
-    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 129, JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.130（J1.130=C234 W 资格轴两形态判据（形态一 BSC 链项目发布者须像样/形态二项目主体须知名）+无 CA 机制前提全局化；J1.129=C233 W 臂桶 id 断代 low/mid/high 与评级词汇统一；J1.128=C232 资格轴适用域修正：第三方视角不看陈述者影响力按主体评；J1.127=C231 impact 题加 event_trivial 桶；J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 130, JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);
