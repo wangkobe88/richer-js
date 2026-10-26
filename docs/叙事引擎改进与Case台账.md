@@ -54,6 +54,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C232 W 资格轴适用域修正——第三方视角不看陈述者影响力（NMS 纳斯达克示例 tokenized stock 案，2026-10-26 用户裁定，J1.128）★
+
+- **案发**：`0xa9cb21aac801301711a13b69d76f2af8216c7777`「NMS / Not My Stock」2026-10-25 18:53 评 low。语料：主推 @bwamwifprivacy（**326 粉 0 赞 0 转**）「qr code takes u to official nasdaq website where they give us an example tokenized stock! its called NMS / Not My Stock」——第三方**发现并报道**纳斯达克官网放出的示例代币化股票；父推 @mikemaccana（6638 粉）「Full page ad in WSJ against tokenized equities」。
+- **误拦链**：event_category=W 0.92（tokenized stock=crypto 语境项目）→ W 臂题 `bsc_meme_user_web3_project_acceptance_and_impact` 走 C230/J1.125 资格轴「**纯第三方陈述者须有一定影响力**」臂 → 326 粉陈述者判无影响力 → weak 0.77 → 15<32 拦「W类总分不足」。
+- **用户裁定（原话）**：「规则错了，『陈述者无名』是指陈述者是 Dev 的情况，也就是陈述的语句中并不是第三方视角，只是介绍了一个项目，并不是说『XX做了什么项目』，而直接就是『XX项目是什么』。而这个才是找角度推文，才是第三方视角，第三方视角找角度推文并不看发布者影响力，陈述的是『XX做了什么项目』，XX 才是主体，这个 case 里纳斯达克才是主体。」
+- **语义修正**：资格轴「陈述者无名→weak」只适用 **dev 视角臂**（介绍「XX项目是什么」、语句无第三方主语——发布者=dev 本人，无名即无人背书）；**第三方视角臂**（「XX 做了什么」，主体=XX 项目方；找角度/报道/发现形状）**不看陈述者/发布者影响力**——陈述者只是载体，资格与吸引力按**主体自身分量**评（项目方级别/项目自身传播/事件分量），无名小号报道大主体不失格。C230 立的「第三方陈述者须有影响力（股城原型）」臂撤销——股城过线本就靠主体自身，不靠陈述者。
+- **实施（J1.128，纯题面+版本 bump，mapper 零改动）**：W 臂题资格轴重写为两臂——①dev 视角臂（资格轴唯一看发布者的形状）：dev 视角语料一律按无地址处理（J1.126 第一锚保留），dev 须有影响力；②第三方视角臂（不看陈述者/发布者影响力）：主体=XX 项目方本身，按主体自身分量评，NMS 案例证锚；③直接判 weak 只剩一种形状=dev 视角自发币+dev 全无影响力+无地址。weak criteria 同步（第三方视角陈述不因陈述者无名判 weak——按主体评接纳度）。
+- **测试**：w_bsc_user_appeal G6 重写（两臂适用域+weak 收窄）+新增 G6b（NMS 例证锚+第三方臂落 weak 禁令）=37 断言全绿；question_consolidation A10d/angle C5/name_entity D5 版本断言 bump J1.128；event_trivial_gate 等相邻批次全绿。
+- **对拍（182 定向重析）**：NMS → 资格过线后由接纳度轴按主体（纳斯达克 tokenize 试水）评，预期不再 weak 15（最终档位由 Jev 评）；AIFLY `0x0baecc80613610f8c6051e55c136505a47507777`（dev 视角 18 粪桶）→ 必须维持 low/W/15=weak（dev 臂不动证明）；股城 `0xaacb…7777`（第三方陈述、陈述者有影响力）→ 维持 mid（新规则不看陈述者按主体评，过线理由换轨不翻面）。
+- **观察点**：第三方视角+主体自身也小的票（无名小号报道无名小项目）——资格天然过线后由接纳度轴接住（无叙事记忆点/参与理由弱→weak 第二肢），若出现误放票再裁。
+
 ### C231 事件意义太小门——impact 题第 4 个 event_* 桶 event_trivial（BLACKBELT 黄仁勋名誉黑带案，2026-10-26 用户裁定，J1.127）★
 
 - **案发**：`0x46eaec0f241a0782b107d77fb5d0ed49974d7777`「The Black Belt」（BLACKBELT，four.meme）2026-10-25 评 **high 87.61**（D 类/A 档）。语料=黄仁勋获国际柔道联合会名誉黑带：@NVIDIAAI（35.5 万粉官号）direct_tweet + 父推 @nvidianewsroom 官宣（赞 290/浏览 1.9 万）。
@@ -75,7 +86,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **案发**：AIFLY `0x0baecc80613610f8c6051e55c136505a47507777`（AI bSTONK Fly，four.meme）引擎误判 **high 75.3**（J1.121）。取证：IPFS meta name="AI bSTONK Fly"、website=bstonkfly.vercel.app（纯 DEMO 玩具页**无 CA**）、twitter=@StockCZ 宣告推与 token 创建相隔 **32 秒**（creator 0xd0be17b3…）=**项目方自发币**；@StockCZ **18 粉零影响力**。命中用户三段判准第三段（应 low）。
 - **三个漏点**：① **分类/主体归属**：18 粉+0 互动被 tweet-type-classifier（纯代码预分类）判 angle_seeking → 分类题「Subject attribution: angle-seeking → 主体=被借势原始事件」规则错位 → **C 0.56 压过 W 0.33**；② **fit/tier**：strong_fit 0.67 与 C175「无名作者一句口号不是事件」分量锚冲突（Jev 层未吃透），tier=fit 派生 A 档；③ **质量门差线**：impact argmax=empty_content 0.48<0.5 且图证豁免在场（C191「impact none 桶零消费」观察点又一例）。
 - **用户裁定三轮（2026-10-25）**：①「这个代币肯定是应该属于 W 类……分类当前最大的功能就是把 Web3 项目识别出来，因为只有这一路走 bsc_meme_user_acceptance_and_impact」+分类题英文检查（结论：P2 英文化=迁移期校准手段非裁定，主体已全中文，题面中文重写）；② 走 W 类后该臂需判发布者影响力，题名改 **bsc_meme_user_acceptance_and_impact**（C183 bsc_meme_user_* 命名惯例）；③ angle_seeking 判定修正——找角度=第三方视角借势与项目无关的外部事件；「单纯提及一个项目=视为项目的 dev，这个 dev 必须有一定影响力」。
-- **判准（三段，题面资格轴原文锚）**：① 项目方自己发的币（web3 原生项目一路）需要提供地址（CA）背书；② 纯第三方发币/陈述，发布者至少是有一定影响力的正常用户（**股城 C133 先例原型**：官宣+官方号+社区转述）；③ 发布者全无影响力+项目不提供地址 → weak（W 数学 15<32 恒 low）。
+- **判准（三段，题面资格轴原文锚）**：① 项目方自己发的币（web3 原生项目一路）需要提供地址（CA）背书；② 纯第三方发币/陈述，发布者至少是有一定影响力的正常用户（**股城 C133 先例原型**：官宣+官方号+社区转述）；③ 发布者全无影响力+项目不提供地址 → weak（W 数学 15<32 恒 low）。**〔2026-10-26 C232/J1.128 追裁修正：第②段「第三方陈述者须有影响力」臂撤销——该臂只适用 dev 视角（介绍「XX项目是什么」无第三方主语）；第三方视角（「XX 做了什么」主体=XX）不看陈述者影响力按主体自身分量评，NMS 纳斯达克案触发，详见 C232〕**
 - **机制（J1.125）三件**：
   - **① event_category 中文重写 + W 强化 + 主体归属修正**：W 判据扩「不要求机构背景或协议级基础设施，个人/小团队自发项目与第三方陈述的项目同样归本类」（crypto 语境项目：AI×crypto 实验/交易终端/DeFi/工具）；主体归属新增段——项目陈述推主体=项目本身→W（第一人称/单纯提及=dev 自发宣告；明确说「XX 做了」=第三方陈述），「找角度/借势」不适用于项目陈述推（借势**与该项目无关**的外部事件才是找角度），低粉低互动作者宣告自己项目≠找角度；C 判据加反锚「宣告/陈述 crypto 项目本身归 W 不归本类」。
   - **② w_bsc_user_appeal 键名断代 → `bsc_meme_user_web3_project_acceptance_and_impact` + 资格轴**：题面复合两轴先判资格——dev 自发币须 CA 背书（语料/官网/元数据任一处）否则 dev 须有影响力；第三方陈述者须有影响力；全无影响力+无地址 → **直接判 weak**。桶 id（weak/moderate/strong）/分值 15/47/66/pass 线 32 全不变（零存量翻转）；mapper `q(answers, 新键, 旧键)` 归一读旧行、审计投影键 `w_bsc_user_appeal` 保留（跨版本前端/审计形状不变）、reason 文案改「BSC用户接纳度与影响力」（gateBlockReason 模板不动）。**J1.126 追裁两项（2026-10-25 用户裁定）**：(a) 键名再调整 `bsc_meme_user_acceptance_and_impact` → `bsc_meme_user_web3_project_acceptance_and_impact`（加 web3_project 域限定——该题仅 W 类评估；题面/桶/分值零改动，纯键名断代）；q() 归一读链=新键→`w_bsc_user_appeal` 旧键（J1.125 中间键 182 存活窗口仅 ~1h，重析即覆盖、评级终态缓存不重读 answers，**不设三级 fallback**）。(b) **资格轴第一锚改写**：正经 dev 自发币提供了 CA 背书的会走 **web3 原生项目路径（账号路径）** 评估，无需在本题陈述资格——落到本题的 dev 视角语料**一律按没有提供地址处理**（dev 须有影响力才过线；删除「CA 背书=资格过线」臂——标准路径 W 臂里的 dev 视角票=路由层未识别成 project 的漏检形状，默认无背书才对）。

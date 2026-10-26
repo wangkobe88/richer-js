@@ -254,15 +254,22 @@ async function main() {
 
   // 资格轴题面锚（源码口径反证，防回潮）
   const appealInstructions = qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions;
-  check('G6 资格轴三锚（J1.126 追裁第一锚改写）：dev 视角=按无地址处理（有 CA 背书走 web3 原生项目路径不进本题）/ 纯第三方陈述者须有影响力 / 全无影响力+无地址 → weak',
-    appealInstructions.includes('项目方自己发的币')
+  check('G6 资格轴适用域（J1.128/C232 修正）：dev 视角臂=按无地址处理+须有影响力；第三方视角臂=不看陈述者影响力按主体评（「XX做了什么」主体=XX）；weak 只剩 dev 视角无名形状',
+    appealInstructions.includes('dev 视角臂（资格轴唯一看发布者的形状）')
     && appealInstructions.includes('web3 原生项目路径（账号路径）')
     && appealInstructions.includes('按没有提供地址处理')
-    && !appealInstructions.includes('正经项目方行为，资格过线')
-    && appealInstructions.includes('有一定影响力的正常用户')
-    && appealInstructions.includes('全无影响力')
-    && appealInstructions.includes('直接判 weak'),
+    && appealInstructions.includes('第三方视角臂（不看陈述者/发布者影响力）')
+    && appealInstructions.includes('事件主体=XX 项目方本身')
+    && appealInstructions.includes('无名小账号报道/发现大主体项目**不失格**')
+    && appealInstructions.includes('资格不合格直接判 weak 的只剩一种形状：**dev 视角自发币 + dev 全无影响力**')
+    && !appealInstructions.includes('正经项目方行为，资格过线'),
     appealInstructions.slice(0, 200));
+  check('G6b C232 例证锚在场（纳斯达克官网示例 tokenized stock 案——326 粉陈述者不失格）+ 第三方臂落 weak 禁令',
+    appealInstructions.includes('纳斯达克官网放出示例 tokenized stock')
+    && appealInstructions.includes('主体=纳斯达克')
+    && appealInstructions.includes('第三方视角陈述不落本臂')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.weak.includes('第三方视角陈述（「XX 做了什么」主体=XX）不因陈述者无名判 weak'),
+    null);
   check('G7 weak criteria 含「资格轴不合格」（资格与接纳度复合一票定档；moderate/strong 含「资格过线」）',
     qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.weak.includes('资格轴不合格')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.moderate.includes('资格过线')
@@ -285,8 +292,8 @@ async function main() {
     null);
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION ≥ J1.126（J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
-    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 126, JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.128（J1.128=C232 资格轴适用域修正：第三方视角不看陈述者影响力按主体评；J1.127=C231 impact 题加 event_trivial 桶；J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 128, JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

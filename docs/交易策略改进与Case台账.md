@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v37 快照；live v38 e5438645 实跑本屏）
+## 一、现行买腿门链一屏（buy-v2 v38 快照；live v39 71f87b50 实跑本屏）
 
 ```
 (tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) -- 时窗：90s 快窗 OR 慢热臂（T63/v35：非尘成交≥25 笔+10min 帽）
@@ -23,6 +23,7 @@ AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
 AND bundleClusterHoldCircPct < 35                        -- 同块协同簇存量持仓占比（v36 起存量口径；v19-v35 流量口径 bundleClusterSharePct，T1）
 AND top2BundleClusterHoldCircPct < 55                    -- 最大两块买家并集持仓（T67/v37；AIFLY 案第二道门，单块退化=top1）
+AND top3BundleClusterHoldCircPct < 75                    -- 最大三块买家并集持仓（T68/v38；邪恶卡皮案第三道门，不足三块退化=top2）
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR earlyTradesRouterPct >= 30)    -- flap 臂：聚合路由占比
@@ -52,12 +53,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
-### T68 top3 观察键 top3BundleClusterHoldCircPct——第三块并集（2026-10-26，纯观察不进条件串，4ef5109）
+### T68 top3 门 top3BundleClusterHoldCircPct < 75——第三块并集（2026-10-26，buy-v2 v38，4ef5109；当日观察键→转门）
 - 动因：用户要求扩展看第三块——邪恶卡皮 0x4e7ef189e1e1a0b4c59940d13cc6110544887777（v38 e5438645 fire 2026-10-25 16:20:33，rating=2）fire 时刻 top1=28.5 / top2=53.4 **均过门**（35/55），但 top3=**77.8**——前三块买家并集囤走流通 3/4。同日对照：BLACKBELT 0x46ea…7777（v37，T67 反事实重放票）fire 时刻 top2=56.2 被 55 门拦、top3 同刻 63+。邪恶卡皮持有 4 分钟即触发卖腿（16:24:27 卖出）
-- 因子：`top3BundleClusterHoldCircPct`=最大三块（持仓口径选块）买家集合**并集去重**当前正净持仓合计 ÷ 流通 ×100；不足三块退化=top2；恒 ≥ top2 ≥ top1（并集域单调扩）；三槽级联扫描（top1/2/3 维护法，级联降位）；全零块不占首槽防线与 top2 同款。**纯观察键不进任何条件串，是否成门另裁**（BLACKBELT/邪恶卡皮两票若 55/70/75 锚各会全拦/拦/拦，样本 2 不足以下结论）
-- 部署：FA `_bundleClusterFactors` 三槽级联 + `_buildFactorMap` 发射 + FactorBuilder 白名单 + 快照 10 键；v38 跑中进程 3584931 为 4ef5109 前代码不含本键（不重启=快照无 top3，重放可算；下轮实验自然携带）
+- 因子：`top3BundleClusterHoldCircPct`=最大三块（持仓口径选块）买家集合**并集去重**当前正净持仓合计 ÷ 流通 ×100；不足三块退化=top2；恒 ≥ top2 ≥ top1（并集域单调扩）；三槽级联扫描（top1/2/3 维护法，级联降位）；全零块不占首槽防线与 top2 同款
+- 阈值裁定：用户拍板 **75**（拦邪恶卡皮 77.8、放 74 以下）——样本 2（BLACKBELT 63+/邪恶卡皮 77.8）由用户直接裁定不再攒
+- 部署：FA `_bundleClusterFactors` 三槽级联 + `_buildFactorMap` 发射 + FactorBuilder 白名单 + 快照 10 键（4ef5109 观察键批次）；库 buy-v2 v37→v38（bump-buy-v2-v38.cjs，top2 臂后恰一追加 `AND top3BundleClusterHoldCircPct < 75`，兄弟门锚定防误伤）；live v39 71f87b50-fe47-442a-8933-f22ea5d78d3d 实跑本屏（2026-10-26 02:54 UTC 起 PID 3922871，库 v38 整条 copy-in，create-v39.cjs 防呆：源 v37 快照形状/库 v38/gmgn+trigger 逐字一致）。**v38 e5438645 终态**：零持仓全平后停（02:40 UTC graceful，卡账本净额 0 核查；02:40:09~02:45 有一段不明重启插曲见 v39 部署注）
 - 单测：`_test_bundle_cluster_factors` Q1-Q5（三块阶梯 100/复买跨块 tie 占两槽去重 83.3 非 113/退化链 单块=两块=三块/清仓块零贡献 65/65/逆序 parity）+ L1 快照 10 键；`_test_fourmeme_fa_factors` 白名单 +1 键 34/0
 - 校准：重放 fire tick（16:20:32.000）t1=28.5/t2=53.4 与引擎 fire 快照**逐位一致**（T8 校准锚纪律）
+- v38 终态插曲（诚实留痕）：v38 原进程 3584931 收到 TERM 02:40:00 UTC 优雅停（停时零持仓）；02:40:09 有一次**来源不明**的同实验重启（PID 3914763，main log 仅一行引擎创建），02:45:55 后消亡且无停止日志行（无 OOM/内存充足/无 graceful 形状，疑人为操作）；切 v39 前以「净持仓 0+进程消亡+pgrep 确认」三查放行，v39 由实例锁防线接管
 
 ### T67 top2 存量第二道门 top2BundleClusterHoldCircPct < 55——AIFLY 案（2026-10-25，buy-v2 v37，0x0baecc80613610f8c6051e55c136505a4750777）
 - 案：AIFLY fire 时刻筹码结构重放——块 129715692（创建块）4 bundler 等额毛买 179.87M 后 9s 起分批协同卖出洗白到零；块 129715693 单钱包 0xf539901b4c4830ef118ccd2745ca725341577bc6 囤筹 58.58M（当时流通 88.4%）。fire 时 top1（bundleClusterHoldCircPct，存量口径）=34.8 **恰擦线低于 35 门放行**（分子=bundler 剩余持仓块），top2（最大两块买家并集）=57.2——两块合计囤筹过半的盘放行即亏
