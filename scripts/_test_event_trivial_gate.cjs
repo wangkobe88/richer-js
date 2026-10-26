@@ -95,6 +95,16 @@ async function main() {
     trivialText.includes('与 event_empty_content 的划界')
     && trivialText.includes('根基=没有事件')
     && trivialText.includes('本项只管事件已成立但意义太小的票'));
+  check('A6 C235 反锚⑤：重量级圈外机构加密/代币化立场性动作=行业信号级不拦（NMS 纳斯达克示例 tokenized stock 例证；载体形态不降低信号分量）',
+    trivialText.includes('加密/代币化**立场性动作**')
+    && trivialText.includes('行业信号级')
+    && trivialText.includes('载体形态（一个示例页/一次试水/单方动作）不降低信号分量')
+    && trivialText.includes('信号本身就是分量')
+    && trivialText.includes('纳斯达克官网放出示例 tokenized stock')
+    && trivialText.includes('C235'), trivialText.slice(-400, -120));
+  check('A7 C235 典型形状「日常营业内容」划界：与行业立场无关的常规营业才算；涉加密/代币化动作不算日常营业',
+    trivialText.includes('指与行业立场无关的常规营业')
+    && trivialText.includes('涉加密/代币化的动作不算日常营业'), null);
 
   console.log('\n── B. mapper 集成（argmax 门 + 全域拦）──');
   // BLACKBELT 现场复刻：新题集下 Jev 若把 argmax 挪到 trivial → 拦（D 类 + strong_fit 0.62 派生救不了）
@@ -139,6 +149,9 @@ async function main() {
     null);
   check('C4 题集版本注释 J1.127/C231 段在场（含用户裁定原话与例证锚）',
     qsSrc.includes('J1.127（C231') && qsSrc.includes('0x46eaec0f') && qsSrc.includes('但事情本身意义很小'));
+  check('C5 题集版本注释 J1.132/C235 段在场（NMS 误拦三轮掷骰取证+用户裁定原话+版本断言 J1.132）',
+    qsSrc.includes('J1.132（C235') && qsSrc.includes('0xa9cb21aa') && qsSrc.includes('显然不算小，这是一个很有意思的事件')
+    && qm.JEV_QUESTIONS_VERSION === 'J1.132', qm.JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ _test_event_trivial_gate: ${passed} passed, ${failed} failed ══════`);
   if (failed > 0) process.exit(1);
