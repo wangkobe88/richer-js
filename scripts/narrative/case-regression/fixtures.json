@@ -1449,9 +1449,23 @@
       "addr": "0x46eaec0f241a0782b107d77fb5d0ed49974d7777",
       "expect": {
         "rating": "low",
-        "reasonIncludes": ["事件意义太小"]
+        "reasonIncludes": [
+          "事件意义太小"
+        ]
       },
       "note": "黄仁勋名誉黑带案：J1.127 前误 high 87.61（impact none 0.81 放行+fit strong_fit 派生 A 档）；新桶 event_trivial 0.97 接住→low。C191 观察点①接棒票",
+      "addedAt": "2026-10-26"
+    },
+    {
+      "caseId": "C239",
+      "symbol": "股币",
+      "addr": "0x2fe5328cf2ea8cd632161564464c1e6c2e347777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": ["事件意义太小"],
+        "tokenCategoryExcludes": ["event:W"]
+      },
+      "note": "虎扑联盟股站内金融化玩法冒充Web3项目：W0.8误掷mid64.45→J1.135 B0.78(W归零)+trivial接住low；NMS换类未发生mid维持/AIFLY W维持low",
       "addedAt": "2026-10-26"
     }
   ]

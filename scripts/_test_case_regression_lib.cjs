@@ -100,7 +100,7 @@ async function main() {
   const doc = JSON.parse(require('fs').readFileSync(fixturesPath, 'utf8'));
   const real = loadAndValidateFixtures(doc);
   check('F1 真实 fixtures 校验零错误', real.errors.length === 0, real.errors.join('; '));
-  check('F2 票数=103（≥30 扩集；45→46=C162 BINA 双 BINA 复刻票，46→47=C164 FOURGE，47→48=C167 梗王大乱斗，48→49=C168 BIAOQING，49→50=C138a Heyi.ai 本票，50→51=C170 RSA4 nhn 门退役案票，51→52=C173 「4」撞蓝筹新陈述豁免票，52→53=C176 Nightshift rug 项目票，53→103=C180 名字门 unknown/词句两臂退役观察票 50 张——2026-10-23 用户裁定全收 [low,mid,high] 待逐张裁定预期后收紧，编号 C180-C229 为收录批非单案）', real.cases.length === 103, String(real.cases.length));
+  check('F2 票数=106（≥30 扩集；45→46=C162 BINA 双 BINA 复刻票，46→47=C164 FOURGE，47→48=C167 梗王大乱斗，48→49=C168 BIAOQING，49→50=C138a Heyi.ai 本票，50→51=C170 RSA4 nhn 门退役案票，51→52=C173 「4」撞蓝筹新陈述豁免票，52→53=C176 Nightshift rug 项目票，53→103=C180 名字门 unknown/词句两臂退役观察票 50 张——2026-10-23 用户裁定全收 [low,mid,high] 待逐张裁定预期后收紧，编号 C180-C229 为收录批非单案；→104=C230 AIFLY W 资格轴票、→105=C231 BLACKBELT trivial 桶票、→106=C239 股币站内玩法非 W 票）', real.cases.length === 106, String(real.cases.length));
   check('F3 caseId 无重复', new Set(real.cases.map((c) => c.caseId)).size === real.cases.length);
 
   const bad = loadAndValidateFixtures({ cases: [
