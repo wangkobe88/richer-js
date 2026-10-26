@@ -54,6 +54,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C244 event_trivial 桶拆出退役——独立观察题 bsc_meme_user_think_event_too_trivial_for_meme（小西案，2026-10-26 用户裁定，J1.142）★
+
+- **案发**：用户问 0x8aeb285c613993d90cf35d16453b478f81527777（小西，four.meme，小米 AI 伴侣狗跑 Claude Code 叙事）为何被 event_trivial 拦。取证：trivial **0.34 近 tie**（conf 0.18），同轮 fit strong 0.81/关联 exact 0.88 打架；语料全是**陈述者侧数据**（462 粉找角度载体+父推 73 浏览），而 token 创建比主推晚 38s——「零互动零传播」是时间结构必然非事件属性。
+- **原则性归因（用户裁定）**：「不要因为叙事陈述者影响力低而认为叙事不重要，要看叙事本身。event_trivial 已经好多次犯错了。」桶存活 **<1 天拦 114 票、40%（46）在 P<0.5 掷骰段**；四个已知误拦（C235 NMS 0.30/小西 0.34/C241 밈 0.44/C240 火蚁 0.46）**全在该段且全被陈述者侧数据带偏**，三个正确拦（C231 黑带 0.97/C237 南瓜营 0.94/C239 虎扑 0.50）全在 ≥0.5 段——概率质量分散在 9+ 桶上 argmax 骰子面太宽。
+- **用户裁定（拆出退役）**：「误拦的代价大于漏放（代币被靠前的门拦住，后续的门起不到作用，某种意义也是浪费）。把 event_trivial 单独拆出来作为一个锚，叫 bsc_meme_user_think_event_too_trivial_for_meme，继续深化这个锚，但暂时不让它影响叙事分析结果。」
+- **观察题四维度框架（用户对照例证）**：①主体圈内地位（黄仁勋黑带✗/CZ✓——名气世界级≠圈内注意力雷达）②主体量级×动作性质（虎扑站内股币✗/换腾讯✓——事务性动作依赖主体与币圈直连；C235 行业信号级保留）③生态归属切身相关（火蚁经 flap✓/Solana 生态抗议✗——判据=**BSC meme 买家自己是不是当事人**；地域限定词不改变主体归属）④玩梗/参与空间（纯任务抽奖✗/带梗✓——meme 意义参与≠平台任务参与，C237/C241 划界同源）；横切锚=**评事件不评陈述者**（无名载体+新鲜零互动不降事件分量——本案病灶反锚）；与 empty 划界=根基没有事件归 event_empty_content（J1.111 同源）。
+- **实现**：impact 题删 event_trivial 桶（不删桶 argmax 仍会拦，拆出即净）；新观察题挂标准题集 5.3b 位（prestage 不接）；mapper `BLOCK_SCOPE.event_trivial=[]` **显式空域退役**（J1.43/J1.82 先例：blockInScope 未知选项返回 true，只删键无效）=旧缓存行 argmax 重放零拦截；观察信号续采=恒落审计 `trivialProbeChoice/trivialProbeMass`（`details.jev.*`，emptyContentMass 同款），blockAnswers 不读新题键=天然不参与任何门；恢复拦截须用户裁定。
+- **182 重析对拍 11 票全中**：误拦四案修复（小西 low→**mid 64.6**（立案票）/밈 low 维持但换词句门 0.62/NMS mid 63.85/火蚁 high 96.49·96.52 零扰动）；正确拦三案中 BPC low 由事件分不足 51<60 接住、虎扑 low 由词句门接住，**仅 BLACKBELT 漏放 high 86.89（=退役已知代价，probe too_trivial 0.95 留档）**；AIFLY low 15/股城 mid 64.03 零扰动。**probe 分离度比旧桶干净**：正确侧 0.86-0.95 vs 误拦侧 0.01-0.49——观察锚可用性良好，深化继续。
+- **部署**：fe75959 已 push；182 worker 重启 PID 93159（14:34 UTC，单实例回查 ✓）；单测六文件全绿（event_trivial_gate 20 断言 A 题面四维/B mapper 退役+C 源码口径、question_consolidation 90、angle_timing 58 G5d 改锁观察题生态归属判据、w_bsc_user_appeal 37、web3_fit 33、bluechip_dedup 77）。回归集：C244 收录小西（expect mid+reasonExcludes trivial）；C231 BLACKBELT expect 翻 high（漏放代价留档）；C239 虎扑 expect 改词句门键。
+
 ### C243 Jev 图片 API 直连替换 SiliconFlow captioner（2026-10-26 用户发起「效率应该远超硅基流动」，J1.140+J1.141 两版）★
 
 - **动机与实测**：Typesafe 图片 API（同端点 `POST /v1/systemone` + 顶层 `assets` base64 map + 头 `TypeSafe-Danger-Zone-Images`；三原语直接看图，**无文本生成**=caption 逐字转写结构性不可行）。182 实测：带图主调用稳态 461ms（纯文本对照 380ms，**每图增量仅 +81ms**）、1026 tokens/图≈$0.0000431；旧链 SiliconFlow captioner 独立一跳**中位 6737ms**（3/3 成功，run2 出中阿文乱码幻觉=生成式质量风险实证）——省整跳+去幻觉，成本顾虑实测解除（图 token 比主调用 state 低一个量级）。
