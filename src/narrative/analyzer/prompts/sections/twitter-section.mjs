@@ -110,7 +110,16 @@ function buildTweetPart(tweet, label = '推文', options = {}) {
     }
   }
 
-  // 图片分析结果
+  // 主推配图（2026-10-26 图片直连架构，provider='jev'）：图内嵌进主 Jev 调用的
+  // assets，state 只放引用行——引用字符串在 state 恰出现一次（每多出现一次多计
+  // 一次图 token），Jev 按图直判（J1.30/C118/C78 各条件题对照本图作答）。
+  // image_analysis（caption 形状）= siliconflow 臂保留一版的挂载键——两臂互斥
+  //（provider 对称守卫），渲染层双支持、asset 优先
+  if (tweet.image_asset) {
+    parts.push(`【主推配图】:${tweet.image_asset.ref}（上行为图引用——按引用内嵌的配图本体作答一切图片相关问题）`);
+  }
+
+  // 图片分析结果（siliconflow 臂 caption 形状；jev 臂停挂此键走上方引用行）
   if (tweet.image_analysis) {
     const analysis = tweet.image_analysis.analysis;
     if (analysis) {

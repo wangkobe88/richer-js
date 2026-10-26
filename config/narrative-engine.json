@@ -23,6 +23,7 @@
   },
   "vision": {
     "enabled": true,
+    "provider": "jev",
     "baseUrl": "https://api.siliconflow.cn/v1",
     "model": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
     "apiKeyEnv": "SILICONFLOW_FALLBACK_KEY",

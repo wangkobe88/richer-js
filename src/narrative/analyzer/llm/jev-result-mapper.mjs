@@ -463,8 +463,8 @@ const BLOCK_SCOPE = {
  *   （滑雪/我要去）不合格。分界=用户侧感知，非词源身份、非是否截词
  *   （EARLY/CONVICTION 型圈内词由「截词」误拦的票面放行）；
  * ③形态缺陷——陈述句/版本词/序号（C96/C105/C107 继承）；
- * ④无背景拼写变体（自 block_misspelling 探针并入；图文对照 C78 代码门
- *   detectNameImageSpellingMismatch 保留独立兜底）。
+ * ④无背景拼写变体（自 block_misspelling 探针并入；图文对照 C78 拦截位
+ *   = J1.140 条件题 image_name_text_match，纯代码门已退役）。
  *
  * 旧 choice 兼容映射（断代 bit 兼容红线）：J1.37-J1.40 缓存行 choice=
  * statement/functional_label → 继续拦（语义等价 not_meme_name）；entity_phrase
@@ -755,71 +755,30 @@ function detectBinanceRegionalAccount(twitterInfo) {
 }
 
 /**
- * 图文名不符拼写门（纯代码，无 LLM）——C78 鲸元卷案（2026-10-16 用户裁定
- * 「拼写错误这个肯定要阻断（除非是引申等等，但这里就是拼写错误了）」）：
- * 币名「鲸元卷」0xe0cf0905…7777 的配图图内文字写的是正字「鲸元券」（vision
- * img-v3 visible_text 逐字转写多次出现），全图无一「卷」字——名称连自己的
- * 宣告图都没抄对，只能是无意抄写错误。Jev 探针实证拦不住：block_misspelling
- * 线上答 0.28，题面加「图内文字写法对照」判据后重放反降 0.13（题面改锚分
- * 不动家族第三实证）→ 判据改由代码接管（C28 cashtag 改道同款先例）。
- *
- * 判据（substitution 一字差对照，600 票历史扫描后收紧三道）：
- *   ① 币名含 CJK（Han/Hangul/Kana）且长度 ≥3——拉丁名不判（3-4 字母名与
- *     图内任意词一字符差全是 OCR 噪声：CTS/ces、RAM/rom 实测族；英文真实
- *     case 未出现，出现后再定参数）
- *   ② 图内文字存在与币名等长、恰一位不同的**独立段**（非子串滑窗——语流
- *     内部黏连如「中国的龙」不产生段级命中），且全文出现 ≥2 次（核心名称
- *     主体 vs 一次性语料语境词：中国龙↔「中国的」单次出现实测不命中）
- *   ③ 币名整体不在图内文字出现（出现了=名字在图内被使用过——有意变形/图内
- *     双写法都不拦，天然编码用户例外口径「除非是引申等等」：有意谐音/引申
- *     通常全语料一致地用变形写法，图内也是「卷」→ 不触发）
- * 分段口径=非字母数字全当分隔符（标点黏连是最大噪声源：neon》/调教”/航小-
- * 实测族），故「“鲸元券”」独立成段 ✓。
- * 图内文字源=twitterInfo.image_analysis 整体 stringify（结构无关：visible_text/
- * key_elements/description 任意形状都覆盖）；无 image_analysis（无图票/C72 门跳过
- * 剥除）→ 无从对照不触发（fail-safe 偏拦方向与 C72 一致）。
- *
- * 残余误伤面声明（600 票扫描实测，收紧后 mid/high 误伤≈0）：同角色双译写
- * （爱丽丝/艾丽丝族）与 vision 形近转错（땅/당）若独立段 ≥2 次仍会命中——
- * 偏拦方向（fail-safe），审计字段 spellingMismatch 可追溯；转错成币名同字则
- * 币名出现 → 不触发（安全漂移）。换位形状（pepe/peep 两位置差）刻意不覆盖。
- *
- * @returns {{hit: boolean, variant: string|null}} hit=命中拦截；variant=图内命中的
- *   近似写法（审计用）
+ * CJK 长名前提（J1.140/C78 图片直连架构）：原纯代码门 detectNameImageSpellingMismatch
+ * 的判据①——仅 CJK 名（Han/Hangul/Kana）且长度 ≥3 才做图内文字对照（拉丁名
+ * 不判：3-4 字母名与图内任意词一字符差全是 OCR 噪声，CTS/ces、RAM/rom 实测族）。
+ * caption 中介退役后拼写对照改由 J1.140 条件题 image_name_text_match 承接，
+ * 本谓词=analyzer 侧问不问该题的代码前提（题集 imageNameTextMatch 与 mapper
+ * 拦截位经「题只在前提真时问」天然同源，无第二处判定）。
  */
-export function detectNameImageSpellingMismatch(tokenData, twitterInfo) {
-  const ia = twitterInfo?.image_analysis;
-  if (!ia) return { hit: false, variant: null };
+export function isCjkLongName(tokenData) {
   const name = String(tokenData?.name || tokenData?.raw_api_data?.name || '').toLowerCase().replace(/\s+/g, '');
-  // ① 仅 CJK 名（Han/Hangul/Kana），长度 ≥3
-  if (name.length < 3 || !/[一-鿿가-힯぀-ヿ]/.test(name)) return { hit: false, variant: null };
-
-  // 图内文字全文（结构无关）；小写 + 非字母数字全当分隔符（标点黏连防误伤）
-  let fullText;
-  try { fullText = JSON.stringify(ia); } catch { return { hit: false, variant: null }; }
-  if (!fullText || fullText.length < name.length) return { hit: false, variant: null };
-  const tokens = fullText.toLowerCase().split(/[^0-9a-z一-鿿가-힯぀-ヿ]+/).filter(Boolean);
-
-  // ③ 币名整体在图内任一段出现（段内子串）→ 名字被图内使用过，不拦
-  for (const t of tokens) {
-    if (t.includes(name)) return { hit: false, variant: null };
-  }
-  // ② 等长独立段恰一位不同（substitution 距离 1）且全文出现 ≥2 次
-  let best = null, bestCount = 0;
-  const counts = new Map();
-  for (const t of tokens) {
-    if (t.length !== name.length) continue;
-    let diff = 0;
-    for (let j = 0; j < name.length; j++) {
-      if (t[j] !== name[j] && ++diff > 1) break;
-    }
-    if (diff === 1) {
-      counts.set(t, (counts.get(t) || 0) + 1);
-      if (counts.get(t) > bestCount) { bestCount = counts.get(t); best = t; }
-    }
-  }
-  return bestCount >= 2 ? { hit: true, variant: best } : { hit: false, variant: null };
+  return name.length >= 3 && /[一-鿿가-힯぀-ヿ]/.test(name);
 }
+
+/**
+ * （已退役 J1.140 图片直连架构）：C78 图文名不符拼写门原为纯代码门
+ * detectNameImageSpellingMismatch——读 caption 转写（image_analysis
+ * stringify）做 substitution 一字差对照；caption 中介随 SiliconFlow 替换退役
+ * 后，图内文字对照由看图的 Jev 条件题 image_name_text_match 承接（拦截位=
+ * one_char_diff_repeated ≥0.5，鲸元卷案形状承接；CJK≥3 前提=isCjkLongName
+ * 代码侧，题只在前提真时问）。案史：C78 鲸元卷 0xe0cf0905…7777（图内正字
+ * 「鲸元券」多次出现、全图无一「卷」字——名称连自己的宣告图都没抄对）；
+ * Jev 探针实证拦不住（block_misspelling 线上 0.28/加判据 0.13）系旧文本探针
+ * 形状，新条件题四桶直接对照图本体。审计键 spellingMismatch 值形状改为
+ * {name, bucket, prob}。
+ */
 
 /**
  * Web3 用户契合证据门（J1.83/C141 通用化；前身=产品实体接纳门 J1.27，2026-10-03
@@ -1825,10 +1784,16 @@ export function mapStandardAnswers(answers, context) {
   // relevance/nicMatchP/imgNameExempt 已前移至 Stage2 门链
   // 之前（C86 D-1 豁免贯穿，见上方案释）；本段只留 Stage3 专属计算
   const quality = qualityFrom(answers, symbol);
-  // C108：block_misspelling noul 探针臂退役（C78 实证失效死键——Jev 答 0.13-0.27
-  // 拦不住真拼写蹭；判据「无背景拼写变体」并入 web3UserAcceptabilityBlock 分支④）。图文
-  // 拼写对照由 C78 纯代码门独立保留（确定性代码判据）
-  const spellingMismatch = detectNameImageSpellingMismatch(tokenData, twitterInfo);
+  // C78 图文名不符拼写门（J1.140 图片直连架构改判据源）：条件题
+  // image_name_text_match（图在场∧CJK≥3 才问）one_char_diff_repeated ≥0.5 →
+  // 拦（鲸元卷案形状：等长恰一位差写法在图内反复出现且币名整体不在图内——
+  // 题面 exact_match 桶承接原代码③分支）；题未问（无图/非 CJK 长名/旧缓存行
+  // 无答案）→ 0 不拦（fail-open 与无图票同语义；detectNameImageSpellingMismatch
+  // 纯代码门已退役，防复活断言在 _test_image_name_text_gate.cjs）
+  const nameTextRejP = answers.image_name_text_match?.probabilities?.one_char_diff_repeated ?? 0;
+  const spellingMismatch = nameTextRejP >= 0.5
+    ? { hit: true, bucket: 'one_char_diff_repeated', prob: nameTextRejP }
+    : { hit: false, bucket: null, prob: null };
 
   let stage3Blocked = false;
   let stage3BlockReason = null;
@@ -1837,7 +1802,7 @@ export function mapStandardAnswers(answers, context) {
   // 视角，真蹭名票 unacceptable → relevance 低分在本段自然拦）
   if (spellingMismatch.hit) {
     stage3Blocked = true;
-    stage3BlockReason = `图文名不符（图内“${spellingMismatch.variant}”≠币名，无背景拼写错误）`;
+    stage3BlockReason = `图文名不符（图内反复出现与币名一位之差的写法（Jev 判 ${spellingMismatch.prob.toFixed(2)}）≠币名，无背景拼写错误）`;
   } else if (relevance.score <= 10 && !imgNameExempt && !recognizedEntitySlogan) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
@@ -1907,9 +1872,10 @@ export function mapStandardAnswers(answers, context) {
             // C88 审计标记：超级IP口号票豁免命中（命中才落；五腿全量在 stage2
             // jev.recognizedEntitySlogan 恒落版——stage2 拦截票本段 __clear 不落）
             recognizedEntitySloganExempt: recognizedEntitySlogan ? { accepted: round2(entityAcceptedProb), authorUtterance, timing } : null,
-            // C78 图文名不符拼写门审计（命中才落：图内近似写法可追溯）
+            // C78 图文名不符拼写门审计（命中才落：J1.140 起=条件题判据
+            // {name, bucket, prob}；旧 variant 转写形状随纯代码门退役停产出）
             spellingMismatch: spellingMismatch.hit
-              ? { name: String(tokenData?.name || tokenData?.raw_api_data?.name || ''), variant: spellingMismatch.variant }
+              ? { name: String(tokenData?.name || tokenData?.raw_api_data?.name || ''), bucket: spellingMismatch.bucket, prob: spellingMismatch.prob }
               : null,
             probabilities: {
               bsc_meme_user_name_event_acceptance: q(answers, 'bsc_meme_user_name_event_acceptance', 'web3_user_name_event_acceptance')?.probabilities ?? answers.name_event_relevance?.probabilities,
@@ -1919,6 +1885,7 @@ export function mapStandardAnswers(answers, context) {
               // 已含 brand_mismatch 桶），本段不再产旧键
               // J1.30 条件题：题已问才落（无图票题集无此题， probabilities 缺省）
               ...(answers.name_image_consistency ? { name_image_consistency: answers.name_image_consistency.probabilities } : {}),
+              ...(answers.image_name_text_match ? { image_name_text_match: answers.image_name_text_match.probabilities } : {}),
             },
           },
         },

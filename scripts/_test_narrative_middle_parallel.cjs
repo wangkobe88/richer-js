@@ -226,7 +226,7 @@ async function main() {
       `precheck@${precheckEv} sn@${firstSn}`);
     assert(!cacheCalls.some(c => c.type === 'tweet_image'),
       'B4 全程零 tweet_image 缓存 get（C84 泳道 0 退役后预检分支天然无视觉调用）');
-    assert(r.twitter && !r.twitter.image_analysis, 'B5 无 vision 挂载（预检分支零视觉调用）');
+    assert(r.twitter && !r.twitter.image_analysis && !r.twitter.image_asset, 'B5 无 vision 挂载（预检分支零视觉调用，asset/caption 两键皆无）');
     console.log('B 段事件序:', events.map(e => e.name).join(' → '));
   }
 
@@ -280,9 +280,10 @@ async function main() {
     assert(!naStripped.includes('visionPrefetch') && !naStripped.includes('visionPromise'),
       'D8 泳道 0 退役（visionPrefetch/visionPromise 源码零残留）');
 
-    // D9: vision join 形状（C84 后唯一路径=visionSkipped 门 + 直调，无预启动 join）
-    assert(na.includes('if (!visionSkipped) {\n          await timing.wrap(\'vision\', () => analyzeTweetImage(twitterInfo));\n        }'),
-      'D9 vision join 形状（visionSkipped 门 + 直调）');
+    // D9: vision join 形状（C84 后唯一路径=visionSkipped 门 + 直调，无预启动 join；
+    // J1.140 起双臂=asset 优先（jev 直连）、miss 才 caption 兜底（siliconflow 臂））
+    assert(na.includes('if (!visionSkipped) {\n          await timing.wrap(\'vision\', async () => {\n            const asset = await getTweetImageAsset(twitterInfo);\n            if (!asset) await analyzeTweetImage(twitterInfo);\n          });\n        }'),
+      'D9 vision join 形状（visionSkipped 门 + asset 优先直调）');
 
     // D10: precheck 立发先于 issuerCa 分派声明（源码顺序 = 泳道序）
     const precheckDecl = na.indexOf('const precheckPromise = timing.wrap(\'precheck\'');

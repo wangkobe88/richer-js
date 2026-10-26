@@ -52,6 +52,9 @@ export class JevClient {
    * @param {Object} [options]
    * @param {number} [options.timeoutMs] - 覆盖配置超时
    * @param {string} [options.label] - 日志标签（如 'stage123'）
+   * @param {Object} [options.assets] - 图片资产 {ref: {type:'image', data_base64, format}}；
+   *   实验性图片 API（docs.typesafe.ai/images）：ref 字符串在 state/instructions 中出现
+   *   即被替换为图（每出现一次计一次 token——放 state 恰引用一次最省）；不带 URL 只内嵌
    * @returns {Promise<Object>} {model, answers, usage}
    *   answers[id] = {type, choice|score|noul, probabilities, confidence?, legend?}
    */
@@ -85,7 +88,7 @@ export class JevClient {
       }
 
       const result = await this._singleCall(
-        jev.endpoint, jev.model, apiKey, state, questions, timeoutMs, label,
+        jev.endpoint, jev.model, apiKey, state, questions, timeoutMs, label, options.assets,
       );
 
       if (result.ok) {
@@ -105,21 +108,28 @@ export class JevClient {
 
   /**
    * 单次 HTTP 调用（不发日志、不重试）
+   * @param {Object|null} [assets] - 图片资产 map；非空时请求体带 assets 顶层字段并加
+   *   TypeSafe-Danger-Zone-Images 头（该头仅带图请求加——无 assets 绝不发）
    * @returns {Promise<{ok:true, body:Object} | {ok:false, error:Error, retryable:boolean}>}
    */
-  static async _singleCall(endpoint, model, apiKey, state, questions, timeoutMs, label) {
+  static async _singleCall(endpoint, model, apiKey, state, questions, timeoutMs, label, assets = null) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const startedAt = Date.now();
 
     try {
+      const hasAssets = !!assets && Object.keys(assets).length > 0;
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      };
+      if (hasAssets) {
+        headers['TypeSafe-Danger-Zone-Images'] = 'true';
+      }
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({ state, model, questions }),
+        headers,
+        body: JSON.stringify(hasAssets ? { state, model, questions, assets } : { state, model, questions }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);

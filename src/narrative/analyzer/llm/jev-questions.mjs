@@ -1383,9 +1383,20 @@
  *       影响力（股城型官宣+官方号+转述=过线原型）；全无影响力+无地址 → weak
  *       （W 数学 15<32 恒 low）。桶 id（weak/moderate/strong）与分值映射 15/47/66
  *       不变；mapper q() 归一读旧键，旧行零翻转
+ * J1.140（2026-10-26 图片直连架构，Jev 图片 API 替换 SiliconFlow captioner）：
+ *       ①题面措辞迁移——10.7 name_image_consistency 的对照对象由【图片内容分析】
+ *       块（caption 文字描述）改为 state 内嵌的主推配图本体（【主推配图】asset
+ *       引用，jev 臂 default）；siliconflow 臂（provider 开关保留一版）仍走 caption
+ *       块——题面兼容双形状。10.8 image_depicts_name 题面无 caption 块引用零改动。
+ *       ②新增 C78 条件题 image_name_text_match（图内文字与币名拼写对照四桶，
+ *       仅图在场∧币名 CJK≥3 字（代码侧前提）时问）：鲸元卷案拦截位由纯代码
+ *       detectNameImageSpellingMismatch（读 caption 转写）换读本题 answers
+ *       （one_char_diff_repeated ≥0.5 拦）——caption 中介退役后图内文字对照
+ *       由看图的 Jev 直接判。桶=exact_match/one_char_diff_repeated/
+ *       one_char_diff_once/unrelated_or_none
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.139';
+export const JEV_QUESTIONS_VERSION = 'J1.140';
 
 /** 品牌 keyword 预检表+shouldIncludeBrandHijackCheck 已废（J1.103/C172 品牌劫持轴
  * 整体退役：brand_mismatch 桶删除后预检唯一用途 mapper 门开关消失；名字-事件
@@ -1422,6 +1433,11 @@ export const TIMING_OPTIONS = [
  *   时为 true）：mapper C242 蓝筹去重新事件豁免（撞名但票承载蓝筹之后的新
  *   事实事件→不算重复）判据源。条件题同模式：不撞名不问防幻觉作答（撞名
  *   蓝筹条目必在 [KNOWLEDGE_BASE] 注入段头部，对照材料在场）
+ * @param {boolean} [options.imageNameTextMatch] - 是否包含图内文字拼写对照题
+ *   （J1.140/C78，仅主推配图在场∧币名 CJK≥3 字（analyzer 侧代码前提，与
+ *   拦截位同源）时为 true）：mapper C78 图文名不符拦截位判据源
+ *   （one_char_diff_repeated ≥0.5 拦）。条件题同模式：无图/非 CJK 长名不问
+ *   防幻觉作答
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildStandardQuestions(options = {}) {
@@ -1433,6 +1449,9 @@ export function buildStandardQuestions(options = {}) {
   // J1.139 条件题 bluechip_event_identity：撞名蓝筹才问（不撞名不问防幻觉作答；
   // analyzer 侧 duplicateNarrative 检出与 mapper 豁免臂同源）
   const bluechipDuplicate = options.bluechipDuplicate === true;
+  // J1.140 条件题 image_name_text_match：图在场∧币名 CJK≥3 字才问（analyzer 侧
+  // 代码前提 isCjkLongName——caption 中介退役后图内文字对照由看图的 Jev 判）
+  const imageNameTextMatch = options.imageNameTextMatch === true;
 
   const questions = {
 
@@ -1769,13 +1788,15 @@ BSC meme 玩家能接纳的 W 类项目分两种形态，资格门槛各不同�
 
 
 
-    // ── 10.7 名字与配图主体一致性（J1.30 条件题，仅 imageConsistency（语料含
-    //     【图片内容分析】块）时问；mapper 名图一致豁免 imgNameExempt 判据源；
-    //     superIP 快车道不消费本题答案）──────────────────────────────────
+    // ── 10.7 名字与配图主体一致性（J1.30 条件题，仅 imageConsistency（主推配图
+    //     证据在场——jev 臂 state 内嵌【主推配图】asset 引用；siliconflow 臂为
+    //     【图片内容分析】caption 块）时问；mapper 名图一致豁免 imgNameExempt
+    //     判据源；superIP 快车道不消费本题答案。J1.140 图片直连架构：对照对象
+    //     由 caption 文字描述改为图本体（两臂形状兼容）─────────────────
     ...(imageConsistency ? {
       name_image_consistency: {
         type: 'choice',
-        instructions: `名字与配图主体一致性（name-image consistency）。比较代币名（Symbol/Name，去emoji/数字/特殊字符后）所指的对象/形象，与【图片内容分析】块描述的配图主体（角色/动物/人物/形象/实物）的关系。
+        instructions: `名字与配图主体一致性（name-image consistency）。比较代币名（Symbol/Name，去emoji/数字/特殊字符后）所指的对象/形象，与主推配图主体（角色/动物/人物/形象/实物）的关系。主推配图=state 内嵌的【主推配图】引用图本体（jev 直连形状）；若语料只有【图片内容分析】文字块（旧缓存/降级臂），按该块描述的配图对照。
 ⚠️ 事实性对应判断，不是质量判断——视觉对应本身不加分不减分（关联强度/质量另有题评），本题只回答「名字说的东西」与「图里画的东西」是否同一/同类。
 ⚠️ meme 盘惯例锚：主推配图通常是名字的视觉锚——名字是动物/角色词、图主体恰是该类形象（名字含鸡、图就是鸡形角色；名字是猫、图就是猫）→ 至少 same_visual_category。图内文字（标题/搜索框/水印/界面文字）中出现的词与币名的关系也计入——图内文字属于图的内容（梗名可能只写在图里）。
 ⚠️ 反例锚：图是通用背景/界面截图/风景，或图主体与币名所指完全不相干 → unrelated。`,
@@ -1811,6 +1832,32 @@ BSC meme 玩家能接纳的 W 类项目分两种形态，资格门槛各不同�
           depicts_name: '配图演绎名字——图中的动作/场景/形象/文字正是名字含义的画面化诠释（猫拉上窗帘=DND「别打扰」的演绎；名字 LFG 配冲线/起飞画面；名字「拉窗帘」配拉窗帘动作）',
           decorative: '无演绎关系——配图只是装饰/氛围/通用背景/表情包/顺手配图，与名字含义无诠释关系（名字 CRO 配猫图；通用梗图；纯风景）',
           unclear: '无法判断——图与名字含义的关系无法判定',
+        },
+      },
+    } : {}),
+
+    // ── 10.96 图内文字与币名拼写对照（J1.140 条件题，仅 imageNameTextMatch
+    //      （主推配图在场 ∧ 币名 CJK≥3 字——analyzer 侧代码前提）时问）：
+    //      C78 鲸元卷案拦截位判据源。原纯代码门 detectNameImageSpellingMismatch
+    //      读 caption 转写（image_analysis.visible_text）；图片直连架构后 caption
+    //      中介退役，图内文字对照由看图的 Jev 直接判——桶形状承接原代码判据
+    //      分支（exact_match=币名整体在场不拦 / one_char_diff_repeated=等长恰
+    //      一位差且 ≥2 次拦 / once=仅 1 次不拦（笔误容差，同原 bestCount>=2 阈）
+    //      / unrelated_or_none 不拦）。条件题同模式：无图/非 CJK 长名不问防
+    //      幻觉作答 ────────────────────────────────────────────────────
+    ...(imageNameTextMatch ? {
+      image_name_text_match: {
+        type: 'choice',
+        instructions: `币名与图内文字拼写对照（image name-text match）。对照主推配图（【主推配图】引用图本体）图内实际出现的文字——标题/搜索框/水印/对话气泡/界面按钮等一切图中文字，与代币名（去 emoji/数字/特殊字符后）的拼写关系。
+⚠️ 只看图内文字与币名的逐字拼写，不看画面内容、不读音近似、不字形近似（同音异字/形近字都算「不同」）。
+⚠️ 「出现」按图内独立文字段计：同一处文字只算一次，空间分离的多处各算一次。
+⚠️ 币名整体作为更长文字段的子串出现也算 exact_match（如币名「鲸元卷」、图内标题写「鲸元卷理财」）。
+对照锚（鲸元卷案）：币名「鲸元卷」、图内两处空间独立的文字都写「鲸元券」——等长恰一位不同且该写法出现 ≥2 次 → one_char_diff_repeated；若全图只有一处这样写 → one_char_diff_once。`,
+        criteria: {
+          exact_match: '币名整体在图内文字中出现（含作为更长文字段的子串）——名字被图内文字使用过',
+          one_char_diff_repeated: '图内文字有与币名等长的独立文字段恰一位不同（替换一字），且该近似写法在图中出现 ≥2 次——反复出现的近似写法（无背景说明时的蹭名/引流信号）',
+          one_char_diff_once: '图内文字有与币名等长的独立文字段恰一位不同，但仅出现 1 次——单发近似（可能是笔误/引用不完整，不构成反复信号）',
+          unrelated_or_none: '图内文字与币名无拼写关系——无币名、无等长一位差写法，或图内无文字',
         },
       },
     } : {}),

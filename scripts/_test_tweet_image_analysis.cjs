@@ -28,6 +28,14 @@
  *   M. 配置残缺（enabled 但 key 缺失）→ throw fail-loud
  *   N. 1D 图片本体缓存 tweet_image_raw（2026-10-13）：raw 命中零下载直用字节 /
  *      dl-v1 不符重下载重写 / 下载失败 raw+结论都不写 / 双调同引用幂等零增量
+ *   O. jev 臂 getTweetImageAsset（2026-10-26 图片直连架构，provider 分叉）：
+ *      provider='siliconflow'/缺省互斥守卫、miss 全链（下载零 API 调用+dl-v2 写
+ *      行含 width/height+image_asset 挂载）、dl-v2 命中零下载、dl-v1 行不复用、
+ *      下载/归一化失败 null 不写缓存、in-flight `asset:` 键去重、幂等、结论缓存
+ *      tweet_image 停读停写
+ *   P. normalizeForJev 归一化矩阵（真 sharp 本地计算，API 硬限镜像）：界内原样
+ *      转码 / <280 放大 / >1568 等比缩 / 极端横幅竖条 letterbox 补白 / EXIF
+ *      orientation≥5 转正宽高互换 / 损坏字节 null
  *
  * 用法：node scripts/_test_tweet_image_analysis.cjs
  */
@@ -45,6 +53,7 @@ const fetchCalls = [];
 let apiResponse = null; // 当前 API 响应桩（对象或其队列函数）
 let imagesFail = false; // 图片下载失败开关（N3 用：downloadAsBase64 3 次重试全失败 → null）
 const IMG_BUF = Buffer.alloc(2048, 7);
+let imgBuf = IMG_BUF; // 图片响应字节可替换（O 段换真 sharp 合成图；默认非图字节=压缩桩形状）
 global.fetch = async (url, init) => {
   const u = String(url);
   fetchCalls.push({ url: u, body: init?.body, headers: init?.headers });
@@ -56,7 +65,7 @@ global.fetch = async (url, init) => {
   }
   return {
     ok: true,
-    arrayBuffer: async () => IMG_BUF.buffer.slice(IMG_BUF.byteOffset, IMG_BUF.byteOffset + IMG_BUF.length),
+    arrayBuffer: async () => imgBuf.buffer.slice(imgBuf.byteOffset, imgBuf.byteOffset + imgBuf.length),
   };
 };
 
@@ -79,6 +88,8 @@ function makeTweet(over = {}) {
 
 const VISION_CFG = {
   enabled: true,
+  provider: 'siliconflow', // A-N 段测 siliconflow 臂（2026-10-26 provider 分叉后
+  //                         // 缺省已是 jev——显式指定保持既有段落 bit 一致）
   baseUrl: 'https://fake-vision.test',
   model: 'glm-test',
   apiKeyEnv: 'TEST_VISION_KEY',
@@ -87,6 +98,8 @@ const VISION_CFG = {
   retryCount: 2,
   cacheTtlSec: 7776000,
 };
+// jev 臂配置（无 provider 键=缺省 jev；baseUrl/model 等 siliconflow 键 jev 臂不消费）
+const JEV_CFG = { enabled: true, cacheTtlSec: 7776000 };
 const OPTS = { config: { vision: VISION_CFG } };
 
 async function main() {
@@ -294,13 +307,20 @@ async function main() {
   {
     const fs = require('fs');
     const src = fs.readFileSync('src/narrative/analyzer/NarrativeAnalyzer.mjs', 'utf8');
-    check('L1: import 存在', src.includes("import { analyzeTweetImage } from './services/image-analysis-service.mjs'"));
+    check('L1: import 存在（J1.140 双导出：caption 臂 + jev 直连 asset 臂）', src.includes("import { analyzeTweetImage, getTweetImageAsset } from './services/image-analysis-service.mjs'"));
     // N1 探针（3918e4d）后挂点包 timing.wrap('vision')/precheck 包 wrap——位置语义不变；
     // 2026-10-13 叙事提速第二批后 join 形状 = visionPromise ?? analyzeTweetImage
-    //（C84 2026-10-17 visionPrefetch 预启动退役：vision await 无 join 臂直调）
-    const hookIdx = src.indexOf("timing.wrap('vision', () => analyzeTweetImage(twitterInfo))");
+    //（C84 2026-10-17 visionPrefetch 预启动退役：vision await 无 join 臂直调；
+    //  J1.140 图片直连：asset 优先（jev 臂），miss 才 caption 兜底（siliconflow 臂））
+    const hookIdx = src.indexOf("timing.wrap('vision', async () => {");
     const precheckIdx = src.indexOf("timing.wrap('precheck', () => performPreCheck");
-    check('L2: 挂点在 pre-check 之后（预检拦截票不烧视觉调用）', hookIdx > precheckIdx && hookIdx > 0);
+    check('L2: 挂点在 pre-check 之后（预检拦截票不烧视觉调用；新双臂形状）', hookIdx > precheckIdx && hookIdx > 0
+      && src.includes("const asset = await getTweetImageAsset(twitterInfo);\n            if (!asset) await analyzeTweetImage(twitterInfo);"));
+    check('L2b: provider 对称守卫（非 siliconflow 模式 caption 臂恒 false，资产臂互斥路由）',
+      require('fs').readFileSync('src/narrative/analyzer/services/image-analysis-service.mjs', 'utf8').includes("if (vision.provider !== 'siliconflow') return false;"));
+    // 剥图重发防线：HTTP 4xx ∧ 图片特征词 → 剥 asset 重发恰一次
+    check('L2c: 剥图重发判定函数在场（_isImageRejectionError）', src.includes('_isImageRejectionError'));
+    check('L2d: 落库前剥 image_asset（base64 不入 token_narrative）', src.includes('if (twitterInfo?.image_asset) delete twitterInfo.image_asset;'));
     const svcSrc = fs.readFileSync('src/narrative/analyzer/services/image-analysis-service.mjs', 'utf8');
     check('L3: downloadAsBase64 显式传 format jpeg（downloader 默认 webp；webp 在智谱端点实测被静默丢弃，jpeg 是 A/B 实测正常格式）',
       svcSrc.includes("downloadAsBase64(imageUrl, { format: 'jpeg' })"));
@@ -380,6 +400,193 @@ async function main() {
       && fetchCalls.length === n4Counts[0] && cacheState.gets.length === n4Counts[1] && cacheState.sets.length === n4Counts[2]);
     cacheState.byType = {};
     console.log('N. raw 本体缓存 ✓');
+  }
+
+  // ═══ O. jev 臂 getTweetImageAsset（2026-10-26 图片直连架构）═══
+  {
+    const { getTweetImageAsset, IMAGE_ASSET_REF, analyzeTweetImage: ati } = svcMod;
+    const sharp = require('sharp');
+    const dlMod = await import('../src/narrative/utils/image-downloader.mjs');
+    const { ImageDownloader } = dlMod;
+    // 真 sharp 合成图（900×500 界内形状）：miss 全链的归一化真算（本地零网络）
+    const realImg = await sharp({ create: { width: 900, height: 500, channels: 3, background: { r: 120, g: 80, b: 200 } } }).jpeg().toBuffer();
+    imgBuf = realImg;
+
+    // O1: 关闭态 / provider='siliconflow' / 跳过形状 → null 零调用（对称守卫）
+    fetchCalls.length = 0; cacheState.gets.length = 0; cacheState.sets.length = 0;
+    cacheState.byType = {}; cacheState.next = null;
+    const twSkip = makeTweet();
+    check('O1a: 无 vision 节 → null 零调用',
+      (await getTweetImageAsset(twSkip, { config: {} })) === null && fetchCalls.length === 0);
+    check('O1b: enabled=false → null 零调用',
+      (await getTweetImageAsset(twSkip, { config: { vision: { enabled: false } } })) === null && fetchCalls.length === 0);
+    check('O1c: provider=siliconflow → jev 臂不跑（null 零调用，captioner 臂专属）',
+      (await getTweetImageAsset(twSkip, OPTS)) === null && fetchCalls.length === 0);
+    check('O1d: account 类型 / 无 media / 无首图 → null',
+      (await getTweetImageAsset({ type: 'account' }, { config: { vision: JEV_CFG } })) === null
+      && (await getTweetImageAsset({ type: 'tweet' }, { config: { vision: JEV_CFG } })) === null
+      && (await getTweetImageAsset(makeTweet({ media: { has_media: true, images: [], videos: [] } }), { config: { vision: JEV_CFG } })) === null);
+
+    // O2: 反向守卫——provider 缺省（=jev）/ 'jev' 时 analyzeTweetImage 不跑
+    check('O2: provider 缺省/jev 时 siliconflow 臂不跑（false 零调用，防双臂同跑互相污染）',
+      (await ati(makeTweet(), { config: { vision: JEV_CFG } })) === false
+      && (await ati(makeTweet(), { config: { vision: { ...JEV_CFG, provider: 'jev' } } })) === false
+      && fetchCalls.length === 0);
+
+    // O3: miss 全链——只下载不动 API（零 /chat/completions）、dl-v2 写行带
+    // width/height、结论缓存 tweet_image 停读停写、image_asset 挂载形状
+    fetchCalls.length = 0; cacheState.gets.length = 0; cacheState.sets.length = 0;
+    const tw = makeTweet();
+    const asset = await getTweetImageAsset(tw, { config: { vision: JEV_CFG } });
+    check('O3a: 返回 asset 且挂载 twitterInfo.image_asset（幂等键）',
+      !!asset && tw.image_asset === asset);
+    check('O3b: asset 形状（ref 引用名/format jpeg/base64/base64 解码可读）',
+      asset.ref === 'main_tweet_image' && asset.format === 'jpeg'
+      && typeof asset.data_base64 === 'string' && asset.data_base64.length > 0
+      && Buffer.from(asset.data_base64, 'base64').length > 0);
+    check('O3c: 只下载首图零 API 调用（图进主 Jev 调用，无串行 caption 一跳）',
+      fetchCalls.length === 1 && fetchCalls[0].url === 'https://pbs.twimg.com/media/FIRST.jpg');
+    check('O3d: 归一化真算界内形状 900×500 保持（EXIF/缩放矩阵见 P 段）',
+      asset.width === 900 && asset.height === 500);
+    const rawSet = cacheState.sets.find(s => s.type === 'tweet_image_raw');
+    check('O3e: raw 写 dl-v2 行（v/base64/width/height，TTL 同配置）',
+      rawSet && rawSet.content.v === 'dl-v2' && rawSet.content.width === 900 && rawSet.content.height === 500
+      && rawSet.content.base64 === asset.data_base64 && rawSet.ttl === 7776000);
+    check('O3f: 结论缓存 tweet_image 停读停写（jev 臂只碰 tweet_image_raw）',
+      !cacheState.gets.some(g => g.type === 'tweet_image') && !cacheState.sets.some(s => s.type === 'tweet_image'));
+
+    // O4: dl-v2 命中 → 零下载零写，直用缓存字节
+    fetchCalls.length = 0; cacheState.gets.length = 0; cacheState.sets.length = 0;
+    cacheState.byType = { tweet_image_raw: { v: 'dl-v2', base64: 'aGk=', mimeType: 'image/jpeg', size: 3, width: 640, height: 480 } };
+    const tw4 = makeTweet();
+    const a4 = await getTweetImageAsset(tw4, { config: { vision: JEV_CFG } });
+    check('O4: dl-v2 命中零 fetch 零 set，直用缓存 base64',
+      !!a4 && a4.data_base64 === 'aGk=' && a4.width === 640 && a4.height === 480
+      && fetchCalls.length === 0 && cacheState.sets.length === 0 && tw4.image_asset === a4);
+
+    // O5: dl-v1 行（siliconflow 形状）不满足 jev 臂 → 重下载重写 dl-v2（分版本共存）
+    fetchCalls.length = 0; cacheState.sets.length = 0;
+    cacheState.byType = { tweet_image_raw: { v: 'dl-v1', base64: 'b2xk', mimeType: 'image/jpeg', size: 3, compressed: false } };
+    const tw5 = makeTweet();
+    const a5 = await getTweetImageAsset(tw5, { config: { vision: JEV_CFG } });
+    const rawSet5 = cacheState.sets.find(s => s.type === 'tweet_image_raw');
+    check('O5: dl-v1 不符视为 miss 重下载 + 重写 dl-v2（两臂形状互不失效）',
+      !!a5 && fetchCalls.length === 1 && rawSet5 && rawSet5.content.v === 'dl-v2' && rawSet5.content.width === 900);
+
+    // O6: 下载失败 → null 不写缓存（毒缓存防线；打桩 downloader 省真实退避等待）
+    fetchCalls.length = 0; cacheState.sets.length = 0;
+    cacheState.byType = {};
+    const origDl = ImageDownloader.downloadAsBase64;
+    let dlCalls = 0;
+    ImageDownloader.downloadAsBase64 = async () => { dlCalls++; return null; };
+    const tw6 = makeTweet();
+    check('O6: 下载失败 → null 不挂载不写缓存',
+      (await getTweetImageAsset(tw6, { config: { vision: JEV_CFG } })) === null
+      && dlCalls === 1 && cacheState.sets.length === 0 && !tw6.image_asset);
+
+    // O7: 归一化失败（损坏字节）→ null 不写缓存
+    ImageDownloader.downloadAsBase64 = async () => ({ base64: Buffer.from('这不是图片').toString('base64'), mimeType: 'image/jpeg', size: 12 });
+    const tw7 = makeTweet();
+    check('O7: 归一化失败（损坏字节）→ null 不写缓存（无图语义不冒充）',
+      (await getTweetImageAsset(tw7, { config: { vision: JEV_CFG } })) === null
+      && cacheState.sets.length === 0 && !tw7.image_asset);
+
+    // O8: in-flight 去重——并发同图只下载一次，双双挂载（复蹭簇形状；`asset:` 键
+    // 与 captioner 裸 URL 键独立，不互斥也不串扰）
+    let release8;
+    const gate8 = new Promise(res => { release8 = res; });
+    let dlCalls8 = 0;
+    ImageDownloader.downloadAsBase64 = async () => {
+      dlCalls8++;
+      await gate8;
+      return { base64: realImg.toString('base64'), mimeType: 'image/jpeg', size: realImg.length };
+    };
+    const tw8a = makeTweet();
+    const tw8b = makeTweet({ author_screen_name: 'other', text: '另一 token 同图' });
+    const p8a = getTweetImageAsset(tw8a, { config: { vision: JEV_CFG } });
+    const p8b = getTweetImageAsset(tw8b, { config: { vision: JEV_CFG } });
+    await new Promise(r => setTimeout(r, 50));
+    release8();
+    const [a8a, a8b] = await Promise.all([p8a, p8b]);
+    check('O8: 并发同图 in-flight 去重一次下载，两个 twitterInfo 双挂载',
+      dlCalls8 === 1 && !!a8a && !!a8b && a8a.data_base64 === a8b.data_base64
+      && tw8a.image_asset && tw8b.image_asset);
+    ImageDownloader.downloadAsBase64 = origDl;
+
+    // O9: 幂等——已挂 image_asset 直接返回同引用零调用
+    fetchCalls.length = 0; cacheState.gets.length = 0;
+    const before = tw8a.image_asset;
+    check('O9: 已挂 image_asset → 同引用直返零调用',
+      (await getTweetImageAsset(tw8a, { config: { vision: JEV_CFG } })) === before
+      && fetchCalls.length === 0 && cacheState.gets.length === 0);
+
+    // O10: 源码口径——对称守卫/引用名常量/dl-v2 写行/compress:false 下载
+    const fs10 = require('fs');
+    const svcSrc = fs10.readFileSync('src/narrative/analyzer/services/image-analysis-service.mjs', 'utf8');
+    check('O10a: IMAGE_ASSET_REF 导出 = main_tweet_image（与 twitter-section 引用行同源）',
+      IMAGE_ASSET_REF === 'main_tweet_image' && svcSrc.includes("export const IMAGE_ASSET_REF = 'main_tweet_image'"));
+    check('O10b: 对称 provider 守卫都在源码（siliconflow 臂 !== / jev 臂 ===）',
+      svcSrc.includes("vision.provider !== 'siliconflow'") && svcSrc.includes("vision.provider === 'siliconflow'"));
+    check('O10c: dl-v2 缓存判据 + compress:false 原始字节直下（归一化自己做，避免双重压缩）',
+      svcSrc.includes('cached.v === IMAGE_DL_V2') && svcSrc.includes("downloadAsBase64(imageUrl, { compress: false })"));
+    imgBuf = IMG_BUF;
+    cacheState.byType = {};
+    console.log('O. jev 臂图资产 ✓');
+  }
+
+  // ═══ P. normalizeForJev 归一化矩阵（真 sharp 本地计算，API 硬限镜像）═══
+  {
+    const sharp = require('sharp');
+    const { ImageDownloader } = await import('../src/narrative/utils/image-downloader.mjs');
+    const png = async (w, h, orientation) => {
+      let p = sharp({ create: { width: w, height: h, channels: 3, background: { r: 200, g: 40, b: 40 } } }).png();
+      if (orientation) p = p.withMetadata({ orientation });
+      return p.toBuffer();
+    };
+    const norm = async (buf) => ImageDownloader.normalizeForJev(buf);
+
+    // P1: 界内 400×400 → 原样转码 jpeg（尺寸不动）
+    let r = await norm(await png(400, 400));
+    check('P1: 界内原样转码（400×400 → jpeg 同尺寸）',
+      r && r.width === 400 && r.height === 400 && r.mimeType === 'image/jpeg' && r.size > 0);
+
+    // P2: 短边 <280 → 等比放大到 280
+    r = await norm(await png(100, 100));
+    check('P2: 100×100 → 280×280（短边放大）', r && r.width === 280 && r.height === 280);
+
+    // P3: 长边 >1568 → 等比缩进
+    r = await norm(await png(2000, 1000));
+    check('P3: 2000×1000 → 1568×784（长边等比缩）', r && r.width === 1568 && r.height === 784);
+
+    // P4: 极端横幅 3000×150 → 宽 1568 内容高 78 + 上下补白总高 280（不裁内容不拉伸）
+    r = await norm(await png(3000, 150));
+    check('P4: 3000×150 → 1568×280（letterbox 补白；放大必破长边上界故补边）',
+      r && r.width === 1568 && r.height === 280);
+
+    // P5: 极端竖条 150×3000 → 280×1568（左右补白）
+    r = await norm(await png(150, 3000));
+    check('P5: 150×3000 → 280×1568（竖条 letterbox）', r && r.width === 280 && r.height === 1568);
+
+    // P6: EXIF orientation=6（90°）→ .rotate() 转正宽高互换（API 剥 EXIF 不自动应用）
+    r = await norm(await png(500, 700, 6));
+    check('P6: EXIF orientation 6 → 转正后 700×500（像素转正非标签依赖）',
+      r && r.width === 700 && r.height === 500);
+
+    // P7: 全矩阵产物恒界内恒 jpeg（API 硬限镜像=防线；任一越界整个请求 400）
+    const cases = [[400, 400], [100, 100], [2000, 1000], [3000, 150], [150, 3000], [900, 500], [280, 1568]];
+    let allOk = true;
+    for (const [w, h] of cases) {
+      const out = await norm(await png(w, h));
+      if (!out || out.mimeType !== 'image/jpeg'
+        || out.width < 280 || out.width > 1568 || out.height < 280 || out.height > 1568
+        || out.width * out.height > 2458624 || out.size > 16 * 1024 * 1024) { allOk = false; break; }
+    }
+    check('P7: 矩阵产物恒界内恒 jpeg（280–1568 边长 / ≤2.46M 像素 / ≤16MiB）', allOk);
+
+    // P8: 损坏字节 → null（fail-closed，无图语义不冒充）
+    r = await norm(Buffer.from('corrupt-bytes-not-an-image'));
+    check('P8: 损坏字节 → null', r === null);
+    console.log('P. 归一化矩阵 ✓');
   }
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

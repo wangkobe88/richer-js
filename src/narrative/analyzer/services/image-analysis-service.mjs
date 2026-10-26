@@ -25,6 +25,13 @@
  * 丢弃；jpeg 是三模型 A/B 全部实测正常的格式），故 downloadAsBase64 传
  * { format: 'jpeg' }。
  *
+ * ★provider 分叉（2026-10-26，Jev 图片 API 直连架构，用户裁定保留一版开关）：
+ *   - vision.provider='jev'（缺省）→ getTweetImageAsset：图归一化后直接作为主 Jev
+ *     调用的 assets（dl-v2 形状），caption 中介/结论缓存不参与（停写停读）；
+ *     效率动机=省整段串行 caption 往返（实测带图仅 +81ms、$0.0000431/图）。
+ *   - vision.provider='siliconflow' → analyzeTweetImage 原链路（img-v3/dl-v1）。
+ *   对拍稳定一版后整链删除 siliconflow 臂。
+ *
  * 失败语义：
  *   - vision 配置节缺失 / enabled=false → 跳过（功能关闭态，非错误）
  *   - enabled=true 但 key 未配置 / 配置残缺 → throw（部署错误要炸出来，不静默降级）
@@ -33,7 +40,9 @@
  *     重试窗口，与 account-analysis 同裁定）；叙事分析继续，缺图证据 = 开启前行为
  *
  * 配置（config/narrative-engine.json vision 节）：
- *   { enabled, baseUrl, model, apiKeyEnv, timeoutMs, maxTokens, cacheTtlSec }
+ *   { enabled, provider, baseUrl, model, apiKeyEnv, timeoutMs, maxTokens, cacheTtlSec }
+ *   （provider 缺省 'jev'；baseUrl/model/apiKeyEnv/maxTokens/retryCount 仅
+ *   siliconflow 臂消费；gate 段独立于此文件）
  */
 
 import { getConfig } from '../../engine/config.mjs';
@@ -70,6 +79,19 @@ const IMAGE_PROMPT_VERSION = 'img-v3';
  */
 const IMAGE_DL_VERSION = 'dl-v1';
 
+/**
+ * Jev 归一化下载版本（2026-10-26 图片直连架构，provider='jev' 臂）：normalizeForJev
+ * 产物形状（EXIF 转正 / 宽高各 280–1568 界内 / baseline jpeg q85 / 带 width/height）。
+ * 与 dl-v1 分版本共存互不失效——provider 分叉期两臂各读各的形状，回滚零成本。
+ */
+const IMAGE_DL_V2 = 'dl-v2';
+
+/**
+ * Jev 图片资产引用名：state 中恰出现一次（docs：引用每出现一次计一次 token——
+ * 放 state 一次引用是最省形态）。twitter-section 渲染【主推配图】引用行用同名。
+ */
+export const IMAGE_ASSET_REF = 'main_tweet_image';
+
 const RETRY_BACKOFF_MS = [500, 1500];
 
 /** 进程内 in-flight 去重：同图并发分析共享同一次调用（复蹭簇形状） */
@@ -93,6 +115,10 @@ function _visionConfig(options = {}) {
 export async function analyzeTweetImage(twitterInfo, options = {}) {
   const vision = _visionConfig(options);
   if (!vision || !vision.enabled) return false;
+  // provider 分叉（2026-10-26）：本函数是 siliconflow 臂，显式 provider='siliconflow'
+  // 才跑；缺省/'jev' 走 getTweetImageAsset（图直连主 Jev 调用）——对称守卫防接线
+  // 错配时双臂同跑（caption 挂载与 asset 挂载互相污染语料形状）
+  if (vision.provider !== 'siliconflow') return false;
 
   // 只分析主推文的第一张图（用户约束 2：多图只取其一）
   if (!twitterInfo || twitterInfo.type !== 'tweet') return false;
@@ -136,6 +162,99 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
     ttl: vision.cacheTtlSec || 730 * 24 * 60 * 60,
   });
   return true;
+}
+
+/**
+ * 获取主推首图的 Jev 图片资产（provider='jev' 臂，2026-10-26 图片直连架构）
+ *
+ * 图片直接进主 Jev 调用（assets 内嵌 + state 一次引用），caption 中介不在此臂——
+ * analyzeTweetImage 是 siliconflow 臂专属（provider 分叉保留一版，用户裁定）。
+ * 与 captioner 共享 in-flight Map（独立键空间 `asset:` 前缀防形状串扰）与
+ * raw 缓存表（dl-v2 形状，与 dl-v1 分版本共存）。
+ *
+ * 失败语义与 captioner 同包络：下载/归一化失败 = warn + null + 不写缓存
+ * （下次自然重试；无图证据 = 开启前行为）。成功挂 twitterInfo.image_asset
+ * （幂等：已挂直接返回）——base64 只进内存与 assets 请求，落库前由 analyzer 剥离。
+ *
+ * @param {Object|null} twitterInfo - 推文语料（type!=='tweet' 或无图返回 null）
+ * @param {Object} [options] - 单测注入 { config }
+ * @returns {Promise<{ref:string, data_base64:string, format:'jpeg', url:string, width:number, height:number}|null>}
+ */
+export async function getTweetImageAsset(twitterInfo, options = {}) {
+  const vision = _visionConfig(options);
+  if (!vision || !vision.enabled) return null;
+  if (vision.provider === 'siliconflow') return null;
+  if (!twitterInfo || twitterInfo.type !== 'tweet') return null;
+  const firstImage = twitterInfo.media?.images?.[0];
+  if (!firstImage?.url) return null;
+  if (twitterInfo.image_asset) return twitterInfo.image_asset;
+
+  const imageUrl = firstImage.url;
+  let promise = inflight.get(`asset:${imageUrl}`);
+  if (!promise) {
+    promise = _assetOnce(imageUrl, vision).finally(() => inflight.delete(`asset:${imageUrl}`));
+    inflight.set(`asset:${imageUrl}`, promise);
+  }
+  const asset = await promise;
+  if (!asset) return null;
+  twitterInfo.image_asset = asset;
+  return asset;
+}
+
+/**
+ * 单次图资产获取（raw 缓存 dl-v2 优先 → miss 下载原始字节 → normalizeForJev 归一化
+ * → 写缓存）；任何一步失败返回 null（不 throw，与 _analyzeOnce 同包络）
+ */
+async function _assetOnce(imageUrl, vision) {
+  const startedAt = Date.now();
+  try {
+    const ttl = vision.cacheTtlSec || 730 * 24 * 60 * 60;
+    const cached = await ExternalResourceCache.get(imageUrl, RAW_CACHE_TYPE, { maxAge: ttl });
+    if (cached && cached.v === IMAGE_DL_V2 && cached.base64 && cached.width && cached.height) {
+      logger.info('ImageAnalysis', `图资产缓存命中（dl-v2）: ${imageUrl}`);
+      return {
+        ref: IMAGE_ASSET_REF,
+        data_base64: cached.base64,
+        format: 'jpeg',
+        url: imageUrl,
+        width: cached.width,
+        height: cached.height,
+      };
+    }
+
+    // 原始字节直下（compress:false——归一化自己做，避免双重压缩）；归一化是
+    // API 硬限的镜像防线（越界产物在 normalizeForJev 内部 fail-closed 返回 null）
+    const raw = await ImageDownloader.downloadAsBase64(imageUrl, { compress: false });
+    if (!raw) {
+      logger.warn('ImageAnalysis', `图片下载失败，无图语义: ${imageUrl}`);
+      return null;
+    }
+    const norm = await ImageDownloader.normalizeForJev(Buffer.from(raw.base64, 'base64'));
+    if (!norm) {
+      logger.warn('ImageAnalysis', `图片归一化失败，无图语义: ${imageUrl}`);
+      return null;
+    }
+    await ExternalResourceCache.set(imageUrl, RAW_CACHE_TYPE, {
+      v: IMAGE_DL_V2,
+      base64: norm.base64,
+      mimeType: norm.mimeType,
+      size: norm.size,
+      width: norm.width,
+      height: norm.height,
+    }, { ttl });
+    logger.info('ImageAnalysis', `图资产归一化完成 ${Date.now() - startedAt}ms ${norm.width}x${norm.height} ${norm.size}B: ${imageUrl}`);
+    return {
+      ref: IMAGE_ASSET_REF,
+      data_base64: norm.base64,
+      format: 'jpeg',
+      url: imageUrl,
+      width: norm.width,
+      height: norm.height,
+    };
+  } catch (error) {
+    logger.warn('ImageAnalysis', `图资产获取失败，无图语义（下次重试）: ${error.message}`);
+    return null;
+  }
 }
 
 /**

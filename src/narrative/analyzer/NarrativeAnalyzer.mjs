@@ -17,7 +17,7 @@ import { createSegmentTimer } from '../utils/segment-timer.mjs';
 import { cleanDataForDB, safeSubstring } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
-import { analyzeTweetImage } from './services/image-analysis-service.mjs';
+import { analyzeTweetImage, getTweetImageAsset } from './services/image-analysis-service.mjs';
 import { runVisionGate, shouldAskVisionGate } from './services/vision-gate-service.mjs';
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
@@ -35,7 +35,7 @@ import { JevClient } from './llm/JevClient.mjs';
 import { buildStandardQuestions, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
 import { JEV_PRESTAGE_QUESTIONS_VERSION } from './llm/jev-prestage-questions.mjs';
 import { buildJevState } from './llm/jev-state-builder.mjs';
-import { mapStandardAnswers, hasReplyParent } from './llm/jev-result-mapper.mjs';
+import { mapStandardAnswers, hasReplyParent, isCjkLongName } from './llm/jev-result-mapper.mjs';
 import { classifyTweetType } from './services/tweet-type-classifier.mjs';
 
 // 获取supabase客户端
@@ -64,6 +64,17 @@ function _isFreeHostingUrl(url) {
   } catch {
     return false;
   }
+}
+
+/**
+ * 图片拒收识别（J1.140 剥图重发防线）：JevClient 4xx 抛错消息形如
+ * `HTTP 400: <响应体>`——只有 4xx 且响应体带图片相关特征词才判图片拒收
+ * （其它 4xx = 请求/配置错误，剥图重发只会掩盖问题，照常 throw）
+ */
+export function _isImageRejectionError(e) {
+  const msg = String(e?.message || '');
+  return /^HTTP 4\d\d/.test(msg)
+    && /(image|asset|pixels?|dimensions?|width|height|too large|unsupported|format|mime)/i.test(msg);
 }
 
 /**
@@ -699,23 +710,29 @@ export class NarrativeAnalyzer {
           visionSkipped = gate.skipped === true;
         }
 
-        // 推文配图视觉分析（2026-10-07 现金猫案 0x56dc26bd…7777 裁定开启，智谱 glm-5.3）：
-        // 主推文首图 → twitterInfo.image_analysis（twitter-section 既有渲染块进 Jev state；
-        // 同图 90 天缓存 + 进程内并发去重，分析 token 无关可跨 token 复用）。挂在 pre-check
-        // 之后——预检拦截票不烧视觉调用；下载/API 失败在服务内降级为无图证据
-        //（= 开启前行为），配置残缺 throw fail-loud。C72 门跳过时整个 await 不执行；
-        // 预启动 join 点已随 visionPrefetch 退役删除（C84 2026-10-17）
+        // 推文配图视觉证据（2026-10-07 现金猫案 0x56dc26bd…7777 裁定开启；
+        // 2026-10-26 图片直连架构 provider 分叉）：jev 臂（缺省）getTweetImageAsset
+        // 把归一化图挂 twitterInfo.image_asset——图作为 assets 内嵌进主 Jev 调用
+        //（state【主推配图】引用行恰一次），caption 中介不参与；siliconflow 臂
+        // （显式 provider）getTweetImageAsset 恒 null → analyzeTweetImage 走 caption
+        // 链挂 image_analysis（保留一版，对拍稳定后删）。挂在 pre-check 之后——
+        // 预检拦截票不烧视觉调用；下载/归一化失败在服务内降级为无图证据
+        //（= 开启前行为），配置残缺 throw fail-loud。C72 门跳过时整个 await
+        // 不执行；预启动 join 点已随 visionPrefetch 退役删除（C84 2026-10-17）
         if (!visionSkipped) {
-          await timing.wrap('vision', () => analyzeTweetImage(twitterInfo));
+          await timing.wrap('vision', async () => {
+            const asset = await getTweetImageAsset(twitterInfo);
+            if (!asset) await analyzeTweetImage(twitterInfo);
+          });
         }
 
-        // 竞态屏蔽拷贝（C72）：跳过时后台预取仍可能在
-        // 跑完并原地挂 twitterInfo.image_analysis——下游 state 构建/条件题/豁免统一走
-        // 本拷贝（image_analysis 剥除），保证门跳过 = 本票确定性无图语义；浅拷贝不动
+        // 竞态屏蔽拷贝（C72）：跳过时后台预取仍可能在跑完并原地挂
+        // twitterInfo.image_analysis/image_asset——下游 state 构建/条件题/豁免统一走
+        // 本拷贝（两键剥除），保证门跳过 = 本票确定性无图语义；浅拷贝不动
         // 原对象（后台挂载/预取写缓存/DB 快照不受影响，下次重析 reassemble 复原后
         // 幂等门直接放行用图 = 重析时图免费）
         const jevFetchResults = visionSkipped && twitterInfo
-          ? { ...fetchResults, twitterInfo: { ...twitterInfo, image_analysis: undefined } }
+          ? { ...fetchResults, twitterInfo: { ...twitterInfo, image_analysis: undefined, image_asset: undefined } }
           : fetchResults;
 
         // 检查是否有任何有效数据供分析（C76：搜索旁路票同条件放行——否则旁路后死在
@@ -859,20 +876,54 @@ export class NarrativeAnalyzer {
             // 反混淆提示），量级/关联/主体资格全归 Jev 按题集判定——非 superIP 票
             // superIPInfo=null，builder guard 跳过注入，state 与旧版逐字节一致
             // knowledgeMatches（C165）：[KNOWLEDGE_BASE] 背景段；null/空命中 bit-parity
-            const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs });
-            // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
+            // （buildStateWith 封装：剥图重发路径用浅拷贝 twitterInfo 重建 state——
+            // 【主推配图】引用行随 image_asset 剥除同步消失，其余段 bit 一致）
+            const buildStateWith = (twOverride) => buildJevState(tokenData,
+              twOverride ? { ...jevFetchResults, twitterInfo: twOverride } : jevFetchResults,
+              { superIPInfo, knowledgeMatches, now: jevNowMs });
+            let { state, stats } = buildStateWith(null);
+            // 图证据在场（两臂兼容：jev 臂 image_asset / siliconflow 臂 caption 块
+            // image_analysis——provider 对称守卫保证互斥不同挂）；下方题集开关与
+            // mapper imageEvidence 三处同源
+            const imageEvidenceOn = !visionSkipped && !!(twitterInfo?.image_asset || twitterInfo?.image_analysis);
+            const imageAsset = !visionSkipped ? twitterInfo?.image_asset : null;
+            // J1.30 条件题 name_image_consistency：主推配图证据在场才问
             // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
+            // J1.140 条件题 image_name_text_match：图在场∧币名 CJK≥3 字
+            // （isCjkLongName 代码前提，C78 拦截位同源——非 CJK 长名/无图不问）
             // J1.39 条件题 parent_relationship：语料任一载体槽位带【回复的推文】
             // 块才问（无父推不问防幻觉作答；与 mapper hasReplyParent 同判定）
-            const questions = buildStandardQuestions({
-              imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis,
+            const buildQuestionsWith = (withImage) => buildStandardQuestions({
+              imageConsistency: withImage && imageEvidenceOn,
+              imageNameTextMatch: withImage && !!(imageAsset && isCjkLongName(tokenData)),
               parentRelationship: hasReplyParent(twitterInfo),
               // J1.139 条件题 bluechip_event_identity：撞名蓝筹才问（不撞名不问
               // 防幻觉作答；duplicateNarrative 与 mapper C242 豁免臂同源）
               bluechipDuplicate: !!duplicateNarrative,
             });
+            let questions = buildQuestionsWith(true);
             const startedAt = new Date().toISOString();
-            const result = await timing.wrap('jev.standard', () => JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` }));
+            // 剥图重发防线（J1.140 图片直连）：normalizeForJev 严格镜像 API 限制，
+            // 理论零拒收；万一图被拒（HTTP 4xx 且错误可识别为图片问题）→ loud
+            // warn + 剥图（asset/【主推配图】引用行/图相关条件题）重建 state 重发
+            // 一次 = 无图证据语义（与 vision 失败不炸票同包络，非静默兜底；其它
+            // 4xx = 配置/请求错误照常 throw；重发只此一次不再递归兜底）
+            const askJev = (withImage) => JevClient.ask(state, questions, {
+              label: `jev:${tokenData.symbol}`,
+              ...(withImage && imageAsset ? {
+                assets: { [imageAsset.ref]: { type: 'image', data_base64: imageAsset.data_base64, format: imageAsset.format } },
+              } : {}),
+            });
+            let result;
+            try {
+              result = await timing.wrap('jev.standard', () => askJev(true));
+            } catch (e) {
+              if (!(imageAsset && _isImageRejectionError(e))) throw e;
+              logger.warn('NarrativeAnalyzer', `主调用图片被 API 拒收，剥图重发一次（无图证据语义）: ${String(e.message).slice(0, 200)}`);
+              ({ state, stats } = buildStateWith({ ...twitterInfo, image_asset: undefined }));
+              questions = buildQuestionsWith(false);
+              result = await timing.wrap('jev.standard', () => askJev(false));
+            }
             const finishedAt = new Date().toISOString();
 
             const mapped = mapStandardAnswers(result.answers, {
@@ -893,9 +944,9 @@ export class NarrativeAnalyzer {
               instagramLinked: !!(classifiedUrls?.instagram?.length > 0),
               instagramInfoFetched: instagramInfo != null,
               // J1.30 名图一致豁免条件①（C64 巴巴鸡案）：配图视觉证据存在
-              // （analyzeTweetImage 已在上方正常流程分支挂载 image_analysis）；
-              // C72 门跳过时恒 false
-              imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis,
+              // （vision 段已挂载——jev 臂 image_asset/siliconflow 臂 image_analysis）
+              // 与题集开关 imageConsistency 同源；C72 门跳过时恒 false
+              imageEvidence: imageEvidenceOn,
               // J1.56（C126）：作者原话票代码事实（作者在册∧币名逐字出自主推）
               // → C88 第一腿补位（实体题 accepted≥0.5 之外的作者身份通路）
               authorUtterance: !!authorUtterance,
@@ -1011,6 +1062,9 @@ export class NarrativeAnalyzer {
     // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
 
     // 清理数据中的空字符和控制字符（PostgreSQL不支持）
+    // J1.140：image_asset（base64 图资产）只进主调用 assets，绝不落库——落库前
+    // 剥除（图本体已有 tweet_image_raw 缓存行跨进程复用，twitter_info 不存图）
+    if (twitterInfo?.image_asset) delete twitterInfo.image_asset;
     const cleanedTwitterInfo = cleanDataForDB(twitterInfo);
 
     // 构建各阶段的新格式保存数据

@@ -236,6 +236,108 @@ export class ImageDownloader {
   }
 
   /**
+   * Jev 图片 API 归一化（dl-v2 形状，2026-10-26 图片直连架构）
+   *
+   * 硬限制镜像（docs.typesafe.ai/images——任一不符整个请求 400 无部分答案）：
+   * PNG/JPEG 静态图 / 宽高各 280–1568px / 总像素 78,400–2,458,624 / 单文件 ≤16MiB；
+   * API 剥 EXIF 且不应用 orientation → 必须 .rotate() 把像素转正。
+   * 归一化策略：EXIF 转正 → 长边 >1568 等比缩 → 短边 <280 等比放大（宽高比
+   * ≤1568/280≈5.6 时单次缩放可同时满足两界）→ 极端宽高比放大必破长边上界 →
+   * 白底 letterbox 补短边（不裁内容）→ baseline JPEG q85。
+   *
+   * @param {Buffer} buffer - 原始图片字节（任意 sharp 可读格式）
+   * @returns {Promise<{base64:string, mimeType:'image/jpeg', size:number, width:number, height:number}|null>}
+   *   sharp 不可用 / 图片损坏 / 产物越界（理论不可能，fail-closed 防线）→ null（无图语义不冒充）
+   */
+  static async normalizeForJev(buffer) {
+    const sharpLib = await getSharp();
+    if (!sharpLib) {
+      console.warn('[ImageDownloader] sharp 不可用，无法归一化 Jev 图片');
+      return null;
+    }
+
+    const MIN_EDGE = 280;
+    const MAX_EDGE = 1568;
+    const MAX_PIXELS = 2458624; // 1568×1568（总像素上界，API 硬限）
+    const MAX_BYTES = 16 * 1024 * 1024;
+
+    try {
+      const meta = await sharpLib(buffer).metadata();
+      let width = meta.width;
+      let height = meta.height;
+      // orientation ≥5 = 旋转 90°/270°：rotate() 转正后宽高互换，先按转正后口径算
+      if (meta.orientation && meta.orientation >= 5) { [width, height] = [height, width]; }
+      if (!width || !height) return null;
+
+      // 长边超界 → 等比缩进 1568 盒
+      if (Math.max(width, height) > MAX_EDGE) {
+        const scale = MAX_EDGE / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      // 短边不足 280：等比放大；极端宽高比（放大后长边破界）→ 白底补边到 280
+      let extend = null;
+      if (Math.min(width, height) < MIN_EDGE) {
+        const scale = MIN_EDGE / Math.min(width, height);
+        const scaledW = Math.round(width * scale);
+        const scaledH = Math.round(height * scale);
+        if (Math.max(scaledW, scaledH) <= MAX_EDGE) {
+          width = scaledW;
+          height = scaledH;
+        } else if (width >= height) {
+          // 极端横幅：等比缩到宽 1568（内容高 inner），上下补白到总高 280——
+          // resize 目标=内容尺寸，extend 补白（fill 拉伸会破坏图内容）
+          const inner = Math.max(1, Math.round(height * (MAX_EDGE / width)));
+          const padTotal = MIN_EDGE - inner;
+          const padTop = Math.floor(padTotal / 2);
+          extend = { top: padTop, bottom: padTotal - padTop, left: 0, right: 0, background: '#ffffff' };
+          width = MAX_EDGE;
+          height = inner;
+        } else {
+          // 极端竖条：等比缩到高 1568（内容宽 inner），左右补白到总宽 280
+          const inner = Math.max(1, Math.round(width * (MAX_EDGE / height)));
+          const padTotal = MIN_EDGE - inner;
+          const padLeft = Math.floor(padTotal / 2);
+          extend = { top: 0, bottom: 0, left: padLeft, right: padTotal - padLeft, background: '#ffffff' };
+          width = inner;
+          height = MAX_EDGE;
+        }
+      }
+
+      let pipeline = sharpLib(buffer)
+        .rotate() // EXIF orientation 转正进像素（API 剥 EXIF 不自动应用）
+        .resize(width, height, { fit: 'fill' }); // 等比缩放目标（fill 保精确界内）
+      if (extend) pipeline = pipeline.extend(extend);
+      const outBuffer = await pipeline
+        .jpeg({ quality: 85, progressive: false }) // baseline JPEG（API 只收 PNG/JPEG）
+        .toBuffer();
+
+      // 产物越界二次校验（fail-closed 防线：越界图发出去=整个请求 400 无部分答案）
+      const outMeta = await sharpLib(outBuffer).metadata();
+      const w = outMeta.width, h = outMeta.height;
+      if (w < MIN_EDGE || w > MAX_EDGE || h < MIN_EDGE || h > MAX_EDGE || w * h > MAX_PIXELS) {
+        console.warn(`[ImageDownloader] 归一化产物越界 ${w}x${h}，放弃（无图语义）`);
+        return null;
+      }
+      if (outBuffer.length > MAX_BYTES) {
+        console.warn(`[ImageDownloader] 归一化产物 ${outBuffer.length} 字节超 16MiB，放弃`);
+        return null;
+      }
+
+      return {
+        base64: outBuffer.toString('base64'),
+        mimeType: 'image/jpeg',
+        size: outBuffer.length,
+        width: w,
+        height: h,
+      };
+    } catch (error) {
+      console.warn('[ImageDownloader] Jev 图片归一化失败:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * 批量下载图片
    * @param {Array<string>} imageUrls - 图片 URL 列表
    * @param {Object} options - 选项

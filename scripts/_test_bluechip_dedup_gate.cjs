@@ -386,7 +386,7 @@ async function main() {
   check('mapper audit bluechipDedupNewEvent 键（命中才落）', mapperSrc.includes('bluechipDedupNewEvent:'));
   // J1.139 条件题接线（analyzer 传 flag / 不撞名不问防幻觉作答）
   const questionsMod = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('J1.139 版本 bump', questionsMod.JEV_QUESTIONS_VERSION === 'J1.139', questionsMod.JEV_QUESTIONS_VERSION);
+  check('版本 bump（J1.139 立题蓝筹事件同一性；J1.140 图片直连续号）', questionsMod.JEV_QUESTIONS_VERSION === 'J1.140', questionsMod.JEV_QUESTIONS_VERSION);
   const qsNoDup = questionsMod.buildStandardQuestions({});
   const qsDup = questionsMod.buildStandardQuestions({ bluechipDuplicate: true });
   check('条件题不撞名不问（防幻觉作答）', qsNoDup.bluechip_event_identity == null);

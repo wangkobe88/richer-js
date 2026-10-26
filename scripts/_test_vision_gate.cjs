@@ -94,7 +94,7 @@ global.fetch = async (url, init) => {
   if (u.includes('api.typesafe.ai')) {
     const body = JSON.parse(init?.body || '{}');
     const isGate = Object.keys(body.questions || {}).includes('vision_gate_sufficiency');
-    jevCalls.push({ gate: isGate, body });
+    jevCalls.push({ gate: isGate, body, headers: init?.headers });
     if (isGate) {
       return fakeJsonResponse({
         model: 'jev-test',
@@ -119,7 +119,9 @@ global.fetch = async (url, init) => {
 };
 
 const VISION_CFG_ON = {
-  enabled: true, baseUrl: 'https://fake-vision.test', model: 'stub-model',
+  // provider='siliconflow' 显式指定（2026-10-26 provider 分叉后缺省已是 jev——本
+  // 测试端到端段走旧 captioner 挂载链，批次接线翻新前保持旧臂语义）
+  enabled: true, provider: 'siliconflow', baseUrl: 'https://fake-vision.test', model: 'stub-model',
   apiKeyEnv: 'SILICONFLOW_FALLBACK_KEY', timeoutMs: 500, maxTokens: 800, retryCount: 2, cacheTtlSec: 7776000,
 };
 const GATE_CFG = { enabled: true, minSufficientProb: 0.6 };
@@ -216,15 +218,21 @@ async function main() {
     const A = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
     assert(A.includes("import { runVisionGate, shouldAskVisionGate } from './services/vision-gate-service.mjs'"), 'D1 import 门服务');
     const gateIdx = A.indexOf("timing.wrap('vision.gate'");
-    // C84（2026-10-17）visionPrefetch 预启动退役：vision await 不再有 visionPromise join 臂
-    const visionIdx = A.indexOf("await timing.wrap('vision', () => analyzeTweetImage(twitterInfo))");
+    // J1.140 图片直连：vision 段=双臂（getTweetImageAsset 优先 → analyzeTweetImage 兜 siliconflow）
+    const visionIdx = A.indexOf("await timing.wrap('vision', async () => {");
     assert(gateIdx > -1 && visionIdx > -1 && gateIdx < visionIdx, 'D2 门 wrap 在原 vision await 之前', `gate@${gateIdx} vision@${visionIdx}`);
     assert(A.includes('if (!visionSkipped) {\n          await timing.wrap(\'vision\''), 'D3 外层 if 跳过形状（跳过时无 vision 段）');
-    assert(count(A, 'imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis') === 1, 'D4 imageEvidence 屏蔽恰 1 处（C83 后仅 standard 分支）', count(A, 'imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis'));
-    assert(count(A, 'imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis') === 1, 'D5 imageConsistency 屏蔽恰 1 处');
-    assert(count(A, 'buildJevState(tokenData, jevFetchResults') === 1, 'D6 jevFetchResults 传参恰 1 处（C83 后仅 standard state 构建）', count(A, 'buildJevState(tokenData, jevFetchResults'));
-    assert(count(A, 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })') === 1, 'D6b standard 调用点含 superIPInfo 注入（C83 registry 命中进 state；C165 knowledgeMatches 同点透传）', count(A, 'buildJevState(tokenData, jevFetchResults, { superIPInfo, knowledgeMatches, now: jevNowMs })'));
-    assert(A.includes('const jevFetchResults = visionSkipped && twitterInfo'), 'D7 竞态屏蔽拷贝（image_analysis: undefined 浅拷贝）');
+    // J1.140 两布尔同源翻新：imageEvidenceOn（两臂兼容 image_asset||image_analysis）
+    // 恰 1 处定义；mapper imageEvidence 消费同布尔
+    assert(count(A, 'const imageEvidenceOn = !visionSkipped && !!(twitterInfo?.image_asset || twitterInfo?.image_analysis)') === 1
+      && count(A, 'imageEvidence: imageEvidenceOn') === 1,
+      'D4 imageEvidence 同源布尔（两臂兼容键；消费恰 1 处）');
+    assert(count(A, 'imageConsistency: withImage && imageEvidenceOn') === 1, 'D5 imageConsistency 同源（剥图重发臂 withImage=false 同步关）');
+    assert(count(A, 'twOverride ? { ...jevFetchResults, twitterInfo: twOverride } : jevFetchResults') === 1,
+      'D6 buildStateWith 封装（buildJevState 走唯一入口，剥图重发浅拷贝复用）', count(A, 'twOverride ? { ...jevFetchResults, twitterInfo: twOverride } : jevFetchResults'));
+    assert(count(A, '{ superIPInfo, knowledgeMatches, now: jevNowMs }') === 1, 'D6b standard 调用点含 superIPInfo 注入（C83 registry 命中进 state；C165 knowledgeMatches 同点透传）', count(A, '{ superIPInfo, knowledgeMatches, now: jevNowMs }'));
+    assert(A.includes('const jevFetchResults = visionSkipped && twitterInfo')
+      && A.includes('image_analysis: undefined, image_asset: undefined'), 'D7 竞态屏蔽拷贝（两图键浅拷贝剥除）');
     const cfg = src('config/narrative-engine.json');
     const gateCfg = JSON.parse(cfg).vision?.gate;
     assert(gateCfg?.enabled === true && typeof gateCfg?.minSufficientProb === 'number', 'D8 config 默认开防线（用户裁定默认 true）', JSON.stringify(gateCfg));
@@ -291,8 +299,12 @@ async function main() {
         'E4 主 Jev state 无图块含推文文本（屏蔽拷贝生效）');
     }
 
-    // E2: 门关对照 → vision 段在场（缓存命中路径零网络）
+    // E2: 门关对照 → vision 段在场（缓存命中路径零网络）。
+    // provider 临时置 'siliconflow'：2026-10-26 provider 分叉后缺省=jev，本段测
+    // 旧 captioner 挂载链（批次接线翻新到 jev 臂时按新链路重写预期）
     cfg.vision.gate = { enabled: false, minSufficientProb: 0.6 };
+    const origProvider = cfg.vision.provider;
+    cfg.vision.provider = 'siliconflow';
     try {
       cacheMod.ExternalResourceCache.get = async (url, type) => {
         cacheGets.push({ url, type });
@@ -310,6 +322,61 @@ async function main() {
       cacheMod.ExternalResourceCache.get = async (url, type) => { cacheGets.push({ url, type }); return null; };
     }
 
+    // E7: jev 臂端到端（J1.140 图片直连，provider 缺省/显式 jev）：门关 + dl-v2
+    // 缓存命中 → image_asset 挂载 → 主调用带 assets+危险区头；state【主推配图】
+    // 引用恰一次（每出现一次计一次图 token）；零 captioner 调用零图片下载
+    cfg.vision.provider = 'jev';
+    try {
+      const imgB64 = Buffer.alloc(64, 3).toString('base64');
+      cacheMod.ExternalResourceCache.get = async (url, type) => {
+        cacheGets.push({ url, type });
+        if (type === 'tweet_image_raw') return { v: 'dl-v2', base64: imgB64, mimeType: 'image/jpeg', size: 64, width: 640, height: 480 };
+        return null;
+      };
+      jevCalls.length = 0; visionApiCalls = 0; imgDlCalls = 0;
+      await run('0xeeee3333eeee3333eeee3333eeee3333eeee3333');
+      const mainAsk = jevCalls.find(c => !c.gate);
+      assert(mainAsk != null && mainAsk.body.assets?.main_tweet_image?.data_base64 === imgB64
+        && mainAsk.body.assets.main_tweet_image.format === 'jpeg',
+        'E7a jev 臂主调用带 assets（dl-v2 缓存字节直传）');
+      assert((mainAsk.body.state.match(/main_tweet_image/g) || []).length === 1,
+        'E7b state 图引用恰一次（引用每出现一次计一次 token）');
+      assert(mainAsk.headers?.['TypeSafe-Danger-Zone-Images'] === 'true', 'E7c 危险区头仅带图请求加');
+      assert(visionApiCalls === 0 && imgDlCalls === 0,
+        'E7d 零 captioner 调用零图片下载（图进主调用，caption 中介退役）');
+    } finally {
+      cacheMod.ExternalResourceCache.get = async (url, type) => { cacheGets.push({ url, type }); return null; };
+    }
+
+    // E8: 剥图重发防线（J1.140）——_isImageRejectionError 真值表 + 源码口径：
+    // 只有 4xx ∧ 图片特征词才剥图；其它错误照常 throw（剥图重发不得掩盖问题）；
+    // 重发=无图 state+无图题集恰一次（非递归）
+    {
+      const { _isImageRejectionError } = await import('../src/narrative/analyzer/NarrativeAnalyzer.mjs');
+      const tt = [
+        ['HTTP 400: {"error":"image dimensions 1569x890 exceed maximum 1568"}', true],
+        ['HTTP 413: asset exceeds 16MiB limit', true],
+        ['HTTP 400: {"error":"invalid pixels in image"}', true],
+        ['HTTP 400: unsupported format image/webp', true],
+        ['HTTP 400: {"error":"insufficient credits"}', false],   // 4xx 但非图片词
+        ['HTTP 400: malformed questions JSON', false],
+        ['HTTP 429: rate limited', false],                        // 4xx 但非图片词（重试域交 JevClient 退避）
+        ['HTTP 500: internal error during image processing', false], // 非 4xx
+        ['network timeout ECONNRESET', false],
+        [undefined, false],
+      ];
+      for (const [msg, expected] of tt) {
+        assert(_isImageRejectionError({ message: msg }) === expected, `E8a 判据矩阵 ${msg} → ${expected}`);
+      }
+      const naSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'narrative', 'analyzer', 'NarrativeAnalyzer.mjs'), 'utf8');
+      assert(naSrc.includes("if (!(imageAsset && _isImageRejectionError(e))) throw e;"),
+        'E8b 非图片拒收/无图照常 throw（不掩盖问题）');
+      assert(naSrc.includes("buildStateWith({ ...twitterInfo, image_asset: undefined })") && naSrc.includes("questions = buildQuestionsWith(false);"),
+        'E8c 剥图重发=无图 state+无图题集');
+      assert((naSrc.match(/askJev\(false\)/g) || []).length === 1 && (naSrc.match(/askJev\(true\)/g) || []).length === 1,
+        'E8d 重发恰一次（catch 内非递归）');
+    }
+
     // E3（visionPrefetch 预启动竞态场景）已随 C84（2026-10-17）机制退役删除：
     // dataPrefetch/visionPrefetch 整链下线，analyze() 不再有后台 visionPromise 挂载路径，
     // 「后台挂载不影响主 Jev state」竞态无从构造。C72 门本体覆盖=E1-E6。
@@ -317,6 +384,8 @@ async function main() {
     // 恢复真实 config 门态（本地 config 默认 true，写回原值）
     if (origGate) cfg.vision.gate = origGate;
     else delete cfg.vision.gate;
+    if (origProvider === undefined) delete cfg.vision.provider;
+    else cfg.vision.provider = origProvider;
   }
 
   console.log(`\n结果: ${pass} passed, ${fail} failed`);

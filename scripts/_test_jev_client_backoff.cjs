@@ -11,6 +11,8 @@
  *   D 段：非可重试 4xx 立即抛错零退避
  *   E 段：_parseRetryAfterMs 纯函数矩阵
  *   F 段：源码口径（头读取/钳制表达式/常量区间）
+ *   G 段：图片 assets（Jev 图片 API，2026-10-26）——带 assets → body 含顶层
+ *     assets + TypeSafe-Danger-Zone-Images 头；无/空 assets → 两皆无（头仅带图请求加）
  */
 
 const path = require('path');
@@ -190,6 +192,65 @@ async function main() {
       '钳制常量区间 [500, 15000]');
     assert(src.includes('const retryAfterMs = retryable'), '仅可重试类带出 retryAfterMs');
     assert(src.includes('lastRetryAfterMs = result.retryAfterMs ?? null'), 'ask 侧接上次头值');
+  }
+
+  // ── G 段：图片 assets（实验性图片 API）──
+  console.log('[G] assets 图片支持');
+  {
+    const assets = { main_tweet_image: { type: 'image', data_base64: 'aGVsbG8=', format: 'jpeg' } };
+
+    // G1：带 assets → body 顶层含 assets + 危险区头；answers 校验不变
+    const captured = [];
+    globalThis.fetch = async (url, opts) => {
+      captured.push({ url, opts });
+      return fakeResponse({ status: 200, body: OK_BODY });
+    };
+    let g1;
+    try {
+      g1 = await JevClient.ask('图见 main_tweet_image', questions, { label: 'img-test', assets });
+    } finally { globalThis.fetch = origFetch; }
+    assert(captured.length === 1, '带 assets 恰一次 fetch（零重试）');
+    const body1 = JSON.parse(captured[0].opts.body);
+    assert(body1.assets && body1.assets.main_tweet_image.data_base64 === 'aGVsbG8=',
+      '请求体含 assets 顶层字段（原样透传）');
+    assert(captured[0].opts.headers['TypeSafe-Danger-Zone-Images'] === 'true',
+      '带 assets 加 TypeSafe-Danger-Zone-Images: true 头');
+    assert(g1 && g1.answers.q1, '带 assets 响应 _validate 校验不变');
+
+    // G2：无 assets → 无字段无头
+    const captured2 = [];
+    globalThis.fetch = async (url, opts) => {
+      captured2.push({ url, opts });
+      return fakeResponse({ status: 200, body: OK_BODY });
+    };
+    try {
+      await JevClient.ask('state', questions, { label: 'no-img' });
+    } finally { globalThis.fetch = origFetch; }
+    const body2 = JSON.parse(captured2[0].opts.body);
+    assert(!('assets' in body2), '无 assets 请求体不含 assets 字段');
+    assert(!('TypeSafe-Danger-Zone-Images' in captured2[0].opts.headers),
+      '无 assets 绝不加危险区头');
+
+    // G3：空 assets 对象 → 同无图语义
+    const captured3 = [];
+    globalThis.fetch = async (url, opts) => {
+      captured3.push({ url, opts });
+      return fakeResponse({ status: 200, body: OK_BODY });
+    };
+    try {
+      await JevClient.ask('state', questions, { label: 'empty-img', assets: {} });
+    } finally { globalThis.fetch = origFetch; }
+    const body3 = JSON.parse(captured3[0].opts.body);
+    assert(!('assets' in body3) && !captured3[0].opts.headers['TypeSafe-Danger-Zone-Images'],
+      '空 assets 对象 = 无图语义（无字段无头）');
+
+    // G4：源码口径——危险区头只在 hasAssets 分支加
+    const src = fs.readFileSync(
+      path.join(__dirname, '../src/narrative/analyzer/llm/JevClient.mjs'), 'utf8');
+    assert(/headers\['TypeSafe-Danger-Zone-Images'\] = 'true';\s*\}/.test(src)
+      && src.includes('if (hasAssets)'), '危险区头挂在 hasAssets 条件分支内');
+    assert(src.includes('hasAssets ? { state, model, questions, assets } : { state, model, questions }'),
+      '请求体条件展开（无图形状与旧版 bit 一致）');
   }
 
   globalThis.setTimeout = origSetTimeout;
