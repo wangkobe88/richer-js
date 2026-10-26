@@ -7,10 +7,8 @@
  *   A. 键集扩展：GMGN_CONDITION_FACTOR_KEYS = 原 token-api 5 键 ∪ gwp 18 键
  *   B. checkAndEvaluate 第五参：缺省/null 不并键=存量零影响；传入并键可评；
  *      covered=0 机制硬拒优先；gwpCovered=null 走 IS NULL 臂
- *   C. 实时引擎源码口径：默认关物化/预取挂点顺序/调用点第五参/stop 清态/
- *      无 GMGN 条件腿不预取（gwpCondLeg 惰性门）
- *   D. FA getEarlyTopBuyers 只读访问器：降序 top-N/minBnb 尘埃门/出窗冻结 []/
- *      未注册 []/双 null 行不进 Map（无法归户）
+ *   C. 引擎接线删除反证（T71 2026-10-26）：gwp 数据口 getEarlyTopBuyers 随 early 族
+ *      退役 → ctor/预取挂点/构建门/stop 清态/第五参透传整链删，第五参恒 null
  *   E. BacktestEngine：gwp 键显式 null spread（回测不接线——动态计数对历史
  *      fire 是时序穿越，跳过比穿越诚实）
  *   F. config 默认关 + 17 键与 DEFAULTS 同值（漂移防线）
@@ -123,70 +121,23 @@ console.log('B. checkAndEvaluate 第五参（存量零影响）');
   }
 
   // ═══════════════ C. 实时引擎源码口径 ═══════════════
-  console.log('C. 实时引擎源码口径（FourMemeWssTradingEngine）');
+  // 2026-10-26 T71：earlyTrades* 族整族删除 → 数据口 getEarlyTopBuyers 作废 → 引擎接线
+  // 整链删除（ctor/预取挂点/构建门/stop 清态/第五参透传）。本段翻防复活反证；将来重启
+  // gwp 层须换全史数据源并重写本段。
+  console.log('C. 引擎接线删除反证（T71 gwp 数据口作废）');
   {
     const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
-    check('C1 默认关物化：enabled === true 才启（删段=关，narrativePrefetch 同款）',
-      src.includes('gwpCfg.enabled === true'), 'enabled 物化语义漂移');
-    const iCtor = src.indexOf('new (require(\'../pre-check/GmgnWalletStatsService\')');
-    check('C2 ctor 接线 service（GmgnRiskCheckService 之后）',
-      iCtor > src.indexOf('new GmgnRiskCheckService') && iCtor !== -1);
-    // 预取挂点：_onFactorsUpdated 买腿分支 _narrativeTriggerCheck 之后（同位=tick 驱动不扰触发状态机）
-    const iBuyBranch = src.indexOf('strategiesConfig.buyStrategies');
-    const iTrigger = src.indexOf('this._narrativeTriggerCheck(');
-    const iPrefetch = src.indexOf('this._walletProfilePrefetchCheck(');
-    check('C3 预取挂点在 _narrativeTriggerCheck 之后（同位不扰触发状态机）',
-      iBuyBranch !== -1 && iTrigger > iBuyBranch && iPrefetch === iTrigger + 'this._narrativeTriggerCheck('.length
-        || (iPrefetch > iTrigger && iTrigger > iBuyBranch),
-      `buy=${iBuyBranch} trigger=${iTrigger} prefetch=${iPrefetch}`);
-    // GMGN 调用点：第五参 gwpFactors 透传
-    check('C4 调用点第五参透传 gwpFactors',
-      /factorResults\?\.narrativeCategory \?\? null,\s*\n\s*gwpFactors\)/.test(src),
-      'checkAndEvaluate 第五参未透传');
-    check('C5 gwp 构建门：service 存在 ∧ 条件腿存在（无 GMGN 条件实验零预取零构建）',
-      src.includes('this._walletStatsService && this._gwpConditionLegExists()'));
-    const iStop = src.indexOf('_walletProfileStates.clear()');
-    check('C6 stop 清态（_walletProfileStates Map 清空防跨实验残留）',
-      iStop !== -1 && src.slice(iStop - 400, iStop).includes('_narrativeTriggerStates'));
-    check('C7 预取入口双短路（service 未构造/无消费腿）',
-      src.includes('if (!this._walletStatsService) return;') &&
-      src.includes('if (!this._gwpConditionLegExists()) return;'));
-    check('C8 top-N 取数走 FA getEarlyTopBuyers（出窗冻结天然短路）',
-      src.includes('this._factorAggregator.getEarlyTopBuyers(tokenAddress,'));
-  }
-
-  // ═══════════════ D. FA getEarlyTopBuyers ═══════════════
-  console.log('D. FA getEarlyTopBuyers（只读访问器）');
-  {
-    const T0 = 1790802000000;
-    const ADDR = '0xtok_gwp';
-    const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
-    const mkTick = (over) => Object.assign({
-      token_address: ADDR, trade_type: 'buy', trader_address: null, sender_address: null,
-      price_bnb: 0.00001, price_usd: 5, bnb_amount: 1, token_amount: 1000,
-      block_number: 100, timestamp: T0 + 1000, tx_hash: '0xtx', log_index: 0,
-    }, over);
-    // D1 未注册 token → []
-    check('D1 未注册 token 返回 []', fa.getEarlyTopBuyers('0xnone').length === 0);
-    fa.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
-    fa.processTick(mkTick({ sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.50 }), {});
-    fa.processTick(mkTick({ sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.30 }), {});
-    fa.processTick(mkTick({ sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.20 }), {}); // w1 累计 0.70
-    fa.processTick(mkTick({ sender_address: 'wdust', trader_address: '0xe3', bnb_amount: 0.004 }), {});
-    fa.processTick(mkTick({ sender_address: null, trader_address: null, bnb_amount: 0.10 }), {}); // 双 null 不归户
-    const top = fa.getEarlyTopBuyers(ADDR);
-    check('D2 降序 top-N（w1=0.70 > w2=0.30；双 null 行不进 Map）',
-      top.length === 3 && top[0].wallet === 'w1' && top[0].bnb === 0.7 && top[1].wallet === 'w2',
-      JSON.stringify(top));
-    check('D3 minBnb 尘埃门（0.01 滤 wdust）',
-      fa.getEarlyTopBuyers(ADDR, { minBnb: 0.01 }).length === 2);
-    check('D4 limit 截断', fa.getEarlyTopBuyers(ADDR, { limit: 1 }).length === 1
-      && fa.getEarlyTopBuyers(ADDR, { limit: 1 })[0].wallet === 'w1');
-    // D5 出窗冻结（窗 90s，差值 > 90s 才冻结——恰 90s 仍在窗内）：ts=T0+95s 触发冻结 → 原料已清 → []
-    fa.processTick(mkTick({ sender_address: 'wx', trader_address: '0xe9', bnb_amount: 1, timestamp: T0 + 95000 }), {});
-    const after = fa.getEarlyTopBuyers(ADDR);
-    check('D5 出窗冻结返回 []（fire 恒在窗内；出窗调用=无证据空集→上游 covered=null 放行形状）',
-      after.length === 0, JSON.stringify(after));
+    const noComments = src.replace(/\/\/[^\n]*/g, '');
+    check('C1 引擎无 gwp 接线残留（service/预取/构建门/状态 Map 墓碑外零子串）',
+      !['GmgnWalletStatsService', '_walletStatsService', '_walletProfilePrefetchCheck',
+        '_gwpConditionLegExists', '_walletProfileStates'].some(s => noComments.includes(s)),
+      'gwp 接线标识复活');
+    check('C2 checkAndEvaluate 调用点第五参恒 null（存量零影响形状）',
+      /factorResults\?\.narrativeCategory \?\? null,\s*\n\s*null\)/.test(src),
+      '第五参非恒 null');
+    check('C3 数据口 getEarlyTopBuyers 已随 early 族删除（FA 不再有该方法）',
+      typeof new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} }).getEarlyTopBuyers !== 'function',
+      'getEarlyTopBuyers 复活');
   }
 
   // ═══════════════ E. BacktestEngine ═══════════════

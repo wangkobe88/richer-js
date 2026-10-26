@@ -57,10 +57,10 @@
  * 新链路：腿带 narrativeTriggerCondition（叙事分析发起条件，因子表达式）→ 引擎按
  * tick 因子评估发起/重试后台叙事分析 → 回填 setNarrativeFactors → buildFactorMap 注入
  * narrativeRating/narrativeRounds/narrativeRetryDue → 单一买条件（含
- * `narrativeRating == 2 OR == 3`）→ GMGN 第二层。earlyTrades* 族同批迁入：
- * EarlyParticipantCheckService 的 DB trailing 90s 窗查询改为 FA 出生锚定（firstTickAt）
- * 累计窗，fire/预检查两阶段因子漂移由此消除。legacy 腿（无 narrativeTriggerCondition）
- * 整链原样保留——earlyTrades* 双宿主并存（legacy 腿 preBuy 语境仍走 DB 版）。
+ * `narrativeRating == 2 OR == 3`）→ GMGN 第二层。earlyTrades* 族（C84 同批迁入 FA
+ * 出生锚定 90s 冻结窗）**已于 T71（2026-10-26）整族删除**——冻结窗对慢热票结构性
+ * 失真（智子/币安1986 案），净买/路由门换全史实时键 tradesNetBuyRatio/tradesRouterPct；
+ * legacy 腿 preBuy 语境仍走 EarlyParticipantCheckService DB 版（DB 宿主独立存续）。
  * 与 legacy DB 版的口径 delta（有意，台账 C84）：
  *   delta① 照计语义：无 price_outlier=false / price_usd 非空过滤（与 tradeCount/
  *     _recentTicks/activityEvents 同口径）——毒价行/零 USD 行照样入窗；
@@ -68,7 +68,7 @@
  *     块时间）；两锚正常相差 <1s，late-discovered 票本就被 tokenAgeSec<90 门拦；
  *   delta③ 出窗冻结=完整首窗终值（观测友好），legacy uncovered=0 值放行——新链路
  *     条件自带 tokenAgeSec<90，出窗票不产生信号，两语义无行为交集。
- * 叙事注入与 earlyTrades* 键均为 buildFactorMap 无条件字面量（getFactorKeys 探针
+ * 叙事注入与因子键均为 buildFactorMap 无条件字面量（getFactorKeys 探针
  * 自动收录；未回填 rating=null → 条件恒 false fail-closed）。
  */
 
@@ -79,9 +79,8 @@ const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 // 公共聚合路由地址集（GMGN 等）——_walletRoutedBuyBnb（GMGN 用户判定）的写入判据，
 // 与 EarlyParticipantCheckService routerPct 因子同层同源（trader=msg.sender 层）
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
-// 协议地址集（four.meme 内盘官方）——earlyTrades* top1 因子的双地址层剔除判据，
-// 与 EarlyParticipantCheckService 同源（sniper-detector 单一真相源）
-const { PROTOCOL_ADDRS } = require('../trading-engine/pre-check/sniper-detector');
+// PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
+// 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
 // 趋势序列时间桶宽度（价格臂）：8 点 × 10s ≈ 旧轮询时代（10s 采样 × 8 点）窗口语义
 const SERIES_BUCKET_SEC = 10;
@@ -149,19 +148,18 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 同 block 首买簇捆绑检测（2026-10-16 BITCAT 案）──
     bundleWinMs: 10000,          // bundle* 6 键窗口（对齐 act*；扫描 Phase 2 对比 10s/30s/60s
                                  //   后再定默认值）；原料 _bundleEvents/_blockBuyAgg/_circTokens
-    // ── earlyTrades* 首窗累计（2026-10-17 买腿重构 C84：迁自 EarlyParticipantCheckService
-    //    DB trailing 90s 窗 → FA 出生锚定累计窗，单一买条件消除两阶段因子漂移）──
-    earlyTradesWindowMs: 90000,  // 首窗宽（对齐 legacy fixedWindowSeconds=90）
-    earlyUniformDustBnb: 0.01,   // uniform 簇尘埃门（对齐 legacy uniformDustThresholdBnb）
+    // ── uniform 尘埃门（launch* 复用——earlyTrades* 族已随 T71 2026-10-26 删除）──
+    earlyUniformDustBnb: 0.01,   // uniform 簇尘埃门（launch uniform 等额臂唯一消费者）
     // ── launch* 出生锚定捆绑簇（2026-10-17 Agentum 案方向 C：10s 滑窗在 fire+61s 时
     //    创建块捆绑簇已滑出（Konasu 时序洗白同根因），出生锚定窗让出生期指纹在任意
-    //    迟到 fire 时刻可见；对齐 earlyTradesWindowMs）──
+    //    迟到 fire 时刻可见；窗宽 90s）──
     launchBundleWinMs: 90000,    // 出生窗宽（首买簇累计+冻结）
 };
 
-// earlyTrades* 防御帽：窗内参与钱包数上限（对倒作业票 90s 内 <1 千钱包；超帽只停
-// 新钱包入册，已入册钱包照常更新——尾部批发钱包丢粒度，保内存上限）
-const _EARLY_MAX_WALLETS = 5000;
+// 出生窗首买 map 防御帽（launch 系复用；对倒作业票 90s 内 <1 千钱包；超帽只停
+// 新钱包入册，已入册钱包照常更新——尾部批发钱包丢粒度，保内存上限；
+// earlyTrades* 族删除〔T71 2026-10-26〕后 launch* 是唯一消费者）
+const _LAUNCH_MAX_WALLETS = 5000;
 
 // ── 市场截面 regime 观测（market* 5 键，回迁批 2.6；pumpfun 08-30 观察版口径）──
 // 既有因子全部 per-token，市场整体状态=真实盲区；本组把市场状态做成截面因子（同快照同值
@@ -389,30 +387,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         return this._states.get(tokenAddress) || null;
     }
 
-    /**
-     * 首窗 top-N 买家（2026-10-18 GMGN 钱包画像层消费口）：earlyTrades 窗内 per-wallet
-     * 累计纯买入（_earlyWalletBuyBnb 原料——C84 出生锚 90s 窗，与 preBuy legacy 同源）
-     * 按 BNB 降序取前 N。只读访问器——因子表/键探针/快照白名单零改动（GmgnWalletStats
-     * 层在 GMGN 第三层内聚合，不进 FA 因子体系）。
-     * 出窗冻结后原料已清（_earlyWindowAdvance 冻结即释放）→ 返回 []：fire 场景
-     * 恒在窗内（买腿条件自带 tokenAgeSec < 90），出窗调用=无证据空集（上游落
-     * gwpCovered=null 放行形状）。null wallet 行天然不在 Map（无法按钱包归户）。
-     * @param {string} tokenAddress
-     * @param {Object} [opts] - { limit=5, minBnb=0 }（minBnb=尘埃门，拆单规避由提高门槛应对）
-     * @returns {Array<{wallet:string, bnb:number}>}
-     */
-    getEarlyTopBuyers(tokenAddress, opts = {}) {
-        const state = this._states.get(tokenAddress);
-        if (!state || state._earlyWindowClosed) return [];
-        const limit = Number.isInteger(opts.limit) && opts.limit > 0 ? opts.limit : 5;
-        const minBnb = Number.isFinite(opts.minBnb) ? opts.minBnb : 0;
-        const rows = [];
-        for (const [wallet, cum] of state._earlyWalletBuyBnb) {
-            if (cum >= minBnb) rows.push({ wallet, bnb: cum });
-        }
-        rows.sort((a, b) => b.bnb - a.bnb);
-        return rows.slice(0, limit).map(r => ({ wallet: r.wallet, bnb: parseFloat(r.bnb.toFixed(4)) }));
-    }
+    // getEarlyTopBuyers（C89 GMGN 钱包画像层数据口）已随 earlyTrades* 族删除（T71
+    // 2026-10-26）——early 出生窗原料整族退役，gwp 引擎接线同步删除；将来重启 gwp
+    // 层须换全史数据源（台账 T71 记档）
 
     getStats() {
         return {
@@ -828,24 +805,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             state.totalRouterBuyBnb += bnbAmount;
         }
 
-        // ── earlyTrades* trader 层原料（2026-10-17 买腿重构 C84）：出生锚=firstTickAt、
-        //    窗=earlyTradesWindowMs（90s），首个出窗 tick 冻结六键快照（_earlyWindowAdvance）
-        //    后行照计流量不再入窗。照计语义：无 outlier/price_usd 过滤（旧 SQL 查询侧
-        //    price_outlier=false AND price_usd 非空——口径 delta①，台账 C84 记录）；
-        //    defer 路径价格段照跑（trader 层不依赖 sender 回查），与 tradeCount 同到达序 ──
-        this._earlyWindowAdvance(state, ts);
-        if (!state._earlyWindowClosed) {
-            state._earlyTickRows++;
-            if (isBuy) {
-                state._earlyTotalBuyBnb += bnbAmount;
-                if (tick.trader_address
-                    && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
-                    state._earlyRouterBuyBnb += bnbAmount;
-                }
-            } else {
-                state._earlyTotalSellBnb += bnbAmount;
-            }
-        }
+        // （earlyTrades* trader 层原料已随 T71 2026-10-26 删除——冻结窗慢热票失真，
+        //  消费键换 tradesNetBuyRatio/tradesRouterPct 全史实时对）
 
         // 首块脉冲（母版首秒脉冲的 BSC 适配：首买 anchor 起 firstBlockWindowMs 窗内买入累计，
         // firstBlockBuyShare 原料；窗口冻结后才出值，防早期读数误导）
@@ -1184,49 +1145,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
         this._pruneActivityEvents(state, tick.timestamp);
 
-        // ── earlyTrades* wallet 层原料（2026-10-17 买腿重构 C84，同 trader 层窗/冻结）：
-        //    perWallet 双向行数（null wallet 行只进分子——legacy basicStats 同构）；
-        //    top1=协议地址双地址层剔除（wallet||trader 任一命中即剔，legacy 同源
-        //    PROTOCOL_ADDRS）后纯买入最大单钱包；uniform=全钱包（无协议剔除，legacy
-        //    同构）累计买入 toFixed(2) 分簇增量维护——窗内 cum 只增不减 → 桶迁移=旧桶
-        //    减新桶加，与 legacy 读取时全量分桶在「买单累计」语义下收敛同值。defer 乱序
-        //    晚到的窗内行在冻结后到达=丢弃（边缘：resolver 回查延迟 > 窗尾距离，台账
-        //    C84 记录）。防御帽 _EARLY_MAX_WALLETS 只停新钱包入册 ──
-        this._earlyWindowAdvance(state, tick.timestamp);
-        // launch 窗推进与 early 并列（首买 map 写点/分母累计均在后——触发出窗行不入窗）
+        // （earlyTrades* wallet 层原料已随 T71 2026-10-26 删除——perWallet/top1/uniform
+        //  冻结窗族整族退役，见文件头注释与台账 T71）
+        // launch 窗推进（首买 map 写点/分母累计均在后——触发出窗行不入窗）
         this._launchWindowAdvance(state, tick.timestamp);
-        if (!state._earlyWindowClosed && walletAddr) {
-            if (state._earlyWallets.size < _EARLY_MAX_WALLETS || state._earlyWallets.has(walletAddr)) {
-                state._earlyWallets.add(walletAddr);
-                state._earlyWalletTrades.set(walletAddr,
-                    (state._earlyWalletTrades.get(walletAddr) || 0) + 1);
-                if (isBuy) {
-                    const prevCum = state._earlyWalletBuyBnb.get(walletAddr) || 0;
-                    const newCum = prevCum + bnbAmount;
-                    state._earlyWalletBuyBnb.set(walletAddr, newCum);
-                    // top1（协议剔除增量 max）
-                    const _wl = String(walletAddr).toLowerCase();
-                    if (!(PROTOCOL_ADDRS.has(_wl)
-                            || PROTOCOL_ADDRS.has(String(tick.trader_address || '').toLowerCase()))
-                        && newCum > state._earlyTop1WalletBuyBnb) {
-                        state._earlyTop1WalletBuyBnb = newCum;
-                    }
-                    // uniform（全钱包；尘埃门跨域计数 + 桶迁移）
-                    const dust = this._fp.earlyUniformDustBnb;
-                    if (prevCum < dust && newCum >= dust) state._earlyUniformDustWallets++;
-                    if (prevCum >= dust) {
-                        const k = prevCum.toFixed(2);
-                        const c = (state._earlyUniformBuckets.get(k) || 1) - 1;
-                        if (c <= 0) state._earlyUniformBuckets.delete(k);
-                        else state._earlyUniformBuckets.set(k, c);
-                    }
-                    if (newCum >= dust) {
-                        const k = newCum.toFixed(2);
-                        state._earlyUniformBuckets.set(k, (state._earlyUniformBuckets.get(k) || 0) + 1);
-                    }
-                }
-            }
-        }
 
         // ── bundle* 6 键原料（2026-10-16 BITCAT 案：5 bundler 同 block 首买 52.5% 窗内
         //    买盘推价，引擎 fire 峰顶买入后同 block 清仓 -35.8%；gmgnBundlerWalletRatio
@@ -1290,10 +1212,10 @@ class FourMemeFactorAggregator extends EventEmitter {
                         trader: tick.trader_address || null,
                     });
                     // launch 首买（出生窗内；挂本 min 替换判定点=仅首买行入 map，更早
-                    // 首买晚到覆盖 → defer 乱序序无关收敛；_EARLY_MAX_WALLETS 帽同款。
-                    // 窗推进已在上文 _earlyWindowAdvance 旁先行——触发出窗行不入 map）
+                    // 首买晚到覆盖 → defer 乱序序无关收敛；_LAUNCH_MAX_WALLETS 帽。
+                    // 窗推进已在上文先行——触发出窗行不入 map）
                     if (!state._launchWindowClosed
-                        && (state._launchFirstBuys.size < _EARLY_MAX_WALLETS
+                        && (state._launchFirstBuys.size < _LAUNCH_MAX_WALLETS
                             || state._launchFirstBuys.has(walletAddr))) {
                         state._launchFirstBuys.set(walletAddr, {
                             ts: tick.timestamp,
@@ -1687,28 +1609,14 @@ class FourMemeFactorAggregator extends EventEmitter {
                                      //   永不裁剪，加减法交换律 → defer 乱序收敛；creator 初始持仓
                                      //   未经买入不计入——口径与 BITCAT 重放对拍一致 63.3%）
 
-            // ── earlyTrades* 8 键原料（2026-10-17 买腿重构 C84：迁自
-            //    EarlyParticipantCheckService DB 查询 → FA 出生锚定 firstTickAt 累计窗；
-            //    首个出窗 tick _earlyWindowAdvance 冻结六键快照并清本组 Map/Set）──
-            _earlyWindowClosed: false, // 出窗冻结标记（冻结后行照计流量不再入窗）
-            _earlyFrozen: null,        // 出窗冻结的六键输出（_earlyTradesFactors 直读）
-            _earlyTickRows: 0,         // 窗内行数（双向；outlier/price_usd 照计=口径 delta①）
-            _earlyTotalBuyBnb: 0,      // 窗内纯买入 BNB（netBuy/top1/router 公共分母）
-            _earlyTotalSellBnb: 0,     // 窗内纯卖出 BNB（netBuy 臂）
-            _earlyRouterBuyBnb: 0,     // 窗内 trader∈AGGREGATOR_ROUTER_ADDRS 买入 BNB
-            _earlyWallets: new Set(),  // 窗内参与钱包（buy or sell；perWallet 分母）
-            _earlyWalletTrades: new Map(), // wallet → 窗内行数（观察：单钱包最大笔数）
-            _earlyWalletBuyBnb: new Map(), // wallet → 窗内累计买入 BNB（uniform 原料，无协议剔除）
-            _earlyTop1WalletBuyBnb: 0, // 协议剔除后的最大单钱包买入（增量 max：窗内 cum 单调不减）
-            _earlyUniformBuckets: new Map(), // toFixed(2) 金额桶 → 尘埃门以上钱包数（增量维护）
-            _earlyUniformDustWallets: 0,     // 尘埃门（≥earlyUniformDustBnb）以上钱包数（uniform 分母）
+            // （earlyTrades* 8 键原料已随 T71 2026-10-26 删除——冻结窗族整族退役）
 
             // ── launch* 4 键原料（2026-10-17 Agentum 案方向 C：出生锚定捆绑簇——10s 滑窗
             //    在迟到 fire 下结构性漏创建块簇；同块臂+跨块等额臂，出窗冻结 _launchFrozen）──
             _launchWindowClosed: false, // 出窗冻结标记（冻结后首买行照推 _walletFirstBuyTs 但不入 map）
             _launchFrozen: null,        // 出窗冻结的四键输出（_launchBundleFactors 直读）
             _launchFirstBuys: new Map(), // wallet → 首买行 {ts, blk, li, bnb, trader}（窗内；
-                                         //   覆盖式 min 替换保最早=defer 乱序收敛；_EARLY_MAX_WALLETS 帽同款）
+                                         //   覆盖式 min 替换保最早=defer 乱序收敛；_LAUNCH_MAX_WALLETS 帽）
             _launchBuyBnb: 0,           // 出生窗内总买入 BNB（sharePct 分母，含非首买/null wallet 行）
 
             // 持仓（positionKey → pos）
@@ -2154,77 +2062,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         };
     }
 
-    /**
-     * earlyTrades* 出窗冻结（2026-10-17 买腿重构 C84）：首个 ts 距 firstTickAt 超过
-     * earlyTradesWindowMs 的 tick（trader 层与 wallet 层各自调用，幂等——后到调用者见
-     * _earlyWindowClosed 直接返回）触发一次冻结：按当前状态算出全键快照存 _earlyFrozen
-     * （此后读取恒返回快照），并清 wallet 层 Map/Set 防长尾内存。
-     * 冻结语义=「完整首窗终值」而非 legacy uncovered 的 0 值放行——新链路单一买条件
-     * 自带 tokenAgeSec < 90 门，出窗票条件恒 false，六族键仅供观测/复盘。
-     * defer 边缘：冻结后到达的窗内 wallet 行被丢弃（resolver 回查延迟 > 窗尾残余，
-     * 台账 C84 记录）。
-     * @param {Object} state
-     * @param {number} ts - 本 tick 时间戳（ms）
-     */
-    _earlyWindowAdvance(state, ts) {
-        if (state._earlyWindowClosed || state.firstTickAt === null) return;
-        if (ts - state.firstTickAt <= this._fp.earlyTradesWindowMs) return;
-        state._earlyFrozen = this._earlyTradesFactors(state);
-        state._earlyWindowClosed = true;
-        state._earlyWallets = new Set();
-        state._earlyWalletTrades = new Map();
-        state._earlyWalletBuyBnb = new Map();
-        state._earlyUniformBuckets = new Map();
-    }
-
-    /**
-     * earlyTrades* 键派生（2026-10-17 买腿重构 C84；迁自 EarlyParticipantCheckService，
-     * 公式与四舍五入位数逐键对齐 legacy）：
-     *   earlyTradesPerWallet        窗内行数/独立钱包数 toFixed(2)（对倒高频拦截：
-     *                               猪五花 7.6 笔/钱包 vs 散户 1~2）
-     *   earlyTradesMaxWalletTrades  单钱包最大行数（观察）
-     *   earlyTradesNetBuyRatio      (Σ买−Σ卖)/Σ买×100 toFixed(2)；无买入 → 全卖 -100/全空 0
-     *   earlyTradesTop1BuySharePct  协议双地址层剔除后最大单钱包纯买入/Σ买×100 toFixed(2)
-     *   earlyTradesTop1BuyBnb / earlyTradesBuyBnb   toFixed(4)
-     *   earlyTradesRouterPct        trader∈聚合路由买入/Σ买×100 toFixed(2)
-     *   earlyTradesUniformBuyClusterRatio / UniformBuyWallets / ClusterN
-     *                               尘埃门以上钱包 toFixed(2) 金额分簇，最大簇/钱包数×100
-     *                               toFixed(1)；钱包<3 → clusterN/ratio 0（legacy 同）
-     * 纯读取无副作用（与 backtest.tickBuildSkip 无互斥）；已冻结直读 _earlyFrozen 快照。
-     * 与 legacy 的口径 delta（delta①：无 outlier/price_usd 过滤；出生锚 firstTickAt 非
-     * launchAt）见文件头 C84 注释与台账。
-     */
-    _earlyTradesFactors(state) {
-        if (state._earlyFrozen) return state._earlyFrozen;
-        const totalBuy = state._earlyTotalBuyBnb;
-        const totalSell = state._earlyTotalSellBnb;
-        const wallets = state._earlyWallets.size;
-        let maxWalletTrades = 0;
-        for (const c of state._earlyWalletTrades.values()) if (c > maxWalletTrades) maxWalletTrades = c;
-        // uniform 最大簇：桶增量维护（窗内 cum 只增不减 → 迁桶不减簇），读取时取 max——
-        // 与 legacy 读取时全量分桶在「纯买入累计」语义下收敛同值
-        let clusterN = 0;
-        for (const c of state._earlyUniformBuckets.values()) if (c > clusterN) clusterN = c;
-        const dustWallets = state._earlyUniformDustWallets;
-        return {
-            earlyTradesPerWallet: wallets > 0
-                ? parseFloat((state._earlyTickRows / wallets).toFixed(2)) : 0,
-            earlyTradesMaxWalletTrades: maxWalletTrades,
-            earlyTradesNetBuyRatio: totalBuy > 0
-                ? parseFloat(((totalBuy - totalSell) / totalBuy * 100).toFixed(2))
-                : (totalSell > 0 ? -100 : 0),
-            earlyTradesTop1BuySharePct: totalBuy > 0
-                ? parseFloat((state._earlyTop1WalletBuyBnb / totalBuy * 100).toFixed(2)) : 0,
-            earlyTradesTop1BuyBnb: parseFloat(state._earlyTop1WalletBuyBnb.toFixed(4)),
-            earlyTradesBuyBnb: parseFloat(totalBuy.toFixed(4)),
-            earlyTradesRouterPct: totalBuy > 0
-                ? parseFloat((state._earlyRouterBuyBnb / totalBuy * 100).toFixed(2)) : 0,
-            earlyTradesUniformBuyClusterRatio: dustWallets >= 3
-                ? parseFloat((clusterN / dustWallets * 100).toFixed(1)) : 0,
-            earlyTradesUniformBuyWallets: dustWallets,
-            earlyTradesUniformBuyClusterN: dustWallets >= 3 ? clusterN : 0,
-        };
-    }
+    // _earlyWindowAdvance（出窗冻结）与 _earlyTradesFactors（10 键派生）已随 T71
+    // 2026-10-26 删除——冻结窗族整族退役（慢热票失真，消费键换 trades* 实时对；
+    // 消费口径历史见台账 C84 立案/T71 退役）
 
     /**
      * 同 block 首买簇 6 键（2026-10-16 BITCAT 案捆绑检测）：
@@ -2446,7 +2286,7 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * launch* 出生窗推进（_earlyWindowAdvance 同构，仅 wallet 层调用——原料全在 wallet 段）：
+     * launch* 出生窗推进（仅 wallet 层调用——原料全在 wallet 段）：
      * 首个 ts−firstTickAt > launchBundleWinMs 的行触发一次冻结（幂等——后到调用者见
      * _launchWindowClosed 直接返回），按当前状态算出四键快照存 _launchFrozen；触发行自身
      * 不入窗（early 同构）。★防前视红线：ts 由 tick 传入，禁 Date.now。
@@ -2953,9 +2793,6 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 交易活跃度滑窗（act* 8 键，2026-10-15；取代已删的 cycle 分桶路由）
         const activity = this._activityFactors(state, now);
 
-        // 首窗累计（earlyTrades* 键，2026-10-17 买腿重构 C84；出窗后恒返回冻结快照）
-        const early = this._earlyTradesFactors(state);
-
         // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
         const bundle = this._bundleClusterFactors(state, now);
 
@@ -3119,22 +2956,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             actSellers: activity.actSellers,
             actNewTraders: activity.actNewTraders,
 
-            // ── 首窗累计 earlyTrades* 键（2026-10-17 买腿重构 C84：迁自
-            //    EarlyParticipantCheckService DB trailing 90s 窗，FA 出生锚定累计窗——
-            //    单一买条件消除 fire/预检查两阶段因子漂移；公式/舍入逐键对齐 legacy，
-            //    口径 delta 见 _earlyTradesFactors 注释。legacy 腿零消费（preBuy 语境
-            //    仍用 EarlyParticipantCheckService DB 版，双宿主并存）；新链路腿的
-            //    condition 直接引用（如 earlyTradesRouterPct >= 30）──
-            earlyTradesPerWallet: early.earlyTradesPerWallet,
-            earlyTradesMaxWalletTrades: early.earlyTradesMaxWalletTrades,
-            earlyTradesNetBuyRatio: early.earlyTradesNetBuyRatio,
-            earlyTradesTop1BuySharePct: early.earlyTradesTop1BuySharePct,
-            earlyTradesTop1BuyBnb: early.earlyTradesTop1BuyBnb,
-            earlyTradesBuyBnb: early.earlyTradesBuyBnb,
-            earlyTradesRouterPct: early.earlyTradesRouterPct,
-            earlyTradesUniformBuyClusterRatio: early.earlyTradesUniformBuyClusterRatio,
-            earlyTradesUniformBuyWallets: early.earlyTradesUniformBuyWallets,
-            earlyTradesUniformBuyClusterN: early.earlyTradesUniformBuyClusterN,
+            // （首窗累计 earlyTrades* 10 键已随 T71 2026-10-26 删除——冻结窗族整族退役，
+            //  净买/路由消费键换 tradesNetBuyRatio/tradesRouterPct 全史实时对；legacy
+            //  preBuy DB 宿主独立存续）
 
             // ── 同 block 首买簇捆绑检测 bundle* 6 键（2026-10-16 BITCAT 案：
             //    5 bundler 同 block 首买 52.5% 窗内买盘，fire 峰顶买入后同 block 清仓

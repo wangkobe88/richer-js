@@ -116,9 +116,10 @@ class GmgnWalletStatsService {
   get stats() { return { ...this._stats }; }
 
   /**
-   * 触发窗预取（引擎 _onFactorsUpdated 买腿分支 fire-and-forget 调用）：查 top-N
-   * miss 钱包后台拉取回写表+内存。不抛错不阻塞——fire 时刻 buildFactors 消费成果。
-   * @param {Array<{wallet:string,bnb:number}>} topWallets - FA.getEarlyTopBuyers 产物
+   * 触发窗预取（引擎接线已随 T71 2026-10-26 删除——原数据口 FA.getEarlyTopBuyers 随
+   * early 冻结窗族退役；本纯函数层保留，将来重启须换全史数据源并重新接线）：
+   * 查 top-N miss 钱包后台拉取回写表+内存。不抛错不阻塞。
+   * @param {Array<{wallet:string,bnb:number}>} topWallets - 钱包买入榜（调用方供）
    * @returns {Promise<{fetched:number, skipped:number}>}
    */
   async prefetchMiss(topWallets) {

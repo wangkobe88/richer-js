@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// 库 buy-v2 v38 → v39（2026-10-26 T70 智子/币安1986 案用户三裁定：慢热票适配）
+// 库 buy-v2 v38 → v39（2026-10-26 T70 智子/币安1986 案用户三裁定 + T71 early 族删除：慢热票适配）
 //   ①净买比门换实时载体+放宽：earlyTradesNetBuyRatio >= 50 → tradesNetBuyRatio >= 40
 //    （智子 0x4451f373…7777：90s 窗净买比 49.8 差 0.2pp 拦掉毕业票；全史实时值
 //     随买点评估，放宽到 40）
@@ -10,11 +10,14 @@
 //   ③慢热或臂去时间上限：tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)
 //     → tokenAgeSec < 90 OR tradeCount >= 25（流动性不足市场 ticks 数量与 90s 取或；
 //     preFilter age 包络随之无上界=不再裁剪慢热票，设计内）
-//   其余臂全部不动。earlyTrades* 键保留观测（快照照落），仅买条件不再消费。
+//   ④删 earlyTradesPerWallet < 4 臂（T71 用户裁定 earlyTrades* 族整族删除——冻结窗
+//     对慢热票结构性失真，FA 十键已随 T71 commit 退役；条件引用已删键=loadStrategies
+//     fail-fast 拒启，必须同步剥除）
+//   其余臂全部不动。
 //   ⚠️ copy-in 快照语义：改库不影响在跑实验，新建实验引用 v39 才生效。
-//   ⚠️ 进程代码须含 tradesNetBuyRatio/tradesRouterPct（T70 commit），先 pull 再跑——
-//      否则 validateLegs 未知因子 400 拒绝（三层防线设计内）。
-// 防呆：断言 v38 + 三旧子串恰一替换 → 新子串恰一 / 替换后条件不含 early 冻结两键 /
+//   ⚠️ 进程代码须含 tradesNetBuyRatio/tradesRouterPct 且不含 earlyTrades*（T70+T71
+//      commit），先 pull 再跑——否则 validateLegs 未知因子 400 拒绝（三层防线设计内）。
+// 防呆：断言 v38 + 四旧子串恰一替换 → 新子串恰一 / 替换后条件不含任何 earlyTrades 子串 /
 //   兄弟门锚定恰一次在场 / gmgn 与 trigger 不动。
 // 用法：node scripts/bump-buy-v2-v39.cjs [--commit]   （在 182 跑）
 // ============================================================================
@@ -38,6 +41,11 @@ const REPLACES = [
     neu: '(tokenAgeSec < 90 OR tradeCount >= 25)',
     why: '慢热或臂去 600s 时间上限（ticks 数量与 90s 取或）',
   },
+  {
+    old: ' AND earlyTradesPerWallet < 4',
+    neu: '',
+    why: '删 perWallet 臂（T71 early 族整族删除，已删键不得残留引用）',
+  },
 ];
 const KEEP_SEGS = [
   'bundleClusterHoldCircPct < 35',
@@ -52,7 +60,6 @@ const KEEP_SEGS = [
   '(narrativeRating == 2 OR narrativeRating == 3)',
   'holderTrendSlope > 0',
   "platform != 'flap'",
-  'earlyTradesPerWallet < 4',
   '(buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10)',
   'drawdownFromHighest > -70',
   'crashSpeedPctPerSec > -10',
@@ -79,12 +86,13 @@ async function main() {
   for (const r of REPLACES) {
     if (cond.split(r.old).length !== 2) throw new Error(`旧子串非恰好一次: ${r.old}`);
     cond = cond.replace(r.old, r.neu);
-    if (cond.split(r.neu).length !== 2) throw new Error(`新子串非恰好一次: ${r.neu}`);
+    if (r.neu && cond.split(r.neu).length !== 2) throw new Error(`新子串非恰好一次: ${r.neu}`);
+    if (!r.neu && cond.includes(r.old)) throw new Error(`删除替换失败仍有残留: ${r.old}`);
     console.log(`替换[${r.why}] ✓`);
   }
-  // 替换后不得再消费 early 冻结两键（perWallet 等 early 键保留不动）
-  if (cond.includes('earlyTradesNetBuyRatio') || cond.includes('earlyTradesRouterPct')) {
-    throw new Error('替换后条件仍含 early 冻结两键（子串误伤？）');
+  // 替换后不得含任何 earlyTrades 子串（T71 全族删除——已删键引用=loadStrategies 拒启）
+  if (cond.includes('earlyTrades')) {
+    throw new Error('替换后条件仍含 earlyTrades 子串（T71 已删键，引用即拒启）');
   }
   // 兄弟门锚定（防误伤）
   for (const seg of KEEP_SEGS) {
@@ -100,10 +108,11 @@ async function main() {
 
   console.log('name:    ', full.name, '| version:', full.version, '→', full.version + 1);
   console.log('new condition:', cond);
-  const newDescription = (full.description || '') + ' | 2026-10-26 v39（T70 智子/币安1986 案三裁定）：'
+  const newDescription = (full.description || '') + ' | 2026-10-26 v39（T70 智子/币安1986 案三裁定+T71）：'
     + '①净买比门 earlyTradesNetBuyRatio>=50 → tradesNetBuyRatio>=40（全史实时载体+放宽；智子 90s 窗 49.8 差 0.2pp 拦掉毕业票）'
     + '②flap 路由门 earlyTradesRouterPct>=30 → tradesRouterPct>=30（实时载体；币安1986 前 90s 仅 dev 自倒冻结 0 恒拦）'
-    + '③慢热或臂去 600s 上限：tokenAgeSec<90 OR tradeCount>=25。⚠️copy-in：需新建实验引用 v39 才生效。'
+    + '③慢热或臂去 600s 上限：tokenAgeSec<90 OR tradeCount>=25'
+    + '④删 earlyTradesPerWallet<4 臂（T71 early 族整族删除）。⚠️copy-in：需新建实验引用 v39 才生效。'
     + '详档 docs/交易策略改进与Case台账.md T70';
   console.log('description:', newDescription);
   if (!COMMIT) { console.log('[dry-run]'); process.exit(0); }

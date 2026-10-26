@@ -167,19 +167,8 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 平台标签（2026-10-17 C84 起进快照）：新模型单一买条件 platform != 'flap' 分门 +
     // signals 页因子 chip 直读；旧 FA/历史信号无此键 → null 不掩盖
     platform: factorResults.platform ?? null,
-    // earlyTrades* 首窗 90s 族 10 键（2026-10-17 C84 迁 FA，双宿主——DB 版继续服务
-    // legacy 预检查腿）：FA 出生锚窗增量聚合不可离线重算（回测 replay 亦走 FA 实算），
-    // 不落库即丢（act* 先例）；0=空窗有证据零值（非 null），旧 FA 无这些键 → null 不掩盖
-    earlyTradesPerWallet: factorResults.earlyTradesPerWallet ?? null,
-    earlyTradesMaxWalletTrades: factorResults.earlyTradesMaxWalletTrades ?? null,
-    earlyTradesNetBuyRatio: factorResults.earlyTradesNetBuyRatio ?? null,
-    earlyTradesTop1BuySharePct: factorResults.earlyTradesTop1BuySharePct ?? null,
-    earlyTradesTop1BuyBnb: factorResults.earlyTradesTop1BuyBnb ?? null,
-    earlyTradesBuyBnb: factorResults.earlyTradesBuyBnb ?? null,
-    earlyTradesRouterPct: factorResults.earlyTradesRouterPct ?? null,
-    earlyTradesUniformBuyClusterRatio: factorResults.earlyTradesUniformBuyClusterRatio ?? null,
-    earlyTradesUniformBuyWallets: factorResults.earlyTradesUniformBuyWallets ?? null,
-    earlyTradesUniformBuyClusterN: factorResults.earlyTradesUniformBuyClusterN ?? null,
+    // （earlyTrades* 首窗 90s 族 10 键透传已随 T71 2026-10-26 删除——FA 冻结窗族整族
+    //  退役；历史信号 JSONB 快照中的旧值保留展示）
     // T70 全史实时净买/路由占比两键（2026-10-26 智子/币安1986 案：early 90s 冻结窗对
     // 慢热票失真，买腿换实时载体）——买点时刻值随快照透传供 signals 页复盘；
     // 旧 FA/历史信号无此键 → null 不掩盖

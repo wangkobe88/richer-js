@@ -474,11 +474,12 @@ function scenarioFactorKeys(FA, baselineKeys) {
     // 集中度门键，maxBlockBuyCircPct 的存量替代——用户裁定）；
     // 同日 maxCopyWalletHolderCircPct（最大跟单钱包持仓，FLY 案钱包标签方案，
     // 详见 _test_copy_wallet_roster_factors.cjs）；
-    // 2026-10-17 C84 买腿链路重构：earlyTrades* 10 键迁 FA（出生锚 90s tick 窗增量
-    // 聚合，双宿主并存——EarlyParticipantCheckService DB 版继续服务 legacy 预检查腿，
-    // 口径 delta 见 FA 头注）+ narrative 三键注入（narrativeRating/narrativeRounds/
+    // 2026-10-17 C84 买腿链路重构：narrative 三键注入（narrativeRating/narrativeRounds/
     // narrativeRetryDue，_narrativeFactorOverrides 静态映射，叙事发起条件/单一买条件
-    // 消费，详见 _test_fa_early_trades_factors.cjs / _test_fa_narrative_factors.cjs）
+    // 消费，详见 _test_fa_narrative_factors.cjs）。earlyTrades* 10 键原属本批迁入，
+    // 已于 2026-10-26 T71 整族删除（冻结窗对慢热票失真，门换 tradesNetBuyRatio/
+    // tradesRouterPct 全史实时载体，见文件尾 T70 段）——键从白名单移除即 getFactorKeys
+    // 探针不再收键
     const ADDED_KEYS = [
         'gmgnUserPct',
         'actBuyBnb', 'actSellBnb', 'actNetBnb', 'actTrades',
@@ -501,11 +502,6 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'maxCopyWalletHolderCircPct',
         // 2026-10-20 乌龟案：sybil 大簇合计持仓门原料（详见 _test_sybil_cluster_factor.cjs）
         'sybilClusterHolderCircPct',
-        'earlyTradesPerWallet', 'earlyTradesMaxWalletTrades', 'earlyTradesNetBuyRatio',
-        'earlyTradesTop1BuySharePct', 'earlyTradesTop1BuyBnb', 'earlyTradesBuyBnb',
-        'earlyTradesRouterPct',
-        'earlyTradesUniformBuyClusterRatio', 'earlyTradesUniformBuyWallets',
-        'earlyTradesUniformBuyClusterN',
         'narrativeRating', 'narrativeRounds', 'narrativeRetryDue',
         // 2026-10-22 C166 账号信息复检（宣告账号删号/删推卖臂因子，引擎 AccountHealthMonitor 回填）
         'issuerAccountState',
@@ -521,6 +517,10 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'tradesNetBuyRatio', 'tradesRouterPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
+    // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删
+    ok(![...keys].some(k => k.startsWith('earlyTrades')),
+        'T71 防复活：getFactorKeys 不含任何 earlyTrades* 键',
+        [...keys].filter(k => k.startsWith('earlyTrades')));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));
     ok(addedOk, `键集新增恰 = ${ADDED_KEYS.length} 白名单键（无意外键）`, added);
     const lost = [...baselineKeys].filter(k => !keys.has(k)).sort();

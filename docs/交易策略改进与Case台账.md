@@ -27,7 +27,6 @@ AND top3BundleClusterHoldCircPct < 75                    -- 最大三块买家�
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
-AND earlyTradesPerWallet < 4                              -- 均匀度
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10) -- 人气门（v28 起 OR）
 AND tradesNetBuyRatio >= 40                               -- 卖压门（T70/v39 换全史实时载体 50→40；v38 前 early 冻结版 50）
@@ -52,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T71 earlyTrades\* 族整族删除——冻结窗无消费者（2026-10-26，用户裁定；T70 换载体次日收尾）
+- 裁定：用户指令「earlyTrades 的系列因子可以删除」——T70 已把净买/路由门换 `tradesNetBuyRatio`/`tradesRouterPct` 全史实时载体，FA 出生锚 90s 冻结窗 10 键（PerWallet/MaxWalletTrades/NetBuyRatio/Top1BuySharePct/Top1BuyBnb/BuyBnb/RouterPct/UniformBuyCluster{Ratio,Wallets,N}）无剩余消费者，整族退役。T70 的「十键保留观测对照」维持一日即翻案
+- **连带作废：C89 GMGN 钱包画像层数据口**——`FA.getEarlyTopBuyers`（early 窗 top-N 买家）随族删除，引擎接线整链删（ctor service 构造/`_walletProfilePrefetchCheck` 预取挂点/`_gwpConditionLegExists` 门/stop 清态/fire 补查段），`checkAndEvaluate` 第五参恒 null=存量零影响形状。纯函数层保留：`GmgnWalletStatsService`（可被任意钱包榜调用）、`gmgn_wallet_profiles` 表、离线建库脚本、单测——将来重启 gwp 层须换**全史**数据源重新接线（Phase 1 观察模式未上线即随本批搁置）
+- **刻意保留（launch\* 复用面）**：`earlyUniformDustBnb`(0.01) 尘埃门与 5000 钱包帽——launch uniform 等额臂唯一消费者，常量改名 `_LAUNCH_MAX_WALLETS`（语义=launch 首买 map 帽）；launch\* 独立窗宽不受本批影响。legacy preBuy 宿主（`EarlyParticipantCheckService` DB trailing 90s 窗+FactorBuilder :213 起观测键+router-gate-state+BacktestEngine preBuyResult 透传）独立存续不删——旧腿语境仍可用
+- 删除面（FA）：processTick early trader 段 / applyWalletTick early wallet 段 / state `_early*` 14 字段 / `_earlyWindowAdvance`+`_earlyTradesFactors` 两函数 / `_buildFactorMap` 10 键发射 / `getEarlyTopBuyers` / PROTOCOL_ADDRS import（FA 内唯一消费者=early top1 剔除，留墓碑）；FactorBuilder 10 键透传删（历史信号 JSONB 快照中的旧值保留展示，新快照 → null 不掩盖）
+- **部署红线（fail-fast 三防线设计内）**：v39 实验 71f87b50 条件引用 `earlyTradesPerWallet`/`earlyTradesRouterPct` 已删键——拉 T71 代码后重启 loadStrategies 即拒启。切序必须同批：182 pull → **停 v39** → `bump-buy-v2-v39.cjs --commit`（第 4 替换删 ` AND earlyTradesPerWallet < 4`，防呆=替换后条件不含任何 `earlyTrades` 子串）→ `create-v40.cjs --commit` → 启 v40。跑中进程不受 pull 影响（内存已载）
+- 单测：`_test_fa_early_trades_factors` **整文件重写**（主体=trades\* 两键公式/口径/trader 层/只计买腿/全史实时性/零值/探针；F 段防复活三级反证：getFactorKeys 无 earlyTrades\* 前缀键 / buildFactorMap 十键全 undefined / `getEarlyTopBuyers`·`_earlyWindowAdvance`·`_earlyTradesFactors` 无实现 / 源码墓碑外无活标识 / state 无 `_early*` 字段）21/0；`_test_fourmeme_fa_factors` 白名单 −10 键+探针防复活 35/0；`_test_gmgn_wallet_stats_layer` C 段翻接线删除反证 19/0；`_test_narrative_trigger_condition` E5 第五参恒 null 形状 47/0；launch_bundle 17/0；legacy 侧（early_per_wallet 30/router_gate_state 66/sniper 59/top1_buy_share 33/sender_switch 46/prebuy 系）全绿——legacy 宿主零扰动
 
 ### T70 全史实时净买/路由两键换载体——智子/币安1986 双案（2026-10-26，buy-v2 v39；early 90s 冻结窗对慢热票结构性失真）
 - 案：v39 71f87b50 运行期两票叙事全放行（智子 mid/event:W/64.96 rating 投影正常、币安1986 high/event:E/88.84）却都没买，**拦点全在买腿因子**——
