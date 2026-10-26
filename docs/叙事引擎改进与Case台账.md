@@ -26,9 +26,9 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化三原语（Choice/Score/Noul）无文本生成秒级；
-  版本规则=改题必 bump（现 J1.121 / P1.14），DB prompt_version 可按版本筛历史
+  版本规则=改题必 bump（现 J1.139 / P1.14），DB prompt_version 可按版本筛历史
 - **现役拦截门链**（mapper 端，C189 时点）：蓝筹去重门 C168（首臂：name_exact 撞 b: 域蓝筹拦 low；
-  条目级 dedupExempt + 新陈述豁免 C173）→ web3UnfitBlock（unfit≥0.5）→ web3FitMassBlock C141
+  条目级 dedupExempt + 新陈述豁免 C173 + 新事件豁免 C242）→ web3UnfitBlock（unfit≥0.5）→ web3FitMassBlock C141
   （sf+fit<0.5 全域拦）→ quality_veto argmax（empty_content/baseless/ip_reuse 三桶；图证在场豁免
   C114）→ 实体类型门 C184（unacceptable_type≥0.5 全域拦，pubProxy 豁免）→ wrong_entity C139
   （全域）→ **词句门 C189 恢复拦截**（weBlock 后量级门前，全域无豁免；C187 三因素理顺判据后
@@ -53,6 +53,14 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ---
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
+
+### C242 撞名蓝筹新事件豁免——事件同一性条件题三腿（BNC 案，2026-10-26 用户裁定，J1.139）★
+
+- **案发动机**：用户问「0x5cbc7a8faab57f22dd2addd22a01b249a8f57777 这个为啥没通过叙事分析」。票=**BNC**（four.meme），语料=**BNB Standard 官方宣告今日敲纳斯达克开市钟**——蓝筹主体（BNB Standard BNC，ATH≈$1.56M 已在册）发生的新事实事件。final low 被 C168 蓝筹去重门首臂拦（name_exact "bnc" 撞 BNB Standard 条目），而 Jev 分数本身全好（impact none 0.71/fit strong_fit 0.74/关联 exact_match 0.76）。
+- **用户裁定（基本原则）**：「名字一样，但是新代币有真实新事件做背景，就不要被拦截。这也是一个基本原则。像已有的熊猫头 case 不是这个形态（熊猫头 case 是重新发布了形象化 IP）。」——**撞名≠重复，新事件自带入场资格**。
+- **两阶段实现（关键：双条件版自检翻车）**：①两条件版（efb321b，noneProb≥0.5 ∧ timing∈FRESH_TIMING_C88）部署后自检发现**会误放 C121 牛来姐妹票**（none 0.67+within_7d 双过，但它是用户 2026-10-22 裁定「拦没问题」的同事件姐妹复制品）——代码侧无可靠判据：蓝筹条目无叙事源锚、姐妹票载体推与蓝筹语料各自独立、时间线分不开 C121 与 BNC 形状。**事件同一性=叙事判断归 Jev**（「LLM 管叙事价值判断，代码管市场事实」同源）。②三腿版 J1.139（77fd95b）：新条件题 **bluechip_event_identity** 三桶 same_event/new_event/unclear——撞名才问（`bluechipDuplicate` flag，同 J1.30/J1.39 条件题模式防幻觉），撞名蓝筹已在 [KNOWLEDGE_BASE] state 段=材料现成零接线；题面判据核心=**事实内容是否新**（载体推新/措辞新/发币账号新都不算；只有蓝筹主体确实又发生了新事情才算）+BNC/牛来/熊猫头三例证。豁免三条件=`new_event≥0.5 ∧ noneProb≥0.5 ∧ FRESH_TIMING`；答案缺失/旧缓存行无此题 → fail-保守照拦（历史行零翻转）；audit `bluechipDedupNewEvent` 增 newEventProb 三判据留痕（命中才落）；与 C173 同构豁免只翻门分数照算（后续门链 unfit/契合门/量级门照常接管）。
+- **三形状分界（豁免域地图）**：形象复刻（熊猫头，重新发布形象化 IP 无新事件依托）→ same_event 拦｜同事件姐妹复制品（C121 牛来，复述同一冠军事件/仍在发酵期）→ same_event 拦｜蓝筹主体新事件（BNC 敲纳斯达克钟）→ new_event 放。
+- **对拍（182 定向重析，77fd95b 部署 worker 55681 后）**：**两案全中** ✓✓——BNC `high 74.83`（bluechipDedupNewEvent={newEventProb 0.81, noneProb 0.79, timing within_7d} 三腿全过，event:W）；**C121 牛来姐妹票 `low 照拦`**（dedupNewEvent=null，三腿设计的动机票=双条件版会误放、三腿版接住）。C242 回归单票 PASS（fresh 重析 high 74.65 非缓存）；单测九文件全绿（bluechip_dedup_gate 77 断言含 B6 真值表七臂：BNC 放/熊猫头拦/牛来形状拦/缺题拦/new_event 0.49 掷骰拦/unclear 拦/old timing 拦）+版本断言四处 bump+一处存量漏网修复（name_entity_acceptance 锁 J1.137 未随 J1.138 更新）。回归集收 C242（expect high/mid+auditIncludes bluechipDedupNewEvent/bluechipDuplicate；rating 只锁可买档不锁 band）。
 
 ### C241 平台官方号方向性表态≠trivial+W 域收窄「发布新项目」+fourdotmemezh 入 superIP（밈 案，2026-10-26 用户裁定，J1.138）★
 
