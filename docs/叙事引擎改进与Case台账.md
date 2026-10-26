@@ -54,6 +54,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C243 Jev 图片 API 直连替换 SiliconFlow captioner（2026-10-26 用户发起「效率应该远超硅基流动」，J1.140+J1.141 两版）★
+
+- **动机与实测**：Typesafe 图片 API（同端点 `POST /v1/systemone` + 顶层 `assets` base64 map + 头 `TypeSafe-Danger-Zone-Images`；三原语直接看图，**无文本生成**=caption 逐字转写结构性不可行）。182 实测：带图主调用稳态 461ms（纯文本对照 380ms，**每图增量仅 +81ms**）、1026 tokens/图≈$0.0000431；旧链 SiliconFlow captioner 独立一跳**中位 6737ms**（3/3 成功，run2 出中阿文乱码幻觉=生成式质量风险实证）——省整跳+去幻觉，成本顾虑实测解除（图 token 比主调用 state 低一个量级）。
+- **架构（方案 A 图片直接进主调用）**：`getTweetImageAsset` 归一化图本体（dl-v2：EXIF 转正/280-1568px/像素域 78400-2458624/16MiB 镜像 API 硬限制，长边缩短边放极端长宽比白底 letterbox，baseline JPEG q85，产物二次校验 fail-closed null）→ state 渲染 `【主推配图】:main_tweet_image` 引用行**恰一次**（引用每出现一次计一次图 token）→ `JevClient.ask(state, questions, { assets })`；J1.30/演绎题对照对象改图本体（caption 块降级臂兼容）；**剥图重发防线**：主调用 HTTP 4xx ∧ 图片特征词（`_isImageRejectionError` 真值表 10 案）→ loud warn+无图 state 重发恰一次，其它 4xx 照常 throw 不掩盖问题；落库前剥 `image_asset`（base64 不入 token_narrative）。方案 B（独立图片调用保缓存）被否：无文本生成+缓存防毒（图调用不含 token 名）与 C78 图名对照结构性冲突。
+- **provider 开关（用户裁定「保留一版」，对拍稳定后删）**：`vision.provider` 缺省 jev；siliconflow 臂=旧 captioner 链原样保留（对称守卫双保险：asset 臂在 siliconflow 模式恒 null / caption 臂在非 siliconflow 模式恒 false）；**已知代价：siliconflow 臂下 C78 门空转**（新题只在 jev 臂问、旧代码门已删——回滚是应急杠杆，182 对照实证鲸元卷 caption 臂 high 89.38 不拦）。
+- **对拍翻车与 J1.141 修正（expect=意图断言纪律命中）**：J1.140 四桶版 182 三票对拍：巴巴鸡 high 71.56 ✓／**鲸元卷翻 high 87.91**（expect=low 必拦）——看图判 one_char_diff_once 0.67（图内独立「鲸元券」文字段**只 1 处**）→ 旧「≥2 次」判据不触发。归因：≥2 次是旧代码门对 caption 转写文本计数（key_elements 两行描述+正文=3 次）的防噪技术判据，非 C78 用户裁定本体（「名字连宣告图都没抄对」——一位差写法在场即事实，次数不构成豁免；有意变形图内一致=exact_match 形状不受影响）。**J1.141 四桶→三桶**（repeated/once 并为 one_char_diff ≥0.5 拦）；mapper 三键 max 归一读=旧四桶行重放零翻转。重析验证：鲸元卷 **low**（one_char_diff 置信 1.00，题面锚生效）✓ 巴巴鸡 high 74.44 零扰动 ✓。
+- **DND 翻面=与图片直连无关（对照实验实证）**：0x4dbcb10e…7777 重析 low 15（expect mid/high，2026-10-21 用户裁定）——但 **siliconflow 臂（caption 文字链）同判 W 15<32**：event_category 翻 **W 0.69**（币安猫亮窗视频截图被 Jev 判 Binance 内容产品→W 吸引力 low 0.96→W 数学 15<32 拦），且 empty_content 0.31 近 tie 输给 none 0.34 图证豁免臂没进。两臂同翻=W 题集 C230-C241 连续八版在旧票上的独立漂移，非本批次回归——**W 分类边界（平台 mascot 梗视频≠web3 项目？）+DND expect 是否更新，待用户裁定**。
+- **部署**：68b0e3d（J1.140）+ae6fd5c（J1.141）已 push；182 worker 重启 PID 78620（14:08 UTC，单实例回查 ✓）；单测六文件适配全绿（vision_gate 54 含 E7 jev 臂端到端/E8 剥图重发真值表、tweet_image_analysis 72、image_name_text_gate 43 新、name_image_consistency 41、middle_parallel 22、question_consolidation 90+bluechip_dedup 77 版本锁续号）。回归集三票 expect 不动（鲸元卷 low/巴巴鸡 mid-high 维持；DND 维持 mid/high=待裁信号非过期）。
+
 ### C242 撞名蓝筹新事件豁免——事件同一性条件题三腿（BNC 案，2026-10-26 用户裁定，J1.139）★
 
 - **案发动机**：用户问「0x5cbc7a8faab57f22dd2addd22a01b249a8f57777 这个为啥没通过叙事分析」。票=**BNC**（four.meme），语料=**BNB Standard 官方宣告今日敲纳斯达克开市钟**——蓝筹主体（BNB Standard BNC，ATH≈$1.56M 已在册）发生的新事实事件。final low 被 C168 蓝筹去重门首臂拦（name_exact "bnc" 撞 BNB Standard 条目），而 Jev 分数本身全好（impact none 0.71/fit strong_fit 0.74/关联 exact_match 0.76）。
