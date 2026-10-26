@@ -105,6 +105,17 @@ async function main() {
   check('A7 C235 典型形状「日常营业内容」划界：与行业立场无关的常规营业才算；涉加密/代币化动作不算日常营业',
     trivialText.includes('指与行业立场无关的常规营业')
     && trivialText.includes('涉加密/代币化的动作不算日常营业'), null);
+  check('A8 C237 反锚①收窄：圈内机构只豁免 meme 相关动作与表态；日常运营与营销活动（节假日活动/积分任务/Play & Earn）不豁免=trivial 拦（币安南瓜营例证）+ 任务参与≠meme 玩梗空间',
+    trivialText.includes('的**meme 相关动作与表态**')
+    && trivialText.includes('日常运营与营销活动不算 ①的豁免')
+    && trivialText.includes('Play & Earn 营销')
+    && trivialText.includes('任务参与（做任务赚积分）≠ meme 玩梗空间')
+    && trivialText.includes('C237 币安南瓜营案')
+    && trivialText.includes('Binance Pumpkin Camp is Live!'), null);
+  const fitQ = q.bsc_meme_user_event_fit;
+  check('A9 C237 fit 题参与空间锚：平台运营活动任务参与（做任务赚积分）≠ meme 参与空间（BPC 南瓜营误放 second 落点）',
+    fitQ.instructions.includes('平台运营活动的「任务参与」（做任务赚积分/解锁奖励，如交易所节假日活动）≠ meme 参与空间')
+    && fitQ.instructions.includes('C237 币安南瓜营案'), null);
 
   console.log('\n── B. mapper 集成（argmax 门 + 全域拦）──');
   // BLACKBELT 现场复刻：新题集下 Jev 若把 argmax 挪到 trivial → 拦（D 类 + strong_fit 0.62 派生救不了）
