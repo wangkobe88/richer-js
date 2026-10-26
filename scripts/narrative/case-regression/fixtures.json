@@ -1462,10 +1462,35 @@
       "addr": "0x2fe5328cf2ea8cd632161564464c1e6c2e347777",
       "expect": {
         "rating": "low",
-        "reasonIncludes": ["事件意义太小"],
-        "tokenCategoryExcludes": ["event:W"]
+        "reasonIncludes": [
+          "事件意义太小"
+        ],
+        "tokenCategoryExcludes": [
+          "event:W"
+        ]
       },
       "note": "虎扑联盟股站内金融化玩法冒充Web3项目：W0.8误掷mid64.45→J1.135 B0.78(W归零)+trivial接住low；NMS换类未发生mid维持/AIFLY W维持low",
+      "addedAt": "2026-10-26"
+    },
+    {
+      "caseId": "C240",
+      "symbol": "불개미",
+      "addr": "0x502592d3c980a25ed52a11d389b0ffe1eb8c7777",
+      "expect": {
+        "rating": "high",
+        "tokenCategoryExcludes": [
+          "event:W"
+        ]
+      },
+      "addedAt": "2026-10-26"
+    },
+    {
+      "caseId": "C240",
+      "symbol": "불개미",
+      "addr": "0x988635ef13f78daf7022f6109dbf6b02f35c7777",
+      "expect": {
+        "rating": "high"
+      },
       "addedAt": "2026-10-26"
     }
   ]
