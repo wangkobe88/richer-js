@@ -145,13 +145,19 @@ export function hasReplyParent(twitterInfo) {
  * 按 Jev 关系分档；同票双中各自落审计键同归 older。锚=tokenCreatedAtSec||
  * raw_api_data.created_at（C68/C75/C102 同链）缺失 fail-open。
  */
-function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming) {
+function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming, options = {}) {
   const choice = answers?.parent_relationship?.choice;
   if (choice !== 'translation_or_repost' && choice !== 'explains_derivative') return null;
   const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
   if (!anchorSec || !twitterInfo) return null;
   let worst = null;
   for (const slot of CARRIER_SLOTS(twitterInfo)) {
+    // J1.137/C240 火蚁案同主体链豁免（skipSameSourceParent 开时）：被回复父推
+    // =主推作者自己的内容（author 同 / tweet_id 同 / 文本同头任一）→ 翻译/
+    // 转述自己的宣言=讲自己的事，该槽位不计入陈旧判定（异主体父推照常判）；
+    // 作者与 id 均缺失时文本同头兜底（火蚁实证：website_tweet.in_reply_to 的
+    // text 即主推宣言本体）；三证皆缺保守不豁免
+    if (options.skipSameSourceParent && isSameSourceParent(slot, twitterInfo)) continue;
     const parentMs = new Date(slot?.in_reply_to?.created_at || '').getTime();
     if (!Number.isFinite(parentMs)) continue;
     const lagSec = anchorSec - parentMs / 1000;
@@ -162,6 +168,25 @@ function overrideStaleRelParentTiming(answers, twitterInfo, tokenData, rawTiming
   }
   if (!worst) return null;
   return { lagSec: worst.lagSec, staleSec: PARENT_REL_STALE_SEC, choice, rawTiming: rawTiming || null };
+}
+
+/** J1.137/C240：父推与主推同主体链判定（C103 豁免臂专用）——父推=主推作者
+ * 自己的内容（翻译自己的宣言≠洗白别人的旧闻）。三层证据任一：作者 handle
+ * 相同 / 父推 tweet_id=主推 tweet_id / 归一文本同头（前 20 字符互 startsWith，
+ * 主推与嵌入父推文本一致的火蚁实证形状）。 */
+function isSameSourceParent(slot, twitterInfo) {
+  const parent = slot?.in_reply_to;
+  if (!parent) return false;
+  const mainAuthor = String(twitterInfo?.author_screen_name || twitterInfo?.screen_name || '').toLowerCase();
+  const parentAuthor = String(parent.author_screen_name || '').toLowerCase();
+  if (mainAuthor && parentAuthor && mainAuthor === parentAuthor) return true;
+  if (parent.tweet_id && parent.tweet_id === twitterInfo?.tweet_id) return true;
+  const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  const pt = norm(parent.text);
+  const mt = norm(twitterInfo?.text);
+  if (pt.length > 20 && mt.length > 20
+    && (mt.startsWith(pt.slice(0, 20)) || pt.startsWith(mt.slice(0, 20)))) return true;
+  return false;
 }
 
 /**
@@ -1054,6 +1079,9 @@ export function mapStandardAnswers(answers, context) {
     // 有 URL；instagramInfoFetched = IG 数据已抓到（真数据进 state，Jev 按真证据
     // 判分不兜底）
     instagramLinked = false, instagramInfoFetched = false,
+    // J1.137/C240 火蚁案：发行方自发宣告证据（detectIssuerSelfLaunch 产物，
+    // null=未检出零侵入）——C75/C103 时效 override 豁免臂判据
+    issuerSelfLaunch = null,
   } = context;
   const symbol = tokenData.symbol || '';
   // stage1 存完整 prompt（state+questions 全文），stage2/3 存摘要+指针
@@ -1165,7 +1193,17 @@ export function mapStandardAnswers(answers, context) {
   const effTier = regionalAnchorActive ? 'D' : (tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier));
   // C75 叙事源头陈旧 override：direct_tweet 主推超 30d → timing 归 older（在
   // timing 变量源头生效，W/标准数学 + 全下游一致消费）
-  const staleSourceTiming = overrideStaleSourceTiming(tweetClassification, twitterInfo, tokenData, answers.event_timing?.choice);
+  // J1.137/C240 火蚁案豁免：发行方自发宣告票（issuerSelfLaunch 检出=主推作者
+  // 即宣告主体，truthy 对象）讲自己的事——源头早=运动/叙事历史而非蹭旧叙事，
+  // C75 全量豁免（主推=宣告主体自己的宣言）；C103 豁免收紧为同主体链父推
+  // （被翻译/解释的父推=主推作者自己的内容——火蚁形状=website_tweet 回复的
+  // 就是主推宣言本体；翻译别人〔binancezh 活动推〕的老内容不豁免，BAI 参赛
+  // 票防线）；时效档交 event_timing 题持续运动锚软评；C102 币安借壳语料
+  // 刻意不豁免（BAI 案：issuer 检出的是参赛小号宣告、主推作者是 binancezh，
+  // 同款豁免会洗白参赛蹭票）
+  const issuerTimingExempt = !!issuerSelfLaunch;
+  const staleSourceTiming = issuerTimingExempt ? null
+    : overrideStaleSourceTiming(tweetClassification, twitterInfo, tokenData, answers.event_timing?.choice);
   const staleSourceOverride = staleSourceTiming
     ? { lagSec: staleSourceTiming.lagSec, staleSec: SOURCE_STALE_SEC, rawTiming: staleSourceTiming.rawTiming }
     : null;
@@ -1177,7 +1215,9 @@ export function mapStandardAnswers(answers, context) {
     : null;
   // C103 载体↔父推关系源头窗（Jean Phil 案）：Jev 判翻译/二手解读 + 父推 lag
   // 超 24h → timing 归 older（三条 override 同归 older，审计键各落各的）
-  const staleRelParentTiming = overrideStaleRelParentTiming(answers, twitterInfo, tokenData, answers.event_timing?.choice);
+  const staleRelParentTiming = issuerTimingExempt
+    ? overrideStaleRelParentTiming(answers, twitterInfo, tokenData, answers.event_timing?.choice, { skipSameSourceParent: true })
+    : overrideStaleRelParentTiming(answers, twitterInfo, tokenData, answers.event_timing?.choice);
   const staleRelParentOverride = staleRelParentTiming
     ? { lagSec: staleRelParentTiming.lagSec, staleSec: PARENT_REL_STALE_SEC, choice: staleRelParentTiming.choice, rawTiming: staleRelParentTiming.rawTiming }
     : null;
@@ -1248,6 +1288,10 @@ export function mapStandardAnswers(answers, context) {
         // Jev 原判档可追溯；null=未命中——非借壳语料/窗内/锚或父推时间缺失）
         staleParentOverride,
         staleRelParentOverride,
+        // J1.137/C240 审计标记：发行方自发宣告票时效 override 豁免命中
+        // （issuerSelfLaunch 检出→C75/C103 不打，时效交题面持续运动锚软评；
+        // null=未命中/未检出零侵入）
+        issuerTimingExempt: issuerTimingExempt ? true : null,
         jevImpactTier: tier,
         effectiveImpactTier: effTier,
         effectiveTiming: timing,

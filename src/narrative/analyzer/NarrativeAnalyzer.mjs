@@ -874,6 +874,9 @@ export class NarrativeAnalyzer {
 
             const mapped = mapStandardAnswers(result.answers, {
               tokenData,
+              // J1.137/C240 火蚁案：发行方自发宣告证据（detectIssuerSelfLaunch 产物）
+              // ——mapper C75/C103 时效 override 豁免臂（讲自己的事，源头早=运动史）
+              issuerSelfLaunch,
               // C168 蓝筹去重证据（analyzer 侧 detectDuplicateNarrative 产物）：
               // 命中 → mapper 门链首臂拦 low（null=无证据零侵入）
               duplicateNarrative,

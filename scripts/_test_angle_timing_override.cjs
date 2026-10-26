@@ -497,6 +497,110 @@ async function main() {
     && hasReplyParent(null) === false,
     { a: hasReplyParent(makeJeanPhilTwitter(JP_PARENT_SEC)), b: hasReplyParent({ type: 'tweet' }) });
 
+  // ═══ G. J1.137/C240 火蚁案发行方自发宣告时效豁免（issuerTimingExempt）═══
+  console.log('\n── G. C75/C103 override 自发宣告豁免（J1.137 火蚁案 issuerSelfLaunch）──');
+  // 火蚁现场数值（DB token_narrative 实证 2026-10-26）：主推=fireant_korea 9-22
+  // 加密税宣言推（lag 2934416s≈34d）+ website_tweet=小欧小O 当天转述宣告推
+  // （in_reply_to 主推）+ issuerSelfLaunch 检出（品牌同一性+宣告指纹）。
+  // J1.136 fit 锚后 fit=100% 但三重 older（rawTiming+C75+C103 父推）封顶 30 拦
+  // ——用户裁定「这俩必须要过」→ 豁免臂+timing 题持续运动锚（锚生效后 Jev 判
+  // within_7d 的形状）双落点
+  const FA_ANCHOR = 1793012634;              // eventTs（token 创建锚）
+  const FA_DECL_LAG = 2934416;               // 主推（宣言推）lag ≈34d（DB staleSourceOverride 实证）
+  const faDeclTwitter = () => ({
+    type: 'tweet', text: '🇰🇷 코인과세 유예 활동을 위한 기부금 모집 안녕하세요 불개미입니다',
+    created_at: twitterDate(FA_ANCHOR - FA_DECL_LAG),
+    author_screen_name: 'fireant_korea', author_followers_count: 16317,
+    website_tweet: {
+      text: '火蚁@fireant_korea 在韩国进行币圈抗议活动 并且让币圈的投资们集结力量 还给了EVM地址',
+      created_at: twitterDate(FA_ANCHOR - 300),
+      author_screen_name: 'xiaoo', author_followers_count: 747,
+      // 火蚁实证形状：in_reply_to=主推宣言的嵌入副本（文本同头 → isSameSourceParent
+      // 文本臂命中=同主体链，C103 豁免生效）
+      in_reply_to: { created_at: twitterDate(FA_ANCHOR - FA_DECL_LAG), text: '🇰🇷 코인과세 유예 활동을 위한 기부금 모집 안녕하세요 불개미입니다. 코인과세유예를 위해 행동에 나서겠습니다' },
+    },
+  });
+  const faToken = { symbol: '불개미', name: '불개미', tokenCreatedAtSec: FA_ANCHOR, raw_api_data: { name: '불개미' } };
+  const makeFireantAnswers = (timingChoice = 'within_7d') => JSON.parse(JSON.stringify({
+    event_category: { choice: 'C', probabilities: { C: 0.73, W: 0.18, E: 0.09 } },
+    event_magnitude: { score: 3.5, probabilities: { '3': 0.5, '4': 0.3 } },
+    event_timing: { choice: timingChoice, probabilities: { [timingChoice]: 0.9 } },
+    dimension2: { score: 4.1, probabilities: { '4': 0.5, '5': 0.3 } },
+    event_quality_veto: { choice: 'none', probabilities: { none: 0.55, event_trivial: 0.4 } },
+    bsc_meme_user_event_fit: { choice: 'strong_fit', probabilities: { strong_fit: 0.96, fit: 0.04 } },
+    bsc_meme_user_name_entity_acceptance: { choice: 'accepted', probabilities: { accepted: 0.8 } },
+    parent_relationship: { choice: 'translation_or_repost', probabilities: { translation_or_repost: 0.6 } },
+    name_event_relevance: { choice: 'exact_match', probabilities: { exact_match: 0.8 } },
+    relevance_level: { score: 3.8, probabilities: { '4': 0.6 } },
+    block_misspelling: { noul: 0.05 },
+    quality_spelling: { score: 2.8 },
+    quality_reasonability: { score: 1.7 },
+  }));
+
+  // G1 火蚁现场（豁免臂生效）：issuerSelfLaunch 传入 → C75/C103 双不打 +
+  // effectiveTiming=Jev 原判 + 审计 issuerTimingExempt=true
+  const g1 = mapStandardAnswers(makeFireantAnswers(), { ...makeContext(faToken, faDeclTwitter(), 'direct_tweet'), issuerSelfLaunch: { screenName: 'fireant_korea', symbol: '불개미' } });
+  const g1j = g1.stage1DataToSave.parsed_output.jev;
+  check('G1a 自发宣告豁免：C75 不打（34d 宣言推=运动史非蹭）', g1j.staleSourceOverride === null, g1j.staleSourceOverride);
+  check('G1b C103 不打（translation 臂同豁免）', g1j.staleRelParentOverride === null, g1j.staleRelParentOverride);
+  check('G1c effectiveTiming=within_7d（Jev 原判档保留，封顶解除）', g1j.effectiveTiming === 'within_7d', g1j.effectiveTiming);
+  check('G1d 审计 issuerTimingExempt=true（命中才落）', g1j.issuerTimingExempt === true, g1j.issuerTimingExempt);
+
+  // G2 零侵入反证：issuerSelfLaunch 不传（默认 null）→ 双 override 照打（J1.137
+  // 前行为 bit 一致——豁免臂只对自发宣告票开）
+  const g2 = mapStandardAnswers(makeFireantAnswers(), makeContext(faToken, faDeclTwitter(), 'direct_tweet'));
+  const g2j = g2.stage1DataToSave.parsed_output.jev;
+  check('G2 未检出：C75 照打（lagSec=2934416）+ C103 照打 + effectiveTiming=older + 审计 null',
+    g2j.staleSourceOverride?.lagSec === FA_DECL_LAG
+    && g2j.staleRelParentOverride?.lagSec === FA_DECL_LAG
+    && g2j.effectiveTiming === 'older'
+    && g2j.issuerTimingExempt === null,
+    { c75: g2j.staleSourceOverride, c103: g2j.staleRelParentOverride, t: g2j.effectiveTiming });
+
+  // G3 豁免不保档：Jev 判 older（运动已停/无新进展证据）→ 照拦（豁免只放
+  // override 压制，不保 Jev 判档——防线在题面「主体新进展证据」要求）
+  const g3 = mapStandardAnswers(makeFireantAnswers('older'), { ...makeContext(faToken, faDeclTwitter(), 'direct_tweet'), issuerSelfLaunch: { screenName: 'fireant_korea', symbol: '불개미' } });
+  check('G3 Jev 判 older：豁免票照拦（effectiveTiming=older，不翻案）',
+    g3.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older', g3.stage1DataToSave.parsed_output.jev.effectiveTiming);
+
+  // G4 C102 刻意不豁免 + C103 异主体父推不豁免（BAI 防洗白）：binanceCorpus 票
+  // issuerSelfLaunch 传入 → staleParentOverride 照打（C102 无 gate）；C103 的
+  // 豁免收紧为同主体链父推——BAI 父推作者 binancezh ≠ 主推作者（参赛小号），
+  // 「翻译别人老内容」不豁免，staleRelParentOverride 照打
+  const g4 = mapStandardAnswers({ ...makeBaiAnswers(), parent_relationship: { choice: 'translation_or_repost', probabilities: { translation_or_repost: 0.6 } } },
+    { ...makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'), issuerSelfLaunch: { screenName: 'zhuifei008', symbol: 'BAI' } });
+  check('G4 C102 无豁免 + C103 异主体父推照拦（BAI 形状）',
+    g4.stage1DataToSave.parsed_output.jev.staleParentOverride !== null
+    && g4.stage1DataToSave.parsed_output.jev.staleRelParentOverride !== null,
+    { c102: g4.stage1DataToSave.parsed_output.jev.staleParentOverride, c103: g4.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
+
+  // G5 源码口径：豁免 gate 两处在位 + C102 调用无 gate + analyzer 传参 +
+  // timing 题持续运动锚 + impact 反锚⑥（J1.137 三落点锁）
+  const { readFileSync: g5Read } = await import('fs');
+  const { join: g5Join } = await import('path');
+  const g5Mapper = g5Read(g5Join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
+  const g5Questions = g5Read(g5Join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
+  const g5Analyzer = g5Read(g5Join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
+  check('G5a mapper 豁免 gate：C75 全量 gate + C103 同主体链收紧（skipSameSourceParent/isSameSourceParent）+ C102（overrideStaleParentTiming）无 gate',
+    g5Mapper.includes('const issuerTimingExempt = !!issuerSelfLaunch;')
+    && g5Mapper.includes('const staleSourceTiming = issuerTimingExempt ? null')
+    && g5Mapper.includes("{ skipSameSourceParent: true }")
+    && g5Mapper.includes('function isSameSourceParent(slot, twitterInfo)')
+    && !/staleParentTiming = issuerTimingExempt/.test(g5Mapper)
+    && g5Mapper.includes('issuerTimingExempt: issuerTimingExempt ? true : null'),
+    null);
+  check('G5b analyzer 接线：mapStandardAnswers context 传 issuerSelfLaunch',
+    g5Analyzer.includes('issuerSelfLaunch,'), null);
+  check('G5c timing 题持续运动锚在场（主体新进展证据+小号转述不算+火蚁例证）',
+    g5Questions.includes('持续运动/系列行动形状（J1.137/C240，火蚁案）')
+    && g5Questions.includes('宣言推日期=运动起点不是事件终点')
+    && g5Questions.includes('仅小号转述/重复提及旧宣言而主体无新行动 → 运动已停照常按日期判')
+    && g5Questions.includes('韩国币圈散户「火蚁 fireant」运动'), null);
+  check('G5d impact 题反锚⑥在场（Web3 用户切身相关集体行动意义不小，与反锚②分工）',
+    g5Questions.includes('⑥Web3/crypto 用户群体切身相关的集体行动与权益事件')
+    && g5Questions.includes('意义不小不选本项')
+    && g5Questions.includes('本臂管群体切身利益、②管玩梗空间'), null);
+
   // ═══ C. 源码口径（防线锁定）═══
   console.log('\n── C. 源码口径 ──');
   const { readFileSync } = await import('fs');
@@ -524,7 +628,7 @@ async function main() {
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
   check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.121=C190 混混猫案实体题补专名即实体锚（用户裁定「not_entity 是『不是实体』，自创社区 mascot 名也是实体名字，不应该因为这个理由拦截；看的是性质，所以退役了 new_entity 门」：名字被用作特定主体称谓/专名（社区名/mascot 名/角色名/外号，「XX社区」式搭配在场）即映射该主体按类型轴评，无论自创/知名/语料是否陈述命名行为；not_entity 只留给泛称词无专名搭配+无 C174 命名故事陈述；mapper 零改动）；J1.120=C189 全量回归六裁定批：C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」——事件陈述句名=口号类落词句题按三因素评+事件承载臂重要度门槛（民族级/全球级才够，平台级/媒体级露出不够）+ip_reuse 原生热点锚（C129 彪弟）+mapper 恢复词句门拦截；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题 image_depicts_name 同域非演绎反锚（ATM 案）；J1.114=C185 实体题题面精炼去重；J1.113=C184 实体题类型轴重构：unknown 断代 unacceptable_type（类型轴不评认知度）+new_entity 删桶+实体类型门恢复拦截；J1.112=C183 web3_user_* 全族断代 bsc_meme_user_*+评估主体收窄；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact + empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+题集残留噪声清理；J1.108=C178 宣告采信豁免措辞强化（发币+宣告并置即币名承载）+关联题删 semantic 残留句；J1.107=W 吸引力题 Choice 弱中强三桶（用户裁定）；J1.106=C175b 双锚边界收口（fit 空口号 vs 成型叙事+实体陈述句反锚，TREE+币安上电视案）；J1.105=C175 实体题性质定义锚+fit 题事件本体分量锚（京小安+OK❌ 案）；J1.104=C174 实体题 new_entity/not_entity 补「被命名+被讲故事的故事主体」锚（TREE/BNB Tree 案）；J1.103=C172 品牌劫持轴整轴退役（删 brand_mismatch 桶+预检+punExempt，实体题回五桶）；J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79=事件分改 fit；J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
-    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.136'")
+    questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.137'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')
