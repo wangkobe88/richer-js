@@ -73,6 +73,12 @@ const CACHE_TTL_CONFIG = {
   // 命中窗 ≈91 天，把「GMGN 无社媒」结论冻结三个月——CRO 现场 link 聚合晚到
   // 永远吃不到。成功行含全量 raw payload（审计），过期只停命中、行仍在表可查
   gmgn_token_info:    { maxAge: 5, ttl: 5 },
+
+  // AVE token detail 社媒补源（C238 股城案 2026-10-26）：AVE=付费 key 省着烧，
+  // 成功 60s（一轮 retry 补轮内不重打；聚合晚到下次分析自然刷新）；null/失败
+  // 进 1h 失败冷却（CachedFetcher 默认）——晚到聚合由 GMGN 5s 层与 C77 搜索
+  // 兜底接住，不靠 AVE 反复重试
+  ave_token_detail:   { maxAge: 60, ttl: 90 * DAY },
 };
 
 const DEFAULT_TTL = { maxAge: 30 * DAY, ttl: 365 * DAY };

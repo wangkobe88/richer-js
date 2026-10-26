@@ -185,9 +185,11 @@ export class NarrativeAnalyzer {
    * @param {Object} options - 选项
    * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
-   * @param {boolean} options.enrichSocialByGmgn - GMGN 社媒补源（BRF 案，仅叙事
-   *   直调传 true）：元数据无社交链接时调 GMGN 补语料入口；且 no_public_info
-   *   拦截的缓存行视为失真，穿透重析（见缓存命中分支）
+   * @param {boolean} options.enrichSocialByGmgn - GMGN 社媒补源（BRF 案；C238
+   *   2026-10-26 用户裁定「我从来没有要求关闭过，我的期望是打开」默认 true 全
+   *   链路放开——原仅叙事直调传 true 的特权废止；配额由源优先级链必要门控制：
+   *   前置源〔meta/IPFS/AVE〕已出 twitter 不调）：且 no_public_info 拦截的缓存行
+   *   视为失真，穿透重析（见缓存命中分支）
    * @param {Map|null} options.rowCache - 预载行缓存（回测叙事预载 2026-10-12）：
    *   小写地址 → token_narrative 行快照（仅含「命中路径无网络调用」的行——
    *   is_valid && 非 no_public_info 穿透域 && gmgn_info 已写，见 preloadCache）。
@@ -201,7 +203,7 @@ export class NarrativeAnalyzer {
    *   层 0 失效三键后重拉。推文型/website 型语料静态无重取价值，传了也零失效
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false, invalidateAccountCorpus = false } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = true, rowCache = null, skipIntermediateSave = false, invalidateAccountCorpus = false } = options;
 
     // 分段计时（N1 探针，2026-10-13 叙事提速案）：options._timing 为调用方持有的
     // 收集数组 → 各段 push { seg, ms }；缺省旁路模式（不计时，零行为变化）

@@ -10,7 +10,7 @@
  *      success 过期真析 / 无行负缓存登记 / 预载层短路零 DB
  *   C. 源码口径断言（锁防线）：四桶 allSettled 调度形状 / justoneapi 桶内
  *      await 链 / 13 段函数定义 / isFailed 已删 getRow 存在 / IPFS Promise.any /
- *      t.co 5s 超时 / IPFS∥GMGN 前缀并行 / skipIntermediateSave 三处接线
+ *      t.co 5s 超时 / IPFS∥AVE 前缀并行（C238）/ skipIntermediateSave 三处接线
  *
  * 用法：node scripts/_test_narrative_parallel_fetch.cjs
  */
@@ -217,9 +217,10 @@ async function main() {
       'BinanceSquare', 'Weixin', 'Amazon', 'Xiaohongshu', 'Instagram', 'Website'];
     assert(segs.every(n => new RegExp(`^  const run${n} = async \\(\\) => \\{`, 'm').test(dfs)),
       'C3 13 段空参函数定义齐全');
-    // C4 IPFS∥GMGN 前缀并行（#2）
-    assert(/const \[metadata, gmgnSocials\] = await Promise\.all\(\[\n\s*metaUrl \? timing\.wrap\('ipfs'/.test(dfs)
-      && dfs.includes("timing.wrap('gmgn'"), 'C4 IPFS∥GMGN 前缀同发');
+    // C4 IPFS∥AVE 前缀并行（#2；C238 起并行对=IPFS∥AVE——GMGN 拆出串行在 AVE
+    // 之后〔源优先级链第四层〕，旧 IPFS∥GMGN 形状由 gmgn/ave 两测试 E3/C4 锁）
+    assert(/const \[metadata, aveSocials\] = await Promise\.all\(\[\n\s*metaUrl \? timing\.wrap\('ipfs'/.test(dfs)
+      && dfs.includes("timing.wrap('ave'"), 'C4 IPFS∥AVE 前缀同发（C238）');
 
     const erc = src('src/narrative/db/ExternalResourceCache.mjs');
     assert(!/static async isFailed/.test(erc), 'C5 isFailed 已删（两查合一后零引用死码清理）');

@@ -6,6 +6,7 @@
 import { extractAllUrls, classifyAllUrls } from '../../utils/url-classifier.mjs';
 import { fetchIpfsMetadata, normalizeIpfsRef } from '../../utils/ipfs-metadata-fetcher.mjs';
 import { fetchGmgnSocialLinks, hasTwitterLink } from '../../utils/gmgn-social-fetcher.mjs';
+import { fetchAveSocialLinks } from '../../utils/ave-social-fetcher.mjs';
 import { isSuperIpTweetUrl } from '../prompts/super-ip/super-ip-registry.mjs';
 import { TwitterFetcher } from '../../utils/twitter-fetcher.mjs';
 import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
@@ -148,28 +149,35 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // IPFS 解包免费，先于 GMGN 付费补源。C112：meta 任意 http(s) URL 都尝试解包
   // （meta 字段语义即 metadata 指针，内容判定非形状判定），非 JSON 回落原路径
   //
-  // N2 前缀并行（2026-10-13 叙事提速案）：IPFS 与 GMGN 互不依赖同发（原串行
-  // 8s+10s → max 并行）；两者的 links/metadata 都要先于 URL 分类，但相互无依赖。
-  // **应用顺序刻意保持 IPFS → GMGN**（串行版同序）：GMGN 段的 hasTwitterUrl
-  // 判定基于含 IPFS 新增 URL 的 allUrls，URL 并入顺序影响 classifiedUrls 桶内
-  // 顺序与 selectTwitterUrl 选择——顺序变即内容变，此处 bit 一致
+  // N2 前缀并行（2026-10-13 叙事提速案）：IPFS 与 AVE 互不依赖同发；两者的
+  // links/metadata 都要先于 URL 分类，但相互无依赖。
+  // **应用顺序刻意保持 IPFS → AVE**：AVE 并入判定基于含 IPFS 新增 URL 的
+  // allUrls（IPFS 解包补出 twitter 的罕见票 AVE 白调一次接受——调用量省不
+  // 过这点并行性），URL 并入顺序影响 classifiedUrls 桶内顺序与 selectTwitterUrl
+  // 选择——顺序变即内容变，此处 bit 一致
   //
+  // C238 源优先级链（2026-10-26 用户裁定「GMGN 一定是所有的数据都失效后才走
+  // 这一路，因为 GMGN API 无付费版本，容易因为流量封锁使用」）：
+  //   meta/appendix → IPFS 解包 → AVE token detail → GMGN → C77 搜索（最后手段）
+  // AVE 门判据=pre-IPFS 的 allUrls（与旧 GMGN 并行门同基准）；GMGN 自 C238 起
+  // **串行在 AVE 之后**（原 IPFS∥GMGN 并行结构退役），判据升级为含 IPFS+AVE
+  // 的 allUrls——串行化后判据变严只省 GMGN 配额，重叠白调形状消失
   // C182 必要门（2026-10-23 用户裁定「ave api 信息够了就不需要补充」——GMGN IP
   // 级 RATE_LIMIT_BANNED 事故，v34 15h 实测 694 次成功调用仅 37 次真正并入社媒，
-  // 95% 是 live 买门不消费的风险字段白烧）：AVE 元数据 URL 集已含 twitter 链接
-  // → 整段跳过 GMGN 不发包。判据=pre-IPFS 的 allUrls（IPFS∥GMGN 并行结构不动，
-  // pre-IPFS 无 twitter 而 IPFS 解包补出的重叠接受——串行化省这点配额不值）。
-  // C51 例外臂（已有 twitter 仍并入 superIP 推文）主要触发源随门退役；例外分支
-  // 代码保留，残余形状=pre-IPFS 无 twitter 而 IPFS 补出的罕见票仍可命中
-  const gmgnNeeded = options.enrichSocialByGmgn && !hasTwitterLink(allUrls);
+  // 95% 是 live 买门不消费的风险字段白烧）：URL 集已含 twitter 链接 → 整段跳过
+  // GMGN 不发包。C51 例外臂（已有 twitter 仍并入 superIP 推文）主要触发源随门
+  // 退役；例外分支代码保留，残余形状=前置源全无 twitter 而 GMGN 补出的罕见票
+  // 仍可命中
+  const aveNeeded = !hasTwitterLink(allUrls);
   const metaUrl = normalizeIpfsRef(typeof rawData.meta === 'string' ? rawData.meta : null);
-  const [metadata, gmgnSocials] = await Promise.all([
+  const [metadata, aveSocials] = await Promise.all([
     metaUrl ? timing.wrap('ipfs', () => fetchIpfsMetadata(metaUrl)) : Promise.resolve(null),
-    gmgnNeeded
-      ? timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address)
+    aveNeeded
+      ? timing.wrap('ave', () => fetchAveSocialLinks('bsc', tokenData.address)
         .catch(e => {
-          // 串行版同款 warn：失败按无补源、无风险因子继续，行为与现状一致
-          console.warn('[NarrativeAnalyzer] GMGN 补源/风险获取失败（按无补源继续）:', e.message);
+          // AVE 失败按无补源继续（同 GMGN 形状）：AVE 是付费 key，无 IP 封禁
+          // 续封循环形状，不做失败封顶
+          console.warn('[NarrativeAnalyzer] AVE 补源获取失败（按无补源继续）:', e.message);
           return null;
         }))
       : Promise.resolve(null),
@@ -189,8 +197,36 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
     console.warn('[NarrativeAnalyzer] IPFS metadata 解包失败，meta 链接按原流程作为 website 处理');
   }
 
+  // 3.2 AVE token detail appendix（C238 社媒补源第三层，2026-10-26 股城案）：
+  // flap 票链上 meta 无链接而 AVE 有独立社媒聚合（股城实测 appendix 带
+  // STOCK__OPOLIS 官方号）；four.meme 票 AVE=元数据镜像（BRF 三例对照）=白调
+  // 一次无害。IPFS 已补出 twitter → AVE 结果弃用（白调一次接受，见上方注释）
+  if (aveSocials && !hasTwitterLink(allUrls)) {
+    const addUrls = [aveSocials.twitterUrl, aveSocials.websiteUrl]
+      .filter(u => u && !allUrls.includes(u));
+    if (addUrls.length > 0) {
+      console.log(`[NarrativeAnalyzer] AVE 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
+      allUrls.push(...addUrls);
+    }
+  }
+
+  // 3.3 GMGN 串行在 AVE 之后（C238 源优先级链第四层——所有前置源都失效才走：
+  // 免费版 IP 封禁风险配额最省着烧；判据=此刻含 IPFS+AVE 的 allUrls，串行化后
+  // 比旧 pre-IPFS 基准更严=重叠白调消失）
+  const gmgnNeeded = options.enrichSocialByGmgn && !hasTwitterLink(allUrls);
+  const gmgnSocials = gmgnNeeded
+    ? await timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address)
+      .catch(e => {
+        // 失败按无补源、无风险因子继续，行为与现状一致
+        console.warn('[NarrativeAnalyzer] GMGN 补源/风险获取失败（按无补源继续）:', e.message);
+        return null;
+      }))
+    : null;
+
   // 3.5 GMGN token info（BRF 社媒补源 + x-0 风险因子，2026-09-27）：
-  // enrichSocialByGmgn（仅叙事直调传 true，配额控制见 gmgn-social-fetcher）时
+  // enrichSocialByGmgn（C238 起默认 true 全链路放开——原「仅叙事直调传 true」
+  // 特权废止，2026-10-26 用户裁定「我从来没有要求关闭过，我的期望是打开」；配额
+  // 由源优先级链必要门控制）时
   // **必要才调用**（C182 必要门，2026-10-23 裁定——原「总是调用」为同一次
   // getTokenInfo 带出 dev 风险字段，但该快照 live 买门不消费（GmgnRiskCheckService
   // 刻意隔离自抓），v34 15h 实测 95% 调用白烧并触发 IP 级封禁）；社媒并入仍以

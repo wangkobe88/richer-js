@@ -223,15 +223,23 @@ async function main() {
       assert(/gmgnFailCounts\.get\(strikeKey\).*>=\s*GMGN_MAX_FAILS/.test(src.replace(/\n/g, ' ')), 'D4b 入口封顶检查在位');
     }
 
-    console.log('══ E. 链路接线源码口径（C182）══');
+    console.log('══ E. 链路接线源码口径（C182；C238 GMGN 串行化随改）══');
     {
       const dfs = fs.readFileSync(path.join(ROOT, 'src/narrative/analyzer/services/data-fetch-service.mjs'), 'utf8');
       assert(/const gmgnNeeded = options\.enrichSocialByGmgn && !hasTwitterLink\(allUrls\)/.test(dfs),
-        'E1 data-fetch 必要门在位（enrichSocialByGmgn ∧ AVE URL 集无 twitter 才调）');
-      assert(/gmgnNeeded\s*\?\s*timing\.wrap\('gmgn'/.test(dfs), 'E1b GMGN 分支消费 gmgnNeeded（门实际接线）');
+        'E1 data-fetch 必要门在位（enrichSocialByGmgn ∧ 前置源 URL 集无 twitter 才调）');
+      assert(/gmgnNeeded\s*\?\s*await timing\.wrap\('gmgn'/.test(dfs), 'E1b GMGN 分支消费 gmgnNeeded（门实际接线；C238 起串行 await 形状）');
       assert(!/options\.enrichSocialByGmgn\s*\?\s*timing\.wrap\('gmgn'/.test(dfs), 'E1c 「总是调用」旧形状不得回潮');
+      // C238（2026-10-26 用户裁定「所有的数据都失效后才走这一路」）：GMGN 从
+      // IPFS∥GMGN 并行对中拆出，串行在 AVE 补源之后——判据基准从 pre-IPFS
+      // 升级为含 IPFS+AVE 的 allUrls（更严=只省配额），并行旧形状不得回潮
+      const aveMergeIdx = dfs.indexOf('AVE 社媒补源新增');
+      const gmgnNeededIdx = dfs.indexOf('const gmgnNeeded = options.enrichSocialByGmgn');
+      assert(aveMergeIdx > 0 && gmgnNeededIdx > aveMergeIdx, 'E3 C238 GMGN 串行在 AVE 并入之后（源优先级链第四层）', { aveMergeIdx, gmgnNeededIdx });
+      assert(!/const \[metadata, gmgnSocials\] = await Promise\.all/.test(dfs), 'E3b IPFS∥GMGN 并行旧形状不得回潮');
       const na = fs.readFileSync(path.join(ROOT, 'src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
       assert(!/enrichSocialByGmgn && !cached\.gmgn_info/.test(na), 'E2 NarrativeAnalyzer 缓存命中补调块退役（x-0 补调不回潮）');
+      assert(/enrichSocialByGmgn = true, rowCache/.test(na), 'E4 enrichSocialByGmgn 默认 true（C238 全链路放开——原直调特权废止）');
     }
   } finally {
     CachedFetcher.fetchWithCache = origFwc;

@@ -54,13 +54,23 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C238 社媒补源源优先级链——AVE token detail 新接入 + GMGN 全链路放开（股城语料缺口案，2026-10-26 用户裁定）★
+
+- **案发动机**：C237 部署（J1.134）后股城 `0xaacbc156435dbab7815a61bccba1c827e52a7777` 二次翻 low（W 臂 low **0.93 conf 0.89** 两轮稳定，质变非掷骰）——用户追问「股城代币没有语料吗？应该有的呀」。取证链：股城=flap 票（meta JSON 仅 name/symbol/一句 description/头像图，**无任何链接字段**）→ URL 提取全空 → C77 搜索兜底 15 条玩家推成唯一推特语料（官方号 @STOCK__OPOLIS 被玩家@在场但链路无消费点）→ C236 资格判据「Dev 有一定发帖数粉丝量+介绍中说明身份」要看的证据（官方号页面）在语料里**结构性不存在** → 高置信判「完全无名」low。
+- **双源实测（2026-10-26 curl）**：①GMGN `getTokenInfo` link.twitter_username=`"MEJ50749/status/2112469093156630545"`（用户指出该推文现挂 GMGN 代币页）——**宣告推文直链**形状（GMGN 裸 handle 拼接规则天然兼容）；②AVE `/v2/tokens/<addr>-bsc` appendix JSON twitter=`https://x.com/STOCK__OPOLIS`——**官方账号页**。**BRF 案「AVE appendix=元数据镜像」结论修正：只对 four.meme 票成立，flap 票 AVE 是独立聚合源**（meta 无链接而 AVE 聚合出官方号）。AVE/GMGN 互补分工：AVE=官方号（粉丝量/发帖数=W 资格轴证据）、GMGN link=宣告推直链。两源当时都未被消费：AVE token detail 不在叙事链路（AVE 只做同名/holder 工具）；GMGN 补源 `enrichSocialByGmgn` 只在 fire 直调+PrecheckFailRetry 传 true（BRF 案配额裁定），重析/worker 队列整链不执行。
+- **用户裁定（三条）**：①「**ave api 确认使用**」；②GMGN 补源「我从来没有要求关闭过，我的期望是打开，不过**一定是所有的数据都失效后才走这一路**，因为 GMGN API 无付费版本，容易因为流量封锁使用」；③「搜索兜底可以保留，作为最后的手段」。
+- **实施（纯抓取层，Jev 题集零改动无版本 bump）**：①新 `src/narrative/utils/ave-social-fetcher.mjs`——appendix JSON 的 twitter/website **完整 URL 直传不拼接**（与 GMGN 裸 handle 不同）、空串/非 http 不当有效值、成功缓存 60s（一轮 retry 补轮内不重打）/null 进 1h 失败冷却（晚到聚合由 GMGN 5s 层与 C77 接住）、appendix 原文随 raw 落库；②data-fetch 源优先级链 **meta/appendix → IPFS 解包 → AVE → GMGN → C77 搜索（末位）**——AVE 与 IPFS 同一 Promise.all 并行（AVE 门=pre-IPFS allUrls，IPFS 补出 twitter 的罕见票白调一次接受）、**GMGN 串行在 AVE 之后**（原 IPFS∥GMGN 并行结构退役；判据升级为含 IPFS+AVE 的 allUrls=重叠白调消失只省配额）；③`enrichSocialByGmgn` **默认 true 全链路放开**（原 fire 直调特权废止；no_public_info 缓存行穿透重析随之全链路生效——无语料票每轮重析吃补源直到语料到手）。逐层必要门 `!hasTwitterLink`（判据单一真相由 gmgn-social-fetcher 导出）。
+- **测试**：新 `_test_ave_social_fetcher.cjs` 28 断言（A 股城现场 appendix 完整 URL 不拼接/坏 JSON/空串/B TTL 60s+cache key/C 源优先级链串行接线五断言+enrichSocialByGmgn 默认 true+C77 保留/D 双源分工反证——AVE 层无 handle 消费无 x.com 拼接、股城 appendix 不含 MEJ50749 宣告推）；gmgn_social_fetcher E 段随改 41 断言（E3 GMGN 串行在 AVE 后+E3b IPFS∥GMGN 旧形状防回潮+E4 默认 true）；gmgn_superip_tweet_enrich B6/narrative_parallel_fetch C4 随新结构（17/31 全绿）；precheck_fail_retry/search_fallback/corpus_gate/ipfs_race/corpus_ready_prefetch 等 16 个相邻单测全绿。
+- **对拍（182 定向重析，部署后）**：股城 → 预期 AVE 拿到 STOCK__OPOLIS 官方号 → twitterInfo 有官方语料+粉丝量 → W 资格轴有据（C133 expect [mid,high] 复验）；AIFLY/NMS/BLACKBELT 复验零扰动。
+- **关联**：C236（资格判据降档——本案=其证据供给侧补全：判据要看发帖/粉丝/身份自证，得先把官方号抓进语料）/C182（GMGN 必要门+失败 2 次封顶维持不变——门语义正是「失效才走」）/BRF 案（AVE 镜像结论修正：flap 票独立源）/C77（搜索兜底降为末位保留）。
+
 ### C237 币安日常运营豁免收窄——trivial 反锚①只豁免 meme 相关动作/表态，运营营销活动拦（BPC 币安南瓜营案，2026-10-26 用户裁定，J1.134）★
 
 - **案发动机**：BPC `0x478a2cc43f67b860f0f9f3d9a4374b499a947777`（Binance Pumpkin Camp）**high 94.63 误放**——主推=币安官号「Binance Pumpkin Camp is Live! Play & Earn Points to Unlock Your Rewards」（万圣节积分营销活动）。用户裁定：「很纯粹的日常运营，无玩梗空间」。
 - **误判机制（取证）**：①impact none 0.70/trivial 仅 0.16——C231 trivial 反锚①「圈内符号级人物/机构（CZ、何一、币安等）的**公开动作与表态**=可玩事件素材」被 Jev 泛化成「币安官号发什么都算事件」，主体是币安 → 不敢选 trivial；②fit **strong_fit 0.85**——「Play & Earn Points」被读成「可参与空间」（反锚②语义），平台营销的任务参与被当成 meme 参与空间；③event_category D 0.59/W 0.41 近 tie 归 D（圈内）；三层连环放行 → 事件分 97 → high。
 - **实施（J1.134，纯题面 mapper 零改动）**：①trivial 反锚①收窄——只豁免「**meme 相关动作与表态**（发言/立场/重大官宣/上 meme 币等对 meme 市场本身是可玩素材的动作）」；**日常运营与营销活动不算 ①的豁免**（节假日主题活动/积分任务/Play & Earn 营销/常规产品运营推）——任务参与（做任务赚积分）≠ meme 玩梗空间，主体再核心（币安官号直发）也是日常营业，选本项拦（BPC 例证锚）；②fit 题判据核心两问后补锚——「平台运营活动的『任务参与』（做任务赚积分/解锁奖励，如交易所节假日活动）≠ meme 参与空间；参与空间指 meme 意义上的可玩、可二创、可传播」（BPC 第二落点）。
 - **测试**：event_trivial_gate 23 断言全绿（新增 A8 反锚①收窄全锚句+币安南瓜营例证 / A9 fit 题参与空间锚）；三处严格版本断言 bump J1.134。
-- **对拍（J1.134 部署后）**：BPC → 期望 low「事件意义太小」（trivial 接住：币安日常运营）；BLACKBELT 维持拦（正锚不动）；NMS 维持 mid（反锚⑤不动）；AIFLY/股城 W 资格轴零改动不翻。
+- **对拍（J1.134 部署后，已收）**：BPC → **low「事件意义太小」** ✓（trivial 接住币安日常运营）；BLACKBELT 维持拦 ✓；NMS 维持 mid ✓；AIFLY 维持 low ✓；股城 W 臂 low 0.93 二次翻 low ⚠️——后由 **C238 定因=官方语料缺口**（GMGN/AVE 双源未消费）非题集问题，AVE 补源上线后复验。
 - **关联**：C231（trivial 立桶）/J1.58（作者层级锚——本案=其机构臂过宽的首次校准：动作/表态≠日常运营）；与 C235 反锚⑤互补（⑤管圈外重量级机构涉加密立场动作放行、本案管圈内机构日常运营拦截——两轴方向相反）。
 
 ### C236 W 资格轴形态一门槛降档——新项目 Dev 有发帖粉丝+身份自证即可（股城翻 low 案，2026-10-26 用户裁定两条，J1.133）★

@@ -110,9 +110,9 @@ const run = async () => {
   check('B4 C10 原路径零回归（无 twitter 链接时 twitterUrl+websiteUrl 都补）',
     /if \(!hasTwitterUrl\) \{[\s\S]*?const addUrls = \[gmgnSocials\.twitterUrl, gmgnSocials\.websiteUrl\]/.test(dfs));
 
-  check('B6 C182 必要门在位（AVE 已有 twitter → 不调 GMGN，例外臂主要触发源随门退役）',
+  check('B6 C182 必要门在位（前置源已有 twitter → 不调 GMGN，例外臂主要触发源随门退役；C238 起串行 await 形状）',
     /const gmgnNeeded = options\.enrichSocialByGmgn && !hasTwitterLink\(allUrls\)/.test(dfs)
-      && /gmgnNeeded\s*\?\s*timing\.wrap\('gmgn'/.test(dfs));
+      && /gmgnNeeded\s*\?\s*await timing\.wrap\('gmgn'/.test(dfs));
 
   check('B6b 判据单一真相（并入判定 hasTwitterUrl 与必要门同源 hasTwitterLink）',
     /const hasTwitterUrl = hasTwitterLink\(allUrls\)/.test(dfs)
