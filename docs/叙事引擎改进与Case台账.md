@@ -26,7 +26,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化三原语（Choice/Score/Noul）无文本生成秒级；
-  版本规则=改题必 bump（现 J1.139 / P1.14），DB prompt_version 可按版本筛历史
+  版本规则=改题必 bump（现 J1.143 / P1.14），DB prompt_version 可按版本筛历史
 - **现役拦截门链**（mapper 端，C189 时点）：蓝筹去重门 C168（首臂：name_exact 撞 b: 域蓝筹拦 low；
   条目级 dedupExempt + 新陈述豁免 C173 + 新事件豁免 C242）→ web3UnfitBlock（unfit≥0.5）→ web3FitMassBlock C141
   （sf+fit<0.5 全域拦）→ quality_veto argmax（empty_content/baseless/ip_reuse 三桶；图证在场豁免
@@ -53,6 +53,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ---
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
+
+### C245 既有项目里程碑/上市类动作≠发布新项目——event_category W/D 桶划界锚（BNC开市钟案，2026-10-26 用户裁定，J1.143）★
+
+- **案发**：BNC开市钟🔔 `0xd0b89e79167a375e93d614ee23357b8039fc7777`（four.meme，BNB Standard 蓝筹官宣敲纳斯达克开市钟事件， issuer=25 连发的第三方蹭发号）。v40 实验里 28 次 BUY 全被 GMGN issuer 分档门拦（当时 event:W 还在适用集， T73 同日撤出）， 末次 GMGN 超时 fail-open 放行 -43.5%。排查分类：J1.135（v40 进程锁定的旧题集）误归 W **W 0.88 vs D 0.10**。
+- **归因（两层）**：①v40 实验 08:50 UTC 起跑锁 J1.135， C241 收窄锚（J1.138）不在场——worker 已到 J1.142 但实验进程内嵌分析器不随 worker 更新（已知架构：换代实验解决）；②**换 J1.142 定向重析仍 W high 75.52**——C241 收窄锚例证只列「日常运营推/营销活动/开新语言新市场」， 重大里程碑（敲上市钟/登陆交易所）落不进这些例证， 被 W 桶开头「项目的发布或**更新**」的更新臂收编——锚有真实缺口， 非纯旧代码问题。
+- **用户裁定（原话）**：「这个股票上市敲钟， 进入到 W 类也明显不适合」， 「肯定不是项目发布」。即：既有项目/平台（含 crypto 原生项目， 项目方再小也一样）的里程碑/庆典/上市类动作（敲上市钟/登陆交易所/发布会/周年活动）=**项目主体的事件与公告**， 归 D 走事件轴+量级门；W 只留「发布新项目、币=项目币」形状（C241 同源收窄）。
+- **实现（J1.143, 970f698）**：event_category 题三处锚——instructions D vs W 边界追加里程碑划界句 + W criteria 排除臂（「既有项目的里程碑/庆典/上市类动作=项目主体的事件公告归 D 不归本类」）+ D criteria 收编臂；桶 id/题数/mapper 零变化（choice 分类题， 无聚合语义变更）。同案 GMGN 侧 event:W 撤出 issuer 分档门适用集=T73（9157817, 交易台账）， 两修独立生效。
+- **182 对拍（worker 113686, J1.143）**：BNC **W→D** rating=high score=92.89（原 75.52；事件分 57(95×0.6)+关联 20 exact_match+质量 15.89——D 事件轴接管后总分反而更高）；W 域四对照票分类零翻转：股城 mid 64.09（C236 后 63.82/64.12→64.09 稳定）/AIFLY low 15（与 C230 一致）/人生K线 low（empty_content 既有波动， 分类保持 W）/NMS low（词句门 0.44 近 tie 掷骰， **分类仍 W 非本案引起**；C235 expect=mid, 词句题近 tie 波动带留观察——与 C241 밈 主票 0.53/C244 对拍轮 0.62 同款形状）。
+- **部署**：970f698 已 push；182 worker 重启 PID 113686（15:08 UTC, 单实例回查 ✓, v41 实验 108161 不受影响仍在跑）；v41 实验进程锁定 J1.142， J1.143 对实验内嵌分析下次换代生效（worker 侧立即生效）。回归集：C245 收录 BNC（expect high+category D）。
 
 ### C244 event_trivial 桶拆出退役——独立观察题 bsc_meme_user_think_event_too_trivial_for_meme（小西案，2026-10-26 用户裁定，J1.142）★
 

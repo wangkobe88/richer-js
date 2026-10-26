@@ -1545,6 +1545,17 @@
       },
       "note": "小西案=C244 立案票：小米AI狗连Claude Code叙事被462粉载体带偏 trivial 0.34 误拦→拆出退役后 mid 64.6；expect 锁 mid+reasonExcludes 事件意义太小（意图=不被 trivial 拦）",
       "addedAt": "2026-10-26"
+    },
+    {
+      "caseId": "C245",
+      "symbol": "BNC开市钟🔔",
+      "addr": "0xd0b89e79167a375e93d614ee23357b8039fc7777",
+      "expect": {
+        "rating": "high",
+        "tokenCategory": "event:D"
+      },
+      "note": "BNC开市钟：J1.143 里程碑划界锚——既有项目上市敲钟类动作归D不进W；对拍W→D high 92.89",
+      "addedAt": "2026-10-26"
     }
   ]
 }
