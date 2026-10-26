@@ -163,6 +163,15 @@ async function main() {
   check('C5 题集版本注释 J1.132/C235 段在场（NMS 误拦三轮掷骰取证+用户裁定原话）+ 版本 ≥ J1.132（J1.133=C236 W 资格形态一降档，C235 段不动）',
     qsSrc.includes('J1.132（C235') && qsSrc.includes('0xa9cb21aa') && qsSrc.includes('显然不算小，这是一个很有意思的事件')
     && parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 132, qm.JEV_QUESTIONS_VERSION);
+  check('C6 反锚⑦在场（C241 平台官方号方向性表态：打招呼形态即够/不要求战略陈述要件/方向信号 vs 活动信息划界/与 C237⑤分轴）',
+    qsSrc.includes('⑦平台/项目官方号对用户的直接沟通中传递')
+    && qsSrc.includes('打招呼就够了，不需要什么战略陈述/合作内容')
+    && qsSrc.includes('C237 管的是活动信息') && qsSrc.includes('方向信号')
+    && qsSrc.includes('例证（C241）：Four.meme 主号 fourdotmemezh'), null);
+  check('C7 W 桶排除锚在场（C241 成熟平台公告归 D——W=发布新项目评项目本身）',
+    qsSrc.includes('成熟平台/产品的官方运营公告与市场动作')
+    && qsSrc.includes('W 是发布新项目，不是成熟平台的公告')
+    && qsSrc.includes('W 数学资格轴只适用币=项目币的形状'), null);
 
   console.log(`\n══════ _test_event_trivial_gate: ${passed} passed, ${failed} failed ══════`);
   if (failed > 0) process.exit(1);

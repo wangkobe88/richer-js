@@ -1485,12 +1485,28 @@
       "addedAt": "2026-10-26"
     },
     {
-      "caseId": "C240",
+      "caseId": "C240b",
       "symbol": "불개미",
       "addr": "0x988635ef13f78daf7022f6109dbf6b02f35c7777",
       "expect": {
         "rating": "high"
       },
+      "addedAt": "2026-10-26"
+    },
+    {
+      "caseId": "C241",
+      "symbol": "밈",
+      "addr": "0x34f5a1bb5f4a7eb1da3c0b8be92b071bee59ffff",
+      "expect": {
+        "rating": "low",
+        "tokenCategoryExcludes": [
+          "event:W"
+        ],
+        "reasonExcludes": [
+          "事件意义太小"
+        ]
+      },
+      "note": "밈 Four.meme主号首条韩语推：trivial 反锚⑦放行+W→D+注册表命中（authorUtterance 臂），预期终态仍 low（词句 0.62/泛关联）；不翻锚=南瓜营/黑带/NMS",
       "addedAt": "2026-10-26"
     }
   ]
