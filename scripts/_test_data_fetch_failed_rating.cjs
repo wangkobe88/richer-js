@@ -194,6 +194,17 @@ console.log('\n══ 一、B1 getUserByScreenName 空 stub 源头判定（行�
   const analyzer = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
   assert(/promptType = 'no_data';[\s\S]*?preCheckDataToSave = \{[\s\S]*?rating: 'low',[\s\S]*?details: \{ category: 'no_data' \}/.test(analyzer), 'A2：no_data 分支赋 preCheckDataToSave 载体');
 
+  // A3 C238b（2026-10-26 股城案用户裁定「走 W 类，也就是不提供 CA 这一臂，我认为
+  // 也应该过」）：地址核验失败（账号质量未达标∧简介/推文无 CA）不再 terminal 拦死，
+  // 回落标准路径走 W 评估；name/data_fetch_failed stage 照旧 terminal 消费。
+  assert(/if \(analysisResult\.preCheckData\s*\n\s*&& analysisResult\.preCheckData\.result\?\.validationStage === 'address'\s*\n\s*&& !options\.skipAddressValidation\) \{[\s\S]*?shouldUseAccountCommunity = false;/.test(analyzer),
+    'A3：C238b address 回落分流在位（三键合取 → shouldUseAccountCommunity=false）');
+  assert(/shouldUseAccountCommunity = false;\s*\n\s*\} else if \(analysisResult\.preCheckData\) \{/.test(analyzer),
+    'A3b：其余 stage 照旧 terminal（else if preCheckData 消费分支紧随回落之后）');
+  // 回落接管点=主路径入口（C117 同构锚）：置 false 后 !shouldUseAccountCommunity 分支走 Jev 标准 18 题
+  assert(/shouldUseAccountCommunity = false;[\s\S]*?if \(!shouldUseAccountCommunity\) \{/.test(analyzer),
+    'A3c：回落票由主路径 Jev 标准判定接管（!shouldUseAccountCommunity 入口在其后）');
+
   // 消费分支（既有，不回归）：preCheckData → precheck 落库
   assert(analyzer.includes('if (analysisResult.preCheckData)'), '消费分支：preCheckData 命中判存在');
   assert(analyzer.includes('pre_check_result: preCheckDataToSave || null'), 'save：pre_check_result 落库点存在');

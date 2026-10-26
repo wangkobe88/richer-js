@@ -155,8 +155,12 @@ async function main() {
       const aveMergeIdx = dfs.indexOf('AVE 社媒补源新增');
       const ipfsMergeIdx = dfs.indexOf('IPFS metadata 解包新增');
       assert(aveMergeIdx > ipfsMergeIdx && ipfsMergeIdx > 0, 'C3 AVE 并入段在 IPFS 并入段之后（IPFS 补出 twitter → AVE 弃用）', { ipfsMergeIdx, aveMergeIdx });
-      const gmgnNeededIdx = dfs.indexOf('const gmgnNeeded = options.enrichSocialByGmgn && !hasTwitterLink(allUrls)');
+      const gmgnNeededIdx = dfs.indexOf('const gmgnNeeded = options.enrichSocialByGmgn');
       assert(gmgnNeededIdx > aveMergeIdx, 'C4 GMGN 串行在 AVE 之后（gmgnNeeded 在 AVE 并入段之后计算——所有前置源失效才走 GMGN）', { aveMergeIdx, gmgnNeededIdx });
+      // C238b 穿透臂：AVE 只补到账号级 twitter → GMGN 仍走（宣告证据未到手，
+      // 用户裁定「不提供 CA 这一臂（W 类）也应该过」）
+      assert(/&& \(!hasTwitterLink\(allUrls\) \|\| aveOnlyAccountLevel\)/.test(dfs.slice(gmgnNeededIdx, gmgnNeededIdx + 400)),
+        'C4d gmgnNeeded 含 C238b 穿透臂（AVE 账号级在场仍调 GMGN）');
       assert((dfs.match(/fetchGmgnSocialLinks\('bsc'/g) || []).length === 1, 'C4b GMGN 调用点唯一（IPFS∥GMGN 并行旧形状不得回潮）');
       assert((dfs.match(/fetchAveSocialLinks\('bsc'/g) || []).length === 1, 'C4c AVE 调用点唯一');
 

@@ -170,6 +170,21 @@ async function main() {
       assert(hasTwitterLink([]) === false && hasTwitterLink(null) === false, 'C6 空数组/null → false');
     }
 
+    console.log('══ F. isTweetLevelUrl 判据矩阵（C238b 宣告证据判级）══');
+    {
+      const { isTweetLevelUrl } = await import(path.join(ROOT, 'src/narrative/utils/gmgn-social-fetcher.mjs'));
+      // 股城现场：GMGN twitter_username 拼接产物（宣告推直链）
+      assert(isTweetLevelUrl('https://x.com/MEJ50749/status/2112469093156630545') === true, 'F1 推文级 URL → true（宣告证据）');
+      assert(isTweetLevelUrl('https://twitter.com/MEJ50749/status/2112469093156630545') === true, 'F2 twitter.com 推文级 → true');
+      // AVE appendix 现场：官方账号页（身份档案非宣告推）
+      assert(isTweetLevelUrl('https://x.com/STOCK__OPOLIS') === false, 'F3 账号级 URL → false（AVE 补到的官方号页）');
+      assert(isTweetLevelUrl('https://x.com/somecoin?s=20') === false, 'F4 带尾参账号级 → false');
+      assert(isTweetLevelUrl('https://mobile.x.com/a/status/123') === true, 'F5 子域推文级 → true');
+      assert(isTweetLevelUrl('https://utter.cash/bnb/0xabc/status/1') === false, 'F6 非 twitter 域 → false');
+      assert(isTweetLevelUrl('https://x.com/search?q=abc') === false, 'F7 search 页 → false');
+      assert(isTweetLevelUrl('') === false && isTweetLevelUrl(null) === false, 'F8 null/空串 → false');
+    }
+
     console.log('══ D. 失败封顶（C182：连续 2 次真失败 → 进程内封死）══');
     const D1 = '0xD1FAIL0000000000000000000000000000777777';
     {
@@ -226,10 +241,19 @@ async function main() {
     console.log('══ E. 链路接线源码口径（C182；C238 GMGN 串行化随改）══');
     {
       const dfs = fs.readFileSync(path.join(ROOT, 'src/narrative/analyzer/services/data-fetch-service.mjs'), 'utf8');
-      assert(/const gmgnNeeded = options\.enrichSocialByGmgn && !hasTwitterLink\(allUrls\)/.test(dfs),
-        'E1 data-fetch 必要门在位（enrichSocialByGmgn ∧ 前置源 URL 集无 twitter 才调）');
+      assert(/const gmgnNeeded = options\.enrichSocialByGmgn\s*\n?\s*&& \(!hasTwitterLink\(allUrls\) \|\| aveOnlyAccountLevel\)/.test(dfs),
+        'E1 data-fetch 必要门在位（无 twitter 才调 ∨ C238b AVE 账号级穿透臂）');
       assert(/gmgnNeeded\s*\?\s*await timing\.wrap\('gmgn'/.test(dfs), 'E1b GMGN 分支消费 gmgnNeeded（门实际接线；C238 起串行 await 形状）');
       assert(!/options\.enrichSocialByGmgn\s*\?\s*timing\.wrap\('gmgn'/.test(dfs), 'E1c 「总是调用」旧形状不得回潮');
+      // C238b（2026-10-26 用户裁定「不提供 CA 这一臂（W 类）也应该过」）：AVE 只补到
+      // 账号级 twitter → GMGN 仍走拿宣告推；宣告推并入臂（排 C51 superIP 臂后）
+      assert(/const aveOnlyAccountLevel = !!\(aveSocials\?\.twitterUrl && !isTweetLevelUrl\(aveSocials\.twitterUrl\)\)/.test(dfs),
+        'E5 aveOnlyAccountLevel 判据在位（AVE 账号级穿透臂，meta/IPFS 自带 twitter 不触发=C182 语义不变）');
+      assert(/else if \(isTweetLevelUrl\(gmgnSocials\.twitterUrl \|\| ''\) && !allUrls\.includes\(gmgnSocials\.twitterUrl\)\)/.test(dfs),
+        'E5b GMGN 宣告推并入臂在位（C238b：AVE 账号级在场时推文级宣告证据并入，排 C51 臂后）');
+      const superIpArmIdx = dfs.indexOf('GMGN 超级IP推文补源新增(C51)');
+      const c238bArmIdx = dfs.indexOf('GMGN 宣告推补源新增(C238b)');
+      assert(superIpArmIdx > 0 && c238bArmIdx > superIpArmIdx, 'E5c 宣告推臂排 C51 superIP 臂之后（superIP 命中行为 bit 不变）');
       // C238（2026-10-26 用户裁定「所有的数据都失效后才走这一路」）：GMGN 从
       // IPFS∥GMGN 并行对中拆出，串行在 AVE 补源之后——判据基准从 pre-IPFS
       // 升级为含 IPFS+AVE 的 allUrls（更严=只省配额），并行旧形状不得回潮

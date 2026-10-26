@@ -47,6 +47,8 @@ function check(desc, actual, expected) {
   check('冒充子域前缀不误伤（cmcdexscreener.example.com → false）',
     isAutoTokenPageUrl('https://cmdexscreener.example.com/t/0xabc'), false);
   check('独立站 → false', isAutoTokenPageUrl(`https://legendbutterfly.io/token/${ADDR}`), false);
+  check('C238 股城案 utter.cash（AVE appendix website 给的就是聚合器税信息页）→ true',
+    isAutoTokenPageUrl(`https://utter.cash/bnb/${ADDR.toLowerCase()}/taxinfo?lang=zh`), true);
   check('无效 URL → false', isAutoTokenPageUrl('not a url'), false);
   check('空值 → false', isAutoTokenPageUrl(null), false);
 

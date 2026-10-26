@@ -783,7 +783,22 @@ export class NarrativeAnalyzer {
             }));
 
             // 检查是否是规则验证失败（返回preCheckData）
-            if (analysisResult.preCheckData) {
+            if (analysisResult.preCheckData
+                && analysisResult.preCheckData.result?.validationStage === 'address'
+                && !options.skipAddressValidation) {
+              // C238b 用户裁定「走 W 类，也就是不提供 CA 这一臂，我认为也应该过」：
+              // 地址核验失败（账号质量未达标 ∧ 简介/推文无 CA）不再 terminal 拦死，
+              // 回落标准路径走 W 评估——W 资格轴（J1.130 两形态）本就是判「发布者
+              // 配不配」的地方，小号冒名票 W 臂自会评 low。skipAddressValidation
+              // 票不回落（C100 内容臂强证据已验地址，回落=丢弃已验证据）；name/
+              // data_fetch_failed 等 stage 照旧 terminal。回落形状=C117 superIP
+              // 强制标准路径同款（置 false 让下方 !shouldUseAccountCommunity 分支接管）
+              logger.info('NarrativeAnalyzer', '地址核验失败 → 回落标准路径走 W 评估（C238b，不再 terminal 拦）', {
+                token: tokenData.symbol || tokenData.address,
+                screenName: analysisResult.preCheckData.result?.details?.screen_name || null,
+              });
+              shouldUseAccountCommunity = false;
+            } else if (analysisResult.preCheckData) {
               // 规则验证失败，按预检查处理
               llmResult = {
                 rating: analysisResult.rating,

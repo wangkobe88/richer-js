@@ -245,6 +245,9 @@ const AUTO_TOKEN_PAGE_DOMAINS = [
   'flap.sh',
   'pump.fun',
   'moonshot.money',
+  'utter.cash',          // 聚合器自动代币/税信息页（URL 模式 /bnb/<CA>/…，C238 股城案：
+                         // AVE appendix website 给的就是它，被 C164 官网核验门当官网抓
+                         // →「网站空壳」误判 low；与 dexscreener/<CA> 同族不算项目官网）
 ];
 
 /**

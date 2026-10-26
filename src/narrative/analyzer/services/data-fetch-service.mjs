@@ -5,7 +5,7 @@
 
 import { extractAllUrls, classifyAllUrls } from '../../utils/url-classifier.mjs';
 import { fetchIpfsMetadata, normalizeIpfsRef } from '../../utils/ipfs-metadata-fetcher.mjs';
-import { fetchGmgnSocialLinks, hasTwitterLink } from '../../utils/gmgn-social-fetcher.mjs';
+import { fetchGmgnSocialLinks, hasTwitterLink, isTweetLevelUrl } from '../../utils/gmgn-social-fetcher.mjs';
 import { fetchAveSocialLinks } from '../../utils/ave-social-fetcher.mjs';
 import { isSuperIpTweetUrl } from '../prompts/super-ip/super-ip-registry.mjs';
 import { TwitterFetcher } from '../../utils/twitter-fetcher.mjs';
@@ -212,8 +212,13 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
 
   // 3.3 GMGN 串行在 AVE 之后（C238 源优先级链第四层——所有前置源都失效才走：
   // 免费版 IP 封禁风险配额最省着烧；判据=此刻含 IPFS+AVE 的 allUrls，串行化后
-  // 比旧 pre-IPFS 基准更严=重叠白调消失）
-  const gmgnNeeded = options.enrichSocialByGmgn && !hasTwitterLink(allUrls);
+  // 比旧 pre-IPFS 基准更严=重叠白调消失）。C238b 穿透臂：AVE 只补到**账号级**
+  // twitter（官方号页无 /status/）→ 宣告证据（推文级）还没到手，GMGN 仍走——
+  // 用户裁定「不提供 CA 这一臂（W 类）也应该过」，W 臂核心语料=宣告推直链；
+  // meta/IPFS 自带 twitter 时 aveSocials=null 穿透臂不触发，C182 原语义不变
+  const aveOnlyAccountLevel = !!(aveSocials?.twitterUrl && !isTweetLevelUrl(aveSocials.twitterUrl));
+  const gmgnNeeded = options.enrichSocialByGmgn
+    && (!hasTwitterLink(allUrls) || aveOnlyAccountLevel);
   const gmgnSocials = gmgnNeeded
     ? await timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address)
       .catch(e => {
@@ -262,6 +267,13 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
       // C51 例外：已有 twitter 链接，但 GMGN 给出 superIP 推文 URL——只并入该推文
       // （websiteUrl 不随例外路径并入，C10 语义对它不变）
       console.log(`[NarrativeAnalyzer] GMGN 超级IP推文补源新增(C51): ${gmgnSocials.twitterUrl}（${superIpTweet.name}，自挂链接保留但 tweet 优先）`);
+      allUrls.push(gmgnSocials.twitterUrl);
+    } else if (isTweetLevelUrl(gmgnSocials.twitterUrl || '') && !allUrls.includes(gmgnSocials.twitterUrl)) {
+      // C238b 宣告推并入臂：AVE 只补到账号级（官方号页）而 GMGN 给出**推文级**
+      // URL → 宣告证据并入（账号级链接保留，selectTwitterUrl 的 tweet 优先保证
+      // 宣告推成为主语料）。C51 例外臂的一般化（superIP 推文同样是推文级），
+      // 排其后=superIP 命中行为 bit 不变；websiteUrl 不随本臂并入（同 C10 语义）
+      console.log(`[NarrativeAnalyzer] GMGN 宣告推补源新增(C238b): ${gmgnSocials.twitterUrl}（账号级链接已在场，宣告推优先）`);
       allUrls.push(gmgnSocials.twitterUrl);
     }
   }

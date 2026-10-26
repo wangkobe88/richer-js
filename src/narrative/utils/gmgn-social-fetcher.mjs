@@ -60,6 +60,20 @@ export function hasTwitterLink(urls) {
 }
 
 /**
+ * URL 是否为推文级链接（x.com/twitter.com 域 + /status(es)/<id> 路径）
+ * C238b 判据：账号级 URL（官方号页）只给身份档案（粉丝/发帖数），推文级 URL
+ * 才是「宣告证据」——GMGN link.twitter_username 的推文路径形状（股城
+ * MEJ50749/status/…）拼接产物即本形状。与 hasTwitterLink 同源导出（单一真相）
+ * @param {string} url
+ * @returns {boolean}
+ */
+export function isTweetLevelUrl(url) {
+  return typeof url === 'string'
+    && TWITTER_LINK_RE.test(url)
+    && /\/status(es)?\/\d+/.test(url);
+}
+
+/**
  * 拉取 GMGN token info（社媒补源 + dev 风险字段，一次调用两用）
  * @param {string} chain - 链标识（BSC-only 项目，固定 'bsc'）
  * @param {string} address - 代币合约地址
