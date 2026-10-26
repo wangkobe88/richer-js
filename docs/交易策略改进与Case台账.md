@@ -61,6 +61,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 单测：`_test_bundle_cluster_factors` Q1-Q5（三块阶梯 100/复买跨块 tie 占两槽去重 83.3 非 113/退化链 单块=两块=三块/清仓块零贡献 65/65/逆序 parity）+ L1 快照 10 键；`_test_fourmeme_fa_factors` 白名单 +1 键 34/0
 - 校准：重放 fire tick（16:20:32.000）t1=28.5/t2=53.4 与引擎 fire 快照**逐位一致**（T8 校准锚纪律）
 - v38 终态插曲（诚实留痕）：v38 原进程 3584931 收到 TERM 02:40:00 UTC 优雅停（停时零持仓）；02:40:09 有一次**来源不明**的同实验重启（PID 3914763，main log 仅一行引擎创建），02:45:55 后消亡且无停止日志行（无 OOM/内存充足/无 graceful 形状，疑人为操作）；切 v39 前以「净持仓 0+进程消亡+pgrep 确认」三查放行，v39 由实例锁防线接管
+- **v39 启动观察点（未收案，复发再深挖）**：02:53~03:04 UTC flap 35 条 `[TokenBought]/[TokenSold] 解码失败: Cannot read properties of null (reading 'has')`（tx 全未落 wss_price_ticks，占同窗 flap ticks ~2%），03:04 后自愈归零；炸点在 handleLog try 段内——collector 自身成员已逐一排除（`_processedTickKeys`/`_blockTimes`/`_nonBnbQuoteTokens` 构造器初始化恒 Map/Set 且无置 null 路径，sender-resolver/TxSeenSignal 无 `.has`），疑 QuoteSet 装载过渡窗（02:56:38 完成前后 10 分钟）下游回调链竞态；同代码 v38@3914763 短窗（02:43-02:45）零错无对照；flap 采集整体健康（同窗 1632 条落库）、four.meme 零错误
 
 ### T67 top2 存量第二道门 top2BundleClusterHoldCircPct < 55——AIFLY 案（2026-10-25，buy-v2 v37，0x0baecc80613610f8c6051e55c136505a4750777）
 - 案：AIFLY fire 时刻筹码结构重放——块 129715692（创建块）4 bundler 等额毛买 179.87M 后 9s 起分批协同卖出洗白到零；块 129715693 单钱包 0xf539901b4c4830ef118ccd2745ca725341577bc6 囤筹 58.58M（当时流通 88.4%）。fire 时 top1（bundleClusterHoldCircPct，存量口径）=34.8 **恰擦线低于 35 门放行**（分子=bundler 剩余持仓块），top2（最大两块买家并集）=57.2——两块合计囤筹过半的盘放行即亏

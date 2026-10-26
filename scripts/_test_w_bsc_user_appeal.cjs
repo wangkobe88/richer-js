@@ -20,9 +20,12 @@
  *   D. 源码口径反证：无 wProduct/W_PRODUCT_BANDS/wProductScore/w_product_score 消费
  *   E. 版本 J1.125（J1.125=C230 AIFLY 案键名断代+资格轴；J1.107=W 三档 Choice；
  *     J1.84=C142 本轴合并）
- *   F. J1.107 Choice 三档映射：weak 15/moderate 47/strong 66、双形状消费、legacy 等值锚
+ *   F. J1.107 Choice 三档映射=旧缓存行（J1.107-J1.128）重放锚：weak 15/moderate 47/
+ *     strong 66 双形状消费、legacy 等值锚；J1.129/C233 桶 id 断代 low/mid/high 后
+ *     分值表双键同分=旧行重放零翻转
  *   G. J1.125（C230 AIFLY 案 0x0baecc80…7777）键名断代：新键归一读（choice/score
- *     双形状）、双键共存新键优先、资格轴题面锚（dev 无名+无 CA 背书 → weak）
+ *     双形状）、双键共存新键优先、资格轴题面锚（dev 无名+无 CA 背书 → low）；
+ *     J1.129/C233 新桶名 low/mid/high（与评级词汇统一）
  *
  * 用法：node scripts/_test_w_bsc_user_appeal.cjs
  */
@@ -144,13 +147,14 @@ async function main() {
   console.log('\n── C. 题集形状 ──');
 
   const qs = buildStandardQuestions();
-  check('C1 bsc_meme_user_web3_project_acceptance_and_impact Choice 三桶（J1.107 弱/中/强——用户裁定「给弱中强三档」；J1.125/C230 键名断代自 w_bsc_user_appeal）',
+  check('C1 bsc_meme_user_web3_project_acceptance_and_impact Choice 三桶（J1.129/C233 桶 id 断代 low/mid/high——用户裁定「W 臂也用 low/mid/high」与评级词汇统一；J1.107 原立弱/中/强；J1.125/C230 键名断代自 w_bsc_user_appeal）',
     qs.bsc_meme_user_web3_project_acceptance_and_impact?.type === 'choice'
     && Object.keys(qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria).length === 3
-    && 'weak' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria
-    && 'moderate' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria
-    && 'strong' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria
-    && qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions.includes('弱/中/强三档'),
+    && 'low' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria
+    && 'mid' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria
+    && 'high' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria
+    && !('weak' in qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria)
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions.includes('低/中/高三档'),
     qs.bsc_meme_user_web3_project_acceptance_and_impact?.criteria);
   check('C1b 旧键 w_bsc_user_appeal 题集不再提供（J1.125/C230 断代；mapper 归一读兜旧缓存行）',
     !('w_bsc_user_appeal' in qs));
@@ -185,11 +189,11 @@ async function main() {
   check('D5 吸引力带 0-75 四分带 [[0,18],[19,37],[38,56],[57,75]]（legacy band，旧缓存行 score 形状消费）',
     /const W_APPEAL_BANDS = \[\[0, 18\], \[19, 37\], \[38, 56\], \[57, 75\]\];/.test(mapperSrc));
 
-  console.log('\n── F. J1.107 Choice 三档映射 ──');
+  console.log('\n── F. J1.107 旧桶名 choice 重放（J1.107-J1.128 旧缓存行；J1.129/C233 分值表双键同分=零翻转）──');
 
   const mFStrong = mapStandardAnswers(wAnswers({ appealChoice: 'strong' }), makeContext());
   const s2FStrong = stage2Of(mFStrong);
-  check('F1 strong=66 → pass（强=旧 57-75 带中点）',
+  check('F1 旧桶 strong=66 → pass（旧行重放；强=旧 57-75 带中点）',
     s2FStrong.pass === true && s2FStrong.scoringResult?.eventCompositeScore === 66
     && s2FStrong.scoringResult?.wAppealScore === 66,
     { pass: s2FStrong.pass, score: s2FStrong.scoringResult?.eventCompositeScore });
@@ -200,7 +204,7 @@ async function main() {
     { pass: s2FMod.pass, score: s2FMod.scoringResult?.eventCompositeScore });
   const mFWeak = mapStandardAnswers(wAnswers({ appealChoice: 'weak' }), makeContext());
   const s2FWeak = stage2Of(mFWeak);
-  check('F3 weak=15<32 → 拦（弱合并旧 0-18/19-37 两档保守代表，无时效救不回）',
+  check('F3 旧桶 weak=15<32 → 拦（旧行重放；弱合并旧 0-18/19-37 两档保守代表，无时效救不回）',
     s2FWeak.pass === false && s2FWeak.scoringResult?.eventCompositeScore === 15
     && s2FWeak.blockReason === 'W类总分不足（15<32）',
     { pass: s2FWeak.pass, score: s2FWeak.scoringResult?.eventCompositeScore, blockReason: s2FWeak.blockReason });
@@ -213,8 +217,8 @@ async function main() {
     stage2Of(mFLegacy).scoringResult?.eventCompositeScore === 47
     && stage2Of(mFLegacy).scoringResult?.eventCompositeScore === s2FMod.scoringResult?.eventCompositeScore,
     { legacy: stage2Of(mFLegacy).scoringResult?.eventCompositeScore, choice: s2FMod.scoringResult?.eventCompositeScore });
-  check('F6 分值表源码 W_APPEAL_CHOICE_SCORES={weak:15,moderate:47,strong:66}',
-    /const W_APPEAL_CHOICE_SCORES = \{ weak: 15, moderate: 47, strong: 66 \};/.test(mapperSrc));
+  check('F6 分值表源码 W_APPEAL_CHOICE_SCORES 双键同分（J1.129/C233：新桶 low/mid/high + 旧桶 weak/moderate/strong 各 15/47/66——旧行重放零分支归一读）',
+    /const W_APPEAL_CHOICE_SCORES = \{ low: 15, mid: 47, high: 66, weak: 15, moderate: 47, strong: 66 \};/.test(mapperSrc));
   check('F7 双形状消费源码（断代读：q(answers, 新键, 旧键) 单点；choice 先、bandInterpolate 兜底）',
     /const appealAnswer = q\(answers, 'bsc_meme_user_web3_project_acceptance_and_impact', 'w_bsc_user_appeal'\);/.test(mapperSrc)
     && /appealAnswer\?\.choice != null/.test(mapperSrc)
@@ -223,15 +227,15 @@ async function main() {
 
   console.log('\n── G. J1.125/C230 键名断代归一读 + 资格轴 ──');
 
-  // 新键 choice 形状（断代后线上新答案）：strong 66 / weak 15 与旧键等值
-  const mGStrong = mapStandardAnswers(wAnswers({ appealChoice: 'strong', newKey: true }), makeContext());
-  check('G1 新键 bsc_meme_user_web3_project_acceptance_and_impact choice strong → 66（断代读新键臂）',
+  // 新键 choice 形状（J1.129 断代后线上新答案=新桶名）：high 66 / low 15 与旧桶等值
+  const mGStrong = mapStandardAnswers(wAnswers({ appealChoice: 'high', newKey: true }), makeContext());
+  check('G1 新键 bsc_meme_user_web3_project_acceptance_and_impact choice high → 66（断代读新键臂；J1.129 新桶名与旧桶 strong 同分）',
     stage2Of(mGStrong).scoringResult?.eventCompositeScore === 66
     && stage2Of(mGStrong).pass === true,
     stage2Of(mGStrong).scoringResult);
-  const mGWeak = mapStandardAnswers(wAnswers({ appealChoice: 'weak', newKey: true }), makeContext());
+  const mGWeak = mapStandardAnswers(wAnswers({ appealChoice: 'low', newKey: true }), makeContext());
   const s2GWeak = stage2Of(mGWeak);
-  check('G2 新键 choice weak → 15<32 拦（AIFLY 案现场锚：dev 无名+无 CA 背书=资格轴不合格直接 weak，无时效可救）',
+  check('G2 新键 choice low → 15<32 拦（AIFLY 案现场锚：dev 无名+无 CA 背书=资格轴不合格直接 low，无时效可救；J1.129 桶名断代随 C232 资格轴语义）',
     s2GWeak.pass === false && s2GWeak.scoringResult?.eventCompositeScore === 15
     && s2GWeak.blockReason === 'W类总分不足（15<32）',
     { pass: s2GWeak.pass, score: s2GWeak.scoringResult?.eventCompositeScore, blockReason: s2GWeak.blockReason });
@@ -241,39 +245,41 @@ async function main() {
     stage2Of(mGScore).scoringResult?.eventCompositeScore === 47,
     stage2Of(mGScore).scoringResult);
   // 双键共存（断代过渡期：新键在场优先，旧键残留不覆盖）
-  const aDual = wAnswers({ appealChoice: 'weak', newKey: true });
+  const aDual = wAnswers({ appealChoice: 'low', newKey: true });
   aDual.w_bsc_user_appeal = { score: 3.0, probabilities: {} };
   const mGDual = mapStandardAnswers(aDual, makeContext());
-  check('G4 双键共存新键优先（新键 weak + 旧键残留 score 3.0 → 15 非 47）',
+  check('G4 双键共存新键优先（新键 low + 旧键残留 score 3.0 → 15 非 47）',
     stage2Of(mGDual).scoringResult?.eventCompositeScore === 15,
     stage2Of(mGDual).scoringResult);
   // 审计投影：新键 probabilities 经旧投影键落档
   check('G5 审计投影键名保留 w_bsc_user_appeal（值=新键 probabilities；跨版本前端/审计形状不变）',
-    mGStrong.stage2DataToSave?.parsed_output?.jev?.probabilities?.w_bsc_user_appeal?.strong === 0.9,
+    mGStrong.stage2DataToSave?.parsed_output?.jev?.probabilities?.w_bsc_user_appeal?.high === 0.9,
     mGStrong.stage2DataToSave?.parsed_output?.jev?.probabilities?.w_bsc_user_appeal);
 
   // 资格轴题面锚（源码口径反证，防回潮）
   const appealInstructions = qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions;
-  check('G6 资格轴适用域（J1.128/C232 修正）：dev 视角臂=按无地址处理+须有影响力；第三方视角臂=不看陈述者影响力按主体评（「XX做了什么」主体=XX）；weak 只剩 dev 视角无名形状',
+  check('G6 资格轴适用域（J1.128/C232 修正）：dev 视角臂=按无地址处理+须有影响力；第三方视角臂=不看陈述者影响力按主体评（「XX做了什么」主体=XX）；low 只剩 dev 视角无名形状（J1.129 桶名随断代）',
     appealInstructions.includes('dev 视角臂（资格轴唯一看发布者的形状）')
     && appealInstructions.includes('web3 原生项目路径（账号路径）')
     && appealInstructions.includes('按没有提供地址处理')
     && appealInstructions.includes('第三方视角臂（不看陈述者/发布者影响力）')
     && appealInstructions.includes('事件主体=XX 项目方本身')
     && appealInstructions.includes('无名小账号报道/发现大主体项目**不失格**')
-    && appealInstructions.includes('资格不合格直接判 weak 的只剩一种形状：**dev 视角自发币 + dev 全无影响力**')
+    && appealInstructions.includes('资格不合格直接判 low 的只剩一种形状：**dev 视角自发币 + dev 全无影响力**')
+    && !appealInstructions.includes('资格不合格直接判 weak')
     && !appealInstructions.includes('正经项目方行为，资格过线'),
     appealInstructions.slice(0, 200));
-  check('G6b C232 例证锚在场（纳斯达克官网示例 tokenized stock 案——326 粉陈述者不失格）+ 第三方臂落 weak 禁令',
+  check('G6b C232 例证锚在场（纳斯达克官网示例 tokenized stock 案——326 粉陈述者不失格）+ 第三方臂落 low 禁令（J1.129 桶名）',
     appealInstructions.includes('纳斯达克官网放出示例 tokenized stock')
     && appealInstructions.includes('主体=纳斯达克')
+    && appealInstructions.includes('不因陈述者无名判 low')
     && appealInstructions.includes('第三方视角陈述不落本臂')
-    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.weak.includes('第三方视角陈述（「XX 做了什么」主体=XX）不因陈述者无名判 weak'),
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('第三方视角陈述（「XX 做了什么」主体=XX）不因陈述者无名判 low'),
     null);
-  check('G7 weak criteria 含「资格轴不合格」（资格与接纳度复合一票定档；moderate/strong 含「资格过线」）',
-    qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.weak.includes('资格轴不合格')
-    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.moderate.includes('资格过线')
-    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.strong.includes('资格过线'),
+  check('G7 low criteria 含「资格轴不合格」（资格与接纳度复合一票定档；mid/high 含「资格过线」）',
+    qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('资格轴不合格')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.mid.includes('资格过线')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.high.includes('资格过线'),
     qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria);
   // state-builder 主体归属修正（AIFLY 案第二漏点：angle_seeking 标签不得改判事件主体）
   const sbSrc = fs.readFileSync('src/narrative/analyzer/llm/jev-state-builder.mjs', 'utf8');
@@ -292,8 +298,8 @@ async function main() {
     null);
 
   console.log('\n── E. 版本 ──');
-  check('E1 JEV_QUESTIONS_VERSION ≥ J1.128（J1.128=C232 资格轴适用域修正：第三方视角不看陈述者影响力按主体评；J1.127=C231 impact 题加 event_trivial 桶；J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
-    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 128, JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION ≥ J1.129（J1.129=C233 W 臂桶 id 断代 low/mid/high 与评级词汇统一；J1.128=C232 资格轴适用域修正：第三方视角不看陈述者影响力按主体评；J1.127=C231 impact 题加 event_trivial 桶；J1.126=C230 追裁键名再调整加 web3_project 域限定+资格轴第一锚改写 dev 视角按无地址处理；J1.125=C230 AIFLY 案键名断代+资格轴+分类题中文重写；J1.107=W 三档 Choice；J1.84=C142 W 双轴合并）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 129, JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
   process.exit(failed > 0 ? 1 : 0);

@@ -181,7 +181,7 @@ async function main() {
       sbSrc.includes('tweet_type_note:') && sbSrc.includes('不是事件传播数据') && sbSrc.includes('J1.20形状②/J1.46'),
       '缺消毒行');
     check('A10d 源码版本常量与模块导出一致（防只 bump 文件头注释不 bump 常量的漂移；J1.121=C190 混混猫案实体题补专名即实体锚（用户裁定「not_entity 是『不是实体』，自创社区 mascot 名也是实体名字，不应该因为这个理由拦截；看的是性质，所以退役了 new_entity 门」：名字被用作特定主体称谓/专名（社区名/mascot 名/角色名/外号，「XX社区」式搭配在场）即映射该主体按类型轴评，无论自创/知名/语料是否陈述命名行为；not_entity 只留给泛称词无专名搭配+无 C174 命名故事陈述；mapper 零改动）；J1.120=C189 全量回归六裁定批（C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」：事件陈述句名=口号类落词句题按三因素评（J1.118 归实体门域措辞修正）+事件承载臂重要度门槛（民族级/全球级重大事件才够格，平台级/媒体级露出不够——用户裁定「事件的重要度明显不够」）+ip_reuse 原生热点锚（C129 彪弟案：原生热点梗/人物主体自身代币化不选本项，复用=反复换皮多处收割）+mapper 恢复词句门拦截）；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题 image_depicts_name 同域非演绎反锚（ATM 案）；J1.114=C185 实体题题面精炼（去重：类型清单/认知度判据/C151/C162 各归单一宿主，判据轴不变）；J1.113=C184 实体题类型轴重构 unknown 断代 unacceptable_type+new_entity 删桶+门恢复拦截；J1.112=C183 web3_user_* 全族键名断代 bsc_meme_user_*+评估主体收窄 BSC meme 币用户；J1.111=C181b veto 题事件层优先划界；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact+empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+残留噪声清理；J1.108=C178 宣告采信豁免措辞强化+删 semantic 残留句；J1.107=W 吸引力题三桶；J1.106=C175b 双锚边界收口；J1.105=C175 实体性质定义锚+fit 事件分量锚）',
-      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.128'"), 'J1.122 常量缺失');
+      qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.129'"), 'J1.122 常量缺失');
 
     // A11 J1.84（C142 W 数学双轴合并单轴）锚句锁定：
     // w_product_score 整题退役（与 appeal 语义/统计双重重叠；旧 C42 形态词锁随题
@@ -192,11 +192,11 @@ async function main() {
       const wa = qs.bsc_meme_user_web3_project_acceptance_and_impact;
       check('A11a w_product_score 题退役（J1.84/C142 双轴合并；题集不再提供）',
         qs.w_product_score === undefined, Object.keys(qs));
-      check('A11b bsc_meme_user_web3_project_acceptance_and_impact Choice 三桶（J1.107 用户裁定「给弱中强三档」；J1.125/C230 键名断代 w_bsc_user_appeal → 本键 + 发布者影响力资格轴并入——weak 桶含「资格轴不合格」）',
+      check('A11b bsc_meme_user_web3_project_acceptance_and_impact Choice 三桶（J1.107 立弱/中/强；J1.125/C230 键名断代 w_bsc_user_appeal → 本键 + 发布者影响力资格轴并入；J1.129/C233 桶 id 断代 low/mid/high 与评级词汇统一——low 桶含「资格轴不合格」）',
         wa?.type === 'choice' && Object.keys(wa.criteria).length === 3
-        && wa.criteria.weak.includes('资格轴不合格') && wa.criteria.moderate.includes('资格过线')
-        && wa.criteria.strong.includes('资格过线')
-        && wa.instructions.includes('弱/中/强三档'),
+        && wa.criteria.low.includes('资格轴不合格') && wa.criteria.mid.includes('资格过线')
+        && wa.criteria.high.includes('资格过线')
+        && wa.instructions.includes('低/中/高三档'),
         wa?.criteria);
       // J1.82/C140（并行会话同批）：圈层可达性桶退役——判据并入 web3_user_event_fit
       // unfit 档（圈外亚文化 get 不到梗=unfit；crypto 圈内口径；品牌营销边界句随迁）

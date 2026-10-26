@@ -54,6 +54,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C233 W 臂桶 id 断代——weak/moderate/strong → low/mid/high 与评级词汇统一（2026-10-26 用户裁定，J1.129）★
+
+- **案发（词汇呈现动因）**：C232 对拍汇报「NMS W 臂 weak 0.77→moderate 0.55」时两套词汇并存——W 臂题桶叫 weak/moderate/strong、评级叫 low/mid/high，用户问「也用 low/mid/high 呗？」→ 裁定 W 臂桶 id 断代与评级词汇统一。
+- **实施（J1.129）**：`bsc_meme_user_web3_project_acceptance_and_impact` criteria 三桶 id 断代 `weak/moderate/strong → low/mid/high`（桶名措辞弱/中/强→低/中/高，instructions 全量同步「弱/中/强三档」→「低/中/高三档」、「直接判 weak」→「直接判 low」、例证锚「不因陈述者无名判 weak」→「判 low」）；**分值 15/47/66、pass 32、C230/J1.125-J1.128 资格轴语义零改动**。
+- **mapper 零行为变化**：`W_APPEAL_CHOICE_SCORES` 分值表双键同分 `{ low:15, mid:47, high:66, weak:15, moderate:47, strong:66 }`——J1.107-J1.128 旧缓存行（旧 choice）与新行（新 choice）直读同分，旧行重放零翻转（零分支归一读，同 q() 归一读旧键惯例）；消费点 `W_APPEAL_CHOICE_SCORES[appealAnswer.choice] ?? 0` 不动；审计投影键 `w_bsc_user_appeal` 不动。
+- **测试**：w_bsc_user_appeal F 区改标「旧桶名 choice 重放锚」（F1-F5 旧桶喂入 15/47/66 不变=旧行零翻转反证）+F6 分值表源码双键断言+G1/G2/G4/G5/G6/G6b/G7 随新桶名（G2=AIFLY 锚「资格轴不合格直接 low」）=37 断言全绿；question_consolidation A11b 三桶断言随新桶名+版本断言 A10d/angle C5/name_entity D5 bump J1.129；cashtag_w_route/superip_slogan_class/web3_fit_anchor/jev_product_entity/instagram_pipeline/event_trivial_gate/timing_probe/jev_client_backoff 相邻批次全绿。
+- **对拍预期（部署后定向重析三票）**：NMS/AIFLY/股城——choice 桶名出 low/mid/high、分值 15/47/66 不变、评级不变（NMS 终态仍由 C231 trivial 0.29 掷骰观察点决定，不受本改动影响）。
+- **性质**：纯词汇统一，无拦截位变化；旧缓存行不重析即零翻转，重析亦同分（分值表双键）。
+
 ### C232 W 资格轴适用域修正——第三方视角不看陈述者影响力（NMS 纳斯达克示例 tokenized stock 案，2026-10-26 用户裁定，J1.128）★
 
 - **案发**：`0xa9cb21aac801301711a13b69d76f2af8216c7777`「NMS / Not My Stock」2026-10-25 18:53 评 low。语料：主推 @bwamwifprivacy（**326 粉 0 赞 0 转**）「qr code takes u to official nasdaq website where they give us an example tokenized stock! its called NMS / Not My Stock」——第三方**发现并报道**纳斯达克官网放出的示例代币化股票；父推 @mikemaccana（6638 粉）「Full page ad in WSJ against tokenized equities」。

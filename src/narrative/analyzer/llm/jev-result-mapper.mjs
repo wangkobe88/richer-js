@@ -184,7 +184,10 @@ const W_APPEAL_BANDS = [[0, 18], [19, 37], [38, 56], [57, 75]];
 // weak 覆盖「发布者全无影响力+无 CA 背书」一票定档）——分值表不动。
 // J1.126（C230 追裁）：键名再调整 bsc_meme_user_web3_project_acceptance_and_impact
 // （加 web3_project 域限定；题面/桶/分值零改动，纯键名断代）
-const W_APPEAL_CHOICE_SCORES = { weak: 15, moderate: 47, strong: 66 };
+// J1.129（C233，2026-10-26 用户裁定「也用 low/mid/high 呗」）：桶 id 断代
+// weak/moderate/strong → low/mid/high（与评级词汇统一）；分值/pass 线/资格轴语义
+// 零改动。表内保留旧键=J1.107-J1.128 旧缓存行重放同分直读（零分支归一读）
+const W_APPEAL_CHOICE_SCORES = { low: 15, mid: 47, high: 66, weak: 15, moderate: 47, strong: 66 };
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
 const REASONABILITY_BANDS = [[0, 1], [2, 3], [4, 5]];
 // J1.43（C109）token_name_quality 单题 band 索引 0-3 → 联合量纲 0-12
@@ -1560,6 +1563,8 @@ export function mapStandardAnswers(answers, context) {
     // 发布者影响力资格轴：项目方自发币须 CA 背书/发布者须有影响力，全无影响力+
     // 无地址 → weak）；J1.126 键名再调整加 web3_project 域限定。桶 id 与分值表
     // 不变，旧缓存行 q() 归一读同门
+    // J1.129（C233）：桶 id 断代 low/mid/high（与评级词汇统一）；分值表双键同分
+    // （weak/moderate/strong 旧 choice 直读 15/47/66），旧行重放零翻转
     const appealAnswer = q(answers, 'bsc_meme_user_web3_project_acceptance_and_impact', 'w_bsc_user_appeal');
     wAppeal = appealAnswer?.choice != null
       ? (W_APPEAL_CHOICE_SCORES[appealAnswer.choice] ?? 0)
