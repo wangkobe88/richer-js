@@ -49,8 +49,11 @@ console.log('A. extractBuyRangeFromCondition 提取矩阵');
   // 整体不过滤（监控池淘汰默认关=未持仓票永久逐 tick 构建）；带帽则并包络
   // {max 1.5} ∪ {max 10} = 10min 窗，构建成本有界
   const slowTrack = '(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) AND marketCap < 20000';
-  ok(E(slowTrack)?.maxAgeMinutes === 10, 'A13. 慢热票或臂带外层帽 → OR 并包络 10min 窗（buy-v2 v35 形状锁定）');
-  ok(E('tokenAgeSec < 90 OR tradeCount >= 25') === null, 'A14. tradeCount 裸或臂（无帽）→ null 降级——帽是必要件反证');
+  ok(E(slowTrack)?.maxAgeMinutes === 10, 'A13. 慢热票或臂带外层帽 → OR 并包络 10min 窗（提取器语义，v35 形状）');
+  // T70（buy-v2 v39，2026-10-26 智子/币安1986 案）：流动性不足市场去 600s 时间上限
+  // → 线上形状=裸或臂，preFilter 无 age 上界=不再裁剪慢热票（未持仓票逐 tick
+  // 构建、监控池淘汰默认关，CPU 上升设计内）
+  ok(E('tokenAgeSec < 90 OR tradeCount >= 25') === null, 'A14. tradeCount 裸或臂（无帽）→ null 降级（=buy-v2 v39 线上形状，preFilter 不裁剪慢热票）');
 }
 
 // ---------- B. FA preFilter 判定 ----------

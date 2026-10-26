@@ -14,10 +14,10 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v38 快照；live v39 71f87b50 实跑本屏）
+## 一、现行买腿门链一屏（buy-v2 v39 快照；live v40 实跑本屏；v39 实验=库 v38 快照已过代）
 
 ```
-(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600)) -- 时窗：90s 快窗 OR 慢热臂（T63/v35：非尘成交≥25 笔+10min 帽）
+(tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
 AND marketCap > 3500 AND marketCap < 20000                -- 市值窗 USD（v34 起 20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
@@ -26,11 +26,11 @@ AND top2BundleClusterHoldCircPct < 55                    -- 最大两块买家�
 AND top3BundleClusterHoldCircPct < 75                    -- 最大三块买家并集持仓（T68/v38；邪恶卡皮案第三道门，不足三块退化=top2）
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
-AND (platform != 'flap' OR earlyTradesRouterPct >= 30)    -- flap 臂：聚合路由占比
+AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND earlyTradesPerWallet < 4                              -- 均匀度
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10) -- 人气门（v28 起 OR）
-AND earlyTradesNetBuyRatio >= 50                          -- 卖压门（v29）
+AND tradesNetBuyRatio >= 40                               -- 卖压门（T70/v39 换全史实时载体 50→40；v38 前 early 冻结版 50）
 AND sybilClusterHolderCircPct < 35                        -- sybil 大簇合计持仓（0 语义）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
@@ -52,6 +52,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T70 全史实时净买/路由两键换载体——智子/币安1986 双案（2026-10-26，buy-v2 v39；early 90s 冻结窗对慢热票结构性失真）
+- 案：v39 71f87b50 运行期两票叙事全放行（智子 mid/event:W/64.96 rating 投影正常、币安1986 high/event:E/88.84）却都没买，**拦点全在买腿因子**——
+  - **智子 0x4451f373e343fb95c5121863d048597cec5b7777**（four.meme，create 04:53 UTC）：唯一拦点 `earlyTradesNetBuyRatio >= 50` 恒不满足——90s 窗终值 **49.8%**（买 3.19/卖 1.60 BNB，25 钱包真热闹票），rating 就绪后逐 tick 全程 9%→49.8% 差 0.2pp 没上穿；routerPct 44.5/perWallet 1.56/buyVolume 3.19/市值 4291 全过。**40 分钟后毕业（funds 12.59 BNB）=被净买比门拦掉的盈利票**
+  - **币安1986 0xd6c7e7c95c11524c43e5d13506843fb18aed7777**（flap，create 04:18 UTC）：决定性拦点 `earlyTradesRouterPct >= 30`（flap 臂）——前 90s 仅 creator EOA 自倒 2 笔（1 买 0.299+1 卖 0.149），路由买入 0 → **冻结 0% 恒拦**；次要拦点量门（0.299<1.25 且 holders 1<10 冻结）。90-300s 散户蜂拥 **110 笔 77 钱包**也改不了冻结快照=「慢热票」结构性盲区
+- 根因：earlyTrades* 族=出生锚定 90s 累计窗**冻结因子**（首个出窗 tick 后读数恒定）——设计假设「首窗定盘」，当前流动性不足市场慢热票普遍，窗后真实的散户参与/净买方向永远进不了门
+- 用户三裁定（2026-10-26）：①净买比门放宽 50→**40**；②买窗改「90s **或** ticks≥25」（流动性不足市场，去掉 T63 的 600s 时间上限）；③**换实时载体**——不消费 early 冻结键，新键直接取买点时刻值
+- 因子：`tradesNetBuyRatio`=(Σ买−Σ卖)÷Σ买×100（全史 BNB 额口径；纯买 100/全卖 −100/全空 0 有证据零值）/ `tradesRouterPct`=Σ(trader∈AGGREGATOR_ROUTER_ADDRS 买入 BNB)÷Σ买×100（trader 层只计买腿，口径逐字对齐 early 同名臂）。恒累计无窗无冻结——买点评估即当时真值；分子累计 `state.totalRouterBuyBnb` 写点与 early 版同走 AGGREGATOR_ROUTER_ADDRS（单一真相源）
+- 部署：FA state+processTick 累计+`_buildFactorMap` 发射两键 + FactorBuilder 快照白名单透传（旧 FA/历史信号 → null 不掩盖）；库 buy-v2 v38→v39（bump-buy-v2-v39.cjs 三替换：`earlyTradesNetBuyRatio >= 50`→`tradesNetBuyRatio >= 40`、`earlyTradesRouterPct >= 30`→`tradesRouterPct >= 30`、`(tokenAgeSec < 90 OR (tradeCount >= 25 AND tokenAgeSec < 600))`→`(tokenAgeSec < 90 OR tradeCount >= 25)`；16 兄弟门锚定+gmgn/trigger 逐字不动）；live v40 克隆 v39 71f87b50 库 v39 整条 copy-in（create-v40.cjs 防呆：源=v38 快照形状含 early 两键消费+600s 帽/库 v39 含 trades* 两键/谱系逐字一致）
+- 刻意保留：earlyTrades* 十键**照常产出落快照**（观测对照——同盘冻结值 vs 实时值漂移量可复盘）；`earlyTradesPerWallet < 4` 等其余 early 消费不动（用户只点名两键）；T63 慢热或臂的 ticks 阈值沿用 25
+- **preFilter 影响（设计内）**：去 600s 帽后 `extractBuyRangeFromCondition` OR 侧 null 降级 → age 无上界 → preFilter 不再裁剪慢热票（T63 曾以帽为必要件保 10min 包络；本批取舍反转=慢热票覆盖优先，未持仓票逐 tick 构建 CPU 上升接受）。`_test_fa_prefilter` A14 注释随改（A14 形状=v39 线上形状）
+- 单测：`_test_fa_early_trades_factors` H 段 10 断言（H2 核心反证=复刻币安1986 形状：窗内 dev 自倒 2 笔→出窗路由蜂拥 3×0.4，`tradesRouterPct` 0→80 而 `earlyTradesRouterPct` 冻结 0 不变；H4=智子 49.8 差 0.2pp 形状的解：后续 tick 继续改实时值；公式精确值/trader 层口径/只计买腿/零值形状/探针收键/G6 源码锚定）44/0；`_test_fourmeme_fa_factors` 白名单 +2 键 34/0；fa_prefilter/live_prefilter_parity/bundle/activity/backtest_tick_build_skip/strategy_library_validate_legs 全绿
+- 诊断教训（本轮两踩）：wss_events 无 block_number 列（真列=block_time）、token_narrative 无 rating 列（真列=final_rating）——supabase-js error 不打印时 data null 被 `||[]` 吞成「无行」假象；查前先 select('*') limit 1 探列名+每次检查 error
 
 ### T68 top3 门 top3BundleClusterHoldCircPct < 75——第三块并集（2026-10-26，buy-v2 v38，4ef5109；当日观察键→转门）
 - 动因：用户要求扩展看第三块——邪恶卡皮 0x4e7ef189e1e1a0b4c59940d13cc6110544887777（v38 e5438645 fire 2026-10-25 16:20:33，rating=2）fire 时刻 top1=28.5 / top2=53.4 **均过门**（35/55），但 top3=**77.8**——前三块买家并集囤走流通 3/4。同日对照：BLACKBELT 0x46ea…7777（v37，T67 反事实重放票）fire 时刻 top2=56.2 被 55 门拦、top3 同刻 63+。邪恶卡皮持有 4 分钟即触发卖腿（16:24:27 卖出）

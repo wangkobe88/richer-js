@@ -821,6 +821,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         state.totalBuyBnb += isBuy ? bnbAmount : 0;
         state.totalSellBnb += isBuy ? 0 : bnbAmount;
         if (isBuy) state.totalBuyTokens += tokenAmount; else state.totalSellTokens += tokenAmount;
+        // 全史路由买入累计（tradesRouterPct 分子，T70）：恒累计无窗无冻结——买点时刻
+        // 实时值，慢热票 90s 后散户路由买盘照样抬升占比（与 early 窗冻结版对照）
+        if (isBuy && tick.trader_address
+            && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
+            state.totalRouterBuyBnb += bnbAmount;
+        }
 
         // ── earlyTrades* trader 层原料（2026-10-17 买腿重构 C84）：出生锚=firstTickAt、
         //    窗=earlyTradesWindowMs（90s），首个出窗 tick 冻结六键快照（_earlyWindowAdvance）
@@ -1639,6 +1645,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             totalSellBnb: 0,
             totalBuyTokens: 0,
             totalSellTokens: 0,
+            totalRouterBuyBnb: 0, // 全史聚合路由买入 BNB（tradesRouterPct 分子；T70 与 early 冻结版对照的实时层）
             uniqueTraders: new Set(),
             _walletNetTokens: new Map(), // wallet(sender||trader) → 净持仓（holders/holderTrend/P 组集中度原料；GMGN 合并修正）
             _walletMaxNetTokens: new Map(), // wallet → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，二期 2026-10-10 键域随 TPA 整链切 sender）
@@ -3090,6 +3097,16 @@ class FourMemeFactorAggregator extends EventEmitter {
             // → 留在分子（照计量不冒充归属）；名单未启用 → 不扣=原值
             buyVolumeBnbExSybil: _sybilRosterActive ? state.totalBuyBnb - _sybilClusterBuyBnb : state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
+            // ── T70 全史净买/路由占比两键（2026-10-26 智子/币安1986 案：early 90s 冻结窗
+            //    对慢热票结构性失真——币安1986 前 90s 仅 dev 自倒 routerPct 冻结 0、
+            //    90-300s 散户蜂拥 110 笔也改不了冻结值）。本对=买点时刻全史实时值：
+            //    netBuyRatio 无买入全卖 -100/全空 0 有证据零值；routerPct 判 trader 层
+            //    AGGREGATOR_ROUTER_ADDRS（GMGN 等）只计买腿，口径对齐 early 同名臂──
+            tradesNetBuyRatio: state.totalBuyBnb > 0
+                ? parseFloat(((state.totalBuyBnb - state.totalSellBnb) / state.totalBuyBnb * 100).toFixed(2))
+                : (state.totalSellBnb > 0 ? -100 : 0),
+            tradesRouterPct: state.totalBuyBnb > 0
+                ? parseFloat((state.totalRouterBuyBnb / state.totalBuyBnb * 100).toFixed(2)) : 0,
 
             // ── 交易活跃度滑窗 act* 8 键（2026-10-15；取代已删的 cycle 分桶路由。
             //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null）──

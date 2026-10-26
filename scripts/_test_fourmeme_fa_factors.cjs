@@ -516,6 +516,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'top2BundleClusterHoldCircPct',
         // 2026-10-26 同族第三块观察键（最大三块并集去重，详见 _test_bundle_cluster_factors.cjs Q 段）
         'top3BundleClusterHoldCircPct',
+        // 2026-10-26 T70 全史实时净买/路由占比两键（early 90s 冻结窗对慢热票失真——
+        // 智子/币安1986 案买腿换实时载体；详见 _test_fa_early_trades_factors.cjs T70 段）
+        'tradesNetBuyRatio', 'tradesRouterPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

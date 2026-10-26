@@ -180,6 +180,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     earlyTradesUniformBuyClusterRatio: factorResults.earlyTradesUniformBuyClusterRatio ?? null,
     earlyTradesUniformBuyWallets: factorResults.earlyTradesUniformBuyWallets ?? null,
     earlyTradesUniformBuyClusterN: factorResults.earlyTradesUniformBuyClusterN ?? null,
+    // T70 全史实时净买/路由占比两键（2026-10-26 智子/币安1986 案：early 90s 冻结窗对
+    // 慢热票失真，买腿换实时载体）——买点时刻值随快照透传供 signals 页复盘；
+    // 旧 FA/历史信号无此键 → null 不掩盖
+    tradesNetBuyRatio: factorResults.tradesNetBuyRatio ?? null,
+    tradesRouterPct: factorResults.tradesRouterPct ?? null,
     // narrative 三键（2026-10-17 C84 叙事发起条件 + 单一买条件消费）：fire 时刻评级/
     // 轮次/重试到期快照（_narrativeFactorOverrides 投影）；未发起/旧 FA → null 不掩盖
     narrativeRating: factorResults.narrativeRating ?? null,

@@ -16,6 +16,9 @@
  *   - null wallet 行进分子（rows）不计人（wallets）；defer 路径 trader 段先行，
  *     wallet 段 applyWalletTick 后补，窗内乱序收敛；冻结后晚到 wallet 行丢弃
  *
+ * H 段（T70 2026-10-26）：对照臂 tradesNetBuyRatio/tradesRouterPct 全史实时两键
+ * （同公式同口径、无窗无冻结——early 90s 冻结窗对慢热票失真，买腿换实时载体）。
+ *
  * 用法：node scripts/_test_fa_early_trades_factors.cjs
  */
 'use strict';
@@ -302,6 +305,97 @@ console.log('G. 源码口径');
   check('G5 默认窗 90s/尘埃门 0.01（FACTOR_PARAM_DEFAULTS）', () => {
     assert.ok(/earlyTradesWindowMs:\s*90000/.test(src));
     assert.ok(/earlyUniformDustBnb:\s*0\.01/.test(src));
+  });
+}
+
+// ═══════════════ H. T70 全史实时两键（tradesNetBuyRatio/tradesRouterPct）═══════════════
+// 2026-10-26 智子/币安1986 案：early 90s 冻结窗对慢热票结构性失真（币安1986 前 90s
+// 仅 dev 自倒 routerPct 冻结 0 恒拦，90-300s 散户蜂拥也改不了冻结值）→ 买腿换实时
+// 载体。同公式同口径、无窗无冻结：买点时刻全史真值。
+console.log('H. T70 trades* 全史实时两键');
+{
+  const fa = newFA();
+  // 窗内复刻币安1986：仅 dev EOA 自倒 1 买 0.3 + 1 卖 0.15，无路由买
+  feed(fa, [
+    { sender_address: 'dev', bnb_amount: 0.3, timestamp: T0 + 1000 },
+    { trade_type: 'sell', sender_address: 'dev', bnb_amount: 0.15, timestamp: T0 + 2000 },
+  ]);
+  const inWin = F(fa, T0 + 89000);
+  check('H1 窗内读数=当时真值：tradesRouterPct=0 tradesNetBuyRatio=50（早期=买点真值非 null）', () => {
+    assert.strictEqual(inWin.tradesRouterPct, 0);
+    assert.strictEqual(inWin.tradesNetBuyRatio, 50);
+  });
+  // 出窗后散户 GMGN 路由蜂拥 3×0.4（复刻 90-300s 形状）
+  feed(fa, [
+    { sender_address: 'r1', trader_address: ROUTER, bnb_amount: 0.4, timestamp: T0 + 200000, tx_hash: '0xt70a' },
+    { sender_address: 'r2', trader_address: ROUTER, bnb_amount: 0.4, timestamp: T0 + 250000, tx_hash: '0xt70b' },
+    { sender_address: 'r3', trader_address: ROUTER, bnb_amount: 0.4, timestamp: T0 + 300000, tx_hash: '0xt70c' },
+  ]);
+  const after = pick(F(fa, T0 + 400000));
+  check('H2 核心反证：出窗路由买照抬 tradesRouterPct=1.2/1.5×100=80，earlyTradesRouterPct 冻结 0 不变', () => {
+    assert.strictEqual(after.routerPct, 0); // early 冻结版=本案拦截元凶
+    assert.strictEqual(F(fa, T0 + 400000).tradesRouterPct, 80); // 实时版改判
+  });
+  check('H3 tradesNetBuyRatio 同步全史=(1.5−0.15)/1.5×100=90，earlyTradesNetBuyRatio 冻结 50', () => {
+    assert.strictEqual(after.net, 50);
+    assert.strictEqual(F(fa, T0 + 400000).tradesNetBuyRatio, 90);
+  });
+  check('H4 实时两键无冻结语义：后续 tick 继续改值（智子 49.8 差 0.2pp 形状的解）', () => {
+    feed(fa, [{ sender_address: 'wZ', bnb_amount: 0.3, timestamp: T0 + 500000, tx_hash: '0xt70d' }]);
+    const f = F(fa, T0 + 600000);
+    assert.strictEqual(f.tradesNetBuyRatio, 91.67); // (1.8−0.15)/1.8
+    assert.strictEqual(after.net, 50); // early 冻结照旧
+  });
+}
+{
+  const fa = newFA();
+  feed(fa, [
+    { trade_type: 'buy', sender_address: 'a', bnb_amount: 1.0 },
+    { trade_type: 'sell', sender_address: 'b', bnb_amount: 0.4 },
+  ]);
+  check('H5 公式精确值：净买 (1−0.4)/1×100=60', () =>
+    assert.strictEqual(F(fa).tradesNetBuyRatio, 60));
+}
+{
+  const fa = newFA();
+  feed(fa, [
+    { trade_type: 'sell', sender_address: 'wS', bnb_amount: 0.1 },
+  ]);
+  check('H6 零值形状：全卖无买 → tradesNetBuyRatio=-100 tradesRouterPct=0（有证据零值）', () => {
+    assert.strictEqual(F(fa).tradesNetBuyRatio, -100);
+    assert.strictEqual(F(fa).tradesRouterPct, 0);
+  });
+  const fa2 = newFA();
+  check('H7 全空 → 双键 0 非 undefined', () => {
+    const f = F(fa2);
+    assert.strictEqual(f.tradesNetBuyRatio, 0);
+    assert.strictEqual(f.tradesRouterPct, 0);
+  });
+}
+{
+  // trader 层口径对齐 early 同名臂（B2 同款）：仅 trader∈路由行计入
+  const fa = newFA();
+  feed(fa, [
+    { sender_address: 'wX', trader_address: ROUTER, bnb_amount: 0.3 },
+    { sender_address: ROUTER, trader_address: '0xeoa9', bnb_amount: 0.3 }, // sender=路由 trader=EOA → 不计
+  ]);
+  check('H8 tradesRouterPct 判 trader 层：0.3/0.6=50', () =>
+    assert.strictEqual(F(fa).tradesRouterPct, 50));
+  const fa3 = newFA();
+  feed(fa3, [{ trade_type: 'sell', sender_address: 'wS', trader_address: ROUTER, bnb_amount: 0.2 }]);
+  check('H9 只计买腿：路由卖出不抬分子', () =>
+    assert.strictEqual(F(fa3).tradesRouterPct, 0));
+}
+{
+  check('H10 getFactorKeys 探针含 T70 两键（未知因子防线认得）', () => {
+    const keys = newFA().getFactorKeys();
+    assert.ok(keys.has('tradesNetBuyRatio'), 'tradesNetBuyRatio 缺');
+    assert.ok(keys.has('tradesRouterPct'), 'tradesRouterPct 缺');
+  });
+  check('G6 源码锚定：totalRouterBuyBnb 写点走 AGGREGATOR_ROUTER_ADDRS（单一真相源）', () => {
+    const at = src.indexOf('state.totalRouterBuyBnb += bnbAmount');
+    assert.ok(at > 0 && src.slice(Math.max(0, at - 250), at).includes('AGGREGATOR_ROUTER_ADDRS'),
+      'tradesRouterPct 分子累计点未走 AGGREGATOR_ROUTER_ADDRS');
   });
 }
 
