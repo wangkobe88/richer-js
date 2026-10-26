@@ -52,11 +52,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T68 top3 观察键 top3BundleClusterHoldCircPct——第三块并集（2026-10-26，纯观察不进条件串，4ef5109）
+- 动因：用户要求扩展看第三块——邪恶卡皮 0x4e7ef189e1e1a0b4c59940d13cc6110544887777（v38 e5438645 fire 2026-10-25 16:20:33，rating=2）fire 时刻 top1=28.5 / top2=53.4 **均过门**（35/55），但 top3=**77.8**——前三块买家并集囤走流通 3/4。同日对照：BLACKBELT 0x46ea…7777（v37，T67 反事实重放票）fire 时刻 top2=56.2 被 55 门拦、top3 同刻 63+。邪恶卡皮持有 4 分钟即触发卖腿（16:24:27 卖出）
+- 因子：`top3BundleClusterHoldCircPct`=最大三块（持仓口径选块）买家集合**并集去重**当前正净持仓合计 ÷ 流通 ×100；不足三块退化=top2；恒 ≥ top2 ≥ top1（并集域单调扩）；三槽级联扫描（top1/2/3 维护法，级联降位）；全零块不占首槽防线与 top2 同款。**纯观察键不进任何条件串，是否成门另裁**（BLACKBELT/邪恶卡皮两票若 55/70/75 锚各会全拦/拦/拦，样本 2 不足以下结论）
+- 部署：FA `_bundleClusterFactors` 三槽级联 + `_buildFactorMap` 发射 + FactorBuilder 白名单 + 快照 10 键；v38 跑中进程 3584931 为 4ef5109 前代码不含本键（不重启=快照无 top3，重放可算；下轮实验自然携带）
+- 单测：`_test_bundle_cluster_factors` Q1-Q5（三块阶梯 100/复买跨块 tie 占两槽去重 83.3 非 113/退化链 单块=两块=三块/清仓块零贡献 65/65/逆序 parity）+ L1 快照 10 键；`_test_fourmeme_fa_factors` 白名单 +1 键 34/0
+- 校准：重放 fire tick（16:20:32.000）t1=28.5/t2=53.4 与引擎 fire 快照**逐位一致**（T8 校准锚纪律）
+
 ### T67 top2 存量第二道门 top2BundleClusterHoldCircPct < 55——AIFLY 案（2026-10-25，buy-v2 v37，0x0baecc80613610f8c6051e55c136505a4750777）
 - 案：AIFLY fire 时刻筹码结构重放——块 129715692（创建块）4 bundler 等额毛买 179.87M 后 9s 起分批协同卖出洗白到零；块 129715693 单钱包 0xf539901b4c4830ef118ccd2745ca725341577bc6 囤筹 58.58M（当时流通 88.4%）。fire 时 top1（bundleClusterHoldCircPct，存量口径）=34.8 **恰擦线低于 35 门放行**（分子=bundler 剩余持仓块），top2（最大两块买家并集）=57.2——两块合计囤筹过半的盘放行即亏
 - 因子：`top2BundleClusterHoldCircPct`=最大两块（持仓口径选块）买家集合**并集去重**当前正净持仓合计 ÷ 流通 ×100；同钱包复买跨块只计一份（相加口径双计可虚超 100%）；不足两块退化=top1；恒 ≥ top1（并集域 ⊇ top1 域）；原料 `_blockBuyWalletsAll` 全史 Map（与 T1 同源同防线）；0=无买入块/流通≤0 有证据零值
 - 阈值裁定：95 票 fire 时刻重放扫描（近 3 天 BUY 信号票、真 FA 全量重放、尘门 0.001、链上真序、喂至 fireTs）——50 拦增量含净赢家 +0.0068（拦截率 62% 误伤面大）；**55** 拦 AIFLY 57.2、增量仅漏 1 张 55.3 赢家（净 +0.0023）；60 数据最优但漏 AIFLY。用户裁定 55
 - 部署：库 buy-v2 v36→v37（`AND top2BundleClusterHoldCircPct < 55`）；live v38 e5438645-4274 实跑本屏（2026-10-25 15:32 UTC 起，库 v37 整条 copy-in，PID 3584931）；v37 ca8f9493 停前全平（BLACKBELT 0x46ea…7777 引擎卖腿 15:27:46 自动卖清 -43.5%，豆奶/K线人生/初一卡账本 after=0 手验全平）
+- **BLACKBELT 反事实验证（2026-10-25）**：真 FA 全窗重放（99 ticks）v36 形状首破 15:23:27 ≈ 实际 fire 15:23:30.872 校准成立；top2 全窗最低 56.2（fire 时刻 56.2/63.2，之后 61.5→242 一路走高）从未 <55，31s 后 top1 亦破 35——**v38 下该票全窗无 tick 可 fire=买信号根本不产生**，-43.5% 亏损票被门拦下，正是本门设计形状
 - 单测：`_test_bundle_cluster_factors` P1-P6（并集去重 66.7 非 133/不重叠两块 100/单块退化=top1/AIFLY 现场缩微 34.8+57.1/BITCAT 不变量 top2 85.8≥top1 63.3/逆序 parity）83/0；`_test_fourmeme_fa_factors` 白名单 +2 键（bundleClusterHoldCircPct 漏登记随本批补）34/0；create-v38.cjs 防呆（源=v36 快照形状无 top2 臂/库必须 v37/gmgn+trigger 逐字一致）
 - 编号裁定：24126eb commit message 与 create-v38 脚本注释曾误标「T65」——T65 已被卖臂矩阵案占用（11c19e9 先入台账），按「先入台账者得号」本案取 **T67**，git 历史不改
 
