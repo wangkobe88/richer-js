@@ -258,34 +258,40 @@ async function main() {
 
   // 资格轴题面锚（源码口径反证，防回潮）
   const appealInstructions = qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions;
-  check('G6 资格轴两形态判据（J1.130/C234）：机制前提=本题票全无 CA 背书；形态一=BSC 链特色项目（可社区发币）发布者须有影响力至少是看起来不错的 Dev；形态二=Web2/Web3 涌现项目项目主体（创建者）须较为知名、找角度账号不卡；直接 low=发布者完全无名∨主体不知名',
+  check('G6 资格轴两形态判据（J1.130/C234+J1.133/C236 门槛降档）：机制前提=本题票全无 CA 背书；形态一=BSC 链特色项目（可社区发币）Dev 有一定发帖粉丝+身份自证即可（新项目传播/讨论只是预期不得作资格判据）；形态二=Web2/Web3 涌现项目项目主体（创建者）须较为知名、找角度账号不卡；直接 low=Dev 零发帖零粉匿名∨主体不知名',
     appealInstructions.includes('没有提供代币合约地址（CA）背书')
     && appealInstructions.includes('走更靠前的账号判断逻辑')
     && appealInstructions.includes('本题不假设任何票有地址背书')
     && appealInstructions.includes('形态一：极有特色的 BSC 链项目')
     && appealInstructions.includes('BSC 社区自己发的（不是 Dev 发的）')
-    && appealInstructions.includes('项目 Dev（项目的构建者）有一定影响力')
-    && appealInstructions.includes('不能是完全的无名之辈，至少是一个看起来不错的 Dev')
+    && appealInstructions.includes('项目 Dev（项目的构建者）有一定的发帖数、粉丝量')
+    && appealInstructions.includes('介绍中说明了自己的身份——不是完全匿名无名即可')
+    && appealInstructions.includes('不得以「零传播/无第三方讨论」为由判资格不合格')
     && appealInstructions.includes('找角度推文/发币账号无影响力没关系')
     && appealInstructions.includes('人生K线——BSC 社区自己发的、已成 BSC 蓝筹')
     && appealInstructions.includes('形态二：Web2/Web3 领域里特别有影响力/有趣味/有梗的项目涌现')
     && appealInstructions.includes('项目主体（项目的创建者，不是找角度账号）')
-    && appealInstructions.includes('需要是较为知名的组织或人')
+    && appealInstructions.includes('需要是较为知名的组织或人（高影响力门槛只在形态二）')
     && appealInstructions.includes('不因陈述者无名判 low')
     && appealInstructions.includes('形态一**项目 Dev 完全无名**')
+    && appealInstructions.includes('零发帖零粉的匿名账号、介绍中无任何身份说明')
     && appealInstructions.includes('形态二**项目主体不知名**')
+    && !appealInstructions.includes('股城')
+    && !appealInstructions.includes('不能完全是无名之辈，至少是一个看起来不错的 Dev')
     && !appealInstructions.includes('dev 视角臂（资格轴唯一看发布者的形状）')
     && !appealInstructions.includes('正经项目方行为，资格过线'),
     appealInstructions.slice(0, 200));
-  check('G6b C234 例证锚在场（NMS 纳斯达克案=形态二原型、326 粉陈述者不卡；人生K线=形态一蓝筹实证）+ 陈述账号豁免随 criteria 落档',
+  check('G6b C234 例证锚在场（NMS 纳斯达克案=形态二原型、326 粉陈述者不卡；人生K线=形态一蓝筹实证）+ 股城例证已撤（C236：争议票不作例证锚）+ 陈述账号豁免随 criteria 落档',
     appealInstructions.includes('纳斯达克官网放出示例 tokenized stock')
     && appealInstructions.includes('326 粉小号发现报道——NMS 案')
-    && appealInstructions.includes('股城')
+    && !appealInstructions.includes('股城')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('找角度/陈述账号无名不是资格缺陷'),
     null);
-  check('G7 low criteria 含「资格不合格」（C234 两形态：发布者完全无名/项目主体不知名；mid/high 含「资格过线」）',
+  check('G7 low criteria 含「资格不合格」（C234 两形态+C236 形态一降档：Dev 零发帖零粉匿名/主体须高影响力；mid/high 含「资格过线」）',
     qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('资格不合格')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态一项目 Dev 完全无名')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('新项目不要求传播/讨论已落地')
+    && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('须高影响力的知名组织或人')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.low.includes('形态二项目主体不知名')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.mid.includes('资格过线')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.criteria.high.includes('资格过线'),

@@ -149,9 +149,9 @@ async function main() {
     null);
   check('C4 题集版本注释 J1.127/C231 段在场（含用户裁定原话与例证锚）',
     qsSrc.includes('J1.127（C231') && qsSrc.includes('0x46eaec0f') && qsSrc.includes('但事情本身意义很小'));
-  check('C5 题集版本注释 J1.132/C235 段在场（NMS 误拦三轮掷骰取证+用户裁定原话+版本断言 J1.132）',
+  check('C5 题集版本注释 J1.132/C235 段在场（NMS 误拦三轮掷骰取证+用户裁定原话）+ 版本 ≥ J1.132（J1.133=C236 W 资格形态一降档，C235 段不动）',
     qsSrc.includes('J1.132（C235') && qsSrc.includes('0xa9cb21aa') && qsSrc.includes('显然不算小，这是一个很有意思的事件')
-    && qm.JEV_QUESTIONS_VERSION === 'J1.132', qm.JEV_QUESTIONS_VERSION);
+    && parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 132, qm.JEV_QUESTIONS_VERSION);
 
   console.log(`\n══════ _test_event_trivial_gate: ${passed} passed, ${failed} failed ══════`);
   if (failed > 0) process.exit(1);
