@@ -1492,13 +1492,27 @@ export function mapStandardAnswers(answers, context) {
   // 解除后票回到门链正常评估（unfit/契合门/量级门照常接管）
   const dedupNewStatement = !!(tweetClassification?.type === 'direct_tweet' && context.corpusAuthorInRegistry);
 
+  // C242 蓝筹去重新事件豁免（2026-10-26 用户裁定，BNC 案 0x5cbc…7777：BNB Standard
+  // 敲纳斯达克开市钟当天，新票 name_exact 撞前蓝筹 BNB Standard BNC 被首臂拦 low——
+  // 「名字一样，但是新代币有真实新事件做背景，就不要被拦截。这也是一个基本原则。
+  // 熊猫头 case 不是这个形态（熊猫头是重新发布了形象化 IP）」。豁免双条件：
+  //   ① 事件质量第一层真值 P(none)≥0.5（bsc_meme_user_event_impact 无阻断=语料
+  //      背后有真实、有分量的事件；空洞口号/trivial/IP 复用/无据猜测形状不豁免
+  //      照拦——熊猫头形象复刻类正是被这层接住）
+  //   ② 事件新鲜 timing ∈ {within_7d, within_30d}（FRESH_TIMING_C88 同集——
+  //      older/unknown=老叙事回收/不确定形状照拦，C173 边界「陈述老叙事的
+  //      找角度推文显然不行」同源）
+  // 与 C173 同构：豁免只翻门，分数照算；两臂任一命中即解除撞名拦截（撞名证据
+  // 照记 bluechipDuplicate），票回门链正常评估（unfit/契合门/量级门照常接管）
+  const dedupNewEvent = noneProb >= 0.5 && FRESH_TIMING_C88.has(timing);
+
   // J1.11 负面硬新闻质量门（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
   // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
   // J1.13 常规内容产品宣传质量门同位双挂（C12 绣春刀3案，事件性质层面否决）
   // J1.19 Web3用户偏好质量门第三位同挂（C30 死亡观察员/太阳之勤案，受众口味
   // 层面否决——事件可有叙事价值但不合链上 meme 买家口味，热度再高也不该放）
-  if (context.duplicateNarrative && !dedupNewStatement) {
+  if (context.duplicateNarrative && !dedupNewStatement && !dedupNewEvent) {
     // C168 蓝筹去重门（2026-10-22 用户裁定「蓝筹需要去重，小蓝筹不需要——短期
     // 热门叙事往往会发好些个票」）：票以 name_exact 撞已验证蓝筹（b:，ATH>$1M
     // curated 库）→ 后来的票是纯复制品，入场资格否决（链首：资格问题先于内容
@@ -1507,7 +1521,8 @@ export function mapStandardAnswers(answers, context) {
     // 库+exact）。twitter_exact 臂上线即撤（回归反证 9 票误拦：twitter=语料出处
     // 非票身份，借壳大 V 同源多票是常态）。证据=analyzer 侧
     // detectDuplicateNarrative 纯代码事实（quasi 姐妹票刻意不算、蓝筹本体自
-    // 排除）；Jev 照跑留完整档案，评级 low；C173 新陈述豁免见上方判据
+    // 排除）；Jev 照跑留完整档案，评级 low；C173 新陈述豁免/C242 新事件豁免
+    // 见上方判据
     eventScoreBlocked = true;
     gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
     // （J1.101/C170 原 negativeHardNewsBlock 门位——退役删除，负面事件交
@@ -1686,6 +1701,12 @@ export function mapStandardAnswers(answers, context) {
         // 追溯，豁免票后续门链的拦截位不再被去重 label 掩盖）
         bluechipDedupNewStatement: (context.duplicateNarrative && dedupNewStatement)
           ? { tweetType: tweetClassification?.type ?? null }
+          : null,
+        // C242 审计标记：蓝筹去重新事件豁免命中（命中才落，bluechipDedupNewStatement
+        // 同款模式；noneProb/timing 双判据留痕——豁免票后续门链的拦截位不再被去重
+        // label 掩盖）
+        bluechipDedupNewEvent: (context.duplicateNarrative && dedupNewEvent)
+          ? { noneProb: round2(noneProb), timing }
           : null,
         // C159 观察键（用户追加担忧：短句点名 meme 的锚可能被虚假叙事利用）：
         // 恒落 empty_content 概率质量，后续按买点结果回看「蹭名无实质事件」票；

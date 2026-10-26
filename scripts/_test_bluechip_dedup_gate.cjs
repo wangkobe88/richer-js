@@ -14,8 +14,10 @@
  *      substring·corpus 不算/蓝筹本体自地址排除/address 传入被忽略/空形状）
  *   B. mapper 臂（证据→low+reason+audit；无证据对照=原评级不变；
  *      twitter_exact label 形状；B5=C173 新陈述豁免真值表——direct_tweet+
- *      作者在册双条件缺一即拦，「4」案 CZ 直陈概念不算重复）
- *   C. 源码口径（analyzer 接线/mapper 链首序/开关默认开/config 段/C173 判据锚）
+ *      作者在册双条件缺一即拦，「4」案 CZ 直陈概念不算重复；B6=C242 新事件
+ *      豁免真值表——撞名但有真实新事件做背景不算重复（none≥0.5+新鲜 timing
+ *      双条件；BNC 案救回/熊猫头形象复刻照拦））
+ *   C. 源码口径（analyzer 接线/mapper 链首序/开关默认开/config 段/C173+C242 判据锚）
  *
  * 用法：node scripts/_test_bluechip_dedup_gate.cjs
  */
@@ -256,6 +258,72 @@ async function main() {
   }));
   check('无撞名证据对照：豁免臂零侵入', noDup.llmResult.rating !== 'low' && noDup.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewStatement == null, { rating: noDup.llmResult.rating });
 
+  console.log('B6 C242 新事件豁免（BNC 案 0x5cbc…7777：撞蓝筹但有真实新事件做背景不算重复；双条件缺一即拦）');
+  // BNC 形状全值快照：impact none 0.71（P(none)≥0.5）+ within_7d + interpretive_reply
+  // （借势回复票——C173 不适用、只能靠新事件臂救）
+  const bncAnswers = () => {
+    const a = passAnswers();
+    a.bsc_meme_user_event_impact = { choice: 'none', probabilities: { none: 0.71, event_trivial: 0.12, event_empty_content: 0.07, token_ip_reuse: 0.06, event_baseless_speculation: 0.04 } };
+    return a;
+  };
+  const bncExempt = await mapStandardAnswers(bncAnswers(), baseCtx({
+    duplicateNarrative: DUP_NAME_EVIDENCE,
+    tweetClassification: { type: 'interpretive_reply' },
+  }));
+  check('真实新事件（none≥0.5+within_7d）+ 借势回复 → 非 low（豁免）', bncExempt.llmResult.rating !== 'low' && bncExempt.llmResult.pass, { rating: bncExempt.llmResult.rating, reason: bncExempt.llmResult.reason });
+  check('豁免票 reason 不含蓝筹去重 label', !(bncExempt.llmResult.reason || '').includes('蓝筹去重'), bncExempt.llmResult.reason);
+  check('audit bluechipDedupNewEvent 命中才落（noneProb/timing 双判据留痕）',
+    bncExempt.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent?.noneProb === 0.71
+    && bncExempt.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent?.timing === 'within_7d',
+    bncExempt.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent);
+  check('audit bluechipDuplicate 撞名证据照记（豁免≠没撞）', bncExempt.stage2DataToSave?.parsed_output?.jev?.bluechipDuplicate?.entry === 'The Chinese Bear', bncExempt.stage2DataToSave?.parsed_output?.jev?.bluechipDuplicate);
+
+  // ① 缺：事件质量第一层不过（熊猫头形状=形象化 IP 复刻无新事件，token_ip_reuse
+  // 占优）→ 照拦
+  const pandaAnswers = () => {
+    const a = passAnswers();
+    a.bsc_meme_user_event_impact = { choice: 'token_ip_reuse', probabilities: { token_ip_reuse: 0.55, none: 0.2, event_trivial: 0.15 } };
+    return a;
+  };
+  const pandaShape = await mapStandardAnswers(pandaAnswers(), baseCtx({
+    duplicateNarrative: DUP_NAME_EVIDENCE,
+    tweetClassification: { type: 'angle_seeking' },
+  }));
+  check('形象复刻（none<0.5）→ low 照拦（用户裁定熊猫头非新事件形态）', pandaShape.llmResult.rating === 'low' && (pandaShape.llmResult.reason || '').includes('蓝筹去重'), { rating: pandaShape.llmResult.rating, reason: pandaShape.llmResult.reason });
+  check('熊猫头形状豁免 audit 不落', pandaShape.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent == null, pandaShape.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent);
+  // trivial 形状同拦（事件成立但太小=不足以构成新事件依托）
+  const trivialAnswers = () => {
+    const a = passAnswers();
+    a.bsc_meme_user_event_impact = { choice: 'event_trivial', probabilities: { event_trivial: 0.6, none: 0.3 } };
+    return a;
+  };
+  const trivial = await mapStandardAnswers(trivialAnswers(), baseCtx({ duplicateNarrative: DUP_NAME_EVIDENCE }));
+  check('trivial 事件（none<0.5）→ low 照拦', trivial.llmResult.rating === 'low', trivial.llmResult.rating);
+
+  // ② 缺：noneProb≥0.5 但 timing 不新鲜（older/unknown=老叙事回收/不确定）→ 照拦
+  for (const t of ['older', 'unknown']) {
+    const stale = bncAnswers();
+    stale.event_timing = { choice: t, probabilities: { [t]: 0.9 } };
+    const r = await mapStandardAnswers(stale, baseCtx({ duplicateNarrative: DUP_NAME_EVIDENCE }));
+    check(`timing=${t}（none≥0.5）→ low 照拦（老叙事回收）`, r.llmResult.rating === 'low' && (r.llmResult.reason || '').includes('蓝筹去重'), { rating: r.llmResult.rating, reason: r.llmResult.reason });
+  }
+  // ① 边界：noneProb 掷骰 0.49 → fail-保守照拦
+  const coinFlip = bncAnswers();
+  coinFlip.bsc_meme_user_event_impact = { choice: 'none', probabilities: { none: 0.49, event_trivial: 0.3 } };
+  const coinFlipR = await mapStandardAnswers(coinFlip, baseCtx({ duplicateNarrative: DUP_NAME_EVIDENCE }));
+  check('noneProb=0.49 掷骰 → low 照拦（fail-保守）', coinFlipR.llmResult.rating === 'low', coinFlipR.llmResult.rating);
+
+  // 两臂独立并存：direct_tweet+不在册（C173 不满足）+ 新事件双条件 → 新事件臂救回
+  const arm2Rescue = await mapStandardAnswers(bncAnswers(), baseCtx({
+    duplicateNarrative: DUP_NAME_EVIDENCE,
+    tweetClassification: DT_CLS,
+    corpusAuthorInRegistry: false,
+  }));
+  check('C173 不满足但新事件臂命中 → 非 low（两臂任一解除）', arm2Rescue.llmResult.rating !== 'low', { rating: arm2Rescue.llmResult.rating, reason: arm2Rescue.llmResult.reason });
+  // 无撞名证据时新事件臂零侵入
+  const noDupB6 = await mapStandardAnswers(bncAnswers(), baseCtx({ tweetClassification: { type: 'interpretive_reply' } }));
+  check('无撞名证据对照：新事件臂零侵入（audit 不落）', noDupB6.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent == null, noDupB6.stage2DataToSave?.parsed_output?.jev?.bluechipDedupNewEvent);
+
   // ═══ C. 源码口径（防线锁定） ═══
   console.log('\n── C. 源码口径断言 ──');
   const fs = await import('node:fs');
@@ -272,7 +340,7 @@ async function main() {
   check('matcher 窄跑 twitterHandle 恒 null（撤臂反证锚）', /twitterHandle:\s*null/.test(matcherSrc) && matcherSrc.includes("&& m.rule === 'name_exact' // twitter_exact 不参与"));
   check('analyzer duplicateGate 开关（缺省开，显式 false 关）', analyzerSrc.includes("duplicateGate?.enabled !== false"));
   check('analyzer 检测失败旁路（catch 置 null）', /蓝筹去重检测失败[\s\S]*?duplicateNarrative = null/.test(analyzerSrc));
-  const dupPos = mapperSrc.indexOf('if (context.duplicateNarrative && !dedupNewStatement)');
+  const dupPos = mapperSrc.indexOf('if (context.duplicateNarrative && !dedupNewStatement && !dedupNewEvent)');
   const unfitArmPos = mapperSrc.indexOf('else if ((w3Block = web3UnfitBlock(answers)))');
   check('mapper 门链首（先于 web3Unfit 消费臂；nhn 门 J1.101/C170 退役改锚）', dupPos > 0 && dupPos < unfitArmPos, { dupPos, unfitArmPos });
   check('mapper negativeHardNewsBlock 门已退役（源码口径反证锚）', !mapperSrc.includes('function negativeHardNewsBlock'), null);
@@ -281,6 +349,11 @@ async function main() {
   check('mapper dedupNewStatement 判据=direct_tweet ∧ corpusAuthorInRegistry',
     /dedupNewStatement = !!\(tweetClassification\?\.type === 'direct_tweet' && context\.corpusAuthorInRegistry\)/.test(mapperSrc));
   check('mapper audit bluechipDedupNewStatement 键（命中才落）', mapperSrc.includes('bluechipDedupNewStatement:'));
+  // C242 新事件豁免源码口径（双条件缺一即拦：形象复刻/trivial/老叙事/掷骰照拦）
+  check('mapper dedupNewEvent 判据=noneProb≥0.5 ∧ FRESH_TIMING',
+    /dedupNewEvent = noneProb >= 0\.5 && FRESH_TIMING_C88\.has\(timing\)/.test(mapperSrc));
+  check('mapper 门链首条件含双豁免臂', /context\.duplicateNarrative && !dedupNewStatement && !dedupNewEvent/.test(mapperSrc));
+  check('mapper audit bluechipDedupNewEvent 键（命中才落）', mapperSrc.includes('bluechipDedupNewEvent:'));
   check('config CODE_DEFAULTS duplicateGate 默认开', /duplicateGate:\s*\{\s*enabled:\s*true\s*\}/.test(configSrc));
   // 事故现场反证（BIAOQING 三连发）：用户点名的案例必须被真实数据接住——
   // 熊猫头蓝筹条目 aliases 含三连发 symbol/name 两路（缺一路=该票漏拦）
