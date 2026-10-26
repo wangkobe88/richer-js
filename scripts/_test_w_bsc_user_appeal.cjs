@@ -164,7 +164,7 @@ async function main() {
     qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions.includes('不评与币安官方的交互')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions.includes('刚发布的 BSC 项目本来就不可能有币安交互')
     && qs.bsc_meme_user_web3_project_acceptance_and_impact.instructions.includes('不是项目的吸引力证据，也不因此扣分'));
-  check('C5 基础题数 10（J1.102/C171 删 web3_user_entity_visuality/event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity）', Object.keys(qs).length === 10 && !('web3_user_entity_visuality' in qs) && !('event_influence' in qs), Object.keys(qs).length);
+  check('C5 基础题数 11（J1.142/C244 加 trivial 观察题 bsc_meme_user_think_event_too_trivial_for_meme；J1.102/C171 删 web3_user_entity_visuality/event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity）', Object.keys(qs).length === 11 && 'bsc_meme_user_think_event_too_trivial_for_meme' in qs && !('web3_user_entity_visuality' in qs) && !('event_influence' in qs), Object.keys(qs).length);
 
   console.log('\n── D. 源码口径反证（防回潮）──');
 

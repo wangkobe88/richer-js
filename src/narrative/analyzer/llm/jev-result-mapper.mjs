@@ -300,7 +300,8 @@ const BLOCK_LABELS = {
   niche_subculture: '小圈子亚文化',
   token_circle_reachability: 'Web3 用户圈层可达性不足',
   event_empty_content: '空洞内容',
-  // J1.127/C231：事件成立但意义太小（黄仁勋名誉黑带案）；argmax 拦截 label
+  // J1.127/C231：事件成立但意义太小（黄仁勋名誉黑带案）；J1.142/C244 拦截位
+  // 退役后 label 保留（防未知选项 fallback 打裸键名；历史行 reason 展示照旧）
   event_trivial: '事件意义太小',
   event_institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
@@ -355,7 +356,16 @@ const BLOCK_SCOPE = {
   // 例行公事——主体再著名不抬事件分量）。全域拦（C184b 快狗案同判：类型不合
   // 与事件分类正交，限域 miss 会漏放）；argmax 门自动接入，旧缓存行无该桶键
   // =fail-open 零翻转。C191 币安传奇观察点①（大 IP+小事件无仲裁位）的接棒位
-  event_trivial: 'all',
+  // J1.142（C244，2026-10-26 用户裁定「误拦的代价大于漏放」——小西案
+  // 0x8aeb285c…7777 被 462 粉载体带偏误拦 0.34 近 tie；桶存活 <1 天拦 114 票、
+  // 40% 在 P<0.5 掷骰段且四个已知误拦案全在该段，三个正确拦全在 ≥0.5 段）：
+  // 桶从 impact 题拆出为独立观察题 bsc_meme_user_think_event_too_trivial_for_
+  // meme（判据四维度重构，见题集），拦截位退役=显式空域（J1.43/J1.82 先例：
+  // blockInScope 未知选项按通用处理返回 true，只删键无效）——旧缓存行
+  // event_trivial argmax 重放不再拦。观察信号续采：恒落审计
+  // trivialProbeChoice/trivialProbeMass（blockAnswers 不读新题键=天然不拦）。
+  // 恢复拦截须用户裁定
+  event_trivial: [],
   // J1.45（C110 扫描后裁定）扩全域：原 ['W','B'] 跨类空洞 261 行（E123/A104/
   // C75/D63…，high/mid 逃逸 25 票实买 6 票，noneP 全<0.5）——「营销噱头无实质
   // 产品」语义不分类别；pubProxy/platformOfficial 豁免仍在拦截位前置不受影响
@@ -1215,6 +1225,9 @@ export function mapStandardAnswers(answers, context) {
   // 9 个阻断项共享概率质量，argmax≠none 过易触发（dry-run 实证：P=0.43 即阻断）。
   // 忠实转译：P(none)≥0.5 才视为无阻断。
   const noneProb = blockAnswers(answers)?.probabilities?.none ?? 0;
+  // C244 观察题（trivial 拦截位退役后信号续采）：独立观察题答案只读作审计，
+  // blockAnswers 不读该键=天然不参与拦截/评分；旧行无该键 → null（fail-open 观察）
+  const trivialProbe = answers.bsc_meme_user_think_event_too_trivial_for_meme ?? null;
   // （J1.102/C171：event_influence/massiveInfluenceCarrierExempt/carrierWouldBlock
   //  随载体门整轴退役删除——历史行审计键 eventInfluence/subjectCarrier* 保留展示）
   // C159（2026-10-21）：empty_content 概率质量单独保留。J1.95 把「短句点名具体
@@ -1653,6 +1666,11 @@ export function mapStandardAnswers(answers, context) {
         effectiveImpactTier: effTier,
         blockChoice,
         blockChoiceProbability: blockProb ?? null,
+        // C244 观察键（恒落，emptyContentMass 同款）：trivial 拆出退役后判据信号
+        // 续采——观察题 choice + P(too_trivial)，只观察不参与任何门；深度校准后
+        // 恢复拦截须用户裁定
+        trivialProbeChoice: trivialProbe?.choice ?? null,
+        trivialProbeMass: trivialProbe ? round2(trivialProbe.probabilities?.too_trivial ?? 0) : null,
         // C168 审计标记：蓝筹去重门命中详情（命中才落，subjectCarrierBlock 同款
         // 模式；证据来自 analyzer 侧 detectDuplicateNarrative——撞了哪条蓝筹、
         // 哪级规则可追溯）
