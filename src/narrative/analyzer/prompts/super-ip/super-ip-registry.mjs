@@ -61,6 +61,14 @@ export const SUPER_IP_REGISTRY = {
   'okx':              { name: 'OKX',               type: 'institution', tier: 'S', desc: '全球顶级交易所' },
   'pumpfun':          { name: 'Pump.fun',          type: 'institution', tier: 'A', desc: 'Solana最大meme平台' },
   'four_meme_fora':   { name: 'FourMeme',          type: 'institution', tier: 'A', desc: 'BSC链发币平台' },
+  // C241（밈 案，2026-10-26 用户裁定「fourdotmemezh 要加入超级IP，并说明其性质」）：
+  // Four.meme 现行主号——原主号 @four_meme_ 2025-10-28 被 X 封禁后由该号承担主号
+  // 职能（生态号 @Four_FORM_ 确认其主号地位；显示名「-華語」为历史遗留，实际全
+  // 语言运营：首条韩语推由该号直发、平台无独立韩语号）。性质=平台官方（BSC 链
+  // meme 发射平台）自我陈述/运营表态语料源，非 KOL/名人。tier A 与 four_meme_fora
+  // 同档（C137 精神：消费臂 J1.58/C117/J1.56 只看在册不看 tier；S=世界级认证行，
+  // 平台官方不对标）。
+  'fourdotmemezh':    { name: 'Four.meme主号',     type: 'institution', tier: 'A', desc: 'BSC链meme平台Four.meme现行主号（原主号被封后承担）' },
 };
 
 /**
