@@ -117,6 +117,33 @@ async function main() {
       && qsSrcA8.includes('事件是**成型的叙事**（持续的行为记录、有情节的故事、被命名的主体的来历')
       && qsSrcA8.includes('全部由作者个人产生不减分量，正常评估契合（第三人称报道非必要条件）'),
       null);
+
+    // A10（J1.136/C240，火蚁案 불개미 姐妹票 0x502592d3c980a25ed52a11d389b0ffe1eb8c7777
+    // / 0x988635ef13f78daf7022f6109dbf6b02f35c7777）：用户裁定「这不是韩国本地
+    // 事件，这不是 Web2 的事件，是 Web3 的事件，而且跟用户密切相关」+「是 Web3
+    // 用户切身相关的事情」——fit 题被「韩国」地域词带偏（币圈散户抗议读成韩国
+    // 社会本地事件，unfit 地域文化臂激活，事件分 51/50<60 拦；实测两票 3 分钟
+    // 11.4x/8.6x）。锚=事件主体是 Web3 用户群体自己的集体行动→受众与 crypto 圈
+    // 完全重叠、至少 fit、群体身份图腾可 strong_fit；地域限定词不改变主体归属；
+    // BSC 平台直连正向。边界三连防误伤
+    check('A10 J1.136/C240 Web3 用户切身相关事件锚在场（群体行动至少 fit + 图腾可 strong_fit + 地域词不改变主体归属）',
+      qsSrcA8.includes('Web3 用户切身相关事件（J1.136/C240，火蚁案')
+      && qsSrcA8.includes('事件主体是 **Web3/crypto 用户群体自己的集体行动或切身事务**')
+      && qsSrcA8.includes('至少 fit**')
+      && qsSrcA8.includes('可 **strong_fit**')
+      && qsSrcA8.includes('「韩国币圈用户抗议」的主体是「币圈用户」不是「韩国社会」')
+      && qsSrcA8.includes('地域词不把它变成圈外地域文化'),
+      null);
+    check('A10b 边界三连防误伤句在场（纯圈外抗议/平台运营活动/个人苦难猎奇三边界）',
+      qsSrcA8.includes('纯圈外人群的抗议/维权/社会事件（无 crypto 参与主体）仍是圈外主题按原判据评')
+      && qsSrcA8.includes('平台官方组织的运营活动（做任务赚积分，C237 币安南瓜营）是平台动作不是用户群体自己的行动')
+      && qsSrcA8.includes('消费具体个人苦难/死亡的猎奇叙事仍走 unfit 臂（负向锚优先）'),
+      null);
+    check('A10c criteria 两句补句在场（strong_fit 图腾臂 + fit 本档臂）+ 版本断言',
+      w3q.criteria.strong_fit.includes('火蚁式散户军团自称，J1.136/C240')
+      && w3q.criteria.fit.includes('至少本档，J1.136/C240')
+      && JEV_QUESTIONS_VERSION === 'J1.136',
+      { v: JEV_QUESTIONS_VERSION, sf: w3q.criteria.strong_fit.slice(-60), f: w3q.criteria.fit.slice(-40) });
   }
 
   // ═══ B. mapStandardAnswers 路由矩阵 ═══
