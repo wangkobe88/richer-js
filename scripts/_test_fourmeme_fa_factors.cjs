@@ -514,6 +514,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'buyVolumeBnbExSybil', 'holdersExSybil',
         // 2026-10-25 AIFLY 案第二道存量门（最大两块买家并集去重，详见 _test_bundle_cluster_factors.cjs P 段）
         'top2BundleClusterHoldCircPct',
+        // 2026-10-26 同族第三块观察键（最大三块并集去重，详见 _test_bundle_cluster_factors.cjs Q 段）
+        'top3BundleClusterHoldCircPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));

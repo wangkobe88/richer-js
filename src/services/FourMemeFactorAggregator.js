@@ -2363,7 +2363,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 持仓口径最大两块买家集合【并集去重】当前正净持仓合计 ÷ 流通 ×100——同一钱包
         // 在两块复买只计一份筹码（相加口径对重叠钱包双计，可虚超 100%）；不足两块时
         // 并集退化为单块集 = top1 值。tie 任取其二（Map 插入序确定性，边缘形状阈值不敏感）
-        let maxAllBlkHold = 0, _top2Sum = -1, _top1Ws = null, _top2Ws = null;
+        // top3BundleClusterHoldCircPct（2026-10-26 同族第三块观察键）：最大三块并集
+        // 去重；不足三块退化=top2；恒 ≥ top2 ≥ top1（并集域单调扩）
+        let maxAllBlkHold = 0, _top2Sum = -1, _top3Sum = -1;
+        let _top1Ws = null, _top2Ws = null, _top3Ws = null;
         for (const _ws of state._blockBuyWalletsAll.values()) {
             let _s = 0;
             for (const _w of _ws) {
@@ -2371,10 +2374,14 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (_v > 0) _s += _v;
             }
             if (_s > maxAllBlkHold) {
+                _top3Sum = _top2Sum; _top3Ws = _top2Ws;
                 _top2Sum = maxAllBlkHold; _top2Ws = _top1Ws;
                 maxAllBlkHold = _s; _top1Ws = _ws;
             } else if (_top1Ws !== null && _s > _top2Sum) {
+                _top3Sum = _top2Sum; _top3Ws = _top2Ws;
                 _top2Sum = _s; _top2Ws = _ws;
+            } else if (_top1Ws !== null && _s > _top3Sum) {
+                _top3Sum = _s; _top3Ws = _ws;
             }
         }
         const holdCircPct = maxAllBlkHold > 0 && state._circTokens > 0
@@ -2387,8 +2394,18 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (_v > 0) top2UnionHold += _v;
             }
         }
+        let top3UnionHold = top2UnionHold;
+        if (_top3Ws) {
+            for (const _w of _top3Ws) {
+                if (_top1Ws.has(_w) || _top2Ws.has(_w)) continue;
+                const _v = state._walletNetTokens.get(_w);
+                if (_v > 0) top3UnionHold += _v;
+            }
+        }
         const top2HoldPct = top2UnionHold > 0 && state._circTokens > 0
             ? top2UnionHold / state._circTokens * 100 : 0;
+        const top3HoldPct = top3UnionHold > 0 && state._circTokens > 0
+            ? top3UnionHold / state._circTokens * 100 : 0;
         // 可选簇明细（扫描脚本对拍 B 用：簇钱包名单 → GMGN bundler 地址库 precision/recall）；
         // 引擎路径不传 out，零变化
         if (out) {
@@ -2401,6 +2418,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             out.maxBlockBuyHoldTokens = maxBlkHold;             // 因子分子（买家当前净持仓）
             out.maxAllBlockHoldTokens = maxAllBlkHold;          // 存量口径因子分子（全块 max）
             out.top2UnionHoldTokens = top2UnionHold;            // top2 门分子（最大两块并集去重）
+            out.top3UnionHoldTokens = top3UnionHold;            // top3 观察键分子（最大三块并集去重）
         }
         return {
             bundleClusterSize: size,
@@ -2411,6 +2429,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             maxBlockBuyCircPct: Math.round(circPct * 10) / 10,
             bundleClusterHoldCircPct: Math.round(holdCircPct * 10) / 10,
             top2BundleClusterHoldCircPct: Math.round(top2HoldPct * 10) / 10,
+            top3BundleClusterHoldCircPct: Math.round(top3HoldPct * 10) / 10,
         };
     }
 
@@ -3112,6 +3131,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 第二道存量门（同日 AIFLY 0x0bae…7777 案用户裁定）：最大两块买家并集去重
             // 正净持仓 ÷ 流通；恒 ≥ bundleClusterHoldCircPct；口径见 _bundleClusterFactors 注释
             top2BundleClusterHoldCircPct: bundle.top2BundleClusterHoldCircPct,
+            // 第三块观察键（2026-10-26 同族扩展）：最大三块并集去重；不足三块退化=top2；
+            // 恒 ≥ top2 ≥ top1；纯观察不进条件串（阈值裁定另议）
+            top3BundleClusterHoldCircPct: bundle.top3BundleClusterHoldCircPct,
             // ── 出生锚定捆绑簇 launch* 4 键（2026-10-17 Agentum 案方向 C：10s 滑窗迟到
             //    fire 漏创建块簇；同块臂+跨块等额臂，出窗冻结；口径见 _launchBundleFactors）──
             launchBundleClusterSize: launch.launchBundleClusterSize,

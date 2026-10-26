@@ -592,13 +592,15 @@ console.log('L. FactorBuilder 快照透传');
     require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
   const KEYS = ['bundleClusterSize', 'bundleClusterSharePct', 'bundleClusterAmountRatio',
     'bundleClusterEvenGap', 'bundleClusterSameTrader', 'maxBlockBuyCircPct',
-    'bundleClusterHoldCircPct', 'top2BundleClusterHoldCircPct', 'top1HolderCircPct'];
+    'bundleClusterHoldCircPct', 'top2BundleClusterHoldCircPct',
+    'top3BundleClusterHoldCircPct', 'top1HolderCircPct'];
   const sample = {
     bundleClusterSize: 5, bundleClusterSharePct: 52.6, bundleClusterAmountRatio: 1.0,
     bundleClusterEvenGap: 1, bundleClusterSameTrader: 100, maxBlockBuyCircPct: 63.3,
-    bundleClusterHoldCircPct: 63.3, top2BundleClusterHoldCircPct: 85.8, top1HolderCircPct: 12.66,
+    bundleClusterHoldCircPct: 63.3, top2BundleClusterHoldCircPct: 85.8,
+    top3BundleClusterHoldCircPct: 92.1, top1HolderCircPct: 12.66,
   };
-  check('L1 signal 快照 9 键透传（7 bundle + top2 + top1）', () => {
+  check('L1 signal 快照 10 键透传（7 bundle + top2 + top3 + top1）', () => {
     const snap = buildFactorValuesForTimeSeries(sample);
     for (const k of KEYS) assert.strictEqual(snap[k], sample[k], k);
   });
@@ -842,6 +844,118 @@ console.log('O. bundleClusterHoldCircPct 存量口径（全块 max 当前正净�
         assert.strictEqual(fb2.top2BundleClusterHoldCircPct, fa2.top2BundleClusterHoldCircPct);
       });
     }
+  }
+}
+
+// ═══════════════ Q. top3BundleClusterHoldCircPct（2026-10-26 同族第三块观察键） ═══════════════
+console.log('Q. top3BundleClusterHoldCircPct（最大三块买家并集去重正净持仓 ÷ 流通）');
+{
+  // Q1 三块不重叠相加：30M + 20M + 10M / 流通 60M → top1=50 / top2=83.3 / top3=100
+  {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+      bnb_amount: 3.0, token_amount: 30 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wC', block_number: 220, log_index: 1,
+      bnb_amount: 1.0, token_amount: 10 * M }), {});
+    const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+    check('Q1 三块阶梯 top3=100（30+20+10 / 60），top2=83.3，top1=50', () => {
+      assert.ok(Math.abs(f.bundleClusterHoldCircPct - 50) < 0.05, `top1 got ${f.bundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top2BundleClusterHoldCircPct - 83.3) < 0.05, `top2 got ${f.top2BundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top3BundleClusterHoldCircPct - 100) < 0.05, `top3 got ${f.top3BundleClusterHoldCircPct}`);
+    });
+  }
+
+  // Q2 第三块含跨块复买去重：wA blk200 20M + blk230 10M（净 30M 两块同 sum tie），
+  //    wB 20M，wC 10M → 块 sum：{wA}=30（tie 两块占 top1/top2）/ {wB}=20 / {wC}=10；
+  //    top2 并集 {wA}=30、top3 并集 {wA,wB}∪…=30+20=50 / 流通 60 = 83.3 非 113 虚超
+  {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wC', block_number: 220, log_index: 1,
+      bnb_amount: 1.0, token_amount: 10 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 4000, trader_address: 'wA', block_number: 230, log_index: 1,
+      bnb_amount: 1.0, token_amount: 10 * M }), {});
+    const f = fa.buildFactorMap('0xtoken', T0 + 5000);
+    check('Q2 wA 复买跨块 tie 占 top1/top2，top3={wA,wB}=50/60=83.3（去重非 30+30+20 虚超）', () => {
+      assert.ok(Math.abs(f.top2BundleClusterHoldCircPct - 50) < 0.05, `top2 got ${f.top2BundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top3BundleClusterHoldCircPct - 83.3) < 0.05, `top3 got ${f.top3BundleClusterHoldCircPct}`);
+    });
+  }
+
+  // Q3 退化链：一块 → top2=top3=top1；两块 → top3=top2
+  {
+    const fa1 = newFA();
+    fa1.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wX', block_number: 200, log_index: 1,
+      bnb_amount: 1.0, token_amount: 40 * M }), {});
+    const f1 = fa1.buildFactorMap('0xtoken', T0 + 2000);
+    check('Q3a 单块票 top3 退化 = top2 = top1 = 100', () => {
+      assert.strictEqual(f1.top2BundleClusterHoldCircPct, 100);
+      assert.strictEqual(f1.top3BundleClusterHoldCircPct, 100);
+    });
+    const fa2 = newFA();
+    fa2.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wX', block_number: 200, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa2.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wY', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    const f2 = fa2.buildFactorMap('0xtoken', T0 + 3000);
+    check('Q3b 两块票 top3 退化 = top2 = 100', () =>
+      assert.strictEqual(f2.top3BundleClusterHoldCircPct, 100));
+  }
+
+  // Q4 清仓钱包零贡献（当前正净持仓）+ 第四有效块进并集：wA 30M / wB 20M / wC 10M
+  //    清仓（净 0）/ wD 15M → 流通 65M；块 sum {wA}30 {wB}20 {wC}0 {wD}15 →
+  //    top1=46.2 / top2=76.9 / top3=100（65/65——清仓块零贡献不虚增分子）
+  {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+      bnb_amount: 3.0, token_amount: 30 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wC', block_number: 220, log_index: 1,
+      bnb_amount: 1.0, token_amount: 10 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 4000, trader_address: 'wC', block_number: 230, log_index: 1,
+      trade_type: 'sell', bnb_amount: 1.0, token_amount: 10 * M }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 5000, trader_address: 'wD', block_number: 240, log_index: 1,
+      bnb_amount: 1.5, token_amount: 15 * M }), {});
+    const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+    check('Q4 清仓块零贡献，top1=46.2 / top2=76.9 / top3=100（65/65）', () => {
+      assert.ok(Math.abs(f.bundleClusterHoldCircPct - 46.2) < 0.05, `top1 got ${f.bundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top2BundleClusterHoldCircPct - 76.9) < 0.05, `top2 got ${f.top2BundleClusterHoldCircPct}`);
+      assert.ok(Math.abs(f.top3BundleClusterHoldCircPct - 100) < 0.05, `top3 got ${f.top3BundleClusterHoldCircPct}`);
+    });
+  }
+
+  // Q5 乱序 parity：Q1 场景逆序喂 bit 一致（三槽级联交换律 + 并集去重序无关）
+  {
+    const mk = () => {
+      const fa = newFA();
+      fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+        bnb_amount: 3.0, token_amount: 30 * M }), {});
+      fa.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+        bnb_amount: 2.0, token_amount: 20 * M }), {});
+      fa.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wC', block_number: 220, log_index: 1,
+        bnb_amount: 1.0, token_amount: 10 * M }), {});
+      return fa;
+    };
+    const a = mk();
+    const b = newFA();
+    b.processTick(mkTick({ timestamp: T0 + 3000, trader_address: 'wC', block_number: 220, log_index: 1,
+      bnb_amount: 1.0, token_amount: 10 * M }), {});
+    b.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'wA', block_number: 200, log_index: 1,
+      bnb_amount: 3.0, token_amount: 30 * M }), {});
+    b.processTick(mkTick({ timestamp: T0 + 2000, trader_address: 'wB', block_number: 210, log_index: 1,
+      bnb_amount: 2.0, token_amount: 20 * M }), {});
+    const fa2 = a.buildFactorMap('0xtoken', T0 + 4000), fb2 = b.buildFactorMap('0xtoken', T0 + 4000);
+    check('Q5 逆序喂 top1/top2/top3 bit 一致', () => {
+      assert.strictEqual(fb2.bundleClusterHoldCircPct, fa2.bundleClusterHoldCircPct);
+      assert.strictEqual(fb2.top2BundleClusterHoldCircPct, fa2.top2BundleClusterHoldCircPct);
+      assert.strictEqual(fb2.top3BundleClusterHoldCircPct, fa2.top3BundleClusterHoldCircPct);
+    });
   }
 }
 
