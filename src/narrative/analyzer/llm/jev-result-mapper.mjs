@@ -1495,16 +1495,23 @@ export function mapStandardAnswers(answers, context) {
   // C242 蓝筹去重新事件豁免（2026-10-26 用户裁定，BNC 案 0x5cbc…7777：BNB Standard
   // 敲纳斯达克开市钟当天，新票 name_exact 撞前蓝筹 BNB Standard BNC 被首臂拦 low——
   // 「名字一样，但是新代币有真实新事件做背景，就不要被拦截。这也是一个基本原则。
-  // 熊猫头 case 不是这个形态（熊猫头是重新发布了形象化 IP）」。豁免双条件：
-  //   ① 事件质量第一层真值 P(none)≥0.5（bsc_meme_user_event_impact 无阻断=语料
-  //      背后有真实、有分量的事件；空洞口号/trivial/IP 复用/无据猜测形状不豁免
-  //      照拦——熊猫头形象复刻类正是被这层接住）
-  //   ② 事件新鲜 timing ∈ {within_7d, within_30d}（FRESH_TIMING_C88 同集——
+  // 熊猫头 case 不是这个形态（熊猫头是重新发布了形象化 IP）」。豁免三条件：
+  //   ① 事件同一性=新事件：bluechip_event_identity（J1.139 条件题，撞名才问）
+  //      new_event ≥0.5——撞名蓝筹的主体/对象发生了新的独立事实事件，本票承载
+  //      的是该新事件；同事件姐妹复制品（C121 牛来案 none 0.67+within_7d，只看
+  //      ②③会误放——用户 2026-10-22 裁定该拦）与形象复刻（熊猫头）判
+  //      same_event 照拦。答案缺失/旧缓存行无此题 → fail-保守照拦（零翻转）
+  //   ② 事件质量第一层真值 P(none)≥0.5（bsc_meme_user_event_impact 无阻断=事件
+  //      真实成立有分量；空洞口号/trivial/IP 复用/无据猜测形状不豁免照拦）
+  //   ③ 事件新鲜 timing ∈ {within_7d, within_30d}（FRESH_TIMING_C88 同集——
   //      older/unknown=老叙事回收/不确定形状照拦，C173 边界「陈述老叙事的
   //      找角度推文显然不行」同源）
-  // 与 C173 同构：豁免只翻门，分数照算；两臂任一命中即解除撞名拦截（撞名证据
-  // 照记 bluechipDuplicate），票回门链正常评估（unfit/契合门/量级门照常接管）
-  const dedupNewEvent = noneProb >= 0.5 && FRESH_TIMING_C88.has(timing);
+  // 事件同一性是叙事判断归 Jev（代码侧无可靠材料：蓝筹条目无叙事源锚、姐妹票
+  // 载体推各自独立，URL/时间线判据都分不开 C121 与 BNC）。与 C173 同构：豁免
+  // 只翻门，分数照算；两臂任一命中即解除撞名拦截（撞名证据照记
+  // bluechipDuplicate），票回门链正常评估（unfit/契合门/量级门照常接管）
+  const dedupNewEventProb = answers.bluechip_event_identity?.probabilities?.new_event ?? 0;
+  const dedupNewEvent = noneProb >= 0.5 && FRESH_TIMING_C88.has(timing) && dedupNewEventProb >= 0.5;
 
   // J1.11 负面硬新闻质量门（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
@@ -1703,10 +1710,10 @@ export function mapStandardAnswers(answers, context) {
           ? { tweetType: tweetClassification?.type ?? null }
           : null,
         // C242 审计标记：蓝筹去重新事件豁免命中（命中才落，bluechipDedupNewStatement
-        // 同款模式；noneProb/timing 双判据留痕——豁免票后续门链的拦截位不再被去重
-        // label 掩盖）
+        // 同款模式；newEventProb/noneProb/timing 三判据留痕——豁免票后续门链的拦截
+        // 位不再被去重 label 掩盖）
         bluechipDedupNewEvent: (context.duplicateNarrative && dedupNewEvent)
-          ? { noneProb: round2(noneProb), timing }
+          ? { newEventProb: round2(dedupNewEventProb), noneProb: round2(noneProb), timing }
           : null,
         // C159 观察键（用户追加担忧：短句点名 meme 的锚可能被虚假叙事利用）：
         // 恒落 empty_content 概率质量，后续按买点结果回看「蹭名无实质事件」票；

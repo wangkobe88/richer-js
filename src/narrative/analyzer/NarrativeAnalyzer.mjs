@@ -867,6 +867,9 @@ export class NarrativeAnalyzer {
             const questions = buildStandardQuestions({
               imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis,
               parentRelationship: hasReplyParent(twitterInfo),
+              // J1.139 条件题 bluechip_event_identity：撞名蓝筹才问（不撞名不问
+              // 防幻觉作答；duplicateNarrative 与 mapper C242 豁免臂同源）
+              bluechipDuplicate: !!duplicateNarrative,
             });
             const startedAt = new Date().toISOString();
             const result = await timing.wrap('jev.standard', () => JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` }));

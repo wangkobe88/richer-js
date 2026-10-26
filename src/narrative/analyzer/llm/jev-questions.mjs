@@ -1239,6 +1239,17 @@
  *       不大均不适用。mapper entityEventMismatchBlock 概率 ≥0.5 全域拦（与类型/
  *       指歪门同形状，pubProxy 豁免同源），审计 nameEntityEventMismatchMass。
  *       旧缓存行无该桶 → 概率 0 fail-open 零翻转
+ * J1.139（C242，2026-10-26 BNC 案 0x5cbc7a8f…7777 用户裁定「名字一样，但是
+ *       新代币有真实新事件做背景，就不要被拦截。这也是一个基本原则。像已有的
+ *       熊猫头 case 不是这个形态（熊猫头是重新发布了形象化 IP）」）：新增条件题
+ *       bluechip_event_identity（撞名蓝筹才问，name_image_consistency 同模式）——
+ *       C168 去重门「撞名=复制品」细化出三形态：纯形象复刻（熊猫头）照拦/
+ *       同事件仍在发酵的姐妹复制品（C121 牛来 none 0.67+within_7d，若只看
+ *       impact+timing 会误放）照拦/蓝筹之后的新事件（BNC 撞 BNB Standard 蓝筹
+ *       但承载敲纳斯达克开市钟新事实）放行。事件同一性是叙事判断归 Jev（代码
+ *       侧无可靠材料：蓝筹条目无叙事源锚、姐妹票载体推各自独立，URL/时间线
+ *       判据都分不开）；mapper C242 豁免第三腿消费 new_event≥0.5（答案缺失
+ *       fail-保守照拦，旧缓存行零翻转）
  * J1.138（C241，2026-10-26 밈 案 0x34f5a1bb…ffff）：用户三裁定——①trivial 加
  *       反锚⑦（平台官方号直接沟通的市场方向性表态不算 trivial：打招呼形态即
  *       够、不要求公告/战略陈述要件；划界=用户读到的是方向信号 vs 活动信息，
@@ -1374,7 +1385,7 @@
  *       不变；mapper q() 归一读旧键，旧行零翻转
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.138';
+export const JEV_QUESTIONS_VERSION = 'J1.139';
 
 /** 品牌 keyword 预检表+shouldIncludeBrandHijackCheck 已废（J1.103/C172 品牌劫持轴
  * 整体退役：brand_mismatch 桶删除后预检唯一用途 mapper 门开关消失；名字-事件
@@ -1406,6 +1417,11 @@ export const TIMING_OPTIONS = [
  *   （J1.39，仅语料任一载体槽位（主推/website_tweet/quoted/retweeted）带
  *   【回复的推文】块时为 true）：mapper C103 源头窗（翻译/二手解读 + 父推
  *   >24h → timing older）判据源。条件题同模式：无父推不问防幻觉作答
+ * @param {boolean} [options.bluechipDuplicate] - 是否包含撞名蓝筹事件同一性题
+ *   （J1.139，仅名字全等/别名全等撞 b: 域蓝筹（detectDuplicateNarrative 检出）
+ *   时为 true）：mapper C242 蓝筹去重新事件豁免（撞名但票承载蓝筹之后的新
+ *   事实事件→不算重复）判据源。条件题同模式：不撞名不问防幻觉作答（撞名
+ *   蓝筹条目必在 [KNOWLEDGE_BASE] 注入段头部，对照材料在场）
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildStandardQuestions(options = {}) {
@@ -1414,6 +1430,9 @@ export function buildStandardQuestions(options = {}) {
   // （无父推不问防幻觉作答；twitter-section 渲染条件同源——tweet.in_reply_to
   // 存在即渲染）。mapper hasReplyParent 同判定，两端共用防漂移
   const parentRelationship = options.parentRelationship === true;
+  // J1.139 条件题 bluechip_event_identity：撞名蓝筹才问（不撞名不问防幻觉作答；
+  // analyzer 侧 duplicateNarrative 检出与 mapper 豁免臂同源）
+  const bluechipDuplicate = options.bluechipDuplicate === true;
 
   const questions = {
 
@@ -1792,6 +1811,30 @@ BSC meme 玩家能接纳的 W 类项目分两种形态，资格门槛各不同�
           depicts_name: '配图演绎名字——图中的动作/场景/形象/文字正是名字含义的画面化诠释（猫拉上窗帘=DND「别打扰」的演绎；名字 LFG 配冲线/起飞画面；名字「拉窗帘」配拉窗帘动作）',
           decorative: '无演绎关系——配图只是装饰/氛围/通用背景/表情包/顺手配图，与名字含义无诠释关系（名字 CRO 配猫图；通用梗图；纯风景）',
           unclear: '无法判断——图与名字含义的关系无法判定',
+        },
+      },
+    } : {}),
+
+    // ── 10.95 撞名蓝筹事件同一性（J1.139 条件题，仅 bluechipDuplicate（名字
+    //      全等/别名全等撞 b: 域蓝筹，detectDuplicateNarrative 检出）时加入：
+    //      mapper C242 蓝筹去重新事件豁免判据源——BNC 案。条件题与
+    //      name_image_consistency 同模式：不撞名不问防幻觉作答（撞名蓝筹条目
+    //      必在 [KNOWLEDGE_BASE] 注入段头部，材料在场）──
+    ...(bluechipDuplicate ? {
+      bluechip_event_identity: {
+        type: 'choice',
+        instructions: `撞名蓝筹事件同一性（bluechip duplicate identity）。本代币的名字与 [KNOWLEDGE_BASE] 段中某条已验证蓝筹（b: 域条目，名字全等/别名全等命中，标有 ATH 市值）相同。判断：本代币语料承载的事件/叙事，与该蓝筹代币当时的事件/叙事，是**同一个**还是蓝筹之后发生的**新事件**。
+⚠️ 评估对象=事件的事实内容（不是载体推文的新旧——姐妹复制品的载体推也是新发的推，但内容是对旧事件的复述）。
+- same_event 同一事件/同一形象：本票语料承载的还是蓝筹当时那个事件/热点/形象 IP 本身——同一热点仍在发酵、同一事件被复述搬运、同一形象 IP 被重新发布/复刻，没有新的事实发生 → 本票是纯复制品；
+- new_event 新事件：撞名蓝筹的主体/名字所指向的对象，发生了**新的、独立的事实事件**（在蓝筹当时的事件之后才发生的新事情——如蓝筹主体（公司/项目/人物）的新公告/新动作/新里程碑、同一 IP 生态的新事实），本票语料承载的正是这个新事件；
+- unclear 无法判断。
+⚠️ 例证（new_event，C242 BNC 案 0x5cbc…7777）：蓝筹=BNB Standard BNC（ATH≈$1.56M 已在册，其叙事=BNB Standard 本体上线/成名）；本票语料=BNB Standard 今日敲纳斯达克开市钟的官方宣告=蓝筹主体发生的新事实事件 → new_event（撞名≠重复叙事，票有真实新事件做背景）。
+⚠️ 例证（same_event）：蓝筹=牛来（ATH≈$163M，币安 Discord 牛来梗冠军票）；后来同名票语料=复述同一冠军事件/表情包（同事件仍在发酵期的复制品）→ same_event；又如熊猫头形象 IP 被新票重新发布（无新事件依托，纯形象复刻）→ same_event。
+⚠️ 判据核心：事实内容是否新。载体推新、措辞新、发币账号新都不算新事件；只有蓝筹主体/对象确实又发生了新的事情才算。`,
+        criteria: {
+          same_event: '同一事件/形象——本票承载的还是蓝筹当时的事件/热点/形象 IP 本身（复述/搬运/仍在发酵/形象复刻，无新事实），纯复制品',
+          new_event: '新事件——撞名蓝筹的主体/对象发生了新的独立事实事件，本票承载的是该新事件（撞名≠重复，新事件自带入场资格）',
+          unclear: '无法判断——材料不足以区分新旧事件',
         },
       },
     } : {}),
