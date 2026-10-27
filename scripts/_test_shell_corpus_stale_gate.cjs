@@ -9,12 +9,16 @@
  * 标题反成 exact_match/fit strong 正向证据链 → high 放行，实盘对倒盘 -37.5%。
  * 门=两腿全真才拦：①无推文级语料 ②全部语料源距创建锚 >30d（「所有的语料都是
  * 老的才行」——square 新文=照放，对照 0x26a0「金钱的自由」有新鲜主推=照放）。
+ * 时间源含**账号注册时间 created_at**（2026-10-27 追裁定「代币只提供大V地址
+ * （大V账号肯定是老账号）应也能拦」——纯裸账号形状补源；账号推文时间刻意
+ * 不入源：活跃大 V 永远有新推）。
  *
  * 覆盖：
  *   A. mapper 集成：本案形状拦 / 新语料放 / 有主推放 / fail-open 双臂 /
- *      max 语义（任一新即放）/ 未来源 / 阈值边界 / 全域 / 审计键
+ *      max 语义（任一新即放）/ 未来源 / 阈值边界 / 全域 / 审计键 /
+ *      裸账号形状拦（追裁定）/ created_at 缺失放 / 新注册账号放
  *   B. 源码口径：门链序（蓝筹首臂→shellStale→chinaPolitics）/ 函数私有 /
- *      analyzer 传参接线 / prestage 不接
+ *      analyzer 传参接线 / prestage 不接 / created_at 源码锚
  *
  * 用法：node scripts/_test_shell_corpus_stale_gate.cjs
  */
@@ -55,13 +59,14 @@ const iso = (sec) => new Date(sec * 1000).toISOString();
 
 function makeContext(extra = {}) {
   return {
-    // 本案形状：账号级 twitterInfo（type=account，零推文槽位）
+    // 本案形状：账号级 twitterInfo（type=account，零推文槽位；created_at=账号
+    // 注册时间，CZ 2017 真实形状 9 年老号——追裁定后为纯裸账号形状唯一时间源）
     tokenData: {
       symbol: '自由之钱', name: '自由之钱',
       tokenCreatedAtSec: ANCHOR_SEC,
       raw_api_data: { name: '自由之钱', created_at: ANCHOR_SEC },
     },
-    twitterInfo: { type: 'account', screen_name: 'cz_binance', followers_count: 10987790 },
+    twitterInfo: { type: 'account', screen_name: 'cz_binance', followers_count: 10987790, created_at: iso(ANCHOR_SEC - 9 * 365 * DAY) },
     // 193 天前的 square 旧文（本案实测 lag）
     binanceSquareInfo: { postId: '313115584541441', publishedAt: iso(ANCHOR_SEC - 193 * DAY), title: "From Nothing to Millions: Inside CZ's \"Freedom of Money\"" },
     websiteInfo: null,
@@ -110,12 +115,41 @@ async function main() {
     stage2Of(mMain).blockReason);
 
   const mMinimal = mapper.mapStandardAnswers(shellAnswers(), makeContext({
+    twitterInfo: { type: 'account', screen_name: 'cz_binance', followers_count: 10987790 }, // 无 created_at
     binanceSquareInfo: { postId: 'p3', fetchMethod: 'minimal' }, // WAF minimal：无 publishedAt
   }));
-  check('A4 时间源全缺失（square minimal 无 publishedAt）→ fail-open 放',
+  check('A4 时间源真·全缺失（账号无 created_at+square minimal）→ fail-open 放',
     !(stage2Of(mMinimal).blockReason || '').includes('借壳语料陈旧')
     && stage2Of(mMinimal).jev?.shellCorpusStale == null,
     { blk: stage2Of(mMinimal).blockReason, audit: stage2Of(mMinimal).jev?.shellCorpusStale });
+
+  // 追裁定 2026-10-27「代币只提供大V地址（大V账号肯定是老账号）应也能拦」：
+  // 纯裸账号形状（无 square/website）以账号注册时间为唯一源
+  const mBare = mapper.mapStandardAnswers(shellAnswers(), makeContext({
+    binanceSquareInfo: null, websiteInfo: null,
+  }));
+  check('A4b 纯裸大V账号（9 年老号，无 square/website）→ 拦+审计 sources=[twitter_account]',
+    mBare.llmResult.rating === 'low'
+    && (stage2Of(mBare).blockReason || '').includes('借壳语料陈旧')
+    && stage2Of(mBare).jev?.shellCorpusStale?.sources?.includes('twitter_account')
+    && stage2Of(mBare).jev.shellCorpusStale.lagSec > 8 * 365 * DAY,
+    { blk: stage2Of(mBare).blockReason, audit: stage2Of(mBare).jev?.shellCorpusStale });
+
+  const mBareNoTs = mapper.mapStandardAnswers(shellAnswers(), makeContext({
+    twitterInfo: { type: 'account', screen_name: 'x', created_at: '' }, // 空串不可解析
+    binanceSquareInfo: null, websiteInfo: null,
+  }));
+  check('A4c created_at 空串（不可解析）→ 该源跳过 fail-open 放',
+    !(stage2Of(mBareNoTs).blockReason || '').includes('借壳语料陈旧'),
+    stage2Of(mBareNoTs).blockReason);
+
+  const mFreshAcct = mapper.mapStandardAnswers(shellAnswers(), makeContext({
+    twitterInfo: { type: 'account', screen_name: 'newdev', created_at: iso(ANCHOR_SEC - 7 * DAY) },
+    binanceSquareInfo: null, websiteInfo: null,
+  }));
+  check('A4d 新注册账号（7 天前）裸账号 → <30d 照放（新号发自己的票不误伤）',
+    !(stage2Of(mFreshAcct).blockReason || '').includes('借壳语料陈旧'),
+    stage2Of(mFreshAcct).blockReason);
 
   const mNoAnchor = mapper.mapStandardAnswers(shellAnswers(), makeContext({
     tokenData: { symbol: '自由之钱', name: '自由之钱', raw_api_data: {} },
@@ -161,14 +195,15 @@ async function main() {
       stage2Of(m).blockReason);
   }
 
-  // 不传新 context（存量调用形状）→ 旧行为零变化（H4 fail-open 同理）
+  // 不传新 context（存量调用形状）→ 账号注册时间在场照拦（裸账号形状=追裁定
+  // 后正行为；「缺新键不炸」的 fail-open 面由 A4c 覆盖）
   const mLegacyCtx = mapper.mapStandardAnswers(shellAnswers(), (() => {
     const c = makeContext();
     delete c.binanceSquareInfo; delete c.websiteInfo;
     return c;
   })());
-  check('A11 context 不带 square/website（存量调用形状）→ 零变化放行',
-    !(stage2Of(mLegacyCtx).blockReason || '').includes('借壳语料陈旧'),
+  check('A11 context 不带 square/website（存量调用形状）+老账号 created_at → 裸账号照拦',
+    mLegacyCtx.llmResult.rating === 'low' && (stage2Of(mLegacyCtx).blockReason || '').includes('借壳语料陈旧'),
     stage2Of(mLegacyCtx).blockReason);
 
   console.log('\n── B. 源码口径 ──');
@@ -187,6 +222,9 @@ async function main() {
   check('B5 时间窗常量=30d 对齐 C75 刻度（SOURCE_STALE_SEC 同值互独立）',
     mapperSrc.includes('const SHELL_CORPUS_STALE_SEC = 30 * 86400;')
     && mapperSrc.includes('const SOURCE_STALE_SEC = 30 * 86400;'));
+  check('B7 账号注册时间源码锚：collectCorpusSourceTsMs 收 created_at+sources 含 twitter_account（防复活）',
+    /push\(twitterInfo\?\.created_at\);\s*\n\s*push\(binanceSquareInfo/.test(mapperSrc)
+    && mapperSrc.includes("sources.push('twitter_account')"));
   check('B6 mapper-only：题集版本不动（JEV_QUESTIONS_VERSION 无 C250 bump）',
     !/C250/.test(fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8')));
 

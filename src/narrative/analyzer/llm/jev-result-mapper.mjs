@@ -79,8 +79,13 @@ const PARENT_REL_STALE_SEC = 24 * 3600;
  *      裁定「所有的语料都是老的才行」——任一语料新鲜即放：CZ 正在宣传新书的
  *      square 新文=腿②假照放）
  * 时间源=实际进 state 的语料（推文槽位/square publishedAt/website
- * publishedTime）；时间源全缺失/锚缺失 fail-open 放（对齐 C75 缺锚语义，交给
- * 既有门链）。mapper-only 不 bump 题集版本；prestage 不接；Jev 照跑留档。 */
+ * publishedTime/**账号注册时间 twitterInfo.created_at**——2026-10-27 追裁定
+ * 「代币只提供大V地址（大V账号肯定是老账号）应也能拦」：纯裸账号形状（无
+ * square/website）内容源为空会 fail-open 漏放，账号对象本身的时间属性补源后
+ * 老账号借壳被拦；**账号推文时间刻意不入源**——活跃大 V 永远有新推，算推文
+ * 时间门对借壳账号恒失效）；时间源全缺失（连账号注册时间都不可解析）/锚缺失
+ * fail-open 放（对齐 C75 缺锚语义，交给既有门链）。mapper-only 不 bump 题集
+ * 版本；prestage 不接；Jev 照跑留档。 */
 const SHELL_CORPUS_STALE_SEC = 30 * 86400;
 
 /**
@@ -222,7 +227,9 @@ function hasTweetLevelCorpus(twitterInfo) {
  * CARRIER_SLOTS+in_reply_to 覆盖推文槽位（腿①真时恒空，防御性收集防判据
  * 演化漂移）；square publishedAt（binance-square-fetcher bapi
  * firstReleaseTime/JSON-LD datePublished）；website publishedTime
- * （web-fetcher jina 回退提取）。 */
+ * （web-fetcher jina 回退提取）；账号注册时间 twitterInfo.created_at
+ * （twitter-fetcher _fetchAccountInternal 恒带——纯裸账号形状唯一时间源，
+ * 追裁定见 SHELL_CORPUS_STALE_SEC 头注）。 */
 function collectCorpusSourceTsMs(twitterInfo, binanceSquareInfo, websiteInfo) {
   const ts = [];
   const push = (v) => {
@@ -232,6 +239,7 @@ function collectCorpusSourceTsMs(twitterInfo, binanceSquareInfo, websiteInfo) {
   };
   for (const slot of CARRIER_SLOTS(twitterInfo)) push(slot?.created_at);
   push(twitterInfo?.in_reply_to?.created_at);
+  push(twitterInfo?.created_at);
   push(binanceSquareInfo?.publishedAt);
   push(websiteInfo?.publishedTime);
   return ts;
@@ -251,6 +259,7 @@ function shellCorpusStaleBlock(twitterInfo, binanceSquareInfo, websiteInfo, toke
   const lagSec = anchorSec - newestMs / 1000;
   if (!Number.isFinite(lagSec) || lagSec <= SHELL_CORPUS_STALE_SEC) return null;
   const sources = [];
+  if (new Date(twitterInfo?.created_at || '').getTime() === newestMs) sources.push('twitter_account');
   if (new Date(binanceSquareInfo?.publishedAt || '').getTime() === newestMs) sources.push('binance_square');
   if (new Date(websiteInfo?.publishedTime || '').getTime() === newestMs) sources.push('website');
   return {
