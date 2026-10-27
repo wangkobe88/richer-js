@@ -956,6 +956,9 @@ export class NarrativeAnalyzer {
               corpusAuthorInRegistry: !!superIPInfo,
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
+              // C250 借壳语料陈旧门原料：square/website fetch 产物直传（mapper
+              // 侧收集 publishedAt/publishedTime 判「无宣告推+全语料>30d」）
+              binanceSquareInfo, websiteInfo,
               callInfo: {
                 model: result.model, questions, state, stateStats: stats,
                 usage: result.usage, startedAt, finishedAt,

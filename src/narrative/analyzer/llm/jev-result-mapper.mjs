@@ -65,6 +65,24 @@ const BINANCE_PARENT_STALE_SEC = 24 * 3600;
  * 分工：C102=币安语料无条件（借壳不加区别），本门=通用语料按关系分档。 */
 const PARENT_REL_STALE_SEC = 24 * 3600;
 
+/** C250 借壳语料陈旧窗（秒）——自由之钱案 0x2c048d9c…ffff（2026-10-27 用户裁定
+ * 「叙事能过简直扯淡，是个明显的叙事模块漏洞」）：部署者把大 V 主页塞进 meta
+ * twitterUrl（账号级语料，无宣告推=叙事主体与币零关联零互动），全部实义语料只有
+ * 一篇 193 天前的第三方 square 旧文（CZ 4 月出书《Freedom of Money》的书评，作者
+ * @youcancallmeJo 非 CZ——corpus_author_identity 的 S 级认证被 meta 抢注冒领），
+ * 币名抄文章标题反而成为 exact_match/fit strong 的正向证据链（关联 20 满分 +
+ * sf+fit 0.64 过硬门）→ total 72.77 high 放行，实盘对倒盘 -37.5%。同宇宙对照
+ * 0x26a0「金钱的自由」high 92.98 为正确放行：CZ 敲钟讲话当天新鲜主推
+ * direct_tweet 在场=宣告关联真实。门=资格层两腿全真才拦：
+ *   ① 无推文级语料（载体槽位全空——部署者零宣告动作，账号主页≠宣告）
+ *   ② 全部语料源真实时间距 token 创建锚 >30d（对齐 C75 主推源头窗刻度；用户
+ *      裁定「所有的语料都是老的才行」——任一语料新鲜即放：CZ 正在宣传新书的
+ *      square 新文=腿②假照放）
+ * 时间源=实际进 state 的语料（推文槽位/square publishedAt/website
+ * publishedTime）；时间源全缺失/锚缺失 fail-open 放（对齐 C75 缺锚语义，交给
+ * 既有门链）。mapper-only 不 bump 题集版本；prestage 不接；Jev 照跑留档。 */
+const SHELL_CORPUS_STALE_SEC = 30 * 86400;
+
 /**
  * C75 叙事源头陈旧 override（纯代码，mapper-only，题集版本不动——时效分本来
  * 就是代码查表，J1.16/J1.23/J1.24/C68 同款：分数锚定类必须代码侧）：
@@ -187,6 +205,60 @@ function isSameSourceParent(slot, twitterInfo) {
   if (pt.length > 20 && mt.length > 20
     && (mt.startsWith(pt.slice(0, 20)) || pt.startsWith(mt.slice(0, 20)))) return true;
   return false;
+}
+
+/** C250 腿①：推文级语料在场判定——主推（type='tweet'）或任一载体槽位
+ * （website_tweet/quoted/retweeted/in_reply_to）有推文对象。账号级主页语料
+ * （type='account'，buildAccountPart 只渲染账号头）刻意不算——账号存在≠宣告
+ * （自由之钱案 twitter 段仅 92 字符=零推文内容）。null twitterInfo 同判无。 */
+function hasTweetLevelCorpus(twitterInfo) {
+  if (!twitterInfo) return false;
+  if (twitterInfo.type === 'tweet') return true;
+  return !!(twitterInfo.website_tweet || twitterInfo.quoted_status
+    || twitterInfo.retweeted_status || twitterInfo.in_reply_to);
+}
+
+/** C250 腿②原料：进 state 的语料源时间戳全集（毫秒；不可解析源跳过）。
+ * CARRIER_SLOTS+in_reply_to 覆盖推文槽位（腿①真时恒空，防御性收集防判据
+ * 演化漂移）；square publishedAt（binance-square-fetcher bapi
+ * firstReleaseTime/JSON-LD datePublished）；website publishedTime
+ * （web-fetcher jina 回退提取）。 */
+function collectCorpusSourceTsMs(twitterInfo, binanceSquareInfo, websiteInfo) {
+  const ts = [];
+  const push = (v) => {
+    if (!v) return;
+    const ms = new Date(v).getTime();
+    if (Number.isFinite(ms)) ts.push(ms);
+  };
+  for (const slot of CARRIER_SLOTS(twitterInfo)) push(slot?.created_at);
+  push(twitterInfo?.in_reply_to?.created_at);
+  push(binanceSquareInfo?.publishedAt);
+  push(websiteInfo?.publishedTime);
+  return ts;
+}
+
+/** C250 借壳语料陈旧门：两腿全真（无推文级语料 ∧ 全部语料源距创建锚 >30d）
+ * → {label, lagSec, staleSec, sources}（调用方拦 low）；否则 null 不干预。
+ * 最新语料源（max）也要超窗才拦=「所有语料都是老的」语义——任一源新鲜
+ * 即放。时间源全缺失/锚缺失 fail-open（C75 缺锚同语义）。 */
+function shellCorpusStaleBlock(twitterInfo, binanceSquareInfo, websiteInfo, tokenData) {
+  if (hasTweetLevelCorpus(twitterInfo)) return null;
+  const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
+  if (!anchorSec) return null;
+  const tsMs = collectCorpusSourceTsMs(twitterInfo, binanceSquareInfo, websiteInfo);
+  if (tsMs.length === 0) return null;
+  const newestMs = Math.max(...tsMs);
+  const lagSec = anchorSec - newestMs / 1000;
+  if (!Number.isFinite(lagSec) || lagSec <= SHELL_CORPUS_STALE_SEC) return null;
+  const sources = [];
+  if (new Date(binanceSquareInfo?.publishedAt || '').getTime() === newestMs) sources.push('binance_square');
+  if (new Date(websiteInfo?.publishedTime || '').getTime() === newestMs) sources.push('website');
+  return {
+    label: `借壳语料陈旧：无宣告推且全部语料超 ${SHELL_CORPUS_STALE_SEC / 86400} 天（最新语料 ${Math.round(lagSec / 86400)} 天前）`,
+    lagSec: Math.round(lagSec),
+    staleSec: SHELL_CORPUS_STALE_SEC,
+    sources,
+  };
 }
 
 /**
@@ -1051,6 +1123,9 @@ export function mapStandardAnswers(answers, context) {
     // J1.137/C240 火蚁案：发行方自发宣告证据（detectIssuerSelfLaunch 产物，
     // null=未检出零侵入）——C75/C103 时效 override 豁免臂判据
     issuerSelfLaunch = null,
+    // C250 借壳语料陈旧门原料（analyzer 直传 fetch 产物）：square/website 语料
+    // 时间戳 mapper 侧收集判定腿②（twitterInfo 已在 context 供腿①）
+    binanceSquareInfo = null, websiteInfo = null,
   } = context;
   const symbol = tokenData.symbol || '';
   // stage1 存完整 prompt（state+questions 全文），stage2/3 存摘要+指针
@@ -1321,6 +1396,7 @@ export function mapStandardAnswers(answers, context) {
   let w3Block = null; // bsc_meme_user_event_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 契合证据门信息 {label, fitMass}（J1.83/C141；前身产品实体接纳门 J1.27/C55）
   let cpBlock = null; // 中国政治主题否决信息 {label}（J1.122/C192，fit 题 china_politics 桶）
+  let shellStaleBlock = null; // 借壳语料陈旧门信息 {label, lagSec, staleSec, sources}（C250，无宣告推+全语料>30d）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
   // J1.56（C126）：实体低影响力门回归——按旧 J1.10 规格吃新实体题的 unknown
   // （≥0.5，全域拦——C184b 方案一），挂在名字门之前（实体层否决先于形态层）
@@ -1506,6 +1582,14 @@ export function mapStandardAnswers(answers, context) {
     gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
     // （J1.101/C170 原 negativeHardNewsBlock 门位——退役删除，负面事件交
     // web3UnfitBlock/web3FitMassBlock 口径层判）
+  } else if ((shellStaleBlock = shellCorpusStaleBlock(twitterInfo, context.binanceSquareInfo, context.websiteInfo, tokenData))) {
+    // C250 借壳语料陈旧门（2026-10-27 自由之钱案 0x2c048d9c…ffff 用户裁定）：
+    // 资格层否决（部署者与叙事主体零关联零互动=抢注形状）挂蓝筹去重之后——
+    // 蓝筹 curated 库证据更硬居首，本门补「首发抢注无条目可撞」的洞（C168 只
+    // 拦 name_exact 撞 b: 域，自由之钱首发生效时无条目）。两腿判据/失败语义见
+    // SHELL_CORPUS_STALE_SEC 头注；mapper-only，全域不限类别
+    eventScoreBlocked = true;
+    gateBlockReason = shellStaleBlock.label;
   } else if ((cpBlock = chinaPoliticsBlock(answers))) {
     // J1.122/C192 中国政治主题否决（2026-10-25 用户裁定）：fit 题 china_politics
     // argmax → 确定性拦（独立否决桶，不参与四档比较；不看玩味空间/无豁免）。
@@ -1732,6 +1816,11 @@ export function mapStandardAnswers(answers, context) {
         // J1.122（C192）审计标记：中国政治主题否决命中才落键（fit 题 china_politics
         // argmax；未命中不落=旧行形状零变化）
         chinaPoliticsBlock: cpBlock ? { choice: 'china_politics' } : null,
+        // C250 审计标记：借壳语料陈旧门命中才落键（lagSec=最新语料距创建锚秒数，
+        // sources=构成最新语料的源；未命中不落=旧行形状零变化）
+        shellCorpusStale: shellStaleBlock
+          ? { lagSec: shellStaleBlock.lagSec, staleSec: shellStaleBlock.staleSec, sources: shellStaleBlock.sources }
+          : null,
         // J1.87（C145）：rcpPlatformExempt 随 routine 桶退役（历史行保留展示，新行不产出）
         // J1.61：name_entity_memeability 题已删（并入名字门）——历史行保留
         // referentMemeabilityScore 键，新行不再产出。J1.83（C141）event_subject_entity

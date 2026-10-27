@@ -54,6 +54,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C250 账号级借壳+全语料陈旧=首发抢注漏放——借壳语料陈旧门（自由之钱案，2026-10-27 用户裁定「叙事能过简直扯淡」，mapper-only）★
+
+- **案发**：自由之钱 `0x2c048d9c02fccba7cc5c07adeb37070da9a2ffff`（10-27 10:27 UTC，deployer 0x553326…679e）。live v42 10:49 fire 买入 4 卡 0.004 BNB，11:07 -37.5% 全清（峰值 +52.2% 存在 1 秒）；交易侧=对倒盘 27 钱包 24 全进全出、11:05:59 同秒 17 笔连环砸（复盘另案）。叙事首轮 rating=3 high 72.77 放行。
+- **死法与取证**：语料真相=twitter 段仅 92 字符（meta 塞 x.com/cz_binance **账号级 URL**，无宣告推=CZ 与币零关联零互动）+ 全部实义语料=**193 天前（2026-04-16）第三方 square 旧文**（CZ 4 月出书《Freedom of Money》的书评导读，作者 @youcancallmeJo **非 CZ**）。Jev 四道题已判「不行」但全不在拦截位：event_timing older 0.94（账号级语料无载体推，C74/C75/C102/C103 时效硬门全免疫，older 只封顶 30）/ impact none 0.7（只降分不拦）/ 词句 not_acceptable 0.63（C139 实体桶短路不消费）/ token_ip_reuse 0.22。**反向加分链**：币名抄文章标题=exact_match 0.78 关联 20 满分 + fit strong 0.53（sf+fit 0.64 过硬门）+ 实体 accepted——抢注本身成高分来源；C168 撞名 miss（quasi「金钱的自由」非 exact 刻意不拦，**首发抢注无条目可撞**）。corpus_author_identity: CZ（person/S级）系注册表按 meta twitterUrl 冒领（真实语料作者=无名书评人），S 级身份带高全链评估。**家族证据**：同素材 10-24 起连续抢注四 high（自由 91.36/金钱自由 87.65/金钱的自由 92.98/本案 72.77），后续重发被拦纯属掷骰换桶（0x1f53abdf「自由之钱」二发 W 15<32）或 precheck 语料差（0x6929366e 只挂 Telegram），无任何门「识别出抢注」。
+- **用户裁定**：「叙事能过简直扯淡，是个明显的叙事模块漏洞」；判据修正（第二轮原话）「这里应该是所有的语料都是老的，才行吧，如果币安广场的报告是新的，也不应该因为实效性被拦」——门必须锚**语料真实时间硬锚**（非 Jev timing 掷骰），任一语料新鲜即放。
+- **划界（两腿全真才拦）**=「部署者零宣告动作 ∧ 所有语料都是老的」：①无推文级语料（载体槽位全空，账号主页≠宣告）；②全部语料源距创建锚 >30d（C75 同刻度；square 新文/新鲜宣告推任一在场即腿假照放）。对照票 0x26a0「金钱的自由」high 92.98=正确放行（CZ 敲钟讲话当天新鲜主推 direct_tweet 在场，腿①假）——同 CZ「自由」宇宙恰好切开两票。时间源全缺失/锚缺失 fail-open（C75 缺锚同语义，交既有门链）。
+- **实现（mapper-only）**：jev-result-mapper.mjs——SHELL_CORPUS_STALE_SEC=30d；`hasTweetLevelCorpus`/`collectCorpusSourceTsMs`（square publishedAt + website publishedTime + 推文槽位防御性收集）/`shellCorpusStaleBlock`（max 源语义=最新语料也要超窗）三私有函数；veto 链挂**蓝筹去重首臂之后**（curated 库证据居首，本门补首发无条目可撞的洞）、chinaPolitics 之前；审计 `shellCorpusStale` 命中才落（lagSec/staleSec/sources）；analyzer 调用点直传 binanceSquareInfo/websiteInfo。题集版本不 bump；prestage 不接；全域不限类别。
+- **单测**：`_test_shell_corpus_stale_gate.cjs` 20 断言全绿（本案形状拦/square 新文放/新鲜主推对照放/fail-open 双臂（minimal 无 publishedAt/无锚）/max 任一新即放/未来源/=30d 边界/全域 W/B/D/context 存量形状零变化/门链序/函数私有/analyzer 接线/prestage 不接/30d=C75 同刻度）；邻位单测 narrative_review_fixes 22/0、entity_event_mismatch 17/0、bluechip_dedup_gate 77/0 全绿（recap A19=并行案 J1.149 存量债，干净 HEAD 复现非本案引入）。
+- **182 对拍**：部署后回填（案票 0x2c048d9c 期望 low+借壳语料陈旧 label；对照 0x26a0 期望 high 维持；家族 0x5ee8/0x6c49 待议）。
+- **余留观察**：①corpus_author_identity 注册表冒领通道（meta twitterUrl 指向大 V 主页即认证 S 级作者）未修——本案门不依赖该腿，但 S 级身份带高评估的通道本身留裁定；②website 旧文+无 twitter 残余误伤面（websiteFetch 默认关基本不在场；真项目票有宣告推腿①假不触达）；③0x5ee8「金钱自由」87.65 / 0x6c49「自由」91.36 两张 10-24 家族 high 未对拍（若同形状=同款漏放历史债，是否回溯失效留裁定）。
+
 ### C249 全量回归 W 改道组 7 张 FAIL——event_category W 桶两个误吸排除锚 + 资格轴被提及资产形状臂（2026-10-27 回归触发+用户指令修复，J1.148→J1.149 两轮）★
 
 - **案发**：2026-10-27 全量回归（115 票 96/15/4/0）15 张 FAIL 四组归因，**W 改道组 7 张**（C83a BI/C94 京小安/C101 OK❌/C114 DND/C117 BNB/C137 MEMES/C189 天狗）10-24 轮全 PASS、C230/J1.125（10-25 部署）后被 event_category 吸进 W 桶集体翻 low。用户指令「先把 W 改道问题解决一下」。
