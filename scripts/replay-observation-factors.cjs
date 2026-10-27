@@ -193,12 +193,15 @@ async function main() {
   console.log(`  ${tokens.size} 个 distinct token`);
 
   console.log('[2/3] 拉 trades 聚合 per (experiment, token) 净额…');
-  const trades = await fetchAll('trades', 'experiment_id,token_address,trade_type,input_amount,output_amount', null, 'id');
+  const trades = await fetchAll('trades',
+    'experiment_id,token_address,trade_direction,input_amount,output_amount,success', null, 'id');
   const pnlMap = new Map();
   for (const t of trades) {
+    if (t.success === false) continue;                       // 失败行不进净额
     const k = `${t.experiment_id}|${t.token_address}`;
     const inA = parseFloat(t.input_amount) || 0, outA = parseFloat(t.output_amount) || 0;
-    const delta = t.trade_type === 'buy' ? -inA : outA;   // buy 花 BNB / sell 得 BNB
+    const isBuy = t.trade_direction === 'buy' || t.trade_direction === 'BUY';
+    const delta = isBuy ? -inA : outA;   // buy 花 BNB / sell 得 BNB
     pnlMap.set(k, (pnlMap.get(k) || 0) + delta);
   }
   console.log(`  ${trades.length} 行 trades`);
