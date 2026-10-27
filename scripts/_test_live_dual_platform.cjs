@@ -314,8 +314,8 @@ async function main() {
         // 7c. 买/卖点分派接线
         ok(/this\._liveTraderFor\(signal\.tokenAddress\)\.buyToken/.test(engineSrc),
             '_executeBuyLive 买点走 _liveTraderFor 分派');
-        ok(/\(traderOverride \|\| this\._liveTraderFor\(signal\.tokenAddress\)\)\.sellToken/.test(engineSrc),
-            '_executeSellLive 卖点走（traderOverride || _liveTraderFor）分派（毕业票 PCS 覆盖优先）');
+        ok(/\(trader \|\| this\._liveTraderFor\(signal\.tokenAddress\)\)\.sellToken/.test(engineSrc),
+            '_executeSellLive 卖点走（trader || _liveTraderFor）分派（trader=traderOverride/毕业票 PCS 覆盖优先，2026-10-24 路由重构后形状）');
 
         // 7d. 分派 fail-closed 源码形状
         ok(/_liveTraderFor\(tokenAddress\)[\s\S]{0,600}拒绝跨协议盲发/.test(engineSrc),

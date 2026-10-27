@@ -144,7 +144,8 @@
       "maxPositionTokens": 0,
       "sellCircuitBreakerFailures": 5,
       "sellCircuitBreakerCooldownMs": 1800000,
-      "txWaitTimeoutMs": 120000
+      "txWaitTimeoutMs": 120000,
+      "dustCloseValueBnb": 0.0001
     },
     "corpusEnrich": {
       "enabled": true,

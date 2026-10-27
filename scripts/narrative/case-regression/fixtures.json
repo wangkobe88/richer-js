@@ -1578,6 +1578,17 @@
       },
       "note": "概念实体锚主票：BNC 敲钟科普长推定义 DAT=财库公司，J1.144 unacceptable_type 0.63 拦 → J1.145 not_entity 0.96 落词句门 0.94 拦 → J1.146 accepted high 86.27；55s 10.5x",
       "addedAt": "2026-10-27"
+    },
+    {
+      "caseId": "C248",
+      "symbol": "姆巴龟",
+      "addr": "0x1707cdd696db6dc5cf201be739e985b2f8b47777",
+      "expect": {
+        "rating": "high",
+        "tokenCategory": "event:E"
+      },
+      "note": "外部辱华争议撤出 china_politics 桶（J1.147）：姆巴佩辱华争议+币名骂辱华者=反击性 meme 非政治敏感；expect high+event:E",
+      "addedAt": "2026-10-27"
     }
   ]
 }

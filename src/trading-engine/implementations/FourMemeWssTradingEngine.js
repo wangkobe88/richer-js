@@ -200,6 +200,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._liveTxWaitTimeoutMs = liveConfig.txWaitTimeoutMs ?? 120000;    // trader 交易回执等待超时（防 pending 永久挂起）
     this._liveTxReceiptViaWss = liveConfig.txReceiptViaWss !== false;    // WSS 快速回执（2026-10-15 提速①）：collector tick 信号 race waitForTransaction，默认开；显式 false=纯原路径
     this._buyCbFailures = liveConfig.buyCircuitBreakerFailures ?? 3;     // 买入连续失败熔断阈值（2026-10-14 龙龙币二 0x2831fdfa revert 死循环案用户裁定：连败 3 拉黑；前置拒绝不计——只计发单后失败）
+    this._dustCloseValueBnb = liveConfig.dustCloseValueBnb ?? 0.0001;    // 粉尘残仓清理价值线 BNB（2026-10-27 ELON2028 0xf5f3…7777 幽灵仓案：残仓预期卖出所得低于此值=不值 gas，就地清账删仓不发链上卖单；显式 0=关门）
   }
 
   /** 当前可用余额（PortfolioManager 真实余额优先） */
@@ -3121,7 +3122,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { ethers } = require('ethers');
     // E5：按腿比例卖执行时点余仓（holding.amount 此刻尚未被改写，无需额外快照——
     // PM 部分卖改写在交易返回之后）
-    const amountToSell = new Decimal(Number(holding.amount)).mul(sellPct).toNumber();
+    const holdingDec = new Decimal(holding.amount); // 账面 Decimal 原值（全清腿记账精确清零用）
+    const amountToSell = holdingDec.mul(sellPct).toNumber(); // 链上卖量：trader 内含 6 位小数舍入，Number 化无妨
 
     const onChainQty = await this._getOnChainTokenBalance(signal.tokenAddress);
     let qtySold = amountToSell;
@@ -3146,6 +3148,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const expectedNativeOut = (bnbUsdSell > 0 && signalPriceUsdSell > 0)
       ? new Decimal(qtySold).mul(signalPriceUsdSell).div(bnbUsdSell).toNumber()
       : null;
+
+    // 粉尘残仓清理门（2026-10-27 ELON2028 0xf5f3…7777 幽灵仓案）：残仓预期卖出所得
+    // 连 gas 都盖不住 → 链上卖出必 revert（事故实测 11 笔 ×337k gas，熔断 30min 冷却
+    // + 卖腿重试 = ~31min 一轮永动烧 gas）——不发 tx，就地清账删仓+告警。锚缺失
+    // （价格/汇率任一 ≤0 → expectedNativeOut=null）fail-open 照发不误杀正常仓；显式 0
+    // 关门。部分腿命中同清全账（部分腿所得已 < 线时整仓必然也不值 gas）
+    if (this._dustCloseValueBnb > 0 && expectedNativeOut != null
+      && expectedNativeOut < this._dustCloseValueBnb) {
+      return this._closeDustPosition(signal, signalId, metadata, holding, expectedNativeOut);
+    }
 
     // 毕业票 PCS 路由（2026-10-24 豆皮/水案用户裁定「FA.graduated 票也走 PCS」）：
     // FA graduated 票内盘合约交易必 revert——自动卖（策略腿/止损/扫描兜底）与手工卖
@@ -3200,7 +3212,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       ? new Decimal(bnbReceived).mul(bnbUsd).div(qtySold).toNumber()
       : (signal.price || 0);
 
-    await this._liveRecordTrade('sell', signal, qtySold, actualPriceUsd);
+    // 记账量：全清腿（sellPct>=1）用账面 Decimal 原值——PM remaining 精确归零、eq(0)
+    // 删仓判据成立（ELON2028 0xf5f3…7777 幽灵仓案 2026-10-27：账面 …906275 经 Number
+    // 往返变 …906 → PM 残仓 3e-11 不删仓 → 卖腿永动 revert 熔断循环；E5d 只修了虚拟
+    // 路径的 Decimal 直通，live 侧在此补齐）。部分卖保持链上请求量（余仓本就允许非
+    // 零，下一条全清腿会精确清掉）
+    const ledgerQty = sellPct >= 1 ? holdingDec : new Decimal(qtySold);
+    await this._liveRecordTrade('sell', signal, ledgerQty, actualPriceUsd);
 
     const { Trade } = require('../entities');
     const trade = new Trade({
@@ -3238,6 +3256,52 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `✅ live 卖出成交 | ${signal.symbol} ${(sellPct * 100).toFixed(0)}%腿 tx=${trade.txHash} 得 ${bnbReceived} BNB @ ${actualPriceUsd.toExponential(4)} USD`);
 
     return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd, bnbReceived, qtySold };
+  }
+
+  /**
+   * 粉尘残仓清理（2026-10-27 ELON2028 0xf5f3…7777 幽灵仓案）：残仓预期卖出所得连
+   * gas 都盖不住时链上卖出必 revert——卖腿「失败每轮重试直到清仓」设计 + 熔断 30min
+   * 冷却 = 永动烧 gas 循环。不发链上卖单，就地清账删仓（记账量=账面 Decimal 原值精确
+   * 归零，与全清腿 ledgerQty 同口径）+ 落清仓 trade 行（重启重放 remainRatio 钳 0 防
+   * 粉尘仓复活）+ 告警留痕。返回 success 让上游 _executeSell 成功分支自然收口
+   * （markAsSold/轮账本归并/去抖清理）。残仓代币留在钱包（链上粉尘本就不可卖，非
+   * 损失确认）。
+   */
+  async _closeDustPosition(signal, signalId, metadata, holding, expectedNativeOut) {
+    const ledgerQty = new Decimal(holding.amount);
+    await this._liveRecordTrade('sell', signal, ledgerQty, signal.price || 0);
+
+    const { Trade } = require('../entities');
+    const trade = new Trade({
+      experimentId: this._experimentId,
+      signalId,
+      tokenAddress: signal.tokenAddress,
+      tokenSymbol: signal.symbol,
+      tradeDirection: 'sell',
+      tradeStatus: 'success',
+      success: true,
+      isVirtualTrade: false,
+      inputCurrency: signal.symbol,
+      outputCurrency: 'BNB',
+      inputAmount: ledgerQty.toString(),
+      outputAmount: '0',
+      unitPrice: String(signal.price || 0),
+      txHash: null,
+      executedAt: new Date(),
+      metadata: {
+        ...metadata,
+        dustClose: true,
+        expectedNativeOut: String(expectedNativeOut),
+        reason: `粉尘残仓清理：预期卖出所得 ${expectedNativeOut} BNB < 清理价值线 ${this._dustCloseValueBnb} BNB（不值 gas，就地清账）`,
+      },
+    });
+    const tradeId = await trade.save();
+
+    this.logger.warn(this._experimentId, '_executeSellLive',
+      `🧹 粉尘残仓清理 | ${signal.symbol} 账面 ${ledgerQty.toString()} 预期所得 ${expectedNativeOut} BNB < ${this._dustCloseValueBnb}，不发链上卖单直接清仓 | ${signal.tokenAddress}`);
+    this._notifyLiveAlert('🧹 粉尘残仓清理',
+      `${signal.symbol} 残仓账面 ${ledgerQty.toString()}，预期卖出所得 ${expectedNativeOut} BNB 低于清理价值线（不值 gas）。已就地清账删仓，链上卖单未发。token: ${signal.tokenAddress}`);
+    return { success: true, tradeId, trade, priceUsd: signal.price || 0, bnbReceived: 0, qtySold: ledgerQty.toNumber(), dustClose: true };
   }
 
   // ==================== 手工交易命令消费（P0-C） ====================

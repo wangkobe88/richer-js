@@ -54,6 +54,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C248 外部辱华争议撤出 china_politics 否决桶——fit 题外部辱华+反击立场边界锚（姆巴龟案，2026-10-27 用户裁定，J1.147）★
+
+- **案发**：姆巴龟 `0x1707cdd696db6dc5cf201be739e985b2f8b47777`（four.meme，10-26 16:36 UTC 出票，name=只是一只王八）。语料=主推 @Notickernowif（29 粉）回复借势 @theMadridZone（187.5 万粉、1.4 万赞、111 万浏览）推文——姆巴佩自述最喜欢的 meme 是把自己脸 P 到毛泽东身上的 P 图；小号定性「姆巴佩公开辱华、品牌切割」，并说「他之前外号忍者神龟根本不配，IN CHINESE WE SAY 王八」→ 币名=姆巴佩+龟/王八，骂的是辱华者。同事件姐妹票一批：姆巴龟2/公巴佩/姆巴呸（同款骂名）与 姆巴佩·毛泽东/毛巴佩（币名直接拼领导人名）。
+- **死法与取证**：fit 题 `bsc_meme_user_event_fit.china_politics=0.32` 为 argmax choice（strong_fit 0.31 紧随，**0.01 近 tie 掷骰段**）→ C192/J1.122 `chinaPoliticsBlock` 按 argmax choice 确定性拦（不设概率阈、无豁免链）→ rating=low「中国政治主题不适合构建 meme 币（J1.122）」。其余题全放：event_category E 0.88 / 时效 within_7d / 实体 accepted 0.54 / impact 无否决桶。实际 16:36 首价 → 次日 01:33 峰值 **10.7x**（9 小时），16:39 市值即破 2 万美元（OBSERVE 观察信号实证）——被 BSC 中文用户充分接纳。
+- **用户裁定（原话）**：「这个票还是被用户接纳了的。所谓这种外部辱华事件不算，因为这个代币本身带有反对辱华的意味，这种本质不是政治敏感的」。即：事件主体=外部人物（圈外名人/外国人）对中国或中国人的不当言行（辱华）争议、且代币站在**反对辱华立场**（骂/嘲讽辱华者，华语买家买币=对辱华者的反感表态）→ 反击性 meme 非政治敏感，不选 china_politics、按四档常规评（对华语买家有天然情绪动员力）。
+- **划界（玩梗对象是谁）**：骂/嘲讽外部辱华者（王八/呸/不配）→ 不选本项；币名/形象本身把**中国政治人物或符号当笑点**（直接拼接领导人名/复刻领导人 P 图梗本身）→ 仍选本项照拦（中国政治符号娱乐化）。同事件姐妹票天然分拣实证两组概率早已分层：骂名组 cp 0.31-0.59 vs 拼名组 0.80/0.86。
+- **实现（J1.147, a894a53）**：fit 题两处锚——instructions J1.122 段 C192b 边界后追加 C248 边界段、criteria.china_politics 桶尾追加边界句（含两形状例证「姆巴龟」/「姆巴佩·毛泽东」）；mapper 零改动（判据源=argmax choice，题面收窄自然减选）。单测：china_politics_gate A6/A7 边界锚反证 + A3 题数断言修 C244 遗留存量（10→11，trivialProbe 观察题上线时漏同步）、question_consolidation A10d / name_entity D5 版本锁随 bump J1.147。
+- **182 对拍（13 票全重析，2026-10-27 03:42 UTC）**：**翻面组 4/4 全中**——姆巴龟主票 low→**high**（cp 0.32→0.02、strong_fit 0.31→0.79）、姆巴龟2 high（0.01/0.80）、公巴佩 high（0.08/0.68）、姆巴呸 high（0.07/0.62），分类全 E。**照拦组 8/8 全中**——拼领导人名臂：姆巴佩·毛泽东 cp 0.86→0.96 更纯净照拦 / 毛巴佩 0.98 照拦；真政治票：强强国国 cp=1 照拦（学习强国 IP）；潜艇大战/数币/BNCB股市/ORB/4AGENT argmax 落回四档但全被既有门接住维持 low（web3FitMassBlock sf+fit<50% / BSC 偏好不合 / 空洞内容——这五票语料本身质量差，不该由 china_politics 兜底）。**SB `0x898a52aa…7777` 行丢失异常**：重析前 block_reason 查询在列、重析后 token_narrative 行消失且 experiment_tokens 行也没了（所属实验已被删过）→ C188 两级回退全空报「代币不存在」永久不可重析；代码全路径排查无删行调用（analyzer 仅 findByAddress/save（upsert-merge）/fetch，repo 无 delete），行消失原因未明（时间窗内仅本次 reanalyze 触碰该地址），死票档案损失留档观察。
+- **部署**：a894a53 已 push；182 worker 重启 PID 532992（03:47 UTC，单实例回查 ✓，旧 500275 优雅停）；v41 实验 108161 进程锁旧题集、J1.147 对实验内嵌分析下次换代生效（worker 侧立即生效）。回归集：C248 收录主票（expect high+event:E，第 115 票）。
+- **余留观察**：①SB 行丢失原因未明（见上，再现即立案）②chinaPoliticsBlock 仍无概率阈——本次近 tie 0.01 之差由题面收窄救回，与 C231 trivial 桶「40% 拦截在掷骰段」教训同族的结构性风险仍在，若再现近 tie 误拦再议阈值化（≥0.5 与 unacceptable_type/entity_event_mismatch 同形状）。
+
 ### C247 概念=实体，名字门按所指不按词形——实体题概念实体锚（财库公司案，2026-10-27 用户两轮裁定，J1.145→J1.146）★
 
 - **案发**：财库公司 `0xaf442b52ccf1df61b5e62ec8c4cc05e9a9447777`（10-26 15:12:26 UTC 出票）。语料=主推 Yuki（18263 粉认证号）BNC 敲钟科普长推，整段定义「什么叫财库公司？一家上市公司，主业不再是卖产品、做服务，而是把大量加密资产堆在资产负债表上……业界常叫 DAT（Digital Asset Treasury），中文是：财库公司」——MicroStrategy→BNB Standard 财库玩法叙事，币名=主推核心科普的圈内概念词。
