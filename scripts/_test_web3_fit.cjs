@@ -142,7 +142,7 @@ async function main() {
     check('A10c criteria 两句补句在场（strong_fit 图腾臂 + fit 本档臂）+ 版本断言',
       w3q.criteria.strong_fit.includes('火蚁式散户军团自称，J1.136/C240')
       && w3q.criteria.fit.includes('至少本档，J1.136/C240')
-      && JEV_QUESTIONS_VERSION === 'J1.148', // 版本跟跑（C245-C248 四轮漏改存量，C249/J1.148 补跟）
+      && JEV_QUESTIONS_VERSION === 'J1.149', // 版本跟跑（C245-C248 四轮漏改存量，C249/J1.148 补跟）
       { v: JEV_QUESTIONS_VERSION, sf: w3q.criteria.strong_fit.slice(-60), f: w3q.criteria.fit.slice(-40) });
   }
 
