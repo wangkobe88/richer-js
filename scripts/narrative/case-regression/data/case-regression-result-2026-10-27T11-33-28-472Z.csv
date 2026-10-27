@@ -1,0 +1,2 @@
+﻿caseId,symbol,addr,status,期望rating,期望reason关键词,期望禁词,期望precheck规则,期望禁规则,期望审计键,期望tokenCat,期望说明,基线rating,基线score,基线ruleName,基线reason,当前rating,当前score,当前ruleName,当前stage,当前tokenCat,当前reason,失败明细,observe说明,case语义
+C189,天狗,0xe9e82d1fa74283991dec5543453373ec836b7777,PASS,mid|high,,,,,,,,low,,,cashtag改道W类($Tengu)总分不足（15<32）,high,76.48,,3,event:W,,,,C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.99、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定

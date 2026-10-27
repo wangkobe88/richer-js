@@ -1,0 +1,42 @@
+{
+  "ranAt": "2026-10-27T11:33:30.404Z",
+  "summary": {
+    "total": 1,
+    "pass": 1,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C189",
+      "symbol": "天狗",
+      "addr": "0xe9e82d1fa74283991dec5543453373ec836b7777",
+      "status": "PASS",
+      "expect": {
+        "rating": [
+          "mid",
+          "high"
+        ]
+      },
+      "observe": null,
+      "caseNote": "C180 观察票-unknown 臂独杀（掷骰歪知名实体/公司票/自创昵称；fit 0.99、关联 exact_match）：审计期被 unknown 拦，拆臂后进评分观察，C184 已裁定",
+      "baseline": {
+        "rating": "low",
+        "reason": "cashtag改道W类($Tengu)总分不足（15<32）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:W"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 76.48,
+        "stage": 3,
+        "tokenCategory": "event:W"
+      },
+      "failures": []
+    }
+  ]
+}

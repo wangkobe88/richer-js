@@ -121,14 +121,16 @@
       "addr": "0x0195119e4806441c871adada6256296265ed7777",
       "expect": {
         "rating": "low",
-        "tokenCategory": "event:C",
+        "tokenCategoryExcludes": [
+          "event:W"
+        ],
         "reasonExcludes": [
           "未在账号简介或推文中找到完整代币地址"
         ]
       },
-      "note": "假 addressVerified 双修复：URL 含 CA 不算命中+web3ip 仅账号语料。C149（2026-10-21 用户裁定「t.me 存在不能作为账号币的证据，只有推特账号才可以」+「提供推特账号或者提供站点（不是系统中的子页面）才能是被判为原生项目或者原生IP」）：t.me/#CA 不再触发项目币 URL 臂，CMC 自动页早已排除 → 本票走标准路径 event:C，low 死因=空洞内容；原 address 门文案已退役（reasonExcludes 锁定不复现）。",
-      "expectBecause": "2026-10-21 用户裁定 Telegram 链接不作账号币证据、原生项目/IP 须有推特账号或独立站点；C101 的 t.me+CMC 子页面+单条推文不满足 → 标准路径 event:C low。",
-      "expectSince": "2026-10-21"
+      "note": "假 addressVerified 双修复：URL 含 CA 不算命中+web3ip 仅账号语料。C149（2026-10-21 用户裁定「t.me 存在不能作为账号币的证据，只有推特账号才可以」+「提供推特账号或者提供站点（不是系统中的子页面）才能是被判为原生项目或者原生IP」）：t.me/#CA 不再触发项目币 URL 臂，CMC 自动页早已排除 → 本票走标准路径，low 死因=空洞内容；原 address 门文案已退役（reasonExcludes 锁定不复现）。C249 后分类在 C/D/E 掷骰（W 0.46/C 0.44 近 tie，极短符号语料无锚可依），rating low 死因不变；cat 断言放宽为不得 event:W（意图=不进 W 数学）。",
+      "expectBecause": "C249/J1.149 W 误吸修复收口：rating low 死因=空洞内容维持不变，tokenCategory 放宽为 excludes event:W（近 tie 掷骰域，锁「不被 W 吸走」意图不锁精确桶）。",
+      "expectSince": "2026-10-27"
     },
     {
       "caseId": "C102",
@@ -471,12 +473,12 @@
           "mid",
           "high"
         ],
-        "tokenCategory": "event:C"
+        "tokenCategory": "event:E"
       },
-      "note": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评。2026-10-21 用户裁定期望 high/mid（覆盖原 low/observe 掷骰面）。",
+      "note": "superIP tier S(BNB Chain 389万粉官推)被 detectIssuerSelfLaunch 品牌同一性+宣告指纹机械命中劫进 prestage abm，cz_binance 流量轴 no_traffic 判 low；C117 双门(短路+粉丝门)后应走标准路径重评。2026-10-21 用户裁定期望 high/mid（覆盖原 low/observe 掷骰面）。C249/J1.149 置顶排除锚生效：分类从 W 误吸修回事件域，稳定 event:E（品牌官推动态归属大 V 动态/品牌事件，原 event:C 记录随锚迁移），rating high 91.48。",
       "addedAt": "2026-10-19",
-      "expectBecause": "2026-10-21 用户裁定「0xf8abd6a6bdc0d87291b4f79abc6188c48a807777 期望为 high/mid」——superIP 强制标准路径后终评应为 high/mid；institution_routine argmax low 面不再作为期望。",
-      "expectSince": "2026-10-21"
+      "expectBecause": "C249/J1.149 W 误吸修复：分类稳定 event:E（二轮对拍高置信），rating 断言不变。",
+      "expectSince": "2026-10-27"
     },
     {
       "caseId": "C119",
