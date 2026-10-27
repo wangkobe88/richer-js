@@ -26,7 +26,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化三原语（Choice/Score/Noul）无文本生成秒级；
-  版本规则=改题必 bump（现 J1.143 / P1.14），DB prompt_version 可按版本筛历史
+  版本规则=改题必 bump（现 J1.144 / P1.14），DB prompt_version 可按版本筛历史
 - **现役拦截门链**（mapper 端，C189 时点）：蓝筹去重门 C168（首臂：name_exact 撞 b: 域蓝筹拦 low；
   条目级 dedupExempt + 新陈述豁免 C173 + 新事件豁免 C242）→ web3UnfitBlock（unfit≥0.5）→ web3FitMassBlock C141
   （sf+fit<0.5 全域拦）→ quality_veto argmax（empty_content/baseless/ip_reuse 三桶；图证在场豁免
@@ -53,6 +53,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ---
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
+
+### C246 发 meme 币蹭外部热点≠发布项目——event_category W/E/A 桶借势发币划界锚（희망이案，2026-10-27 用户裁定「太不应该了」，J1.144）★
+
+- **案发**：희망이 `0x3324d7c228d05d2b6d1d8674613e221b228b7777`（four.meme，10-27 01:20 UTC 出票）。语料=主推 @oociyu（3910 粉、11427 赞/1854 转、带视频）「이거보고 나도 희망이처럼 굳세게 살기로 다짐함」——韩国 2M+ views 病毒视频（秃头大叔只剩最后一根头发、理发师像 VIP 一样呵护）；Website 推 @Threell 英文借势宣告「this korean vidéo is getting hella viral… We cooked the moustache baby, now lets meme the 1 hair guy! **From baldcoin deployer**, only one that makes sense! $희망이 = HOPE」。
+- **死法与取证**：J1.142 下 `event_category` **W 0.48 / E 0.31 / A 0.19 三桶混战**，argmax W 在掷骰段（<0.5）误归 W → W 数学资格轴 `w_bsc_user_appeal=low 0.72` → 15<32 拦死「W类总分不足」，rating=1 → C84 单一买条件恒 false 无信号。**其余题全放**（fit strong_fit 0.54 / trivial probe not_too_trivial 0.94 / 实体 accepted 0.82 / news_recap 0.92 / timing within_7d）——错在分类不在门。实际 01:28 拦截时刻后 33 分钟 **13x**（3.96e-9 → 5.15e-8 BNB 全窗新高）。
+- **归因（W/E 边界空洞）**：C230 tweet_type_note2「推文宣告 Web3 项目→主体=项目→W」+宣告推自带 crypto 语汇（$TICKER/deployer/圈黑话）把 Jev 吸进 W 桶；但按 C241「W=发布新项目、评判的也是项目本身」的裁定精神，本案币名/叙事主体全来自被借势的病毒视频（희망이=视频内容词汇「希望」），语料陈述不出任何产品/平台/协议/工具实体——「发币」不构成项目，币=给热点定价的 meme 载体。C239 判的是「语汇撞名不改归属」、C241 收窄的是 D/W（平台公告 vs 新项目），**「借势外部热点的发币宣告」两边都没覆盖**。
+- **用户裁定（原话）**：「立案吧，太不应该了」。即：宣告/发币推里被 meme 化的主体是外部热点内容/人物/梗（币名即取自该热点的角色/人物/词汇），且语料陈述不出任何功能实体 → 主体=被借势的热点本身：事件/梗/热点人物 → E；币名=热点中的形象/角色 → A，均不归 W。
+- **实现（J1.144, a0af44d）**：event_category 题三处锚——instructions 新增「W vs E/A 边界（发 meme 币蹭外部热点不是发布项目，C246）」条目（判据+本案例证）、W criteria 补排除臂、E criteria 补正向锚（给外部热点发 meme 币的宣告推主体=被 meme 化的热点本身，不因带发币语汇归 W）。桶 id/题数/mapper 零变化。
+- **182 对拍（worker 490997, J1.144）**：主票 **W→E rating=high score=76.69**（事件分 40.8=68×0.6 B 档｜关联 20 exact_match｜质量 15.89）；对照六票零翻转：AIFLY W low 15（与 C230 一致）/股城 W mid 64.21（C236 后 63.82~64.21 稳定带）/人生K线 W low（空洞内容 0.52 既有波动， 分类保持 W）/NMS W mid 63.82（C235 expect=mid 命中， 本轮 47 干净过线非近 tie）/BNC开市钟 D high 92.14（C245 保持）。真项目宣告票（语料陈述产品/平台/实验实体）不受新锚影响=对照实证。
+- **部署**：a0af44d 已 push；182 worker 重启 PID 490997（02:33 UTC, 单实例回查 ✓）；v41 实验 108161 进程锁 J1.142， J1.144 对实验内嵌分析下次换代生效（worker 侧立即生效）。回归集：C246 收录主票（expect high+category E， 第 113 票）。
 
 ### C245 既有项目里程碑/上市类动作≠发布新项目——event_category W/D 桶划界锚（BNC开市钟案，2026-10-26 用户裁定，J1.143）★
 

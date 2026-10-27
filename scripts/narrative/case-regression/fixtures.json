@@ -1556,6 +1556,17 @@
       },
       "note": "BNC开市钟：J1.143 里程碑划界锚——既有项目上市敲钟类动作归D不进W；对拍W→D high 92.89",
       "addedAt": "2026-10-26"
+    },
+    {
+      "caseId": "C246",
+      "symbol": "희망이",
+      "addr": "0x3324d7c228d05d2b6d1d8674613e221b228b7777",
+      "expect": {
+        "rating": "high",
+        "tokenCategory": "event:E"
+      },
+      "note": "发 meme 币蹭外部热点≠发布项目：韩国 2M+ views 病毒视频（秃头大叔一根头发）被 baldcoin deployer 借势发币 $희망이=HOPE；J1.143 三桶混战 W 0.48/E 0.31/A 0.19 误归 W 掷骰段 → W 数学 15<32 拦死，实际 33min 13x。J1.144 后 W→E high 76.69（B 档 68+exact_match 20+质量 15.89）；W 对照 AIFLY/股城/人生K线/NMS 零翻转",
+      "addedAt": "2026-10-27"
     }
   ]
 }
