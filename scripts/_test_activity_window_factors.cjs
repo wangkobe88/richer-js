@@ -269,8 +269,8 @@ console.log('H. 源码口径断言（防前视/防误删防线）');
       assert.ok(!src.slice(start, end).includes('Date.now'), `${name} 体内禁 Date.now`);
     }
   });
-  check('H2 裁剪余量 2×（2 * this._fp.activityWinMs）', () => {
-    assert.ok(/_pruneActivityEvents[\s\S]{0,400}2 \* this\._fp\.activityWinMs/.test(src));
+  check('H2 裁剪余量 2×max（activityWinMs 与 netBuyWinMs 两窗取大——T76 起净买窗共用事件环）', () => {
+    assert.ok(/_pruneActivityEvents[\s\S]{0,400}2 \* Math\.max\(this\._fp\.activityWinMs, this\._fp\.netBuyWinMs\)/.test(src));
   });
   check('H3 写点在 _applyWalletAggregation 尾部（每 tick 恰一次）', () => {
     const mStart = src.indexOf('_applyWalletAggregation(state, tick, vars) {');

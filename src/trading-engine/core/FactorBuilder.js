@@ -142,6 +142,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     actBuyers: factorResults.actBuyers ?? null,
     actSellers: factorResults.actSellers ?? null,
     actNewTraders: factorResults.actNewTraders ?? null,
+    // 滚动净买窗两键（T77 2026-10-27 MUSK2028 案 W=10s）：RatioWin null=窗内零买缺
+    // 近期证据 fail-closed；Bnb=窗买量观察键。FA 内存事件环不可重算（act* 先例），
+    // 不落库即丢；旧 FA 无这些键 → null，不掩盖
+    tradesNetBuyRatioWin: factorResults.tradesNetBuyRatioWin ?? null,
+    tradesNetBuyWinBnb: factorResults.tradesNetBuyWinBnb ?? null,
     // 同 block 首买簇捆绑检测 bundle* 6 键（2026-10-16 BITCAT 案，Phase 1 观察键）：
     // FA 内存事件环/块聚合不可重算（30s 快照行无 tick 级分辨率），不落库即丢
     // （act*/holderTrend 先例）；0=空窗有证据零值（非 null），旧 FA 无这些键 → null，不掩盖

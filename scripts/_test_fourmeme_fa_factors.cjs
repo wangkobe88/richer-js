@@ -518,9 +518,12 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-10-26 T74 等额买簇三观察键（0x8c4a…7777 对倒案：跨块同额买入并集去重
         // 正净持仓 ÷ 流通；详见 _test_even_cluster_factors.cjs）
         'evenClusterHoldCircPct', 'evenClusterWallets', 'evenClusterGroups',
-        // 2026-10-27 T76 注意力空转观测键原料（独立买入钱包数=K 组 _buyerAddresses
+        // 2026-10-27 T77 注意力空转观测键原料（独立买入钱包数=K 组 _buyerAddresses
         // 全史 Set size；GMGN 层 gmgnVisitorsPerBuyer 分母，详见 _test_gmgn_attention_ratio.cjs）
         'buyWallets',
+        // 2026-10-27 T77 滚动净买窗两键（MUSK2028 0x8f53…7777 迟买案 W=10s：窗口净比
+        // null=窗内零买缺近期证据 fail-closed + 窗买量观察键；详见 _test_netbuy_window_factors.cjs）
+        'tradesNetBuyRatioWin', 'tradesNetBuyWinBnb',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

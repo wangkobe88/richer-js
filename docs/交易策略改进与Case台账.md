@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v40 快照；live v41 实跑本屏；v40 实验=库 v39 快照已过代）
+## 一、现行买腿门链一屏（buy-v2 v41 快照；live v42 起实跑本屏；live v41 实跑=库 v40 快照待换代）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -29,7 +29,7 @@ AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱�
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10) -- 人气门（v28 起 OR）
-AND tradesNetBuyRatio >= 40                               -- 卖压门（T70/v39 换全史实时载体 50→40；v38 前 early 冻结版 50）
+AND (tradesNetBuyRatio >= 40 OR tradesNetBuyRatioWin >= 40) -- 卖压门 OR 臂（T77/v41：全史被前期砸盘卖量永久拖低，10s 窗净比先回 40=早进场；窗口键 null=窗内零买 fail-closed；全史载体 T70/v39 50→40）
 AND sybilClusterHolderCircPct < 35                        -- sybil 大簇合计持仓（0 语义）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
@@ -51,6 +51,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T77 净买门滚动窗 OR 臂——MUSK2028 迟买案（2026-10-27 落地 W=10s，用户裁定先跑观察）
+- **案发**：MUSK2028 `0x8f531e8ebcbad9ec2c402e112b6b22bea52f7777`（flap，live v41 `40754e0d`）叙事 23:13 rating 3 完成，fire 23:21:01（**+467s 迟买**）→ -39.8%。逐臂重放：rating 落定后其余 16 臂陆续全过、**净买门独拦全程**——开盘砸盘把全史 `tradesNetBuyRatio` 拖低（23:17 十秒窗净比已回 100%、全史 23:21 才爬回 51.5 过线=买在恢复完成的局部顶）。用户洞察定案：「大幅度下跌的那一端，成为了 netBuy 的负担，其实只要 netBuy 窗口大于阈值就可以买，这样买入就早了」
+- **OR 臂设计**：`tradesNetBuyRatio >= 40` → `(tradesNetBuyRatio >= 40 OR tradesNetBuyRatioWin >= 40)`——结构上零拦截回归（全史臂保持原判），窗口臂只新增放行位。FA 两键：`tradesNetBuyRatioWin`（`netBuyWinMs` 默认 10000，factorParams 可覆盖；窗内 (Σ买−Σ卖)÷Σ买×100）+ `tradesNetBuyWinBnb`（窗买量观察键不进条件串）；**null 语义刻意分叉**：窗内零买=null 缺近期证据 fail-closed（`>=40` 恒 false），全史键无买=-100 有证据零值；复用 `_activityEvents` 事件环（求和交换律=defer 乱序回推无害；wallet 段喂食 GMGN 回推 1-3s 竞速缝隙与 famous/act\* 同款已知形状），`_pruneActivityEvents` cutoff 两窗取 max
+- **W 扫描（182，177 票 8 窗 10-120s，全史重放+真卖腿模拟）**：fired 7/7 baseline 复现（priceMatch≈1）；案票 W10 23:17:07 进 +46.85 / W20 23:17:23 进 +46.51（wb 0.27/0.028）——**6/7 其余 fired 全窗 bit-identical**；blocked 170 票仅 2 张新开（币安舰队 W10 -13.88 / 国库币 W10 -22.28，均已知代价）。W15 最差选择（案票进场点 wb=0.0089 微买 100% 假信号形状）；0.05 地板伤 W20 案票（wb=0.0278）不伤 W10（0.27）——**最终不设地板**（null 语义天然 fail-closed，最简）
+- **国库币 `0xf8fd797df01ec05383ef48e720f2e6c2b6ac7777` 新开亏损剖析（收紧观察点）**：前 20s 买 31.9/卖 26.2 BNB、开盘 3s 内三大买家全净卖（0x16b1 买 3.33/+3s 卖 4.33 等）、全史净比峰值仅 18.4% 从未接近 40——**从第一秒起的对倒放量**，非「先砸后回」；W10 臂放进的是对倒流里滚动窗恰为正的反弹瞬间（进场后 40-80s 两桶连续净卖、价腰斩、-35 止损）——**窗口臂对「对倒放量中的短暂正净流」无区分度**，后续收紧候选（窗口×全史双确认类）待观察期数据
+- **W 裁定**：20（直觉）→ W10/W20 数据分不开（案票差 0.34pp、三票合计差为噪声）→ 用户终裁 W10「先跑一段时间看看」
+- 单测：`_test_netbuy_window_factors.cjs` 27/0（公式/边界/乱序回推对拍/null vs 全史 -100 分叉/防前视 asOf/裁剪两窗 max/参数覆盖/探针/FactorBuilder 透传/源码口径+OR 臂真值表三态）；`_test_fourmeme_fa_factors.cjs` 键集 46→48；`_test_activity_window_factors.cjs` H2 断言随裁剪 max 形状更新（43/0）
+- 部署：库 buy-v2 v41（乐观并发 40→41）；live v42 克隆切换后生效；观察期盯窗口臂独立放行的票（metadata 有 tradesNetBuyWinBnb 审计）
 
 ### T76 注意力空转观测键四键 + GMGN 零区分度观测键清理（2026-10-27，用户裁定；阈值待分布另议）
 - **背景（gmgnVisitingCount 全量调查）**：起于用户问「近期的买入是不是都记录下 visiting count 了？这个变量能看出什么规律不？」——182 上 10-24 起 **184 条 BUY 信号**全量回读：①覆盖 **184/184 covered=1**（唯一 covered=0 行=BNC 13:54:43 GMGN 超时 fail-open 放行→-43.5%，即 T73 案现场那笔，逐秒对上台账）②vc 本质=**GMGN 滚动窗口非累计值**（BNC 3 分钟内 10→36 后回落 9），fromCache 102/184（TTL 5s 命中即同值）③盈亏三桶（vc 低/中/高）胜率 33%/36%/22% **无单调**——vc 单独不构成门④对倒票 0x8c4a（T74 案）vc=11：链上流量大而外部注意力低，比值有信号但太新/索引延迟期失真

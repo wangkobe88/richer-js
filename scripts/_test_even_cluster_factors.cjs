@@ -6,7 +6,10 @@
  *      持仓合计 ÷ 流通 ×100）/ evenClusterWallets（并集钱包数）/ evenClusterGroups
  *      （合格桶数）。纯观察不进条件串（阈值须票池分布裁定）。
  *      口径：wallet=sender||trader（K 组/holders 同族）；跨块金额维度聚合（amountKey=
- *      bnb_amount.toFixed(6)，对 bundle 单块口径的分批稀释免疫）；含非首买买盘行；
+ *      四位舍入 0.0001 BNB——T78 2026-10-27 历史回放反证：原 toFixed(6) 严格相等对
+ *      案票微差规避形状（25 档 distinct 金额 11 个间隔<0.001）恒 0=键对设计目标失效；
+ *      案票 fire 前 6 位键合格桶 0 个、四位舍入 3 档全中），对 bundle 单块口径的分批
+ *      稀释免疫）；含非首买买盘行；
  *      尘埃门 earlyUniformDustBnb（默认 0.01）以下不入桶（launch 等额臂同款参数）；
  *      0=无合格桶/流通≤0 有证据零值非 null。
  *      案发现场：0x8c4a…7777 fire 时单块口径 holdCircPct=32.4/top2=52.1/top3=69.7
@@ -76,20 +79,21 @@ function incidentTicks() {
       block_number: 1000, log_index: 1, bnb_amount: 0.1067, token_amount: 10670000 }),
     mkTick({ timestamp: T0 + 500, trader_address: 'eoaQ', sender_address: 'wQ',
       block_number: 1002, log_index: 2, bnb_amount: 0.1067, token_amount: 10670000 }),
-    // 档一 0.1647×3 跨块 1010/1012/1014
+    // 档一 0.1647 档×3 跨块 1010/1012/1014——T78 起用案票真实微差形状（6 位键互异、
+    // 四位舍入同档；案发 25 档 distinct 金额 11 个间隔 <0.001=刻意微差规避）
     mkTick({ timestamp: T0 + 1000, trader_address: 'eoa1', sender_address: 'w1',
-      block_number: 1010, log_index: 11, bnb_amount: 0.1647, token_amount: 8235000 }),
+      block_number: 1010, log_index: 11, bnb_amount: 0.16471, token_amount: 8235000 }),
     mkTick({ timestamp: T0 + 2000, trader_address: 'eoa2', sender_address: 'w2',
-      block_number: 1012, log_index: 13, bnb_amount: 0.1647, token_amount: 8235000 }),
+      block_number: 1012, log_index: 13, bnb_amount: 0.16472, token_amount: 8235000 }),
     mkTick({ timestamp: T0 + 3000, trader_address: 'eoa3', sender_address: 'w3',
-      block_number: 1014, log_index: 15, bnb_amount: 0.1647, token_amount: 8235000 }),
-    // 档二 0.2470×3 跨块 1020/1022/1024
+      block_number: 1014, log_index: 15, bnb_amount: 0.16474, token_amount: 8235000 }),
+    // 档二 0.2470 档×3 跨块 1020/1022/1024（同款微差）
     mkTick({ timestamp: T0 + 4000, trader_address: 'eoa4', sender_address: 'w4',
-      block_number: 1020, log_index: 21, bnb_amount: 0.2470, token_amount: 12350000 }),
+      block_number: 1020, log_index: 21, bnb_amount: 0.24701, token_amount: 12350000 }),
     mkTick({ timestamp: T0 + 5000, trader_address: 'eoa5', sender_address: 'w5',
-      block_number: 1022, log_index: 23, bnb_amount: 0.2470, token_amount: 12350000 }),
+      block_number: 1022, log_index: 23, bnb_amount: 0.24704, token_amount: 12350000 }),
     mkTick({ timestamp: T0 + 6000, trader_address: 'eoa6', sender_address: 'w6',
-      block_number: 1024, log_index: 25, bnb_amount: 0.2470, token_amount: 12350000 }),
+      block_number: 1024, log_index: 25, bnb_amount: 0.24703, token_amount: 12350000 }),
   ];
 }
 

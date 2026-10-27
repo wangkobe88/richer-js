@@ -10,7 +10,8 @@
  *   - buyWallets = K 组 _buyerAddresses 全史 Set size（曾买入即计入、清仓不回退）
  *   - buyVolumeBnb = totalBuyBnb（Σ买腿 bnb；quote 盘 bnb_amount 已是 BNB 域）
  *   - circTokens = Σ买 token − Σ卖 token（全量行——价格段累计，与 wallet 有无无关）
- *   - evenCluster 三键（T74）：合格桶=同额桶（amountKey=bnb.toFixed(6)）size>=3；
+ *   - evenCluster 三键（T74/T78）：合格桶=同额桶（amountKey=四位舍入 0.0001 BNB——
+ *     T78 回放反证 6 位严格键对微差规避形状恒 0）size>=3；
  *     尘门 earlyUniformDustBnb=0.01；分子=并集钱包当前正净持仓合计
  *     （_walletNetTokens 仅 wallet 非空行累计）；round1
  *   - gmgnVisitorsPerBuyer/PerBuyBnb（T76）：signal metadata.gmgnCheck.factors 的
@@ -88,7 +89,8 @@ function replayToken(ticks, signals) {
         if (wallet) {
           st.buyWallets.add(wallet);
           if (bnb >= DUST_BNB) {
-            const k = bnb.toFixed(6);
+            // T78 四位舍入键（微差规避形状反证，与 FA 同改）
+            const k = (Math.round(bnb * 1e4) / 1e4).toFixed(4);
             let s = st.evenBuckets.get(k);
             if (!s) { s = new Set(); st.evenBuckets.set(k, s); }
             s.add(wallet);

@@ -145,6 +145,9 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
     activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
                                  //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
+    netBuyWinMs: 10000,          // tradesNetBuyRatioWin 滚动净买窗（T77 MUSK2028 案用户裁定
+                                 //   W=10s：砸盘后窗口净比先于全史回 40，OR 臂早进场）；复用
+                                 //   _activityEvents 事件环，裁剪 cutoff 与 activityWinMs 取 max
     // ── 同 block 首买簇捆绑检测（2026-10-16 BITCAT 案）──
     bundleWinMs: 10000,          // bundle* 6 键窗口（对齐 act*；扫描 Phase 2 对比 10s/30s/60s
                                  //   后再定默认值）；原料 _bundleEvents/_blockBuyAgg/_circTokens
@@ -1218,9 +1221,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             // ── 等额买簇原料（T74 2026-10-26 0x8c4a…7777 对倒案）：amountKey → 同额买入
             //    钱包 Set，跨块金额维度聚合（不依赖 blockNumber）；含非首买买盘行（分批
             //    分额是团伙形状）；尘埃门 earlyUniformDustBnb 以下不入桶（launch 等额臂
-            //    同款参数——0.0001 级等额撞桶纯噪声）；Set.add 幂等 → defer 乱序回推收敛 ──
+            //    同款参数——0.0001 级等额撞桶纯噪声）；Set.add 幂等 → defer 乱序回推收敛。
+            //    ★T78（2026-10-27 历史回放反证）：amountKey=四位舍入（0.0001 BNB 精度），
+            //    原 toFixed(6) 严格相等对微差规避形状结构性失效——本案 25 档 distinct 金额
+            //    11 个间隔 <0.001（0.16471/0.16474 式刻意微差），6 位键下 fire 时三档簇
+            //    (0.1647×6/0.2470×6/0.1314×3) 全部 size<3 不成桶=键对案票恒 0；四位舍入
+            //    三档全中（回放 scripts/replay-observation-factors.cjs 实证）。浮点安全：
+            //    Math.round(b*1e4)/1e4 数值归一后 toFixed(4)，规避 0.1+0.2 类累加误差形状 ──
             if (walletAddr && bnbAmount >= this._fp.earlyUniformDustBnb) {
-                const _ek = bnbAmount.toFixed(6);
+                const _ek = (Math.round(bnbAmount * 1e4) / 1e4).toFixed(4);
                 let _ew = state._evenBuyBuckets.get(_ek);
                 if (!_ew) {
                     _ew = new Set();
@@ -1967,14 +1976,15 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     /**
      * act* 原料裁剪（2026-10-15 交易活跃度滑窗）：摊销——长度>64 且头部已滑出
-     * 2×activityWinMs 才批量 splice。2× 余量：defer 乱序回推行晚到数秒仍落余量带
-     * 不误删；到达序≠严格 ts 序（乱序行可停在中间）→ 从头连续判 ts，遇首个未出局
+     * 2×max(activityWinMs, netBuyWinMs) 才批量 splice（netBuyWinMs 更宽时不得误裁
+     * 窗内证据，T77）。2× 余量：defer 乱序回推行晚到数秒仍落余量带不误删；
+     * 到达序≠严格 ts 序（乱序行可停在中间）→ 从头连续判 ts，遇首个未出局
      * 即停（中部老行保守滞留，读点 ts 过滤天然不可见，无损）。
      */
     _pruneActivityEvents(state, now) {
         const evts = state._activityEvents;
         if (evts.length <= 64) return;
-        const cutoff = now - 2 * this._fp.activityWinMs;
+        const cutoff = now - 2 * Math.max(this._fp.activityWinMs, this._fp.netBuyWinMs);
         let i = 0;
         while (i < evts.length && evts[i].ts < cutoff) i++;
         if (i > 0) evts.splice(0, i);
@@ -2092,6 +2102,33 @@ class FourMemeFactorAggregator extends EventEmitter {
             actBuyers: buyers.size,
             actSellers: sellers.size,
             actNewTraders: newTraders,
+        };
+    }
+
+    /**
+     * tradesNetBuyRatioWin 滚动净买窗（T77 2026-10-27 MUSK2028 0x8f53…7777 案，
+     * 用户裁定 W=10s 先跑观察）：全史 tradesNetBuyRatio 被前期砸盘卖量永久拖低——
+     * 砸盘后真恢复的票窗口净比先回 40 而全史慢爬（案票窗口过线比全史早 4 分钟，
+     * 全史过线时已是局部顶 -39.8%）；买腿 OR 臂用窗口值早进场。
+     *   公式与全史键同款（Σ买−Σ卖）÷Σ买×100 保留 2 位；窗内零买 = null
+     *   （缺近期证据 fail-closed，`>= 40` 恒 false）——与全史键「无买全卖 -100」
+     *   有证据零值语义刻意不同：全史无买是盘面事实，窗口无买是无近期证据。
+     *   复用 _activityEvents 事件环（求和交换律 → defer 乱序回推天然无害）；
+     *   wallet 段喂食 → GMGN 路由行回推 1-3s 竞速缝隙与 famous/act* 同款（已知形状）。
+     * ★防前视红线：禁 Date.now——now 由 buildFactorMap(state, asOf) 传入。
+     */
+    _netBuyWinFactors(state, now) {
+        const cutoff = now - this._fp.netBuyWinMs;
+        let wb = 0, sellBnb = 0;
+        for (const e of state._activityEvents) {
+            if (e.ts < cutoff) continue;
+            if (e.buy) wb += e.bnb; else sellBnb += e.bnb;
+        }
+        return {
+            tradesNetBuyWinBnb: +wb.toFixed(4),
+            tradesNetBuyRatioWin: wb > 0
+                ? parseFloat(((wb - sellBnb) / wb * 100).toFixed(2))
+                : null,
         };
     }
 
@@ -2856,6 +2893,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 交易活跃度滑窗（act* 8 键，2026-10-15；取代已删的 cycle 分桶路由）
         const activity = this._activityFactors(state, now);
 
+        // 滚动净买窗两键（T77 MUSK2028 案 W=10s；OR 臂早进场载体）
+        const netBuyWin = this._netBuyWinFactors(state, now);
+
         // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
         const bundle = this._bundleClusterFactors(state, now);
 
@@ -3011,6 +3051,12 @@ class FourMemeFactorAggregator extends EventEmitter {
                 : (state.totalSellBnb > 0 ? -100 : 0),
             tradesRouterPct: state.totalBuyBnb > 0
                 ? parseFloat((state.totalRouterBuyBnb / state.totalBuyBnb * 100).toFixed(2)) : 0,
+            // ── T77 滚动净买窗两键（2026-10-27 MUSK2028 0x8f53…7777 案：+467s 迟买
+            //    -39.8%——全史 netBuy 被前期砸盘拖低、恢复完成才过线=买在局部顶）。
+            //    RatioWin=10s 窗净比（null=窗内零买缺近期证据 fail-closed）；Bnb=窗买量
+            //    观察键（进场证据量审计，刻意不进条件串）──
+            tradesNetBuyRatioWin: netBuyWin.tradesNetBuyRatioWin,
+            tradesNetBuyWinBnb: netBuyWin.tradesNetBuyWinBnb,
 
             // ── 交易活跃度滑窗 act* 8 键（2026-10-15；取代已删的 cycle 分桶路由。
             //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null）──
