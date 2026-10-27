@@ -75,8 +75,8 @@ async function main() {
   check('A2 fit 题存在且四档保留 + 新增 china_politics（第 5 桶，四档不删）',
     fitQ && ['strong_fit', 'fit', 'marginal', 'unfit', 'china_politics'].every(k => fitQ.criteria[k]),
     fitQ && Object.keys(fitQ.criteria));
-  check('A3 题集题数不变（10 题——本改动加桶不加题，C109 题集收敛纪律）',
-    Object.keys(q).length === 10, Object.keys(q).length);
+  check('A3 题集题数不变（11 题——本改动只改题面文本不加题；C244 起含 trivialProbe 观察题，C109 题集收敛纪律）',
+    Object.keys(q).length === 11, Object.keys(q).length);
   check('A4 instructions 含中国政治锚句（学习强国示例 / 不看玩味空间 / 港澳台同标准 / 非中国政治不选本项）',
     fitQ.instructions.includes('中国政治主题（J1.122/C192')
     && fitQ.instructions.includes('学习强国')
@@ -90,6 +90,20 @@ async function main() {
     && fitQ.criteria.china_politics.includes('学习强国')
     && fitQ.criteria.china_politics.includes('不适合构建 meme 币')
     && fitQ.criteria.china_politics.includes('不看玩味空间'));
+  // C248（2026-10-27 姆巴龟案）：外部辱华争议+反击立场=非政治敏感——题面两处边界锚
+  check('A6 instructions 含 C248 外部辱华边界锚（外部人物辱华争议不选本项/玩梗对象划界/拼领导人名仍选）',
+    fitQ.instructions.includes('C248，2026-10-27 用户裁定，姆巴龟案')
+    && fitQ.instructions.includes('外部人物辱华争议不选本项')
+    && fitQ.instructions.includes('反对辱华的立场')
+    && fitQ.instructions.includes('划界=**玩梗对象是谁**')
+    && fitQ.instructions.includes('仍选本项（中国政治符号娱乐化照拦）'),
+    fitQ.instructions.includes('C248'));
+  check('A7 criteria.china_politics 桶含 C248 边界（姆巴龟不选/姆巴佩·毛泽东仍选——两形状锚句都在）',
+    fitQ.criteria.china_politics.includes('边界（C248）')
+    && fitQ.criteria.china_politics.includes('姆巴龟')
+    && fitQ.criteria.china_politics.includes('姆巴佩·毛泽东')
+    && fitQ.criteria.china_politics.includes('反击性 meme 本质非政治敏感'),
+    fitQ.criteria.china_politics.includes('C248'));
 
   console.log('\n── B. mapStandardAnswers 集成（案发形状）──');
   // B1 案发形状：fit 四档 argmax 若仍是 strong_fit（旧题集答案），新桶概率在场 → 不拦
