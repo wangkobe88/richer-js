@@ -762,10 +762,10 @@ export class NarrativeAnalyzer {
             details: { category: 'no_data' }
           };
         } else {
-          // 检查是否应该使用账号/社区分析流程（J1.68 抽出纯函数：有内容的推文语料
-          // 不被发行方检出/引用链接劫进账号路径——彪弟案，抖音账号页只是引用）
+          // 检查是否应该使用账号/社区分析流程（J1.68 抽出纯函数；C251 同名自发
+          // 宣告臂恒走账号路径，issuerCa 臂维持「有内容推文不被劫进账号路径」）
           let shouldUseAccountCommunity = shouldRouteToAccountCommunity({
-            fetchResults, isProjectCoinResult, issuerDetected,
+            fetchResults, isProjectCoinResult, issuerDetected, issuerSelfLaunch,
           });
 
           // C117（f8ab/Burn N Burn 案，2026-10-19 用户裁定「超大账号肯定不适合走
@@ -802,7 +802,8 @@ export class NarrativeAnalyzer {
             // 检查是否是规则验证失败（返回preCheckData）
             if (analysisResult.preCheckData
                 && analysisResult.preCheckData.result?.validationStage === 'address'
-                && !options.skipAddressValidation) {
+                && !options.skipAddressValidation
+                && !issuerSelfLaunch) {
               // C238b 用户裁定「走 W 类，也就是不提供 CA 这一臂，我认为也应该过」：
               // 地址核验失败（账号质量未达标 ∧ 简介/推文无 CA）不再 terminal 拦死，
               // 回落标准路径走 W 评估——W 资格轴（J1.130 两形态）本就是判「发布者
@@ -810,6 +811,10 @@ export class NarrativeAnalyzer {
               // 票不回落（C100 内容臂强证据已验地址，回落=丢弃已验证据）；name/
               // data_fetch_failed 等 stage 照旧 terminal。回落形状=C117 superIP
               // 强制标准路径同款（置 false 让下方 !shouldUseAccountCommunity 分支接管）
+              // ★C251（2026-10-27 BIBIAIWork 案）：同名自发宣告票（issuerSelfLaunch
+              // 路由进来）**不回落**——用户裁定「只能走账号路径」，回落 W 等于把
+              // 自我陈述换了个考官重考（案发形状：401 粉 dev 地址核验 fail 本会
+              // 回落 W mid 放行）。地址核验 low 对该臂即终局。
               logger.info('NarrativeAnalyzer', '地址核验失败 → 回落标准路径走 W 评估（C238b，不再 terminal 拦）', {
                 token: tokenData.symbol || tokenData.address,
                 screenName: analysisResult.preCheckData.result?.details?.screen_name || null,

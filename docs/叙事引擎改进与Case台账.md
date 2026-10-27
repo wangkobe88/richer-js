@@ -54,6 +54,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C251 发布者与代币同名→恒走账号路径（BIBIAIWork 案，2026-10-27 用户裁定「走项目臂提供 CA 还可以，但是走靠影响力支撑一个 meme 感觉不行」，路由+回落双改）★
+
+- **案发**：BIBIAIWork `0x08be87804707fe0ebc86ef56d4bddb202c627777`（flap 税币，10-27 08:46:30 UTC 创建）。语料=@BIBIaiwork（401 粉、0 赞 0 转、X 付费蓝标）第一人称宣告「AI 计算网络/真实 BSC 池快照压力测试」功能清单；**推文与官网均无 CA**（推文全文 1478 字无地址，官网 bibiaiwork.com 内容未抓——websiteFetch 默认关，链接只是 t.co 展开）。live v42 08:46:41 买入 4 卡 0.004 BNB（创建后 10s），09:01:46 全清 **-42.9%**；官网已死 rug 坐实。
+- **死法与取证（W 数学全靠自我陈述的掷骰面）**：`detectIssuerSelfLaunch` 双条件其实**已经命中**（品牌同一 bibiaiwork↔BIBIAIWork + 宣告指纹），但 J1.68（彪弟案）「有内容的推文」豁免把它放回标准路径 → event:W 概率 1.0（C230 AI×crypto 项目陈述归 W 设计内）→ W 资格轴 **mid 0.55 vs low 0.42 近 tie**（confidence 0.33）→ 47 分过 32 线 → 总分 60.6 mid → 买。三道子判断全说「不行」但全无拦截位：impact none 0.84（对 W 无门）、trivial probe too_trivial 0.84（C244 已拆纯观察）、event_fit argmax unfit 0.41 但 sf+fit=0.54 差 0.04 过 web3FitMassBlock；词句 not_acceptable 0.94 被 entity=accepted 短路（C189 只评 not_entity）。mid 0.55 的分量几乎全来自 dev 自述功能清单——正是 C236/J1.133「新项目传播/功能陈述只是预期不作资格判据」要求剥离的东西，近 tie 掷骰没兜住（NMS 0.52/股城 mid tie 同族观察点）。
+- **用户裁定**：「如果提供的是账号，或者发布者跟代币一个名字，那么就得认为这是一个 Web3 项目/原生IP，除非账号影响力极大可以走 meme 路线，否则只能走账号路径。」——同名自发宣告的价值锚=账号本身，推文内容再丰富也只是自我陈述，不由 W 资格轴重考。
+- **划界**：①发布者与代币同名（品牌同一+宣告指纹，detectIssuerSelfLaunch 产物）→ 恒走 prestage 账号路径，**J1.68「有内容推文」豁免对该臂废止**（issuerCaTimeline 臂维持 J1.68——CA 时间线检出仍按「叙事主体是推文内容」评）；②prestage 地址核验 low 对该臂**终局不回落 W**（C238b 回落=自我陈述换考官重考，案发形状正是该回落会重开的洞；对非同名臂存续）；③例外=账号影响力极大走 meme 路线：C117 双门既有兜底（detectIssuerSelfLaunch ≥100 万粉不判 + superIP registry 短路强制标准路径），不新设阈值；④「提供 CA 还可以」臂照走：简介/推文公示 CA → prestage addressVerified=true 交 prestage Jev 按账号证据评（500 粉+20 推质量门/abm 双证据）——本案权益面=401 粉无 CA → `未在账号简介或推文中找到完整代币地址` stage=address 终局 low。
+- **实现**：`narrative-utils.mjs` `shouldRouteToAccountCommunity` 加 `issuerSelfLaunch` 无条件臂（位于 J1.68 issuerCa 臂之前）；`NarrativeAnalyzer.mjs` 路由调用点透传 + C238b 回落条件加 `&& !issuerSelfLaunch`（preCheckData address 失败走 else-if 终端 low；address 重试域语料形状门=非账号型语料 skip，tweet 语料票不烧配额重试）。题集版本不 bump（纯路由）。
+- **单测**：`_test_issuer_selflaunch_account_route.cjs` 12 断言全绿（BIBIAIWork 现场命中/≥100 万粉 C117 门维持/彪弟不同一形状不劫/路由真值表四臂/401 粉无 CA→stage=address 终局/简介公示 CA→passed+addressVerified/analyzer 接线与回落收口源码口径断言）。邻位全绿：account_route_tweet_corpus 12/0（J1.68 issuerCa 语义存续）、superip_no_prestage_route 14/0、prestage_web3ip_account_only 17/0、prestage_project_downgrade 32/0、prestage_website_check 43/0、issuer_ca_detection 15/0、isproject_coin_url_not_ca_hit 22/0。
+- **回归与部署**：回归集第 118 票（expect=意图断言 rating low + reasonIncludes「未在账号简介或推文中找到完整代币地址」+ tokenCategoryExcludes event:W——部署重析前现状仍是 W mid，跑出 low 才算修复生效）；票数断言 bump 117→118。观察点：股城/NMS/AIFLY/BLACKBELT 等 W 路径对照票若其宣告账号与币名同一将被改道 prestage，定向重析对拍后再放全量回归。
+
 ### C250 账号级借壳+全语料陈旧=首发抢注漏放——借壳语料陈旧门（自由之钱案，2026-10-27 用户裁定「叙事能过简直扯淡」，mapper-only）★
 
 - **案发**：自由之钱 `0x2c048d9c02fccba7cc5c07adeb37070da9a2ffff`（10-27 10:27 UTC，deployer 0x553326…679e）。live v42 10:49 fire 买入 4 卡 0.004 BNB，11:07 -37.5% 全清（峰值 +52.2% 存在 1 秒）；交易侧=对倒盘 27 钱包 24 全进全出、11:05:59 同秒 17 笔连环砸（复盘另案）。叙事首轮 rating=3 high 72.77 放行。
