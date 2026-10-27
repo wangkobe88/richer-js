@@ -289,7 +289,7 @@ async function main() {
     && entSeg.includes('专名即实体（J1.121/C190，混混猫案')
     && entSeg.includes('被用作特定主体称谓的自创专名（J1.121/C190')
     && entSeg.includes('混混猫=自创社区 mascot 专名不落本项')
-    && /JEV_QUESTIONS_VERSION = 'J1\.139'/.test(qsSrc));
+    && /JEV_QUESTIONS_VERSION = 'J1\.145'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 本批修复——4f4e817 同款坑）
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
@@ -333,6 +333,20 @@ async function main() {
     && qsSrc.includes('（「XX上电视」「XX要来了」式说事非命名）不构成性质定义')
     && qsSrc.includes('即便句中提及著名实体也不因此 accepted')
     && qsSrc.includes('仍归 not_entity 由词句题接管'),
+    null);
+
+  // D10（J1.145/C247，财库公司 0xaf442b52ccf1df61b5e62ec8c4cc05e9a9447777 案）：
+  // 币名=语料核心定义/科普的概念词（DAT=财库公司）被按中文字面词义判
+  // 「事务性公司」unacceptable_type 0.63 拦死——用户裁定「财库公司是推文核心
+  // 介绍的概念，不是金融机构/事务性公司」。概念词/行业术语/模式统称不按字面
+  // 机构词形进类型轴 → not_entity 中性落词句题按圈内文化词评。锚四处在场
+  // 反证：实体题 instructions ⚠️ 段 + unacceptable_type 反锚 + not_entity 臂
+  // + 词句题①有来由臂行业概念热词例证（防概念词在词句臂二次卡壳）
+  check('D10 J1.145/C247 概念词锚四处在场（instructions ⚠️ 段+unacceptable_type 反锚+not_entity 中性臂+词句①臂例证）——语料定义/科普的概念/行业术语/模式统称不按字面机构词形进类型轴',
+    qsSrc.includes('概念词不按字面机构类型拦（J1.145/C247，财库公司案）')
+    && qsSrc.includes('概念词/行业术语不属本项（J1.145/C247')
+    && qsSrc.includes('泛称概念词/行业术语/模式统称属本项中性评（J1.145/C247')
+    && qsSrc.includes('行业概念/模式热词（「财库公司」=DAT'),
     null);
 
   console.log(`\n══════ ${passed} passed, ${failed} failed ══════`);
