@@ -1,0 +1,99 @@
+{
+  "ranAt": "2026-10-27T14:28:47.486Z",
+  "summary": {
+    "total": 3,
+    "pass": 3,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C240",
+      "symbol": "불개미",
+      "addr": "0x502592d3c980a25ed52a11d389b0ffe1eb8c7777",
+      "status": "PASS",
+      "expect": {
+        "rating": "high",
+        "tokenCategoryExcludes": [
+          "event:W"
+        ]
+      },
+      "observe": null,
+      "caseNote": "",
+      "baseline": {
+        "rating": "low",
+        "reason": "名称关联:精确匹配｜Web3流量:无(P=0.02，choice=no_traffic)｜不满足:无30天内Web3流量事件→low",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "account_based_meme"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 96.49,
+        "stage": 3,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C240b",
+      "symbol": "불개미",
+      "addr": "0x988635ef13f78daf7022f6109dbf6b02f35c7777",
+      "status": "PASS",
+      "expect": {
+        "rating": "high"
+      },
+      "observe": null,
+      "caseNote": "",
+      "baseline": {
+        "rating": "low",
+        "reason": "名称关联:精确匹配｜Web3流量:无(P=0.03，choice=no_traffic)｜不满足:无30天内Web3流量事件→low",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "account_based_meme"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 96.58,
+        "stage": 3,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C251",
+      "symbol": "BIBIAIWork",
+      "addr": "0x08be87804707fe0ebc86ef56d4bddb202c627777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "tokenCategoryExcludes": [
+          "event:W"
+        ]
+      },
+      "observe": null,
+      "caseNote": "BIBIAIWork 同名自发宣告：401粉dev自述AI计算网络，J1.68有内容推文豁免漏进W，资格轴mid0.55掷骰放行，live v42买入10s后rug -42.9%。C251裁定：同名自发宣告恒走账号路径不回落W",
+      "baseline": {
+        "rating": "low",
+        "reason": "项目币官网核验未过（网站空壳/与宣告叙事不符）→ low（C164）｜原粉丝带：项目币评级：粉丝401 → high（粉丝带只定档不拦截）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "project"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "项目币官网核验未过（网站空壳/与宣告叙事不符）→ low（C164）｜原粉丝带：项目币评级：粉丝401 → high（粉丝带只定档不拦截）",
+        "ruleName": null,
+        "score": null,
+        "stage": 3,
+        "tokenCategory": "project"
+      },
+      "failures": []
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+﻿caseId,symbol,addr,status,期望rating,期望reason关键词,期望禁词,期望precheck规则,期望禁规则,期望审计键,期望tokenCat,期望说明,基线rating,基线score,基线ruleName,基线reason,当前rating,当前score,当前ruleName,当前stage,当前tokenCat,当前reason,失败明细,observe说明,case语义
+C240,불개미,0x502592d3c980a25ed52a11d389b0ffe1eb8c7777,PASS,high,,,,,,≠event:W,,low,,,名称关联:精确匹配｜Web3流量:无(P=0.02，choice=no_traffic)｜不满足:无30天内Web3流量事件→low,high,96.49,,3,event:C,,,,
+C240b,불개미,0x988635ef13f78daf7022f6109dbf6b02f35c7777,PASS,high,,,,,,,,low,,,名称关联:精确匹配｜Web3流量:无(P=0.03，choice=no_traffic)｜不满足:无30天内Web3流量事件→low,high,96.58,,3,event:C,,,,
+C251,BIBIAIWork,0x08be87804707fe0ebc86ef56d4bddb202c627777,PASS,low,,,,,,≠event:W,,low,,,项目币官网核验未过（网站空壳/与宣告叙事不符）→ low（C164）｜原粉丝带：项目币评级：粉丝401 → high（粉丝带只定档不拦截）,low,,,3,project,项目币官网核验未过（网站空壳/与宣告叙事不符）→ low（C164）｜原粉丝带：项目币评级：粉丝401 → high（粉丝带只定档不拦截）,,,BIBIAIWork 同名自发宣告：401粉dev自述AI计算网络，J1.68有内容推文豁免漏进W，资格轴mid0.55掷骰放行，live v42买入10s后rug -42.9%。C251裁定：同名自发宣告恒走账号路径不回落W
