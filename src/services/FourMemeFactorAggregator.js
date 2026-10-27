@@ -1215,6 +1215,19 @@ class FourMemeFactorAggregator extends EventEmitter {
                     _bw.add(walletAddr);
                 }
             }
+            // ── 等额买簇原料（T74 2026-10-26 0x8c4a…7777 对倒案）：amountKey → 同额买入
+            //    钱包 Set，跨块金额维度聚合（不依赖 blockNumber）；含非首买买盘行（分批
+            //    分额是团伙形状）；尘埃门 earlyUniformDustBnb 以下不入桶（launch 等额臂
+            //    同款参数——0.0001 级等额撞桶纯噪声）；Set.add 幂等 → defer 乱序回推收敛 ──
+            if (walletAddr && bnbAmount >= this._fp.earlyUniformDustBnb) {
+                const _ek = bnbAmount.toFixed(6);
+                let _ew = state._evenBuyBuckets.get(_ek);
+                if (!_ew) {
+                    _ew = new Set();
+                    state._evenBuyBuckets.set(_ek, _ew);
+                }
+                _ew.add(walletAddr);
+            }
             if (walletAddr) {
                 const _pb = state._walletFirstBuyTs.get(walletAddr);
                 if (_pb === undefined || tick.timestamp < _pb) {
@@ -1621,6 +1634,10 @@ class FourMemeFactorAggregator extends EventEmitter {
                                      //   滑窗淘汰后晚到回推行会新建条目，同引用语义断裂——本 Map
                                      //   独立维护，Set.add 幂等 → defer 乱序序无关收敛）；含非首买
                                      //   买盘行，wallet 非空才入 Set（null wallet 无法归簇）
+            _evenBuyBuckets: new Map(),  // amountKey(6 位小数) → 同额买入钱包 Set（evenCluster*
+                                     //   三键原料，T74 2026-10-26 0x8c4a…7777 对倒案观察键）；
+                                     //   跨块金额维度聚合（对 bundle 单块口径的分批稀释免疫）；
+                                     //   全史不裁、Set.add 幂等 → defer 乱序序无关收敛
             _circTokens: 0,          // 流通 = Σ买入 − Σ卖出 token（净流出池子筹码；全史增量累计
                                      //   永不裁剪，加减法交换律 → defer 乱序收敛；creator 初始持仓
                                      //   未经买入不计入——口径与 BITCAT 重放对拍一致 63.3%）
@@ -2274,6 +2291,32 @@ class FourMemeFactorAggregator extends EventEmitter {
             ? top2UnionHold / state._circTokens * 100 : 0;
         const top3HoldPct = top3UnionHold > 0 && state._circTokens > 0
             ? top3UnionHold / state._circTokens * 100 : 0;
+        // 等额买簇三键（T74 2026-10-26 0x8c4a…7777 对倒案，纯观察不进条件串——阈值须
+        // 票池分布裁定）：bundle 门按块/时间聚合，对「每块 2-3 钱包、跨 5 块 5 档金额」
+        // 的分批形状结构性稀释（案发 fire 时 holdCircPct=32.4/top2=52.1/top3=69.7 全部
+        // 擦线放行、sybil 名单只盖 8/30 新钱包 → 23.4），等额指纹一把聚合 81.6%。
+        // 合格桶 = size≥3 金额桶（<3 钱包等额 = 常见巧合，launch 等额臂同款裁定）；
+        // 分子 = 合格桶钱包【并集去重】当前正净持仓合计（复买跨桶只计一份筹码——
+        // 与 top2/top3 并集口径同族）；分母 = _circTokens；证据在买入当刻可见，
+        // 不受「延迟卖出」节奏化掩护（两栖判据软肋本案实证：fire 时仅 39%）。
+        // 0 = 无合格桶 / 流通≤0（有证据零值非 null）
+        let _evenUnion = null;
+        let _evenGroups = 0;
+        for (const _ws of state._evenBuyBuckets.values()) {
+            if (_ws.size < 3) continue;
+            _evenGroups++;
+            if (!_evenUnion) _evenUnion = new Set();
+            for (const _w of _ws) _evenUnion.add(_w);
+        }
+        let _evenHold = 0;
+        if (_evenUnion) {
+            for (const _w of _evenUnion) {
+                const _v = state._walletNetTokens.get(_w);
+                if (_v > 0) _evenHold += _v;
+            }
+        }
+        const evenClusterHoldCircPct = _evenHold > 0 && state._circTokens > 0
+            ? _evenHold / state._circTokens * 100 : 0;
         // 可选簇明细（扫描脚本对拍 B 用：簇钱包名单 → GMGN bundler 地址库 precision/recall）；
         // 引擎路径不传 out，零变化
         if (out) {
@@ -2287,6 +2330,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             out.maxAllBlockHoldTokens = maxAllBlkHold;          // 存量口径因子分子（全块 max）
             out.top2UnionHoldTokens = top2UnionHold;            // top2 门分子（最大两块并集去重）
             out.top3UnionHoldTokens = top3UnionHold;            // top3 观察键分子（最大三块并集去重）
+            out.evenUnionHoldTokens = _evenHold;                // 等额簇分子（合格桶并集去重正净持仓）
         }
         return {
             bundleClusterSize: size,
@@ -2298,6 +2342,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             bundleClusterHoldCircPct: Math.round(holdCircPct * 10) / 10,
             top2BundleClusterHoldCircPct: Math.round(top2HoldPct * 10) / 10,
             top3BundleClusterHoldCircPct: Math.round(top3HoldPct * 10) / 10,
+            evenClusterHoldCircPct: Math.round(evenClusterHoldCircPct * 10) / 10,
+            evenClusterWallets: _evenUnion ? _evenUnion.size : 0,
+            evenClusterGroups: _evenGroups,
         };
     }
 
@@ -2996,6 +3043,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 第三块观察键（2026-10-26 同族扩展）：最大三块并集去重；不足三块退化=top2；
             // 恒 ≥ top2 ≥ top1；纯观察不进条件串（阈值裁定另议）
             top3BundleClusterHoldCircPct: bundle.top3BundleClusterHoldCircPct,
+            // 等额买簇三键（T74 0x8c4a…7777 对倒案观察键）：跨块同额买入并集去重正净
+            // 持仓 ÷ 流通；对分批跨块形状免疫（bundle 单块口径被稀释、sybil 名单滞后）；
+            // 纯观察不进条件串（阈值须票池分布裁定）；0=无合格桶/流通≤0；
+            // 口径见 _bundleClusterFactors 注释
+            evenClusterHoldCircPct: bundle.evenClusterHoldCircPct,
+            evenClusterWallets: bundle.evenClusterWallets,
+            evenClusterGroups: bundle.evenClusterGroups,
             // ── 出生锚定捆绑簇 launch* 4 键（2026-10-17 Agentum 案方向 C：10s 滑窗迟到
             //    fire 漏创建块簇；同块臂+跨块等额臂，出窗冻结；口径见 _launchBundleFactors）──
             launchBundleClusterSize: launch.launchBundleClusterSize,

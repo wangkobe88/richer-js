@@ -289,7 +289,7 @@ async function main() {
     && entSeg.includes('专名即实体（J1.121/C190，混混猫案')
     && entSeg.includes('被用作特定主体称谓的自创专名（J1.121/C190')
     && entSeg.includes('混混猫=自创社区 mascot 专名不落本项')
-    && /JEV_QUESTIONS_VERSION = 'J1\.145'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 本批修复——4f4e817 同款坑）
+    && /JEV_QUESTIONS_VERSION = 'J1\.146'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 本批修复——4f4e817 同款坑）
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
@@ -335,17 +335,22 @@ async function main() {
     && qsSrc.includes('仍归 not_entity 由词句题接管'),
     null);
 
-  // D10（J1.145/C247，财库公司 0xaf442b52ccf1df61b5e62ec8c4cc05e9a9447777 案）：
+  // D10（J1.145+J1.146/C247，财库公司 0xaf442b52ccf1df61b5e62ec8c4cc05e9a9447777 案）：
   // 币名=语料核心定义/科普的概念词（DAT=财库公司）被按中文字面词义判
-  // 「事务性公司」unacceptable_type 0.63 拦死——用户裁定「财库公司是推文核心
-  // 介绍的概念，不是金融机构/事务性公司」。概念词/行业术语/模式统称不按字面
-  // 机构词形进类型轴 → not_entity 中性落词句题按圈内文化词评。锚四处在场
-  // 反证：实体题 instructions ⚠️ 段 + unacceptable_type 反锚 + not_entity 臂
-  // + 词句题①有来由臂行业概念热词例证（防概念词在词句臂二次卡壳）
-  check('D10 J1.145/C247 概念词锚四处在场（instructions ⚠️ 段+unacceptable_type 反锚+not_entity 中性臂+词句①臂例证）——语料定义/科普的概念/行业术语/模式统称不按字面机构词形进类型轴',
-    qsSrc.includes('概念词不按字面机构类型拦（J1.145/C247，财库公司案）')
-    && qsSrc.includes('概念词/行业术语不属本项（J1.145/C247')
-    && qsSrc.includes('泛称概念词/行业术语/模式统称属本项中性评（J1.145/C247')
+  // 「事务性公司」unacceptable_type 0.63 拦死。两轮裁定：J1.145「概念词是推文
+  // 核心介绍的概念，不是金融机构/事务性公司」（不按字面机构词形拦）→ 对拍
+  // not_entity 0.96 落词句题 not_acceptable 0.94 二次拦；J1.146 追裁「概念词
+  // 中性怎么应该判 not_entity？它是个 entity」——概念=可辨所指的概念实体
+  // （J1.121 宽定义同款），映射成立按概念类型评：圈内概念/资产叙事概念 →
+  // accepted，不落 not_entity、不经词句题；映射判定看所指不看词形。锚四处在
+  // 场反证：实体题 instructions ⚠️ 段+accepted 臂+unacceptable_type 反锚+
+  // not_entity 反锚（词句①臂例证兜底保留）
+  check('D10 J1.146/C247 概念实体锚四处在场（instructions ⚠️ 段+accepted 臂+unacceptable_type 反锚+not_entity 反锚）——语料定义/科普的概念=可辨所指概念实体按类型评 accepted，映射判定看所指不看词形',
+    qsSrc.includes('概念词按概念实体评、不按字面机构类型拦（J1.146/C247，财库公司案）')
+    && qsSrc.includes('含语料定义/科普的概念实体（J1.146/C247')
+    && qsSrc.includes('概念词的字面误读不属本项（J1.146/C247')
+    && qsSrc.includes('概念词不属本项（J1.146/C247，财库公司案）')
+    && qsSrc.includes('映射判定看所指不看词形')
     && qsSrc.includes('行业概念/模式热词（「财库公司」=DAT'),
     null);
 

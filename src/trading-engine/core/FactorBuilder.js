@@ -151,6 +151,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     bundleClusterHoldCircPct: factorResults.bundleClusterHoldCircPct ?? null,
     top2BundleClusterHoldCircPct: factorResults.top2BundleClusterHoldCircPct ?? null,
     top3BundleClusterHoldCircPct: factorResults.top3BundleClusterHoldCircPct ?? null,
+    // 等额买簇三键（T74 2026-10-26 0x8c4a…7777 对倒案观察键）：FA 全史金额桶不可
+    // 离线重算（act* 先例），不落库即丢；0=有证据零值，旧 FA 无键 → null 不掩盖
+    evenClusterHoldCircPct: factorResults.evenClusterHoldCircPct ?? null,
+    evenClusterWallets: factorResults.evenClusterWallets ?? null,
+    evenClusterGroups: factorResults.evenClusterGroups ?? null,
     // 出生锚定捆绑簇 launch* 4 键（2026-10-17 Agentum 案方向 C）：出生窗累计+冻结
     // 不可离线重算（act* 先例），不落库即丢；0=空窗有证据零值，旧 FA 无键 → null 不掩盖
     launchBundleClusterSize: factorResults.launchBundleClusterSize ?? null,
