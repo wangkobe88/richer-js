@@ -1631,17 +1631,14 @@
       "addr": "0x08be87804707fe0ebc86ef56d4bddb202c627777",
       "expect": {
         "rating": "low",
-        "reasonIncludes": [
-          "未在账号简介或推文中找到完整代币地址"
-        ],
         "tokenCategoryExcludes": [
           "event:W"
         ]
       },
-      "note": "BIBIAIWork 同名自发宣告：401粉dev自述AI计算网络，J1.68有内容推文豁免漏进W，资格轴mid0.55掷骰放行，live v42买入10s后rug -42.9%。C251裁定：同名自发宣告恒走账号路径，地址核验low终局不回落W",
+      "note": "BIBIAIWork 同名自发宣告：401粉dev自述AI计算网络，J1.68有内容推文豁免漏进W，资格轴mid0.55掷骰放行，live v42买入10s后rug -42.9%。C251裁定：同名自发宣告恒走账号路径不回落W",
       "addedAt": "2026-10-27",
       "expectSince": "2026-10-27",
-      "expectBecause": "C251 裁定：发布者与代币同名→恒走账号路径；401粉账号质量未达标∧语料无CA→prestage 地址核验 low 终局不回落 W（rating 翻转意图断言：部署重析前现状仍是 W mid，跑出 low 才算修复生效）"
+      "expectBecause": "C251 裁定：发布者与代币同名→恒走账号路径；终局 low 不回落 W（2026-10-27 182 重析实证：改道生效，重拉语料在推文内找到 CA→addressVerified→project→C164 官网空壳拦 low；死因门随语料时点漂移，断言只锁方向=rating low+不得再 event:W）"
     }
   ]
 }
