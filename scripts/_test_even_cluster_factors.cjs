@@ -70,12 +70,12 @@ const KEYS = ['evenClusterHoldCircPct', 'evenClusterWallets', 'evenClusterGroups
  */
 function incidentTicks() {
   return [
-    // 散户垫流通分母：同额拆两块（0.1067×2=size2 桶<3 不合格——单块口径反证须防
-    // 散户单块买量盖过簇块）
+    // 散户垫流通分母：两散户各单块小额（<簇块 12350000——防单块口径对照被散户盖过；
+    // 两者恰同额 0.1067=size2 桶<3 不合格，顺带反证散户偶撞等额不触发）
     mkTick({ timestamp: T0 + 0, trader_address: 'eoaP', sender_address: 'wP',
       block_number: 1000, log_index: 1, bnb_amount: 0.1067, token_amount: 10670000 }),
-    mkTick({ timestamp: T0 + 500, trader_address: 'eoaP', sender_address: 'wP',
-      block_number: 1001, log_index: 2, bnb_amount: 0.1067, token_amount: 10670000 }),
+    mkTick({ timestamp: T0 + 500, trader_address: 'eoaQ', sender_address: 'wQ',
+      block_number: 1002, log_index: 2, bnb_amount: 0.1067, token_amount: 10670000 }),
     // 档一 0.1647×3 跨块 1010/1012/1014
     mkTick({ timestamp: T0 + 1000, trader_address: 'eoa1', sender_address: 'w1',
       block_number: 1010, log_index: 11, bnb_amount: 0.1647, token_amount: 8235000 }),

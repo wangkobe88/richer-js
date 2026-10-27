@@ -1567,6 +1567,17 @@
       },
       "note": "发 meme 币蹭外部热点≠发布项目：韩国 2M+ views 病毒视频（秃头大叔一根头发）被 baldcoin deployer 借势发币 $희망이=HOPE；J1.143 三桶混战 W 0.48/E 0.31/A 0.19 误归 W 掷骰段 → W 数学 15<32 拦死，实际 33min 13x。J1.144 后 W→E high 76.69（B 档 68+exact_match 20+质量 15.89）；W 对照 AIFLY/股城/人生K线/NMS 零翻转",
       "addedAt": "2026-10-27"
+    },
+    {
+      "caseId": "C247",
+      "symbol": "财库公司",
+      "addr": "0xaf442b52ccf1df61b5e62ec8c4cc05e9a9447777",
+      "expect": {
+        "rating": "high",
+        "tokenCategory": "event:D"
+      },
+      "note": "概念实体锚主票：BNC 敲钟科普长推定义 DAT=财库公司，J1.144 unacceptable_type 0.63 拦 → J1.145 not_entity 0.96 落词句门 0.94 拦 → J1.146 accepted high 86.27；55s 10.5x",
+      "addedAt": "2026-10-27"
     }
   ]
 }

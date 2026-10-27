@@ -515,6 +515,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-10-26 T70 全史实时净买/路由占比两键（early 90s 冻结窗对慢热票失真——
         // 智子/币安1986 案买腿换实时载体；详见 _test_fa_early_trades_factors.cjs T70 段）
         'tradesNetBuyRatio', 'tradesRouterPct',
+        // 2026-10-26 T74 等额买簇三观察键（0x8c4a…7777 对倒案：跨块同额买入并集去重
+        // 正净持仓 ÷ 流通；详见 _test_even_cluster_factors.cjs）
+        'evenClusterHoldCircPct', 'evenClusterWallets', 'evenClusterGroups',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

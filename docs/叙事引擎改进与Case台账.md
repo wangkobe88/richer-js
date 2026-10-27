@@ -26,7 +26,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化三原语（Choice/Score/Noul）无文本生成秒级；
-  版本规则=改题必 bump（现 J1.144 / P1.14），DB prompt_version 可按版本筛历史
+  版本规则=改题必 bump（现 J1.146 / P1.14），DB prompt_version 可按版本筛历史
 - **现役拦截门链**（mapper 端，C189 时点）：蓝筹去重门 C168（首臂：name_exact 撞 b: 域蓝筹拦 low；
   条目级 dedupExempt + 新陈述豁免 C173 + 新事件豁免 C242）→ web3UnfitBlock（unfit≥0.5）→ web3FitMassBlock C141
   （sf+fit<0.5 全域拦）→ quality_veto argmax（empty_content/baseless/ip_reuse 三桶；图证在场豁免
@@ -53,6 +53,16 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 ---
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
+
+### C247 概念=实体，名字门按所指不按词形——实体题概念实体锚（财库公司案，2026-10-27 用户两轮裁定，J1.145→J1.146）★
+
+- **案发**：财库公司 `0xaf442b52ccf1df61b5e62ec8c4cc05e9a9447777`（10-26 15:12:26 UTC 出票）。语料=主推 Yuki（18263 粉认证号）BNC 敲钟科普长推，整段定义「什么叫财库公司？一家上市公司，主业不再是卖产品、做服务，而是把大量加密资产堆在资产负债表上……业界常叫 DAT（Digital Asset Treasury），中文是：财库公司」——MicroStrategy→BNB Standard 财库玩法叙事，币名=主推核心科普的圈内概念词。
+- **死法与取证（J1.144 案发轮）**：实体题 `bsc_meme_user_name_entity_acceptance.unacceptable_type=0.63≥0.5` 全域拦「币名实体类型不被接纳（可乐/银行/犬种学名类）」——Jev 按「财库公司」中文字面词形扔进「金融机构/事务性公司」类型桶。**事件轴全看好**：event_category W 0.81、fit strong_fit 0.73、影响力 tier A——错在名字轴字面误读。实际 55 秒 **10.5x**（6.35e-9 → 6.65e-8）。
+- **两轮裁定**：①J1.145 用户裁定「财库公司是推文核心介绍的概念，不是金融机构/事务性公司」——概念词不按字面机构词形进类型轴，中转路由 not_entity 落词句题按圈内文化词评。**对拍打脸**：类型轴 0.63→0.02 修复到位，但 not_entity 0.96 → 词句题 not_acceptable **0.94** 二次拦（Jev 视「财库公司」为无来由正经财经词——词句题是口号/句片段域，概念词被口号域误评）。②J1.146 用户追裁（原话）「概念词中性怎么应该判 not_entity 呢？它是个 entity」——**概念=可辨所指的概念实体**（J1.121「实体不要求已存在/知名/词典收录」宽定义同款）：映射成立按概念自身类型评，圈内概念/资产叙事概念/行业热词=可玩梗可当符号对象 → **accepted**；不落 not_entity（「不映射任何实体」只留真正无所指的句片段/口号）、不经词句题。**映射判定看所指不看词形**：字面像机构词≠机构类型、字面是普通词≠无实体。
+- **实现（J1.145 f172fa2 + J1.146 680daed）**：实体题四处锚（instructions ⚠️ 概念词段+accepted 桶「含语料定义/科普的概念实体」臂+unacceptable_type 反锚+not_entity 反锚）；词句题①有来由臂行业概念热词例证标注兜底语义保留（Jev 仍判 not_entity 的概念词形状兜底）。桶集/拦截键零变化，mapper 零改动。连带修复三处锁数字单测断言存量（C244/C245/C246 批次漏 bump）：name_entity D5 版本 J1.139、question_consolidation A10d J1.142、case_regression_lib F2 票数 106→113（4f4e817 同款坑）。
+- **182 对拍（J1.146, 680daed）**：主票 low→**high 86.27**（事件分 52.2=87×0.6 A 档｜关联 20 exact_match｜质量 14.07；分类 D 0.91=C245 敲钟锚同票顺带生效，W 0.81→0.04）。三轮轨迹=J1.144 拦类型轴 → J1.145 拦词句门 → J1.146 high。**对照四票零翻转**：C96 币安上电视 low（词句门口号票照拦）/C184 快狗打车 low（unacceptable_type 0.96 照拦=真机构实体类型不受概念锚影响，分离度干净）/C190 恩恩崽 high 92.53（expect mid|high 命中）/C175 京小安 W 资格轴 low 15（不相关位维持）。
+- **部署**：f172fa2+680daed+abd4ee3 已 push；182 worker 重启 PID 500275（02:49 UTC，单实例回查 ✓）；v41 实验 108161 进程锁 J1.142、下次换代生效（worker 侧立即生效）。回归集：C247 收录主票（expect high，第 114 票）。
+- **余留观察**：概念实体锚的放行面=「语料定义/科普的圈内概念」形状，圈外严肃概念（非圈内资产叙事）题面已写「仍按类型轴正常评」——实际票池出现时盯对拍。
 
 ### C246 发 meme 币蹭外部热点≠发布项目——event_category W/E/A 桶借势发币划界锚（희망이案，2026-10-27 用户裁定「太不应该了」，J1.144）★
 
