@@ -4,6 +4,7 @@
  */
 
 import { isFrequentIssuer } from '../services/frequent-issuers.mjs';
+import { THRESHOLDS } from '../services/tweet-type-classifier.mjs';
 
 /**
  * 清洗代币名称，去除不可见字符和组合字符
@@ -361,16 +362,43 @@ export function shouldUseAccountCommunityAnalysis(fetchResults) {
 }
 
 /**
+ * 影响力作者判定（C251 追裁定，2026-10-27 火蚁 불개미 双票案用户裁定
+ * 「这算是直接基于有影响力的博主发币了。通过账号影响力豁免吧」）：
+ * 主推作者粉丝/赞/转任一过 C74/C120 同尺高影响力线（THRESHOLDS 单一真相源，
+ * 与 pre-check interpretive_reply 巨粉豁免同一把尺）→ 豁免 C251 同名改道、
+ * 走标准（meme）路径。分界实证：火蚁 @fireant_korea 三臂全中（16317 粉 /
+ * 508 赞 / 182 转，C240 切身相关集体行动票真实赢家 3min 11.4x，不豁免则被
+ * prestage 地址未命中→流量门 no_traffic 翻 low）；BIBIAIWork 三臂全空
+ * （401 粉 / null / null）照转账号路径。
+ * 粉丝 null（未抓到）不豁免（fail-保守，null≠0）；赞/转缺失按 0。
+ *
+ * @param {Object|null} twitterInfo
+ * @returns {boolean}
+ */
+export function hasInfluentialAuthor(twitterInfo) {
+  const followers = twitterInfo?.author_followers_count ?? null;
+  const likes = twitterInfo?.metrics?.favorite_count ?? 0;
+  const retweets = twitterInfo?.metrics?.retweet_count ?? 0;
+  return (followers !== null && followers >= THRESHOLDS.HIGH_FOLLOWERS)
+    || likes >= THRESHOLDS.HIGH_LIKES
+    || retweets >= THRESHOLDS.HIGH_RETWEETS;
+}
+
+/**
  * 账号/社区路径路由（J1.68，彪弟 0x3b5c3271…7777 案，用户裁定）：
  * 账号/社区语料（twitterInfo.type=account/community）→ 账号路径；
  * 项目币（CA 在推文文本/网站等）→ 账号路径；
  * 发行方检出 → 分臂（C251，2026-10-27 BIBIAIWork 0x08be…7777 案用户裁定）：
- * - 同名自发宣告（detectIssuerSelfLaunch：品牌同一+宣告指纹）→ **恒走账号路径**，
+ * - 同名自发宣告（detectIssuerSelfLaunch：品牌同一+宣告指纹）→ **走账号路径**，
  *   「有内容的推文」豁免对该臂废止——发布者与代币同名=代币就是这个账号自己的
  *   Web3 项目/原生IP，价值锚在账号本身，推文内容再丰富也只是自我陈述（案发：
  *   401 粉 dev 自述「AI 计算网络」功能清单，W 资格轴 mid 0.55 掷骰放行，15 分钟
- *   rug -42.9%）。例外=账号影响力极大走 meme 路线，由 C117 双门兜（detectIssuer-
- *   SelfLaunch ≥100 万粉不判 + analyzer 调用侧 superIP registry 短路）。
+ *   rug -42.9%）。例外（C251 追裁定，火蚁 불개미 双票案用户裁定「直接基于有
+ *   影响力的博主发币了，通过账号影响力豁免」）：主推作者有影响力（hasInfluential-
+ *   Author，粉丝/赞/转任一过 C74 同尺高线）→ 豁免改道走标准（meme）路径。
+ *   C117 双门（detectIssuerSelfLaunch ≥100 万粉不判 + superIP registry 短路）
+ *   维持不动——豁免只在路由层消费，不动 detector 的检出产物（C240 issuerTiming-
+ *   Exempt 时效豁免链依赖检出）。
  * - CA 时间线检出（issuerCaTimeline）→ 维持 J1.68「仅当语料不是有内容的推文」
  *   才转账号路径（推文本身信息足够时叙事主体是推文内容，如「彪哥的新宠物取名
  *   彪弟」；抖音账号页等只是引用，不该把票劫进账号质量/30 天 web3 流量轴）。
@@ -379,7 +407,7 @@ export function shouldUseAccountCommunityAnalysis(fetchResults) {
  * @param {Object} p.fetchResults
  * @param {boolean} p.isProjectCoinResult
  * @param {boolean} p.issuerDetected issuerCaTimeline 臂信号（J1.68 豁免存续）
- * @param {Object|null} p.issuerSelfLaunch detectIssuerSelfLaunch 产物（C251 无条件臂）
+ * @param {Object|null} p.issuerSelfLaunch detectIssuerSelfLaunch 产物（C251 臂，影响力豁免在函数内消费）
  * @returns {boolean}
  */
 export function shouldRouteToAccountCommunity({ fetchResults, isProjectCoinResult, issuerDetected, issuerSelfLaunch }) {
@@ -394,8 +422,8 @@ export function shouldRouteToAccountCommunity({ fetchResults, isProjectCoinResul
   const hasAccountCorpus = twitterInfo?.type === 'account' || twitterInfo?.type === 'community';
   const hasOwnSite = hasIndependentWebsite(fetchResults?.classifiedUrls);
   if (isProjectCoinResult && (hasAccountCorpus || hasOwnSite) && fetchResults?.relatedAccounts?.length > 0) return true;
-  // C251 同名自发宣告臂：无条件转账号路径（见函数头注释）
-  if (issuerSelfLaunch) return true;
+  // C251 同名自发宣告臂：转账号路径；影响力豁免见函数头注释（C251 追裁定）
+  if (issuerSelfLaunch && !hasInfluentialAuthor(twitterInfo)) return true;
   // J1.68 issuerCa 臂：仅当语料不是「有内容的推文」才转账号路径
   if (issuerDetected && !hasSubstantiveTweet) return true;
   return false;
@@ -438,9 +466,12 @@ export function extractScreenNameFromTwitterUrl(url) {
  *
  * 语义：推文语料的事件主体（作者）与代币品牌同一，且作者自己的文本宣告了该品牌
  * → 判为"项目方/账号自己发币"，转 prestage 账号判定（不要求当前影响力，按账号语义评）。
- * C251（2026-10-27 BIBIAIWork 案用户裁定）：本检出恒转账号路径（shouldRouteTo-
- * AccountCommunity 无条件臂）——同名自发宣告=账号自己的 Web3 项目/原生IP，只能
- * 走账号路径，不因推文内容丰富回落 W 资格轴自我陈述。
+ * C251（2026-10-27 BIBIAIWork 案用户裁定）：本检出转账号路径（shouldRouteTo-
+ * AccountCommunity 同名臂）——同名自发宣告=账号自己的 Web3 项目/原生IP，只能
+ * 走账号路径，不因推文内容丰富回落 W 资格轴自我陈述。C251 追裁定（同日火蚁
+ * 불개미 双票案）：作者有影响力（hasInfluentialAuthor）豁免改道走标准路径；
+ * 豁免在路由层消费、本函数的 C117 百万粉门刻意不动（检出产物被 C240
+ * issuerTimingExempt 时效豁免链依赖）。
  * C117 粉丝量级门（2026-10-19）：author_followers_count ≥ 100 万不判自发宣告
  * （options.maxFollowers 可覆盖）——自发宣告的合理域是中小账号，超大账号谈
  * 自家品牌 ≠ 宣告发 meme 币；superIP registry 命中票另有 analyzer 级短路

@@ -14,12 +14,21 @@
  * 后 -42.9% 全清（15 分钟 rug，官网已死）。
  *
  * 修复三件：
- * - 路由臂：shouldRouteToAccountCommunity 对 issuerSelfLaunch 无条件转账号路径
+ * - 路由臂：shouldRouteToAccountCommunity 对 issuerSelfLaunch 转账号路径
  *   （J1.68 有内容推文豁免对该臂废止；issuerCa 臂维持 J1.68）。
  * - 回落收口：analyzer C238b「地址核验失败回落标准路径 W」对同名臂失效——
  *   「只能走账号路径」，回落=自我陈述换考官重考（案发形状正是该回落会重开的洞）。
  * - 影响力极大例外：C117 双门既有（detectIssuerSelfLaunch ≥100 万粉不判 +
  *   superIP registry 短路强制标准路径），本测试锁其不被 C251 推翻。
+ *
+ * C251 追裁定（2026-10-27 火蚁 불개미 双票 0x5025…7777 / 0x9886…7777 案）：
+ * 「这算是直接基于有影响力的博主发币了。通过账号影响力豁免吧。」——主推作者
+ * 有影响力（粉丝/赞/转任一过 C74/C120 同尺高线 THRESHOLDS：5000/500/100）
+ * → 豁免同名改道、走标准（meme）路径。分界实证：火蚁 @fireant_korea 三臂全中
+ * （16317 粉/508 赞/182 转，C240 切身相关集体行动票真实赢家 3min 11.4x）；BIBI
+ * 三臂全空（401 粉/null/null）。豁免在路由层消费、detector 的 C117 百万粉门
+ * 刻意不动（检出产物被 C240 issuerTimingExempt 时效豁免链依赖，降门=火蚁
+ * 主推距创建 >30d 会被 C75 归 0 再次翻 low）。
  *
  * 用法：node scripts/_test_issuer_selflaunch_account_route.cjs
  */
@@ -35,7 +44,7 @@ function check(desc, actual, expected) {
 }
 
 (async () => {
-  const { detectIssuerSelfLaunch, shouldRouteToAccountCommunity } =
+  const { detectIssuerSelfLaunch, shouldRouteToAccountCommunity, hasInfluentialAuthor } =
     await import('../src/narrative/analyzer/utils/narrative-utils.mjs');
   const { performRulesValidation } =
     await import('../src/narrative/analyzer/prompts/account/account-community-rules.mjs');
@@ -64,7 +73,7 @@ function check(desc, actual, expected) {
     detectIssuerSelfLaunch({ symbol: '彪弟', name: '彪弟' },
       { twitterInfo: { type: 'tweet', text: '我的新宠物取名彪弟', author_screen_name: '彪哥BiaoGe', author_name: '彪哥', author_followers_count: 50000 } }), null);
 
-  console.log('== 2. 路由真值表：C251 无条件臂（旧 J1.68 形状=false 的翻转点） ==');
+  console.log('== 2. 路由真值表：C251 同名臂（旧 J1.68 形状=false 的翻转点；BIBI 无影响力=豁免不触发） ==');
   check('有内容推文 + issuerSelfLaunch → true 账号路径（案发反证：旧形状 false 漏进 W mid）',
     shouldRouteToAccountCommunity({ fetchResults: bibiFetchResults, isProjectCoinResult: false, issuerDetected: true, issuerSelfLaunch: hit }), true);
   check('同形状 issuerSelfLaunch=null + issuerDetected=true → false（J1.68 issuerCa 臂存续）',
@@ -109,9 +118,60 @@ function check(desc, actual, expected) {
   check('C238b 回落条件含 && !issuerSelfLaunch（同名臂不回落 W）', !!fallbackMatch, true);
   const routeFnSrc = fs.readFileSync(
     path.join(__dirname, '../src/narrative/analyzer/utils/narrative-utils.mjs'), 'utf8');
-  const selfArmIdx = routeFnSrc.indexOf('if (issuerSelfLaunch) return true;');
+  const selfArmIdx = routeFnSrc.indexOf('if (issuerSelfLaunch && !hasInfluentialAuthor(twitterInfo)) return true;');
   const j168Idx = routeFnSrc.indexOf("if (issuerDetected && !hasSubstantiveTweet) return true;");
-  check('同名臂存在且位于 J1.68 issuerCa 臂之前', selfArmIdx > 0 && j168Idx > selfArmIdx, true);
+  check('同名臂存在（带影响力豁免）且位于 J1.68 issuerCa 臂之前', selfArmIdx > 0 && j168Idx > selfArmIdx, true);
+
+  console.log('== 5. C251 追裁定：影响力豁免真值表（火蚁 불개미 双票案） ==');
+  // 火蚁现场（token_narrative 落库形状复刻）：@fireant_korea 16317 粉 + 宣告推 508 赞 182 转
+  const fireantTweet = {
+    type: 'tweet',
+    text: '불개미 FIREANT 커뮤니티 밈코인 발행 안내',
+    author_screen_name: 'fireant_korea',
+    author_name: 'FIREANT',
+    author_followers_count: 16317,
+    metrics: { favorite_count: 508, retweet_count: 182 },
+  };
+  const fireantFetch = { twitterInfo: fireantTweet, classifiedUrls: {}, relatedAccounts: [] };
+  const fireantLaunch = { screenName: 'fireant_korea', symbol: 'Fireant' };
+  const routeSelf = (ti) => shouldRouteToAccountCommunity({
+    fetchResults: { twitterInfo: ti, classifiedUrls: {}, relatedAccounts: [] },
+    isProjectCoinResult: false, issuerDetected: false, issuerSelfLaunch: fireantLaunch,
+  });
+  check('hasInfluentialAuthor 火蚁三臂全中（16317 粉/508 赞/182 转）→ true',
+    hasInfluentialAuthor(fireantTweet), true);
+  check('hasInfluentialAuthor BIBI 三臂全空（401 粉/null 赞/null 转）→ false',
+    hasInfluentialAuthor(bibiTweet), false);
+  check('火蚁 + issuerSelfLaunch → false（豁免改道走标准路径，C240 切身相关票恢复）',
+    routeSelf(fireantTweet), false);
+  check('BIBI + issuerSelfLaunch → true（无影响力照转账号路径，案发形状维持）',
+    shouldRouteToAccountCommunity({ fetchResults: bibiFetchResults, isProjectCoinResult: false, issuerDetected: false, issuerSelfLaunch: hit }), true);
+  check('粉 4999 + 零互动 → 照转（THRESHOLDS.HIGH_FOLLOWERS=5000 同尺边界，< 不豁免）',
+    routeSelf({ ...fireantTweet, author_followers_count: 4999, metrics: { favorite_count: 0, retweet_count: 0 } }), true);
+  check('粉 5000 → 豁免（≥ 高线）',
+    routeSelf({ ...fireantTweet, author_followers_count: 5000, metrics: { favorite_count: 0, retweet_count: 0 } }), false);
+  check('赞 499（粉 null/转 0）→ 照转（HIGH_LIKES=500 边界）',
+    routeSelf({ ...fireantTweet, author_followers_count: null, metrics: { favorite_count: 499, retweet_count: 0 } }), true);
+  check('赞 500 → 豁免',
+    routeSelf({ ...fireantTweet, author_followers_count: null, metrics: { favorite_count: 500, retweet_count: 0 } }), false);
+  check('转 99（粉 null/赞 0）→ 照转（HIGH_RETWEETS=100 边界）',
+    routeSelf({ ...fireantTweet, author_followers_count: null, metrics: { favorite_count: 0, retweet_count: 99 } }), true);
+  check('转 100 → 豁免',
+    routeSelf({ ...fireantTweet, author_followers_count: null, metrics: { favorite_count: 0, retweet_count: 100 } }), false);
+  check('粉 null + metrics 缺失 → 照转（fail-保守：null≠0，未抓到粉丝数不豁免）',
+    routeSelf({ type: 'tweet', text: 'x', author_screen_name: 's', author_name: 'n', author_followers_count: null }), true);
+  check('豁免只挂同名臂：有影响力 + issuerDetected + 无实质推文 → 仍 true（J1.68 issuerCa 臂不吃豁免）',
+    shouldRouteToAccountCommunity({
+      fetchResults: { twitterInfo: { type: 'tweet', text: '', author_followers_count: 16317, metrics: { favorite_count: 508, retweet_count: 182 } } },
+      isProjectCoinResult: false, issuerDetected: true, issuerSelfLaunch: null,
+    }), true);
+  // 源码口径锁：豁免在路由层消费（hasInfluentialAuthor 定义于 narrative-utils），
+  // detector 的 C117 百万粉门刻意不动（C240 issuerTimingExempt 依赖检出产物）。
+  check('豁免判据走 THRESHOLDS 单一真相源（narrative-utils import tweet-type-classifier）',
+    routeFnSrc.includes("import { THRESHOLDS } from '../services/tweet-type-classifier.mjs';")
+      && routeFnSrc.includes('THRESHOLDS.HIGH_FOLLOWERS') && routeFnSrc.includes('THRESHOLDS.HIGH_LIKES') && routeFnSrc.includes('THRESHOLDS.HIGH_RETWEETS'), true);
+  check('detector C117 百万粉门维持 1000000（豁免不降检出门）',
+    /const maxFollowers = options\.maxFollowers \?\? 1000000;/.test(routeFnSrc), true);
 
   console.log(`\n结果: ${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
