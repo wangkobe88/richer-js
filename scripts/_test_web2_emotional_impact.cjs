@@ -81,8 +81,8 @@ async function main() {
     fitQ.criteria.marginal.includes('J1.123/C193 Web2 旁观热点臂')
     && fitQ.criteria.marginal.includes('无情感冲击')
     && fitQ.criteria.marginal.includes('至多本档'));
-  check('A5 不新增桶（四档+china_politics=5，C109 题集收敛；题集仍 10 题）',
-    Object.keys(fitQ.criteria).length === 5 && Object.keys(q).length === 10,
+  check('A5 不新增桶（四档+china_politics=5，C109 题集收敛；C244 起观察题加入题集 10→11 题）',
+    Object.keys(fitQ.criteria).length === 5 && Object.keys(q).length === 11,
     { buckets: Object.keys(fitQ.criteria).length, questions: Object.keys(q).length });
   check('A6 C192b 中国政治门收窄边界在场（官媒非政治内容不选本项 + 京小安/小黑案例锚）',
     fitQ.instructions.includes('边界（C192b，2026-10-25 回归后收窄）')
