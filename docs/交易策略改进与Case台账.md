@@ -335,6 +335,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 戊、live 执行与事故
 
+### T75 全清腿记账 undershoot 幽灵仓——Number 往返吃 ulp 留 3e-11 + 粉尘残仓清理门（ELON2028 案，2026-10-27）
+- 案：v41 40754e0d ELON2028 0xf5f3f01bacbfc2a8f08451eee501712693377777（flap）已全部卖出后卖腿持续 fire——23:26-03:01 共 **11 笔 revert**（每笔 337,726 gas ≈ 0.0000168863 BNB，合计 ~0.000186 BNB），L3 熔断 30min 冷却 + 卖腿「失败每轮重试」= **~31min 一轮永动烧 gas**+TG 告警循环；web 侧「部分卖出 100%|余仓=0.0000 余卡=0」假象（显示格式掩蔽 3e-11 残仓）
+- 根因两层：①**记账 undershoot**——`_executeSellLive` 卖量 `new Decimal(Number(holding.amount)).mul(sellPct).toNumber()` Number 往返吃末位 ulp：PM Decimal 账面 `296034.40598014063` → double 化 `296034.4059801406` → 残仓恰 **3e-11** → PM `remainingAmount.eq(0)` 删仓判据不成立 → 持仓不删 status=bought 幽灵仓常驻；**E5d 当年只修了虚拟路径（2807 行 Decimal 直通），live 路径漏了同款**。②**终止路径缺失**——链上真粉尘 1.7684893e-11 > 0 → externalDisposal 臂（只认链上=0）接不住 → SyncHoldings 每 5min「按链上数量卖出」1.77e-11 个 → flap Portal 产出 ~3.34e-19 BNB 必 revert（custom error 0x76baadda）
+- 修复两件（用户批准「两件一起做」）：①全清腿（sellPct>=1）记账量=账面 Decimal 原值 `ledgerQty`（PM remaining 精确归零删仓；部分卖保持链上请求量，余仓本就允许非零，下一条全清腿精确清掉）；②**粉尘残仓清理门** `dustCloseValueBnb`（default.json fourmemeWs.live 1e-4 BNB ≈ $0.06，显式 0 关门）——预期卖出所得 `expectedNativeOut=qty×信号价/bnbUsd` < 线 → 不发链上卖单，`_closeDustPosition` 就地清账删仓+落清仓 trade 行（inputAmount=账面原值/outputAmount='0'，重放 remainRatio 钳 0 防复活；metadata.dustClose 留痕）+warn+TG 告警；**锚缺失（价/汇率任一 ≤0 → expectedNativeOut=null）fail-open 照发**（不误杀正常仓）；externalDisposal（链上=0）语义不变先于粉尘门；部分腿命中同清全账（部分腿所得已 < 线时整仓必然也不值 gas）
+- 单测 _test_live_dust_close 27 断言：T1 事故现场反证（ELON2028 实数 buy 394712.54130685417 + partial 98678.13532671354 → holding 296034.40598014063 全清 → PM 精确删仓；**旧 Number 往返形状 PM2 重放 → 残仓恰 '3e-11' 与日志账面值逐位一致不删仓**）/T2 门命中 0 tx+PM 删仓+trade 行留痕+告警恰 1 次/T3 正常仓照发/T4 锚缺失 fail-open/T5 externalDisposal 原样/T6 部分腿余仓语义不变/T7 显式 0 关门
+- 受影响既有套件 12 个全绿（live_record_trade_clamp 17、graduation_sell_and_anchor 49、sell_leg_scan_fallback 21、manual_trade_queue 119、holdings_replay_precision 21、graduated_pcs_routing 25 等）；live_dual_platform 源码断言正则一并修正（存量失败=2026-10-24 PCS 路由重构后未跟上，git stash 验证与本次无关）
+- 重启后行为预判：重放 book 残差+链上粉尘可能再注入粉尘仓，但首个卖腿 fire 即被粉尘门就地清掉（一次性，无 gas 无告警风暴）——链条闭合；全实验仅此一票中招
+- 方法论：日志「余仓=0.0000」显示格式不可作清仓证据，须看 PM positions 键是否存在+SyncHoldings 偏差告警；ulp 级事故反证必须字符串/Decimal 构造（T46 同坑）
+
 ### T69 nonce 取证第三形状——NONCE_EXPIRED transaction 字段（邪恶千问幽灵卡案，2026-10-26）
 - 案：v38 e5438645 邪恶千问 0xb05b2024f03fb05aa7229e168bfb014f4e567777（flap 税币，4 卡 0.004 BNB）16:23:00 第 1 卡卖出 tx nonce 1777 **已上链成交**（0xc01d…a01，block 129737025，实收 0.0014973 BNB 进钱包），但 ANKR 节点 getTransaction 索引滞后 → ethers broadcastTransaction 轮询超时后查 nonce 已消费 → 抛 NONCE_EXPIRED，首发 raw 在 **error.transaction** 字段（info 里只有 error 无 payload.params）→ T2/T38 取证只认 info.payload → 取证 undefined → fail-closed 判「卖出失败」不落账 → 账面 4 卡、链上 3 卡
 - 连锁：后续 3 次卖出全部成功但错位记账（16:26/16:28/16:29:53 各 1 卡，此后链上只剩 1.4e-11 尘埃）；16:31:14 起「账面第 4 卡」（幽灵）按链上余额 1.4e-11 报价卖出 → revert "AS" 每轮重试，每 ~31min（断流票扫描节拍）熔断+TG 告警循环，至修复已连败 21 次
