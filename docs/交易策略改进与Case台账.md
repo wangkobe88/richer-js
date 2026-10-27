@@ -52,6 +52,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T78 evenCluster amountKey 四位舍入——历史回放反证 6 位严格键对案票恒 0（2026-10-27，用户裁定「增加的特征，可以利用历史数据算一下值」直接救回 T74 键）
+- **案发路径**：T76 观察键回放（`scripts/replay-observation-factors.cjs`，182 全量 28230 BUY 信号/6686 token）核对 T74 案票 `0x8c4aa42debd1b1015af12945adc589c7e4ae7777`——生产键 fire 时（19:30:01.379）evenClusterHoldCircPct=**0**，台账记录 **81.6%**。取证（fire 前 25 笔买行）：25 档 distinct 金额 **11 个间隔 <0.001**（0.16471/0.16474 式刻意微差）——`toFixed(6)` 严格相等下三档簇（0.1647×6 / 0.2470×6 / 0.1314×3）**全部 size<3 不成桶=键对设计目标形状失效**；四位舍入三档全中。根因=T74 分析时用四位舍入分组、落地键却照抄 launch uniform 臂 6 位口径——**分析口径≠键口径**的失误；团伙微差金额正是对精确等额检测的规避手段，6 位键天然打不中
+- **修复**：FA amountKey=`(Math.round(b*1e4)/1e4).toFixed(4)`（数值归一后定 4 位，规避浮点累加误差形状）；launch uniform 臂 6 位口径刻意不动（snipe 精确等额场景，误报率另案评估）；回放脚本同步。**若不做历史回放直接部署=死键**——观察键先回放分布的流程价值实证
+- **六位口径分布先跑一轮的副产品**（回放 CSV key6 口径留档 182 `/tmp/obs-factors-key6.csv`）：evenPct>60 断崖在 6 位口径已可见（去重 925 成交票：>60 桶 15 票胜率 13% vs (40,60] 47%）；evenWallets>15 六票全亏——断崖由**精确等额**团伙贡献，微差团伙在 6 位口径落 evenPct=0 桶（口径失效偏置）；四位口径重跑分布见 T76 回放记录
+- 单测：`_test_even_cluster_factors.cjs` incidentTicks 档一/档二改案票真实微差形状（A1-A3 断言值不变即 T78 反证）+ I 段四断言（微差成桶/跨档不并桶/源码防复活 `toFixed(6)` 写点不得复活/缩微现场锁三笔互异），26/0；`_test_replay_observation_factors.cjs` 12/12
+- **部署注意**：代码侧 FA/脚本 hunk 被并行 T77 会话 commit 卷入 `ad06287`、I 段在 `f4575eb`；182 v41 进程重启才吃到新口径（与 T74/T76 观察键同批）
+
 ### T77 净买门滚动窗 OR 臂——MUSK2028 迟买案（2026-10-27 落地 W=10s，用户裁定先跑观察）
 - **案发**：MUSK2028 `0x8f531e8ebcbad9ec2c402e112b6b22bea52f7777`（flap，live v41 `40754e0d`）叙事 23:13 rating 3 完成，fire 23:21:01（**+467s 迟买**）→ -39.8%。逐臂重放：rating 落定后其余 16 臂陆续全过、**净买门独拦全程**——开盘砸盘把全史 `tradesNetBuyRatio` 拖低（23:17 十秒窗净比已回 100%、全史 23:21 才爬回 51.5 过线=买在恢复完成的局部顶）。用户洞察定案：「大幅度下跌的那一端，成为了 netBuy 的负担，其实只要 netBuy 窗口大于阈值就可以买，这样买入就早了」
 - **OR 臂设计**：`tradesNetBuyRatio >= 40` → `(tradesNetBuyRatio >= 40 OR tradesNetBuyRatioWin >= 40)`——结构上零拦截回归（全史臂保持原判），窗口臂只新增放行位。FA 两键：`tradesNetBuyRatioWin`（`netBuyWinMs` 默认 10000，factorParams 可覆盖；窗内 (Σ买−Σ卖)÷Σ买×100）+ `tradesNetBuyWinBnb`（窗买量观察键不进条件串）；**null 语义刻意分叉**：窗内零买=null 缺近期证据 fail-closed（`>=40` 恒 false），全史键无买=-100 有证据零值；复用 `_activityEvents` 事件环（求和交换律=defer 乱序回推无害；wallet 段喂食 GMGN 回推 1-3s 竞速缝隙与 famous/act\* 同款已知形状），`_pruneActivityEvents` cutoff 两窗取 max
