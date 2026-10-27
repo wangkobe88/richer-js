@@ -23,8 +23,9 @@ function check(name, actual, expected) {
 }
 
 console.log('== 1. mapGmgnRiskFactors ==');
-// 猪五花案四观测键（2026-10-15 加键）缺省 0 形状
-const OBS0 = { gmgnRenownedWallets: 0, gmgnSmartWallets: 0, gmgnWhaleWallets: 0, gmgnCreatorCreatedCount: 0 };
+// 观测键缺省 0 形状（whale/creator 两键已随 T76 2026-10-27 删除：47 票全零零区分度；
+// 输入侧留旧字段=「历史快照行含旧键被忽略」反证）
+const OBS0 = { gmgnRenownedWallets: 0, gmgnSmartWallets: 0 };
 check('null（未触发/失败/未索引）→ 全 0 放行', mapGmgnRiskFactors(null), { gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0, gmgnRiskCovered: 0, gmgnVisitingCount: 0, ...OBS0 });
 check('空对象（真实链路不可达：extractGmgnRisk 要么 null 要么有字段）→ covered 1',
   mapGmgnRiskFactors({}), { gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0, gmgnRiskCovered: 1, gmgnVisitingCount: 0, ...OBS0 });
@@ -40,11 +41,13 @@ check('issuerTokenCount 非数字 → 0 但 covered 1',
 check('真项目（首币 / 无 bundler）',
   mapGmgnRiskFactors({ issuerTokenCount: 1, bundlerWallets: 0, sniperWallets: 1, freshWallets: 2, topWallets: 30 }),
   { gmgnIssuerTokenCount: 1, gmgnBundlerWalletRatio: 0, gmgnRiskCovered: 1, gmgnVisitingCount: 0, ...OBS0 });
-check('猪五花观测键透传（真人标签全零=机器盘指纹 / creator 11 币 serial issuer）',
+check('猪五花观测键透传（真人标签全零=机器盘指纹；输入带 creatorCreatedCount=11 旧字段 → 已删键被忽略不映射）',
   mapGmgnRiskFactors({ issuerTokenCount: 0, bundlerWallets: 3, topWallets: 20, renownedWallets: 0, smartWallets: 0, whaleWallets: 0, creatorCreatedCount: 11 }),
-  { gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 15, gmgnRiskCovered: 1, gmgnVisitingCount: 0, gmgnRenownedWallets: 0, gmgnSmartWallets: 0, gmgnWhaleWallets: 0, gmgnCreatorCreatedCount: 11 });
+  { gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 15, gmgnRiskCovered: 1, gmgnVisitingCount: 0, gmgnRenownedWallets: 0, gmgnSmartWallets: 0 });
 check('KOL 豁免通道形状（renowned>=1 正信号）',
   mapGmgnRiskFactors({ issuerTokenCount: 1, bundlerWallets: 2, topWallets: 40, renownedWallets: 3, smartWallets: 5, whaleWallets: 1 }).gmgnRenownedWallets, 3);
+check('T76 防复活反证：映射产物不含已删 whale/creator 两键',
+  Object.keys(mapGmgnRiskFactors({ issuerTokenCount: 1, bundlerWallets: 2, topWallets: 40, whaleWallets: 9, creatorCreatedCount: 9 })).filter(k => k.includes('Whale') || k.includes('Creator')), []);
 check('历史快照行（无 visitingCount 字段，2026-10-15 前存量 gmgn_info）→ visiting 0=无观测',
   mapGmgnRiskFactors({ issuerTokenCount: 1, bundlerWallets: 2, topWallets: 10 }).gmgnVisitingCount, 0);
 

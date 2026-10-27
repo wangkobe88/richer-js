@@ -2186,7 +2186,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             // narrativeCategory 从 fire 因子表透传（Nightshift 案 2026-10-17）：与单一
             // 买条件同刻同源，防 Pingus 案式两门错位
             factorResults?.narrativeCategory ?? null,
-            null);
+            null,
+            // T76 2026-10-27 注意力空转观测键原料：fire 因子表买盘上下文同刻同源
+            //（buyWallets/buyVolumeBnb），service 内与 GMGN visitingCount 现算比值
+            {
+              buyWallets: factorResults?.buyWallets ?? 0,
+              buyVolumeBnb: factorResults?.buyVolumeBnb ?? 0,
+            });
         } catch (e) {
           // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常（gwp buildFactors
           // 等）——2026-10-20 用户裁定：GMGN 层拿不到数据一律放行不拦买，warn 留痕

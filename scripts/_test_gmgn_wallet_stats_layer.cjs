@@ -67,8 +67,8 @@ console.log('A. 键集扩展（GmgnRiskCheckService 第四键集单一真相源�
     String(GMGN_CONDITION_FACTOR_KEYS));
   check('A2 gwp 18 键全数并入', GWP_FACTOR_KEYS.every(k => GMGN_CONDITION_FACTOR_KEYS.includes(k)),
     `missing: ${GWP_FACTOR_KEYS.filter(k => !GMGN_CONDITION_FACTOR_KEYS.includes(k)).join(',')}`);
-  check('A3 键集无意外杂键（5+18=23 恰好）',
-    GMGN_CONDITION_FACTOR_KEYS.length === 23 && extra.length === 5,
+  check('A3 键集无意外杂键（5+18+T76 注意力空转四键=27 恰好，2026-10-27）',
+    GMGN_CONDITION_FACTOR_KEYS.length === 27 && extra.length === 9,
     `len=${GMGN_CONDITION_FACTOR_KEYS.length} extra=${extra.join(',')}`);
 }
 
@@ -132,8 +132,8 @@ console.log('B. checkAndEvaluate 第五参（存量零影响）');
       !['GmgnWalletStatsService', '_walletStatsService', '_walletProfilePrefetchCheck',
         '_gwpConditionLegExists', '_walletProfileStates'].some(s => noComments.includes(s)),
       'gwp 接线标识复活');
-    check('C2 checkAndEvaluate 调用点第五参恒 null（存量零影响形状）',
-      /factorResults\?\.narrativeCategory \?\? null,\s*\n\s*null\)/.test(src),
+    check('C2 checkAndEvaluate 调用点第五参恒 null（存量零影响形状；T76 第六参 buyContext 独立追加不占第五参位）',
+      /factorResults\?\.narrativeCategory \?\? null,\s*\n\s*null,\s*\n\s*\/\/ T76/.test(src),
       '第五参非恒 null');
     check('C3 数据口 getEarlyTopBuyers 已随 early 族删除（FA 不再有该方法）',
       typeof new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} }).getEarlyTopBuyers !== 'function',

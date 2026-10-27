@@ -26,13 +26,11 @@ function extractGmgnRisk(info) {
     creatorAddress: dev.creator_address || null,           // GMGN 归因真实 EOA（非链上工厂）
     creatorTokenStatus: dev.creator_token_status || null,  // creator_close=已清仓离场
     fundFrom: dev.fund_from || null,                       // creator 资金来源（币安热钱包=一次性钱包）
-    creatorCreatedCount: num(dev.creator_created_count),   // creator EOA 发币总数（猪五花=11 serial issuer；仅观测键不进门——用户裁定 2026-10-15 老发币 Dev 发新币是常态）
     bundlerWallets: num(tags.bundler_wallets),
     sniperWallets: num(tags.sniper_wallets),
     freshWallets: num(tags.fresh_wallets),
     renownedWallets: num(tags.renowned_wallets),           // KOL/知名钱包持有数（猪五花=0：真人标签全零是机器盘指纹；正信号可做豁免通道）
     smartWallets: num(tags.smart_wallets),                 // 聪明钱持有数（同上，观测）
-    whaleWallets: num(tags.whale_wallets),                 // 巨鲸持有数（同上，观测）
     topWallets: num(tags.top_wallets),                     // 标签统计分母（x-0=46）
     imageDupCount: num(info?.image_dup_count),             // 头像/图片重复数（批量盘特征）
     visitingCount: num(info?.visiting_count),              // 当前访问人数（注意力观测；死盘/秒新盘=0）

@@ -2080,6 +2080,14 @@ class BacktestEngine extends AbstractTradingEngine {
               //（buy_7d 等）是今日取值，对历史 fire 时刻是已知时序穿越，跳过比
               // 穿越诚实（IS NULL 臂放行；结论口径=「不含 gwp 门的相对增量」）
               ...GmgnWalletStatsService.emptyFactors(),
+              // T76 2026-10-27 注意力空转四键：与实时 checkAndEvaluate 第六参同构
+              //（快照 vc 是 token 级常量=已知时序穿越，与 narrativeCategory 同款
+              // 声明——比值结论只看相对增量；buyWallets/buyVolumeBnb 回测 FA 同源
+              // 重放=fire 时刻真值无穿越）
+              ...GmgnRiskCheckService.computeGmgnAttentionFactors(
+                this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
+                factorResults?.buyWallets ?? 0,
+                factorResults?.buyVolumeBnb ?? 0),
             }, gmgnCheckCondition),
           condition: gmgnCheckCondition,
         };

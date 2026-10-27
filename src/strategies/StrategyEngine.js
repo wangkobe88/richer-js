@@ -152,7 +152,8 @@ class StrategyEngine {
 
                 // gmgnCheckCondition（买腿第三层 GMGN 条件，FAKER 团伙盘案 2026-10-14）：
                 // 评估上下文是 GmgnRiskCheckService 的固定键集（gmgnIssuerTokenCount /
-                // gmgnBundlerWalletRatio / gmgnRiskCovered / gmgnVisitingCount），
+                // gmgnBundlerWalletRatio / gmgnRiskCovered / gmgnVisitingCount /
+                // T76 注意力空转 gmgnVisitorsPerBuyer 等透传键），
                 // 独立键集校验；未传集则跳过
                 if (gmgnAvailableFactorIds) {
                     const raw = config.gmgnCheckCondition;

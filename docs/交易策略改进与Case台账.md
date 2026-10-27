@@ -52,6 +52,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T76 注意力空转观测键四键 + GMGN 零区分度观测键清理（2026-10-27，用户裁定；阈值待分布另议）
+- **背景（gmgnVisitingCount 全量调查）**：起于用户问「近期的买入是不是都记录下 visiting count 了？这个变量能看出什么规律不？」——182 上 10-24 起 **184 条 BUY 信号**全量回读：①覆盖 **184/184 covered=1**（唯一 covered=0 行=BNC 13:54:43 GMGN 超时 fail-open 放行→-43.5%，即 T73 案现场那笔，逐秒对上台账）②vc 本质=**GMGN 滚动窗口非累计值**（BNC 3 分钟内 10→36 后回落 9），fromCache 102/184（TTL 5s 命中即同值）③盈亏三桶（vc 低/中/高）胜率 33%/36%/22% **无单调**——vc 单独不构成门④对倒票 0x8c4a（T74 案）vc=11：链上流量大而外部注意力低，比值有信号但太新/索引延迟期失真
+- **裁定（用户 2026-10-27 三条）**：①「错位信号」（链上流量大/外部注意力低的反向比值）**不做**——「我同意你的观点“错位信号”比较不好」（GMGN 索引延迟+票太新页面无人看，时机敏感）②**新增注意力空转因子**：「VC 高但买入者少（获得了注意力但没有吸引力）」+「或者说 VC 高买入量小」——**钱包宽度与 BNB 深度两条口径都要**③**GMGN 零区分度观测键清理**：「如果 GMGN 其它观测键的区分度极低，可以把因子去掉节约资源」——whaleWallets/creatorCreatedCount 47 票全零
+- **实现（观察键不进条件串，T74 同纪律）**：
+  - FA 新键 `buyWallets`（独立买入钱包数=K 组 `_buyerAddresses` 全史 Set size——曾买入即计入、清仓不回退，与 holders 分母分离；复用既有原料零新增维护；与 buyVolumeBnb 同刻同源；FactorBuilder 快照白名单透传）
+  - GMGN 层四键：`gmgnBuyWallets`/`gmgnBuyVolumeBnb`（原料透传）+ `gmgnVisitorsPerBuyer`（vc÷buyWallets）/`gmgnVisitorsPerBuyBnb`（vc÷buyVolumeBnb）——`GmgnRiskCheckService.computeGmgnAttentionFactors` 静态纯函数单一真相源；实时=checkAndEvaluate **第六参 buyContext**（引擎 fire 因子表传入、不占第五参位=存量零影响）；回测=BacktestEngine 组装点 spread 同一函数（快照 vc 是 token 级常量=已知时序穿越，同 narrativeRating 常量注入声明；buyWallets/buyVolumeBnb 回测 FA 同源无穿越）
+  - 零值语义（famous 0 语义裁定同向）：buyWallets=0 且 vc>0 → 比值取 vc（零买家全额空转上限形状，**有数不 null**——null 使 `<=N` 门恒 false 误拦）；vc=0 → 0（正常新票恒放行）；covered≠1 → 比值 0 不合成（fail-open 形状一致）；round1 保留 1 位小数。合成键写进 `{...factors}` 拷贝**不污染 TTL 缓存共享对象**（下次命中不带陈旧比值）
+  - 键集：GMGN_CONDITION_FACTOR_KEYS 扩四键（23→27，条件可引用；观察期不部署条件串）
+  - whale/creator 清理三断面：`risk-fields.js` 提取删（hasAny 判定自然收窄；narrative 侧 grep 无消费）/`mapGmgnRiskFactors` 映射删（renowned/smart 保留）/_noDataResult 删；**同一次 API 响应字段，删除不省配额**——省映射与审计体积；历史快照行含旧键被忽略（防复活反证=「键:」定义形状正则）
+- 单测：`_test_gmgn_attention_ratio.cjs` 21/0（A 纯函数真值表 8：各零值/零买家上限/round1/covered 门；B 第六参集成 4：透传合成/缺省不并键/缓存不污染/fail-open；C FA buyWallets 5：计数/复买幂等/清仓不回退对照 holders/null wallet/defer 两阶段 parity；D 键集+ConditionEvaluator+FactorBuilder 4；E 源码口径 4 含 whale/creator 三文件防复活）；`_test_gmgn_risk_factors.cjs` 21/0 翻新（OBS0 删两键/猪五花输入带旧字段被忽略+防复活断言）；`_test_fourmeme_fa_factors.cjs` 键集 45→46；`_test_gmgn_wallet_stats_layer.cjs` A3 键集 23→27+C2 第五参恒 null 形状同步（19/0）
+- 遗留：①阈值=v22-v40 fire 票池回放分布裁定（含 buyWallets 与两比值键）②182 v41 进程重启才吃到新键（与 T74 观察键同批重启）③vc 滚动窗口语义：fire 时刻读数=近期窗口非累计，门设计若用须记此口径
+
 ### T74 等额买簇三观察键——0x8c4a…7777 对倒案（2026-10-27 落观察键，用户裁定；阈值待分布另议）
 - **案**：0x8c4aa42debd1b1015af12945adc589c7e4ae7777（four.meme，10-26 19:29:31 UTC 创建，live v41 40754e0d）——19:30:01.378 fire 买 4 张卡、19:30:51 清仓 **-46.1%**（9.59e-9→5.17e-9）。fire 窗（30s）30 钱包 **28 个双向操作（两栖 93%）**、两栖钱包买入占总买入 **92.1%**；等额档簇 0.1647×6 / 0.2470×6 / 0.1314×3 / 0.1643×3 / 0.1232×2 成批同秒进出
 - **节奏化绕门实证**：fire 前最后 10s 连续 7 笔买入 0 卖出，把全史 `tradesNetBuyRatio` 推到 **40.73** 恰过 40 门；fire 后 0.8s 起簇钱包集中出货（19:30:02–19:30:55），全窗终值净买仅 3.1%——「先买后卖」节奏对协同簇无免疫力。**五门全部擦线放行**：bundle 32.4/35、top2 52.1/55、top3 69.7/75、sybil 23.4/35、netBuy 40.73/40——对准门刻度打的形状（sybil 名单 T72 版只盖 8/30，22 新钱包不在册）

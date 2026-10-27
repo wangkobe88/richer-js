@@ -67,6 +67,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 累计买入量 BNB（FA state.totalBuyBnb；买腿 condition 量能主键）——signals 页
     // 买入条件复盘用；旧 FA/历史信号无此键 → null 不掩盖
     buyVolumeBnb: factorResults.buyVolumeBnb ?? null,
+    // 独立买入钱包数（T76 2026-10-27 注意力空转观测键原料；GMGN 层
+    // gmgnVisitorsPerBuyer 分母）——不落库即丢，旧 FA/历史信号 → null 不掩盖
+    buyWallets: factorResults.buyWallets ?? null,
     // 去簇人气两键（2026-10-22 人气门扣协同簇：簇钱包买入/持有者不计人气，
     // 详见 _test_sybil_cluster_factor.cjs H 段）——signals 页买入条件复盘用；
     // 旧 FA/历史信号无此键 → null 不掩盖

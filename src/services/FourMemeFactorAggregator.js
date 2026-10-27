@@ -2991,6 +2991,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             sellCount: state.sellCount,
             uniqueTraderCount: state.uniqueTraders.size,
             buyVolumeBnb: state.totalBuyBnb,
+            // 独立买入钱包数（T76 2026-10-27 注意力空转观测键原料）：K 组对敲族
+            // _buyerAddresses 全史 Set 的 size——曾买入即计入（清仓不回退），与
+            // buyVolumeBnb 同刻同源；GMGN 层 gmgnVisitorsPerBuyer 比值的分母
+            buyWallets: state._buyerAddresses.size,
             // 去簇人气量：totalBuyBnb − 簇钱包全史买入合计（_buyerVolume 钱包段 K 组
             // 原料，sender 真值口径）。买入是历史量只增不减——簇钱包拉过盘再砸盘的量
             // 照扣（对倒垫出的人气假象正是本键要剔除的）；null wallet 买入行无法归集
