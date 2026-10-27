@@ -52,6 +52,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T74 等额买簇三观察键——0x8c4a…7777 对倒案（2026-10-27 落观察键，用户裁定；阈值待分布另议）
+- **案**：0x8c4aa42debd1b1015af12945adc589c7e4ae7777（four.meme，10-26 19:29:31 UTC 创建，live v41 40754e0d）——19:30:01.378 fire 买 4 张卡、19:30:51 清仓 **-46.1%**（9.59e-9→5.17e-9）。fire 窗（30s）30 钱包 **28 个双向操作（两栖 93%）**、两栖钱包买入占总买入 **92.1%**；等额档簇 0.1647×6 / 0.2470×6 / 0.1314×3 / 0.1643×3 / 0.1232×2 成批同秒进出
+- **节奏化绕门实证**：fire 前最后 10s 连续 7 笔买入 0 卖出，把全史 `tradesNetBuyRatio` 推到 **40.73** 恰过 40 门；fire 后 0.8s 起簇钱包集中出货（19:30:02–19:30:55），全窗终值净买仅 3.1%——「先买后卖」节奏对协同簇无免疫力。**五门全部擦线放行**：bundle 32.4/35、top2 52.1/55、top3 69.7/75、sybil 23.4/35、netBuy 40.73/40——对准门刻度打的形状（sybil 名单 T72 版只盖 8/30，22 新钱包不在册）
+- **反事实**：等额买簇（≥3 钱包同额）并集持仓 fire 时 **81.6%**（≥2 口径 89.4%）——bundle 门按块/时间聚合对「每块 2-3 钱包、跨 5 块 5 档金额」分批形状结构性稀释，金额指纹跨块一把聚合；且证据在**买入当刻**可见，不受延迟卖出掩护（两栖判据 fire 时仅 39% vs 事后 92%——「看卖出行为」判据被时间差打对折，本键无此软肋）
+- **裁定（用户 2026-10-27）**：落 **观察键不进条件串**，票池分布出来再议门（22 钱包补 sybil 名单另议）
+- **实现**：FA 三键 `evenClusterHoldCircPct`（合格桶钱包**并集去重**当前正净持仓 ÷ `_circTokens` ×100）/ `evenClusterWallets`（并集钱包数）/ `evenClusterGroups`（合格桶数）；合格桶=size≥3 金额桶（<3=常见巧合，launch 等额臂同款裁定）；原料 `state._evenBuyBuckets`（amountKey=`bnb.toFixed(6)`；尘门 `earlyUniformDustBnb` 0.01 以下不入，launch 臂同款参数；全史不裁不进 `_pruneBundleEvents`，Set.add 幂等 defer 乱序收敛）；写点 `_applyWalletAggregation`（wallet 段=sender 真值，GMGN 路由行不假聚合）；读点 `_bundleClusterFactors` 纯函数；FactorBuilder 快照白名单三键透传（不落库即丢）；回测同构（processTick 同管线）；0=无合格桶/流通≤0 有证据零值
+- 单测：`_test_even_cluster_factors.cjs` 22/0（A 事故缩微反证 even 74.3 ≫ top3 44.6 ≫ 单块 14.9 语义分离度／并集去重（桶相加错口径虚超 111%）／清仓不计分子但 wallets/groups 照计／尘门／逆序+defer 两阶段 parity／源码口径断言：写点体内禁 Date.now、桶不进 prune、白名单三键）；`_test_fourmeme_fa_factors.cjs` 键集白名单 42→45
+- 遗留：①阈值=v22-v40 fire 票池回放分布后裁定（回测同构可直接跑）②launch 等额臂（流量口径+出生窗冻结）与本案存量全史口径正交互补不重复③「全簇延迟卖出」形状（fire 前零卖出）本键仍可见（等额买入指纹即证据）；纯手动不同额分仓不在射程
+
 ### T73 event:W 撤出 GMGN issuer 分档门适用集——BNC开市钟案（2026-10-26，用户裁定；buy-v2 v40）
 - **案**：0xd0b89e79167a375e93d614ee23357b8039fc777（BNC开市钟🔔，four.meme，10-26 13:50 UTC，live v40）——即 C242 新事件豁免对拍票（BNC 撞 BNB Standard 蓝筹、语料=敲纳斯达克钟）。叙事 high 75.58（rating 3）全链过门，13:50:46→13:54:42 连续 **28 次 BUY 信号全被 GMGN 条件拦**：`narrativeCategory='event:W'` 落 C85 分档门适用集 → 要求 `gmgnIssuerTokenCount <= 1`，GMGN 真调成功返回 issuer **25 连发**（bundler=0 过臂、含 5s TTL 缓存命中同数据）→ 拦 4 分钟；13:54:43 那次 GMGN **超时 5000ms → fail-open 放行**（T14 裁定设计行为，evaluated=false 留痕）买入 0.004 BNB，14:02:15 全清 0.00226 BNB **-43.5%**
 - **裁定（用户 2026-10-26）**：「event:W 本质跟其它类一样，都是基于事件/传播的 meme 币，叙事往往由第三方推文陈述，肯定不要求 gmgnIssuerTokenCount <= 1」——**event:W 撤出适用集**，剩余 `{project, account_based_meme, web3_native_ip_early}`。C85 当时把 event:W 收进适用集的映射（2026-10-17 原话「由其它用户自己发币（meme）了，也算适用」→标准路径前缀值）废止；与 C85 否决史②「事件源账号被多方蹭发多币是常态」同精神；T70 曾把该臂记为智子票残余风险（「实调时 creator serial>1 会拦」），本案实证咬人
