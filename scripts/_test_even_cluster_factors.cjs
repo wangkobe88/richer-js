@@ -305,5 +305,47 @@ console.log('H. 源码口径断言（写点/读点/裁剪/白名单防线）');
   });
 }
 
+// ═══════════════ I. T78 amountKey 四位舍入（微差规避形状反证） ═══════════════
+console.log('I. T78 微差规避形状（2026-10-27 历史回放反证：6 位严格键对案票恒 0）');
+{
+  check('I1 案票真实形状：微差三钱包（0.50001/0.50002/0.50004）四位舍入同档成桶', () => {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'w1', block_number: 10,
+      log_index: 1, bnb_amount: 0.50001, token_amount: 5000000 }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 1100, trader_address: 'w2', block_number: 11,
+      log_index: 1, bnb_amount: 0.50002, token_amount: 5000000 }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 1200, trader_address: 'w3', block_number: 12,
+      log_index: 1, bnb_amount: 0.50004, token_amount: 5000000 }), {});
+    const f = fa.buildFactorMap('0xtoken', T0 + 2000);
+    assert.strictEqual(f.evenClusterGroups, 1);
+    assert.strictEqual(f.evenClusterWallets, 3);
+    assert.strictEqual(f.evenClusterHoldCircPct, 100);
+  });
+  check('I2 跨档微差不得并桶（0.4999 档 {w1,w2} size2 + 0.5001 档 {w3}——各自 <3 不成桶）', () => {
+    const fa = newFA();
+    fa.processTick(mkTick({ timestamp: T0 + 1000, trader_address: 'w1', block_number: 10,
+      log_index: 1, bnb_amount: 0.49991, token_amount: 5000000 }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 1100, trader_address: 'w2', block_number: 11,
+      log_index: 1, bnb_amount: 0.49993, token_amount: 5000000 }), {});
+    fa.processTick(mkTick({ timestamp: T0 + 1200, trader_address: 'w3', block_number: 12,
+      log_index: 1, bnb_amount: 0.5001, token_amount: 5000000 }), {});
+    const f = fa.buildFactorMap('0xtoken', T0 + 2000);
+    for (const k of KEYS) assert.strictEqual(f[k], 0, k);
+  });
+  check('I3 源码防复活：amountKey=四位舍入形状在场，6 位严格键写点不得复活', () => {
+    const src = read('src/services/FourMemeFactorAggregator.js');
+    assert.ok(src.includes("const _ek = (Math.round(bnbAmount * 1e4) / 1e4).toFixed(4);"),
+      '四位舍入键写点缺失');
+    assert.ok(!/const _ek = bnbAmount\.toFixed\(6\)/.test(src), '6 位严格键写点复活');
+  });
+  check('I4 A 段缩微现场即微差形状（incidentTicks 金额带尾差）——A1-A3 断言通过本身即 T78 反证', () => {
+    // 静态锁：incidentTicks 档一三笔金额互异（若回退成精确等额，I4 失败提示丢反证价值）
+    const src = read('scripts/_test_even_cluster_factors.cjs');
+    const m = src.match(/bnb_amount: 0\.1647\d, token_amount: 8235000/g) || [];
+    assert.strictEqual(new Set(m.map(s => s.match(/0\.1647\d/)[0])).size, 3,
+      'incidentTicks 档一必须保持三笔互异微差（T78 反证现场）');
+  });
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
