@@ -675,15 +675,22 @@ class RicherJsWebServer {
           fourmemeWs,
           // flapWs（2026-10-15 数据预取门起创建页 UI 也会提交：flap 单平台实验的
           // ws 段覆盖；此前复制链路只透传 fourmemeWs——flap 段一直是脚本/手配路径）
-          flapWs
+          flapWs,
+          // gangWs（2026-10-27 gang 接入：gang 单平台实验的 ws 段覆盖，同 flapWs 语义）
+          gangWs
         } = req.body;
 
         // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
-        // platform：内盘平台 fourmeme（默认）| flap | both（双平台：单引擎 per-token 分派）
-        const VALID_PLATFORMS = ['fourmeme', 'flap', 'both'];
+        // platform：内盘平台 fourmeme（默认）| flap | gang（2026-10-27 接入，采集+虚拟+回测）| both（双平台：单引擎 per-token 分派；'both' 语义不含 gang）
+        const VALID_PLATFORMS = ['fourmeme', 'flap', 'gang', 'both'];
         const resolvedPlatform = platform || 'fourmeme';
         if (!VALID_PLATFORMS.includes(resolvedPlatform)) {
-          return res.status(400).json({ success: false, error: `不支持的 platform: ${resolvedPlatform}（可选 fourmeme / flap / both）` });
+          return res.status(400).json({ success: false, error: `不支持的 platform: ${resolvedPlatform}（可选 fourmeme / flap / gang / both）` });
+        }
+        // gang live 前置拒绝（引擎侧 _liveTraderTypeFor/_liveTraderType 双防线兜底）：
+        // agent-only 平台须 BAW+审批流，live 执行器另案设计
+        if (trading_mode === 'live' && resolvedPlatform === 'gang') {
+          return res.status(400).json({ success: false, error: 'gang 平台 live 不支持（agent-only 平台须 Binance Agentic Wallet + 审批流，另案设计；本期只做采集+虚拟+回测）' });
         }
         const config = {
           name: experiment_name,
@@ -778,17 +785,18 @@ class RicherJsWebServer {
 
         // 引擎级高级段透传（2026-09-28 复制保真）：stopLoss（止损双腿）/
         // tokenPositionAnalyzer（TPA，买腿 TPAPre_* 因子源）/ fourmemeWs（onlineProfile
-        // 等实验级 ws 段）/ flapWs（flap 单平台实验的对应段）。表单部分无输入 UI——
+        // 等实验级 ws 段）/ flapWs（flap 单平台实验的对应段）/ gangWs（gang 单平台实验
+        // 的对应段，2026-10-27 接入）。表单部分无输入 UI——
         // 复制链路经创建页暂存携带；形状校验 fail-fast（脏对象 400，不静默丢弃——
         // 静默丢=复制件行为大变）。tokenCycle 段已随 cycle 分桶路由机制删除
         // （2026-10-15）不再透传。live 分支已写 fourmemeWs/flapWs={live} 时合并不覆盖
-        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs };
+        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs, gangWs };
         for (const [key, val] of Object.entries(advancedSections)) {
           if (val === undefined || val === null) continue;
           if (typeof val !== 'object' || Array.isArray(val)) {
             return res.status(400).json({ success: false, error: `${key} 段形状非法（须为对象）` });
           }
-          if (key === 'fourmemeWs' || key === 'flapWs') {
+          if (key === 'fourmemeWs' || key === 'flapWs' || key === 'gangWs') {
             config[key] = { ...val, ...(config[key] || {}) };
           } else {
             config[key] = val;
@@ -807,7 +815,7 @@ class RicherJsWebServer {
         // _wsConfigSectionName 分段读）；缺段=引擎默认开（enabled!==false）
         {
           const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-          for (const secKey of ['fourmemeWs', 'flapWs']) {
+          for (const secKey of ['fourmemeWs', 'flapWs', 'gangWs']) {
             const nr = (config[secKey] || {}).narrativeRetry;
             if (nr === undefined || nr === null) continue;
             if (typeof nr !== 'object' || Array.isArray(nr)) {
@@ -842,7 +850,7 @@ class RicherJsWebServer {
         // 同键）；缺段=关（引擎侧 enabled===true 才构造）
         {
           const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-          for (const secKey of ['fourmemeWs', 'flapWs']) {
+          for (const secKey of ['fourmemeWs', 'flapWs', 'gangWs']) {
             const obs = (config[secKey] || {}).observationSignals;
             if (obs === undefined || obs === null) continue;
             if (typeof obs !== 'object' || Array.isArray(obs)) {

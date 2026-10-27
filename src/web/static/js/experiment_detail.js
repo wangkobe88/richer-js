@@ -1737,6 +1737,7 @@ class ExperimentDetail {
     const labels = {
       'fourmeme': 'Four.meme',
       'flap': 'Flap',
+      'gang': 'Gang',
       'both': 'Four.meme + Flap',
       'bankr': 'Bankr',
       'pumpfun': 'Pump.fun',
@@ -1751,6 +1752,7 @@ class ExperimentDetail {
     const logos = {
       'fourmeme': '/static/fourmeme-logo.png',
       'flap': '/static/flap-logo.png',
+      'gang': '/static/gang-logo.png',
       'both': '/static/bsc-logo.png',
       'bankr': '/static/bankr-logo.png',
       'pumpfun': '/static/pumpfun-logo.png'

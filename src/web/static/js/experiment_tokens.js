@@ -570,6 +570,7 @@ class ExperimentTokens {
     const platformConfig = {
         fourmeme: { label: 'Four.meme', cls: 'bg-blue-600' },
         flap:     { label: 'Flap', cls: 'bg-purple-600' },
+        gang:     { label: 'Gang', cls: 'bg-amber-600' },
         bankr:    { label: 'Bankr', cls: 'bg-orange-600' },
         pumpfun:  { label: 'Pump.fun', cls: 'bg-green-600' },
         ave:      { label: 'AVE', cls: 'bg-teal-600' },

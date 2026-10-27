@@ -8,6 +8,10 @@
  *   - flap：TokenCreated 事件的 meta → metadata JSON。meta 两种形态：
  *     IPFS URL/裸 CID（主流；内容寻址永不过期）与 S3 直链
  *     （meta-7777.s3.amazonaws.com/metadata/*.json，实测约占 1%，直接 GET）
+ *   - gang：indexer API GET /api/tokens/:addr（2026-10-27 接入）。实测
+ *     website/twitter 常态恒 null（15/15 采样）、creatorHandle 恒 .ai handle
+ *     （SPACE ID 账号名，非 URL 不冒充 twitterUrl，仅 corpus 留痕）；无语料
+ *     字段 → null，走既有 C77 空语料搜索兜底，零新兜底逻辑
  *
  * IPFS 网关形态（2026-09-22 实测）：
  *   - 4everland 子域名 {cid}.ipfs.4everland.io 可用（path 形态被
@@ -26,12 +30,14 @@
 
 const axios = require('axios');
 const { FourMemeTokenAPI } = require('../../core/fourmeme-api/token-api');
+const { GangTokenAPI } = require('../../core/gang-api/token-api');
 
 /** 默认配置（引擎侧 mergedWsConfig().corpusEnrich 覆盖） */
 const DEFAULT_OPTIONS = {
   enabled: true,
   concurrency: 3,
   fourmemeRetryDelayMs: 10 * 1000,
+  gangRetryDelayMs: 10 * 1000, // indexer 未就绪（新票 Created 先于索引落库）延迟重试 1 次
   ipfsGateways: [
     'https://{cid}.ipfs.4everland.io/', // 子域名形态：{cid} 占位符（Qm 自动转 base32）
     'https://gateway.pinata.cloud/ipfs/', // path 前缀形态备用
@@ -103,6 +109,7 @@ class TokenCorpusEnricher {
     this.experimentId = experimentId;
 
     this._fourMemeApi = new FourMemeTokenAPI();
+    this._gangApi = new GangTokenAPI();
     // IPFS 缓存共用（2026-10-15 提速②b）：引擎注入 createIpfsCacheWriter().write——
     // flap IPFS 分支拿到 metadata 后写入叙事侧 external_resource_cache（键与直调读键
     // 一致），fire 直调 ipfs 段塌缩为 DB 读；未注入（null）= 缓存共用关闭零变化
@@ -148,14 +155,16 @@ class TokenCorpusEnricher {
   /**
    * 补采语料（永不抛错）
    * @param {string} tokenAddress - 代币地址
-   * @param {string} platform - 'fourmeme' | 'flap'
-   * @param {string|null} [metaUrl] - flap 的 IPFS meta（URL 或裸 CID；fourmeme 不用）
+   * @param {string} platform - 'fourmeme' | 'flap' | 'gang'
+   * @param {string|null} [metaUrl] - flap 的 IPFS meta（URL 或裸 CID；其余平台不用）
    * @returns {Promise<Object|null>} 语料字段（含 corpus 留痕）；null = 无语料/失败/未启用
    */
   async enrich(tokenAddress, platform, metaUrl = null) {
     try {
       return await this._withSlot(() =>
-        platform === 'flap' ? this._enrichFlap(metaUrl) : this._enrichFourMeme(tokenAddress));
+        platform === 'flap' ? this._enrichFlap(metaUrl)
+          : platform === 'gang' ? this._enrichGang(tokenAddress)
+            : this._enrichFourMeme(tokenAddress));
     } catch (error) {
       this._log('warn', `语料补采失败 | ${tokenAddress} ${platform} ${error.message}`);
       return null;
@@ -194,6 +203,46 @@ class TokenCorpusEnricher {
   async _fetchFourMeme(tokenAddress) {
     const info = await this._fourMemeApi.getTokenInfo(tokenAddress);
     return info && info.raw && Object.keys(info.raw).length > 0 ? info : null;
+  }
+
+  // ==================== gang（indexer API）===================
+
+  async _enrichGang(tokenAddress) {
+    let detail = await this._fetchGang(tokenAddress);
+    if (!detail) {
+      // 新票 Created 事件先于 indexer 索引落库，延迟重试 1 次（four.meme 同款形状）
+      await new Promise(r => setTimeout(r, this.options.gangRetryDelayMs));
+      detail = await this._fetchGang(tokenAddress);
+      if (!detail) {
+        this._log('info', `gang API 无数据（重试后仍空）| ${tokenAddress}`);
+        return null;
+      }
+    }
+
+    const fields = {};
+    if (detail.twitter) fields.twitterUrl = detail.twitter;
+    if (detail.website) fields.webUrl = detail.website;
+    if (detail.name) fields.name = detail.name;
+    return {
+      ...fields,
+      corpus: {
+        provider: 'gang_api',
+        // .ai handle 是 SPACE ID 账号名非 URL，绝不冒充 twitterUrl——仅留痕，
+        // 叙事侧按需消费
+        creatorHandle: detail.creatorHandle ?? null,
+        fetchedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  /** 404/空 → null（重试语义见 _enrichGang）；网络异常向上抛由 enrich 统一记日志 */
+  async _fetchGang(tokenAddress) {
+    try {
+      return await this._gangApi.getTokenDetail(tokenAddress);
+    } catch (error) {
+      if (error.response?.status === 404) return null;
+      throw error;
+    }
   }
 
   // ==================== flap（IPFS metadata）====================

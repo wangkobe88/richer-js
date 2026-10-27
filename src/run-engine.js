@@ -10,6 +10,7 @@ require('dotenv').config({ path: './config/.env' });
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { FourMemeWssTradingEngine } = require('./trading-engine/implementations/FourMemeWssTradingEngine');
 const { FlapWssTradingEngine } = require('./trading-engine/implementations/FlapWssTradingEngine');
+const { GangWssTradingEngine } = require('./trading-engine/implementations/GangWssTradingEngine');
 const { BacktestEngine } = require('./trading-engine/implementations/BacktestEngine');
 const { acquireExperimentLock, releaseExperimentLock, lockDeniedMessage } = require('./trading-engine/core/experiment-instance-lock');
 
@@ -47,9 +48,12 @@ async function runEngine(experimentId) {
     if (experiment.tradingMode === 'live' || experiment.trading_mode === 'live') {
       throw new Error('live 实验不能用 run-engine.js 启动（会被静默当作虚拟盘）。请用: node main.js start-experiment -e <id>');
     }
+    const platform = experiment.config?.platform || 'fourmeme';
     const EngineClass = isBacktest
       ? BacktestEngine
-      : (experiment.config?.platform === 'flap' ? FlapWssTradingEngine : FourMemeWssTradingEngine);
+      : (platform === 'flap' ? FlapWssTradingEngine
+        : platform === 'gang' ? GangWssTradingEngine
+          : FourMemeWssTradingEngine);
     const engine = new EngineClass({ tradingMode: isBacktest ? 'backtest' : 'virtual' });
 
     // 优雅关闭：注册必须在 initialize/start 之前——回测的 start() 要等整个回放

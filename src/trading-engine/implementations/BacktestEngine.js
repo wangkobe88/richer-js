@@ -189,10 +189,12 @@ class BacktestEngine extends AbstractTradingEngine {
     const { resolvePlatforms } = require('../core/platforms');
     this._platform = this._experiment?.config?.platform || 'fourmeme';
     // 平台集合（'both' → 双平台并集）：ticks .in 过滤 + token 级 fallback 用；
-    // wsSection 选择仍用标量（'both' → fourmemeWs，与实时双平台引擎口径一致）
+    // wsSection 选择仍用标量（'both' → fourmemeWs，与实时双平台引擎口径一致；gang → gangWs）
     this._platforms = resolvePlatforms(this._platform);
     this.logger.info(this._experimentId, 'BacktestEngine', `回放平台口径 | platforms=${this._platforms.join(',')}`);
-    const wsSection = this._platform === 'flap' ? 'flapWs' : 'fourmemeWs';
+    const wsSection = this._platform === 'flap' ? 'flapWs'
+      : this._platform === 'gang' ? 'gangWs'
+        : 'fourmemeWs';
     const wsConfig = {
       ...(baseConfig[wsSection] || {}),
       ...(this._experiment?.config?.[wsSection] || {}),
@@ -719,6 +721,10 @@ class BacktestEngine extends AbstractTradingEngine {
           createdAtSec: row.created_at ? new Date(row.created_at).getTime() / 1000 : null,
           totalSupply: Number(row.raw_api_data?.totalSupply) || 0,
           creator: row.creator_address || row.raw_api_data?.creator || null,
+          // gang 毕业阈值 BNB 化（2026-10-27 接入：raw_api_data.gradAmtBnb 由
+          // _buildGangTokenRecord 落档；非 gang 行无此键 → null 不影响 flap/fourmeme）
+          graduationThresholdBnb: Number(row.raw_api_data?.gradAmtBnb) > 0
+            ? Number(row.raw_api_data?.gradAmtBnb) : null,
         });
       }
       if (!data || data.length < TICK_PAGE_SIZE) break;
@@ -1164,6 +1170,7 @@ class BacktestEngine extends AbstractTradingEngine {
             symbol: meta.symbol || '',
             creatorAddress: meta.creator || null,
             platform: tick.platform || null,
+            graduationThresholdBnb: meta.graduationThresholdBnb ?? null, // gang 毕业阈值（同 _registerToken）
           });
         }
         perf.other += Date.now() - _p0;
@@ -1623,6 +1630,8 @@ class BacktestEngine extends AbstractTradingEngine {
       // fourmeme = 豁免 router 门 = 漏拦（危险方向）；null 时分门走 fail-closed
       // （platform != 'flap' null 比较 false → 落回 router 区间门）
       platform: tick.platform || null,
+      // gang 毕业阈值透传（FA registerToken set-once >0 才写；非 gang 行 null 零影响）
+      graduationThresholdBnb: meta.graduationThresholdBnb ?? null,
     });
     this._tokenPool.addToken({
       token: tokenAddress,
@@ -1943,7 +1952,7 @@ class BacktestEngine extends AbstractTradingEngine {
             chain: 'bsc',
             platform: tokenPlatform,
             launchAt: token.createdAt || null,
-            innerPair: `${token.token}_${tokenPlatform === 'flap' ? 'fl' : 'fo'}`,
+            innerPair: `${token.token}_${tokenPlatform === 'flap' ? 'fl' : tokenPlatform === 'gang' ? 'ga' : 'fo'}`,
           };
           let preBuyCheckCondition = currentRound === 0
             ? strategy.preBuyCheckCondition

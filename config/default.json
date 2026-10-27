@@ -249,6 +249,49 @@
       "txWaitTimeoutMs": 120000
     }
   },
+  "gangWs": {
+    "endpointFrom": "env",
+    "contracts": {
+      "launchpadV2": "0x1B8F3f69DFa0a7F63d308C7EB0Fd38D8b099966E"
+    },
+    "pingIntervalMs": 10000,
+    "reconnect": {
+      "minDelayMs": 2000,
+      "maxDelayMs": 60000
+    },
+    "tickBuffer": {
+      "flushIntervalMs": 500,
+      "flushThreshold": 100,
+      "batchSize": 500,
+      "alertThresholdRows": 100000,
+      "alertReAlertMs": 600000
+    },
+    "wssDownGuardMs": 900000,
+    "downGuardSelfHealMs": 300000,
+    "bnbUsd": {
+      "refreshMs": 60000
+    },
+    "maxTrackedTokens": 300,
+    "signalDebounceMs": 200,
+    "signalDebounceMaxWaitMs": 1000,
+    "sellDebounceMs": 3500,
+    "pruneIntervalMs": 300000,
+    "pruneMaxAgeMs": 1800000,
+    "portfolioSnapshotIntervalMs": 30000,
+    "minTickBnb": 0.001,
+    "quoteRate": {
+      "ttlMs": 30000,
+      "staleMaxMs": 300000,
+      "negTtlMs": 60000,
+      "quoteMapDbHours": 48,
+      "unknownTokenMax": 2000
+    },
+    "corpusEnrich": {
+      "enabled": true,
+      "concurrency": 3,
+      "gangRetryDelayMs": 10000
+    }
+  },
   "senderResolve": {
     "enabled": true,
     "rpcMode": "urls",

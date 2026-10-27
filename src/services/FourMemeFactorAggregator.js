@@ -300,7 +300,8 @@ class FourMemeFactorAggregator extends EventEmitter {
         this._states = new Map(); // tokenAddress → state
 
         // flap 资金口径毕业阈值学习表（2026-10-24）：quoteToken(小写|null=BNB盘) → 毕业时刻
-        // fundsBnb 快照，noteGraduation write-once 首次毕业定格（实测同 quote 恒值）
+        // fundsBnb 快照，noteGraduation write-once 首次毕业定格（实测同 quote 恒值）。
+        // gang 不入此表——阈值由 Created gradAmt 终态携带（state.graduationThresholdBnb）
         this._gradFundsThresholds = new Map();
 
         // preFilter（pumpfun 回迁，回测专属默认关）：age 区间数组（并集语义），
@@ -359,16 +360,33 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (info.name) state.name = info.name;
         if (info.symbol) state.symbol = info.symbol;
         if (info.creatorAddress) state.creatorAddress = info.creatorAddress;
-        if (info.platform) state.platform = info.platform; // 平台维度（flap 资金口径毕业进度/阈值学习门用；write-once 语义，平台不变）
+        if (info.platform) state.platform = info.platform; // 平台维度（flap/gang 资金口径毕业进度/阈值学习门用；write-once 语义，平台不变）
+        // gang 毕业阈值 BNB 化（2026-10-27 gang 接入）：Created gradAmt 事件硬性携带
+        //（WNB 盘=gradAmt/1e18 实测恒 15；非 WNB 盘 collector refPair/三级源换算一次，
+        // 失败传 null → _graduationFundsThreshold 侧 ?? 15 兜底）。set-once：重复
+        // registerToken（回测 preload/重启恢复）同值幂等，null 不覆盖已有值
+        if (state.graduationThresholdBnb == null
+            && typeof info.graduationThresholdBnb === 'number'
+            && info.graduationThresholdBnb > 0) {
+            state.graduationThresholdBnb = info.graduationThresholdBnb;
+        }
         this._stats.tokensRegistered++;
     }
 
     /**
-     * flap 资金口径毕业进度分母：per-quote 毕业事件学习值（noteGraduation write-once）
-     * ?? 全局常量 graduationFundsBnb。quote 盘阈值=毕业时刻换算 BNB 域快照，吸收
-     * per-quote 系统性汇率偏移。four.meme 不用资金口径（72 市值锚原路径）。
+     * flap/gang 资金口径毕业进度分母：
+     * - gang（2026-10-27 接入）：state.graduationThresholdBnb（Created gradAmt 事件终态
+     *   携带，registerToken set-once）?? 15（WNB 盘 gradAmt 实测恒 15e18；协议常量
+     *   字面量非调参）。无需学习——gradAmt 在 Created 硬性携带，非 WNB 盘换算失败才落 null。
+     * - flap：per-quote 毕业事件学习值（noteGraduation write-once）?? 全局常量
+     *   graduationFundsBnb。quote 盘阈值=毕业时刻换算 BNB 域快照，吸收 per-quote
+     *   系统性汇率偏移。
+     * four.meme 不用资金口径（72 市值锚原路径）。
      */
     _graduationFundsThreshold(state) {
+        if (state.platform === 'gang') {
+            return state.graduationThresholdBnb ?? 15;
+        }
         const learned = this._gradFundsThresholds.get(state.quoteToken);
         return (learned != null && learned > 0) ? learned : this._fp.graduationFundsBnb;
     }
@@ -797,10 +815,13 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (tick.funds_bnb > 0) state.lastFundsBnb = tick.funds_bnb;
         if (tick.offers > 0) state.lastOffers = tick.offers;
 
-        // ── flap 毕业资金口径累积（2026-10-24 豆皮/水案）：每行恰好计一次（processTick
-        //    每行单调；chainLate 只跳价格接受链不跳流量）。platform 回填兜底 registerToken
-        //    晚到（tick 平台字段先到）。尘 tick live 侧 collector 门拦（不进 FA），回测侧
-        //    原样喂 → 回测含尘 ~+0.2% 偏差（方向=回测略早触臂，接受）──
+        // ── flap/gang 毕业资金口径累积（2026-10-24 豆皮/水案立、2026-10-27 gang 接入）：
+        //    每行恰好计一次（processTick 每行单调；chainLate 只跳价格接受链不跳流量）。
+        //    platform 回填兜底 registerToken 晚到（tick 平台字段先到）。尘 tick live 侧
+        //    collector 门拦（不进 FA），回测侧原样喂 → 回测含尘 ~+0.2% 偏差（方向=回测
+        //    略早触臂，接受）。gang 系数恒 1.0：tick 的 bnb_amount 已是事件费后净额
+        //   （dw0=净入金/dw3=净收款），与 gradAmt 阈值同净额域，无 flap 0.98/1.0204
+        //    经验系数问题──
         if (!state.platform && tick.platform) state.platform = tick.platform;
         if (tick.quote_token && !state.quoteToken) {
             state.quoteToken = String(tick.quote_token).toLowerCase();
@@ -809,6 +830,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             state.poolInflowBnb += isBuy
                 ? bnbAmount * this._fp.graduationBuyKeep
                 : -bnbAmount * this._fp.graduationSellTake;
+        } else if (state.platform === 'gang' || tick.platform === 'gang') {
+            state.poolInflowBnb += isBuy ? bnbAmount : -bnbAmount;
         }
 
         // ── 计数与地址统计（全量 tick，无 skip）──
@@ -1504,8 +1527,9 @@ class FourMemeFactorAggregator extends EventEmitter {
     /**
      * 毕业事件登记（2026-10-24 资金口径，取代旧 markGraduated——生产调用点已全迁）：
      * 置 graduated + 学习 per-quote 毕业资金阈值。
-     * 学习门=state.platform==='flap'（four.meme 毕业金额口径不同，混学会污染 BNB 键
-     * 阈值）+ fundsBnb>0（quote 盘换算不可得时 collector 传 null=诚实无值不学）。
+     * 学习门=state.platform==='flap'（four.meme 毕业金额口径不同混学会污染 BNB 键
+     * 阈值；gang 也不学——gradAmt 在 Created 事件硬性携带无需学习，混入反而污染
+     * 共享阈值表）+ fundsBnb>0（quote 盘换算不可得时 collector 传 null=诚实无值不学）。
      * write-once 首次毕业定格（同 quote 实测恒值；重复毕业事件幂等）。state 缺失
      * no-op（回测「事件先于首 tick」边缘由消费点后补）
      */
@@ -1576,7 +1600,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             platform: null,
             graduated: false,
             quoteToken: null,      // flap 非 BNB 计价盘 quote（write-once，tick 捕获）：PCS 二跳路由/毕业阈值学习键
-            poolInflowBnb: 0,      // flap 毕业资金口径累积器：Σ(0.98×buy) − Σ(1.0204×sell)（BNB 域）
+            poolInflowBnb: 0,      // flap/gang 毕业资金口径累积器（flap: Σ(0.98×buy)−Σ(1.0204×sell)；gang: Σbuy−Σsell 净额直计，BNB 域）
+            graduationThresholdBnb: null, // gang 毕业阈值 BNB 化（registerToken set-once；flap 不用——学习表路径）
 
             firstTickAt: null,
             firstBlockNumber: null, // 首 tick 所在块（bigHolder early 判定基准 s0，write-once）
@@ -3013,10 +3038,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             fdv: 0,        // 见下（与 marketCap 同值）
             marketCap: state.totalSupply > 0 && currentPrice > 0 ? currentPrice * state.totalSupply : 0,
             // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
-            // flap = 资金口径 池净入金 / 毕业阈值（2026-10-24 替换价格锚：R 恒比假设实证不
-            // 成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂）。four.meme 用
-            // _relPriceBnb 而非 currentPrice——V1 实证尘价/异常巨量 tick 可把任意价口径推到 >1 假触发
-            graduationProgress: state.platform === 'flap'
+            // flap/gang = 资金口径 池净入金 / 毕业阈值（flap 2026-10-24 替换价格锚：R 恒比
+            // 假设实证不成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂；gang 2026-10-27
+            // 同口径——阈值链在 _graduationFundsThreshold 内分平台：flap=per-quote 学习值
+            // ?? 常量，gang=graduationThresholdBnb ?? 15）。four.meme 用 _relPriceBnb 而非
+            // currentPrice——V1 实证尘价/异常巨量 tick 可把任意价口径推到 >1 假触发
+            graduationProgress: state.platform === 'flap' || state.platform === 'gang'
                 ? this._graduationFundsProgress(state)
                 : (state.totalSupply > 0 && state._relPriceBnb > 0)
                     ? (state._relPriceBnb * state.totalSupply) / this._fp.graduationAnchorBnb

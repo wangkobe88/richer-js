@@ -15,6 +15,7 @@ const { ExperimentFactory } = require('./src/trading-engine/factories/Experiment
 const { Experiment } = require('./src/trading-engine/entities/Experiment');
 const { FourMemeWssTradingEngine } = require('./src/trading-engine/implementations/FourMemeWssTradingEngine');
 const { FlapWssTradingEngine } = require('./src/trading-engine/implementations/FlapWssTradingEngine');
+const { GangWssTradingEngine } = require('./src/trading-engine/implementations/GangWssTradingEngine');
 const { BacktestEngine } = require('./src/trading-engine/implementations/BacktestEngine');
 const { acquireExperimentLock, releaseExperimentLock, lockDeniedMessage } = require('./src/trading-engine/core/experiment-instance-lock');
 
@@ -51,6 +52,10 @@ class VirtualTradingSystem {
           console.log(`🎮 创建 flap WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
           return new FlapWssTradingEngine({ tradingMode: 'virtual', initialBalance });
         }
+        if (platform === 'gang') {
+          console.log(`🎮 创建 gang WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
+          return new GangWssTradingEngine({ tradingMode: 'virtual', initialBalance });
+        }
         // 'fourmeme'（缺省）与 'both'（双平台 per-token 分派）都走基类引擎
         const dualNote = platform === 'both' ? '（双平台 fourmeme+flap）' : '';
         console.log(`🎮 创建 WSS 事件驱动虚拟交易引擎${dualNote}，初始余额: ${initialBalance}`);
@@ -60,6 +65,9 @@ class VirtualTradingSystem {
       case 'live':
         // 双平台 live（2026-10-14 用户裁定改造）：基类引擎 per-platform trader map
         // （fourmeme→FourMemeDirectTrader / flap→FlapPortalTrader，同一钱包共享 nonce）
+        if (platform === 'gang') {
+          throw new Error('gang 平台 live 不支持（agent-only 平台须 Binance Agentic Wallet + 审批流，另案设计；本期只做采集+虚拟+回测）');
+        }
         if (platform === 'flap') {
           console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FlapPortalTrader）`);
           return new FlapWssTradingEngine({ tradingMode: 'live' });

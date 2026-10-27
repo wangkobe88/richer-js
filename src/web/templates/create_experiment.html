@@ -1088,9 +1088,12 @@
         // 同步段经 handleTradingModeChange → syncPlatformAvailability → updateLogoDisplay
         // 触达本常量，后置声明会 TDZ ReferenceError 中断策略回填）
         const BLOCKCHAIN_PLATFORMS = {
+            // gang 与 four.meme/flap 互斥（2026-10-27 接入裁定：单平台实验先行，
+            // change 监听结构性互斥 + 提交前校验双防线；'both' 语义恒为 fourmeme+flap）
             bsc: [
                 { value: 'fourmeme', name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
-                { value: 'flap', name: 'Flap', logo: '/static/flap-logo.png' }
+                { value: 'flap', name: 'Flap', logo: '/static/flap-logo.png' },
+                { value: 'gang', name: 'Gang', logo: '/static/gang-logo.png' }
             ]
         };
 
@@ -1485,6 +1488,19 @@
                 cb.id = `platform_cb_${platform.value}`;
                 cb.className = 'w-4 h-4 accent-blue-600';
                 cb.addEventListener('change', () => {
+                    // gang 单平台互斥（2026-10-27 gang 接入裁定：gang 刻意不进 both
+                    // 组合——下方提交点 length>=2→'both' 会把 gang+four.meme 静默折叠
+                    // 成 both=fourmeme+flap 双 collector 错误订阅。勾 gang 清其它，
+                    // 勾其它清 gang；结构性保证组合只可能是单平台或 fourmeme+flap）
+                    if (cb.checked) {
+                        if (cb.value === 'gang') {
+                            document.querySelectorAll('#platform_checkboxes input[name="platform"]:checked')
+                                .forEach(other => { if (other !== cb) other.checked = false; });
+                        } else {
+                            const gangCb = document.getElementById('platform_cb_gang');
+                            if (gangCb && gangCb !== cb) gangCb.checked = false;
+                        }
+                    }
                     // 至少保留一个勾选（取消最后一个时直接拒绝）
                     if (!document.querySelector('#platform_checkboxes input[name="platform"]:checked')) {
                         cb.checked = true;
@@ -2044,18 +2060,19 @@
                 const nrMax = /^\d+$/.test(nrMaxRaw) ? parseInt(nrMaxRaw, 10) : null;
                 const nrChecked = nrCb?.checked ?? true;
                 const hasNumeric = nrInterval !== null || nrMax !== null;
-                for (const k of ['fourmemeWs', 'flapWs']) {
+                for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                     if (adv[k]) adv[k] = { ...(adv[k] || {}) };
                 }
                 if (tradingMode === 'backtest') {
-                    for (const k of ['fourmemeWs', 'flapWs']) {
+                    for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                         if (adv[k]) delete adv[k].narrativeRetry;
                     }
                 } else {
                     const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
-                    const sec = (_plat === 'flap') ? 'flapWs' : 'fourmemeWs';
-                    const other = (sec === 'flapWs') ? 'fourmemeWs' : 'flapWs';
-                    if (other !== sec && adv[other]) delete adv[other].narrativeRetry;
+                    const sec = (_plat === 'flap') ? 'flapWs' : (_plat === 'gang') ? 'gangWs' : 'fourmemeWs';
+                    for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
+                        if (k !== sec && adv[k]) delete adv[k].narrativeRetry;
+                    }
                     if (!nrChecked) {
                         // 显式关：写 enabled:false（数字键即便填了也不写——引擎消费
                         // enabled!==false 短路在先，写了是死配置）
@@ -2081,18 +2098,19 @@
                     ? parseInt(document.getElementById('obs-max-per-token').value.trim(), 10) : null;
                 const obsMcap = /^\d+$/.test((document.getElementById('obs-marketcap-threshold')?.value || '').trim())
                     ? parseInt(document.getElementById('obs-marketcap-threshold').value.trim(), 10) : null;
-                for (const k of ['fourmemeWs', 'flapWs']) {
+                for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                     if (adv[k]) adv[k] = { ...(adv[k] || {}) };
                 }
                 if (tradingMode === 'backtest') {
-                    for (const k of ['fourmemeWs', 'flapWs']) {
+                    for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                         if (adv[k]) delete adv[k].observationSignals;
                     }
                 } else {
                     const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
-                    const sec = (_plat === 'flap') ? 'flapWs' : 'fourmemeWs';
-                    const other = (sec === 'flapWs') ? 'fourmemeWs' : 'flapWs';
-                    if (other !== sec && adv[other]) delete adv[other].observationSignals;
+                    const sec = (_plat === 'flap') ? 'flapWs' : (_plat === 'gang') ? 'gangWs' : 'fourmemeWs';
+                    for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
+                        if (k !== sec && adv[k]) delete adv[k].observationSignals;
+                    }
                     if (obsCb?.checked) {
                         adv[sec] = { ...(adv[sec] || {}),
                             observationSignals: { ...(adv[sec]?.observationSignals || {}), enabled: true,
@@ -2112,7 +2130,8 @@
                 blockchain: formData.get('blockchain'),
                 ...adv,
                 // 平台多选 checkbox：勾两个 → 'both'（双平台实验），单勾 → 该平台
-                //（change 监听结构性保证至少一勾：取消最后一个勾选会被拒绝）
+                //（change 监听结构性保证至少一勾：取消最后一个勾选会被拒绝；
+                //  gang 互斥保证 length>=2 只可能是 fourmeme+flap，不会折入 gang）
                 platform: formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
                 // 策略配置
@@ -2199,6 +2218,15 @@
             const buyStrategies = document.querySelectorAll('#buy-strategies-container .strategy-card');
             const sellStrategies = document.querySelectorAll('#sell-strategies-container .strategy-card');
             const tradingMode = document.getElementById('trading_mode').value;
+
+            // gang 单平台防线（第二道，change 监听互斥为第一道）：gang 与
+            // four.meme/flap 组合拒绝提交——'both' 语义恒为 fourmeme+flap，
+            // 服务端 VALID_PLATFORMS 同款校验兜底
+            const submittedPlatforms = [...document.querySelectorAll('#platform_checkboxes input[name="platform"]:checked')].map(cb => cb.value);
+            if (submittedPlatforms.includes('gang') && submittedPlatforms.length > 1) {
+                alert('Gang 为单平台实验，不能与 Four.meme/Flap 组合（请只勾选 Gang）');
+                return;
+            }
 
             console.log(`📝 策略验证: 买入策略${buyStrategies.length}个, 卖出策略${sellStrategies.length}个`);
 
@@ -2335,8 +2363,8 @@
         handleTradingModeChange();
 
         // 复制模式下，handleBlockchainChange 会重建平台 checkbox 组，之后恢复勾选状态
-        //（copyData.platform：'fourmeme'|'flap'|'both' → 拆成对应勾选；
-        // live 源 + flap 的组合由 syncPlatformAvailability 取消勾选）
+        //（copyData.platform：'fourmeme'|'flap'|'gang'|'both' → 拆成对应勾选；
+        // gang 恒单值（互斥），'both' 恒拆 fourmeme+flap——不存在含 gang 的组合形状）
         if (isCopyMode && window._pendingCopyPlatform) {
             const wanted = window._pendingCopyPlatform === 'both'
                 ? ['fourmeme', 'flap']

@@ -173,7 +173,7 @@ class ExperimentEventService {
       'eth': 'eth', 'ethereum': 'eth',
       'solana': 'sol', 'sol': 'sol',
       'base': 'base',
-      'flap': 'bsc', 'bankr': 'bsc'
+      'flap': 'bsc', 'gang': 'bsc', 'bankr': 'bsc'
     };
     const chainName = chainMapping[(chain || 'bsc').toLowerCase()] || 'bsc';
     return `${this._gmgnBaseUrl}/${chainName}/token/${token}`;

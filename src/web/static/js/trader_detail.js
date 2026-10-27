@@ -471,10 +471,15 @@ class TraderDetail {
         ? '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-green-900 text-green-400 border border-green-700 whitespace-nowrap">买入</span>'
         : '<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-900 text-red-400 border border-red-700 whitespace-nowrap">卖出</span>';
       const expId = t.experiment_id || '';
-      // 平台 badge（fourmeme/flap；双平台代币显示 both）
+      // 平台 badge（fourmeme/flap/gang；双平台代币显示 both）——gang 品牌黄 #FCD535
       const platform = this.tokenPlatforms[addr] || t.platform || '';
+      const platCls = platform === 'flap'
+        ? 'bg-cyan-900 text-cyan-300 border border-cyan-700'
+        : platform === 'gang'
+          ? 'bg-yellow-900 text-yellow-300 border border-yellow-700'
+          : 'bg-orange-900 text-orange-300 border border-orange-700';
       const platBadge = platform
-        ? `<span class="px-1.5 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${platform === 'flap' ? 'bg-cyan-900 text-cyan-300 border border-cyan-700' : 'bg-orange-900 text-orange-300 border border-orange-700'}" title="平台">${this.escapeHtml(platform)}</span>`
+        ? `<span class="px-1.5 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${platCls}" title="平台">${this.escapeHtml(platform)}</span>`
         : '';
       const expShort = expId ? expId.slice(0, 8) : '-';
       // 实验列：实验名 + 模式 badge[V/BT/LIVE] + ID前8 + 复制完整ID

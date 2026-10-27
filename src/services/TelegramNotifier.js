@@ -405,6 +405,7 @@ class TelegramNotifier {
       'sol': 'sol',
       'base': 'base',
       'flap': 'bsc', // flap 使用 bsc
+      'gang': 'bsc', // gang 使用 bsc
       'bankr': 'bsc' // bankr 使用 bsc
     };
 

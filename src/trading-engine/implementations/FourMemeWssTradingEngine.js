@@ -832,6 +832,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         section: 'flapWs',
         Ctor: require('../../collectors/flap-ankr-ws-collector.js').FlapAnkrWsCollector,
       },
+      gang: {
+        section: 'gangWs',
+        Ctor: require('../../collectors/gang-ankr-ws-collector.js').GangAnkrWsCollector,
+      },
     };
 
     for (const platform of this._wsPlatforms()) {
@@ -898,10 +902,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /** per-platform live trader 类型分派（双平台 live 2026-10-14）：flap 平台恒
-   *  FlapPortalTrader（'flap'，与子类覆盖无关）；其余走 _liveTraderType()（基类
-   *  'fourmeme'；flap 子类恒单平台不会走到本分支） */
+   *  FlapPortalTrader（'flap'，与子类覆盖无关）；gang 恒 throw fail-fast（2026-10-27
+   *  gang 接入裁定：agent-only 平台 live 须 BAW+审批流，另案设计——真实资金绝不
+   *  盲发到无 trader 实现的平台）；其余走 _liveTraderType()（基类 'fourmeme'；
+   *  flap 子类恒单平台不会走到本分支） */
   _liveTraderTypeFor(platform) {
     if (platform === 'flap') return 'flap';
+    if (platform === 'gang') {
+      throw new Error('gang 平台 live 不支持（agent-only 平台须 Binance Agentic Wallet + 审批流，另案设计；本期只做采集+虚拟+回测）');
+    }
     return this._liveTraderType();
   }
 
@@ -3802,7 +3811,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     const record = platform === 'flap'
       ? this._buildFlapTokenRecord(info)
-      : this._buildFourMemeTokenRecord(info);
+      : platform === 'gang'
+        ? this._buildGangTokenRecord(info)
+        : this._buildFourMemeTokenRecord(info);
 
     try {
       await this.dataService.saveToken(this._experimentId, record);
@@ -3860,6 +3871,40 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         eventTs: info.eventTsSec,  // 事件自带秒级时间戳（年龄口径仍用块时间，仅存档）
         meta: info.meta,           // IPFS 元数据 URL
         taxToken: info.taxToken,   // 税币（地址后缀 7777）
+        blockNumber: info.blockNumber,
+        txHash: info.txHash,
+      },
+      creator_address: info.creator,
+      status: 'monitoring',
+    };
+  }
+
+  /** gang Created 落库 payload（2026-10-27 gang 接入：总量 1e9 + gang 存档字段）。
+   *  注意：wss_events 的 token_create payload 是 collector 的 info 本体（eventWriter
+   *  直 enqueue info），本 record 只落 experiment_tokens——collector 启动 quote map
+   *  重建读的是前者（_loadTokenMapFromDb），字段名两边刻意一致（quote/quoteIsBnb/
+   *  refPair/gradAmtBnb） */
+  _buildGangTokenRecord(info) {
+    return {
+      token: info.token,
+      symbol: info.symbol || '',
+      chain: 'bsc',
+      platform: 'gang',
+      data_source: 'wss',
+      created_at: Math.floor(info.blockTimeMs / 1000),
+      raw_api_data: {
+        source: 'wss_token_create',
+        name: info.name,
+        symbol: info.symbol,
+        totalSupply: 1e9,              // gang LaunchToken 固定总量（实测恒 1e9）
+        creator: info.creator,
+        logoUri: info.logoUri,         // https://cdn.gang.fun/ipfs/…（叙事语料/展示）
+        taxed: info.taxed,             // taxed 币（内盘行为不受影响，仅标记不过滤）
+        quote: info.quote,             // 计价币（WBNB 实地址或 ERC-20；Created 终态固定）
+        quoteIsBnb: info.quoteIsBnb,
+        refPair: info.refPair,         // Created 携带参考池（换算源⓪）
+        gradAmtBnb: info.gradAmtBnb,   // 毕业阈值 BNB 化（WNB 盘恒 15；非 WNB 换算一次，失败 null→FA ?? 15）
+        gradAmtQuote: info.gradAmtQuote, // quote 单位原值（审计）
         blockNumber: info.blockNumber,
         txHash: info.txHash,
       },
@@ -4015,7 +4060,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       chain: token.chain || 'bsc',
       platform,
       launchAt: token.createdAt || null,      // WSS: TokenCreate 块时间（秒）
-      innerPair: `${token.token}_${platform === 'flap' ? 'fl' : 'fo'}`, // 内盘交易对（对齐 BacktestEngine 写法）
+      innerPair: `${token.token}_${platform === 'flap' ? 'fl' : platform === 'gang' ? 'ga' : 'fo'}`, // 内盘交易对（对齐 BacktestEngine 写法）
       pairAddress: token.pairAddress || null,
     };
   }
