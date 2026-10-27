@@ -268,24 +268,26 @@ async function main() {
     }
     console.log('✓ 6b. Created 换算失败 null 语义');
 
-    // ═══ 7. Graduated 回调形状 ═══
+    // ═══ 7. Graduated 回调形状（2026-10-27 链上实证三字段：quote/tokenAmount/quoteAmount）═══
+    // 实证样本：0x6b2ce31a…e694（quote=0x0c630240…b405 非 WNB、tokenAmount 恒 2e8、
+    // quoteAmount==Created gradAmt 逐票精确全等）；旧四字段形状系调研期构造未实证，
+    // 对真实事件解码必败——本节锁三字段防复活
     {
         const stubs = makeStubs();
         const c = makeCollector(stubs);
         const TOKEN = '0x' + '3b'.repeat(20);
         await c._processLog(createdLog({ token: TOKEN, quote: WBNB }), 1793000000);
-        const PAIR = '0x' + '4c'.repeat(20);
         await c._processLog({
             topics: [GOLDEN_TOPIC0.Graduated, padAddr(TOKEN)],
-            data: coder.encode(['address', 'address', 'uint256', 'uint256'], [PAIR, WBNB, eth('800000000'), eth('15.2')]),
+            data: coder.encode(['address', 'uint256', 'uint256'], [WBNB, eth('200000000'), eth('15')]),
             transactionHash: '0x' + '5d'.repeat(32), logIndex: hex(9), blockNumber: hex(1100),
         }, 1793000010);
         assert.strictEqual(c.stats.graduated, 1);
         const g = stubs.calls.onGraduation[0];
         assert.strictEqual(g.token, TOKEN);
-        assert.strictEqual(g.dexPool, PAIR);
-        assert.ok(Math.abs(g.tokenAmount - 8e8) < 1e-3);
-        assert.ok(Math.abs(g.fundsBnb - 15.2) < 1e-9, 'WBNB 盘 fundsBnb=quoteAmount 直取');
+        assert.strictEqual(g.dexPool, undefined, '真实事件不带 PCS pair（word0 是 quote）');
+        assert.ok(Math.abs(g.tokenAmount - 2e8) < 1e-3, 'tokenAmount=2e8 毕业储备协议常量');
+        assert.ok(Math.abs(g.fundsBnb - 15) < 1e-9, 'WBNB 盘 fundsBnb=quoteAmount 直取（==gradAmt）');
         assert.strictEqual(g.fundsQuote, null);
         assert.strictEqual(g.quoteToken, null);
         // 非 WNB 盘：fundsBnb 换算 miss → null + fundsQuote 留原值
@@ -294,14 +296,14 @@ async function main() {
         c._getQuoteConversion = async () => null;
         await c._processLog({
             topics: [GOLDEN_TOPIC0.Graduated, padAddr(TOKEN2)],
-            data: coder.encode(['address', 'address', 'uint256', 'uint256'], [PAIR, '0x' + '9c'.repeat(20), eth('800000000'), eth('7.6')]),
+            data: coder.encode(['address', 'uint256', 'uint256'], ['0x' + '9c'.repeat(20), eth('200000000'), eth('7.6')]),
             transactionHash: '0x' + '7f'.repeat(32), logIndex: hex(10), blockNumber: hex(1101),
         }, 1793000011);
         const g2 = stubs.calls.onGraduation[1];
         assert.strictEqual(g2.fundsBnb, null, '换算 miss fundsBnb=null 诚实语义');
         assert.ok(Math.abs(g2.fundsQuote - 7.6) < 1e-9, 'fundsQuote 留原值');
     }
-    console.log('✓ 7. Graduated 回调形状（WNB/非 WNB）');
+    console.log('✓ 7. Graduated 回调形状（链上实证三字段 WNB/非 WNB）');
 
     // ═══ 8. VQL 仅计数 ═══
     {

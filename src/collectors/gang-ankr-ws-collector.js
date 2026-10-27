@@ -55,10 +55,14 @@ for (const [name, sig] of Object.entries(EVENT_SIGS)) {
     TOPIC0_MAP.set(ethers.id(sig), name);
 }
 
-// data 段解码类型（indexed 参数不进 data）：Created=6 段、Buy/Sell=5 段、Graduated=4 段
+// data 段解码类型（indexed 参数不进 data）：Created=6 段、Buy/Sell=5 段、Graduated=3 段
 const CREATE_DATA_TYPES = ['string', 'string', 'string', 'bool', 'address', 'uint256'];
 const TRADE_DATA_TYPES = ['uint256', 'uint256', 'uint256', 'uint256', 'uint256'];
-const GRADUATED_DATA_TYPES = ['address', 'address', 'uint256', 'uint256'];
+// Graduated 三段（2026-10-27 链上 5/5 实证：word0=quote[≠PCS pair，逐票==Created quote]、
+// word1=tokenAmount 恒 2e8[毕业注入池 token 储备协议常量]、word2=quoteAmount==Created gradAmt
+// 逐票精确全等）。旧四字段形状系调研期构造未实证，对真实事件解码必败（decodeFailed 且
+// onGraduation 永不触发=毕业全清卖丢失），M2 前已修——勿再改回
+const GRADUATED_DATA_TYPES = ['address', 'uint256', 'uint256'];
 const VQL_DATA_TYPES = ['uint256'];
 
 // gang LaunchToken totalSupply 恒 1e9（实测两个 V2 token 精确一致，供 marketCap 因子）
@@ -627,9 +631,10 @@ class GangAnkrWsCollector {
                     return;
                 }
                 this.stats.graduated++;
-                // quoteAmount 为 quote 单位毕业资金：WBNB 盘直取；非 WNB 盘换算成 BNB 落
-                // fundsBnb；换算不可得时 fundsBnb=null + fundsQuote 留原值（诚实语义不冒充）
-                let fundsBnb = Number(ethers.formatEther(d[3]));
+                // quoteAmount 为 quote 单位毕业资金（实证==Created gradAmt 阈值搬运量）：
+                // WBNB 盘直取；非 WNB 盘换算成 BNB 落 fundsBnb；换算不可得时 fundsBnb=null
+                // + fundsQuote 留原值（诚实语义不冒充）。事件不带 PCS pair（word0 是 quote）
+                let fundsBnb = Number(ethers.formatEther(d[2]));
                 let fundsQuote = null;
                 let quoteToken = null;
                 if (!q.quoteIsBnb) {
@@ -648,12 +653,11 @@ class GangAnkrWsCollector {
                     ? `${fundsBnb.toFixed(6)} BNB`
                     : `${fundsQuote} ${quoteToken}(未换算)`;
                 this.logger.info('', 'GangAnkrWsCollector',
-                    `毕业事件: token=${token} pair=${lowerAddr(d[0])} funds=${fundsDesc} tx=${logEntry.transactionHash}`);
+                    `毕业事件: token=${token} quote=${lowerAddr(d[0])} funds=${fundsDesc} tx=${logEntry.transactionHash}`);
                 if (this._callbacks.onGraduation) {
                     this._callbacks.onGraduation({
                         token,
-                        dexPool: lowerAddr(d[0]),
-                        tokenAmount: Number(ethers.formatEther(d[2])),
+                        tokenAmount: Number(ethers.formatEther(d[1])),
                         fundsBnb,
                         fundsQuote,
                         quoteToken,
