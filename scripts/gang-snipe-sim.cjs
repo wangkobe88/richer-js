@@ -178,6 +178,8 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
 
     const HORIZONS = [['5min', 300], ['30min', 1800], ['2h', 7200], ['6h', 21600], ['12h', 43200]];
     const targets = [120, 150, 200, 300]; // %（相对买入价 1.2/1.5/2/3 倍）
+    const THETAS = [5, 10, 15, 20, 30]; // trailing 回撤 %
+    const TRAIL_TIMEOUTS = [['30min', 1800], ['6h', 21600]]; // 超时强退
 
     const rows = []; // {addr, entry, policy, pct, pnlBnb, exitTs}
     const peakMults = [], timeToPeak = [];
@@ -221,6 +223,27 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
         const netEow = proceeds(iEow < 0 ? 0n : t.trades[iEow].d4, tk);
         rows.push({ addr, entry: 'E1', policy: 'EOW', pct: Number(netEow - paid1) * 100 / Number(paid1), pnl: Number(netEow - paid1) / 1e18, paid: Number(paid1) / 1e18 });
 
+        // ── trailing 回撤止盈：峰值价格回撤 θ% 出场（价格∝Q²，比值即回撤比）──
+        // 观察源=链上成交序列（=引擎 tick 源）：看到 tick 才触发，卖在该 tick 后状态 d4
+        const trailExit = (startD, startTs, theta, timeoutSec) => {
+            const k = BigInt(100 - theta);
+            let peak2 = (Q0 + startD) * (Q0 + startD);
+            for (const tr of t.trades) {
+                if (tr.ts < startTs) continue;
+                if (tr.ts > startTs + timeoutSec) break;
+                const p2 = (Q0 + tr.d4) * (Q0 + tr.d4);
+                if (p2 > peak2) peak2 = p2;
+                else if (p2 * 100n <= peak2 * k) return { d4: tr.d4, hit: true };
+            }
+            const i = lastTradeBy(startTs + timeoutSec);
+            return { d4: i < 0 ? startD : t.trades[i].d4, hit: false };
+        };
+        for (const theta of THETAS) for (const [tname, tsec] of TRAIL_TIMEOUTS) {
+            const { d4, hit } = trailExit(0n, t.ts, theta, tsec);
+            const net = proceeds(d4, tk);
+            rows.push({ addr, entry: 'E1', policy: `trail-${theta}%@${tname}`, pct: Number(net - paid1) * 100 / Number(paid1), pnl: Number(net - paid1) / 1e18, paid: Number(paid1) / 1e18, hit });
+        }
+
         // ── E1 利润目标（6h 超时）──
         for (const tgt of targets) {
             const Qe = Q0; // 入场即出生价
@@ -249,6 +272,12 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
             const iE2 = t.trades.length - 1;
             const netE2 = proceeds(t.trades[iE2].d4, tk2);
             rows.push({ addr, entry: 'E2', policy: 'EOW', pct: Number(netE2 - paid2) * 100 / Number(paid2), pnl: Number(netE2 - paid2) / 1e18, paid: Number(paid2) / 1e18 });
+
+            for (const theta of THETAS) for (const [tname, tsec] of TRAIL_TIMEOUTS) {
+                const { d4, hit } = trailExit(tr0.d4, tr0.ts, theta, tsec);
+                const net = proceeds(d4, tk2);
+                rows.push({ addr, entry: 'E2', policy: `trail-${theta}%@${tname}`, pct: Number(net - paid2) * 100 / Number(paid2), pnl: Number(net - paid2) / 1e18, paid: Number(paid2) / 1e18, hit });
+            }
         }
     }
 
@@ -289,6 +318,17 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
         const ps = pct(g);
         const pnl = g.reduce((s, r) => s + r.pnl, 0);
         console.log(`+${String(tgt - 100).padStart(3)}%  │${((g.filter(r => r.hit).length * 100 / g.length).toFixed(1) + '%').padStart(6)}│${pnl.toFixed(4).padStart(10)}│${fmt(pnl * 100 / g.reduce((s, r) => s + r.paid, 0)).padStart(7)}%│${fmt(ps.reduce((a, b) => a + b, 0) / ps.length).padStart(8)}│${fmt(q(ps, .5)).padStart(7)}`);
+    }
+
+    console.log(`\n── trailing 回撤止盈（峰值价格回撤 θ% 出场，价格∝Q²；超时强退）──`);
+    console.log('入场│回撤   │超时  │命中率  │ΣPnL(BNB) │ROI    │均值%   │中位%');
+    for (const entry of ['E1', 'E2']) for (const theta of THETAS) for (const [tname] of TRAIL_TIMEOUTS) {
+        const pol = `trail-${theta}%@${tname}`;
+        const g = rows.filter(r => r.entry === entry && r.policy === pol);
+        if (!g.length) continue;
+        const ps = pct(g);
+        const pnl = g.reduce((s, r) => s + r.pnl, 0);
+        console.log(`${entry} │-${String(theta).padStart(2)}%  │${tname.padEnd(5)}│${((g.filter(r => r.hit).length * 100 / g.length).toFixed(1) + '%').padStart(6)}│${pnl.toFixed(4).padStart(10)}│${fmt(pnl * 100 / g.reduce((s, r) => s + r.paid, 0)).padStart(7)}%│${fmt(ps.reduce((a, b) => a + b, 0) / ps.length).padStart(8)}│${fmt(q(ps, .5)).padStart(7)}`);
     }
 
     console.log(`\n── E1·EOW 最佳/最差 Top5 ──`);
