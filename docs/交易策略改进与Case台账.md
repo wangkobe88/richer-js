@@ -43,7 +43,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
-- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（`marketCap>0 AND <5500 AND realHoldDuration>10`，v43 起）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）**
+- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
 
 ---
@@ -357,6 +357,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **落地形状**＝泛化现行 P4 类似腿（去分类限定）：`(project OR web3) AND marketCap>0 AND <5500 AND realHoldDuration>10` → `marketCap > 0 AND marketCap < 5500 AND realHoldDuration > 10`（cards=all/bypass=false 不变）——模拟臂恰=该腿全类目形状，+0.0161 是叠在现行栈（#14 已覆盖 project/web3）上的纯增量。**冗余说明**：卖腿 #2（3500-4000/>10s）与 #3（<3500/>120s）被泛化腿完全蕴含变死代码，留存无害不删（最小改动）。买门 marketCap>3500 与臂交叠（入口<5K 票被秒卖）已在模拟覆盖内，买门不动
 - **Caveat**：单周单 regime 样本（5K 完美分隔可能是行情特性）；5500+冻结 vs 5000 无冻结差距 +0.005 中 ~+0.002 是路径噪声（橘祥/火箭云/BPC fire 价碰巧更高）；反事实=tick 价无滑点（0.004 小单影响可忽略且 debounce 回落价已按保守方向计入）
 - **上线**（2026-10-27 14:55 UTC）：v42 零持仓优雅停（咯咯慈善/罗小黑战记已自行清仓）→ v43 `7dd26b85-16ac-43dd-a4f7-98840198cebf` 起跑（182 PID 938474，双 WSS 连接/零 ERROR/零拒启）；同批裁定 **perCardBNB 0.001→0.002 ×2**（单票买入 0.004→0.008，v43 config 内）；182 叙事 worker 同日重启至 b6ab961。**观察点**：触发后 30min 内回到 5.5K 以上的票数（误杀探测器）；下周可再对拍验证 5500+冻结 vs 5000 无冻结排序稳健性
+- **追裁定（2026-10-28）：冻结 10→16s**（用户指令 `realHoldDuration>10`→`>16`，原 USD 5500 形状随 T84 已是 BNB 域 7.4）；v46 `6581c288` 实验行改定（改行脚本 182 `scripts/tmp-update-v46-t79-16s.cjs`，子串恰一次断言/库侧无同条件条目防漏），07:26 UTC 重启生效（PID 1520024，23 策略零拒启/停机持仓复核 2 trades 全平/0 ERROR）。现行形状：`marketCap > 0 AND marketCap < 7.4 AND realHoldDuration > 16 AND (entryMarketCap >= 7.4 OR realHoldDuration > 1800)`——地板 7.4 与 T84 豁免臂不动，只改冻结；P4 清仓带的 10s 缓冲刻意不动
 
 ### T65 卖臂阈值错开矩阵+holders 档位——不立 syb/top1 卖门（2026-10-25，v37 ca8f9493+v36 cf3d8177 成交票反事实回放）
 - 缘起：「sybil≥35 / top1≥35 / holders≤N 卖点阈值不能跟买点一样，否则容易被震下去」→ 21 臂更宽阈值矩阵（syb 50/70/90、top1 50/65/80、×3tick 持续确认、syb≥50∧h<0.6h0 双因子、h≤2..6 档位）
