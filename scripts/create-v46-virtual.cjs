@@ -25,7 +25,8 @@ async function main() {
   if (error) throw new Error(error.message);
   if (!data.length) throw new Error('v46 live 未建（先跑 create-v46.cjs --commit）');
   const src = data[0];
-  if (src.status !== 'stopped') throw new Error('v46 状态=' + src.status + '（应为 stopped）');
+  // initializing=新建即态（start-experiment 接受；stopped=跑过已停）。running=已启动拒绝克隆
+  if (src.status === 'running') throw new Error('v46 状态=running（应先停再建孪生）');
   const cfg = JSON.parse(JSON.stringify(src.config));
   const buys = cfg.strategiesConfig?.buyStrategies || [];
   const sells = cfg.strategiesConfig?.sellStrategies || [];
