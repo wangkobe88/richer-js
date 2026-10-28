@@ -190,6 +190,9 @@ class FlapAnkrWsCollector {
         // 区分「BNB 盘」与「映射未回放出来」，统一延迟到可判定，稳态无影响）
         this._quoteBackfillSettled = true;
         this._pendingDuringBackfill = [];     // 回放窗口内暂存的 {logEntry, blockTimeSec}
+        // 盲期暂存白名单：本进程实时见过的 TokenCreated token 集合（判定见
+        // _stashExemptDuringBackfill）。量级=flap 日创建数百票，常驻数天仅百 KB 级，无淘汰
+        this._sessionCreatedTokens = new Set();
         const qrCfg = this.config.quoteRate || {};
         this._quoteRateTtlMs = qrCfg.ttlMs ?? 30000;
         this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
@@ -232,6 +235,7 @@ class FlapAnkrWsCollector {
             pendingDuringBackfill: 0,   // 回放窗口暂存队列当前长度
             pendingBackfillFlushed: 0,  // 回放完成后重放的事件数（累计）
             pendingBackfillDropped: 0,  // 暂存队列溢出丢弃数（累计；溢出=回放卡死超容量，error 告警）
+            sessionBypassDuringBackfill: 0, // 盲期白名单放行即时处理数（累计；0xdf7a 案观察点）
             unknownEvents: 0,
             decodeFailed: 0,
             duplicateTicks: 0,
@@ -514,28 +518,39 @@ class FlapAnkrWsCollector {
         const eventName = TOPIC0_MAP.get(logEntry.topics[0]);
         if (!eventName) return;
 
+        const data = logEntry.data || '0x';
+
         // 回放缺口保护：QuoteSet 回放未完成期间，trade/graduation 事件的计价无法判定
         //（映射缺失 ≠ BNB 盘）——暂存待回放成功后重放，绝不以 quote 价冒充 BNB 价落库。
         // TokenCreated/TokenQuoteSet 不暂存：create 不依赖计价（延迟反而阻碍发现），
         // QuoteSet 实时事件是映射正源（新 token 立即 apply，后续 tick 即不受影响）
+        //
+        // 盲期白名单（2026-10-28 0xdf7a 案）：QuoteSet 持久映射 362 万行加载 ~3 分钟，
+        // 盲期内新创建票的 trade/graduation 整段被推迟（叙事发起/买点全延迟）。白名单票
+        // （本进程 Created 或实时 QuoteSet 已 apply）计价当下即为链上真值，即时处理不暂存。
+        // 已知暴露面：QuoteSet tx 与依赖它的 trade tx 之间恰好断连卡缝丢前者的低概率形状
+        //（WSS 重连不重发）——与历史票回放缺口共享同一风险面，不加兜底
         if (!this._quoteBackfillSettled
             && (eventName === 'TokenBought' || eventName === 'TokenSold' || eventName === 'LaunchedToDEX')) {
-            this._pendingDuringBackfill.push({ logEntry, blockTimeSec });
-            if (this._pendingDuringBackfill.length > this._pendingBackfillMax) {
-                // 溢出丢最老（保序 + 保留贴近回放完成点的最新数据）；溢出即回放卡死超容量，
-                // fail-loud 人工介入（退避重试会继续，成功后仍重放余下暂存）
-                this._pendingDuringBackfill.splice(0, this._pendingDuringBackfill.length - this._pendingBackfillMax);
-                this.stats.pendingBackfillDropped++;
-                if (this.stats.pendingBackfillDropped === 1 || this.stats.pendingBackfillDropped % 1000 === 0) {
-                    this.logger.error('', 'FlapAnkrWsCollector',
-                        `回放缺口暂存队列溢出（上限 ${this._pendingBackfillMax}）：已丢弃 ${this.stats.pendingBackfillDropped} 条最老事件——QuoteSet 回放持续失败，请检查回放 RPC`);
+            if (this._stashExemptDuringBackfill(eventName, data)) {
+                this.stats.sessionBypassDuringBackfill++;
+            } else {
+                this._pendingDuringBackfill.push({ logEntry, blockTimeSec });
+                if (this._pendingDuringBackfill.length > this._pendingBackfillMax) {
+                    // 溢出丢最老（保序 + 保留贴近回放完成点的最新数据）；溢出即回放卡死超容量，
+                    // fail-loud 人工介入（退避重试会继续，成功后仍重放余下暂存）
+                    this._pendingDuringBackfill.splice(0, this._pendingDuringBackfill.length - this._pendingBackfillMax);
+                    this.stats.pendingBackfillDropped++;
+                    if (this.stats.pendingBackfillDropped === 1 || this.stats.pendingBackfillDropped % 1000 === 0) {
+                        this.logger.error('', 'FlapAnkrWsCollector',
+                            `回放缺口暂存队列溢出（上限 ${this._pendingBackfillMax}）：已丢弃 ${this.stats.pendingBackfillDropped} 条最老事件——QuoteSet 回放持续失败，请检查回放 RPC`);
+                    }
                 }
+                this.stats.pendingDuringBackfill = this._pendingDuringBackfill.length;
+                return;
             }
-            this.stats.pendingDuringBackfill = this._pendingDuringBackfill.length;
-            return;
         }
 
-        const data = logEntry.data || '0x';
         const blockNumber = parseInt(logEntry.blockNumber, 16);
         const blockTimeMs = blockTimeSec * 1000;
 
@@ -544,6 +559,7 @@ class FlapAnkrWsCollector {
                 const d = ethers.AbiCoder.defaultAbiCoder().decode(CREATE_DATA_TYPES, data);
                 this.stats.tokenCreated++;
                 const token = lowerAddr(d[3]);
+                this._sessionCreatedTokens.add(token); // 盲期白名单正源（见 _stashExemptDuringBackfill）
                 // TokenQuoteSet 的 logIndex 后于 TokenCreated（实测），create 时无法预知计价币：
                 // 一律入池落库（用户决策：非 BNB 币照常发现记录），仅 tick 层按计价币跳过
                 this._handleTokenCreate({
@@ -687,6 +703,24 @@ class FlapAnkrWsCollector {
     }
 
     // ═══════════════ 非 BNB 计价：quote→BNB 换算 + 启动回放（2026-09-27） ═══════════════
+
+    /**
+     * 盲期暂存白名单（2026-10-28 0xdf7a 案）：QuoteSet 回放完成前，两类 token 的计价
+     * 即为已知——① _nonBnbQuoteTokens 命中（实时 TokenQuoteSet 事件已 apply=正源，
+     * 链上当前真值）；② 本进程 Created（TokenCreated 实时已见；BNB 盘票从无 QuoteSet
+     * 事件，quote 盘票的 QuoteSet 事件按链上 log 序必先于依赖它的 trade 到达）。
+     * 其余（重启前创建且映射未加载完成的历史票）维持暂存。decode 失败按未命中（保守暂存）。
+     */
+    _stashExemptDuringBackfill(eventName, data) {
+        try {
+            const d = ethers.AbiCoder.defaultAbiCoder().decode(
+                eventName === 'LaunchedToDEX' ? LAUNCHED_DEX_DATA_TYPES : TRADE_DATA_TYPES, data);
+            const token = lowerAddr(eventName === 'LaunchedToDEX' ? d[0] : d[1]);
+            return this._nonBnbQuoteTokens.has(token) || this._sessionCreatedTokens.has(token);
+        } catch {
+            return false;
+        }
+    }
 
     /**
      * 应用一条 TokenQuoteSet（实时/回放共用）。按 (blockNumber, logIndex) 单调去重：
