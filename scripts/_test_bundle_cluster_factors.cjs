@@ -370,7 +370,7 @@ console.log('J. 源码口径断言（防前视/防误删防线）');
 {
   const src = read('src/services/FourMemeFactorAggregator.js');
   check('J1 读点/裁剪点无 Date.now（防前视红线；第三参 out=扫描明细容器，引擎路径不传零变化）', () => {
-    for (const name of ['_bundleClusterFactors(state, now, out) {', '_pruneBundleEvents(state, now) {']) {
+    for (const name of ['_bundleClusterFactors(state, now, circDen, out) {', '_pruneBundleEvents(state, now) {']) {
       const start = src.indexOf(name);
       assert.ok(start > 0, `${name} 未找到`);
       const end = src.indexOf('\n    }', start);
@@ -575,7 +575,7 @@ console.log('N. FLY 等额镜像对（0xbf00+0xd6ab395c 同 block 等额 0.3705�
   // N6 源码锁：best 选择段金额优先（防回退到 size 优先——FLY 漏检现场）
   {
     const src = read('src/services/FourMemeFactorAggregator.js');
-    const start = src.indexOf('_bundleClusterFactors(state, now, out) {');
+    const start = src.indexOf('_bundleClusterFactors(state, now, circDen, out) {');
     const end = src.indexOf('\n    }', start);
     const body = src.slice(start, end);
     check('N6 源码锁：簇选择 c.bnb > best.c.bnb 金额优先', () => {

@@ -2260,7 +2260,7 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 环里留同钱包双事件，去重是唯一序无关解。★防前视红线：禁 Date.now——now 由
      * buildFactorMap(state, asOf) 传入。空/空窗全 0（有证据零值非 null）。
      */
-    _bundleClusterFactors(state, now, out) {
+    _bundleClusterFactors(state, now, circDen, out) {
         const cutoff = now - this._fp.bundleWinMs;
         // 窗内首买事件 → 按钱包去重（保链序最早）
         const perWallet = new Map();
@@ -2343,7 +2343,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (v > 0) maxBlkHold += v;
             }
         }
-        const circPct = maxBlkHold > 0 && state._circTokens > 0 ? maxBlkHold / state._circTokens * 100 : 0;
+        const circPct = maxBlkHold > 0 && circDen > 0 ? maxBlkHold / circDen * 100 : 0;
         // bundleClusterHoldCircPct（2026-10-25 A/B 对比用户裁定替换流量口径门位）：全史 max
         // over 块(该块买家集合当前正净持仓合计) ÷ 累计流通 ×100。纯函数读取同上——原料
         // _blockBuyWalletsAll（全史不裁）× _walletNetTokens（当前净持仓），任一序收敛；
@@ -2373,8 +2373,8 @@ class FourMemeFactorAggregator extends EventEmitter {
                 _top3Sum = _s; _top3Ws = _ws;
             }
         }
-        const holdCircPct = maxAllBlkHold > 0 && state._circTokens > 0
-            ? maxAllBlkHold / state._circTokens * 100 : 0;
+        const holdCircPct = maxAllBlkHold > 0 && circDen > 0
+            ? maxAllBlkHold / circDen * 100 : 0;
         let top2UnionHold = maxAllBlkHold;
         if (_top2Ws) {
             for (const _w of _top2Ws) {
@@ -2396,10 +2396,10 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (_v > 0) top3UnionHold += _v;
             }
         }
-        const top2HoldPct = top2UnionHold > 0 && state._circTokens > 0
-            ? top2UnionHold / state._circTokens * 100 : 0;
-        const top3HoldPct = top3UnionHold > 0 && state._circTokens > 0
-            ? top3UnionHold / state._circTokens * 100 : 0;
+        const top2HoldPct = top2UnionHold > 0 && circDen > 0
+            ? top2UnionHold / circDen * 100 : 0;
+        const top3HoldPct = top3UnionHold > 0 && circDen > 0
+            ? top3UnionHold / circDen * 100 : 0;
         // 等额买簇三键（T74 2026-10-26 0x8c4a…7777 对倒案，纯观察不进条件串——阈值须
         // 票池分布裁定）：bundle 门按块/时间聚合，对「每块 2-3 钱包、跨 5 块 5 档金额」
         // 的分批形状结构性稀释（案发 fire 时 holdCircPct=32.4/top2=52.1/top3=69.7 全部
@@ -2424,8 +2424,8 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (_v > 0) _evenHold += _v;
             }
         }
-        const evenClusterHoldCircPct = _evenHold > 0 && state._circTokens > 0
-            ? _evenHold / state._circTokens * 100 : 0;
+        const evenClusterHoldCircPct = _evenHold > 0 && circDen > 0
+            ? _evenHold / circDen * 100 : 0;
         // 可选簇明细（扫描脚本对拍 B 用：簇钱包名单 → GMGN bundler 地址库 precision/recall）；
         // 引擎路径不传 out，零变化
         if (out) {
@@ -2973,8 +2973,22 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 滚动净买窗两键（T77 MUSK2028 案 W=10s；OR 臂早进场载体）
         const netBuyWin = this._netBuyWinFactors(state);
 
+        // ── T91a 流通分母口径修复（2026-10-28 孙权 0x3b1b…7777 top3=114% 案用户裁定
+        //    「无论如何都要解决大于 100 的问题」）：全部 ÷circ 键的分母统一取
+        //    max(_circTokens, Σ正净持仓)。病根：零买入纯卖出钱包（flap 税币接收方/
+        //    初始筹码分配——Sell 事件在、Buy 事件永无）把 _circTokens=Σ买−Σ卖 压到
+        //    低于真实在外筹码（孙权 40 纯卖钱包 Σ−226M≈22.6% 供给，fire 前拦截窗
+        //    top3 虚高 114 拦 163s）。恒等式：所有 ÷circ 键分子只计正净持仓
+        //    （top1/名单族/块簇并集/even 并集 ⊆ Σ正净持仓）→ 分母取 max 后恒 ≤100；
+        //    正常票（无纯卖钱包）Σnet(买入钱包)=circ ⇒ Σ正 ≤ circ ⇒ max 恒取
+        //    circ = 逐输入 bit 不变（four.meme 全量历史键值零扰动）。读取点单趟求和
+        //    序无关（_walletNetTokens 任意序收敛前提同 top1），写点零改动 ──
+        let _posNetSum = 0;
+        for (const _v of state._walletNetTokens.values()) if (_v > 0) _posNetSum += _v;
+        const _circDen = Math.max(state._circTokens, _posNetSum);
+
         // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
-        const bundle = this._bundleClusterFactors(state, now);
+        const bundle = this._bundleClusterFactors(state, now, _circDen);
 
         // 出生锚定捆绑簇（launch* 4 键，2026-10-17 Agentum 案方向 C；出窗后恒返回冻结快照）
         const launch = this._launchBundleFactors(state);
@@ -2986,7 +3000,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         // （净卖者）自然出局；单趟扫 max 序无关（_walletNetTokens 任意序收敛前提）
         let _top1Net = 0;
         for (const v of state._walletNetTokens.values()) if (v > _top1Net) _top1Net = v;
-        const top1HolderCircPct = state._circTokens > 0 ? _top1Net / state._circTokens * 100 : 0;
+        const top1HolderCircPct = _circDen > 0 ? _top1Net / _circDen * 100 : 0;
 
         // 最大跟单钱包持仓（2026-10-16 FLY 案用户正式方案）：名单钱包（协同簇：持续有
         // 跟单、同步买/卖）在当前票的**单钱包最大**净持仓 ÷ 流通 ×100。刻意取 max 而非
@@ -3001,7 +3015,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             for (const [addr, v] of state._walletNetTokens) {
                 if (v > _maxCopyNet && v > 0 && _copyWallets.has(addr.toLowerCase())) _maxCopyNet = v;
             }
-            maxCopyWalletHolderCircPct = state._circTokens > 0 ? _maxCopyNet / state._circTokens * 100 : 0;
+            maxCopyWalletHolderCircPct = _circDen > 0 ? _maxCopyNet / _circDen * 100 : 0;
         }
 
         // 极著名钱包单钱包最大净持仓（2026-10-18 币安人生案用户点名）：与上键同公式
@@ -3015,7 +3029,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             for (const [addr, v] of state._walletNetTokens) {
                 if (v > _famousNet && v > 0 && _famousCopyWallets.has(addr.toLowerCase())) _famousNet = v;
             }
-            famousCopyWalletCircPct = state._circTokens > 0 ? _famousNet / state._circTokens * 100 : 0;
+            famousCopyWalletCircPct = _circDen > 0 ? _famousNet / _circDen * 100 : 0;
         }
 
         // sybil 大簇合计净持仓占比（2026-10-20 乌龟案用户裁定）：簇内钱包
@@ -3035,8 +3049,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             for (const [addr, v] of state._walletNetTokens) {
                 if (v > 0 && _sybilClusterWallets.has(addr.toLowerCase())) { _clusterNet += v; _sybilClusterHolderN++; }
             }
-            sybilClusterHolderCircPct = state._circTokens > 0
-                ? Math.round(_clusterNet / state._circTokens * 1000) / 10
+            sybilClusterHolderCircPct = _circDen > 0
+                ? Math.round(_clusterNet / _circDen * 1000) / 10
                 : 0;
             for (const [addr, v] of state._buyerVolume) {
                 if (_sybilClusterWallets.has(addr.toLowerCase())) _sybilClusterBuyBnb += v;

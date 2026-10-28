@@ -289,7 +289,7 @@ console.log('H. 源码口径断言（写点/读点/裁剪/白名单防线）');
       '裁剪段不得触碰等额桶（全史原料）');
   });
   check('H4 读点在 _bundleClusterFactors（纯函数读取）+ 发射字面量 + 快照白名单含三键', () => {
-    const bStart = src.indexOf('_bundleClusterFactors(state, now, out) {');
+    const bStart = src.indexOf('_bundleClusterFactors(state, now, circDen, out) {');
     const bEnd = src.indexOf('_launchBundleFactors(state) {');
     assert.ok(src.slice(bStart, bEnd).includes('evenClusterHoldCircPct'));
     assert.ok(/evenClusterHoldCircPct: bundle\.evenClusterHoldCircPct/.test(src));

@@ -14,16 +14,14 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v46 快照；live v50 `ced5d5a9` 2026-10-28 14:55 UTC 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v47 快照；live v51 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
 AND marketCap > 4.7 AND marketCap < 27                   -- 市值窗 BNB 域（T84/v43 起 priceBnb×totalSupply 全域 BNB 断代；v34 曾 USD 3.5K-20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
-AND bundleClusterHoldCircPct < 35                        -- 同块协同簇存量持仓占比（v36 起存量口径；v19-v35 流量口径 bundleClusterSharePct，T1）
-AND top2BundleClusterHoldCircPct < 55                    -- 最大两块买家并集持仓（T67/v37；AIFLY 案第二道门，单块退化=top1）
-AND top3BundleClusterHoldCircPct < 75                    -- 最大三块买家并集持仓（T68/v38；邪恶卡皮案第三道门，不足三块退化=top2）
+AND top2BundleClusterHoldCircPct < 55                    -- 最大两块买家并集持仓（T67/v37；T91/v47 起集中度族唯一簇门——bundle 单块门 35 与 top3 门 75 随案退役留档）
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
@@ -34,6 +32,8 @@ AND sybilClusterHolderCircPct < 60                        -- sybil 大簇合计�
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
+
+**T91a 流通分母口径（v47 起代码侧生效）**：全部 ÷circ 键分母=`max(_circTokens, Σ正净持仓)`——flap 税币零买入纯卖出钱包（初始筹码/税币接收方，Sell 在 Buy 永无）曾把 Σ买−Σ卖 分母压到低于真实在外筹码 → 键值虚高超 100%（孙权 top3=114% 案）；恒等式保证 ≤100、正常票逐输入 bit 不变。
 
 第二层（条件串外，`gmgnCheckCondition`）：`(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100)`（T82/v42 起 <8K→T84 10.7 BNB 早期豁免臂——分母个位数段 ratio 是采样噪声；bundler 门 v31 起 65 → **T89/v45 放宽 100**——蝙蝠币 114.3 连拒 33 次等 mcap 砸回豁免臂）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73；**不被 mcap 豁免盖住**）；GMGN API 失败 fail-open 放行（T14）。买腿 `maxExecutions=2`（**T89/v45 二次入场**：卖出后同腿可再成交一次；卡牌 6 卡帽/单仓语义不变）。
 
@@ -51,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T91 集中度族瘦身 + 流通分母口径修复（buy-v2 v46→v47 + buy-early-narrative v5→v6 + FA 分母 max 修法；2026-10-28 孙权 0x3b1b…7777 top3=114% 案用户裁定「便宜门只保留 top1 top2 集中度条件吧。但无论如何一个，都要解决大于 100 的问题」；v51 起实跑）
+- **驱动案（孙权 0x3b1b28cf8e4ba5699670b5628691a3f9e5577777，flap 税币 taxToken:true，14:20:36 创建）163s 成交延迟归因**：叙事 14:20:48 完成（age=12s 单轮 high，`leadMs=162s`=叙事领先买点的量非耗时——初判「叙事轮次在等」系归因错误）；便宜门（净买/mcap 窗/routerPct/人气 AND/tradeCount）14:20:50 全过；top1 14:20:38 早过；**bundle<35 与 top3<75 拖到 14:23:17 才过（161s 最后收口门）**→ BUY 14:23:31 mcap 17.0（OBSERVE 帧序列：14:22:56 mcap=6.25 → 14:23:31 mcap=17.0 拉升段过门，买贵 ~63%）
+- **top3=114%>100 病根**：flap 税币零买入纯卖出钱包（初始筹码/税币接收方 40 个，Σ−226M≈22.6% 供给：Sell 事件在、Buy 事件永无）把 `_circTokens`=Σ买−Σ卖 压到低于真实在外筹码 → 所有 ÷circ 键（top1/copy/famous/sybil/bundle 三门/top2/top3/even）系统性虚高偏严——OBSERVE 帧 top3 序列 91.8→**114（14:21:51，signals 页所见帧）**→87.2→BUY 时 48.5
+- **T91a 分母修法（FA `FourMemeFactorAggregator`）**：全部 ÷circ 键分母统一 `max(_circTokens, Σ正净持仓)`——恒等式：分子只计正净持仓（top1/名单族/块簇并集/even 并集 ⊆ Σ正）→ 分母取 max 后**恒 ≤100**；正常票（无纯卖钱包）Σnet(买入钱包)=circ ⇒ Σ正 ≤ circ ⇒ max 恒取 circ=**逐输入 bit 不变**（four.meme 全量历史键值零扰动）；读取点单趟求和（`_bundleClusterFactors` 签名扩第三参 `circDen`，scan-bundle-clusters 直调点同步）；写点零改动。修正分母重放孙权：top3 age=12s 即 <75、top2 14:21:07、bundle 14:21:54——**163s gap 几乎全是口径虚高假拦截**
+- **T91b 条件瘦身**：两买腿删 `bundleClusterHoldCircPct`（35/45）与 `top3BundleClusterHoldCircPct`（75/85）两门，留 `top1HolderCircPct < 35` + `top2BundleClusterHoldCircPct < 55/65`（top3 恒 ≥ top2 ≥ top1 共线性高、边际拦截价值小；top1/top2+名单门四道仍在）。T67/T68 两门退役留档
+- **交付**：`bump-t91-concentration-slim.cjs`（删除段恰一次+删后零残留+KEEP 兄弟门锚定+T89/T90 形状锚）+ `create-v51.cjs`（克隆 v50 ced5d5a9 唯一变量=两买腿 ←库 v47/v6 copy-in）+ `_test_circ_denominator_cap.cjs`（孙权现场反证/正常票 bit 不变/负净抵扣/全清仓零值/混合恒等式扫描/乱序 parity/源码锁七组 19 断言；既有 bundle/even 测试源码锁同步新签名）；FA 改动点=`_buildFactorMap` 分母入口+`_bundleClusterFactors` 五处分母位+top1/copy/famous/sybil 四处
+- **观察点**：①孙权类税币票买点提前量（拦截窗消失）②删两门后对倒票漏拦面（top1/top2/名单门接棒，T74 even 观察键仍在）③÷circ 键 >100 是否绝迹（恒等式保证，OBSERVE 帧抽查）
 
 ### T90 人气门 OR→AND（buy-v2 v45→v46 + buy-early-narrative v4→v5 同批；2026-10-28 用户裁定「买入量/持有者必须改为与的关系，防止前期就很少的人刷量，或者多钱包极小量买入；强势臂同样至少需要一个与条件，这两个必须都满足基础要求」；v50 `ced5d5a9` 14:55 UTC 起实跑）
 - **两腿改动（阈值拍板）**：主腿 `(buyVolumeBnb >= 1.25 OR holders >= 10)` → `(buyVolumeBnb >= 1.25 AND holders >= 10)`（阈值原值直接 AND）；早期臂 `(buyVolumeBnb >= 0.25 OR holders >= 4)` → `(buyVolumeBnb >= 0.25 AND holders >= 5)`（人臂 +1）。其余门/sybil 60/bundler 100/maxExecutions=2 承 T89 不动

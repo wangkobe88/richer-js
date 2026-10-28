@@ -5,7 +5,7 @@
  *
  * 不是独立检测逻辑——驱动器：拉历史票 ticks → 喂真 FourMemeFactorAggregator
  * （processTick 链序直推，行映射逐字复刻 BacktestEngine._loadWssTicks）→ 采样点
- * buildFactorMap 读 bundle* 6 键 + _bundleClusterFactors(state, now, out) 取簇钱包
+ * buildFactorMap 读 bundle* 6 键 + _bundleClusterFactors(state, now, circDen, out) 取簇钱包
  * 明细（可选 out 参数，引擎路径零变化）→ 汇总分布/对拍/阈值建议。检测口径只有
  * FA 一份，零漂移。
  *
@@ -360,7 +360,11 @@ async function scanToken(cand, headAnchor, fires) {
       const f = fa.buildFactorMap(cand.token, s.ts);
       if (!f) throw new Error(`buildFactorMap 返回 null（${cand.token}@${s.ts}）——已 registerToken，不可达，数据形状异常`);
       const detail = {};
-      fa._bundleClusterFactors(fa._states.get(cand.token), s.ts, detail);
+      // T91a：分母同款口径（max(Σ买−Σ卖, Σ正净持仓)），与 buildFactorMap 内一致
+      const _st = fa._states.get(cand.token);
+      let _posNetSum = 0;
+      for (const _v of _st._walletNetTokens.values()) if (_v > 0) _posNetSum += _v;
+      fa._bundleClusterFactors(_st, s.ts, Math.max(_st._circTokens, _posNetSum), detail);
       const e = { win: ARGS.windows[wi] };
       for (const k of BUNDLE_KEYS) e[k] = f[k];
       e.blk = detail.blk; e.windowBuyBnb = Math.round(detail.windowBuyBnb * 1e6) / 1e6;
