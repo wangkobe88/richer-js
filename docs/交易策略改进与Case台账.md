@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v44 快照；live v48 `f9c2ec74` 2026-10-28 13:30 UTC 起实跑本屏——T88 键名断代+T84 BNB 市值域；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v45 快照；live v49 `596bfb92` 2026-10-28 14:20 UTC 起实跑本屏——T89 门放宽+二次入场；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -28,14 +28,14 @@ AND top1HolderCircPct < 35                                -- 单钱包最大持�
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
-AND (buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10) -- 人气门（v28 起 OR）
+AND (buyVolumeBnb >= 1.25 OR holders >= 10)               -- 人气门（v28 起 OR；T89/v45 恢复原键不去 sybil——ExSybil 键退役出条件串，FA 键保留）
 AND (tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40) -- 卖压门 OR 臂（T88/v48 键名断代：全史键 tradesNetBuyRatio 删→长窗尾 100 笔 LongWin、Win→ShortWin 尾 20 笔，环空=null fail-closed/尾窗全卖=-100；回放实证 M 档买点行为全档同帧=断代最小干预，阈值 40 承 T77/T70）
-AND sybilClusterHolderCircPct < 35                        -- sybil 大簇合计持仓（0 语义）
+AND sybilClusterHolderCircPct < 60                        -- sybil 大簇合计持仓（0 语义；T89/v45 放宽 35→60）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
 
-第二层（条件串外，`gmgnCheckCondition`）：`(marketCap < 8000 OR gmgnBundlerWalletRatio <= 65)`（T82/v42 起 <8K 早期豁免臂——分母个位数段 ratio 是采样噪声；bundler 门本身 v31 起 65）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73；**不被 mcap 豁免盖住**）；GMGN API 失败 fail-open 放行（T14）。
+第二层（条件串外，`gmgnCheckCondition`）：`(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100)`（T82/v42 起 <8K→T84 10.7 BNB 早期豁免臂——分母个位数段 ratio 是采样噪声；bundler 门 v31 起 65 → **T89/v45 放宽 100**——蝙蝠币 114.3 连拒 33 次等 mcap 砸回豁免臂）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73；**不被 mcap 豁免盖住**）；GMGN API 失败 fail-open 放行（T14）。买腿 `maxExecutions=2`（**T89/v45 二次入场**：卖出后同腿可再成交一次；卡牌 6 卡帽/单仓语义不变）。
 
 ## 二、现行卖腿机制要点
 
@@ -51,6 +51,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T89 门放宽三处 + 二次入场 maxExecutions 1→2（buy-v2 v44→v45 + buy-early-narrative v3→v4 同批；2026-10-28 用户裁定「叙事通过的票无人问津占大多数，流动性非常不好，条件明显偏严格，导致买入的票在高位」；v49 `596bfb92` 14:20 UTC 起实跑）
+- **四处改动（两腿同批）**：①人气门 ExSybil 键→原键 `(buyVolumeBnb >= 1.25 OR holders >= 10)`（用户澄清「就是 buyVolumeBnbExSybil/holdersExSybil 恢复回 buyVolumeBnb/holders」——纯键替换，OR 结构与阈值不动：主 1.25/10、早期 0.25/4；FA 两键常驻发射，ExSybil 键保留观察）②sybil 簇门 `sybilClusterHolderCircPct < 35 → < 60`（用户拍板 60；0 语义不变）③GMGN bundler 门 `<= 65 → <= 100`（用户拍板 100；10.7 豁免臂/issuer 分档门/C85 适用集保留）④`maxExecutions 1 → 2`（二次入场）
+- **二次入场机制链（引擎零代码改动，纯策略字段）**：成交计数闸（StrategyEngine evaluate，per-token per-strategy）2 次后才封；持仓中 `status==='bought'` 不进买腿分支=单仓语义「买了没卖不会再买」；全清卖删卡账本（`_tokenCards.delete`）→ 再买满 3 卡（**卡牌总数 6 帽跨轮共享不变**——非每轮新 3 卡，累加制 cardTrade before/after）；completedPairs 轮次>0 走 `repeatBuyCheckCondition`（两腿未配=跳过 preBuy 检查不拦截）；GMGN repeat 轮同条件串照评。案发=**BATCOIN `0xd1459d41ff9651101ace78770e38f0508e557777`**：v47 首轮止损离场后被震荡拉起，卖后 77min 条件多次可满足但 maxExecutions=1 拦死
+- **归因依据（v47 四票样本，tmp-buy-delay-attribution-v47）**：sybil 门 2/4 binder（Michistellar 独拦 36.4s/+4.5%）；蝙蝠币 0xc79a 滞后 267s 全在 GMGN bundler 层（114.3>65 ∧ mcap 13.15>10.7 豁免线，33 连拒等砸盘）；v48 全程零成交（起跑 2h trades=0）亦佐证触发面过窄
+- **交付**：`bump-t89-gate-loosen.cjs`（四处旧形状恰一次防呆+兄弟门锚定+trigger 不动+maxExecutions===1 锚点+expectedVersion 乐观并发）+ `create-v49.cjs`（克隆 v48 f9c2ec74 换腿 v45/v4 三字段 copy-in：condition/gmgn/maxExecutions；库-实验=变更段替换后逐字一致防线）；v48 优雅停（2s 退出零仓）→ v49 `596bfb92-b07a-452e-b437-988db6e2438d` 起 14:20 UTC（引擎装载「买入 ×2」确认 maxExecutions 生效）
+- **观察点**：①交易数量提升幅度（v48 零成交基线）与买点位置是否仍高位；②sybil 60/bundler 100 新拦截面——被拦票分布与误放对倒票（T72 反演「<35 是排除器非排序器」边界外移后的净效应）；③二次入场轮胜率（BATCOIN 形状震荡下车票 vs 死票二次接刀）；④人气门回原键=对倒票自拉自买重新计数进分子（ExSybil 当年的动机），与 bundle 三门（不动）的交叉防线是否足够
 
 ### T88 净买门全史臂断代换长窗 M=100 笔（tradesNetBuyRatio → tradesNetBuyRatioLongWin；三键改名 ShortWin/LongWin/ShortWinBnb；2026-10-28 用户两段裁定「全量买卖比我觉得没必要，还是为了检测一个趋势」+「先定 100 吧」）
 - **裁定链**：用户提议全史键换窗口键+两窗改名（ShortWin/LongWin）并授权我定 M → 首版 M=300（数据最优档）→ 用户质疑「两个窗大小差异过大，不太合理」并要求拿**叙事分析通过的代币**回测 → 补第三套回放证实买点行为全档同帧（用户直觉成立）→ 用户拍板 **M=100**（20:100=5 倍配比）
