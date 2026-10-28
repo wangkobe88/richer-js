@@ -185,10 +185,12 @@ console.log('E. 摊销裁剪（>64 且头部越过 2×窗 才 splice）');
   }
   const before = fa.buildFactorMap('0xtoken', NOW);
   check('E1 触发前长度 75', () => assert.strictEqual(state._activityEvents.length, 75));
-  // 写点触发 prune：再喂一笔（此时头部 70 笔老事件全部 < NOW-20s 出局）
+  // 写点触发 prune：再喂一笔（时间界本想裁掉 70 笔老事件，但 T87 起环尾 floor 笔永不裁）
   fa.processTick(mkTick({ timestamp: NOW - 1000, trader_address: 'wLast', trade_type: 'buy', bnb_amount: 0.1 }), {});
   const after = fa.buildFactorMap('0xtoken', NOW);
-  check('E2 裁剪后长度收缩到窗内 6 笔', () => assert.strictEqual(state._activityEvents.length, 6));
+  // 76 笔、maxCut = 76−floor(32) = 44：裁 44 笔老事件后剩 32（floor=max(netBuyWinTrades,32) 保底）
+  check('E2 裁剪受 maxCut 上限：76 → floor 32 笔（T87 环尾保底，不再收缩到时间窗 6 笔）', () =>
+    assert.strictEqual(state._activityEvents.length, 32));
   check('E3 窗内值不受裁剪影响（actTrades 5+1）', () => assert.strictEqual(after.actTrades, 6));
   check('E4 actBuyBnb 窗内累计不变', () => assert.ok(Math.abs(after.actBuyBnb - 1.6) < 1e-9));
   check('E5 未越 2×窗不裁（64 阈内/余量带保护）', () => {
@@ -269,8 +271,9 @@ console.log('H. 源码口径断言（防前视/防误删防线）');
       assert.ok(!src.slice(start, end).includes('Date.now'), `${name} 体内禁 Date.now`);
     }
   });
-  check('H2 裁剪余量 2×max（activityWinMs 与 netBuyWinMs 两窗取大——T76 起净买窗共用事件环）', () => {
-    assert.ok(/_pruneActivityEvents[\s\S]{0,400}2 \* Math\.max\(this\._fp\.activityWinMs, this\._fp\.netBuyWinMs\)/.test(src));
+  check('H2 裁剪余量 2×activityWinMs + 环尾 floor 保底（T87 起净买窗=尾 N 笔共用事件环，maxCut 上限防裁穿）', () => {
+    assert.ok(/_pruneActivityEvents[\s\S]{0,500}2 \* this\._fp\.activityWinMs/.test(src));
+    assert.ok(/_pruneActivityEvents[\s\S]{0,500}const maxCut = evts\.length - floor;/.test(src));
   });
   check('H3 写点在 _applyWalletAggregation 尾部（每 tick 恰一次）', () => {
     const mStart = src.indexOf('_applyWalletAggregation(state, tick, vars) {');

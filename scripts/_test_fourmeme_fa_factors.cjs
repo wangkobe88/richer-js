@@ -147,6 +147,13 @@ function runZeroDiff(baselineMod, currentMod) {
         'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendSlope', 'holderTrendStrengthScore',
     ]);
     for (const k of HOLDER_TREND_KEYS) surviving.delete(k);
+    // 2026-10-28 T84（722cd8e）市值量纲全局 BNB 切换：marketCap/fdv/peakMarketCapSinceLastBuy
+    // 从 USD 域（priceBnb×totalSupply×bnbUsd）换 BNB 域（priceBnb×totalSupply，对齐 DB 行/回测口径），
+    // 对基线（7cbbdee USD 域）恒差 bnbUsd 倍=有意断代；行为契约由 _test_mcap_bnb_domain.cjs
+    // 专属锁定（T84 commit 时漏登记，2026-10-28 T87 批次补）
+    surviving.delete('marketCap');
+    surviving.delete('fdv');
+    surviving.delete('peakMarketCapSinceLastBuy');
 
     const { ticks, tokens } = makeSyntheticSequence();
     const base = new BaselineFA({});
@@ -524,6 +531,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-10-27 T77 滚动净买窗两键（MUSK2028 0x8f53…7777 迟买案 W=10s：窗口净比
         // null=窗内零买缺近期证据 fail-closed + 窗买量观察键；详见 _test_netbuy_window_factors.cjs）
         'tradesNetBuyRatioWin', 'tradesNetBuyWinBnb',
+        // 2026-10-28 T84 市值量纲全局 BNB 切换新增入场锚（首买市值快照，市值地板卖臂
+        // mcapFloor 冻结对照基准；commit 722cd8e 漏登记本白名单，T87 批次补）
+        'entryMarketCap',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

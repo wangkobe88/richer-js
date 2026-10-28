@@ -146,9 +146,13 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
     activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
                                  //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
-    netBuyWinMs: 10000,          // tradesNetBuyRatioWin 滚动净买窗（T77 MUSK2028 案用户裁定
-                                 //   W=10s：砸盘后窗口净比先于全史回 40，OR 臂早进场）；复用
-                                 //   _activityEvents 事件环，裁剪 cutoff 与 activityWinMs 取 max
+    netBuyWinTrades: 20,        // tradesNetBuyRatioWin 净买窗笔数（T87 2026-10-28 0xdf7a 案
+                                 //   用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内无行情」：
+                                 //   T77 时间窗的 null fail-closed 对慢热票缺证据；换最近 N 笔
+                                 //   尾窗。N=20=两案票决策帧最强（MUSK2028 87.1/0xdf7a 82.0）+
+                                 //   全量池 197 活跃票 peak≤0 最低 11%；N=10 含集中卖压形状
+                                 //   （0xdf7a fire 帧 -531）排除）；复用 _activityEvents 事件环，
+                                 //   裁剪须条数保底 2×N（见 _pruneActivityEvents）
     // ── 同 block 首买簇捆绑检测（2026-10-16 BITCAT 案）──
     bundleWinMs: 10000,          // bundle* 6 键窗口（对齐 act*；扫描 Phase 2 对比 10s/30s/60s
                                  //   后再定默认值）；原料 _bundleEvents/_blockBuyAgg/_circTokens
@@ -2012,18 +2016,21 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * act* 原料裁剪（2026-10-15 交易活跃度滑窗）：摊销——长度>64 且头部已滑出
-     * 2×max(activityWinMs, netBuyWinMs) 才批量 splice（netBuyWinMs 更宽时不得误裁
-     * 窗内证据，T77）。2× 余量：defer 乱序回推行晚到数秒仍落余量带不误删；
-     * 到达序≠严格 ts 序（乱序行可停在中间）→ 从头连续判 ts，遇首个未出局
-     * 即停（中部老行保守滞留，读点 ts 过滤天然不可见，无损）。
+     * act* 原料裁剪（2026-10-15 交易活跃度滑窗）：摊销——长度越过 floor+32
+     * （floor=max(netBuyWinTrades, 32)）且头部已滑出 2×activityWinMs 才批量
+     * splice，且**环尾 floor 笔永不裁**（maxCut 上限；T87 笔数窗原料无时间界：
+     * 稀疏票尾 N 笔可跨数分钟，纯时间界会把慢热票证据裁穿——每 tick 裁头部后
+     * 环恒剩 ~2×activityWinMs 内的行）；act* 读点按 ts 过滤，保底滞留的旧行
+     * 天然不可见无损。32 余量：defer 乱序回推行晚到数秒仍落余量带不误删。
      */
     _pruneActivityEvents(state, now) {
         const evts = state._activityEvents;
-        if (evts.length <= 64) return;
-        const cutoff = now - 2 * Math.max(this._fp.activityWinMs, this._fp.netBuyWinMs);
+        const floor = Math.max(this._fp.netBuyWinTrades, 32);
+        if (evts.length <= floor + 32) return;
+        const cutoff = now - 2 * this._fp.activityWinMs;
         let i = 0;
-        while (i < evts.length && evts[i].ts < cutoff) i++;
+        const maxCut = evts.length - floor;
+        while (i < maxCut && evts[i].ts < cutoff) i++;
         if (i > 0) evts.splice(0, i);
     }
 
@@ -2143,29 +2150,31 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * tradesNetBuyRatioWin 滚动净买窗（T77 2026-10-27 MUSK2028 0x8f53…7777 案，
-     * 用户裁定 W=10s 先跑观察）：全史 tradesNetBuyRatio 被前期砸盘卖量永久拖低——
-     * 砸盘后真恢复的票窗口净比先回 40 而全史慢爬（案票窗口过线比全史早 4 分钟，
-     * 全史过线时已是局部顶 -39.8%）；买腿 OR 臂用窗口值早进场。
-     *   公式与全史键同款（Σ买−Σ卖）÷Σ买×100 保留 2 位；窗内零买 = null
-     *   （缺近期证据 fail-closed，`>= 40` 恒 false）——与全史键「无买全卖 -100」
-     *   有证据零值语义刻意不同：全史无买是盘面事实，窗口无买是无近期证据。
-     *   复用 _activityEvents 事件环（求和交换律 → defer 乱序回推天然无害）；
-     *   wallet 段喂食 → GMGN 路由行回推 1-3s 竞速缝隙与 famous/act* 同款（已知形状）。
-     * ★防前视红线：禁 Date.now——now 由 buildFactorMap(state, asOf) 传入。
+     * tradesNetBuyRatioWin 净买窗（T77 2026-10-27 MUSK2028 案立 10s 时间窗；T87
+     * 2026-10-28 0xdf7a 案用户裁定换轨「最近 N 笔」尾窗——慢热票 10s 内常无行情，
+     * 时间窗 null fail-closed 恰好掐掉目标形状）：全史 tradesNetBuyRatio 被前期
+     * 砸盘卖量永久拖低——砸盘后真恢复的票窗口净比先回 40 而全史慢爬（案票窗口过线
+     * 比全史早 4 分钟，全史过线时已是局部顶 -39.8%）；买腿 OR 臂用窗口值早进场。
+     *   公式与全史键同款（Σ买−Σ卖）÷Σ买×100 保留 2 位，取到达序环尾 N 笔
+     *   （netBuyWinTrades 默认 20，factorParams 可覆盖）；环空 = null（缺证据
+     *   fail-closed，`>= 40` 恒 false）——尾窗全卖 wb=0 = -100 有证据零值（对齐
+     *   全史键；两键 null 语义在 T87 后统一，旧「10s 零买=null」随时间窗退役）。
+     *   复用 _activityEvents 事件环（求和交换律 → defer 乱序回推无害；尾 N 笔按
+     *   到达序=GMGN 路由行回推 1-3s 落环尾，竞速缝隙与 famous/act* 同款已知形状）。
+     *   与时间无关——读点不消费 now（T87 换轨后零周期判定，天然免 Date.now）。
      */
-    _netBuyWinFactors(state, now) {
-        const cutoff = now - this._fp.netBuyWinMs;
+    _netBuyWinFactors(state) {
+        const evts = state._activityEvents;
+        if (!evts.length) return { tradesNetBuyRatioWin: null, tradesNetBuyWinBnb: 0 };
         let wb = 0, sellBnb = 0;
-        for (const e of state._activityEvents) {
-            if (e.ts < cutoff) continue;
-            if (e.buy) wb += e.bnb; else sellBnb += e.bnb;
+        for (let j = Math.max(0, evts.length - this._fp.netBuyWinTrades); j < evts.length; j++) {
+            if (evts[j].buy) wb += evts[j].bnb; else sellBnb += evts[j].bnb;
         }
         return {
             tradesNetBuyWinBnb: +wb.toFixed(4),
             tradesNetBuyRatioWin: wb > 0
                 ? parseFloat(((wb - sellBnb) / wb * 100).toFixed(2))
-                : null,
+                : -100,
         };
     }
 
@@ -2936,7 +2945,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         const activity = this._activityFactors(state, now);
 
         // 滚动净买窗两键（T77 MUSK2028 案 W=10s；OR 臂早进场载体）
-        const netBuyWin = this._netBuyWinFactors(state, now);
+        const netBuyWin = this._netBuyWinFactors(state);
 
         // 同 block 首买簇捆绑检测（bundle* 6 键，2026-10-16 BITCAT 案；Phase 1 纯观察键）
         const bundle = this._bundleClusterFactors(state, now);
@@ -3101,9 +3110,10 @@ class FourMemeFactorAggregator extends EventEmitter {
                 : (state.totalSellBnb > 0 ? -100 : 0),
             tradesRouterPct: state.totalBuyBnb > 0
                 ? parseFloat((state.totalRouterBuyBnb / state.totalBuyBnb * 100).toFixed(2)) : 0,
-            // ── T77 滚动净买窗两键（2026-10-27 MUSK2028 0x8f53…7777 案：+467s 迟买
-            //    -39.8%——全史 netBuy 被前期砸盘拖低、恢复完成才过线=买在局部顶）。
-            //    RatioWin=10s 窗净比（null=窗内零买缺近期证据 fail-closed）；Bnb=窗买量
+            // ── T77→T87 净买窗两键（T77 2026-10-27 MUSK2028 案立 10s 时间窗；T87
+            //    2026-10-28 0xdf7a 案换轨最近 N 笔尾窗=netBuyWinTrades 20——慢热票
+            //    10s 无行情时间窗 null fail-closed 掐掉目标形状）。RatioWin=尾 N 笔
+            //    净比（环空 null fail-closed，全卖 -100 有证据零值）；Bnb=尾窗买量
             //    观察键（进场证据量审计，刻意不进条件串）──
             tradesNetBuyRatioWin: netBuyWin.tradesNetBuyRatioWin,
             tradesNetBuyWinBnb: netBuyWin.tradesNetBuyWinBnb,
