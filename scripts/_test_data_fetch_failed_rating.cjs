@@ -197,8 +197,10 @@ console.log('\n══ 一、B1 getUserByScreenName 空 stub 源头判定（行�
   // A3 C238b（2026-10-26 股城案用户裁定「走 W 类，也就是不提供 CA 这一臂，我认为
   // 也应该过」）：地址核验失败（账号质量未达标∧简介/推文无 CA）不再 terminal 拦死，
   // 回落标准路径走 W 评估；name/data_fetch_failed stage 照旧 terminal 消费。
-  assert(/if \(analysisResult\.preCheckData\s*\n\s*&& analysisResult\.preCheckData\.result\?\.validationStage === 'address'\s*\n\s*&& !options\.skipAddressValidation\) \{[\s\S]*?shouldUseAccountCommunity = false;/.test(analyzer),
-    'A3：C238b address 回落分流在位（三键合取 → shouldUseAccountCommunity=false）');
+  // 四键=C251（2026-10-27 BIBIAIWork 案）加 !issuerSelfLaunch（同名自发宣告不回落）；
+  // C253（2026-10-28 BNCI 案）回落置 false 前插入地址重验块——懒惰匹配跨块命中不变
+  assert(/if \(analysisResult\.preCheckData\s*\n\s*&& analysisResult\.preCheckData\.result\?\.validationStage === 'address'\s*\n\s*&& !options\.skipAddressValidation\s*\n\s*&& !issuerSelfLaunch\) \{[\s\S]*?shouldUseAccountCommunity = false;/.test(analyzer),
+    'A3：C238b address 回落分流在位（四键合取 → shouldUseAccountCommunity=false）');
   assert(/shouldUseAccountCommunity = false;\s*\n\s*\} else if \(analysisResult\.preCheckData\) \{/.test(analyzer),
     'A3b：其余 stage 照旧 terminal（else if preCheckData 消费分支紧随回落之后）');
   // 回落接管点=主路径入口（C117 同构锚）：置 false 后 !shouldUseAccountCommunity 分支走 Jev 标准 18 题

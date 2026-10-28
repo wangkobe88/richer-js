@@ -22,6 +22,7 @@ import { runVisionGate, shouldAskVisionGate } from './services/vision-gate-servi
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
+import { getAddressRecheckConfig, shouldAttemptAddressRecheck, recheckAddressEvidence } from './services/address-recheck-service.mjs';
 import { detectSuperIP } from './prompts/super-ip/super-ip-registry.mjs';
 import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
 import { collectSearchEvidence, hasSearchCorpus, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
@@ -820,6 +821,51 @@ export class NarrativeAnalyzer {
                 token: tokenData.symbol || tokenData.address,
                 screenName: analysisResult.preCheckData.result?.details?.screen_name || null,
               });
+              // ★C253（2026-10-28 BNCI 0x35c4…7777 案）：地址重验等待——回落**之前**
+              // 窗口内周期性纯规则重拉账号语料找 CA（零 LLM），命中即失效缓存递归
+              // 重析一次走 prestage 核验链（bio 后补 CA 竞态：案发票 3 轮补轮 40s 窗
+              // 全拉到 description=null，CA 后补在窗外，C250 把 dev 自发宣告误伤成
+              // 借壳抢注）。护栏：新鲜门（age≤windowMs）+ 深度 1 限死 + 配置门
+              //（shouldAttemptAddressRecheck 三道全查）；窗尽未命中落到下方原回落
+              // 语义 bit 一致。等待安全性见 address-recheck-service.mjs 头注
+              //（C84 轮无超时包装/直调 30s race 后台续跑天然兼容）
+              if (twitterInfo?.type === 'account'
+                  && twitterInfo?.screen_name
+                  && shouldAttemptAddressRecheck(tokenData, options, Date.now())) {
+                const recheckCfg = getAddressRecheckConfig();
+                logger.info('NarrativeAnalyzer', '地址重验等待启动（C253，纯规则循环零 LLM）', {
+                  token: tokenData.symbol || tokenData.address,
+                  screenName: twitterInfo.screen_name,
+                  intervalMs: recheckCfg.intervalMs,
+                  windowMs: recheckCfg.windowMs,
+                });
+                const createdSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at || null;
+                const recheck = await recheckAddressEvidence({
+                  tokenAddress: tokenData.address,
+                  tokenSymbol: tokenData.symbol || '',
+                  tokenName: tokenData.name || tokenData.raw_api_data?.name || '',
+                  screenName: twitterInfo.screen_name,
+                  untilSec: Number.isFinite(createdSec) ? createdSec - 24 * 3600 : null,
+                });
+                if (recheck.hit) {
+                  logger.info('NarrativeAnalyzer', '地址重验命中 → 失效语料缓存递归重析（走 prestage 核验链）', {
+                    token: tokenData.symbol || tokenData.address,
+                    screenName: twitterInfo.screen_name,
+                    attempts: recheck.attempts,
+                    followersCount: recheck.followersCount,
+                  });
+                  return await NarrativeAnalyzer.analyze(normalizedAddress, {
+                    ...options,
+                    ignoreCache: true,
+                    invalidateAccountCorpus: true,
+                    _addressRecheckDepth: (options._addressRecheckDepth || 0) + 1,
+                  });
+                }
+                logger.info('NarrativeAnalyzer', `地址重验窗尽未命中（${recheck.attempts} 次），照旧回落标准路径`, {
+                  token: tokenData.symbol || tokenData.address,
+                  screenName: twitterInfo.screen_name,
+                });
+              }
               shouldUseAccountCommunity = false;
             } else if (analysisResult.preCheckData) {
               // 规则验证失败，按预检查处理

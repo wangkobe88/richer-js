@@ -43,6 +43,11 @@
     "enabled": true,
     "minSufficientProb": 0.6
   },
+  "addressRecheck": {
+    "enabled": true,
+    "intervalMs": 15000,
+    "windowMs": 300000
+  },
   "prestageWebsiteCheck": {
     "enabled": true,
     "fetchTimeoutMs": 10000

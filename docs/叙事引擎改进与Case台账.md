@@ -54,6 +54,18 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C253 地址核验失败回落票的「bio 后补 CA」竞态——回落前纯规则地址重验等待（BNCI 案，2026-10-28 用户裁定「按照你的思路来吧」=回落前纯规则重验替代拉大补轮 maxAnalyses）★
+
+- **案发**：BNCI `0x35c4680cf97ccc6d6d85dd0e5ed9d4faa8907777`（flap 税票，10-28 02:14:44 UTC 创建，meta 自带 `x.com/MessariCrypto`）。账号形状=**2011 年老号改名**（name 字段=BNCI 与 symbol 同名、72 粉、statuses 4）——dev 自发宣告；但**创建时刻 bio 无 CA**（分析三轮全拉到 description=null），CA 后补发生在 02:15:23 之后。
+- **死法（三层竞态叠加）**：①prestage 地址核验（账号质量未达标∧简介/推文无 CA）stage='address' fail → C238b 回落标准路径走 W；②标准路径 Jev 全套跑完 → **C250 借壳语料陈旧门两腿全真**（腿①无推文级语料/腿②唯一时间源=账号注册时间 2011 年>30d）→ 拦 low 终局——「老号改名+后补 CA」的 dev 自发宣告被误伤成「借壳大 V 抢注」（区分信号 bio CA 恰在时间窗外才出现）；③C84 accountOnly 补轮 maxAnalyses 默认 3（含首析 ≈40s 窗）全部落在 CA 不可见窗内耗尽，且 **PrecheckFailRetryService address 域（300s 窗）接不到回落票**（回落分支不落 pre_check_result，stage='address' 失败信号被丢弃）。
+- **翻面验证（182 定向重析，事后 bio CA 已在场）**：prestage addressVerified=true（bio CA 命中+nameMatch）→ tokenType=web3_native_ip_early → 粉丝带 260 粉 → **mid 翻面**；当时 72 粉同样 mid（粉丝带 0-299=mid，P1.10/C70 三道门已删只定档不拦截）——「搂回」严格等价于「第一轮晚于 CA 后补时刻的补轮」（18.2s/轮节奏：02:16→6 轮、02:20→19 轮）。
+- **修复（回落前地址重验等待，`address-recheck-service.mjs`）**：C238b 回落置 false **之前**进入重验循环——窗口内周期性纯规则重拉账号语料（getAccountWithFullTweets invalidateCache:true，**零 LLM 零 Jev**），bio/推文出现 CA（performRulesValidation addressVerified===true，单一真相源不另写匹配）→ 失效语料缓存递归重析一次（走 prestage 核验链）；窗尽未命中照旧回落标准路径（C250 等门接管，既有语义 bit 一致）。替代用户初议的「maxAnalyses 3→19」（实验级全局参数=每张 accountOnly 票都多烧最多 16 次全套 Jev，重验只花 apidance 拉取）。
+- **等待安全性（调用方拓扑）**：C84 触发轮引擎侧 fire-and-forget 无 Promise.race 超时包装（与 legacy 直调 30s race 刻意不同）→ 挂 ≤300s 不影响状态机（inFlight=「这轮还没完」真值）；legacy 直调 30s race 超时后台续跑落缓存既有语义天然兼容；worker taskTimeout 180s 超时重试轮吃缓存行幂等。
+- **三道护栏**：新鲜门（创建锚距 now≤windowMs，缺锚 fail-closed 不等待——历史/回测票不挂 300s）/ 深度 1 限死（递归重析内再回落不得二次等待）/ 配置门（顶层 addressRecheck 段，narrativeRetry 同语义删段=开，显式 enabled:false 关；intervalMs 15000 [3000,600000]、windowMs 300000 [30000,3600000] 对齐 PrecheckFailRetryService address 域窗，越界 throw fail-loud）。
+- **单测**：narrative_address_recheck 29 断言（config 真值表/资格真值表含窗边界 300s<=放行/循环四态含窗尽 attempts=20 不发超窗拉取/**事故现场反证**=真 performRulesValidation 两快照对拍 02:15 bio 无 CA→addressVerified false、后补 CA 260 粉质量未达标→true/接线源码断言=重验块先于回落置 false+递归深度参数）；顺手修 data_fetch_failed_rating A3 存量断言（C251 加第四键 `!issuerSelfLaunch` 时漏更新，正则三键→四键）。
+- **未修（记录）**：①worker 路径（PrecheckFailRetryService 扫行）对回落票仍零痕迹接不到——本修复盖引擎 C84/直调/手动重析路径（回落时同进程内等待），worker 独立消费面另案；②superip_standard_path 存量 2 断言失败（B2 superIPInfo 注入/buildJevState 恰 1 处，stash 验证与本改动无关，责任案另查）；③本案票行已被 182 重析覆盖为 mid（缓存副作用正向：实验下轮 fire 若吃缓存直接 mid，如实说明）。
+- **观察点**：①重验窗内每 15s 一次 apidance 拉取（≤20 次/票）——IP 限流面；②CA 后补 >300s 的形状（慢 dev）仍漏——窗口是否放宽待票池分布；③递归重析的 tokenType 判定吃当时语料（4 推无 #BNCI），若判 abm 臂则走 evaluateAbmAnswers 档位未必 mid——翻面主径已锁但非 100%。
+
 ### C252 蓝筹去重撞 name 冒充+同家族不同主体误判（Giggle TOM 案，2026-10-28 用户裁定「去重的话，应该用 TOM 吧，而且也要参考叙事本身」→ C=A+B）★
 
 - **案发**：Giggle TOM `0x58e40949656a84189d47f52a0c0b53f895de7777`（four.meme，10-28 00:47 UTC 创建，**symbol=TOM / name 字段=「Giggle Mascot」**）。宣告推=@heidithewitch（216 粉）「GiggleAcademy 官方有俩吉祥物兔子，一个叫 MAX 一个叫 TOM，MAX 跑到最高 1000 万市值，TOM 这次估计也要跑个几百万，龙头角度」；父推=Giggle Academy **官方号（13.68 万粉）** 4-30 的 TOM 儿童书推文——TOM=官方二号吉祥物实证。28 分钟 **6.5x**（8.95e-9→5.9e-8，峰值附近仍走），live v43（7dd26b85）00:47:29 round rating=1 拦死踏空。
