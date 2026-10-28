@@ -1645,19 +1645,17 @@
       "symbol": "TOM",
       "addr": "0x58e40949656a84189d47f52a0c0b53f895de7777",
       "expect": {
-        "rating": [
-          "low",
-          "mid",
-          "high"
-        ],
+        "rating": "high",
         "reasonExcludes": [
           "蓝筹去重"
         ],
-        "tokenCategory": "event:A"
+        "tokenCategory": "event:W"
       },
       "note": "Giggle TOM：name 塞蓝筹名冒充撞 name_exact+same_event 把家族当同一事件，去重改 token 侧 symbol-only（J1.150 补主体同一性锚），6.5x 踏空",
       "addedAt": "2026-10-28",
-      "observe": "A 臂解除后不撞名、条件题不问；第二层 baseless 0.62 候拦面（喊单式载体推）——仍拦 low 时 reason 应为其它阻断；翻正走 update-expect 留痕"
+      "observe": "A 臂解除后不撞名、条件题不问；第二层 baseless 0.62 候拦面（喊单式载体推）——仍拦 low 时 reason 应为其它阻断；翻正走 update-expect 留痕",
+      "expectBecause": "C252 A 臂解除蓝筹去重不再拦，182 重析翻正 high 76.09（event:W；baseless 候拦面未命中）",
+      "expectSince": "2026-10-28"
     }
   ]
 }
