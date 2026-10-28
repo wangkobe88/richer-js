@@ -52,6 +52,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T86 gang 创建即买半自动否证 + EOA 全自动终局判定——.ai 门不可绕（2026-10-28 用户指令「必须搞定全自动交易，否则这个事情只能停」；结论=EOA 直签路线死路，三选一待裁定）
+- **创建即买实跑否证（策略侧定案）**：半自动通道（买自动/卖 App 确认）下 E2 创建即买不成立——三票实测同批对比 **0s 买入 +11.77% / +5s +2.72% / +22s -2.24%**，利润窗口 <5s 而 App 确认分钟级=结构性不成立；持仓已全部清仓（T2/T3/GFIRST 卖出闭环，HONK 粉尘跳过）。曲线票卖出**恒 PENDING_CONFIRMATION**（3/3 稳定，与金额/pad/时间窗无关；abnormalTxnHandling 无全放行档）
+- **requireConfirmation 判定机制（external-sign.md 补齐）**：baw 后端风控对 calldata 知识库判定——经 GangRouter（白名单合作合约）的买=自动 BROADCASTED；pad.sell 直调=medium_risk 须确认。**GangRouter 刻意无曲线 sell 入口**（头注明示 sellFor/withdrawFor only for listed aggregators）=结构性差异绕不开
+- **EOA 直签路线证据链（八条全闭合）**：①claim 落点=BAW 地址**不可选**（官方 FAQ 原文「claim tx from that wallet」——五步全在 App 内）；②soulbound **Non-transferable**+One ID per user（nobody88.ai 已绑 BAW）；③registry.register 需 Binance 后端 signer `0x457C…5882` EIP-712 签名，无公开 API；④BAW sign-message 可签任意 EIP-712 但签名者=BAW MPC key≠后端 signer 不被接受；⑤adminRegister 被官方自定性 **backdoor**（agent-id-monitor README critical 事故级）；⑥**链上全历史扫描**：registry 部署块 127950748（~2026-10-08）至 130255537 共 230 万块 **127,160 条 mint，抽样 59 笔全部 tx.from==to 零代铸形状**（工具 182 /tmp/tmp-agentid-mint-full.cjs v2：网络重试+checkpoint 续跑；v1 死于瞬时网络错静默退出教训）；⑦BAW MPC 密钥不可导出+官方 CLI 零私钥路径；⑧**Agent ID 体系横跨 Four.meme（protocol=2004）与 gang 同 registry `0x60B9…022F` 同 1B/10M 帽**=Binance 级身份层非 gang 单平台问题；issuer 豁免只救「发行者卖自己的票」不解决跟单买
+- **EOA trader 设计输入已齐（.ai 打通即可开工）**：V3 买=GangRouter.v3BuyBNB 单 tx（wrap→approve→buyFor→残余 unwrap 全在一个 tx，无需预 approve）；V3 卖=直调 pad sell（approve pad，WNB 到手）；V2=WBNB approve V2 pad+buy/sell；pad Registry previewBuy/previewSell 可作 L1；NonceManager 复用+余额差法实收
+- **观察点（官方放开即翻案）**：①`agentGateEnabled` 开关——`setAgentGate(bool,address) onlyOwner`（owner=48h Timelock→Safe），gate 关闭时 EOA 直调 pad 自由（router 反 revert RouterNeedsGate），可挂 setAgentGate 事件监控观察哨；②GangRouter 若未来加曲线 sell 入口且风控按「入口白名单」放行→半自动变全自动（poolSell 的 requireConfirmation 判定未实测——模拟 revert 拿不到风控字段，须真金 0.002 BNB 买毕业票实测，留用户裁定）；③毕业迁 PCS 后（rankType 30）任何 EOA 可交易但利润窗口已过
+- **三选一待裁定**：a. 等官方渠道/开关（观察哨可选）；b. 二号 Binance 账号+BAW 仍半自动（不解决问题）；c. 项目停
+
 ### T85 早期叙事臂 bundle 三门放宽 +10（2026-10-28 用户直接指令「bundleClusterHoldCircPct < 35 AND top2BundleClusterHoldCircPct < 55 AND top3BundleClusterHoldCircPct < 75 改为 … < 45 … < 65 … < 85」；库 buy-early-narrative v1→v2 + create-v47，待用户确认后换车）
 - **背景（T84 余留项收口）**：早期臂回放 +0.0328/119 票是**乐观上界——bundle 三门未计**（tmp-early-narrative-arm-replay 未算三门；T84 观察点①已记「实跑更严」）。三门阈值 35/55/75 原为主腿 4.7-27 全带池标定（T1/T67/T68 三案：BITCAT/AIFLY/邪恶卡皮，票池含成熟期分散盘）；早期臂 6.0-6.7 BNB 带票龄 <600s、买家基数小，集中度天然更高——原阈值对该带偏紧，放宽 +10=向回放口径（三门未计）收回偏移
 - **裁定与形状**：仅早期臂（库 `buy-early-narrative` 独立条目）三门各 +10：`bundleClusterHoldCircPct < 45 / top2 < 65 / top3 < 85`；**主腿 buy-v2 v43 维持 35/55/75 不动**=两带同键分歧的天然 A/B 对照。其余门/rating 2|3/600s 窗/6.0-6.7 带/承接 0.25/4/净买 40/top1 35/copy 20/famous 15/sybil 35/flap router/崩盘双门全部不动
