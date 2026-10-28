@@ -24,6 +24,7 @@
 - **gradAmt 逐票各异**：WNB 盘 29/29 恒 15（与 V2 同口径）、quote 盘 18/18 各异（如 bibi.ai=1788077.25 quote）——V3 Created 是 gradAmt 唯一正源；quote 盘换算走 `_getQuoteConversion`（miss→null+quoteRateUnavailable）
 - unknownParam（w3）：w3≠0 ⟺ quote 盘，形状是 20 字节地址但 eth_call 无代码（非合约），存档不消费
 - **V3 Graduated 形状未实证**（V3 上线 24h 无毕业票）=观察点：fail-loud decodeFailed 兜底，首个 V3 毕业票须人工对拍，勿预设形状
+- **V3 实时命中实证（2026-10-28 1h dry-run，03:36-04:36 UTC）**：双 pad 窗内 Created V2×12 + V3×2（0xf050…acfe/0x993c…3d7f）=14 与 collector tokenCreated 精确对拍，零 decodeFailed、零 unknownTopic0、零断连；FA 518 ticks 全接受。本窗 V2 节奏 12/h 反超 V3 2/h（单小时样本，「V2 收缩」表述按窗浮动）
 
 ## 毕业进度口径（对拍定案）
 
