@@ -29,7 +29,7 @@ AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱�
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10) -- 人气门（v28 起 OR）
-AND (tradesNetBuyRatio >= 40 OR tradesNetBuyRatioWin >= 40) -- 卖压门 OR 臂（T77/v41：全史被前期砸盘卖量永久拖低，10s 窗净比先回 40=早进场；窗口键 null=窗内零买 fail-closed；全史载体 T70/v39 50→40）
+AND (tradesNetBuyRatio >= 40 OR tradesNetBuyRatioWin >= 40) -- 卖压门 OR 臂（T77/v41：全史被前期砸盘卖量永久拖低，窗口净比先回 40=早进场；窗口键 T87 起换轨最近 20 笔尾窗（netBuyWinTrades，环空=null fail-closed/尾窗全卖=-100）；全史载体 T70/v39 50→40）
 AND sybilClusterHolderCircPct < 35                        -- sybil 大簇合计持仓（0 语义）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
@@ -51,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T87 flap collector 盲期暂存白名单 + 净买窗换轨 N 笔尾窗（2026-10-28 0xdf7a5f8356ef771128e8bde49527409981c47777 案用户三问①③；commit ebe880e + 201f225）
+- **案发**：0xdf7a（flap BNB 盘）09:12:14 Created、09:14:37 才首次进 FA——QuoteSet 持久映射 **362 万行惰性加载 ~2m53s**（触发点=启动后首个 logs 订阅确认帧，已是尽早点；耗时在加载本身），盲期内**全部 trade/graduation 暂存（含 BNB 盘）**，0xdf7a 家族三票恰创建于盲窗内 → +47% 涨幅盲区、叙事发起/买点整段推迟；用户三问①「叙事分析为何这么晚」②「中途为何不能买」（已答：fire 时已涨停帽/市值窗出带+涨后回撤门，非机制拒绝）③「10 秒窗口换交易数窗口吧，取一定数量的交易数量，否则慢热 10s 内无腥味」
+- **修复①盲期白名单（ebe880e）**：本进程 Created 的 token（`_sessionCreatedTokens`）或实时 QuoteSet 已 apply 的 token（`_nonBnbQuoteTokens` 命中）计价当下即为链上真值（QuoteSet 事件与 trade 同订阅流、按链上 log 序必先于依赖它的 trade 到达）→ **即时处理不暂存**；历史票（重启前创建、映射未加载完）维持原暂存语义；decode 失败保守暂存。已知暴露面=QuoteSet tx 与 trade tx 间断连卡缝低概率形状，不加兜底（用户确认）。量级=flap 日创建数百票常驻数天仅百 KB 级。单测 `_test_flap_session_created_backfill_bypass` 34 断言（T9=0xdf7a 五连 tick 现场反证全程零暂存）+回归 watcher_quote_conversion 85/tick_buffer_watermark 73/embedded_collector_architecture 42
+- **修复③净买窗换轨（201f225，T77 承继）**：FA `netBuyWinMs`(10000) → `netBuyWinTrades`(20)，`tradesNetBuyRatioWin`=**尾 N 笔**（到达序环尾）(Σ买−Σ卖)÷Σ买×100。**null 语义随换轨统一**：环空=null fail-closed；尾窗全卖=−100 有证据零值（T77「10s 零买=null」退役——慢热票 10s 内常无行情，时间窗 null 恰好掐掉目标形状：0xdf7a fire 帧 win10=−531.67 集中卖压 / win20=**82.05**）；`tradesNetBuyWinBnb`=尾窗买量观察键照旧。OR 臂条件串零改动（`tradesNetBuyRatioWin >= 40` 键名不变=23 策略零拒启）
+- **N=20 裁定数据**（tmp-nwin-scan 318 fire 票 + tmp-nwin-pool 全量池 stride40 抽样 197 活跃票，均 182 跑）：fire 样本三值拆解——全史臂扛 273、10s 窗臂扛 **0**、win10=null 基数 0（被净比门拦的票无 signal 行不可见=选择偏差实证，fire 样本只能量回归不能量收益）；全量池——拦截面（现行放 N 版拦）全 N=0 零回归风险，新增面 N=20 peak p50 24.3%/peak≤0 仅 11% 最优，**add 帧全晚于 base 帧**=N 窗真实行为是砸盘后残余证据非提前量；两案票决策帧 N=20 最强（MUSK2028 87.1/0xdf7a 82.0）；**N=10 排除**（0xdf7a 决策帧 −531=尾窗恰含集中卖压段，笔数太少被单笔大卖主导）
+- **实现细节**：读点 `_netBuyWinFactors(state)` 去 now 参数=零周期判定（asOf 推进读数不变）；裁剪 `_pruneActivityEvents` **环尾 floor=max(netBuyWinTrades,32) 笔永不裁**（`maxCut=evts.length−floor` 上限）——纯时间界会把稀疏票 N 窗证据裁穿（每 tick 裁头部后环恒剩 ~2×activityWinMs 行）；act\* 读点按 ts 过滤对滞留旧行天然不可见无损；复用 `_activityEvents` 事件环（求和交换律=defer 乱序回推无害）。单测 `_test_netbuy_window_factors` 重写 33 断言 + activity_window 43/fa_factors 35；**fa_factors 存量失败顺手收口**（stash 验证 main 同败）：T84（722cd8e）marketCap/fdv/peakMarketCapSinceLastBuy BNB 域断代漏登记豁免+entryMarketCap 白名单 48→49，契约由 _test_mcap_bnb_domain 锁定
+- **观察点**：①N=20 放行票盯 `tradesNetBuyWinBnb`（尾窗买量过小=证据薄的形状是否成亏票主力）；②对倒放量形状（尾窗净比先回 40 的短暂正净流）是否需收紧——T77 同名观察点换轨后重开；③flap 盲区修复实跑验证=`sessionBypassDuringBackfill` 计数增长且新票 Created→首 tick 秒级
 
 ### T86b gang 全自动第二轮穷尽分析终局——毕业票 PCS/打新子空间市场否证，项目停止（2026-10-28 用户指令「你再分析一遍，尽最大努力，如果不行，就先停止项目了」→ 结论=全部子空间不成立，用户批准停止）
 - **源码级复核（第一轮八条链攻击未破）**：gangfun/gang-launchpad 全源码逐行——`CurveLogic.sol` L169/L281 buy/sell 全查 `_requireAgent(c, trader)` **无豁免臂**（「issuer 豁免」是 Four.meme protocol=2004 特性 gang 没有）；`buyFor/sellFor` 走 `_forTrader` 只许 listed router+`trader==tx.origin`；`FairLogic` create 查当前 gate/mint 查快照 gate/withdraw 无门但份额=pad 内部记账不可转；链上实测 `agentGateEnabled()`（selector 0x4753600b）V3/V2 pad 均=true；V2/Soft/U/S pad 停止新创建（CLI help 原文）=存量市场无流量
