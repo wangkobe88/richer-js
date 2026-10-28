@@ -833,18 +833,21 @@ class GangAnkrWsCollector {
         const rows = [];
         let afterId = 0;
         for (;;) {
+            // 锚定无序形状（红线 11 同款教训，2026-10-28 首跑实证）：`.order('id')`
+            // + kind/platform/block_time 组合过滤让 planner 弃索引顺序扫 → statement
+            // timeout。去 order 拿无序页，afterId 取页内 max；gang quote 在 Created
+            // 终态固定（无 flap QuoteSet 单调去重需求），乱序应用幂等（set 同值）。
             const { data: page, error } = await supabase.from('wss_events')
                 .select('id, payload')
                 .eq('kind', 'token_create')
                 .eq('platform', 'gang')
                 .gte('block_time', sinceIso)
                 .gt('id', afterId)
-                .order('id', { ascending: true })
                 .limit(1000);
             if (error) throw new Error(error.message);
             if (!page || !page.length) break;
             rows.push(...page);
-            afterId = page[page.length - 1].id;
+            afterId = Math.max(...page.map(r => r.id));
             if (page.length < 1000) break;
         }
         let applied = 0;

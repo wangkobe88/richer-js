@@ -394,6 +394,30 @@ async function main() {
         const applied2 = await c2._loadTokenMapFromDb();
         assert.strictEqual(applied2, 0, '残行跳过不计 applied');
         assert.strictEqual(c2._tokenQuotes.size, 0);
+        // 锚定无序形状（红线 11 教训，2026-10-28 首跑 statement timeout 修复）：
+        // 满页 id 乱序（max=1000 在页中段非末位）→ 次页请求 gt:id:1000（若取
+        // page[last].id=999 会拉重漏行）；乱序应用幂等全在册；order() 不再被调用
+        const asked = [];
+        const fullPage = [];
+        for (let i = 1; i <= 1000; i++) fullPage.push({ id: i, payload: { token: '0x' + '5d'.repeat(19) + (i % 16).toString(16).padStart(1, '0'), quote: WBNB, quoteIsBnb: true } });
+        fullPage[499].id = 1000; fullPage[999].id = 500; // 打乱：max 在中段、末位 999→500
+        const unorderedPages = [
+            { data: fullPage, error: null },
+            { data: [], error: null },
+        ];
+        let uCall = 0;
+        const fq3 = {
+            select: () => fq3, eq: () => fq3, gte: () => fq3,
+            gt: (col, v) => { asked.push(`gt:${col}:${v}`); return fq3; },
+            order: (...a) => { asked.push('order:' + a.join(',')); return fq3; },
+            async limit() { return unorderedPages[uCall++]; },
+        };
+        const c3 = makeCollector(makeStubs());
+        c3._supabase = { from() { return fq3; } };
+        const applied3 = await c3._loadTokenMapFromDb();
+        assert.strictEqual(applied3, 1000, '乱序满页 1000 行全应用零丢行');
+        assert.ok(asked.includes('gt:id:1000'), `次页锚=页内 max 1000 非末位 500（实得 ${asked.join(' | ')}）`);
+        assert.ok(!asked.some(a => a.startsWith('order:')), '查询无 order（锚定无序形状，planner 弃索引防回归）');
     }
     console.log('✓ 10. DB quote map 重建');
 
