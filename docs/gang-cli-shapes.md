@@ -74,6 +74,7 @@
 - `gang v3 info --token`：`{ curveFeePct:1, platformTaxPct:0.5, graduationAt:"15", raised, toGraduation, progressPct, priceQuote, priceFrom:"curve", buyTaxPct:0, sellTaxPct:0 }`
 - `gang v3 status --token`：`{ wallet, balance, graduated, dividendPct }`
 - `gang tx --hash`：`{ status: "success", block, events: [] }`
+- `baw wallet address --json`（182 实测 2026-10-28）：`{ success:true, data:{ addresses:[ {binanceChainId:"56", chainName:"BSC", address:"0xFC84…4aBd"}, {binanceChainId:"1", chainName:"Ethereum", address:…}, …Ethereum/Polygon/Arbitrum/Robinhood/Base/Solana（Solana 行无 binanceChainId 且地址非 EVM 形状）] } }`——**多链列表非单地址**（`data.address` 直出形状不存在，T83 起跑前实测修正 GangBawTrader.setWallet 解析：取 BSC 行=`binanceChainId==='56'` ∨ chainName /bsc/i，找不到 throw fail-fast 不兜底取首行）
 - `baw wallet tx-history --binanceChainId 56 --json`：`data.transactions[] = { txType:"contract_call", txHash, status:"confirmed", txHashList[0].networkFee{feeValue}, instructions{send[{amount,addressInfo,tokenInfo}], receive[…]} }`——PENDING 确认轮询判源（instructions 精确到 token/金额=对账直接可用）
 - quote 盘票（V2）买：`error: "not enough quote token …"` + `quote/need/have`（须持 quote ERC-20，BAW 无=买不了）
 

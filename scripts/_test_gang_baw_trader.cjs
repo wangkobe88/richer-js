@@ -112,6 +112,33 @@ async function main() {
         ok('地址不匹配 throw fail-fast（本机 baw 会话属别的钱包）', /不匹配/.test(msg || ''), `实得 ${msg}`);
     }
     {
+        // 182 实测黄金形状（2026-10-28）：data.addresses[] 多链列表，BSC 行
+        // binanceChainId='56'——Step 0 档案漏记，实测形状补录（docs/gang-cli-shapes.md）
+        const t = makeTrader([{
+            success: true,
+            data: { addresses: [
+                { binanceChainId: '56', chainName: 'BSC', address: ADDR.toUpperCase() },
+                { binanceChainId: '1', chainName: 'Ethereum', address: '0x1111111111111111111111111111111111111111' },
+                { chainName: 'Solana', address: 'sol9Wm' },
+            ] },
+        }]);
+        const w = await setWalletOk(t);
+        ok('多链列表形状（182 实测黄金形状）：取 BSC 行（binanceChainId=56）大小写归一',
+            w && w.address === ADDR);
+    }
+    {
+        const t = makeTrader([{
+            success: true,
+            data: { addresses: [
+                { binanceChainId: '1', chainName: 'Ethereum', address: ADDR },
+            ] },
+        }]);
+        let msg = null;
+        try { await t.setWallet(undefined); } catch (e) { msg = e.message; }
+        ok('多链列表无 BSC 行 throw fail-fast（不兜底取首行——网络形状变了大声暴露）',
+            /无 BSC 地址行/.test(msg || ''), `实得 ${msg}`);
+    }
+    {
         const t = makeTrader([]);
         ok('_num 千分位逗号 strip："1,890,146.27"→1890146.27',
             t._num('1,890,146.27') === 1890146.27);

@@ -91,16 +91,21 @@ class GangBawTrader extends ITrader {
 
     /** 钱包=BAW 链上地址（引擎 BAW 第三形态注入 traderConfig.address）。私钥参数
      *  刻意忽略（BAW 无私钥可设——签名在 App 侧）；跑 baw wallet address 对拍配置
-     *  地址，不匹配 throw fail-fast（配置错误绝不带病运行）。 */
+     *  地址，不匹配 throw fail-fast（配置错误绝不带病运行）。
+     *  CLI 输出形状（182 实测黄金形状）：`data.addresses[]` 多链列表——BSC 行
+     *  binanceChainId='56'；兼容单地址直出形状。 */
     async setWallet(_ignoredPrivateKey) {
         const expect = String(this.config.address || '').toLowerCase();
         if (!ADDR_RE.test(expect)) {
             throw new Error('GangBawTrader: 缺 BAW 地址（traderConfig.address，引擎 BAW 第三形态注入）');
         }
         const out = await this._runCli(this._bin('bawBin', 'baw'), ['wallet', 'address', '--json'], 'BAW 地址');
-        const actual = String(out.address || (out.data && out.data.address) || '').toLowerCase();
+        const direct = out.address || (out.data && out.data.address);
+        const list = (out.data && out.data.addresses) || out.addresses || [];
+        const bscRow = list.find(a => String(a.binanceChainId) === '56' || /bsc/i.test(String(a.chainName || '')));
+        const actual = String(direct || (bscRow && bscRow.address) || '').toLowerCase();
         if (!ADDR_RE.test(actual)) {
-            throw new Error(`BAW 地址命令输出异常: ${JSON.stringify(out).slice(0, 200)}`);
+            throw new Error(`BAW 地址命令输出异常（无 BSC 地址行）: ${JSON.stringify(out).slice(0, 200)}`);
         }
         if (actual !== expect) {
             throw new Error(`BAW 地址不匹配: CLI 会话 ${actual} ≠ 实验配置 ${expect}（本机 baw 会话属别的钱包，先 baw auth signin 配对）`);
