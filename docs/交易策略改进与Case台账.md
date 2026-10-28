@@ -43,7 +43,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
-- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/**T79 地板 5500 全类目泛化（`marketCap>0 AND <5500 AND realHoldDuration>10`）已上线 v43**
+- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/**T79 地板 5500 全类目泛化（`marketCap>0 AND <5500 AND realHoldDuration>10`）已上线 v43** / **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 备好待启动）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
 
 ---
@@ -310,6 +310,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - vanity 地址尾号团伙 sniper-like→retail 反向盲区（先快抢后接盘的反向画像）；TPA 双盲区
 
 ### 丁、卖腿 / 止损 / 毕业卖
+
+### T80 回撤锁盈减仓臂·中档 -15（2026-10-28 用户指令；v44 `5be4c248-1fe3-423f-a26e-9383ae76e451` 备好待启动）
+- **指令**：「增加 `peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -15 AND marketCap >= 6000 AND marketCap < 20000` 卖臂，冷却时间5分钟」——市值区间与拱形中档 -35 全清腿完全相同，回撤容忍收紧到 -15 且带 5min 冷却
+- **形状**：cards=**1**（逐卡减仓）/ priority=**10**（空位，先于拱形族 11 评估）/ cooldownSec=**300** / maxExecutions 刻意不设（冷却即节奏上限，P9 同款）/ bypass=false 走 3.5s+5tick 双门；peakProfitPct=fire 价起算 running max（拱形臂同源）；dd null（未武装/无峰）→ 恒 false fail-closed；marketCap=fire 时刻实时市值（刻意非 peakMarketCapSinceLastBuy）
+- **cards=1 是推断非指令原文**：用户未说明卖量；带「冷却」的现役腿仅 P7/P9 两条且均为逐卡减仓节奏臂，而全清臂（cards='all'）全部 cooldownSec=null——全清成功后持仓即零冷却冗余，且与「卖出失败每轮重试直到清仓」惯例冲突 → 取 P9 同款逐卡减仓。**若意图为全清，改本腿 cards 即可**（v44 零数据行零风险）
+- **与拱形中档 -35 的梯队语义**：同区间两臂并存——-15 先评（10<11）卖 1 卡锁盈保 V 反余仓；持续满足每 5min 逐张减仓；深跌穿 -35 由全清臂兜底认赔。-35 腿从「中档唯一回撤出口」变「减仓后深跌层」（7cat 案 V 反保护初衷余留：-35 前的震荡只丢 1 卡）
+- **落地**：v44 克隆 v43（T79 换代同款流程）——17→18 卖腿（新腿插 P9 后/拱形三档前），buy-v2 v41 引用/perCardBNB 0.002/钱包均不动；status=stopped 待用户指令起跑（live 换代须先确认 v43 持仓清零）。validateLegs 单腿通过；18 腿整包在库校验器下 4 条**存量**腿报 cards 形状警告（`"1"` 字符串，v43 同形状在跑=引擎侧兼容的既有宽松差，非本次引入、未顺手改）
+- **观察点**：①触发后 V 反回升票的余仓收益（减仓保余仓是否换回）②与 P9（同 5min 冷却、profitPercent>50 域）互不抢——peak>10 武装且回落 +2% 时 profitPercent 大概率 <50，两臂条件域近不重叠 ③dd<=-15 持续满足的连环减仓节奏（4 卡票最坏 5min×3 卖光）是否需要 maxExecutions 帽
 
 ### T79 市值地板卖臂 5500 全类目泛化——反事实四方案对拍（2026-10-27 用户裁定；v43 `7dd26b85` 备好待启动）
 - **用户假设**：「买入的票，做的假设是强势票。如果假设不成立，就需要立即止损，当前的止损点还是有点低了，一旦亏损就会比较大。但可能导致好票提前卖」→ 地板全清臂（明确走标准 debounce 双门，不 bypass）+ 追问「冻结 10 秒持仓时间会不会防止好票误伤」
