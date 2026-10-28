@@ -144,6 +144,17 @@ async function main() {
             t._num('1,890,146.27') === 1890146.27);
         ok('_num 纯数字串兼容', t._num('5000000') === 5000000);
     }
+    {
+        // getNativeBalance 契约=BaseTrader.getBNBBalance（BNB 域字符串）——2026-10-28
+        // 首跑事故反证：返 wei bigint 会让 cashBalance×1e18（portfolio_snapshots
+        // numeric 溢出+买入现金门形同虚设），锁死 formatEther 域
+        const t = makeTrader([]);
+        stubProvider(t);
+        t.provider.getBalance = async () => 742911873799331429n;
+        const bal = await t.getNativeBalance();
+        ok('getNativeBalance 返 BNB 域字符串（wei→formatEther，不返 bigint）',
+            typeof bal === 'string' && bal === '0.742911873799331429', `实得 ${bal}`);
+    }
 
     // ═══ B. V2 买分步循环 + 实收余额差 ═══
     console.log('\n━━━ B. V2 买分步循环（wrap→approve→buy→execute）━━━');

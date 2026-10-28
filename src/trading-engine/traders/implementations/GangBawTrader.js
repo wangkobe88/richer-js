@@ -114,9 +114,13 @@ class GangBawTrader extends ITrader {
         this.log(`BAW 钱包就绪: ${expect}`);
     }
 
+    /** 原生余额。契约=BaseTrader.getBNBBalance：BNB 域字符串（formatEther）——
+     *  引擎侧消费点（_reconcileLiveCash/现金门/对账日志）全按 BNB 域 Decimal 消费，
+     *  返 wei bigint 会把 cashBalance 撑大 1e18 倍（portfolio_snapshots numeric
+     *  溢出 + 买入现金门形同虚设，2026-10-28 首跑实证）。 */
     async getNativeBalance() {
         if (!this.wallet) throw new Error('Wallet not set. Please call setWallet() first.');
-        return this.provider.getBalance(this.wallet.address);
+        return ethers.formatEther(await this.provider.getBalance(this.wallet.address));
     }
 
     /** 买（单飞行串行）：全流程 buyToken(token, amountInWei(BNB), {expectedTokenOut}) */
