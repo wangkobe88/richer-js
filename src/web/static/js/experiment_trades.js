@@ -612,6 +612,14 @@ class ExperimentTrades {
           }
         }
 
+        // 全清腿残量归零（同 token-returns 页 2026-10-28 普通人 0x934b…7777 案：
+        // live 税币链上卖量可能小于账面买入量，FIFO 尾巴不是真持仓）
+        if ((Number(trade.metadata?.sellPercentage) >= 1
+          || Number(trade.metadata?.cardTrade?.after) === 0) && buyQueue.length > 0) {
+          buyQueue.forEach(buy => { costOfSold += buy.cost; });
+          buyQueue.length = 0;
+        }
+
         totalBNBReceived += outputAmount;
         totalRealizedPnL += (outputAmount - costOfSold);
       }

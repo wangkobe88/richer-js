@@ -477,6 +477,18 @@ class ExperimentTokenReturns {
           }
         }
 
+        // 全清腿残量归零（2026-10-28 普通人 0x934b…7777 案：flap 税币买侧余额差法
+        // 实收 717,544，25 分钟后链上余额被税/反射抽剩 699,608——live 卖出行
+        // input_amount=链上实际卖量 < 买入量，FIFO 尾巴 17,936 被误判「持仓中」
+        // 并误渲染「卖出全部」按钮）。全清判据（virtual/live/毕业/手工卖统一写）：
+        // metadata.sellPercentage>=1 或 cardTrade.after===0——引擎已清仓，剩余买入
+        // 数量归零、成本并入本对（税损已实现，不再计入剩余持仓估值）
+        if ((Number(trade.metadata?.sellPercentage) >= 1
+          || Number(trade.metadata?.cardTrade?.after) === 0) && buyQueue.length > 0) {
+          buyQueue.forEach(buy => { pairCost += buy.cost; });
+          buyQueue.length = 0;
+        }
+
         // 创建交易对
         if (pairAmount > 0) {
           const pairPnL = outputAmount - pairCost;
