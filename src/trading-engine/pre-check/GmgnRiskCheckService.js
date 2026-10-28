@@ -38,7 +38,7 @@ const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 // 但没有吸引力」）：gmgnVisitorsPerBuyer / gmgnVisitorsPerBuyBnb 两比值键由
 // computeGmgnAttentionFactors 用 GMGN visitingCount ÷ fire 因子表 buyWallets /
 // buyVolumeBnb 现算（引擎第六参透传）——观察键先行不进条件串，阈值待票池分布）；
-// 2026-10-28 T82 mcap 早期豁免臂：marketCap（非 GMGN 键，FA fire 因子表 USD 市值
+// 2026-10-28 T82 mcap 早期豁免臂：marketCap（非 GMGN 键，FA fire 因子表市值——T84 起 BNB 域
 // 由引擎/回测经 buyContext 同刻同源透传）——GMGN wallet_tags_stat 分母个位数的
 // 超早期盘 bundler ratio 是采样噪声（0xa44e…7777 案同盘 3min 内 58.8→166.7 剧变），
 // 市值 <8K 时 bundler 门豁免放行；null=市值证据缺失不豁免（豁免门保守方向，

@@ -3,7 +3,8 @@
  * 买窗，零信号零留痕，「叙事过但没买」的票不可见）。
  *
  * 触发臂（任一）：叙事评级==2|3（与买条件同口径；null=未完成/1=low/9=失败超时归一
- * 均不触发）或 市值 > marketCapThreshold（默认 12000 USD，严格大于）。节奏=事件
+ * 均不触发）或 市值 > marketCapThreshold（默认 16 BNB 严格大于；T84 2026-10-28
+ * 量纲切换随 marketCap 因子换 BNB 域，原默认 12000 USD≈16.1 BNB）。节奏=事件
  * 首记+间隔补采：首次满足即记，之后距上一行 ≥ intervalMs 且仍满足再记，每票最多
  * maxPerToken 行（实验级全局不变量：重启经 DB 重建续接，先例
  * _initTokenNotificationState）。
@@ -17,7 +18,7 @@ const { TradeSignal } = require('../entities/TradeSignal');
 const { buildFactorValuesForTimeSeries } = require('./FactorBuilder');
 
 // 默认值单一真相源（default.json 刻意不加段=缺段即关；表单 placeholder 仅展示）
-const DEFAULTS = { maxPerToken: 3, intervalMs: 60000, marketCapThreshold: 12000 };
+const DEFAULTS = { maxPerToken: 3, intervalMs: 60000, marketCapThreshold: 16 };
 const RANGES = {
   maxPerToken: [1, 10],
   intervalMs: [5000, 3600000],
@@ -32,7 +33,7 @@ class ObservationSignalService {
    * @param {Object} p.db - supabase client（dbManager.getClient()）
    * @param {number} [p.maxPerToken=3]
    * @param {number} [p.intervalMs=60000]
-   * @param {number} [p.marketCapThreshold=12000]
+   * @param {number} [p.marketCapThreshold=16]（BNB 域）
    */
   constructor({ experimentId, logger, db, maxPerToken, intervalMs, marketCapThreshold }) {
     this._experimentId = experimentId;

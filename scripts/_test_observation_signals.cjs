@@ -23,7 +23,7 @@ function check(name, actual, expected) {
   else { fail++; console.log(`  ✗ ${name}\n    期望 ${e}\n    实际 ${a}`); }
 }
 const fakeLogger = { info() {}, warn() {}, error() {} };
-const CFG = { maxPerToken: 3, intervalMs: 60000, marketCapThreshold: 12000 };
+const CFG = { maxPerToken: 3, intervalMs: 60000, marketCapThreshold: 16 };
 const tok = (t = 'tokA') => ({ token: t, symbol: t.toUpperCase(), chain: 'bsc', status: 'monitoring' });
 const tick = () => new Promise(r => setImmediate(r));
 
@@ -81,13 +81,13 @@ console.log('A. evaluateCore 真值表');
   check('A1b rating=3 记 narrative', core({ narrativeRating: 3, marketCap: 0 }, S0).trigger, 'narrative');
   // A2 rating∈{null,1,9,undefined} 且市值不达标 → 不记
   for (const r of [null, 1, 9, undefined]) {
-    check(`A2 rating=${r} 不记`, core({ narrativeRating: r, marketCap: 12000 }, S0),
+    check(`A2 rating=${r} 不记`, core({ narrativeRating: r, marketCap: 16 }, S0),
       { shouldRecord: false, reason: 'conditions' });
   }
   // A3 市值臂：rating=null、mcap 刚过阈 → 记
-  check('A3 市值臂记', core({ narrativeRating: null, marketCap: 12000.01 }, S0).trigger, 'marketcap');
+  check('A3 市值臂记', core({ narrativeRating: null, marketCap: 16.01 }, S0).trigger, 'marketcap');
   // A4 边界：mcap 恰等阈值 → 不记（严格大于）
-  check('A4 mcap=12000 恰等不记', core({ narrativeRating: null, marketCap: 12000 }, S0),
+  check('A4 mcap=16 恰等不记', core({ narrativeRating: null, marketCap: 16 }, S0),
     { shouldRecord: false, reason: 'conditions' });
   // A5 两臂同真 → both
   check('A5 both', core({ narrativeRating: 3, marketCap: 20000 }, S0),
@@ -175,8 +175,8 @@ console.log('B. 服务状态机');
     }
     // B8 缺省回落
     const svc8 = mkSvc(mkDb([]));
-    check('B8 缺省 3/60000/12000', [svc8._cfg.maxPerToken, svc8._cfg.intervalMs, svc8._cfg.marketCapThreshold],
-      [3, 60000, 12000]);
+    check('B8 缺省 3/60000/16', [svc8._cfg.maxPerToken, svc8._cfg.intervalMs, svc8._cfg.marketCapThreshold],
+      [3, 60000, 16]);
 
     // ══ C. init DB 重建 ══
     console.log('C. init 重建');

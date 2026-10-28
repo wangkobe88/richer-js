@@ -56,6 +56,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
     // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
     peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,
+    // T84 入场市值锚（BNB 域，2026-10-28 早期叙事臂）：卖腿豁免/专属臂复盘直读；
+    // 旧 FA/无持仓 → null 不掩盖
+    entryMarketCap: factorResults.entryMarketCap ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
@@ -360,7 +363,7 @@ function getAvailableFactorIds() {
     'highestPriceSinceLastBuy', 'drawdownFromHighestSinceLastBuy',
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     'highestHolderCountSinceLastBuy', 'holderDrawdownFromHighestSinceLastBuy',
-    'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap',
+    'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap', 'entryMarketCap',
     // 价格趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
     'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',

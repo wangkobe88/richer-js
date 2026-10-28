@@ -11,7 +11,8 @@
  *   - holders       → 内盘净持仓 wallet 计数（sender||trader，GMGN 案 B 2026-10-01；曲线内每笔持仓变化都发事件，毕业前精确）
  *   - txVolumeU24h  → 累计成交额（totalBuyBnb+totalSellBnb）× BNB/USD（观察窗内代币全生命周期）
  *   - tvl           → 最近一笔事件的 curve funds × BNB/USD
- *   - fdv/marketCap → currentPrice × totalSupply（TokenCreate 事件）
+ *   - fdv/marketCap → currentPriceBnb × totalSupply（TokenCreate 事件；T84 起 BNB 域，
+ *     2026-10-28 全量纲切换裁定）
  *   - trend 族 → 10s 时间桶价格序列（8 点窗，TrendDetector 消费）
  *   - holderTrend 族 → blockNumber 桶持有者序列（8 块窗 ≈4s，HolderTrendDetector 消费；
  *     2026-10-14 改造：适配新盘秒级节奏，旧 10s 桶 80s 窗对新 meme 币出值太慢）
@@ -43,7 +44,7 @@
  *      母版用常数 1e9 分母（BSC 有真实 totalSupply，不用近似常数）
  *   2. _recentTicks 保留 richer-js 5min 摊销窗（母版 60s 硬窗）；新链扫描一律按各自
  *      cutoff 过滤，窗内语义等价
- *   3. USD 输出经 state.lastImpliedBnbUsd，其余新链全程 BNB 原生
+ *   3. USD 输出经 state.lastImpliedBnbUsd（price/tvl/txVolume 族），市值族 T84 起 BNB 域
  *
  * 不迁（母版特定装置）：zz25、w0ShareB/_w0bWin、k0 latch、maxEarlyBuySol、afterFirst3s、
  * _cumulativeBuy/SellTokens、preFilter、ML/GMGN、smartBot/sniper（批 3.3）。
@@ -1471,12 +1472,23 @@ class FourMemeFactorAggregator extends EventEmitter {
         // （回测 parity 红线：无 mark 的 setBuyState 与旧版 bit 一致）
         const pend = state._pendingBuyFire || null;
         const anchorBnb = buyState.buyPriceBnb || 0;
+        const prevPos = state._positions.get(positionKey) || null;
         const pos = {
             buyPriceBnb: anchorBnb,
             buyPriceUsd: buyState.buyPriceUsd || null,
             buyTime: buyState.buyTime || Date.now(),
             buySignalAt: buyState.buySignalAt ?? buyState.buyTime ?? null,
             buyExecutedPriceBnb: buyState.buyExecutedPriceBnb ?? null,
+            // T84 入场市值锚（2026-10-28 早期叙事臂）：本仓**首买** fire 价口径市值
+            // （anchorBnb × totalSupply，BNB 域与 marketCap 同批）——卖腿豁免臂
+            // `entryMarketCap >= X`（T79 地板/衰竭腿免误杀）与早期臂专属腿
+            // `entryMarketCap < X` 域限定的判据源。补买不覆盖（臂身份=首买锚定，
+            // clearBuyState 全清后才重置）；锚/总量缺失 → null fail-closed（豁免臂
+            // 恒 false=原腿照管、专属臂恒 false=不触发，两侧退回现行卖腿保护）；
+            // 重启恢复锚点继承 buyPriceBnb 的「重启后首价近似」语义
+            entryMarketCapBnb: (prevPos && prevPos.entryMarketCapBnb != null)
+                ? prevPos.entryMarketCapBnb
+                : (anchorBnb > 0 && state.totalSupply > 0 ? anchorBnb * state.totalSupply : null),
             highestPriceSinceBuyBnb: Math.max(anchorBnb, state.currentPriceBnb || 0, pend ? pend.peakAnyBnb : 0),
             highestPriceSinceBuyAt: (pend && pend.peakAnyAt) || buyState.buyTime || Date.now(),
             highestHoldersSinceBuy: state.holderCount || 0,
@@ -2663,11 +2675,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             highestPriceSinceLastBuy: pos.highestPriceSinceBuyBnb * (state.lastImpliedBnbUsd || 0),
             highestPriceSinceLastBuyBnb: pos.highestPriceSinceBuyBnb,
             drawdownFromHighestSinceLastBuy,
-            // 拱形止损（2026-10-06）：持仓期峰值市值 USD——峰价与 drawdownFromHighestSinceLastBuy
-            // 同源（pos.highestPriceSinceBuyBnb，离群剔除链）；totalSupply/汇率缺失 → null
-            // fail-closed（拱形腿引用 null 比较恒 false 不触发，退回 stopLoss 段保护）
-            peakMarketCapSinceLastBuy: pos.highestPriceSinceBuyBnb > 0 && state.totalSupply > 0 && (state.lastImpliedBnbUsd || 0) > 0
-                ? pos.highestPriceSinceBuyBnb * state.totalSupply * state.lastImpliedBnbUsd
+            // T84 入场市值锚（BNB 域）：卖腿条件键（豁免臂 `>= X` / 早期臂专属腿
+            // `< X` 域限定）；getHolderFactors 同源输出
+            entryMarketCap: pos.entryMarketCapBnb ?? null,
+            // 拱形止损（2026-10-06）：持仓期峰值市值——峰价与 drawdownFromHighestSinceLastBuy
+            // 同源（pos.highestPriceSinceBuyBnb，离群剔除链）；totalSupply 缺失 → null
+            // fail-closed（拱形腿引用 null 比较恒 false 不触发，退回 stopLoss 段保护）。
+            // T84 量纲切换（2026-10-28）：USD→BNB 域（×bnbUsd 移除，与 marketCap 同批）
+            peakMarketCapSinceLastBuy: pos.highestPriceSinceBuyBnb > 0 && state.totalSupply > 0
+                ? pos.highestPriceSinceBuyBnb * state.totalSupply
                 : null,
             highestHolderCountSinceLastBuy: pos.highestHoldersSinceBuy,
             holderDrawdownFromHighestSinceLastBuy,
@@ -2740,6 +2756,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             highestPriceSinceLastBuyBnb: 0,
             drawdownFromHighestSinceLastBuy: null,
             peakMarketCapSinceLastBuy: null,
+            entryMarketCap: null,
             highestHolderCountSinceLastBuy: null,
             holderDrawdownFromHighestSinceLastBuy: null,
             peakProfitPct: null,
@@ -3020,6 +3037,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             highestPriceSinceLastBuy: positionFactors.highestPriceSinceLastBuy,
             drawdownFromHighestSinceLastBuy: positionFactors.drawdownFromHighestSinceLastBuy,
             peakMarketCapSinceLastBuy: positionFactors.peakMarketCapSinceLastBuy,
+            // T84 入场市值锚（BNB 域）：首买市值（无仓 → null）
+            entryMarketCap: positionFactors.entryMarketCap ?? null,
             highestHolderCountSinceLastBuy: positionFactors.highestHolderCountSinceLastBuy,
             holderDrawdownFromHighestSinceLastBuy: positionFactors.holderDrawdownFromHighestSinceLastBuy,
 
@@ -3036,7 +3055,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             txVolumeU24h: bnbUsd > 0 ? (state.totalBuyBnb + state.totalSellBnb) * bnbUsd : 0,
             tvl: bnbUsd > 0 ? state.lastFundsBnb * bnbUsd : 0,
             fdv: 0,        // 见下（与 marketCap 同值）
-            marketCap: state.totalSupply > 0 && currentPrice > 0 ? currentPrice * state.totalSupply : 0,
+            // T84 量纲切换（2026-10-28 用户裁定）：市值全域换 BNB 域 = priceBnb ×
+            // totalSupply（原 USD 域 ×lastImpliedBnbUsd 随 BNB 价漂移严重）。条件
+            // 阈值全部随批换算——库条目/实验快照须同批更新，旧 USD 数字配新 BNB 域
+            // 因子=市值门恒死（上线红线：先改库再换进程）
+            marketCap: state.totalSupply > 0 && currentPriceBnb > 0 ? currentPriceBnb * state.totalSupply : 0,
             // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
             // flap/gang = 资金口径 池净入金 / 毕业阈值（flap 2026-10-24 替换价格锚：R 恒比
             // 假设实证不成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂；gang 2026-10-27

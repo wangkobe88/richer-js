@@ -2222,7 +2222,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             null,
             // T76 2026-10-27 注意力空转观测键原料：fire 因子表买盘上下文同刻同源
             //（buyWallets/buyVolumeBnb），service 内与 GMGN visitingCount 现算比值；
-            // T82 2026-10-28 marketCap：市值透传供 mcap 早期豁免臂（T83 起 BNB 域；null=缺失
+            // T82 2026-10-28 marketCap：市值透传供 mcap 早期豁免臂（T84 起 BNB 域；null=缺失
             // 不豁免，保守方向——豁免须市值真值支撑）
             {
               buyWallets: factorResults?.buyWallets ?? 0,
