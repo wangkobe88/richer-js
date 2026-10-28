@@ -52,6 +52,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T86b gang 全自动第二轮穷尽分析终局——毕业票 PCS/打新子空间市场否证，项目停止（2026-10-28 用户指令「你再分析一遍，尽最大努力，如果不行，就先停止项目了」→ 结论=全部子空间不成立，用户批准停止）
+- **源码级复核（第一轮八条链攻击未破）**：gangfun/gang-launchpad 全源码逐行——`CurveLogic.sol` L169/L281 buy/sell 全查 `_requireAgent(c, trader)` **无豁免臂**（「issuer 豁免」是 Four.meme protocol=2004 特性 gang 没有）；`buyFor/sellFor` 走 `_forTrader` 只许 listed router+`trader==tx.origin`；`FairLogic` create 查当前 gate/mint 查快照 gate/withdraw 无门但份额=pad 内部记账不可转；链上实测 `agentGateEnabled()`（selector 0x4753600b）V3/V2 pad 均=true；V2/Soft/U/S pad 停止新创建（CLI help 原文）=存量市场无流量
+- **毕业票 PCS 空间（第二轮唯一技术面突破）→ 市场面否证**：毕业票在公开 AMM（PCS V2 router），**EOA 直签不需要 .ai/BAW/GangRouter，全自动零技术障碍**（引擎 graduated_pcs_routing 分支可复用）——但 182 实测回放（/tmp/graduated-pcs-replay.json）：V3 track 全历史毕业票仅 **3 张**（GBOT/AGORA/TICK，≈3-4 张/天）；轨迹无稳定形态（GBOT 5m 0.90→0.67 活跃 12min 死透；AGORA 5m 冲 1.86→1h 0.86 全回吐；TICK 慢牛 2.3x 但 1h -25% 洗盘=div 100 持有分红型）；**swapBack 结构性持续卖压**（毕业 unsold token 按块预算卖回池 ~1M tokens/block，卖/买笔数比 1.5-1.6x 恒逆风）；池深 14-23 BNB；完美捕获 10-20% 的绝对收益上限 ≈ **0.01-0.02 BNB/天（$7-14/day）**——工程投入不成比例
+- **打新（fair mint）子空间彻底否证**：21 条 sale 17 minting 滞留/4 launched（**完成率 ~19%**，81% 资金只能 withdraw 保本+gas）；FairLogic L315-316 migrate 无扣费全额进池（10000×sharePrice+LP_SUPPLY 5 亿枚）→ **PCS 首价≡mint 成本价（比值恒 1.0）无结构性价差**；launch 后相对 mint 成本 **4/4 全面破发**（Gangstar now 0.51/杠 0.80[5m 冲 6.22→1h 0.47 腰斩=抢首块者即砸盘者]/MYT-a 0.26/MYT-b 0.39），抢筹者卖/买比 1.7-3.9x 结构性集体出逃——mint 自动+launch 后任何时点卖出=负期望
+- **其余路径快速排除**：曲线期「BAW 买入持有到毕业再 PCS 卖」=接 92.6% 纯互割全程阴跌；曲线期 token 锁仓不可转（`pullFor` 仅锁仓 token）退出唯一路径=pad.sell 查 .ai；poolSell requireConfirmation 即使自动也已无意义（毕业票市场否证在先）
+- **终局裁定（plan 批准）**：gang 全自动所有子空间不成立，**项目停止**。gang-live-v1 `0bf223e5` 已于 07:59 UTC 停妥（status=stopped/零持仓/试单 8 笔闭环留行）；gang 引擎/collector/GangBawTrader/单测全部留档不删（官方 `setAgentGate(false)` 关门或开放 Agent ID 代注册即可翻案复用——观察哨不建，翻案条件记录在案届时一轮 getLogs 即可确认）；four.meme/flap 主战场不受影响
+- 教训：**平台接入前先算市场账**——gang 全链路技术投入（采集/虚拟/回测/BAW 半自动 live/EOA 考察）前置，而「供给量×可捕获利润×全自动可行性」三轴的市场账在第二轮才算清；技术上可行的子空间（毕业票 PCS EOA 直签）市场上限 $7-14/day 不足以支撑工程。翻案三条件（gate 关/代注册/GangRouter 加曲线 sell）任一落地时先重算市场账再谈工程
+
 ### T86 gang 创建即买半自动否证 + EOA 全自动终局判定——.ai 门不可绕（2026-10-28 用户指令「必须搞定全自动交易，否则这个事情只能停」；结论=EOA 直签路线死路，三选一待裁定）
 - **创建即买实跑否证（策略侧定案）**：半自动通道（买自动/卖 App 确认）下 E2 创建即买不成立——三票实测同批对比 **0s 买入 +11.77% / +5s +2.72% / +22s -2.24%**，利润窗口 <5s 而 App 确认分钟级=结构性不成立；持仓已全部清仓（T2/T3/GFIRST 卖出闭环，HONK 粉尘跳过）。曲线票卖出**恒 PENDING_CONFIRMATION**（3/3 稳定，与金额/pad/时间窗无关；abnormalTxnHandling 无全放行档）
 - **requireConfirmation 判定机制（external-sign.md 补齐）**：baw 后端风控对 calldata 知识库判定——经 GangRouter（白名单合作合约）的买=自动 BROADCASTED；pad.sell 直调=medium_risk 须确认。**GangRouter 刻意无曲线 sell 入口**（头注明示 sellFor/withdrawFor only for listed aggregators）=结构性差异绕不开
