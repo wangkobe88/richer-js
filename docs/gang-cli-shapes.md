@@ -4,8 +4,8 @@
 
 ## 平台换代（2026-10-28 实测，采集端断流中）
 
-- **V3 GangLaunchpad `0x15CFD2dc8278Fb87a1783ef42111618E20874365`**（preflight launchpad/createPad 均指它）约 2026-10-27 ~06:00 UTC 上线；新创建全部走 V3（CLI 对旧道 `gang create --taxed` 直接拒）
-- V2 LaunchpadV2 `0x1B8F…966E` 只剩存量票买卖；近 2h Created 仅 5 个（旧节奏 ~39/2h）
+- **V3 GangLaunchpad `0x15CFD2dc8278Fb87a1783ef42111618E20874365`**（preflight launchpad/createPad 均指它）约 2026-10-27 ~06:00 UTC 上线；新创建主要走 V3（CLI 对旧道 `gang create --taxed` 直接拒）
+- V2 LaunchpadV2 `0x1B8F…966E` **收缩期仍在创建**（非只剩存量票）：近 2h Created ~5 个 vs 旧节奏 ~39（2026-10-28 实测 30min 内 4 票全出自 V2）；两 pad 并存创建，collector V2 Created 分支必须保留
 - **曲线完全同构 V2**：gradAmt=15 BNB（WNB 盘）、Q0=gradAmt/3、R0=1.06656e9 储备枚数、边际价 P=Q²/K=Q²/(Q0·R0)、买卖各 1% 曲线费——GangLink 票 `raised=0.1163 → priceQuote=4.908e-9` 手算精确命中；0.047 BNB 买入量与储备积分 B=K(1/R₂−1/R₁) 对拍误差 <0.3%
 - **V3 事件签名**（collector 须加订阅）：
 

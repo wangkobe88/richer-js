@@ -2,9 +2,10 @@
  * Gang ankr WSS Collector（gang.fun LaunchpadV2 + V3 GangLaunchpad）
  *
  * 通过 ankr Advanced API WSS（标准 eth_subscribe）实时监控 gang.fun BSC 内盘事件。
- * 订阅两 pad 合约（V2 `0x1B8F…966E` 存量票 + V3 `0x15CF…4365` 新创建，2026-10-28 换代）
- * 的 topic0 白名单 logs + newHeads（块时间回填）；Buy/Sell/VQL/Graduated 两 pad 同签名
- * 共享白名单，Created 各自签名（V2 静态六段/V3 动态五段，见下方常量注释）。
+ * 订阅两 pad 合约（V2 `0x1B8F…966E` + V3 `0x15CF…4365`，2026-10-28 换代——新创建
+ * 主要走 V3 但 V2 收缩期仍创建，两 pad 并存）的 topic0 白名单 logs + newHeads
+ * （块时间回填）；Buy/Sell/VQL/Graduated 两 pad 同签名共享白名单，Created 各自
+ * 签名（V2 静态六段/V3 动态五段，见下方常量注释）。
  *
  * ⚠️ 机制层（重连/心跳/块时间回填/pending RPC 兜底/去重/tickBuffer/毒 tick 二分/BNB-USD/
  * quote 换算三级源）复制自 flap-ankr-ws-collector.js（其机制层又复制自 fourmeme
@@ -58,8 +59,10 @@ for (const [name, sig] of Object.entries(EVENT_SIGS)) {
 }
 
 // ── V3 GangLaunchpad（2026-10-28 换代接入）──────────────────────────────
-// 新创建全部走 V3 0x15CF…4365（CLI 拒 --taxed 旧道；LaunchpadV2 只剩存量票买卖）。
-// Buy/Sell/VQL 沿用上面 V2 签名（两 pad 共享 TOPIC0 白名单）；仅 Created 换签名+动态 ABI。
+// 新创建主要走 V3 0x15CF…4365（CLI 默认道；V3 上线后节奏 ~2/2h），但 V2 并未停创
+// ——收缩期仍有 ~4-5/2h 新票（2026-10-28 实测 30min 内 4 票全出自 V2），两 pad
+// 并存创建，V2 Created 分支必须保留。Buy/Sell/VQL 沿用 V2 签名（两 pad 共享
+// TOPIC0 白名单）；仅 Created 换签名+动态 ABI。
 // topic0 为链上实测常量（签名串反推未中——keccak 生成不可行，勿改回 ethers.id()）。
 const V3_CREATED_TOPIC0 = '0x416fe98c8f1ea2977674a1a4ee6252eb72597a8392fc2d7d0599a2bf5d8fdb63';
 TOPIC0_MAP.set(V3_CREATED_TOPIC0, 'V3Created');
