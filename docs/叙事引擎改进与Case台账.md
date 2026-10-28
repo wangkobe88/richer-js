@@ -54,6 +54,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C252 蓝筹去重撞 name 冒充+同家族不同主体误判（Giggle TOM 案，2026-10-28 用户裁定「去重的话，应该用 TOM 吧，而且也要参考叙事本身」→ C=A+B）★
+
+- **案发**：Giggle TOM `0x58e40949656a84189d47f52a0c0b53f895de7777`（four.meme，10-28 00:47 UTC 创建，**symbol=TOM / name 字段=「Giggle Mascot」**）。宣告推=@heidithewitch（216 粉）「GiggleAcademy 官方有俩吉祥物兔子，一个叫 MAX 一个叫 TOM，MAX 跑到最高 1000 万市值，TOM 这次估计也要跑个几百万，龙头角度」；父推=Giggle Academy **官方号（13.68 万粉）** 4-30 的 TOM 儿童书推文——TOM=官方二号吉祥物实证。28 分钟 **6.5x**（8.95e-9→5.9e-8，峰值附近仍走），live v43（7dd26b85）00:47:29 round rating=1 拦死踏空。
+- **死法（双重拦截共享同一误判语境）**：知识库 name_exact 撞 b:Giggle Mascot（MAX，ATH $34.2M）——但撞的**不是用户看到的币名**：symbol TOM 与条目名/别名（giggle mascot/max）零碰撞，撞的是部署者塞进 name 字段的描述串。C242 条件题（撞名才问）答 **same_event 0.7**——把「Giggle 家族」当同一事件，TOM≠MAX 的主体差异没被识别 → 三腿全败（new_event 0.14 / none 0.13 / timing within_7d ✓）→ 蓝筹去重首臂拦 low；即便无蓝筹门，`event_baseless_speculation` 0.62（「估计也跑几百万」喊单措辞）也在第一层候着——两者都是在知识库注入 MAX 蓝筹叙事、把票看成「MAX 复制品」的语境下做出。Jev 档案其余全正向（strong_fit 0.66/实体 accepted 0.96/relPositive 0.93/tier A）。
+- **影响面验证（改口径零回归）**：牛来（C121）条目 name=symbol=牛来、BNB Standard（C242）条目 symbol=BNC+别名 BNC——两案撞名票 **symbol 侧同样撞**，symbol-only 口径零翻转；仅本案形状（name 冒充）解除。
+- **修复（A：token 侧 symbol-only）**：`detectDuplicateNarrative` 窄跑 `name: null`（函数内忽略=防线内聚，analyzer 调用点不传 name 双锚；注入链 matchKnowledge 双侧不动）。token.name=部署者自由描述字段，symbol=用户看到的币名（C77 同口径）。
+- **修复（B：J1.150 主体同一性锚）**：bluechip_event_identity 题面补「先问票叙事主体与蓝筹叙事主体是否同一对象——同 IP 生态/家族的不同主体（另一吉祥物/角色/产品线）=不同事实对象 → 非 same_event」+ Giggle TOM 正例证（含误判警示：蓝筹战绩当叙事重心≠复述）+ criteria/new_event 桶补「票主体=同生态另一对象」臂。
+- **顺手修**：matchKnowledge name_exact 臂 matchedOn 改记实际命中值（旧 `symbolNorm || nameNorm` 短路错记票 symbol——本案注入链 knowledge_matches 的 `matchedOn:"tom"` 即此瑕疵，排查首眼被带偏；rule/命中集合零变化）。
+- **单测**：bluechip_dedup_gate 85 断言（A1 翻面=name 全等不拦+symbol 全等照拦、A7 换 symbol 撞形状、**A12 事故现场反证=Giggle 条目+案票形状 →null**、A13 matchedOn 实际命中值、C 组 matcher/analyzer 双源码锚+题面锚）；jev_question_consolidation A10d 版本断言随 bump（漏改存量教训再+1）。
+- **观察点**：①本案若 symbol 真撞条目（部署者直接起名 Max），腿② noneProb 0.13 仍会拦（TOM 形状喊单宣告被判 baseless）——「同家族不同主体+喊单式载体」票的 noneProb 误杀面；②name 冒充失效后部署者可反向把 symbol 直接起成蓝筹名（symbol 路 name_exact 照拦，防线完整）；③BIAOQING 三连发等 symbol 撞 alias 形状不受影响（单测实测命中）。
+
 ### C251 发布者与代币同名→走账号路径（BIBIAIWork 案，2026-10-27 用户裁定「走项目臂提供 CA 还可以，但是走靠影响力支撑一个 meme 感觉不行」，路由+回落双改；追裁定=影响力豁免）★
 
 - **案发**：BIBIAIWork `0x08be87804707fe0ebc86ef56d4bddb202c627777`（flap 税币，10-27 08:46:30 UTC 创建）。语料=@BIBIaiwork（401 粉、0 赞 0 转、X 付费蓝标）第一人称宣告「AI 计算网络/真实 BSC 池快照压力测试」功能清单；**推文与官网均无 CA**（推文全文 1478 字无地址，官网 bibiaiwork.com 内容未抓——websiteFetch 默认关，链接只是 t.co 展开）。live v42 08:46:41 买入 4 卡 0.004 BNB（创建后 10s），09:01:46 全清 **-42.9%**；官网已死 rug 坐实。

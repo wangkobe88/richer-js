@@ -1639,6 +1639,25 @@
       "addedAt": "2026-10-27",
       "expectSince": "2026-10-27",
       "expectBecause": "C251 裁定：发布者与代币同名→恒走账号路径；终局 low 不回落 W（2026-10-27 182 重析实证：改道生效，重拉语料在推文内找到 CA→addressVerified→project→C164 官网空壳拦 low；死因门随语料时点漂移，断言只锁方向=rating low+不得再 event:W）"
+    },
+    {
+      "caseId": "C252",
+      "symbol": "TOM",
+      "addr": "0x58e40949656a84189d47f52a0c0b53f895de7777",
+      "expect": {
+        "rating": [
+          "low",
+          "mid",
+          "high"
+        ],
+        "reasonExcludes": [
+          "蓝筹去重"
+        ],
+        "tokenCategory": "event:A"
+      },
+      "note": "Giggle TOM：name 塞蓝筹名冒充撞 name_exact+same_event 把家族当同一事件，去重改 token 侧 symbol-only（J1.150 补主体同一性锚），6.5x 踏空",
+      "addedAt": "2026-10-28",
+      "observe": "A 臂解除后不撞名、条件题不问；第二层 baseless 0.62 候拦面（喊单式载体推）——仍拦 low 时 reason 应为其它阻断；翻正走 update-expect 留痕"
     }
   ]
 }

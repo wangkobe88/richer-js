@@ -1553,7 +1553,9 @@ export function mapStandardAnswers(answers, context) {
   // 敲纳斯达克开市钟当天，新票 name_exact 撞前蓝筹 BNB Standard BNC 被首臂拦 low——
   // 「名字一样，但是新代币有真实新事件做背景，就不要被拦截。这也是一个基本原则。
   // 熊猫头 case 不是这个形态（熊猫头是重新发布了形象化 IP）」。豁免三条件：
-  //   ① 事件同一性=新事件：bluechip_event_identity（J1.139 条件题，撞名才问）
+  //   ① 事件同一性=新事件：bluechip_event_identity（J1.139 条件题，撞名才问；
+  //      J1.150/C252 补主体同一性锚——同 IP 生态不同主体（Giggle 二号吉祥物
+  //      TOM 案 0x58e4…7777）→ new_event 候选非 same_event）
   //      new_event ≥0.5——撞名蓝筹的主体/对象发生了新的独立事实事件，本票承载
   //      的是该新事件；同事件姐妹复制品（C121 牛来案 none 0.67+within_7d，只看
   //      ②③会误放——用户 2026-10-22 裁定该拦）与形象复刻（熊猫头）判

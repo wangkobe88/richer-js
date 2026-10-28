@@ -413,7 +413,8 @@ export class NarrativeAnalyzer {
         try {
           duplicateNarrative = detectDuplicateNarrative({
             symbol: tokenData.symbol,
-            name: tokenData.raw_api_data?.name,
+            // C252：name 刻意不传（token.name=部署者自由描述字段，Giggle TOM
+            // 案冒充蓝筹名；去重只认 symbol=用户看到的币名；函数内双重忽略）
             address: tokenData.address,
             // twitterHandle 刻意不传（C168 回归反证撤臂）：twitter=语料出处非
             // 票身份，借壳大 V（binance/cz_binance 系）同源多票是常态

@@ -11,7 +11,9 @@
  *
  * 覆盖：
  *   A. 检测真值表（detectDuplicateNarrative：exact 两级命中/quasi 不算/
- *      substring·corpus 不算/蓝筹本体自地址排除/address 传入被忽略/空形状）
+ *      substring·corpus 不算/蓝筹本体自地址排除/address 传入被忽略/空形状/
+ *      C252 token 侧 symbol-only——name 全等不拦+Giggle 案事故现场反证/
+ *      matchedOn 记实际命中值）
  *   B. mapper 臂（证据→low+reason+audit；无证据对照=原评级不变；
  *      twitter_exact label 形状；B5=C173 新陈述豁免真值表——direct_tweet+
  *      作者在册双条件缺一即拦，「4」案 CZ 直陈概念不算重复；B6=C242 新事件
@@ -108,9 +110,11 @@ async function main() {
   // ═══ A. 检测真值表 ═══
   console.log('\n── A. detectDuplicateNarrative 真值表 ──');
 
-  console.log('A1 蓝筹 name_exact（票 name 全等蓝筹 name）');
+  console.log('A1 蓝筹 name_exact（C252 起 token 侧只认 symbol：name 全等不拦）');
   let r = detectDuplicateNarrative({ symbol: 'CB', name: 'The Chinese Bear', address: '0xfff…1', twitterHandle: null }, idx);
-  check('命中 name_exact + 蓝筹名', r && r.rule === 'name_exact' && r.entryName === 'The Chinese Bear', r);
+  check('name 全等蓝筹名 → null（C252：token.name=部署者自由描述字段不参与去重）', r === null, r);
+  r = detectDuplicateNarrative({ symbol: 'The Chinese Bear', name: '随便什么', address: '0xfff…1b', twitterHandle: null }, idx);
+  check('票 symbol 全等蓝筹 name → 命中（用户看到的币名撞=真撞）', r && r.rule === 'name_exact' && r.entryName === 'The Chinese Bear' && r.matchedField === 'symbol', r);
 
   console.log('A2 蓝筹 alias exact（票 symbol 归一化撞蓝筹 alias）');
   r = detectDuplicateNarrative({ symbol: 'Panda-Head!', name: '随便什么名字', address: '0xfff…2', twitterHandle: null }, idx);
@@ -150,8 +154,8 @@ async function main() {
   console.log('A7 蓝筹本体自地址排除（重析自己不得被自己拦）');
   r = detectDuplicateNarrative({ symbol: 'BIAOQING', name: 'The Chinese Bear', address: '0xaaaa000000000000000000000000000000004444', twitterHandle: null }, idx, { selfAddress: '0xAAAA000000000000000000000000000000004444' });
   check('selfAddress=蓝筹地址 → null（大小写不敏感）', r === null, r);
-  r = detectDuplicateNarrative({ symbol: 'CB', name: 'The Chinese Bear', address: '0xfff…9', twitterHandle: null }, idx, { selfAddress: '0x9999000000000000000000000000000000004444' });
-  check('selfAddress=别的地址照拦', r && r.rule === 'name_exact', r);
+  r = detectDuplicateNarrative({ symbol: 'panda head', name: 'The Chinese Bear', address: '0xfff…9', twitterHandle: null }, idx, { selfAddress: '0x9999000000000000000000000000000000004444' });
+  check('selfAddress=别的地址照拦（symbol 撞 alias）', r && r.rule === 'name_exact', r);
 
   console.log('A8 matchInput.address 传入被忽略（address_exact 非去重语义）');
   r = detectDuplicateNarrative({ symbol: 'UNRELATED', name: '完全无关', address: '0xeeee000000000000000000000000000000004444', twitterHandle: null }, idx);
@@ -183,6 +187,23 @@ async function main() {
   ]);
   r = detectDuplicateNarrative({ symbol: 'The Chinese Bear', name: 'memes will continue', address: '0xfff…d', twitterHandle: null }, idxMixed);
   check('同票撞豁免条目+未豁免条目 → 未豁免者照拦（find 跳过豁免继续扫）', r && r.entryId === 'b:0x5555…4444', r);
+
+  console.log('A12 C252 事故现场反证（Giggle TOM 案 0x58e4…7777：name 塞蓝筹名冒充）');
+  const idxGiggle = mod.buildKnowledgeIndex([
+    { id: 'b:0xe9bc…7777', kind: 'bluechip', name: 'Giggle Mascot', symbol: 'Max', aliases: ['Max'], address: '0xe9bc5c6a86caa44fd7b469bf3cc7c563e4f77777', source: 'gmgn' },
+  ]);
+  r = detectDuplicateNarrative({ symbol: 'TOM', name: 'Giggle Mascot', address: '0x58e40949656a84189d47f52a0c0b53f895de7777', twitterHandle: null }, idxGiggle);
+  check('案票形状（symbol TOM/name 塞蓝筹名）→ null（28min 6.5x 踏空事故形状不再拦）', r === null, r);
+  r = detectDuplicateNarrative({ symbol: 'Max', name: 'Anything Else', address: '0xfff…e', twitterHandle: null }, idxGiggle);
+  check('对照：symbol=Max 撞条目 symbol/alias → 照拦（真复制品）', r && r.rule === 'name_exact', r);
+
+  console.log('A13 matchedOn 记实际命中值（C252 修正：旧短路错记票 symbol，注入链审计带偏）');
+  const inj = mod.matchKnowledge({ symbol: 'TOM', name: 'Giggle Mascot', address: '0x1', twitterHandle: null, corpusText: '' }, idxGiggle, { maxEntries: 5 });
+  const injHit = (inj.matches || []).find((m) => m.rule === 'name_exact');
+  check('name 侧命中 matchedOn=gigglemascot/matchedField=name（旧=tom 错记）', injHit && injHit.matchedOn === 'gigglemascot' && injHit.matchedField === 'name', injHit && { matchedOn: injHit.matchedOn, matchedField: injHit.matchedField });
+  const injSym = mod.matchKnowledge({ symbol: 'Max', name: 'Another', address: '0x1', twitterHandle: null, corpusText: '' }, idxGiggle, { maxEntries: 5 });
+  const injSymHit = (injSym.matches || []).find((m) => m.rule === 'name_exact');
+  check('symbol 侧命中 matchedOn=max/matchedField=symbol', injSymHit && injSymHit.matchedOn === 'max' && injSymHit.matchedField === 'symbol', injSymHit && { matchedOn: injSymHit.matchedOn, matchedField: injSymHit.matchedField });
 
   // ═══ B. mapper 门链首臂 ═══
   console.log('\n── B. mapper 蓝筹去重臂 ──');
@@ -386,12 +407,17 @@ async function main() {
   check('mapper audit bluechipDedupNewEvent 键（命中才落）', mapperSrc.includes('bluechipDedupNewEvent:'));
   // J1.139 条件题接线（analyzer 传 flag / 不撞名不问防幻觉作答）
   const questionsMod = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
-  check('版本 bump（J1.139 立题蓝筹事件同一性；J1.140 图片直连续号）', questionsMod.JEV_QUESTIONS_VERSION === 'J1.149', questionsMod.JEV_QUESTIONS_VERSION);
+  check('版本 bump（J1.150=C252 主体同一性锚+token 侧 symbol-only；J1.139=C242 立题蓝筹事件同一性；J1.140=图片直连续号）', questionsMod.JEV_QUESTIONS_VERSION === 'J1.150', questionsMod.JEV_QUESTIONS_VERSION);
   const qsNoDup = questionsMod.buildStandardQuestions({});
   const qsDup = questionsMod.buildStandardQuestions({ bluechipDuplicate: true });
   check('条件题不撞名不问（防幻觉作答）', qsNoDup.bluechip_event_identity == null);
   check('条件题撞名才问', qsDup.bluechip_event_identity?.type === 'choice'
     && ['same_event', 'new_event', 'unclear'].every((k) => qsDup.bluechip_event_identity.criteria[k] != null));
+  check('题面主体同一性锚在场（C252：同家族不同主体≠same_event + Giggle TOM 例证）',
+    qsDup.bluechip_event_identity.instructions.includes('主体同一性') && qsDup.bluechip_event_identity.instructions.includes('二号'), null);
+  // C252 源码口径（token 侧 symbol-only 双锚）
+  check('matcher 检测窄跑 name 恒 null（C252 反证锚：token.name 不参与去重）', matcherSrc.includes('name: null,') && matcherSrc.includes('C252（2026-10-28 Giggle TOM 案'), null);
+  check('analyzer 检测调用不传 name（C252）', !/detectDuplicateNarrative\(\{[\s\S]{0,400}?name:\s*tokenData/.test(analyzerSrc), null);
   check('analyzer 接线传 bluechipDuplicate flag', analyzerSrc.includes('bluechipDuplicate: !!duplicateNarrative'));
   check('config CODE_DEFAULTS duplicateGate 默认开', /duplicateGate:\s*\{\s*enabled:\s*true\s*\}/.test(configSrc));
   // 事故现场反证（BIAOQING 三连发）：用户点名的案例必须被真实数据接住——

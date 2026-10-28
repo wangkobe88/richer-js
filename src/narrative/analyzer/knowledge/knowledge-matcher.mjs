@@ -179,7 +179,12 @@ export function detectDuplicateNarrative(matchInput, index, opts = {}) {
   if (!index || !matchInput) return null;
   const narrow = matchKnowledge({
     symbol: matchInput.symbol,
-    name: matchInput.name,
+    // C252（2026-10-28 Giggle TOM 案 0x58e4…7777 用户裁定「去重的话应该用
+    // TOM」）：token.name 是部署者自由塞的描述字段（案票 name 塞「Giggle
+    // Mascot」冒充蓝筹名，而用户看到的币名=symbol TOM，与条目名/别名零碰撞）
+    // → 撞名只认 symbol 侧（用户看到的币名，C77 同口径）；matchInput.name
+    // 传入也被此处忽略（防线内聚：知识库注入链 matchKnowledge 双侧不动）
+    name: null,
     address: null, // address_exact=本票即在册，非重复叙事（重析形状），源头不评估
     twitterHandle: null, // twitter=语料出处非票身份（借壳大 V 同源多票是常态），不参与
     corpusText: '', // corpus_contains/concept_keyword=背景提及语义，不参与
@@ -252,10 +257,16 @@ export function matchKnowledge(matchInput, index, matchConfig) {
     //   发的绝大多数代币叙事根本无关」；与 C168 撤去重 twitter 臂同判据：
     //   部署者同号 ≠ 叙事相关），原位留档防复活——同 Dev 前作不再作为注入背景。
 
-    // 3 name_exact（强信号：denylist 不压）
-    if ((symbolNorm || nameNorm) && normNames.some((n) => n && (n === symbolNorm || n === nameNorm))) {
-      offer(entry, 'name_exact', symbolNorm || nameNorm, symbolNorm ? 'symbol' : 'name', 800);
-      continue;
+    // 3 name_exact（强信号：denylist 不压）。matchedOn 记实际命中的归一化值
+    // （C252 修正：旧 `symbolNorm || nameNorm` 短路优先记 symbol，name 侧命中
+    // 时错记票 symbol——Giggle 案注入链 knowledge_matches 的 matchedOn:"tom"
+    // 即此瑕疵，排查被带偏；rule/命中集合/优先级零变化）
+    if (symbolNorm || nameNorm) {
+      const exactHit = normNames.find((n) => n && (n === symbolNorm || n === nameNorm));
+      if (exactHit) {
+        offer(entry, 'name_exact', exactHit, exactHit === symbolNorm ? 'symbol' : 'name', 800);
+        continue;
+      }
     }
 
     // 4 name_substring：最长公共子串（双向包含之外的共享片段，哭哭奶龙×哭哭马）。
