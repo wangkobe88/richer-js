@@ -64,7 +64,9 @@ async function main() {
   const factory = ExperimentFactory.getInstance();
   const src = await factory.load(SRC);
   if (!src) throw new Error('源实验不存在: ' + SRC);
-  if (src.status !== 'stopped') throw new Error('源实验未停止: ' + src.status + '（停 v44 与建 v46 同批）');
+  // 源可 running（v46 先建 stopped 行跑 virtual 验证轮，与 v44 并行不断采集）；
+  // v46 启动=live 换车时先停 v44（单一实验纪律 + 重启前持仓确认），建行不占用运行位
+  if (src.status === 'stopped') console.log('注: 源已 stopped');
   const cfg = JSON.parse(JSON.stringify(src.config));
   if (cfg.platform !== 'both') throw new Error('源 platform != both: ' + cfg.platform);
   if (cfg.virtual !== undefined) throw new Error('源带 virtual 段（应为 live）');
