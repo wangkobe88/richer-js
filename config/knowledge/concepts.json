@@ -53,15 +53,15 @@
       "kind": "concept",
       "name": "GMGN",
       "symbol": "",
-      "aliases": ["gmgn.ai"],
+      "aliases": ["gmgn.ai", "GGC"],
       "address": null,
       "twitter": null,
-      "narrative": "GMGN（gmgn.ai）是跨链 meme 币交易聚合与数据平台，BSC 上大量买家经 GMGN 聚合路由进场，其榜单/趋势页是 meme 币流量的主要入口之一；发倡议推常带 gmgn.ai 链接。",
-      "keywords": ["gmgn"],
+      "narrative": "GMGN（gmgn.ai）是跨链 meme 币交易聚合终端（Solana/BSC/Base 等），BSC 上大量买家经 GMGN 聚合路由进场，榜单/趋势页是流量主入口；发倡议推常带 gmgn.ai 链接。GMGN 是圈内知名基础设施产品而非 meme/IP：代币直接以 GMGN 为名=借壳知名产品名，除非 GMGN 平台自身近期确有重大新闻事件（如 2026-10-16 起 GGC 全球交易大赛：11-17 伦敦总决赛、定制 Aston Martin 大奖），否则名字本身不构成可接纳叙事；有平台事件时按事件轴正常评估（营销活动亦须分量够格）。",
+      "keywords": ["gmgn", "ggc"],
       "corpusTrigger": true,
       "source": "manual",
       "rating": null,
-      "updatedAt": "2026-10-22T00:00:00Z"
+      "updatedAt": "2026-10-28T00:00:00Z"
     },
     {
       "id": "concept:biaoge-douyin-pet",

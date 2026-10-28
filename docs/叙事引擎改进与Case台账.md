@@ -54,6 +54,13 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C254 GMGN 名字票的「借壳知名圈内产品」划界——知识库概念条目补裁定（GMGN 案，2026-10-28 用户裁定「除非它近期有重大新闻，否则以它为名字不行」+追裁定「它确实有近期非常大的新闻」）★
+
+- **案发**：GMGN `0x699a81a93f55d52691f20a9818d8a042e6cd7777`（flap 平台，symbol/name=GMGN，10-28）。零自有语料票（twitter_info NULL/classified_urls 全空）——语料全靠 C77 搜索兜底（Top 桶：官方晨推/10-27 Callout Dashboard 上线/10-23 GGC Season 1 推文）；知识库 `concept:gmgn` name_exact 命中注入，但旧条目只有平台背景描述、无名字划界。v46 live（6581c288）07:55:26 评级 **high**（event 73/rel 20/qual 14.51，quality veto argmax=none）——event_fit strong 0.49 + timing within_7d 0.54 撑起，07:57:40 买入 0.006 BNB（3 卡）。用户手工卖出（查询时 trades 仅买入行）。
+- **追裁定现场（新闻核实）**：用户初判「以 GMGN 为名不行」，随后自我修正「它确实有近期非常大的新闻」——web 核实 **GMGN Global Championship（GGC）Season 1**：2026-10-16 启动 10 天链上交易赛、top-6 qualifiers 全包伦敦 11-17 总决赛（Solana Breakpoint 期间）、大奖 one-of-one 定制 Aston Martin Vantage GGC Edition（AMBCrypto/GGC 规则页）。分析时搜索语料已带 GGC 痕迹 → within_7d 成立：本案 high 不是「借壳盲放」而是**平台事件承载票**，用户两条裁定合并=条件划界而非全拦。
+- **处置=concept:gmgn 条目补裁定（state-only，不 bump 题集版本）**：条目补「GMGN=圈内知名基础设施产品而非 meme/IP：代币直接以 GMGN 为名=借壳知名产品名，除非 GMGN 平台自身近期确有重大新闻事件（GGC 大赛已录档为例证），否则名字本身不构成可接纳叙事；有平台事件时按事件轴正常评估（营销活动亦须分量够格）」；aliases/keywords 补 GGC（GGC 名字票同域命中）。改写只动注入文本不动匹配域（name_exact/corpus_contains 命中集合零变化）；知识文件 mtime 热载，182 git pull 即生效无需重启。
+- **观察点**：①旧条目时代已析存量票重析时注入文本变化（GMGN 名字票/语料含 gmgn 票）评级可能移动；②GGC 大赛 11-17 总决赛后「近期大事件」窗口自然过期——条目内事件例证=历史背景非永久放行锚，事件票靠分析时语料时效题判档；③本案票零自有语料纯搜索兜底=high 全押第三方语料关联，同类形状（借势大平台但宣告推缺位）观察。
+
 ### C253 地址核验失败回落票的「bio 后补 CA」竞态——回落前纯规则地址重验等待（BNCI 案，2026-10-28 用户裁定「按照你的思路来吧」=回落前纯规则重验替代拉大补轮 maxAnalyses）★
 
 - **案发**：BNCI `0x35c4680cf97ccc6d6d85dd0e5ed9d4faa8907777`（flap 税票，10-28 02:14:44 UTC 创建，meta 自带 `x.com/MessariCrypto`）。账号形状=**2011 年老号改名**（name 字段=BNCI 与 symbol 同名、72 粉、statuses 4）——dev 自发宣告；但**创建时刻 bio 无 CA**（分析三轮全拉到 description=null），CA 后补发生在 02:15:23 之后。
