@@ -384,6 +384,12 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 戊、live 执行与事故
 
+### T81 税币买卖数量不闭合→web FIFO 误判「持仓中」——全清腿残量归零（普通人案，2026-10-28，3b71f7c）
+- 案：v43 `7dd26b85` 普通人 0x934b16d660628ea14174a2387b1ca50585e67777（flap 税币）00:21 UTC 买 0.008 BNB 余额差法实收 717,544.49；00:46 全清卖出时链上余额仅 699,608.24（~2.5% 持有期内被税/反射抽走）→ live 卖出行 `input_amount`=链上实际卖量（账面>链上按链上卖）→ trades 买卖数量天然不闭合，token-returns/trades 两页 FIFO 剩 17,936 被误判「持仓中」，**并误渲染「卖出全部」手动按钮**（renderManualTradeButtons 以 hasUnmatchedBuy 判持仓——显示 bug 兼功能 bug，点了会对已清仓票发起真实卖出）
+- 口径事实（引擎侧无恙）：PM 全清腿 ledgerQty=账面原值精确清零（T75 链路）、experiment_tokens.status='sold'、cardTrade 4→0；trades 行如实记链上事实（买=balanceOf 前后差、卖=链上实际卖量），不闭合是税币链上事实非记账错误——**修复放 web 解释层，不改 trade 行真值**
+- 修复（experiment_token_returns.js / experiment_trades.js 两处 FIFO 卖出分支）：全清判据 `metadata.sellPercentage>=1 OR cardTrade.after===0`（virtual 2838 行/live 3262 行/毕业卖/手工卖统一写点）命中且队列仍有剩余时——剩余数量归零（持仓判定/status/CSV/手动按钮全走 hasUnmatchedBuy/remaining 族）、剩余成本并入本对成本（税损已实现，pairCost=0.008 全部买成本实现，returnRate −29.03%=诚实全回路）；案票验证 exited/零剩余 + 三对照=无标记历史形状 bit 不变/部分卖（sellPercentage=0.5）不清零/虚拟精确买卖 drain 空转
+- 关联残留（未动非事故）：`_loadHoldingsLive` 重启重放 trades 净额同样得出 17,936 账面 → 链上 balanceOf 对账兜底（数量以链上为准，实际剩 ~3.5e-8 粉尘=卖量 6 位小数舍入尾差）；卡账本重放 after=0 → 无卖腿 sizing，粉尘仓静置，T75 粉尘门为第二道防线
+
 ### T75 全清腿记账 undershoot 幽灵仓——Number 往返吃 ulp 留 3e-11 + 粉尘残仓清理门（ELON2028 案，2026-10-27）
 - 案：v41 40754e0d ELON2028 0xf5f3f01bacbfc2a8f08451eee501712693377777（flap）已全部卖出后卖腿持续 fire——23:26-03:01 共 **11 笔 revert**（每笔 337,726 gas ≈ 0.0000168863 BNB，合计 ~0.000186 BNB），L3 熔断 30min 冷却 + 卖腿「失败每轮重试」= **~31min 一轮永动烧 gas**+TG 告警循环；web 侧「部分卖出 100%|余仓=0.0000 余卡=0」假象（显示格式掩蔽 3e-11 残仓）
 - 根因两层：①**记账 undershoot**——`_executeSellLive` 卖量 `new Decimal(Number(holding.amount)).mul(sellPct).toNumber()` Number 往返吃末位 ulp：PM Decimal 账面 `296034.40598014063` → double 化 `296034.4059801406` → 残仓恰 **3e-11** → PM `remainingAmount.eq(0)` 删仓判据不成立 → 持仓不删 status=bought 幽灵仓常驻；**E5d 当年只修了虚拟路径（2807 行 Decimal 直通），live 路径漏了同款**。②**终止路径缺失**——链上真粉尘 1.7684893e-11 > 0 → externalDisposal 臂（只认链上=0）接不住 → SyncHoldings 每 5min「按链上数量卖出」1.77e-11 个 → flap Portal 产出 ~3.34e-19 BNB 必 revert（custom error 0x76baadda）
