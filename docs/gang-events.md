@@ -4,12 +4,13 @@
 
 ## 合约与事件
 
-- **LaunchpadV2 `0x1B8F3f69DFa0a7F63d308C7EB0Fd38D8b099966E`** 唯一订阅目标（legacy soft pad `0x315B…` 不订阅）
-- 五事件 topic0（单测 `_test_gang_collector_decode` 黄金锁死）：
+- **双 pad 订阅（2026-10-28 换代接入）**：V2 `0x1B8F3f69DFa0a7F63d308C7EB0Fd38D8b099966E` + **V3 GangLaunchpad `0x15CFD2dc8278Fb87a1783ef42111618E20874365`**——新创建主要走 V3（CLI 默认道）但 **V2 收缩期仍在创建**（~4-5/2h，实测 30min 4 票全出自 V2，两 pad 并存）；legacy soft pad `0x315B…` 不订阅
+- 六 topic0（单测 `_test_gang_collector_decode` 黄金锁死）：
 
 | 事件 | topic0（前缀） | 形状 |
 |---|---|---|
-| Created | `0xd23a4470` | topics[1]=token [2]=creator [3]=quote（0x0 亦按 WBNB）；data 串：name/symbol/logoUri/taxed(bool)/refPair/gradAmt |
+| Created（V2） | `0xd23a4470` | topics[1]=token [2]=creator [3]=quote（0x0 亦按 WBNB）；data 串：name/symbol/logoUri/taxed(bool)/refPair/gradAmt |
+| V3Created（V3） | `0x416fe98c` | topics 同上（quote=0x0 ⟺ WNB 盘）；data **动态 ABI**（string name/symbol/logoUri + uint256 unknownParam/gradAmt）；refPair 恒 null |
 | Buy | `0x6e59ac1e` | topics[1]=token [2]=buyer；dw0=净入金(毛×0.99) dw1=taxDividend dw2=taxPlatform dw3=tokensOut dw4=曲线累计 realQuote |
 | Sell | `0x00055e00` | topics[1]=token [2]=seller；dw0=tokensIn dw1/dw2=税 dw3=净收款 dw4=累计 |
 | Graduated | `0x6da2ac48` | topics[1]=token；data **三字段（2026-10-27 链上 5/5 实证）**：quote（≠PCS pair，逐票==Created quote）/tokenAmount 恒 2e8（毕业注入池储备协议常量）/quoteAmount==Created gradAmt 逐票精确全等。旧四字段形状系调研期构造未实证，对真实事件解码必败（毕业全清卖丢失），已修+单测锁死 |
@@ -17,9 +18,16 @@
 
 - ⚠️ indexed topic 地址是 32 字节左填充——解码一律 `topicAddr()` 剥成 20 字节小写（flap 母版 token 走 data 段无此问题）；WBNB 比较须 `.toLowerCase()` 同域（checksum 常量直比恒 false）——两坑单测锁死，改 collector 机制层先查
 
+**V3 细则（2026-10-28 换代接入）**：
+
+- V3Created data=动态 ABI（string name/symbol/logoUri + uint256 unknownParam/gradAmt），无 taxed（恒 false）/refPair（恒 null 落库，DB 重建读端 `p.refPair ? … : null` 天然兼容）；payload 带 `pad:"v3"` 标记落库审计
+- **gradAmt 逐票各异**：WNB 盘 29/29 恒 15（与 V2 同口径）、quote 盘 18/18 各异（如 bibi.ai=1788077.25 quote）——V3 Created 是 gradAmt 唯一正源；quote 盘换算走 `_getQuoteConversion`（miss→null+quoteRateUnavailable）
+- unknownParam（w3）：w3≠0 ⟺ quote 盘，形状是 20 字节地址但 eth_call 无代码（非合约），存档不消费
+- **V3 Graduated 形状未实证**（V3 上线 24h 无毕业票）=观察点：fail-loud decodeFailed 兜底，首个 V3 毕业票须人工对拍，勿预设形状
+
 ## 毕业进度口径（对拍定案）
 
-- `progressPct ≡ dw4 / 15e18`（WBNB 盘 gradAmt 协议常量 15，实测恒定；indexer 同源）
+- `progressPct ≡ dw4 / 15e18`——**仅 V2 WNB 盘口径**（V2 gradAmt 协议常量 15 恒定，indexer 同源）；**V3 gradAmt 逐票各异**（WNB 盘实测 29/29 仍恒 15、quote 盘 18/18 各异），进度分母=Created gradAmt（FA 阈值链 `graduationThresholdBnb` set-once 读 Created 值，机制天然兼容）
 - **dw4 = Σ(买净入金 dw0) − Σ(卖毛流出)**：卖毛流出 = dw3/0.99（卖方被扣 1% 税，曲线流出的是毛额而 dw3 是净收款）
 - FA 资金口径 `poolInflowBnb = Σdw0 − Σdw3`（系数 1.0/1.0）→ **系统性略高于 dw4，偏差 = 累计卖税 ≈ 1%×卖量**（M0 三票实测 −0.0052/−0.0064/−0.0055 BNB 与卖量完全吻合）。量级：毕业前 ~0.3% 相对误差，flap 同款近似先例；**实际毕业判定走 Graduated 事件**（事件驱动全清），progress 因子仅展示/条件用
 - 首买种子 = 0：首买后 dw4 精确等于首买 dw0；三票首买 dw0 恒 0.047319 BNB（创建者初始买入协议定值，观察项）
@@ -27,7 +35,7 @@
 
 ## 曲线精确参数（2026-10-28 链上校准，勿再用 8e8 假设）
 
-买侧最小二乘拟合（24h 窗 319 票 ≥4 买，RMSE 0.001%）+ 72h 全量回放对拍（买 8868 笔 0 失配、卖 7997 笔 1 失配，0.05% 容差）：
+买侧最小二乘拟合（24h 窗 319 票 ≥4 买，RMSE 0.001%）+ 72h 全量回放对拍（买 8868 笔 0 失配、卖 7997 笔 1 失配，0.05% 容差）。**拟合窗全为 V2 票；V3 曲线同构已实证**（GangLink 票 `raised → priceQuote` 手算精确命中 + 0.047 BNB 储备积分对拍 <0.3%，详档 docs/gang-cli-shapes.md）：
 
 - **Q0 = gradAmt/3 精确成立**（319 票 Q0/gradAmt p10=p50=p90=0.3333；WNB 盘 = 5）
 - **R0 = 1.06656e9 枚**（拟合值，票间散布 <0.002%）——毕业注入 2e8 只是 PCS 池注入量，与曲线初始储备无关（「1e9−2e8=8e8」是错误假设，实测即上述拟合）
