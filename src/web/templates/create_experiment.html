@@ -862,13 +862,13 @@
                                class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
                         <span class="whitespace-nowrap">市值阈值(USD)</span>
-                        <input type="text" id="obs-marketcap-threshold" placeholder="12000"
+                        <input type="text" id="obs-marketcap-threshold" placeholder="16"
                                class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
                     </div>
                     <p class="text-xs text-gray-500 mt-1">
                         首次满足条件即记第 1 行，之后每隔补采间隔且条件仍满足再记，达到每票上限后停；
-                        空值=默认（间隔 60000ms / 上限 3 / 市值 12000 USD 严格大于）。进程重启计数续接
+                        空值=默认（间隔 60000ms / 上限 3 / 市值 16 BNB 严格大于（T83 量纲切换））。进程重启计数续接
                     </p>
                 </div>
 
@@ -1462,8 +1462,8 @@
                 walletAddressInput.placeholder = '0x...';
                 walletAddressInput.pattern = '^0x[a-fA-F0-9]{40}$';
             }
-            if (walletAddressHint) walletAddressHint.textContent = '输入您的钱包地址（0x开头的40位十六进制）';
-            if (privateKeyHint) privateKeyHint.textContent = 'EVM 私钥（0x开头的64位十六进制），将在提交后 AES-256 加密存储';
+            if (walletAddressHint) walletAddressHint.textContent = '输入您的钱包地址（0x开头的40位十六进制）；gang 实盘此处填 BAW 地址即可（无需私钥）';
+            if (privateKeyHint) privateKeyHint.textContent = 'EVM 私钥（0x开头的64位十六进制），将在提交后 AES-256 加密存储；gang 实盘走 BAW 半自动通道可留空';
             if (reserveAmountHint) reserveAmountHint.textContent = `保留用于支付 GAS 费用的 ${currency} 数量（最小 0.01 ${currency}）`;
         }
 
@@ -1609,7 +1609,7 @@
                 result.data.forEach(w => {
                     const option = document.createElement('option');
                     option.value = w.experimentId;
-                    option.textContent = `${w.address}（${w.experimentName}）`;
+                    option.textContent = `${w.address}（${w.experimentName}${w.source === 'baw' ? ' · BAW' : ''}）`;
                     option.dataset.address = w.address;
                     select.appendChild(option);
                 });
@@ -2193,13 +2193,18 @@
                 const executorId = executorSelect?.value || null;
                 const reuseSelect = document.getElementById('wallet_reuse');
                 const reuseExperimentId = reuseSelect?.value || null;
+                // gang live 无私钥时=BAW address-only（第四源，服务端仅 gang 放行）
+                const isGangPlatform = [...document.querySelectorAll('#platform_checkboxes input[name="platform"]:checked')].some(cb => cb.value === 'gang');
+                const plainPrivateKey = formData.get('private_key') || '';
                 config.wallet = executorId
                     ? { executorId, address: formData.get('wallet_address') } // 私钥单一真相源在执行器表
                     : reuseExperimentId
                     ? { address: formData.get('wallet_address'), reuseExperimentId } // 服务端拷贝源实验加密私钥
+                    : (isGangPlatform && !plainPrivateKey)
+                    ? { address: formData.get('wallet_address') } // BAW：官方 CLI+App 审批流签名，无私钥
                     : {
                         address: formData.get('wallet_address'),
-                        privateKey: formData.get('private_key')  // 将在服务器端加密
+                        privateKey: plainPrivateKey  // 将在服务器端加密
                     };
                 // 实盘交易：保留用于 GAS 的金额 + 持仓数上限（安全阀）
                 config.reserveNative = parseFloat(formData.get('reserve_amount')) || 0.1;
@@ -2268,7 +2273,10 @@
                     alert('请输入钱包地址');
                     return;
                 }
-                if (!usingExecutor && !reusingWallet && !privateKey) {
+                // gang live = BAW address-only 通道（半自动：官方 gang CLI + Binance App
+                // 审批流），无私钥概念——服务端第四源仅 gang 放行（web-server BAW 分支）
+                const isGangLive = submittedPlatforms.includes('gang');
+                if (!usingExecutor && !reusingWallet && !privateKey && !isGangLive) {
                     alert('请选择执行器，或输入私钥，或选择复用历史钱包');
                     return;
                 }
@@ -2278,7 +2286,7 @@
                     alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
                     return;
                 }
-                if (!usingExecutor && !reusingWallet && !/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+                if (!usingExecutor && !reusingWallet && !isGangLive && !/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
                     alert('私钥格式不正确，应为0x开头的64位十六进制字符');
                     return;
                 }

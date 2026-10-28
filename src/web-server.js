@@ -619,7 +619,7 @@ class RicherJsWebServer {
         const wallets = [];
         for (const exp of experiments) {
           const wallet = exp.config?.wallet;
-          if (!wallet?.address || !wallet?.privateKey) continue;
+          if (!wallet?.address || wallet?.executorId) continue;
           const addr = wallet.address.toLowerCase();
           if (seen.has(addr)) continue; // 同钱包去重（保留最新实验——list 已按 created_at 倒序）
           seen.add(addr);
@@ -627,6 +627,9 @@ class RicherJsWebServer {
             experimentId: exp.id,
             experimentName: exp.experimentName || exp.config?.name || exp.id,
             address: wallet.address,
+            // source 区分 EOA（有私钥，四平台可用）/ BAW（address-only，仅 gang——
+            // Binance Agentic Wallet 半自动通道，无 EOA 签名链）
+            source: wallet.privateKey ? 'eoa' : 'baw',
           });
         }
         res.json({ success: true, data: wallets });
@@ -687,11 +690,8 @@ class RicherJsWebServer {
         if (!VALID_PLATFORMS.includes(resolvedPlatform)) {
           return res.status(400).json({ success: false, error: `不支持的 platform: ${resolvedPlatform}（可选 fourmeme / flap / gang / both）` });
         }
-        // gang live 前置拒绝（引擎侧 _liveTraderTypeFor/_liveTraderType 双防线兜底）：
-        // agent-only 平台须 BAW+审批流，live 执行器另案设计
-        if (trading_mode === 'live' && resolvedPlatform === 'gang') {
-          return res.status(400).json({ success: false, error: 'gang 平台 live 不支持（agent-only 平台须 Binance Agentic Wallet + 审批流，另案设计；本期只做采集+虚拟+回测）' });
-        }
+        // gang live（2026-10-28 用户裁定「直接实盘」放行）：GangBawTrader 半自动通道
+        // （官方 gang CLI + BAW 审批流；引擎侧 _liveTraderTypeFor('gang')='gang'）
         const config = {
           name: experiment_name,
           description: experiment_description,
@@ -755,15 +755,29 @@ class RicherJsWebServer {
           } else if (wallet && wallet.privateKey) {
             encryptedPrivateKey = cryptoUtils.encrypt(wallet.privateKey); // 只加密私钥
             config.wallet = { address: wallet.address, privateKey: encryptedPrivateKey };
+          } else if (wallet?.address && resolvedPlatform === 'gang') {
+            // BAW address-only 第四源（仅 gang，2026-10-28 live 放行）：无 privateKey——
+            // GangBawTrader 经官方 gang CLI + BAW 审批流签名，引擎 BAW 第三形态只须
+            // 地址（walletSource='baw'）；fourmeme/flap 配 address-only 仍拒（EOA
+            // trader 缺 privateKey 必炸 fail-closed）
+            if (!/^0x[0-9a-fA-F]{40}$/.test(wallet.address)) {
+              return res.status(400).json({ success: false, error: `BAW 钱包地址格式无效: ${wallet.address}` });
+            }
+            config.wallet = { address: wallet.address };
           } else {
-            return res.status(400).json({ success: false, error: '实盘交易需要选择执行器（或提供钱包私钥/复用历史钱包）' });
+            return res.status(400).json({ success: false, error: resolvedPlatform === 'gang'
+              ? 'gang 实盘需要 BAW 钱包地址（或钱包私钥/复用历史钱包）'
+              : '实盘交易需要选择执行器（或提供钱包私钥/复用历史钱包）' });
           }
 
           // live 执行层参数（引擎读实验 config 的对应平台 ws 段 live；仅落用户可调项，
           // 加固参数 minOutRatio/熔断/超时走 config/default.json 默认）
           // 缺省值读 config/default.json 对应平台 live 段（单一真相源）——BI 案滑点 5→20 教训：
           // 表单兜底硬编码 5 曾覆盖 default 的 20，实验级显式值反向压过用户裁定
-          const liveDefaults = require('../config/default.json')[resolvedPlatform === 'flap' ? 'flapWs' : 'fourmemeWs']?.live || {};
+          // gang 段查表接入（2026-10-28 live 放行；slippageTolerance/maxGasPrice 对
+          // gang CLI 通道无操作面但落段无害——CLI 自带 --slippage，gas 由 BAW 定）
+          const liveSectionName = ({ flap: 'flapWs', gang: 'gangWs' })[resolvedPlatform] || 'fourmemeWs';
+          const liveDefaults = require('../config/default.json')[liveSectionName]?.live || {};
           const liveParams = {
             reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : liveDefaults.reserveNative ?? 0.01,
             slippageTolerance: strategy?.live?.slippageTolerance ?? liveDefaults.slippageTolerance ?? 20,
@@ -772,6 +786,8 @@ class RicherJsWebServer {
           };
           if (resolvedPlatform === 'flap') {
             config.flapWs = { live: liveParams };
+          } else if (resolvedPlatform === 'gang') {
+            config.gangWs = { live: liveParams };
           } else {
             config.fourmemeWs = { live: liveParams };
           }

@@ -12,8 +12,9 @@
  *   C. _handleNewToken gang 分派：_buildGangTokenRecord payload 黄金形状
  *   （platform/totalSupply 1e9/quote 终态字段/logoUri/taxed/gradAmtBnb）
  *   D. innerPair `_ga`（gang 内盘存档后缀，与 four.meme `fo`/flap `fl` 分域）
- *   E. live fail-fast：_liveTraderType 恒 throw + 基类 _liveTraderTypeFor('gang')
- *   throw（agent-only 平台须 BAW+审批流，另案设计；web 层 400 在前，本测试锁引擎侧）
+ *   E. live trader 分派（2026-10-28 用户裁定放行）：_liveTraderType/'gang' +
+ *      基类 _liveTraderTypeFor('gang')='gang' + 毕业票拦截钩子双态（基类 false/
+ *      gang 子类 true）；非本平台分派仍 fail-fast
  *   F. 源码口径防回归：BacktestEngine innerPair 三分派含 'ga'；
  *   GangWssTradingEngine 无 stop 覆盖（继承基类 stop 顺序 eventWriter→
  *   senderResolver→collectors 红线，基类链由 embedded_collector_architecture 锁定）
@@ -142,19 +143,31 @@ async function main() {
         ok('基类三分派 gang → _ga', baseInfo.innerPair === '0xX_ga', `实得 ${baseInfo.innerPair}`);
     }
 
-    // ═══ E. live fail-fast ═══
-    console.log('\n━━━ E. live fail-fast（三路径）━━━');
+    // ═══ E. live trader 分派（2026-10-28 放行：GangBawTrader 半自动通道）═══
+    console.log('\n━━━ E. live trader 分派（GangBawTrader）━━━');
     {
-        let msg1 = null, msg2 = null, msg3 = null;
-        try { engine._liveTraderType(); } catch (e) { msg1 = e.message; }
-        ok('子类 _liveTraderType() throw（agent-only 不支持 live）',
-            /gang 平台 live 不支持/.test(msg1 || ''), `实得 ${msg1}`);
-        try { engine._liveTraderTypeFor('gang'); } catch (e) { msg2 = e.message; }
-        ok('基类 per-platform 分派 _liveTraderTypeFor(gang) throw',
-            /gang 平台 live 不支持/.test(msg2 || ''), `实得 ${msg2}`);
-        try { engine._liveTraderTypeFor('fourmeme'); } catch (e) { msg3 = e.message; }
-        ok('gang 引擎上非本平台回落子类覆盖同样 throw（比 flap 更严的正确 fail-fast）',
-            /gang 平台 live 不支持/.test(msg3 || ''), `实得 ${msg3}`);
+        ok('子类 _liveTraderType() === "gang"',
+            engine._liveTraderType() === 'gang', `实得 ${engine._liveTraderType()}`);
+        ok('基类 per-platform 分派 _liveTraderTypeFor("gang") === "gang"',
+            engine._liveTraderTypeFor('gang') === 'gang', `实得 ${engine._liveTraderTypeFor('gang')}`);
+        // 非本平台分派在 gang 引擎上结构性不可达：_wsPlatforms 恒 ['gang'] → trader
+        // 分派循环只产 gang trader；_liveTraderFor 单 map 直返。真防线在
+        // _liveTraderFor 未知平台 fail-closed（协议/地址空间不同绝不跨发）
+        const { FourMemeWssTradingEngine: BaseEngine } = require('../src/trading-engine/implementations/FourMemeWssTradingEngine');
+        const baseEngine = new BaseEngine({ tradingMode: 'virtual', initialBalance: 1 });
+        baseEngine.logger = silentLogger;
+        baseEngine._liveTraderMap = new Map([['fourmeme', {}], ['flap', {}]]); // 双 map 强制走平台查表
+        baseEngine._tokenPool = null;                                    // 平台查表两级源全空 → null
+        baseEngine._factorAggregator = { getTokenState: () => null };
+        let dispatchErr = null;
+        try { baseEngine._liveTraderFor('0x3333333333333333333333333333333333333333'); } catch (e) { dispatchErr = e.message; }
+        ok('_liveTraderFor 未知平台 fail-closed throw（真实资金绝不跨协议盲发）',
+            /分派失败/.test(dispatchErr || ''), `实得 ${dispatchErr}`);
+        // gang 毕业票人工处置拦截（BAW 无 EOA 签名链）：基类恒 false / gang 子类恒 true
+        ok('基类 _graduatedManualIntercept 恒 false（four.meme/flap 毕业票照走 PCS）',
+            baseEngine._graduatedManualIntercept({}, {}) === false);
+        ok('gang 子类 _graduatedManualIntercept 恒 true（自动卖拦截人工处置）',
+            engine._graduatedManualIntercept({ tokenAddress: '0x1111111111111111111111111111111111111111', symbol: 'T' }, {}) === true);
     }
 
     // ═══ F. 源码口径防回归 ═══
@@ -168,7 +181,8 @@ async function main() {
         const gangSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/GangWssTradingEngine.js'), 'utf8');
         ok('GangWssTradingEngine 无 stop 覆盖（继承基类 stop 顺序红线）', !/\bstop\s*\(/.test(gangSrc));
         const mainSrc = fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8');
-        ok('main.js live+gang 分支拒绝', /platform === 'gang'[\s\S]{0,200}throw/.test(mainSrc));
+        ok('main.js live+gang 分支创建 GangWssTradingEngine（2026-10-28 放行）',
+            /platform === 'gang'[\s\S]{0,200}GangWssTradingEngine/.test(mainSrc));
         const runSrc = fs.readFileSync(path.join(__dirname, '../src/run-engine.js'), 'utf8');
         ok('run-engine.js 引擎选型含 gang', runSrc.includes("platform === 'gang' ? GangWssTradingEngine"));
     }

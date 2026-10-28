@@ -7,6 +7,7 @@ const ITrader = require('./ITrader');
 const FourMemeDirectTrader = require('./implementations/FourMemeDirectTrader');
 const PancakeSwapV2Trader = require('./implementations/PancakeSwapV2Trader');
 const FlapPortalTrader = require('./implementations/FlapPortalTrader');
+const GangBawTrader = require('./implementations/GangBawTrader');
 
 // 注册 FourMeme 交易器（内盘 TokenManager2）
 TraderFactory.registerTrader('fourmeme', FourMemeDirectTrader, {
@@ -30,6 +31,17 @@ TraderFactory.registerTrader('pancakeswap-v2', PancakeSwapV2Trader, {
 TraderFactory.registerTrader('flap', FlapPortalTrader, {
     name: 'Flap Portal Trader',
     description: 'Flap.sh Portal 交易器 - 用于 flap 内盘代币交易（BNB 计价盘）',
+    riskLevel: 3,
+    priority: 10,
+    enabled: true
+});
+
+// 注册 gang BAW 交易器（gang.fun 内盘，官方 gang CLI + Binance Agentic Wallet；
+// 买全自动 BROADCASTED / 卖须 App 确认 PENDING_CONFIRMATION，形状档案
+// docs/gang-cli-shapes.md；不 extends BaseTrader——签名链全在 CLI/App 侧）
+TraderFactory.registerTrader('gang', GangBawTrader, {
+    name: 'Gang BAW Trader',
+    description: 'gang.fun 交易器 - 官方 CLI 子进程封装（BAW 审批流，买全自动/卖人工确认）',
     riskLevel: 3,
     priority: 10,
     enabled: true

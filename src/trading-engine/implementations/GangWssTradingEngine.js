@@ -11,10 +11,12 @@
  *     （platform='gang' + totalSupply 1e9 + quote/gradAmt 存档字段）
  *   - 毕业进度：gang 资金口径（净入金 1.0/1.0 直计 / 阈值 graduationThresholdBnb
  *     ?? 15，见 FA _graduationFundsThreshold gang 分支）
- *   - live：本期不支持（2026-10-27 接入裁定）。gang 为 agent-only 平台——内盘交易
- *     链上校验 Agent ID，须 Binance Agentic Wallet + 「preview→requestId→execute→
- *     App 审批」流，无法用自有 EOA 直发合约；live 执行器另案设计。_liveTraderType
- *     throw fail-fast（web 层创建 live+gang 400 在前，本防线兜底直连构造）。
+ *   - live（2026-10-28 用户裁定「直接实盘」）：GangBawTrader——官方 gang CLI 子进程
+ *     封装 + Binance Agentic Wallet（半自动通道：买全自动 BROADCASTED / 卖须 App
+ *     确认 PENDING_CONFIRMATION，形状档案 docs/gang-cli-shapes.md）。钱包=BAW 地址
+ *     address-only（无 privateKey，引擎 BAW 第三形态）；毕业票不路由 PCS（BAW 无
+ *     EOA 签名链）——Telegram 告警 + 人工 gang CLI 处置（_graduatedManualIntercept）。
+ *     卖出到账 WNB（WBNB ERC20），实收=WBNB 余额差（trader 内）。
  *
  * 范围：virtual 虚拟交易 + backtest（BacktestEngine 平台无关，tick 同表回放）。
  */
@@ -55,10 +57,37 @@ class GangWssTradingEngine extends FourMemeWssTradingEngine {
     };
   }
 
-  /** live trader 类型：恒 throw（gang live 不支持，见头注释；_liveTraderTypeFor 的
-   *  per-platform 分派同款 fail-fast，两道防线） */
+  /** live trader 类型：GangBawTrader（官方 gang CLI + BAW 审批流，见头注释）。
+   *  注册名 'gang'（traders/index.js GangBawTrader） */
   _liveTraderType() {
-    throw new Error('gang 平台 live 不支持（agent-only 平台须 Binance Agentic Wallet + 审批流，另案设计；本期只做采集+虚拟+回测）');
+    return 'gang';
+  }
+
+  /** trader 构造后钩子（基类空实现，gang 覆盖）：注入 Telegram 告警钩子——卖侧
+   *  PENDING_CONFIRMATION / 状态未定防重发锁必须实时触达用户（App 确认是人在环上） */
+  async _postTraderInit(trader) {
+    trader.setAlertHook((title, body) => this._notifyLiveAlert(title, body));
+    this.logger.info(this._experimentId, 'GangWssTradingEngine', 'GangBawTrader 告警钩子已接（App 确认提醒/防重发锁告警走 Telegram）');
+  }
+
+  /** gang 毕业票人工处置拦截（基类恒 false）：BAW 无 EOA 签名链，_ensurePcsTrader
+   *  读 wallet.privateKey 必炸——本钩子返回 true 后自动卖（策略/止损/扫描兜底）与
+   *  手工卖全部短路，Telegram 告警一次（同 token 去重 30min，防 30s 扫描兜底每轮
+   *  重触发拦截造成告警风暴）。毕业票处置须人工（Binance App / 转 EOA 钱包） */
+  _graduatedManualIntercept(signal, gradInfo) {
+    const token = signal?.tokenAddress;
+    const now = Date.now();
+    this._gradAlertAt = this._gradAlertAt || new Map();
+    const last = this._gradAlertAt.get(token) || 0;
+    if (now - last > 30 * 60 * 1000) {
+      this._gradAlertAt.set(token, now);
+      const qty = Number(this._getHolding(token)?.amount ?? 0);
+      this._notifyLiveAlert('🎓 gang 毕业票人工处置（自动卖已拦截）',
+        `${signal?.symbol || token} 已毕业（内盘曲线终结，BAW 无法在外盘签名）。` +
+        `持仓 ${qty} 个请人工处置（Binance App / 转 EOA 钱包去 PCS），引擎已长冷却不再自动卖。` +
+        `Token: ${token}`);
+    }
+    return true;
   }
 }
 

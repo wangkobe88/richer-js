@@ -902,16 +902,23 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /** per-platform live trader 类型分派（双平台 live 2026-10-14）：flap 平台恒
-   *  FlapPortalTrader（'flap'，与子类覆盖无关）；gang 恒 throw fail-fast（2026-10-27
-   *  gang 接入裁定：agent-only 平台 live 须 BAW+审批流，另案设计——真实资金绝不
-   *  盲发到无 trader 实现的平台）；其余走 _liveTraderType()（基类 'fourmeme'；
-   *  flap 子类恒单平台不会走到本分支） */
+   *  FlapPortalTrader（'flap'，与子类覆盖无关）；gang→'gang'（GangBawTrader，2026-10-28
+   *  用户裁定「直接实盘」：官方 gang CLI + BAW 审批流半自动通道）；其余走
+   *  _liveTraderType()（基类 'fourmeme'；flap 子类恒单平台不会走到本分支） */
   _liveTraderTypeFor(platform) {
     if (platform === 'flap') return 'flap';
-    if (platform === 'gang') {
-      throw new Error('gang 平台 live 不支持（agent-only 平台须 Binance Agentic Wallet + 审批流，另案设计；本期只做采集+虚拟+回测）');
-    }
+    if (platform === 'gang') return 'gang';
     return this._liveTraderType();
+  }
+
+  /** trader 构造后钩子：基类 no-op（gang 子类注入 Telegram 告警钩子——卖侧 App
+   *  确认提醒/防重发锁告警须实时触达用户） */
+  async _postTraderInit(_trader) {}
+
+  /** gang 毕业票人工处置拦截：基类恒 false（毕业票照走 PCS 路由）；gang 子类覆盖
+   *  （BAW 无 EOA 签名链，PCS trader 不可用——Telegram 告警 + 人工 gang CLI 处置） */
+  _graduatedManualIntercept(_signal, _gradInfo) {
+    return false;
   }
 
   /** token → live trader 分派（双平台核心路由）：单 trader 直返（单平台实验零行为
@@ -988,6 +995,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           && executor.reserve_native != null && Number(executor.reserve_native) >= 0) {
         this._reserveNative = new Decimal(executor.reserve_native);
       }
+    } else if (walletConfig.address && !walletConfig.privateKey && this._wsPlatforms().includes('gang')) {
+      // BAW 第三形态（2026-10-28 gang live）：address-only 钱包——签名链在 Binance App/
+      // gang CLI 侧（GangBawTrader setWallet 对拍 baw wallet address），无 privateKey 可
+      // 解。仅 gang 平台放行：fourmeme/flap 的 EOA trader 缺 privateKey 必炸，刻意不
+      // 给这两个平台开 address-only 后门（fail-closed）
+      if (!/^0x[0-9a-fA-F]{40}$/.test(walletConfig.address)) {
+        throw new Error(`BAW 钱包地址格式无效: ${walletConfig.address}`);
+      }
+      this._walletAddress = walletConfig.address;
+      this._walletSource = 'baw';
     } else {
       if (!walletConfig.address || !walletConfig.privateKey) {
         throw new Error('live 实验缺少钱包配置 (config.wallet.address / config.wallet.privateKey 或 config.wallet.executorId)');
@@ -1003,6 +1020,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     const traderFactory = require('../traders');
     const traderConfig = { blockchain: 'bsc', chain: 'bsc' };
+    if (this._walletSource === 'baw') {
+      // BAW 第三形态：GangBawTrader setWallet 的对拍源 + CLI 参数段透传
+      // （gangWs.live.gangCli：bin 路径/超时/轮询间隔，见 config/default.json）
+      traderConfig.address = this._walletAddress;
+      traderConfig.gangCli = (this._wsConfig.live || {}).gangCli || {};
+    }
     // 发单 RPC（B4）：ANKR_HTTP_RPC_URL 显式 > ANKR_API_KEY > 从 ANKR_WS_URL 末段提取
     // key 构造（wss://rpc.ankr.com/bsc/ws/<key> → https://rpc.ankr.com/bsc/<key>，与
     // WSS 同源账号付费连接，免公共节点限流）；皆无则 BaseTrader 内置公共节点
@@ -1032,6 +1055,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
       trader.txSeenSignal = this._txSeenSignal;   // WSS 快速回执（提速①）；null=纯原路径
       trader.setLogger(this.logger, this._experimentId); // trader 行进实验日志文件（2026-10-16 蓝蛙案：裸 console 落 stdout 重定向文件，现场与引擎行割裂）
+      await this._postTraderInit(trader); // trader 构造后钩子（基类 no-op；gang 注入 TG 告警钩子）
       await trader.setWallet(privateKey);
       if (this._liveTraderMap.size > 0) {
         await trader.shareSignerFrom(this._trader);
@@ -2198,7 +2222,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             null,
             // T76 2026-10-27 注意力空转观测键原料：fire 因子表买盘上下文同刻同源
             //（buyWallets/buyVolumeBnb），service 内与 GMGN visitingCount 现算比值；
-            // T82 2026-10-28 marketCap：USD 市值透传供 mcap 早期豁免臂（null=缺失
+            // T82 2026-10-28 marketCap：市值透传供 mcap 早期豁免臂（T83 起 BNB 域；null=缺失
             // 不豁免，保守方向——豁免须市值真值支撑）
             {
               buyWallets: factorResults?.buyWallets ?? 0,
@@ -2916,6 +2940,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             `已长冷却 ${this._sellCbCooldownMs / 60000}min（不计熔断）。请人工核查持仓 ${signal.tokenAddress}`);
           return result;
         }
+        // gang 毕业票人工处置分流：拦截时已告警；不计熔断连败 + 长冷却静音（30s 扫描
+        // 兜底每轮重触发拦截，不冷却=日志/去重告警风暴）
+        if (result?.graduatedManual) {
+          this._sellCooldownUntil.set(signal.tokenAddress, Date.now() + this._sellCbCooldownMs);
+          this.logger.info(this._experimentId, '_executeSell',
+            `🎓 gang 毕业票人工处置中（不计熔断，长冷却 ${this._sellCbCooldownMs / 60000}min）| ${signal.symbol}`);
+          return result;
+        }
         // 卖出失败冷却：防每 tick 高频重试烧 gas（成功后清除）
         // 连续失败熔断（迁自 rich-js 卖腿防线）：同一 token 连败达阈值 → 长冷却 + 告警
         // （rich-js 事故面：flap 税币 "Pancake: K" 持续 revert，短冷却下反复烧 gas）
@@ -3015,7 +3047,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       const buyResult = await this._liveTraderFor(signal.tokenAddress).buyToken(signal.tokenAddress, amountInWei, options);
       if (!buyResult.success) {
-        this._registerBuyFailure(signal, buyResult.error);
+        // preflightReject（gang 1% 帽退款等前置拒单）不计熔断：非 token 买不进，
+        // 是金额形状问题——拉黑会永久错过该 token 后续可买的窗口
+        if (!buyResult.preflightReject) {
+          this._registerBuyFailure(signal, buyResult.error);
+        } else {
+          this.logger.info(this._experimentId, '_executeBuyLive',
+            `preflight 拒单（不计熔断）| ${signal.symbol} | ${String(buyResult.error || '').slice(0, 160)}`);
+        }
         // 单次失败必打行（2026-10-16 蓝蛙 0x9499…7777 案：revert 失败只在熔断阈值才打，
         // 8.6s 静默期实验日志零行，定位全靠 DB execution_reason 考古）
         this.logger.warn(this._experimentId, '_executeBuyLive',
@@ -3190,6 +3229,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     let trader = traderOverride || null;
     const gradInfo = await this._liveGraduatedInfo(signal.tokenAddress);
     if (!trader && gradInfo.graduated) {
+      // gang 毕业票：BAW 无 EOA 签名链，PCS trader 不可用——人工处置拦截（拦截
+      // 点必须在 _ensurePcsTrader 之前：其内部读 this._trader.wallet.privateKey
+      // 必炸（BAW 钱包无 privateKey），且真实资金绝不盲发跨协议）
+      if (this._graduatedManualIntercept(signal, gradInfo)) {
+        return { success: false, reason: 'gang 毕业票人工处置（BAW 不适用外盘，已告警）', graduatedManual: true };
+      }
       trader = await this._ensurePcsTrader();
       this.logger.info(this._experimentId, '_executeSellLive',
         `毕业票自动卖路由 PCS V2 外盘 | ${signal.symbol} ${signal.tokenAddress}`);
@@ -3577,6 +3622,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 不重建）走 wss_events 回查——否则必路由平台内盘 trader → 毕业 revert
       const gi = await this._liveGraduatedInfo(tokenAddress);
       if (gi.graduated) {
+        // gang 毕业票拦截（同自动卖路径：拦截在 _ensurePcsTrader 之前，防 BAW 形状崩溃）
+        if (this._graduatedManualIntercept({ tokenAddress, symbol }, gi)) {
+          return { success: false, reason: 'gang 毕业票人工处置（BAW 不适用外盘，已告警）', graduatedManual: true };
+        }
         traderOverride = await this._ensurePcsTrader();
         this.logger.info(this._experimentId, 'ManualTrade', `毕业票手工卖路由 PCS V2 外盘 | ${symbol}`);
       }
@@ -3960,10 +4009,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (token && token.status === 'bought') {
       if (this._isLive) {
         const qty = Number(this._getHolding(info.token)?.amount ?? 0);
-        this._notifyLiveAlert('🎓 持仓代币毕业（需人工处置）',
-          `${token.symbol} 已毕业（内盘曲线终结，funds=${info.fundsBnb} BNB）。` +
-          `live 持仓 ${qty} 个代币已无法通过内盘卖出（TM2 毕业 revert，引擎不再收到该 token 的 tick）。` +
-          `请尽快到 PancakeSwap 手动处置: ${info.token}`);
+        // gang 平台文案分叉：BAW 无 EOA 签名链不能去 PCS 交易（_ensurePcsTrader 读
+        // privateKey 必炸），自动卖路径已被 _graduatedManualIntercept 拦下——本告警
+        // 即唯一提示，须指 gang 内盘 CLI 已不适用（毕业票在外盘）
+        if (this._wsPlatforms().includes('gang')) {
+          this._notifyLiveAlert('🎓 gang 持仓代币毕业（需人工处置）',
+            `${token.symbol} 已毕业（内盘曲线终结，funds=${info.fundsBnb} BNB）。` +
+            `BAW 无法在外盘（PCS）签名交易，gang CLI 内盘卖出对毕业票不适用。` +
+            `自动卖出已拦截（不计熔断）。请人工通过 Binance App 或转账到 EOA 钱包处置持仓 ${qty} 个: ${info.token}`);
+        } else {
+          this._notifyLiveAlert('🎓 持仓代币毕业（需人工处置）',
+            `${token.symbol} 已毕业（内盘曲线终结，funds=${info.fundsBnb} BNB）。` +
+            `live 持仓 ${qty} 个代币已无法通过内盘卖出（TM2 毕业 revert，引擎不再收到该 token 的 tick）。` +
+            `请尽快到 PancakeSwap 手动处置: ${info.token}`);
+        }
       } else {
         this._emitGraduationSell(token, info).catch(error =>
           this.logger.error(this._experimentId, 'Graduation',

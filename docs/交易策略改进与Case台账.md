@@ -40,7 +40,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 二、现行卖腿机制要点
 
 - **sizing=卡牌唯一表达**（cards；sellPercentage 已退役 2026-10-24）；全清腿恒精确 1；卡账本 `cardTrade` 绝对值重放恢复
-- 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）
+- 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
 - 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（`marketCap>0 AND <5500 AND realHoldDuration>10`，v43 起）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）**
@@ -51,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T83 gang live 通道全链打通——GangBawTrader 半自动 + trailing -5% 卖腿（2026-10-28 用户裁定「直接使用 trailing -5%（30min 超时），直接实盘……Trader 使用 Gang 特有的，WSS 只订阅 Gang 相关的事件」）
+- **卖腿数据定论（裁定依据）**：72h getLogs /378 WNB 票/0.002 BNB 同批对拍——E2 trailing -5%@30min **+22.27%**（胜率 89.2%、中位 +16.94%）vs 固定 5min +13.58% vs 固定止盈 +20% +12.89%；回撤挡单调递增（-5>-10>-15>-20>-30，无「震出后二次冲高」形状）；30min 超时≈6h（22.27 vs 22.15）。机理=gang 出生冲量市场（到峰中位 12s、峰值中位 ×1.30、峰后长尾阴跌不回头），trailing 出场点=峰值×0.95 远优于 5min 时点价
+- **通道架构**：trader=`GangBawTrader`（不 extends BaseTrader——签名链全在官方 gang CLI+Binance App 侧）：两段式 preview→requestId→execute；买全自动 BROADCASTED（V2 `gang buy --bnb` 分步 wrap-bnb→approve-quote / V3 `gang v3 buy --amount` 直付）；卖恒 medium_risk→PENDING_CONFIRMATION→Telegram 告警+轮询 `baw wallet tx-history`（300s 上限，超时告警「勿再确认旧单」防迟到确认双卖）。**防双买/双卖状态机**：execute 状态未知/回执超时→`_unresolved` 锁同 token 拒绝后续（绝不自动重发，`_syncHoldings` 余额差对账接盘链上事实）；reverted=终态确定解锁；expired requestId 重跑 preview 恰一次；单飞行队列串行（BAW 外部状态机）。卖出到账 **WNB（WBNB ERC20）非 native BNB**——实收=WNB balanceOf 差（gas 从 native 扣不混入，比 EOA 余额差法少一步补偿）
+- **引擎接线**：BAW 第三形态钱包（address-only 无 privateKey，仅 gang 放行）；`_liveTraderTypeFor('gang')='gang'`；preflightReject 分流（V2 1% 帽 `expectRefund≠0` 拒单不计买入熔断——非 token 买不进是金额形状问题）；**毕业票不路由 PCS**（BAW 无 EOA 签名链，`_ensurePcsTrader` 读 privateKey 必炸）——`_graduatedManualIntercept` 钩子三处拦截（自动卖/手工卖/上游 graduatedManual 分流不计卖熔断+长冷却 30min 告警去重）；web 三防线解除+BAW 第四源（address-only 仅 gang 放行）+liveDefaults 查表 gangWs
+- **策略库条目**（deploy-gang-live-strategies.cjs，182 跑 --commit）：`gang-genesis-buy`（`currentPrice > 0 AND tokenAgeSec < 60`，裸条件腿=叙事链路整机零激活——buy-v2 的 narrativeRating 腿对 gang 恒 miss 永不买；maxExecutions=1、cards=1 × perCardBNB=0.002 试单额度）+ `gang-trail-exit`（`drawdownFromHighestSinceLastBuy <= -5 OR holdDuration >= 1800`，cards='all' 全清；**bypassDebounce=true**：gang 曲线价=纯函数（Q=Q0+dw4）无 tick=价格真冻结，等 tick 确认无意义+App 确认是分钟级人在环，与现行「卖腿 bypass=false」裁定的 AMM 快照失真语境刻意不同）；实验级 stopLoss {priceStopPercent:-50, scanIntervalSec:30} 断流兜底
+- 单测：`_test_gang_baw_trader.cjs` 47 断言（防双买反证=状态未知后零新 CLI 调用+序列锁定）+ `_test_gang_live_wiring.cjs` 25 断言（毕业拦截行为级 throw 桩=绝不调 _ensurePcsTrader）+ `_test_gang_architecture.cjs` E 项反转 33 断言；受影响存量单测 6 件零破坏
+- **观察点（首日）**：PENDING→confirmed 确认延迟分布；CLI 失败率；devMode 续期（`baw wallet settings` 日检）；1% 帽命中（0.002 不应触）；首笔买卖闭环 txHash+`_syncHoldings` 对账 diff；确认超时后旧单滞留 App 双卖风险；trailing 实盘 vs 模拟对拍
 
 ### T82 GMGN bundler 门 mcap 早期豁免臂——分母个位数段 ratio 是采样噪声（0xa44e…7777 案，2026-10-28 用户裁定「如果价格小于 8K 就豁免一下这个条件」；库 buy-v2 v42 + create-v45，待 v45 上线生效）
 - **案发路径**：v44 `5be4c248` signals 页 0xa44ef3ea…7777（event:E）`gmgnBundlerWalletRatio` 出现 **>100 值**（111.1/166.7）。归因：ratio=`bundler_wallets/top_wallets×100` 直出 GMGN `wallet_tags_stat`（`risk-fields.js` 提取→`mapGmgnRiskFactors` 映射），**分子分母不是子集/全集关系**——GMGN 不保证 bundler≤top；39 个 BUY 信号值序列 58.8→66.7→71.4→90.9→100→111.1→166.7 反推全为小整数分数（10/17→2/3→5/7→10/11→n/n→10/9→**5/3**），分母个位数到十几=超早期标签统计窗口极小，一两个标签变动即 ±30pp 跳变。**超早期读数=采样噪声的机制化承认**：同盘 3min 内 58.8→166.7 剧变本身证明该窗口的值无判定力（首评 58.8 恰过门买入 -22%，40s 后 66.7 起锁死=两读数都只是噪声抽样）

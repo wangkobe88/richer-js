@@ -291,6 +291,29 @@
       "enabled": true,
       "concurrency": 3,
       "gangRetryDelayMs": 10000
+    },
+    "live": {
+      "reserveNative": 0.01,
+      "slippageTolerance": 20,
+      "maxGasPrice": 10,
+      "holdingsSyncMs": 300000,
+      "sellFailureCooldownMs": 60000,
+      "minOutRatio": 0.5,
+      "maxPositionTokens": 0,
+      "sellCircuitBreakerFailures": 5,
+      "sellCircuitBreakerCooldownMs": 1800000,
+      "txWaitTimeoutMs": 120000,
+      "dustCloseValueBnb": 0.0001,
+      "buyCircuitBreakerFailures": 3,
+      "gangCli": {
+        "gangBin": "gang",
+        "bawBin": "baw",
+        "spawnTimeoutMs": 60000,
+        "approvalTimeoutMs": 300000,
+        "approvalPollMs": 5000,
+        "maxStepLoops": 8
+      },
+      "capPolicy": "reject"
     }
   },
   "senderResolve": {
