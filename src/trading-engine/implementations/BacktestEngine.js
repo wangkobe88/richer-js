@@ -2092,7 +2092,10 @@ class BacktestEngine extends AbstractTradingEngine {
               // T76 2026-10-27 注意力空转四键：与实时 checkAndEvaluate 第六参同构
               //（快照 vc 是 token 级常量=已知时序穿越，与 narrativeCategory 同款
               // 声明——比值结论只看相对增量；buyWallets/buyVolumeBnb 回测 FA 同源
-              // 重放=fire 时刻真值无穿越）
+              // 重放=fire 时刻真值无穿越）；
+              // T82 2026-10-28 marketCap：fire 因子表市值同刻同源（重放=fire 时刻
+              // 真值无穿越；null=缺失不豁免与实时同向）
+              marketCap: factorResults?.marketCap ?? null,
               ...GmgnRiskCheckService.computeGmgnAttentionFactors(
                 this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
                 factorResults?.buyWallets ?? 0,

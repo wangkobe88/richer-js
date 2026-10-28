@@ -21,6 +21,10 @@
  *      不传集跳过（存量兼容）
  *   F. FAKER 端到端反证：直调快照真值（bundler 7/top 8）→ mapGmgnRiskFactors
  *      → evaluateFactors 拒——事故现场锁防线
+ *   G. T82 mcap 早期豁免臂（0xa44e…7777 案，2026-10-28）：市值 <8K 时 bundler 门
+ *      豁免放行（GMGN wallet_tags_stat 分母个位数时 ratio 是采样噪声，同盘 3min
+ *      58.8→166.7 剧变）；null=缺失不豁免（豁免门保守方向）；issuer 分档门不被
+ *      豁免盖住；引擎/回测双向透传源码口径
  *
  * 用法：node scripts/_test_gmgn_check_layer.cjs
  */
@@ -506,6 +510,84 @@ async function main() {
     check('FAKER 0xc6ee6bd2049e5643a2283def7a79b2e68bb07777：bundler 7/8=87.5 → 新层拒（17 秒 -66% 案锁防线）',
       factors.gmgnBundlerWalletRatio === 87.5 && verdict.passed === false,
       `factors=${JSON.stringify(factors)} verdict=${JSON.stringify(verdict)}`);
+  }
+
+  console.log('G. T82 mcap 早期豁免臂（0xa44e…7777 案，2026-10-28）');
+  {
+    // v45 条件串形状：豁免只盖 bundler 门，issuer 分档门/narrativeCategory 臂不动
+    const V45_COND = '(marketCap < 8000 OR gmgnBundlerWalletRatio <= 65) AND ((narrativeCategory IS NULL OR '
+      + "(narrativeCategory != 'project' AND narrativeCategory != 'account_based_meme' "
+      + "AND narrativeCategory != 'web3_native_ip_early')) "
+      + 'OR gmgnIssuerTokenCount <= 1)';
+    // 案票 0xa44e…7777 后段形状：bundler 5/3=166.7（分母收缩，>100 超限倍数）
+    const ev = (mcap, bundler = 166.7, category = 'event:E', issuer = 0) =>
+      GmgnRiskCheckService.evaluateFactors({
+        gmgnRiskCovered: 1, gmgnIssuerTokenCount: issuer,
+        gmgnBundlerWalletRatio: bundler, narrativeCategory: category, marketCap: mcap,
+      }, V45_COND).passed;
+
+    check('mcap 7500 + bundler 166.7 → 放（豁免臂：分母个位数噪声段不拦）', ev(7500) === true);
+    check('mcap 7999.9 → 放（严格 <，8K 以下豁免）', ev(7999.9) === true);
+    check('mcap 8000 恰好 → 拒（严格小于：等值不豁免）', ev(8000) === false);
+    check('mcap 9000 + bundler 166.7 → 拒（出了豁免窗照拦）', ev(9000) === false);
+    check('mcap null → 拒（市值证据缺失不豁免——豁免门保守方向，与 famous/sybil 拦截门 0 语义刻意相反）',
+      ev(null) === false);
+    check('mcap 7500 + bundler 30 → 放（OR 双臂皆可，bundler 门本身不动）', ev(7500, 30) === true);
+    check('mcap 9000 + bundler 60 → 放（原门形状零变化）', ev(9000, 60) === true);
+    check('mcap 7500 + project + issuer=6 → 仍拒（豁免只盖 bundler 门——serial issuer 分档门不被 mcap 牵连放行）',
+      ev(7500, 30, 'project', 6) === false);
+    check('mcap 7500 + null 分类 + issuer=6 → 放（IS NULL 臂 fail-open 原语义不受豁免臂影响）',
+      ev(7500, 30, null, 6) === true);
+    // 案发现场反证：0xa44e…7777 首评 58.8 放行买入 -22%，3min 后 166.7 全拦——豁免臂
+    // 下 58.8/166.7 两个读数在 mcap<8K 段等价放行（噪声段读数不再有判定力）
+    check('案发现场反证：58.8 与 166.7 在 mcap 7500 段等价放行（早期读数=采样噪声的机制化承认）',
+      ev(7500, 58.8) === true && ev(7500, 166.7) === true);
+    check('covered=0 + 豁免臂条件串 → 仍 fail-open 放行（API 不可用优先于一切门，2026-10-20 裁定不变）',
+      GmgnRiskCheckService.evaluateFactors(
+        { gmgnRiskCovered: 0, gmgnIssuerTokenCount: 0, gmgnBundlerWalletRatio: 0, marketCap: 9000, failReason: 'error: timeout' },
+        V45_COND).passed === true);
+    check('键集含 marketCap（loadStrategies/validateLegs 三防线自动认得）',
+      GMGN_CONDITION_FACTOR_KEYS.includes('marketCap'));
+
+    // checkAndEvaluate buyContext.marketCap 透传（第六参；T76 buyContext 加键）
+    await withKey(async () => {
+      apiCalls.length = 0;
+      stubBehavior = { response: { ...FAKER_INFO, wallet_tags_stat: { bundler_wallets: 5, top_wallets: 3, sniper_wallets: 5, fresh_wallets: 2 } } };
+      const svc = freshSvc();
+      const vEx = await svc.checkAndEvaluate('0xT82', 'bsc', V45_COND, 'event:E', null,
+        { buyWallets: 63, buyVolumeBnb: 7.15, marketCap: 7500 });
+      check('checkAndEvaluate：buyContext.marketCap=7500 + 快照 5/3=166.7 → 豁免放行且 factors.marketCap 留痕',
+        vEx.passed === true && vEx.factors.marketCap === 7500 && vEx.factors.gmgnBundlerWalletRatio === 166.7,
+        JSON.stringify(vEx));
+      const vNo = await svc.checkAndEvaluate('0xT82b', 'bsc', V45_COND, 'event:E', null,
+        { buyWallets: 63, buyVolumeBnb: 7.15, marketCap: 9000 });
+      check('checkAndEvaluate：marketCap=9000 → 出豁免窗照拒（TTL 5s 内同快照）',
+        vNo.passed === false, JSON.stringify(vNo));
+      const vOldShape = await svc.checkAndEvaluate('0xT82c', 'bsc', V45_COND, 'event:E', null,
+        { buyWallets: 63, buyVolumeBnb: 7.15 }); // 旧形状不带 marketCap 键
+      check('checkAndEvaluate：buyContext 不带 marketCap（旧形状）→ null 不豁免照拒',
+        vOldShape.passed === false && vOldShape.factors.marketCap === null, JSON.stringify(vOldShape));
+      // 注意力空转键与 marketCap 共存（同一 buyContext 两种原料互不污染）：
+      // vc=3 / buyWallets=63 → 0.048 舍入 1 位=0；vc=3 / 7.15 BNB → 0.4
+      check('T76 注意力键不受 T82 加键影响（同 buyContext 共存）',
+        vEx.factors.gmgnVisitorsPerBuyer === 0 && vEx.factors.gmgnVisitorsPerBuyBnb === 0.4
+          && vEx.factors.gmgnBuyWallets === 63,
+        JSON.stringify(vEx.factors));
+      // 旧条件串（不含 marketCap）+ 新 buyContext（带 marketCap）→ 零影响
+      const vLegacy = await svc.checkAndEvaluate('0xT82d', 'bsc', NS_COND, 'event:E', null,
+        { buyWallets: 63, buyVolumeBnb: 7.15, marketCap: 7500 });
+      check('存量条件串（不含 marketCap）+ 新 buyContext → 零影响照原门评估',
+        vLegacy.passed === false, JSON.stringify(vLegacy));
+    });
+
+    // 引擎/回测双向透传源码口径（v15 GMGN 透传事故同族防线）
+    const fs = require('fs');
+    const liveSrc = fs.readFileSync('src/trading-engine/implementations/FourMemeWssTradingEngine.js', 'utf8');
+    const btSrc = fs.readFileSync('src/trading-engine/implementations/BacktestEngine.js', 'utf8');
+    check('源码口径：实时引擎 buyContext 透传 marketCap（fire 因子表同刻同源）',
+      /marketCap: factorResults\?\.marketCap \?\? null/.test(liveSrc), '实时引擎未透传 marketCap');
+    check('源码口径：回测 context spread marketCap（重放=fire 时刻真值无穿越）',
+      btSrc.includes('marketCap: factorResults?.marketCap ?? null'), '回测未 spread marketCap');
   }
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

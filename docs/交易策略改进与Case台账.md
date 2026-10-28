@@ -35,7 +35,7 @@ AND drawdownFromHighest > -70                             -- 崩盘接刀门①�
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
 
-第二层（条件串外，`gmgnCheckCondition`）：`gmgnBundlerWalletRatio <= 65`（v31 起 65）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73）；GMGN API 失败 fail-open 放行（T14）。
+第二层（条件串外，`gmgnCheckCondition`）：`(marketCap < 8000 OR gmgnBundlerWalletRatio <= 65)`（T82/v42 起 <8K 早期豁免臂——分母个位数段 ratio 是采样噪声；bundler 门本身 v31 起 65）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73；**不被 mcap 豁免盖住**）；GMGN API 失败 fail-open 放行（T14）。
 
 ## 二、现行卖腿机制要点
 
@@ -51,6 +51,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T82 GMGN bundler 门 mcap 早期豁免臂——分母个位数段 ratio 是采样噪声（0xa44e…7777 案，2026-10-28 用户裁定「如果价格小于 8K 就豁免一下这个条件」；库 buy-v2 v42 + create-v45，待 v45 上线生效）
+- **案发路径**：v44 `5be4c248` signals 页 0xa44ef3ea…7777（event:E）`gmgnBundlerWalletRatio` 出现 **>100 值**（111.1/166.7）。归因：ratio=`bundler_wallets/top_wallets×100` 直出 GMGN `wallet_tags_stat`（`risk-fields.js` 提取→`mapGmgnRiskFactors` 映射），**分子分母不是子集/全集关系**——GMGN 不保证 bundler≤top；39 个 BUY 信号值序列 58.8→66.7→71.4→90.9→100→111.1→166.7 反推全为小整数分数（10/17→2/3→5/7→10/11→n/n→10/9→**5/3**），分母个位数到十几=超早期标签统计窗口极小，一两个标签变动即 ±30pp 跳变。**超早期读数=采样噪声的机制化承认**：同盘 3min 内 58.8→166.7 剧变本身证明该窗口的值无判定力（首评 58.8 恰过门买入 -22%，40s 后 66.7 起锁死=两读数都只是噪声抽样）
+- **裁定与形状**：市值 <8000 USD（严格小于）时豁免 bundler 门——`(marketCap < 8000 OR gmgnBundlerWalletRatio <= 65) AND (原 narrativeCategory/issuer 分档门不动)`。**豁免只盖 bundler 门**：serial issuer 分档门与市值无关不被牵连放行（mcap<8K + project + issuer=6 仍拒，单测锁定）。marketCap=FA fire 因子表 USD 市值（观察信号同源键），引擎经 buyContext 第三键透传（T76 buyContext 加键，与 buyWallets/buyVolumeBnb 共存互不污染）、回测 context 直并同刻同源（重放=fire 时刻真值无穿越）；**null=市值证据缺失不豁免**（豁免门保守方向——ConditionEvaluator 对 null 比较恒 false 天然落地，与 famous/sybil 拦截门「名单缺失恒 0 放行」刻意相反）；covered=0 fail-open 放行语义不变（API 不可用优先于一切门）
+- **实现链**：`GmgnRiskCheckService` 键集+`marketCap`（27→28 键，loadStrategies/validateLegs 三防线自动认得）+checkAndEvaluate buyContext.marketCap 并入（`typeof number` 才收，旧形状不带键=null 照拒）；引擎/回测双向透传挂点各一处；库 `bump-buy-v2-v42.cjs`（唯一变量=gmgn 串整串替换，fire/trigger/兄弟门防呆锚定）；实验 `create-v45.cjs`（克隆 v44 5be4c248，唯一变量=gmgn 串←库 v42 copy-in，libraryRefs 41→42）
+- 单测：`_test_gmgn_check_layer.cjs` G 段 15 断言（7500 放/7999.9 放/**8000 恰好拒**（严格 <）/9000 拒/null 不豁免/project+issuer=6 仍拒/58.8 与 166.7 在 <8K 段等价放行=案发现场反证/covered=0 fail-open 不变/checkAndEvaluate 透传三形状/T76 注意力键共存/存量条件串零影响/键集/源码口径双向）78/0；`_test_gmgn_wallet_stats_layer.cjs` A3 键计数 27→28 同步 19/0
+- **观察点**：豁免放行票的 bundler 真值分布（≥8K 后是否被原门接住）；与早期叙事臂（mcap 3500-5000）叠加的进场前置量变化
 
 ### T78 evenCluster amountKey 四位舍入——历史回放反证 6 位严格键对案票恒 0（2026-10-27，用户裁定「增加的特征，可以利用历史数据算一下值」直接救回 T74 键）
 - **案发路径**：T76 观察键回放（`scripts/replay-observation-factors.cjs`，182 全量 28230 BUY 信号/6686 token）核对 T74 案票 `0x8c4aa42debd1b1015af12945adc589c7e4ae7777`——生产键 fire 时（19:30:01.379）evenClusterHoldCircPct=**0**，台账记录 **81.6%**。取证（fire 前 25 笔买行）：25 档 distinct 金额 **11 个间隔 <0.001**（0.16471/0.16474 式刻意微差）——`toFixed(6)` 严格相等下三档簇（0.1647×6 / 0.2470×6 / 0.1314×3）**全部 size<3 不成桶=键对设计目标形状失效**；四位舍入三档全中。根因=T74 分析时用四位舍入分组、落地键却照抄 launch uniform 臂 6 位口径——**分析口径≠键口径**的失误；团伙微差金额正是对精确等额检测的规避手段，6 位键天然打不中

@@ -2197,10 +2197,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             factorResults?.narrativeCategory ?? null,
             null,
             // T76 2026-10-27 注意力空转观测键原料：fire 因子表买盘上下文同刻同源
-            //（buyWallets/buyVolumeBnb），service 内与 GMGN visitingCount 现算比值
+            //（buyWallets/buyVolumeBnb），service 内与 GMGN visitingCount 现算比值；
+            // T82 2026-10-28 marketCap：USD 市值透传供 mcap 早期豁免臂（null=缺失
+            // 不豁免，保守方向——豁免须市值真值支撑）
             {
               buyWallets: factorResults?.buyWallets ?? 0,
               buyVolumeBnb: factorResults?.buyVolumeBnb ?? 0,
+              marketCap: factorResults?.marketCap ?? null,
             });
         } catch (e) {
           // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常（gwp buildFactors

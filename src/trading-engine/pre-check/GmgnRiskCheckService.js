@@ -37,7 +37,12 @@ const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 // 2026-10-27 T76 注意力空转四键（用户裁定「VC 高但买入者少/买入量小=获得了注意力
 // 但没有吸引力」）：gmgnVisitorsPerBuyer / gmgnVisitorsPerBuyBnb 两比值键由
 // computeGmgnAttentionFactors 用 GMGN visitingCount ÷ fire 因子表 buyWallets /
-// buyVolumeBnb 现算（引擎第六参透传）——观察键先行不进条件串，阈值待票池分布）
+// buyVolumeBnb 现算（引擎第六参透传）——观察键先行不进条件串，阈值待票池分布）；
+// 2026-10-28 T82 mcap 早期豁免臂：marketCap（非 GMGN 键，FA fire 因子表 USD 市值
+// 由引擎/回测经 buyContext 同刻同源透传）——GMGN wallet_tags_stat 分母个位数的
+// 超早期盘 bundler ratio 是采样噪声（0xa44e…7777 案同盘 3min 内 58.8→166.7 剧变），
+// 市值 <8K 时 bundler 门豁免放行；null=市值证据缺失不豁免（豁免门保守方向，
+// 与 famous/sybil「名单缺失恒 0 放行」的拦截门 0 语义刻意相反）
 const { GWP_FACTOR_KEYS } = require('./GmgnWalletStatsService');
 
 const GMGN_CONDITION_FACTOR_KEYS = [
@@ -50,6 +55,7 @@ const GMGN_CONDITION_FACTOR_KEYS = [
   'gmgnBuyVolumeBnb',
   'gmgnVisitorsPerBuyer',
   'gmgnVisitorsPerBuyBnb',
+  'marketCap',
   ...GWP_FACTOR_KEYS,
 ];
 
@@ -172,8 +178,14 @@ class GmgnRiskCheckService {
     // 条件评估（covered=0 前置硬拒不受影响：它只看 gmgnRiskCovered）
     const context = { ...factors, narrativeCategory: narrativeCategory ?? null };
     if (gwpFactors) Object.assign(context, gwpFactors);
-    if (buyContext) Object.assign(context,
-      GmgnRiskCheckService.computeGmgnAttentionFactors(factors, buyContext.buyWallets, buyContext.buyVolumeBnb));
+    if (buyContext) {
+      // T82 2026-10-28 mcap 早期豁免臂原料：fire 因子表市值（USD）同刻同源并入
+      // context（与 narrativeCategory 第四参透传同构）；null=缺失不豁免——豁免门
+      // 需要市值真值支撑，ConditionEvaluator 对 null 比较恒 false 天然保守
+      context.marketCap = typeof buyContext.marketCap === 'number' ? buyContext.marketCap : null;
+      Object.assign(context,
+        GmgnRiskCheckService.computeGmgnAttentionFactors(factors, buyContext.buyWallets, buyContext.buyVolumeBnb));
+    }
     const verdict = GmgnRiskCheckService.evaluateFactors(context, condition);
     return { ...verdict, factors: context, condition: String(condition || '').trim() || null };
   }

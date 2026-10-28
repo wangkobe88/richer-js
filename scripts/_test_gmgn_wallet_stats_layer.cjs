@@ -67,8 +67,8 @@ console.log('A. 键集扩展（GmgnRiskCheckService 第四键集单一真相源�
     String(GMGN_CONDITION_FACTOR_KEYS));
   check('A2 gwp 18 键全数并入', GWP_FACTOR_KEYS.every(k => GMGN_CONDITION_FACTOR_KEYS.includes(k)),
     `missing: ${GWP_FACTOR_KEYS.filter(k => !GMGN_CONDITION_FACTOR_KEYS.includes(k)).join(',')}`);
-  check('A3 键集无意外杂键（5+18+T76 注意力空转四键=27 恰好，2026-10-27）',
-    GMGN_CONDITION_FACTOR_KEYS.length === 27 && extra.length === 9,
+  check('A3 键集无意外杂键（5+18+T76 注意力四键+T82 marketCap=28 恰好，2026-10-28）',
+    GMGN_CONDITION_FACTOR_KEYS.length === 28 && extra.length === 10 && extra.includes('marketCap'),
     `len=${GMGN_CONDITION_FACTOR_KEYS.length} extra=${extra.join(',')}`);
 }
 
