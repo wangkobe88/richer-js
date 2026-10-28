@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v45 快照；live v49 `596bfb92` 2026-10-28 14:20 UTC 起实跑本屏——T89 门放宽+二次入场；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v46 快照；live v50 `ced5d5a9` 2026-10-28 14:55 UTC 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -28,7 +28,7 @@ AND top1HolderCircPct < 35                                -- 单钱包最大持�
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
-AND (buyVolumeBnb >= 1.25 OR holders >= 10)               -- 人气门（v28 起 OR；T89/v45 恢复原键不去 sybil——ExSybil 键退役出条件串，FA 键保留）
+AND (buyVolumeBnb >= 1.25 AND holders >= 10)              -- 人气门（T90/v46 起 AND「量人双达标」防刷量/多钱包微买；v28-v45 曾 OR；T89/v45 恢复原键不去 sybil——ExSybil 键退役出条件串，FA 键保留）
 AND (tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40) -- 卖压门 OR 臂（T88/v48 键名断代：全史键 tradesNetBuyRatio 删→长窗尾 100 笔 LongWin、Win→ShortWin 尾 20 笔，环空=null fail-closed/尾窗全卖=-100；回放实证 M 档买点行为全档同帧=断代最小干预，阈值 40 承 T77/T70）
 AND sybilClusterHolderCircPct < 60                        -- sybil 大簇合计持仓（0 语义；T89/v45 放宽 35→60）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
@@ -51,6 +51,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T90 人气门 OR→AND（buy-v2 v45→v46 + buy-early-narrative v4→v5 同批；2026-10-28 用户裁定「买入量/持有者必须改为与的关系，防止前期就很少的人刷量，或者多钱包极小量买入；强势臂同样至少需要一个与条件，这两个必须都满足基础要求」；v50 `ced5d5a9` 14:55 UTC 起实跑）
+- **两腿改动（阈值拍板）**：主腿 `(buyVolumeBnb >= 1.25 OR holders >= 10)` → `(buyVolumeBnb >= 1.25 AND holders >= 10)`（阈值原值直接 AND）；早期臂 `(buyVolumeBnb >= 0.25 OR holders >= 4)` → `(buyVolumeBnb >= 0.25 AND holders >= 5)`（人臂 +1）。其余门/sybil 60/bundler 100/maxExecutions=2 承 T89 不动
+- **分界分析（`tmp-pop-and-gate-analysis.cjs`，182 跑，样本=10d 叙事通过池 rating high|mid stride4 → 127 活跃：dead 全史 buyB<3 共 58 / mid 3-10 共 34 / alive ≥10 共 35）**：①600s 时点死票 buyB p50=1.35/holders p50=8，活票 buyB p50=14.46/holders p50=62——死/活分界带 ≈buyB 2 / holders 10-18；②早期臂 OR(0.25|4) 下死票 **100% 过门**（52/58 首达标帧=「量到 0.25 而人 <4」单钱包/寡头刷量形状——用户担心形状实证）；AND(0.25&4) 死票 91%、**AND(0.25&5) 83%**，mid/alive 100% 不动；③主腿 OR(1.25|10) 死票 57%/mid 97%/alive 66%；AND(1.25&10) 死票 33%/alive 63%（活票损失 3pp）；主腿 OR 过门死票 23/33=buyB≥1.25 但 holders<10（量到人不到）
+- **交付**：`bump-t90-pop-and.cjs`（OR/AND 子串恰一次防呆+KEEP_SEGS 兄弟门锚定+T89 形状锚）+ `create-v50.cjs`（克隆 v49 596bfb92 唯一变量=两买腿 condition ←库 v46/v5 copy-in；库-实验 gmgn/trigger 逐字一致+条件除人气门段外逐字一致防线）；停 v49 前零仓确认（兔咯咯 0x7b18…7777 已被引擎 14:45:49 自动全清 -28%，孙权 0x3b1b…7777 早全平）→ v50 `ced5d5a9-6d24-49b2-80bd-5fbb069a81ec` 起跑 0 ERROR，两条 AND 串装载确认
+- **换车插曲（182 部署防线实证）**：首跳 `git pull` 被本地未跟踪同名分析脚本挡道静默失败（`tail -1` 吞了 error）——重跑显错后删除再拉成功；教训=pull 后必须 `git log` 核对 HEAD 到位再跑下游脚本
+- **观察点**：①触发率变化（v49 短跑 14:20-14:55 为对照段；主腿死票 57%→33% 拦截面、早期 100%→83%）②被拦票结局抽样（新拦的 OR 过 AND 不过票是死票还是被误伤活票——矩阵说 3pp 损失，实盘验证）③刷量形状是否再现（量到人不到首达标帧应消失）
 
 ### T89 门放宽三处 + 二次入场 maxExecutions 1→2（buy-v2 v44→v45 + buy-early-narrative v3→v4 同批；2026-10-28 用户裁定「叙事通过的票无人问津占大多数，流动性非常不好，条件明显偏严格，导致买入的票在高位」；v49 `596bfb92` 14:20 UTC 起实跑）
 - **四处改动（两腿同批）**：①人气门 ExSybil 键→原键 `(buyVolumeBnb >= 1.25 OR holders >= 10)`（用户澄清「就是 buyVolumeBnbExSybil/holdersExSybil 恢复回 buyVolumeBnb/holders」——纯键替换，OR 结构与阈值不动：主 1.25/10、早期 0.25/4；FA 两键常驻发射，ExSybil 键保留观察）②sybil 簇门 `sybilClusterHolderCircPct < 35 → < 60`（用户拍板 60；0 语义不变）③GMGN bundler 门 `<= 65 → <= 100`（用户拍板 100；10.7 豁免臂/issuer 分档门/C85 适用集保留）④`maxExecutions 1 → 2`（二次入场）
