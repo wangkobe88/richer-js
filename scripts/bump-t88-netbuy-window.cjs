@@ -96,6 +96,7 @@ async function main() {
       name: full.name,
       description: newDescription,
       legs: outLegs,
+      expectedVersion: full.version, // 乐观并发门（update 内 version=expectedVersion+1）
     });
     console.log(`✅ committed version=${out.version}`);
   }
