@@ -29,7 +29,7 @@ AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱�
 AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnbExSybil >= 1.25 OR holdersExSybil >= 10) -- 人气门（v28 起 OR）
-AND (tradesNetBuyRatio >= 40 OR tradesNetBuyRatioWin >= 40) -- 卖压门 OR 臂（T77/v41：全史被前期砸盘卖量永久拖低，窗口净比先回 40=早进场；窗口键 T87 起换轨最近 20 笔尾窗（netBuyWinTrades，环空=null fail-closed/尾窗全卖=-100）；全史载体 T70/v39 50→40）
+AND (tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40) -- 卖压门 OR 臂（T88/v48 键名断代：全史键 tradesNetBuyRatio 删→长窗尾 100 笔 LongWin、Win→ShortWin 尾 20 笔，环空=null fail-closed/尾窗全卖=-100；回放实证 M 档买点行为全档同帧=断代最小干预，阈值 40 承 T77/T70）
 AND sybilClusterHolderCircPct < 35                        -- sybil 大簇合计持仓（0 语义）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
@@ -51,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T88 净买门全史臂断代换长窗 M=100 笔（tradesNetBuyRatio → tradesNetBuyRatioLongWin；三键改名 ShortWin/LongWin/ShortWinBnb；2026-10-28 用户两段裁定「全量买卖比我觉得没必要，还是为了检测一个趋势」+「先定 100 吧」）
+- **裁定链**：用户提议全史键换窗口键+两窗改名（ShortWin/LongWin）并授权我定 M → 首版 M=300（数据最优档）→ 用户质疑「两个窗大小差异过大，不太合理」并要求拿**叙事分析通过的代币**回测 → 补第三套回放证实买点行为全档同帧（用户直觉成立）→ 用户拍板 **M=100**（20:100=5 倍配比）
+- **键名三断代**：`tradesNetBuyRatio`（全史）删 → `tradesNetBuyRatioLongWin`（尾 `netBuyWinLongTrades`=100 笔）；`tradesNetBuyRatioWin` → `tradesNetBuyRatioShortWin`（尾 20 笔不变）；`tradesNetBuyWinBnb` → `tradesNetBuyShortWinBnb`（观察键）。OR 臂 `(tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40)`，**阈值 40 不动**。`tradesRouterPct` 刻意维持全史（路由占比无「砸盘拖低」形状，分子分母同源无时漂）。**null 语义断代**：环空=null fail-closed（旧全史键「全空=0」退役——`>=40` 门下等价恒 false）；尾窗全卖=-100 有证据零值；M>n 时长窗=全史值（中小票 bit 一致最小干预）；prune floor=max(短,100,32)
+- **三套回放数据（182，tmp-nwin-long-scan/pool + tmp-nwin-narrative-pool）**：①fire 样本 302 已买票——首放行帧六档（50/80/100/150/200/300）**零扰动**；决策帧翻车面 15/5/**4**/2/2/0，翻车票全为「近期砸盘+长史强净比」的**第二波大赢家**（M=100 四票 0x8daaf48c/0xb1ab482264/0x55d32194cf/0x43abc54aa0 win100=14.8/−23.3/33.7/19.5，peak 235~487%，n=495~1485 长命票）——M 越小「死记忆」截得越狠；②全量池 208 活跃票——六档**纯新增=0**（换轨不创造新买点），n≥100 仅 72 票；③**叙事通过池**（用户质疑驱动补测）——10d high|mid 234 活跃（stride2，197 买点满足）**六档买点完全同帧**（早 0 晚 0）：tN 决策帧票龄中位 **7 笔**（p75=14），M≥票龄即=全史 → **M 实质=长命票记忆上限而非买点参数**，M=100 与 300 买点零差异，差异只在 n>100 的二波票
+- **M=100 裁定依据**：配比直觉（5 倍）+③同帧实证零买点代价；已知接受代价=①的 4/302≈1.3% 长命二波票误拦（peak 200%+ 赢家）
+- **交付**：FA（factorParams 长窗参数+`_netBuyWinFactors` 三键+floor 长窗入保底）+ FactorBuilder 快照白名单三键 + 单测四文件全绿（netbuy_window 44[新增 K/K2 长窗边界：150 笔密集流 50 卖滚出长窗→100、151 笔新卖 97.47 精确值/floor=100 不裁穿]/activity_window 43[floor=100 文案]/fa_early_trades 21[断代声明+M>n 序列 bit 一致]/fa_factors 35[49 键清单三新键]）；策略库 bump `bump-t88-netbuy-window.cjs`（buy-v2 v43→v44 + buy-early-narrative v2→v3，旧 OR 臂子串恰一次防呆+兄弟门锚定）；**v47→v48 换车**（copy-in 快照+旧键名配新 FA=三防线拒启 → 必须新建实验，不能原地改 config）
+- **观察点**：①长命二波票（n>100 且 win100<40 但全史≥40）误拦面实跑频率与峰值分布——攒批后可议 M 上调或加「全史过线+短窗不塌」三臂；②ShortWin 放行票证据薄形状（`tradesNetBuyShortWinBnb` 过小，T87 观察点承继）；③重启自愈=重启后 M 笔内 LongWin 为「重启后史」（全史键同款已知形状，M 笔后恢复）
 
 ### T87 flap collector 盲期暂存白名单 + 净买窗换轨 N 笔尾窗（2026-10-28 0xdf7a5f8356ef771128e8bde49527409981c47777 案用户三问①③；commit ebe880e + 201f225）
 - **案发**：0xdf7a（flap BNB 盘）09:12:14 Created、09:14:37 才首次进 FA——QuoteSet 持久映射 **362 万行惰性加载 ~2m53s**（触发点=启动后首个 logs 订阅确认帧，已是尽早点；耗时在加载本身），盲期内**全部 trade/graduation 暂存（含 BNB 盘）**，0xdf7a 家族三票恰创建于盲窗内 → +47% 涨幅盲区、叙事发起/买点整段推迟；用户三问①「叙事分析为何这么晚」②「中途为何不能买」（已答：fire 时已涨停帽/市值窗出带+涨后回撤门，非机制拒绝）③「10 秒窗口换交易数窗口吧，取一定数量的交易数量，否则慢热 10s 内无腥味」

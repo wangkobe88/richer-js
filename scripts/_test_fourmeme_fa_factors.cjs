@@ -519,18 +519,21 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'top2BundleClusterHoldCircPct',
         // 2026-10-26 同族第三块观察键（最大三块并集去重，详见 _test_bundle_cluster_factors.cjs Q 段）
         'top3BundleClusterHoldCircPct',
-        // 2026-10-26 T70 全史实时净买/路由占比两键（early 90s 冻结窗对慢热票失真——
-        // 智子/币安1986 案买腿换实时载体；详见 _test_fa_early_trades_factors.cjs T70 段）
-        'tradesNetBuyRatio', 'tradesRouterPct',
+        // 2026-10-26 T70 路由占比键（early 90s 冻结窗对慢热票失真——智子/币安1986 案
+        // 买腿换实时载体；同族全史净比键 tradesNetBuyRatio 已随 T88 2026-10-28 断代
+        // 换长窗尾 100 笔，见下方 T77/T88 段；详见 _test_fa_early_trades_factors.cjs）
+        'tradesRouterPct',
         // 2026-10-26 T74 等额买簇三观察键（0x8c4a…7777 对倒案：跨块同额买入并集去重
         // 正净持仓 ÷ 流通；详见 _test_even_cluster_factors.cjs）
         'evenClusterHoldCircPct', 'evenClusterWallets', 'evenClusterGroups',
         // 2026-10-27 T76 注意力空转观测键原料（独立买入钱包数=K 组 _buyerAddresses
         // 全史 Set size；GMGN 层 gmgnVisitorsPerBuyer 分母，详见 _test_gmgn_attention_ratio.cjs）
         'buyWallets',
-        // 2026-10-27 T77 滚动净买窗两键（MUSK2028 0x8f53…7777 迟买案 W=10s：窗口净比
-        // null=窗内零买缺近期证据 fail-closed + 窗买量观察键；详见 _test_netbuy_window_factors.cjs）
-        'tradesNetBuyRatioWin', 'tradesNetBuyWinBnb',
+        // 2026-10-27 T77 立短窗 / T87 0xdf7a 案换轨最近 N 笔 / T88 全史键断代换长窗
+        // 尾 100 笔（用户裁定「全量买卖比没必要，检测一个趋势」）：短窗净比+短窗买量
+        // 观察键+长窗净比三键（旧 tradesNetBuyRatio/Win/Bnb 三键断代改名）；
+        // 详见 _test_netbuy_window_factors.cjs）
+        'tradesNetBuyRatioShortWin', 'tradesNetBuyShortWinBnb', 'tradesNetBuyRatioLongWin',
         // 2026-10-28 T84 市值量纲全局 BNB 切换新增入场锚（首买市值快照，市值地板卖臂
         // mcapFloor 冻结对照基准；commit 722cd8e 漏登记本白名单，T87 批次补）
         'entryMarketCap',

@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 /**
- * FA tradesNetBuyRatio / tradesRouterPct 全史实时两键单测（T70 2026-10-26）+ earlyTrades*
- * 族删除防复活反证（T71 2026-10-26）——本地零 DB 零网络。
+ * FA tradesNetBuyRatioLongWin（T88 长窗载体）/ tradesRouterPct（全史）两键单测
+ * （T70 2026-10-26 立全史两键；T88 2026-10-28 净比键断代换长窗 M 笔尾窗——用户
+ * 裁定「全量买卖比没必要，检测一个趋势」）+ earlyTrades* 族删除防复活反证
+ * （T71 2026-10-26）——本地零 DB 零网络。
  *
  * T70 背景（智子 0x4451f373…7777 / 币安1986 0xd6c7e7c9…7777 双案）：earlyTrades* 是出生
  * 锚定 90s 累计窗**冻结**因子，流动性不足市场的慢热票窗后真实参与永远进不了门（智子窗终
  * 值 49.8 差 0.2pp 被净买门拦、币安1986 前 90s 仅 dev 自倒路由占比冻结 0 恒拦）→ 净买/路由
- * 门换全史实时载体。T71 用户裁定 earlyTrades* 十键整族删除（冻结载体已无消费者）。
+ * 门换实时载体。T71 用户裁定 earlyTrades* 十键整族删除（冻结载体已无消费者）。
+ * T88 断代：净比键 tradesNetBuyRatio（全史）→ tradesNetBuyRatioLongWin（尾
+ * netBuyWinLongTrades=100 笔；M>n 时=全史值——本测试序列均 <100 笔，断言值与
+ * T70 全史口径 bit 一致）；routerPct 维持全史（无「砸盘拖低」形状，分子分母同源）。
  *
  * 两键口径（写点=processTick「计数与地址统计」段，全量 tick 无 skip）：
- *   - tradesNetBuyRatio = (Σ买−Σ卖)÷Σ买×100（buy=0 时全卖 −100 / 全空 0——有证据零值）
+ *   - tradesNetBuyRatioLongWin = 尾 M 笔 (Σ买−Σ卖)÷Σ买×100（buy=0 时全卖 −100；
+ *     环空=null——T88 与旧全史键「全空 0」断代，`>=40` 门下等价恒 false）
  *   - tradesRouterPct   = Σ(trader∈AGGREGATOR_ROUTER_ADDRS 的买)÷Σ买×100
- *   - 无窗无冻结：买点时刻全史真值，后续 tick 持续改值
+ *   - 无冻结：买点时刻真值，后续 tick 持续改值
  *   - router 判 **trader 层**；只计买腿；无 outlier/price_usd 过滤（照计语义）
  *
  * 用法：node scripts/_test_fa_early_trades_factors.cjs
@@ -62,8 +68,8 @@ console.log('A. 公式精确值');
     { trade_type: 'buy', sender_address: 'a', bnb_amount: 1.0 },
     { trade_type: 'sell', sender_address: 'b', bnb_amount: 0.4 },
   ]);
-  check('A1 净买 (1−0.4)/1×100=60', () =>
-    assert.strictEqual(F(fa).tradesNetBuyRatio, 60));
+  check('A1 净买 (1−0.4)/1×100=60（2 笔<100 长窗=全史值）', () =>
+    assert.strictEqual(F(fa).tradesNetBuyRatioLongWin, 60));
   check('A2 无路由买 → tradesRouterPct=0', () =>
     assert.strictEqual(F(fa).tradesRouterPct, 0));
 }
@@ -76,7 +82,7 @@ console.log('A. 公式精确值');
   ]);
   check('A3 早期读数=当时真值：(0.3−0.15)/0.3×100=50 路由 0', () => {
     const f = F(fa, T0 + 89000);
-    assert.strictEqual(f.tradesNetBuyRatio, 50);
+    assert.strictEqual(f.tradesNetBuyRatioLongWin, 50);
     assert.strictEqual(f.tradesRouterPct, 0);
   });
 }
@@ -86,7 +92,7 @@ console.log('A. 公式精确值');
     { trade_type: 'buy', sender_address: 'wB', bnb_amount: 0.1 },
   ]);
   check('A4 纯买 → 100', () =>
-    assert.strictEqual(F(fa).tradesNetBuyRatio, 100));
+    assert.strictEqual(F(fa).tradesNetBuyRatioLongWin, 100));
 }
 
 // ═══════════════ B. 口径反证 ═══════════════
@@ -111,7 +117,7 @@ console.log('B. 口径反证');
   ]);
   check('B3 照计语义：outlier/price_usd 缺失行照进分子（净买 100）', () => {
     const f = F(fa);
-    assert.strictEqual(f.tradesNetBuyRatio, 100);
+    assert.strictEqual(f.tradesNetBuyRatioLongWin, 100);
     assert.strictEqual(f.tradesRouterPct, 0);
   });
 }
@@ -135,12 +141,12 @@ console.log('C. 全史实时');
   const mid = F(fa, T0 + 400000);
   check('C1 出窗路由买照抬占比：1.2/1.5×100=80（冻结版恒 0 的形状）', () =>
     assert.strictEqual(mid.tradesRouterPct, 80));
-  check('C2 净买同步全史：(1.5−0.15)/1.5×100=90', () =>
-    assert.strictEqual(mid.tradesNetBuyRatio, 90));
+  check('C2 净买同步抬升（5 笔<100 长窗含全部）：(1.5−0.15)/1.5×100=90', () =>
+    assert.strictEqual(mid.tradesNetBuyRatioLongWin, 90));
   feed(fa, [{ sender_address: 'wZ', bnb_amount: 0.3, timestamp: T0 + 500000, tx_hash: '0xt70d' }]);
   const late = F(fa, T0 + 600000);
   check('C3 后续 tick 继续改值（智子 49.8 差 0.2pp 形状的解）：(1.8−0.15)/1.8=91.67', () => {
-    assert.strictEqual(late.tradesNetBuyRatio, 91.67);
+    assert.strictEqual(late.tradesNetBuyRatioLongWin, 91.67);
     assert.strictEqual(late.tradesRouterPct, 66.67); // 1.2/1.8
   });
   check('C4 同 asOf 幂等重读不漂移', () =>
@@ -152,14 +158,14 @@ console.log('D. 零值语义');
 {
   const fa = newFA();
   feed(fa, [{ trade_type: 'sell', sender_address: 'wS', bnb_amount: 0.1 }]);
-  check('D1 全卖无买 → netBuyRatio=-100 routerPct=0（有证据零值非 null）', () => {
+  check('D1 全卖无买 → 长窗 -100 routerPct=0（有证据零值非 null）', () => {
     const f = F(fa);
-    assert.strictEqual(f.tradesNetBuyRatio, -100);
+    assert.strictEqual(f.tradesNetBuyRatioLongWin, -100);
     assert.strictEqual(f.tradesRouterPct, 0);
   });
-  check('D2 全空 → 双键 0 非 undefined', () => {
+  check('D2 全空 → 长窗 null（T88 断代：旧全史键 0 → 环空 null；`>=40` 恒 false 等价）', () => {
     const f = F(newFA());
-    assert.strictEqual(f.tradesNetBuyRatio, 0);
+    assert.strictEqual(f.tradesNetBuyRatioLongWin, null);
     assert.strictEqual(f.tradesRouterPct, 0);
   });
 }
@@ -167,20 +173,23 @@ console.log('D. 零值语义');
 // ═══════════════ E. 探针与源码锚定 ═══════════════
 console.log('E. 探针与源码锚定');
 {
-  check('E1 getFactorKeys 探针含两键（未知因子防线认得）', () => {
+  check('E1 getFactorKeys 探针含两键（T88 键名）且旧全史键已删', () => {
     const keys = newFA().getFactorKeys();
-    assert.ok(keys.has('tradesNetBuyRatio'), 'tradesNetBuyRatio 缺');
+    assert.ok(keys.has('tradesNetBuyRatioLongWin'), 'tradesNetBuyRatioLongWin 缺');
     assert.ok(keys.has('tradesRouterPct'), 'tradesRouterPct 缺');
+    assert.ok(!keys.has('tradesNetBuyRatio'), '旧全史键 tradesNetBuyRatio 仍在（T88 断代）');
   });
   check('E2 totalRouterBuyBnb 写点走 AGGREGATOR_ROUTER_ADDRS（单一真相源）', () => {
     const at = src.indexOf('state.totalRouterBuyBnb += bnbAmount');
     assert.ok(at > 0 && src.slice(Math.max(0, at - 250), at).includes('AGGREGATOR_ROUTER_ADDRS'),
       'tradesRouterPct 分子累计点未走 AGGREGATOR_ROUTER_ADDRS');
   });
-  check('E3 发射点公式锁死（net=buy−sell÷buy、router=routerBuy÷buy）', () => {
-    const at = src.indexOf('tradesNetBuyRatio: state.totalBuyBnb > 0');
-    assert.ok(at > 0 && /tradesRouterPct:\s*state\.totalBuyBnb\s*>\s*0\s*\? parseFloat\(\(state\.totalRouterBuyBnb \/ state\.totalBuyBnb \* 100\)/.test(src.slice(at, at + 400)),
-      '发射公式形状漂移');
+  check('E3 发射点公式锁死（长窗净比走 _netBuyWinFactors 尾 M 笔、router=routerBuy÷buy 全史）', () => {
+    const at = src.indexOf('tradesRouterPct: state.totalBuyBnb > 0');
+    assert.ok(at > 0 && /tradesRouterPct:\s*state\.totalBuyBnb\s*>\s*0\s*\? parseFloat\(\(state\.totalRouterBuyBnb \/ state\.totalBuyBnb \* 100\)/.test(src.slice(at, at + 200)),
+      'router 发射公式形状漂移');
+    const lw = src.indexOf('tradesNetBuyRatioLongWin: lb > 0');
+    assert.ok(lw > 0 && src.slice(lw - 700, lw).includes('netBuyWinLongTrades'), '长窗净比未走尾 M 笔原料');
   });
 }
 

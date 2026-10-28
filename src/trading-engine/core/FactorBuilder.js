@@ -148,8 +148,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 滚动净买窗两键（T77 2026-10-27 MUSK2028 案 W=10s）：RatioWin null=窗内零买缺
     // 近期证据 fail-closed；Bnb=窗买量观察键。FA 内存事件环不可重算（act* 先例），
     // 不落库即丢；旧 FA 无这些键 → null，不掩盖
-    tradesNetBuyRatioWin: factorResults.tradesNetBuyRatioWin ?? null,
-    tradesNetBuyWinBnb: factorResults.tradesNetBuyWinBnb ?? null,
+    tradesNetBuyRatioShortWin: factorResults.tradesNetBuyRatioShortWin ?? null,
+    tradesNetBuyShortWinBnb: factorResults.tradesNetBuyShortWinBnb ?? null,
+    tradesNetBuyRatioLongWin: factorResults.tradesNetBuyRatioLongWin ?? null,
     // 同 block 首买簇捆绑检测 bundle* 6 键（2026-10-16 BITCAT 案，Phase 1 观察键）：
     // FA 内存事件环/块聚合不可重算（30s 快照行无 tick 级分辨率），不落库即丢
     // （act*/holderTrend 先例）；0=空窗有证据零值（非 null），旧 FA 无这些键 → null，不掩盖
@@ -185,10 +186,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     platform: factorResults.platform ?? null,
     // （earlyTrades* 首窗 90s 族 10 键透传已随 T71 2026-10-26 删除——FA 冻结窗族整族
     //  退役；历史信号 JSONB 快照中的旧值保留展示）
-    // T70 全史实时净买/路由占比两键（2026-10-26 智子/币安1986 案：early 90s 冻结窗对
-    // 慢热票失真，买腿换实时载体）——买点时刻值随快照透传供 signals 页复盘；
-    // 旧 FA/历史信号无此键 → null 不掩盖
-    tradesNetBuyRatio: factorResults.tradesNetBuyRatio ?? null,
+    // T70 路由占比键（2026-10-26 智子/币安1986 案：early 90s 冻结窗对慢热票失真，
+    // 买腿换实时载体）——买点时刻值随快照透传供 signals 页复盘；旧 FA/历史信号无
+    // 此键 → null 不掩盖。（同族全史净比键 tradesNetBuyRatio 已随 T88 2026-10-28
+    // 断代——历史信号 JSONB 快照中的旧值保留展示；现行三键见上 ShortWin/LongWin 段）
     tradesRouterPct: factorResults.tradesRouterPct ?? null,
     // narrative 三键（2026-10-17 C84 叙事发起条件 + 单一买条件消费）：fire 时刻评级/
     // 轮次/重试到期快照（_narrativeFactorOverrides 投影）；未发起/旧 FA → null 不掩盖

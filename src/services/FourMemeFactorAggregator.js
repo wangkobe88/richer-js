@@ -146,13 +146,27 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
     activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
                                  //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
-    netBuyWinTrades: 20,        // tradesNetBuyRatioWin 净买窗笔数（T87 2026-10-28 0xdf7a 案
-                                 //   用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内无行情」：
-                                 //   T77 时间窗的 null fail-closed 对慢热票缺证据；换最近 N 笔
-                                 //   尾窗。N=20=两案票决策帧最强（MUSK2028 87.1/0xdf7a 82.0）+
-                                 //   全量池 197 活跃票 peak≤0 最低 11%；N=10 含集中卖压形状
-                                 //   （0xdf7a fire 帧 -531）排除）；复用 _activityEvents 事件环，
-                                 //   裁剪须条数保底 2×N（见 _pruneActivityEvents）
+    netBuyWinTrades: 20,        // tradesNetBuyRatioShortWin 净买短窗笔数（T87 2026-10-28
+                                 //   0xdf7a 案用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内
+                                 //   无行情」：T77 时间窗的 null fail-closed 对慢热票缺证据；
+                                 //   换最近 N 笔尾窗。N=20=两案票决策帧最强（MUSK2028 87.1/
+                                 //   0xdf7a 82.0）+全量池 197 活跃票 peak≤0 最低 11%；N=10 含
+                                 //   集中卖压形状（0xdf7a fire 帧 -531）排除）；复用
+                                 //   _activityEvents 事件环，裁剪须条数保底（见 _pruneActivityEvents）
+    netBuyWinLongTrades: 100,   // tradesNetBuyRatioLongWin 净买长窗笔数（T88 2026-10-28
+                                 //   用户裁定「全量买卖比没必要，检测一个趋势」——全史键
+                                 //   tradesNetBuyRatio 断代换最近 M 笔尾窗；M=100 用户拍板
+                                 //   （「先定 100 吧」——20:100=5 倍配比平衡「两个窗差异
+                                 //   过大」的直觉质疑）。回放三套数据：叙事通过池 234 活跃
+                                 //   票 M=50~300 六档买点完全同帧（197/197 满足早 0 晚 0——
+                                 //   tN 票龄中位 7 笔，M≥票龄即全史）=买点行为零代价实证；
+                                 //   fire 302 决策帧翻车面 50/80/100/150/300=15/5/4/2/0
+                                 //   （翻车票全为近期砸盘+长史强净比的第二波大赢家 peak
+                                 //   235-487%，n=495~1485 长命票）=已知接受的 1.3% 误拦面；
+                                 //   全量池 208 纯新增全档=0（换轨不创造新买点）。语义分工：
+                                 //   短窗 20=即时流、长窗 100=主趋势；M>n 时长窗=全史值
+                                 //   （中小票 bit 一致最小干预）；重启自愈=M 笔后口径恢复
+                                 //   （全史键重启清零后永久「重启后史」）
     // ── 同 block 首买簇捆绑检测（2026-10-16 BITCAT 案）──
     bundleWinMs: 10000,          // bundle* 6 键窗口（对齐 act*；扫描 Phase 2 对比 10s/30s/60s
                                  //   后再定默认值）；原料 _bundleEvents/_blockBuyAgg/_circTokens
@@ -2024,8 +2038,10 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 天然不可见无损。32 余量：defer 乱序回推行晚到数秒仍落余量带不误删。
      */
     _pruneActivityEvents(state, now) {
+        // T88 起长窗 100 笔入 floor（max(short, long, 32)）——纯时间界会把稀疏票
+        // 尾窗证据裁穿；act* 读点按 ts 过滤对滞留旧行天然不可见，多留无副作用
         const evts = state._activityEvents;
-        const floor = Math.max(this._fp.netBuyWinTrades, 32);
+        const floor = Math.max(this._fp.netBuyWinTrades, this._fp.netBuyWinLongTrades, 32);
         if (evts.length <= floor + 32) return;
         const cutoff = now - 2 * this._fp.activityWinMs;
         let i = 0;
@@ -2150,30 +2166,40 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * tradesNetBuyRatioWin 净买窗（T77 2026-10-27 MUSK2028 案立 10s 时间窗；T87
-     * 2026-10-28 0xdf7a 案用户裁定换轨「最近 N 笔」尾窗——慢热票 10s 内常无行情，
-     * 时间窗 null fail-closed 恰好掐掉目标形状）：全史 tradesNetBuyRatio 被前期
-     * 砸盘卖量永久拖低——砸盘后真恢复的票窗口净比先回 40 而全史慢爬（案票窗口过线
-     * 比全史早 4 分钟，全史过线时已是局部顶 -39.8%）；买腿 OR 臂用窗口值早进场。
-     *   公式与全史键同款（Σ买−Σ卖）÷Σ买×100 保留 2 位，取到达序环尾 N 笔
-     *   （netBuyWinTrades 默认 20，factorParams 可覆盖）；环空 = null（缺证据
-     *   fail-closed，`>= 40` 恒 false）——尾窗全卖 wb=0 = -100 有证据零值（对齐
-     *   全史键；两键 null 语义在 T87 后统一，旧「10s 零买=null」随时间窗退役）。
+     * 净买窗三键（T77 2026-10-27 MUSK2028 案立 10s 时间窗；T87 2026-10-28 换轨「最近
+     * N 笔」短窗=netBuyWinTrades 20——慢热票 10s 内常无行情，时间窗 null fail-closed
+     * 恰好掐掉目标形状；T88 2026-10-28 全史键 tradesNetBuyRatio 断代换长窗
+     * netBuyWinLongTrades 100——用户裁定「全量买卖比没必要，检测一个趋势」，全史被
+     * 前期砸盘卖量永久拖低（MUSK2028 砸盘后真恢复票全史 467s 才过线=买局部顶）。
+     *   公式同款（Σ买−Σ卖）÷Σ买×100 保留 2 位：ShortWin 取到达序环尾 20 笔、
+     *   LongWin 取环尾 100 笔（factorParams 可覆盖）；环空 = null（缺证据
+     *   fail-closed，`>= 40` 恒 false）——尾窗全卖 wb=0 = -100 有证据零值（T87 后
+     *   三键 null 语义统一）；ShortWinBnb=短窗买量观察键（进场证据量审计，刻意
+     *   不进条件串）。M>n 时长窗=全史值（中小票 bit 一致=换轨最小干预）。
      *   复用 _activityEvents 事件环（求和交换律 → defer 乱序回推无害；尾 N 笔按
      *   到达序=GMGN 路由行回推 1-3s 落环尾，竞速缝隙与 famous/act* 同款已知形状）。
      *   与时间无关——读点不消费 now（T87 换轨后零周期判定，天然免 Date.now）。
      */
     _netBuyWinFactors(state) {
         const evts = state._activityEvents;
-        if (!evts.length) return { tradesNetBuyRatioWin: null, tradesNetBuyWinBnb: 0 };
+        if (!evts.length) {
+            return { tradesNetBuyRatioShortWin: null, tradesNetBuyShortWinBnb: 0, tradesNetBuyRatioLongWin: null };
+        }
         let wb = 0, sellBnb = 0;
         for (let j = Math.max(0, evts.length - this._fp.netBuyWinTrades); j < evts.length; j++) {
             if (evts[j].buy) wb += evts[j].bnb; else sellBnb += evts[j].bnb;
         }
+        let lb = 0, lsell = 0;
+        for (let j = Math.max(0, evts.length - this._fp.netBuyWinLongTrades); j < evts.length; j++) {
+            if (evts[j].buy) lb += evts[j].bnb; else lsell += evts[j].bnb;
+        }
         return {
-            tradesNetBuyWinBnb: +wb.toFixed(4),
-            tradesNetBuyRatioWin: wb > 0
+            tradesNetBuyShortWinBnb: +wb.toFixed(4),
+            tradesNetBuyRatioShortWin: wb > 0
                 ? parseFloat(((wb - sellBnb) / wb * 100).toFixed(2))
+                : -100,
+            tradesNetBuyRatioLongWin: lb > 0
+                ? parseFloat(((lb - lsell) / lb * 100).toFixed(2))
                 : -100,
         };
     }
@@ -3100,23 +3126,23 @@ class FourMemeFactorAggregator extends EventEmitter {
             // → 留在分子（照计量不冒充归属）；名单未启用 → 不扣=原值
             buyVolumeBnbExSybil: _sybilRosterActive ? state.totalBuyBnb - _sybilClusterBuyBnb : state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
-            // ── T70 全史净买/路由占比两键（2026-10-26 智子/币安1986 案：early 90s 冻结窗
+            // ── T70→T88 路由占比键（2026-10-26 智子/币安1986 案：early 90s 冻结窗
             //    对慢热票结构性失真——币安1986 前 90s 仅 dev 自倒 routerPct 冻结 0、
-            //    90-300s 散户蜂拥 110 笔也改不了冻结值）。本对=买点时刻全史实时值：
-            //    netBuyRatio 无买入全卖 -100/全空 0 有证据零值；routerPct 判 trader 层
-            //    AGGREGATOR_ROUTER_ADDRS（GMGN 等）只计买腿，口径对齐 early 同名臂──
-            tradesNetBuyRatio: state.totalBuyBnb > 0
-                ? parseFloat(((state.totalBuyBnb - state.totalSellBnb) / state.totalBuyBnb * 100).toFixed(2))
-                : (state.totalSellBnb > 0 ? -100 : 0),
+            //    90-300s 散户蜂拥 110 笔也改不了冻结值）。routerPct=买点时刻全史
+            //    实时值，判 trader 层 AGGREGATOR_ROUTER_ADDRS（GMGN 等）只计买腿，
+            //    口径对齐 early 同名臂。（同族全史净比键 tradesNetBuyRatio 已随 T88
+            //    2026-10-28 断代——换 tradesNetBuyRatioLongWin 尾 100 笔；本键维持
+            //    全史：路由占比无「砸盘拖低」形状，分子分母同源无时漂）──
             tradesRouterPct: state.totalBuyBnb > 0
                 ? parseFloat((state.totalRouterBuyBnb / state.totalBuyBnb * 100).toFixed(2)) : 0,
-            // ── T77→T87 净买窗两键（T77 2026-10-27 MUSK2028 案立 10s 时间窗；T87
-            //    2026-10-28 0xdf7a 案换轨最近 N 笔尾窗=netBuyWinTrades 20——慢热票
-            //    10s 无行情时间窗 null fail-closed 掐掉目标形状）。RatioWin=尾 N 笔
-            //    净比（环空 null fail-closed，全卖 -100 有证据零值）；Bnb=尾窗买量
+            // ── T77→T87→T88 净买窗三键（T77 立短窗；T87 0xdf7a 案换轨最近 N 笔；
+            //    T88 全史键断代换长窗 M 笔——用户裁定「全量买卖比没必要，检测一个
+            //    趋势」）。ShortWin=尾 20 笔即时流；LongWin=尾 100 笔主趋势（环空
+            //    null fail-closed，全卖 -100 有证据零值）；ShortWinBnb=短窗买量
             //    观察键（进场证据量审计，刻意不进条件串）──
-            tradesNetBuyRatioWin: netBuyWin.tradesNetBuyRatioWin,
-            tradesNetBuyWinBnb: netBuyWin.tradesNetBuyWinBnb,
+            tradesNetBuyRatioShortWin: netBuyWin.tradesNetBuyRatioShortWin,
+            tradesNetBuyShortWinBnb: netBuyWin.tradesNetBuyShortWinBnb,
+            tradesNetBuyRatioLongWin: netBuyWin.tradesNetBuyRatioLongWin,
 
             // ── 交易活跃度滑窗 act* 8 键（2026-10-15；取代已删的 cycle 分桶路由。
             //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null）──

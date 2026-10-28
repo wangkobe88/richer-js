@@ -188,9 +188,9 @@ console.log('E. 摊销裁剪（>64 且头部越过 2×窗 才 splice）');
   // 写点触发 prune：再喂一笔（时间界本想裁掉 70 笔老事件，但 T87 起环尾 floor 笔永不裁）
   fa.processTick(mkTick({ timestamp: NOW - 1000, trader_address: 'wLast', trade_type: 'buy', bnb_amount: 0.1 }), {});
   const after = fa.buildFactorMap('0xtoken', NOW);
-  // 76 笔、maxCut = 76−floor(32) = 44：裁 44 笔老事件后剩 32（floor=max(netBuyWinTrades,32) 保底）
-  check('E2 裁剪受 maxCut 上限：76 → floor 32 笔（T87 环尾保底，不再收缩到时间窗 6 笔）', () =>
-    assert.strictEqual(state._activityEvents.length, 32));
+  // 76 笔、floor=max(20, 100, 32)=100（T88 长窗入保底）>76 → maxCut=0 全保不裁
+  check('E2 T88 floor=100：76 笔 < floor → 零裁剪全保（长窗证据不裁穿）', () =>
+    assert.strictEqual(state._activityEvents.length, 76));
   check('E3 窗内值不受裁剪影响（actTrades 5+1）', () => assert.strictEqual(after.actTrades, 6));
   check('E4 actBuyBnb 窗内累计不变', () => assert.ok(Math.abs(after.actBuyBnb - 1.6) < 1e-9));
   check('E5 未越 2×窗不裁（64 阈内/余量带保护）', () => {
