@@ -63,6 +63,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **修复（B：J1.150 主体同一性锚）**：bluechip_event_identity 题面补「先问票叙事主体与蓝筹叙事主体是否同一对象——同 IP 生态/家族的不同主体（另一吉祥物/角色/产品线）=不同事实对象 → 非 same_event」+ Giggle TOM 正例证（含误判警示：蓝筹战绩当叙事重心≠复述）+ criteria/new_event 桶补「票主体=同生态另一对象」臂。
 - **顺手修**：matchKnowledge name_exact 臂 matchedOn 改记实际命中值（旧 `symbolNorm || nameNorm` 短路错记票 symbol——本案注入链 knowledge_matches 的 `matchedOn:"tom"` 即此瑕疵，排查首眼被带偏；rule/命中集合零变化）。
 - **单测**：bluechip_dedup_gate 85 断言（A1 翻面=name 全等不拦+symbol 全等照拦、A7 换 symbol 撞形状、**A12 事故现场反证=Giggle 条目+案票形状 →null**、A13 matchedOn 实际命中值、C 组 matcher/analyzer 双源码锚+题面锚）；jev_question_consolidation A10d 版本断言随 bump（漏改存量教训再+1）。
+- **182 对拍（2026-10-28 02:19，404ba7f+worker 1319343）**：定向 3 票 **C252 翻正 high 76.09**（event:W，事件分 39.6/关联 exact_match 20/质量 16.49——蓝筹去重不再拦、baseless 候拦面未命中；注入链 name_exact 命中照旧=设计内，条件题未问 ✓）/ **C242+C121 对照 2 PASS 零翻转**；update-expect 留痕（rating →high、cat →event:W）。
 - **观察点**：①本案若 symbol 真撞条目（部署者直接起名 Max），腿② noneProb 0.13 仍会拦（TOM 形状喊单宣告被判 baseless）——「同家族不同主体+喊单式载体」票的 noneProb 误杀面；②name 冒充失效后部署者可反向把 symbol 直接起成蓝筹名（symbol 路 name_exact 照拦，防线完整）；③BIAOQING 三连发等 symbol 撞 alias 形状不受影响（单测实测命中）。
 
 ### C251 发布者与代币同名→走账号路径（BIBIAIWork 案，2026-10-27 用户裁定「走项目臂提供 CA 还可以，但是走靠影响力支撑一个 meme 感觉不行」，路由+回落双改；追裁定=影响力豁免）★
