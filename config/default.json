@@ -252,7 +252,8 @@
   "gangWs": {
     "endpointFrom": "env",
     "contracts": {
-      "launchpadV2": "0x1B8F3f69DFa0a7F63d308C7EB0Fd38D8b099966E"
+      "launchpadV2": "0x1B8F3f69DFa0a7F63d308C7EB0Fd38D8b099966E",
+      "launchpadV3": "0x15CFD2dc8278Fb87a1783ef42111618E20874365"
     },
     "pingIntervalMs": 10000,
     "reconnect": {

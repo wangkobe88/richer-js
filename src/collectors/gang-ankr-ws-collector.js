@@ -1,8 +1,10 @@
 /**
- * Gang ankr WSS Collector（gang.fun LaunchpadV2）
+ * Gang ankr WSS Collector（gang.fun LaunchpadV2 + V3 GangLaunchpad）
  *
  * 通过 ankr Advanced API WSS（标准 eth_subscribe）实时监控 gang.fun BSC 内盘事件。
- * 订阅 LaunchpadV2 合约的五类 topic0 白名单 logs + newHeads（块时间回填）。
+ * 订阅两 pad 合约（V2 `0x1B8F…966E` 存量票 + V3 `0x15CF…4365` 新创建，2026-10-28 换代）
+ * 的 topic0 白名单 logs + newHeads（块时间回填）；Buy/Sell/VQL/Graduated 两 pad 同签名
+ * 共享白名单，Created 各自签名（V2 静态六段/V3 动态五段，见下方常量注释）。
  *
  * ⚠️ 机制层（重连/心跳/块时间回填/pending RPC 兜底/去重/tickBuffer/毒 tick 二分/BNB-USD/
  * quote 换算三级源）复制自 flap-ankr-ws-collector.js（其机制层又复制自 fourmeme
@@ -34,7 +36,7 @@
  * - 非 BNB 计价盘换算源多一档源⓪ refPair（Created 携带的平台参考池，V2 reserves/
  *   V3 slot0+liquidity 门，仅当池两侧恰为 {quote,WBNB} 才采用——bridge 池另一侧非
  *   WBNB 时宁 miss 走三级源不冒充），miss 后走 flap 同款三级源①②③
- * - legacy soft pad（0x315B…）为慢速遗留盘：不订阅不配置（本文件唯一目标 LaunchpadV2）
+ * - legacy soft pad（0x315B…）为慢速遗留盘：不订阅不配置（本文件目标 V2+V3 两 pad）
  */
 
 const WebSocket = require('ws');
@@ -54,6 +56,21 @@ const TOPIC0_MAP = new Map();
 for (const [name, sig] of Object.entries(EVENT_SIGS)) {
     TOPIC0_MAP.set(ethers.id(sig), name);
 }
+
+// ── V3 GangLaunchpad（2026-10-28 换代接入）──────────────────────────────
+// 新创建全部走 V3 0x15CF…4365（CLI 拒 --taxed 旧道；LaunchpadV2 只剩存量票买卖）。
+// Buy/Sell/VQL 沿用上面 V2 签名（两 pad 共享 TOPIC0 白名单）；仅 Created 换签名+动态 ABI。
+// topic0 为链上实测常量（签名串反推未中——keccak 生成不可行，勿改回 ethers.id()）。
+const V3_CREATED_TOPIC0 = '0x416fe98c8f1ea2977674a1a4ee6252eb72597a8392fc2d7d0599a2bf5d8fdb63';
+TOPIC0_MAP.set(V3_CREATED_TOPIC0, 'V3Created');
+// data 动态 ABI：3 个 string（name/symbol/uri）偏移 + 2 静态 word（w3 未识别字段
+// ——WNB 盘恒 0、部分 quote 盘巨值，原值存档不消费；w4=gradAmt 逐票各异 15/51.5/
+// 1634695 链上实证，「WNB 盘恒 15」只是 V2 时代口径）。标准 AbiCoder 按声明类型
+// 自处理偏移，实测布局（GangLink 13 word/My Token 10 word 样本）精确解码。
+const V3_CREATE_DATA_TYPES = ['string', 'string', 'string', 'uint256', 'uint256'];
+// V3 Graduated 形状未实证（V3 上线 24h 无毕业票）：白名单含 V2 Graduated 签名，
+// V3 若同签名会走 V2 三字段解码、形状不同则 decodeFailed fail-loud——首个 V3 毕业
+// 票须人工对拍（观察点，勿预设）
 
 // data 段解码类型（indexed 参数不进 data）：Created=6 段、Buy/Sell=5 段、Graduated=3 段
 const CREATE_DATA_TYPES = ['string', 'string', 'string', 'bool', 'address', 'uint256'];
@@ -132,6 +149,8 @@ class GangAnkrWsCollector {
 
         const contracts = this.config.contracts || {};
         this._launchpad = lowerAddr(contracts.launchpadV2);
+        // V3 pad 可选（缺省 null=只订 V2 存量票；配置后新创建票接入——换代后两 pad 并存）
+        this._launchpadV3 = contracts.launchpadV3 ? lowerAddr(contracts.launchpadV3) : null;
 
         // WSS 端点：env 优先
         this._wsUrl = this.config.endpointFrom === 'env'
@@ -279,7 +298,8 @@ class GangAnkrWsCollector {
         this._bnbUsdTimer = setInterval(() => this._fetchBnbUsd(), this._bnbUsdRefreshMs);
 
         this._startHeartbeat();
-        this.logger.info('', 'GangAnkrWsCollector', `已启动：LaunchpadV2=${this._launchpad}`);
+        this.logger.info('', 'GangAnkrWsCollector',
+            `已启动：LaunchpadV2=${this._launchpad}${this._launchpadV3 ? ` + V3=${this._launchpadV3}` : '（V3 未配置=只订存量票买卖）'}`);
     }
 
     async stop() {
@@ -320,9 +340,11 @@ class GangAnkrWsCollector {
         this._ws.on('open', () => {
             this.logger.info('', 'GangAnkrWsCollector', 'WSS 已连接，发送订阅请求');
             this._send({ jsonrpc: '2.0', id: 1, method: 'eth_subscribe', params: ['newHeads'] });
-            // topic0 白名单（ANKR WSS 按推送消息计费）：只订阅五类已知事件；取舍=合约
-            // 升级新事件类型不再可发现（unknownTopic0 计数归零），人工诊断时临时去 topics
-            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: [this._launchpad], topics: [Array.from(TOPIC0_MAP.keys())] }] });
+            // topic0 白名单（ANKR WSS 按推送消息计费）：只订阅已知事件；取舍=合约
+            // 升级新事件类型不再可发现（unknownTopic0 计数归零），人工诊断时临时去 topics。
+            // address 数组=V2+V3 双 pad（V3 配置存在时；Buy/Sell/VQL 两 pad 同签名共享白名单）
+            const padAddresses = this._launchpadV3 ? [this._launchpad, this._launchpadV3] : [this._launchpad];
+            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: padAddresses, topics: [Array.from(TOPIC0_MAP.keys())] }] });
 
             this._pingTimer = setInterval(() => {
                 if (this._ws && this._ws.readyState === WebSocket.OPEN) {
@@ -514,6 +536,55 @@ class GangAnkrWsCollector {
         const blockTimeMs = blockTimeSec * 1000;
 
         try {
+            if (eventName === 'V3Created') {
+                const d = ethers.AbiCoder.defaultAbiCoder().decode(V3_CREATE_DATA_TYPES, data);
+                this.stats.tokenCreated++;
+                const token = topicAddr(logEntry.topics[1]);
+                const creator = topicAddr(logEntry.topics[2]);
+                const quote = topicAddr(logEntry.topics[3]);
+                const quoteIsBnb = quote === ZERO_ADDRESS || quote === WBNB_BSC.toLowerCase();
+                // V3 无 refPair 字段（动态 ABI 恰 5 段）：quote 盘换算直接走三级源①②③
+                const refPair = null;
+                const gradAmtQuote = Number(ethers.formatEther(d[4]));
+                // gradAmt 逐票各异（万斯 15/Super Inu 51.5/SLAB 1634695 链上实证）——
+                // V3 Created 是唯一正源，换算失败 null（FA 侧 ?? 15 兜底，宁 null 不冒充）
+                let gradAmtBnb = null;
+                if (quoteIsBnb) {
+                    gradAmtBnb = gradAmtQuote;
+                } else {
+                    const conv = await this._getQuoteConversion(quote, refPair);
+                    gradAmtBnb = conv ? gradAmtQuote * conv.rate : null;
+                    if (!conv) {
+                        this.stats.quoteRateUnavailable++;
+                        this.logger.warn('', 'GangAnkrWsCollector',
+                            `V3 非 WNB 盘毕业阈值换算失败（FA 侧按 15 兜底）: token=${token} quote=${quote} gradAmt=${gradAmtQuote}`);
+                    }
+                }
+                this._tokenQuotes.set(token, { quote, quoteIsBnb, refPair, gradAmtBnb });
+                this._handleTokenCreate({
+                    token,
+                    creator,
+                    name: d[0],
+                    symbol: d[1],
+                    logoUri: d[2],
+                    taxed: false,           // V3 无 taxed 事件字段（CLI 拒 --taxed 旧道）
+                    unknownParam: '0x' + d[3].toString(16), // w3 未识别字段 hex 存档（quote 盘恒
+                    // 为 20 字节地址形状但链上无代码非合约、WNB 盘恒 0，不消费只留痕）
+                    pad: 'v3',              // pad 世系标记（wss_events payload 审计用，机制层不消费）
+                    quote,
+                    quoteIsBnb,
+                    refPair,
+                    gradAmtBnb,
+                    gradAmtQuote,
+                    blockNumber,
+                    blockTimeMs,
+                    txHash: logEntry.transactionHash,
+                    logIndex: parseInt(logEntry.logIndex, 16),
+                });
+                await this._flushUnknownTokenTrades(token);
+                return;
+            }
+
             if (eventName === 'Created') {
                 const d = ethers.AbiCoder.defaultAbiCoder().decode(CREATE_DATA_TYPES, data);
                 this.stats.tokenCreated++;

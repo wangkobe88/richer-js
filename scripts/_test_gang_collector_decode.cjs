@@ -26,7 +26,29 @@ const GOLDEN_TOPIC0 = {
     Sell: '0x00055e00ae56ca9d108326c7fd1ab1e6380614100b19bf3e4d1411240a726d86',
     Graduated: '0x6da2ac486174425e3bbc9aab3a6fd9ee8fb4d1c1e769a02af4a159b37c52eea9',
     VirtualQuoteLocked: '0x92cbbe3df7bc99e8bc37c3efdb3dc96270157e1b4e9cdda9fb2380a2e215d53d',
+    // V3 Created 签名串反推未中（keccak 生成不可行）：链上实测常量（2026-10-28 换代接入）
+    V3Created: '0x416fe98c8f1ea2977674a1a4ee6252eb72597a8392fc2d7d0599a2bf5d8fdb63',
 };
+
+// ── V3 链上原文 fixtures（2026-10-28 getLogs 采集，block ~130205558/130119539）──
+// Chicken Chiu（WNB 盘）：动态 ABI 3 偏移+2 静态 word；w3=0x0、w4=15e18；
+// 47 条全量分布：WNB 盘 w4 恒 15e18（29/29）、quote 盘 w4 逐票各异（18/18）、
+// w3≠0 ⟺ quote 盘（恒 20 字节地址形状但无代码非合约=未识别不消费）
+const V3_WNB_TOKEN = '0x68f2182e5ed8be223751eb943bdee744a9a95f04';
+const V3_WNB_CREATOR = '0xe30aa4748dc2582374ebc85abfbf3c428cc70e81';
+const V3_WNB_CREATED_DATA = '0x00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d02ab486cedc0000000000000000000000000000000000000000000000000000000000000000000c436869636b656e204368697500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006e5b1b1e99b9e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005568747470733a2f2f63646e2e67616e672e66756e2f697066732f6261666b726569686d37766670776a7337347832646e6b77617973326764666e70353763626e7266753273663463716771377373757173337770650000000000000000000000';
+// bibi.ai（quote 盘 0x0c630240…b405）：w3=0xbd5d…b6d（地址形状）、w4=1788077.253…
+const V3_QT_TOKEN = '0x2fba353ecfebe2dcd49f733b9d92d213278aa7bd';
+const V3_QT_QUOTE = '0x0c6302401aa5325c2e36f170f52c00b1d220b405';
+const V3_QT_CREATED_DATA = '0x00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000bd5ded695d61c2db15c703c345d57e039fd0b6d000000000000000000000000000000000000000000017aa3dcb58a4552db0fc90000000000000000000000000000000000000000000000000000000000000007626962692e61690000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046269626900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005568747470733a2f2f63646e2e67616e672e66756e2f697066732f6261666b726569676c35356f3235786e617a796b717537627635326e687a6935376565357569756463723778786c6a6b64717171756c34657a6d610000000000000000000000';
+// Chicken Chiu Buy1（同 token 紧随 Created，3 块后）：dw0=0.047318611987381705（协议
+// 定值 260/267 首买同款）、dw3=10M 枚（1% 钱包帽精确值）、dw4=dw0（首笔累计）
+const V3_B1_TX = '0x9e82093777f97d1a7a268feabc721ab0fc1caf64d3fe5e5ee75486baad251912';
+const V3_B1_DATA = '0x00000000000000000000000000000000000000000000000000a81c06e2c5bdc90000000000000000000000000000000000000000000000000001b2b5146442900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000084595161401484a00000000000000000000000000000000000000000000000000000000a81c06e2c5bdc9';
+// Chicken Chiu Sell2（trader 0xd458…453e 全卖其 Buy2 仓位）：dw0=1035277.496… 枚、
+// dw3=0.005724542690177462 BNB 净收款
+const V3_S2_TX = '0xf7fa920a1946f3e00efb9578b43e84578aa66a43ecc400c0da1cb362a43b3f3f';
+const V3_S2_DATA = '0x00000000000000000000000000000000000000000000db3a816afbff8f83d8fe000000000000000000000000000000000000000000000000000034971eecbbfa000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000145670f58cb1b600000000000000000000000000000000000000000000000006507048bf9832d1';
 
 const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
 const ZERO = '0x' + '0'.repeat(40);
@@ -99,7 +121,7 @@ async function main() {
     for (const [name, hash] of Object.entries(GOLDEN_TOPIC0)) {
         assert.strictEqual(TOPIC0_MAP.get(hash), name, `topic0 映射缺 ${name}`);
     }
-    assert.strictEqual(TOPIC0_MAP.size, 5, 'TOPIC0_MAP 恰五事件');
+    assert.strictEqual(TOPIC0_MAP.size, 6, 'TOPIC0_MAP 六 topic0（V2 五签名+V3 Created）');
     assert.strictEqual(GANG_TOTAL_SUPPLY, 1e9, 'totalSupply 常量 1e9');
     console.log('✓ 1. 五 topic0 黄金哈希');
 
@@ -388,6 +410,141 @@ async function main() {
         assert.strictEqual(c.stats.unknownTokenDropped, 2, '丢最老 2');
     }
     console.log('✓ 11. 暂存溢出丢最老');
+
+    // ═══ 12. V3Created 链上原文解码（WNB 盘 Chicken Chiu）+ V3 pad 装配 ═══
+    // 动态 ABI 新形状（3 string 偏移+2 静态 word）：ethers 按声明类型自处理偏移，
+    // 实测 data 直喂精确命中（V2 Graduated 教训：未实证形状不进黄金单测——本组
+    // data 为链上 getLogs 原文非构造）
+    {
+        const stubs = makeStubs();
+        const c = makeCollector(stubs, { contracts: { launchpadV2: LAUNCHPAD, launchpadV3: '0x15CFD2dc8278Fb87a1783ef42111618E20874365' } });
+        assert.strictEqual(c._launchpadV3, '0x15cfd2dc8278fb87a1783ef42111618e20874365', 'V3 pad 小写装配');
+        const c2 = makeCollector(makeStubs());
+        assert.strictEqual(c2._launchpadV3, null, '未配置 V3 → null（只订 V2 存量票）');
+
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.V3Created, padAddr(V3_WNB_TOKEN), padAddr(V3_WNB_CREATOR), padAddr(WBNB)],
+            data: V3_WNB_CREATED_DATA,
+            transactionHash: '0x2fca01109b40eaec71cb3648801c2807ce087f02bef1f56ef2bf341ed158e09a',
+            logIndex: hex(195), blockNumber: hex(130205558),
+        }, 1793000000);
+        assert.strictEqual(c.stats.tokenCreated, 1);
+        const q = c._tokenQuotes.get(V3_WNB_TOKEN);
+        assert.ok(q, 'V3 quote map 登记');
+        assert.strictEqual(q.quote, WBNB);
+        assert.strictEqual(q.quoteIsBnb, true);
+        assert.strictEqual(q.refPair, null, 'V3 无 refPair 字段');
+        assert.ok(Math.abs(q.gradAmtBnb - 15) < 1e-9, 'WNB 盘 gradAmt=15（Chicken Chiu 实测）');
+
+        // registerToken meta（FA set-once 源）+ info 形状
+        const meta = stubs.calls.faRegister[0].meta;
+        assert.strictEqual(meta.platform, 'gang');
+        assert.strictEqual(meta.totalSupply, 1e9);
+        assert.ok(Math.abs(meta.graduationThresholdBnb - 15) < 1e-9);
+        const info = stubs.calls.onTokenCreate[0];
+        assert.strictEqual(info.name, 'Chicken Chiu');
+        assert.strictEqual(info.symbol, '山雞');
+        assert.strictEqual(info.logoUri, 'https://cdn.gang.fun/ipfs/bafkreihm7vfpwjs74x2dnkways2gdfnp57cbnrfu2sf4cqgq7ssuqs3wpe');
+        assert.strictEqual(info.taxed, false, 'V3 无 taxed 事件字段恒 false');
+        assert.strictEqual(info.pad, 'v3', 'pad 世系标记（payload 审计用）');
+        assert.strictEqual(info.unknownParam, '0x0', 'WNB 盘 w3 恒 0');
+        assert.ok(Math.abs(info.gradAmtQuote - 15) < 1e-9);
+    }
+    console.log('✓ 12. V3Created WNB 盘链上原文解码+装配');
+
+    // ═══ 13. V3Created quote 盘（bibi.ai）：w3 地址形状 hex 存档 + gradAmt 换算 ═══
+    {
+        const stubs = makeStubs();
+        const c = makeCollector(stubs);
+        // 换算打桩 rate=1e-6：gradAmtBnb=1788077.253…×1e-6
+        c._getQuoteConversion = async () => ({ rate: 1e-6 });
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.V3Created, padAddr(V3_QT_TOKEN), padAddr('0x' + '21'.repeat(20)), padAddr(V3_QT_QUOTE)],
+            data: V3_QT_CREATED_DATA,
+            transactionHash: '0x7c8e4e5e0c167166b3ac2bf7650ebc1f8e3d10cc0271de2ff590e345af6b7065',
+            logIndex: hex(210), blockNumber: hex(130119539),
+        }, 1793000000);
+        const q = c._tokenQuotes.get(V3_QT_TOKEN);
+        assert.strictEqual(q.quoteIsBnb, false);
+        assert.ok(Math.abs(q.gradAmtBnb - 1788077.253578430023929801 * 1e-6) < 1e-15, 'quote 盘 gradAmt×rate');
+        const info = stubs.calls.onTokenCreate[0];
+        assert.strictEqual(info.name, 'bibi.ai');
+        assert.strictEqual(info.symbol, 'bibi');
+        assert.strictEqual(info.unknownParam, '0xbd5ded695d61c2db15c703c345d57e039fd0b6d', 'w3 地址形状 hex 存档（未识别不消费）');
+        assert.ok(Math.abs(info.gradAmtQuote - 1788077.253578430023929801) < 1e-9, 'quote 盘 gradAmt 逐票各异（V3 非 V2 恒 15 口径）');
+        // 换算 miss：gradAmtBnb=null（FA ?? 15 兜底）+ quoteRateUnavailable
+        const c2 = makeCollector(makeStubs());
+        c2._getQuoteConversion = async () => null;
+        await c2._processLog({
+            topics: [GOLDEN_TOPIC0.V3Created, padAddr(V3_QT_TOKEN), padAddr('0x' + '21'.repeat(20)), padAddr(V3_QT_QUOTE)],
+            data: V3_QT_CREATED_DATA,
+            transactionHash: '0x7c8e4e5e0c167166b3ac2bf7650ebc1f8e3d10cc0271de2ff590e345af6b7065',
+            logIndex: hex(210), blockNumber: hex(130119539),
+        }, 1793000000);
+        assert.strictEqual(c2._tokenQuotes.get(V3_QT_TOKEN).gradAmtBnb, null, '换算失败 null 不冒充');
+        assert.strictEqual(c2.stats.quoteRateUnavailable, 1);
+    }
+    console.log('✓ 13. V3Created quote 盘（w3 存档/gradAmt 换算/miss null）');
+
+    // ═══ 14. V3 Buy/Sell 沿用 V2 签名：链上原文 tick 净额口径 ═══
+    // Chicken Chiu 真实 Buy1/Sell2（V3 pad 事件但 topic0=V2 签名——白名单共享实证）
+    {
+        const stubs = makeStubs();
+        const c = makeCollector(stubs);
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.V3Created, padAddr(V3_WNB_TOKEN), padAddr(V3_WNB_CREATOR), padAddr(WBNB)],
+            data: V3_WNB_CREATED_DATA,
+            transactionHash: '0x2fca01109b40eaec71cb3648801c2807ce087f02bef1f56ef2bf341ed158e09a',
+            logIndex: hex(195), blockNumber: hex(130205558),
+        }, 1793000000);
+        // Buy1：dw0=0.047318611987381705 协议定值、dw3=10M 枚（1% 钱包帽精确上限）
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.Buy, padAddr(V3_WNB_TOKEN), padAddr('0xbb656758bf080bf822218bb0cafa150ba3256073')],
+            data: V3_B1_DATA,
+            transactionHash: V3_B1_TX, logIndex: hex(259), blockNumber: hex(130205561),
+        }, 1793000001);
+        assert.strictEqual(c.stats.tokenBought, 1);
+        const t = stubs.calls.faTicks[0];
+        assert.ok(Math.abs(t.bnb_amount - 0.047318611987381705) < 1e-15, `V3 Buy dw0 净入金（协议定值），实得 ${t.bnb_amount}`);
+        assert.ok(Math.abs(t.token_amount - 10_000_000) < 1e-6, 'V3 Buy dw3=tokensOut（1% 钱包帽 10M）');
+        assert.ok(Math.abs(t.price_bnb - 0.047318611987381705 / 1e7) < 1e-18, 'price=净入金÷tokenAmount');
+        assert.strictEqual(c._tickBuffer[0].quote_token, null, 'V3 WNB 盘 quote_token=null');
+        // Sell2：dw0=1035277.496… 枚、dw3=0.005724542690177462 净收款
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.Sell, padAddr(V3_WNB_TOKEN), padAddr('0xd458fb0e7d3863ecb6eb8b761b595d950a24453e')],
+            data: V3_S2_DATA,
+            transactionHash: V3_S2_TX, logIndex: hex(163), blockNumber: hex(130205711),
+        }, 1793000002);
+        const s = stubs.calls.faTicks[1];
+        assert.strictEqual(s.trade_type, 'sell');
+        assert.ok(Math.abs(s.token_amount - 1_035_277.496447780922841342) < 1e-6, 'V3 Sell dw0=tokensIn');
+        assert.ok(Math.abs(s.bnb_amount - 0.005724542690177462) < 1e-15, 'V3 Sell dw3=净收款');
+    }
+    console.log('✓ 14. V3 Buy/Sell 链上原文净额口径（V2 签名共享）');
+
+    // ═══ 15. V3 token 暂存→V3Created 到达重放（换代后新票订阅竞态）═══
+    {
+        const stubs = makeStubs();
+        const c = makeCollector(stubs);
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.Buy, padAddr(V3_WNB_TOKEN), padAddr('0xbb656758bf080bf822218bb0cafa150ba3256073')],
+            data: V3_B1_DATA,
+            transactionHash: V3_B1_TX, logIndex: hex(259), blockNumber: hex(130205561),
+        }, 1793000001);
+        assert.strictEqual(c.stats.unknownTokenPending, 1, 'V3 未知 token 暂存');
+        assert.strictEqual(stubs.calls.faTicks.length, 0, '暂存期不出 tick');
+        await c._processLog({
+            topics: [GOLDEN_TOPIC0.V3Created, padAddr(V3_WNB_TOKEN), padAddr(V3_WNB_CREATOR), padAddr(WBNB)],
+            data: V3_WNB_CREATED_DATA,
+            transactionHash: '0x2fca01109b40eaec71cb3648801c2807ce087f02bef1f56ef2bf341ed158e09a',
+            logIndex: hex(195), blockNumber: hex(130205558),
+        }, 1793000000);
+        assert.strictEqual(c.stats.unknownTokenPending, 0, 'V3Created 后清空');
+        assert.strictEqual(stubs.calls.faTicks.length, 1, '重放出 tick（净额不变）');
+        assert.ok(Math.abs(stubs.calls.faTicks[0].bnb_amount - 0.047318611987381705) < 1e-15);
+        assert.strictEqual(c.stats.unknownTokenFlushed, 1);
+    }
+    console.log('✓ 15. V3 token 暂存/重放');
 
     console.log('\n✅ _test_gang_collector_decode 全部通过');
 }
