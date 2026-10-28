@@ -178,7 +178,7 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
 
     const HORIZONS = [['5min', 300], ['30min', 1800], ['2h', 7200], ['6h', 21600], ['12h', 43200]];
     const targets = [120, 150, 200, 300]; // %（相对买入价 1.2/1.5/2/3 倍）
-    const THETAS = [5, 10, 15, 20, 30]; // trailing 回撤 %
+    const THETAS = [2, 3, 5, 10, 15, 20, 30]; // trailing 回撤 %
     const TRAIL_TIMEOUTS = [['30min', 1800], ['6h', 21600]]; // 超时强退
 
     const rows = []; // {addr, entry, policy, pct, pnlBnb, exitTs}
@@ -233,15 +233,15 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
                 if (tr.ts > startTs + timeoutSec) break;
                 const p2 = (Q0 + tr.d4) * (Q0 + tr.d4);
                 if (p2 > peak2) peak2 = p2;
-                else if (p2 * 100n <= peak2 * k) return { d4: tr.d4, hit: true };
+                else if (p2 * 100n <= peak2 * k) return { d4: tr.d4, hit: true, exitSec: tr.ts - startTs };
             }
             const i = lastTradeBy(startTs + timeoutSec);
-            return { d4: i < 0 ? startD : t.trades[i].d4, hit: false };
+            return { d4: i < 0 ? startD : t.trades[i].d4, hit: false, exitSec: timeoutSec };
         };
         for (const theta of THETAS) for (const [tname, tsec] of TRAIL_TIMEOUTS) {
-            const { d4, hit } = trailExit(0n, t.ts, theta, tsec);
+            const { d4, hit, exitSec } = trailExit(0n, t.ts, theta, tsec);
             const net = proceeds(d4, tk);
-            rows.push({ addr, entry: 'E1', policy: `trail-${theta}%@${tname}`, pct: Number(net - paid1) * 100 / Number(paid1), pnl: Number(net - paid1) / 1e18, paid: Number(paid1) / 1e18, hit });
+            rows.push({ addr, entry: 'E1', policy: `trail-${theta}%@${tname}`, pct: Number(net - paid1) * 100 / Number(paid1), pnl: Number(net - paid1) / 1e18, paid: Number(paid1) / 1e18, hit, exitSec });
         }
 
         // ── E1 利润目标（6h 超时）──
@@ -274,9 +274,9 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
             rows.push({ addr, entry: 'E2', policy: 'EOW', pct: Number(netE2 - paid2) * 100 / Number(paid2), pnl: Number(netE2 - paid2) / 1e18, paid: Number(paid2) / 1e18 });
 
             for (const theta of THETAS) for (const [tname, tsec] of TRAIL_TIMEOUTS) {
-                const { d4, hit } = trailExit(tr0.d4, tr0.ts, theta, tsec);
+                const { d4, hit, exitSec } = trailExit(tr0.d4, tr0.ts, theta, tsec);
                 const net = proceeds(d4, tk2);
-                rows.push({ addr, entry: 'E2', policy: `trail-${theta}%@${tname}`, pct: Number(net - paid2) * 100 / Number(paid2), pnl: Number(net - paid2) / 1e18, paid: Number(paid2) / 1e18, hit });
+                rows.push({ addr, entry: 'E2', policy: `trail-${theta}%@${tname}`, pct: Number(net - paid2) * 100 / Number(paid2), pnl: Number(net - paid2) / 1e18, paid: Number(paid2) / 1e18, hit, exitSec });
             }
         }
     }
@@ -321,14 +321,16 @@ const LAUNCHPAD_ADDR = '0x1b8f3f69dfa0a7f63d308c7eb0fd38d8b099966e';
     }
 
     console.log(`\n── trailing 回撤止盈（峰值价格回撤 θ% 出场，价格∝Q²；超时强退）──`);
-    console.log('入场│回撤   │超时  │命中率  │ΣPnL(BNB) │ROI    │均值%   │中位%');
+    console.log('入场│回撤   │超时  │命中率  │ΣPnL(BNB) │ROI    │均值%   │中位%  │出场中位');
     for (const entry of ['E1', 'E2']) for (const theta of THETAS) for (const [tname] of TRAIL_TIMEOUTS) {
         const pol = `trail-${theta}%@${tname}`;
         const g = rows.filter(r => r.entry === entry && r.policy === pol);
         if (!g.length) continue;
         const ps = pct(g);
         const pnl = g.reduce((s, r) => s + r.pnl, 0);
-        console.log(`${entry} │-${String(theta).padStart(2)}%  │${tname.padEnd(5)}│${((g.filter(r => r.hit).length * 100 / g.length).toFixed(1) + '%').padStart(6)}│${pnl.toFixed(4).padStart(10)}│${fmt(pnl * 100 / g.reduce((s, r) => s + r.paid, 0)).padStart(7)}%│${fmt(ps.reduce((a, b) => a + b, 0) / ps.length).padStart(8)}│${fmt(q(ps, .5)).padStart(7)}`);
+        const ex = g.filter(r => r.hit).map(r => r.exitSec).sort((a, b) => a - b);
+        const exMed = ex.length ? (ex[Math.floor(ex.length / 2)] >= 90 ? `${(ex[Math.floor(ex.length / 2)] / 60).toFixed(1)}min` : `${ex[Math.floor(ex.length / 2)]}s`) : '-';
+        console.log(`${entry} │-${String(theta).padStart(2)}%  │${tname.padEnd(5)}│${((g.filter(r => r.hit).length * 100 / g.length).toFixed(1) + '%').padStart(6)}│${pnl.toFixed(4).padStart(10)}│${fmt(pnl * 100 / g.reduce((s, r) => s + r.paid, 0)).padStart(7)}%│${fmt(ps.reduce((a, b) => a + b, 0) / ps.length).padStart(8)}│${fmt(q(ps, .5)).padStart(7)}│${exMed.padStart(8)}`);
     }
 
     console.log(`\n── E1·EOW 最佳/最差 Top5 ──`);
