@@ -43,7 +43,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
-- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用，待重建换车脚本——原版=git 9fa07aa create-v55.cjs）**
+- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，**v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑**）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
 
 ---
@@ -61,7 +61,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **fail-open 方向**：无可靠价票 T=0 退化=holders（宁多计不放大门拦截力）；显式 holderDustBnb:0 恒等 holders（关=旧口径）
 - **单测**：`_test_holders_ex_dust.cjs` 21 断言全过——A 基础口径/B 卖剩渣出局（holders 照计=对照口径不动）/C 尘钱包清仓/D ★**假活跃票现场反证**（10 钱包各 0.0015 BNB+1 大钱包：holders=11 过旧门 vs holdersExDust=1 新门拦死——门语义反转实证）/E 首价缺失退化/F 首价晚到固化重扫/G 显式 0 恒等/H 乱序 parity/I 探针收键+FactorBuilder 快照透传/J 源码口径断言；连带 `fourmeme_fa_factors` 白名单补 5 只存量欠账键（T93 top2HolderCircPct/T94 top1S+top2S/T97 secSincePeak/T98 holdersExDust）→ 35 通过 0 失败
 - **部署链**：代码 023befb + 部署脚本 e20aa9b → 182 pull → `bump-t98-holders-exdust.cjs --commit`（v50/v10，防呆=旧段恰一次/裸 `holders >=` 零残留/兄弟门 12+11 段锚定）→ v54 持仓确认（握手小猫 `0x3b942497…7777` OPEN 885031 token≈0.006 BNB 3 卡，T95 先例同形状弃管）→ v54 TERM 优雅停（03:49:29 UTC，PID 2248290）→ `create-v55.cjs` → **v55 `7ab210a5-3133-4f58-90e4-5bceb23efbfa` 03:49:58 UTC 起实跑**（PID 2275098；ERROR=0、23 策略装载、两腿 holdersExDust 段各恰一次、双 collector 实时采正常）。阈值不动（主 10/早期 5）：口径变小同阈=更严，观察后可调
-- **撞号注记**：T97 案卷原「v55 create 脚本备好待换车」——v55 编号被本案占用（T98 先行换车），T97 高点停滞臂仍待换车（原 22 卖腿 create 脚本=git 9fa07aa 版，需重建为 v56+）
+- **撞号注记**：T97 案卷原「v55 create 脚本备好待换车」——v55 编号被本案占用（T98 先行换车）；T97 已重建 `create-v56.cjs`（fa6058d，克隆 v55/T98 快照+插腿，防呆锁 T98/T96/T95/T93 形状）并于同日上线 v56 `4ac10e23`——两改进同车无覆盖
 - **观察点**：①触发率变化（口径变小同阈=更严的拦截面）②被拦「假活跃票」结局（D 组形状：多尘埃钱包凑 holders 过旧门、真实承接 wallets 数少）③holdersExDust 与 holders 差值分布（校准 holderDustBnb 0.002 是否需调——差值大=尘埃钱包浓度高）④holderCount 与 holderCountExDust 双键并存，holders 旧键保留纯观察
 
 ### T96 净买门换轨 OR→AND「短期开始涨，长期下跌趋势解除」（两臂同改：buy-v2 v48→v49 + buy-early-narrative v8→v9；2026-10-29 用户裁定「把买入条件 tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40 改为 tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40」「两个臂都改」）
@@ -438,7 +438,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 丁、卖腿 / 止损 / 毕业卖
 
-### T97 高点停滞减仓臂 secSincePeak（FA 新键 + 卖腿 `peakProfitPct >= 10 AND secSincePeak > 60` 卖 1 卡 cd60 maxExecutions=2；2026-10-29 用户提案+拍板；v55 create 脚本备好待换车）
+### T97 高点停滞减仓臂 secSincePeak（FA 新键 + 卖腿 `peakProfitPct >= 10 AND secSincePeak > 60` 卖 1 卡 cd60 maxExecutions=2；2026-10-29 用户提案+拍板；v56 `4ac10e23` 已上线）
 
 - **动机（用户原话）**：「止损臂触发的太多，往往导致盈利流失，卖在了低点」——盈转亏票（曾冲高 +20% 终局 ≤0）在拱形/止损全清臂以低点价整仓认赔；在**时间停滞**早段先减仓锁盈，余仓留给现行栈
 - **载体（FA 新键 `secSincePeak`）**：`(now − pos.highestPriceSinceBuyAt)/1000`——距持仓期峰值秒数，创新高归零重计。**峰推进=任意接受价轨（priceAccepted 块）与武装门 peakProfitPct 的可靠价轨（尘门 0.002+outlier）分轨**：outlier（>1000× 中位数判）不推峰；尘 tick 不卡尘门——尘价新高可重置计时但不可武装（单测 F 组分轨反证）；now=buildFactorMap 入参禁 Date.now（回测=虚拟时钟同源）；无持仓/无峰 → null，`> 60` 恒 false fail-closed；FactorBuilder 快照白名单透传（不落库即丢）；getFactorKeys 探针自动收键（三防线认得）
@@ -450,7 +450,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
   - Caveat：单周偏跌 regime，「N 越短越好」可能部分是行情特性；回放口径偏差（一阶近似）：锚=入场后首接受价（FA 真实=fire 价）、尘 tick 扫描全跳 vs 引擎峰轨不卡尘门（重置方向=保守）
 - **与 T80 的双层梯队**：同 priority 10、数组序 T97 在前=同 tick 双真先评——T97 打**时间停滞**（峰后 60s 未创新高即减仓，无需回撤幅度）；T80 打**幅度回撤**（dd≤-15）。T97 fire 后 60s 冷却中 T80 可顶上（StrategyEngine 每 tick 单腿 fire+冷却跳过低优先级顶上语义）。打点在盈转亏主通道 P13（`peak>=20 AND profit<=0` 全清）之前
 - **落地**：代码 9fa07aa（FA 发射+快照+单测 `_test_sec_since_peak.cjs` 25 断言全过+create-v55.cjs）；v55=克隆 v54 `0007ff5a` 21→22 卖腿插 T80 前，买腿 T96 形状/库 49/9/其余 config 逐字不动（防呆锁定）；**已知口径差异**：扫描 maxFires=min(2,nCards−1) 保 1 卡，引擎 maxExecutions=2 不保——2-3 卡票（部分成交少数形状）停滞可全清，接受
-- **上线**：待用户拍板换车时机（v54 running 中；停前持仓确认红线）。**追注（2026-10-29 同日）**：v55 编号被 T98 剔尘埃人气换键占用（T98 先行换车），本案 create 脚本被重写为 T98 版；22 卖腿原版=git 9fa07aa 的 create-v55.cjs，将来换车须以 v55/T98 快照为源重建（v56+）
+- **上线**（2026-10-29 04:05:32 UTC，v56 `4ac10e23-83a7-4177-80f1-c3e7ed3bdddd`，PID 2285542，代码=182 HEAD fa6058d）：用户批准「上吧（本事件中途上了其它改进，所以请不要覆盖了哈）」。中途改进=T98 剔尘埃人气键先行完成 v54→v55 换车（v55 `7ab210a5` 03:49 UTC 起跑仅 ~16min）；本案重建 create-v56（fa6058d）克隆 v55/T98 快照+插 T97 腿（idx 12、T80 顺移 13），买腿 holdersExDust 双腿/库 refs v50/v10/rug-exit:1/其余 21 卖腿逐字不动=不覆盖。停 v55（SIGTERM ~5s 优雅停「引擎已停止」）→ 建 v56 → 起跑，停机窗口 <2min。验证：22 卖腿零拒启、**T97 启用行「P10: 卖出 ×2 | 优先级:10 | 1卡 | 冷却60s」**、T80「P10 冷却300s」共存、ERROR=0、双 WSS（FlapPortalTrader 连接成功）、famous roster 3 个（7749c39 同 pull 生效）。**停机持仓遗留（弃管先例 v52 同款）**：v55 币安圣子 2×0.006 BNB（04:03 R1 rating=3 触发 2 笔买入，停机在持）+ v54 遗留握手小猫 0.006 BNB——均不再被引擎监控，可手动处置。**追注（同日早）**：v55 编号被 T98 占用的撞号史见上文速览行
 - **观察点**：①触发频率与 fire 时点的 secSincePeak/profitPct 分布（是否打在「横盘阴跌未触 -15」预期域）②被减仓票余仓终局（减仓保余仓是否换回）③二次腾飞误杀面（佩狗形状复现频率）④与 T80/P9 同冷却域互不抢 ⑤60s 冷却内新高的归零重计形状（fire 前刻回弹救回比例）
 
 ### T80 回撤锁盈减仓臂·中档 -15（2026-10-28 用户指令；v44 `5be4c248-1fe3-423f-a26e-9383ae76e451` 已上线）
