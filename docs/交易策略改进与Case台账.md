@@ -42,7 +42,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - **T104 流动性止损 stallClose（2026-10-29，v63 起实跑）**：持仓票距上一笔链上成交（FA lastTickAt）**>10s 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104）
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
-- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档·减 1 卡（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档卖 1 卡 p11/max1，三层梯队 T80 -15 减1卡→T99 -25 减1卡→拱形 -35 全清；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v58 `12ef2c48` 2026-10-29 起实跑）**
+- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档·减 1 卡（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档卖 1 卡 p11/max1，三层梯队 T80 -15 减1卡→T99 -25 减1卡→拱形 -35 全清；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v58 `12ef2c48` 2026-10-29 起实跑）** / **T107 市值拱形时间全清臂（`mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec` 全清 p10；FA 三键 token 全生命口径——X=首交易→最高市值耗时，峰值市值超 15K USD（=20.1 BNB @745）后距峰 ≥ X/2 秒未再破新高→全清；库 mcap-arc-fullclose v1，v65 起待部署）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
 
 ---
@@ -50,6 +50,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T107 市值拱形时间全清臂（FA 新因子三键 + 库新条目 mcap-arc-fullclose v1 + create-v65；2026-10-29 用户指令「再增加一个卖出臂，持续记录代币从首次交易到最高市值的时间，假设这个时间为 X 秒，代币市值大于 15K 后，如果代币从最高点已经经过了时间长度 X/2 秒（没有再次突破最高点），则全部清仓」；初稿 7K/X 后同日改 15K/X/2）
+
+- **形状（卖腿 24→25，全清 `cards:'all'` p10，插 T97 secSincePeak 腿前——p10 同档稳定排序首中即赢：拱形完成全清 ⊃ T97/T80 减 1 卡；bypass=false 走 3.5s+5tick 双门；maxExecutions 刻意不设=卖出失败每轮重试直到清仓）**：`mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec`——X=首次交易→最高市值耗时；峰值市值超 15K USD（=20.1 BNB，T84 换算率 bnbUsd≈745）后距峰已流逝 ≥ X/2 秒且未再破新高 → 全部清仓。**时间维度出场**，与 T99 回撤深度维度互补：浅回落阴跌票 -25/-35 永远够不着，本臂按「再等半个涨程还没新高」截断；与 T104 stallClose 也互补（断流票归 stallClose，本臂管仍在成交但再不起飞票）。
+- **FA 三键（token 级全生命口径，与持仓期 secSincePeak/peakMarketCapSinceLastBuy 分轨；零新状态——复用既有 `highestPriceBnb/highestPriceAt` 全生命峰+`firstTickAt` 首 tick 锚）**：`mcapPeakBnb`=highestPriceBnb×totalSupply（峰=任意接受价轨：outlier 不推/chainLate 不推/尘价照推，与 drawdownFromHighest 同峰同价流）；`secSinceMcapPeak`=(now−highestPriceAt)/1000（now=buildFactorMap 入参，回测虚拟时钟）；`mcapRiseHalfSec`=（highestPriceAt−firstTickAt)/2000——**X/2 预计算**（条件求值器无算术文法，除法不能写条件串）。
+- **语义细节**：再破高 → 峰推进=计时归零+X 变大（X/2 只会长不会缩）；无接受价/totalSupply 缺失 → null 恒 false fail-closed（marketCap 族惯例，时间键独立照出观察）；**首峰即首 tick（开跌即峰票）X=0 → X/2=0 → secSinceMcapPeak>=0 恒真：过市值门即清（忠实用户口径，非兜底）**；进程晚接管/回测窗口晚于真实首交易 → firstTickAt 偏晚 X 低估 → 提前触发（保守出场方向，trend age 家族同限）。
+- **实现链**：FA 三键发射+FactorBuilder 快照白名单三键 → 单测 `_test_mcap_arc_exit.cjs`（37 断言：X/2 精确值/再破高重置/outlier 不推峰/尘价推峰/X=0 退化/supply 缺失 fail-closed/asOf 虚拟时钟/源码口径锁/快照透传/探针收键/条件四态）→ `bump-t107-mcap-arc-fullclose.cjs --commit`（库 v1 `7d51d440` 已建，防呆=条目防重/条件串与单测 COND 逐字/三键探针/腿形状）→ `create-v65.cjs`（克隆 v64 单变量插腿；防呆=源 24 腿+插位锚定 T97 前/剥除新腿恢复原文逐字节/refs 恰追加 3→4）。⚠️部署红线：182 须先 pull 至含 FA 三键提交再建/跑 v65（旧 FA=未知因子三防线拒启）。
+- **观察点**：①触发频率与峰值市值分布（>20.1 BNB 峰票占比）；②被清票事后走势（V 反打脸率 vs 阴跌截断收益）；③X 分布（快泵票 X 小=X/2 窗窄更凶，慢牛票宽窗耐心）；④与 T97/T99/stallClose 的实际分工占比（谁先触发）；⑤开跌即峰 X=0 即清形状票的结局。
 
 ### T106 主腿放宽：删集中度两门 + 短窗净买门 40→20（buy-v2 v52→v53；2026-10-29 用户指令「……AND holderTrendSlope > 0 AND top2HolderCircPct < 55 AND top1HolderCircPct < 35 AND …… 中 top2HolderCircPct < 55 AND top1HolderCircPct < 35 直接删除，tradesNetBuyRatioShortWin >= 40 改为 tradesNetBuyRatioShortWin >= 20」；同批撤 T84 early 臂语境「触发太少了，没有啥用」）
 

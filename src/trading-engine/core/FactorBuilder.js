@@ -56,6 +56,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T97 高点停滞减仓臂（2026-10-29）：距持仓期峰值秒数——不落库即丢，
     // 触发复盘（为何卖/为何没卖）需 fire 时刻值；旧 FA/未持仓 → null 不掩盖
     secSincePeak: factorResults.secSincePeak ?? null,
+    // T107 市值拱形时间全清臂（2026-10-29）：token 全生命最高市值三键
+    // （峰 BNB / 距峰秒数 / 首交易→峰值耗时之半 X/2）——触发复盘需 fire 时刻值，
+    // 序列不可重建；旧 FA/无接受价 → null 不掩盖
+    mcapPeakBnb: factorResults.mcapPeakBnb ?? null,
+    secSinceMcapPeak: factorResults.secSinceMcapPeak ?? null,
+    mcapRiseHalfSec: factorResults.mcapRiseHalfSec ?? null,
     // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
     // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
     peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,

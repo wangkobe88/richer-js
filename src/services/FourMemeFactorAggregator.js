@@ -3180,6 +3180,23 @@ class FourMemeFactorAggregator extends EventEmitter {
             // T97 高点停滞减仓臂：距持仓期峰值秒数（无持仓 → null，`> N` 恒 false fail-closed）
             secSincePeak: positionFactors.secSincePeak ?? null,
 
+            // ── T107 市值拱形时间全清臂（2026-10-29 用户裁定）──
+            // X = 首次交易→最高市值耗时；峰值超 15K USD（=20.1 BNB @T84 换算率 745）后
+            // 距峰已流逝 ≥ X/2 秒且未再破新高 → 全清。三键为 token 级全生命口径（峰=既有
+            // highestPriceBnb×totalSupply，与 drawdownFromHighest 同峰同价轨：任意接受价
+            // 推进、outlier/chainLate 不推、尘价照推），与持仓期 secSincePeak/
+            // peakMarketCapSinceLastBuy 分轨。无接受价/totalSupply 缺失 → null（marketCap
+            // 族 fail-closed 惯例，条件恒 false 不卖）。首峰即首 tick 时 X=0 → X/2=0 →
+            // secSinceMcapPeak >= 0 恒真：开跌即峰的票过市值门即清（忠实用户口径）。
+            // 首交易锚=state.firstTickAt（首 tick 到达序 write-once）：进程晚接管/回测窗口
+            // 起点晚于真实首交易的票 X 低估 → 提前触发（保守出场方向，家族同限）。
+            mcapPeakBnb: state.highestPriceBnb > 0 && state.totalSupply > 0
+                ? state.highestPriceBnb * state.totalSupply : null,
+            secSinceMcapPeak: state.highestPriceAt !== null
+                ? Math.max(0, (now - state.highestPriceAt) / 1000) : null,
+            mcapRiseHalfSec: state.highestPriceAt !== null && state.firstTickAt !== null
+                ? Math.max(0, (state.highestPriceAt - state.firstTickAt) / 2000) : null,
+
             // ── WSS 事件流口径的「AVE 替代」因子 ──
             holders: state.holderCount,
             // T98 剔尘埃口径人气（2026-10-29 用户裁定「极小持仓者剔除——这样不会让假活跃
