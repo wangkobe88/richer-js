@@ -210,6 +210,79 @@ export function detectDuplicateNarrative(matchInput, index, opts = {}) {
 }
 
 /**
+ * 归一化 twitter handle：剥 URL 路径/@/查询串/大小写——条目 twitter 字段三种
+ * 形状（'https://x.com/niulai_on_bnb' / '@handle' / 裸 handle）与语料作者
+ * author_screen_name 同域全等比较（C256 蓝筹账号借壳检测判据腿②）。
+ */
+export function normalizeTwitterHandle(v) {
+  if (!v) return '';
+  let s = String(v).trim().toLowerCase().split('?')[0].replace(/\/+$/, '');
+  if (s.includes('/')) s = s.slice(s.lastIndexOf('/') + 1);
+  return s.replace(/^@+/, '');
+}
+
+/**
+ * 蓝筹账号借壳检测（C256，2026-10-29 用户裁定「直接借用蓝筹币的主推账号发币
+ * 不成立」：超级牛来案 0xb3d4…7777 撞「牛来」变体名、主推语料=蓝筹官方账号
+ * 自宣视频（零提及本票、早于创建 2 天）→ high 76.49 实盘买入）：三腿联立才拦——
+ *   ① symbol 名变体撞蓝筹（b:，name_exact/name_substring，symbol-only C252 口径）
+ *   ② 主推语料作者 = 该蓝筹条目注册 twitter 账号（handle 归一化全等）
+ *   ③ 语料文本无本案宣告（不含本票 symbol——同账号真续作/新陈述推必然提到
+ *      新币名，C173「4」案 CZ 新推含「4」即宣告）
+ * → 返回证据供 mapper 拦 low。
+ *
+ * 与 C168 撤 twitter 臂裁定不冲突（撤臂语义=twitter 单独不构成重复叙事，借壳
+ * 大 V 同源多票是常态）：本门 twitter 腿必须与名变体腿+无宣告腿联立——纯借
+ * 大 V 语料的无名变体票零触达；名变体票配无关作者语料同样零触达。
+ *
+ * 刻意的非目标：corpusText 只取主推推文文本/bio，不拼 intro/appendix（部署者
+ * 自由塞的描述字段提到币名不构成蓝筹账号的宣告）；**宣告腿/撞名腿均 symbol-only
+ * （C252 同口径）——token.name=部署者自由描述字段，塞蓝筹名即可用借来的自宣推
+ * （天然含蓝筹名）反制宣告腿**；文本全空（纯图推无 bio）fail-open 放（宣告可能
+ * 在图里，图判归 Jev）；蓝筹本体重析自地址排除。
+ *
+ * @param {{symbol:string, name:string, address:string, corpusText:string,
+ *          corpusAuthorHandle:string|null}} matchInput
+ *   （name/address 保留参数形状不消费——与 detectDuplicateNarrative 同款签名）
+ * @param {Object} index - buildKnowledgeIndex 产物
+ * @param {{selfAddress?:string}} [opts]
+ * @returns {null|{rule:string, matchedOn:string, entryId:string,
+ *                 entryName:string, handle:string}}
+ */
+export function detectBorrowedBluechipCorpus(matchInput, index, opts = {}) {
+  if (!index || !matchInput) return null;
+  const authorNorm = normalizeTwitterHandle(matchInput.corpusAuthorHandle);
+  if (!authorNorm) return null; // 语料作者缺失：腿②不可判 fail-open
+  const textNorm = normalizeForKnowledgeMatch(matchInput.corpusText || '');
+  if (!textNorm) return null; // 纯图推/无 bio：宣告不可核验 fail-open（图判归 Jev）
+  // 名变体窄匹配（detectDuplicateNarrative 同源窄输入：address/twitter/corpus
+  // 三级天然不触发，只留 name_exact/name_substring）
+  const narrow = matchKnowledge({
+    symbol: matchInput.symbol,
+    name: null, // symbol-only（C252）：token.name=部署者自由描述字段不作撞名依据
+    address: null, twitterHandle: null, corpusText: '',
+  }, index, { maxEntries: 50 });
+  const symbolNorm = normalizeForKnowledgeMatch(matchInput.symbol);
+  const selfAddr = opts.selfAddress ? String(opts.selfAddress).toLowerCase() : '';
+  for (const m of narrow.matches) {
+    if (m.kind !== 'bluechip') continue; // quasi 小票同叙事连发是常态（C168 同口径）
+    if (m.rule !== 'name_exact' && m.rule !== 'name_substring') continue;
+    const entry = m.entry || {};
+    if (selfAddr && String(entry.address || '').toLowerCase() === selfAddr) continue; // 蓝筹本体
+    if (normalizeTwitterHandle(entry.twitter) !== authorNorm) continue; // 腿②：作者=蓝筹注册账号
+    if (symbolNorm && textNorm.includes(symbolNorm)) continue; // 腿③假：账号语料宣告了本票 symbol → 真关联放行
+    return {
+      rule: m.rule,
+      matchedOn: m.matchedOn,
+      entryId: m.entryId,
+      entryName: entry.name ?? null,
+      handle: authorNorm,
+    };
+  }
+  return null;
+}
+
+/**
  * 匹配（分级规则，输出可审计）
  * @param {{symbol:string, name:string, address:string, twitterHandle:string|null,
  *          corpusText:string}} matchInput

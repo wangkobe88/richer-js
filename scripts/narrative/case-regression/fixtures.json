@@ -1671,6 +1671,22 @@
       "addedAt": "2026-10-29",
       "expectBecause": "C255 裁定（2026-10-29 用户）：「super IP S级的语料，除非有父子解读结构，不然不能豁免」+追裁定「再多宽限一些，例如半个小时，但6h/24h实在太久」——断言 low + expired_tweet 拦截位（S 级源头界 30min，父子/载体臂在场时另议）",
       "expectSince": "2026-10-29"
+    },
+    {
+      "caseId": "C256",
+      "symbol": "超级牛来",
+      "addr": "0xb3d4d7faf25bec37960be028fbc40bf500957777",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "蓝筹账号借壳"
+        ],
+        "auditIncludes": [
+          "borrowedBluechipCorpus"
+        ]
+      },
+      "note": "超级牛来借蓝筹牛来主推账号：symbol 变体撞蓝筹+主推作者=蓝筹注册账号@niulai_on_bnb+语料零提及本票→high 76.49 误放实盘买入；C256 三腿门拦 low",
+      "addedAt": "2026-10-29"
     }
   ]
 }

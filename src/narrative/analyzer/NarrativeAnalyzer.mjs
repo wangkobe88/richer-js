@@ -28,7 +28,7 @@ import { deriveSuperIpLabels } from '../../core/narrative/superip-labels.js';
 import { collectSearchEvidence, hasSearchCorpus, getSearchFallbackConfig } from './services/twitter-search-fallback.mjs';
 import { getKnowledgeBase } from './knowledge/knowledge-loader.mjs';
 import { getKnowledgeConfig } from './knowledge/knowledge-config.mjs';
-import { matchKnowledge, excludeSelfFeedback, detectDuplicateNarrative } from './knowledge/knowledge-matcher.mjs';
+import { matchKnowledge, excludeSelfFeedback, detectDuplicateNarrative, detectBorrowedBluechipCorpus } from './knowledge/knowledge-matcher.mjs';
 import { maybeCaptureKnowledgeFeedback } from './knowledge/knowledge-feedback.mjs';
 
 // Jev 判定（主路径 + prestage 前置判定；superIP 注册表命中注入 state，C83 起快车道删除）
@@ -357,6 +357,9 @@ export class NarrativeAnalyzer {
     // 蓝筹去重证据（C168）：twitterHandle 提升出 try 块——注入与去重两条消费
     // 各自旁路，匹配失败不得连坐去重检测（反之亦然）
     let duplicateNarrative = null;
+    // 蓝筹账号借壳证据（C256）：与 duplicateNarrative 同款旁路语义（各自独立
+    // try/catch，一条失败不得连坐另一条）
+    let borrowedBluechipCorpus = null;
     const knowledgeBase = await getKnowledgeBase();
     const knowledgeHandle = extractScreenNameFromTwitterUrl(extractedInfo.twitterUrl || classifiedUrls?.twitter?.[0]?.url)
       ?? (twitterInfo?.author_screen_name ? String(twitterInfo.author_screen_name).toLowerCase() : null);
@@ -429,6 +432,31 @@ export class NarrativeAnalyzer {
           logger.warn('NarrativeAnalyzer', `蓝筹去重检测失败（旁路，不影响分析）| ${e.message}`);
           duplicateNarrative = null;
         }
+      }
+
+      // ── 蓝筹账号借壳检测（C256，2026-10-29 超级牛来案 0xb3d4…7777 用户裁定
+      // 「直接借用蓝筹币的主推账号发币不成立」）：symbol 名变体撞蓝筹 + 主推
+      // 语料作者=蓝筹注册账号 + 语料无本案宣告 → mapper 借壳臂拦 low。corpusText
+      // 刻意只取主推推文文本/bio（不拼 intro/appendix——部署者自由描述字段提到
+      // 币名不构成蓝筹账号的宣告）；无 duplicateGate 开关依赖（与 C168 独立）
+      try {
+        borrowedBluechipCorpus = detectBorrowedBluechipCorpus({
+          symbol: tokenData.symbol,
+          // name 刻意不传（C252 同口径：token.name=部署者自由描述字段，塞蓝筹名
+          // 可用借来的自宣推天然含蓝筹名反制宣告腿——单测 B13 锁）
+          address: tokenData.address,
+          corpusText: twitterInfo?.text || twitterInfo?.full_text || twitterInfo?.description || '',
+          corpusAuthorHandle: twitterInfo?.author_screen_name || twitterInfo?.screen_name || null,
+        }, knowledgeBase.index, { selfAddress: tokenData.address });
+        if (borrowedBluechipCorpus) {
+          logger.info('NarrativeAnalyzer', '蓝筹账号借壳命中（C256）', {
+            token: tokenData.symbol, bluechip: borrowedBluechipCorpus.entryName,
+            handle: borrowedBluechipCorpus.handle, rule: borrowedBluechipCorpus.rule,
+          });
+        }
+      } catch (e) {
+        logger.warn('NarrativeAnalyzer', `蓝筹账号借壳检测失败（旁路，不影响分析）| ${e.message}`);
+        borrowedBluechipCorpus = null;
       }
     }
 
@@ -986,6 +1014,9 @@ export class NarrativeAnalyzer {
               // C168 蓝筹去重证据（analyzer 侧 detectDuplicateNarrative 产物）：
               // 命中 → mapper 门链首臂拦 low（null=无证据零侵入）
               duplicateNarrative,
+              // C256 蓝筹账号借壳证据（analyzer 侧 detectBorrowedBluechipCorpus
+              // 产物）：命中 → mapper 门链蓝筹去重之后拦 low（null=无证据零侵入）
+              borrowedBluechipCorpus,
               // （J1.24 credibleEventAnchor 已废 J1.103/C172：唯一消费点 punExempt
               //   随品牌劫持轴整链退役）
               // C44（2026-10-01 土豪猫猫案，用户裁定「如果引用了Instagram的链接，

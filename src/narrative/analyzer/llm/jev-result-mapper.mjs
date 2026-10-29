@@ -1593,6 +1593,19 @@ export function mapStandardAnswers(answers, context) {
     gateBlockReason = `蓝筹去重：撞已验证蓝筹叙事（${context.duplicateNarrative.entryName}）`;
     // （J1.101/C170 原 negativeHardNewsBlock 门位——退役删除，负面事件交
     // web3UnfitBlock/web3FitMassBlock 口径层判）
+  } else if (context.borrowedBluechipCorpus) {
+    // C256 蓝筹账号借壳门（2026-10-29 超级牛来案 0xb3d4…7777 用户裁定「直接
+    // 借用蓝筹币的主推账号发币不成立」）：案票 symbol「超级牛来」⊃ 蓝筹「牛来」
+    // （b:，ATH $163M 本系统评 high）——C168 只拦 name_exact 全等变体漏放；主推
+    // 语料=蓝筹官方账号 @niulai_on_bnb 自宣视频（早于创建 2 天、零提及本票）→
+    // 知识库注入段+同名账号语料把 Jev 带偏（strong_fit 0.48/tier A/关联
+    // exact_match 20 → high 76.49 实盘买入）。三腿联立才拦（analyzer 侧
+    // detectBorrowedBluechipCorpus 纯代码事实）：名变体撞蓝筹 ∧ 主推作者=蓝筹
+    // 注册账号 ∧ 语料无本案宣告（同账号真续作/新陈述推必提新币名——C173「4」
+    // 案 CZ 新推含「4」即宣告腿③自愈放行）。挂蓝筹去重之后（全等证据更硬
+    // 居首）；与 C168 撤 twitter 臂裁定不冲突：借壳大 V 语料的无名变体票零触达
+    eventScoreBlocked = true;
+    gateBlockReason = `蓝筹账号借壳：撞蓝筹名变体（${context.borrowedBluechipCorpus.entryName}）+主推作者=蓝筹注册账号（@${context.borrowedBluechipCorpus.handle}）且语料无本案宣告`;
   } else if ((shellStaleBlock = shellCorpusStaleBlock(twitterInfo, context.binanceSquareInfo, context.websiteInfo, tokenData))) {
     // C250 借壳语料陈旧门（2026-10-27 自由之钱案 0x2c048d9c…ffff 用户裁定）：
     // 资格层否决（部署者与叙事主体零关联零互动=抢注形状）挂蓝筹去重之后——
@@ -1787,6 +1800,15 @@ export function mapStandardAnswers(answers, context) {
         bluechipDedupNewEvent: (context.duplicateNarrative && dedupNewEvent)
           ? { newEventProb: round2(dedupNewEventProb), noneProb: round2(noneProb), timing }
           : null,
+        // C256 审计标记：蓝筹账号借壳门命中才落键（撞了哪条蓝筹/哪级名规则/
+        // 借的哪个注册账号可追溯；bluechipDuplicate 同款模式，未命中不落=旧行
+        // 形状零变化）
+        borrowedBluechipCorpus: context.borrowedBluechipCorpus ? {
+          rule: context.borrowedBluechipCorpus.rule,
+          entry: context.borrowedBluechipCorpus.entryName,
+          entryId: context.borrowedBluechipCorpus.entryId,
+          handle: context.borrowedBluechipCorpus.handle,
+        } : null,
         // C159 观察键（用户追加担忧：短句点名 meme 的锚可能被虚假叙事利用）：
         // 恒落 empty_content 概率质量，后续按买点结果回看「蹭名无实质事件」票；
         // 只观察不参与任何门。

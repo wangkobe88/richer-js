@@ -384,7 +384,7 @@ async function main() {
   const mapperSrc = fs.readFileSync(path.join(root, 'src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
   const configSrc = fs.readFileSync(path.join(root, 'src/narrative/analyzer/knowledge/knowledge-config.mjs'), 'utf8');
 
-  check('analyzer import detectDuplicateNarrative', analyzerSrc.includes("detectDuplicateNarrative } from './knowledge/knowledge-matcher.mjs'") || analyzerSrc.includes('detectDuplicateNarrative }'));
+  check('analyzer import detectDuplicateNarrative', /import \{[^}]*detectDuplicateNarrative[^}]*\} from '\.\/knowledge\/knowledge-matcher\.mjs';/.test(analyzerSrc));
   check('analyzer 检测传 selfAddress（蓝筹本体自排除接线）', /detectDuplicateNarrative\(\{[\s\S]*?selfAddress:\s*tokenData\.address/.test(analyzerSrc));
   check('analyzer 检测刻意不传 twitterHandle（撤臂反证锚）', analyzerSrc.includes('twitterHandle 刻意不传') && !/twitterHandle:\s*(knowledgeHandle|tokenData)/.test(analyzerSrc));
   const matcherSrc = fs.readFileSync(path.join(root, 'src/narrative/analyzer/knowledge/knowledge-matcher.mjs'), 'utf8');
