@@ -16,8 +16,9 @@ const args = Object.fromEntries(process.argv.slice(2).map((s, i, a) => (s.starts
 const CUTOFF_DAYS = Number(args['cutoff-days'] || 5);
 const ARM_PEAKS = (args.peaks || '10,20').split(',').map(Number);
 const NS = (args.ns || '60,90,120,180').split(',').map(Number);
-const MAXFIRES = (args.maxfires || '1,2').split(',').map(Number);   // 每票最多卖几张（cap=nCards−1 时=无额外帽）
-const PROFIT_GATES = (args['profit-gates'] || '-99999,0').split(',').map(Number);   // fire 前置门：profitPercent > 值
+const MAXFIRES = (args.maxfires || '2').split(',').map(Number);   // 每票最多卖几张（cap=nCards−1 时=无额外帽）
+const PROFIT_GATES = (args['profit-gates'] || '-99999').split(',').map(Number);   // fire 前置门：profitPercent > 值
+const N2S = (args.n2s || '0,120,180,240,300').split(',').map(Number);   // 第 2+ 张停滞窗（0=与首张同窗）
 const CD_MS = Number(args['cd-ms'] || 60000);
 const DEBOUNCE_MS = 3500, MIN_TICKS = 5, DUST = 0.001;
 const PER_CARD_SWITCH_TS = Date.parse('2026-10-27T14:55:00Z');   // v43 perCardBNB 0.001→0.002
@@ -79,7 +80,7 @@ function buildEpisodes(trades) {
  * 峰值链：accepted 价创新高 → peak/peakAt 推进（secSinceHigh 归零语义）。
  * endMs=episode 出场时刻（平仓票最后一笔卖 / open=∞）：票清仓后臂不再存在，超出即停。
  */
-function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires, profitGate) {
+function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires, profitGate, n2Sec) {
   const fires = [];
   let price = 0, anchor = 0, peak = 0, peakAt = startMs;
   let t0 = null, cnt = 0, cdUntil = 0;
@@ -96,7 +97,9 @@ function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires, pr
     if (fires.length >= maxFires) continue;
     const armed = anchor > 0 && (peak / anchor - 1) * 100 >= armPeakPct;
     const profitPct = anchor > 0 ? (price / anchor - 1) * 100 : 0;
-    const cond = armed && (ts - peakAt) >= nSec * 1000 && profitPct > profitGate;
+    // 双阈值：第 1 张短窗试探、第 2+ 张长窗确认（n2Sec 传 0 = 全部用 nSec）
+    const curNSec = n2Sec > 0 && fires.length >= 1 ? n2Sec : nSec;
+    const cond = armed && (ts - peakAt) >= curNSec * 1000 && profitPct > profitGate;
     if (!cond || ts < cdUntil) { t0 = null; cnt = 0; continue; }
     if (t0 === null) { t0 = ts; cnt = 0; continue; }
     cnt++;
@@ -185,36 +188,42 @@ function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires, pr
     actualPerCard: +e.actualPerCard.toFixed(6), arms: {} }));
   for (const [i, e] of base.entries()) {
     const r = results[i];
-    for (const mf of MAXFIRES) for (const gate of PROFIT_GATES) for (const ap of ARM_PEAKS) for (const n of NS) {
-      const fires = simulateSinceHigh(e.ticks, e.startTs, e.open ? now : e.endTs, ap, n, Math.min(mf, e.nCards - 1), gate);
+    for (const mf of MAXFIRES) for (const gate of PROFIT_GATES) for (const ap of ARM_PEAKS) for (const n of NS) for (const n2 of N2S) {
+      const fires = simulateSinceHigh(e.ticks, e.startTs, e.open ? now : e.endTs, ap, n, Math.min(mf, e.nCards - 1), gate, n2);
       const delta = fires.reduce((s, f) => s + e.qtyPerCard * f.price, 0) - fires.length * e.actualPerCard;
-      r.arms[mf + '/' + gate + '/' + ap + '/' + n] = { fires: fires.length, delta: +delta.toFixed(6),
+      r.arms[mf + '/' + gate + '/' + ap + '/' + n + '/' + n2] = { fires: fires.length, delta: +delta.toFixed(6),
         detail: fires.map(f => ({ ts: new Date(f.ts).toISOString().slice(5, 19), price: f.price, profitPct: +f.profitPct.toFixed(1), sec: f.secSinceHigh })) };
     }
   }
 
-  const key = (mf, gate, ap, n) => mf + '/' + gate + '/' + ap + '/' + n;
+  const key = (mf, gate, ap, n, n2) => mf + '/' + gate + '/' + ap + '/' + n + '/' + n2;
   const faded = results.filter(r => r.actualPeakPct >= 20 && r.finalPct <= 0);
-  for (const mf of MAXFIRES) for (const gate of PROFIT_GATES) {
-    const k = (ap, n) => key(mf, gate, ap, n);
-    console.log(`\n════════ maxFires=${mf} profitGate>${gate} ════════`);
+  for (const mf of MAXFIRES) for (const gate of PROFIT_GATES) for (const ap of ARM_PEAKS) {
+    const k = (n, n2) => key(mf, gate, ap, n, n2);
+    console.log(`\n════════ maxFires=${mf} gate>${gate} peak≥${ap}（行=N1 首张窗，列=N2 第 2+ 张窗；N2=0 即同窗）════════`);
     console.log('Δ 合计 (BNB)：');
-    console.log('peak\\N  ' + NS.map(n => String(n).padStart(9)).join(''));
-    for (const ap of ARM_PEAKS)
-      console.log(String(ap).padEnd(7) + NS.map(n => results.reduce((s, r) => s + r.arms[k(ap, n)].delta, 0).toFixed(4).padStart(9)).join(''));
-    console.log('fires/触发票数：');
-    for (const ap of ARM_PEAKS)
-      console.log(String(ap).padEnd(7) + NS.map(n => `${results.reduce((s, r) => s + r.arms[k(ap, n)].fires, 0)}/${results.filter(r => r.arms[k(ap, n)].fires > 0).length}`.padStart(9)).join(''));
-    console.log(`盈转亏子集（n=${faded.length}）Δ：`);
-    for (const ap of ARM_PEAKS)
-      console.log(String(ap).padEnd(7) + NS.map(n => faded.reduce((s, r) => s + r.arms[k(ap, n)].delta, 0).toFixed(4).padStart(9)).join(''));
-    const worst = results.filter(r => r.arms[k(ARM_PEAKS[0], NS[0])].fires > 0)
-      .sort((a, b) => a.arms[k(ARM_PEAKS[0], NS[0])].delta - b.arms[k(ARM_PEAKS[0], NS[0])].delta).slice(0, 4);
+    console.log('N1\\N2  ' + N2S.map(n2 => String(n2).padStart(9)).join(''));
+    for (const n of NS)
+      console.log(String(n).padEnd(7) + N2S.map(n2 => results.reduce((s, r) => s + r.arms[k(n, n2)].delta, 0).toFixed(4).padStart(9)).join(''));
+    console.log('fires：');
+    for (const n of NS)
+      console.log(String(n).padEnd(7) + N2S.map(n2 => results.reduce((s, r) => s + r.arms[k(n, n2)].fires, 0).toString().padStart(9)).join(''));
+    const best = [NS[0], N2S[0]];
+    const worst = results.filter(r => r.arms[k(best[0], best[1])].fires > 0)
+      .sort((a, b) => a.arms[k(best[0], best[1])].delta - b.arms[k(best[0], best[1])].delta).slice(0, 4);
     if (worst.length) {
-      console.log(`最差 4 票（peak≥${ARM_PEAKS[0]}/N=${NS[0]}）：`);
+      console.log(`最差 4 票（N1=${best[0]}/N2=${best[1]}）：`);
       for (const r of worst)
-        console.log(`  ${r.expId} ${r.symbol || r.token.slice(0, 10)} 卡=${r.nCards} fires=${r.arms[k(ARM_PEAKS[0], NS[0])].fires} Δ=${r.arms[k(ARM_PEAKS[0], NS[0])].delta} 峰=${r.actualPeakPct}% 终=${r.finalPct}%`);
+        console.log(`  ${r.expId} ${r.symbol || r.token.slice(0, 10)} 卡=${r.nCards} fires=${r.arms[k(best[0], best[1])].fires} Δ=${r.arms[k(best[0], best[1])].delta} 峰=${r.actualPeakPct}% 终=${r.finalPct}%`);
     }
+  }
+  // 盈转亏子集最优组合对照
+  {
+    const k = (n, n2) => key(MAXFIRES[0], PROFIT_GATES[0], ARM_PEAKS[0], n, n2);
+    console.log(`\n═══ 盈转亏子集（n=${faded.length}）Δ（peak≥${ARM_PEAKS[0]} mf=${MAXFIRES[0]}）═══`);
+    console.log('N1\\N2  ' + N2S.map(n2 => String(n2).padStart(9)).join(''));
+    for (const n of NS)
+      console.log(String(n).padEnd(7) + N2S.map(n2 => faded.reduce((s, r) => s + r.arms[k(n, n2)].delta, 0).toFixed(4).padStart(9)).join(''));
   }
 
   require('fs').writeFileSync(__dirname + '/tmp-since-high-result.json', JSON.stringify(results, null, 1));
