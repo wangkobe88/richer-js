@@ -1846,6 +1846,10 @@
             card.querySelector('.leg-condition').textContent = cfg.condition || '(无 condition)';
             const badges = [];
             if (cfg.priority != null) badges.push(`P${cfg.priority}`);
+            // T100 首买/再买分臂：轮次标记紧跟 P 徽章（两条 P1 腿仅凭徽章即可区分，
+            // 否则复制/引用后首买臂与再买臂在卡面上无差别）
+            if (cfg.buyPhase === 'first') badges.push('首买轮');
+            if (cfg.buyPhase === 'repeat') badges.push('再买轮');
             badges.push(cfg.maxExecutions != null ? `执行≤${cfg.maxExecutions}` : '不限次数');
             if (cfg.cards != null) badges.push(`🃏${cfg.cards}`);
             if (cfg.cooldownSec != null) badges.push(`⏱️${cfg.cooldownSec}s`);
@@ -1936,7 +1940,11 @@
                 list.innerHTML = '';
                 for (const item of result.data) {
                     const legLines = (item.legs || []).map(l => {
-                        const bits = [`P${l.priority ?? '-'}`, l.condition || ''];
+                        // T100：buy-v2（首买）与 buy-v2-repeat（再买）主条件同串，须凭轮次标记区分
+                        const bits = [];
+                        if (l.buyPhase === 'first') bits.push('首买');
+                        if (l.buyPhase === 'repeat') bits.push('再买');
+                        bits.push(`P${l.priority ?? '-'}`, l.condition || '');
                         return bits.join(' ');
                     }).map(t => `<div class="text-xs text-gray-600 truncate" title="${t.replace(/"/g, '&quot;')}">${t}</div>`).join('');
                     const card = document.createElement('div');

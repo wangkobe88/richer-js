@@ -17,6 +17,8 @@
  *   D. validateLegs：值域 400 / 卖腿携带 400 / 合法值放行
  *   E. 源码口径透传锁定（v15 gmgnCheckCondition 漏透传事故同款防线）：
  *      FourMeme/Backtest 装载映射文本含 buyPhase 透传
+ *   F. Web 链路（复制按钮/库编辑器/详情页）：buyPhase 整包保真 + 展示位——
+ *      任一环剥字段=repeat 腿轮次无条件可见=首买绕 issuer 门
  *
  * 用法：node scripts/_test_buy_phase_routing.cjs
  */
@@ -182,6 +184,45 @@ console.log('E. 装载映射源码口径：buyPhase 两处透传');
     assert.ok(fm.includes("'·再买'"), '实时引擎 name 缺再买后缀');
     assert.ok(bt.includes("'·首买'"), '回测引擎 name 缺首买后缀');
     assert.ok(bt.includes("'·再买'"), '回测引擎 name 缺再买后缀');
+  });
+}
+
+// ═══ F. Web 链路保真与展示（复制按钮/库编辑器，2026-10-29 用户指令补齐）═══
+// 危险方向：任一环剥掉 buyPhase → repeat 腿变无条件轮次可见 → round 0 首买
+// 可能路由到再买臂绕过 issuer 门（Sprout 形状复现）。展示位缺失=用户无法
+// 区分两条 P1 腿，误删/误留臂不可察觉。
+console.log('F. Web 复制/库编辑链路：buyPhase 保真与展示');
+{
+  const ce = read('src/web/templates/create_experiment.html');
+  const lib = read('src/web/templates/strategy-library.html');
+  const exp = read('src/web/static/js/experiments.js');
+  const det = read('src/web/static/js/experiment_detail.js');
+  check('F1 创建页卡片徽章（复制 v59 后两 P1 腿凭徽章区分）', () => {
+    assert.ok(ce.includes("cfg.buyPhase === 'first'") && ce.includes("cfg.buyPhase === 'repeat'"),
+      'renderLegReadonly 缺 buyPhase 徽章分支');
+  });
+  check('F2 创建页提交=rawConfig 整包取回（buyPhase 随腿零损）', () => {
+    assert.ok(ce.includes('buyStrategies.push(raw);'),
+      'collectFormData 不再整包 push raw——buyPhase 会被表单白名单截断');
+  });
+  check('F3 创建页库浮层 legLines 带轮次标记（buy-v2 与 buy-v2-repeat 主条件同串）', () => {
+    assert.ok(ce.includes("l.buyPhase === 'first'"), 'openLibraryPicker legLines 缺轮次标记');
+  });
+  check('F4 库页编辑器以原始 JSON 为基底（spread 保真 buyPhase 等任意机制字段）', () => {
+    assert.ok(lib.includes('const merged = { ...formLegs[i] };'),
+      'collectFormLegs 基底漂移——改纯表单重建会静默剥 buyPhase');
+  });
+  check('F5 库页编辑器空值显式删 buyPhase（spread 基底保留原值，不删则 UI 改不回不限）', () => {
+    assert.ok(/else delete merged\.buyPhase;/.test(lib), 'collectFormLegs 缺 buyPhase 空值删除');
+  });
+  check('F6 库页编辑器含 buyPhase 下拉（可见+可编辑，值域与服务端同款）', () => {
+    assert.ok(lib.includes('data-k="buyPhase"'), '腿编辑表单缺 buyPhase select');
+  });
+  check('F7 复制按钮整包透传 buyStrategies（源实验腿数组不经字段挑选）', () => {
+    assert.ok(exp.includes('buyStrategies: buyStrategies,'), 'copyExperiment 腿透传形状漂移');
+  });
+  check('F8 实验详情页策略卡带轮次徽章', () => {
+    assert.ok(det.includes("strategy.buyPhase === 'first'"), 'renderCardStrategy 缺轮次徽章');
   });
 }
 

@@ -982,6 +982,7 @@ class ExperimentDetail {
           <div class="flex items-center space-x-2">
             <span class="${badgeColor} text-white text-xs px-2 py-1 rounded-full font-bold">#${index + 1}</span>
             <span class="font-semibold ${titleColor}">优先级: ${strategy.priority}</span>
+            ${strategy.buyPhase ? `<span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">${strategy.buyPhase === 'first' ? '首买轮' : '再买轮'}</span>` : ''}
             ${strategy.maxExecutions ? `<span class="text-xs text-gray-600">最多执行: ${strategy.maxExecutions}次</span>` : '<span class="text-xs text-gray-600">无限执行</span>'}
           </div>
         </div>

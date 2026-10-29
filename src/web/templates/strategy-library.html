@@ -188,7 +188,11 @@
             }
             for (const item of allItems) {
                 const legLines = (item.legs || []).map(l => {
-                    const bits = [`P${l.priority ?? '-'}`, l.condition || '(无 condition)'];
+                    // T100：首买/再买分臂条目主条件同串，凭轮次标记区分
+                    const bits = [];
+                    if (l.buyPhase === 'first') bits.push('首买');
+                    if (l.buyPhase === 'repeat') bits.push('再买');
+                    bits.push(`P${l.priority ?? '-'}`, l.condition || '(无 condition)');
                     return bits.join(' ');
                 }).map(t => `<div class="text-xs text-gray-600 truncate" title="${escapeAttr(t)}">${escapeHtml(t)}</div>`).join('');
                 const card = document.createElement('div');
@@ -305,6 +309,16 @@
                                 去抖旁路（bypassDebounce）
                             </label>
                         </div>
+                        <div class="flex items-end">
+                            <label class="block w-full text-xs font-medium text-gray-600 pb-1.5">
+                                轮次（T100 buyPhase，仅买腿）
+                                <select data-k="buyPhase" class="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                                    <option value="">不限（首买/再买两轮可见）</option>
+                                    <option value="first" ${leg.buyPhase === 'first' ? 'selected' : ''}>首买轮（仅首买可见，issuer 等门保留）</option>
+                                    <option value="repeat" ${leg.buyPhase === 'repeat' ? 'selected' : ''}>再买轮（仅全清后再买可见）</option>
+                                </select>
+                            </label>
+                        </div>
                     </div>
                     <details class="text-xs">
                         <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/叙事发起/再检/GMGN 门；展开编辑）</summary>
@@ -374,6 +388,12 @@
 
                 merged.bypassDebounce = get('bypassDebounce').checked; // 勾选才落 true
                 if (!merged.bypassDebounce) delete merged.bypassDebounce;
+
+                // T100 buyPhase：空=不限（显式删——spread 基底会保留原值，不删则 UI 改不回不限）；
+                // 值域与服务端 validateLegs 同款（'first'|'repeat'，非买腿携带会被 400）
+                const bp = get('buyPhase').value;
+                if (bp === 'first' || bp === 'repeat') merged.buyPhase = bp;
+                else delete merged.buyPhase;
 
                 for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'narrativeTriggerCondition', 'gmgnCheckCondition']) {
                     const v = get(k).value.trim();
@@ -487,7 +507,11 @@
                 return;
             }
             legs.forEach((leg, i) => {
-                const bits = [`P${leg.priority ?? '-'}`, leg.condition || '(无 condition)'];
+                // T100：源实验买腿可能带 buyPhase（首买/再买分臂），导入列表同步可见
+                const bits = [];
+                if (leg.buyPhase === 'first') bits.push('首买');
+                if (leg.buyPhase === 'repeat') bits.push('再买');
+                bits.push(`P${leg.priority ?? '-'}`, leg.condition || '(无 condition)');
                 const label = document.createElement('label');
                 label.className = 'flex items-start gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer';
                 label.innerHTML = `
