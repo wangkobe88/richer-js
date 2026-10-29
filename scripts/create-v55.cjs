@@ -1,43 +1,34 @@
 #!/usr/bin/env node
 // ============================================================================
-// 建 v55 live both 实验（2026-10-29 T97 高点停滞减仓臂换车）
-//   克隆 v54 0007ff5a（buy-v2 v49 + buy-early-narrative v9 快照，T96 净买换轨）。
-//   本批唯一 config 变量：卖腿 21→22——T80 回撤锁盈腿（priority 10）前插
-//   T97 高点停滞减仓臂（用户拍板「peakProfitPct >= 10 AND secSincePeak > 60
-//   → 卖 1 卡，冷却 60s，最多卖 2 张」）：
-//     cards=1 / priority=10（与 T80 同号，数组序在前=同 tick 双真先评——时间
-//     停滞层先于幅度回撤层）/ cooldownSec=60 / maxExecutions=2 / bypass=false
-//   secSincePeak 载体=FA 新键（本 commit）；定标=tmp-since-high-arm-scan 5 天
-//   113 episode 反事实（N=60/mf=2/peak≥10 最优 +0.0109 BNB，盈转亏子集贡献≈全部）。
-//   买腿 2 条/gmgn/libraryRefs/perCardBNB/钱包/其余 config 与 v54 逐字一致。
-//   已知口径差异（扫描近似）：扫描 maxFires=min(2, nCards−1) 保 1 卡，引擎
-//   maxExecutions=2 不保——2-3 卡票（部分成交形状，少数）停滞可全清，接受。
-//   ⚠️ copy-in：停 v54 与建 v55 同批（单一实验纪律）；停前持仓确认（live 重启红线）。
-// 防呆：源必须 stopped + 买腿 2 条 T96 形状逐字不动 + 卖腿 21→22 + T80 腿恰一次
-//   + 新腿恰一次且插在 T80 前 + T96 净买段恰两次 + libraryRefs 49/9 不动。
-// 用法：node scripts/create-v55.cjs [--commit]   （在 182 跑；代码含 secSincePeak）
+// 建 v55 live both 实验（2026-10-29 T98 人气门换键换车）
+//   克隆 v54 0007ff5a（buy-v2 v49 + buy-early-narrative v9 快照，T96 AND 净买门）。
+//   本批唯一 config 变量：两买腿人气段 ← 库 copy-in（v50/v10）——
+//     '(buyVolumeBnb >= 1.25 AND holders >= 10)'
+//       → '(buyVolumeBnb >= 1.25 AND holdersExDust >= 10)'
+//     '(buyVolumeBnb >= 0.25 AND holders >= 5)'
+//       → '(buyVolumeBnb >= 0.25 AND holdersExDust >= 5)'
+//   用户裁定「极小持仓者剔除（不让假活跃票进门），新搞一个因子替换 holders」。
+//   21 卖腿/gmgn/maxExecutions=2/6 卡制/perCardBNB/钱包/其余 config 与 v54 逐字
+//   一致。libraryRefs buy-v2 49→50 / early 9→10。
+//   ⚠️ 前置：182 已跑 bump-t98-holders-exdust.cjs --commit + 代码在 023befb。
+//   ⚠️ copy-in：停 v54 与建 v55 同批（单一实验纪律）；停前持仓确认。
+// 防呆：源必须 stopped + 两买腿 T96/T95 形状 + 旧人气段恰一次；库 v50/v10；
+//   库/实验 gmgn/trigger 逐字一致；库新条件=源串换人气段逐字一致；买 2/卖 21。
+// 用法：node scripts/create-v55.cjs [--commit]   （在 182 跑；先跑 bump-t98 --commit）
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 const COMMIT = process.argv.includes('--commit');
-const SRC = '0007ff5a-8a17-4e31-928f-53af7e3f2d2e'; // v54 live both（T96 净买换轨快照）
+const SRC = '0007ff5a-8a17-4e31-928f-53af7e3f2d2e'; // v54 live both（T96 快照）
 
-const T96_NETBUY = '(tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40)';
-const T80_COND = 'peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -15 AND marketCap >= 13.4 AND marketCap < 27';
-const T97_LEG = {
-  cards: 1,
-  priority: 10,
-  condition: 'peakProfitPct >= 10 AND secSincePeak > 60',
-  cooldownSec: 60,
-  description: 'T97 高点停滞减仓臂（2026-10-29 用户拍板「peakProfitPct >= 10 AND secSincePeak > 60 → 卖 1 卡，冷却 60s，最多卖 2 张」）：峰值利润 >=10% 武装 ∧ 距持仓期峰值 >60s 未创新高 → 先减 1 卡，冷却 60s，maxExecutions=2 上限两卡（多数票 6 卡制剩 4 张由现行栈兜底；已知口径差异：扫描定标 maxFires=min(2,nCards−1) 保 1 卡，2-3 卡票本腿可全清，接受）；与 T80 回撤锁盈（同 priority 10、数组序在本腿后=同 tick 双真时本腿先评）成「时间×幅度」双层减仓——本臂打峰后停滞（横盘阴跌未触 -15 回撤、盈转亏主通道 P13 之前减仓），T80 打幅度回撤；secSincePeak=任意接受价轨峰推进时刻起算（outlier 不推峰、创新高归零重计；尘 tick 不卡尘门可重置计时但不可武装——与 peakProfitPct 可靠价轨分轨，单测锁定）；null（未持仓/无峰）→ 恒 false fail-closed；bypass=false 走 3.5s+5tick 双门。定标（tmp-since-high-arm-scan 5 天 113 episode 反事实）：N=60/mf=2/peak≥10 最优 +0.0109 BNB、盈转亏子集（n=29）贡献 +0.0107≈全部；双阈值 N2 长窗与 profitGate>0 均被数据否决；误杀面=二次腾飞票（佩狗/创业时代/OST 单票 -0.0015~-0.0022）',
-  bypassDebounce: false,
-  maxExecutions: 2,
-};
+const SWAP_MAIN = ['(buyVolumeBnb >= 1.25 AND holders >= 10)', '(buyVolumeBnb >= 1.25 AND holdersExDust >= 10)'];
+const SWAP_EARLY = ['(buyVolumeBnb >= 0.25 AND holders >= 5)', '(buyVolumeBnb >= 0.25 AND holdersExDust >= 5)'];
 
 async function main() {
   const argSrc = process.argv.find(a => a.startsWith('--src='));
   const srcId = argSrc ? argSrc.slice(6) : SRC;
   const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
+  const { StrategyLibraryService } = require('../src/web/services/StrategyLibraryService');
   const factory = ExperimentFactory.getInstance();
   const src = await factory.load(srcId);
   if (!src) throw new Error('源实验不存在: ' + srcId);
@@ -54,51 +45,82 @@ async function main() {
   if (buys.length !== 2) throw new Error('源买腿数=' + buys.length + ' 期望 2（主腿+早期臂）');
   if (sells.length !== 21) throw new Error('源卖腿数=' + sells.length + ' 期望 21');
 
-  // ── 源形状锚定（v54 快照：T96 净买段 ×2 + T80 腿恰一次 + 无 secSincePeak 残留）──
-  let netbuyCnt = 0;
+  // ── 源形状锚定（v54 快照：T96 AND 净买门 + T95 早期臂 45/75 + 旧 holders 人气段）──
   for (const [i, leg] of buys.entries()) {
-    netbuyCnt += leg.condition.split(T96_NETBUY).length - 1;
-    for (const bad of ['tradesNetBuyRatioLongWin >= 40 OR', 'sybilClusterHolderCircPct', 'top2BundleClusterHoldCircPct']) {
-      if (leg.condition.includes(bad)) throw new Error('买腿[' + i + '] 残留已删形状: ' + bad);
+    for (const bad of ['tradesRouterPct', 'sybilClusterHolderCircPct', 'top2BundleClusterHoldCircPct', 'bundleClusterHoldCircPct <', 'top3BundleClusterHoldCircPct']) {
+      if (leg.condition.includes(bad)) throw new Error('买腿[' + i + '] 残留已删键: ' + bad);
     }
     if (leg.maxExecutions !== 2) throw new Error('买腿[' + i + '] maxExecutions=' + JSON.stringify(leg.maxExecutions) + ' 期望 2');
+    if (leg.cards !== 3) throw new Error('买腿[' + i + '] cards=' + leg.cards + ' 期望 3');
+    if (!leg.condition.includes('(tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40)')) {
+      throw new Error('买腿[' + i + '] 缺 T96 AND 净买门');
+    }
   }
-  if (netbuyCnt !== 2) throw new Error('T96 净买段出现 ' + netbuyCnt + ' 次期望恰 2（两买腿各一）');
-  const t80Idx = sells.findIndex(s => s.condition === T80_COND);
-  if (t80Idx < 0) throw new Error('T80 腿未找到（T97 须插其前）');
-  if (sells.filter(s => s.condition === T80_COND).length !== 1) throw new Error('T80 腿非恰一次');
-  if (sells.some(s => (s.condition || '').includes('secSincePeak'))) throw new Error('源已有 secSincePeak 腿（重复插入防线）');
-  if (sells[t80Idx].priority !== 10 || sells[t80Idx].cooldownSec !== 300) throw new Error('T80 腿形状漂移（prio/cd）');
+  if (!buys[0].condition.includes('marketCap > 4.7')) throw new Error('主腿非 v49 BNB 形状');
+  if (buys[0].condition.split(SWAP_MAIN[0]).length !== 2) throw new Error('主腿旧人气段非恰一次');
+  if (!buys[0].condition.includes('top2HolderCircPct < 55')) throw new Error('主腿缺 T93 top2 持有人门 55');
+  if (!buys[0].condition.includes('top1HolderCircPct < 35')) throw new Error('主腿缺 top1 门 35');
+  if (!buys[1].condition.includes('tokenAgeSec < 600')) throw new Error('早期腿缺 600s 段');
+  if (buys[1].condition.split(SWAP_EARLY[0]).length !== 2) throw new Error('早期腿旧人气段非恰一次');
+  if (!buys[1].condition.includes('top1HolderCircPct < 45')) throw new Error('早期腿缺 T95 top1 门 45');
+  if (!buys[1].condition.includes('top2HolderCircPct < 75')) throw new Error('早期腿缺 T95 top2 门 75');
 
-  // ── v55 唯一变量：T80 前插 T97 腿（21→22）──
-  sells.splice(t80Idx, 0, JSON.parse(JSON.stringify(T97_LEG)));
-  if (sells.length !== 22) throw new Error('插入后卖腿数=' + sells.length + ' 期望 22');
-  const t97Idx = sells.findIndex(s => s.condition === T97_LEG.condition);
-  if (t97Idx !== t80Idx) throw new Error('T97 腿位置错（应在原 T80 位 ' + t80Idx + '，实为 ' + t97Idx + '）');
-  if (sells.findIndex(s => s.condition === T80_COND) !== t80Idx + 1) throw new Error('T80 腿未顺移到 T97 后');
+  // ── v55 唯一变量：两买腿 condition ← 库 copy-in（v50/v10）──
+  const svc = new StrategyLibraryService();
+  const list = await svc.list('buy');
+  const mainEntry = list.find(e => e.name === 'buy-v2');
+  if (!mainEntry || mainEntry.version !== 50) throw new Error('库 buy-v2 version=' + (mainEntry && mainEntry.version) + ' 期望 50（先跑 bump-t98-holders-exdust.cjs --commit）');
+  const earlyEntry = list.find(e => e.name === 'buy-early-narrative');
+  if (!earlyEntry || earlyEntry.version !== 10) throw new Error('库 buy-early-narrative version=' + (earlyEntry && earlyEntry.version) + ' 期望 10');
 
-  // ── libraryRefs 49/9 不动（纯 provenance 防线：本批无库变化）──
+  for (const [i, entryName] of ['buy-v2', 'buy-early-narrative'].entries()) {
+    const e = list.find(x => x.name === entryName);
+    const full = await svc.getById(e.id);
+    const libLegs = full.legs.legs || full.legs;
+    const libLeg = libLegs[0];
+    if (libLeg.maxExecutions !== 2) throw new Error('库 ' + entryName + ' maxExecutions=' + JSON.stringify(libLeg.maxExecutions) + ' 期望 2');
+    if (libLeg.narrativeTriggerCondition !== buys[i].narrativeTriggerCondition) {
+      throw new Error('库/实验 ' + entryName + ' trigger 漂移\nLIB: ' + libLeg.narrativeTriggerCondition + '\nEXP: ' + buys[i].narrativeTriggerCondition);
+    }
+    if (libLeg.gmgnCheckCondition !== buys[i].gmgnCheckCondition) {
+      throw new Error('库/实验 ' + entryName + ' gmgn 漂移（本批不动它）\nLIB: ' + libLeg.gmgnCheckCondition + '\nEXP: ' + buys[i].gmgnCheckCondition);
+    }
+    if (libLeg.cards !== buys[i].cards) throw new Error('库/实验 ' + entryName + ' cards 漂移');
+    // 库新条件=源旧条件换人气段（其余逐字一致防线）
+    const [OLD_SEG, NEW_SEG] = i === 0 ? SWAP_MAIN : SWAP_EARLY;
+    let expected = buys[i].condition;
+    if (expected.split(OLD_SEG).length !== 2) throw new Error(entryName + ' 源人气段非恰一次');
+    expected = expected.replace(OLD_SEG, NEW_SEG);
+    if (libLeg.condition !== expected) {
+      throw new Error('库 ' + entryName + ' 与源条件除人气段外存在漂移\nLIB: ' + libLeg.condition + '\nEXP: ' + expected);
+    }
+    buys[i].condition = libLeg.condition;
+  }
+
+  // ── libraryRefs buy-v2 49→50 / early 9→10（纯 provenance）──
   const refs = cfg.strategiesConfig?.libraryRefs || [];
-  const buyRef = refs.find(r => r.name === 'buy-v2');
   const earlyRef = refs.find(r => r.name === 'buy-early-narrative');
-  if (!buyRef || buyRef.version !== 49) throw new Error('libraryRefs buy-v2 version=' + (buyRef && buyRef.version) + ' 期望 49');
   if (!earlyRef || earlyRef.version !== 9) throw new Error('libraryRefs early version=' + (earlyRef && earlyRef.version) + ' 期望 9');
+  const buyRef = refs.find(r => r.name === 'buy-v2');
+  if (!buyRef || buyRef.version !== 49) throw new Error('libraryRefs buy-v2 version=' + (buyRef && buyRef.version) + ' 期望 49');
+  if (!refs.find(r => r.name === 'rug-exit-account-arm')) throw new Error('libraryRefs 缺 rug-exit-account-arm');
+  earlyRef.version = 10; earlyRef.snapshotAt = new Date().toISOString();
+  buyRef.version = 50; buyRef.snapshotAt = new Date().toISOString();
 
-  cfg.name = 'v55-实盘-both-高点停滞减仓-1029';
-  cfg.description = 'v54 + T97 高点停滞减仓臂（用户拍板「peakProfitPct >= 10 AND'
-    + ' secSincePeak > 60 → 卖 1 卡，冷却 60s，最多卖 2 张」）：FA 新键 secSincePeak'
-    + '=距持仓期峰值秒数（任意接受价轨峰推进、outlier 不推峰、创新高归零重计、'
-    + '与 peakProfitPct 可靠价轨分轨）；打盈转亏主通道（P13 峰≥20 亏 0 全清）之前的'
-    + '时间层减仓，与 T80 回撤锁盈（幅度层）同 priority 10 成梯队。定标：5 天 113'
-    + ' episode 反事实 N=60/mf=2/peak≥10 最优 +0.0109 BNB（盈转亏子集 n=29 贡献'
-    + ' ≈全部；双阈值/profitGate 数据否决；误杀面=二次腾飞票）。买腿 2 条（T96 净买'
-    + '换轨 v49/v9）/gmgn/libraryRefs/perCardBNB/钱包/其余 21 卖腿与 v54 0007ff5a'
-    + ' 逐字一致。';
+  cfg.name = 'v55-实盘-both-剔尘埃人气-1029';
+  cfg.description = 'v54 + T98 人气门换键（用户裁定「极小持仓者剔除——这样不会'
+    + '让假活跃票进门，可以新搞一个因子，替换现有的 holders 因子」）：两买腿人气门'
+    + ' holders → holdersExDust（净持仓按首可靠价折算 ≥ holderDustBnb 0.002=2× tick'
+    + ' 尘门+单卡仓位 的钱包数——刷 holder 的尘埃钱包不计入）；阈值不动（主 10/早期'
+    + ' 5，口径变小同阈=更严）。其余门不动（T96 AND 净买门/T95 早期臂 45/75/T93 '
+    + '35/55）。21 卖腿/gmgn/maxExecutions=2/6 卡制/perCardBNB/钱包/其余 config 与'
+    + ' v54 0007ff5a 逐字一致。源=v54 0007ff5a（v49/v9 快照）。';
 
   console.log('platform:', cfg.platform, '| perCardBNB:', cfg.positionManagement.perCardBNB, '| buys:', buys.length, '| sells:', sells.length);
-  console.log('T97 新腿[' + t97Idx + ']:', JSON.stringify({ condition: sells[t97Idx].condition, cards: sells[t97Idx].cards, priority: sells[t97Idx].priority, cooldownSec: sells[t97Idx].cooldownSec, maxExecutions: sells[t97Idx].maxExecutions, bypassDebounce: sells[t97Idx].bypassDebounce }));
-  console.log('T80 顺移[' + (t97Idx + 1) + ']:', sells[t97Idx + 1].condition);
+  console.log('buy[0] (buy-v2 v50):', buys[0].condition);
+  console.log('buy[1] (early v10):', buys[1].condition);
   console.log('wallet:', JSON.stringify(cfg.wallet));
+  console.log('libraryRefs:', JSON.stringify(refs));
   if (!COMMIT) { console.log('[dry-run]'); process.exit(0); }
   const c = await factory.createFromConfig(cfg, 'live');
   console.log('V55_LIVE_ID=' + c.id);
