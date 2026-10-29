@@ -52,6 +52,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T102 低评级强势独立买入臂 buy-v2-momentum（新库条目 v1：rating==1 镜像臂 + buyWallets≥40 动量门 + tokenAgeSec<600 快窗；2026-10-29 用户重申目标函数「快速交易，快速买入试图高点卖出，只要增长是用户带来的、不是作弊票、峰值高就行」+ 裁定「给 rating==1 但强势的票一个单独的买入臂」）
+
+- **案由（Ragu 品味否决误拦）**：flap 票 0xf1dca9bf42c5f565063f493f693455c86dff7777（Ragu，10-29 09:42:31 创建）——作者 @AnaMariaNicoar4（display name「Ana-Maria \| BNB Chain」，蓝V，875 粉）gm 随笔推+狗图 → Jev 判 `bsc_meme_user_event_fit` sf+fit=0.26<0.5 → **web3FitMassBlock（C141 硬门）拦 low**；另一拦截桶 event_empty_content 0.73。市场结局：**61 秒 6.7x**（09:42:54 首价 → 09:43:55 峰），前 60s **71 个 distinct 钱包**/126 笔买/净买 +51%/top1 买占比 8%/89% 走 GMGN 聚合路由=干净用户盘；同一推 3 分钟内 spawned 19 个仿盘（全 low，17 个峰 ≤1.8x）。评级 09:42:58 已落地（首 tick 后 4s——管线速度不是瓶颈），逐门回放 buy-v2 v51 @rating+10s：**除 narrativeRating 外全部因子门已过**——唯一拦点=叙事质量否决
+- **裁定链**：用户先裁定方向 A（库改不动的 OR 臂方案）后细化为**独立臂**（主/early 腿零改动、独立阈值/归因/关停）；同轮建议「币安员工+蓝V 等同 superIP A 档」经定量否决（见下）改由本臂承接交易目标：**叙事评级诚实留 low，买层按「非作弊+用户增长」判据放行**
+- **臂形（create-buy-v2-momentum.cjs，整腿复制 buy-v2 v51 四处差异）**：①评级门换向 `(narrativeRating == 2 OR == 3)` → `narrativeRating == 1`（与主臂 rating 互斥=同票零竞争，P1 同级无遮蔽问题）②`buyWallets >= 40`（T76 K 组全史买家数——「用户带来的增长」判据载体）③`tokenAgeSec < 600` 快窗上限 ④maxExecutions 2→1（快打一枪）；集中度 55/35/copy 20/famous 15/人气 1.25&ExDust 10/净买 AND 门/崩盘双门/GMGN（含 issuer 分档臂——首买时点计数干净，T100 裁定沿用）**逐字不动=作弊票防线不变**
+- **7 天全量回放定阈值（8415 终态评级票逐 tick 因子重放，182 跑；因子近似口径见脚本头注：roster 门不评/holderTrend 10s 桶代理/crashSpeed 滑窗代理/arrival=rounds 首行回落 analyzed_at）**：X=0（纯评级换门）958 fire 峰30min 中位 1.31x/≥3x 9%/≥2x 21%——与 rating 2|3 对照组（385 fire 中位 1.33x/13%/26%）**同质=质量否决在这些因子门之上无可测分选力**；buyWallets 门在新鲜票（≤600s）内分选力真实：buyW≥40 → 134 fire ≥3x **13%**/≥2x **31%**/<1.2x 28%（对照 13%/27%/34%，完全对齐）vs 无门 21% ≥2x；age>600 老票 fire 劣质（<1.2x 占 50%，多为 analyzed_at 回退工件，live C84 trigger 创建秒级发起分析不会有此形状）→ 600s 上限；first-day 截断样本教训=PostgREST **max-rows=1000 截 range 分页**（每页必须 ≤1000 判断翻页）
+- **回放关键数字**：进场倍率中位 1.90x（对照组 1.47x——动量门等crowd 证据入场偏晚，Ragu 实测 X=40 进场 3.97x 峰 +68%）；到峰中位 ~2-3min；fire 量 ~19/天（对照 ~49/天）；平台分布 flap 121/fourmeme 13——**动量价值集中 flap**，four.meme 低评级票过门后中位 1.06x（量级可容忍不专门拦）
+- **蓝V/员工注册表建议（同轮裁定=不动）**：注册表消费臂（C117 强制标准路径/J1.56 作者原话票/J1.58 空洞豁免）**只看在册不看 tier**（C137 案头注）——「等同 A 档」实际=进注册表=CZ 同权救援链。定量否决：近 7 天 **49% 发币带蓝V**（5430/11020，X 蓝V=$8/月付费商品）、蓝V+自称 BNB/Binance/币安关联名 1599（~230/天）vs 注册表现仅 ~25 手工锚定账号——开闸=每天 230+ rug 伪装拿 CZ 级救援，方向与 C97/C250/C256（反伪关联）相反；且叙事翻正对买门的边际价值≈0（主臂与动量臂过同一套因子门）。备选落点=state 事实行（「作者蓝V（付费可得）；自称 BNB Chain 员工（未核验）」信息注入不触发豁免链）待用户裁定
+- **机制零改动面**：trigger 状态机 per-token 单份（`_narrativeTriggerCondition()` 取首条买腿 trigger 串）——多 trigger 腿零额外 Jev 调用；rating==1 票 retry 臂语义不变；拉黑不消费（C84 trigger 腿天然）；引擎/FA/回测零代码改动
+- **部署链**：create-buy-v2-momentum.cjs（committed v1 2026-10-29，id=d10e968a-7ca8-4398-af4c-4d797fc002bb）→ create-v61.cjs（克隆 v60 加 momentum 腿引用）→ 停 v60（持仓确认）→ v61 起跑（buy 4 腿：P1·首买 ×2/P2 ×2/P1·再买 ×1/P1·momentum ×1）
+- **观察点**：①momentum 触发率与被拦仿盘占比（19 仿盘形状里 buyW≥40 能进几个）②进场偏晚成本（1.9x vs 对照 1.47x——若放行票普遍峰值 ≤2x 可降门 30）③four.meme 侧中位 1.06x 是否持续（若持续可评估平台分臂）④rating==1 票 retry 翻正为 2|3 时主臂接管轮次（momentum maxEx=1 已耗则不再买）⑤对照组差距（≥3x 13% vs 9%@X=0）是否被 buyW≥40 完全收平（回放已收平，live 复核）
+
 ### T101 再买臂加腰斩门：drawdownFromHighest 区间 (-70,-50)（buy-v2-repeat v1→v2；2026-10-29 用户指令「再次买入的条件，增加一个从最高点下跌超过 50%」）
 
 - **案由与语义**：再买臂（T100 buy-v2-repeat）此前与首买主条件逐字一致（唯一区隔=GMGN 删 issuer 分档臂）；用户裁定再买须额外满足「从最高点下跌超过 50%」——再买轮定位=**深回调抄底形状而非趋势中继**。与既有崩盘接刀门 `drawdownFromHighest > -70`（v27）合并成区间 `(-70, -50)`：跌幅不足 50%（含新高票/浅回调票）或崩穿 -70 的票，再买轮均不可见（首买臂 buy-v2 v51/early v10 不动）
