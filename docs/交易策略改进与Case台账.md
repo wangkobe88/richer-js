@@ -473,6 +473,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 戊、live 执行与事故
 
+### T92 already-known 恢复轮询单端点全 miss→卖出误判失败丢 trade 行——多端点并行恢复（KYA 案，2026-10-29）
+- 案：v51 `d41b9c29` KYA 0x587c61b4a5052b7e5e0563be61b9be0a0aa27777（flap，3 卡 0.006 BNB）21:02:16 全清卖出 tx `0x0fff…c83` **已上链成交**（status=1 块 130349778，gasUsed 697289，实收 0.0042089268551733835 BNB 进钱包），但请求层响应丢失重发同一 raw → 节点 `-32000 "already known"` → `_recoverTxFromAlreadyKnown` 取证成功进入恢复轮询，**主 provider（bsc-dataseed1.binance.org，LB 集群）getTransaction 12×500ms=6s 全 miss** → 恢复失败 fail-closed 判「卖出失败」不落账 → trade 行缺失；21:05:33 卖腿再 fire 时链上仅剩 4.4973e-11 零头被 T75 粉尘门就地清账（out=0 行）→ token-returns 页 FIFO 把 0.006 本金记成 **-100%**（真实 -29.85%）
+- 根因=恢复路径单端点依赖：tx 实际已上链，但同一 LB 端点的事务索引滞后 6s+ 即饿死轮询；已有机制（T38/T69 三形状取证 + 恢复追踪）链路无恙，缺的是轮询视野
+- 修复两件（用户批准「修正吧」）：①**数据补账**：补 21:02:16 真实卖出 trade 行（input 939203.17/output 0.0042089268551733835 BNB，unit_price=USD 域换算 bnbUsd≈752.18，cardTrade 3→0，`metadata.manualCorrection` 案号留痕幂等）+ ExperimentStatsService 重算 stats（totalReturn -15.53→-11.64、bnbChange -0.0168→-0.0126）；重放安全核对：`_loadHoldingsLive` 卖行 remainRatio=max(0,…) 钳 0、qty=0 跳过粉尘行、卡账本只认 after 绝对值——补行即可、粉尘行免改；②**代码加固**：BaseTrader 新增 `_recoveryProviders()`（主 provider + `BSC_RECOVERY_RPC_URLS` 同源备用池 dataseed2/3+defibit1/2，懒构造 `_recoveryProviderCache` 测试可注入锁单端点）+ `_pollTxResponse` 重写为 `Promise.allSettled` 多端点**并行**轮询（任一端点见 tx 即恢复；单端点 throw/miss 不吞恢复；12 轮×500ms 窗不变，超时日志改「全部端点未见」）
+- 单测 _test_nonce_manager [3e]（44 通过 0 失败）：(a) 主端点恒 miss+备用第 2 轮命中→恢复成功（含双端点调用计数断言）；(b) 主端点 throw ECONNRESET+备用命中→allSettled 隔离仍恢复；(c) 源码口径三断言（`_recoveryProviders`+`Promise.allSettled(providers.map`+池含 dataseed2）；既有 5 处 provider 打桩全部预置 `_recoveryProviderCache=[t.provider]` 锁单端点（零网络红线，含 3b-b 换 provider 同步换 cache）；相邻套件 live_hardening/tx_seen_receipt/gas_dynamic/approve_max_grant/flap_minout_signal_anchor 全绿
+- 观察点：**182 上运行中的 v51 进程（PID 1833938）持旧代码，多端点恢复下次重启/部署才生效**；同实验 28 SELL 中仅此 1 笔 already known（同周 T38 双发同族）；排查/补账脚本 `tmp-check-587c-{meta,ticks,trades}.cjs` / `tmp-fix-587c-trade-backfill.cjs` 入库留档
+- 方法论：already-known 恢复失败≠交易失败，凡恢复超时先人工核链上回执再改账（本案回执 status=1 直接反证）；LB 公共端点不可作唯一取证视野
+
 ### T81 税币买卖数量不闭合→web FIFO 误判「持仓中」——全清腿残量归零（普通人案，2026-10-28，3b71f7c）
 - 案：v43 `7dd26b85` 普通人 0x934b16d660628ea14174a2387b1ca50585e67777（flap 税币）00:21 UTC 买 0.008 BNB 余额差法实收 717,544.49；00:46 全清卖出时链上余额仅 699,608.24（~2.5% 持有期内被税/反射抽走）→ live 卖出行 `input_amount`=链上实际卖量（账面>链上按链上卖）→ trades 买卖数量天然不闭合，token-returns/trades 两页 FIFO 剩 17,936 被误判「持仓中」，**并误渲染「卖出全部」手动按钮**（renderManualTradeButtons 以 hasUnmatchedBuy 判持仓——显示 bug 兼功能 bug，点了会对已清仓票发起真实卖出）
 - 口径事实（引擎侧无恙）：PM 全清腿 ledgerQty=账面原值精确清零（T75 链路）、experiment_tokens.status='sold'、cardTrade 4→0；trades 行如实记链上事实（买=balanceOf 前后差、卖=链上实际卖量），不闭合是税币链上事实非记账错误——**修复放 web 解释层，不改 trade 行真值**

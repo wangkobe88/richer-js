@@ -115,6 +115,8 @@ async function main() {
         t.signer = { reset: () => { resets++; } };
         // 链上查无首发（真拒收形状：节点不索引被拒 raw）
         t.provider = { getTransaction: async () => null };
+        // 恢复取证锁单端点（零网络红线：防多端点池真打公共 RPC）
+        t._recoveryProviderCache = [t.provider];
 
         // 4a. 首发确认未上链 → reset + 重试一次成功
         let calls = 0;
@@ -164,6 +166,7 @@ async function main() {
         t.signer = { reset: () => { resets++; } };
         // 事故形状：首发（nonce 1735）已上链成交——getTransaction 立即命中
         t.provider = { getTransaction: async (h) => { getCalls++; return { hash: h, conf: 1 }; } };
+        t._recoveryProviderCache = [t.provider];
 
         // a. 核心反证：fn 只调一次（不重发 nonce+1 第二笔）、不 reset、返回首发 tx
         let fnCalls = 0;
@@ -212,6 +215,7 @@ async function main() {
         let resets = 0, getCalls = 0, fnCalls = 0;
         t.signer = { reset: () => { resets++; } };
         t.provider = { getTransaction: async (h) => { getCalls++; return { hash: h, conf: 1 }; } };
+        t._recoveryProviderCache = [t.provider];
 
         // a. 核心反证：error.transaction 携带 raw → 恢复首发追踪不重发不误判失败
         //    （事故形状：旧行为取证 undefined → fail-closed 判失败 → 账面幽灵卡+熔断循环）
@@ -267,6 +271,7 @@ async function main() {
         let resets = 0, getCalls = 0;
         t.signer = { reset: () => { resets++; } };
         t.provider = { getTransaction: async (h) => { getCalls++; return { hash: h, conf: 1 }; } };
+        t._recoveryProviderCache = [t.provider];
 
         // a. 恢复成功：fn 只调一次（不重发）、不 reset、返回该 raw 的 tx response
         let fnCalls = 0;
@@ -277,6 +282,7 @@ async function main() {
         // b. 节点暂未索引：轮询直到拿到（首两轮 null）
         getCalls = 0; fnCalls = 0;
         t.provider = { getTransaction: async (h) => { getCalls++; return getCalls >= 3 ? { hash: h } : null; } };
+        t._recoveryProviderCache = [t.provider];
         const tx2 = await t._nonceGuard(async () => { fnCalls++; throw mkErr(); }, '卖出');
         ok(tx2.hash === expectedHash && getCalls === 3, 'already known → 节点滞后轮询重取（第 3 轮命中）');
 
@@ -290,6 +296,58 @@ async function main() {
         const re = src.match(/_isNonceError\(error\) \{[\s\S]*?return ([^;]+);/);
         ok(re && !/already known/.test(re[1]), '源码：_isNonceError 正则不含 already known');
         ok(src.includes('_recoverTxFromAlreadyKnown'), '源码：already known 恢复分支在位');
+    }
+
+    // ═══════════════ 4c. T92 多端点恢复（2026-10-28 v51 KYA 0x587c…7777 丢记账案） ═══════════════
+    console.log('\n[3e] already known 恢复多端点轮询（主端点 LB 索引滞后反证）');
+    {
+        const rawWallet = new ethers.Wallet(ethers.Wallet.createRandom().privateKey);
+        const raw = await rawWallet.signTransaction({
+            to: '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0', nonce: 1736,
+            gasLimit: 697289, gasPrice: ethers.parseUnits('3', 'gwei'),
+            data: '0xef7ec2e7', chainId: 56, type: 0,
+        });
+        // KYA 事故现场形状（v51 2026-10-28 日志实证）：卖出 tx 0x0fff…c83 已上链成交
+        // （块 130349778），首发广播响应丢失重发撞 already known → 恢复轮询 6s 内
+        // 主端点（bsc-dataseed1 LB 集群）getTransaction 全 miss → 恢复失败误判 →
+        // trade 行缺失，0.0042 BNB 回收丢出账本，页面显示 -100%
+        const mkErr = () => {
+            const e = new Error('could not coalesce error (error={ "code": -32000, "message": "already known" }, payload={ "method": "eth_sendRawTransaction" })');
+            e.info = { payload: { params: [raw] } };
+            return e;
+        };
+        const expectedHash = ethers.Transaction.from(raw).hash;
+
+        // a. 核心反证：主端点恒 miss（事故形状）+ 备用端点第 2 轮命中 → 恢复成功
+        const t = Object.create(BaseTrader.prototype);
+        t.log = () => {};
+        t.signer = { reset: () => {} };
+        let mainCalls = 0, backupCalls = 0;
+        t.provider = { getTransaction: async () => { mainCalls++; return null; } };
+        const backup = { getTransaction: async (h) => { backupCalls++; return backupCalls >= 2 ? { hash: h, conf: 1 } : null; } };
+        t._recoveryProviderCache = [t.provider, backup];
+        let fnCalls = 0;
+        const tx = await t._nonceGuard(async () => { fnCalls++; throw mkErr(); }, '卖出');
+        ok(tx && tx.hash === expectedHash && fnCalls === 1,
+            '主端点恒 miss + 备用端点命中 → 恢复 tx 追踪（KYA 形状救回，不误判失败）');
+        ok(mainCalls >= 2 && backupCalls === 2, `多端点并行轮询（主 ${mainCalls} 轮/备用 ${backupCalls} 轮命中）`);
+
+        // b. 主端点整端 throw（网络故障）不吞恢复：备用端点立即命中仍恢复
+        let throwCalls = 0;
+        t.provider = { getTransaction: async () => { throwCalls++; throw new Error('ECONNRESET'); } };
+        const backup2 = { getTransaction: async (h) => ({ hash: h, conf: 1 }) };
+        t._recoveryProviderCache = [t.provider, backup2];
+        const tx2 = await t._nonceGuard(async () => { throw mkErr(); }, '卖出');
+        ok(tx2 && tx2.hash === expectedHash && throwCalls >= 1,
+            '单端点异常不吞恢复（allSettled 隔离端点故障）');
+
+        // c. 源码口径：多端点轮询形状锁定（防回退单端点——单端点是事故根因）
+        const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/traders/core/BaseTrader.js'), 'utf8');
+        ok(/_recoveryProviders\(\)/.test(src) && /Promise\.allSettled\(providers\.map/.test(src),
+            '源码：_pollTxResponse 走 _recoveryProviders + allSettled 并行多端点');
+        ok(src.includes('BSC_RECOVERY_RPC_URLS') && /bsc-dataseed2\.binance\.org/.test(src),
+            '源码：备用 RPC 池常量在位（含 dataseed2/3+defibit，与 senderResolve 同源）');
+        ok(/全部端点未见/.test(src), '源码：超时日志标注「全部端点未见」（多端点口径）');
     }
 
     // ═══════════════ 5. 源码口径：发送调用点接线 ═══════════════

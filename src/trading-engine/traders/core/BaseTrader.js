@@ -6,6 +6,18 @@
 const { ethers } = require('ethers');
 const ITrader = require('../ITrader');
 
+// 恢复取证备用 RPC 池（与 config senderResolve.rpcUrls 同源）：bsc-dataseed 是 LB
+// 集群，单端点对新块/新 tx 的索引可持续滞后数秒——v51 KYA 0x587c…7777 案
+// （2026-10-28）：卖出 tx 已上链，主端点 6s 轮询 getTransaction 全 miss →
+// already-known 恢复失败 → 已成功卖出被误判失败丢记账。主端点
+// （bsc-dataseed1.binance.org）由 this.provider 持有，此列表刻意排除它。
+const BSC_RECOVERY_RPC_URLS = [
+    'https://bsc-dataseed2.binance.org/',
+    'https://bsc-dataseed3.binance.org/',
+    'https://bsc-dataseed1.defibit.io/',
+    'https://bsc-dataseed2.defibit.io/',
+];
+
 class BaseTrader extends ITrader {
     constructor(config) {
         super(config);
@@ -149,16 +161,35 @@ class BaseTrader extends ITrader {
     }
 
     /**
+     * 恢复取证端点池：主 provider 优先 + 备用公共节点（懒构造，JsonRpcProvider
+     * 构造本身零网络）。测试可预置 _recoveryProviderCache 注入桩端点（零网络红线）。
+     */
+    _recoveryProviders() {
+        if (!this._recoveryProviderCache) {
+            this._recoveryProviderCache = [
+                this.provider,
+                ...BSC_RECOVERY_RPC_URLS.map((u) => new ethers.JsonRpcProvider(u)),
+            ];
+        }
+        return this._recoveryProviderCache;
+    }
+
+    /**
      * 已上链/入池 tx 恢复轮询：tx 短暂未被节点索引时轮询数秒（already-known 恢复与
-     * nonce 错误取证共用同一窗口）；拿不到返回 null。
+     * nonce 错误取证共用同一窗口）；拿不到返回 null。每轮并行打全部端点（主+备用，
+     * 单端点异常/miss 不吞恢复——LB 集群索引滞后是 KYA 案恢复失败的直接原因），
+     * 任一端点见到即返回。
      */
     async _pollTxResponse(hash, label = '交易', context = '') {
+        const providers = this._recoveryProviders();
         for (let i = 0; i < 12; i++) {
-            const tx = await this.provider.getTransaction(hash);
-            if (tx) return tx;
+            const settled = await Promise.allSettled(providers.map((p) => p.getTransaction(hash)));
+            for (const r of settled) {
+                if (r.status === 'fulfilled' && r.value) return r.value;
+            }
             await new Promise((res) => setTimeout(res, 500));
         }
-        this.log(`${context || label}取证轮询超时：tx ${hash} 节点未见`, 'warning');
+        this.log(`${context || label}取证轮询超时：tx ${hash} 全部端点未见`, 'warning');
         return null;
     }
 
