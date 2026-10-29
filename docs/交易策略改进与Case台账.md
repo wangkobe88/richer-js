@@ -52,6 +52,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T101 再买臂加腰斩门：drawdownFromHighest 区间 (-70,-50)（buy-v2-repeat v1→v2；2026-10-29 用户指令「再次买入的条件，增加一个从最高点下跌超过 50%」）
+
+- **案由与语义**：再买臂（T100 buy-v2-repeat）此前与首买主条件逐字一致（唯一区隔=GMGN 删 issuer 分档臂）；用户裁定再买须额外满足「从最高点下跌超过 50%」——再买轮定位=**深回调抄底形状而非趋势中继**。与既有崩盘接刀门 `drawdownFromHighest > -70`（v27）合并成区间 `(-70, -50)`：跌幅不足 50%（含新高票/浅回调票）或崩穿 -70 的票，再买轮均不可见（首买臂 buy-v2 v51/early v10 不动）
+- **口径**：`drawdownFromHighest`=(当前价−全时最高价)/最高价×100，**任意接受价轨**（outlier/chainLate 不推峰，FA `_acceptPrice` 推进最高价）——非 position 域键，清仓后再买轮（无持仓）可评估，与 profitPercent/peakProfitPct 族（fire 价锚、持仓域）刻意不同源；无最高价/无现价=0 有证据零值 → `< -50` 恒 false **fail-closed**（没见过正价谈不上回撤，拦合理）
+- **改动面**：仅库条件串（零代码、无新因子，无新单测需求）；`bump-t101-repeat-drawdown-50.cjs` 防呆=T100 移植全门锚定（tokenAge/tradeCount、mcap 窗、叙事门、holderTrendSlope、集中度 55/35、copy 20/famous 15、ExDust 人气门、T96 净买 AND 门、crashSpeed）+ repeat 路由（buyPhase='repeat'/maxExecutions=1）+ trigger/gmgn（T100 删 issuer 臂形状）不动 + 新区间段恰一次/段外无裸 -70 残留
+- **部署链**：bump-t101-repeat-drawdown-50.cjs（v1→v2 committed 2026-10-29）→ ⚠️copy-in 快照：**需换车新建实验引用 v2 才生效**（v59 config 固化 v1 快照，改库不影响已建实验）
+- **观察点**：①再买臂触发率——区间门与其余门同真窗口多窄（腰斩 50%+ 票还须 narrativeRating 2/3 ∧ holderTrendSlope>0 ∧ 短窗净买≥40 ∧ 崩速>-10/s，可能极稀）②被放行票结局（腰斩票+短窗强净买=rebound 形状的胜率 vs 首买）③贴边分布（-50/-70 边界票占比，将来阈值微调依据）
+
 ### T100 首买/再买策略层分臂 `buyPhase` 路由（买腿 2→3：buy-v2 v50→v51 加 `buyPhase:'first'` + 新库条目 buy-v2-repeat v1 `buyPhase:'repeat'` 删 GMGN issuer 分档臂 maxEx=1；2026-10-29 用户裁定「把首买买入臂跟再买买入臂区分开来。当前表达式跟首买一致，但是把这个发币数量条件给删除」+ 再买次数 1 + early 臂不动 + 立即换车）
 
 - **案由（Sprout 二次入场误拦问询→裁定分臂）**：用户问 v56 内 `0x33196e0763841a198b48507885f6ce46c7877777`（Sprout，flap，project 类叙事票）首买成功后二次入场（06:16-06:17，已全清 round 1）为何被拒「推特账号发代币的数据更新了？」——信号 metadata GMGN 拒因 `gmgnIssuerTokenCount <= 1` 不满足。**链上实证（非 serial issuer，是借壳污染）**：宣告推特 @sproutbnb 真实（10-28 注册、0 粉、仅本币宣告）；06:08:56-06:09:09 **13 秒内 4 个不同钱包用同一 meta CID（同推特/同网站）连发 4 个 Sprout 票**（nonce 3630980-3630984 相邻=同一 Gas 中枢批量操作）+1 抢名票——恶意用户借壳该推特账号发币，GMGN **推特维度归因计数** `twitter_create_token_count`（risk-fields.js→`gmgnIssuerTokenCount`）时间线：06:09:59 首买时=1（干净，issuer 分档门 C85+T73 判断**正确**）→ 06:16 拒买时=5（污染）→ 现查=8
