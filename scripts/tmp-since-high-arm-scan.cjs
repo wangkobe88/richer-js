@@ -83,7 +83,7 @@ function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires) {
   let t0 = null, cnt = 0, cdUntil = 0;
   for (const t of ticks) {
     const ts = Date.parse(t.block_time);
-    if (ts < startMs - SEED_MS) continue;
+    if (ts < startMs) continue;              // 纯价格臂无需种子：入场前不喂（anchor=入场后首接受价）
     if (ts > endMs) break;
     const pb = Number(t.price_bnb);
     const nonDust = Number(t.bnb_amount) >= DUST;
@@ -91,7 +91,7 @@ function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires) {
     price = pb;
     if (!anchor) { anchor = pb; peak = pb; peakAt = ts; }
     if (pb > peak) { peak = pb; peakAt = ts; }
-    if (ts < startMs || fires.length >= maxFires) continue;
+    if (fires.length >= maxFires) continue;
     const armed = anchor > 0 && (peak / anchor - 1) * 100 >= armPeakPct;
     const cond = armed && (ts - peakAt) >= nSec * 1000;
     if (!cond || ts < cdUntil) { t0 = null; cnt = 0; continue; }
