@@ -14,24 +14,22 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v50 快照；live v55 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键；早期臂差异=T95 集中度放宽；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v53 快照；live v64 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20；早期臂已撤（T84 撤臂 2026-10-29）；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
 AND marketCap > 4.7 AND marketCap < 27                   -- 市值窗 BNB 域（T84/v43 起 priceBnb×totalSupply 全域 BNB 断代；v34 曾 USD 3.5K-20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
-AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
-AND top2HolderCircPct < 55                                -- top2 持有人门（T93/v48：前两大净持仓合计 ÷ 同 _circDen，块簇门 T67 换轴；早期臂 75=T95/v9 放宽 65→75）
-AND top1HolderCircPct < 35                                -- 单钱包最大持仓（早期臂 45=T95/v9 放宽 35→45）
+AND holderTrendSlopeExSniper > 0                          -- 趋势（T105/v52：跳过有 tick 的前 4 个不同 block=狙击手段，第 5 块起 ≥4 点上涨才出键，<4 点键缺失 fail-closed；旧键 holderTrendSlope 转纯观察）
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnb >= 1.25 AND holdersExDust >= 10)        -- 人气门（T90/v46 起 AND「量人双达标」防刷量/多钱包微买；**T98/v50 换键 holders→holdersExDust**——剔尘埃口径：净持仓按首可靠价折算 ≥0.015 BNB 才计持有人（10-29 追裁定 0.002→0.015≈$10.5，$10 以下钱包不算有效承接），刷 holder 的尘埃钱包（单笔刚过 tick 尘门 0.001）不计；无可靠价票退化=holders fail-open；阈值 10/早期 5 不动=口径变小同阈更严）
-AND (tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40) -- 净买门 AND 形状（T96/v49 换轨「短期开始涨，长期下跌趋势解除」：短窗尾 20 笔须强净买 ≥40 ∧ 长窗尾 100 笔净比非负，严格收紧新⊆旧——拦「长强短弱」与「短反弹但长期净卖」；T88/v48 键名断代：长窗尾 100 笔 LongWin/短窗尾 20 笔 ShortWin，环空=null fail-closed/尾窗全卖=-100；阈值 40 承 T77/T70）
+AND (tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 20) -- 净买门 AND 形状（T96/v49 换轨「短期开始涨，长期下跌趋势解除」∧ 长窗尾 100 笔净比非负；**T106/v53 短窗 40→20 放宽半档**——放行「短期温和上涨」形状；T88/v48 键名断代：长窗尾 100 笔 LongWin/短窗尾 20 笔 ShortWin，环空=null fail-closed/尾窗全卖=-100；阈值 40 承 T77/T70、20=T106）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
 
-**T93 退出三键（v48 起纯观察键，FA 照算照落不进条件串）**：flap 路由门 `(platform != 'flap' OR tradesRouterPct >= 30)`（T70/v39 立——BI 案 router 份额爬坡独拦 12s，25s 行情里只剩拖慢）、`sybilClusterHolderCircPct < 60`（T72 立/T89 放宽 60——Meecot 案 100→59 稀释 150s 接顶全亏，sybil 高位票本身是关联簇拉盘形状）、`top2BundleClusterHoldCircPct`（T67 立/T91 后唯一簇门——换轴 top2HolderCircPct 前两大持有人合计）。
+**T93 退出三键 + T106 退出两键（纯观察键，FA 照算照落不进条件串）**：flap 路由门 `(platform != 'flap' OR tradesRouterPct >= 30)`（T70/v39 立——BI 案 router 份额爬坡独拦 12s，25s 行情里只剩拖慢）、`sybilClusterHolderCircPct < 60`（T72 立/T89 放宽 60——Meecot 案 100→59 稀释 150s 接顶全亏，sybil 高位票本身是关联簇拉盘形状）、`top2BundleClusterHoldCircPct`（T67 立/T91 后唯一簇门——换轴 top2HolderCircPct 前两大持有人合计）；**T106/v53 追加退出**：`top2HolderCircPct < 55`（T93 换轴门）+ `top1HolderCircPct < 35`（单钱包最大，T1 谱系）——持有人集中度门整族退役（T91 瘦身/T93 换轴/T95 早期臂放宽谱系终局），对倒/集中度形状改由 copy/famous 名单门+T105 ExSniper 趋势门+T104 stallClose 10s 快出接棒。
 
 **T91a 流通分母口径（v47 起代码侧生效）**：全部 ÷circ 键分母=`max(_circTokens, Σ正净持仓)`——flap 税币零买入纯卖出钱包（初始筹码/税币接收方，Sell 在 Buy 永无）曾把 Σ买−Σ卖 分母压到低于真实在外筹码 → 键值虚高超 100%（孙权 top3=114% 案）；恒等式保证 ≤100、正常票逐输入 bit 不变。
 
@@ -53,12 +51,20 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T106 主腿放宽：删集中度两门 + 短窗净买门 40→20（buy-v2 v52→v53；2026-10-29 用户指令「……AND holderTrendSlope > 0 AND top2HolderCircPct < 55 AND top1HolderCircPct < 35 AND …… 中 top2HolderCircPct < 55 AND top1HolderCircPct < 35 直接删除，tradesNetBuyRatioShortWin >= 40 改为 tradesNetBuyRatioShortWin >= 20」；同批撤 T84 early 臂语境「触发太少了，没有啥用」）
+
+- **形状（仅首买主腿；repeat v3/early 不涉——early 同批整腿撤）**：①`top2HolderCircPct < 55 AND top1HolderCircPct < 35 AND ` 整段删除——持有人集中度门整族退役（top1=T1 谱系 35、top2=T93 换轴 55；T91 瘦身→T93 换轴→T95 早期臂放宽→本条终局），两键转纯观察 FA 照算照落（一屏「T93+T106 退出五键」段）；②`tradesNetBuyRatioShortWin >= 40 → >= 20`——T96 AND 形状的「短期开始涨」臂放宽半档，放行「短期温和上涨」形状；**LongWin >= 0 不动**（「长期下跌趋势解除」语义保留，短窗 20 ∧ 长窗净卖的反弹票仍拦）。
+- **动机**：买腿触发太少，整体放宽提高交易频率（同日撤 T102 momentum、撤 T84 early 同向三连放宽）。集中度门此前两次收紧谱系（T91 删单块门/T93 换轴）均围绕对倒防护，本条反向全删=把对倒形状防护交给 copy/famous 名单门+T105 ExSniper 趋势门（狙击手段已剔）+T104 stallClose 10s 快出兜底。
+- **新条件串（库 v53 全文）**：`(tokenAgeSec < 90 OR tradeCount >= 25) AND marketCap > 4.7 AND marketCap < 27 AND (narrativeRating == 2 OR narrativeRating == 3) AND holderTrendSlopeExSniper > 0 AND maxCopyWalletHolderCircPct < 20 AND famousCopyWalletCircPct < 15 AND (buyVolumeBnb >= 1.25 AND holdersExDust >= 10) AND (tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 20) AND drawdownFromHighest > -70 AND crashSpeedPctPerSec > -10`
+- **实现链**：`bump-t106-concentration-slim-shortwin20.cjs --commit`（v52→v53；防呆=源 v52 锚定 ExSniper 恰一次/两门+ShortWin40 恰一次 → 换后两键零出现/ShortWin20 恰一次/KEEPS 全门锚定/first 路由 buyPhase+maxEx2/trigger+gmgn 不动）→ `create-v64.cjs --commit`（四变量同批，见 T105 部署链）。单测：无新机制（纯条件串删段+阈值变更，两键 FA 照算既有形状）。
+- **观察点**：①触发率上升幅度（三连放宽合流后 P1·首买频次）；②集中度形状票（top1≥35/top2≥55 段）混入率与其结局——名单门+趋势门+stallClose 是否接得住；③ShortWin 20-40 段「弱反弹」票胜率（T96 拦的「短反弹长净卖」形状是否仍在 LongWin 臂拦住）；④对倒簇票（猪五花/Konasu/鲸元卷同款）在新门链下的实际亏损面。
+
 ### T105 剔狙击段 holder 趋势新键 holderTrendSlopeExSniper（FA 新因子两键；2026-10-29 用户指令「扣除有交易后前 4 个 slot 的数据，前四个 slot 都是狙击手，是否真的有流动性涌入得看后面；扣除后最少 4 个 slot 有 holder 上涨趋势即可」+「跳过的 slot 需要有交易」）
 
 - **动机**：holderTrendSlope 现口径的 8 点滑窗在票出生初期被狙击手段污染——前几个 slot 的狙击手买入把斜率推高，火点看到的是「狙击手冲高」而非「真流动性涌入」。v60 六张亏损票火点 age 5.4-50s、dp 4-8，全部在这个污染窗内火。
 - **语义/口径**：跳过段=**有 tick 的前 4 个不同 block**（HOLDER_TREND_SKIP_SLOTS=4；无交易的块既不产生序列点也不计入跳过数——slot=有交易的 slot，E2 断言锁定）；ExSniper 序列=第 5 个不同 block 起的 `_holderSeries` 子集（同源 8 点滑窗、同块覆盖语义）；≥4 点才出 `holderTrendSlopeExSniper`（`>0` 门），点数恒出 `holderTrendDataPointsExSniper`（观察键）；<4 点 slope 键缺失 → `>0` 恒 false **fail-closed**。边界 `_holderExSniperStartBlock` write-once：非 defer 路径新不同 block 计数定型；defer 路径 `_rebuildHolderSeries` 排序后首扫定型（环裁剪保最近 10 块≥8 点窗、先于定型不可达；万一发生=边界偏晚多剔=更严 fail-closed，E6 全倒序回推对拍）。**旧 11 键 bit 不动**（新键加在 holderTrend 段尾，旧序列/旧 slope 零分叉，E3b/E5 锚定）。
 - **改动面**：FA 新增两键（getFactorKeys 手动并入 slope 键；dataPoints 探针自收）+ FactorBuilder 两处快照白名单透传（E8 源码断言）；代码 commit `ddc0f3c`（2026-10-29）。单测=`_test_holder_trend_slot_series.cjs` E 节 8 case（前 4 slot 全剔/无交易块不计跳过/斜率手算对拍/旧键不受污染/狙击爆发后横盘反证 slope=0 拦/窗滑出后与旧键 bit 一致/defer 倒序回推一致/白名单源码断言），34/34。
-- **部署链**：用户裁定 2026-10-29「好，换吧」→ `bump-t105-exsniper-slope.cjs --commit`（**buy-v2 v51→v52 已入库存**，仅换主腿趋势段 `holderTrendSlope > 0 → holderTrendSlopeExSniper > 0`；early v10/repeat v3/momentum 库条目不动——repeat/momentum 火点时窗早滑出出生段=换键零行为差，early 无此门）→ `create-v64.cjs`（克隆 v63=T103+T104+撤 momentum 版，源按 experiment_name 'v63-' 运行时发现；只换主腿 condition+refs 仅 buy-v2 51→52，防呆=旧段恰一次/新段恰一次/剥 ExSniper 无裸残留/全门锚定/除 condition 外库腿与源主腿逐字一致/stallClose 逐字保留）→ **待 v63 建停后接力（182 须先 git pull 至含 ddc0f3c——旧 FA 代码遇 ExSniper 条件=未知因子三防线 throw 拒启，防线动作非 bug）**。
+- **部署链**：用户裁定 2026-10-29「好，换吧」→ `bump-t105-exsniper-slope.cjs --commit`（**buy-v2 v51→v52 已入库存**，仅换主腿趋势段 `holderTrendSlope > 0 → holderTrendSlopeExSniper > 0`；early v10/repeat v3/momentum 库条目不动——repeat/momentum 火点时窗早滑出出生段=换键零行为差，early 无此门）→ `create-v64.cjs`（克隆 v63=T103+T104+撤 momentum 版，源按 experiment_name 'v63-' 运行时发现；防呆=旧段恰一次/新段恰一次/剥 ExSniper 无裸残留/全门锚定/除 condition 外库腿与源主腿逐字一致/stallClose 逐字保留；**执行时升版并入 T106+撤 T84 early 成四变量同批**，库锚定相应 v52→v53、refs buy-v2 51→53 且 early 条目移除 3→2，early 撤腿防呆=repeat 腿 JSON 逐字不动断言）→ **已上线 v64**（2026-10-29 13:41 UTC 起跑）：v63 daf868b7 零成交零持仓 TERM 优雅停 → create-v64 --commit 出 `0e7c7e09-5b3c-4e14-b039-fce040199f83`（PID 2631956）→ 启动日志验证 26 腿（P1·首买 ExSniper 段✓/P1·再买 v3 (-70,-40) 区间段逐字保留✓/24 卖腿）、stallClose 启用行在、ERROR=0、双 collector 4 订阅；182 HEAD 已含 ddc0f3c（旧 FA 三防线 throw 未触发=新键代码就位）。
 - **v60 8 票重放对拍（tmp-t103-exsniper-replay.cjs 双口径）**：火点快照 dp≤7 ⟹ 序列未滑出出生段 → dpEx=dp−4<4 **火点必拦**；dp=8 用链上真序重放判（wallet 段追平后形状）。P1·首买 5 票：MWEZI 0x20d2fa63…7777（−0.002011，dp5）、大肚柴犬 0x763ef316…7777（−0.001888，dp6）、날다람쥐 0x297d33af…7777（−0.001727，dp6）火点拦；WOFL 0x681c4dc9…7777（−0.000166，dp8，链上 dpEx=5 slopeEx=0.121>0）**不拦**；赢单 0x5ca91444…7777（+0.004565，dpEx=8 slopeEx=0.042>0）**不拦=保住**。P2 三票（柴犬大肚 −0.001399/饕小宝 −0.000685/赢单 0x4a4417ad +0.004534）——**early 腿条件无此门，换键零影响**（要拦 P2 亏损票须 early 加门，另行裁定）。
 - **实效=延迟语义而非拦死（关键结论）**：live 火点 dp 是 wallet 段滞后态（sender RPC 回推 1-3s，比链上真序少 1-4 点；MWEZI live 序列指纹 [1,1,6,9,12] dp5 vs 链上 9 块）→ 新门在 live 实效**比回测口径更严**；火点被拦后引擎 per-tick 重评，wallet 段追平（1-3s）后 ExSniper 补齐——MWEZI/大肚柴犬链上口径火点 slopeEx 已 >0（0.060/0.043）=**追平即放行照买**；仅 0x297d 真晚 9s 且价低 7%（dpEx 火点仍 3<4）。v60 亏损票共性=前 4 slot 后 holder 仍在涨 → 该门对这批票是「等第 5 slot 起的证据」；**真拦死形状=前 4 slot 冲高后横盘/回落**（slopeEx≤0，E4 单测形状，v60 无此形状票）。
 - **重放校准三坑复发实录**：trades metadata 腿名不存在（正确源=strategy_signals.metadata.strategyName）；roster 异步 loader 不 await → maxCopyWalletHolderCircPct 恒 null 拦死；registerToken 不带 totalSupply → marketCap 恒 0 拦死。对拍火点 oldOk 全 false 即这三坑信号。
@@ -226,6 +232,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 单测：`_test_mcap_bnb_domain.cjs` 14 断言（精确公式/price_usd 扰动恒等/bnbUsd=0 免疫反证/fdv 镜像/峰值 BNB 域/源码禁 bnbUsd 乘子防复活）+ `_test_entry_market_cap.cjs` 28 断言（首买锚/补买不覆盖双向/全清重置/null fail-closed/T79 豁免 7 臂真值表/专属腿 10 臂真值表/快照透传）；观察信号缺省断言 12000→16 同步；setBuyChange 相关存量 6 件零回归
 - **部署序（copy-in 红线）**：182 pull → bump-buy-v2-v42（T82 臂）→ bump-buy-v2-v43（BNB+cards3）→ create-buy-early-narrative-v1 → create-v46（克隆 v44 重建买腿+卖腿换算+obs 27）→ create-v46-virtual 验证轮（run-engine 直跑）→ 人工核对后停 v44 启 v46（重启前持仓确认）。**v44 在跑进程持旧代码+旧 USD 快照=自洽，窗口期不得单独重启 v44**
 - **观察点**：①早期臂实跑触发率（回放 6%≈15 票/天；bundle 三门回放未计=实跑更严）；②0.006 BNB 单腿 fire 的滑点；③entryMarketCap 重启近似对豁免臂的漂移（重启后首价≠首买价）；④null 锚仓退通用腿的分布；⑤mid 评级占比（回放 9 票 +0.0008 无贡献不推翻用户裁定）
+- **【撤臂】2026-10-29 用户指令整腿删除（「触发太少了，没有啥用」；随 v64 同批生效，库 buy-early-narrative v10 条目留档可复挂，refs/腿 3→2、P2 通道关闭）**：撤前实跑核查（v46 起 1.3 天，P2 归属=strategy_signals `metadata.strategyName='买入策略 P2'`；BNB 口径 buy→input_amount/sell→output_amount）：**27 信号/24 成交 round，净 -0.0289 BNB、胜率 3/24=12.5%**——唯一像样赢单 0x4a4417ad…7777 +0.0045（T105 对拍同款赢单，ExSniper 门亦不拦），死仓 -0.006 ×3（0xac1a6fc5/0x3b942497/0x80b81993）。观察点①（回放 6%≈15 票/天）实跑远低于回放且净亏=触发少且亏，撤得有数据支撑；②滑点/③锚漂移/⑤mid 占比随撤臂终结；④通用腿退路=卖腿族照常兜底。早期带（mcap 6.0-6.7）票此后唯一通道=P1·首买腿（4.7-27 带覆盖）。
 ### T83 gang live 通道全链打通——GangBawTrader 半自动 + trailing -5% 卖腿（2026-10-28 用户裁定「直接使用 trailing -5%（30min 超时），直接实盘……Trader 使用 Gang 特有的，WSS 只订阅 Gang 相关的事件」）
 - **卖腿数据定论（裁定依据）**：72h getLogs /378 WNB 票/0.002 BNB 同批对拍——E2 trailing -5%@30min **+22.27%**（胜率 89.2%、中位 +16.94%）vs 固定 5min +13.58% vs 固定止盈 +20% +12.89%；回撤挡单调递增（-5>-10>-15>-20>-30，无「震出后二次冲高」形状）；30min 超时≈6h（22.27 vs 22.15）。机理=gang 出生冲量市场（到峰中位 12s、峰值中位 ×1.30、峰后长尾阴跌不回头），trailing 出场点=峰值×0.95 远优于 5min 时点价
 - **通道架构**：trader=`GangBawTrader`（不 extends BaseTrader——签名链全在官方 gang CLI+Binance App 侧）：两段式 preview→requestId→execute；买全自动 BROADCASTED（V2 `gang buy --bnb` 分步 wrap-bnb→approve-quote / V3 `gang v3 buy --amount` 直付）；卖恒 medium_risk→PENDING_CONFIRMATION→Telegram 告警+轮询 `baw wallet tx-history`（300s 上限，超时告警「勿再确认旧单」防迟到确认双卖）。**防双买/双卖状态机**：execute 状态未知/回执超时→`_unresolved` 锁同 token 拒绝后续（绝不自动重发，`_syncHoldings` 余额差对账接盘链上事实）；reverted=终态确定解锁；expired requestId 重跑 preview 恰一次；单飞行队列串行（BAW 外部状态机）。卖出到账 **WNB（WBNB ERC20）非 native BNB**——实收=WNB balanceOf 差（gas 从 native 扣不混入，比 EOA 余额差法少一步补偿）
