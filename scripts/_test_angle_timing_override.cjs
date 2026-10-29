@@ -25,11 +25,12 @@
  *      0x11efcbd0…27777——binancezh 活动 3 天后第二波蹭，78.78 high→载体门接管拦；
  *      不限 type / 帕鲁贴线 88835s / 86400 边界 / 非借壳 bit-identical / 父推
  *      时间与锚缺失 fail-open / 载体不救 / 与 C75 并存双 override 各落）
- *   F. C103 载体↔父推关系源头窗（J1.39 条件题判关系+代码 24h 窗）：Jean Phil 翻译
- *      洗白案 0x6915bec6…7777——主推位 Dexerto 原生新闻推 20 天老+website_tweet 位
- *      小号翻译推 token 前 2s 洗白，63.65 压线过→翻译/二手解读臂归 older 53.65 拦；
- *      new_angle 豁免臂照放 / 86400 边界 / 槽位覆盖（主推位=BAI 形状）/ 父推窗内
- *      放 / 旧缓存行+unclear fail-open / 与 C102 并存双落 / hasReplyParent 四槽位
+ *   F. C103 载体↔父推关系源头窗（J1.39 条件题判关系+代码 30d 窗——2026-10-29
+ *      리핀案 0xcbca7142…7777 用户裁定 24h→30d，对齐 C75 主推源头 30d 寿命线）：
+ *      Jean Phil 翻译洗白案 0x6915bec6…7777 现场父推 19.89d<30d 随裁定翻转放行
+ *      （案史：旧 24h 窗曾拦 63.65 压线过形状）；new_angle 豁免臂照放 / 2592000
+ *      边界 / 槽位覆盖（主推位=BAI 形状 >30d）/ 父推窗内放 / 旧缓存行+unclear
+ *      fail-open / 与 C102 窗分离并存 / hasReplyParent 四槽位
  *   C. 源码口径：pre-check-service 规则2 含 tokenCreatedAtSec 回退链 / mapper
  *      6h 纵深防御与 precheck 300s 分桶（C74）共存 / C103 三点锁（题面门控+接线+窗）
  *
@@ -351,13 +352,13 @@ async function main() {
     e10.stage1DataToSave.parsed_output.jev.staleParentOverride);
 
   // ═══ F. C103 载体↔父推关系源头窗（Jean Phil 翻译洗白案 0x6915bec6…7777）═══
-  console.log('\n── F. C103 载体↔父推关系源头窗（J1.39 条件题 + mapper 24h 窗）──');
+  console.log('\n── F. C103 载体↔父推关系源头窗（J1.39 条件题 + mapper 30d 窗：2026-10-29 리핀案裁定放宽，原 24h）──');
   // 事故现场（DB stage1_raw_output 实证，J1.36 17 题原答案逐字段转录）：
   // 主推位=Dexerto 原生新闻推（145 万粉，9-28 报道 Jean Phil 币 $8M=20 天老）+
   // website_tweet 位=229 粉「热点挖掘机」token 前 2s 的中文翻译推（reply Dexerto）
   const JP_ANCHOR = 1792306117;            // token 创建锚（raw_api_data.eventTs）
   const JP_PARENT_SEC = 1790587807;        // Dexerto 父推 created_at（Sep 28 09:30:07Z）
-  const JP_PARENT_LAG = 1718310;           // 20 天老源头（19.89d）——C75 30d 窗内漏过
+  const JP_PARENT_LAG = 1718310;           // 20 天老源头（19.89d）——C75 30d 窗内漏过；2026-10-29 起亦在 C103 30d 窗内（F1b 翻转）
   function makeJeanPhilAnswers(relChoice) {
     const base = {
       event_category: { choice: 'A', probabilities: { A: 0.8, W: 0.1, B: 0, F: 0, G: 0, C: 0, D: 0, E: 0.1 } },
@@ -411,18 +412,23 @@ async function main() {
     { t: f1before.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore, o: f1before.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
   const f1 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
   const f1j = f1.stage1DataToSave.parsed_output.jev;
-  check('F1b override 命中：lagSec=1718310（19.89d）staleSec=86400 choice=translation_or_repost rawTiming=within_30d',
-    f1j.staleRelParentOverride?.lagSec === JP_PARENT_LAG
-    && f1j.staleRelParentOverride?.staleSec === 86400
-    && f1j.staleRelParentOverride?.choice === 'translation_or_repost'
-    && f1j.staleRelParentOverride?.rawTiming === 'within_30d',
-    f1j.staleRelParentOverride);
-  check('F1c 翻转：时效 override → fit 100 封顶 30 <60 拦（J1.79 旧源封顶 30）',
-    f1j.effectiveTiming === 'older'
-    && f1.stage2DataToSave.parsed_output.pass === false
-    && f1.stage2DataToSave.parsed_output.blockReason === '事件分不足（30<60）'
-    && f1.stage2DataToSave.category === 'low',
-    { pass: f1.stage2DataToSave.parsed_output.pass, block: f1.stage2DataToSave.parsed_output.blockReason });
+  // 2026-10-29 리핀案 0xcbca7142…7777 用户裁定窗 24h→30d：父推源头与主推源头（C75
+  // 30d）同为「事件发酵寿命」概念——直发享 30d、被引用只给 24h 且无热度豁免不自洽。
+  // Jean Phil 现场父推 19.89d 随之翻案（用户裁定「case 受影响再说」）
+  check('F1b 리핀裁定翻转：19.89d<30d 不再 override（旧 24h 窗曾以 staleSec=86400 拦）',
+    f1j.staleRelParentOverride === null
+    && f1j.effectiveTiming === 'within_30d',
+    { o: f1j.staleRelParentOverride, t: f1j.effectiveTiming });
+  check('F1c 翻转放行：翻译臂 20 天发酵中热点 fit 100 照过（旧窗拦 → 新窗对齐 C75 寿命线）',
+    f1.stage2DataToSave.parsed_output.pass === true
+    && f1.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 100,
+    { pass: f1.stage2DataToSave.parsed_output.pass, t: f1.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore });
+  // F1c2 리핀现场反证：lag=538065s（6.2d 发酵中官方推被 11s 载体搬运）同臂同放
+  const f1c2 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 538065), 'direct_tweet'));
+  check('F1c2 리핀现场反证（lag=538065s/6.2d）：翻译臂放行 pass=true',
+    f1c2.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
+    && f1c2.stage2DataToSave.parsed_output.pass === true,
+    { o: f1c2.stage1DataToSave.parsed_output.jev.staleRelParentOverride, pass: f1c2.stage2DataToSave.parsed_output.pass });
   // F1d 用户裁定豁免臂：新角度解读原生父推 → 父推可老，不 override（J1.79 fit 100 原样）
   const f1d = mapStandardAnswers(makeJeanPhilAnswers('new_angle_on_original'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
   check('F1d 豁免臂：new_angle_on_original（找角度推文解释原生推文）父推 20 天照放',
@@ -431,33 +437,36 @@ async function main() {
     && f1d.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 100,
     { o: f1d.stage1DataToSave.parsed_output.jev.staleRelParentOverride, t: f1d.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore });
 
-  // F2 解释二手找角度推臂：与翻译臂同拦（用户裁定两臂并列）
-  const f2 = mapStandardAnswers(makeJeanPhilAnswers('explains_derivative'), makeContext(jpToken, makeJeanPhilTwitter(JP_PARENT_SEC), 'direct_tweet'));
-  check('F2 explains_derivative（解释另一个找角度推文）同拦 lagSec=1718310',
-    f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_PARENT_LAG
+  // F2 解释二手找角度推臂：与翻译臂同拦（用户裁定两臂并列）——现场值 19.89d 已在
+  // 30d 窗内（F1b 翻转），换 31d 老父推保「同拦」语义
+  const JP_31D = 31 * 86400;
+  const f2 = mapStandardAnswers(makeJeanPhilAnswers('explains_derivative'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - JP_31D), 'direct_tweet'));
+  check('F2 explains_derivative（解释另一个找角度推文）>30d 同拦 lagSec=2678400 staleSec=2592000',
+    f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_31D
+    && f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.staleSec === 2592000
     && f2.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
     f2.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
 
-  // F3 24h 边界：86401 命中 / 86400 严格 > 不命中
-  const f3a = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 86401), 'direct_tweet'));
-  const f3b = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 86400), 'direct_tweet'));
-  check('F3 边界 lag=86401 命中 / 86400 放',
+  // F3 30d 边界：2592001 命中 / 2592000 严格 > 不命中（对齐 C75 SOURCE_STALE_SEC 同值同口径）
+  const f3a = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 2592001), 'direct_tweet'));
+  const f3b = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 2592000), 'direct_tweet'));
+  check('F3 边界 lag=2592001（30d+1s）命中 / 2592000 放',
     f3a.stage1DataToSave.parsed_output.jev.staleRelParentOverride !== null
     && f3b.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null,
     { hi: f3a.stage1DataToSave.parsed_output.jev.staleRelParentOverride, lo: f3b.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
 
-  // F4 槽位覆盖：父推在主推位（BAI 案形状）同拦——两案实证全集扫描必要性
-  const f4Twitter = makeJeanPhilTwitter(JP_PARENT_SEC);
+  // F4 槽位覆盖：父推在主推位（BAI 案形状）同拦——两案实证全集扫描必要性（>30d 保同拦语义）
+  const f4Twitter = makeJeanPhilTwitter(JP_ANCHOR - JP_31D);
   f4Twitter.in_reply_to = { ...f4Twitter.website_tweet.in_reply_to };
   delete f4Twitter.website_tweet;
   const f4 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, f4Twitter, 'direct_tweet'));
-  check('F4 槽位覆盖：父推在主推位（无 website_tweet）同拦',
-    f4.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_PARENT_LAG,
+  check('F4 槽位覆盖：父推在主推位（无 website_tweet）>30d 同拦 lagSec=2678400',
+    f4.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === JP_31D,
     f4.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
 
-  // F5 父推新鲜（1h）：关系差但源头新 → 不干预（24h 窗内=用户裁定「时效性足够」）
+  // F5 父推新鲜（1h）：关系差但源头新 → 不干预（30d 窗内=发酵中源头可借）
   const f5 = mapStandardAnswers(makeJeanPhilAnswers('translation_or_repost'), makeContext(jpToken, makeJeanPhilTwitter(JP_ANCHOR - 3600), 'direct_tweet'));
-  check('F5 父推 1h 新鲜：翻译关系也不拦（24h 窗内放行）',
+  check('F5 父推 1h 新鲜：翻译关系也不拦（30d 窗内放行）',
     f5.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
     && f5.stage2DataToSave.parsed_output.pass === true,
     f5.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
@@ -470,13 +479,14 @@ async function main() {
     && f7.stage2DataToSave.parsed_output.pass === true,
     f7.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
 
-  // F8 与 C102 并存：币安借壳票（C102 无条件拦）+ 关系答案同票 → 双 override 各落审计键
+  // F8 与 C102 窗分离并存（2026-10-29 리핀裁定后）：币安借壳票父推 2.87d——C102
+  // （24h 无条件）照落；C103 通用窗 30d 内不落 → 此形状=单 C102 拦截
   const f8 = mapStandardAnswers(
     { ...makeBaiAnswers(), parent_relationship: { choice: 'translation_or_repost' } },
     makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'));
-  check('F8 C102+C103 并存：binanceCorpus 无条件 + 关系臂双落，timing older',
+  check('F8 C102 落 + C103 30d 窗内不落（窗分离）：binanceCorpus 无条件拦 lagSec=247835，关系臂 null，timing older（C102 单独驱动）',
     f8.stage1DataToSave.parsed_output.jev.staleParentOverride?.lagSec === 247835
-    && f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === 247835
+    && f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null
     && f8.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
     { c102: f8.stage1DataToSave.parsed_output.jev.staleParentOverride, c103: f8.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
 
@@ -563,16 +573,25 @@ async function main() {
   check('G3 Jev 判 older：豁免票照拦（effectiveTiming=older，不翻案）',
     g3.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older', g3.stage1DataToSave.parsed_output.jev.effectiveTiming);
 
-  // G4 C102 刻意不豁免 + C103 异主体父推不豁免（BAI 防洗白）：binanceCorpus 票
-  // issuerSelfLaunch 传入 → staleParentOverride 照打（C102 无 gate）；C103 的
-  // 豁免收紧为同主体链父推——BAI 父推作者 binancezh ≠ 主推作者（参赛小号），
-  // 「翻译别人老内容」不豁免，staleRelParentOverride 照打
+  // G4 C102 刻意不豁免（BAI 防洗白）：binanceCorpus 票 issuerSelfLaunch 传入 →
+  // staleParentOverride 照打（C102 无 gate）；BAI 父推 2.87d 在 C103 新 30d 窗内
+  // 本就不触（与 F8 窗分离同口径；「异主体父推不豁免」语义由 G4b >30d 形状锁定）
   const g4 = mapStandardAnswers({ ...makeBaiAnswers(), parent_relationship: { choice: 'translation_or_repost', probabilities: { translation_or_repost: 0.6 } } },
     { ...makeContext(baiToken, makeBaiTwitter(BAI_PARENT_SEC), 'direct_tweet'), issuerSelfLaunch: { screenName: 'zhuifei008', symbol: 'BAI' } });
-  check('G4 C102 无豁免 + C103 异主体父推照拦（BAI 形状）',
+  check('G4 C102 无豁免照打 + C103 30d 窗内不落（BAI 现场 2.87d）',
     g4.stage1DataToSave.parsed_output.jev.staleParentOverride !== null
-    && g4.stage1DataToSave.parsed_output.jev.staleRelParentOverride !== null,
+    && g4.stage1DataToSave.parsed_output.jev.staleRelParentOverride === null,
     { c102: g4.stage1DataToSave.parsed_output.jev.staleParentOverride, c103: g4.stage1DataToSave.parsed_output.jev.staleRelParentOverride });
+  // G4b C103 豁免收紧反证：异主体父推 >30d——issuerSelfLaunch 在场也不豁免
+  // （翻译别人 34d 老内容照拦；同主体链豁免见 G1b；文本改掉 → isSameSourceParent
+  // 三证皆缺保守不豁免）
+  const g4bTwitter = faDeclTwitter();
+  g4bTwitter.website_tweet.in_reply_to = { created_at: twitterDate(FA_ANCHOR - FA_DECL_LAG), text: '别人的 34 天老新闻推（异主体：文本不同头且无作者证）' };
+  const g4b = mapStandardAnswers(makeFireantAnswers(), { ...makeContext(faToken, g4bTwitter, 'direct_tweet'), issuerSelfLaunch: { screenName: 'fireant_korea', symbol: '불개미' } });
+  check('G4b C103 异主体父推 >30d 照拦（豁免只收同主体链，lagSec=2934416）',
+    g4b.stage1DataToSave.parsed_output.jev.staleRelParentOverride?.lagSec === FA_DECL_LAG
+    && g4b.stage1DataToSave.parsed_output.jev.effectiveTiming === 'older',
+    g4b.stage1DataToSave.parsed_output.jev.staleRelParentOverride);
 
   // G5 源码口径：豁免 gate 两处在位 + C102 调用无 gate + analyzer 传参 +
   // timing 题持续运动锚 + impact 反锚⑥（J1.137 三落点锁）
@@ -627,12 +646,12 @@ async function main() {
     && mapperSrc.includes('function overrideStaleParentTiming(binanceCorpus'), null);
   const questionsSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/llm/jev-questions.mjs'), 'utf8');
   const analyzerSrc = readFileSync(join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
-  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.121=C190 混混猫案实体题补专名即实体锚（用户裁定「not_entity 是『不是实体』，自创社区 mascot 名也是实体名字，不应该因为这个理由拦截；看的是性质，所以退役了 new_entity 门」：名字被用作特定主体称谓/专名（社区名/mascot 名/角色名/外号，「XX社区」式搭配在场）即映射该主体按类型轴评，无论自创/知名/语料是否陈述命名行为；not_entity 只留给泛称词无专名搭配+无 C174 命名故事陈述；mapper 零改动）；J1.120=C189 全量回归六裁定批：C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」——事件陈述句名=口号类落词句题按三因素评+事件承载臂重要度门槛（民族级/全球级才够，平台级/媒体级露出不够）+ip_reuse 原生热点锚（C129 彪弟）+mapper 恢复词句门拦截；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题 image_depicts_name 同域非演绎反锚（ATM 案）；J1.114=C185 实体题题面精炼去重；J1.113=C184 实体题类型轴重构：unknown 断代 unacceptable_type（类型轴不评认知度）+new_entity 删桶+实体类型门恢复拦截；J1.112=C183 web3_user_* 全族断代 bsc_meme_user_*+评估主体收窄；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact + empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+题集残留噪声清理；J1.108=C178 宣告采信豁免措辞强化（发币+宣告并置即币名承载）+关联题删 semantic 残留句；J1.107=W 吸引力题 Choice 弱中强三桶（用户裁定）；J1.106=C175b 双锚边界收口（fit 空口号 vs 成型叙事+实体陈述句反锚，TREE+币安上电视案）；J1.105=C175 实体题性质定义锚+fit 题事件本体分量锚（京小安+OK❌ 案）；J1.104=C174 实体题 new_entity/not_entity 补「被命名+被讲故事的故事主体」锚（TREE/BNB Tree 案）；J1.103=C172 品牌劫持轴整轴退役（删 brand_mismatch 桶+预检+punExempt，实体题回五桶）；J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79=事件分改 fit；J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 24h 窗与审计键',
+  check('C5 C103 源码口径（题面/门控/接线三点锁）：版本 bump（J1.121=C190 混混猫案实体题补专名即实体锚（用户裁定「not_entity 是『不是实体』，自创社区 mascot 名也是实体名字，不应该因为这个理由拦截；看的是性质，所以退役了 new_entity 门」：名字被用作特定主体称谓/专名（社区名/mascot 名/角色名/外号，「XX社区」式搭配在场）即映射该主体按类型轴评，无论自创/知名/语料是否陈述命名行为；not_entity 只留给泛称词无专名搭配+无 C174 命名故事陈述；mapper 零改动）；J1.120=C189 全量回归六裁定批：C96 币安上电视追裁「先实体门再 phrase 门，要不被实体拒绝要不被口号拒绝」——事件陈述句名=口号类落词句题按三因素评+事件承载臂重要度门槛（民族级/全球级才够，平台级/媒体级露出不够）+ip_reuse 原生热点锚（C129 彪弟）+mapper 恢复词句门拦截；J1.119=C188 ①有来由补事件承载臂（影响力巨大/情感触动极强的事件本身承载口号——中国人能飞箭体五大字）；J1.118=C188 事件陈述臂退役（币安上电视=具体事件形状归实体门域，词句题不先验拦）+J1.117=C188 主体符号锚（こんにちは 对日本群体喊话非客套）；J1.117=C187 对拍修复：词句题②臂补主体符号锚（C126 何一こんにちは正样本被「礼貌套话」臂误伤翻面，①②打架消除）；J1.116=C187 词句题三因素重构（①有来由门槛：普通用户喊的口号不能接纳 ②有感染力：Early 有/我要去滑雪无 ③名字形态；CRO 判例翻案=机构职位缩写臂退役）；J1.115=C186 演绎题 image_depicts_name 同域非演绎反锚（ATM 案）；J1.114=C185 实体题题面精炼去重；J1.113=C184 实体题类型轴重构：unknown 断代 unacceptable_type（类型轴不评认知度）+new_entity 删桶+实体类型门恢复拦截；J1.112=C183 web3_user_* 全族断代 bsc_meme_user_*+评估主体收窄；J1.110=C181 键名断代 event_quality_veto → web3_user_event_impact + empty_content 无名口号臂；J1.109=C179 豁免挪判轴级+题集残留噪声清理；J1.108=C178 宣告采信豁免措辞强化（发币+宣告并置即币名承载）+关联题删 semantic 残留句；J1.107=W 吸引力题 Choice 弱中强三桶（用户裁定）；J1.106=C175b 双锚边界收口（fit 空口号 vs 成型叙事+实体陈述句反锚，TREE+币安上电视案）；J1.105=C175 实体题性质定义锚+fit 题事件本体分量锚（京小安+OK❌ 案）；J1.104=C174 实体题 new_entity/not_entity 补「被命名+被讲故事的故事主体」锚（TREE/BNB Tree 案）；J1.103=C172 品牌劫持轴整轴退役（删 brand_mismatch 桶+预检+punExempt，实体题回五桶）；J1.102=C171 形象载体轴整轴退役（删 web3_user_entity_visuality/event_influence 题集 12→10）；J1.91=C154 时效体系清理；J1.90=C152 MEMES fit 锚；J1.89=C151 哭哭奶龙 wrong_entity 修正；J1.88=C150 删 event_institution_routine 桶；J1.87=C145 删 routine 桶；J1.83=C141 event_subject_entity 题退役（判据并入 event_fit unfit 桶+门一般化 web3FitMassBlock：sf+fit<0.5 全域拦）；J1.82=C140 圈层可达性桶退役并入 event_fit unfit；J1.81=C139 名字三轴重构；J1.80=C138 超IP来源判据；J1.79=事件分改 fit；J1.53=C122 门名断代号；J1.52=C121 用户视角批次一；J1.47=C114 名字门通用梗缩写锚；J1.46=C113 找角度判轴+token_ip_reuse 边界；J1.45=C110 扫描后裁定 dim2 同轴锚删除+gimmick 扩全域；J1.44=C110 合桶+mem 瘦身；J1.43=C109 题集收敛）+ 条件题 parentRelationship 门 + analyzer hasReplyParent 接线 + mapper 30d 窗与审计键（2026-10-29 리핀案裁定 24h→30d）',
     questionsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.150'")
     && questionsSrc.includes('...(parentRelationship ? {')
     && questionsSrc.includes('parent_relationship:')
     && analyzerSrc.includes('parentRelationship: hasReplyParent(twitterInfo)')
-    && mapperSrc.includes('PARENT_REL_STALE_SEC = 24 * 3600')
+    && mapperSrc.includes('PARENT_REL_STALE_SEC = 30 * 86400')
     && mapperSrc.includes('function overrideStaleRelParentTiming(answers')
     && mapperSrc.includes('staleRelParentOverride,'), null);
 

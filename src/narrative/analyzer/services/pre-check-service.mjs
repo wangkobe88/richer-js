@@ -46,7 +46,8 @@ const NON_EXEMPT_TWEET_FRESH_SEC = 300;
 // CZ 1299 万粉官宣推 3.47d / Dexerto 20d 形状，同簇已发 ≥5 票=用烂）回落非豁免桶
 // 300s 判定（此形全槽位必 ≥300s → expired_tweet 拦，不烧 Jev 配额）。主推 ≤24h
 // （啾啾 8.8h「发现得晚」窗口内）不依赖载体照豁免——C74 立案原型零主从结构。
-// 窗对齐 C102/C103 PARENT_REL_STALE_SEC（同窗三槽位：父推位/website 位/主推位）。
+// 窗对齐 C102 BINANCE_PARENT_STALE_SEC 24h（同窗三槽位：父推位/website 位/主推
+// 位；C103 载体关系臂 2026-10-29 裁定放宽 30d，主推主从结构证据窗维持 24h）。
 // C132（2026-10-20 混混猫案 0xb10b2c02…7777）回落拦适用集收窄为「高用烂风险
 // 作者」（isHighWearRiskAuthor，见 tweet-type-classifier）：时效豁免四类框架
 // ①超级IP新鲜推豁免 ②超级IP/巨触达(粉≥50万)旧推无载体=用烂拦（本门现行形状）
