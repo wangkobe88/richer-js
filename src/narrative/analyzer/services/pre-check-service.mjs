@@ -6,7 +6,7 @@
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
-import { classifyTweetType, THRESHOLDS, isHighWearRiskAuthor } from './tweet-type-classifier.mjs';
+import { classifyTweetType, THRESHOLDS, isHighWearRiskAuthor, isSuperIPSAuthor } from './tweet-type-classifier.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -54,6 +54,19 @@ const NON_EXEMPT_TWEET_FRESH_SEC = 300;
 // ——被发现需要时间+触达有限用不烂；粉缺失时注册表/名单命中仍拦 fail-保守）
 // ④angle_seeking 等非豁免桶 300s 拦。第③类上界由 C75 mapper 30d 软锚管。
 const DIRECT_TWEET_STALE_SEC = 24 * 3600;
+
+// C255（2026-10-29 dog 案 0x0c83d9de98d583a1f14accc1910c77dad0647777 用户裁定）：
+// S 级 super IP（isSuperIPSAuthor：注册表 tier='S'，何一/CZ/币安官方/币安公告/
+// 币安中文/BNB Chain/OKX/马斯克/Vitalik/Trump/白宫）源头本体年龄界独立成档
+// 30min——「发现得晚」豁免理据（C74 啾啾 8.8h：web2 素材传播慢、被狙击者发现
+// 需要时间）对发推即被狙击的 S 级不成立：这类账号的推 30 分钟内必出第一波蹭
+// 点票，>30min 的裸源头=已被反复利用形状（现场：@binance 00:00 发推、07:04
+// 才发币 lag 7.08h 无载体，同推早用过无数轮）。300s 太紧（热点推→构思→发币
+// 要几分钟）、6h/24h 太久（用户裁定「半个小时，但 6h/24h 实在太久」）。边界
+// 与 24h 臂同款严格 >（恰 1800s 放）；父子/主从结构臂照旧（≤24h 新载体在场=
+// 新解读层正在发生 → 豁免维持，载体新鲜度由载体自身判定）；非 S 作者维持
+// 24h 界不动（③类慢热臂 four_meme_Fora tier A 原型零影响——S 集不含 A 级）。
+const SUPER_IP_SOURCE_STALE_SEC = 30 * 60;
 
 // C120（2026-10-19 f8ab/Burn N Burn 案 0xf8abd6a6bdc0d87291b4f79abc6188c48a807777
 // 用户裁定方案 B「量级豁免轴」）：interpretive_reply 桶巨粉作者豁免——classifyTweetType
@@ -544,11 +557,17 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
           // C104：direct_tweet 豁免资格判定（源头本体旧须有主从结构，见文件头
           // DIRECT_TWEET_STALE_SEC 注释）。staleDirectLagSec 回落形状时落 details
           // 审计（非回落恒 null 不序列化）；主推 created_at 缺失 fail-open 豁免照旧。
+          // C255：S 级 super IP 源头年龄界独立成档 30min（SUPER_IP_SOURCE_STALE_SEC，
+          // 见文件头注释）——回落判定集相应扩为 isHighWearRiskAuthor ∪ S 级注册表
+          // （S 级命中即使粉 <50万 也拦：何一小号被盯得一样紧）。
           let directExempt = classification.type === 'direct_tweet';
           let staleDirectLagSec = null;
+          let staleBoundSec = null;
           if (directExempt) {
             staleDirectLagSec = _tweetLagSec(twitterInfo, refNow);
-            if (staleDirectLagSec !== null && staleDirectLagSec > DIRECT_TWEET_STALE_SEC) {
+            const superIPS = isSuperIPSAuthor(twitterInfo);
+            staleBoundSec = superIPS ? SUPER_IP_SOURCE_STALE_SEC : DIRECT_TWEET_STALE_SEC;
+            if (staleDirectLagSec !== null && staleDirectLagSec > staleBoundSec) {
               const hasFreshCarrier = [twitterInfo.website_tweet, twitterInfo.quoted_status, twitterInfo.retweeted_status]
                 .some(t => { const lag = _tweetLagSec(t, refNow); return lag !== null && lag <= DIRECT_TWEET_STALE_SEC; });
               if (!hasFreshCarrier) {
@@ -558,9 +577,9 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
                 // 巨触达作者的旧推一轮蹭票即用烂（C104 CZ 案形状保持）；中等偏上
                 // 作者（four_meme_Fora 23917 粉活动 recap 11d）是慢热叙事：被发现
                 // 需要时间+触达有限用不烂，第③类豁免交 Jev 软评（C75 30d 锚管上界）
-                if (isHighWearRiskAuthor(twitterInfo)) {
+                if (isHighWearRiskAuthor(twitterInfo) || superIPS) {
                   directExempt = false;
-                  console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免失效: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s>24h 且无 ≤24h 新载体（主从结构缺失，高用烂风险作者旧推用烂形状），回落非豁免桶判定`);
+                  console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免失效: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s 超龄界 ${staleBoundSec}s${superIPS ? '（C255 S级super IP：发推即被狙击，30min 外裸源头=已被反复利用）' : ''} 且无 ≤24h 新载体（主从结构缺失${superIPS ? '' : '，高用烂风险作者旧推用烂形状'}），回落非豁免桶判定`);
                 } else {
                   console.log(`[NarrativeAnalyzer] 预检查规则2.1豁免（C132 第③类）: direct_tweet 源头本体 ${Math.round(staleDirectLagSec)}s>24h 无新载体，但作者中等偏上触达非巨粉（@${twitterInfo.author_screen_name}）——慢热叙事发酵需要时间且用不烂，豁免交 Jev 软评（C75 30d 锚管上界）`);
                 }
@@ -601,7 +620,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
             if (allExpired) {
               const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
               console.log(`[NarrativeAnalyzer] 预检查触发: 发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒 (非豁免桶 type=${classification.type}, 主推文: ${mainTweetDate})`);
-              return buildPreCheckResult('low', `发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒（推文类型=${classification.type}${staleDirectLagSec !== null ? `，源头本体 ${Math.round(staleDirectLagSec)}s>24h 无新鲜载体` : ''}，主推文：${mainTweetDate}），叙事时效已过`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20, tweetType: classification.type, freshWindowSec: NON_EXEMPT_TWEET_FRESH_SEC, ...(staleDirectLagSec !== null ? { staleDirectLagSec: Math.round(staleDirectLagSec) } : {}) });
+              return buildPreCheckResult('low', `发币时所有推文距代币创建已超过${NON_EXEMPT_TWEET_FRESH_SEC}秒（推文类型=${classification.type}${staleDirectLagSec !== null ? `，源头本体 ${Math.round(staleDirectLagSec)}s 超龄界 ${staleBoundSec ?? DIRECT_TWEET_STALE_SEC}s（C255 S级=30min/其余=24h）无新鲜载体` : ''}，主推文：${mainTweetDate}），叙事时效已过`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20, tweetType: classification.type, freshWindowSec: NON_EXEMPT_TWEET_FRESH_SEC, ...(staleDirectLagSec !== null ? { staleDirectLagSec: Math.round(staleDirectLagSec), staleBoundSec: staleBoundSec ?? DIRECT_TWEET_STALE_SEC } : {}) });
             }
           }
         }

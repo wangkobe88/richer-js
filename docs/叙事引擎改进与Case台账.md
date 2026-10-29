@@ -54,6 +54,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C255 S 级 super IP 裸源头年龄界 24h→30min——direct_tweet 豁免「发现得晚」理据对发推即被狙击的账号不成立（dog 案，2026-10-29 用户裁定「super IP S 级的语料，除非有父子解读结构，不然不能豁免 300 秒」+追裁定「再多宽限一些，例如半个小时，但 6h/24h 实在太久」）★
+
+- **案发**：dog `0x0c83d9de98d583a1f14accc1910c77dad0647777`（flap 平台，symbol=dog，10-29）。语料唯一来源=@binance 主号（注册表 tier S，1611 万粉）10-29 00:00:05 推文「Alright Binancians, how fast did you spot the dog?」（雪花解码交叉验证），代币 07:04:38 创建（block 130430033）——**主推 lag 25474s≈7.08h**，无父推/无 website/quoted/retweeted 载体。分桶 direct_tweet（高影响力作者臂）→ C104 主从门 lag<24h 未触发 → 豁免交 Jev 软评 effectiveTiming=within_7d → **rating high(3)**（Web3 口味契合 89 A 档），v58（12ef2c48）07:09 买入 07:16 P11 卖出。用户裁定：@binance 这类账号发推即被狙击，7h 后才发的币所蹭的推「早就被人用了无数次」——啾啾式「web2 素材发现得晚」的豁免理据（C74 41.7 万粉 lag 8.8h 立法）对 S 级不成立。
+- **裁定**：super IP **S 级**（何一/CZ/币安官方等）语料的 direct_tweet 豁免加源头本体年龄界；初议 300s 后追裁定放宽为 **30min**（300s 太紧——热点推→构思→发币要几分钟；6h/24h 太久）；**父子解读结构在场照旧豁免**（≤24h 新载体=新解读层正在发生，其新鲜度由载体自身判定）。
+- **处置（precheck 纯规则层，不 bump 题集版本）**：`SUPER_IP_SOURCE_STALE_SEC = 30*60`（pre-check-service，与 DIRECT_TWEET_STALE_SEC=24h 并列）；适用集=`isSuperIPSAuthor`（tweet-type-classifier 新导出：SUPER_IP_REGISTRY **tier='S'** 命中——cz_binance/heyibinance/heyi1f/binance/binancezh/binanceannounce/bnbchain/okx/elonmusk/vitalikbuterin/realdonaldtrump/potus/whitehouse）。direct 桶源头年龄界 per-作者取档：S 级 1800s / 其余 24h（边界同款严格 `>`，恰 1800s/24h 放）；超界无 ≤24h 新载体 → 回落非豁免桶判定=expired_tweet 拦（回落判定集扩为 isHighWearRiskAuthor ∪ S 级——S 级命中即使粉 <50万 也拦，何一小号被盯得一样紧）；details 审计新增 `staleBoundSec`（回落形状落值，S=1800/其余=86400）。
+- **刻意的非目标（零影响锚）**：①非 S 作者 24h 界不动——C74 啾啾原型（非注册表 41.7 万粉 lag 8.8h）与 C132③ 慢热臂（four_meme_Fora 注册表 **tier A** 23917 粉 11d）全保留（S 集不含 A 级）；②载体臂窗维持 24h 不动（C255 只收源头界）；③C120 interpretive 巨粉豁免不动（回复/引用形状=父子解读结构本体，按主推自身年龄判）；④触达量轴 isHighWearRiskAuthor（粉≥50万）不动——S 级轴与其正交（注册表 tier 维度 vs 粉数维度）。
+- **单测**：_test_precheck_tweet_freshness_bucket 新增 N 节 14 断言（N1 dog 案现场反证 @binance 7.08h 裸推拦+staleBoundSec=1800 审计 / N2-N4 边界三元组 25min 放/恰 1800 放/1801 拦 / N5-N8 载体救援臂四态（13s website/1h quoted/恰 24h 放/24h+1s 拦）/ N9-N11 对照锚（非注册表 41.7 万粉放、tier A 放、S 级 20 万粉拦）/ N12-N13 判定函数直测 S/A/未收录/大小写 / N14 源码锁）+I1 import 锁更新；全量 112 断言过。N11 原用 heyi1f 撞 twitterBlacklist 先拦（黑名单规则先于 2.1）改 binancezh——heyi1f 在黑名单本身即先拦记录在案。
+- **观察点**：①182 部署须重启承载进程生效（案发时 v58、现行 v59 进程均持 C255 前代码；下次换车/重启带上）；②S 集=注册表现收 13 号，未注册的巨触达账号（Dexerto 形状 145 万粉）仍走 24h 触达轴——是否并入 30min 档攒案再裁；③30min 窗内放的 S 级票（真狙击即时形状）触发率与结局攒批观察；④回归对拍 dog 票预期 low（expired_tweet）须 182 跑（fixtures 已收录，expect 已按 C255 意图手工设定）。
+
 ### C254 GMGN 名字票的「借壳知名圈内产品」划界——知识库概念条目补裁定（GMGN 案，2026-10-28 用户裁定「除非它近期有重大新闻，否则以它为名字不行」+追裁定「它确实有近期非常大的新闻」）★
 
 - **案发**：GMGN `0x699a81a93f55d52691f20a9818d8a042e6cd7777`（flap 平台，symbol/name=GMGN，10-28）。零自有语料票（twitter_info NULL/classified_urls 全空）——语料全靠 C77 搜索兜底（Top 桶：官方晨推/10-27 Callout Dashboard 上线/10-23 GGC Season 1 推文）；知识库 `concept:gmgn` name_exact 命中注入，但旧条目只有平台背景描述、无名字划界。v46 live（6581c288）07:55:26 评级 **high**（event 73/rel 20/qual 14.51，quality veto argmax=none）——event_fit strong 0.49 + timing within_7d 0.54 撑起，07:57:40 买入 0.006 BNB（3 卡）。用户手工卖出（查询时 trades 仅买入行）。

@@ -253,7 +253,7 @@ Token URL → URL 分类（含 IPFS metadata 解包——meta 任意 http(s) URL
 | 图载体豁免（C59） | 图证据+0&lt;关联≤10+name_entity_memeability≥3 → 豁免 Stage3 关联截断（分照常计入） | C59 |
 | 名图一致豁免（J1.30） | 图证据+name_image_consistency（条件题）合并≥0.5+0&lt;关联≤10 → 豁免关联截断+量级门两拦截位（D/E 档臂+事件分不足臂）；答案缺失 fail-closed | C65/C86 |
 | 找角度时效门（C68） | angle_seeking/interpretive_reply 载体推 lag>6h → mapper 时效归 0（mapper-only；precheck 锚回退 tokenCreatedAtSec） | C68 |
-| 推文时效分桶（C74+C104+C120） | 非豁免桶（angle/interpretive/unknown）lag≥300s 拦；direct_tweet（粉≥5000 或 赞≥500 或 转≥100）豁免交 Jev 软评——**主从结构门：主推 lag>24h 须 website_tweet/quoted/retweeted 任一 ≤24h 新载体才豁免**，无载体裸旧推回落 300s 拦；C120：interpretive 作者粉≥5000 且主推 lag≤24h → 跳过硬拦（粉丝缺失 fail-保守）；主推 created_at 缺失 fail-open | C74/C104/C120 |
+| 推文时效分桶（C74+C104+C120+C255） | 非豁免桶（angle/interpretive/unknown）lag≥300s 拦；direct_tweet（粉≥5000 或 赞≥500 或 转≥100）豁免交 Jev 软评——**主从结构门：主推 lag>24h 须 website_tweet/quoted/retweeted 任一 ≤24h 新载体才豁免**，无载体裸旧推回落 300s 拦；**C255：S 级 super IP（注册表 tier='S'：何一/CZ/币安官方/马斯克等）源头年龄界独立成档 30min**——发推即被狙击「发现得晚」理据不成立，>30min 裸源头回落拦（S 级命中即拦不看粉；父子/载体臂照旧豁免；tier A 与非 S 维持 24h）；C120：interpretive 作者粉≥5000 且主推 lag≤24h → 跳过硬拦（粉丝缺失 fail-保守）；主推 created_at 缺失 fail-open | C74/C104/C120/C255 |
 | 叙事源头陈旧门（C75） | direct_tweet **主推**（仅主推）距 token 创建锚 >30d → mapper 时效归 0；angle/interpretive/unknown 不触达；锚缺失 fail-open | C75 |
 | 图文名不符拼写门（C78） | 币名 CJK≥3 字（`isCjkLongName` 代码前提）∧图在场 → 条件题 `image_name_text_match` 三桶：**one_char_diff**（图内与币名等长恰一位差的独立文字段，**次数不构成豁免**）≥0.5 → Stage3 截断；exact_match（含子串）/unrelated_or_none 不拦；答案缺失 fail-open（C243 图片直连起判据源=看图条件题，纯代码门已退役防复活） | C78/C108/C243 |
 | E 类感染力折损（J1.36） | 判据源=bsc_meme_user_event_fit：`(strong_fit+fit) < 0.5` → 仅 category=E `tierScore+effSpread ×0.5`（时效不折）；≥0.5 原公式；缺失 fail-open 不折 | C93 |

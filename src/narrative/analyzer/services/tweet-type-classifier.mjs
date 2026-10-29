@@ -152,6 +152,25 @@ export function isHighWearRiskAuthor(twitterInfo) {
 }
 
 /**
+ * C255 S 级 super IP 作者判定（dog 案 0x0c83d9de98d583a1f14accc1910c77dad0647777，
+ * 2026-10-29 用户裁定）——SUPER_IP_REGISTRY tier='S' 命中（何一/CZ/币安官方/
+ * 币安公告/币安中文/BNB Chain/OKX/马斯克/Vitalik/Trump/白宫）。这类账号发推即
+ * 被狙击，「发现得晚」豁免理据（C74 啾啾 web2 素材传播慢）对其不成立——precheck
+ * 规则 2.1 direct 豁免源头年龄界独立成档 30min（SUPER_IP_SOURCE_STALE_SEC）。
+ * 与 isHighWearRiskAuthor 的触达量轴（粉≥50万）正交：S 级命中即收紧即使粉 <50万
+ * （何一小号被盯得一样紧）；tier A（four_meme_Fora 23917 粉③类原型）不在此集
+ * 零影响。粉已知时只看注册表 tier 不看粉（触达轴归 isHighWearRiskAuthor）。
+ * @param {Object} twitterInfo - 主推数据（author_screen_name）
+ * @returns {boolean} true=S 级 super IP（源头年龄界 30min 适用集）
+ */
+export function isSuperIPSAuthor(twitterInfo) {
+  const screenName = twitterInfo?.author_screen_name;
+  if (!screenName) return false;
+  const entry = SUPER_IP_REGISTRY[screenName.toLowerCase()];
+  return entry?.tier === 'S';
+}
+
+/**
  * 检查是否为解读型回复推文
  * @param {Object} twitterInfo
  * @returns {Object|null} 分类结果或 null

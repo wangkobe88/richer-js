@@ -1656,6 +1656,21 @@
       "observe": "A 臂解除后不撞名、条件题不问；第二层 baseless 0.62 候拦面（喊单式载体推）——仍拦 low 时 reason 应为其它阻断；翻正走 update-expect 留痕",
       "expectBecause": "C252 A 臂解除蓝筹去重不再拦，182 重析翻正 high 76.09（event:W；baseless 候拦面未命中）",
       "expectSince": "2026-10-28"
+    },
+    {
+      "caseId": "C255",
+      "symbol": "dog",
+      "addr": "0x0c83d9de98d583a1f14accc1910c77dad0647777",
+      "expect": {
+        "rating": "low",
+        "precheckRuleIncludes": [
+          "expired_tweet"
+        ]
+      },
+      "note": "S级super IP裸源头年龄界24h→30min：@binance 10-29 00:00:05 发推「how fast did you spot the dog?」、07:04:38 才发币（lag 7.08h 无载体）——C255 前该形状豁免交 Jev 软评 within_7d rating high(3)，裁定发推即被狙击 30min 外裸源头=已用烂。基线行=旧代码产物 rating high+event:D（--add 快照），expect 已按 C255 意图手工设定。",
+      "addedAt": "2026-10-29",
+      "expectBecause": "C255 裁定（2026-10-29 用户）：「super IP S级的语料，除非有父子解读结构，不然不能豁免」+追裁定「再多宽限一些，例如半个小时，但6h/24h实在太久」——断言 low + expired_tweet 拦截位（S 级源头界 30min，父子/载体臂在场时另议）",
+      "expectSince": "2026-10-29"
     }
   ]
 }

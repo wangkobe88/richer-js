@@ -366,7 +366,84 @@ async function main() {
       'M9a pre-check-service 接线 isHighWearRiskAuthor（C132 注释在）');
     const ttcM = src('src/narrative/analyzer/services/tweet-type-classifier.mjs');
     assert(ttcM.includes('MEGA_REACH_FOLLOWERS: 500000') && ttcM.includes('export function isHighWearRiskAuthor'),
-      'M9b classifier MEGA_REACH_FOLLOWERS=500000 + 导出判定函数');
+      'M9b classifier MEGA_REACH_FOLLOWERS: 500000 + 导出判定函数');
+  }
+
+  // ═══ N. C255 S 级 super IP 源头年龄界 30min（dog 案 0x0c83…7777，2026-10-29）═══
+  console.log('══ N. C255 S 级 super IP 30min 界 ══');
+  {
+    const DAY = 24 * 3600;
+    const { isSuperIPSAuthor } = await import('../src/narrative/analyzer/services/tweet-type-classifier.mjs');
+    // dog 案现场形状：@binance（注册表 tier S）1611 万粉主推 lag 25474s(7.08h) 裸推无载体
+    // ——C255 前该形状豁免交 Jev 软评（effectiveTiming=within_7d → rating high）
+    const dogLag = 25474;
+    const dogMain = {
+      type: 'tweet',
+      text: 'Alright Binancians, how fast did you spot the dog? unit test',
+      author_screen_name: 'binance', author_followers_count: 16111786,
+      metrics: { favorite_count: null, retweet_count: null },
+      created_at: iso(ANCHOR_SEC - dogLag),
+    };
+    const rN1 = await run(makeTokenData(), dogMain);
+    assert(rN1?.details?.ruleName === 'expired_tweet' && rN1?.details?.tweetType === 'direct_tweet',
+      'N1 dog 案现场反证：@binance(S级) 1611 万粉 lag 7.08h 裸推 → 拦（发推即被狙击，30min 外=已用烂；C255 前豁免 rating high）',
+      JSON.stringify(rN1?.details));
+    assert(rN1?.details?.staleDirectLagSec === dogLag && rN1?.details?.staleBoundSec === 30 * 60,
+      'N1b staleDirectLagSec/staleBoundSec 审计落值（S 级 1800s 界）',
+      `${rN1?.details?.staleDirectLagSec}/${rN1?.details?.staleBoundSec}`);
+    // 边界三元组：宽限窗内放 / 恰 1800 放（严格 >，K3 同口径）/ 1801 拦
+    const rN2 = await run(makeTokenData(), { ...dogMain, created_at: iso(ANCHOR_SEC - 25 * 60) });
+    assert(rN2 === null, 'N2 S 级 lag=25min → 放（宽限窗内：狙击即时→构思→发币形状）',
+      JSON.stringify(rN2?.details?.ruleName));
+    const rN3 = await run(makeTokenData(), { ...dogMain, created_at: iso(ANCHOR_SEC - 30 * 60) });
+    assert(rN3 === null, 'N3 S 级 lag 恰 1800s → 放（严格 >，对齐 24h 臂 K3 锚）',
+      JSON.stringify(rN3?.details?.ruleName));
+    const rN4 = await run(makeTokenData(), { ...dogMain, created_at: iso(ANCHOR_SEC - 30 * 60 - 1) });
+    assert(rN4?.details?.ruleName === 'expired_tweet', 'N4 S 级 lag=1801s → 拦（宽限窗外回落非豁免判定）',
+      JSON.stringify(rN4?.details?.ruleName));
+    // 父子/主从结构救援臂：S 级 + ≤24h 新载体 → 豁免维持（新解读层自身新鲜度判定，窗不动）
+    const rN5 = await run(makeTokenData(), { ...dogMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - 13) } });
+    assert(rN5 === null, 'N5 S 级 7.08h + website_tweet 13s 新载体 → 放（父子解读结构豁免臂，C255 只收源头界不动载体臂）',
+      JSON.stringify(rN5?.details?.ruleName));
+    const rN6 = await run(makeTokenData(), { ...dogMain, quoted_status: { created_at: iso(ANCHOR_SEC - 3600) } });
+    assert(rN6 === null, 'N6 quoted_status 1h 新 → 放（载体臂覆盖 quoted 槽位）',
+      JSON.stringify(rN6?.details?.ruleName));
+    const rN7 = await run(makeTokenData(), { ...dogMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - DAY) } });
+    assert(rN7 === null, 'N7 载体恰 24h → 放（载体 ≤ 窗，K5 同口径）',
+      JSON.stringify(rN7?.details?.ruleName));
+    const rN8 = await run(makeTokenData(), { ...dogMain, website_tweet: { type: 'tweet', created_at: iso(ANCHOR_SEC - DAY - 1) } });
+    assert(rN8?.details?.ruleName === 'expired_tweet', 'N8 载体 24h+1s → 不算新载体 → 拦（K6 同口径）',
+      JSON.stringify(rN8?.details?.ruleName));
+    // 对照锚①：非注册表 41.7 万粉（<50万）同 lag → 放（C74 啾啾「发现得晚」立法原意保留）
+    const rN9 = await run(makeTokenData(), { ...dogMain, author_screen_name: 'ut_jiujiu_news', author_followers_count: 417000 });
+    assert(rN9 === null, 'N9 非注册表 41.7 万粉 lag 7.08h 裸推 → 放（非 S 且 <50万=③类主体，C255 零影响）',
+      JSON.stringify(rN9?.details?.ruleName));
+    // 对照锚②：注册表 tier A（four_meme_Fora 23917 粉）同 lag → 放（S 集不含 A 级，③类慢热臂零影响）
+    const rN10 = await run(makeTokenData(), { ...dogMain, author_screen_name: 'four_meme_Fora', author_followers_count: 23917 });
+    assert(rN10 === null, 'N10 注册表 tier A 23917 粉 lag 7.08h → 放（M1 慢热原型在 30min-24h 窗内维持豁免）',
+      JSON.stringify(rN10?.details?.ruleName));
+    // 对照锚③：S 级粉 <50万（heyi1f 小号同款形状，但 heyi1f 在 twitterBlacklist
+    // 先拦故用 binancezh）同 lag → 拦（S 级命中即收紧，触达轴之外独立）
+    const rN11 = await run(makeTokenData(), { ...dogMain, author_screen_name: 'binancezh', author_followers_count: 200000 });
+    assert(rN11?.details?.ruleName === 'expired_tweet', 'N11 S 级 20 万粉（<50万触达门）lag 7.08h → 拦（C255 回落集=S级∪高用烂，S 级小触达号被盯得一样紧）',
+      JSON.stringify(rN11?.details?.ruleName));
+    // 判定函数直测：S/A/未收录/空/大小写
+    assert(isSuperIPSAuthor({ author_screen_name: 'binance' }) === true
+      && isSuperIPSAuthor({ author_screen_name: 'heyibinance' }) === true
+      && isSuperIPSAuthor({ author_screen_name: 'heyi1f' }) === true
+      && isSuperIPSAuthor({ author_screen_name: 'cz_binance' }) === true
+      && isSuperIPSAuthor({ author_screen_name: 'Binance' }) === true,
+      'N12 isSuperIPSAuthor S 级四号 + 大小写归一=true');
+    assert(isSuperIPSAuthor({ author_screen_name: 'four_meme_fora' }) === false
+      && isSuperIPSAuthor({ author_screen_name: 'binanceus' }) === false
+      && isSuperIPSAuthor({ author_screen_name: 'ut_unknown' }) === false
+      && isSuperIPSAuthor({}) === false,
+      'N13 tier A（four_meme_fora/binanceus）/未收录/空=false');
+    // 源码口径锁：常量 + 接线
+    const pcsN = src('src/narrative/analyzer/services/pre-check-service.mjs');
+    assert(pcsN.includes('const SUPER_IP_SOURCE_STALE_SEC = 30 * 60;')
+      && pcsN.includes('isSuperIPSAuthor(twitterInfo)') && pcsN.includes('staleBoundSec'),
+      'N14 SUPER_IP_SOURCE_STALE_SEC=1800 常量 + 判定链接线源码锁');
   }
 
   // ═══ L. C120 interpretive_reply 巨粉豁免（f8ab/Burn N Burn 案）═══
@@ -444,8 +521,8 @@ async function main() {
   console.log('══ I. 源码口径 ═══');
   {
     const pcs = src('src/narrative/analyzer/services/pre-check-service.mjs');
-    assert(pcs.includes("import { classifyTweetType, THRESHOLDS, isHighWearRiskAuthor } from './tweet-type-classifier.mjs';"),
-      'I1 pre-check-service import classifyTweetType（C120 起兼 import THRESHOLDS 同尺豁免；C132 起兼 import isHighWearRiskAuthor）');
+    assert(pcs.includes("import { classifyTweetType, THRESHOLDS, isHighWearRiskAuthor, isSuperIPSAuthor } from './tweet-type-classifier.mjs';"),
+      'I1 pre-check-service import classifyTweetType（C120 起兼 import THRESHOLDS 同尺豁免；C132 起兼 import isHighWearRiskAuthor；C255 起兼 import isSuperIPSAuthor）');
     assert(pcs.includes('const NON_EXEMPT_TWEET_FRESH_SEC = 300;'),
       'I2 常量=300（relocate 旧买门口径）');
     assert(pcs.includes('lagSec < NON_EXEMPT_TWEET_FRESH_SEC'),
