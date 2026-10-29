@@ -43,7 +43,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
-- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，**v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑**）**
+- 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档全清 p11/all/max1，与 >=27 档合流=全市值段 -25 全清、-35 两档降为全清失败兜底重试层；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v57 `8774583d` 2026-10-29 06:32 UTC 起实跑）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
 
 ---
@@ -51,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T99 拱形回撤收紧 -25 下放低两档（卖腿 22→24：`<8.1` 与 `8.1-27` BNB 两档 -25 全清臂，p11/all/max1 与拱形族逐字同款；2026-10-29 用户指令「增加2个卖出臂 peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap >= 8.1 AND marketCap < 27 以及 peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap < 8.1」）
+
+- **案由（SPERM 高点回撤问询→裁定收紧）**：用户问 0x059019085d8899589e3863d08b284616db8e7777（v56 flap 税币）「为什么高点下跌 35% 止损臂没有触发」——查证：**触发了且票已全清**，只是执行腿挂 P4 名下。事实链：05:03:32 买 3 卡（fire 价锚 8.7427e-9）→ 05:04:39 峰 1.25253e-8（peakProfitPct=+43.27%）→ 05:05:31 价 7.649e-9 时 dd=-38.9% ≤ -35 ∧ mcap 7.65<8.1 ∧ peak≥10 → **拱形 -35 低档臂首真**建立 3.5s+5tick 确认窗 → 窗内 05:05:34 跌破 7.4 地板（mcap 7.3815 擦边）**P4 地板清仓臂（priority 4）也变真** → 05:05:35.249 fire（=首真+3500ms 毫秒吻合）重评全腿择优 **P4 以 priority 4<11 抢走执行名分**（两腿均 all 全清实质无差）→ 链上成交成本口径 -29.3%（dd 执行时已 -41.1%，比 -35 首真时深 6+ 点）。用户裁定把 -25 下放低两档收紧
+- **新臂语义**：与既有 >=27 档 -25 合流=**全市值段距峰回撤 25% 全清**；dd 单调下探时 -25 恒先于 -35 首真=确认窗（3.5s+5tick）前移——SPERM 案反事实 -25 首真 05:05:27（早 4s、价位高 ~25%）；**-35 两档保留为「-25 全清失败后的兜底重试层」**（max1 无论成败即耗，与止损臂 -35 vs P0 -50 纵深同构）；中档 8.1-27 与 T80 回撤锁盈（-15 卖 1 卡 cd300 p10）成梯队：-15 先评减 1 卡保 V 反余仓、深跌 -25 全清、-35 失败重试
+- **已知交互（观察点）**：P4 地板 7.4 恰在 -25 低档区间内，entryMarketCap 8-12 段票深跌时 -25/p11 与 P4/p4 同刻双真仍被 P4 抢名分（结果无差、腿名统计有遮蔽）；dd=fire 价锚起算与链上实价（税+冲击 ~17%）差异照旧
+- **部署链（零持仓换车）**：脚本 `create-v57.cjs`（5345620，克隆 v56 4ac10e23+插双腿，防呆=买腿 T98/T96/T95/T93 形状+refs v50/v10+T97/T80/拱形三腿锚定+-25 低档防重插，插后 24 卖腿）；v56 六票全平零持仓 → 06:31:52 UTC TERM 优雅停（PID 2285542，stop 顺序正常）→ v57 `8774583d-dd80-4226-9817-b16347245ee4` 06:32:21 UTC 起跑（PID 2372400，26 策略装载、ERROR=0、双 collector 正常）；零代码改动纯 config（三因子全在 FA）
+- **观察点**：①-25 触发率与被 V 反打脸率（7cat 案 -45 容忍的反面=收紧代价）②与 T80 -15 减 1 卡的梯队衔接（中档先减后清的余仓终局）③SPERM 同形状票的执行 dd 分布（-25 首真→fire 间确认窗损耗是否收窄到 ~3 点内）
 
 ### T98 人气门换键 holders→holdersExDust 剔尘埃口径（两臂同改：buy-v2 v49→v50 + buy-early-narrative v9→v10 + FA 新键 `holdersExDust`；2026-10-29 用户裁定「我认为还是极小持仓者剔除（这样不会让假活跃票进门），可以新搞一个因子，替换现有的 holders 因子」）
 
