@@ -537,6 +537,18 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-10-28 T84 市值量纲全局 BNB 切换新增入场锚（首买市值快照，市值地板卖臂
         // mcapFloor 冻结对照基准；commit 722cd8e 漏登记本白名单，T87 批次补）
         'entryMarketCap',
+        // 2026-10-29 T94 占总量比例两观察键（÷totalSupply 不受流通进度污染；
+        // 漏登记随 T98 批次补，详见 _test_top_holder_supply.cjs）
+        'top1HolderSupplyPct', 'top2HolderSupplyPct',
+        // 2026-10-29 T97 高点停滞减仓臂（距持仓期峰值秒数；详见 _test_sec_since_peak.cjs；
+        // 漏登记随 T98 批次补）
+        'secSincePeak',
+        // 2026-10-29 T98 剔尘埃人气键（净持仓按首价折算 ≥ holderDustBnb 的钱包数；
+        // 详见 _test_holders_ex_dust.cjs）
+        'holdersExDust',
+        // 2026-10-29 T93 top2 持有人门键（前两大净持仓合计 ÷ _circDen；漏登记随 T98
+        // 批次补，详见 _test_top2_holder_circ.cjs）
+        'top2HolderCircPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

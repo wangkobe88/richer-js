@@ -67,6 +67,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
     txVolumeU24h: factorResults.txVolumeU24h,
     holders: factorResults.holders,
+    // T98 剔尘埃口径人气（净持仓按首价折算 ≥ holderDustBnb 的钱包数；2026-10-29
+    // 假活跃票立件）——signals 页买入条件复盘用；旧 FA/历史信号无此键 → null 不掩盖
+    holdersExDust: factorResults.holdersExDust ?? null,
     // GMGN 用户净持仓占比实时值（2026-10-14 小王子案：TPAPre 快照不翻案换 FA 实时因子）——
     // signals 页/信号复盘直读；旧 FA 无此键 → null 不掩盖
     gmgnUserPct: factorResults.gmgnUserPct ?? null,
@@ -374,7 +377,7 @@ function getAvailableFactorIds() {
     'highestPriceSinceLastBuy', 'drawdownFromHighestSinceLastBuy',
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     'highestHolderCountSinceLastBuy', 'holderDrawdownFromHighestSinceLastBuy',
-    'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap', 'entryMarketCap',
+    'txVolumeU24h', 'holders', 'holdersExDust', 'tvl', 'fdv', 'marketCap', 'entryMarketCap',
     // 价格趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
     'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',

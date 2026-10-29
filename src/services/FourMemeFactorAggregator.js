@@ -153,6 +153,13 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   0xdf7a 82.0）+全量池 197 活跃票 peak≤0 最低 11%；N=10 含
                                  //   集中卖压形状（0xdf7a fire 帧 -531）排除）；复用
                                  //   _activityEvents 事件环，裁剪须条数保底（见 _pruneActivityEvents）
+    holderDustBnb: 0.002,       // holdersExDust 尘埃门 BNB 值（T98 2026-10-29 用户裁定
+                                 //   「极小持仓者剔除——这样不会让假活跃票进门」）：净持仓
+                                 //   按首可靠价折算 < 此值的钱包不算持有人。默认 0.002：
+                                 //   2× collector tick 尘门（0.001——刷 holder 钱包单笔刚
+                                 //   过 tick 门的最小成本档恰被剔）+ = perCardBNB 单卡仓位
+                                 //   （低于最小建仓单位的持仓=非认真参与）；显式 0=不剔
+                                 //   （holdersExDust 恒等 holders）。factorParams 可覆盖
     netBuyWinLongTrades: 100,   // tradesNetBuyRatioLongWin 净买长窗笔数（T88 2026-10-28
                                  //   用户裁定「全量买卖比没必要，检测一个趋势」——全史键
                                  //   tradesNetBuyRatio 断代换最近 M 笔尾窗；M=100 用户拍板
@@ -950,7 +957,21 @@ class FourMemeFactorAggregator extends EventEmitter {
         const priceReliable = !chainLate && priceBnb > 0 && !priceOutlier && bnbAmount >= this._fp.minPriceUpdateBnb;
         if (priceReliable) {
             state._relPriceBnb = priceBnb;
-            if (state._relFirstPriceBnb === 0) state._relFirstPriceBnb = priceBnb; // 涨幅基准：首值冻结（priceBnb>0 由 priceReliable 保证，0 哨兵安全）
+            if (state._relFirstPriceBnb === 0) { // 涨幅基准：首值冻结（priceBnb>0 由 priceReliable 保证，0 哨兵安全）
+                state._relFirstPriceBnb = priceBnb;
+                // T98 尘埃门固化：holderDustBnb ÷ 首可靠价 = token 域常量（此后不变——增量
+                // 维护归纳等价的前提；按首价折算=「投入」口径，价格涨跌不扰动 holder 计数）。
+                // 固化前已有钱包按 T=0 计数 → 此刻一次性全 map 重数纠正（每 token 一生恰一次
+                // O(map)，P2a 每 tick 重数热点不受影响；_walletNetTokens 全史不裁 map 完整）。
+                // holderDustBnb=0 显式关 → 不固化不重扫，恒等 holders
+                if (this._fp.holderDustBnb > 0) {
+                    state._holderDustTokens = this._fp.holderDustBnb / priceBnb;
+                    state.holderCountExDust = 0;
+                    for (const _net of state._walletNetTokens.values()) {
+                        if (_net > state._holderDustTokens) state.holderCountExDust++;
+                    }
+                }
+            }
 
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
@@ -1133,6 +1154,14 @@ class FourMemeFactorAggregator extends EventEmitter {
                 // tick 清零重数 O(map)（130 万 tick 回放 x 万钱包 map 的线性热点）
                 if (_prev <= 0 && _cur > 0) state.holderCount++;
                 else if (_prev > 0 && _cur <= 0) state.holderCount--;
+                // T98 尘埃口径人气：净持仓 > 尘门（token 域常量）才算持有人——刷 holder
+                // 的尘埃钱包（单笔刚过 tick 尘门的买入残余）不计入。与跨 0 边界同构：
+                // 门常量 → 本钱包变动不影响他钱包跨界，归纳等价成立；T=0（未固化）时
+                // _prev<=0&&_cur>0 与上式逐字一致 = 退化 holders fail-open（宁多计不放大
+                // 门拦截力）。任意序重放收敛（判定只依赖单钱包净持仓序列）
+                const _d = state._holderDustTokens;
+                if (_prev <= _d && _cur > _d) state.holderCountExDust++;
+                else if (_prev > _d && _cur <= _d) state.holderCountExDust--;
                 // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4 → 二期随键域切 wallet）：
                 // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留。
                 // P2b：TPA 不构造时双 map 零读 → 跳过维护
@@ -1667,6 +1696,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             _walletRoutedBuyBnb: new Map(), // wallet → 本盘经聚合路由（GMGN 等）买入 BNB（TPA GMGN 用户判定原料，2026-10-11 用户裁定；写入判据=trader 层 AGGREGATOR_ROUTER_ADDRS）
             _smartBotBuyBnb: new Map(), // wallet → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
             holderCount: 0,
+            _holderDustTokens: 0,  // T98 尘埃门 token 域常量：holderDustBnb ÷ 首可靠价，首价
+                                   // 冻结时固化（此后不变=增量维护归纳等价前提）；0=未固化
+                                   // （无可靠价票/显式关门）→ 口径退回 holders fail-open
+            holderCountExDust: 0,  // 净持仓 > _holderDustTokens 的钱包数（T98 跨尘门边界 ±1
+                                   // 增量维护，与 holderCount 跨 0 同构同点）
 
             _recentTicks: [],    // 滑窗速率原料 {ts, isBuy, bnb, priceBnb, priceReliable, blockNumber}
             _activityEvents: [], // act* 8 键原料 {ts, w, buy, bnb}（到达序 push，读点按 ts 过滤容忍
@@ -3120,6 +3154,11 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             // ── WSS 事件流口径的「AVE 替代」因子 ──
             holders: state.holderCount,
+            // T98 剔尘埃口径人气（2026-10-29 用户裁定「极小持仓者剔除——这样不会让假活跃
+            // 票进门」）：净持仓按首可靠价折算 ≥ holderDustBnb（默认 0.002=2× tick 尘门+单卡
+            // 仓位）的钱包数；刷 holder 的尘埃钱包不计入。无可靠价票退化=holders fail-open；
+            // defer 回推滞后 1-3s 与 holders/holdersExSybil 同窗（fire 就绪度缝隙族内一致）
+            holdersExDust: state.holderCountExDust,
             // 人气门去簇口径（2026-10-22 用户裁定：buyVolumeBnb >= 1.25 OR holders >= 10
             // 扣除协同簇钱包）：簇钱包正净持仓者不计入人气持有者数（现状口径，与
             // sybilClusterHolderCircPct 同门同 map）；名单未启用（文件缺失/空集合）→
