@@ -52,6 +52,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T103 再买臂腰斩门放宽：drawdownFromHighest 区间 (-70,-50) → (-70,-40)（buy-v2-repeat v2→v3；2026-10-29 用户指令「把 drawdownFromHighest ∈ (-70,-50) 改为 drawdownFromHighest ∈ (-70,-40)」）
+
+- **案由（날다람쥐 浅腰斩 rebound 零再买问询→裁定放宽）**：v60 `0x5ca91444c8ab56f50a4117232c06ed4eff7d7777`（four.meme，날다람쥐，12:08:06 创建）——12:08:26 P1·首买 3 卡（0.006 BNB，价 8.3e-9/mcap≈8.3）→ 12:09:11/28/50 三腿各卖 1 卡全清（卖价 1.25-1.6e-8）→ **12:09:53 卖出后最低 1.079e-8=距全时峰 -45.2%（未过 -50 门）**→ 12:10:51 起新高推进，12:23:23 全时峰 3.55e-8（较低点 **+230%**）零再买。三买腿逐一对照（机制全按设计运行）：首买腿 T100 轮次路由完成一轮后永久不可见；再买腿 T101 区间门全程 0 tick 进入 (-70,-50)；early 腿 mcap 6.0-6.7 窗卖出后未回（最低≈10.8）∧ 12:18 后 age>600 关死——**-40~-50 段浅腰斩 rebound 是 T101 上线首日即现的实际形状**（T101 观察点③贴边分布的答案：贴的不是 -50/-70 边，是 -50 内侧）
+- **语义**：仅上界 -50→-40（「从最高点跌超 40% 即可再买」）；下界 -70（v27 接刀门）不动；口径不变（任意接受价轨全时峰回撤、非 position 域键清仓后可评估、无最高价=0 fail-closed）；首买/early/momentum 臂不动
+- **改动面**：仅库条件串（零代码、无新因子、无新单测需求）；`bump-t103-repeat-drawdown-40.cjs` 防呆=T101 同款（源区间段恰一次→新区间段恰一次+换后残留 -50 反证/T100 全门锚定/repeat 路由 buyPhase+maxEx=1/trigger+gmgn 不动）
+- **部署链**：bump-t103-repeat-drawdown-40.cjs（v2→v3 committed 2026-10-29）→ create-v62.cjs（克隆 v61 5298b7bd，防呆=源四腿 v61 形状含 momentum+库 v3 锚定（version/buyPhase/maxEx/新区间段在+旧段无/trigger/gmgn/全门锚定）+除 condition 外库腿与源再买腿逐字一致+其余三腿逐字不动+refs 四条仅 buy-v2-repeat 2→3）→ **待用户定停 v61 换车时机（停前持仓确认；182 先 git pull）**
+- **观察点**：①-40~-50 新增段触发率（对照 -50~-70 段）②浅腰斩 rebound 票胜率（-45% 案形状：腰斩浅=砸盘者筹码清洗可能不充分）③-40 贴边分布（-35~-40 被拦票结局，将来再放宽依据）④buyPhase 互斥下与首买/momentum 同票零竞争不变
+
 ### T102 低评级强势独立买入臂 buy-v2-momentum（新库条目 v1：rating==1 镜像臂 + buyWallets≥40 动量门 + tokenAgeSec<600 快窗；2026-10-29 用户重申目标函数「快速交易，快速买入试图高点卖出，只要增长是用户带来的、不是作弊票、峰值高就行」+ 裁定「给 rating==1 但强势的票一个单独的买入臂」）
 
 - **案由（Ragu 品味否决误拦）**：flap 票 0xf1dca9bf42c5f565063f493f693455c86dff7777（Ragu，10-29 09:42:31 创建）——作者 @AnaMariaNicoar4（display name「Ana-Maria \| BNB Chain」，蓝V，875 粉）gm 随笔推+狗图 → Jev 判 `bsc_meme_user_event_fit` sf+fit=0.26<0.5 → **web3FitMassBlock（C141 硬门）拦 low**；另一拦截桶 event_empty_content 0.73。市场结局：**61 秒 6.7x**（09:42:54 首价 → 09:43:55 峰），前 60s **71 个 distinct 钱包**/126 笔买/净买 +51%/top1 买占比 8%/89% 走 GMGN 聚合路由=干净用户盘；同一推 3 分钟内 spawned 19 个仿盘（全 low，17 个峰 ≤1.8x）。评级 09:42:58 已落地（首 tick 后 4s——管线速度不是瓶颈），逐门回放 buy-v2 v51 @rating+10s：**除 narrativeRating 外全部因子门已过**——唯一拦点=叙事质量否决
