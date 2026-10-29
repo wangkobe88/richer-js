@@ -3002,6 +3002,15 @@ class FourMemeFactorAggregator extends EventEmitter {
         for (const v of state._walletNetTokens.values()) if (v > _top1Net) _top1Net = v;
         const top1HolderCircPct = _circDen > 0 ? _top1Net / _circDen * 100 : 0;
 
+        // T92 top2 持有人门（2026-10-29 BI/Meecot 迟买案用户裁定「top2 块簇门改为
+        // top2 持有者的门」）：前两大净持仓**合计** ÷ 同一 _circDen ×100——与 top1 同
+        // 口径同分母，恒 ≥ top1HolderCircPct、恒 ≤100（T91a 恒等式：分子 ⊆ Σ正净 ⊆
+        // 分母）。原料复用上方 top20 降序前缀 _nA/_nB（与 _top1Net 单趟扫 max 的
+        // bit 一致性=top20 段注释不变量，仅消费值求和序无关）；<2 个正持仓持有人时
+        // _nB=0 退化=top1 值（bundle top2「不足两块退化 top1」同款语义）；0=有证据
+        // 零值非 null；负净持仓（净卖者）自然出局（_walletNetTokens 口径同 top1）
+        const top2HolderCircPct = _circDen > 0 ? (_nA + _nB) / _circDen * 100 : 0;
+
         // 最大跟单钱包持仓（2026-10-16 FLY 案用户正式方案）：名单钱包（协同簇：持续有
         // 跟单、同步买/卖）在当前票的**单钱包最大**净持仓 ÷ 流通 ×100。刻意取 max 而非
         // 名单合计——热门票聪明钱都参与，合计误伤；单钱包持仓才反映控盘度（FLY：0xbf00
@@ -3209,6 +3218,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；
             // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
             top1HolderCircPct,
+            // T92 top2 持有人门（前两大净持仓合计 ÷ 同 _circDen；0=有证据零值非 null，
+            // 口径=链上交易者集中度同 top1，见上方注释块）
+            top2HolderCircPct,
             maxCopyWalletHolderCircPct,
             // 极著名钱包单钱包最大净持仓占比（2026-10-18 用户点名集合；null=未启用
             // IS NULL 臂放行 / 0 起=有证据零值；见上方注释块）

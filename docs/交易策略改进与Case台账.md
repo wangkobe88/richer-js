@@ -14,24 +14,24 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v47 快照；live v51 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v48 快照；live v52 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T92 保护瘦身；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
 AND marketCap > 4.7 AND marketCap < 27                   -- 市值窗 BNB 域（T84/v43 起 priceBnb×totalSupply 全域 BNB 断代；v34 曾 USD 3.5K-20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
-AND top2BundleClusterHoldCircPct < 55                    -- 最大两块买家并集持仓（T67/v37；T91/v47 起集中度族唯一簇门——bundle 单块门 35 与 top3 门 75 随案退役留档）
+AND top2HolderCircPct < 55                                -- top2 持有人门（T92/v48：前两大净持仓合计 ÷ 同 _circDen，块簇门 T67 换轴；早期臂 65）
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
-AND (platform != 'flap' OR tradesRouterPct >= 30)         -- flap 臂：聚合路由占比（T70/v39 换全史实时载体；v38 前 early 冻结版）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnb >= 1.25 AND holders >= 10)              -- 人气门（T90/v46 起 AND「量人双达标」防刷量/多钱包微买；v28-v45 曾 OR；T89/v45 恢复原键不去 sybil——ExSybil 键退役出条件串，FA 键保留）
 AND (tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40) -- 卖压门 OR 臂（T88/v48 键名断代：全史键 tradesNetBuyRatio 删→长窗尾 100 笔 LongWin、Win→ShortWin 尾 20 笔，环空=null fail-closed/尾窗全卖=-100；回放实证 M 档买点行为全档同帧=断代最小干预，阈值 40 承 T77/T70）
-AND sybilClusterHolderCircPct < 60                        -- sybil 大簇合计持仓（0 语义；T89/v45 放宽 35→60）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
+
+**T92 退出三键（v48 起纯观察键，FA 照算照落不进条件串）**：flap 路由门 `(platform != 'flap' OR tradesRouterPct >= 30)`（T70/v39 立——BI 案 router 份额爬坡独拦 12s，25s 行情里只剩拖慢）、`sybilClusterHolderCircPct < 60`（T72 立/T89 放宽 60——Meecot 案 100→59 稀释 150s 接顶全亏，sybil 高位票本身是关联簇拉盘形状）、`top2BundleClusterHoldCircPct`（T67 立/T91 后唯一簇门——换轴 top2HolderCircPct 前两大持有人合计）。
 
 **T91a 流通分母口径（v47 起代码侧生效）**：全部 ÷circ 键分母=`max(_circTokens, Σ正净持仓)`——flap 税币零买入纯卖出钱包（初始筹码/税币接收方，Sell 在 Buy 永无）曾把 Σ买−Σ卖 分母压到低于真实在外筹码 → 键值虚高超 100%（孙权 top3=114% 案）；恒等式保证 ≤100、正常票逐输入 bit 不变。
 
@@ -51,6 +51,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T92 保护条件瘦身：删 flap 路由门+sybil 门，top2 块簇门→top2 持有人门（buy-v2 v47→v48 + buy-early-narrative v6→v7 + FA 新键 `top2HolderCircPct`；2026-10-29 BI/Meecot 迟买归因用户裁定「恐怕这些保护条件还要再进一步瘦身，不然真的没法搞了。sybil 门 直接去掉，tradesRouterPct 直接去掉，top2BundleClusterHoldCircPct 改为 top2 持有者的门」；阈值拍板 主 55/早期 65 承接；v52 起实跑）
+- **驱动案一（BI/Binance Inu 0xa7ef3d3d483aab96228a331af89321ef38eb7777，flap 税币，整段行情 25s 走完）**：rating=3 +4.4s 就绪（leadMs=22.6s 全耗在条件门等待）→ binder=flap 路由门 `(platform != 'flap' OR tradesRouterPct >= 30)` **独拦 12s**（GMGN 聚合路由份额 +20s 才过 30%——路由主导盘的占比爬坡是结构性慢变量）+ top2 块簇门最后收口（+25s，一号买家 0.99 BNB 顶门上；重放 at-fire DEMOTED=DB sender 回填偏差形状，OBSERVE live 轨迹佐证）→ fire=+27s 买在顶部右侧 2.194e-8（反事实 +17s @1.476e-8 价差 +48.6%，ΔF=+0.000849），11.6s 后 -68% 止损——快速事件票的门时间常数（routerPct/holders 积累速度）与行情节奏不匹配的典型形状
+- **驱动案二（Meecot 0x8671d681ee38039892bbad010b89813fb25e7777，flap，同名三连发之一）**：rating=3 +4.4s 就绪 leadMs=179s，长杆=sybil 大簇门——OBSERVE 轨迹 sybil=100(+13s)→77.3(+73s)→66.4(+133s)→**59(+183.5s 擦线 1 点过 60 门 fire)**，其余门 +31s 起已全真；期间盘整卖潮把净买窗（nBLW 48→16/nBSW 94→32）与 slope 打翻负、fire 前一瞬恢复（nBSW 91.9）；反事实 +31s @6.64e-9 vs fire 9.65e-9（ΔF=+0.0033），两段 episode 全亏（-38%/-33%）——**sybil 高位票本身就是关联簇拉盘形状，等散户稀释 150s 换来的仍是接顶**（T89 35→60 放宽后 sybil 未退场，只是拦的票变少）
+- **三处瘦身（两腿同款）**：①删 ` AND (platform != 'flap' OR tradesRouterPct >= 30)` ②删 ` AND sybilClusterHolderCircPct < 60` ③`top2BundleClusterHoldCircPct < 55/65` → `top2HolderCircPct < 55/65`（阈值承接）。**三键全部退为纯观察键**（FA 照算、roster loader 不动、OBSERVE/signal metadata 照落——同 T91 删门留键先例；sybil 扫描建库链路 `scan-sybil-clusters` 不动）
+- **新键 `top2HolderCircPct` 口径**：前两大净持仓**合计** ÷ 同一 `_circDen`（T91a max(circ,Σ正净)）×100——与 top1HolderCircPct 同口径同分母；原料复用 top20 降序前缀 `_nA/_nB`（只收正净 `v<=0 continue` → 恒 ≥ top1、恒 ≤100 恒等式天然成立）；<2 个正持有人退化=top1 值（bundle top2「不足两块退化 top1」同款语义）；0=有证据零值非 null；净卖者自然出局。**与块簇门语义差（换轴非微调）**：块簇门按「块」聚合并集去重（同块 4 钱包等额簇=全簇合计 100 拦），持有人门只看前两大（同形状 (10+10)/40=50 放）；反向跨块复买囤筹两门同拦（wallet 域聚合力天然在，单测 C4）
+- **交付**：FA `top2HolderCircPct` 计算+发射（FactorBuilder 快照白名单透传）+ `_test_top2_holder_circ.cjs`（24 断言：公式精确值/巨鲸+二号仍拦/★块簇 vs 持有人口径分离反证/退化与负净出局/T91a 孙权形状 ≤100 反证/乱序 parity/探针/快照透传/源码锁/ConditionEvaluator 55/65 直评）+ `bump-t92-protect-slim.cjs`（删除段恰一次+换名源段恰一次+三旧键零残留+platform 子句零残留+KEEP 兄弟门锚定+trigger/gmgn/maxExecutions=2 不动锚）+ `create-v52.cjs`（克隆 v51 d41b9c29 唯一变量=两买腿 ←库 v48/v7 copy-in）
+- **观察点**：①触发率与买点提前量（BI/Meecot 类快速事件票的三门等待形状应消失）②对倒/sybil 票漏拦面（top1<35+top2Holder 55/65+跟单/著名名单四门接棒；sybil 观察键照落可后验）③flap 路由盘无 router 门后的亏损分布（T70 立门动机=flap GMGN 路由盘质量差，但占比是慢变量在秒级行情里只剩拖慢）④top2Holder 阈值 55/65 的实际拦截分布（恒 ≥ top1=35，两者兼拦=单户垄断形状；OBSERVE 帧分布后验再调）
 
 ### T91 集中度族瘦身 + 流通分母口径修复（buy-v2 v46→v47 + buy-early-narrative v5→v6 + FA 分母 max 修法；2026-10-28 孙权 0x3b1b…7777 top3=114% 案用户裁定「便宜门只保留 top1 top2 集中度条件吧。但无论如何一个，都要解决大于 100 的问题」；v51 起实跑）
 - **驱动案（孙权 0x3b1b28cf8e4ba5699670b5628691a3f9e5577777，flap 税币 taxToken:true，14:20:36 创建）163s 成交延迟归因**：叙事 14:20:48 完成（age=12s 单轮 high，`leadMs=162s`=叙事领先买点的量非耗时——初判「叙事轮次在等」系归因错误）；便宜门（净买/mcap 窗/routerPct/人气 AND/tradeCount）14:20:50 全过；top1 14:20:38 早过；**bundle<35 与 top3<75 拖到 14:23:17 才过（161s 最后收口门）**→ BUY 14:23:31 mcap 17.0（OBSERVE 帧序列：14:22:56 mcap=6.25 → 14:23:31 mcap=17.0 拉升段过门，买贵 ~63%）
