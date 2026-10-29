@@ -29,6 +29,34 @@ function normalizeForMatch(str) {
 }
 
 /**
+ * 文本是否含代币合约地址（verifyTokenAddress 与 C257 证据审计落档共用的单一
+ * 匹配口径）：大小写不敏感，带 0x 与不带 0x 两种形状都认。
+ */
+export function containsTokenAddress(text, tokenAddress) {
+  if (!text || !tokenAddress) return false;
+  const addressLower = tokenAddress.toLowerCase().replace(/^0x/, '');
+  const textLower = text.toLowerCase();
+  // 尝试匹配：带0x和不带0x
+  return textLower.includes(`0x${addressLower}`) || textLower.includes(addressLower);
+}
+
+/**
+ * 账号/社区时间线中含 CA 的推文清单（C257 prestage 证据审计落档用，零网络）
+ * 匹配口径与 verifyTokenAddress 完全一致（containsTokenAddress 单一真相）。
+ * 只扫推文——bio 命中位置已在 rulesResult.details.addressLocations 留痕，bio
+ * 本体随 twitter_info 落库可回放，不需要第二载体。
+ * @param {string} tokenAddress - 代币地址
+ * @param {Object|null} accountOrCommunityData - getAccountWithFullTweets 现拉形状（含 tweets）
+ * @returns {Array<{tweet_id, text, created_at}>} 命中清单（无命中/输入无效=空数组）
+ */
+export function findAddressHitTweets(tokenAddress, accountOrCommunityData) {
+  if (!tokenAddress || !Array.isArray(accountOrCommunityData?.tweets)) return [];
+  return accountOrCommunityData.tweets
+    .filter((t) => containsTokenAddress(t?.text, tokenAddress))
+    .map((t) => ({ tweet_id: t.tweet_id ?? null, text: t.text ?? '', created_at: t.created_at ?? null }));
+}
+
+/**
  * 验证代币地址是否在账号/社区数据中出现
  * @param {string} tokenAddress - 代币地址
  * @param {Object} accountOrCommunityData - 账号或社区数据（含完整推文）
@@ -42,18 +70,8 @@ export function verifyTokenAddress(tokenAddress, accountOrCommunityData) {
   const locations = [];
   const type = accountOrCommunityData.type;
 
-  // 将地址转为小写用于不区分大小写匹配
-  // 去除0x前缀，增加匹配容错性
-  const addressLower = tokenAddress.toLowerCase().replace(/^0x/, '');
-  const addressWith0x = '0x' + addressLower;
-
-  // 检查函数
-  const checkText = (text) => {
-    if (!text) return false;
-    const textLower = text.toLowerCase();
-    // 尝试匹配：带0x和不带0x
-    return textLower.includes(addressWith0x) || textLower.includes(addressLower);
-  };
+  // 检查函数（口径单一真相：containsTokenAddress）
+  const checkText = (text) => containsTokenAddress(text, tokenAddress);
 
   // 检查账号简介
   if (type === 'account' && accountOrCommunityData.description) {

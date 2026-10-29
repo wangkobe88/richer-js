@@ -199,6 +199,43 @@ export async function resolveWebsiteCheck(fetchResults, options = {}) {
 }
 
 /**
+ * C257 prestage 证据审计落档（0x517d7658…8888 Grid—ID 案）：addressVerified 的
+ * 判据此前只活在进程内存——verifyTokenAddress 消费的是 prestage 现拉时间线
+ * （fetch 阶段 twitter_info 落库形状不同源，宣告推可推定不可见），官网核验抓取
+ * 同理；事后唯一痕迹=external_resource_cache 的 CA 专属 key（90 天 TTL，过期即
+ * 无法回放）。本函数在 parsed_output additive 补三个审计键，不动判定逻辑：
+ * - addressLocations：rulesResult.details.addressLocations 透传（此前 mapper 组装
+ *   丢弃——落档 details 里 CA 命中位置不可见）
+ * - caHitTweets：时间线含 CA 推文清单（仅 addressVerified=true 时落；findHits
+ *   =findAddressHitTweets 注入，匹配口径=containsTokenAddress 单一真相；注入
+ *   缺失=null 不冒充）
+ * - websiteCheckInfo：官网核验 {status, url} 摘要（不落正文；null=未抓——功能
+ *   关或 abm 路径不抓）
+ *
+ * @param {Object} parsedOutput - prestageDataToSave.parsed_output（就地补键并返回）
+ * @param {Object} [evidence]
+ * @param {Object|null} [evidence.rulesResult] - performRulesValidation 结果
+ * @param {Object|null} [evidence.accountData] - fullAccountOrCommunityData（现拉形状）
+ * @param {Object|null} [evidence.websiteCheck] - resolveWebsiteCheck 结果
+ * @param {string|null} [evidence.tokenAddress] - 代币地址
+ * @param {Function|null} [evidence.findHits] - findAddressHitTweets（rules 动态 import 注入）
+ * @returns {Object} 同一 parsedOutput 引用
+ */
+export function appendEvidenceAudit(parsedOutput, {
+  rulesResult = null, accountData = null, websiteCheck = null, tokenAddress = null, findHits = null,
+} = {}) {
+  if (!parsedOutput || typeof parsedOutput !== 'object') return parsedOutput;
+  parsedOutput.addressLocations = rulesResult?.details?.addressLocations ?? null;
+  parsedOutput.caHitTweets = (rulesResult?.addressVerified === true && findHits)
+    ? findHits(tokenAddress, accountData || {})
+    : null;
+  parsedOutput.websiteCheckInfo = websiteCheck
+    ? { status: websiteCheck.status ?? null, url: websiteCheck.url ?? null }
+    : null;
+  return parsedOutput;
+}
+
+/**
  * 执行账号/社区代币前置判定（Jev 单次调用）
  *
  * 流程：纯规则验证先行（账号质量/地址验证/名称匹配，account-community-rules.mjs）
@@ -223,7 +260,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   const {
     getAccountWithFullTweets,
     getCommunityWithFullTweets,
-    performRulesValidation
+    performRulesValidation,
+    findAddressHitTweets
   } = await import('../prompts/account/account-community-rules.mjs');
 
   const twitterInfo = fetchResults.twitterInfo;
@@ -452,6 +490,17 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     addressVerified: rulesResult.addressVerified,
     stateChars: stats.totalChars,
     reason: mapped.reasoning,
+  });
+
+  // C257 证据审计落档：parsed_output additive 三键（addressLocations/caHitTweets/
+  // websiteCheckInfo）——三分支 return 的是同一 prestageDataToSave 引用，此处补写
+  // 一次全链生效；不影响判定，只让 addressVerified 的判据事后可回放
+  appendEvidenceAudit(mapped.prestageDataToSave.parsed_output, {
+    rulesResult,
+    accountData: fullAccountOrCommunityData,
+    websiteCheck,
+    tokenAddress,
+    findHits: findAddressHitTweets,
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
