@@ -178,6 +178,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T92 top2 持有人门（2026-10-29）：前两大净持仓合计 ÷ 同 circ 分母，与 top1 同快照
     // 语义（0=有证据零值；旧 FA 无键 → null 不掩盖）
     top2HolderCircPct: factorResults.top2HolderCircPct ?? null,
+    // 前 1/2 大净持仓占总量比例（2026-10-29 观察键）：分母 totalSupply；观察键不进
+    // 条件串（阈值待票池分布裁定）；supply 缺失 → null；旧 FA 无键 → null 不掩盖
+    top1HolderSupplyPct: factorResults.top1HolderSupplyPct ?? null,
+    top2HolderSupplyPct: factorResults.top2HolderSupplyPct ?? null,
     // 跟单簇名单是进程级静态 Set，名单缺失=null（fail-closed 语义随快照透传，不掩盖）
     maxCopyWalletHolderCircPct: factorResults.maxCopyWalletHolderCircPct ?? null,
     // 极著名钱包子集（2026-10-18 用户点名）：null=未启用（IS NULL 臂放行），随快照透传

@@ -52,6 +52,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T94 前 1/2 大净持仓占总量比例观察键（FA 新键 `top1HolderSupplyPct`/`top2HolderSupplyPct`，纯观察不进条件串；2026-10-29 Binancians 早期臂失效归因用户裁定「早期 top1 top2 持仓流通量占比一般来讲就是会很高……不应该以流通量为分母，而是以总量为分母」「先新增占总量比例的因子，再继续观察一段时间再说怎么用」）
+
+- **驱动案（Binancians 0x04c172a2bcf8ac8cae1518e028a3335bbfab7777，flap）**：早期臂 mcap 窗 6.0-6.7 BNB 仅 01:16:57-01:17:07 开 10s（首 tick 6.78 高开在窗上方→回落进窗→拉走出窗），窗内 `top1HolderCircPct` 49.9-62.5 / `top2HolderCircPct` 78.8-98.7 **全程高企**——早期流通未铺开（分母 circ 只占总量小部分），首买家占比天然虚高；`top1<35` 翻真时刻 01:17:29 已出窗 22s——**集中度稀释速度赶不上市值出窗速度，早期臂窄窗对该形状结构性失明**（最终主臂 01:17:32 fire）。用户裁定方向：占比应看「买到总量的多大比例」，先落观察键攒分布，换门与否及阈值后续再定
+- **键口径**：分子与 top1/top2HolderCircPct 完全同源（`_top1Net` / top20 前缀 `_nA+_nB`，只收正净、净卖者出局、<2 正持有人退化=top1），分母换 `state.totalSupply`（TokenCreate 终态；flap/gang 恒 1e9）——度量「前 1/2 大持仓者买到总量的比例」不受流通进度污染。null 语义：totalSupply 缺失(=0) → null（marketCap/shares 族同惯例 fail-closed）；supply 在无 tick → 0 有证据零值。不变量：恒 ≤ 同名 circ 键（supply ≥ _circDen）、恒 ≤100（正净持仓源自池内买入，Σ正净 ⊆ 池累计流出 ≤ supply）
+- **纯观察（T74/T76 先例）**：不进任何条件串、不 bump 库版本；FactorBuilder 快照白名单透传（OBSERVE/signal metadata 落库可后验），旧 FA 历史信号无键 → null 不掩盖
+- **交付**：FA `_buildFactorMap` 计算段+发射字面量两键 + FactorBuilder 白名单 + `_test_top_holder_supply.cjs`（20 断言：A 公式精确值双分母对照/B ★早期流通反证 circ 60 虚高 vs supply 3（30M/1e9）/C 恒 ≤ 不变量/孙权纯卖形状分离（circ 分母被压 supply 不动）/退化负净出局/乱序 parity/supply 缺失 null+空窗零值/探针/快照透传/源码锁）。分析工具 `tmp-top-supply-analysis.cjs`（182 跑，3 天 13 live 实验 BUY+OBSERVE 候选池双口径逐 tick 重放，窗内决策原料落 JSON 供阈值网格）
+- **观察点**：①快照攒 top1S/top2S 分布及其与票结局的相关性（circ 口径同帧对照）②早期臂 top1/top2 门是否换 supply 分母及阈值（用户裁定后再动）③flap 与 four.meme 票两平台分布差异（flap 税币纯卖钱包只影响 circ 分母，supply 口径天然免疫）
+
 ### T93 保护条件瘦身：删 flap 路由门+sybil 门，top2 块簇门→top2 持有人门（buy-v2 v47→v48 + buy-early-narrative v6→v7 + FA 新键 `top2HolderCircPct`；2026-10-29 BI/Meecot 迟买归因用户裁定「恐怕这些保护条件还要再进一步瘦身，不然真的没法搞了。sybil 门 直接去掉，tradesRouterPct 直接去掉，top2BundleClusterHoldCircPct 改为 top2 持有者的门」；阈值拍板 主 55/早期 65 承接；v52 起实跑。注：与戊段 T92（KYA 恢复轮询案）同日并行撞号，本案编号 T93）
 
 - **驱动案一（BI/Binance Inu 0xa7ef3d3d483aab96228a331af89321ef38eb7777，flap 税币，整段行情 25s 走完）**：rating=3 +4.4s 就绪（leadMs=22.6s 全耗在条件门等待）→ binder=flap 路由门 `(platform != 'flap' OR tradesRouterPct >= 30)` **独拦 12s**（GMGN 聚合路由份额 +20s 才过 30%——路由主导盘的占比爬坡是结构性慢变量）+ top2 块簇门最后收口（+25s，一号买家 0.99 BNB 顶门上；重放 at-fire DEMOTED=DB sender 回填偏差形状，OBSERVE live 轨迹佐证）→ fire=+27s 买在顶部右侧 2.194e-8（反事实 +17s @1.476e-8 价差 +48.6%，ΔF=+0.000849），11.6s 后 -68% 止损——快速事件票的门时间常数（routerPct/holders 积累速度）与行情节奏不匹配的典型形状

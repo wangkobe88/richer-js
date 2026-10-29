@@ -3011,6 +3011,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 零值非 null；负净持仓（净卖者）自然出局（_walletNetTokens 口径同 top1）
         const top2HolderCircPct = _circDen > 0 ? (_nA + _nB) / _circDen * 100 : 0;
 
+        // 前 1/2 大净持仓占**总量**比例（2026-10-29 用户裁定「先新增占总量比例的因子
+        // 再观察一段时间」，纯观察键不进条件串，阈值待票池分布裁定——T74/T76 先例）：
+        // 与 top1/top2HolderCircPct 同分子（_top1Net / _nA+_nB），分母换 state.totalSupply
+        // （TokenCreate 终态；flap/gang 恒 1e9）。动机：早期流通分母小，circ 口径占比
+        // 天然虚高（Binancians 0x04c1…7777 早期窗 top1 50-63/top2 79-99 全因流通未铺开），
+        // supply 口径度量「买到总量的多大比例」不受流通进度污染。supply 缺失(=0) → null
+        // （marketCap/shares 族同惯例 fail-closed）；恒 ≤ 同名 circ 键（supply ≥ _circDen）；
+        // 恒 ≤100（正净钱包持仓源自池内买入，Σ正净 ⊆ 池累计流出 ≤ supply）
+        const top1HolderSupplyPct = state.totalSupply > 0 ? _top1Net / state.totalSupply * 100 : null;
+        const top2HolderSupplyPct = state.totalSupply > 0 ? (_nA + _nB) / state.totalSupply * 100 : null;
+
         // 最大跟单钱包持仓（2026-10-16 FLY 案用户正式方案）：名单钱包（协同簇：持续有
         // 跟单、同步买/卖）在当前票的**单钱包最大**净持仓 ÷ 流通 ×100。刻意取 max 而非
         // 名单合计——热门票聪明钱都参与，合计误伤；单钱包持仓才反映控盘度（FLY：0xbf00
@@ -3221,6 +3232,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             // T92 top2 持有人门（前两大净持仓合计 ÷ 同 _circDen；0=有证据零值非 null，
             // 口径=链上交易者集中度同 top1，见上方注释块）
             top2HolderCircPct,
+            // 前 1/2 大净持仓占总量比例（2026-10-29 观察键，不进条件串）：分母 totalSupply
+            // （不受流通进度污染）；supply 缺失 → null fail-closed，见上方注释块
+            top1HolderSupplyPct,
+            top2HolderSupplyPct,
             maxCopyWalletHolderCircPct,
             // 极著名钱包单钱包最大净持仓占比（2026-10-18 用户点名集合；null=未启用
             // IS NULL 臂放行 / 0 起=有证据零值；见上方注释块）
