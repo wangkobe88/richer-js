@@ -142,19 +142,19 @@ function simulateSinceHigh(ticks, startMs, armPeakPct, nSec, maxFires) {
   for (const e of episodes) {
     const ticks = tickCache.get(e.token);
     if (!ticks || !ticks.length) continue;
-    let qty = 0, cost = 0, proceeds = 0, buyBnb = 0, lastPrice = 0, lastTs = e.startTs;
+    let qty = 0, cost = 0, proceeds = 0, buyBnb = 0, buyQty = 0, lastPrice = 0, lastTs = e.startTs;
     for (const t of e.trades) {
-      if (t.trade_direction === 'buy') { qty += Number(t.output_amount); cost += Number(t.input_amount); buyBnb += Number(t.input_amount); }
+      if (t.trade_direction === 'buy') { qty += Number(t.output_amount); cost += Number(t.input_amount); buyBnb += Number(t.input_amount); buyQty += Number(t.output_amount); }
       else { qty -= Number(t.input_amount); proceeds += Number(t.output_amount); }
     }
     for (const t of ticks) {
       const pb = Number(t.price_bnb);
       if (Number(t.bnb_amount) >= DUST && !t.price_outlier && pb > 0) { lastPrice = pb; lastTs = Date.parse(t.block_time); }
     }
-    if (!(qty > 1e-9) || buyBnb <= 0 || lastPrice <= 0) continue;
+    if (!(buyQty > 1e-9) || buyBnb <= 0 || lastPrice <= 0) continue;
     const perCard = e.startTs < PER_CARD_SWITCH_TS ? 0.001 : 0.002;
     const nCards = Math.max(1, Math.round(buyBnb / perCard));
-    const qtyPerCard = qty / nCards;
+    const qtyPerCard = buyQty / nCards;
     const actualPerCard = (proceeds + (e.open ? qty * lastPrice : 0)) / nCards;
     // 实际路径峰值利润（回放口径，用于盈转亏子集分层）
     let anchor = 0, peak = 0;
