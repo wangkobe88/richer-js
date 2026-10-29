@@ -482,6 +482,21 @@ class BacktestEngine extends AbstractTradingEngine {
         `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's(虚拟时钟)' : '未配置（仅 tick 路径）'}`);
     }
 
+    // 6.7b 流动性止损（T104，与实时引擎同配置 stallClose 段）：断流持仓距上一笔
+    //     链上成交 > stallMs 全清。回测形态差异：挂主循环 processTick **之前**、虚拟
+    //     时钟 1s 节流（=实时 1s 墙钟定时器的回放等价）——本 token 空窗以它自己的
+    //     下一 tick 到达为时钟推进点，feed 后 lastTickAt 已推进会漏检自己的空窗；
+    //     全市场静默期时钟冻结，任何 token 的下一 tick 都是检测点（回放可达的最好
+    //     等价）。不配段 = 关闭（存量回测实验零变化）。
+    const _sc = experimentConfig.stallClose || {};
+    const _scMs = Number(_sc.stallMs);
+    this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
+    this._lastStallScanTs = null;
+    if (this._stallCloseMs != null) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `🛡️ 流动性止损已启用(回测) | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（虚拟时钟 1s 节流扫描）`);
+    }
+
     // 7. 批量写入缓冲区
     const { BacktestWriteBuffer } = require('../backtest/BacktestWriteBuffer');
     this._writeBuffer = new BacktestWriteBuffer(supabase, this.logger);
@@ -1180,6 +1195,17 @@ class BacktestEngine extends AbstractTradingEngine {
           });
         }
         perf.other += Date.now() - _p0;
+
+        // 流动性止损扫描（T104）：必须在 processTick **之前**——本 token 空窗以它
+        // 自己的下一 tick 到达为检测点，feed 后 lastTickAt 已推进会漏检自己的空窗。
+        // 虚拟时钟 1s 节流 = 实时 1s 墙钟定时器等价（检测时点 lastTickAt+stallMs，
+        // 因子 asOf 取该时点——价格冻结在空窗前末 tick，卖价与实时墙钟检测同价；
+        // trade 时间戳=当前 tickTs 晚到一会儿=回放时钟粒度，价格口径零分叉）
+        if (this._stallCloseMs != null &&
+            (this._lastStallScanTs === null || tickTs - this._lastStallScanTs >= 1000)) {
+          this._lastStallScanTs = tickTs;
+          await this._scanStallClose(tickTs);
+        }
 
         // 因子增量（emitFactors:false 只推进状态不构建），随后 buildFactorMap 按
         // tick 虚拟时刻取因子快照——与实时引擎 _runBuyEvaluation 同一取数路径
@@ -2267,6 +2293,45 @@ class BacktestEngine extends AbstractTradingEngine {
       if (hit) {
         await this._emitStopLossSell(token, factors, hit, nowTs, null);
       }
+    }
+  }
+
+  /**
+   * 流动性止损卖出（T104，实时 _emitStallCloseSell 的回放版）：_emitStopLossSell
+   * 同构全清链（cards='all'→sellPct=1，bypass 立即路径）；回测签名多 nowTs。
+   */
+  async _emitStallCloseSell(token, factors, stalledMs, nowTs) {
+    const strategy = {
+      id: 'stallClose', name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s)`,
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+    };
+    this.logger.info(this._experimentId, 'StallClose',
+      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name}(回放) | 已无成交 ${Math.round(stalledMs / 1000)}s | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
+    return this._emitSellSignal(token, strategy, factors, nowTs, null);
+  }
+
+  /**
+   * 流动性止损扫描（虚拟时钟版，T104，主循环 1s 节流驱动）：nowTs 距 lastTickAt
+   * > stallMs 的持仓全清。因子 asOf=lastTickAt+stallMs（检测时点——价格冻结在
+   * 空窗前末 tick，与实时墙钟检测同价）；lastTickAt 缺失 fail-open（首 tick 前
+   * 无证据不卖）。串行逐 token await（对齐实时与 _scanHoldingsStopLoss）。
+   */
+  async _scanStallClose(nowTs) {
+    if (this._stallCloseMs == null) return;
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      const st = this._factorAggregator.getTokenState(tokenAddress);
+      const lastTickAt = st ? st.lastTickAt : null;
+      if (lastTickAt == null) continue;
+      if (nowTs - lastTickAt <= this._stallCloseMs) continue;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + this._stallCloseMs);
+      if (!factors) continue;
+      await this._emitStallCloseSell(token, factors, nowTs - lastTickAt, nowTs);
     }
   }
 

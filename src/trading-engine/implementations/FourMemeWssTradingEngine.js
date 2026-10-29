@@ -761,6 +761,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `${this._stopLossEnabled ? '' : '（stopLoss 段未配置，引擎级止损关闭）'}`);
     }
 
+    // 6.5c 流动性止损（stall close，T104 2026-10-29 用户裁定「如果一个票没流动性了
+    //     就是要赶紧跑」）：持仓票距上一笔链上成交（FA lastTickAt，非尘 tick 口径）
+    //     > stallMs → 全部清仓。近 8 天 199 round 回放：触发 66%，净 +0.077 BNB/8d
+    //     （阴跌票截断）；代价=大票（峰值≥100%）利润 -21%（二次起飞形状，再买臂
+    //     接回面另测）。不配 stallClose 段 = 机制关闭（存量实验零变化）。
+    //     必须走 bypass 立即路径：空窗期零 tick 到达，卖确认窗 5-tick 门永远凑不齐；
+    //     lockTokenAfterSell=false 放行再买臂（清仓≠拉黑）。
+    const _sc = experimentConfig.stallClose || {};
+    const _scMs = Number(_sc.stallMs);
+    this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
+    if (this._stallCloseMs != null) {
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `🛡️ 流动性止损已启用 | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（FA lastTickAt 判据，1s 墙钟扫描）`);
+    }
+
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
     if (this._isLive) {
       await this._initializeLiveTrader();
@@ -1307,6 +1322,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           this.logger.error(this._experimentId, 'StopLoss', `持仓兜底扫描异常: ${err.message}`);
         });
       }, _scanMs);
+    }
+
+    // 流动性止损扫描（T104）：1s 墙钟定时器——空窗期零事件到达，tick 驱动路径全部
+    // 沉默，墙钟定时器是唯一触发方式；只遍历持仓（量级小），lastTickAt 比较是廉价读
+    if (this._stallCloseMs != null) {
+      this._intervals.stallClose = setInterval(() => {
+        this._scanStallClose().catch(err => {
+          this.logger.error(this._experimentId, 'StallClose', `流动性止损扫描异常: ${err.message}`);
+        });
+      }, Math.min(1000, this._stallCloseMs));
     }
 
     // 账号信息复检（C166）：周期=fast 档间隔（slow 档靠 per-token 节流跳过）；只查
@@ -2420,6 +2445,49 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `${hit.kind === 'time' ? ` holdDuration=${(hit.holdDuration / 60).toFixed(1)}min` : ''}` +
       `${tick ? '' : ' | 持仓扫描触发(断流兜底)'}`);
     return this._emitSellSignal(token, strategy, factors, tick);
+  }
+
+  /**
+   * 流动性止损卖出（T104）：_emitStopLossSell 同构——构造等价 strategy 走
+   * _emitSellSignal 全清链（signals/trades/卡账本 cards='all' 全清/累亏记账副作用
+   * 全复用，零新执行逻辑）。bypass 立即路径是机制成立的前提（见 ctor 6.5c 注）。
+   * @param {number} stalledMs 距上一笔链上成交的毫秒数（审计用）
+   */
+  async _emitStallCloseSell(token, factors, stalledMs) {
+    const strategy = {
+      id: 'stallClose', name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s)`,
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+    };
+    this.logger.info(this._experimentId, 'StallClose',
+      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name} | 已无成交 ${Math.round(stalledMs / 1000)}s | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
+    return this._emitSellSignal(token, strategy, factors, null);
+  }
+
+  /**
+   * 流动性止损扫描（T104，1s 墙钟定时器驱动）：遍历持仓，距上一笔链上成交
+   * （FA lastTickAt）> stallMs → 全部清仓。lastTickAt 缺失 fail-open 不卖（重启恢复
+   * 初期无 tick 证据——空窗与「还没见过 tick」不可区分，宁可等首 tick 落地）；
+   * 买/卖执行中跳过（不重入）；buildFactorMap 传 Date.now()（对齐持仓扫描惯例，
+   * 断流期 holdDuration 继续走）。串行逐 token await（对齐 _scanHoldingsStopLoss）。
+   */
+  async _scanStallClose() {
+    if (this._stallCloseMs == null) return;
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      const st = this._factorAggregator.getTokenState(tokenAddress);
+      const lastTickAt = st ? st.lastTickAt : null;
+      if (lastTickAt == null) continue;
+      const stalledMs = Date.now() - lastTickAt;
+      if (stalledMs <= this._stallCloseMs) continue;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+      if (!factors) continue;
+      await this._emitStallCloseSell(token, factors, stalledMs);
+    }
   }
 
   /**
