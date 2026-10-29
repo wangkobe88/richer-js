@@ -25,7 +25,7 @@ AND top2HolderCircPct < 55                                -- top2 持有人门�
 AND top1HolderCircPct < 35                                -- 单钱包最大持仓（早期臂 45=T95/v9 放宽 35→45）
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
-AND (buyVolumeBnb >= 1.25 AND holdersExDust >= 10)        -- 人气门（T90/v46 起 AND「量人双达标」防刷量/多钱包微买；**T98/v50 换键 holders→holdersExDust**——剔尘埃口径：净持仓按首可靠价折算 ≥0.002 BNB 才计持有人，刷 holder 的尘埃钱包（单笔刚过 tick 尘门 0.001）不计；无可靠价票退化=holders fail-open；阈值 10/早期 5 不动=口径变小同阈更严）
+AND (buyVolumeBnb >= 1.25 AND holdersExDust >= 10)        -- 人气门（T90/v46 起 AND「量人双达标」防刷量/多钱包微买；**T98/v50 换键 holders→holdersExDust**——剔尘埃口径：净持仓按首可靠价折算 ≥0.015 BNB 才计持有人（10-29 追裁定 0.002→0.015≈$10.5，$10 以下钱包不算有效承接），刷 holder 的尘埃钱包（单笔刚过 tick 尘门 0.001）不计；无可靠价票退化=holders fail-open；阈值 10/早期 5 不动=口径变小同阈更严）
 AND (tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40) -- 净买门 AND 形状（T96/v49 换轨「短期开始涨，长期下跌趋势解除」：短窗尾 20 笔须强净买 ≥40 ∧ 长窗尾 100 笔净比非负，严格收紧新⊆旧——拦「长强短弱」与「短反弹但长期净卖」；T88/v48 键名断代：长窗尾 100 笔 LongWin/短窗尾 20 笔 ShortWin，环空=null fail-closed/尾窗全卖=-100；阈值 40 承 T77/T70）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
@@ -63,14 +63,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ### T98 人气门换键 holders→holdersExDust 剔尘埃口径（两臂同改：buy-v2 v49→v50 + buy-early-narrative v9→v10 + FA 新键 `holdersExDust`；2026-10-29 用户裁定「我认为还是极小持仓者剔除（这样不会让假活跃票进门），可以新搞一个因子，替换现有的 holders 因子」）
 
 - **案由（holders 口径问询→裁定）**：用户问「holders 这个因子，有没有去掉持仓数量已经清零或者非常小的持有者？」——查证：①清零者已剔（跨 0 边界 ±1 增量维护）②极小持仓无任何门槛——唯一相关的门是 collector tick 尘门 0.001 BNB 拦**单笔成交行**落因子，「卖剩渣」残仓与刷 holder 钱包照计 holders。用户裁定剔极小持仓者，新因子替换
-- **口径**：`holdersExDust` = 净持仓按**首可靠价**折算 ≥ `holderDustBnb`（默认 **0.002**，factorParams 可覆盖、显式 0=关）的钱包数——刷 holder 的假活跃票（多钱包各买刚过 tick 尘门的 0.001-0.0015 BNB）不再计入人气门分子
+- **口径**：`holdersExDust` = 净持仓按**首可靠价**折算 ≥ `holderDustBnb`（初版 0.002 → 同日追裁定 **0.015** 现行，factorParams 可覆盖、显式 0=关）的钱包数——刷 holder 的假活跃票（多钱包各买刚过 tick 尘门的 0.001-0.0015 BNB）不再计入人气门分子
 - **阈值 0.002 依据**：0.001 只能剔「卖剩渣」剔不掉刷量钱包（单笔刚过 tick 尘门的钱包恰是刷 holder 主力档）；0.002=2× tick 尘门+perCardBNB 单卡仓位——低于单卡仓位的钱包不构成有效承接
 - **实现（FA 增量维护，非读取点过滤）**：尘门=**token 域常量 T=holderDustBnb÷首可靠价**（价格涨跌不扰动计数=「投入」口径）；首价冻结点（`_relFirstPriceBnb` 首次非零）固化 T 并一次性全 map 重扫纠 T=0 期间计数（每 token 一生恰一次 O(map)，P2a 回测热点零影响）；此后与 holderCount 跨 0 同点做**跨尘门边界 ±1 增量**（门=常量→单钱包变动不影响他钱包跨界→归纳等价、任意序重放收敛——defer 乱序回推无害）；读取点全扫方案被否（回测 130 万 tick × 万钱包 map 热点回归）
 - **fail-open 方向**：无可靠价票 T=0 退化=holders（宁多计不放大门拦截力）；显式 holderDustBnb:0 恒等 holders（关=旧口径）
 - **单测**：`_test_holders_ex_dust.cjs` 21 断言全过——A 基础口径/B 卖剩渣出局（holders 照计=对照口径不动）/C 尘钱包清仓/D ★**假活跃票现场反证**（10 钱包各 0.0015 BNB+1 大钱包：holders=11 过旧门 vs holdersExDust=1 新门拦死——门语义反转实证）/E 首价缺失退化/F 首价晚到固化重扫/G 显式 0 恒等/H 乱序 parity/I 探针收键+FactorBuilder 快照透传/J 源码口径断言；连带 `fourmeme_fa_factors` 白名单补 5 只存量欠账键（T93 top2HolderCircPct/T94 top1S+top2S/T97 secSincePeak/T98 holdersExDust）→ 35 通过 0 失败
 - **部署链**：代码 023befb + 部署脚本 e20aa9b → 182 pull → `bump-t98-holders-exdust.cjs --commit`（v50/v10，防呆=旧段恰一次/裸 `holders >=` 零残留/兄弟门 12+11 段锚定）→ v54 持仓确认（握手小猫 `0x3b942497…7777` OPEN 885031 token≈0.006 BNB 3 卡，T95 先例同形状弃管）→ v54 TERM 优雅停（03:49:29 UTC，PID 2248290）→ `create-v55.cjs` → **v55 `7ab210a5-3133-4f58-90e4-5bceb23efbfa` 03:49:58 UTC 起实跑**（PID 2275098；ERROR=0、23 策略装载、两腿 holdersExDust 段各恰一次、双 collector 实时采正常）。阈值不动（主 10/早期 5）：口径变小同阈=更严，观察后可调
 - **撞号注记**：T97 案卷原「v55 create 脚本备好待换车」——v55 编号被本案占用（T98 先行换车）；T97 已重建 `create-v56.cjs`（fa6058d，克隆 v55/T98 快照+插腿，防呆锁 T98/T96/T95/T93 形状）并于同日上线 v56 `4ac10e23`——两改进同车无覆盖
-- **观察点**：①触发率变化（口径变小同阈=更严的拦截面）②被拦「假活跃票」结局（D 组形状：多尘埃钱包凑 holders 过旧门、真实承接 wallets 数少）③holdersExDust 与 holders 差值分布（校准 holderDustBnb 0.002 是否需调——差值大=尘埃钱包浓度高）④holderCount 与 holderCountExDust 双键并存，holders 旧键保留纯观察
+- **追裁定（同日晚，holderDustBnb 0.002→0.015）**：用户问「dust 是过滤了持仓市值多少的代币？我观察买入的时候，持仓稍微大一点的钱包应该没几个」——澄清口径（尘门过滤的是**钱包**非代币；按**首可靠价**折算=买入成本口径非当前市值，涨价不洗白/跌价不误伤）+ Jenner 票 `0xa3362c21c25e5da5236e8b60d461af512e897777` BUY 时刻 16 持仓钱包折算分布实查（≥0.2 BNB 仅 4 个、0.0096-0.002 档 7 个）印证「稍大钱包没几个」属实 → 裁定「把阈值改为 0.015」（≈$10.5，$10 以下钱包不算有效承接）。影响预估：Jenner 形状票 holdersExDust 16→9，主腿 `>= 10` 门过不了=触发率显著收紧；**条件串阈值 10/5 不动、库不 bump**（收紧由尘门口径实现）。FACTOR_PARAM_DEFAULTS 进程启动读入——v58 `12ef2c48` running 不动（换车链并行会话管理），重启/下次换车生效。单测同步：A-I 组显式传 `{holderDustBnb: 0.002}` 锁原语义（设计原则=**测机制非默认值**，以后调默认不破测试），J4 断言默认 0.015，21 断言全过
+- **观察点**：①触发率变化（口径变小同阈=更严的拦截面；0.015 后显著收紧——两档收紧叠加）②被拦「假活跃票」结局（D 组形状：多尘埃钱包凑 holders 过旧门、真实承接 wallets 数少）③holdersExDust 与 holders 差值分布（0.002/0.015 双档对照——差值大=尘埃钱包浓度高）④holderCount 与 holderCountExDust 双键并存，holders 旧键保留纯观察
 
 ### T96 净买门换轨 OR→AND「短期开始涨，长期下跌趋势解除」（两臂同改：buy-v2 v48→v49 + buy-early-narrative v8→v9；2026-10-29 用户裁定「把买入条件 tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40 改为 tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40」「两个臂都改」）
 

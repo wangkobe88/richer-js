@@ -153,12 +153,12 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   0xdf7a 82.0）+全量池 197 活跃票 peak≤0 最低 11%；N=10 含
                                  //   集中卖压形状（0xdf7a fire 帧 -531）排除）；复用
                                  //   _activityEvents 事件环，裁剪须条数保底（见 _pruneActivityEvents）
-    holderDustBnb: 0.002,       // holdersExDust 尘埃门 BNB 值（T98 2026-10-29 用户裁定
-                                 //   「极小持仓者剔除——这样不会让假活跃票进门」）：净持仓
-                                 //   按首可靠价折算 < 此值的钱包不算持有人。默认 0.002：
-                                 //   2× collector tick 尘门（0.001——刷 holder 钱包单笔刚
-                                 //   过 tick 门的最小成本档恰被剔）+ = perCardBNB 单卡仓位
-                                 //   （低于最小建仓单位的持仓=非认真参与）；显式 0=不剔
+    holderDustBnb: 0.015,       // holdersExDust 尘埃门 BNB 值（T98 2026-10-29 用户裁定
+                                 //   「极小持仓者剔除——这样不会让假活跃票进门」；同日追裁定
+                                 //   0.002→0.015——Jenner 0xa3362c21…7777 实查 16 钱包仅 4 个
+                                 //   ≥0.2 BNB、$10 以下钱包 7 个，$10.5 档以下不算有效承接）：
+                                 //   净持仓按首可靠价折算 < 此值的钱包不算持有人；
+                                 //   显式 0=不剔
                                  //   （holdersExDust 恒等 holders）。factorParams 可覆盖
     netBuyWinLongTrades: 100,   // tradesNetBuyRatioLongWin 净买长窗笔数（T88 2026-10-28
                                  //   用户裁定「全量买卖比没必要，检测一个趋势」——全史键
