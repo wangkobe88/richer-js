@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ============================================================================
-// 库 T92 保护条件瘦身（buy-v2 v47→v48 + buy-early-narrative v6→v7 同批）
+// 库 T93 保护条件瘦身（buy-v2 v47→v48 + buy-early-narrative v6→v7 同批）
 //   背景（2026-10-29 BI/Meecot 迟买归因用户裁定「保护条件还要再进一步瘦身，
 //   不然真的没法搞了」）：
 //   - BI 0xa7ef…7777（flap 税币，rating=3 +4.4s 就绪 leadMs=22.6s）：flap 路由门
@@ -20,7 +20,7 @@
 // 防呆：断言两策略当前版本 + 删除段恰一次 → 删换后三旧键零残留 / top1 门与
 //   top2Holder 新门恰一次在场 / 其余兄弟门锚定（T89/T90/T91 形状）/ trigger 与
 //   gmgn 不动 / maxExecutions===2。
-// 用法：node scripts/bump-t92-protect-slim.cjs [--commit]   （在 182 跑）
+// 用法：node scripts/bump-t93-protect-slim.cjs [--commit]   （在 182 跑）
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
@@ -40,13 +40,13 @@ const TARGETS = [
       '(tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40)',
       'drawdownFromHighest > -70', 'crashSpeedPctPerSec > -10',
     ],
-    desc: ' | 2026-10-29 v48（T92 保护条件瘦身）：删 flap 路由门'
+    desc: ' | 2026-10-29 v48（T93 保护条件瘦身）：删 flap 路由门'
       + '(platform != \'flap\' OR tradesRouterPct >= 30) 与 sybil 门'
       + ' sybilClusterHolderCircPct < 60，top2 块簇门换 top2 持有人门'
       + 'top2HolderCircPct < 55（阈值承接）——用户裁定「这些保护条件还要再进一步瘦身」。'
       + '驱动=BI 0xa7ef 案（router 门独拦 12s+top2 最后收口 +27s 买顶）与 Meecot'
       + '0x8671d681 案（sybil 100→59 稀释 150s 接顶全亏）。三键退为纯观察键（FA 照算）。'
-      + '⚠️copy-in：需新建实验引用 v48。详档 docs/交易策略改进与Case台账.md T92',
+      + '⚠️copy-in：需新建实验引用 v48。详档 docs/交易策略改进与Case台账.md T93',
   },
   {
     name: 'buy-early-narrative', fromVersion: 6,
@@ -60,10 +60,10 @@ const TARGETS = [
       'maxCopyWalletHolderCircPct < 20', 'famousCopyWalletCircPct < 15',
       'drawdownFromHighest > -70', 'crashSpeedPctPerSec > -10',
     ],
-    desc: ' | 2026-10-29 v7（T92 保护条件瘦身）：删 flap 路由门与 sybil 门，'
+    desc: ' | 2026-10-29 v7（T93 保护条件瘦身）：删 flap 路由门与 sybil 门，'
       + 'top2 块簇门换 top2 持有人门 top2HolderCircPct < 65（阈值承接）——同 buy-v2'
       + ' v48 裁定（早期臂同形状处理）。⚠️copy-in：需新建实验引用 v7。'
-      + '详档 docs/交易策略改进与Case台账.md T92',
+      + '详档 docs/交易策略改进与Case台账.md T93',
   },
 ];
 
