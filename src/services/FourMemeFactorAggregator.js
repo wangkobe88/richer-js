@@ -2724,6 +2724,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             holderDrawdownFromHighestSinceLastBuy,
             // 回迁批 1 H 组（可靠价链口径）
             peakProfitPct: pos.peakProfitPct || 0,          // running max，_buildFactorMap 先推进后读取
+            // T97 高点停滞减仓臂载体：距持仓期峰值秒数（峰推进在 priceAccepted 块=任意
+            // 接受价轨：outlier 不推峰、尘 tick 不卡尘门——与 peakProfitPct 可靠价轨分轨，
+            // 尘价新高可重置计时但不可武装；创新高归零重计）；now=buildFactorMap 入参（回测=虚拟时钟）
+            secSincePeak: pos.highestPriceSinceBuyAt ? Math.max(0, (now - pos.highestPriceSinceBuyAt) / 1000) : null,
         };
     }
 
@@ -2795,6 +2799,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             highestHolderCountSinceLastBuy: null,
             holderDrawdownFromHighestSinceLastBuy: null,
             peakProfitPct: null,
+            secSincePeak: null,
         };
         if (state._lastPositionKey && state._positions.has(state._lastPositionKey)) {
             positionFactors = this._positionFactors(
@@ -3110,6 +3115,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             entryMarketCap: positionFactors.entryMarketCap ?? null,
             highestHolderCountSinceLastBuy: positionFactors.highestHolderCountSinceLastBuy,
             holderDrawdownFromHighestSinceLastBuy: positionFactors.holderDrawdownFromHighestSinceLastBuy,
+            // T97 高点停滞减仓臂：距持仓期峰值秒数（无持仓 → null，`> N` 恒 false fail-closed）
+            secSincePeak: positionFactors.secSincePeak ?? null,
 
             // ── WSS 事件流口径的「AVE 替代」因子 ──
             holders: state.holderCount,

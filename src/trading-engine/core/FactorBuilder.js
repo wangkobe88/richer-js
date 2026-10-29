@@ -53,6 +53,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 注意：这个因子会保存到时序数据库，但回测时会动态计算（类似 profitPercent）
     highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
     drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
+    // T97 高点停滞减仓臂（2026-10-29）：距持仓期峰值秒数——不落库即丢，
+    // 触发复盘（为何卖/为何没卖）需 fire 时刻值；旧 FA/未持仓 → null 不掩盖
+    secSincePeak: factorResults.secSincePeak ?? null,
     // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
     // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
     peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,
