@@ -137,8 +137,10 @@ async function main() {
   if (!earlyRef || earlyRef.version !== 10) throw new Error('libraryRefs buy-early-narrative 非 10');
   const momIdx = refs.findIndex(r => r.name === 'buy-v2-momentum');
   if (momIdx === -1 || refs[momIdx].version !== 1) throw new Error('libraryRefs buy-v2-momentum 非 1（源应是 v61）');
+  const refsBefore = refs.length; // v61=5 条（4 买库+rug-exit 卖库）
   refs.splice(momIdx, 1);
-  if (refs.length !== 3) throw new Error('refs 移除 momentum 后条数=' + refs.length + ' 期望 3');
+  if (refs.length !== refsBefore - 1) throw new Error('refs 移除 momentum 后条数异常: ' + refsBefore + '→' + refs.length);
+  if (!refs.some(r => r.name === 'rug-exit-account-arm')) throw new Error('refs 缺 rug-exit-account-arm（卖腿库引用不应被动）');
   repRef.version = 3;
   repRef.snapshotAt = new Date().toISOString();
 
