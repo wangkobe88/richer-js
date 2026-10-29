@@ -14,19 +14,19 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v48 快照；live v52 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v49 快照；live v54 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨；早期臂差异=T95 集中度放宽；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
 AND marketCap > 4.7 AND marketCap < 27                   -- 市值窗 BNB 域（T84/v43 起 priceBnb×totalSupply 全域 BNB 断代；v34 曾 USD 3.5K-20K）
 AND (narrativeRating == 2 OR narrativeRating == 3)        -- 叙事过门（C84 触发模型）
 AND holderTrendSlope > 0                                  -- 趋势（slot 化 4 块窗，NULL fail-closed）
-AND top2HolderCircPct < 55                                -- top2 持有人门（T93/v48：前两大净持仓合计 ÷ 同 _circDen，块簇门 T67 换轴；早期臂 65）
-AND top1HolderCircPct < 35                                -- 单钱包最大持仓
+AND top2HolderCircPct < 55                                -- top2 持有人门（T93/v48：前两大净持仓合计 ÷ 同 _circDen，块簇门 T67 换轴；早期臂 75=T95/v9 放宽 65→75）
+AND top1HolderCircPct < 35                                -- 单钱包最大持仓（早期臂 45=T95/v9 放宽 35→45）
 AND maxCopyWalletHolderCircPct < 20                       -- 跟单名单单钱包最大（NULL fail-closed）
 AND famousCopyWalletCircPct < 15                          -- 极著名钱包（0 语义）
 AND (buyVolumeBnb >= 1.25 AND holders >= 10)              -- 人气门（T90/v46 起 AND「量人双达标」防刷量/多钱包微买；v28-v45 曾 OR；T89/v45 恢复原键不去 sybil——ExSybil 键退役出条件串，FA 键保留）
-AND (tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40) -- 卖压门 OR 臂（T88/v48 键名断代：全史键 tradesNetBuyRatio 删→长窗尾 100 笔 LongWin、Win→ShortWin 尾 20 笔，环空=null fail-closed/尾窗全卖=-100；回放实证 M 档买点行为全档同帧=断代最小干预，阈值 40 承 T77/T70）
+AND (tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40) -- 净买门 AND 形状（T96/v49 换轨「短期开始涨，长期下跌趋势解除」：短窗尾 20 笔须强净买 ≥40 ∧ 长窗尾 100 笔净比非负，严格收紧新⊆旧——拦「长强短弱」与「短反弹但长期净卖」；T88/v48 键名断代：长窗尾 100 笔 LongWin/短窗尾 20 笔 ShortWin，环空=null fail-closed/尾窗全卖=-100；阈值 40 承 T77/T70）
 AND drawdownFromHighest > -70                             -- 崩盘接刀门①（v27）
 AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②（v27）
 ```
@@ -51,6 +51,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T96 净买门换轨 OR→AND「短期开始涨，长期下跌趋势解除」（两臂同改：buy-v2 v48→v49 + buy-early-narrative v8→v9；2026-10-29 用户裁定「把买入条件 tradesNetBuyRatioLongWin >= 40 OR tradesNetBuyRatioShortWin >= 40 改为 tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40」「两个臂都改」）
+
+- **新形状**：`(tradesNetBuyRatioLongWin >= 0 AND tradesNetBuyRatioShortWin >= 40)`——短窗（尾 20 笔）须强净买 ≥40（短期开始涨）∧ 长窗（尾 100 笔）净比非负（长期下跌趋势解除）。**严格收紧（新 ⊆ 旧 OR 门）**：旧过新不过=①长≥40 但短<40（长强短弱，短期已熄火）②短≥40 但长<0（短窗反弹、长窗仍在净卖=下跌趋势未解除）。null 语义不变：长短窗同源于 `_activityEvents` 环（环空两者皆 null，`>=` 恒 false fail-closed；T87/T88 口径零变化）
+- **部署链**：库 bump-t96-netbuy-reshape.cjs（v49/v9，防呆=两源段恰一次/旧 OR 臂零残留/兄弟门锚定）→ v53 f1cd791b 起跑 5min 零成交即停（T95 刚部署就被本批换车替代，无弃管）→ create-v54.cjs → **v54 `0007ff5a-8a17-4e31-928f-53af7e3f2d2e` 03:08:41 UTC 起实跑**（PID 2248290；日志 config 两腿新净买段 ×2、旧段零残留、ERROR=0、23 策略装载）
+- **观察点**：①触发率（净买门收紧的拦截面——「长强短弱」形状票占比）②被新门拦截票的结局（若「短弱」其实是买点更早的代价，拦掉的是入场太晚的票则属正向）③「短反弹长负」形状票结局（拉盘出货中段 vs 真反转初段）④与 T95 放宽的合流效应（早期臂双向变动：集中度放宽放行 + 净买收紧拦截）
+
+### T95 早期臂集中度门放宽 +10（buy-early-narrative v7→v8：top1HolderCircPct 35→45 / top2HolderCircPct 65→75；2026-10-29 用户裁定「低市值臂的当前 top1/top2 因子再放宽一些」）
+
+- **依据（3 天 13 live 实验 1050 票、492 有窗票阈值网格，tmp-top-supply-analysis 182 跑）**：top1 是主 binder（单维 35→45 新增 13 票 up 中位 32.8%；top2 边际小——65→75 单维仅 1 票）；组合档 `t1<45 ∧ t2<75` 新增 18 票 up 中位 41.6%、up≥30% 占 11/18、dn 中位 -15%、pnlΣ +0.0039；**再宽 t1<65 up 中位掉到 20.9%=质量下滑**，故 +10 封顶（T85 同节奏）。机制背景=Binancians 0x04c1 案早期流通分母小占比虚高（窗内 top1 49.9-62.5 从未达 35，早期臂结构性失明——T94 supply 分母观察键同步落码攒分布，门是否换分母待观察后再裁）
+- **部署**：bump-t95-early-arm-loosen.cjs（库 early v8）→ 查 v52 持仓（2 票 OPEN 各 0.006 BNB：「42」0x027804cc/「할머니 강아지」0xd49e4375，用户裁定「直接停，弃管两票」）→ 停 v52 bc77ac6c → create-v53.cjs → v53 f1cd791b 03:03:20 UTC 起实跑（**5min 后被 T96 换车替代**，零成交零弃管）。主腿 buy-v2 v48 逐字不动=对照臂
+- **观察点**：①早期臂触发率（新增面=top1 45-55 段票形状）②对照臂分歧（同票主臂/早期臂先后 fire 形状）③被放行票结局（对倒票混入面——top1 45-55 段的坏人浓度）
 
 ### T94 前 1/2 大净持仓占总量比例观察键（FA 新键 `top1HolderSupplyPct`/`top2HolderSupplyPct`，纯观察不进条件串；2026-10-29 Binancians 早期臂失效归因用户裁定「早期 top1 top2 持仓流通量占比一般来讲就是会很高……不应该以流通量为分母，而是以总量为分母」「先新增占总量比例的因子，再继续观察一段时间再说怎么用」）
 
