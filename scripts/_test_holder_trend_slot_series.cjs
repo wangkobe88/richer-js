@@ -235,5 +235,117 @@ console.log('\nD 节：乱序块行为');
       && st._holderSeries[1].block === 104));
 }
 
+// ═══════════ E 节：holderTrendSlopeExSniper 剔狙击段（2026-10-29 用户裁定） ═══════════
+// 语义：跳过的 slot=有交易的 slot（前 4 个有 tick 的不同 block，无交易的块不产生序列点
+// 也不计入跳过数）；ExSniper 序列=第 5 个不同 block 起的子集，slope 门槛 ≥4 点不足不出键
+// （`> 0` 门恒 false 拦买）。纯新增键，旧 11 键 bit 不变（E3/E5 并存断言）
+console.log('\nE 节：holderTrendSlopeExSniper 剔狙击段');
+{
+  const evaluator = new ConditionEvaluator();
+  const COND_EX = 'holderTrendSlopeExSniper > 0';
+
+  // E1 前 4 个有交易 slot 不进 ExSniper：4 块各 1 买 → 旧键已出（4 点），ExSniper 0 点键缺失门拦
+  const fa = newFA();
+  for (let i = 0; i < 4; i++) {
+    fa.processTick(mkTick({ trader_address: `0xE${i}`, sender_address: `0xE${i}`, timestamp: T0 + i * 100, block_number: 100 + i }));
+  }
+  let f = fa.buildFactorMap('0xtoken', T0 + 500);
+  check('E1 前 4 slot 全剔：旧 slope 出值 >0（狙击爆发可拉正）/ExSniper 0 点键缺失门拦',
+    () => assert.ok(f.holderTrendSlope > 0)
+      && assert.strictEqual(f.holderTrendDataPointsExSniper, 0)
+      && assert.strictEqual(f.holderTrendSlopeExSniper, undefined)
+      && assert.strictEqual(evaluator.evaluate(COND_EX, f), false));
+
+  // E2 跳过数只数「有交易的 slot」：块号大间隔（200/300/400/500）仍算前 4 slot，边界=第 5 个有 tick 块
+  const fa2 = newFA();
+  for (const b of [200, 300, 400, 500]) {
+    fa2.processTick(mkTick({ trader_address: `0xG${b}`, sender_address: `0xG${b}`, timestamp: T0 + b, block_number: b }));
+  }
+  const st2 = fa2._states.get('0xtoken');
+  check('E2 无交易块不计入跳过数：4 个间隔块后边界未定型（null）',
+    () => assert.strictEqual(st2._holderSeries.length, 4)
+      && assert.strictEqual(st2._holderExSniperStartBlock, null));
+  fa2.processTick(mkTick({ trader_address: '0xG600', sender_address: '0xG600', timestamp: T0 + 600, block_number: 600 }));
+  check('E2b 第 5 个有 tick 块（600）定型边界 write-once',
+    () => assert.strictEqual(st2._holderExSniperStartBlock, 600));
+
+  // E3 第 5-8 块到齐出值：slope 只算后 4 点（[5,6,7,8] 手算 1/6.5），旧键全窗并存不受影响
+  for (let i = 0; i < 4; i++) {
+    fa.processTick(mkTick({ trader_address: `0xF${i}`, sender_address: `0xF${i}`, timestamp: T0 + 1000 + i * 100, block_number: 104 + i }));
+  }
+  f = fa.buildFactorMap('0xtoken', T0 + 1500);
+  check('E3 ExSniper=后 4 点斜率 1/6.5（手算对拍）/dataPointsExSniper=4/门放行',
+    () => assert.ok(Math.abs(f.holderTrendSlopeExSniper - 1 / 6.5) < 1e-12)
+      && assert.strictEqual(f.holderTrendDataPointsExSniper, 4)
+      && assert.strictEqual(evaluator.evaluate(COND_EX, f), true));
+  check('E3b 旧 11 键并存不受污染：全窗 8 点 dp=8 / slope>0（[1..8] 全史斜率 ≠ 1/6.5）',
+    () => assert.strictEqual(f.holderTrendDataPoints, 8)
+      && assert.ok(f.holderTrendSlope > 0)
+      && assert.ok(Math.abs(f.holderTrendSlope - f.holderTrendSlopeExSniper) > 1e-9));
+
+  // E4 狙击形状反证（v60 损失票形状）：前 4 块爆发 1→8、后 4 块横盘 8 恒定 →
+  //     旧门放行（爆发段拉正）/ ExSniper 拦（横盘 slope=0 有证据零值）
+  const fa4 = newFA();
+  fa4.processTick(mkTick({ trader_address: '0xA', sender_address: '0xA', timestamp: T0, block_number: 100 }));           // 1
+  fa4.processTick(mkTick({ trader_address: '0xB', sender_address: '0xB', timestamp: T0 + 100, block_number: 101 }));      // 2
+  fa4.processTick(mkTick({ trader_address: '0xC', sender_address: '0xC', timestamp: T0 + 200, block_number: 102 }));      // 3
+  for (const w of ['0xD', '0xE', '0xF', '0xG', '0xH']) {                                                                  // 块 103 狙击爆发 → 8
+    fa4.processTick(mkTick({ trader_address: w, sender_address: w, timestamp: T0 + 300, block_number: 103 }));
+  }
+  for (let i = 0; i < 4; i++) {                                                                                           // 块 104-107 横盘 8
+    const b = 104 + i;
+    fa4.processTick(mkTick({ trader_address: `0xN${i}`, sender_address: `0xN${i}`, timestamp: T0 + 400 + i * 100, block_number: b }));            // 新钱包买
+    fa4.processTick(mkTick({ trader_address: `0xO${i}`, sender_address: `0xO${i}`, timestamp: T0 + 450 + i * 100, block_number: b, trade_type: 'sell', token_amount: 0 })); // 占位行（tokenAmount=0 不动 count，同块覆盖=8）
+  }
+  const f4 = fa4.buildFactorMap('0xtoken', T0 + 1000);
+  check('E4 狙击爆发+横盘：旧 slope>0 放行 / ExSniper 序列 [8,8,8,8] slope=0 拦',
+    () => assert.ok(f4.holderTrendSlope > 0)
+      && assert.strictEqual(f4.holderTrendDataPointsExSniper, 4)
+      && assert.strictEqual(f4.holderTrendSlopeExSniper, 0)
+      && assert.strictEqual(evaluator.evaluate(COND_EX, f4), false));
+
+  // E5 边界滑出 8 点窗（≥12 不同块）→ ExSniper 子集=全窗 → 两键 bit 一致
+  const fa5 = newFA();
+  for (let i = 0; i < 12; i++) {
+    fa5.processTick(mkTick({ trader_address: `0xZ${i}`, sender_address: `0xZ${i}`, timestamp: T0 + i * 100, block_number: 300 + i }));
+  }
+  const f5 = fa5.buildFactorMap('0xtoken', T0 + 2000);
+  check('E5 边界滑出窗后 ExSniper === 旧 slope（bit 一致）',
+    () => assert.strictEqual(f5.holderTrendSlopeExSniper, f5.holderTrendSlope)
+      && assert.strictEqual(f5.holderTrendDataPointsExSniper, 8));
+
+  // E6 defer 两阶段（resolver 乱序回推）：ExSniper 与正序直喂 bit 一致（边界在重放侧排序定型）
+  const seq = [];
+  for (let i = 0; i < 10; i++) {
+    seq.push(mkTick({ trader_address: `0xD${i}`, sender_address: `0xD${i}`, timestamp: T0 + i * 100, block_number: 400 + i, token_amount: 100 }));
+  }
+  const faA = newFA();
+  seq.forEach(t => faA.processTick(t, { emitFactors: false }));
+  const faB = newFA();
+  seq.forEach(t => faB.processTick(t, { deferWallet: true, emitFactors: false }));
+  for (let i = seq.length - 1; i >= 0; i--) faB.applyWalletTick(seq[i], { emitFactors: false }); // 全倒序回推
+  const fA = faA.buildFactorMap('0xtoken', T0 + 3000);
+  const fB = faB.buildFactorMap('0xtoken', T0 + 3000);
+  check('E6 defer 乱序回推 ExSniper 与正序 bit 一致（边界=第 5 不同 block 重放定型）',
+    () => assert.strictEqual(fB.holderTrendDataPointsExSniper, fA.holderTrendDataPointsExSniper)
+      && assert.strictEqual(fB.holderTrendSlopeExSniper, fA.holderTrendSlopeExSniper)
+      && assert.strictEqual(faB._states.get('0xtoken')._holderExSniperStartBlock, 404));
+
+  // E7 因子键全集（三防线自动认得；dataPoints 键无条件出探针自收）
+  const keys = newFA().getFactorKeys();
+  check('E7 getFactorKeys 含 ExSniper 两键',
+    () => assert.ok(keys.has('holderTrendSlopeExSniper')) && assert.ok(keys.has('holderTrendDataPointsExSniper')));
+
+  // E8 FactorBuilder 快照白名单两处透传（不落库即丢防线）
+  const fbSrc2 = fs.readFileSync(FACTOR_BUILDER_PATH, 'utf8');
+  check('E8 FactorBuilder 两处白名单含 ExSniper 两键',
+    () => {
+      const direct = (fbSrc2.match(/holderTrendSlopeExSniper: factorResults\.holderTrendSlopeExSniper,/g) || []).length;
+      const list = (fbSrc2.match(/'holderTrendSlopeExSniper', 'holderTrendDataPointsExSniper',/g) || []).length;
+      assert.strictEqual(direct, 1, 'signal 快照直接透传缺键');
+      assert.strictEqual(list, 1, '键清单缺键');
+    });
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);

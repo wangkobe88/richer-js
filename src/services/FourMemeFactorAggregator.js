@@ -91,6 +91,10 @@ const SERIES_MAX_POINTS = 8;
 // 较 4 块窗减半）。★与 HolderTrendDetector._confirmDirection/_calculateTrendStrength 内部
 // maxPoints=8 保持一致——改一处必须同改另一处。
 const HOLDER_SERIES_MAX_POINTS = 8;
+// 剔狙击段 slot 数（holderTrendSlopeExSniper，2026-10-29 用户裁定）：有交易后前 4 个
+// slot（=前 4 个有 tick 的不同 block）视为狙击手段不进趋势——是否真有流动性涌入看后面；
+// ExSniper 序列=第 5 个不同 block 起的 _holderSeries 子集（≤8 点滑动），slope 门槛 ≥4 点
+const HOLDER_TREND_SKIP_SLOTS = 4;
 
 // 滑窗速率窗口（分钟）
 const RATE_WINDOW_MS = 5 * 60 * 1000;
@@ -761,6 +765,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendCV',
             'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
             'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendSlope', 'holderTrendStrengthScore',
+            'holderTrendSlopeExSniper',
         ]) {
             keys.add(k);
         }
@@ -1680,6 +1685,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             _recentPrices: [],   // 最近 5 笔已接受价（离群中位基准）
             _priceSeries: [],    // 10s 桶价格序列（trend* 因子，8 点）
             _holderSeries: [],   // blockNumber 桶持有者序列（holderTrend* 因子，8 块 ≈4s，2026-10-14 slot 化）
+            _holderExSniperStartBlock: null, // 剔狙击段边界（write-once）：第 5 个有 tick 的不同 block（ExSniper 序列起点）
+            _holderDistinctBlocks: 0,        // 非 defer 路径已见不同 block 计数（仅边界定型前有意义）
 
             // 计数
             tradeCount: 0,
@@ -1965,6 +1972,13 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (lastH && lastH.block === blockNumber) {
             lastH.count = state.holderCount;
         } else {
+            // 新不同 block（非 defer 正序路径 block 单调）：推进剔狙击段边界 write-once——
+            // 第 SKIP+1 个不同 block = 首个计费 slot（ExSniper 序列起点；定型后计数器退役）
+            state._holderDistinctBlocks++;
+            if (state._holderExSniperStartBlock === null
+                && state._holderDistinctBlocks === HOLDER_TREND_SKIP_SLOTS + 1) {
+                state._holderExSniperStartBlock = blockNumber;
+            }
             state._holderSeries.push({ block: blockNumber, count: state.holderCount });
             if (state._holderSeries.length > HOLDER_SERIES_MAX_POINTS) state._holderSeries.shift();
         }
@@ -2005,6 +2019,20 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (events.length === 0) { state._holderSeriesDirty = false; return; }
         // 稳定排序按 block（同 block 保到达序——块内顺序不影响块末快照）
         events.sort((a, b) => a.block - b.block);
+        // 剔狙击段边界 write-once（defer 路径）：排序后正数第 SKIP+1 个不同 block（含
+        // wallet=null 占位行——口径与非 defer 的 per-tick 推进一致）。环裁剪先于边界定型
+        // 在时序上不可达（重放挂 buildFactorMap 消费点逐 tick 执行，事件只在 tick 处理中
+        // 入环）；万一发生 → 边界偏晚 = 多剔 = 门更严（fail-closed 方向，不静默放宽）
+        if (state._holderExSniperStartBlock === null) {
+            let seenBlocks = 0, prevBlock = null;
+            for (const e of events) {
+                if (e.block !== prevBlock) { seenBlocks++; prevBlock = e.block; }
+                if (seenBlocks === HOLDER_TREND_SKIP_SLOTS + 1) {
+                    state._holderExSniperStartBlock = e.block;
+                    break;
+                }
+            }
+        }
         // 窗=最近 HOLDER_SERIES_MAX_POINTS 个不同 block
         const blocksDesc = [];
         for (let i = events.length - 1; i >= 0; i--) {
@@ -3447,6 +3475,18 @@ class FourMemeFactorAggregator extends EventEmitter {
                 factors.holderTrendStrengthScore =
                     this._holderTrendDetector._calculateTrendStrength(holderCounts).score;
             }
+        }
+
+        // holderTrendSlopeExSniper（2026-10-29 用户裁定）：剔狙击段趋势键——前 4 个有交易
+        // 的 slot（首 4 个序列点）不进趋势，ExSniper 序列=边界 block 起的 _holderSeries
+        // 子集（边界定型前=空）；slope 门槛 ≥4 点（不足=键不出现，`> 0` 门恒 false 拦买）。
+        // 纯新增键，旧 holderTrend* 11 键 bit 不变
+        const exSniperCounts = state._holderExSniperStartBlock === null ? [] :
+            state._holderSeries.filter(h => h.block >= state._holderExSniperStartBlock).map(h => h.count);
+        factors.holderTrendDataPointsExSniper = exSniperCounts.length;
+        if (exSniperCounts.length >= 4) {
+            const exDirection = this._holderTrendDetector._confirmDirection(exSniperCounts);
+            factors.holderTrendSlopeExSniper = exDirection.relativeSlope || 0;
         }
 
         // ── TPA 注入（回迁批 4；母版 :2257-2281 + :2441-2448 同款，BSC 可靠价链版）──

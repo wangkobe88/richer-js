@@ -42,6 +42,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **sizing=卡牌唯一表达**（cards；sellPercentage 已退役 2026-10-24）；全清腿恒精确 1；卡账本 `cardTrade` 绝对值重放恢复
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
+- **T104 流动性止损 stallClose（2026-10-29，v63 起实跑）**：持仓票距上一笔链上成交（FA lastTickAt）**>10s 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104）
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
 - 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档·减 1 卡（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档卖 1 卡 p11/max1，三层梯队 T80 -15 减1卡→T99 -25 减1卡→拱形 -35 全清；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v58 `12ef2c48` 2026-10-29 起实跑）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
@@ -51,6 +52,16 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T105 剔狙击段 holder 趋势新键 holderTrendSlopeExSniper（FA 新因子两键；2026-10-29 用户指令「扣除有交易后前 4 个 slot 的数据，前四个 slot 都是狙击手，是否真的有流动性涌入得看后面；扣除后最少 4 个 slot 有 holder 上涨趋势即可」+「跳过的 slot 需要有交易」）
+
+- **动机**：holderTrendSlope 现口径的 8 点滑窗在票出生初期被狙击手段污染——前几个 slot 的狙击手买入把斜率推高，火点看到的是「狙击手冲高」而非「真流动性涌入」。v60 六张亏损票火点 age 5.4-50s、dp 4-8，全部在这个污染窗内火。
+- **语义/口径**：跳过段=**有 tick 的前 4 个不同 block**（HOLDER_TREND_SKIP_SLOTS=4；无交易的块既不产生序列点也不计入跳过数——slot=有交易的 slot，E2 断言锁定）；ExSniper 序列=第 5 个不同 block 起的 `_holderSeries` 子集（同源 8 点滑窗、同块覆盖语义）；≥4 点才出 `holderTrendSlopeExSniper`（`>0` 门），点数恒出 `holderTrendDataPointsExSniper`（观察键）；<4 点 slope 键缺失 → `>0` 恒 false **fail-closed**。边界 `_holderExSniperStartBlock` write-once：非 defer 路径新不同 block 计数定型；defer 路径 `_rebuildHolderSeries` 排序后首扫定型（环裁剪保最近 10 块≥8 点窗、先于定型不可达；万一发生=边界偏晚多剔=更严 fail-closed，E6 全倒序回推对拍）。**旧 11 键 bit 不动**（新键加在 holderTrend 段尾，旧序列/旧 slope 零分叉，E3b/E5 锚定）。
+- **改动面**：FA 新增两键（getFactorKeys 手动并入 slope 键；dataPoints 探针自收）+ FactorBuilder 两处快照白名单透传（E8 源码断言）；零条件串改动——**buy-v2 仍持旧键 holderTrendSlope，换键时机待用户裁定**（v61 在跑旧键，下次换车才可带新键）。单测=`_test_holder_trend_slot_series.cjs` E 节 8 case（前 4 slot 全剔/无交易块不计跳过/斜率手算对拍/旧键不受污染/狙击爆发后横盘反证 slope=0 拦/窗滑出后与旧键 bit 一致/defer 倒序回推一致/白名单源码断言），34/34。
+- **v60 8 票重放对拍（tmp-t103-exsniper-replay.cjs 双口径）**：火点快照 dp≤7 ⟹ 序列未滑出出生段 → dpEx=dp−4<4 **火点必拦**；dp=8 用链上真序重放判（wallet 段追平后形状）。P1·首买 5 票：MWEZI 0x20d2fa63…7777（−0.002011，dp5）、大肚柴犬 0x763ef316…7777（−0.001888，dp6）、날다람쥐 0x297d33af…7777（−0.001727，dp6）火点拦；WOFL 0x681c4dc9…7777（−0.000166，dp8，链上 dpEx=5 slopeEx=0.121>0）**不拦**；赢单 0x5ca91444…7777（+0.004565，dpEx=8 slopeEx=0.042>0）**不拦=保住**。P2 三票（柴犬大肚 −0.001399/饕小宝 −0.000685/赢单 0x4a4417ad +0.004534）——**early 腿条件无此门，换键零影响**（要拦 P2 亏损票须 early 加门，另行裁定）。
+- **实效=延迟语义而非拦死（关键结论）**：live 火点 dp 是 wallet 段滞后态（sender RPC 回推 1-3s，比链上真序少 1-4 点；MWEZI live 序列指纹 [1,1,6,9,12] dp5 vs 链上 9 块）→ 新门在 live 实效**比回测口径更严**；火点被拦后引擎 per-tick 重评，wallet 段追平（1-3s）后 ExSniper 补齐——MWEZI/大肚柴犬链上口径火点 slopeEx 已 >0（0.060/0.043）=**追平即放行照买**；仅 0x297d 真晚 9s 且价低 7%（dpEx 火点仍 3<4）。v60 亏损票共性=前 4 slot 后 holder 仍在涨 → 该门对这批票是「等第 5 slot 起的证据」；**真拦死形状=前 4 slot 冲高后横盘/回落**（slopeEx≤0，E4 单测形状，v60 无此形状票）。
+- **重放校准三坑复发实录**：trades metadata 腿名不存在（正确源=strategy_signals.metadata.strategyName）；roster 异步 loader 不 await → maxCopyWalletHolderCircPct 恒 null 拦死；registerToken 不带 totalSupply → marketCap 恒 0 拦死。对拍火点 oldOk 全 false 即这三坑信号。
+- **观察点**：①换键上线后 P1·首买触发率下降幅度与火点 age 分布右移；②被拦票追平后放行的「晚进场成本」分布（v60 样本=1-9s、价差 −7%~0）；③真拦死（slopeEx≤0 永不放行）票占比与其躲过的结局；④dpEx=4-5 贴边放行票 vs dpEx≥6 票胜率差；⑤P2 early 是否补同门（另裁）。
 
 ### T103 再买臂腰斩门放宽：drawdownFromHighest 区间 (-70,-50) → (-70,-40)（buy-v2-repeat v2→v3；2026-10-29 用户指令「把 drawdownFromHighest ∈ (-70,-50) 改为 drawdownFromHighest ∈ (-70,-40)」）
 
@@ -486,6 +497,22 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - vanity 地址尾号团伙 sniper-like→retail 反向盲区（先快抢后接盘的反向画像）；TPA 双盲区
 
 ### 丁、卖腿 / 止损 / 毕业卖
+
+### T104 流动性止损 stallClose：持仓票无成交 >10s 全部清仓（引擎级机制 `stallClose` 段，v63 起实跑；2026-10-29 用户提案「如果发现有10秒钟没有交易，全部清仓」→ 看完回放裁定「可以，上吧。二次起飞的看看再买臂能不能捕捉到，我想如果一个票没流动性了，就是要赶紧跑。」）
+
+- **动机**：meme 币断流=庄撤/池死的先导信号，持仓滞留死票占用资金且终局多为阴跌归零；现行栈只有 P4 120s 死票清仓（mcap<4.5K 才触）与断流卖腿兜底扫描（>60s 无 tick 才评卖腿、还得过确认窗）——都偏晚
+- **回放定标（`scripts/tmp-stall10s-close-analysis.cjs` + `-sweep.cjs`，182 跑，近 8 天 199 live round，tick 级反事实；触发口径=持仓中距上一笔链上成交（wss_price_ticks，含 outlier 行）>10s，买入时空窗已 ≥10s=即买即触发）**：
+  - **10s 档**：触发 131/199 round（66%）；**净 Δ +0.0773 BNB/8d**（实际 −0.0684 → 模拟 +0.0089）；改善 111 round（Σ+0.1185）/代价 20 round（Σ−0.0412）
+  - **代价面（大票）**：峰值 ≥100% 的 34 round 被截 16、利润被砍 11——大票利润 0.110→0.087 BNB（**−21%**）
+  - **阈值扫描 10/15/20/30/45/60s**：10s 净Δ最大但大票损失也最大；60s 大票捕获反而 +0.0017（与断流判据 60s 同口径）——净Δ与右尾保全是单调度交换，**用户拍板取 10s**（目标函数=资金周转快跑）
+  - **信号本质**：10s 空窗本身非预测信号——触发后恢复交易的 round 中 44% 恢复价更高，p50=−0.3%；价值=截断左尾（死票不拖）+资金周转，非择时
+- **再买臂接回面（`scripts/tmp-stall-close-repeat-recapture.cjs`，用户第二问「二次起飞的看看再买臂能不能捕捉到」）**：触发后再涨 ≥30% 的 37 round 里——**可接回仅 6**（落 T103 腰斩区间 (−70,−40) ∧ T96 净买双窗过 ∧ 近似门过；含派大星 接回后 +410%）；**24 个落过腰斩区间但净买双窗从未过**（跌 40% 时短期窗必是砸盘净卖=T96 结构性时点错配，等净买转正时价格多已离开区间）；**7 个从未跌进区间**（V 型不回头：OST +739%、小航 +710%、佩狗 +350% 等，永失）——结论：stall-close 与再买臂衔接存在结构性缝隙，属已知接受面（T103 放宽到 −40 已把缝隙收窄一档）
+- **机制（引擎级，对齐 stopLoss 家族——非卖腿、非库条目）**：实验 config `stallClose: { stallMs: 10000 }`，不配=机制关闭（存量实验零变化）；判据=FA `lastTickAt`（进程内 tick 时戳，非尘 tick 口径——尘 tick 不推进 lastTickAt）距 now **> stallMs**（严格大于）；触发→`_emitSellSignal` 全清链（cards='all'/sellPercentage=1）+ **bypassDebounce=true 立即路径**（空窗期零 tick，卖确认窗 3.5s+5tick 双门的 tick 证据永远凑不齐——bypass 是机制成立前提）+ **lockTokenAfterSell=false**（清仓≠拉黑，放行再买臂接回）；strategy id='stallClose' 命名档位随 stallMs
+- **挂点两态**：实时=`_runMainLoop` 1s 墙钟 setInterval（`Math.min(1000, stallMs)`；tick 驱动路径在空窗期全部沉默，墙钟是唯一活体）；回测=主循环 **processTick 之前**虚拟时钟 1s 节流扫描（feed 后 lastTickAt 已推进会漏检自己的空窗——顺序红线）；**因子 asOf=lastTickAt+stallMs（检测时点 parity）**：实时检测刻=空窗满 10s 的下一扫描拍、回测=同刻虚拟时钟，价格冻结在空窗前末 tick 两侧同价
+- **守卫族**：selling/buying 执行中跳过（不重入）；token.status!=='bought' 跳过；`lastTickAt` 缺失（重启恢复初期）fail-open 不卖；`buildFactorMap` null（prune 后）跳过；`_stallCloseMs=null` 自守卫 no-op（不依赖调用方门）
+- **单测**：`scripts/_test_stall_close.cjs`（零 DB 零网络，22 断言）——A 实时扫描八形状（超时/窗内/恰等阈值 `>` 语义/lastTickAt 缺失/执行中/sold/build null/未配置）+ B strategy 构造（cards='all'/sellPercentage=1/bypass/lockTokenAfterSell=false/tick=null）+ C 回测（★asOf=lastTickAt+stallMs 非 nowTs 断言=检测时点 parity 红线）；相邻回归 stop_loss_rules 69 / sell_leg_scan_fallback 21 / run_engine_graceful_stop 24 / backtest_trigger_leg 12 / graduation_sell_and_anchor 49 / card_position_mechanisms 28 全过
+- **部署链**：create-v63.cjs（克隆 v61 `5298b7bd`，T103 再买腿 v2→v3 + 注入 `stallClose={stallMs:10000}` 双变量同批换车；防呆=源无 stallClose 段+新实验恰 10s 档+T103 全套锚定承继）
+- **观察点**：①触发频率与触发时点距买点分布（即买即触发占比=买腿门放进死票的信号）②触发后 30min 票价走势（截断左尾实证）③大票被截面（−21% 代价的实跑复现）④再买臂接回实际成交（回放预测 6/37 形状）⑤与 P4 120s 死票清仓/断流兜底扫描的分工重叠（stall 10s 先触后两者基本退化为冗余层）⑥停机窗口期（换车时）在持票的 stall 计时重启归零语义（进程内存态，接受）
 
 ### T97 高点停滞减仓臂 secSincePeak（FA 新键 + 卖腿 `peakProfitPct >= 10 AND secSincePeak > 60` 卖 1 卡 cd60 maxExecutions=2；2026-10-29 用户提案+拍板；v56 `4ac10e23` 已上线）
 

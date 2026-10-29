@@ -112,6 +112,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderTrendRecentDecreaseCount: factorResults.holderTrendRecentDecreaseCount,
     holderTrendRecentDecreaseRatio: factorResults.holderTrendRecentDecreaseRatio,
     holderTrendConsecutiveDecreases: factorResults.holderTrendConsecutiveDecreases,
+    // 剔狙击段趋势键（2026-10-29：前 4 个有交易 slot 不进趋势；不足 4 点=undefined 不落）
+    holderTrendSlopeExSniper: factorResults.holderTrendSlopeExSniper,
+    holderTrendDataPointsExSniper: factorResults.holderTrendDataPointsExSniper,
     // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
     tweetAuthorType: factorResults.tweetAuthorType ?? 0,
     // 数据采集轮数因子
@@ -386,6 +389,7 @@ function getAvailableFactorIds() {
     'holderTrendCV', 'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendStrengthScore',
     'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendSlope', 'holderTrendDataPoints',
     'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
+    'holderTrendSlopeExSniper', 'holderTrendDataPointsExSniper',
   ]);
   // 惰性 require（函数调用时加载，无循环依赖：FA 不依赖 FactorBuilder）
   const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
