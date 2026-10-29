@@ -3,6 +3,7 @@
   "note": "极著名钱包（用户点名集合，2026-10-18 币安人生案）：FA 因子 famousCopyWalletCircPct 原料——这些钱包被跟单特别重，跟单大军放大控盘度，单独更紧的门（<15，主名单门 20 不变）。独立于 copy-wallet-roster.json（scan --commit 重写主名单不影响本文件）；增删由用户裁定。",
   "wallets": [
     "0xa83b73f5644cde337b61da79589f10ea15548811",
-    "0xbf004bff64725914ee36d03b87d6965b0ced4903"
+    "0xbf004bff64725914ee36d03b87d6965b0ced4903",
+    "0x7e8fb0392542812476d9f2d0d71c01d1fa0776c5"
   ]
 }
