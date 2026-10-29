@@ -387,8 +387,10 @@ const COND_BASE = {
       assert.ok(/st\.category = r\.narrativeCategory \?\? null;/.test(src), '完成回填缺 category 赋值');
       assert.ok(/category: st\.category \?\? null,/.test(src), '_projectNarrativeFactors 缺 category');
       // 2026-10-18 gwp 钱包画像层第五参接尾；2026-10-26 T71 接线整链删除（数据口
-      // getEarlyTopBuyers 随 early 族退役）→ 挂点回归四参形状，第五参恒 null
-      assert.ok(/factorResults\?\.narrativeCategory \?\? null,\s*\n\s*null\);/.test(src), 'GMGN 挂点第四参后应恒 null（T71 gwp 接线删除）');
+      // getEarlyTopBuyers 随 early 族退役）→ 第五参恒 null；2026-10-27 T76 加第六参
+      // buyContext（收尾从 null); 变 null, + 对象）——2026-10-29 T99 修正断言收尾
+      // 假设（T76 上线时未同步，存量失败至今），意图不变：锁第五参恒 null
+      assert.ok(/factorResults\?\.narrativeCategory \?\? null,\s*\n\s*null,/.test(src), 'GMGN 挂点第五参应恒 null（T71 gwp 接线删除；T76 起第六参 buyContext 接尾）');
     });
     check('E6 C88 标签链源码口径三件套（2026-10-18 CZ 出书簇：st 初始/完成回填/投影——漏一处=三态分裂红线）', () => {
       assert.ok(/superIp: null, recognizedEntitySlogan: null,/.test(src), 'st 初始对象缺两标签 null');

@@ -279,12 +279,18 @@ class BacktestEngine extends AbstractTradingEngine {
       list.forEach((s, idx) => {
         strategyArray.push({
           id: `${kind}_${idx}_${s.priority || 0}`,
-          name: `${kind === 'buy' ? '买入' : '卖出'}策略 P${s.priority || 0}`,
+          // T100：带 buyPhase 的腿名加后缀（与实时引擎同步，signals/回测日志区分首买/再买臂）
+          name: `${kind === 'buy' ? '买入' : '卖出'}策略 P${s.priority || 0}${kind === 'buy' && s.buyPhase === 'first' ? '·首买' : kind === 'buy' && s.buyPhase === 'repeat' ? '·再买' : ''}`,
           description: s.description || '',
           action: kind,
           condition: s.condition,
           priority: s.priority || 0,
           maxExecutions: s.maxExecutions || null,
+          // 首买/再买路由标记（T100 2026-10-29 Sprout 借壳案，与实时引擎同坑）：
+          // 'first'=仅 round 0 可见 / 'repeat'=仅全清后可见（判据 completedPairs
+          // 回测同构）。★白名单漏透传 = 回测路由失效两臂恒竞争（v15 GMGN 透传
+          // 事故同款形状），单测锁两处透传
+          buyPhase: s.buyPhase || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
           // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14；买腿消费，卖腿携带不

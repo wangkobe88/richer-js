@@ -166,6 +166,19 @@ class StrategyEngine {
                     }
                 }
 
+                // 首买/再买路由标记（T100 2026-10-29 Sprout 0x3319 借壳案）：buyPhase
+                // 只对买腿有意义——'first'=仅 round 0（从未全清）可见，'repeat'=仅
+                // 全清后（round>=1）可见，缺省 null=不限（存量 bit 一致）。卖腿携带
+                // 即拒启（无消费点，显式报错优于静默忽略，groups/cycle 先例风格）
+                if (config.buyPhase != null && config.buyPhase !== '') {
+                    if (config.action !== 'buy') {
+                        throw new Error(`策略[${config.id}] 非买腿携带 buyPhase（T100 首买/再买路由）：该字段仅买腿可配，拒绝启动`);
+                    }
+                    if (config.buyPhase !== 'first' && config.buyPhase !== 'repeat') {
+                        throw new Error(`策略[${config.id}] buyPhase 非法值 "${config.buyPhase}"（T100）：仅支持 'first' | 'repeat'，拒绝启动`);
+                    }
+                }
+
                 // 构建策略对象
                 const strategy = {
                     id: config.id,
@@ -176,6 +189,8 @@ class StrategyEngine {
                     condition,
                     enabled: config.enabled !== false,
                     maxExecutions: config.maxExecutions || null,
+                    // 首买/再买路由（T100）：见上方值域校验注释；null=不限轮次
+                    buyPhase: config.buyPhase || null,
                     preBuyCheckCondition: config.preBuyCheckCondition || null,
                     repeatBuyCheckCondition: config.repeatBuyCheckCondition || null,
                     // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）：前两层全过、
@@ -256,6 +271,20 @@ class StrategyEngine {
             // 检查是否启用
             if (!strategy.enabled) {
                 continue;
+            }
+
+            // 首买/再买路由（T100 2026-10-29 Sprout 0x3319 借壳案）：buyPhase='first'
+            // 的腿只在未走完买→卖全清回合（round 0）可见；'repeat' 只在全清后
+            // （round>=1）可见。判据与 repeatBuyCheckCondition 同源
+            // （token.completedPairs 全清成交对数，重启内存归零=现行轮次语义）。
+            // tokenData 缺失视作 round 0：first 可见、repeat 不可见（保守方向——
+            // 防首买轮走再买臂，绕过 GMGN issuer 分档门）。跳过语义与 maxExecutions
+            // 同构：高优先级腿被滤掉 → 次优先级腿可顶上
+            if (strategy.buyPhase != null) {
+                const completedPairs = tokenData && Array.isArray(tokenData.completedPairs)
+                    ? tokenData.completedPairs.length : 0;
+                if (strategy.buyPhase === 'first' && completedPairs > 0) continue;
+                if (strategy.buyPhase === 'repeat' && completedPairs === 0) continue;
             }
 
             // 检查执行次数限制

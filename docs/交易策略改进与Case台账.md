@@ -52,6 +52,17 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T100 首买/再买策略层分臂 `buyPhase` 路由（买腿 2→3：buy-v2 v50→v51 加 `buyPhase:'first'` + 新库条目 buy-v2-repeat v1 `buyPhase:'repeat'` 删 GMGN issuer 分档臂 maxEx=1；2026-10-29 用户裁定「把首买买入臂跟再买买入臂区分开来。当前表达式跟首买一致，但是把这个发币数量条件给删除」+ 再买次数 1 + early 臂不动 + 立即换车）
+
+- **案由（Sprout 二次入场误拦问询→裁定分臂）**：用户问 v56 内 `0x33196e0763841a198b48507885f6ce46c7877777`（Sprout，flap，project 类叙事票）首买成功后二次入场（06:16-06:17，已全清 round 1）为何被拒「推特账号发代币的数据更新了？」——信号 metadata GMGN 拒因 `gmgnIssuerTokenCount <= 1` 不满足。**链上实证（非 serial issuer，是借壳污染）**：宣告推特 @sproutbnb 真实（10-28 注册、0 粉、仅本币宣告）；06:08:56-06:09:09 **13 秒内 4 个不同钱包用同一 meta CID（同推特/同网站）连发 4 个 Sprout 票**（nonce 3630980-3630984 相邻=同一 Gas 中枢批量操作）+1 抢名票——恶意用户借壳该推特账号发币，GMGN **推特维度归因计数** `twitter_create_token_count`（risk-fields.js→`gmgnIssuerTokenCount`）时间线：06:09:59 首买时=1（干净，issuer 分档门 C85+T73 判断**正确**）→ 06:16 拒买时=5（污染）→ 现查=8
+- **裁定语义**：首买时点该计数干净，issuer 门保留（正主首买过滤有效）；再买时点计数被借壳者污染不可参考——**首买/再买在策略层分成两条独立腿**，再买臂主 condition/trigger 与首买逐字一致，仅 GMGN 条件删 issuer 分档臂（剩 T82 mcap 豁免 OR bundler 两臂）；再买 maxExecutions=1（总买入=首买 1+再买 1，对齐现行 v50 maxEx=2 语义）
+- **机制（显式路由字段，防条件分叉绕门）**：纯靠 priority/maxExecutions 隐式分流在两臂条件分叉时会漏（首买轮走再买臂绕过 issuer 门）→ 腿字段 `buyPhase: 'first' | 'repeat'`（缺省 null=不限，存量 bit 一致）：loadStrategies 值域+side 校验 throw 拒启、validateLegs 同口径 400（三防线风格）；`evaluate()` 腿循环内路由——'first' 仅 `completedPairs.length===0` 可见、'repeat' 仅 `>0` 可见（判据与现行 currentRound/repeatBuyCheckCondition 同源；tokenData 缺失视作 round 0=repeat 不可见，保守防首买绕门）；GMGN/preBuy 条件串天然跟随选中腿（GmgnRiskCheckService 零改动）；FourMeme/Backtest 装载映射白名单透传（v15 漏透传事故防线）+ 腿名后缀 `·首买`/`·再买`（两臂同 P1 的 signals 页唯一区分位）
+- **priority=1 刻意不降（快票遮蔽反证）**：Sprout 形状=7 分钟内买→全清→再买，此时 tokenAgeSec≈450<600 early 臂（P2，带 issuer 门）仍真——再买臂若 P3 会被 early 遮蔽误拦；再买臂 P1+buyPhase 互斥（首买轮 repeat 不可见）保两臂同 P1 不竞争（单测 C4 锁序）
+- **单测**：`_test_buy_phase_routing.cjs` 22 断言全过——A 透传/值域拒启/B 轮次路由（round0 只见 first、round1 只见 repeat、无标记两轮恒见、tokenData 缺失保守）/C ★**事故现场反证**（round0 首买臂带 issuer 全串被选中、repeat 不可顶上=首买必须过门；round1 选中删臂版）/D validateLegs 400/E 源码透传+后缀锁定
+- **部署链**：create-buy-v2-repeat.cjs（v51+v1，五重锚定）→ create-v59.cjs（克隆 v58，防呆=买腿 T98/T96 形状+卖 24 含 T99 拱形腿+再买腿五重锚定+refs v50→v51/v1）→ 停 v58（持仓确认零持仓）→ **v59 起跑（buy 3 腿：P1·首买 + P2 early + P1·再买）**
+- **撞号注记**：本案原拟 T99/v57——T99 与 v57/v58 编号均被并行会话拱形回撤案占用（git 5345620/171a1e2），按 T92 撞号先例改号 **T100**、换车目标改 **v59**（SRC=v58 12ef2c48 现役，卖腿 24 快照全承继）
+- **观察点**：①再买臂触发率与被放行票结局（借壳污染形状的票二次入场是否正确放行）②首买臂误放面（issuer 门仅保 round 0，round 0 内计数已被污染的形状仍拦不住——已知边界）③buyPhase 路由与 repeatBuyCheckCondition 并存语义（再买臂无该字段=裸评，旧轮检查不叠加）④early 臂再买轮遮蔽是否绝迹（P1·再买恒压 P2）
+
 ### T99 拱形回撤收紧 -25 下放低两档·减 1 卡（卖腿 22→24：`<8.1` 与 `8.1-27` BNB 两档 `dd<=-25` 卖 1 卡臂，p11/cards:1/max1；2026-10-29 用户指令「增加2个卖出臂 peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap >= 8.1 AND marketCap < 27 以及 peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap < 8.1」+ 纠正「只是卖一个卡，不是全清」）
 
 - **案由（SPERM 高点回撤问询→裁定收紧）**：用户问 0x059019085d8899589e3863d08b284616db8e7777（v56 flap 税币）「为什么高点下跌 35% 止损臂没有触发」——查证：**触发了且票已全清**，只是执行腿挂 P4 名下。事实链：05:03:32 买 3 卡（fire 价锚 8.7427e-9）→ 05:04:39 峰 1.25253e-8（peakProfitPct=+43.27%）→ 05:05:31 价 7.649e-9 时 dd=-38.9% ≤ -35 ∧ mcap 7.65<8.1 ∧ peak≥10 → **拱形 -35 低档臂首真**建立 3.5s+5tick 确认窗 → 窗内 05:05:34 跌破 7.4 地板（mcap 7.3815 擦边）**P4 地板清仓臂（priority 4）也变真** → 05:05:35.249 fire（=首真+3500ms 毫秒吻合）重评全腿择优 **P4 以 priority 4<11 抢走执行名分**（两腿均 all 全清实质无差）→ 链上成交成本口径 -29.3%（dd 执行时已 -41.1%，比 -35 首真时深 6+ 点）。用户裁定把 -25 下放低两档收紧

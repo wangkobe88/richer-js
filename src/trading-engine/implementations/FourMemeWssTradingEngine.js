@@ -578,12 +578,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       strategiesConfig.buyStrategies.forEach((s, idx) => {
         strategyArray.push({
           id: `buy_${idx}_${s.priority || 0}`,
-          name: `买入策略 P${s.priority || 0}`,
+          // T100：带 buyPhase 的腿名加后缀（首买/再买臂常同 priority——再买腿压过
+          // early P2 防快票再买轮被 early 臂遮蔽，见 create-v57 防呆——name 是
+          // signals 页区分臂的唯一展示位）
+          name: `买入策略 P${s.priority || 0}${s.buyPhase === 'first' ? '·首买' : s.buyPhase === 'repeat' ? '·再买' : ''}`,
           description: s.description || '',
           action: 'buy',
           condition: s.condition,
           priority: s.priority || 0,
           maxExecutions: s.maxExecutions || null,
+          // 首买/再买路由标记（T100 2026-10-29 Sprout 借壳案）：'first'=仅 round 0 可见
+          //（首买必须过 GMGN issuer 分档门——发币计数此时未被借壳者污染），
+          // 'repeat'=仅全清后可见（再买轮 issuer 计数已被借壳连环发币污染，再买腿
+          // 的 gmgnCheckCondition 删 issuer 臂）。★白名单漏透传 = 路由失效两臂恒
+          // 竞争（gmgnCheckCondition v15 透传事故同款形状），单测锁此透传
+          buyPhase: s.buyPhase || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
           // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）。★此白名单映射漏透传

@@ -84,6 +84,15 @@ function validateLegs(side, legs) {
             && String(leg.narrativeCallCondition || '').trim() !== '') {
             errors.push(`腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（C84：触发轮后台分析新链 vs fire 同步直调旧链）`);
         }
+        // 首买/再买路由标记（T100 2026-10-29 Sprout 借壳案）：仅买腿可配，值域
+        // 'first'|'repeat'（缺省=不限轮次）——与引擎 loadStrategies 拒启同口径
+        if (leg.buyPhase != null && leg.buyPhase !== '') {
+            if (side !== 'buy') {
+                errors.push(`腿[${i}] 非买腿携带 buyPhase（T100 首买/再买路由：该字段仅买腿可配）`);
+            } else if (leg.buyPhase !== 'first' && leg.buyPhase !== 'repeat') {
+                errors.push(`腿[${i}] buyPhase 非法值 ${JSON.stringify(leg.buyPhase)}（T100：仅支持 'first' | 'repeat'）`);
+            }
+        }
         for (const [field, ids] of CONDITION_FIELDS) {
             const raw = leg[field];
             if (typeof raw !== 'string' || raw.trim() === '') continue;
