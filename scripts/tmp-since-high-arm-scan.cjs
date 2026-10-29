@@ -75,14 +75,16 @@ function buildEpisodes(trades) {
 /**
  * 假设臂状态机。返回 fires[]（每次 fire 的 ts/price/profitPct/secSinceHigh）。
  * 峰值链：accepted 价创新高 → peak/peakAt 推进（secSinceHigh 归零语义）。
+ * endMs=episode 出场时刻（平仓票最后一笔卖 / open=∞）：票清仓后臂不再存在，超出即停。
  */
-function simulateSinceHigh(ticks, startMs, armPeakPct, nSec, maxFires) {
+function simulateSinceHigh(ticks, startMs, endMs, armPeakPct, nSec, maxFires) {
   const fires = [];
   let price = 0, anchor = 0, peak = 0, peakAt = startMs;
   let t0 = null, cnt = 0, cdUntil = 0;
   for (const t of ticks) {
     const ts = Date.parse(t.block_time);
     if (ts < startMs - SEED_MS) continue;
+    if (ts > endMs) break;
     const pb = Number(t.price_bnb);
     const nonDust = Number(t.bnb_amount) >= DUST;
     if (!(nonDust && !t.price_outlier && pb > 0)) continue;   // 尘/outlier：不喂价不进状态机
@@ -181,7 +183,7 @@ function simulateSinceHigh(ticks, startMs, armPeakPct, nSec, maxFires) {
   for (const [i, e] of base.entries()) {
     const r = results[i];
     for (const ap of ARM_PEAKS) for (const n of NS) {
-      const fires = simulateSinceHigh(e.ticks, e.startTs, ap, n, e.nCards - 1);
+      const fires = simulateSinceHigh(e.ticks, e.startTs, e.open ? now : e.endTs, ap, n, e.nCards - 1);
       const delta = fires.reduce((s, f) => s + e.qtyPerCard * f.price, 0) - fires.length * e.actualPerCard;
       r.arms[ap + '/' + n] = { fires: fires.length, delta: +delta.toFixed(6),
         detail: fires.map(f => ({ ts: new Date(f.ts).toISOString().slice(5, 19), price: f.price, profitPct: +f.profitPct.toFixed(1), sec: f.secSinceHigh })) };
