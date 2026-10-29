@@ -977,8 +977,9 @@ class ExperimentDataService {
       // 轻列模式（view=light）：消费方（token-returns 页）只读以下小字段；
       // select('*') 会拉 raw_api_data 等大列（~1.4KB/行，万行 ≈ 14MB、27.8MB 响应、30s+）。
       // 注意只列真实列——token_category/涨幅等是 getFormattedTokens 合并 token_profiles
-      // 后才出现的字段，不是表列；manual_sell_locked=停止卖出锁态（2026-10-22 手动操作批）
-      const LIGHT_COLUMNS = 'token_address, token_symbol, platform, data_source, human_judges, status, manual_sell_locked';
+      // 后才出现的字段，不是表列；manual_sell_locked=停止卖出锁态（2026-10-22 手动操作批）；
+      // manual_buy_locked=禁止买入锁态（2026-10-29 手动操作批）
+      const LIGHT_COLUMNS = 'token_address, token_symbol, platform, data_source, human_judges, status, manual_sell_locked, manual_buy_locked';
       let query = this.supabase
         .from('experiment_tokens')
         .select(options.light ? LIGHT_COLUMNS : '*')

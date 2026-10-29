@@ -30,6 +30,9 @@
  *      _emitSellSignal 双拦截点 / 手动队列卖不受锁（手动意志最高）
  *  19. _manualTradePriceUsd state 级回退：preFilter 出窗票 buildFactorMap=null 时
  *      读 getTokenState().currentPriceBnb×bnbUsd（手动买目标=引擎见过但策略窗已出）
+ *  20. 禁止买入锁（2026-10-29）：_refreshManualBuyLocks 全量重建 / _runBuyEvaluation
+ *      入口拦截（锁期间买腿完全不评估）/ _evaluateBuyPath 执行前收口（检查窗内上锁
+ *      竞态缝隙）/ _consumeManualTrades 同 2s 刷新挂点 / 手动队列买不受锁
  *
  * 执行原语（_executeBuyLive/_executeSell）在此打桩捕获入参——它们是策略路径
  * 同一执行原语（有自己的链路测试），本测聚焦队列/互斥/门/写回/signal 语义。
@@ -793,6 +796,70 @@ async function main() {
         ok(calls.buyLive.length === 1, '两级价格（factors→state×bnbUsd）命中 → 买放行（旧引擎此形状误拒）');
         ok(calls.buyLive[0].signal.price === 0.6, 'signal.price=0.001×600=0.6（FA fire 价同式）');
         ok(row.status === 'success', '出窗票手工买成功');
+    }
+
+    // ═══════════════ 20. 禁止买入锁 ═══════════════
+    console.log('\n[20] 禁止买入锁（web 写 experiment_tokens，引擎 2s 轮询镜像）');
+    {
+        // 20a. _refreshManualBuyLocks 全量重建（增删票，18a 同构）
+        resetTable();
+        const { engine, calls } = mkEngine({ faPrice: 0.0001 });
+        engine._manualBuyLocks.add('0xstale'); // 模拟解锁后的旧镜像残留
+        db.tables.experiment_tokens.push(
+            { experiment_id: 'exp-manual', token_address: TOKEN, manual_buy_locked: true },
+            { experiment_id: 'exp-manual', token_address: '0xother', manual_buy_locked: false },
+            { experiment_id: 'exp-other', token_address: '0xnope', manual_buy_locked: true }, // 他实验
+        );
+        await engine._refreshManualBuyLocks(db.client);
+        ok(engine._manualBuyLocks.size === 1 && engine._manualBuyLocks.has(TOKEN),
+            '全量重建：只留本实验 locked=true 行（旧镜像/他实验/locked=false 全部收敛）');
+
+        // 20b. 解锁（行 manual_buy_locked=false）→ 下轮重建为空
+        db.tables.experiment_tokens.find(r => r.token_address === TOKEN).manual_buy_locked = false;
+        await engine._refreshManualBuyLocks(db.client);
+        ok(engine._manualBuyLocks.size === 0, '解锁后重建为空 Set');
+
+        // 20c. _runBuyEvaluation 入口拦截：锁在场买腿完全不评估（_evaluateBuyPath 不被调）
+        //（_tokenBlacklist 在 _initializeDataSources 初始化，本测只走构造器 → 手动补）
+        engine._tokenBlacklist = new Map();
+        engine._manualBuyLocks.add(TOKEN);
+        let evalPathCalls = 0;
+        engine._evaluateBuyPath = async () => { evalPathCalls++; return { success: false, reason: 'stub' }; };
+        engine._runBuyEvaluation(TOKEN, {});
+        await new Promise(r => setImmediate(r)); // fire-and-forget 微任务排空（对照：未锁时才会走）
+        ok(evalPathCalls === 0, '锁在场 _runBuyEvaluation 不进入 _evaluateBuyPath（买评估零进入）');
+        engine._manualBuyLocks.delete(TOKEN);
+        engine._runBuyEvaluation(TOKEN, {});
+        await new Promise(r => setImmediate(r));
+        ok(evalPathCalls === 1, '对照组：解锁后同一入口照常进入买评估（拦截只认锁）');
+
+        // 20d. 源码口径断言（红线 13）：入口拦截位于禁买闩锁家族之后（_runBuyEvaluation 内）；
+        // 执行前收口拦截位于 processSignal 调用之前（_evaluateBuyPath 内，检查窗 10-17s
+        // 竞态缝隙收口）——两拦截点构成对齐卖锁（入口+漏斗）的双防线
+        const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+        const entryLockIdx = src.indexOf('if (this._manualBuyLocks.has(tokenAddress)) return;');
+        const cumIdx = src.indexOf('this._cumLossLockPct != null');
+        const funnelLockIdx = src.indexOf('禁止买入拦截（检查窗内上锁，执行前收口）');
+        const procIdx = src.indexOf('const result = await this.processSignal(signal, signalId);');
+        ok(entryLockIdx > cumIdx && cumIdx > -1, '入口拦截在 _runBuyEvaluation 禁买闩锁家族同位之后');
+        ok(funnelLockIdx > -1 && funnelLockIdx < procIdx && procIdx > -1,
+            '执行前收口拦截在 processSignal(signal, signalId) 之前（买路径唯一执行点）');
+
+        // 20e. _consumeManualTrades 同 2s 周期刷新买入锁镜像（挂点行为验证）
+        resetTable();
+        const s2 = mkEngine({ faPrice: 0.0001 });
+        db.tables.experiment_tokens.push(
+            { experiment_id: 'exp-manual', token_address: TOKEN, manual_buy_locked: true });
+        await s2.engine._consumeManualTrades();
+        ok(s2.engine._manualBuyLocks.has(TOKEN), '_consumeManualTrades 一轮内买入锁镜像已重建');
+
+        // 20f. 手动队列买不受锁（手动意志最高，18e 对偶）：锁在场手动买照常执行
+        s2.engine._manualBuyLocks.add(TOKEN);
+        const row = mkRow({ id: 'r-locked-buy' });
+        db.tables.manual_trade_requests.push(row);
+        await s2.engine._processManualTradeRequest(row, db.client);
+        ok(s2.calls.buyLive.length === 1 && row.status === 'success',
+            '锁在场手动买照常执行（_executeManualBuy 不经锁）');
     }
 
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

@@ -77,6 +77,7 @@ class ExperimentTokenReturns {
     this.tradeAmount = null;     // 无卡实验退化用（买入显式金额）
     this.tokenCardsMap = new Map();   // addr → 当前卡数（trades cardTrade 重放，与引擎同口径）
     this.manualSellLocks = new Set(); // experiment_tokens.manual_sell_locked 镜像
+    this.manualBuyLocks = new Set();  // experiment_tokens.manual_buy_locked 镜像（2026-10-29）
     this.manualStatusTimer = null;
     this.manualStatusActive = false;  // 上轮是否有 pending/executing 命令
 
@@ -192,6 +193,7 @@ class ExperimentTokenReturns {
         ? Number(this.experimentData.config.tradeAmount) : null;
       this.buildTokenCardsMap();
       this.manualSellLocks.clear(); // 全量重建（行截断/解锁都能正确收敛）
+      this.manualBuyLocks.clear();
 
       // 检查是否是回测实验，获取标注数据时使用源实验ID
       this.judgeExperimentId = this.experimentId;
@@ -214,6 +216,12 @@ class ExperimentTokenReturns {
               this.manualSellLocks.add(token.token_address);
             } else {
               this.manualSellLocks.delete(token.token_address);
+            }
+            // 禁止买入锁态镜像（2026-10-29，同上显示层缺省未锁）
+            if (token.manual_buy_locked) {
+              this.manualBuyLocks.add(token.token_address);
+            } else {
+              this.manualBuyLocks.delete(token.token_address);
             }
             // 保存平台信息
             if (token.platform) {
@@ -1491,6 +1499,14 @@ class ExperimentTokenReturns {
         title="按 tradeAmount=${this.tradeAmount} BNB ${isLive ? '真实' : '模拟'}买入${holding ? '（加仓）' : ''}">
         买入${this.tradeAmount}BNB</button>`);
     }
+    // 禁止买入锁（2026-10-29）：恒渲染不依赖持仓——核心场景=清仓票拦 repeat-buy 再入场
+    // 与监控票拦策略买入；手动买入不受限（手动意志最高）
+    {
+      const buyLocked = this.manualBuyLocks.has(addr);
+      parts.push(`<button class="manual-btn ${buyLocked ? 'manual-buyunlock' : 'manual-buylock'}" data-mt="buylock" data-token="${addr}"
+        data-locked="${buyLocked ? '1' : '0'}" title="${buyLocked ? '恢复引擎自动买入（策略买腿/repeat-buy 再入场），约 2s 生效' : '拦截引擎一切自动买入（策略买腿/repeat-buy 再入场），手动买入不受限，约 2s 生效'}">
+        ${buyLocked ? '恢复买入' : '禁止买入'}</button>`);
+    }
     if (holding) {
       if (this.cardsEnabled && cards > 0) {
         parts.push(`<button class="manual-btn manual-sell" data-mt="sell-card" data-token="${addr}"
@@ -1503,7 +1519,8 @@ class ExperimentTokenReturns {
         ${locked ? '恢复卖出' : '停止卖出'}</button>`);
     }
     if (!parts.length) return '';
-    return `<div class="manual-trade-group">${locked ? '<span class="manual-lock-badge" title="停止卖出锁定中">🔒</span>' : ''}${parts.join('')}</div>`;
+    const buyLocked = this.manualBuyLocks.has(addr);
+    return `<div class="manual-trade-group">${locked ? '<span class="manual-lock-badge" title="停止卖出锁定中">🔒</span>' : ''}${buyLocked ? '<span class="manual-lock-badge" title="禁止买入锁定中">🚫</span>' : ''}${parts.join('')}</div>`;
   }
 
   bindManualTradeButtons() {
@@ -1519,6 +1536,8 @@ class ExperimentTokenReturns {
         try {
           if (kind === 'lock') {
             await this.toggleSellLock(addr, btn.dataset.locked === '0');
+          } else if (kind === 'buylock') {
+            await this.toggleBuyLock(addr, btn.dataset.locked === '0');
           } else {
             await this.submitManualTrade(kind, addr);
           }
@@ -1584,6 +1603,29 @@ class ExperimentTokenReturns {
       this.flashManualStatus(lock ? `🔒 已停止卖出 ${sym}（2s 内生效）` : `已恢复卖出 ${sym}（2s 内生效）`);
     } catch (err) {
       alert(`停止/恢复卖出失败：${err.message}`);
+    }
+  }
+
+  /** 禁止买入/恢复买入（2026-10-29，与 toggleSellLock 同构） */
+  async toggleBuyLock(addr, lock) {
+    const sym = this.tokenSymbolMap.get(addr) || addr.slice(0, 8);
+    const msg = lock
+      ? `禁止买入 ${sym}：拦截引擎一切自动买入（策略买腿/repeat-buy 再入场），手动买入不受限，约 2s 生效`
+      : `恢复买入 ${sym}：引擎自动买入恢复（约 2s 生效）`;
+    if (!window.confirm(`${msg}？`)) return;
+    try {
+      const resp = await fetch(`/api/experiment/${this.experimentId}/manual-buy-lock`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenAddress: addr, locked: lock }),
+      });
+      const json = await resp.json();
+      if (!json.success) throw new Error(json.error || '写锁失败');
+      if (lock) this.manualBuyLocks.add(addr); else this.manualBuyLocks.delete(addr);
+      this.applyFilterAndSort(); // 🚫 徽章/按钮态重绘
+      this.flashManualStatus(lock ? `🚫 已禁止买入 ${sym}（2s 内生效）` : `已恢复买入 ${sym}（2s 内生效）`);
+    } catch (err) {
+      alert(`禁止/恢复买入失败：${err.message}`);
     }
   }
 

@@ -144,6 +144,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // .manual_sell_locked 的内存 Set，_consumeManualTrades 每 2s 全量重建；锁定=引擎一切
     // 自动卖出（策略卖腿/止损/毕业卖）在 _evaluateSellPath/_emitSellSignal 拦截，手动队列不拦
     this._manualSellLocks = new Set();
+    // 禁止买入锁镜像（买向手动锁，2026-10-29 与卖锁对称）：experiment_tokens
+    // .manual_buy_locked 的内存 Set，同 2s 全量重建；锁定=引擎一切自动买入（策略买腿/
+    // repeat-buy 再入场）在 _runBuyEvaluation 入口 + _evaluateBuyPath 执行前双拦截，
+    // 手动队列买不拦（手动意志最高）
+    this._manualBuyLocks = new Set();
 
     this.metrics = {
       totalTrades: 0,
@@ -1852,6 +1857,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (this._cumLossLockPct != null
         && (this._cumLossTotals.get(tokenAddress) ?? 0) <= this._cumLossLockPct) return;
 
+    // 禁止买入锁（2026-10-29）：入口即拒（禁买家族同位静默——买评估每 tick 高频，
+    // 打日志必刷屏；UI 🚫 徽章可感知）。锁期间买腿完全不评估：不 fire、不落 signal、
+    // 不烧叙事直调/GMGN 配额；repeat-buy 再入场同经此路天然覆盖
+    if (this._manualBuyLocks.has(tokenAddress)) return;
+
     this._evaluateBuyPath(token, factors, tick)
       .catch(e => this.logger.error(this._experimentId, 'BuyEval',
         `${token.symbol || tokenAddress.slice(0, 10)} 买腿评估异常: ${e.message}`));
@@ -2268,6 +2278,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }
 
       // ── 预检查通过：补全信号元数据后执行 ──
+      // 禁止买入锁执行前复查（2026-10-29）：fire 时未锁、preBuy/叙事直调/GMGN 检查窗
+      //（live 实测 10-17s）内上锁的竞态缝隙在此收口——signal 已落库，终态 failed +
+      // warn 留痕（与入口静默拦截分工：入口拦评估零痕迹，此处拦执行可见可归因）
+      if (this._manualBuyLocks.has(tokenAddress)) {
+        this.logger.warn(this._experimentId, 'ManualBuyLock',
+          `🚫 禁止买入拦截（检查窗内上锁，执行前收口） | ${token.symbol || tokenAddress.slice(0, 10)}` +
+          `${strategy?.name ? `（策略=${strategy.name}）` : ''} ${tokenAddress}`);
+        await this._updateSignalStatus(signalId, 'failed',
+          { message: '预检查通过但禁止买入锁定中（检查窗内上锁）', reason: '手动买入锁定中（禁止买入）' });
+        return { success: false, reason: '手动买入锁定中（禁止买入）' };
+      }
+
       if (preBuyCheckResult && signalId) {
         try {
           await this._updateSignalMetadata(signalId, {
@@ -3391,6 +3413,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (err) {
       this.logger.error(this._experimentId, 'ManualTrade', `停止卖出锁刷新失败（保留旧镜像继续消费）: ${err.message}`);
     }
+    // 禁止买入锁镜像刷新（2026-10-29，同 2s 周期同保守方向）
+    try {
+      await this._refreshManualBuyLocks(client);
+    } catch (err) {
+      this.logger.error(this._experimentId, 'ManualTrade', `禁止买入锁刷新失败（保留旧镜像继续消费）: ${err.message}`);
+    }
 
     const { data: rows, error } = await client
       .from('manual_trade_requests')
@@ -3696,6 +3724,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       .eq('manual_sell_locked', true);
     if (error) throw new Error(`停止卖出锁查询失败: ${error.message}`);
     this._manualSellLocks = new Set((rows || []).map(r => r.token_address));
+  }
+
+  /** 禁止买入锁镜像全量重建（experiment_tokens.manual_buy_locked → 内存 Set，
+   * 2026-10-29 与卖锁同构）：partial index 支撑、全量重建免增量 diff 状态机；
+   * 重启恢复 ≤2s（与队列消费同周期） */
+  async _refreshManualBuyLocks(client) {
+    const { data: rows, error } = await client
+      .from('experiment_tokens')
+      .select('token_address')
+      .eq('experiment_id', this._experimentId)
+      .eq('manual_buy_locked', true);
+    if (error) throw new Error(`禁止买入锁查询失败: ${error.message}`);
+    this._manualBuyLocks = new Set((rows || []).map(r => r.token_address));
   }
 
   /** 毕业票判定 + quote 路由信息（live 卖路由共用）：FA state 优先（进程内真值，

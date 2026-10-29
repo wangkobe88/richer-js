@@ -2,10 +2,11 @@
  * 手工交易命令队列 API（P0-C 实盘前置批，2026-10-13，迁移自 rich-js 精简版；
  * 2026-10-22 双支持批：live/virtual 均放行 + cards 按卡命令 + 停止卖出锁）
  *
- * 三端点：
+ * 四端点：
  *   POST /api/experiment/:id/manual-trade    落命令行（status='pending'）
  *   GET  /api/experiment/:id/manual-trades   命令历史（新→旧 50 条）
  *   PUT  /api/experiment/:id/manual-sell-lock 停止卖出/恢复卖出（per-token 锁）
+ *   PUT  /api/experiment/:id/manual-buy-lock  禁止买入/恢复买入（per-token 锁，2026-10-29）
  *
  * 架构（DDL 注释同源）：web 进程绝不直接建 trader 交易——会与运行中引擎内存账本冲突
  * （手工卖出后引擎仍触发卖腿→链上0→计连败→熔断误伤）。命令由 web 落行，实验进程
@@ -195,6 +196,52 @@ router.put('/experiment/:id/manual-sell-lock', async (req, res) => {
             .eq('experiment_id', experimentId)
             .eq('token_address', tokenAddress)
             .select('token_address, manual_sell_locked')
+            .single();
+        if (upErr) throw upErr;
+
+        res.json({ success: true, data: updated });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * PUT /api/experiment/:id/manual-buy-lock（2026-10-29，与 manual-sell-lock 同构）
+ * body: { tokenAddress, locked: boolean }
+ * per-token 禁止买入锁：locked=true 拦引擎一切自动买入（策略买腿/repeat-buy 再入场；
+ * 手动队列买入不受限），false 恢复。引擎 2s 轮询刷新内存镜像生效。锁不自动解除
+ * （清仓后残留=持续禁买正是语义，UI 🚫 徽章 + 恢复按钮保证可感知）。
+ * ⚠️ experiment_tokens 写入同样 service key（红线③）。
+ */
+router.put('/experiment/:id/manual-buy-lock', async (req, res) => {
+    try {
+        const experimentId = req.params.id;
+        const { tokenAddress, locked } = req.body || {};
+
+        if (!ADDR_RE.test(String(tokenAddress || ''))) {
+            return res.status(400).json({ success: false, error: 'tokenAddress 必须是 EVM 地址（0x + 40 hex）' });
+        }
+        if (typeof locked !== 'boolean') {
+            return res.status(400).json({ success: false, error: 'locked 必须是 boolean（true=禁止买入 / false=恢复买入）' });
+        }
+
+        const client = dbManager.getClient();
+        const { count: tokenCount, error: tokErr } = await client
+            .from('experiment_tokens')
+            .select('id', { count: 'exact', head: true })
+            .eq('experiment_id', experimentId)
+            .eq('token_address', tokenAddress);
+        if (tokErr) throw tokErr;
+        if (!tokenCount) {
+            return res.status(400).json({ success: false, error: 'token 不在本实验代币池，拒绝写锁' });
+        }
+
+        const { data: updated, error: upErr } = await client
+            .from('experiment_tokens')
+            .update({ manual_buy_locked: locked })
+            .eq('experiment_id', experimentId)
+            .eq('token_address', tokenAddress)
+            .select('token_address, manual_buy_locked')
             .single();
         if (upErr) throw upErr;
 
