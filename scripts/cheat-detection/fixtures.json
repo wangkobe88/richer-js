@@ -106,12 +106,12 @@
         "tickCount": 46
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
-      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买37/卖9 Σ买1.91BNB 钱包22 top1=30.9% churn1 同块簇3 等额簇0）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买37/卖9 Σ买1.91BNB 钱包22 top1=30.9% churn1 同块簇3 等额簇0）；expect=判读现状待 review；10-30 review 用户翻案（追裁定归 unhealthy）：可能是正常盘，但是活跃度太低了，不可参与——低活跃=unhealthy 的一个子形状——逐笔佐证：超级慢盘（76 行横跨 ~12 分钟，单笔普遍 0.1 档 Σ买 1.9BNB，价格近乎平的 ±30%）；各钱包 1买1卖 慢节奏获利无同块协同无配对卖回；唯一异常=b5b6…2a1c 全程 0.0000 尘埃买心跳 ~15 笔（金额 0 不进资金口径，观察）；creator 0x9049…4c06 与 CD47 SI 同一 creator（同发片人两票盘型相反）；D1.1 判 cheat 0.88=低活跃慢盘过判样本（same_block_burst 误读稀疏同块带）；「不可参与」属交易侧活跃度轴（流动性/进出风险），非盘面作弊",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买37/卖9 Σ买1.91BNB 钱包22 top1=30.9% churn1 同块簇3 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 翻案+追裁定：可能是正常盘但活跃度太低不可参与，可以作为 unhealthy 的一种——结构无协同，低活跃/冷清形状归 unhealthy"
     },
     {
       "caseId": "CD8",
@@ -812,10 +812,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买27/卖7 Σ买2.64BNB 钱包17 top1=37.9% churn5 同块簇4 等额簇2）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买27/卖7 Σ买2.64BNB 钱包17 top1=37.9% churn5 同块簇4 等额簇2）；expect=判读现状待 review；10-30 review 用户确认：协同作弊盘——逐笔佐证：creator 0x051a t+0 买 1.0→t+9/t+15 两笔卖 1.0326 全清派发；七钱包 0.0354x7 同块等额簇四轮推进（t+11/14/25/26 蜂群拉盘，尾随 0.0141x7）；0.1650x3 两波同块买（t+18/20）→t+22/24 两轮同块递减卖回完整对倒闭环；簇钱包全部不在名单",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买27/卖7 Σ买2.64BNB 钱包17 top1=37.9% churn5 同块簇4 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：协同作弊盘（creator 两笔全清派发+七钱包四轮等额拉盘+0.165x3 对倒闭环）"
     },
     {
       "caseId": "CD52",
