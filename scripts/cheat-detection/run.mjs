@@ -20,6 +20,9 @@
  *   node scripts/cheat-detection/run.mjs --add <addr> --case CD2 --note "…" [--observe]
  *                                       [--anchor N]                   # 缺省=收录时刻全量
  *   node scripts/cheat-detection/run.mjs --update-expect CD2 --because "CD<n> 裁定一句话"
+ *   node scripts/cheat-detection/run.mjs --experiment <expId> [--settle-ms 4000] [--dry]
+ *                                       # 实验基线：全部有成功买入的 token，锚=首笔成功买
+ *                                       # created_at+settle 窗内 tick 数；表格+存档不写 fixtures
  * 退出码：0=全过 1=有失败 2=用法/校验错误（case-regression 同款）
  */
 
@@ -28,7 +31,7 @@ import { dirname, resolve } from 'path';
 import { readFileSync, writeFileSync, mkdirSync, renameSync, readdirSync } from 'fs';
 import { createRequire } from 'module';
 import {
-  loadAndValidateFixtures, interpret, assertExpectation, buildCase, updateExpect,
+  loadAndValidateFixtures, interpret, assertExpectation, buildCase, updateExpect, anchorCountAt,
 } from './lib.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -57,6 +60,8 @@ function parseArgs(argv) {
     else if (a === '--because') args.because = String(argv[++i] || '');
     else if (a === '--anchor') args.anchor = Number(argv[++i]);
     else if (a === '--update-expect') args.updateExpect = String(argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
+    else if (a === '--experiment') args.experiment = String(argv[++i] || '');
+    else if (a === '--settle-ms') args.settleMs = Number(argv[++i]);
     else if (a === '--dry' || a === '--observe') { if (a === '--dry') args.dry = true; else args.observe = true; }
     else { console.error(`未知参数: ${a}`); process.exit(2); }
   }
@@ -186,6 +191,139 @@ async function cmdAdd(args, doc, cases) {
   writeFixturesSafely(nextDoc);
 }
 
+/** trades 表拉每 token 首笔成功买入（created_at 升序，Map 首见即最早）；红线 3=dbManager service key */
+async function fetchFirstBuys(experimentId) {
+  const { data, error } = await sb().from('trades')
+    .select('token_address,token_symbol,created_at')
+    .eq('experiment_id', experimentId)
+    .eq('trade_direction', 'buy')
+    .eq('success', true)
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(`trades 查询失败: ${error.message}`);
+  const byToken = new Map();
+  for (const r of data ?? []) {
+    const addr = String(r.token_address || '').toLowerCase();
+    if (!addr || !r.created_at) continue;
+    if (!byToken.has(addr)) byToken.set(addr, { addr, symbol: r.token_symbol || '?', firstBuyAt: r.created_at });
+  }
+  return [...byToken.values()];
+}
+
+function digestOf(d) {
+  return {
+    totalBuyBnb: d.totalBuyBnb, totalSellBnb: d.totalSellBnb, buyN: d.buyN, sellN: d.sellN,
+    walletCount: d.walletCount, top1BuyPct: d.top1BuyPct, top2BuyPct: d.top2BuyPct,
+    routerPct: d.routerPct, unresolvedSenderTickCount: d.unresolvedSenderTickCount,
+    churn60sWalletCount: d.churn60sWalletCount,
+    sameBlockClusterCount: d.sameBlockClusters.length, equalClusterCount: d.equalClusters.length,
+    priceArc: d.priceArc,
+  };
+}
+
+/**
+ * --experiment 基线：该实验全部有成功买入的 token，锚=首笔成功买 trade created_at + settle 窗
+ * 内的链上真序 tick 行数（对齐实时 service settle 语义；回放无法重放落库延迟=链上时间近似，
+ * 宁多勿少）。逐票真调 Jev → 表格 + 存档 + **全部收录 fixtures**（用户裁定 2026-10-30：基线票
+ * 全进回归集；expect=判读现状快照，review 后 --update-expect 校准；已收录 addr 跳过）。
+ */
+async function cmdExperimentBaseline(args) {
+  const settleMs = Number.isFinite(args.settleMs) && args.settleMs >= 0 ? args.settleMs : 4000;
+  const targets = await fetchFirstBuys(args.experiment);
+  if (!targets.length) { console.error(`实验 ${args.experiment} 无成功买入 trade`); process.exit(1); }
+  const q = args.dry ? null : await import('../../src/narrative/analyzer/llm/cheat-questions.mjs');
+  const version = q ? q.CHEAT_QUESTIONS_VERSION : '(dry)';
+  console.log(`实验 ${args.experiment}：${targets.length} 票有成功买入；锚=首笔成功买 created_at + ${settleMs}ms 内 tick 数${args.dry ? '；--dry 只组装不烧 Jev 不收录' : `；题集 ${version} 逐票真调 Jev → 表格 + 全部收录 fixtures`}\n`);
+
+  const doc = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8'));
+  const { cases } = loadAndValidateFixtures(doc);
+  const knownAddr = new Map(cases.map((c) => [c.addr, c.caseId]));
+  let nextId = Math.max(...cases.map((c) => Number(c.caseId.slice(2)))) + 1;
+  const today = new Date().toISOString().slice(0, 10);
+  const newCases = [];
+  const results = [];
+  let hadError = false;
+
+  console.log(['# ', 'symbol'.padEnd(12), 'plat'.padEnd(9), '锚'.padEnd(6), '买/卖'.padEnd(9), 'Σ买BNB'.padEnd(8), '钱包'.padEnd(6), 'top1%'.padEnd(7), 'churn'.padEnd(6), '同块'.padEnd(5), '等额'.padEnd(5), 'state'].join('')
+    + (args.dry ? '' : '  → verdict / cheatP / pattern / retail'));
+
+  for (let i = 0; i < targets.length; i++) {
+    const t = targets[i];
+    let rowHead = `${String(i + 1).padEnd(2)} ${(t.symbol || '?').slice(0, 12).padEnd(12)}`;
+    try {
+      const { rows, capped: fullCapped } = await pullFull(t.addr);
+      if (!rows.length) { console.log(`${rowHead} wss_price_ticks 无行，跳过`); continue; }
+      const anchorAt = new Date(Date.parse(t.firstBuyAt) + settleMs).toISOString();
+      const rawAnchor = anchorCountAt(rows, anchorAt);
+      if (rawAnchor < 1) { console.log(`${rowHead} 锚=0（首买前无 tick=数据洞），跳过`); continue; }
+      const capped = fullCapped && rawAnchor > PULL_LIMIT;
+      const anchorN = Math.min(rawAnchor, PULL_LIMIT);
+      const window = rows.slice(0, anchorN);
+      const meta = { ...await loadTokenMeta(t.addr), quoteToken: quoteTokenOf(window) };
+      const snapshot = buildSnapshotFromRows(window, meta, { capped, anchorTickCount: anchorN });
+      const { state, promptChars } = buildCheatState(snapshot);
+      const d = snapshot.derived;
+      rowHead = [
+        String(i + 1).padEnd(2), (t.symbol || '?').slice(0, 12).padEnd(12), String(meta.platform || '-').padEnd(9),
+        String(anchorN + (capped ? '+' : '')).padEnd(6), `${d.buyN}/${d.sellN}`.padEnd(9),
+        d.totalBuyBnb.toFixed(2).padEnd(8), String(d.walletCount).padEnd(6),
+        (d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1)).padEnd(7), String(d.churn60sWalletCount).padEnd(6),
+        String(d.sameBlockClusters.length).padEnd(5), String(d.equalClusters.length).padEnd(5), String(promptChars),
+      ].join('');
+      const base = { addr: t.addr, symbol: t.symbol, platform: meta.platform, firstBuyAt: t.firstBuyAt, anchorTickCount: anchorN, capped, digest: digestOf(d) };
+
+      if (window.length < 8) {
+        console.log(`${rowHead}  → skipped_insufficient_ticks（<8 不调 Jev）`);
+        results.push({ ...base, minTicksSkipped: true });
+        continue;
+      }
+      if (args.dry) { console.log(`${rowHead}  → (dry 未烧 Jev)`); results.push({ ...base, dry: true }); continue; }
+
+      const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
+      const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-experiment-baseline' });
+      const interp = interpret(mapCheatAnswers(res.answers));
+      console.log(`${rowHead}  → ${interp.verdict} / ${interp.cheatProb ?? '-'} / ${interp.patternType ?? '-'} / ${interp.retailParticipation ?? '-'}`);
+      results.push({ ...base, interp, promptChars, answersRaw: res.answers, model: res.model });
+
+      const known = knownAddr.get(t.addr);
+      if (known) { console.log(`     已收录=${known}，跳过`); continue; }
+      const note = `aed2091d 首买基线收录（锚=${anchorN}=首笔成功买+settle${settleMs}ms；买${d.buyN}/卖${d.sellN} Σ买${d.totalBuyBnb.toFixed(2)}BNB 钱包${d.walletCount} top1=${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn${d.churn60sWalletCount} 同块簇${d.sameBlockClusters.length} 等额簇${d.equalClusters.length}）；expect=判读现状待 review`;
+      const c = buildCase({ caseId: `CD${nextId}`, symbol: t.symbol || '', addr: t.addr, platform: meta.platform, anchorTickCount: anchorN, capped, interp, note, today });
+      newCases.push(c);
+      knownAddr.set(t.addr, c.caseId);
+      nextId++;
+      console.log(`     收录=${c.caseId}`);
+    } catch (e) {
+      hadError = true;
+      console.error(`${rowHead} ❌ ${e.message}`);
+      results.push({ addr: t.addr, symbol: t.symbol, error: e.message });
+    }
+  }
+
+  mkdirSync(DATA_DIR, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const archPath = resolve(DATA_DIR, `cd-baseline-${args.experiment.slice(0, 8)}-${ts}.json`);
+  writeFileSync(archPath, JSON.stringify({ ranAt: new Date().toISOString(), experimentId: args.experiment, settleMs, questionVersion: version, dry: args.dry, results }, null, 2), 'utf8');
+  const dist = {};
+  for (const r of results) {
+    const k = r.error ? 'error' : (r.interp ? r.interp.verdict : (r.minTicksSkipped ? 'skipped_minTicks' : 'dry'));
+    dist[k] = (dist[k] || 0) + 1;
+  }
+  console.log(`\nverdict 分布：${Object.entries(dist).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+  console.log(`基线存档：${archPath}`);
+
+  if (newCases.length && !args.dry) {
+    const nextDoc = { ...doc, cases: [...doc.cases, ...newCases] };
+    const { errors } = loadAndValidateFixtures(nextDoc);
+    if (errors.length) { console.error('fixtures 写回前校验失败（不写回）:\n' + errors.map((e2) => `  - ${e2}`).join('\n')); process.exit(1); }
+    writeFixturesSafely(nextDoc);
+    console.log(`已收录 ${newCases.length} 票（${newCases[0].caseId}…${newCases[newCases.length - 1].caseId}）——expect=判读现状，review 后 --update-expect --because 校准`);
+  } else if (!args.dry) {
+    console.log('无新收录（全部已收录/跳过）');
+  }
+  if (hadError) process.exit(1);
+}
+
 function writeFixturesSafely(doc) {
   mkdirSync(DATA_DIR, { recursive: true });
   const tmp = `${FIXTURES_PATH}.tmp`;
@@ -220,6 +358,7 @@ async function main() {
 
   if (args.list) { cmdList(cases); return; }
   if (args.add) { await cmdAdd(args, doc, cases); return; }
+  if (args.experiment) { await cmdExperimentBaseline(args); return; }
 
   if (args.updateExpect.length) {
     if (!args.because) { console.error('--update-expect 必须带 --because "<CD 编号> <裁定一句话>"'); process.exit(2); }

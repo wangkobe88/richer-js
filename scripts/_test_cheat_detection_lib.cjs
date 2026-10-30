@@ -242,4 +242,22 @@ try {
 } catch (_) { threw = true; }
 ok(threw, '未知桶名 → throw（题集/映射表漂移防线）');
 
-console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
+// ═══════════════ H. anchorCountAt（--experiment 基线锚，lib.mjs ESM 经动态 import） ═══════════════
+(async () => {
+  const { anchorCountAt } = await import(path.join(__dirname, 'cheat-detection/lib.mjs'));
+  console.log('H. anchorCountAt 实验基线锚计算');
+  const rows = [
+    { block_time: '2026-10-29T15:00:02Z' },
+    { block_time: '2026-10-29T15:00:05Z' },
+    { block_time: '2026-10-29T15:00:09Z' },
+  ];
+  ok(anchorCountAt(rows, '2026-10-29T15:00:05Z') === 2, '锚时刻=第2行 block_time → 2（等号含边界）');
+  ok(anchorCountAt(rows, '2026-10-29T15:00:04.999Z') === 1, '毫秒差邻界 → 1');
+  ok(anchorCountAt(rows, new Date(Date.parse('2026-10-29T15:00:09Z')).toISOString()) === 3, 'Date.parse→toISOString 往返等价（runner 同款构造）');
+  ok(anchorCountAt(rows, '2026-10-29T15:00:00Z') === 0, '全早于首行 → 0（数据洞=runner 跳过不冒充）');
+  ok(anchorCountAt(rows, null) === 0 && anchorCountAt(rows, 'not-a-date') === 0, '锚时刻缺失/非法 → 0 fail-loud');
+  ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
+  ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
+
+  console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
+})().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });

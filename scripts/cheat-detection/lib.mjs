@@ -121,3 +121,22 @@ export function updateExpect(oldCase, interp, because, today) {
     expectBecause: because,
   };
 }
+
+/**
+ * 实验基线锚计算（--experiment 模式）：链上真序行集中 block_time <= 锚时刻的行数。
+ * 锚时刻=首笔成功买入 trade 的 created_at + settle 窗（对齐实时 service 的 settle 语义：
+ * 买点 fire 后延迟 settle 4s 再拉数）。回放无法重放「当时 DB 已落几行」（落库延迟不可逆推），
+ * 用链上时间近似且宁多勿少——settle 窗的设计目的就是覆盖尾部突发簇。
+ * 不依赖 block_time 单调（倒退行照数），全量扫描；等号含边界。
+ */
+export function anchorCountAt(rowsAsc, isoTime) {
+  if (!isoTime) return 0;
+  const t = Date.parse(isoTime);
+  if (!Number.isFinite(t)) return 0;
+  let n = 0;
+  for (const r of rowsAsc) {
+    const bt = Date.parse(r && r.block_time);
+    if (Number.isFinite(bt) && bt <= t) n++;
+  }
+  return n;
+}
