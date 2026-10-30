@@ -832,6 +832,22 @@
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
       "expectBecause": "2026-10-30 用户裁定：作弊盘（一买四卖+随后入场皆协同钱包）；机器判读同向 cheat"
+    },
+    {
+      "caseId": "CD53",
+      "symbol": "SAFU",
+      "addr": "0x19ad4a2cb4ad2c2f359af1de17a3336adc147777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "live 窗新收（引擎 07:20:40 买 t+106 卖躲过砸盘）：t+26s 十全新钱包 0.1000x10 同块 bundler 簇（全不在 roster=一次性新簇）→t+113s 同簇同块同步砸盘（0.0995/0.0940/…递减）；creator 0xceb1…6ec3 t+0 买 0.60→t+109s 砸盘前 4s 卖 0.7865 精准抽走；用户裁定=作弊盘或健康度极低，同步砸盘+creator 抽走证据采信 cheat",
+      "addedAt": "2026-10-30",
+      "expectSince": "2026-10-30",
+      "expectBecause": "2026-10-30 用户裁定：明显 0.1 BNB 跟单大簇，作弊盘或健康度极低——同块买+同块同步砸盘+creator 砸盘前抽走采信 cheat；机器判读同向"
     }
   ]
 }
