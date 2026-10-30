@@ -848,6 +848,38 @@
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
       "expectBecause": "2026-10-30 用户裁定：明显 0.1 BNB 跟单大簇，作弊盘或健康度极低——同块买+同块同步砸盘+creator 砸盘前抽走采信 cheat；机器判读同向"
+    },
+    {
+      "caseId": "CD54",
+      "symbol": "SAFU",
+      "addr": "0xef7754dc86cff33e19e50dc66d1a66d0b9d27777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "live 窗新收（引擎 07:15:25 买 t+38）：t+31 同块 0.1000×10 精确等额簇（CD53 同款签名，十钱包全员 sybil 名单）→ creator t+110 配额卖 0.7538 → t+112 同块十连同步卖回砸 -38%；router 1.6% 全直发；用户裁定典型作弊票",
+      "addedAt": "2026-10-30",
+      "expectSince": "2026-10-30",
+      "expectBecause": "--add 基线快照（live 窗新收（引擎 07:15:25 买 t+38）：t+31 同块 0.1000×10 精确等额簇（CD53 同款签名，十钱包全员 sybil 名单）→ creator t+110 配额卖 0.7538 → t+112 同块十连同步卖回砸 -38%；router 1.6% 全直发；用户裁定典型作弊票）"
+    },
+    {
+      "caseId": "CD55",
+      "symbol": "SAFU Fund",
+      "addr": "0x637281e901d5632b858faaca20fc5b39ef2b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 43
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "live 窗新收（引擎 07:56:58 买 t+143）：t+21 同块 0.1000×10 等额簇与 CD54（40min 前）十钱包地址完全相同=同一 bundler 组织连发两张 SAFU 系票（十钱包全员 sybil 名单=常驻轮换簇）；creator 0.6 买+海量 0.0001 尘买垫量拉至 +66%（365 行）后砸盘；用户裁定明显作弊，K线一看就不健康",
+      "addedAt": "2026-10-30",
+      "expectSince": "2026-10-30",
+      "expectBecause": "--add 基线快照（live 窗新收（引擎 07:56:58 买 t+143）：t+21 同块 0.1000×10 等额簇与 CD54（40min 前）十钱包地址完全相同=同一 bundler 组织连发两张 SAFU 系票（十钱包全员 sybil 名单=常驻轮换簇）；creator 0.6 买+海量 0.0001 尘买垫量拉至 +66%（365 行）后砸盘；用户裁定明显作弊，K线一看就不健康）"
     }
   ]
 }
