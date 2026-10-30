@@ -816,6 +816,22 @@
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
       "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买27/卖7 Σ买2.64BNB 钱包17 top1=37.9% churn5 同块簇4 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD52",
+      "symbol": "elun",
+      "addr": "0x92d82b1d8951358b02d917c8afd19f179c277777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 36
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "live 窗新收（基线后引擎 08:39 买入）：creator 0xb002…5adb t+0 买 2.4979→t+4-5s 四笔卖 0.6164；等额蜂群 0.0198x8/0.0247x6（与 CD13 同批跨票集群）；t+28-30s 六钱包三连块砸盘；用户裁定=作弊盘（一买四卖+随后入场皆协同钱包）",
+      "addedAt": "2026-10-30",
+      "expectSince": "2026-10-30",
+      "expectBecause": "2026-10-30 用户裁定：作弊盘（一买四卖+随后入场皆协同钱包）；机器判读同向 cheat"
     }
   ]
 }
