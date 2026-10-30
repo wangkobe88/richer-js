@@ -1,0 +1,1488 @@
+{
+  "ranAt": "2026-10-30T06:41:07.822Z",
+  "experimentId": "aed2091d-f22f-4660-ae62-42f48a9048de",
+  "settleMs": 4000,
+  "questionVersion": "(dry)",
+  "dry": true,
+  "results": [
+    {
+      "addr": "0x75ff7483bda6ba5d4cd3c7808f752274af007777",
+      "symbol": "JAGENT",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T15:59:23.116+00:00",
+      "anchorTickCount": 34,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.3231070908224423,
+        "totalSellBnb": 0.5305149656114698,
+        "buyN": 31,
+        "sellN": 3,
+        "walletCount": 26,
+        "top1BuyPct": 35.72801285308624,
+        "top2BuyPct": 42.13322768747085,
+        "routerPct": 21.324716452250012,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 0,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 7.079261194e-9,
+          "ath": 9.029064393e-9,
+          "athDt": 117,
+          "last": 8.991090625e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xa7c9facf080d65dba8b8edb14d1e1b1627eb7777",
+      "symbol": "Bstocks",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T16:24:07.306+00:00",
+      "anchorTickCount": 40,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.26206605676041,
+        "totalSellBnb": 0.11649442126488238,
+        "buyN": 32,
+        "sellN": 8,
+        "walletCount": 28,
+        "top1BuyPct": 19.016437270807725,
+        "top2BuyPct": 26.90033522266343,
+        "routerPct": 2.776875252469698,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.970394042e-9,
+          "ath": 7.721176976e-9,
+          "athDt": 96,
+          "last": 7.690851453e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x356d60a71be7e894e56791005f190aec097e7777",
+      "symbol": "KATT",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T16:29:19.115+00:00",
+      "anchorTickCount": 17,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.5348636172931487,
+        "totalSellBnb": 1.7143163198954665,
+        "buyN": 14,
+        "sellN": 3,
+        "walletCount": 15,
+        "top1BuyPct": 41.952032942675785,
+        "top2BuyPct": 49.159458094010176,
+        "routerPct": 46.85463362937969,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 7.73241756311562e-9,
+          "ath": 9.166635545465458e-9,
+          "athDt": 49,
+          "last": 8.379625524755778e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x647f9dbf1cff892aee246fa50743ba8b98017777",
+      "symbol": "JENNER",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T18:00:53.753+00:00",
+      "anchorTickCount": 35,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.622205944122189,
+        "totalSellBnb": 3.1947257393983826,
+        "buyN": 21,
+        "sellN": 14,
+        "walletCount": 26,
+        "top1BuyPct": 54.08672893900618,
+        "top2BuyPct": 60.577136411686915,
+        "routerPct": 13.921924028900193,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 4,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 1.0918931799e-8,
+          "ath": 1.2077413041e-8,
+          "athDt": 1,
+          "last": 8.178776466e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xa57ca9cf2bfd85fe6d1f04022a5ed9430f9a7777",
+      "symbol": "币安生态",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T19:06:13.685+00:00",
+      "anchorTickCount": 23,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.3574808041088227,
+        "totalSellBnb": 0.16629299647367254,
+        "buyN": 21,
+        "sellN": 2,
+        "walletCount": 19,
+        "top1BuyPct": 10.906561866920875,
+        "top2BuyPct": 20.34208363457501,
+        "routerPct": 73.86057267796409,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.227017629927838e-9,
+          "ath": 7.718004357276654e-9,
+          "athDt": 46,
+          "last": 7.353218464212112e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x2f4f50862853fa56fcc4de6acf7abfe565bd7777",
+      "symbol": "币安生态系统",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T20:10:21.297+00:00",
+      "anchorTickCount": 46,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.9071309893086243,
+        "totalSellBnb": 1.0337977807257661,
+        "buyN": 37,
+        "sellN": 9,
+        "walletCount": 22,
+        "top1BuyPct": 30.878867475462222,
+        "top2BuyPct": 37.60864812145386,
+        "routerPct": 30.80428856434877,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 5.9634658488306965e-9,
+          "ath": 7.751320325136203e-9,
+          "athDt": 477,
+          "last": 6.576997429948358e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xc2d78d35799020b122bc4284406c018a81c47777",
+      "symbol": "NOT SAFU",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T20:37:55.738+00:00",
+      "anchorTickCount": 44,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.5281216130137567,
+        "totalSellBnb": 0.8184146559751457,
+        "buyN": 42,
+        "sellN": 2,
+        "walletCount": 30,
+        "top1BuyPct": 14.121631094003643,
+        "top2BuyPct": 22.50614201649966,
+        "routerPct": 71.45392394234852,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 8,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.995561751706206e-9,
+          "ath": 1.0920386221210554e-8,
+          "athDt": 29,
+          "last": 1.0920386221210554e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xdf6f4b3a1a97c3803b7b99b9396adfe365a37777",
+      "symbol": "FUCK",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T20:47:42.455+00:00",
+      "anchorTickCount": 47,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.692071799999999,
+        "totalSellBnb": 2.5027641295303806,
+        "buyN": 33,
+        "sellN": 14,
+        "walletCount": 29,
+        "top1BuyPct": 10.656273418492873,
+        "top2BuyPct": 17.830076683822277,
+        "routerPct": 79.99845611910716,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 9,
+        "sameBlockClusterCount": 5,
+        "equalClusterCount": 5,
+        "priceArc": {
+          "first": 6.466907464e-9,
+          "ath": 1.0616226617e-8,
+          "athDt": 5,
+          "last": 9.854671681e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xc5509930f60b645e41ff64243d7d4f85556c7777",
+      "symbol": "TETHER",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:06:31.503+00:00",
+      "anchorTickCount": 29,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.9051300333747625,
+        "totalSellBnb": 1.2421428073864555,
+        "buyN": 17,
+        "sellN": 12,
+        "walletCount": 16,
+        "top1BuyPct": 52.360522699754256,
+        "top2BuyPct": 62.71271108066422,
+        "routerPct": 46.58599840141698,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 5,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 6.81470135704747e-9,
+          "ath": 8.006797761677242e-9,
+          "athDt": 2,
+          "last": 6.032196473154668e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x8faee498171a9e1f89a0e436b393b9894e197777",
+      "symbol": "FI",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:07:13.742+00:00",
+      "anchorTickCount": 23,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.228306141530962,
+        "totalSellBnb": 0.2734139963035296,
+        "buyN": 20,
+        "sellN": 3,
+        "walletCount": 15,
+        "top1BuyPct": 14.149639762854417,
+        "top2BuyPct": 26.04104768458036,
+        "routerPct": 73.56536026953673,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 3,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.067657914361892e-9,
+          "ath": 8.94405176940363e-9,
+          "athDt": 36,
+          "last": 8.94405176940363e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xa2bb18e96da275bc8a8fd7f6b6f26afb630f7777",
+      "symbol": "SAFE",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:16:10.675+00:00",
+      "anchorTickCount": 49,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.6867032468787952,
+        "totalSellBnb": 3.5361821361681756,
+        "buyN": 22,
+        "sellN": 27,
+        "walletCount": 18,
+        "top1BuyPct": 40.636245495368485,
+        "top2BuyPct": 46.391280937355404,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 13,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 7.84954059583839e-9,
+          "ath": 1.1262105345266803e-8,
+          "athDt": 8,
+          "last": 4.84153613409514e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x8a182a38668979d8c0a77f3f4d49bf297b937777",
+      "symbol": "SAFU",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:19:04.387+00:00",
+      "anchorTickCount": 46,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.866093744290698,
+        "totalSellBnb": 1.7418394001584783,
+        "buyN": 23,
+        "sellN": 23,
+        "walletCount": 24,
+        "top1BuyPct": 51.37591117995222,
+        "top2BuyPct": 60.327649943947094,
+        "routerPct": 37.89465391412702,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 7,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 1.0918931799e-8,
+          "ath": 1.3017711576e-8,
+          "athDt": 15,
+          "last": 1.2398218126e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x2047c859b6d19f5876b4430d972630ca5f667777",
+      "symbol": "救命恩人",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:32:19.534+00:00",
+      "anchorTickCount": 68,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.4829227816604416,
+        "totalSellBnb": 1.6828441537418162,
+        "buyN": 51,
+        "sellN": 17,
+        "walletCount": 31,
+        "top1BuyPct": 11.36976111228087,
+        "top2BuyPct": 18.59552097937577,
+        "routerPct": 52.01665708868498,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 10,
+        "sameBlockClusterCount": 7,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 5.997791895e-9,
+          "ath": 1.0213064297e-8,
+          "athDt": 6,
+          "last": 9.033726013e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xa1b05052b02106f57f9438797e008191ee997777",
+      "symbol": "Paolo",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:32:36.86+00:00",
+      "anchorTickCount": 43,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.322742553549775,
+        "totalSellBnb": 2.4817983972733026,
+        "buyN": 31,
+        "sellN": 12,
+        "walletCount": 22,
+        "top1BuyPct": 29.67483662570485,
+        "top2BuyPct": 37.29472983258038,
+        "routerPct": 88.51407264007261,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 6,
+        "sameBlockClusterCount": 6,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.6091505205486876e-9,
+          "ath": 1.1261807181472377e-8,
+          "athDt": 4,
+          "last": 1.1065193421279142e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x1a28468046b1673fb0e1f31fa3c7a6ef8acf7777",
+      "symbol": "PAOLO",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:33:06.423+00:00",
+      "anchorTickCount": 46,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.636104401253103,
+        "totalSellBnb": 2.4663101526745885,
+        "buyN": 39,
+        "sellN": 7,
+        "walletCount": 22,
+        "top1BuyPct": 35.470590859817044,
+        "top2BuyPct": 46.86256522833504,
+        "routerPct": 30.17865144760643,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 9.043271647751897e-9,
+          "ath": 1.6969009777017698e-8,
+          "athDt": 5,
+          "last": 1.1809375825617453e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xb3566fd337409e09bb39fd7f3b4e75b783007777",
+      "symbol": "安犬",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:41:37.631+00:00",
+      "anchorTickCount": 31,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.8948485210168386,
+        "totalSellBnb": 1.4382312887605415,
+        "buyN": 20,
+        "sellN": 11,
+        "walletCount": 20,
+        "top1BuyPct": 15.389406276896125,
+        "top2BuyPct": 29.207055010360662,
+        "routerPct": 68.80774539803335,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 7,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 6.284832055e-9,
+          "ath": 8.360233217e-9,
+          "athDt": 1400,
+          "last": 8.360233217e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x90b35e311a0778bc714b8b11569512de94f67777",
+      "symbol": "Paolo",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T21:49:09.965+00:00",
+      "anchorTickCount": 23,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.0024336899072575,
+        "totalSellBnb": 0.061437667613291946,
+        "buyN": 21,
+        "sellN": 2,
+        "walletCount": 20,
+        "top1BuyPct": 28.788929930728553,
+        "top2BuyPct": 39.63887577460997,
+        "routerPct": 10.835928648904822,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 6.130573655707345e-9,
+          "ath": 9.071890057847475e-9,
+          "athDt": 43,
+          "last": 9.064006463513584e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x278795b9e4f83ac87e2899ff99cb2a4f9eaf7777",
+      "symbol": "SAFU",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:02:49.242+00:00",
+      "anchorTickCount": 84,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.6163099913436016,
+        "totalSellBnb": 0.9674824677016427,
+        "buyN": 64,
+        "sellN": 20,
+        "walletCount": 16,
+        "top1BuyPct": 13.785533891881347,
+        "top2BuyPct": 22.732626689453582,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 8,
+        "sameBlockClusterCount": 8,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.961351360201384e-9,
+          "ath": 1.0719667018526466e-8,
+          "athDt": 41,
+          "last": 1.0719667018526466e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xc40409d3f0157b8ef76537a80693104a507d7777",
+      "symbol": "ZERODAY",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:33:49.637+00:00",
+      "anchorTickCount": 149,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 17.676243493291363,
+        "totalSellBnb": 16.02205932045168,
+        "buyN": 59,
+        "sellN": 90,
+        "walletCount": 67,
+        "top1BuyPct": 27.957152470787545,
+        "top2BuyPct": 44.73406829907557,
+        "routerPct": 42.526474585952975,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 37,
+        "sameBlockClusterCount": 9,
+        "equalClusterCount": 8,
+        "priceArc": {
+          "first": 8.965832644517594e-9,
+          "ath": 3.522013620924883e-8,
+          "athDt": 8,
+          "last": 6.966256157529209e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x9d70e873394d31e928ab213f4a2aed24de637777",
+      "symbol": "0",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:34:08.937+00:00",
+      "anchorTickCount": 34,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.256592673478016,
+        "totalSellBnb": 2.6177594581052994,
+        "buyN": 25,
+        "sellN": 9,
+        "walletCount": 20,
+        "top1BuyPct": 9.416746374462454,
+        "top2BuyPct": 18.25679826876779,
+        "routerPct": 22.38808907845526,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 6,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 6.303885592e-9,
+          "ath": 1.2618970387e-8,
+          "athDt": 5,
+          "last": 1.1066049838e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x08862657dd9bf515a361c3b08df49ff506387777",
+      "symbol": "ZERODAY",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:36:24.41+00:00",
+      "anchorTickCount": 17,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.3097565432052223,
+        "totalSellBnb": 0.0733206448050458,
+        "buyN": 16,
+        "sellN": 1,
+        "walletCount": 13,
+        "top1BuyPct": 14.255627841296786,
+        "top2BuyPct": 28.51087257858168,
+        "routerPct": 87.66808838446828,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 6.575893109862991e-9,
+          "ath": 1.0800489090400602e-8,
+          "athDt": 27,
+          "last": 1.0800489090400602e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777",
+      "symbol": "ZERODAY",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:36:34.264+00:00",
+      "anchorTickCount": 47,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 7.643916386863522,
+        "totalSellBnb": 2.4146433034407244,
+        "buyN": 36,
+        "sellN": 11,
+        "walletCount": 26,
+        "top1BuyPct": 7.4470987277972664,
+        "top2BuyPct": 14.894197455594533,
+        "routerPct": 22.017509282183223,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 10,
+        "sameBlockClusterCount": 7,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 6.466907464e-9,
+          "ath": 1.8346434286e-8,
+          "athDt": 70,
+          "last": 1.8346434286e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xd96dce62ea87c7a5405392939a64770eddcf7777",
+      "symbol": "ZERODAY",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:37:17.901+00:00",
+      "anchorTickCount": 27,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 6.879462145184029,
+        "totalSellBnb": 1.7068141155849705,
+        "buyN": 22,
+        "sellN": 5,
+        "walletCount": 22,
+        "top1BuyPct": 14.39065989618171,
+        "top2BuyPct": 23.74458882869982,
+        "routerPct": 76.65515172397187,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 6.303885592e-9,
+          "ath": 1.8484381106e-8,
+          "athDt": 14,
+          "last": 1.8484381106e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x7b302593d95a7fe4cbde2676349fbfffa8347777",
+      "symbol": "fine",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:40:55.609+00:00",
+      "anchorTickCount": 39,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.9519142490071575,
+        "totalSellBnb": 2.4623167693325123,
+        "buyN": 29,
+        "sellN": 10,
+        "walletCount": 23,
+        "top1BuyPct": 25.201975990333125,
+        "top2BuyPct": 32.686962859462064,
+        "routerPct": 53.82537224111389,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 5,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 3,
+        "priceArc": {
+          "first": 8.553606868e-9,
+          "ath": 1.3332994497e-8,
+          "athDt": 80,
+          "last": 1.3332994497e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x3c7169fd109e4ae9a7f490ecd20967b32c5b7777",
+      "symbol": "0",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:41:59.948+00:00",
+      "anchorTickCount": 17,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.015037200399854,
+        "totalSellBnb": 0.31609609685374884,
+        "buyN": 15,
+        "sellN": 2,
+        "walletCount": 14,
+        "top1BuyPct": 19.850750145983707,
+        "top2BuyPct": 34.58993212937661,
+        "routerPct": 56.50019760300612,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.906088181e-9,
+          "ath": 9.673615356e-9,
+          "athDt": 7,
+          "last": 8.932820191e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x9d8fe0671200bce6ae89e5f04919ea4da9e47777",
+      "symbol": "归零之日",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:46:18.665+00:00",
+      "anchorTickCount": 53,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.317722553691184,
+        "totalSellBnb": 1.501969222386975,
+        "buyN": 33,
+        "sellN": 20,
+        "walletCount": 27,
+        "top1BuyPct": 22.379809884160444,
+        "top2BuyPct": 36.08809792597515,
+        "routerPct": 69.46332207741459,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 13,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 5.815090934e-9,
+          "ath": 9.08607137e-9,
+          "athDt": 164,
+          "last": 9.08607137e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xa021a76aed73c0bfd233a3228faf69b4529e7777",
+      "symbol": "0",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T22:54:16.12+00:00",
+      "anchorTickCount": 38,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.4047582413584188,
+        "totalSellBnb": 0.9763983974565781,
+        "buyN": 27,
+        "sellN": 11,
+        "walletCount": 27,
+        "top1BuyPct": 22.340894811498348,
+        "top2BuyPct": 40.834381484532365,
+        "routerPct": 13.015684098697317,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 3,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 5.512572071051546e-9,
+          "ath": 1.0151683891468074e-8,
+          "athDt": 18,
+          "last": 1.014324530802646e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x53bfe8541f51b928a383a65349c649ab1ad07777",
+      "symbol": "1029",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T23:10:06.029+00:00",
+      "anchorTickCount": 27,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.7295,
+        "totalSellBnb": 2.0003429765667335,
+        "buyN": 19,
+        "sellN": 8,
+        "walletCount": 21,
+        "top1BuyPct": 21.14388413151496,
+        "top2BuyPct": 27.747761415368288,
+        "routerPct": 5.233111322549953,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 7.45812361e-9,
+          "ath": 1.2697659618e-8,
+          "athDt": 4,
+          "last": 1.1222005455e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xe0ff22c9ba345f6f1d722b5b2fc561a17c167777",
+      "symbol": "1029",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T23:23:05.194+00:00",
+      "anchorTickCount": 26,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.892219688347917,
+        "totalSellBnb": 0.6172004139658722,
+        "buyN": 17,
+        "sellN": 9,
+        "walletCount": 14,
+        "top1BuyPct": 26.423993106030213,
+        "top2BuyPct": 36.85956381198416,
+        "routerPct": 66.27271620211924,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 6.466907464e-9,
+          "ath": 7.979311779e-9,
+          "athDt": 76,
+          "last": 7.979311779e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xa5f6c6f08bffade6b0d255dd019dd0ef23797777",
+      "symbol": "放心",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T23:37:38.479+00:00",
+      "anchorTickCount": 80,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 8.560877000568702,
+        "totalSellBnb": 1.2918386643485509,
+        "buyN": 67,
+        "sellN": 13,
+        "walletCount": 23,
+        "top1BuyPct": 10.770258144631674,
+        "top2BuyPct": 21.32082878240685,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 13,
+        "sameBlockClusterCount": 8,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 5.546341557e-9,
+          "ath": 2.6145429235e-8,
+          "athDt": 15,
+          "last": 2.453149931e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x23cd3da9d6dcd6ab7c17edf6c824de1323767777",
+      "symbol": "必安",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-29T23:57:27.581+00:00",
+      "anchorTickCount": 22,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.3532145795229145,
+        "totalSellBnb": 0.3539057042698849,
+        "buyN": 20,
+        "sellN": 2,
+        "walletCount": 19,
+        "top1BuyPct": 26.346938583293046,
+        "top2BuyPct": 39.09545725262839,
+        "routerPct": 10.046342652183025,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 6.698356362e-9,
+          "ath": 9.616831435e-9,
+          "athDt": 14,
+          "last": 9.616831435e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xbd3a986a14109b59273888992b009d36aa1b7777",
+      "symbol": "必安",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T00:03:48.55+00:00",
+      "anchorTickCount": 62,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.540965156269771,
+        "totalSellBnb": 1.7430862601179111,
+        "buyN": 43,
+        "sellN": 19,
+        "walletCount": 32,
+        "top1BuyPct": 13.979239505464596,
+        "top2BuyPct": 27.958479010929192,
+        "routerPct": 60.05018315153584,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 8,
+        "sameBlockClusterCount": 3,
+        "equalClusterCount": 3,
+        "priceArc": {
+          "first": 5.724800154e-9,
+          "ath": 9.023146038e-9,
+          "athDt": 151,
+          "last": 9.023146038e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xb820ab8ef386b82b5643f849d10eeb04386f7777",
+      "symbol": "币安黑客",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T00:11:01.958+00:00",
+      "anchorTickCount": 24,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.4454982081977277,
+        "totalSellBnb": 0.09170203206652977,
+        "buyN": 23,
+        "sellN": 1,
+        "walletCount": 20,
+        "top1BuyPct": 40.64611442641594,
+        "top2BuyPct": 52.9135533881109,
+        "routerPct": 9.66723259937409,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 6.078848586e-9,
+          "ath": 1.0361356508e-8,
+          "athDt": 51,
+          "last": 1.0361356508e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xfa6c774b827c85ca1773b90fc38c865c912f7777",
+      "symbol": "BBC",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T01:22:30.673+00:00",
+      "anchorTickCount": 39,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 7.017067825935225,
+        "totalSellBnb": 3.4795194136345584,
+        "buyN": 30,
+        "sellN": 9,
+        "walletCount": 29,
+        "top1BuyPct": 14.215507659131326,
+        "top2BuyPct": 28.28788259739549,
+        "routerPct": 51.71402126980601,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 4,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 4,
+        "priceArc": {
+          "first": 6.974877525537199e-9,
+          "ath": 1.4002482380298968e-8,
+          "athDt": 10,
+          "last": 1.3038219120208887e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x170342b8759f9367b09ead095d25bd5f2ba57777",
+      "symbol": "BBC",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T01:26:20.635+00:00",
+      "anchorTickCount": 59,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.218098851082048,
+        "totalSellBnb": 2.997100976471276,
+        "buyN": 42,
+        "sellN": 17,
+        "walletCount": 30,
+        "top1BuyPct": 16.59515399503813,
+        "top2BuyPct": 26.552246392061008,
+        "routerPct": 43.44699396030827,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 11,
+        "sameBlockClusterCount": 5,
+        "equalClusterCount": 3,
+        "priceArc": {
+          "first": 6.868982837e-9,
+          "ath": 9.815360345e-9,
+          "athDt": 23,
+          "last": 7.749288284e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x90c03e507091535ff4733c30ee5dd49234ea7777",
+      "symbol": "LAPTOP",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T02:28:09.709+00:00",
+      "anchorTickCount": 42,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.745198347917631,
+        "totalSellBnb": 2.0130782093067556,
+        "buyN": 34,
+        "sellN": 8,
+        "walletCount": 25,
+        "top1BuyPct": 34.81167888180758,
+        "top2BuyPct": 45.827583264454205,
+        "routerPct": 1.7231781046494754,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 6,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 9.652495938e-9,
+          "ath": 1.6137654128e-8,
+          "athDt": 12,
+          "last": 1.3888536572e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x94eeecf511b1052970d065d11c9f53c31a337777",
+      "symbol": "币安安全",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T02:47:36.184+00:00",
+      "anchorTickCount": 28,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.600473989020234,
+        "totalSellBnb": 0.25637102845566795,
+        "buyN": 24,
+        "sellN": 4,
+        "walletCount": 23,
+        "top1BuyPct": 12.496298057454498,
+        "top2BuyPct": 22.51707946972726,
+        "routerPct": 9.278501307659964,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 5.898633353e-9,
+          "ath": 8.471031868e-9,
+          "athDt": 679,
+          "last": 8.076736075e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x2481ac81e8640e104fadf8c689c51a72cf758888",
+      "symbol": "我们会活下去",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T02:56:50.501+00:00",
+      "anchorTickCount": 27,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.688683450174182,
+        "totalSellBnb": 0.5502153049765292,
+        "buyN": 21,
+        "sellN": 6,
+        "walletCount": 21,
+        "top1BuyPct": 17.765318892007617,
+        "top2BuyPct": 29.60886482001269,
+        "routerPct": 17.998044569492915,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 4,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 5.905202674e-9,
+          "ath": 7.733799468e-9,
+          "athDt": 505,
+          "last": 7.733799468e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x2542f1f75806a6b0049f2f697d08345d487a7777",
+      "symbol": "傻福",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:00:33.175+00:00",
+      "anchorTickCount": 33,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.4597660336880387,
+        "totalSellBnb": 1.1021289562741452,
+        "buyN": 24,
+        "sellN": 9,
+        "walletCount": 23,
+        "top1BuyPct": 12.196281918333362,
+        "top2BuyPct": 24.270601017483393,
+        "routerPct": 53.55249302768045,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 8,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 6.090202075e-9,
+          "ath": 8.112851989e-9,
+          "athDt": 139,
+          "last": 8.112851989e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x6eab9c178b3a3e221a3a11703a9345537b7a7777",
+      "symbol": "laptop",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:07:53.957+00:00",
+      "anchorTickCount": 27,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.7067442640601274,
+        "totalSellBnb": 0.2923761904451552,
+        "buyN": 25,
+        "sellN": 2,
+        "walletCount": 16,
+        "top1BuyPct": 24.022345270677057,
+        "top2BuyPct": 35.623380303833294,
+        "routerPct": 74.24662421219992,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "priceArc": {
+          "first": 6.303885592e-9,
+          "ath": 8.344750948e-9,
+          "athDt": 206,
+          "last": 8.344750948e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x49013b5c6f2a18767a6faba3a2a73a261a407777",
+      "symbol": "SICoin",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:13:27.558+00:00",
+      "anchorTickCount": 24,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.743079037779761,
+        "totalSellBnb": 0.864719708697832,
+        "buyN": 21,
+        "sellN": 3,
+        "walletCount": 16,
+        "top1BuyPct": 14.039371873938883,
+        "top2BuyPct": 27.72431535796056,
+        "routerPct": 72.00579569654155,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 7.3209684265488396e-9,
+          "ath": 1.5334689051849783e-8,
+          "athDt": 13,
+          "last": 1.4944799778262122e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xfe27d3211d9a8321bead2c77f69a2b0b4e557777",
+      "symbol": "SIC",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:15:18.683+00:00",
+      "anchorTickCount": 88,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 8.890838032268432,
+        "totalSellBnb": 3.582779378942471,
+        "buyN": 60,
+        "sellN": 28,
+        "walletCount": 50,
+        "top1BuyPct": 8.441161410437719,
+        "top2BuyPct": 15.751969500992944,
+        "routerPct": 63.31182511402332,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 20,
+        "sameBlockClusterCount": 7,
+        "equalClusterCount": 5,
+        "priceArc": {
+          "first": 5.731256996141159e-9,
+          "ath": 1.8966135284490272e-8,
+          "athDt": 113,
+          "last": 1.861656625204407e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x597c0044b959f480f52b6359089b9a2b83be7777",
+      "symbol": "SAFU",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:20:28.651+00:00",
+      "anchorTickCount": 31,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.77325,
+        "totalSellBnb": 2.2342292555497525,
+        "buyN": 19,
+        "sellN": 12,
+        "walletCount": 20,
+        "top1BuyPct": 13.251176041873716,
+        "top2BuyPct": 25.972305042072485,
+        "routerPct": 59.68992248062015,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 6,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 6.095882792e-9,
+          "ath": 1.067943308e-8,
+          "athDt": 10,
+          "last": 8.487978112e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x13326823759c702e6ac478e3901b05c195307777",
+      "symbol": "币安信任",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:22:13.632+00:00",
+      "anchorTickCount": 39,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.47087793070757,
+        "totalSellBnb": 0.1582015586806904,
+        "buyN": 36,
+        "sellN": 3,
+        "walletCount": 24,
+        "top1BuyPct": 14.134415620743535,
+        "top2BuyPct": 27.051870973996405,
+        "routerPct": 3.3653370525579844,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 0,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 5.877226946e-9,
+          "ath": 7.992811307e-9,
+          "athDt": 168,
+          "last": 7.992811307e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xb3aae472395f6a83827d2a9c628162d375447777",
+      "symbol": "SI",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:22:59.405+00:00",
+      "anchorTickCount": 57,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 6.591249109181627,
+        "totalSellBnb": 2.7003760557142735,
+        "buyN": 39,
+        "sellN": 18,
+        "walletCount": 36,
+        "top1BuyPct": 15.171631104140754,
+        "top2BuyPct": 25.685571459310296,
+        "routerPct": 78.5370915080267,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 13,
+        "sameBlockClusterCount": 5,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 7.479088108e-9,
+          "ath": 1.5037224434e-8,
+          "athDt": 27,
+          "last": 1.4447870016e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x2e1319d91ea6c583dc93440fd0416c66bf3c7777",
+      "symbol": "安全币安",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:25:18.113+00:00",
+      "anchorTickCount": 24,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.8492019286877386,
+        "totalSellBnb": 0.943592483449826,
+        "buyN": 21,
+        "sellN": 3,
+        "walletCount": 21,
+        "top1BuyPct": 31.236817265875878,
+        "top2BuyPct": 54.050223134212196,
+        "routerPct": 16.28919296056201,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 3,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 7.215643216e-9,
+          "ath": 9.651529155e-9,
+          "athDt": 16,
+          "last": 9.253798236e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x71e4a36d8e7ca04021e1b3377a8a153783717777",
+      "symbol": "SI",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:36:47.91+00:00",
+      "anchorTickCount": 55,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 4.966140044348344,
+        "totalSellBnb": 2.6689036603276173,
+        "buyN": 42,
+        "sellN": 13,
+        "walletCount": 35,
+        "top1BuyPct": 15.15059972697024,
+        "top2BuyPct": 25.21878136371282,
+        "routerPct": 82.0455325053766,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 9,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 4,
+        "priceArc": {
+          "first": 6.47666515e-9,
+          "ath": 1.0926576517e-8,
+          "athDt": 57,
+          "last": 1.0216063061e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x75f47028b5ced267908f90f950cba486533c7777",
+      "symbol": "PZ",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T03:54:56.133+00:00",
+      "anchorTickCount": 66,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.8967000500000015,
+        "totalSellBnb": 2.855002563159123,
+        "buyN": 43,
+        "sellN": 23,
+        "walletCount": 26,
+        "top1BuyPct": 33.91727547681519,
+        "top2BuyPct": 41.45091904411857,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 4,
+        "sameBlockClusterCount": 6,
+        "equalClusterCount": 0,
+        "priceArc": {
+          "first": 9.652495938e-9,
+          "ath": 1.4449849573e-8,
+          "athDt": 5,
+          "last": 1.1931225949e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xb8d036e75544e177c733770b15b3091e9bb07777",
+      "symbol": "TELEPATHY",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T04:09:22.128+00:00",
+      "anchorTickCount": 31,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.4737755548830767,
+        "totalSellBnb": 0.6610146801651235,
+        "buyN": 25,
+        "sellN": 6,
+        "walletCount": 16,
+        "top1BuyPct": 24.22179264598137,
+        "top2BuyPct": 37.78947891634434,
+        "routerPct": 67.31391523333413,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 4,
+        "sameBlockClusterCount": 0,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 7.175485505527202e-9,
+          "ath": 9.686558466384985e-9,
+          "athDt": 155,
+          "last": 9.686558466384985e-9
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0x9bd229ecc28bdecc714090f968b8f9c30c8a7777",
+      "symbol": "CBF",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T04:36:04.319+00:00",
+      "anchorTickCount": 55,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 8.862046991773983,
+        "totalSellBnb": 4.235926653376721,
+        "buyN": 40,
+        "sellN": 15,
+        "walletCount": 36,
+        "top1BuyPct": 8.46305600383492,
+        "top2BuyPct": 13.659372390189562,
+        "routerPct": 64.89253551817151,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 9,
+        "sameBlockClusterCount": 7,
+        "equalClusterCount": 4,
+        "priceArc": {
+          "first": 6.968864653e-9,
+          "ath": 1.6502427069e-8,
+          "athDt": 46,
+          "last": 1.6502427069e-8
+        }
+      },
+      "dry": true
+    },
+    {
+      "addr": "0xefd53f1851dc419680b2e45c0898c1e468737777",
+      "symbol": "SAFU",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T06:38:09.022+00:00",
+      "anchorTickCount": 34,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.63815,
+        "totalSellBnb": 1.305052510986877,
+        "buyN": 27,
+        "sellN": 7,
+        "walletCount": 17,
+        "top1BuyPct": 37.90535034020052,
+        "top2BuyPct": 50.4141159524667,
+        "routerPct": 57.039971191933745,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 5,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 2,
+        "priceArc": {
+          "first": 7.45812361e-9,
+          "ath": 8.421356856e-9,
+          "athDt": 22,
+          "last": 8.042541854e-9
+        }
+      },
+      "dry": true
+    }
+  ]
+}
