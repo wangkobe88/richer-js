@@ -140,10 +140,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买33/卖14 Σ买4.69BNB 钱包29 top1=10.7% churn9 同块簇5 等额簇5）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买33/卖14 Σ买4.69BNB 钱包29 top1=10.7% churn9 同块簇5 等额簇5）；expect=判读现状待 review；10-30 review 用户确认：额度接近的协同簇——逐笔佐证：creator 0.50 买→7-16s 三笔卖 0.71；0.1320x3 同块买 t+31→同块卖回 t+39；0.2541x3→0.0825x3 同钱包复用两波均配对卖回；0.2475x2/0.2228x2 近等额对全部配对卖回；b851 跨票复现（CD11 买入/CD9 无买入纯卖）；簇钱包全部不在名单",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买33/卖14 Σ买4.69BNB 钱包29 top1=10.7% churn9 同块簇5 等额簇5）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：额度接近的协同簇（多组近等额/等额簇全部配对卖回）"
     },
     {
       "caseId": "CD10",
@@ -172,10 +172,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买20/卖3 Σ买2.23BNB 钱包15 top1=14.1% churn3 同块簇4 等额簇1）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买20/卖3 Σ买2.23BNB 钱包15 top1=14.1% churn3 同块簇4 等额簇1）；expect=判读现状待 review；10-30 review 用户确认：存在明显协同簇——逐笔佐证：四钱包近等额带两波同块买（t+29 0.128-0.175 / t+31 0.106-0.140）→t+43/44/46 三轮同块同步卖回；0.1646x3 等额簇 t+12 买→t+333 同块卖回；1fa9/60ae/370c 无买入纯卖方（dev 配额倾倒形状）；簇钱包全部不在名单",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买20/卖3 Σ买2.23BNB 钱包15 top1=14.1% churn3 同块簇4 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：存在明显协同簇（四钱包两波同块买→三轮同块卖回）"
     },
     {
       "caseId": "CD12",
@@ -188,10 +188,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=49=首笔成功买+settle4000ms；买22/卖27 Σ买3.69BNB 钱包18 top1=40.6% churn13 同块簇4 等额簇0）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=49=首笔成功买+settle4000ms；买22/卖27 Σ买3.69BNB 钱包18 top1=40.6% churn13 同块簇4 等额簇0）；expect=判读现状待 review；10-30 review 用户确认：协同痕迹明显的作弊票——逐笔佐证：0xfd41 无买入纯卖方连砸 13 笔（递减节奏+t+11 一笔 1.0991 大砸）；t+2 七钱包双轮近等额带→t+13 同块七连卖回；t+8 六钱包同块带→t+12 同块七连卖回；cf57 同块买同块卖；1fa9/b851 跨票惯犯（CD11/CD9 同款无买入卖方）；价格 1.09e-8→4.8e-9 全程 -56%",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=49=首笔成功买+settle4000ms；买22/卖27 Σ买3.69BNB 钱包18 top1=40.6% churn13 同块簇4 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：协同痕迹明显的作弊票（无买入卖方连砸+两组同块买带→同块卖回闭环）"
     },
     {
       "caseId": "CD13",
@@ -444,10 +444,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买19/卖8 Σ买4.73BNB 钱包21 top1=21.1% churn0 同块簇3 等额簇1）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买19/卖8 Σ买4.73BNB 钱包21 top1=21.1% churn0 同块簇3 等额簇1）；expect=判读现状待 review；10-30 review 用户确认：明显存在协同簇，盘面非常不健康——逐笔佐证两轮对倒闭环：t+1 同块 6 钱包买 0.21-0.31 → t+23 同块六连卖回；t+4 同块 6 钱包买波 → t+25-26 同块三轮卖回；0.0825x3 等额簇 t+11 买→t+26 同块卖回；efc6/1a64 无买入纯卖方（dev 配额倾倒形状）",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买19/卖8 Σ买4.73BNB 钱包21 top1=21.1% churn0 同块簇3 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：明显存在协同簇，盘面非常不健康（两轮同块买波→22-25s 后同块同步卖回=对倒闭环）"
     },
     {
       "caseId": "CD29",
@@ -538,12 +538,12 @@
         "tickCount": 39
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
-      "note": "aed2091d 首买基线收录（锚=39=首笔成功买+settle4000ms；买30/卖9 Σ买7.02BNB 钱包29 top1=14.2% churn4 同块簇2 等额簇4）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=39=首笔成功买+settle4000ms；买30/卖9 Σ买7.02BNB 钱包29 top1=14.2% churn4 同块簇2 等额簇4）；expect=判读现状待 review；10-30 review 用户翻案：真实用户参与的票（但不能说完全没作弊的味道）——作弊味道佐证：t+19 同块五连卖回波（0.1646x3 簇卖 0.1669/0.1668/0.1666 近同额+0.1876x2/0.1580x2 同块卖）+a775/676e/7154 无买入纯卖方；真实参与佐证：50 钱包 top1 11.5% router 52% 大量持有人+全量 1000 行长活票——协同簇存在但非主导流动性",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=39=首笔成功买+settle4000ms；买30/卖9 Σ买7.02BNB 钱包29 top1=14.2% churn4 同块簇2 等额簇4）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 翻案：真实用户参与的票（但不能说完全没作弊的味道）——主体真实参与、协同簇非主导 → unhealthy"
     },
     {
       "caseId": "CD35",
@@ -572,10 +572,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=42=首笔成功买+settle4000ms；买34/卖8 Σ买5.75BNB 钱包25 top1=34.8% churn1 同块簇6 等额簇0）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=42=首笔成功买+settle4000ms；买34/卖8 Σ买5.75BNB 钱包25 top1=34.8% churn1 同块簇6 等额簇0）；expect=判读现状待 review；10-30 review 用户确认：开盘就是大额抢筹+协同簇——逐笔佐证：creator 0xea1a t+0 买 2.0 → t+4-19 连续 10 笔卖 Σ3.3776 全程派发（t+19 一笔 0.9877）；t+3 五钱包同块带 0.16-0.35；@锚90 churn 27/29 全员配对卖回（ce73 5买5卖、488f 3买4卖、六个 1买1卖）；router 1.7% 全直连；簇钱包全部不在名单",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=42=首笔成功买+settle4000ms；买34/卖8 Σ买5.75BNB 钱包25 top1=34.8% churn1 同块簇6 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：开盘就是大额抢筹+协同簇（creator 2.0 买入后 10 笔派发+全员配对卖回）"
     },
     {
       "caseId": "CD37",
@@ -748,10 +748,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=55=首笔成功买+settle4000ms；买42/卖13 Σ买4.97BNB 钱包35 top1=15.2% churn9 同块簇4 等额簇4）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=55=首笔成功买+settle4000ms；买42/卖13 Σ买4.97BNB 钱包35 top1=15.2% churn9 同块簇4 等额簇4）；expect=判读现状待 review；10-30 review 用户确认：隐藏比较深的协同簇，最后有协同的砸盘——逐笔佐证：五钱包近等额带（0.1307-0.1489 刻意不精确等额躲等额簇检测）t+7 同块买→t+79 同块五连卖回；0.1650x3 等额簇 t+46 同块买→t+80 同块卖回；0.1990x2 对 t+53 买→t+62 卖；尾段 9 钱包两块协同砸盘 1.0e-8→6.3e-9；簇钱包全部不在名单",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=55=首笔成功买+settle4000ms；买42/卖13 Σ买4.97BNB 钱包35 top1=15.2% churn9 同块簇4 等额簇4）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：隐藏比较深的协同簇，最后有协同的砸盘"
     },
     {
       "caseId": "CD48",
