@@ -12,10 +12,10 @@
         "verdict": "cheat",
         "cheatProbGte": 0.5
       },
-      "note": "立项案（v65 live aed2091d 实买亏损盘）：27 钱包分仓 4 分钟对倒、dev 0x8eda…482c 抢跑 6s 自卖（0.5 买→0.4 卖税后 0.3999）、同块三连簇 7 个、等额簇 0.2475×4、top1 集中度仅 7.4% 全绕现有门。锚 66=买入信号 fire 时刻已落 tick 数（66 笔内 36 买/30 卖=对倒节奏已完整暴露）。pattern 不断言（cheat 域内掷骰面，C111 纪律）",
+      "note": "立项案（v65 live aed2091d 实买亏损盘）：27 钱包分仓 4 分钟对倒、dev 0x8eda…482c 抢跑 6s 自卖（0.5 买→0.4 卖税后 0.3999）、同块三连簇 7 个、等额簇 0.2475×4、top1 集中度仅 7.4% 全绕现有门。锚 66=买入信号 fire 时刻已落 tick 数（66 笔内 36 买/30 卖=对倒节奏已完整暴露）。pattern 不断言（cheat 域内掷骰面，C111 纪律）；10-30 review 用户确认：明显作弊——单笔购买的 BNB 数量明显偏大",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "CD1 立项人工盘面分析=作弊盘（台账 docs/作弊盘检测与Case台账.md 首案）；cheatProb≥0.5=mapper 硬门本身"
+      "expectBecause": "2026-10-30 用户 review 确认：明显作弊（单笔购买 BNB 数量明显偏大）+ 立案案由（27 钱包分仓对倒、dev 抢跑 6s 自卖）"
     },
     {
       "caseId": "CD2",
@@ -122,12 +122,12 @@
         "tickCount": 44
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
-      "note": "aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买42/卖2 Σ买3.53BNB 钱包30 top1=14.1% churn1 同块簇8 等额簇1）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买42/卖2 Σ买3.53BNB 钱包30 top1=14.1% churn1 同块簇8 等额簇1）；expect=判读现状待 review；10-30 review 用户翻案：盘面由几个跟随钱包群掌控，但是不算是作弊（digest 佐证：42买/2卖几乎无卖回对倒、routerPct 71.5%=聚合路由跟随群集中买入、churn 仅 1）",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买42/卖2 Σ买3.53BNB 钱包30 top1=14.1% churn1 同块簇8 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 翻案：盘面由几个跟随钱包群掌控但不算是作弊——Jev 判 cheat 0.99 系 same_block_burst 过权重（无卖回配对不构成对倒）"
     },
     {
       "caseId": "CD9",
@@ -250,12 +250,12 @@
         "tickCount": 46
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
-      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买39/卖7 Σ买5.64BNB 钱包22 top1=35.5% churn2 同块簇3 等额簇0）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买39/卖7 Σ买5.64BNB 钱包22 top1=35.5% churn2 同块簇3 等额簇0）；expect=判读现状待 review；10-30 review 用户翻案：不算作弊，但盘面被 KOL 0x7a2363a401b2340c7941dd2eeff0196a5078d2e6 掌控、它及跟单持仓太多、它跑了就嗝屁（digest 佐证：top1 买 35.5% 单点掌控、top2 46.9%）",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买39/卖7 Σ买5.64BNB 钱包22 top1=35.5% churn2 同块簇3 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 翻案：盘面被 KOL 0x7a2363a401b2340c7941dd2eeff0196a5078d2e6 掌控+跟单持仓过多（单点崩溃风险）——非协同作弊，归 unhealthy"
     },
     {
       "caseId": "CD17",
@@ -476,10 +476,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买67/卖13 Σ买8.56BNB 钱包23 top1=10.8% churn13 同块簇8 等额簇0）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买67/卖13 Σ买8.56BNB 钱包23 top1=10.8% churn13 同块簇8 等额簇0）；expect=判读现状待 review；10-30 review 用户确认：明显作弊——前面两次购买都是一大堆钱包且额度近似",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买67/卖13 Σ买8.56BNB 钱包23 top1=10.8% churn13 同块簇8 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：明显作弊（前面两次购买都是一大堆钱包且额度近似=分仓等额形状）"
     },
     {
       "caseId": "CD31",
@@ -764,10 +764,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=66=首笔成功买+settle4000ms；买43/卖23 Σ买5.90BNB 钱包26 top1=33.9% churn4 同块簇6 等额簇0）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=66=首笔成功买+settle4000ms；买43/卖23 Σ买5.90BNB 钱包26 top1=33.9% churn4 同块簇6 等额簇0）；expect=判读现状待 review；10-30 review 用户确认：作弊痕迹有一些（有协同砸盘的行为）——digest 佐证 43买/23卖卖回明显、top1 33.9%",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=66=首笔成功买+settle4000ms；买43/卖23 Σ买5.90BNB 钱包26 top1=33.9% churn4 同块簇6 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：有协同砸盘行为（作弊痕迹有一些）"
     },
     {
       "caseId": "CD49",

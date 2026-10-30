@@ -332,18 +332,31 @@ function writeFixturesSafely(doc) {
   console.log(`fixtures 已写回 ${FIXTURES_PATH}`);
 }
 
-/** 从最近 run 存档取某 case 现行判读（--update-expect 不重烧 Jev，以已跑结果为准） */
-function latestArchivedInterp(caseId) {
+/**
+ * 从最近 run/baseline 存档取某 case 现行判读（--update-expect 不重烧 Jev，以已跑结果为准）。
+ * 两种存档行形状不同：cd-run-* 行带 caseId；cd-baseline-* 行只带 addr（--experiment 模式收录前无名）。
+ * 排序按文件名内嵌 ISO 时戳——前缀不同（run/baseline）字典序≠时间序。
+ */
+function latestArchivedInterp(caseId, addr) {
   let names;
   try {
-    names = readdirSync(DATA_DIR).filter((f) => /^cd-run-.*\.json$/.test(f)).sort();
+    names = readdirSync(DATA_DIR)
+      .filter((f) => /^cd-(run|baseline)-.*\.json$/.test(f))
+      .map((f) => {
+        const m = f.match(/(20\d{2}-\d{2}-\d{2}T[\d-]+Z)/);
+        return { f, ts: m ? m[1] : '' };
+      })
+      .sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0))
+      .map((x) => x.f);
   } catch (_) {
     return null; // data/ 尚无存档
   }
+  const want = String(addr || '').toLowerCase();
   for (let i = names.length - 1; i >= 0; i--) {
     try {
       const doc = JSON.parse(readFileSync(resolve(DATA_DIR, names[i]), 'utf8'));
-      const hit = (doc.results || []).find((r) => r.caseId === caseId && r.interp && !r.error);
+      const hit = (doc.results || []).find((r) => (r.caseId === caseId
+        || (want && String(r.addr || '').toLowerCase() === want)) && r.interp && !r.error);
       if (hit) return hit.interp;
     } catch (_) { /* 撕裂/坏档跳过取更旧 */ }
   }

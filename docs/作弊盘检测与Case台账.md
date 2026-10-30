@@ -42,6 +42,23 @@
 
 **review 入口建议**：从 cheatP 最低票开始人工对拍盘面（JAGENT 0.56 / 币安信任 0.64 / Bstocks 0.65 / 币安黑客 0.69 / 我们会活下去 0.74——Jev 最不确信的）vs cheatP=1.00 票（CBF / SAFU#51）；人工判定哪些实为正常盘 → `--update-expect --because` 校准 + 明确 D1.1 的偏置方向。
 
+**review 进展（2026-10-30 逐票裁定，进行中，5/51）**：
+
+| case | token | 裁定（用户原话摘） | expect |
+|---|---|---|---|
+| CD1 ZERODAY | `0x23f1…7777` | 确认作弊：「单笔购买的 BNB 数量明显偏大」 | cheat（不变） |
+| CD30 放心 | `0xa5f6…7777` | 确认作弊：「前面两次购买都是一大堆钱包且额度近似」 | cheat（不变） |
+| CD48 PZ | `0x75f4…7777` | 确认作弊：「作弊痕迹也有一些（有协同砸盘的行为）」 | cheat（不变） |
+| CD8 NOT SAFU | `0xc2d7…7777` | **翻案**：「盘面由几个跟随钱包群掌控，但是不算是作弊」 | cheat → **unhealthy** |
+| CD16 PAOLO | `0x1a28…7777` | **翻案**：「不算作弊，但盘面被 KOL `0x7a2363a401b2340c7941dd2eeff0196a5078d2e6` 掌控，它以及跟单持仓太多，它跑了就嗝屁了」 | cheat → **unhealthy** |
+
+**校准信号（草稿，攒票后再定题面改法——改题面须 bump 版本+回归对拍）**：
+1. **对倒的充要证据=买-卖回吐配对**：真作弊票卖回明显（CD1 36买/30卖≈1:1、CD48 43买/23卖协同砸盘）；两翻案票几乎无卖回（CD8 42买/**2卖** churn 仅 1、CD16 39买/7卖=买了拿着）——「集群买入+持有」≠对倒。Jev 在两翻案票上只看 same_block_burst（两票主导桶都是它）不看卖回=**最大过判源**
+2. **集中度方向不能单变量判**：CD16（unhealthy，KOL 掌控）top1 35.5% vs CD48（cheat，协同砸盘）top1 33.9%——top1 高低分不开 cheat/unhealthy；分开它们的仍是**卖回行为**（砸盘 vs 拿着）
+3. routerPct 高（CD8 71.5%）=跟随钱包群走聚合路由的指纹，指向 unhealthy（跟单结构）而非 cheat
+
+工具侧同步修：`latestArchivedInterp` 此前只扫 `cd-run-*.json` → 基线存档行（只带 addr 不带 caseId）不可见，`--update-expect` 对 CD2-51 会误报无存档；已扩为双 pattern+addr 匹配（翻案票 expect 仍须人工直改——`--update-expect` 只会抄机器判读，方向相反时不可用）。
+
 ### CD1 作弊盘检测立项案：ZERODAY 27 钱包分仓对倒盘（2026-10-30）
 
 **案发**：v65 live 实验 `aed2091d-f22f-4660-ae62-42f48a9048de` 实买亏损。token `0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777`（ZERODAY，flap）。用户问「从盘面上看，是不是一个作弊代币（流动性不来自真实用户）？」——人工盘面分析（66-tick 买点切片，全部数字被 `_test_cheat_detection_lib.cjs` 锁定）：
@@ -84,7 +101,7 @@
 
 ## 未决事项
 
-- **CD2-CD51 逐票 review**（2026-10-30 基线全 cheat 零区分度——裁定样本先验 vs D1.1 偏置；expect 现状快照待校准）
+- **CD2-CD51 逐票 review**（2026-10-30 基线全 cheat 零区分度；**5/51 已裁**：CD1/CD30/CD48 确认 cheat、CD8/CD16 翻案 unhealthy——D1.1 偏置方向已实证=same_block_burst 不看卖回过判，判据草稿见上；余 46 票继续）
 - 负例/healthy 对照票收录（未买入票/涨了的票——区分度评估必需）
 - CD1 182 定向重析对拍未跑（本地不烧 Jev 配额）
 - 观察期上线=v66 换车（enabled:true，用户指令后执行）
