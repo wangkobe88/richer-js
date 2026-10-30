@@ -196,6 +196,7 @@
 
 | 版本 | 日期 | 触发 | 改动 |
 |---|---|---|---|
+| D2.0 | 2026-10-30 | 基线 51 票逐票 review（50/51 裁定）反哺 20 条校准信号 | Q1 判据重构三段：①主证据=买簇→同块集中卖回波**配对**（买了拿着≠作弊）/配额梯假热度（砸盘缺失≠排除）/强庄真实推升未收割≠cheat 归 unhealthy/creator 部分卖=常态 ②第二轴=散户参与定 cheat 分界（启动簇后无新面孔无承接=cheat）③背景噪声=指纹是加权项非 verdict（近等额带躲检测/纯卖配额低活跃弱证据/低活跃本身=unhealthy）。Q2 加 `quota_ladder`/`slow_coordinated_accumulation` 两桶（CD33/CD44 盲区形状）+ 近等额带提示。Q3 收紧散户定义（班底簇成员/纯卖配额者不计；新面孔持续+二次承接=强证据；router 行=真实独立用户权重中等）。state-builder 判定指引加两条（四件套=卖回分散度/二次承接/新面孔持续/买卖失衡；强庄≠作弊）。lib PATTERNS 同步两桶。**首次准确率对拍=本轮 182 全量** |
 | D1.1 | 2026-10-30 | CD1 立项 | 首版 3 题：market_health_verdict（cheat/unhealthy/healthy/unclear_insufficient 四桶）/ cheat_pattern（dev_self_trade/same_block_burst/equal_amount_split/rapid_churn/wash_pump/none_apparent）/ retail_participation（Score 0-10） |
 
 ## 未决事项

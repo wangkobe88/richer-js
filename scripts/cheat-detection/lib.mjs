@@ -10,7 +10,8 @@
 export const VERDICTS = new Set(['cheat', 'unhealthy', 'healthy', 'unclear']);
 export const PATTERNS = new Set([
   'dev_self_trade', 'same_block_burst', 'equal_amount_split',
-  'rapid_churn', 'wash_pump', 'none_apparent',
+  'rapid_churn', 'wash_pump', 'quota_ladder', 'slow_coordinated_accumulation',
+  'none_apparent',
 ]);
 
 /**
