@@ -16,6 +16,9 @@ data/
 # 叙事抽样测试集本体（地址清单+涨幅快照）同属长期维护资产
 !scripts/narrative/case-regression/sample-sets/
 !scripts/narrative/case-regression/sample-sets/**
+# 作弊盘回归集对拍存档+jev_prompt 断代对拍证据（同上，长期维护资产）
+!scripts/cheat-detection/data/
+!scripts/cheat-detection/data/**
 
 # OS
 .DS_Store

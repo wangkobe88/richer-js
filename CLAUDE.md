@@ -5,6 +5,7 @@ Richer-js：BSC four.meme + flap + gang meme 币自动交易引擎（BSC-only）
 **本文只留现行机制、铁律与操作入口**；决策过程、case 复盘、验证数据、事故数字、各臂现行阈值/版本号一律不写入（完整判据/案史/豁免链在台账，策略条件串以 strategy_library 最新版为准；压缩前版本在 git 历史）：
 - 叙事 case 全档案：`docs/叙事引擎改进与Case台账.md`（卷四 C181 起；卷三/卷二/卷一=同目录 `-卷三归档.md`/`-卷二归档.md`/`-卷一归档.md`）；**每个新 case/改进须同步追加台账**
 - 交易机制案档案：`docs/交易策略改进与Case台账.md`（T 编号；买/卖腿门、因子口径、集中度、止损/毕业、live 事故、回测口径、机制迁移；详档 auto-memory）；**每个新交易侧 case/改进须同步追加台账**
+- 作弊盘检测案档案：`docs/作弊盘检测与Case台账.md`（CD 编号；cheatCheck 机制、题集版本演进、回归集收录；详档 auto-memory）；**每个作弊盘 case/题集改动须同步追加台账**
 - 历史实现：git 历史
 
 ## 常用命令
@@ -17,6 +18,8 @@ node src/run-engine.js <experiment_id>     # 单实验直跑（virtual；live �
 npm run narrative-engine                   # 叙事分析 worker
 npm run case-regression [-- --only C98,C104 | --list | --add <addr> --case C112 --note .. | --update-expect C97 --because ..]
                                            # 叙事 case 回归集（票数随案渐增；重析对拍在 182 跑，工具文档 docs/case-regression-tool.md）
+node scripts/cheat-detection/run.mjs [--only CD1 | --list | --add <addr> --case CD2 --note .. | --update-expect CD2 --because ..]
+                                           # 作弊盘回归集（as-of 锚截窗重析在 182 跑；anchor 必填防全史马后炮）
 npm run narrative-sample-build -- --exps <id,...> --name <set> --top 60 --bottom 60 --random 60 --seed N
 npm run narrative-sample -- --set <set>    # 叙事抽样测试集构建/重析（C136 统计评估姊妹资产；涨幅分层，182 跑）
 node scripts/scan-unknown-factor-conditions.cjs   # 存量条件未知因子扫描（退出码 1=有命中）
@@ -31,7 +34,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 - **采集/直连**：embedded_collector_architecture、run_engine_graceful_stop、experiment_instance_lock、sender_resolver、fa_deferred_wallet_feeding、watcher_quote_conversion、flap_session_created_backfill_bypass、recent_ticks_scan、early_replay_index、tick_buffer_watermark、wss_event_writer_retry、gang 六件（gang_collector_decode、gang_graduation_progress、gang_architecture、gang_corpus_enrich、gang_baw_trader、gang_live_wiring）
 - **回测**：backtest_tick_cache、backtest_chain_order、backtest_narrative_gate、backtest_perf_probe、backtest_write_buffer_async、backtest_load_pool、backtest_preload_overlap、backtest_platform_parallel、fa_prefilter、backtest_fa_prune、backtest_tick_build_skip、backtest_trigger_leg、backtest_keyset_paging（⚠锚定无序重构后存量失败待裁定，新形状由 tick_cache 覆盖）
 - **引擎机制**：card_position_mechanisms、holdings_replay_precision、stop_loss_rules、sell_leg_scan_fallback、prebuy_peak_backfill、graduation_sell_and_anchor、sell_debounce_mechanisms、sec_since_peak（T97 高点停滞减仓臂：距峰秒数任意接受价轨峰推进/outlier 不推峰/尘价重置计时不武装双轨反证/新高归零/清仓 null fail-closed/asOf 虚拟时钟/快照透传/探针收键/条件四态）、mcap_arc_exit（T107 市值拱形时间全清臂：token 全生命市值峰三键 mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec——X/2 预计算/outlier 不推峰尘价照推/再破高归零+X 变大/X=0 开跌即峰过门即清/supply 缺失 fail-closed/asOf 虚拟时钟/源码口径锁/快照透传/探针收键/条件四态）、token_pool_buytime、token_age_sec、activity_window_factors、fourmeme_fa_factors、bundle_cluster_factors、even_cluster_factors、circ_denominator_cap、top2_holder_circ、top_holder_supply、holders_ex_dust（T98 剔尘埃人气键：跨尘门边界 ±1 增量/首价固化 T+一次性重扫/无价退化 fail-open/假活跃票现场反证 holders=11 过旧门 vs ExDust=1 拦死）、fa_wallet_denomination、market_regime、live_prefilter_parity、permanent_block_cache、k_group_no_materialize、wallet_net_single_pass、signal_metadata_cache、token_pool_eviction、timeseries_removal、holder_series_rebuild、price_series_rebuild、fa_narrative_factors、fa_early_trades_factors、netbuy_window_factors、narrative_trigger_condition、account_health_monitor、account_recheck_engine、fa_issuer_account_state、observation_signals、observation_config
-- **pre-buy/钱包**：sniper_factor（+sniper_cache_probe）、top1_buy_share、sender_switch_and_router、corpus_lag_factor、same_name_snapshot、gmgn_check_layer、gmgn_attention_ratio、gmgn_wallet_stats_service、gmgn_wallet_stats_layer、prebuy_known_factor_short_circuit、prebuy_creator_dev_cache、prebuy_overlap、copy_wallet_roster_factors、copy_roster_orphan_rescue、sybil_cluster_factor、sybil_build_clusters、wallet_profile_builder、wallet_scorer、tpa、tpa_live_ticks_trim、token_classifier
+- **pre-buy/钱包**：sniper_factor（+sniper_cache_probe）、top1_buy_share、sender_switch_and_router、corpus_lag_factor、same_name_snapshot、gmgn_check_layer、gmgn_attention_ratio、gmgn_wallet_stats_service、gmgn_wallet_stats_layer、prebuy_known_factor_short_circuit、prebuy_creator_dev_cache、prebuy_overlap、copy_wallet_roster_factors、copy_roster_orphan_rescue、sybil_cluster_factor、sybil_build_clusters、wallet_profile_builder、wallet_scorer、tpa、tpa_live_ticks_trim、token_classifier、cheat_detection_lib（CD1 ZERODAY 66-tick 事故现场反证：capped 截断声明/权威锚由调用方传入/router 伪钱包剔除/等额簇 T74 口径）、cheat_detection_service（增量四态/满帽水位/顶帽 DB 起底/超时冷却/inflight/首行 prompt/接线源码锁）
 - **策略/条件/stats**：strategy_library_validate_legs、unknown_factor_reject、experiment_stats_fifo、replay_observation_factors（回放本体 182 跑）、buy_phase_routing（T100 首买/再买分臂：轮次路由/值域拒启/Sprout 事故现场反证 round0 repeat 不可顶上/快票 P1 压 early P2）
 - **web/数据服务**：trades_filter_columns、api_status_service
 - **live**：live_hardening、tx_seen_receipt、live_decimals_guard、live_executor_loading、executors_routes、manual_trade_queue、graduated_pcs_routing、fourmeme_actual_received、nonce_manager、gas_dynamic、live_nonbnb_buy_allowed、buy_circuit_breaker、live_dual_platform、approve_max_grant、live_record_trade_clamp、live_dust_close、flap_minout_signal_anchor、live_buy_failure_observability、logger_console_same_file
@@ -140,6 +143,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 - 回测挂点**不真调 API**：消费直调快照 `narrativeCallInfo.gmgnRisk` → 同款 `evaluateFactors`（快照缺失同 fail-open 放行，与实时同判）
 - **GMGN 钱包画像层（C89，默认关 `fourmemeWs.gmgnWalletStats.enabled`）**：**引擎接线已随 T71 删除**（数据口 `FA.getEarlyTopBuyers` 随 early 族退役，第五参恒 null=存量零影响）；纯函数层（Service/表/离线建库脚本/单测）保留，将来重启须换全史数据源重新接线
 - 库 buy-v2 门：`gmgnBundlerWalletRatio <= 65`；signal metadata 落 `gmgnCheck` 审计轨迹（拒/过两路径）
+- **作弊盘检测观察层（CD1，默认关 `fourmemeWs.cheatCheck.enabled`——物化语义缺段即关；flap 经 `_mergedWsConfig` 同键）**：Jev 驱动买点同步式盘面健康判定，三分类「作弊/不健康/健康」**as-of 时点语义**（unhealthy↔healthy 可转化，cheat 不可逆；`cheat_detection` 多行历史留转化轨迹）。挂点=preBuy 过后 GMGN if 块外（无 GMGN 条件腿/被拒票也进样本）；fire-and-forget **绝不影响买决策**（观察期不进条件串）；settle 4s 后**单 tail 查询** wss_price_ticks（锚=返回行数绝不 count+select 两次；满帽补 head，增量改判尾行水位）→ cheat-snapshot 纯函数（与回归 runner 同源；top1/top2 剔聚合路由伪钱包；资金不滤 outlier/priceArc 仅可靠价）→ state → JevClient（dynamic import，题集 `cheat-questions.mjs` 独立版本 D1.1）→ mapper（cheat P≥0.5 硬门+runner-up）落表；增量=(新tick>0∧≥60s) OR ≥20；顶帽 20/token per 版本（error/timeout 也烧）；`minTicks 8` 以下不调 Jev；失败落 timeout/error 行+冷却，链内全吞错；stop drain≤5s；实验 stop 不清理表行（token 级全局资产）。回测零接线（用户裁定首期不接）。回归集 `scripts/cheat-detection/run.mjs`（**anchor 必填**防全史马后炮，182 跑）；台账 `docs/作弊盘检测与Case台账.md`（CD 编号）
 
 ### C84 叙事触发模型（`narrativeTriggerCondition`）
 

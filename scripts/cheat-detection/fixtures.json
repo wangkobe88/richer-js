@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "caseId": "CD1",
+      "symbol": "ZERODAY",
+      "addr": "0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777",
+      "platform": "flap",
+      "anchor": { "tickCount": 66 },
+      "expect": {
+        "verdict": "cheat",
+        "cheatProbGte": 0.5
+      },
+      "note": "立项案（v65 live aed2091d 实买亏损盘）：27 钱包分仓 4 分钟对倒、dev 0x8eda…482c 抢跑 6s 自卖（0.5 买→0.4 卖税后 0.3999）、同块三连簇 7 个、等额簇 0.2475×4、top1 集中度仅 7.4% 全绕现有门。锚 66=买入信号 fire 时刻已落 tick 数（66 笔内 36 买/30 卖=对倒节奏已完整暴露）。pattern 不断言（cheat 域内掷骰面，C111 纪律）",
+      "addedAt": "2026-10-30",
+      "expectSince": "2026-10-30",
+      "expectBecause": "CD1 立项人工盘面分析=作弊盘（台账 docs/作弊盘检测与Case台账.md 首案）；cheatProb≥0.5=mapper 硬门本身"
+    }
+  ]
+}

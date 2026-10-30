@@ -1,0 +1,250 @@
+/**
+ * 作弊盘检测快照构建（CD1，2026-10-30）——纯函数，零 DB 零网络
+ *
+ * 单一组装路径：实时引擎（CheatCheckService）与离线回归工具（scripts/
+ * cheat-detection/run.mjs）统一从 wss_price_ticks 拉行 → buildSnapshotFromRows
+ * → CheatSnapshot → cheat-state-builder → Jev。两条路径同源 bit-identical，
+ * FA 内存（tick 明细仅 5min 滑窗）不参与。
+ *
+ * 口径（与 FA/回测对齐的既定事实，勿改）：
+ * - wallet = COALESCE(sender_address, trader_address)——FA :818 单点同款；
+ *   sender 未解析（RPC 回查失败/溢出）时回退 trader，若 trader 又是聚合路由
+ *   → 所有 GMGN 用户并成一个巨型伪钱包，故 derived 的 top1/top2 集中度
+ *   **剔除 AGGREGATOR_ROUTER_ADDRS 命中的伪钱包**（不剔=向 cheat 方向系统性
+ *   偏置），routerPct / unresolvedSenderTickCount 单列让 Jev 知道证据有洞
+ * - 资金口径不滤 price_outlier/尘 tick（作弊检测看资金行为，对倒的钱照算）；
+ *   priceArc 价格口径**仅 price_outlier=false 行**（尘价一笔打飞 ATH=假事实）
+ * - bnb_amount 写入时已换算 BNB 域（flap quote 盘 collector :596 乘 conv.rate），
+ *   读侧照抄不再换算；quote 盘换算失败行整行不入表=快照可能静默缺行（宁跳不
+ *   冒充），等额簇跨汇率 TTL 刷新窗会碎裂——两洞在 state 侧声明为「近似」
+ * - 等额簇口径=T74 evenCluster 同款：四位舍入 0.0001 BNB、桶 size≥3、
+ *   ≥earlyUniformDustBnb（此处固定 0.001，快照层无 factorParams）
+ * - 排序=链上真序 (block_number, log_index)（回测红线同款；行集由调用方
+ *   排序/截窗后传入，本模块只做稳定重排不假设到达序）
+ */
+
+const { AGGREGATOR_ROUTER_ADDRS } = require('./aggregator-routers');
+
+/** 等额簇金额舍入粒度（0.0001 BNB，T74 口径） */
+const EQUAL_AMOUNT_ROUND = 10000;
+/** 等额簇最小金额门槛（BNB；earlyUniformDustBnb 快照层固定值） */
+const EQUAL_AMOUNT_MIN_BNB = 0.001;
+/** 同块簇最小笔数 */
+const SAME_BLOCK_CLUSTER_MIN = 3;
+/** 快进快出判定窗（秒）：首买→首卖 < 窗即计 churn */
+const CHURN_WINDOW_SEC = 60;
+
+/** wallet 口径单点：sender 优先，回退 trader（FA :818 同款） */
+function walletOf(row) {
+  return row.sender_address || row.trader_address || null;
+}
+
+/** trader 层聚合路由判定（小写同域） */
+function isRouterTrader(row) {
+  const t = row.trader_address ? String(row.trader_address).toLowerCase() : null;
+  return t !== null && AGGREGATOR_ROUTER_ADDRS.has(t);
+}
+
+/**
+ * DB 行集 → CheatSnapshot（纯函数）。
+ *
+ * @param {Array<Object>} rows - wss_price_ticks 行（任意序；字段：trade_type/
+ *   trader_address/sender_address/bnb_amount/price_bnb/price_outlier/
+ *   block_number/log_index/block_time）
+ * @param {Object} tokenMeta - { address, symbol, name, platform, quoteToken,
+ *   createdAt(iso), creatorAddress }（wss_events token_create payload；createdAt
+ *   缺失时 dt 基准退化为首 tick 并在 snapshot 标注）
+ * @param {Object} [options] - { capped, anchorTickCount }——capped=拉数满帽标记
+ *   （service pull.capped / 回归 runner 锚窗未截断=false）透传 state [ANCHOR]
+ *   截断声明；anchorTickCount=**权威锚（tail 单查询返回行数）**，满帽时行集=
+ *   head+tail 多于锚值，锚绝不能从 rows.length 反推（head 补充行不参与锚）
+ * @returns {Object} CheatSnapshot { tokenMeta, anchor:{tickCount}, capped, ticks,
+ *   wallets, derived }——anchor=单次查询返回行数（防 count/select 撕裂；缺省=
+ *   行数，即未满帽时两者相等）
+ */
+function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
+  const sorted = [...(rows || [])].sort((a, b) => {
+    const ba = a.block_number ?? 0, bb = b.block_number ?? 0;
+    if (ba !== bb) return ba - bb;
+    return (a.log_index ?? 0) - (b.log_index ?? 0);
+  });
+
+  const createdMs = tokenMeta && tokenMeta.createdAt ? Date.parse(tokenMeta.createdAt) : null;
+  const baseMs = Number.isFinite(createdMs) ? createdMs
+    : (sorted.length ? Date.parse(sorted[0].block_time) : null);
+  const dtBase = Number.isFinite(createdMs) ? 'created' : 'first_tick';
+
+  const ticks = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const r = sorted[i];
+    const ms = Date.parse(r.block_time);
+    ticks.push({
+      i,
+      dt: Number.isFinite(ms) && baseMs !== null ? Math.round((ms - baseMs) / 1000) : null,
+      side: r.trade_type === 'buy' ? 'BUY' : 'SELL',
+      bnb: r.bnb_amount,
+      priceBnb: r.price_bnb ?? null,
+      wallet: walletOf(r),
+      block: r.block_number ?? null,
+      viaRouter: isRouterTrader(r),
+      outlier: r.price_outlier === true,
+      senderMissing: !r.sender_address,
+    });
+  }
+
+  const snapshot = {
+    tokenMeta: { ...tokenMeta },
+    anchor: { tickCount: Number.isFinite(options.anchorTickCount) ? options.anchorTickCount : ticks.length },
+    capped: options.capped === true, // 拉数满帽：窗口≠全史，state [ANCHOR] 须声明
+    dtBase, // 'created'=dt 相对创建秒；'first_tick'=createdAt 缺失退化为首 tick 基准（state 侧须声明）
+    ticks,
+    wallets: [],
+    derived: null,
+  };
+  snapshot.wallets = aggregateWallets(snapshot.ticks, snapshot.tokenMeta);
+  snapshot.derived = computeDerived(snapshot);
+  return snapshot;
+}
+
+/**
+ * 钱包聚合（全量行不滤 outlier——资金口径；伪钱包剔除见 walletOf 注）。
+ * computeDerived 的 top1/top2 与 state builder 的 [WALLETS] 段共用本函数=口径单点。
+ * @returns {Array<{w,buyBnb,buyN,sellBnb,sellN,firstBuyDt,firstSellDt,lastActDt,isCreator}>}
+ *   按买入额降序
+ */
+function aggregateWallets(ticks, tokenMeta) {
+  const byWallet = new Map();
+  for (const t of ticks || []) {
+    if (!t.wallet) continue;          // 无钱包行计量不计人
+    if (isRouterWallet(t.wallet)) continue; // 伪钱包不进 wallets（见 walletOf 注）
+    let e = byWallet.get(t.wallet);
+    if (!e) { e = { w: t.wallet, buyBnb: 0, buyN: 0, sellBnb: 0, sellN: 0, firstBuyDt: null, firstSellDt: null, lastActDt: null, isCreator: false }; byWallet.set(t.wallet, e); }
+    const isBuy = t.side === 'BUY';
+    const bnb = t.bnb || 0;
+    if (isBuy) { e.buyBnb += bnb; e.buyN++; if (e.firstBuyDt === null) e.firstBuyDt = t.dt; }
+    else { e.sellBnb += bnb; e.sellN++; if (e.firstSellDt === null) e.firstSellDt = t.dt; }
+    if (t.dt !== null && t.dt !== undefined && (e.lastActDt === null || t.dt > e.lastActDt)) e.lastActDt = t.dt;
+  }
+  const creator = tokenMeta && tokenMeta.creatorAddress
+    ? String(tokenMeta.creatorAddress).toLowerCase() : null;
+  return [...byWallet.values()]
+    .map((e) => ({ ...e, isCreator: creator !== null && e.w.toLowerCase() === creator }))
+    .sort((a, b) => b.buyBnb - a.buyBnb);
+}
+
+/**
+ * 派生统计（纯函数，从 ticks 单点计算=口径唯一；公式由
+ * _test_cheat_detection_lib.cjs 用 ZERODAY 66-tick 事故现场锁定）。
+ *
+ * @param {Object} snapshot - 仅消费其 ticks（wallets 由本函数产出原料）
+ * @returns {Object} derived
+ */
+function computeDerived(snapshot) {
+  const ticks = snapshot.ticks || [];
+
+  // ── 全量行计量（不滤 outlier——资金口径；伪钱包剔除只影响 wallets/集中度）──
+  let totalBuyBnb = 0, totalSellBnb = 0, buyN = 0, sellN = 0;
+  let routerBuyBnb = 0, routerBuyN = 0, unresolvedSenderTickCount = 0;
+  for (const t of ticks) {
+    const isBuy = t.side === 'BUY';
+    const bnb = t.bnb || 0;
+    if (isBuy) { totalBuyBnb += bnb; buyN++; } else { totalSellBnb += bnb; sellN++; }
+    if (t.viaRouter && isBuy) { routerBuyBnb += bnb; routerBuyN++; }
+    if (t.senderMissing) unresolvedSenderTickCount++; // 证据洞计数（全量行，含被剔伪钱包行）
+  }
+
+  // 钱包聚合单点（[WALLETS] 段与集中度同源；buildSnapshotFromRows 已回填则复用）
+  const wallets = snapshot.wallets && snapshot.wallets.length ? snapshot.wallets
+    : aggregateWallets(ticks, snapshot.tokenMeta);
+
+  // ── 集中度（剔除 router 伪钱包后的买入 top1/top2 占总买）──
+  const top1BuyPct = totalBuyBnb > 0 && wallets.length ? (wallets[0].buyBnb / totalBuyBnb) * 100 : null;
+  const top2BuyPct = totalBuyBnb > 0 && wallets.length > 1
+    ? ((wallets[0].buyBnb + wallets[1].buyBnb) / totalBuyBnb) * 100 : null;
+
+  // ── routerPct：Σ(router 行买入 BNB) ÷ Σ买入 ×100（T70 tradesRouterPct 同口径）──
+  const routerPct = totalBuyBnb > 0 ? (routerBuyBnb / totalBuyBnb) * 100 : null;
+
+  // ── 快进快出：首买→首卖间隔 < CHURN_WINDOW_SEC 的钱包数 ──
+  let churn60sWalletCount = 0;
+  for (const e of wallets) {
+    if (e.firstBuyDt === null || e.firstSellDt === null) continue;
+    if (e.firstSellDt - e.firstBuyDt < CHURN_WINDOW_SEC) churn60sWalletCount++;
+  }
+
+  // ── 同块买入簇（≥SAME_BLOCK_CLUSTER_MIN 笔买同块）──
+  const blockBuys = new Map();
+  for (const t of ticks) {
+    if (t.side !== 'BUY' || t.block === null) continue;
+    if (!blockBuys.has(t.block)) blockBuys.set(t.block, []);
+    blockBuys.get(t.block).push(t);
+  }
+  const sameBlockClusters = [...blockBuys.entries()]
+    .filter(([, a]) => a.length >= SAME_BLOCK_CLUSTER_MIN)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 10)
+    .map(([block, a]) => ({
+      block,
+      n: a.length,
+      wallets: new Set(a.map((t) => t.wallet)).size,
+      sumBnb: a.reduce((s, t) => s + (t.bnb || 0), 0),
+      firstDt: a[0].dt,
+    }));
+
+  // ── 等额买入簇（四位舍入同额 ≥3 且 ≥EQUAL_AMOUNT_MIN_BNB；T74 口径）──
+  const evenBuckets = new Map();
+  for (const t of ticks) {
+    if (t.side !== 'BUY') continue;
+    const bnb = t.bnb || 0;
+    if (bnb < EQUAL_AMOUNT_MIN_BNB) continue;
+    const k = Math.round(bnb * EQUAL_AMOUNT_ROUND);
+    if (!evenBuckets.has(k)) evenBuckets.set(k, []);
+    evenBuckets.get(k).push(t);
+  }
+  const equalClusters = [...evenBuckets.entries()]
+    .filter(([, a]) => a.length >= SAME_BLOCK_CLUSTER_MIN)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 10)
+    .map(([k, a]) => ({
+      amt: k / EQUAL_AMOUNT_ROUND,
+      n: a.length,
+      wallets: new Set(a.map((t) => t.wallet)).size,
+      firstDt: a[0].dt,
+    }));
+
+  // ── 价格拱（仅 price_outlier=false 行——价格口径滤，资金口径不滤）──
+  let first = null, ath = null, athDt = null, last = null;
+  for (const t of ticks) {
+    if (t.outlier || t.priceBnb === null || t.priceBnb === undefined) continue;
+    if (first === null) first = t.priceBnb;
+    if (ath === null || t.priceBnb > ath) { ath = t.priceBnb; athDt = t.dt; }
+    last = t.priceBnb;
+  }
+
+  return {
+    totalBuyBnb, totalSellBnb, buyN, sellN,
+    walletCount: wallets.length,
+    top1BuyPct, top2BuyPct,
+    routerPct, routerBuyN,
+    unresolvedSenderTickCount,
+    churn60sWalletCount,
+    sameBlockClusters, equalClusters,
+    priceArc: first !== null ? { first, ath, athDt, last } : null,
+  };
+}
+
+/** 伪钱包判定（wallet 命中聚合路由地址——未解析 sender 的 GMGN 行回退产物） */
+function isRouterWallet(wallet) {
+  return wallet !== null && AGGREGATOR_ROUTER_ADDRS.has(String(wallet).toLowerCase());
+}
+
+module.exports = {
+  buildSnapshotFromRows,
+  computeDerived,
+  aggregateWallets,
+  walletOf,
+  isRouterWallet,
+  EQUAL_AMOUNT_MIN_BNB,
+  SAME_BLOCK_CLUSTER_MIN,
+  CHURN_WINDOW_SEC,
+};

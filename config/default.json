@@ -161,6 +161,9 @@
       "perTokenTtlMs": 5000,
       "failCooldownMs": 10000
     },
+    "cheatCheck": {
+      "enabled": false
+    },
     "gmgnWalletStats": {
       "enabled": false,
       "topWallets": 5,

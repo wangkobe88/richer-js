@@ -338,6 +338,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._gmgnRiskCheckService = new GmgnRiskCheckService(
       this._mergedWsConfig().gmgnCheck || {}, this.logger);
 
+    // CD1 作弊盘检测（2026-10-30 用户裁定立项，ZERODAY 0x23f1…7777 案）：Jev 驱动
+    // 买点同步式盘面健康三分类观察层（cheat/unhealthy/healthy；不健康↔健康随时点
+    // 转化）。**观察期 fire-and-forget 纯旁路**——绝不影响买决策，fail 全吞 loud
+    // 留痕；结果落 cheat_detection（token 级全局资产，stop 不清理）。配置
+    // fourmemeWs.cheatCheck（flap 同键经 _mergedWsConfig；enabled 缺省 false=新机制
+    // 默认零影响，v66 换车显式开观察）。回测零接线（BacktestEngine 不继承本类）
+    const { CheatCheckService } = require('../pre-check/CheatCheckService');
+    this._cheatCheckService = new CheatCheckService(
+      this._mergedWsConfig().cheatCheck || {}, this.logger);
+
     // （1.5.2b GMGN 钱包画像层 gwp 引擎接线已随 T71 2026-10-26 删除——数据口
     //  FA.getEarlyTopBuyers 以 early 出生窗为源，earlyTrades* 冻结窗族整族退役后设计
     //  作废；GmgnWalletStatsService/离线建库脚本/表保留（纯函数层无 FA 依赖），将来
@@ -1498,6 +1508,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
     if (this._accountHealthMonitor) this._accountHealthMonitor.destroy();
 
+    // CD1 作弊盘检测优雅等流：in-flight 分析链上限等待（settle+Jev 最长几十秒
+    // 不值得堵停机；落库行=token 级全局资产，停机后写入无害）
+    if (this._cheatCheckService) {
+      try {
+        await this._cheatCheckService.drain(5000);
+      } catch (e) {
+        this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+          `cheatCheck drain 异常: ${e.message}`);
+      }
+    }
+
     await super.stop();
 
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
@@ -2246,6 +2267,30 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
+      // ── CD1 作弊盘检测观察点（2026-10-30，ZERODAY 0x23f1…7777 案）：preBuy 通过
+      // 后、GMGN if 块外、GMGN 调用前——无 GMGN 条件的腿照样观察、被 GMGN 拒的票
+      // 也进样本（防观察集无声残缺）。fire-and-forget：settle 4s 后拉
+      // wss_price_ticks 组装 as-of 快照真调 Jev，结果落 cheat_detection（增量条件/
+      // 预算顶帽 service 内判定）；**绝不影响买决策**，异步完成不回填信号行 ──
+      let cheatCheckInfo = null;
+      if (this._cheatCheckService && this._cheatCheckService.enabled) {
+        try {
+          cheatCheckInfo = this._cheatCheckService.noteBuyPoint(tokenAddress, {
+            address: token.token,
+            symbol: token.symbol || null,
+            name: token.name || null,
+            platform: token.platform || faState?.platform || null,
+            createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+            creatorAddress: token.creatorAddress || null,
+          }, { experimentId: this._experimentId });
+        } catch (e) {
+          // 兜底吞错（观察层纪律：绝不影响交易链）
+          this.logger.warn(this._experimentId, 'BuyEval',
+            `作弊盘观察点异常（已吞） | ${token.symbol} ${e?.message || e}`);
+          cheatCheckInfo = { status: 'error', reason: e?.message || String(e) };
+        }
+      }
+
       // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，2026-10-14 用户裁定；
       // 2026-10-20 乌龟案改 fail-open）：前两层全过、下单前才真调 GMGN
       // getTokenInfo 构建因子（配额最小化+数据天然新鲜，与直调快照隔离——只认本层
@@ -2293,7 +2338,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               : ''));
           if (signalId) {
             try {
-              await this._updateSignalMetadata(signalId, { gmgnCheck: gmgnCheckInfo });
+              // CD1 观察轨迹一并落（GMGN 拒的票也在观察样本内——样本完整性）
+              await this._updateSignalMetadata(signalId, {
+                gmgnCheck: gmgnCheckInfo,
+                ...(cheatCheckInfo ? { cheatCheck: cheatCheckInfo } : {}),
+              });
             } catch (updateError) {
               this.logger.warn(this._experimentId, 'BuyEval',
                 `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
@@ -2334,6 +2383,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             narrativeLeaderCheck: narrativeLeaderInfo,
             // 第三层轨迹（通过路径；拒买路径在上方已单独落）
             gmgnCheck: gmgnCheckInfo,
+            // CD1 作弊盘观察轨迹（enabled 时才有值；异步结果落 cheat_detection 不回填）
+            ...(cheatCheckInfo ? { cheatCheck: cheatCheckInfo } : {}),
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: preBuyCheckResult.canBuy,
