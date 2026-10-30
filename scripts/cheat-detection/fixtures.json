@@ -202,12 +202,12 @@
         "tickCount": 46
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "healthy"
       },
-      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买23/卖23 Σ买4.87BNB 钱包24 top1=51.4% churn7 同块簇3 等额簇2）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买23/卖23 Σ买4.87BNB 钱包24 top1=51.4% churn7 同块簇3 等额簇2）；expect=判读现状待 review；10-30 review 用户翻案：正常盘（healthy）。主导买入=creator 0x3195…4cd8 首买 2.50（top1 51.4% 恒常态）+0xffbd…6dcc 买 0.4356 锚后快翻（跟单名单 coTokens 608/sybil 簇 #15 成员）；等额小额蜂群（0x278e/0x93a3/0x040f/0xaa28/0x18a5）为跨票常驻集群（次日 elun CD52 同批钱包）=flap 新票背景噪音非本票协同",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买23/卖23 Σ买4.87BNB 钱包24 top1=51.4% churn7 同块簇3 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 翻案：正常盘子（买入时被 0xffbd…6dcc 主导）——Jev 判 cheat 0.99 dev_self_trade 系把 creator 常态首买+部分卖出与跨票蜂群读成本票协同"
     },
     {
       "caseId": "CD14",
@@ -428,10 +428,10 @@
       "expect": {
         "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买27/卖11 Σ买3.40BNB 钱包27 top1=22.3% churn3 同块簇2 等额簇1）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买27/卖11 Σ买3.40BNB 钱包27 top1=22.3% churn3 同块簇2 等额簇1）；expect=判读现状待 review；10-30 review 用户确认：典型作弊盘，对倒交易明显",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买27/卖11 Σ买3.40BNB 钱包27 top1=22.3% churn3 同块簇2 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-10-30 用户 review 确认：典型作弊盘（对倒交易看起来很明显）"
     },
     {
       "caseId": "CD28",
