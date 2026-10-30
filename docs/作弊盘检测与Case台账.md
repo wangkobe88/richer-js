@@ -27,6 +27,21 @@
 
 ## Case 倒序
 
+### CD2-CD51 aed2091d 首买基线批量收录（2026-10-30，待逐票 review）
+
+**指令**（用户原话）：「收录一下 aed2091d-f22f-4660-ae62-42f48a9048de 有交易的所有代币吧，基于其第一次成功购买信号。你可以先跑一下，跑一个基线，给我一个结果的表格，然后我们一起一个一个的去 review 一下结果」+「这些代币全部放入回归集合中」。
+
+**执行**：`run.mjs --experiment` 模式（commit d028f26）——trades 表每 token 首笔成功买入（trade_direction='buy' ∧ success），**锚=首笔成功买 created_at + settle 4s 内的链上真序 tick 行数**（对齐实时 service settle 语义；回放无法重放落库延迟=链上时间近似宁多勿少）。51 票全部有成功买入（全 flap 平台），真调 Jev D1.1 逐票判读，**全部收录 CD2-CD51**（expect=判读现状快照，review 后 `--update-expect` 校准）；CD1 ZERODAY 属本实验票、addr 去重跳过（锚 66 保留人工立案值，--experiment 算出 47=口径差：66 是立案分析时的人工窗口）。对拍存档 `data/cd-baseline-aed2091d-*.json`（含 answersRaw）。
+
+**结果**：**51/51 全判 cheat**（cheatP 0.56-1.00，中位≈0.97）；pattern：same_block_burst 36 / dev_self_trade 6 / equal_amount_split 5 / rapid_churn 1 / null(P<0.4) 3；retail_participation 全部 0.66-2.76（10 分制）。
+
+**关键观察（待 review 裁定）**：零区分度分布，两种解释——
+1. **样本先验**：这批=实验实际买入的票（aed2091d 整体亏损=买的票质量差）+ 锚在首买时点（token 年龄普遍 <90s，flap 早期几乎全是 bot/抢跑钱包）→「全 cheat」可能部分为真
+2. **题集偏置**：D1.1 判据可能未分开「正常新票的 bot 抢跑阶段」（几乎所有 meme 票前 60s 形态）与「协同资金对倒」（cheat 本义）——same_block_burst 主导（36/51）指向此：同块簇在 flap 早期是常态而非例外
+3. **负例缺失**：评估区分度必须补对照组（未买入的票/涨了的健康票/更晚时点锚）
+
+**review 入口建议**：从 cheatP 最低票开始人工对拍盘面（JAGENT 0.56 / 币安信任 0.64 / Bstocks 0.65 / 币安黑客 0.69 / 我们会活下去 0.74——Jev 最不确信的）vs cheatP=1.00 票（CBF / SAFU#51）；人工判定哪些实为正常盘 → `--update-expect --because` 校准 + 明确 D1.1 的偏置方向。
+
 ### CD1 作弊盘检测立项案：ZERODAY 27 钱包分仓对倒盘（2026-10-30）
 
 **案发**：v65 live 实验 `aed2091d-f22f-4660-ae62-42f48a9048de` 实买亏损。token `0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777`（ZERODAY，flap）。用户问「从盘面上看，是不是一个作弊代币（流动性不来自真实用户）？」——人工盘面分析（66-tick 买点切片，全部数字被 `_test_cheat_detection_lib.cjs` 锁定）：
@@ -69,7 +84,8 @@
 
 ## 未决事项
 
-- 首批负例/unhealthy 候选票收录（CD2+，待 182 选票——需各自买点时刻锚）
+- **CD2-CD51 逐票 review**（2026-10-30 基线全 cheat 零区分度——裁定样本先验 vs D1.1 偏置；expect 现状快照待校准）
+- 负例/healthy 对照票收录（未买入票/涨了的票——区分度评估必需）
 - CD1 182 定向重析对拍未跑（本地不烧 Jev 配额）
 - 观察期上线=v66 换车（enabled:true，用户指令后执行）
 - 进门（进买条件串/做因子键）待观察攒批后裁定（T74/T76/T94 同款纪律）
