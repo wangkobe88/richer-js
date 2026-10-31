@@ -584,10 +584,10 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.11：10 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider） ═══════════════
-  console.log('I2. 题集结构 D3.11（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.12：10 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider） ═══════════════
+  console.log('I2. 题集结构 D3.12（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.11', `版本常量 D3.11（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.12', `版本常量 D3.12（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -644,6 +644,16 @@ console.log('I. 著名钱包单极控盘锚');
     'amount_tiering 显式算式=覆盖度分式 + 辅助形状跨带拆单');
   ok(tier.includes('0.3002~0.3683') && tier.includes('约 92%') && tier.includes('0.2475×4'),
     'amount_tiering 正例=CD1 三带样本（0.3 带/0.2475×4/覆盖约 92%）');
+  ok(tier.includes('GMGN') && tier.includes('购买档位') && tier.includes('常态背景'),
+    'amount_tiering D3.12 先验锚=GMGN 等工具购买档位/默认值致金额天然聚带，落带是常态背景非异常');
+  ok(tier.includes('层的本体是钱包不是笔数') && tier.includes('碎层') && tier.includes('参考 ≥3 个'),
+    'amount_tiering D3.12 层本体=每带不同钱包较多（≥3 参考），每带 1-2 笔碎层不构成层');
+  ok(tier.includes('规模门槛') && tier.includes('至多 moderate、不给 strong'),
+    'amount_tiering D3.12 规模门槛=数额小+钱包不多不给 strong（7 笔分 5 层反例裁定）');
+  ok(tier.includes('已对冲离场') && tier.includes('定档以仍在场的资金为主'),
+    'amount_tiering D3.12 早波离场=已对冲离场买入只作档位复现辅助，定档以在场资金为主');
+  ok(tier.includes('反·碎层') && tier.includes('2.0×/1.1×/1.0×/0.5×') && tier.includes('0.93 BNB'),
+    'amount_tiering D3.12 碎层反例=CD17 波4（7 笔 0.93 BNB 落倍数档每档 1-2 笔，至多 moderate）');
   const bwq = qs.same_block_buy_wave.instructions;
   ok(bwq.includes('节拍复现') && bwq.includes('波占比') && bwq.includes('不同钱包'),
     'same_block_buy_wave 算法三要素=同块多钱包/节拍复现/波占比算式');

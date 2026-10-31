@@ -263,7 +263,7 @@ async function cmdExperimentBaseline(args) {
   let hadError = false;
 
   console.log(['# ', 'symbol'.padEnd(12), 'plat'.padEnd(9), '锚'.padEnd(6), '买/卖'.padEnd(9), 'Σ买BNB'.padEnd(8), '钱包'.padEnd(6), 'top1%'.padEnd(7), 'churn'.padEnd(6), '同块'.padEnd(5), '等额'.padEnd(5), 'state'].join('')
-    + (args.dry ? '' : '  → 现象观测（D3.11：eq/sb/cr/sd/sbw(现象二分 burst)/tier/bw/rat/bd/act）'));
+    + (args.dry ? '' : '  → 现象观测（D3.12：eq/sb/cr/sd/sbw(现象二分 burst)/tier/bw/rat/bd/act）'));
 
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
