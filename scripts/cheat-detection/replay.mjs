@@ -16,9 +16,10 @@
 //   D3.7 / same_block_buy_wave+bundled_trade_dominance 自 D3.8 起**（同容缺）；
 //   **D3.9：insider_supply_sell 起自 D3.9（缺席 null）；stall_burst_wave 改三分类
 //   桶域——D3.3-D3.8 旧档四档值（weak/moderate/strong）语义不可比=断代 null（分布
-//   单列，与缺席同显示）**；**D3.10：桶名 burst_suspect → burst_cheat（「可疑」
-//   中间态废——作弊直判，判不上=正常涌入），D3.9 存档的 burst_suspect 桶值同走
-//   断代 null**。
+//   单列，与缺席同显示）**；**D3.10：桶名 burst_suspect → burst_cheat；D3.11：
+//   退回纯现象二分 none/burst（用户裁定「burst_cheat 就不再次检测了……只做一个
+//   是否有 停滞后涌入 的现象判断即可」）——D3.10 存档 burst_cheat/burst_normal
+//   桶值与此前全部旧档值同走断代 null**。
 import { readFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -72,8 +73,8 @@ if (noAnswers) console.log(`⚠ ${noAnswers} 行无 answersRaw（旧版存档）
 const classes = ['cheat', 'unhealthy', 'healthy'];
 
 // 现象档位×人工裁定类分布（重放归因主表——哪个现象在哪类票上被标到什么档位；
-// sbw 独立桶域列（D3.10 burst_cheat——四档列下 burst_* 值会被静默丢数）
-console.log('\n== 现象档位×人工裁定类分布（none/weak/moderate/strong；sbw 行=none/burst_cheat/burst_normal）==');
+// sbw 独立桶域列（D3.11 现象二分——四档列下 burst 值会被静默丢数）
+console.log('\n== 现象档位×人工裁定类分布（none/weak/moderate/strong；sbw 行=none/burst）==');
 for (const ph of [...PHENOMENON_IDS, ...EXT_PHENOMENON_IDS]) {
   const lv = ph === 'stall_burst_wave' ? STALL_BURST_LEVELS : LVL;
   const cells = classes.map((k) => {

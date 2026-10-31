@@ -264,19 +264,23 @@ const f1b = buildObservation(mkAnswers(), { sameBlockHoldPct: '88' });
 ok(f1b.anchors.sameBlockHoldPct === null, '锚形状异常（字符串）→ 按缺席算不冒充');
 
 // ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
-// sbw D3.9 三分类桶域；D3.10 burst_suspect→burst_cheat（可疑中间态废）：在场三桶照落 / 旧档断代 null / 未知桶 throw
+// sbw D3.11 现象二分桶域（D3.10 burst_cheat/burst_normal 断代）：在场二桶照落 / 旧档断代 null / 未知桶 throw
 ok(buildObservation(mkAnswers()).extLevels.stall_burst_wave === null,
   'ext 题缺席（≤D3.1 旧存档形状）→ null 落审计不 throw（零配额重放兼容）');
 const sbwAns = (bucket, p = 0.72) => {
-  const rest = (1 - p) / 2;
+  const rest = (1 - p) / (STALL_BURST_LEVELS.length - 1);
   return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(STALL_BURST_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
 };
-const f2 = buildObservation({ ...mkAnswers(), stall_burst_wave: sbwAns('burst_cheat') });
-ok(f2.extLevels.stall_burst_wave === 'burst_cheat', 'sbw=burst_cheat 照落 extLevels（三分类在场）');
+const f2 = buildObservation({ ...mkAnswers(), stall_burst_wave: sbwAns('burst') });
+ok(f2.extLevels.stall_burst_wave === 'burst', 'sbw=burst 照落 extLevels（现象二分在场）');
 ok(buildObservation({ ...mkAnswers(), stall_burst_wave: phAns('strong') }).extLevels.stall_burst_wave === null,
   'sbw 旧档四档值 strong（D3.3-D3.8）→ 断代 null 不冒充映射');
 ok(buildObservation({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { burst_suspect: 1 } } }).extLevels.stall_burst_wave === null,
   'sbw=burst_suspect（D3.9「可疑」中间态已废）→ 断代 null 不冒充映射');
+ok(buildObservation({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { burst_cheat: 1 } } }).extLevels.stall_burst_wave === null,
+  'sbw=burst_cheat（D3.10 定性直判桶，D3.11 裁定不重复检测）→ 断代 null 不冒充映射');
+ok(buildObservation({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { burst_normal: 1 } } }).extLevels.stall_burst_wave === null,
+  'sbw=burst_normal（D3.10 定性直判桶，D3.11 裁定不重复检测）→ 断代 null 不冒充映射');
 ok(buildObservation({ ...mkAnswers(), stall_burst_wave: sbwAns('none') }).extLevels.stall_burst_wave === 'none',
   'sbw=none 两域同义保留（无沉寂后爆发涌入）');
 let threw = false;
@@ -319,8 +323,8 @@ try {
 ok(threw, 'insider_supply_sell 在场但档域名 low → throw（现象四档域校验）');
 ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell']),
   'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.9 四键）');
-ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst_cheat', 'burst_normal']),
-  'STALL_BURST_LEVELS 导出钉死（D3.10：可疑中间态废——作弊直判 burst_cheat）');
+ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
+  'STALL_BURST_LEVELS 导出钉死（D3.11：退回纯现象二分——只判有无停滞后涌入）');
 
 // 活跃度题（D3.5：Jev 判断活跃度——独立档域 low/mid/high/ultra，非现象四档轴）
 const actAns = (bucket, p = 0.7) => {
@@ -580,16 +584,16 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.10：10 题=4 现象+sbw(三分类 burst_cheat)+tiering+bw+activity_level+bd+insider） ═══════════════
-  console.log('I2. 题集结构 D3.10（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.11：10 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider） ═══════════════
+  console.log('I2. 题集结构 D3.11（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.10', `版本常量 D3.10（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.11', `版本常量 D3.11（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
     'BUNDLED_LEVELS 导出=捆绑题独立档域三桶（mapper 同名常量对齐）');
-  ok(JSON.stringify(qm.STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst_cheat', 'burst_normal']),
-    'STALL_BURST_LEVELS 导出=停滞突发波三分类桶域 burst_cheat（D3.10 可疑中间态废；mapper 同名常量对齐）');
+  ok(JSON.stringify(qm.STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
+    'STALL_BURST_LEVELS 导出=停滞突发波现象二分桶域（D3.11 退回只判有无；mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
   ok(qids.length === 10
@@ -612,8 +616,8 @@ console.log('I. 著名钱包单极控盘锚');
       `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
   }
   ok(qm.STALL_BURST_LEVELS.every((b) => typeof qs.stall_burst_wave.criteria[b] === 'string')
-    && Object.keys(qs.stall_burst_wave.criteria).length === 3,
-    'stall_burst_wave：criteria 键集=STALL_BURST_LEVELS 三分类桶域（D3.10 桶名改型）');
+    && Object.keys(qs.stall_burst_wave.criteria).length === 2,
+    'stall_burst_wave：criteria 键集=STALL_BURST_LEVELS 现象二分桶域（D3.11 收缩）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
@@ -625,14 +629,14 @@ console.log('I. 著名钱包单极控盘锚');
   ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高两正例');
   ok(act.includes('不下任何盘面结论'), 'activity_level 尾句=只述档位不下结论');
   const sbw = qs.stall_burst_wave.instructions;
-  ok(sbw.includes('静默') && sbw.includes('排除项') && sbw.includes('单独摘出来'),
-    'stall_burst_wave 算法三要素=静默段判读/排除项/波内资金单独摘出（CD17 裁定）');
-  ok(sbw.includes('三选一') && sbw.includes('无沉寂后爆发涌入') && sbw.includes('沉寂后作弊流量涌入') && sbw.includes('沉寂后正常流量涌入'),
-    'stall_burst_wave 三分类输出=用户裁定三类桶名在题面（涌入存在性 × 波内资金形状）');
-  ok(sbw.includes('钱包新旧') && sbw.includes('买卖对冲') && sbw.includes('≤1.5'),
-    'stall_burst_wave 波内审视三信号=金额规整度(≤1.5 聚带)/钱包新旧轮换/买卖对冲');
-  ok(sbw.includes('判断不了作弊就是正常') && sbw.includes('不设中间档'),
-    'stall_burst_wave D3.10 判读锚=作弊直判无中间档，判不上作弊形状按正常涌入处理（fail-normal）');
+  ok(sbw.includes('静默') && sbw.includes('排除项'),
+    'stall_burst_wave 算法要素=静默段判读/排除项（D3.11 二步形状）');
+  ok(sbw.includes('二选一') && sbw.includes('无沉寂后爆发涌入') && sbw.includes('沉寂后爆发涌入'),
+    'stall_burst_wave 现象二分输出=有无两类桶名在题面（D3.11 用户裁定只判有无）');
+  ok(sbw.includes('本题不判涌入资金的性质') && sbw.includes('不在此重复定性'),
+    'stall_burst_wave 分工句=波内资金定性由等额分仓/分层/同块波/捆绑主导度等题判读，本题不重复检测（D3.11 裁定原话语义）');
+  ok(!sbw.includes('钱包新旧') && !sbw.includes('买卖对冲') && !sbw.includes('单独摘出来'),
+    'stall_burst_wave D3.11 反证=波内资金定性判读（钱包新旧/买卖对冲/单独摘出）已随桶域收缩删除');
   const tier = qs.amount_tiering.instructions;
   ok(tier.includes('带间空隙') && tier.includes('分层覆盖度') && tier.includes('连续渐变'),
     'amount_tiering 算法要素=带间空隙判读/分层覆盖度/无序度对照');

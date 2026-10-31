@@ -41,9 +41,9 @@ const PHENOMENON_IDS = [
  * D3.7 起=后增题容缺通道（sbw D3.3 / amount_tiering D3.7 / same_block_buy_wave D3.8
  * / insider_supply_sell D3.9）。容缺语义：旧存档（< 各题引入版本）answers 无该键
  * → null 不 throw（重放兼容）；在场答案走 _phenomenon（未知桶名照 throw，漂移
- * 防线不因容缺放宽）。**sbw 例外**：D3.9 起三分类桶域（D3.10 起 burst_cheat），
- * 读档走 _stallBurst——旧档四档值（weak/moderate/strong）与 D3.9 burst_suspect
- * 桶值语义不可比=断代 null。
+ * 防线不因容缺放宽）。**sbw 例外**：D3.11 起现象二分桶域（none/burst），
+ * 读档走 _stallBurst——D3.3-D3.8 四档值、D3.9 burst_suspect、D3.10 burst_cheat/
+ * burst_normal 桶值语义不可比=断代 null。
  */
 const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell'];
 
@@ -56,13 +56,15 @@ const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 捆绑交易题独立档域（与题集 BUNDLED_LEVELS 一致；D3.8 用户裁定高中低三档） */
 const BUNDLED_LEVELS = ['low', 'mid', 'high'];
 
-/** 停滞突发波三分类桶域（与题集 STALL_BURST_LEVELS 一致；D3.10 用户裁定「不要有
- *  什么可疑作弊流量一说，作弊就是作弊，判断不了作弊就是正常」：burst_cheat 直判） */
-const STALL_BURST_LEVELS = ['none', 'burst_cheat', 'burst_normal'];
+/** 停滞突发波二分类桶域（与题集 STALL_BURST_LEVELS 一致；D3.11 用户裁定退回
+ *  纯现象二分「burst_cheat 就不再次检测了……只做一个是否有 停滞后涌入 的现象
+ *  判断即可」——波内资金定性与其它门重复且无明确标准，只判有无） */
+const STALL_BURST_LEVELS = ['none', 'burst'];
 
 /** sbw 旧档断代清单（none 两域同义保留）：D3.3-D3.8 现象四档值（weak/moderate/
- *  strong）+ D3.9 burst_suspect 桶值（「可疑」中间态已废）——语义不可比=断代 null */
-const STALL_BURST_LEGACY_LEVELS = ['weak', 'moderate', 'strong', 'burst_suspect'];
+ *  strong）+ D3.9 burst_suspect + D3.10 burst_cheat/burst_normal 桶值——语义
+ *  不可比=断代 null */
+const STALL_BURST_LEGACY_LEVELS = ['weak', 'moderate', 'strong', 'burst_suspect', 'burst_cheat', 'burst_normal'];
 
 /** 单现象题 → {bucket, prob, level}（argmax 桶；缺题/未知桶 throw） */
 function _phenomenon(answers, id) {
@@ -124,12 +126,13 @@ function _bundledDominance(answers) {
 }
 
 /**
- * 停滞突发波题答案读取（D3.10：题 id stall_burst_wave，三分类桶域
- * none/burst_cheat/burst_normal——涌入存在性 × 波内资金形状；「可疑」中间态
- * 已废：判不上作弊形状=正常涌入 fail-normal）。容缺：旧存档（<D3.3）无该键
- * → null；旧档断代值（D3.3-D3.8 四档 weak/moderate/strong + D3.9
- * burst_suspect）与新桶语义不可比 → 断代 null（不冒充映射）；在场新桶
- * argmax + 桶域校验，未知桶名 throw（漂移防线不因容缺放宽）。
+ * 停滞突发波题答案读取（D3.11：题 id stall_burst_wave，现象二分桶域
+ * none/burst——只判「有无停滞后涌入」，不判波内资金性质（定性与等额分仓/
+ * 同块买入波/捆绑主导度等题重复，D3.11 用户裁定删除）。容缺：旧存档
+ * （<D3.3）无该键 → null；旧档断代值（D3.3-D3.8 四档 weak/moderate/strong
+ * + D3.9 burst_suspect + D3.10 burst_cheat/burst_normal）与新桶语义不可比
+ * → 断代 null（不冒充映射）；在场新桶 argmax + 桶域校验，未知桶名 throw
+ * （漂移防线不因容缺放宽）。
  */
 function _stallBurst(answers) {
   const a = answers && answers.stall_burst_wave;
@@ -138,7 +141,7 @@ function _stallBurst(answers) {
   for (const [bucket, p] of Object.entries(a.probabilities)) {
     if (best === null || p > best.prob) best = { bucket, prob: p };
   }
-  if (STALL_BURST_LEGACY_LEVELS.includes(best.bucket)) return null; // 旧档断代（D3.3-D3.8 四档 + D3.9 burst_suspect）
+  if (STALL_BURST_LEGACY_LEVELS.includes(best.bucket)) return null; // 旧档断代（D3.3-D3.8 四档 + D3.9 burst_suspect + D3.10 burst_cheat/burst_normal）
   if (!STALL_BURST_LEVELS.includes(best.bucket)) {
     throw new Error(`停滞突发波题 stall_burst_wave 未知桶名 '${best.bucket}'（题集/映射漂移——STALL_BURST_LEVELS 须同步）`);
   }
@@ -165,7 +168,7 @@ function buildObservation(answers, anchors = null) {
     const a = answers && answers[id];
     if (!a || !a.probabilities) { extPh[id] = null; continue; }
     if (id === 'stall_burst_wave') {
-      // D3.10 三分类桶域（burst_cheat）独立读档：旧档断代值 → null
+      // D3.11 现象二分桶域（none/burst）独立读档：旧档断代值 → null
       const v = _stallBurst(answers);
       extPh[id] = v ? v.bucket : null;
     } else {
