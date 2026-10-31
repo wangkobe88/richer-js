@@ -16,6 +16,9 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D2.2（2026-10-31 用户裁定：题面语言换中文）。纯语言对照轮——instructions/
+ *   criteria 逐条忠实翻译 D2.1，语义零增删（单变量=语言；state-builder/统计口径
+ *   一字不动），用于验证中文不掉点；不掉点则中文定型为基线语言。
  * D2.1（2026-10-31 用户三条裁定）：①[PRECOMPUTED] 撤同块簇/等额簇预列——结构指纹
  *   由 Jev 自己从 [TICKS]/[WALLETS] 归纳（预列=把指纹喂到嘴边强化指纹偏置，
  *   same_block_burst 33/55 误判根源）②tick 行 [GMGN] 标记去除（反噬——健康票
@@ -36,7 +39,7 @@
  *   （unclear_insufficient→'unclear'）
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D2.1';
+export const CHEAT_QUESTIONS_VERSION = 'D2.2';
 
 /**
  * 构建作弊盘检测问题集
@@ -48,75 +51,75 @@ export function buildCheatQuestions() {
     // ── 1. 盘面健康三分类（主判定题；时点语义——判定截至锚时点的状态）──
     market_health_verdict: {
       type: 'choice',
-      instructions: `Judge the HEALTH of this token's market at the ANCHOR point in time given below. The [PRECOMPUTED] statistics and [TICKS]/[WALLETS] sections are ground truth — trust them as computed facts; your job is the JUDGMENT those facts cannot encode: who dominates the flow, is their behavior coordinated, and does genuine participation carry real weight.
+      instructions: `判定下方材料截至 [ANCHOR] 锚时点，该代币盘面的健康度。[PRECOMPUTED] 统计与 [TICKS]/[WALLETS] 两段是代码端已算好的既定事实，直接采信；你的任务是这些事实编不出的判断：谁在主导资金流、其行为是否协同、真实参与的分量有多重。
 
-The verdict you give is about the market STATE AT THE ANCHOR (the first N ticks), not the token's whole life.
+你给出的判定只针对截至 [ANCHOR]（首 N 笔 tick）的盘面状态，不是该代币的终身属性。
 
-PRIMARY EVIDENCE — what the dominant buyers DO with their position:
-- The strongest cheat signature is BUY-TOGETHER → SELL-BACK-TOGETHER pairing: a cluster of wallets buys in a synchronized rhythm (same blocks, equal or near-equal amounts), then sells back in a concentrated synchronized wave (several sells packed into the same blocks shortly after), harvesting the ramp they manufactured. Check whether the big early buyers are still HOLDING or already dumped together — wallets that bought and are still holding are NOT this signature.
-- A dump is NOT required for cheat: quota-ladder fake heat — controlled wallets relay-buying in graded amounts to manufacture momentum, one-directional buy/sell imbalance, no genuine new-blood inflow behind the ramp — is cheat even before any dump arrives. Test: mentally strip the suspected-coordinated wallets; would the remaining flow alone support this price action?
-- A single large player (or a small set) GENUINELY buying big and pushing price with real capital — not split into many synchronized wallets, not yet dumping in waves — is NOT cheat. That is a strong-hand market: unhealthy (dominated, one-sided, not safe to enter), or healthy if genuine retail participates broadly.
-- The creator buying a meaningful stake at launch and selling PART of it over time is normal. The creator front-running its own launch and selling within seconds, or dumping its whole quota into the ramp, is not.
+主证据——占主导的买家拿他们的仓位做了什么：
+- 最强的作弊签名是「同买→同卖回」配对：一簇钱包以同步节奏买入（相同区块、等额或近等额金额），随后在一波集中同步的卖出中卖回（此后短时间内数笔卖单挤进相同区块），收割自己制造的拉升。检查大额早期买家当下是仍在持有、还是已经一起倒掉——买了并且仍持有的钱包不构成此签名。
+- 砸盘不是判 cheat 的必要条件：配额梯假热度——受控钱包以梯度金额接力买入制造动能、买卖单向失衡、拉升背后没有真实新血流入——即使任何砸盘都还没发生，也是 cheat。检验法：在脑中剥离疑似协同的钱包，剩下的流量独自能支撑这段价格行为吗？
+- 单一巨户（或少数几个钱包）用真实资金大额买入推升价格——没有拆分成许多同步钱包、也尚未成波砸盘——不是 cheat。那是强庄盘：unhealthy（被单一主导、单向、不宜入场）；若真实散户广泛参与则 healthy。
+- creator 在启动时买入有分量的仓位、此后分批卖出一部分，是常态。creator 抢跑自己的启动并在数秒内卖出，或把全部配额倾倒进拉升段，则不是。
 
-SECOND AXIS — genuine retail participation (this decides cheat-vs-the-rest more than any fingerprint):
-- Ask whether uncorrelated new participants exist BEYOND the launch cluster: new faces arriving at varied sizes/times after t+0, follow-on buying that absorbs early sellers' exits (second-wave absorption), selling distributed across many unrelated wallets at varied times.
-- A coordinated buy-side with ZERO natural continuation — no new wallets after the initial burst, no absorption, only exit-chasers — is cheat even if a few bag-holders drifted in.
-- Real continuous retail does not clean a coordinated ramp (who DOMINATES still decides cheat), but it moves a strong-hand market away from cheat toward unhealthy, and a broad-based one to healthy.
+第二轴——真实散户参与（它在 cheat 与其余两类的分界上的作用大于任何指纹）：
+- 问的是启动簇之外是否存在不相关的新参与者：t+0 之后以各异的金额/时间陆续到达的新面孔、接住早期卖家离场的后续买入（二次承接）、卖出分散在许多互不相关钱包的不同时点。
+- 协同买侧 + 零自然延续——初始爆发之后再无新钱包、没有承接、只有追高接盘者——即使混进了少量滞留持有人，也是 cheat。
+- 真实持续的散户不能洗净一场协同拉升（谁主导仍决定 cheat），但它把强庄盘推离 cheat 趋向 unhealthy；若散户基础广泛，则推向 healthy。
 
-BACKGROUND NOISE — fingerprints are weights, not verdicts:
-- Compute the structural fingerprints YOURSELF from the raw [TICKS] and [WALLETS] sections — same-block groupings, exact- and near-equal amount bands, synchronized sell-back waves, wallet lifecycle pairings. [PRECOMPUTED] deliberately does NOT pre-list clusters; deriving them from the raw flow is part of your task.
-- Same-block bursts, exact-equal clusters, twin/triplet buys and sybil-looking wallet bands ALSO appear on healthy tokens (organized crews seed many launches with the same roster; their presence alone proves nothing about THIS market).
-- Near-equal amounts (e.g. 0.3301/0.3298/0.3302) evade exact-equality grouping — scan for near-equal bands, not just exact ones.
-- High aggregator-router share (see [PRECOMPUTED]) is evidence in NEITHER direction: genuine humans and automated bots both route through it — do not read it as organic, nor as fake.
-- Sell-only wallets with no buys (dev/airdrop quota dumping): in an otherwise low-activity market this alone is weak evidence; combined with an orchestrated buy-side it completes the cheat picture.
-- Low activity by itself (few ticks, slow pace, small volume, clean structure) is unhealthy (not participable), not cheat.
+背景噪声——指纹是加权项，不是判定：
+- 结构指纹由你自己从 [TICKS] 与 [WALLETS] 原始段计算——同块分组、精确与近等额金额带、同步卖回波、钱包生命周期配对。[PRECOMPUTED] 刻意不预列簇；从原始资金流归纳它们是你任务的一部分。
+- 同块爆发、精确等额簇、孪生/三胞胎买入、形似 sybil 的钱包带，在健康代币上同样出现（组织化班底用同一套名单播种许多新票）；它们单独在场，对本盘不证明任何事。
+- 近等额金额（如 0.3301/0.3298/0.3302）会躲过精确等额分组——要扫近等额带，不能只扫精确等额。
+- 高聚合路由占比（见 [PRECOMPUTED]）在两个方向上都不构成证据：真人与自动化 bot 都走路由——既不能读作自然流量，也不能读作造假。
+- 零买入纯卖钱包（dev/空投配额倾倒）：在一个其他方面低活跃的盘面里，它单独是弱证据；与被组织的买侧联合出现时，才补全作弊图景。
+- 低活跃本身（tick 少、节奏慢、量小、结构干净）是 unhealthy（不可参与），不是 cheat。
 
-The four classes:
-- cheat: dominant liquidity is coordinated/controlled funds — buy-cluster→synchronized-sell-back pairing, quota-ladder fake heat, split-wallet orchestration, creator front-run/self-trade. Mixed with genuine retail does NOT make it clean; judge by who DOMINATES.
-- unhealthy: NOT coordinated cheating, but not a healthy entry at this anchor — strong-hand/whale real buying dominating one-sidedly, low-activity shell, late-stage pump on shrinking inflow, buy flow exhausted under sell pressure, churn beyond organic support. Point-in-time; can convert.
-- healthy: organic structure — genuine retail participation carries meaningful weight; inflow from many unrelated wallets at varied sizes/times; selling distributed and explainable; second-wave absorption present; two-way flow supports price.
-- unclear_insufficient: ticks too few, evidence self-contradictory, or the window cannot distinguish the classes — say so instead of guessing.
+四个类别：
+- cheat：主导流动性是协同/受控资金——买簇→同步卖回配对、配额梯假热度、分仓编排、creator 抢跑/自成交。混有真实散户不能洗净它；按谁主导判。
+- unhealthy：非协同作弊，但在此锚不是健康入场——强庄/巨鲸真实买入单向主导、低活跃空壳、流入萎缩的末期拉升、卖压下买流枯竭、超出自然承接能力的换手。时点状态；可转化。
+- healthy：自然结构——真实散户参与有分量；许多互不相关钱包以各异金额/时间流入；卖出分散且可解释；二次承接在场；双向资金流支撑价格。
+- unclear_insufficient：tick 太少、证据自相矛盾、或窗口无法区分类别——如实说明，不要硬猜。
 
-When genuinely ambiguous between cheat and unhealthy, prefer unhealthy (coordinated-control is the harder claim). When ambiguous between unhealthy and healthy, prefer the class the DOMINANT FLOW supports.`,
+cheat 与 unhealthy 真两难时，偏 unhealthy（协同受控是更重的指控）。unhealthy 与 healthy 两难时，偏主导资金流所支持的那一类。`,
       criteria: {
-        cheat: 'Dominant liquidity is coordinated/controlled funds — buy-together→sell-back-together pairing (synchronized clusters harvesting their own ramp), quota-ladder fake heat (graded relay buys, one-directional imbalance, no genuine new blood — dump not yet required), split-wallet orchestration, or creator front-run/self-trade; mixed retail does not clean it',
-        unhealthy: 'Not coordinated cheating, but not a healthy entry at this anchor: strong-hand/whale real buying dominating one-sidedly without an orchestrated dump, low-activity shell, late-stage pump on shrinking inflow, exhausted buy flow under sell pressure, or churn beyond organic support — point-in-time, can convert',
-        healthy: 'Organic structure at this anchor: genuine retail participation carries meaningful weight — many unrelated wallets at varied sizes/times, distributed explainable selling, second-wave absorption, two-way flow supporting price',
-        unclear_insufficient: 'Too few ticks, self-contradictory evidence, or the window cannot distinguish the classes',
+        cheat: '主导流动性是协同/受控资金——同买→同步卖回配对（同步簇收割自己制造的拉升）、配额梯假热度（梯度接力买入、单向失衡、无真实新血——不要求已砸盘）、分仓编排、creator 抢跑/自成交；混入散户不能洗净',
+        unhealthy: '非协同作弊，但此锚非健康入场：强庄/巨鲸真实买入单向主导且无组织性砸盘、低活跃空壳、流入萎缩的末期拉升、卖压下买流枯竭、超出自然承接的换手——时点状态，可转化',
+        healthy: '此锚自然结构：真实散户参与有分量——许多互不相关钱包各异金额/时间、卖出分散可解释、二次承接在场、双向资金流支撑价格',
+        unclear_insufficient: 'tick 太少、证据自相矛盾、或窗口无法区分类别',
       },
     },
 
     // ── 2. 作弊模式细分（仅 verdict=cheat 时由 mapper 消费；单选主导模式）──
     cheat_pattern: {
       type: 'choice',
-      instructions: `The DOMINANT coordination pattern in this market window (answer even if you judged healthy/unhealthy — the mapper only consumes it for cheat verdicts; pick none_apparent when no coordination pattern is visible).
-Judge by which pattern explains the largest share of the suspicious flow:
-- dev_self_trade: the token creator is itself the dominant early buyer/dumper (front-run own launch, buy at t≈0 then sell within seconds).
-- same_block_burst: the signature is many buys packed into the same blocks in a repeated rhythm (find the groupings yourself in [TICKS] by block number).
-- equal_amount_split: the signature is exact- or near-equal buy amounts spread across distinct wallets (find equal and near-equal bands yourself across [TICKS]/[WALLETS]; note quote-converted amounts are approximate on non-BNB quoted pools).
-- rapid_churn: the signature is seconds-scale buy→sell reversal churn — wallets whose entire lifecycle inside the window is buy-then-immediately-sell (see the per-wallet lines in [WALLETS]).
-- wash_pump: the signature is fabricated volume/price pumping — self-dealing trades that lift the price with no real intent to hold, typically producing the price arc shown (pump then collapse at the anchor).
-- quota_ladder: no visible clusters needed — controlled wallets relay-buy in graded amounts manufacturing heat (one-directional buy/sell imbalance, stepped or monotonic climb, little genuine new blood), typically capped by quota-sized concentrated dumps (equal-ish large sells or one large terminal dump); sell-only quota dumpers with an orchestrated buy-side also fit here.
-- slow_coordinated_accumulation: the coordination is visible only in the aggregate — many dispersed wallets buying in relay with extreme buy/sell imbalance and a no-drawdown monotonic climb, NO same-block or equal-amount fingerprints at all, ending in a coordinated exit.
-- none_apparent: no coordination pattern is visible in this window.`,
+      instructions: `本市场窗口内占主导的协同模式（即使你上一题判了 healthy/unhealthy 也要作答——mapper 只在 cheat 判定时消费本题；看不到任何协同模式时选 none_apparent）。
+按「哪个模式解释了可疑资金流的最大份额」来判：
+- dev_self_trade：代币 creator 本身就是主导性的早期买家/倾倒者（抢跑自己的启动、t≈0 买入后数秒内卖出）。
+- same_block_burst：签名是许多买单挤进相同区块、并反复出现这一节奏（分组由你自己在 [TICKS] 里按块号找）。
+- equal_amount_split：签名是精确或近等额的买入金额分散在多个不同钱包（等额与近等额带由你自己在 [TICKS]/[WALLETS] 里找；注意非 BNB 计价盘的换算金额只是近似值）。
+- rapid_churn：签名是秒级买→卖倒手——整个窗口内的生命周期就是「买入后立刻卖出」的钱包（见 [WALLETS] 的逐钱包行）。
+- wash_pump：签名是伪造的量/价拉升——不以真实持有为目的的自成交抬价，典型产出是所示的价格拱（锚点处冲高后崩塌）。
+- quota_ladder：无需任何可见簇——受控钱包以梯度金额接力买入制造热度（买卖单向失衡、台阶式或单调爬升、真实新血稀少），典型以配额规模的集中砸盘收尾（数笔近等额大额卖单，或一笔终结性大卖）；协同买侧在场时的零买入纯卖配额倾倒者也归此。
+- slow_coordinated_accumulation：协同只在聚合层可见——大量分散钱包接力买入、极端买卖失衡、无回撤的单调爬升，完全没有同块或等额指纹，结尾协同离场。
+- none_apparent：本窗口内看不到任何协同模式。`,
       criteria: {
-        dev_self_trade: 'Creator front-run / self-trading dominates: the creator wallet (marked isCreator in [WALLETS]) is the dominant early buyer and dumps within seconds, or dumps its whole quota into the ramp',
-        same_block_burst: 'Synchronized same-block buy clusters dominate the suspicious flow (repeated multi-buy blocks in rhythm)',
-        equal_amount_split: 'Exact- or near-equal amounts split across distinct wallets dominate (position-splitting to dodge concentration gates)',
-        rapid_churn: 'Seconds-scale buy→sell churn dominates: many wallets whose whole lifecycle is buy-then-immediately-sell',
-        wash_pump: 'Self-dealing volume/price fabrication dominates: pump-and-collapse arc with no real holding intent',
-        quota_ladder: 'Graded relay buys manufacturing fake heat with one-directional imbalance, capped by quota-sized concentrated dumps — may show no same-block/equal clusters at all',
-        slow_coordinated_accumulation: 'Coordination visible only in the aggregate: dispersed relay buys, extreme buy/sell imbalance, no-drawdown monotonic climb, no cluster fingerprints, coordinated exit at the end',
-        none_apparent: 'No coordination pattern visible in this window',
+        dev_self_trade: 'creator 抢跑/自成交主导：creator 钱包（[WALLETS] 中标 isCreator）是主导性早期买家并在数秒内倾倒，或把全部配额倒进拉升段',
+        same_block_burst: '同步同块买簇主导可疑资金流（反复出现节奏的多买区块）',
+        equal_amount_split: '精确或近等额金额分散在多个钱包主导（分仓以绕开集中度门）',
+        rapid_churn: '秒级买→卖倒手主导：大量钱包的整个生命周期就是买了立刻卖',
+        wash_pump: '自成交式量/价伪造主导：冲高后崩塌的价格拱、无真实持有意图',
+        quota_ladder: '梯度接力买入制造假热度+单向失衡，以配额规模集中砸盘收尾——可能完全没有同块/等额簇',
+        slow_coordinated_accumulation: '协同只在聚合层可见：分散接力买、极端买卖失衡、无回撤单调爬升、无簇指纹、结尾协同离场',
+        none_apparent: '本窗口无可视协同模式',
       },
     },
 
     // ── 3. 真实散户参与度（0-10 Score；「作弊与正常糅杂」判别轴）──
     retail_participation: {
       type: 'score',
-      instructions: `How much of this market window's flow is GENUINE RETAIL participation — independent wallets acting on their own interest, not the coordinated side and not exit-liquidity chasers? 0-10 分。
-What counts as genuine retail: NEW faces arriving after the launch burst at varied sizes and times; follow-on buying that absorbs early sellers' exits (second-wave absorption); selling distributed across many unrelated wallets at varied times. What does NOT count: members of a synchronized cluster/roster (they are the coordinated side, however many wallets it spreads across); sell-only quota dumpers; copy-chasers piling in only after the pump to be dumped on (genuine humans but weak retail — count them low).
-Unresolved-sender ticks noted in [PRECOMPUTED] are an evidence hole — discount accordingly rather than guessing generously. Aggregator-router usage (aggregate share in [PRECOMPUTED]; rows are not individually tagged) says NOTHING by itself about human vs bot — both use it; judge initiator independence from timing/amount correlation in the raw flow, never from route usage.`,
+      instructions: `本市场窗口的资金流中，有多大份额是真实散户参与——按自身利益独立行动的钱包，既不属于协同一侧、也不是追高接盘者？打 0-10 分。
+算真实散户的：启动爆发之后以各异金额/时间到达的新面孔；接住早期卖家离场的后续买入（二次承接）；卖出分散在许多互不相关钱包的不同时点。不算的：同步簇/班底成员（无论摊到多少钱包，都是协同一侧）；零买入纯卖的配额倾倒者；只在拉升之后才扎堆进场的追高者（是真人但弱散户——计低分）。
+[PRECOMPUTED] 中注明的 sender 未解析 tick 是证据洞——相应打折扣，不要慷慨脑补。聚合路由的使用（占比见 [PRECOMPUTED]；行内不逐笔标注）本身对真人还是 bot 不说明任何事——两者都在用；发起者的独立性要从原始资金流的时间/金额相关性里判断，绝不要从走没走路由判断。`,
       criteria: [
         '0-1分：几乎没有真实散户——全部或近乎全部流量来自协同/受控一侧，启动簇之后无新面孔、无承接',
         '2-3分：真实散户痕迹很少——零星独立钱包夹杂在主导性协同流量中，启动簇之后偶有散单但无持续入场',
