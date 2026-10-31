@@ -74,12 +74,12 @@
         "tickCount": 35
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
-      "note": "aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买21/卖14 Σ买4.62BNB 钱包26 top1=54.1% churn4 同块簇1 等额簇1）；expect=判读现状待 review；10-30 review 用户裁定：作弊盘，然后被大 KOL 0xbf004bff64725914ee36d03b87d6965b0ced4903 买入，转为不健康盘——锚内=作弊段：creator 2.5 巨额首买→t+4-5 配额四连卖+3806 无买入卖 0.2911+t+10 七钱包同块砸盘带（84f6/10c6/b002/65e0/677a/dd4c 各 0.245-0.365 零买入=配额倾倒集群）+ef09 同块自对倒小对，1.2e-8 砸至 5.5e-9 -55%；t+16 KOL 0xbf00（famous-copy-wallets/copy-roster/sybil 三名单在册）0.2722+孪生 d6ab 同额同块接盘+12 钱包带拉回 8.2e-9，此后 12h 零星横盘 6.8e-9=KOL 掌控 unhealthy；首例 cheat→unhealthy 时点转化裁定=as-of 多行设计实证（校准信号 17）；引擎 t+23 买入未卖（约 -17% 浮亏）",
+      "note": "aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买21/卖14 Σ买4.62BNB 钱包26 top1=54.1% churn4 同块簇1 等额簇1）；expect=判读现状待 review；10-30 review 用户裁定：作弊盘，然后被大 KOL 0xbf004bff64725914ee36d03b87d6965b0ced4903 买入，转为不健康盘——锚内=作弊段：creator 2.5 巨额首买→t+4-5 配额四连卖+3806 无买入卖 0.2911+t+10 七钱包同块砸盘带（84f6/10c6/b002/65e0/677a/dd4c 各 0.245-0.365 零买入=配额倾倒集群）+ef09 同块自对倒小对，1.2e-8 砸至 5.5e-9 -55%；t+16 KOL 0xbf00（famous-copy-wallets/copy-roster/sybil 三名单在册）0.2722+孪生 d6ab 同额同块接盘+12 钱包带拉回 8.2e-9，此后 12h 零星横盘 6.8e-9=KOL 掌控 unhealthy；首例 cheat→unhealthy 时点转化裁定=as-of 多行设计实证（校准信号 17）；引擎 t+23 买入未卖（约 -17% 浮亏）；10-31 复裁改判 unhealthy：作弊段筹码被单一著名钱包全数吸收（用户原话「前期是cheat，但是作弊钱包的持仓都买了」）——首例 expect 落点=吸收完成后 unhealthy（D3.2b 著名钱包单极控盘锚的触发场景：0xbf00 系著名钱包+跟单带主导持仓）",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 确认锚内=作弊盘（配额倾倒+同块砸盘带）；锚后大 KOL 接盘转 unhealthy 为时点性语义样本（校准信号 17）",
+      "expectSince": "2026-10-31",
+      "expectBecause": "2026-10-31 复裁（D3.1/D3.2 锚语境）：前期是 cheat（配额倾倒+同块砸盘带），但作弊钱包的持仓都被著名钱包买走（0xbf00 famous 名单在册 t+16 接盘+孪生同额同块+12 钱包带拉回横盘）——锚时点盘面已转 KOL 掌控=unhealthy；原 10-30「锚内=cheat」裁定撤销（cheat 属更早时点，校准信号 17 时点转化语义的 expect 落点随本裁定定为 unhealthy）",
       "observe": "锚后转化：t+16 大 KOL 0xbf00 买入后盘面转 unhealthy（KOL 掌控横盘）——时点性语义样本，多锚重析可验证 cheat→unhealthy 切换（校准信号 17）"
     },
     {

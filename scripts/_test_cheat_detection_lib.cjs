@@ -389,6 +389,115 @@ console.log('G. 活跃度锚四档/三因子/不均衡 CV');
   ok(md.activityLevel === 'low' && md.ticksPerMin === 10.5, `micro fixture：7 笔 40s tpm=10.5 → low（实际 ${md.ticksPerMin}/${md.activityLevel}）`);
 }
 
+// ═══════════════ I. 著名钱包单极控盘锚（D3.2b：名单∩窗内持仓 + 60s 跟单集，占正净持仓三档） ═══════════════
+console.log('I. 著名钱包单极控盘锚');
+{
+  const {
+    FAMOUS_FOLLOW_WINDOW_SEC, FAMOUS_DOM_HIGH_PCT, FAMOUS_DOM_MID_PCT, loadFamousRoster,
+  } = require('../src/market-analysis/cheat-snapshot.js');
+  ok(FAMOUS_FOLLOW_WINDOW_SEC === 60 && FAMOUS_DOM_HIGH_PCT === 50 && FAMOUS_DOM_MID_PCT === 25,
+    '跟单窗 60s / 档位切点 50/25 挂常量（调档单点）');
+  const cfgRoster = loadFamousRoster();
+  ok(cfgRoster === null || (cfgRoster instanceof Set && cfgRoster.size > 0),
+    `config 名单可加载（Set 非空或缺失=null 绝不空集冒充；实际 ${cfgRoster === null ? 'null' : cfgRoster.size + ' 个'}）`);
+
+  const FAM = '0xbf00000000000000000000000000000000000f01';
+  const FAM2 = '0xbf00000000000000000000000000000000000f02';
+  const w1 = '0xd111000000000000000000000000000000000011';
+  const w2 = '0xd222000000000000000000000000000000000022';
+  const w3 = '0xd333000000000000000000000000000000000033';
+  const roster = new Set([FAM]);
+  let iblk = 900, ilog = 0;
+  const mkF = (sec, type, bnb, sender) => mkRow(sec, iblk++, ilog++, type, bnb, 1e-9, { sender });
+
+  // I1 单极控盘 high（手算精确值）：F 买 0.6@t+10；w1 同秒跟单 0.3@t+10；w2 窗边界 60s 跟单 0.3@t+70；
+  //    w3 早买 0.3@t+5（F 首买前=非跟单，t+80 再买 0.3 不改首买）
+  //    posNet：F 0.6 / w1 0.3 / w2 0.3 / w3 0.6 → posTotal=1.8
+  //    famousHold=33.3 · top1=33.3 · follower=33.3 · dominance=66.7 ≥50 → high
+  const i1rows = [
+    mkF(5, 'buy', 0.3, w3),
+    mkF(10, 'buy', 0.6, FAM),
+    mkF(10, 'buy', 0.3, w1),
+    mkF(70, 'buy', 0.3, w2),
+    mkF(80, 'buy', 0.3, w3),
+  ];
+  const i1snap = buildSnapshotFromRows(i1rows, microMeta, { famousRoster: roster });
+  const i1 = i1snap.derived;
+  ok(i1.famousHoldPct === 33.3 && i1.famousTop1Pct === 33.3 && i1.famousFollowerPct === 33.3
+    && i1.famousDominancePct === 66.7 && i1.famousDominanceLevel === 'high',
+    `high 单极控盘 66.7%（实际 hold ${i1.famousHoldPct}/top1 ${i1.famousTop1Pct}/follower ${i1.famousFollowerPct}/dom ${i1.famousDominancePct}/${i1.famousDominanceLevel}）`);
+  ok(buildCheatState(i1snap).state.includes('著名钱包单极控盘: 高'), 'state 渲染：高档中文行');
+
+  // I2 窗边界反证：首买距 famous 买 61s >60 → 非跟单；F 独占 50% 恰压 high 线
+  const i2 = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.6, FAM),
+    mkF(71, 'buy', 0.6, w2),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i2.famousFollowerPct === 0 && i2.famousDominancePct === 50 && i2.famousDominanceLevel === 'high',
+    `61s 超窗=非跟单；F 独占恰 50% 压线 high（实际 ${i2.famousFollowerPct}/${i2.famousDominancePct}/${i2.famousDominanceLevel}）`);
+
+  // I3 mid：(0.3 F + 0.3 跟单) ÷ posTotal 1.5（w3 独立散户 0.9@t+75=F 后 65s 窗外）=40 → mid（25-50 带）
+  const i3 = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.3, FAM),
+    mkF(12, 'buy', 0.3, w1),
+    mkF(75, 'buy', 0.9, w3),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i3.famousDominancePct === 40 && i3.famousDominanceLevel === 'mid',
+    `mid=40%（实际 ${i3.famousDominancePct}/${i3.famousDominanceLevel}）`);
+
+  // I4 low 有证据零值：F 在场但清仓（净持仓 0 不进 posNet）→ dominance=0 → low（在场=轴适用；
+  //    w3@t+75=F 后 65s 窗外非跟单——买在窗外才有「无人控盘」对照）
+  const i4 = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.5, FAM),
+    mkF(20, 'sell', 0.5, FAM),
+    mkF(75, 'buy', 0.6, w3),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i4.famousDominancePct === 0 && i4.famousDominanceLevel === 'low',
+    `著名钱包清仓离场：在场=轴适用、dominance=0 有证据零值 low（实际 ${i4.famousDominancePct}/${i4.famousDominanceLevel}）`);
+
+  // I5 null 三臂：a) 窗内无名单命中（轴不适用）b) 名单缺失注入（缺证据）c) posTotal=0（无可主导持仓）
+  const i5a = buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: roster }).derived;
+  ok(i5a.famousDominancePct === null && i5a.famousDominanceLevel === null, '窗内无著名钱包命中 → null');
+  ok(buildCheatState(buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: roster })).state.includes('著名钱包单极控盘: 不适用'), 'state 渲染：不适用降级行');
+  const i5b = buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: null }).derived;
+  ok(i5b.famousDominancePct === null && i5b.famousDominanceLevel === null, '名单缺失注入 → null（缺证据不冒充）');
+  const i5c = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.5, FAM),
+    mkF(20, 'sell', 0.5, FAM),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i5c.famousDominancePct === null, 'posTotal=0（无人正净持仓）→ null');
+
+  // I6 双著名钱包 top1=最大单一：F2 0.9 > F 0.3，posTotal 1.5 → hold=80 · top1=60（F2）
+  const i6 = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.3, FAM),
+    mkF(11, 'buy', 0.9, FAM2),
+    mkF(30, 'buy', 0.3, w3),
+  ], microMeta, { famousRoster: new Set([FAM, FAM2]) }).derived;
+  ok(i6.famousHoldPct === 80 && i6.famousTop1Pct === 60 && i6.famousDominanceLevel === 'high',
+    `双著名：top1=最大单一钱包 60%（实际 ${i6.famousHoldPct}/${i6.famousTop1Pct}/${i6.famousDominanceLevel}）`);
+
+  // I7 跟单钱包后续卖出只计净持仓：w1 跟单买 0.6 后卖 0.2 → 净 0.4 计入 follower
+  const i7 = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.6, FAM),
+    mkF(12, 'buy', 0.6, w1),
+    mkF(15, 'sell', 0.2, w1),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i7.famousFollowerPct === 40 && i7.famousDominancePct === 100,
+    `跟单者净持仓口径：买 0.6 卖 0.2 → follower=40%（实际 ${i7.famousFollowerPct}/${i7.famousDominancePct}）`);
+
+  // I8 既有键无回归：注入名单后 sbHold/eqHold/活跃度键与注入前逐位一致（锚独立加键）
+  const noRoster = buildSnapshotFromRows(i1rows, microMeta, { famousRoster: new Set() }).derived;
+  const stripFamous = (o) => {
+    const c = { ...o };
+    delete c.famousHoldPct; delete c.famousTop1Pct; delete c.famousFollowerPct;
+    delete c.famousDominancePct; delete c.famousDominanceLevel;
+    return c;
+  };
+  ok(JSON.stringify(stripFamous(noRoster)) === JSON.stringify(stripFamous(i1))
+    && noRoster.famousDominanceLevel === null && noRoster.famousDominancePct === null,
+    '空名单注入：famous 族全 null 且其余 derived 键 bit 一致');
+}
+
 
 // ═══════════════ H. anchorCountAt（--experiment 基线锚，lib.mjs ESM 经动态 import） ═══════════════
 (async () => {

@@ -220,6 +220,9 @@ function digestOf(d) {
     sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct,
     ticksPerMin: d.ticksPerMin, avgTradeBnb: d.avgTradeBnb, maxGapSec: d.maxGapSec,
     activityLevel: d.activityLevel, activityCv: d.activityCv, activityUneven: d.activityUneven,
+    famousHoldPct: d.famousHoldPct, famousTop1Pct: d.famousTop1Pct,
+    famousFollowerPct: d.famousFollowerPct, famousDominancePct: d.famousDominancePct,
+    famousDominanceLevel: d.famousDominanceLevel,
     priceArc: d.priceArc,
   };
 }
@@ -414,8 +417,8 @@ async function main() {
       const { failures } = assertExpectation(r.interp, c.expect);
       const pass = !failures.length;
       if (!pass) failed++;
-      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} verdict=${r.interp.verdict} cheatP=${r.interp.cheatProb} pattern=${r.interp.patternType} sbHold=${r.interp.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.ruleAudit?.anchors?.equalBandHoldPct ?? '-'} act=${r.snapshot.derived.activityLevel ?? '-'}${r.snapshot.derived.activityUneven ? '~起伏' : ''}${failures.length ? '\n  ' + failures.join('\n  ') : ''}`);
-      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct }, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, model: r.model });
+      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} verdict=${r.interp.verdict} cheatP=${r.interp.cheatProb} pattern=${r.interp.patternType} sbHold=${r.interp.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.ruleAudit?.anchors?.equalBandHoldPct ?? '-'} act=${r.snapshot.derived.activityLevel ?? '-'}${r.snapshot.derived.activityUneven ? '~起伏' : ''} dom=${r.snapshot.derived.famousDominanceLevel ?? '-'}${r.snapshot.derived.famousDominancePct !== null && r.snapshot.derived.famousDominancePct !== undefined ? `(${r.snapshot.derived.famousDominancePct}%)` : ''}${failures.length ? '\n  ' + failures.join('\n  ') : ''}`);
+      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct }, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, famous: { holdPct: r.snapshot.derived.famousHoldPct, top1Pct: r.snapshot.derived.famousTop1Pct, followerPct: r.snapshot.derived.famousFollowerPct, dominancePct: r.snapshot.derived.famousDominancePct, level: r.snapshot.derived.famousDominanceLevel }, model: r.model });
     } catch (e) {
       failed++;
       console.error(`  ❌ 异常: ${e.message}`);

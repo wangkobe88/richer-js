@@ -97,6 +97,15 @@ function buildCheatState(snapshot) {
     } else {
       lines.push('活跃度: 不可评（时间戳缺失）');
     }
+    // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
+    // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
+    // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）
+    const DOM_ZH = { high: '高', mid: '中', low: '低' };
+    if (d.famousDominanceLevel !== null && d.famousDominanceLevel !== undefined) {
+      lines.push(`著名钱包单极控盘: ${DOM_ZH[d.famousDominanceLevel]}（著名名单钱包持仓 ${d.famousHoldPct.toFixed(1)}%·其中最大单一钱包 ${d.famousTop1Pct.toFixed(1)}% + 其买入后 60s 内首买的跟单钱包 ${d.famousFollowerPct.toFixed(1)}%，合计占正净持仓 ${d.famousDominancePct.toFixed(1)}%；仅作盘面事实陈述）`);
+    } else {
+      lines.push('著名钱包单极控盘: 不适用（窗内无著名名单钱包命中，或无可主导持仓）');
+    }
     if (d.unresolvedSenderTickCount > 0) {
       lines.push(`⚠ sender 未解析行 ${d.unresolvedSenderTickCount}/${(snapshot.ticks || []).length}（证据洞：这些行无法归因到真实发起钱包，按 trader 回退可能并包——判断集中度/协同性时相应折扣，勿据此排除作弊也别据此坐实）`);
     }

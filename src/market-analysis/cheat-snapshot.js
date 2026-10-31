@@ -46,6 +46,16 @@ const ACTIVITY_LONG_GAP_SEC = 120;
 const ACTIVITY_BUCKET_SEC = 30;
 const ACTIVITY_CV_MIN_BUCKETS = 3;
 const ACTIVITY_UNEVEN_CV = 1.0;
+/**
+ * 著名钱包单极控盘锚（D3.2b，2026-10-31 用户裁定 CD5 语境：「描述盘面上单一著名
+ * 钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档）。名单=
+ * config/rosters/famous-copy-wallets.json（FA famousCopyWalletCircPct 同源用户点名
+ * 集合）；跟单窗=著名钱包某笔买入后 ≤60s 内完成首买（时间耦合跟随痕迹）。
+ */
+const FAMOUS_FOLLOW_WINDOW_SEC = 60;
+/** 控盘三档切点（占正净持仓 %，先验起档——55 票分布校准后调整，D3.2 同流程） */
+const FAMOUS_DOM_HIGH_PCT = 50;
+const FAMOUS_DOM_MID_PCT = 25;
 
 /** wallet 口径单点：sender 优先，回退 trader（FA :818 同款） */
 function walletOf(row) {
@@ -59,6 +69,27 @@ function isRouterTrader(row) {
 }
 
 /**
+ * 著名钱包名单（famous-copy-wallets.json，FA famousCopyWalletCircPct 同源用户点名
+ * 集合）——模块级缓存同步读（小文件；FA 侧为 async 惰性加载，本模块纯函数侧同步）。
+ * 文件缺失/字段缺失/非数组 → null（缺证据，D3.1 锚 null 语义同向；FA 侧空集合
+ * fail-open 是买门放行语义，此处 null=该轴不可评，语义不同刻意分叉）。
+ * 测试可经 buildSnapshotFromRows options.famousRoster / computeDerived 第二参注入。
+ */
+let _famousRosterCache = undefined; // undefined=未加载；null=加载失败；Set=已加载
+function loadFamousRoster() {
+  if (_famousRosterCache !== undefined) return _famousRosterCache;
+  try {
+    // eslint-disable-next-line global-require
+    const parsed = require('../../config/rosters/famous-copy-wallets.json');
+    const arr = parsed && Array.isArray(parsed.wallets) ? parsed.wallets : null;
+    _famousRosterCache = arr ? new Set(arr.map((w) => String(w).toLowerCase())) : null;
+  } catch (e) {
+    _famousRosterCache = null;
+  }
+  return _famousRosterCache;
+}
+
+/**
  * DB 行集 → CheatSnapshot（纯函数）。
  *
  * @param {Array<Object>} rows - wss_price_ticks 行（任意序；字段：trade_type/
@@ -67,10 +98,12 @@ function isRouterTrader(row) {
  * @param {Object} tokenMeta - { address, symbol, name, platform, quoteToken,
  *   createdAt(iso), creatorAddress }（wss_events token_create payload；createdAt
  *   缺失时 dt 基准退化为首 tick 并在 snapshot 标注）
- * @param {Object} [options] - { capped, anchorTickCount }——capped=拉数满帽标记
- *   （service pull.capped / 回归 runner 锚窗未截断=false）透传 state [ANCHOR]
- *   截断声明；anchorTickCount=**权威锚（tail 单查询返回行数）**，满帽时行集=
- *   head+tail 多于锚值，锚绝不能从 rows.length 反推（head 补充行不参与锚）
+ * @param {Object} [options] - { capped, anchorTickCount, famousRoster }——capped=
+ *   拉数满帽标记（service pull.capped / 回归 runner 锚窗未截断=false）透传 state
+ *   [ANCHOR] 截断声明；anchorTickCount=**权威锚（tail 单查询返回行数）**，满帽时
+ *   行集=head+tail 多于锚值，锚绝不能从 rows.length 反推（head 补充行不参与锚）；
+ *   famousRoster=著名钱包名单 Set 注入口（单测用；缺省读 config 名单，见
+ *   loadFamousRoster）
  * @returns {Object} CheatSnapshot { tokenMeta, anchor:{tickCount}, capped, ticks,
  *   wallets, derived }——anchor=单次查询返回行数（防 count/select 撕裂；缺省=
  *   行数，即未满帽时两者相等）
@@ -115,7 +148,7 @@ function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
     derived: null,
   };
   snapshot.wallets = aggregateWallets(snapshot.ticks, snapshot.tokenMeta);
-  snapshot.derived = computeDerived(snapshot);
+  snapshot.derived = computeDerived(snapshot, options.famousRoster);
   return snapshot;
 }
 
@@ -150,9 +183,12 @@ function aggregateWallets(ticks, tokenMeta) {
  * _test_cheat_detection_lib.cjs 用 ZERODAY 66-tick 事故现场锁定）。
  *
  * @param {Object} snapshot - 仅消费其 ticks（wallets 由本函数产出原料）
+ * @param {Set<string>|undefined|null} [famousRoster] - 著名钱包名单注入（单测用）；
+ *   undefined=读 config 名单（loadFamousRoster），null=模拟名单缺失（null 语义臂）
  * @returns {Object} derived
  */
-function computeDerived(snapshot) {
+function computeDerived(snapshot, famousRoster) {
+  const roster = famousRoster !== undefined ? famousRoster : loadFamousRoster();
   const ticks = snapshot.ticks || [];
 
   // ── 全量行计量（不滤 outlier——资金口径；伪钱包剔除只影响 wallets/集中度）──
@@ -268,6 +304,55 @@ function computeDerived(snapshot) {
   }
   const equalBandHoldPct = holdPctOf(eqMembers);
 
+  // ── 著名钱包单极控盘锚（D3.2b 用户裁定 2026-10-31 CD5 语境：「描述盘面上单一
+  // 著名钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档；mapper 消费方式
+  // 待裁定同 D3.2）──
+  // 口径（复用 posNet/posTotal 分母，T91a 哲学同 D3.1）：
+  //   famous 集 = wallets ∩ famous-copy-wallets 名单（任意活动命中即算——只卖不买
+  //              的著名钱包 posNet 非正自然不计持仓，其在场=该轴适用）
+  //   跟单集   = 非 famous 钱包中，首 BUY 落在某笔 famous BUY 同秒或其后
+  //              ≤FAMOUS_FOLLOW_WINDOW_SEC 秒内（首买=此前无买入；dt 缺失不入选）
+  //   famousDominancePct =（famous Σ + 跟单 Σ）正净持仓 ÷ posTotal×100（⊆分母恒 ≤100）
+  //   三档：high ≥FAMOUS_DOM_HIGH_PCT / mid ≥FAMOUS_DOM_MID_PCT / low 其余
+  //   null=名单缺失（缺证据）∨ 窗内无著名钱包命中（该轴不适用）∨ posTotal≤0
+  //   （无可主导持仓）——D3.1「有证据的缺席」同语义
+  let famousHoldPct = null, famousTop1Pct = null, famousFollowerPct = null;
+  let famousDominancePct = null, famousDominanceLevel = null;
+  if (roster && roster.size > 0 && posTotal > 0) {
+    const famousInWin = wallets.filter((e) => roster.has(e.w.toLowerCase()));
+    if (famousInWin.length > 0) {
+      let fSum = 0, fTop1 = 0;
+      for (const e of famousInWin) {
+        const net = posNet.get(e.w) || 0;
+        fSum += net;
+        if (net > fTop1) fTop1 = net;
+      }
+      const famousBuyDts = ticks
+        .filter((t) => t.side === 'BUY' && t.dt !== null && t.wallet
+          && roster.has(t.wallet.toLowerCase()))
+        .map((t) => t.dt);
+      const followers = new Set();
+      for (const e of wallets) {
+        if (roster.has(e.w.toLowerCase())) continue;
+        if (e.firstBuyDt === null || e.firstBuyDt === undefined) continue;
+        for (const fd of famousBuyDts) {
+          if (e.firstBuyDt >= fd && e.firstBuyDt - fd <= FAMOUS_FOLLOW_WINDOW_SEC) {
+            followers.add(e.w);
+            break;
+          }
+        }
+      }
+      let folSum = 0;
+      for (const w of followers) folSum += posNet.get(w) || 0;
+      famousHoldPct = +((fSum / posTotal) * 100).toFixed(1);
+      famousTop1Pct = +((fTop1 / posTotal) * 100).toFixed(1);
+      famousFollowerPct = +((folSum / posTotal) * 100).toFixed(1);
+      famousDominancePct = +(((fSum + folSum) / posTotal) * 100).toFixed(1);
+      famousDominanceLevel = famousDominancePct >= FAMOUS_DOM_HIGH_PCT ? 'high'
+        : famousDominancePct >= FAMOUS_DOM_MID_PCT ? 'mid' : 'low';
+    }
+  }
+
   // ── 活跃度锚（D3.2 用户裁定：「增加活跃度低的锚，分超高/高/中/低四档」「综合考虑
   // 交易额/空窗期」「另给活跃度不均衡结论=高低起伏很大」；mapper 消费方式待裁定）──
   // 三因子：密度 ticksPerMin（笔/分钟）· 笔均交易额 avgTradeBnb（资金口径全量行）·
@@ -331,6 +416,7 @@ function computeDerived(snapshot) {
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
     sameBlockHoldPct, equalBandHoldPct,
+    famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel,
     ticksPerMin, avgTradeBnb, maxGapSec,
     activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,
@@ -348,10 +434,14 @@ module.exports = {
   aggregateWallets,
   walletOf,
   isRouterWallet,
+  loadFamousRoster,
   EQUAL_AMOUNT_MIN_BNB,
   EQUAL_BAND_PCT,
   SAME_BLOCK_CLUSTER_MIN,
   CHURN_WINDOW_SEC,
+  FAMOUS_FOLLOW_WINDOW_SEC,
+  FAMOUS_DOM_HIGH_PCT,
+  FAMOUS_DOM_MID_PCT,
   ACTIVITY_LOW_TPM,
   ACTIVITY_HIGH_TPM,
   ACTIVITY_ULTRA_TPM,

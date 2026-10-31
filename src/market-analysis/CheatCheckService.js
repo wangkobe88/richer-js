@@ -250,6 +250,7 @@ class CheatCheckService {
         (mapped.cheatProb !== null ? ` (cheat P=${mapped.cheatProb.toFixed(2)})` : '') +
         (mapped.patternType ? ` pattern=${mapped.patternType}` : '') +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}% act=${snapshot.derived.activityLevel ?? '—'}${snapshot.derived.activityUneven ? '~起伏' : ''}` +
+        ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
@@ -453,6 +454,13 @@ class CheatCheckService {
           level: derived.activityLevel ?? null,
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,
+        },
+        famous: { // D3.2b 著名钱包单极控盘锚（同上，存原始数值待消费方式裁定）
+          holdPct: derived.famousHoldPct ?? null,
+          top1Pct: derived.famousTop1Pct ?? null,
+          followerPct: derived.famousFollowerPct ?? null,
+          dominancePct: derived.famousDominancePct ?? null,
+          level: derived.famousDominanceLevel ?? null,
         },
       };
       const row = {
