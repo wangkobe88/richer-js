@@ -584,10 +584,10 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.12：10 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider） ═══════════════
-  console.log('I2. 题集结构 D3.12（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.13：10 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider） ═══════════════
+  console.log('I2. 题集结构 D3.13（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.12', `版本常量 D3.12（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.13', `版本常量 D3.13（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -637,6 +637,15 @@ console.log('I. 著名钱包单极控盘锚');
     'stall_burst_wave 分工句=波内资金定性由等额分仓/分层/同块波/捆绑主导度等题判读，本题不重复检测（D3.11 裁定原话语义）');
   ok(!sbw.includes('钱包新旧') && !sbw.includes('买卖对冲') && !sbw.includes('单独摘出来'),
     'stall_burst_wave D3.11 反证=波内资金定性判读（钱包新旧/买卖对冲/单独摘出）已随桶域收缩删除');
+  ok(sbw.includes('③量级跃升判据') && sbw.includes('突然增大') && sbw.includes('≥25% 起算明显'),
+    'stall_burst_wave D3.13 量级跃升判据=涌入须有突然增大的跳升（波占窗口买入 ≥25% 起算或同块密集聚集）');
+  ok(sbw.includes('稀疏到达，不算涌入') && sbw.includes('活跃度题另行判读'),
+    'stall_burst_wave D3.13 低活跃盘=静默后零星 1~3 笔散金额小额只是稀疏到达不算涌入（活跃度低归活跃度题，不冒充停滞涌入）');
+  ok(sbw.includes('0.08~0.09 BNB') && sbw.includes('约 4 笔/分钟'),
+    'stall_burst_wave D3.13 反例=CD38 形状（七分钟窗二十余笔，多次静默后各只来 1~3 笔散金额小额，无密度与量级跳升）');
+  ok(qs.stall_burst_wave.criteria.burst.includes('量级相对全窗流量显著跳升')
+    && qs.stall_burst_wave.criteria.none.includes('稀疏到达'),
+    'stall_burst_wave D3.13 criteria=burst 桶加量级跳升锚句、none 桶加稀疏到达排除句');
   const tier = qs.amount_tiering.instructions;
   ok(tier.includes('带间空隙') && tier.includes('分层覆盖度') && tier.includes('连续渐变'),
     'amount_tiering 算法要素=带间空隙判读/分层覆盖度/无序度对照');
@@ -654,6 +663,12 @@ console.log('I. 著名钱包单极控盘锚');
     'amount_tiering D3.12 早波离场=已对冲离场买入只作档位复现辅助，定档以在场资金为主');
   ok(tier.includes('反·碎层') && tier.includes('2.0×/1.1×/1.0×/0.5×') && tier.includes('0.93 BNB'),
     'amount_tiering D3.12 碎层反例=CD17 波4（7 笔 0.93 BNB 落倍数档每档 1-2 笔，至多 moderate）');
+  ok(tier.includes('⑥带数量与连续覆盖') && tier.includes('少数几条带」是分层的前提') && tier.includes('参考 ≥6 条'),
+    'amount_tiering D3.13 带数量判据=「区间数量不多」落地执行（聚带 ≥6 条且金额逐级渐变无空白=连续散布盘不是分层）');
+  ok(tier.includes('连续散布盘') && tier.includes('不是分层，至多 moderate'),
+    'amount_tiering D3.13 散布盘=至多 moderate（散户各按自身预算买入，金额天然铺满各档）');
+  ok(tier.includes('反·散布') && tier.includes('47 个钱包') && tier.includes('极差逾百倍') && tier.includes('九条'),
+    'amount_tiering D3.13 散布反例=CD42 形状（47 钱包 35 个仅一笔、极差逾百倍、九带 0.005~0.75 连续覆盖每带 2~10 钱包）');
   const bwq = qs.same_block_buy_wave.instructions;
   ok(bwq.includes('节拍复现') && bwq.includes('波占比') && bwq.includes('不同钱包'),
     'same_block_buy_wave 算法三要素=同块多钱包/节拍复现/波占比算式');
