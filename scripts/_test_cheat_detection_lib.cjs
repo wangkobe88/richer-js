@@ -276,17 +276,18 @@ ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: null, equalBandHoldPct: EQ_H
   'A5 eqHold 单腿过线也命中（OR）');
 ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: SB_HOLD_PCT_MIN - 10, equalBandHoldPct: EQ_HOLD_PCT_MIN - 10 }).verdict !== 'cheat',
   '双锚均不过线 → 不命中');
-ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: null, equalBandHoldPct: null }).verdict === 'unhealthy',
-  '锚全 null（无合格簇）→ A5 不评（有证据的缺席≠作弊）');
+ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: null, equalBandHoldPct: null }).verdict === 'healthy',
+  '锚全 null（无合格簇）→ A5 不评（有证据的缺席≠作弊）→ healthy');
 ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: '88' }).verdict !== 'cheat', '锚形状异常（字符串）→ 按缺席算不冒充');
 
-// B1 健康臂：卖出分散 ≥moderate（healthy 69% vs cheat 22% 最佳单一信号）
+// 无臂命中 → healthy（D3.4 用户裁定「不要搞什么兜底」「判断不对就是不对」：
+// 锚=不健康检测器，没报警=正常；B1/兜底 unhealthy 整批退役，hitArm=null 诚实标记）
 const m6 = mapCheatAnswers(mkAnswers({ sell_dispersion: 'moderate' }));
-ok(m6.verdict === 'healthy' && m6.ruleAudit.hitArm === 'B1' && m6.patternType === null && m6.cheatProb === null,
-  'B1 sd=moderate → healthy；非 cheat pattern/cheatProb 恒 null');
-ok(mapCheatAnswers(mkAnswers({ sell_dispersion: 'weak' })).verdict === 'unhealthy', 'sd=weak → unhealthy 兜底');
+ok(m6.verdict === 'healthy' && m6.ruleAudit.hitArm === null && m6.patternType === null && m6.cheatProb === null,
+  'sd=moderate 无作弊臂 → healthy（B1 已随兜底退役）；非 cheat pattern/cheatProb 恒 null');
+ok(mapCheatAnswers(mkAnswers({ sell_dispersion: 'weak' })).verdict === 'healthy', 'sd=weak → healthy（无兜底 unhealthy）');
 const m6b = mapCheatAnswers(mkAnswers());
-ok(m6b.verdict === 'unhealthy' && m6b.ruleAudit.hitArm === 'fallback_unhealthy', '全 none → unhealthy 兜底（非 unclear）');
+ok(m6b.verdict === 'healthy' && m6b.ruleAudit.hitArm === null, '全 none → healthy（检测器模型：没报警=正常）');
 ok(VERDICT_COLUMN_MAP.unclear_insufficient === 'unclear' && VERDICT_COLUMN_MAP.cheat === 'cheat'
   && VERDICT_COLUMN_MAP.unhealthy === 'unhealthy' && VERDICT_COLUMN_MAP.healthy === 'healthy',
   '映射表四桶显式钉死（DDL CHECK 域对齐）');
@@ -294,7 +295,7 @@ ok(VERDICT_COLUMN_MAP.unclear_insufficient === 'unclear' && VERDICT_COLUMN_MAP.c
 // 优先序与防线
 const m7 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong', creator_front_run: 'strong', sell_dispersion: 'strong' }),
   { sameBlockHoldPct: 99, equalBandHoldPct: 99 });
-ok(m7.ruleAudit.hitArm === 'A1' && m7.patternType === 'wash_pump', 'A1 优先于 A2/A5/B1（闭环签名最强）；sd=strong 不解除 cheat');
+ok(m7.ruleAudit.hitArm === 'A1' && m7.patternType === 'wash_pump', 'A1 优先于 A2/A5（闭环签名最强）；sd=strong 不解除 cheat');
 const m8 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong' }));
 ok(m8.ruleAudit.levels.coordinated_sell_back === 'strong' && Object.keys(m8.ruleAudit.levels).length === 4,
   'ruleAudit 落全 4 现象档位快照（归因/重放审计）');
@@ -311,7 +312,7 @@ const m9 = mapCheatAnswers({
   second_wave_absorption: phAns('moderate'),
   retail_participation: { type: 'score', score: 2 },
 });
-ok(m9.verdict === 'unhealthy', 'D3.0 存档 answers（含退役题）经现行 mapper 不 throw、退役题不消费');
+ok(m9.verdict === 'healthy', 'D3.0 存档 answers（含退役题）经现行 mapper 不 throw、退役题不消费');
 let threw = false;
 try { mapCheatAnswers({}); } catch (_) { threw = true; }
 ok(threw, '现象题缺失 → throw（调用方落 error 行）');
@@ -326,7 +327,7 @@ const extMiss = mapCheatAnswers(mkAnswers());
 ok(extMiss.ruleAudit.extLevels && extMiss.ruleAudit.extLevels.stall_burst_wave === null,
   'ext 题缺席（≤D3.1 旧存档形状）→ null 落审计不 throw（零配额重放兼容）');
 const extStrong = mapCheatAnswers({ ...mkAnswers(), stall_burst_wave: phAns('strong') });
-ok(extStrong.verdict === 'unhealthy' && extStrong.ruleAudit.hitArm === 'fallback_unhealthy'
+ok(extStrong.verdict === 'healthy' && extStrong.ruleAudit.hitArm === null
   && extStrong.ruleAudit.extLevels.stall_burst_wave === 'strong',
   'ext=strong 落审计但不进任何 verdict 臂（观察性接入——消费方式待对拍裁定）');
 threw = false;

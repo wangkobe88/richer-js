@@ -27,9 +27,12 @@
  *      形状，Jev 眼估「同块簇/等额在场」三档全饱和无法分离，占比必须代码算）；
  *      pattern=slow_coordinated_accumulation。锚 null（无合格簇/无人正净持仓）
  *      =有证据的缺席，臂不评。阈值经 182 全量 55 票校准定档，调参零配额重放验证。
- * - 健康臂（非 cheat）：B1 sell_dispersion ≥ moderate → healthy
- *   （卖出分散=真实承接的最佳单一信号，D3.0 实测 healthy 69% vs cheat 22%）
- * - 其余 → unhealthy（强庄/低活跃/失衡兜底；时点状态可转化）
+ * - 无作弊臂命中 → healthy（D3.4 用户裁定「不要搞什么兜底，这里兜底有啥意义」
+ *   「判断不对就是不对」：锚=不健康检测器，一个没报警=盘面正常（无罪推定）。
+ *   兜底 unhealthy 是用默认出口把判断不对的票盖成对的=掩盖问题，整体退役；
+ *   B1（sd≥moderate→healthy）随兜底语义消失而冗余，同批删除。unhealthy 自此
+ *   **无输出臂**——「有问题没坐实」形状（弱迹象堆积/低活跃）待真实证据臂承接
+ *   （对拍 FAIL 票即待办清单，不靠缺省值蒙对）。unhealthy 列值/历史行不受影响。
  * - unclear 规则不产出（minTicks 8 以下 service 已拦）——VERDICT_COLUMN_MAP
  *   保留映射供兼容域。
  *
@@ -49,7 +52,8 @@
  * stall_burst_wave 经 EXT_PHENOMENON_IDS **容缺读取**（缺席→null 落审计不
  * throw，≤D3.1 旧存档零配额重放兼容；在场未知桶名仍 throw）——**不进任何
  * verdict 臂**（消费方式=strong 单臂/联判/纯观察，待对拍数据裁定，同 D3.2
- * 锚家族先例）。
+ * 锚家族先例）。该段所述「A1-A5/B1/兜底全部维持」为 D3.3 时点事实——B1/兜底
+ * 后随 D3.4 退役（见上）。
  */
 
 /** 现象题 id 清单（与题集对齐——漂移由未知桶名/缺题 throw 兜住） */
@@ -155,12 +159,8 @@ function mapCheatAnswers(answers, anchors = null) {
   }
   if (hitArm) verdict = 'cheat';
 
-  // ── 健康臂（非 cheat；卖出分散=真实承接单一最佳信号）──
-  if (!verdict && ge('sell_dispersion', 'moderate')) {
-    verdict = 'healthy';
-    hitArm = 'B1';
-  }
-  if (!verdict) verdict = 'unhealthy'; // 兜底：强庄/低活跃/失衡（时点状态可转化）
+  // ── 无作弊臂命中 → healthy（D3.4：检测器模型，没报警=正常；无兜底）──
+  if (!verdict) verdict = 'healthy';
 
   // ── pattern 映射（仅 cheat；臂→PATTERNS 八桶）──
   let patternType = null;
@@ -184,9 +184,9 @@ function mapCheatAnswers(answers, anchors = null) {
       ? (mainPhenom ? mainPhenom.prob : anchorProb)
       : null,
     patternType,
-    // 归因审计：命中臂+全现象档位+锚数值快照（answers_raw 已落库，此为规则侧快照便于直读）
+    // 归因审计：命中臂（无臂命中=null 诚实标记，不再造标签）+全现象档位+锚数值快照
     ruleAudit: {
-      hitArm: hitArm || (verdict === 'healthy' ? 'B1' : 'fallback_unhealthy'),
+      hitArm,
       levels: Object.fromEntries(PHENOMENON_IDS.map((id) => [id, ph[id].bucket])),
       extLevels: extPh,
       anchors: { sameBlockHoldPct: sbHold, equalBandHoldPct: eqHold },
