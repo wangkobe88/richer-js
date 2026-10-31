@@ -273,8 +273,19 @@ try {
   buildObservation({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { extreme: 1 } } });
 } catch (_) { threw = true; }
 ok(threw, 'ext 题在场未知桶名 → throw（漂移防线不因容缺放宽）');
-ok(EXT_PHENOMENON_IDS.length === 1 && EXT_PHENOMENON_IDS[0] === 'stall_burst_wave',
-  'EXT_PHENOMENON_IDS 导出钉死（观察题清单单一真相源）');
+
+// 买入额度分层题（D3.7：EXT 容缺通道同 sbw——缺席 null/在场档位/未知桶 throw）
+ok(buildObservation(mkAnswers()).extLevels.amount_tiering === null,
+  'amount_tiering 缺席（≤D3.6 旧存档）→ null 不 throw（零配额重放兼容）');
+const f2b = buildObservation({ ...mkAnswers(), amount_tiering: phAns('strong') });
+ok(f2b.extLevels.amount_tiering === 'strong', 'amount_tiering=strong 照落 extLevels');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), amount_tiering: { type: 'choice', probabilities: { low: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'amount_tiering 在场但活跃度桶名 low → throw（现象四档域校验）');
+ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering']),
+  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单）');
 
 // 活跃度题（D3.5：Jev 判断活跃度——独立档域 low/mid/high/ultra，非现象四档轴）
 const actAns = (bucket, p = 0.7) => {
@@ -516,18 +527,18 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.5：6 题=4 现象+sbw+activity_level） ═══════════════
-  console.log('I2. 题集结构 D3.5（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.7：7 题=4 现象+sbw+tiering+activity_level） ═══════════════
+  console.log('I2. 题集结构 D3.7（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.6', `版本常量 D3.6（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.7', `版本常量 D3.7（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 6
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'activity_level']
+  ok(qids.length === 7
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'activity_level']
       .every((id) => qids.includes(id)),
-    '6 题=存续 4 现象题 + stall_burst_wave + activity_level（D3.5 新增活跃度题）');
+    '7 题=存续 4 现象题 + stall_burst_wave + amount_tiering + activity_level（D3.7 新增分层题）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -537,7 +548,7 @@ console.log('I. 著名钱包单极控盘锚');
     ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
       `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
   }
-  for (const id of [...PHENOMENON_IDS, 'stall_burst_wave']) {
+  for (const id of [...PHENOMENON_IDS, ...EXT_PHENOMENON_IDS]) {
     ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs[id].criteria[b] === 'string')
       && Object.keys(qs[id].criteria).length === qm.PHENOMENON_LEVELS.length,
       `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
@@ -557,6 +568,13 @@ console.log('I. 著名钱包单极控盘锚');
     'stall_burst_wave 算法三要素=静默段判读/波占比算式/排除项');
   ok(sbw.includes('÷ 窗口全部买入额合计') && sbw.includes('≤1.5'),
     'stall_burst_wave 显式算式=波占比分式 + 近额带宽参考值');
+  const tier = qs.amount_tiering.instructions;
+  ok(tier.includes('带间空隙') && tier.includes('分层覆盖度') && tier.includes('连续渐变'),
+    'amount_tiering 算法要素=带间空隙判读/分层覆盖度/无序度对照');
+  ok(tier.includes('÷ 窗口全部买入额合计') && tier.includes('跨带拆单'),
+    'amount_tiering 显式算式=覆盖度分式 + 辅助形状跨带拆单');
+  ok(tier.includes('0.3002~0.3683') && tier.includes('约 92%') && tier.includes('0.2475×4'),
+    'amount_tiering 正例=CD1 三带样本（0.3 带/0.2475×4/覆盖约 92%）');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });

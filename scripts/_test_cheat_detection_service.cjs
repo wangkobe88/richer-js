@@ -106,6 +106,7 @@ const GOOD_ANSWERS = {
   creator_front_run: phAns('strong'),
   sell_dispersion: phAns('none'),
   stall_burst_wave: phAns('moderate'),
+  amount_tiering: phAns('strong'),
   activity_level: actAns('mid'),
 };
 function makeLlm({ answers = GOOD_ANSWERS, hang = false, reject = null } = {}) {
@@ -121,7 +122,7 @@ function makeLlm({ answers = GOOD_ANSWERS, hang = false, reject = null } = {}) {
         },
       },
       buildCheatQuestions: () => ({ market_health_verdict: { type: 'choice' } }),
-      CHEAT_QUESTIONS_VERSION: 'D3.6',
+      CHEAT_QUESTIONS_VERSION: 'D3.7',
     },
     calls,
   };
@@ -164,15 +165,16 @@ async function main() {
       `行字段：verdict='observed'/cheat_prob=null/pattern_type=null（D3.5 判定层停产；retail 列已停写=undefined；实际 ${row.verdict}/${row.cheat_prob}/${row.pattern_type}）`);
     ok(row.snapshot_digest.phenomena && row.snapshot_digest.phenomena.creator_front_run === 'strong'
       && row.snapshot_digest.extLevels.stall_burst_wave === 'moderate'
+      && row.snapshot_digest.extLevels.amount_tiering === 'strong'
       && row.snapshot_digest.activityLevel.bucket === 'mid',
-      `digest 落观测记录主体（phenomena/extLevels/activityLevel；实际 ${JSON.stringify(row.snapshot_digest.phenomena)}/${JSON.stringify(row.snapshot_digest.activityLevel)}）`);
+      `digest 落观测记录主体（phenomena/extLevels 含 tiering/activityLevel；实际 ${JSON.stringify(row.snapshot_digest.phenomena)}/${JSON.stringify(row.snapshot_digest.activityLevel)}）`);
     ok(row.snapshot_digest.anchors && row.snapshot_digest.anchors.equalBandHoldPct === 100,
       `snapshot_digest 落锚快照（数值透传；实际 ${JSON.stringify(row.snapshot_digest.anchors)}）`);
     ok(row.snapshot_digest.activity && typeof row.snapshot_digest.activity.ticksPerMin === 'number',
       'digest 保留代码活跃度原始数值（Jev 档位校准对照原料）');
     ok(row.jev_prompt.includes('[TICKS]') && row.jev_prompt.includes('截至第 20 笔')
       && !row.jev_prompt.includes('超拉数帽'), '首行落 jev_prompt 全文（锚声明在、未满帽无截断注记）');
-    ok(row.question_version === 'D3.6' && row.anchor_tick_count === 20 && row.source_experiment_id === 'exp-1',
+    ok(row.question_version === 'D3.7' && row.anchor_tick_count === 20 && row.source_experiment_id === 'exp-1',
       'question_version/anchor/source_experiment_id');
     ok(row.snapshot_digest.tickCount === 20 && row.snapshot_digest.capped === false
       && row.snapshot_digest.watermark && row.snapshot_digest.buyBnb > 0,
@@ -255,7 +257,7 @@ async function main() {
     const svc2 = makeSvc(makeDb({ ticks: rows }), makeLlm(), { pullLimit: 20, headLimit: 10 });
     const lastRow = rows[rows.length - 1];
     const wm = { block: lastRow.block_number, log: lastRow.log_index, key: `${lastRow.block_number}:${lastRow.log_index}` };
-    svc2._lastAnalysis.set('0xtok', { questionVersion: 'D3.6', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'observed' });
+    svc2._lastAnalysis.set('0xtok', { questionVersion: 'D3.7', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'observed' });
     svc2.noteBuyPoint('0xtok', META, {});
     await svc2.drain(3000);
     ok(svc2.stats.cacheReused === 1, '满帽水位不变=0 新 tick（不重析）');
@@ -263,7 +265,7 @@ async function main() {
     // 水位变化 → 按满值重析
     const rows2 = rows.concat(genTicks(2, { startBlock: 500 }));
     const svc3 = makeSvc(makeDb({ ticks: rows2 }), makeLlm(), { pullLimit: 20, headLimit: 10 });
-    svc3._lastAnalysis.set('0xtok', { questionVersion: 'D3.6', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'observed' });
+    svc3._lastAnalysis.set('0xtok', { questionVersion: 'D3.7', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'observed' });
     svc3.noteBuyPoint('0xtok', META, {});
     await svc3.drain(3000);
     ok(svc3._analysisCount.get('0xtok') === 1 && svc3._lastAnalysis.get('0xtok').verdict === 'observed',

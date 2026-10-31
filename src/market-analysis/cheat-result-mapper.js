@@ -8,7 +8,7 @@
  * D3.1-D3.4 的综合规则臂（A1-A5/B1/兜底）整体退役（git 留档），mapper 不再导出
  * verdict/cheatProb/patternType；输出=**观测记录**：
  * - phenomena：4 现象题档位（Jev Choice 四档 argmax）
- * - extLevels：观察性现象题（stall_burst_wave，容缺）
+ * - extLevels：观察性现象题（stall_burst_wave D3.3 / amount_tiering D3.7，容缺）
  * - activityLevel：**活跃度 Jev 题**（activity_level，独立档域 low/mid/high/ultra
  *   ——Jev 从 [TICKS] 直读自判，D3.2 代码档位锚撤除；容缺：旧存档缺席→null）
  * - anchors：代码数值锚——持仓占比两键（sb/eq；只述数值事实，非档位判定）
@@ -34,10 +34,11 @@ const PHENOMENON_IDS = [
 
 /**
  * 观察性现象题 id 清单（D3.3 起）：答案只落 extLevels 审计，不进观测主键。
- * 容缺语义：旧存档（≤D3.1）answers 无该键 → null 不 throw（重放兼容）；
+ * D3.7 起=后增题容缺通道（sbw D3.3 / amount_tiering D3.7）。
+ * 容缺语义：旧存档（< 各题引入版本）answers 无该键 → null 不 throw（重放兼容）；
  * 在场答案走 _phenomenon（未知桶名照 throw，漂移防线不因容缺放宽）。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave'];
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering'];
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
