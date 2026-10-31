@@ -598,7 +598,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.14', `版本常量 D3.14（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.15', `版本常量 D3.15（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -745,8 +745,8 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump 判据①=单调性（回撤 <5%、新高持续推进、无成串卖回波）');
   ok(pump.includes('买卖失衡') && pump.includes('笔比 ≥5:1 且额比 ≥3:1') && pump.includes('零星获利卖穿插'),
     'slow_grind_pump 判据②=买卖失衡双比阈值（正常上涨段也有零星获利卖穿插的反锚）');
-  ok(pump.includes('小笔连续推进') && pump.includes('非爆发式抢筹') && pump.includes('持续性'),
-    'slow_grind_pump 判据③④=小笔低密度节奏（非爆发式）+ 单向状态覆盖窗口主要时段');
+  ok(pump.includes('看推价的持续力量是不是小笔') && pump.includes('非爆发式抢筹') && pump.includes('持续性'),
+    'slow_grind_pump 判据③④=节奏看推价的持续力量是不是小笔（非爆发式贯穿全程）+ 单向状态覆盖窗口主要时段');
   ok(pump.includes('开盘首波爆发抢筹') && pump.includes('归「同块买入波」等题判读'),
     'slow_grind_pump 排除项=开盘首波爆发抢筹（天然失衡归 bw 题口径，题间分界）');
   ok(pump.includes('像样回撤') && pump.includes('成串获利卖回的盘不选本题'),
@@ -757,6 +757,16 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump 正例含 CD44 后续走势（推至峰值后砸崩近四成再长时间死寂=拉高后派发）');
   ok(pump.includes('约 80 笔/分钟') && pump.includes('16% 量级回撤') && pump.includes('有波动的活跃上涨盘'),
     'slow_grind_pump 反例=CD46 形状（80 笔/分、回撤 16% 有起伏——买卖失衡但非本题形状）');
+  ok(pump.includes('窜上来一截后，缓慢拉盘') && pump.includes('后段垫推才是本题的观察主体'),
+    'slow_grind_pump D3.15 定义句补两段式形状（用户裁定「窜上来一截后，缓慢拉盘」——前段大额簇窜升+后段尘埃买垫量缓推，垫推段是观察主体）');
+  ok(pump.includes('只贡献跳升段、不贡献持续爬坡') && pump.includes('垫量缓推') && pump.includes('整窗笔均被前段大额拉高不否定后段垫推'),
+    'slow_grind_pump D3.15 节奏判据=大额簇/大单只贡献跳升不贡献爬坡，海量尘埃买垫量缓推算数（笔均被拉高不否定垫推——CD55 误判归因①）');
+  ok(pump.includes('窜完即止无后续缓推段') && pump.includes('爆发段之后接续垫量缓推段的，爆发段归同块波题判读、缓推段仍在本题口径内'),
+    'slow_grind_pump D3.15 排除项改写=整窗主体爆发且窜完即止才排除；窜后接缓推的缓推段归本题、爆发段归 bw 题（CD55 误判归因②整窗排除）');
+  ok(pump.includes('正·窜一截后缓推') && pump.includes('0.0001 级尘埃买垫量缓推') && pump.includes('最大回撤不足 2%'),
+    'slow_grind_pump D3.15 正例补 CD55 两段式形状（同块簇窜升占四成多+十余笔 0.0001 级尘埃买垫推、回撤不足 2%、笔比超 13:1）');
+  ok(pump.includes('窜完即止') && pump.includes('无尘埃买垫量缓推段') && pump.includes('纯爆发不属本题'),
+    'slow_grind_pump D3.15 反例补窜完即止形状（CD53/CD54 同块簇占比过半数十秒窜完、无垫推段——防误伤划界锚）');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });
