@@ -18,9 +18,9 @@ const assert = require('assert');
 const path = require('path');
 const {
   buildSnapshotFromRows, computeDerived, aggregateWallets, walletOf, isRouterWallet,
-} = require('../src/trading-engine/pre-check/cheat-snapshot');
-const { buildCheatState, MAX_STATE_CHARS } = require('../src/trading-engine/pre-check/cheat-state-builder');
-const { mapCheatAnswers, VERDICT_COLUMN_MAP } = require('../src/trading-engine/pre-check/cheat-result-mapper');
+} = require('../src/market-analysis/cheat-snapshot');
+const { buildCheatState, MAX_STATE_CHARS } = require('../src/market-analysis/cheat-state-builder');
+const { mapCheatAnswers, VERDICT_COLUMN_MAP } = require('../src/market-analysis/cheat-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
 let passed = 0;

@@ -263,8 +263,8 @@ class CheatCheckService {
       this._llm = await this._deps.loadLlm();
     } else {
       // CJS→ESM 先例（NarrativeDirectCaller.js:152 惰性动态 import+缓存）
-      const mod = await import('../../narrative/analyzer/llm/JevClient.mjs');
-      const q = await import('../../narrative/analyzer/llm/cheat-questions.mjs');
+      const mod = await import('../narrative/analyzer/llm/JevClient.mjs');
+      const q = await import('./llm/cheat-questions.mjs');
       this._llm = { JevClient: mod.JevClient, buildCheatQuestions: q.buildCheatQuestions, CHEAT_QUESTIONS_VERSION: q.CHEAT_QUESTIONS_VERSION };
     }
   }

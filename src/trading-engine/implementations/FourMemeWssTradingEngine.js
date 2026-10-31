@@ -344,7 +344,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 留痕；结果落 cheat_detection（token 级全局资产，stop 不清理）。配置
     // fourmemeWs.cheatCheck（flap 同键经 _mergedWsConfig；enabled 缺省 false=新机制
     // 默认零影响，v66 换车显式开观察）。回测零接线（BacktestEngine 不继承本类）
-    const { CheatCheckService } = require('../pre-check/CheatCheckService');
+    const { CheatCheckService } = require('../../market-analysis/CheatCheckService');
     this._cheatCheckService = new CheatCheckService(
       this._mergedWsConfig().cheatCheck || {}, this.logger);
 

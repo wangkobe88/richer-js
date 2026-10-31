@@ -23,7 +23,7 @@
  *   排序/截窗后传入，本模块只做稳定重排不假设到达序）
  */
 
-const { AGGREGATOR_ROUTER_ADDRS } = require('./aggregator-routers');
+const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 
 /** 等额簇金额舍入粒度（0.0001 BNB，T74 口径） */
 const EQUAL_AMOUNT_ROUND = 10000;

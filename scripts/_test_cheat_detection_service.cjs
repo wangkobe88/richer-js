@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { CheatCheckService } = require('../src/trading-engine/pre-check/CheatCheckService');
+const { CheatCheckService } = require('../src/market-analysis/CheatCheckService');
 
 let passed = 0;
 function ok(cond, label) {

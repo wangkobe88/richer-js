@@ -42,9 +42,9 @@ const PULL_LIMIT = 3000; // 与 CheatCheckService 默认 pullLimit 一致（--ad
 
 const require_ = createRequire(import.meta.url);
 // 与实时 service 同一组装路径（CJS 纯函数复用=口径单点）
-const { buildSnapshotFromRows } = require_('../../src/trading-engine/pre-check/cheat-snapshot.js');
-const { buildCheatState } = require_('../../src/trading-engine/pre-check/cheat-state-builder.js');
-const { mapCheatAnswers } = require_('../../src/trading-engine/pre-check/cheat-result-mapper.js');
+const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snapshot.js');
+const { buildCheatState } = require_('../../src/market-analysis/cheat-state-builder.js');
+const { mapCheatAnswers } = require_('../../src/market-analysis/cheat-result-mapper.js');
 
 const TICK_COLS = 'block_time,block_number,log_index,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
@@ -143,7 +143,7 @@ async function runCase(c, { dry, version }) {
   console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} | state ${promptChars} chars`);
   if (dry) return { interp: null, promptChars, state, snapshot };
   const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
-  const q = await import('../../src/narrative/analyzer/llm/cheat-questions.mjs');
+  const q = await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-regression' });
   const mapped = mapCheatAnswers(res.answers);
   return { interp: interpret(mapped), promptChars, state, snapshot, answers: res.answers, model: res.model };
@@ -177,7 +177,7 @@ async function cmdAdd(args, doc, cases) {
     meta, { capped: capped && anchorN === rows.length, anchorTickCount: anchorN });
   const { state } = buildCheatState(snapshot);
   const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
-  const q = await import('../../src/narrative/analyzer/llm/cheat-questions.mjs');
+  const q = await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-regression-add' });
   const interp = interpret(mapCheatAnswers(res.answers));
   const today = new Date().toISOString().slice(0, 10);
@@ -231,7 +231,7 @@ async function cmdExperimentBaseline(args) {
   const settleMs = Number.isFinite(args.settleMs) && args.settleMs >= 0 ? args.settleMs : 4000;
   const targets = await fetchFirstBuys(args.experiment);
   if (!targets.length) { console.error(`实验 ${args.experiment} 无成功买入 trade`); process.exit(1); }
-  const q = args.dry ? null : await import('../../src/narrative/analyzer/llm/cheat-questions.mjs');
+  const q = args.dry ? null : await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const version = q ? q.CHEAT_QUESTIONS_VERSION : '(dry)';
   console.log(`实验 ${args.experiment}：${targets.length} 票有成功买入；锚=首笔成功买 created_at + ${settleMs}ms 内 tick 数${args.dry ? '；--dry 只组装不烧 Jev 不收录' : `；题集 ${version} 逐票真调 Jev → 表格 + 全部收录 fixtures`}\n`);
 
@@ -392,7 +392,7 @@ async function main() {
     return;
   }
 
-  const qMod = args.dry ? null : await import('../../src/narrative/analyzer/llm/cheat-questions.mjs');
+  const qMod = args.dry ? null : await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const version = qMod ? qMod.CHEAT_QUESTIONS_VERSION : '(dry)';
   const targets = args.only.length ? cases.filter((c) => args.only.includes(c.caseId)) : cases;
   const missing = args.only.filter((id) => !cases.some((c) => c.caseId === id));
