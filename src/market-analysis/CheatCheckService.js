@@ -225,10 +225,13 @@ class CheatCheckService {
         return;
       }
 
-      // 11) mapper + 落库
+      // 11) mapper + 落库（D3.1：持仓占比锚随 snapshot.derived 传入——A5 数值门输入）
       let mapped;
       try {
-        mapped = mapCheatAnswers(res.result.answers);
+        mapped = mapCheatAnswers(res.result.answers, {
+          sameBlockHoldPct: snapshot.derived.sameBlockHoldPct,
+          equalBandHoldPct: snapshot.derived.equalBandHoldPct,
+        });
       } catch (e) {
         this.stats.errors++;
         await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context);
@@ -246,7 +249,8 @@ class CheatCheckService {
       this._log('info', `盘面判定 ${mapped.verdict}` +
         (mapped.cheatProb !== null ? ` (cheat P=${mapped.cheatProb.toFixed(2)})` : '') +
         (mapped.patternType ? ` pattern=${mapped.patternType}` : '') +
-        ` retail=${mapped.retailParticipation ?? '?'} ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
+        ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
+        ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
       this.stats.errors++;
@@ -441,6 +445,7 @@ class CheatCheckService {
         quoteToken: pull.quoteToken || null,
         buyBnb: Number(buyBnb.toFixed(4)),
         sellBnb: Number(sellBnb.toFixed(4)),
+        anchors: mapped.ruleAudit?.anchors ?? null, // D3.1 持仓占比锚（A5 臂输入快照，重放对拍用）
       };
       const row = {
         token_address: token,
@@ -450,8 +455,7 @@ class CheatCheckService {
         cheat_prob: typeof mapped.cheatProb === 'number' && Number.isFinite(mapped.cheatProb)
           ? Number(mapped.cheatProb.toFixed(4)) : null,
         pattern_type: mapped.patternType || null,
-        retail_participation: typeof mapped.retailParticipation === 'number' && Number.isFinite(mapped.retailParticipation)
-          ? Number(mapped.retailParticipation.toFixed(2)) : null,
+        // retail_participation 列已停写（D3.1 题集删 retail 题，2026-10-31 用户裁定）——列保留历史行
         answers_raw: raw ? { answers: raw.answers, model: raw.model || null, usage: raw.usage || null } : null,
         jev_prompt: raw && isFirst ? raw.state : null, // 仅每 (token,version) 首行落全文（无界增长防线）
         snapshot_digest: digest,

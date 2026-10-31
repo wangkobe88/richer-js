@@ -16,23 +16,29 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
- * D3.0（2026-10-31 用户裁定：架构重设为「现象锚观测 + 代码综合」分层）。原 Q1
- *   端到端三分类与 Q2 模式细分退役——Jev 不再直接判盘面性质，改为逐现象判定
- *   「是否存在、程度如何」（8 现象 Choice 四档 none/weak/moderate/strong）；三分类
- *   verdict 由 mapper 综合规则从现象锚导出（cheat=协同臂命中；healthy=散户臂；
- *   其余 unhealthy）。动机：①现象观测是 Jev 擅长的相对客观判断，综合权衡它两轮
- *   48-52% 证明不擅长②综合规则进代码=可回放调权（answers_raw 落库后改规则零
- *   配额重放 54 票）③每现象可单独对拍归因（原来 Q1 判错无法定位错在哪层）。
- *   retail_participation（Score）保留——列语义不变，兼作综合规则散户反证输入。
- *   二段 Jev 综合为后续可选升级（先代码综合跑通）。
- * D2.2（2026-10-31 用户裁定：题面语言换中文）：纯语言对照轮——51.9%（28/54）
- *   不掉点，中文定型为基线语言。D2.1 撤簇预列/去 [GMGN] 标记/路由机制陈述。
- * D2.0（2026-10-30）：基线 50/51 裁定反哺判据重写（三段判据+quota_ladder/
- *   slow_coordinated_accumulation 桶+散户定义收紧）——48.1% 证明纯 prompt 到顶。
- * D1.1（2026-10-30）：首版 3 题（Q1 三分类/Q2 模式/Q3 散户）。
+ * D3.1（2026-10-31 用户裁定：题集瘦身——「把零分离度的锚删除（没关系，之后我们
+ *   会继续增加）；删 retail 题」）。D3.0 55 票重放归因：Jev 判**具体可核查事实**
+ *   的题 strong 档零误报（creator 抢跑 8:0:0 / 等额强规整 10:0:0 / 协同卖回强
+ *   6:1:0），**眼估流量份额**的题全面饱和（配额梯 55 票全过 moderate、同块簇
+ *   moderate 是三类众数、二次承接 cheat 反而最高）→ 零分离四题退役：
+ *   same_block_buy_burst / quota_ladder_heat / second_wave_absorption /
+ *   strong_hand_real_buy（无规则消费点）；retail_participation 退役（三类中位
+ *   1.3/1.5/1.6、q75 全 <2.2 无区分度——用户裁定「Jev 无法通过简单规则判断是否
+ *   散户」）。买侧结构量化改代码侧：snapshot 新增 sameBlockHoldPct /
+ *   equalBandHoldPct 持仓占比锚进 [PRECOMPUTED]，mapper 直接消费锚数值过门
+ *   （Jev 不再眼估占比）。存续 4 题=equal_amount_split / coordinated_sell_back /
+ *   creator_front_run / sell_dispersion。规则改动零配额重放=scripts/cheat-detection/
+ *   replay.mjs（对存档 answersRaw 重跑 mapper）。
+ * D3.0（2026-10-31 用户裁定：架构重设「现象锚观测 + 代码综合」分层）：8 现象
+ *   Choice 四档题替代 Q1 端到端三分类——Jev 只判现象有无与程度，verdict 由 mapper
+ *   综合规则导出。首跑 27/55（cheat 召回 27/27 但非 cheat 28 票全误判 cheat），
+ *   现象级归因见上。
+ * D2.2（2026-10-31 用户裁定：题面语言换中文）：51.9% 不掉点，中文定型。
+ * D2.1（撤簇预列/去 [GMGN] 标记/路由机制陈述）；D2.0（48.1% 纯 prompt 到顶）；
+ * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.0';
+export const CHEAT_QUESTIONS_VERSION = 'D3.1';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];
@@ -46,37 +52,27 @@ const LEVEL_CRITERIA = {
 };
 
 /**
- * 构建作弊盘检测问题集（D3.0 现象锚形状）
+ * 构建作弊盘检测问题集（D3.1 瘦身形状：4 现象题）
  *
- * 8 现象题（Choice 四档）+ retail_participation（Score 0-10）。
- * 每现象题=定义 + 从哪段材料看 + 程度分档；**只判现象不判性质**——盘面三分类
- * 由 mapper 综合规则导出（题面绝不预告各现象对应什么 verdict，防答题被结论锚定）。
+ * 每题=定义 + 从哪段材料看 + 程度分档；**只判现象不判性质**——盘面三分类由
+ * mapper 综合规则导出（题面绝不预告各现象对应什么 verdict，防答题被结论锚定）。
+ * 买侧簇结构（同块/近等额占比）由 [PRECOMPUTED] 锚量化，程度题可作参照。
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildCheatQuestions() {
   return {
 
-    // ── 协同侧现象（作弊臂原料）──
-
-    // 1. 同块买入簇
-    same_block_buy_burst: {
-      type: 'choice',
-      instructions: `观察「同块买入簇」现象：许多买单挤进相同的区块，并且这一节奏反复出现。
-在 [TICKS] 中按块号（blk=）自行分组统计：找出单块内 ≥3 笔买入的块，观察这些块的数目、反复出现的节奏性、以及这些簇合计解释的买入份额（可参照 [WALLETS] 各钱包的首买时点）。
-只描述现象程度，不下任何盘面结论。`,
-      criteria: LEVEL_CRITERIA,
-    },
-
-    // 2. 等额/近等额分仓
+    // 1. 等额/近等额分仓（strong 档零误报：D3.0 实测 10:0:0）
     equal_amount_split: {
       type: 'choice',
       instructions: `观察「等额分仓」现象：精确相等或近等额的买入金额分散在多个不同钱包。
-在 [TICKS]/[WALLETS] 中自行扫金额带：精确等额（如 0.3300×4）与近等额带（如 0.3301/0.3298/0.3302——刻意躲精确等额分组）都要扫；注意非 BNB 计价盘的换算金额只是近似值（见 [TOKEN] 注记）。
+在 [TICKS]/[WALLETS] 中自行扫金额带：精确等额（如 0.3300×4）与近等额带（如 0.3301/0.3298/0.3302——刻意躲精确等额分组）都要扫；[PRECOMPUTED] 的「近等额簇持仓占比」已量化带内（±2%、≥3 钱包）结构的持仓份额，可作程度参照（注意整数额买单在健康票上也会自然聚带——「占比与规整度」比「有没有」重要）；非 BNB 计价盘的换算金额只是近似值（见 [TOKEN] 注记）。
 只描述现象程度，不下任何盘面结论。`,
       criteria: LEVEL_CRITERIA,
     },
 
-    // 3. 买簇→集中同步卖回配对（最强作弊签名，升格独立现象题）
+    // 2. 买簇→集中同步卖回配对（strong 档近零误报：6:1:0；moderate 档健康票也常见
+    //    早期获利盘同卖，故 moderate 需 mapper 侧卖分散反证联判）
     coordinated_sell_back: {
       type: 'choice',
       instructions: `观察「协同卖回」现象：曾经同步/协同买入的一簇钱包，随后在集中同步的卖出波中卖回——数笔卖单挤进相同区块或极短时间窗，收割他们自己制造的拉升。
@@ -85,16 +81,7 @@ export function buildCheatQuestions() {
       criteria: LEVEL_CRITERIA,
     },
 
-    // 4. 配额梯假热度
-    quota_ladder_heat: {
-      type: 'choice',
-      instructions: `观察「配额梯假热度」现象：受控钱包以梯度/接力式金额连续买入制造动能——买卖单向失衡、价格台阶式或单调爬升、爬升背后没有真实新血流入（新参与者稀少）。
-注意：**砸盘不是此现象的必要条件**——即使任何集中卖出都还没发生，接力梯度买入+单向失衡+无新血的组合本身就是该现象。检验法：在脑中剥离疑似协同的钱包，剩下的流量独自能支撑这段价格行为吗？
-只描述现象程度，不下任何盘面结论。`,
-      criteria: LEVEL_CRITERIA,
-    },
-
-    // 5. creator 抢跑/自卖
+    // 3. creator 抢跑/自卖（strong 档零误报：8:0:0）
     creator_front_run: {
       type: 'choice',
       instructions: `观察「creator 抢跑/自卖」现象：代币创建者（[WALLETS] 中标 [CREATOR]/isCreator 的钱包）抢跑自己的启动——t≈0 买入后数秒内卖出；或把大量配额倾倒进拉升段。
@@ -103,49 +90,13 @@ export function buildCheatQuestions() {
       criteria: LEVEL_CRITERIA,
     },
 
-    // ── 结构侧现象（盘面性质分界原料）──
-
-    // 6. 强庄真实主导（unhealthy 轴核心现象）
-    strong_hand_real_buy: {
-      type: 'choice',
-      instructions: `观察「强庄真实主导」现象：单一巨户（或少数几个钱包）用真实资金大额买入、主导了盘面资金流——但没有拆分成许多同步钱包、也没有组织性的成波砸盘（与协同分仓相区别的正在于此：钱包真、资金真、行为独立）。
-低活跃盘（tick 少、量小、结构干净、无人主导）此现象为 none。
-只描述现象程度，不下任何盘面结论。`,
-      criteria: LEVEL_CRITERIA,
-    },
-
-    // 7. 二次承接
-    second_wave_absorption: {
-      type: 'choice',
-      instructions: `观察「二次承接」现象：早期卖家离场时，有新的买家接住了他们的卖量——价格没有因早期参与者退出而失去支撑。
-在 [TICKS] 中自行对时间轴：找出早期卖出的时点，检查其后的买流是否来自新面孔钱包、规模是否足以吸收卖压。启动簇成员之间的内部倒手不算承接。
-只描述现象程度，不下任何盘面结论。`,
-      criteria: LEVEL_CRITERIA,
-    },
-
-    // 8. 卖出分散度
+    // 4. 卖出分散度（健康轴最佳信号：moderate 档 healthy 69% vs cheat 22%）
     sell_dispersion: {
       type: 'choice',
       instructions: `观察「卖出分散度」现象：卖出行为分散在许多互不相关的钱包、各自独立择时——与「集中同步卖波」（少数钱包在相同块/极短窗内一起卖）相反的两极。
 在 [TICKS]/[WALLETS] 中自行统计卖方的钱包数、卖出时点分布、以及是否存在同步卖波。注意：此现象与「协同卖回」是同一枚硬币的两面——卖出越分散、越各自择时，本现象越强。
 只描述现象程度，不下任何盘面结论。`,
       criteria: LEVEL_CRITERIA,
-    },
-
-    // ── 9. 真实散户参与度（Score 0-10；D2 形状保留，兼综合规则散户反证输入）──
-    retail_participation: {
-      type: 'score',
-      instructions: `本市场窗口的资金流中，有多大份额是真实散户参与——按自身利益独立行动的钱包，既不属于协同一侧、也不是追高接盘者？打 0-10 分。
-算真实散户的：启动爆发之后以各异金额/时间到达的新面孔；接住早期卖家离场的后续买入（二次承接）；卖出分散在许多互不相关钱包的不同时点。不算的：同步簇/班底成员（无论摊到多少钱包，都是协同一侧）；零买入纯卖的配额倾倒者；只在拉升之后才扎堆进场的追高者（是真人但弱散户——计低分）。
-[PRECOMPUTED] 中注明的 sender 未解析 tick 是证据洞——相应打折扣，不要慷慨脑补。聚合路由的使用（占比见 [PRECOMPUTED]；行内不逐笔标注）本身对真人还是 bot 不说明任何事——两者都在用；发起者的独立性要从原始资金流的时间/金额相关性里判断，绝不要从走没走路由判断。`,
-      criteria: [
-        '0-1分：几乎没有真实散户——全部或近乎全部流量来自协同/受控一侧，启动簇之后无新面孔、无承接',
-        '2-3分：真实散户痕迹很少——零星独立钱包夹杂在主导性协同流量中，启动簇之后偶有散单但无持续入场',
-        '4-5分：真实散户与协同流量并存，散户是明显次要一侧',
-        '6-7分：真实散户占可观份额，与协同/大户流量大致平衡，启动簇之后仍见新面孔陆续入场',
-        '8-9分：真实散户为主导——独立钱包多源多样、金额时间分散，二次承接可见，协同痕迹微弱',
-        '10分：几乎纯真实散户——协同流量可忽略',
-      ],
     },
   };
 }

@@ -31,6 +31,8 @@ const EQUAL_AMOUNT_ROUND = 10000;
 const EQUAL_AMOUNT_MIN_BNB = 0.001;
 /** 同块簇最小笔数 */
 const SAME_BLOCK_CLUSTER_MIN = 3;
+/** 近等额带宽度（比例；D3.1 锚：精确等额刻意抖金额逃分组也落入同带） */
+const EQUAL_BAND_PCT = 0.02;
 /** 快进快出判定窗（秒）：首买→首卖 < 窗即计 churn */
 const CHURN_WINDOW_SEC = 60;
 
@@ -212,6 +214,49 @@ function computeDerived(snapshot) {
       firstDt: a[0].dt,
     }));
 
+  // ── 持仓占比锚（D3.1：买侧簇结构的代码侧量化）──
+  // D3.0 实测 Jev 眼估「流量份额」类现象（同块/等额/配额梯 moderate 档）在 55 票全
+  // 饱和零分离——占比数字必须代码算。口径（T91a 哲学）：
+  //   分母=全场 Σ正净持仓（router 伪钱包已在 wallets 层剔除）；分子=簇成员正净持仓
+  //   合计（⊆分母恒 ≤100）；分母 0（无人正净持仓）→ null（无可主导的持仓）。
+  //   sameBlockHoldPct =「≥3 笔买同块」全部块（不截 top10 展示帽）的买入钱包去重并集
+  //   equalBandHoldPct = ±2% 对数金额带（带内 ≥3 个不同钱包；精确等额自然落同带）
+  //   null=无合格簇（有证据的缺席，进 [PRECOMPUTED] 与 mapper 锚臂）
+  const posNet = new Map();
+  for (const e of wallets) {
+    const net = (e.buyBnb || 0) - (e.sellBnb || 0);
+    if (net > 0) posNet.set(e.w, net);
+  }
+  const posTotal = [...posNet.values()].reduce((s, v) => s + v, 0);
+  const holdPctOf = (memberSet) => {
+    if (!memberSet.size || posTotal <= 0) return null;
+    let m = 0;
+    for (const w of memberSet) m += posNet.get(w) || 0;
+    return (m / posTotal) * 100;
+  };
+  const sbMembers = new Set();
+  for (const [block, arr] of blockBuys) {
+    if (arr.length >= SAME_BLOCK_CLUSTER_MIN) {
+      for (const t of arr) if (t.wallet) sbMembers.add(t.wallet);
+    }
+  }
+  const sameBlockHoldPct = holdPctOf(sbMembers);
+  const bandBase = Math.log(1 + EQUAL_BAND_PCT);
+  const bands = new Map();
+  for (const t of ticks) {
+    if (t.side !== 'BUY' || !t.wallet) continue;
+    const bnb = t.bnb || 0;
+    if (bnb < EQUAL_AMOUNT_MIN_BNB) continue;
+    const k = Math.round(Math.log(bnb) / bandBase);
+    if (!bands.has(k)) bands.set(k, new Set());
+    bands.get(k).add(t.wallet);
+  }
+  const eqMembers = new Set();
+  for (const ws of bands.values()) {
+    if (ws.size >= SAME_BLOCK_CLUSTER_MIN) for (const w of ws) eqMembers.add(w);
+  }
+  const equalBandHoldPct = holdPctOf(eqMembers);
+
   // ── 价格拱（仅 price_outlier=false 行——价格口径滤，资金口径不滤）──
   let first = null, ath = null, athDt = null, last = null;
   for (const t of ticks) {
@@ -229,6 +274,7 @@ function computeDerived(snapshot) {
     unresolvedSenderTickCount,
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
+    sameBlockHoldPct, equalBandHoldPct,
     priceArc: first !== null ? { first, ath, athDt, last } : null,
   };
 }
@@ -245,6 +291,7 @@ module.exports = {
   walletOf,
   isRouterWallet,
   EQUAL_AMOUNT_MIN_BNB,
+  EQUAL_BAND_PCT,
   SAME_BLOCK_CLUSTER_MIN,
   CHURN_WINDOW_SEC,
 };

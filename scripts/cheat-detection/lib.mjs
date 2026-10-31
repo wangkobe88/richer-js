@@ -39,7 +39,7 @@ export function loadAndValidateFixtures(doc) {
       && (!Array.isArray(e.patternsIncludes) || !e.patternsIncludes.length || !e.patternsIncludes.every((p) => PATTERNS.has(p)))) {
       errors.push(`${tag}: expect.patternsIncludes 须为非空 PATTERNS 子集（any-of 语义）`);
     }
-    for (const k of ['cheatProbGte', 'retailLte', 'retailGte']) {
+    for (const k of ['cheatProbGte']) {
       if (e[k] !== undefined && !(Number.isFinite(e[k]) && e[k] >= 0 && e[k] <= 10)) errors.push(`${tag}: expect.${k} 须为 0-10 数值`);
     }
     if (e.verdict === undefined && e.patternsIncludes === undefined && e.cheatProbGte === undefined) {
@@ -52,16 +52,16 @@ export function loadAndValidateFixtures(doc) {
 
 /**
  * 判读 mapper 输出 → 统一口径（runner 断言与 --add 基线快照共用）。
- * @param {object|null} mapped mapCheatAnswers 产物 { verdict, cheatProb, patternType, retailParticipation }
+ * @param {object|null} mapped mapCheatAnswers 产物 { verdict, cheatProb, patternType, ruleAudit }
  */
 export function interpret(mapped) {
-  if (!mapped) return { verdict: null, cheatProb: null, patternType: null, retailParticipation: null, ruleAudit: null };
+  if (!mapped) return { verdict: null, cheatProb: null, patternType: null, ruleAudit: null };
   return {
     verdict: mapped.verdict ?? null,
     cheatProb: typeof mapped.cheatProb === 'number' ? mapped.cheatProb : null,
     patternType: mapped.patternType ?? null,
-    retailParticipation: typeof mapped.retailParticipation === 'number' ? mapped.retailParticipation : null,
     // D3.0：规则审计（命中臂+现象档位快照）透传进存档 interp——规则调参归因可见
+    // D3.1：ruleAudit.anchors 含持仓占比锚（A5 臂输入，重放对拍用）
     ruleAudit: mapped.ruleAudit ?? null,
   };
 }
@@ -81,12 +81,6 @@ export function assertExpectation(interp, expect) {
   }
   if (Array.isArray(e.patternsIncludes) && !e.patternsIncludes.includes(interp.patternType)) {
     failures.push(`patternType: 期望 ∈[${e.patternsIncludes.join('|')}] 实际 ${interp.patternType}`);
-  }
-  if (e.retailLte !== undefined && (interp.retailParticipation === null || interp.retailParticipation > e.retailLte)) {
-    failures.push(`retailParticipation: 期望 ≤${e.retailLte} 实际 ${interp.retailParticipation}`);
-  }
-  if (e.retailGte !== undefined && (interp.retailParticipation === null || interp.retailParticipation < e.retailGte)) {
-    failures.push(`retailParticipation: 期望 ≥${e.retailGte} 实际 ${interp.retailParticipation}`);
   }
   return { failures };
 }

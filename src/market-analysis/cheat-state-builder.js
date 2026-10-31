@@ -80,13 +80,14 @@ function buildCheatState(snapshot) {
     lines.push(`总买入 ${fmtBnb(d.totalBuyBnb)} BNB / ${d.buyN} 笔；总卖出 ${fmtBnb(d.totalSellBnb)} BNB / ${d.sellN} 笔`);
     lines.push(`独立钱包数（已剔除聚合路由伪钱包）: ${d.walletCount}`);
     if (d.top1BuyPct !== null) {
-      lines.push(`买入 top1 钱包占比 ${d.top1BuyPct.toFixed(1)}%` + (d.top2BuyPct !== null ? ` / top2 合计 ${d.top2BuyPct.toFixed(1)}%` : '') + '（分母=总买入，剔除 router 伪钱包）');
+      lines.push(`买入 top1 钱包占比 ${d.top1BuyPct.toFixed(1)}%` + (d.top2BuyPct !== null ? ` / top2 合计 ${d.top2BuyPct.toFixed(1)}%` : '') + '（分母=总买入，剔除 router 伪钱包；仅作盘面健康参考，不作作弊判据）');
     } else {
       lines.push('买入 top1 钱包占比: 无可归因买入');
     }
-    if (d.routerPct !== null) {
-      lines.push(`经聚合路由的买入占比 ${d.routerPct.toFixed(1)}%（${d.routerBuyN} 笔，行内不标注哪几笔——走路由≠真人也≠bot，不作判别依据）`);
-    }
+    // D3.1 买侧簇结构占比锚（代码量化——Jev 眼估流量份额不分离，D3.0 实测）；
+    // routerPct 行已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
+    lines.push(`同块簇持仓占比: ${d.sameBlockHoldPct === null ? '无合格簇' : d.sameBlockHoldPct.toFixed(1) + '%'}（「≥3 笔买同块」全部簇的成员钱包去重并集；分子=成员正净持仓合计，分母=全场正净持仓合计）`);
+    lines.push(`近等额簇持仓占比: ${d.equalBandHoldPct === null ? '无合格簇' : d.equalBandHoldPct.toFixed(1) + '%'}（±2% 金额带、带内 ≥3 个不同钱包；精确等额自然落入同带；同口径占比）`);
     if (d.unresolvedSenderTickCount > 0) {
       lines.push(`⚠ sender 未解析行 ${d.unresolvedSenderTickCount}/${(snapshot.ticks || []).length}（证据洞：这些行无法归因到真实发起钱包，按 trader 回退可能并包——判断集中度/协同性时相应折扣，勿据此排除作弊也别据此坐实）`);
     }
@@ -144,12 +145,11 @@ function buildCheatState(snapshot) {
   // ── 判定指引 ──
   parts.push([
     '[判定指引]',
-    '- [PRECOMPUTED] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：谁在主导资金流、节奏是否协同、散户承接是否真实。',
-    '- cheat=协同/受控资金主导流动性（既成事实）；unhealthy=非协同但当下盘面失衡（时点状态，可转化）；healthy=自然结构。判定只针对截至 [ANCHOR] 的窗口。',
-    '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。同块聚集/等额或近等额带/同步卖回波等结构指纹由你自行从 [TICKS] 与 [WALLETS] 归纳计算（[PRECOMPUTED] 不预列簇）。',
-    '- 整体结构优先于局部指纹：判别四件套=卖回分散度（同步波 vs 各自择时）、二次承接（早期卖家离场后有无新买家接住）、新面孔持续（启动簇之后是否还有无关钱包入场）、买卖失衡（单向 vs 双向）。同块带/等额带/孪生对在健康票上也常见（组织化班底跨票播种），单独出现不下结论；聚合路由占比高同样不作判别依据（真人 bot 都走路由）。',
-    '- 强庄≠作弊：单一/少数钱包真实大额买入推升、未组织分仓同步砸盘=unhealthy 方向；多个疑似受控钱包接力制造热度（梯度买入/单向失衡/无新血承接）即使尚未砸盘也是 cheat 方向；协同买簇随后同块集中卖回波=cheat 最强证据。',
-    '- 混合盘按「谁主导」判：混有真散户不洗净协同盘；反过来协同痕迹微弱也不必捕风捉影。',
+    '- [PRECOMPUTED] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：谁在主导资金流、节奏是否协同。',
+    '- 只描述现象有无与程度，不下盘面性质结论（性质由代码侧综合）。',
+    '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。同块聚集/等额或近等额带等结构指纹由你自行从 [TICKS] 与 [WALLETS] 归纳（[PRECOMPUTED] 的簇占比锚已量化买侧结构，可作程度参照）。',
+    '- 同块带/等额带在健康票上也常见（组织化班底跨票播种、整数额买单自然聚带）——「占比多少」比「有没有」重要，程度题按占比与规整度判。',
+    '- 强庄≠作弊：单一/少数钱包真实大额买入推升、未组织分仓同步砸盘，与协同分仓性质不同；协同买簇随后同块集中卖回波=协同卖回的最强形态。',
   ].join('\n'));
 
   let state = parts.join('\n\n');
