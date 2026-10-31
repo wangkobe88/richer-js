@@ -27,7 +27,9 @@ for (let i = 2; i < process.argv.length; i += 2) {
   args[k.slice(2)] = process.argv[i + 1];
 }
 
-const cases = loadAndValidateFixtures(resolve(HERE, 'fixtures.json')).cases;
+const fxDoc = JSON.parse(readFileSync(resolve(HERE, 'fixtures.json'), 'utf8'));
+const { cases, errors: fxErrors } = loadAndValidateFixtures(fxDoc);
+if (fxErrors.length) { console.error('fixtures 校验失败:\n' + fxErrors.join('\n')); process.exit(2); }
 const byId = new Map(cases.map((c) => [c.caseId, c]));
 
 let file = args.archive;
