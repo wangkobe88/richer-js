@@ -43,6 +43,13 @@
  *
  * JevClient 缺答案 id 直接 throw（fail-loud）——现象题缺失/未知桶名同样 throw
  * （题集/映射漂移防线，调用方落 error 行）。
+ *
+ * D3.3（2026-10-31 用户裁定三连：指标计算删除后必须教算法/教学载体=题面/case
+ * 实况进 prompt）：题面强化不改综合规则——A1-A5/B1/兜底全部维持；新增观察题
+ * stall_burst_wave 经 EXT_PHENOMENON_IDS **容缺读取**（缺席→null 落审计不
+ * throw，≤D3.1 旧存档零配额重放兼容；在场未知桶名仍 throw）——**不进任何
+ * verdict 臂**（消费方式=strong 单臂/联判/纯观察，待对拍数据裁定，同 D3.2
+ * 锚家族先例）。
  */
 
 /** 现象题 id 清单（与题集对齐——漂移由未知桶名/缺题 throw 兜住） */
@@ -52,6 +59,13 @@ const PHENOMENON_IDS = [
   'creator_front_run',
   'sell_dispersion',
 ];
+
+/**
+ * 观察性现象题 id 清单（D3.3 起）：答案只落 ruleAudit.extLevels 审计，不进
+ * 任何 verdict 臂。容缺语义：旧存档（≤D3.1）answers 无该键 → null 不 throw
+ * （重放兼容）；在场答案走 _phenomenon（未知桶名照 throw，漂移防线不因容缺放宽）。
+ */
+const EXT_PHENOMENON_IDS = ['stall_burst_wave'];
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
@@ -107,6 +121,12 @@ function _anchorPct(anchors, key) {
 function mapCheatAnswers(answers, anchors = null) {
   const ph = {};
   for (const id of PHENOMENON_IDS) ph[id] = _phenomenon(answers, id);
+  // 观察性现象（容缺读取：缺席→null；在场经 _phenomenon 校验桶名）
+  const extPh = {};
+  for (const id of EXT_PHENOMENON_IDS) {
+    const a = answers && answers[id];
+    extPh[id] = a && a.probabilities ? _phenomenon(answers, id).bucket : null;
+  }
   const ge = (id, min) => ph[id].level >= LEVEL_ORDER[min];
   const sbHold = _anchorPct(anchors, 'sameBlockHoldPct');
   const eqHold = _anchorPct(anchors, 'equalBandHoldPct');
@@ -168,6 +188,7 @@ function mapCheatAnswers(answers, anchors = null) {
     ruleAudit: {
       hitArm: hitArm || (verdict === 'healthy' ? 'B1' : 'fallback_unhealthy'),
       levels: Object.fromEntries(PHENOMENON_IDS.map((id) => [id, ph[id].bucket])),
+      extLevels: extPh,
       anchors: { sameBlockHoldPct: sbHold, equalBandHoldPct: eqHold },
     },
   };
@@ -177,6 +198,7 @@ module.exports = {
   mapCheatAnswers,
   VERDICT_COLUMN_MAP,
   PHENOMENON_IDS,
+  EXT_PHENOMENON_IDS,
   LEVEL_ORDER,
   SB_HOLD_PCT_MIN,
   EQ_HOLD_PCT_MIN,

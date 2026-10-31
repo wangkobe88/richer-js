@@ -20,7 +20,7 @@ const {
   buildSnapshotFromRows, computeDerived, aggregateWallets, walletOf, isRouterWallet,
 } = require('../src/market-analysis/cheat-snapshot');
 const { buildCheatState, MAX_STATE_CHARS } = require('../src/market-analysis/cheat-state-builder');
-const { mapCheatAnswers, VERDICT_COLUMN_MAP, SB_HOLD_PCT_MIN, EQ_HOLD_PCT_MIN } = require('../src/market-analysis/cheat-result-mapper');
+const { mapCheatAnswers, VERDICT_COLUMN_MAP, SB_HOLD_PCT_MIN, EQ_HOLD_PCT_MIN, EXT_PHENOMENON_IDS } = require('../src/market-analysis/cheat-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
 let passed = 0;
@@ -321,6 +321,22 @@ try {
 } catch (_) { threw = true; }
 ok(threw, '未知档位桶名 → throw（题集/映射漂移防线）');
 
+// D3.3 观察题 stall_burst_wave：EXT 容缺读取（缺席→null 不 throw；在场落 extLevels 不进臂）
+const extMiss = mapCheatAnswers(mkAnswers());
+ok(extMiss.ruleAudit.extLevels && extMiss.ruleAudit.extLevels.stall_burst_wave === null,
+  'ext 题缺席（≤D3.1 旧存档形状）→ null 落审计不 throw（零配额重放兼容）');
+const extStrong = mapCheatAnswers({ ...mkAnswers(), stall_burst_wave: phAns('strong') });
+ok(extStrong.verdict === 'unhealthy' && extStrong.ruleAudit.hitArm === 'fallback_unhealthy'
+  && extStrong.ruleAudit.extLevels.stall_burst_wave === 'strong',
+  'ext=strong 落审计但不进任何 verdict 臂（观察性接入——消费方式待对拍裁定）');
+threw = false;
+try {
+  mapCheatAnswers({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { extreme: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'ext 题在场未知桶名 → throw（漂移防线不因容缺放宽）');
+ok(EXT_PHENOMENON_IDS.length === 1 && EXT_PHENOMENON_IDS[0] === 'stall_burst_wave',
+  'EXT_PHENOMENON_IDS 导出钉死（观察题清单单一真相源）');
+
 // ═══════════════ G. 活跃度锚（D3.2 综合三因子四档 + 不均衡 CV，用户裁定） ═══════════════
 console.log('G. 活跃度锚四档/三因子/不均衡 CV');
 {
@@ -515,6 +531,34 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt(rows, null) === 0 && anchorCountAt(rows, 'not-a-date') === 0, '锚时刻缺失/非法 → 0 fail-loud');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
+
+  // ═══════════════ I2. 题集结构（D3.3：怎么算算法+case 样本入题面） ═══════════════
+  console.log('I2. 题集结构 D3.3（ESM 题文件经动态 import）');
+  const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.3', `版本常量 D3.3（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  const qs = qm.buildCheatQuestions();
+  const qids = Object.keys(qs);
+  ok(qids.length === 5
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave']
+      .every((id) => qids.includes(id)),
+    '5 现象题=存续 4 题 + stall_burst_wave（D3.3 新增）');
+  ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
+    && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
+    '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
+  for (const [id, q] of Object.entries(qs)) {
+    ok(q.type === 'choice' && q.instructions.includes('怎么算') && q.instructions.includes('真实样本'),
+      `题 ${id}：choice + 怎么算算法段 + 真实 case 样本段（D3.3 教学载体=题面）`);
+    ok(qm.PHENOMENON_LEVELS.every((b) => typeof q.criteria[b] === 'string')
+      && Object.keys(q.criteria).length === qm.PHENOMENON_LEVELS.length,
+      `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
+    ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
+      `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
+  }
+  const sbw = qs.stall_burst_wave.instructions;
+  ok(sbw.includes('静默') && sbw.includes('波占比') && sbw.includes('排除项'),
+    'stall_burst_wave 算法三要素=静默段判读/波占比算式/排除项');
+  ok(sbw.includes('÷ 窗口全部买入额合计') && sbw.includes('≤1.5'),
+    'stall_burst_wave 显式算式=波占比分式 + 近额带宽参考值');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });
