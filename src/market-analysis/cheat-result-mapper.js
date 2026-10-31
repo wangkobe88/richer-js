@@ -39,13 +39,13 @@ const PHENOMENON_IDS = [
 /**
  * 观察性现象题 id 清单（D3.3 起）：答案只落 extLevels 审计，不进观测主键。
  * D3.7 起=后增题容缺通道（sbw D3.3 / amount_tiering D3.7 / same_block_buy_wave D3.8
- * / insider_supply_sell D3.9）。容缺语义：旧存档（< 各题引入版本）answers 无该键
- * → null 不 throw（重放兼容）；在场答案走 _phenomenon（未知桶名照 throw，漂移
- * 防线不因容缺放宽）。**sbw 例外**：D3.11 起现象二分桶域（none/burst），
- * 读档走 _stallBurst——D3.3-D3.8 四档值、D3.9 burst_suspect、D3.10 burst_cheat/
- * burst_normal 桶值语义不可比=断代 null。
+ * / insider_supply_sell D3.9 / slow_grind_pump D3.14）。容缺语义：旧存档
+ * （< 各题引入版本）answers 无该键 → null 不 throw（重放兼容）；在场答案走
+ * _phenomenon（未知桶名照 throw，漂移防线不因容缺放宽）。**sbw 例外**：D3.11 起
+ * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
+ * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell'];
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump'];
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };

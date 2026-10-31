@@ -321,8 +321,19 @@ try {
   buildObservation({ ...mkAnswers(), insider_supply_sell: { type: 'choice', probabilities: { low: 1 } } });
 } catch (_) { threw = true; }
 ok(threw, 'insider_supply_sell 在场但档域名 low → throw（现象四档域校验）');
-ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell']),
-  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.9 四键）');
+
+// 缓慢拉盘题（D3.14：EXT 容缺通道——CD44 慢速协同吸筹盲区：低密度小笔单向推进无回撤，现有十题看不见）
+ok(buildObservation(mkAnswers()).extLevels.slow_grind_pump === null,
+  'slow_grind_pump 缺席（≤D3.13 旧存档）→ null 不 throw（零配额重放兼容）');
+const f2f = buildObservation({ ...mkAnswers(), slow_grind_pump: phAns('strong') });
+ok(f2f.extLevels.slow_grind_pump === 'strong', 'slow_grind_pump=strong 照落 extLevels');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), slow_grind_pump: { type: 'choice', probabilities: { low: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'slow_grind_pump 在场但档域名 low → throw（现象四档域校验）');
+ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump']),
+  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.14 五键）');
 ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
   'STALL_BURST_LEVELS 导出钉死（D3.11：退回纯现象二分——只判有无停滞后涌入）');
 
@@ -584,10 +595,10 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.13：10 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider） ═══════════════
-  console.log('I2. 题集结构 D3.13（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
+  console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.13', `版本常量 D3.13（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.14', `版本常量 D3.14（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -596,10 +607,10 @@ console.log('I. 著名钱包单极控盘锚');
     'STALL_BURST_LEVELS 导出=停滞突发波现象二分桶域（D3.11 退回只判有无；mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 10
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell']
+  ok(qids.length === 11
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump']
       .every((id) => qids.includes(id)),
-    '10 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell（D3.9 新增老鼠仓题）');
+    '11 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump（D3.14 新增缓慢拉盘题）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -609,8 +620,8 @@ console.log('I. 著名钱包单极控盘锚');
     ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
       `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
   }
-  // 四档域题=存续 4 现象 + tiering/bw/insider（sbw D3.9 起三分类、act/bd 独立档域另行断言）
-  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell']) {
+  // 四档域题=存续 4 现象 + tiering/bw/insider/pump（sbw D3.9 起三分类、act/bd 独立档域另行断言）
+  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump']) {
     ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs[id].criteria[b] === 'string')
       && Object.keys(qs[id].criteria).length === qm.PHENOMENON_LEVELS.length,
       `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
@@ -623,10 +634,20 @@ console.log('I. 著名钱包单极控盘锚');
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
   const act = qs.activity_level.instructions;
   ok(act.includes('无交易期占比') && act.includes('笔密度') && act.includes('笔均交易额'),
-    'activity_level 算法三要素=无交易期占比/笔密度/笔均交易额');
+    'activity_level 算法要素=无交易期占比/笔密度/笔均交易额');
+  ok(act.includes('波动性/双向性') && act.includes('单向死水推进，即使交易持续不断也压低档位'),
+    'activity_level D3.14 第四要素=波动性/双向性（单向死水推进压低档——正常活跃必然带波动）');
+  ok(act.includes('笔比 ≥5:1 且额比 ≥3:1') && act.includes('参考 <5%'),
+    'activity_level D3.14 死水判据=买卖严重失衡（笔比 ≥5:1 且额比 ≥3:1）+ 回撤极浅（<5%）双臂');
+  ok(act.includes('或单向死水推进 → 低') && act.includes('买卖双向且价格有起伏 → 中'),
+    'activity_level D3.14 四要素综合定档=死水推进入低档臂、双向有起伏入中档臂');
+  ok(act.includes('低档正例·单向推进') && act.includes('36:3') && act.includes('最大回撤仅约 3%'),
+    'activity_level D3.14 低档正例补 CD44 形状（39 笔约 14 笔/分、买卖 36:3、30 余次新高回撤约 3%）');
+  ok(qs.activity_level.criteria.low.includes('或单向死水推进') && qs.activity_level.criteria.mid.includes('买卖双向、价格有起伏'),
+    'activity_level D3.14 criteria=low 加死水臂、mid 补双向有起伏（与题面定档臂对齐）');
   ok(act.includes('静默合计时长 ÷ 窗口总时长') && act.includes('÷ 窗口分钟数'),
     'activity_level 显式算式=静默占比分式 + 密度分式（教学单一载体=题面）');
-  ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高两正例');
+  ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高正例齐备');
   ok(act.includes('不下任何盘面结论'), 'activity_level 尾句=只述档位不下结论');
   const sbw = qs.stall_burst_wave.instructions;
   ok(sbw.includes('静默') && sbw.includes('排除项'),
@@ -719,6 +740,23 @@ console.log('I. 著名钱包单极控盘锚');
     'insider_supply_sell D3.10 定档优先级=三件齐独立成立即高档（窗口截断教学：窗内占比低是截断不是否定）');
   ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs.insider_supply_sell.criteria[b] === 'string'),
     'insider_supply_sell：criteria 键集=PHENOMENON_LEVELS 四档（现象强度轴）');
+  const pump = qs.slow_grind_pump.instructions;
+  ok(pump.includes('单调性') && pump.includes('最大回撤极浅') && pump.includes('参考 <5%'),
+    'slow_grind_pump 判据①=单调性（回撤 <5%、新高持续推进、无成串卖回波）');
+  ok(pump.includes('买卖失衡') && pump.includes('笔比 ≥5:1 且额比 ≥3:1') && pump.includes('零星获利卖穿插'),
+    'slow_grind_pump 判据②=买卖失衡双比阈值（正常上涨段也有零星获利卖穿插的反锚）');
+  ok(pump.includes('小笔连续推进') && pump.includes('非爆发式抢筹') && pump.includes('持续性'),
+    'slow_grind_pump 判据③④=小笔低密度节奏（非爆发式）+ 单向状态覆盖窗口主要时段');
+  ok(pump.includes('开盘首波爆发抢筹') && pump.includes('归「同块买入波」等题判读'),
+    'slow_grind_pump 排除项=开盘首波爆发抢筹（天然失衡归 bw 题口径，题间分界）');
+  ok(pump.includes('像样回撤') && pump.includes('成串获利卖回的盘不选本题'),
+    'slow_grind_pump 排除项=有像样回撤（≥10%）或成串获利卖回的盘不选（有波动不算缓慢拉盘）');
+  ok(pump.includes('39 笔跨约 3 分钟') && pump.includes('买 36 笔 1.47') && pump.includes('最大回撤仅约 3%'),
+    'slow_grind_pump 正例=CD44 锚窗形状（39 笔 14 笔/分、买卖 36:3 额比超 9:1、回撤约 3%）');
+  ok(pump.includes('砸出近四成回撤') && pump.includes('零交易死寂'),
+    'slow_grind_pump 正例含 CD44 后续走势（推至峰值后砸崩近四成再长时间死寂=拉高后派发）');
+  ok(pump.includes('约 80 笔/分钟') && pump.includes('16% 量级回撤') && pump.includes('有波动的活跃上涨盘'),
+    'slow_grind_pump 反例=CD46 形状（80 笔/分、回撤 16% 有起伏——买卖失衡但非本题形状）');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });
