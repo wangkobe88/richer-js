@@ -132,6 +132,7 @@ function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
       priceBnb: r.price_bnb ?? null,
       wallet: walletOf(r),
       block: r.block_number ?? null,
+      txHash: r.tx_hash ?? null, // D3.8 捆绑题原料：同一笔链上交易拆出的多行（state 渲染 tx= 前缀）
       viaRouter: isRouterTrader(r),
       outlier: r.price_outlier === true,
       senderMissing: !r.sender_address,

@@ -46,7 +46,7 @@ const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snap
 const { buildCheatState } = require_('../../src/market-analysis/cheat-state-builder.js');
 const { buildObservation } = require_('../../src/market-analysis/cheat-result-mapper.js');
 
-const TICK_COLS = 'block_time,block_number,log_index,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
+const TICK_COLS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
 function parseArgs(argv) {
   const args = { only: [], add: null, updateExpect: [], anchor: null, note: '', because: '', dry: false, observe: false, list: false };
@@ -139,7 +139,8 @@ function obsLine(interp) {
   const p = interp.phenomena;
   const ext = (id) => (interp.extLevels && interp.extLevels[id] !== undefined ? interp.extLevels[id] : null);
   const act = interp.activityLevel ? interp.activityLevel.bucket : null;
-  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} act=${act ?? '-'}`;
+  const bd = interp.bundledDominance ? interp.bundledDominance.bucket : null;
+  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} bw=${ext('same_block_buy_wave') ?? '-'} act=${act ?? '-'} bd=${bd ?? '-'}`;
 }
 
 /** 单 case 全链（锚截窗→快照→state→[Jev]→mapper 观测组装） */
@@ -260,7 +261,7 @@ async function cmdExperimentBaseline(args) {
   let hadError = false;
 
   console.log(['# ', 'symbol'.padEnd(12), 'plat'.padEnd(9), '锚'.padEnd(6), '买/卖'.padEnd(9), 'Σ买BNB'.padEnd(8), '钱包'.padEnd(6), 'top1%'.padEnd(7), 'churn'.padEnd(6), '同块'.padEnd(5), '等额'.padEnd(5), 'state'].join('')
-    + (args.dry ? '' : '  → 现象观测（D3.7：eq/sb/cr/sd/sbw/tier/act）'));
+    + (args.dry ? '' : '  → 现象观测（D3.8：eq/sb/cr/sd/sbw/tier/bw/bd/act）'));
 
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
@@ -326,6 +327,13 @@ async function cmdExperimentBaseline(args) {
     dist[k] = (dist[k] || 0) + 1;
   }
   console.log(`\n活跃度档分布：${Object.entries(dist).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+  const bdDist = {}; // D3.8 捆绑主导度档（判定层停产——档位即分布键）
+  for (const r of results) {
+    if (!r.interp) continue;
+    const k = r.interp.bundledDominance ? r.interp.bundledDominance.bucket : 'bd缺失';
+    bdDist[k] = (bdDist[k] || 0) + 1;
+  }
+  console.log(`捆绑主导度档分布：${Object.entries(bdDist).map(([k, v]) => `${k}=${v}`).join(' ') || '（无）'}`);
   console.log(`基线存档：${archPath}`);
 
   if (newCases.length && !args.dry) {

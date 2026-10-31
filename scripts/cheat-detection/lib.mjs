@@ -58,7 +58,8 @@ export function loadAndValidateFixtures(doc) {
 /**
  * 观测记录透传（D3.5：buildObservation 产物即存档口径——现象+档位+锚，无 verdict）。
  * @param {object|null} obs buildObservation 产物
- *   { phenomena, extLevels, activityLevel:{bucket,prob}|null, anchors }
+ *   { phenomena, extLevels, activityLevel:{bucket,prob}|null,
+ *     bundledDominance:{bucket,prob}|null, anchors }（D3.8 起含捆绑主导度档）
  */
 export function interpret(obs) {
   if (!obs) return null;
@@ -66,6 +67,7 @@ export function interpret(obs) {
     phenomena: obs.phenomena ?? null,
     extLevels: obs.extLevels ?? null,
     activityLevel: obs.activityLevel ?? null,
+    bundledDominance: obs.bundledDominance ?? null,
     anchors: obs.anchors ?? null,
   };
 }

@@ -8,9 +8,13 @@
  * D3.1-D3.4 的综合规则臂（A1-A5/B1/兜底）整体退役（git 留档），mapper 不再导出
  * verdict/cheatProb/patternType；输出=**观测记录**：
  * - phenomena：4 现象题档位（Jev Choice 四档 argmax）
- * - extLevels：观察性现象题（stall_burst_wave D3.3 / amount_tiering D3.7，容缺）
+ * - extLevels：观察性现象题（stall_burst_wave D3.3 / amount_tiering D3.7 /
+ *   same_block_buy_wave D3.8，容缺）
  * - activityLevel：**活跃度 Jev 题**（activity_level，独立档域 low/mid/high/ultra
  *   ——Jev 从 [TICKS] 直读自判，D3.2 代码档位锚撤除；容缺：旧存档缺席→null）
+ * - bundledDominance：**捆绑交易主导度 Jev 题**（bundled_trade_dominance，独立
+ *   档域 low/mid/high（D3.8 用户裁定「部分捆绑没事，持仓太大量就不好了，高中低
+ *   三档」）；容缺同上）
  * - anchors：代码数值锚——持仓占比两键（sb/eq；只述数值事实，非档位判定）
  * 结论（哪些现象组合成什么分类）待观测数据攒批后再定（D3.4 删兜底后 unhealthy
  * 本就无输出臂；A2 退役、证据臂设计随判定层悬置一并挂起）。
@@ -34,17 +38,20 @@ const PHENOMENON_IDS = [
 
 /**
  * 观察性现象题 id 清单（D3.3 起）：答案只落 extLevels 审计，不进观测主键。
- * D3.7 起=后增题容缺通道（sbw D3.3 / amount_tiering D3.7）。
+ * D3.7 起=后增题容缺通道（sbw D3.3 / amount_tiering D3.7 / same_block_buy_wave D3.8）。
  * 容缺语义：旧存档（< 各题引入版本）answers 无该键 → null 不 throw（重放兼容）；
  * 在场答案走 _phenomenon（未知桶名照 throw，漂移防线不因容缺放宽）。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering'];
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave'];
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
 
 /** 活跃度题独立档域（与题集 ACTIVITY_LEVELS 一致；桶域校验用） */
 const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
+
+/** 捆绑交易题独立档域（与题集 BUNDLED_LEVELS 一致；D3.8 用户裁定高中低三档） */
+const BUNDLED_LEVELS = ['low', 'mid', 'high'];
 
 /** 单现象题 → {bucket, prob, level}（argmax 桶；缺题/未知桶 throw） */
 function _phenomenon(answers, id) {
@@ -88,14 +95,33 @@ function _activityLevel(answers) {
 }
 
 /**
+ * 捆绑交易主导度题答案读取（D3.8：题 id bundled_trade_dominance，独立档域
+ * low/mid/high，非现象四档轴）。容缺：旧存档（<D3.8）无该键 → null（重放兼容）；
+ * 在场答案走 argmax + 桶域校验，未知桶名 throw（漂移防线不因容缺放宽）。
+ */
+function _bundledDominance(answers) {
+  const a = answers && answers.bundled_trade_dominance;
+  if (!a || !a.probabilities) return null;
+  let best = null;
+  for (const [bucket, p] of Object.entries(a.probabilities)) {
+    if (best === null || p > best.prob) best = { bucket, prob: p };
+  }
+  if (!BUNDLED_LEVELS.includes(best.bucket)) {
+    throw new Error(`捆绑题 bundled_trade_dominance 未知桶名 '${best.bucket}'（题集/映射漂移——BUNDLED_LEVELS 须同步）`);
+  }
+  return { bucket: best.bucket, prob: best.prob };
+}
+
+/**
  * Jev answers → 观测记录（现象+强度+档位+数值锚；无 verdict——判定层 D3.5 停产）
  * @param {Object} answers - JevClient.ask 返回的 answers（4 现象 Choice + 观察题
- *   + activity_level 活跃度题；活跃度/观察题缺席=旧存档重放兼容 null）
+ *   + activity_level 活跃度题 + bundled_trade_dominance 捆绑题；档域/观察题
+ *   缺席=旧存档重放兼容 null）
  * @param {Object|null} [anchors] - 代码数值锚
  *   {sameBlockHoldPct, equalBandHoldPct}（D3.1 持仓锚；缺省/形状异常=缺席）
  * @returns {{phenomena:Object, extLevels:Object, activityLevel:Object|null,
- *   anchors:Object}}
- * @throws {Error} 任一现象题缺失/形状异常/未知桶名；活跃度题在场但未知桶名
+ *   bundledDominance:Object|null, anchors:Object}}
+ * @throws {Error} 任一现象题缺失/形状异常/未知桶名；档域题在场但未知桶名
  *   （调用方落 error 行）
  */
 function buildObservation(answers, anchors = null) {
@@ -112,6 +138,8 @@ function buildObservation(answers, anchors = null) {
     extLevels: extPh,
     // 活跃度档位（Jev 直读自判；<D3.5 旧存档缺席=null）
     activityLevel: _activityLevel(answers),
+    // 捆绑交易主导度档位（Jev 直读自判；<D3.8 旧存档缺席=null）
+    bundledDominance: _bundledDominance(answers),
     // 代码数值锚（只述数值事实；异常形状缺席不冒充）
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
@@ -126,4 +154,5 @@ module.exports = {
   EXT_PHENOMENON_IDS,
   LEVEL_ORDER,
   ACTIVITY_LEVELS,
+  BUNDLED_LEVELS,
 };

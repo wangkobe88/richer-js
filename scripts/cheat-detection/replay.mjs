@@ -12,7 +12,8 @@
 //   expect.verdict 仍作「人工裁定类」标签供分组（分布的类维度，非对拍目标）。
 // 注意：存档行带 answersRaw 自 D3.0 起；旧版存档无此键的行报 skipped（不可重放）。
 //   **锚重放自 D3.1 起**（存档行带 anchors）；**activity_level 题自 D3.5 起**
-//   （旧存档缺席 → activityLevel=null 行，act 分布单列）。
+//   （旧存档缺席 → activityLevel=null 行，act 分布单列）；**amount_tiering 自
+//   D3.7 / same_block_buy_wave+bundled_trade_dominance 自 D3.8 起**（同容缺）。
 import { readFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -20,7 +21,7 @@ import { createRequire } from 'module';
 import { loadAndValidateFixtures } from './lib.mjs';
 
 const require = createRequire(import.meta.url);
-const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, LEVEL_ORDER, ACTIVITY_LEVELS } = require('../../src/market-analysis/cheat-result-mapper.js');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, LEVEL_ORDER, ACTIVITY_LEVELS, BUNDLED_LEVELS } = require('../../src/market-analysis/cheat-result-mapper.js');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = {};
@@ -94,6 +95,20 @@ console.log('\n== 活跃度档×人工裁定类分布（low/mid/high/ultra；<D3
   console.log(`  ${'activity_level'.padEnd(24)} ${cells.join('  |  ')}`);
 }
 
+// 捆绑交易主导度档×人工裁定类分布（D3.8 新题——<D3.8 存档缺席=null 单列）
+console.log('\n== 捆绑主导度档×人工裁定类分布（low/mid/high；<D3.8 存档缺席=null）==');
+{
+  const cells = classes.map((k) => {
+    const d = { low: 0, mid: 0, high: 0, null: 0 };
+    for (const r of rows) if (r.cls === k && r.obs) {
+      const v = r.obs.bundledDominance ? r.obs.bundledDominance.bucket : null;
+      d[v ?? 'null'] += 1;
+    }
+    return `${k}: ${BUNDLED_LEVELS.map((l) => d[l] || 0).join('/')}${d.null ? `/${d.null}null` : ''}`;
+  });
+  console.log(`  ${'bundled_dom'.padEnd(24)} ${cells.join('  |  ')}`);
+}
+
 // 持仓占比锚分布（按人工裁定类——数值锚与现象档位的对照原料）
 const med = (arr) => { const s = arr.filter((v) => v != null).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
 const q = (arr, p) => { const s = arr.filter((v) => v != null).sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : null; };
@@ -114,7 +129,7 @@ if (args.show) {
   const r = rows.find((x) => x.caseId === args.show);
   if (!r) { console.error(`\n--show ${args.show} 无重放行`); process.exit(2); }
   console.log(`\n== ${args.show} 观测明细 ==`);
-  console.log(`  人工裁定=${r.cls ?? '（未裁定）'}  activity=${r.obs?.activityLevel ? r.obs.activityLevel.bucket : 'null'}  sbHold=${r.obs?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.obs?.anchors?.equalBandHoldPct ?? '-'}`);
+  console.log(`  人工裁定=${r.cls ?? '（未裁定）'}  activity=${r.obs?.activityLevel ? r.obs.activityLevel.bucket : 'null'}  bundled=${r.obs?.bundledDominance ? r.obs.bundledDominance.bucket : 'null'}  sbHold=${r.obs?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.obs?.anchors?.equalBandHoldPct ?? '-'}`);
   if (r.obs) {
     for (const ph of PHENOMENON_IDS) console.log(`  ${ph.padEnd(24)} ${r.obs.phenomena[ph]}`);
     for (const ph of EXT_PHENOMENON_IDS) console.log(`  ${ph.padEnd(24)} ${r.obs.extLevels[ph]}`);

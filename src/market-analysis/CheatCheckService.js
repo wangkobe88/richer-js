@@ -62,7 +62,7 @@ const DEFAULTS = {
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）
 };
 
-const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
+const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
 class CheatCheckService {
   /**
@@ -254,8 +254,8 @@ class CheatCheckService {
       this.stats.analyzed++;
       const p = obs.phenomena;
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
-        ` sbw=${obs.extLevels.stall_burst_wave ?? '—'}` +
-        ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'}` +
+        ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
+        ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
@@ -455,8 +455,9 @@ class CheatCheckService {
         sellBnb: Number(sellBnb.toFixed(4)),
         // D3.5 观测记录主体（失败行 mapped={verdict,failReason} → 全 null）
         phenomena: mapped.phenomena ?? null,         // 4 现象题档位（观测主键）
-        extLevels: mapped.extLevels ?? null,         // 观察题档位（sbw 容缺 null）
+        extLevels: mapped.extLevels ?? null,         // 观察题档位（sbw D3.3/tiering D3.7/buy_wave D3.8 容缺 null）
         activityLevel: mapped.activityLevel ?? null, // Jev 活跃度题档位（<D3.5 旧档缺席 null）
+        bundledDominance: mapped.bundledDominance ?? null, // Jev 捆绑主导度档位（D3.8；<D3.8 旧档缺席 null）
         anchors: mapped.anchors ?? null,             // 持仓占比数值锚（重放对拍用）
         activity: { // D3.2 代码活跃度原始数值——Jev 档位（activityLevel）的校准对照原料
           ticksPerMin: derived.ticksPerMin ?? null,
