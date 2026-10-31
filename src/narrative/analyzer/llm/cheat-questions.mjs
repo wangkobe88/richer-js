@@ -16,6 +16,11 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D2.1（2026-10-31 用户三条裁定）：①[PRECOMPUTED] 撤同块簇/等额簇预列——结构指纹
+ *   由 Jev 自己从 [TICKS]/[WALLETS] 归纳（预列=把指纹喂到嘴边强化指纹偏置，
+ *   same_block_burst 33/55 误判根源）②tick 行 [GMGN] 标记去除（反噬——健康票
+ *   GMGN 占比反而更高）③补聚合路由机制陈述且明确「走路由≠真人」（bot 同样走
+ *   路由）——Q3 原「router 行=独立真人」表述废止。state-builder 同步修订。
  * D2.0（2026-10-30）：基线 51 票逐票人工 review（50/51 裁定：cheat 26/unhealthy
  *   12/healthy 16）反哺的判据重写——D1.1 全票判 cheat 零区分度，偏置根源=同块簇/
  *   等额带等局部指纹在正常票上常态在场（跨票常驻蜂群播种）。Q1 重构为三段判据：
@@ -31,7 +36,7 @@
  *   （unclear_insufficient→'unclear'）
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D2.0';
+export const CHEAT_QUESTIONS_VERSION = 'D2.1';
 
 /**
  * 构建作弊盘检测问题集
@@ -59,8 +64,10 @@ SECOND AXIS — genuine retail participation (this decides cheat-vs-the-rest mor
 - Real continuous retail does not clean a coordinated ramp (who DOMINATES still decides cheat), but it moves a strong-hand market away from cheat toward unhealthy, and a broad-based one to healthy.
 
 BACKGROUND NOISE — fingerprints are weights, not verdicts:
+- Compute the structural fingerprints YOURSELF from the raw [TICKS] and [WALLETS] sections — same-block groupings, exact- and near-equal amount bands, synchronized sell-back waves, wallet lifecycle pairings. [PRECOMPUTED] deliberately does NOT pre-list clusters; deriving them from the raw flow is part of your task.
 - Same-block bursts, exact-equal clusters, twin/triplet buys and sybil-looking wallet bands ALSO appear on healthy tokens (organized crews seed many launches with the same roster; their presence alone proves nothing about THIS market).
-- Near-equal amounts (e.g. 0.3301/0.3298/0.3302) evade the exact-equal detector — scan for near-equal bands, not just exact ones.
+- Near-equal amounts (e.g. 0.3301/0.3298/0.3302) evade exact-equality grouping — scan for near-equal bands, not just exact ones.
+- High aggregator-router share (see [PRECOMPUTED]) is evidence in NEITHER direction: genuine humans and automated bots both route through it — do not read it as organic, nor as fake.
 - Sell-only wallets with no buys (dev/airdrop quota dumping): in an otherwise low-activity market this alone is weak evidence; combined with an orchestrated buy-side it completes the cheat picture.
 - Low activity by itself (few ticks, slow pace, small volume, clean structure) is unhealthy (not participable), not cheat.
 
@@ -85,9 +92,9 @@ When genuinely ambiguous between cheat and unhealthy, prefer unhealthy (coordina
       instructions: `The DOMINANT coordination pattern in this market window (answer even if you judged healthy/unhealthy — the mapper only consumes it for cheat verdicts; pick none_apparent when no coordination pattern is visible).
 Judge by which pattern explains the largest share of the suspicious flow:
 - dev_self_trade: the token creator is itself the dominant early buyer/dumper (front-run own launch, buy at t≈0 then sell within seconds).
-- same_block_burst: the signature is many buys packed into the same blocks in a repeated rhythm (see [PRECOMPUTED] same-block clusters).
-- equal_amount_split: the signature is exact- or near-equal buy amounts spread across distinct wallets (see [PRECOMPUTED] equal-amount clusters; near-equal bands like 0.3301/0.3298 also count — they evade the exact detector; note quote-converted amounts are approximate on non-BNB quoted pools).
-- rapid_churn: the signature is seconds-scale buy→sell reversal churn — wallets whose entire lifecycle inside the window is buy-then-immediately-sell (see [PRECOMPUTED] churn stats and per-wallet lines).
+- same_block_burst: the signature is many buys packed into the same blocks in a repeated rhythm (find the groupings yourself in [TICKS] by block number).
+- equal_amount_split: the signature is exact- or near-equal buy amounts spread across distinct wallets (find equal and near-equal bands yourself across [TICKS]/[WALLETS]; note quote-converted amounts are approximate on non-BNB quoted pools).
+- rapid_churn: the signature is seconds-scale buy→sell reversal churn — wallets whose entire lifecycle inside the window is buy-then-immediately-sell (see the per-wallet lines in [WALLETS]).
 - wash_pump: the signature is fabricated volume/price pumping — self-dealing trades that lift the price with no real intent to hold, typically producing the price arc shown (pump then collapse at the anchor).
 - quota_ladder: no visible clusters needed — controlled wallets relay-buy in graded amounts manufacturing heat (one-directional buy/sell imbalance, stepped or monotonic climb, little genuine new blood), typically capped by quota-sized concentrated dumps (equal-ish large sells or one large terminal dump); sell-only quota dumpers with an orchestrated buy-side also fit here.
 - slow_coordinated_accumulation: the coordination is visible only in the aggregate — many dispersed wallets buying in relay with extreme buy/sell imbalance and a no-drawdown monotonic climb, NO same-block or equal-amount fingerprints at all, ending in a coordinated exit.
@@ -109,7 +116,7 @@ Judge by which pattern explains the largest share of the suspicious flow:
       type: 'score',
       instructions: `How much of this market window's flow is GENUINE RETAIL participation — independent wallets acting on their own interest, not the coordinated side and not exit-liquidity chasers? 0-10 分。
 What counts as genuine retail: NEW faces arriving after the launch burst at varied sizes and times; follow-on buying that absorbs early sellers' exits (second-wave absorption); selling distributed across many unrelated wallets at varied times. What does NOT count: members of a synchronized cluster/roster (they are the coordinated side, however many wallets it spreads across); sell-only quota dumpers; copy-chasers piling in only after the pump to be dumped on (genuine humans but weak retail — count them low).
-Unresolved-sender ticks noted in [PRECOMPUTED] are an evidence hole — discount accordingly rather than guessing generously. Router-tagged rows are independent real users (each signs their own transaction); count them as genuine, but weight continued follow-on participation higher than the initial burst.`,
+Unresolved-sender ticks noted in [PRECOMPUTED] are an evidence hole — discount accordingly rather than guessing generously. Aggregator-router usage (aggregate share in [PRECOMPUTED]; rows are not individually tagged) says NOTHING by itself about human vs bot — both use it; judge initiator independence from timing/amount correlation in the raw flow, never from route usage.`,
       criteria: [
         '0-1分：几乎没有真实散户——全部或近乎全部流量来自协同/受控一侧，启动簇之后无新面孔、无承接',
         '2-3分：真实散户痕迹很少——零星独立钱包夹杂在主导性协同流量中，启动簇之后偶有散单但无持续入场',

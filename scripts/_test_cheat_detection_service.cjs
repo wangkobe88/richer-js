@@ -107,7 +107,7 @@ function makeLlm({ answers = GOOD_ANSWERS, hang = false, reject = null } = {}) {
         },
       },
       buildCheatQuestions: () => ({ market_health_verdict: { type: 'choice' } }),
-      CHEAT_QUESTIONS_VERSION: 'D2.0',
+      CHEAT_QUESTIONS_VERSION: 'D2.1',
     },
     calls,
   };
@@ -150,7 +150,7 @@ async function main() {
       `行字段：verdict/cheat_prob/pattern/retail（实际 ${row.verdict}/${row.cheat_prob}/${row.pattern_type}/${row.retail_participation}）`);
     ok(row.jev_prompt.includes('[TICKS]') && row.jev_prompt.includes('截至第 20 笔')
       && !row.jev_prompt.includes('超拉数帽'), '首行落 jev_prompt 全文（锚声明在、未满帽无截断注记）');
-    ok(row.question_version === 'D2.0' && row.anchor_tick_count === 20 && row.source_experiment_id === 'exp-1',
+    ok(row.question_version === 'D2.1' && row.anchor_tick_count === 20 && row.source_experiment_id === 'exp-1',
       'question_version/anchor/source_experiment_id');
     ok(row.snapshot_digest.tickCount === 20 && row.snapshot_digest.capped === false
       && row.snapshot_digest.watermark && row.snapshot_digest.buyBnb > 0,
@@ -233,7 +233,7 @@ async function main() {
     const svc2 = makeSvc(makeDb({ ticks: rows }), makeLlm(), { pullLimit: 20, headLimit: 10 });
     const lastRow = rows[rows.length - 1];
     const wm = { block: lastRow.block_number, log: lastRow.log_index, key: `${lastRow.block_number}:${lastRow.log_index}` };
-    svc2._lastAnalysis.set('0xtok', { questionVersion: 'D2.0', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'cheat' });
+    svc2._lastAnalysis.set('0xtok', { questionVersion: 'D2.1', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'cheat' });
     svc2.noteBuyPoint('0xtok', META, {});
     await svc2.drain(3000);
     ok(svc2.stats.cacheReused === 1, '满帽水位不变=0 新 tick（不重析）');
@@ -241,7 +241,7 @@ async function main() {
     // 水位变化 → 按满值重析
     const rows2 = rows.concat(genTicks(2, { startBlock: 500 }));
     const svc3 = makeSvc(makeDb({ ticks: rows2 }), makeLlm(), { pullLimit: 20, headLimit: 10 });
-    svc3._lastAnalysis.set('0xtok', { questionVersion: 'D2.0', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'cheat' });
+    svc3._lastAnalysis.set('0xtok', { questionVersion: 'D2.1', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'cheat' });
     svc3.noteBuyPoint('0xtok', META, {});
     await svc3.drain(3000);
     ok(svc3._analysisCount.get('0xtok') === 1 && svc3._lastAnalysis.get('0xtok').verdict === 'cheat',

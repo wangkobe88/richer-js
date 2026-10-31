@@ -20,6 +20,8 @@ const TICK_SHOW_MAX = 300;
 const TICK_HEAD_KEEP = 200;
 const WALLET_SHOW_MAX = 40;
 
+const { isRouterWallet } = require('./cheat-snapshot');
+
 /** 金额展示：≥0.01 三位小数，更小四位（尘埃量级不失真） */
 function fmtBnb(x) {
   if (x === null || x === undefined) return '?';
@@ -65,6 +67,7 @@ function buildCheatState(snapshot) {
     if (snapshot.dtBase === 'first_tick') {
       lines.push('⚠ token 创建时间缺失：t+Ns 基准退化为首 tick 时刻（非创建时刻）');
     }
+    lines.push('聚合路由（GMGN）机制：大量下单方共用一个路由合约成交，真人 bot 都常走——走路由本身不区分真人/自动化；[TICKS] 行的 w= 为该笔实际发起地址。发起人无法解析的行显示 w=UNRESOLVED*（证据洞，不计入任何钱包）。');
     parts.push(`[TOKEN]\n${lines.join('\n')}`);
   }
 
@@ -82,28 +85,14 @@ function buildCheatState(snapshot) {
       lines.push('买入 top1 钱包占比: 无可归因买入');
     }
     if (d.routerPct !== null) {
-      lines.push(`聚合路由(GMGN)买入占比 ${d.routerPct.toFixed(1)}%（${d.routerBuyN} 笔经聚合路由——router 行真实发起人各异，不计入任何单一钱包）`);
+      lines.push(`经聚合路由的买入占比 ${d.routerPct.toFixed(1)}%（${d.routerBuyN} 笔，行内不标注哪几笔——走路由≠真人也≠bot，不作判别依据）`);
     }
     if (d.unresolvedSenderTickCount > 0) {
       lines.push(`⚠ sender 未解析行 ${d.unresolvedSenderTickCount}/${(snapshot.ticks || []).length}（证据洞：这些行无法归因到真实发起钱包，按 trader 回退可能并包——判断集中度/协同性时相应折扣，勿据此排除作弊也别据此坐实）`);
     }
     lines.push(`快进快出钱包（首买→首卖 <60s）: ${d.churn60sWalletCount} 个`);
-    if (d.sameBlockClusters && d.sameBlockClusters.length) {
-      lines.push('同块买入簇（同一区块 ≥3 笔买入）:');
-      for (const c of d.sameBlockClusters) {
-        lines.push(`  blk ${c.block}: ${c.n} 笔 / ${c.wallets} 钱包 / Σ${fmtBnb(c.sumBnb)} BNB，首笔 ${fmtDt(c.firstDt)}`);
-      }
-    } else {
-      lines.push('同块买入簇（≥3 笔/块）: 无');
-    }
-    if (d.equalClusters && d.equalClusters.length) {
-      lines.push('等额买入簇（金额四位舍入相同 ≥3 笔）:');
-      for (const c of d.equalClusters) {
-        lines.push(`  ${fmtBnb(c.amt)} BNB ×${c.n} 笔 / ${c.wallets} 钱包，首笔 ${fmtDt(c.firstDt)}`);
-      }
-    } else {
-      lines.push('等额买入簇（≥3 笔同额）: 无');
-    }
+    // 同块簇/等额簇刻意不渲染（2026-10-31 用户裁定：结构指纹由 Jev 从 [TICKS]/[WALLETS]
+    // 自行归纳——预列簇=把指纹喂到嘴边强化指纹偏置；derived 仍计算，供 runner 观测/存档）
     if (d.priceArc) {
       const drawdown = d.priceArc.ath > 0 ? ((d.priceArc.last / d.priceArc.ath - 1) * 100).toFixed(1) : '?';
       lines.push(`价格拱（仅可靠价行 price_outlier=false）: 首 ${fmtPrice(d.priceArc.first)} → ATH ${fmtPrice(d.priceArc.ath)}（${fmtDt(d.priceArc.athDt)}）→ 末 ${fmtPrice(d.priceArc.last)}（较 ATH ${drawdown}%）`);
@@ -123,12 +112,9 @@ function buildCheatState(snapshot) {
     const lines = [];
     if (truncated.ticks) lines.push(`（共 ${ticks.length} 笔，超展示帽：保留最早 ${TICK_HEAD_KEEP} 笔 + 最近 ${TICK_SHOW_MAX - TICK_HEAD_KEEP} 笔，中段省略——[PRECOMPUTED] 统计仍基于全窗口）`);
     for (const t of shown) {
-      let w;
-      if (t.viaRouter && t.wallet && String(t.wallet).toLowerCase() === '0x1de460f363af910f51726def188f9004276bf4bc') {
-        w = 'w=GMGN-ROUTER*'; // sender 未解析回退 router=伪钱包（* = 真实发起人未知）
-      } else {
-        w = `w=${shortWallet(t.wallet)}` + (t.viaRouter ? ' [GMGN]' : '');
-      }
+      // [GMGN] 行级标记已去除（2026-10-31 用户裁定：反噬——走路由≠真人）；sender 未解析
+      // 回退到路由合约的行显示 UNRESOLVED*（伪钱包，不计入任何钱包）
+      const w = t.senderMissing && isRouterWallet(t.wallet) ? 'w=UNRESOLVED*' : `w=${shortWallet(t.wallet)}`;
       const flags = [
         t.outlier ? '[OUTLIER]' : '',
         t.wallet && meta.creatorAddress && String(t.wallet).toLowerCase() === String(meta.creatorAddress).toLowerCase() ? '[CREATOR]' : '',
@@ -160,8 +146,8 @@ function buildCheatState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：谁在主导资金流、节奏是否协同、散户承接是否真实。',
     '- cheat=协同/受控资金主导流动性（既成事实）；unhealthy=非协同但当下盘面失衡（时点状态，可转化）；healthy=自然结构。判定只针对截至 [ANCHOR] 的窗口。',
-    '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。',
-    '- 整体结构优先于局部指纹：判别四件套=卖回分散度（同步波 vs 各自择时）、二次承接（早期卖家离场后有无新买家接住）、新面孔持续（启动簇之后是否还有无关钱包入场）、买卖失衡（单向 vs 双向）。同块带/等额带/孪生对在健康票上也常见（组织化班底跨票播种），单独出现不下结论。',
+    '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。同块聚集/等额或近等额带/同步卖回波等结构指纹由你自行从 [TICKS] 与 [WALLETS] 归纳计算（[PRECOMPUTED] 不预列簇）。',
+    '- 整体结构优先于局部指纹：判别四件套=卖回分散度（同步波 vs 各自择时）、二次承接（早期卖家离场后有无新买家接住）、新面孔持续（启动簇之后是否还有无关钱包入场）、买卖失衡（单向 vs 双向）。同块带/等额带/孪生对在健康票上也常见（组织化班底跨票播种），单独出现不下结论；聚合路由占比高同样不作判别依据（真人 bot 都走路由）。',
     '- 强庄≠作弊：单一/少数钱包真实大额买入推升、未组织分仓同步砸盘=unhealthy 方向；多个疑似受控钱包接力制造热度（梯度买入/单向失衡/无新血承接）即使尚未砸盘也是 cheat 方向；协同买簇随后同块集中卖回波=cheat 最强证据。',
     '- 混合盘按「谁主导」判：混有真散户不洗净协同盘；反过来协同痕迹微弱也不必捕风捉影。',
   ].join('\n'));
