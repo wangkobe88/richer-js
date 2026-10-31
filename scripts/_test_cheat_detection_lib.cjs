@@ -686,6 +686,8 @@ console.log('I. 著名钱包单极控盘锚');
     'insider_supply_sell D3.10 组合升档=createTx 同笔+首买占比 ≥25%+创建者随后分批卖出=高档（CD13 裁定 strong）');
   ok(rat.includes('倾倒占比可低于 30%'),
     'insider_supply_sell 组合升档=派发路径本身已主导盘面（配额钱包占比门可不过线）');
+  ok(rat.includes('定档优先级') && rat.includes('锚点截断') && rat.includes('不与②的占比互相打折'),
+    'insider_supply_sell D3.10 定档优先级=三件齐独立成立即高档（窗口截断教学：窗内占比低是截断不是否定）');
   ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs.insider_supply_sell.criteria[b] === 'string'),
     'insider_supply_sell：criteria 键集=PHENOMENON_LEVELS 四档（现象强度轴）');
 
