@@ -1,17 +1,18 @@
 #!/usr/bin/env node
-// 规则零配额重放：对已跑存档的 answersRaw 重跑当前 mapper 综合规则（不调 Jev）
+// 观测记录零配额重放：对已跑存档的 answersRaw 重跑当前 mapper 观测组装（不调 Jev）
 //
 // D3.0 架构的核心闭环——Jev 现象标注一次落存档（answersRaw），此后改
-// cheat-result-mapper.js 的综合规则/阈值，跑本工具即验证效果，零 Jev 配额：
+// cheat-result-mapper.js 观测组装/题面档位映射，跑本工具即验证效果，零 Jev 配额：
 //   node scripts/cheat-detection/replay.mjs                     # 最新存档
 //   node scripts/cheat-detection/replay.mjs --archive <file>    # 指定存档
-//   node scripts/cheat-detection/replay.mjs --show CD31         # 单票现象档位明细
+//   node scripts/cheat-detection/replay.mjs --show CD31         # 单票观测明细
 //
-// 输出：按类 verdict 命中率 + 现象档位×类分布 + 持仓占比锚分布 + 命中臂分布 + 错票点名。
-// 注意：存档行带 answersRaw 自 D3.0 起（run.mjs --baseline 路径同）；旧版存档无此键
-// 的行报 skipped（不可重放，只能重烧 Jev）。**锚重放自 D3.1 起**：run/baseline 主循环
-// 存档行带 anchors（{sameBlockHoldPct, equalBandHoldPct}）——D3.0 存档无锚=A5 锚臂
-// 静默不评（重放归因须知道此降解）；现象档位题在 D3.0 存档中包含 D3.1 四题=可直接重放。
+// D3.5 判定层停产后本工具输出=**观测数据分析**（无 verdict 对拍）：
+//   现象档位×人工裁定类分布 + Jev 活跃度档×类分布 + 持仓占比锚分布 + --show 明细。
+//   expect.verdict 仍作「人工裁定类」标签供分组（分布的类维度，非对拍目标）。
+// 注意：存档行带 answersRaw 自 D3.0 起；旧版存档无此键的行报 skipped（不可重放）。
+//   **锚重放自 D3.1 起**（存档行带 anchors）；**activity_level 题自 D3.5 起**
+//   （旧存档缺席 → activityLevel=null 行，act 分布单列）。
 import { readFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -19,7 +20,7 @@ import { createRequire } from 'module';
 import { loadAndValidateFixtures } from './lib.mjs';
 
 const require = createRequire(import.meta.url);
-const { mapCheatAnswers, PHENOMENON_IDS, LEVEL_ORDER } = require('../../src/market-analysis/cheat-result-mapper.js');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, LEVEL_ORDER, ACTIVITY_LEVELS } = require('../../src/market-analysis/cheat-result-mapper.js');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = {};
@@ -42,8 +43,8 @@ if (!file) {
 }
 const archive = JSON.parse(readFileSync(resolve(HERE, 'data', file), 'utf8'));
 console.log(`存档: ${file}  questionVersion=${archive.questionVersion}  跑时=${archive.ranAt}`);
+console.log('（D3.5 判定层停产——重放=观测数据分析，无 verdict 对拍；expect.verdict=人工裁定类标签）');
 
-// verdict 对拍忽略 observe 票的 cheatProb/pattern 断言，仅比 verdict（expect.verdict 缺失=跳过）
 const LVL = Object.keys(LEVEL_ORDER);
 const rows = [];
 let noAnswers = 0;
@@ -51,78 +52,71 @@ for (const r of archive.results) {
   const c = byId.get(r.caseId);
   if (!c || r.error || r.minTicksSkipped || r.dry) continue;
   if (!r.answersRaw) { noAnswers += 1; continue; }
-  let mapped;
+  let obs;
   try {
-    mapped = mapCheatAnswers(r.answersRaw, r.anchors ?? null);
+    obs = buildObservation(r.answersRaw, r.anchors ?? null);
   } catch (e) {
-    rows.push({ caseId: r.caseId, expect: c.expect?.verdict, got: `MAP_ERROR:${e.message}`, ruleAudit: null });
+    rows.push({ caseId: r.caseId, cls: c.expect?.verdict, obsError: e.message, obs: null });
     continue;
   }
-  const want = c.expect?.verdict;
-  rows.push({
-    caseId: r.caseId,
-    expect: want,
-    got: mapped.verdict,
-    pass: !want || mapped.verdict === want,
-    ruleAudit: mapped.ruleAudit,
-  });
+  rows.push({ caseId: r.caseId, cls: c.expect?.verdict, obs });
 }
 if (noAnswers) console.log(`⚠ ${noAnswers} 行无 answersRaw（旧版存档）——已跳过`);
 
 const classes = ['cheat', 'unhealthy', 'healthy'];
-const ok = {}, tot = {};
-for (const r of rows) {
-  if (!r.expect) continue;
-  tot[r.expect] = (tot[r.expect] || 0) + 1;
-  if (r.pass) ok[r.expect] = (ok[r.expect] || 0) + 1;
-}
-const all = Object.values(tot).reduce((a, b) => a + b, 0);
-const allOk = Object.values(ok).reduce((a, b) => a + b, 0);
-console.log(`\n== verdict 对拍: ${allOk}/${all} ==`);
-for (const k of classes) {
-  if (tot[k] !== undefined) console.log(`  ${k.padEnd(10)} ${ok[k] || 0}/${tot[k]}`);
-}
 
-// 现象档位×类分布（重放归因主表——哪个现象在哪类票上被标到什么档位）
-console.log('\n== 现象档位×类分布（none/weak/moderate/strong）==');
-for (const ph of PHENOMENON_IDS) {
+// 现象档位×人工裁定类分布（重放归因主表——哪个现象在哪类票上被标到什么档位）
+console.log('\n== 现象档位×人工裁定类分布（none/weak/moderate/strong）==');
+for (const ph of [...PHENOMENON_IDS, ...EXT_PHENOMENON_IDS]) {
   const cells = classes.map((k) => {
-    const d = { none: 0, weak: 0, moderate: 0, strong: 0 };
-    for (const r of rows) if (r.expect === k && r.ruleAudit) {
-      const v = r.ruleAudit.levels[ph];
-      if (v !== undefined) d[v] += 1;
+    const d = { none: 0, weak: 0, moderate: 0, strong: 0, null: 0 };
+    for (const r of rows) if (r.cls === k && r.obs) {
+      const v = EXT_PHENOMENON_IDS.includes(ph) ? r.obs.extLevels[ph] : r.obs.phenomena[ph];
+      if (v === null || v === undefined) d.null += 1;
+      else d[v] += 1;
     }
-    return `${k}: ${LVL.map((l) => d[l] || 0).join('/')}`;
+    return `${k}: ${LVL.map((l) => d[l] || 0).join('/')}${d.null ? `/${d.null}null` : ''}`;
   });
   console.log(`  ${ph.padEnd(24)} ${cells.join('  |  ')}`);
 }
 
-// 持仓占比锚分布（按类，A5 臂校准主表）+ 命中臂分布（按类）+ 错票点名
+// Jev 活跃度档×人工裁定类分布（D3.5 新题——<D3.5 存档缺席=null 单列）
+console.log('\n== 活跃度档×人工裁定类分布（low/mid/high/ultra；<D3.5 存档缺席=null）==');
+{
+  const cells = classes.map((k) => {
+    const d = { low: 0, mid: 0, high: 0, ultra: 0, null: 0 };
+    for (const r of rows) if (r.cls === k && r.obs) {
+      const v = r.obs.activityLevel ? r.obs.activityLevel.bucket : null;
+      d[v ?? 'null'] += 1;
+    }
+    return `${k}: ${ACTIVITY_LEVELS.map((l) => d[l] || 0).join('/')}${d.null ? `/${d.null}null` : ''}`;
+  });
+  console.log(`  ${'activity_level'.padEnd(24)} ${cells.join('  |  ')}`);
+}
+
+// 持仓占比锚分布（按人工裁定类——数值锚与现象档位的对照原料）
 const med = (arr) => { const s = arr.filter((v) => v != null).sort((x, y) => x - y); return s.length ? s[Math.floor(s.length / 2)] : null; };
 const q = (arr, p) => { const s = arr.filter((v) => v != null).sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.floor(s.length * p))] : null; };
 console.log('\n== 持仓占比锚分布（med / q25 / q75 / null 数；D3.0 存档无锚行全 null）==');
 for (const key of ['sameBlockHoldPct', 'equalBandHoldPct']) {
   for (const k of classes) {
-    const arr = rows.filter((r) => r.expect === k).map((r) => r.ruleAudit?.anchors?.[key] ?? null);
+    const arr = rows.filter((r) => r.cls === k).map((r) => r.obs?.anchors?.[key] ?? null);
     if (arr.some((v) => v != null) || arr.length) console.log(`  ${key.slice(0, 2)} ${k.padEnd(10)} med=${med(arr)}  q25=${q(arr, 0.25)}  q75=${q(arr, 0.75)}  null=${arr.filter((v) => v == null).length}`);
   }
 }
-console.log('\n== 命中臂分布（ruleAudit.hitArm × 类）==');
-const armDist = {};
-for (const r of rows) {
-  if (!r.expect || !r.ruleAudit) continue;
-  armDist[`${r.expect}→${r.ruleAudit.hitArm}`] = (armDist[`${r.expect}→${r.ruleAudit.hitArm}`] || 0) + 1;
-}
-for (const [k, v] of Object.entries(armDist).sort()) console.log(`  ${k.padEnd(30)} ${v}`);
-console.log('\n== 错票（id 期望 实际 命中臂 sbHold/eqHold）==');
-for (const r of rows) {
-  if (r.expect && !r.pass) console.log(`  ${r.caseId.padEnd(5)} ${r.expect.padEnd(10)} ${String(r.got).padEnd(10)} ${r.ruleAudit?.hitArm ?? '-'}  sb=${r.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eq=${r.ruleAudit?.anchors?.equalBandHoldPct ?? '-'}`);
+
+if (rows.some((r) => r.obsError)) {
+  console.log('\n== 组装异常（fail-loud 留痕，不静默）==');
+  for (const r of rows) if (r.obsError) console.log(`  ${r.caseId.padEnd(5)} ${r.obsError}`);
 }
 
 if (args.show) {
   const r = rows.find((x) => x.caseId === args.show);
   if (!r) { console.error(`\n--show ${args.show} 无重放行`); process.exit(2); }
-  console.log(`\n== ${args.show} 明细 ==`);
-  console.log(`  expect=${r.expect} got=${r.got} hitArm=${r.ruleAudit?.hitArm} sbHold=${r.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.ruleAudit?.anchors?.equalBandHoldPct ?? '-'}`);
-  if (r.ruleAudit) for (const ph of PHENOMENON_IDS) console.log(`  ${ph.padEnd(24)} ${r.ruleAudit.levels[ph]}`);
+  console.log(`\n== ${args.show} 观测明细 ==`);
+  console.log(`  人工裁定=${r.cls ?? '（未裁定）'}  activity=${r.obs?.activityLevel ? r.obs.activityLevel.bucket : 'null'}  sbHold=${r.obs?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.obs?.anchors?.equalBandHoldPct ?? '-'}`);
+  if (r.obs) {
+    for (const ph of PHENOMENON_IDS) console.log(`  ${ph.padEnd(24)} ${r.obs.phenomena[ph]}`);
+    for (const ph of EXT_PHENOMENON_IDS) console.log(`  ${ph.padEnd(24)} ${r.obs.extLevels[ph]}`);
+  }
 }

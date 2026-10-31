@@ -5,6 +5,11 @@
  * 与叙事回归集（scripts/narrative/case-regression/lib.mjs）的最大差异=**anchor 必填**：
  * 作弊判定是 as-of 时点性的，重析必须按锚截窗（链上真序前 N 笔），全史重析=马后炮
  * 污染对拍（事后知道它是 rug 再看全程当然像作弊——但当时买点看到的只是前 N 笔）。
+ *
+ * D3.5（2026-10-31）判定层停产：interpret 透传观测记录（现象+档位，无 verdict）；
+ * assertExpectation 对拍停产（failures 恒空——仅异常路径仍 FAIL：mapper throw=链路坏）；
+ * expect.verdict=**人工裁定记录**保留展示不比对（VERDICTS 域不变=历史 fixtures 兼容）；
+ * verdict/cheatProb 机器刷新随判定层停产退役（updateExpect 仅留痕，不覆盖人工裁定）。
  */
 
 export const VERDICTS = new Set(['cheat', 'unhealthy', 'healthy', 'unclear']);
@@ -51,43 +56,34 @@ export function loadAndValidateFixtures(doc) {
 }
 
 /**
- * 判读 mapper 输出 → 统一口径（runner 断言与 --add 基线快照共用）。
- * @param {object|null} mapped mapCheatAnswers 产物 { verdict, cheatProb, patternType, ruleAudit }
+ * 观测记录透传（D3.5：buildObservation 产物即存档口径——现象+档位+锚，无 verdict）。
+ * @param {object|null} obs buildObservation 产物
+ *   { phenomena, extLevels, activityLevel:{bucket,prob}|null, anchors }
  */
-export function interpret(mapped) {
-  if (!mapped) return { verdict: null, cheatProb: null, patternType: null, ruleAudit: null };
+export function interpret(obs) {
+  if (!obs) return null;
   return {
-    verdict: mapped.verdict ?? null,
-    cheatProb: typeof mapped.cheatProb === 'number' ? mapped.cheatProb : null,
-    patternType: mapped.patternType ?? null,
-    // D3.0：规则审计（命中臂+现象档位快照）透传进存档 interp——规则调参归因可见
-    // D3.1：ruleAudit.anchors 含持仓占比锚（A5 臂输入，重放对拍用）
-    ruleAudit: mapped.ruleAudit ?? null,
+    phenomena: obs.phenomena ?? null,
+    extLevels: obs.extLevels ?? null,
+    activityLevel: obs.activityLevel ?? null,
+    anchors: obs.anchors ?? null,
   };
 }
 
 /**
- * 断言 expect DSL。@returns {{failures: string[]}} 空=全过
+ * 断言 expect DSL（D3.5 对拍停产：verdict/cheatProb/pattern 无机器产出可比——
+ * expect.verdict=人工裁定记录，展示不比对）。恒空 failures；异常路径（mapper
+ * throw）在 runner 侧已 FAIL，本函数仅保留签名兼容。
+ * @returns {{failures: string[]}}
  */
-export function assertExpectation(interp, expect) {
-  const failures = [];
-  if (!interp || interp.verdict === null) return { failures: ['判读输入缺失（分析失败/无 verdict）'] };
-  const e = expect ?? {};
-  if (e.verdict !== undefined && interp.verdict !== e.verdict) {
-    failures.push(`verdict: 期望 ${e.verdict} 实际 ${interp.verdict}`);
-  }
-  if (e.cheatProbGte !== undefined && (interp.cheatProb === null || interp.cheatProb < e.cheatProbGte)) {
-    failures.push(`cheatProb: 期望 ≥${e.cheatProbGte} 实际 ${interp.cheatProb}`);
-  }
-  if (Array.isArray(e.patternsIncludes) && !e.patternsIncludes.includes(interp.patternType)) {
-    failures.push(`patternType: 期望 ∈[${e.patternsIncludes.join('|')}] 实际 ${interp.patternType}`);
-  }
-  return { failures };
+export function assertExpectation() {
+  return { failures: [] };
 }
 
 /**
  * --add 生成新 case（机器只记录现状，断言意图必须人来定——C111 纪律同款）。
  * anchor=收录时刻全量 tick 数（as-of=收录时点；超 pullLimit 由 runner capped 标记）。
+ * D3.5：expect.verdict 恒 'unclear'=待人工裁定（判定层停产无机器判读）。
  */
 export function buildCase({ caseId, symbol, addr, platform, anchorTickCount, capped, interp, note, observe, today }) {
   return {
@@ -96,7 +92,7 @@ export function buildCase({ caseId, symbol, addr, platform, anchorTickCount, cap
     addr: String(addr).toLowerCase(),
     platform: platform ?? null,
     anchor: { tickCount: anchorTickCount, ...(capped ? { capped: true } : {}) },
-    expect: { verdict: interp.verdict ?? 'unclear' },
+    expect: { verdict: (interp && interp.verdict) || 'unclear' },
     note: note ?? '',
     addedAt: today,
     expectSince: today,
@@ -105,11 +101,15 @@ export function buildCase({ caseId, symbol, addr, platform, anchorTickCount, cap
   };
 }
 
-/** --update-expect：verdict/cheatProb 从现行刷新，细节键保留，留痕因由 */
+/**
+ * --update-expect（D3.5：机器刷新退役——判定层停产无 verdict 可写；本指令仅推进
+ * expectSince/Because 留痕，人工改写的 expect.verdict 原样保留。旧存档重放形状
+ * （interp 带 verdict）照旧刷新，防误用旧档自动覆盖）。
+ */
 export function updateExpect(oldCase, interp, because, today) {
   const expect = {
     ...oldCase.expect,
-    verdict: interp.verdict ?? oldCase.expect.verdict,
+    ...(interp && interp.verdict ? { verdict: interp.verdict } : {}),
   };
   return {
     ...oldCase,

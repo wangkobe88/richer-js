@@ -88,15 +88,9 @@ function buildCheatState(snapshot) {
     // routerPct 行已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
     lines.push(`同块簇持仓占比: ${d.sameBlockHoldPct === null ? '无合格簇' : d.sameBlockHoldPct.toFixed(1) + '%'}（「≥3 笔买同块」全部簇的成员钱包去重并集；分子=成员正净持仓合计，分母=全场正净持仓合计）`);
     lines.push(`近等额簇持仓占比: ${d.equalBandHoldPct === null ? '无合格簇' : d.equalBandHoldPct.toFixed(1) + '%'}（±2% 金额带、带内 ≥3 个不同钱包；精确等额自然落入同带；同口径占比）`);
-    // D3.2 活跃度锚（用户裁定：活跃度由代码量化——密度/笔均交易额/最长空窗三因子综合四档，
-    // 另标不均衡（高低起伏）；Jev 判读活跃度难，眼估饱和）
-    const LVL_ZH = { low: '低', mid: '中', high: '高', ultra: '超高' };
-    if (d.activityLevel !== null && d.activityLevel !== undefined) {
-      const unevenTxt = d.activityCv === null || d.activityCv === undefined ? '' : `；不均衡度 ${d.activityCv.toFixed(2)}${d.activityUneven ? '（高低起伏很大：存在密集爆发段与长断流段交替）' : ''}`;
-      lines.push(`活跃度: ${LVL_ZH[d.activityLevel]}（密度 ${d.ticksPerMin} 笔/分钟 · 笔均 ${fmtBnb(d.avgTradeBnb)} BNB · 最长空窗 ${d.maxGapSec}s${unevenTxt}；仅作盘面事实陈述）`);
-    } else {
-      lines.push('活跃度: 不可评（时间戳缺失）');
-    }
+    // D3.2 代码活跃度档位行已撤（D3.5 用户裁定「我的意思也是用Jev判断活跃度」「使用
+    // Jev 进行判断」）：档位判定交题面 activity_level（Jev 从 [TICKS] 直读自判，教学
+    // 单一载体=题面，sbw 第四轮同款）；snapshot.derived 活跃度字段仍计算，供存档/回归对照
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
     // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）
@@ -164,7 +158,7 @@ function buildCheatState(snapshot) {
   parts.push([
     '[判定指引]',
     '- [PRECOMPUTED] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：谁在主导资金流、节奏是否协同。',
-    '- 只描述现象有无与程度，不下盘面性质结论（性质由代码侧综合）。',
+    '- 只描述现象有无与程度（题面教怎么算的指标自己从 [TICKS]/[WALLETS] 算），不下盘面性质结论。',
     '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。同块聚集/等额或近等额带等结构指纹由你自行从 [TICKS] 与 [WALLETS] 归纳（[PRECOMPUTED] 的簇占比锚已量化买侧结构，可作程度参照）。',
     '- 同块带/等额带在健康票上也常见（组织化班底跨票播种、整数额买单自然聚带）——「占比多少」比「有没有」重要，程度题按占比与规整度判。',
     '- 强庄≠作弊：单一/少数钱包真实大额买入推升、未组织分仓同步砸盘，与协同分仓性质不同；协同买簇随后同块集中卖回波=协同卖回的最强形态。',

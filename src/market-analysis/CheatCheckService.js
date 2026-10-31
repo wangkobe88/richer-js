@@ -6,6 +6,11 @@
  * 三分类语义（用户裁定原话）：「作弊盘 / 不健康盘 / 健康盘。其中不健康盘跟健康盘
  * 可以相互转化，买点不同，性质可能会有差异。」——cheat=协同资金主导的既成事实
  * （不可逆）；unhealthy/healthy=时点状态（可转化）→ **每个买点独立 as-of 判定**。
+ * **D3.5（2026-10-31）判定层停产**：用户裁定「先不下结论，不把它们分类为 作弊/
+ * 不健康 等等，只识别现象，以及现象的强度」——本服务只落观测行（verdict 列=
+ * 'observed'；error/timeout 失败行照旧），分类结论待观测数据攒批后再定。
+ * ⚠ DDL 红线：cheat_detection 的 verdict CHECK 域须先加 'observed' 再启用写行
+ * （表当前 0 行无迁移负担；ALTER 语句见台账 D3.5 行）。
  *
  * 与叙事 token 级终身缓存的本质差异（时点性 drove 全部缓存设计）：
  * - 重析条件 = `(新tick>0 ∧ 距上次≥minIntervalMs) OR 新tick≥reanalyzeTickDelta`
@@ -43,7 +48,7 @@
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
-const { mapCheatAnswers } = require('./cheat-result-mapper');
+const { buildObservation } = require('./cheat-result-mapper');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -225,10 +230,11 @@ class CheatCheckService {
         return;
       }
 
-      // 11) mapper + 落库（D3.1：持仓占比锚随 snapshot.derived 传入——A5 数值门输入）
-      let mapped;
+      // 11) mapper 观测组装 + 落库（D3.5：现象+档位观测记录无 verdict；D3.1 持仓
+      //     占比锚随 snapshot.derived 传入——数值事实，重放对拍用）
+      let obs;
       try {
-        mapped = mapCheatAnswers(res.result.answers, {
+        obs = buildObservation(res.result.answers, {
           sameBlockHoldPct: snapshot.derived.sameBlockHoldPct,
           equalBandHoldPct: snapshot.derived.equalBandHoldPct,
         });
@@ -239,17 +245,18 @@ class CheatCheckService {
         this._analysisCount.set(token, done + 1);
         return;
       }
-      await this._writeRow(token, meta, pull, mapped, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
+      await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
       this._analysisCount.set(token, done + 1);
       this._lastAnalysis.set(token, {
         questionVersion: this._version, anchorTickCount: pull.anchorTickCount,
-        capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(), verdict: mapped.verdict,
+        capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(), verdict: 'observed',
       });
       this.stats.analyzed++;
-      this._log('info', `盘面判定 ${mapped.verdict}` +
-        (mapped.cheatProb !== null ? ` (cheat P=${mapped.cheatProb.toFixed(2)})` : '') +
-        (mapped.patternType ? ` pattern=${mapped.patternType}` : '') +
-        ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}% act=${snapshot.derived.activityLevel ?? '—'}${snapshot.derived.activityUneven ? '~起伏' : ''}` +
+      const p = obs.phenomena;
+      this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
+        ` sbw=${obs.extLevels.stall_burst_wave ?? '—'}` +
+        ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'}` +
+        ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
     } catch (e) {
@@ -446,8 +453,12 @@ class CheatCheckService {
         quoteToken: pull.quoteToken || null,
         buyBnb: Number(buyBnb.toFixed(4)),
         sellBnb: Number(sellBnb.toFixed(4)),
-        anchors: mapped.ruleAudit?.anchors ?? null, // D3.1 持仓占比锚（A5 臂输入快照，重放对拍用）
-        activity: { // D3.2 活跃度锚（消费方式待裁定；存原始数值=将来调档零配额重分档原料）
+        // D3.5 观测记录主体（失败行 mapped={verdict,failReason} → 全 null）
+        phenomena: mapped.phenomena ?? null,         // 4 现象题档位（观测主键）
+        extLevels: mapped.extLevels ?? null,         // 观察题档位（sbw 容缺 null）
+        activityLevel: mapped.activityLevel ?? null, // Jev 活跃度题档位（<D3.5 旧档缺席 null）
+        anchors: mapped.anchors ?? null,             // 持仓占比数值锚（重放对拍用）
+        activity: { // D3.2 代码活跃度原始数值——Jev 档位（activityLevel）的校准对照原料
           ticksPerMin: derived.ticksPerMin ?? null,
           avgTradeBnb: derived.avgTradeBnb ?? null,
           maxGapSec: derived.maxGapSec ?? null,
@@ -467,10 +478,11 @@ class CheatCheckService {
         token_address: token,
         platform: meta.platform || null,
         question_version: this._version,
-        verdict: mapped.verdict,
-        cheat_prob: typeof mapped.cheatProb === 'number' && Number.isFinite(mapped.cheatProb)
-          ? Number(mapped.cheatProb.toFixed(4)) : null,
-        pattern_type: mapped.patternType || null,
+        // D3.5 判定层停产：观测行 verdict='observed'（mapped 无 verdict 键）；
+        // 失败行显式 timeout/error；cheat_detection verdict CHECK 域须含 'observed'（DDL 红线）
+        verdict: mapped.verdict ?? 'observed',
+        cheat_prob: null, // D3.5 起不产判定概率（列保留历史行）
+        pattern_type: null, // D3.5 起不产模式标签（列保留历史行）
         // retail_participation 列已停写（D3.1 题集删 retail 题，2026-10-31 用户裁定）——列保留历史行
         answers_raw: raw ? { answers: raw.answers, model: raw.model || null, usage: raw.usage || null } : null,
         jev_prompt: raw && isFirst ? raw.state : null, // 仅每 (token,version) 首行落全文（无界增长防线）

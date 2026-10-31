@@ -3,7 +3,8 @@
  * 作弊盘检测纯函数单测（CD1）——零 DB 零网络
  *
  * 覆盖：cheat-snapshot（buildSnapshotFromRows/computeDerived/aggregateWallets）
- * + cheat-state-builder（buildCheatState）+ cheat-result-mapper（mapCheatAnswers）。
+ * + cheat-state-builder（buildCheatState）+ cheat-result-mapper（buildObservation——
+ * D3.5 判定层停产：观测记录=现象+档位+数值锚，无 verdict）。
  *
  * 事故现场锁定：ZERODAY 0x23f1…7777（CD1 立案票）真实 66 笔 tick fixture——
  * derived 全键精确值对拍 2026-10-30 人工分析结论（27 钱包/top1 7.45%/快进快出
@@ -20,7 +21,7 @@ const {
   buildSnapshotFromRows, computeDerived, aggregateWallets, walletOf, isRouterWallet,
 } = require('../src/market-analysis/cheat-snapshot');
 const { buildCheatState, MAX_STATE_CHARS } = require('../src/market-analysis/cheat-state-builder');
-const { mapCheatAnswers, VERDICT_COLUMN_MAP, SB_HOLD_PCT_MIN, EQ_HOLD_PCT_MIN, EXT_PHENOMENON_IDS } = require('../src/market-analysis/cheat-result-mapper');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
 let passed = 0;
@@ -204,6 +205,11 @@ ok(st.state.includes('仅作盘面健康参考，不作作弊判据'), 'top1 集
 ok(st.state.includes('分子=成员正净持仓合计，分母=全场正净持仓合计'), '锚口径注释在场（分子⊆分母）');
 ok(microStateDisplay.state.includes('同块簇持仓占比: 无合格簇') && microStateDisplay.state.includes('近等额簇持仓占比: 无合格簇'),
   '无合格簇渲染「无合格簇」（null 不冒充 0）');
+// D3.5：代码活跃度档位行撤除（教学单一载体=题面 activity_level——「使用 Jev 进行判断」；
+// derived 数值仍算供存档对照，state 不再预贴档位结论）
+ok(!st.state.includes('活跃度: 低') && !st.state.includes('活跃度: 中') && !st.state.includes('活跃度: 高')
+  && !st.state.includes('活跃度: 超高') && !st.state.includes('活跃度: 不可评'),
+  'state 不再渲染代码活跃度档位行（D3.5 教学迁题面——档位判定交 Jev）');
 // 截断：400 tick → 首 200+末 100
 const manyRows = [];
 for (let i = 0; i < 400; i++) {
@@ -232,8 +238,8 @@ ok(stHuge.truncated.hardCap === true && stHuge.state.length <= MAX_STATE_CHARS +
     '[ANCHOR] 刻权威锚+截断声明（不谎报行数）');
 }
 
-// ═══════════════ F. mapper（D3.1 现象锚+持仓占比锚综合规则） ═══════════════
-console.log('F. mapper 综合规则（D3.1 四现象 + 持仓占比锚 → verdict 导出）');
+// ═══════════════ F. mapper 观测组装（D3.5 判定层停产：现象+档位+锚，无 verdict） ═══════════════
+console.log('F. mapper 观测组装（D3.5：buildObservation 现象+档位+数值锚）');
 const LVL = ['none', 'weak', 'moderate', 'strong'];
 function phAns(bucket, p = 0.6) {
   const rest = (1 - p) / 3;
@@ -244,67 +250,63 @@ function mkAnswers(over = {}) {
   return Object.fromEntries(Object.entries({ ...PH_BASE, ...over }).map(([k, v]) => [k, phAns(v)]));
 }
 
-// A1 臂：协同卖回闭环 ≥strong（moderate 倒挂降级进 A4 联判——D3.0 实测 moderate 健康 10>cheat 10）
-const m1 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong' }));
-ok(m1.verdict === 'cheat' && m1.ruleAudit.hitArm === 'A1', 'A1 卖回配对 ≥strong → cheat');
-ok(m1.patternType === 'wash_pump' && m1.cheatProb === 0.6, 'A1 pattern=wash_pump（等额<moderate）；cheatProb=主现象 argmax 概率');
-const m1b = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong', equal_amount_split: 'moderate' }));
-ok(m1b.patternType === 'equal_amount_split', 'A1 等额指纹 ≥moderate → pattern=equal_amount_split');
-const m1c = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'moderate', sell_dispersion: 'none' }));
-ok(m1c.verdict === 'cheat' && m1c.ruleAudit.hitArm === 'A4' && m1c.patternType === 'wash_pump',
-  'A4 卖回 moderate ∧ sd=none → cheat+wash_pump（无分散反证才坐实）');
-ok(mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'moderate', sell_dispersion: 'weak' })).verdict !== 'cheat',
-  '卖回 moderate 但 sd=weak → 不坐实（早期获利盘常态形状）');
-ok(mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'weak' })).verdict !== 'cheat', '卖回仅 weak → 不命中（买了拿着≠签名）');
+// 基本形状：phenomena 四键 argmax 档位 + anchors 回显；无 verdict/cheatProb/patternType
+// 键（D3.5 判定层停产反证——A1-A5/B1/兜底随 git 留档，观测记录不带任何分类结论）
+const f1 = buildObservation(mkAnswers({ equal_amount_split: 'strong' }), { sameBlockHoldPct: 61.25, equalBandHoldPct: null });
+ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).length === 4,
+  'phenomena=4 现象键 argmax 档位');
+ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
+  'anchors 回显输入锚（未传键=null）');
+ok(Object.keys(f1.anchors).length === 2, 'D3.5 后 anchors 只剩 sb/eq 两数值键（activity 档位不再投影）');
+ok(!('verdict' in f1) && !('cheatProb' in f1) && !('patternType' in f1) && !('ruleAudit' in f1),
+  '观测记录无 verdict/cheatProb/patternType/ruleAudit 键（判定层停产反证）');
+const f1b = buildObservation(mkAnswers(), { sameBlockHoldPct: '88' });
+ok(f1b.anchors.sameBlockHoldPct === null, '锚形状异常（字符串）→ 按缺席算不冒充');
 
-// A2 臂：creator 抢跑须 strong 才坐实（moderate=分批部分卖常态，D3.0 校准信号④）
-const m2 = mapCheatAnswers(mkAnswers({ creator_front_run: 'strong' }));
-ok(m2.verdict === 'cheat' && m2.patternType === 'dev_self_trade' && m2.ruleAudit.hitArm === 'A2', 'A2 creator=strong → cheat+dev_self_trade');
-ok(mapCheatAnswers(mkAnswers({ creator_front_run: 'moderate' })).verdict !== 'cheat', 'creator=moderate（分批部分卖）→ 不坐实');
+// ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
+ok(buildObservation(mkAnswers()).extLevels.stall_burst_wave === null,
+  'ext 题缺席（≤D3.1 旧存档形状）→ null 落审计不 throw（零配额重放兼容）');
+const f2 = buildObservation({ ...mkAnswers(), stall_burst_wave: phAns('strong') });
+ok(f2.extLevels.stall_burst_wave === 'strong', 'ext=strong 照落 extLevels（观测记录在场）');
+let threw = false;
+try {
+  buildObservation({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { extreme: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'ext 题在场未知桶名 → throw（漂移防线不因容缺放宽）');
+ok(EXT_PHENOMENON_IDS.length === 1 && EXT_PHENOMENON_IDS[0] === 'stall_burst_wave',
+  'EXT_PHENOMENON_IDS 导出钉死（观察题清单单一真相源）');
 
-// A3 臂：等额强规整（strong 10:0:0 零误报；moderate 整数额聚带常态不单独坐实）
-const m3 = mapCheatAnswers(mkAnswers({ equal_amount_split: 'strong' }));
-ok(m3.verdict === 'cheat' && m3.patternType === 'equal_amount_split' && m3.ruleAudit.hitArm === 'A3', 'A3 等额=strong → cheat');
-ok(mapCheatAnswers(mkAnswers({ equal_amount_split: 'moderate' })).verdict !== 'cheat', '等额=moderate 单独不坐实');
+// 活跃度题（D3.5：Jev 判断活跃度——独立档域 low/mid/high/ultra，非现象四档轴）
+const actAns = (bucket, p = 0.7) => {
+  const rest = (1 - p) / 3;
+  return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(ACTIVITY_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
+};
+ok(buildObservation(mkAnswers()).activityLevel === null,
+  'activity_level 缺席（<D3.5 旧存档）→ null 不 throw（重放兼容）');
+const f3 = buildObservation({ ...mkAnswers(), activity_level: actAns('low') });
+ok(f3.activityLevel.bucket === 'low' && Math.abs(f3.activityLevel.prob - 0.7) < 1e-9,
+  'activity_level 在场 → {bucket,prob}（Jev 档位进观测记录）');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), activity_level: { type: 'choice', probabilities: { none: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'activity_level 在场但现象桶名 none → throw（独立档域校验——ACTIVITY_LEVELS 须同步）');
+ok(JSON.stringify(ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
+  'ACTIVITY_LEVELS 导出=low/mid/high/ultra（题集独立档域对齐）');
 
-// A5 臂：持仓占比锚（代码数值门——累积期作弊：买簇持有主导份额、卖面干净）
-const m5a = mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: SB_HOLD_PCT_MIN + 5, equalBandHoldPct: null });
-ok(m5a.verdict === 'cheat' && m5a.ruleAudit.hitArm === 'A5' && m5a.patternType === 'slow_coordinated_accumulation',
-  'A5 sbHold 过线 → cheat+slow_coordinated_accumulation');
-ok(Math.abs(m5a.cheatProb - (SB_HOLD_PCT_MIN + 5) / 100) < 1e-9, 'A5 cheatProb=主导锚占比/100');
-ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: null, equalBandHoldPct: EQ_HOLD_PCT_MIN + 1 }).ruleAudit.hitArm === 'A5',
-  'A5 eqHold 单腿过线也命中（OR）');
-ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: SB_HOLD_PCT_MIN - 10, equalBandHoldPct: EQ_HOLD_PCT_MIN - 10 }).verdict !== 'cheat',
-  '双锚均不过线 → 不命中');
-ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: null, equalBandHoldPct: null }).verdict === 'healthy',
-  '锚全 null（无合格簇）→ A5 不评（有证据的缺席≠作弊）→ healthy');
-ok(mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: '88' }).verdict !== 'cheat', '锚形状异常（字符串）→ 按缺席算不冒充');
+// 现象题防线：缺题/未知桶 throw（fail-loud，调用方落 error 行）
+threw = false;
+try { buildObservation({}); } catch (_) { threw = true; }
+ok(threw, '现象题缺失 → throw（调用方落 error 行）');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), sell_dispersion: { type: 'choice', probabilities: { extreme: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, '未知档位桶名 → throw（题集/映射漂移防线）');
 
-// 无臂命中 → healthy（D3.4 用户裁定「不要搞什么兜底」「判断不对就是不对」：
-// 锚=不健康检测器，没报警=正常；B1/兜底 unhealthy 整批退役，hitArm=null 诚实标记）
-const m6 = mapCheatAnswers(mkAnswers({ sell_dispersion: 'moderate' }));
-ok(m6.verdict === 'healthy' && m6.ruleAudit.hitArm === null && m6.patternType === null && m6.cheatProb === null,
-  'sd=moderate 无作弊臂 → healthy（B1 已随兜底退役）；非 cheat pattern/cheatProb 恒 null');
-ok(mapCheatAnswers(mkAnswers({ sell_dispersion: 'weak' })).verdict === 'healthy', 'sd=weak → healthy（无兜底 unhealthy）');
-const m6b = mapCheatAnswers(mkAnswers());
-ok(m6b.verdict === 'healthy' && m6b.ruleAudit.hitArm === null, '全 none → healthy（检测器模型：没报警=正常）');
-ok(VERDICT_COLUMN_MAP.unclear_insufficient === 'unclear' && VERDICT_COLUMN_MAP.cheat === 'cheat'
-  && VERDICT_COLUMN_MAP.unhealthy === 'unhealthy' && VERDICT_COLUMN_MAP.healthy === 'healthy',
-  '映射表四桶显式钉死（DDL CHECK 域对齐）');
-
-// 优先序与防线
-const m7 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong', creator_front_run: 'strong', sell_dispersion: 'strong' }),
-  { sameBlockHoldPct: 99, equalBandHoldPct: 99 });
-ok(m7.ruleAudit.hitArm === 'A1' && m7.patternType === 'wash_pump', 'A1 优先于 A2/A5（闭环签名最强）；sd=strong 不解除 cheat');
-const m8 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong' }));
-ok(m8.ruleAudit.levels.coordinated_sell_back === 'strong' && Object.keys(m8.ruleAudit.levels).length === 4,
-  'ruleAudit 落全 4 现象档位快照（归因/重放审计）');
-ok(mapCheatAnswers(mkAnswers()).ruleAudit.anchors.sameBlockHoldPct === null
-  && mapCheatAnswers(mkAnswers(), { sameBlockHoldPct: 61.25 }).ruleAudit.anchors.sameBlockHoldPct === 61.25,
-  'ruleAudit.anchors 回显输入锚（未传=null）');
 // D3.0 存档兼容：answers 带已退役题（sb/quota/strong_hand/second_wave/retail）→ 不 throw、
-// 退役题答案被忽略（重放工具对旧存档跑现行规则的兼容前提）
-const m9 = mapCheatAnswers({
+// 退役题答案被忽略（重放工具对旧存档跑现行观测组装的兼容前提）
+const f4 = buildObservation({
   ...mkAnswers(),
   same_block_buy_burst: phAns('strong'),
   quota_ladder_heat: phAns('moderate'),
@@ -312,34 +314,15 @@ const m9 = mapCheatAnswers({
   second_wave_absorption: phAns('moderate'),
   retail_participation: { type: 'score', score: 2 },
 });
-ok(m9.verdict === 'healthy', 'D3.0 存档 answers（含退役题）经现行 mapper 不 throw、退役题不消费');
-let threw = false;
-try { mapCheatAnswers({}); } catch (_) { threw = true; }
-ok(threw, '现象题缺失 → throw（调用方落 error 行）');
-threw = false;
-try {
-  mapCheatAnswers({ ...mkAnswers(), sell_dispersion: { type: 'choice', probabilities: { extreme: 1 } } });
-} catch (_) { threw = true; }
-ok(threw, '未知档位桶名 → throw（题集/映射漂移防线）');
+ok(f4.phenomena.equal_amount_split === 'none' && f4.activityLevel === null,
+  'D3.0 存档 answers（含退役题）经现行观测组装不 throw、退役题不消费');
+ok(typeof buildObservation === 'function'
+  && JSON.stringify(PHENOMENON_IDS) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion']),
+  '导出键集=buildObservation + PHENOMENON_IDS 四题（观测形状单一真相源）');
 
-// D3.3 观察题 stall_burst_wave：EXT 容缺读取（缺席→null 不 throw；在场落 extLevels 不进臂）
-const extMiss = mapCheatAnswers(mkAnswers());
-ok(extMiss.ruleAudit.extLevels && extMiss.ruleAudit.extLevels.stall_burst_wave === null,
-  'ext 题缺席（≤D3.1 旧存档形状）→ null 落审计不 throw（零配额重放兼容）');
-const extStrong = mapCheatAnswers({ ...mkAnswers(), stall_burst_wave: phAns('strong') });
-ok(extStrong.verdict === 'healthy' && extStrong.ruleAudit.hitArm === null
-  && extStrong.ruleAudit.extLevels.stall_burst_wave === 'strong',
-  'ext=strong 落审计但不进任何 verdict 臂（观察性接入——消费方式待对拍裁定）');
-threw = false;
-try {
-  mapCheatAnswers({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { extreme: 1 } } });
-} catch (_) { threw = true; }
-ok(threw, 'ext 题在场未知桶名 → throw（漂移防线不因容缺放宽）');
-ok(EXT_PHENOMENON_IDS.length === 1 && EXT_PHENOMENON_IDS[0] === 'stall_burst_wave',
-  'EXT_PHENOMENON_IDS 导出钉死（观察题清单单一真相源）');
-
-// ═══════════════ G. 活跃度锚（D3.2 综合三因子四档 + 不均衡 CV，用户裁定） ═══════════════
-console.log('G. 活跃度锚四档/三因子/不均衡 CV');
+// ═══════════════ G. 活跃度数值族（D3.2 落地；D3.5 起档位判定交 Jev 题_activity_level， ═══════════════
+//    derived 数值族保留=存档/回归的校准对照原料——题面教算法的三要素即本族口径）
+console.log('G. 活跃度数值族（校准对照）');
 {
   const {
     ACTIVITY_LOW_TPM, ACTIVITY_HIGH_TPM, ACTIVITY_ULTRA_TPM,
@@ -387,7 +370,7 @@ console.log('G. 活跃度锚四档/三因子/不均衡 CV');
   const g5 = g5snap.derived;
   ok(g5.activityLevel === 'mid', `burst+断流但密度线以上：mid（实际 ${g5.activityLevel}——tpm=${g5.ticksPerMin}）`);
   ok(g5.activityCv === 1.66 && g5.activityUneven === true, `不均衡：cv=1.66 起伏大（实际 ${g5.activityCv}/${g5.activityUneven}）`);
-  ok(buildCheatState(g5snap).state.includes('活跃度: 中') && buildCheatState(g5snap).state.includes('高低起伏很大'), 'state 渲染：档位中文+不均衡注记在场');
+  ok(!buildCheatState(g5snap).state.includes('高低起伏很大'), 'state 不再渲染不均衡注记（D3.5 档位行整体撤除；derived 照算供对照）');
 
   // G6 均匀对照：16 笔 8s 步长均布 120s（每桶恰 4 笔）→ cv=0 非不均衡（tpm=8 同时落 low 顺带验证）
   const g6 = buildSnapshotFromRows(spaced(16, 8, 0.3), microMeta).derived;
@@ -400,7 +383,7 @@ console.log('G. 活跃度锚四档/三因子/不均衡 CV');
   const g7 = g7snap.derived;
   ok(g7.ticksPerMin === null && g7.avgTradeBnb === null && g7.maxGapSec === null && g7.activityLevel === null
     && g7.activityCv === null && g7.activityUneven === null, '时间戳全无效 → 活跃度族全 null');
-  ok(buildCheatState(g7snap).state.includes('活跃度: 不可评'), 'state 渲染：不可评降级行');
+  ok(!buildCheatState(g7snap).state.includes('活跃度:'), '不可评形状 state 无活跃度行（D3.5 档位行撤除后无降级行需求）');
 
   // G8 micro fixture（router/outlier 主 fixture）无回归：dt 齐 → 活跃度有值不影响既有键
   ok(md.activityLevel === 'low' && md.ticksPerMin === 10.5, `micro fixture：7 笔 40s tpm=10.5 → low（实际 ${md.ticksPerMin}/${md.activityLevel}）`);
@@ -533,28 +516,42 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.3：怎么算算法+case 样本入题面） ═══════════════
-  console.log('I2. 题集结构 D3.3（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.5：6 题=4 现象+sbw+activity_level） ═══════════════
+  console.log('I2. 题集结构 D3.5（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.3', `版本常量 D3.3（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.5', `版本常量 D3.5（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
+    'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 5
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave']
+  ok(qids.length === 6
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'activity_level']
       .every((id) => qids.includes(id)),
-    '5 现象题=存续 4 题 + stall_burst_wave（D3.3 新增）');
+    '6 题=存续 4 现象题 + stall_burst_wave + activity_level（D3.5 新增活跃度题）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
   for (const [id, q] of Object.entries(qs)) {
     ok(q.type === 'choice' && q.instructions.includes('怎么算') && q.instructions.includes('真实样本'),
-      `题 ${id}：choice + 怎么算算法段 + 真实 case 样本段（D3.3 教学载体=题面）`);
-    ok(qm.PHENOMENON_LEVELS.every((b) => typeof q.criteria[b] === 'string')
-      && Object.keys(q.criteria).length === qm.PHENOMENON_LEVELS.length,
-      `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
+      `题 ${id}：choice + 怎么算算法段 + 真实 case 样本段（教学载体=题面）`);
     ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
       `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
   }
+  for (const id of [...PHENOMENON_IDS, 'stall_burst_wave']) {
+    ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs[id].criteria[b] === 'string')
+      && Object.keys(qs[id].criteria).length === qm.PHENOMENON_LEVELS.length,
+      `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
+  }
+  ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
+    && Object.keys(qs.activity_level.criteria).length === 4,
+    'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
+  const act = qs.activity_level.instructions;
+  ok(act.includes('无交易期占比') && act.includes('笔密度') && act.includes('笔均交易额'),
+    'activity_level 算法三要素=无交易期占比/笔密度/笔均交易额');
+  ok(act.includes('静默合计时长 ÷ 窗口总时长') && act.includes('÷ 窗口分钟数'),
+    'activity_level 显式算式=静默占比分式 + 密度分式（教学单一载体=题面）');
+  ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高两正例');
+  ok(act.includes('不下任何盘面结论'), 'activity_level 尾句=只述档位不下结论');
   const sbw = qs.stall_burst_wave.instructions;
   ok(sbw.includes('静默') && sbw.includes('波占比') && sbw.includes('排除项'),
     'stall_burst_wave 算法三要素=静默段判读/波占比算式/排除项');

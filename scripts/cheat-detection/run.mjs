@@ -44,7 +44,7 @@ const require_ = createRequire(import.meta.url);
 // 与实时 service 同一组装路径（CJS 纯函数复用=口径单点）
 const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snapshot.js');
 const { buildCheatState } = require_('../../src/market-analysis/cheat-state-builder.js');
-const { mapCheatAnswers } = require_('../../src/market-analysis/cheat-result-mapper.js');
+const { buildObservation } = require_('../../src/market-analysis/cheat-result-mapper.js');
 
 const TICK_COLS = 'block_time,block_number,log_index,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
@@ -133,20 +133,29 @@ function quoteTokenOf(rowsAsc) {
   return null;
 }
 
-/** 单 case 全链（锚截窗→快照→state→[Jev]→mapper→判读） */
+/** D3.5 观测行打印（现象档位+观察题+Jev 活跃度；无 verdict——判定层停产） */
+function obsLine(interp) {
+  if (!interp || !interp.phenomena) return '(无判读)';
+  const p = interp.phenomena;
+  const sbw = interp.extLevels && interp.extLevels.stall_burst_wave !== undefined ? interp.extLevels.stall_burst_wave : null;
+  const act = interp.activityLevel ? interp.activityLevel.bucket : null;
+  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${sbw ?? '-'} act=${act ?? '-'}`;
+}
+
+/** 单 case 全链（锚截窗→快照→state→[Jev]→mapper 观测组装） */
 async function runCase(c, { dry, version }) {
   const rows = await pullTicksToAnchor(c.addr.toLowerCase(), c.anchor.tickCount);
   const meta = { ...await loadTokenMeta(c.addr.toLowerCase()), quoteToken: quoteTokenOf(rows) };
   const snapshot = buildSnapshotFromRows(rows, meta, { capped: c.anchor.capped === true, anchorTickCount: c.anchor.tickCount });
   const { state, promptChars } = buildCheatState(snapshot);
   const d = snapshot.derived;
-  console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} sbHold ${d.sameBlockHoldPct === null ? '-' : d.sameBlockHoldPct.toFixed(1) + '%'} eqHold ${d.equalBandHoldPct === null ? '-' : d.equalBandHoldPct.toFixed(1) + '%'} act=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''} | state ${promptChars} chars`);
+  console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} sbHold ${d.sameBlockHoldPct === null ? '-' : d.sameBlockHoldPct.toFixed(1) + '%'} eqHold ${d.equalBandHoldPct === null ? '-' : d.equalBandHoldPct.toFixed(1) + '%'} act(代码)=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''} | state ${promptChars} chars`);
   if (dry) return { interp: null, promptChars, state, snapshot };
   const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
   const q = await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-regression' });
-  const mapped = mapCheatAnswers(res.answers, { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct });
-  return { interp: interpret(mapped), promptChars, state, snapshot, answers: res.answers, model: res.model };
+  const obs = buildObservation(res.answers, { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct });
+  return { interp: interpret(obs), promptChars, state, snapshot, answers: res.answers, model: res.model };
 }
 
 function cmdList(cases) {
@@ -179,7 +188,7 @@ async function cmdAdd(args, doc, cases) {
   const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
   const q = await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-regression-add' });
-  const interp = interpret(mapCheatAnswers(res.answers, { sameBlockHoldPct: snapshot.derived.sameBlockHoldPct, equalBandHoldPct: snapshot.derived.equalBandHoldPct }));
+  const interp = interpret(buildObservation(res.answers, { sameBlockHoldPct: snapshot.derived.sameBlockHoldPct, equalBandHoldPct: snapshot.derived.equalBandHoldPct }));
   const today = new Date().toISOString().slice(0, 10);
   const c = buildCase({ caseId: args.caseId, symbol: meta.symbol ?? '', addr, platform: meta.platform, anchorTickCount: anchorN, capped: capped && anchorN === rows.length, interp, note: args.note, observe: args.observe, today });
   console.log('生成 case（请人工复核 expect——机器只记现状，断言意图必须人来定）：');
@@ -251,7 +260,7 @@ async function cmdExperimentBaseline(args) {
   let hadError = false;
 
   console.log(['# ', 'symbol'.padEnd(12), 'plat'.padEnd(9), '锚'.padEnd(6), '买/卖'.padEnd(9), 'Σ买BNB'.padEnd(8), '钱包'.padEnd(6), 'top1%'.padEnd(7), 'churn'.padEnd(6), '同块'.padEnd(5), '等额'.padEnd(5), 'state'].join('')
-    + (args.dry ? '' : '  → verdict / cheatP / pattern'));
+    + (args.dry ? '' : '  → 现象观测（D3.5：eq/sb/cr/sd/sbw/act）'));
 
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];
@@ -287,8 +296,8 @@ async function cmdExperimentBaseline(args) {
 
       const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
       const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-experiment-baseline' });
-      const interp = interpret(mapCheatAnswers(res.answers, { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct }));
-      console.log(`${rowHead}  → ${interp.verdict} / ${interp.cheatProb ?? '-'} / ${interp.patternType ?? '-'}  sbHold=${d.sameBlockHoldPct ?? '-'}% eqHold=${d.equalBandHoldPct ?? '-'}% act=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''}`);
+      const interp = interpret(buildObservation(res.answers, { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct }));
+      console.log(`${rowHead}  → ${obsLine(interp)}  sbHold=${d.sameBlockHoldPct ?? '-'}% eqHold=${d.equalBandHoldPct ?? '-'}% act(代码)=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''}`);
       results.push({ ...base, interp, promptChars, answersRaw: res.answers, anchors: { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct }, activity: { ticksPerMin: d.ticksPerMin, avgTradeBnb: d.avgTradeBnb, maxGapSec: d.maxGapSec, level: d.activityLevel, cv: d.activityCv, uneven: d.activityUneven }, model: res.model });
 
       const known = knownAddr.get(t.addr);
@@ -312,10 +321,11 @@ async function cmdExperimentBaseline(args) {
   writeFileSync(archPath, JSON.stringify({ ranAt: new Date().toISOString(), experimentId: args.experiment, settleMs, questionVersion: version, dry: args.dry, results }, null, 2), 'utf8');
   const dist = {};
   for (const r of results) {
-    const k = r.error ? 'error' : (r.interp ? r.interp.verdict : (r.minTicksSkipped ? 'skipped_minTicks' : 'dry'));
+    // D3.5 分布键=Jev 活跃度档（判定层停产无 verdict 可分布）
+    const k = r.error ? 'error' : (r.interp ? (r.interp.activityLevel ? r.interp.activityLevel.bucket : 'act缺失') : (r.minTicksSkipped ? 'skipped_minTicks' : 'dry'));
     dist[k] = (dist[k] || 0) + 1;
   }
-  console.log(`\nverdict 分布：${Object.entries(dist).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+  console.log(`\n活跃度档分布：${Object.entries(dist).map(([k, v]) => `${k}=${v}`).join(' ')}`);
   console.log(`基线存档：${archPath}`);
 
   if (newCases.length && !args.dry) {
@@ -387,9 +397,9 @@ async function main() {
       const idx = cases.findIndex((x) => x.caseId === id);
       if (idx < 0) { console.error(`caseId 不存在: ${id}`); process.exit(2); }
       const interp = latestArchivedInterp(id);
-      if (!interp) { console.error(`${id} 无 run 存档判读——先跑一次 --only ${id} 再更新预期（不重烧 Jev，以已跑结果为准）`); process.exit(1); }
+      if (!interp) { console.error(`${id} 无 run 存档判读——先跑一次 --only ${id} 再更新（不重烧 Jev，以已跑结果为准）`); process.exit(1); }
       const next = updateExpect(cases[idx], interp, args.because, today);
-      console.log(`${id}: verdict ${JSON.stringify(cases[idx].expect.verdict)} → ${JSON.stringify(next.expect.verdict)}  because=${args.because}`);
+      console.log(`${id}: expect 留痕更新（D3.5 机器不写 verdict——expect.verdict 人工改写：${JSON.stringify(cases[idx].expect.verdict)}）  because=${args.because}`);
       cases[idx] = next;
       changed = true;
     }
@@ -417,7 +427,8 @@ async function main() {
       const { failures } = assertExpectation(r.interp, c.expect);
       const pass = !failures.length;
       if (!pass) failed++;
-      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} verdict=${r.interp.verdict} cheatP=${r.interp.cheatProb} pattern=${r.interp.patternType} sbHold=${r.interp.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.ruleAudit?.anchors?.equalBandHoldPct ?? '-'} act=${r.snapshot.derived.activityLevel ?? '-'}${r.snapshot.derived.activityUneven ? '~起伏' : ''} dom=${r.snapshot.derived.famousDominanceLevel ?? '-'}${r.snapshot.derived.famousDominancePct !== null && r.snapshot.derived.famousDominancePct !== undefined ? `(${r.snapshot.derived.famousDominancePct}%)` : ''}${failures.length ? '\n  ' + failures.join('\n  ') : ''}`);
+      // D3.5 对拍停产：expect.verdict=人工裁定记录，展示不比对（观测行=机器输出）
+      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} ${obsLine(r.interp)} sbHold=${r.interp.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.anchors?.equalBandHoldPct ?? '-'} dom=${r.snapshot.derived.famousDominanceLevel ?? '-'}${r.snapshot.derived.famousDominancePct !== null && r.snapshot.derived.famousDominancePct !== undefined ? `(${r.snapshot.derived.famousDominancePct}%)` : ''} ｜人工裁定=${c.expect.verdict ?? '（未裁定）'}（判定层停产——展示不比对）`);
       results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct }, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, famous: { holdPct: r.snapshot.derived.famousHoldPct, top1Pct: r.snapshot.derived.famousTop1Pct, followerPct: r.snapshot.derived.famousFollowerPct, dominancePct: r.snapshot.derived.famousDominancePct, level: r.snapshot.derived.famousDominanceLevel }, model: r.model });
     } catch (e) {
       failed++;
@@ -429,7 +440,7 @@ async function main() {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     writeFileSync(resolve(DATA_DIR, `cd-run-${ts}.json`), JSON.stringify({ ranAt: new Date().toISOString(), questionVersion: version, dry: args.dry, results }, null, 2), 'utf8');
   }
-  console.log(`\n${args.dry ? 'dry 组装' : '对拍'}完成：${results.filter((r) => r.pass).length}/${results.length} 过${failed ? `，失败 ${failed}` : ''}`);
+  console.log(`\n${args.dry ? 'dry 组装' : '重析观测'}完成：${results.length} 票存档${failed ? `，异常 ${failed}` : ''}（D3.5 判定层停产——PASS=链路跑通，无 verdict 对拍）`);
   if (!args.dry && (failed || !results.length)) process.exit(1);
 }
 
