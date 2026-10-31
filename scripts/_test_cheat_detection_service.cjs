@@ -89,9 +89,21 @@ function genTicks(n, { startBlock = 100, senderPrefix = '0xw' } = {}) {
   return rows;
 }
 
+// D3.0 形状：8 现象 Choice 四档 + retail Score（A2 臂命中→cheat/dev_self_trade 保持既有断言语义）
+const LVL = ['none', 'weak', 'moderate', 'strong'];
+function phAns(bucket, p = 0.78) {
+  const rest = (1 - p) / 3;
+  return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(LVL.map((b) => [b, b === bucket ? p : rest])) };
+}
 const GOOD_ANSWERS = {
-  market_health_verdict: { type: 'choice', probabilities: { cheat: 0.78, unhealthy: 0.12, healthy: 0.06, unclear_insufficient: 0.04 } },
-  cheat_pattern: { type: 'choice', probabilities: { dev_self_trade: 0.6, same_block_burst: 0.2, equal_amount_split: 0.1, rapid_churn: 0.05, wash_pump: 0.03, none_apparent: 0.02 } },
+  same_block_buy_burst: phAns('none'),
+  equal_amount_split: phAns('none'),
+  coordinated_sell_back: phAns('weak'),
+  quota_ladder_heat: phAns('none'),
+  creator_front_run: phAns('strong'),
+  strong_hand_real_buy: phAns('none'),
+  second_wave_absorption: phAns('none'),
+  sell_dispersion: phAns('none'),
   retail_participation: { type: 'score', score: 1.0 },
 };
 function makeLlm({ answers = GOOD_ANSWERS, hang = false, reject = null } = {}) {

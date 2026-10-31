@@ -1,24 +1,57 @@
 /**
  * 作弊盘检测 Jev 结果映射（CD1）——纯函数，零 DB 零网络
  *
- * 照 jev-result-mapper 三核心模式：argmax + 概率门 + 桶名→列值映射表。
- * 决断全在代码侧（题面改锚分不动——叙事侧反复实证的教训），Jev 只出概率分布。
+ * D3.0 架构（2026-10-31 用户裁定「现象锚观测+代码综合」分层）：
+ * Jev 只答 8 现象程度题（Choice 四档 none/weak/moderate/strong）+ retail Score；
+ * 盘面三分类 verdict 由本模块综合规则从现象锚**导出**——Jev 不再端到端判性质。
  *
- * - Q1 market_health_verdict（Choice 四桶）：
- *   argmax=cheat 且 P≥0.5 → 'cheat'；argmax=cheat 但 P<0.5 → 剔除 cheat 桶后
- *   重取 argmax（runner-up 规则——「协同作弊」是重主张，低置信不给坐实）；
- *   其余桶按 argmax 直落。
- *   桶名→DDL CHECK 列值映射表显式钉死：unclear_insufficient→'unclear'
- *   （桶名≠列值，漏映射=INSERT 违 CHECK 整行静默丢——事故防线）。
- * - Q2 cheat_pattern（Choice 六桶）：仅 verdict='cheat' 时消费，argmax 且 P≥0.4
- *   才落 pattern_type，否则 null；桶名与列值同形直传（pattern_type 无 CHECK）。
- * - Q3 retail_participation（Score 0-10）：score 值直落。
+ * 为什么综合进代码（而非二段 Jev）：①规则改动可对 answers_raw **零配额重放**
+ * （54 票现象标注一次落库，规则迭代无限次）②每现象可单独对拍归因（原 Q1 判错
+ * 无法定位错在哪层）③权重/阈值确定可审计。二段 Jev 综合为后续可选升级。
  *
- * JevClient 对缺答案 id 直接 throw（fail-loud）——本模块假设三题全在；答案形状
- * 异常（缺 probabilities/score）按 error 处理由调用方捕获落 error 行。
+ * 综合规则（初版=D2.x 两轮对拍沉淀的 20 条校准信号直译；调参只改本文件，
+ * 182 重放脚本零 Jev 成本验证）：
+ * - 作弊臂（按优先序首命中 → cheat）：
+ *   A1 coordinated_sell_back ≥ moderate   —— 买簇→同步卖回配对（最强作弊签名）
+ *   A2 creator_front_run ≥ strong          —— 抢跑自卖/配额倾倒（strong 才坐实：
+ *                                            creator 部分卖=常态不可坐实，校准信号 ④）
+ *   A3 quota_ladder_heat ≥ moderate ∧ retail ≤ 3 —— 假热度+散户缺席（砸盘不要求，
+ *                                            校准信号 ⑱；retail null=证据洞按保守低算）
+ *   A4 same_block ≥ moderate ∧ equal_amount ≥ moderate ∧ retail ≤ 3
+ *                                            —— 双指纹叠加+散户缺席（单指纹在健康票
+ *                                            常态在场=校准信号 ③⑯，双叠加才过门）
+ * - 健康臂（非 cheat）：retail ≥ 6 ∧ second_wave_absorption ≥ weak ∧
+ *   sell_dispersion ≥ moderate → healthy（散户轴三要素，校准信号 ⑯⑲）
+ * - 其余 → unhealthy（强庄/低活跃/失衡兜底；时点状态可转化）
+ * - unclear 规则不产出（minTicks 8 以下 service 已拦；「无证据」形状落 unhealthy
+ *   低活跃子形状=校准信号 ⑪）——VERDICT_COLUMN_MAP 保留映射供兼容域。
+ *
+ * pattern_type：cheat 时按命中臂映射回 PATTERNS 八桶（runner patternsIncludes
+ * 对拍消费）；非 cheat 恒 null（「细分仅 cheat 域」语义不变）。
+ * cheat_prob：cheat 时=命中臂主现象 argmax 桶概率（合成值，语义与 D2 的 Q1
+ * cheat 桶概率不同——列审计用，无门语义）。
+ *
+ * JevClient 缺答案 id 直接 throw（fail-loud）——现象题缺失/未知桶名同样 throw
+ * （题集/映射漂移防线，调用方落 error 行）；仅 retail Score 形状异常降 null
+ * 不拦主判定（D2 语义保留）。
  */
 
-/** Q1 桶名 → cheat_detection.verdict 列值（DDL CHECK 域） */
+/** 现象题 id 清单（与题集对齐——漂移由未知桶名/缺题 throw 兜住） */
+const PHENOMENON_IDS = [
+  'same_block_buy_burst',
+  'equal_amount_split',
+  'coordinated_sell_back',
+  'quota_ladder_heat',
+  'creator_front_run',
+  'strong_hand_real_buy',
+  'second_wave_absorption',
+  'sell_dispersion',
+];
+
+/** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
+const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
+
+/** verdict 列值映射（DDL CHECK 域；unclear 规则不产出、映射留档兼容） */
 const VERDICT_COLUMN_MAP = {
   cheat: 'cheat',
   unhealthy: 'unhealthy',
@@ -26,80 +59,104 @@ const VERDICT_COLUMN_MAP = {
   unclear_insufficient: 'unclear',
 };
 
-/** Q1 cheat 判定的概率门（≥0.5 才坐实） */
-const CHEAT_PROB_GATE = 0.5;
-/** Q2 pattern 落库概率门（细分主张比三分类弱，门略松） */
-const PATTERN_PROB_GATE = 0.4;
+/** 综合规则阈值（调参单点；A3/A4 散户反证线与 B 臂门槛） */
+const RETAIL_ABSENCE_MAX = 3;   // 作弊臂的「散户缺席」线（null=证据洞按保守低算）
+const RETAIL_HEALTHY_MIN = 6;   // 健康臂散户线
 
-/**
- * 取 choice 答案的 argmax 桶与概率（排除指定桶时重取——runner-up 规则）
- * @returns {{bucket:string, prob:number}|null} probabilities 缺失/为空 → null
- */
-function _argmax(answer, excludeBucket = null) {
-  const probs = answer && answer.probabilities;
-  if (!probs) return null;
+/** 单现象题 → {bucket, prob, level}（argmax 桶；缺题/未知桶 throw） */
+function _phenomenon(answers, id) {
+  const a = answers && answers[id];
+  if (!a || !a.probabilities) {
+    throw new Error(`现象题 ${id} 答案缺失或无概率分布: ${JSON.stringify(a).slice(0, 120)}`);
+  }
   let best = null;
-  for (const [bucket, p] of Object.entries(probs)) {
-    if (excludeBucket !== null && bucket === excludeBucket) continue;
+  for (const [bucket, p] of Object.entries(a.probabilities)) {
     if (best === null || p > best.prob) best = { bucket, prob: p };
   }
-  return best;
+  const level = LEVEL_ORDER[best.bucket];
+  if (level === undefined) {
+    throw new Error(`现象题 ${id} 未知桶名 '${best.bucket}'（题集/映射漂移——PHENOMENON_LEVELS 须同步）`);
+  }
+  return { bucket: best.bucket, prob: best.prob, level };
+}
+
+/** retail Score → 数值（形状异常 null=证据洞，作弊臂按保守低算） */
+function _retail(answers) {
+  const q = answers && answers.retail_participation;
+  return q && typeof q.score === 'number' && Number.isFinite(q.score) ? q.score : null;
 }
 
 /**
- * Jev answers → 落库行字段
- * @param {Object} answers - JevClient.ask 返回的 answers（含三题）
+ * Jev answers → 落库行字段（综合规则导出 verdict）
+ * @param {Object} answers - JevClient.ask 返回的 answers（8 现象 Choice + retail Score）
  * @returns {{verdict:string, cheatProb:number|null, patternType:string|null,
- *            retailParticipation:number|null, rankedVerdicts:Array}}
- * @throws {Error} Q1 缺失或形状异常（调用方落 error 行）
+ *            retailParticipation:number|null, ruleAudit:Object}}
+ * @throws {Error} 任一现象题缺失/形状异常/未知桶名（调用方落 error 行）
  */
 function mapCheatAnswers(answers) {
-  const q1 = answers && answers.market_health_verdict;
-  if (!q1 || !q1.probabilities) {
-    throw new Error(`market_health_verdict 答案缺失或无概率分布: ${JSON.stringify(q1).slice(0, 120)}`);
-  }
-  const cheatProb = Object.prototype.hasOwnProperty.call(q1.probabilities, 'cheat')
-    ? Number(q1.probabilities.cheat) : null;
+  const ph = {};
+  for (const id of PHENOMENON_IDS) ph[id] = _phenomenon(answers, id);
+  const retail = _retail(answers);
+  const retailAbsent = retail === null || retail <= RETAIL_ABSENCE_MAX;
+  const ge = (id, min) => ph[id].level >= LEVEL_ORDER[min];
+  const arm = (name) => `A${name}`;
 
-  const first = _argmax(q1);
-  let effective = first;
-  let runnerUpApplied = false;
-  if (first && first.bucket === 'cheat' && (cheatProb === null || cheatProb < CHEAT_PROB_GATE)) {
-    // runner-up 规则：argmax=cheat 但置信不足 → 剔除 cheat 桶重取
-    effective = _argmax(q1, 'cheat') || first;
-    runnerUpApplied = true;
+  // ── 作弊臂（优先序：配对签名 > creator > 假热度 > 双指纹）──
+  let verdict = null;
+  let hitArm = null;
+  let mainPhenom = null;   // 命中臂主现象（cheat_prob 取其 argmax 概率）
+  if (ge('coordinated_sell_back', 'moderate')) {
+    hitArm = arm(1);
+    mainPhenom = ph.coordinated_sell_back;
+  } else if (ge('creator_front_run', 'strong')) {
+    hitArm = arm(2);
+    mainPhenom = ph.creator_front_run;
+  } else if (ge('quota_ladder_heat', 'moderate') && retailAbsent) {
+    hitArm = arm(3);
+    mainPhenom = ph.quota_ladder_heat;
+  } else if (ge('same_block_buy_burst', 'moderate')
+    && ge('equal_amount_split', 'moderate') && retailAbsent) {
+    hitArm = arm(4);
+    mainPhenom = ph.same_block_buy_burst.prob >= ph.equal_amount_split.prob
+      ? ph.same_block_buy_burst : ph.equal_amount_split;
   }
-  const column = VERDICT_COLUMN_MAP[effective.bucket];
-  if (!column) {
-    throw new Error(`market_health_verdict 未知桶名 '${effective.bucket}'（题集/映射表漂移——桶名→列值映射表须同步）`);
-  }
+  if (hitArm) verdict = 'cheat';
 
-  // Q2：仅 cheat 消费（观察期也落 unhealthy/healthy 票的 pattern 供研究？
-  // 刻意不落——非 cheat 行 pattern_type=null 与「细分仅 cheat 域」的题面声明一致）
+  // ── 健康臂（非 cheat；散户轴三要素联立）──
+  if (!verdict
+    && retail !== null && retail >= RETAIL_HEALTHY_MIN
+    && ge('second_wave_absorption', 'weak')
+    && ge('sell_dispersion', 'moderate')) {
+    verdict = 'healthy';
+  }
+  if (!verdict) verdict = 'unhealthy'; // 兜底：强庄/低活跃/失衡（时点状态可转化）
+
+  // ── pattern 映射（仅 cheat；臂→PATTERNS 八桶）──
   let patternType = null;
-  if (column === 'cheat') {
-    const q2 = answers.cheat_pattern;
-    const p2 = _argmax(q2);
-    if (p2 && p2.prob >= PATTERN_PROB_GATE) patternType = p2.bucket;
-  }
-
-  // Q3：Score 直落（形状异常→null 不拦主判定）
-  let retailParticipation = null;
-  const q3 = answers.retail_participation;
-  if (q3 && typeof q3.score === 'number' && Number.isFinite(q3.score)) {
-    retailParticipation = q3.score;
+  if (verdict === 'cheat') {
+    if (hitArm === arm(1)) {
+      patternType = ge('same_block_buy_burst', 'moderate') ? 'same_block_burst'
+        : ge('equal_amount_split', 'moderate') ? 'equal_amount_split'
+          : 'wash_pump';
+    } else if (hitArm === arm(2)) {
+      patternType = 'dev_self_trade';
+    } else if (hitArm === arm(3)) {
+      patternType = 'quota_ladder';
+    } else {
+      patternType = ph.same_block_buy_burst.prob >= ph.equal_amount_split.prob
+        ? 'same_block_burst' : 'equal_amount_split';
+    }
   }
 
   return {
-    verdict: column,
-    cheatProb,
+    verdict,
+    cheatProb: verdict === 'cheat' && mainPhenom ? mainPhenom.prob : null,
     patternType,
-    retailParticipation,
-    rankedVerdicts: {
-      argmax: first ? first.bucket : null,
-      argmaxProb: first ? first.prob : null,
-      effective: effective.bucket,
-      runnerUpApplied,
+    retailParticipation: retail,
+    // 归因审计：命中臂+全现象档位快照（answers_raw 已落库，此为规则侧快照便于直读）
+    ruleAudit: {
+      hitArm: hitArm || (verdict === 'healthy' ? 'B1' : 'fallback_unhealthy'),
+      levels: Object.fromEntries(PHENOMENON_IDS.map((id) => [id, ph[id].bucket])),
     },
   };
 }
@@ -107,6 +164,8 @@ function mapCheatAnswers(answers) {
 module.exports = {
   mapCheatAnswers,
   VERDICT_COLUMN_MAP,
-  CHEAT_PROB_GATE,
-  PATTERN_PROB_GATE,
+  PHENOMENON_IDS,
+  LEVEL_ORDER,
+  RETAIL_ABSENCE_MAX,
+  RETAIL_HEALTHY_MIN,
 };

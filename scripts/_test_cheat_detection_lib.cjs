@@ -198,53 +198,85 @@ ok(stHuge.truncated.hardCap === true && stHuge.state.length <= MAX_STATE_CHARS +
     '[ANCHOR] 刻权威锚+截断声明（不谎报行数）');
 }
 
-// ═══════════════ F. mapper ═══════════════
-console.log('F. mapper 决断');
-const answers1 = {
-  market_health_verdict: { type: 'choice', choice: 'cheat', probabilities: { cheat: 0.72, unhealthy: 0.18, healthy: 0.06, unclear_insufficient: 0.04 } },
-  cheat_pattern: { type: 'choice', choice: 'dev_self_trade', probabilities: { dev_self_trade: 0.55, same_block_burst: 0.2, equal_amount_split: 0.1, rapid_churn: 0.1, wash_pump: 0.03, none_apparent: 0.02 } },
-  retail_participation: { type: 'score', score: 1.5 },
+// ═══════════════ F. mapper（D3.0 现象锚综合规则） ═══════════════
+console.log('F. mapper 综合规则（D3.0 现象锚 → verdict 导出）');
+const LVL = ['none', 'weak', 'moderate', 'strong'];
+function phAns(bucket, p = 0.6) {
+  const rest = (1 - p) / 3;
+  return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(LVL.map((b) => [b, b === bucket ? p : rest])) };
+}
+const PH_BASE = {
+  same_block_buy_burst: 'none', equal_amount_split: 'none', coordinated_sell_back: 'none',
+  quota_ladder_heat: 'none', creator_front_run: 'none', strong_hand_real_buy: 'none',
+  second_wave_absorption: 'none', sell_dispersion: 'none',
 };
-const m1 = mapCheatAnswers(answers1);
-ok(m1.verdict === 'cheat' && m1.cheatProb === 0.72, 'cheat P≥0.5 → cheat 直落');
-ok(m1.patternType === 'dev_self_trade', 'pattern P≥0.4 → 落列');
-ok(m1.retailParticipation === 1.5, 'score 直落');
-ok(m1.rankedVerdicts.runnerUpApplied === false, '非 runner-up 路径标记');
-const m2 = mapCheatAnswers({
-  ...answers1,
-  market_health_verdict: { type: 'choice', probabilities: { cheat: 0.4, unhealthy: 0.35, healthy: 0.15, unclear_insufficient: 0.1 } },
-});
-ok(m2.verdict === 'unhealthy' && m2.rankedVerdicts.runnerUpApplied === true && m2.cheatProb === 0.4,
-  'argmax=cheat 但 P<0.5 → runner-up 剔除重取（cheatProb 照记审计）');
-ok(m2.patternType === null, '非 cheat verdict → pattern 恒 null');
-const m3 = mapCheatAnswers({
-  ...answers1,
-  market_health_verdict: { type: 'choice', probabilities: { cheat: 0.05, unhealthy: 0.1, healthy: 0.15, unclear_insufficient: 0.7 } },
-});
-ok(m3.verdict === 'unclear', 'unclear_insufficient → 列值 unclear（桶名→列值映射表）');
+function mkAnswers(over = {}, retail = 1.5) {
+  return {
+    ...Object.fromEntries(Object.entries({ ...PH_BASE, ...over }).map(([k, v]) => [k, phAns(v)])),
+    retail_participation: retail === null ? { type: 'score', score: null } : { type: 'score', score: retail },
+  };
+}
+
+// A1 臂：协同卖回 ≥moderate → cheat（配对签名=最强证据，无 retail 反证解除）
+const m1 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'moderate' }, 8));
+ok(m1.verdict === 'cheat' && m1.ruleAudit.hitArm === 'A1', 'A1 卖回配对 ≥moderate → cheat（retail=8 也拦：谁主导定 cheat）');
+ok(m1.patternType === 'same_block_burst' || m1.patternType === 'wash_pump', 'A1 pattern 落作弊域桶');
+ok(m1.cheatProb === 0.6 && m1.retailParticipation === 8, 'cheatProb=命中臂主现象 argmax 概率；retail 直落');
+const m1b = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong', same_block_buy_burst: 'weak', equal_amount_split: 'weak' }));
+ok(m1b.patternType === 'wash_pump', 'A1 双指纹均 <moderate → pattern=wash_pump（自造拉升收割）');
+const m1c = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'strong', equal_amount_split: 'moderate' }));
+ok(m1c.patternType === 'equal_amount_split', 'A1 等额指纹 ≥moderate → pattern=equal_amount_split');
+const m1d = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'weak' }));
+ok(m1d.verdict !== 'cheat', '卖回仅 weak → 不命中 A1（买了拿着/配对不清≠签名）');
+
+// A2 臂：creator 抢跑须 strong 才坐实（moderate=部分卖常态不坐实，校准信号④）
+const m2 = mapCheatAnswers(mkAnswers({ creator_front_run: 'strong' }));
+ok(m2.verdict === 'cheat' && m2.patternType === 'dev_self_trade' && m2.ruleAudit.hitArm === 'A2', 'A2 creator=strong → cheat+dev_self_trade');
+const m2b = mapCheatAnswers(mkAnswers({ creator_front_run: 'moderate' }));
+ok(m2b.verdict !== 'cheat', 'creator=moderate（分批部分卖）→ 不坐实');
+
+// A3 臂：配额梯假热度 + 散户缺席（retail null=证据洞保守低算）
+const m3 = mapCheatAnswers(mkAnswers({ quota_ladder_heat: 'moderate' }, 2));
+ok(m3.verdict === 'cheat' && m3.patternType === 'quota_ladder' && m3.ruleAudit.hitArm === 'A3', 'A3 假热度+retail≤3 → cheat+quota_ladder');
+const m3b = mapCheatAnswers(mkAnswers({ quota_ladder_heat: 'moderate' }, 5));
+ok(m3b.verdict !== 'cheat', 'retail=5 散户反证解除 A3');
+const m3c = mapCheatAnswers(mkAnswers({ quota_ladder_heat: 'moderate' }, null));
+ok(m3c.verdict === 'cheat', 'retail=null 证据洞 → 保守按缺席算（fail-closed 方向）');
+
+// A4 臂：双指纹叠加 + 散户缺席（单指纹在健康票常态在场=校准信号③⑯）
+const m4 = mapCheatAnswers(mkAnswers({ same_block_buy_burst: 'moderate', equal_amount_split: 'moderate' }, 1));
+ok(m4.verdict === 'cheat' && m4.ruleAudit.hitArm === 'A4', 'A4 同块+等额双 moderate+retail≤3 → cheat');
+const m4b = mapCheatAnswers(mkAnswers({ same_block_buy_burst: 'moderate', equal_amount_split: 'weak' }, 1));
+ok(m4b.verdict !== 'cheat', '单指纹（等额仅 weak）→ 不坐实');
+
+// 健康臂：散户轴三要素联立（retail≥6 ∧ 二次承接≥weak ∧ 卖分散≥moderate）
+const m5 = mapCheatAnswers(mkAnswers({ second_wave_absorption: 'weak', sell_dispersion: 'moderate' }, 7));
+ok(m5.verdict === 'healthy' && m5.ruleAudit.hitArm === 'B1' && m5.patternType === null && m5.cheatProb === null,
+  'B1 散户三要素 → healthy；非 cheat pattern/cheatProb 恒 null');
+const m5b = mapCheatAnswers(mkAnswers({ second_wave_absorption: 'none', sell_dispersion: 'moderate' }, 7));
+ok(m5b.verdict !== 'healthy', '二次承接 none → 健康臂不成立');
+
+// 兜底：全现象 none → unhealthy（低活跃子形状=校准信号⑪；unclear 规则不产出）
+const m6 = mapCheatAnswers(mkAnswers({}, 1));
+ok(m6.verdict === 'unhealthy' && m6.ruleAudit.hitArm === 'fallback_unhealthy', '全 none → unhealthy 兜底（非 unclear）');
 ok(VERDICT_COLUMN_MAP.unclear_insufficient === 'unclear' && VERDICT_COLUMN_MAP.cheat === 'cheat'
   && VERDICT_COLUMN_MAP.unhealthy === 'unhealthy' && VERDICT_COLUMN_MAP.healthy === 'healthy',
   '映射表四桶显式钉死（DDL CHECK 域对齐）');
-const m4 = mapCheatAnswers({
-  ...answers1,
-  cheat_pattern: { type: 'choice', probabilities: { dev_self_trade: 0.35, same_block_burst: 0.3, equal_amount_split: 0.15, rapid_churn: 0.1, wash_pump: 0.05, none_apparent: 0.05 } },
-});
-ok(m4.patternType === null, 'pattern argmax P<0.4 → null（细分主张门略松）');
-const m5 = mapCheatAnswers({
-  market_health_verdict: { type: 'choice', probabilities: { cheat: 0.8, unhealthy: 0.1, healthy: 0.05, unclear_insufficient: 0.05 } },
-  cheat_pattern: { type: 'choice', probabilities: { dev_self_trade: 0.9 } },
-  retail_participation: { type: 'score', score: null },
-});
-ok(m5.verdict === 'cheat' && m5.patternType === 'dev_self_trade' && m5.retailParticipation === null,
-  'score 形状异常→null 不拦主判定');
+
+// 优先序与防线
+const m7 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'moderate', creator_front_run: 'strong' }));
+ok(m7.ruleAudit.hitArm === 'A1', 'A1 优先于 A2（配对签名最强）');
 let threw = false;
-try { mapCheatAnswers({ cheat_pattern: answers1.cheat_pattern }); } catch (_) { threw = true; }
-ok(threw, 'Q1 缺失 → throw（调用方落 error 行）');
+try { mapCheatAnswers({ retail_participation: { type: 'score', score: 1 } }); } catch (_) { threw = true; }
+ok(threw, '现象题缺失 → throw（调用方落 error 行）');
 threw = false;
 try {
-  mapCheatAnswers({ ...answers1, market_health_verdict: { probabilities: { weird_bucket: 1 } } });
+  mapCheatAnswers({ ...mkAnswers(), same_block_buy_burst: { type: 'choice', probabilities: { extreme: 1 } } });
 } catch (_) { threw = true; }
-ok(threw, '未知桶名 → throw（题集/映射表漂移防线）');
+ok(threw, '未知档位桶名 → throw（题集/映射漂移防线）');
+const m8 = mapCheatAnswers(mkAnswers({ coordinated_sell_back: 'moderate' }));
+ok(m8.ruleAudit.levels.coordinated_sell_back === 'moderate' && Object.keys(m8.ruleAudit.levels).length === 8,
+  'ruleAudit 落全 8 现象档位快照（归因/重放审计）');
 
 // ═══════════════ H. anchorCountAt（--experiment 基线锚，lib.mjs ESM 经动态 import） ═══════════════
 (async () => {
