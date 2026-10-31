@@ -140,7 +140,7 @@ async function runCase(c, { dry, version }) {
   const snapshot = buildSnapshotFromRows(rows, meta, { capped: c.anchor.capped === true, anchorTickCount: c.anchor.tickCount });
   const { state, promptChars } = buildCheatState(snapshot);
   const d = snapshot.derived;
-  console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} sbHold ${d.sameBlockHoldPct === null ? '-' : d.sameBlockHoldPct.toFixed(1) + '%'} eqHold ${d.equalBandHoldPct === null ? '-' : d.equalBandHoldPct.toFixed(1) + '%'} | state ${promptChars} chars`);
+  console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} sbHold ${d.sameBlockHoldPct === null ? '-' : d.sameBlockHoldPct.toFixed(1) + '%'} eqHold ${d.equalBandHoldPct === null ? '-' : d.equalBandHoldPct.toFixed(1) + '%'} act=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''} | state ${promptChars} chars`);
   if (dry) return { interp: null, promptChars, state, snapshot };
   const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
   const q = await import('../../src/market-analysis/llm/cheat-questions.mjs');
@@ -218,6 +218,8 @@ function digestOf(d) {
     churn60sWalletCount: d.churn60sWalletCount,
     sameBlockClusterCount: d.sameBlockClusters.length, equalClusterCount: d.equalClusters.length,
     sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct,
+    ticksPerMin: d.ticksPerMin, avgTradeBnb: d.avgTradeBnb, maxGapSec: d.maxGapSec,
+    activityLevel: d.activityLevel, activityCv: d.activityCv, activityUneven: d.activityUneven,
     priceArc: d.priceArc,
   };
 }
@@ -283,8 +285,8 @@ async function cmdExperimentBaseline(args) {
       const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
       const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-experiment-baseline' });
       const interp = interpret(mapCheatAnswers(res.answers, { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct }));
-      console.log(`${rowHead}  → ${interp.verdict} / ${interp.cheatProb ?? '-'} / ${interp.patternType ?? '-'}  sbHold=${d.sameBlockHoldPct ?? '-'}% eqHold=${d.equalBandHoldPct ?? '-'}%`);
-      results.push({ ...base, interp, promptChars, answersRaw: res.answers, anchors: { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct }, model: res.model });
+      console.log(`${rowHead}  → ${interp.verdict} / ${interp.cheatProb ?? '-'} / ${interp.patternType ?? '-'}  sbHold=${d.sameBlockHoldPct ?? '-'}% eqHold=${d.equalBandHoldPct ?? '-'}% act=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''}`);
+      results.push({ ...base, interp, promptChars, answersRaw: res.answers, anchors: { sameBlockHoldPct: d.sameBlockHoldPct, equalBandHoldPct: d.equalBandHoldPct }, activity: { ticksPerMin: d.ticksPerMin, avgTradeBnb: d.avgTradeBnb, maxGapSec: d.maxGapSec, level: d.activityLevel, cv: d.activityCv, uneven: d.activityUneven }, model: res.model });
 
       const known = knownAddr.get(t.addr);
       if (known) { console.log(`     已收录=${known}，跳过`); continue; }
@@ -412,8 +414,8 @@ async function main() {
       const { failures } = assertExpectation(r.interp, c.expect);
       const pass = !failures.length;
       if (!pass) failed++;
-      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} verdict=${r.interp.verdict} cheatP=${r.interp.cheatProb} pattern=${r.interp.patternType} sbHold=${r.interp.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.ruleAudit?.anchors?.equalBandHoldPct ?? '-'}${failures.length ? '\n  ' + failures.join('\n  ') : ''}`);
-      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct }, model: r.model });
+      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} verdict=${r.interp.verdict} cheatP=${r.interp.cheatProb} pattern=${r.interp.patternType} sbHold=${r.interp.ruleAudit?.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.ruleAudit?.anchors?.equalBandHoldPct ?? '-'} act=${r.snapshot.derived.activityLevel ?? '-'}${r.snapshot.derived.activityUneven ? '~起伏' : ''}${failures.length ? '\n  ' + failures.join('\n  ') : ''}`);
+      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct }, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, model: r.model });
     } catch (e) {
       failed++;
       console.error(`  ❌ 异常: ${e.message}`);

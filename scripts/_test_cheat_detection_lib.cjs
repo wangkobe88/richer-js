@@ -321,6 +321,75 @@ try {
 } catch (_) { threw = true; }
 ok(threw, '未知档位桶名 → throw（题集/映射漂移防线）');
 
+// ═══════════════ G. 活跃度锚（D3.2 综合三因子四档 + 不均衡 CV，用户裁定） ═══════════════
+console.log('G. 活跃度锚四档/三因子/不均衡 CV');
+{
+  const {
+    ACTIVITY_LOW_TPM, ACTIVITY_HIGH_TPM, ACTIVITY_ULTRA_TPM,
+    ACTIVITY_DUST_AVG_BNB, ACTIVITY_LONG_GAP_SEC, ACTIVITY_UNEVEN_CV,
+  } = require('../src/market-analysis/cheat-snapshot.js');
+  ok(ACTIVITY_LOW_TPM === 15 && ACTIVITY_HIGH_TPM === 70 && ACTIVITY_ULTRA_TPM === 140, '密度切点 15/70/140 挂常量（调档单点）');
+  ok(ACTIVITY_DUST_AVG_BNB === 0.05 && ACTIVITY_LONG_GAP_SEC === 120 && ACTIVITY_UNEVEN_CV === 1.0, '尘笔均 0.05/长空窗 120s/不均衡 CV 1.0 挂常量');
+
+  let gblk = 900, glog = 0;
+  const mkAct = (sec, bnb) => mkRow(sec, gblk++, glog++, 'buy', bnb, 1e-9);
+  // sec 全整数（dt=Math.round 整秒口径）：perSec=每秒 k 笔×nSec 秒（同秒多笔=机器节奏）；spaced=均匀步长
+  const perSec = (nSec, k, bnb) => Array.from({ length: nSec * k }, (_, i) => mkAct(Math.floor(i / k), bnb));
+  const spaced = (n, step, bnb) => Array.from({ length: n }, (_, i) => mkAct(i * step, bnb));
+
+  // G1 ultra：每秒 3 笔×10s=30 笔、span 9s → tpm=30/9×60=200 ≥140 → ultra；桶数 1 → CV 不可评
+  const g1 = buildSnapshotFromRows(perSec(10, 3, 0.2), microMeta).derived;
+  ok(g1.ticksPerMin === 200 && g1.activityLevel === 'ultra', `ultra：tpm=200（实际 ${g1.ticksPerMin}/${g1.activityLevel}）`);
+  ok(g1.activityCv === null && g1.activityUneven === null, 'span 9s <3 桶 → 不均衡不可评 null');
+
+  // G2 high：每秒 2 笔×45s=90 笔、span 44s → tpm=90/44×60=122.73 → high（[70,140) 档）
+  const g2 = buildSnapshotFromRows(perSec(45, 2, 0.15), microMeta).derived;
+  ok(g2.ticksPerMin === 122.73 && g2.activityLevel === 'high', `high：tpm=122.73（实际 ${g2.ticksPerMin}/${g2.activityLevel}）`);
+
+  // G3 mid：20 笔 3s 步长、span 57s → tpm=21.05 → mid（密度 15-70 带、非尘、无长空窗）
+  const g3 = buildSnapshotFromRows(spaced(20, 3, 0.3), microMeta).derived;
+  ok(g3.ticksPerMin === 21.05 && g3.activityLevel === 'mid', `mid：tpm=21.05（实际 ${g3.ticksPerMin}/${g3.activityLevel}）`);
+
+  // G4 low 三因子独立触发（任一即压低档，低档判定优先于 ultra/high）：
+  // a) 长空窗：61 笔秒级 + 1 笔 t+190s——span 190、tpm=19.58（mid 密度）笔均 0.2（非尘）
+  //    但 maxGap=190-60=130s ≥120 → low
+  const g4a = buildSnapshotFromRows([...perSec(61, 1, 0.2), mkAct(190, 0.2)], microMeta).derived;
+  ok(g4a.ticksPerMin === 19.58 && g4a.maxGapSec === 130 && g4a.activityLevel === 'low',
+    `low·长空窗：tpm=19.58 mid 密度被 maxGap=130s 独立压低档（实际 ${g4a.ticksPerMin}/${g4a.maxGapSec}/${g4a.activityLevel}）`);
+  // b) 尘笔均：40 笔 3s 步长、span 117s → tpm=20.51（mid 密度）但笔均 0.03<0.05 → low
+  const g4b = buildSnapshotFromRows(spaced(40, 3, 0.03), microMeta).derived;
+  ok(g4b.ticksPerMin === 20.51 && g4b.avgTradeBnb === 0.03 && g4b.activityLevel === 'low',
+    `low·尘笔均：tpm=20.51 但笔均 0.03<0.05（实际 ${g4b.ticksPerMin}/${g4b.avgTradeBnb}/${g4b.activityLevel}）`);
+  // c) 低密度：10 笔 10s 步长、span 90s → tpm=6.67<15 → low（笔均 0.3 非尘、gap 10s 非长空窗）
+  const g4c = buildSnapshotFromRows(spaced(10, 10, 0.3), microMeta).derived;
+  ok(g4c.ticksPerMin === 6.67 && g4c.activityLevel === 'low', `low·低密度：tpm=6.67（实际 ${g4c.ticksPerMin}/${g4c.activityLevel}）`);
+
+  // G5 不均衡：30 笔秒级 burst（t+0..29s）+ 1 笔 t+120s——span 120、tpm=31/120×60=15.5（mid）
+  //    桶 [30,0,0,1]、mean=7.75、std=√165.1875≈12.8525 → cv=1.66 ≥1 → 起伏大
+  const g5snap = buildSnapshotFromRows([...perSec(30, 1, 0.2), mkAct(120, 0.2)], microMeta);
+  const g5 = g5snap.derived;
+  ok(g5.activityLevel === 'mid', `burst+断流但密度线以上：mid（实际 ${g5.activityLevel}——tpm=${g5.ticksPerMin}）`);
+  ok(g5.activityCv === 1.66 && g5.activityUneven === true, `不均衡：cv=1.66 起伏大（实际 ${g5.activityCv}/${g5.activityUneven}）`);
+  ok(buildCheatState(g5snap).state.includes('活跃度: 中') && buildCheatState(g5snap).state.includes('高低起伏很大'), 'state 渲染：档位中文+不均衡注记在场');
+
+  // G6 均匀对照：16 笔 8s 步长均布 120s（每桶恰 4 笔）→ cv=0 非不均衡（tpm=8 同时落 low 顺带验证）
+  const g6 = buildSnapshotFromRows(spaced(16, 8, 0.3), microMeta).derived;
+  ok(g6.activityCv === 0 && g6.activityUneven === false, `均匀对照：cv=0 非不均衡（实际 ${g6.activityCv}/${g6.activityUneven}）`);
+  ok(g6.activityLevel === 'low' && g6.ticksPerMin === 8, `均匀但低密：tpm=8 → low（实际 ${g6.ticksPerMin}/${g6.activityLevel}）`);
+
+  // G7 dt 全缺失（block_time 无效）→ 活跃度全族 null（不可评绝不冒充）+ state 渲染降级
+  const g7rows = spaced(10, 1, 0.2).map((r) => ({ ...r, block_time: 'garbage' }));
+  const g7snap = buildSnapshotFromRows(g7rows, { ...microMeta, createdAt: 'garbage' });
+  const g7 = g7snap.derived;
+  ok(g7.ticksPerMin === null && g7.avgTradeBnb === null && g7.maxGapSec === null && g7.activityLevel === null
+    && g7.activityCv === null && g7.activityUneven === null, '时间戳全无效 → 活跃度族全 null');
+  ok(buildCheatState(g7snap).state.includes('活跃度: 不可评'), 'state 渲染：不可评降级行');
+
+  // G8 micro fixture（router/outlier 主 fixture）无回归：dt 齐 → 活跃度有值不影响既有键
+  ok(md.activityLevel === 'low' && md.ticksPerMin === 10.5, `micro fixture：7 笔 40s tpm=10.5 → low（实际 ${md.ticksPerMin}/${md.activityLevel}）`);
+}
+
+
 // ═══════════════ H. anchorCountAt（--experiment 基线锚，lib.mjs ESM 经动态 import） ═══════════════
 (async () => {
   const { anchorCountAt } = await import(path.join(__dirname, 'cheat-detection/lib.mjs'));

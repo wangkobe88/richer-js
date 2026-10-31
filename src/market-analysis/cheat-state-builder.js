@@ -88,6 +88,15 @@ function buildCheatState(snapshot) {
     // routerPct 行已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
     lines.push(`同块簇持仓占比: ${d.sameBlockHoldPct === null ? '无合格簇' : d.sameBlockHoldPct.toFixed(1) + '%'}（「≥3 笔买同块」全部簇的成员钱包去重并集；分子=成员正净持仓合计，分母=全场正净持仓合计）`);
     lines.push(`近等额簇持仓占比: ${d.equalBandHoldPct === null ? '无合格簇' : d.equalBandHoldPct.toFixed(1) + '%'}（±2% 金额带、带内 ≥3 个不同钱包；精确等额自然落入同带；同口径占比）`);
+    // D3.2 活跃度锚（用户裁定：活跃度由代码量化——密度/笔均交易额/最长空窗三因子综合四档，
+    // 另标不均衡（高低起伏）；Jev 判读活跃度难，眼估饱和）
+    const LVL_ZH = { low: '低', mid: '中', high: '高', ultra: '超高' };
+    if (d.activityLevel !== null && d.activityLevel !== undefined) {
+      const unevenTxt = d.activityCv === null || d.activityCv === undefined ? '' : `；不均衡度 ${d.activityCv.toFixed(2)}${d.activityUneven ? '（高低起伏很大：存在密集爆发段与长断流段交替）' : ''}`;
+      lines.push(`活跃度: ${LVL_ZH[d.activityLevel]}（密度 ${d.ticksPerMin} 笔/分钟 · 笔均 ${fmtBnb(d.avgTradeBnb)} BNB · 最长空窗 ${d.maxGapSec}s${unevenTxt}；仅作盘面事实陈述）`);
+    } else {
+      lines.push('活跃度: 不可评（时间戳缺失）');
+    }
     if (d.unresolvedSenderTickCount > 0) {
       lines.push(`⚠ sender 未解析行 ${d.unresolvedSenderTickCount}/${(snapshot.ticks || []).length}（证据洞：这些行无法归因到真实发起钱包，按 trader 回退可能并包——判断集中度/协同性时相应折扣，勿据此排除作弊也别据此坐实）`);
     }

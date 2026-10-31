@@ -35,6 +35,17 @@ const SAME_BLOCK_CLUSTER_MIN = 3;
 const EQUAL_BAND_PCT = 0.02;
 /** 快进快出判定窗（秒）：首买→首卖 < 窗即计 churn */
 const CHURN_WINDOW_SEC = 60;
+/** 活跃度四档切点（笔/分钟；D3.2 用户裁定综合三因子——low/mid/high/ultra） */
+const ACTIVITY_LOW_TPM = 15;
+const ACTIVITY_HIGH_TPM = 70;
+const ACTIVITY_ULTRA_TPM = 140;
+/** 活跃度低档伴生线：笔均交易额尘级（BNB）与最长空窗（秒） */
+const ACTIVITY_DUST_AVG_BNB = 0.05;
+const ACTIVITY_LONG_GAP_SEC = 120;
+/** 活跃度不均衡（CV）：30s 物理桶 tick 数变异系数；桶数不足=不可评 null */
+const ACTIVITY_BUCKET_SEC = 30;
+const ACTIVITY_CV_MIN_BUCKETS = 3;
+const ACTIVITY_UNEVEN_CV = 1.0;
 
 /** wallet 口径单点：sender 优先，回退 trader（FA :818 同款） */
 function walletOf(row) {
@@ -257,6 +268,51 @@ function computeDerived(snapshot) {
   }
   const equalBandHoldPct = holdPctOf(eqMembers);
 
+  // ── 活跃度锚（D3.2 用户裁定：「增加活跃度低的锚，分超高/高/中/低四档」「综合考虑
+  // 交易额/空窗期」「另给活跃度不均衡结论=高低起伏很大」；mapper 消费方式待裁定）──
+  // 三因子：密度 ticksPerMin（笔/分钟）· 笔均交易额 avgTradeBnb（资金口径全量行）·
+  // 最长空窗 maxGapSec（相邻 tick 最大间隔）。四档判定序（每条独立可调）：
+  //   low   = 长空窗 ≥ACTIVITY_LONG_GAP_SEC ∨ 密度 <ACTIVITY_LOW_TPM ∨ 笔均 <ACTIVITY_DUST_AVG_BNB
+  //   ultra = 密度 ≥ACTIVITY_ULTRA_TPM（对倒级机器节奏）
+  //   high  = 密度 ≥ACTIVITY_HIGH_TPM；其余 mid
+  // 切点=55 票锚窗实测（tmp-d32-activity@182）：长空窗 >120s 全场 3 票（低活跃
+  // unhealthy 子形状 CD7/CD37 + CD17 反例）；超高档 11 票=7 cheat+4 unhealthy+0
+  // healthy；笔均 <0.05 全场仅 CD3/CD44（低活跃 unhealthy / 慢速吸筹 cheat）。
+  // 不均衡 activityCv=锚窗 30s 物理桶 tick 数变异系数 std/mean（burst+断流起伏→大）；
+  // 桶数 <ACTIVITY_CV_MIN_BUCKETS → null（不可评）。dt 缺失全族 null（绝不冒充）。
+  const dts = ticks.map((t) => t.dt).filter((v) => v !== null && v !== undefined);
+  let ticksPerMin = null, avgTradeBnb = null, maxGapSec = null;
+  let activityLevel = null, activityCv = null, activityUneven = null;
+  if (dts.length >= 2) {
+    const spanSec = Math.max(1, dts[dts.length - 1] - dts[0]);
+    ticksPerMin = +((dts.length / spanSec) * 60).toFixed(2);
+    for (let i = 1; i < dts.length; i++) {
+      const g = dts[i] - dts[i - 1];
+      if (g > maxGapSec) maxGapSec = g;
+    }
+    avgTradeBnb = +((totalBuyBnb + totalSellBnb) / ticks.length).toFixed(4);
+    if (maxGapSec >= ACTIVITY_LONG_GAP_SEC || ticksPerMin < ACTIVITY_LOW_TPM || avgTradeBnb < ACTIVITY_DUST_AVG_BNB) {
+      activityLevel = 'low';
+    } else if (ticksPerMin >= ACTIVITY_ULTRA_TPM) {
+      activityLevel = 'ultra';
+    } else if (ticksPerMin >= ACTIVITY_HIGH_TPM) {
+      activityLevel = 'high';
+    } else {
+      activityLevel = 'mid';
+    }
+    const bucketN = Math.ceil(spanSec / ACTIVITY_BUCKET_SEC);
+    if (bucketN >= ACTIVITY_CV_MIN_BUCKETS) {
+      const cnt = new Array(bucketN).fill(0);
+      for (const dt of dts) {
+        cnt[Math.min(bucketN - 1, Math.floor((dt - dts[0]) / ACTIVITY_BUCKET_SEC))]++;
+      }
+      const mean = dts.length / bucketN;
+      const std = Math.sqrt(cnt.reduce((s, v) => s + (v - mean) ** 2, 0) / bucketN);
+      activityCv = +(std / mean).toFixed(2);
+      activityUneven = activityCv >= ACTIVITY_UNEVEN_CV;
+    }
+  }
+
   // ── 价格拱（仅 price_outlier=false 行——价格口径滤，资金口径不滤）──
   let first = null, ath = null, athDt = null, last = null;
   for (const t of ticks) {
@@ -275,6 +331,8 @@ function computeDerived(snapshot) {
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
     sameBlockHoldPct, equalBandHoldPct,
+    ticksPerMin, avgTradeBnb, maxGapSec,
+    activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,
   };
 }
@@ -294,4 +352,12 @@ module.exports = {
   EQUAL_BAND_PCT,
   SAME_BLOCK_CLUSTER_MIN,
   CHURN_WINDOW_SEC,
+  ACTIVITY_LOW_TPM,
+  ACTIVITY_HIGH_TPM,
+  ACTIVITY_ULTRA_TPM,
+  ACTIVITY_DUST_AVG_BNB,
+  ACTIVITY_LONG_GAP_SEC,
+  ACTIVITY_BUCKET_SEC,
+  ACTIVITY_CV_MIN_BUCKETS,
+  ACTIVITY_UNEVEN_CV,
 };

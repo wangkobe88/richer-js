@@ -210,10 +210,10 @@ class CheatCheckService {
       if (!res.ok) {
         if (res.kind === 'timeout') {
           this.stats.timeouts++;
-          await this._writeRow(token, meta, pull, { verdict: 'timeout', failReason: `jev_timeout_${this._timeoutMs}ms` }, null, context);
+          await this._writeRow(token, meta, pull, { verdict: 'timeout', failReason: `jev_timeout_${this._timeoutMs}ms` }, null, context, snapshot.derived);
         } else {
           this.stats.errors++;
-          await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `jev_error: ${res.error?.message || res.error}` }, null, context);
+          await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `jev_error: ${res.error?.message || res.error}` }, null, context, snapshot.derived);
         }
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         this._analysisCount.set(token, done + 1); // 失败也烧预算（防故障环）
@@ -234,12 +234,12 @@ class CheatCheckService {
         });
       } catch (e) {
         this.stats.errors++;
-        await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context);
+        await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context, snapshot.derived);
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         this._analysisCount.set(token, done + 1);
         return;
       }
-      await this._writeRow(token, meta, pull, mapped, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context);
+      await this._writeRow(token, meta, pull, mapped, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
       this._analysisCount.set(token, done + 1);
       this._lastAnalysis.set(token, {
         questionVersion: this._version, anchorTickCount: pull.anchorTickCount,
@@ -249,7 +249,7 @@ class CheatCheckService {
       this._log('info', `盘面判定 ${mapped.verdict}` +
         (mapped.cheatProb !== null ? ` (cheat P=${mapped.cheatProb.toFixed(2)})` : '') +
         (mapped.patternType ? ` pattern=${mapped.patternType}` : '') +
-        ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
+        ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}% act=${snapshot.derived.activityLevel ?? '—'}${snapshot.derived.activityUneven ? '~起伏' : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
@@ -429,7 +429,7 @@ class CheatCheckService {
   }
 
   /** 落库（观察 fail-open：写失败 loud warn 不重试不抛） */
-  async _writeRow(token, meta, pull, mapped, raw, context = {}) {
+  async _writeRow(token, meta, pull, mapped, raw, context, derived) {
     try {
       const promptKey = `${token}\0${this._version}`;
       const isFirst = !this._promptWritten.has(promptKey);
@@ -446,6 +446,14 @@ class CheatCheckService {
         buyBnb: Number(buyBnb.toFixed(4)),
         sellBnb: Number(sellBnb.toFixed(4)),
         anchors: mapped.ruleAudit?.anchors ?? null, // D3.1 持仓占比锚（A5 臂输入快照，重放对拍用）
+        activity: { // D3.2 活跃度锚（消费方式待裁定；存原始数值=将来调档零配额重分档原料）
+          ticksPerMin: derived.ticksPerMin ?? null,
+          avgTradeBnb: derived.avgTradeBnb ?? null,
+          maxGapSec: derived.maxGapSec ?? null,
+          level: derived.activityLevel ?? null,
+          cv: derived.activityCv ?? null,
+          uneven: derived.activityUneven ?? null,
+        },
       };
       const row = {
         token_address: token,
