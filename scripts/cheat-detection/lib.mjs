@@ -60,8 +60,8 @@ export function loadAndValidateFixtures(doc) {
  * @param {object|null} obs buildObservation 产物
  *   { phenomena, extLevels, activityLevel:{bucket,prob}|null,
  *     bundledDominance:{bucket,prob}|null, anchors }（D3.8 起含捆绑主导度档；
- *     D3.9 起 extLevels.stall_burst_wave 三分类桶域 none/burst_suspect/
- *     burst_normal、extLevels.insider_supply_sell 老鼠仓档——旧档断代/缺席 null）
+ *     D3.9 起 extLevels 含 insider_supply_sell 老鼠仓档；sbw 桶域 D3.10 起
+ *     none/burst_cheat/burst_normal（「可疑」中间态废）——旧档断代/缺席 null）
  */
 export function interpret(obs) {
   if (!obs) return null;

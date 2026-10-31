@@ -15,8 +15,10 @@
 //   （旧存档缺席 → activityLevel=null 行，act 分布单列）；**amount_tiering 自
 //   D3.7 / same_block_buy_wave+bundled_trade_dominance 自 D3.8 起**（同容缺）；
 //   **D3.9：insider_supply_sell 起自 D3.9（缺席 null）；stall_burst_wave 改三分类
-//   桶域 none/burst_suspect/burst_normal——D3.3-D3.8 旧档四档值（weak/moderate/
-//   strong）语义不可比=断代 null（分布单列，与缺席同显示）**。
+//   桶域——D3.3-D3.8 旧档四档值（weak/moderate/strong）语义不可比=断代 null（分布
+//   单列，与缺席同显示）**；**D3.10：桶名 burst_suspect → burst_cheat（「可疑」
+//   中间态废——作弊直判，判不上=正常涌入），D3.9 存档的 burst_suspect 桶值同走
+//   断代 null**。
 import { readFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -24,7 +26,7 @@ import { createRequire } from 'module';
 import { loadAndValidateFixtures } from './lib.mjs';
 
 const require = createRequire(import.meta.url);
-const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, LEVEL_ORDER, ACTIVITY_LEVELS, BUNDLED_LEVELS } = require('../../src/market-analysis/cheat-result-mapper.js');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, LEVEL_ORDER, ACTIVITY_LEVELS, BUNDLED_LEVELS, STALL_BURST_LEVELS } = require('../../src/market-analysis/cheat-result-mapper.js');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = {};
@@ -69,17 +71,22 @@ if (noAnswers) console.log(`⚠ ${noAnswers} 行无 answersRaw（旧版存档）
 
 const classes = ['cheat', 'unhealthy', 'healthy'];
 
-// 现象档位×人工裁定类分布（重放归因主表——哪个现象在哪类票上被标到什么档位）
-console.log('\n== 现象档位×人工裁定类分布（none/weak/moderate/strong）==');
+// 现象档位×人工裁定类分布（重放归因主表——哪个现象在哪类票上被标到什么档位；
+// sbw 独立桶域列（D3.10 burst_cheat——四档列下 burst_* 值会被静默丢数）
+console.log('\n== 现象档位×人工裁定类分布（none/weak/moderate/strong；sbw 行=none/burst_cheat/burst_normal）==');
 for (const ph of [...PHENOMENON_IDS, ...EXT_PHENOMENON_IDS]) {
+  const lv = ph === 'stall_burst_wave' ? STALL_BURST_LEVELS : LVL;
   const cells = classes.map((k) => {
-    const d = { none: 0, weak: 0, moderate: 0, strong: 0, null: 0 };
+    const d = { null: 0 };
+    for (const l of lv) d[l] = 0;
     for (const r of rows) if (r.cls === k && r.obs) {
       const v = EXT_PHENOMENON_IDS.includes(ph) ? r.obs.extLevels[ph] : r.obs.phenomena[ph];
       if (v === null || v === undefined) d.null += 1;
+      else if (!(v in d)) d[v] = 1; // 域外值不静默丢（列头之外单列计数）
       else d[v] += 1;
     }
-    return `${k}: ${LVL.map((l) => d[l] || 0).join('/')}${d.null ? `/${d.null}null` : ''}`;
+    const extra = Object.keys(d).filter((x) => x !== 'null' && !lv.includes(x));
+    return `${k}: ${lv.map((l) => d[l] || 0).join('/')}${d.null ? `/${d.null}null` : ''}${extra.length ? ` 域外:${extra.map((x) => `${x}×${d[x]}`).join(',')}` : ''}`;
   });
   console.log(`  ${ph.padEnd(24)} ${cells.join('  |  ')}`);
 }
