@@ -203,12 +203,12 @@
         "tickCount": 46
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买23/卖23 Σ买4.87BNB 钱包24 top1=51.4% churn7 同块簇3 等额簇2）；expect=判读现状待 review；10-30 review 用户翻案：正常盘（healthy）。主导买入=creator 0x3195…4cd8 首买 2.50（top1 51.4% 恒常态）+0xffbd…6dcc 买 0.4356 锚后快翻（跟单名单 coTokens 608/sybil 簇 #15 成员）；等额小额蜂群（0x278e/0x93a3/0x040f/0xaa28/0x18a5）为跨票常驻集群（次日 elun CD52 同批钱包）=flap 新票背景噪音非本票协同",
+      "note": "aed2091d 首买基线收录（锚=46=首笔成功买+settle4000ms；买23/卖23 Σ买4.87BNB 钱包24 top1=51.4% churn7 同块簇3 等额簇2）；expect=判读现状待 review；10-30 review 用户翻案：正常盘（healthy）。主导买入=creator 0x3195…4cd8 首买 2.50（top1 51.4% 恒常态）+0xffbd…6dcc 买 0.4356 锚后快翻（跟单名单 coTokens 608/sybil 簇 #15 成员）；等额小额蜂群（0x278e/0x93a3/0x040f/0xaa28/0x18a5）为跨票常驻集群（次日 elun CD52 同批钱包）=flap 新票背景噪音非本票协同；10-31 组4 复核再翻案：作弊盘——creator 0x319555bc…4cd8 的 token_create 与首笔 2.5 BNB 买入（0x31956572…）为同一笔链上交易（创建+首买打包，占锚窗总买入 41%）+八个零买入钱包（买入额<卖出额 10%）纯卖出合计 2.929 BNB=锚窗总卖出 49.9%、三组轮次同块倾倒（blk880/881 六钱包 0.02 级试探→blk934/935 三钱包 0.2 级主力→blk973/975 复现）；tx 0x8b264757706ea11b8936a0ce0637186dc68575ff723f944ccc27470afe5773df 被 GMGN 标记老鼠仓卖出；D3.9 insider_supply_sell 立项本票",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 翻案：正常盘子（买入时被 0xffbd…6dcc 主导）——Jev 判 cheat 0.99 dev_self_trade 系把 creator 常态首买+部分卖出与跨票蜂群读成本票协同"
+      "expectSince": "2026-10-31",
+      "expectBecause": "2026-10-31 组4 用户复核裁定：「这个票按照这么说，也是作弊的」——tx 0x8b2647…73df GMGN 老鼠仓标记+creator 同 tx 首买 41%+零买入钱包占总卖出 49.9%（撤销 10-30 healthy 翻案）"
     },
     {
       "caseId": "CD14",
@@ -219,12 +219,12 @@
         "tickCount": 68
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=68=首笔成功买+settle4000ms；买51/卖17 Σ买3.48BNB 钱包31 top1=11.4% churn10 同块簇7 等额簇2）；expect=判读现状待 review；10-30 review 用户翻案裁定：「不健康盘（单簇持有太多，散户参与少）」——单簇=4d76/fa4b/f20c/5588/75a4 五钱包阶梯累积（各 0.17-0.25 买 2-3 笔锚内零卖，合计 ~1.0 BNB 持有太多）；b62d/677f 0.0742×2 同块买→t+3 同块卖+再卖（快进快出对）；0.0660×3 梯（0d05/1826/dd7b）；98df=sybil；creator 0.25 买→t+6 0.3881 卖；ba04 0.396→三段卖；@锚90 48 钱包 churn10 router 52.3% 散户参与少——机器 cheat 主源=同块簇 8（配对卖回波量小）",
+      "note": "aed2091d 首买基线收录（锚=68=首笔成功买+settle4000ms；买51/卖17 Σ买3.48BNB 钱包31 top1=11.4% churn10 同块簇7 等额簇2）；expect=判读现状待 review；10-30 review 用户翻案裁定：「不健康盘（单簇持有太多，散户参与少）」——单簇=4d76/fa4b/f20c/5588/75a4 五钱包阶梯累积（各 0.17-0.25 买 2-3 笔锚内零卖，合计 ~1.0 BNB 持有太多）；b62d/677f 0.0742×2 同块买→t+3 同块卖+再卖（快进快出对）；0.0660×3 梯（0d05/1826/dd7b）；98df=sybil；creator 0.25 买→t+6 0.3881 卖；ba04 0.396→三段卖；@锚90 48 钱包 churn10 router 52.3% 散户参与少——机器 cheat 主源=同块簇 8（配对卖回波量小）；10-31 组4 复核再翻案：作弊盘（用户裁定；D3.8 观测 bw strong 0.60/bd high 0.96/sbHold 59.2% 同向）",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 翻案：「不健康盘（单簇持有太多，散户参与少）」——五钱包单簇累积 ~1.0 锚内零卖=控盘持有"
+      "expectSince": "2026-10-31",
+      "expectBecause": "2026-10-31 组4 用户复核裁定：「CD14 也是 cheat」（撤销 10-30 unhealthy）"
     },
     {
       "caseId": "CD15",

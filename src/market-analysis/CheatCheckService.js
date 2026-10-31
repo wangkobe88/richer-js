@@ -205,8 +205,9 @@ class CheatCheckService {
         return;
       }
 
-      // 9) 快照 + state
-      const meta = this._normalizeMeta(token, tokenMeta, pull);
+      // 9) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
+      const createMeta = await this._loadCreateMeta(token);
+      const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
       const snapshot = buildSnapshotFromRows(pull.rows, meta, { capped: pull.capped, anchorTickCount: pull.anchorTickCount });
       const { state } = buildCheatState(snapshot);
 
@@ -255,6 +256,7 @@ class CheatCheckService {
       const p = obs.phenomena;
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
         ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
+        ` rat=${obs.extLevels.insider_supply_sell ?? '—'}` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
@@ -402,7 +404,7 @@ class CheatCheckService {
     return this._reanalyzeTickDelta; // 水位变=有新 tick 但量未知，按满值处理（限流+顶帽兜底）
   }
 
-  _normalizeMeta(token, tokenMeta, pull) {
+  _normalizeMeta(token, tokenMeta, pull, createMeta = null) {
     return {
       address: token,
       symbol: tokenMeta.symbol || null,
@@ -410,8 +412,40 @@ class CheatCheckService {
       platform: tokenMeta.platform || null,
       quoteToken: pull.quoteToken || null,
       createdAt: tokenMeta.createdAtMs ? new Date(tokenMeta.createdAtMs).toISOString() : (tokenMeta.createdAt || null),
-      creatorAddress: tokenMeta.creatorAddress || null,
+      // creator：引擎 meta 优先，token_create payload.creator 兜底（D3.9）
+      creatorAddress: tokenMeta.creatorAddress || (createMeta && createMeta.creator) || null,
+      // D3.9 老鼠仓题原料：创建交易哈希（与 [TICKS] tx= 同域——创建+首买同笔可判）
+      createTxHash: (createMeta && createMeta.txHash) || null,
     };
+  }
+
+  /**
+   * token_create 行读取（D3.9：creator 兜底 + createTxHash 原料）。
+   * token 级终身缓存（token_create 不可变）；失败/无行 fail-open 返回 {}
+   * （老票/跨平台 payload 写法差异=常态缺席，非错误不告警）。
+   */
+  async _loadCreateMeta(token) {
+    if (this._createMetaCache && this._createMetaCache.has(token)) return this._createMetaCache.get(token);
+    let out = {};
+    try {
+      const client = this._client();
+      const r = await client.from('wss_events')
+        .select('payload')
+        .eq('token_address', token)
+        .eq('kind', 'token_create')
+        .limit(1);
+      const row = r && r.data && r.data[0];
+      const p = row && row.payload;
+      if (p) {
+        out = {
+          creator: p.creator || null,
+          txHash: p.txHash || p.tx_hash || null,
+        };
+      }
+    } catch { /* fail-open：缺席=常态（老票/事件行缺失） */ }
+    if (!this._createMetaCache) this._createMetaCache = new Map();
+    this._createMetaCache.set(token, out);
+    return out;
   }
 
   /** Jev 调用 + 超时竞速：超时后迟到的成功/失败结果一律丢弃（锚已记 timeout 行） */

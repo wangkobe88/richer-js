@@ -21,7 +21,7 @@ const {
   buildSnapshotFromRows, computeDerived, aggregateWallets, walletOf, isRouterWallet,
 } = require('../src/market-analysis/cheat-snapshot');
 const { buildCheatState, MAX_STATE_CHARS } = require('../src/market-analysis/cheat-state-builder');
-const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS, BUNDLED_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS, BUNDLED_LEVELS, STALL_BURST_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
 let passed = 0;
@@ -264,17 +264,26 @@ const f1b = buildObservation(mkAnswers(), { sameBlockHoldPct: '88' });
 ok(f1b.anchors.sameBlockHoldPct === null, '锚形状异常（字符串）→ 按缺席算不冒充');
 
 // ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
+// sbw D3.9 改三分类桶域：在场三桶照落 / 旧档四档值断代 null / 未知桶 throw
 ok(buildObservation(mkAnswers()).extLevels.stall_burst_wave === null,
   'ext 题缺席（≤D3.1 旧存档形状）→ null 落审计不 throw（零配额重放兼容）');
-const f2 = buildObservation({ ...mkAnswers(), stall_burst_wave: phAns('strong') });
-ok(f2.extLevels.stall_burst_wave === 'strong', 'ext=strong 照落 extLevels（观测记录在场）');
+const sbwAns = (bucket, p = 0.72) => {
+  const rest = (1 - p) / 2;
+  return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(STALL_BURST_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
+};
+const f2 = buildObservation({ ...mkAnswers(), stall_burst_wave: sbwAns('burst_suspect') });
+ok(f2.extLevels.stall_burst_wave === 'burst_suspect', 'sbw=burst_suspect 照落 extLevels（三分类在场）');
+ok(buildObservation({ ...mkAnswers(), stall_burst_wave: phAns('strong') }).extLevels.stall_burst_wave === null,
+  'sbw 旧档四档值 strong（D3.3-D3.8）→ 断代 null 不冒充映射');
+ok(buildObservation({ ...mkAnswers(), stall_burst_wave: sbwAns('none') }).extLevels.stall_burst_wave === 'none',
+  'sbw=none 两域同义保留（无沉寂后爆发涌入）');
 let threw = false;
 try {
   buildObservation({ ...mkAnswers(), stall_burst_wave: { type: 'choice', probabilities: { extreme: 1 } } });
 } catch (_) { threw = true; }
 ok(threw, 'ext 题在场未知桶名 → throw（漂移防线不因容缺放宽）');
 
-// 买入额度分层题（D3.7：EXT 容缺通道同 sbw——缺席 null/在场档位/未知桶 throw）
+// 买入额度分层题（D3.7：EXT 容缺通道——缺席 null/在场档位/未知桶 throw）
 ok(buildObservation(mkAnswers()).extLevels.amount_tiering === null,
   'amount_tiering 缺席（≤D3.6 旧存档）→ null 不 throw（零配额重放兼容）');
 const f2b = buildObservation({ ...mkAnswers(), amount_tiering: phAns('strong') });
@@ -295,8 +304,21 @@ try {
   buildObservation({ ...mkAnswers(), same_block_buy_wave: { type: 'choice', probabilities: { high: 1 } } });
 } catch (_) { threw = true; }
 ok(threw, 'same_block_buy_wave 在场但档域名 high → throw（现象四档域校验）');
-ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave']),
-  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.8 三键）');
+
+// 老鼠仓份额卖出题（D3.9：EXT 容缺通道——CD13 八零买入钱包占总卖出 49.9%+创建同 tx 首买盲区）
+ok(buildObservation(mkAnswers()).extLevels.insider_supply_sell === null,
+  'insider_supply_sell 缺席（≤D3.8 旧存档）→ null 不 throw（零配额重放兼容）');
+const f2e = buildObservation({ ...mkAnswers(), insider_supply_sell: phAns('strong') });
+ok(f2e.extLevels.insider_supply_sell === 'strong', 'insider_supply_sell=strong 照落 extLevels');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), insider_supply_sell: { type: 'choice', probabilities: { low: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'insider_supply_sell 在场但档域名 low → throw（现象四档域校验）');
+ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell']),
+  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.9 四键）');
+ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst_suspect', 'burst_normal']),
+  'STALL_BURST_LEVELS 导出钉死（D3.9 三分类桶域）');
 
 // 活跃度题（D3.5：Jev 判断活跃度——独立档域 low/mid/high/ultra，非现象四档轴）
 const actAns = (bucket, p = 0.7) => {
@@ -556,20 +578,22 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.8：9 题=4 现象+sbw+tiering+bw+activity_level+bd） ═══════════════
-  console.log('I2. 题集结构 D3.8（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.9：10 题=4 现象+sbw(三分类)+tiering+bw+activity_level+bd+insider） ═══════════════
+  console.log('I2. 题集结构 D3.9（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.8', `版本常量 D3.8（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.9', `版本常量 D3.9（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
     'BUNDLED_LEVELS 导出=捆绑题独立档域三桶（mapper 同名常量对齐）');
+  ok(JSON.stringify(qm.STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst_suspect', 'burst_normal']),
+    'STALL_BURST_LEVELS 导出=停滞突发波三分类桶域（mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 9
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance']
+  ok(qids.length === 10
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell']
       .every((id) => qids.includes(id)),
-    '9 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance（D3.8 新增两题）');
+    '10 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell（D3.9 新增老鼠仓题）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -579,11 +603,15 @@ console.log('I. 著名钱包单极控盘锚');
     ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
       `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
   }
-  for (const id of [...PHENOMENON_IDS, ...EXT_PHENOMENON_IDS]) {
+  // 四档域题=存续 4 现象 + tiering/bw/insider（sbw D3.9 起三分类、act/bd 独立档域另行断言）
+  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell']) {
     ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs[id].criteria[b] === 'string')
       && Object.keys(qs[id].criteria).length === qm.PHENOMENON_LEVELS.length,
       `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
   }
+  ok(qm.STALL_BURST_LEVELS.every((b) => typeof qs.stall_burst_wave.criteria[b] === 'string')
+    && Object.keys(qs.stall_burst_wave.criteria).length === 3,
+    'stall_burst_wave：criteria 键集=STALL_BURST_LEVELS 三分类桶域（D3.9 档域改型）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
@@ -595,10 +623,12 @@ console.log('I. 著名钱包单极控盘锚');
   ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高两正例');
   ok(act.includes('不下任何盘面结论'), 'activity_level 尾句=只述档位不下结论');
   const sbw = qs.stall_burst_wave.instructions;
-  ok(sbw.includes('静默') && sbw.includes('波占比') && sbw.includes('排除项'),
-    'stall_burst_wave 算法三要素=静默段判读/波占比算式/排除项');
-  ok(sbw.includes('÷ 窗口全部买入额合计') && sbw.includes('≤1.5'),
-    'stall_burst_wave 显式算式=波占比分式 + 近额带宽参考值');
+  ok(sbw.includes('静默') && sbw.includes('排除项') && sbw.includes('单独摘出来'),
+    'stall_burst_wave 算法三要素=静默段判读/排除项/波内资金单独摘出（CD17 裁定）');
+  ok(sbw.includes('三选一') && sbw.includes('无沉寂后爆发涌入') && sbw.includes('沉寂后作弊流量涌入') && sbw.includes('沉寂后正常流量涌入'),
+    'stall_burst_wave 三分类输出=用户裁定三类桶名在题面（涌入存在性 × 波内资金形状）');
+  ok(sbw.includes('钱包新旧') && sbw.includes('买卖对冲') && sbw.includes('≤1.5'),
+    'stall_burst_wave 波内审视三信号=金额规整度(≤1.5 聚带)/钱包新旧轮换/买卖对冲');
   const tier = qs.amount_tiering.instructions;
   ok(tier.includes('带间空隙') && tier.includes('分层覆盖度') && tier.includes('连续渐变'),
     'amount_tiering 算法要素=带间空隙判读/分层覆盖度/无序度对照');
@@ -628,9 +658,28 @@ console.log('I. 著名钱包单极控盘锚');
     'bundled_trade_dominance 档位语义=背景噪声无害/高档 ≥50/中档 15~50/低档 <15');
   ok(bdq.includes('约 98% 的正净持仓') && bdq.includes('同一笔链上交易'),
     'bundled_trade_dominance 正例=CD10 簇持仓 98% + CD8 同 tx 打包形状');
+  ok(bdq.includes('已卖出的仓位不算主导') && bdq.includes('不足其买入额的 15%') && bdq.includes('至多中档'),
+    'bundled_trade_dominance D3.9 强化=已卖出仓位不算主导（CD17 裁定：对冲离场=刷量，买入占比 ≥50% 也至多中档）');
+  ok(bdq.includes('买完即对冲卖出'),
+    'bundled_trade_dominance 低档正例含 CD17 形状（波内钱包买完即对冲离场、正净≈0 按刷量定低档）');
   ok(qm.BUNDLED_LEVELS.every((b) => typeof qs.bundled_trade_dominance.criteria[b] === 'string')
     && Object.keys(qs.bundled_trade_dominance.criteria).length === 3,
     'bundled_trade_dominance：criteria 键集=BUNDLED_LEVELS 独立档域（非现象四档轴）');
+  const rat = qs.insider_supply_sell.instructions;
+  ok(rat.includes('买入额不足其卖出额 10%') && rat.includes('沉在末尾也要扫到'),
+    'insider_supply_sell 判据核心=零买入/低买入卖出钱包（10% 判据）+ [WALLETS] 降序末尾扫到（纯卖出钱包沉底反证）');
+  ok(rat.includes('÷ 窗口全部卖出额合计') && rat.includes('≥30%') && rat.includes('10~30%'),
+    'insider_supply_sell 显式算式=配额倾倒占比分式（卖出域——与买入域题分式区分）');
+  ok(rat.includes('createTx=') && rat.includes('同一笔链上交易'),
+    'insider_supply_sell 最硬信号=创建+首买同笔 tx（[TOKEN] createTx= 与 [TICKS] tx= 对上）');
+  ok(rat.includes('同块协同/多轮次') && rat.includes('先买后卖'),
+    'insider_supply_sell 倾倒节奏=同块协同/多轮次 + AMM 先买后卖原理锚（无买入有筹码=内部分配）');
+  ok(rat.includes('零买入纯卖出') && rat.includes('总卖出一半'),
+    'insider_supply_sell 正例=CD13 形状（八钱包零买入占总卖出一半三组轮次）');
+  ok(rat.includes('归「抢跑者首买」题口径'),
+    'insider_supply_sell 反例=creator 买入覆盖卖出归 cr 题口径（题间分界不重叠）');
+  ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs.insider_supply_sell.criteria[b] === 'string'),
+    'insider_supply_sell：criteria 键集=PHENOMENON_LEVELS 四档（现象强度轴）');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });

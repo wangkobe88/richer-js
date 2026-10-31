@@ -123,6 +123,8 @@ async function loadTokenMeta(token) {
     platform: hit ? hit.platform : null,
     createdAt,
     creatorAddress: p.creator || null,
+    // D3.9 老鼠仓题原料：创建交易哈希（[TOKEN] createTx=，与 [TICKS] tx= 同域）
+    createTxHash: p.txHash || p.tx_hash || null,
   };
 }
 
@@ -133,14 +135,14 @@ function quoteTokenOf(rowsAsc) {
   return null;
 }
 
-/** D3.7 观测行打印（现象档位+观察题+Jev 活跃度；无 verdict——判定层停产） */
+/** D3.9 观测行打印（现象档位+观察题+Jev 活跃度；无 verdict——判定层停产） */
 function obsLine(interp) {
   if (!interp || !interp.phenomena) return '(无判读)';
   const p = interp.phenomena;
   const ext = (id) => (interp.extLevels && interp.extLevels[id] !== undefined ? interp.extLevels[id] : null);
   const act = interp.activityLevel ? interp.activityLevel.bucket : null;
   const bd = interp.bundledDominance ? interp.bundledDominance.bucket : null;
-  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} bw=${ext('same_block_buy_wave') ?? '-'} act=${act ?? '-'} bd=${bd ?? '-'}`;
+  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} bw=${ext('same_block_buy_wave') ?? '-'} rat=${ext('insider_supply_sell') ?? '-'} act=${act ?? '-'} bd=${bd ?? '-'}`;
 }
 
 /** 单 case 全链（锚截窗→快照→state→[Jev]→mapper 观测组装） */
@@ -261,7 +263,7 @@ async function cmdExperimentBaseline(args) {
   let hadError = false;
 
   console.log(['# ', 'symbol'.padEnd(12), 'plat'.padEnd(9), '锚'.padEnd(6), '买/卖'.padEnd(9), 'Σ买BNB'.padEnd(8), '钱包'.padEnd(6), 'top1%'.padEnd(7), 'churn'.padEnd(6), '同块'.padEnd(5), '等额'.padEnd(5), 'state'].join('')
-    + (args.dry ? '' : '  → 现象观测（D3.8：eq/sb/cr/sd/sbw/tier/bw/bd/act）'));
+    + (args.dry ? '' : '  → 现象观测（D3.9：eq/sb/cr/sd/sbw(三分类)/tier/bw/rat/bd/act）'));
 
   for (let i = 0; i < targets.length; i++) {
     const t = targets[i];

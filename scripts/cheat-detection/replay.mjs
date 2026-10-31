@@ -13,7 +13,10 @@
 // 注意：存档行带 answersRaw 自 D3.0 起；旧版存档无此键的行报 skipped（不可重放）。
 //   **锚重放自 D3.1 起**（存档行带 anchors）；**activity_level 题自 D3.5 起**
 //   （旧存档缺席 → activityLevel=null 行，act 分布单列）；**amount_tiering 自
-//   D3.7 / same_block_buy_wave+bundled_trade_dominance 自 D3.8 起**（同容缺）。
+//   D3.7 / same_block_buy_wave+bundled_trade_dominance 自 D3.8 起**（同容缺）；
+//   **D3.9：insider_supply_sell 起自 D3.9（缺席 null）；stall_burst_wave 改三分类
+//   桶域 none/burst_suspect/burst_normal——D3.3-D3.8 旧档四档值（weak/moderate/
+//   strong）语义不可比=断代 null（分布单列，与缺席同显示）**。
 import { readFileSync, readdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';

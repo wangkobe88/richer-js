@@ -63,7 +63,9 @@ function buildCheatState(snapshot) {
     if (meta.quoteToken) {
       lines.push(`quote_token=${meta.quoteToken}（非 BNB 计价盘：下列 bnb 金额已在写入时换算为 BNB 域，读侧照抄；换算失败的链上交易整行不入表=本窗口可能缺行；跨汇率刷新窗的等额簇金额仅近似）`);
     }
-    lines.push(`created=${meta.createdAt || '?'} creator=${meta.creatorAddress ? shortWallet(meta.creatorAddress) : 'unknown'}`);
+    lines.push(`created=${meta.createdAt || '?'} creator=${meta.creatorAddress ? shortWallet(meta.creatorAddress) : 'unknown'}` +
+      // D3.9：创建交易哈希前 8 位（与 [TICKS] tx= 同域——创建+首买同笔可对上；缺失不渲染）
+      (meta.createTxHash ? ` createTx=${String(meta.createTxHash).replace(/^0x/, '').slice(0, 8)}` : ''));
     if (snapshot.dtBase === 'first_tick') {
       lines.push('⚠ token 创建时间缺失：t+Ns 基准退化为首 tick 时刻（非创建时刻）');
     }
