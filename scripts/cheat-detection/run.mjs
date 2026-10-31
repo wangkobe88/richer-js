@@ -412,7 +412,7 @@ async function main() {
       const pass = !failures.length;
       if (!pass) failed++;
       console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} verdict=${r.interp.verdict} cheatP=${r.interp.cheatProb} pattern=${r.interp.patternType} retail=${r.interp.retailParticipation}${failures.length ? '\n  ' + failures.join('\n  ') : ''}`);
-      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars });
+      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, model: r.model });
     } catch (e) {
       failed++;
       console.error(`  ❌ 异常: ${e.message}`);

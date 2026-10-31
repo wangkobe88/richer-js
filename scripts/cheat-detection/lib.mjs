@@ -55,12 +55,14 @@ export function loadAndValidateFixtures(doc) {
  * @param {object|null} mapped mapCheatAnswers 产物 { verdict, cheatProb, patternType, retailParticipation }
  */
 export function interpret(mapped) {
-  if (!mapped) return { verdict: null, cheatProb: null, patternType: null, retailParticipation: null };
+  if (!mapped) return { verdict: null, cheatProb: null, patternType: null, retailParticipation: null, ruleAudit: null };
   return {
     verdict: mapped.verdict ?? null,
     cheatProb: typeof mapped.cheatProb === 'number' ? mapped.cheatProb : null,
     patternType: mapped.patternType ?? null,
     retailParticipation: typeof mapped.retailParticipation === 'number' ? mapped.retailParticipation : null,
+    // D3.0：规则审计（命中臂+现象档位快照）透传进存档 interp——规则调参归因可见
+    ruleAudit: mapped.ruleAudit ?? null,
   };
 }
 
