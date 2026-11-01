@@ -1563,12 +1563,12 @@
         "tickCount": 38
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买30/卖8 Σ买4.65BNB 钱包30 top1=6.4% churn4 同块簇2 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买30/卖8 Σ买4.65BNB 钱包30 top1=6.4% churn4 同块簇2 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「1. CD98 healthy」。无 strong（eq/cr/sd/tier/bw/pump 六 moderate 堆叠+sbw=burst）；top1 买 6.4% 全场最分散、买卖双向 30:8 活跃——对照 CD92/CD80 双向活跃无 strong=healthy 先例；+203% 盈利不改结构判定"
     },
     {
       "caseId": "CD99",
@@ -1579,12 +1579,12 @@
         "tickCount": 34
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买34/卖0 Σ买2.35BNB 钱包31 top1=9.2% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买34/卖0 Σ买2.35BNB 钱包31 top1=9.2% churn0 同块簇2 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「2.CD99 unhealthy」。全买零卖家族第七票（34 笔 0 卖 churn 0，同 CD53/54/72/76/81/91/96 形状）+pump=strong 垫量推价；但等额簇 0/同块簇 2 无阵列组织性证据——与 CD96（全买零卖+eq/bw/pump 三 strong 判 cheat）分界=单 strong 无阵列落 unhealthy；28s +50% 盈利不改判定"
     },
     {
       "caseId": "CD100",
@@ -1595,12 +1595,12 @@
         "tickCount": 50
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=50=首笔成功买+settle4000ms；买43/卖7 Σ买8.08BNB 钱包35 top1=25.9% churn7 同块簇7 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=50=首笔成功买+settle4000ms；买43/卖7 Σ买8.08BNB 钱包35 top1=25.9% churn7 同块簇7 等额簇3）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「3. CD100 unhealthy」。无 strong 但四重集中（bd=high+sbHold 59.7%+top1 25.9%+t1 供/流 27.2%/49.4%）+代码活跃度 ultra、买 43 卖 7 失衡——对照 CD95 无 strong 落 unhealthy 先例"
     },
     {
       "caseId": "CD101",
@@ -1611,12 +1611,12 @@
         "tickCount": 14
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买13/卖1 Σ买2.81BNB 钱包13 top1=35.5% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买13/卖1 Σ买2.81BNB 钱包13 top1=35.5% churn1 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「4. CD101 unhealthy(活跃度低)」——理由=活跃度低（act=low、锚窗 14 笔本组最小）。结构最轻一票（仅 top1 35.5% 单钱包集中+cr=moderate，等额簇 1）；本组唯一全损票（买后无卖）"
     },
     {
       "caseId": "CD102",
@@ -1627,12 +1627,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买20/卖6 Σ买1.54BNB 钱包18 top1=25.7% churn4 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买20/卖6 Σ买1.54BNB 钱包18 top1=25.7% churn4 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「5. CD102 作弊」。bw=strong（同块买入波）+sbHold 54.9%+bd=high；tier=moderate+eq=moderate+sd=moderate 组合"
     },
     {
       "caseId": "CD103",
@@ -1643,12 +1643,12 @@
         "tickCount": 87
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=87=首笔成功买+settle4000ms；买62/卖25 Σ买8.43BNB 钱包57 top1=8.9% churn14 同块簇6 等额簇4）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=87=首笔成功买+settle4000ms；买62/卖25 Σ买8.43BNB 钱包57 top1=8.9% churn14 同块簇6 等额簇4）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「6. CD103 unhealthy（著名钱包主导太多了）」——著名钱包跟随 92% 交易+dominance 100%（回归集之最）但持仓仅 8%；对照 CD86 dom high 84.6%=unhealthy 同向（CD80 双向活跃 healthy 的分界在主导度不过百/卖笔占优）；57 钱包 87 笔最大窗双向 62:25、eq/sb/sd 各 moderate"
     },
     {
       "caseId": "CD104",

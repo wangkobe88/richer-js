@@ -27,6 +27,29 @@
 
 ## Case 倒序
 
+### 组 19（CD98-CD103）：CD102 同块买入波 strong cheat / CD99 全买零卖家族第七票单 strong 无阵列 unhealthy / CD103 著名钱包主导 100% unhealthy（2026-11-01）
+
+**组 19 裁定**（2026-11-01，六票全 flap，D3.26 真调）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.26 真调） |
+|---|---|---|---|---|
+| CD98 | 同舟计划 | `0x247c…7777` | **healthy** | 无 strong（六 moderate 堆叠+sbw=burst）；top1 买 6.4% 全场最分散、买卖双向 30:8 |
+| CD99 | 币安社区 | `0x0b35…7777` | **unhealthy** | 全买零卖家族第七票（34 笔 0 卖 churn 0）+pump=strong；等额簇 0/同块簇 2 无阵列证据 |
+| CD100 | SAFUDOG | `0xf06a…7777` | **unhealthy** | 无 strong 四重集中（bd=high+sbHold 59.7%+top1 25.9%+t1 流 49.4%）+act ultra 买 43 卖 7 |
+| CD101 | SAFUDOG | `0x5739…7777` | **unhealthy** | 结构最轻（14 笔小锚窗、top1 35.5%+cr=moderate）；act=low |
+| CD102 | SAFU | `0x9575…7777` | **cheat** | bw=strong+sbHold 54.9%+bd=high+tier/eq/sd 各 moderate |
+| CD103 | Grug | `0xd708…7777` | **unhealthy** | famous 跟随 92%+dominance 100%（回归集之最）持仓仅 8%；双向 62:25、eq/sb/sd 各 moderate |
+
+**裁定语义四条（判读先例）**：
+①CD99：**全买零卖家族形状梯度细化**——第七票（同 CD53/54/72/76/81/91/96）但落 unhealthy 而非 cheat：与 CD96（全买零卖+eq/bw/pump 三 strong 判 cheat）分界=**单 strong（仅 pump）且无阵列组织性证据（等额簇 0）落 unhealthy**；家族形状本身不再直接等价 cheat，阵列/多 strong 才升 cheat；28s +50% 盈利不改判定；
+②CD101：**「活跃度低」本身可为 unhealthy 理由**（用户裁定原话「CD101 unhealthy(活跃度低)」）——结构最轻一票（无任何结构证据、仅 top1 集中）也落 unhealthy；本组唯一全损票（买后无卖）；
+③CD103：**著名钱包主导过大=unhealthy**（用户裁定原话「著名钱包主导太多了」）——dom 100%（跟随 92%、回归集之最）对照 CD86 84.6%=unhealthy 同向；与 CD80（dom high 双向活跃=healthy）的分界在主导度与卖笔结构；
+④CD98：双向活跃无 strong=healthy（CD92/CD80 先例链第三票）；+203% 分三笔卖盈利不改结构判定。
+
+**盈亏**：六票均 aed2091d live 0.006 BNB 快进快出——CD98 +0.012180 本组最大盈（分三笔 38s/60s/112s 卖出 ≈+203%）、CD99 +0.003033（28s +50%）；CD100 -0.001616（两轮）/CD101 -0.006000 全损（买后无卖）/CD102 -0.000593（16s）/CD103 -0.003816（31s）。
+
+**收录**：组 19 六票 verdict/because 已落 fixtures；本组无质询立项（六票裁定与机器判读方向一致）。
+
 ### 组 18（CD92-CD97）：CD93 rat=strong 首个正例 cheat / CD96 全买零卖家族第六票 cheat / CD97 sbHold 89.9% 回归集之最 cheat（2026-11-01）
 
 **组 18 裁定**（2026-11-01，六票全 flap，D3.26 真调）：
