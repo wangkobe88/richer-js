@@ -27,6 +27,25 @@
 
 ## Case 倒序
 
+### 组 13（CD62-CD67）全 flap：CD62/CD66 双质询——bw/eq/tier 三题 sniper 打新潮误伤 review 待办（2026-11-01）
+
+**组 13 裁定**（2026-11-01，六票，D3.18 真调）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.18 真调） |
+|---|---|---|---|---|
+| CD62 | SPCXHolder | `0xc83f…7777` | **unhealthy** | sbHold 88.1%+控盘 low 24.2%+sb=moderate/bw=strong；bw strong 疑误伤（质询①） |
+| CD63 | TROLLCZ | `0x767f…7777` | **cheat** | sb=strong+sbHold 47.2%+控盘 high 72.9%+轮换 32/39 高频倒手 |
+| CD64 | TROLLON | `0x8119…7777` | **cheat** | sbHold 75.9%+top1 买 30.7% 单边吸筹（卖仅 5 笔）+bw=strong |
+| CD65 | SI | `0x5654…7777` | **cheat** | eqHold 41.3%+sb=strong+控盘 high 70.5% |
+| CD66 | CNM | `0xbdb9…7777` | **unhealthy**（非作弊） | eq/tier/bw 三 strong+sbHold 83.6%/eqHold 59.0%/控盘 95.9%/ultra——疑 sniper 打新潮误伤（质询②） |
+| CD67 | SPCX | `0x6398…7777` | **cheat**（作弊无疑） | top1 买 55.9% 单钱包主导+轮换 1+eqHold/sbHold 双 43.0%+rat=moderate |
+
+**CD62 质询①（bw 误伤 review 待办）**：用户裁定原话「CD62 unhealthy，但是 "同块买入波" strong 感觉有点误伤了，需要再 review 一下规则」——同块簇持仓 88.1% 极高但控盘 low（24.2%，同块簇买入占比不高），D3.16 ②密度反锚后仍判 strong 的票；归因探针待跑（锚窗买入行的块分布/金额同质化/是否同 tx）。
+
+**CD66 质询②（eq/tier/bw 三题 review 待办）**：用户裁定原话「CD66 unhealthy，等额分仓/额度分层/同块买入波 都要review下，这个票前期狙击手参与较多，但是KOL例如 0x3472ccf6209925204b9cf352171ee150904fda7e 也很早参与了，应该不是作弊的」——sniper 打新潮假说：等额分仓 strong=狙击用户用相同档位金额打新造成「等额簇」假象、额度分层 strong=sniper 多档金额、同块买入波 strong=首块并发打新；KOL 早参与佐证真热度非自导。归因探针待跑（买入时间分布：狙击集中首几块 vs 作弊持续全窗；等额簇金额档位；KOL 参与位置）。
+
+**收录**：组 13 六票 verdict/because 已落 fixtures；两处规则 review 结论待归因后另行裁定（是否 D3.19 改题面）。
+
 ### 组 12（CD56-CD61）扩集首组：CD56/CD60 双质询立项 D3.16（2026-11-01）
 
 **扩集收录**：用户指令「将测试集合近一步扩大，将实验 aed2091d…（虚拟）中有交易但是尚未收录的代币全部收录，将实验 4012ce39…（v66 live）有交易的代币全部收录，然后继续以 6 个为一组，进行 review」——`--only-new` 差集 aed2091d 55 票 + 4012ce39 全部 18 票=**CD56-CD128 共 73 票**（锚=首笔成功买+settle 4000ms 链上真序行数；双实验 182 真调 D3.15 十一题基线存档 `data/cd-baseline-*.json`），fixtures 至 **128 票**；expect=判读现状待逐案 review。
