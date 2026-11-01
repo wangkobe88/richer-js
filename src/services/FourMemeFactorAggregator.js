@@ -3605,14 +3605,18 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
 
         // ── 作弊盘检测因子注入（G1 因子化，2026-11-01 用户指令「以因子的形式放到
-        //    表达式中」）：14 键全数值序（narrativeRating 先例同构）——cheatGrade
+        //    表达式中」）：20 键全数值序（narrativeRating 先例同构）——cheatGrade
         //    （healthy=0/unhealthy=1/cheat=2）+ cheatUnhealthyGrades（unhealthy 真分析
         //    判定次数）+ cheatBlocked（拉黑 1/0）+ 11 题档位键 cheatEqualAmountSplit/
         //    CoordinatedSellBack/CreatorFrontRun/SellDispersion/StallBurstWave/
         //    AmountTiering/SameBlockBuyWave/InsiderSupplySell/SlowGrindPump/
         //    ActivityLevel/BundledDominance（四档 none=0/weak=1/moderate=2/strong=3、
         //    sbw 二桶 0/1、act 0-3、dom 0-2；映射表=market-analysis/cheat-grade.js
-        //    CHEAT_LEVEL_SCORES，未知档位→null 不冒充）。
+        //    CHEAT_LEVEL_SCORES，未知档位→null 不冒充）+ 数值锚六键（用户补点「著名
+        //    钱包掌控/持仓极不均衡」）cheatSameBlockHoldPct/cheatEqualBandHoldPct/
+        //    cheatTop1HoldSupplyPct/cheatTop1HoldCircPct（持仓占比 %，G1 B/C/F 通道
+        //    sbHold 与 E 通道 t1 流的同源数值）+ cheatFamousDominancePct（著名钱包
+        //    掌控度 %）+ cheatFamousDominance（低/中/高→0/1/2）。
         //    写者=引擎（gate 判定/迟到补投影/预触发 onResult）；**值=最近一次判定
         //    投影**（叙事 C84 同构：后台分析完成投影，下一 tick 条件可消费）——
         //    首判未完成/预触发未跑 → 全 null（条件裸比较恒 false fail-closed，未判定
@@ -3623,6 +3627,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                 ? _cheatFactorOverrides.get(state.tokenAddress) || null
                 : null;
             const _lv = _cg && _cg.levels ? _cg.levels : null;
+            const _an = _cg && _cg.anchors ? _cg.anchors : null;
             factors.cheatGrade = _cg ? _CHEAT_LEVEL_SCORES.grade[_cg.grade] ?? null : null;
             factors.cheatUnhealthyGrades = _cg ? (_cg.unhealthyGrades ?? 0) : 0;
             factors.cheatBlocked = _cg && _cg.blocked === true ? 1 : 0;
@@ -3637,6 +3642,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatSlowGrindPump = _lv ? _lv.slowGrindPump ?? null : null;
             factors.cheatActivityLevel = _lv ? _lv.activityLevel ?? null : null;
             factors.cheatBundledDominance = _lv ? _lv.bundledDominance ?? null : null;
+            factors.cheatSameBlockHoldPct = _an ? _an.sameBlockHoldPct ?? null : null;
+            factors.cheatEqualBandHoldPct = _an ? _an.equalBandHoldPct ?? null : null;
+            factors.cheatTop1HoldSupplyPct = _an ? _an.top1HoldSupplyPct ?? null : null;
+            factors.cheatTop1HoldCircPct = _an ? _an.top1HoldCircPct ?? null : null;
+            factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
+            factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
         }
 
         return factors;
@@ -3751,11 +3762,13 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 迟到补投影/_cheatPrefetchCheck 预触发 onResult；stop 逐 token 清）。整包替换。
      * @param {string} tokenAddress
      * @param {{grade: 'cheat'|'unhealthy'|'healthy'|null, unhealthyGrades?: number,
-     *   blocked?: boolean, levels?: Object|null}} snapshot
+     *   blocked?: boolean, levels?: Object|null, anchors?: Object|null}} snapshot
      *   grade=G1 分级（出口数值化 healthy=0/unhealthy=1/cheat=2）；unhealthyGrades=
      *   unhealthy 真分析累计次数；blocked=拉黑；levels=11 题数值档
-     *   （levelsFromObservation 产物，出口键 cheatEqualAmountSplit 等 11 键）。
-     *   投影 14 键**可进条件串**（2026-11-01 用户指令因子化——值=最近一次判定，
+     *   （levelsFromObservation 产物，出口键 cheatEqualAmountSplit 等 11 键）；
+     *   anchors=数值锚六键（持仓占比四键+famous 掌控度数值/档位，出口键
+     *   cheatSameBlockHoldPct 等 6 键）。
+     *   投影 20 键**可进条件串**（2026-11-01 用户指令因子化——值=最近一次判定，
      *   首判未完成 null fail-closed，放行须显式 IS NULL 臂；回测恒 null）
      */
     static setCheatFactors(tokenAddress, snapshot) {

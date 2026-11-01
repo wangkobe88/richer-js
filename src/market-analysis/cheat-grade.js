@@ -69,13 +69,17 @@ function scoreLevel(map, value) {
 
 /**
  * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
- * levels=11 题数值档（FA 出口键）、buckets=字符串原值（metadata/日志研究友好）。
+ * levels=11 题数值档（FA 出口键）、buckets=字符串原值（metadata/日志研究友好）、
+ * anchors=数值锚六键（2026-11-01 用户补点「著名钱包掌控/持仓极不均衡」：obs.anchors
+ * 持仓占比四键 sb/eq/t1 供/流 + extras famous 数值/档位——G1 B/C/F 通道 sbHold、
+ * E 通道 t1 流、D 通道 famous 档的同源数值，条件串可做同款门）。
  * activityLevel/bundledDominance 缺席（<D3.5/<D3.8 旧档）→ null。
  */
-function levelsFromObservation(observation) {
+function levelsFromObservation(observation, extras = {}) {
   const obs = observation || {};
   const ph = obs.phenomena || {};
   const ex = obs.extLevels || {};
+  const fx = extras || {};
   const act = obs.activityLevel && obs.activityLevel.bucket ? obs.activityLevel.bucket : null;
   const dom = obs.bundledDominance && obs.bundledDominance.bucket ? obs.bundledDominance.bucket : null;
   const levels = {
@@ -104,7 +108,18 @@ function levelsFromObservation(observation) {
     activityLevel: act,
     bundledDominance: dom,
   };
-  return { levels, buckets };
+  const an = obs.anchors || {};
+  const famousLevel = typeof fx.famousDominanceLevel === 'string' ? fx.famousDominanceLevel : null;
+  const anchors = {
+    sameBlockHoldPct: _pct(an.sameBlockHoldPct),
+    equalBandHoldPct: _pct(an.equalBandHoldPct),
+    top1HoldSupplyPct: _pct(an.top1HoldSupplyPct),
+    top1HoldCircPct: _pct(an.top1HoldCircPct),
+    famousDominancePct: _pct(fx.famousDominancePct),
+    famousDominanceLevel: famousLevel,
+    famousDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, famousLevel),
+  };
+  return { levels, buckets, anchors };
 }
 
 

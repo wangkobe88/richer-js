@@ -78,8 +78,8 @@ console.log('A. _cheatGateEvaluate 六路径');
   check('cheat → 清仓联动（why=cheat 判定）', exits, [{ addr: '0xtok', why: 'cheat 判定' }]);
   check('cheat → signal failed reason=cheat_gate_cheat', signals.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_cheat']]);
-  check('cheat → FA 投影（grade/blocked/levels 透传）', FA.getCheatFactors('0xtok'),
-    { grade: 'cheat', unhealthyGrades: 0, blocked: true, levels: null });
+  check('cheat → FA 投影（grade/blocked/levels/anchors 透传）', FA.getCheatFactors('0xtok'),
+    { grade: 'cheat', unhealthyGrades: 0, blocked: true, levels: null, anchors: null });
   FA.clearCheatFactors('0xtok');
 
   // A2 unhealthy：拦买不拉黑（重判在 service 侧计数）
@@ -94,8 +94,8 @@ console.log('A. _cheatGateEvaluate 六路径');
   ok('unhealthy → 不拉黑（增量门满足自动重判）', !eng2._cheatBlockedTokens.has('0xtok'));
   check('unhealthy → signal failed reason=cheat_gate_unhealthy', signals2.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_unhealthy']]);
-  check('unhealthy → FA 投影 blocked=false（levels 随 service 返回透传）', FA.getCheatFactors('0xtok'),
-    { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: null });
+  check('unhealthy → FA 投影 blocked=false（levels/anchors 随 service 返回透传）', FA.getCheatFactors('0xtok'),
+    { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: null, anchors: null });
   FA.clearCheatFactors('0xtok');
 
   // A3 healthy：放行 + 投影
@@ -105,7 +105,7 @@ console.log('A. _cheatGateEvaluate 六路径');
   });
   const r3 = await eng3._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-3');
   ok('healthy → 放行', r3.pass === true && r3.info.grade === 'healthy', r3);
-  check('healthy → FA 投影', FA.getCheatFactors('0xtok'), { grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: null });
+  check('healthy → FA 投影', FA.getCheatFactors('0xtok'), { grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: null, anchors: null });
   FA.clearCheatFactors('0xtok');
 
   // A4 timeout_fail_open：本笔放行 + late 挂钩迟到消费
@@ -220,31 +220,35 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 14 键往返（因子化：grade 三键 + 11 题档）');
+console.log('D. FA 投影 20 键往返（因子化：grade 三键 + 11 题档 + 数值锚六键）');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
   const LV = { equalAmountSplit: 2, coordinatedSellBack: null, creatorFrontRun: 1,
     sellDispersion: 0, stallBurstWave: 1, amountTiering: null, sameBlockBuyWave: 3,
     insiderSupplySell: null, slowGrindPump: 2, activityLevel: 0, bundledDominance: 2 };
-  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV });
-  check('set → get unhealthy（levels 原样往返）', FAmod.getCheatFactors('0xround'),
-    { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV });
+  const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, top1HoldSupplyPct: 25.6,
+    top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2 };
+  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
+  check('set → get unhealthy（levels/anchors 原样往返）', FAmod.getCheatFactors('0xround'),
+    { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   FAmod.setCheatFactors('0xround', { grade: 'cheat', unhealthyGrades: 0, blocked: true });
-  check('同 token 二次 set 整包替换（无 levels 键原样存=引擎路径恒显式传）',
+  check('同 token 二次 set 整包替换（无 levels/anchors 键原样存=引擎路径恒显式传）',
     FAmod.getCheatFactors('0xround'), { grade: 'cheat', unhealthyGrades: 0, blocked: true });
   FAmod.clearCheatFactors('0xround');
   check('clear → null', FAmod.getCheatFactors('0xround'), null);
-  // _buildFactorMap 发射 14 键：探针（实例化真实 FA）验证键名在因子集内
+  // _buildFactorMap 发射 20 键：探针（实例化真实 FA）验证键名在因子集内
   const fa = new FAmod({}, null);
   const keys = [...fa.getFactorKeys()]; // Set → 数组
   const need = ['cheatGrade', 'cheatUnhealthyGrades', 'cheatBlocked',
     'cheatEqualAmountSplit', 'cheatCoordinatedSellBack', 'cheatCreatorFrontRun', 'cheatSellDispersion',
     'cheatStallBurstWave', 'cheatAmountTiering', 'cheatSameBlockBuyWave', 'cheatInsiderSupplySell',
-    'cheatSlowGrindPump', 'cheatActivityLevel', 'cheatBundledDominance'];
-  ok('14 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
+    'cheatSlowGrindPump', 'cheatActivityLevel', 'cheatBundledDominance',
+    'cheatSameBlockHoldPct', 'cheatEqualBandHoldPct', 'cheatTop1HoldSupplyPct',
+    'cheatTop1HoldCircPct', 'cheatFamousDominancePct', 'cheatFamousDominance'];
+  ok('20 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
-  // 数值序出口（grade healthy=0/unhealthy=1/cheat=2；题档 0-3；null 透传）——
+  // 数值序出口（grade healthy=0/unhealthy=1/cheat=2；题档 0-3；锚 % 数值直传；null 透传）——
   // registerToken+单 tick 建 state 后 buildFactorMap 直读（cheat 块纯投影）
   const T0 = 1700000000000;
   fa.registerToken('0xround', { createdAtMs: T0, totalSupply: 1e9, symbol: 'TST' });
@@ -252,19 +256,24 @@ console.log('D. FA 投影 14 键往返（因子化：grade 三键 + 11 题档）
     price_bnb: 5e-9, price_usd: 3e-6, bnb_amount: 0.01, token_amount: 2e6,
     block_number: 40000001, timestamp: T0 + 1000, tx_hash: '0xtx1', log_index: 0,
     price_outlier: false, platform: 'fourmeme' }, { emitFactors: false });
-  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV });
+  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   const fm = fa.buildFactorMap('0xround', T0 + 2000);
-  ok('buildFactorMap 出口数值化（unhealthy=1/档位映射/null 不冒充）',
+  ok('buildFactorMap 出口数值化（unhealthy=1/档位映射/锚 % 直传/null 不冒充）',
     fm && fm.cheatGrade === 1 && fm.cheatUnhealthyGrades === 2 && fm.cheatBlocked === 0
     && fm.cheatSameBlockBuyWave === 3 && fm.cheatStallBurstWave === 1
     && fm.cheatActivityLevel === 0 && fm.cheatBundledDominance === 2
-    && fm.cheatCoordinatedSellBack === null && fm.cheatEqualAmountSplit === 2,
-    fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, coord: fm.cheatCoordinatedSellBack } : 'build null');
+    && fm.cheatCoordinatedSellBack === null && fm.cheatEqualAmountSplit === 2
+    && fm.cheatSameBlockHoldPct === 66.1 && fm.cheatEqualBandHoldPct === 57.2
+    && fm.cheatTop1HoldSupplyPct === 25.6 && fm.cheatTop1HoldCircPct === 53.4
+    && fm.cheatFamousDominancePct === 87.5 && fm.cheatFamousDominance === 2,
+    fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
+      dom: fm.cheatFamousDominance } : 'build null');
   FAmod.clearCheatFactors('0xround');
   const fm2 = fa.buildFactorMap('0xround', T0 + 3000);
   ok('清投影 → 全 null/0（未判定语义，条件裸比较恒 false fail-closed）',
     fm2 && fm2.cheatGrade === null && fm2.cheatUnhealthyGrades === 0 && fm2.cheatBlocked === 0
-    && fm2.cheatSameBlockBuyWave === null, fm2 ? fm2.cheatGrade : 'build null');
+    && fm2.cheatSameBlockBuyWave === null && fm2.cheatSameBlockHoldPct === null
+    && fm2.cheatFamousDominance === null, fm2 ? fm2.cheatGrade : 'build null');
 }
 
 console.log('E. 引擎侧源码口径锁');
@@ -341,18 +350,20 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
   eng3._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
   ok('prefetchCondition 空串=显式禁用', notes.length === 3);
 
-  // F3 onResult 投影：回调收 grade → FA 14 键投影（预触发是条件串消费的供源）
+  // F3 onResult 投影：回调收 grade → FA 20 键投影（预触发是条件串消费的供源）
   const eng4 = mk({
     _cheatGateEnabled: true,
     _cheatCheckService: { enabled: true, noteBuyPoint: (a, m, c, cb) => cb && cb({
       grade: 'cheat', reasons: [{ code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0,
       levels: { sameBlockBuyWave: 3, stallBurstWave: null },
+      anchors: { sameBlockHoldPct: 72.6, famousDominance: null },
     }) },
   });
   eng4._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
   const pf = FA.getCheatFactors('0xtok');
-  ok('onResult 回调 → FA 投影（预触发路径写者）',
-    pf && pf.grade === 'cheat' && pf.blocked === true && pf.levels.sameBlockBuyWave === 3);
+  ok('onResult 回调 → FA 投影（预触发路径写者；anchors 随包透传）',
+    pf && pf.grade === 'cheat' && pf.blocked === true && pf.levels.sameBlockBuyWave === 3
+    && pf.anchors && pf.anchors.sameBlockHoldPct === 72.6 && pf.anchors.famousDominance === null);
   FA.clearCheatFactors('0xtok');
 
   // F4 _scanCheatFactorConsumers 字段覆盖：七字段任一含 cheatXxx 即真；卖腿不扫

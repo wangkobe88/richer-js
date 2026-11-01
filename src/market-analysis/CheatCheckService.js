@@ -205,6 +205,7 @@ class CheatCheckService {
         unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
         levels: lg ? lg.levels ?? null : null,
         buckets: lg ? lg.buckets ?? null : null,
+        anchors: lg ? lg.anchors ?? null : null,
       };
     }
 
@@ -379,12 +380,16 @@ class CheatCheckService {
       }
 
       // 因子化投影原料（2026-11-01 用户指令）：11 题数值档（FA 出口）+字符串
-      // 原值（metadata/日志）——随返回形状透传引擎投影 FA
-      const { levels, buckets } = levelsFromObservation(obs);
+      // 原值（metadata/日志）+数值锚六键（famous 掌控/持仓极不均衡补点）——随返回
+      // 形状透传引擎投影 FA
+      const { levels, buckets, anchors } = levelsFromObservation(obs, {
+        famousDominancePct: snapshot.derived.famousDominancePct ?? null,
+        famousDominanceLevel: snapshot.derived.famousDominanceLevel ?? null,
+      });
       this._lastGrade.set(token, {
         grade: graded.grade, reasons: graded.reasons, version: graded.version,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
-        levels, buckets,
+        levels, buckets, anchors,
       });
       const p = obs.phenomena;
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
@@ -399,7 +404,7 @@ class CheatCheckService {
       return {
         status: 'analyzed', grade: graded.grade, reasons: graded.reasons,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
-        levels, buckets,
+        levels, buckets, anchors,
       };
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕

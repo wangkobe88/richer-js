@@ -301,6 +301,25 @@ CD110 t1 豁免副作用（保护 CD105/CD122 代价）/CD119 B 口径权衡（�
     const r2 = levelsFromObservation(null);
     ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 11,
       '空观测 → 11 键全 null（容缺不冒充）');
+    // 数值锚六键（用户补点「著名钱包掌控/持仓极不均衡」）：obs.anchors 四键
+    // 持仓占比 + extras famous 数值/档位；famousDominance=low/mid/high→0/1/2
+    const r3 = levelsFromObservation({
+      phenomena: {}, extLevels: {},
+      anchors: { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2,
+        top1HoldSupplyPct: 25.6, top1HoldCircPct: 53.4 },
+    }, { famousDominancePct: 87.5, famousDominanceLevel: 'high' });
+    ok(r3.anchors && r3.anchors.sameBlockHoldPct === 66.1
+      && r3.anchors.equalBandHoldPct === 57.2 && r3.anchors.top1HoldSupplyPct === 25.6
+      && r3.anchors.top1HoldCircPct === 53.4 && r3.anchors.famousDominancePct === 87.5
+      && r3.anchors.famousDominanceLevel === 'high' && r3.anchors.famousDominance === 2,
+      `anchors 六键精确映射（实际 ${JSON.stringify(r3.anchors)}）`);
+    ok(levelsFromObservation({}, { famousDominanceLevel: 'mid' }).anchors.famousDominance === 1,
+      'famous 档 low/mid/high → 0/1/2（dominance 映射表复用）');
+    const r4 = levelsFromObservation({}, { famousDominancePct: -3, famousDominanceLevel: 'extreme' });
+    ok(r4.anchors.sameBlockHoldPct === null && r4.anchors.top1HoldCircPct === null
+      && r4.anchors.famousDominancePct === null && r4.anchors.famousDominance === null
+      && r4.anchors.famousDominanceLevel === 'extreme',
+      '锚缺席/负数/未知档 → 数值 null 不冒充（字符串原值照存留档，buckets 哲学）');
   }
 
   console.log(`\n✅ _test_cheat_grade 全过（${passed} 断言）`);

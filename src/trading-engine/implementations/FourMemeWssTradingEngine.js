@@ -2730,6 +2730,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       unhealthyGrades: res.unhealthyGrades ?? 0,
       blocked: res.grade === 'cheat' || this._cheatBlockedTokens.has(tokenAddress),
       levels: res.levels ?? null,
+      anchors: res.anchors ?? null,
     });
     this._cheatProjectedTokens.add(tokenAddress);
   }

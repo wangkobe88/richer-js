@@ -423,8 +423,17 @@ async function main() {
     ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'burst'
       && r1.buckets.activityLevel === 'mid',
       `analyzed 带 buckets 字符串原值（研究留档）`);
-    ok(r2.levels && r2.levels.sameBlockBuyWave === 3,
-      '拉黑秒回也带 levels（_lastGrade 透传——gate 短路路径因子不缺位）');
+    // Z1c 数值锚六键（用户补点「著名钱包掌控/持仓极不均衡」）：四持仓占比键真算数值
+    // （genTicks 全 0.1 同额 10 钱包）+famous 三键缺席 null（名单无命中=该轴不适用）
+    ok(r1.anchors && ['sameBlockHoldPct', 'equalBandHoldPct', 'top1HoldSupplyPct',
+      'top1HoldCircPct', 'famousDominancePct', 'famousDominanceLevel', 'famousDominance']
+      .every((k) => k in r1.anchors) && r1.anchors.famousDominancePct === null
+      && r1.anchors.famousDominance === null && r1.anchors.famousDominanceLevel === null,
+      `analyzed 带 anchors 七键（famous 无命中缺席 null）（实际 ${JSON.stringify(r1.anchors)}）`);
+    ok(r1.anchors.equalBandHoldPct === 100,
+      `等额带锚精确值（全 0.1 同额 10 钱包簇并集=全场 Σ正净 → 100）（实际 ${r1.anchors.equalBandHoldPct}）`);
+    ok(r2.levels && r2.levels.sameBlockBuyWave === 3 && r2.anchors && 'sameBlockHoldPct' in r2.anchors,
+      '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
   }
   {
     // Z2. unhealthy 计数→重判→用尽拉黑（unhealthyReanalyses=3：第 4 次 unhealthy 拉黑）
@@ -511,15 +520,17 @@ async function main() {
     ok(info.status === 'initiated', 'noteBuyPoint 同步返回轨迹形状不变');
     await new Promise((r) => setTimeout(r, 150)); // settle 10ms + 链完成
     ok(got.length === 1 && got[0].status === 'analyzed' && got[0].grade === 'cheat'
-      && got[0].levels && got[0].levels.sameBlockBuyWave === 3,
-      'onResult 回调收 analyzed+levels（预触发投影 FA 原料）');
+      && got[0].levels && got[0].levels.sameBlockBuyWave === 3
+      && got[0].anchors && 'top1HoldCircPct' in got[0].anchors,
+      'onResult 回调收 analyzed+levels+anchors（预触发投影 FA 原料）');
     // 增量门内二次预触发 → joined_inflight 或新链 reused：回调也回（reused 形状带 grade）
     const got2 = [];
     svc.noteBuyPoint('0xtok', META, {}, (res) => got2.push(res));
     await new Promise((r) => setTimeout(r, 150));
     ok(got2.length === 1 && got2[0].status === 'reused' && got2[0].grade === 'cheat'
-      && got2[0].levels && got2[0].levels.sameBlockBuyWave === 3,
-      '增量门内 reused → onResult 带 _lastGrade levels（连续预触发因子不缺位）');
+      && got2[0].levels && got2[0].levels.sameBlockBuyWave === 3
+      && got2[0].anchors && 'top1HoldCircPct' in got2[0].anchors,
+      '增量门内 reused → onResult 带 _lastGrade levels+anchors（连续预触发因子不缺位）');
     // fail 形状也回（insufficient_ticks 低票）——回调不丢、不抛
     const db2 = makeDb({ ticks: genTicks(3) });
     const svc2 = makeSvc(db2, makeLlm(), { minTicks: 8, settleDelayMs: 10 });

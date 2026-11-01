@@ -241,6 +241,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatSlowGrindPump: factorResults.cheatSlowGrindPump ?? null,
     cheatActivityLevel: factorResults.cheatActivityLevel ?? null,
     cheatBundledDominance: factorResults.cheatBundledDominance ?? null,
+    cheatSameBlockHoldPct: factorResults.cheatSameBlockHoldPct ?? null,
+    cheatEqualBandHoldPct: factorResults.cheatEqualBandHoldPct ?? null,
+    cheatTop1HoldSupplyPct: factorResults.cheatTop1HoldSupplyPct ?? null,
+    cheatTop1HoldCircPct: factorResults.cheatTop1HoldCircPct ?? null,
+    cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
+    cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
   };
 }
 
