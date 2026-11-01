@@ -8,10 +8,15 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G3=G2+H 通道+八主判，2026-11-01 批次二 CD27 裁定；G2 基线 42 票 D3.26
- * 存档对拍 34/42（八票偏差见台账 G2 修订段），G3 对存档重放零变化——旧档
- * anchors 无 washPair 键=H 通道缺席不触发、extLevels 无 wash_pair 档=A 通道
- * 主判集扩容对旧档容缺 null 不计）：
+ * 规则（G4=G3+I 通道 t1 供应独大单档，2026-11-01 批次二 CD69 两段裁定：立项
+ * 「大户集中度不能只是观察锚，持仓太多了不行，至少这么大总量占比肯定不行的」
+ * →口径「我觉得不要看流通占比吧，看总量占比，否则如果检测时间靠前，结果就
+ * 不对了」（流通分母=已买入筹码，开盘早期池浅占比虚高时间不无偏；供应分母恒
+ * totalSupply）→定线「单档 ≥40 → cheat」；G3 基线 42 票 D3.26 存档对拍 34/42
+ * （八票偏差见台账 G2 修订段），G4 对存档重放零变化——t1供 ≥40 全 128 票唯一
+ * 命中 CD69(46.5) 不在黄金集；断层 46.5↔31.6（CD104 31.6 人工 healthy 挡住
+ * 下探，30 线即误伤；25-30 七票人工混杂不能切；35-40 无票做不出 unhealthy
+ * 中间档=空转）：
  *
  *   cheat（优先级最高）:
  *     A. 八主判题（四现象剔 cr + tier/bw/rat/pump/wash）任一 strong
@@ -24,6 +29,11 @@
  *        CD27 用户裁定「对倒交易非常严重，如有必要可能需要增加锚」+落法选定
  *        「≥60% 且 ≥3 对 → cheat」——对倒=操纵盘面铁指纹；128 票锚窗分布
  *        126 票零配对、唯一命中 CD27 卖占 95.1%，断层稀有占比条件天然防误触）
+ *     I. top1HoldSupplyPct≥40（G4 新增，第一大户吃 4 成总供应——单钱包一笔
+ *        坐票形状（CD69 一笔 5.1653 BNB 吃 465.13M tok=46.5% 供应，组 14
+ *        立项原话「一个钱包持有总额度占比过大肯定不行」）；F/C 消费 sbHold
+ *        是簇集中，独大无簇票 sbHold 仅 4.9% 原通道全盲；锚 null（supply
+ *        缺失）不触发）
  *   unhealthy:
  *     D. famous dom=high（著名钱包掌控度高档——D 通道消费 famous 非bd）
  *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定
@@ -53,7 +63,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G3';
+const CHEAT_GRADE_RULES_VERSION = 'G4';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -188,6 +198,7 @@ function gradeObservation(observation, extras = {}) {
   const sbHold = _pct(anchors.sameBlockHoldPct);
   const washSell = _pct(anchors.washPairSellPct);
   const washCount = _pct(anchors.washPairCount);
+  const t1Sup = _pct(anchors.top1HoldSupplyPct);
 
   const reasons = [];
 
@@ -220,6 +231,16 @@ function gradeObservation(observation, extras = {}) {
   // 铁指纹：≥60% 卖出是同块等额换手且 ≥3 对。锚缺席（旧档/无配对 null）不触发
   if (washSell !== null && washSell >= 60 && washCount !== null && washCount >= 3) {
     reasons.push({ level: 'cheat', code: `H_wash_pair_sell${washSell.toFixed(0)}x${washCount}` });
+  }
+
+  // I：第一大户供应独大（G4，2026-11-01 批次二 CD69 两段裁定——立项「大户集中
+  // 度不能只是观察锚，持仓太多了不行」+口径「不要看流通占比吧，看总量占比，
+  // 否则如果检测时间靠前，结果就不对了」（流通分母开盘早期虚高）+定线单档
+  // ≥40 → cheat。128 票分布唯一命中 CD69(46.5)；下一档 CD104(31.6) 人工
+  // healthy 挡住下探。F/C 消费 sbHold 是簇集中——独大无簇形状原通道全盲。
+  // 锚 null（totalSupply 缺失/无正持仓）不触发。
+  if (t1Sup !== null && t1Sup >= 40) {
+    reasons.push({ level: 'cheat', code: `I_t1_supply${t1Sup.toFixed(0)}` });
   }
 
   // D：著名钱包主导

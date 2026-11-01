@@ -1,6 +1,6 @@
 {
   "generatedFrom": "D3.26 存档 42 票（cd-run-2026-11-01 系）+ fixtures expect",
-  "rulesVersion": "G3",
+  "rulesVersion": "G4",
   "cases": [
     {
       "caseId": "CD44",
@@ -1557,5 +1557,5 @@
       }
     }
   ],
-  "replayNote": "G3 对 D3.26 存档重放零变化（旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计）——34/42 基线沿用 G2 对拍结果"
+  "replayNote": "G4 对 D3.26 存档重放零变化（G3 起旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道 t1 供 ≥40 全 128 票唯一命中 CD69(46.5) 不在黄金集）——34/42 基线沿用 G2 对拍结果"
 }

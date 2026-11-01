@@ -40,7 +40,9 @@
 
 **G3 修订（2026-11-01，128 票分歧批次二 CD27 对倒案，CHEAT_GRADE_RULES_VERSION G2→G3；配对题集 D3.27→D3.28）**：批次二 review（人工 cheat→机器 unhealthy 六票：CD27/CD36/CD47/CD48/CD69/CD119）中 CD27 触发用户裁定原话「**CD27 你仔细看一下，作弊痕迹算很明显了，如果有必要可能需要增加锚（我个人观察 对倒交易非常严重）**」。tmp-cd27-wash 探针（182）实证对倒结构：主控 `0xae0dae64` 连续 9 块每块卖一笔（0.0569/0.0791/0.1202/0.1112/0.0526/0.1112/0.1049/0.1283/0.0829）、**每笔同块被一次性新钱包以四位小数相等金额买回**+第二卖方 1 对=**10 对配对买额占 Σ卖 95.1%**、全部同路由 `0xea8fe1e6`（GMGN 聚合），开局同块三连大买（0.269/0.630/0.761）抬价后对敲推价 +84%——机器 D3.27 只到 unhealthy（F_sbHold50.86+G 通道）的根因=**现有锚对对倒失明**：对敲「对内等额、对外不等额」（9 笔买回金额互相各异凑不成等额带——eqHold 要带内 ≥3 钱包；每块 1-2 笔买不成同块买入波——bw 要同块多笔买簇），sameBlockHoldPct/equalBandHoldPct 都是 BUY 建簇。锚特异性 128 票分布（tmp-wash-pair-dist，182）：**126 票零配对、CD27 断层第一（95.1%/10 对）、CD90 3 对但卖占仅 1.9%（大流量随机碰撞）、CD14 1 对 6.4%**——同块等额一卖一买自然发生率≈0=「有/无」指纹而非校准问题；对数 ≥3 单独做门会误触 CD90 → **占比条件必须并列**。两落法 AskUserQuestion 裁定：①锚挂点=「**独立对敲题**（新增第 12 题四档 wash_pair，CD27 作题面真实 case 样本）」；②G 通道=「**≥60% 且 ≥3 对 → cheat（拉黑级）**」。落地=**D3.28 题集**（wash_pair 题+snapshot washPair 三锚+[PRECOMPUTED] 同块对敲行）+**G3 H 通道**+A 通道七主判→**八主判**（wash_pair 随 EXT 清单自动入列，strong 也走 A）。**G3 对 D3.26 存档重放零变化**（旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair 档=A 容缺 null 不计）→ **黄金集 34/42 基线沿用**（golden json rulesVersion 标 G3+replayNote 注记，八票偏差锁定不变）。**定向真调收官（182，cd-run-2026-11-01T13-39-50Z）**：CD27 wash 锚 95.13%×10 对与探针一致、grade=cheat 与人工一致——A_strong:wash_pair+H_wash_pair_sell95x10 **双载体双双命中**（题档 strong 走 A、纯锚走 H）+F_sbHold51+G 通道；首跑发现 run.mjs 回归链路组装漏传 washPair 三键致 H 缺席（生产链不受影响，五处补齐后 H 正常触发，教训见版本演进表 D3.28 行事故追记）。
 
-### 规则（CHEAT_GRADE_RULES_VERSION='G3'；改规则须 bump+同步本段+跑 42 票黄金集）
+**G4 修订（2026-11-01，批次二 CD69 待裁口子②两段裁定，CHEAT_GRADE_RULES_VERSION G3→G4；题集不动 D3.28 维持）**：起因=用户问「TROLLON 的第一大户百分比过高了，因此 unhealthy，是这样的吗？」——查证 CD69（TROLLON 四票之一）机器 unhealthy 唯一通道=E_low_activity，t1 双锚（t1流 91.3/t1供 46.5）在场但 G3 无通道消费（正是批次二待裁口子②）。三段裁定：①**立项**原话「**大户集中度不能只是观察锚，持仓太多了不行，至少这么大总量占比肯定不行的**」；②**口径推翻**（中途落 t1 流两级版一半时）原话「**我觉得不要看流通占比吧，看总量占比，否则如果检测时间靠前，结果就不对的**」——流通分母=已买入筹码（在场流通），开盘早期池浅占比虚高时间不无偏（CD104 66.5/CD105 61.4 两票人工 healthy 正是早期虚高形状），供应分母恒 totalSupply（flap 恒 1e9）；③**定线**（AskUserQuestion）选定「**单档 ≥40 → cheat**」。**t1 流分布（被推翻口径留档对照，tmp-t1-circ-dist 182）**：≥80 三票 CD12(92.7)/CD69(91.3)/CD52(82.7) 全人工 cheat、82.7↔66.5 断层——两级版（≥80 unhealthy/≥90 cheat）已落一半随口径作废。**t1 供分布（定线依据，tmp-t1-supply-dist 182）**：≥40 唯一命中 CD69(46.5)；断层 46.5↔31.6（CD104 31.6 人工 healthy 挡住下探，30 线即误伤）；35-40 无票=做不出 unhealthy 中间档（空转）；25-30 七票人工混杂（CD16 29.6 unhealthy/CD61 28.9 cheat/CD100 27.2 unhealthy/CD84 26 healthy/CD122 25.6 healthy/CD5 25.4 unhealthy/CD13 25.4 cheat）不能切 → 两级改单档。**CD52 口径换挡说明**：t1 流 82.7 流通口径下人工 cheat 票，t1 供 23.7 供应口径不受 I 影响（该票 cheat 由其余证据支撑，非 t1 一轴）。**落法**：cheat 段新增 **I 通道 `top1HoldSupplyPct ≥ 40 → cheat`**（留痕码 `I_t1_supply{N}` 整数档；CD69 实形=第一大户一笔 5.1653 BNB 吃 465.13M tok=46.5% 供应单钱包一笔坐票）；F/C 消费 sbHold 是**簇**集中——独大无簇票 sbHold 仅 4.9% 原通道全盲，I 补单钱包独大形状；锚 null（totalSupply 缺失/无正持仓）不触发。**G4 对 D3.26 存档重放零变化**（t1 供 ≥40 全 128 票唯一命中 CD69 不在黄金集）→ **34/42 基线沿用**（golden json rulesVersion 标 G4+replayNote）。CD69 机器判读将由 unhealthy（E 单通道）→ **cheat**（I+E 双留痕），与人工一致。
+
+### 规则（CHEAT_GRADE_RULES_VERSION='G4'；改规则须 bump+同步本段+跑 42 票黄金集）
 
 输入=buildObservation 观测产物+extras（famousLevel=derived.famousDominanceLevel / anchorSellCount=锚窗卖笔数——G2 起 E 通道不再消费，字段保留兼容）；容缺 fail-open（档位 null 不计、锚 null 不触发；**已知例外**：sbw null 按「非 burst」处理——burst 豁免需在场证据）：
 
@@ -50,6 +52,7 @@
 | B | 四现象 moderate≥3 ∧ sbHold≥50 ∧ dom≠high | cheat | 现象门刻意严格：EXT mod 不含计（放宽会把 CD95/CD100 两票真 unhealthy 误判永久拉黑）；CD119 落本通道权衡内（see 残留） |
 | C | sbHold≥85 | cheat | 极端同块集中 |
 | H | washPairSellPct≥60 ∧ washPairCount≥3 | cheat | **G3 新增（2026-11-01 批次二 CD27）**：用户裁定原话「CD27 你仔细看一下，作弊痕迹算很明显了，如果有必要可能需要增加锚（我个人观察 对倒交易非常严重）」+落法选定「≥60% 且 ≥3 对 → cheat」——对倒=操纵盘面铁指纹；128 票锚窗分布 126 票零配对、唯一命中 CD27 卖占 95.1%（断层稀有，占比条件天然防误触 CD90 3 对 1.9% 随机碰撞/CD14 1 对 6.4% 孤对）；纯锚触发不依赖题档（题档 wash_pair 另走 A 通道） |
+| I | top1HoldSupplyPct≥40 | cheat | **G4 新增（2026-11-01 批次二 CD69）**：用户裁定原话「大户集中度不能只是观察锚，持仓太多了不行，至少这么大总量占比肯定不行的」+口径「不要看流通占比吧，看总量占比，否则如果检测时间靠前，结果就不对的」（流通分母开盘早期虚高）+定线「单档 ≥40 → cheat」——单钱包一笔坐票形状（CD69 一笔 5.1653 BNB 吃 46.5% 供应）；F/C 消费 sbHold 是簇集中、独大无簇票原通道全盲；128 票分布唯一命中 CD69(46.5)，断层 46.5↔31.6（CD104 31.6 人工 healthy 挡住下探）；锚 null（supply 缺失/无正持仓）不触发 |
 | D | famous dom=high | unhealthy | 2026-11-01 用户确认维持「famous 主导程度很高的，也是 unhealthy」；bd=high 单独不定 **cheat**（CD98/CD116/CD127 反证）；B 让位 D（著名主导优先 unhealthy） |
 | E | act=low ∧ sbw≠burst（**G2 简化**） | unhealthy | 2026-11-01 用户裁定原话「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要判定为活跃度 low（需要调整下 prompt）」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1 对手盘豁免（CD107）**撤销**（anchorSellCount 不再被 E 消费）；sbw=burst 豁免保留为通道层双保险，主修正前移到题面 D3.27 burst 反锚（档位源头不再产 burst+low 矛盾共存） |
 | F | sbHold≥50 | unhealthy | 中高同块集中（CD100 四重集中先例） |
@@ -81,7 +84,7 @@
 - **FA 投影 24 键（2026-11-01 因子化升级+D3.28 扩，可进条件串——见下节「因子化投影」）**：`cheatGrade`/`cheatUnhealthyGrades`/`cheatBlocked` + 12 题档位键 + 数值锚十键（模块级 setCheatFactors 同 setNarrativeFactors 母版；FactorBuilder 快照 24 键透传；**回测恒 null**——带 cheat 因子条件的腿回测天然不触发）
 - **digest 落 grade 四键**（grade/gradeReasons/gradeVersion/anchorSellCount）——免 DDL，重放对拍原料
 - **回归 runner 加 grade 列**：run.mjs 与生产共用 cheat-grade.js（对拍同源；anchorSellCount=derived.sellN 同口径）；grade×人工裁定对照统计展示**不作 PASS/FAIL**（G2 基线 34/42，硬断言须裁定；CD105 待 D3.27 重析回正观察）
-- **单测**：`_test_cheat_grade.cjs`（八通道逐条+H 段映射表+anchors 十键+黄金集 34/42 G3 零变化锁定）/`_test_cheat_detection_service.cjs` Z 段（gate 五形状+Z1b levels 12 键+Z1c anchors 十键+Z1.5 CD27 对倒形状 H 通道+Z6 onResult）/`_test_cheat_gate_engine.cjs`（六路径+清仓联动+投影往返+D 段 24 键 FA 出口+F 段预触发+源码口径锁）——全零 DB 零网络
+- **单测**：`_test_cheat_grade.cjs`（九通道逐条+H/I 段+映射表+anchors 十键+黄金集 34/42 G3/G4 零变化锁定）/`_test_cheat_detection_service.cjs` Z 段（gate 五形状+Z1b levels 12 键+Z1c anchors 十键+Z1.5 CD27 对倒形状 H 通道+Z6 onResult）/`_test_cheat_gate_engine.cjs`（六路径+清仓联动+投影往返+D 段 24 键 FA 出口+F 段预触发+源码口径锁）——全零 DB 零网络
 
 ### 因子化投影（2026-11-01 用户指令落地：检测「题」结果全量因子化进表达式；同日补点数值锚）
 
@@ -113,7 +116,7 @@
 | `cheatWashPairCount` | 对数（int）/ null=窗内零配对 | 同块对敲配对数锚（D3.28，G3 H 通道同源数值） |
 | `cheatWashPairSellPct` | % 数值 / null=零配对 | 对敲买额÷全部卖出锚（D3.28，G3 H 通道） |
 | `cheatWashPairBuyPct` | % 数值 / null=零配对 | 对敲买额÷全部买入锚（D3.28 观测键） |
-| `cheatTop1HoldSupplyPct` | % 数值 / null=totalSupply 缺失 | 单钱包持仓÷总量锚（D3.20 t1 供） |
+| `cheatTop1HoldSupplyPct` | % 数值 / null=totalSupply 缺失 | 单钱包持仓÷总量锚（D3.20 t1 供；G4 I 通道同源数值） |
 | `cheatTop1HoldCircPct` | % 数值 / null=无正净持仓 | 单钱包持仓÷在场流通锚（D3.20 t1 流，G1 E 通道同源数值） |
 | `cheatFamousDominancePct` | % 数值 / null=名单缺失或窗内无著名钱包命中 | 著名钱包+跟单掌控度锚（D3.2b） |
 | `cheatFamousDominance` | low=0/mid=1/high=2 / null 同上缺席 | 著名掌控度三档（G1 D 通道同源档） |
@@ -128,13 +131,15 @@
 
 ## Case 倒序
 
-### 批次二（CD27/CD36/CD47/CD48/CD69/CD119）：CD27 对倒锚立项 D3.28+G3——人工 cheat→机器 unhealthy 六票分歧组（2026-11-01）
+### 批次二（CD27/CD36/CD47/CD48/CD69/CD119）：CD27 对倒锚立项 D3.28+G3 + CD69 t1 供应独大通道 G4——人工 cheat→机器 unhealthy 六票分歧组（2026-11-01）
 
 **批次二背景**：128 票全量 review 按「人工裁定 × 机器 grade」分歧分批，本批六票=人工 cheat / 机器 healthy-unhealthy 侧。观测表+六票 signals#token= 标签页已交付（CD review 纪律）。
 
 **CD27 对倒锚立项**（用户裁定原话「CD27 你仔细看一下，作弊痕迹算很明显了，如果有必要可能需要增加锚（我个人观察 对倒交易非常严重）」；实证/失明根因/128 票分布/两落法裁定全档见「G3 修订」节+版本演进表 D3.28 行）：**同块卖→买等额对敲三锚**（washPairCount/washPairSellPct/washPairBuyPct，±2% 对数带配对、每笔卖出至多配一次）+**第 12 题 wash_pair**（四档 EXT 容缺，CD27 作正例/CD90 作反例）+**G3 H 通道**（washPairSellPct≥60 ∧ washPairCount≥3 → cheat）+A 通道八主判。CD27 实证=10 对占 Σ卖 95.1%（主控 0xae0dae64 连续 9 块逐块卖、一次性新钱包四位小数等额买回、全同路由 0xea8fe1e6）——机器判读将由 unhealthy（题档不足）→ **cheat**（H 通道纯锚触发），与人工一致；182 `--only CD27` 定向真调已收官：wash 锚 95.13%×10 对、A_strong:wash_pair+H_wash_pair_sell95x10 双命中、grade=cheat 与人工一致（1/1）。
 
-**其余五票**（CD36/CD47/CD48/CD69/CD119）正式裁定与 expect 落 fixtures 待用户；**两个待裁口子勿自行决定**：①CD47 形状（六题全 moderate+famous dom 100%）是否加 cheat 档通道；②CD69 形状（t1 占流通 91.3%+act low 独大坐票）是否立项 t1 流通占比通道。
+**CD69 t1 供应独大通道立项（G4，口子②已裁）**：起因=用户问「TROLLON 的第一大户百分比过高了，因此 unhealthy，是这样的吗？」查证机器 unhealthy 唯一通道=E_low_activity（t1 双锚在场无通道消费）→ 用户裁定立项「大户集中度不能只是观察锚，持仓太多了不行」+口径换 t1 供（流通占比早期虚高）+定线单档 ≥40 → cheat（CD69 一笔 5.1653 BNB 吃 46.5% 供应；三段裁定原话/两版 128 票分布/CD52 口径换挡说明全档见「G4 修订」节）。机器判读将由 unhealthy → **cheat**（I+E 双留痕），与人工一致；182 `--only CD69` 定向真调已收官：`I_t1_supply47+E_low_activity` 双通道留痕、grade=cheat 与人工一致（1/1）——t1 供锚 46.5129、sbHold 4.9%（F/C 不触发的原通道全盲实证）、dom/bd/wash 均无命中=I 通道独立补盲。
+
+**其余四票**（CD36/CD47/CD48/CD119）正式裁定与 expect 落 fixtures 待用户；**一个待裁口子勿自行决定**：CD47 形状（六题全 moderate+famous dom 100%）是否加 cheat 档通道（口子②CD69 已裁落 G4）。
 
 ### 组 23（CD122-CD128）：CD122+CD124+CD125 healthy / CD123+CD126+CD128 cheat / CD127 unhealthy——回归集 128 票逐案 review 收官组（2026-11-01）
 
@@ -618,7 +623,7 @@
 | D1.1 | 2026-10-30 | CD1 立项 | 首版 3 题：market_health_verdict（cheat/unhealthy/healthy/unclear_insufficient 四桶）/ cheat_pattern（dev_self_trade/same_block_burst/equal_amount_split/rapid_churn/wash_pump/none_apparent）/ retail_participation（Score 0-10） |
 
 
-**分级规则版本（独立于题集版本；G1 起新增维度）**：`CHEAT_GRADE_RULES_VERSION`（`src/market-analysis/cheat-grade.js`）——题面不动不 bump CHEAT_QUESTIONS_VERSION（本题集与分级规则正交）。G1（2026-11-01）首版=观察层升级为买门（规则全文/对拍/接线见「G1 分级门」节）；42 票黄金集 `_test_cheat_grade.cjs` 锁定 37/42+五票偏差，**改规则破坏 37/42 须重新用户裁定**。G2（2026-11-01）=G 通道新增（bd=high→unhealthy）+E 通道简化（act=low∧sbw≠burst，撤 t1流/卖笔两豁免）+cr 方向关闭+D 通道 famous 措辞澄清（裁定原话/影响面见「G2 修订」节）；重放基线 37/42→34/42（掉票 4 全为 E 简化撤豁免代价，八票偏差清单锁定）。G3（2026-11-01）=**H 通道新增（washPairSellPct≥60 ∧ washPairCount≥3 → cheat，CD27 对倒锚纯数值触发）+A 通道七主判→八主判（wash_pair 入列）**（裁定原话/128 票分布见版本演进表 D3.28 行与「G3 修订」节）；**G3 对 D3.26 存档重放零变化 → 34/42 基线沿用 G2 对拍结果**（golden json rulesVersion 标 G3+replayNote）。
+**分级规则版本（独立于题集版本；G1 起新增维度）**：`CHEAT_GRADE_RULES_VERSION`（`src/market-analysis/cheat-grade.js`）——题面不动不 bump CHEAT_QUESTIONS_VERSION（本题集与分级规则正交）。G1（2026-11-01）首版=观察层升级为买门（规则全文/对拍/接线见「G1 分级门」节）；42 票黄金集 `_test_cheat_grade.cjs` 锁定 37/42+五票偏差，**改规则破坏 37/42 须重新用户裁定**。G2（2026-11-01）=G 通道新增（bd=high→unhealthy）+E 通道简化（act=low∧sbw≠burst，撤 t1流/卖笔两豁免）+cr 方向关闭+D 通道 famous 措辞澄清（裁定原话/影响面见「G2 修订」节）；重放基线 37/42→34/42（掉票 4 全为 E 简化撤豁免代价，八票偏差清单锁定）。G3（2026-11-01）=**H 通道新增（washPairSellPct≥60 ∧ washPairCount≥3 → cheat，CD27 对倒锚纯数值触发）+A 通道七主判→八主判（wash_pair 入列）**（裁定原话/128 票分布见版本演进表 D3.28 行与「G3 修订」节）；**G3 对 D3.26 存档重放零变化 → 34/42 基线沿用 G2 对拍结果**（golden json rulesVersion 标 G3+replayNote）。G4（2026-11-01）=**I 通道新增（top1HoldSupplyPct≥40 → cheat，CD69 第一大户供应独大单档）**（三段裁定原话/t1 流→t1 供口径推翻过程/两版 128 票分布见「G4 修订」节；题集不动 D3.28 维持）；**G4 对存档重放零变化（t1 供 ≥40 唯一命中 CD69 不在黄金集）→ 34/42 基线沿用**（golden json rulesVersion 标 G4+replayNote）。
 
 ## 未决事项
 

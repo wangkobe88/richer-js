@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
- * 作弊盘三级分级规则单测（G3）——零 DB 零网络纯函数
+ * 作弊盘三级分级规则单测（G4）——零 DB 零网络纯函数
  *
- * 覆盖：八通道逐条（A_strong/A 降级/B/C/D/E/F/G/H_wash_pair）/ 豁免边界
- * （burst、sbHold 50/85 恰界、washPair 60%×3 对恰界）/ cr-sbw 辅助判定
- * 不进主判 / 容缺 fail-open（档位 null 不计、锚 null 不触发、sbw null 按
- * non-burst、washPair 键缺席旧档重放零变化）/ 优先级（cheat>unhealthy>
- * healthy 多通道叠加）/ 42 票黄金集对拍 34/42（八票已知偏差锁定——定性
- * 见台账 G2 修订段，**改规则须连此锁定一起重裁定**；G3 对 D3.26 存档重放
- * 零变化：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无
- * wash_pair=A 容缺 null 不计）。失败 exit 非零。
+ * 覆盖：九通道逐条（A_strong/A 降级/B/C/D/E/F/G/H_wash_pair/I_t1_supply）/
+ * 豁免边界（burst、sbHold 50/85 恰界、washPair 60%×3 对恰界、t1供 40 恰界）/
+ * cr-sbw 辅助判定不进主判 / 容缺 fail-open（档位 null 不计、锚 null 不触发、
+ * sbw null 按 non-burst、washPair 键缺席旧档重放零变化）/ 优先级（cheat>
+ * unhealthy>healthy 多通道叠加）/ 42 票黄金集对拍 34/42（八票已知偏差锁定
+ * ——定性见台账 G2 修订段，**改规则须连此锁定一起重裁定**；G3/G4 对 D3.26
+ * 存档重放零变化：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无
+ * wash_pair=A 容缺 null 不计；t1供 ≥40 全 128 票唯一命中 CD69(46.5) 不在
+ * 黄金集）。失败 exit 非零。
  */
 
 const { gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
@@ -39,7 +40,7 @@ function baseObs() {
     },
     activityLevel: { bucket: 'mid', prob: 0.8 },
     bundledDominance: { bucket: 'low', prob: 0.9 },
-    anchors: { sameBlockHoldPct: null, top1HoldCircPct: null,
+    anchors: { sameBlockHoldPct: null, top1HoldCircPct: null, top1HoldSupplyPct: null,
       washPairCount: null, washPairSellPct: null, washPairBuyPct: null },
   };
 }
@@ -48,7 +49,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G3', '版本常量 G3（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G4', '版本常量 G4（改规则必须 bump+同步台账+跑黄金集）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判，实际 ${MAIN_IDS.join(',')}）`);
@@ -210,6 +211,39 @@ function main() {
       'H + F 叠加 → cheat 取最重、F 留痕（多通道叠加语义）');
   }
 
+  console.log('I. 第一大户供应独大 top1HoldSupplyPct≥40 → cheat（G4，2026-11-01 批次二 CD69 两段裁定）');
+  {
+    // CD69 形状：TROLLON 第一大户一笔 5.1653 BNB 吃 465.13M tok=46.5% 供应 → cheat
+    const obs = baseObs();
+    obs.anchors.top1HoldSupplyPct = 46.5;
+    const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
+    ok(r.grade === 'cheat' && r.reasons.some((x) => x.code === 'I_t1_supply47'),
+      't1 供 46.5 → cheat（I_t1_supply 留痕整数档——CD69 一笔坐票形状）');
+    // 40 恰界
+    const obs2 = baseObs();
+    obs2.anchors.top1HoldSupplyPct = 40;
+    ok(grade(obs2, { famousLevel: null, anchorSellCount: 10 }).grade === 'cheat',
+      't1 供 40 恰界 → cheat（≥ 含等）');
+    // 39.9 不触发（CD104 31.6 人工 healthy 挡住下探——30 线即误伤）
+    const obs3 = baseObs();
+    obs3.anchors.top1HoldSupplyPct = 39.9;
+    ok(grade(obs3, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      't1 供 39.9 → healthy（CD69 46.5 断层至 CD104 31.6，单档不下探）');
+    // 锚缺席（旧档/totalSupply 缺失）不触发——G4 对 D3.26 存档重放零变化的防线
+    const obs4 = baseObs();
+    delete obs4.anchors.top1HoldSupplyPct;
+    ok(grade(obs4, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      't1 供键缺席（旧档断代/supply 缺失）→ I 不触发（fail-open：锚 null 不触发比较门）');
+    // 与 E_low_activity 叠加：grade 取最重、双码留痕（CD69 实际形状=E 通道在 G3 期先落 unhealthy）
+    const obs5 = baseObs();
+    obs5.anchors.top1HoldSupplyPct = 42;
+    obs5.activityLevel.bucket = 'low';
+    const r5 = grade(obs5, { famousLevel: null, anchorSellCount: 10 });
+    ok(r5.grade === 'cheat' && r5.reasons.some((x) => x.level === 'cheat' && x.code === 'I_t1_supply42')
+      && r5.reasons.some((x) => x.code === 'E_low_activity'),
+      'I + E_low_activity 叠加 → cheat 取最重、E 留痕（CD69 独大+低活跃共存实形）');
+  }
+
   console.log('D. 著名钱包主导 → unhealthy');
   {
     const obs = baseObs();
@@ -335,7 +369,7 @@ function main() {
     ok(gradeObservation(null, null).grade === 'healthy', 'observation 整体 null → healthy（不抛）');
   }
 
-  console.log('42 票黄金集对拍（D3.26 存档+fixtures expect；G3 重放零变化）');
+  console.log('42 票黄金集对拍（D3.26 存档+fixtures expect；G3/G4 重放零变化）');
   {
     const golden = require('./cheat-detection/data/cheat-grade-golden-42.json');
     ok(golden.rulesVersion === CHEAT_GRADE_RULES_VERSION, '黄金集版本与规则常量一致');
@@ -347,7 +381,7 @@ function main() {
       if (r.grade === c.expect) agree++;
       else diffs.push(`${c.caseId}:${c.expect}>${r.grade}`);
     }
-    ok(agree === 34, `对拍 34/42 一致（实际 ${agree}/42——G3 对 D3.26 存档重放零变化：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；改规则破坏此数须重新用户裁定）`);
+    ok(agree === 34, `对拍 34/42 一致（实际 ${agree}/42——G3/G4 对 D3.26 存档重放零变化：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道唯一命中 CD69(46.5) 不在黄金集；改规则破坏此数须重新用户裁定）`);
     ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>unhealthy,CD121:cheat>unhealthy,CD122:healthy>unhealthy',
       `八票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
 CD119 B 口径权衡（放宽误伤 CD95/CD100）/CD121 半坡盲区（已质询不立项；G2 G 通道抬近一档）/
@@ -357,7 +391,7 @@ digest 重放口径——CD105 在 burst 名单，D3.27 题面 burst 反锚重�
   }
 
   // ── G1 因子化（2026-11-01 用户指令）：档位→数值映射表 + levelsFromObservation ──
-  console.log('\nI. 因子化数值映射（CHEAT_LEVEL_SCORES / levelsFromObservation）');
+  console.log('\n因子化数值映射（CHEAT_LEVEL_SCORES / levelsFromObservation）');
   {
     ok(CHEAT_LEVEL_SCORES.grade.healthy === 0 && CHEAT_LEVEL_SCORES.grade.unhealthy === 1
       && CHEAT_LEVEL_SCORES.grade.cheat === 2, 'grade 数值序 healthy=0/unhealthy=1/cheat=2（严格递增=严重度）');
