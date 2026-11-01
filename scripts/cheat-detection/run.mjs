@@ -20,7 +20,7 @@
  *   node scripts/cheat-detection/run.mjs --add <addr> --case CD2 --note "…" [--observe]
  *                                       [--anchor N]                   # 缺省=收录时刻全量
  *   node scripts/cheat-detection/run.mjs --update-expect CD2 --because "CD<n> 裁定一句话"
- *   node scripts/cheat-detection/run.mjs --experiment <expId> [--settle-ms 4000] [--dry]
+ *   node scripts/cheat-detection/run.mjs --experiment <expId> [--settle-ms 4000] [--only-new] [--dry]
  *                                       # 实验基线：全部有成功买入的 token，锚=首笔成功买
  *                                       # created_at+settle 窗内 tick 数；表格+存档不写 fixtures
  * 退出码：0=全过 1=有失败 2=用法/校验错误（case-regression 同款）
@@ -62,6 +62,7 @@ function parseArgs(argv) {
     else if (a === '--update-expect') args.updateExpect = String(argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--experiment') args.experiment = String(argv[++i] || '');
     else if (a === '--settle-ms') args.settleMs = Number(argv[++i]);
+    else if (a === '--only-new') args.onlyNew = true;
     else if (a === '--dry' || a === '--observe') { if (a === '--dry') args.dry = true; else args.observe = true; }
     else { console.error(`未知参数: ${a}`); process.exit(2); }
   }
@@ -247,15 +248,21 @@ function digestOf(d) {
  */
 async function cmdExperimentBaseline(args) {
   const settleMs = Number.isFinite(args.settleMs) && args.settleMs >= 0 ? args.settleMs : 4000;
-  const targets = await fetchFirstBuys(args.experiment);
+  let targets = await fetchFirstBuys(args.experiment);
   if (!targets.length) { console.error(`实验 ${args.experiment} 无成功买入 trade`); process.exit(1); }
   const q = args.dry ? null : await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const version = q ? q.CHEAT_QUESTIONS_VERSION : '(dry)';
-  console.log(`实验 ${args.experiment}：${targets.length} 票有成功买入；锚=首笔成功买 created_at + ${settleMs}ms 内 tick 数${args.dry ? '；--dry 只组装不烧 Jev 不收录' : `；题集 ${version} 逐票真调 Jev → 表格 + 全部收录 fixtures`}\n`);
+  console.log(`实验 ${args.experiment}：${targets.length} 票有成功买入${args.onlyNew ? '' : '（--only-new 未开：已收录票也重复真调）'}；锚=首笔成功买 created_at + ${settleMs}ms 内 tick 数${args.dry ? '；--dry 只组装不烧 Jev 不收录' : `；题集 ${version} 逐票真调 Jev → 表格 + 全部收录 fixtures`}\n`);
 
   const doc = JSON.parse(readFileSync(FIXTURES_PATH, 'utf8'));
   const { cases } = loadAndValidateFixtures(doc);
   const knownAddr = new Map(cases.map((c) => [c.addr, c.caseId]));
+  if (args.onlyNew) {
+    const newTargets = targets.filter((t) => !knownAddr.has(t.addr));
+    console.log(`--only-new：已收录 ${targets.length - newTargets.length} 票跳过（不拉 ticks 不烧 Jev），差集 ${newTargets.length} 票\n`);
+    targets = newTargets;
+    if (!targets.length) { console.log('差集为空，无新票'); return; }
+  }
   let nextId = Math.max(...cases.map((c) => Number(c.caseId.slice(2)))) + 1;
   const today = new Date().toISOString().slice(0, 10);
   const newCases = [];
@@ -305,7 +312,7 @@ async function cmdExperimentBaseline(args) {
 
       const known = knownAddr.get(t.addr);
       if (known) { console.log(`     已收录=${known}，跳过`); continue; }
-      const note = `aed2091d 首买基线收录（锚=${anchorN}=首笔成功买+settle${settleMs}ms；买${d.buyN}/卖${d.sellN} Σ买${d.totalBuyBnb.toFixed(2)}BNB 钱包${d.walletCount} top1=${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn${d.churn60sWalletCount} 同块簇${d.sameBlockClusters.length} 等额簇${d.equalClusters.length}）；expect=判读现状待 review`;
+      const note = `${args.experiment.slice(0, 8)} 首买基线收录（锚=${anchorN}=首笔成功买+settle${settleMs}ms；买${d.buyN}/卖${d.sellN} Σ买${d.totalBuyBnb.toFixed(2)}BNB 钱包${d.walletCount} top1=${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn${d.churn60sWalletCount} 同块簇${d.sameBlockClusters.length} 等额簇${d.equalClusters.length}）；expect=判读现状待 review`;
       const c = buildCase({ caseId: `CD${nextId}`, symbol: t.symbol || '', addr: t.addr, platform: meta.platform, anchorTickCount: anchorN, capped, interp, note, today });
       newCases.push(c);
       knownAddr.set(t.addr, c.caseId);
