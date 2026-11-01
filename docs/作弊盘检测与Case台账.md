@@ -10,9 +10,9 @@
 - 预期变化的既有票必须 `--update-expect --because "<CD 编号> <一句话>"` 留痕；fixtures **只增不删**
 - 决策过程细节、反复推翻的中间方案可简写；现行机制以代码与本文「机制一屏」为准
 
-## 现行机制一屏（CD1 起；2026-11-01 G1 起含分级门）
+## 现行机制一屏（CD1 起；2026-11-01 G2 起含分级门）
 
-**作弊盘检测（cheatCheck）= Jev 驱动的买点同步式盘面健康检测层**。动机（用户原话）：「作弊行为也多变，并且与正常的用户行为糅杂在一起，简单规则往往拦截着拦截者又因为瞬时条件通过而直接买到更高点」——综合判别交给 Jev 深度思考。双模式：`gate.enabled=false`（默认）=纯观察层（下述链路原样，fire-and-forget 不影响买决策）；`gate.enabled=true`=**G1 分级门**（见下节，买点硬门）。
+**作弊盘检测（cheatCheck）= Jev 驱动的买点同步式盘面健康检测层**。动机（用户原话）：「作弊行为也多变，并且与正常的用户行为糅杂在一起，简单规则往往拦截着拦截者又因为瞬时条件通过而直接买到更高点」——综合判别交给 Jev 深度思考。双模式：`gate.enabled=false`（默认）=纯观察层（下述链路原样，fire-and-forget 不影响买决策）；`gate.enabled=true`=**G2 分级门**（见下节，买点硬门）。
 
 - **三分类语义（用户裁定原话）**：「作弊盘 / 不健康盘 / 健康盘。其中不健康盘跟健康盘可以相互转化，买点不同，性质可能会有差异」——cheat=协同资金主导的既成事实（不可逆）；unhealthy/healthy=**时点状态**→ 每个买点独立 as-of 判定，`cheat_detection` 表多行历史留转化轨迹
 - **链路**：买点触发（preBuy 过、GMGN 块外——无 GMGN 条件腿/被 GMGN 拒的票也进样本）→ settle 4s（tickBuffer flush+sender 回查窗）→ **单 tail 查询** wss_price_ticks（链上真序倒序 limit 3000；锚=该单次查询返回行数，**绝不 count+select 两次**——撕裂防线）→ 满帽才补 head 300（launch 窗）→ `cheat-snapshot` 纯函数（与回归 runner 同源 bit-identical；**权威锚由调用方传入**，head 补充行不参与锚）→ `cheat-state-builder`（20k 预算纯文本：[TOKEN]/[ANCHOR]/[PRECOMPUTED]/[TICKS]/[WALLETS]/判定指引）→ `JevClient.ask`（ESM dynamic import）→ `cheat-result-mapper` → insert `cheat_detection`
@@ -25,40 +25,51 @@
 - **配置**：`fourmemeWs.cheatCheck { enabled 默认 false（物化语义：缺段/缺 enabled=关）, timeoutMs 30000, settleDelayMs 4000, reanalyzeTickDelta 20, minIntervalMs 60000, minTicks 8, maxAnalysesPerToken 20, failCooldownMs 10000, pullLimit 3000, headLimit 300 }`；flap 实验经 `_mergedWsConfig` 同键生效
 - **回归集**：`scripts/cheat-detection/`（fixtures.json **anchor 必填**=防全史马后炮 / lib.mjs 纯函数 / run.mjs 182 跑：`--only/--list/--add/--update-expect --because/--dry`；jev_prompt 存档 data/prompts/）
 
-## G1 分级门（2026-11-01 立项落地，观察层升级为买门）
+## G1 分级门（2026-11-01 立项落地，观察层升级为买门；同日 G2 修订）
 
 **立项（用户裁定原话）**：「判定为 cheat 的不再进行判定，代币不再交易；unhealthy 的可以再判定 3 次（因为活跃度低而不健康的可以通过停止突发豁免，或者这里再改改，停滞突发这种情况不要认为是活跃度低）；healthy 的直接买入即可。负面判定中出现 strong 的（同块买入波、持续推价、捆绑主导等）→cheat；出现著名钱包主导、活跃度低等的→unhealthy；其它 healthy。创建者抢跑/停滞突发等辅助判定（如停滞突发用于活跃度低的豁免）。」
 
 **D3.5 修订论证**：判定层停产边界更新——「判断仍一律 Jev」指**档位判断**（现象/EXT/活跃度/捆绑档位与作弊强度评估由 Jev 题集产出，代码不做任何档位判断）；G1 做的是「**档位→交易动作**」的策略映射（哪些档位组合不交易/重判/放行），属引擎侧策略决策（与条件串评估同类），非代码产作弊结论。cheat-grade.js 纯函数不消费题面、只消费 Jev 答案档位+代码数值锚。
 
-### 规则（CHEAT_GRADE_RULES_VERSION='G1'；改规则须 bump+同步本段+跑 42 票黄金集）
+**G2 修订（2026-11-01，128 票全量 review 批次一连发裁定，CHEAT_GRADE_RULES_VERSION G1→G2）**：
+①**G 通道新增**——用户裁定原话「我说的是 捆绑钱包主导 为 strong 的可以判定为 cheat，捆绑钱包主导 是重要的负面臂」（bd 三档题最高档 high 即「strong」语义），128 票影响面=bd=high 65 票（人工 cheat 39/unhealthy 17/healthy 7/unclear 2；直落 cheat 净误伤 healthy 7 票+17 票由拒买级升拉黑级偏重）→ 三方案呈报后用户选定 **unhealthy 档**「好吧，那就B」；G1 期「bd high 单独不定档」旧裁定同步废止；
+②**E 通道简化**——用户裁定原话「活跃度这一臂为low的，也判为 unhealthy，不过流量 burst 命中的不要判定为活跃度 low（需要调整下 prompt）。这个也改一下吧」→ 撤 t1流<40 吃独食豁免（G1 保护 CD105/CD122）与卖笔≤1 对手盘豁免（G1 保护 CD107），通道层留 sbw≠burst 双保险，主修正前移题面 **D3.27** burst 反锚；128 票影响面=act=low 59 票中 **23 票 sbw=burst 自相矛盾共存**（39%——「长静默后集中涌入」既被判停滞突发、又被判活跃度低）=D3.27 立项依据；撤豁免黄金集翻转 4 票（CD84/CD105/CD107/CD122，详对拍表）+顺带修复 G1 期 CD110 偏差；
+③**cr 方向关闭**——用户裁定原话「至于创建者行为，不用于判断的」（组 15 CD75「创建者买卖不是判断盘面作弊的标准」先例再确认；cr strong 不进任何通道，A 通道主判剔 cr 维持）；
+④**D 通道维持即裁定**——用户裁定原话「famous 主导程度很高的，也是 unhealthy」（D 通道现状即此语义，措辞澄清：D 消费 famous 非bd）。
+黄金集 G1 37/42 → **G2 34/42 新基线**（见对拍表）。
 
-输入=buildObservation 观测产物+extras（famousLevel=derived.famousDominanceLevel / anchorSellCount=锚窗卖笔数）；容缺 fail-open（档位 null 不计、锚 null 不触发、sells 缺席 E 不触发；**已知例外**：sbw null 按「非 burst」处理——burst 豁免需在场证据）：
+### 规则（CHEAT_GRADE_RULES_VERSION='G2'；改规则须 bump+同步本段+跑 42 票黄金集）
+
+输入=buildObservation 观测产物+extras（famousLevel=derived.famousDominanceLevel / anchorSellCount=锚窗卖笔数——G2 起 E 通道不再消费，字段保留兼容）；容缺 fail-open（档位 null 不计、锚 null 不触发；**已知例外**：sbw null 按「非 burst」处理——burst 豁免需在场证据）：
 
 | 通道 | 判据 | 级 | 案例支撑 |
 |---|---|---|---|
-| A | 七主判题（四现象剔 cr + tier/bw/rat/pump）任一 strong | cheat | strong→cheat 用户语义；cr strong 不进主判（CD75 cr strong 人工判 unhealthy 反证）；**降级豁免**：唯一 strong=pump ∧ sbw=burst ∧ 七主判 mod 合计<3（EXT 含计）∧ sbHold<50 → unhealthy（CD99 停滞后自然涌入形状） |
+| A | 七主判题（四现象剔 cr + tier/bw/rat/pump）任一 strong | cheat | strong→cheat 用户语义；cr strong 不进主判（CD75 cr strong 人工判 unhealthy 反证+2026-11-01 用户再裁定「至于创建者行为，不用于判断的」维持）；**降级豁免**：唯一 strong=pump ∧ sbw=burst ∧ 七主判 mod 合计<3（EXT 含计）∧ sbHold<50 → unhealthy（CD99 停滞后自然涌入形状） |
 | B | 四现象 moderate≥3 ∧ sbHold≥50 ∧ dom≠high | cheat | 现象门刻意严格：EXT mod 不含计（放宽会把 CD95/CD100 两票真 unhealthy 误判永久拉黑）；CD119 落本通道权衡内（see 残留） |
 | C | sbHold≥85 | cheat | 极端同块集中 |
-| D | famous dom=high | unhealthy | bd=high 单独不定 cheat（CD98/CD116/CD127 反证）；B 让位 D（著名主导优先 unhealthy） |
-| E | act=low ∧ sbw≠burst ∧ t1流<40 ∧ 锚窗卖笔≤1 | unhealthy | CD101「活跃度低」载体化；**三豁免**各有真实票支撑：sbw=burst（用户语义「停滞突发不算活跃度低」）/t1流≥40（CD105/CD122 单钱包吃独食家族）/卖笔≥2（CD107 真实对手盘） |
+| D | famous dom=high | unhealthy | 2026-11-01 用户确认维持「famous 主导程度很高的，也是 unhealthy」；bd=high 单独不定 **cheat**（CD98/CD116/CD127 反证）；B 让位 D（著名主导优先 unhealthy） |
+| E | act=low ∧ sbw≠burst（**G2 简化**） | unhealthy | 2026-11-01 用户裁定原话「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要判定为活跃度 low（需要调整下 prompt）」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1 对手盘豁免（CD107）**撤销**（anchorSellCount 不再被 E 消费）；sbw=burst 豁免保留为通道层双保险，主修正前移到题面 D3.27 burst 反锚（档位源头不再产 burst+low 矛盾共存） |
 | F | sbHold≥50 | unhealthy | 中高同块集中（CD100 四重集中先例） |
+| G | bd（bundled_trade_dominance）=high | unhealthy | **G2 新增（2026-11-01）**：用户裁定原话「捆绑钱包主导 是重要的负面臂」（初提 cheat 档，128 票影响面=bd=high 65 票：人工 cheat 39/unhealthy 17/healthy 7，直落 cheat 净新增误伤 CD17/CD39+17 票拉黑级偏重，用户选定 **unhealthy 档**「好吧，那就B」）；G1 期「bd high 单独不定档」旧裁定同步废止；与 D 通道（famous 高）构成两条主导度负面臂对称 |
 
 多通道叠加 reasons 全留痕、grade 取最重（cheat>unhealthy>healthy）。
 
 ### 42 票黄金集对拍（D3.26 存档+fixtures expect）
 
-对拍 37/42=**88%** 一致，**healthy 侧 9/9 全对**（放行方向零误伤=上线安全底线）。五票残留定性（**改规则破坏 37/42 须重新用户裁定**）：
+**G1 基线 37/42（healthy 侧 9/9 全对）→ G2 基线 34/42=81%**（G 通道 bd=high 票全部原本已判非 healthy=零新增翻转；掉票全部来自 E 简化撤豁免；G1 期偏差 CD110「t1 流豁免副作用」随撤销**顺带修复**——t1流 63.8≥40 曾误放 healthy，现回 unhealthy 与人工对齐）。八票偏差定性（**改规则破坏 34/42 须重新用户裁定**）：
 
-| 票 | 人工 | 机器 | 定性 |
+| 票 | 人工 | 机器(G2) | 定性 |
 |---|---|---|---|
 | CD56 | cheat | healthy | 版本漂移——人工裁定基于旧档位（D3.26 前后 act/pump 小档抖动），执行期复裁 |
+| CD84 | healthy | unhealthy | E 简化代价——吃独食豁免（t1流 56.8≥40）撤销 |
+| CD105 | healthy | unhealthy | E 简化代价——吃独食豁免（t1流 61.4≥40）撤销；128 票新版真调快照 sbw=burst，D3.27 重析后 act 预期翻非 low → 回 healthy（182 定向对拍观察点；存档快照 sbw=none 看不到此层） |
+| CD107 | healthy | unhealthy | E 简化代价——对手盘豁免（卖笔 2≥2）撤销（组 21 亲手裁 healthy） |
 | CD108 | cheat | unhealthy | A 降级侧（准全买零卖+pump strong）；与 CD99（人工 unhealthy、机器降级同向）=人工自身同形漂移对称，机器统一降级侧自洽 |
-| CD110 | unhealthy | healthy | t1 流豁免副作用——保护 CD105/CD122 吃独食家族的代价（t1 流恰过 40） |
 | CD119 | cheat | unhealthy | B 口径权衡——放宽现象门到 EXT 含计会误伤 CD95/CD100（两票真 unhealthy），CD119 人工突破「无 strong 集中堆叠→unhealthy」梯度本身是攒票观察边界 |
-| CD121 | cheat | healthy | 半坡机器盲区——已质询不立项（组 22 留档：形态未走完非校准偏差，拉长观察窗破坏 as-of 语义） |
+| CD121 | cheat | unhealthy | 半坡机器盲区——已质询不立项（组 22 留档：形态未走完非校准偏差，拉长观察窗破坏 as-of 语义）；G2 下 unhealthy（G1 期 healthy，G 通道 bd=high）抬近一档 |
+| CD122 | healthy | unhealthy | E 简化代价——吃独食豁免（t1流 53.4≥40）撤销（组 23 亲手裁 healthy、单钱包吃独食家族 CD104/CD105 同款） |
 
-黄金集=`scripts/cheat-detection/data/cheat-grade-golden-42.json`（42 票 observation+extras+expect 快照）；单测 `_test_cheat_grade.cjs` 对拍锁定（42 断言：六通道+豁免恰界+容缺+37/42+五票偏差锁定）。
+黄金集=`scripts/cheat-detection/data/cheat-grade-golden-42.json`（42 票 observation+extras+expect 快照）；单测 `_test_cheat_grade.cjs` 对拍锁定（G 通道+豁免撤销翻转+容缺+34/42+八票偏差锁定）。
 
 ### 工程接线（引擎硬门+FA 观测投影，回测零接线）
 
@@ -66,7 +77,7 @@
 - **引擎层**（`FourMemeWssTradingEngine`，flap/gang 继承同体）：`_cheatGateEnabled=cheatCheck.enabled ∧ gate.enabled===true`（双开关默认关=观察模式 bit 一致）；挂点=GMGN 层之前（无 GMGN 条件腿照样硬门）+买条件评估后 `_cheatBlockedTokens` 拉黑短路（叙事直调/preBuy/signal 落库前省整条链）；cheat→拉黑+**持仓立即清仓联动**（`_cheatExitPosition`=`_emitSellSignal` 全清链 stallClose 同构：cards='all'/bypassDebounce/不锁再买；卖买执行中不重入；无持仓/无 factors 静默跳过）+signal failed `cheat_gate_cheat`；unhealthy→拒买 signal failed `cheat_gate_unhealthy`（第 N 次留痕）；healthy→**仅本层放行，叙事/GMGN 门照走**（分级与叙事质量正交）；stop 清理 FA 投影+两 Set
 - **FA 投影 20 键（2026-11-01 因子化升级，可进条件串——见下节「因子化投影」）**：`cheatGrade`/`cheatUnhealthyGrades`/`cheatBlocked` + 11 题档位键 + 数值锚六键（模块级 setCheatFactors 同 setNarrativeFactors 母版；FactorBuilder 快照 20 键透传；**回测恒 null**——带 cheat 因子条件的腿回测天然不触发）
 - **digest 落 grade 四键**（grade/gradeReasons/gradeVersion/anchorSellCount）——免 DDL，重放对拍原料
-- **回归 runner 加 grade 列**：run.mjs 与生产共用 cheat-grade.js（对拍同源；anchorSellCount=derived.sellN 同口径）；G1 grade×人工裁定对照统计展示**不作 PASS/FAIL**（37/42 基线，硬断言须裁定）
+- **回归 runner 加 grade 列**：run.mjs 与生产共用 cheat-grade.js（对拍同源；anchorSellCount=derived.sellN 同口径）；grade×人工裁定对照统计展示**不作 PASS/FAIL**（G2 基线 34/42，硬断言须裁定；CD105 待 D3.27 重析回正观察）
 - **单测**：`_test_cheat_grade.cjs`（42+H 段映射表+anchors 六键）/`_test_cheat_detection_service.cjs` Z 段（gate 五形状+Z1b levels+Z1c anchors+Z6 onResult）/`_test_cheat_gate_engine.cjs`（六路径+清仓联动+投影往返+D 段 20 键 FA 出口+F 段预触发+源码口径锁）——全零 DB 零网络
 
 ### 因子化投影（2026-11-01 用户指令落地：检测「题」结果全量因子化进表达式；同日补点数值锚）
@@ -106,7 +117,7 @@
 - **激活条件**：`service.enabled ∧（gate.enabled ∨ 任一买腿条件串引用 cheat 因子）`——consumers 扫描 `_scanCheatFactorConsumers` 七字段（condition/gmgn/narrativeTrigger/narrativeCall/preBuy/repeatBuy/narrativePrefetch）正则 `/cheat[A-Z]/`（只扫 buy 腿）；无消费端不烧配额（纯观察实验零增量）
 - **null 语义与回测警告**：首判未完成/预触发禁用/回测 → 20 键全 null；条件裸比较恒 false **fail-closed**，未判定放行须显式 `cheatGrade IS NULL OR` 前置臂（GMGN issuer 分档门同款母版）；**带 cheat 因子条件的腿回测天然不触发**（回测零接线）——validateLegs 不拦（合法 FA 键），设计如此
 - **效果研究通道**：①signal 行 FactorBuilder 快照 20 键（买信号 fire 时档位+锚快照落库，事后分布/阈值校准原料）；②metadata `cheatCheck` 轨迹（grade/reasons/levels/buckets 字符串原值）；③`cheat_detection` 表 digest 全档（per-时点观测轨迹）——三层各自独立可对拍
-- **上线**：v66 换车 `cheatCheck:{enabled:true, gate:{enabled:true}}`（观察期先虚拟实验验收；DDL `observed` 已执行无需新 DDL）；全量 128 票 G1 对拍（182）随验收跑
+- **上线**：v66 换车 `cheatCheck:{enabled:true, gate:{enabled:true}}`（观察期先虚拟实验验收；DDL `observed` 已执行无需新 DDL）；全量 128 票 G2 对拍+23 票 burst+low D3.27 定向重析（182）随验收跑
 
 ## Case 倒序
 
@@ -557,6 +568,7 @@
 
 | 版本 | 日期 | 触发 | 改动 |
 |---|---|---|---|
+| D3.27 | 2026-11-01 | 128 票全量回归发现 **act=low 59 票中 23 票 sbw=burst 自相矛盾共存**（39%——「长静默后集中涌入」既被判停滞突发 burst、又被判活跃度 low）；用户裁定原话「活跃度这一臂为low的，也判为 unhealthy，不过流量 burst 命中的不要判定为活跃度 low（需要调整下 prompt）。这个也改一下吧」（同裁定驱动 G2 E 通道简化=通道层 sbw≠burst 双保险+题面源头修正双管齐下） | **act 题加第 6 要素「停滞突发反锚（burst 不判低）」（题面-only 不加题，11 题不变）**：若窗口存在停滞突发波形状——长时间完全静默后、同块或秒级内集中涌入一波交易——活跃度**不判低**：突发涌入本身是集中流量事件，①「大比例无交易期」描述的是全程稀疏死寂（整窗无任何集中流量），不含「静默后突发」形状；这类盘面按**中档起判**。五要素句改「五要素综合定档（先过⑥反锚）」；criteria.low 尾加「停滞突发形状（长静默后集中涌入）不适用本档」、criteria.mid 尾加「停滞突发形状按本档起判」；反例样本补「真实样本（反例·停滞突发不判低）」。单测 lib 306 断言全绿（版本断言+题面措辞锚三断言，注意题集是 `buildCheatQuestions()` 函数产物非顶层常量）。定向对拍（182）随 G2 落码跑：23 票 burst+low（CD4/CD5/CD7/CD17/CD26/CD29/CD35/CD37/CD54/CD58/CD70/CD79/CD98/CD99/CD102/CD104/CD105/CD106/CD108/CD120/CD123/CD125/CD128）重析 act 应翻非 low；黄金集 CD105 存档快照 sbw=none 而 128 新版真调快照 sbw=burst——重析后回 healthy 即修复黄金集偏差（观察点） |
 | D3.26 | 2026-11-01 | CD88 pump 未翻 strong 第二轮（D3.25 对拍：CD88 act 已回落 mid 但 pump 仍 moderate），用户裁定原话「CD84先不管吧，先解决一下CD88的问题，『持续活跃+跨块连续+金额散布=市场合力至多 moderate』这个没问题，主要是活跃的信息从哪里来？活跃的标准是什么，这个是不是要给清楚」；**CD84 act=low 误伤（D3.25 残余）同裁定搁置不修**。归因=pump 反锚是 Jev 各题独立读盘面判的、不消费 act 题答案；⑤前半句「整窗交易持续活跃」无判据标准，Jev 以笔数口径判活跃（CD88 笔密度 30 笔/分、57 笔尘埃跨 47 块=笔数活跃金额死寂，吞吐 0.66 BNB/分）→反锚误触发压 moderate | **pump ⑤前半句反锚保留不动，给「活跃」补标准（题面-only 不加题，11 题不变）**：前半句后加「活跃的标准」段——①「持续活跃」以**金额吞吐**为准（与「活跃度」题⑤同口径）：窗口总交易额（买+卖）÷窗口分钟数达密集盘量级（参考 ≥10 BNB/分钟）才满足「持续活跃」前提；笔数密集、空窗短但金额吞吐尘埃级（参考 <1 BNB/分钟＝尘埃单堆笔数的假活跃）不满足前提、不触发本反锚、不按市场合力豁免（那恰是本题观察的垫量缓推形状，按本题口径给档）；②「金额连续散布」「跨块连续」两腿同样以正常量级真金白银为证据（笔均/中位 ≥0.005 量级的真散户单），尘埃单的散布与跨块垫价不构成合力证据。三版一脉（D3.24 豁免臂量级→D3.25 act 吞吐要素→D3.26 反锚活跃标准）=同一把尺子「活跃/合力看金额不看笔数」在 pump 豁免臂/act 题/pump 反锚三处落齐。单测 303+47 全过（吞吐标准/假活跃不触发/散布跨块量级限定三断言）。定向对拍（182，CD88/CD84/CD44/CD72/CD76/CD56）随本 commit 跑：CD88 pump 翻 strong 为目标；CD84（吞吐 26.1 反锚仍触发）/CD56（高活跃）moderate 保；CD44/CD72/CD76 正例 strong 保（CD72 吞吐 ~3 低于 10 反锚不触发，正例恰不受新标准影响）。**对拍收官（172e0ab9 后）**：**CD88 pump moderate→strong ✓ 校准达成**（三版链 D3.24 豁免臂量级→D3.25 act 吞吐→D3.26 反锚活跃标准收官；act=mid）；CD84 moderate ✓（吞吐 26.1 反锚按新标准触发、市场合力豁免正确生效——act=low 为搁置项不动）；CD56 moderate ✓；CD44/CD72/CD76 strong 三保 ✓ 正例防线全保（CD72 eq 亦 strong）。collateral：CD44 bd mid→low、CD56 act/bd 小档抖动（Jev 非确定性，cheat 裁定不受影响） |
 | D3.25 | 2026-11-01 | CD88 act=high 0.57 误判质询（D3.24 对拍收官后发现：CD88 pump 未翻 strong 的根因在 act 题），用户裁定原话「CD88 的活跃度为什么被判定为高？只要也要参考单位时间交易额的指标吧」→「好，改吧」。归因（182 对拍存档 digest 对照表）：CD88 金额吞吐=30.43 笔/分×0.0216=**0.66 BNB/分全表垫底**（与 act=low 的 CD44 0.58 同档；真 high 票 CD87/CD86/CD90/CD84 全部 ≥9.0——差一个数量级），Jev 判 high 0.57（代码锚 low）。判高路径四洞：①「尘埃额都算交易、都打破静默，只看有无不看金额」——57 笔尘埃把静默占比打到 14%（maxGap 19s/138s）低档核心证据不成立；③旧措辞「尘埃级笔均**伴稀疏节奏**同样压低档位」把笔均尘埃与稀疏绑定——CD88 笔密度 30/分不稀疏，笔均 0.0216 尘埃被笔数对冲；④死水臂笔比 58:12=4.83:1 差 0.17 不到 5:1 线（额比 6.2:1/回撤 2.9% 均过，三臂 AND 差一线全弃）；定档句「交易密集、空窗都很短 → 高」纯笔数口径字面满足。题面四要素全无「单位时间总金额」维度 | **act 题加第五要素「单位时间交易额（金额吞吐）」（题面-only 不加题，11 题不变）**：⑤窗口总交易额（买+卖）÷窗口分钟数——参考 <1 BNB/分钟=金额死寂（这个量级的盘即使笔数密集也是尘埃单堆出来的假活跃）、≥10 BNB/分钟才与「高」档的密集相称（真密集盘金额与笔数同量级）；③解绑「伴稀疏节奏」——笔均尘埃级时以⑤金额吞吐定夺，吞吐同样低＝假活跃压低档，不因笔数多而豁免；定档句四要素→五要素，「高」臂收紧=交易密集、空窗都很短**且金额吞吐与之相称**才入高，笔数密集但吞吐尘埃级不入高档；高档反例补 CD88 假活跃形状（70 笔/2 分余钟、maxGap 19s 看似密集、吞吐 0.66 同批最低）。**与 D3.24 同一把尺子**（活跃/合力看金额不看笔数）：pump ⑤反锚与「低活跃度低额度」类目引用活跃度口径——act 修好后 CD88 act 预期回落，pump 量级限定条款随之自洽启用，一版修两处。单测 300+47 全过（吞吐要素/③解绑/定档句收紧/反例形状/五要素五断言）。定向对拍（182，CD88/CD84/CD44/CD55/CD90）随本 commit 跑：CD88 act 回落+pump 翻 strong 为目标；CD84（吞吐 26.1）/CD90（18.3）high 保、CD44（0.58）low 保、CD55（1.00）mid 保为防线。**对拍结果（33b9ad6c 后）**：CD88 act high→**mid ✓ 回落达成**、CD44 act=low 保 ✓、CD90 act=high 保 ✓（吞吐 ≥10 防线稳）、CD55 act mid→low（吞吐 1.00 贴 <1 线，可解释侧）；**CD88 pump 仍 moderate 未翻 strong**——「act 修好 pump 自洽」预测不成立：pump ⑤反锚是 Jev 各题独立读盘面判的、不消费 act 题答案，CD88 未翻根因仍是⑤前半句反锚本身（笔数活跃+跨块连续+散布，D3.24 已呈报方向①）；**CD84 act high→low ✗ 误伤**——④死水臂三臂 AND 全中（买卖 36:2 笔比 18:1+额比 7.3:1+12 秒窜升窗回撤浅）而④无金额条件也无开盘早期豁免，D3.25 金额语境加入后 Jev 整体压 low（吞吐 26.1 的真高活跃盘不该落 low）；修法待裁定=④死水臂加金额同判臂（死水须金额死寂同证 <1 BNB/分钟；吞吐 ≥10 的密集单向=开盘抢购热度非死水——与 pump ⑤「开盘早期失衡自然」同款语义） |
 | D3.24 | 2026-11-01 | 组 17（CD86-CD91）review CD88 质询，用户裁定原话「CD88 cheat 持续推价算明显了，应该 strong，请帮忙看一下吧，这个票作弊无疑，但也确实怕收严标准误伤」；归因（tmp-g17-cd88 探针 182）=CD88 锚窗 70 行 2m18s——t1 钱包 0xf37ebd05 **仅 1 笔**买 0.6000（占买 46.1%）首行窜升一截，其余 57 笔买合计仅 0.7007、**中位 0.0001 尘埃级**垫量缓推，价 +14% 最大回撤 2.9%，卖 12 笔中 10 笔亦尘埃卖（无自然获利回吐）=形状②真推价盘；但 D3.23 新加的「大户单笔进场+散买跟风=市场合力至多 moderate」豁免臂未限定**跟风量级**——CD84 真散户跟风（中位 0.0493 正常量级）与 CD88 尘埃垫推（中位 0.0001）同被豁免、真推价被压 moderate。用户裁定「CD88 算低活跃度低额度持续推价，好，你落吧」 | **pump 题 ⑤大户进场豁免臂加「跟风量级」限定（题面-only 不加题，11 题不变）**：豁免只覆盖**正常量级**散买跟风（笔均/中位 ≥0.005 量级、金额连续散布的真散户单）——大户单笔进场带动正常量级跟风仍=「大户进场+市场合力」至多 moderate；**跟风若以海量尘埃级买单为主（中位 ~0.0001 级、几乎不占金额、靠笔数堆叠垫价、整盘低活跃度低额度）＝「低活跃度低额度持续推价」（形状②的窜升后垫量缓推），恰是本题观察主体，仍按本题口径给档、可 strong，不走大户进场豁免**；反例 CD84 标注「中位 0.05 量级=正常量级跟风，非尘埃垫推」划界；正例二补 CD88 实数（大额窜升段+尘埃垫推段组合形状——大额段占金额、尘埃段占笔数垫价，两端都不是正常量级真散户跟风）。D3.23↔D3.24 连续两版把「大户进场豁免」的边界从「谁在推」收窄到「跟风是什么量级」——豁免保护的是真散户合力，不保护尘埃垫推。单测 295+47 全过（量级限定豁免/尘埃垫推可 strong/CD88 正例/CD84 标注四断言）。**定向对拍（182，commit 08b10d2c 后）**：CD84 pump=moderate 保 ✓（D3.23 成果不受影响）；CD44 pump=strong 保 ✓（全程缓推正例）；CD55 pump=**strong**（较 D3.15/D3.21 对拍的 moderate 升档——正例侧连续校准后强化，方向正确）；**CD88 pump=moderate 未翻 strong ✗ 校准未完全达成**——归因初判（待裁定）=⑤**前半句**「整窗交易持续活跃+跨块连续+金额散布=市场合力至多 moderate」（D3.16 引入/D3.23 放宽的反锚主体）对 CD88 仍触发：57 笔尘埃买跨 47 块使「持续活跃+跨块连续」两腿满足，且 Jev act=high（CD88 代码锚 act=low，但笔密度 ~30 行/分在 act 题压过「笔均尘埃」要素）——D3.24 量级限定挂在「整盘低活跃度低额度」类目下，与 Jev 对该盘 act=high 的判定矛盾、条款不被启用。**余留两个方向待用户裁定**：①D3.25=⑤前半句反锚加金额量级限定（市场合力须正常量级真金白银——尘埃单堆笔数不构成合力证据，「活跃」看金额不看笔数）；②攒票观察（人工裁定已收 cheat，机器档位为观察层） |

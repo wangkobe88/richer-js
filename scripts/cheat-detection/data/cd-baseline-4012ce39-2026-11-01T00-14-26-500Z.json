@@ -1,0 +1,3645 @@
+{
+  "ranAt": "2026-11-01T00:14:26.500Z",
+  "experimentId": "4012ce39-fa10-4ce8-8a1f-b384b8e4514a",
+  "settleMs": 4000,
+  "questionVersion": "D3.15",
+  "dry": false,
+  "results": [
+    {
+      "addr": "0x7c625e0cdc9442b44fa77cb1e8378c907c287777",
+      "symbol": "SAFU金库",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T14:56:56.538+00:00",
+      "anchorTickCount": 22,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.2604103121914019,
+        "totalSellBnb": 0.024603187704853705,
+        "buyN": 21,
+        "sellN": 1,
+        "walletCount": 21,
+        "top1BuyPct": 48.92057721488756,
+        "top2BuyPct": 53.63332824726563,
+        "routerPct": 3.212525287071054,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 36.41344924168206,
+        "equalBandHoldPct": 41.26048392963041,
+        "ticksPerMin": 29.33,
+        "avgTradeBnb": 0.0584,
+        "maxGapSec": 12,
+        "activityLevel": "mid",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 6.679512266e-9,
+          "ath": 7.920166594e-9,
+          "athDt": 45,
+          "last": 7.920166594e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "strong",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.68
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.7
+        },
+        "anchors": {
+          "sameBlockHoldPct": 36.41344924168206,
+          "equalBandHoldPct": 41.26048392963041
+        }
+      },
+      "promptChars": 3926,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.36,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.03,
+            "moderate": 0.44,
+            "strong": 0.52
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.85,
+          "probabilities": {
+            "none": 0.89,
+            "weak": 0.11,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.89,
+          "probabilities": {
+            "none": 0.92,
+            "weak": 0.07,
+            "moderate": 0,
+            "strong": 0.01
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.42,
+          "probabilities": {
+            "none": 0.71,
+            "burst": 0.29
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.28,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.13,
+            "moderate": 0.46,
+            "strong": 0.38
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.17,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.27,
+            "moderate": 0.31,
+            "strong": 0.38
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.57,
+          "probabilities": {
+            "low": 0.68,
+            "mid": 0.1,
+            "high": 0.2,
+            "ultra": 0.02
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.55,
+          "probabilities": {
+            "low": 0.02,
+            "mid": 0.7,
+            "high": 0.28
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.95,
+          "probabilities": {
+            "none": 0.96,
+            "weak": 0.04,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.2,
+          "probabilities": {
+            "none": 0.4,
+            "weak": 0.2,
+            "moderate": 0.21,
+            "strong": 0.19
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 36.41344924168206,
+        "equalBandHoldPct": 41.26048392963041
+      },
+      "activity": {
+        "ticksPerMin": 29.33,
+        "avgTradeBnb": 0.0584,
+        "maxGapSec": 12,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x291491d05856e2e0c5f518266a647af95ee9ffff",
+      "symbol": "Trust Binance",
+      "platform": "fourmeme",
+      "firstBuyAt": "2026-10-30T15:00:27.22+00:00",
+      "anchorTickCount": 22,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.698798838817975,
+        "totalSellBnb": 0,
+        "buyN": 22,
+        "sellN": 0,
+        "walletCount": 22,
+        "top1BuyPct": 12.697990968906863,
+        "top2BuyPct": 21.26806012408818,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 24.526197918504696,
+        "equalBandHoldPct": null,
+        "ticksPerMin": 50.77,
+        "avgTradeBnb": 0.0772,
+        "maxGapSec": 17,
+        "activityLevel": "mid",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 4.74434949e-9,
+          "ath": 8.272231686e-9,
+          "athDt": 26,
+          "last": 8.272231686e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "weak",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "weak",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.78
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.72
+        },
+        "anchors": {
+          "sameBlockHoldPct": 24.526197918504696,
+          "equalBandHoldPct": null
+        }
+      },
+      "promptChars": 4005,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.27,
+          "probabilities": {
+            "none": 0.31,
+            "weak": 0.45,
+            "moderate": 0.19,
+            "strong": 0.05
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.86,
+          "probabilities": {
+            "none": 0.93,
+            "burst": 0.07
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.19,
+          "probabilities": {
+            "none": 0.31,
+            "weak": 0.39,
+            "moderate": 0.26,
+            "strong": 0.04
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.18,
+            "moderate": 0.53,
+            "strong": 0.26
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.71,
+          "probabilities": {
+            "low": 0.78,
+            "mid": 0.01,
+            "high": 0.17,
+            "ultra": 0.04
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.58,
+          "probabilities": {
+            "low": 0.04,
+            "mid": 0.72,
+            "high": 0.24
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.2,
+          "probabilities": {
+            "none": 0.4,
+            "weak": 0.17,
+            "moderate": 0.23,
+            "strong": 0.2
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 24.526197918504696,
+        "equalBandHoldPct": null
+      },
+      "activity": {
+        "ticksPerMin": 50.77,
+        "avgTradeBnb": 0.0772,
+        "maxGapSec": 17,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x37b7cdbf085a28c478c45f0f8bd7e9cc61467777",
+      "symbol": "SPACECAT",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T15:01:07.321+00:00",
+      "anchorTickCount": 91,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 7.912261845391065,
+        "totalSellBnb": 5.194491192908975,
+        "buyN": 43,
+        "sellN": 48,
+        "walletCount": 44,
+        "top1BuyPct": 12.600506497308533,
+        "top2BuyPct": 22.08479286337002,
+        "routerPct": 77.94435950857832,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 25,
+        "sameBlockClusterCount": 6,
+        "equalClusterCount": 2,
+        "sameBlockHoldPct": 55.42715444294739,
+        "equalBandHoldPct": 37.680399495573596,
+        "ticksPerMin": 143.68,
+        "avgTradeBnb": 0.144,
+        "maxGapSec": 3,
+        "activityLevel": "ultra",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": 12.4,
+        "famousTop1Pct": 12.4,
+        "famousFollowerPct": 87.6,
+        "famousDominancePct": 100,
+        "famousDominanceLevel": "high",
+        "priceArc": {
+          "first": 8.092092304719923e-9,
+          "ath": 1.590711542735055e-8,
+          "athDt": 24,
+          "last": 1.1606401050999278e-8
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "strong",
+          "creator_front_run": "moderate",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "high",
+          "prob": 0.62
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.94
+        },
+        "anchors": {
+          "sameBlockHoldPct": 55.42715444294739,
+          "equalBandHoldPct": 37.680399495573596
+        }
+      },
+      "promptChars": 9837,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.44,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.58,
+            "strong": 0.37
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.41,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.04,
+            "moderate": 0.38,
+            "strong": 0.56
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.41,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.56,
+            "strong": 0.41
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.24,
+          "probabilities": {
+            "none": 0.14,
+            "weak": 0.27,
+            "moderate": 0.43,
+            "strong": 0.16
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.9,
+          "probabilities": {
+            "none": 0.95,
+            "burst": 0.05
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.12,
+            "moderate": 0.49,
+            "strong": 0.33
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.44,
+            "strong": 0.53
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.49,
+          "probabilities": {
+            "low": 0.02,
+            "mid": 0.13,
+            "high": 0.62,
+            "ultra": 0.23
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.91,
+          "probabilities": {
+            "low": 0.02,
+            "mid": 0.04,
+            "high": 0.94
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.49,
+            "weak": 0.12,
+            "moderate": 0.13,
+            "strong": 0.26
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.91,
+          "probabilities": {
+            "none": 0.93,
+            "weak": 0.04,
+            "moderate": 0.02,
+            "strong": 0.01
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 55.42715444294739,
+        "equalBandHoldPct": 37.680399495573596
+      },
+      "activity": {
+        "ticksPerMin": 143.68,
+        "avgTradeBnb": 0.144,
+        "maxGapSec": 3,
+        "level": "ultra",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x1d377357eeeeffe34f4b59487bf5d0ee75337777",
+      "symbol": "NEBULA",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T15:01:33.754+00:00",
+      "anchorTickCount": 71,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 7.855871768140228,
+        "totalSellBnb": 5.204451452124088,
+        "buyN": 38,
+        "sellN": 33,
+        "walletCount": 36,
+        "top1BuyPct": 12.689674727396246,
+        "top2BuyPct": 22.237353905997097,
+        "routerPct": 67.11361129476006,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 23,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 27.179762688245752,
+        "equalBandHoldPct": 7.954086728712259,
+        "ticksPerMin": 129.09,
+        "avgTradeBnb": 0.1839,
+        "maxGapSec": 5,
+        "activityLevel": "high",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": 21.3,
+        "famousTop1Pct": 21.3,
+        "famousFollowerPct": 56.8,
+        "famousDominancePct": 78.1,
+        "famousDominanceLevel": "high",
+        "priceArc": {
+          "first": 8.094772598141126e-9,
+          "ath": 1.725937680844901e-8,
+          "athDt": 23,
+          "last": 1.1442481940229566e-8
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "weak",
+          "coordinated_sell_back": "moderate",
+          "creator_front_run": "weak",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "moderate",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "high",
+          "prob": 0.55
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.72
+        },
+        "anchors": {
+          "sameBlockHoldPct": 27.179762688245752,
+          "equalBandHoldPct": 7.954086728712259
+        }
+      },
+      "promptChars": 8259,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.35,
+          "probabilities": {
+            "none": 0.09,
+            "weak": 0.51,
+            "moderate": 0.35,
+            "strong": 0.05
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.4,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.14,
+            "moderate": 0.55,
+            "strong": 0.25
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.39,
+          "probabilities": {
+            "none": 0.31,
+            "weak": 0.54,
+            "moderate": 0.14,
+            "strong": 0.01
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.11,
+            "weak": 0.29,
+            "moderate": 0.47,
+            "strong": 0.13
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.8,
+          "probabilities": {
+            "none": 0.9,
+            "burst": 0.1
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.14,
+            "weak": 0.26,
+            "moderate": 0.48,
+            "strong": 0.12
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.49,
+          "probabilities": {
+            "none": 0.05,
+            "weak": 0.19,
+            "moderate": 0.62,
+            "strong": 0.14
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.4,
+          "probabilities": {
+            "low": 0.01,
+            "mid": 0.08,
+            "high": 0.55,
+            "ultra": 0.36
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.58,
+          "probabilities": {
+            "low": 0.04,
+            "mid": 0.72,
+            "high": 0.24
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.43,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.07,
+            "moderate": 0.57,
+            "strong": 0.33
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.95,
+          "probabilities": {
+            "none": 0.96,
+            "weak": 0.03,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 27.179762688245752,
+        "equalBandHoldPct": 7.954086728712259
+      },
+      "activity": {
+        "ticksPerMin": 129.09,
+        "avgTradeBnb": 0.1839,
+        "maxGapSec": 5,
+        "level": "high",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x68b6f897744479317c6995748443f48930ba7777",
+      "symbol": "NEBULA",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T15:08:39.706+00:00",
+      "anchorTickCount": 24,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.4714135869324796,
+        "totalSellBnb": 0.4775743137788061,
+        "buyN": 23,
+        "sellN": 1,
+        "walletCount": 23,
+        "top1BuyPct": 11.477729902694277,
+        "top2BuyPct": 22.840216570345035,
+        "routerPct": 75.54432948023198,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 2,
+        "sameBlockHoldPct": 64.17225623995313,
+        "equalBandHoldPct": 36.56848756367675,
+        "ticksPerMin": 36,
+        "avgTradeBnb": 0.1645,
+        "maxGapSec": 10,
+        "activityLevel": "mid",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 6.877647253527813e-9,
+          "ath": 1.2544471415114386e-8,
+          "athDt": 40,
+          "last": 1.2544471415114386e-8
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "moderate",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.56
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.98
+        },
+        "anchors": {
+          "sameBlockHoldPct": 64.17225623995313,
+          "equalBandHoldPct": 36.56848756367675
+        }
+      },
+      "promptChars": 4318,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.49,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.03,
+            "moderate": 0.62,
+            "strong": 0.34
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.91,
+          "probabilities": {
+            "none": 0.93,
+            "weak": 0.07,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.27,
+          "probabilities": {
+            "none": 0.05,
+            "weak": 0.16,
+            "moderate": 0.45,
+            "strong": 0.34
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.92,
+          "probabilities": {
+            "none": 0.94,
+            "weak": 0.05,
+            "moderate": 0,
+            "strong": 0.01
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.72,
+          "probabilities": {
+            "none": 0.86,
+            "burst": 0.14
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.09,
+            "moderate": 0.48,
+            "strong": 0.39
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.42,
+            "strong": 0.53
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.41,
+          "probabilities": {
+            "low": 0.56,
+            "mid": 0.17,
+            "high": 0.26,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.97,
+          "probabilities": {
+            "low": 0.01,
+            "mid": 0.01,
+            "high": 0.98
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.49,
+          "probabilities": {
+            "none": 0.62,
+            "weak": 0.19,
+            "moderate": 0.05,
+            "strong": 0.14
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.11,
+          "probabilities": {
+            "none": 0.33,
+            "weak": 0.17,
+            "moderate": 0.27,
+            "strong": 0.23
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 64.17225623995313,
+        "equalBandHoldPct": 36.56848756367675
+      },
+      "activity": {
+        "ticksPerMin": 36,
+        "avgTradeBnb": 0.1645,
+        "maxGapSec": 10,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xce65628695ef9179740ac6be262841f9196a7777",
+      "symbol": "何姨",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T15:45:35.56+00:00",
+      "anchorTickCount": 166,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 13.265459774850536,
+        "totalSellBnb": 10.800223665938388,
+        "buyN": 92,
+        "sellN": 74,
+        "walletCount": 84,
+        "top1BuyPct": 9.790337546936458,
+        "top2BuyPct": 18.72238532784762,
+        "routerPct": 69.52308181257227,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 63,
+        "sameBlockClusterCount": 8,
+        "equalClusterCount": 10,
+        "sameBlockHoldPct": 38.42296269504778,
+        "equalBandHoldPct": 58.82258412165743,
+        "ticksPerMin": 203.27,
+        "avgTradeBnb": 0.145,
+        "maxGapSec": 2,
+        "activityLevel": "ultra",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": 18.8,
+        "famousTop1Pct": 12.2,
+        "famousFollowerPct": 68.7,
+        "famousDominancePct": 87.5,
+        "famousDominanceLevel": "high",
+        "priceArc": {
+          "first": 6.204987375912131e-9,
+          "ath": 1.6843306930303326e-8,
+          "athDt": 2,
+          "last": 9.488447532307937e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "strong",
+          "coordinated_sell_back": "moderate",
+          "creator_front_run": "moderate",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "high",
+          "prob": 0.5
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.66
+        },
+        "anchors": {
+          "sameBlockHoldPct": 38.42296269504778,
+          "equalBandHoldPct": 58.82258412165743
+        }
+      },
+      "promptChars": 14648,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.42,
+            "strong": 0.53
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.08,
+            "moderate": 0.48,
+            "strong": 0.38
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.65,
+            "strong": 0.32
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.25,
+          "probabilities": {
+            "none": 0.1,
+            "weak": 0.23,
+            "moderate": 0.44,
+            "strong": 0.23
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.72,
+          "probabilities": {
+            "none": 0.86,
+            "burst": 0.14
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.27,
+          "probabilities": {
+            "none": 0.05,
+            "weak": 0.1,
+            "moderate": 0.45,
+            "strong": 0.4
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.48,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.36,
+            "strong": 0.61
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.33,
+          "probabilities": {
+            "low": 0.1,
+            "mid": 0.22,
+            "high": 0.5,
+            "ultra": 0.18
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.49,
+          "probabilities": {
+            "low": 0.03,
+            "mid": 0.31,
+            "high": 0.66
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.25,
+          "probabilities": {
+            "none": 0.44,
+            "weak": 0.22,
+            "moderate": 0.14,
+            "strong": 0.2
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.89,
+          "probabilities": {
+            "none": 0.92,
+            "weak": 0.05,
+            "moderate": 0.02,
+            "strong": 0.01
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 38.42296269504778,
+        "equalBandHoldPct": 58.82258412165743
+      },
+      "activity": {
+        "ticksPerMin": 203.27,
+        "avgTradeBnb": 0.145,
+        "maxGapSec": 2,
+        "level": "ultra",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x36207f3aeacc6c69e33e7293277185e85f747777",
+      "symbol": "何姨",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T16:00:09.733+00:00",
+      "anchorTickCount": 36,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.167529577593703,
+        "totalSellBnb": 1.8969801049876978,
+        "buyN": 22,
+        "sellN": 14,
+        "walletCount": 22,
+        "top1BuyPct": 28.60399260102817,
+        "top2BuyPct": 35.19157458726878,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 14,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 65.06782173499236,
+        "equalBandHoldPct": 50.8239353352423,
+        "ticksPerMin": 108,
+        "avgTradeBnb": 0.1129,
+        "maxGapSec": 6,
+        "activityLevel": "high",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 6.686052512e-9,
+          "ath": 9.971351876e-9,
+          "athDt": 8,
+          "last": 5.814821036e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "strong",
+          "coordinated_sell_back": "strong",
+          "creator_front_run": "moderate",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "strong",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "high",
+          "prob": 0.54
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.68
+        },
+        "anchors": {
+          "sameBlockHoldPct": 65.06782173499236,
+          "equalBandHoldPct": 50.8239353352423
+        }
+      },
+      "promptChars": 4915,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.69,
+          "probabilities": {
+            "none": 0,
+            "weak": 0.01,
+            "moderate": 0.22,
+            "strong": 0.77
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.84,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.01,
+            "moderate": 0.1,
+            "strong": 0.88
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.24,
+          "probabilities": {
+            "none": 0.11,
+            "weak": 0.25,
+            "moderate": 0.43,
+            "strong": 0.21
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.56,
+          "probabilities": {
+            "none": 0.67,
+            "weak": 0.19,
+            "moderate": 0.05,
+            "strong": 0.09
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.88,
+          "probabilities": {
+            "none": 0.94,
+            "burst": 0.06
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.47,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.06,
+            "moderate": 0.32,
+            "strong": 0.6
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.49,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.33,
+            "strong": 0.62
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.39,
+          "probabilities": {
+            "low": 0.12,
+            "mid": 0.23,
+            "high": 0.54,
+            "ultra": 0.11
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.52,
+          "probabilities": {
+            "low": 0.13,
+            "mid": 0.19,
+            "high": 0.68
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.36,
+          "probabilities": {
+            "none": 0.52,
+            "weak": 0.08,
+            "moderate": 0.07,
+            "strong": 0.33
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 65.06782173499236,
+        "equalBandHoldPct": 50.8239353352423
+      },
+      "activity": {
+        "ticksPerMin": 108,
+        "avgTradeBnb": 0.1129,
+        "maxGapSec": 6,
+        "level": "high",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xfdd91c6baed435bfc916a81bc238d43ccd357777",
+      "symbol": "LDO",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T16:07:04.515+00:00",
+      "anchorTickCount": 42,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.355719419122736,
+        "totalSellBnb": 1.751361656002806,
+        "buyN": 33,
+        "sellN": 9,
+        "walletCount": 22,
+        "top1BuyPct": 29.79986927099595,
+        "top2BuyPct": 37.17533691556745,
+        "routerPct": 60.47883468548627,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 5,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 56.42336306290405,
+        "equalBandHoldPct": 12.104697074633895,
+        "ticksPerMin": 120,
+        "avgTradeBnb": 0.1216,
+        "maxGapSec": 4,
+        "activityLevel": "high",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 7.45812361e-9,
+          "ath": 8.942855415e-9,
+          "athDt": 4,
+          "last": 8.590668734e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "weak"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "strong",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "high",
+          "prob": 0.63
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.96
+        },
+        "anchors": {
+          "sameBlockHoldPct": 56.42336306290405,
+          "equalBandHoldPct": 12.104697074633895
+        }
+      },
+      "promptChars": 5302,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.09,
+            "moderate": 0.49,
+            "strong": 0.39
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.59,
+          "probabilities": {
+            "none": 0.69,
+            "weak": 0.25,
+            "moderate": 0.04,
+            "strong": 0.02
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.21,
+          "probabilities": {
+            "none": 0.08,
+            "weak": 0.41,
+            "moderate": 0.38,
+            "strong": 0.13
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.9,
+          "probabilities": {
+            "none": 0.95,
+            "burst": 0.05
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.28,
+          "probabilities": {
+            "none": 0.05,
+            "weak": 0.13,
+            "moderate": 0.46,
+            "strong": 0.36
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.36,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.43,
+            "strong": 0.52
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.51,
+          "probabilities": {
+            "low": 0.05,
+            "mid": 0.22,
+            "high": 0.63,
+            "ultra": 0.1
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.94,
+          "probabilities": {
+            "low": 0.02,
+            "mid": 0.02,
+            "high": 0.96
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.39,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.03,
+            "moderate": 0.41,
+            "strong": 0.54
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.63,
+          "probabilities": {
+            "none": 0.72,
+            "weak": 0.1,
+            "moderate": 0.12,
+            "strong": 0.06
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 56.42336306290405,
+        "equalBandHoldPct": 12.104697074633895
+      },
+      "activity": {
+        "ticksPerMin": 120,
+        "avgTradeBnb": 0.1216,
+        "maxGapSec": 4,
+        "level": "high",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x1ab94adf184c2cfde525ee27f339329cd80a7777",
+      "symbol": "COOL",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T16:37:30.293+00:00",
+      "anchorTickCount": 32,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.268410612016297,
+        "totalSellBnb": 1.7385603716445626,
+        "buyN": 25,
+        "sellN": 7,
+        "walletCount": 22,
+        "top1BuyPct": 16.96237302503397,
+        "top2BuyPct": 32.260328494941945,
+        "routerPct": 35.30645249276427,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 5,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 67.38626325572342,
+        "equalBandHoldPct": null,
+        "ticksPerMin": 31.48,
+        "avgTradeBnb": 0.1565,
+        "maxGapSec": 11,
+        "activityLevel": "mid",
+        "activityCv": 0.64,
+        "activityUneven": false,
+        "famousHoldPct": 10.6,
+        "famousTop1Pct": 10.6,
+        "famousFollowerPct": 27.4,
+        "famousDominancePct": 38,
+        "famousDominanceLevel": "mid",
+        "priceArc": {
+          "first": 6.466907464e-9,
+          "ath": 9.683791517e-9,
+          "athDt": 19,
+          "last": 8.428431052e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "weak",
+          "coordinated_sell_back": "weak",
+          "creator_front_run": "none",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "moderate",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "mid",
+          "prob": 0.52
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.97
+        },
+        "anchors": {
+          "sameBlockHoldPct": 67.38626325572342,
+          "equalBandHoldPct": null
+        }
+      },
+      "promptChars": 4714,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.21,
+            "weak": 0.47,
+            "moderate": 0.27,
+            "strong": 0.05
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.1,
+            "weak": 0.47,
+            "moderate": 0.37,
+            "strong": 0.06
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.97,
+          "probabilities": {
+            "none": 0.98,
+            "weak": 0.02,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.35,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.33,
+            "moderate": 0.51,
+            "strong": 0.12
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.44,
+          "probabilities": {
+            "none": 0.72,
+            "burst": 0.28
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.11,
+            "weak": 0.29,
+            "moderate": 0.48,
+            "strong": 0.12
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.41,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.56,
+            "strong": 0.41
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.36,
+          "probabilities": {
+            "low": 0.1,
+            "mid": 0.52,
+            "high": 0.37,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.96,
+          "probabilities": {
+            "low": 0.01,
+            "mid": 0.02,
+            "high": 0.97
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.12,
+            "moderate": 0.65,
+            "strong": 0.19
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.67,
+          "probabilities": {
+            "none": 0.75,
+            "weak": 0.16,
+            "moderate": 0.08,
+            "strong": 0.01
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 67.38626325572342,
+        "equalBandHoldPct": null
+      },
+      "activity": {
+        "ticksPerMin": 31.48,
+        "avgTradeBnb": 0.1565,
+        "maxGapSec": 11,
+        "level": "mid",
+        "cv": 0.64,
+        "uneven": false
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xbe03867c585c676226d15871ce3c1c4c59f37777",
+      "symbol": "SAFU Fund",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-30T17:01:59.667+00:00",
+      "anchorTickCount": 21,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.3919652947999999,
+        "totalSellBnb": 0.05514739802869208,
+        "buyN": 19,
+        "sellN": 2,
+        "walletCount": 18,
+        "top1BuyPct": 44.90054474309298,
+        "top2BuyPct": 49.510882015131116,
+        "routerPct": 6.808021374815673,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 2,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 42.6385674052291,
+        "equalBandHoldPct": 42.6385674052291,
+        "ticksPerMin": 33.16,
+        "avgTradeBnb": 0.0689,
+        "maxGapSec": 20,
+        "activityLevel": "mid",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 6.695676334e-9,
+          "ath": 8.12903784e-9,
+          "athDt": 38,
+          "last": 8.12903784e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "strong",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "weak"
+        },
+        "extLevels": {
+          "stall_burst_wave": "burst",
+          "amount_tiering": "strong",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.42
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.79
+        },
+        "anchors": {
+          "sameBlockHoldPct": 42.6385674052291,
+          "equalBandHoldPct": 42.6385674052291
+        }
+      },
+      "promptChars": 3702,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.52,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.33,
+            "strong": 0.64
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.77,
+          "probabilities": {
+            "none": 0.83,
+            "weak": 0.16,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.45,
+          "probabilities": {
+            "none": 0.16,
+            "weak": 0.59,
+            "moderate": 0.15,
+            "strong": 0.1
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "burst",
+          "confidence": 0.48,
+          "probabilities": {
+            "none": 0.26,
+            "burst": 0.74
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.08,
+            "moderate": 0.43,
+            "strong": 0.47
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.23,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.26,
+            "moderate": 0.28,
+            "strong": 0.42
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.23,
+          "probabilities": {
+            "low": 0.42,
+            "mid": 0.32,
+            "high": 0.22,
+            "ultra": 0.04
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.68,
+          "probabilities": {
+            "low": 0.02,
+            "mid": 0.79,
+            "high": 0.19
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.93,
+          "probabilities": {
+            "none": 0.95,
+            "weak": 0.04,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.4,
+          "probabilities": {
+            "none": 0.55,
+            "weak": 0.21,
+            "moderate": 0.12,
+            "strong": 0.12
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 42.6385674052291,
+        "equalBandHoldPct": 42.6385674052291
+      },
+      "activity": {
+        "ticksPerMin": 33.16,
+        "avgTradeBnb": 0.0689,
+        "maxGapSec": 20,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xac9c455faedc7d7b81566c93c4fbcc17a8337777",
+      "symbol": "币安大股东",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T00:11:33.748+00:00",
+      "anchorTickCount": 44,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.279091067198479,
+        "totalSellBnb": 0.16826957318472238,
+        "buyN": 35,
+        "sellN": 9,
+        "walletCount": 29,
+        "top1BuyPct": 15.158330079850662,
+        "top2BuyPct": 22.915762961029415,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 2,
+        "sameBlockHoldPct": 11.445822958103886,
+        "equalBandHoldPct": 53.96278680395676,
+        "ticksPerMin": 6.65,
+        "avgTradeBnb": 0.0329,
+        "maxGapSec": 62,
+        "activityLevel": "low",
+        "activityCv": 0.87,
+        "activityUneven": false,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 6.339067066908364e-9,
+          "ath": 7.999720917600388e-9,
+          "athDt": 397,
+          "last": 7.999720917600388e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "weak",
+          "creator_front_run": "none",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "moderate"
+        },
+        "activityLevel": {
+          "bucket": "mid",
+          "prob": 0.48
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.42
+        },
+        "anchors": {
+          "sameBlockHoldPct": 11.445822958103886,
+          "equalBandHoldPct": 53.96278680395676
+        }
+      },
+      "promptChars": 6028,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.55,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.1,
+            "moderate": 0.66,
+            "strong": 0.23
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.41,
+            "weak": 0.49,
+            "moderate": 0.09,
+            "strong": 0.01
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.64,
+          "probabilities": {
+            "none": 0.73,
+            "weak": 0.17,
+            "moderate": 0.09,
+            "strong": 0.01
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.41,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.21,
+            "moderate": 0.56,
+            "strong": 0.21
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.68,
+          "probabilities": {
+            "none": 0.84,
+            "burst": 0.16
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.44,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.13,
+            "moderate": 0.58,
+            "strong": 0.25
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.41,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.19,
+            "moderate": 0.56,
+            "strong": 0.22
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.31,
+          "probabilities": {
+            "low": 0.4,
+            "mid": 0.48,
+            "high": 0.11,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.13,
+          "probabilities": {
+            "low": 0.32,
+            "mid": 0.26,
+            "high": 0.42
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.65,
+          "probabilities": {
+            "none": 0.74,
+            "weak": 0.06,
+            "moderate": 0.06,
+            "strong": 0.14
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.17,
+          "probabilities": {
+            "none": 0.15,
+            "weak": 0.13,
+            "moderate": 0.38,
+            "strong": 0.34
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 11.445822958103886,
+        "equalBandHoldPct": 53.96278680395676
+      },
+      "activity": {
+        "ticksPerMin": 6.65,
+        "avgTradeBnb": 0.0329,
+        "maxGapSec": 62,
+        "level": "low",
+        "cv": 0.87,
+        "uneven": false
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xdaf3dfdf3c6e84a725cda2a1c8d59df24ef97777",
+      "symbol": "SAFU狗",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T00:15:09.225+00:00",
+      "anchorTickCount": 19,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 5.769040484688442,
+        "totalSellBnb": 1.309014806776215,
+        "buyN": 18,
+        "sellN": 1,
+        "walletCount": 18,
+        "top1BuyPct": 36.306237388006025,
+        "top2BuyPct": 66.05322798254326,
+        "routerPct": 22.267413062389142,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 35.612166730341436,
+        "equalBandHoldPct": null,
+        "ticksPerMin": 60,
+        "avgTradeBnb": 0.3725,
+        "maxGapSec": 12,
+        "activityLevel": "mid",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 8.379894417451316e-9,
+          "ath": 1.683869267828219e-8,
+          "athDt": 2,
+          "last": 1.5367731503718472e-8
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "weak",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "weak",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.7
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.74
+        },
+        "anchors": {
+          "sameBlockHoldPct": 35.612166730341436,
+          "equalBandHoldPct": null
+        }
+      },
+      "promptChars": 3658,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.39,
+            "weak": 0.53,
+            "moderate": 0.07,
+            "strong": 0.01
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.83,
+          "probabilities": {
+            "none": 0.87,
+            "weak": 0.13,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 0.97,
+            "weak": 0.03,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.98,
+          "probabilities": {
+            "none": 0.99,
+            "burst": 0.01
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.27,
+          "probabilities": {
+            "none": 0.28,
+            "weak": 0.45,
+            "moderate": 0.22,
+            "strong": 0.05
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.08,
+            "moderate": 0.41,
+            "strong": 0.49
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.6,
+          "probabilities": {
+            "low": 0.7,
+            "mid": 0.19,
+            "high": 0.1,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.61,
+          "probabilities": {
+            "low": 0.05,
+            "mid": 0.74,
+            "high": 0.21
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.91,
+          "probabilities": {
+            "none": 0.93,
+            "weak": 0.05,
+            "moderate": 0.01,
+            "strong": 0.01
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.28,
+          "probabilities": {
+            "none": 0.46,
+            "weak": 0.3,
+            "moderate": 0.19,
+            "strong": 0.05
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 35.612166730341436,
+        "equalBandHoldPct": null
+      },
+      "activity": {
+        "ticksPerMin": 60,
+        "avgTradeBnb": 0.3725,
+        "maxGapSec": 12,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x94bad152ba9b7dfd092a8ad95f84d08932ef7777",
+      "symbol": "SAFU基金",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T00:53:08.961+00:00",
+      "anchorTickCount": 31,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 3.6024048308737484,
+        "totalSellBnb": 0.7153204753226095,
+        "buyN": 25,
+        "sellN": 6,
+        "walletCount": 26,
+        "top1BuyPct": 8.277803689477976,
+        "top2BuyPct": 16.500422021026097,
+        "routerPct": 2.1167734771637177,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 66.0652856208168,
+        "equalBandHoldPct": 57.20389583198606,
+        "ticksPerMin": 6.18,
+        "avgTradeBnb": 0.1393,
+        "maxGapSec": 182,
+        "activityLevel": "low",
+        "activityCv": 1.5,
+        "activityUneven": true,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 6.086511029e-9,
+          "ath": 1.1854410892e-8,
+          "athDt": 301,
+          "last": 1.1854410892e-8
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "strong",
+          "coordinated_sell_back": "weak",
+          "creator_front_run": "weak",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "burst",
+          "amount_tiering": "strong",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "moderate",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.6
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.98
+        },
+        "anchors": {
+          "sameBlockHoldPct": 66.0652856208168,
+          "equalBandHoldPct": 57.20389583198606
+        }
+      },
+      "promptChars": 4901,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.71,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.19,
+            "strong": 0.78
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.17,
+          "probabilities": {
+            "none": 0.09,
+            "weak": 0.38,
+            "moderate": 0.35,
+            "strong": 0.18
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.24,
+          "probabilities": {
+            "none": 0.32,
+            "weak": 0.43,
+            "moderate": 0.21,
+            "strong": 0.04
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.35,
+          "probabilities": {
+            "none": 0.51,
+            "weak": 0.33,
+            "moderate": 0.11,
+            "strong": 0.05
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "burst",
+          "confidence": 0.78,
+          "probabilities": {
+            "none": 0.11,
+            "burst": 0.89
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.45,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.05,
+            "moderate": 0.34,
+            "strong": 0.59
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.03,
+            "moderate": 0.31,
+            "strong": 0.65
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.47,
+          "probabilities": {
+            "low": 0.6,
+            "mid": 0.33,
+            "high": 0.07,
+            "ultra": 0
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.97,
+          "probabilities": {
+            "low": 0.01,
+            "mid": 0.01,
+            "high": 0.98
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.23,
+          "probabilities": {
+            "none": 0.12,
+            "weak": 0.3,
+            "moderate": 0.42,
+            "strong": 0.16
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.55,
+          "probabilities": {
+            "none": 0.66,
+            "weak": 0.12,
+            "moderate": 0.13,
+            "strong": 0.09
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 66.0652856208168,
+        "equalBandHoldPct": 57.20389583198606
+      },
+      "activity": {
+        "ticksPerMin": 6.18,
+        "avgTradeBnb": 0.1393,
+        "maxGapSec": 182,
+        "level": "low",
+        "cv": 1.5,
+        "uneven": true
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xd3a5d1d02343340f8d5d2791d8ca220524d27777",
+      "symbol": "LUMI",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T01:12:51.624+00:00",
+      "anchorTickCount": 60,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.8911334425419573,
+        "totalSellBnb": 1.728909607650808,
+        "buyN": 39,
+        "sellN": 21,
+        "walletCount": 33,
+        "top1BuyPct": 14.00621106665137,
+        "top2BuyPct": 27.081493597936767,
+        "routerPct": 51.700662728974024,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 8,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 3.34534608037481,
+        "equalBandHoldPct": 43.00340563442119,
+        "ticksPerMin": 5.85,
+        "avgTradeBnb": 0.077,
+        "maxGapSec": 77,
+        "activityLevel": "low",
+        "activityCv": 0.7,
+        "activityUneven": false,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 3.5212695135948114e-9,
+          "ath": 5.09172337852586e-9,
+          "athDt": 615,
+          "last": 5.09172337852586e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "moderate",
+          "creator_front_run": "moderate",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "mid",
+          "prob": 0.63
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.68
+        },
+        "anchors": {
+          "sameBlockHoldPct": 3.34534608037481,
+          "equalBandHoldPct": 43.00340563442119
+        }
+      },
+      "promptChars": 7478,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.64,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.07,
+            "moderate": 0.73,
+            "strong": 0.18
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.07,
+            "moderate": 0.65,
+            "strong": 0.26
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.43,
+          "probabilities": {
+            "none": 0.12,
+            "weak": 0.21,
+            "moderate": 0.57,
+            "strong": 0.1
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.44,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.28,
+            "moderate": 0.58,
+            "strong": 0.1
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.14,
+          "probabilities": {
+            "none": 0.57,
+            "burst": 0.43
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.44,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.17,
+            "moderate": 0.58,
+            "strong": 0.19
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.4,
+          "probabilities": {
+            "none": 0.07,
+            "weak": 0.32,
+            "moderate": 0.55,
+            "strong": 0.06
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.51,
+          "probabilities": {
+            "low": 0.19,
+            "mid": 0.63,
+            "high": 0.17,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.52,
+          "probabilities": {
+            "low": 0.2,
+            "mid": 0.68,
+            "high": 0.12
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.47,
+            "weak": 0.11,
+            "moderate": 0.09,
+            "strong": 0.33
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.67,
+          "probabilities": {
+            "none": 0.75,
+            "weak": 0.15,
+            "moderate": 0.08,
+            "strong": 0.02
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 3.34534608037481,
+        "equalBandHoldPct": 43.00340563442119
+      },
+      "activity": {
+        "ticksPerMin": 5.85,
+        "avgTradeBnb": 0.077,
+        "maxGapSec": 77,
+        "level": "low",
+        "cv": 0.7,
+        "uneven": false
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0xe0981c32b112e9fe33bc2ec181fbbae257057777",
+      "symbol": "蹭饭蛙",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T01:17:01.348+00:00",
+      "anchorTickCount": 20,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.4775344151515288,
+        "totalSellBnb": 0.21113154126889003,
+        "buyN": 17,
+        "sellN": 3,
+        "walletCount": 17,
+        "top1BuyPct": 15.357589680460146,
+        "top2BuyPct": 25.6885554958032,
+        "routerPct": 49.92282770866387,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 3,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 38.64607334574705,
+        "equalBandHoldPct": null,
+        "ticksPerMin": 16,
+        "avgTradeBnb": 0.0844,
+        "maxGapSec": 22,
+        "activityLevel": "mid",
+        "activityCv": 0.31,
+        "activityUneven": false,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 5.122319173034999e-9,
+          "ath": 7.50663947848454e-9,
+          "athDt": 75,
+          "last": 7.50663947848454e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "weak",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "weak",
+          "sell_dispersion": "moderate"
+        },
+        "extLevels": {
+          "stall_burst_wave": "burst",
+          "amount_tiering": "weak",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "mid",
+          "prob": 0.44
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.81
+        },
+        "anchors": {
+          "sameBlockHoldPct": 38.64607334574705,
+          "equalBandHoldPct": null
+        }
+      },
+      "promptChars": 3714,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.21,
+            "weak": 0.53,
+            "moderate": 0.22,
+            "strong": 0.04
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.63,
+          "probabilities": {
+            "none": 0.72,
+            "weak": 0.27,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.35,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.51,
+            "moderate": 0.35,
+            "strong": 0.11
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.35,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.22,
+            "moderate": 0.51,
+            "strong": 0.26
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "burst",
+          "confidence": 0.08,
+          "probabilities": {
+            "none": 0.46,
+            "burst": 0.54
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.21,
+          "probabilities": {
+            "none": 0.23,
+            "weak": 0.41,
+            "moderate": 0.31,
+            "strong": 0.05
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.52,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.17,
+            "moderate": 0.64,
+            "strong": 0.15
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.25,
+          "probabilities": {
+            "low": 0.4,
+            "mid": 0.44,
+            "high": 0.15,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.72,
+          "probabilities": {
+            "low": 0.02,
+            "mid": 0.81,
+            "high": 0.17
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.87,
+          "probabilities": {
+            "none": 0.9,
+            "weak": 0.08,
+            "moderate": 0.01,
+            "strong": 0.01
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.48,
+            "weak": 0.26,
+            "moderate": 0.18,
+            "strong": 0.08
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 38.64607334574705,
+        "equalBandHoldPct": null
+      },
+      "activity": {
+        "ticksPerMin": 16,
+        "avgTradeBnb": 0.0844,
+        "maxGapSec": 22,
+        "level": "mid",
+        "cv": 0.31,
+        "uneven": false
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x8aab3e74a5baf5095952ed9b663d77b3deb97777",
+      "symbol": "SAFU FLAP",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T02:16:03.543+00:00",
+      "anchorTickCount": 19,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.07831,
+        "totalSellBnb": 0,
+        "buyN": 19,
+        "sellN": 0,
+        "walletCount": 19,
+        "top1BuyPct": 9.623203468202531,
+        "top2BuyPct": 19.246406936405062,
+        "routerPct": 48.111205739278546,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 1,
+        "equalClusterCount": 1,
+        "sameBlockHoldPct": 10.715918222016924,
+        "equalBandHoldPct": 59.61574548551465,
+        "ticksPerMin": 25.91,
+        "avgTradeBnb": 0.1094,
+        "maxGapSec": 12,
+        "activityLevel": "mid",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 5.906088181e-9,
+          "ath": 9.836268393e-9,
+          "athDt": 44,
+          "last": 9.836268393e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "weak",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "strong"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.9
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.64
+        },
+        "anchors": {
+          "sameBlockHoldPct": 10.715918222016924,
+          "equalBandHoldPct": 59.61574548551465
+        }
+      },
+      "promptChars": 3592,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.33,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.08,
+            "moderate": 0.5,
+            "strong": 0.39
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.76,
+          "probabilities": {
+            "none": 0.88,
+            "burst": 0.12
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.36,
+          "probabilities": {
+            "none": 0.07,
+            "weak": 0.17,
+            "moderate": 0.52,
+            "strong": 0.24
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.13,
+          "probabilities": {
+            "none": 0.17,
+            "weak": 0.35,
+            "moderate": 0.33,
+            "strong": 0.15
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.87,
+          "probabilities": {
+            "low": 0.9,
+            "mid": 0.01,
+            "high": 0.08,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.46,
+          "probabilities": {
+            "low": 0.22,
+            "mid": 0.14,
+            "high": 0.64
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.07,
+          "probabilities": {
+            "none": 0.24,
+            "weak": 0.17,
+            "moderate": 0.29,
+            "strong": 0.3
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 10.715918222016924,
+        "equalBandHoldPct": 59.61574548551465
+      },
+      "activity": {
+        "ticksPerMin": 25.91,
+        "avgTradeBnb": 0.1094,
+        "maxGapSec": 12,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x25373baa80cc5833984402eb4dfa4ebbb7434444",
+      "symbol": "SAFU",
+      "platform": "fourmeme",
+      "firstBuyAt": "2026-10-31T02:17:52.036+00:00",
+      "anchorTickCount": 24,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 1.961067740299478,
+        "totalSellBnb": 0.018832332826743976,
+        "buyN": 23,
+        "sellN": 1,
+        "walletCount": 16,
+        "top1BuyPct": 14.994862232331032,
+        "top2BuyPct": 26.10216758961328,
+        "routerPct": 0,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 1,
+        "sameBlockClusterCount": 4,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 72.62377438874839,
+        "equalBandHoldPct": 22.56359991098282,
+        "ticksPerMin": 130.91,
+        "avgTradeBnb": 0.0825,
+        "maxGapSec": 3,
+        "activityLevel": "high",
+        "activityCv": null,
+        "activityUneven": null,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 4.546518061e-9,
+          "ath": 8.867258286e-9,
+          "athDt": 11,
+          "last": 8.867258286e-9
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "weak",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.56
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.98
+        },
+        "anchors": {
+          "sameBlockHoldPct": 72.62377438874839,
+          "equalBandHoldPct": 22.56359991098282
+        }
+      },
+      "promptChars": 3760,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.43,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.15,
+            "moderate": 0.57,
+            "strong": 0.24
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.93,
+          "probabilities": {
+            "none": 0.95,
+            "weak": 0.05,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.41,
+          "probabilities": {
+            "none": 0.19,
+            "weak": 0.56,
+            "moderate": 0.18,
+            "strong": 0.07
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.91,
+          "probabilities": {
+            "none": 0.93,
+            "weak": 0.07,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.96,
+          "probabilities": {
+            "none": 0.98,
+            "burst": 0.02
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.24,
+          "probabilities": {
+            "none": 0.12,
+            "weak": 0.27,
+            "moderate": 0.43,
+            "strong": 0.18
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.03,
+            "moderate": 0.3,
+            "strong": 0.65
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.41,
+          "probabilities": {
+            "low": 0.56,
+            "mid": 0.07,
+            "high": 0.31,
+            "ultra": 0.06
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.97,
+          "probabilities": {
+            "low": 0.01,
+            "mid": 0.01,
+            "high": 0.98
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.89,
+          "probabilities": {
+            "none": 0.92,
+            "weak": 0.06,
+            "moderate": 0.01,
+            "strong": 0.01
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.52,
+          "probabilities": {
+            "none": 0.64,
+            "weak": 0.15,
+            "moderate": 0.11,
+            "strong": 0.1
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 72.62377438874839,
+        "equalBandHoldPct": 22.56359991098282
+      },
+      "activity": {
+        "ticksPerMin": 130.91,
+        "avgTradeBnb": 0.0825,
+        "maxGapSec": 3,
+        "level": "high",
+        "cv": null,
+        "uneven": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "addr": "0x6d06f696f5cbca2bd970ca975bfb850ef5c77777",
+      "symbol": "币安社区",
+      "platform": "flap",
+      "firstBuyAt": "2026-10-31T03:22:27.126+00:00",
+      "anchorTickCount": 37,
+      "capped": false,
+      "digest": {
+        "totalBuyBnb": 2.241599172066088,
+        "totalSellBnb": 0,
+        "buyN": 37,
+        "sellN": 0,
+        "walletCount": 31,
+        "top1BuyPct": 9.937102171334706,
+        "top2BuyPct": 19.87420434266941,
+        "routerPct": 24.600952608834284,
+        "unresolvedSenderTickCount": 0,
+        "churn60sWalletCount": 0,
+        "sameBlockClusterCount": 2,
+        "equalClusterCount": 0,
+        "sameBlockHoldPct": 12.597691573008603,
+        "equalBandHoldPct": 29.225563970751047,
+        "ticksPerMin": 13.21,
+        "avgTradeBnb": 0.0606,
+        "maxGapSec": 109,
+        "activityLevel": "low",
+        "activityCv": 1.82,
+        "activityUneven": true,
+        "famousHoldPct": null,
+        "famousTop1Pct": null,
+        "famousFollowerPct": null,
+        "famousDominancePct": null,
+        "famousDominanceLevel": null,
+        "priceArc": {
+          "first": 5.580905447e-9,
+          "ath": 1.0115361063e-8,
+          "athDt": 174,
+          "last": 1.0115361063e-8
+        }
+      },
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "none",
+          "creator_front_run": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "burst",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.93
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.56
+        },
+        "anchors": {
+          "sameBlockHoldPct": 12.597691573008603,
+          "equalBandHoldPct": 29.225563970751047
+        }
+      },
+      "promptChars": 5548,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.48,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.11,
+            "moderate": 0.61,
+            "strong": 0.24
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "burst",
+          "confidence": 0.72,
+          "probabilities": {
+            "none": 0.14,
+            "burst": 0.86
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.12,
+            "weak": 0.18,
+            "moderate": 0.49,
+            "strong": 0.21
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.43,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.06,
+            "moderate": 0.34,
+            "strong": 0.57
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.91,
+          "probabilities": {
+            "low": 0.93,
+            "mid": 0.01,
+            "high": 0.04,
+            "ultra": 0.02
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.34,
+          "probabilities": {
+            "low": 0.13,
+            "mid": 0.31,
+            "high": 0.56
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.47,
+            "weak": 0.11,
+            "moderate": 0.16,
+            "strong": 0.26
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 12.597691573008603,
+        "equalBandHoldPct": 29.225563970751047
+      },
+      "activity": {
+        "ticksPerMin": 13.21,
+        "avgTradeBnb": 0.0606,
+        "maxGapSec": 109,
+        "level": "low",
+        "cv": 1.82,
+        "uneven": true
+      },
+      "model": "jev-1.14.0"
+    }
+  ]
+}

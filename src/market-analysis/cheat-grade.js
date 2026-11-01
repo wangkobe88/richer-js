@@ -8,7 +8,7 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G1，42 票 D3.26 存档对拍 88% 一致，healthy 侧 9/9 全对；残留五票定性
+ * 规则（G2，42 票 D3.26 存档对拍 88% 一致，healthy 侧 9/9 全对；残留五票定性
  * 见台账 G1 段——CD56 版本漂移/CD108↔CD99 人工漂移对称/CD110 t1 豁免副作用/
  * CD119 B 口径权衡/CD121 半坡机器盲区）：
  *
@@ -20,22 +20,26 @@
  *        EXT 含计会把 CD95/CD100 两票真 unhealthy 误判永久拉黑）
  *     C. sbHold≥85（极端同块集中）
  *   unhealthy:
- *     D. famous dom=high（bd 只有 low/mid/high 档，high 单独不定 cheat——
- *        CD98/CD116/CD127 反证）
- *     E. Jev activityLevel=low ∧ sbw≠burst ∧ t1流<40 ∧ 锚窗卖笔≤1
- *        （「停滞突发不算活跃度低」→ sbw=burst 豁免；t1流≥40=单钱包吃独食
- *        家族豁免（CD105/CD122）；卖笔≥2=有真实对手盘豁免（CD107）——三豁免
- *        各有一对真实票支撑，攒票观察）
+ *     D. famous dom=high（著名钱包掌控度高档——D 通道消费 famous 非bd）
+ *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定
+ *        「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要
+ *        判定为活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1
+ *        对手盘豁免（CD107）撤销，改由题面 D3.27 burst 反锚在档位源头修正；
+ *        sbw=burst 豁免保留为通道层双保险）
  *     F. sbHold≥50（中高同块集中）
+ *     G. bd（bundled_trade_dominance）=high（G2 新增，2026-11-01 用户裁定
+ *        「捆绑钱包主导 是重要的负面臂」——128 票影响面 65 票 bd=high：人工
+ *        cheat 39/unhealthy 17/healthy 7，直落 cheat 误伤 healthy 7 票+17 票
+ *        拉黑级偏重，用户选定 unhealthy 档=拒买可重判不清仓；G1 期「bd high
+ *        单独不定档（CD98/CD116/CD127 反证）」旧裁定同步废止）
  *   healthy: 其余
  *
  * cr（创建者抢跑）刻意不进主判=辅助判定（用户语义；CD75 cr strong 人工判
  * unhealthy 反证 cr strong 不足以定 cheat）。
  *
  * 容缺语义（fail-open 放行方向，与 GMGN 层「数据不可用不得拦买点」同向）：
- * 档位 null（旧档断代/容缺）不计 strong/moderate；数值锚 null 不触发比较门；
- * anchorSellCount 缺失（旧 digest 重放）E 不触发。已知例外：sbw null 按「非
- * burst」处理（burst 豁免需在场证据，无证据不豁免）。
+ * 档位 null（旧档断代/容缺）不计 strong/moderate；数值锚 null 不触发比较门。
+ * 已知例外：sbw null 按「非 burst」处理（burst 豁免需在场证据，无证据不豁免）。
  *
  * 改规则必须 bump CHEAT_GRADE_RULES_VERSION 并同步台账 G 段+跑 42 票黄金集
  * （scripts/cheat-detection/data/cheat-grade-golden-42.json，单测
@@ -44,7 +48,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G1';
+const CHEAT_GRADE_RULES_VERSION = 'G2';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -146,7 +150,8 @@ function _pct(v) {
  * @param {Object} [extras] - 分级附加原料
  *   {famousLevel: 'low'|'mid'|'high'|null, anchorSellCount: number|null}
  *   （famousLevel=snapshot.derived.famousDominanceLevel；anchorSellCount=锚窗
- *   卖笔数，service 从 pull.rows 现数——digest 重放旧档无此键=缺席 E 不触发）
+ *   卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再消费（历史 D3.x 豁免
+ *   原料），字段保留为 service/digest 兼容形状）
  * @returns {{grade:'cheat'|'unhealthy'|'healthy', reasons:Array<{level:string,code:string}>, version:string}}
  */
 function gradeObservation(observation, extras = {}) {
@@ -165,10 +170,10 @@ function gradeObservation(observation, extras = {}) {
   const dom = typeof ex.famousLevel === 'string' ? ex.famousLevel : null;
   const act = obs.activityLevel && typeof obs.activityLevel.bucket === 'string'
     ? obs.activityLevel.bucket : null;
+  const bd = obs.bundledDominance && typeof obs.bundledDominance.bucket === 'string'
+    ? obs.bundledDominance.bucket : null;
   const anchors = obs.anchors || {};
   const sbHold = _pct(anchors.sameBlockHoldPct);
-  const t1Circ = _pct(anchors.top1HoldCircPct);
-  const sells = Number.isFinite(ex.anchorSellCount) ? ex.anchorSellCount : null;
 
   const reasons = [];
 
@@ -201,15 +206,22 @@ function gradeObservation(observation, extras = {}) {
     reasons.push({ level: 'unhealthy', code: 'D_famous_dominance' });
   }
 
-  // E：活跃度低（三豁免：sbw=burst 突发涌入 / t1流≥40 单钱包吃独食 / 卖笔≥2 真实对手盘）
-  if (act === 'low' && sbw !== 'burst' && t1Circ !== null && t1Circ < 40
-    && sells !== null && sells <= 1) {
-    reasons.push({ level: 'unhealthy', code: `E_low_activity(sells=${sells})` });
+  // E：活跃度低（G2 简化，2026-11-01 用户裁定「活跃度这一臂为 low 的，也判为
+  // unhealthy，不过流量 burst 命中的不要判定为活跃度 low」——t1流<40 吃独食豁免
+  // 与卖笔≤1 对手盘豁免撤销；sbw=burst 豁免保留为通道层双保险，主修正前移到
+  // 题面 D3.27：burst 形状（长静默后集中涌入）Jev 不再产 low 档）
+  if (act === 'low' && sbw !== 'burst') {
+    reasons.push({ level: 'unhealthy', code: 'E_low_activity' });
   }
 
   // F：中高同块集中
   if (sbHold !== null && sbHold >= 50) {
     reasons.push({ level: 'unhealthy', code: `F_sbHold${sbHold.toFixed(0)}` });
+  }
+
+  // G：捆绑钱包主导高档（G2，重要负面臂——用户裁定 unhealthy 档）
+  if (bd === 'high') {
+    reasons.push({ level: 'unhealthy', code: 'G_bundled_dominance' });
   }
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'

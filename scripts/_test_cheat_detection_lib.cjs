@@ -607,7 +607,15 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.26', `版本常量 D3.26（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.27', `版本常量 D3.27（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
+  // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
+  {
+    const actQ = qm.buildCheatQuestions().activity_level;
+    ok(/停滞突发反锚（burst 不判低）/.test(actQ.instructions), 'D3.27 activity ⑥停滞突发反锚在场（burst 不判低）');
+    ok(/不判低/.test(actQ.instructions) && /中档起判/.test(actQ.instructions), 'burst 形状不判低+按中档起判（措辞锚）');
+    ok(/停滞突发形状.*不适用本档/.test(actQ.criteria.low), 'criteria.low 排除停滞突发形状');
+  }
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
