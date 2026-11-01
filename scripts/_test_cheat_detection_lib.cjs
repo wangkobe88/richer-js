@@ -607,7 +607,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.25', `版本常量 D3.25（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.26', `版本常量 D3.26（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -679,6 +679,16 @@ console.log('I. 著名钱包单极控盘锚');
     'D3.24 pump 正例二补 CD88 实数（大额窜升段+尘埃垫推段组合形状——t1 单笔 0.6 占买 46.1%、价 +14% 回撤 2.9%）');
   ok(pumpQ.includes('（**中位 0.05 量级=正常量级跟风，非尘埃垫推**）'),
     'D3.24 pump 反例 CD84 标注量级（中位 0.0493=正常量级真散户跟风，与尘埃垫推划界）');
+  // D3.26：pump ⑤前半句反锚给「活跃」补标准（CD88 pump 未翻 strong 第二轮——Jev 笔数口径判活跃致反锚误触发）
+  ok(pumpQ.includes('本反锚的「持续活跃」以金额吞吐为准（与「活跃度」题⑤同口径）')
+    && pumpQ.includes('窗口总交易额（买+卖）÷ 窗口分钟数达密集盘量级（参考 ≥10 BNB/分钟）才满足「持续活跃」前提'),
+    'D3.26 pump ⑤「持续活跃」标准=金额吞吐（≥10 BNB/分钟才满足前提——与 act 题⑤同口径，用户裁定「活跃的标准是什么，这个是不是要给清楚」）');
+  ok(pumpQ.includes('笔数密集、空窗短但金额吞吐尘埃级（参考 <1 BNB/分钟＝尘埃单堆笔数的假活跃）的盘不满足前提、不触发本反锚、不按市场合力豁免')
+    && pumpQ.includes('那恰是本题观察的垫量缓推形状，按本题口径给档'),
+    'D3.26 pump ⑤假活跃不触发反锚（CD88 吞吐 0.66 尘埃级=本题垫量缓推主体，反锚不豁免可 strong）');
+  ok(pumpQ.includes('「金额连续散布」「跨块连续」两腿同样以正常量级真金白银为证据（笔均/中位 ≥0.005 量级的真散户单）')
+    && pumpQ.includes('尘埃单的散布与跨块垫价不构成合力证据'),
+    'D3.26 pump ⑤散布/跨块两腿同加正常量级限定（57 笔尘埃跨 47 块不构成合力证据）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
