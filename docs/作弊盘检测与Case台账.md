@@ -27,6 +27,32 @@
 
 ## Case 倒序
 
+### 组 23（CD122-CD128）：CD122+CD124+CD125 healthy / CD123+CD126+CD128 cheat / CD127 unhealthy——回归集 128 票逐案 review 收官组（2026-11-01）
+
+**组 23 裁定**（2026-11-01，七票全 4012ce39 v66 live（0.003 仓位）；CD127 为本组唯一 four.meme 票，其余 flap，D3.26 真调，无质询立项）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.26 真调） |
+|---|---|---|---|---|
+| CD122 | SAFU狗 | `0xdaf3…7777` | **healthy** | top1 36.3% 大买+一笔 1.309 大卖+t1 供/流 25.6%/53.4% 本组最重——档位全 weak/none（pump=none）零 strong |
+| CD123 | SAFU基金 | `0x94ba…7777` | **cheat** | eq/tier/bw/pump **四 strong**+sbw=burst+sbHold 66.1%+eqHold 57.2%+rat/sb moderate 加层 |
+| CD124 | LUMI | `0xd3a5…7777` | **healthy** | 四现象全 moderate 但 sbHold 3.3% 本组最低+bd=mid+双向 39:21+churn 8 |
+| CD125 | 蹭饭蛙 | `0xe098…7777` | **healthy** | 档位最轻（sd/pump moderate+burst 零 strong）+17 钱包散买+3 小卖；-0.003 全损 |
+| CD126 | SAFU FLAP | `0x8aab…7777` | **cheat** | 全买零卖 19:0+pump **strong**+bd=high+eqHold 59.6%/sbHold 10.7% |
+| CD127 | SAFU | `0x2537…4444` | **unhealthy** | 准全买零卖 23:1+sbHold 72.6% 本组最高+bd=high+同块簇 4——现象四题全 weak/none 零 strong |
+| CD128 | 币安社区 | `0x6d06…7777` | **cheat** | 全买零卖 37:0+pump **strong**+sbw=burst+eq/tier/bw moderate 堆叠+bd=high |
+
+**裁定语义**：
+
+1. **CD122=单钱包重仓家族第三票（CD104/CD105 先例）**：top1 36.3% 大买+一笔 1.309 大卖+t1 供/流 25.6%/53.4%——单钱包集中+档位轻=healthy；近全买零卖 18:1 形状本身不拦（大买大卖同一钱包≠阵列）。全买零卖家族分档再细化：形状不必然拦截，看阵列/档位证据。
+2. **CD123=四 strong+burst 与 CD120 同款第二票**：回归集最强档位组合（eq/tier/bw/pump 四 strong+sbw=burst）连出两票+sbHold/eqHold 66.1%/57.2% 双高+rat/sb moderate 再加层——档位证据比 CD120 厚，无争议 cheat。
+3. **CD124=四现象全 moderate 但集中度最轻落 healthy**：与 CD116（四 moderate+集中度重 eqHold 58.8%+dom high→unhealthy）分界在集中度证据——本票 sbHold 3.3% 全场最低+bd=mid+双向 39:21 活跃+churn 8 换手；双向活跃 healthy 家族（CD80/CD92/CD98）第四票。
+4. **CD125=档位最轻+全损落 healthy**：sd/pump moderate+burst 零 strong+17 钱包散买——判定与盈亏独立（-0.003 全损不改 healthy，CD90 先例反向适用）。
+5. **CD126+CD128=全买零卖+单 pump strong 谱系（CD112 同款）再确认两票**：CD126 19:0/CD128 37:0+pump strong+bd=high；CD128 另带 burst+moderate 三档堆叠；CD126 eqHold 59.6%/sbHold 10.7% 等额带集中同块不集中（CD121 同款形状）——该谱系三票（CD112/CD126/CD128）分档稳定 cheat。
+6. **CD127=重集中度+现象题零档落 unhealthy**：sbHold 72.6% 本组最高+准全买零卖+bd=high+同块簇 4，但现象四题全 weak/none 零 strong、EXT 题（tier/bw/pump）moderate——与 CD119（sb/sd/rat **现象题** moderate 堆叠+sbHold 67.4%→cheat）分界攒票观察：**现象题档位在场与否**（现象题堆叠→cheat、纯 EXT moderate+集中→unhealthy）；+0.001951 本组最大盈（≈+65% 三笔分卖）盈利不改结构判定（CD90/CD93 先例）；act 双口径分歧最大一票（代码 high 130.91 笔/分 maxGap 3s 吞吐 ≈10.8 刚过线 vs Jev low）攒票观察。
+7. **盈亏**（全 4012ce39 0.003 仓位，全局 trades 口径）：CD127 67s **+0.001951 本组最大盈（≈+65%）**/CD126 14s +0.000556/CD123 91s +0.000159/CD124 两轮 -0.000167/CD122 两轮 -0.000439/CD128 46s -0.001308/CD125 102s **-0.003000 全损（本组最大亏）**；组内合计 -0.002248。
+
+**收官**：组 23 完=回归集 128 票逐案 review 收官——126 票已裁定（healthy/cheat/unhealthy 三档+expectBecause 全落）；CD72/CD73 两票 expect=unclear 系组 14 用户裁定搁置（形状先例已由组 15 CD76 落档），非遗漏。附注：本组 act 双口径分歧三票（CD122/CD126 代码 mid、CD127 代码 high vs Jev 全 low）攒票观察不立项；famous 七票全无命中。
+
 ### 组 22（CD116-CD121）：CD116 unhealthy / CD117-CD121 五连 cheat——CD120 四 strong 回归集最强档位票、CD121 持续推价质询（不立项留档）（2026-11-01）
 
 **组 22 裁定**（2026-11-01，六票全 4012ce39 v66 live（0.003 仓位·单卡减半），全 flap，D3.26 真调，一质询不立项）：
