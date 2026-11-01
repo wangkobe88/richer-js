@@ -2282,6 +2282,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             platform: token.platform || faState?.platform || null,
             createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
             creatorAddress: token.creatorAddress || null,
+            // D3.20 持仓集中双锚分母：FA state.totalSupply（TokenCreate 注入，
+            // flap/gang=collector 平台恒 1e9）；缺失 null fail-closed
+            totalSupply: faState?.totalSupply ?? null,
           }, { experimentId: this._experimentId });
         } catch (e) {
           // 兜底吞错（观察层纪律：绝不影响交易链）

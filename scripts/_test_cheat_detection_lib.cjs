@@ -95,6 +95,7 @@ function mkRow(sec, block, log, type, bnb, price, opts = {}) {
     bnb_amount: bnb, price_bnb: price, price_outlier: opts.outlier === true,
     trader_address: opts.trader || '0xaaaa000000000000000000000000000000000001',
     sender_address: opts.sender === undefined ? '0xaaaa000000000000000000000000000000000001' : opts.sender,
+    token_amount: opts.tok ?? null,
     quote_token: null,
   };
 }
@@ -598,7 +599,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.19', `版本常量 D3.19（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.20', `版本常量 D3.20（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -808,6 +809,61 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump D3.16 加活跃度反锚（高活跃盘=市场合力至多 moderate 不给 strong——CD56 裁定「附属条件是活跃度低，strong 就肯定不行了」）');
   ok(pump.includes('高活跃盘的价格抬升段') && pump.includes('市场合力形状'),
     'slow_grind_pump D3.16 反例补高活跃盘形状（CD56：约 50 笔/分高频盘推进段不给 strong）');
+
+  // ═══════════════ D3.20 单一钱包持仓集中双锚 ═══════════════
+  console.log('D3.20 单一钱包持仓集中双锚');
+  const wH1 = '0x1111000000000000000000000000000000000a01';
+  const wH2 = '0x2222000000000000000000000000000000000a02';
+  const wH3 = '0x3333000000000000000000000000000000000a03';
+  const holdMeta = { address: '0xhold', symbol: 'H', name: 'H', platform: 'flap', quoteToken: null, createdAt: at(0), creatorAddress: null, totalSupply: 1e9 };
+  // 控盘形状（CD69 同构）：w1 一笔吃 500M tok，w2/w3 各 100M → 在场 700M
+  const holdRows = [
+    mkRow(10, 300, 1, 'buy', 5.1653, 1e-9, { trader: wH1, sender: wH1, tok: 500e6 }),
+    mkRow(11, 300, 2, 'buy', 0.1, 1e-9, { trader: wH2, sender: wH2, tok: 100e6 }),
+    mkRow(12, 300, 3, 'buy', 0.1, 1e-9, { trader: wH3, sender: wH3, tok: 100e6 }),
+  ];
+  const hd = buildSnapshotFromRows(holdRows, holdMeta).derived;
+  ok(hd.top1HoldSupplyPct === 50, `supplyPct=500M/1e9=50 整（实际 ${hd.top1HoldSupplyPct}）`);
+  ok(Math.abs(hd.top1HoldCircPct - 500 / 700 * 100) < 1e-9, `circPct=500/700=71.4286（实际 ${hd.top1HoldCircPct}）`);
+  // 豁免形状：w1 仅 50M（supply 5% 低）但 w2 只 1M 在场（circ 98% 高）=前者低后者高可豁免
+  const exRows = [
+    mkRow(10, 300, 1, 'buy', 0.5, 1e-9, { trader: wH1, sender: wH1, tok: 50e6 }),
+    mkRow(11, 300, 2, 'buy', 0.01, 1e-9, { trader: wH2, sender: wH2, tok: 1e6 }),
+  ];
+  const exd = buildSnapshotFromRows(exRows, holdMeta).derived;
+  ok(exd.top1HoldSupplyPct === 5 && Math.abs(exd.top1HoldCircPct - 50 / 51 * 100) < 1e-9,
+    `豁免形状数值成立：supply=5% 低 circ=${exd.top1HoldCircPct.toFixed(2)}% 高（在场筹码少所致）`);
+  // 卖出减仓入净额：w1 买 500M 卖 300M → 净 200M=supply 20%
+  const partRows = holdRows.concat([mkRow(13, 300, 4, 'sell', 3.0, 1e-9, { trader: wH1, sender: wH1, tok: 300e6 })]);
+  const pd = buildSnapshotFromRows(partRows, holdMeta).derived;
+  ok(pd.top1HoldSupplyPct === 20, `卖出减仓后 supplyPct=200M/1e9=20（实际 ${pd.top1HoldSupplyPct}）`);
+  // fail-closed：totalSupply 缺失 → supplyPct null（circPct 照算，两口径分离）
+  const noSup = buildSnapshotFromRows(holdRows, { ...holdMeta, totalSupply: null }).derived;
+  ok(noSup.top1HoldSupplyPct === null && Math.abs(noSup.top1HoldCircPct - 500 / 700 * 100) < 1e-9,
+    'totalSupply 缺失 → supplyPct null fail-closed、circPct 照算（不以常数冒充）');
+  // 行缺 token_amount 列（存量调用方）→ 两键 null（posTokTotal=0 无可归因）
+  const noTok = buildSnapshotFromRows(microRows, { ...microMeta, totalSupply: 1e9 }).derived;
+  ok(noTok.top1HoldSupplyPct === null && noTok.top1HoldCircPct === null,
+    '行缺 token_amount 列 → 双锚 null（缺证据不冒充，防旧调用方静默失真）');
+  // router 伪钱包 tok 不入分子：router 行 900M tok（sender 未解析）+ w1 100M
+  const routerTokRows = [
+    mkRow(10, 300, 1, 'buy', 9.0, 1e-9, { trader: ROUTER, sender: null, tok: 900e6 }),
+    mkRow(11, 300, 2, 'buy', 0.1, 1e-9, { trader: wH1, sender: wH1, tok: 100e6 }),
+  ];
+  const rd2 = buildSnapshotFromRows(routerTokRows, holdMeta).derived;
+  ok(rd2.top1HoldSupplyPct === 10, `router 伪钱包 900M tok 不入分子（top1=w1 100M=10%，实际 ${rd2.top1HoldSupplyPct}）`);
+  // state 渲染三态
+  const stHold = buildCheatState(buildSnapshotFromRows(holdRows, holdMeta));
+  ok(stHold.state.includes('单一钱包持仓集中度: 占总供应量 50.0% / 占在场流通 71.4%'),
+    'state 渲染：两口径齐备行（占总供应量/占在场流通）');
+  ok(stHold.state.includes('占总供应量低但占在场流通高=在场筹码少所致，不算控盘（豁免）'),
+    'state 渲染：豁免判读句随锚行（用户裁定原话语义）');
+  const stNoSup = buildCheatState(buildSnapshotFromRows(holdRows, { ...holdMeta, totalSupply: null }));
+  ok(stNoSup.state.includes('单一钱包持仓集中度: 总供应量未知') && stNoSup.state.includes('仅流通口径不作控盘判据'),
+    'state 渲染：supply 缺失降级行（不作控盘判据 fail-closed）');
+  const stEmpty = buildCheatState(buildSnapshotFromRows([mkRow(10, 300, 1, 'sell', 0.1, 1e-9, { trader: wH1, sender: wH1, tok: 10e6 })], holdMeta));
+  ok(stEmpty.state.includes('单一钱包持仓集中度: 无正净持仓'),
+    'state 渲染：无正净持仓降级行');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });

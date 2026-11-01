@@ -46,7 +46,7 @@ const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snap
 const { buildCheatState } = require_('../../src/market-analysis/cheat-state-builder.js');
 const { buildObservation } = require_('../../src/market-analysis/cheat-result-mapper.js');
 
-const TICK_COLS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
+const TICK_COLS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
 function parseArgs(argv) {
   const args = { only: [], add: null, updateExpect: [], anchor: null, note: '', because: '', dry: false, observe: false, list: false };
@@ -126,6 +126,9 @@ async function loadTokenMeta(token) {
     creatorAddress: p.creator || null,
     // D3.9 老鼠仓题原料：创建交易哈希（[TOKEN] createTx=，与 [TICKS] tx= 同域）
     createTxHash: p.txHash || p.tx_hash || null,
+    // D3.20 持仓集中双锚分母：four.meme=payload 真值（TokenCreate 事件 d[5]）；
+    // flap/gang=平台恒 1e9（collector FLAP_TOTAL_SUPPLY 同款常量，payload 无此字段）
+    totalSupply: p.totalSupply ?? ((hit && (hit.platform === 'flap' || hit.platform === 'gang')) ? 1e9 : null),
   };
 }
 

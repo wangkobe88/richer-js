@@ -62,7 +62,7 @@ const DEFAULTS = {
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）
 };
 
-const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
+const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
 class CheatCheckService {
   /**
@@ -412,6 +412,9 @@ class CheatCheckService {
       platform: tokenMeta.platform || null,
       quoteToken: pull.quoteToken || null,
       createdAt: tokenMeta.createdAtMs ? new Date(tokenMeta.createdAtMs).toISOString() : (tokenMeta.createdAt || null),
+      // D3.20 持仓集中双锚分母：引擎 FA state.totalSupply（TokenCreate 注入；
+      // flap/gang=collector 平台恒 1e9）；缺失 null fail-closed
+      totalSupply: tokenMeta.totalSupply ?? null,
       // creator：引擎 meta 优先，token_create payload.creator 兜底（D3.9）
       creatorAddress: tokenMeta.creatorAddress || (createMeta && createMeta.creator) || null,
       // D3.9 老鼠仓题原料：创建交易哈希（与 [TICKS] tx= 同域——创建+首买同笔可判）

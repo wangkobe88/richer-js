@@ -94,10 +94,13 @@ function loadFamousRoster() {
  *
  * @param {Array<Object>} rows - wss_price_ticks 行（任意序；字段：trade_type/
  *   trader_address/sender_address/bnb_amount/price_bnb/price_outlier/
- *   block_number/log_index/block_time）
+ *   block_number/log_index/block_time/token_amount——token_amount 供 D3.20 持仓
+ *   集中双锚（缺列=锚 null fail-closed，不冒充）
  * @param {Object} tokenMeta - { address, symbol, name, platform, quoteToken,
- *   createdAt(iso), creatorAddress }（wss_events token_create payload；createdAt
- *   缺失时 dt 基准退化为首 tick 并在 snapshot 标注）
+ *   createdAt(iso), creatorAddress, totalSupply }（wss_events token_create payload；
+ *   createdAt 缺失时 dt 基准退化为首 tick 并在 snapshot 标注；totalSupply 由调用方
+ *   注入——four.meme=payload 真值、flap/gang=平台恒 1e9 常量（collector 同款），
+ *   D3.20 supply 锚分母）
  * @param {Object} [options] - { capped, anchorTickCount, famousRoster }——capped=
  *   拉数满帽标记（service pull.capped / 回归 runner 锚窗未截断=false）透传 state
  *   [ANCHOR] 截断声明；anchorTickCount=**权威锚（tail 单查询返回行数）**，满帽时
@@ -129,6 +132,8 @@ function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
       dt: Number.isFinite(ms) && baseMs !== null ? Math.round((ms - baseMs) / 1000) : null,
       side: r.trade_type === 'buy' ? 'BUY' : 'SELL',
       bnb: r.bnb_amount,
+      // D3.20 持仓集中双锚原料：token 数量（与 totalSupply 同域；行缺列=null 容缺）
+      tok: r.token_amount ?? null,
       priceBnb: r.price_bnb ?? null,
       wallet: walletOf(r),
       block: r.block_number ?? null,
@@ -165,11 +170,12 @@ function aggregateWallets(ticks, tokenMeta) {
     if (!t.wallet) continue;          // 无钱包行计量不计人
     if (isRouterWallet(t.wallet)) continue; // 伪钱包不进 wallets（见 walletOf 注）
     let e = byWallet.get(t.wallet);
-    if (!e) { e = { w: t.wallet, buyBnb: 0, buyN: 0, sellBnb: 0, sellN: 0, firstBuyDt: null, firstSellDt: null, lastActDt: null, isCreator: false }; byWallet.set(t.wallet, e); }
+    if (!e) { e = { w: t.wallet, buyBnb: 0, buyN: 0, sellBnb: 0, sellN: 0, buyTok: 0, sellTok: 0, firstBuyDt: null, firstSellDt: null, lastActDt: null, isCreator: false }; byWallet.set(t.wallet, e); }
     const isBuy = t.side === 'BUY';
     const bnb = t.bnb || 0;
-    if (isBuy) { e.buyBnb += bnb; e.buyN++; if (e.firstBuyDt === null) e.firstBuyDt = t.dt; }
-    else { e.sellBnb += bnb; e.sellN++; if (e.firstSellDt === null) e.firstSellDt = t.dt; }
+    const tok = t.tok || 0; // D3.20：token 数累计（行缺列按 0 容缺——锚在缺列数据上失真时 fail-closed 于键层）
+    if (isBuy) { e.buyBnb += bnb; e.buyN++; e.buyTok += tok; if (e.firstBuyDt === null) e.firstBuyDt = t.dt; }
+    else { e.sellBnb += bnb; e.sellN++; e.sellTok += tok; if (e.firstSellDt === null) e.firstSellDt = t.dt; }
     if (t.dt !== null && t.dt !== undefined && (e.lastActDt === null || t.dt > e.lastActDt)) e.lastActDt = t.dt;
   }
   const creator = tokenMeta && tokenMeta.creatorAddress
@@ -305,6 +311,31 @@ function computeDerived(snapshot, famousRoster) {
   }
   const equalBandHoldPct = holdPctOf(eqMembers);
 
+  // ── 单一钱包持仓集中双锚（D3.20，2026-11-01 用户裁定 CD69 语境：「持仓极不
+  // 均衡，一个钱包持有总额度占比过大肯定不行；合理评判=看占总供应量的大小、也看
+  // 占总流通量的大小，前者低后者高可以豁免」）──
+  // 口径（token 数域，与 totalSupply 同域——D3.1 簇占比锚是 BNB 域，两域并存勿混）：
+  //   分子 = top1 正净 token 持仓（buyTok−sellTok 取最大者；router 伪钱包已剔）
+  //   top1HoldSupplyPct = 分子 ÷ meta.totalSupply ×100（totalSupply 缺失/≤0 → null
+  //                       fail-closed 绝不以常数冒充——flap/gang 恒 1e9 由调用方注入）
+  //   top1HoldCircPct   = 分子 ÷ Σ正净 token 持仓 ×100（在场流通=T91a Σ正净同哲学；
+  //                       Σ=0 → null）
+  //   豁免判读（题面/锚行教 Jev）：supply 低 + circ 高 ⟺ 在场筹码少（Σ正净 <<
+  //   totalSupply）→ top1 占场内比例天然大，不算控盘；两键同分子异分母，差异
+  //   全部来自「多少筹码不在场」，比较严格成立。
+  const posNetTok = new Map();
+  for (const e of wallets) {
+    const netTok = (e.buyTok || 0) - (e.sellTok || 0);
+    if (netTok > 0) posNetTok.set(e.w, netTok);
+  }
+  const posTokTotal = [...posNetTok.values()].reduce((s, v) => s + v, 0);
+  let top1NetTok = 0;
+  for (const v of posNetTok.values()) if (v > top1NetTok) top1NetTok = v;
+  const metaForSupply = snapshot.tokenMeta || {};
+  const totalSupply = Number(metaForSupply.totalSupply) > 0 ? Number(metaForSupply.totalSupply) : null;
+  const top1HoldSupplyPct = totalSupply !== null && top1NetTok > 0 ? (top1NetTok / totalSupply) * 100 : null;
+  const top1HoldCircPct = posTokTotal > 0 && top1NetTok > 0 ? (top1NetTok / posTokTotal) * 100 : null;
+
   // ── 著名钱包单极控盘锚（D3.2b 用户裁定 2026-10-31 CD5 语境：「描述盘面上单一
   // 著名钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档；mapper 消费方式
   // 待裁定同 D3.2）──
@@ -417,6 +448,7 @@ function computeDerived(snapshot, famousRoster) {
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
     sameBlockHoldPct, equalBandHoldPct,
+    top1HoldSupplyPct, top1HoldCircPct,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel,
     ticksPerMin, avgTradeBnb, maxGapSec,
     activityLevel, activityCv, activityUneven,

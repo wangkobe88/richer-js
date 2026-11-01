@@ -90,6 +90,15 @@ function buildCheatState(snapshot) {
     // routerPct 行已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
     lines.push(`同块簇持仓占比: ${d.sameBlockHoldPct === null ? '无合格簇' : d.sameBlockHoldPct.toFixed(1) + '%'}（「≥3 笔买同块」全部簇的成员钱包去重并集；分子=成员正净持仓合计，分母=全场正净持仓合计）`);
     lines.push(`近等额簇持仓占比: ${d.equalBandHoldPct === null ? '无合格簇' : d.equalBandHoldPct.toFixed(1) + '%'}（±2% 金额带、带内 ≥3 个不同钱包；精确等额自然落入同带；同口径占比）`);
+    // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
+    // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
+    if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {
+      lines.push(`单一钱包持仓集中度: 占总供应量 ${d.top1HoldSupplyPct.toFixed(1)}% / 占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（分子同=最大单一正净持仓钱包；占总供应量过大=单一钱包控盘的事实证据；占总供应量低但占在场流通高=在场筹码少所致，不算控盘（豁免））`);
+    } else if (d.top1HoldCircPct !== null) {
+      lines.push(`单一钱包持仓集中度: 总供应量未知（占供应量口径缺失）；占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（判控盘须两口径齐备，仅流通口径不作控盘判据）`);
+    } else {
+      lines.push('单一钱包持仓集中度: 无正净持仓（无可主导筹码）');
+    }
     // D3.2 代码活跃度档位行已撤（D3.5 用户裁定「我的意思也是用Jev判断活跃度」「使用
     // Jev 进行判断」）：档位判定交题面 activity_level（Jev 从 [TICKS] 直读自判，教学
     // 单一载体=题面，sbw 第四轮同款）；snapshot.derived 活跃度字段仍计算，供存档/回归对照

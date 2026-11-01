@@ -16,6 +16,20 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D3.20（2026-11-01 组 14 CD69 用户裁定「增加一个锚点」——题面/锚行-only 不加题，11 题不变）：
+ *   新增单一钱包持仓集中双锚 top1HoldSupplyPct/top1HoldCircPct（snapshot 计算进
+ *   [PRECOMPUTED]，token 数域）。用户裁定原话：「持仓极不均衡，这种一个钱包持有
+ *   总额度占比过大肯定不行（我认为合理的评判方式是看占据总供应量的大小，也看
+ *   占总流通量的大小，但是如果前者低后者高可以豁免）」。立项案=CD69 TROLLON
+ *   0x2805…7777：锚窗 19 笔单钱包 0x208bca77 一笔 5.1653 BNB 吃 465.13M tok（占
+ *   totalSupply 46.5% / 占在场正净 91.3%）——各现象题（eq=weak/bw=weak/act=low）
+ *   全无档位可表达「单钱包持仓独大」形状，判定层无锚可依。口径：分子=top1 正净
+ *   token 持仓（router 伪钱包已剔）；supplyPct 分母=totalSupply（four.meme=
+ *   TokenCreate payload 真值、flap/gang=平台恒 1e9 由调用方注入，缺失 null
+ *   fail-closed）；circPct 分母=Σ正净 token 持仓（在场流通，T91a 同哲学）。
+ *   两键同分子异分母：supply 低+circ 高 ⟺ 在场筹码少 → top1 占场内比例天然大，
+ *   不算控盘（豁免，锚行内写明判读）；supply 本身高=控盘事实证据。判读载体=
+ *   [PRECOMPUTED] 锚行（D3.2b famous 锚同款落法，各题全局可见）。
  * D3.19（2026-11-01 组 13 双质询，用户裁定「好，方案A」——题面-only 不加题，11 题不变）：
  *   eq/tier/bw 三题加「开盘打新段」共享反锚。归因（tmp-g13/g13b 探针 182 实证）：
  *   扩集 anchor 口径（首笔成功买+settle）决定锚窗天然全部落在开盘段（组 13 四票
@@ -256,7 +270,7 @@
  * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.19';
+export const CHEAT_QUESTIONS_VERSION = 'D3.20';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];

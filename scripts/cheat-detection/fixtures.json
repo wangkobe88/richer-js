@@ -1083,12 +1083,12 @@
         "tickCount": 80
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买45/卖35 Σ买6.43BNB 钱包46 top1=7.4% churn32 同块簇3 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买45/卖35 Σ买6.43BNB 钱包46 top1=7.4% churn32 同块簇3 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "组14裁定=unhealthy；46 钱包有来有回（45买/35卖/churn32）、top1 仅 7.4% 分散，四现象全 moderate 无一 strong——活跃但协同迹象不轻，非坐实作弊"
     },
     {
       "caseId": "CD69",
@@ -1099,12 +1099,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买6.31BNB 钱包18 top1=81.9% churn1 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买6.31BNB 钱包18 top1=81.9% churn1 同块簇2 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "组14裁定=cheat；持仓极不均衡：单钱包 0x208bca77 一笔 5.1653 BNB 吃 465.13M tok（占总供应量 46.5%/占在场流通 91.3%）——「一个钱包持有总额度占比过大肯定不行」；用户裁定新增持仓集中双锚（D3.20 top1HoldSupplyPct/top1HoldCircPct：占供应+占流通两口径、前者低后者高可豁免）"
     },
     {
       "caseId": "CD70",
@@ -1131,12 +1131,12 @@
         "tickCount": 86
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=86=首笔成功买+settle4000ms；买62/卖24 Σ买3.53BNB 钱包35 top1=54.5% churn2 同块簇7 等额簇5）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=86=首笔成功买+settle4000ms；买62/卖24 Σ买3.53BNB 钱包35 top1=54.5% churn2 同块簇7 等额簇5）；expect=判读现状待 review）"
+      "expectBecause": "组14裁定=cheat；创建者抢跑 strong+同块买入波 strong+缺少买入的卖出 strong 三 strong、top1 54.5%、churn 仅 2（35 钱包锁仓）——dev/关联钱包主导"
     },
     {
       "caseId": "CD72",
