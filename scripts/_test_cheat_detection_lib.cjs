@@ -598,7 +598,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.17', `版本常量 D3.17（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.18', `版本常量 D3.18（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -726,10 +726,12 @@ console.log('I. 著名钱包单极控盘锚');
   const rat = qs.insider_supply_sell.instructions;
   ok(rat.includes('买入额不足其卖出额 10%') && rat.includes('沉在末尾也要扫到'),
     'insider_supply_sell 判据核心=零买入/低买入卖出钱包（10% 判据）+ [WALLETS] 降序末尾扫到（纯卖出钱包沉底反证）');
+  ok(rat.includes('缺少买入的卖出') && rat.includes('压根没有买入') && rat.includes('全部来自被转入') && !rat.includes('几乎没有任何买入'),
+    'insider_supply_sell D3.18 题名改「缺少买入的卖出」+定义句两类形状（用户修正「有一些有卖出的钱包是压根没有买入的，代币全部来自被转入」——①零买入=代币全部来自被转入 ②买入额远小于卖出额；旧「几乎没有任何买入」含糊措辞退役反证）');
   ok(rat.includes('÷ 窗口全部卖出额合计') && rat.includes('≥25%') && rat.includes('10~25%') && !rat.includes('≥30%') && !rat.includes('10~30%'),
     'insider_supply_sell 显式算式=无买入卖出占比分式（卖出域——与买入域题分式区分）；D3.17 定档参考线 30%→25%（用户裁定「25% 已经非常非常多了」——CD13 35.9% 贴 30% 旧线判 moderate；旧 ≥30%/10~30% 措辞退役反证）');
-  ok(rat.includes('来源不限于创建分配') && rat.includes('场外/链下获得'),
-    'insider_supply_sell D3.16 证据本体=无买入的卖出，来源不限（创建内部分配/场外链下获得皆算——用户裁定「也不局限于创建」）');
+  ok(rat.includes('来源不限于创建分配') && rat.includes('场外/链下划转'),
+    'insider_supply_sell D3.16 证据本体=缺少买入的卖出，来源不限（创建内部分配/场外链下划转皆算——用户裁定「也不局限于创建」）；D3.18 措辞随「被转入」语义改划转');
   ok(rat.includes('筹码是从别的地方划转而来') && rat.includes('隐秘地卖出') && rat.includes('规避对筹码来源的监控') && rat.includes('往往是作弊的特征'),
     'insider_supply_sell D3.16 现象机理句（用户补裁定原话「无买入的卖出钱包，意味着筹码从别的地方划转而来，需要隐秘卖出规避监控，往往是作弊的特征」）');
   ok(rat.includes('筹码并非无成本') && !rat.includes('零成本'),
