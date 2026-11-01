@@ -607,7 +607,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.22', `版本常量 D3.22（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.23', `版本常量 D3.23（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -654,6 +654,17 @@ console.log('I. 著名钱包单极控盘锚');
     'D3.22 insider 双高才 strong（占比高冲击低→至多 moderate——CD73 归因：占卖压 77% 但对买盘仅 16.6% 价格未受压）');
   ok(ratQ.includes('反·高占比低冲击') && ratQ.includes('占窗口总卖压四分之三以上') && ratQ.includes('不足两成'),
     'D3.22 insider 反例补 CD73 形状（单钱包零买卖占卖压 3/4+、对买盘不足两成）');
+  // D3.23：pump ⑤「合力与推手反锚」强化——「单钱包连推」定义收紧+大户单笔进场豁免+高活跃散布反锚（组 16 CD84 质询）
+  const pumpQ = qs.slow_grind_pump.instructions;
+  ok(pumpQ.includes('「单钱包连推」须同一钱包多笔连续主动买入逐笔推价')
+    && pumpQ.includes('大户单笔/极少笔大额进场') && pumpQ.includes('「大户进场+市场合力」不是连推'),
+    'D3.23 pump ⑤连推定义收紧=同一钱包多笔连续主动买入（大户单笔进场不论占比=市场合力不是连推——CD84 归因：t1 单笔 1.7189 占买 37.4%）');
+  ok(pumpQ.includes('开盘早期获利卖少致买卖失衡是自然的，不必「买卖两旺」才触发本反锚')
+    && pumpQ.includes('买盘跨多数区块连续出现（几乎每块都有成交）'),
+    'D3.23 pump ⑤反锚触发条件放宽：买卖两旺→持续活跃+跨块连续+金额散布（开盘早期失衡自然——CD84 卖仅 2 笔反锚原不触发）');
+  ok(pumpQ.includes('大户进场的高热盘') && pumpQ.includes('36 笔买分布在 15 个区块几乎每块都有成交')
+    && pumpQ.includes('不是「单钱包连推」，不给 strong'),
+    'D3.23 pump 反例补 CD84 形状（单笔 1.7 大额+12 秒 15 块连续散买=大户进场市场合力）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
