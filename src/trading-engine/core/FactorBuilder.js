@@ -222,12 +222,25 @@ function buildFactorValuesForTimeSeries(factorResults) {
     //（_accountHealthOverrides 投影，卖腿与买腿同 FA 因子表）；未检测/unknown/回测
     // → null 不掩盖（unknown 投影 null 是刻意语义，见 FA 注入段）
     issuerAccountState: factorResults.issuerAccountState ?? null,
-    // G1 作弊盘门观测三键（2026-11-01，_cheatFactorOverrides 投影；纯观测不进条件串
-    // ——分级行为走引擎硬门）：判定时刻分级/unhealthy 累计/拉黑快照；gate 未开/
-    // 首判未完成/回测 → null/0 不掩盖
+    // G1 作弊盘因子 14 键（2026-11-01 因子化，_cheatFactorOverrides 投影；**可进
+    // 条件串**——值=最近一次判定，首判未完成/预触发未跑/回测 → null/0 不掩盖。
+    // 数值序：grade healthy=0/unhealthy=1/cheat=2；题档 none=0/weak=1/moderate=2/
+    // strong=3（sbw 二桶 0/1、act 0-3、dom 0-2；映射表=cheat-grade.js）。
+    // 快照透传=signal 行研究主数据源（效果改进研究）
     cheatGrade: factorResults.cheatGrade ?? null,
     cheatUnhealthyGrades: factorResults.cheatUnhealthyGrades ?? 0,
     cheatBlocked: factorResults.cheatBlocked ?? 0,
+    cheatEqualAmountSplit: factorResults.cheatEqualAmountSplit ?? null,
+    cheatCoordinatedSellBack: factorResults.cheatCoordinatedSellBack ?? null,
+    cheatCreatorFrontRun: factorResults.cheatCreatorFrontRun ?? null,
+    cheatSellDispersion: factorResults.cheatSellDispersion ?? null,
+    cheatStallBurstWave: factorResults.cheatStallBurstWave ?? null,
+    cheatAmountTiering: factorResults.cheatAmountTiering ?? null,
+    cheatSameBlockBuyWave: factorResults.cheatSameBlockBuyWave ?? null,
+    cheatInsiderSupplySell: factorResults.cheatInsiderSupplySell ?? null,
+    cheatSlowGrindPump: factorResults.cheatSlowGrindPump ?? null,
+    cheatActivityLevel: factorResults.cheatActivityLevel ?? null,
+    cheatBundledDominance: factorResults.cheatBundledDominance ?? null,
   };
 }
 

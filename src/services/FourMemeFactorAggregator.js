@@ -80,6 +80,8 @@ const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 // 公共聚合路由地址集（GMGN 等）——_walletRoutedBuyBnb（GMGN 用户判定）的写入判据，
 // 与 EarlyParticipantCheckService routerPct 因子同层同源（trader=msg.sender 层）
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
+// G1 作弊盘因子化：grade 档位→数值出口映射（levelsFromObservation 同源表；无环——market-analysis 不反向 require FA）
+const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
 // PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
 // 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
@@ -3602,20 +3604,39 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.issuerAccountState = _ah && _ah.state !== 'unknown' ? _ah.state : null;
         }
 
-        // ── 作弊盘检测分级注入（G1，2026-11-01 用户裁定升级为买门）：cheatGrade
-        //    （'cheat'|'unhealthy'|'healthy'|null）+ cheatUnhealthyGrades（unhealthy
-        //    真分析判定次数）+ cheatBlocked（拉黑 1/0）。引擎 _cheatGateEvaluate
-        //    单写者（判定/迟到补投影），本投影纯观测——**不进条件串**（分级行为
-        //    走引擎硬门，防存量腿裸引用 fail-closed 拦死）；未判定（gate 未开/
-        //    回测零接线/首判未完成）→ null/0 → 观测键恒缺席。回测不投影=键恒
-        //    null（getFactorKeys 探针照收键，三防线认得但不消费）──
+        // ── 作弊盘检测因子注入（G1 因子化，2026-11-01 用户指令「以因子的形式放到
+        //    表达式中」）：14 键全数值序（narrativeRating 先例同构）——cheatGrade
+        //    （healthy=0/unhealthy=1/cheat=2）+ cheatUnhealthyGrades（unhealthy 真分析
+        //    判定次数）+ cheatBlocked（拉黑 1/0）+ 11 题档位键 cheatEqualAmountSplit/
+        //    CoordinatedSellBack/CreatorFrontRun/SellDispersion/StallBurstWave/
+        //    AmountTiering/SameBlockBuyWave/InsiderSupplySell/SlowGrindPump/
+        //    ActivityLevel/BundledDominance（四档 none=0/weak=1/moderate=2/strong=3、
+        //    sbw 二桶 0/1、act 0-3、dom 0-2；映射表=market-analysis/cheat-grade.js
+        //    CHEAT_LEVEL_SCORES，未知档位→null 不冒充）。
+        //    写者=引擎（gate 判定/迟到补投影/预触发 onResult）；**值=最近一次判定
+        //    投影**（叙事 C84 同构：后台分析完成投影，下一 tick 条件可消费）——
+        //    首判未完成/预触发未跑 → 全 null（条件裸比较恒 false fail-closed，未判定
+        //    放行须显式 `cheatGrade IS NULL OR` 臂）。回测零接线=键恒 null
+        //    （**带 cheat 因子条件的腿回测天然不触发**，validateLegs 不拦=合法键）──
         {
             const _cg = state.tokenAddress && _cheatFactorOverrides
                 ? _cheatFactorOverrides.get(state.tokenAddress) || null
                 : null;
-            factors.cheatGrade = _cg ? (_cg.grade ?? null) : null;
+            const _lv = _cg && _cg.levels ? _cg.levels : null;
+            factors.cheatGrade = _cg ? _CHEAT_LEVEL_SCORES.grade[_cg.grade] ?? null : null;
             factors.cheatUnhealthyGrades = _cg ? (_cg.unhealthyGrades ?? 0) : 0;
             factors.cheatBlocked = _cg && _cg.blocked === true ? 1 : 0;
+            factors.cheatEqualAmountSplit = _lv ? _lv.equalAmountSplit ?? null : null;
+            factors.cheatCoordinatedSellBack = _lv ? _lv.coordinatedSellBack ?? null : null;
+            factors.cheatCreatorFrontRun = _lv ? _lv.creatorFrontRun ?? null : null;
+            factors.cheatSellDispersion = _lv ? _lv.sellDispersion ?? null : null;
+            factors.cheatStallBurstWave = _lv ? _lv.stallBurstWave ?? null : null;
+            factors.cheatAmountTiering = _lv ? _lv.amountTiering ?? null : null;
+            factors.cheatSameBlockBuyWave = _lv ? _lv.sameBlockBuyWave ?? null : null;
+            factors.cheatInsiderSupplySell = _lv ? _lv.insiderSupplySell ?? null : null;
+            factors.cheatSlowGrindPump = _lv ? _lv.slowGrindPump ?? null : null;
+            factors.cheatActivityLevel = _lv ? _lv.activityLevel ?? null : null;
+            factors.cheatBundledDominance = _lv ? _lv.bundledDominance ?? null : null;
         }
 
         return factors;
@@ -3723,17 +3744,19 @@ class FourMemeFactorAggregator extends EventEmitter {
         return _accountHealthOverrides.delete(tokenAddress);
     }
 
-    // ═══════════════ 作弊盘检测分级回填接口（static，G1；母版=setNarrativeFactors）═══════════════
+    // ═══════════════ 作弊盘检测因子回填接口（static，G1 因子化；母版=setNarrativeFactors）═══════════════
 
     /**
-     * 回填某 token 的作弊盘检测分级（引擎 _cheatGateEvaluate 单写者：判定完成/
-     * 竞速超时迟到补投影；stop 逐 token 清）。整包替换。
+     * 回填某 token 的作弊盘检测分级+题档（引擎写者：_cheatGateEvaluate 判定/
+     * 迟到补投影/_cheatPrefetchCheck 预触发 onResult；stop 逐 token 清）。整包替换。
      * @param {string} tokenAddress
      * @param {{grade: 'cheat'|'unhealthy'|'healthy'|null, unhealthyGrades?: number,
-     *   blocked?: boolean}} snapshot
-     *   grade=cheat-grade.js G1 分级；unhealthyGrades=unhealthy 真分析累计次数；
-     *   blocked=拉黑（cheat / unhealthy 用尽）。投影键 cheatGrade/cheatUnhealthyGrades/
-     *   cheatBlocked 纯观测不进条件串（分级行为走引擎硬门）
+     *   blocked?: boolean, levels?: Object|null}} snapshot
+     *   grade=G1 分级（出口数值化 healthy=0/unhealthy=1/cheat=2）；unhealthyGrades=
+     *   unhealthy 真分析累计次数；blocked=拉黑；levels=11 题数值档
+     *   （levelsFromObservation 产物，出口键 cheatEqualAmountSplit 等 11 键）。
+     *   投影 14 键**可进条件串**（2026-11-01 用户指令因子化——值=最近一次判定，
+     *   首判未完成 null fail-closed，放行须显式 IS NULL 臂；回测恒 null）
      */
     static setCheatFactors(tokenAddress, snapshot) {
         if (!tokenAddress) return false;

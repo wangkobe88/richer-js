@@ -11,7 +11,8 @@
  * 一起重裁定**）。失败 exit 非零。
  */
 
-const { gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS } = require('../src/market-analysis/cheat-grade');
+const { gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
+  CHEAT_LEVEL_SCORES, scoreLevel, levelsFromObservation } = require('../src/market-analysis/cheat-grade');
 
 let passed = 0;
 function ok(cond, label) {
@@ -267,6 +268,39 @@ function main() {
     ok(diffs.join(',') === 'CD56:cheat>healthy,CD108:cheat>unhealthy,CD110:unhealthy>healthy,CD119:cheat>unhealthy,CD121:cheat>healthy',
       `五票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
 CD110 t1 豁免副作用（保护 CD105/CD122 代价）/CD119 B 口径权衡（放宽误伤 CD95/CD100）/CD121 半坡盲区（已质询不立项）`);
+  }
+
+  // ── G1 因子化（2026-11-01 用户指令）：档位→数值映射表 + levelsFromObservation ──
+  console.log('\nH. 因子化数值映射（CHEAT_LEVEL_SCORES / levelsFromObservation）');
+  {
+    ok(CHEAT_LEVEL_SCORES.grade.healthy === 0 && CHEAT_LEVEL_SCORES.grade.unhealthy === 1
+      && CHEAT_LEVEL_SCORES.grade.cheat === 2, 'grade 数值序 healthy=0/unhealthy=1/cheat=2（严格递增=严重度）');
+    ok(CHEAT_LEVEL_SCORES.level.none === 0 && CHEAT_LEVEL_SCORES.level.weak === 1
+      && CHEAT_LEVEL_SCORES.level.moderate === 2 && CHEAT_LEVEL_SCORES.level.strong === 3,
+      '四档题数值序 none=0/weak=1/moderate=2/strong=3');
+    ok(CHEAT_LEVEL_SCORES.sbw.burst === 1 && CHEAT_LEVEL_SCORES.activity.ultra === 3
+      && CHEAT_LEVEL_SCORES.dominance.high === 2, '二桶/活跃度/主导度档各自数值序');
+    ok(scoreLevel(CHEAT_LEVEL_SCORES.level, 'extreme') === null
+      && scoreLevel(CHEAT_LEVEL_SCORES.level, null) === null
+      && scoreLevel(CHEAT_LEVEL_SCORES.sbw, 'strong') === null,
+      '未知档位/null → null 不冒充（题集演进新桶不误映射）');
+    const r = levelsFromObservation({
+      phenomena: { equal_amount_split: 'moderate', coordinated_sell_back: null,
+        creator_front_run: 'weak', sell_dispersion: 'none' },
+      extLevels: { stall_burst_wave: 'burst', amount_tiering: null,
+        same_block_buy_wave: 'strong', insider_supply_sell: 'weak', slow_grind_pump: 'none' },
+      activityLevel: { bucket: 'low' }, bundledDominance: { bucket: 'mid' },
+    });
+    ok(r.levels.equalAmountSplit === 2 && r.levels.coordinatedSellBack === null
+      && r.levels.creatorFrontRun === 1 && r.levels.stallBurstWave === 1
+      && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
+      && r.levels.activityLevel === 0 && r.levels.bundledDominance === 1,
+      `levelsFromObservation 11 题映射（实际 ${JSON.stringify(r.levels)}）`);
+    ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
+      && r.buckets.activityLevel === 'low', 'buckets 字符串原值（metadata 研究留档）');
+    const r2 = levelsFromObservation(null);
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 11,
+      '空观测 → 11 键全 null（容缺不冒充）');
   }
 
   console.log(`\n✅ _test_cheat_grade 全过（${passed} 断言）`);

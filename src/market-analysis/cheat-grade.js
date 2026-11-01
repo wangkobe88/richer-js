@@ -46,6 +46,68 @@ const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
 const CHEAT_GRADE_RULES_VERSION = 'G1';
 
+/**
+ * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
+ * 全族数值序（narrativeRating 1/2/3/9 先例同构）——条件串可直接 >=/</== 比较，
+ * 调阈值免改枚举；null=未判定/档位断代/容缺（条件比较恒 false，fail-closed 方向
+ * 由条件串作者自定：未判定放行须显式 `cheatGrade IS NULL OR` 臂）。
+ * 未知档位值（题集演进新增桶）→ null 不冒充（fail-loud 单测锁）。
+ */
+const CHEAT_LEVEL_SCORES = {
+  grade: { healthy: 0, unhealthy: 1, cheat: 2 },
+  level: { none: 0, weak: 1, moderate: 2, strong: 3 }, // 四档现象/EXT 题
+  sbw: { none: 0, burst: 1 },                          // 停滞突发二桶
+  activity: { low: 0, mid: 1, high: 2, ultra: 3 },     // 活跃度档
+  dominance: { low: 0, mid: 1, high: 2 },              // 捆绑主导度档
+};
+
+/** 档位→数值（未知值/null → null 不冒充） */
+function scoreLevel(map, value) {
+  if (value == null) return null;
+  return Object.prototype.hasOwnProperty.call(map, value) ? map[value] : null;
+}
+
+/**
+ * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
+ * levels=11 题数值档（FA 出口键）、buckets=字符串原值（metadata/日志研究友好）。
+ * activityLevel/bundledDominance 缺席（<D3.5/<D3.8 旧档）→ null。
+ */
+function levelsFromObservation(observation) {
+  const obs = observation || {};
+  const ph = obs.phenomena || {};
+  const ex = obs.extLevels || {};
+  const act = obs.activityLevel && obs.activityLevel.bucket ? obs.activityLevel.bucket : null;
+  const dom = obs.bundledDominance && obs.bundledDominance.bucket ? obs.bundledDominance.bucket : null;
+  const levels = {
+    equalAmountSplit: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.equal_amount_split),
+    coordinatedSellBack: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.coordinated_sell_back),
+    creatorFrontRun: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.creator_front_run),
+    sellDispersion: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.sell_dispersion),
+    stallBurstWave: scoreLevel(CHEAT_LEVEL_SCORES.sbw, ex.stall_burst_wave),
+    amountTiering: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.amount_tiering),
+    sameBlockBuyWave: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.same_block_buy_wave),
+    insiderSupplySell: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.insider_supply_sell),
+    slowGrindPump: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.slow_grind_pump),
+    activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
+    bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
+  };
+  const buckets = {
+    equalAmountSplit: ph.equal_amount_split ?? null,
+    coordinatedSellBack: ph.coordinated_sell_back ?? null,
+    creatorFrontRun: ph.creator_front_run ?? null,
+    sellDispersion: ph.sell_dispersion ?? null,
+    stallBurstWave: ex.stall_burst_wave ?? null,
+    amountTiering: ex.amount_tiering ?? null,
+    sameBlockBuyWave: ex.same_block_buy_wave ?? null,
+    insiderSupplySell: ex.insider_supply_sell ?? null,
+    slowGrindPump: ex.slow_grind_pump ?? null,
+    activityLevel: act,
+    bundledDominance: dom,
+  };
+  return { levels, buckets };
+}
+
+
 /** 四现象题（B 通道现象门原料） */
 const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, creator_front_run, sell_dispersion]
 
@@ -140,4 +202,7 @@ function gradeObservation(observation, extras = {}) {
   return { grade, reasons, version: CHEAT_GRADE_RULES_VERSION };
 }
 
-module.exports = { gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS };
+module.exports = {
+  gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
+  CHEAT_LEVEL_SCORES, scoreLevel, levelsFromObservation,
+};

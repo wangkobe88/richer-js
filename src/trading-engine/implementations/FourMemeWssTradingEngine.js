@@ -363,6 +363,23 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._cheatBlockedTokens = new Set();   // 拉黑（cheat / unhealthy 用尽；与 service._gateBlocked 双保险，引擎短路更早省整条链）
     this._cheatProjectedTokens = new Set(); // FA cheat 投影过的 token（stop 逐 token 清）
 
+    // G1 因子化预触发（2026-11-01 用户指令「以因子的形式放到表达式中」，叙事 N3/
+    // C84 触发模型同构）：condition 在 tick 管线同步评估（gate/note 挂点在其后的
+    // _runBuyEvaluation 内）——若只在买评估时才分析投影，条件串引用 cheat 因子会
+    // 自锁死（条件不过→gate 永不跑→投影永不更新）。预触发在 tick 管线量门（缺省
+    // buyVolumeBnb >= 0.1 同叙事发起条件）满足时 fire-and-forget 发起分析，完成即
+    // 投影 FA → 下一 tick 条件可消费。激活=enabled ∧（gate 开 ∨ 任一买腿条件串
+    // 引用 cheat 因子）——无消费端不烧配额；per-token 节流 prefetchIntervalMs
+    //（缺省 60s 对齐 service 增量门；引擎侧节流防每 tick 一次 DB tail 查询——
+    // service 的 reused 判定在 pull 之后）。config：cheatCheck.prefetchCondition
+    //（FA 因子表达式，空串 ''=禁用）/ cheatCheck.prefetchIntervalMs
+    this._cheatPrefetchCondition = typeof _cheatCfg.prefetchCondition === 'string'
+      ? _cheatCfg.prefetchCondition.trim() : 'buyVolumeBnb >= 0.1';
+    this._cheatPrefetchIntervalMs = Number.isFinite(_cheatCfg.prefetchIntervalMs)
+      && _cheatCfg.prefetchIntervalMs > 0 ? _cheatCfg.prefetchIntervalMs : 60000;
+    this._cheatPrefetchAt = new Map();      // token → 上次预触发发起时刻（引擎侧节流）
+    this._cheatFactorsConsumed = undefined; // 惰性：首 tick 扫买腿条件串 /cheat[A-Z]/
+
     // （1.5.2b GMGN 钱包画像层 gwp 引擎接线已随 T71 2026-10-26 删除——数据口
     //  FA.getEarlyTopBuyers 以 early 出生窗为源，earlyTrades* 冻结窗族整族退役后设计
     //  作废；GmgnWalletStatsService/离线建库脚本/表保留（纯函数层无 FA 依赖），将来
@@ -1519,6 +1536,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._cheatProjectedTokens.clear();
     }
     if (this._cheatBlockedTokens) this._cheatBlockedTokens.clear();
+    if (this._cheatPrefetchAt) this._cheatPrefetchAt.clear();
 
     // gwp 钱包画像层清态（2026-10-18）：预取状态 Map 清空防同进程下一实验读到旧
     // （gwp 预取状态清理已随 T71 2026-10-26 删除——gwp 引擎接线整链退役）
@@ -1616,6 +1634,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // C84 叙事发起条件触发状态机（新模型腿）：tick 后台多轮叙事分析 + FA 投影
       //（legacy 腿首行早退零成本；dataPrefetch 已退役，档案见台账 C84）
       this._narrativeTriggerCheck(tokenAddress, factors, token);
+      // G1 作弊盘因子化预触发（2026-11-01 用户指令）：量门满足即后台分析+FA 投影
+      // → 下一 tick 买条件里的 cheat* 因子可消费（无预触发则条件引用=自锁死）
+      this._cheatPrefetchCheck(tokenAddress, factors, token);
       // （GMGN 钱包画像触发窗预取已随 T71 2026-10-26 删除——early 窗数据口作废）
       // 观察信号（默认关）：叙事评级==2|3 或 市值>12K → 落 OBSERVE 行纯观察零交易
       // 副作用——挂买腿分支天然继承「非 bought、不在 buying」未持有判定（sold 票
@@ -2563,6 +2584,61 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   // ==================== G1 作弊盘门（2026-11-01 用户裁定：检测升级为买门）====================
 
   /**
+   * G1 因子化预触发（2026-11-01 用户指令「以因子的形式放到表达式中」，叙事 N3/
+   * C84 触发模型同构）：tick 管线量门满足 → fire-and-forget noteBuyPoint（带
+   * onResult 回调投影 FA 14 键）→ 下一 tick 买条件里的 cheat* 因子可消费。
+   *
+   * 激活=service.enabled ∧（gate 开 ∨ 任一买腿条件串引用 cheat 因子）——纯观察
+   * 且无因子消费端的实验不烧配额（观察样本语义维持买点挂点不变）。节流
+   * prefetchIntervalMs（缺省 60s）：service 的 reused 判定在 DB pull 之后，无节流
+   * =量门持续真的活跃票每 tick 一次 tail 查询。拉黑票跳过（投影已是终值）。
+   * @private
+   */
+  _cheatPrefetchCheck(tokenAddress, factors, token) {
+    if (!this._cheatCheckService || !this._cheatCheckService.enabled) return;
+    if (!this._cheatPrefetchCondition) return; // 显式空串=禁用
+    if (this._cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)) return;
+    if (this._cheatFactorsConsumed === undefined) this._cheatFactorsConsumed = this._scanCheatFactorConsumers();
+    if (!this._cheatGateEnabled && !this._cheatFactorsConsumed) return;
+    const last = this._cheatPrefetchAt.get(tokenAddress) || 0;
+    if (Date.now() - last < this._cheatPrefetchIntervalMs) return;
+    if (!this._strategyEngine.evaluateCondition(this._cheatPrefetchCondition, factors)) return;
+    this._cheatPrefetchAt.set(tokenAddress, Date.now());
+    const sym = token?.symbol || tokenAddress.slice(0, 10);
+    this._cheatCheckService.noteBuyPoint(tokenAddress, {
+      address: token?.token || tokenAddress,
+      symbol: token?.symbol || null,
+      name: token?.name || null,
+      platform: token?.platform || factors?.platform || null,
+      createdAtMs: token?.createdAt ? token.createdAt * 1000 : null,
+      creatorAddress: token?.creatorAddress || null,
+      totalSupply: factors?.totalSupply ?? null,
+    }, { experimentId: this._experimentId, source: 'prefetch' },
+    (res) => { if (res && res.grade) this._projectCheatFactors(tokenAddress, res); });
+    this.logger.debug(this._experimentId, 'CheatPrefetch', `${sym} 因子化预触发发起（量门过，后台分析+投影）`);
+  }
+
+  /**
+   * 买腿条件串是否引用 cheat 因子（惰性一次）：condition/gmgnCheckCondition/
+   * narrativeTriggerCondition/narrativeCallCondition/preBuyCheckCondition/
+   * repeatBuyCheckCondition/narrativePrefetchCondition 任一含 /cheat[A-Z]/ 即真
+   * （cheat* 键名全以 cheat 开头驼峰——includes 前缀匹配零漏检，误检面=无害多分析）
+   * @private
+   */
+  _scanCheatFactorConsumers() {
+    const FIELDS = ['condition', 'gmgnCheckCondition', 'narrativeTriggerCondition',
+      'narrativeCallCondition', 'preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativePrefetchCondition'];
+    const re = /cheat[A-Z]/;
+    for (const s of this._strategyEngine.getAllStrategies()) {
+      if (s.action !== 'buy') continue;
+      for (const f of FIELDS) {
+        if (typeof s[f] === 'string' && re.test(s[f])) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * 买点 await 式三级判定（挂点=preBuy 过后 GMGN 前）：
    * - cheat → 拉黑（引擎+service 双 Set）+ 持仓清仓联动 + signal failed + 拒
    * - unhealthy → signal failed + 拒（下个买点增量门满足自动重判；用尽拉黑走
@@ -2613,7 +2689,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           { message: `作弊盘门拒买: unhealthy 第 ${n} 次 [${reasonCodes}]`, reason: 'cheat_gate_unhealthy' });
         return { pass: false, reason: `作弊盘门拒买（unhealthy 第 ${n} 次，重判中）` };
       }
-      return { pass: true, info: { status: res.status, grade: 'healthy', reasons: res.reasons || [] } };
+      return {
+        pass: true,
+        info: {
+          status: res.status, grade: 'healthy', reasons: res.reasons || [],
+          unhealthyGrades: res.unhealthyGrades ?? 0,
+          levels: res.levels ?? null, buckets: res.buckets ?? null, // 题档留档（metadata 研究）
+        },
+      };
     }
 
     if (res && res.status === 'timeout_fail_open') {
@@ -2640,12 +2723,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  /** FA 观测投影（纯观测不进条件串；stop 逐 token 清） */
+  /** FA 因子投影（14 键：grade 三键+11 题档；值=最近一次判定；stop 逐 token 清） */
   _projectCheatFactors(tokenAddress, res) {
     require('../../services/FourMemeFactorAggregator').setCheatFactors(tokenAddress, {
       grade: res.grade ?? null,
       unhealthyGrades: res.unhealthyGrades ?? 0,
       blocked: res.grade === 'cheat' || this._cheatBlockedTokens.has(tokenAddress),
+      levels: res.levels ?? null,
     });
     this._cheatProjectedTokens.add(tokenAddress);
   }

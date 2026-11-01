@@ -64,10 +64,40 @@
 
 - **service 层 `gateBuyPoint`**（`CheatCheckService`）：买点 await 式判定=Promise.race 竞速 `gate.awaitMs`（默认 15000，超时 **fail-open 放行本笔**+late promise 链续跑——GMGN 层「检测层故障不得拦买点」同向）；复用观察层全链（settle/锚截窗/增量门/顶帽/冷却/inflight join），返回 `{status, grade, reasons, unhealthyGrades}`。**拉黑秒回**：cheat/用尽后 `_gateBlocked` 秒回 `{status:'graded', grade:'cheat', blocked:true}` 零 Jev；增量门内（60s∧20tick 未满足）重复买点 reused 重用上次 grade 不烧 Jev。**unhealthy 计数语义**：`unhealthyReanalyses=3`=真分析出 unhealthy 计数 ++（reused 不计），第 4 次（n>3）拉黑；增量门满足自动重判（观察层增量语义平移）
 - **引擎层**（`FourMemeWssTradingEngine`，flap/gang 继承同体）：`_cheatGateEnabled=cheatCheck.enabled ∧ gate.enabled===true`（双开关默认关=观察模式 bit 一致）；挂点=GMGN 层之前（无 GMGN 条件腿照样硬门）+买条件评估后 `_cheatBlockedTokens` 拉黑短路（叙事直调/preBuy/signal 落库前省整条链）；cheat→拉黑+**持仓立即清仓联动**（`_cheatExitPosition`=`_emitSellSignal` 全清链 stallClose 同构：cards='all'/bypassDebounce/不锁再买；卖买执行中不重入；无持仓/无 factors 静默跳过）+signal failed `cheat_gate_cheat`；unhealthy→拒买 signal failed `cheat_gate_unhealthy`（第 N 次留痕）；healthy→**仅本层放行，叙事/GMGN 门照走**（分级与叙事质量正交）；stop 清理 FA 投影+两 Set
-- **FA 观测投影三键**：`cheatGrade`/`cheatUnhealthyGrades`/`cheatBlocked`（模块级 setCheatFactors 同 setNarrativeFactors 母版；**纯观测不进条件串**——防存量腿裸引用 fail-closed 拦死；FactorBuilder 快照白名单透传；回测恒 null）
+- **FA 投影 14 键（2026-11-01 因子化升级，可进条件串——见下节「因子化投影」）**：`cheatGrade`/`cheatUnhealthyGrades`/`cheatBlocked` + 11 题档位键（模块级 setCheatFactors 同 setNarrativeFactors 母版；FactorBuilder 快照 14 键透传；**回测恒 null**——带 cheat 因子条件的腿回测天然不触发）
 - **digest 落 grade 四键**（grade/gradeReasons/gradeVersion/anchorSellCount）——免 DDL，重放对拍原料
 - **回归 runner 加 grade 列**：run.mjs 与生产共用 cheat-grade.js（对拍同源；anchorSellCount=derived.sellN 同口径）；G1 grade×人工裁定对照统计展示**不作 PASS/FAIL**（37/42 基线，硬断言须裁定）
-- **单测**：`_test_cheat_grade.cjs`（42）/`_test_cheat_detection_service.cjs` Z 段（gate 五形状）/`_test_cheat_gate_engine.cjs`（40：六路径+清仓联动+投影往返+源码口径锁）——全零 DB 零网络
+- **单测**：`_test_cheat_grade.cjs`（42+H 段映射表）/`_test_cheat_detection_service.cjs` Z 段（gate 五形状+Z1b levels+Z6 onResult）/`_test_cheat_gate_engine.cjs`（六路径+清仓联动+投影往返+D 段 14 键 FA 出口+F 段预触发+源码口径锁）——全零 DB 零网络
+
+### 因子化投影（2026-11-01 用户指令落地：检测「题」结果全量因子化进表达式）
+
+**用户指令原话**：「跟叙事分析引擎一样，我也希望反作弊模块也以因子的形式放到表达式中，这样以后会非常方便的调整。因子包括检测的结果，以及反作弊模块中各个"题"的结果。这样在购买信号中可以将其存储下来，也便于之后进行效果改进研究。」
+
+**14 键（FA 出口全数值序；投影存储=字符串档位，出口 `CHEAT_LEVEL_SCORES` 映射——`src/market-analysis/cheat-grade.js` 单一真相源）**：
+
+| 因子键 | 数值域 | 来源 |
+|---|---|---|
+| `cheatGrade` | healthy=0 / unhealthy=1 / cheat=2 / null=未判定 | gradeObservation |
+| `cheatUnhealthyGrades` | 计数（int，缺省 0） | unhealthyReanalyses 计数 |
+| `cheatBlocked` | 0/1 | gate 拉黑态 |
+| `cheatEqualAmountSplit` | 四档 none=0/weak=1/moderate=2/strong=3 | 等额分仓题 |
+| `cheatCoordinatedSellBack` | 四档同上 | 协同卖回题 |
+| `cheatCreatorFrontRun` | 四档同上 | 创建者前置题 |
+| `cheatSellDispersion` | 四档同上 | 卖单分散题 |
+| `cheatStallBurstWave` | 二桶 none=0/burst=1 | 停滞突发波 |
+| `cheatAmountTiering` | 四档同上 | 金额分层题（EXT） |
+| `cheatSameBlockBuyWave` | 四档同上 | 同块买入波题（EXT） |
+| `cheatInsiderSupplySell` | 四档同上（EXT 容缺） | 内部筹码派发题 |
+| `cheatSlowGrindPump` | 四档同上 | 慢磨推价题 |
+| `cheatActivityLevel` | low=0/mid=1/high=2/ultra=3 | 活跃度档 |
+| `cheatBundledDominance` | low=0/mid=1/high=2 | 捆绑主导度档 |
+
+- **未知档位→null 不冒充**（sbw/insider 等旧档断代值天然 null）；映射表改动=改 `CHEAT_LEVEL_SCORES` 一处（grade 不建议动——语义序已锁 G1 拉黑联动）
+- **投影链**：service `noteBuyPoint` 第 4 参 `onResult`（链完成恰调一次；inflight join 挂被 join 方由首发起方代调）→ `_lastGrade` 存 `{grade, unhealthyGrades, blocked, levels, buckets}` → 引擎 `_projectCheatFactors` → FA 模块级 Map（tokenAddress 键，同 narrative 四键母版）
+- **预触发通道（防自锁死，C84 全同构）**：条件评估在 tick 管线同步执行、gate/noteBuyPoint 挂点在其后的 `_runBuyEvaluation` 内——条件串直接引用 cheat 因子若只在买点分析会**自锁死**（条件不过→gate 永不跑→投影永不更新）。解法=引擎 `_cheatPrefetchCheck`（挂 `_narrativeTriggerCheck` 后 N3 同位）：量门 `cheatCheck.prefetchCondition`（缺省 `buyVolumeBnb >= 0.1`，空串=禁用）→ 节流 `prefetchIntervalMs`（缺省 60s——service reused 判定在 DB pull 之后，不节流=每 tick 一次 tail 查询）→ fire-and-forget `noteBuyPoint(source:'prefetch')` → onResult 投影 FA → 下轮 condition 可消费。**gate 买点 await 新鲜判定保留不动**（预触发只养因子，不替代买点硬门）
+- **激活条件**：`service.enabled ∧（gate.enabled ∨ 任一买腿条件串引用 cheat 因子）`——consumers 扫描 `_scanCheatFactorConsumers` 七字段（condition/gmgn/narrativeTrigger/narrativeCall/preBuy/repeatBuy/narrativePrefetch）正则 `/cheat[A-Z]/`（只扫 buy 腿）；无消费端不烧配额（纯观察实验零增量）
+- **null 语义与回测警告**：首判未完成/预触发禁用/回测 → 14 键全 null；条件裸比较恒 false **fail-closed**，未判定放行须显式 `cheatGrade IS NULL OR` 前置臂（GMGN issuer 分档门同款母版）；**带 cheat 因子条件的腿回测天然不触发**（回测零接线）——validateLegs 不拦（合法 FA 键），设计如此
+- **效果研究通道**：①signal 行 FactorBuilder 快照 14 键（买信号 fire 时档位快照落库，事后分布/阈值校准原料）；②metadata `cheatCheck` 轨迹（grade/reasons/levels/buckets 字符串原值）；③`cheat_detection` 表 digest 全档（per-时点观测轨迹）——三层各自独立可对拍
 - **上线**：v66 换车 `cheatCheck:{enabled:true, gate:{enabled:true}}`（观察期先虚拟实验验收；DDL `observed` 已执行无需新 DDL）；全量 128 票 G1 对拍（182）随验收跑
 
 ## Case 倒序

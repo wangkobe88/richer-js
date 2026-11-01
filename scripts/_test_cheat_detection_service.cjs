@@ -412,6 +412,19 @@ async function main() {
       && db.state.inserts[0].snapshot_digest.gradeVersion === 'G1'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
+    // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（11 题数值档，FA 出口
+    // 原料）+ buckets（字符串原值）——GOOD 形状 tier/bw/rat strong=3、sbw burst=1、
+    // cr strong=3（辅助判定照投影）、act mid=1、bd high=2
+    ok(r1.levels && r1.levels.sameBlockBuyWave === 3 && r1.levels.amountTiering === 3
+      && r1.levels.insiderSupplySell === 3 && r1.levels.stallBurstWave === 1
+      && r1.levels.creatorFrontRun === 3 && r1.levels.activityLevel === 1
+      && r1.levels.bundledDominance === 2 && r1.levels.equalAmountSplit === 0,
+      `analyzed 带 levels 数值档（实际 ${JSON.stringify(r1.levels)}）`);
+    ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'burst'
+      && r1.buckets.activityLevel === 'mid',
+      `analyzed 带 buckets 字符串原值（研究留档）`);
+    ok(r2.levels && r2.levels.sameBlockBuyWave === 3,
+      '拉黑秒回也带 levels（_lastGrade 透传——gate 短路路径因子不缺位）');
   }
   {
     // Z2. unhealthy 计数→重判→用尽拉黑（unhealthyReanalyses=3：第 4 次 unhealthy 拉黑）
@@ -486,6 +499,35 @@ async function main() {
     const svc3 = makeSvc(db3, llm3);
     const r3 = await svc3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(r3.status === 'fail' && r3.reason === 'jev_error', 'Jev 失败 → fail 放行态（不拦买点）');
+  }
+  {
+    // Z6. 因子化预触发通道（2026-11-01 用户指令）：noteBuyPoint onResult 回调——
+    //     链完成（analyzed/reused/fail 全形状）回调一次，引擎预触发用它投影 FA
+    const db = makeDb({ ticks: genTicks(20) });
+    const llm = makeLlm();
+    const svc = makeSvc(db, llm, { settleDelayMs: 10 });
+    const got = [];
+    const info = svc.noteBuyPoint('0xtok', META, {}, (res) => got.push(res));
+    ok(info.status === 'initiated', 'noteBuyPoint 同步返回轨迹形状不变');
+    await new Promise((r) => setTimeout(r, 150)); // settle 10ms + 链完成
+    ok(got.length === 1 && got[0].status === 'analyzed' && got[0].grade === 'cheat'
+      && got[0].levels && got[0].levels.sameBlockBuyWave === 3,
+      'onResult 回调收 analyzed+levels（预触发投影 FA 原料）');
+    // 增量门内二次预触发 → joined_inflight 或新链 reused：回调也回（reused 形状带 grade）
+    const got2 = [];
+    svc.noteBuyPoint('0xtok', META, {}, (res) => got2.push(res));
+    await new Promise((r) => setTimeout(r, 150));
+    ok(got2.length === 1 && got2[0].status === 'reused' && got2[0].grade === 'cheat'
+      && got2[0].levels && got2[0].levels.sameBlockBuyWave === 3,
+      '增量门内 reused → onResult 带 _lastGrade levels（连续预触发因子不缺位）');
+    // fail 形状也回（insufficient_ticks 低票）——回调不丢、不抛
+    const db2 = makeDb({ ticks: genTicks(3) });
+    const svc2 = makeSvc(db2, makeLlm(), { minTicks: 8, settleDelayMs: 10 });
+    const got3 = [];
+    svc2.noteBuyPoint('0xlow', META, {}, (res) => got3.push(res));
+    await new Promise((r) => setTimeout(r, 100));
+    ok(got3.length === 1 && got3[0].status === 'insufficient_ticks',
+      'insufficient_ticks → onResult 照回（无 grade=引擎投影自然跳过）');
   }
 
   console.log(`\n✅ _test_cheat_detection_service 全过（${passed} 断言）`);

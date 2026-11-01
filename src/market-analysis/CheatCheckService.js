@@ -62,7 +62,7 @@
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation } = require('./cheat-result-mapper');
-const { gradeObservation } = require('./cheat-grade');
+const { gradeObservation, levelsFromObservation } = require('./cheat-grade');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -134,8 +134,13 @@ class CheatCheckService {
 
   get enabled() { return this._enabled; }
 
-  /** 引擎买点挂点：同步返回 metadata 轨迹，分析链 fire-and-forget（不抛错） */
-  noteBuyPoint(tokenAddress, tokenMeta = {}, context = {}) {
+  /**
+   * 引擎买点挂点：同步返回 metadata 轨迹，分析链 fire-and-forget（不抛错）。
+   * onResult（可选，2026-11-01 因子化预触发通道）：链完成时回调一次（reused/
+   * fail/insufficient_ticks 全形状均回，吞错）——预触发路径用它投影 FA 题档
+   * 因子；joined_inflight 也会收到（回调挂被 join 的链上，由首发起方代调）。
+   */
+  noteBuyPoint(tokenAddress, tokenMeta = {}, context = {}, onResult = null) {
     if (!this._enabled) return { status: 'disabled' };
     const token = String(tokenAddress || '').toLowerCase();
     if (!token) return { status: 'invalid_token' };
@@ -151,12 +156,14 @@ class CheatCheckService {
     const existing = this._inflight.get(token);
     if (existing) {
       this.stats.inflightJoined++;
+      if (typeof onResult === 'function') existing.then(onResult).catch(() => {});
       existing.catch(() => {}); // 双保险（链内自吞，此处防 unhandled rejection）
       return { ...info, status: 'joined_inflight' };
     }
     const chain = this._chain(token, tokenMeta, context)
       .finally(() => this._inflight.delete(token));
     chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
+    if (typeof onResult === 'function') chain.then(onResult).catch(() => {});
     this._inflight.set(token, chain);
     return info;
   }
@@ -191,10 +198,13 @@ class CheatCheckService {
 
     if (this._gateBlocked.has(token)) {
       this.stats.gateBlockedHits++;
+      const lg = this._lastGrade.get(token);
       return {
         status: 'graded', grade: 'cheat', blocked: true,
         reasons: [{ level: 'cheat', code: 'gate_blocked' }],
         unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
+        levels: lg ? lg.levels ?? null : null,
+        buckets: lg ? lg.buckets ?? null : null,
       };
     }
 
@@ -367,9 +377,14 @@ class CheatCheckService {
         this._gateUnhealthyGrades.set(token, n);
         if (n > this._unhealthyReanalyses) this._gateBlocked.add(token);
       }
+
+      // 因子化投影原料（2026-11-01 用户指令）：11 题数值档（FA 出口）+字符串
+      // 原值（metadata/日志）——随返回形状透传引擎投影 FA
+      const { levels, buckets } = levelsFromObservation(obs);
       this._lastGrade.set(token, {
         grade: graded.grade, reasons: graded.reasons, version: graded.version,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
+        levels, buckets,
       });
       const p = obs.phenomena;
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
@@ -384,6 +399,7 @@ class CheatCheckService {
       return {
         status: 'analyzed', grade: graded.grade, reasons: graded.reasons,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
+        levels, buckets,
       };
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
