@@ -139,7 +139,9 @@
 
 **CD69 t1 供应独大通道立项（G4，口子②已裁）**：起因=用户问「TROLLON 的第一大户百分比过高了，因此 unhealthy，是这样的吗？」查证机器 unhealthy 唯一通道=E_low_activity（t1 双锚在场无通道消费）→ 用户裁定立项「大户集中度不能只是观察锚，持仓太多了不行」+口径换 t1 供（流通占比早期虚高）+定线单档 ≥40 → cheat（CD69 一笔 5.1653 BNB 吃 46.5% 供应；三段裁定原话/两版 128 票分布/CD52 口径换挡说明全档见「G4 修订」节）。机器判读将由 unhealthy → **cheat**（I+E 双留痕），与人工一致；182 `--only CD69` 定向真调已收官：`I_t1_supply47+E_low_activity` 双通道留痕、grade=cheat 与人工一致（1/1）——t1 供锚 46.5129、sbHold 4.9%（F/C 不触发的原通道全盲实证）、dom/bd/wash 均无命中=I 通道独立补盲。
 
-**其余四票**（CD36/CD47/CD48/CD119）正式裁定与 expect 落 fixtures 待用户；**一个待裁口子勿自行决定**：CD47 形状（六题全 moderate+famous dom 100%）是否加 cheat 档通道（口子②CD69 已裁落 G4）。
+**CD47 口子已裁（2026-11-01，维持现状不加通道）**：用户裁定原话「作弊痕迹被著名钱包的参与打乱了，但是 unhealthy 也行，反正也能挡住购买」——六题全 moderate+famous dom 100% 形状**不加 cheat 档通道**，机器 unhealthy（D 通道 famous dom=high）即终态：unhealthy=拒买不拉黑、增量门重判持续拒买，挡住购买目的已达；expect=cheat 人工裁定记录不改写（协同簇砸盘判定仍成立，分歧保留在人工对照统计——判定层停产语义）。
+
+**批次二收官（2026-11-01 用户裁定「第二批其它 case 不做针对性修改了，下一批吧」）**：其余三票 CD36/CD48/CD119 **不立项、不改规则**——机器现状接受，expect 维持人工裁定原值不动；批次二两落法（CD27→D3.28+G3 H 通道、CD69→G4 I 通道）+一口子关闭（CD47 维持 unhealthy）全部收官。
 
 ### 组 23（CD122-CD128）：CD122+CD124+CD125 healthy / CD123+CD126+CD128 cheat / CD127 unhealthy——回归集 128 票逐案 review 收官组（2026-11-01）
 
