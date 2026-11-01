@@ -27,6 +27,31 @@
 
 ## Case 倒序
 
+### 组 22（CD116-CD121）：CD116 unhealthy / CD117-CD121 五连 cheat——CD120 四 strong 回归集最强档位票、CD121 持续推价质询（不立项留档）（2026-11-01）
+
+**组 22 裁定**（2026-11-01，六票全 4012ce39 v66 live（0.003 仓位·单卡减半），全 flap，D3.26 真调，一质询不立项）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.26 真调） |
+|---|---|---|---|---|
+| CD116 | 何姨 | `0xce65…7777` | **unhealthy** | 166 笔回归集最大锚窗+84 钱包+双向 92:74+churn 63+eqHold 58.8%+等额簇 10 最多+dom=high(87.5%)——但四现象全 moderate 零 strong |
+| CD117 | 何姨 | `0x3620…7777` | **cheat** | eq/sb/bw **三 strong**+sbHold 65.1%+eqHold 50.8%+cr moderate+t1 供 0.8% |
+| CD118 | LDO | `0xfdd9…7777` | **cheat** | rat=**strong**+sbHold 56.4%+t1 供 15.2%+bd=high |
+| CD119 | COOL | `0x1ab9…7777` | **cheat** | sb/sd/rat 三 moderate 零 strong+sbHold 67.4% 本组最高+bd=high+dom=mid(38%) |
+| CD120 | SAFU Fund | `0xbe03…7777` | **cheat** | eq/tier/bw/pump **四 strong**+sbw=burst+买 19 卖 2+sbHold/eqHold 42.6% |
+| CD121 | 币安大股东 | `0xac9c…7777` | **cheat** | 档位全 moderate/weak 本组最轻+eqHold 54.0%/sbHold 11.4%+churn 0+act(代码)=low（6.65 笔/分） |
+
+**裁定语义**：
+
+1. **CD116=无 strong 高流量落 unhealthy（CD113 同款第二票）**：四现象全 moderate 零 strong+dom=high(87.5%)（famous 跟随 68.7%/持仓 18.8%）——与 CD113（四 moderate 无 strong+dom high）同款判 unhealthy；166 笔回归集最大锚窗（超 CD113 的 91）、84 钱包、双向 92:74、churn 63 高换手、eqHold 58.8% 高位+等额簇 10 回归集最多均不改判。与 CD80（dom high 双向活跃 healthy）分界：该票 eqHold 58.8%+等额簇 10 集中度证据更重。
+2. **CD117=三 strong 谱系第六票（eq/sb/bw 组合首现）**：对照 CD106/CD109（eq/bw/pump）、CD93（bw/rat/pump）——三 strong 即 cheat 不依赖组合；t1 供 0.8% 创办人近零持仓但协同卖回 strong（创办人仓位不是协同卖回的必要条件，延续 CD75「创建者买卖不是判断标准」）。
+3. **CD118=insider strong 正例第三票（CD93/CD94 后）**：rat=strong+sbHold 56.4%——单 strong+集中度即足判（CD94 同款梯度），D3.22 双口径通道持续收正例。
+4. **CD119=无 strong 仍判 cheat（分档新边界，攒票观察）**：sb/sd/rat 三 moderate 零 strong+sbHold 67.4% 本组最高+bd=high——与 CD95（cr moderate+eqHold 62.9% 无 strong→unhealthy）/CD100（四重集中无 strong→unhealthy）分界不同：三现象 moderate 堆叠+最高集中度仍判 cheat。此前「无 strong 集中堆叠→unhealthy」梯度被本票突破，如实记录攒票观察。
+5. **CD120=四 strong 回归集最强档位组合票**：eq/tier/bw/pump 四 strong+sbw=burst，超 CD106/CD109 三 strong 成最重档位组合；t1 供 9.948356952380951 与 9.4945 模板相近但**不同数**（非克隆同数）；买 19 卖 2 近全买零卖家族形状。
+6. **CD121=档位最轻仍判 cheat+持续推价质询（不立项留档）**：用户裁定原话「持续推价很明显了，我直观看应该给 strong，不过可能购买时间点还没有那么明显，不好改就算了」。全生命轨迹验证（tmp-g22-cd121-pump.mjs）：+51.6% 峰值在锚窗外 +35 笔/+406s，窗内（买点+4s）只见 +26.2% 半坡；窗内 35 买 29 钱包分散（top1 ×3、相邻同钱包 4/34）无 D3.23 ⑤「同一钱包多笔连续主动买入」连推形态、act(代码)=low 6.65 笔/分 maxGap 62s 非「秒级密集」、金额吞吐 ≈0.19 BNB/分（D3.26 ≥10 反锚不触发=moderate 非豁免臂所压，是 Jev 对半坡+分散+低频的诚实判读）。**不立项理由**：题面校准无偏（D3.24-D3.26 三版链针对「形态已走完但给不够 strong」的漏判，本票相反=形态未走完）；要买点即 strong 须拉长观察窗=破坏 as-of 时点语义（D3.5 买点可知信息）或把「分散慢抬」单独成形状=会误伤散户自然抬盘（CD104/CD105 家族）。买点判定回答「此刻盘面像不像作弊」不回答「后来会不会拉」——本票判 cheat 本身已不依赖单题档位。
+7. **盈亏**（全 4012ce39 0.003 两笔快进快出，全局 trades 口径）：CD118 25s **+0.000183 本组唯一盈利**/CD116 53s -0.000481/CD119 11s -0.000119/CD120 32s -0.000081（近打平）/CD121 11s -0.000307/CD117 8s **-0.001222 本组最大亏**；组内合计 -0.002027。
+
+**收录**：expect+expectBecause 落 fixtures（组 22 六票）；实验页全 4012ce39（UUID=4012ce39-fa10-4ce8-8a1f-b384b8e4514a）；CD121 质询数据支撑脚本 tmp-g22-cd121-pump.mjs（182，不 add）。
+
 ### 组 21（CD110-CD115）：CD110 活跃度太低 unhealthy / CD111+CD112+CD115 cheat / CD113+CD114 著名钱包主导 unhealthy——4012ce39 live 段开闸（2026-11-01）
 
 **组 21 裁定**（2026-11-01，CD110=aed2091d 差集末票+CD111-CD115=4012ce39 v66 live 段前五票（0.003 仓位），D3.26 真调）：
