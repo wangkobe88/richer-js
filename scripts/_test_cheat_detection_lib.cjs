@@ -598,7 +598,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.16', `版本常量 D3.16（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.17', `版本常量 D3.17（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -726,8 +726,8 @@ console.log('I. 著名钱包单极控盘锚');
   const rat = qs.insider_supply_sell.instructions;
   ok(rat.includes('买入额不足其卖出额 10%') && rat.includes('沉在末尾也要扫到'),
     'insider_supply_sell 判据核心=零买入/低买入卖出钱包（10% 判据）+ [WALLETS] 降序末尾扫到（纯卖出钱包沉底反证）');
-  ok(rat.includes('÷ 窗口全部卖出额合计') && rat.includes('≥30%') && rat.includes('10~30%'),
-    'insider_supply_sell 显式算式=无买入卖出占比分式（卖出域——与买入域题分式区分）');
+  ok(rat.includes('÷ 窗口全部卖出额合计') && rat.includes('≥25%') && rat.includes('10~25%') && !rat.includes('≥30%') && !rat.includes('10~30%'),
+    'insider_supply_sell 显式算式=无买入卖出占比分式（卖出域——与买入域题分式区分）；D3.17 定档参考线 30%→25%（用户裁定「25% 已经非常非常多了」——CD13 35.9% 贴 30% 旧线判 moderate；旧 ≥30%/10~30% 措辞退役反证）');
   ok(rat.includes('来源不限于创建分配') && rat.includes('场外/链下获得'),
     'insider_supply_sell D3.16 证据本体=无买入的卖出，来源不限（创建内部分配/场外链下获得皆算——用户裁定「也不局限于创建」）');
   ok(rat.includes('筹码是从别的地方划转而来') && rat.includes('隐秘地卖出') && rat.includes('规避对筹码来源的监控') && rat.includes('往往是作弊的特征'),
@@ -743,9 +743,9 @@ console.log('I. 著名钱包单极控盘锚');
   ok(rat.includes('同块协同/多轮次') && rat.includes('先买后卖'),
     'insider_supply_sell 倾倒节奏=同块协同/多轮次 + AMM 先买后卖原理锚');
   ok(rat.includes('零买入纯卖出') && rat.includes('总卖出一半'),
-    'insider_supply_sell 正例=CD13 形状（八钱包零买入占总卖出一半三组轮次——占比 ≥30% 单轴即 strong，新口径不受影响）');
+    'insider_supply_sell 正例=CD13 形状（八钱包零买入占总卖出一半三组轮次——占比远超 25% 线单轴即 strong，新口径不受影响）');
   ok(rat.includes('创建者先买后卖=正常获利行为不作证据') && rat.includes('不给高档'),
-    'insider_supply_sell D3.16 反例=CD60 形状（creator 同笔大额买+递减分批卖=正常获利；无买入卖出占比不足三成+散户两旺不给高档）');
+    'insider_supply_sell D3.16 反例=CD60 形状（creator 同笔大额买+递减分批卖=正常获利；无买入卖出占比不足四分之一+散户两旺不给高档——D3.17 措辞随 25% 线同步）');
   ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs.insider_supply_sell.criteria[b] === 'string'),
     'insider_supply_sell：criteria 键集=PHENOMENON_LEVELS 四档（现象强度轴）');
   const pump = qs.slow_grind_pump.instructions;
