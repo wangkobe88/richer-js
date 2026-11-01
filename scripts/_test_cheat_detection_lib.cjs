@@ -607,7 +607,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.23', `版本常量 D3.23（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.24', `版本常量 D3.24（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -665,6 +665,20 @@ console.log('I. 著名钱包单极控盘锚');
   ok(pumpQ.includes('大户进场的高热盘') && pumpQ.includes('36 笔买分布在 15 个区块几乎每块都有成交')
     && pumpQ.includes('不是「单钱包连推」，不给 strong'),
     'D3.23 pump 反例补 CD84 形状（单笔 1.7 大额+12 秒 15 块连续散买=大户进场市场合力）');
+  // D3.24：pump ⑤大户进场豁免臂加「跟风量级」限定（组 17 CD88 质询）——正常量级（中位 ≥0.005）散买走豁免至多 moderate；尘埃垫推（中位 ~0.0001）＝「低活跃度低额度持续推价」不走豁免可 strong
+  ok(pumpQ.includes('正常量级**散买跟风（笔均/中位 ≥0.005 量级、金额连续散布的真散户单）')
+    && pumpQ.includes('是「大户进场+市场合力」不是连推，同样至多 moderate'),
+    'D3.24 pump ⑤豁免臂量级限定=正常量级（≥0.005）散买跟风才走大户进场豁免（至多 moderate）');
+  ok(pumpQ.includes('跟风若以海量尘埃级买单为主（中位 ~0.0001 级、几乎不占金额、靠笔数堆叠垫价、整盘低活跃度低额度）')
+    && pumpQ.includes('仍按本题口径给档、可 strong，不走大户进场豁免'),
+    'D3.24 pump ⑤尘埃垫推不豁免＝「低活跃度低额度持续推价」仍按本题口径可 strong（CD88 归因：57 笔中位 0.0001 垫量缓推）');
+  ok(pumpQ.includes('另票（正·低活跃度低额度持续推价）：大户单笔 0.6（占买近半）首块窜升一截')
+    && pumpQ.includes('随后 57 笔尘埃买（中位 0.0001、合计仅 0.7）垫量缓推 2 分余钟')
+    && pumpQ.includes('卖侧 12 笔中 10 笔亦为尘埃卖（无自然获利回吐）')
+    && pumpQ.includes('两端都不是正常量级真散户跟风'),
+    'D3.24 pump 正例二补 CD88 实数（大额窜升段+尘埃垫推段组合形状——t1 单笔 0.6 占买 46.1%、价 +14% 回撤 2.9%）');
+  ok(pumpQ.includes('（**中位 0.05 量级=正常量级跟风，非尘埃垫推**）'),
+    'D3.24 pump 反例 CD84 标注量级（中位 0.0493=正常量级真散户跟风，与尘埃垫推划界）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
