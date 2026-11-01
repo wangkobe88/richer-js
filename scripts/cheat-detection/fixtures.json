@@ -1179,12 +1179,12 @@
         "tickCount": 21
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=21=首笔成功买+settle4000ms；买17/卖4 Σ买2.44BNB 钱包17 top1=15.7% churn4 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=21=首笔成功买+settle4000ms；买17/卖4 Σ买2.44BNB 钱包17 top1=15.7% churn4 同块簇2 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "组15裁定=unhealthy（用户裁定「unhealthy(著名钱包主导)」——dom=mid(48.8%) 著名钱包主导买盘近半+sbHold 49.6% 同块持筹；现象题全无 strong 但结构性集中已足判 unhealthy）"
     },
     {
       "caseId": "CD75",
@@ -1195,12 +1195,12 @@
         "tickCount": 47
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买26/卖21 Σ买3.97BNB 钱包20 top1=25.2% churn6 同块簇2 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买26/卖21 Σ买3.97BNB 钱包20 top1=25.2% churn6 同块簇2 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "组15裁定=healthy（用户裁定「healthy (创建者买卖不是判断盘面作弊的标准)」——cr=strong 唯一 strong 但创建者买卖不属盘面作弊判定域；买卖两旺 26:21 act=high 正常双向盘）"
     },
     {
       "caseId": "CD76",
@@ -1211,12 +1211,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买20/卖0 Σ买1.86BNB 钱包20 top1=32.2% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买20/卖0 Σ买1.86BNB 钱包20 top1=32.2% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "组15裁定=cheat（用户裁定「作弊」——20 笔全买零卖等额阵列 t1供/流 9.5%/38.0% 与 CD53/54/72 同形状模板；pump=strong+bd=high；D3.21 第三形状第二例）"
     },
     {
       "caseId": "CD77",
@@ -1227,12 +1227,12 @@
         "tickCount": 30
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=30=首笔成功买+settle4000ms；买27/卖3 Σ买4.23BNB 钱包27 top1=8.1% churn3 同块簇4 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=30=首笔成功买+settle4000ms；买27/卖3 Σ买4.23BNB 钱包27 top1=8.1% churn3 同块簇4 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "组15裁定=unhealthy（用户裁定「unhealthy」——pump=strong 但 top1 买仅 8.1% 27 钱包分散、sbHold 49.5% 同块簇持筹近半；散户潮推价边界样本不至 cheat）"
     },
     {
       "caseId": "CD78",
@@ -1243,12 +1243,12 @@
         "tickCount": 47
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买35/卖12 Σ买4.32BNB 钱包33 top1=11.6% churn11 同块簇4 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买35/卖12 Σ买4.32BNB 钱包33 top1=11.6% churn11 同块簇4 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "组15裁定=unhealthy（用户裁定「unhealthy」——dom=high(84.3%) 著名钱包绝对主导买盘+churn11 高频进出+等额持筹仅 1.0%（等额簇买完即走）+bd=high；现象题无 strong 不至 cheat）"
     },
     {
       "caseId": "CD79",
@@ -1259,12 +1259,12 @@
         "tickCount": 28
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买23/卖5 Σ买2.12BNB 钱包19 top1=30.7% churn2 同块簇3 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买23/卖5 Σ买2.12BNB 钱包19 top1=30.7% churn2 同块簇3 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "组15裁定=unhealthy（用户裁定「unhealthy」——sbw=burst+全 moderate 层次（sd/tier/bw/rat/pump）无 strong；结构性偏差足判 unhealthy）"
     },
     {
       "caseId": "CD80",
