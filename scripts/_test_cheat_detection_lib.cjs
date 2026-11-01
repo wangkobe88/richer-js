@@ -607,7 +607,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.20', `版本常量 D3.20（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.21', `版本常量 D3.21（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -638,6 +638,13 @@ console.log('I. 著名钱包单极控盘锚');
   ok(qm.STALL_BURST_LEVELS.every((b) => typeof qs.stall_burst_wave.criteria[b] === 'string')
     && Object.keys(qs.stall_burst_wave.criteria).length === 2,
     'stall_burst_wave：criteria 键集=STALL_BURST_LEVELS 现象二分桶域（D3.11 收缩）');
+  // D3.21：题名「缓慢拉盘」→「持续推价」+ 第三形状「秒级密集推价」+ 合力与推手反锚；id 不断代（344 行锁）
+  ok(qs.slow_grind_pump.instructions.startsWith('观察「持续推价」现象'),
+    'D3.21 pump 题首句=「持续推价」（题名已改，不再「缓慢拉盘」）');
+  ok(qs.slow_grind_pump.instructions.includes('秒级密集推价')
+    && qs.slow_grind_pump.instructions.includes('合力与推手反锚')
+    && qs.slow_grind_pump.instructions.includes('形状有三种'),
+    'D3.21 pump 题三形状（全程缓推/窜一截后缓推/秒级密集推价）+ 合力与推手反锚在场');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
@@ -791,8 +798,8 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump 判据①=单调性（回撤 <5%、新高持续推进、无成串卖回波）');
   ok(pump.includes('买卖失衡') && pump.includes('笔比 ≥5:1 且额比 ≥3:1') && pump.includes('零星获利卖穿插'),
     'slow_grind_pump 判据②=买卖失衡双比阈值（正常上涨段也有零星获利卖穿插的反锚）');
-  ok(pump.includes('看推价的持续力量是不是小笔') && pump.includes('非爆发式抢筹') && pump.includes('持续性'),
-    'slow_grind_pump 判据③④=节奏看推价的持续力量是不是小笔（非爆发式贯穿全程）+ 单向状态覆盖窗口主要时段');
+  ok(pump.includes('形状①全程缓推的盘笔均尘埃~小额') && pump.includes('垫量缓推') && pump.includes('形状③短窗内密集连续推进') && pump.includes('持续性'),
+    'slow_grind_pump 判据③=三形状各自节奏（缓推小笔/垫量缓推/秒级短窗密集推进，D3.21 三形状化）');
   ok(pump.includes('开盘首波爆发抢筹') && pump.includes('归「同块买入波」等题判读'),
     'slow_grind_pump 排除项=开盘首波爆发抢筹（天然失衡归 bw 题口径，题间分界）');
   ok(pump.includes('像样回撤') && pump.includes('成串获利卖回的盘不选本题'),
@@ -807,14 +814,16 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump D3.15 定义句补两段式形状（用户裁定「窜上来一截后，缓慢拉盘」——前段大额簇窜升+后段尘埃买垫量缓推，垫推段是观察主体）');
   ok(pump.includes('只贡献跳升段、不贡献持续爬坡') && pump.includes('垫量缓推') && pump.includes('整窗笔均被前段大额拉高不否定后段垫推'),
     'slow_grind_pump D3.15 节奏判据=大额簇/大单只贡献跳升不贡献爬坡，海量尘埃买垫量缓推算数（笔均被拉高不否定垫推——CD55 误判归因①）');
-  ok(pump.includes('窜完即止无后续缓推段') && pump.includes('爆发段之后接续垫量缓推段的，爆发段归同块波题判读、缓推段仍在本题口径内'),
-    'slow_grind_pump D3.15 排除项改写=整窗主体爆发且窜完即止才排除；窜后接缓推的缓推段归本题、爆发段归 bw 题（CD55 误判归因②整窗排除）');
+  ok(pump.includes('无后续持续推价段') && pump.includes('爆发/窜升段之后接续垫量缓推段或秒级密集推进段的，前段归同块波题判读、持续推价段仍在本题口径内'),
+    'slow_grind_pump 排除项=窜完即止才排除；窜后接缓推段**或秒级密集推进段**均归本题（D3.21 扩第三形状后口径词「缓慢」→「持续」）');
   ok(pump.includes('正·窜一截后缓推') && pump.includes('0.0001 级尘埃买垫量缓推') && pump.includes('最大回撤不足 2%'),
     'slow_grind_pump D3.15 正例补 CD55 两段式形状（同块簇窜升占四成多+十余笔 0.0001 级尘埃买垫推、回撤不足 2%、笔比超 13:1）');
   ok(pump.includes('窜完即止') && pump.includes('无尘埃买垫量缓推段') && pump.includes('纯爆发不属本题'),
     'slow_grind_pump D3.15 反例补窜完即止形状（CD53/CD54 同块簇占比过半数十秒窜完、无垫推段——防误伤划界锚）');
-  ok(pump.includes('本题命中的附属条件是低活跃度') && pump.includes('至多 moderate、不给 strong'),
-    'slow_grind_pump D3.16 加活跃度反锚（高活跃盘=市场合力至多 moderate 不给 strong——CD56 裁定「附属条件是活跃度低，strong 就肯定不行了」）');
+  ok(pump.includes('市场合力而非单向推价') && pump.includes('至多 moderate、不给 strong') && pump.includes('单向死水形状'),
+    'slow_grind_pump D3.16 活跃度反锚精神存续于 D3.21 ⑤（高活跃市场合力至多 moderate 不给 strong；CD56 裁定「附属条件是活跃度低，strong 就肯定不行了」——唯组织性推价形状豁免升档通道）');
+  ok(pump.includes('合力与推手反锚') && pump.includes('组织性推价形状') && pump.includes('至多 moderate、不给 strong'),
+    'slow_grind_pump D3.21 ⑤反锚改写=合力与推手反锚（独立进场合力至多 moderate；组织性阵列/单钱包连推可 strong——CD72 立案）');
   ok(pump.includes('高活跃盘的价格抬升段') && pump.includes('市场合力形状'),
     'slow_grind_pump D3.16 反例补高活跃盘形状（CD56：约 50 笔/分高频盘推进段不给 strong）');
 

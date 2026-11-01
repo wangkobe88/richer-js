@@ -1115,12 +1115,12 @@
         "tickCount": 27
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买20/卖7 Σ买2.20BNB 钱包20 top1=22.5% churn6 同块簇3 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买20/卖7 Σ买2.20BNB 钱包20 top1=22.5% churn6 同块簇3 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "组14裁定=healthy（页面展示正常——前次「无数据」为地址手敲错误假 bug 非 DB/页面问题；盘面观测无 strong 结构证据）"
     },
     {
       "caseId": "CD71",
