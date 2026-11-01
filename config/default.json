@@ -162,7 +162,12 @@
       "failCooldownMs": 10000
     },
     "cheatCheck": {
-      "enabled": false
+      "enabled": false,
+      "gate": {
+        "enabled": false,
+        "awaitMs": 15000,
+        "unhealthyReanalyses": 3
+      }
     },
     "gmgnWalletStats": {
       "enabled": false,

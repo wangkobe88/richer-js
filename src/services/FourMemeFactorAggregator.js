@@ -284,6 +284,10 @@ let _narrativeFactorConfig = { ..._NARRATIVE_FACTOR_DEFAULTS };
 // 同款模块级单例——无回填恒 null → 卖臂条件 `issuerAccountState == 'deleted'` 恒
 // false = fail-closed 不误卖；引擎 stop 逐 token 清）
 let _accountHealthOverrides = null;
+// G1 作弊盘检测分级注入（2026-11-01 用户裁定升级为买门；引擎 _cheatGateEvaluate
+// 单写者，_narrativeFactorOverrides 同款模块级单例——无回填恒 null/0 → 纯观测键
+// 不进条件串（分级行为走引擎硬门）；引擎 stop 逐 token 清）
+let _cheatFactorOverrides = null;
 // sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
 // BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
 // token_count 写入方=mine-smart-wallets.cjs --apply（入榜钱包 rawTotalRun）。⚠口径边界：当前
@@ -3598,6 +3602,22 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.issuerAccountState = _ah && _ah.state !== 'unknown' ? _ah.state : null;
         }
 
+        // ── 作弊盘检测分级注入（G1，2026-11-01 用户裁定升级为买门）：cheatGrade
+        //    （'cheat'|'unhealthy'|'healthy'|null）+ cheatUnhealthyGrades（unhealthy
+        //    真分析判定次数）+ cheatBlocked（拉黑 1/0）。引擎 _cheatGateEvaluate
+        //    单写者（判定/迟到补投影），本投影纯观测——**不进条件串**（分级行为
+        //    走引擎硬门，防存量腿裸引用 fail-closed 拦死）；未判定（gate 未开/
+        //    回测零接线/首判未完成）→ null/0 → 观测键恒缺席。回测不投影=键恒
+        //    null（getFactorKeys 探针照收键，三防线认得但不消费）──
+        {
+            const _cg = state.tokenAddress && _cheatFactorOverrides
+                ? _cheatFactorOverrides.get(state.tokenAddress) || null
+                : null;
+            factors.cheatGrade = _cg ? (_cg.grade ?? null) : null;
+            factors.cheatUnhealthyGrades = _cg ? (_cg.unhealthyGrades ?? 0) : 0;
+            factors.cheatBlocked = _cg && _cg.blocked === true ? 1 : 0;
+        }
+
         return factors;
     }
 
@@ -3701,6 +3721,36 @@ class FourMemeFactorAggregator extends EventEmitter {
     static clearAccountHealthFactors(tokenAddress) {
         if (!_accountHealthOverrides) return false;
         return _accountHealthOverrides.delete(tokenAddress);
+    }
+
+    // ═══════════════ 作弊盘检测分级回填接口（static，G1；母版=setNarrativeFactors）═══════════════
+
+    /**
+     * 回填某 token 的作弊盘检测分级（引擎 _cheatGateEvaluate 单写者：判定完成/
+     * 竞速超时迟到补投影；stop 逐 token 清）。整包替换。
+     * @param {string} tokenAddress
+     * @param {{grade: 'cheat'|'unhealthy'|'healthy'|null, unhealthyGrades?: number,
+     *   blocked?: boolean}} snapshot
+     *   grade=cheat-grade.js G1 分级；unhealthyGrades=unhealthy 真分析累计次数；
+     *   blocked=拉黑（cheat / unhealthy 用尽）。投影键 cheatGrade/cheatUnhealthyGrades/
+     *   cheatBlocked 纯观测不进条件串（分级行为走引擎硬门）
+     */
+    static setCheatFactors(tokenAddress, snapshot) {
+        if (!tokenAddress) return false;
+        if (!_cheatFactorOverrides) _cheatFactorOverrides = new Map();
+        _cheatFactorOverrides.set(tokenAddress, snapshot);
+        return true;
+    }
+
+    /** 取回填的作弊盘分级（无则 null）。 */
+    static getCheatFactors(tokenAddress) {
+        return (_cheatFactorOverrides && _cheatFactorOverrides.get(tokenAddress)) || null;
+    }
+
+    /** 清除某 token 的作弊盘分级回填（引擎 stop 清单例，防同进程下一实验继承）。 */
+    static clearCheatFactors(tokenAddress) {
+        if (!_cheatFactorOverrides) return false;
+        return _cheatFactorOverrides.delete(tokenAddress);
     }
 
     /**

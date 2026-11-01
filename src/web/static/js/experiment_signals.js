@@ -2553,6 +2553,8 @@ class ExperimentSignals {
       // 第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）：因子实时快照在 metadata.gmgnCheck
       const gmgnCheckCondition = this._getGmgnCheckCondition(strategyId);
       const gmgnCheckInfo = metadata.gmgnCheck || null;
+      // 作弊盘检测轨迹（CD1 观察层 / G1 分级门两形状，2026-11-01）
+      const cheatCheckInfo = metadata.cheatCheck || null;
 
       // 购买前置检查结果
       const checkResultBadge = pr.canBuy === false ?
@@ -2763,6 +2765,64 @@ class ExperimentSignals {
         `;
       }
 
+      // 作弊盘检测块（CD1/G1，2026-11-01）：观察层轨迹（initiated/joined_inflight）与
+      // 分级门判定（grade 在场）两形状；放行态（insufficient_ticks/fail/timeout）如实展示
+      let cheatCheckHtml = '';
+      if (cheatCheckInfo) {
+        const cs = cheatCheckInfo.status || '';
+        if (cheatCheckInfo.grade) {
+          const g = cheatCheckInfo.grade;
+          const gBadge = g === 'cheat'
+            ? '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-bold">🚫 cheat（拉黑不再交易+持仓清仓）</span>'
+            : (g === 'unhealthy'
+              ? `<span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⚠️ unhealthy（拒买·重判中）</span>`
+              : '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ healthy（放行）</span>');
+          const codes = (cheatCheckInfo.reasons || []).map((r) => r.code).filter(Boolean).join(', ');
+          const srcBit = cs === 'graded' ? '（拉黑秒回·零 Jev）'
+            : (cs === 'reused' ? '（增量门内重用上次判定）' : '');
+          cheatCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（G1 分级门）</div>
+              ${gBadge}
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-800">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（超上限拉黑）</div>` : ''}
+              ${codes ? `<div class="col-span-3"><span class="text-amber-800">触发通道:</span> <code class="text-xs bg-white px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
+              <div class="col-span-3 text-gray-500">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 11 题；映射=cheat-grade G1）'}</div>
+            </div>
+          </div>
+          `;
+        } else if (cs === 'timeout_fail_open') {
+          cheatCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（G1 分级门）</div>
+              <span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⏱️ 竞速超时放行</span>
+            </div>
+            <div class="text-xs text-gray-500">本笔放行（等待 ${cheatCheckInfo.awaitMs ?? '—'}ms 未出结果）；迟到结果下轮生效（cheat 迟到则补拉黑+清仓）</div>
+          </div>
+          `;
+        } else {
+          // 观察层轨迹 / 放行态（insufficient_ticks·fail·disabled·error）
+          const label = cs === 'initiated' ? `观察模式：已发起后台分析（settle ${cheatCheckInfo.settleDelayMs ?? '—'}ms 后落表）`
+            : cs === 'joined_inflight' ? '观察模式：并入进行中的分析（inflight join）'
+            : cs === 'insufficient_ticks' ? '放行（锚窗 tick 不足，不判定）'
+            : cs === 'fail' ? `放行（检测层故障 reason=${cheatCheckInfo.reason || '—'}）`
+            : cs === 'error' ? `放行（接线异常 reason=${cheatCheckInfo.reason || '—'}）`
+            : `放行（status=${cs || '—'}）`;
+          cheatCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（CD1）</div>
+              <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">观察轨迹</span>
+            </div>
+            <div class="text-xs text-gray-500">${this._escapeHtml(label)}${cheatCheckInfo.lastAnchorTickCount != null ? ` · 上次锚窗 ${cheatCheckInfo.lastAnchorTickCount} ticks` : ''}</div>
+          </div>
+          `;
+        }
+      }
+
       preBuyCheckHtml = `
         <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
           <div class="flex items-center justify-between mb-2">
@@ -2775,6 +2835,7 @@ class ExperimentSignals {
           ${strategyConfigHtml}
           ${failedConditionsHtml}
           ${gmgnCheckHtml}
+          ${cheatCheckHtml}
           ${tpaFactorsHtml}
           ${narrativeRoundsHtml}
         </div>

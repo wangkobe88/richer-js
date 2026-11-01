@@ -222,6 +222,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     //（_accountHealthOverrides 投影，卖腿与买腿同 FA 因子表）；未检测/unknown/回测
     // → null 不掩盖（unknown 投影 null 是刻意语义，见 FA 注入段）
     issuerAccountState: factorResults.issuerAccountState ?? null,
+    // G1 作弊盘门观测三键（2026-11-01，_cheatFactorOverrides 投影；纯观测不进条件串
+    // ——分级行为走引擎硬门）：判定时刻分级/unhealthy 累计/拉黑快照；gate 未开/
+    // 首判未完成/回测 → null/0 不掩盖
+    cheatGrade: factorResults.cheatGrade ?? null,
+    cheatUnhealthyGrades: factorResults.cheatUnhealthyGrades ?? 0,
+    cheatBlocked: factorResults.cheatBlocked ?? 0,
   };
 }
 

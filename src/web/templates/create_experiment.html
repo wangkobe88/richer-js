@@ -872,6 +872,47 @@
                     </p>
                 </div>
 
+                <!-- 作弊盘检测（CD1，2026-11-01 G1 起含分级门）：Jev 驱动买点盘面检测。
+                     双开关=主开关检测层（enabled）+ 分级门（gate.enabled）——只开主开关=观察
+                     模式（fire-and-forget 不影响买决策）；分级门=cheat/unhealthy/healthy 三级
+                     买点硬门（cheat 拉黑不再交易+持仓清仓；unhealthy 拒买可重判；healthy 放行
+                     叙事/GMGN 门照走）。物化语义=观察信号同款「关=删段」；回测整段剥离 -->
+                <div class="border border-gray-200 rounded-lg p-3" id="cheat-check-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">🚨 作弊盘检测（CD1 + G1 分级门）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                买点盘面健康检测（11 题 Jev 观测）。分级门开启后：cheat → 拉黑不再交易+持仓立即清仓；
+                                unhealthy → 拒买，活跃度恢复/盘面变化后自动重判；healthy → 放行（叙事/GMGN 门照走）。
+                                仅虚拟/实盘；回测不适用
+                            </p>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                        <input type="checkbox" id="cd-enabled" class="rounded">
+                        启用检测（只开本开关=观察模式：只落表不影响买决策）
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 ml-5">
+                        <input type="checkbox" id="cd-gate-enabled" class="rounded">
+                        启用分级门（买点硬门 + cheat 拉黑清仓联动）
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
+                        <span class="whitespace-nowrap">unhealthy 重判上限</span>
+                        <input type="text" id="cd-unhealthy-reanalyses" placeholder="3"
+                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">买点等待上限(ms)</span>
+                        <input type="text" id="cd-await-ms" placeholder="15000"
+                               class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        重判上限=真判 unhealthy 次数超过后拉黑（默认 3，即第 4 次拉黑；增量门 60s∧20tick
+                        节流重判）；等待上限=买点同步竞速 Jev 的 ms 数（默认 15000，超时本笔放行、迟到结果
+                        下轮生效）。空值=默认
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -1268,6 +1309,22 @@
                         if (obsInterval && Number.isInteger(obs.intervalMs)) obsInterval.value = obs.intervalMs;
                         if (obsMax && Number.isInteger(obs.maxPerToken)) obsMax.value = obs.maxPerToken;
                         if (obsMcap && Number.isInteger(obs.marketCapThreshold)) obsMcap.value = obs.marketCapThreshold;
+                    }
+                }
+
+                // 作弊盘检测回填（2026-11-01 G1）：物化语义同观察信号「关=删段」——
+                // 源段 enabled===true 才显示为开（缺段=关）；gate 子段同理；数字键有值才回填
+                {
+                    const cd = copyData.fourmemeWs?.cheatCheck || copyData.flapWs?.cheatCheck;
+                    if (cd) {
+                        const cdCb = document.getElementById('cd-enabled');
+                        const cdGate = document.getElementById('cd-gate-enabled');
+                        const cdN = document.getElementById('cd-unhealthy-reanalyses');
+                        const cdMs = document.getElementById('cd-await-ms');
+                        if (cdCb) cdCb.checked = cd.enabled === true;
+                        if (cdGate) cdGate.checked = !!(cd.gate && cd.gate.enabled === true);
+                        if (cdN && Number.isInteger(cd.gate?.unhealthyReanalyses)) cdN.value = cd.gate.unhealthyReanalyses;
+                        if (cdMs && Number.isInteger(cd.gate?.awaitMs)) cdMs.value = cd.gate.awaitMs;
                     }
                 }
 
@@ -2128,6 +2185,43 @@
                     } else if (adv[sec]) {
                         // 未勾=关：删段（含清掉复制携带的段）
                         delete adv[sec].observationSignals;
+                    }
+                }
+            }
+            // 作弊盘检测收集（2026-11-01 G1）：观察信号同款物化「关=删段」——勾主开关
+            // 才写 {enabled:true}，勾分级门再嵌 gate:{enabled:true}（只开主开关=观察
+            // 模式零变化）；不勾=删段（含清掉复制携带段防静默开）；回测整段剥离
+            {
+                const cdCb = document.getElementById('cd-enabled');
+                const cdGate = document.getElementById('cd-gate-enabled');
+                const cdN = /^\d+$/.test((document.getElementById('cd-unhealthy-reanalyses')?.value || '').trim())
+                    ? parseInt(document.getElementById('cd-unhealthy-reanalyses').value.trim(), 10) : null;
+                const cdMs = /^\d+$/.test((document.getElementById('cd-await-ms')?.value || '').trim())
+                    ? parseInt(document.getElementById('cd-await-ms').value.trim(), 10) : null;
+                for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
+                    if (adv[k]) adv[k] = { ...(adv[k] || {}) };
+                }
+                if (tradingMode === 'backtest') {
+                    for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
+                        if (adv[k]) delete adv[k].cheatCheck;
+                    }
+                } else {
+                    const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
+                    const sec = (_plat === 'flap') ? 'flapWs' : (_plat === 'gang') ? 'gangWs' : 'fourmemeWs';
+                    for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
+                        if (k !== sec && adv[k]) delete adv[k].cheatCheck;
+                    }
+                    if (cdCb?.checked) {
+                        const gate = cdGate?.checked
+                            ? { ...(adv[sec]?.cheatCheck?.gate || {}), enabled: true,
+                                ...(cdN !== null ? { unhealthyReanalyses: cdN } : {}),
+                                ...(cdMs !== null ? { awaitMs: cdMs } : {}) }
+                            : null;
+                        adv[sec] = { ...(adv[sec] || {}),
+                            cheatCheck: { ...(adv[sec]?.cheatCheck || {}), enabled: true,
+                                ...(gate ? { gate } : {}) } };
+                    } else if (adv[sec]) {
+                        delete adv[sec].cheatCheck;
                     }
                 }
             }

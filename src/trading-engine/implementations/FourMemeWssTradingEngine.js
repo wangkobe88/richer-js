@@ -348,6 +348,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._cheatCheckService = new CheatCheckService(
       this._mergedWsConfig().cheatCheck || {}, this.logger);
 
+    // G1 分级门（2026-11-01 用户裁定：作弊检测升级为买门）：cheat/unhealthy/healthy
+    // 三级硬门（cheat-grade.js 档位映射）。gate.enabled 显式 true 才启用（缺段/关
+    // =观察模式零变化）；买点 await 竞速 awaitMs（超时 fail-open 放行+迟到结果补
+    // 拉黑/清仓）；cheat 拉黑=进程内 Set（_buyBlockedTokens 同款先例）+持仓清仓
+    // 联动（_emitSellSignal 全清链）。healthy 仅本层放行——叙事/GMGN 门照走（分
+    // 级与叙事质量正交）。回测零接线（BacktestEngine 不继承本类；FA cheat 观测键
+    // 回测恒 null 不进条件串）
+    const _cheatCfg = this._mergedWsConfig().cheatCheck || {};
+    this._cheatGateEnabled = !!(_cheatCfg.gate && _cheatCfg.gate.enabled === true)
+      && this._cheatCheckService.enabled;
+    this._cheatGateAwaitMs = Number.isFinite(_cheatCfg.gate && _cheatCfg.gate.awaitMs)
+      && _cheatCfg.gate.awaitMs > 0 ? _cheatCfg.gate.awaitMs : 15000;
+    this._cheatBlockedTokens = new Set();   // 拉黑（cheat / unhealthy 用尽；与 service._gateBlocked 双保险，引擎短路更早省整条链）
+    this._cheatProjectedTokens = new Set(); // FA cheat 投影过的 token（stop 逐 token 清）
+
     // （1.5.2b GMGN 钱包画像层 gwp 引擎接线已随 T71 2026-10-26 删除——数据口
     //  FA.getEarlyTopBuyers 以 early 出生窗为源，earlyTrades* 冻结窗族整族退役后设计
     //  作废；GmgnWalletStatsService/离线建库脚本/表保留（纯函数层无 FA 依赖），将来
@@ -1494,6 +1509,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._narrativeTriggerStates.clear();
     }
 
+    // G1 作弊盘门清态（2026-11-01）：FA cheat 观测投影逐 token 清（narrative 同款
+    // ——同进程接续起下一实验不读到旧分级）+ 拉黑/投影 Set 清（service gate 态同
+    // 样进程内，随新实验进程重置——「不再交易」语义按实验进程边界）
+    if (this._cheatProjectedTokens) {
+      for (const addr of this._cheatProjectedTokens) {
+        require('../../services/FourMemeFactorAggregator').clearCheatFactors(addr);
+      }
+      this._cheatProjectedTokens.clear();
+    }
+    if (this._cheatBlockedTokens) this._cheatBlockedTokens.clear();
+
     // gwp 钱包画像层清态（2026-10-18）：预取状态 Map 清空防同进程下一实验读到旧
     // （gwp 预取状态清理已随 T71 2026-10-26 删除——gwp 引擎接线整链退役）
 
@@ -1968,6 +1994,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '买入熔断短路（连续链上买入失败已拉黑）' };
       }
 
+      // ── G1 作弊盘门拉黑短路（2026-11-01 用户裁定）──
+      // cheat 判定 / unhealthy 重判用尽已拉黑（引擎 Set 与 service._gateBlocked 双写；
+      // 此处拦在叙事直调/preBuy/signal 落库前=省整条链，_buyingTokens 拦截同窗并发）
+      if (this._cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)) {
+        return { success: false, reason: '作弊盘门短路（cheat/重判用尽已拉黑，不再交易）' };
+      }
+
       const latestPrice = factorResults.currentPrice || 0;
       if (!(latestPrice > 0)) {
         return { success: false, reason: '无有效价格（USD 换算未就绪）' };
@@ -2267,30 +2300,39 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
-      // ── CD1 作弊盘检测观察点（2026-10-30，ZERODAY 0x23f1…7777 案）：preBuy 通过
-      // 后、GMGN if 块外、GMGN 调用前——无 GMGN 条件的腿照样观察、被 GMGN 拒的票
-      // 也进样本（防观察集无声残缺）。fire-and-forget：settle 4s 后拉
-      // wss_price_ticks 组装 as-of 快照真调 Jev，结果落 cheat_detection（增量条件/
-      // 预算顶帽 service 内判定）；**绝不影响买决策**，异步完成不回填信号行 ──
+      // ── CD1 作弊盘检测（2026-10-30，ZERODAY 0x23f1…7777 案）：preBuy 通过后、
+      // GMGN if 块外、GMGN 调用前——无 GMGN 条件的腿照样检查、被 GMGN 拒的票也进
+      // 样本（防观察集无声残缺）。两模式（G1，2026-11-01 用户裁定升级为买门）：
+      // ① gate.enabled=true → gateBuyPoint **await 式三级硬门**（cheat 拉黑+持仓
+      //    清仓联动 / unhealthy 拦买增量门重判 / healthy 放行；竞速 awaitMs 超时
+      //    fail-open 放行本笔+迟到结果补拉黑）；② 缺省 → noteBuyPoint
+      //    fire-and-forget 纯观察（**绝不影响买决策**，异步完成不回填信号行，
+      //    结果落 cheat_detection 增量条件/预算顶帽 service 内判定）──
       let cheatCheckInfo = null;
       if (this._cheatCheckService && this._cheatCheckService.enabled) {
-        try {
-          cheatCheckInfo = this._cheatCheckService.noteBuyPoint(tokenAddress, {
-            address: token.token,
-            symbol: token.symbol || null,
-            name: token.name || null,
-            platform: token.platform || faState?.platform || null,
-            createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
-            creatorAddress: token.creatorAddress || null,
-            // D3.20 持仓集中双锚分母：FA state.totalSupply（TokenCreate 注入，
-            // flap/gang=collector 平台恒 1e9）；缺失 null fail-closed
-            totalSupply: faState?.totalSupply ?? null,
-          }, { experimentId: this._experimentId });
-        } catch (e) {
-          // 兜底吞错（观察层纪律：绝不影响交易链）
-          this.logger.warn(this._experimentId, 'BuyEval',
-            `作弊盘观察点异常（已吞） | ${token.symbol} ${e?.message || e}`);
-          cheatCheckInfo = { status: 'error', reason: e?.message || String(e) };
+        if (this._cheatGateEnabled) {
+          const gate = await this._cheatGateEvaluate(tokenAddress, token, faState, signalId);
+          if (!gate.pass) return { success: false, reason: gate.reason };
+          cheatCheckInfo = gate.info;
+        } else {
+          try {
+            cheatCheckInfo = this._cheatCheckService.noteBuyPoint(tokenAddress, {
+              address: token.token,
+              symbol: token.symbol || null,
+              name: token.name || null,
+              platform: token.platform || faState?.platform || null,
+              createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+              creatorAddress: token.creatorAddress || null,
+              // D3.20 持仓集中双锚分母：FA state.totalSupply（TokenCreate 注入，
+              // flap/gang=collector 平台恒 1e9）；缺失 null fail-closed
+              totalSupply: faState?.totalSupply ?? null,
+            }, { experimentId: this._experimentId });
+          } catch (e) {
+            // 兜底吞错（观察层纪律：绝不影响交易链）
+            this.logger.warn(this._experimentId, 'BuyEval',
+              `作弊盘观察点异常（已吞） | ${token.symbol} ${e?.message || e}`);
+            cheatCheckInfo = { status: 'error', reason: e?.message || String(e) };
+          }
         }
       }
 
@@ -2516,6 +2558,122 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'StallClose',
       `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name} | 已无成交 ${Math.round(stalledMs / 1000)}s | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
     return this._emitSellSignal(token, strategy, factors, null);
+  }
+
+  // ==================== G1 作弊盘门（2026-11-01 用户裁定：检测升级为买门）====================
+
+  /**
+   * 买点 await 式三级判定（挂点=preBuy 过后 GMGN 前）：
+   * - cheat → 拉黑（引擎+service 双 Set）+ 持仓清仓联动 + signal failed + 拒
+   * - unhealthy → signal failed + 拒（下个买点增量门满足自动重判；用尽拉黑走
+   *   service 计数，本方法只消费 grade）
+   * - healthy / insufficient_ticks / fail（llm/cooldown/quota/jev_*）→ 放行
+   *   （fail-open，GMGN 层「检测层故障不得拦买点」同向裁定）
+   * - timeout_fail_open → 放行本笔 + late.then 迟到补拉黑/清仓/投影（下轮生效）
+   * 接线级异常 fail-open 放行（warn 留痕不静默）。
+   */
+  async _cheatGateEvaluate(tokenAddress, token, faState, signalId) {
+    const meta = {
+      address: token.token,
+      symbol: token.symbol || null,
+      name: token.name || null,
+      platform: token.platform || faState?.platform || null,
+      createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+      creatorAddress: token.creatorAddress || null,
+      // D3.20 持仓集中双锚分母（观察点同款）：FA state.totalSupply，缺失 null fail-closed
+      totalSupply: faState?.totalSupply ?? null,
+    };
+    let res;
+    try {
+      res = await this._cheatCheckService.gateBuyPoint(tokenAddress, meta,
+        { experimentId: this._experimentId }, { awaitMs: this._cheatGateAwaitMs });
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'CheatGate',
+        `作弊盘门异常放行 | ${token.symbol || tokenAddress.slice(0, 10)} ${e?.message || e}`);
+      return { pass: true, info: { status: 'error', reason: e?.message || String(e) } };
+    }
+
+    if (res && res.grade) {
+      this._projectCheatFactors(tokenAddress, res);
+      const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
+      if (res.grade === 'cheat') {
+        this._cheatBlockedTokens.add(tokenAddress);
+        this.logger.warn(this._experimentId, 'CheatGate',
+          `🚫 作弊盘门拉黑 | ${token.symbol || tokenAddress.slice(0, 10)} ${tokenAddress} [${reasonCodes}]`);
+        await this._cheatExitPosition(tokenAddress, 'cheat 判定');
+        await this._updateSignalStatus(signalId, 'failed',
+          { message: `作弊盘门拒买: cheat [${reasonCodes}]`, reason: 'cheat_gate_cheat' });
+        return { pass: false, reason: `作弊盘门拒买（cheat 拉黑+持仓清仓联动 [${reasonCodes}]）` };
+      }
+      if (res.grade === 'unhealthy') {
+        const n = res.unhealthyGrades ?? 0;
+        this.logger.info(this._experimentId, 'CheatGate',
+          `作弊盘门拦买 | ${token.symbol || tokenAddress.slice(0, 10)} unhealthy（第 ${n} 次判定，增量门满足后自动重判） [${reasonCodes}]`);
+        await this._updateSignalStatus(signalId, 'failed',
+          { message: `作弊盘门拒买: unhealthy 第 ${n} 次 [${reasonCodes}]`, reason: 'cheat_gate_unhealthy' });
+        return { pass: false, reason: `作弊盘门拒买（unhealthy 第 ${n} 次，重判中）` };
+      }
+      return { pass: true, info: { status: res.status, grade: 'healthy', reasons: res.reasons || [] } };
+    }
+
+    if (res && res.status === 'timeout_fail_open') {
+      this.logger.warn(this._experimentId, 'CheatGate',
+        `作弊盘门竞速超时放行（${this._cheatGateAwaitMs}ms，本笔放行、迟到结果下轮生效） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+      res.late.then((late) => this._cheatGateLateConsume(tokenAddress, late)).catch(() => {});
+      return { pass: true, info: { status: 'timeout_fail_open', awaitMs: this._cheatGateAwaitMs } };
+    }
+
+    // insufficient_ticks / fail / reused 无 grade（跨进程重启后首增量窗）/ unknown
+    // → fail-open 放行
+    return { pass: true, info: res || { status: 'unknown' } };
+  }
+
+  /** 竞速超时后迟到结果消费（本笔已放行）：补投影；cheat 补拉黑+清仓（下轮生效） */
+  _cheatGateLateConsume(tokenAddress, late) {
+    if (!late || !late.grade) return;
+    this._projectCheatFactors(tokenAddress, late);
+    if (late.grade === 'cheat') {
+      this._cheatBlockedTokens.add(tokenAddress);
+      this.logger.warn(this._experimentId, 'CheatGate',
+        `🚫 作弊盘门迟到判定拉黑（竞速超时已放行本笔，持仓则清仓） | ${tokenAddress.slice(0, 10)} ${(late.reasons || []).map((r) => r.code).join(',')}`);
+      this._cheatExitPosition(tokenAddress, 'cheat 迟到判定').catch(() => {});
+    }
+  }
+
+  /** FA 观测投影（纯观测不进条件串；stop 逐 token 清） */
+  _projectCheatFactors(tokenAddress, res) {
+    require('../../services/FourMemeFactorAggregator').setCheatFactors(tokenAddress, {
+      grade: res.grade ?? null,
+      unhealthyGrades: res.unhealthyGrades ?? 0,
+      blocked: res.grade === 'cheat' || this._cheatBlockedTokens.has(tokenAddress),
+    });
+    this._cheatProjectedTokens.add(tokenAddress);
+  }
+
+  /**
+   * cheat 拉黑清仓联动（「代币不再交易」含离场）：_emitSellSignal 全清链
+   * （stallClose 同构零新执行逻辑）。卖/买执行中跳过（不重入）；无持仓/无
+   * factors 静默跳过（fail-open——清仓失败不阻塞拉黑主路径，warn 留痕）。
+   */
+  async _cheatExitPosition(tokenAddress, why) {
+    try {
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) return;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') return;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+      if (!factors) return;
+      const strategy = {
+        id: 'cheatExit', name: `作弊盘门全清(${why})`,
+        action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+        priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+      };
+      this.logger.warn(this._experimentId, 'CheatGate',
+        `作弊盘门清仓联动 | ${token.symbol || tokenAddress.slice(0, 10)} ${why} | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
+      await this._emitSellSignal(token, strategy, factors, null);
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'CheatGate',
+        `cheat 清仓联动异常（已吞，拉黑不受影响） | ${tokenAddress} ${e?.message || e}`);
+    }
   }
 
   /**

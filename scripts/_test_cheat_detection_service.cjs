@@ -391,6 +391,103 @@ async function main() {
     ok(engineSrc.includes('this._mergedWsConfig().cheatCheck || {}'), 'config 走 _mergedWsConfig（flap/gang 实验同键生效）');
   }
 
+  // ═══════════════ Z. G1 分级门（2026-11-01 用户裁定升级为买门） ═══════════════
+  console.log('Z. G1 gateBuyPoint 分级门');
+  {
+    // Z1. cheat 首判：GOOD（tier/bw/rat 三 strong）→ A 通道拉黑 + 拉黑秒回零 Jev
+    const db = makeDb({ ticks: genTicks(20) });
+    const llm = makeLlm();
+    const svc = makeSvc(db, llm);
+    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.status === 'analyzed' && r1.grade === 'cheat'
+      && r1.reasons.some((x) => x.code.startsWith('A_strong')),
+      `首判 cheat（A 通道 strong）+ reasons 留痕（实际 ${r1.grade}/${r1.reasons.map((x) => x.code).join(',')}）`);
+    ok(svc.isGateBlocked('0xtok') === true, 'cheat → service 拉黑（isGateBlocked）');
+    const before = llm.calls.ask;
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'graded' && r2.grade === 'cheat' && r2.blocked === true
+      && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
+      '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
+    ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G1'
+      && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
+      'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
+  }
+  {
+    // Z2. unhealthy 计数→重判→用尽拉黑（unhealthyReanalyses=3：第 4 次 unhealthy 拉黑）
+    const db = makeDb({ ticks: genTicks(20) });
+    const pumpBurst = { // A 降级形状（唯一 pump strong ∧ burst ∧ mod<3 ∧ sbHold<50）→ unhealthy
+      equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
+      creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
+      stall_burst_wave: sbwAns('burst'), amount_tiering: phAns('none'),
+      same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
+      slow_grind_pump: phAns('strong'), activity_level: actAns('mid'),
+      bundled_trade_dominance: bdAns('low'),
+    };
+    const llm = makeLlm({ answers: pumpBurst });
+    const nowRef = { t: 1000000 };
+    const svc = makeSvc(db, llm, { gate: { unhealthyReanalyses: 3 } }, nowRef);
+    for (let round = 1; round <= 4; round++) {
+      if (round > 1) { db.holder.ticks = genTicks(20 + round * 20); nowRef.t += 61000; } // +20 tick 硬增量触发重判
+      const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+      ok(r.status === 'analyzed' && r.grade === 'unhealthy' && r.unhealthyGrades === round,
+        `第 ${round} 轮 unhealthy（unhealthyGrades=${r.unhealthyGrades}）`);
+    }
+    ok(svc.isGateBlocked('0xtok') === true, '第 4 次 unhealthy（>3 重判上限）→ 拉黑');
+    const askBefore = llm.calls.ask;
+    const r5 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r5.grade === 'cheat' && r5.blocked === true && llm.calls.ask === askBefore,
+      '用尽后 gate 秒回 blocked（不再重判）');
+  }
+  {
+    // Z3. 增量门内重用（不烧 Jev，grade 重用）+ healthy 放行
+    const db = makeDb({ ticks: genTicks(20) });
+    const llm = makeLlm({ answers: {
+      equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
+      creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
+      stall_burst_wave: sbwAns('none'), amount_tiering: phAns('none'),
+      same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
+      slow_grind_pump: phAns('none'), activity_level: actAns('mid'),
+      bundled_trade_dominance: bdAns('low'),
+    } });
+    const nowRef = { t: 1000000 };
+    const svc = makeSvc(db, llm, {}, nowRef);
+    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.status === 'analyzed' && r1.grade === 'healthy', '全 none 形状 → healthy 放行');
+    const askBefore = llm.calls.ask;
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'reused' && r2.grade === 'healthy' && llm.calls.ask === askBefore,
+      '同锚再买点 → reused 重用 grade（零 Jev——增量门是重判节流器）');
+  }
+  {
+    // Z4. 竞速超时 fail-open：本笔放行（timeout_fail_open）+ late 链续跑迟到可消费
+    const db = makeDb({ ticks: genTicks(20) });
+    const llm = makeLlm({ hang: true });
+    const svc = makeSvc(db, llm, { settleDelayMs: 50 });
+    const t0 = Date.now();
+    const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 200 });
+    ok(r.status === 'timeout_fail_open' && r.late && typeof r.late.then === 'function'
+      && Date.now() - t0 < 2000,
+      '竞速超时 → timeout_fail_open + late promise（本笔放行不阻塞等待 Jev）');
+    ok(svc.stats.gateTimeouts === 1, 'gateTimeouts 计数');
+  }
+  {
+    // Z5. 放行态四形状（观察层 fail-open 语义平移）：insufficient_ticks / quota /
+    //     jev 失败 / disabled
+    const db = makeDb({ ticks: genTicks(5) });
+    const llm = makeLlm();
+    const svc = makeSvc(db, llm, { minTicks: 8 });
+    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.status === 'insufficient_ticks', '低 tick → insufficient_ticks（放行态，无 grade）');
+    const svc2 = new CheatCheckService({ enabled: false }, null, { dbClient: db.client });
+    ok((await svc2.gateBuyPoint('0xtok', META, {})).status === 'disabled', 'enabled=false → disabled');
+    const db3 = makeDb({ ticks: genTicks(20) });
+    const llm3 = makeLlm({ reject: 'jev down' });
+    const svc3 = makeSvc(db3, llm3);
+    const r3 = await svc3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r3.status === 'fail' && r3.reason === 'jev_error', 'Jev 失败 → fail 放行态（不拦买点）');
+  }
+
   console.log(`\n✅ _test_cheat_detection_service 全过（${passed} 断言）`);
 }
 

@@ -44,11 +44,25 @@
  * 引擎挂点：_runBuyEvaluation preBuy 通过后、GMGN if 块外（无 GMGN 条件的腿
  * 照样检查、被 GMGN 拒的票也进观察样本）。回测零接线（BacktestEngine 不继承
  * _runBuyEvaluation）。实验 stop 不清理表行（token 级全局资产）。
+ *
+ * ── G1 分级门（2026-11-01 用户裁定：作弊检测升级为买门）──
+ * gateBuyPoint：买点 await 式判定（竞速 awaitMs 上限，超时 fail-open 放行本笔
+ * +链续跑，迟到结果经返回值 late 供引擎补拉黑/清仓）。cheat/unhealthy/healthy
+ * 由 cheat-grade.js 纯函数从观测档位映射（G1 规则+对拍见该文件头注）：
+ * - cheat → 进程内拉黑（_gateBlocked 秒回不再烧 Jev）+ 引擎侧持仓清仓联动
+ * - unhealthy → 拦买；真分析重判机会 unhealthyReanalyses 次（首次后可再判 N 次，
+ *   第 N+1 次 unhealthy 用尽 → 拉黑同 cheat）。增量门内（60s∧20tick）重复买点
+ *   重用上次 grade 不烧配额
+ * - healthy / insufficient_ticks / 预算耗尽 / 冷却 / Jev 失败 → 放行
+ *   （fail-open，GMGN 层「数据不可用不得拦买点」同向裁定）
+ * 观察模式（gate 未开）noteBuyPoint 行为零变化——分级只在分析链尾部附加计算，
+ * 观察实验多算一个 Map 计数无消费端。
  */
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation } = require('./cheat-result-mapper');
+const { gradeObservation } = require('./cheat-grade');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -60,6 +74,8 @@ const DEFAULTS = {
   failCooldownMs: 10000,     // 失败后冷却（冷却期内买点不再发起链）
   pullLimit: 3000,           // tail 拉数帽（anchor=该单次查询返回行数）
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）
+  gateAwaitMs: 15000,        // G1 分级门：买点 await 竞速上限（超时 fail-open 放行）
+  unhealthyReanalyses: 3,    // G1：unhealthy 首判后可再判次数（第 N+1 次 unhealthy 拉黑）
 };
 
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
@@ -84,6 +100,12 @@ class CheatCheckService {
     this._pullLimit = num(config.pullLimit, DEFAULTS.pullLimit, 10);
     this._headLimit = num(config.headLimit, DEFAULTS.headLimit, 10);
 
+    // G1 分级门（cheat-grade.js 纯函数映射；配置 gate 段由引擎消费 enabled，本
+    // service 消费 awaitMs/unhealthyReanalyses 两个数值键）
+    this._gateAwaitMs = num(config.gate && config.gate.awaitMs, DEFAULTS.gateAwaitMs, 1);
+    this._unhealthyReanalyses = num(
+      config.gate && config.gate.unhealthyReanalyses, DEFAULTS.unhealthyReanalyses, 0);
+
     this._logger = logger;
     this._deps = deps;
     this._dbClient = deps.dbClient || null;
@@ -97,10 +119,16 @@ class CheatCheckService {
     this._promptWritten = new Set(); // `${token}\0${version}` → jev_prompt 已落过（首行全文防线）
     this._llm = null;                // { JevClient, buildCheatQuestions, CHEAT_QUESTIONS_VERSION }
 
+    // G1 分级门状态（进程内，重启即清；drain/stop 不清理——与 _lastAnalysis 同款）
+    this._gateBlocked = new Set();       // token → 拉黑（cheat / unhealthy 用尽；秒回不烧 Jev）
+    this._gateUnhealthyGrades = new Map(); // token → unhealthy 真分析判定次数（真调 Jev 才计）
+    this._lastGrade = new Map();         // token → { grade, reasons, version, unhealthyGrades }（增量门内重用）
+
     this.stats = {
       noted: 0, analyzed: 0, skippedInsufficientTicks: 0, skippedQuota: 0,
       cacheReused: 0, cooldownSkipped: 0, rowsWritten: 0, writeFailed: 0,
       timeouts: 0, errors: 0, inflightJoined: 0,
+      gateNoted: 0, gateBlockedHits: 0, gateTimeouts: 0, gateGraded: 0,
     };
   }
 
@@ -143,6 +171,64 @@ class CheatCheckService {
     ]);
   }
 
+  /**
+   * G1 分级门：买点 await 式判定（2026-11-01 用户裁定升级为买门）。
+   * 走同一 _chain（settle 4s+拉数+Jev+mapper+分级），竞速 awaitMs 上限：
+   * - 拉黑秒回：{status:'graded', grade:'cheat', blocked:true}（不烧 Jev）
+   * - 判定完成：{status:'analyzed'|'reused', grade, reasons, unhealthyGrades}
+   *   （analyzed=本次真调 Jev；reused=增量门内重用上次 grade）
+   * - 竞速超时：{status:'timeout_fail_open', late:Promise}——**链续跑不终止**，
+   *   调用方挂 late.then 补拉黑/清仓/投影（本笔已放行，下轮生效）
+   * - 放行态（不拦买，GMGN fail-open 同向）：insufficient_ticks / fail
+   *   （llm_load/cooldown/quota/jev_timeout/jev_error/mapper_error）
+   * 不抛错（接线级异常由引擎 catch 放行）。
+   */
+  async gateBuyPoint(tokenAddress, tokenMeta = {}, context = {}, opts = {}) {
+    if (!this._enabled) return { status: 'disabled' };
+    const token = String(tokenAddress || '').toLowerCase();
+    if (!token) return { status: 'invalid_token' };
+    this.stats.gateNoted++;
+
+    if (this._gateBlocked.has(token)) {
+      this.stats.gateBlockedHits++;
+      return {
+        status: 'graded', grade: 'cheat', blocked: true,
+        reasons: [{ level: 'cheat', code: 'gate_blocked' }],
+        unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
+      };
+    }
+
+    let chain = this._inflight.get(token);
+    if (!chain) {
+      chain = this._chain(token, tokenMeta, context).finally(() => this._inflight.delete(token));
+      chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
+      this._inflight.set(token, chain);
+    } else {
+      this.stats.inflightJoined++;
+    }
+
+    const awaitMs = Number.isFinite(opts.awaitMs) && opts.awaitMs > 0
+      ? opts.awaitMs : this._gateAwaitMs;
+    const timedOut = Symbol('gate_timeout');
+    const result = await Promise.race([
+      chain,
+      new Promise((r) => setTimeout(() => r(timedOut), awaitMs)),
+    ]);
+    if (result === timedOut) {
+      this.stats.gateTimeouts++;
+      return { status: 'timeout_fail_open', late: chain };
+    }
+    if (result && (result.grade === 'cheat' || result.grade === 'unhealthy' || result.grade === 'healthy')) {
+      this.stats.gateGraded++;
+    }
+    return result;
+  }
+
+  /** G1 拉黑查询（引擎买条件评估后短路用——省叙事直调/preBuy 整条链） */
+  isGateBlocked(tokenAddress) {
+    return this._gateBlocked.has(String(tokenAddress || '').toLowerCase());
+  }
+
   // ─────────────────────────── 分析链（全吞错） ───────────────────────────
 
   async _chain(token, tokenMeta, context) {
@@ -157,14 +243,14 @@ class CheatCheckService {
         this.stats.errors++;
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         this._log('warn', `LLM 模块加载失败，本次跳过 | ${token} ${e?.message || e}`);
-        return;
+        return { status: 'fail', reason: 'llm_load' };
       }
 
       // 3) 失败冷却
       const failUntil = this._failUntil.get(token) || 0;
       if (this._now() < failUntil) {
         this.stats.cooldownSkipped++;
-        return;
+        return { status: 'fail', reason: 'cooldown' };
       }
 
       // 4) DB 历史回读（首触补偿跨进程：缓存态 + 预算计数）
@@ -182,10 +268,10 @@ class CheatCheckService {
           verdict: null, lowTicks: true,
         });
         this._log('info', `ticks 不足跳过（${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
-        return;
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
       }
 
-      // 7) 增量判定（时点性缓存核心）
+      // 7) 增量判定（时点性缓存核心）；未触发 → G1 重用上次 grade（不烧 Jev）
       const last = this._lastAnalysis.get(token);
       if (last && last.questionVersion === this._version) {
         const newTicks = this._estimateNewTicks(last, pull);
@@ -193,7 +279,8 @@ class CheatCheckService {
         const triggered = (newTicks > 0 && ageMs >= this._minIntervalMs) || newTicks >= this._reanalyzeTickDelta;
         if (!triggered) {
           this.stats.cacheReused++;
-          return;
+          const lg = this._lastGrade.get(token);
+          return lg ? { status: 'reused', ...lg } : { status: 'reused' };
         }
       }
 
@@ -202,7 +289,7 @@ class CheatCheckService {
       if (done >= this._maxAnalysesPerToken) {
         this.stats.skippedQuota++;
         this._log('info', `分析预算耗尽（${done}/${this._maxAnalysesPerToken}） | ${token}`);
-        return;
+        return { status: 'fail', reason: 'quota' };
       }
 
       // 9) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
@@ -228,7 +315,7 @@ class CheatCheckService {
           capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(), verdict: null,
         });
         this._log('warn', `Jev ${res.kind} | ${token} ${res.error?.message || ''}`);
-        return;
+        return { status: 'fail', reason: res.kind === 'timeout' ? 'jev_timeout' : 'jev_error' };
       }
 
       // 11) mapper 观测组装 + 落库（D3.5：现象+档位观测记录无 verdict；D3.1 持仓
@@ -247,8 +334,21 @@ class CheatCheckService {
         await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context, snapshot.derived);
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         this._analysisCount.set(token, done + 1);
-        return;
+        return { status: 'fail', reason: 'mapper_error' };
       }
+      // G1 分级（2026-11-01 用户裁定：档位→交易三级映射，cheat-grade.js 纯函数；
+      // anchorSellCount=锚窗卖笔数现场计数——E 门真实对手盘豁免原料，digest 落档）
+      let anchorSellCount = 0;
+      for (const r of pull.rows) if (r.trade_type !== 'buy') anchorSellCount++;
+      const graded = gradeObservation(obs, {
+        famousLevel: snapshot.derived.famousDominanceLevel ?? null,
+        anchorSellCount,
+      });
+      obs.grade = graded.grade;
+      obs.gradeReasons = graded.reasons;
+      obs.gradeVersion = graded.version;
+      obs.anchorSellCount = anchorSellCount;
+
       await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
       this._analysisCount.set(token, done + 1);
       this._lastAnalysis.set(token, {
@@ -256,6 +356,21 @@ class CheatCheckService {
         capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(), verdict: 'observed',
       });
       this.stats.analyzed++;
+
+      // G1 分级消费：cheat 拉黑 / unhealthy 计数（真分析才计；重判机会=首判后
+      // unhealthyReanalyses 次，第 N+1 次 unhealthy 用尽拉黑）。观察模式实验
+      // （gate 未开）无引擎消费端，多算无影响
+      if (graded.grade === 'cheat') {
+        this._gateBlocked.add(token);
+      } else if (graded.grade === 'unhealthy') {
+        const n = (this._gateUnhealthyGrades.get(token) || 0) + 1;
+        this._gateUnhealthyGrades.set(token, n);
+        if (n > this._unhealthyReanalyses) this._gateBlocked.add(token);
+      }
+      this._lastGrade.set(token, {
+        grade: graded.grade, reasons: graded.reasons, version: graded.version,
+        unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
+      });
       const p = obs.phenomena;
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
         ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
@@ -264,12 +379,18 @@ class CheatCheckService {
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
+        ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
+      return {
+        status: 'analyzed', grade: graded.grade, reasons: graded.reasons,
+        unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
+      };
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
       this.stats.errors++;
       this._failUntil.set(token, this._now() + this._failCooldownMs);
       this._log('error', `分析链异常（已吞，不影响交易） | ${token} ${e?.stack || e}`);
+      return { status: 'fail', reason: 'chain_error' };
     }
   }
 
@@ -500,6 +621,11 @@ class CheatCheckService {
         activityLevel: mapped.activityLevel ?? null, // Jev 活跃度题档位（<D3.5 旧档缺席 null）
         bundledDominance: mapped.bundledDominance ?? null, // Jev 捆绑主导度档位（D3.8；<D3.8 旧档缺席 null）
         anchors: mapped.anchors ?? null,             // 持仓占比数值锚（重放对拍用）
+        // G1 分级（2026-11-01：档位→交易三级映射；失败行/观察模式旧路径无键=null）
+        grade: mapped.grade ?? null,
+        gradeReasons: mapped.gradeReasons ?? null,
+        gradeVersion: mapped.gradeVersion ?? null,
+        anchorSellCount: mapped.anchorSellCount ?? null,
         activity: { // D3.2 代码活跃度原始数值——Jev 档位（activityLevel）的校准对照原料
           ticksPerMin: derived.ticksPerMin ?? null,
           avgTradeBnb: derived.avgTradeBnb ?? null,

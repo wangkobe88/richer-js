@@ -43,6 +43,9 @@ const PULL_LIMIT = 3000; // 与 CheatCheckService 默认 pullLimit 一致（--ad
 const require_ = createRequire(import.meta.url);
 // 与实时 service 同一组装路径（CJS 纯函数复用=口径单点）
 const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snapshot.js');
+// G1 分级门对拍同源（gradeObservation=生产 gate 同款纯函数；anchorSellCount 与
+// service 口径一致=锚窗卖笔数 derived.sellN；famousLevel=famousDominanceLevel）
+const { gradeObservation, CHEAT_GRADE_RULES_VERSION } = require_('../../src/market-analysis/cheat-grade.js');
 const { buildCheatState } = require_('../../src/market-analysis/cheat-state-builder.js');
 const { buildObservation } = require_('../../src/market-analysis/cheat-result-mapper.js');
 
@@ -448,9 +451,16 @@ async function main() {
       const { failures } = assertExpectation(r.interp, c.expect);
       const pass = !failures.length;
       if (!pass) failed++;
-      // D3.5 对拍停产：expect.verdict=人工裁定记录，展示不比对（观测行=机器输出）
-      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} ${obsLine(r.interp)} sbHold=${r.interp.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.anchors?.equalBandHoldPct ?? '-'} t1供/流=${r.interp.anchors?.top1HoldSupplyPct ?? '-'}/${r.interp.anchors?.top1HoldCircPct ?? '-'} dom=${r.snapshot.derived.famousDominanceLevel ?? '-'}${r.snapshot.derived.famousDominancePct !== null && r.snapshot.derived.famousDominancePct !== undefined ? `(${r.snapshot.derived.famousDominancePct}%)` : ''} ｜人工裁定=${c.expect.verdict ?? '（未裁定）'}（判定层停产——展示不比对）`);
-      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct, top1HoldSupplyPct: r.snapshot.derived.top1HoldSupplyPct, top1HoldCircPct: r.snapshot.derived.top1HoldCircPct }, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, famous: { holdPct: r.snapshot.derived.famousHoldPct, top1Pct: r.snapshot.derived.famousTop1Pct, followerPct: r.snapshot.derived.famousFollowerPct, dominancePct: r.snapshot.derived.famousDominancePct, level: r.snapshot.derived.famousDominanceLevel }, model: r.model });
+      // G1 分级（生产 gate 同款纯函数）：famousLevel/anchorSellCount 与 service 口径一致
+      const graded = gradeObservation(r.interp, {
+        famousLevel: r.snapshot.derived.famousDominanceLevel ?? null,
+        anchorSellCount: r.snapshot.derived.sellN,
+      });
+      // D3.5 对拍停产：expect.verdict=人工裁定记录，展示不比对（观测行=机器输出）；
+      // G1 grade=同函数对拍观察（不作 PASS/FAIL——37/42 基线 5 票已知偏差，硬断言须裁定）
+      const gradeDiff = c.expect.verdict && graded.grade !== c.expect.verdict ? ' ≠' : '';
+      console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} ${obsLine(r.interp)} sbHold=${r.interp.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.anchors?.equalBandHoldPct ?? '-'} t1供/流=${r.interp.anchors?.top1HoldSupplyPct ?? '-'}/${r.interp.anchors?.top1HoldCircPct ?? '-'} dom=${r.snapshot.derived.famousDominanceLevel ?? '-'}${r.snapshot.derived.famousDominancePct !== null && r.snapshot.derived.famousDominancePct !== undefined ? `(${r.snapshot.derived.famousDominancePct}%)` : ''} ｜G1=${graded.grade}[${graded.reasons.map((x) => x.code).join(',') || 'clean'}] ｜人工裁定=${c.expect.verdict ?? '（未裁定）'}${gradeDiff ? '（≠机器）' : ''}（判定层停产——展示不比对）`);
+      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, gradeRulesVersion: CHEAT_GRADE_RULES_VERSION, grade: graded.grade, gradeReasons: graded.reasons, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: { sameBlockHoldPct: r.snapshot.derived.sameBlockHoldPct, equalBandHoldPct: r.snapshot.derived.equalBandHoldPct, top1HoldSupplyPct: r.snapshot.derived.top1HoldSupplyPct, top1HoldCircPct: r.snapshot.derived.top1HoldCircPct }, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, famous: { holdPct: r.snapshot.derived.famousHoldPct, top1Pct: r.snapshot.derived.famousTop1Pct, followerPct: r.snapshot.derived.famousFollowerPct, dominancePct: r.snapshot.derived.famousDominancePct, level: r.snapshot.derived.famousDominanceLevel }, model: r.model });
     } catch (e) {
       failed++;
       console.error(`  ❌ 异常: ${e.message}`);
@@ -460,6 +470,20 @@ async function main() {
   if (results.length) {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     writeFileSync(resolve(DATA_DIR, `cd-run-${ts}.json`), JSON.stringify({ ranAt: new Date().toISOString(), questionVersion: version, dry: args.dry, results }, null, 2), 'utf8');
+  }
+  // G1 grade×人工裁定对照统计（黄金集基线 37/42——5 票已知偏差定性见台账 G1 段）
+  const judged = results.filter((x) => x.grade && x.caseId);
+  if (judged.length) {
+    const byId = new Map(cases.map((c) => [c.caseId, c]));
+    const withExpect = judged.filter((x) => byId.get(x.caseId)?.expect?.verdict);
+    if (withExpect.length) {
+      const agree = withExpect.filter((x) => x.grade === byId.get(x.caseId).expect.verdict);
+      console.log(`G1 分级对照（${CHEAT_GRADE_RULES_VERSION}）：机器×人工一致 ${agree.length}/${withExpect.length}` +
+        (withExpect.length - agree.length ? `，分歧=[${withExpect.filter((x) => x.grade !== byId.get(x.caseId).expect.verdict).map((x) => `${x.caseId}:${byId.get(x.caseId).expect.verdict}>${x.grade}`).join(' ')}]` : ''));
+    }
+    const dist = {};
+    for (const x of judged) dist[x.grade] = (dist[x.grade] || 0) + 1;
+    console.log(`G1 grade 分布：${Object.entries(dist).map(([k, v]) => `${k}=${v}`).join(' ')}`);
   }
   console.log(`\n${args.dry ? 'dry 组装' : '重析观测'}完成：${results.length} 票存档${failed ? `，异常 ${failed}` : ''}（D3.5 判定层停产——PASS=链路跑通，无 verdict 对拍）`);
   if (!args.dry && (failed || !results.length)) process.exit(1);
