@@ -27,6 +27,29 @@
 
 ## Case 倒序
 
+### 组 21（CD110-CD115）：CD110 活跃度太低 unhealthy / CD111+CD112+CD115 cheat / CD113+CD114 著名钱包主导 unhealthy——4012ce39 live 段开闸（2026-11-01）
+
+**组 21 裁定**（2026-11-01，CD110=aed2091d 差集末票+CD111-CD115=4012ce39 v66 live 段前五票（0.003 仓位），D3.26 真调）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.26 真调） |
+|---|---|---|---|---|
+| CD110 | SAFU慈善 | `0x89d1…7777` | **unhealthy** | act 双口径 low（代码/Jev 双 low，13.0 笔/分）+锚 15 笔本组最小；十一题全 weak/none 零 strong、双向 13:2 |
+| CD111 | SAFU金库 | `0x7c62…7777` | **cheat** | bw+pump 双 strong+sbHold 36.4%+eqHold 41.3%+买卖 21:1 近全买零卖+churn 1；t1 供 9.8 非模板同数 |
+| CD112 | Trust Binance | `0x2914…ffff` | **cheat** | 全买零卖 22:0+churn 0+pump strong+top1 12.7% 分散垫量+等额簇 0 无阵列（本组唯一 four.meme 票） |
+| CD113 | SPACECAT | `0x37b7…7777` | **unhealthy** | dom=high(100%)（famous 跟随 87.6%/持仓仅 12.4%）+bd=high+91 笔本组最大窗双向 43:48+act 代码 ultra+四现象全 moderate 无 strong |
+| CD114 | NEBULA | `0x1d37…7777` | **unhealthy** | dom=high(78.1%)（跟随 56.8%/持仓 21.3%）+双向 38:33+churn 23+sb/sd/rat 三 moderate 无 strong |
+| CD115 | NEBULA | `0x68b6…7777` | **cheat** | sbHold 64.2% 本组最高+eqHold 36.6%+pump strong+bd=high+cr moderate+买 23 卖 1 近全买零卖 |
+
+**裁定语义四条（判读先例）**：
+①CD110：**「活跃度太低」unhealthy 第二票**（CD101 先例）——act 双口径 low+15 笔小锚窗本身即 unhealthy 理由（十一题零 strong 双向有卖不改判）；与组 20 CD104（Jev act=low 但代码 act=mid/锚 24 双向 23:1=healthy）的分界攒票观察；
+②CD111+CD115：**双 strong 即足判 cheat**（CD111 bw+pump 双 strong+sbHold/eqHold 36.4%/41.3%，t1 供 9.8 非 9.4945 模板同数=无模板同数亦可判；CD115 pump strong+sbHold 64.2%+eqHold 36.6%+bd=high 集中度+推价最重组合）——延续 CD109/CD102 谱系；
+③CD112：**全买零卖+单 pump strong+无阵列+分散垫量落 cheat**——与 CD99（同形状落 unhealthy）分档不同（CD108↔CD99 先例后该臂第二次采样、同向 CD108），攒票观察；且为**全买零卖家族首个 four.meme 票**（此前全家族皆 flap）；
+④CD113+CD114：**著名钱包主导 unhealthy 谱系第三四票**（CD86 84.6%/CD103 100%→本组 100%/78.1%，78.1% 为新下界）——CD113 卖笔(48)多于买笔(43) 的 CD80 双向活跃 healthy 侧证据在场仍落 unhealthy（主导度 100% 优先于双向活跃）；CD114 用户理由原话「著名钱包主导」。
+
+**盈亏**：CD110=aed2091d 0.006 仓位 12s **-0.000548**（与组 20 CD108 同数系巧合：同 0.006 进 0.00545 回的 SAFU 系盘）；其余五票 4012ce39 live 0.003 仓位——CD112 分三笔卖 29s/44s/63s **+0.002714 本组最大盈**/CD113 两轮 14s/13s +0.001113（两轮各 0.003）/CD111 11s -0.000196/CD114 15s -0.000802/CD115 分两笔卖 77s/88s -0.000031（几乎打平）。
+
+**收录**：组 21 六票 verdict/because 已落 fixtures；本组无质询立项。**组 21 起实验页切换 4012ce39**（扩集两段边界：CD56-CD110=aed2091d 差集 55 票/CD111-CD128=4012ce39 live 18 票，signals 标签归属按此）。
+
 ### 组 20（CD104-CD109）：CD105 全买零卖家族首个 healthy（单钱包吃独食）/ CD106+CD109 t1 供 9.4945 同模板第八九票 cheat / CD108 准全买零卖 cheat（2026-11-01）
 
 **组 20 裁定**（2026-11-01，六票全 flap SAFU 系命名、act 全 low，D3.26 真调）：
