@@ -15,7 +15,8 @@
  * - bundledDominance：**捆绑交易主导度 Jev 题**（bundled_trade_dominance，独立
  *   档域 low/mid/high（D3.8 用户裁定「部分捆绑没事，持仓太大量就不好了，高中低
  *   三档」）；容缺同上）
- * - anchors：代码数值锚——持仓占比两键（sb/eq；只述数值事实，非档位判定）
+ * - anchors：代码数值锚——持仓占比四键（sb/eq 簇占比 + D3.20 top1HoldSupplyPct/
+ *   top1HoldCircPct 单一钱包持仓集中双锚；只述数值事实，非档位判定）
  * 结论（哪些现象组合成什么分类）待观测数据攒批后再定（D3.4 删兜底后 unhealthy
  * 本就无输出臂；A2 退役、证据臂设计随判定层悬置一并挂起）。
  *
@@ -187,6 +188,9 @@ function buildObservation(answers, anchors = null) {
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
       equalBandHoldPct: _anchorPct(anchors, 'equalBandHoldPct'),
+      // D3.20 单一钱包持仓集中双锚（占总供应量/占在场流通；supply 缺失→null 不冒充）
+      top1HoldSupplyPct: _anchorPct(anchors, 'top1HoldSupplyPct'),
+      top1HoldCircPct: _anchorPct(anchors, 'top1HoldCircPct'),
     },
   };
 }

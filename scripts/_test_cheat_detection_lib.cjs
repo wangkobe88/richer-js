@@ -258,11 +258,19 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 2, 'D3.5 后 anchors 只剩 sb/eq 两数值键（activity 档位不再投影）');
+ok(Object.keys(f1.anchors).length === 4, 'D3.20 后 anchors=sb/eq+top1 供/流四数值键（activity 档位不再投影）');
+ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
+  'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(!('verdict' in f1) && !('cheatProb' in f1) && !('patternType' in f1) && !('ruleAudit' in f1),
   '观测记录无 verdict/cheatProb/patternType/ruleAudit 键（判定层停产反证）');
 const f1b = buildObservation(mkAnswers(), { sameBlockHoldPct: '88' });
 ok(f1b.anchors.sameBlockHoldPct === null, '锚形状异常（字符串）→ 按缺席算不冒充');
+// D3.20 双锚透传（观测记录/digest 留痕——组 13 eqHold 59% 先例同位）
+const f1c = buildObservation(mkAnswers(), { top1HoldSupplyPct: 46.5, top1HoldCircPct: 91.3 });
+ok(f1c.anchors.top1HoldSupplyPct === 46.5 && f1c.anchors.top1HoldCircPct === 91.3,
+  'D3.20 双锚回显（CD69 形状 46.5/91.3）');
+ok(f1c.anchors.sameBlockHoldPct === null && f1c.anchors.equalBandHoldPct === null,
+  'D3.20 f1c 未传 sb/eq→null（四键独立容缺）');
 
 // ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
 // sbw D3.11 现象二分桶域（D3.10 burst_cheat/burst_normal 断代）：在场二桶照落 / 旧档断代 null / 未知桶 throw

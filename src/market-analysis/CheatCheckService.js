@@ -238,6 +238,9 @@ class CheatCheckService {
         obs = buildObservation(res.result.answers, {
           sameBlockHoldPct: snapshot.derived.sameBlockHoldPct,
           equalBandHoldPct: snapshot.derived.equalBandHoldPct,
+          // D3.20 单一钱包持仓集中双锚（观测记录/digest 留痕）
+          top1HoldSupplyPct: snapshot.derived.top1HoldSupplyPct,
+          top1HoldCircPct: snapshot.derived.top1HoldCircPct,
         });
       } catch (e) {
         this.stats.errors++;
@@ -259,6 +262,7 @@ class CheatCheckService {
         ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'}` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
+        ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
     } catch (e) {
