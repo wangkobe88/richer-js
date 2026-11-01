@@ -1659,12 +1659,12 @@
         "tickCount": 24
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买5.36BNB 钱包22 top1=46.6% churn1 同块簇0 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买5.36BNB 钱包22 top1=46.6% churn1 同块簇0 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「1.CD104 healthy」。单钱包重仓本组最重（top1 买 46.6%+t1 供/流 31.6%/66.5%）但十一题全 weak/none 无结构证据+bd=low+有卖腿——单钱包集中本身不是作弊证据"
     },
     {
       "caseId": "CD105",
@@ -1675,12 +1675,12 @@
         "tickCount": 14
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买14/卖0 Σ买2.47BNB 钱包14 top1=52.6% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买14/卖0 Σ买2.47BNB 钱包14 top1=52.6% churn0 同块簇2 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「2.CD105 healthy」。top1 52.6% 本组最高+全买零卖 churn 0 但档位全 weak（无 strong 无阵列 等额簇 0）——全买零卖家族形状首个 healthy 票：单钱包吃独食非多钱包阵列（对照 CD81 零散多钱包阵列判 cheat/CD99 单 strong 落 unhealthy——家族 healthy 分界=无阵列且无 strong）"
     },
     {
       "caseId": "CD106",
@@ -1691,12 +1691,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.32BNB 钱包19 top1=45.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.32BNB 钱包19 top1=45.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「3.CD106 cheat」。t1 供 9.49453795640262 与 CD53/54/72/76/91 模板完全同数=同模板克隆第八票+全买零卖 churn 0+eq/bw/pump 三 strong（CD96 同款）"
     },
     {
       "caseId": "CD107",
@@ -1707,12 +1707,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买18/卖2 Σ买2.47BNB 钱包18 top1=28.5% churn2 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买18/卖2 Σ买2.47BNB 钱包18 top1=28.5% churn2 同块簇2 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「4.CD107 healthy」。结构最轻（sd=weak+tier=weak 无簇证据 top1 28.5%）+双向有卖"
     },
     {
       "caseId": "CD108",
@@ -1723,12 +1723,12 @@
         "tickCount": 35
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买34/卖1 Σ买1.89BNB 钱包26 top1=15.7% churn0 同块簇0 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买34/卖1 Σ买1.89BNB 钱包26 top1=15.7% churn0 同块簇0 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「5.CD108 cheat」。34 笔买仅 1 笔卖 0.011（准全买零卖）+churn 0+pump=strong 垫量推价+top1 15.7% 分散多钱包垫量——与 CD99（unhealthy）形状相近（差异 CD99 bw=moderate 本票 bw=weak），分档不同如实记录供攒票观察"
     },
     {
       "caseId": "CD109",
@@ -1739,12 +1739,12 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买23/卖2 Σ买1.31BNB 钱包22 top1=46.0% churn2 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买23/卖2 Σ买1.31BNB 钱包22 top1=46.0% churn2 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "用户裁定「6.CD109 cheat」。t1 供 9.49453795640262 完全同数=同模板第九票+eq/bw/pump 三 strong+sbHold/eqHold 39.1%（卖 2 笔 0.026 非纯全买零卖）"
     },
     {
       "caseId": "CD110",

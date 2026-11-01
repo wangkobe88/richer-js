@@ -27,6 +27,29 @@
 
 ## Case 倒序
 
+### 组 20（CD104-CD109）：CD105 全买零卖家族首个 healthy（单钱包吃独食）/ CD106+CD109 t1 供 9.4945 同模板第八九票 cheat / CD108 准全买零卖 cheat（2026-11-01）
+
+**组 20 裁定**（2026-11-01，六票全 flap SAFU 系命名、act 全 low，D3.26 真调）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.26 真调） |
+|---|---|---|---|---|
+| CD104 | SAFU | `0xb9dd…7777` | **healthy** | 单钱包重仓本组最重（top1 46.6%+t1 供/流 31.6%/66.5%）但十一题全 weak/none+bd=low+有卖腿 |
+| CD105 | SAFU捐赠 | `0x951e…7777` | **healthy** | top1 52.6% 本组最高+全买零卖 churn 0 但档位全 weak（等额簇 0 无阵列无 strong） |
+| CD106 | SAFU基金 | `0xbae7…7777` | **cheat** | t1 供 9.49453795640262 模板完全同数（第八票）+全买零卖+eq/bw/pump 三 strong |
+| CD107 | SAFU基金 | `0x6f69…7777` | **healthy** | 结构最轻（sd=weak+tier=weak 无簇证据）+双向有卖 |
+| CD108 | SAFU | `0xe7e3…7777` | **cheat** | 34 买仅 1 卖 0.011（准全买零卖）+churn 0+pump=strong+top1 15.7% 分散垫量 |
+| CD109 | SAFU Fund | `0x896f…7777` | **cheat** | t1 供 9.49453795640262 完全同数（第九票）+eq/bw/pump 三 strong+sbHold/eqHold 39.1% |
+
+**裁定语义四条（判读先例）**：
+①CD104+CD105：**单钱包集中/吃独食不是作弊**——CD105 为**全买零卖家族形状首个 healthy 票**（top1 52.6% 单钱包买断不卖+档位全 weak 无阵列无 strong）；家族形状分档至此三级完整：多钱包阵列（CD81）或三 strong（CD106/CD96）→cheat、单 strong 无阵列（CD99）→unhealthy、单钱包吃独食无 strong（CD105）→healthy；CD104 同理（单钱包重仓+全 weak+bd=low+有卖腿=healthy——单钱包集中本身不是作弊证据）；
+②CD106+CD109：**t1 供 9.49453795640262 模板克隆第八/九票**（同 CD53/54/72/76/91）+eq/bw/pump 三 strong 判 cheat 延续；CD109 卖 2 笔 0.026 非纯全买零卖仍判 cheat（模板同数+三 strong 即足）；
+③CD108：准全买零卖+pump=strong+分散垫量判 cheat——**与 CD99（unhealthy）形状相近（唯一档位差 CD99 bw=moderate/本票 bw=weak），分档不同如实记录供攒票观察**（用户裁定未附理由，边界票判读以用户逐票目视为准）；
+④CD107：结构最轻+双向有卖=healthy（本组三票 healthy 同型：无结构证据+非纯买入单向）。
+
+**盈亏**：六票均 aed2091d live 0.006 BNB 快进快出——CD104 +0.000470 本组唯一盈利（分两笔 42s/57s）；CD105 -0.000497/CD106 -0.000021（几乎打平）/CD107 -0.000383/CD108 -0.000548（13s）/CD109 -0.000160。
+
+**收录**：组 20 六票 verdict/because 已落 fixtures；本组无质询立项。
+
 ### 组 19（CD98-CD103）：CD102 同块买入波 strong cheat / CD99 全买零卖家族第七票单 strong 无阵列 unhealthy / CD103 著名钱包主导 100% unhealthy（2026-11-01）
 
 **组 19 裁定**（2026-11-01，六票全 flap，D3.26 真调）：
