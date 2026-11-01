@@ -598,7 +598,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.15', `版本常量 D3.15（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.16', `版本常量 D3.16（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -701,6 +701,10 @@ console.log('I. 著名钱包单极控盘锚');
     'same_block_buy_wave 排除项=单一钱包拆单');
   ok(bwq.includes('0.079~0.113') && bwq.includes('约 58%'),
     'same_block_buy_wave 正例=CD12 四波样本（金额连续散布 18 笔 13 钱包 58%）');
+  ok(bwq.includes('活跃度/密度反锚') && bwq.includes('同时性本身不构成协同证据') && bwq.includes('至多弱档'),
+    'same_block_buy_wave D3.16 加活跃度/密度反锚（高密度热点盘同时性降权、判读转看同 tx 打包/金额同质化——用户裁定「bw 可以加活跃度/密度反锚」）');
+  ok(bwq.includes('200+ 笔/分钟') && bwq.includes('27 个尘额钱包') && bwq.includes('不给明显及以上档'),
+    'same_block_buy_wave D3.16 反例补高密度盘形状（CD60：三块 27 尘额钱包独立 tx 抢买+三大额 FOMO 同秒抢入=并发流量非协同）');
   const bdq = qs.bundled_trade_dominance.instructions;
   ok(bdq.includes('最硬信号') && bdq.includes('同块多钱包买入波') && bdq.includes('每波轮换'),
     'bundled_trade_dominance 识别三信号=同 tx 打包/同块波/全新钱包轮换');
@@ -723,21 +727,25 @@ console.log('I. 著名钱包单极控盘锚');
   ok(rat.includes('买入额不足其卖出额 10%') && rat.includes('沉在末尾也要扫到'),
     'insider_supply_sell 判据核心=零买入/低买入卖出钱包（10% 判据）+ [WALLETS] 降序末尾扫到（纯卖出钱包沉底反证）');
   ok(rat.includes('÷ 窗口全部卖出额合计') && rat.includes('≥30%') && rat.includes('10~30%'),
-    'insider_supply_sell 显式算式=配额倾倒占比分式（卖出域——与买入域题分式区分）');
-  ok(rat.includes('createTx=') && rat.includes('同一笔链上交易'),
-    'insider_supply_sell 最硬信号=创建+首买同笔 tx（[TOKEN] createTx= 与 [TICKS] tx= 对上）');
+    'insider_supply_sell 显式算式=无买入卖出占比分式（卖出域——与买入域题分式区分）');
+  ok(rat.includes('来源不限于创建分配') && rat.includes('场外/链下获得'),
+    'insider_supply_sell D3.16 证据本体=无买入的卖出，来源不限（创建内部分配/场外链下获得皆算——用户裁定「也不局限于创建」）');
+  ok(rat.includes('筹码是从别的地方划转而来') && rat.includes('隐秘地卖出') && rat.includes('规避对筹码来源的监控') && rat.includes('往往是作弊的特征'),
+    'insider_supply_sell D3.16 现象机理句（用户补裁定原话「无买入的卖出钱包，意味着筹码从别的地方划转而来，需要隐秘卖出规避监控，往往是作弊的特征」）');
+  ok(rat.includes('筹码并非无成本') && !rat.includes('零成本'),
+    'insider_supply_sell D3.16 成本表述纠正（用户裁定「并不是无成本哦」——筹码并非无成本，只是取得不经过本盘买入口径；旧「零成本套现」措辞退役反证）');
+  ok(rat.includes('创建者自己的买入与卖出是正常行为') && rat.includes('不构成本题证据、不参与定档'),
+    'insider_supply_sell D3.16 创建者正常行为不作证据（用户裁定「创建者买入/卖出都是正常行为，出现 "无买入的卖出" 才是作弊证据」）');
+  ok(!rat.includes('组合升档锚') && !rat.includes('三件齐即高档') && !rat.includes('首买占比 ≥25%'),
+    'insider_supply_sell D3.10 组合升档锚整体退役（createTx 同笔+首买占比+创建者分批卖不再升档——CD60 healthy 误伤坐实）');
+  ok(rat.includes('createTx= 行只作背景') && rat.includes('不作为本题证据或升档条件'),
+    'insider_supply_sell createTx= 降为背景行（识别创建者身份用，不作升档条件）');
   ok(rat.includes('同块协同/多轮次') && rat.includes('先买后卖'),
-    'insider_supply_sell 倾倒节奏=同块协同/多轮次 + AMM 先买后卖原理锚（无买入有筹码=内部分配）');
+    'insider_supply_sell 倾倒节奏=同块协同/多轮次 + AMM 先买后卖原理锚');
   ok(rat.includes('零买入纯卖出') && rat.includes('总卖出一半'),
-    'insider_supply_sell 正例=CD13 形状（八钱包零买入占总卖出一半三组轮次）');
-  ok(rat.includes('归「抢跑者首买」题口径'),
-    'insider_supply_sell 反例=creator 买入覆盖卖出归 cr 题口径（题间分界不重叠）');
-  ok(rat.includes('组合升档锚') && rat.includes('老鼠仓式派发') && rat.includes('三件齐即高档'),
-    'insider_supply_sell D3.10 组合升档=createTx 同笔+首买占比 ≥25%+创建者随后分批卖出=高档（CD13 裁定 strong）');
-  ok(rat.includes('倾倒占比可低于 30%'),
-    'insider_supply_sell 组合升档=派发路径本身已主导盘面（配额钱包占比门可不过线）');
-  ok(rat.includes('定档优先级') && rat.includes('锚点截断') && rat.includes('不与②的占比互相打折'),
-    'insider_supply_sell D3.10 定档优先级=三件齐独立成立即高档（窗口截断教学：窗内占比低是截断不是否定）');
+    'insider_supply_sell 正例=CD13 形状（八钱包零买入占总卖出一半三组轮次——占比 ≥30% 单轴即 strong，新口径不受影响）');
+  ok(rat.includes('创建者先买后卖=正常获利行为不作证据') && rat.includes('不给高档'),
+    'insider_supply_sell D3.16 反例=CD60 形状（creator 同笔大额买+递减分批卖=正常获利；无买入卖出占比不足三成+散户两旺不给高档）');
   ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs.insider_supply_sell.criteria[b] === 'string'),
     'insider_supply_sell：criteria 键集=PHENOMENON_LEVELS 四档（现象强度轴）');
   const pump = qs.slow_grind_pump.instructions;
@@ -767,6 +775,10 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump D3.15 正例补 CD55 两段式形状（同块簇窜升占四成多+十余笔 0.0001 级尘埃买垫推、回撤不足 2%、笔比超 13:1）');
   ok(pump.includes('窜完即止') && pump.includes('无尘埃买垫量缓推段') && pump.includes('纯爆发不属本题'),
     'slow_grind_pump D3.15 反例补窜完即止形状（CD53/CD54 同块簇占比过半数十秒窜完、无垫推段——防误伤划界锚）');
+  ok(pump.includes('本题命中的附属条件是低活跃度') && pump.includes('至多 moderate、不给 strong'),
+    'slow_grind_pump D3.16 加活跃度反锚（高活跃盘=市场合力至多 moderate 不给 strong——CD56 裁定「附属条件是活跃度低，strong 就肯定不行了」）');
+  ok(pump.includes('高活跃盘的价格抬升段') && pump.includes('市场合力形状'),
+    'slow_grind_pump D3.16 反例补高活跃盘形状（CD56：约 50 笔/分高频盘推进段不给 strong）');
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });
