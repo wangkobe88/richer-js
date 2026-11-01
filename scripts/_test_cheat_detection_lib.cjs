@@ -607,7 +607,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.24', `版本常量 D3.24（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.25', `版本常量 D3.25（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -699,6 +699,18 @@ console.log('I. 著名钱包单极控盘锚');
     'activity_level 显式算式=静默占比分式 + 密度分式（教学单一载体=题面）');
   ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高正例齐备');
   ok(act.includes('不下任何盘面结论'), 'activity_level 尾句=只述档位不下结论');
+  // D3.25：act 加第五要素「单位时间交易额（金额吞吐）」+③解绑+定档句收紧（CD88 act=high 0.57 误判质询）
+  ok(act.includes('⑤单位时间交易额（金额吞吐）') && act.includes('窗口总交易额（买+卖） ÷ 窗口分钟数')
+    && act.includes('<1 BNB/分钟=金额死寂') && act.includes('≥10 BNB/分钟才与「高」档的密集相称'),
+    'D3.25 act 第五要素=金额吞吐（<1 BNB/分钟死寂/≥10 配高——CD88 实证吞吐 0.66 全表垫底、真 high 票 ≥9.0 差一个数量级）');
+  ok(act.includes('笔均尘埃级时以⑤金额吞吐定夺') && act.includes('不因笔数多而豁免（节奏稀疏与否不改变这一判读）'),
+    'D3.25 act ③解绑「伴稀疏节奏」——笔均尘埃+吞吐低=假活跃必压档（CD88 笔均 0.0216 被 30 笔/分对冲是判高路径洞之一）');
+  ok(act.includes('交易密集、空窗都很短**且金额吞吐与之相称**（参考 ≥10 BNB/分钟） → 高')
+    && act.includes('笔数密集但金额吞吐尘埃级（<1 BNB/分钟的假活跃）不入高档'),
+    'D3.25 act 定档句收紧：高档须笔数+金额双密集（旧句「空窗都很短 → 高」纯笔数口径=CD88 判高路径终点）');
+  ok(act.includes('高档反例·假活跃') && act.includes('金额吞吐约 0.66 BNB/分钟') && act.includes('最大空窗仅 19 秒看似密集'),
+    'D3.25 act 高档反例补 CD88 假活跃形状（70 笔/2 分余钟看似密集、吞吐 0.66=同批最低、真高活跃盘十倍以上）');
+  ok(act.includes('五要素综合定档'), 'D3.25 act 定档句四要素→五要素（金额吞吐入列）');
   // D3.19 开盘打新段反锚（组 13 双质询：CD62 bw strong / CD66 eq+tier strong 两误伤——扩集
   // anchor=首笔成功买+settle 口径决定锚窗全落开盘段（四票窗首距 token_create 全 0.0s），散户
   // 默认档（净额≈名义×0.98 换算后同档精确重复）+同块并发+各钱包各 1 笔独立 tx 买后持有呈现为
