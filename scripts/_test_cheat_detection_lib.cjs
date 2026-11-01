@@ -607,7 +607,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.21', `版本常量 D3.21（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.22', `版本常量 D3.22（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -645,6 +645,15 @@ console.log('I. 著名钱包单极控盘锚');
     && qs.slow_grind_pump.instructions.includes('合力与推手反锚')
     && qs.slow_grind_pump.instructions.includes('形状有三种'),
     'D3.21 pump 题三形状（全程缓推/窜一截后缓推/秒级密集推价）+ 合力与推手反锚在场');
+  // D3.22：insider 判据②双口径（占比口径÷全部卖出+冲击口径÷全部买入，双高才 strong）
+  const ratQ = qs.insider_supply_sell.instructions;
+  ok(ratQ.includes('占比口径 = 这类钱包卖出额合计 ÷ 窗口全部卖出额合计')
+    && ratQ.includes('冲击口径 = 这类钱包卖出额合计 ÷ 窗口全部买入额合计'),
+    'D3.22 insider 判据②双口径分母=全部卖出合计（结构）/全部买入合计（绝对规模）');
+  ok(ratQ.includes('给 strong 须两口径都高') && ratQ.includes('至多 moderate、不给 strong'),
+    'D3.22 insider 双高才 strong（占比高冲击低→至多 moderate——CD73 归因：占卖压 77% 但对买盘仅 16.6% 价格未受压）');
+  ok(ratQ.includes('反·高占比低冲击') && ratQ.includes('占窗口总卖压四分之三以上') && ratQ.includes('不足两成'),
+    'D3.22 insider 反例补 CD73 形状（单钱包零买卖占卖压 3/4+、对买盘不足两成）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
