@@ -1275,12 +1275,12 @@
         "tickCount": 56
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=56=首笔成功买+settle4000ms；买24/卖32 Σ买3.92BNB 钱包28 top1=22.4% churn11 同块簇2 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "组16裁定=healthy（用户裁定「healthy」——dom=high(53.1%)+churn11 但卖 32 笔>买 24 双向活跃获利盘涌出、四现象无 strong=正常博弈盘；对照 CD74（dom mid 即 unhealthy）/CD85（dom high unhealthy）——著名钱包主导非单因子决定，双向活跃形状可判 healthy）"
+      "expectBecause": "批次三裁定=unhealthy（用户裁定「CD80应该 unhealthy，给 cheat 也行」——2026-11-01 批次三 review 改写组 16 旧裁定 healthy；机器 G4 grade=cheat（rat strong+D famous dom high）用户接受不调整）"
     },
     {
       "caseId": "CD81",

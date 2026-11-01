@@ -675,9 +675,9 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
-  console.log('I2. 题集结构 D3.28（ESM 题文件经动态 import）');
+  console.log('I2. 题集结构 D3.29（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.28', `版本常量 D3.28（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.29', `版本常量 D3.29（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -788,6 +788,32 @@ console.log('I. 著名钱包单极控盘锚');
     'D3.28 wash_pair 反例=CD90 形状（3 对 1.9% 偶发碰撞不给档）');
   ok(qs.wash_pair.criteria && qm.PHENOMENON_LEVELS.every((b) => typeof qs.wash_pair.criteria[b] === 'string'),
     'D3.28 wash_pair criteria=四档域（EXT 容缺通道，档位序与 mapper 对齐）');
+  // D3.29：批次三 CD41/CD42/CD45 误伤裁定（方案 A+B 均「采纳（a+b 全上）」）——
+  // ①bw ⑥第二支口子（同额带被当阵列证据+无占比约束）；②pump 排除项「窜完即止」
+  // 窗内不可执行 + ⑤升档参考绕过市场合力反锚的口子
+  const bwQ = qs.same_block_buy_wave.instructions;
+  ok(bwQ.includes('金额散布或同额/近额带聚集（同额在打新段有多重自然来源')
+    && bwQ.includes('不要求净额反推为整十名义')
+    && bwQ.includes('每钱包单笔、买后持有'),
+    'D3.29 bw ⑥第一支扩展=同额/近额带聚集+每钱包单笔（同额多重自然来源白名单不可枚举，不要求整十名义反推——CD42 0.1645×12 实为 0.168 档未被识别）');
+  ok(!bwQ.includes('非整数名义额同额×多钱包'),
+    'D3.29 bw ⑥第二支删「非整数名义额同额×多钱包」独立证据位（开盘段同额×独立tx×单笔不构成阵列证据）');
+  ok(bwQ.includes('同 tx 打包 / 每钱包多笔多档固定组合 / 同批钱包同块成对节拍多轮复现'),
+    'D3.29 bw ⑥组织性结构三条保留（同tx打包/多笔多档固定组合/同批钱包多轮复现）');
+  ok(bwQ.includes('买入额合计占窗口全部买入不足两成时不给明显及以上档')
+    && bwQ.includes('占比不足不为据，小簇刷量是噪声不是主导'),
+    'D3.29 bw ⑥占比纪律=结构证据簇占买入不足两成不给明显及以上档（对齐 wash 题——CD42 四钱包簇 2.2%/CD45 五钱包簇 10.5% 小簇不再撑 strong）');
+  ok(bwQ.includes('再两开盘打新段近额带形状') && bwQ.includes('精确同额 0.1645')
+    && bwQ.includes('0.25/0.16/0.08 三条近额带'),
+    'D3.29 bw 反例补 CD42/CD45 近额带形状（同额带×独立tx×单笔持有+小簇同买同卖=不给明显及以上档）');
+  ok(pumpQ.includes('无须判断锚窗之后是否「窜完即止」（锚窗截断看不到窗后走势，该判断不可执行）'),
+    'D3.29 pump 排除项改窗内可判=开盘段+整窗连续推进无回落盘整即整窗首波爆发（无须判窗后窜完即止——锚窗截断结构性不可执行）');
+  ok(pumpQ.includes('本题不自行判读买盘结构：这些结构以「同块买入波」「等额分仓」等题的判读为准')
+    && pumpQ.includes('只有彼题已达明显及以上档的结构才可作本题升档参考'),
+    'D3.29 pump ⑤升档参考限定=同块/等额/固定节拍以 bw/eq 题判读为准（CD41 两个自然并发同块波不再绕过市场合力反锚）');
+  ok(pumpQ.includes('又一开盘首波爆发形状') && pumpQ.includes('吞吐 21 BNB/分钟')
+    && pumpQ.includes('把价格打出约 10% 回撤'),
+    'D3.29 pump 反例补 CD41 形状（16s 首波+市场合力四腿全满足+尾部 10% 回撤双重落排除项——不给 strong）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');
@@ -897,8 +923,8 @@ console.log('I. 著名钱包单极控盘锚');
     'same_block_buy_wave D3.16 反例补高密度盘形状（CD60：三块 27 尘额钱包独立 tx 抢买+三大额 FOMO 同秒抢入=并发流量非协同）');
   ok(bwq.includes('开盘打新段反锚：先看窗口起点') && bwq.includes('散户/狙击抢首发的并发常态') && bwq.includes('不给明显及以上档'),
     'same_block_buy_wave D3.19 开盘打新段反锚=独立 tx+金额散布/默认档+买后持有的同块波，波占比高+节拍复现也不给明显及以上档（CD62 误伤根因=D3.16 ②密度反锚拉不住开盘段纯同时性聚集）');
-  ok(bwq.includes('非整数名义额同额×多钱包') && bwq.includes('同批钱包同块成对节拍多轮复现'),
-    'same_block_buy_wave D3.19 判读转向=分仓阵列结构证据（同 tx/非整名义同额/固定组合/成对节拍多轮复现）');
+  ok(bwq.includes('同 tx 打包 / 每钱包多笔多档固定组合 / 同批钱包同块成对节拍多轮复现'),
+    'same_block_buy_wave D3.19 判读转向=分仓阵列结构证据（D3.29 收紧：同 tx/固定组合/成对节拍多轮复现三条，「非整数名义额同额×多钱包」独立证据位删除）');
   ok(bwq.includes('13 秒窗约 217 行/分') && bwq.includes('波成员 13 钱包 12 个买后持有'),
     'same_block_buy_wave D3.19 反例补 CD62 形状（13 秒窗 217 行/分四波全独立 tx 金额连续散布、12/13 在场=纯同时性打新并发）');
   ok(bwq.includes('每块恰 5 钱包') && bwq.includes('同额 0.0631 与 0.0197 交替') && bwq.includes('覆盖窗口 40/43 笔买入'),
@@ -969,8 +995,8 @@ console.log('I. 著名钱包单极控盘锚');
     'slow_grind_pump D3.15 定义句补两段式形状（用户裁定「窜上来一截后，缓慢拉盘」——前段大额簇窜升+后段尘埃买垫量缓推，垫推段是观察主体）');
   ok(pump.includes('只贡献跳升段、不贡献持续爬坡') && pump.includes('垫量缓推') && pump.includes('整窗笔均被前段大额拉高不否定后段垫推'),
     'slow_grind_pump D3.15 节奏判据=大额簇/大单只贡献跳升不贡献爬坡，海量尘埃买垫量缓推算数（笔均被拉高不否定垫推——CD55 误判归因①）');
-  ok(pump.includes('无后续持续推价段') && pump.includes('爆发/窜升段之后接续垫量缓推段或秒级密集推进段的，前段归同块波题判读、持续推价段仍在本题口径内'),
-    'slow_grind_pump 排除项=窜完即止才排除；窜后接缓推段**或秒级密集推进段**均归本题（D3.21 扩第三形状后口径词「缓慢」→「持续」）');
+  ok(pump.includes('爆发/窜升段之后接续垫量缓推段或秒级密集推进段的，前段归同块波题判读、持续推价段仍在本题口径内'),
+    'slow_grind_pump 排除项=窜后接缓推段**或秒级密集推进段**均归本题（D3.21 扩第三形状后口径词「缓慢」→「持续」');
   ok(pump.includes('正·窜一截后缓推') && pump.includes('0.0001 级尘埃买垫量缓推') && pump.includes('最大回撤不足 2%'),
     'slow_grind_pump D3.15 正例补 CD55 两段式形状（同块簇窜升占四成多+十余笔 0.0001 级尘埃买垫推、回撤不足 2%、笔比超 13:1）');
   ok(pump.includes('窜完即止') && pump.includes('无尘埃买垫量缓推段') && pump.includes('纯爆发不属本题'),
