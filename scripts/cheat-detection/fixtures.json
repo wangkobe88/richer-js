@@ -881,6 +881,1174 @@
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
       "expectBecause": "2026-10-30 用户 review 确认：明显作弊，K线一看就不健康——与 CD54 同一 0.1000×10 十钱包簇 40min 连发+尘买垫量拉盘后砸"
+    },
+    {
+      "caseId": "CD56",
+      "symbol": "罗小黑",
+      "addr": "0x66e6fd6bf19a3242acea43ad092df539b5c37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=22=首笔成功买+settle4000ms；买20/卖2 Σ买3.11BNB 钱包16 top1=15.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=22=首笔成功买+settle4000ms；买20/卖2 Σ买3.11BNB 钱包16 top1=15.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD57",
+      "symbol": "币安SI",
+      "addr": "0x8419325e3d459de6cc269e48dd1e112bb60f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 91
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=91=首笔成功买+settle4000ms；买87/卖4 Σ买1.32BNB 钱包21 top1=15.2% churn0 同块簇0 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=91=首笔成功买+settle4000ms；买87/卖4 Σ买1.32BNB 钱包21 top1=15.2% churn0 同块簇0 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD58",
+      "symbol": "MarsCoin",
+      "addr": "0xcf4e95ea26a98fa2fe294804665baf6fe8027777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买22/卖3 Σ买2.55BNB 钱包20 top1=11.8% churn3 同块簇5 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买22/卖3 Σ买2.55BNB 钱包20 top1=11.8% churn3 同块簇5 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD59",
+      "symbol": "笔记本电脑",
+      "addr": "0xd982868be71b3ea59b6f7510056cf73cbc717777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=18=首笔成功买+settle4000ms；买18/卖0 Σ买1.84BNB 钱包18 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=18=首笔成功买+settle4000ms；买18/卖0 Σ买1.84BNB 钱包18 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD60",
+      "symbol": "TROLLON",
+      "addr": "0x3dbf41d0abf4f791d57fb834395bb0ee96ce7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 48
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=48=首笔成功买+settle4000ms；买44/卖4 Σ买6.92BNB 钱包37 top1=27.7% churn2 同块簇5 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=48=首笔成功买+settle4000ms；买44/卖4 Σ买6.92BNB 钱包37 top1=27.7% churn2 同块簇5 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD61",
+      "symbol": "TROLLON",
+      "addr": "0x1b6a4336d860f28113f4e7cae0e066ef220b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 294
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=294=首笔成功买+settle4000ms；买176/卖118 Σ买28.38BNB 钱包127 top1=7.0% churn79 同块簇10 等额簇8）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=294=首笔成功买+settle4000ms；买176/卖118 Σ买28.38BNB 钱包127 top1=7.0% churn79 同块簇10 等额簇8）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD62",
+      "symbol": "SPCXHolder",
+      "addr": "0xc83fe64da5be4a5ac39e53ecadecdb32f2fa7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 47
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买27/卖20 Σ买3.37BNB 钱包21 top1=19.6% churn15 同块簇5 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买27/卖20 Σ买3.37BNB 钱包21 top1=19.6% churn15 同块簇5 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD63",
+      "symbol": "TROLLCZ",
+      "addr": "0x767f39e1c55892c8d7bcf190a8c6837db2907777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 78
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=78=首笔成功买+settle4000ms；买40/卖38 Σ买3.05BNB 钱包39 top1=12.1% churn32 同块簇3 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=78=首笔成功买+settle4000ms；买40/卖38 Σ买3.05BNB 钱包39 top1=12.1% churn32 同块簇3 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD64",
+      "symbol": "TROLLON",
+      "addr": "0x811920db64ecbca452a71200518830b68d1a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 44
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买39/卖5 Σ买3.87BNB 钱包34 top1=30.7% churn5 同块簇6 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买39/卖5 Σ买3.87BNB 钱包34 top1=30.7% churn5 同块簇6 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD65",
+      "symbol": "SI",
+      "addr": "0x565416617fb112cea55a9025ed52570dff037777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 110
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=110=首笔成功买+settle4000ms；买72/卖38 Σ买7.28BNB 钱包49 top1=13.7% churn30 同块簇6 等额簇4）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=110=首笔成功买+settle4000ms；买72/卖38 Σ买7.28BNB 钱包49 top1=13.7% churn30 同块簇6 等额簇4）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD66",
+      "symbol": "CNM",
+      "addr": "0xbdb9f5a1f610b421b76282b75a1444255bc77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 77
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=77=首笔成功买+settle4000ms；买51/卖26 Σ买7.02BNB 钱包44 top1=8.4% churn15 同块簇9 等额簇6）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=77=首笔成功买+settle4000ms；买51/卖26 Σ买7.02BNB 钱包44 top1=8.4% churn15 同块簇9 等额簇6）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD67",
+      "symbol": "SPCX",
+      "addr": "0x63986ea6f6af2215c4be4cec606e10ef071f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 52
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=52=首笔成功买+settle4000ms；买43/卖9 Σ买4.46BNB 钱包20 top1=55.9% churn1 同块簇8 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=52=首笔成功买+settle4000ms；买43/卖9 Σ买4.46BNB 钱包20 top1=55.9% churn1 同块簇8 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD68",
+      "symbol": "SPCX",
+      "addr": "0x12808ec35178b6722e694b48ed5c545f9b0e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 80
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买45/卖35 Σ买6.43BNB 钱包46 top1=7.4% churn32 同块簇3 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买45/卖35 Σ买6.43BNB 钱包46 top1=7.4% churn32 同块簇3 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD69",
+      "symbol": "TROLLON",
+      "addr": "0x2805f86032091430c3f6d08dfe890067ebf07777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买6.31BNB 钱包18 top1=81.9% churn1 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买6.31BNB 钱包18 top1=81.9% churn1 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD70",
+      "symbol": "SAFU",
+      "addr": "0xafca788eae23f6027ed8643f885c4b22a1e77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买20/卖7 Σ买2.20BNB 钱包20 top1=22.5% churn6 同块簇3 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买20/卖7 Σ买2.20BNB 钱包20 top1=22.5% churn6 同块簇3 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD71",
+      "symbol": "SAFU",
+      "addr": "0x34538c22b319f55ed3a1de5afad136fb78b37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 86
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=86=首笔成功买+settle4000ms；买62/卖24 Σ买3.53BNB 钱包35 top1=54.5% churn2 同块簇7 等额簇5）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=86=首笔成功买+settle4000ms；买62/卖24 Σ买3.53BNB 钱包35 top1=54.5% churn2 同块簇7 等额簇5）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD72",
+      "symbol": "SAFU fund",
+      "addr": "0x5641aa3aae2bedc1565ff754b8a430a6abdf7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.84BNB 钱包19 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.84BNB 钱包19 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD73",
+      "symbol": "WTB",
+      "addr": "0x0ef26ff5f74c8d6f6c7f81ed211b9d5faa6d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=37=首笔成功买+settle4000ms；买28/卖9 Σ买3.92BNB 钱包27 top1=13.1% churn5 同块簇4 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=37=首笔成功买+settle4000ms；买28/卖9 Σ买3.92BNB 钱包27 top1=13.1% churn5 同块簇4 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD74",
+      "symbol": "相信币安",
+      "addr": "0x4a92f54e287ffd2fe970bb8262c612f05e3f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=21=首笔成功买+settle4000ms；买17/卖4 Σ买2.44BNB 钱包17 top1=15.7% churn4 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=21=首笔成功买+settle4000ms；买17/卖4 Σ买2.44BNB 钱包17 top1=15.7% churn4 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD75",
+      "symbol": "WTB",
+      "addr": "0x4014f45e17dd5dcee28384e71633c4ab65077777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 47
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买26/卖21 Σ买3.97BNB 钱包20 top1=25.2% churn6 同块簇2 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买26/卖21 Σ买3.97BNB 钱包20 top1=25.2% churn6 同块簇2 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD76",
+      "symbol": "Elon",
+      "addr": "0x607c54de7c8b95455ed55336226b8b8e276b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买20/卖0 Σ买1.86BNB 钱包20 top1=32.2% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买20/卖0 Σ买1.86BNB 钱包20 top1=32.2% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD77",
+      "symbol": "GN",
+      "addr": "0x7d7e6cae50af4fa4e0133b7e96df4253c03a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=30=首笔成功买+settle4000ms；买27/卖3 Σ买4.23BNB 钱包27 top1=8.1% churn3 同块簇4 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=30=首笔成功买+settle4000ms；买27/卖3 Σ买4.23BNB 钱包27 top1=8.1% churn3 同块簇4 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD78",
+      "symbol": "GN",
+      "addr": "0x7253264fac709ebacbed29d7b43cd8a204297777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 47
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买35/卖12 Σ买4.32BNB 钱包33 top1=11.6% churn11 同块簇4 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=47=首笔成功买+settle4000ms；买35/卖12 Σ买4.32BNB 钱包33 top1=11.6% churn11 同块簇4 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD79",
+      "symbol": "WTB",
+      "addr": "0xcb85365c1af90782f13b540c49d4a3feb1437777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买23/卖5 Σ买2.12BNB 钱包19 top1=30.7% churn2 同块簇3 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买23/卖5 Σ买2.12BNB 钱包19 top1=30.7% churn2 同块簇3 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD80",
+      "symbol": "TrustMeBro",
+      "addr": "0xbc0a3a5c43b84e279af28af318faecfa53677777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 56
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=56=首笔成功买+settle4000ms；买24/卖32 Σ买3.92BNB 钱包28 top1=22.4% churn11 同块簇2 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=56=首笔成功买+settle4000ms；买24/卖32 Σ买3.92BNB 钱包28 top1=22.4% churn11 同块簇2 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD81",
+      "symbol": "SPCX",
+      "addr": "0xc7559af5b57507b5439bb5b857a9bfcd9dae7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 53
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=53=首笔成功买+settle4000ms；买53/卖0 Σ买1.37BNB 钱包21 top1=20.0% churn0 同块簇0 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=53=首笔成功买+settle4000ms；买53/卖0 Σ买1.37BNB 钱包21 top1=20.0% churn0 同块簇0 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD82",
+      "symbol": "lucky",
+      "addr": "0xffc03847223f4497aaf2cd6bd075f1dcac3f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买20/卖6 Σ买2.63BNB 钱包21 top1=11.3% churn5 同块簇3 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买20/卖6 Σ买2.63BNB 钱包21 top1=11.3% churn5 同块簇3 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD83",
+      "symbol": "MarsCoin",
+      "addr": "0xd7adfe0594b728c0dce5d806e948348164dc7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买22/卖3 Σ买2.44BNB 钱包22 top1=8.9% churn3 同块簇3 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买22/卖3 Σ买2.44BNB 钱包22 top1=8.9% churn3 同块簇3 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD84",
+      "symbol": "玩币归赵",
+      "addr": "0x86b774154b08ab17e0b7764e0e10450246ee7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 38
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买36/卖2 Σ买4.60BNB 钱包32 top1=37.4% churn2 同块簇5 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买36/卖2 Σ买4.60BNB 钱包32 top1=37.4% churn2 同块簇5 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD85",
+      "symbol": "小葵",
+      "addr": "0xbb9714b26abbdd1f0d69cf01a97303a964ce7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 61
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=61=首笔成功买+settle4000ms；买34/卖27 Σ买4.54BNB 钱包32 top1=16.4% churn15 同块簇3 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=61=首笔成功买+settle4000ms；买34/卖27 Σ买4.54BNB 钱包32 top1=16.4% churn15 同块簇3 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD86",
+      "symbol": "CZ",
+      "addr": "0x58fbc0902d4372b4c654780fe6262a7a1b2f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 41
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买29/卖12 Σ买4.87BNB 钱包29 top1=12.3% churn8 同块簇2 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买29/卖12 Σ买4.87BNB 钱包29 top1=12.3% churn8 同块簇2 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD87",
+      "symbol": "SAFU",
+      "addr": "0x7c907d1ce734b73e9236dcd06cefcb6346857777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买25/卖3 Σ买2.41BNB 钱包23 top1=12.4% churn3 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买25/卖3 Σ买2.41BNB 钱包23 top1=12.4% churn3 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD88",
+      "symbol": "SAFU基金",
+      "addr": "0xe5e893841bf545db5b3d11b2ede6500d2de37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 70
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=70=首笔成功买+settle4000ms；买58/卖12 Σ买1.30BNB 钱包35 top1=46.1% churn10 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=70=首笔成功买+settle4000ms；买58/卖12 Σ买1.30BNB 钱包35 top1=46.1% churn10 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD89",
+      "symbol": "SI",
+      "addr": "0x2782c6e901126ba18a8c5c0caacf5a1563167777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买2.94BNB 钱包21 top1=22.8% churn3 同块簇4 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买2.94BNB 钱包21 top1=22.8% churn3 同块簇4 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD90",
+      "symbol": "TWELL",
+      "addr": "0xcac2ecc9d2e1c9ac32a97fdec5ab2eb53aa97777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 231
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=231=首笔成功买+settle4000ms；买152/卖79 Σ买19.38BNB 钱包130 top1=10.3% churn56 同块簇10 等额簇10）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=231=首笔成功买+settle4000ms；买152/卖79 Σ买19.38BNB 钱包130 top1=10.3% churn56 同块簇10 等额簇10）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD91",
+      "symbol": "SAFU",
+      "addr": "0xa5e8aae873415aebb46dc73945ab76a17d4e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=18=首笔成功买+settle4000ms；买18/卖0 Σ买1.79BNB 钱包18 top1=33.4% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=18=首笔成功买+settle4000ms；买18/卖0 Σ买1.79BNB 钱包18 top1=33.4% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD92",
+      "symbol": "SI",
+      "addr": "0x33140d183b1403a8111f6af36f79c9de89b07777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 40
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=40=首笔成功买+settle4000ms；买34/卖6 Σ买6.43BNB 钱包33 top1=46.6% churn3 同块簇3 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=40=首笔成功买+settle4000ms；买34/卖6 Σ买6.43BNB 钱包33 top1=46.6% churn3 同块簇3 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD93",
+      "symbol": "BSC",
+      "addr": "0x8f962ccbf048173610e91c4396afeb3206c17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=29=首笔成功买+settle4000ms；买27/卖2 Σ买4.01BNB 钱包27 top1=8.2% churn1 同块簇4 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=29=首笔成功买+settle4000ms；买27/卖2 Σ买4.01BNB 钱包27 top1=8.2% churn1 同块簇4 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD94",
+      "symbol": "BSC",
+      "addr": "0x3e99a77caf02cea9b10e0303ac0856d2be527777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 57
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=57=首笔成功买+settle4000ms；买48/卖9 Σ买3.89BNB 钱包30 top1=25.7% churn4 同块簇6 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=57=首笔成功买+settle4000ms；买48/卖9 Σ买3.89BNB 钱包30 top1=25.7% churn4 同块簇6 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD95",
+      "symbol": "SAFUCAT",
+      "addr": "0x85d646d7d82ccb01e58858b79b68533fa4d87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买20/卖4 Σ买1.92BNB 钱包17 top1=17.0% churn4 同块簇3 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买20/卖4 Σ买1.92BNB 钱包17 top1=17.0% churn4 同块簇3 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD96",
+      "symbol": "SAFU",
+      "addr": "0xd752f273cb1b30d5e88dfe1cd1b4e2958c4d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 41
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买41/卖0 Σ买1.72BNB 钱包17 top1=17.5% churn0 同块簇6 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买41/卖0 Σ买1.72BNB 钱包17 top1=17.5% churn0 同块簇6 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD97",
+      "symbol": "FAS",
+      "addr": "0x2485294562d3c5aa0ebbce9f9b492c7cc5047777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买17/卖6 Σ买2.76BNB 钱包17 top1=21.7% churn4 同块簇3 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买17/卖6 Σ买2.76BNB 钱包17 top1=21.7% churn4 同块簇3 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD98",
+      "symbol": "同舟计划",
+      "addr": "0x247cd0fc5b23b12affc74b1737988ab7dc657777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 38
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买30/卖8 Σ买4.65BNB 钱包30 top1=6.4% churn4 同块簇2 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买30/卖8 Σ买4.65BNB 钱包30 top1=6.4% churn4 同块簇2 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD99",
+      "symbol": "币安社区",
+      "addr": "0x0b35285fe783dd3441573b84be4fbdb743457777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 34
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买34/卖0 Σ买2.35BNB 钱包31 top1=9.2% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买34/卖0 Σ买2.35BNB 钱包31 top1=9.2% churn0 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD100",
+      "symbol": "SAFUDOG",
+      "addr": "0xf06a853dd854a7b7cbb05d0c0b24f6d3d0a77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 50
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=50=首笔成功买+settle4000ms；买43/卖7 Σ买8.08BNB 钱包35 top1=25.9% churn7 同块簇7 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=50=首笔成功买+settle4000ms；买43/卖7 Σ买8.08BNB 钱包35 top1=25.9% churn7 同块簇7 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD101",
+      "symbol": "SAFUDOG",
+      "addr": "0x5739a837c9cc30d2740cbcf6fcbd4c7356417777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 14
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买13/卖1 Σ买2.81BNB 钱包13 top1=35.5% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买13/卖1 Σ买2.81BNB 钱包13 top1=35.5% churn1 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD102",
+      "symbol": "SAFU",
+      "addr": "0x9575e5cbc5d5b0b429540f0fff25e4dc99f17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买20/卖6 Σ买1.54BNB 钱包18 top1=25.7% churn4 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买20/卖6 Σ买1.54BNB 钱包18 top1=25.7% churn4 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD103",
+      "symbol": "Grug",
+      "addr": "0xd70819bbede34460a77e41f5b88b0a45943d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 87
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=87=首笔成功买+settle4000ms；买62/卖25 Σ买8.43BNB 钱包57 top1=8.9% churn14 同块簇6 等额簇4）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=87=首笔成功买+settle4000ms；买62/卖25 Σ买8.43BNB 钱包57 top1=8.9% churn14 同块簇6 等额簇4）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD104",
+      "symbol": "SAFU",
+      "addr": "0xb9ddd5d8c399f58e360dd8869961192451d17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买5.36BNB 钱包22 top1=46.6% churn1 同块簇0 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买5.36BNB 钱包22 top1=46.6% churn1 同块簇0 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD105",
+      "symbol": "SAFU捐赠",
+      "addr": "0x951e3a301f66d268a28bd808d2cb6aa014187777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 14
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买14/卖0 Σ买2.47BNB 钱包14 top1=52.6% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买14/卖0 Σ买2.47BNB 钱包14 top1=52.6% churn0 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD106",
+      "symbol": "SAFU基金",
+      "addr": "0xbae716ab3ccd01155f55a3d8ad09a64aaf097777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.32BNB 钱包19 top1=45.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.32BNB 钱包19 top1=45.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD107",
+      "symbol": "SAFU基金",
+      "addr": "0x6f6931ad9d758b3f8999432678bfe74261ff7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买18/卖2 Σ买2.47BNB 钱包18 top1=28.5% churn2 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=20=首笔成功买+settle4000ms；买18/卖2 Σ买2.47BNB 钱包18 top1=28.5% churn2 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD108",
+      "symbol": "SAFU",
+      "addr": "0xe7e3ff3f303fdf867ef21fe16907882319a07777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 35
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买34/卖1 Σ买1.89BNB 钱包26 top1=15.7% churn0 同块簇0 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买34/卖1 Σ买1.89BNB 钱包26 top1=15.7% churn0 同块簇0 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD109",
+      "symbol": "SAFU Fund",
+      "addr": "0x896fef6c5bdac934127b6ed3cdfb5a0e37677777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买23/卖2 Σ买1.31BNB 钱包22 top1=46.0% churn2 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买23/卖2 Σ买1.31BNB 钱包22 top1=46.0% churn2 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD110",
+      "symbol": "SAFU慈善",
+      "addr": "0x89d14f21aa11d67d640db889a2a005452eb57777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 15
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "aed2091d 首买基线收录（锚=15=首笔成功买+settle4000ms；买13/卖2 Σ买1.71BNB 钱包13 top1=67.2% churn0 同块簇1 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=15=首笔成功买+settle4000ms；买13/卖2 Σ买1.71BNB 钱包13 top1=67.2% churn0 同块簇1 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD111",
+      "symbol": "SAFU金库",
+      "addr": "0x7c625e0cdc9442b44fa77cb1e8378c907c287777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=22=首笔成功买+settle4000ms；买21/卖1 Σ买1.26BNB 钱包21 top1=48.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=22=首笔成功买+settle4000ms；买21/卖1 Σ买1.26BNB 钱包21 top1=48.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD112",
+      "symbol": "Trust Binance",
+      "addr": "0x291491d05856e2e0c5f518266a647af95ee9ffff",
+      "platform": "fourmeme",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=22=首笔成功买+settle4000ms；买22/卖0 Σ买1.70BNB 钱包22 top1=12.7% churn0 同块簇1 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=22=首笔成功买+settle4000ms；买22/卖0 Σ买1.70BNB 钱包22 top1=12.7% churn0 同块簇1 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD113",
+      "symbol": "SPACECAT",
+      "addr": "0x37b7cdbf085a28c478c45f0f8bd7e9cc61467777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 91
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=91=首笔成功买+settle4000ms；买43/卖48 Σ买7.91BNB 钱包44 top1=12.6% churn25 同块簇6 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=91=首笔成功买+settle4000ms；买43/卖48 Σ买7.91BNB 钱包44 top1=12.6% churn25 同块簇6 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD114",
+      "symbol": "NEBULA",
+      "addr": "0x1d377357eeeeffe34f4b59487bf5d0ee75337777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 71
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=71=首笔成功买+settle4000ms；买38/卖33 Σ买7.86BNB 钱包36 top1=12.7% churn23 同块簇4 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=71=首笔成功买+settle4000ms；买38/卖33 Σ买7.86BNB 钱包36 top1=12.7% churn23 同块簇4 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD115",
+      "symbol": "NEBULA",
+      "addr": "0x68b6f897744479317c6995748443f48930ba7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买3.47BNB 钱包23 top1=11.5% churn1 同块簇4 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买3.47BNB 钱包23 top1=11.5% churn1 同块簇4 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD116",
+      "symbol": "何姨",
+      "addr": "0xce65628695ef9179740ac6be262841f9196a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 166
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=166=首笔成功买+settle4000ms；买92/卖74 Σ买13.27BNB 钱包84 top1=9.8% churn63 同块簇8 等额簇10）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=166=首笔成功买+settle4000ms；买92/卖74 Σ买13.27BNB 钱包84 top1=9.8% churn63 同块簇8 等额簇10）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD117",
+      "symbol": "何姨",
+      "addr": "0x36207f3aeacc6c69e33e7293277185e85f747777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 36
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=36=首笔成功买+settle4000ms；买22/卖14 Σ买2.17BNB 钱包22 top1=28.6% churn14 同块簇2 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=36=首笔成功买+settle4000ms；买22/卖14 Σ买2.17BNB 钱包22 top1=28.6% churn14 同块簇2 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD118",
+      "symbol": "LDO",
+      "addr": "0xfdd91c6baed435bfc916a81bc238d43ccd357777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=42=首笔成功买+settle4000ms；买33/卖9 Σ买3.36BNB 钱包22 top1=29.8% churn5 同块簇4 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=42=首笔成功买+settle4000ms；买33/卖9 Σ买3.36BNB 钱包22 top1=29.8% churn5 同块簇4 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD119",
+      "symbol": "COOL",
+      "addr": "0x1ab94adf184c2cfde525ee27f339329cd80a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=32=首笔成功买+settle4000ms；买25/卖7 Σ买3.27BNB 钱包22 top1=17.0% churn5 同块簇4 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=32=首笔成功买+settle4000ms；买25/卖7 Σ买3.27BNB 钱包22 top1=17.0% churn5 同块簇4 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD120",
+      "symbol": "SAFU Fund",
+      "addr": "0xbe03867c585c676226d15871ce3c1c4c59f37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=21=首笔成功买+settle4000ms；买19/卖2 Σ买1.39BNB 钱包18 top1=44.9% churn2 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=21=首笔成功买+settle4000ms；买19/卖2 Σ买1.39BNB 钱包18 top1=44.9% churn2 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD121",
+      "symbol": "币安大股东",
+      "addr": "0xac9c455faedc7d7b81566c93c4fbcc17a8337777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 44
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=44=首笔成功买+settle4000ms；买35/卖9 Σ买1.28BNB 钱包29 top1=15.2% churn0 同块簇1 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=44=首笔成功买+settle4000ms；买35/卖9 Σ买1.28BNB 钱包29 top1=15.2% churn0 同块簇1 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD122",
+      "symbol": "SAFU狗",
+      "addr": "0xdaf3dfdf3c6e84a725cda2a1c8d59df24ef97777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买5.77BNB 钱包18 top1=36.3% churn1 同块簇1 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买5.77BNB 钱包18 top1=36.3% churn1 同块簇1 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD123",
+      "symbol": "SAFU基金",
+      "addr": "0x94bad152ba9b7dfd092a8ad95f84d08932ef7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=31=首笔成功买+settle4000ms；买25/卖6 Σ买3.60BNB 钱包26 top1=8.3% churn1 同块簇4 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=31=首笔成功买+settle4000ms；买25/卖6 Σ买3.60BNB 钱包26 top1=8.3% churn1 同块簇4 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD124",
+      "symbol": "LUMI",
+      "addr": "0xd3a5d1d02343340f8d5d2791d8ca220524d27777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 60
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=60=首笔成功买+settle4000ms；买39/卖21 Σ买2.89BNB 钱包33 top1=14.0% churn8 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=60=首笔成功买+settle4000ms；买39/卖21 Σ买2.89BNB 钱包33 top1=14.0% churn8 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD125",
+      "symbol": "蹭饭蛙",
+      "addr": "0xe0981c32b112e9fe33bc2ec181fbbae257057777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=20=首笔成功买+settle4000ms；买17/卖3 Σ买1.48BNB 钱包17 top1=15.4% churn3 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=20=首笔成功买+settle4000ms；买17/卖3 Σ买1.48BNB 钱包17 top1=15.4% churn3 同块簇2 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD126",
+      "symbol": "SAFU FLAP",
+      "addr": "0x8aab3e74a5baf5095952ed9b663d77b3deb97777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买2.08BNB 钱包19 top1=9.6% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买2.08BNB 钱包19 top1=9.6% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD127",
+      "symbol": "SAFU",
+      "addr": "0x25373baa80cc5833984402eb4dfa4ebbb7434444",
+      "platform": "fourmeme",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买1.96BNB 钱包16 top1=15.0% churn1 同块簇4 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买1.96BNB 钱包16 top1=15.0% churn1 同块簇4 等额簇0）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD128",
+      "symbol": "币安社区",
+      "addr": "0x6d06f696f5cbca2bd970ca975bfb850ef5c77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "4012ce39 首买基线收录（锚=37=首笔成功买+settle4000ms；买37/卖0 Σ买2.24BNB 钱包31 top1=9.9% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-01",
+      "expectSince": "2026-11-01",
+      "expectBecause": "--add 基线快照（4012ce39 首买基线收录（锚=37=首笔成功买+settle4000ms；买37/卖0 Σ买2.24BNB 钱包31 top1=9.9% churn0 同块簇2 等额簇0）；expect=判读现状待 review）"
     }
   ]
 }
