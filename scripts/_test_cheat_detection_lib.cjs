@@ -598,7 +598,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.18', `版本常量 D3.18（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.19', `版本常量 D3.19（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -649,6 +649,19 @@ console.log('I. 著名钱包单极控盘锚');
     'activity_level 显式算式=静默占比分式 + 密度分式（教学单一载体=题面）');
   ok(act.includes('低档正例') && act.includes('超高正例'), 'activity_level 真实样本=低档/超高正例齐备');
   ok(act.includes('不下任何盘面结论'), 'activity_level 尾句=只述档位不下结论');
+  // D3.19 开盘打新段反锚（组 13 双质询：CD62 bw strong / CD66 eq+tier strong 两误伤——扩集
+  // anchor=首笔成功买+settle 口径决定锚窗全落开盘段（四票窗首距 token_create 全 0.0s），散户
+  // 默认档（净额≈名义×0.98 换算后同档精确重复）+同块并发+各钱包各 1 笔独立 tx 买后持有呈现为
+  // 作弊形状；bot 阵列对照=CD67 非整名义精确等额+每钱包两笔两档固定组合+成对块两轮节拍复现）
+  const eqq = qs.equal_amount_split.instructions;
+  ok(eqq.includes('开盘打新段反锚') && eqq.includes('净额≈名义额×0.98') && eqq.includes('不给明显及以上档'),
+    'equal_amount_split D3.19 开盘打新段反锚=默认档精确重复（名义×0.98 换算）+档内各钱包各 1 笔独立 tx 买后持有=打新流量不给明显及以上档（用户裁定「好，方案A」）');
+  ok(eqq.includes('非整数名义额的精确等额') && eqq.includes('每钱包多笔多档固定组合') && eqq.includes('同 tx 打包'),
+    'equal_amount_split D3.19 判读转向=分仓阵列结构证据四件套（非整名义精确等额/多笔多档固定组合/成对节拍多轮复现/同 tx 打包）');
+  ok(eqq.includes('0.0987（名义 0.1）×9 钱包') && eqq.includes('0.2303（名义 0.235）×3'),
+    'equal_amount_split D3.19 反例补 CD66 形状（开盘 15 秒窗整数名义档覆盖七成买入、每人恰 1 笔独立 tx 买后持有=散户档位抢购）');
+  ok(eqq.includes('0.0631×10 钱包+0.0197×10 钱包') && eqq.includes('名义额非常见整档=配置值'),
+    'equal_amount_split D3.19 正例补 CD67 bot 阵列形状（十钱包两轮成对进场每钱包两笔两档固定金额、覆盖 40/43 笔）');
   const sbw = qs.stall_burst_wave.instructions;
   ok(sbw.includes('静默') && sbw.includes('排除项'),
     'stall_burst_wave 算法要素=静默段判读/排除项（D3.11 二步形状）');
@@ -690,6 +703,12 @@ console.log('I. 著名钱包单极控盘锚');
     'amount_tiering D3.13 散布盘=至多 moderate（散户各按自身预算买入，金额天然铺满各档）');
   ok(tier.includes('反·散布') && tier.includes('47 个钱包') && tier.includes('极差逾百倍') && tier.includes('九条'),
     'amount_tiering D3.13 散布反例=CD42 形状（47 钱包 35 个仅一笔、极差逾百倍、九带 0.005~0.75 连续覆盖每带 2~10 钱包）');
+  ok(tier.includes('开盘打新段反锚') && tier.includes('净额≈名义×0.98') && tier.includes('即使分层覆盖度高也不给 strong，至多 moderate'),
+    'amount_tiering D3.19 开盘打新段反锚=整数名义默认档聚集（每带各钱包各 1 笔独立 tx 买后持有）覆盖度再高也至多 moderate');
+  ok(tier.includes('非整数名义档（配置值）') && tier.includes('每钱包多笔跨档固定组合'),
+    'amount_tiering D3.19 分层高档只留给分仓阵列结构证据（非整名义配置档/多笔跨档固定组合/多轮节拍复现）');
+  ok(tier.includes('反·开盘默认档') && tier.includes('0.0987（名义 0.1）×9 钱包') && tier.includes('散户档位抢购非分层脚本'),
+    'amount_tiering D3.19 反例补 CD66 形状（开盘 15 秒窗七成买入落整数名义档、每人恰 1 笔各自独立 tx=打新档位抢购）');
   const bwq = qs.same_block_buy_wave.instructions;
   ok(bwq.includes('节拍复现') && bwq.includes('波占比') && bwq.includes('不同钱包'),
     'same_block_buy_wave 算法三要素=同块多钱包/节拍复现/波占比算式');
@@ -705,6 +724,14 @@ console.log('I. 著名钱包单极控盘锚');
     'same_block_buy_wave D3.16 加活跃度/密度反锚（高密度热点盘同时性降权、判读转看同 tx 打包/金额同质化——用户裁定「bw 可以加活跃度/密度反锚」）');
   ok(bwq.includes('200+ 笔/分钟') && bwq.includes('27 个尘额钱包') && bwq.includes('不给明显及以上档'),
     'same_block_buy_wave D3.16 反例补高密度盘形状（CD60：三块 27 尘额钱包独立 tx 抢买+三大额 FOMO 同秒抢入=并发流量非协同）');
+  ok(bwq.includes('开盘打新段反锚：先看窗口起点') && bwq.includes('散户/狙击抢首发的并发常态') && bwq.includes('不给明显及以上档'),
+    'same_block_buy_wave D3.19 开盘打新段反锚=独立 tx+金额散布/默认档+买后持有的同块波，波占比高+节拍复现也不给明显及以上档（CD62 误伤根因=D3.16 ②密度反锚拉不住开盘段纯同时性聚集）');
+  ok(bwq.includes('非整数名义额同额×多钱包') && bwq.includes('同批钱包同块成对节拍多轮复现'),
+    'same_block_buy_wave D3.19 判读转向=分仓阵列结构证据（同 tx/非整名义同额/固定组合/成对节拍多轮复现）');
+  ok(bwq.includes('13 秒窗约 217 行/分') && bwq.includes('波成员 13 钱包 12 个买后持有'),
+    'same_block_buy_wave D3.19 反例补 CD62 形状（13 秒窗 217 行/分四波全独立 tx 金额连续散布、12/13 在场=纯同时性打新并发）');
+  ok(bwq.includes('每块恰 5 钱包') && bwq.includes('同额 0.0631 与 0.0197 交替') && bwq.includes('覆盖窗口 40/43 笔买入'),
+    'same_block_buy_wave D3.19 正例补 CD67 bot 阵列形状（十钱包两轮同块成对进场、两档同额交替覆盖 40/43 笔=按协同判读）');
   const bdq = qs.bundled_trade_dominance.instructions;
   ok(bdq.includes('最硬信号') && bdq.includes('同块多钱包买入波') && bdq.includes('每波轮换'),
     'bundled_trade_dominance 识别三信号=同 tx 打包/同块波/全新钱包轮换');
