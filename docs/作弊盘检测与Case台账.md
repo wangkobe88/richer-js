@@ -27,6 +27,29 @@
 
 ## Case 倒序
 
+### 组 18（CD92-CD97）：CD93 rat=strong 首个正例 cheat / CD96 全买零卖家族第六票 cheat / CD97 sbHold 89.9% 回归集之最 cheat（2026-11-01）
+
+**组 18 裁定**（2026-11-01，六票全 flap，D3.26 真调）：
+
+| CD | 票 | 地址 | 裁定 | 机器判读（D3.26 真调） |
+|---|---|---|---|---|
+| CD92 | SI | `0x3314…7777` | **healthy** | bd=mid 本组唯一非 high、十一题无 strong、买 34/卖 6 双向活跃、top1 买 46.6% 无结构证据伴随 |
+| CD93 | BSC | `0x8f96…7777` | **cheat** | bw/rat/pump 三 strong+sbHold 72.4%+eqHold 50.7%+bd=high 多证据组合 |
+| CD94 | BSC | `0x3e99…7777` | **cheat** | rat=strong+sbHold 67.3%+bd=high+t1 供/流 15.2%/37.4%（等额簇 0 无阵列证据） |
+| CD95 | SAFUCAT | `0x85d6…7777` | **unhealthy** | cr=moderate+eqHold 62.9%+bd=high 无 strong |
+| CD96 | SAFU | `0xd752…7777` | **cheat** | 41 笔全买零卖（churn 0）+eq/bw/pump 三 strong+sbHold 71.3%+bd=high |
+| CD97 | FAS | `0x2485…7777` | **cheat** | sbHold 89.9% 回归集之最（超 CD89 83.6%）+cr=moderate+bd=high |
+
+**裁定语义四条（判读先例）**：
+①CD92 vs CD80：**双向活跃+无 strong=healthy**——bd=mid、买卖两腿都有量（34:6）、top1 买占比高但无等额/同块结构证据伴随，结构最轻一票判 healthy（CD80 同款先例）；本组唯一非 cheat/unhealthy 票；
+②CD93：**rat=strong=D3.22 双口径后 insider strong 通道首个正例**——组 14 余留「insider strong 通道 128 票内已无正例（待收真砸盘票）」由本票补上，用户判 cheat 印证双高门（占比+冲击双口径都高才 strong）的判定方向；且首轮 87s +242% 盈利不改变结构判定（CD90 先例：盈亏与盘面结构判定独立）；
+③CD96 vs CD53/54/72/76/91：**全买零卖家族第六票**——41 笔 0 卖 churn 0 同族形状，但 t1 供/流 5.0/21.2 与 9.4945 模板不同数、top1 17.5% 更分散=非同模板克隆（家族形状判定不依赖模板同数）；
+④CD95 vs CD93/CD94：**无 strong 落 unhealthy、有 strong 落 cheat 的梯度**——CD95（cr=moderate+eqHold 62.9%+bd=high 无 strong）与 CD94（rat=strong+sbHold 67.3%）集中度档位相近，差一个 strong 即分档。
+
+**盈亏**：六票均 aed2091d live 0.006 BNB 快进快出——两票盈利（CD93 +0.014412 本组最大盈=首轮 87s 0.006 进 0.0205 出 ≈+242%、CD96 +0.001726）；CD92 -0.000775/CD94 -0.000750/CD95 -0.001343（两轮）/CD97 -0.002393（13s 即清本组最大亏）。
+
+**收录**：组 18 六票 verdict/because 已落 fixtures；本组无质询立项（六票裁定与机器判读方向一致）。
+
 ### 组 17（CD86-CD91）：CD88 持续推价「低活跃度低额度」立项 D3.24 / CD91 同形状模板第五票 cheat / CD89 等额簇垄断在场筹码 98.0% cheat（2026-11-01）
 
 **组 17 裁定**（2026-11-01，六票全 flap，D3.23 真调）：

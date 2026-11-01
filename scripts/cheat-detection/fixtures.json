@@ -1467,12 +1467,12 @@
         "tickCount": 40
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=40=首笔成功买+settle4000ms；买34/卖6 Σ买6.43BNB 钱包33 top1=46.6% churn3 同块簇3 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=40=首笔成功买+settle4000ms；买34/卖6 Σ买6.43BNB 钱包33 top1=46.6% churn3 同块簇3 等额簇3）；expect=判读现状待 review）"
+      "expectBecause": "组18裁定=healthy（用户裁定「CD92 healthy」——本组结构最轻：bd=mid 唯一非 high、十一题无 strong、买 34/卖 6 双向活跃、top1 买 46.6% 无伴随结构证据（等额簇 3/同块簇 3 弱）；对照 CD80 双向活跃=healthy 先例）"
     },
     {
       "caseId": "CD93",
@@ -1483,12 +1483,12 @@
         "tickCount": 29
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=29=首笔成功买+settle4000ms；买27/卖2 Σ买4.01BNB 钱包27 top1=8.2% churn1 同块簇4 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=29=首笔成功买+settle4000ms；买27/卖2 Σ买4.01BNB 钱包27 top1=8.2% churn1 同块簇4 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "组18裁定=cheat（用户裁定「CD93 cheat」——bw/rat/pump 三 strong+sbHold 72.4%+eqHold 50.7%+bd=high 多证据组合；rat=strong 为 D3.22 双口径后 insider strong 通道首个正例（此前 128 票无正例）；首轮 87s +242% 盈利不改变结构判定（CD90 先例：盈亏与盘面结构判定独立））"
     },
     {
       "caseId": "CD94",
@@ -1499,12 +1499,12 @@
         "tickCount": 57
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=57=首笔成功买+settle4000ms；买48/卖9 Σ买3.89BNB 钱包30 top1=25.7% churn4 同块簇6 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=57=首笔成功买+settle4000ms；买48/卖9 Σ买3.89BNB 钱包30 top1=25.7% churn4 同块簇6 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "组18裁定=cheat（用户裁定「CD94 cheat」——rat=strong+sbHold 67.3%+bd=high+t1 供/流 15.2%/37.4% 集中；等额簇 0 无阵列证据但单 strong+集中度组合足判）"
     },
     {
       "caseId": "CD95",
@@ -1515,12 +1515,12 @@
         "tickCount": 24
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买20/卖4 Σ买1.92BNB 钱包17 top1=17.0% churn4 同块簇3 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=24=首笔成功买+settle4000ms；买20/卖4 Σ买1.92BNB 钱包17 top1=17.0% churn4 同块簇3 等额簇3）；expect=判读现状待 review）"
+      "expectBecause": "组18裁定=unhealthy（用户裁定「CD95 unhealthy」——cr=moderate+eqHold 62.9%+bd=high 无 strong（对照 CD93/CD94 有 strong 判 cheat、本票无 strong 落 unhealthy））"
     },
     {
       "caseId": "CD96",
@@ -1531,12 +1531,12 @@
         "tickCount": 41
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买41/卖0 Σ买1.72BNB 钱包17 top1=17.5% churn0 同块簇6 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买41/卖0 Σ买1.72BNB 钱包17 top1=17.5% churn0 同块簇6 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "组18裁定=cheat（用户裁定「CD96 cheat」——41 笔全买零卖（churn 0 卖 0/0）全买零卖家族第六票（CD53/54/72/76/91 同族；t1 供/流 5.0/21.2 与 9.4945 模板不同数非同模板克隆）+eq/bw/pump 三 strong+bd=high）"
     },
     {
       "caseId": "CD97",
@@ -1547,12 +1547,12 @@
         "tickCount": 23
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买17/卖6 Σ买2.76BNB 钱包17 top1=21.7% churn4 同块簇3 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买17/卖6 Σ买2.76BNB 钱包17 top1=21.7% churn4 同块簇3 等额簇0）；expect=判读现状待 review）"
+      "expectBecause": "组18裁定=cheat（用户裁定「CD97 cheat」——sbHold 89.9% 回归集之最（超 CD89 的 83.6%）+cr=moderate+bd=high；13 秒即清本组最大亏）"
     },
     {
       "caseId": "CD98",
