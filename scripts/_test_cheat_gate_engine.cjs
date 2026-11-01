@@ -220,14 +220,15 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 20 键往返（因子化：grade 三键 + 11 题档 + 数值锚六键）');
+console.log('D. FA 投影 24 键往返（因子化：grade 三键 + 12 题档 + 数值锚十键）');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
   const LV = { equalAmountSplit: 2, coordinatedSellBack: null, creatorFrontRun: 1,
     sellDispersion: 0, stallBurstWave: 1, amountTiering: null, sameBlockBuyWave: 3,
-    insiderSupplySell: null, slowGrindPump: 2, activityLevel: 0, bundledDominance: 2 };
-  const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, top1HoldSupplyPct: 25.6,
+    insiderSupplySell: null, slowGrindPump: 2, washPair: 3, activityLevel: 0, bundledDominance: 2 };
+  const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, washPairCount: 10,
+    washPairSellPct: 95.1, washPairBuyPct: 27.3, top1HoldSupplyPct: 25.6,
     top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2 };
   FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   check('set → get unhealthy（levels/anchors 原样往返）', FAmod.getCheatFactors('0xround'),
@@ -237,16 +238,17 @@ console.log('D. FA 投影 20 键往返（因子化：grade 三键 + 11 题档 + 
     FAmod.getCheatFactors('0xround'), { grade: 'cheat', unhealthyGrades: 0, blocked: true });
   FAmod.clearCheatFactors('0xround');
   check('clear → null', FAmod.getCheatFactors('0xround'), null);
-  // _buildFactorMap 发射 20 键：探针（实例化真实 FA）验证键名在因子集内
+  // _buildFactorMap 发射 24 键：探针（实例化真实 FA）验证键名在因子集内
   const fa = new FAmod({}, null);
   const keys = [...fa.getFactorKeys()]; // Set → 数组
   const need = ['cheatGrade', 'cheatUnhealthyGrades', 'cheatBlocked',
     'cheatEqualAmountSplit', 'cheatCoordinatedSellBack', 'cheatCreatorFrontRun', 'cheatSellDispersion',
     'cheatStallBurstWave', 'cheatAmountTiering', 'cheatSameBlockBuyWave', 'cheatInsiderSupplySell',
-    'cheatSlowGrindPump', 'cheatActivityLevel', 'cheatBundledDominance',
-    'cheatSameBlockHoldPct', 'cheatEqualBandHoldPct', 'cheatTop1HoldSupplyPct',
-    'cheatTop1HoldCircPct', 'cheatFamousDominancePct', 'cheatFamousDominance'];
-  ok('20 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
+    'cheatSlowGrindPump', 'cheatWashPair', 'cheatActivityLevel', 'cheatBundledDominance',
+    'cheatSameBlockHoldPct', 'cheatEqualBandHoldPct', 'cheatWashPairCount', 'cheatWashPairSellPct',
+    'cheatWashPairBuyPct', 'cheatTop1HoldSupplyPct', 'cheatTop1HoldCircPct',
+    'cheatFamousDominancePct', 'cheatFamousDominance'];
+  ok('24 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   // 数值序出口（grade healthy=0/unhealthy=1/cheat=2；题档 0-3；锚 % 数值直传；null 透传）——
   // registerToken+单 tick 建 state 后 buildFactorMap 直读（cheat 块纯投影）
@@ -263,6 +265,8 @@ console.log('D. FA 投影 20 键往返（因子化：grade 三键 + 11 题档 + 
     && fm.cheatSameBlockBuyWave === 3 && fm.cheatStallBurstWave === 1
     && fm.cheatActivityLevel === 0 && fm.cheatBundledDominance === 2
     && fm.cheatCoordinatedSellBack === null && fm.cheatEqualAmountSplit === 2
+    && fm.cheatWashPair === 3 && fm.cheatWashPairCount === 10
+    && fm.cheatWashPairSellPct === 95.1 && fm.cheatWashPairBuyPct === 27.3
     && fm.cheatSameBlockHoldPct === 66.1 && fm.cheatEqualBandHoldPct === 57.2
     && fm.cheatTop1HoldSupplyPct === 25.6 && fm.cheatTop1HoldCircPct === 53.4
     && fm.cheatFamousDominancePct === 87.5 && fm.cheatFamousDominance === 2,

@@ -311,6 +311,41 @@ function computeDerived(snapshot, famousRoster) {
   }
   const equalBandHoldPct = holdPctOf(eqMembers);
 
+  // ── 同块卖→买等额对敲锚（D3.28，2026-11-01 用户裁定 CD27 语境「对倒交易非常
+  // 严重，如有必要可能需要增加锚」）：同一 block 内一笔 SELL 与一笔 BUY 金额落
+  // ±2% 对数带（与 eqHold 同带宽，精确等额自然落带）配对，每笔卖出至多配一次
+  // （splice 防重配）；配对数与配对额为「左手换右手」对倒换手的直接度量。
+  // CD27 实证形状=对内等额、对外不等额（9 轮买回金额互相各异）→ 等额簇/同块
+  // 买入波锚均失明，本锚为唯一载体。128 票锚窗分布（tmp-wash-pair-dist@182）：
+  // 126 票零配对、唯一 ≥3 对票 CD27 卖占 95.1%（断层稀有，自然发生率≈0）。
+  // 尘门下限对齐 EQUAL_AMOUNT_MIN_BNB；无配对（count=0）→ 三键全 null
+  // （D3.1「有证据的缺席」同语义：该轴不适用，非 0%）。
+  let washPairCount = null, washPairSellPct = null, washPairBuyPct = null;
+  {
+    const washBand = Math.log(1 + EQUAL_BAND_PCT);
+    const blks = new Map();
+    for (const t of ticks) {
+      if (t.block === null) continue;
+      if ((t.bnb || 0) < EQUAL_AMOUNT_MIN_BNB) continue;
+      const o = blks.get(t.block) || { sells: [], buys: [] };
+      o[t.side === 'BUY' ? 'buys' : 'sells'].push(t);
+      blks.set(t.block, o);
+    }
+    let pairN = 0, pairBnb = 0;
+    for (const [, o] of blks) {
+      const sells = [...o.sells];
+      for (const b of o.buys) {
+        const si = sells.findIndex((s) => Math.abs(Math.log((b.bnb || 0) / (s.bnb || 1))) <= washBand);
+        if (si >= 0) { sells.splice(si, 1); pairN++; pairBnb += b.bnb || 0; }
+      }
+    }
+    if (pairN > 0) {
+      washPairCount = pairN;
+      washPairSellPct = totalSellBnb > 0 ? (pairBnb / totalSellBnb) * 100 : null;
+      washPairBuyPct = totalBuyBnb > 0 ? (pairBnb / totalBuyBnb) * 100 : null;
+    }
+  }
+
   // ── 单一钱包持仓集中双锚（D3.20，2026-11-01 用户裁定 CD69 语境：「持仓极不
   // 均衡，一个钱包持有总额度占比过大肯定不行；合理评判=看占总供应量的大小、也看
   // 占总流通量的大小，前者低后者高可以豁免」）──
@@ -448,6 +483,7 @@ function computeDerived(snapshot, famousRoster) {
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
     sameBlockHoldPct, equalBandHoldPct,
+    washPairCount, washPairSellPct, washPairBuyPct,
     top1HoldSupplyPct, top1HoldCircPct,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel,
     ticksPerMin, avgTradeBnb, maxGapSec,

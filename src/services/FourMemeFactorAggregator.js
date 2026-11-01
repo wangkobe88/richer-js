@@ -3605,18 +3605,20 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
 
         // ── 作弊盘检测因子注入（G1 因子化，2026-11-01 用户指令「以因子的形式放到
-        //    表达式中」）：20 键全数值序（narrativeRating 先例同构）——cheatGrade
+        //    表达式中」）：24 键全数值序（narrativeRating 先例同构）——cheatGrade
         //    （healthy=0/unhealthy=1/cheat=2）+ cheatUnhealthyGrades（unhealthy 真分析
-        //    判定次数）+ cheatBlocked（拉黑 1/0）+ 11 题档位键 cheatEqualAmountSplit/
+        //    判定次数）+ cheatBlocked（拉黑 1/0）+ 12 题档位键 cheatEqualAmountSplit/
         //    CoordinatedSellBack/CreatorFrontRun/SellDispersion/StallBurstWave/
-        //    AmountTiering/SameBlockBuyWave/InsiderSupplySell/SlowGrindPump/
-        //    ActivityLevel/BundledDominance（四档 none=0/weak=1/moderate=2/strong=3、
+        //    AmountTiering/SameBlockBuyWave/InsiderSupplySell/SlowGrindPump/WashPair
+        //    /ActivityLevel/BundledDominance（四档 none=0/weak=1/moderate=2/strong=3、
         //    sbw 二桶 0/1、act 0-3、dom 0-2；映射表=market-analysis/cheat-grade.js
-        //    CHEAT_LEVEL_SCORES，未知档位→null 不冒充）+ 数值锚六键（用户补点「著名
+        //    CHEAT_LEVEL_SCORES，未知档位→null 不冒充）+ 数值锚九键（用户补点「著名
         //    钱包掌控/持仓极不均衡」）cheatSameBlockHoldPct/cheatEqualBandHoldPct/
         //    cheatTop1HoldSupplyPct/cheatTop1HoldCircPct（持仓占比 %，G1 B/C/F 通道
         //    sbHold 与 E 通道 t1 流的同源数值）+ cheatFamousDominancePct（著名钱包
-        //    掌控度 %）+ cheatFamousDominance（低/中/高→0/1/2）。
+        //    掌控度 %）+ cheatFamousDominance（低/中/高→0/1/2）+ D3.28 同块对敲三键
+        //    cheatWashPairCount/cheatWashPairSellPct/cheatWashPairBuyPct（配对数/
+        //    卖占%/买占%，G3 H 通道同源数值；无配对=null 轴不适用）。
         //    写者=引擎（gate 判定/迟到补投影/预触发 onResult）；**值=最近一次判定
         //    投影**（叙事 C84 同构：后台分析完成投影，下一 tick 条件可消费）——
         //    首判未完成/预触发未跑 → 全 null（条件裸比较恒 false fail-closed，未判定
@@ -3640,10 +3642,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatSameBlockBuyWave = _lv ? _lv.sameBlockBuyWave ?? null : null;
             factors.cheatInsiderSupplySell = _lv ? _lv.insiderSupplySell ?? null : null;
             factors.cheatSlowGrindPump = _lv ? _lv.slowGrindPump ?? null : null;
+            factors.cheatWashPair = _lv ? _lv.washPair ?? null : null;
             factors.cheatActivityLevel = _lv ? _lv.activityLevel ?? null : null;
             factors.cheatBundledDominance = _lv ? _lv.bundledDominance ?? null : null;
             factors.cheatSameBlockHoldPct = _an ? _an.sameBlockHoldPct ?? null : null;
             factors.cheatEqualBandHoldPct = _an ? _an.equalBandHoldPct ?? null : null;
+            factors.cheatWashPairCount = _an ? _an.washPairCount ?? null : null;
+            factors.cheatWashPairSellPct = _an ? _an.washPairSellPct ?? null : null;
+            factors.cheatWashPairBuyPct = _an ? _an.washPairBuyPct ?? null : null;
             factors.cheatTop1HoldSupplyPct = _an ? _an.top1HoldSupplyPct ?? null : null;
             factors.cheatTop1HoldCircPct = _an ? _an.top1HoldCircPct ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;

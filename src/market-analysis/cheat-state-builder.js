@@ -90,6 +90,11 @@ function buildCheatState(snapshot) {
     // routerPct 行已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
     lines.push(`同块簇持仓占比: ${d.sameBlockHoldPct === null ? '无合格簇' : d.sameBlockHoldPct.toFixed(1) + '%'}（「≥3 笔买同块」全部簇的成员钱包去重并集；分子=成员正净持仓合计，分母=全场正净持仓合计）`);
     lines.push(`近等额簇持仓占比: ${d.equalBandHoldPct === null ? '无合格簇' : d.equalBandHoldPct.toFixed(1) + '%'}（±2% 金额带、带内 ≥3 个不同钱包；精确等额自然落入同带；同口径占比）`);
+    // D3.28 同块对敲锚（CD27 用户裁定「对倒交易非常严重」）：同块一卖一买 ±2% 带
+    // 内配对=左手换右手换手的直接度量；无配对不渲染行（缺席语义）
+    if (d.washPairCount !== null && d.washPairCount !== undefined) {
+      lines.push(`同块对敲: ${d.washPairCount} 对，配对买额占全部卖出 ${d.washPairSellPct === null ? '—' : d.washPairSellPct.toFixed(1) + '%'} / 占全部买入 ${d.washPairBuyPct === null ? '—' : d.washPairBuyPct.toFixed(1) + '%'}（同一 block 内一笔卖出与一笔买入金额 ±2% 带内配对、每笔卖出至多配一次；自然交易中同块等额一卖一买发生率≈0，对数与占比一起看）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {

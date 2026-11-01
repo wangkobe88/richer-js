@@ -79,8 +79,10 @@ function genTicks(n, { startBlock = 100, senderPrefix = '0xw' } = {}) {
     rows.push({
       block_time: new Date(1700000000000 + i * 2000).toISOString(),
       block_number: startBlock + Math.floor(i / 2), log_index: i % 2,
+      // 卖行 0.11（≠0.1 买额、超 ±2% 对数带）：D3.28 起同块等额一卖一买=wash pair 锚，
+      // 基底若卖 0.1 会 6 对卖占 100% 触发 H 通道污染全部 gate 分级测试
       trade_type: i % 3 === 2 ? 'sell' : 'buy',
-      bnb_amount: 0.1, price_bnb: 1e-9, price_outlier: false,
+      bnb_amount: i % 3 === 2 ? 0.11 : 0.1, price_bnb: 1e-9, price_outlier: false,
       trader_address: `${senderPrefix}${i % 10}`.padEnd(42, '0'),
       sender_address: `${senderPrefix}${i % 10}`.padEnd(42, '0'),
       quote_token: null,
@@ -123,6 +125,7 @@ const GOOD_ANSWERS = {
   activity_level: actAns('mid'),
   bundled_trade_dominance: bdAns('high'),
   insider_supply_sell: phAns('strong'),
+  wash_pair: phAns('none'),
 };
 function makeLlm({ answers = GOOD_ANSWERS, hang = false, reject = null } = {}) {
   const calls = { ask: 0 };
@@ -409,31 +412,79 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G2'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G3'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
-    // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（11 题数值档，FA 出口
+    // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（12 题数值档，FA 出口
     // 原料）+ buckets（字符串原值）——GOOD 形状 tier/bw/rat strong=3、sbw burst=1、
-    // cr strong=3（辅助判定照投影）、act mid=1、bd high=2
+    // cr strong=3（辅助判定照投影）、act mid=1、bd high=2、wash none=0（D3.28）
     ok(r1.levels && r1.levels.sameBlockBuyWave === 3 && r1.levels.amountTiering === 3
       && r1.levels.insiderSupplySell === 3 && r1.levels.stallBurstWave === 1
       && r1.levels.creatorFrontRun === 3 && r1.levels.activityLevel === 1
-      && r1.levels.bundledDominance === 2 && r1.levels.equalAmountSplit === 0,
-      `analyzed 带 levels 数值档（实际 ${JSON.stringify(r1.levels)}）`);
+      && r1.levels.bundledDominance === 2 && r1.levels.equalAmountSplit === 0
+      && r1.levels.washPair === 0,
+      `analyzed 带 levels 数值档 12 键（实际 ${JSON.stringify(r1.levels)}）`);
     ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'burst'
       && r1.buckets.activityLevel === 'mid',
       `analyzed 带 buckets 字符串原值（研究留档）`);
-    // Z1c 数值锚六键（用户补点「著名钱包掌控/持仓极不均衡」）：四持仓占比键真算数值
-    // （genTicks 全 0.1 同额 10 钱包）+famous 三键缺席 null（名单无命中=该轴不适用）
-    ok(r1.anchors && ['sameBlockHoldPct', 'equalBandHoldPct', 'top1HoldSupplyPct',
-      'top1HoldCircPct', 'famousDominancePct', 'famousDominanceLevel', 'famousDominance']
+    // Z1c 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键）：四持仓占比键
+    // 真算数值（genTicks 全 0.1 同额 10 钱包买侧）+washPair 三键（卖 0.11 超带=零配对 null）
+    // +famous 三键缺席 null（名单无命中=该轴不适用）
+    ok(r1.anchors && ['sameBlockHoldPct', 'equalBandHoldPct', 'washPairCount', 'washPairSellPct',
+      'washPairBuyPct', 'top1HoldSupplyPct', 'top1HoldCircPct',
+      'famousDominancePct', 'famousDominanceLevel', 'famousDominance']
       .every((k) => k in r1.anchors) && r1.anchors.famousDominancePct === null
       && r1.anchors.famousDominance === null && r1.anchors.famousDominanceLevel === null,
-      `analyzed 带 anchors 七键（famous 无命中缺席 null）（实际 ${JSON.stringify(r1.anchors)}）`);
+      `analyzed 带 anchors 十键（famous 无命中缺席 null）（实际 ${JSON.stringify(r1.anchors)}）`);
     ok(r1.anchors.equalBandHoldPct === 100,
       `等额带锚精确值（全 0.1 同额 10 钱包簇并集=全场 Σ正净 → 100）（实际 ${r1.anchors.equalBandHoldPct}）`);
+    ok(r1.anchors.washPairCount === null && r1.anchors.washPairSellPct === null
+      && r1.anchors.washPairBuyPct === null,
+      '基底零配对（卖 0.11 超带）→ washPair 三键 null（H 通道不触发=gate 测试基底干净）');
     ok(r2.levels && r2.levels.sameBlockBuyWave === 3 && r2.anchors && 'sameBlockHoldPct' in r2.anchors,
       '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
+  }
+  {
+    // Z1.5 CD27 对倒形状（D3.28+G3 H 通道）：10 块逐块等额卖↔买配对+尾部散买——纯锚
+    // 触发 H（题档全 none/wash=moderate，无任何 strong/A 通道）→ grade=cheat
+    const washRows = [];
+    for (let i = 0; i < 10; i++) {
+      const blk = 300 + i;
+      washRows.push({ block_time: new Date(1700000000000 + i * 3000).toISOString(), block_number: blk, log_index: 0,
+        trade_type: 'sell', bnb_amount: 0.1, price_bnb: 1e-9, price_outlier: false,
+        trader_address: '0xwashsell'.padEnd(42, '0'), sender_address: '0xwashsell'.padEnd(42, '0'), quote_token: null });
+      washRows.push({ block_time: new Date(1700000000000 + i * 3000 + 500).toISOString(), block_number: blk, log_index: 1,
+        trade_type: 'buy', bnb_amount: 0.1, price_bnb: 1e-9, price_outlier: false,
+        trader_address: `0xwashbuy${i}`.padEnd(42, '0'), sender_address: `0xwashbuy${i}`.padEnd(42, '0'), quote_token: null });
+    }
+    for (let i = 0; i < 5; i++) {
+      washRows.push({ block_time: new Date(1700000000000 + 40000 + i * 1000).toISOString(), block_number: 400 + i, log_index: 0,
+        trade_type: 'buy', bnb_amount: 0.2, price_bnb: 1e-9, price_outlier: false,
+        trader_address: `0xwashrand${i}`.padEnd(42, '0'), sender_address: `0xwashrand${i}`.padEnd(42, '0'), quote_token: null });
+    }
+    const NONE_ALL = {
+      equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
+      creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
+      stall_burst_wave: sbwAns('none'), amount_tiering: phAns('none'),
+      same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
+      slow_grind_pump: phAns('none'), wash_pair: phAns('moderate'),
+      activity_level: actAns('mid'), bundled_trade_dominance: bdAns('low'),
+    };
+    const db = makeDb({ ticks: washRows });
+    const llm = makeLlm({ answers: NONE_ALL });
+    const svc = makeSvc(db, llm);
+    const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r.status === 'analyzed' && r.grade === 'cheat'
+      && r.reasons.some((x) => x.code === 'H_wash_pair_sell100x10')
+      && !r.reasons.some((x) => x.code.startsWith('A_strong')),
+      `CD27 对倒形状 → 纯锚 H_wash_pair 触发 cheat（无 A strong——题档全 none/wash moderate；实际 ${r.grade}/${r.reasons.map((x) => x.code).join(',')}）`);
+    ok(svc.isGateBlocked('0xtok') === true, 'H 通道 cheat → service 拉黑');
+    const dg = db.state.inserts[0].snapshot_digest;
+    ok(dg.anchors.washPairCount === 10 && dg.anchors.washPairSellPct === 100
+      && dg.anchors.washPairBuyPct === 50,
+      `digest 落 washPair 三键真算值（10 对/卖占 100/买占 0.995→散买摊薄 50；实际 ${JSON.stringify(dg.anchors)}）`);
+    ok(r.levels.washPair === 2 && r.buckets.washPair === 'moderate',
+      'wash_pair 题档 moderate 照投影（levels=2/buckets 原值——题档与锚通道独立成键）');
   }
   {
     // Z2. unhealthy 计数→重判→用尽拉黑（unhealthyReanalyses=3：第 4 次 unhealthy 拉黑）

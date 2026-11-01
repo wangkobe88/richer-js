@@ -177,6 +177,55 @@ ok(dRows.derived.equalBandHoldPct.toFixed(1) === '20.5', `equalBandHoldPct=20.5%
   ok(nd.sameBlockHoldPct === null, '跨块买入无合格同块簇 → sameBlockHoldPct=null（有证据的缺席）');
 }
 
+// 同块对敲 wash pair（D3.28，CD27 对倒案）：同块一卖一买 ±2% 对数带配对、每笔卖出
+// 至多配一次、尘门 0.001 以下不入、无配对三键全 null
+{
+  const washRows = [];
+  let wblk = 600, wlog = 0;
+  const wpush = (type, bnb, wallet) => {
+    washRows.push(mkRow(100 + wlog, wblk, wlog++, type, bnb, 1e-9, { trader: wallet, sender: wallet }));
+  };
+  // blk 600：0.1000 卖 ↔ 0.1005 买（带内 1.005）→ 配对 ①
+  wpush('sell', 0.1, '0xw1'); wpush('buy', 0.1005, '0xw2');
+  wblk += 1;
+  // blk 601：0.2000 卖 ↔ 0.2020 买（1.010）→ 配对 ②
+  wpush('sell', 0.2, '0xw1'); wpush('buy', 0.202, '0xw3');
+  wblk += 1;
+  // blk 602：0.3000 卖 ↔ 0.2900 买（0.9667 超带下界）→ 不配
+  wpush('sell', 0.3, '0xw1'); wpush('buy', 0.29, '0xw4');
+  wblk += 1;
+  // blk 603：0.5000 卖 ↔ 0.0009 买（尘门下不入配对池；卖 0.5 剩）→ 不配
+  wpush('sell', 0.5, '0xw1'); wpush('buy', 0.0009, '0xw5');
+  wblk += 1;
+  // blk 604：0.3990 卖 ↔ 0.4000 买（1.0025）→ 配对 ③
+  wpush('sell', 0.399, '0xw6'); wpush('buy', 0.4, '0xw7');
+  wblk += 1;
+  // blk 605：两笔 0.1000 卖 ↔ 一笔 0.1010 买（1.010）→ 买只配一笔=配对 ④（每笔买至多配一次）
+  wpush('sell', 0.1, '0xw8'); wpush('sell', 0.1, '0xw9'); wpush('buy', 0.101, '0xwA');
+  const wd = buildSnapshotFromRows(washRows, microMeta).derived;
+  // 手推：配对 4 对、配对买额=0.1005+0.202+0.4+0.101=0.8035；Σ卖=1.699、Σ买=1.0939
+  ok(wd.washPairCount === 4, `washPairCount=4（实际 ${wd.washPairCount}——超带/尘门/重复配对三形状全拦）`);
+  ok(wd.washPairSellPct.toFixed(2) === '47.29', `washPairSellPct=0.8035/1.699=47.29%（实际 ${wd.washPairSellPct?.toFixed(2)}）`);
+  ok(wd.washPairBuyPct.toFixed(2) === '73.42', `washPairBuyPct=0.8035/1.0944=73.42%（实际 ${wd.washPairBuyPct?.toFixed(2)}）`);
+  // 零配对（microRows：唯一卖 0.1 同块无买）→ 三键 null（有证据的缺席，非零冒充）
+  ok(md.washPairCount === null && md.washPairSellPct === null && md.washPairBuyPct === null,
+    '零配对 → washPair 三键 null（无配对不渲染 [PRECOMPUTED] 行=缺席语义）');
+  // block 缺失行不参与配对（证据洞不入池）
+  {
+    const noBlk = [
+      mkRow(10, null, 1, 'sell', 0.2, 1e-9, { trader: wB, sender: wB }),
+      mkRow(10, null, 2, 'buy', 0.2, 1e-9, { trader: wC, sender: wC }),
+    ];
+    const ndb = buildSnapshotFromRows(noBlk, microMeta).derived;
+    ok(ndb.washPairCount === null, 'block 缺失行不入配对池（同块判定无锚=证据洞）');
+  }
+  // state 渲染：有配对时 [PRECOMPUTED] 出「同块对敲」行；零配对不渲染
+  const wst = buildCheatState(buildSnapshotFromRows(washRows, microMeta));
+  ok(wst.state.includes('同块对敲: 4 对，配对买额占全部卖出 47.3% / 占全部买入 73.4%'),
+    '[PRECOMPUTED] 同块对敲行渲染（对数+双占比）');
+  ok(!buildCheatState(ms).state.includes('同块对敲'), '零配对不渲染同块对敲行（缺席不占 state 预算）');
+}
+
 // ═══════════════ E. state builder ═══════════════
 console.log('E. state builder');
 const st = buildCheatState(snap);
@@ -258,9 +307,12 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 4, 'D3.20 后 anchors=sb/eq+top1 供/流四数值键（activity 档位不再投影）');
+ok(Object.keys(f1.anchors).length === 7, 'D3.28 后 anchors=sb/eq+top1 供/流+washPair 三键=七数值键（activity 档位不再投影）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
+ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
+  && f1.anchors.washPairBuyPct === null,
+  'D3.28 washPair 三键未传→null 容缺（f1 只传 sb/eq）');
 ok(!('verdict' in f1) && !('cheatProb' in f1) && !('patternType' in f1) && !('ruleAudit' in f1),
   '观测记录无 verdict/cheatProb/patternType/ruleAudit 键（判定层停产反证）');
 const f1b = buildObservation(mkAnswers(), { sameBlockHoldPct: '88' });
@@ -271,6 +323,13 @@ ok(f1c.anchors.top1HoldSupplyPct === 46.5 && f1c.anchors.top1HoldCircPct === 91.
   'D3.20 双锚回显（CD69 形状 46.5/91.3）');
 ok(f1c.anchors.sameBlockHoldPct === null && f1c.anchors.equalBandHoldPct === null,
   'D3.20 f1c 未传 sb/eq→null（四键独立容缺）');
+// D3.28 washPair 三键回显（CD27 对倒形状 10 对/95.1%）
+const f1d = buildObservation(mkAnswers(), { washPairCount: 10, washPairSellPct: 95.1, washPairBuyPct: 27.3 });
+ok(f1d.anchors.washPairCount === 10 && f1d.anchors.washPairSellPct === 95.1
+  && f1d.anchors.washPairBuyPct === 27.3,
+  'D3.28 washPair 三键回显（CD27 形状 10 对/卖占 95.1/买占 27.3）');
+ok(f1d.anchors.washPairCount === 10 && f1d.anchors.sameBlockHoldPct === null,
+  'D3.28 washPair 与持仓锚独立容缺（互不冒充）');
 
 // ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
 // sbw D3.11 现象二分桶域（D3.10 burst_cheat/burst_normal 断代）：在场二桶照落 / 旧档断代 null / 未知桶 throw
@@ -341,8 +400,19 @@ try {
   buildObservation({ ...mkAnswers(), slow_grind_pump: { type: 'choice', probabilities: { low: 1 } } });
 } catch (_) { threw = true; }
 ok(threw, 'slow_grind_pump 在场但档域名 low → throw（现象四档域校验）');
-ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump']),
-  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.14 五键）');
+
+// 同块对敲题（D3.28：EXT 容缺通道——CD27 连续 9 块逐块卖↔一次性新钱包等额买回 95.1%）
+ok(buildObservation(mkAnswers()).extLevels.wash_pair === null,
+  'wash_pair 缺席（≤D3.27 旧存档）→ null 不 throw（零配额重放兼容——G3 存档重放零变化防线）');
+const f2g = buildObservation({ ...mkAnswers(), wash_pair: phAns('strong') });
+ok(f2g.extLevels.wash_pair === 'strong', 'wash_pair=strong 照落 extLevels');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), wash_pair: { type: 'choice', probabilities: { low: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'wash_pair 在场但档域名 low → throw（现象四档域校验）');
+ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']),
+  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.28 六键）');
 ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
   'STALL_BURST_LEVELS 导出钉死（D3.11：退回纯现象二分——只判有无停滞后涌入）');
 
@@ -605,9 +675,9 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
-  console.log('I2. 题集结构 D3.14（ESM 题文件经动态 import）');
+  console.log('I2. 题集结构 D3.28（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.27', `版本常量 D3.27（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.28', `版本常量 D3.28（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -624,10 +694,10 @@ console.log('I. 著名钱包单极控盘锚');
     'STALL_BURST_LEVELS 导出=停滞突发波现象二分桶域（D3.11 退回只判有无；mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 11
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump']
+  ok(qids.length === 12
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']
       .every((id) => qids.includes(id)),
-    '11 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump（D3.14 新增缓慢拉盘题）');
+    '12 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair（D3.28 新增同块对敲题）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -637,8 +707,8 @@ console.log('I. 著名钱包单极控盘锚');
     ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
       `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
   }
-  // 四档域题=存续 4 现象 + tiering/bw/insider/pump（sbw D3.9 起三分类、act/bd 独立档域另行断言）
-  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump']) {
+  // 四档域题=存续 4 现象 + tiering/bw/insider/pump/wash（sbw D3.9 起三分类、act/bd 独立档域另行断言）
+  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']) {
     ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs[id].criteria[b] === 'string')
       && Object.keys(qs[id].criteria).length === qm.PHENOMENON_LEVELS.length,
       `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
@@ -697,6 +767,27 @@ console.log('I. 著名钱包单极控盘锚');
   ok(pumpQ.includes('「金额连续散布」「跨块连续」两腿同样以正常量级真金白银为证据（笔均/中位 ≥0.005 量级的真散户单）')
     && pumpQ.includes('尘埃单的散布与跨块垫价不构成合力证据'),
     'D3.26 pump ⑤散布/跨块两腿同加正常量级限定（57 笔尘埃跨 47 块不构成合力证据）');
+  // D3.28：同块对敲题（批次二 CD27 用户裁定「对倒交易非常严重，如有必要可能需要增加锚」
+  // +落法两裁定「独立对敲题」「≥60% 且 ≥3 对 → cheat」）——现有锚对「对内等额、对外不等额」
+  // 对倒失明（eqHold 要带内 ≥3 钱包、bw 要同块多笔买）；题面教逐块配对算法+CD27 正例/CD90 反例
+  const washQ = qs.wash_pair.instructions;
+  ok(washQ.includes('同一区块内一笔卖出与一笔买入金额几乎相等')
+    && washQ.includes('|log(买额/卖额)|≤log(1.02)')
+    && washQ.includes('每笔卖出至多配一次'),
+    'D3.28 wash_pair 算法段=逐块 ±2% 对数带配对+每卖至多配一次（配对算法定义）');
+  ok(washQ.includes('「同块对敲」行是同口径的代码计算值，直接采信'),
+    'D3.28 wash_pair 采信 [PRECOMPUTED] 同块对敲行（与 sb/eq 锚同款采信句式）');
+  ok(washQ.includes('对数与占比一起看，占比不足不为据'),
+    'D3.28 wash_pair 占比条件入题面（对数单独不构成档位依据——CD90 3 对 1.9% 偶发碰撞反方向防线）');
+  ok(washQ.includes('买方常为只用一次的新钱包、节奏多轮复现、卖方高度集中'),
+    'D3.28 wash_pair 反向鉴别=一次性新钱包+多轮复现+卖方集中（vs 真实接获利卖买方持有）');
+  ok(washQ.includes('连续 9 个区块、每块卖出一笔') && washQ.includes('四位小数相等的金额买回')
+    && washQ.includes('占窗口全部卖出的 95%'),
+    'D3.28 wash_pair 正例=CD27 形状（9 块逐块等额买回+95% 卖占比+价格推高近一倍）');
+  ok(washQ.includes('3 对同块近额买卖') && washQ.includes('只占全部卖出的 1.9%'),
+    'D3.28 wash_pair 反例=CD90 形状（3 对 1.9% 偶发碰撞不给档）');
+  ok(qs.wash_pair.criteria && qm.PHENOMENON_LEVELS.every((b) => typeof qs.wash_pair.criteria[b] === 'string'),
+    'D3.28 wash_pair criteria=四档域（EXT 容缺通道，档位序与 mapper 对齐）');
   ok(qm.ACTIVITY_LEVELS.every((b) => typeof qs.activity_level.criteria[b] === 'string')
     && Object.keys(qs.activity_level.criteria).length === 4,
     'activity_level：criteria 键集=ACTIVITY_LEVELS 独立档域（非现象四档轴——D3.5 档域分叉）');

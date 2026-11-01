@@ -336,6 +336,10 @@ class CheatCheckService {
         obs = buildObservation(res.result.answers, {
           sameBlockHoldPct: snapshot.derived.sameBlockHoldPct,
           equalBandHoldPct: snapshot.derived.equalBandHoldPct,
+          // D3.28 同块对敲三键（配对数+卖/买占比；无配对→null 轴不适用）
+          washPairCount: snapshot.derived.washPairCount,
+          washPairSellPct: snapshot.derived.washPairSellPct,
+          washPairBuyPct: snapshot.derived.washPairBuyPct,
           // D3.20 单一钱包持仓集中双锚（观测记录/digest 留痕）
           top1HoldSupplyPct: snapshot.derived.top1HoldSupplyPct,
           top1HoldCircPct: snapshot.derived.top1HoldCircPct,
@@ -394,9 +398,10 @@ class CheatCheckService {
       const p = obs.phenomena;
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
         ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
-        ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'}` +
+        ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'} wash=${obs.extLevels.wash_pair ?? '—'}` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
+        ` wash对=${snapshot.derived.washPairCount ?? 0}对/卖占${snapshot.derived.washPairSellPct ?? '—'}%` +
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
         ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +

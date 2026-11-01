@@ -1,6 +1,6 @@
 {
   "generatedFrom": "D3.26 存档 42 票（cd-run-2026-11-01 系）+ fixtures expect",
-  "rulesVersion": "G2",
+  "rulesVersion": "G3",
   "cases": [
     {
       "caseId": "CD44",
@@ -1556,5 +1556,6 @@
         "anchorSellCount": 0
       }
     }
-  ]
+  ],
+  "replayNote": "G3 对 D3.26 存档重放零变化（旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计）——34/42 基线沿用 G2 对拍结果"
 }

@@ -46,7 +46,7 @@ const PHENOMENON_IDS = [
  * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
  * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump'];
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']; // wash_pair D3.28（同块对敲，EXT 容缺通道同款）
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
@@ -188,6 +188,10 @@ function buildObservation(answers, anchors = null) {
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
       equalBandHoldPct: _anchorPct(anchors, 'equalBandHoldPct'),
+      // D3.28 同块卖→买等额对敲三键（配对数+卖/买占比；无配对→null=轴不适用）
+      washPairCount: _anchorPct(anchors, 'washPairCount'),
+      washPairSellPct: _anchorPct(anchors, 'washPairSellPct'),
+      washPairBuyPct: _anchorPct(anchors, 'washPairBuyPct'),
       // D3.20 单一钱包持仓集中双锚（占总供应量/占在场流通；supply 缺失→null 不冒充）
       top1HoldSupplyPct: _anchorPct(anchors, 'top1HoldSupplyPct'),
       top1HoldCircPct: _anchorPct(anchors, 'top1HoldCircPct'),

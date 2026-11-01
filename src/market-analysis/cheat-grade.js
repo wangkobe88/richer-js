@@ -8,17 +8,22 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G2，42 票 D3.26 存档对拍 88% 一致，healthy 侧 9/9 全对；残留五票定性
- * 见台账 G1 段——CD56 版本漂移/CD108↔CD99 人工漂移对称/CD110 t1 豁免副作用/
- * CD119 B 口径权衡/CD121 半坡机器盲区）：
+ * 规则（G3=G2+H 通道+八主判，2026-11-01 批次二 CD27 裁定；G2 基线 42 票 D3.26
+ * 存档对拍 34/42（八票偏差见台账 G2 修订段），G3 对存档重放零变化——旧档
+ * anchors 无 washPair 键=H 通道缺席不触发、extLevels 无 wash_pair 档=A 通道
+ * 主判集扩容对旧档容缺 null 不计）：
  *
  *   cheat（优先级最高）:
- *     A. 七主判题（四现象剔 cr + tier/bw/rat/pump）任一 strong
- *        豁免降级 unhealthy：唯一 strong=pump ∧ sbw=burst ∧ 七主判 moderate
+ *     A. 八主判题（四现象剔 cr + tier/bw/rat/pump/wash）任一 strong
+ *        豁免降级 unhealthy：唯一 strong=pump ∧ sbw=burst ∧ 八主判 moderate
  *        合计<3 ∧ sbHold<50（CD99 形状——停滞后涌入的自然 pump，非协同推价）
  *     B. 四现象 moderate≥3 ∧ sbHold≥50 ∧ dom≠high（现象门刻意严格：放宽到
  *        EXT 含计会把 CD95/CD100 两票真 unhealthy 误判永久拉黑）
  *     C. sbHold≥85（极端同块集中）
+ *     H. washPairSellPct≥60 ∧ washPairCount≥3（G3 新增，2026-11-01 批次二
+ *        CD27 用户裁定「对倒交易非常严重，如有必要可能需要增加锚」+落法选定
+ *        「≥60% 且 ≥3 对 → cheat」——对倒=操纵盘面铁指纹；128 票锚窗分布
+ *        126 票零配对、唯一命中 CD27 卖占 95.1%，断层稀有占比条件天然防误触）
  *   unhealthy:
  *     D. famous dom=high（著名钱包掌控度高档——D 通道消费 famous 非bd）
  *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定
@@ -48,7 +53,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G2';
+const CHEAT_GRADE_RULES_VERSION = 'G3';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -73,11 +78,13 @@ function scoreLevel(map, value) {
 
 /**
  * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
- * levels=11 题数值档（FA 出口键）、buckets=字符串原值（metadata/日志研究友好）、
- * anchors=数值锚六键（2026-11-01 用户补点「著名钱包掌控/持仓极不均衡」：obs.anchors
- * 持仓占比四键 sb/eq/t1 供/流 + extras famous 数值/档位——G1 B/C/F 通道 sbHold、
- * E 通道 t1 流、D 通道 famous 档的同源数值，条件串可做同款门）。
- * activityLevel/bundledDominance 缺席（<D3.5/<D3.8 旧档）→ null。
+ * levels=12 题数值档（FA 出口键；washPair D3.28 起入列）、buckets=字符串原值
+ * （metadata/日志研究友好）、anchors=数值锚九键（2026-11-01 用户补点「著名钱包
+ * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流 + extras famous
+ * 数值/档位——G1 B/C/F 通道 sbHold、E 通道 t1 流、D 通道 famous 档的同源数值；
+ * D3.28 同块对敲三键 washPair 数量/卖占/买占——G3 H 通道同源数值，条件串可做
+ * 同款门）。
+ * activityLevel/bundledDominance/washPair 缺席（<D3.5/<D3.8/<D3.28 旧档）→ null。
  */
 function levelsFromObservation(observation, extras = {}) {
   const obs = observation || {};
@@ -96,6 +103,7 @@ function levelsFromObservation(observation, extras = {}) {
     sameBlockBuyWave: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.same_block_buy_wave),
     insiderSupplySell: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.insider_supply_sell),
     slowGrindPump: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.slow_grind_pump),
+    washPair: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.wash_pair),
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
   };
@@ -109,6 +117,7 @@ function levelsFromObservation(observation, extras = {}) {
     sameBlockBuyWave: ex.same_block_buy_wave ?? null,
     insiderSupplySell: ex.insider_supply_sell ?? null,
     slowGrindPump: ex.slow_grind_pump ?? null,
+    washPair: ex.wash_pair ?? null,
     activityLevel: act,
     bundledDominance: dom,
   };
@@ -117,6 +126,9 @@ function levelsFromObservation(observation, extras = {}) {
   const anchors = {
     sameBlockHoldPct: _pct(an.sameBlockHoldPct),
     equalBandHoldPct: _pct(an.equalBandHoldPct),
+    washPairCount: _pct(an.washPairCount),
+    washPairSellPct: _pct(an.washPairSellPct),
+    washPairBuyPct: _pct(an.washPairBuyPct),
     top1HoldSupplyPct: _pct(an.top1HoldSupplyPct),
     top1HoldCircPct: _pct(an.top1HoldCircPct),
     famousDominancePct: _pct(fx.famousDominancePct),
@@ -130,7 +142,7 @@ function levelsFromObservation(observation, extras = {}) {
 /** 四现象题（B 通道现象门原料） */
 const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, creator_front_run, sell_dispersion]
 
-/** 七主判题：四现象剔 cr + EXT 四题剔 sbw（cr/sbw=辅助判定不进主判） */
+/** 八主判题：四现象剔 cr + EXT 五题剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28 随 EXT 清单自动入列） */
 const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
@@ -174,6 +186,8 @@ function gradeObservation(observation, extras = {}) {
     ? obs.bundledDominance.bucket : null;
   const anchors = obs.anchors || {};
   const sbHold = _pct(anchors.sameBlockHoldPct);
+  const washSell = _pct(anchors.washPairSellPct);
+  const washCount = _pct(anchors.washPairCount);
 
   const reasons = [];
 
@@ -199,6 +213,13 @@ function gradeObservation(observation, extras = {}) {
   // C：极端同块集中
   if (sbHold !== null && sbHold >= 85) {
     reasons.push({ level: 'cheat', code: `C_sbHold${sbHold.toFixed(0)}` });
+  }
+
+  // H：同块对敲锚（G3，2026-11-01 批次二 CD27 用户裁定「对倒交易非常严重，如有
+  // 必要可能需要增加锚」+落法选定「≥60% 且 ≥3 对 → cheat」——对倒=操纵盘面
+  // 铁指纹：≥60% 卖出是同块等额换手且 ≥3 对。锚缺席（旧档/无配对 null）不触发
+  if (washSell !== null && washSell >= 60 && washCount !== null && washCount >= 3) {
+    reasons.push({ level: 'cheat', code: `H_wash_pair_sell${washSell.toFixed(0)}x${washCount}` });
   }
 
   // D：著名钱包主导
