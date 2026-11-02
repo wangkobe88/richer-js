@@ -1,0 +1,998 @@
+{
+  "ranAt": "2026-10-31T01:03:11.662Z",
+  "questionVersion": "D3.0",
+  "dry": false,
+  "results": [
+    {
+      "caseId": "CD1",
+      "addr": "0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777",
+      "anchor": {
+        "tickCount": 66
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.68,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.08
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6509
+    },
+    {
+      "caseId": "CD2",
+      "addr": "0x75ff7483bda6ba5d4cd3c7808f752274af007777",
+      "anchor": {
+        "tickCount": 34
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.59,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.83
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 4670
+    },
+    {
+      "caseId": "CD3",
+      "addr": "0xa7c9facf080d65dba8b8edb14d1e1b1627eb7777",
+      "anchor": {
+        "tickCount": 40
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.4,
+        "patternType": "quota_ladder",
+        "retailParticipation": 2.63
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 5148
+    },
+    {
+      "caseId": "CD4",
+      "addr": "0x356d60a71be7e894e56791005f190aec097e7777",
+      "anchor": {
+        "tickCount": 17
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.64,
+        "patternType": "dev_self_trade",
+        "retailParticipation": 0.96
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3280
+    },
+    {
+      "caseId": "CD5",
+      "addr": "0x647f9dbf1cff892aee246fa50743ba8b98017777",
+      "anchor": {
+        "tickCount": 35
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.49,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.34
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4753
+    },
+    {
+      "caseId": "CD6",
+      "addr": "0xa57ca9cf2bfd85fe6d1f04022a5ed9430f9a7777",
+      "anchor": {
+        "tickCount": 23
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.6,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.14
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3795
+    },
+    {
+      "caseId": "CD7",
+      "addr": "0x2f4f50862853fa56fcc4de6acf7abfe565bd7777",
+      "anchor": {
+        "tickCount": 46
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.63,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.54
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 5290
+    },
+    {
+      "caseId": "CD8",
+      "addr": "0xc2d78d35799020b122bc4284406c018a81c47777",
+      "anchor": {
+        "tickCount": 44
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.45,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.65
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 5547
+    },
+    {
+      "caseId": "CD9",
+      "addr": "0xdf6f4b3a1a97c3803b7b99b9396adfe365a37777",
+      "anchor": {
+        "tickCount": 47
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.69,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.37
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 5552
+    },
+    {
+      "caseId": "CD10",
+      "addr": "0xc5509930f60b645e41ff64243d7d4f85556c7777",
+      "anchor": {
+        "tickCount": 29
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.92,
+        "patternType": "dev_self_trade",
+        "retailParticipation": 1.27
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4046
+    },
+    {
+      "caseId": "CD11",
+      "addr": "0x8faee498171a9e1f89a0e436b393b9894e197777",
+      "anchor": {
+        "tickCount": 23
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.65,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.06
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3597
+    },
+    {
+      "caseId": "CD12",
+      "addr": "0xa2bb18e96da275bc8a8fd7f6b6f26afb630f7777",
+      "anchor": {
+        "tickCount": 49
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.66,
+        "patternType": "same_block_burst",
+        "retailParticipation": 0.59
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 5154
+    },
+    {
+      "caseId": "CD13",
+      "addr": "0x8a182a38668979d8c0a77f3f4d49bf297b937777",
+      "anchor": {
+        "tickCount": 46
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.51,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.2
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 5220
+    },
+    {
+      "caseId": "CD14",
+      "addr": "0x2047c859b6d19f5876b4430d972630ca5f667777",
+      "anchor": {
+        "tickCount": 68
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.59,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.72
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 6690
+    },
+    {
+      "caseId": "CD15",
+      "addr": "0xa1b05052b02106f57f9438797e008191ee997777",
+      "anchor": {
+        "tickCount": 43
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.56,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.49
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 5052
+    },
+    {
+      "caseId": "CD16",
+      "addr": "0x1a28468046b1673fb0e1f31fa3c7a6ef8acf7777",
+      "anchor": {
+        "tickCount": 46
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.65,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.23
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 5131
+    },
+    {
+      "caseId": "CD17",
+      "addr": "0xb3566fd337409e09bb39fd7f3b4e75b783007777",
+      "anchor": {
+        "tickCount": 31
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.6,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.63
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 4248
+    },
+    {
+      "caseId": "CD18",
+      "addr": "0x90b35e311a0778bc714b8b11569512de94f67777",
+      "anchor": {
+        "tickCount": 23
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.56,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.65
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 3826
+    },
+    {
+      "caseId": "CD19",
+      "addr": "0x278795b9e4f83ac87e2899ff99cb2a4f9eaf7777",
+      "anchor": {
+        "tickCount": 84
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.57,
+        "patternType": "same_block_burst",
+        "retailParticipation": 0.73
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6957
+    },
+    {
+      "caseId": "CD20",
+      "addr": "0xc40409d3f0157b8ef76537a80693104a507d7777",
+      "anchor": {
+        "tickCount": 149
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.53,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.04
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 11799
+    },
+    {
+      "caseId": "CD21",
+      "addr": "0x9d70e873394d31e928ab213f4a2aed24de637777",
+      "anchor": {
+        "tickCount": 34
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.57,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.5
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 4306
+    },
+    {
+      "caseId": "CD22",
+      "addr": "0x08862657dd9bf515a361c3b08df49ff506387777",
+      "anchor": {
+        "tickCount": 17
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.59,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.36
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3152
+    },
+    {
+      "caseId": "CD23",
+      "addr": "0xd96dce62ea87c7a5405392939a64770eddcf7777",
+      "anchor": {
+        "tickCount": 27
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.52,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.44
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 4088
+    },
+    {
+      "caseId": "CD24",
+      "addr": "0x7b302593d95a7fe4cbde2676349fbfffa8347777",
+      "anchor": {
+        "tickCount": 39
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.66,
+        "patternType": "dev_self_trade",
+        "retailParticipation": 1.45
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4793
+    },
+    {
+      "caseId": "CD25",
+      "addr": "0x3c7169fd109e4ae9a7f490ecd20967b32c5b7777",
+      "anchor": {
+        "tickCount": 17
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.53,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.2
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 3043
+    },
+    {
+      "caseId": "CD26",
+      "addr": "0x9d8fe0671200bce6ae89e5f04919ea4da9e47777",
+      "anchor": {
+        "tickCount": 53
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.62,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.48
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 5791
+    },
+    {
+      "caseId": "CD27",
+      "addr": "0xa021a76aed73c0bfd233a3228faf69b4529e7777",
+      "anchor": {
+        "tickCount": 38
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.49,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.65
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 5037
+    },
+    {
+      "caseId": "CD28",
+      "addr": "0x53bfe8541f51b928a383a65349c649ab1ad07777",
+      "anchor": {
+        "tickCount": 27
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.51,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.29
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3955
+    },
+    {
+      "caseId": "CD29",
+      "addr": "0xe0ff22c9ba345f6f1d722b5b2fc561a17c167777",
+      "anchor": {
+        "tickCount": 26
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.51,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.19
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 3562
+    },
+    {
+      "caseId": "CD30",
+      "addr": "0xa5f6c6f08bffade6b0d255dd019dd0ef23797777",
+      "anchor": {
+        "tickCount": 80
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.69,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.08
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6875
+    },
+    {
+      "caseId": "CD31",
+      "addr": "0x23cd3da9d6dcd6ab7c17edf6c824de1323767777",
+      "anchor": {
+        "tickCount": 22
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.54,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.9
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 3568
+    },
+    {
+      "caseId": "CD32",
+      "addr": "0xbd3a986a14109b59273888992b009d36aa1b7777",
+      "anchor": {
+        "tickCount": 62
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.56,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.61
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 6611
+    },
+    {
+      "caseId": "CD33",
+      "addr": "0xb820ab8ef386b82b5643f849d10eeb04386f7777",
+      "anchor": {
+        "tickCount": 24
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.52,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.75
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3760
+    },
+    {
+      "caseId": "CD34",
+      "addr": "0xfa6c774b827c85ca1773b90fc38c865c912f7777",
+      "anchor": {
+        "tickCount": 39
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.5,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.48
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 5200
+    },
+    {
+      "caseId": "CD35",
+      "addr": "0x170342b8759f9367b09ead095d25bd5f2ba57777",
+      "anchor": {
+        "tickCount": 59
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.57,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.76
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 6333
+    },
+    {
+      "caseId": "CD36",
+      "addr": "0x90c03e507091535ff4733c30ee5dd49234ea7777",
+      "anchor": {
+        "tickCount": 42
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.79,
+        "patternType": "dev_self_trade",
+        "retailParticipation": 1.67
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 5041
+    },
+    {
+      "caseId": "CD37",
+      "addr": "0x94eeecf511b1052970d065d11c9f53c31a337777",
+      "anchor": {
+        "tickCount": 28
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.63,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.29
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 cheat"
+      ],
+      "promptChars": 4243
+    },
+    {
+      "caseId": "CD38",
+      "addr": "0x2481ac81e8640e104fadf8c689c51a72cf758888",
+      "anchor": {
+        "tickCount": 27
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.49,
+        "patternType": "quota_ladder",
+        "retailParticipation": 2.26
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 4035
+    },
+    {
+      "caseId": "CD39",
+      "addr": "0x2542f1f75806a6b0049f2f697d08345d487a7777",
+      "anchor": {
+        "tickCount": 33
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.58,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.89
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 4497
+    },
+    {
+      "caseId": "CD40",
+      "addr": "0x6eab9c178b3a3e221a3a11703a9345537b7a7777",
+      "anchor": {
+        "tickCount": 27
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.76,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.16
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3804
+    },
+    {
+      "caseId": "CD41",
+      "addr": "0x49013b5c6f2a18767a6faba3a2a73a261a407777",
+      "anchor": {
+        "tickCount": 24
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.51,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.32
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 3711
+    },
+    {
+      "caseId": "CD42",
+      "addr": "0xfe27d3211d9a8321bead2c77f69a2b0b4e557777",
+      "anchor": {
+        "tickCount": 88
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.34,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.46
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 8599
+    },
+    {
+      "caseId": "CD43",
+      "addr": "0x597c0044b959f480f52b6359089b9a2b83be7777",
+      "anchor": {
+        "tickCount": 31
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.48,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.64
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 4113
+    },
+    {
+      "caseId": "CD44",
+      "addr": "0x13326823759c702e6ac478e3901b05c195307777",
+      "anchor": {
+        "tickCount": 39
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.47,
+        "patternType": "quota_ladder",
+        "retailParticipation": 2.49
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4826
+    },
+    {
+      "caseId": "CD45",
+      "addr": "0xb3aae472395f6a83827d2a9c628162d375447777",
+      "anchor": {
+        "tickCount": 57
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.63,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.22
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 6428
+    },
+    {
+      "caseId": "CD46",
+      "addr": "0x2e1319d91ea6c583dc93440fd0416c66bf3c7777",
+      "anchor": {
+        "tickCount": 24
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.49,
+        "patternType": "quota_ladder",
+        "retailParticipation": 2.08
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 3822
+    },
+    {
+      "caseId": "CD47",
+      "addr": "0x71e4a36d8e7ca04021e1b3377a8a153783717777",
+      "anchor": {
+        "tickCount": 55
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.54,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.79
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6256
+    },
+    {
+      "caseId": "CD48",
+      "addr": "0x75f47028b5ced267908f90f950cba486533c7777",
+      "anchor": {
+        "tickCount": 66
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.49,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.64
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6369
+    },
+    {
+      "caseId": "CD49",
+      "addr": "0xb8d036e75544e177c733770b15b3091e9bb07777",
+      "anchor": {
+        "tickCount": 31
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.52,
+        "patternType": "equal_amount_split",
+        "retailParticipation": 1.32
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 cheat"
+      ],
+      "promptChars": 4125
+    },
+    {
+      "caseId": "CD50",
+      "addr": "0x9bd229ecc28bdecc714090f968b8f9c30c8a7777",
+      "anchor": {
+        "tickCount": 55
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.69,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.26
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6398
+    },
+    {
+      "caseId": "CD51",
+      "addr": "0xefd53f1851dc419680b2e45c0898c1e468737777",
+      "anchor": {
+        "tickCount": 34
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.48,
+        "patternType": "same_block_burst",
+        "retailParticipation": 1.12
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4191
+    },
+    {
+      "caseId": "CD52",
+      "addr": "0x92d82b1d8951358b02d917c8afd19f179c277777",
+      "anchor": {
+        "tickCount": 36
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.6,
+        "patternType": "same_block_burst",
+        "retailParticipation": 0.86
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4379
+    },
+    {
+      "caseId": "CD53",
+      "addr": "0x19ad4a2cb4ad2c2f359af1de17a3336adc147777",
+      "anchor": {
+        "tickCount": 19
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.8,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.21
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3395
+    },
+    {
+      "caseId": "CD54",
+      "addr": "0xef7754dc86cff33e19e50dc66d1a66d0b9d27777",
+      "anchor": {
+        "tickCount": 20
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.82,
+        "patternType": "quota_ladder",
+        "retailParticipation": 0.89
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3553
+    },
+    {
+      "caseId": "CD55",
+      "addr": "0x637281e901d5632b858faaca20fc5b39ef2b7777",
+      "anchor": {
+        "tickCount": 43
+      },
+      "questionVersion": "D3.0",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.51,
+        "patternType": "quota_ladder",
+        "retailParticipation": 1.42
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 5677
+    }
+  ]
+}

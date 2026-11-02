@@ -1746,12 +1746,13 @@
       "expect": {
         "rating": null,
         "reasonExcludes": [
-          "中国政治"
+          "中国政治",
+          "实体类型不被"
         ]
       },
-      "note": "SAGE 案：政府 AI 战略/tokenization 职能线叙事被 china_politics 0.82 误拦（C192 主描述「政策」不分线）——J1.153 划界收窄，重析预期 china_politics 腿归零回落四档",
+      "note": "SAGE 案两轮：①政府 AI 战略/tokenization 职能线叙事被 china_politics 0.82 误拦（C192 主描述「政策」不分线）——J1.153 划界收窄；②重析后翻到 unacceptable_type 0.81（严肃机构类）——J1.154/C263 事件中心实体豁免（事件成立 sf+fit≥0.5 ∧ 币名=事件最中心实体 is_center≥0.5 → 类型轴放行）",
       "addedAt": "2026-11-02",
-      "observe": "断言只锁确定性面：J1.153 政策分线后不得再因中国政治主题拦截（reasonExcludes 中国政治）；rating 是掷骰面——china_politics 腿预期归零回落四档，但 event_baseless_speculation 0.60（推文把 HKMA 演讲吹成「AI 掌管政府财政」）与 unacceptable_type 0.82 是否随事件框定回落未预设，仍拦属叙事夸大判断非政治误拦"
+      "observe": "断言只锁确定性面：J1.153 政策分线后不得再因中国政治主题拦截；J1.154/C263 豁免后不得再因实体类型拦截（reasonExcludes 两词）。rating 是掷骰面——豁免只解除类型轴一刀切，量级门/W 数学/entity_event_mismatch 照走决定终 rating，落点未预设；is_center 首答与豁免审计 nameEntityCenterExempt=true 为重点观察"
     }
   ]
 }

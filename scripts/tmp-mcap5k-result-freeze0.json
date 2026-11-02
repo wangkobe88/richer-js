@@ -1,0 +1,2838 @@
+[
+ {
+  "exp": "v33-实盘-both-mcap上限15000-1022",
+  "expId": "8eca4890",
+  "token": "0x8e40343af18f464c1d6af4ead33e451e7b7d7777",
+  "symbol": "香蕉猫",
+  "open": false,
+  "entryMcap": 4543,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001326,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-22T14:57:09",
+     "price": 5.241948379162651e-9,
+     "mcap": 3833,
+     "forced": false
+    },
+    "cfPnl": -0.000731,
+    "delta": 0.000595,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-22T14:57:09",
+     "price": 5.241948379162651e-9,
+     "mcap": 3833,
+     "forced": false
+    },
+    "cfPnl": -0.000731,
+    "delta": 0.000595,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.99
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xaa16647d1463b14bd6edf6ef8370c1c730967777",
+  "symbol": "骆驼骑师",
+  "open": false,
+  "entryMcap": 5777,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000715,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-22T16:11:56",
+     "price": 6.313249400032734e-9,
+     "mcap": 4611,
+     "forced": false
+    },
+    "cfPnl": -0.000715,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-22T16:11:48",
+     "price": 6.861047682331044e-9,
+     "mcap": 5011,
+     "forced": false
+    },
+    "cfPnl": -0.000582,
+    "delta": 0.000133,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.95
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x0c932167319c3bc9a59609e974e59078a4397777",
+  "symbol": "ELON",
+  "open": false,
+  "entryMcap": 10076,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000726,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": -0.000726,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": -0.000726,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.12
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xe3c41d37a7ea14368c2bc3372f5f9d1a81667777",
+  "symbol": "sat",
+  "open": false,
+  "entryMcap": 15980,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.002742,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T02:56:36",
+     "price": 6.490803802432775e-9,
+     "mcap": 4778,
+     "forced": false
+    },
+    "cfPnl": -0.002712,
+    "delta": 0.000029,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T02:55:49",
+     "price": 6.703130276242606e-9,
+     "mcap": 4934,
+     "forced": false
+    },
+    "cfPnl": -0.00267,
+    "delta": 0.000071,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.16
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xa2e5ce37b497e0ee90514582d1131bac81637777",
+  "symbol": "SATS",
+  "open": false,
+  "entryMcap": 12637,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.001223,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T03:04:36",
+     "price": 6.530919034536011e-9,
+     "mcap": 4806,
+     "forced": false
+    },
+    "cfPnl": 0.001223,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T03:03:24",
+     "price": 6.788227865443656e-9,
+     "mcap": 4998,
+     "forced": false
+    },
+    "cfPnl": 0.001223,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.1
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x4b5c0d046c296e9c41fbba9ddcf72d339a0f7777",
+  "symbol": "₿i",
+  "open": false,
+  "entryMcap": 7460,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.001991,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.001991,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T03:05:42",
+     "price": 7.116004642617213e-9,
+     "mcap": 5237,
+     "forced": false
+    },
+    "cfPnl": 0.001991,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.11
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xc7d50c3a0bdf648b0d150aed5dfbb9a5a2c67777",
+  "symbol": "CI",
+  "open": false,
+  "entryMcap": 4321,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001223,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T04:01:05",
+     "price": 4.803471313239335e-9,
+     "mcap": 3541,
+     "forced": false
+    },
+    "cfPnl": -0.000948,
+    "delta": 0.000275,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T04:01:05",
+     "price": 4.803471313239335e-9,
+     "mcap": 3541,
+     "forced": false
+    },
+    "cfPnl": -0.000948,
+    "delta": 0.000275,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.9
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x6ea3b94191330e6e144de0bd0f93b20448a47777",
+  "symbol": "Cockroach",
+  "open": false,
+  "entryMcap": 6808,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001964,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T07:23:26",
+     "price": 4.4102389742261295e-9,
+     "mcap": 3269,
+     "forced": false
+    },
+    "cfPnl": -0.001918,
+    "delta": 0.000046,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T07:20:59",
+     "price": 7.181021809426371e-9,
+     "mcap": 5323,
+     "forced": true
+    },
+    "cfPnl": -0.00061,
+    "delta": 0.001355,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.11
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x20c86a4aa97534f5ceac68854674172592817777",
+  "symbol": "鲸鱼娘",
+  "open": false,
+  "entryMcap": 3734,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000569,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T08:30:09",
+     "price": 4.8203524789933755e-9,
+     "mcap": 3586,
+     "forced": false
+    },
+    "cfPnl": -0.000494,
+    "delta": 0.000075,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T08:30:09",
+     "price": 4.8203524789933755e-9,
+     "mcap": 3586,
+     "forced": false
+    },
+    "cfPnl": -0.000494,
+    "delta": 0.000075,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.94
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xcb6747ed8b68653356681adee613a2dc5b9b7777",
+  "symbol": "领头羊",
+  "open": false,
+  "entryMcap": 5786,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.003914,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.003914,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.003914,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.03
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x80ea5271576417963f6cc2169e419319459f7777",
+  "symbol": "Fpaper",
+  "open": true,
+  "entryMcap": 7527,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.00359,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T09:51:49",
+     "price": 6.593223321e-9,
+     "mcap": 4912,
+     "forced": true
+    },
+    "cfPnl": 0.003678,
+    "delta": 0.000088,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T09:24:09",
+     "price": 7.174603948e-9,
+     "mcap": 5337,
+     "forced": false
+    },
+    "cfPnl": 0.003731,
+    "delta": 0.000141,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.97
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x17f3d97382ce1f279c404b959eb9d822202a7777",
+  "symbol": "花圈牛",
+  "open": false,
+  "entryMcap": 5257,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001532,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T09:03:47",
+     "price": 5.895827486360895e-9,
+     "mcap": 4385,
+     "forced": false
+    },
+    "cfPnl": -0.000737,
+    "delta": 0.000795,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T09:03:43",
+     "price": 5.673591926407206e-9,
+     "mcap": 4220,
+     "forced": false
+    },
+    "cfPnl": -0.00086,
+    "delta": 0.000672,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.07
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x63e7ecb7bdbfc68dffc8e6c8de4c8ab3feb97777",
+  "symbol": "FAI",
+  "open": false,
+  "entryMcap": 7944,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001547,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T09:22:08",
+     "price": 6.533830606e-9,
+     "mcap": 4860,
+     "forced": false
+    },
+    "cfPnl": -0.001547,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T09:21:56",
+     "price": 6.802399149e-9,
+     "mcap": 5060,
+     "forced": false
+    },
+    "cfPnl": -0.001496,
+    "delta": 0.000051,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x137ae5e351b3cab857f8b3e60f6e78758d047777",
+  "symbol": "HAI",
+  "open": false,
+  "entryMcap": 6535,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001077,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T09:18:11",
+     "price": 6.4190581330268235e-9,
+     "mcap": 4774,
+     "forced": false
+    },
+    "cfPnl": -0.001153,
+    "delta": -0.000076,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T09:18:09",
+     "price": 5.8979817682519405e-9,
+     "mcap": 4387,
+     "forced": false
+    },
+    "cfPnl": -0.001384,
+    "delta": -0.000307,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x5971d35726603911fcacf85265abc8453db47777",
+  "symbol": "团结",
+  "open": false,
+  "entryMcap": 5002,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001014,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T09:42:37",
+     "price": 5.174066685652163e-9,
+     "mcap": 3844,
+     "forced": false
+    },
+    "cfPnl": -0.000947,
+    "delta": 0.000067,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T09:42:32",
+     "price": 5.282574078781085e-9,
+     "mcap": 3925,
+     "forced": false
+    },
+    "cfPnl": -0.000883,
+    "delta": 0.000131,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.03
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xde45bc3aa8d1d8c6505b91d6a81f6c448a9a7777",
+  "symbol": "BNB͏",
+  "open": false,
+  "entryMcap": 6696,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001708,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T09:46:13",
+     "price": 6.3650217541353345e-9,
+     "mcap": 4738,
+     "forced": false
+    },
+    "cfPnl": -0.001609,
+    "delta": 0.000098,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T09:45:54",
+     "price": 7.236129443282845e-9,
+     "mcap": 5386,
+     "forced": false
+    },
+    "cfPnl": -0.001282,
+    "delta": 0.000425,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.86
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x6a09629bf7a7a532b2f167f85dbe147fd3a27777",
+  "symbol": "haha",
+  "open": false,
+  "entryMcap": 6418,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000937,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T10:11:36",
+     "price": 5.7590762084969274e-9,
+     "mcap": 4296,
+     "forced": false
+    },
+    "cfPnl": -0.000937,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T10:09:45",
+     "price": 6.51025822920281e-9,
+     "mcap": 4856,
+     "forced": false
+    },
+    "cfPnl": -0.000999,
+    "delta": -0.000062,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   }
+  },
+  "fdvCheck": 1.01
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x0f3bd2942f61978f5d4b835def7868701be27777",
+  "symbol": "XMR",
+  "open": false,
+  "entryMcap": 6792,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000832,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T10:35:12",
+     "price": 6.129445659715532e-9,
+     "mcap": 4574,
+     "forced": false
+    },
+    "cfPnl": -0.000779,
+    "delta": 0.000053,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T10:34:03",
+     "price": 7.088706373088105e-9,
+     "mcap": 5289,
+     "forced": false
+    },
+    "cfPnl": -0.000323,
+    "delta": 0.000509,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.37
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x4061341bf11b08f6db20d16722476aa2ec7b7777",
+  "symbol": "波霸",
+  "open": false,
+  "entryMcap": 7817,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001357,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": -0.001357,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T11:14:07",
+     "price": 6.976176303941991e-9,
+     "mcap": 5196,
+     "forced": false
+    },
+    "cfPnl": -0.001357,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.15
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xf7bfb3d9f05edb9949410f62f2dbdd07965b7777",
+  "symbol": "富途牛牛",
+  "open": false,
+  "entryMcap": 5845,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.001021,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T11:36:03",
+     "price": 6.369897633474949e-9,
+     "mcap": 4745,
+     "forced": false
+    },
+    "cfPnl": 0.001021,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T11:33:14",
+     "price": 6.909915570320507e-9,
+     "mcap": 5148,
+     "forced": false
+    },
+    "cfPnl": -0.000142,
+    "delta": -0.001163,
+    "droppedBuys": 0,
+    "bucket": "误杀好票"
+   }
+  },
+  "fdvCheck": 1.13
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xb51a3fecf5dd7acfdb3584f14869d531faac7777",
+  "symbol": "Jim",
+  "open": false,
+  "entryMcap": 7337,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001539,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T11:46:54",
+     "price": 6.365414439075817e-9,
+     "mcap": 4741,
+     "forced": true
+    },
+    "cfPnl": -0.001484,
+    "delta": 0.000055,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T11:46:54",
+     "price": 6.365414439075817e-9,
+     "mcap": 4741,
+     "forced": false
+    },
+    "cfPnl": -0.001484,
+    "delta": 0.000055,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x3ffe211605d2b4a5f3bf2bf5c721b7859e8c7777",
+  "symbol": "牛牛",
+  "open": false,
+  "entryMcap": 7959,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.005526,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.005526,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.005526,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.12
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xbe921187c5d44a868aa38d40ec890538d7c57777",
+  "symbol": "BNB͏",
+  "open": false,
+  "entryMcap": 8431,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000597,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T11:45:26",
+     "price": 6.043536858674418e-9,
+     "mcap": 4502,
+     "forced": false
+    },
+    "cfPnl": -0.000597,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T11:44:22",
+     "price": 7.0928328284738495e-9,
+     "mcap": 5282,
+     "forced": false
+    },
+    "cfPnl": -0.000597,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.06
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xc658bef4610d617ec07e727a8ea78de22d937777",
+  "symbol": "BNB͏",
+  "open": false,
+  "entryMcap": 7657,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001456,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T11:46:54",
+     "price": 5.92146491181267e-9,
+     "mcap": 4410,
+     "forced": false
+    },
+    "cfPnl": -0.001392,
+    "delta": 0.000064,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T11:46:50",
+     "price": 6.750306450389322e-9,
+     "mcap": 5028,
+     "forced": false
+    },
+    "cfPnl": -0.001026,
+    "delta": 0.000429,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.95
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x937dc0f1019e1cd5fba649cc617d5a00ecb97777",
+  "symbol": "赛伊德",
+  "open": false,
+  "entryMcap": 6064,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.002203,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.002203,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.002203,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.13
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0x1d0549d0405823a2d6dacc1e6847294bcb537777",
+  "symbol": "那曲小猫",
+  "open": false,
+  "entryMcap": 9002,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.004892,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.004892,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.004892,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.09
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xc8882badb7ae25428dcfd994670ee84541617777",
+  "symbol": "飞天小狗",
+  "open": false,
+  "entryMcap": 5225,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000789,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T13:32:37",
+     "price": 5.83589926262037e-9,
+     "mcap": 4350,
+     "forced": false
+    },
+    "cfPnl": -0.000385,
+    "delta": 0.000404,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T13:32:20",
+     "price": 6.389802953574399e-9,
+     "mcap": 4763,
+     "forced": false
+    },
+    "cfPnl": -0.000042,
+    "delta": 0.000747,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.1
+ },
+ {
+  "exp": "v34-实盘-both-人气门去簇-1022",
+  "expId": "1ecc097b",
+  "token": "0xa8b5b620dc9923a766aef0c5d1dc6666316a7777",
+  "symbol": "火箭云",
+  "open": false,
+  "entryMcap": 4885,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.00208,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T15:00:23",
+     "price": 6.685351901537055e-9,
+     "mcap": 4997,
+     "forced": false
+    },
+    "cfPnl": 0.003931,
+    "delta": 0.001851,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T15:00:23",
+     "price": 6.685351901537055e-9,
+     "mcap": 4997,
+     "forced": false
+    },
+    "cfPnl": 0.003931,
+    "delta": 0.001851,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.85
+ },
+ {
+  "exp": "v35-实盘-both-观察信号-市值20K-1023",
+  "expId": "ddc51b6d",
+  "token": "0x1c6db6226b1e303eb6463fa7e25771c9fdad7777",
+  "symbol": "ZECsy",
+  "open": false,
+  "entryMcap": 4021,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000939,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T21:22:44",
+     "price": 5.846000633898158e-9,
+     "mcap": 4326,
+     "forced": false
+    },
+    "cfPnl": -0.000414,
+    "delta": 0.000525,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T21:22:44",
+     "price": 5.846000633898158e-9,
+     "mcap": 4326,
+     "forced": false
+    },
+    "cfPnl": -0.000414,
+    "delta": 0.000525,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.87
+ },
+ {
+  "exp": "v35-实盘-both-观察信号-市值20K-1023",
+  "expId": "ddc51b6d",
+  "token": "0x4a1105d6c961cc2827435b47e621d717e2077777",
+  "symbol": "Kuki",
+  "open": false,
+  "entryMcap": 5913,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.00158,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-23T23:54:20",
+     "price": 5.470679492888149e-9,
+     "mcap": 4028,
+     "forced": false
+    },
+    "cfPnl": -0.001311,
+    "delta": 0.000269,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-23T23:54:20",
+     "price": 5.470679492888149e-9,
+     "mcap": 4028,
+     "forced": false
+    },
+    "cfPnl": -0.001311,
+    "delta": 0.000269,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.03
+ },
+ {
+  "exp": "v35-实盘-both-观察信号-市值20K-1023",
+  "expId": "ddc51b6d",
+  "token": "0x25e20b0ea9af9edb2a1c5f5dce72b05abd497777",
+  "symbol": "水",
+  "open": false,
+  "entryMcap": 10323,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.002695,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.002695,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.002695,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.04
+ },
+ {
+  "exp": "v35-实盘-both-观察信号-市值20K-1023",
+  "expId": "ddc51b6d",
+  "token": "0x1fad9e01ed7632b8bfc99e2a5193087cd26a7777",
+  "symbol": "豆皮",
+  "open": false,
+  "entryMcap": 8710,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.004501,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.004501,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.004501,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.05
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x1d2e1ad229af6c7809d2a3d87939559eb4c47777",
+  "symbol": "松弛蛙",
+  "open": false,
+  "entryMcap": 5817,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.007758,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T06:46:58",
+     "price": 6.204119428394282e-9,
+     "mcap": 4574,
+     "forced": false
+    },
+    "cfPnl": 0.007758,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T06:34:44",
+     "price": 7.267342417009441e-9,
+     "mcap": 5355,
+     "forced": false
+    },
+    "cfPnl": -0.00091,
+    "delta": -0.008668,
+    "droppedBuys": 0,
+    "bucket": "误杀好票"
+   }
+  },
+  "fdvCheck": 0.97
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0xcb69aab56621eb562563254f682931f50d717777",
+  "symbol": "月亮币",
+  "open": false,
+  "entryMcap": 7453,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001592,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T06:57:51",
+     "price": 6.358756593394804e-9,
+     "mcap": 4689,
+     "forced": false
+    },
+    "cfPnl": -0.001537,
+    "delta": 0.000055,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T06:57:48",
+     "price": 6.30277927648907e-9,
+     "mcap": 4647,
+     "forced": false
+    },
+    "cfPnl": -0.001559,
+    "delta": 0.000033,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.02
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x86eedd052cb72d65e41adde91703059bb1187777",
+  "symbol": "土狗",
+  "open": false,
+  "entryMcap": 5231,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000437,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T07:29:18",
+     "price": 6.64333994561594e-9,
+     "mcap": 4898,
+     "forced": false
+    },
+    "cfPnl": -0.000437,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T07:26:09",
+     "price": 7.164799878834255e-9,
+     "mcap": 5283,
+     "forced": false
+    },
+    "cfPnl": -0.000162,
+    "delta": 0.000275,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.97
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x290203a898eecc537fd89afcea281d44e2177777",
+  "symbol": "OST",
+  "open": false,
+  "entryMcap": 5126,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.004953,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.004953,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.004953,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 0.92
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0xd4ae4ccc218e11fe8e1d07a3ea8a196291be7777",
+  "symbol": "交易人生",
+  "open": false,
+  "entryMcap": 6719,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001298,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T09:53:04",
+     "price": 6.594978491654782e-9,
+     "mcap": 4815,
+     "forced": false
+    },
+    "cfPnl": -0.001236,
+    "delta": 0.000062,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T09:52:59",
+     "price": 6.924254011235239e-9,
+     "mcap": 5056,
+     "forced": false
+    },
+    "cfPnl": -0.001098,
+    "delta": 0.0002,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.98
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0xf2b85cf4e264ecc9e922e7c8df042a254f557777",
+  "symbol": "Fandog",
+  "open": false,
+  "entryMcap": 5594,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001563,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T11:03:13",
+     "price": 6.3216154884449024e-9,
+     "mcap": 4620,
+     "forced": false
+    },
+    "cfPnl": -0.001013,
+    "delta": 0.00055,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T11:03:06",
+     "price": 6.213886581841063e-9,
+     "mcap": 4541,
+     "forced": false
+    },
+    "cfPnl": -0.001064,
+    "delta": 0.000499,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.93
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x6caccc41f11a2278de59aa3d7326a6e3e7097777",
+  "symbol": "BUDDY",
+  "open": false,
+  "entryMcap": 6532,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001436,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T11:58:06",
+     "price": 6.728906482972087e-9,
+     "mcap": 4922,
+     "forced": false
+    },
+    "cfPnl": -0.001383,
+    "delta": 0.000053,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T11:57:56",
+     "price": 7.135084342784233e-9,
+     "mcap": 5219,
+     "forced": false
+    },
+    "cfPnl": -0.001225,
+    "delta": 0.000211,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.89
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x316f6310c54f08b8677116b862f85b5ef94d7777",
+  "symbol": "慈善币安",
+  "open": false,
+  "entryMcap": 13335,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.002104,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.002104,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.002104,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.09
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x032747b0b07b51a7158f541e126cad0908a67777",
+  "symbol": "骷髅旗",
+  "open": false,
+  "entryMcap": 5122,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000843,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T14:45:02",
+     "price": 6.175050544632876e-9,
+     "mcap": 4485,
+     "forced": false
+    },
+    "cfPnl": -0.000552,
+    "delta": 0.000291,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T14:44:12",
+     "price": 6.885271615698803e-9,
+     "mcap": 5001,
+     "forced": false
+    },
+    "cfPnl": -0.000156,
+    "delta": 0.000687,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.91
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x007b18591d4c846bc6e4d0ca0406e0ead3c87777",
+  "symbol": "FATHER",
+  "open": false,
+  "entryMcap": 6414,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001516,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T18:02:04",
+     "price": 5.933837330979607e-9,
+     "mcap": 4286,
+     "forced": false
+    },
+    "cfPnl": -0.001411,
+    "delta": 0.000106,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T18:02:04",
+     "price": 6.47206403493148e-9,
+     "mcap": 4675,
+     "forced": false
+    },
+    "cfPnl": -0.001176,
+    "delta": 0.000341,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.98
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x121a0e5bc7a3bffb294e1ddd3218bd89392f7777",
+  "symbol": "传奇之路",
+  "open": false,
+  "entryMcap": 5805,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000901,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T21:17:18",
+     "price": 6.137006564e-9,
+     "mcap": 4473,
+     "forced": false
+    },
+    "cfPnl": -0.000901,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T21:10:05",
+     "price": 6.535580221e-9,
+     "mcap": 4771,
+     "forced": false
+    },
+    "cfPnl": -0.000901,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 0.93
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0x0b66b5d4dc76dc7cae9e8f94df97026062057777",
+  "symbol": "BNB Legend",
+  "open": false,
+  "entryMcap": 5772,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000764,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-24T21:28:48",
+     "price": 6.092156093e-9,
+     "mcap": 4444,
+     "forced": false
+    },
+    "cfPnl": -0.00098,
+    "delta": -0.000216,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-24T21:28:16",
+     "price": 6.151904778e-9,
+     "mcap": 4488,
+     "forced": false
+    },
+    "cfPnl": -0.00095,
+    "delta": -0.000186,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   }
+  },
+  "fdvCheck": 0.91
+ },
+ {
+  "exp": "v36-实盘-both-毕业资金口径-1024",
+  "expId": "cf3d8177",
+  "token": "0xbd2a3d13f4b59b8d58badeea9749dc3d22387777",
+  "symbol": "BNB传奇",
+  "open": false,
+  "entryMcap": 11138,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.002076,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.002076,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.002076,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.04
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x4a6a6c8b3c15eb8422ad7b95c5c6280ed68d7777",
+  "symbol": "齐天大圣",
+  "open": false,
+  "entryMcap": 6899,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.0006,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T05:16:49",
+     "price": 6.425965436131489e-9,
+     "mcap": 4788,
+     "forced": true
+    },
+    "cfPnl": -0.0006,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T05:14:02",
+     "price": 6.6631667898479686e-9,
+     "mcap": 4965,
+     "forced": false
+    },
+    "cfPnl": -0.0006,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.06
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x426608e7c1352c8594fdfa8bc0a1c72f19417777",
+  "symbol": "滑板小狗",
+  "open": false,
+  "entryMcap": 5843,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.00078,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T05:14:03",
+     "price": 6.627028606583358e-9,
+     "mcap": 4938,
+     "forced": false
+    },
+    "cfPnl": -0.00078,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T05:10:47",
+     "price": 6.799535556924562e-9,
+     "mcap": 5067,
+     "forced": false
+    },
+    "cfPnl": -0.000607,
+    "delta": 0.000173,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x7f9fce00af76ac1c4cf5760f047e71b6852b7777",
+  "symbol": "强强国国",
+  "open": false,
+  "entryMcap": 8955,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001342,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T05:27:59",
+     "price": 6.318967616364548e-9,
+     "mcap": 4709,
+     "forced": false
+    },
+    "cfPnl": -0.001342,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T05:24:52",
+     "price": 7.077037709294925e-9,
+     "mcap": 5274,
+     "forced": false
+    },
+    "cfPnl": -0.001295,
+    "delta": 0.000047,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.07
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x48d8b73f4e084a8813b3fd462ac80403c0877777",
+  "symbol": "橘祥",
+  "open": false,
+  "entryMcap": 4722,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000826,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T08:06:40",
+     "price": 5.68534143755322e-9,
+     "mcap": 4223,
+     "forced": false
+    },
+    "cfPnl": -0.000451,
+    "delta": 0.000375,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T08:06:40",
+     "price": 5.68534143755322e-9,
+     "mcap": 4223,
+     "forced": false
+    },
+    "cfPnl": -0.000451,
+    "delta": 0.000375,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.97
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0xf3065ae23e3199f0b26840675f59dc5770567777",
+  "symbol": "豆奶",
+  "open": false,
+  "entryMcap": 5081,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.005582,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.005582,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.005582,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 0.97
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0xfeff214ddc93fa0eec1ab7b78c5c3893384e7777",
+  "symbol": "K线人生",
+  "open": false,
+  "entryMcap": 7160,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.006429,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.006429,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.006429,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x5463cb58a6fa9abd875dea306b476d473ab37777",
+  "symbol": "K线人生",
+  "open": false,
+  "entryMcap": 8205,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000633,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T10:28:05",
+     "price": 6.145342141666928e-9,
+     "mcap": 4521,
+     "forced": false
+    },
+    "cfPnl": -0.000633,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T10:24:50",
+     "price": 7.10134819312012e-9,
+     "mcap": 5225,
+     "forced": false
+    },
+    "cfPnl": -0.000633,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.05
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0xac823d9b973574210a3322804182e3b599e67777",
+  "symbol": "感染者",
+  "open": false,
+  "entryMcap": 11271,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001768,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": -0.001768,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": -0.001768,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 0.94
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x2e54c04b6c7b5cbb60904c799bc6fc0e9bc17777",
+  "symbol": "初一",
+  "open": false,
+  "entryMcap": 4871,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.002147,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.002147,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T11:21:15",
+     "price": 6.805966485276541e-9,
+     "mcap": 5022,
+     "forced": false
+    },
+    "cfPnl": -0.000108,
+    "delta": -0.002255,
+    "droppedBuys": 0,
+    "bucket": "误杀好票"
+   }
+  },
+  "fdvCheck": 0.95
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x707e838bbc16ce1de95e33b077e28ee657457777",
+  "symbol": "李平安",
+  "open": false,
+  "entryMcap": 6099,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000605,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T13:06:06",
+     "price": 5.64202265675479e-9,
+     "mcap": 4167,
+     "forced": false
+    },
+    "cfPnl": -0.000605,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T12:50:17",
+     "price": 6.981889143315826e-9,
+     "mcap": 5163,
+     "forced": false
+    },
+    "cfPnl": -0.000669,
+    "delta": -0.000064,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   }
+  },
+  "fdvCheck": 1.12
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x0baecc80613610f8c6051e55c136505a47507777",
+  "symbol": "AIFLY",
+  "open": false,
+  "entryMcap": 6304,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001441,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T13:47:41",
+     "price": 6.019501432973278e-9,
+     "mcap": 4436,
+     "forced": false
+    },
+    "cfPnl": -0.001357,
+    "delta": 0.000084,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T13:44:46",
+     "price": 7.159069990224584e-9,
+     "mcap": 5278,
+     "forced": false
+    },
+    "cfPnl": -0.000857,
+    "delta": 0.000584,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.95
+ },
+ {
+  "exp": "v37-实盘-both-bundle门存量口径-1025",
+  "expId": "ca8f9493",
+  "token": "0x46eaec0f241a0782b107d77fb5d0ed49974d7777",
+  "symbol": "BLACKBELT",
+  "open": false,
+  "entryMcap": 6012,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.00174,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T15:25:04",
+     "price": 6.497614512710189e-9,
+     "mcap": 4801,
+     "forced": false
+    },
+    "cfPnl": -0.000889,
+    "delta": 0.000851,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T15:24:36",
+     "price": 6.549559604929577e-9,
+     "mcap": 4840,
+     "forced": false
+    },
+    "cfPnl": -0.000864,
+    "delta": 0.000876,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.91
+ },
+ {
+  "exp": "v38-实盘-both-top2存量门-1025",
+  "expId": "e5438645",
+  "token": "0x4e7ef189e1e1a0b4c59940d13cc6110544887777",
+  "symbol": "邪恶卡皮",
+  "open": false,
+  "entryMcap": 3589,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001188,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-25T16:22:58",
+     "price": 4.264659787932596e-9,
+     "mcap": 3153,
+     "forced": false
+    },
+    "cfPnl": -0.000715,
+    "delta": 0.000472,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-25T16:22:58",
+     "price": 4.264659787932596e-9,
+     "mcap": 3153,
+     "forced": false
+    },
+    "cfPnl": -0.000715,
+    "delta": 0.000472,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.94
+ },
+ {
+  "exp": "v38-实盘-both-top2存量门-1025",
+  "expId": "e5438645",
+  "token": "0xb05b2024f03fb05aa7229e168bfb014f4e567777",
+  "symbol": "邪恶千问",
+  "open": false,
+  "entryMcap": 6719,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.003462,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.003462,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.003462,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.17
+ },
+ {
+  "exp": "v38-实盘-both-top2存量门-1025",
+  "expId": "e5438645",
+  "token": "0xe55177ee49cce65ec2f9ee05a45031fd3de87777",
+  "symbol": "A3",
+  "open": false,
+  "entryMcap": 5175,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.00113,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T01:48:24",
+     "price": 6.045549409917171e-9,
+     "mcap": 4438,
+     "forced": false
+    },
+    "cfPnl": -0.000631,
+    "delta": 0.000498,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T01:48:06",
+     "price": 6.119163575568594e-9,
+     "mcap": 4493,
+     "forced": false
+    },
+    "cfPnl": -0.00059,
+    "delta": 0.000539,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v39-实盘-both-top3门75-1026",
+  "expId": "71f87b50",
+  "token": "0x2fe5328cf2ea8cd632161564464c1e6c2e347777",
+  "symbol": "股币",
+  "open": false,
+  "entryMcap": 8771,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001911,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T06:14:36",
+     "price": 6.100656269636928e-9,
+     "mcap": 4515,
+     "forced": false
+    },
+    "cfPnl": -0.001911,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T06:14:30",
+     "price": 7.364666316851521e-9,
+     "mcap": 5450,
+     "forced": false
+    },
+    "cfPnl": -0.001501,
+    "delta": 0.00041,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.21
+ },
+ {
+  "exp": "v39-实盘-both-top3门75-1026",
+  "expId": "71f87b50",
+  "token": "0x478a2cc43f67b860f0f9f3d9a4374b499a947777",
+  "symbol": "BPC",
+  "open": false,
+  "entryMcap": 5521,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001303,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T06:48:18",
+     "price": 6.221873535264626e-9,
+     "mcap": 4591,
+     "forced": false
+    },
+    "cfPnl": -0.000722,
+    "delta": 0.000581,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T06:48:01",
+     "price": 6.8553482886515214e-9,
+     "mcap": 5058,
+     "forced": false
+    },
+    "cfPnl": -0.000389,
+    "delta": 0.000914,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v39-实盘-both-top3门75-1026",
+  "expId": "71f87b50",
+  "token": "0xbde335fc0333912e429d4304d986bb4aea667777",
+  "symbol": "创业时代",
+  "open": false,
+  "entryMcap": 7124,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.005492,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.005492,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.005492,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 0.86
+ },
+ {
+  "exp": "v40-实盘-both-实时净买路由门-1026",
+  "expId": "1c50cfbf",
+  "token": "0xd0b89e79167a375e93d614ee23357b8039fc7777",
+  "symbol": "BNC开市钟🔔",
+  "open": false,
+  "entryMcap": 6354,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001739,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T13:57:57",
+     "price": 6.696828287823862e-9,
+     "mcap": 4935,
+     "forced": false
+    },
+    "cfPnl": -0.000992,
+    "delta": 0.000747,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T13:55:52",
+     "price": 7.447738300289657e-9,
+     "mcap": 5491,
+     "forced": false
+    },
+    "cfPnl": -0.000655,
+    "delta": 0.001084,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.01
+ },
+ {
+  "exp": "v41-实盘-both-eventW撤适用集-1026",
+  "expId": "40754e0d",
+  "token": "0x8c4aa42debd1b1015af12945adc589c7e4ae7777",
+  "symbol": "MOLLYMOO",
+  "open": false,
+  "entryMcap": 6824,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001919,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T19:30:50",
+     "price": 5.986725024375499e-9,
+     "mcap": 4440,
+     "forced": false
+    },
+    "cfPnl": -0.001538,
+    "delta": 0.000381,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T19:30:41",
+     "price": 6.012208484915991e-9,
+     "mcap": 4459,
+     "forced": false
+    },
+    "cfPnl": -0.001527,
+    "delta": 0.000392,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.96
+ },
+ {
+  "exp": "v41-实盘-both-eventW撤适用集-1026",
+  "expId": "40754e0d",
+  "token": "0x4806157eea7037d54aee93d70fa7a383861c7777",
+  "symbol": "薄荷马",
+  "open": false,
+  "entryMcap": 5285,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001047,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T19:54:33",
+     "price": 5.741639772837469e-9,
+     "mcap": 4258,
+     "forced": false
+    },
+    "cfPnl": -0.000739,
+    "delta": 0.000307,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T19:50:10",
+     "price": 7.101073066644022e-9,
+     "mcap": 5267,
+     "forced": false
+    },
+    "cfPnl": 0.000033,
+    "delta": 0.001079,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.03
+ },
+ {
+  "exp": "v41-实盘-both-eventW撤适用集-1026",
+  "expId": "40754e0d",
+  "token": "0xf5f3f01bacbfc2a8f08451eee501712693377777",
+  "symbol": "ELON2028",
+  "open": false,
+  "entryMcap": 7406,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.000294,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.000294,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.000294,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.02
+ },
+ {
+  "exp": "v41-实盘-both-eventW撤适用集-1026",
+  "expId": "40754e0d",
+  "token": "0x8f531e8ebcbad9ec2c402e112b6b22bea52f7777",
+  "symbol": "MUSK2028",
+  "open": false,
+  "entryMcap": 8642,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.00159,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-26T23:59:57",
+     "price": 6.7251338306457905e-9,
+     "mcap": 4975,
+     "forced": true
+    },
+    "cfPnl": -0.00159,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-26T23:51:26",
+     "price": 7.382483083716673e-9,
+     "mcap": 5461,
+     "forced": true
+    },
+    "cfPnl": -0.001537,
+    "delta": 0.000054,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.99
+ },
+ {
+  "exp": "v41-实盘-both-eventW撤适用集-1026",
+  "expId": "40754e0d",
+  "token": "0x699d75ecd8442654359c4c4c6e05e37f586b7777",
+  "symbol": "安安",
+  "open": false,
+  "entryMcap": 4352,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000156,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": -0.000156,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": -0.000156,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x08be87804707fe0ebc86ef56d4bddb202c627777",
+  "symbol": "BIBIAIWork",
+  "open": false,
+  "entryMcap": 7888,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001715,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T09:01:53",
+     "price": 6.328386377e-9,
+     "mcap": 4649,
+     "forced": false
+    },
+    "cfPnl": -0.001764,
+    "delta": -0.000049,
+    "droppedBuys": 0,
+    "bucket": "割针底(亏更多)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T08:58:54",
+     "price": 7.428681355e-9,
+     "mcap": 5457,
+     "forced": true
+    },
+    "cfPnl": -0.001375,
+    "delta": 0.00034,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.99
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x9cd41942388d8f9a93ee93e5d8c590ac63c67777",
+  "symbol": "BANG-Terminal",
+  "open": false,
+  "entryMcap": 8399,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.000712,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.000712,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.000712,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 0.96
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x2c048d9c02fccba7cc5c07adeb37070da9a2ffff",
+  "symbol": "自由之钱",
+  "open": false,
+  "entryMcap": 5552,
+  "supplySource": "token_create(fourmeme)",
+  "actualPnl": -0.001649,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T11:07:20",
+     "price": 4.44132083e-9,
+     "mcap": 3277,
+     "forced": false
+    },
+    "cfPnl": -0.001577,
+    "delta": 0.000071,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T11:07:20",
+     "price": 4.44132083e-9,
+     "mcap": 3277,
+     "forced": false
+    },
+    "cfPnl": -0.001577,
+    "delta": 0.000071,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.06
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x65e727ec67a9bee9b024e01acd104014bb2b7777",
+  "symbol": "姆巴佩佩",
+  "open": false,
+  "entryMcap": 8131,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001768,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T11:12:42",
+     "price": 5.62635194390871e-9,
+     "mcap": 4152,
+     "forced": false
+    },
+    "cfPnl": -0.001768,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T11:12:23",
+     "price": 6.673569330660905e-9,
+     "mcap": 4925,
+     "forced": false
+    },
+    "cfPnl": -0.001446,
+    "delta": 0.000322,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.06
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0xa96a4ade91158f74fec07edb787956b7ac2c7777",
+  "symbol": "灰犀牛",
+  "open": false,
+  "entryMcap": 5194,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001485,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T11:36:12",
+     "price": 4.9516061223932446e-9,
+     "mcap": 3656,
+     "forced": false
+    },
+    "cfPnl": -0.001305,
+    "delta": 0.00018,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T11:36:02",
+     "price": 5.086191253421198e-9,
+     "mcap": 3755,
+     "forced": false
+    },
+    "cfPnl": -0.001232,
+    "delta": 0.000253,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 0.97
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x8aeab9e2664331b8e1bb42365dde452fd81d7777",
+  "symbol": "佩狗",
+  "open": false,
+  "entryMcap": 7927,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.004534,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.004534,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.004534,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.11
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0xa4c27feb9cb5af36b496a49981de40eae3647777",
+  "symbol": "蝴蝶Agent ID",
+  "open": false,
+  "entryMcap": 5542,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.00126,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T12:14:31",
+     "price": 6.118841318214997e-9,
+     "mcap": 4523,
+     "forced": false
+    },
+    "cfPnl": -0.000802,
+    "delta": 0.000458,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T12:14:18",
+     "price": 6.167186084827066e-9,
+     "mcap": 4559,
+     "forced": false
+    },
+    "cfPnl": -0.000777,
+    "delta": 0.000483,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.02
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x14224e81a3e1318fb3e53dc7637308da2c787777",
+  "symbol": "佩狗",
+  "open": false,
+  "entryMcap": 9104,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000618,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T12:22:07",
+     "price": 5.880824968064522e-9,
+     "mcap": 4347,
+     "forced": false
+    },
+    "cfPnl": -0.000618,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T12:21:14",
+     "price": 5.949421841093954e-9,
+     "mcap": 4397,
+     "forced": false
+    },
+    "cfPnl": -0.000618,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.05
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x92ad4c5e8577c6068513529c79d892b08dcf7777",
+  "symbol": "TP",
+  "open": false,
+  "entryMcap": 6670,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001295,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T12:33:37",
+     "price": 6.500933230795233e-9,
+     "mcap": 4805,
+     "forced": true
+    },
+    "cfPnl": -0.001205,
+    "delta": 0.00009,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T12:33:37",
+     "price": 6.500933230795233e-9,
+     "mcap": 4805,
+     "forced": true
+    },
+    "cfPnl": -0.001205,
+    "delta": 0.00009,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0xaa1bf035cdaf381585d223acb73228c59ca37777",
+  "symbol": "蜜猴",
+  "open": false,
+  "entryMcap": 8865,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.002154,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.002154,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.002154,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.04
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x69a4e8a0350ccbcb97f92cdad43cb4c7ac447777",
+  "symbol": "TP",
+  "open": false,
+  "entryMcap": 10290,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.000504,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T12:55:46",
+     "price": 5.861968055654196e-9,
+     "mcap": 4339,
+     "forced": false
+    },
+    "cfPnl": 0.000504,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T12:55:21",
+     "price": 6.308465613220957e-9,
+     "mcap": 4670,
+     "forced": false
+    },
+    "cfPnl": 0.000504,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "无变化(晚于出场)"
+   }
+  },
+  "fdvCheck": 1.3
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0xdb3b79bc8c8d70c59a7497b539855911833c7777",
+  "symbol": "BNCHAT",
+  "open": false,
+  "entryMcap": 6364,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.001533,
+  "arms": {
+   "5000": {
+    "fire": {
+     "ts": "10-27T13:54:32",
+     "price": 5.34363960197365e-9,
+     "mcap": 3957,
+     "forced": false
+    },
+    "cfPnl": -0.001389,
+    "delta": 0.000144,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   },
+   "5500": {
+    "fire": {
+     "ts": "10-27T13:53:59",
+     "price": 5.6131005982452e-9,
+     "mcap": 4156,
+     "forced": false
+    },
+    "cfPnl": -0.001257,
+    "delta": 0.000276,
+    "droppedBuys": 0,
+    "bucket": "改善"
+   }
+  },
+  "fdvCheck": 1.08
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x56cc066e2a95879dc7dcc4678c930b7985767777",
+  "symbol": "罗小黑战记",
+  "open": true,
+  "entryMcap": 4868,
+  "supplySource": "fixed(flap)",
+  "actualPnl": 0.000394,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": 0.000394,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": 0.000394,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1
+ },
+ {
+  "exp": "v42-实盘-both-净买OR臂W10-1027",
+  "expId": "99c106e8",
+  "token": "0x2ba2af82ee496eb771f861f94981f4a79c1a7777",
+  "symbol": "咯咯慈善",
+  "open": true,
+  "entryMcap": 9481,
+  "supplySource": "fixed(flap)",
+  "actualPnl": -0.000273,
+  "arms": {
+   "5000": {
+    "fire": null,
+    "cfPnl": -0.000273,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   },
+   "5500": {
+    "fire": null,
+    "cfPnl": -0.000273,
+    "delta": 0,
+    "droppedBuys": 0,
+    "bucket": "未触发"
+   }
+  },
+  "fdvCheck": 1.04
+ }
+]

@@ -172,6 +172,69 @@ async function main() {
     && !/币名实体类型不被/.test(stage2Of(mNew).blockReason || ''),
     { mass: stage2Of(mNew).jev?.nameEntityTypeUnfitMass, choice: stage2Of(mNew).jev?.nameEntityAcceptance, blockReason: stage2Of(mNew).blockReason });
 
+  console.log('\n── C3. J1.154/C263 事件中心实体豁免（SAGE 案 0xc04f…7777）──');
+
+  // 用户裁定（2026-11-03）：「实体锚需要豁免一种情况：事件没有问题，而代币名字
+  // 又是事件最中心的实体，事件就是围绕这个实体来的——这种情况无论实体是什么
+  // 类型，都应该过」。两腿 AND：sf+fit≥0.5（与 J1.83 web3FitMassBlock 同尺度）
+  // ∧ is_center≥0.5 → neBlock 放行
+  const mkCenter = (fitProbs, centerProbs) => {
+    const a = baseAnswers('C', { choice: 'unacceptable_type', probabilities: { unacceptable_type: 0.81 } });
+    a.bsc_meme_user_event_fit = { choice: 'fit', probabilities: fitProbs };
+    if (centerProbs != null) a.name_entity_event_center = { choice: 'is_center', probabilities: centerProbs };
+    return a;
+  };
+  // F1 两腿全真（SAGE 实形：unacceptable_type 0.81 + sf+fit 0.51 恰过线）→ 类型门放行
+  const mCE = mapStandardAnswers(mkCenter({ strong_fit: 0.35, fit: 0.16 }, { is_center: 0.7, not_center: 0.3 }), makeContext());
+  check('F1 两腿全真 → 类型门放行（blockReason 非类型门）+ 审计 nameEntityCenterExempt=true / centerMass=0.7 / unfitMass=0.81 照落（豁免≠未命中）',
+    !/币名实体类型不被/.test(stage2Of(mCE).blockReason || '')
+    && stage2Of(mCE).jev?.nameEntityCenterExempt === true
+    && stage2Of(mCE).jev?.nameEntityCenterMass === 0.7
+    && stage2Of(mCE).jev?.nameEntityTypeUnfitMass === 0.81,
+    { blockReason: stage2Of(mCE).blockReason, exempt: stage2Of(mCE).jev?.nameEntityCenterExempt, mass: stage2Of(mCE).jev?.nameEntityCenterMass });
+  // F2 腿①缺（sf+fit 0.49）非 W 票 → 门链上游 fit 门先拦（腿①进不去=蹭名票照拦路径）
+  const mF2 = mapStandardAnswers(mkCenter({ strong_fit: 0.3, fit: 0.19 }, { is_center: 0.9, not_center: 0.1 }), makeContext());
+  check('F2 腿①缺（sf+fit 0.49）非 W → fit 门先拦（J1.83 契合证据不足，蹭名票进不了豁免）',
+    /契合证据不足/.test(stage2Of(mF2).blockReason || ''),
+    stage2Of(mF2).blockReason);
+  // F2b 腿①缺 + W 类（W 票豁免 fit 门可穿透到达类型门）→ 照拦（豁免两腿须全真，
+  // isW 不天然享受）
+  const aF2b = mkCenter({ strong_fit: 0.3, fit: 0.19 }, { is_center: 0.9, not_center: 0.1 });
+  aF2b.event_category = { choice: 'W', probabilities: { W: 0.7 } };
+  const mF2b = mapStandardAnswers(aF2b, makeContext());
+  check('F2b W 类穿透形状：sf+fit 0.49 + is_center 0.9 → 类型门照拦（显式两腿不依赖门链顺序）',
+    /币名实体类型不被/.test(stage2Of(mF2b).blockReason || '')
+    && stage2Of(mF2b).jev?.nameEntityCenterExempt === false,
+    { blockReason: stage2Of(mF2b).blockReason, exempt: stage2Of(mF2b).jev?.nameEntityCenterExempt });
+  // F3 腿②缺（is_center 0.49）→ 照拦
+  const mF3 = mapStandardAnswers(mkCenter({ strong_fit: 0.85, fit: 0.1 }, { is_center: 0.49, not_center: 0.51 }), makeContext());
+  check('F3 腿②缺（is_center 0.49 <0.5）→ 类型门照拦 + exempt=false',
+    /币名实体类型不被/.test(stage2Of(mF3).blockReason || '')
+    && stage2Of(mF3).jev?.nameEntityCenterExempt === false,
+    { blockReason: stage2Of(mF3).blockReason, exempt: stage2Of(mF3).jev?.nameEntityCenterExempt });
+  // F3b 旧缓存行（无新题答案）：is_center ?? 0=0 → 照拦零翻转（C1 存量断言同形状实证）
+  const mF3b = mapStandardAnswers(mkCenter({ strong_fit: 0.85, fit: 0.1 }, null), makeContext());
+  check('F3b 旧缓存行无 name_entity_event_center 答案 → 照拦零翻转 + centerMass=null 断代',
+    /币名实体类型不被/.test(stage2Of(mF3b).blockReason || '')
+    && stage2Of(mF3b).jev?.nameEntityCenterMass === null
+    && stage2Of(mF3b).jev?.nameEntityCenterExempt === false,
+    { blockReason: stage2Of(mF3b).blockReason, centerMass: stage2Of(mF3b).jev?.nameEntityCenterMass });
+  // F4 wrong_entity 不豁免（指歪与中心性正交——豁免前提是忠实指代）
+  const aF4 = baseAnswers('C', { choice: 'wrong_entity', probabilities: { wrong_entity: 0.8 } });
+  aF4.name_entity_event_center = { choice: 'is_center', probabilities: { is_center: 0.9, not_center: 0.1 } };
+  const mF4 = mapStandardAnswers(aF4, makeContext());
+  check('F4 wrong_entity 0.8 + is_center 0.9 → 照拦（豁免只作用类型门，指歪票 is_center 再高也不豁免）',
+    /指歪|指残/.test(stage2Of(mF4).blockReason || ''),
+    stage2Of(mF4).blockReason);
+  // F5 审计形状：类型轴未命中 → exempt=null 不冒充（豁免无从谈起）+ centerMass 恒落
+  const aF5 = baseAnswers('C', { choice: 'accepted', probabilities: { accepted: 0.8 } });
+  aF5.name_entity_event_center = { choice: 'is_center', probabilities: { is_center: 0.7, not_center: 0.3 } };
+  const mF5 = mapStandardAnswers(aF5, makeContext());
+  check('F5 类型轴未命中 → nameEntityCenterExempt=null 不冒充 + centerMass=0.7 恒落观察',
+    stage2Of(mF5).jev?.nameEntityCenterExempt === null
+    && stage2Of(mF5).jev?.nameEntityCenterMass === 0.7,
+    { exempt: stage2Of(mF5).jev?.nameEntityCenterExempt, mass: stage2Of(mF5).jev?.nameEntityCenterMass });
+
   console.log('\n── C2. J1.58 empty_content 作者在册豁免 ──');
 
   const mkEmpty = () => {
@@ -272,6 +335,21 @@ async function main() {
     && !/!pubProxyActive && uaBlock/.test(mapperSrc)); // 全域无豁免（8d63253 前史形状：superIpSlogan 五腿不豁）
   check('D3 骑乘改道退役反证（rideDetourMass 不存在）',
     !/function rideDetourMass\(answers, category\)/.test(mapperSrc));
+  // D11（J1.154/C263，SAGE 案）：事件中心实体豁免源码口径锁——拦截位条件含
+  // centerExempt.exempt；豁免函数两腿显式（sf+fit ≥0.5 与 web3FitMassBlock 同
+  // 尺度 + is_center ≥0.5）；题面判同一性不判匹配度锚（中心实体哪怕是金融机构
+  // 照样 is_center——类型豁免由代码侧按本题答案判）
+  check('D11 C263 豁免源码口径：neBlock 拦截位带 centerExempt.exempt 条件 + eventCenterEntityExempt 两腿 + 题面锚句（判同一性不判匹配度/金融机构照样 is_center/恒带两桶）',
+    /!pubProxyActive && neBlock != null && !centerExempt\.exempt/.test(mapperSrc)
+    && /function eventCenterEntityExempt\(answers\)/.test(mapperSrc)
+    && /const centerExempt = eventCenterEntityExempt\(answers\);/.test(mapperSrc)
+    && /if \(fitMass < 0\.5\) return \{ exempt: false/.test(mapperSrc) // 腿①显式判（与 web3FitMassBlock 的 >= 放行形状刻意不同方向）
+    && qsSrc.includes('name_entity_event_center: {')
+    && qsSrc.includes('判同一性不判匹配度')
+    && qsSrc.includes('照样选 is_center')
+    && qsSrc.includes('金融机构/政府项目/严肃机构同样可以是中心实体')
+    && /is_center:/.test(qsSrc) && /not_center:/.test(qsSrc),
+    null);
   check('D4 state 作者侧键名 corpus_author_identity（与币名题彻底分开）',
     stateSrc.includes('corpus_author_identity:') && stateSrc.includes('corpus_author_identity_note:')
     && !stateSrc.includes('super_ip_hit:'));
@@ -289,7 +367,7 @@ async function main() {
     && entSeg.includes('专名即实体（J1.121/C190，混混猫案')
     && entSeg.includes('被用作特定主体称谓的自创专名（J1.121/C190')
     && entSeg.includes('混混猫=自创社区 mascot 专名不落本项')
-    && /JEV_QUESTIONS_VERSION = 'J1\.153'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 修复——4f4e817 同款坑；C249/J1.148 再跟；C252/J1.150 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复；C261/J1.152 cashtag 硬改道退役，同跟；C262/J1.153 china_politics 划界收窄，同跟）
+    && /JEV_QUESTIONS_VERSION = 'J1\.154'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 修复——4f4e817 同款坑；C249/J1.148 再跟；C252/J1.150 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复；C261/J1.152 cashtag 硬改道退役，同跟；C262/J1.153 china_politics 划界收窄，同跟；C263/J1.154 事件中心实体豁免，同跟）
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')

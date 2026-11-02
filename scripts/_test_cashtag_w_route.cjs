@@ -132,7 +132,7 @@ async function main() {
   check('C1 mapper 无 cashtagForced 强制改道（标识符绝迹，注释存史记档除外）', !/cashtagForced\s*=\s|category\s*=\s*cashtagForced/.test(mapperSrc));
   check('C2 题面含 cashtag 判据（event_category instructions：指向别处已存在资产→W）', qSrc.includes('已在别处存在的 web3 资产') && qSrc.includes('宣告推自己的喊单句'));
   check('C3 pubProxy 压制条件保留（!cashtagHit）', /pubProxy\s*=\s*detectPublisherProxy[\s\S]{0,200}!cashtagHit/.test(mapperSrc));
-  check('C4 版本 bump J1.153（C262/J1.153 china_politics 划界收窄，同跟）', JEV_QUESTIONS_VERSION === 'J1.153', JEV_QUESTIONS_VERSION);
+  check('C4 版本 bump J1.154（C263/J1.154 事件中心实体豁免，同跟）', JEV_QUESTIONS_VERSION === 'J1.154', JEV_QUESTIONS_VERSION);
   check('C5 审计 cashtagMatched 保留', mapperSrc.includes('cashtagMatched: cashtagHit?.cashtag'));
 
   console.log(`\n结果：${passed} 通过 / ${failed} 失败`);

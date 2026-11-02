@@ -1,0 +1,368 @@
+{
+ "agree": 35,
+ "rows": [
+  {
+   "id": "CD44",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump",
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD56",
+   "expect": "cheat",
+   "grade": "healthy",
+   "reasons": []
+  },
+  {
+   "id": "CD76",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump",
+    "E_low_activity",
+    "F_sbHold54",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD84",
+   "expect": "healthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD88",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump"
+   ]
+  },
+  {
+   "id": "CD92",
+   "expect": "healthy",
+   "grade": "healthy",
+   "reasons": []
+  },
+  {
+   "id": "CD93",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:same_block_buy_wave+insider_supply_sell+slow_grind_pump",
+    "E_low_activity",
+    "F_sbHold72",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD94",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:insider_supply_sell",
+    "F_sbHold67",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD95",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "F_sbHold57",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD96",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump",
+    "E_low_activity",
+    "F_sbHold71",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD97",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "C_sbHold90",
+    "F_sbHold90",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD98",
+   "expect": "healthy",
+   "grade": "healthy",
+   "reasons": []
+  },
+  {
+   "id": "CD99",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "A_downgrade_single_pump_burst"
+   ]
+  },
+  {
+   "id": "CD100",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "F_sbHold60",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD101",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD102",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:same_block_buy_wave",
+    "F_sbHold55",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD103",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "D_famous_dominance"
+   ]
+  },
+  {
+   "id": "CD104",
+   "expect": "healthy",
+   "grade": "healthy",
+   "reasons": []
+  },
+  {
+   "id": "CD105",
+   "expect": "healthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD106",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump"
+   ]
+  },
+  {
+   "id": "CD107",
+   "expect": "healthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD108",
+   "expect": "cheat",
+   "grade": "unhealthy",
+   "reasons": [
+    "A_downgrade_single_pump_burst"
+   ]
+  },
+  {
+   "id": "CD109",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump",
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD110",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD111",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:same_block_buy_wave+slow_grind_pump",
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD112",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump",
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD113",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "D_famous_dominance",
+    "F_sbHold55",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD114",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "D_famous_dominance"
+   ]
+  },
+  {
+   "id": "CD115",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump",
+    "E_low_activity",
+    "F_sbHold64",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD116",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "D_famous_dominance",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD117",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:equal_amount_split+coordinated_sell_back+same_block_buy_wave",
+    "F_sbHold65",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD118",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:insider_supply_sell",
+    "F_sbHold56",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD119",
+   "expect": "cheat",
+   "grade": "unhealthy",
+   "reasons": [
+    "F_sbHold67",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD120",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump"
+   ]
+  },
+  {
+   "id": "CD121",
+   "expect": "cheat",
+   "grade": "unhealthy",
+   "reasons": [
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD122",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity"
+   ]
+  },
+  {
+   "id": "CD123",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump",
+    "F_sbHold66",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD124",
+   "expect": "healthy",
+   "grade": "healthy",
+   "reasons": []
+  },
+  {
+   "id": "CD125",
+   "expect": "healthy",
+   "grade": "healthy",
+   "reasons": []
+  },
+  {
+   "id": "CD126",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump",
+    "E_low_activity",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD127",
+   "expect": "unhealthy",
+   "grade": "unhealthy",
+   "reasons": [
+    "E_low_activity",
+    "F_sbHold73",
+    "G_bundled_dominance"
+   ]
+  },
+  {
+   "id": "CD128",
+   "expect": "cheat",
+   "grade": "cheat",
+   "reasons": [
+    "A_strong:slow_grind_pump",
+    "G_bundled_dominance"
+   ]
+  }
+ ]
+}

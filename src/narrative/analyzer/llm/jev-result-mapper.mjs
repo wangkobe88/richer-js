@@ -975,6 +975,43 @@ function nameEntityTypeUnfitBlock(answers) {
 }
 
 /**
+ * C263 事件中心实体豁免（J1.154，2026-11-03 SAGE 案 0xc04f…7777 用户裁定）：
+ * 「实体锚需要豁免一种情况：事件没有问题，而代币名字又是事件最中心的实体，
+ * 事件就是围绕这个实体来的——这种情况无论实体是什么类型，都应该过」。
+ *
+ * 两腿 AND（对应裁定原文的两个条件）：
+ * ①事件成立——bsc_meme_user_event_fit strong_fit+fit 合计 ≥0.5（与 J1.83
+ *   web3FitMassBlock 同尺度同阈值；合计<0.5 的票被 fit 门拦在门链上游，此处
+ *   显式判不依赖门链顺序——isW/binanceCorpus/platformOfficial 豁免票可穿过
+ *   fit 门仍受类型轴拦，本豁免对它们同样要求腿①成立）；
+ * ②币名=事件最中心实体——J1.154 恒带题 name_entity_event_center
+ *   is_center ≥0.5。
+ *
+ * 立法逻辑：类型轴（C184b unacceptable_type）本意是反蹭名——名字独立承担
+ * meme 价值的形状（名字大事件空）。名字=事件中心实体时事件承担叙事价值、
+ * 名字只是对事件主角的忠实指代，类型轴在此类票上无独立信息量（事件是内容
+ * 类型是形式，内容成立时形式不否决内容）。快狗打车/可乐等纯蹭名票事件不
+ * fit → 腿①进不去照拦。
+ * 不豁免：wrong_entity（指歪票 is_center 天然 false）/词句门/china_politics
+ * （政治线是内容红线在门链更前，与类型正交）。旧缓存行无本题答案
+ * （is_center ?? 0 = 0）→ 豁免不触发零翻转（J1.83 同款断代兼容）。
+ * 审计：nameEntityCenterMass（is_center 概率恒落）/nameEntityCenterExempt
+ * （类型轴命中时的豁免结果 true/false，未命中 null 不冒充）。
+ */
+function eventCenterEntityExempt(answers) {
+  const p = q(answers, 'bsc_meme_user_event_fit', 'web3_user_event_fit')?.probabilities ?? {};
+  const fitMass = (p.strong_fit ?? 0) + (p.fit ?? 0);
+  const fitMassR = Math.round(fitMass * 100) / 100;
+  if (fitMass < 0.5) return { exempt: false, fitMass: fitMassR, centerMass: null };
+  // 答案缺席（旧缓存行 J1.154 前）→ centerMass=null 断代不冒充 0（is_center=0
+  // 有证据零值与「没问过」是两回事——审计可区分）
+  const cp = q(answers, 'name_entity_event_center')?.probabilities;
+  if (cp == null) return { exempt: false, fitMass: fitMassR, centerMass: null };
+  const c = cp.is_center ?? 0;
+  return { exempt: c >= 0.5, fitMass: fitMassR, centerMass: Math.round(c * 100) / 100 };
+}
+
+/**
  * 实体-事件影响力脱节门（J1.124/C194，2026-10-25 用户裁定）：齐天大圣
  * 0x4a6a6c8b…7777——「齐天大圣是中国非常著名的超级 IP，但是这个事件影响力明显
  * 不大。这样就是代币 IP 很大，事件本身影响力极小，两者脱节，事件明显支撑不起
@@ -1436,6 +1473,7 @@ export function mapStandardAnswers(answers, context) {
   // 快狗打车案实体题已判 unacceptable_type 0.9 但 category 掷骰 E（0.32 低置信）
   // 域外 miss 放行；类型不合与事件分类正交，对齐 wrong_entity 全域
   const neBlock = nameEntityTypeUnfitBlock(answers);
+  const centerExempt = eventCenterEntityExempt(answers); // J1.154/C263 事件中心实体豁免（neBlock 两腿放行判据，见函数注）
   const emBlock = entityEventMismatchBlock(answers); // J1.124/C194 实体-事件影响力脱节（大 IP + 小事件）
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
   const uaBlock = web3UserAcceptabilityBlock(answers); // {label, choice}（C189 恢复拦截：not_entity 形状 web3_user_not_acceptable 档拦；C96→C105→C107→C108→J1.81 收窄→C180 拆臂→C189 恢复，实体臂优先路由 gate 在函数内）
@@ -1680,7 +1718,10 @@ export function mapStandardAnswers(answers, context) {
   // J1.113/C184 实体类型接纳门恢复拦截（C180 曾退役、认知度轴判据断代为类型轴）：
   // unacceptable_type ≥0.5 域 B/C/D/F/G/W 拦 + pubProxyActive 豁免（官方域名=
   // 具体产品落地 C29，随拦截恢复）；不归一读旧 unknown——历史缓存行零翻转
-  } else if (!pubProxyActive && neBlock != null) {
+  // J1.154/C263 事件中心实体豁免：事件成立（sf+fit≥0.5）∧ 币名=事件最中心
+  // 实体（is_center≥0.5）→ 类型轴放行（两腿判据见 eventCenterEntityExempt）；
+  // 只豁免本门——wrong_entity/词句门/政治线不豁免
+  } else if (!pubProxyActive && neBlock != null && !centerExempt.exempt) {
     eventScoreBlocked = true;
     gateBlockReason = neBlock.label;
   } else if ((weBlock = wrongEntityBlock(answers))) {
@@ -1846,6 +1887,11 @@ export function mapStandardAnswers(answers, context) {
         // 未命中 null。旧键 nameEntityLowMass（unknown 认知度轴）随桶断代停产出，
         // 历史行键保留展示
         nameEntityTypeUnfitMass: neBlock?.mass ?? null,
+        // J1.154/C263 事件中心实体豁免审计：centerMass=is_center 概率恒落
+        // （旧缓存行 null 断代）；exempt 只在类型轴命中时有意义（true=本会被
+        // 拦但被豁免/false=两腿未全真照拦），未命中 null 不冒充
+        nameEntityCenterMass: centerExempt.centerMass,
+        nameEntityCenterExempt: neBlock != null ? centerExempt.exempt : null,
         nameWrongEntityMass: weBlock?.mass ?? null,
         // J1.124/C194 实体-事件影响力脱节审计：命中才落 mass（entity_event_mismatch
         // 概率），旧缓存行/未命中为 null

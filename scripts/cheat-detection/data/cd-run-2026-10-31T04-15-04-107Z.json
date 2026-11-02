@@ -1,0 +1,665 @@
+{
+  "ranAt": "2026-10-31T04:15:04.107Z",
+  "questionVersion": "D3.3",
+  "dry": false,
+  "results": [
+    {
+      "caseId": "CD1",
+      "addr": "0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777",
+      "anchor": {
+        "tickCount": 66
+      },
+      "questionVersion": "D3.3",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.64,
+        "patternType": "equal_amount_split",
+        "ruleAudit": {
+          "hitArm": "A1",
+          "levels": {
+            "equal_amount_split": "moderate",
+            "coordinated_sell_back": "strong",
+            "creator_front_run": "moderate",
+            "sell_dispersion": "weak"
+          },
+          "extLevels": {
+            "stall_burst_wave": "moderate"
+          },
+          "anchors": {
+            "sameBlockHoldPct": 20.869162038639065,
+            "equalBandHoldPct": 28.14055017434586
+          }
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6457,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.39,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.03,
+            "moderate": 0.54,
+            "strong": 0.42
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.52,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.33,
+            "strong": 0.64
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.52,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.19,
+            "moderate": 0.64,
+            "strong": 0.15
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.12,
+          "probabilities": {
+            "none": 0.19,
+            "weak": 0.34,
+            "moderate": 0.31,
+            "strong": 0.16
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.05,
+          "probabilities": {
+            "none": 0.28,
+            "weak": 0.26,
+            "moderate": 0.29,
+            "strong": 0.17
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 20.869162038639065,
+        "equalBandHoldPct": 28.14055017434586
+      },
+      "activity": {
+        "ticksPerMin": 16.85,
+        "avgTradeBnb": 0.2235,
+        "maxGapSec": 77,
+        "level": "mid",
+        "cv": 1.06,
+        "uneven": true
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD2",
+      "addr": "0x75ff7483bda6ba5d4cd3c7808f752274af007777",
+      "anchor": {
+        "tickCount": 34
+      },
+      "questionVersion": "D3.3",
+      "interp": {
+        "verdict": "unhealthy",
+        "cheatProb": null,
+        "patternType": null,
+        "ruleAudit": {
+          "hitArm": "fallback_unhealthy",
+          "levels": {
+            "equal_amount_split": "moderate",
+            "coordinated_sell_back": "none",
+            "creator_front_run": "none",
+            "sell_dispersion": "weak"
+          },
+          "extLevels": {
+            "stall_burst_wave": "none"
+          },
+          "anchors": {
+            "sameBlockHoldPct": null,
+            "equalBandHoldPct": 42.400169638131736
+          }
+        }
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 healthy 实际 unhealthy"
+      ],
+      "promptChars": 4594,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.23,
+            "moderate": 0.65,
+            "strong": 0.08
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.8,
+          "probabilities": {
+            "none": 0.85,
+            "weak": 0.15,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.87,
+          "probabilities": {
+            "none": 0.9,
+            "weak": 0.09,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.44,
+          "probabilities": {
+            "none": 0.07,
+            "weak": 0.58,
+            "moderate": 0.19,
+            "strong": 0.16
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.53,
+            "weak": 0.3,
+            "moderate": 0.12,
+            "strong": 0.05
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": null,
+        "equalBandHoldPct": 42.400169638131736
+      },
+      "activity": {
+        "ticksPerMin": 16.45,
+        "avgTradeBnb": 0.0839,
+        "maxGapSec": 26,
+        "level": "mid",
+        "cv": 0.79,
+        "uneven": false
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD3",
+      "addr": "0xa7c9facf080d65dba8b8edb14d1e1b1627eb7777",
+      "anchor": {
+        "tickCount": 40
+      },
+      "questionVersion": "D3.3",
+      "interp": {
+        "verdict": "healthy",
+        "cheatProb": null,
+        "patternType": null,
+        "ruleAudit": {
+          "hitArm": "B1",
+          "levels": {
+            "equal_amount_split": "moderate",
+            "coordinated_sell_back": "none",
+            "creator_front_run": "none",
+            "sell_dispersion": "moderate"
+          },
+          "extLevels": {
+            "stall_burst_wave": "none"
+          },
+          "anchors": {
+            "sameBlockHoldPct": 17.368348293028987,
+            "equalBandHoldPct": 25.790134893116175
+          }
+        }
+      },
+      "pass": false,
+      "failures": [
+        "verdict: 期望 unhealthy 实际 healthy"
+      ],
+      "promptChars": 5074,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.4,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.35,
+            "moderate": 0.55,
+            "strong": 0.04
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.4,
+          "probabilities": {
+            "none": 0.55,
+            "weak": 0.44,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.28,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.13,
+            "moderate": 0.46,
+            "strong": 0.4
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.6,
+          "probabilities": {
+            "none": 0.7,
+            "weak": 0.24,
+            "moderate": 0.05,
+            "strong": 0.01
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 17.368348293028987,
+        "equalBandHoldPct": 25.790134893116175
+      },
+      "activity": {
+        "ticksPerMin": 10.96,
+        "avgTradeBnb": 0.0345,
+        "maxGapSec": 64,
+        "level": "low",
+        "cv": 0.73,
+        "uneven": false
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD4",
+      "addr": "0x356d60a71be7e894e56791005f190aec097e7777",
+      "anchor": {
+        "tickCount": 17
+      },
+      "questionVersion": "D3.3",
+      "interp": {
+        "verdict": "unhealthy",
+        "cheatProb": null,
+        "patternType": null,
+        "ruleAudit": {
+          "hitArm": "fallback_unhealthy",
+          "levels": {
+            "equal_amount_split": "moderate",
+            "coordinated_sell_back": "none",
+            "creator_front_run": "moderate",
+            "sell_dispersion": "weak"
+          },
+          "extLevels": {
+            "stall_burst_wave": "moderate"
+          },
+          "anchors": {
+            "sameBlockHoldPct": 21.409734127120032,
+            "equalBandHoldPct": 48.126811561883095
+          }
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3195,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.33,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.06,
+            "moderate": 0.5,
+            "strong": 0.41
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.77,
+          "probabilities": {
+            "none": 0.83,
+            "weak": 0.17,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.2,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.19,
+            "moderate": 0.4,
+            "strong": 0.35
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.29,
+          "probabilities": {
+            "none": 0.12,
+            "weak": 0.47,
+            "moderate": 0.25,
+            "strong": 0.16
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.13,
+          "probabilities": {
+            "none": 0.22,
+            "weak": 0.19,
+            "moderate": 0.35,
+            "strong": 0.24
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 21.409734127120032,
+        "equalBandHoldPct": 48.126811561883095
+      },
+      "activity": {
+        "ticksPerMin": 19.25,
+        "avgTradeBnb": 0.3088,
+        "maxGapSec": 26,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD5",
+      "addr": "0x647f9dbf1cff892aee246fa50743ba8b98017777",
+      "anchor": {
+        "tickCount": 35
+      },
+      "questionVersion": "D3.3",
+      "interp": {
+        "verdict": "unhealthy",
+        "cheatProb": null,
+        "patternType": null,
+        "ruleAudit": {
+          "hitArm": "fallback_unhealthy",
+          "levels": {
+            "equal_amount_split": "weak",
+            "coordinated_sell_back": "none",
+            "creator_front_run": "moderate",
+            "sell_dispersion": "weak"
+          },
+          "extLevels": {
+            "stall_burst_wave": "none"
+          },
+          "anchors": {
+            "sameBlockHoldPct": 16.188028234036565,
+            "equalBandHoldPct": null
+          }
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 4720,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.19,
+          "probabilities": {
+            "none": 0.22,
+            "weak": 0.39,
+            "moderate": 0.32,
+            "strong": 0.07
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.6,
+          "probabilities": {
+            "none": 0.7,
+            "weak": 0.27,
+            "moderate": 0.02,
+            "strong": 0.01
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.43,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.57,
+            "strong": 0.4
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.2,
+          "probabilities": {
+            "none": 0.18,
+            "weak": 0.4,
+            "moderate": 0.28,
+            "strong": 0.14
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.05,
+          "probabilities": {
+            "none": 0.29,
+            "weak": 0.28,
+            "moderate": 0.28,
+            "strong": 0.15
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 16.188028234036565,
+        "equalBandHoldPct": null
+      },
+      "activity": {
+        "ticksPerMin": 87.5,
+        "avgTradeBnb": 0.2233,
+        "maxGapSec": 6,
+        "level": "high",
+        "cv": null,
+        "uneven": null
+      },
+      "famous": {
+        "holdPct": 7.7,
+        "top1Pct": 7.7,
+        "followerPct": 31,
+        "dominancePct": 38.7,
+        "level": "mid"
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD6",
+      "addr": "0xa57ca9cf2bfd85fe6d1f04022a5ed9430f9a7777",
+      "anchor": {
+        "tickCount": 23
+      },
+      "questionVersion": "D3.3",
+      "interp": {
+        "verdict": "cheat",
+        "cheatProb": 0.6361484233782091,
+        "patternType": "slow_coordinated_accumulation",
+        "ruleAudit": {
+          "hitArm": "A5",
+          "levels": {
+            "equal_amount_split": "moderate",
+            "coordinated_sell_back": "weak",
+            "creator_front_run": "none",
+            "sell_dispersion": "weak"
+          },
+          "extLevels": {
+            "stall_burst_wave": "strong"
+          },
+          "anchors": {
+            "sameBlockHoldPct": 63.61484233782091,
+            "equalBandHoldPct": 52.512448917668785
+          }
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 3709,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.53,
+            "strong": 0.42
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.48,
+          "probabilities": {
+            "none": 0.38,
+            "weak": 0.61,
+            "moderate": 0.01,
+            "strong": 0
+          }
+        },
+        "creator_front_run": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.45,
+            "weak": 0.49,
+            "moderate": 0.03,
+            "strong": 0.03
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.28,
+          "probabilities": {
+            "none": 0.32,
+            "weak": 0.1,
+            "moderate": 0.12,
+            "strong": 0.46
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 63.61484233782091,
+        "equalBandHoldPct": 52.512448917668785
+      },
+      "activity": {
+        "ticksPerMin": 23.39,
+        "avgTradeBnb": 0.0663,
+        "maxGapSec": 15,
+        "level": "mid",
+        "cv": null,
+        "uneven": null
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    }
+  ]
+}
