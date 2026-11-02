@@ -429,6 +429,35 @@ async function main() {
     ok(!!resolved, 'require.resolve 从 market-analysis 出发可解析 dbManager（真实模块系统烟测）');
   }
 
+  {
+    // _log receiver 绑定锁（2026-11-02 v67 现场二次事故反证）：class 方法摘出直调
+    // this=undefined（class 体严格模式）→ `this.log` TypeError 被 _log catch 吞 =
+    // 「盘面观测」/「分析链异常」/「落库失败」自上线起零日志输出（检测/落表本身
+    // 正常，丢的只是可观测性）。行为级断言：真 class 实例 logger（方法体触 this，
+    // unbound 调用必 throw）注入后 _log 必须穿透到实例——曾写法
+    // `const fn = this._logger[level]; fn(...)` 摘方法丢 receiver 全灭。
+    class ProbeLogger {
+      constructor() { this.calls = []; }
+      info(...a) { this.calls.push(['info', ...a]); }
+      warn(...a) { this.calls.push(['warn', ...a]); }
+      error(...a) { this.calls.push(['error', ...a]); }
+      debug(...a) { this.calls.push(['debug', ...a]); }
+    }
+    const pl = new ProbeLogger();
+    const svc2 = new CheatCheckService({ enabled: true }, pl);
+    svc2._log('info', 'receiver-bind-probe');
+    svc2._log('warn', 'receiver-bind-probe-w');
+    svc2._log('error', 'receiver-bind-probe-e');
+    ok(pl.calls.length === 3, `_log class logger 调用穿透 3 级（unbound throw 被吞=0 次，实际 ${pl.calls.length}）`);
+    ok(pl.calls[0][2] === 'CheatCheck' && pl.calls[0][3] === 'receiver-bind-probe', '_log 行形状=空 experimentId+module CheatCheck+消息');
+    ok(pl.calls[2][0] === 'error', 'error 级别映射正确');
+    // console 兜底路径：无 logger 时 _log 不得 throw（plain 输出，不校验内容）
+    const svc3 = new CheatCheckService({ enabled: true }, null);
+    let consoleFallbackOk = true;
+    try { svc3._log('info', 'fallback-probe'); } catch (_) { consoleFallbackOk = false; }
+    ok(consoleFallbackOk, '_log 无 logger console 兜底不抛');
+  }
+
   // ═══════════════ Z. G1 分级门（2026-11-01 用户裁定升级为买门） ═══════════════
   console.log('Z. G1 gateBuyPoint 分级门');
   {

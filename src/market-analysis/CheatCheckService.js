@@ -482,8 +482,16 @@ class CheatCheckService {
 
   _log(level, msg) {
     try {
-      const fn = (this._logger && this._logger[level]) || console[level] || console.log;
-      fn('', 'CheatCheck', msg);
+      // ⚠ receiver 绑定锁（2026-11-02 v67 现场二次发现）：class 方法摘出直调
+      // this=undefined（class 体严格模式）→ `this.log` TypeError 被 catch 吞 =
+      // 「盘面观测」/「分析链异常」/「落库失败」自上线起零日志输出（检测/落表
+      // 本身正常）；单测注入 plain-object 箭头函数 logger 测不出。方法调用形式
+      // （member call）天然带 receiver=logger；console 兜底不受影响。
+      if (this._logger && this._logger[level]) {
+        this._logger[level]('', 'CheatCheck', msg);
+      } else {
+        (console[level] || console.log)('', 'CheatCheck', msg);
+      }
     } catch (_) { /* 日志失败不吞业务 */ }
   }
 
