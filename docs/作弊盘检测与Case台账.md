@@ -16,13 +16,13 @@
 
 - **三分类语义（用户裁定原话）**：「作弊盘 / 不健康盘 / 健康盘。其中不健康盘跟健康盘可以相互转化，买点不同，性质可能会有差异」——cheat=协同资金主导的既成事实（不可逆）；unhealthy/healthy=**时点状态**→ 每个买点独立 as-of 判定，`cheat_detection` 表多行历史留转化轨迹
 - **链路**：买点触发（preBuy 过、GMGN 块外——无 GMGN 条件腿/被 GMGN 拒的票也进样本）→ settle 4s（tickBuffer flush+sender 回查窗）→ **单 tail 查询** wss_price_ticks（链上真序倒序 limit 3000；锚=该单次查询返回行数，**绝不 count+select 两次**——撕裂防线）→ 满帽才补 head 300（launch 窗）→ `cheat-snapshot` 纯函数（与回归 runner 同源 bit-identical；**权威锚由调用方传入**，head 补充行不参与锚）→ `cheat-state-builder`（20k 预算纯文本：[TOKEN]/[ANCHOR]/[PRECOMPUTED]/[TICKS]/[WALLETS]/判定指引）→ `JevClient.ask`（ESM dynamic import）→ `cheat-result-mapper` → insert `cheat_detection`
-- **增量语义**：重析条件 = `(新tick>0 ∧ 距上次≥minIntervalMs 60s) OR 新tick≥20`；0 新 tick=复用；满帽行数饱和时增量改判尾行水位（block:log 不变=0 新 tick）；顶帽 `maxAnalysesPerToken 20`（per question_version，DB 行数兜底跨进程；error/timeout 也烧预算防故障环）；`minTicks 8` 以下不调 Jev 不落表；失败冷却 10s。**重判门可因子化接管（2026-11-02）**：引擎 prefetch 链配 `cheatCheck.reanalyzeCondition`（FA 因子表达式）即对已析票接管重判发起并 `factorGated=true` 跳过本内部门（双门 AND 难预期）；未配=内部门现状 bit 一致（详「工程接线」/「因子化投影」节预触发通道）
+- **增量语义**：重析条件 = `(新tick>0 ∧ 距上次≥minIntervalMs 60s) OR 新tick≥20`；0 新 tick=复用；满帽行数饱和时增量改判尾行水位（block:log 不变=0 新 tick）；**顶帽 `maxAnalysesPerToken 4`=首析+3 重判（CD129，2026-11-02 用户裁定；per question_version，DB 行数兜底跨进程；error/timeout 也烧预算防故障环；与 unhealthyReanalyses=3 对齐=escalation 用尽路径完整保留）**；`minTicks 8` 以下不调 Jev 不落表；失败冷却 10s。**拉黑短路盖全部路径（CD129）**：gateBuyPoint/noteBuyPoint 入口+链内 bootstrap 复检三处 `_blockedResult` 同形状秒回终值（60s 预触发不再对拉黑票烧 Jev）；**bootstrap 门状态跨进程恢复（CD129）**：cheat 行在场/unhealthy 计数超限重启续接拉黑、_lastGrade 自 digest 重建——帽 4 时代无恢复则重启即配额耗尽→quota fail-open 放行=拉黑被重启洗掉。**重判门可因子化接管（2026-11-02）**：引擎 prefetch 链配 `cheatCheck.reanalyzeCondition`（FA 因子表达式）即对已析票接管重判发起并 `factorGated=true` 跳过本内部门（双门 AND 难预期）；未配=内部门现状 bit 一致（详「工程接线」/「因子化投影」节预触发通道）
 - **口径**：wallet=COALESCE(sender, trader)（FA 同款单点）；top1/top2 集中度**剔除聚合路由伪钱包**（未解析 sender 的 GMGN 行并包成巨型伪钱包=向 cheat 方向系统性偏置）；资金口径不滤 outlier/尘 tick，priceArc 仅可靠价行；routerPct/unresolvedSenderTickCount 单列进 state（证据洞告知）；bnb_amount 恒 BNB 域（flap quote 盘写入时已换算，读侧照抄）
 - **观察期纪律**：fire-and-forget 绝不影响买决策；signal metadata 落 `cheatCheck` 轨迹（发起/joined_inflight/lastVerdict）；异步结果只进表不回填信号行；实验 stop 不清理表行（token 级全局资产）；stop drain 上限 5s
 - **失败语义**：Jev 超时/失败落 timeout/error 行带 fail_reason（loud 留痕）+冷却；落库失败 loud warn 不重试；链内全吞错绝不 throw 进交易链
 - **落库**：jev_prompt 仅每 (token, question_version) 首行落全文（多行历史无界增长防线）；answers_raw 恒落（断代对拍证据）
 - **回测零接线**（BacktestEngine 不继承 `_runBuyEvaluation`，用户裁定首期不接回测——历史票用回归 runner 离线重析）
-- **配置**：`fourmemeWs.cheatCheck { enabled 默认 false（物化语义：缺段/缺 enabled=关）, timeoutMs 30000, settleDelayMs 4000, reanalyzeTickDelta 20, minIntervalMs 60000, minTicks 8, maxAnalysesPerToken 20, failCooldownMs 10000, pullLimit 3000, headLimit 300, prefetchCondition 缺省 "tradeCount >= 15"（首析门 FA 因子表达式，空串=禁用）, reanalyzeCondition 缺省 null（重判门，配了即接管）, prefetchIntervalMs 60000, gate { enabled 默认 false, awaitMs 15000, unhealthyReanalyses 3 } }`；flap 实验经 `_mergedWsConfig` 同键生效；创建页作弊盘区两条件输入框（空=删键回落缺省）+服务端因子域校验（写错因子名 400 拒，与三防线同源）
+- **配置**：`fourmemeWs.cheatCheck { enabled 默认 false（物化语义：缺段/缺 enabled=关）, timeoutMs 30000, settleDelayMs 4000, reanalyzeTickDelta 20, minIntervalMs 60000, minTicks 8, maxAnalysesPerToken 4, failCooldownMs 10000, pullLimit 3000, headLimit 300, prefetchCondition 缺省 "tradeCount >= 15"（首析门 FA 因子表达式，空串=禁用）, reanalyzeCondition 缺省 null（重判门，配了即接管）, prefetchIntervalMs 60000, gate { enabled 默认 false, awaitMs 15000, unhealthyReanalyses 3 } }`；flap 实验经 `_mergedWsConfig` 同键生效；创建页作弊盘区两条件输入框（空=删键回落缺省）+服务端因子域校验（写错因子名 400 拒，与三防线同源）
 - **回归集**：`scripts/cheat-detection/`（fixtures.json **anchor 必填**=防全史马后炮 / lib.mjs 纯函数 / run.mjs 182 跑：`--only/--list/--add/--update-expect --because/--dry`；jev_prompt 存档 data/prompts/）
 
 ## G1 分级门（2026-11-01 立项落地，观察层升级为买门；同日 G2 修订）
@@ -179,6 +179,21 @@
 - **上线**：v66 换车 `cheatCheck:{enabled:true, gate:{enabled:true}}`（观察期先虚拟实验验收；DDL `observed` 已执行无需新 DDL）；全量 128 票 G7 对拍+D3.32 重析（182）随验收攒批跑
 
 ## Case 倒序
+
+### CD129 MAI 重判配额收紧+拉黑短路盖全部路径+bootstrap 门状态恢复（2026-11-02，工程机制案）
+
+**案由**：MAI `0x732b…7777`（0x732bd5190992ecb2365e080c2d3d37880cb17777，flap）07:16–07:37 UTC 20 分钟落 20 行 cheat_detection（每 60s 增量重判一次）——其中 07:17:50 首析即 cheat 拉黑，**其后 18 次重判全部在已拉黑状态下照烧 Jev**。用户裁定原话：「『反作弊在 07:16–07:37 对它做了 20 次增量重判』这个次数也太多了，浪费资源，先限制最多3次吧」，中途澄清「**每个代币的作弊再次检测最多3次**」=首析+3 次重判。
+
+**根因（两层）**：①拉黑短路只盖 `gateBuyPoint`（买点路径），引擎 60s 预触发走 `noteBuyPoint` 不查 `_gateBlocked`——MAI 事故窗 207 行里 18 次来自预触发通道对已拉黑票的纯浪费；②顶帽 20 对活跃票「每 60s 一行」形状完全不设防（20 分钟即耗尽）。
+
+**落地三件（`CheatCheckService.js`）**：
+1. **`maxAnalysesPerToken` 20→4**（DEFAULTS，per question_version 含 error/timeout 行）：与 `unhealthyReanalyses=3` 的第 4 次 unhealthy 拉黑恰好对齐——escalation 用尽路径完整保留（4 次 unhealthy 全程在预算内，第 4 次拉黑=最后一次允许的分析）；
+2. **拉黑短路盖全部路径**：`noteBuyPoint` 入口+链内 4b 复检（bootstrap 后）与既有 `gateBuyPoint` 入口三处收敛为 `_blockedResult(token)` 同形状秒回 `{status:'graded', grade:'cheat', blocked:true, levels, anchors}`——拉黑票投影已是终值，零 Jev 零新落行 onResult 不回调；
+3. **bootstrap 门状态跨进程恢复**：`_bootstrapHistory` 由 limit 1 行改行级拉取（limit=max(8, 帽)）——cheat 行在场→恢复拉黑；unhealthy 行计数>3→恢复拉黑；`_lastGrade` 自最新带 grade 行经 `levelsFromObservation` 重建（拉黑秒回/reused 不缺 levels/anchors）。**帽收紧的必要配套**：顶帽 20 时代重启后重析会重新拉黑兜底，帽 4 后已拉黑票重启即配额耗尽→quota fail-open 放行=拉黑被重启洗掉（链内 4b 复检同封「预算未耗尽票重启重烧一次 Jev」形状）。
+
+**单测**（`_test_cheat_detection_service.cjs` 92→105 断言全绿；gate_engine/grade/detection_lib 三件复跑全绿）：D 段改 healthy 形状（原 GOOD 首析即拉黑会盖掉 reused 路径）+帽显式 20（增量门逻辑与帽解耦，缺省帽由 Z9 锁定）；Z6 拆 healthy reused+拉黑短路双断言（`gate_blocked` 秒回/零 Jev 零落行/MAI 案反证）；**Z9 新增**帽 4（第 4 次落行/第 5 次 quota 拒析零 Jev）；**Z10 新增** bootstrap 恢复（cheat 行+预算耗尽→首链 4b 秒回不走 quota 放行=拉黑不被重启洗掉；unhealthy 4 行>3 恢复即拉黑；恰 3 行不拉黑 reused 续接 escalation 不前移）。
+
+**关联待裁（另案呈报，不随本案落码）**：用户同批提出「我看了一下这个币的交易信息，感觉不应该是cheat，请你再仔细看一下」——MAI 复核证据链（408 独立钱包/GMGN 聚合路由占买量 ~50%/最大等额带 0.0986=前端 0.1 档净额/eqMembers 覆盖 74% 钱包=等额簇口径把整档散户盘吞成「簇」/top1 ≤16% 递减/washPair≈0/价格 9.9x 后仍站峰 79%）指向 **equal_amount_split 题对「整档跟风散户盘」的误判形状**，修正方向候选见对话呈报，等用户裁定后另立 CD 案。
 
 ### 批次八（CD62/CD66/CD77/CD87/CD90/CD100/CD127）：回归集 review 收官——J 通道线上首批双触发+CD66 G6 代价票回正确认，机器×人工 4/7、机器更重三票接受现状（2026-11-02）
 

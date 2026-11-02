@@ -39,7 +39,8 @@
  * 留痕）+ failCooldownMs 冷却，绝不影响买点；DB 写失败 loud warn（行丢=可观测）。
  * minTicks 预门：拉数后 tickCount<8 → 不调 Jev 不落表（unclear 桶留给「有量但
  * 证据矛盾」的真判定）。maxAnalysesPerToken 顶帽（per question_version，DB 行数
- * 兜底 + 进程内计数；error/timeout 行也烧预算——防故障环）。
+ * 兜底 + 进程内计数；error/timeout 行也烧预算——防故障环）= 首析+3 次重判
+ * （2026-11-02 用户裁定「每个代币的作弊再次检测最多 3 次」）。
  *
  * 引擎挂点：_runBuyEvaluation preBuy 通过后、GMGN if 块外（无 GMGN 条件的腿
  * 照样检查、被 GMGN 拒的票也进观察样本）。回测零接线（BacktestEngine 不继承
@@ -49,7 +50,8 @@
  * gateBuyPoint：买点 await 式判定（竞速 awaitMs 上限，超时 fail-open 放行本笔
  * +链续跑，迟到结果经返回值 late 供引擎补拉黑/清仓）。cheat/unhealthy/healthy
  * 由 cheat-grade.js 纯函数从观测档位映射（G1 规则+对拍见该文件头注）：
- * - cheat → 进程内拉黑（_gateBlocked 秒回不再烧 Jev）+ 引擎侧持仓清仓联动
+ * - cheat → 进程内拉黑（_gateBlocked 秒回不再烧 Jev，**盖全部路径**——gate 买点
+ *   与 60s 预触发 noteBuyPoint 同短路，2026-11-02 MAI 案修复）+ 引擎侧持仓清仓联动
  * - unhealthy → 拦买；真分析重判机会 unhealthyReanalyses 次（首次后可再判 N 次，
  *   第 N+1 次 unhealthy 用尽 → 拉黑同 cheat）。增量门内（60s∧20tick）重复买点
  *   重用上次 grade 不烧配额
@@ -70,7 +72,10 @@ const DEFAULTS = {
   reanalyzeTickDelta: 20,    // 新 tick 硬增量（无视 minIntervalMs 直接触发重析）
   minIntervalMs: 60000,      // 限流器：距上次分析的最小间隔（增量路径）
   minTicks: 8,               // 极新票预门（低于不调 Jev 不落表）
-  maxAnalysesPerToken: 20,   // per question_version 分析预算（含 error/timeout 行）
+  // per question_version 分析预算（含 error/timeout 行）= 首析+3 次重判（2026-11-02
+  // 用户裁定「每个代币的作弊再次检测最多 3 次」，MAI 0x732b…7777 案 20 分钟 20 行
+  // 烧配额；4 与 unhealthyReanalyses=3 的第 4 次 unhealthy 拉黑恰好对齐——用尽路径完整保留）
+  maxAnalysesPerToken: 4,
   failCooldownMs: 10000,     // 失败后冷却（冷却期内买点不再发起链）
   pullLimit: 3000,           // tail 拉数帽（anchor=该单次查询返回行数）
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）
@@ -146,6 +151,13 @@ class CheatCheckService {
     if (!token) return { status: 'invalid_token' };
     this.stats.noted++;
 
+    // 拉黑短路（2026-11-02 MAI 案根因修复）：cheat/unhealthy 用尽拉黑后，买点路径
+    // gateBuyPoint 秒回只盖自己——60s 预触发照走本入口，每轮真烧 Jev 直到顶帽
+    // （MAI 07:17 拉黑后预触发又烧 18 次）。拉黑票投影已是终值，秒回缓存 grade/
+    // levels/anchors（与 gateBuyPoint 拉黑秒回同形状，onResult 消费方零改动——
+    // 投影在产生拉黑的那次链完成时已做过，此处无需再投影）
+    if (this._gateBlocked.has(token)) return this._blockedResult(token);
+
     const info = { status: 'initiated', settleDelayMs: this._settleDelayMs };
     const last = this._lastAnalysis.get(token);
     if (last) {
@@ -196,18 +208,7 @@ class CheatCheckService {
     if (!token) return { status: 'invalid_token' };
     this.stats.gateNoted++;
 
-    if (this._gateBlocked.has(token)) {
-      this.stats.gateBlockedHits++;
-      const lg = this._lastGrade.get(token);
-      return {
-        status: 'graded', grade: 'cheat', blocked: true,
-        reasons: [{ level: 'cheat', code: 'gate_blocked' }],
-        unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
-        levels: lg ? lg.levels ?? null : null,
-        buckets: lg ? lg.buckets ?? null : null,
-        anchors: lg ? lg.anchors ?? null : null,
-      };
-    }
+    if (this._gateBlocked.has(token)) return this._blockedResult(token);
 
     let chain = this._inflight.get(token);
     if (!chain) {
@@ -266,6 +267,12 @@ class CheatCheckService {
 
       // 4) DB 历史回读（首触补偿跨进程：缓存态 + 预算计数）
       await this._bootstrapHistory(token);
+
+      // 4b) 拉黑复检（bootstrap 门状态恢复配套）：重启后首链走不到入口内存短路——
+      // bootstrap 才从 DB 行恢复拉黑；此处不复检则预算耗尽票走 8) quota fail-open
+      // 放行=拉黑被重启洗掉一次（帽 4 时代 MAI 形状重启即耗尽）、未耗尽票重烧一次
+      // Jev。恢复即终态：秒回 graded/blocked（与入口短路同形状，消费端零改动）
+      if (this._gateBlocked.has(token)) return this._blockedResult(token);
 
       // 5) 拉数（单查询定锚）
       const pull = await this._pullTicks(token);
@@ -495,30 +502,75 @@ class CheatCheckService {
     } catch (_) { /* 日志失败不吞业务 */ }
   }
 
+  /**
+   * 拉黑秒回形状（入口短路×2 + 链内 bootstrap 复检共用）：终值 grade/levels/
+   * anchors 透传（消费端与 analyzed/reused 同构；投影在产生拉黑的那次链完成时
+   * 已做过或已由 bootstrap 恢复，此处无需再投影）
+   */
+  _blockedResult(token) {
+    this.stats.gateBlockedHits++;
+    const lg = this._lastGrade.get(token);
+    return {
+      status: 'graded', grade: 'cheat', blocked: true,
+      reasons: [{ level: 'cheat', code: 'gate_blocked' }],
+      unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
+      levels: lg ? lg.levels ?? null : null,
+      buckets: lg ? lg.buckets ?? null : null,
+      anchors: lg ? lg.anchors ?? null : null,
+    };
+  }
+
   /** DB 历史回读：最新有效行续接缓存态 + 行数计数起底预算（首触一次） */
   async _bootstrapHistory(token) {
     if (this._bootstrapped.has(token)) return;
     this._bootstrapped.add(token);
     try {
       const client = this._client();
+      // 行级拉取（最新优先；limit≥顶帽=当前版本全行可见，error/timeout 行无 grade
+      // 天然不入扫描）：_lastAnalysis 续接 + G1 门状态跨进程恢复——2026-11-02 帽收
+      // 紧配套（首析+3 重判）：无恢复则已拉黑票重启后配额已耗尽 → quota fail-open
+      // 放行=拉黑被重启洗掉（顶帽 20 时代靠重析重新拉黑兜底，帽 4 后此路不通）
+      const rowLimit = Math.max(8, this._maxAnalysesPerToken);
       const latest = await client.from('cheat_detection')
         .select('verdict,anchor_tick_count,analyzed_at,snapshot_digest')
         .eq('token_address', token)
         .eq('question_version', this._version)
         .eq('is_valid', true)
         .order('analyzed_at', { ascending: false })
-        .limit(1);
-      if (!latest.error && latest.data && latest.data.length) {
-        const row = latest.data[0];
-        if (!this._lastAnalysis.has(token)) {
-          const digest = row.snapshot_digest || {};
-          this._lastAnalysis.set(token, {
-            questionVersion: this._version,
-            anchorTickCount: row.anchor_tick_count ?? 0,
-            capped: digest.capped === true,
-            watermark: digest.watermark || null,
-            analyzedAt: Date.parse(row.analyzed_at) || 0,
-            verdict: row.verdict || null,
+        .limit(rowLimit);
+      const rows = (!latest.error && latest.data) || [];
+      if (rows.length && !this._lastAnalysis.has(token)) {
+        const row = rows[0];
+        const digest = row.snapshot_digest || {};
+        this._lastAnalysis.set(token, {
+          questionVersion: this._version,
+          anchorTickCount: row.anchor_tick_count ?? 0,
+          capped: digest.capped === true,
+          watermark: digest.watermark || null,
+          analyzedAt: Date.parse(row.analyzed_at) || 0,
+          verdict: row.verdict || null,
+        });
+        // G1 门状态恢复（版本域）：cheat 行在场 → 拉黑；unhealthy 真析计数超限 → 拉黑
+        let unhealthy = 0;
+        let cheatSeen = false;
+        for (const r of rows) {
+          const g = r.snapshot_digest && r.snapshot_digest.grade;
+          if (g === 'cheat') cheatSeen = true;
+          else if (g === 'unhealthy') unhealthy++;
+        }
+        this._gateUnhealthyGrades.set(token, unhealthy);
+        if (cheatSeen || unhealthy > this._unhealthyReanalyses) this._gateBlocked.add(token);
+        // _lastGrade 恢复（最新带 grade 行）：拉黑秒回/reused 带终值，FA 投影不缺位
+        const gradedRow = rows.find((r) => r.snapshot_digest && r.snapshot_digest.grade);
+        if (gradedRow && !this._lastGrade.has(token)) {
+          const d = gradedRow.snapshot_digest;
+          const { levels, buckets, anchors } = levelsFromObservation(d, {
+            famousDominancePct: (d.anchors && d.anchors.famousDominancePct) ?? null,
+            famousDominanceLevel: (d.anchors && d.anchors.famousDominanceLevel) ?? null,
+          });
+          this._lastGrade.set(token, {
+            grade: d.grade, reasons: d.gradeReasons || [], version: d.gradeVersion || this._version,
+            unhealthyGrades: unhealthy, levels, buckets, anchors,
           });
         }
       }
