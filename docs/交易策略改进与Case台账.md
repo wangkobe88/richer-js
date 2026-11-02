@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v54 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；早期臂已撤（T84 撤臂 2026-10-29）；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -33,7 +33,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **T91a 流通分母口径（v47 起代码侧生效）**：全部 ÷circ 键分母=`max(_circTokens, Σ正净持仓)`——flap 税币零买入纯卖出钱包（初始筹码/税币接收方，Sell 在 Buy 永无）曾把 Σ买−Σ卖 分母压到低于真实在外筹码 → 键值虚高超 100%（孙权 top3=114% 案）；恒等式保证 ≤100、正常票逐输入 bit 不变。
 
-第二层（条件串外，`gmgnCheckCondition`）：**T108/v54 起 bundler 组 `(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100)` 整组退役**（谱系：T82/v42 起 <8K→T84 10.7 BNB 早期豁免臂；bundler 门 v31 起 65→T89/v45 放宽 100=恒真死条件，删组与现行行为 bit 等价）；**buy-v2 v54 仅存叙事类型×issuer 分档门**（C85 适用集三类；event:W 已撤出=T73），GMGN API 失败 fail-open 放行（T14）；**buy-v2-repeat v4 整键删除**（T100 已删 issuer 臂后仅剩恒真组=GMGN 层不再真调 getTokenInfo，省配额）。GMGN bundler 维度的盘面形状改由 CD1 反作弊分级门接棒（同 v67 上线）。买腿 `maxExecutions=2`（**T89/v45 二次入场**：卖出后同腿可再成交一次；卡牌 6 卡帽/单仓语义不变）。
+第二层（条件串外，`gmgnCheckCondition`）：**T108/v54 起 bundler 组 `(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100)` 整组退役**（谱系：T82/v42 起 <8K→T84 10.7 BNB 早期豁免臂；bundler 门 v31 起 65→T89/v45 放宽 100=恒真死条件，删组与现行行为 bit 等价）；**buy-v2 v55 仅存叙事类型×issuer 分档门**（C85 适用集三类；event:W 已撤出=T73），GMGN API 失败 fail-open 放行（T14）；**buy-v2-repeat v4 整键删除**（T100 已删 issuer 臂后仅剩恒真组=GMGN 层不再真调 getTokenInfo，省配额）。GMGN bundler 维度的盘面形状改由 CD1 反作弊分级门接棒（同 v67 上线）。买腿 `maxExecutions=2`（**T89/v45 二次入场**：卖出后同腿可再成交一次）——**T108b 起 v67 repeat 腿整腿移除=二次买入关闭**（卖出后同票永不再进，库条目 buy-v2-repeat v4 留档可复挂）；首买 `cards=4`（T108b，v55）。
 
 ## 二、现行卖腿机制要点
 
@@ -58,6 +58,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **实现链（无代码改动=纯配置+库版本）**：UPDATE strategy_library 两腿（version 乐观并发 `.eq('version',旧)` 守卫，description 追加留痕）→ 本地组装 v67 config（克隆 v66 深拷贝改三处+两买腿换库新快照 copy-in+libRefs 版本对齐）→ `loadStrategies` 四因子集校验（与引擎 627/712 行同实参，27 策略装载过）→ `ExperimentFactory.createFromConfig` 走 web 同链 INSERT（validate+upsert 全字段）。
 - **部署链（已上线 v67，2026-11-02 06:29 UTC 起跑）**：182 HEAD `66980ac` 已含 cheatCheck 全链（先日批次八收官提交，无需新 pull）→ `setsid nohup node main.js start-experiment -e e3d00085-b796-4973-91fc-05013c438488`（PID 1696674；⚠️启动 ssh 会挂住——先例命令尾部 `exit 0` 不可省，本次漏带靠 TaskStop 杀 ssh 收场，setsid 进程组脱离不受影响=v13 事故防护生效）→ 验证：27 策略装载（P1·首买 issuer 门 / P1·再买无 gmgn 键）、config dump 三变更全落地（cheatCheck 双开/stallClose 缺席/两腿 v54·v4）、ERROR 级=0、「🛡️ 流动性止损已启用」行 **0 次**=stallClose 退役断言、platforms=[fourmeme,flap] 双 trader 连接成功、DB status=running、尾部实时处理新 token（语料补采流动）。
 - **观察点**：①CD1 分级门线上实效——首析频率（tradeCount>=15 门）、gate 买点 await 竞速 15s 内完成率、cheat/unhealthy 拦截分布（对照回归集 128 票 G8 基线）、拉黑+清仓联动首次触发案例；②GMGN 配额节省幅度（repeat 臂不再真调+buy-v2 仅 issuer 门票真调）；③断流票出场路径变化——stallClose 10s 全清退役后断流票依赖 30s 卖腿扫描（P13 时间止损 60min 深处兜底），断流阴跌票持有时长分布对比 v63-v66；④buy-early-narrative v10 / buy-v2-momentum v1 库条目仍带死条件组（未被 v67 引用未改，复挂前须先清）。
+
+### T108b v67 首日事故修复 + 两调参 + signal-stats 反作弊列（CheatCheckService require 路径 `4d7f4207` / buy-v2 v54→v55 cards 3→4 + 实验删 repeat 腿关闭二次买入 / 页面列 `5397e062`；2026-11-02 同日追记，用户指令「请把代币的二次买入也关闭吧」+「第一次买入 4 张卡」）
+
+- **CheatCheckService 生产路径 require 事故（v67 上线 2h 内反作弊全灭零可见度）**：`_client()` 写成 `require('../../services/dbManager')`——market-analysis 在 `src/` 下、services 同层须一层 `../`，错误路径解析到项目根 services → MODULE_NOT_FOUND 被 `_chain` 外层 catch 吞成 `{status:'fail'}`：CheatPrefetch 43 次预触发发起**全部灭**、cheat_detection 零表行、「盘面观测」零日志、gate 买点恒 fail 放行（fail-open 语义反成放风）。定位链=零日志零表行 → 182 单票 probe（注入 console logger 直跑 noteBuyPoint）复现 stack 落 `_client()`。**漏网面=单测 `deps.dbClient` 注入短路生产 require 路径从未被走到**——修复后补防线四断言（源码反证不含错误路径/require 字面量在场/一层上层/require.resolve 真实模块系统烟测，零 DB 零网络），detection_service 84→88。
+- **两调参（v67 config+库同步）**：①**关闭二次买入**——v67 `strategiesConfig.buyStrategies` 删 buy-v2-repeat v4 整腿+libRefs 移除该条（**库条目留档不删**，重启 repeat 实验直接引用即可）；②**首买 4 张卡**——库 buy-v2 v54→**v55**（cards 3→4，description 留痕；乐观并发 `.eq('version',54)` 守卫），v67 首买腿换 v55 快照 copy-in。首仓=perCardBNB 0.001×4=0.004 BNB（原 3 卡 0.003）；卖 sizing 走 tokenCards 账本自动跟随无需动卖腿。
+- **重启链与教训**：kill 旧进程（1696674）→ **裸重启被拒**（kill 时关停钩子置 stopped，start-experiment 只认 initializing → 需 `--force`；本次先裸启吃了一次 failed 状态再 --force 拉起，PID 1716301 07:00 UTC 起）→ 启动 ssh 挂住 120s 教训**再现**（命令尾 `& exit 0` 带了仍挂=setsid 后台进程持有 sshd 会话，TaskStop 杀本地 ssh 收场，远端脱离进程组无恙）→ 验证：**26 策略装载**（`P1·首买: 买入 ×2 | 优先级:1 | 4卡` ✓/无再买腿✓）、status=running、ERROR=0。
+- **signal-stats 反作弊列**：新端点 `GET /api/experiment/:id/cheat-detections`（cheat_detection 按 source_experiment_id 瘦列拉行，analyzed_at desc 前端首见即最新）+ 表头「人工评级」后「反作弊」列（可排序 cheat=2/unhealthy=1/healthy=0；badge 🚫作弊/⚠️不健康/✅健康/⏱超时·❗错误·已观测灰，title=版本+时间+通道明细；无分析 '-'；js v4.12）。本地 3010 playwright 真实 DOM 四形状+排序+空态全验证。
+- **观察点**：①修复后 cheatCheck 首析/表行/「盘面观测」日志恢复（对照事故期 2h 空窗）；②反作弊列首批真实数据形态（badge 分布对照回归集基线）；③首买 4 卡仓位节奏（单票敞口 0.004）与触发频率变化；④二次买入关闭后「卖出后同票永不再进」的错过/避免分布（对照 T89 二次入场初衷）。
 
 ### T107 市值拱形时间全清臂（FA 新因子三键 + 库新条目 mcap-arc-fullclose v1 + create-v65；2026-10-29 用户指令「再增加一个卖出臂，持续记录代币从首次交易到最高市值的时间，假设这个时间为 X 秒，代币市值大于 15K 后，如果代币从最高点已经经过了时间长度 X/2 秒（没有再次突破最高点），则全部清仓」；初稿 7K/X 后同日改 15K/X/2）
 

@@ -12,7 +12,7 @@
 
 ## 现行机制一屏（CD1 起；2026-11-01 G2 起含分级门）
 
-**作弊盘检测（cheatCheck）= Jev 驱动的买点同步式盘面健康检测层**。动机（用户原话）：「作弊行为也多变，并且与正常的用户行为糅杂在一起，简单规则往往拦截着拦截者又因为瞬时条件通过而直接买到更高点」——综合判别交给 Jev 深度思考。双模式：`gate.enabled=false`（默认）=纯观察层（下述链路原样，fire-and-forget 不影响买决策）；`gate.enabled=true`=**分级门（现行 G8）**（见下节，买点硬门）。**2026-11-02 v67 `e3d00085` 起双开上线 live 实跑（enabled+gate.enabled；GMGN bundler 组同批退役=簇/对敲/纯卖形状改由本门接棒，见 T 台账 T108）**。
+**作弊盘检测（cheatCheck）= Jev 驱动的买点同步式盘面健康检测层**。动机（用户原话）：「作弊行为也多变，并且与正常的用户行为糅杂在一起，简单规则往往拦截着拦截者又因为瞬时条件通过而直接买到更高点」——综合判别交给 Jev 深度思考。双模式：`gate.enabled=false`（默认）=纯观察层（下述链路原样，fire-and-forget 不影响买决策）；`gate.enabled=true`=**分级门（现行 G8）**（见下节，买点硬门）。**2026-11-02 v67 `e3d00085` 起双开上线 live 实跑（enabled+gate.enabled；GMGN bundler 组同批退役=簇/对敲/纯卖形状改由本门接棒，见 T 台账 T108）**。⚠️首日事故（同日已修，`4d7f4207`）：`_client()` require 路径写成 `../../services/dbManager`（应为 `../`）→ 上线 2h 内 43 次预触发全灭于 MODULE_NOT_FOUND 链内吞错、零表行零日志、gate 恒 fail 放行；单测 deps.dbClient 注入短路生产路径=漏网面，修复后补 require.resolve 烟测防线（detection_service 84→88）。结果展示：signal-stats 页「反作弊」列（T108b，`5397e062`）。
 
 - **三分类语义（用户裁定原话）**：「作弊盘 / 不健康盘 / 健康盘。其中不健康盘跟健康盘可以相互转化，买点不同，性质可能会有差异」——cheat=协同资金主导的既成事实（不可逆）；unhealthy/healthy=**时点状态**→ 每个买点独立 as-of 判定，`cheat_detection` 表多行历史留转化轨迹
 - **链路**：买点触发（preBuy 过、GMGN 块外——无 GMGN 条件腿/被 GMGN 拒的票也进样本）→ settle 4s（tickBuffer flush+sender 回查窗）→ **单 tail 查询** wss_price_ticks（链上真序倒序 limit 3000；锚=该单次查询返回行数，**绝不 count+select 两次**——撕裂防线）→ 满帽才补 head 300（launch 窗）→ `cheat-snapshot` 纯函数（与回归 runner 同源 bit-identical；**权威锚由调用方传入**，head 补充行不参与锚）→ `cheat-state-builder`（20k 预算纯文本：[TOKEN]/[ANCHOR]/[PRECOMPUTED]/[TICKS]/[WALLETS]/判定指引）→ `JevClient.ask`（ESM dynamic import）→ `cheat-result-mapper` → insert `cheat_detection`
