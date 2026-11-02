@@ -1,0 +1,75 @@
+{
+  "ranAt": "2026-11-02T07:29:48.523Z",
+  "summary": {
+    "total": 2,
+    "pass": 2,
+    "fail": 0,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C96",
+      "symbol": "币安上电视",
+      "addr": "0xc6d089d749409f7646de440d637ac9db0e047777",
+      "status": "PASS",
+      "expect": {
+        "rating": "low",
+        "reasonIncludes": [
+          "Web3 用户不接纳该名字"
+        ]
+      },
+      "observe": null,
+      "caseNote": "J1.37 陈述句门→C108 并入名字门分支③（陈述句）。10-19 对拍已过，维持断言。",
+      "baseline": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（词句接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:E"
+      },
+      "current": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（词句接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "stage": 2,
+        "tokenCategory": "event:E"
+      },
+      "failures": []
+    },
+    {
+      "caseId": "C259",
+      "symbol": "安",
+      "addr": "0x90a5ce7ae44132c06990f05cda15ce854ec27777",
+      "status": "PASS",
+      "expect": {
+        "rating": [
+          "mid",
+          "high"
+        ],
+        "reasonExcludes": [
+          "词句接纳度门"
+        ]
+      },
+      "observe": null,
+      "caseNote": "J1.151 词句题①来由切身热点事件文字凝练锚（2026-11-02 用户裁定「这个币的名字，依托于这个推文，其实是成立的；相当于它的含义是这个推文给的」——心安、眠安、家安→安）：依托切身热点事件的推文文字游戏赋予币名含义即有来由；媒体级被动露出仍不够（C96 币安上电视反证票维持 low）。收录时现状 low（J1.150 词句门 not_acceptable 0.84 拦），expect=J1.151 后意图。",
+      "baseline": {
+        "rating": "low",
+        "reason": "Web3 用户不接纳该名字（词句接纳度门）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:C"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 88.97,
+        "stage": 3,
+        "tokenCategory": "event:C"
+      },
+      "failures": []
+    }
+  ]
+}

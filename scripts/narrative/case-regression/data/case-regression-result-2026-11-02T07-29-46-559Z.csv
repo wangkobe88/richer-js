@@ -1,0 +1,3 @@
+﻿caseId,symbol,addr,status,期望rating,期望reason关键词,期望禁词,期望precheck规则,期望禁规则,期望审计键,期望tokenCat,期望说明,基线rating,基线score,基线ruleName,基线reason,当前rating,当前score,当前ruleName,当前stage,当前tokenCat,当前reason,失败明细,observe说明,case语义
+C96,币安上电视,0xc6d089d749409f7646de440d637ac9db0e047777,PASS,low,Web3 用户不接纳该名字,,,,,,,low,,,Web3 用户不接纳该名字（词句接纳度门）,low,,,2,event:E,Web3 用户不接纳该名字（词句接纳度门）,,,J1.37 陈述句门→C108 并入名字门分支③（陈述句）。10-19 对拍已过，维持断言。
+C259,安,0x90a5ce7ae44132c06990f05cda15ce854ec27777,PASS,mid|high,,词句接纳度门,,,,,,low,,,Web3 用户不接纳该名字（词句接纳度门）,high,88.97,,3,event:C,,,,J1.151 词句题①来由切身热点事件文字凝练锚（2026-11-02 用户裁定「这个币的名字，依托于这个推文，其实是成立的；相当于它的含义是这个推文给的」——心安、眠安、家安→安）：依托切身热点事件的推文文字游戏赋予币名含义即有来由；媒体级被动露出仍不够（C96 币安上电视反证票维持 low）。收录时现状 low（J1.150 词句门 not_acceptable 0.84 拦），expect=J1.151 后意图。
