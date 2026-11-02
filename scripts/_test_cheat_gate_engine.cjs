@@ -333,7 +333,7 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
   // F1 激活判定：gate 开 → 预触发跑；纯观察+无因子消费 → 不激活（配额零增量）
   const notes = [];
   const mk = (over) => makeEngine(Object.assign({
-    _cheatPrefetchCondition: 'buyVolumeBnb >= 0.1',
+    _cheatPrefetchCondition: 'tradeCount >= 15',
     _cheatPrefetchIntervalMs: 60000,
     _cheatPrefetchAt: new Map(),
     _cheatFactorsConsumed: undefined,
@@ -370,6 +370,48 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
   eng3._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
   ok('prefetchCondition 空串=显式禁用', notes.length === 3);
 
+  // F2b 重判门分叉（2026-11-02 因子化）：未析票恒走首析门；已析票未配 reanalyze
+  // → 照旧走首析门+无 factorGated（现状 bit 一致）；配了 → 已析票走重判门+
+  // factorGated=true（service 跳过内部数字增量门）；重判门不过 → 不发起
+  const evals = [];
+  const calls = [];
+  const mkGate = (over) => makeEngine(Object.assign({
+    _cheatPrefetchCondition: 'tradeCount >= 15',
+    _cheatReanalyzeCondition: null,
+    _cheatPrefetchIntervalMs: 60000,
+    _cheatPrefetchAt: new Map(),
+    _cheatFactorsConsumed: true,
+    _cheatGateEnabled: true,
+    _cheatProjectedTokens: new Set(),
+    _cheatCheckService: { enabled: true,
+      noteBuyPoint: (a, m, c) => { calls.push(c); } },
+    _strategyEngine: {
+      evaluateCondition: (cond, f) => { evals.push(cond); return f.__pass === true; },
+      getAllStrategies: () => [{ action: 'buy', condition: 'cheatGrade == 0' }],
+    },
+  }, over));
+  const RA = { tradeCount: 60, __pass: true };
+  mkGate({ _cheatReanalyzeCondition: 'tradeCount >= 40' })._cheatPrefetchCheck('0xnew', RA, TOKEN);
+  ok('未析票 → 恒走首析门（配了重判门不影响首析路径）',
+    evals.length === 1 && evals[0] === 'tradeCount >= 15'
+    && calls.length === 1 && !calls[0].factorGated);
+  evals.length = 0; calls.length = 0;
+  mkGate({ _cheatProjectedTokens: new Set(['0xnew']) })._cheatPrefetchCheck('0xnew', RA, TOKEN);
+  ok('已析票未配重判门 → 照旧走首析门（现状 bit 一致）+ 无 factorGated',
+    evals.length === 1 && evals[0] === 'tradeCount >= 15'
+    && calls.length === 1 && !calls[0].factorGated);
+  evals.length = 0; calls.length = 0;
+  mkGate({ _cheatProjectedTokens: new Set(['0xnew']), _cheatReanalyzeCondition: 'tradeCount >= 40' })
+    ._cheatPrefetchCheck('0xnew', RA, TOKEN);
+  ok('已析票配重判门 → 评重判门条件（非首析门）+ factorGated=true 传递',
+    evals.length === 1 && evals[0] === 'tradeCount >= 40'
+    && calls.length === 1 && calls[0].source === 'prefetch' && calls[0].factorGated === true);
+  evals.length = 0; calls.length = 0;
+  mkGate({ _cheatProjectedTokens: new Set(['0xnew']), _cheatReanalyzeCondition: 'tradeCount >= 40' })
+    ._cheatPrefetchCheck('0xnew', { tradeCount: 20, __pass: false }, TOKEN);
+  ok('重判门不满足 → 不发起（evaluateCondition false 短路）',
+    evals.length === 1 && calls.length === 0);
+
   // F3 onResult 投影：回调收 grade → FA 20 键投影（预触发是条件串消费的供源）
   const eng4 = mk({
     _cheatGateEnabled: true,
@@ -402,6 +444,15 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
     mkScan([{ action: 'buy', condition: 'marketCap > 5 AND cheatcoinName != 1' }])._scanCheatFactorConsumers() === false);
   ok('卖腿不扫（cheat 因子仅买腿消费）',
     mkScan([{ action: 'sell', condition: 'cheatGrade == 2' }])._scanCheatFactorConsumers() === false);
+
+  // F5 首析门缺省口径锁（2026-11-02 用户裁定「盘面需要一定的数据量才能分析，触发
+  // 条件要更严格一些」）：缺省 = tradeCount >= 15（笔数门贴 13 题证据量；高于叙事
+  // 发起 0.1 BNB、低于 fire 量门 0.25 BNB 防首析晚于 fire 自锁）。旧缺省
+  // buyVolumeBnb >= 0.1 不得回流（约 1-3 笔买入即过门，首析证据薄）
+  const pfSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+  ok('预触发首析门缺省 = tradeCount >= 15（源码口径锁）',
+    pfSrc.includes("? _cheatCfg.prefetchCondition.trim() : 'tradeCount >= 15';")
+    && !pfSrc.includes("'buyVolumeBnb >= 0.1'"));
 }
 process.exit(fail === 0 ? 0 : 1);
 

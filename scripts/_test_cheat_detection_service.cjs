@@ -256,6 +256,26 @@ async function main() {
     await svc.drain(3000);
     ok(db.state.inserts.length === 3, '新tick≥delta(20) 无视间隔 → 硬触发（快票关键增量必析）');
     ok(db.state.inserts[2].anchor_tick_count === 45, '三析行锚=新锚 45');
+
+    // D2 factorGated（2026-11-02 重判门因子化）：引擎配 reanalyzeCondition 时预触发
+    // 来源带 factorGated=true → 跳过内部数字增量门（0 新 tick/间隔未到均真析——
+    // 引擎因子门已控）；不带标志照旧增量判定（买点 gate/观察挂点 reused 语义不变）
+    const insBefore = db.state.inserts.length;
+    const reusedBefore = svc.stats.cacheReused;
+    svc.noteBuyPoint('0xtok', META, { source: 'prefetch', factorGated: true });
+    await svc.drain(3000);
+    ok(db.state.inserts.length === insBefore + 1 && svc.stats.cacheReused === reusedBefore,
+      'factorGated + 0 新 tick → 真析非 reused（引擎因子门已控，内部门让位）');
+    nowRef.t += 1000; // 间隔未到（数字门会限流）
+    svc.noteBuyPoint('0xtok', META, { source: 'prefetch', factorGated: true });
+    await svc.drain(3000);
+    ok(db.state.inserts.length === insBefore + 2,
+      'factorGated + 间隔未到 → 仍真析（时间限流一并让位，节流在引擎侧 prefetchIntervalMs）');
+    db.holder.ticks = genTicks(46);
+    svc.noteBuyPoint('0xtok', META, { source: 'prefetch' }); // 无 factorGated
+    await svc.drain(3000);
+    ok(svc.stats.cacheReused === reusedBefore + 1,
+      'prefetch 来源不带 factorGated → 照旧增量判定（未配重判门的现状 bit 一致）');
   }
 
   // ═══════════════ E. 满帽拉数（capped）+ 水位增量 ═══════════════

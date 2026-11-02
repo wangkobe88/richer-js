@@ -887,6 +887,80 @@ class RicherJsWebServer {
           }
         }
 
+        // cheatCheck 形状校验（CD1/G1 2026-11-01 落地；prefetchCondition 首析门
+        // 2026-11-02 实验级配置化）：enabled/gate.enabled 布尔、gate.awaitMs∈
+        // [1000,120000]、gate.unhealthyReanalyses∈[0,50] 均须整数；prefetchCondition
+        // 非空字符串时走 FA 因子域校验（ConditionEvaluator + FactorBuilder
+        // getAvailableFactorIds——与条件未知因子三防线同源：写错因子名的表达式
+        // 静默恒假=预触发永不发起，首析推迟到买点 await，必须 400 拒而非静默）。
+        // both/fourmeme 配 fourmemeWs 段、flap 单平台配 flapWs 段（引擎
+        // _mergedWsConfig 同键）；空串/缺键=引擎代码缺省 tradeCount >= 15
+        {
+          const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+          for (const secKey of ['fourmemeWs', 'flapWs', 'gangWs']) {
+            const cd = (config[secKey] || {}).cheatCheck;
+            if (cd === undefined || cd === null) continue;
+            if (typeof cd !== 'object' || Array.isArray(cd)) {
+              return res.status(400).json({ success: false, error: `${secKey}.cheatCheck 段形状非法（须为对象）` });
+            }
+            if (cd.enabled !== undefined && typeof cd.enabled !== 'boolean') {
+              return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.enabled 须为布尔` });
+            }
+            if (cd.gate !== undefined && cd.gate !== null) {
+              if (typeof cd.gate !== 'object' || Array.isArray(cd.gate)) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate 段形状非法（须为对象）` });
+              }
+              if (cd.gate.enabled !== undefined && typeof cd.gate.enabled !== 'boolean') {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.enabled 须为布尔` });
+              }
+              if (cd.gate.awaitMs !== undefined && !intInRange(cd.gate.awaitMs, 1000, 120000)) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.awaitMs 须为整数 [1000,120000]（买点竞速毫秒）` });
+              }
+              if (cd.gate.unhealthyReanalyses !== undefined && !intInRange(cd.gate.unhealthyReanalyses, 0, 50)) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.unhealthyReanalyses 须为整数 [0,50]（unhealthy 拉黑前重判次数）` });
+              }
+            }
+            const pf = cd.prefetchCondition;
+            if (pf !== undefined && pf !== null) {
+              if (typeof pf !== 'string' || pf.trim() === '') {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.prefetchCondition 须为非空字符串（空=不携带该键，勿提交空串）` });
+              }
+              const { ConditionEvaluator } = require('./strategies/ConditionEvaluator');
+              const { getAvailableFactorIds } = require('./trading-engine/core/FactorBuilder');
+              const evaluator = new ConditionEvaluator();
+              let v;
+              try {
+                v = evaluator.validateCondition(evaluator.parseCondition(pf.trim()), getAvailableFactorIds());
+              } catch (e) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.prefetchCondition 语法错误: ${e.message}` });
+              }
+              if (!v.valid) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.prefetchCondition ${v.errors.join('; ')}` });
+              }
+            }
+            // reanalyzeCondition（2026-11-02 重判门因子化）：同款因子域校验——配了即
+            // 接管已析票的重判发起（引擎侧因子门+factorGated 跳过内部数字增量门）
+            const ra = cd.reanalyzeCondition;
+            if (ra !== undefined && ra !== null) {
+              if (typeof ra !== 'string' || ra.trim() === '') {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.reanalyzeCondition 须为非空字符串（空=不携带该键，勿提交空串）` });
+              }
+              const { ConditionEvaluator } = require('./strategies/ConditionEvaluator');
+              const { getAvailableFactorIds } = require('./trading-engine/core/FactorBuilder');
+              const evaluator = new ConditionEvaluator();
+              let v;
+              try {
+                v = evaluator.validateCondition(evaluator.parseCondition(ra.trim()), getAvailableFactorIds());
+              } catch (e) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.reanalyzeCondition 语法错误: ${e.message}` });
+              }
+              if (!v.valid) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.reanalyzeCondition ${v.errors.join('; ')}` });
+              }
+            }
+          }
+        }
+
         // 如果提供了策略参数，添加到配置中
         if (strategy) {
           // 策略系统

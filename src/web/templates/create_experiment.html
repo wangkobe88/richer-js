@@ -906,10 +906,24 @@
                                class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
                     </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
+                        <span class="whitespace-nowrap">首次分析触发条件</span>
+                        <input type="text" id="cd-prefetch-condition" placeholder="tradeCount >= 15"
+                               class="w-64 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">重判触发条件</span>
+                        <input type="text" id="cd-reanalyze-condition" placeholder="默认增量门 60s∧20tick"
+                               class="w-64 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                    </div>
                     <p class="text-xs text-gray-500 mt-1">
-                        重判上限=真判 unhealthy 次数超过后拉黑（默认 3，即第 4 次拉黑；增量门 60s∧20tick
-                        节流重判）；等待上限=买点同步竞速 Jev 的 ms 数（默认 15000，超时本笔放行、迟到结果
-                        下轮生效）。空值=默认
+                        重判上限=真判 unhealthy 次数超过后拉黑（默认 3，即第 4 次拉黑）；等待上限=买点同步
+                        竞速 Jev 的 ms 数（默认 15000，超时本笔放行、迟到结果下轮生效）。首次分析触发条件
+                        =FA 因子表达式（盘面分析需一定数据量，缺省 tradeCount &gt;= 15 笔；例
+                        buyVolumeBnb &gt;= 0.2；空=默认；不得高于买腿 fire 量门——首析晚于 fire=引用
+                        cheat 因子的条件串自锁）。重判触发条件=已分析票再次分析的 FA 因子表达式（配了
+                        即接管重判门、替代内部数字增量门；例 tradeCount &gt;= 40；空=默认增量门：新 tick
+                        &gt;0 且 ≥60s 或一次 ≥20 笔）。数值空=默认
                     </p>
                 </div>
 
@@ -1313,7 +1327,8 @@
                 }
 
                 // 作弊盘检测回填（2026-11-01 G1）：物化语义同观察信号「关=删段」——
-                // 源段 enabled===true 才显示为开（缺段=关）；gate 子段同理；数字键有值才回填
+                // 源段 enabled===true 才显示为开（缺段=关）；gate 子段同理；数字键有值才
+                // 回填；prefetchCondition 首析门（2026-11-02）字符串有值才回填（空=默认）
                 {
                     const cd = copyData.fourmemeWs?.cheatCheck || copyData.flapWs?.cheatCheck;
                     if (cd) {
@@ -1321,10 +1336,18 @@
                         const cdGate = document.getElementById('cd-gate-enabled');
                         const cdN = document.getElementById('cd-unhealthy-reanalyses');
                         const cdMs = document.getElementById('cd-await-ms');
+                        const cdPf = document.getElementById('cd-prefetch-condition');
+                        const cdRa = document.getElementById('cd-reanalyze-condition');
                         if (cdCb) cdCb.checked = cd.enabled === true;
                         if (cdGate) cdGate.checked = !!(cd.gate && cd.gate.enabled === true);
                         if (cdN && Number.isInteger(cd.gate?.unhealthyReanalyses)) cdN.value = cd.gate.unhealthyReanalyses;
                         if (cdMs && Number.isInteger(cd.gate?.awaitMs)) cdMs.value = cd.gate.awaitMs;
+                        if (cdPf && typeof cd.prefetchCondition === 'string' && cd.prefetchCondition.trim() !== '') {
+                            cdPf.value = cd.prefetchCondition;
+                        }
+                        if (cdRa && typeof cd.reanalyzeCondition === 'string' && cd.reanalyzeCondition.trim() !== '') {
+                            cdRa.value = cd.reanalyzeCondition;
+                        }
                     }
                 }
 
@@ -2190,7 +2213,9 @@
             }
             // 作弊盘检测收集（2026-11-01 G1）：观察信号同款物化「关=删段」——勾主开关
             // 才写 {enabled:true}，勾分级门再嵌 gate:{enabled:true}（只开主开关=观察
-            // 模式零变化）；不勾=删段（含清掉复制携带段防静默开）；回测整段剥离
+            // 模式零变化）；不勾=删段（含清掉复制携带段防静默开）；回测整段剥离。
+            // prefetchCondition 首析门（2026-11-02 实验级配置）：非空才写；空=显式
+            // 删键回落代码缺省 tradeCount >= 15（防复制携带旧值静默覆盖「空=默认」语义）
             {
                 const cdCb = document.getElementById('cd-enabled');
                 const cdGate = document.getElementById('cd-gate-enabled');
@@ -2198,6 +2223,8 @@
                     ? parseInt(document.getElementById('cd-unhealthy-reanalyses').value.trim(), 10) : null;
                 const cdMs = /^\d+$/.test((document.getElementById('cd-await-ms')?.value || '').trim())
                     ? parseInt(document.getElementById('cd-await-ms').value.trim(), 10) : null;
+                const cdPf = (document.getElementById('cd-prefetch-condition')?.value || '').trim();
+                const cdRa = (document.getElementById('cd-reanalyze-condition')?.value || '').trim();
                 for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                     if (adv[k]) adv[k] = { ...(adv[k] || {}) };
                 }
@@ -2217,9 +2244,13 @@
                                 ...(cdN !== null ? { unhealthyReanalyses: cdN } : {}),
                                 ...(cdMs !== null ? { awaitMs: cdMs } : {}) }
                             : null;
-                        adv[sec] = { ...(adv[sec] || {}),
-                            cheatCheck: { ...(adv[sec]?.cheatCheck || {}), enabled: true,
-                                ...(gate ? { gate } : {}) } };
+                        const merged = { ...(adv[sec]?.cheatCheck || {}), enabled: true,
+                            ...(gate ? { gate } : {}) };
+                        if (cdPf !== '') merged.prefetchCondition = cdPf;
+                        else delete merged.prefetchCondition;
+                        if (cdRa !== '') merged.reanalyzeCondition = cdRa;
+                        else delete merged.reanalyzeCondition;
+                        adv[sec] = { ...(adv[sec] || {}), cheatCheck: merged };
                     } else if (adv[sec]) {
                         delete adv[sec].cheatCheck;
                     }

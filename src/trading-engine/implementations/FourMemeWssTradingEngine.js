@@ -366,15 +366,26 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // G1 因子化预触发（2026-11-01 用户指令「以因子的形式放到表达式中」，叙事 N3/
     // C84 触发模型同构）：condition 在 tick 管线同步评估（gate/note 挂点在其后的
     // _runBuyEvaluation 内）——若只在买评估时才分析投影，条件串引用 cheat 因子会
-    // 自锁死（条件不过→gate 永不跑→投影永不更新）。预触发在 tick 管线量门（缺省
-    // buyVolumeBnb >= 0.1 同叙事发起条件）满足时 fire-and-forget 发起分析，完成即
-    // 投影 FA → 下一 tick 条件可消费。激活=enabled ∧（gate 开 ∨ 任一买腿条件串
-    // 引用 cheat 因子）——无消费端不烧配额；per-token 节流 prefetchIntervalMs
-    //（缺省 60s 对齐 service 增量门；引擎侧节流防每 tick 一次 DB tail 查询——
-    // service 的 reused 判定在 pull 之后）。config：cheatCheck.prefetchCondition
-    //（FA 因子表达式，空串 ''=禁用）/ cheatCheck.prefetchIntervalMs
+    // 自锁死（条件不过→gate 永不跑→投影永不更新）。预触发在 tick 管线量门满足时
+    // fire-and-forget 发起分析，完成即投影 FA → 下一 tick 条件可消费。首析门缺省
+    // tradeCount >= 15（2026-11-02 用户裁定「盘面需要一定的数据量才能分析，触发
+    // 条件要更严格一些」——13 题判定直接吃 tick 数，笔数门比买量门贴证据量；15
+    // 高于叙事发起 0.1 BNB、低于 fire 量门 0.25 BNB，保证首析先于买点不自锁）。
+    // 激活=enabled ∧（gate 开 ∨ 任一买腿条件串引用 cheat 因子）——无消费端不烧
+    // 配额；per-token 节流 prefetchIntervalMs（缺省 60s 对齐 service 增量门；引擎
+    // 侧节流防每 tick 一次 DB tail 查询——service 的 reused 判定在 pull 之后）。
+    // config：cheatCheck.prefetchCondition（FA 因子表达式，空串 ''=禁用）/
+    // cheatCheck.prefetchIntervalMs
     this._cheatPrefetchCondition = typeof _cheatCfg.prefetchCondition === 'string'
-      ? _cheatCfg.prefetchCondition.trim() : 'buyVolumeBnb >= 0.1';
+      ? _cheatCfg.prefetchCondition.trim() : 'tradeCount >= 15';
+    // 重判触发门（2026-11-02 用户裁定「增量门同样实验级配置+因子表达」）：FA 因子
+    // 表达式，配了即对**已首析票**接管重判发起（首析门对已析票恒真，不再适用）——
+    // 引擎评因子门过了才发起，且 context.factorGated=true 让 service 跳过内部数字
+    // 增量门（双门 AND 会让配置者难以预期）；未配=现状 bit 一致（prefetch 发起后
+    // 由 service 增量门 60s∧20tick 判 reused/真分析）。买点 gate/观察挂点不带
+    // factorGated，内部门照旧（reused 拿缓存语义不变）
+    this._cheatReanalyzeCondition = typeof _cheatCfg.reanalyzeCondition === 'string'
+      && _cheatCfg.reanalyzeCondition.trim() !== '' ? _cheatCfg.reanalyzeCondition.trim() : null;
     this._cheatPrefetchIntervalMs = Number.isFinite(_cheatCfg.prefetchIntervalMs)
       && _cheatCfg.prefetchIntervalMs > 0 ? _cheatCfg.prefetchIntervalMs : 60000;
     this._cheatPrefetchAt = new Map();      // token → 上次预触发发起时刻（引擎侧节流）
@@ -2596,13 +2607,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    */
   _cheatPrefetchCheck(tokenAddress, factors, token) {
     if (!this._cheatCheckService || !this._cheatCheckService.enabled) return;
-    if (!this._cheatPrefetchCondition) return; // 显式空串=禁用
     if (this._cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)) return;
     if (this._cheatFactorsConsumed === undefined) this._cheatFactorsConsumed = this._scanCheatFactorConsumers();
     if (!this._cheatGateEnabled && !this._cheatFactorsConsumed) return;
+    // 门分叉（2026-11-02 重判门因子化）：未首析票走首析门；已析票配了
+    // reanalyzeCondition 走重判门（首析门 tradeCount 类条件对已析票恒真不再
+    // 适用），发起带 factorGated 让 service 跳过内部数字增量门；未配=已析票
+    // 照旧走首析门+内部门（现状 bit 一致）
+    const analyzed = this._cheatProjectedTokens.has(tokenAddress);
+    const useReanalyzeGate = analyzed && this._cheatReanalyzeCondition;
+    const cond = useReanalyzeGate ? this._cheatReanalyzeCondition : this._cheatPrefetchCondition;
+    if (!cond) return; // 显式空串=禁用
     const last = this._cheatPrefetchAt.get(tokenAddress) || 0;
     if (Date.now() - last < this._cheatPrefetchIntervalMs) return;
-    if (!this._strategyEngine.evaluateCondition(this._cheatPrefetchCondition, factors)) return;
+    if (!this._strategyEngine.evaluateCondition(cond, factors)) return;
     this._cheatPrefetchAt.set(tokenAddress, Date.now());
     const sym = token?.symbol || tokenAddress.slice(0, 10);
     this._cheatCheckService.noteBuyPoint(tokenAddress, {
@@ -2613,9 +2631,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       createdAtMs: token?.createdAt ? token.createdAt * 1000 : null,
       creatorAddress: token?.creatorAddress || null,
       totalSupply: factors?.totalSupply ?? null,
-    }, { experimentId: this._experimentId, source: 'prefetch' },
+    }, { experimentId: this._experimentId, source: 'prefetch', factorGated: !!useReanalyzeGate },
     (res) => { if (res && res.grade) this._projectCheatFactors(tokenAddress, res); });
-    this.logger.debug(this._experimentId, 'CheatPrefetch', `${sym} 因子化预触发发起（量门过，后台分析+投影）`);
+    this.logger.debug(this._experimentId, 'CheatPrefetch', `${sym} 因子化预触发发起（${useReanalyzeGate ? '重判门' : '首析门'}过，后台分析+投影）`);
   }
 
   /**

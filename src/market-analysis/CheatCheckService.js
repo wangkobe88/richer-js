@@ -282,9 +282,13 @@ class CheatCheckService {
         return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
       }
 
-      // 7) 增量判定（时点性缓存核心）；未触发 → G1 重用上次 grade（不烧 Jev）
+      // 7) 增量判定（时点性缓存核心）；未触发 → G1 重用上次 grade（不烧 Jev）。
+      // factorGated（2026-11-02 重判门因子化）：引擎配了 reanalyzeCondition 时
+      // 预触发来源已被引擎侧因子门控（过了才发起）——跳过内部数字增量门（双门
+      // AND 会让配置者难以预期）。仅 prefetch 来源携带；买点 gate/观察挂点不带
+      // （reused 拿缓存语义不变）。顶帽/冷却/minTicks 防线不受此标志影响
       const last = this._lastAnalysis.get(token);
-      if (last && last.questionVersion === this._version) {
+      if (last && last.questionVersion === this._version && !context.factorGated) {
         const newTicks = this._estimateNewTicks(last, pull);
         const ageMs = this._now() - last.analyzedAt;
         const triggered = (newTicks > 0 && ageMs >= this._minIntervalMs) || newTicks >= this._reanalyzeTickDelta;
