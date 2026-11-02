@@ -773,7 +773,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.35：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+real_participation） ═══════════════
   console.log('I2. 题集结构 D3.35（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.36', `版本常量 D3.36（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.36=CD135 校准：①单块三键撤出 state 输入（用户裁定「如果这个数据给结果会造成困扰，我不建议放到数据输入中」——CD60 撞块/CD104 吃独食误伤噪音；snapshot 照算留 FA/研究）②大额买入者判读锚换持有口径（「top1 买占比恐怕需要着重看一下总供应量的占比，如果卖出了也就没事了，重要的是持有总供应量占比」）+单人吃独食正样本；D3.35=第 14 题 real_participation 交易者角色综合结论+协同买入参考四键+holdings_balance 补腿；D3.34=CD133 eq/bw 反锚）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.37', `版本常量 D3.37（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.37=①去「默认档众数」误导（用户裁定「“真实盘以前端默认档（0.1/0.05）为众数” 我怕对Jev造成误导，好盘不一定众数落在这个区间」——金额分布核心改连续散布+自然长尾、众数档位不是判据、可疑=形状规整；state 同档行同步）②开盘打新段语境前提（「判断的时间是代币刚发出的很短时间，这个阶段，前期可能在抢筹，第一笔创建者的买入可能较大，这些都算正常」）；D3.36=CD135 校准：单块三键撤出 state 输入+大额买入者判读锚换持有口径+单人吃独食正样本；D3.35=第 14 题 real_participation 交易者角色综合结论+协同买入参考四键+holdings_balance 补腿）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -796,6 +796,18 @@ console.log('I. 著名钱包单极控盘锚');
     && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'real_participation']
       .every((id) => qids.includes(id)),
     '14 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance + real_participation（D3.35 新增交易者角色综合结论题——CD135 用户裁定立项）');
+  // D3.37：real_participation 题面两措辞锚（用户裁定反证——误导表述不得回潮）
+  {
+    const rpQ = qs.real_participation;
+    ok(rpQ.instructions.includes('本题的判断窗口是代币刚发出后的很短时间（开盘打新段）')
+      && rpQ.instructions.includes('创建者第一笔买入可能就很大（开盘建仓），这些本身都是正常形态'),
+      'D3.37 前提③开盘打新段语境在场（判断窗口=刚发出极短时间，抢筹/创建者首笔大单正常——用户裁定原话锚）');
+    ok(rpQ.instructions.includes('众数落在哪一档不是判据')
+      && rpQ.instructions.includes('好盘不一定众数落默认档'),
+      'D3.37 要点②众数档位非判据在场（真实盘众数可上移——默认档聚集只是常见形态之一）');
+    ok(!rpQ.instructions.includes('真实盘以前端默认档（0.1/0.05）为众数'),
+      'D3.37 反证：误导断言「真实盘以前端默认档为众数」不得回潮（好盘不一定众数落默认档——用户裁定原话）');
+  }
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -1348,8 +1360,9 @@ console.log('I. 著名钱包单极控盘锚');
     // state 渲染：同档金额参考行 + 创建者句 + 前三行双口径
     const stD35 = buildCheatState(d35Snap);
     ok(stD35.state.includes('同档金额参考: 最大同档金额的钱包去重占全部买入钱包 50.0%')
-      && stD35.state.includes('参考数值非门槛——前端默认交易额（0.1/0.05 档）使真实散户盘天然聚档，跨块长尾同档=跟风非分仓'),
-      'state 渲染：同档金额参考行（D3.36 保留键——参考数值非门槛+默认档聚档教学随行）');
+      && stD35.state.includes('同档聚集可以来自前端默认交易额（0.1/0.05 档）等真实来源，但真实盘不必然聚档、众数落在哪一档不是判据')
+      && !stD35.state.includes('使真实散户盘天然聚档'),
+      'state 渲染：同档金额参考行（D3.36 保留键+D3.37 措辞去误导——「天然聚档」必然性预设不得回潮，众数档位不是判据）');
     ok(!stD35.state.includes('单块') && !stD35.state.includes('前摇'),
       'state 渲染：单块三键缺席（D3.36 撤出输入反证——maxBlock 笔数/占比/前摇间隔不得进 Jev state，CD60 撞块/CD104 吃独食误伤噪音源）');
     ok(stD35.state.includes('占总供应量 27.0% / 占在场流通 37.5%'),
