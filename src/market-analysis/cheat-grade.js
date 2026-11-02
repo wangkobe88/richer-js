@@ -9,7 +9,21 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G11=G10−G 通道−state 簇锚渲染，2026-11-02 CD133 用户裁定）：
+ * 规则（G12=G11+R 通道真实参与度，2026-11-02 用户裁定「将 Jev 转化为一个真实
+ * 的交易者」——D3.35 新增第 14 题 real_participation（四桶 mostly_genuine/
+ * meaningful_genuine/minimal_genuine/unclear，Jev 以 BSC meme 狙击交易者身份
+ * 通读 [TICKS]/[WALLETS] 序列回答「参与的钱包真实的用户有多少」；协同买入
+ * 参考四键进 state 作参考数值非门槛）：
+ *   R. real_participation=minimal_genuine → unhealthy 留痕 R_minimal_genuine
+ * 几乎没有真实用户（盘面主体是组织/机器流量）=拒买级非拉黑级（unhealthy 留
+ * 重判域 CD134 缺省门，不用尽不拉黑——「宁可放过」基调）；mostly/meaningful/
+ * unclear 不触发（unclear=证据不足不硬判，映射表刻意不含→null）；<D3.35 旧档
+ * 断代 null 不触发（黄金集旧档重放零变化）。**独立通道不进 A 主判**——综合
+ * 结论与单现象 strong 证据链不同类（A 管单现象铁证拉黑，R 管整体参与度拒买，
+ * 取最重 cheat 仍压 unhealthy）。六通道=A/D/E/J/L/R。holdings_balance 题面同
+ * 批补腿（窗口早期在场流通口径适用域+创建者曾持峰值锚——CD10 双失明：早期
+ * 供应口径全员 <3% 全失明+创建者清仓后正净口径消失，见 D3.35 题面）。
+ * 此前 G11=G10−G 通道−state 簇锚渲染，2026-11-02 CD133 用户裁定：
  * 用户原话「那肯定不行的呀，GMGN的散户是有默认交易额的，大多数都是0.1/0.05，
  * 大户则是 0.2/0.25/0.3 之类的，这要是能跨区块，误伤就太大了！同块同额度误伤
  * 可能小一些，可以作为参考。如果这种死指标不好用，还是把原始数据输入给Jev，
@@ -177,6 +191,9 @@
  *        insider 题升格联立臂——Jev 内幕卖出档位补足纯卖方数值证据，25 线低于
  *        K 40 线；CD60 反例（insider strong 人工 healthy、纯卖 24.8）恰被排除；
  *        insider weak/none/null 不触发）
+ *     R. real_participation=minimal_genuine（G12 新增，D3.35——交易者综合结论
+ *        「几乎没有真实用户」→拒买级；mostly/meaningful/unclear/null 不触发；
+ *        独立通道不进 A 主判）
  *   healthy: 其余
  *
  * cr（创建者抢跑）刻意不进主判=辅助判定（用户语义；CD75 cr strong 人工判
@@ -193,7 +210,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G11';
+const CHEAT_GRADE_RULES_VERSION = 'G12';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -208,6 +225,7 @@ const CHEAT_LEVEL_SCORES = {
   sbw: { none: 0, burst: 1 },                          // 停滞突发二桶
   activity: { low: 0, mid: 1, high: 2, ultra: 3 },     // 活跃度档
   dominance: { low: 0, mid: 1, high: 2 },              // 捆绑主导度档
+  participation: { mostly_genuine: 0, meaningful_genuine: 1, minimal_genuine: 2 }, // 真实参与度（D3.35；unclear 不在表→null 不冒充）
 };
 
 /** 档位→数值（未知值/null → null 不冒充） */
@@ -232,6 +250,7 @@ function levelsFromObservation(observation, extras = {}) {
   const fx = extras || {};
   const act = obs.activityLevel && obs.activityLevel.bucket ? obs.activityLevel.bucket : null;
   const dom = obs.bundledDominance && obs.bundledDominance.bucket ? obs.bundledDominance.bucket : null;
+  const pt = obs.participation && obs.participation.bucket ? obs.participation.bucket : null;
   const levels = {
     equalAmountSplit: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.equal_amount_split),
     coordinatedSellBack: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.coordinated_sell_back),
@@ -246,6 +265,7 @@ function levelsFromObservation(observation, extras = {}) {
     holdingsBalance: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.holdings_balance), // D3.32（G7 J 通道）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
+    realParticipation: scoreLevel(CHEAT_LEVEL_SCORES.participation, pt), // D3.35（G12 R 通道；unclear→null）
   };
   const buckets = {
     equalAmountSplit: ph.equal_amount_split ?? null,
@@ -261,6 +281,7 @@ function levelsFromObservation(observation, extras = {}) {
     holdingsBalance: ex.holdings_balance ?? null,
     activityLevel: act,
     bundledDominance: dom,
+    realParticipation: pt,
   };
   const an = obs.anchors || {};
   const famousLevel = typeof fx.famousDominanceLevel === 'string' ? fx.famousDominanceLevel : null;
@@ -284,6 +305,13 @@ function levelsFromObservation(observation, extras = {}) {
     burstWaveBuyBnb: _pct(an.burstWaveBuyBnb),
     burstWaveWallets: _pct(an.burstWaveWallets),
     noBuySellPct: _pct(an.noBuySellPct),
+    // D3.35 协同买入参考四键 + 创建者曾持峰值（real_participation / holdings_balance
+    // 补腿同源数值；参考锚非门——R 通道消费档位不消费数值）
+    maxBlockBuyCount: _pct(an.maxBlockBuyCount),
+    maxBlockBuyPct: _pct(an.maxBlockBuyPct),
+    maxBlockPreGapSec: _pct(an.maxBlockPreGapSec),
+    sameAmountWalletPct: _pct(an.sameAmountWalletPct),
+    creatorPeakHoldSupplyPct: _pct(an.creatorPeakHoldSupplyPct),
     famousDominancePct: _pct(fx.famousDominancePct),
     famousDominanceLevel: famousLevel,
     famousDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, famousLevel),
@@ -442,6 +470,22 @@ function gradeObservation(observation, extras = {}) {
   if ((lv.insider_supply_sell === 'moderate' || lv.insider_supply_sell === 'strong')
     && noBuySell !== null && noBuySell >= 25) {
     reasons.push({ level: 'unhealthy', code: `L_insider_sell${noBuySell.toFixed(0)}` });
+  }
+
+  // R：真实参与度（D3.35 新增独立通道，G12——用户裁定 2026-11-02「将 Jev 转化为
+  // 一个真实的交易者……参与的钱包真实的用户有多少」：real_participation 题四桶
+  // 交易者综合结论，minimal_genuine（几乎没有真实用户——盘面主体是组织/机器
+  // 流量）→ unhealthy。**拒买级非拉黑级**（与 J 通道同档语义——「宁可放过」
+  // 基调：unhealthy 留重判域（CD134 缺省门 cheatGrade==1 仍可再判），不用尽
+  // 不拉黑）；mostly/meaningful/unclear 不触发（unclear=证据不足不硬判）；
+  // 档位 null（<D3.35 旧档断代/题缺席）不触发（EXT 容缺语义同族——黄金集
+  // 旧档重放零变化）。**独立通道不进 A 主判**（综合结论与单现象 strong 的
+  // 证据链不同类——A 管单现象铁证拉黑，R 管整体盘面参与度拒买，取最重时
+  // cheat 仍压过 unhealthy）
+  const pt = obs.participation && typeof obs.participation.bucket === 'string'
+    ? obs.participation.bucket : null;
+  if (pt === 'minimal_genuine') {
+    reasons.push({ level: 'unhealthy', code: 'R_minimal_genuine' });
   }
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'

@@ -57,6 +57,11 @@ const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 捆绑交易题独立档域（与题集 BUNDLED_LEVELS 一致；D3.8 用户裁定高中低三档） */
 const BUNDLED_LEVELS = ['low', 'mid', 'high'];
 
+/** 真实参与度题独立档域（与题集 PARTICIPATION_LEVELS 一致；D3.35 交易者角色
+ *  综合结论题——用户裁定「将 Jev 转化为一个真实的交易者……不要有非常硬的
+ *  标准」，四桶参与度轴非现象强度轴） */
+const PARTICIPATION_LEVELS = ['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear'];
+
 /** 停滞突发波二分类桶域（与题集 STALL_BURST_LEVELS 一致；D3.11 用户裁定退回
  *  纯现象二分「burst_cheat 就不再次检测了……只做一个是否有 停滞后涌入 的现象
  *  判断即可」——波内资金定性与其它门重复且无明确标准，只判有无） */
@@ -127,6 +132,25 @@ function _bundledDominance(answers) {
 }
 
 /**
+ * 真实参与度题答案读取（D3.35：题 id real_participation，独立档域四桶——
+ * 交易者角色综合结论题「参与的钱包真实的用户有多少」）。容缺：旧存档
+ * （<D3.35）无该键 → null（重放兼容）；在场答案走 argmax + 桶域校验，
+ * 未知桶名 throw（漂移防线不因容缺放宽）。
+ */
+function _participation(answers) {
+  const a = answers && answers.real_participation;
+  if (!a || !a.probabilities) return null;
+  let best = null;
+  for (const [bucket, p] of Object.entries(a.probabilities)) {
+    if (best === null || p > best.prob) best = { bucket, prob: p };
+  }
+  if (!PARTICIPATION_LEVELS.includes(best.bucket)) {
+    throw new Error(`真实参与度题 real_participation 未知桶名 '${best.bucket}'（题集/映射漂移——PARTICIPATION_LEVELS 须同步）`);
+  }
+  return { bucket: best.bucket, prob: best.prob };
+}
+
+/**
  * 停滞突发波题答案读取（D3.11：题 id stall_burst_wave，现象二分桶域
  * none/burst——只判「有无停滞后涌入」，不判波内资金性质（定性与等额分仓/
  * 同块买入波/捆绑主导度等题重复，D3.11 用户裁定删除）。容缺：旧存档
@@ -185,6 +209,8 @@ function buildObservation(answers, anchors = null) {
     activityLevel: _activityLevel(answers),
     // 捆绑交易主导度档位（Jev 直读自判；<D3.8 旧存档缺席=null）
     bundledDominance: _bundledDominance(answers),
+    // 真实参与度档位（D3.35 交易者角色综合结论；<D3.35 旧存档缺席=null）
+    participation: _participation(answers),
     // 代码数值锚（只述数值事实；异常形状缺席不冒充）
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
@@ -213,6 +239,16 @@ function buildObservation(answers, anchors = null) {
       burstWaveBuyBnb: _anchorPct(anchors, 'burstWaveBuyBnb'),
       burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
       noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),
+      // D3.35 协同买入参考四键（real_participation 题参考数值非门槛：最大单块
+      // 买入笔数/占比/与前买块间隔秒 + 最大同档金额钱包去重占比；首买块前摇
+      // null=开盘形状证据缺席；无买入 count=0 其余 null）+ 创建者曾持峰值占总
+      // 供应量%（holdings_balance 补腿——创建者无 BUY 行 null=链外转入域 swap
+      // 不可见，绝不以 0 冒充「从未持有」）
+      maxBlockBuyCount: _anchorPct(anchors, 'maxBlockBuyCount'),
+      maxBlockBuyPct: _anchorPct(anchors, 'maxBlockBuyPct'),
+      maxBlockPreGapSec: _anchorPct(anchors, 'maxBlockPreGapSec'),
+      sameAmountWalletPct: _anchorPct(anchors, 'sameAmountWalletPct'),
+      creatorPeakHoldSupplyPct: _anchorPct(anchors, 'creatorPeakHoldSupplyPct'),
     },
   };
 }
@@ -225,4 +261,5 @@ module.exports = {
   ACTIVITY_LEVELS,
   BUNDLED_LEVELS,
   STALL_BURST_LEVELS,
+  PARTICIPATION_LEVELS,
 };

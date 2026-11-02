@@ -57,7 +57,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G11', '版本常量 G11（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G12', '版本常量 G12（改规则必须 bump+同步台账+跑黄金集；G12=D3.35 R 通道 real_participation=minimal_genuine→unhealthy 拒买级，CD135）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道，实际 ${MAIN_IDS.join(',')}）`);
@@ -376,6 +376,38 @@ function main() {
       'A+L 同中双留痕（insider strong ∧ 45 取最重 cheat=A 主判既有行为）');
   }
 
+  console.log('R. 真实参与度通道（G12 新增，D3.35/CD135——real_participation=minimal_genuine→unhealthy 拒买级。用户裁定「将 Jev 转化为一个真实的交易者……对于有经验的交易者，看看交易的序列信息，往往是能够得到一个结论的：参与的钱包真实的用户有多少」：交易者综合结论「几乎没有真实用户」→ 拒买；mostly/meaningful/unclear/null 不触发；独立通道不进 A 主判（A 管单现象铁证拉黑，R 管整体参与度——minimal 是整体形状不是单一现象，拒买级留重判域可翻案）');
+  {
+    const mkP = (bucket) => {
+      const o = baseObs();
+      if (bucket !== null) o.participation = { bucket, prob: 0.8 };
+      return o;
+    };
+    const rMin = grade(mkP('minimal_genuine'), { famousLevel: null });
+    ok(rMin.grade === 'unhealthy' && rMin.reasons.some((x) => x.code === 'R_minimal_genuine' && x.level === 'unhealthy'),
+      'R：minimal_genuine → unhealthy R_minimal_genuine（拒买级非拉黑级——CD134 缺省门留重判域）');
+    ok(grade(mkP('mostly_genuine'), { famousLevel: null }).grade === 'healthy'
+      && grade(mkP('meaningful_genuine'), { famousLevel: null }).grade === 'healthy'
+      && grade(mkP('unclear'), { famousLevel: null }).grade === 'healthy',
+      'R：mostly/meaningful/unclear 全不触发（unclear=证据不足刻意不罚）');
+    ok(grade(mkP(null), { famousLevel: null }).grade === 'healthy',
+      'R：participation null（<D3.35 旧档断代）不触发（黄金集重放零变化防线）');
+    // 与 A cheat 叠加：单现象铁证仍在，取最重 cheat + R 留痕
+    const obsBoth = mkP('minimal_genuine');
+    withExt(obsBoth, 'wash_pair', 'strong');
+    const rBoth = grade(obsBoth, { famousLevel: null });
+    ok(rBoth.grade === 'cheat' && rBoth.reasons.some((x) => x.code === 'R_minimal_genuine')
+      && rBoth.reasons.some((x) => x.code === 'A_strong:wash_pair'),
+      'R+A 同中双留痕取最重 cheat（R 不进 A 主判也不被 A 遮蔽留痕）');
+    // anchors 四键参考数值不进门（参考非门槛反证——数值再高无档不罚）
+    const obsAnchor = mkP(null);
+    obsAnchor.anchors.maxBlockBuyCount = 8;
+    obsAnchor.anchors.maxBlockBuyPct = 58.8;
+    obsAnchor.anchors.sameAmountWalletPct = 66.7;
+    ok(grade(obsAnchor, { famousLevel: null }).grade === 'healthy',
+      'R 侧锚反证：协同买入参考四键纯参考——数值在场无档位不触发（无硬标准，判读全交 real_participation 档）');
+  }
+
   console.log('F.（G9/G10 退役反证）sbHold 纯数值不产档——G10 起门侧消费全撤（锚照产只喂 Jev/条件串）');
   {
     const obs = baseObs();
@@ -525,13 +557,13 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
       && r.levels.washPair === 3 && r.levels.activityLevel === 0
       && r.levels.bundledDominance === 1,
-      `levelsFromObservation 13 题映射（实际 ${JSON.stringify(r.levels)}）`);
+      `levelsFromObservation 14 题映射（D3.35 起含 realParticipation；实际 ${JSON.stringify(r.levels)}）`);
     ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
       && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low',
       'buckets 字符串原值（metadata 研究留档）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 13,
-      '空观测 → 13 键全 null（容缺不冒充；holdingsBalance D3.32 入列）');
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 14,
+      '空观测 → 14 键全 null（容缺不冒充；realParticipation D3.35 入列）');
     // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
     // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）+
     // extras famous 数值/档位；famousDominance=low/mid/high→0/1/2
@@ -561,6 +593,19 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r5.anchors.burstWaveWallets === 5 && r5.anchors.noBuySellPct === 63.3
       && r5.anchors.sameBlockHoldPct === null,
       'G8 四新锚正值精确投影（lib 测试同夹具值：gap65/买1.02/5户/纯卖63.3；未给键照 null）');
+    // D3.35：realParticipation 档位映射 + 协同买入五锚透传（unclear 不在映射表→null）
+    const r6 = levelsFromObservation({ phenomena: {}, extLevels: {},
+      participation: { bucket: 'minimal_genuine' },
+      anchors: { maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412,
+        sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2 } });
+    ok(r6.levels.realParticipation === 2 && r6.buckets.realParticipation === 'minimal_genuine'
+      && r6.anchors.maxBlockBuyCount === 8 && r6.anchors.maxBlockBuyPct === 58.8
+      && r6.anchors.maxBlockPreGapSec === 412 && r6.anchors.sameAmountWalletPct === 66.7
+      && r6.anchors.creatorPeakHoldSupplyPct === 35.2,
+      'D3.35 realParticipation 档位（minimal=2）+五锚透传（G12 R 通道/holdings_balance 同源——FA 40 键原料）');
+    ok(levelsFromObservation({ phenomena: {}, extLevels: {}, participation: { bucket: 'unclear' } }).levels.realParticipation === null
+      && levelsFromObservation({ phenomena: {}, extLevels: {} }).levels.realParticipation === null,
+      'realParticipation unclear→null（刻意不在映射表不冒充）+缺题（旧档）null（回测/断代防线）');
     const r4 = levelsFromObservation({}, { famousDominancePct: -3, famousDominanceLevel: 'extreme' });
     ok(r4.anchors.sameBlockHoldPct === null && r4.anchors.top1HoldCircPct === null
       && r4.anchors.famousDominancePct === null && r4.anchors.famousDominance === null

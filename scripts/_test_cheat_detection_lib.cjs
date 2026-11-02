@@ -21,7 +21,7 @@ const {
   buildSnapshotFromRows, computeDerived, aggregateWallets, walletOf, isRouterWallet,
 } = require('../src/market-analysis/cheat-snapshot');
 const { buildCheatState, MAX_STATE_CHARS } = require('../src/market-analysis/cheat-state-builder');
-const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS, BUNDLED_LEVELS, STALL_BURST_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS, BUNDLED_LEVELS, STALL_BURST_LEVELS, PARTICIPATION_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
 let passed = 0;
@@ -317,7 +317,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 17, 'G8 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖=十七数值键（activity 档位不投影）');
+ok(Object.keys(f1.anchors).length === 22, 'D3.35 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖+D3.35 五键=二十二数值键（activity/participation 档位不投影）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
@@ -744,10 +744,10 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
-  // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
-  console.log('I2. 题集结构 D3.32（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.35：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+real_participation） ═══════════════
+  console.log('I2. 题集结构 D3.35（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.34', `版本常量 D3.34（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.34=CD133：equal_amount_split 反锚段重写（前端默认档位表 0.1/0.05 散户默认、0.2/0.25/0.3 大户常见+跨块匀速长尾=跟风不集中+同块∧近等额=双协同参考性）+same_block_buy_wave ⑥补撞块反锚（同块金额各异=独立买家撞块常态）+组织性结构第四条；state 三行死指标配套撤（G11 同裁定）；D3.33=G8 零买入纯卖方行；D3.32=holdings_balance 第 13 题）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.35', `版本常量 D3.35（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.35=CD135：第 14 题 real_participation 交易者角色综合结论（用户裁定「将 Jev 转化为一个真实的交易者……不要有非常硬的标准」——四桶 mostly/meaningful/minimal/unclear）+协同买入参考四键（最大单块笔数/占比/前摇间隔+同档金额钱包占比，参考非门槛）+holdings_balance 补腿（在场流通口径+创建者曾持峰值锚——CD10 双失明）；D3.34=CD133 eq/bw 反锚；D3.32=holdings_balance 第 13 题）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -762,12 +762,14 @@ console.log('I. 著名钱包单极控盘锚');
     'BUNDLED_LEVELS 导出=捆绑题独立档域三桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
     'STALL_BURST_LEVELS 导出=停滞突发波现象二分桶域（D3.11 退回只判有无；mapper 同名常量对齐）');
+  ok(JSON.stringify(qm.PARTICIPATION_LEVELS) === JSON.stringify(['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear']),
+    'PARTICIPATION_LEVELS 导出=真实参与度独立档域四桶（D3.35 交易者角色题；mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 13
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']
+  ok(qids.length === 14
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'real_participation']
       .every((id) => qids.includes(id)),
-    '13 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance（D3.32 新增持仓均衡题——G7 J 通道立项票 CD122）');
+    '14 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance + real_participation（D3.35 新增交易者角色综合结论题——CD135 用户裁定立项）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -870,10 +872,10 @@ console.log('I. 著名钱包单极控盘锚');
   ok(holdQ.includes('同源协同迹象') && holdQ.includes('紧邻背靠背进场=同一部署')
     && holdQ.includes('快进快出倒仓') && holdQ.includes('进场即部分离场的对冲形状'),
     'D3.32 holdings_balance 协同迹象四腿（首买相差数秒/簇成员/快进快出/二大买入反超持仓更小——CD122 T2 实形）');
-  ok(holdQ.includes('第二大占总供应 <3% 只是普通跟车大户') && holdQ.includes('强庄分持不是同源组合'),
-    'D3.32 holdings_balance 反锚=top2<3% 跟车组合不成立（CD84）+独立进场强庄分持不误伤');
-  ok(holdQ.includes('占在场流通 66% 但占总供应量仅 31.6%'),
-    'D3.32 holdings_balance 反例=CD104 流通虚高形状（流 66.5/供 31.6——供应口径未到量级不给档）');
+  ok(holdQ.includes('第二大占总供应 <3% 且占在场流通不高只是普通跟车大户') && holdQ.includes('强庄分持不是同源组合'),
+    'D3.32 holdings_balance 反锚=top2<3% 跟车组合不成立（CD84）+独立进场强庄分持不误伤（D3.35 补「占在场流通不高」限定——早期盘反锚以流通口径为前提）');
+  ok(holdQ.includes('占在场流通 66% 但占总供应量 31.6%、窗口已过早期（在场流通与供应同量级）'),
+    'D3.32 holdings_balance 反例=CD104 流通虚高形状（流 66.5/供 31.6——D3.35 补「窗口已过早期」适用域：在场流通口径只对早期盘有效，中后期回主口径）');
   ok(holdQ.includes('同块 6 钱包捆绑簇成员') && holdQ.includes('并集占总供应 40.1%')
     && holdQ.includes('3 秒后即卖出持仓一半'),
     'D3.32 holdings_balance 正例=CD122 形状（并集 40.1%+簇成员+快进快出+买入反超）');
@@ -1183,8 +1185,8 @@ console.log('I. 著名钱包单极控盘锚');
     && hd.holdingsProfile[0].firstSellDt === null
     && hd.holdingsProfile[1].netTok === 1e8 && hd.holdingsProfile[2].w === wH3,
     `holdingsProfile 前三钱包形状（净持/供应%/买入额/首买块/首卖缺席；实际 ${JSON.stringify(hd.holdingsProfile?.[0]?.supplyPct)}/${hd.holdingsProfile?.length} 键）`);
-  ok(stHold.state.includes('持仓分布: 第1大 0x1111…0a01: 占总供应量 50.0%（净持 500.00M），买 5.165×1 / 卖 0.0000×0，首买@t+10s（块 300）'),
-    'state 渲染：持仓分布前三钱包行（占总供应量%+净持+买卖+首买块）');
+  ok(stHold.state.includes('持仓分布: 第1大 0x1111…0a01: 占总供应量 50.0% / 占在场流通 71.4%（净持 500.00M），买 5.165×1 / 卖 0.0000×0，首买@t+10s（块 300）'),
+    'state 渲染：持仓分布前三钱包行（占总供应量%+占在场流通%（D3.35 双口径）+净持+买卖+首买块）');
   ok(stHold.state.includes('前两大合计占总供应量 60.0%（首买相差 1 秒）'),
     'state 渲染：前二合计行+首买相差秒（组合垄断叙事）');
   ok(!stHold.state.includes('同块簇∪等额簇成员正净合计'),
@@ -1276,6 +1278,117 @@ console.log('I. 著名钱包单极控盘锚');
       `单笔票全 null（实际 ${one.burstWaveBuyBnb}/${one.burstWaveWallets}/${one.noBuySellPct}——绝不冒充）`);
     ok(!buildCheatState(oneSnap).state.includes('零买入纯卖方'),
       'state 渲染：总卖=0 → 零买纯卖方行缺席');
+  }
+
+  // ═══════════════ D3.35（CD135，2026-11-02）：协同买入参考四键 + 创建者曾持峰值锚 ═══════════════
+  console.log('D3.35 协同买入参考四键+创建者曾持峰值锚（real_participation/holdings_balance 补腿）');
+  {
+    // d35a 主形状手算（CD6 单块挤买 + CD10 创建者清仓合成）：
+    //   买块 100（wCr 0.9975）/200（wP 0.20）/300（wA/B/C 各 0.10+wD 0.30=4 笔 0.60）；
+    //   总买 1.7975 → maxBlock=块300 4 笔、占比 0.60/1.7975=33.4%、preGap=30-20=10s
+    //   （前一买块 200 firstDt=at(20)）；金额档 toFixed(4)：0.1000 档 3 钱包/共 6 买钱包=
+    //   50.0%；wCr 净 0（买 500M 卖 500M）→ creatorPeak=500e6 峰值/1e9=50.00
+    const wCr = '0x9900000000000000000000000000000000000099';
+    const wA2 = '0xa1000000000000000000000000000000000000a1';
+    const wB2 = '0xa2000000000000000000000000000000000000a2';
+    const wC2 = '0xa3000000000000000000000000000000000000a3';
+    const wD2 = '0xa4000000000000000000000000000000000000a4';
+    const wP2 = '0xa5000000000000000000000000000000000000a5';
+    const d35Meta = { address: '0xd35c', symbol: 'D35', name: 'D35', platform: 'flap', quoteToken: null, createdAt: at(0), creatorAddress: wCr, totalSupply: 1e9 };
+    const d35a = [
+      mkRow(5, 100, 0, 'buy', 0.9975, 1e-9, { trader: wCr, sender: wCr, tok: 500e6 }),
+      mkRow(20, 200, 0, 'buy', 0.20, 1e-9, { trader: wP2, sender: wP2, tok: 180e6 }),
+      mkRow(30, 300, 0, 'buy', 0.10, 1e-9, { trader: wA2, sender: wA2, tok: 90e6 }),
+      mkRow(30, 300, 1, 'buy', 0.10, 1e-9, { trader: wB2, sender: wB2, tok: 90e6 }),
+      mkRow(30, 300, 2, 'buy', 0.10, 1e-9, { trader: wC2, sender: wC2, tok: 90e6 }),
+      mkRow(30, 300, 3, 'buy', 0.30, 1e-9, { trader: wD2, sender: wD2, tok: 270e6 }),
+      mkRow(90, 700, 0, 'sell', 0.80, 1e-9, { trader: wCr, sender: wCr, tok: 500e6 }),
+    ];
+    const d35Snap = buildSnapshotFromRows(d35a, d35Meta);
+    const d35 = d35Snap.derived;
+    ok(d35.maxBlockBuyCount === 4 && d35.maxBlockBuyPct === 33.4 && d35.maxBlockPreGapSec === 10,
+      `四键主形状精确值：最大单块 4 笔/占比 33.4%/前摇 10s（实际 ${d35.maxBlockBuyCount}/${d35.maxBlockBuyPct}/${d35.maxBlockPreGapSec}——CD6「死寂后单块挤买」形状）`);
+    ok(d35.sameAmountWalletPct === 50.0,
+      `同档金额钱包占比=0.1000 档 3/6=50.0（实际 ${d35.sameAmountWalletPct}——toFixed(4) 四位粒度无尘门）`);
+    ok(d35.creatorPeakHoldSupplyPct === 50.0 && d35.creatorWallet === wCr
+      && d35.creatorBuyBnb === 0.9975 && d35.creatorBuyN === 1
+      && d35.creatorSellBnb === 0.80 && d35.creatorSellN === 1,
+      `创建者曾持峰值=500M/1e9=50.00+行为摘要（实际 ${d35.creatorPeakHoldSupplyPct}/${d35.creatorWallet} 买${d35.creatorBuyBnb}×${d35.creatorBuyN}/卖${d35.creatorSellBnb}×${d35.creatorSellN}——CD10「开盘最大单后清仓」正净口径失明补腿）`);
+    // holdingsProfile circPct：Σ正=270+180+90×3=720M；wD 流 37.5/供 27、wP 流 25
+    const hp0 = d35.holdingsProfile[0];
+    ok(hp0.w === wD2 && hp0.supplyPct === 27 && hp0.circPct === 37.5
+      && d35.holdingsProfile[1].w === wP2 && d35.holdingsProfile[1].circPct === 25,
+      `holdingsProfile 在场流通口径（Σ正=720M：wD 供 27/流 37.5、wP 流 25——早期盘垄断的正确度量）`);
+    // state 渲染：协同买入参考行 + 创建者句 + 前三行双口径
+    const stD35 = buildCheatState(d35Snap);
+    ok(stD35.state.includes('协同买入参考: 最大单块买入 4 笔、占窗口总买入 33.4%（该块与前一买块间隔 10 秒）；最大同档金额的钱包去重占全部买入钱包 50.0%')
+      && stD35.state.includes('参考数值非门槛——真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断'),
+      'state 渲染：协同买入参考行（D3.35——参考数值非门槛声明随行）');
+    ok(stD35.state.includes('占总供应量 27.0% / 占在场流通 37.5%'),
+      'state 渲染：持仓分布行双口径（供/流并列——D3.35 补腿）');
+    ok(stD35.state.includes('创建者已不在前三（曾持峰值占总供应量 50.00%，买 0.998×1 / 卖 0.800×1）'),
+      'state 渲染：创建者曾持有句（净 0 不在前三——正净口径失明补腿）');
+    // d35b 边界形状：首买块 preGap=null + block 缺失买行不进单块统计
+    const d35bRows = [
+      mkRow(10, 500, 0, 'buy', 0.10, 1e-9, { trader: wA2, sender: wA2 }),
+      mkRow(11, 500, 1, 'buy', 0.10, 1e-9, { trader: wB2, sender: wB2 }),
+      mkRow(12, 500, 2, 'buy', 0.10, 1e-9, { trader: wC2, sender: wC2 }),
+      mkRow(50, null, 0, 'buy', 0.10, 1e-9, { trader: wP2, sender: wP2 }),
+      mkRow(60, 500, 3, 'sell', 0.30, 1e-9, { trader: wD2, sender: wD2 }),
+    ];
+    const d35b = buildSnapshotFromRows(d35bRows, { ...d35Meta, creatorAddress: null }).derived;
+    ok(d35b.maxBlockBuyCount === 3 && d35b.maxBlockBuyPct === 75.0 && d35b.maxBlockPreGapSec === null,
+      `首买块 preGap=null（开盘首块无前摇证据非 0 秒——实际 ${d35b.maxBlockPreGapSec}）；block 缺失买行资金照计不进单块统计（count=3 非 4、pct=0.30/0.40=75.0——实际 ${d35b.maxBlockBuyCount}/${d35b.maxBlockBuyPct}）`);
+    ok(d35b.sameAmountWalletPct === 100.0,
+      `全 0.1000 档 4/4=100.0（实际 ${d35b.sameAmountWalletPct}——block 缺失行同档照计）`);
+    ok(d35b.creatorPeakHoldSupplyPct === null && d35b.creatorWallet === null,
+      `creatorAddress 缺失 → 峰值锚+摘要全 null（实际 ${d35b.creatorPeakHoldSupplyPct}/${d35b.creatorWallet}——fail-closed）`);
+    ok(buildCheatState(buildSnapshotFromRows(d35bRows, { ...d35Meta, creatorAddress: null })).state.includes('该块为首个买块，无前摇证据'),
+      'state 渲染：首买块前摇缺席句（null 语义渲染——非 0 秒冒充）');
+    // d35c 无买入票：count=0 其余 null、参考行缺席、创建者纯卖无 BUY 行=null
+    const d35cRows = [
+      mkRow(10, 500, 0, 'sell', 0.30, 1e-9, { trader: wCr, sender: wCr, tok: 300e6 }),
+    ];
+    const d35c = buildSnapshotFromRows(d35cRows, d35Meta).derived;
+    ok(d35c.maxBlockBuyCount === 0 && d35c.maxBlockBuyPct === null && d35c.maxBlockPreGapSec === null
+      && d35c.sameAmountWalletPct === null,
+      `无买入票：count=0 其余全 null（实际 ${d35c.maxBlockBuyCount}/${d35c.maxBlockBuyPct}/${d35c.sameAmountWalletPct}）`);
+    ok(d35c.creatorPeakHoldSupplyPct === null,
+      `创建者纯卖（无 BUY 行）→ 峰值锚 null（实际 ${d35c.creatorPeakHoldSupplyPct}——链外转入域 swap 不可见，绝不以 0 冒充「从未持有」）`);
+    ok(!buildCheatState(buildSnapshotFromRows(d35cRows, d35Meta)).state.includes('协同买入参考'),
+      'state 渲染：无买入 → 参考行缺席');
+    // d35d 并列取额大：两块各 2 笔，块 600 Σ0.50 vs 块 800 Σ0.30 → max=块 600
+    const d35d = buildSnapshotFromRows([
+      mkRow(10, 600, 0, 'buy', 0.25, 1e-9, { trader: wA2, sender: wA2 }),
+      mkRow(10, 600, 1, 'buy', 0.25, 1e-9, { trader: wB2, sender: wB2 }),
+      mkRow(20, 800, 0, 'buy', 0.15, 1e-9, { trader: wC2, sender: wC2 }),
+      mkRow(20, 800, 1, 'buy', 0.15, 1e-9, { trader: wP2, sender: wP2 }),
+    ], d35Meta).derived;
+    ok(d35d.maxBlockBuyPct === 62.5,
+      `并列笔数取买入额大者（0.50/0.80=62.5 非 37.5——实际 ${d35d.maxBlockBuyPct}）`);
+    // mapper：participation 档域读取四形状 + anchors 五键透传/容缺（独立档域题
+    // 不走 phAns 四档构造——与 actAns/bdAns 同款 partAns）
+    const partAns = (bucket, p = 0.7) => {
+      const rest = (1 - p) / 3;
+      return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(PARTICIPATION_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
+    };
+    const pObs = buildObservation({ ...mkAnswers(), real_participation: partAns('minimal_genuine') },
+      { maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412, sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2 });
+    ok(pObs.participation && pObs.participation.bucket === 'minimal_genuine' && Math.abs(pObs.participation.prob - 0.7) < 1e-9,
+      'mapper participation 在场答案 argmax 读档（独立顶层键——非 EXT 通道）');
+    ok(pObs.anchors.maxBlockBuyCount === 8 && pObs.anchors.maxBlockBuyPct === 58.8
+      && pObs.anchors.maxBlockPreGapSec === 412 && pObs.anchors.sameAmountWalletPct === 66.7
+      && pObs.anchors.creatorPeakHoldSupplyPct === 35.2,
+      'mapper anchors 五键透传（G12 R 通道/holdings_balance 同源数值）');
+    ok(buildObservation(mkAnswers(), {}).participation === null,
+      'mapper participation 缺题（<D3.35 旧档）→ null 容缺（黄金集重放零变化防线）');
+    let pThrew = false;
+    try {
+      buildObservation({ ...mkAnswers(), real_participation: { type: 'choice', probabilities: { super_genuine: 1 } } }, {});
+    } catch { pThrew = true; }
+    ok(pThrew, 'mapper participation 未知桶 super_genuine → throw（档域校验——PARTICIPATION_LEVELS 同步防线）');
+    ok(JSON.stringify(PARTICIPATION_LEVELS) === JSON.stringify(['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear']),
+      'mapper PARTICIPATION_LEVELS 导出对齐题集（mostly/meaningful/minimal/unclear 四桶）');
   }
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);

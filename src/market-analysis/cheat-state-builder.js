@@ -105,6 +105,15 @@ function buildCheatState(snapshot) {
     if (d.noBuySellPct !== null && d.noBuySellPct !== undefined) {
       lines.push(`零买入纯卖方: ${d.noBuySellWallets} 个钱包（窗内零买入、只卖出）合计卖出 ${fmtBnb(d.noBuySellBnb)} BNB，占全部卖出 ${d.noBuySellPct.toFixed(1)}%（口径：钱包聚合已剔聚合路由伪钱包；是否存在链外转入分仓出货由你结合 insider_supply_sell 判断）`);
     }
+    // D3.35 协同买入参考四键（2026-11-02 用户裁定「将 Jev 转化为一个真实的交易者
+    // ……一些指标也可以作为参考，但是不要有非常硬的标准」：买侧节奏四事实作
+    // real_participation 题的参考数值——**参考非门槛**，正常盘往往也有一点作弊
+    // 痕迹，组织性程度由 Jev 以交易者身份结合 [TICKS] 时间序列综合判读；口径与
+    // 128 票分布研究 bit 一致（tmp-coop-buy-stats@182：联合形状「最大块笔数 ≥4∧
+    // 占比 ≥30%」healthy 24 票零命中——参考性判读素材非硬线）；无买入不渲染行
+    if (d.maxBlockBuyCount !== null && d.maxBlockBuyCount !== undefined && d.maxBlockBuyCount > 0) {
+      lines.push(`协同买入参考: 最大单块买入 ${d.maxBlockBuyCount} 笔、占窗口总买入 ${d.maxBlockBuyPct !== null && d.maxBlockBuyPct !== undefined ? d.maxBlockBuyPct.toFixed(1) + '%' : '?'}${d.maxBlockPreGapSec !== null && d.maxBlockPreGapSec !== undefined ? `（该块与前一买块间隔 ${Math.round(d.maxBlockPreGapSec)} 秒）` : '（该块为首个买块，无前摇证据）'}；最大同档金额的钱包去重占全部买入钱包 ${d.sameAmountWalletPct !== null && d.sameAmountWalletPct !== undefined ? d.sameAmountWalletPct.toFixed(1) + '%' : '?'}（参考数值非门槛——真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {
@@ -124,7 +133,7 @@ function buildCheatState(snapshot) {
       const profLines = d.holdingsProfile.map((e, i) => {
         const holdSec = e.firstBuyDt !== null && e.firstSellDt !== null
           ? `，首卖距首买 ${Math.max(0, Math.round(e.firstSellDt - e.firstBuyDt))} 秒` : '';
-        return `第${i + 1}大 ${shortWallet(e.w)}: 占总供应量 ${e.supplyPct !== null ? e.supplyPct.toFixed(1) + '%' : '?'}（净持 ${(e.netTok / 1e6).toFixed(2)}M），买 ${fmtBnb(e.buyBnb)}×${e.buyN} / 卖 ${fmtBnb(e.sellBnb)}×${e.sellN}，首买@${fmtDt(e.firstBuyDt)}${e.firstBuyBlock !== null ? `（块 ${e.firstBuyBlock}）` : ''}${holdSec}`;
+        return `第${i + 1}大 ${shortWallet(e.w)}: 占总供应量 ${e.supplyPct !== null ? e.supplyPct.toFixed(1) + '%' : '?'}${e.circPct !== null ? ` / 占在场流通 ${e.circPct.toFixed(1)}%` : ''}（净持 ${(e.netTok / 1e6).toFixed(2)}M），买 ${fmtBnb(e.buyBnb)}×${e.buyN} / 卖 ${fmtBnb(e.sellBnb)}×${e.sellN}，首买@${fmtDt(e.firstBuyDt)}${e.firstBuyBlock !== null ? `（块 ${e.firstBuyBlock}）` : ''}${holdSec}`;
       });
       let distTail = '';
       if (d.top1Top2HoldSupplyPct !== null) {
@@ -134,6 +143,15 @@ function buildCheatState(snapshot) {
         // 并集占比的 sb∪eq 圈定不再喂 Jev；derived 照算供 digest/FA/runner）
       } else {
         distTail += '；总供应量未知，前几大组合占比口径缺失';
+      }
+      // D3.35 创建者曾持有轨迹句（CD10 教训：创建者开盘最大单买入后清仓，正净口径
+      // 下看不见——「曾持峰值占总供应量%」补「曾经持有过多少」的峰值证据；口径=
+      // 创建者行逐行累计净持仓的峰值，链外转入域 swap 不可见（来源不经过本盘与
+      // insider 题同款），无 BUY 行不渲染=null 绝不以 0 冒充「从未持有」）
+      if (d.creatorPeakHoldSupplyPct !== null && d.creatorPeakHoldSupplyPct !== undefined
+          && Array.isArray(d.holdingsProfile)
+          && !d.holdingsProfile.some((e) => e.w === (d.creatorWallet || ''))) {
+        distTail += `；创建者已不在前三（曾持峰值占总供应量 ${d.creatorPeakHoldSupplyPct.toFixed(2)}%，买 ${fmtBnb(d.creatorBuyBnb)}×${d.creatorBuyN} / 卖 ${fmtBnb(d.creatorSellBnb)}×${d.creatorSellN}）`;
       }
       lines.push(`持仓分布: ${profLines.join('；')}${distTail}（按正净持仓降序取前三；前几大是否均衡/是否同源协同的档位判断是你的任务）`);
     }

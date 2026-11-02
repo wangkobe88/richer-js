@@ -434,8 +434,8 @@ function computeDerived(snapshot, famousRoster) {
   //   clusterHoldSupplyPct     = sb∪eq 簇成员正净合计 ÷ totalSupply ×100（sbHold
   //                              是在场流通分母——本键给总量分母版；无合格簇 null）
   //   holdingsProfile          = 前三钱包行为摘要（state 叙事原料：净持/占总量%/
-  //                              买卖笔额/首买块/首卖距首买秒——行为叙事 Jev 综合用，
-  //                              不进数值锚键）
+  //                              占在场流通%（D3.35）/买卖笔额/首买块/首卖距首买秒
+  //                              ——行为叙事 Jev 综合用，不进数值锚键）
   const top2HoldSupplyPct = totalSupply !== null && top2NetTok > 0 ? (top2NetTok / totalSupply) * 100 : null;
   const top1Top2HoldSupplyPct = totalSupply !== null && top2NetTok > 0
     ? ((top1NetTok + top2NetTok) / totalSupply) * 100 : null;
@@ -470,18 +470,8 @@ function computeDerived(snapshot, famousRoster) {
     if (t.side !== 'BUY' || !t.wallet) continue;
     if (!firstBuyBlockOf.has(t.wallet)) firstBuyBlockOf.set(t.wallet, t.block);
   }
-  const holdingsProfile = posSorted.slice(0, 3).map(([w, netTok]) => {
-    const e = walletOf.get(w) || {};
-    return {
-      w,
-      netTok,
-      supplyPct: totalSupply !== null ? (netTok / totalSupply) * 100 : null,
-      buyBnb: e.buyBnb || 0, buyN: e.buyN || 0,
-      sellBnb: e.sellBnb || 0, sellN: e.sellN || 0,
-      firstBuyDt: e.firstBuyDt ?? null, firstSellDt: e.firstSellDt ?? null,
-      firstBuyBlock: firstBuyBlockOf.get(w) ?? null,
-    };
-  });
+  // holdingsProfile（D3.35 补腿版）在 burst 波段之后统一构建（circPct 在场流通
+  // 口径 + 原料 firstBuyBlockOf 在此备齐——见下方 D3.35 段）
 
   // ── 著名钱包单极控盘锚（D3.2b 用户裁定 2026-10-31 CD5 语境：「描述盘面上单一
   // 著名钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档；mapper 消费方式
@@ -636,6 +626,115 @@ function computeDerived(snapshot, famousRoster) {
     burstWaveWallets = bestWalletN;
   }
 
+  // ── 协同买入参考四键（D3.35，2026-11-02 用户裁定「将 Jev 转化为一个真实的
+  // 交易者……一些指标也可以作为参考，但是不要有非常硬的标准，尽量从交易者
+  // 角度，去看看交易信息是否正常」：买侧节奏四事实进 [PRECOMPUTED] 供
+  // real_participation 题参考判读——**参考数值非门槛**，判读交 Jev 交易者角色
+  // 综合；口径与 128 票分布研究（tmp-coop-buy-stats@182）bit 一致：全量 BUY 行
+  // 不滤 outlier（资金口径）、钱包=sender||trader 原样小写**不去 router**
+  // （与 [TICKS] w= 同域，未解析行证据洞由 unresolvedSenderTickCount 承载）──
+  //   maxBlockBuyCount    = 最大单块买入笔数（并列取买入额大者；无买入=0）
+  //   maxBlockBuyPct      = 该块买入额 ÷ 窗总买 ×100（总买≤0 → null）
+  //   maxBlockPreGapSec   = 最大块与前一买块（块序）的时间差秒（dt 域）——
+  //                         最大块=首个买块 → null（开盘首块无前摇证据，非 0 秒）；
+  //                         block_number 缺失行不进单块统计（sameBlockClusters 同款）
+  //   sameAmountWalletPct = 最大同档金额（四位小数档，T78 粒度）钱包去重数 ÷
+  //                         窗内买入钱包去重数 ×100（**无尘门**——尘埃档整档聚集
+  //                         本身也是流量形状信号；档=toFixed(4) 与 128 票研究同款）
+  // 分布事实（healthy 24 票 vs 人工 cheat 组）：最大单块占比 P50=14.1 vs 17.9、
+  // P90=26.0 vs 46.1；同档钱包% healthy max=21.2 vs cheat P75=35.3；联合形状
+  // 「最大块笔数 ≥4 ∧ 占比 ≥30%」healthy 24 票零命中——参考性判读素材非硬线。
+  let maxBlockBuyCount = 0, maxBlockBuyPct = null, maxBlockPreGapSec = null, sameAmountWalletPct = null;
+  {
+    const buyBlocks = new Map(); // block -> {n, bnb, firstDt}
+    const buyWallets = new Set();
+    const amtBuckets = new Map(); // toFixed(4) 档 -> Set<钱包小写>
+    for (const t of ticks) {
+      if (t.side !== 'BUY') continue;
+      const wl = t.wallet ? String(t.wallet).toLowerCase() : null;
+      if (wl) buyWallets.add(wl);
+      if (t.bnb !== null && t.bnb !== undefined) {
+        const k = Number(t.bnb).toFixed(4);
+        if (!amtBuckets.has(k)) amtBuckets.set(k, new Set());
+        if (wl) amtBuckets.get(k).add(wl);
+      }
+      if (t.block === null || t.block === undefined) continue;
+      const o = buyBlocks.get(t.block) || { n: 0, bnb: 0, firstDt: t.dt };
+      o.n++;
+      o.bnb += t.bnb || 0;
+      buyBlocks.set(t.block, o);
+    }
+    if (buyBlocks.size > 0) {
+      let maxBl = null, maxKey = null;
+      for (const [block, o] of buyBlocks) {
+        if (!maxBl || o.n > maxBl.n || (o.n === maxBl.n && o.bnb > maxBl.bnb)) { maxBl = o; maxKey = block; }
+      }
+      maxBlockBuyCount = maxBl.n;
+      maxBlockBuyPct = totalBuyBnb > 0 ? +((maxBl.bnb / totalBuyBnb) * 100).toFixed(1) : null;
+      const ordered = [...buyBlocks.keys()].sort((a, b) => a - b);
+      const idx = ordered.indexOf(maxKey);
+      if (idx > 0) {
+        const prev = buyBlocks.get(ordered[idx - 1]);
+        if (maxBl.firstDt !== null && maxBl.firstDt !== undefined
+          && prev.firstDt !== null && prev.firstDt !== undefined) {
+          maxBlockPreGapSec = Math.max(0, maxBl.firstDt - prev.firstDt);
+        }
+      } // idx===0（首个买块）保持 null：开盘首块无前摇证据
+    }
+    if (buyWallets.size > 0) {
+      let topN = 0;
+      for (const s of amtBuckets.values()) if (s.size > topN) topN = s.size;
+      sameAmountWalletPct = +((topN / buyWallets.size) * 100).toFixed(1);
+    }
+  }
+
+  // ── holdings 口径补腿（D3.35，CD10 双失明教训：①供应口径在窗口早期全失明
+  // ——创建者+簇垄断在场 72% 但占供应只零头（t1 供 2.7%）；②正净口径看不见
+  // 「曾持有」——创建者开盘最大单买入后清仓净 0，持仓分布行里彻底消失）──
+  //   holdingsProfile[].circPct = 该钱包正净 ÷ Σ正净 token（在场流通口径——窗口
+  //                              早期谁主导在场筹码谁主导盘面的正确度量；Σ=0 → null）
+  //   creatorPeakHoldSupplyPct = 创建者逐行累计净持仓的**峰值** ÷ totalSupply ×100
+  //                              （swap 域内曾持有的上限；创建者无 BUY 行 → null
+  //                              ——链外转入域 swap 不可见（insider 题同款「来源
+  //                              不经过本盘」），绝不以 0 冒充「从未持有」；token_amount
+  //                              缺列/创建者地址缺失 → null fail-closed）
+  const creatorAddr = snapshot.tokenMeta && snapshot.tokenMeta.creatorAddress
+    ? String(snapshot.tokenMeta.creatorAddress).toLowerCase() : null;
+  let creatorPeakHoldSupplyPct = null;
+  // 创建者行为摘要（D3.35 state「已不在前三」句的原料：曾持峰值+买/卖额笔数——
+  // 「开盘最大单买入后清仓」的完整轨迹一行的量；地址缺失全 null）
+  let creatorWallet = null, creatorBuyBnb = 0, creatorBuyN = 0;
+  let creatorSellBnb = 0, creatorSellN = 0;
+  if (creatorAddr) {
+    let net = 0, peak = 0, sawBuy = false, tokMissing = false;
+    for (const t of ticks) {
+      if (!t.wallet || String(t.wallet).toLowerCase() !== creatorAddr) continue;
+      creatorWallet = creatorAddr;
+      if (t.side === 'BUY') { creatorBuyBnb += t.bnb || 0; creatorBuyN++; }
+      else { creatorSellBnb += t.bnb || 0; creatorSellN++; }
+      if (t.tok === null || t.tok === undefined) { tokMissing = true; break; }
+      if (t.side === 'BUY') { sawBuy = true; net += t.tok; } else net -= t.tok;
+      if (net > peak) peak = net;
+    }
+    if (!tokMissing && sawBuy && peak > 0 && totalSupply !== null) {
+      creatorPeakHoldSupplyPct = +((peak / totalSupply) * 100).toFixed(2);
+    }
+  }
+  const holdingsProfile = posSorted.slice(0, 3).map(([w, netTok]) => {
+    const e = walletOf.get(w) || {};
+    return {
+      w,
+      netTok,
+      supplyPct: totalSupply !== null ? (netTok / totalSupply) * 100 : null,
+      // D3.35 在场流通口径（早期盘垄断的正确度量；与 supplyPct 同分子异分母）
+      circPct: posTokTotal > 0 ? (netTok / posTokTotal) * 100 : null,
+      buyBnb: e.buyBnb || 0, buyN: e.buyN || 0,
+      sellBnb: e.sellBnb || 0, sellN: e.sellN || 0,
+      firstBuyDt: e.firstBuyDt ?? null, firstSellDt: e.firstSellDt ?? null,
+      firstBuyBlock: firstBuyBlockOf.get(w) ?? null,
+    };
+  });
+
   // ── 价格拱（仅 price_outlier=false 行——价格口径滤，资金口径不滤）──
   let first = null, ath = null, athDt = null, last = null;
   for (const t of ticks) {
@@ -662,6 +761,11 @@ function computeDerived(snapshot, famousRoster) {
     ticksPerMin, avgTradeBnb, maxGapSec,
     burstWaveBuyBnb, burstWaveWallets,
     noBuySellPct, noBuySellBnb, noBuySellWallets,
+    // D3.35 协同买入参考四键（real_participation 题参考数值非门槛）+ holdings
+    // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
+    maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,
+    creatorPeakHoldSupplyPct, creatorWallet,
+    creatorBuyBnb, creatorBuyN, creatorSellBnb, creatorSellN,
     activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,
   };

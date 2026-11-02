@@ -220,20 +220,22 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 34 键往返（因子化：grade 三键 + 13 题档 + 数值锚十八键——G8 burst 波三键+纯卖占比扩）');
+console.log('D. FA 投影 40 键往返（因子化：grade 三键 + 14 题档 + 数值锚二十三键——D3.35 realParticipation+协同买入四键+创建者峰值扩）');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
   const LV = { equalAmountSplit: 2, coordinatedSellBack: null, creatorFrontRun: 1,
     sellDispersion: 0, stallBurstWave: 1, amountTiering: null, sameBlockBuyWave: 3,
     insiderSupplySell: null, slowGrindPump: 2, washPair: 3, activityLevel: 0, bundledDominance: 2,
-    holdingsBalance: 3 };
+    holdingsBalance: 3, realParticipation: 2 };
   const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, washPairCount: 10,
     washPairSellPct: 95.1, washPairBuyPct: 27.3, top1HoldSupplyPct: 25.6,
     top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2,
     top2HoldSupplyPct: 9.4, top1Top2HoldSupplyPct: 35.0, top1Top2FirstBuyGapSec: 1,
     clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1,
-    burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3 };
+    burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3,
+    maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412,
+    sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2 };
   FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   check('set → get unhealthy（levels/anchors 原样往返）', FAmod.getCheatFactors('0xround'),
     { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
@@ -254,8 +256,10 @@ console.log('D. FA 投影 34 键往返（因子化：grade 三键 + 13 题档 + 
     'cheatFamousDominancePct', 'cheatFamousDominance',
     'cheatHoldingsBalance', 'cheatTop2HoldSupplyPct', 'cheatTop1Top2HoldSupplyPct',
     'cheatTop1Top2FirstBuyGapSec', 'cheatClusterHoldSupplyPct', 'cheatT1PlusClusterSupplyPct',
-    'cheatBurstMaxGapSec', 'cheatBurstWaveBuyBnb', 'cheatBurstWaveWallets', 'cheatNoBuySellPct'];
-  ok('34 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
+    'cheatBurstMaxGapSec', 'cheatBurstWaveBuyBnb', 'cheatBurstWaveWallets', 'cheatNoBuySellPct',
+    'cheatRealParticipation', 'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct',
+    'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct'];
+  ok('40 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   // 数值序出口（grade healthy=0/unhealthy=1/cheat=2；题档 0-3；锚 % 数值直传；null 透传）——
   // registerToken+单 tick 建 state 后 buildFactorMap 直读（cheat 块纯投影）
@@ -281,10 +285,13 @@ console.log('D. FA 投影 34 键往返（因子化：grade 三键 + 13 题档 + 
     && fm.cheatTop1Top2HoldSupplyPct === 35 && fm.cheatTop1Top2FirstBuyGapSec === 1
     && fm.cheatClusterHoldSupplyPct === 14.5 && fm.cheatT1PlusClusterSupplyPct === 40.1
     && fm.cheatBurstMaxGapSec === 65 && fm.cheatBurstWaveBuyBnb === 1.02
-    && fm.cheatBurstWaveWallets === 5 && fm.cheatNoBuySellPct === 63.3,
+    && fm.cheatBurstWaveWallets === 5 && fm.cheatNoBuySellPct === 63.3
+    && fm.cheatRealParticipation === 2 && fm.cheatMaxBlockBuyCount === 8
+    && fm.cheatMaxBlockBuyPct === 58.8 && fm.cheatMaxBlockPreGapSec === 412
+    && fm.cheatSameAmountWalletPct === 66.7 && fm.cheatCreatorPeakHoldSupplyPct === 35.2,
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
       dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
-      nbs: fm.cheatNoBuySellPct } : 'build null');
+      nbs: fm.cheatNoBuySellPct, part: fm.cheatRealParticipation, mbk: fm.cheatMaxBlockBuyCount } : 'build null');
   FAmod.clearCheatFactors('0xround');
   const fm2 = fa.buildFactorMap('0xround', T0 + 3000);
   ok('清投影 → 全 null/0（未判定语义，条件裸比较恒 false fail-closed）',
@@ -292,7 +299,9 @@ console.log('D. FA 投影 34 键往返（因子化：grade 三键 + 13 题档 + 
     && fm2.cheatSameBlockBuyWave === null && fm2.cheatSameBlockHoldPct === null
     && fm2.cheatFamousDominance === null
     && fm2.cheatHoldingsBalance === null && fm2.cheatT1PlusClusterSupplyPct === null
-    && fm2.cheatBurstMaxGapSec === null && fm2.cheatNoBuySellPct === null,
+    && fm2.cheatBurstMaxGapSec === null && fm2.cheatNoBuySellPct === null
+    && fm2.cheatRealParticipation === null && fm2.cheatMaxBlockBuyCount === null
+    && fm2.cheatCreatorPeakHoldSupplyPct === null,
     fm2 ? fm2.cheatGrade : 'build null');
 }
 

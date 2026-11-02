@@ -228,6 +228,8 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // strong=3（sbw 二桶 0/1、act 0-3、dom 0-2；映射表=cheat-grade.js）。
     // D3.28 加 washPair 题档+同块对敲锚三键（G3 H 通道同源）。
     // D3.32 加 holdingsBalance 题档+持仓分布锚五键（G7 J 通道同源）。
+    // G8 加 burst 波三键+纯卖占比（E/K/L 通道同源）。D3.35 加真实参与度档位
+    // +协同买入参考四键+创建者曾持峰值（G12 R 通道/holdings_balance 同源）→ 40 键。
     // 快照透传=signal 行研究主数据源（效果改进研究）
     cheatGrade: factorResults.cheatGrade ?? null,
     cheatUnhealthyGrades: factorResults.cheatUnhealthyGrades ?? 0,
@@ -263,6 +265,16 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatNoBuySellPct: factorResults.cheatNoBuySellPct ?? null,
     cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
     cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
+    // D3.35 真实参与度档位（G12 R 通道同源：mostly=0/meaningful=1/minimal=2，
+    // unclear→null）+ 协同买入参考四键 + 创建者曾持峰值锚（real_participation/
+    // holdings_balance 同源；首买块前摇 null=开盘形状证据缺席；创建者无 BUY 行
+    // null=链外转入域 swap 不可见）；旧 FA/历史信号无键 → null 不掩盖
+    cheatRealParticipation: factorResults.cheatRealParticipation ?? null,
+    cheatMaxBlockBuyCount: factorResults.cheatMaxBlockBuyCount ?? null,
+    cheatMaxBlockBuyPct: factorResults.cheatMaxBlockBuyPct ?? null,
+    cheatMaxBlockPreGapSec: factorResults.cheatMaxBlockPreGapSec ?? null,
+    cheatSameAmountWalletPct: factorResults.cheatSameAmountWalletPct ?? null,
+    cheatCreatorPeakHoldSupplyPct: factorResults.cheatCreatorPeakHoldSupplyPct ?? null,
   };
 }
 
