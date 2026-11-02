@@ -105,14 +105,15 @@ function buildCheatState(snapshot) {
     if (d.noBuySellPct !== null && d.noBuySellPct !== undefined) {
       lines.push(`零买入纯卖方: ${d.noBuySellWallets} 个钱包（窗内零买入、只卖出）合计卖出 ${fmtBnb(d.noBuySellBnb)} BNB，占全部卖出 ${d.noBuySellPct.toFixed(1)}%（口径：钱包聚合已剔聚合路由伪钱包；是否存在链外转入分仓出货由你结合 insider_supply_sell 判断）`);
     }
-    // D3.35 协同买入参考四键（2026-11-02 用户裁定「将 Jev 转化为一个真实的交易者
-    // ……一些指标也可以作为参考，但是不要有非常硬的标准」：买侧节奏四事实作
-    // real_participation 题的参考数值——**参考非门槛**，正常盘往往也有一点作弊
-    // 痕迹，组织性程度由 Jev 以交易者身份结合 [TICKS] 时间序列综合判读；口径与
-    // 128 票分布研究 bit 一致（tmp-coop-buy-stats@182：联合形状「最大块笔数 ≥4∧
-    // 占比 ≥30%」healthy 24 票零命中——参考性判读素材非硬线）；无买入不渲染行
-    if (d.maxBlockBuyCount !== null && d.maxBlockBuyCount !== undefined && d.maxBlockBuyCount > 0) {
-      lines.push(`协同买入参考: 最大单块买入 ${d.maxBlockBuyCount} 笔、占窗口总买入 ${d.maxBlockBuyPct !== null && d.maxBlockBuyPct !== undefined ? d.maxBlockBuyPct.toFixed(1) + '%' : '?'}${d.maxBlockPreGapSec !== null && d.maxBlockPreGapSec !== undefined ? `（该块与前一买块间隔 ${Math.round(d.maxBlockPreGapSec)} 秒）` : '（该块为首个买块，无前摇证据）'}；最大同档金额的钱包去重占全部买入钱包 ${d.sameAmountWalletPct !== null && d.sameAmountWalletPct !== undefined ? d.sameAmountWalletPct.toFixed(1) + '%' : '?'}（参考数值非门槛——真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断）`);
+    // D3.36 同档金额参考（D3.35 单块三键撤出 state 输入——2026-11-02 用户裁定
+    // 「单块也是这个问题，如果这个数据给结果会造成困扰，我不建议放到数据输入中」：
+    // CD60 ultra 活跃盘撞块 12 笔仅占 3%/CD104 吃独食 2 笔占 58.7% 两误伤形状里
+    // 单块数值制造噪音大于信息；单块三键 snapshot 照算留 FA 投影/研究侧不进
+    // Jev 输入。sameAmountWalletPct 非单块口径（全窗同档金额去重钱包占比=
+    // GMGN 前端默认档指纹）保留；**参考非门槛**，正常盘往往也有一点作弊痕迹，
+    // 组织性程度由 Jev 以交易者身份结合 [TICKS] 时间序列综合判读；无买入不渲染行
+    if (d.sameAmountWalletPct !== null && d.sameAmountWalletPct !== undefined) {
+      lines.push(`同档金额参考: 最大同档金额的钱包去重占全部买入钱包 ${d.sameAmountWalletPct.toFixed(1)}%（参考数值非门槛——前端默认交易额（0.1/0.05 档）使真实散户盘天然聚档，跨块长尾同档=跟风非分仓；真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断）`);
     }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）

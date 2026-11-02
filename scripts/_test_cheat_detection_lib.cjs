@@ -773,7 +773,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.35：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+real_participation） ═══════════════
   console.log('I2. 题集结构 D3.35（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.35', `版本常量 D3.35（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.35=CD135：第 14 题 real_participation 交易者角色综合结论（用户裁定「将 Jev 转化为一个真实的交易者……不要有非常硬的标准」——四桶 mostly/meaningful/minimal/unclear）+协同买入参考四键（最大单块笔数/占比/前摇间隔+同档金额钱包占比，参考非门槛）+holdings_balance 补腿（在场流通口径+创建者曾持峰值锚——CD10 双失明）；D3.34=CD133 eq/bw 反锚；D3.32=holdings_balance 第 13 题）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.36', `版本常量 D3.36（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.36=CD135 校准：①单块三键撤出 state 输入（用户裁定「如果这个数据给结果会造成困扰，我不建议放到数据输入中」——CD60 撞块/CD104 吃独食误伤噪音；snapshot 照算留 FA/研究）②大额买入者判读锚换持有口径（「top1 买占比恐怕需要着重看一下总供应量的占比，如果卖出了也就没事了，重要的是持有总供应量占比」）+单人吃独食正样本；D3.35=第 14 题 real_participation 交易者角色综合结论+协同买入参考四键+holdings_balance 补腿；D3.34=CD133 eq/bw 反锚）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -1345,11 +1345,13 @@ console.log('I. 著名钱包单极控盘锚');
     ok(hp0.w === wD2 && hp0.supplyPct === 27 && hp0.circPct === 37.5
       && d35.holdingsProfile[1].w === wP2 && d35.holdingsProfile[1].circPct === 25,
       `holdingsProfile 在场流通口径（Σ正=720M：wD 供 27/流 37.5、wP 流 25——早期盘垄断的正确度量）`);
-    // state 渲染：协同买入参考行 + 创建者句 + 前三行双口径
+    // state 渲染：同档金额参考行 + 创建者句 + 前三行双口径
     const stD35 = buildCheatState(d35Snap);
-    ok(stD35.state.includes('协同买入参考: 最大单块买入 4 笔、占窗口总买入 33.4%（该块与前一买块间隔 10 秒）；最大同档金额的钱包去重占全部买入钱包 50.0%')
-      && stD35.state.includes('参考数值非门槛——真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断'),
-      'state 渲染：协同买入参考行（D3.35——参考数值非门槛声明随行）');
+    ok(stD35.state.includes('同档金额参考: 最大同档金额的钱包去重占全部买入钱包 50.0%')
+      && stD35.state.includes('参考数值非门槛——前端默认交易额（0.1/0.05 档）使真实散户盘天然聚档，跨块长尾同档=跟风非分仓'),
+      'state 渲染：同档金额参考行（D3.36 保留键——参考数值非门槛+默认档聚档教学随行）');
+    ok(!stD35.state.includes('单块') && !stD35.state.includes('前摇'),
+      'state 渲染：单块三键缺席（D3.36 撤出输入反证——maxBlock 笔数/占比/前摇间隔不得进 Jev state，CD60 撞块/CD104 吃独食误伤噪音源）');
     ok(stD35.state.includes('占总供应量 27.0% / 占在场流通 37.5%'),
       'state 渲染：持仓分布行双口径（供/流并列——D3.35 补腿）');
     ok(stD35.state.includes('创建者已不在前三（曾持峰值占总供应量 50.00%，买 0.998×1 / 卖 0.800×1）'),
@@ -1369,8 +1371,8 @@ console.log('I. 著名钱包单极控盘锚');
       `全 0.1000 档 4/4=100.0（实际 ${d35b.sameAmountWalletPct}——block 缺失行同档照计）`);
     ok(d35b.creatorPeakHoldSupplyPct === null && d35b.creatorWallet === null,
       `creatorAddress 缺失 → 峰值锚+摘要全 null（实际 ${d35b.creatorPeakHoldSupplyPct}/${d35b.creatorWallet}——fail-closed）`);
-    ok(buildCheatState(buildSnapshotFromRows(d35bRows, { ...d35Meta, creatorAddress: null })).state.includes('该块为首个买块，无前摇证据'),
-      'state 渲染：首买块前摇缺席句（null 语义渲染——非 0 秒冒充）');
+    ok(!buildCheatState(buildSnapshotFromRows(d35bRows, { ...d35Meta, creatorAddress: null })).state.includes('单块买入'),
+      'state 渲染：d35b 单块句缺席（D3.36 前摇 null 语义渲染随行撤出——首买块句不再产出，derived 照算留 FA）');
     // d35c 无买入票：count=0 其余 null、参考行缺席、创建者纯卖无 BUY 行=null
     const d35cRows = [
       mkRow(10, 500, 0, 'sell', 0.30, 1e-9, { trader: wCr, sender: wCr, tok: 300e6 }),
@@ -1381,7 +1383,7 @@ console.log('I. 著名钱包单极控盘锚');
       `无买入票：count=0 其余全 null（实际 ${d35c.maxBlockBuyCount}/${d35c.maxBlockBuyPct}/${d35c.sameAmountWalletPct}）`);
     ok(d35c.creatorPeakHoldSupplyPct === null,
       `创建者纯卖（无 BUY 行）→ 峰值锚 null（实际 ${d35c.creatorPeakHoldSupplyPct}——链外转入域 swap 不可见，绝不以 0 冒充「从未持有」）`);
-    ok(!buildCheatState(buildSnapshotFromRows(d35cRows, d35Meta)).state.includes('协同买入参考'),
+    ok(!buildCheatState(buildSnapshotFromRows(d35cRows, d35Meta)).state.includes('同档金额参考'),
       'state 渲染：无买入 → 参考行缺席');
     // d35d 并列取额大：两块各 2 笔，块 600 Σ0.50 vs 块 800 Σ0.30 → max=块 600
     const d35d = buildSnapshotFromRows([
