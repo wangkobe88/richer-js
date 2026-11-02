@@ -62,7 +62,7 @@ async function main() {
 
   console.log('\n── A. 题集形状（J1.61）──');
   const qs = buildStandardQuestions();
-  check('A1 基础题数 11（J1.102/C171 删 web3_user_entity_visuality/event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 web3_user_event_impact；J1.71 删 web3_user_event_spread；删 name_entity_memeability；C244 加 bsc_meme_user_think_event_too_trivial_for_meme 独立观察题 10→11——C244 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复）', Object.keys(qs).length === 11 && !('web3_user_entity_visuality' in qs), Object.keys(qs).length);
+  check('A1 基础题数 12（C263/J1.154 恒带题 11→12，C263 期漏改存量红 C264 同批修复；J1.102/C171 删 web3_user_entity_visuality/event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 web3_user_event_impact；J1.71 删 web3_user_event_spread；删 name_entity_memeability；C244 加 bsc_meme_user_think_event_too_trivial_for_meme 独立观察题 10→11——C244 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复）', Object.keys(qs).length === 12 && !('web3_user_entity_visuality' in qs), Object.keys(qs).length);
   check('A2 name_entity_memeability 已删除', !('name_entity_memeability' in qs));
   check('A3 词句题（J1.81 改名 web3_user_phrase_acceptability）玩味维度并入②有感染力（C187/J1.116 三因素重构后措辞：可玩/可二创空间进②臂——「会不会拿这句话去玩梗、二创、传播」按模拟反应判；旧「有可玩/没有任何可玩」字面措辞随重构退役）',
     qs.bsc_meme_user_phrase_acceptability.instructions.includes('可玩/可二创')

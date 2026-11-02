@@ -75,8 +75,8 @@ async function main() {
   check('A2 fit 题存在且四档保留 + 新增 china_politics（第 5 桶，四档不删）',
     fitQ && ['strong_fit', 'fit', 'marginal', 'unfit', 'china_politics'].every(k => fitQ.criteria[k]),
     fitQ && Object.keys(fitQ.criteria));
-  check('A3 题集题数不变（11 题——本改动只改题面文本不加题；C244 起含 trivialProbe 观察题，C109 题集收敛纪律）',
-    Object.keys(q).length === 11, Object.keys(q).length);
+  check('A3 题集题数（12 题——C263/J1.154 起 11→12 恒带 name_entity_event_center，本改动只改题面文本不加题；C244 起含 trivialProbe 观察题，C109 题集收敛纪律；C263 期漏改本断言存量红，C264 同批修复）',
+    Object.keys(q).length === 12, Object.keys(q).length);
   check('A4 instructions 含中国政治锚句（学习强国示例 / 不看玩味空间 / 港澳台同标准 / 非中国政治不选本项）',
     fitQ.instructions.includes('中国政治主题（J1.122/C192')
     && fitQ.instructions.includes('学习强国')

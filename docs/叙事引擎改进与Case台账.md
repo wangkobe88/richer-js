@@ -54,6 +54,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C264 baseless 桶退役——相信叙事陈述，不试图验证（SAGE 案三轮，2026-11-03 用户裁定）★
+
+- **案发**：C263 豁免落地后 SAGE `0xc04f…7777` 重析终 low（事件分 54<60），向用户汇报差距分解时点明压分腿=impact 题 `event_baseless_speculation` 0.61（argmax/blockChoice）：推文宣称「Chinese Gov just announced an AI agent called "SAGE" that will control the Government Finance」vs 链接实际=HKMA（香港金管局）演讲页——三重失真（主体香港≠中国政府/本体治理项目≠AI agent/职能管治≠掌管财政）；且演讲页内容 Jev 结构性看不到（t.co 短链在推文里粘连括号注释 `(%20Securing` 畸形展开失败+meta 官网链接走 websiteFetch 默认关轨道）——Jev 只有推文单方宣称可看。用户裁定**方向相反**：「我的结论相反，我们做的是 meme 币的快速买卖获益，不是求长期立得住的 meme。baseless 这个锚我建议去掉，我一直强调一点，就是相信叙事陈述，不要试图验证：验证成本过高，如果每一个叙事都要验证，那么叙事分析这个模块基本上效率就不可能达到要求」。
+- **处置（J1.155）**：①impact 题删 `event_baseless_speculation` 桶（criteria 只剩 none/event_empty_content/token_ip_reuse 三桶）；②mapper `BLOCK_SCOPE.event_baseless_speculation` 显式空域 `[]`（J1.43/J1.82/J1.88/J1.142 先例：blockInScope 未知选项按通用返回 true，只删键无效）——旧缓存行/旧 fixture 的 baseless argmax 重放不再拦；③BLOCK_LABELS 保留「无据猜测」label（历史行 reason 展示+防未知选项 fallback 打裸键名）；④版本 bump J1.154→J1.155+changelog。**理念谱系**：与 C79 语料充分门 TRUST PRINCIPLE（采信推文陈述，验证真实性不是门的任务）、C130「不卡互动只通过语料了解叙事」同源——真伪核验吃证据面（本案 Jev 只看到推文单方宣称=垃圾进垃圾出），转述失真的口径解读由 fit 题正常评。
+- **单测**：`_test_event_trivial_gate.cjs` A2 改三桶断言+新增 A2b 退役反证（SAGE 现场形状 baseless 0.61 argmax 重放不再拦「无据猜测」），21/0；**十件版本/题数断言同跟**（consolidation A8/A10d+bluechip/cashtag/angle_timing/web3_fit 版本锁 J1.155；china_politics A3、web2 A5、jev_product_entity、referent_memeability、w_bsc_user_appeal、jev_resonance D5、jev_finding_recap A19 题数 11→12=**C263 期漏改存量红本次同批修复**），全部复跑绿。superip_standard_path B2/B2b（analyzer superIPInfo 注入/buildJevState 调用数）为更早存量红，与本次无关未动待裁。
+- **对拍实况（本地正式重析落库，J1.155，2026-11-03）**：impact 拦截腿消失（桶不再提供，choice=**none 0.7**/empty 0.2/ip_reuse 0.1）；C263 豁免照常（is_center **0.67**≥0.5+sf 0.39+fit 0.16=0.55≥0.5 两腿全真，unacceptable_type 0.82 放行）；china_politics 0.01。**终 rating 仍 low：事件分 55<60**——剩余差距=fit 题四档判分（sf 0.39+fit 0.16，unfit 0.32 分流），Jev 对「HKMA 治理项目/Agentic Finance」与 BSC meme 买家口味契合的判读仍偏保守。**用户标注 mid/high**（2026-11-03 原话「这个票我的标注是 mid/high」）——回归票 C262 行 expect.rating 已锁 ["mid","high"]（意图断言，FAIL=剩余差距信号）：fit 题对官方金融科技/代币化题材（C262 已立「生态位同美联储议息的行情叙事」语义在 china_politics 分线句，尚未成 fit 加分锚）的判分校准待用户裁定（潜在 C265）。
+- **生效链**：题集改动双进程持有（实验进程 C84 触发直调+叙事 worker）——须重启生效；与 C259-C263 同攒批随下次重启带入。
+- **观察点**：①baseless 原承载面（G 类无据猜测票）退役后有无漏放恶例——预期由 fit unfit 门与量级门接棒；②fit 题官方金融科技题材判分（C265 候选）；③t.co 畸形 URL（链接后粘连括号注释）是提取 bug 形状，影响所有「推文带链接」票的一手证据可达性——数据链修复候选，未立项。
+
 ### C263 事件中心实体豁免——事件成立∧币名=事件最中心实体→类型轴放行（SAGE 案二轮，2026-11-03 用户裁定「这种情况无论实体是什么类型，都应该过的」）★
 
 - **案发**：C262 政策分线修完后 SAGE `0xc04f…7777` 唯一剩余拦截位= `unacceptable_type` 0.81（SAGE 被框定为「严肃机构类」实体）。汇报中我曾以「SAGE 无形象证据、纯政策叙事名」论证 C94 京小安先例不适用——**用户事实纠正「SAGE 有形象，图片里给了」**：三张配图第三张（400×400）是 SAGE 徽章——拟人化柴犬机器人角色（Doge 系柴犬脸+机械耳机+斗笠+机甲躯干，深蓝底金边，"SAGE EST. 2026" 环绕字），典型 meme 币吉祥物设计。且该形象对 Jev **结构性不可达**（两层：C72 vision 门 sufficient p=0.78 跳过图片分析→主调用无图；C243 直连只取首图 `images[0]`，形象在第三张——就算门放行也看不到）。随后用户裁定方向不在图片：「它的问题不在于图片，我认为实体锚需要豁免一种情况：就是事件没有问题，而代币名字又是事件最中心的实体，可以说事件就是围绕这个实体来的。这种情况无论实体是什么类型，都应该过的」。

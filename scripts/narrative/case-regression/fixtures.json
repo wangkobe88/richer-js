@@ -1744,15 +1744,19 @@
       "symbol": "SAGE",
       "addr": "0xc04fe8fe567652c693b8e04e5e9b831b3d127777",
       "expect": {
-        "rating": null,
+        "rating": [
+          "mid",
+          "high"
+        ],
         "reasonExcludes": [
           "中国政治",
-          "实体类型不被"
+          "实体类型不被",
+          "无据猜测"
         ]
       },
-      "note": "SAGE 案两轮：①政府 AI 战略/tokenization 职能线叙事被 china_politics 0.82 误拦（C192 主描述「政策」不分线）——J1.153 划界收窄；②重析后翻到 unacceptable_type 0.81（严肃机构类）——J1.154/C263 事件中心实体豁免（事件成立 sf+fit≥0.5 ∧ 币名=事件最中心实体 is_center≥0.5 → 类型轴放行）",
+      "note": "SAGE 案三轮：①政府 AI 战略/tokenization 职能线叙事被 china_politics 0.82 误拦（C192 主描述「政策」不分线）——J1.153 划界收窄；②重析后翻到 unacceptable_type 0.81（严肃机构类）——J1.154/C263 事件中心实体豁免（事件成立 sf+fit≥0.5 ∧ 币名=事件最中心实体 is_center≥0.5 → 类型轴放行）；③baseless 0.61 成 argmax 压分腿（推文拔高 HKMA 演讲口径，Jev 只有推文单方宣称可看）——J1.155/C264 桶退役（用户裁定「相信叙事陈述，不要试图验证：验证成本过高」）",
       "addedAt": "2026-11-02",
-      "observe": "断言只锁确定性面：J1.153 政策分线后不得再因中国政治主题拦截；J1.154/C263 豁免后不得再因实体类型拦截（reasonExcludes 两词）。rating 是掷骰面——豁免只解除类型轴一刀切，量级门/W 数学/entity_event_mismatch 照走决定终 rating，落点未预设；is_center 首答与豁免审计 nameEntityCenterExempt=true 为重点观察"
+      "observe": "expect.rating=mid/high 是用户标注（意图断言，2026-11-03 用户原话「这个票我的标注是 mid/high」）——J1.155 重析落点仍 low（事件分 55<60：sf 0.39+fit 0.16，unfit 0.32 分流），FAIL=剩余差距信号：fit 题对官方金融科技/代币化题材（生态位同美联储议息的行情叙事）判分待校准；三轮拦截腿全撤后 reasonExcludes 三词锁死不得回潮"
     }
   ]
 }

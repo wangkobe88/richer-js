@@ -79,10 +79,18 @@ async function main() {
     parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 142, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
   const impQ = q.bsc_meme_user_event_impact;
-  check('A2 impact 题四桶（trivial 已拆出：none/empty/baseless/ip_reuse——不删桶 argmax 仍会从原题拦，拆出即净）',
-    ['none', 'event_empty_content', 'event_baseless_speculation', 'token_ip_reuse'].every(k => impQ.criteria[k])
-    && Object.keys(impQ.criteria).length === 4
-    && !('event_trivial' in impQ.criteria), Object.keys(impQ.criteria));
+  check('A2 impact 题三桶（trivial J1.142 拆出 + baseless J1.155/C264 退役：none/empty/ip_reuse）',
+    ['none', 'event_empty_content', 'token_ip_reuse'].every(k => impQ.criteria[k])
+    && Object.keys(impQ.criteria).length === 3
+    && !('event_trivial' in impQ.criteria)
+    && !('event_baseless_speculation' in impQ.criteria), Object.keys(impQ.criteria));
+  // J1.155/C264 baseless 退役：SAGE 现场形状（baseless 0.61 argmax 压分腿）旧缓存行重放不再拦
+  const mBaseless = mapper.mapStandardAnswers(
+    baseAnswers('B', { choice: 'event_baseless_speculation', probabilities: { event_baseless_speculation: 0.61, none: 0.3 } }),
+    makeContext());
+  check('A2b baseless 退役反证（SAGE 现场形状 baseless 0.61 argmax 重放）→ 不再拦「无据猜测」（相信叙事陈述不试图验证；BLOCK_SCOPE 空域兜旧缓存行）',
+    !((stage2Of(mBaseless).blockReason || '').includes('无据猜测')) && mBaseless.llmResult.rating !== 'low',
+    { rating: mBaseless.llmResult.rating, blockReason: stage2Of(mBaseless).blockReason });
   const probeQ = q.bsc_meme_user_think_event_too_trivial_for_meme;
   const ins = probeQ?.instructions ?? '';
   check('A3 观察题在场（用户钦定键名 bsc_meme_user_think_event_too_trivial_for_meme）两桶 too_trivial/not_too_trivial',

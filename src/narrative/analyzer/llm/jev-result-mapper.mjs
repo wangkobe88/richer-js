@@ -427,7 +427,7 @@ const BLOCK_LABELS = {
  *   token_ip_reuse 合一，判据同拦 A 域）
  * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
  * - C/D 类：机构日常运营
- * - G 类：无据猜测
+ * - G 类：无据猜测（J1.155/C264 退役）
  * - 通用（各类均设）：空洞内容
  * J1.43（C109）退役两域（实证死桶/三重冗余，见 BLOCK_LABELS 注释）：
  * subject_unqualified（A/C/D/F/G）与 regional_event（E）。
@@ -463,7 +463,15 @@ const BLOCK_SCOPE = {
   token_circle_reachability: [],
   niche_subculture: [],
   token_ip_reuse: ['A'],
-  event_baseless_speculation: ['G'],
+  // J1.155（C264，2026-11-03 用户裁定「baseless 这个锚我建议去掉，我一直强调
+  // 一点，就是相信叙事陈述，不要试图验证：验证成本过高，如果每一个叙事都要
+  // 验证，那么叙事分析这个模块基本上效率就不可能达到要求」）：无据猜测桶
+  // 退役——题面删桶，转述失真的口径解读由 fit 题正常评；显式空域防旧缓存行/
+  // 旧 fixture 的 baseless choice 照拦（J1.43 先例：blockInScope 未知选项按
+  // 通用处理返回 true，只删键无效；空数组=任何类别都不拦）。案发=SAGE 重析
+  // baseless 0.61 成 argmax 压分腿（推文拔高 HKMA 演讲口径，Jev 只有推文单方
+  // 宣称可看）。恢复拦截须用户裁定
+  event_baseless_speculation: [],
   // J1.88（C150，2026-10-21 用户裁定「event_institution_routine 也没必要存在，
   // 都让 bsc_meme_user_event_fit 去判断」）：机构日常运营桶退役——题集删桶、argmax
   // platformOfficial∧institution 子句删除；显式空域防旧缓存行/旧 fixture 的
@@ -739,7 +747,8 @@ const WEB3_FIT_DAMP_THRESHOLD = 0.5;
  * 圈外臂同批删除=原圈外落 marginal 不拦的逃逸洞封死）。J1.101（C170）再吸收
  * negativeHardNews 拦截责任（用户裁定「直接让 web3 契合度去处理」；rcp 桶
  * J1.87 起已同交本层——第一层质量概率门至此全部退役，本门升级为事件质量/
- * 口味唯一否决入口，argmax 链只剩 empty_content/baseless/ip_reuse 三桶）。
+ * 口味唯一否决入口；J1.155/C264 baseless 退役后 argmax 链只剩
+ * empty_content/ip_reuse 两桶）。
  */
 function web3UnfitBlock(answers) {
   const p = q(answers, 'bsc_meme_user_event_fit', 'web3_user_event_fit')?.probabilities?.unfit ?? 0;
