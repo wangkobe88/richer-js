@@ -104,6 +104,29 @@ async function main() {
     && fitQ.criteria.china_politics.includes('姆巴佩·毛泽东')
     && fitQ.criteria.china_politics.includes('反击性 meme 本质非政治敏感'),
     fitQ.criteria.china_politics.includes('C248'));
+  // C262（2026-11-03 SAGE 案 0xc04f…7777 用户裁定「这个不是政治敏感内容」）：政府机构
+  // 经济/金融/科技职能性动作与政策不选本项（财经科技新闻线）——题面两处边界锚。
+  // 案发反证：主描述「政策」不分线，HKMA 演讲+「中国政府 AI agent 主导 tokenization」
+  // 被判本桶 0.82 误拦
+  check('A8 instructions 含 C262 职能线边界锚（政府职能性动作不选本项/职能线 vs 政治线/案发 SAGE）',
+    fitQ.instructions.includes('C262，2026-11-03 用户裁定，SAGE 案')
+    && fitQ.instructions.includes('政府机构的经济/金融/科技/贸易等职能性动作与政策不选本项')
+    && fitQ.instructions.includes('划界=**职能线 vs 政治线**')
+    && fitQ.instructions.includes('按四档正常评估契合度')
+    && fitQ.instructions.includes('0xc04f…7777'),
+    fitQ.instructions.includes('C262'));
+  check('A9 criteria.china_politics 桶含 C262 边界（SAGE 案不选/学习强国口径不丢——划界与反例锚句都在）',
+    fitQ.criteria.china_politics.includes('边界（C262）')
+    && fitQ.criteria.china_politics.includes('SAGE 案')
+    && fitQ.criteria.china_politics.includes('财经科技新闻线')
+    && fitQ.criteria.china_politics.includes('涉权力/人事/意识形态/主权/政治制度/领导人/政治事件/政治宣传符号的才选本项'),
+    fitQ.criteria.china_politics.includes('C262'));
+  // C262 主描述收窄反证：instructions 不再把无差别「政策」列进本项（旧措辞已改，
+  // 桶语义由 C262 边界分线）——防回退到不分线措辞
+  check('A10 主描述政策分线（政治性政策+指回 C262 边界；无差别「事件/政策/会议」措辞已撤）',
+    fitQ.instructions.includes('政治性政策（政策分线见 C262 边界）')
+    && !fitQ.instructions.includes('政治事件/政策/会议'),
+    fitQ.instructions.includes('C262'));
 
   console.log('\n── B. mapStandardAnswers 集成（案发形状）──');
   // B1 案发形状：fit 四档 argmax 若仍是 strong_fit（旧题集答案），新桶概率在场 → 不拦

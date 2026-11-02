@@ -54,6 +54,17 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C262 china_politics 桶政策分线——政府经济/金融/科技职能动作不选本项（SAGE 案，2026-11-03 用户裁定「这个不是政治敏感内容，调整一下吧」）★
+
+- **案发**：SAGE `0xc04fe8fe567652c693b8e04e5e9b831b3d127777` 叙事不过。推文（@PetaIS0L，3601 粉）称「中国政府宣布名为 SAGE 的 AI agent，掌管政府财政并主导中国资产代币化」，配 HKMA（香港金管局）演讲页链接——`bsc_meme_user_event_fit` 第 5 桶 china_politics **0.82** argmax → C192 中国政治主题否决（确定性拦无豁免链）拦 low。同批共振腿：`bsc_meme_user_name_entity_acceptance` unacceptable_type 0.82（SAGE 被框定为政府机构实体）+ `bsc_meme_user_event_impact` event_baseless_speculation 0.60（推文把官方演讲吹成「AI 掌管政府财政」）+ phrase not_acceptable 0.87——时效（within_7d 0.93）/分类（B 0.51）/名字匹配（exact_match 0.98）全过，纯粹题材被框进政治桶判死。
+- **病灶本质**：C192 主描述「中国国内政治事件/**政策**/会议」的「政策」**不分线**——「政策」字面同时盖住政治线（权力/人事/意识形态/主权）与职能线（经济/金融/科技），Jev 把「政府 AI 战略+tokenization」忠实归入「政策」判进本桶是**按题面忠实执行**而非误读。C192b 反例只覆盖萌宠/民生/产品/科技成果（明显非政治的软内容），盖不住「国家级金融科技政策动作」这种字面带「政府/国家」的硬内容。用户裁定：这类不是政治敏感内容。
+- **裁定**：政府机构的经济/金融/科技/贸易等**职能性动作与政策不选本项**——AI 战略、资产代币化/RWA、央行数字货币、金融科技与市场监管政策、经济数据与经济刺激等属**财经科技新闻线**，BSC 用户当行情/叙事消费（生态位同美联储议息、美国比特币储备），按四档正常评估契合度。
+- **处置（J1.153）**：①fit 题 instructions 主描述「政治事件/政策/会议」收窄为「政治事件/政治会议与人事/政治性政策（政策分线见 C262 边界）」；②新增 C262 边界句：划界=**职能线 vs 政治线**（涉权力斗争/人事任免/意识形态/主权与领土/政治制度/领导人/政治事件/政治宣传符号的才选本项，学习强国官方 IP 征名仍选本项），含 SAGE 案发反证与「夸大拔高解读不改变本体定性（夸大与否由第一层 impact 题评）」注；③criteria.china_politics 桶描述同步分线；④版本 bump J1.152→J1.153+头部 changelog。
+- **不动面**：C192 拦截面（学习强国/领导人/政治事件/港澳台议题/不看玩味空间）全部保留；C192b 官媒非政治内容边界不动；C248 反击辱华边界不动。**baseless/unacceptable_type 两共振腿不在本次裁定范围**——它们是 Jev 对「叙事夸大」与「实体类型」的独立判断，事件框定从政治桶改回财经科技线后概率是否回落由重析对拍观察，不预设。
+- **单测**：`_test_china_politics_gate.cjs` 18→21/0——新增 A8（instructions C262 职能线边界锚句）/A9（criteria 桶 C262 边界+「涉权力…才选本项」划界锚）/A10（主描述政策分线反证：无差别「政治事件/政策/会议」措辞已撤）。**六件版本断言同跟 J1.153**（cashtag_w_route/bluechip_dedup_gate/angle_timing_override/jev_question_consolidation/name_entity_acceptance/web3_fit，C261 同款惯例），全部复跑绿。
+- **生效链**：题集改动双进程持有（实验进程 C84 触发直调+叙事 worker）——须重启生效；与 C259/C260/C261 同攒批随下次 v67 重启带入。
+- **观察点**：①SAGE `0xc04f…7777` 定向重析对拍（预期 china_politics 腿归零回落四档；baseless 0.60/unacceptable_type 0.82 是否随事件框定变化=重点观察，若仍拦属叙事夸大判断非政治误拦）；②回归票 C262 已收录；③「政策」类票的 china_politics 分布（职能线票是否还有高概率误拦残余）；④全量回归攒批等用户通知。
+
 ### C261 J1.17 cashtag 硬改道退役——判据移入 event_category 题面由 Jev 判（RAM 自喊单案，2026-11-02 用户裁定「修复吧，我觉得去掉这个硬规则，然后在分类规则里说明」）★
 
 - **案发**：RAM `0xec74ec6b297fbe318ff09da24023319a36737777` 叙事不过。诊断=**宣告推自己的喊单句**（发币者推销自己刚发的币，形如「先拿一点 $RAM」）里 `$RAM` 与 symbol 全等 → J1.17（C28 iNu 案）`detectCorpusCashtag` 纯代码命中 → mapper 强制 `category='W'` → W 数学 appeal 15<32 拦 low。**E 事件轴被整体绕过**（事件 fit 0.96 strong_fit、S 级量级全在档但 W 路径不看）——同类无 cashtag 的喊单宣告推走 E/A/D 正常评估，带 cashtag 的同型票被机械改道，纯形状差异决定生死。
