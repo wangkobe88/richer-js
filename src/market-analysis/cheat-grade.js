@@ -4,11 +4,30 @@
  * 输入=buildObservation 观测产物（Jev 档位 + 代码数值锚），输出交易三级
  * cheat / unhealthy / healthy。**D3.5 判定层停产的修订边界（2026-11-01 用户裁定，
  * 案号见台账 G1 段）**：判断仍一律 Jev——本题集只消费 Jev 档位（现象/EXT/活跃度/
- * 捆绑）与代码数值锚（sbHold/t1流），**不做任何「档位→现象强度」的新判断**；本
+ * 捆绑）与少量代码数值联立键（burst 波三键/纯卖占比/跟单集中度锚——E/D/L 通道
+ * 联立臂，G9-G11 纯数值门全退役），**不做任何「档位→现象强度」的新判断**；本
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G10=G9−sbHold/eqHold 门侧消费−B 通道，2026-11-02 四票复盘续裁定）：
+ * 规则（G11=G10−G 通道−state 簇锚渲染，2026-11-02 CD133 用户裁定）：
+ * 用户原话「那肯定不行的呀，GMGN的散户是有默认交易额的，大多数都是0.1/0.05，
+ * 大户则是 0.2/0.25/0.3 之类的，这要是能跨区块，误伤就太大了！同块同额度误伤
+ * 可能小一些，可以作为参考。如果这种死指标不好用，还是把原始数据输入给Jev，
+ * 通过现象描述，去综合判断与考量里面是否有协同行为吧」——否证 sb∪eq 并集
+ * 圈定：①eq 臂跨块等额带圈的就是 GMGN 前端默认档位本身（MAI 全窗 0.0986~
+ * 0.1005 带 62 钱包 77 笔跨 80 分钟匀速流入=0.1 档整档跟风散户，CD130 同源）；
+ * ②sb 臂同块不看金额（RAM block 131207746 三笔 0.2500/0.1037/0.1086 金额各异
+ * 的独立买家撞块即入簇），RAM 首析 bundleBuyPct 87.1 的分子 82% 来自 sb 臂
+ * （2.181/2.655）——门侧唯一的簇锚消费（G 通道豁免前提 bundleBuyPct<80）骨架
+ * 塌，**G 通道整体退役**；「同块∧同额」交集不再造死指标门（用户「作为参考」
+ * =题面素材，D3.34 equal_amount_split/same_block_buy_wave 加 GMGN 前端默认档
+ * 位反锚与同块同额双协同判据），协同现象判断全交 Jev 题档（A 主判 strong 才
+ * 拉黑）。state [PRECOMPUTED] 三行死指标（同块簇持仓占比/近等额簇持仓占比/
+ * 簇买入占比）与持仓分布段「同块簇∪等额簇成员正净合计」句同批撤除（同一圈
+ * 定，CD133 问二用户选定三行全撤——Jev 从 [TICKS]/[WALLETS] 原始逐笔归纳）；
+ * digest 存档与 FA 34 键投影照常计算（研究侧自由消费）；bd 档位
+ * （bundled_trade_dominance）照判照投影门侧零消费。五通道=A/D/E/J/L。
+ * 此前 G10=G9−sbHold/eqHold 门侧消费−B 通道，2026-11-02 四票复盘续裁定：
  * 用户原话「sbHold 让我感觉不适，这个指标的问题在于，如果代币活跃度极高，
  * 是不是直接它就被拉的很高，基于它进行判断不合理。eqHold 有一定的合理之处，
  * 可是如果能通过语言描述现象，就不要使用这种死指标可能会更好」——撤掉本
@@ -144,14 +163,10 @@
  *        豁免不成立（长期停滞后只涌入一点小流量，头注①），留痕
  *        E_low_activity_weak_burst；三键任一 null 维持豁免）
  *     F. （G9 退役：sbHold≥50——纯数值门不经 Jev，头注 G9 段）
- *     G. bd（bundled_trade_dominance）=high ∧ ¬组织买入占比<80（G2 新增，
- *        2026-11-01 用户裁定「捆绑钱包主导 是重要的负面臂」——128 票影响面
- *        65 票 bd=high：人工 cheat 39/unhealthy 17/healthy 7，直落 cheat 误伤
- *        healthy 7 票+17 票拉黑级偏重，用户选定 unhealthy 档=拒买可重判不清仓；
- *        G1 期「bd high 单独不定档（CD98/CD116/CD127 反证）」旧裁定同步废止；
- *        G6 组织买入 ≥80 死盘形状豁免不成立，见头注③；G5 双锚簇残余豁免
- *        sbHold<20∧eqHold<50 随 G10 退役——豁免只剩 bundleBuyPct<80 承接
- *        单腿，头注 G10 段）
+ *     （G11 退役：G. bd=high ∧ ¬簇买入占比<80——豁免前提 bundleBuyPct 的
+ *      sb∪eq 并集圈定把 GMGN 前端默认档位散户整档吞入（用户裁定 CD133，
+ *      7746 例证：0.2500/0.1037/0.1086 同块各异金额入 sb 臂），死指标门退役；
+ *      协同现象由 A 题档承载（D3.34 题面反锚），头注 G11 段；git 历史留档）
  *     J. holdings_balance=strong（G7 新增，前几大持仓组合垄断——第一大+紧邻
  *        第二大+捆绑簇凑成垄断总供应量一大截（CD122 形状）或单一独大档位
  *        补充；主口径=占总供应量%；独立通道不进 A 清单=拒买级非拉黑级；
@@ -178,7 +193,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G10';
+const CHEAT_GRADE_RULES_VERSION = 'G11';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -325,14 +340,13 @@ function gradeObservation(observation, extras = {}) {
   const dom = typeof ex.famousLevel === 'string' ? ex.famousLevel : null;
   const act = obs.activityLevel && typeof obs.activityLevel.bucket === 'string'
     ? obs.activityLevel.bucket : null;
-  const bd = obs.bundledDominance && typeof obs.bundledDominance.bucket === 'string'
-    ? obs.bundledDominance.bucket : null;
   const anchors = obs.anchors || {};
   // （G10 退役 sbHold/eqHold 门侧消费——sbHold 是活跃度函数非组织性度量，
   //  现象由题面语言承载，头注 G10 段；两锚照常产出供观察/条件串）
+  // （G11 退役 bd/bundleBuy 门侧消费——sb∪eq 圈定吞 GMGN 前端默认档散户
+  //  （CD133），G 通道整体退役，头注 G11 段；bd 档位与锚照常产出供投影）
   const folTop3 = _pct(ex.famousFollowerTop3Pct);
   const famousBuyPct = _pct(ex.famousGroupBuyPct);
-  const bundleBuy = _pct(anchors.bundleBuyPct);
   // G8（批次六）：E 通道弱 burst 三键 + K/L 通道零买纯卖占比（头注①②③）
   const burstGap = _pct(anchors.burstMaxGapSec);
   const waveBuy = _pct(anchors.burstWaveBuyBnb);
@@ -401,17 +415,10 @@ function gradeObservation(observation, extras = {}) {
     reasons.push({ level: 'unhealthy', code: sbw === 'burst' ? 'E_low_activity_weak_burst' : 'E_low_activity' });
   }
 
-  // G：捆绑钱包主导高档（G2，重要负面臂——用户裁定 unhealthy 档。G5 曾落双锚
-  // 簇残余豁免 sbHold<20∧eqHold<50（批次四「持仓已卖出对盘面无影响可豁免」），
-  // G10 整腿退役：sbHold 是活跃度函数（高活跃盘同块簇圈定天然吞散户）、eqHold
-  // 现象由题面语言承载，死指标退位（头注 G10 段）——豁免只剩 G6 承接前提：
-  // bundleBuyPct<80（sb∪eq 簇买入占锚窗总买不足八成=正常用户承接至少两成）才
-  // 豁免；bundleBuyPct ≥80（组织独角戏死盘形状）或 null（旧档断代/无合格簇
-  // 成员）→ 不豁免 fail-closed。128 票 G 豁免形状 bundleBuy 全 <44=现状零翻转，
-  // 语义保留防「簇买入占九成」对倒洗筹死盘形状
-  if (bd === 'high' && !(bundleBuy !== null && bundleBuy < 80)) {
-    reasons.push({ level: 'unhealthy', code: 'G_bundled_dominance' });
-  }
+  // G：（G11 整体退役，2026-11-02 CD133 用户裁定——sb∪eq 并集圈定吞 GMGN 前端
+  //  默认档散户「误伤就太大了」，豁免前提 bundleBuyPct 骨架塌；协同现象由 A 题
+  //  档承载（equal_amount_split/same_block_buy_wave，D3.34 题面加前端默认档反锚
+  //  与同块同额双协同判据），头注 G11 段；git 历史留档）
 
   // J：前几大持仓组合垄断（G7，2026-11-02 批次五 CD122 立项——用户裁定「给 Jev
   // 增加 持仓均衡 门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一

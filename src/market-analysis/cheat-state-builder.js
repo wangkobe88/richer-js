@@ -61,7 +61,7 @@ function buildCheatState(snapshot) {
     const lines = [];
     lines.push(`address=${meta.address || '?'} symbol=${meta.symbol || '?'} name=${meta.name || '?'} platform=${meta.platform || '?'}`);
     if (meta.quoteToken) {
-      lines.push(`quote_token=${meta.quoteToken}（非 BNB 计价盘：下列 bnb 金额已在写入时换算为 BNB 域，读侧照抄；换算失败的链上交易整行不入表=本窗口可能缺行；跨汇率刷新窗的等额簇金额仅近似）`);
+      lines.push(`quote_token=${meta.quoteToken}（非 BNB 计价盘：下列 bnb 金额已在写入时换算为 BNB 域，读侧照抄；换算失败的链上交易整行不入表=本窗口可能缺行）`);
     }
     lines.push(`created=${meta.createdAt || '?'} creator=${meta.creatorAddress ? shortWallet(meta.creatorAddress) : 'unknown'}` +
       // D3.9：创建交易哈希前 8 位（与 [TICKS] tx= 同域——创建+首买同笔可对上；缺失不渲染）
@@ -86,15 +86,13 @@ function buildCheatState(snapshot) {
     } else {
       lines.push('买入 top1 钱包占比: 无可归因买入');
     }
-    // D3.1 买侧簇结构占比锚（代码量化——Jev 眼估流量份额不分离，D3.0 实测）；
-    // routerPct 行已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
-    lines.push(`同块簇持仓占比: ${d.sameBlockHoldPct === null ? '无合格簇' : d.sameBlockHoldPct.toFixed(1) + '%'}（「≥3 笔买同块」全部簇的成员钱包去重并集；分子=成员正净持仓合计，分母=全场正净持仓合计）`);
-    lines.push(`近等额簇持仓占比: ${d.equalBandHoldPct === null ? '无合格簇' : d.equalBandHoldPct.toFixed(1) + '%'}（±2% 金额带、带内 ≥3 个不同钱包；精确等额自然落入同带；同口径占比）`);
-    // G6 组织买入占比锚（2026-11-02 用户补充裁定：豁免前提「盘面正常用户流量涌入
-    // 依然要比较明显」——簇成员买入占锚窗总买，≥80=盘面流量基本是组织方独角戏）
-    if (d.bundleBuyPct !== null && d.bundleBuyPct !== undefined) {
-      lines.push(`簇买入占比: ${d.bundleBuyPct.toFixed(1)}%（上述簇成员钱包的买入合计占窗口全部买入；承接视角：其余为正常用户买入）`);
-    }
+    // D3.1 买侧簇结构占比锚三行已撤（2026-11-02 CD133 用户裁定：sb∪eq 并集圈定
+    // 吞 GMGN 前端默认档散户「误伤就太大了……还是把原始数据输入给Jev，通过现象
+    // 描述，去综合判断与考量里面是否有协同行为」——同块簇持仓占比/近等额簇持仓
+    // 占比/簇买入占比不再渲染，同块/等额结构指纹由 Jev 从 [TICKS]/[WALLETS] 原始
+    // 逐笔归纳，判读教学在 equal_amount_split / same_block_buy_wave 题面单一载体
+    // （D3.34）；derived 照算供 digest 存档/FA 投影/runner 观测）；routerPct 行
+    // 已删（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）
     // D3.28 同块对敲锚（CD27 用户裁定「对倒交易非常严重」）：同块一卖一买 ±2% 带
     // 内配对=左手换右手换手的直接度量；无配对不渲染行（缺席语义）
     if (d.washPairCount !== null && d.washPairCount !== undefined) {
@@ -132,10 +130,8 @@ function buildCheatState(snapshot) {
       if (d.top1Top2HoldSupplyPct !== null) {
         distTail += `；前两大合计占总供应量 ${d.top1Top2HoldSupplyPct.toFixed(1)}%`;
         if (d.top1Top2FirstBuyGapSec !== null) distTail += `（首买相差 ${Math.round(d.top1Top2FirstBuyGapSec)} 秒）`;
-        if (d.clusterHoldSupplyPct !== null) {
-          distTail += `；同块簇∪等额簇成员正净合计占 ${d.clusterHoldSupplyPct.toFixed(1)}%`;
-          if (d.t1PlusClusterSupplyPct !== null) distTail += `，第1大钱包与簇并集合计占 ${d.t1PlusClusterSupplyPct.toFixed(1)}%`;
-        }
+        // 簇并集两锚句已撤（CD133 同裁定——同块簇∪等额簇成员正净合计/第1大与簇
+        // 并集占比的 sb∪eq 圈定不再喂 Jev；derived 照算供 digest/FA/runner）
       } else {
         distTail += '；总供应量未知，前几大组合占比口径缺失';
       }
@@ -226,8 +222,8 @@ function buildCheatState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：谁在主导资金流、节奏是否协同。',
     '- 只描述现象有无与程度（题面教怎么算的指标自己从 [TICKS]/[WALLETS] 算），不下盘面性质结论。',
-    '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。同块聚集/等额或近等额带等结构指纹由你自行从 [TICKS] 与 [WALLETS] 归纳（[PRECOMPUTED] 的簇占比锚已量化买侧结构，可作程度参照）。',
-    '- 同块带/等额带在健康票上也常见（组织化班底跨票播种、整数额买单自然聚带）——「占比多少」比「有没有」重要，程度题按占比与规整度判。',
+    '- 分仓伪装：协同资金常拆成许多小钱包（刻意绕集中度门）——看节奏相关性（同块/等额/同步买卖的时间耦合），不要因钱包数多而判健康。同块聚集/等额或近等额带等结构指纹由你自行从 [TICKS] 与 [WALLETS] 原始逐笔归纳（判读要点见 equal_amount_split / same_block_buy_wave 题面——GMGN 前端默认档位与同块撞块是常态，组织性看时间集中度与同块∧同额双协同，2026-11-02 CD133）。',
+    '- 同块带/等额带在健康票上也常见（组织化班底跨票播种、前端默认档自然聚带、独立买家同块撞块）——「有没有」不重要，按题面组织性判据判程度。',
     '- 强庄≠作弊：单一/少数钱包真实大额买入推升、未组织分仓同步砸盘，与协同分仓性质不同；协同买簇随后同块集中卖回波=协同卖回的最强形态。',
     // 停滞突发波的教学已随 D3.3 题面强化整体迁入题面（llm/cheat-questions.mjs
     // stall_burst_wave——用户裁定「应该强化题面文件」「指标计算删除了就必须告诉 Jev

@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /**
- * 作弊盘三级分级规则单测（G10）——零 DB 零网络纯函数
+ * 作弊盘三级分级规则单测（G11）——零 DB 零网络纯函数
  *
- * 覆盖：六通道逐条（A_strong/A 降级/D/E/G/J/L）+ G9 五纯数值门退役反证
+ * 覆盖：五通道逐条（A_strong/A 降级/D/E/J/L）+ G9 五纯数值门退役反证
  * （C sbHold≥85/F sbHold≥50/H washPair 数值/I t1 供≥40/K noBuySell≥40——
  * 判罚不经 Jev 档位，2026-11-02 用户裁定退役，现象改由题档承载）+
  * G10 sbHold/eqHold 门侧消费退役反证与 B 通道整体退役（用户裁定「sbHold
  * 让我感觉不适……活跃度极高直接被拉很高，基于它判断不合理。eqHold 有一定
- * 合理之处，可是如果能通过语言描述现象，就不要使用这种死指标」——B 联立/
- * A 降级豁免 sbHold 腿/G 豁免双锚腿全撤，G 豁免只剩组织买入占比单腿；B 骨架
- * 塌+零正命中随裁定退役）/ 豁免边界（burst、弱 burst 三键、组织买入占比 80
- * 线）/ cr-sbw 辅助判定不进主判 / 容缺 fail-open（档位 null 不计、锚 null
- * 不触发、sbw null 按 non-burst、washPair 键缺席旧档重放零变化）/ 优先级
- * （cheat>unhealthy>healthy 多通道叠加）/ 42 票黄金集对拍 34/42（八票已知
- * 偏差锁定——与 G9 同八票：G10 相对 G9 净变化=B 退役回正 CD98/CD124 两票
- * 健康盘错杀；**改规则须连此锁定一起重裁定**）。失败 exit 非零。
+ * 合理之处，可是如果能通过语言描述现象，就不要使用这种死指标」）+
+ * G11 G 通道整体退役（2026-11-02 CD133 用户裁定「GMGN的散户是有默认交易额
+ * 的，大多数都是0.1/0.05，大户则是 0.2/0.25/0.3 之类的，这要是能跨区块，
+ * 误伤就太大了！同块同额度误伤可能小一些，可以作为参考。如果这种死指标
+ * 不好用，还是把原始数据输入给Jev，通过现象描述，去综合判断与考量里面有
+ * 是否有协同行为吧」——豁免前提 bundleBuyPct 的 sb∪eq 并集圈定把前端默认
+ * 档散户整档吞入（7746 例 0.2500/0.1037/0.1086 同块各异金额入 sb 臂），bd
+ * 档位照判照投影门侧零消费，协同现象由 A 题档承载——D3.34 题面加前端默认
+ * 档反锚）/ 豁免边界（burst、弱 burst 三键）/ cr-sbw 辅助判定不进主判 /
+ * 容缺 fail-open（档位 null 不计、锚 null 不触发、sbw null 按 non-burst、
+ * washPair 键缺席旧档重放零变化）/ 优先级（cheat>unhealthy>healthy 多通道
+ * 叠加）/ 42 票黄金集对拍（**改规则须连此锁定一起重裁定**）。失败 exit 非零。
  */
 
 const { gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
@@ -53,7 +57,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G10', '版本常量 G10（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G11', '版本常量 G11（改规则必须 bump+同步台账+跑黄金集）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道，实际 ${MAIN_IDS.join(',')}）`);
@@ -381,100 +385,66 @@ function main() {
       'sbHold=50 恰界档位全 none → healthy（F 已退役；G10 起 B 联立/豁免臂消费也全撤——sbHold 是活跃度函数非组织性度量）');
   }
 
-  console.log('G. bd（捆绑钱包主导）=high → unhealthy（G2 重要负面臂，2026-11-01 用户裁定）');
+  console.log('G.（G11 退役反证）bd=high 不再产档——G 通道整体退役（2026-11-02 CD133 用户裁定「GMGN的散户是有默认交易额的，大多数都是0.1/0.05，大户则是 0.2/0.25/0.3 之类的，这要是能跨区块，误伤就太大了！同块同额度误伤可能小一些，可以作为参考。如果这种死指标不好用，还是把原始数据输入给Jev，通过现象描述，去综合判断与考量里面是否有协同行为吧」——豁免前提 bundleBuyPct 的 sb∪eq 并集圈定吞前端默认档散户，骨架塌；协同现象由 A 题档承载（D3.34 题面反锚）；bd 档位照判照投影门侧零消费）');
   {
     const obs = baseObs();
     obs.bundledDominance.bucket = 'high';
     const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
-    ok(r.grade === 'unhealthy' && r.reasons.some((x) => x.code === 'G_bundled_dominance'),
-      'bd=high 单独 → unhealthy（拒买可重判不清仓——用户选定 B 档）');
-    // mid/low 不触发（baseObs 默认 low 全表 healthy 前提）
-    obs.bundledDominance.bucket = 'mid';
-    ok(grade(obs, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'bd=mid → 不触发（负面臂只挂最高档）');
-    // 与 cheat 通道叠加：grade 取最重、G 留痕
-    const obs2 = baseObs();
-    obs2.bundledDominance.bucket = 'high';
-    withExt(obs2, 'amount_tiering', 'strong');
-    const r2 = grade(obs2, { famousLevel: null, anchorSellCount: 10 });
-    ok(r2.grade === 'cheat' && r2.reasons.some((x) => x.code === 'A_strong:amount_tiering')
-      && r2.reasons.some((x) => x.code === 'G_bundled_dominance'),
-      'bd=high + A_strong 叠加 → cheat 取最重、G 留痕（多通道叠加语义）');
-    // bd=high + sbHold 55：F 已退役（G9），单 unhealthy 留痕（sbHold 数值不再独立产档）
-    const obs3 = baseObs();
-    obs3.bundledDominance.bucket = 'high';
-    obs3.anchors.sameBlockHoldPct = 55;
-    const r3 = grade(obs3, { famousLevel: null, anchorSellCount: 10 });
-    ok(r3.grade === 'unhealthy' && r3.reasons.length === 1 && r3.reasons[0].code === 'G_bundled_dominance',
-      'bd=high + sbHold=55 → 仅 G 留痕（F 已退役 G9：sbHold 不豁免 G 但不独立产档）');
-    // 容缺：bundledDominance null / 桶缺失 → 不触发（fail-open 放行方向）
-    const obs4 = baseObs();
-    obs4.bundledDominance = null;
-    ok(grade(obs4, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'bundledDominance null（旧档断代）→ G 不触发');
-    const obs5 = baseObs();
-    obs5.bundledDominance = {};
-    ok(grade(obs5, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'bucket 缺失 → G 不触发');
-    // G10 豁免=组织买入占比单腿（G5 双锚簇残余豁免 sbHold<20∧eqHold<50 已随
-    // sbHold/eqHold 门侧退役撤除——用户裁定「如果能通过语言描述现象，就不要
-    // 使用这种死指标」，簇撤退现象交题面判读）：bundleBuyPct<80（sb∪eq 簇买入
-    // 占锚窗总买不足八成=正常用户承接至少两成）才豁免；≥80 死盘形状或 null
-    // （旧档断代/无合格簇成员）→ 不豁免 fail-closed
-    const obs6 = baseObs();
-    obs6.bundledDominance.bucket = 'high';
-    obs6.anchors.sameBlockHoldPct = 19.9;
-    obs6.anchors.bundleBuyPct = 30;
-    ok(grade(obs6, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'G10: bd=high ∧ bundleBuy=30（承接充足）→ 豁免（sbHold/eqHold 不再进门）');
-    // G10 退役反证：sbHold 任意高值不阻止豁免（活跃度函数不作判据）
+    ok(r.grade === 'healthy' && r.reasons.length === 0,
+      'G11 反证: bd=high 单独 → healthy 零留痕（通道退役——簇圈定死指标门全线退出）');
+    // 三锚任意组合不再有门（G10 期豁免/触发二分整体消失）
     const obs6b = baseObs();
     obs6b.bundledDominance.bucket = 'high';
     obs6b.anchors.sameBlockHoldPct = 90;
     obs6b.anchors.equalBandHoldPct = 85;
     obs6b.anchors.bundleBuyPct = 30;
     ok(grade(obs6b, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'G10 退役反证: sbHold=90 ∧ eqHold=85 ∧ bundleBuy=30 → 照样豁免 healthy（双锚门侧消费已全撤）');
-    const obs7 = baseObs();
-    obs7.bundledDominance.bucket = 'high';
-    ok(grade(obs7, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G10: bd=high ∧ bundleBuy 缺席=null → 不豁免维持触发（承接证据缺席不给豁免，fail-closed）');
-    const obs8 = baseObs();
-    obs8.bundledDominance.bucket = 'high';
-    obs8.anchors.sameBlockHoldPct = null;
-    ok(grade(obs8, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G10: bd=high ∧ sbHold=null（无合格簇锚）→ 不豁免维持触发（bundleBuy 同缺席）');
-    // CD121/CD128 形状重放：G10 下豁免只看 bundleBuy（存档无键=null 不豁免）
+      'G11 反证: bd=high ∧ sbHold=90 ∧ eqHold=85 ∧ bundleBuy=30 → healthy（三锚门侧消费全无）');
+    const obs15 = baseObs();
+    obs15.bundledDominance.bucket = 'high';
+    obs15.anchors.bundleBuyPct = 80;
+    ok(grade(obs15, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G11 反证: bd=high ∧ bundleBuy=80（G10 期死盘形状触发点）→ healthy（承接死盘形状不再由死指标拦，交题档判读）');
+    const obs16 = baseObs();
+    obs16.bundledDominance.bucket = 'high';
+    obs16.anchors.bundleBuyPct = null;
+    ok(grade(obs16, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G11 反证: bd=high ∧ bundleBuy=null（G10 期 fail-closed 触发点）→ healthy');
+    // CD121/CD128 形状重放：豁免逻辑整个消失（G_bd 拒买级偏差票随通道退役回正）
     const obs10 = baseObs();
     obs10.bundledDominance.bucket = 'high';
     obs10.anchors.sameBlockHoldPct = 11.4;
     obs10.anchors.equalBandHoldPct = 54.0;
-    ok(grade(obs10, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G10: CD121 形状（bundleBuy 无键）→ 不豁免触发（承接锚缺席 fail-closed；sbHold 11.4/eqHold 54 不再进门）');
+    ok(grade(obs10, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G11 反证: CD121 形状（bundleBuy 无键，G10 期触发点）→ healthy 回正');
     const obs11 = baseObs();
     obs11.bundledDominance.bucket = 'high';
     obs11.anchors.sameBlockHoldPct = 12.6;
     obs11.anchors.equalBandHoldPct = 29.2;
     obs11.anchors.bundleBuyPct = 30;
     ok(grade(obs11, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'G10: CD128 形状 ∧ bundleBuy=30 → 豁免（承接充足）');
-    // G6 豁免前提（用户补充裁定，D 段同线）：簇买入占锚窗总买 ≥80（正常承接
-    // 不足两成）=死盘形状豁免不成立；恰界 80 严格
-    const obs14 = baseObs();
-    obs14.bundledDominance.bucket = 'high';
-    obs14.anchors.bundleBuyPct = 79.9;
-    ok(grade(obs14, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
-      'G6: bundleBuy=79.9%（承接刚过两成）→ 豁免维持');
-    const obs15 = baseObs();
-    obs15.bundledDominance.bucket = 'high';
-    obs15.anchors.bundleBuyPct = 80;
-    ok(grade(obs15, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G6: bundleBuy=80 恰界 → 豁免不成立触发（买入独大死盘形状）');
-    const obs16 = baseObs();
-    obs16.bundledDominance.bucket = 'high';
-    obs16.anchors.bundleBuyPct = null;
-    ok(grade(obs16, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G6: 簇买锚 null（旧档断代）→ 不豁免维持触发（承接证据缺席不给豁免）');
+      'G11 反证: CD128 形状（G10 期豁免点）→ healthy（豁免/触发二分整体消失）');
+    // mid 档位不产档（退役前后一致）
+    const obsMid = baseObs();
+    obsMid.bundledDominance.bucket = 'mid';
+    ok(grade(obsMid, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'bd=mid → healthy（退役前后一致）');
+    // 与 cheat 通道叠加：bd 不再叠加留痕
+    const obs2 = baseObs();
+    obs2.bundledDominance.bucket = 'high';
+    withExt(obs2, 'amount_tiering', 'strong');
+    const r2 = grade(obs2, { famousLevel: null, anchorSellCount: 10 });
+    ok(r2.grade === 'cheat' && r2.reasons.every((x) => x.code !== 'G_bundled_dominance'),
+      'G11 反证: bd=high + A_strong → cheat 取最重但零 G 留痕（通道不存在）');
+    // 容缺：null/bucket 缺失 → healthy（语义平凡成立）
+    const obs4 = baseObs();
+    obs4.bundledDominance = null;
+    ok(grade(obs4, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'bundledDominance null（旧档断代）→ healthy');
+    const obs5 = baseObs();
+    obs5.bundledDominance = {};
+    ok(grade(obs5, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'bucket 缺失 → healthy');
   }
 
   console.log('优先级与容缺');
@@ -518,10 +488,10 @@ function main() {
       if (r.grade === c.expect) agree++;
       else diffs.push(`${c.caseId}:${c.expect}>${r.grade}`);
     }
-    ok(agree === 34, `对拍 34/42 一致（实际 ${agree}/42——**G10=sbHold/eqHold 门侧消费全撤+B 通道退役**（2026-11-02 用户裁定「sbHold 让我感觉不适……活跃度极高直接被拉很高，基于它判断不合理。eqHold 有一定的合理之处，可是如果能通过语言描述现象，就不要使用这种死指标」）：与 G9 同 34/42——sbHold 联立撤后 B 裸 moderate 共振错杀 CD98/CD124 两票人工 healthy，B 零正命中随裁定整体退役回正；锚照常产出于 state/FA 只不作门；改规则破坏此数须重新用户裁定）`);
-    ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD97:cheat>unhealthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>unhealthy,CD121:cheat>unhealthy',
-      `八票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
-CD119/CD121=G_bd 拒买级偏差（G10 豁免只看组织买入占比；拉黑级证据交 A strong 档）/CD97=G9 已知代价（C_sbHold90 独载票随纯数值门退役降 unhealthy——sbHold 89.9 但 Jev 档位无 strong，unhealthy 拒买仍在）/
+    ok(agree === 32, `对拍 32/42 一致（实际 ${agree}/42——**G11=G 通道整体退役**（2026-11-02 CD133 用户裁定「GMGN的散户是有默认交易额的，大多数都是0.1/0.05，大户则是 0.2/0.25/0.3 之类的，这要是能跨区块，误伤就太大了！同块同额度误伤可能小一些，可以作为参考。如果这种死指标不好用，还是把原始数据输入给Jev，通过现象描述，去综合判断与考量里面是否有协同行为吧」——sb∪eq 簇圈定把前端默认档散户整档吞入，死指标门全线退出，协同现象由 A 题档承载（D3.34 题面反锚））：较 G10 34 净失 CD95/CD100 两票正命中（expect=unhealthy 由 G 承载，bd=high∧bundleBuy 无键 fail-closed 触发点，退役后失载放行——「宁可放过不误伤」方向的裁定代价）；CD97/CD119/CD121 三票 G 拦截腿消失（expect=cheat 的 G10 期已偏差票由 unhealthy 降 healthy 全放行；承接路径=D3.34 重析题档升 strong 走 A 通道，随 128 票攒批对拍验证——旧档重放口径题档不会自动变）。**改规则破坏此数须重新用户裁定**`);
+    ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD95:unhealthy>healthy,CD97:cheat>healthy,CD100:unhealthy>healthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>healthy,CD121:cheat>healthy',
+      `十票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
+CD95+CD100=G11 退役失载（G 通道黄金集仅存两票正命中 expect=unhealthy，bd=high∧bundleBuy 无键触发点，随通道退役放行）/CD97+CD119+CD121=G 拦截腿消失（expect=cheat，A 通道档位无 strong 是 Jev 旧档判档——sbHold 89.9 的 CD97 曾由 C_sbHold90 拦（G9 退役）再由 G 拦（G11 退役）两轮退出，D3.34 重析承接）/
 CD84+CD105+CD107=G2 E 简化撤豁免代价（用户裁定「活跃度 low 也判 unhealthy，burst 不判 low」：
 t1流吃独食豁免（CD105）+卖笔对手盘豁免（CD107）撤销+CD84 act=low 搁置票；**本表为旧档位
 digest 重放口径——CD105 在 burst 名单，D3.27 题面 burst 反锚重析后 act 应翻非 low 回 healthy**；

@@ -250,11 +250,17 @@ ok(st.state.includes('走路由本身不区分真人/自动化'), '聚合路由�
 // D3.1：routerPct 行退役（2026-10-31 用户裁定：作弊钱包同样走路由，无判别价值）；
 // 两持仓占比锚行进场；top1 集中度标注降为「仅健康参考」
 ok(!st.state.includes('路由行买入'), 'routerPct 行已删（裁定：走路由无判别价值）');
-ok(st.state.includes('同块簇持仓占比:') && st.state.includes('近等额簇持仓占比:'), 'PRECOMPUTED 含两持仓占比锚行（D3.1）');
 ok(st.state.includes('仅作盘面健康参考，不作作弊判据'), 'top1 集中度标注「仅健康参考不作判据」');
-ok(st.state.includes('分子=成员正净持仓合计，分母=全场正净持仓合计'), '锚口径注释在场（分子⊆分母）');
-ok(microStateDisplay.state.includes('同块簇持仓占比: 无合格簇') && microStateDisplay.state.includes('近等额簇持仓占比: 无合格簇'),
-  '无合格簇渲染「无合格簇」（null 不冒充 0）');
+// CD133（2026-11-02 用户裁定「GMGN的散户是有默认交易额的……这要是能跨区块，误伤就
+// 太大了！……还是把原始数据输入给Jev，通过现象描述，去综合判断与考量里面是否有协同
+// 行为吧」）：同块簇持仓占比/近等额簇持仓占比/簇买入占比三行死指标全撤——sb∪eq 圈定
+// 吞前端默认档散户；结构指纹由 Jev 从 [TICKS]/[WALLETS] 原始逐笔归纳（D3.34 题面反锚），
+// derived 照算供 digest 存档/FA 投影/runner 观测
+ok(!st.state.includes('同块簇持仓占比:') && !st.state.includes('近等额簇持仓占比:')
+  && !st.state.includes('簇买入占比') && !st.state.includes('分子=成员正净持仓合计'),
+  'CD133 三行死指标已撤（D3.34——结构指纹交 Jev 从原始逐笔归纳，口径注释随行同撤）');
+ok(!microStateDisplay.state.includes('同块簇持仓占比') && !microStateDisplay.state.includes('近等额簇持仓占比'),
+  '无合格簇形状同样无行（行整个不存在——不再有「无合格簇」渲染位）');
 // D3.5：代码活跃度档位行撤除（教学单一载体=题面 activity_level——「使用 Jev 进行判断」；
 // derived 数值仍算供存档对照，state 不再预贴档位结论）
 ok(!st.state.includes('活跃度: 低') && !st.state.includes('活跃度: 中') && !st.state.includes('活跃度: 高')
@@ -619,9 +625,9 @@ console.log('I. 著名钱包单极控盘锚');
   // 0.6+0.3+0.3=1.2 → bundleBuy 66.7（w3 两笔 0.3 同带并集去重）
   ok(i1.famousGroupBuyPct === 66.7 && i1.bundleBuyPct === 66.7,
     `i1 组织买入占比：famous集团 66.7 / 簇 66.7（实际 ${i1.famousGroupBuyPct}/${i1.bundleBuyPct}）`);
-  ok(buildCheatState(i1snap).state.includes('簇买入占比: 66.7%')
+  ok(!buildCheatState(i1snap).state.includes('簇买入占比')
     && buildCheatState(i1snap).state.includes('著名+跟单买入占全部买入 66.7%'),
-    'state 渲染：G6 两占比行（簇买入占比行+famous 行尾集团买入）');
+    'state 渲染：簇买入占比行已撤（CD133/G11——sb∪eq 圈定吞默认档散户）；famous 行尾集团买入保留（D 通道豁免前提 famousGroupBuyPct 仍在消费）');
   // G5 分散形：5 个跟单各 0.1 → top3=0.3/0.5=60.0（跟单正净 Σ 0.5）
   const i1b = buildSnapshotFromRows([
     mkF(10, 'buy', 0.5, FAM),
@@ -741,7 +747,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.32（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.33', `版本常量 D3.33（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.33=G8 批次六 state-only：[PRECOMPUTED] 加「零买入纯卖方」行，13 题题面不动；D3.32=加第 13 题 holdings_balance 持仓均衡（G7 J 通道）+snapshot 锚族/state 持仓分布行同版落地）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.34', `版本常量 D3.34（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.34=CD133：equal_amount_split 反锚段重写（前端默认档位表 0.1/0.05 散户默认、0.2/0.25/0.3 大户常见+跨块匀速长尾=跟风不集中+同块∧近等额=双协同参考性）+same_block_buy_wave ⑥补撞块反锚（同块金额各异=独立买家撞块常态）+组织性结构第四条；state 三行死指标配套撤（G11 同裁定）；D3.33=G8 零买入纯卖方行；D3.32=holdings_balance 第 13 题）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -887,6 +893,11 @@ console.log('I. 著名钱包单极控盘锚');
     'D3.29 bw ⑥第二支删「非整数名义额同额×多钱包」独立证据位（开盘段同额×独立tx×单笔不构成阵列证据）');
   ok(bwQ.includes('同 tx 打包 / 每钱包多笔多档固定组合 / 同批钱包同块成对节拍多轮复现'),
     'D3.29 bw ⑥组织性结构三条保留（同tx打包/多笔多档固定组合/同批钱包多轮复现）');
+  ok(bwQ.includes('金额各异的同块=独立买家撞块常态') && bwQ.includes('一笔 0.25 与两笔 0.1 各自独立决策撞进同块')
+    && bwQ.includes('不因同块而加档'),
+    'D3.34 bw 撞块反锚=同块金额各异各自独立定价=无协同含义不加档（RAM 7746 例 0.2500/0.1037/0.1086 实形——CD133 用户裁定「同块同额度误伤可能小一些，可以作为参考」的对偶面）');
+  ok(bwQ.includes('同块∧近等额（时间+金额双协同'),
+    'D3.34 bw 组织性结构第四条=同块∧近额双协同参考性（与 eq 题同判据——单纯同块或单纯近额都不够）');
   ok(bwQ.includes('买入额合计占窗口全部买入不足两成时不给明显及以上档')
     && bwQ.includes('占比不足不为据，小簇刷量是噪声不是主导'),
     'D3.29 bw ⑥占比纪律=结构证据簇占买入不足两成不给明显及以上档（对齐 wash 题——CD42 四钱包簇 2.2%/CD45 五钱包簇 10.5% 小簇不再撑 strong）');
@@ -938,10 +949,17 @@ console.log('I. 著名钱包单极控盘锚');
   // 默认档（净额≈名义×0.98 换算后同档精确重复）+同块并发+各钱包各 1 笔独立 tx 买后持有呈现为
   // 作弊形状；bot 阵列对照=CD67 非整名义精确等额+每钱包两笔两档固定组合+成对块两轮节拍复现）
   const eqq = qs.equal_amount_split.instructions;
-  ok(eqq.includes('开盘打新段反锚') && eqq.includes('净额≈名义额×0.98') && eqq.includes('不给明显及以上档'),
-    'equal_amount_split D3.19 开盘打新段反锚=默认档精确重复（名义×0.98 换算）+档内各钱包各 1 笔独立 tx 买后持有=打新流量不给明显及以上档（用户裁定「好，方案A」）');
+  ok(eqq.includes('前端默认档位与打新段反锚（D3.34）') && eqq.includes('0.1/0.05 是散户默认档、0.2/0.25/0.3 是大户常见档')
+    && eqq.includes('净额≈名义额×0.98~0.99') && eqq.includes('跨区块聚带的默认档=工具默认值分布，不是组织拆分'),
+    'equal_amount_split D3.34 前端默认档位反锚=GMGN 档位表（0.1/0.05 散户默认、0.2/0.25/0.3 大户常见）+净额换算重复+跨块聚带=默认值分布（CD133 用户裁定「GMGN的散户是有默认交易额的……这要是能跨区块，误伤就太大了！」）');
+  ok(eqq.includes('跨块长时段匀速流入的同额带') && eqq.includes('整档跟风散户的长尾') && eqq.includes('分仓阵列的时间特征是集中'),
+    'equal_amount_split D3.34 时间形状判据=跨块匀速长尾=跟风非分仓（分仓特征是集中——MAI 62 钱包 77 笔跨 80 分钟实形承载）');
+  ok(eqq.includes('不给明显及以上档') && eqq.includes('62 钱包 77 笔跨约 80 分钟匀速流入'),
+    'equal_amount_split D3.34 反例补 MAI 长尾形状（0.099 档=名义 0.1 默认档整档跟风——时间无集中性=不是分仓阵列，与 D3.19 打新段反锚同向）');
   ok(eqq.includes('非整数名义额的精确等额') && eqq.includes('每钱包多笔多档固定组合') && eqq.includes('同 tx 打包'),
-    'equal_amount_split D3.19 判读转向=分仓阵列结构证据四件套（非整名义精确等额/多笔多档固定组合/成对节拍多轮复现/同 tx 打包）');
+    'equal_amount_split D3.19 判读转向=分仓阵列结构证据（非整名义精确等额/多笔多档固定组合/成对节拍多轮复现/同 tx 打包）');
+  ok(eqq.includes('同块∧近等额（时间+金额双协同') && eqq.includes('可作参考性痕迹'),
+    'equal_amount_split D3.34 同块∧近等额=双协同参考性痕迹（CD133 裁定「同块同额度误伤可能小一些，可以作为参考」——单纯跨块等额与单纯同块金额各异都不够，双协同才入结构证据清单）');
   ok(eqq.includes('0.0987（名义 0.1）×9 钱包') && eqq.includes('0.2303（名义 0.235）×3'),
     'equal_amount_split D3.19 反例补 CD66 形状（开盘 15 秒窗整数名义档覆盖七成买入、每人恰 1 笔独立 tx 买后持有=散户档位抢购）');
   ok(eqq.includes('0.0631×10 钱包+0.0197×10 钱包') && eqq.includes('名义额非常见整档=配置值'),
@@ -1169,8 +1187,8 @@ console.log('I. 著名钱包单极控盘锚');
     'state 渲染：持仓分布前三钱包行（占总供应量%+净持+买卖+首买块）');
   ok(stHold.state.includes('前两大合计占总供应量 60.0%（首买相差 1 秒）'),
     'state 渲染：前二合计行+首买相差秒（组合垄断叙事）');
-  ok(stHold.state.includes('同块簇∪等额簇成员正净合计占 70.0%，第1大钱包与簇并集合计占 70.0%'),
-    'state 渲染：簇合计+并集行（G7 J 通道主叙事——CD122 并集 40.1 同构）');
+  ok(!stHold.state.includes('同块簇∪等额簇成员正净合计'),
+    'state 渲染：簇合计+并集句已撤（CD133/G11 同裁定——sb∪eq 簇口径死指标退场，holdings_balance 题档与 holdings 五锚照常承载 J 通道）；前二合计行保留（单一口径无簇圈定）');
   // 快进快出：w1 卖 300M@sec13 → 首卖距首买 3 秒行（CD122 T2「3 秒后卖一半」实形）
   const stPart = buildCheatState(buildSnapshotFromRows(partRows, holdMeta));
   ok(stPart.state.includes('首卖距首买 3 秒'),
