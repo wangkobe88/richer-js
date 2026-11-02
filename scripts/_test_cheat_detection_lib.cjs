@@ -773,7 +773,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.35：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+real_participation） ═══════════════
   console.log('I2. 题集结构 D3.35（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.37', `版本常量 D3.37（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.37=①去「默认档众数」误导（用户裁定「“真实盘以前端默认档（0.1/0.05）为众数” 我怕对Jev造成误导，好盘不一定众数落在这个区间」——金额分布核心改连续散布+自然长尾、众数档位不是判据、可疑=形状规整；state 同档行同步）②开盘打新段语境前提（「判断的时间是代币刚发出的很短时间，这个阶段，前期可能在抢筹，第一笔创建者的买入可能较大，这些都算正常」）；D3.36=CD135 校准：单块三键撤出 state 输入+大额买入者判读锚换持有口径+单人吃独食正样本；D3.35=第 14 题 real_participation 交易者角色综合结论+协同买入参考四键+holdings_balance 补腿）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.38', `版本常量 D3.38（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.38=换喂法 C：单块三键以形状档位回 state（占比三档+前摇定性档，不给精确数字/笔数——撤数字 CD6 回退=形状有信息量、给数字 CD104/CD60 被锚定误伤=伪精度是问题）；D3.37=①去「默认档众数」误导（连续散布+自然长尾、众数档位不是判据）②开盘打新段语境前提（抢筹/创建者首笔大单正常）；D3.36=CD135 校准：单块三键撤出 state 输入+大额买入者判读锚换持有口径；D3.35=第 14 题 real_participation 交易者角色综合结论+协同买入参考四键）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -807,6 +807,8 @@ console.log('I. 著名钱包单极控盘锚');
       'D3.37 要点②众数档位非判据在场（真实盘众数可上移——默认档聚集只是常见形态之一）');
     ok(!rpQ.instructions.includes('真实盘以前端默认档（0.1/0.05）为众数'),
       'D3.37 反证：误导断言「真实盘以前端默认档为众数」不得回潮（好盘不一定众数落默认档——用户裁定原话）');
+    ok(rpQ.instructions.includes('参考行（同档金额参考/单块买入集中度）只是参考数值与形状档位'),
+      'D3.38 题面参考行清单提及单块买入集中度（换喂法 C——形状档位与数值同列「没有硬标准」域）');
   }
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
@@ -1363,8 +1365,11 @@ console.log('I. 著名钱包单极控盘锚');
       && stD35.state.includes('同档聚集可以来自前端默认交易额（0.1/0.05 档）等真实来源，但真实盘不必然聚档、众数落在哪一档不是判据')
       && !stD35.state.includes('使真实散户盘天然聚档'),
       'state 渲染：同档金额参考行（D3.36 保留键+D3.37 措辞去误导——「天然聚档」必然性预设不得回潮，众数档位不是判据）');
-    ok(!stD35.state.includes('单块') && !stD35.state.includes('前摇'),
-      'state 渲染：单块三键缺席（D3.36 撤出输入反证——maxBlock 笔数/占比/前摇间隔不得进 Jev state，CD60 撞块/CD104 吃独食误伤噪音源）');
+    ok(stD35.state.includes('单块买入集中度: 最大单块买入占窗口总买入【三成以上，高度集中段】（此前有短暂静默）')
+      && stD35.state.includes('高活跃盘与开盘打新段单块多为独立买家并发（撞块常态）')
+      && !/\d/.test((stD35.state.match(/单块买入集中度[^\n]*/) || [''])[0])
+      && !stD35.state.includes('33.4') && !stD35.state.includes('间隔 10 秒'),
+      'state 渲染：单块形状档位行在场+整行零数字（D3.38 换喂法 C——三成以上档+短暂静默档可见，行内占比/笔数/前摇秒数伪精度不得回潮：CD104 58.7%/CD60 12 笔锚定源）');
     ok(stD35.state.includes('占总供应量 27.0% / 占在场流通 37.5%'),
       'state 渲染：持仓分布行双口径（供/流并列——D3.35 补腿）');
     ok(stD35.state.includes('创建者已不在前三（曾持峰值占总供应量 50.00%，买 0.998×1 / 卖 0.800×1）'),
@@ -1384,8 +1389,10 @@ console.log('I. 著名钱包单极控盘锚');
       `全 0.1000 档 4/4=100.0（实际 ${d35b.sameAmountWalletPct}——block 缺失行同档照计）`);
     ok(d35b.creatorPeakHoldSupplyPct === null && d35b.creatorWallet === null,
       `creatorAddress 缺失 → 峰值锚+摘要全 null（实际 ${d35b.creatorPeakHoldSupplyPct}/${d35b.creatorWallet}——fail-closed）`);
-    ok(!buildCheatState(buildSnapshotFromRows(d35bRows, { ...d35Meta, creatorAddress: null })).state.includes('单块买入'),
-      'state 渲染：d35b 单块句缺席（D3.36 前摇 null 语义渲染随行撤出——首买块句不再产出，derived 照算留 FA）');
+    const stD35b = buildCheatState(buildSnapshotFromRows(d35bRows, { ...d35Meta, creatorAddress: null })).state;
+    ok(stD35b.includes('单块买入集中度: 最大单块买入占窗口总买入【三成以上，高度集中段】（该块为首个买块，无前摇证据）')
+      && !stD35b.includes('75.0'),
+      'state 渲染：d35b 首买块前摇语义档（D3.38——preGap null=无前摇证据定性句，75.0 精确占比缺席）');
     // d35c 无买入票：count=0 其余 null、参考行缺席、创建者纯卖无 BUY 行=null
     const d35cRows = [
       mkRow(10, 500, 0, 'sell', 0.30, 1e-9, { trader: wCr, sender: wCr, tok: 300e6 }),
@@ -1396,8 +1403,9 @@ console.log('I. 著名钱包单极控盘锚');
       `无买入票：count=0 其余全 null（实际 ${d35c.maxBlockBuyCount}/${d35c.maxBlockBuyPct}/${d35c.sameAmountWalletPct}）`);
     ok(d35c.creatorPeakHoldSupplyPct === null,
       `创建者纯卖（无 BUY 行）→ 峰值锚 null（实际 ${d35c.creatorPeakHoldSupplyPct}——链外转入域 swap 不可见，绝不以 0 冒充「从未持有」）`);
-    ok(!buildCheatState(buildSnapshotFromRows(d35cRows, d35Meta)).state.includes('同档金额参考'),
-      'state 渲染：无买入 → 参考行缺席');
+    const stD35c = buildCheatState(buildSnapshotFromRows(d35cRows, d35Meta)).state;
+    ok(!stD35c.includes('同档金额参考') && !stD35c.includes('单块买入集中度'),
+      'state 渲染：无买入 → 参考行缺席（同档+单块形状行同门——maxBlockBuyPct null 不渲染）');
     // d35d 并列取额大：两块各 2 笔，块 600 Σ0.50 vs 块 800 Σ0.30 → max=块 600
     const d35d = buildSnapshotFromRows([
       mkRow(10, 600, 0, 'buy', 0.25, 1e-9, { trader: wA2, sender: wA2 }),

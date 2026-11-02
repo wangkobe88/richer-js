@@ -119,6 +119,23 @@ function buildCheatState(snapshot) {
     if (d.sameAmountWalletPct !== null && d.sameAmountWalletPct !== undefined) {
       lines.push(`同档金额参考: 最大同档金额的钱包去重占全部买入钱包 ${d.sameAmountWalletPct.toFixed(1)}%（参考数值非门槛——同档聚集可以来自前端默认交易额（0.1/0.05 档）等真实来源，但真实盘不必然聚档、众数落在哪一档不是判据；跨块长尾同档=跟风非分仓；真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断）`);
     }
+    // D3.38 单块买入集中度形状行（CD135 续，2026-11-02 用户裁定换喂法 C——
+    // 「形状提示不给具体数字降锚定力」）：D3.36 撤出精确数字后 CD6 回退
+    // （minimal 0.66→meaningful 0.4 放行——单块集中形状有信息量），而撤前
+    // CD104/CD60 被精确数字（58.7%/12 笔）锚定误伤——问题在伪精度不在形状；
+    // 本行只给档位定性不给数值：占比三档（<10/10-30/≥30）+前摇定性档
+    // （≥30s 明显静默/5-30s 短暂静默/<5s 不注），笔数刻意不给（CD60 教训=
+    // ultra 活跃盘 12 笔仅占 3%，笔数单独看是噪音、占比才是分母）；无买入不渲染
+    if (d.maxBlockBuyPct !== null && d.maxBlockBuyPct !== undefined) {
+      const tier = d.maxBlockBuyPct < 10 ? '不足一成，散布常态'
+        : d.maxBlockBuyPct < 30 ? '一至三成，存在集中段'
+        : '三成以上，高度集中段';
+      const gap = d.maxBlockPreGapSec === null || d.maxBlockPreGapSec === undefined
+        ? '（该块为首个买块，无前摇证据）'
+        : d.maxBlockPreGapSec >= 30 ? '（此前有明显静默段）'
+          : d.maxBlockPreGapSec >= 5 ? '（此前有短暂静默）' : '';
+      lines.push(`单块买入集中度: 最大单块买入占窗口总买入【${tier}】${gap}——形状参考非门槛：高活跃盘与开盘打新段单块多为独立买家并发（撞块常态），占比档位高本身不定性；须配行为同质或阵列结构（同额/成对节拍/同批钱包复现/同 tx 打包）才算组织化痕迹；单个大买家吃独食也是此形状（判掌控看「单一钱包持仓集中度」行的当前持有占总供应量）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {
