@@ -64,6 +64,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **单测**：`_test_china_politics_gate.cjs` 18→21/0——新增 A8（instructions C262 职能线边界锚句）/A9（criteria 桶 C262 边界+「涉权力…才选本项」划界锚）/A10（主描述政策分线反证：无差别「政治事件/政策/会议」措辞已撤）。**六件版本断言同跟 J1.153**（cashtag_w_route/bluechip_dedup_gate/angle_timing_override/jev_question_consolidation/name_entity_acceptance/web3_fit，C261 同款惯例），全部复跑绿。
 - **生效链**：题集改动双进程持有（实验进程 C84 触发直调+叙事 worker）——须重启生效；与 C259/C260/C261 同攒批随下次 v67 重启带入。
 - **观察点**：①SAGE `0xc04f…7777` 定向重析对拍（预期 china_politics 腿归零回落四档；baseless 0.60/unacceptable_type 0.82 是否随事件框定变化=重点观察，若仍拦属叙事夸大判断非政治误拦）；②回归票 C262 已收录；③「政策」类票的 china_politics 分布（职能线票是否还有高概率误拦残余）；④全量回归攒批等用户通知。
+- **对拍实况（本地正式重析落库，J1.153，2026-11-03）**：**china_politics 0.82 → 0.01 政策分线完全生效**——政治桶塌掉，fit 四档活跃（strong_fit 0.35/fit 0.16/unfit 0.36/marginal 0.12），拦截原因不再是政治。**但票翻到名字门类型轴**：`unacceptable_type` 0.82 → **0.81 持平仍拦**（reason=「币名实体类型不被 BSC meme 用户接纳为 meme 币名（可乐/银行/犬种学名类类型不合，unacceptable_type 81%≥50%）」rating=low）；`event_baseless_speculation` 0.60 维持（blockChoice 仍是它）。**SAGE 名字指代「政府金融 AI agent 项目」被框定为严肃机构类实体**——C184/C184b 独立划界（圈外商业品牌/金融机构/动物品种学名/严肃机构/事务性公司→无论多著名不可接纳）不在 C262 裁定范围，是否把「国家 AI 项目/科技计划名」划为可接纳实体类型须用户单独裁定（对照：C94 京小安=官媒 AI 警犬走产品/角色评估的前提是有独立可爱形象，SAGE 无形象证据，纯政策叙事名）。
 
 ### C261 J1.17 cashtag 硬改道退役——判据移入 event_category 题面由 Jev 判（RAM 自喊单案，2026-11-02 用户裁定「修复吧，我觉得去掉这个硬规则，然后在分类规则里说明」）★
 
