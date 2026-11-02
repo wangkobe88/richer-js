@@ -90,6 +90,27 @@
             border: 1px dashed #4b5563;
         }
 
+        /* 反作弊列（CD1 G 分级：cheat 红 / unhealthy 橙 / healthy 绿 / 观测·失败灰） */
+        .cheat-grade-cheat {
+            background-color: #dc2626;
+            color: white;
+        }
+
+        .cheat-grade-unhealthy {
+            background-color: #d97706;
+            color: white;
+        }
+
+        .cheat-grade-healthy {
+            background-color: #059669;
+            color: white;
+        }
+
+        .cheat-grade-plain {
+            background-color: #374151;
+            color: #d1d5db;
+        }
+
         .signal-count {
             font-weight: 600;
         }
@@ -299,6 +320,9 @@
                                     <th class="px-4 py-3 text-center">叙事评级</th>
                                     <th class="px-4 py-3 text-center">人工评级</th>
                                     <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="cheatGrade">反作弊</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">
                                         <span class="sort-btn" data-sort="maxChange">最高涨幅</span>
                                     </th>
                                     <th class="px-2 py-3 text-center" style="width: 200px;">操作</th>
@@ -388,6 +412,6 @@
 </div>
 
     <script src="/static/js/simple-init.js?v=4.0"></script>
-    <script src="/static/js/experiment_signal_stats.js?v=4.11"></script>
+    <script src="/static/js/experiment_signal_stats.js?v=4.12"></script>
 </body>
 </html>

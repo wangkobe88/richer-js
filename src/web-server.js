@@ -2113,6 +2113,39 @@ class RicherJsWebServer {
       }
     });
 
+    // 反作弊盘面检测结果（CD1；signal-stats 页「反作弊」列数据源）：
+    // cheat_detection 按 source_experiment_id 拉行（token 级全局表无实验 FK，行内
+    // source_experiment_id=发起分析的实验），瘦列不拉 answers_raw/jev_prompt 大列；
+    // 每 token 多行=as-of 增量重判轨迹，前端按 analyzed_at 取最新
+    this.app.get('/api/experiment/:id/cheat-detections', async (req, res) => {
+      try {
+        const supabase = this.dataService.supabase; // dbManager service key（RLS 红线）
+        const { data, error } = await supabase
+          .from('cheat_detection')
+          .select('token_address,platform,verdict,analyzed_at,snapshot_digest')
+          .eq('source_experiment_id', req.params.id)
+          .order('analyzed_at', { ascending: false })
+          .limit(10000);
+        if (error) throw new Error(error.message);
+        const rows = (data || []).map((r) => {
+          const d = r.snapshot_digest || {};
+          return {
+            token_address: r.token_address,
+            platform: r.platform || null,
+            verdict: r.verdict || null,
+            analyzed_at: r.analyzed_at,
+            grade: d.grade ?? null,
+            grade_reasons: d.gradeReasons ?? null,
+            grade_version: d.gradeVersion ?? null,
+          };
+        });
+        res.json({ success: true, data: rows, count: rows.length });
+      } catch (error) {
+        this.logger.error('WebServer', '获取反作弊检测结果失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message, data: [] });
+      }
+    });
+
     // 获取拒绝信号统计
     this.app.get('/api/experiment/:id/rejection-stats', async (req, res) => {
       try {

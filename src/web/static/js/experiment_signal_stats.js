@@ -21,6 +21,17 @@ const HUMAN_JUDGE_MAP = {
   high_quality: { label: '高质量', emoji: '🚀', bgClass: 'bg-green-900', borderClass: 'border-green-700', textClass: 'text-green-400' }
 };
 
+// 反作弊盘面检测结果（CD1 cheat_detection 最新行；grade 三级 + 失败态）
+const CHEAT_GRADE_MAP = {
+  cheat: { label: '作弊', emoji: '🚫', cls: 'cheat-grade-cheat', score: 2 },
+  unhealthy: { label: '不健康', emoji: '⚠️', cls: 'cheat-grade-unhealthy', score: 1 },
+  healthy: { label: '健康', emoji: '✅', cls: 'cheat-grade-healthy', score: 0 }
+};
+const CHEAT_FAIL_MAP = {
+  timeout: { label: '超时', emoji: '⏱' },
+  error: { label: '错误', emoji: '❗' }
+};
+
 class ExperimentSignalStats {
   constructor() {
     this.experimentId = null;
@@ -40,6 +51,7 @@ class ExperimentSignalStats {
     // 叙事数据映射
     this.narrativeDataMap = new Map(); // key: token_address (lowercase), value: { narrative, human_judge, max_change_percent }
     this.narrativeRatingMap = new Map(); // key: token_address (lowercase), value: rating
+    this.cheatDataMap = new Map(); // key: token_address (lowercase), value: cheat_detection 最新行（CD1 反作弊列）
 
     this.init();
   }
@@ -126,12 +138,13 @@ class ExperimentSignalStats {
     this.showLoading(true);
 
     try {
-      // 并行加载实验数据、信号数据、代币数据和叙事分析数据
-      const [experimentRes, signalsRes, tokensRes, narrativeRes] = await Promise.all([
+      // 并行加载实验数据、信号数据、代币数据、叙事分析数据和反作弊检测数据
+      const [experimentRes, signalsRes, tokensRes, narrativeRes, cheatRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
         fetch(`/api/experiment/${this.experimentId}/signals?limit=10000`),
         fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`),
-        fetch(`/api/experiment/${this.experimentId}/narrative`)
+        fetch(`/api/experiment/${this.experimentId}/narrative`),
+        fetch(`/api/experiment/${this.experimentId}/cheat-detections`)
       ]);
 
       if (!experimentRes.ok || !signalsRes.ok || !tokensRes.ok) {
@@ -142,6 +155,8 @@ class ExperimentSignalStats {
       const signalsData = await signalsRes.json();
       const tokensData = await tokensRes.json();
       const narrativeData = narrativeRes.ok ? await narrativeRes.json() : { success: false, data: [] };
+      // 反作弊端点失败不拖垮整页（旧实验/未开 cheatCheck=空数据，列显示 '-'）
+      const cheatData = cheatRes.ok ? await cheatRes.json() : { success: false, data: [] };
 
       if (!experimentData.success) {
         throw new Error('实验数据格式错误');
@@ -183,6 +198,25 @@ class ExperimentSignalStats {
         }
       }
       console.log('叙事数据映射:', this.narrativeDataMap.size, '个代币有数据');
+
+      // 反作弊检测映射（cheat_detection 每 token 多行=as-of 增量重判轨迹，
+      // 接口按 analyzed_at desc 返回，首见即该 token 最新判定）
+      this.cheatDataMap = new Map();
+      if (cheatData.success && cheatData.data) {
+        for (const item of cheatData.data) {
+          const addr = this._normalizeAddress(item.token_address);
+          if (addr && !this.cheatDataMap.has(addr)) {
+            this.cheatDataMap.set(addr, {
+              verdict: item.verdict,
+              grade: item.grade ?? null,
+              gradeReasons: item.grade_reasons ?? null,
+              gradeVersion: item.grade_version ?? null,
+              analyzedAt: item.analyzed_at
+            });
+          }
+        }
+      }
+      console.log('反作弊检测映射:', this.cheatDataMap.size, '个代币有数据');
 
       // 聚合信号统计
       this.aggregateSignalsByToken();
@@ -255,6 +289,7 @@ class ExperimentSignalStats {
           name: token.raw_api_data?.name || '',
           dataSource: token.raw_api_data?.data_source || token.data_source || null,
           narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null, // 从叙事分析数据获取
+          cheatGrade: this._cheatScore(signalStats.tokenAddress), // 反作弊最新判定（排序用数值）
           maxChange: token.max_change_percent ?? null // token_profiles 分类管线产出
         };
       }
@@ -269,6 +304,7 @@ class ExperimentSignalStats {
         symbol: narrativeItem?.symbol || 'Unknown',
         name: '',
         narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null,
+        cheatGrade: this._cheatScore(signalStats.tokenAddress),
         maxChange: narrativeItem?.max_change_percent ?? null
       };
     });
@@ -334,7 +370,7 @@ class ExperimentSignalStats {
     if (pageData.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="10" class="px-4 py-8 text-center text-gray-400">
+          <td colspan="11" class="px-4 py-8 text-center text-gray-400">
                 没有找到符合条件的代币
           </td>
         </tr>
@@ -346,6 +382,37 @@ class ExperimentSignalStats {
 
     // 绑定人工评级按钮事件
     this.bindJudgeButtons();
+  }
+
+  /** 反作弊列排序数值：cheat=2/unhealthy=1/healthy=0；失败行（timeout/error）与
+   *  无分析行=null（排序列 null→-Infinity 落底，与最高涨幅列同语义） */
+  _cheatScore(tokenAddress) {
+    const info = this.cheatDataMap?.get(tokenAddress);
+    if (!info) return null;
+    const g = CHEAT_GRADE_MAP[info.grade];
+    return g ? g.score : null;
+  }
+
+  /** 反作弊列徽章（CD1 最新判定：grade 三级/失败态/无分析三形状） */
+  _renderCheatBadge(tokenAddress) {
+    const info = this.cheatDataMap?.get(tokenAddress);
+    if (!info) return '<span class="text-gray-600">-</span>';
+
+    const reasonText = (info.gradeReasons || [])
+      .map((r) => r.code || r.level || '').filter(Boolean).join(', ');
+    const timeText = info.analyzedAt ? new Date(info.analyzedAt).toLocaleString() : '';
+    const verText = info.gradeVersion ? ` | ${info.gradeVersion}` : '';
+
+    if (info.grade && CHEAT_GRADE_MAP[info.grade]) {
+      const g = CHEAT_GRADE_MAP[info.grade];
+      const title = `G 分级${verText} | ${timeText}` + (reasonText ? `\n通道: ${reasonText}` : '');
+      return `<span class="narrative-badge ${g.cls}" title="${this.escapeHtml(title)}">${g.emoji} ${g.label}</span>`;
+    }
+    // 观测模式旧行（verdict=observed 无 grade）/失败行
+    const fail = CHEAT_FAIL_MAP[info.verdict];
+    const label = fail ? `${fail.emoji} ${fail.label}` : '已观测';
+    const title = `${info.verdict}${verText} | ${timeText}`;
+    return `<span class="narrative-badge cheat-grade-plain" title="${this.escapeHtml(title)}">${label}</span>`;
   }
 
   renderTableRow(stat) {
@@ -463,6 +530,7 @@ class ExperimentSignalStats {
         </td>
         <td class="px-4 py-3 text-center">${ratingBadge}</td>
         <td class="px-4 py-3 text-center">${humanJudgeBadge}</td>
+        <td class="px-4 py-3 text-center">${this._renderCheatBadge(stat.tokenAddress)}</td>
         <td class="px-4 py-3 text-center">${maxChangeDisplay}</td>
         <td class="px-2 py-3">
           <div class="flex flex-col gap-1 text-xs text-gray-400">
