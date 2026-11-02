@@ -35,6 +35,10 @@ class ExperimentSignals {
     this.holderChart = null;
     this._lastHolderSeries = null; // 缓存 holder 序列（窗口切换不重新 fetch）
 
+    // 🔥 观察信号（OBSERVE）图表标注数据：per-token 单独拉取——列表 fetch 在默认/
+    // action 筛选视图会排除 OBSERVE 行（防挤占 limit），标注不能依赖 this.signals
+    this._lastObserveSignals = [];
+
     // 🔥 区块链信息（用于生成GMGN链接）
     this.blockchain = 'bsc';  // 默认BSC
 
@@ -568,12 +572,14 @@ class ExperimentSignals {
       // tick 散点/K线 与 Holder 走势序列并行拉取（Holder=ticks 全量重放重建，
       // 与引擎 holderCount 同口径；不依赖已停写的 experiment_time_series_data）；
       // trades=成交记录（2026-10-15 双口径：图上标成交时刻/成交价，与信号时刻/信号价并陈）；
-      // rounds=叙事分析轮次（C84：新模型腿后台分析留痕，图表标注+轮次面板共用）
-      const [tickResponse, holderResponse, tradesData, roundsData] = await Promise.all([
+      // rounds=叙事分析轮次（C84：新模型腿后台分析留痕，图表标注+轮次面板共用）；
+      // observe=观察信号（OBSERVE 行时刻，图上标青虚线）
+      const [tickResponse, holderResponse, tradesData, roundsData, observeData] = await Promise.all([
         this.fetchTickData(token.address),
         this.fetchHolderSeries(token.address),
         this.fetchTokenTrades(token.address),
         this.fetchNarrativeRounds(token.address),
+        this.fetchObserveSignals(token.address),
       ]);
       // 切换代币后过期响应直接丢弃
       if (this.selectedToken !== token.address) return;
@@ -583,6 +589,7 @@ class ExperimentSignals {
         : [];
       this._lastTokenTrades = tradesData;
       this._lastNarrativeRounds = roundsData;
+      this._lastObserveSignals = observeData;
 
       if (!tickResponse?.success || !tickResponse?.data?.length) {
         console.warn('⚠️ 没有 tick 数据，隐藏图表');
@@ -686,6 +693,29 @@ class ExperimentSignals {
   }
 
   /**
+   * 拉取该 token 的观察信号行（OBSERVE：叙事评级 2/3 或市值过阈的留痕，
+   * action='hold' 恒不触发交易）——图表观察时刻标注数据源。单独拉取而非
+   * 复用 this.signals：默认/action 筛选视图 fetch 时排除 OBSERVE 行
+   * （防观察行挤占 limit），依赖它会随筛选器忽隐忽现。
+   * @param {string} tokenAddress
+   * @returns {Promise<Array>} OBSERVE 信号行（maxPerToken 上限 3/票）
+   */
+  async fetchObserveSignals(tokenAddress) {
+    try {
+      const params = new URLSearchParams({
+        tokenAddress, signalType: 'OBSERVE', limit: '200',
+      });
+      const response = await fetch(`/api/experiment/${this.experimentId}/signals?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return Array.isArray(json.signals) ? json.signals : [];
+    } catch (error) {
+      console.error('获取观察信号失败:', error);
+      return []; // 观察行缺席不阻塞图表
+    }
+  }
+
+  /**
    * 生成叙事分析轮次标注（C84）：析起=紫虚线[6,4]、析毕=琥珀虚线[2,3]。
    * 与信号/成交标注同窗过滤（防撑开 X 轴）；标签放顶部（position 'end'）与
    * 底部信号标签错位。轮次时间轴与 ticks 同墙钟（引擎发起/完成时刻）。
@@ -724,6 +754,48 @@ class ExperimentSignals {
           },
         });
       }
+    });
+    return annotations;
+  }
+
+  /**
+   * 生成观察信号时刻标注（OBSERVE 行）：青虚线[4,4]，标签放顶部（与叙事轮次
+   * 标注同位、与底部买卖信号标签错位；固定 14px 下移基座防与同刻析起/析毕
+   * 标签叠死）。trigger 域=narrative|marketcap|both（ObservationSignalService），
+   * 未知 trigger 裸「观察」不冒充。观察行恒终态（无 executed 推进），一律
+   * 同款轻量虚线。
+   */
+  _buildObserveAnnotations(observeSignals, trimStart, trimEnd) {
+    const annotations = [];
+    if (!Array.isArray(observeSignals)) return annotations;
+    const TRIGGER_LABEL = { narrative: '叙事', marketcap: '市值', both: '叙事+市值' };
+    const stack = new Map(); // 同刻多行错位
+    observeSignals.forEach(signal => {
+      const ms = new Date(signal.timestamp || signal.created_at).getTime();
+      if (!Number.isFinite(ms)) return;
+      if (trimStart != null && ms < trimStart) return;
+      if (trimEnd != null && ms > trimEnd) return;
+      const trigger = signal.metadata?.observation?.trigger;
+      const t = TRIGGER_LABEL[trigger];
+      const idx = stack.get(ms) || 0;
+      stack.set(ms, idx + 1);
+      annotations.push({
+        type: 'line',
+        xMin: ms,
+        xMax: ms,
+        borderColor: '#22d3ee',
+        borderWidth: 1.5,
+        borderDash: [4, 4],
+        label: {
+          display: true,
+          content: t ? `观察·${t}` : '观察',
+          position: 'end',
+          yAdjust: 14 + idx * 15,
+          backgroundColor: '#0891b2',
+          color: '#fff',
+          font: { size: 10 },
+        },
+      });
     });
     return annotations;
   }
@@ -855,6 +927,9 @@ class ExperimentSignals {
       tokenSignals.forEach(signal => {
         const signalTime = new Date(signal.timestamp || signal.created_at).getTime();
         if (!Number.isFinite(signalTime)) return;
+        // 观察行不画买卖线（此前落 isBuy=false 被误标「卖出 ✗」）——
+        // 由下方 _buildObserveAnnotations 专门画青虚线
+        if (signal.signal_type === 'OBSERVE') return;
         if (win && (signalTime < win.trimStart || signalTime > win.trimEnd)) return;
 
         const signalType = signal.signal_type || signal.action?.toUpperCase();
@@ -911,6 +986,13 @@ class ExperimentSignals {
       );
       narrativeMarks.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
       annotations.push(...narrativeMarks);
+
+      // 观察信号时刻标注（OBSERVE）：青虚线（Y 轴同款全幅）
+      const observeMarks = this._buildObserveAnnotations(
+        this._lastObserveSignals, win ? win.trimStart : null, win ? win.trimEnd : null
+      );
+      observeMarks.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
+      annotations.push(...observeMarks);
 
       const ctx = canvas.getContext('2d');
       this.holderChart = new Chart(ctx, {
@@ -1073,10 +1155,12 @@ class ExperimentSignals {
       // 信号标注（仅展示当前裁剪窗口内的信号，避免窗口外的信号垂直线撑开 X 轴）
       // + 成交标注（双口径）：细点线并入；成交价点位（▲买/▼卖）以 scatter 叠加
       // + 叙事轮次标注（C84）：析起/析毕虚线
+      // + 观察信号时刻标注（OBSERVE）：青虚线
       const annotations = this._buildSignalAnnotations(tokenSignals, trimStart, trimEnd);
       const tradeMarks = this._buildTradeAnnotations(this._lastTokenTrades, tokenSignals, trimStart, trimEnd);
       annotations.push(...tradeMarks.annotations);
       annotations.push(...this._buildNarrativeRoundAnnotations(this._lastNarrativeRounds, trimStart, trimEnd));
+      annotations.push(...this._buildObserveAnnotations(this._lastObserveSignals, trimStart, trimEnd));
 
       this.chart = new Chart(ctx, {
         type: 'bubble',
@@ -1206,6 +1290,11 @@ class ExperimentSignals {
     const tokenSignals = (this.signals || []).filter(s =>
       (s.token_address || s.tokenAddress) === token.address
     );
+    // 观察信号时刻也是本 token 的信号时刻：并入窗口框架（首末信号±5min）——
+    // action 筛选视图 this.signals 无 OBSERVE 行，不并入则观察标注会被窗口过滤剔掉
+    const observeTimes = (this._lastObserveSignals || [])
+      .map(s => new Date(s.timestamp || s.created_at).getTime())
+      .filter(Number.isFinite);
     const firstTickTime = tickData.length > 0
       ? Math.min(...tickData.map(t => new Date(t.block_time).getTime()))
       : null;
@@ -1216,7 +1305,8 @@ class ExperimentSignals {
       // 避免 token 生命周期后段的长尾交易把 X 轴拉得过长、交易区被压窄看不见
       const signalTimes = tokenSignals
         .map(s => new Date(s.timestamp || s.created_at).getTime())
-        .filter(Number.isFinite);
+        .filter(Number.isFinite)
+        .concat(observeTimes);
       if (signalTimes.length) {
         const PAD = 5 * 60 * 1000; // 前后各延长 5 分钟（与默认窗口 ±5min 同量级）
         const trimStart = Math.min(...signalTimes) - PAD;
@@ -1246,12 +1336,14 @@ class ExperimentSignals {
       // 用户指定时间窗口：只展示代币发出后 [0, N秒] 内的 ticks
       const windowEnd = firstTickTime + this.tickWindowSec * 1000;
       trimmed = tickData.filter(t => new Date(t.block_time).getTime() <= windowEnd);
-    } else if (tokenSignals.length > 0 && tickData.length > 0) {
+    } else if ((tokenSignals.length > 0 || observeTimes.length > 0) && tickData.length > 0) {
       // 默认：首末信号区间 ±5 分钟（覆盖全部轮次信号；只取首信号±5min 会漏掉
-      // 稍晚于首信号+5min 的卖出信号——4PAY 场景末信号恰在首信号+5min 之外）
+      // 稍晚于首信号+5min 的卖出信号——4PAY 场景末信号恰在首信号+5min 之外；
+      // 纯观察票无买卖信号时以观察时刻定窗）
       const signalTimes = tokenSignals
         .map(s => new Date(s.timestamp || s.created_at).getTime())
-        .filter(Number.isFinite);
+        .filter(Number.isFinite)
+        .concat(observeTimes);
       const firstSignalTime = signalTimes.length ? Math.min(...signalTimes) : null;
       const lastSignalTime = signalTimes.length ? Math.max(...signalTimes) : null;
       if (firstSignalTime != null && lastSignalTime != null) {
@@ -1292,6 +1384,9 @@ class ExperimentSignals {
     tokenSignals.forEach(signal => {
       const signalTime = new Date(signal.timestamp || signal.created_at).getTime();
       if (Number.isNaN(signalTime)) return;
+      // 观察行不画买卖线（单票视图 this.signals 含 OBSERVE 行，此前落
+      // isBuy=false 被误标「SELL ✗」）——由 _buildObserveAnnotations 专门画
+      if (signal.signal_type === 'OBSERVE') return;
       if (trimStart != null && trimEnd != null && (signalTime < trimStart || signalTime > trimEnd)) return;
       inWindow.push({ signal, signalTime });
     });
@@ -1457,6 +1552,8 @@ class ExperimentSignals {
     signalAnnotations.push(...tradeMarks.annotations);
     // 叙事轮次标注（C84）：析起/析毕虚线（与散点图同款）
     signalAnnotations.push(...this._buildNarrativeRoundAnnotations(this._lastNarrativeRounds, trimStart, trimEnd));
+    // 观察信号时刻标注（OBSERVE）：青虚线（与散点图同款）
+    signalAnnotations.push(...this._buildObserveAnnotations(this._lastObserveSignals, trimStart, trimEnd));
     // 涨跌配色：close>=open 绿，否则红（与散点图 buy绿/sell红 一致）
     const up = 'rgba(34,197,94,0.85)', down = 'rgba(239,68,68,0.85)';
 
