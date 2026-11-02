@@ -489,7 +489,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G8'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G10'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（12 题数值档，FA 出口
@@ -531,8 +531,10 @@ async function main() {
       '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
   }
   {
-    // Z1.5 CD27 对倒形状（D3.28+G3 H 通道）：10 块逐块等额卖↔买配对+尾部散买——纯锚
-    // 触发 H（题档全 none/wash=moderate，无任何 strong/A 通道）→ grade=cheat
+    // Z1.5 CD27 对倒形状（D3.28 锚+G9 退役反证）：10 块逐块等额卖↔买配对+尾部散买
+    // ——H 纯锚通道已随 G9 退役（2026-11-02 用户裁定「去掉不经过Jev的门」）：锚
+    // 照常真算落 digest（10 对/卖占 100/买占 50 喂 wash_pair 题），wash 题档
+    // moderate（非 strong）→ 不再拉黑；对倒拉黑须 Jev 判 wash strong 走 A
     const washRows = [];
     for (let i = 0; i < 10; i++) {
       const blk = 300 + i;
@@ -560,11 +562,9 @@ async function main() {
     const llm = makeLlm({ answers: NONE_ALL });
     const svc = makeSvc(db, llm);
     const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(r.status === 'analyzed' && r.grade === 'cheat'
-      && r.reasons.some((x) => x.code === 'H_wash_pair_sell100x10')
-      && !r.reasons.some((x) => x.code.startsWith('A_strong')),
-      `CD27 对倒形状 → 纯锚 H_wash_pair 触发 cheat（无 A strong——题档全 none/wash moderate；实际 ${r.grade}/${r.reasons.map((x) => x.code).join(',')}）`);
-    ok(svc.isGateBlocked('0xtok') === true, 'H 通道 cheat → service 拉黑');
+    ok(r.status === 'analyzed' && r.grade === 'healthy' && r.reasons.length === 0,
+      `CD27 对倒形状 G9 退役反证：wash 题档 moderate（非 strong）→ 不拉黑（H 已退役；实际 ${r.grade}/${r.reasons.map((x) => x.code).join(',')}）`);
+    ok(svc.isGateBlocked('0xtok') === false, '纯锚无档位不拉黑（对倒拉黑须 Jev wash strong 走 A）');
     const dg = db.state.inserts[0].snapshot_digest;
     ok(dg.anchors.washPairCount === 10 && dg.anchors.washPairSellPct === 100
       && dg.anchors.washPairBuyPct === 50,

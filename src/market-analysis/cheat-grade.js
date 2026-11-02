@@ -8,7 +8,41 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G8=G7+三改动，2026-11-02 批次六 CD37/CD79/CD4/CD68/CD5 review 收官，
+ * 规则（G10=G9−sbHold/eqHold 门侧消费−B 通道，2026-11-02 四票复盘续裁定）：
+ * 用户原话「sbHold 让我感觉不适，这个指标的问题在于，如果代币活跃度极高，
+ * 是不是直接它就被拉的很高，基于它进行判断不合理。eqHold 有一定的合理之处，
+ * 可是如果能通过语言描述现象，就不要使用这种死指标可能会更好」——撤掉本
+ * 模块全部 sbHold/eqHold 数值消费：B 联立 sbHold≥50、A 降级豁免 sbHold<50、
+ * G 豁免 sbHold<20∧eqHold<50 双锚腿（G 豁免只剩组织买入占比 bundleBuyPct<80
+ * 单腿，G6 用户裁定承接前提保留）。实证（tmp-act-sbhold 本地 55 票基线）：
+ * sbHold 是活跃度的函数——act=low 中位 31%→mid/high/ultra 全 ~50%、高活跃∧
+ * sbHold≥50 现场 10 票值域 53-88（BSC 0.75s 出块，高活跃盘同一块天然挤满独立
+ * 真实买家，同块簇圈定把散户整个吞进簇并集——sbHold 高≠组织性，是被活跃度
+ * 拉高的）；eqHold 高活跃组中位反而回落 ~20%（等额带天然滤掉金额分散的散户
+ * =「有一定合理之处」），但其现象已由 equal_amount_split/same_block_buy_wave
+ * 题面语言承载（D3.29 组织性结构三条+结构簇买入占比不足两成不给明显及以上
+ * 档），死指标退位。两锚照常产出（state [PRECOMPUTED] 事实行+FA 数值锚+
+ * digest 供条件串/研究自由消费），只不作门——Jev 看数值行判档位，门只吃
+ * 档位。**B 通道随之整体退役（重放裁定）**：骨架=「现象共振∧sbHold≥50 联立」，
+ * 佐证撤后只剩裸 moderate 共振→新增错杀 CD98/CD124 两票人工 healthy（拉黑
+ * 不可逆）且 B 在 G1-G9 黄金集正命中为零=从未校准——「多现象共振」证据交
+ * A 主判（strong 档）与题面档位校准。G10 黄金集重放 34/42 八票偏差（与 G9
+ * 持平：CD98/CD124 由 B 退役回正；台账 CD132）。生效须 182 重启。
+ * 此前 G9=G8−五纯数值门，2026-11-02 线上首日四票复盘用户裁定：「首先我认为
+ * 需要先去掉不经过Jev的门，使用Jev 是因为它有能力处理复杂状况，使用了硬门
+ * 与我们理念背离，Jev 描述现象，我们通过现象给结论」——退役五条判罚不经任何
+ * Jev 档位的纯数值通道：C（sbHold≥85）/F（sbHold≥50）/H（washPairSellPct≥60
+ * ∧≥3 对）/I（top1HoldSupplyPct≥40）/K（noBuySellPct≥40）。定线依据（黄金集
+ * 锚角色量化，本地纯重放）：五门 42 票命中面 15 票但反事实抽锚终判仅翻 1 票=
+ * 与 Jev 通道高度冗余；B（Jev 联立门）黄金集零命中=阈值从未校准；healthy 组
+ * 高锚值样本为零=「锚高值×健康票」象限零覆盖，线上四票全落该空象（RAM
+ * sbHold60 整档散户/MAI eqHold73.6 前端快捷档）。相关现象改由 Jev 题档承载：
+ * 对倒=wash_pair（A 主判）、独大=holdings_balance/insider（J/L）、纯卖方=L
+ * insider 联立；sbHold/eqHold 佐证消费（B 联立/A·G 豁免臂）随后亦随 G10 整体
+ * 退役。锚照常产出于 state/FA 34 键（观察不变，门不读）。G9 黄金集重放
+ * 34/42（唯一 grade 变化 CD97 cheat→unhealthy——C_sbHold90 独载票；偏差七→
+ * 八票；台账 CD131）。
+ * 此前 G8=G7+三改动，2026-11-02 批次六 CD37/CD79/CD4/CD68/CD5 review 收官，
  * 用户三项裁定落地——①「我建议分析一下有 burst 票的 burst 强度，长期停滞突然
  * 涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻 低活跃度
  * 结论」（选「弱 burst 代码臂」落法）→ E 通道 burst 豁免加弱波承接前提：锚
@@ -90,19 +124,13 @@
  *   cheat（优先级最高）:
  *     A. 八主判题（四现象剔 cr + tier/bw/rat/pump/wash）任一 strong
  *        豁免降级 unhealthy：唯一 strong=pump ∧ sbw=burst ∧ 八主判 moderate
- *        合计<3 ∧ sbHold<50（CD99 形状——停滞后涌入的自然 pump，非协同推价）
- *     B. 四现象 moderate≥3 ∧ sbHold≥50 ∧ dom≠high（现象门刻意严格：放宽到
- *        EXT 含计会把 CD95/CD100 两票真 unhealthy 误判永久拉黑）
- *     C. sbHold≥85（极端同块集中）
- *     H. washPairSellPct≥60 ∧ washPairCount≥3（G3 新增，2026-11-01 批次二
- *        CD27 用户裁定「对倒交易非常严重，如有必要可能需要增加锚」+落法选定
- *        「≥60% 且 ≥3 对 → cheat」——对倒=操纵盘面铁指纹；128 票锚窗分布
- *        126 票零配对、唯一命中 CD27 卖占 95.1%，断层稀有占比条件天然防误触）
- *     I. top1HoldSupplyPct≥40（G4 新增，第一大户吃 4 成总供应——单钱包一笔
- *        坐票形状（CD69 一笔 5.1653 BNB 吃 465.13M tok=46.5% 供应，组 14
- *        立项原话「一个钱包持有总额度占比过大肯定不行」）；F/C 消费 sbHold
- *        是簇集中，独大无簇票 sbHold 仅 4.9% 原通道全盲；锚 null（supply
- *        缺失）不触发）
+ *        合计<3（CD99 形状——停滞后涌入的自然 pump，非协同推价；G10 起
+ *        sbHold<50 腿退役，头注 G10 段）
+ *     （G9 退役：C sbHold≥85 / H washPair 数值 / I t1 供≥40——纯数值门不经
+ *      Jev，头注 G9 段；git 历史留档）
+ *     （G10 退役：B 四现象 mod≥3∧sbHold≥50∧dom≠high——sbHold 联立撤后裸
+ *      moderate 共振错杀 CD98/CD124 且 G1-G9 零正命中，用户裁定整体退役，
+ *      头注 G10 段；git 历史留档）
  *   unhealthy:
  *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null ∨ 组织买入占比 ≥80
  *        ∨ 组织买入锚 null）（G5 前纯 dom=high；跟单集中度豁免见头注②——分散形
@@ -115,22 +143,21 @@
  *        ∧ burstMaxGapSec≥60 ∧ burstWaveBuyBnb<1.05 ∧ burstWaveWallets<13 →
  *        豁免不成立（长期停滞后只涌入一点小流量，头注①），留痕
  *        E_low_activity_weak_burst；三键任一 null 维持豁免）
- *     F. sbHold≥50（中高同块集中）
- *     G. bd（bundled_trade_dominance）=high ∧ ¬(sbHold<20 ∧ (eqHold<50 ∨
- *        eqHold=null) ∧ 组织买入占比<80)（G2 新增，2026-11-01 用户裁定「捆绑钱包
- *        主导 是重要的负面臂」——128 票影响面 65 票 bd=high：人工 cheat 39/
- *        unhealthy 17/healthy 7，直落 cheat 误伤 healthy 7 票+17 票拉黑级偏重，
- *        用户选定 unhealthy 档=拒买可重判不清仓；G1 期「bd high 单独不定档
- *        （CD98/CD116/CD127 反证）」旧裁定同步废止；G5 双锚簇残余豁免见头注①；
- *        G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
+ *     F. （G9 退役：sbHold≥50——纯数值门不经 Jev，头注 G9 段）
+ *     G. bd（bundled_trade_dominance）=high ∧ ¬组织买入占比<80（G2 新增，
+ *        2026-11-01 用户裁定「捆绑钱包主导 是重要的负面臂」——128 票影响面
+ *        65 票 bd=high：人工 cheat 39/unhealthy 17/healthy 7，直落 cheat 误伤
+ *        healthy 7 票+17 票拉黑级偏重，用户选定 unhealthy 档=拒买可重判不清仓；
+ *        G1 期「bd high 单独不定档（CD98/CD116/CD127 反证）」旧裁定同步废止；
+ *        G6 组织买入 ≥80 死盘形状豁免不成立，见头注③；G5 双锚簇残余豁免
+ *        sbHold<20∧eqHold<50 随 G10 退役——豁免只剩 bundleBuyPct<80 承接
+ *        单腿，头注 G10 段）
  *     J. holdings_balance=strong（G7 新增，前几大持仓组合垄断——第一大+紧邻
  *        第二大+捆绑簇凑成垄断总供应量一大截（CD122 形状）或单一独大档位
  *        补充；主口径=占总供应量%；独立通道不进 A 清单=拒买级非拉黑级；
  *        <D3.32 旧档答案缺席 null 不触发）
- *     K. noBuySellPct≥40（G8 新增，零买入纯卖方——零买入纯卖出钱包合计卖出
- *        占全窗总卖 ≥40%=链外分仓/转入出货形状（CD5 创建者同块 Transfer 分光、
- *        接收户零买入同块卖出占总卖 45% 实锤立项）；null（总卖=0/旧档断代）不
- *        触发）
+ *     K. （G9 退役：noBuySellPct≥40——纯数值门不经 Jev，头注 G9 段；纯卖方
+ *        现象由 L insider 档位联立承载）
  *     L. insider_supply_sell∈{moderate,strong} ∧ noBuySellPct≥25（G8 新增，
  *        insider 题升格联立臂——Jev 内幕卖出档位补足纯卖方数值证据，25 线低于
  *        K 40 线；CD60 反例（insider strong 人工 healthy、纯卖 24.8）恰被排除；
@@ -151,7 +178,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G8';
+const CHEAT_GRADE_RULES_VERSION = 'G10';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -179,9 +206,8 @@ function scoreLevel(map, value) {
  * levels=13 题数值档（FA 出口键；washPair D3.28/holdingsBalance D3.32 起入列）、buckets=字符串原值
  * （metadata/日志研究友好）、anchors=数值锚九键（2026-11-01 用户补点「著名钱包
  * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流 + extras famous
- * 数值/档位——G1 B/C/F 通道 sbHold、E 通道 t1 流、D 通道 famous 档的同源数值；
- * D3.28 同块对敲三键 washPair 数量/卖占/买占——G3 H 通道同源数值，条件串可做
- * 同款门）。
+ * 数值/档位；D3.28 同块对敲三键 washPair 数量/卖占/买占。**G10 起 sb/eq 两锚
+ * 门侧消费退役**——投影照常产出，条件串/研究侧自由消费不变，头注 G10 段）。
  * activityLevel/bundledDominance/washPair 缺席（<D3.5/<D3.8/<D3.28 旧档）→ null。
  */
 function levelsFromObservation(observation, extras = {}) {
@@ -296,18 +322,14 @@ function gradeObservation(observation, extras = {}) {
   const sbw = ext.stall_burst_wave ?? null;
   const strongHit = MAIN_IDS.filter((k) => lv[k] === 'strong');
   const modAll = MAIN_IDS.filter((k) => lv[k] === 'moderate').length;
-  const modPhen = PHEN_IDS.filter((k) => ph[k] === 'moderate').length;
   const dom = typeof ex.famousLevel === 'string' ? ex.famousLevel : null;
   const act = obs.activityLevel && typeof obs.activityLevel.bucket === 'string'
     ? obs.activityLevel.bucket : null;
   const bd = obs.bundledDominance && typeof obs.bundledDominance.bucket === 'string'
     ? obs.bundledDominance.bucket : null;
   const anchors = obs.anchors || {};
-  const sbHold = _pct(anchors.sameBlockHoldPct);
-  const eqHold = _pct(anchors.equalBandHoldPct);
-  const washSell = _pct(anchors.washPairSellPct);
-  const washCount = _pct(anchors.washPairCount);
-  const t1Sup = _pct(anchors.top1HoldSupplyPct);
+  // （G10 退役 sbHold/eqHold 门侧消费——sbHold 是活跃度函数非组织性度量，
+  //  现象由题面语言承载，头注 G10 段；两锚照常产出供观察/条件串）
   const folTop3 = _pct(ex.famousFollowerTop3Pct);
   const famousBuyPct = _pct(ex.famousGroupBuyPct);
   const bundleBuy = _pct(anchors.bundleBuyPct);
@@ -324,8 +346,7 @@ function gradeObservation(observation, extras = {}) {
     const lonePumpBurst = strongHit.length === 1
       && strongHit[0] === 'slow_grind_pump'
       && sbw === 'burst'
-      && modAll < 3
-      && (sbHold === null || sbHold < 50);
+      && modAll < 3;
     if (lonePumpBurst) {
       reasons.push({ level: 'unhealthy', code: 'A_downgrade_single_pump_burst' });
     } else {
@@ -333,32 +354,16 @@ function gradeObservation(observation, extras = {}) {
     }
   }
 
-  // B：现象三档堆叠 + 中高同块集中（dom=high 让位 D——著名主导优先归 unhealthy）
-  if (modPhen >= 3 && sbHold !== null && sbHold >= 50 && dom !== 'high') {
-    reasons.push({ level: 'cheat', code: `B_phen_mod${modPhen}_sbHold${sbHold.toFixed(0)}` });
-  }
+  // （G10 退役 B 通道：四现象 moderate≥3 → cheat。骨架=「现象共振 ∧ sbHold≥50
+  //  联立」，sbHold 佐证随 G10 退役后只剩裸 moderate 共振——黄金集重放新增错杀
+  //  CD98/CD124 两票人工 healthy（拉黑不可逆），且 B 在 G1-G9 黄金集正命中为零
+  //  =阈值从未校准；用户裁定整体退役，「多现象共振」证据交 A 主判（strong 档）
+  //  与题面档位校准，头注 G10 段；git 历史留档）
 
-  // C：极端同块集中
-  if (sbHold !== null && sbHold >= 85) {
-    reasons.push({ level: 'cheat', code: `C_sbHold${sbHold.toFixed(0)}` });
-  }
-
-  // H：同块对敲锚（G3，2026-11-01 批次二 CD27 用户裁定「对倒交易非常严重，如有
-  // 必要可能需要增加锚」+落法选定「≥60% 且 ≥3 对 → cheat」——对倒=操纵盘面
-  // 铁指纹：≥60% 卖出是同块等额换手且 ≥3 对。锚缺席（旧档/无配对 null）不触发
-  if (washSell !== null && washSell >= 60 && washCount !== null && washCount >= 3) {
-    reasons.push({ level: 'cheat', code: `H_wash_pair_sell${washSell.toFixed(0)}x${washCount}` });
-  }
-
-  // I：第一大户供应独大（G4，2026-11-01 批次二 CD69 两段裁定——立项「大户集中
-  // 度不能只是观察锚，持仓太多了不行」+口径「不要看流通占比吧，看总量占比，
-  // 否则如果检测时间靠前，结果就不对了」（流通分母开盘早期虚高）+定线单档
-  // ≥40 → cheat。128 票分布唯一命中 CD69(46.5)；下一档 CD104(31.6) 人工
-  // healthy 挡住下探。F/C 消费 sbHold 是簇集中——独大无簇形状原通道全盲。
-  // 锚 null（totalSupply 缺失/无正持仓）不触发。
-  if (t1Sup !== null && t1Sup >= 40) {
-    reasons.push({ level: 'cheat', code: `I_t1_supply${t1Sup.toFixed(0)}` });
-  }
+  // （G9 退役五纯数值门：C sbHold≥85 / H washPair 数值 / I t1 供≥40 /
+  //   F sbHold≥50 / K noBuySell≥40——判罚不经任何 Jev 档位，头注 G9 段；
+  //   对倒→wash_pair 题 A 主判、独大→holdings_balance/insider 题 J/L、
+  //   纯卖方→L insider 联立；锚照常产出只不作门）
 
   // D：著名钱包主导（G5 补跟单集中度豁免，2026-11-02 批次四用户裁定「它们的跟单
   // 量是不是高估了？因为聪明钱的跟单一定程度也不算完全不健康的」+「也不能把所有
@@ -396,26 +401,15 @@ function gradeObservation(observation, extras = {}) {
     reasons.push({ level: 'unhealthy', code: sbw === 'burst' ? 'E_low_activity_weak_burst' : 'E_low_activity' });
   }
 
-  // F：中高同块集中
-  if (sbHold !== null && sbHold >= 50) {
-    reasons.push({ level: 'unhealthy', code: `F_sbHold${sbHold.toFixed(0)}` });
-  }
-
-  // G：捆绑钱包主导高档（G2，重要负面臂——用户裁定 unhealthy 档；G5 双锚簇残余
-  // 豁免，2026-11-02 批次四用户裁定「其实这里还有一个豁免点，就是如果持仓已经
-  // 卖出，也已经对盘面没影响了，也没关系」「如果有已经卖出，且流动性占比不是
-  // 特别大，也可以豁免」+CD121 口子收紧裁定（同块簇撤了但 eqHold 54% 等额簇还
-  // 持一半筹码≠对盘面无影响）——豁免须**同块簇与等额簇都基本撤退**：sbHold<20
-  // ∧ eqHold<50 才豁免；sbHold/eqHold=null（无合格簇锚）不豁免——锚缺席无从谈
-  // 「已卖出」，fail-closed 维持触发（eqHold=null 例外：无等额簇=该轴零残余，
-  // sbHold<20 即豁免）。128 票分布：豁免区=CD128（12.6/29.2，A_strong:pump 保底
-  // grade 仍 cheat）；CD121（11.4/54.0）与 CD126（10.7/59.6）eqHold≥50 不豁免）
-  // G6 豁免前提（用户补充裁定，头注③，与 D 段同线）：bundleBuyPct ≥80（sb∪eq
-  // 簇买入占锚窗总买 ≥80=正常承接不足两成）→ 不豁免；null（旧档断代/无合格簇
+  // G：捆绑钱包主导高档（G2，重要负面臂——用户裁定 unhealthy 档。G5 曾落双锚
+  // 簇残余豁免 sbHold<20∧eqHold<50（批次四「持仓已卖出对盘面无影响可豁免」），
+  // G10 整腿退役：sbHold 是活跃度函数（高活跃盘同块簇圈定天然吞散户）、eqHold
+  // 现象由题面语言承载，死指标退位（头注 G10 段）——豁免只剩 G6 承接前提：
+  // bundleBuyPct<80（sb∪eq 簇买入占锚窗总买不足八成=正常用户承接至少两成）才
+  // 豁免；bundleBuyPct ≥80（组织独角戏死盘形状）或 null（旧档断代/无合格簇
   // 成员）→ 不豁免 fail-closed。128 票 G 豁免形状 bundleBuy 全 <44=现状零翻转，
-  // 语义对称落地防「簇撤退但买入占九成」对倒洗筹死盘形状
-  if (bd === 'high' && !(sbHold !== null && sbHold < 20 && (eqHold === null || eqHold < 50)
-    && bundleBuy !== null && bundleBuy < 80)) {
+  // 语义保留防「簇买入占九成」对倒洗筹死盘形状
+  if (bd === 'high' && !(bundleBuy !== null && bundleBuy < 80)) {
     reasons.push({ level: 'unhealthy', code: 'G_bundled_dominance' });
   }
 
@@ -429,18 +423,6 @@ function gradeObservation(observation, extras = {}) {
   // （<D3.32 旧档断代/总供应量缺失缺主口径）不触发（EXT 容缺语义同族）。
   if (lv.holdings_balance === 'strong') {
     reasons.push({ level: 'unhealthy', code: 'J_holdings_strong' });
-  }
-
-  // K：零买入纯卖方（G8，2026-11-02 批次六 CD5 用户裁定「创建者已经卖了，而且
-  // 应该是通过代币转入的方式卖的……明显的作弊行为」+双修落法——链上实锤：创建
-  // 块同块 Transfer(from=creator) 7 笔分光 ≈3.18 亿 token、6 接收户零买入同块
-  // 各卖一笔 Σ2.09 BNB 占锚窗总卖 45%；Transfer 不在 collector 订阅范围，swap
-  // 侧写=零买入纯卖方，本通道=该形状的代码量化（noBuySellPct=零买入纯卖出钱包
-  // 合计卖出÷全窗总卖×100，snapshot G8 头注）。定线 ≥40（128 票：触发 14 票
-  // 零误伤 healthy；30 线误伤 CD45 37.7 挡住下探）。unhealthy 档=拒买可重判不
-  // 清仓；null（总卖=0/旧档断代）不触发
-  if (noBuySell !== null && noBuySell >= 40) {
-    reasons.push({ level: 'unhealthy', code: `K_no_buy_sell${noBuySell.toFixed(0)}` });
   }
 
   // L：insider 题升格联立臂（G8 双修第二落法——insider_supply_sell 原为 EXT 纯

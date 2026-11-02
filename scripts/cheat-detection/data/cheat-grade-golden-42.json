@@ -1,6 +1,6 @@
 {
   "generatedFrom": "D3.26 存档 42 票（cd-run-2026-11-01 系）+ fixtures expect",
-  "rulesVersion": "G8",
+  "rulesVersion": "G10",
   "cases": [
     {
       "caseId": "CD44",
@@ -1558,5 +1558,5 @@
       }
     }
   ],
-  "replayNote": "G8 对 D3.26 存档重放机器 grade 零变化（G8=G7+三改动：E 通道弱 burst 代码臂/K 零买纯卖通道/L insider 联立臂——三臂消费锚 burstMaxGapSec/burstWaveBuyBnb/burstWaveWallets/noBuySellPct 对旧档全部缺席 null 不触发（G6/G7 新锚存档重放零变化同款先例）；弱 burst 臂三键任一 null→维持 G7 burst 豁免）。题集 D3.33（state-only 零买纯卖方数值行，13 题不动）。expect 侧无变化：35/42 沿用"
+  "replayNote": "G9 对 D3.26 存档重放：唯一 grade 变化 CD97 cheat→unhealthy（C_sbHold90 独载票），agree 35→34、偏差七→八票。G9=退役五纯数值门（C sbHold≥85/F sbHold≥50/H washPair 数值/I t1 供≥40/K noBuySell≥40）——2026-11-02 用户裁定「去掉不经过Jev的门……Jev 描述现象，我们通过现象给结论」；五门黄金集命中面 15/42 但抽锚终判仅翻 CD97 一票=与 Jev 通道高度冗余。；G10（CD132，2026-11-02）：sbHold/eqHold 门侧消费全撤（B 联立/A 降级豁免 sbHold 腿/G 豁免双锚腿）+B 通道整体退役（sbHold 联立撤后裸 moderate 共振错杀 CD98/CD124 两票人工 healthy 且 G1-G9 零正命中）——34/42 与 G9 同（八票偏差不变，CD98/CD124 由 B 退役回正）"
 }
