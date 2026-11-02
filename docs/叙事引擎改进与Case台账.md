@@ -54,6 +54,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C260 GiggleAcademy 收录超级IP注册表（MAI 案，2026-11-02 用户裁定「GiggleAcademy 应该属于超级IP，如果现在没放在里头，请放进去」+AskUserQuestion 拍板 tier A）
+
+- **案发**：MAI `0x732bd5190992ecb2365e080c2d3d37880cb17777`（four.meme，11-02 07:15:24 创建，分析 07:15:31）。宣告推文=@GiggleAcademy（13.7 万粉）**2026-07-19（106 天前）**发的「Meet Mai 🌟 Giggle Academy's new companion…#MeetMai」角色宣传推——官方号未提任何代币/CA，token 创建者把这条旧推链接挂进 meta。v67（e3d00085）分析：实体题 accepted **0.95**（Jev 借 account-backgrounds 背景行认出 Mai=Giggle 角色，非 C168 撞名），但 ①`event_timing: older 0.98`（源头推 106 天前 ≫ C75 30d 源头寿命线）②effectiveImpactTier 仅 B（注册表缺席无认证行加持）③w_bsc_user_appeal low 0.56 ④trivialProbe too_trivial → **事件综合分 30<60 拦**（blockChoice=none 纯分数不够，`bsc_meme_user_phrase` not_acceptable 0.91 同票在档但非拦截位）。
+- **裁定**：GiggleAcademy（CZ 创始的儿童教育平台官方号）收录进 `SUPER_IP_REGISTRY`；tier=**A**（用户三选拍板：按 C137 GMGN 创始人 4.6 万粉 A/C241 Four.meme 主号 A 先例，项目账号对标 A、13.7 万粉与 S 档世界级认证行不对标；S 会触发 C255 源头时效收紧 30min，维持 24h 档）。type=institution（D 类：机构言论/动作）。
+- **改动**：`super-ip-registry.mjs` 加 `giggleacademy` 条目+裁定注释。**题集零改动不 bump 版本**（注册表=state 认证行注入源，非题面；C137/C241 同例）。单测七件复跑：六件全绿（no_prestage_route 14/slogan_class 52/gmgn_enrich 17/freshness_bucket 112/timing_probe 42/rule5）；`superip_standard_path` 18+**2 存量红**（B2/B2b 源码口径锁，stash 对照确认 HEAD f2cddcc3 上即失败=近期重构遗留与本次无关，待单独裁定）。
+- **本票不翻案**：注册表在册也救不了 MAI——时效 older 0.98 是主导（106 天旧推是事实，C75/C102/C255 全门不动）；token_narrative 缓存行 rating=low 且语料非空非账号型（C84 补轮臂仅 rating=1∧accountOnly∨corpusEmpty 触发）→ 不自动重析，行为正确。**注册的意义在将来**：GiggleAcademy 发新内容被当天发币蹭时，在册激活 J1.56 作者原话票（作者在册∧币名逐字主推文本→补 C88 五腿第一腿）/C117 强制标准路径/J1.58 空洞豁免/C51 GMGN 推文级补源/state 认证行（量级判档从 B 起步有认证加持）。
+- **生效链**：注册表=模块级常量，实验进程（C84 触发 getRating 进程内直调）+叙事 worker 双进程各持一份——**须重启实验进程生效**；v67 07:47 UTC 刚重启（f2cddcc3），本票不翻案故不专门重启，攒批随下次重启/部署带入（worker 同理）。
+- **观察点**：①GiggleAcademy 后续新推被蹭票（<24h 源头）的量级判档/事件分表现；②J1.56 作者原话票首次实跑形状（Giggle 宣推必含新角色名）；③B2/B2b 存量红单独裁定修复。
+
 ### C259 词句题①来由补「切身热点事件语境的文字凝练锚」——币名含义由宣告推文赋予即成立（「安」案，2026-11-02 用户裁定「这个币的名字，依托于这个推文，其实是成立的」+「相当于它的含义是这个推文给的」+落点拍板词句题①臂）★
 
 - **案发**：「安」`0x90a5ce7ae44132c06990f05cda15ce854ec27777`（four.meme，symbol 单字「安」，11-02 06:40 创建）。主推=@ViewsOfChris（75,715 粉认证）06:39 interpretive_reply，父推=币安「提币恢复 12 小时 98% choose to stay」推；推文「没有选择从币安提币，觉得放在那还是稳妥的。就像你在香港必选汇丰一样。任何事情要做到心安、眠安、家安」@cz_binance 等三人。v67（e3d00085）06:41 分析：事件轴全过（C 类 0.65、event_fit strong_fit **0.82**、effectiveImpactTier **S 级**、within_7d+interpretive 高粉 C120 豁免、empty_content none 0.84、china_politics 0），但实体题 not_entity **0.92**（「安」字面日常单字，非 C247 概念科普/C174 命名故事/C190 专名形状——落词句题路由正确）→ 词句题 not_acceptable **0.84** 拦 low（rating=1 只出 3 条 OBSERVE、无买信号、语料非空非账号型无补轮）。死因=三因素①有来由的四条臂全接不住：喊梗人 7.5 万粉 KOL 够不上「币安系/官方/圈内知名」主体臂；事件承载臂民族级/全球级门槛把币安提币事件按「平台级」挡掉（C189「币安上电视」口径）；「安」此刻未流通——**「梗的出处是一条依托切身热点事件的推文」这个形态在①里没有格子**，②③跟着缺语境判死。

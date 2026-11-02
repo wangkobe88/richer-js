@@ -69,6 +69,15 @@ export const SUPER_IP_REGISTRY = {
   // 同档（C137 精神：消费臂 J1.58/C117/J1.56 只看在册不看 tier；S=世界级认证行，
   // 平台官方不对标）。
   'fourdotmemezh':    { name: 'Four.meme主号',     type: 'institution', tier: 'A', desc: 'BSC链meme平台Four.meme现行主号（原主号被封后承担）' },
+  // C260（MAI 案，2026-11-02 用户裁定「GiggleAcademy 应该属于超级IP，如果现在没放在
+  // 里头，请放进去」）：CZ 创始的儿童教育项目官方号（13.7 万粉）。现场=0x732b…7777
+  // (MAI) 蹭 @GiggleAcademy 106 天前「Meet Mai」角色宣传推，实体题 accepted 0.95
+  // 但无认证行加持量级仅 B 档、时效 older 0.98 → 事件分 30<60 拦（在册也不翻案，
+  // 时效 older 是主导；注册为资产建设：官方新内容被当天发币蹭时可享 J1.56 作者
+  // 原话票/C117 标准路径/J1.58 空洞豁免/state 认证行）。tier A=用户拍板（AskUser
+  // 对拍：按 C137/C241 先例项目账号对标 A，13.7 万粉与 S 档世界级认证行不对标；
+  // C255 源头时效维持 24h 档不收紧 30min）。
+  'giggleacademy':    { name: 'Giggle Academy',    type: 'institution', tier: 'A', desc: 'CZ创始的儿童教育平台' },
 };
 
 /**
