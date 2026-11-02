@@ -180,21 +180,21 @@
 
 ## Case 倒序
 
-### 批次七（CD8/CD15/CD16/CD21/CD23/CD25/CD57）：G8 三臂批内首验——K/L 再中两票+CD16 四通道同票命中，档位差与贴线漏检均接受现状（2026-11-02）
+### 批次七（CD8/CD15/CD16/CD21/CD23/CD25/CD57）：G8 三臂批内首验——K/L 再中两票+CD16 四通道同票命中改判，档位差与贴线票均接受现状（2026-11-02）
 
-批次七七票全 aed2091d 首买基线票（expect=unhealthy×7），G8 上线后首批真调（cd-run-2026-11-02T05-19Z）。机器×人工一致 3/7（CD8/CD25/CD57）；机器更重三票 CD15/CD16/CD21（cheat vs unhealthy，方向都拦）；漏检一票 CD23（healthy vs unhealthy）。**用户裁定「那我觉得不用看了，unhealthy跟cheat本身差异不大」——三票机器更重接受现状不改规则，expect 维持人工记录**；CD23 漏检 AskUserQuestion 裁定「接受现状不立项（推荐）」。
+批次七七票全 aed2091d 首买基线票（初判 expect=unhealthy×7），G8 上线后首批真调（cd-run-2026-11-02T05-19Z）。机器×初判一致 3/7；机器更重三票 CD15/CD16/CD21（cheat vs unhealthy，方向都拦）；贴线一票 CD23（healthy vs unhealthy）。**用户裁定「那我觉得不用看了，unhealthy跟cheat本身差异不大」——机器更重票接受现状不改规则**；随后追加翻案「1.CD16 可以改为 cheat；2.CD23 可以改为 healthy」——**expect 改写两票，机器×expect 一致 5/7**（剩 CD15/CD21 两票档位差接受）。
 
 | CD | 票 | 地址 | 机器 grade（留痕） | 批次七裁定 | 处置 |
 |---|---|---|---|---|---|
-| CD16 | PAOLO | `0x1a28…7777`（0x1a28468046b1673fb0e1f31fa3c7a6ef8acf7777，flap） | cheat `[A_strong:insider_supply_sell, J_holdings_strong, K_no_buy_sell94, L_insider_sell94]` | unhealthy（接受机器更重） | **G8 新臂批内最强命中=回归集首例四通道同票**：零买入纯卖 93.5%（回归集之最，超 CD5 65.3/CD25 69.4）+insider strong（走 A 取最重）+holdings strong（top1 占总量 29.6%+top2 首买间隔 3s 协同，∪并集 49.4%）+K/L 双中；「unhealthy 跟 cheat 差异不大」接受现状，expect 维持 unhealthy |
+| CD16 | PAOLO | `0x1a28…7777`（0x1a28468046b1673fb0e1f31fa3c7a6ef8acf7777，flap） | cheat `[A_strong:insider_supply_sell, J_holdings_strong, K_no_buy_sell94, L_insider_sell94]` | **cheat（expect 改写）** | **G8 新臂批内最强命中=回归集首例四通道同票**：零买入纯卖 93.5%（回归集之最，超 CD5 65.3/CD25 69.4）+insider strong（走 A 取最重）+holdings strong（top1 占总量 29.6%+top2 首买间隔 3s 协同，∪并集 49.4%）+K/L 双中；用户翻案「CD16 可以改为 cheat」expect unhealthy→cheat，与机器一致（10-30 首轮「不算作弊但 KOL 掌控」→ 11-02 四通道证据链下升档） |
 | CD25 | 0 | `0x3c71…7777`（0x3c7169fd109e4ae9a7f490ecd20967b32c5b7777，flap） | unhealthy `[K_no_buy_sell69, L_insider_sell69]` | unhealthy（一致） | **K 通道独立价值实证**：旧通道全放行形状（块簇持仓 17.9/等额簇无/无 strong 档/bd=mid），零买入纯卖 69.4% 仅 K/L 可见且与人工一致——若无 K 本票=CD23 同款漏检 |
 | CD15 | Paolo | `0xa1b0…7777`（0xa1b05052b02106f57f9438797e008191ee997777，flap） | cheat `[B_phen_mod3_sbHold74, F_sbHold74, G_bundled_dominance]` | unhealthy（接受机器更重） | B 通道三现象 moderate 堆叠+块簇持仓 74.3——与组 22 CD119 人工先例（无 strong 三 moderate 堆叠+67.4 判 cheat）同构；差异不大接受现状 |
 | CD21 | 0 | `0x9d70…7777`（0x9d70e873394d31e928ab213f4a2aed24de637777，flap） | cheat `[B_phen_mod4_sbHold60, F_sbHold60, G_bundled_dominance]` | unhealthy（接受机器更重） | 四现象全 moderate 堆叠（本批唯一四题全 moderate）+块簇 59.8+组织买入 66.7%；同 CD15 接受现状 |
-| CD23 | ZERODAY | `0xd96d…7777`（0xd96dce62ea87c7a5405392939a64770eddcf7777，flap） | healthy `[clean]` | unhealthy（**漏检留档**） | **贴线形状与批次六先例一致不立项**：块簇持仓 48.9 差 1.1 过 50/等额簇 33.1 差 16.9/无 strong 档/act=ultra 进不了 E/bd=mid 进不了 G；吞吐 6.879 本批最大买盘=双簇集中但都差一口气；50 线为 G1 以来多次裁定锚定，降线须重新定线研究误伤面（批次六 CD34 42.2/CD68 38.3/CD74 49.6 同族贴线票均接受现状）；留档攒票观察 |
+| CD23 | ZERODAY | `0xd96d…7777`（0xd96dce62ea87c7a5405392939a64770eddcf7777，flap） | healthy `[clean]` | **healthy（expect 改写）** | 用户翻案「CD23 可以改为 healthy」expect unhealthy→healthy，与机器一致——10-30 首轮即留「强庄盘（不像是真人，但庄没有砸盘）」+持续推升未收割（校准信号 18），本轮贴线形状（块簇持仓 48.9 差 1.1/等额簇 33.1/无 strong 档/act=ultra/bd=mid）与批次六 CD34/CD68/CD74 同族，不降 50 线不改规则，改判后非漏检 |
 | CD8 | NOT SAFU | `0xc2d7…7777`（0xc2d78d35799020b122bc4284406c018a81c47777，flap） | unhealthy `[F_sbHold60, G_bundled_dominance]` | unhealthy（一致） | 无动作——同块簇 8 个（本批最多）块簇持仓 60.5 双通道既有落位 |
 | CD57 | 币安SI | `0x8419…7777`（0x8419325e3d459de6cc269e48dd1e112bb60f7777，flap） | unhealthy `[E_low_activity]` | unhealthy（一致） | 无动作——act=low∧sbw=none 经典 E（91 笔锚窗但吞吐仅 1.319 BNB；D3.25 金额吞吐口径正例形状） |
 
-**收官**：七票 expect 全部维持 unhealthy 不改写（CD15/CD16/CD21 机器 cheat 用户接受属档位差不改人工记录；CD23 漏检留档）。G8 三臂批内战果：K 两票（CD16 93.5 回归集之最+CD25 69.4）+L 两票（同 CD16/CD25）+E2 零触发（本批无 act=low∧sbw=burst 形状票）。**余批次八（CD62/CD66/CD77/CD87/CD90/CD100/CD127）收官**——注意 CD66/CD87/CD90/CD100/CD127 均为既有 G 段代价票/研究票（CD66 D 前提 90.3、CD87 G 段、CD90 D 豁免 49.8、CD100 无 strong 四重集中、CD127 重集中+现象全 weak），review 时重点看 G8 新臂是否叠加触发。
+**收官**：expect 改写两票（CD16→cheat、CD23→healthy，机器×expect 一致 5/7），CD15/CD21 机器 cheat 属「差异不大」档位差不改人工记录 unhealthy。G8 三臂批内战果：K 两票（CD16 93.5 回归集之最+CD25 69.4）+L 两票（同 CD16/CD25）+E2 零触发（本批无 act=low∧sbw=burst 形状票）。**余批次八（CD62/CD66/CD77/CD87/CD90/CD100/CD127）收官**——注意 CD66/CD87/CD90/CD100/CD127 均为既有 G 段代价票/研究票（CD66 D 前提 90.3、CD87 G 段、CD90 D 豁免 49.8、CD100 无 strong 四重集中、CD127 重集中+现象全 weak），review 时重点看 G8 新臂是否叠加触发。
 
 ### 批次六（CD4/CD5/CD34/CD37/CD68/CD74/CD79）：G8 弱 burst 代码臂+K 零买入纯卖方+L insider 联立——人工 unhealthy→机器 healthy 漏检组（2026-11-02）
 
