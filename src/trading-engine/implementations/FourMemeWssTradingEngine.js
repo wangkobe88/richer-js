@@ -1990,6 +1990,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const tokenAddress = token.token;
     const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues, buildTpaFactorSnapshot } = require('../core/FactorBuilder');
 
+    // faState 提升到函数域（活引用零语义变化）：preBuy 块与 CD1 cheat gate/观察点
+    //（下方）共用——原先声明在 preBuy 块内，C84 trigger 腿跳过 preBuy 时块外
+    // gate 调用越界引用 `faState is not defined` 直接炸断买路径（v67 首日现场）
+    const faState = this._factorAggregator.getTokenState(tokenAddress);
+
     this._buyingTokens.add(tokenAddress);
     try {
       // 初始化策略执行计数（maxExecutions 门）
@@ -2200,7 +2205,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
           const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
 
-          const faState = this._factorAggregator.getTokenState(token.token);
+          // faState 已提升到函数入口（上方）——C84 trigger 腿跳过 preBuy 时块内
+          // 声明在 cheat gate 处不可见曾炸断买路径
 
           // 早晚票语料滞后秒（0fed29f9 案 2026-10-08）：FA 出生锚（TokenCreate 块时间）
           // − 语料最早推文时间（主推/父推取更早，NarrativeDirectCaller.corpusTs）。

@@ -326,6 +326,20 @@ console.log('E. 引擎侧源码口径锁');
   ok('预触发挂点在 tick 管线买腿分支（C84 触发模型同位——条件串引用 cheat 因子的自锁死防线）',
     trigIdx > 0 && pfIdx > trigIdx);
   ok('消费端扫描 /cheat[A-Z]/ 在源码（条件串引用检测）', src.includes('_scanCheatFactorConsumers'));
+  // E7 faState 作用域事故现场反证（v67 首日 2026-11-02：`faState is not defined` 炸断
+  // 买路径）：声明原在 preBuy 块内，C84 trigger 腿跳过 preBuy 时块外 gate 调用
+  //（_cheatGateEvaluate/noteBuyPoint meta）越界引用 ReferenceError——每次 fire 即抛、
+  // trades 零行。防线=声明必须提升到 _evaluateBuyPath 函数域且先于 preBuy 块，
+  // 函数体内不得再有块级重复声明
+  const buyPathStart = src.indexOf('async _evaluateBuyPath(token, factorResults, tick) {');
+  const gateCallIdx2 = src.indexOf('this._cheatGateEvaluate(tokenAddress, token, faState', buyPathStart);
+  const buyPathSlice = src.slice(buyPathStart, gateCallIdx2);
+  const declIdx = buyPathSlice.indexOf('const faState = this._factorAggregator.getTokenState(tokenAddress);');
+  const preBuyIdx = buyPathSlice.indexOf('shouldPerformPreCheck && this._preBuyCheckService');
+  ok('faState 声明提升到 _evaluateBuyPath 函数域且先于 preBuy 块（事故现场反证）',
+    buyPathStart > 0 && gateCallIdx2 > buyPathStart && declIdx > 0 && preBuyIdx > 0 && declIdx < preBuyIdx);
+  ok('faState 函数体内无块级重复声明（唯一声明=提升点）',
+    (buyPathSlice.match(/const faState/g) || []).length === 1);
 }
 
 console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→后台分析→FA 投影）');

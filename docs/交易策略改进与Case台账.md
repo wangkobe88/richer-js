@@ -67,6 +67,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **signal-stats 反作弊列**：新端点 `GET /api/experiment/:id/cheat-detections`（cheat_detection 按 source_experiment_id 瘦列拉行，analyzed_at desc 前端首见即最新）+ 表头「人工评级」后「反作弊」列（可排序 cheat=2/unhealthy=1/healthy=0；badge 🚫作弊/⚠️不健康/✅健康/⏱超时·❗错误·已观测灰，title=版本+时间+通道明细；无分析 '-'；js v4.12）。本地 3010 playwright 真实 DOM 四形状+排序+空态全验证。
 - **观察点**：①修复后 cheatCheck 首析/表行/「盘面观测」日志恢复（对照事故期 2h 空窗）；②反作弊列首批真实数据形态（badge 分布对照回归集基线）；③首买 4 卡仓位节奏（单票敞口 0.004）与触发频率变化；④二次买入关闭后「卖出后同票永不再进」的错过/避免分布（对照 T89 二次入场初衷）。
 
+### T108c v67 首日事故第二弹：cheat gate 调用点 faState 块外越界引用炸断全部买点（`_evaluateBuyPath` 作用域事故；2026-11-02 与 T108b 同窗叠爆，J1.151 重启换车时发现）
+
+- **现场**：重启前持仓点查（卡账本净额 trades 零行+两行「持仓恢复完成: 0 个代币」）→ 日志尾暴露 `[ERROR][BuyEval] 买腿评估异常: faState is not defined`——**128 次全灭、≥4 票受害**（八小/币安一直都在/猴子币/豆豆），首次 07:16:52 UTC，每 tick 重现（07:39 猴子币 1s 内两连炸）。gate/观察两分支同炸：`gate 分析 0 行`、trades 零行=v67 gate 开启后**买路径全程瘫痪**（gate 竞速从未真正跑过一次）。
+- **根因**：`const faState` 原声明在 `_evaluateBuyPath` 的 **preBuy 块内部**（2203），而 CD1 gate 调用 `_cheatGateEvaluate(tokenAddress, token, faState, …)`（2352）与观察分支 noteBuyPoint meta 的 `faState?.platform/totalSupply`（2361/2366）在**块外**——C84 新模型腿（v67 buy-v2 v55 全腿）跳过 preBuy 时块不执行，块外引用未声明标识符 → ReferenceError。观察分支被同段 catch 吞成 warn（CD1 上线以来买点观察挂点从未成功过——与 T108b require 事故同窗叠加，两事故各自独立全灭）。**影响面恰=v67**（此前实验 cheatCheck 全关，该块零执行）。
+- **漏网面**：gate 单测直调 `_cheatGateEvaluate`（faState 显式传参），从未走 `_evaluateBuyPath` 调用点；`faState?.` 可选链形状让人误以为空安全——**可选链防的是值 null，防不了标识符未声明**。
+- **修复**：faState 提升到 `_evaluateBuyPath` 函数入口（`getTokenState` 返回活引用 `Map.get`，提升零语义变化——preBuy 块消费同一对象）；块内原声明删。单测防线 E7（源码口径锁两断言）：声明必须先于 preBuy 块条件+函数体内恰一处声明（块级重复声明回流即红），`_test_cheat_gate_engine` 65→67 断言全绿；直调买路径四件复跑全绿（gmgn_check_layer 78/manual_trade_queue 127/stop_loss_rules 69/cheat_detection_service 92）。
+- **部署链**：随 J1.151（C259）+T108b `_log` 修复同批重启生效（182 pull→零持仓确认→TERM 优雅停→--force 起）；重启后首验=买点 gate 真跑。事故期对照事实：cheat_detection 已落 207 行**全部来自预触发通道**（T108b require 修复后恢复，verdict=observed 无 error）——买点观察与 gate 两挂点因本事故从未执行过一次。
+- **观察点**：①重启后 gate 买点竞速 15s 完成率首见（事故期全部没跑成）；②事故窗 07:16-重启 期间 4 票行情结局（错过 vs 避坑对照）；③重启后预触发/买点两通道行量对照（事故期买点通道占比 0）。
+
 ### T107 市值拱形时间全清臂（FA 新因子三键 + 库新条目 mcap-arc-fullclose v1 + create-v65；2026-10-29 用户指令「再增加一个卖出臂，持续记录代币从首次交易到最高市值的时间，假设这个时间为 X 秒，代币市值大于 15K 后，如果代币从最高点已经经过了时间长度 X/2 秒（没有再次突破最高点），则全部清仓」；初稿 7K/X 后同日改 15K/X/2）
 
 - **形状（卖腿 24→25，全清 `cards:'all'` p10，插 T97 secSincePeak 腿前——p10 同档稳定排序首中即赢：拱形完成全清 ⊃ T97/T80 减 1 卡；bypass=false 走 3.5s+5tick 双门；maxExecutions 刻意不设=卖出失败每轮重试直到清仓）**：`mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec`——X=首次交易→最高市值耗时；峰值市值超 15K USD（=20.1 BNB，T84 换算率 bnbUsd≈745）后距峰已流逝 ≥ X/2 秒且未再破新高 → 全部清仓。**时间维度出场**，与 T99 回撤深度维度互补：浅回落阴跌票 -25/-35 永远够不着，本臂按「再等半个涨程还没新高」截断；与 T104 stallClose 也互补（断流票归 stallClose，本臂管仍在成交但再不起飞票）。
