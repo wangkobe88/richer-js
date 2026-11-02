@@ -8,7 +8,26 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G4=G3+I 通道 t1 供应独大单档，2026-11-01 批次二 CD69 两段裁定：立项
+ * 规则（G5=G4+两处豁免修正，2026-11-02 批次四裁定：
+ * ①G 通道双锚簇残余豁免——用户裁定「其实这里还有一个豁免点，就是如果持仓已经
+ * 卖出，也已经对盘面没影响了，也没关系」「如果有已经卖出，且流动性占比不是
+ * 特别大，也可以豁免」+CD121 口子收紧裁定：豁免须同块簇与等额簇都基本撤退
+ * （sbHold<20 ∧ eqHold<50），sbHold/eqHold 锚 null 不豁免（fail-closed；eqHold
+ * =null 例外=该轴零残余）。128 票豁免区仅 CD128（12.6/29.2，A_strong:pump 保底
+ * grade 仍 cheat）；CD121（11.4/**54.0**）/CD126（10.7/**59.6**）eqHold≥50 不豁
+ * 免→黄金集 34/42 重放零变化（D3.26 旧档含 eqHold 键，CD121 锚 54.0 恰不豁免）；
+ * 批次四 G_bd 误伤组五票 sbHold 20.1-73.0 簇全在仓、豁免零受益（价值=未来票
+ * 语义正确）。
+ * ②D 通道跟单集中度豁免——用户裁定「它们的跟单量是不是高估了？因为聪明钱的
+ * 跟单一定程度也不算完全不健康的」「也不能把所有的后续买入全看成 famous 的跟
+ * 单」：dom=high ∧ 跟单 top3 占跟单正净 Σ<45%（分散形=几十个散户小额跟进）不
+ * 触发；≥45%（集中形=少数大户贴身重仓，疑似分仓）维持触发；null（无跟单/旧档
+ * 断代）触发（无跟随时 dom 分子全靠 famous 本人=直接控盘）。16 票研究：跟单窗
+ * 覆盖买家数中位 80%+、本人持中位 ~10%——修正前 dom 度量的多是「famous 买入后
+ * 60s 内盘面热」。已知代价（用户知情）：分散形 9 票 D 不再触发（CD42/CD47/
+ * CD65/CD66/CD86/CD90/CD103/CD113/CD116），其中 CD103/CD113 人工 cheat 无 A
+ * strong 时翻 healthy、CD65 人工 unhealthy 同翻——由其余通道（F/G/E）或放行
+ * 语义承担。此后 G4=G3+I 通道 t1 供应独大单档，2026-11-01 批次二 CD69 两段裁定：立项
  * 「大户集中度不能只是观察锚，持仓太多了不行，至少这么大总量占比肯定不行的」
  * →口径「我觉得不要看流通占比吧，看总量占比，否则如果检测时间靠前，结果就
  * 不对了」（流通分母=已买入筹码，开盘早期池浅占比虚高时间不无偏；供应分母恒
@@ -35,18 +54,20 @@
  *        是簇集中，独大无簇票 sbHold 仅 4.9% 原通道全盲；锚 null（supply
  *        缺失）不触发）
  *   unhealthy:
- *     D. famous dom=high（著名钱包掌控度高档——D 通道消费 famous 非bd）
+ *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null）（G5 前纯 dom=high；
+ *        跟单集中度豁免见头注②——分散形「聪明钱带散户」不触发）
  *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定
  *        「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要
  *        判定为活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1
  *        对手盘豁免（CD107）撤销，改由题面 D3.27 burst 反锚在档位源头修正；
  *        sbw=burst 豁免保留为通道层双保险）
  *     F. sbHold≥50（中高同块集中）
- *     G. bd（bundled_trade_dominance）=high（G2 新增，2026-11-01 用户裁定
- *        「捆绑钱包主导 是重要的负面臂」——128 票影响面 65 票 bd=high：人工
- *        cheat 39/unhealthy 17/healthy 7，直落 cheat 误伤 healthy 7 票+17 票
- *        拉黑级偏重，用户选定 unhealthy 档=拒买可重判不清仓；G1 期「bd high
- *        单独不定档（CD98/CD116/CD127 反证）」旧裁定同步废止）
+ *     G. bd（bundled_trade_dominance）=high ∧ ¬(sbHold<20 ∧ (eqHold<50 ∨
+ *        eqHold=null))（G2 新增，2026-11-01 用户裁定「捆绑钱包主导 是重要的负面
+ *        臂」——128 票影响面 65 票 bd=high：人工 cheat 39/unhealthy 17/healthy 7，
+ *        直落 cheat 误伤 healthy 7 票+17 票拉黑级偏重，用户选定 unhealthy 档=拒买
+ *        可重判不清仓；G1 期「bd high 单独不定档（CD98/CD116/CD127 反证）」旧
+ *        裁定同步废止；G5 双锚簇残余豁免见头注①）
  *   healthy: 其余
  *
  * cr（创建者抢跑）刻意不进主判=辅助判定（用户语义；CD75 cr strong 人工判
@@ -63,7 +84,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G4';
+const CHEAT_GRADE_RULES_VERSION = 'G5';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -170,10 +191,12 @@ function _pct(v) {
  * @param {Object} observation - buildObservation 产物
  *   {phenomena, extLevels, activityLevel:{bucket}|null, bundledDominance, anchors}
  * @param {Object} [extras] - 分级附加原料
- *   {famousLevel: 'low'|'mid'|'high'|null, anchorSellCount: number|null}
- *   （famousLevel=snapshot.derived.famousDominanceLevel；anchorSellCount=锚窗
- *   卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再消费（历史 D3.x 豁免
- *   原料），字段保留为 service/digest 兼容形状）
+ *   {famousLevel: 'low'|'mid'|'high'|null, famousFollowerTop3Pct: number|null,
+ *    anchorSellCount: number|null}
+ *   （famousLevel=snapshot.derived.famousDominanceLevel；famousFollowerTop3Pct=
+ *   snapshot.derived.famousFollowerTop3Pct（G5 D 通道跟单集中度豁免判据）；
+ *   anchorSellCount=锚窗卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再
+ *   消费（历史 D3.x 豁免原料），字段保留为 service/digest 兼容形状）
  * @returns {{grade:'cheat'|'unhealthy'|'healthy', reasons:Array<{level:string,code:string}>, version:string}}
  */
 function gradeObservation(observation, extras = {}) {
@@ -196,9 +219,11 @@ function gradeObservation(observation, extras = {}) {
     ? obs.bundledDominance.bucket : null;
   const anchors = obs.anchors || {};
   const sbHold = _pct(anchors.sameBlockHoldPct);
+  const eqHold = _pct(anchors.equalBandHoldPct);
   const washSell = _pct(anchors.washPairSellPct);
   const washCount = _pct(anchors.washPairCount);
   const t1Sup = _pct(anchors.top1HoldSupplyPct);
+  const folTop3 = _pct(ex.famousFollowerTop3Pct);
 
   const reasons = [];
 
@@ -243,8 +268,17 @@ function gradeObservation(observation, extras = {}) {
     reasons.push({ level: 'cheat', code: `I_t1_supply${t1Sup.toFixed(0)}` });
   }
 
-  // D：著名钱包主导
-  if (dom === 'high') {
+  // D：著名钱包主导（G5 补跟单集中度豁免，2026-11-02 批次四用户裁定「它们的跟单
+  // 量是不是高估了？因为聪明钱的跟单一定程度也不算完全不健康的」+「也不能把所有
+  // 的后续买入全看成 famous 的跟单」——dom=high 16 票研究：60s 跟单窗覆盖买家数
+  // 中位 80%+（最高 95%），dom 分子主体是跟单者而非 famous 本人（本人持中位 ~10%）
+  // → dom 高很大程度度量「famous 买入后 60s 内盘面热」。跟单 top3 合计占跟单正净
+  // Σ <45%=分散形（几十个散户小额跟进、首买中位 0.05-0.17 BNB、最大单钱包 <10%）
+  // =「聪明钱带散户」豁免不触发；≥45%=集中形（少数大户贴身重仓=疑似分仓/协同，
+  // CD63 top3 87%/最大 26%、CD80 81%）维持触发。null（无跟单/跟单正净 Σ=0/旧档
+  // 断代）→ 触发：无跟随时 dom 分子全靠 famous 本人=直接控盘更该触发；旧档无键
+  // 保持 G4 行为（黄金集 D 段重放零变化）。
+  if (dom === 'high' && (folTop3 === null || folTop3 >= 45)) {
     reasons.push({ level: 'unhealthy', code: 'D_famous_dominance' });
   }
 
@@ -261,8 +295,16 @@ function gradeObservation(observation, extras = {}) {
     reasons.push({ level: 'unhealthy', code: `F_sbHold${sbHold.toFixed(0)}` });
   }
 
-  // G：捆绑钱包主导高档（G2，重要负面臂——用户裁定 unhealthy 档）
-  if (bd === 'high') {
+  // G：捆绑钱包主导高档（G2，重要负面臂——用户裁定 unhealthy 档；G5 双锚簇残余
+  // 豁免，2026-11-02 批次四用户裁定「其实这里还有一个豁免点，就是如果持仓已经
+  // 卖出，也已经对盘面没影响了，也没关系」「如果有已经卖出，且流动性占比不是
+  // 特别大，也可以豁免」+CD121 口子收紧裁定（同块簇撤了但 eqHold 54% 等额簇还
+  // 持一半筹码≠对盘面无影响）——豁免须**同块簇与等额簇都基本撤退**：sbHold<20
+  // ∧ eqHold<50 才豁免；sbHold/eqHold=null（无合格簇锚）不豁免——锚缺席无从谈
+  // 「已卖出」，fail-closed 维持触发（eqHold=null 例外：无等额簇=该轴零残余，
+  // sbHold<20 即豁免）。128 票分布：豁免区=CD128（12.6/29.2，A_strong:pump 保底
+  // grade 仍 cheat）；CD121（11.4/54.0）与 CD126（10.7/59.6）eqHold≥50 不豁免）
+  if (bd === 'high' && !(sbHold !== null && sbHold < 20 && (eqHold === null || eqHold < 50))) {
     reasons.push({ level: 'unhealthy', code: 'G_bundled_dominance' });
   }
 

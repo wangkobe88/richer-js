@@ -106,13 +106,23 @@ function buildCheatState(snapshot) {
     }
     // D3.2 代码活跃度档位行已撤（D3.5 用户裁定「我的意思也是用Jev判断活跃度」「使用
     // Jev 进行判断」）：档位判定交题面 activity_level（Jev 从 [TICKS] 直读自判，教学
-    // 单一载体=题面，sbw 第四轮同款）；snapshot.derived 活跃度字段仍计算，供存档/回归对照
+    // 单一载体=题面，sbw 第四轮同款）；snapshot.derived 活跃度字段仍计算，供存档/回归对照。
+    // D3.30 活跃度数值事实行（2026-11-02 批次四 CD31 复查，用户裁定加数值事实行：
+    // 代码口径 ticksPerMin=94.29/maxGap=4s 明确 high 档，Jev 无数值锚低置信漂移成
+    // low 0.44——档位行仍撤（判档仍 Jev，D3.5 边界不变），但三要素原料以数值事实
+    // 进 state，同 sb/eq/famous 数值行性质「数值事实非档位判定」；题面不动）
+    lines.push(`活跃度数值: 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒（代码口径频率事实，activity_level 档位由你综合三要素给出）`);
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
     // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）
     const DOM_ZH = { high: '高', mid: '中', low: '低' };
     if (d.famousDominanceLevel !== null && d.famousDominanceLevel !== undefined) {
-      lines.push(`著名钱包单极控盘: ${DOM_ZH[d.famousDominanceLevel]}（著名名单钱包持仓 ${d.famousHoldPct.toFixed(1)}%·其中最大单一钱包 ${d.famousTop1Pct.toFixed(1)}% + 其买入后 60s 内首买的跟单钱包 ${d.famousFollowerPct.toFixed(1)}%，合计占正净持仓 ${d.famousDominancePct.toFixed(1)}%；仅作盘面事实陈述）`);
+      // G5 跟单集中度数值（2026-11-02 批次四裁定「不能把所有后续买入全看成 famous
+      // 的跟单」）：top3=跟单钱包中正净持仓前三合计占跟单正净 Σ 的 %——高=少数
+      // 大户贴身重仓（疑似分仓）、低=散户小额分散跟进；仅事实陈述档位仍 Jev/通道
+      const folTop3Txt = d.famousFollowerTop3Pct !== null && d.famousFollowerTop3Pct !== undefined
+        ? `，跟单前三钱包占跟单合计 ${d.famousFollowerTop3Pct.toFixed(1)}%` : '';
+      lines.push(`著名钱包单极控盘: ${DOM_ZH[d.famousDominanceLevel]}（著名名单钱包持仓 ${d.famousHoldPct.toFixed(1)}%·其中最大单一钱包 ${d.famousTop1Pct.toFixed(1)}% + 其买入后 60s 内首买的跟单钱包 ${d.famousFollowerPct.toFixed(1)}%${folTop3Txt}，合计占正净持仓 ${d.famousDominancePct.toFixed(1)}%；仅作盘面事实陈述）`);
     } else {
       lines.push('著名钱包单极控盘: 不适用（窗内无著名名单钱包命中，或无可主导持仓）');
     }

@@ -260,6 +260,10 @@ ok(microStateDisplay.state.includes('同块簇持仓占比: 无合格簇') && mi
 ok(!st.state.includes('活跃度: 低') && !st.state.includes('活跃度: 中') && !st.state.includes('活跃度: 高')
   && !st.state.includes('活跃度: 超高') && !st.state.includes('活跃度: 不可评'),
   'state 不再渲染代码活跃度档位行（D3.5 教学迁题面——档位判定交 Jev）');
+// D3.30：活跃度数值事实行（批次四 CD31 复查——代码口径 94 笔/分=high 而 Jev 无数值锚
+// 低置信漂移 low；三要素原料以数值事实进 state，档位行仍撤、判档仍 Jev）
+ok(st.state.includes('活跃度数值: 每分钟') && st.state.includes('最大交易间隔'),
+  'state 渲染活跃度数值事实行（D3.30 三要素原料=每分钟笔数/笔均/最大间隔，数值非档位）');
 // 截断：400 tick → 首 200+末 100
 const manyRows = [];
 for (let i = 0; i < 400; i++) {
@@ -585,6 +589,26 @@ console.log('I. 著名钱包单极控盘锚');
     && i1.famousDominancePct === 66.7 && i1.famousDominanceLevel === 'high',
     `high 单极控盘 66.7%（实际 hold ${i1.famousHoldPct}/top1 ${i1.famousTop1Pct}/follower ${i1.famousFollowerPct}/dom ${i1.famousDominancePct}/${i1.famousDominanceLevel}）`);
   ok(buildCheatState(i1snap).state.includes('著名钱包单极控盘: 高'), 'state 渲染：高档中文行');
+  // G5 跟单集中度锚（D 通道豁免数值源）：i1 跟单集={w1 0.3, w2 0.3} 全在 top3 → 100.0
+  ok(i1.famousFollowerTop3Pct === 100,
+    `i1 跟单 top3=100%（两跟单钱包全覆盖；实际 ${i1.famousFollowerTop3Pct}）`);
+  ok(buildCheatState(i1snap).state.includes('跟单前三钱包占跟单合计'), 'state 渲染：跟单 top3 数值行');
+  // G5 分散形：5 个跟单各 0.1 → top3=0.3/0.5=60.0（跟单正净 Σ 0.5）
+  const i1b = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.5, FAM),
+    mkF(11, 'buy', 0.1, w1), mkF(12, 'buy', 0.1, w2), mkF(13, 'buy', 0.1, w3),
+    mkF(14, 'buy', 0.1, '0xd444000000000000000000000000000000000044'),
+    mkF(15, 'buy', 0.1, '0xd555000000000000000000000000000000000055'),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i1b.famousFollowerTop3Pct === 60,
+    `5 跟单各 0.1 → top3 占 60.0（实际 ${i1b.famousFollowerTop3Pct}）`);
+  // G5 集中度 null 臂：无跟单钱包（跟单 Σ=0）→ null（D 通道触发=famous 本人直接控盘）
+  const i1c = buildSnapshotFromRows([
+    mkF(10, 'buy', 0.5, FAM),
+    mkF(71, 'buy', 0.5, w2),
+  ], microMeta, { famousRoster: roster }).derived;
+  ok(i1c.famousFollowerPct === 0 && i1c.famousFollowerTop3Pct === null,
+    `无跟单（窗外独立买）→ top3=null（实际 follower ${i1c.famousFollowerPct}/top3 ${i1c.famousFollowerTop3Pct}）`);
 
   // I2 窗边界反证：首买距 famous 买 61s >60 → 非跟单；F 独占 50% 恰压 high 线
   const i2 = buildSnapshotFromRows([
@@ -649,11 +673,13 @@ console.log('I. 著名钱包单极控盘锚');
     const c = { ...o };
     delete c.famousHoldPct; delete c.famousTop1Pct; delete c.famousFollowerPct;
     delete c.famousDominancePct; delete c.famousDominanceLevel;
+    delete c.famousFollowerTop3Pct;
     return c;
   };
   ok(JSON.stringify(stripFamous(noRoster)) === JSON.stringify(stripFamous(i1))
-    && noRoster.famousDominanceLevel === null && noRoster.famousDominancePct === null,
-    '空名单注入：famous 族全 null 且其余 derived 键 bit 一致');
+    && noRoster.famousDominanceLevel === null && noRoster.famousDominancePct === null
+    && noRoster.famousFollowerTop3Pct === null,
+    '空名单注入：famous 族（含 G5 跟单 top3 键）全 null 且其余 derived 键 bit 一致');
 }
 
 
@@ -675,9 +701,9 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
-  console.log('I2. 题集结构 D3.29（ESM 题文件经动态 import）');
+  console.log('I2. 题集结构 D3.30（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.29', `版本常量 D3.29（实际 ${qm.CHEAT_QUESTIONS_VERSION}）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.30', `版本常量 D3.30（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.30=state-only 活跃度数值行，题面 12 题不动）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {

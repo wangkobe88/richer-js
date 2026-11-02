@@ -357,6 +357,7 @@ class CheatCheckService {
       for (const r of pull.rows) if (r.trade_type !== 'buy') anchorSellCount++;
       const graded = gradeObservation(obs, {
         famousLevel: snapshot.derived.famousDominanceLevel ?? null,
+        famousFollowerTop3Pct: snapshot.derived.famousFollowerTop3Pct ?? null,
         anchorSellCount,
       });
       obs.grade = graded.grade;
@@ -403,7 +404,7 @@ class CheatCheckService {
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` wash对=${snapshot.derived.washPairCount ?? 0}对/卖占${snapshot.derived.washPairSellPct ?? '—'}%` +
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
-        ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}` +
+        ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}${snapshot.derived.famousFollowerTop3Pct !== null && snapshot.derived.famousFollowerTop3Pct !== undefined ? ` top3:${snapshot.derived.famousFollowerTop3Pct}%` : ''}` +
         ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
@@ -664,6 +665,7 @@ class CheatCheckService {
           holdPct: derived.famousHoldPct ?? null,
           top1Pct: derived.famousTop1Pct ?? null,
           followerPct: derived.famousFollowerPct ?? null,
+          followerTop3Pct: derived.famousFollowerTop3Pct ?? null,
           dominancePct: derived.famousDominancePct ?? null,
           level: derived.famousDominanceLevel ?? null,
         },

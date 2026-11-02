@@ -385,6 +385,7 @@ function computeDerived(snapshot, famousRoster) {
   //   （无可主导持仓）——D3.1「有证据的缺席」同语义
   let famousHoldPct = null, famousTop1Pct = null, famousFollowerPct = null;
   let famousDominancePct = null, famousDominanceLevel = null;
+  let famousFollowerTop3Pct = null;
   if (roster && roster.size > 0 && posTotal > 0) {
     const famousInWin = wallets.filter((e) => roster.has(e.w.toLowerCase()));
     if (famousInWin.length > 0) {
@@ -411,6 +412,23 @@ function computeDerived(snapshot, famousRoster) {
       }
       let folSum = 0;
       for (const w of followers) folSum += posNet.get(w) || 0;
+      // G5 跟单集中度锚（2026-11-02 批次四用户裁定「它们的跟单量是不是高估了？因为
+      // 聪明钱的跟单一定程度也不算完全不健康的」+「也不能把所有的后续买入全看成
+      // famous 的跟单」——dom=high 16 票研究：跟单窗 60s 覆盖买家数中位 80%+，分子
+      // 主体是跟单者而非 famous 本人（本人持中位 ~10%）；跟单 top3 合计占跟单正净
+      // Σ <45%=分散形（几十个散户小额跟进、最大单钱包 <10%）→ D 通道豁免，≥45%
+      // =集中形（少数大户贴身重仓，疑似分仓/协同）→ 维持触发。分母=跟单正净持仓
+      // 合计（负净持仓钱包不计入，防 top3/Σ>100）；无跟单/跟单正净 Σ=0 → null
+      // （无跟单时 dom 分子全靠 famous 本人=直接控盘，通道层 null → 触发不豁免）
+      if (followers.size > 0) {
+        const folPosNets = [...followers]
+          .map((w) => Math.max(posNet.get(w) || 0, 0))
+          .sort((a, b) => b - a);
+        const folPosSum = folPosNets.reduce((s, v) => s + v, 0);
+        if (folPosSum > 0) {
+          famousFollowerTop3Pct = +((folPosNets.slice(0, 3).reduce((s, v) => s + v, 0) / folPosSum) * 100).toFixed(1);
+        }
+      }
       famousHoldPct = +((fSum / posTotal) * 100).toFixed(1);
       famousTop1Pct = +((fTop1 / posTotal) * 100).toFixed(1);
       famousFollowerPct = +((folSum / posTotal) * 100).toFixed(1);
@@ -485,7 +503,7 @@ function computeDerived(snapshot, famousRoster) {
     sameBlockHoldPct, equalBandHoldPct,
     washPairCount, washPairSellPct, washPairBuyPct,
     top1HoldSupplyPct, top1HoldCircPct,
-    famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel,
+    famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct,
     ticksPerMin, avgTradeBnb, maxGapSec,
     activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,

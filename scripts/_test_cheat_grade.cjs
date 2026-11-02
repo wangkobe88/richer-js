@@ -49,7 +49,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G4', '版本常量 G4（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G5', '版本常量 G5（改规则必须 bump+同步台账+跑黄金集）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判，实际 ${MAIN_IDS.join(',')}）`);
@@ -244,14 +244,24 @@ function main() {
       'I + E_low_activity 叠加 → cheat 取最重、E 留痕（CD69 独大+低活跃共存实形）');
   }
 
-  console.log('D. 著名钱包主导 → unhealthy');
+  console.log('D. 著名钱包主导 → unhealthy（G5 补跟单集中度豁免）');
   {
     const obs = baseObs();
     const r = grade(obs, { famousLevel: 'high', anchorSellCount: 10 });
     ok(r.grade === 'unhealthy' && r.reasons[0].code === 'D_famous_dominance',
-      'famousLevel=high 单独 → unhealthy（bd=high 不足以定 cheat——CD98/CD116/CD127 反证）');
+      'famousLevel=high 单独（top3 键缺席=null）→ unhealthy（无跟随时 dom 分子全靠 famous 本人=直接控盘；旧档断代同形状保持 G4 行为）');
     ok(grade(obs, { famousLevel: 'mid', anchorSellCount: 10 }).grade === 'healthy',
       'famousLevel=mid 不触发 D');
+    // G5 跟单集中度豁免（2026-11-02 批次四用户裁定「它们的跟单量是不是高估了？因为
+    // 聪明钱的跟单一定程度也不算完全不健康的」「也不能把所有的后续买入全看成
+    // famous 的跟单」）：跟单 top3 占跟单正净 Σ <45%=分散形（几十个散户小额跟进）
+    // 豁免；≥45%=集中形（少数大户贴身重仓=疑似分仓，CD63 top3 87%/最大 26%）触发
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 44.9, anchorSellCount: 10 }).grade === 'healthy',
+      'G5: dom=high ∧ 跟单 top3=44.9%（分散形散户跟风）→ D 豁免不触发');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 45, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G5: dom=high ∧ 跟单 top3=45% 恰界 → 触发（集中形线 ≥45）');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 87, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G5: dom=high ∧ 跟单 top3=87%（CD63 集中形）→ 触发（疑似分仓维持 unhealthy）');
   }
 
   console.log('E. 活跃度低（G2 简化：唯一豁免=burst；t1流/卖笔豁免已撤销）');
@@ -338,6 +348,59 @@ function main() {
     obs5.bundledDominance = {};
     ok(grade(obs5, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
       'bucket 缺失 → G 不触发');
+    // G5 簇残余豁免（2026-11-02 批次四用户裁定「其实这里还有一个豁免点，就是如果持仓
+    // 已经卖出，也已经对盘面没影响了，也没关系」「如果有已经卖出，且流动性占比不是
+    // 特别大，也可以豁免」）：bd=high ∧ sbHold<20 → 不触发；sbHold=null（无合格簇锚）
+    // 不豁免 fail-closed 维持触发。128 票分布：豁免仅 CD121(11.4)/CD126(10.7)/
+    // CD128(12.6) 三票人工全 cheat 走 A 通道 grade 不变
+    const obs6 = baseObs();
+    obs6.bundledDominance.bucket = 'high';
+    obs6.anchors.sameBlockHoldPct = 19.9;
+    ok(grade(obs6, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G5: bd=high ∧ sbHold=19.9（簇残余<20）→ 豁免不触发（簇已卖出对盘面无影响）');
+    const obs7 = baseObs();
+    obs7.bundledDominance.bucket = 'high';
+    obs7.anchors.sameBlockHoldPct = 20;
+    ok(grade(obs7, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G5: bd=high ∧ sbHold=20 恰界 → 触发（豁免线严格小于 20）');
+    const obs8 = baseObs();
+    obs8.bundledDominance.bucket = 'high';
+    obs8.anchors.sameBlockHoldPct = null;
+    ok(grade(obs8, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G5: bd=high ∧ sbHold=null（无合格簇锚）→ 不豁免维持触发（锚缺席无从谈已卖出，fail-closed）');
+    // 簇残余豁免与 F 通道独立：sbHold=19.9 豁免 G 但不触发 F（F 线 50）
+    const obs9 = baseObs();
+    obs9.bundledDominance.bucket = 'high';
+    obs9.anchors.sameBlockHoldPct = 15;
+    ok(grade(obs9, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G5: bd=high ∧ sbHold=15 → G/F 均不触发（豁免只作用于 G，F 自有线）');
+    // G5 收紧（CD121 口子裁定）：豁免须同块簇与等额簇都基本撤退 sbHold<20 ∧ eqHold<50
+    // ——CD121（sbHold 11.4 但 eqHold 54 等额簇持一半筹码）不豁免保住 unhealthy；
+    // CD128（12.6/29.2 双簇都撤）豁免（A_strong:pump 保底 grade 仍 cheat）
+    const obs10 = baseObs();
+    obs10.bundledDominance.bucket = 'high';
+    obs10.anchors.sameBlockHoldPct = 11.4;
+    obs10.anchors.equalBandHoldPct = 54.0;
+    ok(grade(obs10, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G5 收紧: bd=high ∧ sbHold=11.4 ∧ eqHold=54.0（CD121 形状=等额簇还持一半）→ 不豁免触发');
+    const obs11 = baseObs();
+    obs11.bundledDominance.bucket = 'high';
+    obs11.anchors.sameBlockHoldPct = 12.6;
+    obs11.anchors.equalBandHoldPct = 29.2;
+    ok(grade(obs11, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G5 收紧: bd=high ∧ sbHold=12.6 ∧ eqHold=29.2（CD128 形状=双簇都撤）→ 豁免');
+    const obs12 = baseObs();
+    obs12.bundledDominance.bucket = 'high';
+    obs12.anchors.sameBlockHoldPct = 19.9;
+    obs12.anchors.equalBandHoldPct = 49.9;
+    ok(grade(obs12, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G5 收紧: sbHold<20 ∧ eqHold=49.9 双恰界内 → 豁免');
+    const obs13 = baseObs();
+    obs13.bundledDominance.bucket = 'high';
+    obs13.anchors.sameBlockHoldPct = 19.9;
+    obs13.anchors.equalBandHoldPct = 50;
+    ok(grade(obs13, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G5 收紧: sbHold<20 但 eqHold=50 恰界 → 不豁免（eqHold 线严格小于 50）');
   }
 
   console.log('优先级与容缺');
@@ -381,10 +444,10 @@ function main() {
       if (r.grade === c.expect) agree++;
       else diffs.push(`${c.caseId}:${c.expect}>${r.grade}`);
     }
-    ok(agree === 34, `对拍 34/42 一致（实际 ${agree}/42——G3/G4 对 D3.26 存档重放零变化：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道唯一命中 CD69(46.5) 不在黄金集；改规则破坏此数须重新用户裁定）`);
+    ok(agree === 34, `对拍 34/42 一致（实际 ${agree}/42——G3/G4/G5 对 D3.26 存档重放 agree 不变：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道唯一命中 CD69(46.5) 不在黄金集；G5 双豁免修正——D 跟单集中度：旧档 extras 无 famousFollowerTop3Pct=null→触发零变化（断代保持 G4 行为，实时新锚落 G5 新语义）；G 簇残余豁免双锚收紧（sbHold<20 ∧ eqHold<50）：豁免区 128 票仅 CD128（12.6/29.2，A_strong:pump 保底 grade 仍 cheat）、CD121（11.4 但 eqHold 54≥50 等额簇还持一半）与 CD126（10.7/59.6）不豁免落点回 G4 形状；改规则破坏此数须重新用户裁定）`);
     ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>unhealthy,CD121:cheat>unhealthy,CD122:healthy>unhealthy',
       `八票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
-CD119 B 口径权衡（放宽误伤 CD95/CD100）/CD121 半坡盲区（已质询不立项；G2 G 通道抬近一档）/
+CD119 B 口径权衡（放宽误伤 CD95/CD100）/CD121 半坡盲区（已质询不立项；机器 G 通道抬 unhealthy——G5 双锚收紧后 sbHold 11.4<20 但 eqHold 54≥50 等额簇还持一半筹码不豁免，落点回 G4 形状）/
 CD84+CD105+CD107+CD122=G2 E 简化撤豁免代价（用户裁定「活跃度 low 也判 unhealthy，burst 不判 low」：
 t1流吃独食豁免（CD105/CD122）+卖笔对手盘豁免（CD107）撤销+CD84 act=low 搁置票；**本表为旧档位
 digest 重放口径——CD105 在 burst 名单，D3.27 题面 burst 反锚重析后 act 应翻非 low 回 healthy**）`);

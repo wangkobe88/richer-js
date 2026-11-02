@@ -16,6 +16,16 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D3.30（2026-11-02 批次四 CD31 活跃度复查，用户裁定加数值事实行「CD31 我目测
+ *   活跃度不应该是 low，给 mid 合适」+采纳「[PRECOMPUTED] 加活跃度数值行」方案）：
+ *   state-only 改动，题面 12 题不动——cheat-state-builder [PRECOMPUTED] 段新增
+ *   「活跃度数值」行（每分钟笔数/笔均 BNB/最大交易间隔秒三要素原料）。动机=CD31
+ *   代码口径 ticksPerMin=94.29/maxGap=4s 明确 high 档，Jev 无数值锚从 22 行
+ *   [TICKS] 自估频率低置信漂移成 low 0.44（mid 0.30、confidence 仅 0.25）→E 通道
+ *   误伤。D3.5 边界不变：代码活跃度档位行仍撤（判档仍 Jev），数值行同 sb/eq/
+ *   famous [PRECOMPUTED] 数值行性质「数值事实非档位判定」（D3.5 commit 留档
+ *   「暂留」清单成员补齐）。bump 理由=D3.4 先例（mapper-only 改动也耗版本号
+ *   标记检测输入语义）+观测输入自本版起变化需版本桶区分。
  * D3.29（2026-11-01 批次三 CD41/CD42/CD45 三票误伤裁定——用户裁定原话「1. CD41 你
  *   看一下，买卖的形态很自然，没有作弊的痕迹。可以分析一下为何误伤，看看能不能调
  *   整；2. CD42 也可以review从发出到买入的交易，形态也算自然的；3.CD45 一样，同块
@@ -398,7 +408,7 @@
  * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.29';
+export const CHEAT_QUESTIONS_VERSION = 'D3.30';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];
