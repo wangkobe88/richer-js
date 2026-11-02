@@ -3484,6 +3484,11 @@
       "laterBuys": 108,
       "manual": true,
       "note": "2026-10-18 0x8e0f 镜像对案手工补录（滑窗后机制未收编，历史簇成员保留）"
+    },
+    {
+      "address": "0x61e1de40854cae288a11feb9b28a064df14d29ef",
+      "manual": true,
+      "note": "2026-11-03 用户点名补录（盘面排查：同盘 0xfb4e…3953 在册 member，本地址机制未收编）"
     }
   ]
 }
