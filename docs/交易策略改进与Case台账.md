@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v53 快照；live v64 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20；早期臂已撤（T84 撤臂 2026-10-29）；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
+## 一、现行买腿门链一屏（buy-v2 v54 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；早期臂已撤（T84 撤臂 2026-10-29）；单卡 BNB 0.002（×2 裁定同日），单票买入 0.008）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -33,14 +33,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **T91a 流通分母口径（v47 起代码侧生效）**：全部 ÷circ 键分母=`max(_circTokens, Σ正净持仓)`——flap 税币零买入纯卖出钱包（初始筹码/税币接收方，Sell 在 Buy 永无）曾把 Σ买−Σ卖 分母压到低于真实在外筹码 → 键值虚高超 100%（孙权 top3=114% 案）；恒等式保证 ≤100、正常票逐输入 bit 不变。
 
-第二层（条件串外，`gmgnCheckCondition`）：`(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100)`（T82/v42 起 <8K→T84 10.7 BNB 早期豁免臂——分母个位数段 ratio 是采样噪声；bundler 门 v31 起 65 → **T89/v45 放宽 100**——蝙蝠币 114.3 连拒 33 次等 mcap 砸回豁免臂）；叙事类型×issuer 分档门（C85 适用集三类；event:W 已撤出=T73；**不被 mcap 豁免盖住**）；GMGN API 失败 fail-open 放行（T14）。买腿 `maxExecutions=2`（**T89/v45 二次入场**：卖出后同腿可再成交一次；卡牌 6 卡帽/单仓语义不变）。
+第二层（条件串外，`gmgnCheckCondition`）：**T108/v54 起 bundler 组 `(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100)` 整组退役**（谱系：T82/v42 起 <8K→T84 10.7 BNB 早期豁免臂；bundler 门 v31 起 65→T89/v45 放宽 100=恒真死条件，删组与现行行为 bit 等价）；**buy-v2 v54 仅存叙事类型×issuer 分档门**（C85 适用集三类；event:W 已撤出=T73），GMGN API 失败 fail-open 放行（T14）；**buy-v2-repeat v4 整键删除**（T100 已删 issuer 臂后仅剩恒真组=GMGN 层不再真调 getTokenInfo，省配额）。GMGN bundler 维度的盘面形状改由 CD1 反作弊分级门接棒（同 v67 上线）。买腿 `maxExecutions=2`（**T89/v45 二次入场**：卖出后同腿可再成交一次；卡牌 6 卡帽/单仓语义不变）。
 
 ## 二、现行卖腿机制要点
 
 - **sizing=卡牌唯一表达**（cards；sellPercentage 已退役 2026-10-24）；全清腿恒精确 1；卡账本 `cardTrade` 绝对值重放恢复
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
-- **T104 流动性止损 stallClose（2026-10-29，v63 起实跑）**：持仓票距上一笔链上成交（FA lastTickAt）**>10s 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104）
+- **T104 流动性止损 stallClose（2026-10-29 v63 起实跑；【已废】2026-11-02 v67 起退役=用户指令「卖出臂中的断流臂（断流XX秒全部卖出）删除」，v67 config 不带 stallClose 段，断流票交 30s 持仓卖腿兜底扫描+P13 时间止损接管）**：持仓票距上一笔链上成交（FA lastTickAt）**>10s 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104；机制代码留档未删，配段即复活）
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
 - 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档·减 1 卡（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档卖 1 卡 p11/max1，三层梯队 T80 -15 减1卡→T99 -25 减1卡→拱形 -35 全清；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v58 `12ef2c48` 2026-10-29 起实跑）** / **T107 市值拱形时间全清臂（`mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec` 全清 p10；FA 三键 token 全生命口径——X=首交易→最高市值耗时，峰值市值超 15K USD（=20.1 BNB @745）后距峰 ≥ X/2 秒未再破新高→全清；库 mcap-arc-fullclose v1，v65 `aed2091d` 2026-10-29 14:33 UTC 起实跑）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
@@ -50,6 +50,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T108 v67 反作弊分级门上线 + GMGN bundler 组退役 + T104 断流臂退役（库 buy-v2 v53→v54 / buy-v2-repeat v3→v4 / 新实验 `e3d00085` 换车三变更；2026-11-02 用户指令「可以新建实验了，将反作弊模块上线。其中 GMGN 的检测条件 gmgnBundlerWalletRatio <= 100 删除，卖出臂中的断流臂（断流XX秒全部卖出）删除」+ 追认「(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100) 全部删除即可」）
+
+- **三变更（v66 `4012ce39` 基底逐项改，其余 bit 一致）**：①**CD1 反作弊模块上线**——cheatCheck 双开 `enabled:true + gate.enabled:true`（G8 十二通道分级买门 D3.33 13 题；首析门走缺省 `tradeCount >= 15`、重判走增量门缺省 60s∧20tick、FA 34 键投影；cheat 拉黑秒回零 Jev+持仓立即清仓联动、unhealthy 拒买 3 次用尽拉黑）②**GMGN bundler 组整组删除**——buy-v2 v53→v54 `gmgnCheckCondition` 删 `(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100) AND ` 前缀仅存 issuer 分档门；buy-v2-repeat v3→v4 整键删除（T100 已删 issuer 臂后整条即恒真组）③**T104 断流臂退役**——stallClose 段移除（机制代码留档，配段即复活；断流票交 30s 持仓卖腿兜底扫描 + P13 时间止损接管）。
+- **bundler 组删除语义**：ratio 为 0-100 百分比，`<=100` 恒真 → 整组 OR 恒真 → **删组与现行行为 bit 等价**（并省 GMGN getTokenInfo 配额）；**只删 ratio 项会留 `marketCap < 10.7` 单臂=大票全拒语义灾难**，故整组删（用户追认「全部删除即可」）。GMGN bundler 维度盘面形状改由 CD1 分级门接棒（E/G/H/K 通道簇/对敲/纯卖形状覆盖面远大于单一 ratio 键）——两变更同批上线刻意互补。
+- **实现链（无代码改动=纯配置+库版本）**：UPDATE strategy_library 两腿（version 乐观并发 `.eq('version',旧)` 守卫，description 追加留痕）→ 本地组装 v67 config（克隆 v66 深拷贝改三处+两买腿换库新快照 copy-in+libRefs 版本对齐）→ `loadStrategies` 四因子集校验（与引擎 627/712 行同实参，27 策略装载过）→ `ExperimentFactory.createFromConfig` 走 web 同链 INSERT（validate+upsert 全字段）。
+- **部署链（已上线 v67，2026-11-02 06:29 UTC 起跑）**：182 HEAD `66980ac` 已含 cheatCheck 全链（先日批次八收官提交，无需新 pull）→ `setsid nohup node main.js start-experiment -e e3d00085-b796-4973-91fc-05013c438488`（PID 1696674；⚠️启动 ssh 会挂住——先例命令尾部 `exit 0` 不可省，本次漏带靠 TaskStop 杀 ssh 收场，setsid 进程组脱离不受影响=v13 事故防护生效）→ 验证：27 策略装载（P1·首买 issuer 门 / P1·再买无 gmgn 键）、config dump 三变更全落地（cheatCheck 双开/stallClose 缺席/两腿 v54·v4）、ERROR 级=0、「🛡️ 流动性止损已启用」行 **0 次**=stallClose 退役断言、platforms=[fourmeme,flap] 双 trader 连接成功、DB status=running、尾部实时处理新 token（语料补采流动）。
+- **观察点**：①CD1 分级门线上实效——首析频率（tradeCount>=15 门）、gate 买点 await 竞速 15s 内完成率、cheat/unhealthy 拦截分布（对照回归集 128 票 G8 基线）、拉黑+清仓联动首次触发案例；②GMGN 配额节省幅度（repeat 臂不再真调+buy-v2 仅 issuer 门票真调）；③断流票出场路径变化——stallClose 10s 全清退役后断流票依赖 30s 卖腿扫描（P13 时间止损 60min 深处兜底），断流阴跌票持有时长分布对比 v63-v66；④buy-early-narrative v10 / buy-v2-momentum v1 库条目仍带死条件组（未被 v67 引用未改，复挂前须先清）。
 
 ### T107 市值拱形时间全清臂（FA 新因子三键 + 库新条目 mcap-arc-fullclose v1 + create-v65；2026-10-29 用户指令「再增加一个卖出臂，持续记录代币从首次交易到最高市值的时间，假设这个时间为 X 秒，代币市值大于 15K 后，如果代币从最高点已经经过了时间长度 X/2 秒（没有再次突破最高点），则全部清仓」；初稿 7K/X 后同日改 15K/X/2）
 
