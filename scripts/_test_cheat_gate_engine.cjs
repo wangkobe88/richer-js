@@ -384,14 +384,14 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
   eng3._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
   ok('prefetchCondition 空串=显式禁用', notes.length === 3);
 
-  // F2b 重判门分叉（2026-11-02 因子化）：未析票恒走首析门；已析票未配 reanalyze
-  // → 照旧走首析门+无 factorGated（现状 bit 一致）；配了 → 已析票走重判门+
+  // F2b 重判门分叉（2026-11-02 因子化+CD134 缺省因子门）：未析票恒走首析门；
+  // 已析票显式空串 → 回落首析门+内部门（CD134 前行为）；配了 → 已析票走重判门+
   // factorGated=true（service 跳过内部数字增量门）；重判门不过 → 不发起
   const evals = [];
   const calls = [];
   const mkGate = (over) => makeEngine(Object.assign({
     _cheatPrefetchCondition: 'tradeCount >= 15',
-    _cheatReanalyzeCondition: null,
+    _cheatReanalyzeCondition: '',
     _cheatPrefetchIntervalMs: 60000,
     _cheatPrefetchAt: new Map(),
     _cheatFactorsConsumed: true,
@@ -411,7 +411,7 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
     && calls.length === 1 && !calls[0].factorGated);
   evals.length = 0; calls.length = 0;
   mkGate({ _cheatProjectedTokens: new Set(['0xnew']) })._cheatPrefetchCheck('0xnew', RA, TOKEN);
-  ok('已析票未配重判门 → 照旧走首析门（现状 bit 一致）+ 无 factorGated',
+  ok('已析票显式空串 → 回落首析门+内部门（CD134 前行为）+ 无 factorGated',
     evals.length === 1 && evals[0] === 'tradeCount >= 15'
     && calls.length === 1 && !calls[0].factorGated);
   evals.length = 0; calls.length = 0;
@@ -425,6 +425,52 @@ console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→
     ._cheatPrefetchCheck('0xnew', { tradeCount: 20, __pass: false }, TOKEN);
   ok('重判门不满足 → 不发起（evaluateCondition false 短路）',
     evals.length === 1 && calls.length === 0);
+
+  // F2c CD134 缺省重判门（2026-11-02 用户裁定「healthy/cheat 都不需要重新判定
+  // ——因子进实验再次判定条件，不在引擎内核写死」）：未配 reanalyzeCondition =
+  // 缺省因子条件 `cheatGrade IS NULL OR cheatGrade == 1`——已析票上次判定
+  // healthy(0)/cheat(2) 不再发起重判，unhealthy(1) 留重判域保翻案；显式空串=
+  // 回落 CD134 前行为（F2b 已锁）；配了=用户串接管（F2b 已锁）
+  const { ConditionEvaluator } = require('../src/strategies/ConditionEvaluator');
+  const ce = new ConditionEvaluator();
+  const CD134_DEFAULT = 'cheatGrade IS NULL OR cheatGrade == 1';
+  check('缺省串真评估：未判定 null → true（IS NULL 臂）',
+    ce.evaluate(CD134_DEFAULT, { cheatGrade: null }), true);
+  check('缺省串真评估：healthy 0 → false（不重判）',
+    ce.evaluate(CD134_DEFAULT, { cheatGrade: 0 }), false);
+  check('缺省串真评估：unhealthy 1 → true（重判域）',
+    ce.evaluate(CD134_DEFAULT, { cheatGrade: 1 }), true);
+  check('缺省串真评估：cheat 2 → false（不重判）',
+    ce.evaluate(CD134_DEFAULT, { cheatGrade: 2 }), false);
+  // 行为四形状（真评估器接线，非 __pass 桩——锁缺省串到发起路径的口径）
+  const rcalls = [];
+  const mkDef = (over) => makeEngine(Object.assign({
+    _cheatPrefetchCondition: 'tradeCount >= 15',
+    _cheatReanalyzeCondition: CD134_DEFAULT,
+    _cheatPrefetchIntervalMs: 60000,
+    _cheatPrefetchAt: new Map(),
+    _cheatFactorsConsumed: true,
+    _cheatGateEnabled: true,
+    _cheatProjectedTokens: new Set(['0xana']),
+    _cheatCheckService: { enabled: true,
+      noteBuyPoint: (a, m, c) => { rcalls.push({ cond: null, c }); } },
+    _strategyEngine: {
+      evaluateCondition: (cond, f) => ce.evaluate(cond, f),
+      getAllStrategies: () => [{ action: 'buy', condition: 'cheatGrade == 0' }],
+    },
+  }, over));
+  mkDef()._cheatPrefetchCheck('0xana', { tradeCount: 60, cheatGrade: 0 }, TOKEN);
+  ok('已析票 healthy(0) → 缺省门不发起', rcalls.length === 0);
+  mkDef()._cheatPrefetchCheck('0xana', { tradeCount: 60, cheatGrade: 2 }, TOKEN);
+  ok('已析票 cheat(2) → 缺省门不发起', rcalls.length === 0);
+  mkDef()._cheatPrefetchCheck('0xana', { tradeCount: 60, cheatGrade: 1 }, TOKEN);
+  ok('已析票 unhealthy(1) → 缺省门发起 + factorGated=true',
+    rcalls.length === 1 && rcalls[0].c.source === 'prefetch' && rcalls[0].c.factorGated === true);
+  // 装载三态源码口径锁：未配=缺省 / 显式空串=回落 / 配串=接管（trim 链同 prefetch 先例）
+  const cdSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+  ok('装载三态源码锁（undefined→缺省串 / ""→"" / 串→trim 后接管）',
+    cdSrc.includes(": 'cheatGrade IS NULL OR cheatGrade == 1';")
+    && cdSrc.includes("_cheatCfg.reanalyzeCondition.trim() !== '' ? _cheatCfg.reanalyzeCondition.trim() : ''"));
 
   // F3 onResult 投影：回调收 grade → FA 20 键投影（预触发是条件串消费的供源）
   const eng4 = mk({

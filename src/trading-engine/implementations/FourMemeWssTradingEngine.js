@@ -379,13 +379,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._cheatPrefetchCondition = typeof _cheatCfg.prefetchCondition === 'string'
       ? _cheatCfg.prefetchCondition.trim() : 'tradeCount >= 15';
     // 重判触发门（2026-11-02 用户裁定「增量门同样实验级配置+因子表达」）：FA 因子
-    // 表达式，配了即对**已首析票**接管重判发起（首析门对已析票恒真，不再适用）——
-    // 引擎评因子门过了才发起，且 context.factorGated=true 让 service 跳过内部数字
-    // 增量门（双门 AND 会让配置者难以预期）；未配=现状 bit 一致（prefetch 发起后
-    // 由 service 增量门 60s∧20tick 判 reused/真分析）。买点 gate/观察挂点不带
-    // factorGated，内部门照旧（reused 拿缓存语义不变）
+    // 表达式，对**已首析票**接管重判发起（首析门对已析票恒真，不再适用）——引擎评
+    // 因子门过了才发起，且 context.factorGated=true 让 service 跳过内部数字增量门
+    // （双门 AND 会让配置者难以预期）。买点 gate/观察挂点不带 factorGated，内部门
+    // 照旧（reused 拿缓存语义不变）。
+    // CD134（2026-11-02 用户裁定「healthy/cheat 都不需要重新判定——在实验的再次
+    // 判定条件中加入因子，不在引擎内核写死」）：**未配=缺省因子条件**——上次判定
+    // 结果入重判门（cheatGrade：null=未判定/0=healthy/1=unhealthy/2=cheat），缺省
+    // 只放行「未判定 ∨ unhealthy」：healthy/cheat 终态不再重判（cheat 另有 service
+    // 拉黑短路双保险），unhealthy 留在重判域保翻案路径。显式空串=回落 CD134 前行为
+    // （已析票走首析门+service 内部增量门）；配了=用户串接管。cheatGrade 为 FA
+    // 投影 34 键之一（首析完成后经 _projectCheatFactors 投影，下轮 factorsUpdated
+    // 条件可消费——首析门不含 cheat 因子，无自锁）
     this._cheatReanalyzeCondition = typeof _cheatCfg.reanalyzeCondition === 'string'
-      && _cheatCfg.reanalyzeCondition.trim() !== '' ? _cheatCfg.reanalyzeCondition.trim() : null;
+      ? (_cheatCfg.reanalyzeCondition.trim() !== '' ? _cheatCfg.reanalyzeCondition.trim() : '')
+      : 'cheatGrade IS NULL OR cheatGrade == 1';
     this._cheatPrefetchIntervalMs = Number.isFinite(_cheatCfg.prefetchIntervalMs)
       && _cheatCfg.prefetchIntervalMs > 0 ? _cheatCfg.prefetchIntervalMs : 60000;
     this._cheatPrefetchAt = new Map();      // token → 上次预触发发起时刻（引擎侧节流）
@@ -2609,6 +2617,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * 且无因子消费端的实验不烧配额（观察样本语义维持买点挂点不变）。节流
    * prefetchIntervalMs（缺省 60s）：service 的 reused 判定在 DB pull 之后，无节流
    * =量门持续真的活跃票每 tick 一次 tail 查询。拉黑票跳过（投影已是终值）。
+   *
+   * CD134（2026-11-02 用户裁定「healthy/cheat 都不需要重新判定——因子进实验
+   * 再次判定条件，不在引擎内核写死」）：重判门**缺省即因子条件**
+   * `cheatGrade IS NULL OR cheatGrade == 1`——已析票上次判定 healthy(0)/cheat(2)
+   * 不再发起重判（cheat 另有拉黑短路/CD129 帽），unhealthy(1) 留重判域保翻案。
+   * 首析不受影响（首析门不含 cheat 因子，无自锁）。显式空串=回落 CD134 前行为
+   * （已析票走首析门+service 内部增量门）；配了=用户串接管。
    * @private
    */
   _cheatPrefetchCheck(tokenAddress, factors, token) {
@@ -2616,10 +2631,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (this._cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)) return;
     if (this._cheatFactorsConsumed === undefined) this._cheatFactorsConsumed = this._scanCheatFactorConsumers();
     if (!this._cheatGateEnabled && !this._cheatFactorsConsumed) return;
-    // 门分叉（2026-11-02 重判门因子化）：未首析票走首析门；已析票配了
-    // reanalyzeCondition 走重判门（首析门 tradeCount 类条件对已析票恒真不再
-    // 适用），发起带 factorGated 让 service 跳过内部数字增量门；未配=已析票
-    // 照旧走首析门+内部门（现状 bit 一致）
+    // 门分叉（2026-11-02 重判门因子化+CD134 缺省因子门）：未首析票走首析门；
+    // 已析票走重判门（首析门 tradeCount 类条件对已析票恒真不再适用），发起带
+    // factorGated 让 service 跳过内部数字增量门。重判门未配=缺省
+    // cheatGrade 因子条件（healthy/cheat 不重判）；显式空串=回落首析门+内部门
+    // （CD134 前行为）
     const analyzed = this._cheatProjectedTokens.has(tokenAddress);
     const useReanalyzeGate = analyzed && this._cheatReanalyzeCondition;
     const cond = useReanalyzeGate ? this._cheatReanalyzeCondition : this._cheatPrefetchCondition;

@@ -56,7 +56,9 @@
  *   第 N+1 次 unhealthy 用尽 → 拉黑同 cheat）。增量门内（60s∧20tick）重复买点
  *   重用上次 grade 不烧配额
  * - healthy / insufficient_ticks / 预算耗尽 / 冷却 / Jev 失败 → 放行
- *   （fail-open，GMGN 层「数据不可用不得拦买点」同向裁定）
+ *   （fail-open，GMGN 层「数据不可用不得拦买点」同向裁定；healthy 票的重判
+ *   节流由引擎侧 reanalyzeCondition 因子门控制——CD134 缺省带 cheatGrade 臂，
+ *   不在 service 内写死）
  * 观察模式（gate 未开）noteBuyPoint 行为零变化——分级只在分析链尾部附加计算，
  * 观察实验多算一个 Map 计数无消费端。
  */
