@@ -195,6 +195,8 @@
 
 **未随批裁定项**：CD129（帽 4+拉黑短路+bootstrap）与 G9/G10/G11 同批 182 重启 v67 生效（重启前持仓确认）；生效后 healthy 票 60s 节流窗内的 DB tail 查询归零（缺省门在引擎侧短路，不再进 service）。
 
+**五张现场票当前结果全链重析（2026-11-02，用户指令「跑一下我报的 case 当前的结果，不是老数据」；`scripts/cheat-detection/tmp-cd134-live-reanalyze.mjs` 本地跑，锚=各票 cheat_detection 末次真析行 anchor_tick_count 防马后炮，D3.34 题集+G11 分级真调 Jev 五次）**：**五票全部 healthy(clean)**——生产末行（G8 代码）MAI=unhealthy(G_bundled)/RAM=cheat(A_strong:eq+G_bundled)/眉眉=cheat(A_strong:eq)/에코=cheat(A_strong:eq+F_sbHold51+G_bundled)/猴子币=cheat(A_strong:eq+G_bundled)。A_strong:eq 载体全线消失=eq 档 strong→moderate（MAI 降 weak）——D3.34 题面反锚（GMGN 前端默认档位表/跨块匀速长尾=跟风/撞块反锚）直接起效；F_sbHold51（G9 退役）/G_bundled（G11 退役）两腿消失。证据最密=에코（cr=strong 但 cr 已剔出 A 主判（10-31 裁定）+famous dom=high(67.8%) 但 top3=14.2% 分散豁免∧集团买 73.8%<80 不触发 D+insider=moderate∧纯卖 23%<25 差两点不到 L+hold=moderate 不到 J strong——五通道全差一口气）；猴子币 famous=high(61%) 同双豁免过（top3 17.8/集团买 67.2）。此即 CD133「宁可放过不误伤」裁定在五张现场票上的直接代价呈现（生产仍跑 G8 代码，重启后行为=本表）。
+
 
 
 **案由**：RAM `0xec74…7777` 等额簇逐笔明细质询（用户「MAI 我想知道一下详细的分析过程，哪些 block 的哪些交易，被认为是等额簇交易」）→ 生产口径复刻探针（`buildSnapshotFromRows` 直调，锚对拍全中：RAM sbHold 60.4/eqHold 24.8、MAI 4.3/67.6 vs 存档）暴露 **sb∪eq 圈定口径的误伤面**。用户指出 7746 块三笔 0.25/0.1/0.1「根本不符合要求」→ 澄清 sb 簇（同块 ≥3 **笔**只看时机不看金额）与 eq 簇（等额只看金额不看块）两锚独立、bundleBuyPct=sb∪eq 并集后，用户裁定整体方向。
