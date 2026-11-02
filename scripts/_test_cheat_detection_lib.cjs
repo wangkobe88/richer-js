@@ -744,6 +744,32 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([...rows, { block_time: null }, {}], '2026-10-29T15:00:09Z') === 3, '行 block_time 缺失/无效不计入');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
+  // ═══════════════ H2. interpret 透传（D3.35 事故现场反证：runner 侧 gradeObservation
+  // 吃 interpret 产物（run.mjs），CD135 全量首跑 interpret 漏 participation 键 →
+  // 128 票 real_participation 全 null + R 通道结构性失明（Jev 答案在 answersRaw 里却进不了 grade）════════════════
+  console.log('H2. interpret 透传 participation（CD135 事故反证）');
+  const { interpret } = await import(path.join(__dirname, 'cheat-detection/lib.mjs'));
+  const { gradeObservation: grObserv } = require('../src/market-analysis/cheat-grade.js');
+  const mkObs = (bucket) => ({
+    phenomena: {}, extLevels: {}, activityLevel: { bucket: 'mid', prob: 0.5 },
+    bundledDominance: { bucket: 'mid', prob: 0.5 }, anchors: {},
+    ...(bucket === undefined ? {} : { participation: { bucket, prob: 0.7 } }),
+  });
+  ok(interpret(mkObs('minimal_genuine')).participation?.bucket === 'minimal_genuine',
+    'interpret 透传 participation（minimal_genuine 进得来——首跑事故=此键被 interpret 吞掉）');
+  ok(interpret(mkObs('mostly_genuine')).participation?.bucket === 'mostly_genuine'
+    && interpret(mkObs('unclear')).participation?.bucket === 'unclear',
+    'interpret 透传全桶位（mostly/unclear 同径）');
+  ok(interpret(mkObs(undefined)).participation === null,
+    'obs 无 participation 键 → null（<D3.35 旧档断代形状）');
+  const viaInterp = grObserv(interpret(mkObs('minimal_genuine')), {});
+  ok(viaInterp.grade === 'unhealthy' && viaInterp.reasons.some((x) => x.code === 'R_minimal_genuine'),
+    '经 interpret 的 R 通道可触发（runner grade 链路事故反证：修前此断言必挂——minimal_genuine 经 interpret 应落 unhealthy R_minimal_genuine）');
+  const viaInterpClean = grObserv(interpret(mkObs('mostly_genuine')), {});
+  ok(viaInterpClean.grade === 'healthy' && !viaInterpClean.reasons.length,
+    '经 interpret 的 mostly_genuine 不触发 R（clean）');
+  ok(interpret(null) === null, 'interpret(null) → null 不变');
+
   // ═══════════════ I2. 题集结构（D3.35：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+real_participation） ═══════════════
   console.log('I2. 题集结构 D3.35（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
