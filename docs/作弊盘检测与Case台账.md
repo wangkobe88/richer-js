@@ -197,6 +197,13 @@
 
 **五张现场票当前结果全链重析（2026-11-02，用户指令「跑一下我报的 case 当前的结果，不是老数据」；`scripts/cheat-detection/tmp-cd134-live-reanalyze.mjs` 本地跑，锚=各票 cheat_detection 末次真析行 anchor_tick_count 防马后炮，D3.34 题集+G11 分级真调 Jev 五次）**：**五票全部 healthy(clean)**——生产末行（G8 代码）MAI=unhealthy(G_bundled)/RAM=cheat(A_strong:eq+G_bundled)/眉眉=cheat(A_strong:eq)/에코=cheat(A_strong:eq+F_sbHold51+G_bundled)/猴子币=cheat(A_strong:eq+G_bundled)。A_strong:eq 载体全线消失=eq 档 strong→moderate（MAI 降 weak）——D3.34 题面反锚（GMGN 前端默认档位表/跨块匀速长尾=跟风/撞块反锚）直接起效；F_sbHold51（G9 退役）/G_bundled（G11 退役）两腿消失。证据最密=에코（cr=strong 但 cr 已剔出 A 主判（10-31 裁定）+famous dom=high(67.8%) 但 top3=14.2% 分散豁免∧集团买 73.8%<80 不触发 D+insider=moderate∧纯卖 23%<25 差两点不到 L+hold=moderate 不到 J strong——五通道全差一口气）；猴子币 famous=high(61%) 同双豁免过（top3 17.8/集团买 67.2）。此即 CD133「宁可放过不误伤」裁定在五张现场票上的直接代价呈现（生产仍跑 G8 代码，重启后行为=本表）。
 
+**128 票全量对拍（2026-11-02 12:49Z，D3.34+G11 首次全量真调 Jev，182 跑 ~1 分钟 128 次调用全成功，存档 `data/cd-run-2026-11-02T12-50-01-253Z.json`；用户通知放行=「这次修改的比较大，需要做一次全量的回归测试」）**：
+- **一致 67/128（52.3%）**；机器 grade 分布 cheat31/healthy58/unhealthy39 vs 人工 cheat63/unhealthy39/healthy24+unclear2。
+- **方向：机器偏轻 53 票 vs 机器偏重 6 票**（unclear 2）——「宁可放过不误伤」的量化：偏重仅 6=人工 unhealthy→机器 cheat 三票（CD5/CD8/CD80）+人工 healthy→机器 unhealthy 三票（CD45/CD49/CD105）；**人工 healthy 24 票零误拉黑**。
+- 混淆矩阵（人工→机器）：cheat63→{cheat27, unhealthy16, healthy20}；unhealthy39→{cheat3, unhealthy19, healthy17}；healthy24→{unhealthy3, healthy21}；unclear2→{cheat1, unhealthy1}。人工 cheat 命中 cheat 27/63（43%），拒买级以上（cheat+unhealthy）43/63（68%）、放行 20（32%）。
+- **黄金集 42 票本次真调 22/42**（vs 单测存档重放基线 32/42——改规则破坏须重新裁定）：净掉 10=新增掉票 12 全偏轻方向（cheat→unhealthy：CD93/CD94/CD96/CD112/CD115/CD118/CD126；cheat→healthy：CD102；unhealthy→healthy：CD99/CD101/CD110/CD116）+回正 2（CD84/CD107）；与重放基线十票偏差交集 8（CD56/CD95/CD97/CD100/CD105/CD108/CD119/CD121）。**22 vs 32 的差=D3.34 题面效应+Jev 掷骰抖动的混合，非分级规则单独所致**（重放口径题档不自动变、真调口径题面反锚直接压 eq/bw 档位）；G8 分级函数对本次答案的隔离重放可另做（未做）。
+- 结论读法：CD129/G9/G10/CD133/CD134 攒批的行为面=误拦近清零（6/128）+人工 cheat 命中率降至 43%（拒买级 68%）；偏差主载体=eq 档位在 D3.34 题面下系统性降档（strong→moderate），承接路径仍=D3.34 语义的题档校准（后续若要收紧，优先审 20 票 cheat→healthy 放行票的题档证据是否足够）。
+
 
 
 **案由**：RAM `0xec74…7777` 等额簇逐笔明细质询（用户「MAI 我想知道一下详细的分析过程，哪些 block 的哪些交易，被认为是等额簇交易」）→ 生产口径复刻探针（`buildSnapshotFromRows` 直调，锚对拍全中：RAM sbHold 60.4/eqHold 24.8、MAI 4.3/67.6 vs 存档）暴露 **sb∪eq 圈定口径的误伤面**。用户指出 7746 块三笔 0.25/0.1/0.1「根本不符合要求」→ 澄清 sb 簇（同块 ≥3 **笔**只看时机不看金额）与 eq 簇（等额只看金额不看块）两锚独立、bundleBuyPct=sb∪eq 并集后，用户裁定整体方向。
