@@ -471,7 +471,11 @@ class CheatCheckService {
   _client() {
     if (this._dbClient) return this._dbClient;
     // dbManager service key（anon 被 RLS 静默过滤——红线 3）
-    const { dbManager } = require('../../services/dbManager');
+    // ⚠ 路径事故锁（2026-11-02 v67 首日现场）：market-analysis 在 src/ 下，services
+    // 同层须一层 ../（曾写成 ../../services 解析到项目根 services → MODULE_NOT_FOUND，
+    // 链内吞错 43 次分析全灭零表行；单测 deps.dbClient 注入短路本路径=漏网，源码
+    // 口径断言在 _test_cheat_detection_service 顶部防线段）
+    const { dbManager } = require('../services/dbManager');
     this._dbClient = dbManager.getClient();
     return this._dbClient;
   }

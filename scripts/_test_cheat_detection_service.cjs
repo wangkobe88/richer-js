@@ -413,6 +413,21 @@ async function main() {
     ok(spreadCount === 2, `拒买/通过双路径 metadata 均带 cheatCheck 轨迹（spread×${spreadCount}=2）`);
     ok(engineSrc.includes('this._mergedWsConfig().cheatCheck || {}'), 'config 走 _mergedWsConfig（flap/gang 实验同键生效）');
   }
+  {
+    // 生产 _client() require 路径锁（2026-11-02 v67 首日事故现场反证）：曾写成
+    // '../../services/dbManager'（market-analysis 在 src/ 下，services 同层须一层
+    // ../）→ MODULE_NOT_FOUND 被 _chain 外层吞成 fail：43 次预触发分析全灭、零
+    // 表行。deps.dbClient 注入短路本路径=单测漏网面，此块从真实模块系统侧锁死
+    const svcDir = path.join(__dirname, '../src/market-analysis');
+    const svcSrc = fs.readFileSync(path.join(svcDir, 'CheatCheckService.js'), 'utf8');
+    ok(!svcSrc.includes("require('../../services/dbManager')"), "事故反证：不再含 '../../services/dbManager' 错误路径");
+    const m = svcSrc.match(/require\('(\.\.?\/services\/dbManager)'\)/);
+    ok(!!m, '_client() dbManager require 字面量在场');
+    ok(!!m && m[1] === '../services/dbManager', `_client() 路径=一层上层（实际 ${m && m[1]}）`);
+    let resolved = null;
+    try { resolved = require.resolve(m[1], { paths: [svcDir] }); } catch (_) { /* 解析失败留 null */ }
+    ok(!!resolved, 'require.resolve 从 market-analysis 出发可解析 dbManager（真实模块系统烟测）');
+  }
 
   // ═══════════════ Z. G1 分级门（2026-11-01 用户裁定升级为买门） ═══════════════
   console.log('Z. G1 gateBuyPoint 分级门');
