@@ -36,7 +36,7 @@ function baseObs() {
     extLevels: {
       stall_burst_wave: 'none', amount_tiering: 'none',
       same_block_buy_wave: 'none', insider_supply_sell: 'none',
-      slow_grind_pump: 'none', wash_pair: 'none',
+      slow_grind_pump: 'none', wash_pair: 'none', holdings_balance: 'none',
     },
     activityLevel: { bucket: 'mid', prob: 0.8 },
     bundledDominance: { bucket: 'low', prob: 0.9 },
@@ -49,10 +49,10 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G6', '版本常量 G6（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G7', '版本常量 G7（改规则必须 bump+同步台账+跑黄金集）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
-    && MAIN_IDS.includes('wash_pair'),
-    `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判，实际 ${MAIN_IDS.join(',')}）`);
+    && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance'),
+    `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道，实际 ${MAIN_IDS.join(',')}）`);
 
   console.log('A. 八主判 strong → cheat');
   {
@@ -242,6 +242,35 @@ function main() {
     ok(r5.grade === 'cheat' && r5.reasons.some((x) => x.level === 'cheat' && x.code === 'I_t1_supply42')
       && r5.reasons.some((x) => x.code === 'E_low_activity'),
       'I + E_low_activity 叠加 → cheat 取最重、E 留痕（CD69 独大+低活跃共存实形）');
+  }
+
+  console.log('J. holdings_balance=strong → unhealthy 独立通道（G7，2026-11-02 批次五 CD122 裁定——「给 Jev 增加 持仓均衡 门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一钱包，而是捆绑簇。需要利用 Jev 的能力处理复杂情况」+「strong→unhealthy（独立通道，不进 A 通道）」）');
+  {
+    // CD122 形状：top1 供 25.6（<40 I 不触发）+ top2=同块捆绑簇成员背靠背进场
+    // 3 秒卖一半，第1大∪簇并集 40.1% → holdings_balance strong → J unhealthy
+    const obs = withExt(baseObs(), 'holdings_balance', 'strong');
+    obs.anchors.top1HoldSupplyPct = 25.6;
+    obs.anchors.top1Top2HoldSupplyPct = 35.0;
+    obs.anchors.t1PlusClusterSupplyPct = 40.1;
+    const r = grade(obs, { famousLevel: null, anchorSellCount: 5 });
+    ok(r.grade === 'unhealthy' && r.reasons.some((x) => x.code === 'J_holdings_strong'),
+      'holdings_balance strong（CD122 形状：t1 供 25.6<40 I 不触发、并集 40.1）→ unhealthy J_holdings_strong');
+    // moderate 不触发（拒买级通道只消费 strong——用户裁定档位）
+    const obs2 = withExt(baseObs(), 'holdings_balance', 'moderate');
+    ok(grade(obs2, { famousLevel: null, anchorSellCount: 5 }).grade === 'healthy',
+      'holdings_balance moderate → 不触发（J 只消费 strong）');
+    // 旧档断代（<D3.32 答案缺席）不触发——黄金集重放零变化防线
+    const obs3 = baseObs();
+    delete obs3.extLevels.holdings_balance;
+    ok(grade(obs3, { famousLevel: null, anchorSellCount: 5 }).grade === 'healthy',
+      'holdings_balance 键缺席（旧档断代/容缺）→ J 不触发（EXT 容缺语义同族，黄金集 34/42 沿用防线）');
+    // 与 I 叠加取最重：单一独大 46.5 同时 holdings strong → cheat（I 管）+ J 留痕
+    const obs4 = withExt(baseObs(), 'holdings_balance', 'strong');
+    obs4.anchors.top1HoldSupplyPct = 46.5;
+    const r4 = grade(obs4, { famousLevel: null, anchorSellCount: 10 });
+    ok(r4.grade === 'cheat' && r4.reasons.some((x) => x.level === 'cheat' && x.code === 'I_t1_supply47')
+      && r4.reasons.some((x) => x.code === 'J_holdings_strong'),
+      'I + J 叠加 → cheat 取最重（单一独大 ≥40 仍 I 管）、J 留痕（CD69 形状 holdings 亦可 strong）');
   }
 
   console.log('D. 著名钱包主导 → unhealthy（G5 补跟单集中度豁免）');
@@ -484,13 +513,14 @@ function main() {
       if (r.grade === c.expect) agree++;
       else diffs.push(`${c.caseId}:${c.expect}>${r.grade}`);
     }
-    ok(agree === 34, `对拍 34/42 一致（实际 ${agree}/42——G3/G4/G5 对 D3.26 存档重放 agree 不变：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道唯一命中 CD69(46.5) 不在黄金集；G5 双豁免修正——D 跟单集中度：旧档 extras 无 famousFollowerTop3Pct=null→触发零变化（断代保持 G4 行为，实时新锚落 G5 新语义）；G 簇残余豁免双锚收紧（sbHold<20 ∧ eqHold<50）：豁免区 128 票仅 CD128（12.6/29.2，A_strong:pump 保底 grade 仍 cheat）、CD121（11.4 但 eqHold 54≥50 等额簇还持一半）与 CD126（10.7/59.6）不豁免落点回 G4 形状；改规则破坏此数须重新用户裁定）`);
-    ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>unhealthy,CD121:cheat>unhealthy,CD122:healthy>unhealthy',
-      `八票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
+    ok(agree === 35, `对拍 35/42 一致（实际 ${agree}/42——G3/G4/G5 对 D3.26 存档重放 agree 不变：旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道唯一命中 CD69(46.5) 不在黄金集；G5 双豁免修正——D 跟单集中度：旧档 extras 无 famousFollowerTop3Pct=null→触发零变化（断代保持 G4 行为，实时新锚落 G5 新语义）；G 簇残余豁免双锚收紧（sbHold<20 ∧ eqHold<50）：豁免区 128 票仅 CD128（12.6/29.2，A_strong:pump 保底 grade 仍 cheat）、CD121（11.4 但 eqHold 54≥50 等额簇还持一半）与 CD126（10.7/59.6）不豁免落点回 G4 形状；**G7=机器 grade 重放零变化**（holdings_balance D3.32 新题旧档答案缺席 null 不触发 J），**agree 34→35 非 G7 规则效应**：批次五 CD122 人工裁定改 unhealthy（golden expect 同步）与机器 E_low_activity unhealthy 一致化；改规则破坏此数须重新用户裁定）`);
+    ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>unhealthy,CD121:cheat>unhealthy',
+      `七票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
 CD119 B 口径权衡（放宽误伤 CD95/CD100）/CD121 半坡盲区（已质询不立项；机器 G 通道抬 unhealthy——G5 双锚收紧后 sbHold 11.4<20 但 eqHold 54≥50 等额簇还持一半筹码不豁免，落点回 G4 形状）/
-CD84+CD105+CD107+CD122=G2 E 简化撤豁免代价（用户裁定「活跃度 low 也判 unhealthy，burst 不判 low」：
-t1流吃独食豁免（CD105/CD122）+卖笔对手盘豁免（CD107）撤销+CD84 act=low 搁置票；**本表为旧档位
-digest 重放口径——CD105 在 burst 名单，D3.27 题面 burst 反锚重析后 act 应翻非 low 回 healthy**）`);
+CD84+CD105+CD107=G2 E 简化撤豁免代价（用户裁定「活跃度 low 也判 unhealthy，burst 不判 low」：
+t1流吃独食豁免（CD105）+卖笔对手盘豁免（CD107）撤销+CD84 act=low 搁置票；**本表为旧档位
+digest 重放口径——CD105 在 burst 名单，D3.27 题面 burst 反锚重析后 act 应翻非 low 回 healthy**；
+CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工一致化）`);
   }
 
   // ── G1 因子化（2026-11-01 用户指令）：档位→数值映射表 + levelsFromObservation ──
@@ -520,28 +550,34 @@ digest 重放口径——CD105 在 burst 名单，D3.27 题面 burst 反锚重�
       && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
       && r.levels.washPair === 3 && r.levels.activityLevel === 0
       && r.levels.bundledDominance === 1,
-      `levelsFromObservation 12 题映射（实际 ${JSON.stringify(r.levels)}）`);
+      `levelsFromObservation 13 题映射（实际 ${JSON.stringify(r.levels)}）`);
     ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
       && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low',
       'buckets 字符串原值（metadata 研究留档）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 12,
-      '空观测 → 12 键全 null（容缺不冒充）');
-    // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键）：obs.anchors
-    // 持仓占比四键 + washPair 三键 + extras famous 数值/档位；famousDominance=low/mid/high→0/1/2
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 13,
+      '空观测 → 13 键全 null（容缺不冒充；holdingsBalance D3.32 入列）');
+    // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
+    // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）+
+    // extras famous 数值/档位；famousDominance=low/mid/high→0/1/2
     const r3 = levelsFromObservation({
       phenomena: {}, extLevels: {},
       anchors: { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2,
         top1HoldSupplyPct: 25.6, top1HoldCircPct: 53.4,
-        washPairCount: 10, washPairSellPct: 95.1, washPairBuyPct: 27.3 },
+        washPairCount: 10, washPairSellPct: 95.1, washPairBuyPct: 27.3,
+        top2HoldSupplyPct: 9.4, top1Top2HoldSupplyPct: 35.0, top1Top2FirstBuyGapSec: 1,
+        clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1 },
     }, { famousDominancePct: 87.5, famousDominanceLevel: 'high' });
     ok(r3.anchors && r3.anchors.sameBlockHoldPct === 66.1
       && r3.anchors.equalBandHoldPct === 57.2 && r3.anchors.top1HoldSupplyPct === 25.6
       && r3.anchors.top1HoldCircPct === 53.4 && r3.anchors.famousDominancePct === 87.5
       && r3.anchors.famousDominanceLevel === 'high' && r3.anchors.famousDominance === 2
       && r3.anchors.washPairCount === 10 && r3.anchors.washPairSellPct === 95.1
-      && r3.anchors.washPairBuyPct === 27.3,
-      `anchors 七键精确映射含 washPair 三键（实际 ${JSON.stringify(r3.anchors)}）`);
+      && r3.anchors.washPairBuyPct === 27.3
+      && r3.anchors.top2HoldSupplyPct === 9.4 && r3.anchors.top1Top2HoldSupplyPct === 35.0
+      && r3.anchors.top1Top2FirstBuyGapSec === 1 && r3.anchors.clusterHoldSupplyPct === 14.5
+      && r3.anchors.t1PlusClusterSupplyPct === 40.1,
+      `anchors 十二键精确映射含 holdings 五键（CD122 实值 t2 9.4/Σ2 35.0/Δ1s/簇 14.5/∪40.1；实际 ${JSON.stringify(r3.anchors)}）`);
     ok(levelsFromObservation({}, { famousDominanceLevel: 'mid' }).anchors.famousDominance === 1,
       'famous 档 low/mid/high → 0/1/2（dominance 映射表复用）');
     const r4 = levelsFromObservation({}, { famousDominancePct: -3, famousDominanceLevel: 'extreme' });

@@ -384,12 +384,77 @@ function computeDerived(snapshot, famousRoster) {
     if (netTok > 0) posNetTok.set(e.w, netTok);
   }
   const posTokTotal = [...posNetTok.values()].reduce((s, v) => s + v, 0);
-  let top1NetTok = 0;
-  for (const v of posNetTok.values()) if (v > top1NetTok) top1NetTok = v;
+  // D3.32 持仓分布按正净 token 降序取前二/前三（与 D3.20 top1 同域同分母）
+  const posSorted = [...posNetTok.entries()].sort((a, b) => b[1] - a[1]);
+  const top1NetTok = posSorted.length > 0 ? posSorted[0][1] : 0;
+  const top2NetTok = posSorted.length > 1 ? posSorted[1][1] : 0;
   const metaForSupply = snapshot.tokenMeta || {};
   const totalSupply = Number(metaForSupply.totalSupply) > 0 ? Number(metaForSupply.totalSupply) : null;
   const top1HoldSupplyPct = totalSupply !== null && top1NetTok > 0 ? (top1NetTok / totalSupply) * 100 : null;
   const top1HoldCircPct = posTokTotal > 0 && top1NetTok > 0 ? (top1NetTok / posTokTotal) * 100 : null;
+
+  // ── 持仓分布锚族（D3.32，2026-11-02 批次五 CD122 用户裁定「给 Jev 增加持仓
+  // 均衡门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一钱包，而是
+  // 捆绑簇。需要利用 Jev 的能力处理复杂情况」——单锚硬线（top2≥N∧紧邻）128 票
+  // 仅 2 例支撑过拟合，组合形状（大户+簇+首买时序+快进快出）交 Jev 综合判档）──
+  // 口径（token 数域 ÷ totalSupply，与 D3.20 双锚同域）：
+  //   top2HoldSupplyPct        = 第二大正净持仓 ÷ totalSupply ×100（<2 正净持有人
+  //                              → null：无第二大户=该轴不适用，与 D3.28 零配对
+  //                              同「有证据的缺席」语义）
+  //   top1Top2HoldSupplyPct    = 前二合计 ÷ totalSupply ×100（同上 null 语义）
+  //   top1Top2FirstBuyGapSec   = 前二首买时间差绝对值（dt 域秒；任一 firstBuyDt
+  //                              缺失 → null）
+  //   clusterHoldSupplyPct     = sb∪eq 簇成员正净合计 ÷ totalSupply ×100（sbHold
+  //                              是在场流通分母——本键给总量分母版；无合格簇 null）
+  //   holdingsProfile          = 前三钱包行为摘要（state 叙事原料：净持/占总量%/
+  //                              买卖笔额/首买块/首卖距首买秒——行为叙事 Jev 综合用，
+  //                              不进数值锚键）
+  const top2HoldSupplyPct = totalSupply !== null && top2NetTok > 0 ? (top2NetTok / totalSupply) * 100 : null;
+  const top1Top2HoldSupplyPct = totalSupply !== null && top2NetTok > 0
+    ? ((top1NetTok + top2NetTok) / totalSupply) * 100 : null;
+  const walletOf = new Map(wallets.map((e) => [e.w, e]));
+  let top1Top2FirstBuyGapSec = null;
+  {
+    const w1 = posSorted.length > 0 ? walletOf.get(posSorted[0][0]) : null;
+    const w2 = posSorted.length > 1 ? walletOf.get(posSorted[1][0]) : null;
+    if (w1 && w2 && w1.firstBuyDt !== null && w1.firstBuyDt !== undefined
+      && w2.firstBuyDt !== null && w2.firstBuyDt !== undefined) {
+      top1Top2FirstBuyGapSec = Math.abs(w1.firstBuyDt - w2.firstBuyDt);
+    }
+  }
+  let clusterHoldSupplyPct = null;
+  if (totalSupply !== null && bundleMembers.size > 0) {
+    let m = 0;
+    for (const w of bundleMembers) m += posNetTok.get(w) || 0;
+    if (m > 0) clusterHoldSupplyPct = (m / totalSupply) * 100;
+  }
+  // 第1大∪簇并集合计占总供应（CD122 形状主锚：单大户+捆绑簇组合垄断度——组合
+  // 数值代码算好，Jev 心算不可靠 D3.29 教训；簇缺席（<3 笔不成簇）=并集轴缺席
+  // null——退化成 top1 自身会与单一口径重复且无组合语义）
+  let t1PlusClusterSupplyPct = null;
+  if (totalSupply !== null && bundleMembers.size > 0 && posSorted.length > 0) {
+    const t1W = posSorted[0][0];
+    let m = top1NetTok;
+    for (const w of bundleMembers) if (w !== t1W) m += posNetTok.get(w) || 0;
+    t1PlusClusterSupplyPct = (m / totalSupply) * 100;
+  }
+  const firstBuyBlockOf = new Map();
+  for (const t of ticks) {
+    if (t.side !== 'BUY' || !t.wallet) continue;
+    if (!firstBuyBlockOf.has(t.wallet)) firstBuyBlockOf.set(t.wallet, t.block);
+  }
+  const holdingsProfile = posSorted.slice(0, 3).map(([w, netTok]) => {
+    const e = walletOf.get(w) || {};
+    return {
+      w,
+      netTok,
+      supplyPct: totalSupply !== null ? (netTok / totalSupply) * 100 : null,
+      buyBnb: e.buyBnb || 0, buyN: e.buyN || 0,
+      sellBnb: e.sellBnb || 0, sellN: e.sellN || 0,
+      firstBuyDt: e.firstBuyDt ?? null, firstSellDt: e.firstSellDt ?? null,
+      firstBuyBlock: firstBuyBlockOf.get(w) ?? null,
+    };
+  });
 
   // ── 著名钱包单极控盘锚（D3.2b 用户裁定 2026-10-31 CD5 语境：「描述盘面上单一
   // 著名钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档；mapper 消费方式
@@ -531,6 +596,8 @@ function computeDerived(snapshot, famousRoster) {
     sameBlockHoldPct, equalBandHoldPct, bundleBuyPct,
     washPairCount, washPairSellPct, washPairBuyPct,
     top1HoldSupplyPct, top1HoldCircPct,
+    top2HoldSupplyPct, top1Top2HoldSupplyPct, top1Top2FirstBuyGapSec,
+    clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec,
     activityLevel, activityCv, activityUneven,

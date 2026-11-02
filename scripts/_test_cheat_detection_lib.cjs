@@ -311,12 +311,16 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 8, 'G6 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键=八数值键（activity 档位不投影）');
+ok(Object.keys(f1.anchors).length === 13, 'G7 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键=十三数值键（activity 档位不投影）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
   && f1.anchors.washPairBuyPct === null,
   'D3.28 washPair 三键未传→null 容缺（f1 只传 sb/eq）');
+ok(f1.anchors.top2HoldSupplyPct === null && f1.anchors.top1Top2HoldSupplyPct === null
+  && f1.anchors.top1Top2FirstBuyGapSec === null && f1.anchors.clusterHoldSupplyPct === null
+  && f1.anchors.t1PlusClusterSupplyPct === null,
+  'D3.32 持仓分布五键未传→null 容缺（f1 只传 sb/eq——旧档断代重放零变化防线）');
 ok(!('verdict' in f1) && !('cheatProb' in f1) && !('patternType' in f1) && !('ruleAudit' in f1),
   '观测记录无 verdict/cheatProb/patternType/ruleAudit 键（判定层停产反证）');
 const f1b = buildObservation(mkAnswers(), { sameBlockHoldPct: '88' });
@@ -334,6 +338,18 @@ ok(f1d.anchors.washPairCount === 10 && f1d.anchors.washPairSellPct === 95.1
   'D3.28 washPair 三键回显（CD27 形状 10 对/卖占 95.1/买占 27.3）');
 ok(f1d.anchors.washPairCount === 10 && f1d.anchors.sameBlockHoldPct === null,
   'D3.28 washPair 与持仓锚独立容缺（互不冒充）');
+// D3.32 持仓分布五键回显（CD122 组合垄断实值：t2 9.4/Σ2 35.0/Δ1s/簇 14.5/∪40.1）
+const f1e = buildObservation(mkAnswers(), { top2HoldSupplyPct: 9.4, top1Top2HoldSupplyPct: 35.0,
+  top1Top2FirstBuyGapSec: 1, clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1 });
+ok(f1e.anchors.top2HoldSupplyPct === 9.4 && f1e.anchors.top1Top2HoldSupplyPct === 35.0
+  && f1e.anchors.top1Top2FirstBuyGapSec === 1 && f1e.anchors.clusterHoldSupplyPct === 14.5
+  && f1e.anchors.t1PlusClusterSupplyPct === 40.1,
+  'D3.32 持仓分布五键回显（CD122 形状 t2 9.4%/前二 35.0%/Δ首买 1 秒/簇 14.5%/并集 40.1%）');
+ok(f1e.extLevels.holdings_balance === null,
+  'holdings_balance 题缺席（<D3.32 旧档）→ extLevels null 不 throw（EXT 容缺断代）');
+const f1f = buildObservation(mkAnswers({ holdings_balance: 'strong' }), {});
+ok(f1f.extLevels.holdings_balance === 'strong',
+  'holdings_balance 在场答案 → extLevels 落档（G7 J 通道原料）');
 
 // ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
 // sbw D3.11 现象二分桶域（D3.10 burst_cheat/burst_normal 断代）：在场二桶照落 / 旧档断代 null / 未知桶 throw
@@ -415,8 +431,13 @@ try {
   buildObservation({ ...mkAnswers(), wash_pair: { type: 'choice', probabilities: { low: 1 } } });
 } catch (_) { threw = true; }
 ok(threw, 'wash_pair 在场但档域名 low → throw（现象四档域校验）');
-ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']),
-  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.28 六键）');
+try {
+  buildObservation({ ...mkAnswers(), holdings_balance: { type: 'choice', probabilities: { low: 1 } } });
+  threw = false;
+} catch (_) { threw = true; }
+ok(threw, 'holdings_balance 在场但档域名 low → throw（现象四档域校验——EXT 通道不因容缺放宽）');
+ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']),
+  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.32 七键：holdings_balance 入列）');
 ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
   'STALL_BURST_LEVELS 导出钉死（D3.11：退回纯现象二分——只判有无停滞后涌入）');
 
@@ -718,9 +739,9 @@ console.log('I. 著名钱包单极控盘锚');
   ok(anchorCountAt([], '2026-10-29T15:00:09Z') === 0, '空行集 → 0');
 
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
-  console.log('I2. 题集结构 D3.30（ESM 题文件经动态 import）');
+  console.log('I2. 题集结构 D3.32（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.31', `版本常量 D3.31（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.31=state-only 组织买入占比行，题面 12 题不动）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.32', `版本常量 D3.32（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.32=加第 13 题 holdings_balance 持仓均衡（G7 J 通道）+snapshot 锚族/state 持仓分布行同版落地）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -737,10 +758,10 @@ console.log('I. 著名钱包单极控盘锚');
     'STALL_BURST_LEVELS 导出=停滞突发波现象二分桶域（D3.11 退回只判有无；mapper 同名常量对齐）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 12
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']
+  ok(qids.length === 13
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']
       .every((id) => qids.includes(id)),
-    '12 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair（D3.28 新增同块对敲题）');
+    '13 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance（D3.32 新增持仓均衡题——G7 J 通道立项票 CD122）');
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
     '存续 4 题位序不变且观察题不在核心清单（mapper PHENOMENON_IDS 对齐）');
@@ -750,8 +771,8 @@ console.log('I. 著名钱包单极控盘锚');
     ok(!/(cheat|unhealthy|healthy|作弊盘|不健康|健康盘)/.test(q.instructions),
       `题 ${id}：instructions 不带 verdict 词汇（防答题被结论锚定）`);
   }
-  // 四档域题=存续 4 现象 + tiering/bw/insider/pump/wash（sbw D3.9 起三分类、act/bd 独立档域另行断言）
-  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']) {
+  // 四档域题=存续 4 现象 + tiering/bw/insider/pump/wash/holdings（sbw D3.9 起三分类、act/bd 独立档域另行断言）
+  for (const id of [...PHENOMENON_IDS, 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']) {
     ok(qm.PHENOMENON_LEVELS.every((b) => typeof qs[id].criteria[b] === 'string')
       && Object.keys(qs[id].criteria).length === qm.PHENOMENON_LEVELS.length,
       `题 ${id}：criteria 键集=PHENOMENON_LEVELS 四档（mapper 档位序锁死）`);
@@ -831,6 +852,29 @@ console.log('I. 著名钱包单极控盘锚');
     'D3.28 wash_pair 反例=CD90 形状（3 对 1.9% 偶发碰撞不给档）');
   ok(qs.wash_pair.criteria && qm.PHENOMENON_LEVELS.every((b) => typeof qs.wash_pair.criteria[b] === 'string'),
     'D3.28 wash_pair criteria=四档域（EXT 容缺通道，档位序与 mapper 对齐）');
+  // D3.32：持仓均衡题（批次五 CD122 用户裁定「给 Jev 增加 持仓均衡 门吧。注意总供应量
+  // 占比最重要，第二 CD122 的 top2 不是单一钱包，而是捆绑簇。需要利用 Jev 的能力处理
+  // 复杂情况」）——组合垄断（单一独大/前二/第1大∪簇并集三口径参考 40%）+主口径占总供应量%
+  // +同源协同迹象定档腿；CD122/CD69 正例+CD84 跟车/CD104 流通虚高反例
+  const holdQ = qs.holdings_balance.instructions;
+  ok(holdQ.includes('主口径=占总供应量%'),
+    'D3.32 holdings_balance 主口径=占总供应量%（用户裁定原话——流通口径早期虚高只辅助）');
+  ok(holdQ.includes('单一钱包独大 / 前二合计 / 第1大与簇并集') && holdQ.includes('参考 ≥40% 总供应量'),
+    'D3.32 holdings_balance 组合垄断三口径（单一/前二/并集）参考量级 40%（与 I 通道 40 同尺度）');
+  ok(holdQ.includes('同源协同迹象') && holdQ.includes('紧邻背靠背进场=同一部署')
+    && holdQ.includes('快进快出倒仓') && holdQ.includes('进场即部分离场的对冲形状'),
+    'D3.32 holdings_balance 协同迹象四腿（首买相差数秒/簇成员/快进快出/二大买入反超持仓更小——CD122 T2 实形）');
+  ok(holdQ.includes('第二大占总供应 <3% 只是普通跟车大户') && holdQ.includes('强庄分持不是同源组合'),
+    'D3.32 holdings_balance 反锚=top2<3% 跟车组合不成立（CD84）+独立进场强庄分持不误伤');
+  ok(holdQ.includes('占在场流通 66% 但占总供应量仅 31.6%'),
+    'D3.32 holdings_balance 反例=CD104 流通虚高形状（流 66.5/供 31.6——供应口径未到量级不给档）');
+  ok(holdQ.includes('同块 6 钱包捆绑簇成员') && holdQ.includes('并集占总供应 40.1%')
+    && holdQ.includes('3 秒后即卖出持仓一半'),
+    'D3.32 holdings_balance 正例=CD122 形状（并集 40.1%+簇成员+快进快出+买入反超）');
+  ok(holdQ.includes('一笔 5.17 BNB 买入吃走 4.65 亿枚=总供应量 46.5%'),
+    'D3.32 holdings_balance 正例=CD69 形状（单一独大 46.5%）');
+  ok(holdQ.includes('总供应量未知时本题缺主口径') && holdQ.includes('不给档'),
+    'D3.32 holdings_balance 供应缺失=fail-open 不给档（口径缺席不判）');
   // D3.29：批次三 CD41/CD42/CD45 误伤裁定（方案 A+B 均「采纳（a+b 全上）」）——
   // ①bw ⑥第二支口子（同额带被当阵列证据+无占比约束）；②pump 排除项「窜完即止」
   // 窗内不可执行 + ⑤升档参考绕过市场合力反锚的口子
@@ -1105,6 +1149,51 @@ console.log('I. 著名钱包单极控盘锚');
   const stEmpty = buildCheatState(buildSnapshotFromRows([mkRow(10, 300, 1, 'sell', 0.1, 1e-9, { trader: wH1, sender: wH1, tok: 10e6 })], holdMeta));
   ok(stEmpty.state.includes('单一钱包持仓集中度: 无正净持仓'),
     'state 渲染：无正净持仓降级行');
+
+  // ═══════════════ D3.32 持仓分布锚族（G7 J 通道 holdings_balance 数值源）═══════════════
+  console.log('D3.32 持仓分布锚族（前二/簇/并集占总供应量%+前二首买相差秒+前三钱包行为）');
+  // holdRows 手算：posSorted=[wH1 500M, wH2 100M, wH3 100M]；三行全 block 300=
+  // 同块簇成员 {wH1,wH2,wH3}（≥3 笔买同块）→ 簇合计=并集=700M/1e9=70
+  ok(hd.top2HoldSupplyPct === 10, `top2 供=100M/1e9=10 整（实际 ${hd.top2HoldSupplyPct}）`);
+  ok(hd.top1Top2HoldSupplyPct === 60, `前二合计=600M/1e9=60 整（实际 ${hd.top1Top2HoldSupplyPct}）`);
+  ok(hd.top1Top2FirstBuyGapSec === 1, `前二首买相差=|11-10|=1 秒（实际 ${hd.top1Top2FirstBuyGapSec}）`);
+  ok(hd.clusterHoldSupplyPct === 70 && hd.t1PlusClusterSupplyPct === 70,
+    `同块簇合计=700M/1e9=70；t1∈簇 → 并集同 70（实际 ${hd.clusterHoldSupplyPct}/${hd.t1PlusClusterSupplyPct}）`);
+  ok(Array.isArray(hd.holdingsProfile) && hd.holdingsProfile.length === 3
+    && hd.holdingsProfile[0].supplyPct === 50 && hd.holdingsProfile[0].netTok === 5e8
+    && hd.holdingsProfile[0].buyBnb === 5.1653 && hd.holdingsProfile[0].firstBuyBlock === 300
+    && hd.holdingsProfile[0].firstSellDt === null
+    && hd.holdingsProfile[1].netTok === 1e8 && hd.holdingsProfile[2].w === wH3,
+    `holdingsProfile 前三钱包形状（净持/供应%/买入额/首买块/首卖缺席；实际 ${JSON.stringify(hd.holdingsProfile?.[0]?.supplyPct)}/${hd.holdingsProfile?.length} 键）`);
+  ok(stHold.state.includes('持仓分布: 第1大 0x1111…0a01: 占总供应量 50.0%（净持 500.00M），买 5.165×1 / 卖 0.0000×0，首买@t+10s（块 300）'),
+    'state 渲染：持仓分布前三钱包行（占总供应量%+净持+买卖+首买块）');
+  ok(stHold.state.includes('前两大合计占总供应量 60.0%（首买相差 1 秒）'),
+    'state 渲染：前二合计行+首买相差秒（组合垄断叙事）');
+  ok(stHold.state.includes('同块簇∪等额簇成员正净合计占 70.0%，第1大钱包与簇并集合计占 70.0%'),
+    'state 渲染：簇合计+并集行（G7 J 通道主叙事——CD122 并集 40.1 同构）');
+  // 快进快出：w1 卖 300M@sec13 → 首卖距首买 3 秒行（CD122 T2「3 秒后卖一半」实形）
+  const stPart = buildCheatState(buildSnapshotFromRows(partRows, holdMeta));
+  ok(stPart.state.includes('首卖距首买 3 秒'),
+    'state 渲染：首卖距首买秒数（快进快出叙事——CD122 T2 3 秒卖一半实形）');
+  ok(Math.abs(buildSnapshotFromRows(partRows, holdMeta).derived.top1HoldSupplyPct - 20) < 1e-9,
+    'D3.32 与 D3.20 同分子源：卖出减仓后 top1 供=20 一致（posSorted 共享）');
+  // 无合格簇退化：两钱包不同块不同额 → 簇键 null（缺席不渲染）但前二键照算
+  ok(exd.clusterHoldSupplyPct === null && exd.t1PlusClusterSupplyPct === null
+    && exd.top1Top2HoldSupplyPct === 5.1 && exd.top2HoldSupplyPct === 0.1,
+    `无合格簇 → 簇/并集 null（实际 ${exd.clusterHoldSupplyPct}/${exd.t1PlusClusterSupplyPct}）；前二键独立照算 5.1/0.1（实际 ${exd.top1Top2HoldSupplyPct}/${exd.top2HoldSupplyPct}）`);
+  ok(!buildCheatState(buildSnapshotFromRows(exRows, holdMeta)).state.includes('同块簇∪等额簇成员正净合计'),
+    'state 渲染：无合格簇 → 无簇合计短语（缺席不渲染）');
+  // supply 缺失：组合口径全 null + 降级行（fail-open 不判档防线）
+  ok(noSup.top2HoldSupplyPct === null && noSup.top1Top2HoldSupplyPct === null
+    && noSup.clusterHoldSupplyPct === null && noSup.t1PlusClusterSupplyPct === null,
+    'totalSupply 缺失 → 持仓分布四键全 null（组合口径缺席不冒充）');
+  ok(stNoSup.state.includes('总供应量未知，前几大组合占比口径缺失'),
+    'state 渲染：供应缺失降级行（题面「不给档」的 state 侧对偶）');
+  // 唯一持仓退化（router 伪钱包已剔）：仅 1 正净持有人 → 前二键 null、profile 单行；
+  // 2 笔同块不成簇（<3）→ 并集轴缺席 null（不退化为 top1 自身——单一口径另有覆盖）
+  ok(rd2.top2HoldSupplyPct === null && rd2.top1Top2HoldSupplyPct === null
+    && rd2.t1PlusClusterSupplyPct === null && Array.isArray(rd2.holdingsProfile) && rd2.holdingsProfile.length === 1,
+    `单正净持有人（router 900M 已剔）→ 前二键 null、不成簇并集轴缺席 null、profile 单行（实际 t2=${rd2.top2HoldSupplyPct} 并集=${rd2.t1PlusClusterSupplyPct} profile=${rd2.holdingsProfile?.length}）`);
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });

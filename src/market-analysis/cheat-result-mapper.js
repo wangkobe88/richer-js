@@ -46,7 +46,7 @@ const PHENOMENON_IDS = [
  * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
  * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']; // wash_pair D3.28（同块对敲，EXT 容缺通道同款）
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']; // wash_pair D3.28（同块对敲）/ holdings_balance D3.32（持仓均衡——组合垄断，EXT 容缺通道同款）
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
@@ -197,6 +197,14 @@ function buildObservation(answers, anchors = null) {
       // D3.20 单一钱包持仓集中双锚（占总供应量/占在场流通；supply 缺失→null 不冒充）
       top1HoldSupplyPct: _anchorPct(anchors, 'top1HoldSupplyPct'),
       top1HoldCircPct: _anchorPct(anchors, 'top1HoldCircPct'),
+      // D3.32 持仓分布锚族（组合垄断：前二/簇合计/并集占总供应量% + 前二首买
+      // 相差秒——J 通道 holdings_balance 的数值源；<2 正净持有人/无合格簇/
+      // supply 缺失→null=有证据的缺席）
+      top2HoldSupplyPct: _anchorPct(anchors, 'top2HoldSupplyPct'),
+      top1Top2HoldSupplyPct: _anchorPct(anchors, 'top1Top2HoldSupplyPct'),
+      top1Top2FirstBuyGapSec: _anchorPct(anchors, 'top1Top2FirstBuyGapSec'),
+      clusterHoldSupplyPct: _anchorPct(anchors, 'clusterHoldSupplyPct'),
+      t1PlusClusterSupplyPct: _anchorPct(anchors, 't1PlusClusterSupplyPct'),
     },
   };
 }

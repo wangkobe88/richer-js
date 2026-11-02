@@ -227,6 +227,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 数值序：grade healthy=0/unhealthy=1/cheat=2；题档 none=0/weak=1/moderate=2/
     // strong=3（sbw 二桶 0/1、act 0-3、dom 0-2；映射表=cheat-grade.js）。
     // D3.28 加 washPair 题档+同块对敲锚三键（G3 H 通道同源）。
+    // D3.32 加 holdingsBalance 题档+持仓分布锚五键（G7 J 通道同源）。
     // 快照透传=signal 行研究主数据源（效果改进研究）
     cheatGrade: factorResults.cheatGrade ?? null,
     cheatUnhealthyGrades: factorResults.cheatUnhealthyGrades ?? 0,
@@ -241,6 +242,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatInsiderSupplySell: factorResults.cheatInsiderSupplySell ?? null,
     cheatSlowGrindPump: factorResults.cheatSlowGrindPump ?? null,
     cheatWashPair: factorResults.cheatWashPair ?? null,
+    cheatHoldingsBalance: factorResults.cheatHoldingsBalance ?? null,
     cheatActivityLevel: factorResults.cheatActivityLevel ?? null,
     cheatBundledDominance: factorResults.cheatBundledDominance ?? null,
     cheatSameBlockHoldPct: factorResults.cheatSameBlockHoldPct ?? null,
@@ -250,6 +252,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatWashPairBuyPct: factorResults.cheatWashPairBuyPct ?? null,
     cheatTop1HoldSupplyPct: factorResults.cheatTop1HoldSupplyPct ?? null,
     cheatTop1HoldCircPct: factorResults.cheatTop1HoldCircPct ?? null,
+    cheatTop2HoldSupplyPct: factorResults.cheatTop2HoldSupplyPct ?? null,
+    cheatTop1Top2HoldSupplyPct: factorResults.cheatTop1Top2HoldSupplyPct ?? null,
+    cheatTop1Top2FirstBuyGapSec: factorResults.cheatTop1Top2FirstBuyGapSec ?? null,
+    cheatClusterHoldSupplyPct: factorResults.cheatClusterHoldSupplyPct ?? null,
+    cheatT1PlusClusterSupplyPct: factorResults.cheatT1PlusClusterSupplyPct ?? null,
     cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
     cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
   };

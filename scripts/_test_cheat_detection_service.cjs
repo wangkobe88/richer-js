@@ -412,7 +412,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G6'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G7'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（12 题数值档，FA 出口

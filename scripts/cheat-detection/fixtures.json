@@ -1115,12 +1115,12 @@
         "tickCount": 27
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
-      "note": "aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买20/卖7 Σ买2.20BNB 钱包20 top1=22.5% churn6 同块簇3 等额簇2）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=27=首笔成功买+settle4000ms；买20/卖7 Σ买2.20BNB 钱包20 top1=22.5% churn6 同块簇3 等额簇2）；2026-11-02 批次五裁定改 unhealthy",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组14裁定=healthy（页面展示正常——前次「无数据」为地址手敲错误假 bug 非 DB/页面问题；盘面观测无 strong 结构证据）"
+      "expectSince": "2026-11-02",
+      "expectBecause": "批次五用户裁定改 unhealthy：同块簇持仓 63.8%+捆绑主导度 high，F/G 双通道触发维持机器判定（先例 CD43 sbHold 67.8 同位）"
     },
     {
       "caseId": "CD71",
@@ -1947,12 +1947,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
-      "note": "4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买5.77BNB 钱包18 top1=36.3% churn1 同块簇1 等额簇0）；expect=判读现状待 review",
+      "note": "4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买18/卖1 Σ买5.77BNB 钱包18 top1=36.3% churn1 同块簇1 等额簇0）；2026-11-02 批次五裁定改 unhealthy（持仓垄断：前两大户背靠背块合计总量 35%/在场 73%）",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「1.CD122 healthy」。单钱包重仓家族第三票（CD104/CD105 先例）：top1 36.3% 大买+一笔 1.309 大卖+t1 供/流 25.6%/53.4% 本组最重，档位全 weak/none（pump=none）——单钱包集中+档位轻=healthy；近全买零卖 18:1 形状本身不拦（大买大卖同一钱包≠阵列）"
+      "expectSince": "2026-11-02",
+      "expectBecause": "批次五裁定改 unhealthy：前两大户背靠背块合计吃总量 35%/在场筹码 73%（top1 0x9230 25.6% + top2 0x5574 9.4%，Σ买 2.09BNB 比 top1 还大），持仓垄断形状"
     },
     {
       "caseId": "CD123",

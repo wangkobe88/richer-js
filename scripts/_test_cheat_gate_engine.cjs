@@ -220,16 +220,19 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 24 键往返（因子化：grade 三键 + 12 题档 + 数值锚十键）');
+console.log('D. FA 投影 30 键往返（因子化：grade 三键 + 13 题档 + 数值锚十五键——D3.32 holdings 族扩）');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
   const LV = { equalAmountSplit: 2, coordinatedSellBack: null, creatorFrontRun: 1,
     sellDispersion: 0, stallBurstWave: 1, amountTiering: null, sameBlockBuyWave: 3,
-    insiderSupplySell: null, slowGrindPump: 2, washPair: 3, activityLevel: 0, bundledDominance: 2 };
+    insiderSupplySell: null, slowGrindPump: 2, washPair: 3, activityLevel: 0, bundledDominance: 2,
+    holdingsBalance: 3 };
   const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, washPairCount: 10,
     washPairSellPct: 95.1, washPairBuyPct: 27.3, top1HoldSupplyPct: 25.6,
-    top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2 };
+    top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2,
+    top2HoldSupplyPct: 9.4, top1Top2HoldSupplyPct: 35.0, top1Top2FirstBuyGapSec: 1,
+    clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1 };
   FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   check('set → get unhealthy（levels/anchors 原样往返）', FAmod.getCheatFactors('0xround'),
     { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
@@ -238,7 +241,7 @@ console.log('D. FA 投影 24 键往返（因子化：grade 三键 + 12 题档 + 
     FAmod.getCheatFactors('0xround'), { grade: 'cheat', unhealthyGrades: 0, blocked: true });
   FAmod.clearCheatFactors('0xround');
   check('clear → null', FAmod.getCheatFactors('0xround'), null);
-  // _buildFactorMap 发射 24 键：探针（实例化真实 FA）验证键名在因子集内
+  // _buildFactorMap 发射 30 键：探针（实例化真实 FA）验证键名在因子集内
   const fa = new FAmod({}, null);
   const keys = [...fa.getFactorKeys()]; // Set → 数组
   const need = ['cheatGrade', 'cheatUnhealthyGrades', 'cheatBlocked',
@@ -247,8 +250,10 @@ console.log('D. FA 投影 24 键往返（因子化：grade 三键 + 12 题档 + 
     'cheatSlowGrindPump', 'cheatWashPair', 'cheatActivityLevel', 'cheatBundledDominance',
     'cheatSameBlockHoldPct', 'cheatEqualBandHoldPct', 'cheatWashPairCount', 'cheatWashPairSellPct',
     'cheatWashPairBuyPct', 'cheatTop1HoldSupplyPct', 'cheatTop1HoldCircPct',
-    'cheatFamousDominancePct', 'cheatFamousDominance'];
-  ok('24 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
+    'cheatFamousDominancePct', 'cheatFamousDominance',
+    'cheatHoldingsBalance', 'cheatTop2HoldSupplyPct', 'cheatTop1Top2HoldSupplyPct',
+    'cheatTop1Top2FirstBuyGapSec', 'cheatClusterHoldSupplyPct', 'cheatT1PlusClusterSupplyPct'];
+  ok('30 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   // 数值序出口（grade healthy=0/unhealthy=1/cheat=2；题档 0-3；锚 % 数值直传；null 透传）——
   // registerToken+单 tick 建 state 后 buildFactorMap 直读（cheat 块纯投影）
@@ -269,15 +274,20 @@ console.log('D. FA 投影 24 键往返（因子化：grade 三键 + 12 题档 + 
     && fm.cheatWashPairSellPct === 95.1 && fm.cheatWashPairBuyPct === 27.3
     && fm.cheatSameBlockHoldPct === 66.1 && fm.cheatEqualBandHoldPct === 57.2
     && fm.cheatTop1HoldSupplyPct === 25.6 && fm.cheatTop1HoldCircPct === 53.4
-    && fm.cheatFamousDominancePct === 87.5 && fm.cheatFamousDominance === 2,
+    && fm.cheatFamousDominancePct === 87.5 && fm.cheatFamousDominance === 2
+    && fm.cheatHoldingsBalance === 3 && fm.cheatTop2HoldSupplyPct === 9.4
+    && fm.cheatTop1Top2HoldSupplyPct === 35 && fm.cheatTop1Top2FirstBuyGapSec === 1
+    && fm.cheatClusterHoldSupplyPct === 14.5 && fm.cheatT1PlusClusterSupplyPct === 40.1,
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
-      dom: fm.cheatFamousDominance } : 'build null');
+      dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct } : 'build null');
   FAmod.clearCheatFactors('0xround');
   const fm2 = fa.buildFactorMap('0xround', T0 + 3000);
   ok('清投影 → 全 null/0（未判定语义，条件裸比较恒 false fail-closed）',
     fm2 && fm2.cheatGrade === null && fm2.cheatUnhealthyGrades === 0 && fm2.cheatBlocked === 0
     && fm2.cheatSameBlockBuyWave === null && fm2.cheatSameBlockHoldPct === null
-    && fm2.cheatFamousDominance === null, fm2 ? fm2.cheatGrade : 'build null');
+    && fm2.cheatFamousDominance === null
+    && fm2.cheatHoldingsBalance === null && fm2.cheatT1PlusClusterSupplyPct === null,
+    fm2 ? fm2.cheatGrade : 'build null');
 }
 
 console.log('E. 引擎侧源码口径锁');

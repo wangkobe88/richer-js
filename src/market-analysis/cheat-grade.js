@@ -8,7 +8,20 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G6=G5+③豁免前提「组织买入占比」，2026-11-02 用户补充裁定「著名/绑定钱包
+ * 规则（G7=G6+J 通道持仓组合垄断，2026-11-02 批次五 CD122 用户裁定立项——
+ * 「大户持仓太多了，因为我们似乎只考虑了 top1，这个案例可能不太够，如果
+ * top2 跟 top1 紧邻买的，更危险」+「给 Jev 增加 持仓均衡 门吧。注意总供应量
+ * 占比最重要，第二 CD122 的 top2 不是单一钱包，而是捆绑簇。需要利用 Jev 的
+ * 能力处理复杂情况」+两分叉裁定「strong→unhealthy 独立通道」+「完整持仓
+ * 图景」：新增第 13 题 holdings_balance（D3.32，四档 EXT 容缺）判前几大持仓
+ * 组合垄断（主口径=占总供应量%——单一独大/前二合计/第1大∪簇并集三口径
+ * 参考量级 40%+同源协同迹象），strong → unhealthy 留痕 J_holdings_strong
+ * **不进 A 八主判清单**（组合垄断=拒买级非拉黑级，与 F/G 同档语义）；I 通道
+ * （单一钱包 ≥40 供 → cheat）不受影响——本题覆盖 I 够不着的组合形状（CD122：
+ * top1 供 25.6<40，但 top2=同块捆绑簇成员背靠背块进场 3 秒后卖一半，第1大∪
+ * 簇并集 40.1% 人工裁定 unhealthy）。新题对 D3.26 旧档重放=答案缺席 null 不
+ * 触发 → 黄金集 34/42 沿用（G3/G4/G5/G6 同款先例）。
+ * 此前 G6=G5+③豁免前提「组织买入占比」，2026-11-02 用户补充裁定「著名/绑定钱包
  * 的豁免还是要有一个前提，就是它们砸跑了是砸跑了，但是盘面正常用户流量涌入
  * 依然要比较明显，否则如果整个盘面全部是它们的砸盘，盘子也死了」——D/G 两豁
  * 免共同加前提：组织买入占锚窗总买 <80（正常用户承接至少两成）才豁免；≥80=
@@ -84,6 +97,10 @@
  *        用户选定 unhealthy 档=拒买可重判不清仓；G1 期「bd high 单独不定档
  *        （CD98/CD116/CD127 反证）」旧裁定同步废止；G5 双锚簇残余豁免见头注①；
  *        G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
+ *     J. holdings_balance=strong（G7 新增，前几大持仓组合垄断——第一大+紧邻
+ *        第二大+捆绑簇凑成垄断总供应量一大截（CD122 形状）或单一独大档位
+ *        补充；主口径=占总供应量%；独立通道不进 A 清单=拒买级非拉黑级；
+ *        <D3.32 旧档答案缺席 null 不触发）
  *   healthy: 其余
  *
  * cr（创建者抢跑）刻意不进主判=辅助判定（用户语义；CD75 cr strong 人工判
@@ -100,7 +117,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G6';
+const CHEAT_GRADE_RULES_VERSION = 'G7';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -125,7 +142,7 @@ function scoreLevel(map, value) {
 
 /**
  * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
- * levels=12 题数值档（FA 出口键；washPair D3.28 起入列）、buckets=字符串原值
+ * levels=13 题数值档（FA 出口键；washPair D3.28/holdingsBalance D3.32 起入列）、buckets=字符串原值
  * （metadata/日志研究友好）、anchors=数值锚九键（2026-11-01 用户补点「著名钱包
  * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流 + extras famous
  * 数值/档位——G1 B/C/F 通道 sbHold、E 通道 t1 流、D 通道 famous 档的同源数值；
@@ -151,6 +168,7 @@ function levelsFromObservation(observation, extras = {}) {
     insiderSupplySell: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.insider_supply_sell),
     slowGrindPump: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.slow_grind_pump),
     washPair: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.wash_pair),
+    holdingsBalance: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.holdings_balance), // D3.32（G7 J 通道）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
   };
@@ -165,6 +183,7 @@ function levelsFromObservation(observation, extras = {}) {
     insiderSupplySell: ex.insider_supply_sell ?? null,
     slowGrindPump: ex.slow_grind_pump ?? null,
     washPair: ex.wash_pair ?? null,
+    holdingsBalance: ex.holdings_balance ?? null,
     activityLevel: act,
     bundledDominance: dom,
   };
@@ -178,6 +197,12 @@ function levelsFromObservation(observation, extras = {}) {
     washPairBuyPct: _pct(an.washPairBuyPct),
     top1HoldSupplyPct: _pct(an.top1HoldSupplyPct),
     top1HoldCircPct: _pct(an.top1HoldCircPct),
+    // D3.32 持仓分布锚族（G7 J 通道 holdings_balance 的数值源；缺席=null 不冒充）
+    top2HoldSupplyPct: _pct(an.top2HoldSupplyPct),
+    top1Top2HoldSupplyPct: _pct(an.top1Top2HoldSupplyPct),
+    top1Top2FirstBuyGapSec: _pct(an.top1Top2FirstBuyGapSec),
+    clusterHoldSupplyPct: _pct(an.clusterHoldSupplyPct),
+    t1PlusClusterSupplyPct: _pct(an.t1PlusClusterSupplyPct),
     famousDominancePct: _pct(fx.famousDominancePct),
     famousDominanceLevel: famousLevel,
     famousDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, famousLevel),
@@ -189,12 +214,14 @@ function levelsFromObservation(observation, extras = {}) {
 /** 四现象题（B 通道现象门原料） */
 const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, creator_front_run, sell_dispersion]
 
-/** 八主判题：四现象剔 cr + EXT 五题剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28 随 EXT 清单自动入列） */
+/** 八主判题：四现象剔 cr + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
+ *  随 EXT 清单自动入列；**holdings_balance D3.32 刻意排除**——G7 用户裁定独立
+ *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级） */
 const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
   'sell_dispersion',
-  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave'), // tier/bw/rat/pump
+  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance'), // tier/bw/rat/pump/wash
 ];
 
 /** 数值锚读取（null/非有限/负数按缺席——绝不冒充） */
@@ -336,6 +363,18 @@ function gradeObservation(observation, extras = {}) {
   if (bd === 'high' && !(sbHold !== null && sbHold < 20 && (eqHold === null || eqHold < 50)
     && bundleBuy !== null && bundleBuy < 80)) {
     reasons.push({ level: 'unhealthy', code: 'G_bundled_dominance' });
+  }
+
+  // J：前几大持仓组合垄断（G7，2026-11-02 批次五 CD122 立项——用户裁定「给 Jev
+  // 增加 持仓均衡 门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一
+  // 钱包，而是捆绑簇。需要利用 Jev 的能力处理复杂情况」+「strong→unhealthy
+  // （独立通道，不进 A 通道）」）：holdings_balance（D3.32 第 13 题）strong →
+  // unhealthy。组合垄断=拒买级非拉黑级（F/G 同档语义）；单一钱包独大 ≥40 供仍
+  // 由 I 通道 cheat 管并取最重——本题补 I 够不着的形状（CD122：top1 供 25.6<40
+  // 但第1大∪簇并集 40.1%+第二大背靠背块紧邻进场 3 秒卖一半）。档位 null
+  // （<D3.32 旧档断代/总供应量缺失缺主口径）不触发（EXT 容缺语义同族）。
+  if (lv.holdings_balance === 'strong') {
+    reasons.push({ level: 'unhealthy', code: 'J_holdings_strong' });
   }
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'

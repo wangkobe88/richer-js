@@ -109,6 +109,31 @@ function buildCheatState(snapshot) {
     } else {
       lines.push('单一钱包持仓集中度: 无正净持仓（无可主导筹码）');
     }
+    // D3.32 持仓分布图景（2026-11-02 批次五 CD122 裁定：只看 top1 不够——top2 与
+    // top1 紧邻买的更危险，且 top2 可能不是单一钱包而是捆绑簇；用户原话「给 Jev
+    // 增加 持仓均衡 门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一
+    // 钱包，而是捆绑簇。需要利用 Jev 的能力处理复杂情况」）：前三钱包行为+前二
+    // 合计+簇合计/并集以数值事实行进 state，组合判档交题面 holdings_balance
+    // （档位仍 Jev 判，D3.5 边界不变；数值不带性质标签——判读教学在题面单一载体）
+    if (Array.isArray(d.holdingsProfile) && d.holdingsProfile.length > 0) {
+      const profLines = d.holdingsProfile.map((e, i) => {
+        const holdSec = e.firstBuyDt !== null && e.firstSellDt !== null
+          ? `，首卖距首买 ${Math.max(0, Math.round(e.firstSellDt - e.firstBuyDt))} 秒` : '';
+        return `第${i + 1}大 ${shortWallet(e.w)}: 占总供应量 ${e.supplyPct !== null ? e.supplyPct.toFixed(1) + '%' : '?'}（净持 ${(e.netTok / 1e6).toFixed(2)}M），买 ${fmtBnb(e.buyBnb)}×${e.buyN} / 卖 ${fmtBnb(e.sellBnb)}×${e.sellN}，首买@${fmtDt(e.firstBuyDt)}${e.firstBuyBlock !== null ? `（块 ${e.firstBuyBlock}）` : ''}${holdSec}`;
+      });
+      let distTail = '';
+      if (d.top1Top2HoldSupplyPct !== null) {
+        distTail += `；前两大合计占总供应量 ${d.top1Top2HoldSupplyPct.toFixed(1)}%`;
+        if (d.top1Top2FirstBuyGapSec !== null) distTail += `（首买相差 ${Math.round(d.top1Top2FirstBuyGapSec)} 秒）`;
+        if (d.clusterHoldSupplyPct !== null) {
+          distTail += `；同块簇∪等额簇成员正净合计占 ${d.clusterHoldSupplyPct.toFixed(1)}%`;
+          if (d.t1PlusClusterSupplyPct !== null) distTail += `，第1大钱包与簇并集合计占 ${d.t1PlusClusterSupplyPct.toFixed(1)}%`;
+        }
+      } else {
+        distTail += '；总供应量未知，前几大组合占比口径缺失';
+      }
+      lines.push(`持仓分布: ${profLines.join('；')}${distTail}（按正净持仓降序取前三；前几大是否均衡/是否同源协同的档位判断是你的任务）`);
+    }
     // D3.2 代码活跃度档位行已撤（D3.5 用户裁定「我的意思也是用Jev判断活跃度」「使用
     // Jev 进行判断」）：档位判定交题面 activity_level（Jev 从 [TICKS] 直读自判，教学
     // 单一载体=题面，sbw 第四轮同款）；snapshot.derived 活跃度字段仍计算，供存档/回归对照。

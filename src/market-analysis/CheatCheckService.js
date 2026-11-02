@@ -346,6 +346,13 @@ class CheatCheckService {
           // D3.20 单一钱包持仓集中双锚（观测记录/digest 留痕）
           top1HoldSupplyPct: snapshot.derived.top1HoldSupplyPct,
           top1HoldCircPct: snapshot.derived.top1HoldCircPct,
+          // D3.32 持仓分布锚族（组合垄断：J 通道 holdings_balance 的数值源，
+          // 头注见 snapshot——前二/簇/并集占总供应量% + 前二首买相差秒）
+          top2HoldSupplyPct: snapshot.derived.top2HoldSupplyPct,
+          top1Top2HoldSupplyPct: snapshot.derived.top1Top2HoldSupplyPct,
+          top1Top2FirstBuyGapSec: snapshot.derived.top1Top2FirstBuyGapSec,
+          clusterHoldSupplyPct: snapshot.derived.clusterHoldSupplyPct,
+          t1PlusClusterSupplyPct: snapshot.derived.t1PlusClusterSupplyPct,
         });
       } catch (e) {
         this.stats.errors++;
@@ -389,9 +396,9 @@ class CheatCheckService {
         if (n > this._unhealthyReanalyses) this._gateBlocked.add(token);
       }
 
-      // 因子化投影原料（2026-11-01 用户指令）：11 题数值档（FA 出口）+字符串
-      // 原值（metadata/日志）+数值锚六键（famous 掌控/持仓极不均衡补点）——随返回
-      // 形状透传引擎投影 FA
+      // 因子化投影原料（2026-11-01 用户指令）：13 题数值档（FA 出口）+字符串
+      // 原值（metadata/日志）+数值锚十一键（famous 掌控/持仓极不均衡/持仓分布补点）——
+      // 随返回形状透传引擎投影 FA
       const { levels, buckets, anchors } = levelsFromObservation(obs, {
         famousDominancePct: snapshot.derived.famousDominancePct ?? null,
         famousDominanceLevel: snapshot.derived.famousDominanceLevel ?? null,
@@ -405,6 +412,7 @@ class CheatCheckService {
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
         ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
         ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'} wash=${obs.extLevels.wash_pair ?? '—'}` +
+        ` hold=${obs.extLevels.holdings_balance ?? '—'}(t2:${snapshot.derived.top2HoldSupplyPct ?? '—'}%/Σ2:${snapshot.derived.top1Top2HoldSupplyPct ?? '—'}%/∪:${snapshot.derived.t1PlusClusterSupplyPct ?? '—'}%Δ${snapshot.derived.top1Top2FirstBuyGapSec ?? '—'}s)` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` wash对=${snapshot.derived.washPairCount ?? 0}对/卖占${snapshot.derived.washPairSellPct ?? '—'}%` +
