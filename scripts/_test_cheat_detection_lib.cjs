@@ -311,7 +311,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 7, 'D3.28 后 anchors=sb/eq+top1 供/流+washPair 三键=七数值键（activity 档位不再投影）');
+ok(Object.keys(f1.anchors).length === 8, 'G6 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键=八数值键（activity 档位不投影）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
@@ -593,6 +593,14 @@ console.log('I. 著名钱包单极控盘锚');
   ok(i1.famousFollowerTop3Pct === 100,
     `i1 跟单 top3=100%（两跟单钱包全覆盖；实际 ${i1.famousFollowerTop3Pct}）`);
   ok(buildCheatState(i1snap).state.includes('跟单前三钱包占跟单合计'), 'state 渲染：跟单 top3 数值行');
+  // G6 组织买入占比锚（豁免前提，用户补充裁定 2026-11-02）：i1 手算——总买 1.8；
+  // famous∪跟单买入=0.6+0.3+0.3=1.2 → 66.7；等额带 0.3×4 钱包（w3/w1/w2）买入
+  // 0.6+0.3+0.3=1.2 → bundleBuy 66.7（w3 两笔 0.3 同带并集去重）
+  ok(i1.famousGroupBuyPct === 66.7 && i1.bundleBuyPct === 66.7,
+    `i1 组织买入占比：famous集团 66.7 / 簇 66.7（实际 ${i1.famousGroupBuyPct}/${i1.bundleBuyPct}）`);
+  ok(buildCheatState(i1snap).state.includes('簇买入占比: 66.7%')
+    && buildCheatState(i1snap).state.includes('著名+跟单买入占全部买入 66.7%'),
+    'state 渲染：G6 两占比行（簇买入占比行+famous 行尾集团买入）');
   // G5 分散形：5 个跟单各 0.1 → top3=0.3/0.5=60.0（跟单正净 Σ 0.5）
   const i1b = buildSnapshotFromRows([
     mkF(10, 'buy', 0.5, FAM),
@@ -602,6 +610,8 @@ console.log('I. 著名钱包单极控盘锚');
   ], microMeta, { famousRoster: roster }).derived;
   ok(i1b.famousFollowerTop3Pct === 60,
     `5 跟单各 0.1 → top3 占 60.0（实际 ${i1b.famousFollowerTop3Pct}）`);
+  ok(i1b.famousGroupBuyPct === 100 && i1b.bundleBuyPct === 50,
+    `i1b 组织买入占比：全部买入都是 famous 集团 100 / 等额带 5 跟单 0.5 → 50（实际 ${i1b.famousGroupBuyPct}/${i1b.bundleBuyPct}）`);
   // G5 集中度 null 臂：无跟单钱包（跟单 Σ=0）→ null（D 通道触发=famous 本人直接控盘）
   const i1c = buildSnapshotFromRows([
     mkF(10, 'buy', 0.5, FAM),
@@ -609,6 +619,12 @@ console.log('I. 著名钱包单极控盘锚');
   ], microMeta, { famousRoster: roster }).derived;
   ok(i1c.famousFollowerPct === 0 && i1c.famousFollowerTop3Pct === null,
     `无跟单（窗外独立买）→ top3=null（实际 follower ${i1c.famousFollowerPct}/top3 ${i1c.famousFollowerTop3Pct}）`);
+  ok(i1c.famousGroupBuyPct === 50 && i1c.bundleBuyPct === null,
+    `i1c 无跟单 → 集团买=FAM 本人 0.5/1.0=50；两笔等额 2 钱包<3 无合格簇 → bundleBuy=null（实际 ${i1c.famousGroupBuyPct}/${i1c.bundleBuyPct}）`);
+  ok(!buildCheatState(buildSnapshotFromRows([
+    mkF(10, 'buy', 0.5, FAM),
+    mkF(71, 'buy', 0.5, w2),
+  ], microMeta, { famousRoster: roster })).state.includes('簇买入占比'), 'state 渲染：无合格簇 → 无簇买入占比行（缺席不渲染）');
 
   // I2 窗边界反证：首买距 famous 买 61s >60 → 非跟单；F 独占 50% 恰压 high 线
   const i2 = buildSnapshotFromRows([
@@ -674,11 +690,12 @@ console.log('I. 著名钱包单极控盘锚');
     delete c.famousHoldPct; delete c.famousTop1Pct; delete c.famousFollowerPct;
     delete c.famousDominancePct; delete c.famousDominanceLevel;
     delete c.famousFollowerTop3Pct;
+    delete c.famousGroupBuyPct;
     return c;
   };
   ok(JSON.stringify(stripFamous(noRoster)) === JSON.stringify(stripFamous(i1))
     && noRoster.famousDominanceLevel === null && noRoster.famousDominancePct === null
-    && noRoster.famousFollowerTop3Pct === null,
+    && noRoster.famousFollowerTop3Pct === null && noRoster.famousGroupBuyPct === null,
     '空名单注入：famous 族（含 G5 跟单 top3 键）全 null 且其余 derived 键 bit 一致');
 }
 
@@ -703,7 +720,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.30（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.30', `版本常量 D3.30（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.30=state-only 活跃度数值行，题面 12 题不动）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.31', `版本常量 D3.31（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.31=state-only 组织买入占比行，题面 12 题不动）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {

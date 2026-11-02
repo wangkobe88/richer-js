@@ -1,6 +1,6 @@
 {
   "generatedFrom": "D3.26 存档 42 票（cd-run-2026-11-01 系）+ fixtures expect",
-  "rulesVersion": "G5",
+  "rulesVersion": "G6",
   "cases": [
     {
       "caseId": "CD44",
@@ -1557,5 +1557,5 @@
       }
     }
   ],
-  "replayNote": "G5 对 D3.26 存档重放零变化（G5=G4+双豁免修正：①G 通道簇残余豁免双锚收紧 bd=high ∧ ¬(sbHold<20 ∧ eqHold<50)——豁免区 128 票仅 CD128（12.6/29.2，A_strong:pump 保底 grade 仍 cheat 不变）；CD121（11.4 但 eqHold 54≥50 等额簇还持一半）/CD126（10.7/59.6）不豁免落点回 G4 形状；sbHold=null（无合格簇锚）不豁免维持触发，eqHold=null=该轴零残余可豁免；②D 通道跟单集中度豁免 dom=high ∧ folTop3<45——旧档 extras 无 famousFollowerTop3Pct=null→触发零变化（断代保持 G4 行为，实时新锚落 G5 新语义：top3<45 分散形豁免/≥45 集中形疑似分仓触发））——34/42 基线沿用 G2 对拍结果。此前 G4 对 D3.26 存档重放零变化（G3 起旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道 t1 供 ≥40 全 128 票唯一命中 CD69(46.5) 不在黄金集）"
+  "replayNote": "G6 对 D3.26 存档重放零变化（G6=G5+豁免前提「组织买入占比」：D 段 famousGroupBuyPct/bundleBuyPct、G 段 bundleBuyPct ≥80（正常用户承接不足两成）=死盘形状豁免不成立；旧档 extras/anchors 无两新键=null→不豁免，与 G5 D 段 null→触发同 fail 方向、G 段黄金集无豁免翻转票 → 落点全同 G5=G4 形状）——34/42 基线沿用。实时链新锚落 G6 新语义：D 豁免须 top3<45 ∧ famousGroupBuyPct<80（128 票 D 豁免形状 8 票 ≥80 五票 CD47:80 恰界/CD66:90.3/CD86:87.7/CD103:92.9/CD113:87.4 不豁免——批次四两代价票 CD86/CD103 回 unhealthy 与人工一致）；G 豁免须 sbHold<20 ∧ eqHold<50 ∧ bundleBuyPct<80（128 票 G 形状 bundleBuy 全 <44 现状零翻转）。G5 对 D3.26 存档重放零变化（G5=G4+双豁免修正：①G 通道簇残余豁免双锚收紧 bd=high ∧ ¬(sbHold<20 ∧ eqHold<50)——豁免区 128 票仅 CD128（12.6/29.2，A_strong:pump 保底 grade 仍 cheat 不变）；CD121（11.4 但 eqHold 54≥50 等额簇还持一半）/CD126（10.7/59.6）不豁免落点回 G4 形状；sbHold=null（无合格簇锚）不豁免维持触发，eqHold=null=该轴零残余可豁免；②D 通道跟单集中度豁免 dom=high ∧ folTop3<45——旧档 extras 无 famousFollowerTop3Pct=null→触发零变化（断代保持 G4 行为，实时新锚落 G5 新语义：top3<45 分散形豁免/≥45 集中形疑似分仓触发））——34/42 基线沿用 G2 对拍结果。此前 G4 对 D3.26 存档重放零变化（G3 起旧档 anchors 无 washPair 键=H 缺席不触发、extLevels 无 wash_pair=A 容缺不计；G4 I 通道 t1 供 ≥40 全 128 票唯一命中 CD69(46.5) 不在黄金集）"
 }

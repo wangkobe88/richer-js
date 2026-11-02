@@ -49,7 +49,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G5', '版本常量 G5（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G6', '版本常量 G6（改规则必须 bump+同步台账+跑黄金集）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判，实际 ${MAIN_IDS.join(',')}）`);
@@ -256,12 +256,24 @@ function main() {
     // 聪明钱的跟单一定程度也不算完全不健康的」「也不能把所有的后续买入全看成
     // famous 的跟单」）：跟单 top3 占跟单正净 Σ <45%=分散形（几十个散户小额跟进）
     // 豁免；≥45%=集中形（少数大户贴身重仓=疑似分仓，CD63 top3 87%/最大 26%）触发
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 44.9, anchorSellCount: 10 }).grade === 'healthy',
-      'G5: dom=high ∧ 跟单 top3=44.9%（分散形散户跟风）→ D 豁免不触发');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 44.9, famousGroupBuyPct: 30, anchorSellCount: 10 }).grade === 'healthy',
+      'G5+G6: dom=high ∧ top3=44.9%（分散形散户跟风）∧ 组织买=30%（承接充足）→ D 豁免不触发');
     ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 45, anchorSellCount: 10 }).grade === 'unhealthy',
       'G5: dom=high ∧ 跟单 top3=45% 恰界 → 触发（集中形线 ≥45）');
     ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 87, anchorSellCount: 10 }).grade === 'unhealthy',
       'G5: dom=high ∧ 跟单 top3=87%（CD63 集中形）→ 触发（疑似分仓维持 unhealthy）');
+    // G6 豁免前提（2026-11-02 用户补充裁定「著名/绑定钱包的豁免还是要有一个前提，
+    // ……盘面正常用户流量涌入依然要比较明显，否则如果整个盘面全部是它们的砸盘，
+    // 盘子也死了」）：famous∪跟单买入占锚窗总买 ≥80（正常承接不足两成）=死盘
+    // 形状豁免不成立。null（旧档断代）→ 不豁免 fail-closed（sbw null 同哲学）
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 79.9, anchorSellCount: 10 }).grade === 'healthy',
+      'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=79.9%（承接刚过两成）→ 豁免维持');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 80, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=80 恰界 → 豁免不成立触发（CD47 实形）');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 92.9, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=92.9%（CD103 整个盘面全是它们的）→ 触发');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G6: 组织买锚 null（旧档断代）→ 不豁免维持触发（承接证据缺席不给豁免）');
   }
 
   console.log('E. 活跃度低（G2 简化：唯一豁免=burst；t1流/卖笔豁免已撤销）');
@@ -356,6 +368,7 @@ function main() {
     const obs6 = baseObs();
     obs6.bundledDominance.bucket = 'high';
     obs6.anchors.sameBlockHoldPct = 19.9;
+    obs6.anchors.bundleBuyPct = 30;
     ok(grade(obs6, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
       'G5: bd=high ∧ sbHold=19.9（簇残余<20）→ 豁免不触发（簇已卖出对盘面无影响）');
     const obs7 = baseObs();
@@ -372,6 +385,7 @@ function main() {
     const obs9 = baseObs();
     obs9.bundledDominance.bucket = 'high';
     obs9.anchors.sameBlockHoldPct = 15;
+    obs9.anchors.bundleBuyPct = 30;
     ok(grade(obs9, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
       'G5: bd=high ∧ sbHold=15 → G/F 均不触发（豁免只作用于 G，F 自有线）');
     // G5 收紧（CD121 口子裁定）：豁免须同块簇与等额簇都基本撤退 sbHold<20 ∧ eqHold<50
@@ -387,12 +401,14 @@ function main() {
     obs11.bundledDominance.bucket = 'high';
     obs11.anchors.sameBlockHoldPct = 12.6;
     obs11.anchors.equalBandHoldPct = 29.2;
+    obs11.anchors.bundleBuyPct = 30;
     ok(grade(obs11, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
       'G5 收紧: bd=high ∧ sbHold=12.6 ∧ eqHold=29.2（CD128 形状=双簇都撤）→ 豁免');
     const obs12 = baseObs();
     obs12.bundledDominance.bucket = 'high';
     obs12.anchors.sameBlockHoldPct = 19.9;
     obs12.anchors.equalBandHoldPct = 49.9;
+    obs12.anchors.bundleBuyPct = 30;
     ok(grade(obs12, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
       'G5 收紧: sbHold<20 ∧ eqHold=49.9 双恰界内 → 豁免');
     const obs13 = baseObs();
@@ -401,6 +417,30 @@ function main() {
     obs13.anchors.equalBandHoldPct = 50;
     ok(grade(obs13, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
       'G5 收紧: sbHold<20 但 eqHold=50 恰界 → 不豁免（eqHold 线严格小于 50）');
+    // G6 豁免前提（用户补充裁定，D 段同线）：sb∪eq 簇买入占锚窗总买 ≥80（正常
+    // 承接不足两成）=死盘形状豁免不成立；128 票 G 豁免形状 bundleBuy 全 <44 现状
+    // 零翻转、语义对称防「簇撤退但买入占九成」对倒洗筹形状；null 不豁免 fail-closed
+    const obs14 = baseObs();
+    obs14.bundledDominance.bucket = 'high';
+    obs14.anchors.sameBlockHoldPct = 12.6;
+    obs14.anchors.equalBandHoldPct = 29.2;
+    obs14.anchors.bundleBuyPct = 79.9;
+    ok(grade(obs14, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+      'G6: 双簇撤退 ∧ 簇买=79.9%（承接刚过两成）→ 豁免维持');
+    const obs15 = baseObs();
+    obs15.bundledDominance.bucket = 'high';
+    obs15.anchors.sameBlockHoldPct = 12.6;
+    obs15.anchors.equalBandHoldPct = 29.2;
+    obs15.anchors.bundleBuyPct = 80;
+    ok(grade(obs15, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G6: 双簇撤退 ∧ 簇买=80 恰界 → 豁免不成立触发（买入独大死盘形状）');
+    const obs16 = baseObs();
+    obs16.bundledDominance.bucket = 'high';
+    obs16.anchors.sameBlockHoldPct = 12.6;
+    obs16.anchors.equalBandHoldPct = 29.2;
+    obs16.anchors.bundleBuyPct = null;
+    ok(grade(obs16, { famousLevel: null, anchorSellCount: 10 }).grade === 'unhealthy',
+      'G6: 簇买锚 null（旧档断代）→ 不豁免维持触发（承接证据缺席不给豁免）');
   }
 
   console.log('优先级与容缺');

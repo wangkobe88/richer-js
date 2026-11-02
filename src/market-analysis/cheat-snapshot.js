@@ -311,6 +311,26 @@ function computeDerived(snapshot, famousRoster) {
   }
   const equalBandHoldPct = holdPctOf(eqMembers);
 
+  // ── 组织买入占比锚（G6 豁免前提，2026-11-02 用户补充裁定「著名/绑定钱包的
+  // 豁免还是要有一个前提，就是它们砸跑了是砸跑了，但是盘面正常用户流量涌入
+  // 依然要比较明显，否则如果整个盘面全部是它们的砸盘，盘子也死了」）──
+  // 买侧承接视角：豁免形状里组织方在撤退，卖侧占比高是必然；健康与否的区分度
+  // 在正常用户有没有在买。分母=全量行总买（router 伪钱包行=GMGN 散户聚合买入
+  // 计入「正常用户」侧）；分子=组织成员买入合计（wallets 层聚合）：
+  //   bundleBuyPct      = sb∪eq 簇成员买入合计 ÷ Σ买 ×100（G 通道豁免前提）
+  //   famousGroupBuyPct = famous∪跟单 买入合计 ÷ Σ买 ×100（D 通道豁免前提）
+  // 组织成员集空（无合格簇/无著名命中）/Σ买≤0 → null（有证据的缺席）；豁免层
+  // null → 不豁免 fail-closed（无承接证据不给豁免，与 sbw null 同哲学）。
+  const buyOf = new Map(wallets.map((e) => [e.w, e.buyBnb || 0]));
+  const sumBuyOf = (memberSet) => {
+    let s = 0;
+    for (const w of memberSet) s += buyOf.get(w) || 0;
+    return s;
+  };
+  const bundleMembers = new Set([...sbMembers, ...eqMembers]);
+  const bundleBuyPct = bundleMembers.size > 0 && totalBuyBnb > 0
+    ? +((sumBuyOf(bundleMembers) / totalBuyBnb) * 100).toFixed(1) : null;
+
   // ── 同块卖→买等额对敲锚（D3.28，2026-11-01 用户裁定 CD27 语境「对倒交易非常
   // 严重，如有必要可能需要增加锚」）：同一 block 内一笔 SELL 与一笔 BUY 金额落
   // ±2% 对数带（与 eqHold 同带宽，精确等额自然落带）配对，每笔卖出至多配一次
@@ -386,6 +406,7 @@ function computeDerived(snapshot, famousRoster) {
   let famousHoldPct = null, famousTop1Pct = null, famousFollowerPct = null;
   let famousDominancePct = null, famousDominanceLevel = null;
   let famousFollowerTop3Pct = null;
+  let famousGroupBuyPct = null;
   if (roster && roster.size > 0 && posTotal > 0) {
     const famousInWin = wallets.filter((e) => roster.has(e.w.toLowerCase()));
     if (famousInWin.length > 0) {
@@ -429,6 +450,13 @@ function computeDerived(snapshot, famousRoster) {
           famousFollowerTop3Pct = +((folPosNets.slice(0, 3).reduce((s, v) => s + v, 0) / folPosSum) * 100).toFixed(1);
         }
       }
+      // G6 D 通道豁免前提锚（用户补充裁定，见 sb/eq 段 G6 注）：famous∪跟单买入
+      // 合计占锚窗总买 %——组织买入 ≥80%（正常用户承接不足两成）=「整个盘面
+      // 全部是它们的」死盘形状，豁免不成立。dom=high 前提下 famousInWin 非空，
+      // 此处必产出数值（null 仅旧档断代/Σ买=0）
+      famousGroupBuyPct = totalBuyBnb > 0
+        ? +((sumBuyOf(new Set([...famousInWin.map((e) => e.w), ...followers])) / totalBuyBnb) * 100).toFixed(1)
+        : null;
       famousHoldPct = +((fSum / posTotal) * 100).toFixed(1);
       famousTop1Pct = +((fTop1 / posTotal) * 100).toFixed(1);
       famousFollowerPct = +((folSum / posTotal) * 100).toFixed(1);
@@ -500,10 +528,10 @@ function computeDerived(snapshot, famousRoster) {
     unresolvedSenderTickCount,
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
-    sameBlockHoldPct, equalBandHoldPct,
+    sameBlockHoldPct, equalBandHoldPct, bundleBuyPct,
     washPairCount, washPairSellPct, washPairBuyPct,
     top1HoldSupplyPct, top1HoldCircPct,
-    famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct,
+    famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec,
     activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,

@@ -8,7 +8,21 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G5=G4+两处豁免修正，2026-11-02 批次四裁定：
+ * 规则（G6=G5+③豁免前提「组织买入占比」，2026-11-02 用户补充裁定「著名/绑定钱包
+ * 的豁免还是要有一个前提，就是它们砸跑了是砸跑了，但是盘面正常用户流量涌入
+ * 依然要比较明显，否则如果整个盘面全部是它们的砸盘，盘子也死了」——D/G 两豁
+ * 免共同加前提：组织买入占锚窗总买 <80（正常用户承接至少两成）才豁免；≥80=
+ * 盘面流量构成基本是组织方独角戏（死盘形状）豁免不成立。锚（snapshot G6）：
+ * D 段=famousGroupBuyPct（famous∪跟单买入占比）、G 段=bundleBuyPct（sb∪eq
+ * 簇买入占比）；null（旧档断代/组织集空）→ 不豁免 fail-closed（无承接证据
+ * 不给豁免，sbw null 同哲学）。128 票锚窗分布（tmp-flow-exempt-precond@182）：
+ * D 豁免形状 8 票中 ≥80 五票（CD47:80 恰界/CD66:90.3/CD86:87.7/CD103:92.9/
+ * CD113:87.4）不豁免——批次四两代价票 CD86/CD103 回 unhealthy 与人工一致；
+ * CD42:71.7/CD90:49.8/CD116:62.8 维持豁免（CD90 残留 healthy 偏差用户知情）。
+ * G 豁免形状 17 票 bundleBuy 全 <44（最高 CD124:43.9 人工 healthy）→现状零
+ * 翻转，语义对称落地防未来「簇撤退但买入占九成」对倒洗筹死盘形状。定线 80=
+ * 与 D3.29 bw 题「组织不足两成不给档」互为镜像（正常承接两成线）。
+ * 此前 G5=G4+两处豁免修正，2026-11-02 批次四裁定：
  * ①G 通道双锚簇残余豁免——用户裁定「其实这里还有一个豁免点，就是如果持仓已经
  * 卖出，也已经对盘面没影响了，也没关系」「如果有已经卖出，且流动性占比不是
  * 特别大，也可以豁免」+CD121 口子收紧裁定：豁免须同块簇与等额簇都基本撤退
@@ -54,8 +68,9 @@
  *        是簇集中，独大无簇票 sbHold 仅 4.9% 原通道全盲；锚 null（supply
  *        缺失）不触发）
  *   unhealthy:
- *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null）（G5 前纯 dom=high；
- *        跟单集中度豁免见头注②——分散形「聪明钱带散户」不触发）
+ *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null ∨ 组织买入占比 ≥80
+ *        ∨ 组织买入锚 null）（G5 前纯 dom=high；跟单集中度豁免见头注②——分散形
+ *        「聪明钱带散户」不触发；G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
  *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定
  *        「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要
  *        判定为活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1
@@ -63,11 +78,12 @@
  *        sbw=burst 豁免保留为通道层双保险）
  *     F. sbHold≥50（中高同块集中）
  *     G. bd（bundled_trade_dominance）=high ∧ ¬(sbHold<20 ∧ (eqHold<50 ∨
- *        eqHold=null))（G2 新增，2026-11-01 用户裁定「捆绑钱包主导 是重要的负面
- *        臂」——128 票影响面 65 票 bd=high：人工 cheat 39/unhealthy 17/healthy 7，
- *        直落 cheat 误伤 healthy 7 票+17 票拉黑级偏重，用户选定 unhealthy 档=拒买
- *        可重判不清仓；G1 期「bd high 单独不定档（CD98/CD116/CD127 反证）」旧
- *        裁定同步废止；G5 双锚簇残余豁免见头注①）
+ *        eqHold=null) ∧ 组织买入占比<80)（G2 新增，2026-11-01 用户裁定「捆绑钱包
+ *        主导 是重要的负面臂」——128 票影响面 65 票 bd=high：人工 cheat 39/
+ *        unhealthy 17/healthy 7，直落 cheat 误伤 healthy 7 票+17 票拉黑级偏重，
+ *        用户选定 unhealthy 档=拒买可重判不清仓；G1 期「bd high 单独不定档
+ *        （CD98/CD116/CD127 反证）」旧裁定同步废止；G5 双锚簇残余豁免见头注①；
+ *        G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
  *   healthy: 其余
  *
  * cr（创建者抢跑）刻意不进主判=辅助判定（用户语义；CD75 cr strong 人工判
@@ -84,7 +100,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G5';
+const CHEAT_GRADE_RULES_VERSION = 'G6';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -192,11 +208,13 @@ function _pct(v) {
  *   {phenomena, extLevels, activityLevel:{bucket}|null, bundledDominance, anchors}
  * @param {Object} [extras] - 分级附加原料
  *   {famousLevel: 'low'|'mid'|'high'|null, famousFollowerTop3Pct: number|null,
- *    anchorSellCount: number|null}
+ *    famousGroupBuyPct: number|null, anchorSellCount: number|null}
  *   （famousLevel=snapshot.derived.famousDominanceLevel；famousFollowerTop3Pct=
  *   snapshot.derived.famousFollowerTop3Pct（G5 D 通道跟单集中度豁免判据）；
- *   anchorSellCount=锚窗卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再
- *   消费（历史 D3.x 豁免原料），字段保留为 service/digest 兼容形状）
+ *   famousGroupBuyPct=snapshot.derived.famousGroupBuyPct（G6 D 通道豁免前提：
+ *   famous∪跟单买入占锚窗总买 %，≥80=正常承接不足两成不豁免）；anchorSellCount=
+ *   锚窗卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再消费（历史 D3.x
+ *   豁免原料），字段保留为 service/digest 兼容形状）
  * @returns {{grade:'cheat'|'unhealthy'|'healthy', reasons:Array<{level:string,code:string}>, version:string}}
  */
 function gradeObservation(observation, extras = {}) {
@@ -224,6 +242,8 @@ function gradeObservation(observation, extras = {}) {
   const washCount = _pct(anchors.washPairCount);
   const t1Sup = _pct(anchors.top1HoldSupplyPct);
   const folTop3 = _pct(ex.famousFollowerTop3Pct);
+  const famousBuyPct = _pct(ex.famousGroupBuyPct);
+  const bundleBuy = _pct(anchors.bundleBuyPct);
 
   const reasons = [];
 
@@ -278,7 +298,12 @@ function gradeObservation(observation, extras = {}) {
   // CD63 top3 87%/最大 26%、CD80 81%）维持触发。null（无跟单/跟单正净 Σ=0/旧档
   // 断代）→ 触发：无跟随时 dom 分子全靠 famous 本人=直接控盘更该触发；旧档无键
   // 保持 G4 行为（黄金集 D 段重放零变化）。
-  if (dom === 'high' && (folTop3 === null || folTop3 >= 45)) {
+  // G6 豁免前提（用户补充裁定，头注③）：组织买入占比 ≥80（正常用户承接不足两
+  // 成）→ 不豁免——盘面流量构成基本是 famous∪跟单的独角戏，即使它们已部分撤退
+  // 也是死盘形状。famousGroupBuyPct null（旧档断代）→ 不豁免（fail-closed 与
+  // sbw null 同哲学：承接证据缺席不给豁免；生产链 dom=high 下该锚必产出数值）。
+  if (dom === 'high' && !(folTop3 !== null && folTop3 < 45
+    && famousBuyPct !== null && famousBuyPct < 80)) {
     reasons.push({ level: 'unhealthy', code: 'D_famous_dominance' });
   }
 
@@ -304,7 +329,12 @@ function gradeObservation(observation, extras = {}) {
   // 「已卖出」，fail-closed 维持触发（eqHold=null 例外：无等额簇=该轴零残余，
   // sbHold<20 即豁免）。128 票分布：豁免区=CD128（12.6/29.2，A_strong:pump 保底
   // grade 仍 cheat）；CD121（11.4/54.0）与 CD126（10.7/59.6）eqHold≥50 不豁免）
-  if (bd === 'high' && !(sbHold !== null && sbHold < 20 && (eqHold === null || eqHold < 50))) {
+  // G6 豁免前提（用户补充裁定，头注③，与 D 段同线）：bundleBuyPct ≥80（sb∪eq
+  // 簇买入占锚窗总买 ≥80=正常承接不足两成）→ 不豁免；null（旧档断代/无合格簇
+  // 成员）→ 不豁免 fail-closed。128 票 G 豁免形状 bundleBuy 全 <44=现状零翻转，
+  // 语义对称落地防「簇撤退但买入占九成」对倒洗筹死盘形状
+  if (bd === 'high' && !(sbHold !== null && sbHold < 20 && (eqHold === null || eqHold < 50)
+    && bundleBuy !== null && bundleBuy < 80)) {
     reasons.push({ level: 'unhealthy', code: 'G_bundled_dominance' });
   }
 

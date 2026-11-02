@@ -155,7 +155,8 @@ function _stallBurst(answers) {
  *   + activity_level 活跃度题 + bundled_trade_dominance 捆绑题；档域/观察题
  *   缺席=旧存档重放兼容 null）
  * @param {Object|null} [anchors] - 代码数值锚
- *   {sameBlockHoldPct, equalBandHoldPct}（D3.1 持仓锚；缺省/形状异常=缺席）
+ *   {sameBlockHoldPct, equalBandHoldPct, bundleBuyPct}（D3.1 持仓锚 + G6 簇买入
+ *   占比豁免前提锚；缺省/形状异常=缺席）
  * @returns {{phenomena:Object, extLevels:Object, activityLevel:Object|null,
  *   bundledDominance:Object|null, anchors:Object}}
  * @throws {Error} 任一现象题缺失/形状异常/未知桶名；档域题在场但未知桶名
@@ -188,6 +189,7 @@ function buildObservation(answers, anchors = null) {
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
       equalBandHoldPct: _anchorPct(anchors, 'equalBandHoldPct'),
+      bundleBuyPct: _anchorPct(anchors, 'bundleBuyPct'),
       // D3.28 同块卖→买等额对敲三键（配对数+卖/买占比；无配对→null=轴不适用）
       washPairCount: _anchorPct(anchors, 'washPairCount'),
       washPairSellPct: _anchorPct(anchors, 'washPairSellPct'),

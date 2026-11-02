@@ -16,6 +16,12 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D3.31（2026-11-02 批次四收官补充裁定：著名/绑定钱包豁免加前提「盘面正常用户
+ *   流量涌入依然要比较明显，否则如果整个盘面全部是它们的砸盘，盘子也死了」——
+ *   state-only 改动，题面 12 题不动：[PRECOMPUTED] 新增「簇买入占比」行 + famous
+ *   行尾「著名+跟单买入占全部买入 %」（G6 分级豁免前提锚 bundleBuyPct/
+ *   famousGroupBuyPct 的 state 侧展示，判读仍 Jev/分级仍纯代码层）；观测输入
+ *   自本版起变化需版本桶区分（D3.4 先例）。
  * D3.30（2026-11-02 批次四 CD31 活跃度复查，用户裁定加数值事实行「CD31 我目测
  *   活跃度不应该是 low，给 mid 合适」+采纳「[PRECOMPUTED] 加活跃度数值行」方案）：
  *   state-only 改动，题面 12 题不动——cheat-state-builder [PRECOMPUTED] 段新增
@@ -408,7 +414,7 @@
  * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.30';
+export const CHEAT_QUESTIONS_VERSION = 'D3.31';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];
