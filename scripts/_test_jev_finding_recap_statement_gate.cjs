@@ -235,8 +235,8 @@ async function main() {
   check('A18 拼写变体锚 J1.81 迁移（无背景拼写错误→实体题 wrong_entity①；有文化来源变体不算——dogwifhat）',
     qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('无背景拼写错误')
     && qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('dogwifhat'), null);
-  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16；J1.79 删 web3_user_event_impact→13；J1.83 删 event_subject_entity→12；J1.84 删 w_product_score→11；J1.102 删 visuality/event_influence→10）',
-    !('block_misspelling' in qs) && Object.keys(qs).length === 10
+  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16；J1.79 删 web3_user_event_impact→13；J1.83 删 event_subject_entity→12；J1.84 删 w_product_score→11；J1.102 删 visuality/event_influence→10；C244 加独立观察题→11——C244 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复）',
+    !('block_misspelling' in qs) && Object.keys(qs).length === 11
     && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══
