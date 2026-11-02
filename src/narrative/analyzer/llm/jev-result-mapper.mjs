@@ -937,7 +937,8 @@ function web3FitMassBlock(answers, opts) {
  * 高影响力实体（accepted）本就豁免改道，零变化。项目制作者自己发币仍走
  * detectIssuerSelfLaunch → prestage（C7 方案 A，不受影响）。
  *
- * 注意：W 类原生（event_category=W）与 cashtag 改道（J1.17）不受影响。
+ * 注意：W 类（event_category=W，含 J1.152/C261 起 Jev 按题面 cashtag 判据
+ * 自主判 W 的骑乘票）不受影响。
  */
 
 /**
@@ -1157,13 +1158,19 @@ export function mapStandardAnswers(answers, context) {
   };
 
   // ── Stage1：分类（无阻断语义）──────────────────────────────────────
-  // J1.17 cashtag 改道（2026-09-28 用户裁定，C28 iNu案 0xf578b84b：语料推文含与
-  // 币名相同的 $TICKER cashtag = 推文讨论的是已存在的 web3 资产，代币是骑乘/
-  // 蹲号该资产的名字而非截词原创叙事 → 强制按 W 类数学评分（被骑资产影响力须
-  // 极高）。判据在 detectCorpusCashtag（纯代码，无 LLM），Jev event_category
-  // 概率不再有决定权——iNu 案 W 0.25 输给 C 0.52 的 argmax 逃逸正是漏放根因。
+  // J1.17 cashtag 硬改道（2026-09-28 C28 iNu 案）已于 J1.152/C261（2026-11-02
+  // 用户裁定「去掉这个硬规则，然后在分类规则里说明」）退役：原实现=语料推文含
+  // 与币名全等的 $TICKER cashtag → 代码强制 category='W' 进 W 数学，Jev 概率
+  // 无决定权。退役动机=C28 立意（骑乘**已存在的** web3 资产，iNu 蹲号 14 秒案）
+  // 挡对了形状，但同判据也把「发币者宣告推自喊单 $TICKER」（RAM 0xec74…7777
+  // 「先拿一点 $RAM」——币圈宣告推最常见句式）机械送进 W 数学，E 类事件轴
+  // 被整个绕开。判据移入 event_category 题面（J1.152）：cashtag 指向别处已
+  // 存在资产（父推在讨论那个币的持仓/市值/行情）→ Jev 判 W；宣告推喊单自己
+  // 的币 → 按内容本体分类（E/D 等）。cashtagHit 仍计算，两个存续消费：
+  // ①审计 cashtagMatched（观察 Jev 自主分类是否接住骑乘形状）；②压制 pubProxy
+  // （J1.18 出生语义=cashtag 在场=语料在讨论别的已存在资产，发布者指代豁免/
+  // 锚定不适用——原 cashtagForced 压制行为原样保留）。
   const cashtagHit = detectCorpusCashtag(tokenData, twitterInfo);
-  const cashtagForced = !!(cashtagHit && answers.event_category?.choice !== 'W');
   // C96 F→E 改道（2026-10-18 用户裁定，币安上电视 0xc6d0…7777 CZ 推文 1 秒快枪案：
   // 「币安上电视算是个哪门子 meme 币？这是一个陈述不是一个实体」方向 1）：Jev 把
   // 「目击新闻」判进 F（Discovery「author-discovered」被 spotted 目击语气满足——
@@ -1172,14 +1179,14 @@ export function mapStandardAnswers(answers, context) {
   // 逃进 F 不吃载体门不吃 J1.36 折损。改道判据=J1.37 新题 event_finding_vs_recap：
   // event_category=F 且 news_recap（叙事内容是对新闻事件的报道/目击/搬运，发现
   // 语气只是目击动作）→ 强制改 E，E 类既有门自动接管（载体门 E+no_visual /
-  // bsc_meme_user_event_fit 折损 / E 类时效与量级语义）。cashtag 改道优先（F 与 cashtagHit 互斥
-  // 无竞争：cashtagForced 时改 W 数学，本改道不触达）。event_finding_vs_recap=
+  // bsc_meme_user_event_fit 折损 / E 类时效与量级语义）。event_finding_vs_recap=
   // narrative_finding/unclear/缺失（旧缓存行 fail-open，J1.28/J1.29 同款）→ 维持
-  // F 零变化。审计 categoryForced='f_recap_e'（cashtag_w 同款，Jev 原 choice 见
-  // event_category probabilities 可追溯）。
+  // F 零变化。审计 categoryForced='f_recap_e'（Jev 原 choice 见 event_category
+  // probabilities 可追溯）。（J1.152/C261 前此处有「cashtag 改道优先」互斥压制
+  // ——cashtag 硬改道退役后 F→E 改道恢复独立触达。）
   const recapForced = !!(answers.event_category?.choice === 'F'
     && answers.event_finding_vs_recap?.choice === 'news_recap');
-  const category = cashtagForced ? 'W' : (recapForced ? 'E' : (answers.event_category?.choice || null));
+  const category = recapForced ? 'E' : (answers.event_category?.choice || null);
   // J1.18 发布者指代（C29 Cue/Manus 案 0x5074546c，2026-09-29 用户裁定「骑乘第三方
   // 产品：①独立产品发布/重大升级；②产品影响力由发布者指代——领域知名发布者算
   // 大IP」）：领域知名发布者官宣独立新产品（判据全代码可读，detectPublisherProxy：
@@ -1193,11 +1200,13 @@ export function mapStandardAnswers(answers, context) {
   //   稳定 B 档），发布者知名度由代码事实锚定；superIP 快车道 S 级预评分同构
   //   （量级代码判定的体系先例；C83 起快车道删除，pubProxy 锚保留为唯一同构物）。
   // 边界：仅 B/C 域（与 rideDetourMass 同域，防 B/C 边界跨 run 抖动）；cashtag
-  // 改道优先（推文含 $TICKER = 讨论已存在 web3 资产，W 数学语义不变）；rcp /
-  // negativeHardNews 门不豁免（内容型产品 C12 绣春刀裁定维持——发布者指代不适用
-  // 于电影等内容产品；rcp J1.87/C145、nhn J1.101/C170 两门已退役，本句存史）。
+  // 命中时压制（J1.152/C261 前为 cashtagForced 改道优先的副产物，硬改道退役后
+  // 压制语义显式保留：推文含 $TICKER = 语料在讨论别的已存在 web3 资产，发布者
+  // 指代豁免/锚定不适用）；rcp / negativeHardNews 门不豁免（内容型产品 C12 绣春刀
+  // 裁定维持——发布者指代不适用于电影等内容产品；rcp J1.87/C145、nhn J1.101/C170
+  // 两门已退役，本句存史）。
   const pubProxy = detectPublisherProxy(tokenData, twitterInfo);
-  const pubProxyActive = !!(pubProxy && !cashtagForced && (category === 'B' || category === 'C'));
+  const pubProxyActive = !!(pubProxy && !cashtagHit && (category === 'B' || category === 'C'));
   // C55 补充裁定：币安系语料（代币名/主推/父推含 binance/币安）——产品实体
   // 接纳门豁免位（detectBinanceCorpus 见上）
   const binanceCorpus = detectBinanceCorpus(tokenData, twitterInfo);
@@ -1360,7 +1369,7 @@ export function mapStandardAnswers(answers, context) {
         // J1.17 审计标记：category 被代码端 cashtag 判据改写为 W（原 Jev choice 见
         // event_category probabilities），落库行可追溯改道来源；C96 F→E 改道同位
         // （'f_recap_e'——news_recap 改道 E，Jev 原 choice=F 可追溯）
-        categoryForced: cashtagForced ? 'cashtag_w' : (recapForced ? 'f_recap_e' : null),
+        categoryForced: recapForced ? 'f_recap_e' : null,
         cashtagMatched: cashtagHit?.cashtag ?? null,
         // C96 审计标记：Web3 用户接纳度恒落（J1.37 起原名 name_form；J1.53
         // C122 题键断代 → web3_user_name_acceptability，旧缓存行双键读；命中
@@ -1724,7 +1733,7 @@ export function mapStandardAnswers(answers, context) {
     eventCompositeScore = round2(wAppeal);
     if (wTimingCapActive) eventCompositeScore = Math.min(eventCompositeScore, 30);
     eventScoreBlocked = eventCompositeScore < 32;
-    const wLabel = cashtagForced ? `cashtag改道W类(${cashtagHit.cashtag})` : 'W类';
+    const wLabel = 'W类'; // （J1.152/C261 cashtag 硬改道退役——W 只剩 Jev 原生判定，不再有 cashtag 改道标签）
     eventScoreReason = `${wLabel} BSC用户接纳度与影响力${wAppeal}${wTimingCapActive ? '·时效封顶30' : ''}=${eventCompositeScore}（pass线32）`;
     if (eventScoreBlocked) gateBlockReason = `${wLabel}总分不足（${eventCompositeScore}<32）`;
   } else {

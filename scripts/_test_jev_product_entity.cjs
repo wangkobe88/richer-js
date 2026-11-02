@@ -68,8 +68,8 @@ async function main() {
   console.log('\n── A. 题面完整性（J1.83/C141）──');
   check('A1 版本 ≥J1.87', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 87, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 10 题且 event_subject_entity/w_product_score/web3_user_entity_visuality 已退役（J1.102/C171 删 visuality+event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 impact 14→13；C108 删 block_misspelling；C109 收敛 19→16）',
-    Object.keys(q).length === 10 && !('event_subject_entity' in q) && !('w_product_score' in q) && !q.web3_user_entity_visuality && !q.event_influence && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
+  check('A2 题集 11 题且 event_subject_entity/w_product_score/web3_user_entity_visuality 已退役（J1.102/C171 删 visuality+event_influence；J1.84 删 w_product_score；J1.83 删 event_subject_entity；J1.79 删 impact 14→13；C108 删 block_misspelling；C109 收敛 19→16；C244 加 bsc_meme_user_think_event_too_trivial_for_meme 独立观察题 10→11——C244 漏改本断言 HEAD 存量红，C261/J1.152 同跟修复）',
+    Object.keys(q).length === 11 && !('event_subject_entity' in q) && !('w_product_score' in q) && !q.web3_user_entity_visuality && !q.event_influence && !q.event_resonance && !q.block_misspelling, Object.keys(q).length);
   check('A3 J1.79 事件价值题收敛为 web3_user_event_fit（impact 旧 score 题已删；J1.110/C181 同键名复活为 choice 否决题不再承担事件分，唯一事件价值题标记仍在）',
     q.bsc_meme_user_event_impact?.type === 'choice'
     && q.bsc_meme_user_event_fit.instructions.includes('标准路径的事件价值题'));

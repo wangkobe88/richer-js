@@ -582,8 +582,9 @@ async function main() {
     mapperSrc.indexOf('(weBlock = wrongEntityBlock') < mapperSrc.indexOf('else if (uaBlock) {')
     && mapperSrc.indexOf('else if (uaBlock) {') < mapperSrc.indexOf("effTier === 'E' || effTier === 'D'")
     && !/!pubProxyActive && uaBlock/.test(mapperSrc), null);
-  check('F4 改道公式：cashtagForced 优先、recapForced 次之（互斥无竞争）',
-    mapperSrc.includes("const category = cashtagForced ? 'W' : (recapForced ? 'E' : (answers.event_category?.choice || null));"), null);
+  check('F4 改道公式：J1.152/C261 cashtagForced 硬改道退役，仅剩 recapForced 独立改道（F+news_recap → E 不再被 cashtag 优先级遮蔽）',
+    mapperSrc.includes("const category = recapForced ? 'E' : (answers.event_category?.choice || null);")
+    && !/cashtagForced\s*=\s/.test(mapperSrc), null);
   check('F5 改道判据锁死 F+news_recap 组合（choice 恒等）',
     mapperSrc.includes("const recapForced = !!(answers.event_category?.choice === 'F'\n    && answers.event_finding_vs_recap?.choice === 'news_recap');"), null);
   check('F6 题集头部含 J1.37 changelog（C96 案档案）',

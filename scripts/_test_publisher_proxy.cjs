@@ -8,8 +8,9 @@
  *      父推域名+父推粉丝回退 / 空输入
  *   B. mapStandardAnswers 路由矩阵：CUE 数值复现（argmax gimmick 豁免 + nrBlock
  *      豁免 + effTier A 锚 → 72.4 过线 high + 审计标记）/ 无 twitterInfo 同答案
- *      原路径拦截对照 / Muse 形状不改行为（域名门+指纹词双保险）/ cashtag 改道
- *      优先 / rcp 门不豁免 / 骑乘改道豁免 / S 不降 A 原判不动
+ *      原路径拦截对照 / Muse 形状不改行为（域名门+指纹词双保险）/ cashtag 命中
+ *      压制 proxy（J1.152/C261 硬改道退役，类别=Jev 原答案）/ rcp 门不豁免 /
+ *      骑乘改道豁免 / S 不降 A 原判不动
  *
  * 用法：node scripts/_test_publisher_proxy.cjs
  */
@@ -176,13 +177,21 @@ async function main() {
   check('B3b Muse 指纹词双保险：即使有 muse.im 域名仍拦（unfit 负门，proxy 不激活）',
     m3b.llmResult.rating === 'low' && m3b.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
 
-  // B4 cashtag 改道优先：语料含 $CUE → cashtagForced → pubProxyActive=false → W 数学
+  // B4 cashtag 命中压制 proxy（J1.152/C261 硬改道退役）：语料含 $CUE → cashtagHit
+  // → pubProxy 不激活（骑乘语料谈别的资产，发布者代理锚不适用），但类别不再
+  // 强制 W——=Jev 原答案 B，照走 B 类标准数学（Jev 判 W 的骑乘票由题面判据拦截）
   const cashtagTwitter = { ...cueTwitter, text: 'Get Cue: https://t.co/nMpSKSNLrn $CUE' };
   const m4 = mapStandardAnswers(cueAnswers, makeContext(cueTokenData, cueAnswers, cashtagTwitter));
-  check('B4 cashtag 优先：category 强制 W、proxy 不激活、走 W 数学（产品 0 → 拦）',
-    m4.stage1DataToSave.category === 'W' && m4.stage1DataToSave.parsed_output.jev.categoryForced === 'cashtag_w'
+  check('B4 cashtag 命中：proxy 压制保留（不激活）+ 类别不再强制 W（Jev 原答案 B）+ 审计 cashtagMatched 保留',
+    m4.stage1DataToSave.category === 'B' && m4.stage1DataToSave.parsed_output.jev.categoryForced === null
     && m4.stage1DataToSave.parsed_output.jev.publisherProxyActive === null
-    && m4.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m4.llmResult.rating === 'low', m4.promptType);
+    && m4.stage1DataToSave.parsed_output.jev.cashtagMatched === '$CUE'
+    && m4.stage1DataToSave.parsed_output.jev.anchoredTier === null
+    && m4.stage2DataToSave.parsed_output.scoringResult.category === 'B', m4.promptType);
+  check('B4b B 类标准数学照走（fit 58<60 拦，无锚下限），终评 low',
+    m4.stage2DataToSave.parsed_output.scoringResult.eventCompositeScore === 58
+    && m4.stage2DataToSave.parsed_output.scoringResult.influenceTier === 'B'
+    && m4.llmResult.rating === 'low' && m4.llmResult.reason.includes('事件分不足（58<60）'), m4.llmResult.reason);
 
   // B5 J1.87/C145：routine 桶退役——同形状不再由「常规内容产品宣传」拦，
   // 事件分 58<60 接管（发布者指代仍不适用于内容型产品，评级 low 维持）
