@@ -16,6 +16,14 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D3.33（2026-11-02 批次六 G8 收官，state-only——13 题题面不动：[PRECOMPUTED]
+ *   新增「零买入纯卖方」行（N 个零买入纯卖出钱包合计卖出÷全窗总卖%，CD5
+ *   「创建者通过代币转入方式卖出」裁定——Transfer 不在采集域，分仓接收户
+ *   swap 侧写=无买入来源的卖方；判档仍 Jev/分级仍纯代码层；观测输入自本版
+ *   起变化需版本桶区分，D3.31 先例）。配套代码层（分级 G8，不涉题面）：
+ *   snapshot 新锚 noBuySellPct/noBuySellBnb/noBuySellWallets（零买纯卖方）+
+ *   burstWaveBuyBnb/burstWaveWallets（最密 5s 波强度）；grade E 通道弱 burst
+ *   代码臂+K/L 通道；mapper/FA 数值锚扩四键。
  * D3.32（2026-11-02 批次五 CD122 裁定立项——用户裁定原话「大户持仓太多了，因为
  *   我们似乎只考虑了 top1，这个案例可能不太够，如果 top2 跟 top1 紧邻买的，
  *   更危险」+「给 Jev 增加 持仓均衡 门吧。注意总供应量占比最重要，第二
@@ -429,7 +437,7 @@
  * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.32';
+export const CHEAT_QUESTIONS_VERSION = 'D3.33';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];

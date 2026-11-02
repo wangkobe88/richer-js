@@ -8,7 +8,30 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G7=G6+J 通道持仓组合垄断，2026-11-02 批次五 CD122 用户裁定立项——
+ * 规则（G8=G7+三改动，2026-11-02 批次六 CD37/CD79/CD4/CD68/CD5 review 收官，
+ * 用户三项裁定落地——①「我建议分析一下有 burst 票的 burst 强度，长期停滞突然
+ * 涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻 低活跃度
+ * 结论」（选「弱 burst 代码臂」落法）→ E 通道 burst 豁免加弱波承接前提：锚
+ * burstMaxGapSec≥60 ∧ burstWaveBuyBnb<1.05 ∧ burstWaveWallets<13（最长停滞
+ * ≥60s ∧ 波买入 <1.05 BNB ∧ 波内钱包 <13=长期停滞后只涌入一点小流量，不构成
+ * 推翻低活跃度的证据）；定线研究（tmp-burst-strength@182 17 票 sbw=burst）：
+ * 豁免挡住的全是自己人（14 票 Jev act 已判 low），弱波线三票 CD79/CD108/CD70
+ * 转 unhealthy 全与人工一致、healthy 零误伤（人工 healthy 4 票中 3 票 maxGap
+ * 仅 19~43s=无停滞开盘密集正常形状，停滞深度是必要第三维）；三键任一 null
+ * （旧档断代/dt 缺失）→ 不算弱 burst 维持 G7 豁免（新切口对存档重放零变化）。
+ * ②「创建者已经卖了，而且应该是通过代币转入的方式卖的……明显的作弊行为」
+ * （CD5 链上实锤：创建块同块 Transfer 分光 3.18 亿 token、6 接收户零买入同块
+ * 卖出 2.09 BNB 占总卖 45%——Transfer 不在采集域，swap 侧写=零买入纯卖方）+
+ * 双修裁定 → K 通道：noBuySellPct≥40 → unhealthy（零买入纯卖方卖出占全窗总卖
+ * ≥40%=链外分仓出货形状）；定线（tmp-nobuysell-calibrate@182 128 票）：≥40
+ * 触发 14 票（13 人工 cheat/unhealthy+1 unclear）零误伤、30 线误伤 CD45(37.7)
+ * 挡住下探。③insider 题升格联立臂 L：insider_supply_sell∈{moderate,strong} ∧
+ * noBuySellPct≥25 → unhealthy（Jev 内幕卖出档位+纯卖方数值锚联立——五票
+ * CD67/CD70/CD82/CD71/CD123 全对、CD60 反例（insider strong 人工 healthy、纯卖
+ * 24.8<25）恰被排除；25 线低于 K 40 线=档位证据补足数值证据）。K/L 均 unhealthy
+ * 档（拒买可重判不清仓——分仓证据强于组合垄断但弱于对敲铁指纹，与 F/G/J 同档
+ * 语义）；noBuySellPct null（总卖=0/旧档断代）两通道均不触发。
+ * 此前 G7=G6+J 通道持仓组合垄断，2026-11-02 批次五 CD122 用户裁定立项——
  * 「大户持仓太多了，因为我们似乎只考虑了 top1，这个案例可能不太够，如果
  * top2 跟 top1 紧邻买的，更危险」+「给 Jev 增加 持仓均衡 门吧。注意总供应量
  * 占比最重要，第二 CD122 的 top2 不是单一钱包，而是捆绑簇。需要利用 Jev 的
@@ -84,11 +107,14 @@
  *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null ∨ 组织买入占比 ≥80
  *        ∨ 组织买入锚 null）（G5 前纯 dom=high；跟单集中度豁免见头注②——分散形
  *        「聪明钱带散户」不触发；G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
- *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定
- *        「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要
- *        判定为活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1
- *        对手盘豁免（CD107）撤销，改由题面 D3.27 burst 反锚在档位源头修正；
- *        sbw=burst 豁免保留为通道层双保险）
+ *     E. Jev activityLevel=low ∧（sbw≠burst ∨ 弱 burst）（G2 简化，2026-11-01
+ *        用户裁定「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中
+ *        的不要判定为活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与
+ *        卖笔≤1 对手盘豁免（CD107）撤销，改由题面 D3.27 burst 反锚在档位源头
+ *        修正；sbw=burst 豁免保留为通道层双保险；G8 弱 burst 代码臂=sbw=burst
+ *        ∧ burstMaxGapSec≥60 ∧ burstWaveBuyBnb<1.05 ∧ burstWaveWallets<13 →
+ *        豁免不成立（长期停滞后只涌入一点小流量，头注①），留痕
+ *        E_low_activity_weak_burst；三键任一 null 维持豁免）
  *     F. sbHold≥50（中高同块集中）
  *     G. bd（bundled_trade_dominance）=high ∧ ¬(sbHold<20 ∧ (eqHold<50 ∨
  *        eqHold=null) ∧ 组织买入占比<80)（G2 新增，2026-11-01 用户裁定「捆绑钱包
@@ -101,6 +127,14 @@
  *        第二大+捆绑簇凑成垄断总供应量一大截（CD122 形状）或单一独大档位
  *        补充；主口径=占总供应量%；独立通道不进 A 清单=拒买级非拉黑级；
  *        <D3.32 旧档答案缺席 null 不触发）
+ *     K. noBuySellPct≥40（G8 新增，零买入纯卖方——零买入纯卖出钱包合计卖出
+ *        占全窗总卖 ≥40%=链外分仓/转入出货形状（CD5 创建者同块 Transfer 分光、
+ *        接收户零买入同块卖出占总卖 45% 实锤立项）；null（总卖=0/旧档断代）不
+ *        触发）
+ *     L. insider_supply_sell∈{moderate,strong} ∧ noBuySellPct≥25（G8 新增，
+ *        insider 题升格联立臂——Jev 内幕卖出档位补足纯卖方数值证据，25 线低于
+ *        K 40 线；CD60 反例（insider strong 人工 healthy、纯卖 24.8）恰被排除；
+ *        insider weak/none/null 不触发）
  *   healthy: 其余
  *
  * cr（创建者抢跑）刻意不进主判=辅助判定（用户语义；CD75 cr strong 人工判
@@ -117,7 +151,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G7';
+const CHEAT_GRADE_RULES_VERSION = 'G8';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -203,6 +237,12 @@ function levelsFromObservation(observation, extras = {}) {
     top1Top2FirstBuyGapSec: _pct(an.top1Top2FirstBuyGapSec),
     clusterHoldSupplyPct: _pct(an.clusterHoldSupplyPct),
     t1PlusClusterSupplyPct: _pct(an.t1PlusClusterSupplyPct),
+    // G8（批次六）：E 通道弱 burst 三键（最密 5s 波 Σ买/钱包数+最长空窗秒——
+    // E_low_activity_weak_burst 同源数值）+ K/L 通道零买纯卖占比
+    burstMaxGapSec: _pct(an.burstMaxGapSec),
+    burstWaveBuyBnb: _pct(an.burstWaveBuyBnb),
+    burstWaveWallets: _pct(an.burstWaveWallets),
+    noBuySellPct: _pct(an.noBuySellPct),
     famousDominancePct: _pct(fx.famousDominancePct),
     famousDominanceLevel: famousLevel,
     famousDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, famousLevel),
@@ -271,6 +311,11 @@ function gradeObservation(observation, extras = {}) {
   const folTop3 = _pct(ex.famousFollowerTop3Pct);
   const famousBuyPct = _pct(ex.famousGroupBuyPct);
   const bundleBuy = _pct(anchors.bundleBuyPct);
+  // G8（批次六）：E 通道弱 burst 三键 + K/L 通道零买纯卖占比（头注①②③）
+  const burstGap = _pct(anchors.burstMaxGapSec);
+  const waveBuy = _pct(anchors.burstWaveBuyBnb);
+  const waveWallets = _pct(anchors.burstWaveWallets);
+  const noBuySell = _pct(anchors.noBuySellPct);
 
   const reasons = [];
 
@@ -338,8 +383,17 @@ function gradeObservation(observation, extras = {}) {
   // unhealthy，不过流量 burst 命中的不要判定为活跃度 low」——t1流<40 吃独食豁免
   // 与卖笔≤1 对手盘豁免撤销；sbw=burst 豁免保留为通道层双保险，主修正前移到
   // 题面 D3.27：burst 形状（长静默后集中涌入）Jev 不再产 low 档）
-  if (act === 'low' && sbw !== 'burst') {
-    reasons.push({ level: 'unhealthy', code: 'E_low_activity' });
+  // G8 弱 burst 代码臂（2026-11-02 批次六 CD37/CD79 用户裁定，头注①）：
+  // sbw=burst ∧（最长停滞 ≥60s ∧ 波买入 <1.05 BNB ∧ 波内钱包 <13）→ 长期停滞
+  // 后只涌入一点小流量，弱波不构成推翻低活跃度的证据，豁免不成立；三键任一
+  // null（旧档断代/dt 缺失）→ 不算弱 burst 维持 G7 豁免（存档重放零变化）。
+  // 定线：17 票 sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low），
+  // 弱波线 CD79/CD108/CD70 转 unhealthy 全与人工一致、healthy 零误伤
+  const weakBurst = burstGap !== null && burstGap >= 60
+    && waveBuy !== null && waveBuy < 1.05
+    && waveWallets !== null && waveWallets < 13;
+  if (act === 'low' && (sbw !== 'burst' || weakBurst)) {
+    reasons.push({ level: 'unhealthy', code: sbw === 'burst' ? 'E_low_activity_weak_burst' : 'E_low_activity' });
   }
 
   // F：中高同块集中
@@ -375,6 +429,30 @@ function gradeObservation(observation, extras = {}) {
   // （<D3.32 旧档断代/总供应量缺失缺主口径）不触发（EXT 容缺语义同族）。
   if (lv.holdings_balance === 'strong') {
     reasons.push({ level: 'unhealthy', code: 'J_holdings_strong' });
+  }
+
+  // K：零买入纯卖方（G8，2026-11-02 批次六 CD5 用户裁定「创建者已经卖了，而且
+  // 应该是通过代币转入的方式卖的……明显的作弊行为」+双修落法——链上实锤：创建
+  // 块同块 Transfer(from=creator) 7 笔分光 ≈3.18 亿 token、6 接收户零买入同块
+  // 各卖一笔 Σ2.09 BNB 占锚窗总卖 45%；Transfer 不在 collector 订阅范围，swap
+  // 侧写=零买入纯卖方，本通道=该形状的代码量化（noBuySellPct=零买入纯卖出钱包
+  // 合计卖出÷全窗总卖×100，snapshot G8 头注）。定线 ≥40（128 票：触发 14 票
+  // 零误伤 healthy；30 线误伤 CD45 37.7 挡住下探）。unhealthy 档=拒买可重判不
+  // 清仓；null（总卖=0/旧档断代）不触发
+  if (noBuySell !== null && noBuySell >= 40) {
+    reasons.push({ level: 'unhealthy', code: `K_no_buy_sell${noBuySell.toFixed(0)}` });
+  }
+
+  // L：insider 题升格联立臂（G8 双修第二落法——insider_supply_sell 原为 EXT 纯
+  // 观察题不进任何通道，CD5 分仓形状该题 moderate 但 G7 无消费点）：Jev 内幕
+  // 卖出档位 ∈{moderate,strong} ∧ noBuySellPct≥25 → unhealthy。档位证据补足
+  // 数值证据故联立线（25）低于 K 单锚线（40）；定线（128 票）：五票
+  // CD67/CD70/CD82/CD71/CD123 全对、CD60 反例（insider strong 人工 healthy、
+  // 纯卖 24.8<25）恰被排除。insider weak/none/null 不触发；noBuySellPct null
+  // 不触发
+  if ((lv.insider_supply_sell === 'moderate' || lv.insider_supply_sell === 'strong')
+    && noBuySell !== null && noBuySell >= 25) {
+    reasons.push({ level: 'unhealthy', code: `L_insider_sell${noBuySell.toFixed(0)}` });
   }
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'

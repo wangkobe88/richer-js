@@ -3605,7 +3605,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
 
         // ── 作弊盘检测因子注入（G1 因子化，2026-11-01 用户指令「以因子的形式放到
-        //    表达式中」）：30 键全数值序（narrativeRating 先例同构）——cheatGrade
+        //    表达式中」）：34 键全数值序（narrativeRating 先例同构）——cheatGrade
         //    （healthy=0/unhealthy=1/cheat=2）+ cheatUnhealthyGrades（unhealthy 真分析
         //    判定次数）+ cheatBlocked（拉黑 1/0）+ 13 题档位键 cheatEqualAmountSplit/
         //    CoordinatedSellBack/CreatorFrontRun/SellDispersion/StallBurstWave/
@@ -3620,7 +3620,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    cheatFamousDominancePct（著名钱包掌控度 %）+ cheatFamousDominance
         //    （低/中/高→0/1/2）+ D3.28 同块对敲三键 cheatWashPairCount/
         //    cheatWashPairSellPct/cheatWashPairBuyPct（配对数/卖占%/买占%，G3 H 通道
-        //    同源数值；无配对=null 轴不适用）+ D3.32 持仓分布锚五键
+        //    同源数值；无配对=null 轴不适用）+ G8 burst 波强度三键
+        //    cheatBurstMaxGapSec/cheatBurstWaveBuyBnb/cheatBurstWaveWallets
+        //    （最长空窗秒+最密 5s 波 Σ买/钱包数，E 通道弱 burst 臂同源数值）+
+        //    cheatNoBuySellPct（零买入纯卖方卖出占全窗总卖 %，K/L 通道同源数值）
+        //    + D3.32 持仓分布锚五键
         //    cheatTop2HoldSupplyPct/cheatTop1Top2HoldSupplyPct/
         //    cheatTop1Top2FirstBuyGapSec/cheatClusterHoldSupplyPct/
         //    cheatT1PlusClusterSupplyPct（前二/簇合计/并集占总供应量%+前二首买相差
@@ -3666,6 +3670,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatTop1Top2FirstBuyGapSec = _an ? _an.top1Top2FirstBuyGapSec ?? null : null;
             factors.cheatClusterHoldSupplyPct = _an ? _an.clusterHoldSupplyPct ?? null : null;
             factors.cheatT1PlusClusterSupplyPct = _an ? _an.t1PlusClusterSupplyPct ?? null : null;
+            // G8（2026-11-02 批次六）burst 波强度三键 + 零买纯卖占比（E 通道弱
+            // burst 代码臂与 K/L 通道同源数值；总卖=0/dt 缺失=null 不冒充）
+            factors.cheatBurstMaxGapSec = _an ? _an.burstMaxGapSec ?? null : null;
+            factors.cheatBurstWaveBuyBnb = _an ? _an.burstWaveBuyBnb ?? null : null;
+            factors.cheatBurstWaveWallets = _an ? _an.burstWaveWallets ?? null : null;
+            factors.cheatNoBuySellPct = _an ? _an.noBuySellPct ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
         }

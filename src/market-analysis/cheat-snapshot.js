@@ -47,6 +47,13 @@ const ACTIVITY_BUCKET_SEC = 30;
 const ACTIVITY_CV_MIN_BUCKETS = 3;
 const ACTIVITY_UNEVEN_CV = 1.0;
 /**
+ * burst 波强度滑窗宽度（G8 弱 burst 代码臂，2026-11-02 批次六 CD37/CD79 用户裁定
+ * 「长期停滞突然涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻
+ * 低活跃度 结论」）：最密 BURST_WAVE_SEC 秒滑窗（按笔数取最密）内 Σ买入/独立钱包
+ * 数=波强度两键；停滞深度第三维复用 maxGapSec（消费=grade E 通道代码臂）。
+ */
+const BURST_WAVE_SEC = 5;
+/**
  * 著名钱包单极控盘锚（D3.2b，2026-10-31 用户裁定 CD5 语境：「描述盘面上单一著名
  * 钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档）。名单=
  * config/rosters/famous-copy-wallets.json（FA famousCopyWalletCircPct 同源用户点名
@@ -227,6 +234,26 @@ function computeDerived(snapshot, famousRoster) {
     if (e.firstBuyDt === null || e.firstSellDt === null) continue;
     if (e.firstSellDt - e.firstBuyDt < CHURN_WINDOW_SEC) churn60sWalletCount++;
   }
+
+  // ── 零买入纯卖方锚（G8 K/L 通道，2026-11-02 批次六 CD5 用户裁定「创建者已经
+  // 卖了，而且应该是通过代币转入的方式卖的，你检查下，这也是一个明显的作弊行为」
+  // ——链上实锤=创建块同块 Transfer(from=creator) 7 笔 ≈3.18 亿 token 分光、6 接收
+  // 户零买入同块各卖一笔 Σ2.09 BNB 占锚窗总卖 45%）：Transfer 事件不在 collector
+  // 订阅范围，分仓接收户在 swap 域只呈现「无买入来源的卖方」形状，本锚=该形状的
+  // 代码量化——零买入纯卖出钱包（buyBnb=0 ∧ sellBnb>0）合计卖出占全窗总卖 %。
+  // wallet 口径=wallets 聚合单点（router 伪钱包已剔——未解析 GMGN 行并包成巨型
+  // 纯卖方会虚增分子，剔除=保守方向）；总卖=0 → null（无卖出证据不评）。
+  // 定线（tmp-nobuysell-calibrate@182 128 票）：≥40 触发 14 票（13 人工
+  // cheat/unhealthy+1 unclear）零误伤 healthy；30 线误伤 CD45(37.7) 挡住下探；
+  // insider 联立 ≥25（∧ insider moderate/strong）五票全对、CD60（insider strong
+  // 人工 healthy、纯卖 24.8）恰被排除——消费见 cheat-grade K/L 通道。──
+  let noBuySellBnb = 0, noBuySellWallets = 0;
+  for (const e of wallets) {
+    if ((e.buyBnb || 0) > 0) continue;
+    const sell = e.sellBnb || 0;
+    if (sell > 0) { noBuySellBnb += sell; noBuySellWallets++; }
+  }
+  const noBuySellPct = totalSellBnb > 0 ? +((noBuySellBnb / totalSellBnb) * 100).toFixed(1) : null;
 
   // ── 同块买入簇（≥SAME_BLOCK_CLUSTER_MIN 笔买同块）──
   const blockBuys = new Map();
@@ -576,6 +603,39 @@ function computeDerived(snapshot, famousRoster) {
     }
   }
 
+  // ── burst 波强度两键（G8 弱 burst 代码臂，头注见 BURST_WAVE_SEC）：定线研究
+  // （tmp-burst-strength@182 17 票 sbw=burst）——豁免挡住的全是自己人（14 票 Jev
+  // act 已判 low），豁免资格须由波强度承接；人工 healthy 4 票中 3 票 maxGap 仅
+  // 19~43s（无停滞=开盘密集正常形状）→ 停滞深度是必要第三维（复用 maxGapSec，
+  // grade 侧锚名 burstMaxGapSec）。算法=最密 BURST_WAVE_SEC 秒滑窗双指针（按窗内
+  // 笔数取最密），窗内钱包计数 map 精确去重（同钱包多笔逐出时不误删）；dt 缺失
+  // 全族 null（绝不冒充）；<2 有效 dt 行波形状不可评同 null。──
+  let burstWaveBuyBnb = null, burstWaveWallets = null;
+  const waveTicks = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
+  if (waveTicks.length >= 2) {
+    let j = 0, curN = 0, curBuy = 0, bestN = 0, bestBuy = 0, bestWalletN = 0;
+    const curWallets = new Map(); // wallet → 窗内笔数
+    for (let i = 0; i < waveTicks.length; i++) {
+      const t = waveTicks[i];
+      curN++;
+      if (t.side === 'BUY') curBuy += t.bnb || 0;
+      if (t.wallet) curWallets.set(t.wallet, (curWallets.get(t.wallet) || 0) + 1);
+      while (t.dt - waveTicks[j].dt > BURST_WAVE_SEC) {
+        const u = waveTicks[j];
+        curN--;
+        if (u.side === 'BUY') curBuy -= u.bnb || 0;
+        if (u.wallet) {
+          const n = (curWallets.get(u.wallet) || 1) - 1;
+          if (n <= 0) curWallets.delete(u.wallet); else curWallets.set(u.wallet, n);
+        }
+        j++;
+      }
+      if (curN > bestN) { bestN = curN; bestBuy = curBuy; bestWalletN = curWallets.size; }
+    }
+    burstWaveBuyBnb = +bestBuy.toFixed(4);
+    burstWaveWallets = bestWalletN;
+  }
+
   // ── 价格拱（仅 price_outlier=false 行——价格口径滤，资金口径不滤）──
   let first = null, ath = null, athDt = null, last = null;
   for (const t of ticks) {
@@ -600,6 +660,8 @@ function computeDerived(snapshot, famousRoster) {
     clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec,
+    burstWaveBuyBnb, burstWaveWallets,
+    noBuySellPct, noBuySellBnb, noBuySellWallets,
     activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,
   };

@@ -257,6 +257,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatTop1Top2FirstBuyGapSec: factorResults.cheatTop1Top2FirstBuyGapSec ?? null,
     cheatClusterHoldSupplyPct: factorResults.cheatClusterHoldSupplyPct ?? null,
     cheatT1PlusClusterSupplyPct: factorResults.cheatT1PlusClusterSupplyPct ?? null,
+    cheatBurstMaxGapSec: factorResults.cheatBurstMaxGapSec ?? null,
+    cheatBurstWaveBuyBnb: factorResults.cheatBurstWaveBuyBnb ?? null,
+    cheatBurstWaveWallets: factorResults.cheatBurstWaveWallets ?? null,
+    cheatNoBuySellPct: factorResults.cheatNoBuySellPct ?? null,
     cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
     cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
   };

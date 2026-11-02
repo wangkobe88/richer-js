@@ -205,6 +205,14 @@ function buildObservation(answers, anchors = null) {
       top1Top2FirstBuyGapSec: _anchorPct(anchors, 'top1Top2FirstBuyGapSec'),
       clusterHoldSupplyPct: _anchorPct(anchors, 'clusterHoldSupplyPct'),
       t1PlusClusterSupplyPct: _anchorPct(anchors, 't1PlusClusterSupplyPct'),
+      // G8（2026-11-02 批次六）burst 波强度三键（E 通道弱 burst 代码臂同源数值：
+      // 最密 5s 滑窗 Σ买/独立钱包数+最长空窗秒；<2 有效 dt 行→null 不冒充）+
+      // 零买入纯卖方占比（K/L 通道同源数值：零买入纯卖出钱包合计占全窗总卖 %；
+      // 总卖=0→null）——头注见 cheat-snapshot
+      burstMaxGapSec: _anchorPct(anchors, 'burstMaxGapSec'),
+      burstWaveBuyBnb: _anchorPct(anchors, 'burstWaveBuyBnb'),
+      burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
+      noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),
     },
   };
 }

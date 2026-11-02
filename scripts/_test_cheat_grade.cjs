@@ -49,7 +49,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G7', '版本常量 G7（改规则必须 bump+同步台账+跑黄金集）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G8', '版本常量 G8（改规则必须 bump+同步台账+跑黄金集）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道，实际 ${MAIN_IDS.join(',')}）`);
@@ -344,6 +344,81 @@ function main() {
       'activityLevel null → E 不触发');
   }
 
+  console.log('E2. G8 弱 burst 代码臂（2026-11-02 批次六 CD37/CD79 用户裁定「长期停滞突然涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻 低活跃度 结论」——选「弱 burst 代码臂」落法）');
+  {
+    const mk = (anchors, sbw = 'burst') => {
+      const o = baseObs();
+      o.activityLevel.bucket = 'low';
+      o.anchors.top1HoldCircPct = 10;
+      o.extLevels.stall_burst_wave = sbw;
+      Object.assign(o.anchors, anchors);
+      return o;
+    };
+    // 三键全中 → 豁免不成立（长期停滞后只涌入一点小流量）
+    const r1 = grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.04, burstWaveWallets: 12 }), { famousLevel: null, anchorSellCount: 1 });
+    ok(r1.grade === 'unhealthy'
+      && r1.reasons.some((x) => x.code === 'E_low_activity_weak_burst'),
+      '弱 burst 三键全中（gap 60 恰界/买 1.04/钱包 12）→ unhealthy E_low_activity_weak_burst（CD79/CD108/CD70 定线形状）');
+    // 波买入恰界 1.05 → 不算弱 burst（豁免维持；定线「<1.05」严格）
+    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.05, burstWaveWallets: 12 }), { famousLevel: null }).grade === 'healthy',
+      '波买入 1.05 恰界 → 豁免维持（涌入流量足够=推翻低活跃度）');
+    // 强波（买 2.0/钱包 20）→ 豁免维持（G7 行为）
+    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 2.0, burstWaveWallets: 20 }), { famousLevel: null }).grade === 'healthy',
+      '强波（买 2.0/20 户）→ 豁免维持（真流量涌入）');
+    // 停滞不足 60s → 豁免维持（人工 healthy 4 票中 3 票 maxGap 19~43s=开盘密集正常形状）
+    ok(grade(mk({ burstMaxGapSec: 59, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy',
+      'gap 59 <60 → 豁免维持（停滞深度是必要第三维——无停滞不谈弱 burst）');
+    // 钱包恰界 13 → 豁免维持（「<13」严格）
+    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 0.2, burstWaveWallets: 13 }), { famousLevel: null }).grade === 'healthy',
+      '波钱包 13 恰界 → 豁免维持');
+    // 三键任一 null（<G8 旧档断代/dt 缺失）→ 维持 G7 豁免（黄金集重放零变化的机制保证）
+    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: null, burstWaveWallets: 12 }), { famousLevel: null }).grade === 'healthy'
+      && grade(mk({ burstMaxGapSec: null, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy'
+      && grade(baseObs(), { famousLevel: null }).grade === 'healthy',
+      '三键任一 null（旧档断代）→ 维持 G7 豁免（新切口对存档重放零变化）');
+    // sbw≠burst 主路径带弱波键 → code 不带 weak_burst 后缀（sbw=none 主判定）
+    const r2 = grade(mk({ burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5 }, 'none'), { famousLevel: null });
+    ok(r2.grade === 'unhealthy' && r2.reasons.some((x) => x.code === 'E_low_activity')
+      && !r2.reasons.some((x) => x.code === 'E_low_activity_weak_burst'),
+      'sbw≠burst → E_low_activity 主 code（弱波键在场不改变非 burst 主路径留痕）');
+  }
+
+  console.log('K/L. 零买入纯卖方通道+insider 联立臂（G8 双修，2026-11-02 批次六 CD5 用户裁定「创建者已经卖了，而且应该是通过代币转入的方式卖的，你检查下，这也是一个明显的作弊行为」——链上实锤=创建块同块 Transfer 分光 3.18 亿 token、6 接收户零买入同块卖出 Σ2.09 BNB 占总卖 45%；Transfer 不在采集域，swap 侧写=零买入纯卖方）');
+  {
+    const mk = (noBuySellPct, insider = 'none') => {
+      const o = baseObs();
+      if (noBuySellPct !== null) o.anchors.noBuySellPct = noBuySellPct;
+      if (insider !== 'none') o.extLevels.insider_supply_sell = insider;
+      return o;
+    };
+    // K：≥40 单锚触发（128 票定线：14 票零误伤 healthy；30 线误伤 CD45 37.7 挡住）
+    const rK = grade(mk(40), { famousLevel: null });
+    ok(rK.grade === 'unhealthy' && rK.reasons.some((x) => x.code === 'K_no_buy_sell40'),
+      'K：noBuySellPct=40 恰界 → unhealthy K_no_buy_sell40');
+    ok(grade(mk(39.9), { famousLevel: null }).grade === 'healthy',
+      'K：39.9 不触发（40 严格线）');
+    ok(grade(mk(null), { famousLevel: null }).grade === 'healthy',
+      'K：null（总卖=0/旧档断代）不触发（无卖出证据不评）');
+    // L：insider 档位联立（25 线低于 K 40 线=档位证据补足数值证据）
+    const rL = grade(mk(25, 'moderate'), { famousLevel: null });
+    ok(rL.grade === 'unhealthy' && rL.reasons.some((x) => x.code === 'L_insider_sell25'),
+      'L：insider moderate ∧ 25 恰界 → unhealthy L_insider_sell25');
+    const rLs = grade(mk(24.9, 'strong'), { famousLevel: null });
+    ok(rLs.grade === 'cheat' && rLs.reasons.some((x) => x.code === 'A_strong:insider_supply_sell')
+      && !rLs.reasons.some((x) => x.code.startsWith('L_')),
+      'L：insider strong ∧ 24.9 → L 不触发（CD60 反例形状恰被排除；strong 自身走 A 主判 cheat 是既有行为，L 联立线独立不冒充）');
+    ok(grade(mk(40, 'weak'), { famousLevel: null }).reasons.some((x) => x.code === 'K_no_buy_sell40')
+      && !grade(mk(40, 'weak'), { famousLevel: null }).reasons.some((x) => x.code.startsWith('L_')),
+      'L：insider weak ∧ 40 → 仅 K 触发（weak 不在 {moderate,strong}）');
+    ok(grade(mk(40, null), { famousLevel: null }).reasons.every((x) => !x.code.startsWith('L_')),
+      'L：insider null（旧档断代）不触发（EXT 容缺同族）');
+    // K 与 L 同中（insider strong ∧ 45）：strong 同时走 A 主判取最重 cheat，K/L 双留痕俱在
+    const rKL = grade(mk(45, 'strong'), { famousLevel: null });
+    ok(rKL.grade === 'cheat' && rKL.reasons.some((x) => x.code === 'K_no_buy_sell45')
+      && rKL.reasons.some((x) => x.code === 'L_insider_sell45'),
+      'K+L 同中双留痕（insider strong ∧ 45 取最重 cheat=A 主判既有行为）');
+  }
+
   console.log('F. sbHold≥50 中高同块集中 → unhealthy');
   {
     const obs = baseObs();
@@ -580,6 +655,12 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       `anchors 十二键精确映射含 holdings 五键（CD122 实值 t2 9.4/Σ2 35.0/Δ1s/簇 14.5/∪40.1；实际 ${JSON.stringify(r3.anchors)}）`);
     ok(levelsFromObservation({}, { famousDominanceLevel: 'mid' }).anchors.famousDominance === 1,
       'famous 档 low/mid/high → 0/1/2（dominance 映射表复用）');
+    const r5 = levelsFromObservation({ phenomena: {}, extLevels: {},
+      anchors: { burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3 } });
+    ok(r5.anchors.burstMaxGapSec === 65 && r5.anchors.burstWaveBuyBnb === 1.02
+      && r5.anchors.burstWaveWallets === 5 && r5.anchors.noBuySellPct === 63.3
+      && r5.anchors.sameBlockHoldPct === null,
+      'G8 四新锚正值精确投影（lib 测试同夹具值：gap65/买1.02/5户/纯卖63.3；未给键照 null）');
     const r4 = levelsFromObservation({}, { famousDominancePct: -3, famousDominanceLevel: 'extreme' });
     ok(r4.anchors.sameBlockHoldPct === null && r4.anchors.top1HoldCircPct === null
       && r4.anchors.famousDominancePct === null && r4.anchors.famousDominance === null

@@ -353,6 +353,13 @@ class CheatCheckService {
           top1Top2FirstBuyGapSec: snapshot.derived.top1Top2FirstBuyGapSec,
           clusterHoldSupplyPct: snapshot.derived.clusterHoldSupplyPct,
           t1PlusClusterSupplyPct: snapshot.derived.t1PlusClusterSupplyPct,
+          // G8（批次六）burst 波强度三键（E 通道弱 burst 代码臂同源数值；
+          // burstMaxGapSec=derived.maxGapSec 同一度量换锚名，与波两键成组）
+          burstMaxGapSec: snapshot.derived.maxGapSec,
+          burstWaveBuyBnb: snapshot.derived.burstWaveBuyBnb,
+          burstWaveWallets: snapshot.derived.burstWaveWallets,
+          // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
+          noBuySellPct: snapshot.derived.noBuySellPct,
         });
       } catch (e) {
         this.stats.errors++;
@@ -419,6 +426,10 @@ class CheatCheckService {
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}${snapshot.derived.famousFollowerTop3Pct !== null && snapshot.derived.famousFollowerTop3Pct !== undefined ? ` top3:${snapshot.derived.famousFollowerTop3Pct}%` : ''}` +
         ` 组织买=${snapshot.derived.bundleBuyPct ?? '—'}%/${snapshot.derived.famousGroupBuyPct ?? '—'}%(簇/famous集团)` +
+        ` 纯卖=${snapshot.derived.noBuySellPct ?? '—'}%` +
+        (obs.extLevels.stall_burst_wave === 'burst'
+          ? ` 波=买${snapshot.derived.burstWaveBuyBnb ?? '—'}/${snapshot.derived.burstWaveWallets ?? '—'}户/gap${snapshot.derived.maxGapSec ?? '—'}s`
+          : '') +
         ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {

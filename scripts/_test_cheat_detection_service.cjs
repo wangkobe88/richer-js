@@ -412,7 +412,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G7'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G8'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（12 题数值档，FA 出口
@@ -441,6 +441,15 @@ async function main() {
     ok(r1.anchors.washPairCount === null && r1.anchors.washPairSellPct === null
       && r1.anchors.washPairBuyPct === null,
       '基底零配对（卖 0.11 超带）→ washPair 三键 null（H 通道不触发=gate 测试基底干净）');
+    // G8 四新锚（2026-11-02 批次六）：零买入纯卖方占比+burst 波强度三键
+    ok(['burstMaxGapSec', 'burstWaveBuyBnb', 'burstWaveWallets', 'noBuySellPct']
+      .every((k) => k in r1.anchors),
+      'analyzed 带 G8 四新锚键（在場断言；实际 ' + JSON.stringify(Object.keys(r1.anchors)) + '）');
+    ok(r1.anchors.noBuySellPct === 0,
+      `纯卖=0 有证据零值（genTicks 十钱包均有买入、总卖 0.66>0 → 0 非 null——K 通道 0<40 不触发）（实际 ${r1.anchors.noBuySellPct}）`);
+    ok(r1.anchors.burstWaveBuyBnb === 0.2 && r1.anchors.burstWaveWallets === 3
+      && r1.anchors.burstMaxGapSec === 2,
+      `burst 波精确值（最密 5s 窗=首三 tick 0/2/4s 两买一卖：买 0.1+0.1=0.2、去重 3 钱包；gap 全 2s）（实际 买${r1.anchors.burstWaveBuyBnb}/${r1.anchors.burstWaveWallets}户/gap${r1.anchors.burstMaxGapSec}s）`);
     ok(r2.levels && r2.levels.sameBlockBuyWave === 3 && r2.anchors && 'sameBlockHoldPct' in r2.anchors,
       '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
   }

@@ -100,6 +100,13 @@ function buildCheatState(snapshot) {
     if (d.washPairCount !== null && d.washPairCount !== undefined) {
       lines.push(`同块对敲: ${d.washPairCount} 对，配对买额占全部卖出 ${d.washPairSellPct === null ? '—' : d.washPairSellPct.toFixed(1) + '%'} / 占全部买入 ${d.washPairBuyPct === null ? '—' : d.washPairBuyPct.toFixed(1) + '%'}（同一 block 内一笔卖出与一笔买入金额 ±2% 带内配对、每笔卖出至多配一次；自然交易中同块等额一卖一买发生率≈0，对数与占比一起看）`);
     }
+    // G8 零买入纯卖方数值行（2026-11-02 批次六 CD5「创建者通过代币转入方式卖出」
+    // 裁定）：Transfer 事件不在采集域，链外分仓接收户在 swap 域只呈现「无买入
+    // 来源的卖方」形状——数值事实行供 insider_supply_sell 题判档（档位仍 Jev，
+    // D3.5 边界不变；K/L 通道消费同源锚）；总卖=0 不渲染行（缺席语义）
+    if (d.noBuySellPct !== null && d.noBuySellPct !== undefined) {
+      lines.push(`零买入纯卖方: ${d.noBuySellWallets} 个钱包（窗内零买入、只卖出）合计卖出 ${fmtBnb(d.noBuySellBnb)} BNB，占全部卖出 ${d.noBuySellPct.toFixed(1)}%（口径：钱包聚合已剔聚合路由伪钱包；是否存在链外转入分仓出货由你结合 insider_supply_sell 判断）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {

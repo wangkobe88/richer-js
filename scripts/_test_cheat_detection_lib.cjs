@@ -311,7 +311,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 13, 'G7 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键=十三数值键（activity 档位不投影）');
+ok(Object.keys(f1.anchors).length === 17, 'G8 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖=十七数值键（activity 档位不投影）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
@@ -741,7 +741,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.14：11 题=4 现象+sbw(现象二分 burst)+tiering+bw+activity_level+bd+insider+pump） ═══════════════
   console.log('I2. 题集结构 D3.32（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.32', `版本常量 D3.32（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.32=加第 13 题 holdings_balance 持仓均衡（G7 J 通道）+snapshot 锚族/state 持仓分布行同版落地）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.33', `版本常量 D3.33（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.33=G8 批次六 state-only：[PRECOMPUTED] 加「零买入纯卖方」行，13 题题面不动；D3.32=加第 13 题 holdings_balance 持仓均衡（G7 J 通道）+snapshot 锚族/state 持仓分布行同版落地）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -1194,6 +1194,71 @@ console.log('I. 著名钱包单极控盘锚');
   ok(rd2.top2HoldSupplyPct === null && rd2.top1Top2HoldSupplyPct === null
     && rd2.t1PlusClusterSupplyPct === null && Array.isArray(rd2.holdingsProfile) && rd2.holdingsProfile.length === 1,
     `单正净持有人（router 900M 已剔）→ 前二键 null、不成簇并集轴缺席 null、profile 单行（实际 t2=${rd2.top2HoldSupplyPct} 并集=${rd2.t1PlusClusterSupplyPct} profile=${rd2.holdingsProfile?.length}）`);
+
+  // ═══════════════ G8（批次六，2026-11-02）：burst 波强度两键 + 零买入纯卖方锚 ═══════════════
+  console.log('G8 burst 波强度两键+零买入纯卖方锚（E 弱 burst 臂/K·L 通道数值源）');
+  {
+    // g8Rows 手算（CD5 分仓出货+弱 burst 合成形状）：
+    //   纯卖方 wS1/wS2/wS3（零买入）卖 1.00+0.80+0.29=2.09；wN 买 0.5 卖 0.91、
+    //   wB1 买 0.3 卖 0.3（买卖兼有=非纯卖方）→ 总卖 3.30、noBuySellPct=
+    //   2.09/3.30=63.3%、noBuySellWallets=3；wP 买 2.5 纯持仓（买入侧对照）
+    //   burst 波：sec78-82 六笔（wB2 同秒两笔）Σ买 0.30+0.30+0.20+0.12+0.05+
+    //   0.05=1.02、去重钱包 5（<13）；最长停滞 13→78=65s（≥60）——弱 burst 三键
+    //   全中（E 通道联测见 _test_cheat_grade G8 段）；sec10-13 五笔窗（3.09>1.02）
+    //   被六笔波窗以笔数压过=「最密按笔数取」口径锁定
+    const wS1 = '0x5100000000000000000000000000000000000051';
+    const wS2 = '0x5200000000000000000000000000000000000052';
+    const wS3 = '0x5300000000000000000000000000000000000053';
+    const wN = '0x5400000000000000000000000000000000000054';
+    const wP = '0x5500000000000000000000000000000000000055';
+    const wB1 = '0x6100000000000000000000000000000000000061';
+    const wB2 = '0x6200000000000000000000000000000000000062';
+    const wB4 = '0x6400000000000000000000000000000000000064';
+    const wB5 = '0x6500000000000000000000000000000000000065';
+    const wB6 = '0x6600000000000000000000000000000000000066';
+    const g8Rows = [
+      mkRow(0, 500, 0, 'buy', 2.5, 1e-9, { trader: wP, sender: wP }),
+      mkRow(10, 501, 0, 'sell', 1.00, 1e-9, { trader: wS1, sender: wS1 }),
+      mkRow(11, 501, 1, 'sell', 0.80, 1e-9, { trader: wS2, sender: wS2 }),
+      mkRow(12, 502, 0, 'sell', 0.29, 1e-9, { trader: wS3, sender: wS3 }),
+      mkRow(13, 503, 0, 'buy', 0.50, 1e-9, { trader: wN, sender: wN }),
+      mkRow(13, 503, 1, 'sell', 0.91, 1e-9, { trader: wN, sender: wN }),
+      mkRow(78, 600, 0, 'buy', 0.30, 1e-9, { trader: wB1, sender: wB1 }),
+      mkRow(79, 601, 0, 'buy', 0.30, 1e-9, { trader: wB2, sender: wB2 }),
+      mkRow(79, 601, 1, 'buy', 0.20, 1e-9, { trader: wB2, sender: wB2 }),
+      mkRow(81, 603, 0, 'buy', 0.12, 1e-9, { trader: wB4, sender: wB4 }),
+      mkRow(82, 604, 0, 'buy', 0.05, 1e-9, { trader: wB5, sender: wB5 }),
+      mkRow(82, 604, 1, 'buy', 0.05, 1e-9, { trader: wB6, sender: wB6 }),
+      mkRow(100, 700, 0, 'sell', 0.30, 1e-9, { trader: wB1, sender: wB1 }),
+    ];
+    const g8Snap = buildSnapshotFromRows(g8Rows, microMeta);
+    const g8 = g8Snap.derived;
+    ok(g8.noBuySellPct === 63.3 && g8.noBuySellWallets === 3 && g8.noBuySellBnb.toFixed(2) === '2.09',
+      `零买纯卖锚精确值：3 户 Σ2.09/总卖 3.30=63.3%（实际 ${g8.noBuySellPct}/${g8.noBuySellWallets} 户/${g8.noBuySellBnb}——买卖兼有钱包不进分子）`);
+    ok(g8.burstWaveBuyBnb === 1.02 && g8.burstWaveWallets === 5,
+      `burst 波两键精确值：最密 5s 窗（六笔压过五笔窗）Σ买 1.02/去重 5 钱包（实际 ${g8.burstWaveBuyBnb}/${g8.burstWaveWallets}——同钱包两笔计一）`);
+    ok(g8.maxGapSec === 65,
+      `最长停滞 13→78=65s（实际 ${g8.maxGapSec}——grade 侧锚名 burstMaxGapSec 同一度量）`);
+    // state 数值行（D3.33 state-only）：占全部卖出 % + 判读交 insider 题（不带性质标签）
+    const stG8 = buildCheatState(g8Snap);
+    ok(stG8.state.includes('零买入纯卖方: 3 个钱包（窗内零买入、只卖出）合计卖出 2.090 BNB，占全部卖出 63.3%')
+      && stG8.state.includes('由你结合 insider_supply_sell 判断'),
+      'state 渲染：零买入纯卖方数值行（D3.33——判档仍 Jev）');
+    // mapper 键域：四新锚回显 + 未传 null 容缺（旧档断代 fail 方向在 grade 侧测）
+    const g8Obs = buildObservation(mkAnswers(), { noBuySellPct: 65.3, burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5 });
+    ok(g8Obs.anchors.noBuySellPct === 65.3 && g8Obs.anchors.burstMaxGapSec === 65
+      && g8Obs.anchors.burstWaveBuyBnb === 1.02 && g8Obs.anchors.burstWaveWallets === 5,
+      'mapper 回显 G8 四新锚（E/K/L 通道同源数值）');
+    // 空窗 null 语义：单笔买入票 → 波两键/纯卖全 null（<2 有效 dt 波形状不可评；
+    // 总卖=0 无卖出证据不评）+ state 不渲染行（缺席语义）
+    const oneSnap = buildSnapshotFromRows([mkRow(0, 800, 0, 'buy', 0.1, 1e-9)], microMeta);
+    const one = oneSnap.derived;
+    ok(one.burstWaveBuyBnb === null && one.burstWaveWallets === null && one.noBuySellPct === null
+      && one.noBuySellWallets === 0,
+      `单笔票全 null（实际 ${one.burstWaveBuyBnb}/${one.burstWaveWallets}/${one.noBuySellPct}——绝不冒充）`);
+    ok(!buildCheatState(oneSnap).state.includes('零买入纯卖方'),
+      'state 渲染：总卖=0 → 零买纯卖方行缺席');
+  }
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });
