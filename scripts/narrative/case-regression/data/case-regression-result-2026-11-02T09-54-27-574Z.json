@@ -1,0 +1,86 @@
+{
+  "ranAt": "2026-11-02T09:54:49.318Z",
+  "summary": {
+    "total": 2,
+    "pass": 1,
+    "fail": 1,
+    "observeDeviation": 0,
+    "error": 0
+  },
+  "results": [
+    {
+      "caseId": "C261",
+      "symbol": "iNu",
+      "addr": "0xf578b84ba599b44baea6d766e5cb3421a77a7777",
+      "status": "FAIL",
+      "expect": {
+        "rating": "low",
+        "tokenCategory": "event:W",
+        "reasonIncludes": [
+          "W类总分不足"
+        ],
+        "auditIncludes": [
+          "cashtagMatched"
+        ]
+      },
+      "observe": null,
+      "caseNote": "C28 iNu 骑乘形状原案（第三方回复 $INU+父推谈 RH Chain INU 已存在资产、14 秒抢注）：J1.152 cashtag 硬改道退役后 Jev 须凭题面判据原生判 W 走 W 数学维持拦（翻面=判据失效信号）",
+      "baseline": {
+        "rating": "low",
+        "reason": "W类总分不足（15<32）",
+        "ruleName": null,
+        "score": null,
+        "tokenCategory": "event:W"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 73.81,
+        "stage": 3,
+        "tokenCategory": "event:W"
+      },
+      "failures": [
+        "rating=high 不在预期 [low]",
+        "reason 缺少关键词「W类总分不足」（实际: null）"
+      ]
+    },
+    {
+      "caseId": "C261b",
+      "symbol": "RAM",
+      "addr": "0xec74ec6b297fbe318ff09da24023319a36737777",
+      "status": "PASS",
+      "expect": {
+        "rating": [
+          "mid",
+          "high"
+        ],
+        "tokenCategory": "event:E",
+        "reasonExcludes": [
+          "W类总分不足"
+        ],
+        "auditIncludes": [
+          "cashtagMatched"
+        ]
+      },
+      "observe": null,
+      "caseNote": "RAM 自喊单形状（C261 案发票，宣告推「先拿一点 $RAM」推销自己刚发的币）：J1.152 前被 cashtag 硬改道强制 W（appeal 15<32 拦）绕过 E 事件轴；退役后 Jev 判 E 走事件轴 95.56 high",
+      "baseline": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 95.56,
+        "tokenCategory": "event:E"
+      },
+      "current": {
+        "rating": "high",
+        "reason": null,
+        "ruleName": null,
+        "score": 95.53,
+        "stage": 3,
+        "tokenCategory": "event:E"
+      },
+      "failures": []
+    }
+  ]
+}
