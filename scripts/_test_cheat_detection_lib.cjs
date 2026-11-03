@@ -881,7 +881,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.39：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+abnormal_behavior_ratio） ═══════════════
   console.log('I2. 题集结构 D3.39（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.41', `版本常量 D3.41（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.41=批次二 B1 漏检六票裁定「这一波我认为应该有一个独立的锚了：单级持仓。可以扩展之前的持仓锚，单个异常区块（交易数多，不是真实用户行为）以及捆绑持仓太多是要拦住的」：三题补维度题面-only 零断代——holdings_balance 补捆绑簇在场流通维度（≥60% 量级+时间形状定档腿+RAM/MAI 跨块长尾反锚）、coordinated_sell_back 补跨块闭环形状（闭环不要求买卖同块+簇闭环行采信+卖侧撞块反锚）、same_block_buy_wave 补⑦单块笔数节奏形状（笔数单独是噪音须联判）；配套五新锚（sameBlockHoldCircPct/equalBandHoldCircPct/clusterRoundTripPct/clusterRoundTripSellPct/clusterRoundTripBlocks）+叙事数组；D3.40=第 14 题撤「冷寂期突袭」（节奏归 sbw 题、现象中性看涌入流量自身形状）；D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio 无罪推定，四桶→negligible/noticeable/dominant/unclear，G13 R 通道 dominant→unhealthy；D3.38=换喂法 C 单块形状档位回 state；D3.37/D3.36/D3.35 同前）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.42', `版本常量 D3.42（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.42=批次三 CD53 质询「持续拉盘锚还工作吗？这个是非常明显的庄自己拉盘没人玩的票，cheat无疑」实测 pump=none 失效后裁定「pump 你修复一下吧，这个票要捕捉到否则 pump 锚没意义了」：pump 题三处题面-only 修复——排除项首波爆发划出加真抢筹合力限定（金额连续散布+钱包独立+零散真实买盘穿插才保护，同额/近额阵列+一次性全新钱包紧凑接力=伪装散买组织推价仍在本题口径）、⑤豁免臂补伪装散买句（一次性全新钱包同额紧凑接力不走大户进场豁免可 strong+MAI 同档长尾时间形状划界）、strong 组织性载体补「一批一次性全新钱包同额/近额紧凑接力」、正例补开盘段伪装散买接力+反例补同档长尾跟风；D3.41=批次二 B1 漏检六票裁定「这一波我认为应该有一个独立的锚了：单级持仓。可以扩展之前的持仓锚，单个异常区块（交易数多，不是真实用户行为）以及捆绑持仓太多是要拦住的」：三题补维度题面-only 零断代——holdings_balance 补捆绑簇在场流通维度（≥60% 量级+时间形状定档腿+RAM/MAI 跨块长尾反锚）、coordinated_sell_back 补跨块闭环形状（闭环不要求买卖同块+簇闭环行采信+卖侧撞块反锚）、same_block_buy_wave 补⑦单块笔数节奏形状（笔数单独是噪音须联判）；配套五新锚（sameBlockHoldCircPct/equalBandHoldCircPct/clusterRoundTripPct/clusterRoundTripSellPct/clusterRoundTripBlocks）+叙事数组；D3.40=第 14 题撤「冷寂期突袭」（节奏归 sbw 题、现象中性看涌入流量自身形状）；D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio 无罪推定，四桶→negligible/noticeable/dominant/unclear，G13 R 通道 dominant→unhealthy；D3.38=换喂法 C 单块形状档位回 state；D3.37/D3.36/D3.35 同前）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -921,6 +921,33 @@ console.log('I. 著名钱包单极控盘锚');
     ok(bwQ.instructions.includes('单块笔数节奏形状（D3.41）')
       && bwQ.instructions.includes('笔数单独看是噪音'),
       'D3.41 same_block_buy_wave ⑦单块笔数形状在场（笔数远超常态=节奏异常但须与占比/结构联判）');
+  }
+  // D3.42：pump 题补「伪装散买接力推价」形状（批次三 CD53 质询失效修复）——
+  // 题面措辞锁定：首波爆发划出限定/豁免臂伪装散买句/strong 载体/MAI 长尾反锚
+  {
+    const pumpQ = qm.buildCheatQuestions().slow_grind_pump.instructions;
+    ok(pumpQ.includes('该划出只保护真抢筹合力形状（买入金额连续散布、钱包各自独立进场、有零散真实买盘穿插）')
+      && pumpQ.includes('不属首波爆发抢筹，仍在本题口径内按组织性推价判读'),
+      'D3.42 排除项首波爆发划出加真抢筹合力限定（伪装散买阵列接力仍在本题口径——CD53 盲区修复）');
+    ok(pumpQ.includes('推价流若由一批只用一次的全新钱包以相同/近同金额紧凑接力推进')
+      && pumpQ.includes('不走大户进场豁免、仍按本题口径给档、可 strong'),
+      'D3.42 ⑤豁免臂补伪装散买句（一次性全新钱包同额紧凑接力≠正常量级真散户跟风，不豁免可 strong）');
+    ok(pumpQ.includes('同额档位跨长时段匀速零散到达、每笔间隔松散自然的=前端默认档整档跟风长尾'),
+      'D3.42 MAI 防误伤时间形状划界在场（同档≠接力——跨长时段匀速长尾是跟风不算紧凑接力）');
+    ok(pumpQ.includes('一批一次性全新钱包同额/近额紧凑接力；同块/等额阵列与固定节拍'),
+      'D3.42 strong 组织性推价载体补伪装散买接力（与同一钱包多笔连推并列）');
+    ok(pumpQ.includes('正·开盘段伪装散买接力，D3.42'),
+      'D3.42 正例补 CD53 形状在场（全员同档一次性钱包接力+开盘段不落排除项）');
+    ok(pumpQ.includes('同档长尾跟风（反，D3.42）')
+      && pumpQ.includes('时间形状是整档跟风长尾不是紧凑接力'),
+      'D3.42 反例补 MAI 型同档长尾在场（档位同但时间松散=不给档）');
+    // 存量防线：D3.29/D3.23/D3.24 校准句不因本次修改回退
+    ok(pumpQ.includes('无须判断锚窗之后是否「窜完即止」（锚窗截断看不到窗后走势，该判断不可执行）'),
+      'D3.29 排除项窗内可判句保留（限定句叠加不替换）');
+    ok(pumpQ.includes('「单钱包连推」须同一钱包多笔连续主动买入逐笔推价'),
+      'D3.23 连推定义收紧句保留（大户单笔+真散买合力语义不动）');
+    ok(pumpQ.includes('跟风若以海量尘埃级买单为主'),
+      'D3.24 尘埃垫推量级限定句保留（CD88 路径不动）');
   }
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
