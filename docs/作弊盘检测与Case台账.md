@@ -181,7 +181,7 @@
 - **激活条件【已废 CD158】**：改为「service.enabled ∧ fired 买腿带 `cheatCheckCondition`」——consumers 扫描通道退役（腿字段存在性即门；无字段=零作弊交互零配额）
 - **null 语义与回测警告**：首判未完成/预触发禁用/回测 → 30 键全 null；条件裸比较恒 false **fail-closed**，未判定放行须显式 `cheatGrade IS NULL OR` 前置臂（GMGN issuer 分档门同款母版）；**带 cheat 因子条件的腿回测天然不触发**（回测零接线）——validateLegs 不拦（合法 FA 键），设计如此
 - **效果研究通道**：①signal 行 FactorBuilder 快照 30 键（买信号 fire 时档位+锚快照落库，事后分布/阈值校准原料）；②metadata `cheatCheck` 轨迹（grade/reasons/levels/buckets 字符串原值）；③`cheat_detection` 表 digest 全档（per-时点观测轨迹）——三层各自独立可对拍
-- **上线**：v66/v68 双开实跑已收官（观察+预触发时代数据采集期结束）；**CD158 换车=v69 克隆 v68 补节流三键+cheatCheck 段瘦身 `{enabled:true, gate:{awaitMs:15000}}`+策略库买腿加 cheatCheckCondition（待用户确认后部署）**；DDL `observed` 已执行无需新 DDL
+- **上线（2026-11-03 22:59 UTC+8 已部署）**：v66/v68 双开实跑已收官（观察+预触发时代数据采集期结束）；**CD158 换车=v69 `8a51f2fd` 克隆 v68（PID 2959431@182，代码 58894485）：节流三键 3000ms∧10ticks 帽 5+cheatCheck 段瘦身 `{enabled:true, gate:{awaitMs:15000}}`+库 buy-v2 v56 买腿 `cheatGrade IS NULL OR cheatGrade == 0`；同车生效攒批 D3.39~D3.51/G15+D3.52（题集版本跳变=旧判定按版本粘滞下次信号重判一次，设计内）**；DDL `observed` 已执行无需新 DDL
 
 ## Case 倒序
 
