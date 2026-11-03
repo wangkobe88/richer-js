@@ -382,6 +382,14 @@ class CheatCheckService {
           maxBlockPreGapSec: snapshot.derived.maxBlockPreGapSec,
           sameAmountWalletPct: snapshot.derived.sameAmountWalletPct,
           creatorPeakHoldSupplyPct: snapshot.derived.creatorPeakHoldSupplyPct,
+          // D3.41 簇占在场流通两锚（token 域）+ 簇闭环三键（coordinated_sell_back
+          // 跨块闭环判读原料；叙事数组 clusterRoundTrips 不进 observation 仅
+          // state 渲染，头注见 snapshot）
+          sameBlockHoldCircPct: snapshot.derived.sameBlockHoldCircPct,
+          equalBandHoldCircPct: snapshot.derived.equalBandHoldCircPct,
+          clusterRoundTripPct: snapshot.derived.clusterRoundTripPct,
+          clusterRoundTripSellPct: snapshot.derived.clusterRoundTripSellPct,
+          clusterRoundTripBlocks: snapshot.derived.clusterRoundTripBlocks,
         });
       } catch (e) {
         this.stats.errors++;

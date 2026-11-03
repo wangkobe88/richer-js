@@ -255,6 +255,16 @@ function buildObservation(answers, anchors = null) {
       maxBlockPreGapSec: _anchorPct(anchors, 'maxBlockPreGapSec'),
       sameAmountWalletPct: _anchorPct(anchors, 'sameAmountWalletPct'),
       creatorPeakHoldSupplyPct: _anchorPct(anchors, 'creatorPeakHoldSupplyPct'),
+      // D3.41 簇占在场流通两锚（token 域——holdings_balance 早期盘簇垄断判读：
+      // 供应口径开盘窗全员个位数失明，流通口径才有判别力；无合格簇/Σ正净=0→
+      // null）+ 簇闭环三键（coordinated_sell_back 跨块闭环判读：同簇 ≥2 成员
+      // 同块卖出行占簇买入/全窗总卖 %+去重闭环卖块数；无合格簇→null、有簇零
+      // 闭环→0；叙事数组 clusterRoundTrips 不进 observation 仅 state 渲染）
+      sameBlockHoldCircPct: _anchorPct(anchors, 'sameBlockHoldCircPct'),
+      equalBandHoldCircPct: _anchorPct(anchors, 'equalBandHoldCircPct'),
+      clusterRoundTripPct: _anchorPct(anchors, 'clusterRoundTripPct'),
+      clusterRoundTripSellPct: _anchorPct(anchors, 'clusterRoundTripSellPct'),
+      clusterRoundTripBlocks: _anchorPct(anchors, 'clusterRoundTripBlocks'),
     },
   };
 }

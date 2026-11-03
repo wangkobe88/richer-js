@@ -177,6 +177,33 @@ function buildCheatState(snapshot) {
       }
       lines.push(`持仓分布: ${profLines.join('；')}${distTail}（按正净持仓降序取前三；前几大是否均衡/是否同源协同的档位判断是你的任务）`);
     }
+    // D3.41 簇占在场流通两锚（2026-11-03 128 票全量对拍批次二裁定，用户原话「这一
+    // 波我认为应该有一个独立的锚了：单级持仓。可以扩展之前的持仓锚，单个异常区块
+    // （交易数多，不是真实用户行为）以及捆绑持仓太多是要拦住的」）：批次二六票
+    // holdings_balance 全失明根因=开盘早期窗总供应量口径全员个位数（筹码大部分
+    // 还没卖出来，供应口径看不见「垄断」），在场流通口径才有判别力（CD20 top1
+    // 占供应 3.6% 但占流通 61.6%）。与 CD133 撤三行的区别：那是 G 通道门侧死指
+    // 标+豁免前提 sb∪eq 圈定误伤的退役（门侧消费全撤），本两行=纯题面判读原料
+    // （holdings_balance 档位判读的簇维度证据），无任何代码门/豁免消费；token
+    // 域（正净 token 持仓 ÷ Σ正净），与持仓分布行 circPct 同域；无合格簇不渲染
+    if ((d.sameBlockHoldCircPct !== null && d.sameBlockHoldCircPct !== undefined)
+        || (d.equalBandHoldCircPct !== null && d.equalBandHoldCircPct !== undefined)) {
+      lines.push(`捆绑簇持仓集中度: 同块买入簇成员占在场流通 ${d.sameBlockHoldCircPct !== null && d.sameBlockHoldCircPct !== undefined ? d.sameBlockHoldCircPct.toFixed(1) + '%' : '—'} / 等额带簇成员占在场流通 ${d.equalBandHoldCircPct !== null && d.equalBandHoldCircPct !== undefined ? d.equalBandHoldCircPct.toFixed(1) + '%' : '—'}（同块簇口径=同块 ≥3 笔买入的钱包集、等额带簇口径=±2% 对数带内 ≥3 钱包集，两键各自按本集计；分子=成员正净 token 持仓、分母=全部正净持仓合计。早期盘占总供应量口径全员个位数时，这是簇垄断在场筹码的度量；档位判断是你的任务——分散持有≠协同，簇高持仓须配买入结构证据（秒级集中阵列/同块卖回闭环），跨块长尾默认档跟风不构成证据）`);
+    }
+    // D3.41 簇闭环锚行（同裁定+CD20 ticks 深挖「好，搞吧」）：CD20 实形=五组等额
+    // 簇「同块买→隔数秒~数十秒同块卖回」跨块闭环，同块对敲行（同块一卖一买等额
+    // 配对）对此结构性失明——跨块+金额因价差不等。本行=代码算好的联立事实（同簇
+    // 成员 ≥2 人同块卖出且卖块 ≥ 各自首买块），「同一批钱包既一起买又一起卖」=
+    // 跨块对倒的时间平移版；行内反锚：高活跃盘卖侧撞块本身常见（不同批次各自
+    // 离场撞进同块），协同的是买卖双联立不是单纯同块卖；零闭环块不渲染行（缺席
+    // 语义，正常盘常态）；判读归 coordinated_sell_back 题档（无代码门消费）
+    if (d.clusterRoundTripBlocks > 0) {
+      const ex = (d.clusterRoundTrips || []).slice(0, 3).map((c) => {
+        const sellTxt = c.blocks.slice(0, 3).map((b) => `${fmtDt(b.dt)} 同块 ${b.n} 笔 Σ${b.sellBnb.toFixed(3)}`).join('+');
+        return `${c.kind === 'equal' ? '等额簇' : '同块簇'} ${c.label}（${c.wallets} 钱包 ${fmtDt(c.firstDt)} 买入 Σ${c.buyBnb.toFixed(3)}）→ ${sellTxt}`;
+      }).join('；');
+      lines.push(`簇买→同块卖回闭环: ${d.clusterRoundTripBlocks} 个同块卖回块（同一买入簇 ≥2 成员同块卖出），闭环卖出占簇成员买入 ${d.clusterRoundTripPct !== null && d.clusterRoundTripPct !== undefined ? d.clusterRoundTripPct.toFixed(1) + '%' : '—'} / 占全部卖出 ${d.clusterRoundTripSellPct !== null && d.clusterRoundTripSellPct !== undefined ? d.clusterRoundTripSellPct.toFixed(1) + '%' : '—'}（口径：对每个合格买入簇（同块 ≥3 笔/等额 ≥3 钱包）找「≥2 成员同块卖出」的块，卖块须不早于各自首买块；同簇跨块买→同块卖回=「一起买→一起卖」的闭环证据，与同块内卖→买等额换手（「同块对敲」行）互补；高活跃盘不同批次各自同块离场≠闭环——本行已按买入同簇联立过滤）。例：${ex}${(d.clusterRoundTrips || []).some((c) => c.blocks.length > 3) || (d.clusterRoundTrips || []).length > 3 ? '（示最大三簇/每簇前三块）' : ''}`);
+    }
     // D3.2 代码活跃度档位行已撤（D3.5 用户裁定「我的意思也是用Jev判断活跃度」「使用
     // Jev 进行判断」）：档位判定交题面 activity_level（Jev 从 [TICKS] 直读自判，教学
     // 单一载体=题面，sbw 第四轮同款）；snapshot.derived 活跃度字段仍计算，供存档/回归对照。

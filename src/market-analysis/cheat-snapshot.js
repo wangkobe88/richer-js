@@ -735,6 +735,110 @@ function computeDerived(snapshot, famousRoster) {
     };
   });
 
+  // ── 簇占在场流通两锚（D3.41 ①，2026-11-03 全量对拍批次二用户裁定「这一波我
+  // 认为应该有一个独立的锚了：单级持仓。可以扩展之前的持仓锚，单个异常区块
+  // （交易数多，不是真实用户行为）以及捆绑持仓太多是要拦住的」——批次二六票
+  // holdings_balance 全失明根因=开盘早期窗 supply 口径全员个位数（t1 供全 <25%）
+  // 而流通口径判别力强（CD20 top1Circ 61.6）。token 域（与 D3.20/D3.32 supply 锚
+  // 及 holdingsProfile.circPct 同域），分子=sb/eq 簇成员正净 token 合计、分母=
+  // posTokTotal；与 CD133 撤三行的区别=那是 G 通道门侧死指标+豁免前提的退役、
+  // G10 起门侧零消费，本两键纯题面判读原料（holdings_balance 档位判读）无任何
+  // 代码门/豁免消费；无合格簇/在场流通 Σ=0 → null（有证据的缺席）；簇成员全
+  // 清仓 → 0（有证据零值）──
+  const holdTokCircPctOf = (memberSet) => {
+    if (!memberSet.size || posTokTotal <= 0) return null;
+    let m = 0;
+    for (const w of memberSet) m += posNetTok.get(w) || 0;
+    return (m / posTokTotal) * 100;
+  };
+  const sameBlockHoldCircPct = holdTokCircPctOf(sbMembers);
+  const equalBandHoldCircPct = holdTokCircPctOf(eqMembers);
+
+  // ── 簇闭环锚（D3.41 ⑤，2026-11-03 批次二 CD20 ticks 深挖——用户「CD20 我请
+  // 你再看一下它的 ticks 情况，看看如何识别」→「好，搞吧」）：CD20 实形=五组
+  // 等额簇「同块买→隔数秒~数十秒同块卖回」跨块闭环，washPair 锚只配同块卖→买
+  // 等额对敲对此结构性失明（跨块+金额因价差不等）、eq/sb 题各见一半（买侧簇/
+  // 卖侧块两段不相干数据）拼不出闭环铁证。本锚 per-cluster 联立：对每个合格簇
+  // （同块买 ≥3 笔块簇 / 四位舍入精确等额 ≥3 钱包桶簇——eq 臂刻意取 T74
+  // equalClusters 展示同源的精确桶而非 D3.1 对数带：闭环对倒的等额簇是配置值
+  // 精确重复（CD20 五簇全精确等额），对数带会把近额散户并进簇稀释闭环信号），
+  // 找「≥2 个该簇成员同块卖出」且卖块 ≥ 各自首买块的卖出行——「同一批钱包既
+  // 一起买又一起卖」是跨块对倒的时间平移版；独立散户撞同块卖常见、但撞不出
+  // 买卖双联立（判读仍 Jev：coordinated_sell_back 题档承载，无代码门消费——
+  // 高活跃盘不同批次各自同块离场≠闭环，锚已按「买入也同簇」过滤）。
+  //   clusterRoundTripPct     = 行去重闭环卖出合计 ÷ 簇成员（sb∪eq 并集）买入
+  //                             合计 ×100（分母与 bundleBuyPct 分子同源）
+  //   clusterRoundTripSellPct = 同分子 ÷ 全窗总卖 ×100（对敲行双占比同款）
+  //   clusterRoundTripBlocks  = 去重闭环卖块数
+  //   clusterRoundTrips       = 叙事数组 top5（按闭环卖出额降序；state 渲染
+  //                             「簇买→同块卖回闭环」行例句用，不进 observation）
+  // 无合格簇 → pct 两键 null；有簇零闭环 → 0（有证据零值）；首买块缺失/卖块
+  // 先于首买块 → 该行不计（宁少不冒充：窗外持仓的卖出不是「卖回」）──
+  let clusterRoundTripPct = null, clusterRoundTripSellPct = null, clusterRoundTripBlocks = 0;
+  const clusterRoundTrips = [];
+  if (bundleMembers.size > 0) {
+    const rtClusters = [];
+    for (const [block, arr] of blockBuys) {
+      if (arr.length < SAME_BLOCK_CLUSTER_MIN) continue;
+      const ws = new Set(arr.map((t) => t.wallet).filter(Boolean));
+      rtClusters.push({ kind: 'same_block', label: `块${block}`, members: ws, firstDt: arr[0].dt });
+    }
+    for (const [k, arr] of evenBuckets) {
+      const ws = new Set(arr.map((t) => t.wallet).filter(Boolean));
+      if (ws.size < SAME_BLOCK_CLUSTER_MIN) continue;
+      rtClusters.push({ kind: 'equal', label: `${(k / EQUAL_AMOUNT_ROUND).toFixed(4)}×${ws.size}`, members: ws, firstDt: arr[0].dt });
+    }
+    const memberSells = new Map(); // wallet -> SELL 行（仅簇成员）
+    for (const t of ticks) {
+      if (t.side !== 'SELL' || !t.wallet || !bundleMembers.has(t.wallet)) continue;
+      if (!memberSells.has(t.wallet)) memberSells.set(t.wallet, []);
+      memberSells.get(t.wallet).push(t);
+    }
+    const counted = new Map(); // tick.i -> bnb（跨簇行去重：同钱包可同时在 sb/eq 簇）
+    const countedBlocks = new Set();
+    for (const c of rtClusters) {
+      const sellBlocks = new Map(); // block -> 该簇成员卖行
+      for (const w of c.members) {
+        const fb = firstBuyBlockOf.get(w);
+        if (fb === null || fb === undefined) continue; // 首买块证据缺失不计（宁少不冒充）
+        for (const s of memberSells.get(w) || []) {
+          if (s.block === null || s.block < fb) continue; // 卖先于首买=非卖回
+          if (!sellBlocks.has(s.block)) sellBlocks.set(s.block, []);
+          sellBlocks.get(s.block).push(s);
+        }
+      }
+      const blocks = [...sellBlocks.entries()]
+        .filter(([, a]) => new Set(a.map((s) => s.wallet)).size >= 2)
+        .map(([block, a]) => ({ block, dt: a[0].dt, n: a.length, sellBnb: a.reduce((x, s) => x + (s.bnb || 0), 0) }))
+        .sort((a, b) => a.block - b.block);
+      if (blocks.length === 0) continue;
+      let buyBnb = 0;
+      for (const w of c.members) buyBnb += buyOf.get(w) || 0;
+      const sellBnb = blocks.reduce((x, b) => x + b.sellBnb, 0);
+      clusterRoundTrips.push({
+        kind: c.kind, label: c.label, wallets: c.members.size, firstDt: c.firstDt,
+        buyBnb: +buyBnb.toFixed(4), sellBnb: +sellBnb.toFixed(4),
+        blocks: blocks.map((b) => ({ block: b.block, dt: b.dt, n: b.n, sellBnb: +b.sellBnb.toFixed(4) })),
+      });
+      for (const b of blocks) {
+        countedBlocks.add(b.block);
+        for (const s of sellBlocks.get(b.block)) counted.set(s.i, s.bnb || 0);
+      }
+    }
+    clusterRoundTrips.sort((a, b) => b.sellBnb - a.sellBnb);
+    clusterRoundTrips.splice(5);
+    clusterRoundTripBlocks = countedBlocks.size;
+    if (counted.size > 0) {
+      let rtBnb = 0;
+      for (const v of counted.values()) rtBnb += v;
+      const denomBuy = sumBuyOf(bundleMembers);
+      clusterRoundTripPct = denomBuy > 0 ? +((rtBnb / denomBuy) * 100).toFixed(1) : null;
+      clusterRoundTripSellPct = totalSellBnb > 0 ? +((rtBnb / totalSellBnb) * 100).toFixed(1) : null;
+    } else {
+      clusterRoundTripPct = 0; // 有簇零闭环=有证据零值（正常盘常态）
+    }
+  }
+
   // ── 价格拱（仅 price_outlier=false 行——价格口径滤，资金口径不滤）──
   let first = null, ath = null, athDt = null, last = null;
   for (const t of ticks) {
@@ -757,6 +861,10 @@ function computeDerived(snapshot, famousRoster) {
     top1HoldSupplyPct, top1HoldCircPct,
     top2HoldSupplyPct, top1Top2HoldSupplyPct, top1Top2FirstBuyGapSec,
     clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
+    // D3.41 簇占在场流通两锚（token 域，holdings_balance 档位判读原料）
+    sameBlockHoldCircPct, equalBandHoldCircPct,
+    // D3.41 簇闭环三键+叙事数组（coordinated_sell_back 跨块闭环判读原料）
+    clusterRoundTripPct, clusterRoundTripSellPct, clusterRoundTripBlocks, clusterRoundTrips,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec,
     burstWaveBuyBnb, burstWaveWallets,

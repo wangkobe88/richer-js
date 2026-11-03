@@ -226,6 +226,103 @@ ok(dRows.derived.equalBandHoldPct.toFixed(1) === '20.5', `equalBandHoldPct=20.5%
   ok(!buildCheatState(ms).state.includes('同块对敲'), '零配对不渲染同块对敲行（缺席不占 state 预算）');
 }
 
+// 簇闭环+簇占流通（D3.41，批次二 CD20 深挖「同块买→隔数秒同块卖回」跨块闭环案）：
+// 五组形状——A 簇（同块+等额双簇两轮闭环=跨簇行去重）/B 簇（sb 簇金额各异单轮）/
+// C 簇（等额簇分散卖出零闭环）/d 对（2 钱包不成簇同块卖不计）/E 簇（卖先于首买
+// 块不计）/F 簇（首买块缺失不计）——全部手算精确值锁定
+{
+  const rtRows = [];
+  let rlog = 0;
+  const rpush = (sec, block, type, bnb, wallet, tok) => {
+    rtRows.push(mkRow(sec, block, rlog++, type, bnb, 1e-9, { trader: wallet, sender: wallet, tok }));
+  };
+  const a1 = '0xra10000000000000000000000000000000000a1', a2 = '0xra20000000000000000000000000000000000a2', a3 = '0xra30000000000000000000000000000000000a3';
+  const b1 = '0xrb10000000000000000000000000000000000b1', b2 = '0xrb20000000000000000000000000000000000b2', b3 = '0xrb30000000000000000000000000000000000b3';
+  const c1 = '0xrc10000000000000000000000000000000000c1', c2 = '0xrc20000000000000000000000000000000000c2', c3 = '0xrc30000000000000000000000000000000000c3';
+  const d1 = '0xrd10000000000000000000000000000000000d1', d2 = '0xrd20000000000000000000000000000000000d2';
+  const e1 = '0xre10000000000000000000000000000000000e1', e2 = '0xre20000000000000000000000000000000000e2', e3 = '0xre30000000000000000000000000000000000e3';
+  const f1 = '0xrf10000000000000000000000000000000000f1', f2 = '0xrf20000000000000000000000000000000000f2', f3 = '0xrf30000000000000000000000000000000000f3';
+  // A 簇：blk700 同块 0.2000×3（sb+eq 双簇）→ blk705 a1+a2 同块卖回 → blk708 a2+a3 同块再卖回
+  rpush(10, 700, 'buy', 0.2, a1, 1000); rpush(10, 700, 'buy', 0.2, a2, 1000); rpush(10, 700, 'buy', 0.2, a3, 1000);
+  rpush(20, 705, 'sell', 0.15, a1, 700); rpush(20, 705, 'sell', 0.15, a2, 700);
+  rpush(30, 708, 'sell', 0.10, a2, 300); rpush(30, 708, 'sell', 0.15, a3, 500);
+  // B 簇：blk702 同块买金额各异（只 sb 簇）→ blk710 b1+b2 同块卖回（b3 持有不动）
+  rpush(12, 702, 'buy', 0.11, b1, 100); rpush(12, 702, 'buy', 0.13, b2, 100); rpush(12, 702, 'buy', 0.17, b3, 100);
+  rpush(35, 710, 'sell', 0.09, b1, 60); rpush(35, 710, 'sell', 0.11, b2, 50);
+  // C 簇：0.3000×3 异块买（只 eq 簇）→ c1 单人卖（同块 1 成员 <2 → 零闭环）
+  rpush(40, 712, 'buy', 0.3, c1, 200); rpush(41, 713, 'buy', 0.3, c2, 200); rpush(42, 714, 'buy', 0.3, c3, 200);
+  rpush(50, 720, 'sell', 0.2, c1, 200);
+  // d 对：0.5×2 只两钱包（<3 不成簇）同块卖回 → 不计
+  rpush(45, 715, 'buy', 0.5, d1, 400); rpush(46, 716, 'buy', 0.5, d2, 400);
+  rpush(55, 721, 'sell', 0.4, d1, 300); rpush(55, 721, 'sell', 0.4, d2, 250);
+  // E 簇：0.4000×3 等额（eq 簇成立）但 e1+e2 卖块 725 < 首买块 730 → 不计（链外持仓卖非卖回）
+  rpush(55, 725, 'sell', 0.3, e1, 300); rpush(55, 725, 'sell', 0.3, e2, 300);
+  rpush(60, 730, 'buy', 0.4, e1, 500); rpush(60, 730, 'buy', 0.4, e2, 500); rpush(60, 730, 'buy', 0.4, e3, 500);
+  // F 簇：0.6000×3 等额但买入行 block 缺失（首买块证据洞）→ 同块卖不计（宁少不冒充）
+  rpush(65, null, 'buy', 0.6, f1, 300); rpush(66, null, 'buy', 0.6, f2, 300); rpush(67, null, 'buy', 0.6, f3, 300);
+  rpush(70, 740, 'sell', 0.5, f1, 300); rpush(70, 740, 'sell', 0.5, f2, 300); rpush(70, 740, 'sell', 0.5, f3, 300);
+  const rs = buildSnapshotFromRows(rtRows, microMeta);
+  const rd = rs.derived;
+  // 手推：Σ买=0.6+0.41+0.9+1.0+1.2+1.8=5.91；Σ卖=0.55+0.20+0.20+0.8+0.6+1.5=3.85
+  // 闭环计入行（去重）：blk705 0.30 + blk708 0.25（A 簇 sb/eq 双簇只计一次）+ blk710 0.20（B 簇）
+  //   =0.75；分母=sb∪eq 成员买入 4.91（A0.6+B0.41+C0.9+E1.2+F1.8，d 对不在簇内）
+  ok(rd.clusterRoundTripPct === 15.3, `clusterRoundTripPct=0.75/4.91=15.3%（实际 ${rd.clusterRoundTripPct}——跨簇行去重/A 簇双簇单计/E 卖先于首买不计/F 首买块缺失不计/d 不成簇不计全形状）`);
+  ok(rd.clusterRoundTripSellPct === 19.5, `clusterRoundTripSellPct=0.75/3.85=19.5%（实际 ${rd.clusterRoundTripSellPct}）`);
+  ok(rd.clusterRoundTripBlocks === 3, `clusterRoundTripBlocks=3（blk705/708/710；实际 ${rd.clusterRoundTripBlocks}）`);
+  // 叙事数组：A-sb（0.55）=A-eq（0.55）>B（0.20）共 3 条；A 双簇同卖出行去重后各自 sellBnb 相同
+  ok(rd.clusterRoundTrips.length === 3, `clusterRoundTrips=3 条（实际 ${rd.clusterRoundTrips.length}——A sb/eq 双簇+B sb 簇；C 零闭环/E/F 不计形状无叙事）`);
+  const aSb = rd.clusterRoundTrips.find((c) => c.kind === 'same_block' && c.label === '块700');
+  const aEq = rd.clusterRoundTrips.find((c) => c.kind === 'equal' && c.label === '0.2000×3');
+  const bSb = rd.clusterRoundTrips.find((c) => c.kind === 'same_block' && c.label === '块702');
+  ok(aSb && aSb.wallets === 3 && aSb.buyBnb === 0.6 && aSb.sellBnb === 0.55 && aSb.blocks.length === 2,
+    `A sb 簇叙事=3 钱包/买 0.6/闭环卖 0.55/两轮（实际 ${JSON.stringify(aSb)}）`);
+  ok(aEq && aEq.buyBnb === 0.6 && aEq.sellBnb === 0.55,
+    `A eq 簇叙事同源（实际 ${JSON.stringify(aEq)}——同一批卖出行双簇各自成叙事、锚层已去重）`);
+  ok(bSb && bSb.wallets === 3 && bSb.buyBnb === 0.41 && bSb.sellBnb === 0.2 && bSb.blocks.length === 1,
+    `B sb 簇叙事=金额各异单轮（实际 ${JSON.stringify(bSb)}）`);
+  // 簇占流通（token 域）：Σ正净=2540；sb 成员=块700+块702+块730 三簇（E 簇 0.4000×3
+  //   同块买也是 sb 簇）：a1 300+a2 0+a3 500+b1 40+b2 50+b3 100+e1 200+e2 200+e3 500=1890
+  //   eq 带成员（±2% 对数带 ≥3 钱包，D3.1 eqMembers 同源）：0.2/0.3/0.4/0.6 四档
+  //   {a,c,e,f}（d 对 0.5 只 2 钱包不入）：2100
+  const circSb = rd.sameBlockHoldCircPct, circEq = rd.equalBandHoldCircPct;
+  ok(typeof circSb === 'number' && Math.abs(circSb - (1890 / 2540) * 100) < 1e-9,
+    `sameBlockHoldCircPct=1890/2540=74.41%（实际 ${circSb}——token 域分子 sb 成员正净持仓、分母 Σ正净）`);
+  ok(typeof circEq === 'number' && Math.abs(circEq - (2100 / 2540) * 100) < 1e-9,
+    `equalBandHoldCircPct=2100/2540=82.68%（实际 ${circEq}——对数带口径与 D3.1 eqMembers 同源）`);
+  // 无合格簇 → null 缺席；有簇零闭环 → 0 有证据零值（microRows 无任何 ≥3 笔同块/等额簇）
+  ok(md.clusterRoundTripPct === null && md.clusterRoundTripSellPct === null && md.clusterRoundTripBlocks === 0,
+    '无合格簇 → 闭环三键 null/0（缺席不冒充）');
+  ok(md.sameBlockHoldCircPct === null && md.equalBandHoldCircPct === null,
+    '无合格簇 → 簇流通两键 null');
+  {
+    // 有簇零闭环=正常盘常态：三钱包同块买后全部持有不动
+    const zc = [
+      mkRow(10, 800, 1, 'buy', 0.2, 1e-9, { trader: a1, sender: a1, tok: 100 }),
+      mkRow(10, 800, 2, 'buy', 0.2, 1e-9, { trader: a2, sender: a2, tok: 100 }),
+      mkRow(10, 800, 3, 'buy', 0.2, 1e-9, { trader: a3, sender: a3, tok: 100 }),
+    ];
+    const zd = buildSnapshotFromRows(zc, microMeta).derived;
+    ok(zd.clusterRoundTripPct === 0 && zd.clusterRoundTripBlocks === 0 && zd.clusterRoundTrips.length === 0,
+      `有簇零闭环 → pct=0 有证据零值/blocks=0/叙事空（实际 ${zd.clusterRoundTripPct}/${zd.clusterRoundTripBlocks}/${zd.clusterRoundTrips.length}）`);
+    ok(zd.sameBlockHoldCircPct === 100,
+      `簇全员持有 → 同块簇占在场流通 100%（实际 ${zd.sameBlockHoldCircPct}——垄断在场的极端形状）`);
+  }
+  // state 渲染：闭环行（块数+双占比+例句）与簇集中度行；零闭环不渲染闭环行
+  const rst = buildCheatState(rs);
+  ok(rst.state.includes('簇买→同块卖回闭环: 3 个同块卖回块（同一买入簇 ≥2 成员同块卖出），闭环卖出占簇成员买入 15.3% / 占全部卖出 19.5%'),
+    '[PRECOMPUTED] 簇闭环行渲染（块数+双占比+口径句）');
+  ok(rst.state.includes('等额簇 0.2000×3（3 钱包 t+10s 买入 Σ0.600）') && rst.state.includes('同块簇 块702'),
+    '簇闭环行例句=最大三簇叙事（等额簇金额×人数/同块簇块号）');
+  ok(rst.state.includes(`同块买入簇成员占在场流通 ${circSb.toFixed(1)}%`) && rst.state.includes(`等额带簇成员占在场流通 ${circEq.toFixed(1)}%`),
+    '捆绑簇持仓集中度行渲染（两簇占在场流通一位小数）');
+  ok(!buildCheatState(buildSnapshotFromRows([
+    mkRow(10, 800, 1, 'buy', 0.2, 1e-9, { trader: a1, sender: a1, tok: 100 }),
+    mkRow(10, 800, 2, 'buy', 0.2, 1e-9, { trader: a2, sender: a2, tok: 100 }),
+    mkRow(10, 800, 3, 'buy', 0.2, 1e-9, { trader: a3, sender: a3, tok: 100 }),
+  ], microMeta)).state.includes('簇买→同块卖回闭环'),
+  '零闭环不渲染闭环行（正常盘常态不占 state 预算，缺席语义同对敲行）');
+}
+
 // ═══════════════ E. state builder ═══════════════
 console.log('E. state builder');
 const st = buildCheatState(snap);
@@ -317,7 +414,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 22, 'D3.35 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖+D3.35 五键=二十二数值键（activity/participation 档位不投影）');
+ok(Object.keys(f1.anchors).length === 27, 'D3.41 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖+D3.35 五键+D3.41 簇流通两键/簇闭环三键=二十七数值键（activity/participation 档位不投影）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
@@ -353,6 +450,16 @@ ok(f1e.anchors.top2HoldSupplyPct === 9.4 && f1e.anchors.top1Top2HoldSupplyPct ==
   'D3.32 持仓分布五键回显（CD122 形状 t2 9.4%/前二 35.0%/Δ首买 1 秒/簇 14.5%/并集 40.1%）');
 ok(f1e.extLevels.holdings_balance === null,
   'holdings_balance 题缺席（<D3.32 旧档）→ extLevels null 不 throw（EXT 容缺断代）');
+// D3.41 簇流通两键+簇闭环三键回显（批次二 CD20 深挖实测形状：闭环卖回占簇买 50.4%/占总卖 38.0/13 块）
+const f1g = buildObservation(mkAnswers(), { sameBlockHoldCircPct: 33.3, equalBandHoldCircPct: 57.9,
+  clusterRoundTripPct: 50.4, clusterRoundTripSellPct: 38.0, clusterRoundTripBlocks: 13 });
+ok(f1g.anchors.sameBlockHoldCircPct === 33.3 && f1g.anchors.equalBandHoldCircPct === 57.9,
+  'D3.41 簇流通两键回显（token 域在场流通口径）');
+ok(f1g.anchors.clusterRoundTripPct === 50.4 && f1g.anchors.clusterRoundTripSellPct === 38.0
+  && f1g.anchors.clusterRoundTripBlocks === 13,
+  'D3.41 簇闭环三键回显（CD20 形状 50.4/38.0/13）');
+ok(f1g.anchors.clusterRoundTrips === undefined,
+  'clusterRoundTrips 叙事数组不进 observation（仅 state 渲染，digest 不膨胀）');
 const f1f = buildObservation(mkAnswers({ holdings_balance: 'strong' }), {});
 ok(f1f.extLevels.holdings_balance === 'strong',
   'holdings_balance 在场答案 → extLevels 落档（G7 J 通道原料）');
@@ -774,7 +881,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.39：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+abnormal_behavior_ratio） ═══════════════
   console.log('I2. 题集结构 D3.39（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.40', `版本常量 D3.40（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.40=第 14 题撤「冷寂期突袭」异常形状：用户裁定「已经有停滞突发这个锚了，而且，这个现象本身中性，还是要看涌入流量是不是作弊流量，就不在异常行为占比中检测了」——节奏归 stall_burst_wave 题单独判，第 14 题只看涌入流量自身形状（同额阵列/对倒等），死寂后一波涌入本身不计异常份额（前提③/怎么算/要点①/dominant 样本与桶描述/criteria 同步+中性反锚）；D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio 无罪推定，四桶→negligible/noticeable/dominant/unclear，G13 R 通道 dominant→unhealthy R_abnormal_dominant；D3.38=换喂法 C 单块形状档位回 state；D3.37=众数档位非判据+开盘打新段语境；D3.36=单块撤出 state+大额买家持有口径；D3.35=第 14 题立项+协同买入参考四键）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.41', `版本常量 D3.41（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.41=批次二 B1 漏检六票裁定「这一波我认为应该有一个独立的锚了：单级持仓。可以扩展之前的持仓锚，单个异常区块（交易数多，不是真实用户行为）以及捆绑持仓太多是要拦住的」：三题补维度题面-only 零断代——holdings_balance 补捆绑簇在场流通维度（≥60% 量级+时间形状定档腿+RAM/MAI 跨块长尾反锚）、coordinated_sell_back 补跨块闭环形状（闭环不要求买卖同块+簇闭环行采信+卖侧撞块反锚）、same_block_buy_wave 补⑦单块笔数节奏形状（笔数单独是噪音须联判）；配套五新锚（sameBlockHoldCircPct/equalBandHoldCircPct/clusterRoundTripPct/clusterRoundTripSellPct/clusterRoundTripBlocks）+叙事数组；D3.40=第 14 题撤「冷寂期突袭」（节奏归 sbw 题、现象中性看涌入流量自身形状）；D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio 无罪推定，四桶→negligible/noticeable/dominant/unclear，G13 R 通道 dominant→unhealthy；D3.38=换喂法 C 单块形状档位回 state；D3.37/D3.36/D3.35 同前）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -792,6 +899,28 @@ console.log('I. 著名钱包单极控盘锚');
     ok(/冷寂期后一波涌入」本身是中性节奏、不计异常/.test(abrQ.instructions)
       && /停滞突发题单独判/.test(abrQ.instructions),
       'D3.40 中性反锚在场（死寂后来量不计异常份额+节奏归停滞突发题单独判）');
+  }
+  // D3.41：批次二裁定三题补维度——题面措辞锁定（跨块闭环句/簇流通行引用/笔数联判句）
+  {
+    const q41 = qm.buildCheatQuestions();
+    const csbQ = q41.coordinated_sell_back;
+    ok(csbQ.instructions.includes('闭环不要求买卖同块')
+      && csbQ.instructions.includes('「簇买→同块卖回闭环」行是代码按同一口径算好的联立事实'),
+      'D3.41 coordinated_sell_back 跨块闭环句在场（对倒的时间平移版+簇闭环行代码算好直接采信）');
+    ok(csbQ.instructions.includes('协同的是「同一批钱包既一起买又一起卖」的联立，不是单纯同块卖'),
+      'D3.41 卖侧撞块反锚在场（高活跃盘不同批次各自离场≠闭环——买卖双联立才是协同）');
+    ok(csbQ.instructions.includes('五组等额簇全部闭环'),
+      'D3.41 CD20 正例在场（23 秒开盘窗五簇跨块闭环密集阵列版）');
+    const hbQ = q41.holdings_balance;
+    ok(hbQ.instructions.includes('捆绑簇持仓集中度」行')
+      && hbQ.instructions.includes('捆绑簇垄断在场流通到量级（参考 ≥60%）'),
+      'D3.41 holdings_balance 簇维度在场（新 state 行引用+量级参考与早期盘口径同尺）');
+    ok(hbQ.instructions.includes('跨块长时段匀速流入的默认档长尾=整档跟风散户'),
+      'D3.41 RAM/MAI 防误伤反锚在场（跨块匀速长尾默认档簇不构成垄断证据腿）');
+    const bwQ = q41.same_block_buy_wave;
+    ok(bwQ.instructions.includes('单块笔数节奏形状（D3.41）')
+      && bwQ.instructions.includes('笔数单独看是噪音'),
+      'D3.41 same_block_buy_wave ⑦单块笔数形状在场（笔数远超常态=节奏异常但须与占比/结构联判）');
   }
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
