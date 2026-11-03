@@ -48,8 +48,9 @@ console.log('A. 合法腿集合');
     preBuyCheckCondition: 'narrativeRating == 2 OR narrativeRating == 3',
     repeatBuyCheckCondition: 'narrativeRating == 9',
     gmgnCheckCondition: 'gmgnRiskCovered == 1',
+    cheatCheckCondition: 'cheatGrade == 0',
   }]);
-  check('合法买腿集合（全部条件字段）', rb.valid, true);
+  check('合法买腿集合（全部条件字段，含 CD158 cheatCheckCondition）', rb.valid, true);
 }
 
 // ═══ B. 形状校验 ═══
@@ -91,6 +92,22 @@ console.log('C. 未知因子拦截（hg55 事故防线：写错因子名入库�
   check('gmgn 真键在 gmgn 字段放行', validateLegs('buy', [
     { condition: 'profitPercent > 1', gmgnCheckCondition: 'gmgnBundlerWalletRatio <= 75' },
   ]).valid, true);
+  // CD158（2026-11-03）买信号驱动作弊门：cheatCheckCondition=FA 集（cheat 43 键）
+  check('cheatCheckCondition 未知因子拒（FA 集——分集防误报）', validateLegs('buy', [
+    { condition: 'profitPercent > 1', cheatCheckCondition: 'zzFakeCheatKey >= 1' },
+  ]).errors.some(e => e.includes('cheatCheckCondition')), true);
+  check('cheat 真键在 cheatCheckCondition 字段放行', validateLegs('buy', [
+    { condition: 'profitPercent > 1', cheatCheckCondition: 'cheatGrade == 0 OR cheatGrade == 1' },
+  ]).valid, true);
+  check('cheatCheckCondition 携带 IS NULL 前置臂放行（未判定票 fail-open 形状）', validateLegs('buy', [
+    { condition: 'profitPercent > 1', cheatCheckCondition: 'cheatGrade IS NULL OR cheatGrade == 0' },
+  ]).valid, true);
+  check('卖腿携带 cheatCheckCondition 拒（仅买腿可配——门挂在买信号链上）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 1, cheatCheckCondition: 'cheatGrade == 0' },
+  ]).errors.some(e => e.includes('cheatCheckCondition') && e.includes('买腿')), true);
+  check('cheatCheckCondition 语法错拒', validateLegs('buy', [
+    { condition: 'profitPercent > 1', cheatCheckCondition: 'cheatGrade ==' },
+  ]).errors.some(e => e.includes('语法错误')), true);
 }
 
 // ═══ D. 语法错误拦截 ═══

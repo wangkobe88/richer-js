@@ -297,6 +297,11 @@ class BacktestEngine extends AbstractTradingEngine {
           // 生效与 preBuy* 对称）。★此白名单映射漏透传=回测第三层同样静默失效
           //（v15 事故 2026-10-15 与实时引擎同坑，单测已锁两处透传）
           gmgnCheckCondition: s.gmgnCheckCondition || null,
+          // CD158 买信号驱动作弊门条件（2026-11-03）：**回测零接线不消费**（门字段
+          // 回测 fail-open 放行，cheat 43 键回测恒 null——「cheat 因子条件的腿回测
+          // 天然不触发」既有约定同源）；此处透传只为 loadStrategies FA 域校验可见
+          //（漏透传=未知因子校验失明=v15 GMGN 事故同款形状）
+          cheatCheckCondition: s.cheatCheckCondition || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
           // C84 新模型腿（2026-10-17）：叙事发起条件——与 narrativeCallCondition 同为
           // FA 集条件字段（loadStrategies 第四集校验+互斥）。★此白名单映射漏透传=
@@ -535,6 +540,14 @@ class BacktestEngine extends AbstractTradingEngine {
       mode: 'virtual',
       onFire: (tokenAddress, tick, fireTs) => this._runBuyEvaluation(tokenAddress, tick, fireTs),
     });
+
+    // 8b. 买信号发射节流（T110 2026-11-03 用户裁定「全局买信号机制」——回测同步
+    // 生效）：per-token 冷却双门（时间 AND 新 ticks）+发射帽，时钟=fireTs 虚拟
+    // 时钟（本类禁 Date.now 前视红线同源，semantics 与实时引擎逐字一致——检查点
+    // 即记账，门拒/执行失败不退还）
+    const { BuySignalThrottle } = require('../core/BuySignalThrottle');
+    this._buySignalThrottle = new BuySignalThrottle(
+      wsConfig.buySignalCooldownMs, wsConfig.buySignalMaxPerToken, wsConfig.buySignalCooldownTicks);
 
     // 8.5 卖出确认去抖（虚拟时钟模式：首真 tick 起计不重置；默认 0=关闭=存量实验零变化；
     // minTicks 双门同键透传——virtual 时钟只在 tick 到达时推进，maxWait 强制门对死票
@@ -1631,6 +1644,8 @@ class BacktestEngine extends AbstractTradingEngine {
     // 预载 rating；与实时引擎 stop 清 _narrativeTriggerStates 同族防线）
     const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
     for (const addr of this._tokenMeta.keys()) FourMemeFactorAggregator.clearNarrativeFactors(addr);
+    // T110：清买信号发射节流计数（同进程接续下一轮回测不继承发射计数）
+    if (this._buySignalThrottle) this._buySignalThrottle.clear();
     await super.stop();
   }
 
@@ -1780,6 +1795,15 @@ class BacktestEngine extends AbstractTradingEngine {
       const narrativeGateEnabled = !!(strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== '');
       if (narrativeGateEnabled && this._narrativeBlockedTokens.has(tokenAddress)) {
         return { success: false, reason: '叙事否决短路（评级 low 终态，不再生成信号）' };
+      }
+
+      // ── T110 买信号发射节流（2026-11-03 用户裁定「全局买信号机制」——回测同步）──
+      // 时钟=nowTs 虚拟时钟（fireTs；本类禁 Date.now 前视红线）；冷却双门
+      // （时间 AND 新 ticks，tick 口径=FA state.tradeCount 同源）；检查点即记账
+      //（门拒/执行失败不退还——与实时引擎 admit 一体同语义）。拦截=不落 signal 行
+      const _throttleAdmit = this._buySignalThrottle.admit(tokenAddress, nowTs, factorResults.tradeCount);
+      if (!_throttleAdmit.ok) {
+        return { success: false, reason: `买信号节流拦截: ${_throttleAdmit.reason}` };
       }
 
       const latestPrice = factorResults.currentPrice || 0;

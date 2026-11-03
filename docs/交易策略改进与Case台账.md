@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004）
+## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004）
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -50,6 +50,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T110 买信号发射节流：per-token 冷却双门（时间 AND ticks）+ 发射帽（引擎级全局机制 `BuySignalThrottle`；2026-11-03 CD158 重构同批立法，用户五点需求之 3/5——机制案无 token）
+
+- **用户需求原话（CD158 五点之 3、5）**：「购买信号发出增加冷却期（实验层配置），默认 3 秒，3 秒内不允许再发信号（无论上次是否通过）」「买入信号有数量限制（无论是否通过），每代币默认最多 5 次 → 每代币最多 5 次作弊检测」。**裁定②（AskUserQuestion）**：冷却/上限=**全局买信号机制**（所有实验生效，回测同步生效）——非作弊门专属配置。
+- **追裁定（同日）**：「改一个小细节，信号发出的冷却时间 3 秒，改为 3 秒 + 10 个 ticks，也就是说，不仅仅有时间作为冷却条件，再加一个 ticks 冷却条件（还是担心很快把次数用光了，后续好机会上不了车）」——动机=纯时间窗在高频 tick 流（BSC 0.75s 出块+act=ultra 票实测 436 ticks/min）下 3s 内即可连发把帽烧光；ticks 门保证两次发射之间必有新链上交易证据（新证据=新信息，不是同一形状反复射击）。
+- **机制**（`src/trading-engine/core/BuySignalThrottle.js`，两引擎共用单一类）：配置三键 `fourmemeWs.buySignalCooldownMs`（默认 3000，0=关）/`buySignalCooldownTicks`（默认 10，0=关）/`buySignalMaxPerToken`（默认 5，0=不限）；flap/gang 经 `_mergedWsConfig` 同键；创建页「买信号发射节流」独立区块三输入（回测不剥离）。放行条件=帽未超 ∧（cooldownMs≤0 ∨ now−lastFireAt≥cooldownMs）∧（cooldownTicks≤0 ∨ tickCount 非有限 ∨ tickCount−lastFireTicks≥cooldownTicks）——**双门 AND 半开窗**（恰等于阈值放行）。
+- **ticks 口径=FA `state.tradeCount`**（全量链上交易数，live/回测同源 processTick 每行恰一次递增；fire 时 factorResults.tradeCount 恒在场——tickBuildSkip 出窗票不 emit factorsUpdated，fire 时 `_runBuyEvaluation` 独立全量重建）——无平行计数器漂移。
+- **被拦不记账**（时间锚/tick 锚/计数均不动=连续拦不续窗不烧帽）；首发射锚=−Infinity 天然过；**tickCount 非有限=该门跳过退化纯时间**（fail-open 放行不吞发射机会——tradeCount 恒有值，缺席=接线异常形状；与「好机会上不了车」立法本意同向；非兜底而是显式缺失语义，注释+单测锁死）。
+- **挂点**：live=`FourMemeWssTradingEngine` 作弊拉黑双源短路后、latestPrice 前（`admit(tokenAddress, Date.now(), factorResults.tradeCount)` 真墙钟；拦截=静默 return 先于 markBuyFire/信号落库——不落信号行不烧后续门，metrics.buySignalThrottled 计数）；回测=`BacktestEngine` 叙事否决短路后同款（`admit(tokenAddress, nowTs, …)` fireTs 虚拟时钟，核心类禁 Date.now 红线）；stop clear（进程内存态重启归零）。
+- **「无论是否通过」**：admit 检查+记账一体——门拒（叙事/作弊/GMGN）/执行失败/save 失败均不退还（用户原话语义）。OBSERVE 观察信号/手工买不走本层（独立路径零引用）；**发射帽同时=作弊检测每代币检测次数上限（CD158 粘滞配额封顶——无帽连续分析的安全阀）**；观测计数 cooldownDropped/tickDropped/capDropped 分键。
+- **验证**：`_test_buy_signal_throttle.cjs` 47 断言全绿（A 段 core：半开窗/被拦不记账铁证（冷却锚不重置）/帽封顶不加计/0=关/缺省 3000/5/10/token 级隔离/clear/源码禁 Date.now；A9 段 tick 门七组：双门 AND 独立拦/恰 +10 放行/被拦不记 tick 锚铁证/首发射 tc=0 天然过/undefined·NaN 退化放行零 tickDropped/tickDropped·cooldownDropped 分键；B 段两引擎接线源码锁：挂点序/时钟源/构造三键/`_buySignalThrottle` 恰 4 处引用=OBSERVE 手工买零引用）+`_test_backtest_trigger_leg.cjs` 桩补真实 throttle 全关中性。
+- **已知后果**：进程内存态重启归零（叙事触发状态机同款先例）；同 token 跨策略腿共享节流（per-token 语义=腿间不重复发射）。
 
 ### T108 v67 反作弊分级门上线 + GMGN bundler 组退役 + T104 断流臂退役（库 buy-v2 v53→v54 / buy-v2-repeat v3→v4 / 新实验 `e3d00085` 换车三变更；2026-11-02 用户指令「可以新建实验了，将反作弊模块上线。其中 GMGN 的检测条件 gmgnBundlerWalletRatio <= 100 删除，卖出臂中的断流臂（断流XX秒全部卖出）删除」+ 追认「(marketCap < 10.7 OR gmgnBundlerWalletRatio <= 100) 全部删除即可」）
 
