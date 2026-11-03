@@ -988,6 +988,9 @@ class ExperimentDetail {
             <span class="${badgeColor} text-white text-xs px-2 py-1 rounded-full font-bold">#${index + 1}</span>
             <span class="font-semibold ${titleColor}">优先级: ${strategy.priority}</span>
             ${strategy.buyPhase ? `<span class="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">${strategy.buyPhase === 'first' ? '首买轮' : '再买轮'}</span>` : ''}
+            ${strategy.sellDebounce && strategy.sellDebounce.minTicks != null ? `<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">卖确认≥${strategy.sellDebounce.minTicks}tick</span>` : ''}
+            ${strategy.sellDebounce && strategy.sellDebounce.debounceMs != null ? `<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">确认窗${strategy.sellDebounce.debounceMs}ms</span>` : ''}
+            ${strategy.sellDebounce && strategy.sellDebounce.maxWaitMs != null ? `<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">确认帽${strategy.sellDebounce.maxWaitMs}ms</span>` : ''}
             ${strategy.maxExecutions ? `<span class="text-xs text-gray-600">最多执行: ${strategy.maxExecutions}次</span>` : '<span class="text-xs text-gray-600">无限执行</span>'}
           </div>
         </div>

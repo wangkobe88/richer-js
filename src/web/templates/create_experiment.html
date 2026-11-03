@@ -1934,6 +1934,12 @@
             if (cfg.cards != null) badges.push(`🃏${cfg.cards}`);
             if (cfg.cooldownSec != null) badges.push(`⏱️${cfg.cooldownSec}s`);
             if (cfg.bypassDebounce) badges.push('旁路去抖');
+            // T109 卖确认去抖覆盖段（仅卖腿）：逐键徽章，配了哪个键显示哪个
+            if (cfg.sellDebounce) {
+                if (cfg.sellDebounce.minTicks != null) badges.push(`卖确认≥${cfg.sellDebounce.minTicks}tick`);
+                if (cfg.sellDebounce.debounceMs != null) badges.push(`确认窗${cfg.sellDebounce.debounceMs}ms`);
+                if (cfg.sellDebounce.maxWaitMs != null) badges.push(`确认帽${cfg.sellDebounce.maxWaitMs}ms`);
+            }
             card.querySelector('.leg-badges').innerHTML =
                 badges.map(b => `<span class="badge">${b}</span>`).join('');
             // 子条件块：执行语义字段与主条件同等视觉地位（2026-10-01，
@@ -2024,6 +2030,7 @@
                         const bits = [];
                         if (l.buyPhase === 'first') bits.push('首买');
                         if (l.buyPhase === 'repeat') bits.push('再买');
+                        if (l.sellDebounce && l.sellDebounce.minTicks != null) bits.push(`卖确认≥${l.sellDebounce.minTicks}tick`);
                         bits.push(`P${l.priority ?? '-'}`, l.condition || '');
                         return bits.join(' ');
                     }).map(t => `<div class="text-xs text-gray-600 truncate" title="${t.replace(/"/g, '&quot;')}">${t}</div>`).join('');

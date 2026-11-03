@@ -550,7 +550,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **校验链（buyPhase T100 同款 fail-fast）**：`normalizeSellDebounce`（StrategyEngine 模块函数单一真相源，值域 minTicks 整数 0-1000/两时长 0-600000ms、键白名单、空段{}=null 等价未配）→ loadStrategies 非法 throw 拒启 + 非卖腿携带 throw ↔ `validateLegs` 400 共享同函数防双路径漂移；库页卖腿表单折叠区三输入（空=不覆盖）+ 列表 bits 展示 `卖确认≥Ntick`
 - **行为变化说明（存量实验无 sellDebounce 字段=腿级零变化；tick 去重对存量是收紧）**：同笔 tick 不再双计 → minTicks=5 的实质门槛从 ~3 笔恢复为设计意图的 5 笔——这正是修复目的
 - **单测**：`_test_sell_debounce_mechanisms.cjs` 41→75 断言（新增六段：事故现场反证 3 笔×双投递凑不满 5 不 fire/snake_case 去重/聚合交易同 tx 不同 logIndex 各计/null tick 扫描不凑证据/腿级四参数覆盖+固化+缺省回落/装载校验六拒启形状+validateLegs 同口径）；受影响存量 sell_leg_scan_fallback/stop_loss_rules/graduation_sell_and_anchor/card_position/buy_phase_routing/validate_legs/fa_deferred_wallet_feeding 等 14 件全绿
-- **生效条件**：须重启实验进程（v68 PID 2072229@182 现跑旧代码）；止损臂 P2 想加严=tick 去重已实质翻倍（5 真笔），再叠加腿级 `sellDebounce:{minTicks: N}` 由用户按票池裁定
+- **生效条件**：须重启实验进程（v68 PID 2072229@182 现跑旧代码）；**P2 止损臂已应用腿级覆盖（2026-11-03 追记，用户拍板 minTicks=8）**：实验 `67803108` config 卖腿 `profitPercent <= -35` 加 `sellDebounce:{minTicks:8}`（DB 单行更新+validateLegs 单腿校验+回读断言腿数 25 不变；**该腿不在策略库**——库 sell 侧仅 3 条无一含此条件，改的是实验 config 快照本体；rug-exit 的另一条 P2 腿 issuerAccountState 未误伤）；UI 同批=创建页只读卡逐键徽章（卖确认≥Ntick/确认窗ms/确认帽ms）+库引用浮层 bits+实验详情页三徽章（experiment_detail.js ?v=5.2→5.3）。效果=-35 止损臂须 **8 真笔** true tick 确认（去重后口径，debounceMs/maxWaitMs 回落引擎级 3500ms/120s），其余卖腿维持引擎级 minTicks=5
 
 ### T104 流动性止损 stallClose：持仓票无成交 >10s 全部清仓（引擎级机制 `stallClose` 段，v63 起实跑；2026-10-29 用户提案「如果发现有10秒钟没有交易，全部清仓」→ 看完回放裁定「可以，上吧。二次起飞的看看再买臂能不能捕捉到，我想如果一个票没流动性了，就是要赶紧跑。」）
 
