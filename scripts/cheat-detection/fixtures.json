@@ -848,7 +848,7 @@
       "note": "live 窗新收（引擎 07:20:40 买 t+106 卖躲过砸盘）：t+26s 十全新钱包 0.1000x10 同块 bundler 簇（全不在 roster=一次性新簇）→t+113s 同簇同块同步砸盘（0.0995/0.0940/…递减）；creator 0xceb1…6ec3 t+0 买 0.60→t+109s 砸盘前 4s 卖 0.7865 精准抽走；用户裁定=作弊盘或健康度极低，同步砸盘+creator 抽走证据采信 cheat",
       "addedAt": "2026-10-30",
       "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户裁定：明显 0.1 BNB 跟单大簇，作弊盘或健康度极低——同块买+同块同步砸盘+creator 砸盘前抽走采信 cheat；机器判读同向"
+      "expectBecause": "2026-10-30 用户裁定：明显 0.1 BNB 跟单大簇，作弊盘或健康度极低——同块买+同块同步砸盘+creator 砸盘前抽走采信 cheat；机器判读同向；11-03 C 组收尾补跑真调（D3.49+G13）接住 cheat：A_strong:eq+pump+R_abnormal_dominant（存档 09-58-38）"
     },
     {
       "caseId": "CD54",
@@ -1456,7 +1456,7 @@
       "note": "aed2091d 首买基线收录（锚=18=首笔成功买+settle4000ms；买18/卖0 Σ买1.79BNB 钱包18 top1=33.4% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "组17裁定=cheat（用户裁定「作弊无疑」——CD53/54/72/76 同形状模板第五票（t1 供/流 9.4945/39.2% 完全同数）18 笔全买零卖；eq/bw/pump 三 strong+bd=high）"
+      "expectBecause": "组17裁定=cheat（用户裁定「作弊无疑」——CD53/54/72/76 同形状模板第五票（t1 供/流 9.4945/39.2% 完全同数）18 笔全买零卖；eq/bw/pump 三 strong+bd=high）；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:pump@0.59+eq strong@0.44+E+R（abr dominant@0.83）"
     },
     {
       "caseId": "CD92",
@@ -1488,7 +1488,7 @@
       "note": "aed2091d 首买基线收录（锚=29=首笔成功买+settle4000ms；买27/卖2 Σ买4.01BNB 钱包27 top1=8.2% churn1 同块簇4 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "组18裁定=cheat（用户裁定「CD93 cheat」——bw/rat/pump 三 strong+sbHold 72.4%+eqHold 50.7%+bd=high 多证据组合；rat=strong 为 D3.22 双口径后 insider strong 通道首个正例（此前 128 票无正例）；首轮 87s +242% 盈利不改变结构判定（CD90 先例：盈亏与盘面结构判定独立））"
+      "expectBecause": "组18裁定=cheat（用户裁定「CD93 cheat」——bw/rat/pump 三 strong+sbHold 72.4%+eqHold 50.7%+bd=high 多证据组合；rat=strong 为 D3.22 双口径后 insider strong 通道首个正例（此前 128 票无正例）；首轮 87s +242% 盈利不改变结构判定（CD90 先例：盈亏与盘面结构判定独立））；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:pump@0.37+E+J+L_insider_sell97（纯卖 97.3%）+R"
     },
     {
       "caseId": "CD94",
@@ -1536,7 +1536,7 @@
       "note": "aed2091d 首买基线收录（锚=41=首笔成功买+settle4000ms；买41/卖0 Σ买1.72BNB 钱包17 top1=17.5% churn0 同块簇6 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "组18裁定=cheat（用户裁定「CD96 cheat」——41 笔全买零卖（churn 0 卖 0/0）全买零卖家族第六票（CD53/54/72/76/91 同族；t1 供/流 5.0/21.2 与 9.4945 模板不同数非同模板克隆）+eq/bw/pump 三 strong+bd=high）"
+      "expectBecause": "组18裁定=cheat（用户裁定「CD96 cheat」——41 笔全买零卖（churn 0 卖 0/0）全买零卖家族第六票（CD53/54/72/76/91 同族；t1 供/流 5.0/21.2 与 9.4945 模板不同数非同模板克隆）+eq/bw/pump 三 strong+bd=high）；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:pump@0.41+E+J+R（sbHold 71.3）"
     },
     {
       "caseId": "CD97",
@@ -1723,12 +1723,12 @@
         "tickCount": 35
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=35=首笔成功买+settle4000ms；买34/卖1 Σ买1.89BNB 钱包26 top1=15.7% churn0 同块簇0 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「5.CD108 cheat」。34 笔买仅 1 笔卖 0.011（准全买零卖）+churn 0+pump=strong 垫量推价+top1 15.7% 分散多钱包垫量——与 CD99（unhealthy）形状相近（差异 CD99 bw=moderate 本票 bw=weak），分档不同如实记录供攒票观察"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 C 组第二批裁定原话「可以接受」——接受机器 unhealthy[E_low_activity_weak_burst]（sbw burst@0.69 但弱 burst 豁免三键全中 gap178s/波买0.6/6户；pump moderate@0.50 差一线、eq weak@0.55、abr negligible@0.47）；原 11-01 cheat 判定降档拒买级（立法代价形状）"
     },
     {
       "caseId": "CD109",
@@ -1744,7 +1744,7 @@
       "note": "aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买23/卖2 Σ买1.31BNB 钱包22 top1=46.0% churn2 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「6.CD109 cheat」。t1 供 9.49453795640262 完全同数=同模板第九票+eq/bw/pump 三 strong+sbHold/eqHold 39.1%（卖 2 笔 0.026 非纯全买零卖）"
+      "expectBecause": "用户裁定「6.CD109 cheat」。t1 供 9.49453795640262 完全同数=同模板第九票+eq/bw/pump 三 strong+sbHold/eqHold 39.1%（卖 2 笔 0.026 非纯全买零卖）；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:pump@0.46+R（abr dominant@0.66）"
     },
     {
       "caseId": "CD110",
@@ -1776,7 +1776,7 @@
       "note": "4012ce39 首买基线收录（锚=22=首笔成功买+settle4000ms；买21/卖1 Σ买1.26BNB 钱包21 top1=48.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「2. CD111 cheat」。bw+pump 双 strong+sbHold 36.4%+eqHold 41.3%+买卖 21:1 近全买零卖+churn 1；t1 供 9.8 与 9.4945 模板不同数=非克隆票，SAFU 系形状（CD109 三 strong/CD102 bw strong+集中度谱系）双 strong 即足判"
+      "expectBecause": "用户裁定「2. CD111 cheat」。bw+pump 双 strong+sbHold 36.4%+eqHold 41.3%+买卖 21:1 近全买零卖+churn 1；t1 供 9.8 与 9.4945 模板不同数=非克隆票，SAFU 系形状（CD109 三 strong/CD102 bw strong+集中度谱系）双 strong 即足判；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:pump@0.42+R（abr dominant@0.53）"
     },
     {
       "caseId": "CD112",
@@ -1787,12 +1787,12 @@
         "tickCount": 22
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "4012ce39 首买基线收录（锚=22=首笔成功买+settle4000ms；买22/卖0 Σ买1.70BNB 钱包22 top1=12.7% churn0 同块簇1 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「3. CD112 cheat」。全买零卖 22:0+churn 0+pump strong+top1 12.7% 分散垫量+等额簇 0 无阵列——全买零卖家族首个 four.meme 票；与 CD108（准全买零卖+分散垫量+pump strong=cheat）同向，与 CD99（单 strong 无阵列=unhealthy）形状相近分档不同，「单 strong 无阵列+分散垫量」臂第二次采样落 cheat，分界攒票观察"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 C 组第二批裁定原话「可以接受」——接受机器 unhealthy[E_low_activity]（act low@0.62、pump moderate@0.37、eq weak@0.62、hold weak@0.42、abr noticeable@0.54 全题无一 strong）；原 11-01 cheat 判定降档拒买级（立法代价形状）"
     },
     {
       "caseId": "CD113",
@@ -1883,12 +1883,12 @@
         "tickCount": 42
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "4012ce39 首买基线收录（锚=42=首笔成功买+settle4000ms；买33/卖9 Σ买3.36BNB 钱包22 top1=29.8% churn5 同块簇4 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「3. CD118 cheat」。rat=strong（insider strong 正例 CD93/CD94 后第三票）+sbHold 56.4%+t1 供 15.2%——单 strong+集中度即足判（CD94 同款）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 C 组第二批裁定原话「可以接受」——接受机器 unhealthy[L_insider_sell58,R_abnormal_dominant]（纯卖 57.8%、insider moderate@0.58 strong@0.36 差 0.14、abr dominant@0.55、sbHold 56.4、eq/sd/tier 全 moderate 共振无一 strong）；原 11-01 cheat 判定降档拒买级（立法代价形状）"
     },
     {
       "caseId": "CD119",
@@ -1899,12 +1899,12 @@
         "tickCount": 32
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "4012ce39 首买基线收录（锚=32=首笔成功买+settle4000ms；买25/卖7 Σ买3.27BNB 钱包22 top1=17.0% churn5 同块簇4 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「4. CD119 cheat」。sb/sd/rat 三 moderate 无 strong+sbHold 67.4% 本组最高+bd=high+dom=mid(38%)——与 CD95/CD100「无 strong 集中堆叠落 unhealthy」分界不同：三现象 moderate 堆叠+最高集中度仍判 cheat，攒票观察"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 C 组第二批裁定原话「可以接受」——接受机器 unhealthy[L_insider_sell50]（纯卖 49.5%、insider moderate@0.73、sbHold 67.4、eq/sb/sd/tier/bw 五题 moderate 共振无一 strong、famous dom=mid）；原 11-01 cheat 判定降档拒买级（立法代价形状）"
     },
     {
       "caseId": "CD120",
@@ -1968,7 +1968,7 @@
       "note": "4012ce39 首买基线收录（锚=31=首笔成功买+settle4000ms；买25/卖6 Σ买3.60BNB 钱包26 top1=8.3% churn1 同块簇4 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「2.CD123 cheat」。eq/tier/bw/pump 四 strong+sbw=burst——与 CD120 同款回归集最强档位组合第二票；sbHold 66.1%+eqHold 57.2% 双高+rat/sb moderate 再加层，档位证据比 CD120 厚"
+      "expectBecause": "用户裁定「2.CD123 cheat」。eq/tier/bw/pump 四 strong+sbw=burst——与 CD120 同款回归集最强档位组合第二票；sbHold 66.1%+eqHold 57.2% 双高+rat/sb moderate 再加层，档位证据比 CD120 厚；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:eq@0.47+J+L_insider_sell27+R（组织买 73.2%、纯卖 27.2% 刚过 L 线）"
     },
     {
       "caseId": "CD124",
@@ -2011,12 +2011,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "4012ce39 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买2.08BNB 钱包19 top1=9.6% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「5.CD126 cheat」。全买零卖 19:0+单 pump strong+bd=high——CD112 同款（全买零卖+单 pump strong→cheat）分档再确认；eqHold 59.6% 但 sbHold 仅 10.7%（等额带集中同块不集中=CD121 同款形状）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 C 组第二批裁定原话「可以接受」——接受机器 unhealthy[E_low_activity]（act low@0.64、pump moderate@0.40、eq moderate@0.48、eqHold 59.6、组织买 70.3% 全 moderate 无 strong）；原 11-01 cheat 判定降档拒买级（立法代价形状）"
     },
     {
       "caseId": "CD127",
@@ -2048,7 +2048,7 @@
       "note": "4012ce39 首买基线收录（锚=37=首笔成功买+settle4000ms；买37/卖0 Σ买2.24BNB 钱包31 top1=9.9% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「7.CD128 cheat」。全买零卖 37:0+pump strong+sbw=burst+eq/tier/bw moderate 三档堆叠+bd=high——CD112/CD126 谱系第三票；31 钱包分散+churn 0 但 burst+moderate 堆叠在场"
+      "expectBecause": "用户裁定「7.CD128 cheat」。全买零卖 37:0+pump strong+sbw=burst+eq/tier/bw moderate 三档堆叠+bd=high——CD112/CD126 谱系第三票；31 钱包分散+churn 0 但 burst+moderate 堆叠在场；11-03 C 组第二批真调（D3.49+G13）接住 cheat：A_strong:pump@0.40（sbw burst@0.87、波 1.0 BNB/17 户/gap 109s）"
     },
     {
       "caseId": "CD137",
