@@ -285,6 +285,11 @@ class ExperimentDetail {
     if (linkPosition) {
       linkPosition.href = `/experiment/${this.experimentId}/position-analysis`;
     }
+    // 反作弊分析（G12）：实验级 cheat_detection 判定全景页
+    const linkCheatAnalysis = document.getElementById('link-cheat-analysis');
+    if (linkCheatAnalysis) {
+      linkCheatAnalysis.href = `/experiment/${this.experimentId}/cheat-analysis`;
+    }
     // 手工交易入口（P0-C 实盘前置批）：仅 live 实验显示（页面/命令 API 均仅 live 语义）
     const linkManual = document.getElementById('link-manual');
     if (linkManual) {

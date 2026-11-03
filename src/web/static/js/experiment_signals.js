@@ -4,6 +4,23 @@
  * Version: 4.0 - 添加拒绝信号标记和统计
  */
 
+// 叙事分类映射（token_narrative.token_category；语义对齐 jev-questions
+// event_category 题集，与 token-returns 页同款）
+const NARRATIVE_CATEGORY_MAP = {
+  'event:A': { label: '形象IP', title: 'A · 形象 IP：meme 角色/吉祥物/虚拟形象/卡通 IP/表情包角色' },
+  'event:B': { label: '产品', title: 'B · 非 Web3 产品：app/游戏/硬件/网站/消费品发布或更新' },
+  'event:C': { label: '个人', title: 'C · 个人声明：个人身份发言（非机构官方口径）' },
+  'event:D': { label: '机构', title: 'D · 机构行动：公司/组织官方账号公告或行动' },
+  'event:E': { label: '热点', title: 'E · 社会热点：正在平台传播的趋势/病毒内容/热梗' },
+  'event:F': { label: '发现', title: 'F · 发现：作者原创的隐藏模式/数据洞察/叙事发现' },
+  'event:G': { label: '预测', title: 'G · 预测：未来事件预测（有推理但证据不足）' },
+  'event:W': { label: 'Web3', title: 'W · Web3 项目：区块链/加密产品发布或更新' },
+  'project':              { label: '项目', title: 'prestage · 项目币/发行方自发' },
+  'account_based_meme':   { label: '账号型', title: 'prestage · 账号型 meme（账号/社区 token）' },
+  'web3_native_ip_early': { label: '原生IP', title: 'prestage · Web3 原生 IP 早期' },
+  'super_ip_fast':        { label: '快车道', title: '已废弃 · superIP 快车道（C83 前旧行）' },
+};
+
 class ExperimentSignals {
   constructor() {
     this.experimentId = null;
@@ -273,6 +290,7 @@ class ExperimentSignals {
 
       // 更新实验信息
       if (experimentResponse.data) {
+        this._experimentData = experimentResponse.data; // 叙事触发条件串等配置供详情面板消费
         this.updateExperimentHeader(experimentResponse.data);
 
         // 🔥 如果是回测实验，异步获取源实验的区块链信息（用于生成GMGN链接）
@@ -573,13 +591,17 @@ class ExperimentSignals {
       // 与引擎 holderCount 同口径；不依赖已停写的 experiment_time_series_data）；
       // trades=成交记录（2026-10-15 双口径：图上标成交时刻/成交价，与信号时刻/信号价并陈）；
       // rounds=叙事分析轮次（C84：新模型腿后台分析留痕，图表标注+轮次面板共用）；
-      // observe=观察信号（OBSERVE 行时刻，图上标青虚线）
-      const [tickResponse, holderResponse, tradesData, roundsData, observeData] = await Promise.all([
+      // observe=观察信号（OBSERVE 行时刻，图上标青虚线）；
+      // cheats=反作弊判定行（G12：图上标判定时刻虚线+详情）、
+      // narrative=叙事分析结论（token_narrative 最新行：分类/评级/理由/超级IP）
+      const [tickResponse, holderResponse, tradesData, roundsData, observeData, cheatData, narrativeDetail] = await Promise.all([
         this.fetchTickData(token.address),
         this.fetchHolderSeries(token.address),
         this.fetchTokenTrades(token.address),
         this.fetchNarrativeRounds(token.address),
         this.fetchObserveSignals(token.address),
+        this.fetchCheatDetections(token.address),
+        this.fetchNarrativeDetail(token.address),
       ]);
       // 切换代币后过期响应直接丢弃
       if (this.selectedToken !== token.address) return;
@@ -590,6 +612,8 @@ class ExperimentSignals {
       this._lastTokenTrades = tradesData;
       this._lastNarrativeRounds = roundsData;
       this._lastObserveSignals = observeData;
+      this._lastCheatDetections = cheatData;
+      this._lastNarrativeDetail = narrativeDetail;
 
       if (!tickResponse?.success || !tickResponse?.data?.length) {
         console.warn('⚠️ 没有 tick 数据，隐藏图表');
@@ -716,6 +740,48 @@ class ExperimentSignals {
   }
 
   /**
+   * 拉取该 token 的反作弊判定行（cheat_detection：G12 分级门轨迹，
+   * 帽 4/token）——图表判定时刻标注 + 详情展示数据源。
+   * @param {string} tokenAddress
+   * @returns {Promise<Array>} 判定行（analyzed_at/grade/grade_reasons/verdict）
+   */
+  async fetchCheatDetections(tokenAddress) {
+    try {
+      const params = new URLSearchParams({ tokenAddress });
+      const response = await fetch(`/api/experiment/${this.experimentId}/cheat-detections?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      return Array.isArray(json.data) ? json.data : [];
+    } catch (error) {
+      console.error('获取反作弊判定失败:', error);
+      return []; // 判定缺席不阻塞图表
+    }
+  }
+
+  /**
+   * 拉取该 token 的叙事分析结论（token_narrative 最新行经 POST /narrative
+   * 子集路径：rating/token_category/reason/superip 标签）——详情面板数据源。
+   * @param {string} tokenAddress
+   * @returns {Promise<Object|null>} {rating, token_category, reason, superIp...} | null
+   */
+  async fetchNarrativeDetail(tokenAddress) {
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/narrative`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addresses: [tokenAddress] }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      const row = Array.isArray(json.data) && json.data.length ? json.data[0] : null;
+      return row?.narrative || null;
+    } catch (error) {
+      console.error('获取叙事分析结论失败:', error);
+      return null; // 结论缺席不阻塞图表
+    }
+  }
+
+  /**
    * 生成叙事分析轮次标注（C84）：析起=紫虚线[6,4]、析毕=琥珀虚线[2,3]。
    * 与信号/成交标注同窗过滤（防撑开 X 轴）；标签放顶部（position 'end'）与
    * 底部信号标签错位。轮次时间轴与 ticks 同墙钟（引擎发起/完成时刻）。
@@ -801,22 +867,112 @@ class ExperimentSignals {
   }
 
   /**
-   * 叙事分析轮次面板（C84）：轮次表 + 终评 + fire 提前量。
+   * 生成反作弊判定时刻标注（cheat_detection 行）：点虚线[1,3]，色随 grade
+   * （unhealthy=玫红 / cheat=深红 / healthy=青绿 / 失败行=灰）。标签放顶部，
+   * 固定 28px 下移基座（叠在析起/析毕/观察标注之上，四层错位）。
+   * 只画 grade 行（timeout/error 失败行也画，灰标签留痕配额消耗点）。
+   */
+  _buildCheatAnnotations(cheatRows, trimStart, trimEnd) {
+    const annotations = [];
+    if (!Array.isArray(cheatRows)) return annotations;
+    const GRADE_STYLE = {
+      cheat: { color: '#b91c1c', label: '拉黑' },
+      unhealthy: { color: '#ec4899', label: '不健康' },
+      healthy: { color: '#14b8a6', label: '健康' },
+    };
+    const stack = new Map(); // 同刻多行错位
+    cheatRows.forEach(row => {
+      const ms = new Date(row.analyzed_at).getTime();
+      if (!Number.isFinite(ms)) return;
+      if (trimStart != null && ms < trimStart) return;
+      if (trimEnd != null && ms > trimEnd) return;
+      const grade = row.grade;
+      const style = grade ? GRADE_STYLE[grade] : null;
+      // 未分级行（观察层/旧版/失败行）：灰虚线标 verdict，只对非 observed 的
+      // 失败行画（observed 未分级=判定层停产期形状，画了只有噪声）
+      if (!style && row.verdict !== 'timeout' && row.verdict !== 'error') return;
+      const text = style ? `反作弊·${style.label}` : `反作弊·${row.verdict}`;
+      const color = style ? style.color : '#6b7280';
+      const idx = stack.get(ms) || 0;
+      stack.set(ms, idx + 1);
+      annotations.push({
+        type: 'line',
+        xMin: ms,
+        xMax: ms,
+        borderColor: color,
+        borderWidth: 1.5,
+        borderDash: [1, 3],
+        label: {
+          display: true,
+          content: text,
+          position: 'end',
+          yAdjust: 28 + idx * 15,
+          backgroundColor: color,
+          color: '#fff',
+          font: { size: 10 },
+        },
+      });
+    });
+    return annotations;
+  }
+
+  /**
+   * 叙事分析轮次面板（C84）：分析结论块（token_narrative 最新行：分类/评级/
+   * 理由/超级IP + 触发条件串）+ 轮次表 + 终评 + fire 提前量。
    * leadMs 取自该 token 买信号 metadata.narrativeRoundsSummary（fire−末轮完成）；
-   * 无轮次（legacy 实验/token 未触发）面板隐藏。
+   * 轮次与结论任一在场即展示（legacy 腿无轮次但有直调结论；反向=未触发无结论）。
    */
   _renderNarrativeRoundsPanel(token) {
     const wrapper = document.getElementById('narrative-rounds-wrapper');
     const body = document.getElementById('narrative-rounds-body');
     if (!wrapper || !body) return;
     const rounds = Array.isArray(this._lastNarrativeRounds) ? this._lastNarrativeRounds : [];
-    if (!rounds.length) { wrapper.classList.add('hidden'); body.innerHTML = ''; return; }
+    const detail = this._lastNarrativeDetail || null;
+    if (!rounds.length && !detail) { wrapper.classList.add('hidden'); body.innerHTML = ''; return; }
     wrapper.classList.remove('hidden');
 
     const RATING_LABEL = { 1: '1·low', 2: '2·mid', 3: '3·high', 9: '9·未知/失败' };
     const fmtTs = (v) => v ? new Date(v).toLocaleTimeString('zh-CN') : '—';
     const fmtDur = (r) => (r.started_at && r.completed_at)
       ? ((new Date(r.completed_at) - new Date(r.started_at)) / 1000).toFixed(1) + 's' : '—';
+
+    // ── 分析结论块（token_narrative 最新行） ──
+    const detailBits = [];
+    if (detail) {
+      const cat = detail.token_category ? NARRATIVE_CATEGORY_MAP[detail.token_category] : null;
+      if (cat) {
+        detailBits.push(`<span class="mr-3" title="${this._escapeHtml(cat.title)}">分类: <span class="font-semibold text-purple-300">${this._escapeHtml(cat.label)}</span> <code class="text-gray-500">${this._escapeHtml(detail.token_category)}</code></span>`);
+      } else if (detail.token_category) {
+        detailBits.push(`<span class="mr-3">分类: <code>${this._escapeHtml(detail.token_category)}</code></span>`);
+      } else {
+        detailBits.push(`<span class="mr-3 text-gray-500" title="precheck fail/no_data 无分类（C146 终态清空）">分类: —</span>`);
+      }
+      const rating = detail.llmAnalysis?.summary?.numericRating ?? detail.rating;
+      if (rating != null) {
+        const pass = rating === 2 || rating === 3;
+        detailBits.push(`<span class="mr-3">叙事评级: <span class="${pass ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}">${RATING_LABEL[rating] || rating}</span></span>`);
+      }
+      // C88 超级IP 两标签（1/0/null 三态，null=题集前旧行）
+      if (detail.narrativeSuperIp === 1) detailBits.push(`<span class="mr-3 text-pink-300">★ 超级IP</span>`);
+      if (detail.narrativeSuperIpSlogan === 1) detailBits.push(`<span class="mr-3 text-pink-200">★ 超级IP·口号币</span>`);
+      if (detail.analyzed_at) {
+        detailBits.push(`<span class="mr-3 text-gray-400">分析时刻: ${new Date(detail.analyzed_at).toLocaleString('zh-CN', { hour12: false })}</span>`);
+      }
+      const reason = detail.llmAnalysis?.summary?.reason;
+      if (reason) {
+        detailBits.push(`<div class="mt-1 text-xs text-gray-400 leading-relaxed" style="max-width:72rem"><span class="text-gray-500">理由：</span>${this._escapeHtml(String(reason))}</div>`);
+      }
+    }
+
+    // 触发条件串（实验配置中引用该 token 的叙事触发条件，去重展示）
+    const triggerConds = [...new Set(
+      ((this._experimentData?.config?.strategiesConfig?.buyStrategies) || [])
+        .map(s => s?.narrativeTriggerCondition)
+        .filter(Boolean)
+    )];
+    const triggerHtml = triggerConds.length
+      ? `<div class="mt-1 text-xs"><span class="text-gray-500">叙事触发条件：</span>${triggerConds.map(c => `<code class="px-1.5 py-0.5 bg-gray-900 rounded break-all text-cyan-300">${this._escapeHtml(c)}</code>`).join(' ')}</div>`
+      : '';
 
     const lastDone = [...rounds].reverse().find(r => r.completed_at && r.rating != null);
     const finalBits = [];
@@ -835,28 +991,33 @@ class ExperimentSignals {
       finalBits.push(`<span class="mr-3">fire→买信号用轮数: ${nr.rounds}${Number.isFinite(lead) ? ` · 分析提前量 ${(lead / 1000).toFixed(1)}s` : ''}</span>`);
     }
 
-    const rows = rounds.map(r => `
-      <tr class="border-t border-gray-700">
-        <td class="py-1.5 pr-3">R${r.round_no}</td>
-        <td class="py-1.5 pr-3">${r.trigger_reason === 'retry' ? '🔁 retry（账号型到期）' : '⚡ condition（量门首发）'}</td>
-        <td class="py-1.5 pr-3">${fmtTs(r.started_at)}</td>
-        <td class="py-1.5 pr-3">${fmtTs(r.completed_at)}${r.completed_at ? `（${fmtDur(r)}）` : '<span class="text-gray-500">（进行中/未回填）</span>'}</td>
-        <td class="py-1.5 pr-3">${r.rating == null ? '—' : `<span class="${r.rating === 2 || r.rating === 3 ? 'text-green-400' : 'text-red-400'}">${RATING_LABEL[r.rating] || r.rating}</span>`}</td>
-        <td class="py-1.5 pr-3">${r.from_cache == null ? '—' : (r.from_cache ? '缓存命中' : '真跑')}</td>
-        <td class="py-1.5 text-red-400">${this._escapeHtml(r.error || '')}</td>
-      </tr>`).join('');
-
-    body.innerHTML = `
-      <div class="text-sm text-gray-300 mb-2">${finalBits.join('')}</div>
-      <table class="w-full text-xs text-gray-300">
+    const rows = rounds.length ? `
+      <table class="w-full text-xs text-gray-300 mt-3">
         <thead><tr class="text-gray-400 border-b border-gray-600">
           <th class="py-1 pr-3 text-left">轮次</th><th class="py-1 pr-3 text-left">发起</th>
           <th class="py-1 pr-3 text-left">开始</th><th class="py-1 pr-3 text-left">完成</th>
           <th class="py-1 pr-3 text-left">评级</th><th class="py-1 pr-3 text-left">来源</th>
           <th class="py-1 text-left">错误</th>
         </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
+        <tbody>${rounds.map(r => `
+          <tr class="border-t border-gray-700">
+            <td class="py-1.5 pr-3">R${r.round_no}</td>
+            <td class="py-1.5 pr-3">${r.trigger_reason === 'retry' ? '🔁 retry（账号型到期）' : '⚡ condition（量门首发）'}</td>
+            <td class="py-1.5 pr-3">${fmtTs(r.started_at)}</td>
+            <td class="py-1.5 pr-3">${fmtTs(r.completed_at)}${r.completed_at ? `（${fmtDur(r)}）` : '<span class="text-gray-500">（进行中/未回填）</span>'}</td>
+            <td class="py-1.5 pr-3">${r.rating == null ? '—' : `<span class="${r.rating === 2 || r.rating === 3 ? 'text-green-400' : 'text-red-400'}">${RATING_LABEL[r.rating] || r.rating}</span>`}</td>
+            <td class="py-1.5 pr-3">${r.from_cache == null ? '—' : (r.from_cache ? '缓存命中' : '真跑')}</td>
+            <td class="py-1.5 text-red-400">${this._escapeHtml(r.error || '')}</td>
+          </tr>`).join('')}</tbody>
+      </table>` : '<div class="mt-3 text-xs text-gray-500">无轮次留痕（legacy 直调腿 / 未触发新模型分析）</div>';
+
+    body.innerHTML = `
+      <div class="text-sm text-gray-300 mb-2">
+        <div class="flex flex-wrap items-baseline">${detailBits.join('')}</div>
+        ${triggerHtml}
+        <div class="flex flex-wrap items-baseline mt-2">${finalBits.join('')}</div>
+      </div>
+      ${rows}`;
   }
 
   /**
@@ -993,6 +1154,13 @@ class ExperimentSignals {
       );
       observeMarks.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
       annotations.push(...observeMarks);
+
+      // 反作弊判定时刻标注（G12）：点虚线按 grade 着色（Y 轴同款全幅）
+      const cheatMarks = this._buildCheatAnnotations(
+        this._lastCheatDetections, win ? win.trimStart : null, win ? win.trimEnd : null
+      );
+      cheatMarks.forEach(a => { a.yMin = 0; a.yMax = 'max'; });
+      annotations.push(...cheatMarks);
 
       const ctx = canvas.getContext('2d');
       this.holderChart = new Chart(ctx, {
@@ -1161,6 +1329,7 @@ class ExperimentSignals {
       annotations.push(...tradeMarks.annotations);
       annotations.push(...this._buildNarrativeRoundAnnotations(this._lastNarrativeRounds, trimStart, trimEnd));
       annotations.push(...this._buildObserveAnnotations(this._lastObserveSignals, trimStart, trimEnd));
+      annotations.push(...this._buildCheatAnnotations(this._lastCheatDetections, trimStart, trimEnd));
 
       this.chart = new Chart(ctx, {
         type: 'bubble',
@@ -1554,6 +1723,8 @@ class ExperimentSignals {
     signalAnnotations.push(...this._buildNarrativeRoundAnnotations(this._lastNarrativeRounds, trimStart, trimEnd));
     // 观察信号时刻标注（OBSERVE）：青虚线（与散点图同款）
     signalAnnotations.push(...this._buildObserveAnnotations(this._lastObserveSignals, trimStart, trimEnd));
+    // 反作弊判定时刻标注（G12）：点虚线按 grade 着色（与散点图同款）
+    signalAnnotations.push(...this._buildCheatAnnotations(this._lastCheatDetections, trimStart, trimEnd));
     // 涨跌配色：close>=open 绿，否则红（与散点图 buy绿/sell红 一致）
     const up = 'rgba(34,197,94,0.85)', down = 'rgba(239,68,68,0.85)';
 
@@ -1686,6 +1857,10 @@ class ExperimentSignals {
 
     // 更新页面标题
     document.title = `交易信号 - ${name} - 2025-2026 Become Rich Baby!`;
+
+    // 反作弊分析页导航（实验级 cheat_detection 判定全景）
+    const cheatLink = document.getElementById('link-cheat-analysis');
+    if (cheatLink) cheatLink.href = `/experiment/${this.experimentId}/cheat-analysis`;
   }
 
   /**

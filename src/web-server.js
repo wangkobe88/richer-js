@@ -273,6 +273,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_position_analysis.html'));
     });
 
+    // 反作弊分析页面（CD1 G12：cheat_detection 判定轨迹/门拦截/通道与题档分布 实验级总览）
+    this.app.get('/experiment/:id/cheat-analysis', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_cheat_analysis.html'));
+    });
+
     // 代币详情页面（独立页面，不在实验子路由下）
     this.app.get('/token-detail', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
@@ -2113,19 +2118,25 @@ class RicherJsWebServer {
       }
     });
 
-    // 反作弊盘面检测结果（CD1；signal-stats 页「反作弊」列数据源）：
-    // cheat_detection 按 source_experiment_id 拉行（token 级全局表无实验 FK，行内
-    // source_experiment_id=发起分析的实验），瘦列不拉 answers_raw/jev_prompt 大列；
-    // 每 token 多行=as-of 增量重判轨迹，前端按 analyzed_at 取最新
+    // 反作弊盘面检测结果（CD1；signal-stats 页「反作弊」列/反作弊分析页/单票
+    // signals 页图表标注共用数据源）：cheat_detection 按 source_experiment_id 拉
+    // 行（token 级全局表无实验 FK，行内 source_experiment_id=发起分析的实验），
+    // 瘦列不拉 answers_raw/jev_prompt 大列；每 token 多行=as-of 增量重判轨迹，
+    // 前端按 analyzed_at 取最新。?tokenAddress= 单票过滤（signals 页只拉本票，
+    // 免整实验行集）。digest 展开键 additive（grade_* 三键旧消费者不变）
     this.app.get('/api/experiment/:id/cheat-detections', async (req, res) => {
       try {
         const supabase = this.dataService.supabase; // dbManager service key（RLS 红线）
-        const { data, error } = await supabase
+        let query = supabase
           .from('cheat_detection')
-          .select('token_address,platform,verdict,analyzed_at,snapshot_digest')
+          .select('token_address,platform,verdict,fail_reason,analyzed_at,snapshot_digest')
           .eq('source_experiment_id', req.params.id)
           .order('analyzed_at', { ascending: false })
           .limit(10000);
+        if (req.query.tokenAddress) {
+          query = query.eq('token_address', req.query.tokenAddress);
+        }
+        const { data, error } = await query;
         if (error) throw new Error(error.message);
         const rows = (data || []).map((r) => {
           const d = r.snapshot_digest || {};
@@ -2133,10 +2144,25 @@ class RicherJsWebServer {
             token_address: r.token_address,
             platform: r.platform || null,
             verdict: r.verdict || null,
+            fail_reason: r.fail_reason || null,
             analyzed_at: r.analyzed_at,
             grade: d.grade ?? null,
             grade_reasons: d.gradeReasons ?? null,
             grade_version: d.gradeVersion ?? null,
+            // 反作弊分析页（实验级）瘦键：digest 现成字段直传，题档/数值锚/活跃度
+            tick_count: d.tickCount ?? null,
+            capped: d.capped === true,
+            buy_bnb: d.buyBnb ?? null,
+            sell_bnb: d.sellBnb ?? null,
+            phenomena: d.phenomena ?? null,
+            ext_levels: d.extLevels ?? null,
+            activity_level: d.activityLevel ?? null,
+            bundled_dominance: d.bundledDominance ?? null,
+            participation: d.participation ?? null,
+            anchors: d.anchors ?? null,
+            activity: d.activity ?? null,
+            famous: d.famous ?? null,
+            anchor_sell_count: d.anchorSellCount ?? null,
           };
         });
         res.json({ success: true, data: rows, count: rows.length });

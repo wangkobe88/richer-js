@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - 反作弊分析</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 60vh;
+            font-size: 1.2rem;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* grade 徽章（与 signal-stats 反作弊列同色系） */
+        .cheat-grade-cheat {
+            background-color: rgba(220, 38, 38, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(220, 38, 38, 0.5);
+        }
+        .cheat-grade-unhealthy {
+            background-color: rgba(249, 115, 22, 0.2);
+            color: #fb923c;
+            border: 1px solid rgba(249, 115, 22, 0.5);
+        }
+        .cheat-grade-healthy {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.5);
+        }
+        .cheat-grade-plain {
+            background-color: rgba(107, 114, 128, 0.2);
+            color: #9ca3af;
+            border: 1px solid rgba(107, 114, 128, 0.5);
+        }
+
+        /* 轨迹小圆点（unhealthy→healthy 翻案可视化） */
+        .traj-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 9999px;
+            margin-right: 2px;
+        }
+        .traj-healthy { background-color: #10b981; }
+        .traj-unhealthy { background-color: #f97316; }
+        .traj-cheat { background-color: #dc2626; }
+        .traj-fail { background-color: #6b7280; }
+
+        /* 原因/通道分布条 */
+        .reason-bar-track {
+            background: #374151;
+            border-radius: 4px;
+            height: 18px;
+            overflow: hidden;
+        }
+        .reason-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.4s ease;
+        }
+
+        /* 下拉框选项白色文字 */
+        select option {
+            background-color: #374151;
+            color: white;
+        }
+
+        /* 题档分布 chip：非零黄 / strong·burst 红 / 零灰 */
+        .level-chip-nonzero {
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+            font-weight: 600;
+        }
+        .level-chip-strong {
+            background: rgba(220, 38, 38, 0.18);
+            color: #f87171;
+            font-weight: 700;
+        }
+        .level-chip-zero {
+            background: rgba(75, 85, 99, 0.2);
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-400">
+                            <a href="/" class="hover:text-green-300 transition-colors">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">实验列表</a>
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">实验详情</a>
+                            <a id="link-signal-stats" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">信号统计</a>
+                            <a id="link-signals" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">交易信号</a>
+                            <a id="current-page" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">反作弊分析</a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">🔄 刷新</button>
+                        <label class="flex items-center space-x-2 text-sm cursor-pointer">
+                            <input type="checkbox" id="auto-refresh" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                            <span class="text-gray-300">自动刷新</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载反作弊分析...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm">重试</button>
+                </div>
+            </div>
+
+            <div id="cheat-content" class="hidden">
+                <!-- 实验信息头部 -->
+                <div id="experiment-header" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+                                <span id="experiment-name">实验名称</span>
+                                <span id="gate-mode-badge" class="px-3 py-1 rounded-full text-xs font-semibold"></span>
+                            </h1>
+                            <div class="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-gray-400">
+                                <span id="experiment-id">ID: --</span>
+                                <span id="analysis-window">判定时间范围: --</span>
+                                <span id="grade-version">规则版本: --</span>
+                            </div>
+                        </div>
+                        <a id="link-back" href="/experiments" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white transition-colors">← 返回实验面板</a>
+                    </div>
+                    <!-- cheatCheck 配置摘要 -->
+                    <div id="cheat-config-chips" class="mt-4 flex flex-wrap gap-2 text-xs"></div>
+                </div>
+
+                <!-- 总览统计 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4 mb-8" id="summary-cards"></div>
+
+                <!-- 通道/原因分布 + 题档分布 -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
+                    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700">
+                        <h2 class="text-lg font-semibold text-white mb-1">拦截通道与原因分布</h2>
+                        <p class="text-xs text-gray-400 mb-4">全部判定行的 gradeReasons 频次 · A=主判题 strong / D=著名钱包 / E=低活跃 / J=持仓均衡 / L=内部人联立 / R=真实参与不足</p>
+                        <div id="reason-dist" class="space-y-2 text-xs"></div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-5 border border-gray-700 overflow-x-auto">
+                        <h2 class="text-lg font-semibold text-white mb-1">题档分布（最新判定行）</h2>
+                        <p class="text-xs text-gray-400 mb-4">每代币取最新一行，各 Jev 题档位计数 · 悬停看档位含义</p>
+                        <div id="level-dist" class="overflow-x-auto"></div>
+                    </div>
+                </div>
+
+                <!-- 代币明细 -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700 mb-8">
+                    <div class="p-4 border-b border-gray-700">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <div>
+                                <h2 class="text-lg font-semibold text-white">代币判定明细</h2>
+                                <p class="text-xs text-gray-400">每行=一个代币（最新判定） · 点击行展开全部判定轮次轨迹 · 门拦截=买点被 gate 拒（cheat_gate_*）</p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-3 items-end text-sm">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">最新判定</label>
+                                <select id="grade-filter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                                    <option value="all">全部</option>
+                                    <option value="cheat">cheat</option>
+                                    <option value="unhealthy">unhealthy</option>
+                                    <option value="healthy">healthy</option>
+                                    <option value="failed">失败行（timeout/error）</option>
+                                    <option value="none">未分级（观察层/旧版）</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">平台</label>
+                                <select id="platform-filter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                                    <option value="all">全部</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">门结果</label>
+                                <select id="gate-filter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                                    <option value="all">全部</option>
+                                    <option value="blocked">被门拦截过</option>
+                                    <option value="bought">已买入</option>
+                                    <option value="blacklisted">cheat 拉黑</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">搜索</label>
+                                <input id="search-input" type="text" placeholder="地址 / 符号" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white w-44">
+                            </div>
+                            <div class="pb-2 text-gray-400" id="token-count-label">0 个代币</div>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-gray-600 bg-gray-750">
+                                    <th class="py-2 px-3 text-left whitespace-nowrap">代币</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">平台</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">轮数</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">判定轨迹</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">最新判定</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">拦截原因</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap" title="真实参与 / 活跃度 / 捆绑主导（最新行 Jev 档位）">参与·活跃·捆绑</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap" title="四现象题 + 对敲/持仓均衡最新档位">关键题档</th>
+                                    <th class="py-2 px-2 text-right whitespace-nowrap">ticks</th>
+                                    <th class="py-2 px-2 text-right whitespace-nowrap">买/卖 BNB</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">门结果</th>
+                                    <th class="py-2 px-2 text-left whitespace-nowrap">最新判定时刻</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tokens-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-16">
+                    <div class="text-gray-500 text-5xl mb-4">🛡️</div>
+                    <h3 class="text-xl font-semibold text-gray-400 mb-2">本实验暂无反作弊分析留痕</h3>
+                    <p class="text-gray-500 text-sm">实验未开启 cheatCheck，或尚未有任何代币触发分析（首析门 tradeCount ≥ 15）</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/experiment_cheat_analysis.js?v=1.0"></script>
+</body>
+</html>
