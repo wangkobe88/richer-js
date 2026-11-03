@@ -592,7 +592,7 @@
       "note": "aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买24/卖4 Σ买1.60BNB 钱包23 top1=12.5% churn2 同块簇1 等额簇0）；expect=判读现状待 review；10-30 review 用户翻案：活跃度低，不太像作弊（不能确定）——逐笔佐证：前 11 分钟近乎死盘（仅 8 笔）→ t+658-679 分散买带（20 笔、时间戳各异、金额 0.02-0.16 不等额、router 仅 9.3% 对比协同簇惯常 70%+）→ t+701-842 十二个时间点分散卖回（e9c6 买 0.1604 卖 0.1437、72d1 买 0.1485 卖 0.1367 各自快进快出）无集中同步波；t+662 同块 6 笔带+卖回近全额=有快进快出味道（用户「不能确定」原话留痕）；a440…2333（copy-roster+sybil 跨票常驻）t+662 买→t+746 卖；按 CD7 先例低活跃归 unhealthy 子形状",
       "addedAt": "2026-10-30",
       "expectSince": "2026-11-03",
-      "expectBecause": "用户 11-03 B2 第一批裁定「其它的结果我都可以接受」——接受机器 healthy（漏检容忍）；expect 维持 unhealthy 先不改，记录分歧（E 通道被 sbw=burst 挡、abr=noticeable 未达 dominant 线）"
+      "expectBecause": "用户 11-03 B2 第一批裁定「其它的结果我都可以接受」——接受机器 healthy（漏检容忍）；expect 维持 unhealthy 先不改，记录分歧（E 通道被 sbw=burst 挡、abr=noticeable 未达 dominant 线）；D3.49 复跑（存档 08-19-18）连带捞回：act mid@0.55→low@0.65（idlePct 95.7%）+G8 弱 burst 三键全中（波买 0.9417<1.05/12 户<13/gap 196s）豁免不成立→unhealthy[E_low_activity_weak_burst] 达成 expect（B2 第一批漏检票翻正）"
     },
     {
       "caseId": "CD38",
@@ -1392,7 +1392,7 @@
       "note": "aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买25/卖3 Σ买2.41BNB 钱包23 top1=12.4% churn3 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "组17裁定=unhealthy（用户裁定「unhealthy」——bw=strong+bd=high（CD67 同款 bot 阵列口径）+sbHold 56.9%；微盈票（+0.000206）里的结构偏差）"
+      "expectBecause": "组17裁定=unhealthy（用户裁定「unhealthy」——bw=strong+bd=high（CD67 同款 bot 阵列口径）+sbHold 56.9%；微盈票（+0.000206）里的结构偏差）；B2 第二批（D3.48+G13 存档 07-54-24）机器 healthy 漏检=全 moderate 无 strong（hold=moderate@0.46 strong 0.30 差一线）同 CD68 形状——用户裁定「其它的结果都能接受」expect 不动仅记分歧"
     },
     {
       "caseId": "CD88",
@@ -1440,7 +1440,7 @@
       "note": "aed2091d 首买基线收录（锚=231=首笔成功买+settle4000ms；买152/卖79 Σ买19.38BNB 钱包130 top1=10.3% churn56 同块簇10 等额簇10）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "组17裁定=unhealthy（用户裁定「unhealthy」——回归集最大锚窗 231 笔/130 钱包/churn56 长活票：bw=strong+bd=high+dom high(57.6%) 双向活跃但结构偏差足判 unhealthy；两轮刮头皮均盈利（+0.000846）不改变结构判读）"
+      "expectBecause": "组17裁定=unhealthy（用户裁定「unhealthy」——回归集最大锚窗 231 笔/130 钱包/churn56 长活票：bw=strong+bd=high+dom high(57.6%) 双向活跃但结构偏差足判 unhealthy；两轮刮头皮均盈利（+0.000846）不改变结构判读）；B2 第二批（D3.48+G13 存档 07-54-24）机器 healthy 漏检=eqHold 58.0+组织买 82.5% 死盘但 sbHold/eqHold 数值门已随 G9/G11 退役无承载+hold=moderate@0.52（strong 0.34）+abr=noticeable@0.57 双差一线——用户裁定「其它的结果都能接受」expect 不动仅记分歧"
     },
     {
       "caseId": "CD91",
@@ -1568,7 +1568,7 @@
       "note": "aed2091d 首买基线收录（锚=38=首笔成功买+settle4000ms；买30/卖8 Σ买4.65BNB 钱包30 top1=6.4% churn4 同块簇2 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「1. CD98 healthy」。无 strong（eq/cr/sd/tier/bw/pump 六 moderate 堆叠+sbw=burst）；top1 买 6.4% 全场最分散、买卖双向 30:8 活跃——对照 CD92/CD80 双向活跃无 strong=healthy 先例；+203% 盈利不改结构判定"
+      "expectBecause": "用户裁定「1. CD98 healthy」。无 strong（eq/cr/sd/tier/bw/pump 六 moderate 堆叠+sbw=burst）；top1 买 6.4% 全场最分散、买卖双向 30:8 活跃——对照 CD92/CD80 双向活跃无 strong=healthy 先例；+203% 盈利不改结构判定；D3.49 复跑（存档 08-19-18）D3.47 余留顺带翻平：abr=noticeable@0.43 vs dominant@0.42 差 0.01 边缘抖动翻回（D3.47 定版时 dominant 0.44 vs noticeable 0.41 同线反向）→grade=healthy[clean] 与人工（G10 期回正）一致；act 同轮 mid→low（idlePct 83.1%）但 sbw=burst 波买 2.39>1.05 豁免成立 E 不触发"
     },
     {
       "caseId": "CD99",
@@ -1584,7 +1584,7 @@
       "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买34/卖0 Σ买2.35BNB 钱包31 top1=9.2% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「2.CD99 unhealthy」。全买零卖家族第七票（34 笔 0 卖 churn 0，同 CD53/54/72/76/81/91/96 形状）+pump=strong 垫量推价；但等额簇 0/同块簇 2 无阵列组织性证据——与 CD96（全买零卖+eq/bw/pump 三 strong 判 cheat）分界=单 strong 无阵列落 unhealthy；28s +50% 盈利不改判定"
+      "expectBecause": "用户裁定「2.CD99 unhealthy」。全买零卖家族第七票（34 笔 0 卖 churn 0，同 CD53/54/72/76/81/91/96 形状）+pump=strong 垫量推价；但等额簇 0/同块簇 2 无阵列组织性证据——与 CD96（全买零卖+eq/bw/pump 三 strong 判 cheat）分界=单 strong 无阵列落 unhealthy；28s +50% 盈利不改判定；B2 第二批（D3.48+G13 存档 07-54-24）机器 healthy 漏检=G8 弱 burst 豁免成立（波买 1.427≥1.05 真涌入）；D3.49 复跑（存档 08-19-18）pump=strong@0.46（D3.44 拉高出货刀接住单向 pump 形状）→cheat[A_strong:slow_grind_pump] 机器更重一格（vs 人工 unhealthy；方向与 CD88/CD137 单向 pump=cheat 先例一致）——拉黑级 vs 拒买级待用户裁定"
     },
     {
       "caseId": "CD100",
@@ -1600,7 +1600,7 @@
       "note": "aed2091d 首买基线收录（锚=50=首笔成功买+settle4000ms；买43/卖7 Σ买8.08BNB 钱包35 top1=25.9% churn7 同块簇7 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「3. CD100 unhealthy」。无 strong 但四重集中（bd=high+sbHold 59.7%+top1 25.9%+t1 供/流 27.2%/49.4%）+代码活跃度 ultra、买 43 卖 7 失衡——对照 CD95 无 strong 落 unhealthy 先例"
+      "expectBecause": "用户裁定「3. CD100 unhealthy」。无 strong 但四重集中（bd=high+sbHold 59.7%+top1 25.9%+t1 供/流 27.2%/49.4%）+代码活跃度 ultra、买 43 卖 7 失衡——对照 CD95 无 strong 落 unhealthy 先例；B2 第二批（D3.48+G13 存档 07-54-24）机器 healthy 漏检=hold 题档 moderate 0.45 vs strong 0.45 完全平手（与 CD122 立法票几乎同构：t1 供 27.2%+top2 合计 36.2%+前二 Δ0s vs CD122 的 25.6%+35.0%+Δ1s）——用户裁定「其它的结果都能接受」expect 不动仅记分歧"
     },
     {
       "caseId": "CD101",
@@ -1616,7 +1616,7 @@
       "note": "aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买13/卖1 Σ买2.81BNB 钱包13 top1=35.5% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「4. CD101 unhealthy(活跃度低)」——理由=活跃度低（act=low、锚窗 14 笔本组最小）。结构最轻一票（仅 top1 35.5% 单钱包集中+cr=moderate，等额簇 1）；本组唯一全损票（买后无卖）"
+      "expectBecause": "用户裁定「4. CD101 unhealthy(活跃度低)」——理由=活跃度低（act=low、锚窗 14 笔本组最小）。结构最轻一票（仅 top1 35.5% 单钱包集中+cr=moderate，等额簇 1）；本组唯一全损票（买后无卖）；B2 第二批（D3.48+G13 存档 07-54-24）机器 healthy 漏检=唯一 strong=cr（创建者先行）而 cr 方向已按 2026-11-01 裁定关闭不进判断=该裁定代价票——用户裁定「其它的结果都能接受」expect 不动仅记分歧"
     },
     {
       "caseId": "CD102",
@@ -1760,7 +1760,7 @@
       "note": "aed2091d 首买基线收录（锚=15=首笔成功买+settle4000ms；买13/卖2 Σ买1.71BNB 钱包13 top1=67.2% churn0 同块簇1 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「1.CD110 unhealthy 活跃度太低」。act=low（代码/Jev 双 low，13.0 笔/分）+锚窗 15 笔本组最小；十一题全 weak/none 零 strong、双向 13:2——结构最轻但活跃度本身即 unhealthy 理由（CD101 先例第二票；对照组 20 CD104 同 Jev act=low 但代码 act=mid/锚 24 双向 23:1 落 healthy，分界攒票观察）"
+      "expectBecause": "用户裁定「1.CD110 unhealthy 活跃度太低」。act=low（代码/Jev 双 low，13.0 笔/分）+锚窗 15 笔本组最小；十一题全 weak/none 零 strong、双向 13:2——结构最轻但活跃度本身即 unhealthy 理由（CD101 先例第二票；对照组 20 CD104 同 Jev act=low 但代码 act=mid/锚 24 双向 23:1 落 healthy，分界攒票观察）；B2 第二批（D3.48+G13 存档 07-54-24）机器 healthy 漏检归因=锚窗 69s 内 71% 静默（冲 18s→静 49s→砸两笔）但旧三数没给静默占比 Jev mid@0.57 心算漏判——用户两轮裁定「CD110 也应该是低活跃度吧」「购买前的大多数时间都是空的无交易的呀，这个说活跃度能接受我觉得不行」→D3.49 落码（idlePct 数值化）；复跑（存档 08-19-18）act low@0.98、grade=unhealthy[E_low_activity] 接住 expect 一致"
     },
     {
       "caseId": "CD111",
