@@ -19,6 +19,11 @@ data/
 # 作弊盘回归集对拍存档+jev_prompt 断代对拍证据（同上，长期维护资产）
 !scripts/cheat-detection/data/
 !scripts/cheat-detection/data/**
+# 买入点位分析 run 存档+prompts（同上=断代对拍证据）
+!scripts/buy-point/data/
+!scripts/buy-point/data/**
+# 买入点位测试集：per token ticks 大文件不进 git（set JSON 进、-ticks/ 不进）
+scripts/buy-point/sets/*-ticks/
 
 # OS
 .DS_Store
