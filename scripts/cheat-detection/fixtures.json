@@ -127,8 +127,8 @@
       },
       "note": "aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买42/卖2 Σ买3.53BNB 钱包30 top1=14.1% churn1 同块簇8 等额簇1）；expect=判读现状待 review；10-30 review 用户翻案：盘面由几个跟随钱包群掌控，但是不算是作弊（digest 佐证：42买/2卖几乎无卖回对倒、routerPct 71.5%=聚合路由跟随群集中买入、churn 仅 1）",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 翻案：盘面由几个跟随钱包群掌控但不算是作弊——Jev 判 cheat 0.99 系 same_block_burst 过权重（无卖回配对不构成对倒）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B2 第一批裁定原话「CD8 这个是个大金狗，庄是使用捆绑钱包的买卖拉盘（这种情况还有几例），但是前期确实作弊痕迹太重了，我始终也找不到豁免它的好办法，可以先这样」——接受机器 unhealthy[J_holdings_strong]（同 CD45 大金狗存档先例：豁免难寻维持拦截）；捆绑钱包买卖拉盘大金狗族（还有几例）豁免方向留档"
     },
     {
       "caseId": "CD9",
@@ -591,8 +591,8 @@
       },
       "note": "aed2091d 首买基线收录（锚=28=首笔成功买+settle4000ms；买24/卖4 Σ买1.60BNB 钱包23 top1=12.5% churn2 同块簇1 等额簇0）；expect=判读现状待 review；10-30 review 用户翻案：活跃度低，不太像作弊（不能确定）——逐笔佐证：前 11 分钟近乎死盘（仅 8 笔）→ t+658-679 分散买带（20 笔、时间戳各异、金额 0.02-0.16 不等额、router 仅 9.3% 对比协同簇惯常 70%+）→ t+701-842 十二个时间点分散卖回（e9c6 买 0.1604 卖 0.1437、72d1 买 0.1485 卖 0.1367 各自快进快出）无集中同步波；t+662 同块 6 笔带+卖回近全额=有快进快出味道（用户「不能确定」原话留痕）；a440…2333（copy-roster+sybil 跨票常驻）t+662 买→t+746 卖；按 CD7 先例低活跃归 unhealthy 子形状",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 翻案：活跃度低，不太像作弊（不能确定）——卖回分散无同步波非对倒，低活跃=unhealthy 子形状（同 CD7 追裁定）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B2 第一批裁定「其它的结果我都可以接受」——接受机器 healthy（漏检容忍）；expect 维持 unhealthy 先不改，记录分歧（E 通道被 sbw=burst 挡、abr=noticeable 未达 dominant 线）"
     },
     {
       "caseId": "CD38",
@@ -911,8 +911,8 @@
       },
       "note": "aed2091d 首买基线收录（锚=91=首笔成功买+settle4000ms；买87/卖4 Σ买1.32BNB 钱包21 top1=15.2% churn0 同块簇0 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组12裁定=unhealthy；缓慢拉盘strong+等额/分层moderate+87:4失衡，未到cheat面"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B2 第一批质询「不是低活跃度该给 unhealthy 吗？」——待裁：代码 act=low（cv 0.4 匀速）但 Jev 题档=mid@0.46（12.49 笔/分钟笔数不低主导；笔均 0.0178/买中位 0.0003 尘埃级额度），E 通道消费 Jev 题档卡 mid 不触发；sbw=none 满足，卡点仅在 act 题档"
     },
     {
       "caseId": "CD58",
@@ -1087,8 +1087,8 @@
       },
       "note": "aed2091d 首买基线收录（锚=80=首笔成功买+settle4000ms；买45/卖35 Σ买6.43BNB 钱包46 top1=7.4% churn32 同块簇3 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组14裁定=unhealthy；46 钱包有来有回（45买/35卖/churn32）、top1 仅 7.4% 分散，四现象全 moderate 无一 strong——活跃但协同迹象不轻，非坐实作弊"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B2 第一批裁定「其它的结果我都可以接受」——接受机器 healthy（全 moderate 无 strong、abr=noticeable，协同迹象不轻但未到的形状）；expect 维持 unhealthy 先不改，记录分歧"
     },
     {
       "caseId": "CD69",
@@ -1183,8 +1183,8 @@
       },
       "note": "aed2091d 首买基线收录（锚=21=首笔成功买+settle4000ms；买17/卖4 Σ买2.44BNB 钱包17 top1=15.7% churn4 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组15裁定=unhealthy（用户裁定「unhealthy(著名钱包主导)」——dom=mid(48.8%) 著名钱包主导买盘近半+sbHold 49.6% 同块持筹；现象题全无 strong 但结构性集中已足判 unhealthy）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B2 第一批裁定「其它的结果我都可以接受」——接受机器 healthy（famous 掌控度 mid 48.8% 不到 D 通道 high 线、hold=moderate）；expect 维持 unhealthy 先不改，记录分歧"
     },
     {
       "caseId": "CD75",
@@ -1835,12 +1835,12 @@
         "tickCount": 24
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "4012ce39 首买基线收录（锚=24=首笔成功买+settle4000ms；买23/卖1 Σ买3.47BNB 钱包23 top1=11.5% churn1 同块簇4 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「6.CD115 cheat」。sbHold 64.2% 本组最高+eqHold 36.6%+pump strong+bd=high+cr moderate+买 23 卖 1 近全买零卖——同块集中+等额带+持续推价证据最重组合的 live 票"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 裁定原话「CD115 unhealthy 没问题」：机器 unhealthy[J_holdings_strong] 接受（∪簇并集 28.8%、前二首买 Δ0s、组织买 86.5%，与 CD64 同构先例）"
     },
     {
       "caseId": "CD116",
