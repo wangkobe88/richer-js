@@ -975,8 +975,8 @@
       },
       "note": "aed2091d 首买基线收录（锚=294=首笔成功买+settle4000ms；买176/卖118 Σ买28.38BNB 钱包127 top1=7.0% churn79 同块簇10 等额簇8）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组12裁定=cheat；同块簇69.4%+等额带51.6%双锚+协同卖回/卖出分散moderate"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 批次三第二组裁定：294 笔大窗双向活跃（买 176 笔 28.4 BNB/卖 118 笔 23.1）活跃度明显不正常，至少 unhealthy 甚至 cheat；D3.44 后机器 cheat[A_strong:slow_grind_pump,R_abnormal_dominant] 与裁定一致"
     },
     {
       "caseId": "CD62",
@@ -2049,6 +2049,22 @@
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-01",
       "expectBecause": "用户裁定「7.CD128 cheat」。全买零卖 37:0+pump strong+sbw=burst+eq/tier/bw moderate 三档堆叠+bd=high——CD112/CD126 谱系第三票；31 钱包分散+churn 0 但 burst+moderate 堆叠在场"
+    },
+    {
+      "caseId": "CD137",
+      "symbol": "Neda",
+      "addr": "0x46bc1a2195e66a66db06301a63226971c4767777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 172
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "用户 11-03 增补：单向 pump 票（e3d00085 v67），期望 pump 能捕捉；交易信息不足时参考钱包画像",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 新增收录裁定：单向 pump 票（e3d00085 v67）期望 pump 能捕捉；D3.44 后机器 cheat[A_strong:slow_grind_pump]（pump=strong@0.70）与裁定一致"
     }
   ]
 }
