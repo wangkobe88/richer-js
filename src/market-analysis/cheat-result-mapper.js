@@ -46,7 +46,7 @@ const PHENOMENON_IDS = [
  * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
  * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'burst_spike_concentration']; // wash_pair D3.28（同块对敲）/ holdings_balance D3.32（持仓均衡——组合垄断，EXT 容缺通道同款）/ burst_spike_concentration D3.51（burst 尖刺集中——CD157/CD102 裁定立项，A 主判自动吸收）
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'burst_spike_concentration', 'strong_backer_pressure']; // wash_pair D3.28（同块对敲）/ holdings_balance D3.32（持仓均衡——组合垄断，EXT 容缺通道同款）/ burst_spike_concentration D3.51（burst 尖刺集中——CD157/CD102 裁定立项，A 主判自动吸收）/ strong_backer_pressure D3.52（强庄持续买压——CD159 立项**观察期**：cheat-grade MAIN_IDS 显式排除不进 A 主判，档位只进 FA 投影攒分布，豁免规则攒 case 后再裁）
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
@@ -272,6 +272,10 @@ function buildObservation(answers, anchors = null) {
       // 占簇买入%/尖刺钱包正净占全窗正净%；dt 缺失/簇内无买/Σ正净=0 → null）
       spikeBuyPctInBurst: _anchorPct(anchors, 'spikeBuyPctInBurst'),
       spikeHoldPctAll: _anchorPct(anchors, 'spikeHoldPctAll'),
+      // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚
+      // 立项**观察期**：grade 零消费，只进 FA 投影/存档攒分布；窗口卖=0 → null
+      // 比值不适用）
+      anchorBuySellRatio: _anchorPct(anchors, 'anchorBuySellRatio'),
     },
   };
 }

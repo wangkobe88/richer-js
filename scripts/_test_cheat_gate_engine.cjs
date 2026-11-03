@@ -1,27 +1,32 @@
 #!/usr/bin/env node
 /**
- * 作弊盘门引擎接线单测（G1，2026-11-01）——零 DB 零网络
+ * 作弊盘门引擎接线单测（CD158 重构，2026-11-03）——零 DB 零网络
  *
- * 背景：CD1 观察层升级为买门（用户裁定）。引擎硬门挂 GMGN 层之前
- * （_cheatGateEvaluate await gateBuyPoint）+ 买条件评估后拉黑短路（省叙事
- * 直调/preBuy/signal 落库整条链）+ cheat 拉黑清仓联动（_cheatExitPosition
- * 走 _emitSellSignal 全清链 stallClose 同构）+ FA 三键观测投影
- * （setCheatFactors 模块级，纯观测不进条件串）+ stop 清理。
+ * 背景：作弊门重构为「买信号驱动的最后一层买条件」（用户裁定）——腿携带
+ * cheatCheckCondition（FA 因子表达式）才走门（GMGN 前）；判定粘滞
+ * （cheat=拉黑终态 / healthy=同版秒回 / unhealthy=每买信号重判）；拒/放由
+ * 腿表达式在 grade 投影后的因子表上评估（只合并 cheat 键进 fire 快照——防
+ * settle+Jev 竞速窗内非 cheat 臂漂移）；预触发/观察模式/增量门/顶帽全退役。
  *
  * 覆盖：
- *   A. _cheatGateEvaluate 六路径：cheat（拉黑+清仓+signal failed+拒买）/
- *      unhealthy（拦买不拉黑+signal failed 第 N 次）/ healthy（放行+投影）/
- *      timeout_fail_open（本笔放行+late 挂钩）/ insufficient_ticks·fail（放行）/
- *      service 异常（放行 error 留痕）
+ *   A. _cheatGateEvaluate 新路径：cheat（拉黑+清仓+signal failed，不评表达式）/
+ *      healthy·unhealthy 条件评估（false=cheat_gate_condition 拒 / true=放行
+ *      info 带 cached·condition·conditionPassed）/ 表达式异常 fail-closed
+ *      （cheat_gate_condition_error）/ buildFactorMap null fail-open
+ *      （cheat_gate_context_null）/ timeout（放行+late 挂钩）/
+ *      insufficient_ticks·fail（放行）/ service 异常（放行 error 留痕）
+ *   A9. _buildCheatGateContext 只合并 cheat 键（fire 快照非 cheat 键保留原值
+ *      =两门同刻防线）；cheat 键集惰性派生；null 透传
  *   B. _cheatGateLateConsume：迟到 cheat 补拉黑+清仓（下轮生效）；迟到
  *      unhealthy 仅投影
  *   C. _cheatExitPosition：bought 持仓全清 strategy 形状（id=cheatExit/
  *      cards='all'/sellPercentage=1/bypassDebounce=true/不锁再买）/ 卖买执行中
  *      跳过 / 非 bought 跳过 / factors null 跳过 / 异常吞不外抛
- *   D. FA 投影三键往返（cheatGrade/cheatUnhealthyGrades/cheatBlocked——
+ *   D. FA 投影 45 键往返（cheatGrade/cheatUnhealthyGrades/cheatBlocked——
  *      模块级真 FA，用例后 clear 防跨用例残留）
- *   E. 引擎侧源码口径锁：拉黑短路位置（买条件评估后）/ stop 清理 /
- *      gate 配置物化（enabled ∧ gate.enabled 双开关）
+ *   E. 引擎侧源码口径锁：拉黑双源短路位置 / 门挂点（腿字段+GMGN 前）/
+ *      stop 清理（FA 投影+两 Set+throttle）/ faState 提升（v67 事故反证）/
+ *      预触发·观察模式·增量门·顶帽全链退役反证
  *
  * 用法：node scripts/_test_cheat_gate_engine.cjs
  */
@@ -43,7 +48,7 @@ function ok(name, cond, detail) {
   else { fail++; console.log(`  ✗ ${name}${detail !== undefined ? ` | ${JSON.stringify(detail)}` : ''}`); }
 }
 
-// 轻量引擎实例（_test_stall_close.cjs 同款 harness：prototype 直挂+手动注入）
+// 轻量引擎实例（prototype 直挂+手动注入；_cheatFactorKeys=null 对齐真 ctor）
 function makeEngine(fields = {}) {
   const eng = Object.create(FourMemeWssTradingEngine.prototype);
   return Object.assign(eng, {
@@ -52,6 +57,7 @@ function makeEngine(fields = {}) {
     _cheatGateAwaitMs: 15000,
     _cheatBlockedTokens: new Set(),
     _cheatProjectedTokens: new Set(),
+    _cheatFactorKeys: null,
     ...fields,
   });
 }
@@ -59,20 +65,28 @@ const TOKEN = { token: '0xtok', symbol: 'TST', name: 'Test', platform: 'flap', c
 function svcStub(impl) {
   return { gateBuyPoint: async (addr, meta, ctx, opts) => impl(addr, meta, ctx, opts) };
 }
-const FLAT = { sameBlockHoldPct: 1 };
+// FA 桩：buildFactorMap 出投影后 cheat 数值（grade healthy=0/unhealthy=1），
+// getFactorKeys 探针域=常规两键+cheat 三键（_buildCheatGateContext 派生用）
+function faStub(cheatGrade) {
+  return {
+    buildFactorMap: () => ({ marketCap: 50, tradeCount: 99, cheatGrade, cheatBlocked: 0, cheatWashPairCount: 3 }),
+    getFactorKeys: () => ['marketCap', 'tradeCount', 'cheatGrade', 'cheatBlocked', 'cheatWashPairCount'],
+  };
+}
 
 (async () => {
 
-console.log('A. _cheatGateEvaluate 六路径');
+console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/放=腿表达式）');
 {
-  // A1 cheat：拉黑 + 清仓联动 + signal failed + 拒买
+  // A1 cheat：拉黑 + 清仓联动 + signal failed + 拒买（不评表达式——buildFactorMap 桩抛错反证）
   const exits = [], signals = [];
   const eng = makeEngine({
     _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'cheat', reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0 })),
     _cheatExitPosition: async (addr, why) => { exits.push({ addr, why }); },
     _updateSignalStatus: async (id, status, meta) => { signals.push({ id, status, meta }); },
+    _factorAggregator: { buildFactorMap: () => { throw new Error('cheat 路径不评表达式不应重建上下文'); } },
   });
-  const r = await eng._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-1');
+  const r = await eng._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-1', 'cheatGrade == 0', {});
   check('cheat → 拒买', r, { pass: false, reason: '作弊盘门拒买（cheat 拉黑+持仓清仓联动 [A_strong:same_block_buy_wave]）' });
   ok('cheat → 引擎侧拉黑（_cheatBlockedTokens）', eng._cheatBlockedTokens.has('0xtok'));
   check('cheat → 清仓联动（why=cheat 判定）', exits, [{ addr: '0xtok', why: 'cheat 判定' }]);
@@ -82,59 +96,136 @@ console.log('A. _cheatGateEvaluate 六路径');
     { grade: 'cheat', unhealthyGrades: 0, blocked: true, levels: null, anchors: null });
   FA.clearCheatFactors('0xtok');
 
-  // A2 unhealthy：拦买不拉黑（重判在 service 侧计数）
+  // A2 unhealthy + 条件 false → signal failed reason=cheat_gate_condition
   const signals2 = [];
   const eng2 = makeEngine({
-    _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'unhealthy', reasons: [{ level: 'unhealthy', code: 'F_sbHold60' }], unhealthyGrades: 2 })),
-    _cheatExitPosition: async () => { throw new Error('不应清仓'); },
+    _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'unhealthy', reasons: [{ level: 'unhealthy', code: 'D_famous_dominance' }], unhealthyGrades: 2 })),
+    _cheatExitPosition: async () => { throw new Error('unhealthy 不应清仓'); },
     _updateSignalStatus: async (id, status, meta) => { signals2.push({ id, status, meta }); },
+    _factorAggregator: faStub(1),
   });
-  const r2 = await eng2._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-2');
-  ok('unhealthy → 拒买（reason 带第 N 次）', r2.pass === false && r2.reason.includes('unhealthy 第 2 次'), r2);
-  ok('unhealthy → 不拉黑（增量门满足自动重判）', !eng2._cheatBlockedTokens.has('0xtok'));
-  check('unhealthy → signal failed reason=cheat_gate_unhealthy', signals2.map((s) => [s.status, s.meta.reason]),
-    [['failed', 'cheat_gate_unhealthy']]);
-  check('unhealthy → FA 投影 blocked=false（levels/anchors 随 service 返回透传）', FA.getCheatFactors('0xtok'),
+  const r2 = await eng2._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-2', 'cheatGrade == 0', {});
+  ok('unhealthy + cheatGrade==0（投影值 1）→ 拒买', r2.pass === false && r2.reason.includes('grade=unhealthy'), r2);
+  ok('unhealthy 拒 → 不拉黑（下个买信号自动重判）', !eng2._cheatBlockedTokens.has('0xtok'));
+  check('unhealthy 条件拒 → signal failed reason=cheat_gate_condition',
+    signals2.map((s) => [s.status, s.meta.reason]), [['failed', 'cheat_gate_condition']]);
+  check('unhealthy → FA 投影 blocked=false', FA.getCheatFactors('0xtok'),
     { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: null, anchors: null });
   FA.clearCheatFactors('0xtok');
 
-  // A3 healthy：放行 + 投影
-  const eng3 = makeEngine({
-    _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'healthy', reasons: [], unhealthyGrades: 0 })),
-    _updateSignalStatus: async () => { throw new Error('healthy 不应落 signal failed'); },
+  // A2b unhealthy + 条件 true（如 cheatGrade != 2 放行 unhealthy）→ 放行 info 带 conditionPassed
+  const eng2b = makeEngine({
+    _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'unhealthy', reasons: [], unhealthyGrades: 3 })),
+    _factorAggregator: faStub(1),
   });
-  const r3 = await eng3._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-3');
-  ok('healthy → 放行', r3.pass === true && r3.info.grade === 'healthy', r3);
+  const r2b = await eng2b._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-2b', 'cheatGrade != 2', {});
+  ok('unhealthy + 条件 true → 放行', r2b.pass === true, r2b);
+  check('info 形状（grade/cached=false/condition/conditionPassed=true/unhealthyGrades）',
+    (({ status, grade, cached, condition, conditionPassed, unhealthyGrades }) =>
+      ({ status, grade, cached, condition, conditionPassed, unhealthyGrades }))(r2b.info),
+    { status: 'analyzed', grade: 'unhealthy', cached: false, condition: 'cheatGrade != 2', conditionPassed: true, unhealthyGrades: 3 });
+  FA.clearCheatFactors('0xtok');
+
+  // A3 healthy + 条件 true → 放行 + info.cached 透传（粘滞秒回形状）
+  const eng3 = makeEngine({
+    _cheatCheckService: svcStub(async () => ({ status: 'graded', grade: 'healthy', cached: true, reasons: [], unhealthyGrades: 0 })),
+    _updateSignalStatus: async () => { throw new Error('条件过不应落 signal failed'); },
+    _factorAggregator: faStub(0),
+  });
+  const r3 = await eng3._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-3', 'cheatGrade == 0', {});
+  ok('healthy（粘滞秒回）+ 条件 true → 放行', r3.pass === true
+    && r3.info.grade === 'healthy' && r3.info.cached === true && r3.info.conditionPassed === true, r3.info);
   check('healthy → FA 投影', FA.getCheatFactors('0xtok'), { grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: null, anchors: null });
   FA.clearCheatFactors('0xtok');
 
-  // A4 timeout_fail_open：本笔放行 + late 挂钩迟到消费
-  const lateCloses = [];
+  // A3b healthy + 条件 false → 拒（粘滞不豁免腿表达式）
+  const signals3 = [];
+  const eng3b = makeEngine({
+    _cheatCheckService: svcStub(async () => ({ status: 'graded', grade: 'healthy', cached: true, reasons: [], unhealthyGrades: 0 })),
+    _updateSignalStatus: async (id, status, meta) => { signals3.push({ id, status, meta }); },
+    _factorAggregator: faStub(0),
+  });
+  const r3b = await eng3b._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-3b', 'cheatGrade == 2', {});
+  ok('healthy + 条件 false → 拒买（grade 过门条件不过）', r3b.pass === false && r3b.reason.includes('grade=healthy'), r3b);
+  check('healthy 条件拒 → signal failed reason=cheat_gate_condition',
+    signals3.map((s) => s.meta.reason), ['cheat_gate_condition']);
+  FA.clearCheatFactors('0xtok');
+
+  // A4 表达式评估异常 → fail-closed 拒（GMGN 同向裁定：语法/键集错=配置错误）
+  const signals4 = [];
   const eng4 = makeEngine({
-    _cheatCheckService: svcStub(async () => ({ status: 'timeout_fail_open', late: Promise.resolve({ status: 'analyzed', grade: 'cheat', reasons: [{ code: 'C_sbHold90' }], unhealthyGrades: 0 }) })),
+    _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'healthy', reasons: [], unhealthyGrades: 0 })),
+    _updateSignalStatus: async (id, status, meta) => { signals4.push({ id, status, meta }); },
+    _factorAggregator: faStub(0),
+  });
+  const r4 = await eng4._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-4', '(cheatGrade ==', {});
+  ok('表达式语法异常 → fail-closed 拒（不 fail-open 放行）', r4.pass === false, r4);
+  check('表达式异常 → signal failed reason=cheat_gate_condition_error',
+    signals4.map((s) => s.meta.reason), ['cheat_gate_condition_error']);
+
+  // A5 buildFactorMap null（token 出池）→ fail-open 放行（接线级异常不拦买点）
+  const eng5 = makeEngine({
+    _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'healthy', reasons: [], unhealthyGrades: 0 })),
+    _factorAggregator: faStub(0),
+  });
+  eng5._buildCheatGateContext = () => null; // 出池形状直挂
+  const r5 = await eng5._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-5', 'cheatGrade == 0', {});
+  check('context null → fail-open 放行（reason=cheat_gate_context_null）', r5,
+    { pass: true, info: { status: 'error', grade: 'healthy', reason: 'cheat_gate_context_null' } });
+  FA.clearCheatFactors('0xtok');
+
+  // A6 timeout_fail_open：本笔放行 + late 挂钩迟到消费
+  const lateCloses = [];
+  const eng6 = makeEngine({
+    _cheatCheckService: svcStub(async () => ({ status: 'timeout_fail_open', late: Promise.resolve({ status: 'analyzed', grade: 'cheat', reasons: [{ code: 'A_strong:wash_pair' }], unhealthyGrades: 0 }) })),
     _cheatExitPosition: async (addr, why) => { lateCloses.push({ addr, why }); },
     _updateSignalStatus: async () => {},
   });
-  const r4 = await eng4._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-4');
-  ok('竞速超时 → 本笔放行（不阻塞买点）', r4.pass === true && r4.info.status === 'timeout_fail_open', r4);
+  const r6 = await eng6._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-6', 'cheatGrade == 0', {});
+  ok('竞速超时 → 本笔放行（不阻塞买点）', r6.pass === true && r6.info.status === 'timeout_fail_open', r6);
   await new Promise((res) => setTimeout(res, 10)); // late 微任务消费
-  ok('迟到 cheat → 补拉黑（下轮生效）', eng4._cheatBlockedTokens.has('0xtok'));
+  ok('迟到 cheat → 补拉黑（下轮生效）', eng6._cheatBlockedTokens.has('0xtok'));
   check('迟到 cheat → 补清仓（why=cheat 迟到判定）', lateCloses, [{ addr: '0xtok', why: 'cheat 迟到判定' }]);
   ok('迟到 cheat → FA 投影补齐', FA.getCheatFactors('0xtok').grade === 'cheat');
   FA.clearCheatFactors('0xtok');
 
-  // A5 放行态：insufficient_ticks / fail（含 reason 透传）
-  const eng5 = makeEngine({ _cheatCheckService: svcStub(async () => ({ status: 'insufficient_ticks' })) });
-  const r5 = await eng5._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-5');
-  ok('insufficient_ticks → 放行（info 透传）', r5.pass === true && r5.info.status === 'insufficient_ticks', r5);
-  const eng6 = makeEngine({ _cheatCheckService: svcStub(async () => ({ status: 'fail', reason: 'jev_timeout' })) });
-  const r6 = await eng6._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-6');
-  ok('fail → 放行（GMGN fail-open 同向：检测层故障不得拦买点）', r6.pass === true && r6.info.reason === 'jev_timeout', r6);
+  // A7 放行态：insufficient_ticks / fail（含 reason 透传）——不评表达式
+  const eng7 = makeEngine({
+    _cheatCheckService: svcStub(async () => ({ status: 'insufficient_ticks' })),
+    _factorAggregator: { buildFactorMap: () => { throw new Error('放行态不应重建上下文'); } },
+  });
+  const r7 = await eng7._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-7', 'cheatGrade == 0', {});
+  ok('insufficient_ticks → 放行（info 透传，不评表达式）', r7.pass === true && r7.info.status === 'insufficient_ticks', r7);
+  const eng8 = makeEngine({ _cheatCheckService: svcStub(async () => ({ status: 'fail', reason: 'jev_timeout' })) });
+  const r8 = await eng8._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-8', 'cheatGrade == 0', {});
+  ok('fail → 放行（GMGN fail-open 同向：检测层故障不得拦买点）', r8.pass === true && r8.info.reason === 'jev_timeout', r8);
 
-  // A6 service 异常：接线级异常放行（不抛出引擎）
-  const eng7 = makeEngine({ _cheatCheckService: svcStub(async () => { throw new Error('wired wrong'); }) });
-  const r7 = await eng7._cheatGateEvaluate('0xtok', TOKEN, FLAT, 'sig-7');
-  ok('service 异常 → 放行不外抛（error 留痕）', r7.pass === true && r7.info.status === 'error', r7);
+  // A8 service 异常：接线级异常放行（不抛出引擎）
+  const eng9 = makeEngine({ _cheatCheckService: svcStub(async () => { throw new Error('wired wrong'); }) });
+  const r9 = await eng9._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-9', 'cheatGrade == 0', {});
+  ok('service 异常 → 放行不外抛（error 留痕）', r9.pass === true && r9.info.status === 'error', r9);
+}
+
+console.log('A9. _buildCheatGateContext 只合并 cheat 键（两门同刻防线）');
+{
+  const eng = makeEngine({
+    _factorAggregator: {
+      // rebuilt 带 fire 后漂移的常规键（marketCap 999 vs fire 111）+ 投影后的 cheat 键
+      buildFactorMap: () => ({ marketCap: 999, buyVolumeBnb: 999, cheatGrade: 1, cheatBlocked: 0, cheatWashPairCount: 7 }),
+      getFactorKeys: () => ['marketCap', 'buyVolumeBnb', 'tradeCount', 'cheatGrade', 'cheatBlocked', 'cheatWashPairCount'],
+    },
+  });
+  const ctx = eng._buildCheatGateContext('0xtok', { marketCap: 111, buyVolumeBnb: 222, cheatGrade: null });
+  check('fire 快照非 cheat 键保留原值 / cheat 键覆盖为投影后新值', ctx,
+    { marketCap: 111, buyVolumeBnb: 222, cheatGrade: 1, cheatBlocked: 0, cheatWashPairCount: 7 });
+  check('cheat 键集惰性派生（cheat 前缀过滤，题集加键免改引擎）', eng._cheatFactorKeys,
+    ['cheatGrade', 'cheatBlocked', 'cheatWashPairCount']);
+  const eng2 = makeEngine({ _factorAggregator: { buildFactorMap: () => null, getFactorKeys: () => [] } });
+  check('buildFactorMap null → null（调用方 fail-open）', eng2._buildCheatGateContext('0xtok', {}), null);
+  const eng3 = makeEngine({
+    _factorAggregator: { buildFactorMap: () => ({ x: 1 }), getFactorKeys: () => [] },
+  });
+  check('fireFactors null 安全（空快照打底）', eng3._buildCheatGateContext('0xtok', null), {});
 }
 
 console.log('B. _cheatGateLateConsume');
@@ -220,14 +311,14 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 数值锚二十五键——D3.39 abnormalBehavior（改名前 realParticipation）+协同买入四键+创建者峰值+D3.51 尖刺档一键两锚扩）');
+console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 数值锚二十六键——D3.39 abnormalBehavior（改名前 realParticipation）+协同买入四键+创建者峰值+D3.51 尖刺档一键两锚+D3.52 强庄档一键买卖比一锚扩（观察期零门侧消费））');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
   const LV = { equalAmountSplit: 2, coordinatedSellBack: null, creatorFrontRun: 1,
     sellDispersion: 0, stallBurstWave: 1, amountTiering: null, sameBlockBuyWave: 3,
     insiderSupplySell: null, slowGrindPump: 2, washPair: 3, activityLevel: 0, bundledDominance: 2,
-    holdingsBalance: 3, abnormalBehavior: 2, burstSpikeConcentration: 3 };
+    holdingsBalance: 3, abnormalBehavior: 2, burstSpikeConcentration: 3, strongBackerPressure: 3 };
   const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, washPairCount: 10,
     washPairSellPct: 95.1, washPairBuyPct: 27.3, top1HoldSupplyPct: 25.6,
     top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2,
@@ -236,7 +327,7 @@ console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 
     burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3,
     maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412,
     sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2,
-    spikeBuyPctInBurst: 99.3, spikeHoldPctAll: 96.7 };
+    spikeBuyPctInBurst: 99.3, spikeHoldPctAll: 96.7, anchorBuySellRatio: 4.74 };
   FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   check('set → get unhealthy（levels/anchors 原样往返）', FAmod.getCheatFactors('0xround'),
     { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
@@ -245,7 +336,7 @@ console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 
     FAmod.getCheatFactors('0xround'), { grade: 'cheat', unhealthyGrades: 0, blocked: true });
   FAmod.clearCheatFactors('0xround');
   check('clear → null', FAmod.getCheatFactors('0xround'), null);
-  // _buildFactorMap 发射 30 键：探针（实例化真实 FA）验证键名在因子集内
+  // _buildFactorMap 发射 45 键：探针（实例化真实 FA）验证键名在因子集内
   const fa = new FAmod({}, null);
   const keys = [...fa.getFactorKeys()]; // Set → 数组
   const need = ['cheatGrade', 'cheatUnhealthyGrades', 'cheatBlocked',
@@ -260,8 +351,9 @@ console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 
     'cheatBurstMaxGapSec', 'cheatBurstWaveBuyBnb', 'cheatBurstWaveWallets', 'cheatNoBuySellPct',
     'cheatAbnormalBehaviorRatio', 'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct',
     'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct',
-    'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll'];
-  ok('43 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
+    'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll',
+    'cheatStrongBackerPressure', 'cheatAnchorBuySellRatio'];
+  ok('45 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键纯观察：门侧零消费，条件串/研究侧自由消费）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
     !keys.includes('cheatRealParticipation'));
@@ -295,6 +387,7 @@ console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 
     && fm.cheatSameAmountWalletPct === 66.7 && fm.cheatCreatorPeakHoldSupplyPct === 35.2
     && fm.cheatBurstSpikeConcentration === 3 && fm.cheatSpikeBuyPctInBurst === 99.3
     && fm.cheatSpikeHoldPctAll === 96.7
+    && fm.cheatStrongBackerPressure === 3 && fm.cheatAnchorBuySellRatio === 4.74
     && fm.cheatRealParticipation === undefined,
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
       dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
@@ -310,47 +403,42 @@ console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 
     && fm2.cheatAbnormalBehaviorRatio === null && fm2.cheatMaxBlockBuyCount === null
     && fm2.cheatCreatorPeakHoldSupplyPct === null
     && fm2.cheatBurstSpikeConcentration === null && fm2.cheatSpikeBuyPctInBurst === null
-    && fm2.cheatSpikeHoldPctAll === null,
+    && fm2.cheatSpikeHoldPctAll === null
+    && fm2.cheatStrongBackerPressure === null && fm2.cheatAnchorBuySellRatio === null,
     fm2 ? fm2.cheatGrade : 'build null');
 }
 
-console.log('E. 引擎侧源码口径锁');
+console.log('E. 引擎侧源码口径锁（CD158 形状）');
 {
   const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
-  // E1 双开关物化：cheatCheck.enabled ∧ gate.enabled（两级默认关——观察层语义保留）
-  ok('gate 双开关物化（service enabled ∧ gate.enabled===true）',
-    src.includes("gate && _cheatCfg.gate.enabled === true") && src.includes('this._cheatCheckService.enabled'));
-  // E2 拉黑短路位置：叙事否决/买入熔断短路同段之后（省叙事直调/preBuy/signal 整条链）
-  const shortIdx = src.indexOf('_cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)');
+  // E1 拉黑双源短路：service.enabled ∧（引擎 Set ∪ service.isGateBlocked）——重启
+  // bootstrap 恢复的拉黑也在信号行之前短路；位置=叙事否决/熔断短路之后 preBuy 前
+  const shortIdx = src.indexOf('this._cheatBlockedTokens.has(tokenAddress) || this._cheatCheckService.isGateBlocked(tokenAddress)');
   const breakerIdx = src.indexOf('this._buyBlockedTokens.has(tokenAddress)');
   const narrativeIdx = src.indexOf('this._narrativeBlockedTokens.has(tokenAddress)');
-  ok('拉黑短路在买评估链（叙事否决/熔断短路之后，preBuy 之前）',
+  ok('拉黑双源短路在买评估链（叙事否决/熔断短路之后，preBuy/signal 落库之前）',
     shortIdx > 0 && breakerIdx > 0 && narrativeIdx > 0 && narrativeIdx < breakerIdx && breakerIdx < shortIdx);
-  // E3 gate 挂点在 GMGN 层之前（无 GMGN 条件腿照样硬门）
-  const gateCallIdx = src.indexOf('const gate = await this._cheatGateEvaluate(tokenAddress');
+  // E2 门挂点=腿携带 cheatCheckCondition 才走（无字段零作弊交互）；GMGN 前
+  const condIdx = src.indexOf("const cheatCheckCondition = String(strategy.cheatCheckCondition || '').trim();");
+  const gateCallIdx = src.indexOf('const gate = await this._cheatGateEvaluate(');
   const gmgnCondIdx = src.indexOf("const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();");
-  ok('gate 挂点在 GMGN 条件构建之前', gateCallIdx > 0 && gmgnCondIdx > 0 && gateCallIdx < gmgnCondIdx);
-  // E4 stop 清理：FA 投影逐 token 清 + 两 Set clear
+  ok('门挂点：腿字段非空才走（观察模式退役=无字段零交互）', condIdx > 0 && gateCallIdx > condIdx);
+  ok('门挂点在 GMGN 条件构建之前（CD158 裁定门序：作弊门→GMGN）',
+    gateCallIdx > 0 && gmgnCondIdx > 0 && gateCallIdx < gmgnCondIdx);
+  // E3 腿配门但 service 未启用 → fail-open skipped（唯一暴露点，warn 留痕）
+  ok('service disabled → fail-open skipped（warn 留痕）',
+    src.includes("cheatCheckInfo = { status: 'skipped', reason: 'service_disabled' }"));
+  // E4 stop 清理：FA 投影逐 token 清 + 两 Set clear + throttle clear
   const cleanCount = (src.match(/clearCheatFactors/g) || []).length;
   ok('stop 清理在场（clearCheatFactors 引擎恰一处=stop 段逐 token 清）', cleanCount === 1);
   ok('拉黑/投影两 Set stop 清理', src.includes('_cheatProjectedTokens.clear()')
     && src.includes('this._cheatBlockedTokens.clear()'));
-  // E5 gate 关（默认）时挂点走原 noteBuyPoint 观察路径（观察层语义 bit 一致）
-  ok('gate 关 → 原 noteBuyPoint 观察路径保留（存量实验 bit 一致）',
-    src.includes('cheatCheckInfo = this._cheatCheckService.noteBuyPoint(tokenAddress'));
-  // E6 因子化预触发挂点：tick 管线买腿分支（_narrativeTriggerCheck 同位后）
-  const trigIdx = src.indexOf('this._narrativeTriggerCheck(tokenAddress, factors, token);');
-  const pfIdx = src.indexOf('this._cheatPrefetchCheck(tokenAddress, factors, token);');
-  ok('预触发挂点在 tick 管线买腿分支（C84 触发模型同位——条件串引用 cheat 因子的自锁死防线）',
-    trigIdx > 0 && pfIdx > trigIdx);
-  ok('消费端扫描 /cheat[A-Z]/ 在源码（条件串引用检测）', src.includes('_scanCheatFactorConsumers'));
-  // E7 faState 作用域事故现场反证（v67 首日 2026-11-02：`faState is not defined` 炸断
-  // 买路径）：声明原在 preBuy 块内，C84 trigger 腿跳过 preBuy 时块外 gate 调用
-  //（_cheatGateEvaluate/noteBuyPoint meta）越界引用 ReferenceError——每次 fire 即抛、
-  // trades 零行。防线=声明必须提升到 _evaluateBuyPath 函数域且先于 preBuy 块，
-  // 函数体内不得再有块级重复声明
+  ok('买信号节流 stop 清理', /if \(this\._buySignalThrottle\) this\._buySignalThrottle\.clear\(\);/.test(src));
+  // E5 faState 作用域事故现场反证（v67 首日 2026-11-02：`faState is not defined` 炸断
+  // 买路径）：声明必须提升到 _evaluateBuyPath 函数域且先于 preBuy 块，函数体内
+  // 不得再有块级重复声明
   const buyPathStart = src.indexOf('async _evaluateBuyPath(token, factorResults, tick) {');
-  const gateCallIdx2 = src.indexOf('this._cheatGateEvaluate(tokenAddress, token, faState', buyPathStart);
+  const gateCallIdx2 = src.indexOf('tokenAddress, token, faState, signalId, cheatCheckCondition, factorResults);', buyPathStart);
   const buyPathSlice = src.slice(buyPathStart, gateCallIdx2);
   const declIdx = buyPathSlice.indexOf('const faState = this._factorAggregator.getTokenState(tokenAddress);');
   const preBuyIdx = buyPathSlice.indexOf('shouldPerformPreCheck && this._preBuyCheckService');
@@ -358,180 +446,19 @@ console.log('E. 引擎侧源码口径锁');
     buyPathStart > 0 && gateCallIdx2 > buyPathStart && declIdx > 0 && preBuyIdx > 0 && declIdx < preBuyIdx);
   ok('faState 函数体内无块级重复声明（唯一声明=提升点）',
     (buyPathSlice.match(/const faState/g) || []).length === 1);
+  // E6 预触发/观察模式/增量门/顶帽全链退役反证（CD158 删除后不得回流）
+  ok('预触发整链退役反证（_cheatPrefetchCheck/_scanCheatFactorConsumers 零出现）',
+    !src.includes('_cheatPrefetchCheck') && !src.includes('_scanCheatFactorConsumers'));
+  ok('观察模式退役反证（noteBuyPoint 零出现——service API 已删）', !src.includes('noteBuyPoint'));
+  ok('gate.enabled 双开关退役反证（_cheatGateEnabled 零出现——腿字段即门）', !src.includes('_cheatGateEnabled'));
+  ok('unhealthyReanalyses 升级臂退役反证（引擎侧零出现）', !src.includes('unhealthyReanalyses'));
+  // E7 unhealthy 不拉黑：_cheatExitPosition 只由 cheat 路径调用（两处=硬拒+迟到）
+  const exitCalls = (src.match(/this\._cheatExitPosition\(tokenAddress, 'cheat [^']*'\)/g) || []).length;
+  ok('_cheatExitPosition 调用恰两处且 why 恒 cheat 域（硬拒+迟到——unhealthy 永不触发清仓）',
+    exitCalls === 2, exitCalls);
 }
 
-console.log('F. G1 因子化预触发 _cheatPrefetchCheck（tick 管线量门→后台分析→FA 投影）');
-{
-  // F1 激活判定：gate 开 → 预触发跑；纯观察+无因子消费 → 不激活（配额零增量）
-  const notes = [];
-  const mk = (over) => makeEngine(Object.assign({
-    _cheatPrefetchCondition: 'tradeCount >= 15',
-    _cheatPrefetchIntervalMs: 60000,
-    _cheatPrefetchAt: new Map(),
-    _cheatFactorsConsumed: undefined,
-    _cheatGateEnabled: false,
-    _cheatCheckService: { enabled: true, noteBuyPoint: (a, m, c, cb) => { notes.push({ a, c }); } },
-    _strategyEngine: {
-      evaluateCondition: (cond, f) => f.__pass === true,
-      getAllStrategies: () => [{ action: 'buy', condition: 'marketCap > 5' }],
-    },
-  }, over));
-  const FACTORS_PASS = { buyVolumeBnb: 0.5, __pass: true };
-  mk({ _cheatGateEnabled: true })._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  check('gate 开 → 预触发发起（noteBuyPoint 调用，source=prefetch）', notes.length, 1);
-
-  mk({})._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN); // 观察模式+无 cheat 因子消费
-  check('纯观察+条件串无 cheat 因子 → 不激活（不烧配额）', notes.length, 1);
-  mk({ _cheatFactorsConsumed: true })._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  check('观察模式+条件串引用 cheat 因子 → 激活（因子门消费端在场）', notes.length, 2);
-  mk({ _cheatGateEnabled: true, _cheatCheckService: { enabled: false } })
-    ._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  check('service.enabled=false → 不激活', notes.length, 2);
-
-  // F2 量门/节流/拉黑跳过
-  const eng = mk({ _cheatGateEnabled: true });
-  eng._cheatPrefetchCheck('0xtok', { __pass: false }, TOKEN);
-  ok('量门不满足 → 不发起', eng._cheatPrefetchAt.size === 0);
-  eng._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN); // 发起+记时
-  eng._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  check('节流窗内 → 第二次不发起（60s 引擎侧节流，防每 tick DB tail）', notes.length, 3);
-  const eng2 = mk({ _cheatGateEnabled: true, _cheatBlockedTokens: new Set(['0xtok']) });
-  eng2._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  ok('gate 开+已拉黑 → 跳过（投影已终值）', notes.length === 3 && eng2._cheatPrefetchAt.size === 0);
-  const eng3 = mk({ _cheatGateEnabled: true, _cheatPrefetchCondition: '' });
-  eng3._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  ok('prefetchCondition 空串=显式禁用', notes.length === 3);
-
-  // F2b 重判门分叉（2026-11-02 因子化+CD134 缺省因子门）：未析票恒走首析门；
-  // 已析票显式空串 → 回落首析门+内部门（CD134 前行为）；配了 → 已析票走重判门+
-  // factorGated=true（service 跳过内部数字增量门）；重判门不过 → 不发起
-  const evals = [];
-  const calls = [];
-  const mkGate = (over) => makeEngine(Object.assign({
-    _cheatPrefetchCondition: 'tradeCount >= 15',
-    _cheatReanalyzeCondition: '',
-    _cheatPrefetchIntervalMs: 60000,
-    _cheatPrefetchAt: new Map(),
-    _cheatFactorsConsumed: true,
-    _cheatGateEnabled: true,
-    _cheatProjectedTokens: new Set(),
-    _cheatCheckService: { enabled: true,
-      noteBuyPoint: (a, m, c) => { calls.push(c); } },
-    _strategyEngine: {
-      evaluateCondition: (cond, f) => { evals.push(cond); return f.__pass === true; },
-      getAllStrategies: () => [{ action: 'buy', condition: 'cheatGrade == 0' }],
-    },
-  }, over));
-  const RA = { tradeCount: 60, __pass: true };
-  mkGate({ _cheatReanalyzeCondition: 'tradeCount >= 40' })._cheatPrefetchCheck('0xnew', RA, TOKEN);
-  ok('未析票 → 恒走首析门（配了重判门不影响首析路径）',
-    evals.length === 1 && evals[0] === 'tradeCount >= 15'
-    && calls.length === 1 && !calls[0].factorGated);
-  evals.length = 0; calls.length = 0;
-  mkGate({ _cheatProjectedTokens: new Set(['0xnew']) })._cheatPrefetchCheck('0xnew', RA, TOKEN);
-  ok('已析票显式空串 → 回落首析门+内部门（CD134 前行为）+ 无 factorGated',
-    evals.length === 1 && evals[0] === 'tradeCount >= 15'
-    && calls.length === 1 && !calls[0].factorGated);
-  evals.length = 0; calls.length = 0;
-  mkGate({ _cheatProjectedTokens: new Set(['0xnew']), _cheatReanalyzeCondition: 'tradeCount >= 40' })
-    ._cheatPrefetchCheck('0xnew', RA, TOKEN);
-  ok('已析票配重判门 → 评重判门条件（非首析门）+ factorGated=true 传递',
-    evals.length === 1 && evals[0] === 'tradeCount >= 40'
-    && calls.length === 1 && calls[0].source === 'prefetch' && calls[0].factorGated === true);
-  evals.length = 0; calls.length = 0;
-  mkGate({ _cheatProjectedTokens: new Set(['0xnew']), _cheatReanalyzeCondition: 'tradeCount >= 40' })
-    ._cheatPrefetchCheck('0xnew', { tradeCount: 20, __pass: false }, TOKEN);
-  ok('重判门不满足 → 不发起（evaluateCondition false 短路）',
-    evals.length === 1 && calls.length === 0);
-
-  // F2c CD134 缺省重判门（2026-11-02 用户裁定「healthy/cheat 都不需要重新判定
-  // ——因子进实验再次判定条件，不在引擎内核写死」）：未配 reanalyzeCondition =
-  // 缺省因子条件 `cheatGrade IS NULL OR cheatGrade == 1`——已析票上次判定
-  // healthy(0)/cheat(2) 不再发起重判，unhealthy(1) 留重判域保翻案；显式空串=
-  // 回落 CD134 前行为（F2b 已锁）；配了=用户串接管（F2b 已锁）
-  const { ConditionEvaluator } = require('../src/strategies/ConditionEvaluator');
-  const ce = new ConditionEvaluator();
-  const CD134_DEFAULT = 'cheatGrade IS NULL OR cheatGrade == 1';
-  check('缺省串真评估：未判定 null → true（IS NULL 臂）',
-    ce.evaluate(CD134_DEFAULT, { cheatGrade: null }), true);
-  check('缺省串真评估：healthy 0 → false（不重判）',
-    ce.evaluate(CD134_DEFAULT, { cheatGrade: 0 }), false);
-  check('缺省串真评估：unhealthy 1 → true（重判域）',
-    ce.evaluate(CD134_DEFAULT, { cheatGrade: 1 }), true);
-  check('缺省串真评估：cheat 2 → false（不重判）',
-    ce.evaluate(CD134_DEFAULT, { cheatGrade: 2 }), false);
-  // 行为四形状（真评估器接线，非 __pass 桩——锁缺省串到发起路径的口径）
-  const rcalls = [];
-  const mkDef = (over) => makeEngine(Object.assign({
-    _cheatPrefetchCondition: 'tradeCount >= 15',
-    _cheatReanalyzeCondition: CD134_DEFAULT,
-    _cheatPrefetchIntervalMs: 60000,
-    _cheatPrefetchAt: new Map(),
-    _cheatFactorsConsumed: true,
-    _cheatGateEnabled: true,
-    _cheatProjectedTokens: new Set(['0xana']),
-    _cheatCheckService: { enabled: true,
-      noteBuyPoint: (a, m, c) => { rcalls.push({ cond: null, c }); } },
-    _strategyEngine: {
-      evaluateCondition: (cond, f) => ce.evaluate(cond, f),
-      getAllStrategies: () => [{ action: 'buy', condition: 'cheatGrade == 0' }],
-    },
-  }, over));
-  mkDef()._cheatPrefetchCheck('0xana', { tradeCount: 60, cheatGrade: 0 }, TOKEN);
-  ok('已析票 healthy(0) → 缺省门不发起', rcalls.length === 0);
-  mkDef()._cheatPrefetchCheck('0xana', { tradeCount: 60, cheatGrade: 2 }, TOKEN);
-  ok('已析票 cheat(2) → 缺省门不发起', rcalls.length === 0);
-  mkDef()._cheatPrefetchCheck('0xana', { tradeCount: 60, cheatGrade: 1 }, TOKEN);
-  ok('已析票 unhealthy(1) → 缺省门发起 + factorGated=true',
-    rcalls.length === 1 && rcalls[0].c.source === 'prefetch' && rcalls[0].c.factorGated === true);
-  // 装载三态源码口径锁：未配=缺省 / 显式空串=回落 / 配串=接管（trim 链同 prefetch 先例）
-  const cdSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
-  ok('装载三态源码锁（undefined→缺省串 / ""→"" / 串→trim 后接管）',
-    cdSrc.includes(": 'cheatGrade IS NULL OR cheatGrade == 1';")
-    && cdSrc.includes("_cheatCfg.reanalyzeCondition.trim() !== '' ? _cheatCfg.reanalyzeCondition.trim() : ''"));
-
-  // F3 onResult 投影：回调收 grade → FA 20 键投影（预触发是条件串消费的供源）
-  const eng4 = mk({
-    _cheatGateEnabled: true,
-    _cheatCheckService: { enabled: true, noteBuyPoint: (a, m, c, cb) => cb && cb({
-      grade: 'cheat', reasons: [{ code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0,
-      levels: { sameBlockBuyWave: 3, stallBurstWave: null },
-      anchors: { sameBlockHoldPct: 72.6, famousDominance: null },
-    }) },
-  });
-  eng4._cheatPrefetchCheck('0xtok', FACTORS_PASS, TOKEN);
-  const pf = FA.getCheatFactors('0xtok');
-  ok('onResult 回调 → FA 投影（预触发路径写者；anchors 随包透传）',
-    pf && pf.grade === 'cheat' && pf.blocked === true && pf.levels.sameBlockBuyWave === 3
-    && pf.anchors && pf.anchors.sameBlockHoldPct === 72.6 && pf.anchors.famousDominance === null);
-  FA.clearCheatFactors('0xtok');
-
-  // F4 _scanCheatFactorConsumers 字段覆盖：七字段任一含 cheatXxx 即真；卖腿不扫
-  const mkScan = (legs) => makeEngine({
-    _strategyEngine: { getAllStrategies: () => legs },
-  });
-  ok('condition 含 cheatGrade → true',
-    mkScan([{ action: 'buy', condition: 'cheatGrade == 0' }])._scanCheatFactorConsumers() === true);
-  ok('gmgnCheckCondition 含 cheatSameBlockBuyWave → true',
-    mkScan([{ action: 'buy', gmgnCheckCondition: 'cheatSameBlockBuyWave < 3' }])._scanCheatFactorConsumers() === true);
-  ok('preBuyCheckCondition/repeatBuyCheckCondition 域也扫',
-    mkScan([{ action: 'buy', preBuyCheckCondition: 'x > 1', repeatBuyCheckCondition: 'cheatStallBurstWave == 0' }])._scanCheatFactorConsumers() === true);
-  ok('narrativeTriggerCondition 域也扫',
-    mkScan([{ action: 'buy', narrativeTriggerCondition: 'cheatActivityLevel >= 2' }])._scanCheatFactorConsumers() === true);
-  ok('无关条件串 → false（常规因子/小写 cheat 前缀词不误检 /cheat[A-Z]/）',
-    mkScan([{ action: 'buy', condition: 'marketCap > 5 AND cheatcoinName != 1' }])._scanCheatFactorConsumers() === false);
-  ok('卖腿不扫（cheat 因子仅买腿消费）',
-    mkScan([{ action: 'sell', condition: 'cheatGrade == 2' }])._scanCheatFactorConsumers() === false);
-
-  // F5 首析门缺省口径锁（2026-11-02 用户裁定「盘面需要一定的数据量才能分析，触发
-  // 条件要更严格一些」）：缺省 = tradeCount >= 15（笔数门贴 13 题证据量；高于叙事
-  // 发起 0.1 BNB、低于 fire 量门 0.25 BNB 防首析晚于 fire 自锁）。旧缺省
-  // buyVolumeBnb >= 0.1 不得回流（约 1-3 笔买入即过门，首析证据薄）
-  const pfSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
-  ok('预触发首析门缺省 = tradeCount >= 15（源码口径锁）',
-    pfSrc.includes("? _cheatCfg.prefetchCondition.trim() : 'tradeCount >= 15';")
-    && !pfSrc.includes("'buyVolumeBnb >= 0.1'"));
-}
+console.log(`\n${pass} 通过, ${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);
 
 })().catch((e) => { console.error(e); process.exit(1); });

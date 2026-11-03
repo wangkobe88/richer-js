@@ -892,14 +892,13 @@ class RicherJsWebServer {
           }
         }
 
-        // cheatCheck 形状校验（CD1/G1 2026-11-01 落地；prefetchCondition 首析门
-        // 2026-11-02 实验级配置化）：enabled/gate.enabled 布尔、gate.awaitMs∈
-        // [1000,120000]、gate.unhealthyReanalyses∈[0,50] 均须整数；prefetchCondition
-        // 非空字符串时走 FA 因子域校验（ConditionEvaluator + FactorBuilder
-        // getAvailableFactorIds——与条件未知因子三防线同源：写错因子名的表达式
-        // 静默恒假=预触发永不发起，首析推迟到买点 await，必须 400 拒而非静默）。
-        // both/fourmeme 配 fourmemeWs 段、flap 单平台配 flapWs 段（引擎
-        // _mergedWsConfig 同键）；空串/缺键=引擎代码缺省 tradeCount >= 15
+        // cheatCheck 形状校验（CD158 2026-11-03 买信号驱动重构后）：enabled 布尔 +
+        // gate.awaitMs∈[1000,120000] 整数（买点 await 竞速）。**退役键容忍忽略**
+        //（gate.enabled/unhealthyReanalyses/prefetchCondition/reanalyzeCondition 随
+        // 预触发通道/顶帽/升级拉黑退役——克隆存量实验携带不断链，引擎/服务侧不再
+        // 消费）；门激活=买腿携带 cheatCheckCondition（FA 因子域校验走 validateLegs
+        // /loadStrategies 三防线，本段不重复）。both/fourmeme 配 fourmemeWs 段、
+        // flap 单平台配 flapWs 段（引擎 _mergedWsConfig 同键）
         {
           const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
           for (const secKey of ['fourmemeWs', 'flapWs', 'gangWs']) {
@@ -915,53 +914,22 @@ class RicherJsWebServer {
               if (typeof cd.gate !== 'object' || Array.isArray(cd.gate)) {
                 return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate 段形状非法（须为对象）` });
               }
-              if (cd.gate.enabled !== undefined && typeof cd.gate.enabled !== 'boolean') {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.enabled 须为布尔` });
-              }
               if (cd.gate.awaitMs !== undefined && !intInRange(cd.gate.awaitMs, 1000, 120000)) {
                 return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.awaitMs 须为整数 [1000,120000]（买点竞速毫秒）` });
               }
-              if (cd.gate.unhealthyReanalyses !== undefined && !intInRange(cd.gate.unhealthyReanalyses, 0, 50)) {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.unhealthyReanalyses 须为整数 [0,50]（unhealthy 拉黑前重判次数）` });
-              }
             }
-            const pf = cd.prefetchCondition;
-            if (pf !== undefined && pf !== null) {
-              if (typeof pf !== 'string' || pf.trim() === '') {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.prefetchCondition 须为非空字符串（空=不携带该键，勿提交空串）` });
-              }
-              const { ConditionEvaluator } = require('./strategies/ConditionEvaluator');
-              const { getAvailableFactorIds } = require('./trading-engine/core/FactorBuilder');
-              const evaluator = new ConditionEvaluator();
-              let v;
-              try {
-                v = evaluator.validateCondition(evaluator.parseCondition(pf.trim()), getAvailableFactorIds());
-              } catch (e) {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.prefetchCondition 语法错误: ${e.message}` });
-              }
-              if (!v.valid) {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.prefetchCondition ${v.errors.join('; ')}` });
-              }
+            // 买信号发射节流（T110 2026-11-03「全局买信号机制」，回测同步生效）：
+            // 冷却双门（毫秒 [0,3600000] AND ticks [0,10000]，0=各关各的）/
+            // 每 token 发射帽 [0,100]（0=不限）
+            const sec = config[secKey] || {};
+            if (sec.buySignalCooldownMs !== undefined && !intInRange(sec.buySignalCooldownMs, 0, 3600000)) {
+              return res.status(400).json({ success: false, error: `${secKey}.buySignalCooldownMs 须为整数 [0,3600000]（买信号冷却毫秒，0=关）` });
             }
-            // reanalyzeCondition（2026-11-02 重判门因子化）：同款因子域校验——配了即
-            // 接管已析票的重判发起（引擎侧因子门+factorGated 跳过内部数字增量门）
-            const ra = cd.reanalyzeCondition;
-            if (ra !== undefined && ra !== null) {
-              if (typeof ra !== 'string' || ra.trim() === '') {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.reanalyzeCondition 须为非空字符串（空=不携带该键，勿提交空串）` });
-              }
-              const { ConditionEvaluator } = require('./strategies/ConditionEvaluator');
-              const { getAvailableFactorIds } = require('./trading-engine/core/FactorBuilder');
-              const evaluator = new ConditionEvaluator();
-              let v;
-              try {
-                v = evaluator.validateCondition(evaluator.parseCondition(ra.trim()), getAvailableFactorIds());
-              } catch (e) {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.reanalyzeCondition 语法错误: ${e.message}` });
-              }
-              if (!v.valid) {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.reanalyzeCondition ${v.errors.join('; ')}` });
-              }
+            if (sec.buySignalCooldownTicks !== undefined && !intInRange(sec.buySignalCooldownTicks, 0, 10000)) {
+              return res.status(400).json({ success: false, error: `${secKey}.buySignalCooldownTicks 须为整数 [0,10000]（买信号冷却 tick 增量门，0=关）` });
+            }
+            if (sec.buySignalMaxPerToken !== undefined && !intInRange(sec.buySignalMaxPerToken, 0, 100)) {
+              return res.status(400).json({ success: false, error: `${secKey}.buySignalMaxPerToken 须为整数 [0,100]（每 token 买信号发射上限，0=不限）` });
             }
           }
         }

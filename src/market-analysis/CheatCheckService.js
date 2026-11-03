@@ -12,15 +12,14 @@
  * ⚠ DDL 红线：cheat_detection 的 verdict CHECK 域须先加 'observed' 再启用写行
  * （表当前 0 行无迁移负担；ALTER 语句见台账 D3.5 行）。
  *
- * 与叙事 token 级终身缓存的本质差异（时点性 drove 全部缓存设计）：
- * - 重析条件 = `(新tick>0 ∧ 距上次≥minIntervalMs) OR 新tick≥reanalyzeTickDelta`
- *   ——TTL 不作重析触发器（DB 行不自更新，0 新 tick 重析=纯烧配额），降格为
- *   minIntervalMs 限流器；慢票几笔新 tick 隔很久仍会覆盖、快票不打爆
- * - 缓存复用 = 同 question_version ∧ 增量条件未触发；每次真分析=一行 as-of 切片
- *   （cheat_detection 多行历史，转化轨迹=回归研究数据）
+ * 与叙事 token 级终身缓存的本质差异（CD158 后语义）：
+ * - 重析条件 = **每次买信号**（unhealthy/未判定）——增量门/60s 限流已随 CD158
+ *   退役，配额由引擎侧 BuySignalThrottle 信号帽（默认 5/token）封顶
+ * - 缓存复用 = healthy 同版本粘滞秒回（cheatGrade 不再变化）；每次真分析=一行
+ *   as-of 切片（cheat_detection 多行历史，转化轨迹=回归研究数据）
  * - anchor = **单次查询返回行数**（一次 select 定锚，绝不允许 count+select 两次
- *   查询——中间新写入即撕裂）；满帽（pullLimit）时行数饱和，增量改判尾行水位
- *   （block:log 变=有新 tick，量未知按满值处理，受顶帽兜底）
+ *   查询——中间新写入即撕裂）；满帽（pullLimit）时行数饱和，重判锚定尾行水位
+ *   （block:log 变=有新 tick，量未知按满值处理）
  *
  * 时序：买点触发 → settleDelayMs（默认 4s，覆盖 tickBuffer 500ms flush +
  * SenderResolver 0-3s RPC 回查）后拉数——**拉数发生在分析开始而非完成**，尾部
@@ -35,32 +34,34 @@
  * JevClient（ESM，dynamic import——NarrativeDirectCaller 先例）→ cheat-result-mapper
  * → insert cheat_detection。
  *
- * 失败语义（观察期）：Jev 失败/超时落 error/timeout 行带 fail_reason（fail-loud
- * 留痕）+ failCooldownMs 冷却，绝不影响买点；DB 写失败 loud warn（行丢=可观测）。
- * minTicks 预门：拉数后 tickCount<8 → 不调 Jev 不落表（unclear 桶留给「有量但
- * 证据矛盾」的真判定）。maxAnalysesPerToken 顶帽（per question_version，DB 行数
- * 兜底 + 进程内计数；error/timeout 行也烧预算——防故障环）= 首析+3 次重判
- * （2026-11-02 用户裁定「每个代币的作弊再次检测最多 3 次」）。
+ * 失败语义：Jev 失败/超时落 error/timeout 行带 fail_reason（fail-loud 留痕）+
+ * failCooldownMs 冷却（防故障环），绝不影响买点；DB 写失败 loud warn（行丢=可
+ * 观测）。minTicks 预门：拉数后 tickCount<8 → 不调 Jev 不落表（unclear 桶留给
+ * 「有量但证据矛盾」的真判定）。顶帽（maxAnalysesPerToken）已随 CD158 退役——
+ * 由引擎侧信号帽（buySignalMaxPerToken 默认 5）天然封顶。
  *
- * 引擎挂点：_runBuyEvaluation preBuy 通过后、GMGN if 块外（无 GMGN 条件的腿
- * 照样检查、被 GMGN 拒的票也进观察样本）。回测零接线（BacktestEngine 不继承
+ * 引擎挂点：_runBuyEvaluation preBuy 通过后、GMGN if 块前（无 GMGN 条件的腿
+ * 照样检查、被 GMGN 拒的票也进样本）。回测零接线（BacktestEngine 不继承
  * _runBuyEvaluation）。实验 stop 不清理表行（token 级全局资产）。
  *
- * ── G1 分级门（2026-11-01 用户裁定：作弊检测升级为买门）──
- * gateBuyPoint：买点 await 式判定（竞速 awaitMs 上限，超时 fail-open 放行本笔
- * +链续跑，迟到结果经返回值 late 供引擎补拉黑/清仓）。cheat/unhealthy/healthy
- * 由 cheat-grade.js 纯函数从观测档位映射（G1 规则+对拍见该文件头注）：
- * - cheat → 进程内拉黑（_gateBlocked 秒回不再烧 Jev，**盖全部路径**——gate 买点
- *   与 60s 预触发 noteBuyPoint 同短路，2026-11-02 MAI 案修复）+ 引擎侧持仓清仓联动
- * - unhealthy → 拦买；真分析重判机会 unhealthyReanalyses 次（首次后可再判 N 次，
- *   第 N+1 次 unhealthy 用尽 → 拉黑同 cheat）。增量门内（60s∧20tick）重复买点
- *   重用上次 grade 不烧配额
- * - healthy / insufficient_ticks / 预算耗尽 / 冷却 / Jev 失败 → 放行
- *   （fail-open，GMGN 层「数据不可用不得拦买点」同向裁定；healthy 票的重判
- *   节流由引擎侧 reanalyzeCondition 因子门控制——CD134 缺省带 cheatGrade 臂，
- *   不在 service 内写死）
- * 观察模式（gate 未开）noteBuyPoint 行为零变化——分级只在分析链尾部附加计算，
- * 观察实验多算一个 Map 计数无消费端。
+ * ── CD158 重构（2026-11-03 用户裁定）：买信号驱动 + 粘滞判定 ──
+ * 交互只发生在买信号发射时刻（预触发通道/观察模式/增量门/顶帽/unhealthy 升级
+ * 拉黑全部退役），作弊门=买腿 cheatCheckCondition 因子表达式（GMGN 同构）：
+ * - cheat → 进程内拉黑（_gateBlocked 秒回不再烧 Jev）+ 引擎侧持仓清仓联动；
+ *   **唯一拉黑来源**（unhealthy 用尽升级已随 CD158 退役）
+ * - healthy → **同版本粘滞**：_lastGrade 秒回 {cached:true} 不再重判（重启经
+ *   bootstrap 恢复——_chain 内 bootstrap 后粘滞复检兜住首信号窗）
+ * - unhealthy / 未判定 → 每次买信号真析重判（无内部节流；配额由引擎侧
+ *   BuySignalThrottle 信号帽（默认 5/token）天然封顶）
+ * - insufficient_ticks / 冷却 / Jev 失败 → 放行（fail-open，GMGN 层「数据
+ *   不可用不得拦买点」同向裁定）
+ * 版本域：bootstrap 按 `.eq('question_version', 本版本)` 行查询——题集 bump 后
+ * 旧版本行不可见=内存清空，全部代币允许下次买信号重判一次（用户裁定「按题集
+ * 版本粘滞」）。⚠ 内存粘滞**免版本比较**：_lastGrade.version 存的是 GRADE 规则
+ * 版本（G15，cheat-grade.js），非题集版本——进程内 this._version 恒定，内存态
+ * 天然全是当前题集版本，比较恒 false 反而使粘滞永不命中（CD158 实施期修正）。
+ * 观察模式（noteBuyPoint）已随 CD158 退役删除——腿不带 cheatCheckCondition 的
+ * 实验零分析零落行（数据采集期已收官）。
  */
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
@@ -71,18 +72,11 @@ const { gradeObservation, levelsFromObservation } = require('./cheat-grade');
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
   settleDelayMs: 4000,       // 买点→拉数延迟（tickBuffer flush + sender 回查窗）
-  reanalyzeTickDelta: 20,    // 新 tick 硬增量（无视 minIntervalMs 直接触发重析）
-  minIntervalMs: 60000,      // 限流器：距上次分析的最小间隔（增量路径）
   minTicks: 8,               // 极新票预门（低于不调 Jev 不落表）
-  // per question_version 分析预算（含 error/timeout 行）= 首析+3 次重判（2026-11-02
-  // 用户裁定「每个代币的作弊再次检测最多 3 次」，MAI 0x732b…7777 案 20 分钟 20 行
-  // 烧配额；4 与 unhealthyReanalyses=3 的第 4 次 unhealthy 拉黑恰好对齐——用尽路径完整保留）
-  maxAnalysesPerToken: 4,
   failCooldownMs: 10000,     // 失败后冷却（冷却期内买点不再发起链）
   pullLimit: 3000,           // tail 拉数帽（anchor=该单次查询返回行数）
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）
-  gateAwaitMs: 15000,        // G1 分级门：买点 await 竞速上限（超时 fail-open 放行）
-  unhealthyReanalyses: 3,    // G1：unhealthy 首判后可再判次数（第 N+1 次 unhealthy 拉黑）
+  gateAwaitMs: 15000,        // 买点 await 竞速上限（超时 fail-open 放行）
 };
 
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
@@ -99,87 +93,58 @@ class CheatCheckService {
     this._enabled = config.enabled === true; // 物化语义：缺段/缺 enabled=关（新机制默认零影响）
     this._timeoutMs = num(config.timeoutMs, DEFAULTS.timeoutMs, 1);
     this._settleDelayMs = num(config.settleDelayMs, DEFAULTS.settleDelayMs);
-    this._reanalyzeTickDelta = num(config.reanalyzeTickDelta, DEFAULTS.reanalyzeTickDelta, 1);
-    this._minIntervalMs = num(config.minIntervalMs, DEFAULTS.minIntervalMs);
     this._minTicks = num(config.minTicks, DEFAULTS.minTicks, 1);
-    this._maxAnalysesPerToken = num(config.maxAnalysesPerToken, DEFAULTS.maxAnalysesPerToken, 1);
     this._failCooldownMs = num(config.failCooldownMs, DEFAULTS.failCooldownMs);
     this._pullLimit = num(config.pullLimit, DEFAULTS.pullLimit, 10);
     this._headLimit = num(config.headLimit, DEFAULTS.headLimit, 10);
 
-    // G1 分级门（cheat-grade.js 纯函数映射；配置 gate 段由引擎消费 enabled，本
-    // service 消费 awaitMs/unhealthyReanalyses 两个数值键）
+    // 买点 await 竞速上限（gate 段只消费 awaitMs——gate.enabled/unhealthyReanalyses
+    // 已随 CD158 退役；门激活=买腿携带 cheatCheckCondition，由引擎判定）
     this._gateAwaitMs = num(config.gate && config.gate.awaitMs, DEFAULTS.gateAwaitMs, 1);
-    this._unhealthyReanalyses = num(
-      config.gate && config.gate.unhealthyReanalyses, DEFAULTS.unhealthyReanalyses, 0);
 
     this._logger = logger;
     this._deps = deps;
     this._dbClient = deps.dbClient || null;
 
     // 进程内状态（重启即清：DB bootstrap 补偿跨进程连续性）
-    this._lastAnalysis = new Map();  // token → { questionVersion, anchorTickCount, capped, watermark, analyzedAt, verdict|null, lowTicks? }
-    this._analysisCount = new Map(); // token → 已落行数（bootstrap 从 DB 计数起底）
     this._failUntil = new Map();     // token → 冷却截止 ts
     this._inflight = new Map();      // token → Promise（买点并发 join：一条链盖住相邻买点）
     this._bootstrapped = new Set();  // token → 已做 DB 历史回读
     this._promptWritten = new Set(); // `${token}\0${version}` → jev_prompt 已落过（首行全文防线）
     this._llm = null;                // { JevClient, buildCheatQuestions, CHEAT_QUESTIONS_VERSION }
 
-    // G1 分级门状态（进程内，重启即清；drain/stop 不清理——与 _lastAnalysis 同款）
-    this._gateBlocked = new Set();       // token → 拉黑（cheat / unhealthy 用尽；秒回不烧 Jev）
-    this._gateUnhealthyGrades = new Map(); // token → unhealthy 真分析判定次数（真调 Jev 才计）
-    this._lastGrade = new Map();         // token → { grade, reasons, version, unhealthyGrades }（增量门内重用）
+    // CD158 粘滞状态（进程内，重启即清；bootstrap 恢复——按当前题集版本过滤）
+    this._gateBlocked = new Set();       // token → 拉黑（**仅 cheat 判定**；秒回不烧 Jev）
+    this._gateUnhealthyGrades = new Map(); // token → unhealthy 真分析判定次数（纯观测计数，FA cheatUnhealthyGrades 键源；无门效应）
+    this._lastGrade = new Map();         // token → { grade, reasons, version, unhealthyGrades, levels, buckets, anchors }（healthy 粘滞源）
 
     this.stats = {
-      noted: 0, analyzed: 0, skippedInsufficientTicks: 0, skippedQuota: 0,
-      cacheReused: 0, cooldownSkipped: 0, rowsWritten: 0, writeFailed: 0,
+      analyzed: 0, skippedInsufficientTicks: 0,
+      cooldownSkipped: 0, rowsWritten: 0, writeFailed: 0,
       timeouts: 0, errors: 0, inflightJoined: 0,
       gateNoted: 0, gateBlockedHits: 0, gateTimeouts: 0, gateGraded: 0,
+      stickyReused: 0, stickyBootstrapped: 0,
     };
   }
 
   get enabled() { return this._enabled; }
 
   /**
-   * 引擎买点挂点：同步返回 metadata 轨迹，分析链 fire-and-forget（不抛错）。
-   * onResult（可选，2026-11-01 因子化预触发通道）：链完成时回调一次（reused/
-   * fail/insufficient_ticks 全形状均回，吞错）——预触发路径用它投影 FA 题档
-   * 因子；joined_inflight 也会收到（回调挂被 join 的链上，由首发起方代调）。
+   * CD158 粘滞秒回形状（healthy 不再重判）：入口与 _chain 内 bootstrap 复检两处
+   * 消费同一形状——{status:'graded', grade:'healthy', cached:true, reasons,
+   * unhealthyGrades, levels, buckets, anchors}（levels/buckets/anchors 供引擎
+   * FA 投影，与真分析返回同构=消费端零分叉）。
+   * @private
    */
-  noteBuyPoint(tokenAddress, tokenMeta = {}, context = {}, onResult = null) {
-    if (!this._enabled) return { status: 'disabled' };
-    const token = String(tokenAddress || '').toLowerCase();
-    if (!token) return { status: 'invalid_token' };
-    this.stats.noted++;
-
-    // 拉黑短路（2026-11-02 MAI 案根因修复）：cheat/unhealthy 用尽拉黑后，买点路径
-    // gateBuyPoint 秒回只盖自己——60s 预触发照走本入口，每轮真烧 Jev 直到顶帽
-    // （MAI 07:17 拉黑后预触发又烧 18 次）。拉黑票投影已是终值，秒回缓存 grade/
-    // levels/anchors（与 gateBuyPoint 拉黑秒回同形状，onResult 消费方零改动——
-    // 投影在产生拉黑的那次链完成时已做过，此处无需再投影）
-    if (this._gateBlocked.has(token)) return this._blockedResult(token);
-
-    const info = { status: 'initiated', settleDelayMs: this._settleDelayMs };
-    const last = this._lastAnalysis.get(token);
-    if (last) {
-      info.lastVerdict = last.verdict ?? null;
-      info.lastAnchorTickCount = last.anchorTickCount;
-    }
-
-    const existing = this._inflight.get(token);
-    if (existing) {
-      this.stats.inflightJoined++;
-      if (typeof onResult === 'function') existing.then(onResult).catch(() => {});
-      existing.catch(() => {}); // 双保险（链内自吞，此处防 unhandled rejection）
-      return { ...info, status: 'joined_inflight' };
-    }
-    const chain = this._chain(token, tokenMeta, context)
-      .finally(() => this._inflight.delete(token));
-    chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
-    if (typeof onResult === 'function') chain.then(onResult).catch(() => {});
-    this._inflight.set(token, chain);
-    return info;
+  _stickyHealthyResult(token) {
+    this.stats.stickyReused++;
+    const lg = this._lastGrade.get(token);
+    return {
+      status: 'graded', grade: 'healthy', cached: true,
+      reasons: lg?.reasons ?? [],
+      unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
+      levels: lg?.levels ?? null, buckets: lg?.buckets ?? null, anchors: lg?.anchors ?? null,
+    };
   }
 
   /** 实验 stop 优雅等流（上限 maxWaitMs——settle+Jev 最长几十秒，不值得堵停机） */
@@ -193,15 +158,19 @@ class CheatCheckService {
   }
 
   /**
-   * G1 分级门：买点 await 式判定（2026-11-01 用户裁定升级为买门）。
-   * 走同一 _chain（settle 4s+拉数+Jev+mapper+分级），竞速 awaitMs 上限：
-   * - 拉黑秒回：{status:'graded', grade:'cheat', blocked:true}（不烧 Jev）
-   * - 判定完成：{status:'analyzed'|'reused', grade, reasons, unhealthyGrades}
-   *   （analyzed=本次真调 Jev；reused=增量门内重用上次 grade）
+   * 买信号驱动作弊门（CD158 2026-11-03 重构）：买点 await 式判定，竞速 awaitMs：
+   * - 拉黑秒回：{status:'graded', grade:'cheat', blocked:true}（不烧 Jev；唯一
+   *   拉黑来源=cheat 判定）
+   * - **粘滞 healthy 秒回**：同版本 healthy 判定 {status:'graded', cached:true}
+   *   不再重判（重启后首链经 bootstrap 恢复 + _chain 内粘滞复检兜住——见
+   *   _chain 4c）；**免版本比较**（_lastGrade.version=GRADE 规则版本非题集版本，
+   *   内存态天然全当前题集版本，版本域由 bootstrap 的 .eq(question_version) 承担）
+   * - unhealthy / 未判定 → 真析（每买信号重判；增量门/顶帽已退役，配额由引擎
+   *   侧 BuySignalThrottle 信号帽天然封顶）
    * - 竞速超时：{status:'timeout_fail_open', late:Promise}——**链续跑不终止**，
    *   调用方挂 late.then 补拉黑/清仓/投影（本笔已放行，下轮生效）
    * - 放行态（不拦买，GMGN fail-open 同向）：insufficient_ticks / fail
-   *   （llm_load/cooldown/quota/jev_timeout/jev_error/mapper_error）
+   *   （llm_load/cooldown/jev_timeout/jev_error/mapper_error）
    * 不抛错（接线级异常由引擎 catch 放行）。
    */
   async gateBuyPoint(tokenAddress, tokenMeta = {}, context = {}, opts = {}) {
@@ -211,6 +180,11 @@ class CheatCheckService {
     this.stats.gateNoted++;
 
     if (this._gateBlocked.has(token)) return this._blockedResult(token);
+
+    // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
+    // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）
+    const lg = this._lastGrade.get(token);
+    if (lg && lg.grade === 'healthy') return this._stickyHealthyResult(token);
 
     let chain = this._inflight.get(token);
     if (!chain) {
@@ -267,62 +241,45 @@ class CheatCheckService {
         return { status: 'fail', reason: 'cooldown' };
       }
 
-      // 4) DB 历史回读（首触补偿跨进程：缓存态 + 预算计数）
+      // 4) DB 历史回读（首触补偿跨进程：粘滞态/拉黑态/unhealthy 观测计数）
       await this._bootstrapHistory(token);
 
       // 4b) 拉黑复检（bootstrap 门状态恢复配套）：重启后首链走不到入口内存短路——
-      // bootstrap 才从 DB 行恢复拉黑；此处不复检则预算耗尽票走 8) quota fail-open
-      // 放行=拉黑被重启洗掉一次（帽 4 时代 MAI 形状重启即耗尽）、未耗尽票重烧一次
-      // Jev。恢复即终态：秒回 graded/blocked（与入口短路同形状，消费端零改动）
+      // bootstrap 才从 DB 行恢复拉黑；此处不复检则已拉黑票重启后白烧一次 Jev。
+      // 恢复即终态：秒回 graded/blocked（与入口短路同形状，消费端零改动）
       if (this._gateBlocked.has(token)) return this._blockedResult(token);
+
+      // 4c) 粘滞复检（CD158）：重启后首链入口粘滞不命中（内存空）——bootstrap
+      // 恢复 healthy _lastGrade 后在此秒回，**不烧 Jev**（无此复检=粘滞语义跨重启
+      // 失效一次）。与入口短路同形状（_stickyHealthyResult）
+      {
+        const lg = this._lastGrade.get(token);
+        if (lg && lg.grade === 'healthy') {
+          this.stats.stickyBootstrapped++;
+          this._log('info', `粘滞 healthy 秒回（bootstrap 恢复） | ${token}`);
+          return this._stickyHealthyResult(token);
+        }
+      }
 
       // 5) 拉数（单查询定锚）
       const pull = await this._pullTicks(token);
 
-      // 6) minTicks 预门（不调 Jev 不落表）
+      // 6) minTicks 预门（不调 Jev 不落表；不粘滞——下个买信号可重析）
       if (pull.anchorTickCount < this._minTicks) {
         this.stats.skippedInsufficientTicks++;
-        this._lastAnalysis.set(token, {
-          questionVersion: this._version, anchorTickCount: pull.anchorTickCount,
-          capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(),
-          verdict: null, lowTicks: true,
-        });
         this._log('info', `ticks 不足跳过（${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
         return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
       }
 
-      // 7) 增量判定（时点性缓存核心）；未触发 → G1 重用上次 grade（不烧 Jev）。
-      // factorGated（2026-11-02 重判门因子化）：引擎配了 reanalyzeCondition 时
-      // 预触发来源已被引擎侧因子门控（过了才发起）——跳过内部数字增量门（双门
-      // AND 会让配置者难以预期）。仅 prefetch 来源携带；买点 gate/观察挂点不带
-      // （reused 拿缓存语义不变）。顶帽/冷却/minTicks 防线不受此标志影响
-      const last = this._lastAnalysis.get(token);
-      if (last && last.questionVersion === this._version && !context.factorGated) {
-        const newTicks = this._estimateNewTicks(last, pull);
-        const ageMs = this._now() - last.analyzedAt;
-        const triggered = (newTicks > 0 && ageMs >= this._minIntervalMs) || newTicks >= this._reanalyzeTickDelta;
-        if (!triggered) {
-          this.stats.cacheReused++;
-          const lg = this._lastGrade.get(token);
-          return lg ? { status: 'reused', ...lg } : { status: 'reused' };
-        }
-      }
-
-      // 8) 预算顶帽
-      const done = this._analysisCount.get(token) || 0;
-      if (done >= this._maxAnalysesPerToken) {
-        this.stats.skippedQuota++;
-        this._log('info', `分析预算耗尽（${done}/${this._maxAnalysesPerToken}） | ${token}`);
-        return { status: 'fail', reason: 'quota' };
-      }
-
-      // 9) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
+      // 7) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
+      //（CD158：增量门/顶帽已退役——粘滞 healthy 在入口/_chain 4c 秒回、unhealthy/
+      //  未判定每买信号真析，配额由引擎侧 BuySignalThrottle 信号帽天然封顶）
       const createMeta = await this._loadCreateMeta(token);
       const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
       const snapshot = buildSnapshotFromRows(pull.rows, meta, { capped: pull.capped, anchorTickCount: pull.anchorTickCount });
       const { state } = buildCheatState(snapshot);
 
-      // 10) Jev（超时竞速；迟到结果丢弃防锚重复行）
+      // 8) Jev（超时竞速；迟到结果丢弃防锚重复行）
       const res = await this._runJev(state, this._llm.buildCheatQuestions());
       if (!res.ok) {
         if (res.kind === 'timeout') {
@@ -332,17 +289,13 @@ class CheatCheckService {
           this.stats.errors++;
           await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `jev_error: ${res.error?.message || res.error}` }, null, context, snapshot.derived);
         }
+        // 失败冷却（防故障环；不粘滞——下个买信号受冷却后可重析）
         this._failUntil.set(token, this._now() + this._failCooldownMs);
-        this._analysisCount.set(token, done + 1); // 失败也烧预算（防故障环）
-        this._lastAnalysis.set(token, {
-          questionVersion: this._version, anchorTickCount: pull.anchorTickCount,
-          capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(), verdict: null,
-        });
         this._log('warn', `Jev ${res.kind} | ${token} ${res.error?.message || ''}`);
         return { status: 'fail', reason: res.kind === 'timeout' ? 'jev_timeout' : 'jev_error' };
       }
 
-      // 11) mapper 观测组装 + 落库（D3.5：现象+档位观测记录无 verdict；D3.1 持仓
+      // 9) mapper 观测组装 + 落库（D3.5：现象+档位观测记录无 verdict；D3.1 持仓
       //     占比锚随 snapshot.derived 传入——数值事实，重放对拍用）
       let obs;
       try {
@@ -398,12 +351,14 @@ class CheatCheckService {
           // 缺失/Σ正净=0 → null 不冒充，头注见 cheat-snapshot SPIKE_SEC）
           spikeBuyPctInBurst: snapshot.derived.spikeBuyPctInBurst,
           spikeHoldPctAll: snapshot.derived.spikeHoldPctAll,
+          // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚
+          // 观察期：grade 零消费只攒分布；窗口卖=0 → null 比值不适用）
+          anchorBuySellRatio: snapshot.derived.anchorBuySellRatio,
         });
       } catch (e) {
         this.stats.errors++;
         await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context, snapshot.derived);
         this._failUntil.set(token, this._now() + this._failCooldownMs);
-        this._analysisCount.set(token, done + 1);
         return { status: 'fail', reason: 'mapper_error' };
       }
       // G1 分级（2026-11-01 用户裁定：档位→交易三级映射，cheat-grade.js 纯函数；
@@ -423,22 +378,17 @@ class CheatCheckService {
       obs.anchorSellCount = anchorSellCount;
 
       await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
-      this._analysisCount.set(token, done + 1);
-      this._lastAnalysis.set(token, {
-        questionVersion: this._version, anchorTickCount: pull.anchorTickCount,
-        capped: pull.capped, watermark: pull.watermark, analyzedAt: this._now(), verdict: 'observed',
-      });
       this.stats.analyzed++;
 
-      // G1 分级消费：cheat 拉黑 / unhealthy 计数（真分析才计；重判机会=首判后
-      // unhealthyReanalyses 次，第 N+1 次 unhealthy 用尽拉黑）。观察模式实验
-      // （gate 未开）无引擎消费端，多算无影响
+      // G1 分级消费（CD158 形状）：cheat → 拉黑（终态，含清仓联动由引擎侧
+      // 消费）；unhealthy → `_gateUnhealthyGrades` 纯观测计数（FA 键
+      // cheatUnhealthyGrades 数据源，**无门效应**——2026-11-03 用户裁定移除
+      // 升级拉黑，unhealthy 每个买信号重判直至翻案）
       if (graded.grade === 'cheat') {
         this._gateBlocked.add(token);
       } else if (graded.grade === 'unhealthy') {
         const n = (this._gateUnhealthyGrades.get(token) || 0) + 1;
         this._gateUnhealthyGrades.set(token, n);
-        if (n > this._unhealthyReanalyses) this._gateBlocked.add(token);
       }
 
       // 因子化投影原料（2026-11-01 用户指令）：14 题数值档（FA 出口，D3.35 起
@@ -459,6 +409,7 @@ class CheatCheckService {
         ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
         ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'} wash=${obs.extLevels.wash_pair ?? '—'}` +
         ` spike=${obs.extLevels.burst_spike_concentration ?? '—'}` +
+        ` sbp=${obs.extLevels.strong_backer_pressure ?? '—'}` +
         ` hold=${obs.extLevels.holdings_balance ?? '—'}(t2:${snapshot.derived.top2HoldSupplyPct ?? '—'}%/Σ2:${snapshot.derived.top1Top2HoldSupplyPct ?? '—'}%/∪:${snapshot.derived.t1PlusClusterSupplyPct ?? '—'}%Δ${snapshot.derived.top1Top2FirstBuyGapSec ?? '—'}s)` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` abr=${obs.abnormalBehavior ? obs.abnormalBehavior.bucket : '—'}` +
@@ -474,6 +425,9 @@ class CheatCheckService {
         (snapshot.derived.spikeBuyBnb !== null && snapshot.derived.spikeBuyBnb !== undefined
           ? ` 尖刺=买${snapshot.derived.spikeBuyBnb}/${snapshot.derived.spikeWallets}户@t+${snapshot.derived.spikeFromDt}~${snapshot.derived.spikeToDt} 占簇${snapshot.derived.spikeBuyPctInBurst ?? '—'}%/持${snapshot.derived.spikeHoldPctAll ?? '—'}%`
           : '') +
+        // D3.52 观察期攒数据键：sbp 档位+锚窗买卖比（grade 零消费，分布数据
+        // 采实验日志与 cheat_detection 行——豁免规则立法的原料）
+        ` 买压=${snapshot.derived.anchorBuySellRatio ?? '—'}` +
         ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
@@ -553,37 +507,31 @@ class CheatCheckService {
     };
   }
 
-  /** DB 历史回读：最新有效行续接缓存态 + 行数计数起底预算（首触一次） */
+  /**
+   * DB 历史回读（首触一次）：CD158 语义下只恢复两态——cheat 拉黑（终态，
+   * 引擎信号短路+门秒回）与 healthy 粘滞（`_lastGrade`，秒回不烧 Jev）+
+   * unhealthy 观测计数（FA cheatUnhealthyGrades 数据源）。unhealthy 不再
+   * 拉黑（2026-11-03 用户裁定移除升级臂）——重启后照常下次买信号重判。
+   * 版本域由查询 `.eq('question_version')` 承担：题集 bump 后旧版本行
+   * 不可见 → 粘滞/拉黑自然失效一次（允许重判，设计内）。
+   */
   async _bootstrapHistory(token) {
     if (this._bootstrapped.has(token)) return;
     this._bootstrapped.add(token);
     try {
       const client = this._client();
-      // 行级拉取（最新优先；limit≥顶帽=当前版本全行可见，error/timeout 行无 grade
-      // 天然不入扫描）：_lastAnalysis 续接 + G1 门状态跨进程恢复——2026-11-02 帽收
-      // 紧配套（首析+3 重判）：无恢复则已拉黑票重启后配额已耗尽 → quota fail-open
-      // 放行=拉黑被重启洗掉（顶帽 20 时代靠重析重新拉黑兜底，帽 4 后此路不通）
-      const rowLimit = Math.max(8, this._maxAnalysesPerToken);
+      // 行级拉取（最新优先；error/timeout 行无 grade 天然不入扫描——拉黑扫描
+      // 需「任意 cheat 行在场」，粘滞恢复需「最新带 grade 行」，固定 8 行窗口足够
       const latest = await client.from('cheat_detection')
-        .select('verdict,anchor_tick_count,analyzed_at,snapshot_digest')
+        .select('verdict,analyzed_at,snapshot_digest')
         .eq('token_address', token)
         .eq('question_version', this._version)
         .eq('is_valid', true)
         .order('analyzed_at', { ascending: false })
-        .limit(rowLimit);
+        .limit(8);
       const rows = (!latest.error && latest.data) || [];
-      if (rows.length && !this._lastAnalysis.has(token)) {
-        const row = rows[0];
-        const digest = row.snapshot_digest || {};
-        this._lastAnalysis.set(token, {
-          questionVersion: this._version,
-          anchorTickCount: row.anchor_tick_count ?? 0,
-          capped: digest.capped === true,
-          watermark: digest.watermark || null,
-          analyzedAt: Date.parse(row.analyzed_at) || 0,
-          verdict: row.verdict || null,
-        });
-        // G1 门状态恢复（版本域）：cheat 行在场 → 拉黑；unhealthy 真析计数超限 → 拉黑
+      if (rows.length) {
+        // 门状态恢复（版本域）：cheat 行在场 → 拉黑；unhealthy 只恢复观测计数
         let unhealthy = 0;
         let cheatSeen = false;
         for (const r of rows) {
@@ -592,8 +540,9 @@ class CheatCheckService {
           else if (g === 'unhealthy') unhealthy++;
         }
         this._gateUnhealthyGrades.set(token, unhealthy);
-        if (cheatSeen || unhealthy > this._unhealthyReanalyses) this._gateBlocked.add(token);
-        // _lastGrade 恢复（最新带 grade 行）：拉黑秒回/reused 带终值，FA 投影不缺位
+        if (cheatSeen) this._gateBlocked.add(token);
+        // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
+        // unhealthy 投影不缺位（下次信号重判覆盖）
         const gradedRow = rows.find((r) => r.snapshot_digest && r.snapshot_digest.grade);
         if (gradedRow && !this._lastGrade.has(token)) {
           const d = gradedRow.snapshot_digest;
@@ -606,13 +555,6 @@ class CheatCheckService {
             unhealthyGrades: unhealthy, levels, buckets, anchors,
           });
         }
-      }
-      const counted = await client.from('cheat_detection')
-        .select('id', { count: 'exact', head: true })
-        .eq('token_address', token)
-        .eq('question_version', this._version);
-      if (!counted.error && Number.isFinite(counted.count)) {
-        this._analysisCount.set(token, counted.count);
       }
     } catch (e) {
       this._log('warn', `历史回读失败（按无历史继续） | ${token} ${e?.message || e}`);
@@ -672,14 +614,6 @@ class CheatCheckService {
       if (rowsAsc[i].quote_token) return rowsAsc[i].quote_token;
     }
     return null;
-  }
-
-  /** 增量估算：未满帽=行数差；任一侧满帽=行数饱和不可信，改判尾行水位 */
-  _estimateNewTicks(last, pull) {
-    if (!last) return pull.anchorTickCount;
-    if (!pull.capped && !last.capped) return pull.anchorTickCount - last.anchorTickCount;
-    if (last.watermark && pull.watermark && last.watermark.key === pull.watermark.key) return 0;
-    return this._reanalyzeTickDelta; // 水位变=有新 tick 但量未知，按满值处理（限流+顶帽兜底）
   }
 
   _normalizeMeta(token, tokenMeta, pull, createMeta = null) {

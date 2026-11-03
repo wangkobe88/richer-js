@@ -170,8 +170,11 @@ class StrategyEngine {
                 if (availableFactorIds) {
                     // narrativePrefetchCondition（N3 预触发，2026-10-13 叙事提速案）：
                     // 评估上下文与 narrativeCallCondition 同为 fire factors，同集校验；
-                    // narrativeTriggerCondition（C84 2026-10-17 叙事发起条件）同集
-                    for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition', 'narrativeTriggerCondition']) {
+                    // narrativeTriggerCondition（C84 2026-10-17 叙事发起条件）同集；
+                    // cheatCheckCondition（CD158 2026-11-03 买信号驱动作弊门）同集——
+                    // 评估上下文=fire 因子快照+门注入的 cheat 43 键（FA setCheatFactors
+                    // 投影后 getFactorKeys 探针自动在 FA 域内，零新键集）
+                    for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition', 'narrativeTriggerCondition', 'cheatCheckCondition']) {
                         const raw = config[field];
                         if (typeof raw === 'string' && raw.trim() !== '') {
                             const v = this._evaluator.validateCondition(
@@ -221,6 +224,13 @@ class StrategyEngine {
                     }
                 }
 
+                // cheatCheckCondition（CD158 2026-11-03 作弊门重构）：买腿专属——
+                // 买信号发射后、GMGN 前的最后一层买条件（因子表达式，cheat 43 键域）。
+                // 卖腿携带即拒启（无消费点，buyPhase 先例风格）
+                if (String(config.cheatCheckCondition || '').trim() !== '' && config.action !== 'buy') {
+                    throw new Error(`策略[${config.id}] 非买腿携带 cheatCheckCondition（买信号驱动作弊门条件）：该字段仅买腿可配，拒绝启动`);
+                }
+
                 // 卖腿确认去抖覆盖段（T109 2026-11-03 0x89e4 flap 止损臂案）：
                 // sellDebounce={minTicks,debounceMs,maxWaitMs} 仅卖腿可配，逐键覆盖
                 // 引擎级缺省——首真起算时固化进 pending entry（窗口内不改门）。形状/
@@ -251,6 +261,14 @@ class StrategyEngine {
                     // 下单前实时调 GMGN API 构建因子评估；API 不可用→fail-open 放行
                     // （2026-10-20 乌龟案裁定）。null=零调用
                     gmgnCheckCondition: config.gmgnCheckCondition || null,
+                    // 买信号驱动作弊门条件（CD158 2026-11-03 重构）：信号发射后、GMGN
+                    // 前评估——cheat 判定=拉黑硬拒（唯一硬逻辑）；healthy/unhealthy
+                    // 注入 cheat 43 键后评本表达式定买否；service 关/无数据/超时→
+                    // fail-open 放行（GMGN 同向）；表达式异常→fail-closed 拒。
+                    // 粘滞：cheat/healthy 同版本不再重判，unhealthy 每信号重判；
+                    // 信号发射受 BuySignalThrottle 冷却/上限节流（默认 3s/5 次）。
+                    // 回测零接线 fail-open 放行。null=零门零调用
+                    cheatCheckCondition: config.cheatCheckCondition || null,
                     narrativeCallCondition: config.narrativeCallCondition || null,
                     // 叙事预触发条件（N3，2026-10-13 叙事提速案）：不配 = 预触发用
                     // narrativeCallCondition；配更宽松条件 = 更早发起（API 消耗与提前量

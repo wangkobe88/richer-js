@@ -162,6 +162,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       lastBuyEvalAt: null,
       debounceFired: 0,
       debounceSuppressed: 0,
+      // T110 买信号发射节流观测（冷却/帽拦截计数，停机日志可见）
+      buySignalThrottled: 0,
     };
 
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
@@ -338,66 +340,40 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._gmgnRiskCheckService = new GmgnRiskCheckService(
       this._mergedWsConfig().gmgnCheck || {}, this.logger);
 
-    // CD1 作弊盘检测（2026-10-30 用户裁定立项，ZERODAY 0x23f1…7777 案）：Jev 驱动
-    // 买点同步式盘面健康三分类观察层（cheat/unhealthy/healthy；不健康↔健康随时点
-    // 转化）。**观察期 fire-and-forget 纯旁路**——绝不影响买决策，fail 全吞 loud
-    // 留痕；结果落 cheat_detection（token 级全局资产，stop 不清理）。配置
-    // fourmemeWs.cheatCheck（flap 同键经 _mergedWsConfig；enabled 缺省 false=新机制
-    // 默认零影响，v66 换车显式开观察）。回测零接线（BacktestEngine 不继承本类）
+    // CD158 作弊门=买信号驱动（2026-11-03 用户裁定重构：作弊模块是最后一层买条件，
+    // GMGN 式）：买腿可带 cheatCheckCondition（FA 因子表达式，cheat 43 键域）——
+    // 买条件 fire → 信号发射 → 叙事直调/preBuy 之后、GMGN 之前 await 竞速评估
+    // （awaitMs 超时 fail-open 放行+late 补拉黑/清仓）。判定粘滞（CD158）：cheat
+    // →拉黑终态（持仓清仓联动）；healthy →保持不再判；unhealthy →**每个买信号
+    // 重判**直至翻案（升级拉黑已移除，2026-11-03 用户裁定）。tick 预触发通道/观察
+    // 模式/顶帽/增量门已随 CD158 整链退役。结果落 cheat_detection（token 级全局
+    // 资产，stop 不清理）。配置 fourmemeWs.cheatCheck（flap 同键经 _mergedWsConfig；
+    // enabled 缺省 false=新机制默认零影响）。回测零接线（BacktestEngine 不继承
+    // 本类；门字段回测 fail-open 放行，cheat 因子回测恒 null）
     const { CheatCheckService } = require('../../market-analysis/CheatCheckService');
     this._cheatCheckService = new CheatCheckService(
       this._mergedWsConfig().cheatCheck || {}, this.logger);
-
-    // G1 分级门（2026-11-01 用户裁定：作弊检测升级为买门）：cheat/unhealthy/healthy
-    // 三级硬门（cheat-grade.js 档位映射）。gate.enabled 显式 true 才启用（缺段/关
-    // =观察模式零变化）；买点 await 竞速 awaitMs（超时 fail-open 放行+迟到结果补
-    // 拉黑/清仓）；cheat 拉黑=进程内 Set（_buyBlockedTokens 同款先例）+持仓清仓
-    // 联动（_emitSellSignal 全清链）。healthy 仅本层放行——叙事/GMGN 门照走（分
-    // 级与叙事质量正交）。回测零接线（BacktestEngine 不继承本类；FA cheat 观测键
-    // 回测恒 null 不进条件串）
     const _cheatCfg = this._mergedWsConfig().cheatCheck || {};
-    this._cheatGateEnabled = !!(_cheatCfg.gate && _cheatCfg.gate.enabled === true)
-      && this._cheatCheckService.enabled;
     this._cheatGateAwaitMs = Number.isFinite(_cheatCfg.gate && _cheatCfg.gate.awaitMs)
       && _cheatCfg.gate.awaitMs > 0 ? _cheatCfg.gate.awaitMs : 15000;
-    this._cheatBlockedTokens = new Set();   // 拉黑（cheat / unhealthy 用尽；与 service._gateBlocked 双保险，引擎短路更早省整条链）
+    this._cheatBlockedTokens = new Set();   // 拉黑（仅 cheat；与 service._gateBlocked 双保险，引擎短路更早省整条链）
     this._cheatProjectedTokens = new Set(); // FA cheat 投影过的 token（stop 逐 token 清）
+    // 门条件评估上下文的 cheat 键集（_cheatGateEvaluate 惰性派生：FA getFactorKeys
+    // 探针过滤 cheat 前缀——题集加键免改本引擎；FA 实例 ctor 后段构造故不能在此取）
+    this._cheatFactorKeys = null;
 
-    // G1 因子化预触发（2026-11-01 用户指令「以因子的形式放到表达式中」，叙事 N3/
-    // C84 触发模型同构）：condition 在 tick 管线同步评估（gate/note 挂点在其后的
-    // _runBuyEvaluation 内）——若只在买评估时才分析投影，条件串引用 cheat 因子会
-    // 自锁死（条件不过→gate 永不跑→投影永不更新）。预触发在 tick 管线量门满足时
-    // fire-and-forget 发起分析，完成即投影 FA → 下一 tick 条件可消费。首析门缺省
-    // tradeCount >= 15（2026-11-02 用户裁定「盘面需要一定的数据量才能分析，触发
-    // 条件要更严格一些」——13 题判定直接吃 tick 数，笔数门比买量门贴证据量；15
-    // 高于叙事发起 0.1 BNB、低于 fire 量门 0.25 BNB，保证首析先于买点不自锁）。
-    // 激活=enabled ∧（gate 开 ∨ 任一买腿条件串引用 cheat 因子）——无消费端不烧
-    // 配额；per-token 节流 prefetchIntervalMs（缺省 60s 对齐 service 增量门；引擎
-    // 侧节流防每 tick 一次 DB tail 查询——service 的 reused 判定在 pull 之后）。
-    // config：cheatCheck.prefetchCondition（FA 因子表达式，空串 ''=禁用）/
-    // cheatCheck.prefetchIntervalMs
-    this._cheatPrefetchCondition = typeof _cheatCfg.prefetchCondition === 'string'
-      ? _cheatCfg.prefetchCondition.trim() : 'tradeCount >= 15';
-    // 重判触发门（2026-11-02 用户裁定「增量门同样实验级配置+因子表达」）：FA 因子
-    // 表达式，对**已首析票**接管重判发起（首析门对已析票恒真，不再适用）——引擎评
-    // 因子门过了才发起，且 context.factorGated=true 让 service 跳过内部数字增量门
-    // （双门 AND 会让配置者难以预期）。买点 gate/观察挂点不带 factorGated，内部门
-    // 照旧（reused 拿缓存语义不变）。
-    // CD134（2026-11-02 用户裁定「healthy/cheat 都不需要重新判定——在实验的再次
-    // 判定条件中加入因子，不在引擎内核写死」）：**未配=缺省因子条件**——上次判定
-    // 结果入重判门（cheatGrade：null=未判定/0=healthy/1=unhealthy/2=cheat），缺省
-    // 只放行「未判定 ∨ unhealthy」：healthy/cheat 终态不再重判（cheat 另有 service
-    // 拉黑短路双保险），unhealthy 留在重判域保翻案路径。显式空串=回落 CD134 前行为
-    // （已析票走首析门+service 内部增量门）；配了=用户串接管。cheatGrade 为 FA
-    // 投影 34 键之一（首析完成后经 _projectCheatFactors 投影，下轮 factorsUpdated
-    // 条件可消费——首析门不含 cheat 因子，无自锁）
-    this._cheatReanalyzeCondition = typeof _cheatCfg.reanalyzeCondition === 'string'
-      ? (_cheatCfg.reanalyzeCondition.trim() !== '' ? _cheatCfg.reanalyzeCondition.trim() : '')
-      : 'cheatGrade IS NULL OR cheatGrade == 1';
-    this._cheatPrefetchIntervalMs = Number.isFinite(_cheatCfg.prefetchIntervalMs)
-      && _cheatCfg.prefetchIntervalMs > 0 ? _cheatCfg.prefetchIntervalMs : 60000;
-    this._cheatPrefetchAt = new Map();      // token → 上次预触发发起时刻（引擎侧节流）
-    this._cheatFactorsConsumed = undefined; // 惰性：首 tick 扫买腿条件串 /cheat[A-Z]/
+    // T110 买信号发射节流（2026-11-03 用户裁定「全局买信号机制」，所有实验生效）：
+    // per-token 冷却双门（buySignalCooldownMs 缺省 3000，0=关；buySignalCooldownTicks
+    // 缺省 10，0=关——同日追裁定「3 秒 + 10 个 ticks」双条件 AND，防高频 tick 流
+    // 烧光次数帽）+ 发射次数帽（buySignalMaxPerToken 缺省 5，0=不限）——计数锚=
+    // 发射检查点（admit 即记，后续门拒/执行失败不退还，「无论是否通过」）。与既有
+    // 节流层次：腿级 cooldownSec/maxExecutions（成交口径）→ signalDebounceMs（tick
+    // 合并）→ 本类（信号发射口径）。买信号帽同时是作弊门配额上限（每代币最多 N 次检测）。
+    // 进程内态（重启归零——叙事触发状态机同款先例）；OBSERVE 观察信号/手工买不走本层
+    const { BuySignalThrottle } = require('../core/BuySignalThrottle');
+    const _throttleCfg = this._mergedWsConfig();
+    this._buySignalThrottle = new BuySignalThrottle(
+      _throttleCfg.buySignalCooldownMs, _throttleCfg.buySignalMaxPerToken, _throttleCfg.buySignalCooldownTicks);
 
     // （1.5.2b GMGN 钱包画像层 gwp 引擎接线已随 T71 2026-10-26 删除——数据口
     //  FA.getEarlyTopBuyers 以 early 出生窗为源，earlyTrades* 冻结窗族整族退役后设计
@@ -1545,9 +1521,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._narrativeTriggerStates.clear();
     }
 
-    // G1 作弊盘门清态（2026-11-01）：FA cheat 观测投影逐 token 清（narrative 同款
-    // ——同进程接续起下一实验不读到旧分级）+ 拉黑/投影 Set 清（service gate 态同
-    // 样进程内，随新实验进程重置——「不再交易」语义按实验进程边界）
+    // CD158 作弊盘门清态：FA cheat 观测投影逐 token 清（narrative 同款——同进程
+    // 接续起下一实验不读到旧分级）+ 拉黑/投影 Set 清（service gate 态同样进程内，
+    // 随新实验进程重置——「不再交易」语义按实验进程边界）+ 买信号节流计数清
+    // （T110：main.js 同进程接续实验不继承发射计数）
     if (this._cheatProjectedTokens) {
       for (const addr of this._cheatProjectedTokens) {
         require('../../services/FourMemeFactorAggregator').clearCheatFactors(addr);
@@ -1555,7 +1532,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._cheatProjectedTokens.clear();
     }
     if (this._cheatBlockedTokens) this._cheatBlockedTokens.clear();
-    if (this._cheatPrefetchAt) this._cheatPrefetchAt.clear();
+    if (this._buySignalThrottle) this._buySignalThrottle.clear();
 
     // gwp 钱包画像层清态（2026-10-18）：预取状态 Map 清空防同进程下一实验读到旧
     // （gwp 预取状态清理已随 T71 2026-10-26 删除——gwp 引擎接线整链退役）
@@ -1653,9 +1630,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // C84 叙事发起条件触发状态机（新模型腿）：tick 后台多轮叙事分析 + FA 投影
       //（legacy 腿首行早退零成本；dataPrefetch 已退役，档案见台账 C84）
       this._narrativeTriggerCheck(tokenAddress, factors, token);
-      // G1 作弊盘因子化预触发（2026-11-01 用户指令）：量门满足即后台分析+FA 投影
-      // → 下一 tick 买条件里的 cheat* 因子可消费（无预触发则条件引用=自锁死）
-      this._cheatPrefetchCheck(tokenAddress, factors, token);
+      // （G1 作弊盘 tick 预触发已随 CD158 2026-11-03 退役——门改买信号驱动，
+      //  挂点移至 _evaluateBuyPath 买点 await，见 _cheatGateEvaluate）
       // （GMGN 钱包画像触发窗预取已随 T71 2026-10-26 删除——early 窗数据口作废）
       // 观察信号（默认关）：叙事评级==2|3 或 市值>12K → 落 OBSERVE 行纯观察零交易
       // 副作用——挂买腿分支天然继承「非 bought、不在 buying」未持有判定（sold 票
@@ -2039,11 +2015,30 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '买入熔断短路（连续链上买入失败已拉黑）' };
       }
 
-      // ── G1 作弊盘门拉黑短路（2026-11-01 用户裁定）──
-      // cheat 判定 / unhealthy 重判用尽已拉黑（引擎 Set 与 service._gateBlocked 双写；
-      // 此处拦在叙事直调/preBuy/signal 落库前=省整条链，_buyingTokens 拦截同窗并发）
-      if (this._cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)) {
-        return { success: false, reason: '作弊盘门短路（cheat/重判用尽已拉黑，不再交易）' };
+      // ── CD158 作弊盘拉黑短路（双源）──
+      // cheat 判定拉黑=终态：引擎 Set（本进程门路径写入）∪ service.isGateBlocked
+      // （重启后 bootstrap 自 DB 恢复——无此双源则恢复的拉黑要晚到 :2360 门挂点才
+      // 秒回，白白多写一行信号+跑叙事直调）。拦在叙事直调/preBuy/signal 落库前
+      // =省整条链（_buyingTokens 拦截同窗并发）。**仅 cheat 拉黑**——unhealthy
+      // 拒买不拉黑（每买信号重判，CD158 裁定移除升级臂）
+      if (this._cheatCheckService.enabled
+        && (this._cheatBlockedTokens.has(tokenAddress) || this._cheatCheckService.isGateBlocked(tokenAddress))) {
+        return { success: false, reason: '作弊盘拉黑短路（cheat 判定终态，不再交易）' };
+      }
+
+      // ── T110 买信号发射节流（2026-11-03 用户裁定「全局买信号机制」）──
+      // per-token 冷却双门（时间 ≥3000ms AND 新 ticks ≥10）+发射帽（5 次）：
+      // 检查点即记账（admit 一体）——无论后续门拒/执行失败均不退还（用户原话
+      // 「无论是否通过」）。tick 口径=FA state.tradeCount（全量链上交易数，
+      // live/回测同源）。拦截=不写信号行不烧后续门（cheatCheck/GMGN 配额同省），
+      // debug 级留痕（正常高频形状，与叙事否决/熔断同级的「无信号」路径）。
+      // OBSERVE/手工买不走本层
+      const _throttleAdmit = this._buySignalThrottle.admit(tokenAddress, Date.now(), factorResults.tradeCount);
+      if (!_throttleAdmit.ok) {
+        this.metrics.buySignalThrottled++;
+        this.logger.debug(this._experimentId, 'BuyEval',
+          `${token.symbol} 买信号未发射（节流）: ${_throttleAdmit.reason}`);
+        return { success: false, reason: `买信号节流拦截: ${_throttleAdmit.reason}` };
       }
 
       const latestPrice = factorResults.currentPrice || 0;
@@ -2346,39 +2341,30 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
-      // ── CD1 作弊盘检测（2026-10-30，ZERODAY 0x23f1…7777 案）：preBuy 通过后、
-      // GMGN if 块外、GMGN 调用前——无 GMGN 条件的腿照样检查、被 GMGN 拒的票也进
-      // 样本（防观察集无声残缺）。两模式（G1，2026-11-01 用户裁定升级为买门）：
-      // ① gate.enabled=true → gateBuyPoint **await 式三级硬门**（cheat 拉黑+持仓
-      //    清仓联动 / unhealthy 拦买增量门重判 / healthy 放行；竞速 awaitMs 超时
-      //    fail-open 放行本笔+迟到结果补拉黑）；② 缺省 → noteBuyPoint
-      //    fire-and-forget 纯观察（**绝不影响买决策**，异步完成不回填信号行，
-      //    结果落 cheat_detection 增量条件/预算顶帽 service 内判定）──
+      // ── CD158 作弊门（2026-11-03 重构：作弊模块=最后一层买条件，GMGN 式）──
+      // **腿携带 cheatCheckCondition 才走**（FA 因子表达式，cheat 43 键域——如
+      // `cheatGrade IS NULL OR cheatGrade == 0`）：preBuy 通过后、GMGN 前 await
+      // 竞速评估（awaitMs 超时 fail-open 放行+late 补拉黑/清仓）。判定粘滞：cheat
+      // →拉黑+清仓联动+信号 failed（唯一硬拒）；healthy →同版判定秒回（cached）；
+      // unhealthy →每买信号重判。门条件表达式在 grade 投影后的 FA 因子表上评估
+      //（只合并 cheat 键进 fire 快照，防 settle/Jev 窗内非 cheat 臂漂移）——
+      // false 拒买 / true 放行。service 关/insufficient/fail → fail-open 放行。
+      // 腿不带字段 → 零作弊交互（观察模式已随 CD158 退役）
       let cheatCheckInfo = null;
-      if (this._cheatCheckService && this._cheatCheckService.enabled) {
-        if (this._cheatGateEnabled) {
-          const gate = await this._cheatGateEvaluate(tokenAddress, token, faState, signalId);
+      const cheatCheckCondition = String(strategy.cheatCheckCondition || '').trim();
+      if (cheatCheckCondition) {
+        if (this._cheatCheckService && this._cheatCheckService.enabled) {
+          const gate = await this._cheatGateEvaluate(
+            tokenAddress, token, faState, signalId, cheatCheckCondition, factorResults);
           if (!gate.pass) return { success: false, reason: gate.reason };
           cheatCheckInfo = gate.info;
         } else {
-          try {
-            cheatCheckInfo = this._cheatCheckService.noteBuyPoint(tokenAddress, {
-              address: token.token,
-              symbol: token.symbol || null,
-              name: token.name || null,
-              platform: token.platform || faState?.platform || null,
-              createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
-              creatorAddress: token.creatorAddress || null,
-              // D3.20 持仓集中双锚分母：FA state.totalSupply（TokenCreate 注入，
-              // flap/gang=collector 平台恒 1e9）；缺失 null fail-closed
-              totalSupply: faState?.totalSupply ?? null,
-            }, { experimentId: this._experimentId });
-          } catch (e) {
-            // 兜底吞错（观察层纪律：绝不影响交易链）
-            this.logger.warn(this._experimentId, 'BuyEval',
-              `作弊盘观察点异常（已吞） | ${token.symbol} ${e?.message || e}`);
-            cheatCheckInfo = { status: 'error', reason: e?.message || String(e) };
-          }
+          // 腿配了门但 service 未启用（cheatCheck.enabled 缺 false）——配置矛盾
+          // 缺口：fail-open 放行+warn 留痕（GMGN fail-open 同向；loadStrategies
+          // 不校验 config 运行态，此处是唯一暴露点）
+          this.logger.warn(this._experimentId, 'BuyEval',
+            `买腿携带 cheatCheckCondition 但 cheatCheck.enabled=false（门跳过放行） | ${token.symbol}`);
+          cheatCheckInfo = { status: 'skipped', reason: 'service_disabled' };
         }
       }
 
@@ -2606,89 +2592,33 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     return this._emitSellSignal(token, strategy, factors, null);
   }
 
-  // ==================== G1 作弊盘门（2026-11-01 用户裁定：检测升级为买门）====================
+  // ==================== CD158 作弊门（2026-11-03 用户裁定重构：买信号驱动）====================
+  // （G1 tick 预触发通道/观察模式已随 CD158 退役——交互只发生在买信号 fire 时刻，
+  //  配额由 T110 BuySignalThrottle 信号帽天然封顶；历史形状见 git 与台账 CD158）
 
   /**
-   * G1 因子化预触发（2026-11-01 用户指令「以因子的形式放到表达式中」，叙事 N3/
-   * C84 触发模型同构）：tick 管线量门满足 → fire-and-forget noteBuyPoint（带
-   * onResult 回调投影 FA 14 键）→ 下一 tick 买条件里的 cheat* 因子可消费。
-   *
-   * 激活=service.enabled ∧（gate 开 ∨ 任一买腿条件串引用 cheat 因子）——纯观察
-   * 且无因子消费端的实验不烧配额（观察样本语义维持买点挂点不变）。节流
-   * prefetchIntervalMs（缺省 60s）：service 的 reused 判定在 DB pull 之后，无节流
-   * =量门持续真的活跃票每 tick 一次 tail 查询。拉黑票跳过（投影已是终值）。
-   *
-   * CD134（2026-11-02 用户裁定「healthy/cheat 都不需要重新判定——因子进实验
-   * 再次判定条件，不在引擎内核写死」）：重判门**缺省即因子条件**
-   * `cheatGrade IS NULL OR cheatGrade == 1`——已析票上次判定 healthy(0)/cheat(2)
-   * 不再发起重判（cheat 另有拉黑短路/CD129 帽），unhealthy(1) 留重判域保翻案。
-   * 首析不受影响（首析门不含 cheat 因子，无自锁）。显式空串=回落 CD134 前行为
-   * （已析票走首析门+service 内部增量门）；配了=用户串接管。
-   * @private
-   */
-  _cheatPrefetchCheck(tokenAddress, factors, token) {
-    if (!this._cheatCheckService || !this._cheatCheckService.enabled) return;
-    if (this._cheatGateEnabled && this._cheatBlockedTokens.has(tokenAddress)) return;
-    if (this._cheatFactorsConsumed === undefined) this._cheatFactorsConsumed = this._scanCheatFactorConsumers();
-    if (!this._cheatGateEnabled && !this._cheatFactorsConsumed) return;
-    // 门分叉（2026-11-02 重判门因子化+CD134 缺省因子门）：未首析票走首析门；
-    // 已析票走重判门（首析门 tradeCount 类条件对已析票恒真不再适用），发起带
-    // factorGated 让 service 跳过内部数字增量门。重判门未配=缺省
-    // cheatGrade 因子条件（healthy/cheat 不重判）；显式空串=回落首析门+内部门
-    // （CD134 前行为）
-    const analyzed = this._cheatProjectedTokens.has(tokenAddress);
-    const useReanalyzeGate = analyzed && this._cheatReanalyzeCondition;
-    const cond = useReanalyzeGate ? this._cheatReanalyzeCondition : this._cheatPrefetchCondition;
-    if (!cond) return; // 显式空串=禁用
-    const last = this._cheatPrefetchAt.get(tokenAddress) || 0;
-    if (Date.now() - last < this._cheatPrefetchIntervalMs) return;
-    if (!this._strategyEngine.evaluateCondition(cond, factors)) return;
-    this._cheatPrefetchAt.set(tokenAddress, Date.now());
-    const sym = token?.symbol || tokenAddress.slice(0, 10);
-    this._cheatCheckService.noteBuyPoint(tokenAddress, {
-      address: token?.token || tokenAddress,
-      symbol: token?.symbol || null,
-      name: token?.name || null,
-      platform: token?.platform || factors?.platform || null,
-      createdAtMs: token?.createdAt ? token.createdAt * 1000 : null,
-      creatorAddress: token?.creatorAddress || null,
-      totalSupply: factors?.totalSupply ?? null,
-    }, { experimentId: this._experimentId, source: 'prefetch', factorGated: !!useReanalyzeGate },
-    (res) => { if (res && res.grade) this._projectCheatFactors(tokenAddress, res); });
-    this.logger.debug(this._experimentId, 'CheatPrefetch', `${sym} 因子化预触发发起（${useReanalyzeGate ? '重判门' : '首析门'}过，后台分析+投影）`);
-  }
-
-  /**
-   * 买腿条件串是否引用 cheat 因子（惰性一次）：condition/gmgnCheckCondition/
-   * narrativeTriggerCondition/narrativeCallCondition/preBuyCheckCondition/
-   * repeatBuyCheckCondition/narrativePrefetchCondition 任一含 /cheat[A-Z]/ 即真
-   * （cheat* 键名全以 cheat 开头驼峰——includes 前缀匹配零漏检，误检面=无害多分析）
-   * @private
-   */
-  _scanCheatFactorConsumers() {
-    const FIELDS = ['condition', 'gmgnCheckCondition', 'narrativeTriggerCondition',
-      'narrativeCallCondition', 'preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativePrefetchCondition'];
-    const re = /cheat[A-Z]/;
-    for (const s of this._strategyEngine.getAllStrategies()) {
-      if (s.action !== 'buy') continue;
-      for (const f of FIELDS) {
-        if (typeof s[f] === 'string' && re.test(s[f])) return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * 买点 await 式三级判定（挂点=preBuy 过后 GMGN 前）：
-   * - cheat → 拉黑（引擎+service 双 Set）+ 持仓清仓联动 + signal failed + 拒
-   * - unhealthy → signal failed + 拒（下个买点增量门满足自动重判；用尽拉黑走
-   *   service 计数，本方法只消费 grade）
-   * - healthy / insufficient_ticks / fail（llm/cooldown/quota/jev_*）→ 放行
-   *   （fail-open，GMGN 层「检测层故障不得拦买点」同向裁定）
+   * 买点 await 式作弊门（挂点=preBuy 过后 GMGN 前，**腿携带 cheatCheckCondition
+   * 才被调用**——CD158 2026-11-03 用户裁定「作弊模块是最后一层买条件」）：
+   * - cheat（新鲜或拉黑秒回）→ 拉黑（引擎+service 双 Set）+ 持仓清仓联动 +
+   *   signal failed + 拒（唯一硬拒路径）
+   * - healthy / unhealthy（新鲜或粘滞秒回）→ FA 投影 → **门条件表达式评估**：
+   *   grade 投影后 buildFactorMap 重算因子表，只把 cheat 键（_cheatFactorKeys
+   *   惰性派生）合并进 fire 快照（`{...factorResults, ...cheat 键}`——防
+   *   settle 4s+Jev 竞速窗内非 cheat 臂（buyVolumeBnb/marketCap/age）漂移到
+   *   门判定时刻，Nightshift 案两门错位同防线）→ evaluateCondition(腿表达式)
+   *   → false=signal failed+拒（reason `cheat_gate_condition`）/ true=放行。
+   *   **表达式评估异常 → fail-closed 拒**（GMGN :211-215 同向裁定：语法/键集错
+   *   =配置错误，与检测层故障刻意不同）；buildFactorMap 返回 null → fail-open
+   *   放行+warn（接线级异常不拦买点）
+   * - insufficient_ticks / fail（llm/cooldown/jev_*）→ fail-open 放行（不评
+   *   表达式，GMGN「检测层故障不得拦买点」同向裁定）
    * - timeout_fail_open → 放行本笔 + late.then 迟到补拉黑/清仓/投影（下轮生效）
-   * 接线级异常 fail-open 放行（warn 留痕不静默）。
+   * unhealthy 不拉黑（2026-11-03 用户裁定移除升级臂）——**每个买信号自动重判**
+   * 直至翻案；healthy 粘滞秒回（service 入口/_chain 4c，不烧 Jev）。
+   * @param {string} condition 腿 cheatCheckCondition（FA 因子表达式，cheat 键域）
+   * @param {Object} fireFactors fire 时刻因子表（ConditionEvaluator 输出形状）
    */
-  async _cheatGateEvaluate(tokenAddress, token, faState, signalId) {
+  async _cheatGateEvaluate(tokenAddress, token, faState, signalId, condition, fireFactors) {
     const meta = {
       address: token.token,
       symbol: token.symbol || null,
@@ -2721,22 +2651,54 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           { message: `作弊盘门拒买: cheat [${reasonCodes}]`, reason: 'cheat_gate_cheat' });
         return { pass: false, reason: `作弊盘门拒买（cheat 拉黑+持仓清仓联动 [${reasonCodes}]）` };
       }
-      if (res.grade === 'unhealthy') {
+      // healthy / unhealthy（CD158：门条件表达式评估——grade 只投影不决策，
+      // 拒/放由腿的 cheatCheckCondition 在投影后的因子表上判定）
+      const gateCtx = this._buildCheatGateContext(tokenAddress, fireFactors);
+      if (!gateCtx) {
+        // buildFactorMap null（token 出池/接线异常）——fail-open 放行（warn 留痕）
+        this.logger.warn(this._experimentId, 'CheatGate',
+          `作弊门上下文重建失败放行 | ${token.symbol || tokenAddress.slice(0, 10)} grade=${res.grade}`);
+        return {
+          pass: true,
+          info: { status: 'error', grade: res.grade, reason: 'cheat_gate_context_null' },
+        };
+      }
+      let condOk;
+      let condErr = null;
+      try {
+        const { ConditionEvaluator: _CE } = require('../../strategies/ConditionEvaluator');
+        const ev = new _CE();
+        condOk = ev.evaluate(ev.parseCondition(condition), gateCtx) === true;
+      } catch (e) {
+        // fail-closed（GMGN :211-215 同向裁定）：语法/键集错=配置错误，与检测层
+        // 故障刻意不同——拒并留 error 码
+        condOk = false;
+        condErr = e?.message || String(e);
+      }
+      const info = {
+        status: res.status, grade: res.grade, cached: res.cached === true,
+        reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
+        levels: res.levels ?? null, buckets: res.buckets ?? null, // 题档留档（metadata 研究）
+        condition, conditionPassed: condOk,
+        ...(condErr ? { conditionError: condErr } : {}),
+      };
+      if (!condOk) {
         const n = res.unhealthyGrades ?? 0;
         this.logger.info(this._experimentId, 'CheatGate',
-          `作弊盘门拦买 | ${token.symbol || tokenAddress.slice(0, 10)} unhealthy（第 ${n} 次判定，增量门满足后自动重判） [${reasonCodes}]`);
+          `作弊门条件拒买 | ${token.symbol || tokenAddress.slice(0, 10)} grade=${res.grade}` +
+          `${res.cached === true ? '（粘滞秒回）' : ''}${res.grade === 'unhealthy' ? `（第 ${n} 次判定，下个买信号自动重判）` : ''}` +
+          ` [${reasonCodes}]${condErr ? ` 条件评估异常: ${condErr}` : ''}`);
         await this._updateSignalStatus(signalId, 'failed',
-          { message: `作弊盘门拒买: unhealthy 第 ${n} 次 [${reasonCodes}]`, reason: 'cheat_gate_unhealthy' });
-        return { pass: false, reason: `作弊盘门拒买（unhealthy 第 ${n} 次，重判中）` };
+          {
+            message: `作弊门条件拒买: ${res.grade}${res.cached === true ? '（粘滞）' : ''} [${reasonCodes}]${condErr ? ` 条件异常: ${condErr}` : ''}`,
+            reason: condErr ? 'cheat_gate_condition_error' : 'cheat_gate_condition',
+          });
+        return {
+          pass: false,
+          reason: `作弊门条件拒买（grade=${res.grade}${condErr ? `；条件评估异常 ${condErr}` : ''}）`,
+        };
       }
-      return {
-        pass: true,
-        info: {
-          status: res.status, grade: 'healthy', reasons: res.reasons || [],
-          unhealthyGrades: res.unhealthyGrades ?? 0,
-          levels: res.levels ?? null, buckets: res.buckets ?? null, // 题档留档（metadata 研究）
-        },
-      };
+      return { pass: true, info };
     }
 
     if (res && res.status === 'timeout_fail_open') {
@@ -2749,6 +2711,30 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // insufficient_ticks / fail / reused 无 grade（跨进程重启后首增量窗）/ unknown
     // → fail-open 放行
     return { pass: true, info: res || { status: 'unknown' } };
+  }
+
+  /**
+   * 门条件评估上下文（CD158）：fire 快照打底 + cheat 键覆盖为 grade 投影后的
+   * 新值——**只合并 cheat 键不整表替换**（settle 4s+Jev 竞速窗内非 cheat 臂
+   * （buyVolumeBnb/marketCap/tokenAgeSec）已漂移到门判定时刻，整表替换会让
+   * 门表达式读到与买条件不同刻的值，Nightshift 案两门错位同防线）。cheat 键集
+   * 惰性派生自 FA getFactorKeys 探针（cheat 前缀过滤——题集加键免改本引擎）。
+   * buildFactorMap null（token 出池）→ null（调用方 fail-open）。
+   * @private
+   */
+  _buildCheatGateContext(tokenAddress, fireFactors) {
+    const rebuilt = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+    if (!rebuilt) return null;
+    if (!this._cheatFactorKeys) {
+      const keys = this._factorAggregator.getFactorKeys();
+      this._cheatFactorKeys = Array.isArray(keys)
+        ? keys.filter((k) => String(k).startsWith('cheat')) : [];
+    }
+    const merged = { ...(fireFactors || {}) };
+    for (const k of this._cheatFactorKeys) {
+      if (k in rebuilt) merged[k] = rebuilt[k];
+    }
+    return merged;
   }
 
   /** 竞速超时后迟到结果消费（本笔已放行）：补投影；cheat 补拉黑+清仓（下轮生效） */

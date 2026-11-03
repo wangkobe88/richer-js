@@ -880,50 +880,62 @@
                 <div class="border border-gray-200 rounded-lg p-3" id="cheat-check-section">
                     <div class="flex items-center justify-between mb-2">
                         <div>
-                            <h2 class="text-lg font-semibold text-gray-800">🚨 作弊盘检测（CD1 + G1 分级门）</h2>
+                            <h2 class="text-lg font-semibold text-gray-800">🚨 作弊盘检测（CD158 买信号驱动门）</h2>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                买点盘面健康检测（11 题 Jev 观测）。分级门开启后：cheat → 拉黑不再交易+持仓立即清仓；
-                                unhealthy → 拒买，活跃度恢复/盘面变化后自动重判；healthy → 放行（叙事/GMGN 门照走）。
-                                仅虚拟/实盘；回测不适用
+                                买信号驱动的盘面健康门（Jev 观测+分级）。门条件在<b>买腿</b>上配置
+                                （策略库腿字段「作弊盘检查条件」）：cheat → 拉黑不再交易+持仓立即清仓；
+                                healthy → 保持判定（同版本粘滞）；unhealthy → 拒买、下个买信号自动重判。
+                                仅虚拟/实盘；回测门不生效（放行）
                             </p>
                         </div>
                     </div>
                     <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
                         <input type="checkbox" id="cd-enabled" class="rounded">
-                        启用检测（只开本开关=观察模式：只落表不影响买决策）
-                    </label>
-                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 ml-5">
-                        <input type="checkbox" id="cd-gate-enabled" class="rounded">
-                        启用分级门（买点硬门 + cheat 拉黑清仓联动）
+                        启用检测服务（买腿带「作弊盘检查条件」才实际走门；不带=零交互）
                     </label>
                     <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
-                        <span class="whitespace-nowrap">unhealthy 重判上限</span>
-                        <input type="text" id="cd-unhealthy-reanalyses" placeholder="3"
-                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
                         <span class="whitespace-nowrap">买点等待上限(ms)</span>
                         <input type="text" id="cd-await-ms" placeholder="15000"
                                class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
                     </div>
-                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
-                        <span class="whitespace-nowrap">首次分析触发条件</span>
-                        <input type="text" id="cd-prefetch-condition" placeholder="tradeCount >= 15"
-                               class="w-64 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                    <p class="text-xs text-gray-500 mt-1">
+                        等待上限=买信号同步竞速 Jev 的 ms 数（默认 15000，超时本笔放行、迟到结果补
+                        拉黑/清仓下轮生效）。检测次数由「买信号发射节流」的每代币上限天然封顶
+                        （默认 5）。判定粘滞按题集版本：题集升级后旧判定允许重判一次。数值空=默认
+                    </p>
+                </div>
+
+                <!-- 买信号发射节流（T110）：全局机制，所有实验生效，回测同步 -->
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">⏱️ 买信号发射节流（T110）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                全局机制（所有实验生效，回测同步）：per-token 买信号冷却双门+发射次数帽。
+                                无论上次信号是否通过（门拒/执行失败均计），冷却双门（时间窗 AND 新 ticks 数）
+                                任一未满足不再发新信号、超帽后不再发。发射帽同时是作弊检测的每代币检测次数上限
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap">
+                        <span class="whitespace-nowrap">冷却窗(ms)</span>
+                        <input type="text" id="bs-cooldown-ms" placeholder="3000"
+                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
-                        <span class="whitespace-nowrap">重判触发条件</span>
-                        <input type="text" id="cd-reanalyze-condition" placeholder="默认增量门 60s∧20tick"
-                               class="w-64 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                        <span class="whitespace-nowrap">冷却ticks</span>
+                        <input type="text" id="bs-cooldown-ticks" placeholder="10"
+                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">每代币发射上限</span>
+                        <input type="text" id="bs-max-per-token" placeholder="5"
+                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
                     </div>
                     <p class="text-xs text-gray-500 mt-1">
-                        重判上限=真判 unhealthy 次数超过后拉黑（默认 3，即第 4 次拉黑）；等待上限=买点同步
-                        竞速 Jev 的 ms 数（默认 15000，超时本笔放行、迟到结果下轮生效）。首次分析触发条件
-                        =FA 因子表达式（盘面分析需一定数据量，缺省 tradeCount &gt;= 15 笔；例
-                        buyVolumeBnb &gt;= 0.2；空=默认；不得高于买腿 fire 量门——首析晚于 fire=引用
-                        cheat 因子的条件串自锁）。重判触发条件=已分析票再次分析的 FA 因子表达式（配了
-                        即接管重判门、替代内部数字增量门；例 tradeCount &gt;= 40；空=默认增量门：新 tick
-                        &gt;0 且 ≥60s 或一次 ≥20 笔）。数值空=默认
+                        冷却默认 3000ms + 10 ticks 双条件 AND（各 0=各关各的）；发射上限默认 5（0=不限）。
+                        ticks=该代币累计链上交易数增量（须有 ≥10 笔新交易才解锁下一发——高频刷盘
+                        不会烧光次数帽）。计数为进程内存态，实验重启归零。数值空=默认
                     </p>
                 </div>
 
@@ -1326,29 +1338,30 @@
                     }
                 }
 
-                // 作弊盘检测回填（2026-11-01 G1）：物化语义同观察信号「关=删段」——
-                // 源段 enabled===true 才显示为开（缺段=关）；gate 子段同理；数字键有值才
-                // 回填；prefetchCondition 首析门（2026-11-02）字符串有值才回填（空=默认）
+                // 作弊盘检测回填（CD158 形状）：物化语义同观察信号「关=删段」——
+                // 源段 enabled===true 才显示为开（缺段=关）；awaitMs 数字有值才回填
+                //（退役键 gate.enabled/unhealthyReanalyses/prefetch/reanalyze 忽略）
                 {
                     const cd = copyData.fourmemeWs?.cheatCheck || copyData.flapWs?.cheatCheck;
                     if (cd) {
                         const cdCb = document.getElementById('cd-enabled');
-                        const cdGate = document.getElementById('cd-gate-enabled');
-                        const cdN = document.getElementById('cd-unhealthy-reanalyses');
                         const cdMs = document.getElementById('cd-await-ms');
-                        const cdPf = document.getElementById('cd-prefetch-condition');
-                        const cdRa = document.getElementById('cd-reanalyze-condition');
                         if (cdCb) cdCb.checked = cd.enabled === true;
-                        if (cdGate) cdGate.checked = !!(cd.gate && cd.gate.enabled === true);
-                        if (cdN && Number.isInteger(cd.gate?.unhealthyReanalyses)) cdN.value = cd.gate.unhealthyReanalyses;
                         if (cdMs && Number.isInteger(cd.gate?.awaitMs)) cdMs.value = cd.gate.awaitMs;
-                        if (cdPf && typeof cd.prefetchCondition === 'string' && cd.prefetchCondition.trim() !== '') {
-                            cdPf.value = cd.prefetchCondition;
-                        }
-                        if (cdRa && typeof cd.reanalyzeCondition === 'string' && cd.reanalyzeCondition.trim() !== '') {
-                            cdRa.value = cd.reanalyzeCondition;
-                        }
                     }
+                }
+
+                // 买信号发射节流回填（T110）：源段有值才回填（缺省 3000/10/5 不显式化）
+                {
+                    const bsCd = copyData.fourmemeWs?.buySignalCooldownMs ?? copyData.flapWs?.buySignalCooldownMs;
+                    const bsTicks = copyData.fourmemeWs?.buySignalCooldownTicks ?? copyData.flapWs?.buySignalCooldownTicks;
+                    const bsMax = copyData.fourmemeWs?.buySignalMaxPerToken ?? copyData.flapWs?.buySignalMaxPerToken;
+                    const elCd = document.getElementById('bs-cooldown-ms');
+                    const elTicks = document.getElementById('bs-cooldown-ticks');
+                    const elMax = document.getElementById('bs-max-per-token');
+                    if (elCd && Number.isInteger(bsCd)) elCd.value = bsCd;
+                    if (elTicks && Number.isInteger(bsTicks)) elTicks.value = bsTicks;
+                    if (elMax && Number.isInteger(bsMax)) elMax.value = bsMax;
                 }
 
                 // TPA 触发条件只读展示（2026-10-11）：复制携带段可视化（纯展示零数据面
@@ -1948,6 +1961,7 @@
             if (cfg.preBuyCheckCondition) subConds.push(['预检查', cfg.preBuyCheckCondition]);
             if (cfg.repeatBuyCheckCondition) subConds.push(['复购检查', cfg.repeatBuyCheckCondition]);
             if (cfg.gmgnCheckCondition) subConds.push(['GMGN 检查（买前实时调）', cfg.gmgnCheckCondition]);
+            if (cfg.cheatCheckCondition) subConds.push(['作弊盘检查（GMGN 前最后一层，CD158）', cfg.cheatCheckCondition]);
             if (cfg.narrativeTriggerCondition) subConds.push(['叙事发起（后台分析轮，C84 新链）', cfg.narrativeTriggerCondition]);
             if (cfg.narrativeCallCondition) subConds.push(['叙事直调（legacy：fire 同步直调）', cfg.narrativeCallCondition]);
             if (cfg.permanentBlockCondition) subConds.push(['永久阻断', cfg.permanentBlockCondition]);
@@ -2218,20 +2232,15 @@
                     }
                 }
             }
-            // 作弊盘检测收集（2026-11-01 G1）：观察信号同款物化「关=删段」——勾主开关
-            // 才写 {enabled:true}，勾分级门再嵌 gate:{enabled:true}（只开主开关=观察
-            // 模式零变化）；不勾=删段（含清掉复制携带段防静默开）；回测整段剥离。
-            // prefetchCondition 首析门（2026-11-02 实验级配置）：非空才写；空=显式
-            // 删键回落代码缺省 tradeCount >= 15（防复制携带旧值静默覆盖「空=默认」语义）
+            // 作弊盘检测收集（CD158 形状）：观察信号同款物化「关=删段」——勾主开关
+            // 才写 {enabled:true, gate:{awaitMs?}}（门激活=买腿携带 cheatCheckCondition，
+            // 不再有观察/分级双开关）；不勾=删段（含清掉复制携带段防静默开——退役键
+            // gate.enabled/unhealthyReanalyses/prefetch/reanalyze 随重存自然剥离）；
+            // 回测整段剥离（回测门零接线）
             {
                 const cdCb = document.getElementById('cd-enabled');
-                const cdGate = document.getElementById('cd-gate-enabled');
-                const cdN = /^\d+$/.test((document.getElementById('cd-unhealthy-reanalyses')?.value || '').trim())
-                    ? parseInt(document.getElementById('cd-unhealthy-reanalyses').value.trim(), 10) : null;
                 const cdMs = /^\d+$/.test((document.getElementById('cd-await-ms')?.value || '').trim())
                     ? parseInt(document.getElementById('cd-await-ms').value.trim(), 10) : null;
-                const cdPf = (document.getElementById('cd-prefetch-condition')?.value || '').trim();
-                const cdRa = (document.getElementById('cd-reanalyze-condition')?.value || '').trim();
                 for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                     if (adv[k]) adv[k] = { ...(adv[k] || {}) };
                 }
@@ -2246,21 +2255,45 @@
                         if (k !== sec && adv[k]) delete adv[k].cheatCheck;
                     }
                     if (cdCb?.checked) {
-                        const gate = cdGate?.checked
-                            ? { ...(adv[sec]?.cheatCheck?.gate || {}), enabled: true,
-                                ...(cdN !== null ? { unhealthyReanalyses: cdN } : {}),
-                                ...(cdMs !== null ? { awaitMs: cdMs } : {}) }
-                            : null;
-                        const merged = { ...(adv[sec]?.cheatCheck || {}), enabled: true,
-                            ...(gate ? { gate } : {}) };
-                        if (cdPf !== '') merged.prefetchCondition = cdPf;
-                        else delete merged.prefetchCondition;
-                        if (cdRa !== '') merged.reanalyzeCondition = cdRa;
-                        else delete merged.reanalyzeCondition;
+                        // 只写现行键（enabled/gate.awaitMs）——复制源携带的退役键
+                        //（gate.enabled/unhealthyReanalyses/prefetch/reanalyze）不 spread 进来
+                        const merged = { enabled: true, ...(cdMs !== null ? { gate: { awaitMs: cdMs } } : {}) };
                         adv[sec] = { ...(adv[sec] || {}), cheatCheck: merged };
                     } else if (adv[sec]) {
                         delete adv[sec].cheatCheck;
                     }
+                }
+            }
+
+            // 买信号发射节流收集（T110 2026-11-03「全局买信号机制」）：三键非空才写
+            //（空=代码缺省 3000/10/5）；**回测不剥离**（全局机制回测同步生效）；数字
+            // 写入所选平台段（both→fourmemeWs；复制携带的非本平台段先剥防静默串台）
+            {
+                const _plat = formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform');
+                const sec = (_plat === 'flap') ? 'flapWs' : (_plat === 'gang') ? 'gangWs' : 'fourmemeWs';
+                const bsCd = /^\d+$/.test((document.getElementById('bs-cooldown-ms')?.value || '').trim())
+                    ? parseInt(document.getElementById('bs-cooldown-ms').value.trim(), 10) : null;
+                const bsTicks = /^\d+$/.test((document.getElementById('bs-cooldown-ticks')?.value || '').trim())
+                    ? parseInt(document.getElementById('bs-cooldown-ticks').value.trim(), 10) : null;
+                const bsMax = /^\d+$/.test((document.getElementById('bs-max-per-token')?.value || '').trim())
+                    ? parseInt(document.getElementById('bs-max-per-token').value.trim(), 10) : null;
+                for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
+                    if (k !== sec && adv[k]) {
+                        delete adv[k].buySignalCooldownMs;
+                        delete adv[k].buySignalCooldownTicks;
+                        delete adv[k].buySignalMaxPerToken;
+                    }
+                }
+                if (bsCd !== null || bsTicks !== null || bsMax !== null) {
+                    adv[sec] = { ...(adv[sec] || {}) };
+                    if (bsCd !== null) adv[sec].buySignalCooldownMs = bsCd;
+                    if (bsTicks !== null) adv[sec].buySignalCooldownTicks = bsTicks;
+                    if (bsMax !== null) adv[sec].buySignalMaxPerToken = bsMax;
+                } else if (adv[sec]) {
+                    // 三空=显式剥键（防复制携带旧值静默覆盖「空=默认」语义）
+                    delete adv[sec].buySignalCooldownMs;
+                    delete adv[sec].buySignalCooldownTicks;
+                    delete adv[sec].buySignalMaxPerToken;
                 }
             }
             const config = {

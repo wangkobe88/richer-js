@@ -3037,8 +3037,10 @@ class ExperimentSignals {
         `;
       }
 
-      // 作弊盘检测块（CD1/G1，2026-11-01）：观察层轨迹（initiated/joined_inflight）与
-      // 分级门判定（grade 在场）两形状；放行态（insufficient_ticks/fail/timeout）如实展示
+      // 作弊盘检测块（CD158，2026-11-03 重构）：买信号驱动作弊门=最后一层买条件——
+      // grade 在场=门条件已评估（conditionPassed=false 的拒买路径不落 metadata，
+      // 此处只见放行形状）；fail-open 形状（insufficient_ticks/fail/timeout/skipped）
+      // 如实展示；initiated/joined_inflight/reused=CD158 前历史行
       let cheatCheckHtml = '';
       if (cheatCheckInfo) {
         const cs = cheatCheckInfo.status || '';
@@ -3047,21 +3049,26 @@ class ExperimentSignals {
           const gBadge = g === 'cheat'
             ? '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-bold">🚫 cheat（拉黑不再交易+持仓清仓）</span>'
             : (g === 'unhealthy'
-              ? `<span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⚠️ unhealthy（拒买·重判中）</span>`
-              : '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ healthy（放行）</span>');
+              ? `<span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>`
+              : `<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`);
           const codes = (cheatCheckInfo.reasons || []).map((r) => r.code).filter(Boolean).join(', ');
-          const srcBit = cs === 'graded' ? '（拉黑秒回·零 Jev）'
-            : (cs === 'reused' ? '（增量门内重用上次判定）' : '');
+          // CD158 来源位：cached=同题集版本粘滞秒回（零 Jev）；graded=本信号真析；
+          // reused=旧形状（增量门重用，历史行）
+          const srcBit = cheatCheckInfo.cached === true ? '（粘滞秒回·零 Jev）'
+            : (cs === 'graded' ? '（本信号真析）'
+              : (cs === 'reused' ? '（增量门内重用上次判定·历史形状）' : ''));
           cheatCheckHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（G1 分级门）</div>
+              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（买信号门 CD158）</div>
               ${gBadge}
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-              ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-800">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（超上限拉黑）</div>` : ''}
+              ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-800">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（下个买信号自动重判）</div>` : ''}
+              ${cheatCheckInfo.conditionPassed === true ? '<div><span class="text-amber-800">门条件:</span> 通过</div>' : ''}
+              ${cheatCheckInfo.condition ? `<div class="col-span-3"><span class="text-amber-800">门条件表达式:</span> <code class="text-xs bg-white px-1 rounded">${this._escapeHtml(String(cheatCheckInfo.condition))}</code>${cheatCheckInfo.conditionError ? ` <span class="text-red-700">评估异常: ${this._escapeHtml(String(cheatCheckInfo.conditionError))}</span>` : ''}</div>` : ''}
               ${codes ? `<div class="col-span-3"><span class="text-amber-800">触发通道:</span> <code class="text-xs bg-white px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
-              <div class="col-span-3 text-gray-500">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 11 题；映射=cheat-grade G1）'}</div>
+              <div class="col-span-3 text-gray-500">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 15 题；映射=cheat-grade G15）'}</div>
             </div>
           </div>
           `;
@@ -3076,18 +3083,20 @@ class ExperimentSignals {
           </div>
           `;
         } else {
-          // 观察层轨迹 / 放行态（insufficient_ticks·fail·disabled·error）
-          const label = cs === 'initiated' ? `观察模式：已发起后台分析（settle ${cheatCheckInfo.settleDelayMs ?? '—'}ms 后落表）`
-            : cs === 'joined_inflight' ? '观察模式：并入进行中的分析（inflight join）'
-            : cs === 'insufficient_ticks' ? '放行（锚窗 tick 不足，不判定）'
+          // fail-open 放行态（insufficient_ticks·fail·skipped·error）与 CD158 前
+          // 历史观察行（initiated/joined_inflight——观察模式已随 CD158 退役）
+          const label = cs === 'insufficient_ticks' ? '放行（锚窗 tick 不足，不判定）'
             : cs === 'fail' ? `放行（检测层故障 reason=${cheatCheckInfo.reason || '—'}）`
-            : cs === 'error' ? `放行（接线异常 reason=${cheatCheckInfo.reason || '—'}）`
+            : cs === 'skipped' ? '放行（cheatCheck.enabled=false 门跳过）'
+            : cs === 'error' ? `放行（接线异常 reason=${cheatCheckInfo.reason || '—'}${cheatCheckInfo.grade ? ` grade=${cheatCheckInfo.grade}` : ''}）`
+            : cs === 'initiated' ? '历史观察行（CD158 前观察模式：已发起后台分析）'
+            : cs === 'joined_inflight' ? '历史观察行（CD158 前观察模式：并入进行中的分析）'
             : `放行（status=${cs || '—'}）`;
           cheatCheckHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（CD1）</div>
-              <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">观察轨迹</span>
+              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（买信号门 CD158）</div>
+              <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">放行</span>
             </div>
             <div class="text-xs text-gray-500">${this._escapeHtml(label)}${cheatCheckInfo.lastAnchorTickCount != null ? ` · 上次锚窗 ${cheatCheckInfo.lastAnchorTickCount} ticks` : ''}</div>
           </div>

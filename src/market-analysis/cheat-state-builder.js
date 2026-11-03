@@ -154,6 +154,14 @@ function buildCheatState(snapshot) {
       const avgPer = d.spikeWallets > 0 ? d.spikeBuyBnb / d.spikeWallets : null;
       lines.push(`burst 尖刺集中度: 窗内最大交易间隔 ${d.spikePreGapSec} 秒【${clTxt}】；簇内最密 3 秒买入尖刺: t+${d.spikeFromDt}~t+${d.spikeToDt} 共 ${d.spikeBuyN} 笔 ${fmtBnb(d.spikeBuyBnb)} BNB、${d.spikeWallets} 个钱包${avgPer !== null ? `（户均 ${avgPer.toFixed(3)} BNB）` : ''}${pos}；尖刺买入占簇买入 ${d.spikeBuyPctInBurst}% / 尖刺钱包当前正净持仓 ${fmtBnb(d.spikePosNetBnb)} BNB 占全窗正净持仓 ${d.spikeHoldPctAll !== null && d.spikeHoldPctAll !== undefined ? d.spikeHoldPctAll + '%' : '未知（全窗无正净持仓）'}（口径：簇=窗内最大交易间隔 ≥60 秒之后的全部行；尖刺=簇内买入最密的 3 秒滑窗；正净持仓域已剔聚合路由伪钱包。两占比是流量与筹码的集中度量——尖刺形状的判读是你的任务）`);
     }
+    // D3.52 锚窗买压行（CD159 强庄币锚立项——**观察期**：档位与买卖比只进 FA
+    // 投影攒分布数据，grade 零消费）：窗口买入合计÷卖出合计的方向性事实行，供
+    // strong_backer_pressure 题判档——买卖比高只说明方向偏买，单一/少数大户是否
+    // 在持续吸筹推价由题档判读（组织化伴随与买后反手卖使买压不纯粹，判读教学在
+    // 题面单一载体）；窗口无卖出不渲染比值（比值不适用，按笔数与金额判读，题面已锚）
+    if (d.anchorBuySellRatio !== null && d.anchorBuySellRatio !== undefined) {
+      lines.push(`锚窗买压: 买入合计 ${fmtBnb(d.totalBuyBnb)} BNB / 卖出合计 ${fmtBnb(d.totalSellBnb)} BNB，买卖比 ${d.anchorBuySellRatio}（比值=买入合计÷卖出合计。方向性事实——买卖比高只说明窗口方向偏买，单一/少数大户是否在持续吸筹推价由你结合 [WALLETS] 大户行判读）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {

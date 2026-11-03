@@ -185,6 +185,16 @@ console.log('E. 装载映射源码口径：buyPhase 两处透传');
     assert.ok(bt.includes("'·首买'"), '回测引擎 name 缺首买后缀');
     assert.ok(bt.includes("'·再买'"), '回测引擎 name 缺再买后缀');
   });
+  // E5（CD158 2026-11-03）cheatCheckCondition 装载透传：live 走 StrategyEngine
+  // loadStrategies 挂载、回测走自有映射——v15 gmgnCheckCondition 漏透传事故
+  // 同款防线（映射漏字段=腿带条件不生效静默裸买）
+  check('E5 cheatCheckCondition 装载透传（live=StrategyEngine / 回测=自有映射）', () => {
+    const se = read('src/strategies/StrategyEngine.js');
+    assert.ok(/cheatCheckCondition: config\.cheatCheckCondition \|\| null,/.test(se),
+      'StrategyEngine loadStrategies 映射漏 cheatCheckCondition 透传');
+    assert.ok(/cheatCheckCondition: s\.cheatCheckCondition \|\| null,/.test(bt),
+      'BacktestEngine 映射漏 cheatCheckCondition 透传');
+  });
 }
 
 // ═══ F. Web 链路保真与展示（复制按钮/库编辑器，2026-10-29 用户指令补齐）═══

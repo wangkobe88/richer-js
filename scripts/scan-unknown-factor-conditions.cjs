@@ -23,10 +23,12 @@ const FA = getAvailableFactorIds();
 const PB = new Set(PreBuyCheckService.getConditionFactorKeys());
 const GM = new Set(GmgnRiskCheckService.getConditionFactorKeys());
 // [字段, 校验集]——与 StrategyEngine.loadStrategies 同一分集口径（narrativePrefetchCondition
-// 补齐 + narrativeTriggerCondition = C84 叙事发起条件，2026-10-17）
+// 补齐 + narrativeTriggerCondition = C84 叙事发起条件，2026-10-17；cheatCheckCondition
+// = CD158 买信号驱动作弊门，FA 集——cheat 43 键经 getFactorKeys 探针在域内）
 const FIELDS = [
     ['condition', FA], ['narrativeCallCondition', FA],
     ['narrativePrefetchCondition', FA], ['narrativeTriggerCondition', FA],
+    ['cheatCheckCondition', FA],
     ['preBuyCheckCondition', PB], ['repeatBuyCheckCondition', PB],
     ['gmgnCheckCondition', GM],
 ];

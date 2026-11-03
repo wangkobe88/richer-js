@@ -302,6 +302,9 @@ class ExperimentCheatAnalysis {
     }
 
     // gate 模式徽章 + 配置 chips（both 实验配置落 fourmemeWs；flap 单平台实验落 flapWs）
+    // CD158（2026-11-03）：观察/分级双模式退役——门激活=买腿携带 cheatCheckCondition，
+    // 检测次数由买信号发射帽封顶；旧实验携带的退役键（gate.enabled/首析门/重判门/
+    // 拉黑阈）不再渲染（历史行照常展示）
     const cc = exp.config?.fourmemeWs?.cheatCheck || exp.config?.flapWs?.cheatCheck || null;
     const badge = document.getElementById('gate-mode-badge');
     const chips = document.getElementById('cheat-config-chips');
@@ -311,28 +314,17 @@ class ExperimentCheatAnalysis {
       badge.textContent = '未开启';
       badge.className = 'px-3 py-1 rounded-full text-xs font-semibold cheat-grade-plain';
       chipHtml.push('<span class="px-2 py-1 rounded bg-gray-700 text-gray-300">cheatCheck.enabled ≠ true（本实验无判定留痕属预期）</span>');
-    } else if (cc.gate?.enabled === true) {
-      badge.textContent = '🛡️ 分级买门（G12）';
-      badge.className = 'px-3 py-1 rounded-full text-xs font-semibold cheat-grade-unhealthy';
     } else {
-      badge.textContent = '👁 观察层（不拦买）';
-      badge.className = 'px-3 py-1 rounded-full text-xs font-semibold cheat-grade-healthy';
+      badge.textContent = '🛡️ 买信号门（CD158）';
+      badge.className = 'px-3 py-1 rounded-full text-xs font-semibold cheat-grade-unhealthy';
+      chipHtml.push('<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="CD158 门激活=买腿携带 cheatCheckCondition；腿不带=零交互">门条件: 买腿 cheatCheckCondition</span>');
     }
 
     if (cc) {
-      const prefetch = cc.prefetchCondition ?? 'tradeCount >= 15（缺省）';
-      chipHtml.push(`<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="cheatCheck.prefetchCondition">首析门: <code class="text-green-400">${this._esc(String(prefetch))}</code></span>`);
-      const reanalyze = cc.reanalyzeCondition;
-      if (reanalyze != null) {
-        chipHtml.push(`<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="cheatCheck.reanalyzeCondition（CD134 因子化重判门）">重判门: <code class="text-green-400">${this._esc(String(reanalyze))}</code></span>`);
-      }
-      const cap = cc.maxAnalysesPerToken ?? 4;
-      chipHtml.push(`<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="每 token 判定次数上限（error/timeout 也计数）">判定帽: ${cap}/token</span>`);
+      const cap = exp.config?.fourmemeWs?.buySignalMaxPerToken ?? exp.config?.flapWs?.buySignalMaxPerToken ?? 5;
+      chipHtml.push(`<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="T110 买信号发射帽=每 token 检测次数上限（0=不限）">检测帽: 买信号 ≤${cap}/token</span>`);
       if (cc.gate?.awaitMs != null) {
         chipHtml.push(`<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="gate.awaitMs 买点同步等待上限（超时 fail-open 放行）">买点等待: ${cc.gate.awaitMs}ms</span>`);
-      }
-      if (cc.gate?.enabled === true && cc.unhealthyReanalyses != null) {
-        chipHtml.push(`<span class="px-2 py-1 rounded bg-gray-700 text-gray-300" title="连续 unhealthy 次数用尽即拉黑+清仓">拉黑阈: unhealthy ×${cc.unhealthyReanalyses}</span>`);
       }
     }
     chips.innerHTML = chipHtml.join('');

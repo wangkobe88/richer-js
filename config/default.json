@@ -164,11 +164,12 @@
     "cheatCheck": {
       "enabled": false,
       "gate": {
-        "enabled": false,
-        "awaitMs": 15000,
-        "unhealthyReanalyses": 3
+        "awaitMs": 15000
       }
     },
+    "buySignalCooldownMs": 3000,
+    "buySignalMaxPerToken": 5,
+    "buySignalCooldownTicks": 10,
     "gmgnWalletStats": {
       "enabled": false,
       "topWallets": 5,
@@ -224,6 +225,9 @@
     "signalDebounceMs": 200,
     "signalDebounceMaxWaitMs": 1000,
     "sellDebounceMs": 3500,
+    "buySignalCooldownMs": 3000,
+    "buySignalMaxPerToken": 5,
+    "buySignalCooldownTicks": 10,
     "pruneIntervalMs": 300000,
     "pruneMaxAgeMs": 1800000,
     "portfolioSnapshotIntervalMs": 30000,
@@ -284,6 +288,9 @@
     "signalDebounceMs": 200,
     "signalDebounceMaxWaitMs": 1000,
     "sellDebounceMs": 3500,
+    "buySignalCooldownMs": 3000,
+    "buySignalMaxPerToken": 5,
+    "buySignalCooldownTicks": 10,
     "pruneIntervalMs": 300000,
     "pruneMaxAgeMs": 1800000,
     "portfolioSnapshotIntervalMs": 30000,

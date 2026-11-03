@@ -50,12 +50,15 @@ function validateLegs(side, legs) {
     const preBuyIds = new Set(PreBuyCheckService.getConditionFactorKeys());
     const gmgnIds = new Set(GmgnRiskCheckService.getConditionFactorKeys());
     // [字段, 校验集]：与 StrategyEngine.loadStrategies 同一分集口径（narrativePrefetchCondition
-    // 此前漏列 2026-10-17 补齐；narrativeTriggerCondition = C84 叙事发起条件，FA 集）
+    // 此前漏列 2026-10-17 补齐；narrativeTriggerCondition = C84 叙事发起条件，FA 集；
+    // cheatCheckCondition = CD158 2026-11-03 买信号驱动作弊门，FA 集——cheat 43 键
+    // 经 FA getFactorKeys 探针已在域内）
     const CONDITION_FIELDS = [
         ['condition', faIds],
         ['narrativeCallCondition', faIds],
         ['narrativePrefetchCondition', faIds],
         ['narrativeTriggerCondition', faIds],
+        ['cheatCheckCondition', faIds],
         ['preBuyCheckCondition', preBuyIds],
         ['repeatBuyCheckCondition', preBuyIds],
         ['gmgnCheckCondition', gmgnIds],
@@ -104,6 +107,11 @@ function validateLegs(side, legs) {
             errors.push(`腿[${i}] ${sd.error}（T109）`);
         } else if (sd.normalized != null && side !== 'sell') {
             errors.push(`腿[${i}] 非卖腿携带 sellDebounce（T109 卖腿确认去抖覆盖：该字段仅卖腿可配）`);
+        }
+        // 买信号驱动作弊门条件（CD158 2026-11-03）：仅买腿可配——与引擎
+        // loadStrategies 拒启同口径（入库 400 防漂移）
+        if (String(leg.cheatCheckCondition || '').trim() !== '' && side !== 'buy') {
+            errors.push(`腿[${i}] 非买腿携带 cheatCheckCondition（CD158 买信号驱动作弊门：该字段仅买腿可配）`);
         }
         for (const [field, ids] of CONDITION_FIELDS) {
             const raw = leg[field];

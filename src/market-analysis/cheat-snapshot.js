@@ -285,6 +285,12 @@ function computeDerived(snapshot, famousRoster) {
   const totalVolumeBnb = totalBuyBnb + totalSellBnb;
   const noBuySellVolumePct = totalVolumeBnb > 0 ? +((noBuySellBnb / totalVolumeBnb) * 100).toFixed(1) : null;
 
+  // ── D3.52 强庄持续买压·锚窗买卖比（strong_backer_pressure 题判读原料——
+  // CD159 立项观察期键，grade 零消费只进 FA 投影攒分布）：窗口买入合计÷卖出合计，
+  // 方向性事实（大户是否持续净买推价由题档判读）；卖=0 → null 比值不适用
+  // （纯买盘按笔数与金额判读，题面已锚）。──
+  const anchorBuySellRatio = totalSellBnb > 0 ? +(totalBuyBnb / totalSellBnb).toFixed(2) : null;
+
   // ── 同块买入簇（≥SAME_BLOCK_CLUSTER_MIN 笔买同块）──
   const blockBuys = new Map();
   for (const t of ticks) {
@@ -989,6 +995,8 @@ function computeDerived(snapshot, famousRoster) {
     spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,
     spikeBuyPctInBurst, spikePosNetBnb, spikeHoldPctAll,
     noBuySellPct, noBuySellBnb, noBuySellWallets, noBuySellVolumePct,
+    // D3.52 锚窗买卖比（strong_backer_pressure 题原料；观察期 grade 零消费）
+    anchorBuySellRatio,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,

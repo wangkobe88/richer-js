@@ -302,6 +302,7 @@ function levelsFromObservation(observation, extras = {}) {
     washPair: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.wash_pair),
     holdingsBalance: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.holdings_balance), // D3.32（G7 J 通道）
     burstSpikeConcentration: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.burst_spike_concentration), // D3.51（G15 A 主判）
+    strongBackerPressure: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.strong_backer_pressure), // D3.52（CD159 观察期——**无通道消费**：MAIN_IDS 显式排除不进 A，档位只进 FA 投影攒分布，豁免规则攒 case 后再裁）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
     abnormalBehavior: scoreLevel(CHEAT_LEVEL_SCORES.abnormal, pt), // D3.39（G13 R 通道 abnormal_behavior_ratio；unclear→null）
@@ -319,6 +320,7 @@ function levelsFromObservation(observation, extras = {}) {
     washPair: ex.wash_pair ?? null,
     holdingsBalance: ex.holdings_balance ?? null,
     burstSpikeConcentration: ex.burst_spike_concentration ?? null,
+    strongBackerPressure: ex.strong_backer_pressure ?? null, // D3.52（CD159 观察期攒数据）
     activityLevel: act,
     bundledDominance: dom,
     abnormalBehavior: pt,
@@ -352,6 +354,9 @@ function levelsFromObservation(observation, extras = {}) {
     // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；题面判读原料非门侧消费）
     spikeBuyPctInBurst: _pct(an.spikeBuyPctInBurst),
     spikeHoldPctAll: _pct(an.spikeHoldPctAll),
+    // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚
+    // 观察期：**无门侧消费**，只进 FA 投影/研究侧攒分布；窗口卖=0 → null）
+    anchorBuySellRatio: _pct(an.anchorBuySellRatio),
     // D3.35 协同买入参考四键 + 创建者曾持峰值（abnormal_behavior_ratio（D3.39 前
     // real_participation）/ holdings_balance
     // 补腿同源数值；参考锚非门——R 通道消费档位不消费数值）
@@ -375,12 +380,16 @@ const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, 
  *  随 EXT 清单自动入列；**holdings_balance D3.32 刻意排除**——G7 用户裁定独立
  *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级；
  *  burst_spike_concentration D3.51 随 EXT 清单自动入列（G15——伏击尖刺=
- *  拉黑级铁证，与 G7 拒买级通道不同类） */
+ *  拉黑级铁证，与 G7 拒买级通道不同类）；**strong_backer_pressure D3.52 刻意
+ *  排除——CD159 强庄币锚观察期**：用户裁定「这个锚先实现，但是可以先不起作用，
+ *  我们攒个一批数据看看」，豁免方向题绝不拉黑（EXT 自动吸收 strong→cheat 与
+ *  豁免意图相反），档位只进 FA 投影攒分布，豁免规则（预期作用点=J/R/M/E 等
+ *  unhealthy 通道、绝不绕 A 主判）攒 ~10 张干净强庄 case 后再裁 */
 const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
   'sell_dispersion',
-  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance'), // tier/bw/rat/pump/wash/spike
+  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance' && id !== 'strong_backer_pressure'), // tier/bw/rat/pump/wash/spike（sbp 观察期排除）
 ];
 
 /** 数值锚读取（null/非有限/负数按缺席——绝不冒充） */

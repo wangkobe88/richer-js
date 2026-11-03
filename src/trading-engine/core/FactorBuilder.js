@@ -249,6 +249,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatBurstSpikeConcentration: factorResults.cheatBurstSpikeConcentration ?? null,
     cheatSpikeBuyPctInBurst: factorResults.cheatSpikeBuyPctInBurst ?? null,
     cheatSpikeHoldPctAll: factorResults.cheatSpikeHoldPctAll ?? null,
+    // D3.52 强庄持续买压（CD159 观察：档位+锚窗买卖比，grade 零消费纯攒分布；
+    // 旧 FA/历史信号无键 → null 不掩盖）
+    cheatStrongBackerPressure: factorResults.cheatStrongBackerPressure ?? null,
+    cheatAnchorBuySellRatio: factorResults.cheatAnchorBuySellRatio ?? null,
     cheatActivityLevel: factorResults.cheatActivityLevel ?? null,
     cheatBundledDominance: factorResults.cheatBundledDominance ?? null,
     cheatSameBlockHoldPct: factorResults.cheatSameBlockHoldPct ?? null,

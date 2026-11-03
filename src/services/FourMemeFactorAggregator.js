@@ -3639,6 +3639,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    supply 缺失=null）+ D3.51 三键 cheatBurstSpikeConcentration
         //    cheatSpikeBuyPctInBurst/cheatSpikeHoldPctAll（burst 尖刺集中档位
         //    （G15 A 主判同源）+两锚：尖刺买占簇买%/尖刺钱包正净占全窗正净%）
+        //    + D3.52 两键 cheatStrongBackerPressure/cheatAnchorBuySellRatio
+        //    （CD159 强庄币锚**观察期**：档位+锚窗买卖比只攒分布，grade 零消费
+        //    ——MAIN_IDS 显式排除不进 A 主判，豁免规则攒 case 后再裁）
         //    + D3.39 六键 cheatAbnormalBehaviorRatio（异常行为
         //    占比档位（D3.35 real_participation 改名+理念重构——无罪推定，无可见
         //    异常即正常）negligible=0/noticeable=1/dominant=2，unclear→null）+
@@ -3673,6 +3676,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatHoldingsBalance = _lv ? _lv.holdingsBalance ?? null : null;
             // D3.51 burst 尖刺集中档位（G15 A 主判同源：伏击尖刺 strong→cheat）
             factors.cheatBurstSpikeConcentration = _lv ? _lv.burstSpikeConcentration ?? null : null;
+            // D3.52 强庄持续买压档位（CD159 立项**观察期**：cheat-grade MAIN_IDS
+            // 显式排除不进 A 主判——豁免方向题绝不拉黑，grade 零消费；本键纯观察
+            // 攒分布（none=0/weak=1/moderate=2/strong=3），豁免规则（预期作用点=
+            // J/R/M/E 等 unhealthy 通道、绝不绕 A）攒 ~10 张干净强庄 case 后再裁）
+            factors.cheatStrongBackerPressure = _lv ? _lv.strongBackerPressure ?? null : null;
             factors.cheatActivityLevel = _lv ? _lv.activityLevel ?? null : null;
             factors.cheatBundledDominance = _lv ? _lv.bundledDominance ?? null : null;
             factors.cheatSameBlockHoldPct = _an ? _an.sameBlockHoldPct ?? null : null;
@@ -3698,6 +3706,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；纯观察可进条件串）
             factors.cheatSpikeBuyPctInBurst = _an ? _an.spikeBuyPctInBurst ?? null : null;
             factors.cheatSpikeHoldPctAll = _an ? _an.spikeHoldPctAll ?? null : null;
+            // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 观察
+            // 期纯观察键：窗口买入合计÷卖出合计，卖=0 → null 比值不适用）
+            factors.cheatAnchorBuySellRatio = _an ? _an.anchorBuySellRatio ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
             // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/

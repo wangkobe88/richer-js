@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
- * CheatCheckService 单测（CD1）——零 DB 零网络
+ * CheatCheckService 单测（CD158 重构，2026-11-03）——零 DB 零网络
  *
  * 打桩：dbClient（内存链式 builder，数据可热替换）/ loadLlm（假 JevClient）/
- * now（可控时钟）。覆盖：enabled 物化 / settle 后单查询锚 / minTicks 跳过不落表 /
- * 增量判定（0 新 tick=复用、+1∧间隔未到=限流、+1∧间隔已到=重析、≥delta 硬触发）/
- * 满帽（tail 锚+head 补充+水位增量）/ 预算顶帽（DB 计数起底；缺省=首析+3 重判，
- * 2026-11-02 用户裁定「再次检测最多 3 次」）/ 拉黑短路盖预触发路径（MAI 案反证） /
- * 超时行+迟到丢弃 /
- * 错误行烧预算 / 失败冷却 / ticks 拉取失败链内吞 / jev_prompt 首行全文 /
- * inflight join / 落库失败 loud 不抛 / capped→snapshot→state 全链透传 /
- * 引擎接线源码口径锁。失败 exit 非零。
+ * now（可控时钟）。CD158 形状：买信号驱动 gateBuyPoint 单入口（noteBuyPoint
+ * 观察/预触发已退役）；判定粘滞（cheat=拉黑终态 / healthy=同版秒回 cached /
+ * unhealthy=每买信号重判，2026-11-03 用户裁定移除升级拉黑）；增量门/顶帽
+ * （首析+3）/factorGated 全退役——配额由引擎侧 BuySignalThrottle 信号帽
+ * 天然封顶。覆盖：enabled 物化 / 首析全链+落行 / minTicks 跳过不落表不粘滞 /
+ * 粘滞语义（healthy 秒回零 Jev·新 tick 不重判 / unhealthy 连续真析永不拉黑）/
+ * 满帽（tail 锚+head 补充）/ 超时行+失败冷却 / 错误行 / ticks 拉取失败链内吞 /
+ * jev_prompt 首行全文 / inflight join / 落库失败 loud 不抛 / bootstrap 三态
+ * （cheat 拉黑恢复·healthy 粘滞恢复·unhealthy 计数恢复不拉黑）+ 版本域 /
+ * capped→snapshot→state 全链透传 / 引擎接线源码口径锁 / 退役反证（noteBuyPoint
+ * ·增量门·顶帽·升级臂零残留）。失败 exit 非零。
  */
 
 const fs = require('fs');
@@ -28,9 +31,9 @@ function ok(cond, label) {
 }
 
 // ── 内存 DB 桩：链式 builder（select/eq/order/limit/insert），holder 数据可热替换 ──
-function makeDb({ ticks = [], cheatLatest = [], cheatCount = 0, failInsert = false, failTicks = false } = {}) {
-  const holder = { ticks, cheatLatest, cheatCount, failInsert, failTicks };
-  const state = { inserts: [], tickQueries: 0, headQueries: 0, latestQueries: 0, countQueries: 0 };
+function makeDb({ ticks = [], cheatLatest = [], failInsert = false, failTicks = false } = {}) {
+  const holder = { ticks, cheatLatest, failInsert, failTicks };
+  const state = { inserts: [], tickQueries: 0, headQueries: 0, latestQueries: 0, cheatOps: [] };
   function resultFor(table, ops) {
     if (table === 'wss_price_ticks') {
       state.tickQueries++;
@@ -44,12 +47,9 @@ function makeDb({ ticks = [], cheatLatest = [], cheatCount = 0, failInsert = fal
       const data = asc ? sorted.slice(0, limit) : sorted.slice(-limit).reverse();
       return { data, error: null };
     }
-    // cheat_detection：count 查询 / 最新行查询 / insert
-    if (ops.some((o) => o[0] === 'select' && o[1][1] && o[1][1].count === 'exact')) {
-      state.countQueries++;
-      return { count: holder.cheatCount, data: null, error: null };
-    }
+    // cheat_detection：bootstrap 最新行查询（CD158：count 起底已退役）/ insert
     state.latestQueries++;
+    state.cheatOps.push(ops);
     return { data: holder.cheatLatest, error: null };
   }
   const client = {
@@ -149,7 +149,7 @@ function makeLlm({ answers = GOOD_ANSWERS, hang = false, reject = null } = {}) {
 }
 
 const META = { address: '0xtok', symbol: 'S', name: 'S', platform: 'flap', createdAtMs: 1700000000000, creatorAddress: null };
-/** 全 none healthy 形状（不触发任何通道不拉黑——增量门/bootstrap 类测试用） */
+/** 全 none healthy 形状（不触发任何通道不拉黑——粘滞/bootstrap 类测试用） */
 const NONE_ANSWERS = {
   equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
   creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
@@ -158,21 +158,30 @@ const NONE_ANSWERS = {
   slow_grind_pump: phAns('none'), activity_level: actAns('mid'),
   bundled_trade_dominance: bdAns('low'),
 };
+/** A 降级形状（唯一 pump strong ∧ burst ∧ mod<3）→ unhealthy（Z2 连续真析用） */
+const PUMP_BURST = {
+  equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
+  creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
+  stall_burst_wave: sbwAns('burst'), amount_tiering: phAns('none'),
+  same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
+  slow_grind_pump: phAns('strong'), activity_level: actAns('mid'),
+  bundled_trade_dominance: bdAns('low'),
+};
 function makeSvc(db, llm, config = {}, nowRef = { t: 1000000 }) {
   return new CheatCheckService(
-    { enabled: true, settleDelayMs: 5, timeoutMs: 500, minIntervalMs: 60000, ...config },
+    { enabled: true, settleDelayMs: 5, timeoutMs: 500, ...config },
     null,
     { dbClient: db.client, now: () => nowRef.t, loadLlm: async () => llm.mod },
   );
 }
 
 async function main() {
-  // ═══════════════ A. enabled 物化 + sync 返回形状 ═══════════════
+  // ═══════════════ A. enabled 物化 + disabled 返回形状 ═══════════════
   console.log('A. enabled 物化语义');
   {
     const db = makeDb();
     const svc = new CheatCheckService({ enabled: false }, null, { dbClient: db.client });
-    const r = svc.noteBuyPoint('0xtok', META, {});
+    const r = await svc.gateBuyPoint('0xtok', META, {});
     ok(r.status === 'disabled' && db.state.tickQueries === 0, '缺 enabled=true → disabled 零链路（新机制默认零影响）');
     ok(new CheatCheckService({}, null, { dbClient: db.client }).enabled === false, '空配置=关（物化语义）');
     ok(new CheatCheckService({ enabled: true }, null, { dbClient: db.client }).enabled === true, '显式 enabled=true=开');
@@ -184,9 +193,8 @@ async function main() {
     const db = makeDb({ ticks: genTicks(20) });
     const llm = makeLlm();
     const svc = makeSvc(db, llm);
-    const info = svc.noteBuyPoint('0xTOK', META, { experimentId: 'exp-1' });
-    ok(info.status === 'initiated' && typeof info.settleDelayMs === 'number', 'sync 返回 initiated（fire-and-forget 不阻塞买点）');
-    await svc.drain(3000);
+    const r = await svc.gateBuyPoint('0xTOK', META, { experimentId: 'exp-1' }, { awaitMs: 3000 });
+    ok(r.status === 'analyzed' && r.grade === 'cheat', `首判 analyzed+grade（GOOD 形状 A 通道 strong→cheat；实际 ${r.status}/${r.grade}）`);
     ok(db.state.tickQueries === 1 && db.state.inserts.length === 1, `settle 后单次 tail 查询+落 1 行（tickQueries=${db.state.tickQueries}）`);
     const row = db.state.inserts[0];
     ok(row.token_address === '0xtok' && row.verdict === 'observed' && row.cheat_prob === null
@@ -212,187 +220,197 @@ async function main() {
       && row.snapshot_digest.watermark && row.snapshot_digest.buyBnb > 0,
       'snapshot_digest 锚+水位+资金摘要');
     ok(svc.stats.analyzed === 1 && svc.stats.rowsWritten === 1, 'stats.analyzed/rowsWritten');
+    ok(svc.isGateBlocked('0xtok') === true, 'cheat 落行后 service 拉黑（终态）');
   }
 
-  // ═══════════════ C. minTicks 跳过（不调 Jev 不落表） ═══════════════
+  // ═══════════════ C. minTicks 跳过（不调 Jev 不落表不粘滞） ═══════════════
   console.log('C. minTicks 预门');
   {
     const db = makeDb({ ticks: genTicks(5) });
     const llm = makeLlm();
     const svc = makeSvc(db, llm, { minTicks: 8 });
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(llm.calls.ask === 0 && db.state.inserts.length === 0 && svc.stats.skippedInsufficientTicks === 1,
-      '5<8 tick：零 Jev 零落表 skippedInsufficient=1（unclear 桶留给真判定）');
-    const st = svc._lastAnalysis.get('0xtok');
-    ok(st && st.lowTicks === true && st.anchorTickCount === 5, 'lowTicks 态入缓存（下轮 tick 补足可触发）');
+    const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r.status === 'insufficient_ticks' && llm.calls.ask === 0 && db.state.inserts.length === 0
+      && svc.stats.skippedInsufficientTicks === 1,
+      '5<8 tick：insufficient_ticks 零 Jev 零落表（放行态）');
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'insufficient_ticks' && llm.calls.ask === 0,
+      'insufficient 不粘滞（无 _lastGrade——下个买信号照常重析路径）');
   }
 
-  // ═══════════════ D. 增量判定（时点性缓存核心） ═══════════════
-  console.log('D. 增量判定');
+  // ═══════════════ D. 粘滞语义（CD158 核心：healthy 秒回 / unhealthy 每信号重判） ═══════════════
+  console.log('D. 粘滞语义');
   {
-    // healthy 形状（不拉黑——增量门子测全链多轮 noteBuyPoint，拉黑短路会盖掉 reused 路径）；
-    // 帽显式 20（本段真析 5 轮超缺省帽 4——增量门逻辑与帽解耦，缺省帽由 Z9 锁定）
+    // D1 healthy 秒回：cached:true 零 Jev；levels/anchors 自 _lastGrade 透传
     const db = makeDb({ ticks: genTicks(20) });
     const llm = makeLlm({ answers: NONE_ANSWERS });
-    const nowRef = { t: 1000000 };
-    const svc = makeSvc(db, llm, { maxAnalysesPerToken: 20 }, nowRef);
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 1, '首析落 1 行');
+    const svc = makeSvc(db, llm);
+    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.status === 'analyzed' && r1.grade === 'healthy' && r1.cached !== true,
+      '全 none 形状首判 healthy（真析）');
+    const askBefore = llm.calls.ask;
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'graded' && r2.grade === 'healthy' && r2.cached === true
+      && llm.calls.ask === askBefore && svc.stats.stickyReused === 1,
+      'healthy 二击 → 粘滞秒回 cached:true（零 Jev——同版本判定不重判）');
+    ok(r2.levels && r2.levels.sameBlockBuyWave === 0 && r2.anchors && 'top1HoldCircPct' in r2.anchors,
+      '粘滞秒回带 levels+anchors（_lastGrade 透传——FA 投影因子不缺位）');
 
-    // 同锚再买点：0 新 tick → 复用不重析
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 1 && svc.stats.cacheReused === 1, '0 新 tick=cacheReused（不烧配额）');
-    ok(svc.noteBuyPoint('0xtok', META, {}).lastVerdict === 'observed', 'sync 轨迹带 lastVerdict=链终态 observed（进程内已知态）');
+    // D2 粘滞不受新 tick 影响（版本内）：盘面晚变作弊本版本不修正=用户明示接受
+    db.holder.ticks = genTicks(60);
+    const r3 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r3.cached === true && llm.calls.ask === askBefore && db.state.inserts.length === 1,
+      '新 tick 到场 healthy 仍粘滞（版本 bump 才允许重判一次——bootstrap 版本域）');
 
-    // +1 tick 且间隔未到 → 限流不重析
-    db.holder.ticks = genTicks(21);
-    nowRef.t += 1000;
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 1 && svc.stats.cacheReused === 2, '+1 tick 且 age<minInterval → 限流不重析');
+    // D3 unhealthy 每买信号真判（连续 6 轮全真析永不拉黑——升级臂退役反证+无帽反证合一）
+    const db4 = makeDb({ ticks: genTicks(20) });
+    const llm4 = makeLlm({ answers: PUMP_BURST });
+    const svc4 = makeSvc(db4, llm4);
+    for (let round = 1; round <= 6; round++) {
+      if (round > 1) db4.holder.ticks = genTicks(20 + round * 10);
+      const r = await svc4.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+      ok(r.status === 'analyzed' && r.grade === 'unhealthy' && r.unhealthyGrades === round
+        && r.cached !== true && llm4.calls.ask === round,
+        `unhealthy 第 ${round} 轮：真析非秒回（ask=${llm4.calls.ask}）+ unhealthyGrades 递增`);
+    }
+    ok(svc4.isGateBlocked('0xtok') === false && db4.state.inserts.length === 6,
+      '连续 6 次 unhealthy 永不拉黑（升级臂退役）+ 无顶帽连续落行（旧帽 4 在第 5 轮即拒——配额由引擎信号帽封顶）');
 
-    // +1 tick 且间隔已到 → 重析（慢票 unhealthy→healthy 转化覆盖）
-    nowRef.t += 60000;
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 2, '+1 tick 且 age≥minInterval → 重析');
-    ok(db.state.inserts[1].jev_prompt === null && db.state.inserts[0].jev_prompt !== null,
-      '二析行 jev_prompt=null（首行全文防线：多行历史无界增长）');
-
-    // +≥delta(20) tick 无视间隔 → 硬触发
-    db.holder.ticks = genTicks(45);
-    nowRef.t += 1000; // 距上次仅 1s
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 3, '新tick≥delta(20) 无视间隔 → 硬触发（快票关键增量必析）');
-    ok(db.state.inserts[2].anchor_tick_count === 45, '三析行锚=新锚 45');
-
-    // D2 factorGated（2026-11-02 重判门因子化）：引擎配 reanalyzeCondition 时预触发
-    // 来源带 factorGated=true → 跳过内部数字增量门（0 新 tick/间隔未到均真析——
-    // 引擎因子门已控）；不带标志照旧增量判定（买点 gate/观察挂点 reused 语义不变）
-    const insBefore = db.state.inserts.length;
-    const reusedBefore = svc.stats.cacheReused;
-    svc.noteBuyPoint('0xtok', META, { source: 'prefetch', factorGated: true });
-    await svc.drain(3000);
-    ok(db.state.inserts.length === insBefore + 1 && svc.stats.cacheReused === reusedBefore,
-      'factorGated + 0 新 tick → 真析非 reused（引擎因子门已控，内部门让位）');
-    nowRef.t += 1000; // 间隔未到（数字门会限流）
-    svc.noteBuyPoint('0xtok', META, { source: 'prefetch', factorGated: true });
-    await svc.drain(3000);
-    ok(db.state.inserts.length === insBefore + 2,
-      'factorGated + 间隔未到 → 仍真析（时间限流一并让位，节流在引擎侧 prefetchIntervalMs）');
-    db.holder.ticks = genTicks(46);
-    svc.noteBuyPoint('0xtok', META, { source: 'prefetch' }); // 无 factorGated
-    await svc.drain(3000);
-    ok(svc.stats.cacheReused === reusedBefore + 1,
-      'prefetch 来源不带 factorGated → 照旧增量判定（未配重判门的现状 bit 一致）');
+    // D4 unhealthy 翻案：下个信号判 healthy 后进入粘滞
+    llm4.mod.JevClient.ask = async () => {
+      llm4.calls.ask++;
+      return { model: 'fake', answers: NONE_ANSWERS, usage: { total: 1 } };
+    };
+    const rFlip = await svc4.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rFlip.status === 'analyzed' && rFlip.grade === 'healthy' && rFlip.unhealthyGrades === 6,
+      'unhealthy 翻案：真析 healthy（unhealthyGrades 观测计数保留不重置）');
+    const rFlip2 = await svc4.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rFlip2.cached === true && rFlip2.grade === 'healthy', '翻案后即粘滞（healthy 秒回）');
   }
 
-  // ═══════════════ E. 满帽拉数（capped）+ 水位增量 ═══════════════
-  console.log('E. 满帽与水位');
+  // ═══════════════ E. 满帽拉数（capped） ═══════════════
+  console.log('E. 满帽拉数');
   {
     const rows = genTicks(50);
     const db = makeDb({ ticks: rows });
     // headLimit/pullLimit 防呆下限=10（service num(v,dflt,10)），测试取合法小值
     const svc = makeSvc(db, makeLlm(), { pullLimit: 20, headLimit: 10 });
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
+    await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     const row = db.state.inserts[0];
     ok(row.anchor_tick_count === 20 && row.snapshot_digest.capped === true, '满帽：anchor=tail 单查询行数 20+capped 标记');
     ok(db.state.headQueries === 1 && db.state.tickQueries === 2, '满帽才补 head 查询（launch 窗保留；tail+head 恰两次）');
     ok(row.jev_prompt.includes('超拉数帽') && row.jev_prompt.includes('截至第 20 笔'),
       'capped 全链透传：pull.capped→snapshot.capped→[ANCHOR] 截断声明');
     ok((row.jev_prompt.match(/^t\+\d+s /gm) || []).length === 30, '满帽窗口=head10+tail20=30 行进 state（[WALLETS] 的 @t+Ns 不计）');
-
-    // 水位不变 → 0 新 tick（行数饱和不可信，水位承担增量）
-    const svc2 = makeSvc(makeDb({ ticks: rows }), makeLlm(), { pullLimit: 20, headLimit: 10 });
-    const lastRow = rows[rows.length - 1];
-    const wm = { block: lastRow.block_number, log: lastRow.log_index, key: `${lastRow.block_number}:${lastRow.log_index}` };
-    svc2._lastAnalysis.set('0xtok', { questionVersion: 'D3.26', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'observed' });
-    svc2.noteBuyPoint('0xtok', META, {});
-    await svc2.drain(3000);
-    ok(svc2.stats.cacheReused === 1, '满帽水位不变=0 新 tick（不重析）');
-
-    // 水位变化 → 按满值重析
-    const rows2 = rows.concat(genTicks(2, { startBlock: 500 }));
-    const svc3 = makeSvc(makeDb({ ticks: rows2 }), makeLlm(), { pullLimit: 20, headLimit: 10 });
-    svc3._lastAnalysis.set('0xtok', { questionVersion: 'D3.26', anchorTickCount: 20, capped: true, watermark: wm, analyzedAt: 1000000 - 1000, verdict: 'observed' });
-    svc3.noteBuyPoint('0xtok', META, {});
-    await svc3.drain(3000);
-    ok(svc3._analysisCount.get('0xtok') === 1 && svc3._lastAnalysis.get('0xtok').verdict === 'observed',
-      '满帽水位变化=重析（量未知按满值处理，限流+顶帽兜底；重析后链终态=observed）');
   }
 
   // ═══════════════ F. 超时 / 错误 / 冷却 / 拉取失败 ═══════════════
   console.log('F. 失败语义');
   {
-    // 超时：ask 永挂 → timeout 行
+    // 超时：ask 永挂 → timeout 行（_runJev 内部 timeoutMs 竞速）
     const db = makeDb({ ticks: genTicks(20) });
     const llm = makeLlm({ hang: true });
     const svc = makeSvc(db, llm, { timeoutMs: 40 });
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 1 && db.state.inserts[0].verdict === 'timeout'
+    const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r.status === 'fail' && r.reason === 'jev_timeout'
+      && db.state.inserts.length === 1 && db.state.inserts[0].verdict === 'timeout'
       && db.state.inserts[0].fail_reason.includes('jev_timeout')
-      && db.state.inserts[0].jev_prompt === null, '超时落 timeout 行带 fail_reason（无 prompt）');
+      && db.state.inserts[0].jev_prompt === null,
+      '超时 → fail 放行态 + timeout 行带 fail_reason（无 prompt）');
     ok(svc.stats.timeouts === 1, 'stats.timeouts=1');
-    // 冷却期内再买点：冷却短路在拉数前
+    // 失败冷却期内再买点：冷却短路在拉数前（防故障环保留——CD158 最小代价）
     const pullsBefore = db.state.tickQueries;
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.tickQueries === pullsBefore && svc.stats.cooldownSkipped === 1, '失败冷却期内买点零拉数');
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'fail' && r2.reason === 'cooldown'
+      && db.state.tickQueries === pullsBefore && svc.stats.cooldownSkipped === 1,
+      '失败冷却期内买点零拉数（fail:cooldown 放行态）');
+    // 冷却不粘滞：冷却过后真析
+    // （nowRef 未推进的 service 已冷却；此处新建推进时钟验证冷却窗过后恢复）
+    const nowRef = { t: 1000000 };
+    const svc1b = makeSvc(makeDb({ ticks: genTicks(20) }), makeLlm({ hang: true }), { timeoutMs: 40 }, nowRef);
+    await svc1b.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    nowRef.t += 60000; // 越过 failCooldownMs（缺省 10s）
+    const r1b = await svc1b.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1b.reason === 'jev_timeout' && svc1b.stats.cooldownSkipped === 0,
+      '冷却窗过后恢复真析（不粘滞——下个买信号可重判）');
   }
   {
-    // Jev 抛错 → error 行 + 烧预算
+    // Jev 抛错 → error 行（+冷却）
     const db = makeDb({ ticks: genTicks(20) });
     const llm = makeLlm({ reject: 'boom' });
     const svc = makeSvc(db, llm);
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 1 && db.state.inserts[0].verdict === 'error'
-      && db.state.inserts[0].fail_reason.includes('boom'), 'error 行带 fail_reason');
-    ok((svc._analysisCount.get('0xtok') || 0) === 1, '失败也烧预算（防故障环）');
+    const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r.status === 'fail' && r.reason === 'jev_error'
+      && db.state.inserts.length === 1 && db.state.inserts[0].verdict === 'error'
+      && db.state.inserts[0].fail_reason.includes('boom'), 'error 行带 fail_reason（fail 放行态）');
   }
   {
-    // ticks 拉取失败：链内吞不抛（观察层纪律）
+    // ticks 拉取失败：链内吞不抛（观察期纪律）
     const db = makeDb({ ticks: [], failTicks: true });
     const llm = makeLlm();
     const svc = makeSvc(db, llm);
     let threw = false;
-    try { svc.noteBuyPoint('0xtok', META, {}); await svc.drain(3000); } catch (_) { threw = true; }
-    ok(!threw && db.state.inserts.length === 0 && svc.stats.errors === 1, 'DB 拉取失败=链内吞不抛（errors 计数）');
+    let r;
+    try { r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }); } catch (_) { threw = true; }
+    ok(!threw && r.status === 'fail' && db.state.inserts.length === 0 && svc.stats.errors === 1,
+      'DB 拉取失败=链内吞不抛（fail:chain_error 放行态，errors 计数）');
   }
 
-  // ═══════════════ G. 预算顶帽（DB 计数起底）+ bootstrap 连续性 ═══════════════
-  console.log('G. 预算与 bootstrap');
+  // ═══════════════ G. bootstrap 三态恢复（CD158：拉黑/粘滞/计数）+ 版本域 ═══════════════
+  console.log('G. bootstrap 三态');
   {
-    // 增量已触发（+8 tick ∧ 间隔已过）但 DB 计数=顶帽 → 拒析
-    const db = makeDb({
-      ticks: genTicks(20), cheatCount: 20,
-      cheatLatest: [{ verdict: 'unhealthy', anchor_tick_count: 12, analyzed_at: new Date(1000000 - 61000).toISOString(), snapshot_digest: { capped: false, watermark: null } }],
+    const digest = (grade) => ({
+      grade, gradeVersion: 'G15', capped: false, watermark: null,
+      phenomena: { equal_amount_split: 'strong', coordinated_sell_back: 'none', creator_front_run: 'none', sell_dispersion: 'none' },
+      extLevels: { stall_burst_wave: 'none' },
+      activityLevel: { bucket: 'mid' }, bundledDominance: { bucket: 'low' },
+      anchors: { sameBlockHoldPct: 84.2, top1HoldCircPct: 16 },
     });
-    const svc = makeSvc(db, makeLlm(), { maxAnalysesPerToken: 20 });
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 0 && svc.stats.skippedQuota === 1 && db.state.countQueries >= 1,
-      'DB 计数 20=顶帽耗尽 → 零 Jev（跨进程预算兜底；增量判定先于顶帽=触发后才见帽）');
-    ok(db.state.latestQueries >= 1, '首触 bootstrap 查最新行');
-  }
-  {
-    // bootstrap 续接：DB 最新行 40s 前、同锚 → 复用不重析
-    const db = makeDb({
-      ticks: genTicks(12), cheatCount: 1,
-      cheatLatest: [{ verdict: 'unhealthy', anchor_tick_count: 12, analyzed_at: new Date(1000000 - 40000).toISOString(), snapshot_digest: { capped: false, watermark: null } }],
+    const row = (grade, ago) => ({
+      verdict: 'observed', anchor_tick_count: 40,
+      analyzed_at: new Date(1000000 - ago).toISOString(),
+      snapshot_digest: digest(grade),
     });
-    const svc = makeSvc(db, makeLlm(), {});
-    svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 0 && svc.stats.cacheReused === 1,
-      'bootstrap 续接跨进程缓存：同锚+间隔未满=复用（重启不重复烧）');
-    ok(svc.noteBuyPoint('0xtok', META, {}).lastVerdict === 'unhealthy', 'lastVerdict 来自 DB bootstrap');
+    // G1 cheat 行恢复：首链 4b 复检秒回 graded/blocked（零 Jev 零新落行，
+    // levels/anchors 自 digest 重建）；第二击起入口内存短路照常
+    const llm = makeLlm(); // GOOD→cheat；4b 失守会真烧 ask 落行（反证）
+    const db = makeDb({ ticks: genTicks(40), cheatLatest: [row('cheat', 61000)] });
+    const svc = makeSvc(db, llm);
+    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.status === 'graded' && r1.grade === 'cheat' && r1.blocked === true
+      && r1.reasons[0].code === 'gate_blocked'
+      && r1.levels && r1.levels.equalAmountSplit === 3
+      && r1.anchors && r1.anchors.sameBlockHoldPct === 84.2,
+      'bootstrap 恢复拉黑 → 首链 4b 复检秒回 graded/blocked（levels/anchors 自 digest 重建）');
+    ok(llm.calls.ask === 0 && db.state.inserts.length === 0,
+      '恢复路径零 Jev 零新落行（拉黑不被重启洗掉）');
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'graded' && r2.blocked === true && svc.stats.gateBlockedHits === 2,
+      '恢复后第二击起入口内存短路照常');
+    // G2 healthy 粘滞跨重启：首链 4c 秒回 cached:true 零 Jev
+    const dbH = makeDb({ ticks: genTicks(40), cheatLatest: [row('healthy', 61000)] });
+    const llmH = makeLlm();
+    const svcH = makeSvc(dbH, llmH);
+    const rH = await svcH.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rH.status === 'graded' && rH.grade === 'healthy' && rH.cached === true
+      && llmH.calls.ask === 0 && svcH.stats.stickyBootstrapped === 1,
+      'bootstrap 恢复 healthy _lastGrade → 首链 4c 粘滞秒回（cached:true 零 Jev——无此复检重启后白烧一次）');
+    // G3 unhealthy 计数恢复：4 行 unhealthy → 不拉黑（升级臂退役）+ 计数续接
+    const dbU4 = makeDb({
+      ticks: genTicks(40),
+      cheatLatest: [61000, 122000, 183000, 244000].map((ago) => row('unhealthy', ago)),
+    });
+    const rU4 = await makeSvc(dbU4, makeLlm({ answers: PUMP_BURST }), {}).gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rU4.status === 'analyzed' && rU4.grade === 'unhealthy' && rU4.unhealthyGrades === 5
+      && rU4.blocked !== true,
+      'unhealthy 4 行 bootstrap 恢复计数（=4）不拉黑，真析续接 unhealthyGrades=5（升级臂退役跨进程语义）');
+    // G4 版本域：bootstrap 查询按当前题集版本过滤（版本 bump → 旧行不可见=粘滞失效一次）
+    const firstOps = db.state.cheatOps[0] || [];
+    const hasVersionEq = firstOps.some((o) => o[0] === 'eq' && o[1][0] === 'question_version' && o[1][1] === 'D3.26');
+    ok(hasVersionEq, 'bootstrap 查询带 .eq(question_version, 当前版本)（版本域=粘滞按题集版本的载体）');
+    const hasLimit8 = firstOps.some((o) => o[0] === 'limit' && o[1][0] === 8);
+    ok(hasLimit8, 'bootstrap 固定 8 行窗口（limit(8)——无 count 查询）');
+    ok(db.state.latestQueries === 1, 'bootstrap 首触恰一次（_bootstrapped 去重）');
   }
 
   // ═══════════════ H. inflight join + 落库失败 + 引擎接线口径锁 ═══════════════
@@ -401,26 +419,30 @@ async function main() {
     const db = makeDb({ ticks: genTicks(20) });
     const llm = makeLlm();
     const svc = makeSvc(db, llm, { settleDelayMs: 60 });
-    const i1 = svc.noteBuyPoint('0xtok', META, {});
-    const i2 = svc.noteBuyPoint('0xtok', META, {});
-    ok(i2.status === 'joined_inflight' && svc.stats.inflightJoined === 1, '相邻买点 inflight join（一条链盖住）');
-    await svc.drain(3000);
-    ok(db.state.inserts.length === 1 && llm.calls.ask === 1, 'join 后仍只析一次');
-    ok(!('lastVerdict' in i1), '首买点无 lastVerdict');
+    const [r1, r2] = await Promise.all([
+      svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }),
+      svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }),
+    ]);
+    ok(svc.stats.inflightJoined === 1 && db.state.inserts.length === 1 && llm.calls.ask === 1
+      && r1.grade === 'cheat' && r2.grade === 'cheat',
+      '相邻买点 inflight join（一条链盖住，双买点同收 graded 结果）');
   }
   {
     const db = makeDb({ ticks: genTicks(20), failInsert: true });
     const svc = makeSvc(db, makeLlm());
     let threw = false;
-    try { svc.noteBuyPoint('0xtok', META, {}); await svc.drain(3000); } catch (_) { threw = true; }
-    ok(!threw && svc.stats.writeFailed === 1, '落库失败=writeFailed 计数不抛（loud 留痕语义）');
+    let r;
+    try { r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }); } catch (_) { threw = true; }
+    ok(!threw && svc.stats.writeFailed === 1 && r.grade === 'cheat',
+      '落库失败=writeFailed 计数不抛（loud 留痕语义；链返回值照常（grade 已判））');
   }
   {
-    // 引擎接线源码口径锁（挂点位置/drain/metadata 轨迹三防线）
+    // 引擎接线源码口径锁（挂点=腿字段门/GMGN 前/drain/metadata 轨迹三防线）
     const engineSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
-    const hookIdx = engineSrc.indexOf('cheatCheckInfo = this._cheatCheckService.noteBuyPoint(tokenAddress');
+    const condIdx = engineSrc.indexOf("const cheatCheckCondition = String(strategy.cheatCheckCondition || '').trim();");
+    const gateIdx = engineSrc.indexOf('const gate = await this._cheatGateEvaluate(');
     const gmgnIdx = engineSrc.indexOf("const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();");
-    ok(hookIdx > 0 && gmgnIdx > 0 && hookIdx < gmgnIdx, '挂点在 GMGN if 块之前（无 GMGN 条件腿照样观察）');
+    ok(condIdx > 0 && gateIdx > condIdx && gmgnIdx > gateIdx, '挂点：腿 cheatCheckCondition 非空才走门，且在 GMGN 之前');
     ok(engineSrc.includes('await this._cheatCheckService.drain(5000)'), 'stop drain 接线在场');
     const spreadCount = (engineSrc.match(/\.\.\.\(cheatCheckInfo \? \{ cheatCheck: cheatCheckInfo \} : \{\}\)/g) || []).length;
     ok(spreadCount === 2, `拒买/通过双路径 metadata 均带 cheatCheck 轨迹（spread×${spreadCount}=2）`);
@@ -471,8 +493,8 @@ async function main() {
     ok(consoleFallbackOk, '_log 无 logger console 兜底不抛');
   }
 
-  // ═══════════════ Z. G1 分级门（2026-11-01 用户裁定升级为买门） ═══════════════
-  console.log('Z. G1 gateBuyPoint 分级门');
+  // ═══════════════ Z. G1 分级门返回形状（levels/buckets/anchors 精确值） ═══════════════
+  console.log('Z. gateBuyPoint 分级门');
   {
     // Z1. cheat 首判：GOOD（tier/bw/rat 三 strong）→ A 通道拉黑 + 拉黑秒回零 Jev
     const db = makeDb({ ticks: genTicks(20) });
@@ -492,21 +514,20 @@ async function main() {
       && db.state.inserts[0].snapshot_digest.gradeVersion === 'G15'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
-    // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（12 题数值档，FA 出口
-    // 原料）+ buckets（字符串原值）——GOOD 形状 tier/bw/rat strong=3、sbw burst=1、
-    // cr strong=3（辅助判定照投影）、act mid=1、bd high=2、wash none=0（D3.28）
+    // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串
+    // 原值）——GOOD 形状 tier/bw/rat strong=3、sbw burst=1、cr strong=3、
+    // act mid=1、bd high=2、wash none=0（D3.28）
     ok(r1.levels && r1.levels.sameBlockBuyWave === 3 && r1.levels.amountTiering === 3
       && r1.levels.insiderSupplySell === 3 && r1.levels.stallBurstWave === 1
       && r1.levels.creatorFrontRun === 3 && r1.levels.activityLevel === 1
       && r1.levels.bundledDominance === 2 && r1.levels.equalAmountSplit === 0
       && r1.levels.washPair === 0,
-      `analyzed 带 levels 数值档 12 键（实际 ${JSON.stringify(r1.levels)}）`);
+      `analyzed 带 levels 数值档（实际 ${JSON.stringify(r1.levels)}）`);
     ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'burst'
       && r1.buckets.activityLevel === 'mid',
       `analyzed 带 buckets 字符串原值（研究留档）`);
-    // Z1c 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键）：四持仓占比键
-    // 真算数值（genTicks 全 0.1 同额 10 钱包买侧）+washPair 三键（卖 0.11 超带=零配对 null）
-    // +famous 三键缺席 null（名单无命中=该轴不适用）
+    // Z1c 数值锚：四持仓占比键真算数值（genTicks 全 0.1 同额 10 钱包买侧）+
+    // washPair 三键（卖 0.11 超带=零配对 null）+famous 三键缺席 null
     ok(r1.anchors && ['sameBlockHoldPct', 'equalBandHoldPct', 'washPairCount', 'washPairSellPct',
       'washPairBuyPct', 'top1HoldSupplyPct', 'top1HoldCircPct',
       'famousDominancePct', 'famousDominanceLevel', 'famousDominance']
@@ -518,21 +539,20 @@ async function main() {
     ok(r1.anchors.washPairCount === null && r1.anchors.washPairSellPct === null
       && r1.anchors.washPairBuyPct === null,
       '基底零配对（卖 0.11 超带）→ washPair 三键 null（H 通道不触发=gate 测试基底干净）');
-    // G8 四新锚（2026-11-02 批次六）：零买入纯卖方占比+burst 波强度三键
+    // G8 四新锚：零买入纯卖方占比+burst 波强度三键
     ok(['burstMaxGapSec', 'burstWaveBuyBnb', 'burstWaveWallets', 'noBuySellPct']
       .every((k) => k in r1.anchors),
       'analyzed 带 G8 四新锚键（在場断言；实际 ' + JSON.stringify(Object.keys(r1.anchors)) + '）');
     ok(r1.anchors.noBuySellPct === 0,
-      `纯卖=0 有证据零值（genTicks 十钱包均有买入、总卖 0.66>0 → 0 非 null——K 通道 0<40 不触发）（实际 ${r1.anchors.noBuySellPct}）`);
-    // D3.50 additive 观察键：纯卖占总交易量（买+卖）——insider ⑤伤害量级标尺
+      `纯卖=0 有证据零值（genTicks 十钱包均有买入、总卖 0.66>0 → 0 非 null）（实际 ${r1.anchors.noBuySellPct}）`);
     ok(r1.anchors.noBuySellVolumePct === 0,
-      `D3.50 纯卖占总交易量=0 有证据零值（noBuySellBnb=0、总交易量>0；观察/审计键无门侧消费）（实际 ${r1.anchors.noBuySellVolumePct}）`);
+      `D3.50 纯卖占总交易量=0 有证据零值（noBuySellBnb=0、总交易量>0）（实际 ${r1.anchors.noBuySellVolumePct}）`);
     ok(r1.anchors.burstWaveBuyBnb === 0.2 && r1.anchors.burstWaveWallets === 3
       && r1.anchors.burstMaxGapSec === 2,
       `burst 波精确值（最密 5s 窗=首三 tick 0/2/4s 两买一卖：买 0.1+0.1=0.2、去重 3 钱包；gap 全 2s）（实际 买${r1.anchors.burstWaveBuyBnb}/${r1.anchors.burstWaveWallets}户/gap${r1.anchors.burstMaxGapSec}s）`);
     // D3.51 尖刺两锚（genTicks 手算：maxGap 2s<60→簇=整个窗口；最密 3s 窗=t+0~2 两买
     // 0.2（w0/w1）占簇买 0.2/1.4=14.3%；尖刺钱包 w0 正净 0.2（w1 净 −0.01 不在正净域）
-    // ÷Σ正净 0.8=25.0——观察键无门侧数值消费）
+    // ÷Σ正净 0.8=25.0）
     ok(r1.anchors.spikeBuyPctInBurst === 14.3 && r1.anchors.spikeHoldPctAll === 25,
       `D3.51 尖刺两锚精确值（占簇买 14.3%/尖刺持 25.0）（实际 ${r1.anchors.spikeBuyPctInBurst}/${r1.anchors.spikeHoldPctAll}）`);
     ok(r1.levels && r1.levels.burstSpikeConcentration === null
@@ -555,9 +575,8 @@ async function main() {
   }
   {
     // Z1.5 CD27 对倒形状（D3.28 锚+G9 退役反证）：10 块逐块等额卖↔买配对+尾部散买
-    // ——H 纯锚通道已随 G9 退役（2026-11-02 用户裁定「去掉不经过Jev的门」）：锚
-    // 照常真算落 digest（10 对/卖占 100/买占 50 喂 wash_pair 题），wash 题档
-    // moderate（非 strong）→ 不再拉黑；对倒拉黑须 Jev 判 wash strong 走 A
+    // ——H 纯锚通道已随 G9 退役：锚照常真算落 digest（10 对/卖占 100/买占 50 喂
+    // wash_pair 题），wash 题档 moderate（非 strong）→ 不再拉黑
     const washRows = [];
     for (let i = 0; i < 10; i++) {
       const blk = 300 + i;
@@ -596,52 +615,6 @@ async function main() {
       'wash_pair 题档 moderate 照投影（levels=2/buckets 原值——题档与锚通道独立成键）');
   }
   {
-    // Z2. unhealthy 计数→重判→用尽拉黑（unhealthyReanalyses=3：第 4 次 unhealthy 拉黑）
-    const db = makeDb({ ticks: genTicks(20) });
-    const pumpBurst = { // A 降级形状（唯一 pump strong ∧ burst ∧ mod<3 ∧ sbHold<50）→ unhealthy
-      equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
-      creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
-      stall_burst_wave: sbwAns('burst'), amount_tiering: phAns('none'),
-      same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
-      slow_grind_pump: phAns('strong'), activity_level: actAns('mid'),
-      bundled_trade_dominance: bdAns('low'),
-    };
-    const llm = makeLlm({ answers: pumpBurst });
-    const nowRef = { t: 1000000 };
-    const svc = makeSvc(db, llm, { gate: { unhealthyReanalyses: 3 } }, nowRef);
-    for (let round = 1; round <= 4; round++) {
-      if (round > 1) { db.holder.ticks = genTicks(20 + round * 20); nowRef.t += 61000; } // +20 tick 硬增量触发重判
-      const r = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-      ok(r.status === 'analyzed' && r.grade === 'unhealthy' && r.unhealthyGrades === round,
-        `第 ${round} 轮 unhealthy（unhealthyGrades=${r.unhealthyGrades}）`);
-    }
-    ok(svc.isGateBlocked('0xtok') === true, '第 4 次 unhealthy（>3 重判上限）→ 拉黑');
-    const askBefore = llm.calls.ask;
-    const r5 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(r5.grade === 'cheat' && r5.blocked === true && llm.calls.ask === askBefore,
-      '用尽后 gate 秒回 blocked（不再重判）');
-  }
-  {
-    // Z3. 增量门内重用（不烧 Jev，grade 重用）+ healthy 放行
-    const db = makeDb({ ticks: genTicks(20) });
-    const llm = makeLlm({ answers: {
-      equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
-      creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
-      stall_burst_wave: sbwAns('none'), amount_tiering: phAns('none'),
-      same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
-      slow_grind_pump: phAns('none'), activity_level: actAns('mid'),
-      bundled_trade_dominance: bdAns('low'),
-    } });
-    const nowRef = { t: 1000000 };
-    const svc = makeSvc(db, llm, {}, nowRef);
-    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(r1.status === 'analyzed' && r1.grade === 'healthy', '全 none 形状 → healthy 放行');
-    const askBefore = llm.calls.ask;
-    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(r2.status === 'reused' && r2.grade === 'healthy' && llm.calls.ask === askBefore,
-      '同锚再买点 → reused 重用 grade（零 Jev——增量门是重判节流器）');
-  }
-  {
     // Z4. 竞速超时 fail-open：本笔放行（timeout_fail_open）+ late 链续跑迟到可消费
     const db = makeDb({ ticks: genTicks(20) });
     const llm = makeLlm({ hang: true });
@@ -654,8 +627,7 @@ async function main() {
     ok(svc.stats.gateTimeouts === 1, 'gateTimeouts 计数');
   }
   {
-    // Z5. 放行态四形状（观察层 fail-open 语义平移）：insufficient_ticks / quota /
-    //     jev 失败 / disabled
+    // Z5. 放行态形状：insufficient_ticks / jev 失败 / disabled
     const db = makeDb({ ticks: genTicks(5) });
     const llm = makeLlm();
     const svc = makeSvc(db, llm, { minTicks: 8 });
@@ -669,139 +641,24 @@ async function main() {
     const r3 = await svc3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(r3.status === 'fail' && r3.reason === 'jev_error', 'Jev 失败 → fail 放行态（不拦买点）');
   }
-  {
-    // Z6. 因子化预触发通道（2026-11-01 用户指令）：noteBuyPoint onResult 回调——
-    //     链完成（analyzed/reused/fail 全形状）回调一次，引擎预触发用它投影 FA
-    const db = makeDb({ ticks: genTicks(20) });
-    const llm = makeLlm();
-    const svc = makeSvc(db, llm, { settleDelayMs: 10 });
-    const got = [];
-    const info = svc.noteBuyPoint('0xtok', META, {}, (res) => got.push(res));
-    ok(info.status === 'initiated', 'noteBuyPoint 同步返回轨迹形状不变');
-    await new Promise((r) => setTimeout(r, 150)); // settle 10ms + 链完成
-    ok(got.length === 1 && got[0].status === 'analyzed' && got[0].grade === 'cheat'
-      && got[0].levels && got[0].levels.sameBlockBuyWave === 3
-      && got[0].anchors && 'top1HoldCircPct' in got[0].anchors,
-      'onResult 回调收 analyzed+levels+anchors（预触发投影 FA 原料）');
-    // 增量门内二次预触发（healthy 票不拉黑，增量未触发）→ joined_inflight 或新链
-    // reused：回调也回（reused 形状带 grade）
-    const dbH = makeDb({ ticks: genTicks(20) });
-    const svcH = makeSvc(dbH, makeLlm({ answers: NONE_ANSWERS }), { settleDelayMs: 10 });
-    svcH.noteBuyPoint('0xtok', META, {});
-    await new Promise((r) => setTimeout(r, 150));
-    const got2 = [];
-    svcH.noteBuyPoint('0xtok', META, {}, (res) => got2.push(res));
-    await new Promise((r) => setTimeout(r, 150));
-    ok(got2.length === 1 && got2[0].status === 'reused' && got2[0].grade === 'healthy'
-      && got2[0].levels && got2[0].levels.sameBlockBuyWave === 0
-      && got2[0].anchors && 'top1HoldCircPct' in got2[0].anchors,
-      '增量门内 reused → onResult 带 _lastGrade levels+anchors（连续预触发因子不缺位）');
-    // 拉黑后预触发秒回（2026-11-02 MAI 0x732b…7777 案根因修复：cheat 拉黑后 60s
-    // 预触发照走 noteBuyPoint 真烧 Jev 直到顶帽——18 次纯浪费）：短路在链前，终值
-    // 形状同步返回、onResult 不回调（投影已在产生拉黑的那次链完成时做过）
-    const askBeforeBlock = llm.calls.ask;
-    const insertsBeforeBlock = db.state.inserts.length;
-    const rBlocked = svc.noteBuyPoint('0xtok', META, {}, (res) => got.push(res));
-    ok(rBlocked.status === 'graded' && rBlocked.grade === 'cheat' && rBlocked.blocked === true
-      && rBlocked.reasons[0].code === 'gate_blocked'
-      && rBlocked.levels && rBlocked.levels.sameBlockBuyWave === 3
-      && rBlocked.anchors && 'top1HoldCircPct' in rBlocked.anchors,
-      '拉黑后 noteBuyPoint 秒回终值形状（graded/blocked/levels+anchors 透传）');
-    await new Promise((r) => setTimeout(r, 100));
-    ok(got.length === 1 && llm.calls.ask === askBeforeBlock
-      && db.state.inserts.length === insertsBeforeBlock,
-      '拉黑短路零 Jev 零新落行 onResult 不回调（MAI 案反证：不再烧配额）');
-    // fail 形状也回（insufficient_ticks 低票）——回调不丢、不抛
-    const db2 = makeDb({ ticks: genTicks(3) });
-    const svc2 = makeSvc(db2, makeLlm(), { minTicks: 8, settleDelayMs: 10 });
-    const got3 = [];
-    svc2.noteBuyPoint('0xlow', META, {}, (res) => got3.push(res));
-    await new Promise((r) => setTimeout(r, 100));
-    ok(got3.length === 1 && got3[0].status === 'insufficient_ticks',
-      'insufficient_ticks → onResult 照回（无 grade=引擎投影自然跳过）');
-  }
 
+  // ═══════════════ W. 退役反证（CD158 删除零残留） ═══════════════
+  console.log('W. 退役反证');
   {
-    // Z9. 重判上限=首析+3（2026-11-02 用户裁定「每个代币的作弊再次检测最多 3 次」，
-    //     MAI 案 20 分钟 20 行烧配额）：缺省帽 4 次；第 5 次增量触发 → quota 拒析
-    //     零 Jev 零落行。与 unhealthyReanalyses=3 对齐：4 次 unhealthy 全程在预算内、
-    //     第 4 次拉黑=最后一次允许的分析（escalation 路径完整保留，见 Z2）
-    const db = makeDb({ ticks: genTicks(20) });
-    const llm = makeLlm({ answers: NONE_ANSWERS });
-    const nowRef = { t: 1000000 };
-    const svc = makeSvc(db, llm, {}, nowRef);
-    for (let round = 1; round <= 4; round++) {
-      if (round > 1) { db.holder.ticks = genTicks(20 + round * 20); nowRef.t += 61000; } // +20 tick 硬增量触发重判
-      const info = svc.noteBuyPoint('0xtok', META, {});
-      await svc.drain(3000);
-      ok(info.status === 'initiated' && db.state.inserts.length === round
-        && llm.calls.ask === round,
-        `第 ${round} 次分析落行（首析+3 重判=4 次预算内）`);
-    }
-    db.holder.ticks = genTicks(120);
-    nowRef.t += 61000; // 第 5 次增量触发（帽外）
-    const r5 = svc.noteBuyPoint('0xtok', META, {});
-    await svc.drain(3000);
-    ok(r5.status === 'initiated' && svc.stats.skippedQuota === 1
-      && llm.calls.ask === 4 && db.state.inserts.length === 4,
-      '第 5 次（>首析+3 重判）→ quota 拒析零 Jev 零落行');
-  }
-
-  {
-    // Z10. bootstrap 门状态恢复（帽收紧配套：顶帽 20 时代重启后重析会重新拉黑兜底，
-    //      帽 4 后已拉黑票重启即配额耗尽 → 无恢复则 quota fail-open 放行=拉黑被
-    //      重启洗掉）：DB 行 grade=cheat → 重启后首链 4b 复检秒回 graded/blocked
-    //      （零 Jev 零新落行，levels/anchors 自 digest 重建）；unhealthy 计数恢复
-    //      超限（>3）拉黑、恰 3 次不前移（reused 续接 escalation 路径）
-    const digest = (grade) => ({
-      grade, gradeVersion: 'G8', capped: false, watermark: null,
-      phenomena: { equal_amount_split: 'strong', coordinated_sell_back: 'none', creator_front_run: 'none', sell_dispersion: 'none' },
-      extLevels: { stall_burst_wave: 'none' },
-      activityLevel: { bucket: 'mid' }, bundledDominance: { bucket: 'low' },
-      anchors: { sameBlockHoldPct: 84.2, top1HoldCircPct: 16 },
-    });
-    const row = (grade, ago) => ({
-      verdict: 'observed', anchor_tick_count: 40,
-      analyzed_at: new Date(1000000 - ago).toISOString(),
-      snapshot_digest: digest(grade),
-    });
-    // ① cheat 行 + 预算耗尽（MAI 形状重启态）：首链 4b 秒回，不走 quota 放行
-    const llm = makeLlm(); // GOOD→cheat；4b 失守会真烧 ask 落行（反证）
-    const db = makeDb({ ticks: genTicks(40), cheatLatest: [row('cheat', 61000)], cheatCount: 4 });
-    const svc = makeSvc(db, llm, {});
-    const got = [];
-    const info = svc.noteBuyPoint('0xtok', META, {}, (res) => got.push(res));
-    ok(info.status === 'initiated', '重启后首买点 initiated（拉黑态在 DB 行不在内存）');
-    await svc.drain(3000);
-    ok(got.length === 1 && got[0].status === 'graded' && got[0].grade === 'cheat'
-      && got[0].blocked === true && got[0].reasons[0].code === 'gate_blocked'
-      && got[0].levels && got[0].levels.equalAmountSplit === 3
-      && got[0].anchors && got[0].anchors.sameBlockHoldPct === 84.2,
-      'bootstrap 恢复拉黑 → 首链 4b 复检秒回 graded/blocked（levels/anchors 自 digest 重建）');
-    ok(llm.calls.ask === 0 && db.state.inserts.length === 0,
-      '恢复路径零 Jev 零新落行（预算耗尽不走 quota fail-open——拉黑不被重启洗掉）');
-    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(r2.status === 'graded' && r2.blocked === true && svc.stats.gateBlockedHits === 2,
-      '恢复后第二击起入口内存短路照常');
-    // ② unhealthy 4 行（>3）恢复即拉黑
-    const dbU4 = makeDb({
-      ticks: genTicks(40),
-      cheatLatest: [61000, 122000, 183000, 244000].map((ago) => row('unhealthy', ago)),
-      cheatCount: 4,
-    });
-    const rU4 = await makeSvc(dbU4, makeLlm(), {}).gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rU4.status === 'graded' && rU4.blocked === true && rU4.unhealthyGrades === 4,
-      'unhealthy 4 行（>unhealthyReanalyses=3）bootstrap 恢复即拉黑（escalation 跨进程续接）');
-    // ③ unhealthy 恰 3 行：不拉黑、增量未触发 reused 续接（escalation 不前移）
-    const dbU3 = makeDb({
-      ticks: genTicks(40),
-      cheatLatest: [61000, 122000, 183000].map((ago) => row('unhealthy', ago)),
-      cheatCount: 3,
-    });
-    const llm3 = makeLlm({ answers: NONE_ANSWERS });
-    const rU3 = await makeSvc(dbU3, llm3, {}).gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rU3.status === 'reused' && rU3.grade === 'unhealthy' && llm3.calls.ask === 0,
-      'unhealthy 恰 3 行不拉黑：增量未触发 reused 带 DB 恢复 grade（第 4 次真析路径不前移）');
+    const svcSrc = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
+    const code = svcSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    ok(!code.includes('noteBuyPoint'), 'noteBuyPoint API 退役（观察/预触发入口删除）');
+    ok(!code.includes('_lastAnalysis') && !code.includes('_analysisCount'), '_lastAnalysis/_analysisCount 增量态退役');
+    ok(!code.includes('maxAnalysesPerToken') && !code.includes('skippedQuota'), '顶帽（首析+3 重判）退役——配额由引擎信号帽封顶');
+    ok(!code.includes('unhealthyReanalyses') && !code.includes('_unhealthyReanalyses'), 'unhealthyReanalyses 升级拉黑臂退役（永不拉黑）');
+    ok(!code.includes('factorGated') && !code.includes('reanalyzeTickDelta'), 'factorGated/reanalyzeTickDelta 增量门退役');
+    ok(!code.includes('cacheReused'), 'cacheReused 统计退役（增量门产物）');
+    ok(svcSrc.includes('stickyReused') && svcSrc.includes('stickyBootstrapped'),
+      '粘滞观测计数在场（stickyReused/stickyBootstrapped）');
+    const hasBlockedAdd = svcSrc.includes('this._gateBlocked.add(token)');
+    const blockedAdds = (svcSrc.match(/this\._gateBlocked\.add\(token\)/g) || []).length;
+    ok(hasBlockedAdd && blockedAdds === 2,
+      `_gateBlocked.add 恰两处（cheat 判定+bootstrap cheat 行恢复——无 unhealthy 来源；实际 ${blockedAdds}）`);
   }
 
   console.log(`\n✅ _test_cheat_detection_service 全过（${passed} 断言）`);

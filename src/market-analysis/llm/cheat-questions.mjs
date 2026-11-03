@@ -16,6 +16,20 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D3.52（2026-11-03 CD159 强庄币锚立项，16 题，**观察期**）：用户裁定原话「这三
+ *   个票都是"强庄币"，就是看起来作弊，其实庄家前期想拉盘。我其实想增加一个
+ *   强庄币的锚，豁免这种形态，但是现在 case 不够多，可以先做一下分析跟准备。」
+ *   +立法批准「好，可以先搞这么一个锚作为基线」+观察期裁定「这个锚先实现，
+ *   但是可以先不起作用，我们攒个一批数据看看」——第 16 题 strong_backer_pressure
+ *   落地但 grade 零消费：无豁免臂、cheat-grade MAIN_IDS 显式排除不进 A 主判
+ *   （豁免方向题绝不拉黑——EXT 清单会自动吸收 strong→cheat，与豁免意图相反，
+ *   filter 必须排除）；档位+锚窗买卖比只进 FA 投影（cheatStrongBackerPressure/
+ *   cheatAnchorBuySellRatio）攒分布数据。种子对照（docs/强庄币锚立项分析.md）：
+ *   CD21「0」0x9d70e873…7777=豁免方向（J+R+M 三通道压住的干净强庄，锚后买 17.39
+ *   vs 卖 3.67 BNB、+552% 收顶毕业）；CD72 SAFU 0x5641aa3a…7777=维持拦截（eq+
+ *   pump+spike 三 strong、+102% 峰后崩 70% 单户收割）；CD23 ZERODAY（pump strong
+ *   +买/卖 9.79）=判据分界票观察中。豁免方向预期（未立法）：干净强庄豁免
+ *   unhealthy 通道、绝不绕 A 主判；攒 ~10 张干净强庄 case 后走 D3.x 立法。
  * D3.51（2026-11-03 CD157 가나+CD102 SAFU 两票裁定立项，15 题）：CD157 用户裁定
  *   原话「CD157 明显的 cheat。burst 流量 是作弊」+澄清「burst 没有问题，但是
  *   这里的burst明显是一个尖刺。单独这一个 block 持仓比例多少呢？这一个block
@@ -666,7 +680,7 @@
  * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.51';
+export const CHEAT_QUESTIONS_VERSION = 'D3.52';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];
@@ -701,12 +715,15 @@ const LEVEL_CRITERIA = {
 };
 
 /**
- * 构建作弊盘检测问题集（D3.51 形状：15 题=存续 4 现象题 + stall_burst_wave
+ * 构建作弊盘检测问题集（D3.52 形状：16 题=存续 4 现象题 + stall_burst_wave
  * + amount_tiering + same_block_buy_wave + activity_level
  * + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair
  * + holdings_balance + abnormal_behavior_ratio（D3.35 real_participation→
  * D3.39 改名+理念重构——异常行为识别与比例计算，无罪推定）
- * + burst_spike_concentration（D3.51 burst 尖刺集中——CD157/CD102 裁定立项））
+ * + burst_spike_concentration（D3.51 burst 尖刺集中——CD157/CD102 裁定立项）
+ * + strong_backer_pressure（D3.52 强庄持续买压——CD159 立项，**观察期 grade
+ * 零消费**：MAIN_IDS 显式排除不进 A 主判，档位+锚窗买卖比只进 FA 投影攒
+ * 分布数据，豁免规则攒 case 后再裁））
  *
  * 每题=定义 + 从哪段材料看 + **怎么算**（D3.3：显式算法段——占比/配对/分散度
  * 的算式教给 Jev 自算，代码不预计算）+ 真实 case 样本（正例+反例，只述形状
@@ -714,7 +731,7 @@ const LEVEL_CRITERIA = {
  * 什么分类，防答题被结论锚定；样本同样只述发生了什么）。stall_burst_wave /
  * amount_tiering / same_block_buy_wave / insider_supply_sell / slow_grind_pump /
  * wash_pair / holdings_balance / abnormal_behavior_ratio / burst_spike_concentration
- * 走 mapper EXT 容缺
+ * / strong_backer_pressure 走 mapper EXT 容缺
  * 读档（后增题通道，旧存档重放兼容——sbw 桶域 STALL_BURST_LEVELS 自 D3.11 起
  * none/burst 现象二分，D3.3-D3.10 全部旧桶值（四档值/burst_suspect/burst_cheat/
  * burst_normal）断代 null；abnormal_behavior_ratio 自 D3.39 起——D3.35-D3.38
@@ -1099,6 +1116,33 @@ export function buildCheatQuestions() {
 真实样本（正·一次性钱包锁筹）：某票 3 秒内 12 笔买入来自 12 个一次性钱包、各买 ≈0.075 同档，尖刺买入占簇买入 99.3%、尖刺钱包握全窗正净持仓 96.7%，此后零卖零动；这 3 秒制造的买压把量能与人气指标全部喂绿，数秒后到来的真实买点恰好接在这波尖刺顶上。
 真实样本（反·开盘大户明买）：某票开盘簇起点 3 秒内 5 个大额钱包买入（金额 0.4~0.9 连续散布各不相同），尖刺买入占簇约 60%、尖刺钱包握正净约 55%——数值与伏击形状接近，但这是开盘段大户明买抢筹：尖刺在簇起点（涌入头部）、金额各异不规整、时间连续不是死寂后伏击，不给明显及以上档。
 真实样本（反·散户分散涌入）：某票停滞后涌入波的买入散布在整簇（尖刺 3 秒买入占簇不足三成）、数十个钱包金额从小到大连续散布、此后有人获利有人回吐——流量集中度低、行为各异，正常涌入。
+只描述现象程度，不下任何盘面结论。`,
+      criteria: LEVEL_CRITERIA,
+    },
+
+    // 16. 强庄持续买压（D3.52 新增，2026-11-03 CD159 立项——用户裁定原话「这三
+    //     个票都是"强庄币"，就是看起来作弊，其实庄家前期想拉盘。我其实想增加
+    //     一个强庄币的锚，豁免这种形态，但是现在 case 不够多，可以先做一下分析
+    //     跟准备。」+立法批准「好，可以先搞这么一个锚作为基线」+观察期裁定
+    //     「这个锚先实现，但是可以先不起作用，我们攒个一批数据看看」：本题
+    //     观察期落地——档位只进 FA 投影攒分布（cheatStrongBackerPressure/
+    //     cheatAnchorBuySellRatio），grade 零消费：无豁免臂、MAIN_IDS 显式排除
+    //     不进 A 主判（豁免方向题绝不拉黑——EXT 清单会自动吸收 strong→cheat
+    //     与豁免意图相反，filter 必须排除）。种子对照（docs/强庄币锚立项分析.md）：
+    //     CD21「0」0x9d70e873…7777=豁免方向（J+R+M 三通道压住的干净强庄，锚后买
+    //     17.39 vs 卖 3.67 BNB、+552% 收顶毕业）；CD72 SAFU 0x5641aa3a…7777=维持
+    //     拦截（eq+pump+spike 三 strong、+102% 峰后崩 70% 单户收割）；CD23
+    //     ZERODAY（pump strong+买/卖 9.79）=判据分界票观察中。豁免方向预期
+    //     （未立法）：干净强庄豁免 unhealthy 通道、绝不绕 A 主判）
+    strong_backer_pressure: {
+      type: 'choice',
+      instructions: `观察「强庄持续买压」现象：一个或少数大户钱包以持续净买入主导盘面——大额买入沿时间反复出现推动价格上行，且买入的筹码留在手里不马上卖（持续吸筹推价，不是一笔就完）。
+怎么算：①从 [WALLETS] 找锚窗内买入额最大的 1~3 个钱包（已剔聚合路由伪钱包；[CREATOR] 标记的钱包也算——创建者自己吸筹同样是该形状）；②方向性——该钱包累计买入是否远大于累计卖出（[PRECOMPUTED]「锚窗买压」行的买卖比=窗口买入合计÷卖出合计，直接采信；窗口无卖出时比值不适用，按笔数与金额自行判读）；③持续性——买入分散在多个时点多笔（沿时间持续进场）vs 全窗口只有一笔；④买后行为——买入后正净持仓保持（筹码锁定）vs 快速回吐/清仓。
+判读边界：本题只看「大户明买、持续进场、筹码锁定」这个形状本身，**大户主导 ≠ 组织化**——若同一批钱包伴随等额阵列/同块节拍/对倒配对（等额分仓/同块买入波/对敲各题判读的现象），或大户买入推高后**反手集中卖出**（买压只是砸盘前奏），持续买压的纯粹程度应降档：买家是组织化网络或买后即卖时，本题不给明显及以上档。单一钱包一笔大额买入后不再动的（无持续进场）也不算持续买压。窗口买卖比高只说明方向偏买，散户合力的普涨盘（买入分散在数十个中小钱包、无大户主导）不构成此现象。
+真实样本（正·单一大户持续吸筹）：某票 38 秒窗口 186 笔买入合计 17.4 BNB vs 卖出合计仅 3.7 BNB（买卖比 4.7），第一大钱包沿时间多笔大额买入、买后零卖出筹码全锁，价格被推高数倍——大户明买、持续进场、买后不动。
+真实样本（反·买压是出货前奏）：某票大户买入把价格推高翻倍后，同一钱包在峰后集中反手卖出收割大额筹码——「买入推高」与「集中砸卖」是同一只手的两段，买后反手卖使持续买压不成立。
+真实样本（反·组织化网络非强庄）：某票买卖比高达 12 以上，但买入主体是等额分仓阵列+缓拉泵+秒级尖刺的组合（各题已判的现象）——主导流量的是组织化网络不是单一/少数真实大户，本题不给高档。
+真实样本（反·散户合力无主导）：某票价格持续上行、买卖比也偏买，但买入额分散在数十个中小钱包、最大钱包占比很小——没有「庄」，是市场合力，本题 none/weak。
 只描述现象程度，不下任何盘面结论。`,
       criteria: LEVEL_CRITERIA,
     },

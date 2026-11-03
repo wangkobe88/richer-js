@@ -152,6 +152,8 @@ const PRELOAD = BacktestEngine.prototype._preloadNarrativeRows;
         getLastPairReturnRate: () => 0,
       },
       _factorAggregator: { getTokenState: () => null, markBuyFire: () => {}, clearBuyFire: () => {} },
+      // T110 买信号节流（真实类，全关=行为中性——C 段聚焦叙事链）
+      _buySignalThrottle: new (require('../src/trading-engine/core/BuySignalThrottle').BuySignalThrottle)(0, 0, 0),
       logger: {
         info: (id, tag, msg) => logs.push(msg),
         warn: () => {}, error: () => {},

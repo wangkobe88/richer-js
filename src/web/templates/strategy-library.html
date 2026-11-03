@@ -369,6 +369,11 @@
                                 <input type="text" data-k="gmgnCheckCondition" value="${escapeAttr(leg.gmgnCheckCondition || '')}" placeholder="留空=不检查；可用因子 gmgnBundlerWalletRatio / gmgnIssuerTokenCount / gmgnRiskCovered"
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">作弊盘检查条件（CD158：GMGN 前最后一层买条件；判定投影后按此表达式拒/放，检测层故障=放行）</label>
+                                <input type="text" data-k="cheatCheckCondition" value="${escapeAttr(leg.cheatCheckCondition || '')}" placeholder="留空=不走作弊门；如 cheatGrade IS NULL OR cheatGrade == 0"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
                         </div>
                     </details>`;
                 row.querySelector('button').addEventListener('click', () => removeFormLeg(i));
@@ -431,7 +436,7 @@
                     delete merged.sellDebounce;
                 }
 
-                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'narrativeTriggerCondition', 'gmgnCheckCondition']) {
+                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'narrativeTriggerCondition', 'gmgnCheckCondition', 'cheatCheckCondition']) {
                     const v = get(k).value.trim();
                     if (v === '') delete merged[k]; else merged[k] = v;
                 }
