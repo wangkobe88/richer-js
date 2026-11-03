@@ -923,12 +923,12 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=25=首笔成功买+settle4000ms；买22/卖3 Σ买2.55BNB 钱包20 top1=11.8% churn3 同块簇5 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组12裁定=cheat；同块簇持仓95.3%+同块波strong+bd high+burst"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 批次三第二组补裁原话「CD58/CD64 都没问题」：机器 unhealthy[J_holdings_strong] 档位接受（CD58 sbHold 95.3%+组织买 92%；CD64 ∪簇 23.4% Δ3s 背靠背+sbHold 75.9）"
     },
     {
       "caseId": "CD59",
@@ -1019,12 +1019,12 @@
         "tickCount": 44
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=44=首笔成功买+settle4000ms；买39/卖5 Σ买3.87BNB 钱包34 top1=30.7% churn5 同块簇6 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组13裁定=cheat；同块簇持仓75.9%+top1买30.7%单边吸筹（卖仅5笔）+同块买入波strong"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 批次三第二组补裁原话「CD58/CD64 都没问题」：机器 unhealthy[J_holdings_strong] 档位接受（CD58 sbHold 95.3%+组织买 92%；CD64 ∪簇 23.4% Δ3s 背靠背+sbHold 75.9）"
     },
     {
       "caseId": "CD65",
@@ -1419,12 +1419,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买2.94BNB 钱包21 top1=22.8% churn3 同块簇4 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组17裁定=cheat（用户裁定「cheat」——eq+bw 双 strong+eqHold 98.0%（等额簇几乎垄断在场筹码，回归集之最；此前最高 CD65 41.3%）+sbHold 83.6%+bd=high）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B1 剩余批次裁定原话「CD89 CD97 无问题」：机器 unhealthy[J_holdings_strong,R_abnormal_dominant] 档位接受（sbHold 83.6/eqHold 98.0/组织买 98.8%/hold strong/abr dominant/act high）"
     },
     {
       "caseId": "CD90",
@@ -1547,12 +1547,12 @@
         "tickCount": 23
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=23=首笔成功买+settle4000ms；买17/卖6 Σ买2.76BNB 钱包17 top1=21.7% churn4 同块簇3 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "组18裁定=cheat（用户裁定「CD97 cheat」——sbHold 89.9% 回归集之最（超 CD89 的 83.6%）+cr=moderate+bd=high；13 秒即清本组最大亏）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B1 剩余批次裁定原话「CD89 CD97 无问题」：机器 unhealthy[J_holdings_strong,R_abnormal_dominant] 档位接受（sbHold 89.9/组织买 84.3%/hold strong/abr dominant；G11 期题档缺位曾落 healthy，D3.38+ holdings/abr 题档接回 unhealthy=G11 题面承载兑现）"
     },
     {
       "caseId": "CD98",
@@ -1935,8 +1935,8 @@
       },
       "note": "4012ce39 首买基线收录（锚=44=首笔成功买+settle4000ms；买35/卖9 Σ买1.28BNB 钱包29 top1=15.2% churn0 同块簇1 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「6. CD121 cheat（持续推价很明显了，我直观看应该给 strong，不过可能购买时间点还没有那么明显，不好改就算了）」。档位全 moderate/weak 本组最轻+eqHold 54.0%/sbHold 11.4%+churn 0+act(代码)=low（6.65 笔/分）；全生命 +51.6% 峰值在锚窗外 +406s（窗内只见 +26.2% 半坡）——持续推价质询留档不立项，维持 moderate"
+      "expectSince": "2026-11-03",
+      "expectBecause": "用户 11-03 B1 剩余批次裁定维持 G11 已知代价票不翻案（原话「CD121 有一个办法就是参考参与钱包的画像，例如 /trader/0x6c1d…，我觉得 TPA 分数应该会很低，但是这里就先不搞了吧」——画像腿思路留档：参与钱包离线画像/TPA 分数喂 Jev 待将来立项，对 CD102/CD137 同样适用）；expect=cheat 保持不改（golden G11 十票偏差在册，机器 healthy=eqHold 54 失 G 通道载体+holdings weak 题档不触发）"
     },
     {
       "caseId": "CD122",
