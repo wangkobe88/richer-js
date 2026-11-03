@@ -2363,12 +2363,12 @@
         "tickCount": 36
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买18/卖18 Σ买3.16BNB 钱包18 top1=18.8% churn11 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买18/卖18 Σ买3.16BNB 钱包18 top1=18.8% churn11 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 收尾裁定（v68 成交票扩集）：用户裁定原话「CD156 可以 healthy」——机器 healthy[clean] 一致（20 票最干净正例：同块簇持仓占比 0/近等额簇持仓占比 0 双零、18 钱包每户恰一笔无重复买入、第一大户占供应 6.9、零通道触发；act high 65.5 笔/分=high 档最高不触 ultra）"
     },
     {
       "caseId": "CD157",
@@ -2379,12 +2379,12 @@
         "tickCount": 36
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买29/卖7 Σ买1.91BNB 钱包29 top1=10.3% churn2 同块簇1 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买29/卖7 Σ买1.91BNB 钱包29 top1=10.3% churn2 同块簇1 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 收尾裁定（v68 成交票扩集）：用户裁定原话「CD157 明显的 cheat。burst 流量 是作弊」——机器 healthy[clean] 与人工分歧（sbw=burst 档位在场+慢盘 36 tick 跨长窗约 1 笔/分钟+29 钱包 1.91 BNB；现行规则 sbw=burst 仅作 E 通道豁免条件、act=mid 不走 E=零通道触发放行）；burst 尖刺=作弊已随 D3.51/G15 立法承接（新题 burst_spike_concentration 四档 EXT+A 主判 strong→cheat，立法批准原话「好，落吧」；本票为两立项票之一，定向重析预期翻 cheat）"
     }
   ]
 }

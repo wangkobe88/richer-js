@@ -3636,7 +3636,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    cheatTop1Top2FirstBuyGapSec/cheatClusterHoldSupplyPct/
         //    cheatT1PlusClusterSupplyPct（前二/簇合计/并集占总供应量%+前二首买相差
         //    秒，G7 J 通道 holdings_balance 同源数值；<2 正净持有人/无合格簇/
-        //    supply 缺失=null）+ D3.39 六键 cheatAbnormalBehaviorRatio（异常行为
+        //    supply 缺失=null）+ D3.51 三键 cheatBurstSpikeConcentration
+        //    cheatSpikeBuyPctInBurst/cheatSpikeHoldPctAll（burst 尖刺集中档位
+        //    （G15 A 主判同源）+两锚：尖刺买占簇买%/尖刺钱包正净占全窗正净%）
+        //    + D3.39 六键 cheatAbnormalBehaviorRatio（异常行为
         //    占比档位（D3.35 real_participation 改名+理念重构——无罪推定，无可见
         //    异常即正常）negligible=0/noticeable=1/dominant=2，unclear→null）+
         //    协同买入参考四键
@@ -3668,6 +3671,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatSlowGrindPump = _lv ? _lv.slowGrindPump ?? null : null;
             factors.cheatWashPair = _lv ? _lv.washPair ?? null : null;
             factors.cheatHoldingsBalance = _lv ? _lv.holdingsBalance ?? null : null;
+            // D3.51 burst 尖刺集中档位（G15 A 主判同源：伏击尖刺 strong→cheat）
+            factors.cheatBurstSpikeConcentration = _lv ? _lv.burstSpikeConcentration ?? null : null;
             factors.cheatActivityLevel = _lv ? _lv.activityLevel ?? null : null;
             factors.cheatBundledDominance = _lv ? _lv.bundledDominance ?? null : null;
             factors.cheatSameBlockHoldPct = _an ? _an.sameBlockHoldPct ?? null : null;
@@ -3689,6 +3694,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatBurstWaveBuyBnb = _an ? _an.burstWaveBuyBnb ?? null : null;
             factors.cheatBurstWaveWallets = _an ? _an.burstWaveWallets ?? null : null;
             factors.cheatNoBuySellPct = _an ? _an.noBuySellPct ?? null : null;
+            // D3.51 burst 尖刺两锚（burst_spike_concentration 题档同源数值：
+            // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；纯观察可进条件串）
+            factors.cheatSpikeBuyPctInBurst = _an ? _an.spikeBuyPctInBurst ?? null : null;
+            factors.cheatSpikeHoldPctAll = _an ? _an.spikeHoldPctAll ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
             // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/

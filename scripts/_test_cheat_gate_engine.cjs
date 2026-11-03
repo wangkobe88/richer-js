@@ -220,14 +220,14 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 40 键往返（因子化：grade 三键 + 14 题档 + 数值锚二十三键——D3.39 abnormalBehavior（改名前 realParticipation）+协同买入四键+创建者峰值扩）');
+console.log('D. FA 投影 43 键往返（因子化：grade 三键 + 15 题档 + 数值锚二十五键——D3.39 abnormalBehavior（改名前 realParticipation）+协同买入四键+创建者峰值+D3.51 尖刺档一键两锚扩）');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
   const LV = { equalAmountSplit: 2, coordinatedSellBack: null, creatorFrontRun: 1,
     sellDispersion: 0, stallBurstWave: 1, amountTiering: null, sameBlockBuyWave: 3,
     insiderSupplySell: null, slowGrindPump: 2, washPair: 3, activityLevel: 0, bundledDominance: 2,
-    holdingsBalance: 3, abnormalBehavior: 2 };
+    holdingsBalance: 3, abnormalBehavior: 2, burstSpikeConcentration: 3 };
   const AN = { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2, washPairCount: 10,
     washPairSellPct: 95.1, washPairBuyPct: 27.3, top1HoldSupplyPct: 25.6,
     top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2,
@@ -235,7 +235,8 @@ console.log('D. FA 投影 40 键往返（因子化：grade 三键 + 14 题档 + 
     clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1,
     burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3,
     maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412,
-    sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2 };
+    sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2,
+    spikeBuyPctInBurst: 99.3, spikeHoldPctAll: 96.7 };
   FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
   check('set → get unhealthy（levels/anchors 原样往返）', FAmod.getCheatFactors('0xround'),
     { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
@@ -258,8 +259,9 @@ console.log('D. FA 投影 40 键往返（因子化：grade 三键 + 14 题档 + 
     'cheatTop1Top2FirstBuyGapSec', 'cheatClusterHoldSupplyPct', 'cheatT1PlusClusterSupplyPct',
     'cheatBurstMaxGapSec', 'cheatBurstWaveBuyBnb', 'cheatBurstWaveWallets', 'cheatNoBuySellPct',
     'cheatAbnormalBehaviorRatio', 'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct',
-    'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct'];
-  ok('40 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
+    'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct',
+    'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll'];
+  ok('43 键在 FA 因子集（未知因子三防线自动认得，条件串可引用）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
     !keys.includes('cheatRealParticipation'));
@@ -291,6 +293,8 @@ console.log('D. FA 投影 40 键往返（因子化：grade 三键 + 14 题档 + 
     && fm.cheatAbnormalBehaviorRatio === 2 && fm.cheatMaxBlockBuyCount === 8
     && fm.cheatMaxBlockBuyPct === 58.8 && fm.cheatMaxBlockPreGapSec === 412
     && fm.cheatSameAmountWalletPct === 66.7 && fm.cheatCreatorPeakHoldSupplyPct === 35.2
+    && fm.cheatBurstSpikeConcentration === 3 && fm.cheatSpikeBuyPctInBurst === 99.3
+    && fm.cheatSpikeHoldPctAll === 96.7
     && fm.cheatRealParticipation === undefined,
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
       dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
@@ -304,7 +308,9 @@ console.log('D. FA 投影 40 键往返（因子化：grade 三键 + 14 题档 + 
     && fm2.cheatHoldingsBalance === null && fm2.cheatT1PlusClusterSupplyPct === null
     && fm2.cheatBurstMaxGapSec === null && fm2.cheatNoBuySellPct === null
     && fm2.cheatAbnormalBehaviorRatio === null && fm2.cheatMaxBlockBuyCount === null
-    && fm2.cheatCreatorPeakHoldSupplyPct === null,
+    && fm2.cheatCreatorPeakHoldSupplyPct === null
+    && fm2.cheatBurstSpikeConcentration === null && fm2.cheatSpikeBuyPctInBurst === null
+    && fm2.cheatSpikeHoldPctAll === null,
     fm2 ? fm2.cheatGrade : 'build null');
 }
 

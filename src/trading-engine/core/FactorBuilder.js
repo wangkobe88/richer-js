@@ -245,6 +245,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatSlowGrindPump: factorResults.cheatSlowGrindPump ?? null,
     cheatWashPair: factorResults.cheatWashPair ?? null,
     cheatHoldingsBalance: factorResults.cheatHoldingsBalance ?? null,
+    // D3.51 burst 尖刺（G15 A 主判同源档位+两锚；旧 FA/历史信号无键 → null 不掩盖）
+    cheatBurstSpikeConcentration: factorResults.cheatBurstSpikeConcentration ?? null,
+    cheatSpikeBuyPctInBurst: factorResults.cheatSpikeBuyPctInBurst ?? null,
+    cheatSpikeHoldPctAll: factorResults.cheatSpikeHoldPctAll ?? null,
     cheatActivityLevel: factorResults.cheatActivityLevel ?? null,
     cheatBundledDominance: factorResults.cheatBundledDominance ?? null,
     cheatSameBlockHoldPct: factorResults.cheatSameBlockHoldPct ?? null,

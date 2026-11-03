@@ -393,6 +393,11 @@ class CheatCheckService {
           clusterRoundTripPct: snapshot.derived.clusterRoundTripPct,
           clusterRoundTripSellPct: snapshot.derived.clusterRoundTripSellPct,
           clusterRoundTripBlocks: snapshot.derived.clusterRoundTripBlocks,
+          // D3.51 burst 尖刺两锚（burst_spike_concentration（A 主判 G15）同源
+          // 数值：尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；簇内无买/dt
+          // 缺失/Σ正净=0 → null 不冒充，头注见 cheat-snapshot SPIKE_SEC）
+          spikeBuyPctInBurst: snapshot.derived.spikeBuyPctInBurst,
+          spikeHoldPctAll: snapshot.derived.spikeHoldPctAll,
         });
       } catch (e) {
         this.stats.errors++;
@@ -453,6 +458,7 @@ class CheatCheckService {
       this._log('info', `盘面观测 eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion}` +
         ` sbw=${obs.extLevels.stall_burst_wave ?? '—'} tier=${obs.extLevels.amount_tiering ?? '—'} bw=${obs.extLevels.same_block_buy_wave ?? '—'}` +
         ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'} wash=${obs.extLevels.wash_pair ?? '—'}` +
+        ` spike=${obs.extLevels.burst_spike_concentration ?? '—'}` +
         ` hold=${obs.extLevels.holdings_balance ?? '—'}(t2:${snapshot.derived.top2HoldSupplyPct ?? '—'}%/Σ2:${snapshot.derived.top1Top2HoldSupplyPct ?? '—'}%/∪:${snapshot.derived.t1PlusClusterSupplyPct ?? '—'}%Δ${snapshot.derived.top1Top2FirstBuyGapSec ?? '—'}s)` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
         ` abr=${obs.abnormalBehavior ? obs.abnormalBehavior.bucket : '—'}` +
@@ -464,6 +470,9 @@ class CheatCheckService {
         ` 纯卖=${snapshot.derived.noBuySellPct ?? '—'}%/量${snapshot.derived.noBuySellVolumePct ?? '—'}%` +
         (obs.extLevels.stall_burst_wave === 'burst'
           ? ` 波=买${snapshot.derived.burstWaveBuyBnb ?? '—'}/${snapshot.derived.burstWaveWallets ?? '—'}户/gap${snapshot.derived.maxGapSec ?? '—'}s`
+          : '') +
+        (snapshot.derived.spikeBuyBnb !== null && snapshot.derived.spikeBuyBnb !== undefined
+          ? ` 尖刺=买${snapshot.derived.spikeBuyBnb}/${snapshot.derived.spikeWallets}户@t+${snapshot.derived.spikeFromDt}~${snapshot.derived.spikeToDt} 占簇${snapshot.derived.spikeBuyPctInBurst ?? '—'}%/持${snapshot.derived.spikeHoldPctAll ?? '—'}%`
           : '') +
         ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);

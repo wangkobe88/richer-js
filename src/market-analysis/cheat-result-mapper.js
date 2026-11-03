@@ -46,7 +46,7 @@ const PHENOMENON_IDS = [
  * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
  * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']; // wash_pair D3.28（同块对敲）/ holdings_balance D3.32（持仓均衡——组合垄断，EXT 容缺通道同款）
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'burst_spike_concentration']; // wash_pair D3.28（同块对敲）/ holdings_balance D3.32（持仓均衡——组合垄断，EXT 容缺通道同款）/ burst_spike_concentration D3.51（burst 尖刺集中——CD157/CD102 裁定立项，A 主判自动吸收）
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
@@ -268,6 +268,10 @@ function buildObservation(answers, anchors = null) {
       clusterRoundTripPct: _anchorPct(anchors, 'clusterRoundTripPct'),
       clusterRoundTripSellPct: _anchorPct(anchors, 'clusterRoundTripSellPct'),
       clusterRoundTripBlocks: _anchorPct(anchors, 'clusterRoundTripBlocks'),
+      // D3.51 burst 尖刺两锚（burst_spike_concentration 题同源数值：尖刺买入
+      // 占簇买入%/尖刺钱包正净占全窗正净%；dt 缺失/簇内无买/Σ正净=0 → null）
+      spikeBuyPctInBurst: _anchorPct(anchors, 'spikeBuyPctInBurst'),
+      spikeHoldPctAll: _anchorPct(anchors, 'spikeHoldPctAll'),
     },
   };
 }

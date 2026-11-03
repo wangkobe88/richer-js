@@ -56,6 +56,26 @@ const ACTIVITY_UNEVEN_CV = 1.0;
  */
 const BURST_WAVE_SEC = 5;
 /**
+ * burst 尖刺簇常量（D3.51，2026-11-03 CD157 가나/CD102 SAFU 两票用户裁定立项
+ * ——原话「burst 没有问题，但是这里的burst明显是一个尖刺。单独这一个 block
+ * 持仓比例多少呢？这一个block 在这个burst中流动性占比多少？一算就知道这是
+ * 作弊行为」）：burst 涌入本身是中性节奏（sbw 题只判有无），作弊形状=波内的
+ * 秒级尖刺。口径（与 25 票分离度探针 tmp-spike-sep@182 bit 一致）：
+ *   簇   = 窗内最大笔间 gap ≥SPIKE_CLUSTER_GAP_SEC → 该 gap 之后全部行；
+ *          无此大 gap → 簇=整个窗口（开盘连续活跃盘形状，state 侧声明）
+ *   尖刺 = 簇内 BUY 行最密 SPIKE_SEC 秒滑窗（Σ买入最大；平手取钱包多者）
+ *   spikeBuyPctInBurst = 尖刺买入 ÷ 簇总买 ×100（用户问句②：块在 burst 中
+ *                        流动性占比）
+ *   spikeHoldPctAll    = 尖刺钱包正净持仓(BNB 域) ÷ 全窗 Σ正净 ×100（用户问句
+ *                        ①：单块持仓比例；钱包域=wallets 剔路由伪钱包）
+ * 25 票分离度定论（data/tmp-spike-sep.json@182）：cheat 9 票尖刺持仓 46.1-96.7
+ * 全过 46 线，但 healthy CD104(54.6)/CD98(48.8) 数值孪生落群=**硬门不可行**
+ * （与 G9/G10/G11 死指标退役同构）——结构分界在尖刺位置/户均金额/前停滞深度/
+ * 尖刺后行为，判读交 Jev（题面 burst_spike_concentration，A 主判 strong→cheat）。
+ */
+const SPIKE_SEC = 3;
+const SPIKE_CLUSTER_GAP_SEC = 60;
+/**
  * 著名钱包单极控盘锚（D3.2b，2026-10-31 用户裁定 CD5 语境：「描述盘面上单一著名
  * 钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档）。名单=
  * config/rosters/famous-copy-wallets.json（FA famousCopyWalletCircPct 同源用户点名
@@ -644,6 +664,84 @@ function computeDerived(snapshot, famousRoster) {
     burstWaveWallets = bestWalletN;
   }
 
+  // ── burst 尖刺族（D3.51，头注见 SPIKE_SEC）：簇内最密 3s 滑窗两占比+结构
+  // 事实（簇大小/跨度/位置/停滞深度），state「burst 尖刺集中度」行与
+  // burst_spike_concentration 题的判读原料；dt 缺失（<2 有效行）全族 null、
+  // 簇内无买入尖刺子族 null、Σ正净=0 持仓占比 null——绝不冒充（tmp-spike-sep
+  // 口径 bit 一致：平手取钱包多者的双指针、正净域=wallets 剔路由）──
+  let spikePreGapSec = null, spikeClusterSplit = null, spikeClusterN = null;
+  let spikeClusterSpanSec = null, spikeClusterBuyBnb = null;
+  let spikeBuyBnb = null, spikeBuyN = null, spikeWallets = null;
+  let spikeFromDt = null, spikeToDt = null, spikePosPct = null;
+  let spikeBuyPctInBurst = null, spikePosNetBnb = null, spikeHoldPctAll = null;
+  {
+    const dtTicks = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
+    if (dtTicks.length >= 2) {
+      let maxGap = 0, gapIdx = -1;
+      for (let i = 1; i < dtTicks.length; i++) {
+        const g = dtTicks[i].dt - dtTicks[i - 1].dt;
+        if (g > maxGap) { maxGap = g; gapIdx = i; }
+      }
+      spikePreGapSec = maxGap;
+      spikeClusterSplit = maxGap >= SPIKE_CLUSTER_GAP_SEC;
+      const cluster = spikeClusterSplit ? dtTicks.slice(gapIdx) : dtTicks;
+      spikeClusterN = cluster.length;
+      spikeClusterSpanSec = cluster.length ? cluster[cluster.length - 1].dt - cluster[0].dt : null;
+      const clusterBuyRows = cluster.filter((t) => t.side === 'BUY');
+      let clusterBuy = 0;
+      for (const t of clusterBuyRows) clusterBuy += t.bnb || 0;
+      spikeClusterBuyBnb = +clusterBuy.toFixed(4);
+      // 正净持仓域（BNB 域；wallets 聚合单点已剔路由伪钱包）
+      const posNetByWallet = new Map();
+      let denomPosNet = 0;
+      for (const e of wallets) {
+        const net = (e.buyBnb || 0) - (e.sellBnb || 0);
+        if (net > 0) { posNetByWallet.set(String(e.w).toLowerCase(), net); denomPosNet += net; }
+      }
+      if (clusterBuyRows.length > 0 && clusterBuy > 0) {
+        // 双指针最密 SPIKE_SEC 秒滑窗：Σ买入最大；平手取钱包多者
+        const buys = clusterBuyRows.slice().sort((a, b) => a.dt - b.dt);
+        let j = 0, curBuy = 0, curN = 0; const curW = new Map();
+        let best = null;
+        for (let i = 0; i < buys.length; i++) {
+          const t = buys[i];
+          curBuy += t.bnb || 0; curN++;
+          if (t.wallet) curW.set(String(t.wallet).toLowerCase(), (curW.get(String(t.wallet).toLowerCase()) || 0) + 1);
+          while (t.dt - buys[j].dt > SPIKE_SEC) {
+            const u = buys[j];
+            curBuy -= u.bnb || 0; curN--;
+            if (u.wallet) {
+              const k = String(u.wallet).toLowerCase();
+              const n = (curW.get(k) || 1) - 1;
+              if (n <= 0) curW.delete(k); else curW.set(k, n);
+            }
+            j++;
+          }
+          if (!best || curBuy > best.buy + 1e-12
+            || (Math.abs(curBuy - best.buy) <= 1e-12 && curW.size > best.walletN)) {
+            best = { buy: curBuy, buyN: curN, walletN: curW.size, fromDt: buys[j].dt, toDt: t.dt, wallets: new Set(curW.keys()) };
+          }
+        }
+        // 尖刺钱包正净合计（路由伪钱包/净≤0 钱包不在 posNet 域 → 贡献 0）
+        let numPosNet = 0;
+        for (const w of best.wallets) numPosNet += posNetByWallet.get(w) || 0;
+        spikeBuyBnb = +best.buy.toFixed(4);
+        spikeBuyN = best.buyN;
+        spikeWallets = best.walletN;
+        spikeFromDt = best.fromDt;
+        spikeToDt = best.toDt;
+        spikeBuyPctInBurst = +((best.buy / clusterBuy) * 100).toFixed(1);
+        spikePosNetBnb = +numPosNet.toFixed(4);
+        spikeHoldPctAll = denomPosNet > 0 ? +((numPosNet / denomPosNet) * 100).toFixed(1) : null;
+        if (spikeClusterSpanSec !== null && spikeClusterSpanSec > 0) {
+          spikePosPct = Math.max(0, Math.min(100, Math.round(((best.fromDt - cluster[0].dt) / spikeClusterSpanSec) * 100)));
+        } else {
+          spikePosPct = 0; // 单点簇：尖刺即簇本身
+        }
+      }
+    }
+  }
+
   // ── 协同买入参考四键（D3.35，2026-11-02 用户裁定「将 Jev 转化为一个真实的
   // 交易者……一些指标也可以作为参考，但是不要有非常硬的标准，尽量从交易者
   // 角度，去看看交易信息是否正常」：买侧节奏四事实进 [PRECOMPUTED] 供
@@ -886,6 +984,10 @@ function computeDerived(snapshot, famousRoster) {
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec, idlePct,
     burstWaveBuyBnb, burstWaveWallets,
+    // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
+    spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,
+    spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,
+    spikeBuyPctInBurst, spikePosNetBnb, spikeHoldPctAll,
     noBuySellPct, noBuySellBnb, noBuySellWallets, noBuySellVolumePct,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）

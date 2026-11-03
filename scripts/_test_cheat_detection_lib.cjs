@@ -414,7 +414,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 28, 'D3.50 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键=二十八数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct 观察键）');
+ok(Object.keys(f1.anchors).length === 30, 'D3.51 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键=三十数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
   'D3.20 双锚未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.washPairCount === null && f1.anchors.washPairSellPct === null
@@ -463,6 +463,10 @@ ok(f1g.anchors.clusterRoundTrips === undefined,
 const f1f = buildObservation(mkAnswers({ holdings_balance: 'strong' }), {});
 ok(f1f.extLevels.holdings_balance === 'strong',
   'holdings_balance 在场答案 → extLevels 落档（G7 J 通道原料）');
+// D3.51 尖刺两键回显（CD157 实形：尖刺 8 户各 ≈0.102 占簇买约 99%/握全窗正净约 54%）
+const f1h = buildObservation(mkAnswers(), { spikeBuyPctInBurst: 99.0, spikeHoldPctAll: 53.8 });
+ok(f1h.anchors.spikeBuyPctInBurst === 99.0 && f1h.anchors.spikeHoldPctAll === 53.8,
+  'D3.51 尖刺两键回显（CD157 形状 占簇买 99.0%/尖刺持 53.8%——观察键供 FA/条件串/研究侧，无门侧数值消费）');
 
 // ext 观察题容缺（缺席→null 不 throw；在场落 extLevels；未知桶 throw 不放宽）
 // sbw D3.11 现象二分桶域（D3.10 burst_cheat/burst_normal 断代）：在场二桶照落 / 旧档断代 null / 未知桶 throw
@@ -549,8 +553,19 @@ try {
   threw = false;
 } catch (_) { threw = true; }
 ok(threw, 'holdings_balance 在场但档域名 low → throw（现象四档域校验——EXT 通道不因容缺放宽）');
-ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance']),
-  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.32 七键：holdings_balance 入列）');
+// burst 尖刺集中题（D3.51：EXT 容缺通道——CD157/CD102 两票裁定立项，A 主判自动吸收 G15）
+ok(buildObservation(mkAnswers()).extLevels.burst_spike_concentration === null,
+  'burst_spike_concentration 缺席（≤D3.50 旧存档）→ null 不 throw（EXT 容缺断代——黄金集 42 票重放零变化防线）');
+const f2h = buildObservation({ ...mkAnswers(), burst_spike_concentration: phAns('strong') });
+ok(f2h.extLevels.burst_spike_concentration === 'strong',
+  'burst_spike_concentration=strong 照落 extLevels（G15 A 主判原料）');
+threw = false;
+try {
+  buildObservation({ ...mkAnswers(), burst_spike_concentration: { type: 'choice', probabilities: { low: 1 } } });
+} catch (_) { threw = true; }
+ok(threw, 'burst_spike_concentration 在场但档域名 low → throw（现象四档域校验——EXT 通道不因容缺放宽）');
+ok(JSON.stringify(EXT_PHENOMENON_IDS) === JSON.stringify(['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'burst_spike_concentration']),
+  'EXT_PHENOMENON_IDS 导出钉死（后增题容缺通道清单——D3.51 八键：burst_spike_concentration 入列 A 主判自动吸收）');
 ok(JSON.stringify(STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
   'STALL_BURST_LEVELS 导出钉死（D3.11：退回纯现象二分——只判有无停滞后涌入）');
 
@@ -881,7 +896,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.39：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+abnormal_behavior_ratio） ═══════════════
   console.log('I2. 题集结构 D3.39（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.50', `版本常量 D3.50（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.50=D+E 组 CD73 单钱包隐藏筹码豁免（用户三轮裁定「CD73 裁定为 healthy，insider sell似乎只有一笔，从我的角度应该是 healthy」+「我觉得这里的边界是这样的，就是这个行为，本身并不算作恶，只是隐藏筹码的手段。CD73 在买入之前……这个对盘面不算伤害了」（0.49 后更正 0.408）+「看老鼠仓卖出在总交易量中比例吧」「如果占比小，没事」）：insider 题补⑤单钱包「隐藏筹码」与分发网络分界——单钱包（[PRECOMPUTED] 零买纯卖行两占比直接采信）且占总交易量（买+卖合计）比例小（参考 <15%）→ 只是隐藏筹码的变现手段、单点不构成分发网络、不宜 moderate 及以上；占比口径（÷总卖）在死卖盘虚高不作豁免判据（CD73 实形占卖 77.1%/占总量 13.6%）；单钱包占比不小（CD118 1.012 BNB 占总量 19.8%）→ 至多 moderate 不给 strong；多钱包 ≥2 不适用占比小豁免（CD13 原案 7 户占总量 9.5% 仍分发网络、CD119 2 户 17.2/CD71 4 户 11.0 维持）+「反·高占比低冲击」样本改写「反·单钱包隐藏筹码」（CD73 实形 0.65 BNB/占卖四分之三以上/占总量约 14% 不给档）；代码侧 snapshot derived noBuySellVolumePct+state 零买纯卖方行补「占窗口总交易量（买入+卖出合计）%」+service digest additive（D3.29/D3.49 先例：Jev 心算不可靠、组合数值代码算好）；冲突票 CD56（罗小黑）单钱包占卖 41.2%/占总量 5.6% 同构预期随刀翻 healthy 随对拍呈报；D3.49=B2 第二批 CD110 无交易期占比数值化（用户两轮裁定「CD110 也应该是低活跃度吧」「CD110，购买前的大多数时间都是空的无交易的呀，这个说活跃度能接受我觉得不行」：锚窗 69s=开盘 18s 冲 11 笔→静 49s→砸两笔，静默 71% ≥题①「≥50% 低档核心证据」该落 low 但 Jev mid@0.57——根因=旧三数没给静默占比、沿 15 行时间戳心算不可靠（D3.29 组合数值代码算好先例））：三处（代码+题面）——①题①补 20s 完全静默段定义（短暂间歇不算）+「开盘冲一波后长时间静默不因开盘段密集而抹平」+「数值行无交易期占比已按此口径算好直接采信」；②低档正例补 CD110 实形（69s 窗 15 笔冲 18s 静 49s 砸两笔、时序与⑥「静默后买入涌入」相反反锚不适用）；③⑥反锚补方向性锚（用户 mid-turn 裁定「这如果是burst能豁免，但是burst是买入涌入，而这里是卖」：保护「静默后买入涌入」的集中流量，先冲后静/静默后只有零星卖出或砸盘而无买入涌入的反锚不适用静默占比照常压档——G8 弱 burst 三键本就纯买入口径无需改）；代码侧 derived.idlePct=间隔≥20s 静默段合计÷窗长（@20s 14 票分布：目标 CD110 71%/CD7 87%/CD37 95.7%/CD98 83.1%/CD99 94.4%，高活跃反例 CD84/CD41/CD92/CD87/CD90/CD100/CD101 全 0%，匀速 CD57 maxGap 13s=0% 与阈值隔离，20s≈BSC 27 块无交易）+state 活跃度数值行补第四数「无交易期占比 N%」+digest activity 块 additive 加键；D3.48=B2 第一批 CD57 活跃度判定调整（用户质询「CD57 不是低活跃度该给 unhealthy 吗」+裁定「嗯，活跃度判定调整一下」：CD57 币安SI 91 笔窗 16.45min=12.49 笔/分钟匀速+最大间隔仅 13s+笔均 0.0178/买中位 0.0003 尘埃级+吞吐 0.1 BNB/分钟死寂，代码 act=low 但 Jev 题档 mid@0.46（vs low 0.40 贴地边缘）以笔数为主导漏判假活跃）：三处补刀（题面-only 零断代）——①instructions ③句「笔均交易额」改「买盘金额量级」、判尘埃级以沿 [TICKS] 买盘中位数为主笔均为辅（一笔大额就能拉高笔均掩盖全盘尘埃，一半以上买单落尘埃档即盘面主体是尘埃单）+中位尘埃级时以⑤金额吞吐定夺+「不因笔数多、节奏匀速持续而豁免（持续有交易救不了金额上的死盘）」+「中位落在常见交易档量级（参考 0.05 BNB 上下）的稀疏盘不属尘埃假活跃」划界（CD84 中位 0.05 反例保护）②低档 criteria 补「买盘中位尘埃级+金额吞吐死寂（尘埃单堆笔数的假活跃——笔数再匀速再持续也不救）」载体③低档正例补 CD57 匀速尘埃流实形（16 分钟 91 笔 12.5 笔/分钟但 87 买合计仅 1.3 BNB/中位约 0.0003+对照句）；反例基线：CD41=high/CD84=ultra/CD92=ultra/CD98=mid(low 0.19) 全远离、CD7 同族（low 0.38 边缘）预期连带受益、CD37 low 0.35 但 sbw=burst 被⑥反锚挡住不应翻低（E 通道双门验证）；D3.47=D3.46 定向对拍后补界刀（CD98 误伤回归修复：D3.46 新句被泛化成「秒级齐到本身异常」，CD98=G10 期人工 healthy 回正票被翻 unhealthy[R] abr dominant@0.53——CD98 波 15 户 5 秒齐到 100% 一次性但金额 0.005-0.299 连续散布十五档各异（极差/中位 1.84）=D3.42 真抢筹合力形状；CD102 波主体=窄档带（同块 8 笔全落 0.0495-0.0792 滑点带））：判读要点②补「秒级窗内到场但金额连续散布=独立买家抢筹合力，『齐』在档位与节拍而非单纯同时到场，不属本句」+dominant 样本句结论改「秒级窄档齐到段即异常主体」并把散布抢筹并列中性；反例防线 CD98/MAI/RAM 三形状全覆盖；D3.46=B1 剩余批次 CD102 捞回（用户裁定「看看好不好捞回来」：机器 healthy 漏检归因=abr 平手线 noticeable 0.43 vs dominant 0.40 差 0.03——3 秒窗 12 个一次性钱包齐到（8 户挤同块=单块买 33.2%、0.0693×3 精确等额）、异常段流量 0.8967/1.54≈58% 与 dominant 样本「近六成」同量级，但波内多数落 0.0495-0.0792=0.05 档滑点后实付带，被判读要点②反锚「前端默认档聚集只是常见形态之一」读成默认档中性剔除；churn 仅 33% D3.44 两头倒臂不适用）：判读要点②补默认档聚集中性前提边界（中性前提=沿时间散布各自进场；同一秒级窗内整批一次性钱包以默认档/近额档齐到=「齐」非「散」，档位常见不豁免节奏异常）+dominant 样本一补 3 秒 12 户齐到实形；反例防线=MAI 0.1 档 62 钱包 80 分钟匀速长尾（散布句保护）/RAM 同块金额各异撞块（近额带不满足不触新句）；D3.45=D3.44 对拍后第三刀（CD88 仍 pump=moderate@0.51 strong 0.30 归因=豁免句已解锁但 Jev 以「+16% 温吞爬涨幅小」压档、D3.24 至今幅度锚定）：豁免臂补幅度锚（「大额窜升段占金额+尘埃垫推段占笔数」组合的推价组织性来自量级结构两端异常不取决于涨幅大小、温吞爬同样是垫量缓推勿以涨幅小压档）；D3.44=批次三第二组三票裁定（CD61「这个活跃度是明显不正常的，过高的活跃度看一下，我认为至少给 unhealthy，甚至 cheat」/CD88「是 cheat 无疑，尽量让 pump 能捕捉到吧」/CD137「这也是一个单向 pump 票」）：三票共同缺口=拉高出货全周期形状无人承载——CD61 峰 +276%（t+9s）→回撤 83.5%+尾段卖多买少+62% 钱包双向 churn 被 pump 反锚⑤「双向活跃=市场合力」读成合力盘（pump=none@0.64）；CD88=35 笔 0.0001 尘埃垫推+0.6 大额窜升正中 D3.24 豁免句但句带「整盘低活跃度低额度」前提、D3.25 把 act 修到 mid 后前提不满足大户豁免臂复活（pump strong 0.36 差一线）；CD137=75 钱包 100% 全员双向 churn+峰 +180% 后连续纯卖段砸去 69% 被排除项「像样回撤不选本题」+反锚双向活跃双压（pump=none@0.59）——①pump 反锚⑤加价格结构腿（合力反锚只保护价格轨迹健康的合力盘：峰后回撤过半参考 ≥50% 或收尾段集中纯卖出货=拉高出货形状，双向活跃恰是出货通道不是合力证据，反锚不触发可 strong）②pump 排除项「像样回撤不选本题」加拉高出货例外（深回撤是砸盘出货不是健康起伏）③pump strong 载体补拉高出货全周期第三形状（价格轨迹沿 [TICKS] 直接可读不经彼题判读；大比例钱包既买又卖短窗双向进出是佐证）④D3.24 豁免句去「整盘低活跃度低额度」前提改纯跟风量级判读（中位尘埃级即落、整盘活跃度档位高低不构成前提；反例 CD84 中位 0.05 正常量级保护不动）⑤abr 前提③补拉高出货全周期例句+判读要点③补全员双向 churn 两头倒（CD61 过高活跃度异常的承载=abr 异常比例，act 题保持活跃度定档职责不判异常）；D3.43=CD53 二刀（大户进场豁免臂补跟风主体=阵列限定+伪装散买句括号扩同块齐到+正例贴 CD53 实形）；D3.42=CD53 一刀（排除项真抢筹合力限定+⑤豁免臂伪装散买句+strong 载体补紧凑接力+MAI 同档长尾划界）；D3.41=批次二三题补维度+五新锚；D3.40=撤冷寂突袭；D3.39=理念重构+abr 改名无罪推定+G13 R 通道；D3.38/D3.37/D3.36/D3.35 同前）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.51', `版本常量 D3.51（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.51=CD157 가나+CD102 SAFU 两票裁定 burst 尖刺集中立项（第 15 题 burst_spike_concentration 四档 EXT 容缺+A 主判吸收 G15）：用户裁定「CD157 明显的 cheat。burst 流量 是作弊」+澄清「burst 没有问题，但是这里的burst明显是一个尖刺。单独这一个 block 持仓比例多少呢？这一个block 在这个burst中流动性占比多少？一算就知道这是作弊行为」+CD102 全表顶格实形（尖刺 12 户握正净 96.7%/占簇买 99.3%、尖刺落引擎买点前 2-5 秒喂绿三门买顶 16 秒 stallClose -9.9% 实损）裁定「这个裁定为 cheat」+立法批准「好，落吧」；25 票分离度实证占比硬门不可行（cheat 9 票尖刺持仓 46.1-96.7 全过 46 线但 healthy CD104(54.6)/CD98(48.8) 数值孪生落群=45 线必错杀 2/5 healthy，G9/G10/G11 死指标退役同构）→结构判读交 Jev（尖刺位置/户均金额/前停滞深度/尖刺后行为四结构腿+数值孪生反锚）；snapshot 尖刺族（簇=最大 gap ≥60s 后全部行/无大 gap=全窗，尖刺=簇内 BUY 最密 3s 滑窗 Σ买最大平手取钱包多者）+state「burst 尖刺集中度」行+service digest additive（D3.29/D3.49「Jev 心算不可靠、组合数值代码算好」先例）；刻意不挂 sbw（三桶扰动 E 通道 sbw!=='burst' 消费）不挂 bw（D3.34 撞块反锚刚校准勿污染）；D3.50=D+E 组 CD73 单钱包隐藏筹码豁免（用户三轮裁定「CD73 裁定为 healthy，insider sell似乎只有一笔，从我的角度应该是 healthy」+「我觉得这里的边界是这样的，就是这个行为，本身并不算作恶，只是隐藏筹码的手段。CD73 在买入之前……这个对盘面不算伤害了」（0.49 后更正 0.408）+「看老鼠仓卖出在总交易量中比例吧」「如果占比小，没事」）：insider 题补⑤单钱包「隐藏筹码」与分发网络分界——单钱包（[PRECOMPUTED] 零买纯卖行两占比直接采信）且占总交易量（买+卖合计）比例小（参考 <15%）→ 只是隐藏筹码的变现手段、单点不构成分发网络、不宜 moderate 及以上；占比口径（÷总卖）在死卖盘虚高不作豁免判据（CD73 实形占卖 77.1%/占总量 13.6%）；单钱包占比不小（CD118 1.012 BNB 占总量 19.8%）→ 至多 moderate 不给 strong；多钱包 ≥2 不适用占比小豁免（CD13 原案 7 户占总量 9.5% 仍分发网络、CD119 2 户 17.2/CD71 4 户 11.0 维持）+「反·高占比低冲击」样本改写「反·单钱包隐藏筹码」（CD73 实形 0.65 BNB/占卖四分之三以上/占总量约 14% 不给档）；代码侧 snapshot derived noBuySellVolumePct+state 零买纯卖方行补「占窗口总交易量（买入+卖出合计）%」+service digest additive（D3.29/D3.49 先例：Jev 心算不可靠、组合数值代码算好）；冲突票 CD56（罗小黑）单钱包占卖 41.2%/占总量 5.6% 同构预期随刀翻 healthy 随对拍呈报；D3.49=B2 第二批 CD110 无交易期占比数值化（用户两轮裁定「CD110 也应该是低活跃度吧」「CD110，购买前的大多数时间都是空的无交易的呀，这个说活跃度能接受我觉得不行」：锚窗 69s=开盘 18s 冲 11 笔→静 49s→砸两笔，静默 71% ≥题①「≥50% 低档核心证据」该落 low 但 Jev mid@0.57——根因=旧三数没给静默占比、沿 15 行时间戳心算不可靠（D3.29 组合数值代码算好先例））：三处（代码+题面）——①题①补 20s 完全静默段定义（短暂间歇不算）+「开盘冲一波后长时间静默不因开盘段密集而抹平」+「数值行无交易期占比已按此口径算好直接采信」；②低档正例补 CD110 实形（69s 窗 15 笔冲 18s 静 49s 砸两笔、时序与⑥「静默后买入涌入」相反反锚不适用）；③⑥反锚补方向性锚（用户 mid-turn 裁定「这如果是burst能豁免，但是burst是买入涌入，而这里是卖」：保护「静默后买入涌入」的集中流量，先冲后静/静默后只有零星卖出或砸盘而无买入涌入的反锚不适用静默占比照常压档——G8 弱 burst 三键本就纯买入口径无需改）；代码侧 derived.idlePct=间隔≥20s 静默段合计÷窗长（@20s 14 票分布：目标 CD110 71%/CD7 87%/CD37 95.7%/CD98 83.1%/CD99 94.4%，高活跃反例 CD84/CD41/CD92/CD87/CD90/CD100/CD101 全 0%，匀速 CD57 maxGap 13s=0% 与阈值隔离，20s≈BSC 27 块无交易）+state 活跃度数值行补第四数「无交易期占比 N%」+digest activity 块 additive 加键；D3.48=B2 第一批 CD57 活跃度判定调整（用户质询「CD57 不是低活跃度该给 unhealthy 吗」+裁定「嗯，活跃度判定调整一下」：CD57 币安SI 91 笔窗 16.45min=12.49 笔/分钟匀速+最大间隔仅 13s+笔均 0.0178/买中位 0.0003 尘埃级+吞吐 0.1 BNB/分钟死寂，代码 act=low 但 Jev 题档 mid@0.46（vs low 0.40 贴地边缘）以笔数为主导漏判假活跃）：三处补刀（题面-only 零断代）——①instructions ③句「笔均交易额」改「买盘金额量级」、判尘埃级以沿 [TICKS] 买盘中位数为主笔均为辅（一笔大额就能拉高笔均掩盖全盘尘埃，一半以上买单落尘埃档即盘面主体是尘埃单）+中位尘埃级时以⑤金额吞吐定夺+「不因笔数多、节奏匀速持续而豁免（持续有交易救不了金额上的死盘）」+「中位落在常见交易档量级（参考 0.05 BNB 上下）的稀疏盘不属尘埃假活跃」划界（CD84 中位 0.05 反例保护）②低档 criteria 补「买盘中位尘埃级+金额吞吐死寂（尘埃单堆笔数的假活跃——笔数再匀速再持续也不救）」载体③低档正例补 CD57 匀速尘埃流实形（16 分钟 91 笔 12.5 笔/分钟但 87 买合计仅 1.3 BNB/中位约 0.0003+对照句）；反例基线：CD41=high/CD84=ultra/CD92=ultra/CD98=mid(low 0.19) 全远离、CD7 同族（low 0.38 边缘）预期连带受益、CD37 low 0.35 但 sbw=burst 被⑥反锚挡住不应翻低（E 通道双门验证）；D3.47=D3.46 定向对拍后补界刀（CD98 误伤回归修复：D3.46 新句被泛化成「秒级齐到本身异常」，CD98=G10 期人工 healthy 回正票被翻 unhealthy[R] abr dominant@0.53——CD98 波 15 户 5 秒齐到 100% 一次性但金额 0.005-0.299 连续散布十五档各异（极差/中位 1.84）=D3.42 真抢筹合力形状；CD102 波主体=窄档带（同块 8 笔全落 0.0495-0.0792 滑点带））：判读要点②补「秒级窗内到场但金额连续散布=独立买家抢筹合力，『齐』在档位与节拍而非单纯同时到场，不属本句」+dominant 样本句结论改「秒级窄档齐到段即异常主体」并把散布抢筹并列中性；反例防线 CD98/MAI/RAM 三形状全覆盖；D3.46=B1 剩余批次 CD102 捞回（用户裁定「看看好不好捞回来」：机器 healthy 漏检归因=abr 平手线 noticeable 0.43 vs dominant 0.40 差 0.03——3 秒窗 12 个一次性钱包齐到（8 户挤同块=单块买 33.2%、0.0693×3 精确等额）、异常段流量 0.8967/1.54≈58% 与 dominant 样本「近六成」同量级，但波内多数落 0.0495-0.0792=0.05 档滑点后实付带，被判读要点②反锚「前端默认档聚集只是常见形态之一」读成默认档中性剔除；churn 仅 33% D3.44 两头倒臂不适用）：判读要点②补默认档聚集中性前提边界（中性前提=沿时间散布各自进场；同一秒级窗内整批一次性钱包以默认档/近额档齐到=「齐」非「散」，档位常见不豁免节奏异常）+dominant 样本一补 3 秒 12 户齐到实形；反例防线=MAI 0.1 档 62 钱包 80 分钟匀速长尾（散布句保护）/RAM 同块金额各异撞块（近额带不满足不触新句）；D3.45=D3.44 对拍后第三刀（CD88 仍 pump=moderate@0.51 strong 0.30 归因=豁免句已解锁但 Jev 以「+16% 温吞爬涨幅小」压档、D3.24 至今幅度锚定）：豁免臂补幅度锚（「大额窜升段占金额+尘埃垫推段占笔数」组合的推价组织性来自量级结构两端异常不取决于涨幅大小、温吞爬同样是垫量缓推勿以涨幅小压档）；D3.44=批次三第二组三票裁定（CD61「这个活跃度是明显不正常的，过高的活跃度看一下，我认为至少给 unhealthy，甚至 cheat」/CD88「是 cheat 无疑，尽量让 pump 能捕捉到吧」/CD137「这也是一个单向 pump 票」）：三票共同缺口=拉高出货全周期形状无人承载——CD61 峰 +276%（t+9s）→回撤 83.5%+尾段卖多买少+62% 钱包双向 churn 被 pump 反锚⑤「双向活跃=市场合力」读成合力盘（pump=none@0.64）；CD88=35 笔 0.0001 尘埃垫推+0.6 大额窜升正中 D3.24 豁免句但句带「整盘低活跃度低额度」前提、D3.25 把 act 修到 mid 后前提不满足大户豁免臂复活（pump strong 0.36 差一线）；CD137=75 钱包 100% 全员双向 churn+峰 +180% 后连续纯卖段砸去 69% 被排除项「像样回撤不选本题」+反锚双向活跃双压（pump=none@0.59）——①pump 反锚⑤加价格结构腿（合力反锚只保护价格轨迹健康的合力盘：峰后回撤过半参考 ≥50% 或收尾段集中纯卖出货=拉高出货形状，双向活跃恰是出货通道不是合力证据，反锚不触发可 strong）②pump 排除项「像样回撤不选本题」加拉高出货例外（深回撤是砸盘出货不是健康起伏）③pump strong 载体补拉高出货全周期第三形状（价格轨迹沿 [TICKS] 直接可读不经彼题判读；大比例钱包既买又卖短窗双向进出是佐证）④D3.24 豁免句去「整盘低活跃度低额度」前提改纯跟风量级判读（中位尘埃级即落、整盘活跃度档位高低不构成前提；反例 CD84 中位 0.05 正常量级保护不动）⑤abr 前提③补拉高出货全周期例句+判读要点③补全员双向 churn 两头倒（CD61 过高活跃度异常的承载=abr 异常比例，act 题保持活跃度定档职责不判异常）；D3.43=CD53 二刀（大户进场豁免臂补跟风主体=阵列限定+伪装散买句括号扩同块齐到+正例贴 CD53 实形）；D3.42=CD53 一刀（排除项真抢筹合力限定+⑤豁免臂伪装散买句+strong 载体补紧凑接力+MAI 同档长尾划界）；D3.41=批次二三题补维度+五新锚；D3.40=撤冷寂突袭；D3.39=理念重构+abr 改名无罪推定+G13 R 通道；D3.38/D3.37/D3.36/D3.35 同前）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -1106,6 +1121,93 @@ console.log('I. 著名钱包单极控盘锚');
       && !insQ.includes('真实样本（反·高占比低冲击）'),
       'D3.50 反例样本改写（CD73 实形 0.65 BNB/占卖四分之三以上/占总量约 14% 不给档；旧「高占比低冲击→至多 moderate」口径撤除反证）');
   }
+  // ═══════════════ D3.51（2026-11-03 CD157 가나/CD102 SAFU 两票裁定）：burst 尖刺集中锚 ═══════════════
+  console.log('D3.51 burst 尖刺族（簇=最大 gap≥60s 后全部行/尖刺=簇内最密 3s 滑窗；手算精确值+router 剔除+缺席 null）');
+  {
+    // CD157 缩样手算：wA 早期 0.02 → 死寂 80s（≥60 切分）→ 簇 [wE 头波 0.05@t80
+    // + 尖刺 wB/wC/wD 0.10+0.10+0.05@t100~102]；簇买 0.30、尖刺 0.25（83.3%）；
+    // 全窗正净 Σ=0.02+0.05+0.25=0.32、尖刺钱包正净 0.25（78.1%）；
+    // 尖刺位置 (100-80)/22=90.9→91=簇尾端（死寂后伏击形——题面正样本同构）
+    const wA51 = '0x7400000000000000000000000000000000000074';
+    const wE51 = '0x7500000000000000000000000000000000000075';
+    const wB51 = '0x7600000000000000000000000000000000000076';
+    const wC51 = '0x7700000000000000000000000000000000000077';
+    const wD51 = '0x7800000000000000000000000000000000000078';
+    const d51Rows = [
+      mkRow(0, 900, 0, 'buy', 0.02, 1e-9, { trader: wA51, sender: wA51 }),
+      mkRow(80, 950, 0, 'buy', 0.05, 1e-9, { trader: wE51, sender: wE51 }),
+      mkRow(100, 960, 0, 'buy', 0.10, 1e-9, { trader: wB51, sender: wB51 }),
+      mkRow(101, 961, 0, 'buy', 0.10, 1e-9, { trader: wC51, sender: wC51 }),
+      mkRow(102, 962, 0, 'buy', 0.05, 1e-9, { trader: wD51, sender: wD51 }),
+    ];
+    const d51 = buildSnapshotFromRows(d51Rows, microMeta).derived;
+    ok(d51.spikePreGapSec === 80 && d51.spikeClusterSplit === true && d51.spikeClusterN === 4
+      && d51.spikeClusterSpanSec === 22 && d51.spikeClusterBuyBnb === 0.3,
+      `D3.51 簇四键手算精确值（死寂 80s≥60 切分；簇=间隔后 4 笔跨 22s 买 0.30）（实际 ${d51.spikePreGapSec}/${d51.spikeClusterSplit}/${d51.spikeClusterN}/${d51.spikeClusterSpanSec}/${d51.spikeClusterBuyBnb}）`);
+    ok(d51.spikeBuyBnb === 0.25 && d51.spikeBuyN === 3 && d51.spikeWallets === 3
+      && d51.spikeFromDt === 100 && d51.spikeToDt === 102 && d51.spikePosPct === 91,
+      `D3.51 尖刺六键手算精确值（3s 滑窗 t+100~102=3 笔 0.25/3 钱包；位置 (100-80)/22→91=簇尾端）（实际 ${d51.spikeBuyBnb}/${d51.spikeBuyN}/${d51.spikeWallets}/${d51.spikeFromDt}~${d51.spikeToDt}/${d51.spikePosPct}）`);
+    ok(d51.spikeBuyPctInBurst === 83.3 && d51.spikePosNetBnb === 0.25 && d51.spikeHoldPctAll === 78.1,
+      `D3.51 两占比手算精确值（占簇买 0.25/0.30=83.3%；尖刺钱包正净 0.25÷全窗 Σ正净 0.32=78.1%——用户问句「这一个block 在这个burst中流动性占比多少呢」「单独这一个 block 持仓比例多少呢」两锚）（实际 ${d51.spikeBuyPctInBurst}/${d51.spikePosNetBnb}/${d51.spikeHoldPctAll}）`);
+    const st51 = buildCheatState(buildSnapshotFromRows(d51Rows, microMeta)).state;
+    ok(st51.includes('burst 尖刺集中度: 窗内最大交易间隔 80 秒【≥60 秒停滞后 burst 簇（簇=该间隔后全部 4 笔、跨 22 秒、簇内买入 0.300 BNB）】')
+      && st51.includes('簇内最密 3 秒买入尖刺: t+100~t+102 共 3 笔 0.250 BNB、3 个钱包（户均 0.083 BNB），位于簇尾端')
+      && st51.includes('尖刺买入占簇买入 83.3%') && st51.includes('占全窗正净持仓 78.1%'),
+      'D3.51 state「burst 尖刺集中度」行渲染（簇语境+尖刺细节+户均+位置+两占比——Jev 直接采信不必手算双指针滑窗）');
+    // 无 ≥60s 停滞：簇=整个窗口（开盘密集形照算不缺窗——CD104 反样本同载体）
+    const d51bRows = [
+      mkRow(0, 900, 0, 'buy', 0.10, 1e-9, { trader: wB51, sender: wB51 }),
+      mkRow(2, 901, 0, 'buy', 0.10, 1e-9, { trader: wC51, sender: wC51 }),
+      mkRow(10, 902, 0, 'buy', 0.05, 1e-9, { trader: wD51, sender: wD51 }),
+    ];
+    const d51b = buildSnapshotFromRows(d51bRows, microMeta).derived;
+    ok(d51b.spikeClusterSplit === false && d51b.spikePreGapSec === 8 && d51b.spikeClusterN === 3
+      && d51b.spikeBuyBnb === 0.2 && d51b.spikePosPct === 0,
+      `D3.51 无大 gap 全窗形（maxGap 8<60→簇=整个窗口照算；尖刺 0.20@t+0~2 位置 0=簇起点——开盘头部明买非伏击，题面反样本语境）（实际 ${d51b.spikeClusterSplit}/${d51b.spikePreGapSec}/${d51b.spikeClusterN}/${d51b.spikeBuyBnb}/${d51b.spikePosPct}）`);
+    const st51b = buildCheatState(buildSnapshotFromRows(d51bRows, microMeta)).state;
+    ok(st51b.includes('无 ≥60 秒停滞（簇=整个窗口，3 笔、簇内买入 0.250 BNB）')
+      && st51b.includes('位于簇起点附近（涌入头部）'),
+      'D3.51 state 无停滞臂渲染（簇=整个窗口+位置头部——与伏击形同载体不同语境）');
+    // 簇内无买入：尖刺子族 null（簇级键照算）+行不渲染（缺席语义）
+    const d51cRows = [
+      mkRow(0, 900, 0, 'buy', 0.30, 1e-9, { trader: wA51, sender: wA51 }),
+      mkRow(100, 950, 0, 'sell', 0.10, 1e-9, { trader: wB51, sender: wB51 }),
+      mkRow(101, 951, 0, 'sell', 0.10, 1e-9, { trader: wC51, sender: wC51 }),
+    ];
+    const d51c = buildSnapshotFromRows(d51cRows, microMeta).derived;
+    ok(d51c.spikeClusterSplit === true && d51c.spikeClusterN === 2 && d51c.spikeClusterBuyBnb === 0
+      && d51c.spikeBuyBnb === null && d51c.spikeBuyPctInBurst === null && d51c.spikeHoldPctAll === null,
+      `D3.51 簇内无买尖刺子族 null 反证（死寂后纯卖簇：簇级键照算、尖刺/两占比 null 不冒充——无买入流量尖刺无从谈起）（实际 ${d51c.spikeClusterSplit}/${d51c.spikeClusterN}/${d51c.spikeClusterBuyBnb}/${d51c.spikeBuyBnb}/${d51c.spikeBuyPctInBurst}）`);
+    ok(!buildCheatState(buildSnapshotFromRows(d51cRows, microMeta)).state.includes('burst 尖刺集中度'),
+      'D3.51 簇内无买不渲染行（缺席语义——与 dt 缺失同族防线）');
+    // router 伪钱包：资金照计（clusterBuy/spikeBuyBnb 含 router 行）、正净域剔（分子只真钱包）
+    const d51d = buildSnapshotFromRows([
+      mkRow(0, 900, 0, 'buy', 0.50, 1e-9, { trader: wA51, sender: wA51 }),
+      mkRow(100, 950, 0, 'buy', 0.10, 1e-9, { trader: ROUTER, sender: null }),
+      mkRow(101, 951, 0, 'buy', 0.10, 1e-9, { trader: wE51, sender: wE51 }),
+    ], microMeta).derived;
+    ok(d51d.spikeClusterBuyBnb === 0.2 && d51d.spikeBuyBnb === 0.2 && d51d.spikePosNetBnb === 0.1
+      && d51d.spikeHoldPctAll === 16.7,
+      `D3.51 router 行资金照计/正净域剔伪钱包（簇买 0.20 含 router 0.10；尖刺钱包正净 0.10（router 不在 wallets 域贡献 0）÷Σ0.60=16.7%——绝不以路由伪钱包冒充锁筹）（实际 ${d51d.spikeClusterBuyBnb}/${d51d.spikeBuyBnb}/${d51d.spikePosNetBnb}/${d51d.spikeHoldPctAll}）`);
+    // <2 有效 dt 行：全族 null（单行无间隔证据——绝不冒充）
+    const d51e = buildSnapshotFromRows([mkRow(0, 900, 0, 'buy', 0.30, 1e-9)], microMeta).derived;
+    ok(d51e.spikePreGapSec === null && d51e.spikeClusterSplit === null && d51e.spikeBuyBnb === null
+      && d51e.spikeBuyPctInBurst === null && d51e.spikeHoldPctAll === null,
+      'D3.51 <2 有效 dt 行全族 null（单行窗无间隔证据——簇形状不可评绝不冒充）');
+    // 题面：怎么算采信锚+数值孪生反锚+四组样本+尾句现象限定
+    const spQ = qm.buildCheatQuestions().burst_spike_concentration.instructions;
+    ok(spQ.includes('[PRECOMPUTED] 的「burst 尖刺集中度」行已按固定口径算好，直接采信')
+      && spQ.includes('尖刺买入占簇买入%（流动性集中度）与尖刺钱包当前正净持仓占全窗正净持仓合计%（筹码集中度）'),
+      'D3.51 怎么算段=采信代码行+两占比语义（流动性/筹码两集中度=用户两问句的操作化）');
+    ok(spQ.includes('**数值孪生反锚**') && spQ.includes('给明显及以上档必须有结构腿')
+      && spQ.includes('尖刺占比不足三成、或尖刺钱包此后有明显正常交易行为的，不给高档'),
+      'D3.51 数值孪生反锚（25 票分离度定论：cheat 群尖刺持 46.1-96.7 与 healthy CD104 54.6/CD98 48.8 数值孪生——占比分不开真假，高档须结构腿坐实）');
+    ok(spQ.includes('真实样本（正·死寂后簇尾伏击）') && spQ.includes('真实样本（正·一次性钱包锁筹）')
+      && spQ.includes('真实样本（反·开盘大户明买）') && spQ.includes('真实样本（反·散户分散涌入）'),
+      'D3.51 四组样本（正=CD157 死寂后簇尾伏击/CD102 一次性钱包锁筹；反=CD104 开盘大户明买/散户分散涌入——孪生反锚的判读载体）');
+    ok(spQ.includes('只描述现象程度，不下任何盘面结论'),
+      'D3.51 尾句现象限定（D3.5 判定层停产纪律——判断一律 Jev，代码/题面不带结论）');
+  }
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
@@ -1118,10 +1220,10 @@ console.log('I. 著名钱包单极控盘锚');
     'PARTICIPATION_LEVELS 导出已随 D3.39 改名退役（旧常量不得残留——断代防线）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 14
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'abnormal_behavior_ratio']
+  ok(qids.length === 15
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'abnormal_behavior_ratio', 'burst_spike_concentration']
       .every((id) => qids.includes(id)),
-    '14 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance + abnormal_behavior_ratio（D3.39 改名——D3.35 立项交易者角色综合题，判读方向翻转为异常占比无罪推定）');
+    '15 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance + abnormal_behavior_ratio（D3.39 改名——D3.35 立项交易者角色综合题，判读方向翻转为异常占比无罪推定）+ burst_spike_concentration（D3.51 burst 尖刺集中——CD157/CD102 裁定立项）');
   ok(qs.real_participation === undefined,
     '旧题 id real_participation 不得残留（D3.39 改名=换键，旧档答案键缺席容缺断代）');
   // D3.37/D3.38/D3.39：abnormal_behavior_ratio（D3.39 前名 real_participation）题面措辞锚（用户裁定反证——误导表述不得回潮）

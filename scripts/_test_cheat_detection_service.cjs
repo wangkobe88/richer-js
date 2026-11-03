@@ -489,7 +489,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G14'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G15'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化（2026-11-01 用户指令）：analyzed 返回带 levels（12 题数值档，FA 出口
@@ -530,6 +530,14 @@ async function main() {
     ok(r1.anchors.burstWaveBuyBnb === 0.2 && r1.anchors.burstWaveWallets === 3
       && r1.anchors.burstMaxGapSec === 2,
       `burst 波精确值（最密 5s 窗=首三 tick 0/2/4s 两买一卖：买 0.1+0.1=0.2、去重 3 钱包；gap 全 2s）（实际 买${r1.anchors.burstWaveBuyBnb}/${r1.anchors.burstWaveWallets}户/gap${r1.anchors.burstMaxGapSec}s）`);
+    // D3.51 尖刺两锚（genTicks 手算：maxGap 2s<60→簇=整个窗口；最密 3s 窗=t+0~2 两买
+    // 0.2（w0/w1）占簇买 0.2/1.4=14.3%；尖刺钱包 w0 正净 0.2（w1 净 −0.01 不在正净域）
+    // ÷Σ正净 0.8=25.0——观察键无门侧数值消费）
+    ok(r1.anchors.spikeBuyPctInBurst === 14.3 && r1.anchors.spikeHoldPctAll === 25,
+      `D3.51 尖刺两锚精确值（占簇买 14.3%/尖刺持 25.0）（实际 ${r1.anchors.spikeBuyPctInBurst}/${r1.anchors.spikeHoldPctAll}）`);
+    ok(r1.levels && r1.levels.burstSpikeConcentration === null
+      && r1.buckets && r1.buckets.burstSpikeConcentration === null,
+      'GOOD 基底无 burst_spike_concentration 答案（stub 题集未含新题）→ levels/buckets 容缺 null（≤D3.50 旧档断代重放零变化防线）');
     // D3.35 协同买入四键+创建者峰值（genTicks(20) 手算：14 买×0.1 全 0xw0-9 十钱包；
     // 买块 100-109 各 1-2 笔、最大 2 笔并列四块（Σ同 0.2 取先到块 100=首买块）→
     // count=2/pct=0.2/1.4=14.3/preGap=null（首买块无前摇）；全 0.1000 档 10/10=100

@@ -9,7 +9,16 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G14=G13+M 通道超高活跃度，2026-11-03 v68 成交票扩集第一批 CD138 立项
+ * 规则（G15=G14+第 15 题 burst_spike_concentration 进 A 主判（D3.51，2026-11-03
+ * CD157 가나+CD102 SAFU 两票用户裁定立项——原话「burst 没有问题，但是这里的
+ * burst明显是一个尖刺。单独这一个 block 持仓比例多少呢？这一个block 在这个
+ * burst中流动性占比多少？一算就知道这是作弊行为」+「这个裁定为 cheat」+立法
+ * 批准「好，落吧」：25 票分离度实证占比硬门不可行（healthy CD104/CD98 数值
+ * 孪生落群），结构判读交 Jev 题档、A 主判 strong→cheat 自动吸收（EXT 清单
+ * filter 勿需改 MAIN_IDS——sbw/holdings_balance 排除项不含本题）；两锚
+ * spikeBuyPctInBurst/spikeHoldPctAll 随 observation 透传 FA 投影，无门侧数值
+ * 消费（G9-G11 死指标退役红线不破）。此前 G14=G13+M 通道超高活跃度，2026-11-03
+ * v68 成交票扩集第一批 CD138 立项
  * ——用户裁定原话「CD138 活跃度过高我建议给 unhealthy，可以分析下。也可以
  * 单独的立 sniper 锚，但是 GMGN 网站上有 sniper 的标记，但是我们自己的算法
  * 如何做这个锚？我给 unhealthy」+ sniper 两口径否证（跨盘画像 isSniperProfile
@@ -239,7 +248,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G14';
+const CHEAT_GRADE_RULES_VERSION = 'G15';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -265,7 +274,7 @@ function scoreLevel(map, value) {
 
 /**
  * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
- * levels=13 题数值档（FA 出口键；washPair D3.28/holdingsBalance D3.32 起入列）、buckets=字符串原值
+ * levels=15 题数值档（FA 出口键；washPair D3.28/holdingsBalance D3.32/burstSpike D3.51 起入列）、buckets=字符串原值
  * （metadata/日志研究友好）、anchors=数值锚九键（2026-11-01 用户补点「著名钱包
  * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流 + extras famous
  * 数值/档位；D3.28 同块对敲三键 washPair 数量/卖占/买占。**G10 起 sb/eq 两锚
@@ -292,6 +301,7 @@ function levelsFromObservation(observation, extras = {}) {
     slowGrindPump: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.slow_grind_pump),
     washPair: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.wash_pair),
     holdingsBalance: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.holdings_balance), // D3.32（G7 J 通道）
+    burstSpikeConcentration: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.burst_spike_concentration), // D3.51（G15 A 主判）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
     abnormalBehavior: scoreLevel(CHEAT_LEVEL_SCORES.abnormal, pt), // D3.39（G13 R 通道 abnormal_behavior_ratio；unclear→null）
@@ -308,6 +318,7 @@ function levelsFromObservation(observation, extras = {}) {
     slowGrindPump: ex.slow_grind_pump ?? null,
     washPair: ex.wash_pair ?? null,
     holdingsBalance: ex.holdings_balance ?? null,
+    burstSpikeConcentration: ex.burst_spike_concentration ?? null,
     activityLevel: act,
     bundledDominance: dom,
     abnormalBehavior: pt,
@@ -337,6 +348,10 @@ function levelsFromObservation(observation, extras = {}) {
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
     noBuySellVolumePct: _pct(an.noBuySellVolumePct),
+    // D3.51 burst 尖刺两锚（burst_spike_concentration（A 主判 G15）同源数值：
+    // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；题面判读原料非门侧消费）
+    spikeBuyPctInBurst: _pct(an.spikeBuyPctInBurst),
+    spikeHoldPctAll: _pct(an.spikeHoldPctAll),
     // D3.35 协同买入参考四键 + 创建者曾持峰值（abnormal_behavior_ratio（D3.39 前
     // real_participation）/ holdings_balance
     // 补腿同源数值；参考锚非门——R 通道消费档位不消费数值）
@@ -356,14 +371,16 @@ function levelsFromObservation(observation, extras = {}) {
 /** 四现象题（B 通道现象门原料） */
 const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, creator_front_run, sell_dispersion]
 
-/** 八主判题：四现象剔 cr + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
+/** 九主判题：四现象剔 cr + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
  *  随 EXT 清单自动入列；**holdings_balance D3.32 刻意排除**——G7 用户裁定独立
- *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级） */
+ *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级；
+ *  burst_spike_concentration D3.51 随 EXT 清单自动入列（G15——伏击尖刺=
+ *  拉黑级铁证，与 G7 拒买级通道不同类） */
 const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
   'sell_dispersion',
-  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance'), // tier/bw/rat/pump/wash
+  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance'), // tier/bw/rat/pump/wash/spike
 ];
 
 /** 数值锚读取（null/非有限/负数按缺席——绝不冒充） */

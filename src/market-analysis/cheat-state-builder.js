@@ -139,6 +139,21 @@ function buildCheatState(snapshot) {
           : d.maxBlockPreGapSec >= 5 ? '（此前有短暂静默）' : '';
       lines.push(`单块买入集中度: 最大单块买入占窗口总买入【${tier}】${gap}——形状参考非门槛：高活跃盘与开盘打新段单块多为独立买家并发（撞块常态），占比档位高本身不定性；须配行为同质或阵列结构（同额/成对节拍/同批钱包复现/同 tx 打包）才算组织化痕迹；单个大买家吃独食也是此形状（判掌控看「单一钱包持仓集中度」行的当前持有占总供应量）`);
     }
+    // D3.51 burst 尖刺集中度事实行（CD157/CD102 两票裁定立项，头注见
+    // cheat-snapshot SPIKE_SEC）：簇与尖刺由代码按固定口径算好（Jev 心算
+    // 双指针滑窗不可靠，D3.29/D3.49/D3.50 先例），行内给精确数+簇语境+尖刺
+    // 位置+停滞深度——两占比是流量/筹码集中度量，判读教学在题面单一载体
+    // （burst_spike_concentration）；簇内无买入/dt 缺失不渲染行（缺席语义）
+    if (d.spikeBuyBnb !== null && d.spikeBuyBnb !== undefined) {
+      const clTxt = d.spikeClusterSplit
+        ? `≥60 秒停滞后 burst 簇（簇=该间隔后全部 ${d.spikeClusterN} 笔、跨 ${Math.round(d.spikeClusterSpanSec)} 秒、簇内买入 ${fmtBnb(d.spikeClusterBuyBnb)} BNB）`
+        : `无 ≥60 秒停滞（簇=整个窗口，${d.spikeClusterN} 笔、簇内买入 ${fmtBnb(d.spikeClusterBuyBnb)} BNB）`;
+      const pos = d.spikePosPct === null || d.spikePosPct === undefined ? ''
+        : d.spikePosPct < 25 ? '，位于簇起点附近（涌入头部）'
+          : d.spikePosPct < 75 ? '，位于簇中段' : '，位于簇尾端';
+      const avgPer = d.spikeWallets > 0 ? d.spikeBuyBnb / d.spikeWallets : null;
+      lines.push(`burst 尖刺集中度: 窗内最大交易间隔 ${d.spikePreGapSec} 秒【${clTxt}】；簇内最密 3 秒买入尖刺: t+${d.spikeFromDt}~t+${d.spikeToDt} 共 ${d.spikeBuyN} 笔 ${fmtBnb(d.spikeBuyBnb)} BNB、${d.spikeWallets} 个钱包${avgPer !== null ? `（户均 ${avgPer.toFixed(3)} BNB）` : ''}${pos}；尖刺买入占簇买入 ${d.spikeBuyPctInBurst}% / 尖刺钱包当前正净持仓 ${fmtBnb(d.spikePosNetBnb)} BNB 占全窗正净持仓 ${d.spikeHoldPctAll !== null && d.spikeHoldPctAll !== undefined ? d.spikeHoldPctAll + '%' : '未知（全窗无正净持仓）'}（口径：簇=窗内最大交易间隔 ≥60 秒之后的全部行；尖刺=簇内买入最密的 3 秒滑窗；正净持仓域已剔聚合路由伪钱包。两占比是流量与筹码的集中度量——尖刺形状的判读是你的任务）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {

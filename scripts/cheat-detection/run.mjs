@@ -244,6 +244,13 @@ function digestOf(d) {
     famousHoldPct: d.famousHoldPct, famousTop1Pct: d.famousTop1Pct,
     famousFollowerPct: d.famousFollowerPct, famousDominancePct: d.famousDominancePct,
     famousDominanceLevel: d.famousDominanceLevel,
+    // D3.51 burst 尖刺族摘要（burst_spike_concentration 对拍观测用）
+    spike: d.spikeBuyBnb === null || d.spikeBuyBnb === undefined ? null : {
+      preGapSec: d.spikePreGapSec, clusterN: d.spikeClusterN, clusterBuyBnb: d.spikeClusterBuyBnb,
+      buyBnb: d.spikeBuyBnb, buyN: d.spikeBuyN, wallets: d.spikeWallets,
+      fromDt: d.spikeFromDt, toDt: d.spikeToDt, posPct: d.spikePosPct,
+      buyPctInBurst: d.spikeBuyPctInBurst, posNetBnb: d.spikePosNetBnb, holdPctAll: d.spikeHoldPctAll,
+    },
     priceArc: d.priceArc,
   };
 }
