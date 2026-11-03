@@ -21,7 +21,7 @@ const {
   buildSnapshotFromRows, computeDerived, aggregateWallets, walletOf, isRouterWallet,
 } = require('../src/market-analysis/cheat-snapshot');
 const { buildCheatState, MAX_STATE_CHARS } = require('../src/market-analysis/cheat-state-builder');
-const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS, BUNDLED_LEVELS, STALL_BURST_LEVELS, PARTICIPATION_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
+const { buildObservation, PHENOMENON_IDS, EXT_PHENOMENON_IDS, ACTIVITY_LEVELS, BUNDLED_LEVELS, STALL_BURST_LEVELS, ABNORMAL_BEHAVIOR_LEVELS } = require('../src/market-analysis/cheat-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
 let passed = 0;
@@ -746,34 +746,35 @@ console.log('I. 著名钱包单极控盘锚');
 
   // ═══════════════ H2. interpret 透传（D3.35 事故现场反证：runner 侧 gradeObservation
   // 吃 interpret 产物（run.mjs），CD135 全量首跑 interpret 漏 participation 键 →
-  // 128 票 real_participation 全 null + R 通道结构性失明（Jev 答案在 answersRaw 里却进不了 grade）════════════════
-  console.log('H2. interpret 透传 participation（CD135 事故反证）');
+  // 128 票 real_participation 全 null + R 通道结构性失明（Jev 答案在 answersRaw 里却进不了 grade）；
+  // D3.39 键改名 abnormalBehavior 后事故防线原样承接 ════════════════
+  console.log('H2. interpret 透传 abnormalBehavior（CD135 事故反证，D3.39 改名承接）');
   const { interpret } = await import(path.join(__dirname, 'cheat-detection/lib.mjs'));
   const { gradeObservation: grObserv } = require('../src/market-analysis/cheat-grade.js');
   const mkObs = (bucket) => ({
     phenomena: {}, extLevels: {}, activityLevel: { bucket: 'mid', prob: 0.5 },
     bundledDominance: { bucket: 'mid', prob: 0.5 }, anchors: {},
-    ...(bucket === undefined ? {} : { participation: { bucket, prob: 0.7 } }),
+    ...(bucket === undefined ? {} : { abnormalBehavior: { bucket, prob: 0.7 } }),
   });
-  ok(interpret(mkObs('minimal_genuine')).participation?.bucket === 'minimal_genuine',
-    'interpret 透传 participation（minimal_genuine 进得来——首跑事故=此键被 interpret 吞掉）');
-  ok(interpret(mkObs('mostly_genuine')).participation?.bucket === 'mostly_genuine'
-    && interpret(mkObs('unclear')).participation?.bucket === 'unclear',
-    'interpret 透传全桶位（mostly/unclear 同径）');
-  ok(interpret(mkObs(undefined)).participation === null,
-    'obs 无 participation 键 → null（<D3.35 旧档断代形状）');
-  const viaInterp = grObserv(interpret(mkObs('minimal_genuine')), {});
-  ok(viaInterp.grade === 'unhealthy' && viaInterp.reasons.some((x) => x.code === 'R_minimal_genuine'),
-    '经 interpret 的 R 通道可触发（runner grade 链路事故反证：修前此断言必挂——minimal_genuine 经 interpret 应落 unhealthy R_minimal_genuine）');
-  const viaInterpClean = grObserv(interpret(mkObs('mostly_genuine')), {});
+  ok(interpret(mkObs('dominant')).abnormalBehavior?.bucket === 'dominant',
+    'interpret 透传 abnormalBehavior（dominant 进得来——首跑事故=此键被 interpret 吞掉）');
+  ok(interpret(mkObs('negligible')).abnormalBehavior?.bucket === 'negligible'
+    && interpret(mkObs('unclear')).abnormalBehavior?.bucket === 'unclear',
+    'interpret 透传全桶位（negligible/unclear 同径）');
+  ok(interpret(mkObs(undefined)).abnormalBehavior === null,
+    'obs 无 abnormalBehavior 键 → null（<D3.39 旧档断代形状）');
+  const viaInterp = grObserv(interpret(mkObs('dominant')), {});
+  ok(viaInterp.grade === 'unhealthy' && viaInterp.reasons.some((x) => x.code === 'R_abnormal_dominant'),
+    '经 interpret 的 R 通道可触发（runner grade 链路事故反证：修前此断言必挂——dominant 经 interpret 应落 unhealthy R_abnormal_dominant）');
+  const viaInterpClean = grObserv(interpret(mkObs('negligible')), {});
   ok(viaInterpClean.grade === 'healthy' && !viaInterpClean.reasons.length,
-    '经 interpret 的 mostly_genuine 不触发 R（clean）');
+    '经 interpret 的 negligible 不触发 R（clean）');
   ok(interpret(null) === null, 'interpret(null) → null 不变');
 
-  // ═══════════════ I2. 题集结构（D3.35：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+real_participation） ═══════════════
-  console.log('I2. 题集结构 D3.35（ESM 题文件经动态 import）');
+  // ═══════════════ I2. 题集结构（D3.39：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+abnormal_behavior_ratio） ═══════════════
+  console.log('I2. 题集结构 D3.39（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.38', `版本常量 D3.38（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.38=换喂法 C：单块三键以形状档位回 state（占比三档+前摇定性档，不给精确数字/笔数——撤数字 CD6 回退=形状有信息量、给数字 CD104/CD60 被锚定误伤=伪精度是问题）；D3.37=①去「默认档众数」误导（连续散布+自然长尾、众数档位不是判据）②开盘打新段语境前提（抢筹/创建者首笔大单正常）；D3.36=CD135 校准：单块三键撤出 state 输入+大额买入者判读锚换持有口径；D3.35=第 14 题 real_participation 交易者角色综合结论+协同买入参考四键）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.39', `版本常量 D3.39（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio：用户裁定「异常行为识别与比例计算」无罪推定（无可见异常即正常，不要求自证真实用户；开盘打新段庄家拿筹码/狙击手活跃本身正常），四桶→negligible/noticeable/dominant/unclear 异常占比轴，G13 R 通道 dominant→unhealthy R_abnormal_dominant；D3.38=换喂法 C 单块形状档位回 state；D3.37=众数档位非判据+开盘打新段语境；D3.36=单块撤出 state+大额买家持有口径；D3.35=第 14 题立项+协同买入参考四键）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -788,27 +789,41 @@ console.log('I. 著名钱包单极控盘锚');
     'BUNDLED_LEVELS 导出=捆绑题独立档域三桶（mapper 同名常量对齐）');
   ok(JSON.stringify(qm.STALL_BURST_LEVELS) === JSON.stringify(['none', 'burst']),
     'STALL_BURST_LEVELS 导出=停滞突发波现象二分桶域（D3.11 退回只判有无；mapper 同名常量对齐）');
-  ok(JSON.stringify(qm.PARTICIPATION_LEVELS) === JSON.stringify(['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear']),
-    'PARTICIPATION_LEVELS 导出=真实参与度独立档域四桶（D3.35 交易者角色题；mapper 同名常量对齐）');
+  ok(JSON.stringify(qm.ABNORMAL_BEHAVIOR_LEVELS) === JSON.stringify(['negligible', 'noticeable', 'dominant', 'unclear']),
+    'ABNORMAL_BEHAVIOR_LEVELS 导出=异常行为占比独立档域四桶（D3.39 改名重构；mapper 同名常量对齐）');
+  ok(qm.PARTICIPATION_LEVELS === undefined,
+    'PARTICIPATION_LEVELS 导出已随 D3.39 改名退役（旧常量不得残留——断代防线）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
   ok(qids.length === 14
-    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'real_participation']
+    && ['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'holdings_balance', 'abnormal_behavior_ratio']
       .every((id) => qids.includes(id)),
-    '14 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance + real_participation（D3.35 新增交易者角色综合结论题——CD135 用户裁定立项）');
-  // D3.37：real_participation 题面两措辞锚（用户裁定反证——误导表述不得回潮）
+    '14 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + holdings_balance + abnormal_behavior_ratio（D3.39 改名——D3.35 立项交易者角色综合题，判读方向翻转为异常占比无罪推定）');
+  ok(qs.real_participation === undefined,
+    '旧题 id real_participation 不得残留（D3.39 改名=换键，旧档答案键缺席容缺断代）');
+  // D3.37/D3.38/D3.39：abnormal_behavior_ratio（D3.39 前名 real_participation）题面措辞锚（用户裁定反证——误导表述不得回潮）
   {
-    const rpQ = qs.real_participation;
+    const rpQ = qs.abnormal_behavior_ratio;
     ok(rpQ.instructions.includes('本题的判断窗口是代币刚发出后的很短时间（开盘打新段）')
       && rpQ.instructions.includes('创建者第一笔买入可能就很大（开盘建仓），这些本身都是正常形态'),
-      'D3.37 前提③开盘打新段语境在场（判断窗口=刚发出极短时间，抢筹/创建者首笔大单正常——用户裁定原话锚）');
+      'D3.37 前提③开盘打新段语境在场（判断窗口=刚发出极短时间，抢筹/创建者首笔大单正常——用户裁定原话锚，D3.39 平移保留）');
     ok(rpQ.instructions.includes('众数落在哪一档不是判据')
       && rpQ.instructions.includes('好盘不一定众数落默认档'),
-      'D3.37 要点②众数档位非判据在场（真实盘众数可上移——默认档聚集只是常见形态之一）');
+      'D3.37 要点②众数档位非判据在场（真实盘众数可上移——默认档聚集只是常见形态之一，D3.39 平移保留）');
     ok(!rpQ.instructions.includes('真实盘以前端默认档（0.1/0.05）为众数'),
       'D3.37 反证：误导断言「真实盘以前端默认档为众数」不得回潮（好盘不一定众数落默认档——用户裁定原话）');
     ok(rpQ.instructions.includes('参考行（同档金额参考/单块买入集中度）只是参考数值与形状档位'),
-      'D3.38 题面参考行清单提及单块买入集中度（换喂法 C——形状档位与数值同列「没有硬标准」域）');
+      'D3.38 题面参考行清单提及单块买入集中度（换喂法 C——形状档位与数值同列「没有硬标准」域，D3.39 平移保留）');
+    // D3.39：无罪推定理念锚（用户裁定原话——本题判读方向的整体翻转）
+    ok(rpQ.instructions.includes('判读方向是无罪推定')
+      && rpQ.instructions.includes('如果交易序列不能明显看出有问题，那就是正常盘，不需要谁来自证清白'),
+      'D3.39 无罪推定开篇在场（无可见异常即正常，不要求参与者证明自己是「真实用户」——用户裁定原话锚）');
+    ok(rpQ.instructions.includes('单个区块挤进大量同金额的交易')
+      && rpQ.instructions.includes('冷寂期之后一个区块突然塞进大量交易'),
+      'D3.39 结构性异常形状例句在场（用户裁定原话锚——异常识别的对象形状）');
+    ok(!rpQ.instructions.includes('需要证明有真实用户参与')
+      && rpQ.instructions.includes('更不是要求参与者证明自己一定是「真实用户」'),
+      'D3.39 反证：旧理念「需要证明有真实用户参与」不得作为任务陈述回潮；否定句式在场（更不是要求……——有罪推定方向显式排除）');
   }
   ok(JSON.stringify(qids.slice(0, 4)) === JSON.stringify(['equal_amount_split', 'coordinated_sell_back', 'creator_front_run', 'sell_dispersion'])
     && !EXT_PHENOMENON_IDS.some((id) => qids.slice(0, 4).includes(id)),
@@ -1415,29 +1430,34 @@ console.log('I. 著名钱包单极控盘锚');
     ], d35Meta).derived;
     ok(d35d.maxBlockBuyPct === 62.5,
       `并列笔数取买入额大者（0.50/0.80=62.5 非 37.5——实际 ${d35d.maxBlockBuyPct}）`);
-    // mapper：participation 档域读取四形状 + anchors 五键透传/容缺（独立档域题
-    // 不走 phAns 四档构造——与 actAns/bdAns 同款 partAns）
-    const partAns = (bucket, p = 0.7) => {
+    // mapper：abnormalBehavior 档域读取四形状 + anchors 五键透传/容缺（独立档域题
+    // 不走 phAns 四档构造——与 actAns/bdAns 同款 abrAns；D3.39 改名=换键：
+    // real_participation 旧答案键不映射（语义镜像不可比），abnormal_behavior_ratio 在场才读档）
+    const abrAns = (bucket, p = 0.7) => {
       const rest = (1 - p) / 3;
-      return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(PARTICIPATION_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
+      return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(ABNORMAL_BEHAVIOR_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
     };
-    const pObs = buildObservation({ ...mkAnswers(), real_participation: partAns('minimal_genuine') },
+    const pObs = buildObservation({ ...mkAnswers(), abnormal_behavior_ratio: abrAns('dominant') },
       { maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412, sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2 });
-    ok(pObs.participation && pObs.participation.bucket === 'minimal_genuine' && Math.abs(pObs.participation.prob - 0.7) < 1e-9,
-      'mapper participation 在场答案 argmax 读档（独立顶层键——非 EXT 通道）');
+    ok(pObs.abnormalBehavior && pObs.abnormalBehavior.bucket === 'dominant' && Math.abs(pObs.abnormalBehavior.prob - 0.7) < 1e-9,
+      'mapper abnormalBehavior 在场答案 argmax 读档（独立顶层键——非 EXT 通道）');
+    ok(pObs.participation === undefined,
+      'mapper 旧顶层键 participation 不得残留（D3.39 改名=换键——obs 产物只产 abnormalBehavior）');
     ok(pObs.anchors.maxBlockBuyCount === 8 && pObs.anchors.maxBlockBuyPct === 58.8
       && pObs.anchors.maxBlockPreGapSec === 412 && pObs.anchors.sameAmountWalletPct === 66.7
       && pObs.anchors.creatorPeakHoldSupplyPct === 35.2,
-      'mapper anchors 五键透传（G12 R 通道/holdings_balance 同源数值）');
-    ok(buildObservation(mkAnswers(), {}).participation === null,
-      'mapper participation 缺题（<D3.35 旧档）→ null 容缺（黄金集重放零变化防线）');
+      'mapper anchors 五键透传（G13 R 通道/holdings_balance 同源数值）');
+    ok(buildObservation(mkAnswers(), {}).abnormalBehavior === null,
+      'mapper abnormalBehavior 缺题（<D3.39 旧档）→ null 容缺（黄金集重放零变化防线）');
+    ok(buildObservation({ ...mkAnswers(), real_participation: { type: 'choice', choice: 'minimal_genuine', probabilities: { minimal_genuine: 1 } } }, {}).abnormalBehavior === null,
+      'mapper 旧题 id real_participation 答案在场不映射（D3.39 断代——换键非别名，镜像语义不可比）');
     let pThrew = false;
     try {
-      buildObservation({ ...mkAnswers(), real_participation: { type: 'choice', probabilities: { super_genuine: 1 } } }, {});
+      buildObservation({ ...mkAnswers(), abnormal_behavior_ratio: { type: 'choice', probabilities: { super_dominant: 1 } } }, {});
     } catch { pThrew = true; }
-    ok(pThrew, 'mapper participation 未知桶 super_genuine → throw（档域校验——PARTICIPATION_LEVELS 同步防线）');
-    ok(JSON.stringify(PARTICIPATION_LEVELS) === JSON.stringify(['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear']),
-      'mapper PARTICIPATION_LEVELS 导出对齐题集（mostly/meaningful/minimal/unclear 四桶）');
+    ok(pThrew, 'mapper abnormalBehavior 未知桶 super_dominant → throw（档域校验——ABNORMAL_BEHAVIOR_LEVELS 同步防线）');
+    ok(JSON.stringify(ABNORMAL_BEHAVIOR_LEVELS) === JSON.stringify(['negligible', 'noticeable', 'dominant', 'unclear']),
+      'mapper ABNORMAL_BEHAVIOR_LEVELS 导出对齐题集（negligible/noticeable/dominant/unclear 四桶）');
   }
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);

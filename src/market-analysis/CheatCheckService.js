@@ -373,7 +373,8 @@ class CheatCheckService {
           burstWaveWallets: snapshot.derived.burstWaveWallets,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
-          // D3.35 协同买入参考四键（real_participation 题参考数值非门槛，头注见
+          // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前
+          // real_participation）参考数值非门槛，头注见
           // snapshot）+ 创建者曾持峰值锚（holdings_balance 补腿；无 BUY 行=null
           // 链外转入域不可见，绝不以 0 冒充「从未持有」）
           maxBlockBuyCount: snapshot.derived.maxBlockBuyCount,
@@ -425,7 +426,7 @@ class CheatCheckService {
       }
 
       // 因子化投影原料（2026-11-01 用户指令）：14 题数值档（FA 出口，D3.35 起
-      // 含 real_participation）+字符串原值（metadata/日志）+数值锚二十四键
+      // 含 abnormal_behavior_ratio（D3.39 前 real_participation））+字符串原值（metadata/日志）+数值锚二十四键
       //（famous 掌控/持仓极不均衡/持仓分布/协同买入参考补点）——
       // 随返回形状透传引擎投影 FA
       const { levels, buckets, anchors } = levelsFromObservation(obs, {
@@ -443,7 +444,7 @@ class CheatCheckService {
         ` rat=${obs.extLevels.insider_supply_sell ?? '—'} pump=${obs.extLevels.slow_grind_pump ?? '—'} wash=${obs.extLevels.wash_pair ?? '—'}` +
         ` hold=${obs.extLevels.holdings_balance ?? '—'}(t2:${snapshot.derived.top2HoldSupplyPct ?? '—'}%/Σ2:${snapshot.derived.top1Top2HoldSupplyPct ?? '—'}%/∪:${snapshot.derived.t1PlusClusterSupplyPct ?? '—'}%Δ${snapshot.derived.top1Top2FirstBuyGapSec ?? '—'}s)` +
         ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
-        ` part=${obs.participation ? obs.participation.bucket : '—'}` +
+        ` abr=${obs.abnormalBehavior ? obs.abnormalBehavior.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` wash对=${snapshot.derived.washPairCount ?? 0}对/卖占${snapshot.derived.washPairSellPct ?? '—'}%` +
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
@@ -752,7 +753,7 @@ class CheatCheckService {
         extLevels: mapped.extLevels ?? null,         // 观察题档位（sbw D3.3/tiering D3.7/buy_wave D3.8 容缺 null）
         activityLevel: mapped.activityLevel ?? null, // Jev 活跃度题档位（<D3.5 旧档缺席 null）
         bundledDominance: mapped.bundledDominance ?? null, // Jev 捆绑主导度档位（D3.8；<D3.8 旧档缺席 null）
-        participation: mapped.participation ?? null, // Jev 真实参与度档位（D3.35 交易者角色题；<D3.35 旧档缺席 null——G12 R 通道重放对拍原料）
+        abnormalBehavior: mapped.abnormalBehavior ?? null, // Jev 异常行为占比档位（D3.39 改名 real_participation→abnormal_behavior_ratio；旧档 digest.participation 键断代不映射——G13 R 通道重放对拍原料）
         anchors: mapped.anchors ?? null,             // 持仓占比数值锚（重放对拍用）
         // G1 分级（2026-11-01：档位→交易三级映射；失败行/观察模式旧路径无键=null）
         grade: mapped.grade ?? null,

@@ -265,11 +265,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatNoBuySellPct: factorResults.cheatNoBuySellPct ?? null,
     cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
     cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
-    // D3.35 真实参与度档位（G12 R 通道同源：mostly=0/meaningful=1/minimal=2，
-    // unclear→null）+ 协同买入参考四键 + 创建者曾持峰值锚（real_participation/
+    // D3.39 异常行为占比档位（G13 R 通道同源（D3.35 real_participation 改名+
+    // 理念重构——无罪推定）：negligible=0/noticeable=1/dominant=2，
+    // unclear→null）+ 协同买入参考四键 + 创建者曾持峰值锚（abnormal_behavior_ratio/
     // holdings_balance 同源；首买块前摇 null=开盘形状证据缺席；创建者无 BUY 行
     // null=链外转入域 swap 不可见）；旧 FA/历史信号无键 → null 不掩盖
-    cheatRealParticipation: factorResults.cheatRealParticipation ?? null,
+    cheatAbnormalBehaviorRatio: factorResults.cheatAbnormalBehaviorRatio ?? null,
     cheatMaxBlockBuyCount: factorResults.cheatMaxBlockBuyCount ?? null,
     cheatMaxBlockBuyPct: factorResults.cheatMaxBlockBuyPct ?? null,
     cheatMaxBlockPreGapSec: factorResults.cheatMaxBlockPreGapSec ?? null,

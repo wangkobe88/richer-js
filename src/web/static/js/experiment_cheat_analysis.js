@@ -46,8 +46,13 @@ const LEVEL_QUESTIONS = [
   { key: 'ext_levels.holdings_balance', name: '持仓均衡', levels: ['none', 'weak', 'moderate', 'strong'], title: 'holdings_balance · 组合垄断/分仓持仓结构' },
   { key: 'activity_level', name: '活跃度', levels: ['low', 'mid', 'high', 'ultra'], title: 'activity_level · Jev 活跃度档' },
   { key: 'bundled_dominance', name: '捆绑主导', levels: ['low', 'mid', 'high'], title: 'bundled_trade_dominance · 捆绑交易主导度' },
-  { key: 'participation', name: '真实参与', levels: ['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear'], title: 'real_participation · 真实用户参与度（R 通道数值源）' },
+  { key: 'abnormal_behavior', name: '异常占比', levels: ['negligible', 'noticeable', 'dominant', 'unclear'], title: 'abnormal_behavior_ratio · 异常行为识别与比例计算（D3.39 起，G13 R 通道数值源——无可见异常即正常，无罪推定）' },
+  { key: 'participation', name: '真实参与(旧)', levels: ['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear'], title: 'real_participation · 真实用户参与度（D3.38 前旧档——D3.39 改名断代，历史行渲染用）' },
 ];
+
+const ABR_SHORT = {
+  negligible: '可忽略', noticeable: '可察觉', dominant: '主导', unclear: 'unclear',
+};
 
 const PARTICIPATION_SHORT = {
   mostly_genuine: 'mostly', meaningful_genuine: 'meaningful', minimal_genuine: 'minimal', unclear: 'unclear',
@@ -494,11 +499,14 @@ class ExperimentCheatAnalysis {
       return `<span class="traj-dot ${cls}" title="${new Date(r.analyzed_at).toLocaleTimeString('zh-CN', { hour12: false })} ${g || r.verdict}"></span>`;
     }).join('');
 
+    const abr = ExperimentCheatAnalysis._pick(latest, 'abnormal_behavior');
     const part = ExperimentCheatAnalysis._pick(latest, 'participation');
     const act = ExperimentCheatAnalysis._pick(latest, 'activity_level');
     const bd = ExperimentCheatAnalysis._pick(latest, 'bundled_dominance');
     const roles = [
-      part ? `<span class="text-gray-300" title="真实参与">${PARTICIPATION_SHORT[part] || part}</span>` : '<span class="text-gray-600">–</span>',
+      abr
+        ? `<span class="${abr === 'dominant' ? 'text-orange-300' : 'text-gray-300'}" title="异常占比（abnormal_behavior_ratio）">${ABR_SHORT[abr] || abr}</span>`
+        : part ? `<span class="text-gray-400" title="真实参与（D3.38 前旧档题）">${PARTICIPATION_SHORT[part] || part}</span>` : '<span class="text-gray-600">–</span>',
       act ?? '<span class="text-gray-600">–</span>',
       bd ?? '<span class="text-gray-600">–</span>',
     ].join(' / ');
@@ -555,9 +563,13 @@ class ExperimentCheatAnalysis {
 
     // 展开区：全部判定轮次
     const roundsHtml = t.rounds.map((r, i) => {
+      const abr2 = ExperimentCheatAnalysis._pick(r, 'abnormal_behavior');
       const part2 = ExperimentCheatAnalysis._pick(r, 'participation');
       const act2 = ExperimentCheatAnalysis._pick(r, 'activity_level');
       const bd2 = ExperimentCheatAnalysis._pick(r, 'bundled_dominance');
+      const role2 = abr2
+        ? `<span class="${abr2 === 'dominant' ? 'text-orange-300' : ''}" title="异常占比（abnormal_behavior_ratio）">${ABR_SHORT[abr2] || abr2}</span>`
+        : part2 ? `<span title="真实参与（D3.38 前旧档题）">${PARTICIPATION_SHORT[part2] || part2}</span>` : '–';
       const rs = (r.grade_reasons || []).map(x =>
         `<code class="mr-1 ${x.level === 'cheat' ? 'text-red-400' : 'text-orange-300'}">${this._esc(String(x.code).replace(/^(L_insider_sell).*/, '$1'))}</code>`
       ).join('') || '<span class="text-gray-500">—</span>';
@@ -569,7 +581,7 @@ class ExperimentCheatAnalysis {
           <td class="py-1.5 px-2">${rs}</td>
           <td class="py-1.5 px-2 text-gray-300">${r.tick_count ?? '—'} ticks</td>
           <td class="py-1.5 px-2 text-gray-300">${r.buy_bnb ?? '—'} / ${r.sell_bnb ?? '—'}</td>
-          <td class="py-1.5 px-2 text-gray-300">${part2 ? (PARTICIPATION_SHORT[part2] || part2) : '–'} / ${act2 ?? '–'} / ${bd2 ?? '–'}</td>
+          <td class="py-1.5 px-2 text-gray-300">${role2} / ${act2 ?? '–'} / ${bd2 ?? '–'}</td>
           <td class="py-1.5 px-2 text-gray-400">${this._esc(r.fail_reason || '')}</td>
         </tr>`;
     }).join('');

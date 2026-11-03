@@ -1,6 +1,6 @@
 {
   "generatedFrom": "D3.26 存档 42 票（cd-run-2026-11-01 系）+ fixtures expect",
-  "rulesVersion": "G12",
+  "rulesVersion": "G13",
   "cases": [
     {
       "caseId": "CD44",
@@ -1558,5 +1558,5 @@
       }
     }
   ],
-  "replayNote": "G9 对 D3.26 存档重放：唯一 grade 变化 CD97 cheat→unhealthy（C_sbHold90 独载票），agree 35→34、偏差七→八票。G9=退役五纯数值门（C sbHold≥85/F sbHold≥50/H washPair 数值/I t1 供≥40/K noBuySell≥40）——2026-11-02 用户裁定「去掉不经过Jev的门……Jev 描述现象，我们通过现象给结论」；五门黄金集命中面 15/42 但抽锚终判仅翻 CD97 一票=与 Jev 通道高度冗余。；G10（CD132，2026-11-02）：sbHold/eqHold 门侧消费全撤（B 联立/A 降级豁免 sbHold 腿/G 豁免双锚腿）+B 通道整体退役（sbHold 联立撤后裸 moderate 共振错杀 CD98/CD124 两票人工 healthy 且 G1-G9 零正命中）——34/42 与 G9 同（八票偏差不变，CD98/CD124 由 B 退役回正）；G11（CD133，2026-11-02）：G 通道整体退役（sb∪eq 簇圈定吞 GMGN 前端默认档散户「误伤就太大了」——协同现象交 Jev 题面 D3.34 反锚判读）——32/42（较 G10 34 净失两票正命中 CD95/CD100 expect=unhealthy 由 G 承载失载放行；CD97/CD119/CD121 expect=cheat 的 G 拦截腿消失（G10 期已偏差票由 unhealthy 降 healthy 全放行）；承接路径=D3.34 重析题档升 strong 走 A，随 128 票攒批对拍验证）；G12（CD135，2026-11-02）：R 通道新增 real_participation=minimal_genuine→unhealthy 拒买级（D3.35 交易者角色综合结论题）——D3.26 存档 answers 无 real_participation 键→participation null→R 零触发，重放 32/42 十票偏差不变（题面/档位数据零变化，纯增量通道）"
+  "replayNote": "G9 对 D3.26 存档重放：唯一 grade 变化 CD97 cheat→unhealthy（C_sbHold90 独载票），agree 35→34、偏差七→八票。G9=退役五纯数值门（C sbHold≥85/F sbHold≥50/H washPair 数值/I t1 供≥40/K noBuySell≥40）——2026-11-02 用户裁定「去掉不经过Jev的门……Jev 描述现象，我们通过现象给结论」；五门黄金集命中面 15/42 但抽锚终判仅翻 CD97 一票=与 Jev 通道高度冗余。；G10（CD132，2026-11-02）：sbHold/eqHold 门侧消费全撤（B 联立/A 降级豁免 sbHold 腿/G 豁免双锚腿）+B 通道整体退役（sbHold 联立撤后裸 moderate 共振错杀 CD98/CD124 两票人工 healthy 且 G1-G9 零正命中）——34/42 与 G9 同（八票偏差不变，CD98/CD124 由 B 退役回正）；G11（CD133，2026-11-02）：G 通道整体退役（sb∪eq 簇圈定吞 GMGN 前端默认档散户「误伤就太大了」——协同现象交 Jev 题面 D3.34 反锚判读）——32/42（较 G10 34 净失两票正命中 CD95/CD100 expect=unhealthy 由 G 承载失载放行；CD97/CD119/CD121 expect=cheat 的 G 拦截腿消失（G10 期已偏差票由 unhealthy 降 healthy 全放行）；承接路径=D3.34 重析题档升 strong 走 A，随 128 票攒批对拍验证）；G12（CD135，2026-11-02）：R 通道新增 real_participation=minimal_genuine→unhealthy 拒买级（D3.35 交易者角色综合结论题）——D3.26 存档 answers 无 real_participation 键→participation null→R 零触发，重放 32/42 十票偏差不变（题面/档位数据零变化，纯增量通道）；G13（CD136，2026-11-03）：D3.39 理念重构+改名 real_participation→abnormal_behavior_ratio（异常行为识别与比例计算，无罪推定——无可见异常即正常不要求自证真实用户；四桶 negligible/noticeable/dominant/unclear），R 通道改制 minimal_genuine→dominant 触发 R_abnormal_dominant——D3.26 存档 answers 无 abnormal_behavior_ratio 键→abnormalBehavior null→R 零触发（旧 real_participation 答案键断代不映射），重放 32/42 十票偏差不变（纯增量通道零翻转）"
 }

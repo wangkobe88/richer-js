@@ -57,10 +57,12 @@ const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 捆绑交易题独立档域（与题集 BUNDLED_LEVELS 一致；D3.8 用户裁定高中低三档） */
 const BUNDLED_LEVELS = ['low', 'mid', 'high'];
 
-/** 真实参与度题独立档域（与题集 PARTICIPATION_LEVELS 一致；D3.35 交易者角色
- *  综合结论题——用户裁定「将 Jev 转化为一个真实的交易者……不要有非常硬的
- *  标准」，四桶参与度轴非现象强度轴） */
-const PARTICIPATION_LEVELS = ['mostly_genuine', 'meaningful_genuine', 'minimal_genuine', 'unclear'];
+/** 异常行为占比题独立档域（与题集 ABNORMAL_BEHAVIOR_LEVELS 一致；D3.35 立项
+ *  real_participation→D3.39 改名+理念重构——用户裁定「异常行为识别与比例计算」
+ *  无罪推定：无可见异常即正常，不要求自证真实用户；四桶异常占比轴
+ *  negligible/noticeable/dominant/unclear（镜像原参与度轴 minimal_genuine≈
+ *  dominant；D3.35-D3.38 旧档 real_participation 答案键缺席容缺 null 断代） */
+const ABNORMAL_BEHAVIOR_LEVELS = ['negligible', 'noticeable', 'dominant', 'unclear'];
 
 /** 停滞突发波二分类桶域（与题集 STALL_BURST_LEVELS 一致；D3.11 用户裁定退回
  *  纯现象二分「burst_cheat 就不再次检测了……只做一个是否有 停滞后涌入 的现象
@@ -132,20 +134,22 @@ function _bundledDominance(answers) {
 }
 
 /**
- * 真实参与度题答案读取（D3.35：题 id real_participation，独立档域四桶——
- * 交易者角色综合结论题「参与的钱包真实的用户有多少」）。容缺：旧存档
- * （<D3.35）无该键 → null（重放兼容）；在场答案走 argmax + 桶域校验，
- * 未知桶名 throw（漂移防线不因容缺放宽）。
+ * 异常行为占比题答案读取（D3.39：题 id abnormal_behavior_ratio，独立档域四桶
+ * ——异常行为识别与比例计算综合题「明显异常形状合计解释盘面流量多大比例」，
+ * 无罪推定。D3.35-D3.38 旧档 real_participation 答案键不映射（改名=换键，
+ * 参与度轴与异常占比轴语义镜像不可比）。容缺：旧存档（<D3.39）无该键 → null
+ * （重放兼容）；在场答案走 argmax + 桶域校验，未知桶名 throw（漂移防线不因
+ * 容缺放宽）。
  */
-function _participation(answers) {
-  const a = answers && answers.real_participation;
+function _abnormalBehavior(answers) {
+  const a = answers && answers.abnormal_behavior_ratio;
   if (!a || !a.probabilities) return null;
   let best = null;
   for (const [bucket, p] of Object.entries(a.probabilities)) {
     if (best === null || p > best.prob) best = { bucket, prob: p };
   }
-  if (!PARTICIPATION_LEVELS.includes(best.bucket)) {
-    throw new Error(`真实参与度题 real_participation 未知桶名 '${best.bucket}'（题集/映射漂移——PARTICIPATION_LEVELS 须同步）`);
+  if (!ABNORMAL_BEHAVIOR_LEVELS.includes(best.bucket)) {
+    throw new Error(`异常行为占比题 abnormal_behavior_ratio 未知桶名 '${best.bucket}'（题集/映射漂移——ABNORMAL_BEHAVIOR_LEVELS 须同步）`);
   }
   return { bucket: best.bucket, prob: best.prob };
 }
@@ -209,8 +213,9 @@ function buildObservation(answers, anchors = null) {
     activityLevel: _activityLevel(answers),
     // 捆绑交易主导度档位（Jev 直读自判；<D3.8 旧存档缺席=null）
     bundledDominance: _bundledDominance(answers),
-    // 真实参与度档位（D3.35 交易者角色综合结论；<D3.35 旧存档缺席=null）
-    participation: _participation(answers),
+    // 异常行为占比档位（D3.39 异常行为识别与比例计算；<D3.39 旧档（含
+    // D3.35-D3.38 real_participation 期）缺席=null 断代不映射）
+    abnormalBehavior: _abnormalBehavior(answers),
     // 代码数值锚（只述数值事实；异常形状缺席不冒充）
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
@@ -239,7 +244,8 @@ function buildObservation(answers, anchors = null) {
       burstWaveBuyBnb: _anchorPct(anchors, 'burstWaveBuyBnb'),
       burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
       noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),
-      // D3.35 协同买入参考四键（real_participation 题参考数值非门槛：最大单块
+      // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）
+      // 参考数值非门槛：最大单块
       // 买入笔数/占比/与前买块间隔秒 + 最大同档金额钱包去重占比；首买块前摇
       // null=开盘形状证据缺席；无买入 count=0 其余 null）+ 创建者曾持峰值占总
       // 供应量%（holdings_balance 补腿——创建者无 BUY 行 null=链外转入域 swap
@@ -261,5 +267,5 @@ module.exports = {
   ACTIVITY_LEVELS,
   BUNDLED_LEVELS,
   STALL_BURST_LEVELS,
-  PARTICIPATION_LEVELS,
+  ABNORMAL_BEHAVIOR_LEVELS,
 };

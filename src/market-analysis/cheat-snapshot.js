@@ -629,7 +629,7 @@ function computeDerived(snapshot, famousRoster) {
   // ── 协同买入参考四键（D3.35，2026-11-02 用户裁定「将 Jev 转化为一个真实的
   // 交易者……一些指标也可以作为参考，但是不要有非常硬的标准，尽量从交易者
   // 角度，去看看交易信息是否正常」：买侧节奏四事实进 [PRECOMPUTED] 供
-  // real_participation 题参考判读——**参考数值非门槛**，判读交 Jev 交易者角色
+  // abnormal_behavior_ratio 题（D3.39 前 real_participation）参考判读——**参考数值非门槛**，判读交 Jev 交易者角色
   // 综合；口径与 128 票分布研究（tmp-coop-buy-stats@182）bit 一致：全量 BUY 行
   // 不滤 outlier（资金口径）、钱包=sender||trader 原样小写**不去 router**
   // （与 [TICKS] w= 同域，未解析行证据洞由 unresolvedSenderTickCount 承载）──
@@ -761,7 +761,7 @@ function computeDerived(snapshot, famousRoster) {
     ticksPerMin, avgTradeBnb, maxGapSec,
     burstWaveBuyBnb, burstWaveWallets,
     noBuySellPct, noBuySellBnb, noBuySellWallets,
-    // D3.35 协同买入参考四键（real_participation 题参考数值非门槛）+ holdings
+    // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,
     creatorPeakHoldSupplyPct, creatorWallet,

@@ -71,8 +71,10 @@ export function interpret(obs) {
     activityLevel: obs.activityLevel ?? null,
     bundledDominance: obs.bundledDominance ?? null,
     // D3.35：runner 侧 gradeObservation 吃 interpret 产物（run.mjs），此处漏键
-    // =R 通道在回归链路结构性失明（CD135 全量首跑 128 票全 null 事故现场）
-    participation: obs.participation ?? null,
+    // =R 通道在回归链路结构性失明（CD135 全量首跑 128 票全 null 事故现场）；
+    // D3.39 键改名 real_participation→abnormal_behavior_ratio（obs 顶层键
+    // participation→abnormalBehavior，旧档断代 null 同款防线在此继续成立）
+    abnormalBehavior: obs.abnormalBehavior ?? null,
     anchors: obs.anchors ?? null,
   };
 }

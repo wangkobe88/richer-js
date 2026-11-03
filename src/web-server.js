@@ -2158,7 +2158,8 @@ class RicherJsWebServer {
             ext_levels: d.extLevels ?? null,
             activity_level: d.activityLevel ?? null,
             bundled_dominance: d.bundledDominance ?? null,
-            participation: d.participation ?? null,
+            abnormal_behavior: d.abnormalBehavior ?? null,
+            participation: d.participation ?? null, // D3.38 前旧档键（real_participation 断代——历史行渲染用）
             anchors: d.anchors ?? null,
             activity: d.activity ?? null,
             famous: d.famous ?? null,

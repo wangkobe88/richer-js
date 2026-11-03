@@ -3629,11 +3629,13 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    cheatTop1Top2FirstBuyGapSec/cheatClusterHoldSupplyPct/
         //    cheatT1PlusClusterSupplyPct（前二/簇合计/并集占总供应量%+前二首买相差
         //    秒，G7 J 通道 holdings_balance 同源数值；<2 正净持有人/无合格簇/
-        //    supply 缺失=null）+ D3.35 六键 cheatRealParticipation（真实参与度档位
-        //    mostly=0/meaningful=1/minimal=2，unclear→null）+ 协同买入参考四键
+        //    supply 缺失=null）+ D3.39 六键 cheatAbnormalBehaviorRatio（异常行为
+        //    占比档位（D3.35 real_participation 改名+理念重构——无罪推定，无可见
+        //    异常即正常）negligible=0/noticeable=1/dominant=2，unclear→null）+
+        //    协同买入参考四键
         //    cheatMaxBlockBuyCount/cheatMaxBlockBuyPct/cheatMaxBlockPreGapSec/
         //    cheatSameAmountWalletPct + cheatCreatorPeakHoldSupplyPct（创建者曾持
-        //    峰值占总供应量%，G12 R 通道/holdings_balance 同源；参考数值非门槛）。
+        //    峰值占总供应量%，G13 R 通道/holdings_balance 同源；参考数值非门槛）。
         //    写者=引擎（gate 判定/迟到补投影/预触发 onResult）；**值=最近一次判定
         //    投影**（叙事 C84 同构：后台分析完成投影，下一 tick 条件可消费）——
         //    首判未完成/预触发未跑 → 全 null（条件裸比较恒 false fail-closed，未判定
@@ -3682,12 +3684,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatNoBuySellPct = _an ? _an.noBuySellPct ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
-            // D3.35 真实参与度档位（G12 R 通道同源：mostly=0/meaningful=1/minimal=2，
-            // unclear 不在映射表→null 不冒充）+ 协同买入参考四键与创建者曾持峰值锚
-            // （real_participation/holdings_balance 参考数值，纯观察可进条件串；
+            // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/
+            // dominant=2，unclear 不在映射表→null 不冒充；D3.35-D3.38 旧档
+            // real_participation 断代 null）+ 协同买入参考四键与创建者曾持峰值锚
+            // （abnormal_behavior_ratio/holdings_balance 参考数值，纯观察可进条件串；
             // 首买块前摇 null=开盘形状证据缺席；创建者无 BUY 行 null=链外转入域
             // swap 不可见，绝不以 0 冒充「从未持有」）
-            factors.cheatRealParticipation = _lv ? _lv.realParticipation ?? null : null;
+            factors.cheatAbnormalBehaviorRatio = _lv ? _lv.abnormalBehavior ?? null : null;
             factors.cheatMaxBlockBuyCount = _an ? _an.maxBlockBuyCount ?? null : null;
             factors.cheatMaxBlockBuyPct = _an ? _an.maxBlockBuyPct ?? null : null;
             factors.cheatMaxBlockPreGapSec = _an ? _an.maxBlockPreGapSec ?? null : null;
