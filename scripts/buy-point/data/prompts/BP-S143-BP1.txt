@@ -1,0 +1,299 @@
+⚠（材料超 20000 字符预算，尾部被硬截断——[PRECOMPUTED] 事实段完整可信）
+[TOKEN]
+address=0xf06a853dd854a7b7cbb05d0c0b24f6d3d0a77777 symbol=SAFUDOG name=SAFU DOG platform=flap
+quote_token=0x4902c5ebc598265ed2212b559b042de8a5eeec3f（非 BNB 计价盘：下列 bnb 金额已在写入时换算为 BNB 域，读侧照抄；换算失败的链上交易整行不入表=本窗口可能缺行）
+created=2026-10-30T12:50:04.000Z creator=0x9049…4c06 createTx=f82357fa
+聚合路由（GMGN）机制：大量下单方共用一个路由合约成交，真人 bot 都常走——走路由本身不区分真人/自动化；[TICKS] 行的 w= 为该笔实际发起地址。发起人无法解析的行显示 w=UNRESOLVED*（证据洞，不计入任何钱包）。
+
+[ANCHOR]
+本材料 = 截至第 851 笔 tick 的 as-of 切片。判定对象=此刻入场时机（时点），不是 token 终身属性，也不是盘面是否作弊。
+信号溯源: 7d1c5acd-40ec-4245-802c-e20b985a176f@2026-10-30T13:03:29.501+00:00 策略=买入策略 P1·再买 fire价=1.16e-5（测试集采样点——材料本身与实时引擎路径同源）
+
+[PRECOMPUTED]（代码端已算事实，直接采信）
+时点位置: token 龄 805s（窗口跨度 805s）；末可靠价较全窗 ATH -54.83%（距 ATH 509s），近 120s 创全窗新高=否
+近窗动量(涨跌%): 30s 2.08% / 60s 7.87% / 120s 4.94%（窗末可靠价 vs 窗起点前最后一笔可靠价；? = 可靠价不足）
+近窗流量(BNB): 30s 买 0.106×11 卖 0.0000×0 净 0.106 ｜ 60s 买 0.390×25 卖 0.0000×0 净 0.390 ｜ 120s 买 1.206×55 卖 0.881×9 净 0.325（净=买−卖；60s 买占双边 100.0%）
+节奏趋势: 近 120s 前半 39 笔/分 / 后半 25 笔/分（代码倾向 down——参考比值，你从 [TICKS] 末段密度自行校验）；最密 5s 波（120s 内）: 8 笔 / 买 0.284 / 6 钱包（? = 窗内行不足）
+参与结构(近60s): 笔/分 25；买家 12 / 卖家 0 / 新进场 7（全窗首见买入落在窗内）；top1 买集中度 24.8% / top1 卖 ?（剔路由伪钱包）；路由买占比 1.3%（散户通道代理，纯事实）
+卖压(近60s): 卖出 0.0000×0；清仓式卖出钱包 0 个（近 60s 卖出后全窗净持仓≤0；? = token 数量证据缺失）；全窗正净持仓 top5 钱包近 60s 卖出合计 0.0000 BNB
+全窗背景: 总买入 33.381 BNB / 583 笔；总卖出 26.383 BNB / 268 笔；独立钱包（剔路由伪钱包）291
+活跃度数值: 每分钟 63.43 笔 / 笔均 0.0702 BNB / 最大交易间隔 10 秒（全窗口径频率事实）
+价格拱(全窗可靠价): 首 8.75e-9 → ATH 3.69e-8（t+296s）→ 末 1.67e-8（较 ATH -54.8%）
+全窗持仓前三(正净 token): 第1大 0x8677…411c（占流通 3.8%，买 0.311×12 卖 0.0000×0，首买@t+672s）；第2大 0x5e3c…c315（占流通 3.7%，买 0.592×3 卖 0.0000×0，首买@t+296s）；第3大 0x581f…369e（占流通 3.1%，买 0.298×2 卖 0.0000×0，首买@t+520s）（卖压行「top5」即此排名前五——大持仓近端动向另见 [WALLETS] 近 120s 字段）
+同块对敲: 1 对，配对买额占全部卖出 0.3% / 占全部买入 0.2%（左手换右手换手的直接度量；协同形状只作降档参考，作弊判定不归本题集）
+零买入纯卖方: 10 个钱包（全窗零买入、只卖出）合计卖出 0.259 BNB，占全部卖出 1.0%（链外转入分仓出货形状——入场风险因素）
+
+[PRICE]（全窗可靠价轨迹：等笔距 20 桶，桶=该段末笔可靠价——看形状斜率与位置，勿当逐笔数据）
+t+8s@2.11e-8  t+28s@1.92e-8  t+80s@1.92e-8  t+96s@1.64e-8  t+104s@1.93e-8
+t+148s@2.03e-8  t+188s@2.22e-8  t+255s@2.36e-8  t+274s@3.00e-8  t+292s@3.30e-8
+t+318s@3.07e-8  t+373s@2.96e-8  t+434s@3.02e-8  t+502s@2.74e-8  t+545s@2.24e-8
+t+589s@2.22e-8  t+623s@1.75e-8  t+660s@1.38e-8  t+721s@1.76e-8  t+805s@1.67e-8
+
+[TICKS]（链上真序 (block, log_index)；tx=交易哈希前 8 位——相同 tx= 的行=同一笔链上交易拆出的多个事件）
+（共 851 笔，超展示帽：保留最早 50 笔 + 最近 250 笔，中段省略——[PRECOMPUTED]/[PRICE] 统计仍基于全窗口）
+t+0s BUY 1.868 @8.75e-9 w=0x9230…035e blk=130667992 tx=f82357fa
+t+0s BUY 2.096 @1.42e-8 w=0x5574…c7a5 blk=130667993 tx=e7d4da3d
+t+0s BUY 0.428 @1.55e-8 w=0xd5b4…1804 blk=130667993 tx=31a5fef0
+t+0s BUY 0.150 @1.60e-8 w=0xf900…ff6d blk=130667993 tx=d4093d78
+t+0s BUY 0.041 @1.61e-8 w=0x3755…76c9 blk=130667993 tx=9d410b0c
+t+0s BUY 0.030 @1.62e-8 w=0xab70…bef2 blk=130667993 tx=68edf7e6
+t+0s BUY 0.030 @1.63e-8 w=0xbe40…49a3 blk=130667993 tx=41237930
+t+0s BUY 0.087 @1.66e-8 w=0x0c1d…c5f3 blk=130667994 tx=f13f811b
+t+0s BUY 0.214 @1.72e-8 w=0xc580…5d01 blk=130667994 tx=6473be65
+t+0s BUY 0.0099 @1.73e-8 w=0xa0ce…8313 blk=130667994 tx=c6cb3c24
+t+1s SELL 1.298 @1.30e-8 w=0x5574…c7a5 blk=130667995 tx=41d2ded1
+t+1s BUY 0.040 @1.31e-8 w=0xafe2…ac87 blk=130667996 tx=2660411d
+t+1s BUY 0.049 @1.33e-8 w=0x1be9…7b78 blk=130667996 tx=be855b7c
+t+1s BUY 0.132 @1.37e-8 w=0x2c68…cc11 blk=130667996 tx=af053137
+t+4s BUY 0.099 @1.39e-8 w=0x61b2…43af blk=130668001 tx=ffafcc0b
+t+4s BUY 0.049 @1.41e-8 w=0xf9f8…a3a9 blk=130668002 tx=0f694cdd
+t+4s BUY 0.049 @1.42e-8 w=0x1db6…b221 blk=130668002 tx=89678c6c
+t+4s BUY 0.140 @1.46e-8 w=0xc92a…fc97 blk=130668003 tx=88378a58
+t+4s BUY 0.125 @1.50e-8 w=0x0e98…a9da blk=130668003 tx=03fb3d5f
+t+5s BUY 0.198 @1.56e-8 w=0x61b2…43af blk=130668004 tx=6f9355d9
+t+5s BUY 0.049 @1.58e-8 w=0xf9f8…a3a9 blk=130668004 tx=6b0c15df
+t+5s BUY 0.049 @1.59e-8 w=0x1db6…b221 blk=130668004 tx=92a128e3
+t+5s BUY 0.148 @1.64e-8 w=0x785e…ec41 blk=130668004 tx=c0f98567
+t+5s BUY 0.148 @1.69e-8 w=0x9675…da4d blk=130668004 tx=b645fa8b
+t+5s BUY 0.083 @1.71e-8 w=0x33f1…c2fc blk=130668005 tx=4bf53c0b
+t+5s BUY 0.139 @1.76e-8 w=0xab70…bef2 blk=130668005 tx=629dd6cf
+t+5s BUY 0.074 @1.78e-8 w=0xb557…ac8e blk=130668005 tx=231565f4
+t+5s BUY 0.020 @1.79e-8 w=0x8c0f…4c72 blk=130668005 tx=00d83ac9
+t+5s BUY 0.148 @1.84e-8 w=0x215d…1584 blk=130668005 tx=854956d3
+t+5s BUY 0.030 @1.85e-8 w=0x1144…6cdb blk=130668005 tx=1290a1ff
+t+5s BUY 0.137 @1.89e-8 w=0x9282…3c4c blk=130668005 tx=963f8095
+t+6s BUY 0.074 @1.92e-8 w=0xf13c…c1de blk=130668006 tx=66cb97b0
+t+6s BUY 0.074 @1.94e-8 w=0xbd63…23e1 blk=130668006 tx=fb803af0
+t+6s BUY 0.069 @1.97e-8 w=0x1462…7a36 blk=130668006 tx=c80e25ed
+t+6s BUY 0.090 @2.00e-8 w=0xc92a…fc97 blk=130668007 tx=302ac51e
+t+6s BUY 0.090 @2.03e-8 w=0x0e98…a9da blk=130668007 tx=922cf802
+t+6s BUY 0.049 @2.05e-8 w=0xf9f8…a3a9 blk=130668007 tx=4e464671
+t+6s BUY 0.049 @2.06e-8 w=0x1db6…b221 blk=130668007 tx=e73a596e
+t+6s BUY 0.198 @2.13e-8 w=0xaa96…ac76 blk=130668007 tx=c2f724ac
+t+8s BUY 0.099 @2.17e-8 w=0x8eea…ccff blk=130668010 tx=1e3216aa
+t+8s BUY 0.0060 @2.17e-8 w=0xc3c9…cf20 blk=130668010 tx=c4acfd8c
+t+8s SELL 0.148 @2.11e-8 w=0xf900…ff6d blk=130668011 tx=95e97387
+t+8s BUY 0.020 @2.12e-8 w=0x262d…8cfa blk=130668011 tx=47b6014d
+t+10s SELL 0.272 @2.02e-8 w=0xc92a…fc97 blk=130668015 tx=57e5bf43
+t+10s SELL 0.235 @1.93e-8 w=0x0e98…a9da blk=130668015 tx=76950168
+t+10s SELL 0.175 @1.86e-8 w=0x61b2…43af blk=130668016 tx=c1ab1df1
+t+10s SELL 0.039 @1.85e-8 w=0xf9f8…a3a9 blk=130668016 tx=6377547d
+t+10s SELL 0.038 @1.84e-8 w=0x1db6…b221 blk=130668016 tx=79720119
+t+10s BUY 0.182 @1.90e-8 w=0x522f…71bb blk=130668016 tx=4db4c240
+t+10s BUY 0.214 @1.97e-8 w=0x4654…0236 blk=130668016 tx=96df2b8b
+t+510s SELL 0.0077 @2.51e-8 w=0x7c41…c70e blk=130669126 tx=c9e5c48c
+t+515s SELL 0.016 @2.50e-8 w=0xe0f2…1a22 blk=130669137 tx=0ed6114b
+t+516s SELL 0.0067 @2.50e-8 w=0xe7a3…5951 blk=130669140 tx=fd049bb4
+t+517s BUY 0.049 @2.51e-8 w=0xa0e1…3e4c blk=130669142 tx=896c8481
+t+518s BUY 0.030 @2.53e-8 w=0xcd3f…94b6 blk=130669144 tx=0916894d
+t+519s BUY 0.025 @2.54e-8 w=0x5a70…daa4 blk=130669146 tx=bb2d8627
+t+519s SELL 0.157 @2.47e-8 w=0x19f2…0260 blk=130669147 tx=49001c45
+t+520s BUY 0.107 @2.51e-8 w=0x581f…369e blk=130669149 tx=984aa736
+t+521s BUY 0.020 @2.52e-8 w=0x8341…7d61 blk=130669150 tx=a49043fd
+t+521s BUY 0.0001 @2.52e-8 w=0x80c8…152e blk=130669151 tx=44ebc9aa
+t+521s BUY 0.0034 @2.52e-8 w=0x80c8…152e blk=130669151 tx=44ebc9aa
+t+522s SELL 0.0034 @2.52e-8 w=0xaae4…4bf3 blk=130669152 tx=479968eb
+t+522s SELL 0.011 @2.51e-8 w=0x4cb9…0958 blk=130669154 tx=c54fe9b7
+t+522s BUY 0.099 @2.55e-8 w=0x0258…9265 blk=130669154 tx=94b10bf5
+t+524s BUY 0.014 @2.56e-8 w=0xb21b…dbb0 blk=130669158 tx=9c07b410
+t+526s BUY 0.119 @2.61e-8 w=0xb4f5…d582 blk=130669162 tx=b195d592
+t+526s BUY 0.0047 @2.61e-8 w=0xacb0…01db blk=130669163 tx=0d288a03
+t+528s BUY 0.0099 @2.61e-8 w=0x5b29…2210 blk=130669167 tx=9f34ce81
+t+531s SELL 0.071 @2.58e-8 w=0x329c…ece8 blk=130669172 tx=93280b45
+t+531s BUY 0.0000 @2.58e-8 w=0x80c8…152e blk=130669172 tx=adb9bb61
+t+531s BUY 0.0034 @2.58e-8 w=0x80c8…152e blk=130669172 tx=adb9bb61
+t+533s SELL 0.087 @2.55e-8 w=0xcefe…57c5 blk=130669178 tx=b3533ee4
+t+535s SELL 0.086 @2.51e-8 w=0xe1e3…9407 blk=130669183 tx=2623981a
+t+536s SELL 0.0054 @2.51e-8 w=0xb383…3233 blk=130669185 tx=ec9095c5
+t+537s SELL 0.067 @2.48e-8 w=0x3396…1d26 blk=130669186 tx=3be47d60
+t+538s SELL 0.038 @2.46e-8 w=0x6a6e…b1a5 blk=130669189 tx=f9642041
+t+539s BUY 0.0040 @2.46e-8 w=0x9ce4…5a41 blk=130669190 tx=70982ff3
+t+539s SELL 0.037 @2.45e-8 w=0x2a09…af9d blk=130669190 tx=6e6443f9
+t+539s SELL 0.099 @2.41e-8 w=0xbe15…e153 blk=130669191 tx=0517aacd
+t+540s SELL 0.0053 @2.41e-8 w=0x3390…e76f blk=130669194 tx=b0babb49
+t+540s BUY 0.010 @2.41e-8 w=0x3675…6f87 blk=130669194 tx=032f0f99
+t+543s SELL 0.145 @2.35e-8 w=0x396c…bdff blk=130669199 tx=83dfbc3c
+t+543s BUY 0.014 @2.35e-8 w=0xb21b…dbb0 blk=130669199 tx=f3b47363
+t+543s BUY 0.0001 @2.35e-8 w=0x80c8…152e blk=130669199 tx=df223c9a
+t+543s BUY 0.0034 @2.36e-8 w=0x80c8…152e blk=130669199 tx=df223c9a
+t+544s SELL 0.144 @2.30e-8 w=0xd5f6…8139 blk=130669202 tx=f2169900
+t+545s SELL 0.137 @2.24e-8 w=0xebd1…d107 blk=130669205 tx=66733dd1
+t+546s SELL 0.012 @2.24e-8 w=0xa440…2333 blk=130669207 tx=5b8016d2
+t+548s SELL 0.015 @2.23e-8 w=0x2fbc…c9e4 blk=130669210 tx=f0ffc421
+t+548s SELL 0.112 @2.19e-8 w=0x522f…71bb blk=130669211 tx=7af34c7e
+t+548s SELL 0.124 @2.14e-8 w=0x4654…0236 blk=130669211 tx=3e56ff22
+t+549s SELL 0.089 @2.10e-8 w=0x3f45…532f blk=130669212 tx=303b1c2c
+t+550s SELL 0.124 @2.06e-8 w=0x5813…ae90 blk=130669216 tx=0d81d6fe
+t+551s SELL 0.031 @2.04e-8 w=0xa0e1…3e4c blk=130669218 tx=57bde10d
+t+551s BUY 0.0001 @2.04e-8 w=0x80c8…152e blk=130669218 tx=e3720353
+t+551s BUY 0.0035 @2.05e-8 w=0x80c8…152e blk=130669218 tx=e3720353
+t+551s SELL 0.0009 @2.04e-8 w=0xf262…0bb8 blk=130669218 tx=1a6a16e8
+t+552s SELL 0.0043 @2.04e-8 w=0x487e…5c13 blk=130669219 tx=319cd432
+t+553s SELL 0.0066 @2.04e-8 w=0xee04…3414 blk=130669222 tx=e62a91b4
+t+554s SELL 0.019 @2.03e-8 w=0x3126…aebe blk=130669224 tx=dc91f14d
+t+554s SELL 0.0091 @2.03e-8 w=0x354b…93ff blk=130669225 tx=b6148eca
+t+556s SELL 0.017 @2.02e-8 w=0x26bd…5b55 blk=130669228 tx=681e87fa
+t+556s SELL 0.036 @2.01e-8 w=0x6fbc…a5ca blk=130669229 tx=8ae56162
+t+557s BUY 0.020 @2.02e-8 w=0x8341…7d61 blk=130669230 tx=3dbd8254
+t+557s BUY 0.0099 @2.02e-8 w=0x1560…bfa3 blk=130669230 tx=3dc9e933
+t+558s BUY 0.049 @2.04e-8 w=0xb4f5…d582 blk=130669233 tx=adc861dc
+t+559s BUY 0.014 @2.04e-8 w=0xb21b…dbb0 blk=130669236 tx=8890cb27
+t+560s BUY 0.0044 @2.04e-8 w=0x3390…e76f blk=130669238 tx=fd1beda8
+t+561s BUY 0.099 @2.08e-8 w=0x37a6…3a3e blk=130669239 tx=95725fcb
+t+561s BUY 0.049 @2.10e-8 w=0x1560…bfa3 blk=130669239 tx=66f4e325
+t+561s BUY 0.0001 @2.10e-8 w=0x80c8…152e blk=130669239 tx=a90620dd
+t+561s BUY 0.0035 @2.10e-8 w=0x80c8…152e blk=130669239 tx=a90620dd
+t+561s BUY 0.148 @2.15e-8 w=0xc15f…d54b blk=130669240 tx=3457efb3
+t+562s BUY 0.214 @2.23e-8 w=0x329c…ece8 blk=130669241 tx=66da853b
+t+563s BUY 0.071 @2.25e-8 w=0x56bb…8d18 blk=130669245 tx=93c6ad86
+t+565s BUY 0.0099 @2.26e-8 w=0x5b29…2210 blk=130669249 tx=9e07f8f4
+t+567s BUY 0.100 @2.30e-8 w=0x138e…30fc blk=130669252 tx=19cf82ba
+t+567s BUY 0.0050 @2.30e-8 w=0xaf34…bbbb blk=130669254 tx=6d410fc3
+t+568s BUY 0.034 @2.31e-8 w=0x01fe…b065 blk=130669255 tx=ebad3056
+t+569s BUY 0.0000 @2.31e-8 w=0x80c8…152e blk=130669258 tx=e91ca406
+t+569s BUY 0.0035 @2.31e-8 w=0x80c8…152e blk=130669258 tx=e91ca406
+t+575s SELL 0.241 @2.21e-8 w=0xa0e1…3e4c blk=130669271 tx=3719f7bc
+t+578s BUY 0.0001 @2.21e-8 w=0x80c8…152e blk=130669277 tx=0b3778db
+t+578s BUY 0.0036 @2.22e-8 w=0x80c8…152e blk=130669277 tx=0b3778db
+t+583s BUY 0.0004 @2.22e-8 w=0x0569…6a8d blk=130669289 tx=260d30aa
+t+586s BUY 0.0007 @2.22e-8 w=0x5a70…daa4 blk=130669296 tx=0501ed41
+t+588s BUY 0.0100 @2.22e-8 w=0x1d9a…1741 blk=130669299 tx=266fc1d0
+t+589s BUY 0.0001 @2.22e-8 w=0x80c8…152e blk=130669302 tx=b7b9a18c
+t+589s BUY 0.0036 @2.22e-8 w=0x80c8…152e blk=130669302 tx=b7b9a18c
+t+589s BUY 0.0010 @2.22e-8 w=0xa518…0628 blk=130669302 tx=41c2924e
+t+591s SELL 0.0067 @2.22e-8 w=0x2cfd…6429 blk=130669307 tx=bce1844d
+t+594s SELL 0.057 @2.20e-8 w=0x3951…c8b5 blk=130669312 tx=1c1bab37
+t+596s SELL 0.029 @2.18e-8 w=0x01fe…b065 blk=130669317 tx=b87b55ec
+t+597s SELL 0.038 @2.17e-8 w=0x4337…4bba blk=130669319 tx=f58f17df
+t+598s SELL 0.294 @2.06e-8 w=0x329c…ece8 blk=130669322 tx=3135a2f7
+t+598s SELL 0.0049 @2.05e-8 w=0x67e6…a885 blk=130669322 tx=2418ae16
+t+599s SELL 0.054 @2.03e-8 w=0x1560…bfa3 blk=130669325 tx=15c2606d
+t+601s BUY 0.049 @2.05e-8 w=0xced2…522e blk=130669329 tx=ffe44247
+t+601s BUY 0.0001 @2.05e-8 w=0x80c8…152e blk=130669329 tx=2049aa4d
+t+601s BUY 0.0036 @2.05e-8 w=0x80c8…152e blk=130669329 tx=2049aa4d
+t+602s SELL 0.121 @2.01e-8 w=0x15e2…531b blk=130669330 tx=b47cb061
+t+603s SELL 0.207 @1.93e-8 w=0xaa96…ac76 blk=130669332 tx=a23f6e5a
+t+603s SELL 0.133 @1.88e-8 w=0xc2d9…9f53 blk=130669332 tx=3b1668a9
+t+603s BUY 0.0071 @1.88e-8 w=0xb21b…dbb0 blk=130669332 tx=d5473e2c
+t+603s SELL 0.053 @1.86e-8 w=0x942a…c99d blk=130669333 tx=b45fc043
+t+604s SELL 0.070 @1.84e-8 w=0xc2d8…2be7 blk=130669336 tx=e58cda29
+t+605s BUY 0.030 @1.85e-8 w=0xced2…522e blk=130669338 tx=668e2069
+t+606s SELL 0.012 @1.84e-8 w=0x2fbc…c9e4 blk=130669340 tx=16c01a81
+t+608s BUY 0.198 @1.91e-8 w=0xd68d…ddb0 blk=130669345 tx=8cfc9f05
+t+609s SELL 0.0032 @1.91e-8 w=0xae45…49df blk=130669346 tx=7528733f
+t+609s BUY 0.049 @1.92e-8 w=0x8341…7d61 blk=130669346 tx=528fbb5b
+t+609s SELL 0.026 @1.92e-8 w=0x1be9…7b78 blk=130669347 tx=6dee9e41
+t+609s BUY 0.0099 @1.92e-8 w=0xced2…522e blk=130669347 tx=41b6ac87
+t+610s SELL 0.0045 @1.92e-8 w=0x971e…333d blk=130669349 tx=90a5537e
+t+610s BUY 0.0050 @1.92e-8 w=0x6d63…f08a blk=130669349 tx=9ca4f32f
+t+610s BUY 0.0030 @1.92e-8 w=0xecb4…e214 blk=130669349 tx=5ea91359
+t+611s SELL 0.042 @1.90e-8 w=0x3572…c388 blk=130669351 tx=67665ed3
+t+611s BUY 0.0071 @1.91e-8 w=0xb21b…dbb0 blk=130669351 tx=d5b31747
+t+612s BUY 0.0000 @1.91e-8 w=0x80c8…152e blk=130669352 tx=4c0556f7
+t+612s BUY 0.0036 @1.91e-8 w=0x80c8…152e blk=130669352 tx=4c0556f7
+t+612s SELL 0.072 @1.88e-8 w=0x1f0b…46c4 blk=130669354 tx=065a0d2a
+t+616s BUY 0.0099 @1.88e-8 w=0xced2…522e blk=130669362 tx=c07685b6
+t+618s SELL 0.079 @1.86e-8 w=0x785e…ec41 blk=130669367 tx=4da9abff
+t+618s SELL 0.150 @1.80e-8 w=0x9675…da4d blk=130669367 tx=a3732621
+t+619s SELL 0.020 @1.79e-8 w=0xab70…bef2 blk=130669368 tx=9f8bb4ce
+t+619s SELL 0.035 @1.78e-8 w=0xb557…ac8e blk=130669368 tx=3b01edbf
+t+619s SELL 0.013 @1.78e-8 w=0x1144…6cdb blk=130669368 tx=be70403b
+t+621s BUY 0.043 @1.79e-8 w=0xca8d…7024 blk=130669372 tx=64946315
+t+622s BUY 0.0001 @1.79e-8 w=0x80c8…152e blk=130669376 tx=d40fe899
+t+622s BUY 0.0037 @1.79e-8 w=0x80c8…152e blk=130669376 tx=d40fe899
+t+622s SELL 0.071 @1.77e-8 w=0x6eb8…4bde blk=130669376 tx=f3ab290f
+t+623s SELL 0.048 @1.75e-8 w=0x6c8d…03ca blk=130669377 tx=b0c23116
+t+625s BUY 0.0000 @1.75e-8 w=0xf9f8…a3a9 blk=130669381 tx=3f936517
+t+625s BUY 0.0000 @1.75e-8 w=0x1db6…b221 blk=130669381 tx=81b0f310
+t+625s SELL 0.0035 @1.75e-8 w=0x3390…e76f blk=130669381 tx=16ba2a18
+t+626s SELL 0.037 @1.74e-8 w=0x5661…e2c5 blk=130669385 tx=a068eaec
+t+626s SELL 0.026 @1.73e-8 w=0x5779…e86c blk=130669385 tx=a3854709
+t+626s BUY 0.0099 @1.73e-8 w=0xced2…522e blk=130669385 tx=787dcc09
+t+628s SELL 0.040 @1.72e-8 w=0x3c1d…1d0a blk=130669389 tx=c935ed2b
+t+631s BUY 0.049 @1.73e-8 w=0xdf2b…b259 blk=130669396 tx=ceaa962c
+t+632s BUY 0.0001 @1.73e-8 w=0x80c8…152e blk=130669398 tx=ee0b5166
+t+632s BUY 0.0037 @1.73e-8 w=0x80c8…152e blk=130669398 tx=ee0b5166
+t+633s SELL 0.034 @1.72e-8 w=0x0586…abbf blk=130669400 tx=84dad47b
+t+633s SELL 0.054 @1.70e-8 w=0x4337…f637 blk=130669400 tx=b4a3aace
+t+634s BUY 0.0071 @1.70e-8 w=0xb21b…dbb0 blk=130669401 tx=32f2e75f
+t+637s SELL 0.156 @1.65e-8 w=0xe082…2a26 blk=130669408 tx=074d7505
+t+637s SELL 0.041 @1.64e-8 w=0xb37d…7d46 blk=130669409 tx=f5c040ab
+t+637s SELL 0.0089 @1.63e-8 w=0x9e7a…76ea blk=130669409 tx=2897312f
+t+637s SELL 0.0066 @1.63e-8 w=0x0222…ec87 blk=130669409 tx=f3a47b07
+t+637s SELL 0.142 @1.58e-8 w=0xf377…6371 blk=130669409 tx=048cf20f
+t+637s SELL 0.132 @1.54e-8 w=0xf98c…d371 blk=130669409 tx=b1b97f72
+t+638s SELL 0.015 @1.53e-8 w=0x0108…0a35 blk=130669410 tx=138318a8
+t+638s SELL 0.024 @1.53e-8 w=0x3412…7a65 blk=130669410 tx=eda4569d
+t+639s SELL 0.103 @1.49e-8 w=0xf9f8…a3a9 blk=130669414 tx=95424b28
+t+639s SELL 0.100 @1.46e-8 w=0x1db6…b221 blk=130669414 tx=e563dcae
+t+643s SELL 0.0009 @1.46e-8 w=0xf88b…8a6c blk=130669422 tx=dfb07372
+t+644s BUY 0.0000 @1.46e-8 w=0x80c8…152e blk=130669425 tx=d30a4643
+t+644s BUY 0.0037 @1.46e-8 w=0x80c8…152e blk=130669425 tx=d30a4643
+t+646s SELL 0.010 @1.46e-8 w=0xc170…f3ba blk=130669429 tx=627f07ee
+t+647s BUY 0.0044 @1.46e-8 w=0x3390…e76f blk=130669430 tx=785ac4f8
+t+647s BUY 0.049 @1.47e-8 w=0xb4f5…d582 blk=130669430 tx=52c4f5f7
+t+648s SELL 0.032 @1.47e-8 w=0x4598…b7e9 blk=130669433 tx=4646880d
+t+648s SELL 0.0088 @1.46e-8 w=0xa52d…6597 blk=130669434 tx=df851c23
+t+652s BUY 0.030 @1.47e-8 w=0xced2…522e blk=130669443 tx=4dae6dba
+t+653s SELL 0.105 @1.44e-8 w=0x8182…04d1 blk=130669445 tx=ead0cdae
+t+656s SELL 0.090 @1.41e-8 w=0x3412…7a65 blk=130669450 tx=e1c5ae4b
+t+656s SELL 0.098 @1.38e-8 w=0xd5f6…8139 blk=130669450 tx=80c177de
+t+656s BUY 0.0001 @1.38e-8 w=0x80c8…152e blk=130669451 tx=1adeabc9
+t+656s BUY 0.0038 @1.38e-8 w=0x80c8…152e blk=130669451 tx=1adeabc9
+t+657s SELL 0.020 @1.37e-8 w=0xd3e3…637a blk=130669452 tx=6ab4a981
+t+657s SELL 0.0020 @1.37e-8 w=0x3bae…62dd blk=130669454 tx=7476f314
+t+658s SELL 0.0020 @1.37e-8 w=0xecb4…e214 blk=130669455 tx=f02b2ca2
+t+658s SELL 0.0033 @1.37e-8 w=0x6d63…f08a blk=130669455 tx=ed311f70
+t+660s BUY 0.014 @1.38e-8 w=0x354b…93ff blk=130669459 tx=4e75fcfd
+t+661s SELL 0.067 @1.36e-8 w=0x06b1…94f0 blk=130669461 tx=fdc84483
+t+661s BUY 0.198 @1.41e-8 w=0xd69d…aae5 blk=130669461 tx=07d58007
+t+662s SELL 0.046 @1.40e-8 w=0x1462…7a36 blk=130669465 tx=63270a80
+t+663s BUY 0.099 @1.43e-8 w=0x2a09…af9d blk=130669466 tx=3d85363f
+t+664s BUY 0.099 @1.46e-8 w=0x0258…9265 blk=130669468 tx=8fccd294
+t+665s BUY 0.0001 @1.46e-8 w=0x80c8…152e blk=130669471 tx=a87fe2b7
+t+665s BUY 0.0038 @1.46e-8 w=0x80c8…152e blk=130669471 tx=a87fe2b7
+t+667s SELL 0.076 @1.43e-8 w=0x49df…385b blk=130669475 tx=bd98bbd8
+t+668s BUY 0.050 @1.45e-8 w=0xcbe9…16de blk=130669477 tx=67f8b123
+t+668s BUY 0.050 @1.46e-8 w=0x69c8…42df blk=130669477 tx=894eb83a
+t+671s SELL 0.0045 @1.46e-8 w=0x3a64…0102 blk=130669484 tx=c75f2cec
+t+672s BUY 0.284 @1.55e-8 w=0x8677…411c blk=130669486 tx=81db4cb8
+t+672s BUY 0.0020 @1.55e-8 w=0x21cd…44a9 blk=130669487 tx=8ebcd3df
+t+674s BUY 0.0000 @1.55e-8 w=0x80c8…152e blk=130669490 tx=6ae525c5
+t+674s BUY 0.0038 @1.55e-8 w=0x80c8…152e blk=130669490 tx=6ae525c5
+t+680s BUY 0.078 @1.57e-8 w=0x56bb…8d18 blk=130669504 tx=7f54d77d
+t+680s BUY 0.0071 @1.57e-8 w=0x8677…411c blk=130669504 tx=d8dae85d
+t+682s BUY 0.0099 @1.58e-8 w=0xaf34…bbbb blk=130669509 tx=529f41a2
+t+684s BUY 0.0001 @1.58e-8 w=0x80c8…152e blk=130669513 tx=454153a0
+t+684s BUY 0.0038 @1.58e-8 w=0x80c8…152e blk=130669513 tx=454153a0
+t+684s BUY 0.020 @1.58e-8 w=0x3126…aebe blk=130669513 tx=42e6f93e
+t+685s BUY 0.014 @1.59e-8 w=0x5a70…daa4 blk=130669515 tx=7bdf5043
+t+686s BUY 0.030 @1.60e-8 w=0x262d…8cfa blk=130669518 tx=b4181045
+t+687s BUY 0.087 @1.63e-8 w=0x5e3c…c315 blk=130669520 tx=bcfa7869
+t+689s BUY 0.0050 @1.63e-8 w=0x9dd5…87c9 blk=130669524 tx=4cc05209
+t+690s BUY 0.049 @1.64e-8 w=0x3a13…6cdb blk=130669526 tx=e1d3000d
+t+690s BUY 0.0014 @1.64e-8 w=0x8677…411c blk=130669527 tx=13675bca
+t+691s BUY 0.020 @1.65e-8 w=0x2270…b902 blk=130669529 tx=4093f684
+t+692s BUY 0.0014 @1.65e-8 w=0x8677…411c blk=130669531 tx=c23ad0a5
+t+692s BUY 0.0071 @1.65e-8 w=0x487e…5c13 blk=130669531 tx=b460d2d9
+t+694s BUY 0.0014 @1.65e-8 w=0x8677…411c blk=130669535 tx=1f7421ae
+t+694s BUY 0.198 @1.72e-8 w=0xaa96…ac76 blk=130669536 tx=09aac9e4
+t+696s BUY 0.0014 @1.72e-8 w=0x8677…411c blk=130669540 tx=05c1d170
+t+697s BUY 0.0001 @1.72e-8 w=0x80c8…152e blk=130669542 tx=7005ec51
+t+697s BUY 0.0039 @1.72e-8 w=0x80c8…152e blk=130669542 tx=7005ec51
+t+699s BUY 0.050 @1.73e-8 w=0xd3e3…637a blk=130669547 tx=5e8b03ca
+t+707s BUY 0.0014 @1.73e-8 w=0x8677…411c blk=130669564 tx=c469b790
+t+708s BUY 0.0000 @1.73e-8 w=0x80c8…152e blk=130669567 tx=45ac0b45
+t+708s BUY 0.0038 @1.73e-8 w=0x80c8…152e blk=130669567 tx=45ac0b45
+t+717s BUY 0.051 @1.75e-8 w=0x7287…87ca blk=130669586 tx=dc2d0589
+t+717s BUY 0.0000 @1.75e-8 w=0x80c8…152e blk=130669587 tx=1c458e9b
+t+717s BUY 0.0038 @1.75e-8 w=0x80c8…152e blk=130669587 tx=1c458e9b
+t+721s BUY 0.016 @1.76e-8 w=0x8a51…4b04 blk=130669596 tx=0934956f
+t+724s SELL 0.227 @1.68e-8 w=0xd69d…aae5 blk=130669603 tx=4939a430
+t+725s SELL 0.158 @1.62e-8 w=0xb4f5…d582 blk=130669605 tx=6872dd55
+t+729s BUY 0.0000 @1.62e-8 w=0x80c8…152e blk=130669612 tx=b20e896d
+t+729s BUY 0.0038 @1.63e-8 w=0x80c8…152e blk=130669612 tx=b20e896d
+t+729s SELL 0.132 @1.58e-8 w=0x8adf…a0de blk=130669612 tx=75290212
+t+729s SELL 0.124 @1.54e-8 w=0x0614…a692 blk=130669612 tx=c78e32fb
+t+730s SELL 0.048 @1.52e-8 w=0x8899…3625 blk=130669615 tx=a9477fb7
+t+730s BUY 0.0071 @1.53e-8 w=0x8677…411c blk=130669616 tx=1597703e
+t+730s BUY 0.014 @1.53e-8 w=0xa4ce…b
