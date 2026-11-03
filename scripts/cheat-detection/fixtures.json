@@ -331,12 +331,12 @@
         "tickCount": 34
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "healthy"
       },
-      "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买25/卖9 Σ买5.26BNB 钱包20 top1=9.4% churn6 同块簇2 等额簇1）；expect=判读现状待 review；10-30 review 用户翻案裁定：「强庄盘，散户参与」——creator df22…4669（谱系第三票：CD23/CD15/CD21 三票全 unhealthy 庄掌控族）；t+2-3 九钱包 0.14-0.23 密集铺场（9a92/bc5d 0.2323×2 同额对）→t+7 同块五钱包同步卖回波（4d2a/ef5c/3cb4/f674 @blk130553886）+creator t+6/12/15 三段卖 0.77 分批非崩；t+21-24 二浪大单（feef 0.5442/90c9 0.4950/bc71 0.4526）推升 6.3e-9→1.7e-8 未收割；0.1320×3（77e5/182c/496f=sybil 全员，CD23/CD31 后第三现）+a440/4c5f 双名单对 0.0880×2+c3c9（0x9049 班底）在场；@锚90 45 钱包 top1 7.6% churn11 router 54.2%=散户参与注记；机器 cheat 主源=同块卖回波+簇名单命中——强庄+散户并存=unhealthy（CD23 同族；散户参与若视为决定项可改判 healthy，CD31 先例，留 borderline）",
+      "note": "aed2091d 首买基线收录（锚=34=首笔成功买+settle4000ms；买25/卖9 Σ买5.26BNB 钱包20 top1=9.4% churn6 同块簇2 等额簇1）；expect=判读现状待 review；10-30 review 用户翻案裁定：「强庄盘，散户参与」——creator df22…4669（谱系第三票：CD23/CD15/CD21 三票全 unhealthy 庄掌控族）；t+2-3 九钱包 0.14-0.23 密集铺场（9a92/bc5d 0.2323×2 同额对）→t+7 同块五钱包同步卖回波（4d2a/ef5c/3cb4/f674 @blk130553886）+creator t+6/12/15 三段卖 0.77 分批非崩；t+21-24 二浪大单（feef 0.5442/90c9 0.4950/bc71 0.4526）推升 6.3e-9→1.7e-8 未收割；0.1320×3（77e5/182c/496f=sybil 全员，CD23/CD31 后第三现）+a440/4c5f 双名单对 0.0880×2+c3c9（0x9049 班底）在场；@锚90 45 钱包 top1 7.6% churn11 router 54.2%=散户参与注记；机器 cheat 主源=同块卖回波+簇名单命中——强庄+散户并存=unhealthy（CD23 同族；散户参与若视为决定项可改判 healthy，CD31 先例，留 borderline）；11-03 全量回归 review 改判 healthy=强庄币豁免方向种子票（庄家拉盘意图>作弊形状，强庄币锚立项见当日分析）",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 翻案：「强庄盘，散户参与」——主词强庄=庄掌控族 unhealthy；同块五钱包卖回波+creator 分批卖+二浪推升未收割，散户在场作注记（borderline 留口）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 全量回归 review 用户裁定改判 healthy：「强庄币——看起来作弊，其实庄家前期想拉盘」——10-30 borderline 留口（散户参与若视为决定项可改判 healthy）本日收口；强庄币锚立项三种子票之一（CD21=豁免方向样本）"
     },
     {
       "caseId": "CD22",
@@ -1147,12 +1147,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
-      "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.84BNB 钱包19 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review",
+      "note": "aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.84BNB 钱包19 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review；11-03 裁定 cheat（尖刺+等额+泵三 strong）——强庄币锚立项反方向样本（与 CD21 同为强庄形态、裁定相反=锚判据的标注数据）",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=19=首笔成功买+settle4000ms；买19/卖0 Σ买1.84BNB 钱包19 top1=32.5% churn0 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 全量回归 review 用户裁定：「CD72 毫无疑问是 cheat」——D3.51 尖刺 58.3/58.3+等额分仓+缓拉泵三 strong、abr 0.95 顶格；同日定性强庄币（拉盘意图）但维持拉黑=强庄币锚立项反方向样本（豁免≠全部强庄，CD21 对比基准）"
     },
     {
       "caseId": "CD73",
