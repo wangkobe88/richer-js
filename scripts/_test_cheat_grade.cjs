@@ -57,7 +57,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G13', '版本常量 G13（改规则必须 bump+同步台账+跑黄金集；G13=D3.39 R 通道改制 abnormal_behavior_ratio=dominant→unhealthy R_abnormal_dominant 无罪推定，CD136；G12=D3.35 R 通道 minimal_genuine→unhealthy，CD135）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G14', '版本常量 G14（改规则必须 bump+同步台账+跑黄金集；G14=M 通道超高活跃度 ultra→unhealthy M_hyper_activity（CD138 sniper 两口径否证后活跃度档本身即载体，接受 Mamesuke 错杀）；G13=D3.39 R 通道改制 abnormal_behavior_ratio=dominant→unhealthy R_abnormal_dominant 无罪推定，CD136）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance'),
     `八主判=四现象剔 cr + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道，实际 ${MAIN_IDS.join(',')}）`);
@@ -411,6 +411,37 @@ function main() {
     obsAnchor.anchors.sameAmountWalletPct = 66.7;
     ok(grade(obsAnchor, { famousLevel: null }).grade === 'healthy',
       'R 侧锚反证：协同买入参考四键纯参考——数值在场无档位不触发（无硬标准，判读全交 abnormal_behavior_ratio 档）');
+  }
+
+  console.log('M. 超高活跃度通道（G14 新增，CD138/2026-11-03 v68 成交票扩集第一批——activity_level=ultra→unhealthy M_hyper_activity 拒买级。用户裁定「CD138 活跃度过高我建议给 unhealthy……我给 unhealthy」+sniper 两口径否证（跨盘画像 isSniperProfile 命中 meme 0.1% 买入反而 Mamesuke 42.8%；创建后 ≤10s 首买覆盖 meme 73% vs Mamesuke 91%=打新盘全员早期买入常态）后续「就超高活跃度 unhealthy 吧」「接受 Mamesuke 错杀」：定线 v68 20 票 ultra 六票 ticksPerMin 86.7-436、high 档最高 65.5 断崖清晰——「过度密集/活跃度太过」载体就是活跃度档本身；与 E 通道 act=low 对称（Jev 判档、代码只映射动作）；已知代价=CD141 Mamesuke（86.67/min ultra@0.50 人工 healthy）被错杀——用户明示接受（拒买可重判）');
+  {
+    const mkA = (bucket) => {
+      const o = baseObs();
+      if (bucket !== null) o.activityLevel = { bucket, prob: 0.7 };
+      return o;
+    };
+    const rU = grade(mkA('ultra'), { famousLevel: null });
+    ok(rU.grade === 'unhealthy' && rU.reasons.some((x) => x.code === 'M_hyper_activity' && x.level === 'unhealthy'),
+      'M：ultra → unhealthy M_hyper_activity（拒买级非拉黑级——CD134 缺省门留重判域，不用尽不拉黑）');
+    ok(grade(mkA('mid'), { famousLevel: null }).grade === 'healthy'
+      && grade(mkA('high'), { famousLevel: null }).grade === 'healthy'
+      && grade(mkA('low'), { famousLevel: null }).grade !== 'healthy',
+      'M：mid/high 不触发（high 最高 65.5 ticks/min 断崖之下）；low 走 E 通道不受 M 影响（对称共存反证）');
+    ok(grade(mkA(null), { famousLevel: null }).grade === 'healthy',
+      'M：activityLevel null（题缺席/旧档断代）不触发（黄金集重放零变化防线）');
+    // Mamesuke 错杀锁定（G14 立法已知代价——ultra∧其余题档全弱照 unhealthy，用户明示接受）
+    const mamesuke = mkA('ultra');
+    mamesuke.phenomena.equal_amount_split = 'moderate';
+    withExt(mamesuke, 'holdings_balance', 'weak');
+    const rM = grade(mamesuke, { famousLevel: null });
+    ok(rM.grade === 'unhealthy' && rM.reasons.length === 1 && rM.reasons[0].code === 'M_hyper_activity',
+      'M：Mamesuke 错杀形状锁定（ultra@其余全 moderate/weak 无其他通道——仅 M 单留痕 unhealthy，2026-11-03 用户明示接受的立法代价）');
+    // 与 E 对称反证：同票 act 单值不可能双触发；ultra 票叠加 A cheat 取最重
+    const obsCheat = mkA('ultra');
+    withExt(obsCheat, 'wash_pair', 'strong');
+    const rCheat = grade(obsCheat, { famousLevel: null });
+    ok(rCheat.grade === 'cheat' && rCheat.reasons.some((x) => x.code === 'M_hyper_activity'),
+      'M+A 同中双留痕取最重 cheat（M 不遮蔽留痕；CD140 币安兄弟 ultra∧holdings strong 同构=unhealthy 多通道留痕）');
   }
 
   console.log('F.（G9/G10 退役反证）sbHold 纯数值不产档——G10 起门侧消费全撤（锚照产只喂 Jev/条件串）');

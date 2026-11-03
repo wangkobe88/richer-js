@@ -2065,6 +2065,326 @@
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
       "expectBecause": "用户 11-03 新增收录裁定：单向 pump 票（e3d00085 v67）期望 pump 能捕捉；D3.44 后机器 cheat[A_strong:slow_grind_pump]（pump=strong@0.70）与裁定一致"
+    },
+    {
+      "caseId": "CD138",
+      "symbol": "meme",
+      "addr": "0x2db8598edd6c865aed690af950f2f015038f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 109
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=109=首笔成功买+settle4000ms；买96/卖13 Σ买9.01BNB 钱包42 top1=21.3% churn4 同块簇10 等额簇7）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第一批裁定（v68 成交票扩集）：用户裁定原话「CD138 活跃度过高我建议给 unhealthy，可以分析下。也可以单独的立 sniper 锚，但是 GMGN 网站上有 sniper 的标记，但是我们自己的算法如何做这个锚？我给 unhealthy」——sbHold 73.9/组织买 71.7/act ultra（436 ticks/min）/钱包 42 买 96 笔全中「狙击手过度密集」观感，但十三题最高 moderate 无一 strong、sbHold 死指标门已随 G10/G11 退役=机器 healthy[clean] 与人工分歧（G9-G11 宁可放过不误伤的代价形状）；sniper 锚可行性分析进行中；sniper 两口径否证后立法 G14 M 通道（act=ultra→unhealthy M_hyper_activity）——机器翻 unhealthy 与人工裁定一致"
+    },
+    {
+      "caseId": "CD139",
+      "symbol": "梗",
+      "addr": "0x89e42b0bfe286b8f7f93c4c7e2bc65e6f8af7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=23=首笔成功买+settle4000ms；买20/卖3 Σ买2.91BNB 钱包19 top1=17.0% churn2 同块簇2 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第一批裁定（v68 成交票扩集）：用户裁定原话「CD139 unhealthy」——机器 unhealthy[A_downgrade_single_pump_burst] 一致（pump strong 唯一 strong+sbw burst+主判 moderate 2<3 降级豁免拒买级）；纯卖 68.7%/波买 2.21BNB 14 户 gap46s/act low"
+    },
+    {
+      "caseId": "CD140",
+      "symbol": "币安兄弟",
+      "addr": "0xab0ad29b9d701aa2607dbc5392aba032b33e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 71
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=71=首笔成功买+settle4000ms；买51/卖20 Σ买10.80BNB 钱包40 top1=12.9% churn17 同块簇10 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第一批裁定（v68 成交票扩集）：用户裁定原话「CD140 unhealthy」——机器 unhealthy[J_holdings_strong] 一致（holdings_balance strong；cr=strong 但 cr 方向 11-01 裁定关闭）；组织买 95.9/sbHold 87.1/eqHold 40.6「捆绑占比太多」实证；线上首析 21 tick unhealthy[R_minimal_genuine] 拒买①后 7.1s 被增量重判翻 healthy 放行=增量重判秒级翻案机制票（冷却待裁）"
+    },
+    {
+      "caseId": "CD141",
+      "symbol": "Mamesuke",
+      "addr": "0x5694d4462d2480a408d1e00356b225fcb82a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "67803108 首买基线收录（锚=26=首笔成功买+settle4000ms；买22/卖4 Σ买1.92BNB 钱包21 top1=26.1% churn4 同块簇2 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第一批裁定（v68 成交票扩集）：用户裁定原话「CD141 healthy」——机器 healthy 一致（全题 moderate/weak 无 strong、abn noticeable 未过 R 线；1.92BNB/21 钱包小盘）；后续 G14 M 通道立法（用户裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀」）机器翻 unhealthy[M_hyper_activity]=已接受错杀（expect healthy 保持人工意图，此票为已知分歧）"
+    },
+    {
+      "caseId": "CD142",
+      "symbol": "CZ",
+      "addr": "0x8fef738d4a5c4cdc312cf53f949fb57e8a557777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 35
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=35=首笔成功买+settle4000ms；买27/卖8 Σ买5.18BNB 钱包26 top1=19.3% churn4 同块簇3 等额簇5）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第一批裁定（v68 成交票扩集）：用户裁定原话「CD142 unhealthy」——机器 unhealthy[R_abnormal_dominant] 一致（十三题全 moderate 无 strong 但异常行为 dominant@0.55 被 G13 新 R 通道接住=R 通道价值票；sbHold 67.8/eqHold 61.8 双高）"
+    },
+    {
+      "caseId": "CD143",
+      "symbol": "趙信",
+      "addr": "0xdda4a603cba0af6f943c5fa28a1308660dd37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 39
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "67803108 首买基线收录（锚=39=首笔成功买+settle4000ms；买33/卖6 Σ买2.69BNB 钱包26 top1=15.2% churn5 同块簇4 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第一批裁定（v68 成交票扩集）：用户裁定原话「CD143 cheat」——机器 cheat[A_strong:pump] 一致（pump strong+holdings strong+abn dominant 三共振；sbHold 81.1/组织买 89.3/纯卖 50.8%）"
+    },
+    {
+      "caseId": "CD144",
+      "symbol": "比格多栋",
+      "addr": "0xe4fe922f88c09cbe127cebfa25f84d2f00917777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=17=首笔成功买+settle4000ms；买15/卖2 Σ买1.60BNB 钱包15 top1=18.8% churn2 同块簇2 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第二批裁定（v68 成交票扩集 CD144-CD149 六票）：用户最终立法裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀；其它的机器结论全部接受。」——六票机器结论全部接受。机器 unhealthy[R_abnormal_dominant]（abn dominant 过线）"
+    },
+    {
+      "caseId": "CD145",
+      "symbol": "PaperDog",
+      "addr": "0xc5432ededd3fae68f0859dfda98d5ceb62fa7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 48
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=48=首笔成功买+settle4000ms；买30/卖18 Σ买2.43BNB 钱包28 top1=9.4% churn8 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第二批裁定（v68 成交票扩集 CD144-CD149 六票）：用户最终立法裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀；其它的机器结论全部接受。」——六票机器结论全部接受。机器 unhealthy[E_low_activity_weak_burst]（act low + 弱 burst 豁免三键未全中）"
+    },
+    {
+      "caseId": "CD146",
+      "symbol": "ZDONUT",
+      "addr": "0xe1ec60fee5c2ea3264795eddd28bb60929a47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=25=首笔成功买+settle4000ms；买14/卖11 Σ买1.48BNB 钱包13 top1=13.4% churn5 同块簇0 等额簇0）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第二批裁定（v68 成交票扩集 CD144-CD149 六票）：用户最终立法裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀；其它的机器结论全部接受。」——六票机器结论全部接受。机器 unhealthy[E_low_activity]（act low 无 burst）"
+    },
+    {
+      "caseId": "CD147",
+      "symbol": "不服猫",
+      "addr": "0x7554069bfc4318537be0b20508a9f5a25ff97777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=27=首笔成功买+settle4000ms；买18/卖9 Σ买2.09BNB 钱包18 top1=16.8% churn6 同块簇4 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第二批裁定（v68 成交票扩集 CD144-CD149 六票）：用户最终立法裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀；其它的机器结论全部接受。」——六票机器结论全部接受。机器 unhealthy[J_holdings_strong]（holdings_balance strong）"
+    },
+    {
+      "caseId": "CD148",
+      "symbol": "Carl",
+      "addr": "0x5f2d417bf1714bda25c86a5abd0ebfcf200b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 47
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=47=首笔成功买+settle4000ms；买22/卖25 Σ买3.68BNB 钱包23 top1=14.7% churn10 同块簇2 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第二批裁定（v68 成交票扩集 CD144-CD149 六票）：用户最终立法裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀；其它的机器结论全部接受。」——六票机器结论全部接受。机器 unhealthy[E_low_activity,R_abnormal_dominant]"
+    },
+    {
+      "caseId": "CD149",
+      "symbol": "DPRKaptcha",
+      "addr": "0xedb84d75ce53cafd71b5696a97dcbeeec0957777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 124
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "67803108 首买基线收录（锚=124=首笔成功买+settle4000ms；买75/卖49 Σ买8.22BNB 钱包73 top1=8.4% churn32 同块簇6 等额簇8）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 第二批裁定（v68 成交票扩集 CD144-CD149 六票）：用户最终立法裁定原话「『超高活跃度 → unhealthy』没问题，接受 Mamesuke 错杀；其它的机器结论全部接受。」——六票机器结论全部接受。机器 unhealthy[J_holdings_strong,R_abnormal_dominant]（G14 起 act=ultra 另加 M_hyper_activity 留痕取最重不变）"
+    },
+    {
+      "caseId": "CD150",
+      "symbol": "万梗捏",
+      "addr": "0x51e922af22a08c2590c36cc023749b6e69b67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买1.82BNB 钱包21 top1=10.9% churn5 同块簇4 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买1.82BNB 钱包21 top1=10.9% churn5 同块簇4 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD151",
+      "symbol": "Cookie Monster",
+      "addr": "0xe27b7d51a37785de20345d0c05a8b039944e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=22=首笔成功买+settle4000ms；买19/卖3 Σ买1.59BNB 钱包19 top1=42.0% churn3 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=22=首笔成功买+settle4000ms；买19/卖3 Σ买1.59BNB 钱包19 top1=42.0% churn3 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD152",
+      "symbol": "凯伦",
+      "addr": "0x07f12d2bb2947490474c6ca626f26f53d4857777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 46
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=46=首笔成功买+settle4000ms；买31/卖15 Σ买3.66BNB 钱包30 top1=15.0% churn10 同块簇6 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=46=首笔成功买+settle4000ms；买31/卖15 Σ买3.66BNB 钱包30 top1=15.0% churn10 同块簇6 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD153",
+      "symbol": "小旺",
+      "addr": "0x4b9934035ff43d1d7194d715e983be5073687777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 13
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=13=首笔成功买+settle4000ms；买12/卖1 Σ买1.26BNB 钱包12 top1=11.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=13=首笔成功买+settle4000ms；买12/卖1 Σ买1.26BNB 钱包12 top1=11.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD154",
+      "symbol": "Gidget",
+      "addr": "0x4606dad8f82b5326f5e06fdafcd50af9c14a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=42=首笔成功买+settle4000ms；买39/卖3 Σ买2.32BNB 钱包37 top1=25.9% churn3 同块簇2 等额簇3）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=42=首笔成功买+settle4000ms；买39/卖3 Σ买2.32BNB 钱包37 top1=25.9% churn3 同块簇2 等额簇3）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD155",
+      "symbol": "Rollo",
+      "addr": "0xce4e7101981b87c76c6863609adbe6baa4397777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 35
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=35=首笔成功买+settle4000ms；买33/卖2 Σ买2.32BNB 钱包31 top1=25.8% churn2 同块簇1 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=35=首笔成功买+settle4000ms；买33/卖2 Σ买2.32BNB 钱包31 top1=25.8% churn2 同块簇1 等额簇2）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD156",
+      "symbol": "球球",
+      "addr": "0x3f29f8fb55af79b8fdb087cdf5373e61627b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 36
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买18/卖18 Σ买3.16BNB 钱包18 top1=18.8% churn11 同块簇1 等额簇1）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买18/卖18 Σ买3.16BNB 钱包18 top1=18.8% churn11 同块簇1 等额簇1）；expect=判读现状待 review）"
+    },
+    {
+      "caseId": "CD157",
+      "symbol": "가나",
+      "addr": "0x1ecae3395d37bc6626e4ca61eb291a37614e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 36
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买29/卖7 Σ买1.91BNB 钱包29 top1=10.3% churn2 同块簇1 等额簇2）；expect=判读现状待 review",
+      "addedAt": "2026-11-03",
+      "expectSince": "2026-11-03",
+      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=36=首笔成功买+settle4000ms；买29/卖7 Σ买1.91BNB 钱包29 top1=10.3% churn2 同块簇1 等额簇2）；expect=判读现状待 review）"
     }
   ]
 }

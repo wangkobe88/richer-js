@@ -9,7 +9,22 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G13=G12 R 通道改制，2026-11-03 用户裁定理念重构+改名——原话「这个
+ * 规则（G14=G13+M 通道超高活跃度，2026-11-03 v68 成交票扩集第一批 CD138 立项
+ * ——用户裁定原话「CD138 活跃度过高我建议给 unhealthy，可以分析下。也可以
+ * 单独的立 sniper 锚，但是 GMGN 网站上有 sniper 的标记，但是我们自己的算法
+ * 如何做这个锚？我给 unhealthy」+ sniper 两口径否证（跨盘画像 isSniperProfile
+ * 命中 meme 仅 0.1% 买入反而人工 healthy 的 Mamesuke 42.8%；创建后 ≤10s 首买
+ * 覆盖 meme 73% vs Mamesuke 91%=打新盘全员早期买入是常态，GMGN sniper 徽标=
+ * per-token 早期买入标记非跨盘画像）后续裁定「对，我们的这个不太好用。如果
+ * 没有太好的办法，就超高活跃度 unhealthy 吧」+「『超高活跃度 → unhealthy』
+ * 没问题，接受 Mamesuke 错杀」）：
+ *   M. activity_level=ultra → unhealthy 留痕 M_hyper_activity
+ * 定线（v68 20 票）：ultra 六票 ticksPerMin 86.7-436、high 档最高 65.5 断崖
+ * 清晰；「过度密集/活跃度太过」的载体就是活跃度档本身。已知代价=CD141
+ * Mamesuke（86.67/min ultra@0.50 人工 healthy）被错杀——用户明示接受（拒买
+ * 可重判）。七通道=A/D/E/J/L/R/M（M 与 E act=low 对称：Jev 判档、代码只映射
+ * 交易动作；act 档 null 断代不触发，mid/high 不触发）。
+ * 此前 G13=G12 R 通道改制，2026-11-03 用户裁定理念重构+改名——原话「这个
  * 模块的问题在于“需要证明有真实用户参与”，但是这个理念是不对的，我认为
  * 应该改为 “异常行为识别与比例计算”，明确它要做的事情，并且不作有罪推定。
  * 就是说，如果交易序列不能明显看出有问题，不需要去证明自己一定是“真实
@@ -25,7 +40,7 @@
  * 不触发（黄金集旧档重放零变化））=拒买级非拉黑级（unhealthy 留重判域
  * CD134 缺省门，不用尽不拉黑——「宁可放过」基调）。**独立通道不进 A 主判**
  * ——综合结论与单现象 strong 证据链不同类（A 管单现象铁证拉黑，R 管整体
- * 异常占比拒买，取最重 cheat 仍压 unhealthy）。六通道=A/D/E/J/L/R。
+ * 异常占比拒买，取最重 cheat 仍压 unhealthy）。
  * 此前 G12=G11+R 通道真实参与度，2026-11-02 用户裁定「将 Jev 转化为一个真实
  * 的交易者」——D3.35 新增第 14 题 real_participation（四桶 mostly_genuine/
  * meaningful_genuine/minimal_genuine/unclear，Jev 以 BSC meme 狙击交易者身份
@@ -224,7 +239,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G13';
+const CHEAT_GRADE_RULES_VERSION = 'G14';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -509,6 +524,27 @@ function gradeObservation(observation, extras = {}) {
     ? obs.abnormalBehavior.bucket : null;
   if (pt === 'dominant') {
     reasons.push({ level: 'unhealthy', code: 'R_abnormal_dominant' });
+  }
+
+  // M：超高活跃度（G14，2026-11-03 v68 成交票扩集 CD138 立项——用户裁定原话
+  // 「CD138 活跃度过高我建议给 unhealthy，可以分析下。也可以单独的立 sniper 锚，
+  // 但是 GMGN 网站上有 sniper 的标记，但是我们自己的算法如何做这个锚？我给
+  // unhealthy」+ sniper 两口径否证后续裁定「对，我们的这个不太好用。如果没有
+  // 太好的办法，就超高活跃度 unhealthy 吧」「『超高活跃度 → unhealthy』没问题，
+  // 接受 Mamesuke 错杀」）：activity_level=ultra → unhealthy 留痕 M_hyper_activity。
+  // 定线（v68 20 票）：ultra 六票 ticksPerMin 86.7-436（meme 436/币安兄弟 250.6/
+  // 凯伦 153.3/DPRKaptcha 124/CZ 100/Mamesuke 86.7；high 档最高 65.5 断崖清晰）；
+  // sniper 两口径均无区分度——跨盘画像 isSniperProfile（tokenCount≥100+闪进闪出）
+  // 命中 meme 仅 0.1% 买入反而人工 healthy 的 Mamesuke 42.8%、가나 36.2%；创建后
+  // ≤10s 首买覆盖 meme 73% vs Mamesuke 91%（职业 sniper 打新与打新盘全员早期买入
+  // 都是常态，GMGN sniper 徽标=per-token 早期买入标记非跨盘画像）→「过度密集/
+  // 活跃度太过」的载体就是活跃度档本身。**已知代价=CD141 Mamesuke（86.67
+  // ticks/min ultra@0.50、人工 healthy、1.92 BNB 小盘）被错杀——用户明示接受**
+  // （unhealthy=拒买可重判，CD134 缺省门留重判域）。与 E 通道 act=low 对称
+  // （Jev 判档、代码只映射交易动作，D3.5 边界）；act 档 null（题缺席/旧档断代）
+  // 不触发；mid/high 不触发
+  if (act === 'ultra') {
+    reasons.push({ level: 'unhealthy', code: 'M_hyper_activity' });
   }
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'
