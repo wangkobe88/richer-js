@@ -373,6 +373,9 @@ class CheatCheckService {
           burstWaveWallets: snapshot.derived.burstWaveWallets,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
+          // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
+          // 伤害量级标尺（additive：观察/审计键，无门侧消费）
+          noBuySellVolumePct: snapshot.derived.noBuySellVolumePct,
           // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前
           // real_participation）参考数值非门槛，头注见
           // snapshot）+ 创建者曾持峰值锚（holdings_balance 补腿；无 BUY 行=null
@@ -458,7 +461,7 @@ class CheatCheckService {
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
         ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}${snapshot.derived.famousFollowerTop3Pct !== null && snapshot.derived.famousFollowerTop3Pct !== undefined ? ` top3:${snapshot.derived.famousFollowerTop3Pct}%` : ''}` +
         ` 组织买=${snapshot.derived.bundleBuyPct ?? '—'}%/${snapshot.derived.famousGroupBuyPct ?? '—'}%(簇/famous集团)` +
-        ` 纯卖=${snapshot.derived.noBuySellPct ?? '—'}%` +
+        ` 纯卖=${snapshot.derived.noBuySellPct ?? '—'}%/量${snapshot.derived.noBuySellVolumePct ?? '—'}%` +
         (obs.extLevels.stall_burst_wave === 'burst'
           ? ` 波=买${snapshot.derived.burstWaveBuyBnb ?? '—'}/${snapshot.derived.burstWaveWallets ?? '—'}户/gap${snapshot.derived.maxGapSec ?? '—'}s`
           : '') +

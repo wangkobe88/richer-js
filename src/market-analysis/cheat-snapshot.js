@@ -256,6 +256,14 @@ function computeDerived(snapshot, famousRoster) {
     if (sell > 0) { noBuySellBnb += sell; noBuySellWallets++; }
   }
   const noBuySellPct = totalSellBnb > 0 ? +((noBuySellBnb / totalSellBnb) * 100).toFixed(1) : null;
+  // ── D3.50 总交易量占比（零买纯卖 ÷ 买+卖合计）：insider 题⑤「单钱包隐藏筹码」
+  // 豁免的伤害量级标尺——用户裁定「看老鼠仓卖出在总交易量中比例吧，如果占比小，
+  // 没事」（2026-11-03 CD73 边界案：单一钱包两笔 0.65 BNB 占总卖 77.1% 扎眼、
+  // 但占买+卖合计仅 13.6%=买盘正常吸收；÷总卖口径在死卖盘天然虚高，÷买+卖才
+  // 是对盘面的实际分量）。总交易量=0 → null（同 noBuySellPct 语义；总卖>0 ⟹
+  // 总量>0，行渲染时恒有值）。──
+  const totalVolumeBnb = totalBuyBnb + totalSellBnb;
+  const noBuySellVolumePct = totalVolumeBnb > 0 ? +((noBuySellBnb / totalVolumeBnb) * 100).toFixed(1) : null;
 
   // ── 同块买入簇（≥SAME_BLOCK_CLUSTER_MIN 笔买同块）──
   const blockBuys = new Map();
@@ -878,7 +886,7 @@ function computeDerived(snapshot, famousRoster) {
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec, idlePct,
     burstWaveBuyBnb, burstWaveWallets,
-    noBuySellPct, noBuySellBnb, noBuySellWallets,
+    noBuySellPct, noBuySellBnb, noBuySellWallets, noBuySellVolumePct,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,

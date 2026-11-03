@@ -524,6 +524,9 @@ async function main() {
       'analyzed 带 G8 四新锚键（在場断言；实际 ' + JSON.stringify(Object.keys(r1.anchors)) + '）');
     ok(r1.anchors.noBuySellPct === 0,
       `纯卖=0 有证据零值（genTicks 十钱包均有买入、总卖 0.66>0 → 0 非 null——K 通道 0<40 不触发）（实际 ${r1.anchors.noBuySellPct}）`);
+    // D3.50 additive 观察键：纯卖占总交易量（买+卖）——insider ⑤伤害量级标尺
+    ok(r1.anchors.noBuySellVolumePct === 0,
+      `D3.50 纯卖占总交易量=0 有证据零值（noBuySellBnb=0、总交易量>0；观察/审计键无门侧消费）（实际 ${r1.anchors.noBuySellVolumePct}）`);
     ok(r1.anchors.burstWaveBuyBnb === 0.2 && r1.anchors.burstWaveWallets === 3
       && r1.anchors.burstMaxGapSec === 2,
       `burst 波精确值（最密 5s 窗=首三 tick 0/2/4s 两买一卖：买 0.1+0.1=0.2、去重 3 钱包；gap 全 2s）（实际 买${r1.anchors.burstWaveBuyBnb}/${r1.anchors.burstWaveWallets}户/gap${r1.anchors.burstMaxGapSec}s）`);

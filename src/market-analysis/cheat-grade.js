@@ -319,6 +319,9 @@ function levelsFromObservation(observation, extras = {}) {
     burstWaveBuyBnb: _pct(an.burstWaveBuyBnb),
     burstWaveWallets: _pct(an.burstWaveWallets),
     noBuySellPct: _pct(an.noBuySellPct),
+    // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
+    // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
+    noBuySellVolumePct: _pct(an.noBuySellVolumePct),
     // D3.35 协同买入参考四键 + 创建者曾持峰值（abnormal_behavior_ratio（D3.39 前
     // real_participation）/ holdings_balance
     // 补腿同源数值；参考锚非门——R 通道消费档位不消费数值）

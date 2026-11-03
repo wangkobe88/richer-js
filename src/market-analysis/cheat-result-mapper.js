@@ -244,6 +244,9 @@ function buildObservation(answers, anchors = null) {
       burstWaveBuyBnb: _anchorPct(anchors, 'burstWaveBuyBnb'),
       burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
       noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),
+      // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
+      // 伤害量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
+      noBuySellVolumePct: _anchorPct(anchors, 'noBuySellVolumePct'),
       // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）
       // 参考数值非门槛：最大单块
       // 买入笔数/占比/与前买块间隔秒 + 最大同档金额钱包去重占比；首买块前摇

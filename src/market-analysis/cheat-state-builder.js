@@ -101,9 +101,12 @@ function buildCheatState(snapshot) {
     // G8 零买入纯卖方数值行（2026-11-02 批次六 CD5「创建者通过代币转入方式卖出」
     // 裁定）：Transfer 事件不在采集域，链外分仓接收户在 swap 域只呈现「无买入
     // 来源的卖方」形状——数值事实行供 insider_supply_sell 题判档（档位仍 Jev，
-    // D3.5 边界不变；K/L 通道消费同源锚）；总卖=0 不渲染行（缺席语义）
+    // D3.5 边界不变；K/L 通道消费同源锚）；总卖=0 不渲染行（缺席语义）。
+    // D3.50（2026-11-03 CD73 边界案）行尾补「占窗口总交易量（买入+卖出合计）%」
+    // ——伤害量级标尺（÷总卖在死卖盘虚高，÷买+卖才是对盘面实际分量），insider
+    // 题⑤单钱包隐藏筹码豁免的判读原料；总卖>0 ⟹ 总量>0，行渲染时恒有值
     if (d.noBuySellPct !== null && d.noBuySellPct !== undefined) {
-      lines.push(`零买入纯卖方: ${d.noBuySellWallets} 个钱包（窗内零买入、只卖出）合计卖出 ${fmtBnb(d.noBuySellBnb)} BNB，占全部卖出 ${d.noBuySellPct.toFixed(1)}%（口径：钱包聚合已剔聚合路由伪钱包；是否存在链外转入分仓出货由你结合 insider_supply_sell 判断）`);
+      lines.push(`零买入纯卖方: ${d.noBuySellWallets} 个钱包（窗内零买入、只卖出）合计卖出 ${fmtBnb(d.noBuySellBnb)} BNB，占全部卖出 ${d.noBuySellPct.toFixed(1)}%，占窗口总交易量（买入+卖出合计）${d.noBuySellVolumePct.toFixed(1)}%（口径：钱包聚合已剔聚合路由伪钱包；是否存在链外转入分仓出货由你结合 insider_supply_sell 判断）`);
     }
     // D3.36 同档金额参考（D3.35 单块三键撤出 state 输入——2026-11-02 用户裁定
     // 「单块也是这个问题，如果这个数据给结果会造成困扰，我不建议放到数据输入中」：
