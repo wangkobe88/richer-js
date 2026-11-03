@@ -19,6 +19,19 @@
  * 重读因子重评，条件翻假依旧不卖）。minTicks=0（缺省）纯时间语义，存量
  * 行为 bit-identical。
  *
+ * tick 去重 + 腿级覆盖（T109 2026-11-03 0x89e4 flap 止损臂案）：
+ * - 同一笔链上 tick（txHash:logIndex）的重复 touch 零效应——FA 两段喂食
+ *   （processTick 价格段 + applyWalletTick wallet 段回推，resolver 开启时每笔
+ *   tick 各 emit 一次 factorsUpdated）会让卖腿评估对同一笔 tick 跑两次，旧实现
+ *   ticksSeen 双计把 minTicks 证据门稀释减半（事故现场：3 真笔 tick 凑满
+ *   minTicks=5 提前 fire）；identity 缺失（tick 无链上键）按独立证据计（旧语义）
+ * - tick=null（扫描兜底路径的快照评估）不是新 tick 证据：只推进时间门检查，
+ *   不再 ticksSeen++（旧实现会把 30s 扫描周期当证据凑数，违背「窗后新 tick
+ *   数」语义）；无 pending 时仍可起窗（maxWait 逃生链起点）
+ * - 腿级覆盖：touch 第三参 legOpts={minTicks, debounceMs, maxWaitMs}（卖腿
+ *   sellDebounce 段，T109）逐键回落构造缺省；**首真起算的 entry 固化当时的
+ *   effective 门**（窗口内不同腿命中 touch 不改门——防优先级竞争下门参数抖动）
+ *
  * 两种驱动模式（同 TickDebouncer 骨架）：
  * - real：setTimeout 驱动（实时引擎，wall-clock 到点即 fire）
  * - virtual：虚拟时钟驱动（回测引擎，每笔 tick 处理前 advance(tickTs) 推进）
@@ -28,12 +41,26 @@
  * 无法触发）；real 的 maxWait timer 兜底强制 fire——两模式的死票处置刻意不同。
  */
 
+/**
+ * tick 链上身份键：实时 collector tick=camelCase（txHash/logIndex）、回测 tick=
+ * snake_case（tx_hash/log_index，wss_price_ticks 行形状）——两条管线既定命名。
+ * 键缺失（tick=null 或无链上标识）→ null：无键 tick 对象按独立证据计（旧语义，
+ * 兼容无链上键的调用方），tick=null 由 touch 分支单独处理（非证据）。
+ */
+function tickIdentity(tick) {
+    if (!tick) return null;
+    const tx = tick.txHash || tick.tx_hash;
+    const li = tick.logIndex != null ? tick.logIndex : tick.log_index;
+    if (!tx || li == null) return null;
+    return `${tx}:${li}`;
+}
+
 class SellConfirmDebouncer {
   /**
    * @param {Object} opts
-   * @param {number} opts.debounceMs - 确认窗口（<=0 表示不去抖，touch 即 fire）
-   * @param {number} [opts.minTicks=0] - 确认所需的窗后新 tick 数（<=0 纯时间语义）
-   * @param {number} [opts.maxWaitMs=120000] - minTicks>0 时的强制逃生上限（<=0 无上限）
+   * @param {number} opts.debounceMs - 确认窗口（<=0 表示不去抖，touch 即 fire；引擎级缺省，腿级可覆盖）
+   * @param {number} [opts.minTicks=0] - 确认所需的窗后新 tick 数（<=0 纯时间语义；引擎级缺省，腿级可覆盖）
+   * @param {number} [opts.maxWaitMs=120000] - minTicks>0 时的强制逃生上限（<=0 无上限；引擎级缺省，腿级可覆盖）
    * @param {string} opts.mode - 'real' | 'virtual'
    * @param {Function} opts.onFire - (tokenAddress, tick, fireTs) => void
    */
@@ -44,30 +71,42 @@ class SellConfirmDebouncer {
     this._mode = mode;
     this._onFire = onFire;
     this.pending = new Map(); // tokenAddress → entry
-    this.stats = { fired: 0, suppressed: 0, forceFired: 0 };
-  }
-
-  /** 强制门是否武装（仅 minTicks 生效时有意义） */
-  get _armed() {
-    return this._minTicks > 0;
+    this.stats = { fired: 0, suppressed: 0, forceFired: 0, deduped: 0 };
   }
 
   /**
    * 注册一次卖出条件为真（首真起计，后续真 tick 不重置、只凑证据数）。
    * @param {string} tokenAddress
-   * @param {Object} tick - virtual 模式必须带 timestamp(ms)；real 模式任意（透传给 onFire）
+   * @param {Object|null} tick - virtual 模式必须带 timestamp(ms)；real 模式任意（透传给 onFire）；
+   *   null=扫描兜底路径的快照评估（非 tick 证据，T109）
+   * @param {Object} [legOpts] - 腿级覆盖（T109 sellDebounce 段）：{minTicks, debounceMs,
+   *   maxWaitMs} 逐键回落构造缺省；首真起算时固化进 entry，已 pending 的 touch 忽略
    */
-  touch(tokenAddress, tick) {
-    if (this._debounceMs <= 0) {
+  touch(tokenAddress, tick, legOpts) {
+    const opt = legOpts || {};
+    const debounceMs = opt.debounceMs != null ? opt.debounceMs : this._debounceMs;
+    if (debounceMs <= 0) {
       this.stats.fired++;
       this._onFire(tokenAddress, tick, this._mode === 'virtual' ? tick.timestamp : Date.now());
       return;
     }
+    const minTicks = opt.minTicks != null ? opt.minTicks : this._minTicks;
+    const maxWaitMs = opt.maxWaitMs != null ? opt.maxWaitMs : this._maxWaitMs;
+    const key = tickIdentity(tick);
 
     const existing = this.pending.get(tokenAddress);
     if (existing) {
+      // T109 同 tick 双投递零效应：同一笔链上交易不是两份证据（两段喂食反证修复）
+      if (key != null && key === existing.lastTickKey) {
+        this.stats.deduped++;
+        return;
+      }
       this.stats.suppressed++; // 已 pending：不重置（让首真 tick 满期）
-      existing.ticksSeen++;
+      // tick=null（扫描快照评估）不计证据；有键/无键 tick 对象均计（见 tickIdentity 注）
+      if (tick != null) {
+        existing.ticksSeen++;
+        existing.lastTickKey = key;
+      }
       if (this._mode === 'real') {
         // 双门即时检查：时间窗已过且证据凑齐 → fire（debounce timer 到点但证据
         // 不足转等待后的唯一补 fire 路径；时间未到则等 debounce timer）
@@ -77,33 +116,39 @@ class SellConfirmDebouncer {
     }
 
     if (this._mode === 'virtual') {
-      this.pending.set(tokenAddress, { startTs: tick.timestamp, ticksSeen: 0, tick });
+      if (tick == null) return; // 扫描快照评估无 timestamp：virtual 时钟无法起算，no-op
+      this.pending.set(tokenAddress, {
+        startTs: tick.timestamp, ticksSeen: 0, tick, lastTickKey: key,
+        debounceMs, minTicks, maxWaitMs, armed: minTicks > 0,
+      });
       return;
     }
 
-    // real 模式：timer 驱动
+    // real 模式：timer 驱动；entry 固化腿级 effective 门（T109）
     const now = Date.now();
-    const entry = { startTs: now, ticksSeen: 0, tick, debounceTimer: null, maxTimer: null };
+    const entry = { startTs: now, ticksSeen: 0, tick, debounceTimer: null, maxTimer: null,
+      lastTickKey: key, debounceMs, minTicks, maxWaitMs, armed: minTicks > 0 };
     entry.debounceTimer = setTimeout(() => {
       // 时间窗到点：证据已凑齐 → fire；不足 → 转等待（后续 touch 补 fire，maxTimer 兜底）
       this._tryFire(tokenAddress, entry, Date.now(), false);
-    }, this._debounceMs);
-    if (this._armed && this._maxWaitMs > 0) {
+    }, entry.debounceMs);
+    if (entry.armed && entry.maxWaitMs > 0) {
       entry.maxTimer = setTimeout(() => {
         this._fire(tokenAddress, entry, Date.now(), true);
-      }, this._maxWaitMs);
+      }, entry.maxWaitMs);
     }
     this.pending.set(tokenAddress, entry);
   }
 
   /**
    * 双门检查：时间窗已过 AND 证据凑齐才 fire（minTicks=0 时等价纯时间门）。
-   * fire 前清两个 timer（fire 与 pending 删除原子成对）。
+   * 门参数读 entry（T109 腿级固化），构造值只作首真缺省。fire 前清两个 timer
+   * （fire 与 pending 删除原子成对）。
    */
   _tryFire(tokenAddress, entry, now, force) {
     const elapsed = now - entry.startTs;
-    const timeOk = elapsed >= this._debounceMs;
-    const ticksOk = !this._armed || entry.ticksSeen >= this._minTicks;
+    const timeOk = elapsed >= entry.debounceMs;
+    const ticksOk = !entry.armed || entry.ticksSeen >= entry.minTicks;
     if (force || (timeOk && ticksOk)) {
       this._fire(tokenAddress, entry, now, force);
     }
@@ -127,7 +172,7 @@ class SellConfirmDebouncer {
     if (this._mode !== 'virtual') return;
     for (const [tokenAddress, e] of [...this.pending]) {
       this._tryFire(tokenAddress, e, nowTs,
-        this._armed && this._maxWaitMs > 0 && (nowTs - e.startTs) >= this._maxWaitMs);
+        e.armed && e.maxWaitMs > 0 && (nowTs - e.startTs) >= e.maxWaitMs);
     }
   }
 

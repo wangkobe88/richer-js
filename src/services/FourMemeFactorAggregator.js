@@ -1128,6 +1128,10 @@ class FourMemeFactorAggregator extends EventEmitter {
                         price_usd: tick.price_usd || null,
                         block_number: blockNumber, // TPA blocks 时间门用（回迁批 4；null=本 tick 无块证据）
                         timestamp: ts,
+                        // 链上标识透传（T109 卖确认 tick 去重）：两段喂食（价格段/wallet 段）
+                        // 对同一笔 tick 各 emit 一次，消费侧按 tx_hash:log_index 去重防证据双计
+                        tx_hash: tick.tx_hash || null,
+                        log_index: tick.log_index != null ? tick.log_index : null,
                     },
                     tokenState: state,
                 });
@@ -1407,6 +1411,9 @@ class FourMemeFactorAggregator extends EventEmitter {
                         price_usd: tick.price_usd || null,
                         block_number: blockNumber,
                         timestamp: tick.timestamp,
+                        // 链上标识透传（T109 卖确认 tick 去重，同 processTick emit 段注）
+                        tx_hash: tick.tx_hash || null,
+                        log_index: tick.log_index != null ? tick.log_index : null,
                     },
                     tokenState: state,
                 });

@@ -28,6 +28,48 @@ function normalizeCards(raw, action) {
     return null;
 }
 
+/**
+ * 卖腿确认去抖覆盖段归一化（T109 2026-11-03 0x89e4 flap 止损臂案）：
+ * 腿携带 sellDebounce 段（仅卖腿）逐键覆盖引擎级缺省（fourmemeWs/flapWs 的
+ * sellDebounceMs/sellDebounceMinTicks/sellDebounceMaxWaitMs），缺键回落——
+ * 止损臂可单独加严窗后新 tick 证据门（minTicks）。
+ * 形状：plain object，键白名单 {minTicks, debounceMs, maxWaitMs}，值为数值
+ * （UI 字符串归 Number）；null/undefined 值=显式回落。空段 {}=等价未配 → null。
+ * 非法形状/未知键/越界值 → error 字符串（loadStrategies throw 拒启 /
+ * StrategyLibraryService.validateLegs 400，与 buyPhase T100 同款 fail-fast：
+ * 配置错误显式报错优于静默忽略）。
+ * @param {*} raw - 腿配置原始值
+ * @returns {{normalized: Object|null, error: string|null}}
+ */
+function normalizeSellDebounce(raw) {
+    if (raw == null) return { normalized: null, error: null };
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        return { normalized: null, error: `sellDebounce 必须是对象（键：minTicks/debounceMs/maxWaitMs），实际 ${JSON.stringify(raw)}` };
+    }
+    // [下限, 上限, 须整数]：minTicks 证据门 0-1000；两时长 0-600000ms（10min）
+    const LIMITS = {
+        minTicks: [0, 1000, true],
+        debounceMs: [0, 600000, false],
+        maxWaitMs: [0, 600000, false],
+    };
+    const out = {};
+    for (const k of Object.keys(raw)) {
+        const lim = LIMITS[k];
+        if (!lim) {
+            return { normalized: null, error: `sellDebounce 未知键 "${k}"（仅支持 minTicks/debounceMs/maxWaitMs）` };
+        }
+        const v = raw[k];
+        if (v == null) continue; // 显式 null/undefined=回落引擎级
+        const n = Number(v);
+        const [lo, hi, intOnly] = lim;
+        if (!Number.isFinite(n) || n < lo || n > hi || (intOnly && !Number.isInteger(n))) {
+            return { normalized: null, error: `sellDebounce.${k} 非法值 ${JSON.stringify(v)}（须${intOnly ? '整数' : '数值'} ∈ [${lo}, ${hi}]）` };
+        }
+        out[k] = n;
+    }
+    return { normalized: Object.keys(out).length > 0 ? out : null, error: null };
+}
+
 class StrategyEngine {
     /**
      * @param {Object} config - 策略引擎配置
@@ -179,6 +221,18 @@ class StrategyEngine {
                     }
                 }
 
+                // 卖腿确认去抖覆盖段（T109 2026-11-03 0x89e4 flap 止损臂案）：
+                // sellDebounce={minTicks,debounceMs,maxWaitMs} 仅卖腿可配，逐键覆盖
+                // 引擎级缺省——首真起算时固化进 pending entry（窗口内不改门）。形状/
+                // 值域 fail-fast（normalizeSellDebounce 单点校验，与 validateLegs 同源）
+                const sd = normalizeSellDebounce(config.sellDebounce);
+                if (sd.error) {
+                    throw new Error(`策略[${config.id}] ${sd.error}（T109 卖腿确认去抖覆盖），拒绝启动`);
+                }
+                if (sd.normalized != null && config.action !== 'sell') {
+                    throw new Error(`策略[${config.id}] 非卖腿携带 sellDebounce（T109 卖腿确认去抖覆盖）：该字段仅卖腿可配，拒绝启动`);
+                }
+
                 // 构建策略对象
                 const strategy = {
                     id: config.id,
@@ -210,6 +264,10 @@ class StrategyEngine {
                     narrativeTriggerCondition: config.narrativeTriggerCondition || null,
                     // pumpfun 回迁批 2 卖腿机制字段（引擎侧消费：去抖分流/止损闩锁/累亏闩锁）
                     bypassDebounce: !!config.bypassDebounce,
+                    // 卖腿确认去抖覆盖段（T109）：null=引擎级缺省（sellDebounceMs/
+                    // MinTicks/MaxWaitMs）；pending entry 首真起算时固化（消费点=
+                    // _evaluateSellPath → SellConfirmDebouncer.touch 第三参）
+                    sellDebounce: sd.normalized,
                     lockTokenAfterSell: !!config.lockTokenAfterSell,
                     cumulativeLossLockPct: typeof config.cumulativeLossLockPct === 'number'
                         ? config.cumulativeLossLockPct : null,
@@ -235,7 +293,11 @@ class StrategyEngine {
                 const cardsText = strategy.cards != null
                     ? (strategy.cards === 'all' ? ' | 全清卡' : ` | ${strategy.cards}卡`) : '';
                 const cooldownText = strategy.cooldownSec != null ? ` | 冷却${strategy.cooldownSec}s` : '';
-                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}${cardsText}${cooldownText}`);
+                const sdText = strategy.sellDebounce
+                    ? ' | 卖确认覆盖(' + ['minTicks', 'debounceMs', 'maxWaitMs']
+                        .filter(k => strategy.sellDebounce[k] != null)
+                        .map(k => `${k}=${strategy.sellDebounce[k]}`).join(',') + ')' : '';
+                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}${cardsText}${cooldownText}${sdText}`);
                 console.log(`   条件: ${config.condition}`);
 
             } catch (error) {
@@ -437,4 +499,4 @@ class StrategyEngine {
     }
 }
 
-module.exports = { StrategyEngine };
+module.exports = { StrategyEngine, normalizeSellDebounce };

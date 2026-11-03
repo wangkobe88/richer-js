@@ -38,7 +38,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 二、现行卖腿机制要点
 
 - **sizing=卡牌唯一表达**（cards；sellPercentage 已退役 2026-10-24）；全清腿恒精确 1；卡账本 `cardTrade` 绝对值重放恢复
-- 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
+- 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**T109（2026-11-03）起证据口径修正**：同笔链上 tick（txHash:logIndex）两段喂食双 touch 只计一份、扫描 null-touch 不凑证据（minTicks=5 恢复设计意图的 5 真笔），且卖腿可配 `sellDebounce:{minTicks,debounceMs,maxWaitMs}` 腿级覆盖（首真起算固化腿门）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
 - **T104 流动性止损 stallClose（2026-10-29 v63 起实跑；【已废】2026-11-02 v67 起退役=用户指令「卖出臂中的断流臂（断流XX秒全部卖出）删除」，v67 config 不带 stallClose 段，断流票交 30s 持仓卖腿兜底扫描+P13 时间止损接管）**：持仓票距上一笔链上成交（FA lastTickAt）**>10s 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104；机制代码留档未删，配段即复活）
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
@@ -540,6 +540,17 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - vanity 地址尾号团伙 sniper-like→retail 反向盲区（先快抢后接盘的反向画像）；TPA 双盲区
 
 ### 丁、卖腿 / 止损 / 毕业卖
+
+### T109 卖确认去抖 tick 去重 + 腿级 sellDebounce 覆盖段（SellConfirmDebouncer/FA emit/StrategyEngine/validateLegs/库页五处；2026-11-03 0x89e4…7777 flap 梗案诊断后用户指令「解决一下 touch 两次的问题吧。此外，能不能把 debounce 的条件放到卖出臂中，作为卖出臂的配置，这样，这个止损臂我可以再增加一些 ticks 的要求」）
+
+- **事故现场（0x89e4 flap 梗，live `67803108`）**：P2 止损腿 `profitPercent <= -35` 首 true 16:53:28.5，3 真笔 true tick（16:53:28/32、16:54:08）后 fire 16:54:08.094——`sellDebounceMinTicks=5` 的证据门被 3 笔凑满，**实际证据稀释减半**
+- **根因（touch 两次）**：FA 两阶段喂食下 `processTick`（价格段）与 `applyWalletTick`（wallet 段回推，EOA 快路 ~1ms 后）**各 emit 一次 factorsUpdated** → `_onFactorsUpdated` → 卖腿评估每笔链上 tick 跑两次 → 真条件时 touch 两次 ticksSeen 双计（3 笔 ×2 −首真 1 =5 恰好 fire）。回测单段喂食无此形状=虚拟↔回测证据口径分叉
+- **修复①（tick 去重）**：`SellConfirmDebouncer.tickIdentity`=`txHash:logIndex`（实时 collector camelCase/回测 snake_case 双命名既定支持；FA 两处 emit 的精简 tick 补透传 `tx_hash/log_index`——emit 对象原本不含链上标识，修复前置）；同键重复 touch **零效应**（stats.deduped 计数）；**tick=null（扫描兜底快照评估）不再凑 ticksSeen**（旧实现 30s 扫描周期当证据凑数，违背 2026-10-16「窗后新 tick 数」裁定语义；仍可起 pending，maxWait 逃生链起点保留）；无链上键 tick 对象按独立证据计（存量兼容）
+- **修复②（腿级 sellDebounce 段）**：卖腿可选 `sellDebounce: {minTicks, debounceMs, maxWaitMs}` 逐键覆盖引擎级缺省（fourmemeWs/flapWs `sellDebounce*`），缺省回落；**pending entry 首真起算时固化当时的腿门**（窗口内不同腿命中 touch 不改门，防优先级竞争下门参数抖动；fire 重评命中另一腿不读门）；`_tryFire/advance` 全改读 entry 级参数；debounceMs=0 腿级=即时卖（bypass 同效）。实时/回测两引擎同构（回测构造补存 MinTicks/MaxWaitMs 实例字段对齐 `_applyWsConfig`）
+- **校验链（buyPhase T100 同款 fail-fast）**：`normalizeSellDebounce`（StrategyEngine 模块函数单一真相源，值域 minTicks 整数 0-1000/两时长 0-600000ms、键白名单、空段{}=null 等价未配）→ loadStrategies 非法 throw 拒启 + 非卖腿携带 throw ↔ `validateLegs` 400 共享同函数防双路径漂移；库页卖腿表单折叠区三输入（空=不覆盖）+ 列表 bits 展示 `卖确认≥Ntick`
+- **行为变化说明（存量实验无 sellDebounce 字段=腿级零变化；tick 去重对存量是收紧）**：同笔 tick 不再双计 → minTicks=5 的实质门槛从 ~3 笔恢复为设计意图的 5 笔——这正是修复目的
+- **单测**：`_test_sell_debounce_mechanisms.cjs` 41→75 断言（新增六段：事故现场反证 3 笔×双投递凑不满 5 不 fire/snake_case 去重/聚合交易同 tx 不同 logIndex 各计/null tick 扫描不凑证据/腿级四参数覆盖+固化+缺省回落/装载校验六拒启形状+validateLegs 同口径）；受影响存量 sell_leg_scan_fallback/stop_loss_rules/graduation_sell_and_anchor/card_position/buy_phase_routing/validate_legs/fa_deferred_wallet_feeding 等 14 件全绿
+- **生效条件**：须重启实验进程（v68 PID 2072229@182 现跑旧代码）；止损臂 P2 想加严=tick 去重已实质翻倍（5 真笔），再叠加腿级 `sellDebounce:{minTicks: N}` 由用户按票池裁定
 
 ### T104 流动性止损 stallClose：持仓票无成交 >10s 全部清仓（引擎级机制 `stallClose` 段，v63 起实跑；2026-10-29 用户提案「如果发现有10秒钟没有交易，全部清仓」→ 看完回放裁定「可以，上吧。二次起飞的看看再买臂能不能捕捉到，我想如果一个票没流动性了，就是要赶紧跑。」）
 

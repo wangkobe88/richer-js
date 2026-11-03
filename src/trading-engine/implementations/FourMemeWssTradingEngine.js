@@ -3037,10 +3037,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
   /**
    * 卖腿评估（pumpfun 回迁批 2：每 tick 实时评估不去抖，hit 后分流）：
-   * - bypassDebounce 腿（利润锁定/断流类时间敏感腿）或 sellDebounceMs=0 → 立即卖（存量行为）
+   * - bypassDebounce 腿（利润锁定/断流类时间敏感腿）或 effective debounceMs=0 → 立即卖（存量行为）
    * - 默认腿 → SellConfirmDebouncer touch（首真 tick 起计不重置），fire 重读因子重评，
    *   仍真才卖（窗口内恢复→不卖）——「庄还在的回调拿住，庄撤了的真跌快卖」
    * - 条件变 false → clear pending（下次触发重新起算）
+   * T109（2026-11-03 0x89e4 flap 止损臂案）：分流与 touch 均按腿级 sellDebounce 段
+   * 覆盖后的 effective 值；debouncer 内部同 tick 去重（FA 两段喂食双 touch 修复）
    */
   async _evaluateSellPath(tokenAddress, factors, tick) {
     // 停止卖出锁（2026-10-22）：入口即拒——不 touch 去抖器（防 pending 积累、解锁即
@@ -3059,13 +3061,29 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
 
     // B/C 分流：bypassDebounce 或去抖关闭 → 立即卖；趋势失去类默认腿 → 进确认去抖
-    if (strategy.bypassDebounce || this._sellDebounceMs <= 0) {
+    const effSellDebounce = this._effectiveSellDebounceParams(strategy);
+    if (strategy.bypassDebounce || effSellDebounce.debounceMs <= 0) {
       this._sellConfirmDebouncer.clear(tokenAddress);
       return this._emitSellSignal(token, strategy, factors, tick);
     }
 
-    this._sellConfirmDebouncer.touch(tokenAddress, tick);
+    this._sellConfirmDebouncer.touch(tokenAddress, tick, effSellDebounce);
     return { success: false, reason: '卖出确认去抖中' };
+  }
+
+  /**
+   * 卖腿确认去抖 effective 参数（T109）：腿携带 sellDebounce 段（loadStrategies
+   * 归一化，仅卖腿）逐键覆盖引擎级缺省（fourmemeWs/flapWs.sellDebounce*），全缺省
+   * =引擎级值。pending entry 在首真起算时固化当时的腿门——窗口内不同腿命中 touch
+   * 不改门（防优先级竞争下门参数抖动）；fire 重评命中的腿可能是另一条（重评不读门）。
+   */
+  _effectiveSellDebounceParams(strategy) {
+    const leg = strategy && strategy.sellDebounce;
+    return {
+      debounceMs: leg && leg.debounceMs != null ? leg.debounceMs : this._sellDebounceMs,
+      minTicks: leg && leg.minTicks != null ? leg.minTicks : this._sellDebounceMinTicks,
+      maxWaitMs: leg && leg.maxWaitMs != null ? leg.maxWaitMs : this._sellDebounceMaxWaitMs,
+    };
   }
 
   /**

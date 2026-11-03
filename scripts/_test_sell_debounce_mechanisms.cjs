@@ -257,6 +257,232 @@ function testStrategyEnginePassthrough() {
     ok(!!hit && hit.id === 'sell_0_10', '分腿评估不受新字段影响', hit && hit.id);
 }
 
+// ── T109（2026-11-03 0x89e4 flap 止损臂案）：tick 去重 + 腿级 sellDebounce 覆盖 ──
+
+/** 实时 collector 形状 tick（camelCase） */
+function liveTick(txHash, logIndex, ts) {
+    return { txHash, logIndex, timestamp: ts, priceBnb: 1e-9 };
+}
+
+function testTickDedupVirtual() {
+    // 事故现场反证：3 真笔 tick × 两段喂食双投递（FA processTick 价格段 +
+    // applyWalletTick wallet 段各 emit 一次 factorsUpdated）——旧实现 ticksSeen
+    // 双计 3×2-1=5 恰好凑满 minTicks=5 提前 fire；修复后同一笔链上 tick 只算
+    // 一份证据，3 笔只攒 2，不 fire
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 10000, minTicks: 5, maxWaitMs: 60000, mode: 'virtual',
+        onFire: t => fired.push(t),
+    });
+    const t1 = liveTick('0xaaa', 10, 1000);
+    const t2 = liveTick('0xbbb', 20, 5000);
+    const t3 = liveTick('0xccc', 30, 9000);
+    d.touch('DEDUP', t1); d.touch('DEDUP', t1);   // 价格段 + wallet 段
+    d.touch('DEDUP', t2); d.touch('DEDUP', t2);
+    d.touch('DEDUP', t3); d.touch('DEDUP', t3);
+    ok(d.stats.deduped === 3, 'tick 去重：3 笔双投递 deduped=3', d.stats.deduped);
+    ok(d.stats.suppressed === 2, 'tick 去重：去重后仅 2 笔后续真 tick 计 suppressed', d.stats.suppressed);
+    d.advance(1000 + 10000);                       // 时间窗过，证据 2 < 5
+    ok(fired.length === 0, '事故现场反证：3 真笔 tick×双投递凑不满 minTicks=5 不 fire（旧实现此处 fire）', fired.length);
+    d.touch('DEDUP', liveTick('0xddd', 40, 12000)); // 3
+    d.touch('DEDUP', liveTick('0xeee', 50, 13000)); // 4
+    d.touch('DEDUP', liveTick('0xfff', 60, 14000)); // 5
+    d.advance(15000);
+    ok(fired.length === 1, 'tick 去重：真实第 4-6 笔新 tick 凑满 5 才 fire', fired.length);
+
+    // 同 txHash 不同 logIndex（聚合交易多事件）= 不同 tick 各自计证据
+    const fired2 = [];
+    const d2 = new SellConfirmDebouncer({
+        debounceMs: 100, minTicks: 1, mode: 'virtual', onFire: t => fired2.push(t),
+    });
+    d2.touch('AGG', liveTick('0xsame', 1, 0));
+    d2.touch('AGG', liveTick('0xsame', 2, 50));    // 同 tx 第二事件=独立证据
+    d2.advance(200);
+    ok(fired2.length === 1, 'tick 去重：同 txHash 不同 logIndex 各计一份（聚合交易两事件）', fired2.length);
+
+    // 回测形状（snake_case，wss_price_ticks 行）同样去重
+    const fired3 = [];
+    const d3 = new SellConfirmDebouncer({
+        debounceMs: 100, minTicks: 1, mode: 'virtual', onFire: t => fired3.push(t),
+    });
+    const btTick = { tx_hash: '0xzzz', log_index: 7, timestamp: 0, token_address: 'T' };
+    d3.touch('BT', btTick);
+    d3.touch('BT', { tx_hash: '0xzzz', log_index: 7, timestamp: 50 });
+    ok(d3.stats.deduped === 1, 'tick 去重：snake_case 键同 tx:logIndex 双投递去重', d3.stats.deduped);
+    d3.advance(50);
+    ok(fired3.length === 0, 'tick 去重：snake_case 重复投递不凑证据', fired3.length);
+    d3.touch('BT', { tx_hash: '0xzzz', log_index: 8, timestamp: 60 });
+    d3.advance(200);
+    ok(fired3.length === 1, 'tick 去重：snake_case 新 logIndex 才是证据', fired3.length);
+
+    // 无链上键 tick 对象（identity null）按独立证据计（旧语义兼容——
+    // touch(null) 才是非证据扫描路径，见 testNullTickScan）
+    const fired4 = [];
+    const d4 = new SellConfirmDebouncer({
+        debounceMs: 100, minTicks: 2, mode: 'virtual', onFire: t => fired4.push(t),
+    });
+    d4.touch('NOKEY', { timestamp: 0 });
+    d4.touch('NOKEY', { timestamp: 50 });
+    d4.touch('NOKEY', { timestamp: 60 });
+    d4.advance(300);
+    ok(fired4.length === 1, 'tick 去重：无链上键 tick 按独立证据计（存量单测形状兼容）', fired4.length);
+}
+
+async function testNullTickScan() {
+    // 扫描兜底路径 tick=null（快照评估，非新 tick 证据 T109）：可起 pending，
+    // 但不凑 ticksSeen——断流票只能等回流真 tick 或 maxWait 强制逃生
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 40, minTicks: 2, maxWaitMs: 5000, mode: 'real',
+        onFire: t => fired.push(t),
+    });
+    d.touch('SCAN', null);                          // 无 pending：快照评估起窗（maxWait 起点）
+    ok(d.size === 1, 'null tick：扫描评估可起 pending', d.size);
+    d.touch('SCAN', null);
+    d.touch('SCAN', null);                          // 已 pending：不再凑证据（旧实现 ticksSeen++）
+    await sleep(120);                               // debounce timer 到点
+    ok(fired.length === 0 && d.size === 1, 'null tick：扫描快照不凑 ticksSeen（时间过证据 0<2 转等待）',
+        { fired: fired.length, size: d.size });
+    d.touch('SCAN', liveTick('0xrt', 1, 200));      // 回流真 tick=证据 1
+    d.touch('SCAN', liveTick('0xrt2', 2, 210));     // 证据 2 → 即时 fire
+    ok(fired.length === 1, 'null tick：回流真 tick 才凑齐证据 fire', fired.length);
+}
+
+function testLegOverrideVirtual() {
+    // 腿级 minTicks 覆盖（T109）：首真起算固化腿门；窗口内后续 touch 带不同腿参数不改门
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 100, minTicks: 2, maxWaitMs: 60000, mode: 'virtual',
+        onFire: t => fired.push(t),
+    });
+    d.touch('LEG_A', liveTick('0x1', 1, 0), { minTicks: 4 });   // 止损臂：单独加严证据门
+    d.touch('LEG_A', liveTick('0x2', 1, 10), { minTicks: 1 });  // 窗口内低门腿命中不改门
+    d.touch('LEG_A', liveTick('0x3', 1, 20));                    // 不带 legOpts=引擎级缺省 2
+    d.advance(200);                                             // 时间过，证据 2 < 腿门 4
+    ok(fired.length === 0, '腿级覆盖：minTicks=4 首真固化，低门腿 touch 不改门（证据 2<4 不 fire）', fired.length);
+    d.touch('LEG_A', liveTick('0x4', 1, 300));                  // 3
+    d.touch('LEG_A', liveTick('0x5', 1, 310));                  // 4 → 凑齐
+    d.advance(400);
+    ok(fired.length === 1, '腿级覆盖：凑满腿门 4 才 fire', fired.length);
+
+    // 不带 legOpts 的 token 用引擎级门（缺省回落；独立实例——onFire 构造期绑定）
+    const firedB = [];
+    const dB = new SellConfirmDebouncer({
+        debounceMs: 100, minTicks: 2, mode: 'virtual', onFire: t => firedB.push(t),
+    });
+    dB.touch('LEG_B', liveTick('0xa', 1, 1000));
+    dB.touch('LEG_B', liveTick('0xb', 1, 1010));                 // 证据 1
+    dB.touch('LEG_B', liveTick('0xc', 1, 1020));                 // 证据 2 =引擎门 → advance fire
+    dB.advance(2000);
+    ok(firedB.length === 1, '腿级覆盖：未带 legOpts 回落构造门（2 凑齐 fire）', firedB.length);
+
+    // 腿级 debounceMs 覆盖：延长确认窗
+    const firedC = [];
+    const dC = new SellConfirmDebouncer({
+        debounceMs: 100, mode: 'virtual', onFire: t => firedC.push(t),
+    });
+    dC.touch('LEG_C', liveTick('0xd', 1, 0), { debounceMs: 300 });
+    dC.advance(250);                                             // 越过引擎级 100，未到腿级 300
+    ok(firedC.length === 0, '腿级覆盖：debounceMs=300 延长窗口（250ms 不 fire）', firedC.length);
+    dC.advance(301);
+    ok(firedC.length === 1, '腿级覆盖：到腿级窗口才 fire', firedC.length);
+
+    // 腿级 maxWaitMs 覆盖：virtual 强制逃生门用 entry 值
+    const firedD = [];
+    const dD = new SellConfirmDebouncer({
+        debounceMs: 10000, minTicks: 5, maxWaitMs: 60000, mode: 'virtual',
+        onFire: t => firedD.push(t),
+    });
+    dD.touch('LEG_D', liveTick('0xe', 1, 0), { maxWaitMs: 5000 });
+    dD.advance(4999);
+    ok(firedD.length === 0 && dD.stats.forceFired === 0, '腿级覆盖：maxWaitMs=5000 上限前不强制', firedD.length);
+    dD.advance(5001);
+    ok(firedD.length === 1 && dD.stats.forceFired === 1, '腿级覆盖：到腿级 maxWait 强制 fire',
+        { n: firedD.length, f: dD.stats.forceFired });
+}
+
+async function testLegOverrideReal() {
+    // real 模式：腿级 debounceMs=0 → touch 即 fire（引擎分流条件等价 bypass）
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 5000, mode: 'real', onFire: t => fired.push(t),
+    });
+    d.touch('LEG_R', liveTick('0xf', 1, 1), { debounceMs: 0 });
+    ok(fired.length === 1, 'real 腿级：debounceMs=0 touch 即 fire（等价 bypass 语义）', fired.length);
+
+    // real 模式：腿级 minTicks 覆盖 + 即时补 fire 路径
+    const fired2 = [];
+    const d2 = new SellConfirmDebouncer({
+        debounceMs: 30, minTicks: 1, maxWaitMs: 5000, mode: 'real',
+        onFire: t => fired2.push(t),
+    });
+    d2.touch('LEG_R2', liveTick('0xg', 1, 1), { minTicks: 3 });
+    d2.touch('LEG_R2', liveTick('0xg2', 1, 2));                  // 证据 1（引擎门腿 1 已过但腿门 3）
+    d2.touch('LEG_R2', liveTick('0xg3', 1, 3));                  // 证据 2
+    await sleep(80);                                             // debounce timer 到点：证据 2<3 转等待
+    ok(fired2.length === 0, 'real 腿级：时间到腿门 3 未凑齐转等待', fired2.length);
+    d2.touch('LEG_R2', liveTick('0xg4', 1, 100));                // 证据 3 → 即时 fire
+    ok(fired2.length === 1, 'real 腿级：凑齐腿门即时 fire', fired2.length);
+}
+
+function testStrategyEngineSellDebounce() {
+    const { StrategyEngine } = require(path.join(ROOT, 'src/strategies/StrategyEngine'));
+
+    // 合法装载 + 归一化（字符串数字归 Number；null 值键剔除；空段=null 等价未配）
+    const se = new StrategyEngine({
+        strategies: [
+            { id: 'sell_p2', name: '止损', action: 'sell', condition: 'profitPercent <= -35', priority: 2,
+              cards: 'all', sellDebounce: { minTicks: '8', debounceMs: null } },
+            { id: 'sell_plain', name: '默认腿', action: 'sell', condition: 'profitPercent >= 50', priority: 3,
+              cards: 'all', sellDebounce: {} },
+        ],
+    });
+    const p2 = se.getStrategy('sell_p2');
+    ok(p2.sellDebounce && p2.sellDebounce.minTicks === 8 && !('debounceMs' in p2.sellDebounce),
+        'sellDebounce 装载：字符串归 Number + null 值键剔除',
+        p2.sellDebounce);
+    ok(se.getStrategy('sell_plain').sellDebounce === null,
+        'sellDebounce 装载：空段 {} → null（等价未配，引擎级缺省）',
+        se.getStrategy('sell_plain').sellDebounce);
+
+    // 拒启形状（buyPhase T100 同款 fail-fast）
+    const rejects = [
+        [{ id: 'b1', name: '买', action: 'buy', condition: 'profitPercent > 0', priority: 1,
+           sellDebounce: { minTicks: 5 } }, '非卖腿携带'],
+        [{ id: 's1', name: '卖', action: 'sell', condition: 'profitPercent > 0', priority: 1, cards: 'all',
+           sellDebounce: { minTicks: 5, unknownKey: 1 } }, '未知键'],
+        [{ id: 's2', name: '卖', action: 'sell', condition: 'profitPercent > 0', priority: 1, cards: 'all',
+           sellDebounce: { minTicks: 1.5 } }, 'minTicks 小数'],
+        [{ id: 's3', name: '卖', action: 'sell', condition: 'profitPercent > 0', priority: 1, cards: 'all',
+           sellDebounce: { minTicks: -1 } }, 'minTicks 负数'],
+        [{ id: 's4', name: '卖', action: 'sell', condition: 'profitPercent > 0', priority: 1, cards: 'all',
+           sellDebounce: { debounceMs: 999999 } }, 'debounceMs 越界'],
+        [{ id: 's5', name: '卖', action: 'sell', condition: 'profitPercent > 0', priority: 1, cards: 'all',
+           sellDebounce: 'minTicks=5' }, '非对象'],
+    ];
+    for (const [leg, label] of rejects) {
+        let threw = null;
+        try { new StrategyEngine({ strategies: [leg] }); } catch (e) { threw = e.message; }
+        ok(!!threw && threw.includes('T109'), `sellDebounce 校验拒启：${label}`, threw);
+    }
+
+    // validateLegs 同口径（web 入库 400；与引擎 loadStrategies 共享 normalizeSellDebounce）
+    const { validateLegs } = require(path.join(ROOT, 'src/web/services/StrategyLibraryService'));
+    const okSell = validateLegs('sell', [
+        { condition: 'profitPercent <= -35', priority: 2, cards: 'all', sellDebounce: { minTicks: 8 } },
+    ]);
+    ok(okSell.valid, 'validateLegs：合法 sellDebounce 段放行', okSell.errors);
+    const badCases = [
+        ['sell', [{ condition: 'profitPercent <= -35', priority: 2, cards: 'all', sellDebounce: { minTicks: 9999 } }], 'minTicks 越界'],
+        ['buy', [{ condition: 'profitPercent > 0', priority: 1, sellDebounce: { minTicks: 5 } }], '非卖腿携带'],
+        ['sell', [{ condition: 'profitPercent > 0', priority: 1, cards: 'all', sellDebounce: { foo: 1 } }], '未知键'],
+    ];
+    for (const [side, legs, label] of badCases) {
+        const r = validateLegs(side, legs);
+        ok(!r.valid && r.errors.some(e => e.includes('T109')), `validateLegs 拒绝：${label}`, r.errors);
+    }
+}
+
 async function main() {
     console.log('═'.repeat(72));
     console.log('pumpfun 回迁批 2 卖腿机制测试');
@@ -270,6 +496,16 @@ async function main() {
     console.log('  ✓ 双门 virtual（时间 AND ticks/maxWait 强制/minTicks=0 存量）');
     await testMinTicksDualGateReal();
     console.log('  ✓ 双门 real（转等待/凑齐即时 fire/maxWait 逃生/clear/minTicks=0 存量）');
+    testTickDedupVirtual();
+    console.log('  ✓ T109 tick 去重（双投递零效应/事故现场反证/snake_case/聚合交易）');
+    await testNullTickScan();
+    console.log('  ✓ T109 null tick 扫描（快照评估不凑证据，回流真 tick 才计）');
+    testLegOverrideVirtual();
+    console.log('  ✓ T109 腿级覆盖 virtual（minTicks 固化/debounceMs/maxWaitMs/缺省回落）');
+    await testLegOverrideReal();
+    console.log('  ✓ T109 腿级覆盖 real（debounceMs=0 即 fire/腿门即时补 fire）');
+    testStrategyEngineSellDebounce();
+    console.log('  ✓ T109 sellDebounce 装载校验（归一化/拒启六形状/validateLegs 同口径）');
     testStrategyEnginePassthrough();
     console.log('  ✓ StrategyEngine 腿字段透传');
 

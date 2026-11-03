@@ -22,6 +22,8 @@
  *     repeatBuyCheckCondition 用 PreBuyCheckService 评估上下文键集；语法错同样拦——
  *     parseCondition throw 视为腿非法）
  *   - narrativeTriggerCondition ∧ narrativeCallCondition 同腿互斥（C84 2026-10-17）→ 400
+ *   - sellDebounce 覆盖段（T109 2026-11-03）：仅卖腿，{minTicks,debounceMs,
+ *     maxWaitMs} 逐键覆盖引擎级缺省——normalizeSellDebounce 单点校验 → 400
  *   - side 与腿字段错配放行（买腿带 preBuyCheckCondition 等语义上另一侧的字段
  *     引擎本就「携带不生效」，不构成危险）
  *   - groups/cycle 字段（cycle 分桶路由 2026-10-15 删除）不再校验也不再报错——
@@ -39,6 +41,7 @@ function validateLegs(side, legs) {
     }
     // lazy require：保持「require 本文件零依赖」的可测性；require 缓存后无重复开销
     const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+    const { normalizeSellDebounce } = require('../../strategies/StrategyEngine');
     const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
     const { PreBuyCheckService } = require('../../trading-engine/pre-check/PreBuyCheckService');
     const { GmgnRiskCheckService } = require('../../trading-engine/pre-check/GmgnRiskCheckService');
@@ -92,6 +95,15 @@ function validateLegs(side, legs) {
             } else if (leg.buyPhase !== 'first' && leg.buyPhase !== 'repeat') {
                 errors.push(`腿[${i}] buyPhase 非法值 ${JSON.stringify(leg.buyPhase)}（T100：仅支持 'first' | 'repeat'）`);
             }
+        }
+        // 卖腿确认去抖覆盖段（T109 2026-11-03 0x89e4 flap 止损臂案）：仅卖腿可配，
+        // {minTicks,debounceMs,maxWaitMs} 逐键覆盖引擎级缺省——共享引擎侧
+        // normalizeSellDebounce 单点校验（入库 400 与 loadStrategies 拒启同口径防漂移）
+        const sd = normalizeSellDebounce(leg.sellDebounce);
+        if (sd.error) {
+            errors.push(`腿[${i}] ${sd.error}（T109）`);
+        } else if (sd.normalized != null && side !== 'sell') {
+            errors.push(`腿[${i}] 非卖腿携带 sellDebounce（T109 卖腿确认去抖覆盖：该字段仅卖腿可配）`);
         }
         for (const [field, ids] of CONDITION_FIELDS) {
             const raw = leg[field];

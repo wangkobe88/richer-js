@@ -192,6 +192,7 @@
                     const bits = [];
                     if (l.buyPhase === 'first') bits.push('首买');
                     if (l.buyPhase === 'repeat') bits.push('再买');
+                    if (l.sellDebounce && l.sellDebounce.minTicks != null) bits.push(`卖确认≥${l.sellDebounce.minTicks}tick`);
                     bits.push(`P${l.priority ?? '-'}`, l.condition || '(无 condition)');
                     return bits.join(' ');
                 }).map(t => `<div class="text-xs text-gray-600 truncate" title="${escapeAttr(t)}">${escapeHtml(t)}</div>`).join('');
@@ -321,6 +322,26 @@
                         </div>
                     </div>
                     <details class="text-xs">
+                        <summary class="cursor-pointer text-gray-500">卖确认去抖覆盖（T109，仅卖腿；空=用实验引擎级缺省 sellDebounce*）</summary>
+                        <div class="grid grid-cols-3 gap-2 mt-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">窗后新 tick 数（minTicks）</label>
+                                <input type="number" data-k="sdMinTicks" value="${leg.sellDebounce && leg.sellDebounce.minTicks != null ? leg.sellDebounce.minTicks : ''}" placeholder="不覆盖" min="0" max="1000" step="1"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">确认窗口 ms（debounceMs）</label>
+                                <input type="number" data-k="sdDebounceMs" value="${leg.sellDebounce && leg.sellDebounce.debounceMs != null ? leg.sellDebounce.debounceMs : ''}" placeholder="不覆盖" min="0" max="600000" step="any"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">强制逃生上限 ms（maxWaitMs）</label>
+                                <input type="number" data-k="sdMaxWaitMs" value="${leg.sellDebounce && leg.sellDebounce.maxWaitMs != null ? leg.sellDebounce.maxWaitMs : ''}" placeholder="不覆盖" min="0" max="600000" step="any"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                        </div>
+                    </details>
+                    <details class="text-xs">
                         <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/叙事发起/再检/GMGN 门；展开编辑）</summary>
                         <div class="grid grid-cols-1 gap-2 mt-2">
                             <div>
@@ -394,6 +415,21 @@
                 const bp = get('buyPhase').value;
                 if (bp === 'first' || bp === 'repeat') merged.buyPhase = bp;
                 else delete merged.buyPhase;
+
+                // T109 sellDebounce：三键任意有值组装覆盖段（与 spread 基底原有段合并——
+                // 只覆盖 UI 有值的键）；全空显式删（防基底残留，改不回「不覆盖」）
+                const sd = {};
+                for (const [uiKey, jsonKey] of [['sdMinTicks', 'minTicks'], ['sdDebounceMs', 'debounceMs'], ['sdMaxWaitMs', 'maxWaitMs']]) {
+                    const el = get(uiKey);
+                    if (!el) continue;
+                    const v = el.value.trim();
+                    if (v !== '') sd[jsonKey] = parseFloat(v);
+                }
+                if (Object.keys(sd).length > 0) {
+                    merged.sellDebounce = { ...(merged.sellDebounce || {}), ...sd };
+                } else {
+                    delete merged.sellDebounce;
+                }
 
                 for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'narrativeTriggerCondition', 'gmgnCheckCondition']) {
                     const v = get(k).value.trim();

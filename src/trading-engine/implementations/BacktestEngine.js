@@ -538,13 +538,17 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 8.5 卖出确认去抖（虚拟时钟模式：首真 tick 起计不重置；默认 0=关闭=存量实验零变化；
     // minTicks 双门同键透传——virtual 时钟只在 tick 到达时推进，maxWait 强制门对死票
-    // 无法触发（时钟静止），活票 advance 检查等价 real，见 SellConfirmDebouncer 头注）
+    // 无法触发（时钟静止），活票 advance 检查等价 real，见 SellConfirmDebouncer 头注）。
+    // T109：三键另存实例字段（腿级 sellDebounce 覆盖的引擎级缺省源，与实时
+    // _applyWsConfig 对齐）；debouncer 内部同 tick 去重（回测单段喂食天然无重复）
     const { SellConfirmDebouncer } = require('../core/SellConfirmDebouncer');
     this._sellDebounceMs = wsConfig.sellDebounceMs ?? 0;
+    this._sellDebounceMinTicks = wsConfig.sellDebounceMinTicks ?? 0;
+    this._sellDebounceMaxWaitMs = wsConfig.sellDebounceMaxWaitMs ?? 120000;
     this._sellConfirmDebouncer = new SellConfirmDebouncer({
       debounceMs: this._sellDebounceMs,
-      minTicks: wsConfig.sellDebounceMinTicks ?? 0,
-      maxWaitMs: wsConfig.sellDebounceMaxWaitMs ?? 120000,
+      minTicks: this._sellDebounceMinTicks,
+      maxWaitMs: this._sellDebounceMaxWaitMs,
       mode: 'virtual',
       onFire: (tokenAddress, tick, fireTs) => this._onSellDebounceFire(tokenAddress, tick, fireTs),
     });
@@ -2371,6 +2375,9 @@ class BacktestEngine extends AbstractTradingEngine {
    * 卖腿评估（pumpfun 回迁批 2，与实时引擎同构）：每 tick 实时评估不去抖，
    * hit 后分流——bypassDebounce/去抖关闭 → 立即卖（存量行为）；默认腿 →
    * SellConfirmDebouncer touch（首真起计不重置）；条件 false → clear。
+   * T109（2026-11-03）：分流与 touch 均按腿级 sellDebounce 段覆盖后的 effective 值
+   *（与实时 _effectiveSellDebounceParams 同构；回测 tick=snake_case，debouncer
+   * tickIdentity 双命名支持）
    */
   async _evaluateSellPath(token, factors, tick) {
     const tokenAddress = token.token;
@@ -2384,12 +2391,18 @@ class BacktestEngine extends AbstractTradingEngine {
       return { success: false, reason: '无触发卖出策略' };
     }
 
-    if (strategy.bypassDebounce || this._sellDebounceMs <= 0) {
+    const leg = strategy.sellDebounce;
+    const effDebounceMs = leg && leg.debounceMs != null ? leg.debounceMs : this._sellDebounceMs;
+    if (strategy.bypassDebounce || effDebounceMs <= 0) {
       this._sellConfirmDebouncer.clear(tokenAddress);
       return this._emitSellSignal(token, strategy, factors, nowTs, tick);
     }
 
-    this._sellConfirmDebouncer.touch(tokenAddress, tick);
+    this._sellConfirmDebouncer.touch(tokenAddress, tick, {
+      debounceMs: effDebounceMs,
+      minTicks: leg && leg.minTicks != null ? leg.minTicks : this._sellDebounceMinTicks,
+      maxWaitMs: leg && leg.maxWaitMs != null ? leg.maxWaitMs : this._sellDebounceMaxWaitMs,
+    });
     return { success: false, reason: '卖出确认去抖中' };
   }
 
