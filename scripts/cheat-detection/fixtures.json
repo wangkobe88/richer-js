@@ -379,12 +379,12 @@
         "tickCount": 39
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=39=首笔成功买+settle4000ms；买29/卖10 Σ买5.95BNB 钱包23 top1=25.2% churn5 同块簇3 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=39=首笔成功买+settle4000ms；买29/卖10 Σ买5.95BNB 钱包23 top1=25.2% churn5 同块簇3 等额簇3）；expect=判读现状待 review）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 批次三裁定：改 unhealthy（拒买可重判）——持仓均衡 strong 承载（等额带簇占流通 76.8%+前二首买同秒+第1大∪簇 34.7%），机器 J_holdings_strong 同档"
     },
     {
       "caseId": "CD25",
@@ -571,12 +571,12 @@
         "tickCount": 42
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=42=首笔成功买+settle4000ms；买34/卖8 Σ买5.75BNB 钱包25 top1=34.8% churn1 同块簇6 等额簇0）；expect=判读现状待 review；10-30 review 用户确认：开盘就是大额抢筹+协同簇——逐笔佐证：creator 0xea1a t+0 买 2.0 → t+4-19 连续 10 笔卖 Σ3.3776 全程派发（t+19 一笔 0.9877）；t+3 五钱包同块带 0.16-0.35；@锚90 churn 27/29 全员配对卖回（ce73 5买5卖、488f 3买4卖、六个 1买1卖）；router 1.7% 全直连；簇钱包全部不在名单",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 确认：开盘就是大额抢筹+协同簇（creator 2.0 买入后 10 笔派发+全员配对卖回）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 批次三裁定：healthy 也可以——同块簇持仓高但结构轻（第 1 大占总供应 11.5%、闭环零）；注意点=协同簇最后卖出时才现形（买入段不暴露）"
     },
     {
       "caseId": "CD37",
@@ -763,12 +763,12 @@
         "tickCount": 66
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=66=首笔成功买+settle4000ms；买43/卖23 Σ买5.90BNB 钱包26 top1=33.9% churn4 同块簇6 等额簇0）；expect=判读现状待 review；10-30 review 用户确认：作弊痕迹有一些（有协同砸盘的行为）——digest 佐证 43买/23卖卖回明显、top1 33.9%",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 确认：有协同砸盘行为（作弊痕迹有一些）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 批次三裁定（判据=砸盘者前入场则 unhealthy）：实测无等额簇——最大砸盘者 0xea1a19 t+0 最低价前入场 2.0 BNB→13 秒内分 7 笔全吐（盈利方向，占卖出 85%），前入场主导落 unhealthy"
     },
     {
       "caseId": "CD49",
@@ -795,12 +795,12 @@
         "tickCount": 55
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=55=首笔成功买+settle4000ms；买40/卖15 Σ买8.86BNB 钱包36 top1=8.5% churn9 同块簇7 等额簇4）；expect=判读现状待 review；10-30 review 用户确认：协同钱包提供绝大多数流动性，作弊盘/极不健康——逐笔佐证：t+5/6 同块 0.3300×6 精确等额簇（7b91/0bf9/49b2 → t+25 同块三连卖回；2c6f t+57 卖）；t+0 同块 0.1481×3 簇（966c/c7a6/4a3d）；t+10 双块 0.1237×6 簇（35a9/323e/8ec3/791d 各两笔）；0.2475 对（7aa8/f2bc t+5 同块买→t+16 同块卖回）；creator 0.75 买→t+7-20 六连卖 1.59（超买入量=配额）；1a64 无买入纯卖 0.4468；0.3300 簇六钱包全在 sybil 名单",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 确认：协同钱包提供绝大多数流动性，作弊盘/极不健康——多组同块等额簇买带全部配对同块卖回"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 批次三裁定：unhealthy 可以——簇流 73.4/63.1 双高+组织买入 85.4%+第1大∪簇 49.0%+闭环 2 块，机器 J_holdings_strong 同档"
     },
     {
       "caseId": "CD51",
@@ -827,12 +827,12 @@
         "tickCount": 36
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "live 窗新收（基线后引擎 08:39 买入）：creator 0xb002…5adb t+0 买 2.4979→t+4-5s 四笔卖 0.6164；等额蜂群 0.0198x8/0.0247x6（与 CD13 同批跨票集群）；t+28-30s 六钱包三连块砸盘；用户裁定=作弊盘（一买四卖+随后入场皆协同钱包）",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户裁定：作弊盘（一买四卖+随后入场皆协同钱包）；机器判读同向 cheat"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 批次三裁定：第一大持仓这么多应该 unhealthy；且买入是连续的完全一致簇（0.0198×14 笔+0.0247×6 笔两等额带、0.0247 带两钱包相同两块成对节拍），明显非正常用户行为——机器 healthy 漏检留缺口"
     },
     {
       "caseId": "CD53",
