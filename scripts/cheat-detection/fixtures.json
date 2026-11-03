@@ -2267,12 +2267,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "67803108 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买1.82BNB 钱包21 top1=10.9% churn5 同块簇4 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=26=首笔成功买+settle4000ms；买21/卖5 Σ买1.82BNB 钱包21 top1=10.9% churn5 同块簇4 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 第三批裁定（v68 成交票扩集 CD150-CD155 六票）：用户裁定原话「全部没问题」——六票机器结论全部接受。机器 unhealthy[J_holdings_strong,R_abnormal_dominant]（hold strong@0.66+abr dominant@0.51 贴线；sbHold 84.1 本批最高但死指标门已随 G10/G11 退役，载荷=持仓均衡题档走 J 拒买级）"
     },
     {
       "caseId": "CD151",
@@ -2283,12 +2283,12 @@
         "tickCount": 22
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "67803108 首买基线收录（锚=22=首笔成功买+settle4000ms；买19/卖3 Σ买1.59BNB 钱包19 top1=42.0% churn3 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=22=首笔成功买+settle4000ms；买19/卖3 Σ买1.59BNB 钱包19 top1=42.0% churn3 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 第三批裁定（v68 成交票扩集 CD150-CD155 六票）：用户裁定原话「全部没问题」——六票机器结论全部接受。机器 cheat[A_strong:slow_grind_pump,E_low_activity,R_abnormal_dominant]（pump strong@0.36 与 moderate 0.34 贴线掷骰抖动风险留档；act low 16.1/abr dominant@0.61/sbHold=eqHold 46.0 同值）"
     },
     {
       "caseId": "CD152",
@@ -2299,12 +2299,12 @@
         "tickCount": 46
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "67803108 首买基线收录（锚=46=首笔成功买+settle4000ms；买31/卖15 Σ买3.66BNB 钱包30 top1=15.0% churn10 同块簇6 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=46=首笔成功买+settle4000ms；买31/卖15 Σ买3.66BNB 钱包30 top1=15.0% churn10 同块簇6 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 第三批裁定（v68 成交票扩集 CD150-CD155 六票）：用户裁定原话「全部没问题」——六票机器结论全部接受。机器 unhealthy[J_holdings_strong,M_hyper_activity]（hold strong@0.50+act ultra 153.3 笔/分 G14 新留痕双通道同向；sbHold 80.6/纯卖 18.2/abr noticeable 不触发 R）"
     },
     {
       "caseId": "CD153",
@@ -2315,12 +2315,12 @@
         "tickCount": 13
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "67803108 首买基线收录（锚=13=首笔成功买+settle4000ms；买12/卖1 Σ买1.26BNB 钱包12 top1=11.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=13=首笔成功买+settle4000ms；买12/卖1 Σ买1.26BNB 钱包12 top1=11.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 第三批裁定（v68 成交票扩集 CD150-CD155 六票）：用户裁定原话「全部没问题」——六票机器结论全部接受。机器 cheat[A_strong:slow_grind_pump,R_abnormal_dominant]（pump strong@0.35 与 moderate 0.29 贴线；锚窗仅 13 tick 窄窗票；eqHold 53.4>sbHold 40.1）"
     },
     {
       "caseId": "CD154",
@@ -2331,12 +2331,12 @@
         "tickCount": 42
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "67803108 首买基线收录（锚=42=首笔成功买+settle4000ms；买39/卖3 Σ买2.32BNB 钱包37 top1=25.9% churn3 同块簇2 等额簇3）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=42=首笔成功买+settle4000ms；买39/卖3 Σ买2.32BNB 钱包37 top1=25.9% churn3 同块簇2 等额簇3）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 第三批裁定（v68 成交票扩集 CD150-CD155 六票）：用户裁定原话「全部没问题」——六票机器结论全部接受。机器 cheat[A_strong:slow_grind_pump,R_abnormal_dominant]（pump strong@0.44+abr dominant@0.65+t1 供 9.5/eqHold 61.4；与 CD155 Rollo 几乎同模板=t1 供 9.5 相同簇持仓相近通道全同，同部署者连发嫌疑实形）"
     },
     {
       "caseId": "CD155",
@@ -2347,12 +2347,12 @@
         "tickCount": 35
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "67803108 首买基线收录（锚=35=首笔成功买+settle4000ms；买33/卖2 Σ买2.32BNB 钱包31 top1=25.8% churn2 同块簇1 等额簇2）；expect=判读现状待 review",
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
-      "expectBecause": "--add 基线快照（67803108 首买基线收录（锚=35=首笔成功买+settle4000ms；买33/卖2 Σ买2.32BNB 钱包31 top1=25.8% churn2 同块簇1 等额簇2）；expect=判读现状待 review）"
+      "expectBecause": "2026-11-03 第三批裁定（v68 成交票扩集 CD150-CD155 六票）：用户裁定原话「全部没问题」——六票机器结论全部接受。机器 cheat[A_strong:slow_grind_pump,R_abnormal_dominant]（pump strong@0.48 本批最实+abr dominant@0.65+t1 供 9.5；与 CD154 Gidget 同模板）"
     },
     {
       "caseId": "CD156",
