@@ -891,12 +891,12 @@
         "tickCount": 22
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=22=首笔成功买+settle4000ms；买20/卖2 Σ买3.11BNB 钱包16 top1=15.9% churn1 同块簇1 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
       "expectSince": "2026-11-03",
-      "expectBecause": "2026-11-03 C 组第一批裁定原话「这些都能接受，继续吧」——接受机器 unhealthy[L_insider_sell41]（insider moderate@0.64、零买纯卖 41.2% 远超 L 线 25 但档位不进 A 主判）；原组12 cheat 判定降档拒买级"
+      "expectBecause": "2026-11-03 D3.50 边界同构翻正——用户裁定原话「那就先这样吧」（承接 CD73 三轮裁定「看老鼠仓卖出在总交易量中比例吧」「如果占比小，没事」立法后，呈报同构对比：零买纯卖钱包仅 1 个、卖出 0.201 BNB 占总卖 41.2%/占窗口总交易量仅 5.6% 与 CD73 的 77.1%/13.6% 完全同构=单钱包隐藏筹码变现非分发网络）；机器随 D3.50 unhealthy[L_insider_sell41]→healthy[clean]（insider moderate@0.64→weak，L 通道解除）；同日晨间 C 组第一批接受的 unhealthy 随 D3.50 立法更新翻正"
     },
     {
       "caseId": "CD57",
