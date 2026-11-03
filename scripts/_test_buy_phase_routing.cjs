@@ -188,10 +188,16 @@ console.log('E. 装载映射源码口径：buyPhase 两处透传');
   // E5（CD158 2026-11-03）cheatCheckCondition 装载透传：live 走 StrategyEngine
   // loadStrategies 挂载、回测走自有映射——v15 gmgnCheckCondition 漏透传事故
   // 同款防线（映射漏字段=腿带条件不生效静默裸买）
-  check('E5 cheatCheckCondition 装载透传（live=StrategyEngine / 回测=自有映射）', () => {
+  check('E5 cheatCheckCondition 装载透传（live=FourMeme 引擎映射+StrategyEngine / 回测=自有映射）', () => {
+    // 事故反证（2026-11-04）：v69 上线首日 config 腿带字段但 FourMeme 引擎装载
+    // 映射白名单漏透传 → strategy.cheatCheckCondition 恒 undefined → CD158 门
+    // 静默跳过（西红柿 5 信号零 CheatGate 轨迹+cheat_detection 零行）——三处
+    // 映射全锁（v15 gmgnCheckCondition 事故同款防线补齐）
     const se = read('src/strategies/StrategyEngine.js');
     assert.ok(/cheatCheckCondition: config\.cheatCheckCondition \|\| null,/.test(se),
       'StrategyEngine loadStrategies 映射漏 cheatCheckCondition 透传');
+    assert.ok(/cheatCheckCondition: s\.cheatCheckCondition \|\| null,/.test(fm),
+      'FourMemeWssTradingEngine 装载映射漏 cheatCheckCondition 透传（v69 事故现场）');
     assert.ok(/cheatCheckCondition: s\.cheatCheckCondition \|\| null,/.test(bt),
       'BacktestEngine 映射漏 cheatCheckCondition 透传');
   });

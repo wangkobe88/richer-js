@@ -646,6 +646,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           // narrativeRating 恒 null = 新模型腿永不买（gmgnCheckCondition 透传事故同款
           // 形状，v15 教训），单测锁此透传
           narrativeTriggerCondition: s.narrativeTriggerCondition || null,
+          // CD158 作弊门条件（2026-11-03 门=最后一层买条件，GMGN 式）。★此白名单
+          // 映射漏透传 = 运行时 strategy.cheatCheckCondition 恒 undefined = 门静默
+          // 跳过、作弊门整体失效（v69 上线首日实发：西红柿 5 信号零 CheatGate 轨迹
+          // 且 cheat_detection 零行，2026-11-04 修复；v15 gmgnCheckCondition 事故
+          // 同款形状）——单测 E5 锁此透传
+          cheatCheckCondition: s.cheatCheckCondition || null,
           // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
