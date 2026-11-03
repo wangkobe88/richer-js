@@ -774,7 +774,7 @@ console.log('I. 著名钱包单极控盘锚');
   // ═══════════════ I2. 题集结构（D3.39：14 题=4 现象+sbw+tiering+bw+activity_level+bd+insider+pump+wash+holdings+abnormal_behavior_ratio） ═══════════════
   console.log('I2. 题集结构 D3.39（ESM 题文件经动态 import）');
   const qm = await import(path.join(__dirname, '..', 'src/market-analysis/llm/cheat-questions.mjs'));
-  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.39', `版本常量 D3.39（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio：用户裁定「异常行为识别与比例计算」无罪推定（无可见异常即正常，不要求自证真实用户；开盘打新段庄家拿筹码/狙击手活跃本身正常），四桶→negligible/noticeable/dominant/unclear 异常占比轴，G13 R 通道 dominant→unhealthy R_abnormal_dominant；D3.38=换喂法 C 单块形状档位回 state；D3.37=众数档位非判据+开盘打新段语境；D3.36=单块撤出 state+大额买家持有口径；D3.35=第 14 题立项+协同买入参考四键）`);
+  ok(qm.CHEAT_QUESTIONS_VERSION === 'D3.40', `版本常量 D3.40（实际 ${qm.CHEAT_QUESTIONS_VERSION}——D3.40=第 14 题撤「冷寂期突袭」异常形状：用户裁定「已经有停滞突发这个锚了，而且，这个现象本身中性，还是要看涌入流量是不是作弊流量，就不在异常行为占比中检测了」——节奏归 stall_burst_wave 题单独判，第 14 题只看涌入流量自身形状（同额阵列/对倒等），死寂后一波涌入本身不计异常份额（前提③/怎么算/要点①/dominant 样本与桶描述/criteria 同步+中性反锚）；D3.39=理念重构+改名 real_participation→abnormal_behavior_ratio 无罪推定，四桶→negligible/noticeable/dominant/unclear，G13 R 通道 dominant→unhealthy R_abnormal_dominant；D3.38=换喂法 C 单块形状档位回 state；D3.37=众数档位非判据+开盘打新段语境；D3.36=单块撤出 state+大额买家持有口径；D3.35=第 14 题立项+协同买入参考四键）`);
   // D3.27：activity_level ⑥停滞突发反锚（burst 不判低）——题面文本锁定（用户裁定
   // 「流量 burst 命中的不要判定为活跃度 low」；配对 G2 E 通道简化）
   {
@@ -782,6 +782,16 @@ console.log('I. 著名钱包单极控盘锚');
     ok(/停滞突发反锚（burst 不判低）/.test(actQ.instructions), 'D3.27 activity ⑥停滞突发反锚在场（burst 不判低）');
     ok(/不判低/.test(actQ.instructions) && /中档起判/.test(actQ.instructions), 'burst 形状不判低+按中档起判（措辞锚）');
     ok(/停滞突发形状.*不适用本档/.test(actQ.criteria.low), 'criteria.low 排除停滞突发形状');
+  }
+  // D3.40：第 14 题撤「冷寂期突袭」异常形状（用户裁定——节奏归 sbw 题、现象中性、
+  // 涌入流量是否作弊看其自身形状）——题面措辞锁定：正向例句不回潮+中性反锚在场
+  {
+    const abrQ = qm.buildCheatQuestions().abnormal_behavior_ratio;
+    ok(!/冷寂期之后一个区块突然塞进大量交易|冷寂期突现密集块/.test(abrQ.instructions + abrQ.criteria.dominant),
+      'D3.40 冷寂突袭正向例句不回潮（instructions+criteria.dominant 全文反证）');
+    ok(/冷寂期后一波涌入」本身是中性节奏、不计异常/.test(abrQ.instructions)
+      && /停滞突发题单独判/.test(abrQ.instructions),
+      'D3.40 中性反锚在场（死寂后来量不计异常份额+节奏归停滞突发题单独判）');
   }
   ok(JSON.stringify(qm.ACTIVITY_LEVELS) === JSON.stringify(['low', 'mid', 'high', 'ultra']),
     'ACTIVITY_LEVELS 导出=独立档域四桶（mapper 同名常量对齐）');
@@ -819,8 +829,9 @@ console.log('I. 著名钱包单极控盘锚');
       && rpQ.instructions.includes('如果交易序列不能明显看出有问题，那就是正常盘，不需要谁来自证清白'),
       'D3.39 无罪推定开篇在场（无可见异常即正常，不要求参与者证明自己是「真实用户」——用户裁定原话锚）');
     ok(rpQ.instructions.includes('单个区块挤进大量同金额的交易')
-      && rpQ.instructions.includes('冷寂期之后一个区块突然塞进大量交易'),
-      'D3.39 结构性异常形状例句在场（用户裁定原话锚——异常识别的对象形状）');
+      && rpQ.instructions.includes('秒级对倒推价')
+      && rpQ.instructions.includes('成批零买入纯卖方'),
+      'D3.39 结构性异常形状例句在场（用户裁定原话锚——异常识别的对象形状；冷寂例句已随 D3.40 撤除）');
     ok(!rpQ.instructions.includes('需要证明有真实用户参与')
       && rpQ.instructions.includes('更不是要求参与者证明自己一定是「真实用户」'),
       'D3.39 反证：旧理念「需要证明有真实用户参与」不得作为任务陈述回潮；否定句式在场（更不是要求……——有罪推定方向显式排除）');

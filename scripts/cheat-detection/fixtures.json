@@ -779,12 +779,12 @@
         "tickCount": 31
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=31=首笔成功买+settle4000ms；买25/卖6 Σ买2.47BNB 钱包16 top1=24.2% churn4 同块簇0 等额簇2）；expect=判读现状待 review；10-30 review 用户翻案裁定：感觉是正常盘（第四正例）——75 行双拱结构（7.2→9.7→6.3→7.4e-9 回落有二次承接）；同块 0；@锚40 卖仅 10 笔各自时点分散无集中卖回波；89ed 六笔分批梯度买 0.59 自然；creator 0.5992 买不卖；保留观察：孪生对 0143/3781（三对同买同卖块，copy+sybil 双名单）+c52c 名单命中在册——名单钱包参与≠协同作弊，整体结构（卖回分散/二次承接）优先（校准信号 16）",
       "addedAt": "2026-10-30",
-      "expectSince": "2026-10-30",
-      "expectBecause": "2026-10-30 用户 review 翻案：感觉是正常盘——同块 0/卖回分散/二次承接（第四 healthy 正例）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 全量对拍批次一用户翻案裁定「2.CD49 unhealthy 也没问题」——机器 L_insider_sell26（insider=moderate ∧ 零买纯卖 25.9% 过 25 线）与人工对齐；原 10-30 healthy 判定（卖回分散/二次承接）被本轮信号页复查推翻"
     },
     {
       "caseId": "CD50",
@@ -1675,12 +1675,12 @@
         "tickCount": 14
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "aed2091d 首买基线收录（锚=14=首笔成功买+settle4000ms；买14/卖0 Σ买2.47BNB 钱包14 top1=52.6% churn0 同块簇2 等额簇0）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "用户裁定「2.CD105 healthy」。top1 52.6% 本组最高+全买零卖 churn 0 但档位全 weak（无 strong 无阵列 等额簇 0）——全买零卖家族形状首个 healthy 票：单钱包吃独食非多钱包阵列（对照 CD81 零散多钱包阵列判 cheat/CD99 单 strong 落 unhealthy——家族 healthy 分界=无阵列且无 strong）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 全量对拍批次一用户翻案裁定「4.CD105 可以给 unhealthy，改一下吧」——机器 E_low_activity（act=low ∧ 非 burst）拦截方向确认；原 11-01 healthy 判定（单钱包吃独食非阵列）被推翻——低活跃+吃独食组合仍属拒买形状"
     },
     {
       "caseId": "CD106",
