@@ -772,6 +772,7 @@ class CheatCheckService {
           ticksPerMin: derived.ticksPerMin ?? null,
           avgTradeBnb: derived.avgTradeBnb ?? null,
           maxGapSec: derived.maxGapSec ?? null,
+          idlePct: derived.idlePct ?? null, // D3.49 无交易期占比（间隔≥20s 静默段÷窗长；CD110 漏判数值化）
           level: derived.activityLevel ?? null,
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,

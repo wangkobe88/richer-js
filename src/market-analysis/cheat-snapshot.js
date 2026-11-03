@@ -42,6 +42,8 @@ const ACTIVITY_ULTRA_TPM = 140;
 /** 活跃度低档伴生线：笔均交易额尘级（BNB）与最长空窗（秒） */
 const ACTIVITY_DUST_AVG_BNB = 0.05;
 const ACTIVITY_LONG_GAP_SEC = 120;
+// D3.49 无交易期占比静默段门槛：间隔 ≥此值才算「完全静默段」（题①操作化）。
+const ACTIVITY_IDLE_GAP_SEC = 20;
 /** 活跃度不均衡（CV）：30s 物理桶 tick 数变异系数；桶数不足=不可评 null */
 const ACTIVITY_BUCKET_SEC = 30;
 const ACTIVITY_CV_MIN_BUCKETS = 3;
@@ -561,15 +563,23 @@ function computeDerived(snapshot, famousRoster) {
   // 不均衡 activityCv=锚窗 30s 物理桶 tick 数变异系数 std/mean（burst+断流起伏→大）；
   // 桶数 <ACTIVITY_CV_MIN_BUCKETS → null（不可评）。dt 缺失全族 null（绝不冒充）。
   const dts = ticks.map((t) => t.dt).filter((v) => v !== null && v !== undefined);
-  let ticksPerMin = null, avgTradeBnb = null, maxGapSec = null;
+  let ticksPerMin = null, avgTradeBnb = null, maxGapSec = null, idlePct = null;
   let activityLevel = null, activityCv = null, activityUneven = null;
   if (dts.length >= 2) {
     const spanSec = Math.max(1, dts[dts.length - 1] - dts[0]);
     ticksPerMin = +((dts.length / spanSec) * 60).toFixed(2);
+    let idleSec = 0;
     for (let i = 1; i < dts.length; i++) {
       const g = dts[i] - dts[i - 1];
       if (g > maxGapSec) maxGapSec = g;
+      // D3.49 无交易期占比：间隔 ≥IDLE_GAP_SEC 的静默段合计 ÷ 窗长（题①「完全
+      // 静默段」的操作化——短暂间歇不算静默）。切点=14 票锚窗分布（tmp-idlepct@182）：
+      // CD110 71%（冲 18s→静 49s→砸，用户质询「购买前大多数时间是空的」）、CD7/CD37/
+      // CD98/CD99 83-96%；匀速 CD57 maxGap 13s=0%、高活跃 CD84/41/92/87/90/100/101 全 0%。
+      // IDLE_GAP_SEC=20 与 CD57 最大间隔 13s 隔离（BSC 0.75s 出块 20s≈27 块无交易）。
+      if (g >= ACTIVITY_IDLE_GAP_SEC) idleSec += g;
     }
+    idlePct = +((idleSec / spanSec) * 100).toFixed(1);
     avgTradeBnb = +((totalBuyBnb + totalSellBnb) / ticks.length).toFixed(4);
     if (maxGapSec >= ACTIVITY_LONG_GAP_SEC || ticksPerMin < ACTIVITY_LOW_TPM || avgTradeBnb < ACTIVITY_DUST_AVG_BNB) {
       activityLevel = 'low';
@@ -866,7 +876,7 @@ function computeDerived(snapshot, famousRoster) {
     // D3.41 簇闭环三键+叙事数组（coordinated_sell_back 跨块闭环判读原料）
     clusterRoundTripPct, clusterRoundTripSellPct, clusterRoundTripBlocks, clusterRoundTrips,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
-    ticksPerMin, avgTradeBnb, maxGapSec,
+    ticksPerMin, avgTradeBnb, maxGapSec, idlePct,
     burstWaveBuyBnb, burstWaveWallets,
     noBuySellPct, noBuySellBnb, noBuySellWallets,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings

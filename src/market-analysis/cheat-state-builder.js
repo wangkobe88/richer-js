@@ -211,7 +211,13 @@ function buildCheatState(snapshot) {
     // 代码口径 ticksPerMin=94.29/maxGap=4s 明确 high 档，Jev 无数值锚低置信漂移成
     // low 0.44——档位行仍撤（判档仍 Jev，D3.5 边界不变），但三要素原料以数值事实
     // 进 state，同 sb/eq/famous 数值行性质「数值事实非档位判定」；题面不动）
-    lines.push(`活跃度数值: 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒（代码口径频率事实，activity_level 档位由你综合三要素给出）`);
+    // D3.49 数值行补第四数「无交易期占比」（CD110 案，用户裁定「购买前的大多数时间都是
+    // 空的无交易的呀，这个说活跃度能接受我觉得不行」）：锚窗 69s 内冲 18s→静 49s→砸，
+    // 71% 静默是题面①「≥50% 即低档核心证据」但旧三数没给占比、Jev 沿 15 行时间戳心算
+    // 不可靠（D3.29「组合数值代码算好」先例）漏判 mid。idlePct=间隔≥20s 静默段合计÷窗长
+    // （derived 算好透传，@20s 14 票分布：目标 CD110/CD7/CD37/CD98/CD99 71-96%、高活跃
+    // 反例 CD84/41/92/87/90/100/101 全 0%、匀速 CD57 maxGap 13s=0% 与阈值隔离）。
+    lines.push(`活跃度数值: 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒 / 无交易期占比 ${d.idlePct !== null && d.idlePct !== undefined ? d.idlePct + '%' : '未知'}（无交易期占比=间隔≥20秒的完全静默段合计÷窗口总时长；代码口径频率事实，activity_level 档位由你综合各要素给出）`);
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
     // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）
