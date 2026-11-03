@@ -1021,6 +1021,45 @@ function eventCenterEntityExempt(answers) {
 }
 
 /**
+ * C266 语料原话提炼豁免（J1.156，2026-11-03 memeless 案 0xb8858a2b…7777 用户
+ * 裁定「好，加这个锚吧。这个锚跟事件中心实体锚类似哈」）：事件成立 ∧ 币名=
+ * 事件语料当场提炼的概念 → 词句接纳度门放行。
+ *
+ * 两腿 AND（与 C263 eventCenterEntityExempt 同构）：
+ * ①事件成立——bsc_meme_user_event_fit strong_fit+fit 合计 ≥0.5（与 J1.83
+ *   web3FitMassBlock/J1.154 同尺度同阈值；合计<0.5 的票被 fit 门拦在门链上游，
+ *   此处显式判不依赖门链顺序——isW/binanceCorpus/platformOfficial 豁免票可穿过
+ *   fit 门仍受词句门拦，本豁免对它们同样要求腿①成立）；
+ * ②币名概念出自事件语料——J1.156 恒带题 name_phrase_from_event
+ *   from_event ≥0.5。
+ *
+ * 立法逻辑：词句门（C189 恢复拦截）本意是拦无来由的泛称/口号硬造名字——名字
+ * 独立承担 meme 价值的形状。币名=事件语料当场提炼的概念时（案发：CZ「现在的
+ * meme 太多，反而找不出来梗了」→ memeless，19 秒狙击），事件承担叙事价值、
+ * 名字只是对事件内概念的忠实提取，词句门在此类票上无独立信息量（事件是内容
+ * 名字是形式，内容成立时形式不否决内容——与 C263 类型轴豁免同构）。「我要去
+ * 滑雪」型独立泛称票名字概念与语料无关 → 腿②进不去照拦。
+ * 不豁免：wrong_entity（指歪票 from_event 天然 false）/类型轴 unacceptable_type
+ * （C263 独立判，两豁免各自两腿互不代行）/china_politics（政治线是内容红线）。
+ * 旧缓存行无本题答案（probabilities 缺席 → 断代 null 不冒充 0）→ 豁免不触发
+ * 零翻转（J1.154 同款断代兼容）。
+ * 审计：namePhraseCorpusMass（from_event 概率恒落，腿①缺/断代 null）/
+ * namePhraseCorpusExempt（词句门命中时的豁免结果 true/false，未命中 null 不冒充）。
+ */
+function eventCorpusPhraseExempt(answers) {
+  const p = q(answers, 'bsc_meme_user_event_fit', 'web3_user_event_fit')?.probabilities ?? {};
+  const fitMass = (p.strong_fit ?? 0) + (p.fit ?? 0);
+  const fitMassR = Math.round(fitMass * 100) / 100;
+  if (fitMass < 0.5) return { exempt: false, fitMass: fitMassR, phraseMass: null };
+  // 答案缺席（旧缓存行 J1.156 前）→ phraseMass=null 断代不冒充 0（from_event=0
+  // 有证据零值与「没问过」是两回事——审计可区分）
+  const fp = q(answers, 'name_phrase_from_event')?.probabilities;
+  if (fp == null) return { exempt: false, fitMass: fitMassR, phraseMass: null };
+  const f = fp.from_event ?? 0;
+  return { exempt: f >= 0.5, fitMass: fitMassR, phraseMass: Math.round(f * 100) / 100 };
+}
+
+/**
  * 实体-事件影响力脱节门（J1.124/C194，2026-10-25 用户裁定）：齐天大圣
  * 0x4a6a6c8b…7777——「齐天大圣是中国非常著名的超级 IP，但是这个事件影响力明显
  * 不大。这样就是代币 IP 很大，事件本身影响力极小，两者脱节，事件明显支撑不起
@@ -1483,6 +1522,7 @@ export function mapStandardAnswers(answers, context) {
   // 域外 miss 放行；类型不合与事件分类正交，对齐 wrong_entity 全域
   const neBlock = nameEntityTypeUnfitBlock(answers);
   const centerExempt = eventCenterEntityExempt(answers); // J1.154/C263 事件中心实体豁免（neBlock 两腿放行判据，见函数注）
+  const phraseExempt = eventCorpusPhraseExempt(answers); // J1.156/C266 语料原话提炼豁免（uaBlock 两腿放行判据，见函数注）
   const emBlock = entityEventMismatchBlock(answers); // J1.124/C194 实体-事件影响力脱节（大 IP + 小事件）
   let weBlock = null; // 指歪拦截位信息 {label, mass}（J1.81/C139 wrong_entity 全域，C180 起名字轴唯一拦截位）
   const uaBlock = web3UserAcceptabilityBlock(answers); // {label, choice}（C189 恢复拦截：not_entity 形状 web3_user_not_acceptable 档拦；C96→C105→C107→C108→J1.81 收窄→C180 拆臂→C189 恢复，实体臂优先路由 gate 在函数内）
@@ -1739,13 +1779,16 @@ export function mapStandardAnswers(answers, context) {
     // 型无论类别、无论出自谁的官宣文本都拦）。C180 起名字轴唯一存留拦截位
     eventScoreBlocked = true;
     gateBlockReason = weBlock.label;
-  } else if (uaBlock) {
+  } else if (uaBlock && !phraseExempt.exempt) {
     // C189（2026-10-24，C96 币安上电视追裁）词句门恢复拦截：用户裁定「先走实体
     // 门，然后走 phrase 门——要不被实体拒绝，要不被口号拒绝」（陈述=口号类，
     // 实体臂判 not_entity 后落词句臂）。C180 拆臂回滚——判据已由 C187 三因素
     // 重构理顺（J1.116-J1.119），实体臂优先路由 gate 在 web3UserAcceptabilityBlock
     // 内（entityChoice!=='not_entity' → null：实体票不经词句门，C180 前越权拦
     // 实体票的病灶已除）；not_entity 形状 + not_acceptable 档位拦
+    // J1.156/C266 语料原话提炼豁免：事件成立（sf+fit≥0.5）∧ 币名概念出自
+    // 事件语料（from_event≥0.5）→ 词句门放行（两腿判据见 eventCorpusPhraseExempt）；
+    // 只豁免本门——类型轴/wrong_entity/政治线不豁免
     eventScoreBlocked = true;
     gateBlockReason = uaBlock.label;
   // （J1.102/C171：形象载体门 scBlock 分支随门整轴退役删除——
@@ -1901,6 +1944,11 @@ export function mapStandardAnswers(answers, context) {
         // 拦但被豁免/false=两腿未全真照拦），未命中 null 不冒充
         nameEntityCenterMass: centerExempt.centerMass,
         nameEntityCenterExempt: neBlock != null ? centerExempt.exempt : null,
+        // J1.156/C266 语料原话提炼豁免审计：phraseMass=from_event 概率恒落
+        // （腿①缺（fit<0.5 短路）/旧缓存行 null 断代）；exempt 只在词句门命中时
+        // 有意义（true=本会被拦但被豁免/false=两腿未全真照拦），未命中 null 不冒充
+        namePhraseCorpusMass: phraseExempt.phraseMass,
+        namePhraseCorpusExempt: uaBlock != null ? phraseExempt.exempt : null,
         nameWrongEntityMass: weBlock?.mass ?? null,
         // J1.124/C194 实体-事件影响力脱节审计：命中才落 mass（entity_event_mismatch
         // 概率），旧缓存行/未命中为 null

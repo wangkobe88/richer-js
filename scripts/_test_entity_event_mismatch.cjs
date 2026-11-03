@@ -122,11 +122,11 @@ async function main() {
   const cpIdx = mapperSrc.indexOf('} else if ((cpBlock = chinaPoliticsBlock(answers))) {');
   const emIdx = mapperSrc.indexOf('} else if (!pubProxyActive && emBlock != null) {');
   const w3Idx = mapperSrc.indexOf('} else if ((w3Block = web3UnfitBlock(answers))) {');
-  const neIdx = mapperSrc.indexOf('} else if (!pubProxyActive && neBlock != null) {');
+  const neIdx = mapperSrc.indexOf('} else if (!pubProxyActive && neBlock != null && !centerExempt.exempt) {'); // C263/J1.154 事件中心实体豁免加 !centerExempt.exempt 腿（C263 期漏改本锁 C266 同批修复）
   const weIdx = mapperSrc.indexOf('} else if ((weBlock = wrongEntityBlock(answers))) {');
   check('C1 门链顺序：中国政治 cp → 实体-事件脱节 em → fit 概率门 w3（2026-10-25 用户裁定「可以挪」——资格层脱节先于口味概率门，label 归属更准）',
     cpIdx > 0 && emIdx > cpIdx && w3Idx > emIdx, { cpIdx, emIdx, w3Idx });
-  check('C2b 实体题内部顺序：类型门 ne → 指歪门 we 仍相邻（em 已迁出实体段）',
+  check('C2b 实体题内部顺序：类型门 ne（含 C263 centerExempt 豁免腿）→ 指歪门 we 仍相邻（em 已迁出实体段）',
     neIdx > 0 && weIdx > neIdx && emIdx !== neIdx, { neIdx, weIdx, emIdx });
   check('C2 entityEventMismatchBlock 私有（不导出，经集成测锁定）',
     mapper.entityEventMismatchBlock === undefined && mapper.__entityEventMismatchBlock === undefined);

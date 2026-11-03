@@ -235,8 +235,8 @@ async function main() {
   check('A18 拼写变体锚 J1.81 迁移（无背景拼写错误→实体题 wrong_entity①；有文化来源变体不算——dogwifhat）',
     qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('无背景拼写错误')
     && qs.bsc_meme_user_name_entity_acceptance.criteria.wrong_entity.includes('dogwifhat'), null);
-  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16；J1.79 删 web3_user_event_impact→13；J1.83 删 event_subject_entity→12；J1.84 删 w_product_score→11；J1.102 删 visuality/event_influence→10；C244 加独立观察题→11——C244 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复；C263/J1.154 恒带题 11→12，C263 期漏改存量红 C264 同批修复）',
-    !('block_misspelling' in qs) && Object.keys(qs).length === 12
+  check('A19 block_misspelling 探针题已删（C108 退役——判据并入 name_form 分支④；C109 题集收敛 18→16；J1.79 删 web3_user_event_impact→13；J1.83 删 event_subject_entity→12；J1.84 删 w_product_score→11；J1.102 删 visuality/event_influence→10；C244 加独立观察题→11——C244 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复；C263/J1.154 恒带题 11→12，C263 期漏改存量红 C264 同批修复；C266/J1.156 恒带题 12→13，C266 同跟）',
+    !('block_misspelling' in qs) && Object.keys(qs).length === 13
     && !('block_misspelling' in buildStandardQuestions({ includeBrandHijack: true })), Object.keys(qs).length);
 
   // ═══ B. F→E 改道真值表 ═══
@@ -578,9 +578,9 @@ async function main() {
     const uaObs = mapperSrc.indexOf('const uaBlock = web3UserAcceptabilityBlock(answers)');
     return uaArm > 0 && scIdx === -1 && uaObs > 0 && uaObs < uaArm ? true : { uaArm, scIdx, uaObs };
   })());
-  check('F3 C189 恢复链序：词句门在 wrong_entity 臂后、量级门 D/E 档臂前（全域无豁免）',
-    mapperSrc.indexOf('(weBlock = wrongEntityBlock') < mapperSrc.indexOf('else if (uaBlock) {')
-    && mapperSrc.indexOf('else if (uaBlock) {') < mapperSrc.indexOf("effTier === 'E' || effTier === 'D'")
+  check('F3 C189 恢复链序：词句门在 wrong_entity 臂后、量级门 D/E 档臂前（J1.156/C266 起拦截位带 phraseExempt.exempt 语料原话提炼豁免条件；pubProxy/五腿仍不豁）',
+    mapperSrc.indexOf('(weBlock = wrongEntityBlock') < mapperSrc.indexOf('else if (uaBlock && !phraseExempt.exempt) {')
+    && mapperSrc.indexOf('else if (uaBlock && !phraseExempt.exempt) {') < mapperSrc.indexOf("effTier === 'E' || effTier === 'D'")
     && !/!pubProxyActive && uaBlock/.test(mapperSrc), null);
   check('F4 改道公式：J1.152/C261 cashtagForced 硬改道退役，仅剩 recapForced 独立改道（F+news_recap → E 不再被 cashtag 优先级遮蔽）',
     mapperSrc.includes("const category = recapForced ? 'E' : (answers.event_category?.choice || null);")
