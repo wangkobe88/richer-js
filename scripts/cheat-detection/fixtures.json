@@ -1163,12 +1163,12 @@
         "tickCount": 37
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "aed2091d 首买基线收录（锚=37=首笔成功买+settle4000ms；买28/卖9 Σ买3.92BNB 钱包27 top1=13.1% churn5 同块簇4 等额簇1）；expect=判读现状待 review",
       "addedAt": "2026-11-01",
-      "expectSince": "2026-11-01",
-      "expectBecause": "--add 基线快照（aed2091d 首买基线收录（锚=37=首笔成功买+settle4000ms；买28/卖9 Σ买3.92BNB 钱包27 top1=13.1% churn5 同块簇4 等额簇1）；expect=判读现状待 review）"
+      "expectSince": "2026-11-03",
+      "expectBecause": "2026-11-03 D+E 组裁定原话「CD73 裁定为 healthy，insider sell似乎只有一笔，从我的角度应该是 healthy」——机器 unhealthy[L_insider_sell77] 纯卖 77.1% 分子实为单一钱包 0x168465535635887c0f6418ebef69f43e468dc768 两笔 0.648 BNB 获利了结（该钱包窗内零买单、为窗内唯一纯卖方，前 60 行口径占总卖 39.3%），非多钱包分发网络；单钱包获利了结≠分发分仓。校准线索留档：L 通道纯卖占比在卖方高度集中（一两个钱包）时把正常获利了结放大成 insider 分发信号——将来可考虑纯卖占比配卖方钱包数/笔数维度（攒案再裁）"
     },
     {
       "caseId": "CD74",
