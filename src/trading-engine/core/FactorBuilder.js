@@ -68,6 +68,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T84 入场市值锚（BNB 域，2026-10-28 早期叙事臂）：卖腿豁免/专属臂复盘直读；
     // 旧 FA/无持仓 → null 不掩盖
     entryMarketCap: factorResults.entryMarketCap ?? null,
+    // T113 自入场累计净买三键（2026-11-04 pump 卖出臂）：自本仓成交锚以来的买卖流
+    // 净比（主键）+两原料观察键——触发复盘（为何卖/为何没卖）需 fire 时刻值，
+    // 序列不可重建；旧 FA/未持仓 → null 不掩盖
+    sinceEntryNetBuyRatio: factorResults.sinceEntryNetBuyRatio ?? null,
+    sinceEntryBuyBnb: factorResults.sinceEntryBuyBnb ?? null,
+    sinceEntrySellBnb: factorResults.sinceEntrySellBnb ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,

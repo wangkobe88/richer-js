@@ -1555,6 +1555,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             entryMarketCapBnb: (prevPos && prevPos.entryMarketCapBnb != null)
                 ? prevPos.entryMarketCapBnb
                 : (anchorBnb > 0 && state.totalSupply > 0 ? anchorBnb * state.totalSupply : null),
+            // T113 自入场锚快照（2026-11-04 pump 卖出臂）：登记时刻的全史累计买卖额
+            // （processTick 价格段每行恰一次推进；defer 路径价格段即时喂 → 锚时点已含
+            // 我们自己的买入 tick 的可能性存在——差值口径把自己这笔买也计入「自入场
+            // 买」，量级 0.004 BNB 占比微小，与 v70 探针口径一致（探针 t0=我们钱包首笔
+            // buy tick，窗含自身））。补买轮各自重锚=每仓独立「入场以来」。
+            entryTotalBuyBnb: state.totalBuyBnb || 0,
+            entryTotalSellBnb: state.totalSellBnb || 0,
             highestPriceSinceBuyBnb: Math.max(anchorBnb, state.currentPriceBnb || 0, pend ? pend.peakAnyBnb : 0),
             highestPriceSinceBuyAt: (pend && pend.peakAnyAt) || buyState.buyTime || Date.now(),
             highestHoldersSinceBuy: state.holderCount || 0,
@@ -2771,7 +2778,27 @@ class FourMemeFactorAggregator extends EventEmitter {
             holderDrawdownFromHighestSinceLastBuy =
                 ((state.holderCount - pos.highestHoldersSinceBuy) / pos.highestHoldersSinceBuy) * 100;
         }
+        // T113 自入场累计净买三键（2026-11-04 pump 卖出臂）：锚=setBuyState 时刻的
+        // 全史累计（totalBuyBnb/totalSellBnb）快照，差值=「本仓入场以来」的买卖流
+        // （补买轮各自重锚——每仓独立快照）。v70 13 票探针：入场后 30s 仍 ≥90 单边买
+        // 的 6 票中 4 票 -7%~-37%（比特币银行/蝴蝶喊单/蝴蝶池/共建共赢全亏），滚动窗
+        // 载体（tradesNetBuyRatioShortWin）被入场前买潮污染接不住（同锚对拍 S12@+30s
+        // 只中 3/6 票）→ 必须自入场语义。差值经 Math.max(0,·) 防 defer 回推乱序瞬时负
+        // （加法交换律保证收敛真值；入场前旧 tick 晚到会两侧同污染、方向抵消，竞态窗
+        // 仅锚点附近 1-3s，接受）。b+s<=0 → null fail-closed（入场后零交易=无新证据，
+        // 门恒 false 不触发——死盘归断流扫描/止损管，与本键无关）。
+        const sinceEntryBuyBnb = Math.max(0, state.totalBuyBnb - (pos.entryTotalBuyBnb || 0));
+        const sinceEntrySellBnb = Math.max(0, state.totalSellBnb - (pos.entryTotalSellBnb || 0));
+        const sinceEntryTotBnb = sinceEntryBuyBnb + sinceEntrySellBnb;
+        const sinceEntryNetBuyRatio = sinceEntryTotBnb > 0
+            ? ((sinceEntryBuyBnb - sinceEntrySellBnb) / sinceEntryTotBnb) * 100
+            : null;
         return {
+            // T113 三键（BNB 域，命名对齐 tradesNetBuyRatio* 族；ratio 主键进条件串，
+            // 两原料键纯观察供阈值复盘——不落库即丢，FactorBuilder 快照透传）
+            sinceEntryNetBuyRatio,
+            sinceEntryBuyBnb,
+            sinceEntrySellBnb,
             buyPrice: pos.buyPriceUsd || pos.buyPriceBnb, // USD 优先（买入时点锁定），缺 USD 时退 BNB（比值因子不受影响）
             buyPriceBnb: pos.buyPriceBnb,
             buyTime: pos.buyTime,
@@ -2876,6 +2903,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             holderDrawdownFromHighestSinceLastBuy: null,
             peakProfitPct: null,
             secSincePeak: null,
+            // T113 自入场累计净买三键（未持仓 → null；含本仓的持仓票由 _positionFactors 覆盖）
+            sinceEntryNetBuyRatio: null,
+            sinceEntryBuyBnb: null,
+            sinceEntrySellBnb: null,
         };
         if (state._lastPositionKey && state._positions.has(state._lastPositionKey)) {
             positionFactors = this._positionFactors(
@@ -3193,6 +3224,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             holderDrawdownFromHighestSinceLastBuy: positionFactors.holderDrawdownFromHighestSinceLastBuy,
             // T97 高点停滞减仓臂：距持仓期峰值秒数（无持仓 → null，`> N` 恒 false fail-closed）
             secSincePeak: positionFactors.secSincePeak ?? null,
+            // T113 自入场累计净买三键（2026-11-04 pump 卖出臂）：本仓成交锚以来买卖流
+            // 净比主键+两原料观察键（无持仓 → null；入场后零交易 → ratio null fail-closed）
+            sinceEntryNetBuyRatio: positionFactors.sinceEntryNetBuyRatio ?? null,
+            sinceEntryBuyBnb: positionFactors.sinceEntryBuyBnb ?? null,
+            sinceEntrySellBnb: positionFactors.sinceEntrySellBnb ?? null,
 
             // ── T107 市值拱形时间全清臂（2026-10-29 用户裁定）──
             // X = 首次交易→最高市值耗时；峰值超 15K USD（=20.1 BNB @T84 换算率 745）后
