@@ -2736,6 +2736,22 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=37=cheat_detection 首判行；信号数 3；D3.56 基线））"
+    },
+    {
+      "caseId": "CD181",
+      "symbol": "FLAP世界",
+      "addr": "0x84331f9f0546ef8896ceb5451ad86e63fb7f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 36
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v70 用户裁定 pump 盘 cheat：第四信号 06:36 翻 healthy(D3.55) 漏网买入 06:55 卖出，同 CD166/CD175 形状；生产首析锚=36",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定「这个也是 pump，cheat」：生产 D3.55 第四信号锚 67 翻 healthy 过门买入、19 分钟后卖出（+77%→-4% pump→dump）；D3.57 漏网窗 67 对拍 unhealthy[E] 接住、锚 56 组合门全中（56 点/538s/perBnb0.22/卖19.6%）"
     }
   ]
 }
