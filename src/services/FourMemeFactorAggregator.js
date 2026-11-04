@@ -3685,7 +3685,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    协同买入参考四键
         //    cheatMaxBlockBuyCount/cheatMaxBlockBuyPct/cheatMaxBlockPreGapSec/
         //    cheatSameAmountWalletPct + cheatCreatorPeakHoldSupplyPct（创建者曾持
-        //    峰值占总供应量%，G13 R 通道/holdings_balance 同源；参考数值非门槛）。
+        //    峰值占总供应量%，G13 R 通道/holdings_balance 同源；参考数值非门槛）
+        //    + D3.58 断流重启段六键 cheatPostStallSpanSec/cheatPostStallBuyBnb/
+        //    cheatPostStallBuyerCount/cheatPostStallFreshBuyerPct/
+        //    cheatPostStallEqualClusterPct/cheatPostStallMaxBlockBuyPct（CD183：
+        //    最长静默 ≥300s 后段内口径——占比分母=段内买入不被断流前流量稀释；
+        //    无断流全族 null）。
         //    写者=引擎（gate 判定/迟到补投影/预触发 onResult）；**值=最近一次判定
         //    投影**（叙事 C84 同构：后台分析完成投影，下一 tick 条件可消费）——
         //    首判未完成/预触发未跑 → 全 null（条件裸比较恒 false fail-closed，未判定
@@ -3757,6 +3762,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatPulseBlockCount = _an ? _an.pulseBlockCount ?? null : null;
             factors.cheatPulseBlockBuyPct = _an ? _an.pulseBlockBuyPct ?? null : null;
             factors.cheatPulseMaxGapBlocks = _an ? _an.pulseMaxGapBlocks ?? null : null;
+            // D3.58 断流重启段六键（CD183：窗内最长完全静默 ≥300s → 段=静默后全部
+            // 行；段长/段内买入额/买入钱包数/新钱包占比/段内等额同块簇占比/段内
+            // 最大单块买入占比——**占比分母=段内买入**（全窗口径被断流前流量稀释，
+            // 与全窗键并存 additive）；eq/same_block_buy_wave 题分段口径判读原料，
+            // 纯观察可进条件串；无 ≥300s 间隙全族 null / 段内无买入占比 null 不冒充）
+            factors.cheatPostStallSpanSec = _an ? _an.postStallSpanSec ?? null : null;
+            factors.cheatPostStallBuyBnb = _an ? _an.postStallBuyBnb ?? null : null;
+            factors.cheatPostStallBuyerCount = _an ? _an.postStallBuyerCount ?? null : null;
+            factors.cheatPostStallFreshBuyerPct = _an ? _an.postStallFreshBuyerPct ?? null : null;
+            factors.cheatPostStallEqualClusterPct = _an ? _an.postStallEqualClusterPct ?? null : null;
+            factors.cheatPostStallMaxBlockBuyPct = _an ? _an.postStallMaxBlockBuyPct ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
             // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/

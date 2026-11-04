@@ -150,6 +150,17 @@ function buildCheatState(snapshot) {
         : '（仅一个脉冲块，无节拍间隔证据）';
       lines.push(`同块脉冲节拍: ${d.pulseBlockCount} 个脉冲块（单块 ≥3 笔买入）合计占窗口总买入 ${d.pulseBlockBuyPct.toFixed(1)}%（${parts.join('；')}${gapStr}）——事实数值非门槛：脉冲块之间存在整段空块的孤立脉冲节拍（多波同块挤入+波间死寂，真实散户到达沿块散布不会只挑同样的少数块反复成波）是协同节拍迹象；脉冲块相邻成带（间隔 0-2 块）=连续活跃带撞块常态（高活跃盘独立买家并发，不因同块加档）；占比本身分不开两种形状，判读看间隔结构，如何计异常份额由你按 abnormal_behavior_ratio 题面判读`);
     }
+    // D3.58 断流重启段事实行（CD183：0xdee305bc…7777 断流 741s 后全新钱包等额
+    // 簇三波重启案立项——用户裁定「计算指标的时候，可以只取一个时间窗口，burst
+    // 的指标单独自己算」+「给Jev判断的时候也可以说明这个问题」）：全窗占比的
+    // 分母含断流前的全部流量，早期密集段会把断流后集中买入的占比稀释 2 倍以上
+    // （立项票段内等额簇 42.6% vs 全窗 17.5%）；本行=代码按「窗内最长完全静默
+    // ≥300 秒」切出的重启段单独口径，段内占比才是重启段集中度的度量。无 ≥300s
+    // 断流不渲染行（缺席语义——连续盘无重启段概念）；事实数值非门槛，判读教学
+    // 在 same_block_buy_wave/equal_amount_split 题面分段口径句。
+    if (d.postStallSpanSec !== null && d.postStallSpanSec !== undefined) {
+      lines.push(`断流重启段: 窗内最长完全静默 ${d.maxGapSec} 秒后重启，段长 ${d.postStallSpanSec} 秒、段内买入 ${fmtBnb(d.postStallBuyBnb)} BNB / ${d.postStallBuyerCount} 个买入钱包（其中断流前从未出现过的新钱包占 ${d.postStallFreshBuyerPct !== null && d.postStallFreshBuyerPct !== undefined ? d.postStallFreshBuyerPct + '%' : '—'}），段内精确等额同块簇买入占段内买入 ${d.postStallEqualClusterPct !== null && d.postStallEqualClusterPct !== undefined ? d.postStallEqualClusterPct + '%' : '—'} / 段内最大单块买入占段内买入 ${d.postStallMaxBlockBuyPct !== null && d.postStallMaxBlockBuyPct !== undefined ? d.postStallMaxBlockBuyPct + '%' : '—'}（口径：段=最长静默 ≥300 秒之后的全部行；**占比分母=段内买入——全窗口径的占比会被断流前的流量稀释，本行段内口径单独度量重启段的集中度**。长静默后重启段内多波同块等额簇且买家全新=协同结构证据（波间间隔即静默本身）；慢热盘断流后自然回暖的买家通常新旧混合、同块等额簇不聚集；事实数值非门槛，如何定档由你按各题面判读）`);
+    }
     // D3.38 单块买入集中度形状行（CD135 续，2026-11-02 用户裁定换喂法 C——
     // 「形状提示不给具体数字降锚定力」）：D3.36 撤出精确数字后 CD6 回退
     // （minimal 0.66→meaningful 0.4 放行——单块集中形状有信息量），而撤前

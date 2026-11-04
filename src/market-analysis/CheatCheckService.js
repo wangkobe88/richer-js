@@ -368,6 +368,14 @@ class CheatCheckService {
           pumpStableSlopePctPerMin: snapshot.derived.pumpStableSlopePctPerMin,
           pumpRisePerBuyBnb: snapshot.derived.pumpRisePerBuyBnb,
           pumpSellTickCountPct: snapshot.derived.pumpSellTickCountPct,
+          // D3.58 断流重启段锚族（CD183：≥300s 断流后段内集中度——全窗占比被
+          // 前期流量稀释，段内口径单独度量；无 ≥300s 间隙全族 null）
+          postStallSpanSec: snapshot.derived.postStallSpanSec,
+          postStallBuyBnb: snapshot.derived.postStallBuyBnb,
+          postStallBuyerCount: snapshot.derived.postStallBuyerCount,
+          postStallFreshBuyerPct: snapshot.derived.postStallFreshBuyerPct,
+          postStallEqualClusterPct: snapshot.derived.postStallEqualClusterPct,
+          postStallMaxBlockBuyPct: snapshot.derived.postStallMaxBlockBuyPct,
         });
       } catch (e) {
         this.stats.errors++;

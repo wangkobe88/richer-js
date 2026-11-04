@@ -89,6 +89,19 @@ const BURST_NEAR_SEC = 120;
 const SPIKE_SEC = 3;
 const SPIKE_CLUSTER_GAP_SEC = 60;
 /**
+ * 断流重启段分段门槛（D3.58，2026-11-04 CD183 立项——0xdee305bc…7777 案用户
+ * 裁定：断流阈值「取 300 秒吧」；立项语境=「前期的用户行为混淆了 burst 的用户
+ * 行为？……计算指标的时候，可以只取一个时间窗口，burst 的指标单独自己算」+
+ * 「给Jev判断的时候也可以说明这个问题」）：锚窗内最大 tick 间隙 ≥300 秒 →
+ * 该间隙之后的全部行=「断流重启段」，段内集中度单独量化。动机=全窗占比分母
+ * 被前期流量稀释（立项票实形：断流 741s 后 11 笔全是全新钱包同块等额簇三波，
+ * 等额簇占全窗买入 17.5% 但占段内买入 42.6%——全窗口径停在 moderate、段内
+ * 口径才是重启段集中度的度量）；切分点=全窗最大间隙（与 SPIKE 簇 60s 线各自
+ * 独立——spike 是尖刺簇切分、postStall 是分段锚切分，阈值语义不同勿合并）。
+ * 全族 null=无 ≥300s 间隙（正常连续盘不产分段，D3.1「有证据的缺席」同语义）。
+ */
+const POST_STALL_GAP_SEC = 300;
+/**
  * pump 数值锚族常量（D3.57，2026-11-04 用户判据立项——CD166 火龙果树/CD165 币安
  * 分红/CD175 pump 专项「pump 盘的识别要加强一下」）：用户原话「从K线上看，它的
  * 斜率非常稳定（或者是某一个长阶段斜率稳定），这根本不可能是正常用户参与搞出
@@ -903,6 +916,84 @@ function computeDerived(snapshot, famousRoster) {
     }
   }
 
+  // ── D3.58 断流重启段锚族（CD183：0xdee305bc…7777 断流 741s 后全新钱包等额
+  // 簇三波重启案立项，头注见 POST_STALL_GAP_SEC——用户裁定「计算指标的时候，
+  // 可以只取一个时间窗口，burst 的指标单独自己算」：全窗占比分母被前期流量
+  // 稀释（立项票段内等额簇占比 42.6% vs 全窗 17.5%），段内口径单独量化。
+  // 段=锚窗内最大 tick 间隙 ≥POST_STALL_GAP_SEC(300s) 之后的全部行；切分口径
+  // 与 spike 簇（60s 线）各自独立。六键（事实数值非门槛，判读教学在
+  // same_block_buy_wave/equal_amount_split 题面分段口径句）：
+  //   postStallSpanSec        = 段时长（段首末 dt 差；段 1 行 → 0）
+  //   postStallBuyBnb         = 段内买入合计 BNB
+  //   postStallBuyerCount     = 段内买入钱包去重数（wallet 域 sender||trader 不剔
+  //                              router——「买家数」事实与 [TICKS] w= 同域）
+  //   postStallFreshBuyerPct  = 段内买入钱包中断流前段从未出现过的占比 ×100
+  //                              （「断流前出现过」=前段全部行钱包集，买卖都算在场）
+  //   postStallEqualClusterPct= 段内精确等额同块簇买入 ÷ 段内总买 ×100
+  //                              （D3.53 同口径段内版：同块∧toFixed(4) 全等∧
+  //                              ≥2 钱包∧尘门 EQUAL_AMOUNT_MIN_BNB）
+  //   postStallMaxBlockBuyPct = 段内最大单块买入 ÷ 段内总买 ×100
+  // null 语义：无 ≥300s 间隙（含 <2 有效 dt 行）→ 全族 null；段内无买入 →
+  // buyBnb=0/buyerCount=0、占比三键与 freshBuyerPct null（无段内买入证据）──
+  let postStallSpanSec = null, postStallBuyBnb = null, postStallBuyerCount = null;
+  let postStallFreshBuyerPct = null, postStallEqualClusterPct = null, postStallMaxBlockBuyPct = null;
+  {
+    const dtTicks2 = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
+    if (dtTicks2.length >= 2) {
+      let maxGap2 = 0, gapIdx2 = -1;
+      for (let i = 1; i < dtTicks2.length; i++) {
+        const g = dtTicks2[i].dt - dtTicks2[i - 1].dt;
+        if (g > maxGap2) { maxGap2 = g; gapIdx2 = i; }
+      }
+      if (maxGap2 >= POST_STALL_GAP_SEC) {
+        const seg = dtTicks2.slice(gapIdx2);
+        const pre = dtTicks2.slice(0, gapIdx2);
+        postStallSpanSec = seg[seg.length - 1].dt - seg[0].dt;
+        const segBuys = seg.filter((t) => t.side === 'BUY');
+        postStallBuyBnb = +segBuys.reduce((s, t) => s + (t.bnb || 0), 0).toFixed(4);
+        const segBuyerSet = new Set();
+        for (const t of segBuys) if (t.wallet) segBuyerSet.add(String(t.wallet).toLowerCase());
+        postStallBuyerCount = segBuyerSet.size;
+        if (segBuyerSet.size > 0 && postStallBuyBnb > 0) {
+          const preWallets = new Set();
+          for (const t of pre) if (t.wallet) preWallets.add(String(t.wallet).toLowerCase());
+          let fresh = 0;
+          for (const w of segBuyerSet) if (!preWallets.has(w)) fresh++;
+          postStallFreshBuyerPct = +((fresh / segBuyerSet.size) * 100).toFixed(1);
+          // 段内精确等额同块簇（D3.53 段内版：同块∧toFixed(4) 全等∧≥2 钱包∧尘门）
+          const segBlockBuys = new Map();
+          for (const t of segBuys) {
+            if (t.block === null || t.block === undefined) continue;
+            if (!segBlockBuys.has(t.block)) segBlockBuys.set(t.block, []);
+            segBlockBuys.get(t.block).push(t);
+          }
+          let clusterBnb = 0;
+          let maxBlkBnb = 0;
+          for (const [, arr] of segBlockBuys) {
+            const blkBnb = arr.reduce((s, t) => s + (t.bnb || 0), 0);
+            if (blkBnb > maxBlkBnb) maxBlkBnb = blkBnb;
+            const buckets = new Map();
+            for (const t of arr) {
+              if (t.wallet === null || t.wallet === undefined) continue;
+              const bnb = t.bnb || 0;
+              if (bnb < EQUAL_AMOUNT_MIN_BNB) continue;
+              const k = Number(bnb).toFixed(4);
+              if (!buckets.has(k)) buckets.set(k, []);
+              buckets.get(k).push(t);
+            }
+            for (const [, a] of buckets) {
+              if (new Set(a.map((t) => t.wallet)).size >= EXACT_EQUAL_BLOCK_MIN_WALLETS) {
+                clusterBnb += a.reduce((s, t) => s + (t.bnb || 0), 0);
+              }
+            }
+          }
+          postStallEqualClusterPct = +((clusterBnb / postStallBuyBnb) * 100).toFixed(1);
+          postStallMaxBlockBuyPct = +((maxBlkBnb / postStallBuyBnb) * 100).toFixed(1);
+        }
+      }
+    }
+  }
+
   // ── 协同买入参考四键（D3.35，2026-11-02 用户裁定「将 Jev 转化为一个真实的
   // 交易者……一些指标也可以作为参考，但是不要有非常硬的标准，尽量从交易者
   // 角度，去看看交易信息是否正常」：买侧节奏四事实进 [PRECOMPUTED] 供
@@ -1221,6 +1312,11 @@ function computeDerived(snapshot, famousRoster) {
     // 形状判读原料；pulseGapBlocks/pulseBlockClusters 仅 state 渲染）
     pulseBlockCount, pulseBlockBuyPct, pulseMaxGapBlocks, pulseGapBlocks,
     pulseBlockClusters,
+    // D3.58 断流重启段锚族（CD183：same_block_buy_wave/equal_amount_split 题分段
+    // 口径判读原料——全窗占比被前期流量稀释，段内占比单独度量；无 ≥300s 间隙
+    // 全族 null）
+    postStallSpanSec, postStallBuyBnb, postStallBuyerCount,
+    postStallFreshBuyerPct, postStallEqualClusterPct, postStallMaxBlockBuyPct,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,
@@ -1260,4 +1356,5 @@ module.exports = {
   ACTIVITY_UNEVEN_CV,
   PUMP_STABLE_R2,
   PUMP_STABLE_MIN_POINTS,
+  POST_STALL_GAP_SEC,
 };

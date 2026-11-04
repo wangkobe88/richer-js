@@ -303,6 +303,15 @@ function buildObservation(answers, anchors = null) {
       pumpStableSlopePctPerMin: _anchorNum(anchors, 'pumpStableSlopePctPerMin'),
       pumpRisePerBuyBnb: _anchorNum(anchors, 'pumpRisePerBuyBnb'),
       pumpSellTickCountPct: _anchorPct(anchors, 'pumpSellTickCountPct'),
+      // D3.58 断流重启段锚族（CD183：≥300s 断流后段内集中度——same_block_buy_wave/
+      // equal_amount_split 题分段口径判读原料，state 事实行+FA 投影同源；无 ≥300s
+      // 间隙全族 null 不冒充）
+      postStallSpanSec: _anchorPct(anchors, 'postStallSpanSec'),
+      postStallBuyBnb: _anchorNum(anchors, 'postStallBuyBnb'),
+      postStallBuyerCount: _anchorPct(anchors, 'postStallBuyerCount'),
+      postStallFreshBuyerPct: _anchorPct(anchors, 'postStallFreshBuyerPct'),
+      postStallEqualClusterPct: _anchorPct(anchors, 'postStallEqualClusterPct'),
+      postStallMaxBlockBuyPct: _anchorPct(anchors, 'postStallMaxBlockBuyPct'),
     },
   };
 }
