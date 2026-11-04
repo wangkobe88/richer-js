@@ -371,6 +371,10 @@ class CheatCheckService {
           top2HoldSupplyPct: snapshot.derived.top2HoldSupplyPct,
           top1Top2HoldSupplyPct: snapshot.derived.top1Top2HoldSupplyPct,
           top1Top2FirstBuyGapSec: snapshot.derived.top1Top2FirstBuyGapSec,
+          // D3.60 持有者基数三锚（holdings_balance 分层判读原料；头注见 snapshot）
+          posHolderCount: snapshot.derived.posHolderCount,
+          top1Top2HoldCircPct: snapshot.derived.top1Top2HoldCircPct,
+          top3HoldCircPct: snapshot.derived.top3HoldCircPct,
           clusterHoldSupplyPct: snapshot.derived.clusterHoldSupplyPct,
           t1PlusClusterSupplyPct: snapshot.derived.t1PlusClusterSupplyPct,
           // G8（批次六）burst 波强度三键（E 通道弱 burst 代码臂同源数值；

@@ -148,6 +148,7 @@ const OBS_ANCHOR_KEYS = [
   'sameBlockHoldPct', 'equalBandHoldPct', 'bundleBuyPct', 'top1HoldSupplyPct', 'top1HoldCircPct',
   'washPairCount', 'washPairSellPct', 'washPairBuyPct',
   'top2HoldSupplyPct', 'top1Top2HoldSupplyPct', 'top1Top2FirstBuyGapSec', 'clusterHoldSupplyPct', 't1PlusClusterSupplyPct',
+  'posHolderCount', 'top1Top2HoldCircPct', 'top3HoldCircPct', // D3.60 持有者基数三锚
   ['burstMaxGapSec', 'maxGapSec'], // 换锚名特例
   'burstWaveBuyBnb', 'burstWaveWallets', 'noBuySellPct',
   'maxBlockBuyCount', 'maxBlockBuyPct', 'maxBlockPreGapSec', 'sameAmountWalletPct',

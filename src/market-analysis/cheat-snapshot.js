@@ -636,6 +636,24 @@ function computeDerived(snapshot, famousRoster) {
   const top2HoldSupplyPct = totalSupply !== null && top2NetTok > 0 ? (top2NetTok / totalSupply) * 100 : null;
   const top1Top2HoldSupplyPct = totalSupply !== null && top2NetTok > 0
     ? ((top1NetTok + top2NetTok) / totalSupply) * 100 : null;
+  // ── D3.60 持有者基数三锚（2026-11-04 CD240 立项 BOSS 0x6b9b…7777：23 个正净
+  // 持有者的盘创建者一人垄断在场流通 73% 仅判 moderate 放行——判读链从头到尾
+  // 没有「持有者数」这个维度，「在场筹码少所致」豁免无数据可依。用户裁定原话
+  // 「要是 3 个持有者还好说，现在 10 个持有者，显然不能容忍这种现象」+「如果
+  // 有十个以上的持有者，单个持有 4 成也足够足够多了，为了避免误伤，可以先定
+  // 最多 4 成半」+「2 个钱包最多 5 成半，3 个钱包最多 7 成，大概先这么定吧」
+  // ——分层表（流通口径，题面 holdings_balance 单一载体判读）：持有者 ≥10 时
+  // 单一 >45% / 前二合计 >55% / 前三合计 >70% 任一过线=垄断证据腿坐实直接高档
+  // （免协同迹象腿；创建者身份不豁免）；持有者 ≤5 维持「筹码少」豁免；6-9 维持
+  // 原判读。口径：posHolderCount=正净持有者数（与 posNetTok 分母同域，有证据
+  // 零值）；前二/前三合计占在场流通%（<2/<3 持有人 → null 与 top2HoldSupplyPct
+  // 同「有证据的缺席」语义——持有者不足时该轴不适用而非 0）──
+  const posHolderCount = posSorted.length;
+  const top3NetTok = posSorted.length > 2 ? posSorted[2][1] : 0;
+  const top1Top2HoldCircPct = posTokTotal > 0 && top2NetTok > 0
+    ? ((top1NetTok + top2NetTok) / posTokTotal) * 100 : null;
+  const top3HoldCircPct = posTokTotal > 0 && top3NetTok > 0
+    ? ((top1NetTok + top2NetTok + top3NetTok) / posTokTotal) * 100 : null;
   const walletOf = new Map(wallets.map((e) => [e.w, e]));
   let top1Top2FirstBuyGapSec = null;
   {
@@ -1352,6 +1370,8 @@ function computeDerived(snapshot, famousRoster) {
     washPairCount, washPairSellPct, washPairBuyPct,
     top1HoldSupplyPct, top1HoldCircPct,
     top2HoldSupplyPct, top1Top2HoldSupplyPct, top1Top2FirstBuyGapSec,
+    // D3.60 持有者基数三锚（头注见计算段；holdings_balance 分层判读原料）
+    posHolderCount, top1Top2HoldCircPct, top3HoldCircPct,
     clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
     // D3.41 簇占在场流通两锚（token 域，holdings_balance 档位判读原料）
     sameBlockHoldCircPct, equalBandHoldCircPct,

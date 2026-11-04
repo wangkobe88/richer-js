@@ -326,6 +326,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     washPairSellPct: 95.1, washPairBuyPct: 27.3, top1HoldSupplyPct: 25.6,
     top1HoldCircPct: 53.4, famousDominancePct: 87.5, famousDominanceLevel: 'high', famousDominance: 2,
     top2HoldSupplyPct: 9.4, top1Top2HoldSupplyPct: 35.0, top1Top2FirstBuyGapSec: 1,
+    posHolderCount: 23, top1Top2HoldCircPct: 76.1, top3HoldCircPct: 78.5,
     clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1,
     burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3,
     maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412,
@@ -351,12 +352,13 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     'cheatFamousDominancePct', 'cheatFamousDominance',
     'cheatHoldingsBalance', 'cheatTop2HoldSupplyPct', 'cheatTop1Top2HoldSupplyPct',
     'cheatTop1Top2FirstBuyGapSec', 'cheatClusterHoldSupplyPct', 'cheatT1PlusClusterSupplyPct',
+    'cheatPosHolderCount', 'cheatTop1Top2HoldCircPct', 'cheatTop3HoldCircPct',
     'cheatBurstMaxGapSec', 'cheatBurstWaveBuyBnb', 'cheatBurstWaveWallets', 'cheatNoBuySellPct',
     'cheatAbnormalBehaviorRatio', 'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct',
     'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct',
     'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll',
     'cheatStrongBackerPressure', 'cheatAnchorBuySellRatio', 'cheatStrongbackerLike'];
-  ok('46 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键+CD159 SB1 观察键纯观察：门侧零消费，条件串/研究侧自由消费）', need.every((k) => keys.includes(k)),
+  ok('49 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键+CD159 SB1 观察键+D3.60 持有者基数三锚纯观察：门侧零消费，条件串/研究侧自由消费）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
     !keys.includes('cheatRealParticipation'));
@@ -383,6 +385,8 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm.cheatHoldingsBalance === 3 && fm.cheatTop2HoldSupplyPct === 9.4
     && fm.cheatTop1Top2HoldSupplyPct === 35 && fm.cheatTop1Top2FirstBuyGapSec === 1
     && fm.cheatClusterHoldSupplyPct === 14.5 && fm.cheatT1PlusClusterSupplyPct === 40.1
+    && fm.cheatPosHolderCount === 23 && fm.cheatTop1Top2HoldCircPct === 76.1
+    && fm.cheatTop3HoldCircPct === 78.5
     && fm.cheatBurstMaxGapSec === 65 && fm.cheatBurstWaveBuyBnb === 1.02
     && fm.cheatBurstWaveWallets === 5 && fm.cheatNoBuySellPct === 63.3
     && fm.cheatAbnormalBehaviorRatio === 2 && fm.cheatMaxBlockBuyCount === 8

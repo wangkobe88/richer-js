@@ -223,7 +223,8 @@ function buildCheatState(snapshot) {
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {
-      lines.push(`单一钱包持仓集中度: 占总供应量 ${d.top1HoldSupplyPct.toFixed(1)}% / 占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（分子同=最大单一正净持仓钱包；占总供应量过大=单一钱包控盘的事实证据；占总供应量低但占在场流通高=在场筹码少所致，单一钱包吃独食形状不算控盘（豁免）——本豁免只覆盖单一钱包独占形状，不外推：同块簇/捆绑簇成员**合计**占在场流通高的组合垄断不适用本豁免，看「捆绑簇持仓集中度」行按组合垄断判读）`);
+      const holderN = typeof d.posHolderCount === 'number' ? `；在场正净持有者 ${d.posHolderCount} 个` : '';
+      lines.push(`单一钱包持仓集中度: 占总供应量 ${d.top1HoldSupplyPct.toFixed(1)}% / 占在场流通 ${d.top1HoldCircPct.toFixed(1)}%${holderN}（分子同=最大单一正净持仓钱包；占总供应量过大=单一钱包控盘的事实证据；占总供应量低但占在场流通高=在场筹码少所致，单一钱包吃独食形状不算控盘（豁免——**仅在场正净持有者 ≤5 时成立**：筹码还没散开的极早窗独食是常态；持有者 ≥10 时在场筹码已实质分散，独食=真实垄断证据，豁免失效）——本豁免只覆盖单一钱包独占形状，不外推：同块簇/捆绑簇成员**合计**占在场流通高的组合垄断不适用本豁免，看「捆绑簇持仓集中度」行按组合垄断判读）`);
     } else if (d.top1HoldCircPct !== null) {
       lines.push(`单一钱包持仓集中度: 总供应量未知（占供应量口径缺失）；占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（判控盘须两口径齐备，仅流通口径不作控盘判据）`);
     } else {
@@ -250,6 +251,14 @@ function buildCheatState(snapshot) {
       } else {
         distTail += '；总供应量未知，前几大组合占比口径缺失';
       }
+      // D3.60 前二/前三合计占在场流通（持有者基数分层判读的流通口径组合数值，
+      // 代码算好 Jev 心算不可靠 D3.29 教训；<2/<3 持有人不渲染=轴不适用）
+      if (d.top1Top2HoldCircPct !== null && d.top1Top2HoldCircPct !== undefined) {
+        distTail += `；前两大合计占在场流通 ${d.top1Top2HoldCircPct.toFixed(1)}%`;
+        if (d.top3HoldCircPct !== null && d.top3HoldCircPct !== undefined) {
+          distTail += `、前三大合计 ${d.top3HoldCircPct.toFixed(1)}%`;
+        }
+      }
       // D3.35 创建者曾持有轨迹句（CD10 教训：创建者开盘最大单买入后清仓，正净口径
       // 下看不见——「曾持峰值占总供应量%」补「曾经持有过多少」的峰值证据；口径=
       // 创建者行逐行累计净持仓的峰值，链外转入域 swap 不可见（来源不经过本盘与
@@ -259,7 +268,8 @@ function buildCheatState(snapshot) {
           && !d.holdingsProfile.some((e) => e.w === (d.creatorWallet || ''))) {
         distTail += `；创建者已不在前三（曾持峰值占总供应量 ${d.creatorPeakHoldSupplyPct.toFixed(2)}%，买 ${fmtBnb(d.creatorBuyBnb)}×${d.creatorBuyN} / 卖 ${fmtBnb(d.creatorSellBnb)}×${d.creatorSellN}）`;
       }
-      lines.push(`持仓分布: ${profLines.join('；')}${distTail}（按正净持仓降序取前三；前几大是否均衡/是否同源协同的档位判断是你的任务）`);
+      const holderTail = typeof d.posHolderCount === 'number' ? `在场正净持有者共 ${d.posHolderCount} 个` : '';
+      lines.push(`持仓分布: ${profLines.join('；')}${distTail}（按正净持仓降序取前三${holderTail ? '，' + holderTail : ''}；前几大是否均衡/是否同源协同的档位判断是你的任务）`);
     }
     // D3.41 簇占在场流通两锚（2026-11-03 128 票全量对拍批次二裁定，用户原话「这一
     // 波我认为应该有一个独立的锚了：单级持仓。可以扩展之前的持仓锚，单个异常区块

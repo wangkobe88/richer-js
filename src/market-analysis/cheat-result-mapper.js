@@ -241,6 +241,11 @@ function buildObservation(answers, anchors = null) {
       top2HoldSupplyPct: _anchorPct(anchors, 'top2HoldSupplyPct'),
       top1Top2HoldSupplyPct: _anchorPct(anchors, 'top1Top2HoldSupplyPct'),
       top1Top2FirstBuyGapSec: _anchorPct(anchors, 'top1Top2FirstBuyGapSec'),
+      // D3.60 持有者基数三锚（正净持有者数+前二/前三合计占在场流通%；持有者
+      // 不足 2/3 → null 同「有证据的缺席」语义；头注见 cheat-snapshot 计算段）
+      posHolderCount: _anchorNum(anchors, 'posHolderCount'),
+      top1Top2HoldCircPct: _anchorPct(anchors, 'top1Top2HoldCircPct'),
+      top3HoldCircPct: _anchorPct(anchors, 'top3HoldCircPct'),
       clusterHoldSupplyPct: _anchorPct(anchors, 'clusterHoldSupplyPct'),
       t1PlusClusterSupplyPct: _anchorPct(anchors, 't1PlusClusterSupplyPct'),
       // G8（2026-11-02 批次六）burst 波强度三键（E 通道弱 burst 代码臂同源数值：

@@ -3673,7 +3673,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    cheatTop1Top2FirstBuyGapSec/cheatClusterHoldSupplyPct/
         //    cheatT1PlusClusterSupplyPct（前二/簇合计/并集占总供应量%+前二首买相差
         //    秒，G7 J 通道 holdings_balance 同源数值；<2 正净持有人/无合格簇/
-        //    supply 缺失=null）+ D3.51 三键 cheatBurstSpikeConcentration
+        //    supply 缺失=null）+ D3.60 持有者基数三键
+        //    cheatPosHolderCount/cheatTop1Top2HoldCircPct/cheatTop3HoldCircPct
+        //    （CD240：在场正净持有者数+前二/前三合计占在场流通%——题面分层判读
+        //    同源数值；<2/<3 持有人合计键 null 轴不适用）
+        //    + D3.51 三键 cheatBurstSpikeConcentration
         //    cheatSpikeBuyPctInBurst/cheatSpikeHoldPctAll（burst 尖刺集中档位
         //    （G15 A 主判同源）+两锚：尖刺买占簇买%/尖刺钱包正净占全窗正净%）
         //    + D3.52 两键 cheatStrongBackerPressure/cheatAnchorBuySellRatio
@@ -3738,6 +3742,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatTop1Top2FirstBuyGapSec = _an ? _an.top1Top2FirstBuyGapSec ?? null : null;
             factors.cheatClusterHoldSupplyPct = _an ? _an.clusterHoldSupplyPct ?? null : null;
             factors.cheatT1PlusClusterSupplyPct = _an ? _an.t1PlusClusterSupplyPct ?? null : null;
+            // D3.60 持有者基数三锚（CD240：正净持有者数+前二/前三合计占在场流通
+            // %——题面 holdings_balance 分层判读同源数值；<2/<3 持有人 null 不冒充）
+            factors.cheatPosHolderCount = _an ? _an.posHolderCount ?? null : null;
+            factors.cheatTop1Top2HoldCircPct = _an ? _an.top1Top2HoldCircPct ?? null : null;
+            factors.cheatTop3HoldCircPct = _an ? _an.top3HoldCircPct ?? null : null;
             // G8（2026-11-02 批次六）burst 波强度三键 + 零买纯卖占比（E 通道弱
             // burst 代码臂与 K/L 通道同源数值；总卖=0/dt 缺失=null 不冒充）
             factors.cheatBurstMaxGapSec = _an ? _an.burstMaxGapSec ?? null : null;
