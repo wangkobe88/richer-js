@@ -2752,6 +2752,22 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "用户裁定「这个也是 pump，cheat」：生产 D3.55 第四信号锚 67 翻 healthy 过门买入、19 分钟后卖出（+77%→-4% pump→dump）；D3.57 漏网窗 67 对拍 unhealthy[E] 接住、锚 56 组合门全中（56 点/538s/perBnb0.22/卖19.6%）"
+    },
+    {
+      "caseId": "CD182",
+      "symbol": "蝴蝶池",
+      "addr": "0xd245fb1634f5dac63c864b43683cf25d2daf7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 48
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v70 用户裁定 pump 盘 cheat：生产 D3.55 锚 48 判 healthy 过门买入、07:33-07:35 三卖仍剩 256,894 币链上未清；锚 48 组合门全中（24点/169s/perBnb0.18/卖19%）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定「是 pump，cheat」：生产 D3.55 锚 48 判 healthy 过门买入（07:25）、07:33-07:35 三卖仍剩 256,894 币；D3.57 同锚对拍=cheat[A_strong:slow_grind_pump]（pump=strong，组合门全中 24点/169s/perBnb0.18/卖19%）=同锚新旧版对撞实证"
     }
   ]
 }
