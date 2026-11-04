@@ -113,6 +113,28 @@
         "vol24h": 82
       },
       "updatedAt": "2026-10-24T03:00:00.000Z"
+    },
+    {
+      "id": "b:0xbeea1d618e533a387d941f58a7d4c9b7bd377777",
+      "kind": "bluechip",
+      "name": "牛来",
+      "symbol": "牛来",
+      "aliases": [],
+      "address": "0xbeea1d618e533a387d941f58a7d4c9b7bd377777",
+      "twitter": "https://x.com/niulai_on_bnb",
+      "narrative": "币安 Discord 社区原生梗「牛来」（牛市来了）冠军纪念票：crypto 原生梗、无圈外 IP 依托，社区集体情绪直接代币化的正面典型（2026-09-27 用户裁定「牛来可以」对照常规电影 IP 不行）；官方账号 @niulai_on_bnb 认证运营。2026-08 创建，ATH≈$163M 属 BSC meme 头部量级。2026-11-04 用户裁定补录叙事，供蓝筹类比参考。",
+      "narrativeSource": null,
+      "athMarketCapUsd": 163278120,
+      "athSource": "info.ath_price×supply",
+      "corpusTrigger": true,
+      "source": "manual",
+      "rating": "high",
+      "ranks": {
+        "mc24h": 10,
+        "renowned24h": 14,
+        "vol24h": 52
+      },
+      "updatedAt": "2026-11-04T00:00:00.000Z"
     }
   ]
 }

@@ -54,6 +54,15 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C267 蓝筹叙事收录总则+牛来 manual 补录——占位符条目升级真叙事供类比参考（持械入宋案，2026-11-04 用户裁定「蓝筹币我们都要收录叙事的，这样可以做类比参考」）★
+
+- **案发**：持械入宋 `0x1243…7777`（flap，11-03 15:44 创建，宣告 @shabi666woc 117 粉）叙事 low——web3FitMassBlock（sf+fit 39%<50%，marginal 0.48 主导）。宣告推两处类比「**短剧版的牛来**/**ai版的牛来啊这是**」（拿蓝筹牛来做家族类比：素人逆袭题材↔牛来 crypto 原生梗），知识库 corpus_contains 命中注入+偏好指引在场——但牛来条目 narrative=builder 占位符「本系统评 high」：**Jev 只知道 ATH$163M+评 high，不知道牛来是什么梗，类比语境结构性丢失**（宣告者的类比点恰是「素人逆袭=牛来精神」，模型只能靠字面猜）。
+- **裁定与处置**：用户裁定蓝筹条目都要收录叙事供类比参考。manual-entries.json 补录牛来（id `b:0xbeea…7777` 同 id 覆盖 builder 占位，中国人能飞 b7f682a8 先例）：叙事=币安 Discord 社区原生梗「牛来」（牛市来了）冠军纪念票/crypto 原生梗无圈外 IP 依托/官方账号 @niulai_on_bnb 认证运营/2026-08 创建/ATH≈$163M。**零机制改动**：state-only 不 bump 题集版本（C165 先例）、知识文件 mtime 热载免重启；aliases 刻意不动（扩 alias=扩匹配面，C256/C168 消费侧敏感，非本次范畴）。
+- **覆盖面（总则的现状缺口）**：153 蓝筹条目中 **94 条占位符**（narrativeSource=null 且 narrative=「本系统评 X」）、53 条有 CoinGecko 真叙事、6 条有字无来源——占位符含 SIREN($4.4B)/NIGHT($1.3B)/龙虾($312M)/4($306M)/哈基米($97M)/客服小何($90M) 等头部票。补全路径：builder `--enrich-desc`（CoinGecko，182 跑）覆盖面有限（BSC 小 meme 多无简介），头部票 manual 补录为主，攒批进行。
+- **验证**：本地渲染对拍（持械入宋语料 corpus_contains 命中→注入段带真叙事 247 字符<300 无截断+偏好指引照带）；知识库单测七件全绿（loader/matcher/section/builder_core/feedback/bluechip_dedup/borrowed_corpus）。
+- **本票不翻案**：token_narrative 缓存行 rating=low 不动（语义=将来同形状「借蓝筹类比」票的注入质量）；与 C260 MAI 案同精神（注册意义在将来，不在翻旧案）。
+- **观察点**：①持械入宋同形状票（语料提蓝筹做类比）注入真语境后的 fit/量级判分变化；②94 条占位符补全的攒批节奏与优先序（按 ATH 降序头部先行）。
+
 ### C264 baseless 桶退役——相信叙事陈述，不试图验证（SAGE 案三轮，2026-11-03 用户裁定）★
 
 - **案发**：C263 豁免落地后 SAGE `0xc04f…7777` 重析终 low（事件分 54<60），向用户汇报差距分解时点明压分腿=impact 题 `event_baseless_speculation` 0.61（argmax/blockChoice）：推文宣称「Chinese Gov just announced an AI agent called "SAGE" that will control the Government Finance」vs 链接实际=HKMA（香港金管局）演讲页——三重失真（主体香港≠中国政府/本体治理项目≠AI agent/职能管治≠掌管财政）；且演讲页内容 Jev 结构性看不到（t.co 短链在推文里粘连括号注释 `(%20Securing` 畸形展开失败+meta 官网链接走 websiteFetch 默认关轨道）——Jev 只有推文单方宣称可看。用户裁定**方向相反**：「我的结论相反，我们做的是 meme 币的快速买卖获益，不是求长期立得住的 meme。baseless 这个锚我建议去掉，我一直强调一点，就是相信叙事陈述，不要试图验证：验证成本过高，如果每一个叙事都要验证，那么叙事分析这个模块基本上效率就不可能达到要求」。
