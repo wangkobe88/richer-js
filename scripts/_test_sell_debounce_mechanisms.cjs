@@ -328,6 +328,82 @@ function testTickDedupVirtual() {
     ok(fired4.length === 1, 'tick 去重：无链上键 tick 按独立证据计（存量单测形状兼容）', fired4.length);
 }
 
+// ── T109b（2026-11-04 0x1cffe…7777 币圈首富 v69 8a51f2fd 案）：defer 交错回推双计 ──
+// 首见钱包 SenderResolver cache miss → RPC 回查 1-3s 后 applyWalletTick 乱序回推
+// （携带旧 tick 的 txHash:logIndex）——交错序每步 key≠lastTickKey，T109 相邻单值
+// 去重全部漏过；entry 级 seenKeys Set 全窗去重后同一笔链上 tick 恒一份证据。
+
+function testInterleavedPushbackDedup() {
+    // 事故现场缩形：链上真序 6 笔 true tick（blk453 li58 arm/blk454 li50/blk459
+    // li59/blk461 li113+li138/blk463 li51）× 12 投递（价格段 + 全部 wallet 段回推，
+    // 含 arm 自身回推），交错序刻意零相邻重复——旧实现 ticksSeen=11 凑满
+    // minTicks=10 提前 fire（v69 现场 02:10:16.118）；Set 去重后恰 5 证据不 fire
+    const fired = [];
+    const d = new SellConfirmDebouncer({
+        debounceMs: 3500, minTicks: 10, maxWaitMs: 120000, mode: 'virtual',
+        onFire: t => fired.push(t),
+    });
+    const ticks = [
+        liveTick('0xblk453', 58, 0),    // arm（首真不自计，key 预占 Set）
+        liveTick('0xblk454', 50, 1000),
+        liveTick('0xblk459', 59, 3000),
+        liveTick('0xblk461', 113, 5000), // 同 tx 不同 logIndex=独立证据
+        liveTick('0xblk461', 138, 5200),
+        liveTick('0xblk463', 51, 7000),
+    ];
+    d.touch('ILV', ticks[0]);  // arm A58
+    d.touch('ILV', ticks[1]);  // B50 价
+    d.touch('ILV', ticks[2]);  // C59 价
+    d.touch('ILV', ticks[1]);  // B50 wallet 回推（旧实现：≠last C59 → 计证据 ❌）
+    d.touch('ILV', ticks[0]);  // A58 wallet 回推（arm 自身回推旧实现也计 ❌）
+    d.touch('ILV', ticks[3]);  // D113 价
+    d.touch('ILV', ticks[4]);  // D138 价
+    d.touch('ILV', ticks[2]);  // C59 wallet 回推
+    d.touch('ILV', ticks[5]);  // E51 价
+    d.touch('ILV', ticks[3]);  // D113 wallet 回推
+    d.touch('ILV', ticks[4]);  // D138 wallet 回推
+    d.touch('ILV', ticks[5]);  // E51 wallet 回推
+    const entry = d.pending.get('ILV');
+    ok(entry && entry.ticksSeen === 5, 'T109b 交错回推：6 真笔×12 交错投递恰攒 5 证据（旧相邻去重此处=11 凑满 minTicks=10 提前 fire）',
+        entry && entry.ticksSeen);
+    ok(d.stats.deduped === 6, 'T109b 交错回推：6 笔回推重复投递全窗去重 deduped=6', d.stats.deduped);
+    d.advance(7000 + 3500);    // 时间窗过，证据 5 < 10
+    ok(fired.length === 0, '事故现场反证：minTicks=10 六真笔交错双投递不 fire（v69 现场实 fire=渗漏）', fired.length);
+    for (let i = 0; i < 5; i++) d.touch('ILV', liveTick('0xnew' + i, i, 12000 + i * 100));
+    d.advance(13000);
+    ok(fired.length === 1, 'T109b：真第 7-11 笔新链上 tick 凑满 10 才 fire', fired.length);
+
+    // Set 有界 ≤minTicks+1：长窗多 key 不无限增长；封顶时点=证据门已满足
+    // （ticksSeen≥minTicks），此后 key 记不记录零行为差异（ticksOk 单调为真）
+    const d2 = new SellConfirmDebouncer({
+        debounceMs: 100000, minTicks: 3, maxWaitMs: 1000000, mode: 'virtual', onFire: () => {},
+    });
+    d2.touch('CAP', liveTick('0xc0', 0, 0));
+    for (let i = 1; i <= 30; i++) d2.touch('CAP', liveTick('0xc' + i, i, i));
+    const e2 = d2.pending.get('CAP');
+    ok(e2 && e2.seenKeys.size <= 4, 'T109b：seenKeys 有界 ≤minTicks+1（30 key 封顶 4）', e2 && e2.seenKeys.size);
+    ok(e2 && e2.ticksSeen === 30, 'T109b：封顶不吞新证据计数（ticksSeen=30 照计）', e2 && e2.ticksSeen);
+    d2.touch('CAP', liveTick('0xc30', 30, 31)); // 封顶未入 Set 的 key：不再拦截（文档化零行为差异）
+    ok(d2.pending.get('CAP').ticksSeen === 31, 'T109b：封顶后重复不再去重（证据门已过，计数虚增无行为差异）',
+        d2.pending.get('CAP').ticksSeen);
+    d2.advance(200000);
+    ok(d2.stats.fired === 1, 'T109b：封顶窗口照常 fire（去重使命已完成）', d2.stats.fired);
+
+    // arm tick 自身 key 预占 Set：arm 的 wallet 段回推零效应
+    const fired3 = [];
+    const d3 = new SellConfirmDebouncer({
+        debounceMs: 100, minTicks: 1, mode: 'virtual', onFire: t => fired3.push(t),
+    });
+    const arm = liveTick('0xarm', 5, 0);
+    d3.touch('ARM', arm);
+    d3.touch('ARM', arm);      // arm tick 的 wallet 段回推
+    ok(d3.stats.deduped === 1, 'T109b：arm tick key 预占 Set，回推重复零效应', d3.stats.deduped);
+    ok(fired3.length === 0, 'T109b：arm 回推不凑证据', fired3.length);
+    d3.touch('ARM', liveTick('0xnext', 6, 50));
+    d3.advance(200);
+    ok(fired3.length === 1, 'T109b：新 tick 才是第一份证据', fired3.length);
+}
+
 async function testNullTickScan() {
     // 扫描兜底路径 tick=null（快照评估，非新 tick 证据 T109）：可起 pending，
     // 但不凑 ticksSeen——断流票只能等回流真 tick 或 maxWait 强制逃生
@@ -498,6 +574,8 @@ async function main() {
     console.log('  ✓ 双门 real（转等待/凑齐即时 fire/maxWait 逃生/clear/minTicks=0 存量）');
     testTickDedupVirtual();
     console.log('  ✓ T109 tick 去重（双投递零效应/事故现场反证/snake_case/聚合交易）');
+    testInterleavedPushbackDedup();
+    console.log('  ✓ T109b 交错回推 Set 去重（0x1cffe 现场反证/Set 有界/arm key 预占）');
     await testNullTickScan();
     console.log('  ✓ T109 null tick 扫描（快照评估不凑证据，回流真 tick 才计）');
     testLegOverrideVirtual();

@@ -19,12 +19,18 @@
  * 重读因子重评，条件翻假依旧不卖）。minTicks=0（缺省）纯时间语义，存量
  * 行为 bit-identical。
  *
- * tick 去重 + 腿级覆盖（T109 2026-11-03 0x89e4 flap 止损臂案）：
+ * tick 去重 + 腿级覆盖（T109 2026-11-03 0x89e4 flap 止损臂案；T109b 2026-11-04
+ * 0x1cffe 交错回推案去重升级 Set）：
  * - 同一笔链上 tick（txHash:logIndex）的重复 touch 零效应——FA 两段喂食
  *   （processTick 价格段 + applyWalletTick wallet 段回推，resolver 开启时每笔
  *   tick 各 emit 一次 factorsUpdated）会让卖腿评估对同一笔 tick 跑两次，旧实现
  *   ticksSeen 双计把 minTicks 证据门稀释减半（事故现场：3 真笔 tick 凑满
  *   minTicks=5 提前 fire）；identity 缺失（tick 无链上键）按独立证据计（旧语义）
+ * - T109b：去重键从「相邻单值 lastTickKey」升级为 entry 级 **seenKeys Set**——
+ *   首见钱包走 SenderResolver RPC 回查 1-3s 后乱序回推，交错序（A价,B价,A钱包,
+ *   B钱包）每步 key≠lastTickKey 相邻去重全部漏过（0x1cffe 现场实锤：minTicks=10
+ *   六真笔即 fire，证据门实质≈minTicks/2）；Set 有界 ≤minTicks+1（封顶后证据门
+ *   必已满足，多余 key 不再记录零行为差异）
  * - tick=null（扫描兜底路径的快照评估）不是新 tick 证据：只推进时间门检查，
  *   不再 ticksSeen++（旧实现会把 30s 扫描周期当证据凑数，违背「窗后新 tick
  *   数」语义）；无 pending 时仍可起窗（maxWait 逃生链起点）
@@ -96,8 +102,9 @@ class SellConfirmDebouncer {
 
     const existing = this.pending.get(tokenAddress);
     if (existing) {
-      // T109 同 tick 双投递零效应：同一笔链上交易不是两份证据（两段喂食反证修复）
-      if (key != null && key === existing.lastTickKey) {
+      // T109b 同 tick 双投递零效应（Set 全窗去重）：同一笔链上交易不是两份证据
+      // ——相邻去重挡不住 defer 交错回推（A价,B价,A钱包,B钱包），见头部 T109b 注
+      if (key != null && existing.seenKeys.has(key)) {
         this.stats.deduped++;
         return;
       }
@@ -105,7 +112,11 @@ class SellConfirmDebouncer {
       // tick=null（扫描快照评估）不计证据；有键/无键 tick 对象均计（见 tickIdentity 注）
       if (tick != null) {
         existing.ticksSeen++;
-        existing.lastTickKey = key;
+        // Set 有界 ≤minTicks+1：size 达帽（=证据门已满足 ticksSeen≥minTicks）后
+        // 不再记录——此后 key 重复与否零行为差异（ticksOk 单调为真），省薄盘长窗内存
+        if (key != null && existing.seenKeys.size <= existing.minTicks) {
+          existing.seenKeys.add(key);
+        }
       }
       if (this._mode === 'real') {
         // 双门即时检查：时间窗已过且证据凑齐 → fire（debounce timer 到点但证据
@@ -118,7 +129,7 @@ class SellConfirmDebouncer {
     if (this._mode === 'virtual') {
       if (tick == null) return; // 扫描快照评估无 timestamp：virtual 时钟无法起算，no-op
       this.pending.set(tokenAddress, {
-        startTs: tick.timestamp, ticksSeen: 0, tick, lastTickKey: key,
+        startTs: tick.timestamp, ticksSeen: 0, tick, seenKeys: new Set(key != null ? [key] : []),
         debounceMs, minTicks, maxWaitMs, armed: minTicks > 0,
       });
       return;
@@ -127,7 +138,7 @@ class SellConfirmDebouncer {
     // real 模式：timer 驱动；entry 固化腿级 effective 门（T109）
     const now = Date.now();
     const entry = { startTs: now, ticksSeen: 0, tick, debounceTimer: null, maxTimer: null,
-      lastTickKey: key, debounceMs, minTicks, maxWaitMs, armed: minTicks > 0 };
+      seenKeys: new Set(key != null ? [key] : []), debounceMs, minTicks, maxWaitMs, armed: minTicks > 0 };
     entry.debounceTimer = setTimeout(() => {
       // 时间窗到点：证据已凑齐 → fire；不足 → 转等待（后续 touch 补 fire，maxTimer 兜底）
       this._tryFire(tokenAddress, entry, Date.now(), false);
