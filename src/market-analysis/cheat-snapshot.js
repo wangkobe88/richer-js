@@ -711,9 +711,16 @@ function computeDerived(snapshot, famousRoster) {
   const dts = ticks.map((t) => t.dt).filter((v) => v !== null && v !== undefined);
   let ticksPerMin = null, avgTradeBnb = null, maxGapSec = null, idlePct = null;
   let activityLevel = null, activityCv = null, activityUneven = null;
+  // D3.55（CD162 v70 首信号 15s 翻正案）：窗口时长/总笔数两原料键——act 题④开盘
+  // 极早窗反锚（窗 <60s ∨ 总笔数 <30）的阈值事实，代码算好进数值行（D3.49 同款
+  // 「Jev 心算不可靠、组合数值代码算好」）；spanSec=首末 tick 真差不 clamp（展示值
+  // 与 ticksPerMin 的 clamp 分母口径分离），dt 缺失同族 null 绝不冒充
+  let spanSec = null, tickCount = null;
   if (dts.length >= 2) {
-    const spanSec = Math.max(1, dts[dts.length - 1] - dts[0]);
-    ticksPerMin = +((dts.length / spanSec) * 60).toFixed(2);
+    spanSec = dts[dts.length - 1] - dts[0];
+    tickCount = dts.length;
+    const spanClamped = Math.max(1, spanSec);
+    ticksPerMin = +((dts.length / spanClamped) * 60).toFixed(2);
     let idleSec = 0;
     for (let i = 1; i < dts.length; i++) {
       const g = dts[i] - dts[i - 1];
@@ -725,7 +732,7 @@ function computeDerived(snapshot, famousRoster) {
       // IDLE_GAP_SEC=20 与 CD57 最大间隔 13s 隔离（BSC 0.75s 出块 20s≈27 块无交易）。
       if (g >= ACTIVITY_IDLE_GAP_SEC) idleSec += g;
     }
-    idlePct = +((idleSec / spanSec) * 100).toFixed(1);
+    idlePct = +((idleSec / spanClamped) * 100).toFixed(1);
     avgTradeBnb = +((totalBuyBnb + totalSellBnb) / ticks.length).toFixed(4);
     if (maxGapSec >= ACTIVITY_LONG_GAP_SEC || ticksPerMin < ACTIVITY_LOW_TPM || avgTradeBnb < ACTIVITY_DUST_AVG_BNB) {
       activityLevel = 'low';
@@ -736,7 +743,7 @@ function computeDerived(snapshot, famousRoster) {
     } else {
       activityLevel = 'mid';
     }
-    const bucketN = Math.ceil(spanSec / ACTIVITY_BUCKET_SEC);
+    const bucketN = Math.ceil(spanClamped / ACTIVITY_BUCKET_SEC);
     if (bucketN >= ACTIVITY_CV_MIN_BUCKETS) {
       const cnt = new Array(bucketN).fill(0);
       for (const dt of dts) {
@@ -1110,6 +1117,8 @@ function computeDerived(snapshot, famousRoster) {
     clusterRoundTripPct, clusterRoundTripSellPct, clusterRoundTripBlocks, clusterRoundTrips,
     famousHoldPct, famousTop1Pct, famousFollowerPct, famousDominancePct, famousDominanceLevel, famousFollowerTop3Pct, famousGroupBuyPct,
     ticksPerMin, avgTradeBnb, maxGapSec, idlePct,
+    // D3.55 窗口时长/总笔数（act 题④开盘极早窗反锚阈值原料；dt 缺失 null）
+    spanSec, tickCount,
     burstWaveBuyBnb, burstWaveWallets,
     // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,

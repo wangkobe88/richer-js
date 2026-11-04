@@ -725,6 +725,8 @@ class CheatCheckService {
           avgTradeBnb: derived.avgTradeBnb ?? null,
           maxGapSec: derived.maxGapSec ?? null,
           idlePct: derived.idlePct ?? null, // D3.49 无交易期占比（间隔≥20s 静默段÷窗长；CD110 漏判数值化）
+          spanSec: derived.spanSec ?? null, // D3.55 窗口时长（act 题④开盘极早窗反锚阈值原料，CD162）
+          tickCount: derived.tickCount ?? null, // D3.55 窗口总笔数（同上）
           level: derived.activityLevel ?? null,
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,

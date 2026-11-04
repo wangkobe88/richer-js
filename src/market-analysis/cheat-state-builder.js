@@ -271,7 +271,10 @@ function buildCheatState(snapshot) {
     // 不可靠（D3.29「组合数值代码算好」先例）漏判 mid。idlePct=间隔≥20s 静默段合计÷窗长
     // （derived 算好透传，@20s 14 票分布：目标 CD110/CD7/CD37/CD98/CD99 71-96%、高活跃
     // 反例 CD84/41/92/87/90/100/101 全 0%、匀速 CD57 maxGap 13s=0% 与阈值隔离）。
-    lines.push(`活跃度数值: 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒 / 无交易期占比 ${d.idlePct !== null && d.idlePct !== undefined ? d.idlePct + '%' : '未知'}（无交易期占比=间隔≥20秒的完全静默段合计÷窗口总时长；代码口径频率事实，activity_level 档位由你综合各要素给出）`);
+    // D3.55（CD162 v70 首信号 15s 翻正案）：行首补「窗口时长/共 N 笔」两数——act 题
+    // ④开盘极早窗反锚（窗 <60s ∨ 总笔数 <30 → 纯买入单向=价格发现常态不压档）的
+    // 阈值原料，检测点位常落在开盘极短窗、Jev 沿 t+ 心算时长不可靠（D3.49 同款）
+    lines.push(`活跃度数值: 窗口时长 ${d.spanSec !== null && d.spanSec !== undefined ? d.spanSec + ' 秒' : '未知'} / 共 ${d.tickCount !== null && d.tickCount !== undefined ? d.tickCount + ' 笔' : '未知'} / 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒 / 无交易期占比 ${d.idlePct !== null && d.idlePct !== undefined ? d.idlePct + '%' : '未知'}（无交易期占比=间隔≥20秒的完全静默段合计÷窗口总时长；窗口时长=首末 tick 时间差；代码口径频率事实，activity_level 档位由你综合各要素给出）`);
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
     // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）
