@@ -58,6 +58,17 @@ const ACTIVITY_UNEVEN_CV = 1.0;
  */
 const BURST_WAVE_SEC = 5;
 /**
+ * burst 波临近段（D3.56，2026-11-04 用户裁定 0xc0a6…7777 案：「burst 是指临近
+ * 购买点位的 burst，不是整体的，前面有不算」）：波两键搜索段从「全窗最密 5s」
+ * 收窄为「锚前 BURST_NEAR_SEC 秒内最密 5s」——开盘波（窗首抢筹，每票自然现象，
+ * 大小反映开盘热度不反映持续流量）与中段波不再计入「涌入流量大推翻低活跃度」
+ * 的判断（G8 语义脱节修复：sbw 题面排除项早已排除开盘首波，数值锚此前仍收
+ * 全窗）。窗不足 BURST_NEAR_SEC=临近段退化为全窗（短窗信号票语义不变）；
+ * 临近段 <2 有效 dt 行 → 波两键 null（有证据缺席不冒充）；burstMaxGapSec
+ * 维持全窗 maxGapSec（停滞深度=低活跃度佐证，方向不受波位置影响）。
+ */
+const BURST_NEAR_SEC = 120;
+/**
  * burst 尖刺簇常量（D3.51，2026-11-03 CD157 가나/CD102 SAFU 两票用户裁定立项
  * ——原话「burst 没有问题，但是这里的burst明显是一个尖刺。单独这一个 block
  * 持仓比例多少呢？这一个block 在这个burst中流动性占比多少？一算就知道这是
@@ -756,37 +767,42 @@ function computeDerived(snapshot, famousRoster) {
     }
   }
 
-  // ── burst 波强度两键（G8 弱 burst 代码臂，头注见 BURST_WAVE_SEC）：定线研究
-  // （tmp-burst-strength@182 17 票 sbw=burst）——豁免挡住的全是自己人（14 票 Jev
-  // act 已判 low），豁免资格须由波强度承接；人工 healthy 4 票中 3 票 maxGap 仅
+  // ── burst 波强度两键（G8 弱 burst 代码臂，头注见 BURST_WAVE_SEC/BURST_NEAR_SEC）：
+  // 定线研究（tmp-burst-strength@182 17 票 sbw=burst）——豁免挡住的全是自己人（14 票
+  // Jev act 已判 low），豁免资格须由波强度承接；人工 healthy 4 票中 3 票 maxGap 仅
   // 19~43s（无停滞=开盘密集正常形状）→ 停滞深度是必要第三维（复用 maxGapSec，
   // grade 侧锚名 burstMaxGapSec）。算法=最密 BURST_WAVE_SEC 秒滑窗双指针（按窗内
   // 笔数取最密），窗内钱包计数 map 精确去重（同钱包多笔逐出时不误删）；dt 缺失
-  // 全族 null（绝不冒充）；<2 有效 dt 行波形状不可评同 null。──
+  // 全族 null（绝不冒充）；<2 有效 dt 行波形状不可评同 null。D3.56 起搜索段=
+  // 锚前 BURST_NEAR_SEC 临近段（头注见 BURST_NEAR_SEC——开盘/中段波「前面有不算」）。──
   let burstWaveBuyBnb = null, burstWaveWallets = null;
-  const waveTicks = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
-  if (waveTicks.length >= 2) {
-    let j = 0, curN = 0, curBuy = 0, bestN = 0, bestBuy = 0, bestWalletN = 0;
-    const curWallets = new Map(); // wallet → 窗内笔数
-    for (let i = 0; i < waveTicks.length; i++) {
-      const t = waveTicks[i];
-      curN++;
-      if (t.side === 'BUY') curBuy += t.bnb || 0;
-      if (t.wallet) curWallets.set(t.wallet, (curWallets.get(t.wallet) || 0) + 1);
-      while (t.dt - waveTicks[j].dt > BURST_WAVE_SEC) {
-        const u = waveTicks[j];
-        curN--;
-        if (u.side === 'BUY') curBuy -= u.bnb || 0;
-        if (u.wallet) {
-          const n = (curWallets.get(u.wallet) || 1) - 1;
-          if (n <= 0) curWallets.delete(u.wallet); else curWallets.set(u.wallet, n);
+  const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
+  if (waveTicksAll.length >= 2) {
+    const nearFrom = waveTicksAll[waveTicksAll.length - 1].dt - BURST_NEAR_SEC;
+    const waveTicks = nearFrom <= 0 ? waveTicksAll : waveTicksAll.filter((t) => t.dt >= nearFrom);
+    if (waveTicks.length >= 2) {
+      let j = 0, curN = 0, curBuy = 0, bestN = 0, bestBuy = 0, bestWalletN = 0;
+      const curWallets = new Map(); // wallet → 窗内笔数
+      for (let i = 0; i < waveTicks.length; i++) {
+        const t = waveTicks[i];
+        curN++;
+        if (t.side === 'BUY') curBuy += t.bnb || 0;
+        if (t.wallet) curWallets.set(t.wallet, (curWallets.get(t.wallet) || 0) + 1);
+        while (t.dt - waveTicks[j].dt > BURST_WAVE_SEC) {
+          const u = waveTicks[j];
+          curN--;
+          if (u.side === 'BUY') curBuy -= u.bnb || 0;
+          if (u.wallet) {
+            const n = (curWallets.get(u.wallet) || 1) - 1;
+            if (n <= 0) curWallets.delete(u.wallet); else curWallets.set(u.wallet, n);
+          }
+          j++;
         }
-        j++;
+        if (curN > bestN) { bestN = curN; bestBuy = curBuy; bestWalletN = curWallets.size; }
       }
-      if (curN > bestN) { bestN = curN; bestBuy = curBuy; bestWalletN = curWallets.size; }
+      burstWaveBuyBnb = +bestBuy.toFixed(4);
+      burstWaveWallets = bestWalletN;
     }
-    burstWaveBuyBnb = +bestBuy.toFixed(4);
-    burstWaveWallets = bestWalletN;
   }
 
   // ── burst 尖刺族（D3.51，头注见 SPIKE_SEC）：簇内最密 3s 滑窗两占比+结构

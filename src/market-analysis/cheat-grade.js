@@ -119,7 +119,10 @@
  * 结论」（选「弱 burst 代码臂」落法）→ E 通道 burst 豁免加弱波承接前提：锚
  * burstMaxGapSec≥60 ∧ burstWaveBuyBnb<1.05 ∧ burstWaveWallets<13（最长停滞
  * ≥60s ∧ 波买入 <1.05 BNB ∧ 波内钱包 <13=长期停滞后只涌入一点小流量，不构成
- * 推翻低活跃度的证据）；定线研究（tmp-burst-strength@182 17 票 sbw=burst）：
+ * 推翻低活跃度的证据）；**D3.56（CD163）起波两键=锚前 120s 临近段最密 5s 窗
+ * （snapshot 口径，用户裁定「burst 是指临近购买点位的 burst，不是整体的，
+ * 前面有不算」——开盘/中段波不进波额判断；grade 逻辑零改动，仅消费数值
+ * 换临近段口径）**；定线研究（tmp-burst-strength@182 17 票 sbw=burst）：
  * 豁免挡住的全是自己人（14 票 Jev act 已判 low），弱波线三票 CD79/CD108/CD70
  * 转 unhealthy 全与人工一致、healthy 零误伤（人工 healthy 4 票中 3 票 maxGap
  * 仅 19~43s=无停滞开盘密集正常形状，停滞深度是必要第三维）；三键任一 null
