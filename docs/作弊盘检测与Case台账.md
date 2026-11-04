@@ -208,7 +208,11 @@
 
 **单测**：lib 534→562（D3.54 段 17 断言：立项票缩样三孤立脉冲 3/62.3%/[15,10]/15 精确值+创建者合约经手形状 creator 键有值且 wallets[].isCreator 严格不标+相邻成带反例 gap=0+无脉冲全 null 行缺席+单脉冲 maxGap=null+state 行渲染/行内双锚/豁免句「不外推」+两题面断言+mapper 三键透传与缺席 null；**顺手修 D3.53 遗留断言笔误**——d35b「t+0s 块500」实为 t+10s（夹具首买 sec=10、createdAt=at(0)，HEAD 上即 fail）；d35b「单块行整行零数字」断言的 `!includes('33.4')` 全局反锚随节拍行合法渲染 33.4（单脉冲 4 笔占比）收窄为行级检查；anchors 键数 34→37）；grade 116/service 96/gate 65 全绿。
 
-**余留**：182 fixtures 收录 CD161@16+定向对拍（立项票期望 abr/holdings 升档→cheat 或 unhealthy+creator 腿有原料；反例 RAM/MAI/CD60/CD79/CD98/CD104/CD108/CD122 期望零漂移、CD79 允许同向升档）；v70 实验进程换代才吃到（跑在 D3.53/D3.54 之前）。
+**对拍收官**（2026-11-04，182 真调）：fixtures 收录 CD161@16（anchor=16=生产买信号 created_at t+16s 锚窗对齐；默认 --add 锚=首买+settle 4s 得 87，**必须手动对齐 as-of 时点**——fixtures anchor=判定时刻全史行数，非收录时刻）；定向 7 票（CD161/CD60/CD79/CD98/CD104/CD108/CD122）结果：**CD161 翻案达成 healthy→unhealthy[J_holdings_strong]**（holdings_balance moderate@0.49→**strong**=节拍行接捆绑簇维度+豁免句收窄双效坐实；复跑重掷稳定；拉黑级载体未中——abr=noticeable 未过 strong、pump=none，A 主判无 strong → 拒买级非拉黑级）；反例零漂移（CD79/CD98/CD104/CD122 一致；CD60=M_hyper_activity G14 既有分歧非本批引入；CD108=D3.51 已知重掷分歧「先接受现状」）——4/7 一致，分歧三票全是既有已知。**expect 档位待用户裁定**（unhealthy vs cheat=拒买级 vs 拉黑级，CD99 同款悬案；fixtures 暂记 unclear 占位）。
+
+**对拍存档接线坑追记（run.mjs 组装链三犯，dc94426e 收敛）**：D3.50/D3.53/D3.54 三批加键后五处组装实参（三处 buildObservation+两处存档 anchors 白名单）均未跟——存档/对拍原料七键（noBuySellVolumePct/exactEqualBlock 三键/pulseBlock 三键）全 null（D3.51 同款坑第二次复发；判定链不受影响——grade 走题档 extLevels、state 行走 snapshot.derived 在 prompt 里）。修复=**单一真相源重构**：`OBS_ANCHOR_KEYS` 37 键清单（[anchorsKey, derivedKey] 对，burstMaxGapSec←maxGapSec 换名特例）+`obsAnchors(d)` 收敛五处，与 mapper anchors 产物键集（单测 37 键断言）对齐，后续加键只改一处；复跑 CD161 存档 pulse 三键 3/62.3/15 与探针一致（exactEqual null=三脉冲块金额各异无等额簇、noBuySellVolumePct 0=creator 有买有卖非纯卖，均合理缺席）。
+
+**余留**：①CD161 expect 档位待裁定（unhealthy 拒买级 vs cheat 拉黑级）；②v70 实验进程换代才吃到 D3.53/D3.54（跑在 32137376 之前）。
 
 ### CD160 精确等额同块购买事实锚（D3.53）：0xf5e642bc…7777 三簇七钱包同块阵列 healthy 漏检案（2026-11-04）
 
