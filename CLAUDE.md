@@ -20,7 +20,7 @@ npm run narrative-engine                   # 叙事分析 worker
 npm run case-regression [-- --only C98,C104 | --list | --add <addr> --case C112 --note .. | --update-expect C97 --because ..]
                                            # 叙事 case 回归集（票数随案渐增；重析对拍在 182 跑，工具文档 docs/case-regression-tool.md）
 node scripts/cheat-detection/run.mjs [--only CD1 | --list | --add <addr> --case CD2 --note .. | --update-expect CD2 --because ..]
-                                           # 作弊盘回归集（as-of 锚截窗重析在 182 跑；anchor 必填防全史马后炮）
+                                           # 作弊盘回归集（as-of 锚截窗重析在 182 跑；anchor 必填防全史马后炮；case=代币×点位，锚=生产首析行 anchor_tick_count，同代币不同点位=不同 caseId）
 node scripts/buy-point/build-set.mjs --name <set> [--exps <id,...> | --dedupe-sec 60 | --horizon-min 15]
                                            # 买入点位测试集构建（最近 4 live 实验 BUY 信号→60s 去重→锚+前向收益+trades join；182 跑）
 node scripts/buy-point/run.mjs --set <set> [--only BP-S001 | --limit N | --dry]

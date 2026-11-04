@@ -186,6 +186,16 @@
 
 ## Case 倒序
 
+### CD164-CD180 v70 全信号批量收录 + case 粒度裁定：case=代币×点位、锚=首析锚（2026-11-04）
+
+**收录事实**：v70 `f0898589`（both live「去叙事纯作弊门」）全部 BUY 信号票 20 个（其中 3 票 CD161/CD162/CD163 已在前案收录），新增 17 票 CD164-CD180（`7776329e`，fixtures 170 票）。锚全部=**生产 cheat_detection 首判行 `anchor_tick_count` 显式指定**（CD161/162/163 三案同款口径；默认 `--add` 锚=现全量行数不对）。收录动机：v70 cheatCheckCondition 是唯一附加门 → 每个 BUY 信号必走门 → 信号票=作弊门的完整生产样本。
+
+**case 粒度裁定（2026-11-04 用户原话）**：「每个信号其实是代表着一个点位（ticks 序号），我们把 case 定义为『某个代币的某个点位』这样的话更加清晰。代币在不同点位的评级可能不同」+「那就定首次分析吧」——**case 单元=代币×点位（anchor），锚定该代币生产首析行的 anchor_tick_count；同一代币不同检测点位=不同 caseId 各自收录各自裁定 expect**。fixtures 现结构（addr+anchor 必填）天然承载该语义，纯收录纪律零代码改动。多信号票（unhealthy 每买信号重判=生产多检测点位，如 CD168 5 信号/CD165 4 信号）后续按需补第二点位 case。
+
+**D3.56 定向对拍（20 票真调）**：新 17 票机器分布 **cheat 3 / unhealthy 8 / healthy 6**——cheat：CD164 Kyora@16[A_strong:burst_spike]（9 户 21s 打 1.28 BNB 占全窗 2/3 买量；生产门同判 cheat_gate_cheat）、CD176 Blue Whale@31[A+J+R+M 四通道]（零卖出+sbHold 87.4%=组织买 87.4%+hold strong+act ultra，20 票最重）、CD178 VETO@39[A_strong:coordinated_sell_back+slow_grind_pump,R]（同块买 48.5%/卖 49.1% 近等额闭环=对倒形状）；unhealthy：CD165@32[E]/CD175@36[E]（尘埃死盘）、CD168 Groyper@46[M_hyper_activity **首个生产样本**]、CD170@18[R]/CD172@29[R]、CD173@17[L_insider_sell100]（纯卖 100% 分仓号实锤）、CD177@25[E,L_insider_sell76]（对敲 1 对吃 3/4 卖量）；healthy：CD166/CD167/CD169/CD174（T112 VETO 票 197 锚全 moderate 无 strong）/CD171（组织买 83.3%+eqHold 71.6% 数字面像组织盘但档位全不过线=「宁可放过」方向人工复核票）/CD179（同形）。expect 逐票裁定进行中（基线 unclear）。
+
+**横切观察**：①**CD162 跨级漂移再现**：同锚重跑 pump strong→moderate 抽样方差致 grade unhealthy[R]→cheat[A_strong:slow_grind_pump] 跨级翻转（cheat=拉黑终态 vs unhealthy=拒买可重判，实盘行为差异）——pump 题边际票抽样方差留观察点；②**v70 进程已换代**：CD180 首析 qv=D3.55（其余 19 票 D3.52/D3.56 混合）=生产进程 11-04 05:23-05:31 间重启已吃到 D3.55+；③CD168 M 通道（act=ultra+abr）真热盘 vs 高频互倒分界待人工样本积累。
+
 ### CD163 burst 波临近段收窄（D3.56）：0xc0a62aba…7777（共建共赢）v70 开盘波远离锚误豁免案（2026-11-04）
 
 **案由**（v70 `f0898589` both live「去叙事纯作弊门」，票 `0xc0a62abacfbe8b80f1650e14f5b0c092347b7777` 共建共赢，token-ticks/signals 页）：用户裁定「我认为应该给 低活跃度」+票形描述「它开票最早期有一波，然后直接砸盘，再之后才是真正活跃度的真实情况」——Jev/代码双档 act=low@0.57 均已判对，**grade=healthy 与档位判读矛盾**。
