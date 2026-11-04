@@ -1788,6 +1788,23 @@
       },
       "note": "C268 持械入宋：J1.157 同形状蓝筹先例类比锚翻案票（C267 时 sf+fit 39%→45% 未过线 low；锚后 92% S 档 high 89.42）。意图翻转票：改锚回归若回 low=锚失效",
       "addedAt": "2026-11-04"
+    },
+    {
+      "caseId": "C269",
+      "symbol": "1113",
+      "addr": "0x064f86075d930544ac655350f8295d1ef04d7777",
+      "expect": {
+        "rating": "unrated",
+        "tokenCategory": "event:E",
+        "reasonIncludes": [
+          "背景信息严重不足"
+        ],
+        "auditIncludes": [
+          "backgroundInfoInsufficientMass"
+        ]
+      },
+      "note": "极寒降临案：J1.158 背景信息不足桶首票——语料全空+搜索撞名无关（巴西 Mercedes 1113 卡车梗/彩票），原 unfit 0.81 误拦 low；新桶 unrated/narrativeRating=9（用户裁定 2026-11-04）；C269a/J1.159 排除锚③对拍=DND 划界生效（unrated 69%→low 55 组三贴线已知基线）、本票维持 unrated 100%、memeless/BLACKBELT 反例零翻转",
+      "addedAt": "2026-11-04"
     }
   ]
 }
