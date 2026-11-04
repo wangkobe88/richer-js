@@ -2732,9 +2732,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const rebuilt = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
     if (!rebuilt) return null;
     if (!this._cheatFactorKeys) {
+      // getFactorKeys 真实返回 Set（单测桩曾返回 Array 掩盖形状）——Array.from
+      // 同时吃 Set/Array，勿用 Array.isArray（Set 恒 false → 键集恒空 → 门上下文
+      // cheat 键永不合并 → cheatGrade 恒 IS NULL 放行=门拒路径整体失效）
       const keys = this._factorAggregator.getFactorKeys();
-      this._cheatFactorKeys = Array.isArray(keys)
-        ? keys.filter((k) => String(k).startsWith('cheat')) : [];
+      this._cheatFactorKeys = Array.from(keys || [])
+        .filter((k) => String(k).startsWith('cheat'));
     }
     const merged = { ...(fireFactors || {}) };
     for (const k of this._cheatFactorKeys) {

@@ -66,11 +66,14 @@ function svcStub(impl) {
   return { gateBuyPoint: async (addr, meta, ctx, opts) => impl(addr, meta, ctx, opts) };
 }
 // FA 桩：buildFactorMap 出投影后 cheat 数值（grade healthy=0/unhealthy=1），
-// getFactorKeys 探针域=常规两键+cheat 三键（_buildCheatGateContext 派生用）
+// getFactorKeys 探针域=常规两键+cheat 三键（_buildCheatGateContext 派生用）。
+// ★必须返回 Set 对齐真实 FA（2026-11-04 太空制药门旁路事故：桩曾返回 Array，
+// 掩盖引擎 Array.isArray(keys) 对 Set 恒 false → _cheatFactorKeys 恒空 →
+// cheatGrade 恒 IS NULL 放行=门 grade→条件拒路径整体失效）
 function faStub(cheatGrade) {
   return {
     buildFactorMap: () => ({ marketCap: 50, tradeCount: 99, cheatGrade, cheatBlocked: 0, cheatWashPairCount: 3 }),
-    getFactorKeys: () => ['marketCap', 'tradeCount', 'cheatGrade', 'cheatBlocked', 'cheatWashPairCount'],
+    getFactorKeys: () => new Set(['marketCap', 'tradeCount', 'cheatGrade', 'cheatBlocked', 'cheatWashPairCount']),
   };
 }
 
@@ -212,7 +215,7 @@ console.log('A9. _buildCheatGateContext 只合并 cheat 键（两门同刻防线
     _factorAggregator: {
       // rebuilt 带 fire 后漂移的常规键（marketCap 999 vs fire 111）+ 投影后的 cheat 键
       buildFactorMap: () => ({ marketCap: 999, buyVolumeBnb: 999, cheatGrade: 1, cheatBlocked: 0, cheatWashPairCount: 7 }),
-      getFactorKeys: () => ['marketCap', 'buyVolumeBnb', 'tradeCount', 'cheatGrade', 'cheatBlocked', 'cheatWashPairCount'],
+      getFactorKeys: () => new Set(['marketCap', 'buyVolumeBnb', 'tradeCount', 'cheatGrade', 'cheatBlocked', 'cheatWashPairCount']),
     },
   });
   const ctx = eng._buildCheatGateContext('0xtok', { marketCap: 111, buyVolumeBnb: 222, cheatGrade: null });
@@ -406,6 +409,26 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm2.cheatSpikeHoldPctAll === null
     && fm2.cheatStrongBackerPressure === null && fm2.cheatAnchorBuySellRatio === null,
     fm2 ? fm2.cheatGrade : 'build null');
+
+  // 事故现场反证（2026-11-04 太空制药 0x6a4f…7777 门旁路）：真 FA（非桩）探针
+  // 返回 **Set**——旧引擎代码 Array.isArray(keys) 对 Set 恒 false → _cheatFactorKeys
+  // 恒空数组 → 门上下文零合并 → cheatGrade 恒缺席（undefined）→ 库 v56 串
+  // `cheatGrade IS NULL OR cheatGrade == 0` 走 IS NULL 臂恒放行——unhealthy
+  // J+L+R 三通道判定照买（healthy 票 0==0 与 IS NULL 同向放行，无法暴露）
+  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 1, blocked: false, levels: null, anchors: null });
+  const engR = makeEngine({ _factorAggregator: fa });
+  const ctxR = engR._buildCheatGateContext('0xround', { marketCap: 111 });
+  ok('事故反证：真 FA（Set 探针）门上下文合并出投影 cheatGrade=1、非 cheat 键保 fire 值',
+    ctxR && ctxR.cheatGrade === 1 && ctxR.marketCap === 111,
+    ctxR ? { cheatGrade: ctxR.cheatGrade, marketCap: ctxR.marketCap } : 'ctx null');
+  ok('事故反证：_cheatFactorKeys 派生非空含 cheatGrade（Set 形状兼容）',
+    Array.isArray(engR._cheatFactorKeys) && engR._cheatFactorKeys.includes('cheatGrade'),
+    engR._cheatFactorKeys && engR._cheatFactorKeys.length);
+  const { ConditionEvaluator: CEr } = require('../src/strategies/ConditionEvaluator');
+  const evR = new CEr();
+  ok('事故反证：库 v56 串对 unhealthy 上下文评估 false=拒买（拒路径复活）',
+    evR.evaluate(evR.parseCondition('cheatGrade IS NULL OR cheatGrade == 0'), ctxR) === false);
+  FAmod.clearCheatFactors('0xround');
 }
 
 console.log('E. 引擎侧源码口径锁（CD158 形状）');
