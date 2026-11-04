@@ -2427,12 +2427,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "CD162 立项票：v70 f0898589 首信号 E_low_activity 15s 翻正案（窗 28s/19 笔纯买 18:1 单调上行零回撤；D3.55 act 题④开盘极早窗反锚窗<60s∨笔<30 只豁免④单向死水判读；锚=19 生产首析 anchorTicks as-of 首信号 created_at+28s）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（CD162 立项票：v70 f0898589 首信号 E_low_activity 15s 翻正案（窗 28s/19 笔纯买 18:1 单调上行零回撤；D3.55 act 题④开盘极早窗反锚窗<60s∨笔<30 只豁免④单向死水判读；锚=19 生产首析 anchorTicks as-of 首信号 created_at+28s））"
+      "expectBecause": "用户裁定 healthy（2026-11-04）：新盘开盘极短窗价格发现期常态，生产第二窗 healthy 放行实际买入；机器 unhealthy[R_abnormal_dominant] 为分歧留档（组织买 60.9%/abr=dominant 偏严）"
     }
   ]
 }
