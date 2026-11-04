@@ -197,6 +197,9 @@ class FlapAnkrWsCollector {
         this._quoteRateTtlMs = qrCfg.ttlMs ?? 30000;
         this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
         this._quoteRateNegTtlMs = qrCfg.negTtlMs ?? 60000;
+        // V2 灰尘池防线（T111 2026-11-04 MAX/METAB 案）：WBNB 侧储备 < 该值（BNB）=
+        // 残池挂价不可信，降级 V3（与「零流动性 V3 池挂价不可信必须拦」同一原则）
+        this._v2MinWbnbReserve = qrCfg.v2MinWbnbReserve ?? 0.01;
         this._quoteFullBackfillMinutes = qrCfg.fullBackfillMinutes ?? 43200; // 首启 DB 无持久映射时的全量窗（30 天）
         this._quoteBackfillRpcUrl = qrCfg.backfillRpcUrl ?? null;
         this._pendingBackfillMax = qrCfg.pendingBackfillMax ?? 50000;
@@ -230,6 +233,7 @@ class FlapAnkrWsCollector {
             nonBnbQuoteSkipped: 0,
             quoteConverted: 0,
             quoteRateUnavailable: 0,
+            v2DustPairDowngraded: 0, // V2 灰尘池降级 V3 次数（T111 METAB 案防线）
             quoteSetBackfilled: 0,
             quoteSetPersistLoaded: 0,   // 启动时从 wss_events 加载的持久 QuoteSet 条数
             pendingDuringBackfill: 0,   // 回放窗口暂存队列当前长度
@@ -829,6 +833,16 @@ class FlapAnkrWsCollector {
      * rate = WBNB 储备 / quote 储备（各自按 decimals 归一到 whole-token 单位）。
      * 无池（零地址）/储备为 0 → null。
      */
+    /**
+     * V2 池 WBNB 侧储备（wei）是否低于灰尘门槛（minBnb 单位 BNB）。纯函数，单测锁边界。
+     * T111 MAX/METAB 案：事故池 WBNB 储备 1.4e-5 BNB，挂价 rate=2.0966（真实 ≈0.87），
+     * 虚高 2.4 倍污染全部同 quote 盘 tick——储备过小的池挂价无市场意义，不可当主源。
+     */
+    static isDustV2WbnbReserve(wbnbReserveWei, minBnb = 0.01) {
+        const minWei = BigInt(Math.round(Number(minBnb) * 1e18));
+        return BigInt(wbnbReserveWei) < minWei;
+    }
+
     async _fetchQuoteRateV2(quote) {
         const pair = await this._pcsFactoryContract.getPair(quote, WBNB_BSC);
         if (!pair || pair === ethers.ZeroAddress) return null; // quote 未上 PCS V2 对 WBNB 池
@@ -836,9 +850,17 @@ class FlapAnkrWsCollector {
         const [reserves, token0] = await Promise.all([pairContract.getReserves(), pairContract.token0()]);
         const [reserve0, reserve1] = reserves; // bigint（uint112）
         if (reserve0 === 0n || reserve1 === 0n) return null; // 无流动性
+        const quoteIsToken0 = lowerAddr(token0) === quote;
+        const wbnbReserve = quoteIsToken0 ? reserve1 : reserve0;
+        if (FlapAnkrWsCollector.isDustV2WbnbReserve(wbnbReserve, this._v2MinWbnbReserve)) {
+            this.stats.v2DustPairDowngraded++;
+            this.logger.debug('', 'FlapAnkrWsCollector',
+                `V2 pair WBNB 储备过小（灰尘池挂价不可信，降级 V3）: quote=${quote} wbnbReserve=${ethers.formatEther(wbnbReserve)}`);
+            return null;
+        }
         const decimals = await this._quoteDecimalsOf(quote);
         const decExp = 10n ** BigInt(decimals);
-        const rate = lowerAddr(token0) === quote
+        const rate = quoteIsToken0
             ? Number(reserve1 * decExp) / Number(reserve0 * 10n ** 18n) // token0=quote → r1 是 WBNB
             : Number(reserve0 * decExp) / Number(reserve1 * 10n ** 18n); // token0=WBNB → r0 是 WBNB
         return rate > 0 ? rate : null;

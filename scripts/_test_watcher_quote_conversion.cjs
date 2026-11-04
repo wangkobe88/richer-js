@@ -493,6 +493,78 @@ async function main() {
         assert(threwLoad, 'DB 加载失败抛错（走回放退避重试）');
     }
 
+    // ── T16 V2 灰尘池防线（T111 2026-11-04 MAX/METAB 案）──
+    // 事故：METAB/WBNB PCS V2 池 WBNB 侧储备仅 1.4e-5 BNB，挂价 rate=2.0966 被主源
+    // 采用（真实 ≈0.87，虚高 2.4 倍污染全部同 quote 盘 tick）→ FA 信号价虚高 →
+    // 买入「实收 2.43 倍预期」不触发滑点 + 卖出 L1 预期锚虚高恒拒 → 熔断循环。
+    // 防线=V2 WBNB 储备 < 门槛视为挂价不可信，降级 V3（对齐「零流动性 V3 池挂价不可信必须拦」）。
+    {
+        console.log('\nT16 V2 灰尘池防线（T111 METAB 案）');
+        const { FlapAnkrWsCollector: FC } = require(path.join(__dirname, '..', 'src', 'collectors', 'flap-ankr-ws-collector.js'));
+
+        // T16a 纯函数边界：事故值拦 / 恰界不拦（阈值闭下界=采用）
+        assert(FC.isDustV2WbnbReserve(14201060353170n) === true, '事故池 1.42e-5 BNB 储备 → 灰尘（拦）');
+        assert(FC.isDustV2WbnbReserve(9n * 10n ** 15n) === true, '0.009 BNB → 灰尘（拦）');
+        assert(FC.isDustV2WbnbReserve(10n ** 16n) === false, '恰 0.01 BNB → 不拦（边界=采用）');
+        assert(FC.isDustV2WbnbReserve(10n ** 18n) === false, '1 BNB → 不拦');
+        assert(FC.isDustV2WbnbReserve(3n * 10n ** 17n, 0.5) === true, '自定义阈值 0.5：0.3 → 拦');
+        assert(FC.isDustV2WbnbReserve(6n * 10n ** 17n, 0.5) === false, '自定义阈值 0.5：0.6 → 不拦');
+
+        // T16b 降级链路（打桩 V2/V3 源方法，直调 _fetchQuoteRateFromRpc）
+        const mk = () => {
+            const c = makeCollector({});
+            c._v2MinWbnbReserve = 0.01;
+            return c;
+        };
+        // b1 主源命中短路：V3 零调用
+        {
+            const c = mk();
+            let v3Calls = 0;
+            c._fetchQuoteRateV2 = async () => 2.0966;
+            c._fetchQuoteRateV3 = async () => { v3Calls++; return null; };
+            const r = await c._fetchQuoteRateFromRpc('0x' + 'q1'.padEnd(40, '0'));
+            assert(r === 2.0966 && v3Calls === 0, `V2 主源命中直接返回（v3Calls=${v3Calls}）`);
+        }
+        // b2 V2 灰尘（null）→ V3 WBNB 接管
+        {
+            const c = mk();
+            c._fetchQuoteRateV2 = async () => null; // 灰尘降级后返回 null
+            c._fetchQuoteRateV3 = async (quote, other) => (other.toLowerCase().endsWith('095c') ? 0.87 : null); // WBNB 池
+            const r = await c._fetchQuoteRateFromRpc('0x' + 'q1'.padEnd(40, '0'));
+            assert(near(r, 0.87), `V2 灰尘降级 V3 WBNB（got ${r}）`);
+        }
+        // b3 V2 null → V3 WBNB null → V3 USDT 中转 ÷ bnbUsd
+        {
+            const c = mk();
+            c._fetchQuoteRateV2 = async () => null;
+            c._fetchQuoteRateV3 = async (quote, other) => (other.toLowerCase().endsWith('7955') ? 50.34 : null); // USDT 池
+            c._bnbUsd = 745;
+            const r = await c._fetchQuoteRateFromRpc('0x' + 'q1'.padEnd(40, '0'));
+            assert(near(r, 50.34 / 745, 1e-12), `USDT 中转换算（got ${r}，期望 ${50.34 / 745}）`);
+        }
+        // b4 bnbUsd 未就绪 + V2/V3(WBNB) 不可用 → null（负缓存重试，不冒充）
+        {
+            const c = mk();
+            c._fetchQuoteRateV2 = async () => null;
+            c._fetchQuoteRateV3 = async () => null;
+            c._bnbUsd = 0;
+            const r = await c._fetchQuoteRateFromRpc('0x' + 'q1'.padEnd(40, '0'));
+            assert(r === null, 'bnbUsd 未就绪 → null（宁 miss 不冒充）');
+        }
+
+        // T16c 源码口径锁：门槛在 _fetchQuoteRateV2 内、降级 return null 先于 rate 计算、stats 键在
+        {
+            const src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'collectors', 'flap-ankr-ws-collector.js'), 'utf8');
+            const v2Body = src.split('async _fetchQuoteRateV2')[1] || '';
+            const v2Fn = v2Body.split('\n    }')[0];
+            assert(v2Fn.includes('isDustV2WbnbReserve(wbnbReserve, this._v2MinWbnbReserve)'), 'V2 函数内灰尘门槛判断在场');
+            assert(v2Fn.indexOf('v2DustPairDowngraded++') < v2Fn.indexOf('const rate ='), '降级计数先于 rate 计算（挂价未被采用）');
+            assert(v2Fn.includes('return null'), '灰尘分支 return null（降级 V3）');
+            assert(src.includes('v2DustPairDowngraded: 0,'), 'stats 初始化键在场');
+            assert(src.includes('this._v2MinWbnbReserve = qrCfg.v2MinWbnbReserve ?? 0.01'), '配置默认 0.01 BNB 在场');
+        }
+    }
+
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
     process.exitCode = failed === 0 ? 0 : 1;
 }

@@ -671,6 +671,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 戊、live 执行与事故
 
+### T111 flap quote 汇率 V2 主源灰尘池挂价污染——买入口径失真+卖出 L1 恒拒熔断循环（MAX/METAB 案，2026-11-04 v70 首日）
+- 案：v70 `f0898589`（both live 去叙事）02:46:29 买入 MAX 0xbe0d62b9a00a9ca8ba917a3f790c25af68cb7777（flap，0.004 BNB→453,550.85 tokens）；7s 后 P10 卖腿 fire，live 卖出**连续 5 次被 L1 预成交校验拒**（`报价到手 0.0040 < 预期 0.0097 × minOutRatio 0.5 (ratio=0.4156)`，02:46/02:48/02:49/02:51/02:53）→ per-token 卖出熔断 30min 循环（熔断按 tokenAddress 计，其它票不受影响）；账面 profitPercent -43%（虚高口径），链上真实浮亏 ≈-40%（可卖 0.0024 BNB vs 成本 0.004）
+- 根因=**三级源①PCS V2 quote/WBNB reserves 无最小流动性门槛**：MAX 是 METAB 计价盘（quote=0x7425889fe94f9d693e8daefe88bcced6acfef4c0，QuoteSet 正常到达），METAB/WBNB 的 V2 池是灰尘池——WBNB 侧储备仅 **1.4e-5 BNB**，挂价 rate=**2.0966** vs 真实市场价 ≈0.87（V3 USDT fee2500 池流动性 1.9e22 充足），**虚高 ~2.4 倍**；V2 主源命中即 return（只拦「储备=0」）→ 全部 METAB 计价盘 tick price_bnb 系统性虚高 2.42 倍 → ①买入侧预期 tokensOut 少算 2.43 倍=「实收更多」不触发买侧滑点防护放行买入；②卖出侧 expectedNativeOut=qty×虚高信号价 → 链上真实报价恒 0.41× → L1 恒拒。对齐既有设计原则「零流动性 V3 池挂价不可信必须拦」——V2 侧漏了同款防线
+- 修复（用户裁定「修门槛+重启」）：`_fetchQuoteRateV2` 加灰尘门槛——WBNB 侧储备 < `flapWs.quoteRate.v2MinWbnbReserve`（默认 **0.01 BNB**）→ null 降级 V3（WBNB→USDT 中转）；静态纯函数 `FlapAnkrWsCollector.isDustV2WbnbReserve` + stats `v2DustPairDowngraded` 计数 + debug 日志
+- 自愈路径已验证成立：METAB 走 V3 USDT 中转拿真实 rate → tick 回归真实 → FA 价格修正 → 卖腿预期锚修正 → L1 通过自动清仓；同 quote 另一票 0x5771…7777 零信号未买入（无第二受损仓）
+- 单测：`_test_watcher_quote_conversion.cjs` T16 段（100/100）——事故池值 1.42e-5 BNB 拦/恰界 0.01 不拦/自定义阈值；降级链三形状（主源短路/V2 灰尘→V3 WBNB/USDT 中转换算 ÷bnbUsd）+ bnbUsd 未就绪宁 miss 不冒充；源码口径锁（门槛在 V2 函数内+降级计数先于 rate 计算+stats 键+配置默认在场）
+- 取证坑留档：182 对 wss_price_ticks/wss_events 的 token_address 无索引查询（ilike 前导通配/无 id 窗的 eq）statement timeout **被吞成空 data**（假象「表无行」）——验证落库活性须用 id 探针窗（`gte id desc`）；trades 列名=price 不存在（真列 price_bnb）
+
 ### T92 already-known 恢复轮询单端点全 miss→卖出误判失败丢 trade 行——多端点并行恢复（KYA 案，2026-10-29）
 - 案：v51 `d41b9c29` KYA 0x587c61b4a5052b7e5e0563be61b9be0a0aa27777（flap，3 卡 0.006 BNB）21:02:16 全清卖出 tx `0x0fff…c83` **已上链成交**（status=1 块 130349778，gasUsed 697289，实收 0.0042089268551733835 BNB 进钱包），但请求层响应丢失重发同一 raw → 节点 `-32000 "already known"` → `_recoverTxFromAlreadyKnown` 取证成功进入恢复轮询，**主 provider（bsc-dataseed1.binance.org，LB 集群）getTransaction 12×500ms=6s 全 miss** → 恢复失败 fail-closed 判「卖出失败」不落账 → trade 行缺失；21:05:33 卖腿再 fire 时链上仅剩 4.4973e-11 零头被 T75 粉尘门就地清账（out=0 行）→ token-returns 页 FIFO 把 0.006 本金记成 **-100%**（真实 -29.85%）
 - 根因=恢复路径单端点依赖：tx 实际已上链，但同一 LB 端点的事务索引滞后 6s+ 即饿死轮询；已有机制（T38/T69 三形状取证 + 恢复追踪）链路无恙，缺的是轮询视野
