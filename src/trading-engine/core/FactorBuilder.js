@@ -259,6 +259,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 旧 FA/历史信号无键 → null 不掩盖）
     cheatStrongBackerPressure: factorResults.cheatStrongBackerPressure ?? null,
     cheatAnchorBuySellRatio: factorResults.cheatAnchorBuySellRatio ?? null,
+    // CD159 强庄形状观察臂（SB1 曾经命中粘滞 0/1——service strongbackerShapeHit
+    // 任一轮命中即置位；纯观察 grade 零消费，豁免立法攒分布后裁）
+    cheatStrongbackerLike: factorResults.cheatStrongbackerLike ?? 0,
     cheatActivityLevel: factorResults.cheatActivityLevel ?? null,
     cheatBundledDominance: factorResults.cheatBundledDominance ?? null,
     cheatSameBlockHoldPct: factorResults.cheatSameBlockHoldPct ?? null,

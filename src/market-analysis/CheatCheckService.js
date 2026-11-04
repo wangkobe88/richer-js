@@ -67,7 +67,7 @@
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation } = require('./cheat-result-mapper');
-const { gradeObservation, levelsFromObservation } = require('./cheat-grade');
+const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -117,6 +117,10 @@ class CheatCheckService {
     this._gateBlocked = new Set();       // token → 拉黑（**仅 cheat 判定**；秒回不烧 Jev）
     this._gateUnhealthyGrades = new Map(); // token → unhealthy 真分析判定次数（纯观测计数，FA cheatUnhealthyGrades 键源；无门效应）
     this._lastGrade = new Map();         // token → { grade, reasons, version, unhealthyGrades, levels, buckets, anchors }（healthy 粘滞源）
+    // CD159 强庄形状观察臂（SB1，§七.5）：token → 曾经命中 strongbackerShapeHit
+    //（**纯观察零门消费**——FA cheatStrongbackerLike 数据源；进程内存态重启清零，
+    // 拱形锚「过窗即逝」的早期命中重启后丢失=已知观察期缺口，信号行 metadata 持久留痕）
+    this._strongbackerLike = new Set();
 
     this.stats = {
       analyzed: 0, skippedInsufficientTicks: 0,
@@ -124,6 +128,7 @@ class CheatCheckService {
       timeouts: 0, errors: 0, inflightJoined: 0,
       gateNoted: 0, gateBlockedHits: 0, gateTimeouts: 0, gateGraded: 0,
       stickyReused: 0, stickyBootstrapped: 0,
+      strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
     };
   }
 
@@ -144,6 +149,7 @@ class CheatCheckService {
       reasons: lg?.reasons ?? [],
       unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
       levels: lg?.levels ?? null, buckets: lg?.buckets ?? null, anchors: lg?.anchors ?? null,
+      strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞）
     };
   }
 
@@ -204,7 +210,7 @@ class CheatCheckService {
     ]);
     if (result === timedOut) {
       this.stats.gateTimeouts++;
-      return { status: 'timeout_fail_open', late: chain };
+      return { status: 'timeout_fail_open', late: chain, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 }; // CD159 观察臂（此刻粘滞值；late 完成后可能翻转，投影以 late 消费为准）
     }
     if (result && (result.grade === 'cheat' || result.grade === 'unhealthy' || result.grade === 'healthy')) {
       this.stats.gateGraded++;
@@ -231,14 +237,14 @@ class CheatCheckService {
         this.stats.errors++;
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         this._log('warn', `LLM 模块加载失败，本次跳过 | ${token} ${e?.message || e}`);
-        return { status: 'fail', reason: 'llm_load' };
+        return { status: 'fail', reason: 'llm_load', strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
 
       // 3) 失败冷却
       const failUntil = this._failUntil.get(token) || 0;
       if (this._now() < failUntil) {
         this.stats.cooldownSkipped++;
-        return { status: 'fail', reason: 'cooldown' };
+        return { status: 'fail', reason: 'cooldown', strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
 
       // 4) DB 历史回读（首触补偿跨进程：粘滞态/拉黑态/unhealthy 观测计数）
@@ -268,7 +274,7 @@ class CheatCheckService {
       if (pull.anchorTickCount < this._minTicks) {
         this.stats.skippedInsufficientTicks++;
         this._log('info', `ticks 不足跳过（${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
-        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
 
       // 7) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
@@ -278,6 +284,16 @@ class CheatCheckService {
       const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
       const snapshot = buildSnapshotFromRows(pull.rows, meta, { capped: pull.capped, anchorTickCount: pull.anchorTickCount });
       const { state } = buildCheatState(snapshot);
+
+      // 7b) CD159 强庄形状观察臂（SB1 §七.5）：纯数值规则**零 Jev 依赖**——快照建成
+      //     即评（Jev 超时/失败轮照评照粘滞）；任一轮命中即置位（曾经命中粘滞：池票
+      //     锚是先升后降拱形，过窗即逝形状靠粘滞保住；评估时机=每买信号重判的递增
+      //     锚轮=unhealthy 票天然多轮，正是豁免目标人群）。grade 零消费纯观察。
+      if (strongbackerShapeHit(snapshot.derived) && !this._strongbackerLike.has(token)) {
+        this._strongbackerLike.add(token);
+        this.stats.strongbackerHits++;
+        this._log('info', `强庄形状命中（${STRONGBACKER_RULE_VERSION} 曾经命中粘滞，纯观察零门效应） | ${token}`);
+      }
 
       // 8) Jev（超时竞速；迟到结果丢弃防锚重复行）
       const res = await this._runJev(state, this._llm.buildCheatQuestions());
@@ -292,7 +308,7 @@ class CheatCheckService {
         // 失败冷却（防故障环；不粘滞——下个买信号受冷却后可重析）
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         this._log('warn', `Jev ${res.kind} | ${token} ${res.error?.message || ''}`);
-        return { status: 'fail', reason: res.kind === 'timeout' ? 'jev_timeout' : 'jev_error' };
+        return { status: 'fail', reason: res.kind === 'timeout' ? 'jev_timeout' : 'jev_error', strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
 
       // 9) mapper 观测组装 + 落库（D3.5：现象+档位观测记录无 verdict；D3.1 持仓
@@ -381,7 +397,7 @@ class CheatCheckService {
         this.stats.errors++;
         await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context, snapshot.derived);
         this._failUntil.set(token, this._now() + this._failCooldownMs);
-        return { status: 'fail', reason: 'mapper_error' };
+        return { status: 'fail', reason: 'mapper_error', strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
       // G1 分级（2026-11-01 用户裁定：档位→交易三级映射，cheat-grade.js 纯函数；
       // anchorSellCount=锚窗卖笔数现场计数——E 门真实对手盘豁免原料，digest 落档）
@@ -450,19 +466,21 @@ class CheatCheckService {
         // D3.52 观察期攒数据键：sbp 档位+锚窗买卖比（grade 零消费，分布数据
         // 采实验日志与 cheat_detection 行——豁免规则立法的原料）
         ` 买压=${snapshot.derived.anchorBuySellRatio ?? '—'}` +
+        ` sbLike=${this._strongbackerLike.has(token) ? 1 : 0}` +
         ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
         status: 'analyzed', grade: graded.grade, reasons: graded.reasons,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
         levels, buckets, anchors,
+        strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞值）
       };
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
       this.stats.errors++;
       this._failUntil.set(token, this._now() + this._failCooldownMs);
       this._log('error', `分析链异常（已吞，不影响交易） | ${token} ${e?.stack || e}`);
-      return { status: 'fail', reason: 'chain_error' };
+      return { status: 'fail', reason: 'chain_error', strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
     }
   }
 
@@ -526,6 +544,7 @@ class CheatCheckService {
       levels: lg ? lg.levels ?? null : null,
       buckets: lg ? lg.buckets ?? null : null,
       anchors: lg ? lg.anchors ?? null : null,
+      strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（拉黑票形状留档——误豁研究原料）
     };
   }
 
@@ -736,6 +755,7 @@ class CheatCheckService {
         gradeReasons: mapped.gradeReasons ?? null,
         gradeVersion: mapped.gradeVersion ?? null,
         anchorSellCount: mapped.anchorSellCount ?? null,
+        strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 SB1 观察臂粘滞值（本轮刻度；研究对拍原料，与 signal metadata 双源）
         activity: { // D3.2 代码活跃度原始数值——Jev 档位（activityLevel）的校准对照原料
           ticksPerMin: derived.ticksPerMin ?? null,
           avgTradeBnb: derived.avgTradeBnb ?? null,

@@ -22,7 +22,8 @@
  */
 
 const { gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
-  CHEAT_LEVEL_SCORES, scoreLevel, levelsFromObservation } = require('../src/market-analysis/cheat-grade');
+  CHEAT_LEVEL_SCORES, scoreLevel, levelsFromObservation,
+  strongbackerShapeHit, STRONGBACKER_RULE, STRONGBACKER_RULE_VERSION } = require('../src/market-analysis/cheat-grade');
 
 let passed = 0;
 function ok(cond, label) {
@@ -711,6 +712,36 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r4.anchors.famousDominancePct === null && r4.anchors.famousDominance === null
       && r4.anchors.famousDominanceLevel === 'extreme',
       '锚缺席/负数/未知档 → 数值 null 不冒充（字符串原值照存留档，buckets 哲学）');
+  }
+
+  // ── CD159 强庄形状规则（SB1，§七.5「曾经命中」粘滞的当轮判定纯函数）──
+  {
+    const hit = strongbackerShapeHit;
+    ok(STRONGBACKER_RULE_VERSION === 'SB1' && STRONGBACKER_RULE.burstWaveBuyBnbMin === 2.2
+      && STRONGBACKER_RULE.top2HoldSupplyPctMin === 4.5 && STRONGBACKER_RULE.sameAmountWalletPctMax === 15,
+      'SB1 阈值常量锁定（波资金≥2.2 ∧ 第二大户≥4.5 ∧ 等额<15——§七.5 网格定形值；改值=改统计口径须重跑对拍+同步台账）');
+    const base = { burstWaveBuyBnb: 2.8, top2HoldSupplyPct: 6.0, sameAmountWalletPct: 11, washPairCount: null, activityLevel: 'mid' };
+    ok(hit(base) === true, '全条件满足 → 命中（CD21 首锚形状 2.8/6.0/11）');
+    ok(hit({ ...base, burstWaveBuyBnb: 2.19 }) === false
+      && hit({ ...base, top2HoldSupplyPct: 4.49 }) === false
+      && hit({ ...base, sameAmountWalletPct: 15 }) === false,
+      '三数值腿边界外不命中（2.2/4.5/15 恰外）');
+    ok(hit({ ...base, burstWaveBuyBnb: 2.2, top2HoldSupplyPct: 4.5, sameAmountWalletPct: 14.99 }) === true,
+      '边界含等（≥2.2/≥4.5 且 <15）');
+    ok(hit({ ...base, sameAmountWalletPct: null }) === false,
+      'sameAmountWalletPct null=无等额簇按不过（研究口径 ??99 保守——null 语义即统计口径，改语义须重跑 §七.5）');
+    ok(hit({ ...base, washPairCount: 3 }) === false
+      && hit({ ...base, washPairCount: 0 }) === true,
+      'washPairCount>0 剔（对敲=强庄从不同向）；0 命中');
+    ok(hit({ ...base, activityLevel: 'low' }) === false
+      && hit({ ...base, activityLevel: null }) === true,
+      'act=low 剔（死盘）；null（dt 缺失）按过（排除臂缺证据不剔）');
+    ok(hit(null) === false && hit(undefined) === false && hit({}) === false,
+      'derived 缺席/空 → false（fail-closed 不冒充）');
+    // 零门效应防线：规则绝不进 gradeObservation（G15 不变，黄金集重放零变化）
+    const g0 = gradeObservation({ phenomena: {}, extLevels: {}, anchors: {} }, {});
+    ok(g0.grade === 'healthy' && g0.version === CHEAT_GRADE_RULES_VERSION,
+      'SB1 观察臂零门效应（gradeObservation 不消费强庄形状——G15 版本不变）');
   }
 
   console.log(`\n✅ _test_cheat_grade 全过（${passed} 断言）`);

@@ -95,8 +95,8 @@ console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/�
   check('cheat → 清仓联动（why=cheat 判定）', exits, [{ addr: '0xtok', why: 'cheat 判定' }]);
   check('cheat → signal failed reason=cheat_gate_cheat', signals.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_cheat']]);
-  check('cheat → FA 投影（grade/blocked/levels/anchors 透传）', FA.getCheatFactors('0xtok'),
-    { grade: 'cheat', unhealthyGrades: 0, blocked: true, levels: null, anchors: null });
+  check('cheat → FA 投影（grade/blocked/levels/anchors 透传+SB1 观察键）', FA.getCheatFactors('0xtok'),
+    { grade: 'cheat', unhealthyGrades: 0, blocked: true, levels: null, anchors: null, strongbackerLike: 0 });
   FA.clearCheatFactors('0xtok');
 
   // A2 unhealthy + 条件 false → signal failed reason=cheat_gate_condition
@@ -112,8 +112,8 @@ console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/�
   ok('unhealthy 拒 → 不拉黑（下个买信号自动重判）', !eng2._cheatBlockedTokens.has('0xtok'));
   check('unhealthy 条件拒 → signal failed reason=cheat_gate_condition',
     signals2.map((s) => [s.status, s.meta.reason]), [['failed', 'cheat_gate_condition']]);
-  check('unhealthy → FA 投影 blocked=false', FA.getCheatFactors('0xtok'),
-    { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: null, anchors: null });
+  check('unhealthy → FA 投影 blocked=false（strongbackerLike 缺席=0 不冒充）', FA.getCheatFactors('0xtok'),
+    { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: null, anchors: null, strongbackerLike: 0 });
   FA.clearCheatFactors('0xtok');
 
   // A2b unhealthy + 条件 true（如 cheatGrade != 2 放行 unhealthy）→ 放行 info 带 conditionPassed
@@ -138,7 +138,7 @@ console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/�
   const r3 = await eng3._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-3', 'cheatGrade == 0', {});
   ok('healthy（粘滞秒回）+ 条件 true → 放行', r3.pass === true
     && r3.info.grade === 'healthy' && r3.info.cached === true && r3.info.conditionPassed === true, r3.info);
-  check('healthy → FA 投影', FA.getCheatFactors('0xtok'), { grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: null, anchors: null });
+  check('healthy → FA 投影', FA.getCheatFactors('0xtok'), { grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: null, anchors: null, strongbackerLike: 0 });
   FA.clearCheatFactors('0xtok');
 
   // A3b healthy + 条件 false → 拒（粘滞不豁免腿表达式）
@@ -355,8 +355,8 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     'cheatAbnormalBehaviorRatio', 'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct',
     'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct',
     'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll',
-    'cheatStrongBackerPressure', 'cheatAnchorBuySellRatio'];
-  ok('45 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键纯观察：门侧零消费，条件串/研究侧自由消费）', need.every((k) => keys.includes(k)),
+    'cheatStrongBackerPressure', 'cheatAnchorBuySellRatio', 'cheatStrongbackerLike'];
+  ok('46 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键+CD159 SB1 观察键纯观察：门侧零消费，条件串/研究侧自由消费）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
     !keys.includes('cheatRealParticipation'));
@@ -368,7 +368,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     price_bnb: 5e-9, price_usd: 3e-6, bnb_amount: 0.01, token_amount: 2e6,
     block_number: 40000001, timestamp: T0 + 1000, tx_hash: '0xtx1', log_index: 0,
     price_outlier: false, platform: 'fourmeme' }, { emitFactors: false });
-  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN });
+  FAmod.setCheatFactors('0xround', { grade: 'unhealthy', unhealthyGrades: 2, blocked: false, levels: LV, anchors: AN, strongbackerLike: 1 });
   const fm = fa.buildFactorMap('0xround', T0 + 2000);
   ok('buildFactorMap 出口数值化（unhealthy=1/档位映射/锚 % 直传/null 不冒充）',
     fm && fm.cheatGrade === 1 && fm.cheatUnhealthyGrades === 2 && fm.cheatBlocked === 0
@@ -391,6 +391,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm.cheatBurstSpikeConcentration === 3 && fm.cheatSpikeBuyPctInBurst === 99.3
     && fm.cheatSpikeHoldPctAll === 96.7
     && fm.cheatStrongBackerPressure === 3 && fm.cheatAnchorBuySellRatio === 4.74
+    && fm.cheatStrongbackerLike === 1
     && fm.cheatRealParticipation === undefined,
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
       dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
@@ -407,7 +408,8 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm2.cheatCreatorPeakHoldSupplyPct === null
     && fm2.cheatBurstSpikeConcentration === null && fm2.cheatSpikeBuyPctInBurst === null
     && fm2.cheatSpikeHoldPctAll === null
-    && fm2.cheatStrongBackerPressure === null && fm2.cheatAnchorBuySellRatio === null,
+    && fm2.cheatStrongBackerPressure === null && fm2.cheatAnchorBuySellRatio === null
+    && fm2.cheatStrongbackerLike === 0,
     fm2 ? fm2.cheatGrade : 'build null');
 
   // 事故现场反证（2026-11-04 太空制药 0x6a4f…7777 门旁路）：真 FA（非桩）探针

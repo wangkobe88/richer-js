@@ -2685,6 +2685,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         status: res.status, grade: res.grade, cached: res.cached === true,
         reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
         levels: res.levels ?? null, buckets: res.buckets ?? null, // 题档留档（metadata 研究）
+        strongbackerLike: res.strongbackerLike ?? 0, // CD159 强庄形状观察臂（曾经命中粘滞，signal metadata 研究主数据源）
         condition, conditionPassed: condOk,
         ...(condErr ? { conditionError: condErr } : {}),
       };
@@ -2758,7 +2759,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  /** FA 因子投影（14 键：grade 三键+11 题档；值=最近一次判定；stop 逐 token 清） */
+  /** FA 因子投影（grade 三键+题档+锚+CD159 观察臂；值=最近一次判定；stop 逐 token 清） */
   _projectCheatFactors(tokenAddress, res) {
     require('../../services/FourMemeFactorAggregator').setCheatFactors(tokenAddress, {
       grade: res.grade ?? null,
@@ -2766,6 +2767,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       blocked: res.grade === 'cheat' || this._cheatBlockedTokens.has(tokenAddress),
       levels: res.levels ?? null,
       anchors: res.anchors ?? null,
+      strongbackerLike: res.strongbackerLike ?? 0, // CD159 观察臂（service 曾经命中粘滞值，0/1）
     });
     this._cheatProjectedTokens.add(tokenAddress);
   }

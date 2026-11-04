@@ -3751,6 +3751,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 观察
             // 期纯观察键：窗口买入合计÷卖出合计，卖=0 → null 比值不适用）
             factors.cheatAnchorBuySellRatio = _an ? _an.anchorBuySellRatio ?? null : null;
+            // CD159 强庄形状观察臂（SB1，§七.5 曾经命中粘滞）：service 每买信号轮
+            // 评 strongbackerShapeHit（纯数值规则），任一轮命中即置 1 粘滞——
+            // **纯观察键 grade 零消费**（豁免立法攒生产分布后裁，绝不进 G15）；
+            // 回测零接线恒 0（同族键同语义）
+            factors.cheatStrongbackerLike = _cg && _cg.strongbackerLike === 1 ? 1 : 0;
             // D3.53 精确等额同块簇占比（CD160：同块∧金额四位小数全等∧≥2 钱包
             // 簇买入合计占窗总买 %——题面判读原料，纯观察可进条件串；无合格簇
             // → null 不冒充）
@@ -3901,13 +3906,15 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 迟到补投影/_cheatPrefetchCheck 预触发 onResult；stop 逐 token 清）。整包替换。
      * @param {string} tokenAddress
      * @param {{grade: 'cheat'|'unhealthy'|'healthy'|null, unhealthyGrades?: number,
-     *   blocked?: boolean, levels?: Object|null, anchors?: Object|null}} snapshot
+     *   blocked?: boolean, levels?: Object|null, anchors?: Object|null,
+     *   strongbackerLike?: 0|1}} snapshot
      *   grade=G1 分级（出口数值化 healthy=0/unhealthy=1/cheat=2）；unhealthyGrades=
      *   unhealthy 真分析累计次数；blocked=拉黑；levels=11 题数值档
      *   （levelsFromObservation 产物，出口键 cheatEqualAmountSplit 等 11 键）；
      *   anchors=数值锚六键（持仓占比四键+famous 掌控度数值/档位，出口键
-     *   cheatSameBlockHoldPct 等 6 键）。
-     *   投影 20 键**可进条件串**（2026-11-01 用户指令因子化——值=最近一次判定，
+     *   cheatSameBlockHoldPct 等 6 键）；strongbackerLike=CD159 强庄形状观察臂
+     *   （SB1 曾经命中粘滞 0/1，出口键 cheatStrongbackerLike 纯观察零门消费）。
+     *   投影键**可进条件串**（2026-11-01 用户指令因子化——值=最近一次判定，
      *   首判未完成 null fail-closed，放行须显式 IS NULL 臂；回测恒 null）
      */
     static setCheatFactors(tokenAddress, snapshot) {

@@ -650,6 +650,51 @@ async function main() {
     const r3 = await svc3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(r3.status === 'fail' && r3.reason === 'jev_error', 'Jev 失败 → fail 放行态（不拦买点）');
   }
+  {
+    // Z6. CD159 SB1 强庄形状观察臂（曾经命中粘滞，§七.5）：轮 1 命中形状 →
+    // 置位 strongbackerLike=1（手算：burst 5 钱包同块 0.6×5=3.0 ≥2.2 ∧
+    // top2=6e8/1e9=60% ≥4.5 ∧ 同档 0.6000 档 5/35 钱包=14.3% <15 ∧ 零卖行=
+    // washPairCount null 干净 ∧ tpm 32.3/avg 0.30 → act mid ≠low）；Jev 答案
+    // PUMP_BURST=unhealthy（每买信号重判=SB1 递增锚轮目标人群）；轮 2 换
+    // genTicks 基底（burst 0.2+无 token_amount=形状消失）重判 → 粘滞仍 1、
+    // hits 不再增；grade 轨迹与 SB1 无关（零门效应）；未命中 token 恒 0
+    const sbRows = [];
+    for (let i = 0; i < 5; i++) {
+      sbRows.push({ block_time: new Date(1700000000000 + i * 400).toISOString(), block_number: 100, log_index: i,
+        trade_type: 'buy', bnb_amount: 0.6, token_amount: 6e8, price_bnb: 1e-9, price_outlier: false,
+        trader_address: `0xsburst${i}`.padEnd(42, '0'), sender_address: `0xsburst${i}`.padEnd(42, '0'), quote_token: null });
+    }
+    for (let i = 0; i < 30; i++) {
+      const amt = +(0.11 + i * 0.01).toFixed(4); // 互异四档（0.1100..0.4000）——同档顶 size=burst 5
+      const w = `0xsrand${String(i).padStart(2, '0')}`; // 定长后缀：padEnd 补零下 '1'/'10' 前缀碰撞教训
+      sbRows.push({ block_time: new Date(1700000000000 + 5000 + i * 2000).toISOString(), block_number: 101 + i, log_index: 0,
+        trade_type: 'buy', bnb_amount: amt, token_amount: amt / 1e-9, price_bnb: 1e-9, price_outlier: false,
+        trader_address: w.padEnd(42, '0'), sender_address: w.padEnd(42, '0'), quote_token: null });
+    }
+    const META2 = { ...META, totalSupply: 1e9 };
+    const db = makeDb({ ticks: sbRows });
+    const llm = makeLlm({ answers: PUMP_BURST });
+    const svc = makeSvc(db, llm);
+    const r1 = await svc.gateBuyPoint('0xsbtok', META2, {}, { awaitMs: 3000 });
+    ok(r1.status === 'analyzed' && r1.grade === 'unhealthy' && r1.strongbackerLike === 1
+      && svc.stats.strongbackerHits === 1,
+      `SB1 轮 1 命中形状 → strongbackerLike=1（曾经命中置位+hits 计数；实际 sb=${r1.strongbackerLike}/grade=${r1.grade}/hits=${svc.stats.strongbackerHits}）`);
+    ok(r1.anchors && r1.anchors.burstWaveBuyBnb === 3.11 && r1.anchors.top2HoldSupplyPct === 60
+      && r1.anchors.sameAmountWalletPct === 14.3 && r1.anchors.washPairCount === null,
+      `SB1 命中轮四锚手算对拍（burst 3.11=5s 窗恰含 t+5 首笔散买 0.11/top2 60/同档 14.3/wash null；实际 ${r1.anchors && JSON.stringify({ b: r1.anchors.burstWaveBuyBnb, t: r1.anchors.top2HoldSupplyPct, s: r1.anchors.sameAmountWalletPct, w: r1.anchors.washPairCount })}）`);
+    // 轮 2：unhealthy 每买信号重判——形状消失（genTicks 基底 burst 0.2+缺 token_amount=失明）
+    db.holder.ticks = genTicks(40);
+    const r2 = await svc.gateBuyPoint('0xsbtok', META2, {}, { awaitMs: 3000 });
+    ok(r2.status === 'analyzed' && r2.strongbackerLike === 1 && svc.stats.strongbackerHits === 1,
+      `SB1 轮 2 形状消失重判 → 粘滞仍 1（hits 不增；实际 sb=${r2.strongbackerLike}/hits=${svc.stats.strongbackerHits}）`);
+    const r0 = await svc.gateBuyPoint('0xsb0', META2, {}, { awaitMs: 3000 });
+    ok(r0.status === 'analyzed' && r0.strongbackerLike === 0,
+      `SB1 未命中过的 token → 0（不冒充；实际 ${r0.strongbackerLike}）`);
+    // 落库 digest 留观察轨迹：轮 1 digest 带 strongbackerLike=1（研究主数据源）
+    const dg = db.state.inserts.find((x) => x.token_address === '0xsbtok' && x.snapshot_digest && x.snapshot_digest.grade === 'unhealthy');
+    ok(dg && dg.snapshot_digest.strongbackerLike === 1,
+      'digest 落 strongbackerLike=1（轮 1 命中留档——signal metadata/研究对拍原料）');
+  }
 
   // ═══════════════ W. 退役反证（CD158 删除零残留） ═══════════════
   console.log('W. 退役反证');

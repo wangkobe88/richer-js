@@ -405,6 +405,41 @@ const MAIN_IDS = [
   ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance' && id !== 'strong_backer_pressure'), // tier/bw/rat/pump/wash/spike（sbp 观察期排除）
 ];
 
+/**
+ * CD159 强庄形状规则（SB1，2026-11-04 §七/§七.5 落码——**纯观察臂，grade 零消费**）：
+ * 「曾经命中」粘滞语义的当轮判定纯函数——强庄池 10 张 vs 226 票人工裁定对照的首轮
+ * 系统研究定形（docs/强庄币锚立项分析.md §七.5）：数值规则 R ∧ 对敲零排除臂，池命中
+ * 7/10、有害误豁 13/184≈7%（对照组作弊票活不到大锚=晚锚区误豁 ≈1%）。
+ * - 庄侧：明面第二大户 top2HoldSupplyPct ≥4.5（AUC 0.74）+ burst 波资金
+ *   burstWaveBuyBnb ≥2.2（AUC 0.76，合力侧「庄跟用户合力」的波形状）
+ * - 排除臂（作弊形状三剔）：sameAmountWalletPct ≥15 剔（分仓等额是作弊形状）；
+ *   washPairCount >0 剔（对敲=强庄从不同向）；代码 act=low 剔（死盘）
+ * - **null 语义与研究脚本逐字一致**（改语义=改统计口径，须重跑 §七.5 对拍）：
+ *   sameAmountWalletPct null=无等额簇**按不过**（保守，研究口径 ??99）；washPairCount
+ *   null=无配对**按干净**；activityLevel null≠low **按过**（排除臂缺证据不剔）
+ * - 粘滞由 CheatCheckService 持有（`_strongbackerLike` Set，任一轮命中即置位，
+ *   进程内存态重启清零）；本函数只答「当轮命中吗」——**绝不进 gradeObservation**
+ *   （G15 不变、黄金集零变化；豁免立法攒生产分布后再裁，CD159 案）
+ */
+const STRONGBACKER_RULE_VERSION = 'SB1';
+const STRONGBACKER_RULE = {
+  burstWaveBuyBnbMin: 2.2,   // burst 波 Σ买（BNB）下限
+  top2HoldSupplyPctMin: 4.5, // 第二大户占总供应量 % 下限
+  sameAmountWalletPctMax: 15, // 等额分仓钱包占买方 % 上限（≥此值=作弊形状剔）
+};
+
+function strongbackerShapeHit(derived) {
+  if (!derived) return false;
+  if (!((derived.burstWaveBuyBnb ?? 0) >= STRONGBACKER_RULE.burstWaveBuyBnbMin)) return false;
+  if (!((derived.top2HoldSupplyPct ?? 0) >= STRONGBACKER_RULE.top2HoldSupplyPctMin)) return false;
+  const sa = derived.sameAmountWalletPct;
+  if (!(sa != null && sa < STRONGBACKER_RULE.sameAmountWalletPctMax)) return false; // null 不过（研究口径）
+  const wash = derived.washPairCount;
+  if (!(wash == null || wash === 0)) return false; // null=无配对=干净
+  if (derived.activityLevel === 'low') return false;
+  return true;
+}
+
 /** 数值锚读取（null/非有限/负数按缺席——绝不冒充） */
 function _pct(v) {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
@@ -594,4 +629,5 @@ function gradeObservation(observation, extras = {}) {
 module.exports = {
   gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
   CHEAT_LEVEL_SCORES, scoreLevel, levelsFromObservation,
+  strongbackerShapeHit, STRONGBACKER_RULE, STRONGBACKER_RULE_VERSION,
 };
