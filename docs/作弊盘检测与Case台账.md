@@ -212,7 +212,7 @@
 
 **对拍存档接线坑追记（run.mjs 组装链三犯，dc94426e 收敛）**：D3.50/D3.53/D3.54 三批加键后五处组装实参（三处 buildObservation+两处存档 anchors 白名单）均未跟——存档/对拍原料七键（noBuySellVolumePct/exactEqualBlock 三键/pulseBlock 三键）全 null（D3.51 同款坑第二次复发；判定链不受影响——grade 走题档 extLevels、state 行走 snapshot.derived 在 prompt 里）。修复=**单一真相源重构**：`OBS_ANCHOR_KEYS` 37 键清单（[anchorsKey, derivedKey] 对，burstMaxGapSec←maxGapSec 换名特例）+`obsAnchors(d)` 收敛五处，与 mapper anchors 产物键集（单测 37 键断言）对齐，后续加键只改一处；复跑 CD161 存档 pulse 三键 3/62.3/15 与探针一致（exactEqual null=三脉冲块金额各异无等额簇、noBuySellVolumePct 0=creator 有买有卖非纯卖，均合理缺席）。
 
-**余留**：①CD161 expect 档位待裁定（unhealthy 拒买级 vs cheat 拉黑级）；②v70 实验进程换代才吃到 D3.53/D3.54（跑在 32137376 之前）。
+**余留**：①~~CD161 expect 档位待裁定~~——2026-11-04 用户裁定「**可以给 unhealthy**」（1013c5b6 落档：expect=unhealthy+expectBecause 留痕；J 通道拒买级定位确认）；②v70 实验进程换代才吃到 D3.53/D3.54（跑在 32137376 之前）。
 
 ### CD160 精确等额同块购买事实锚（D3.53）：0xf5e642bc…7777 三簇七钱包同块阵列 healthy 漏检案（2026-11-04）
 
