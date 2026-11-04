@@ -186,6 +186,14 @@
 
 ## Case 倒序
 
+### v72 edbd5b38 BUY 信号票批量收录 CD280-CD373（94 案，2026-11-05）
+
+**背景**：用户指令「收录实验 edbd5b38-27db-4dd4-8205-4bebfa410ea6 所有交易信号，然后一批批过一遍」——v72（both live，v72-实盘-both-卖臂修剪15腿-stall30-发射帽2-1104）strategy_signals 总 185 行（BUY 119 / SELL 35 / OBSERVE 31），BUY 去重 **94 票全部新收录**（CD280-CD373；与 936e1bd9 批 CD242-279 零交集），执行 17 笔。
+
+**收录口径**：锚=cheat_detection 生产首析行 anchor_tick_count 全 94 票命中（信号驱动门=94 票全有首析行；T110 帽 5 内门轮全覆盖）；生产首析 qv 混合 **D3.61×77 + D3.59×17**（17 票=v72 11-04 换代重启前的首批首析）；platform=**flap 93 + fourmeme 1**（v72 信号潮 flap 热点期）；note 落「生产首判 grade=X qv=… @首析时刻+reasons 代码」字符串作对拍权威基线（正则解析，不手打）。**expect 初值=生产首判占位（cheat 46 / unhealthy 32 / healthy 16）待分批 review 裁定**——CD242-279 同款流程（占位→review→翻案 --update-expect 留痕）。
+
+**留档口径点**：94 票锚 min 13 / 中位 26 / max 126（v72 发射帽 2+早断臂=信号多落在小锚早窗，与 936e1bd9 批锚谱不同）；信号级 metadata 带 cheatCheck 轨迹仅 17/94（其余票门评估未及信号行落 trace，但表行齐全）。
+
 ### 936e1bd9 BUY 信号票批量收录 CD242-CD279（38 案）+首轮裁定（2026-11-04）
 
 **背景**：用户指令「实验 936e1bd9 还有交易信号的币没收录的收录一下，然后把没过的一一过一遍」——BUY 信号去重 93 票、已收 56，**未收 37 票全量收录**（CD243-CD279，锚=各自生产首析行 anchor_tick_count，与代币×点位粒度裁定一致）+CD242 NEBULA@471（多点位第三锚，CD238 补充裁定的落地）。--add 入口判重同步修复对齐 addr#anchor 组合键（d475fc87 漏改 cmdAdd，904ac231 补）。

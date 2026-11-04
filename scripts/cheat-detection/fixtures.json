@@ -4320,6 +4320,1510 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD280",
+      "symbol": "大麦哥",
+      "addr": "0x00a0a1f01d7e8a8d9c85f454a17ec9b819ee7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T13:42:52.564914+00:00 [A_strong:same_block_buy_wave,J_holdings_strong]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD281",
+      "symbol": "猫德学院",
+      "addr": "0xf6bde613cbf3c738661d4061789539e1b4bc7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 55
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T13:44:17.133191+00:00 [J_holdings_strong,L_insider_sell36,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD282",
+      "symbol": "大麦哥",
+      "addr": "0x2e5f8b37ad295ca2b12053dd5e932ee8dc987777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T13:44:40.456758+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD283",
+      "symbol": "大麦哥",
+      "addr": "0x477c2e09bb435c70c985f46f1b1b6e93529c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T13:49:13.891785+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD284",
+      "symbol": "巧乐兹",
+      "addr": "0x35b46304ef312a21a113dd67f602ad8e9ac47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 16
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.59 @2026-11-04T13:50:49.595521+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD285",
+      "symbol": "BSOB",
+      "addr": "0x0b65ffde8fba6b0cf9a407e9af3101c973867777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T13:54:26.216046+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD286",
+      "symbol": "谁来买单",
+      "addr": "0xeb2092054585ef757569e83b20346c0a2f7c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 70
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T14:02:06.100604+00:00 [E_low_activity_weak_burst]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD287",
+      "symbol": "Mangami",
+      "addr": "0x106bb4f243b1b48311579479a0f9f8d35d9b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:03:57.029558+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD288",
+      "symbol": "BNC银行",
+      "addr": "0xda49dd6ddb76aff1868c44e18a8725c5430f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T14:06:37.61254+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD289",
+      "symbol": "Moss",
+      "addr": "0xe5faeb52e9b95a4a7a8fa4a768fc015de7237777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:07:31.977738+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD290",
+      "symbol": "牛油果",
+      "addr": "0xabd65b458e28cd5547fd183a4560ac81fd0d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 41
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:16:03.915495+00:00 [A_strong:same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD291",
+      "symbol": "何一人生",
+      "addr": "0xf3e9c688415211aaf5a17ed5b37962adfd157777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.59 @2026-11-04T14:28:21.226467+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD292",
+      "symbol": "币安人上人",
+      "addr": "0x9856f8056045878c7053560f9b7bb14ea96b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:31:00.84868+00:00 [A_strong:same_block_buy_wave,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD293",
+      "symbol": "Twitter",
+      "addr": "0x1a676a800104ab70d5ea6b7d035f74d93f5b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 38
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:34:10.157565+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD294",
+      "symbol": "WLC",
+      "addr": "0xf10bd4bf6e827d09b1390ff9b66de653170e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 16
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T14:36:55.730764+00:00 [R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD295",
+      "symbol": "NOMIO",
+      "addr": "0x43bae5240e796e6778038aad5d727a0438407777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:37:05.28727+00:00 [A_strong:slow_grind_pump,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD296",
+      "symbol": "躺平",
+      "addr": "0xc9a3e34282c6d5007f127d46e1a0dee6c21a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:46:33.226507+00:00 [A_strong:slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD297",
+      "symbol": "一战封神",
+      "addr": "0x42fb9fb573d74127302570fbec0001f5e4bb7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T14:56:12.81401+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD298",
+      "symbol": "驴党",
+      "addr": "0x34eb3b2fd45af11af4d9edbac5beb1fb40c87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:03:25.162688+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD299",
+      "symbol": "Donkey",
+      "addr": "0xa315d7cf64d5dea76ddc6029132abb52124e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 87
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:03:55.724627+00:00 [D_famous_dominance,E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD300",
+      "symbol": "驴来",
+      "addr": "0xa856c666595f556f647f94d741aae389baf97777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:07:51.431024+00:00 [A_strong:same_block_buy_wave+slow_grind_pump+burst_spike_concentration,D_famous_dominance,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD301",
+      "symbol": "驴来",
+      "addr": "0xc4d8f3f63dec038ffc5a7a49ae75891b3a527777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:08:18.181237+00:00 [R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD302",
+      "symbol": "Donkey",
+      "addr": "0x9429df46866d7b97634018344a83ac1717807777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 58
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:03:02.048633+00:00 [E_low_activity,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD303",
+      "symbol": "Sonic",
+      "addr": "0x614b163141939ebebad972e58c883ab300ba7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:11:33.89783+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD304",
+      "symbol": "Donkey",
+      "addr": "0xfc22f91c2ddc488d19274f9e77c9e3f037627777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:15:00.100407+00:00 [E_low_activity_weak_burst]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD305",
+      "symbol": "DSTOCK",
+      "addr": "0xfe4f011784db88f669a5a8be22114c3cb8f67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:17:37.648546+00:00 [A_strong:same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD306",
+      "symbol": "Willow",
+      "addr": "0xa36548ee4f9226269c4b611883a8ccf36d9b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:18:56.387155+00:00 [R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD307",
+      "symbol": "驴来",
+      "addr": "0x531ddef154a5f162fee6c9d438513c8bed4a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 13
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:19:41.247334+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD308",
+      "symbol": "DSTOCK",
+      "addr": "0x9104efccbd9fa4cd8859f10bdbe70c98a06e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:20:41.764109+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD309",
+      "symbol": "币安Agentic",
+      "addr": "0xfc9297f00a2609a8855ecf9f643125f9f7ba7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:24:35.978881+00:00 [A_strong:slow_grind_pump]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD310",
+      "symbol": "AIB",
+      "addr": "0x33dff912a8b95a801d05ae21ddfd843767b07777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:34:25.589573+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD311",
+      "symbol": "FORTNITE",
+      "addr": "0x96865427d47c549844bc816a18300b816e4c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:34:57.98307+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD312",
+      "symbol": "ESK",
+      "addr": "0x50c347041c9c0b8e220ae3951f8d418a7a227777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:35:04.76199+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD313",
+      "symbol": "驴来",
+      "addr": "0x864ab15c124e6c2c8105d4f314417052555f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:35:09.253184+00:00 [A_strong:equal_amount_split+coordinated_sell_back,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD314",
+      "symbol": "DM",
+      "addr": "0xec4eff8f5d00d3bfe979ecd312df6888ae3c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:35:46.813938+00:00 [R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD315",
+      "symbol": "DM",
+      "addr": "0x85e0f0831e57831ae38acb0246c0d7a0ccef7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 16
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:35:55.966065+00:00 [A_strong:slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD316",
+      "symbol": "AIB",
+      "addr": "0x1f94d305ecafac0b34873a51437d36d8a3777777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 40
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:43:43.71044+00:00 [A_strong:burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD317",
+      "symbol": "TCC",
+      "addr": "0x3262e837ac1e03615cb85bcfb7ab53db8f337777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:45:41.392743+00:00 [D_famous_dominance,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD318",
+      "symbol": "Liberty",
+      "addr": "0x868c4cc1963768a9061244e499cb7e58310b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:49:28.444717+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD319",
+      "symbol": "FIGHT",
+      "addr": "0x7c911b36cbb17d2a28cb6ef35ffa0b09ae3d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:50:01.974958+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD320",
+      "symbol": "驴币",
+      "addr": "0x90e57ddb9d88e2d61c67fd10b9fcddc2815d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:54:00.162726+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD321",
+      "symbol": "emoji",
+      "addr": "0x3e3a272697dcc3474e962d9fb7acf970f7e87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:56:06.069226+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD322",
+      "symbol": "川腐",
+      "addr": "0x56cc2fd47b033a11e0bcdfbad4998093c5b77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 55
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:56:12.197521+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD323",
+      "symbol": "huh",
+      "addr": "0x900117e42a9905ee83f898c0108dec09d95a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 67
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:58:12.783336+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD324",
+      "symbol": "莽小六",
+      "addr": "0x31467661467c25342d4da98102e684b5f8c57777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T16:13:32.976463+00:00 [J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD325",
+      "symbol": "莽小六",
+      "addr": "0x6b0d76a0e5da1e1bf2e39f2921b1b9ad8fb87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:13:56.480485+00:00 [A_strong:same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD326",
+      "symbol": "Willow",
+      "addr": "0xa68b64c37f27d3ac3829aae106dfc2b4d0707777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 58
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:17:16.959581+00:00 [A_strong:equal_amount_split+slow_grind_pump,E_low_activity,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD327",
+      "symbol": "BUDDY",
+      "addr": "0x8df5a161eada43ba2cbc4c142d8ee08157a47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T16:27:05.675383+00:00 [D_famous_dominance,L_insider_sell63]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD328",
+      "symbol": "Blue Dog",
+      "addr": "0xe13780b99c3e9d75edc24de0197e741e52467777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:35:43.872079+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD329",
+      "symbol": "ABD",
+      "addr": "0xcf87a937f42c3f6ee3c4ca09068715cb2ef77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:41:12.917749+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD330",
+      "symbol": "蓝狗",
+      "addr": "0x7d0e567accf0e2b5694021842b8b9d9de25f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:47:48.603238+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD331",
+      "symbol": "Blue Dogs",
+      "addr": "0xa3e7a09822727313769e7b309a67e77400b37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:50:08.712911+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD332",
+      "symbol": "Adonitology",
+      "addr": "0x85bfd90a04c8d50883d90cdee19011504b4f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T16:51:44.592082+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD333",
+      "symbol": "Blue Dog",
+      "addr": "0x53dd430d7df5b58e17561692ef4e3ad733a87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:52:36.747083+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD334",
+      "symbol": "Blue Dog",
+      "addr": "0xcbad12a1f5452d0b6606ba13278fa22879257777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:54:46.873121+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD335",
+      "symbol": "PVP",
+      "addr": "0xc512bbc6c4fb5711d4f07c5b58aeac55ac007777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T16:55:38.528324+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD336",
+      "symbol": "ASTER",
+      "addr": "0x31e2037870d82ba8b634287f972ec926373a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T17:08:49.515581+00:00 [J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD337",
+      "symbol": "BEAGLE",
+      "addr": "0xa2713f130c9de5114a7b60a20b249ee9887a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 13
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T17:11:26.824649+00:00 [R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD338",
+      "symbol": "Democrats",
+      "addr": "0xcde25bf21c78f7016342fb67f2604cbc743d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T17:18:04.171375+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD339",
+      "symbol": "Vice Beach",
+      "addr": "0xeb79e5ff376341200c9261ef88c0e0a83f3c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T17:33:26.783947+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD340",
+      "symbol": "Anzo",
+      "addr": "0x3d188c428db09947b58d979f74131b354e3d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T17:39:34.34907+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD341",
+      "symbol": "屎币人生",
+      "addr": "0x17997fe1842f37bfc1fe4db03f0fd6f5d7367777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 126
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T17:38:40.435534+00:00 [A_downgrade_single_pump_burst,E_low_activity_weak_burst]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD342",
+      "symbol": "Casanova",
+      "addr": "0xb0010cb3d57d913247d6b025abf1ca288bd77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T17:44:18.30457+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD343",
+      "symbol": "Vice Beach",
+      "addr": "0xc0b1e856ec9ca3851a7e8866f0ee218161fd7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T17:50:54.230378+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD344",
+      "symbol": "george",
+      "addr": "0xa90fc01fbe998aaf83fef4129748763fe3367777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T18:12:44.78909+00:00 [E_low_activity,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD345",
+      "symbol": "PNP",
+      "addr": "0xdbe4cea708218104312209dab63483917c0b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T18:18:15.428543+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD346",
+      "symbol": "JISOO",
+      "addr": "0x2d4d627e1c55bb2840cf45e3f707d268473c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T18:32:01.589016+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD347",
+      "symbol": "BNB狂牛",
+      "addr": "0x9f548ba9b00e5fbe239c73abb819e231b5ef7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T18:32:21.754313+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD348",
+      "symbol": "Jisoo",
+      "addr": "0xe919d8acf6eda8cdefd32c5bf1a251bca50d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T18:34:57.112169+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD349",
+      "symbol": "信仰 自由",
+      "addr": "0x03f60b474e679d6e41f609e9e261f3c4626e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T18:48:52.697915+00:00 [A_strong:equal_amount_split+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD350",
+      "symbol": "AI",
+      "addr": "0x4237b7ed6dcc670c6fd6e62aeebb15f3c1517777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T19:00:47.477174+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD351",
+      "symbol": "ASI",
+      "addr": "0x2bb16aef49e8c0ee87d5e968f54d6c975de27777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T19:02:55.672956+00:00 [A_strong:slow_grind_pump,E_low_activity,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD352",
+      "symbol": "trest",
+      "addr": "0x8b2132fe92fe2adb37d5e9b7c0682cc55c5c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:03:04.29055+00:00 [J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD353",
+      "symbol": "ASI",
+      "addr": "0x721591bb031940fc363742e573009b5968827777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:21:34.342963+00:00 [J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD354",
+      "symbol": "BOTBAL",
+      "addr": "0x0fb4dbb487498e3a1596d83088d30e1feba27777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T19:42:06.080447+00:00 [A_strong:equal_amount_split+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD355",
+      "symbol": "UNICORN",
+      "addr": "0xfb12603958909ff10da35051c7b3b81ed8367777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:46:52.72581+00:00 [R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD356",
+      "symbol": "Joe",
+      "addr": "0x458f865f96db8e478987a4610aa7a0eb6bd17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:49:27.042409+00:00 [R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD357",
+      "symbol": "Joe",
+      "addr": "0xe2dd9ab5ac83060c53f7b036726fa79cd64c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:50:05.839104+00:00 [J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD358",
+      "symbol": "RESILIENT",
+      "addr": "0xaeaa2f8e6b00072746a368bb6bfe5ad6da167777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:25:50.727718+00:00 [A_strong:slow_grind_pump,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD359",
+      "symbol": "resilient",
+      "addr": "0x7fc3a9f8b9683c7ea1ddae5053a5fd11af127777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 64
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:25:50.025765+00:00 [A_strong:same_block_buy_wave,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD360",
+      "symbol": "RTC",
+      "addr": "0xe7ccf2a3d532542606d57fa29b7f4c0bbe677777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:26:10.134771+00:00 [J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD361",
+      "symbol": "BABYCZ",
+      "addr": "0xe6259668383c855b3d1ede02a53082c481577777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 43
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:54:49.622084+00:00 [A_strong:slow_grind_pump,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD362",
+      "symbol": "BABYSTAR",
+      "addr": "0x191fcab2a9d53efb928ef8f9ff807caca4497777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 43
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:54:59.703243+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD363",
+      "symbol": "MZ",
+      "addr": "0x5efaaac7a5b00969a1b5999a56ad6a926e637777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 44
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:54:56.962641+00:00 [M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD364",
+      "symbol": "BABYSTAR",
+      "addr": "0x422c4806bc708abd088ec738e0144349ffd67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 119
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:55:33.434+00:00 [A_strong:same_block_buy_wave+slow_grind_pump,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD365",
+      "symbol": "BABYSTAR",
+      "addr": "0x21ef5ecce8432df27186b3eaa3f9319d50e37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:55:41.168865+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD366",
+      "symbol": "RESILIENT",
+      "addr": "0xc50a297634f887496988c45cdfcb0a516e2b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 33
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 1）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:56:56.008835+00:00 [J_holdings_strong]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD367",
+      "symbol": "bag",
+      "addr": "0x0a215a24e4ed374e012eb58f5b005f2dc9cd7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 16
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T20:58:02.444554+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD368",
+      "symbol": "RESILIENT",
+      "addr": "0xc950964d61d7d7fdeed68c7c628f306140fd7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:59:00.244983+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD369",
+      "symbol": "红果大军",
+      "addr": "0x0a36182bfbd09150f2b2c30854f28ffe42a67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 72
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T21:37:58.791735+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD370",
+      "symbol": "PHILCOIN",
+      "addr": "0xeccd084be7d37a7b9a36cc8528da7df0e6f27777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T22:30:49.397281+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD371",
+      "symbol": "币安人",
+      "addr": "0x1ceeda06dbc74ee5e5ddbaf3614c65e175234444",
+      "platform": "fourmeme",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T22:44:18.295826+00:00 []",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD372",
+      "symbol": "CHARCO",
+      "addr": "0xe1884a748a332a07ba38e218911a48b46ab57777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 52
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T23:00:25.336472+00:00 [A_strong:slow_grind_pump,E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+    },
+    {
+      "caseId": "CD373",
+      "symbol": "KUREEN",
+      "addr": "0x2be8b230c7f759d7e14fda680166adce0a968888",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 44
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T23:22:39.537446+00:00 [E_low_activity]",
+      "addedAt": "2026-11-05",
+      "expectSince": "2026-11-05",
+      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
     }
   ]
 }
