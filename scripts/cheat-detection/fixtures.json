@@ -2395,12 +2395,12 @@
         "tickCount": 17
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "CD160 立项票：v69 8a51f2fd 三簇精确等额同块（0.3718x2/0.2479x2/0.0615x7）判 healthy，簇同块卖回铁证全在锚窗外（t+35/54/101/1503s）；D3.53 新锚+题面 double 载体翻案验证；expect 待对拍后人工裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（CD160 立项票：v69 8a51f2fd 三簇精确等额同块（0.3718x2/0.2479x2/0.0615x7）判 healthy，簇同块卖回铁证全在锚窗外（t+35/54/101/1503s）；D3.53 新锚+题面 double 载体翻案验证；expect 待对拍后人工裁定）"
+      "expectBecause": "2026-11-04 用户裁定「CD160 就 cheat吧」——D3.53 翻案达成（eq moderate→strong pct=50% 3 簇 7 钱包，grade=cheat[A_strong:equal_amount_split+slow_grind_pump,R_abnormal_dominant]）"
     }
   ]
 }
