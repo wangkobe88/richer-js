@@ -2810,12 +2810,12 @@
         "tickCount": 22
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD186",
@@ -2826,12 +2826,12 @@
         "tickCount": 38
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 2；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 2；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD187",
@@ -2842,12 +2842,12 @@
         "tickCount": 28
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD188",
@@ -2858,12 +2858,12 @@
         "tickCount": 44
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD189",
@@ -2874,12 +2874,12 @@
         "tickCount": 57
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=57=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=57=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD190",
@@ -2890,12 +2890,12 @@
         "tickCount": 41
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=41=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=41=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD191",
@@ -2906,12 +2906,12 @@
         "tickCount": 89
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=89=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=89=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD192",
@@ -2922,12 +2922,12 @@
         "tickCount": 42
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD193",
@@ -2938,12 +2938,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD194",
@@ -2954,12 +2954,12 @@
         "tickCount": 24
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；D3.59 对拍两掷 healthy[clean]（E 通道不再触发）=放松方向分歧留档"
     },
     {
       "caseId": "CD195",
@@ -2970,12 +2970,12 @@
         "tickCount": 40
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD196",
@@ -2986,12 +2986,12 @@
         "tickCount": 62
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=62=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=62=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD197",
@@ -3002,12 +3002,12 @@
         "tickCount": 39
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD198",
@@ -3018,12 +3018,12 @@
         "tickCount": 28
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD199",
@@ -3034,12 +3034,12 @@
         "tickCount": 22
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD200",
@@ -3050,12 +3050,12 @@
         "tickCount": 30
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD201",
@@ -3066,12 +3066,12 @@
         "tickCount": 29
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；D3.59 对拍两掷 cheat[A_strong:insider_supply_sell,E,L_insider_sell47,R_abnormal_dominant]=升拉黑级分歧留档"
     },
     {
       "caseId": "CD202",
@@ -3082,12 +3082,12 @@
         "tickCount": 27
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=27=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=27=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD203",
@@ -3098,12 +3098,12 @@
         "tickCount": 32
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD204",
@@ -3114,12 +3114,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD205",
@@ -3130,12 +3130,12 @@
         "tickCount": 61
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=61=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=61=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD206",
@@ -3146,12 +3146,12 @@
         "tickCount": 31
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD207",
@@ -3162,12 +3162,12 @@
         "tickCount": 60
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=60=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=60=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD208",
@@ -3178,12 +3178,12 @@
         "tickCount": 23
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；首跑 unhealthy 系 Jev 抽样方差，重掷回落 cheat 与生产同向（cd-run-2026-11-04T11-28-17-246Z）"
     },
     {
       "caseId": "CD209",
@@ -3194,12 +3194,12 @@
         "tickCount": 35
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=35=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=35=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD210",
@@ -3210,12 +3210,12 @@
         "tickCount": 58
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=58=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=58=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD211",
@@ -3226,12 +3226,12 @@
         "tickCount": 17
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD212",
@@ -3242,12 +3242,12 @@
         "tickCount": 29
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD213",
@@ -3258,12 +3258,12 @@
         "tickCount": 21
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=21=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=21=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD214",
@@ -3274,12 +3274,12 @@
         "tickCount": 19
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=healthy；D3.59 对拍两掷 unhealthy[E_low_activity]=收紧方向分歧留档（生产已买入 1 笔=漏拦候选案，用户仍赞同生产 healthy）"
     },
     {
       "caseId": "CD215",
@@ -3290,12 +3290,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=healthy；对拍同向"
     },
     {
       "caseId": "CD216",
@@ -3306,12 +3306,12 @@
         "tickCount": 38
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD217",
@@ -3322,12 +3322,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；D3.59 对拍两掷 unhealthy[J_holdings_strong]=降档分歧留档"
     },
     {
       "caseId": "CD218",
@@ -3338,12 +3338,12 @@
         "tickCount": 44
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD219",
@@ -3354,12 +3354,12 @@
         "tickCount": 24
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD220",
@@ -3370,12 +3370,12 @@
         "tickCount": 33
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD221",
@@ -3386,12 +3386,12 @@
         "tickCount": 22
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=healthy；对拍同向"
     },
     {
       "caseId": "CD222",
@@ -3402,12 +3402,12 @@
         "tickCount": 40
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD223",
@@ -3418,12 +3418,12 @@
         "tickCount": 71
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=71=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=71=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD224",
@@ -3434,12 +3434,12 @@
         "tickCount": 42
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD225",
@@ -3450,12 +3450,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD226",
@@ -3466,12 +3466,12 @@
         "tickCount": 32
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=healthy；对拍同向"
     },
     {
       "caseId": "CD227",
@@ -3482,12 +3482,12 @@
         "tickCount": 78
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=78=cheat_detection 首判行；信号数 4；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=78=cheat_detection 首判行；信号数 4；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD228",
@@ -3498,12 +3498,12 @@
         "tickCount": 33
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD229",
@@ -3514,12 +3514,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD230",
@@ -3530,12 +3530,12 @@
         "tickCount": 30
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
     },
     {
       "caseId": "CD231",
@@ -3546,12 +3546,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=healthy；对拍同向"
     },
     {
       "caseId": "CD232",
@@ -3562,12 +3562,12 @@
         "tickCount": 23
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD233",
@@ -3578,12 +3578,12 @@
         "tickCount": 24
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；D3.59 对拍两掷 unhealthy[M_hyper_activity]=降档分歧留档"
     },
     {
       "caseId": "CD234",
@@ -3594,12 +3594,12 @@
         "tickCount": 33
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=cheat；对拍同向"
     },
     {
       "caseId": "CD235",
@@ -3610,12 +3610,28 @@
         "tickCount": 43
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=43=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=43=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+      "expectBecause": "用户裁定（2026-11-04）「这一批生产的结果我都赞同」=生产 D3.57 首判 grade=unhealthy；对拍同向"
+    },
+    {
+      "caseId": "CD236",
+      "symbol": "AI时代",
+      "addr": "0x9b43a52ebb8e1becb96e50ec085200277a407777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 99
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=99=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=99=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
     }
   ]
 }
