@@ -3722,12 +3722,12 @@
         "tickCount": 471
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "NEBULA 后期强庄点位（CD114@71 前期 unhealthy 不动/CD238@121 中段）——同代币多点位第三锚：用户裁定「CD238 本来也放不了，到了后期才是强庄币，严谨的话可以收录多个点位」；471=观察页截点 t2 回 5.1 后期回强段",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（NEBULA 后期强庄点位（CD114@71 前期 unhealthy 不动/CD238@121 中段）——同代币多点位第三锚：用户裁定「CD238 本来也放不了，到了后期才是强庄币，严谨的话可以收录多个点位」；471=观察页截点 t2 回 5.1 后期回强段）"
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review，4012ce39 信号页）「242 已经 review 过了」「当前的机器档位都无问题」——@471 晚锚机器 cheat[A_strong:slow_grind_pump,R_abnormal_dominant] 认同；多点位口径下强庄豁免不外推本点位"
     },
     {
       "caseId": "CD243",
@@ -3754,12 +3754,12 @@
         "tickCount": 50
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=50，信号@11-04T11:39:49",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+      "expectBecause": "用户裁定（2026-11-04 第六批 review）翻案——「244 感觉活跃度低」：act=low 但 sbw=burst 挡 E 通道（弱 burst 三键 gap47s<60 不满足）机器 healthy[clean] 放行=低活跃假阴性；锚后尾 -31.7%（155m 长窗缓跌）方向支持"
     },
     {
       "caseId": "CD245",
@@ -3786,12 +3786,12 @@
         "tickCount": 28
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "cheat"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=28，信号@11-04T11:46:18",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+      "expectBecause": "用户裁定（2026-11-04 第三批 review）升档——首轮 unhealthy 系 sbw/hold 边际档位波动遮 A；同日重析 sbw=none → pump=strong 缓推主判坐实 A_strong[R_abnormal_dominant 同中]；锚后 15 分 -33.1% 缓推砸盘形状印证"
     },
     {
       "caseId": "CD247",
@@ -3802,12 +3802,12 @@
         "tickCount": 49
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "cheat"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=49，信号@11-04T11:52:34",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+      "expectBecause": "用户裁定（2026-11-04 第六批 review）翻案——「cheat 是 pump，但是形态没有特别强」：机器 healthy[clean] 漏 pump（pump=moderate 边际）；收录 pump 缓推族校准池（同 CD165/166/175/181/182/255 谱系，第七例）；形态强度弱=边际样本；锚后 max +38.4%→尾 -33.5% 冲高回落"
     },
     {
       "caseId": "CD248",
@@ -3930,12 +3930,12 @@
         "tickCount": 42
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "cheat"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=42，信号@11-04T12:27:42",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+      "expectBecause": "用户裁定（2026-11-04 第三批 review）翻案——「CD255 是 cheat，pump 集合收录」：重析 abr dominant→noticeable 边际波动致全通道空 healthy[clean] 漏判，人工从页面轨迹判缓推泵；锚后 36m 尾 -26.9% 长窗缓跌；收录 pump 缓推族校准池（同 CD165/166/175/181/182 漏网样本谱系，第六例）"
     },
     {
       "caseId": "CD256",
@@ -4090,12 +4090,12 @@
         "tickCount": 34
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "cheat"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=34，信号@11-04T12:50:50",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+      "expectBecause": "用户裁定（2026-11-04 第四批 review「当前结果都没问题」=认同今重析）升档——首轮 unhealthy 系 bw 边际档位波动；同日重析 bundled_trade_dominance 越档 strong 坐实 A_strong 同块买入波[J,R 同中]；锚后尾 -30.9% 印证"
     },
     {
       "caseId": "CD266",
@@ -4266,12 +4266,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "cheat"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=26，信号@11-04T13:18:04",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+      "expectBecause": "用户裁定（2026-11-04 第六批 review）翻案——「作弊，pump」：机器 healthy[clean] 漏 pump（pump=moderate）；收录 pump 缓推族校准池（第八例）；锚后 max +61.7%→尾 -27.9% 冲高回落；sbHold=63.1% 簇流=68.4% 高集中度佐证"
     },
     {
       "caseId": "CD277",
