@@ -2450,6 +2450,278 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "用户立项裁定原话「我认为应该给 低活跃度」+「burst 是指临近购买点位的 burst，不是整体的，前面有不算」——开盘波远离锚不应推翻 low；D3.56 临近段收窄后对拍 unhealthy[E_low_activity] 翻案达成（旧全窗波 2.57≥1.05 误豁免）"
+    },
+    {
+      "caseId": "CD164",
+      "symbol": "Kyora",
+      "addr": "0xd95f366c7ae941b8eefeefbf1c1d0726712d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 16
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=16=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=16=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD165",
+      "symbol": "币安分红",
+      "addr": "0x7c1e61ce0caa3a74d0bd2a01c0d0690e79a57777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 4；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 4；D3.56 基线））"
+    },
+    {
+      "caseId": "CD166",
+      "symbol": "火龙果树",
+      "addr": "0xea44b0c60475cca4ad0f86790735af115e3c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线））"
+    },
+    {
+      "caseId": "CD167",
+      "symbol": "相信币安",
+      "addr": "0xe931945a412fee281789bb495434eb61deae7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD168",
+      "symbol": "Groyper",
+      "addr": "0xde367ab50db2f3e728a97d596cd7fdfecc687777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 46
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=46=cheat_detection 首判行；信号数 5；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=46=cheat_detection 首判行；信号数 5；D3.56 基线））"
+    },
+    {
+      "caseId": "CD169",
+      "symbol": "厉娜",
+      "addr": "0x65a4c2da0aa16945cdf610c012d71c5906017777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD170",
+      "symbol": "豆豆",
+      "addr": "0xdd42eec51757028333981d342d302807b3957777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=18=cheat_detection 首判行；信号数 2；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=18=cheat_detection 首判行；信号数 2；D3.56 基线））"
+    },
+    {
+      "caseId": "CD171",
+      "symbol": "RSI",
+      "addr": "0x7c2523d774aa57d007c843b18630aa4af4ba7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD172",
+      "symbol": "厉娜",
+      "addr": "0xa3c24f0c1fee7840967a440e5c34b18369767777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 2；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 2；D3.56 基线））"
+    },
+    {
+      "caseId": "CD173",
+      "symbol": "VETO",
+      "addr": "0x6b86b7974320f77f1b09192ffc6ca4d3471c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 2；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 2；D3.56 基线））"
+    },
+    {
+      "caseId": "CD174",
+      "symbol": "VETO",
+      "addr": "0xb96e4da82ab18a86e6327c4f55f93a5401847777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 197
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=197=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=197=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD175",
+      "symbol": "比特币银行",
+      "addr": "0x920ac39b2eb6f1925612a1d774bea2dcec247777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 36
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=36=cheat_detection 首判行；信号数 3；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=36=cheat_detection 首判行；信号数 3；D3.56 基线））"
+    },
+    {
+      "caseId": "CD176",
+      "symbol": "Blue Whale",
+      "addr": "0xfd0372988bb759983deb684452892dcf49a47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD177",
+      "symbol": "Matcha",
+      "addr": "0xabb74f82f43f8e06a2a6f0b29de5b8ee037b8888",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线））"
+    },
+    {
+      "caseId": "CD178",
+      "symbol": "VETO",
+      "addr": "0x62ad4a186606ce97ac225b9a2551fd5f1d307777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 39
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD179",
+      "symbol": "MFD",
+      "addr": "0x040b6766346b465b2a8403ecfd2bdfb9ffe07777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；D3.56 基线））"
+    },
+    {
+      "caseId": "CD180",
+      "symbol": "蝴蝶喊单",
+      "addr": "0x92815256f4f09e992175e3a42acde91a50a67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=37=cheat_detection 首判行；信号数 3；D3.56 基线）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=37=cheat_detection 首判行；信号数 3；D3.56 基线））"
     }
   ]
 }
