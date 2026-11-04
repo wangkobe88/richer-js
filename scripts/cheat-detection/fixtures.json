@@ -2460,9 +2460,10 @@
         "tickCount": 16
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=16=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=16=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户 review 裁定（11-04）cheat 与机器 grade[A_strong:burst_spike] 同向（9 户 21s 打 1.28 BNB 占全窗 2/3 买量）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=16=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2524,9 +2525,10 @@
         "tickCount": 46
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=46=cheat_detection 首判行；信号数 5；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=46=cheat_detection 首判行；信号数 5；D3.56 基线）；expect=用户 review 裁定（11-04）unhealthy 与机器 grade[M_hyper_activity] 同向——M 通道首个生产样本真热盘判定确认",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=46=cheat_detection 首判行；信号数 5；D3.56 基线））"
@@ -2572,9 +2574,10 @@
         "tickCount": 31
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户 review 裁定（11-04）healthy 与机器 grade[clean] 同向——组织买 83.3%+eqHold 71.6% 数字面像组织盘但档位全不过线，「宁可放过」方向确认",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2620,9 +2623,10 @@
         "tickCount": 197
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=197=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=197=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户 review 裁定（11-04）healthy 与机器 grade[clean] 同向——197 锚长窗全 moderate 无 strong",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=197=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2652,9 +2656,10 @@
         "tickCount": 31
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户 review 裁定（11-04）cheat 与机器 grade[A+J+R+M 四通道] 同向（零卖出+sbHold 87.4%+hold strong+act ultra，本批最重）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2684,9 +2689,10 @@
         "tickCount": 39
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户 review 裁定（11-04）cheat 与机器 grade[A_strong:coordinated_sell_back+slow_grind_pump,R] 同向（同块买 48.5%/卖 49.1% 近等额闭环=对倒）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2700,9 +2706,10 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户裁定（11-04）unhealthy——从买入时间点形态可给 healthy（机器 grade[clean]=分歧留档），但其实是 unhealthy：前期钱包买入后活跃度尽失（锚后探针实证：锚窗 17 买钱包锚后零回补、10 户纯卖离场、+420s 集体出货 2.29 BNB 砸价 31%、接盘 34/38 笔全为新钱包、价格躺死 -30%）；死盘证据在锚后前向数据，as-of 锚截窗语义天然看不到——不立法（用户「实在不好搞先给 unhealthy 但是不用动」）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；D3.56 基线））"

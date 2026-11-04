@@ -194,7 +194,11 @@
 
 **D3.56 定向对拍（20 票真调）**：新 17 票机器分布 **cheat 3 / unhealthy 8 / healthy 6**——cheat：CD164 Kyora@16[A_strong:burst_spike]（9 户 21s 打 1.28 BNB 占全窗 2/3 买量；生产门同判 cheat_gate_cheat）、CD176 Blue Whale@31[A+J+R+M 四通道]（零卖出+sbHold 87.4%=组织买 87.4%+hold strong+act ultra，20 票最重）、CD178 VETO@39[A_strong:coordinated_sell_back+slow_grind_pump,R]（同块买 48.5%/卖 49.1% 近等额闭环=对倒形状）；unhealthy：CD165@32[E]/CD175@36[E]（尘埃死盘）、CD168 Groyper@46[M_hyper_activity **首个生产样本**]、CD170@18[R]/CD172@29[R]、CD173@17[L_insider_sell100]（纯卖 100% 分仓号实锤）、CD177@25[E,L_insider_sell76]（对敲 1 对吃 3/4 卖量）；healthy：CD166/CD167/CD169/CD174（T112 VETO 票 197 锚全 moderate 无 strong）/CD171（组织买 83.3%+eqHold 71.6% 数字面像组织盘但档位全不过线=「宁可放过」方向人工复核票）/CD179（同形）。expect 逐票裁定进行中（基线 unclear）。
 
-**横切观察**：①**CD162 跨级漂移再现**：同锚重跑 pump strong→moderate 抽样方差致 grade unhealthy[R]→cheat[A_strong:slow_grind_pump] 跨级翻转（cheat=拉黑终态 vs unhealthy=拒买可重判，实盘行为差异）——pump 题边际票抽样方差留观察点；②**v70 进程已换代**：CD180 首析 qv=D3.55（其余 19 票 D3.52/D3.56 混合）=生产进程 11-04 05:23-05:31 间重启已吃到 D3.55+；③CD168 M 通道（act=ultra+abr）真热盘 vs 高频互倒分界待人工样本积累。
+**expect 逐票裁定（2026-11-04 signals 页 review，用户）**：首批 7 票已落档（`since: 2026-11-04`）——CD164=cheat、CD176=cheat、CD178=cheat、CD168=unhealthy、CD171=healthy、CD174=healthy（六票与机器 grade 同向，note 落各自通道）+ **CD179=unhealthy（本批唯一人工≠机器分歧票，机器 healthy[clean]）**；剩余 10 票（CD165/CD166/CD167/CD169/CD170/CD172/CD173/CD175/CD177/CD180）待下批裁定。
+
+**CD179 专项：前期钱包买入后活跃度尽失（锚后前向死盘形状）**——用户裁定「从买入时间点形态可以给 healthy，但是其实是 unhealthy，前期钱包买入后活跃度尽失，你可以看看，实在不好搞先给 unhealthy 但是不用动」。锚后探针实证（MFD `0x040b…7777`，锚=20 tick=开盘 27s，全量 110 行）：①锚窗 17 买钱包锚后**零回补**——10 户锚后只卖不买、4 大买家（0.25/0.178/0.148/0.129）锚后仅各补 1 笔随即各卖 1-2 笔离场、3 户消失；②+420s（05:31:29 桶）集中出货 25 笔/卖 2.287 BNB，价格 8.53e-9→5.88e-9 单桶 -31%；③锚后买 38 笔中 34 笔为新钱包（27 户 2.205 BNB 接盘）；④此后盘面躺死（+720s~+2940s 间 25 分钟零 tick），价格锚末 7.96e-9→末 5.56e-9 全程 -30%。**检测边界确认**：死盘证据全部在锚后前向数据，as-of 锚截窗（防前视）语义天然看不到——机器 healthy[clean] 与锚窗数据自洽，分歧是结构性的不是误判；expect=人工结局归因（把前向知识注入回归集），机器=as-of 盘面判定，两者分工即设计。**不立法**（用户裁定「不用动」）；将来若要动，方向=买入资金构成质量（锚窗买家是否本票新钱包/一次性钱包，需跨 token 钱包画像 join，非 as-of 快照内可解）。
+
+**横切观察**：①**CD162 跨级漂移再现**：同锚重跑 pump strong→moderate 抽样方差致 grade unhealthy[R]→cheat[A_strong:slow_grind_pump] 跨级翻转（cheat=拉黑终态 vs unhealthy=拒买可重判，实盘行为差异）——pump 题边际票抽样方差留观察点；②**v70 进程已换代**：CD180 首析 qv=D3.55（其余 19 票 D3.52/D3.56 混合）=生产进程 11-04 05:23-05:31 间重启已吃到 D3.55+；③CD168 M 通道（act=ultra+abr）真热盘 vs 高频互倒分界待人工样本积累；④CD179/CD171 对照组：锚窗数字面同形（组织买 70.2%/83.3%、sbHold 56/72），人工分野全在前向走势（CD171 活/CD179 死）——再次印证「数字面像组织盘但档位不过线」时人工看的是盘之后活了没有。
 
 ### CD163 burst 波临近段收窄（D3.56）：0xc0a62aba…7777（共建共赢）v70 开盘波远离锚误豁免案（2026-11-04）
 
