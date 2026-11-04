@@ -213,11 +213,16 @@ async function cmdAdd(args, doc, cases) {
   if (!args.caseId) { console.error('--add 必须带 --case <CDn>'); process.exit(2); }
   if (!args.note) { console.error('--add 必须带 --note（案由留痕）'); process.exit(2); }
   const addr = args.add.toLowerCase();
-  if (cases.some((c) => c.addr === addr)) { console.error(`addr 已收录: ${addr}`); process.exit(2); }
   if (cases.some((c) => c.caseId === args.caseId)) { console.error(`caseId 已存在: ${args.caseId}`); process.exit(2); }
   const { rows, capped, count } = await pullFull(addr);
   if (!rows.length) { console.error('wss_price_ticks 无行（地址错/未采集）'); process.exit(2); }
   const anchorN = Number.isInteger(args.anchor) && args.anchor > 0 ? args.anchor : rows.length;
+  // 2026-11-04 裁定：case 粒度=代币×点位（addr#anchor 组合键，与 lib 校验器同款）
+  // ——同 addr 不同 anchor=不同案可收录；同 addr 同 anchor 才算重
+  const pointKey = `${addr}#${anchorN}`;
+  if (cases.some((c) => `${String(c.addr || '').toLowerCase()}#${c.anchor && c.anchor.tickCount}` === pointKey)) {
+    console.error(`代币×点位已收录: ${pointKey}（同 addr 不同 anchor 可另立新案）`); process.exit(2);
+  }
   console.log(`--add 锚=${anchorN}（现全量 ${count}${capped ? '，超帽截 3000' : ''}${Number.isInteger(args.anchor) && args.anchor > 0 ? '（--anchor 显式指定）' : '（收录时刻全量）'}）→ 分析一次记基线`);
   const meta = { ...await loadTokenMeta(addr), quoteToken: quoteTokenOf(rows) };
   const snapshot = buildSnapshotFromRows(
