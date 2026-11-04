@@ -201,6 +201,14 @@
       "timeoutMs": 15000,
       "cacheTtlSec": 30,
       "failCooldownSec": 60
+    },
+    "gmgnEntryCheck": {
+      "enabled": false,
+      "holdSec": 180,
+      "scanIntervalSec": 10,
+      "retryIntervalSec": 30,
+      "timeoutMs": 8000,
+      "failCooldownMs": 60000
     }
   },
   "flapWs": {

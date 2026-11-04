@@ -418,6 +418,27 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._accountHealthSlowMs = Number.isFinite(ahcCfg.slowIntervalSec) && ahcCfg.slowIntervalSec > 0
       ? ahcCfg.slowIntervalSec * 1000 : 120 * 1000;
 
+    // 1.5.2e GMGN 进场验证（T116，2026-11-04 用户裁定）：持仓 holdSec（默认
+    // 180s）检查点查一次 GMGN wallet_tags_stat（smart/whale/renowned 三类在场
+    // 数，探针实证分钟级票已填充），全零=无人接力 → FA 五键投影 → 卖臂全清；
+    // 任一在场=entered 留仓观察。默认关（enabled === true 才开，ahc/gwp 同款
+    // 物化语义）；flap 实验经 _mergedWsConfig 同键；write-once per 持仓轮
+    // （清仓自清理+再买入重置）；失败 unknown fail-open 不投影不误卖，
+    // retryIntervalSec 后重试。回测零接线（时序穿越防线，ahc/gwp 同款）。
+    const gecCfg = this._mergedWsConfig().gmgnEntryCheck || {};
+    this._gmgnEntryEnabled = gecCfg.enabled === true;
+    this._gmgnEntryService = this._gmgnEntryEnabled
+      ? new (require('../core/GmgnEntryCheckService').GmgnEntryCheckService)(gecCfg)
+      : null;
+    // per-token 检查态：{ done?: boolean, checkedAt?: number, lastAttemptAt?: number }
+    this._gmgnEntryStates = new Map();
+    this._gmgnEntryHoldMs = Number.isFinite(gecCfg.holdSec) && gecCfg.holdSec > 0
+      ? gecCfg.holdSec * 1000 : 180 * 1000;
+    this._gmgnEntryScanMs = Number.isFinite(gecCfg.scanIntervalSec) && gecCfg.scanIntervalSec > 0
+      ? Math.min(gecCfg.scanIntervalSec * 1000, 30 * 1000) : 10 * 1000;
+    this._gmgnEntryRetryMs = Number.isFinite(gecCfg.retryIntervalSec) && gecCfg.retryIntervalSec > 0
+      ? gecCfg.retryIntervalSec * 1000 : 30 * 1000;
+
     // 1.5.2d 观察信号（2026-10-23 ₿DOG 案用户裁定：叙事 high 落地时市值已破买窗，
     // 「叙事过但没买」的票零留痕不可见）：叙事评级==2|3 或 市值>marketCapThreshold
     // （默认 12000 USD）→ 每票最多 maxPerToken 行 OBSERVE 观察信号（action='hold'
@@ -1420,6 +1441,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }, Math.min(this._accountHealthFastMs, 30 * 1000));
     }
 
+    // GMGN 进场验证（T116）：持仓 holdSec 检查点扫描（accountHealth 同款 interval
+    // 组织，fire-and-forget 回填 FA——检查慢/失败不阻塞扫描轮）
+    if (this._gmgnEntryEnabled && this._gmgnEntryService) {
+      this._intervals.gmgnEntry = setInterval(() => {
+        this._gmgnEntryScan().catch(err => {
+          this.logger.error(this._experimentId, 'GmgnEntry', `进场验证扫描异常: ${err.message}`);
+        });
+      }, this._gmgnEntryScanMs);
+    }
+
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
@@ -1587,6 +1618,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._accountRecheckStates.clear();
     }
     if (this._accountHealthMonitor) this._accountHealthMonitor.destroy();
+
+    // T116 GMGN 进场验证清态：per-token FA 注入逐个清（accountHealth 同款）+
+    // 检查态 Map 清空 + service 实例释放（进行中的检查回填写的是实例外 FA Map
+    // ——先清后写=下轮扫描重检查，残留窗 ≤ 一轮）
+    if (this._gmgnEntryStates) {
+      for (const addr of this._gmgnEntryStates.keys()) {
+        require('../../services/FourMemeFactorAggregator').clearGmgnEntryFactors(addr);
+      }
+      this._gmgnEntryStates.clear();
+    }
+    if (this._gmgnEntryService) this._gmgnEntryService.destroy();
 
     // CD1 作弊盘检测优雅等流：in-flight 分析链上限等待（settle+Jev 最长几十秒
     // 不值得堵停机；落库行=token 级全局资产，停机后写入无害）
@@ -2556,6 +2598,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // C166 账号复检重置：再买入=重新开始（清旧态防 sold→rebuy 竞态读到陈旧
         // deleted/tweets_gone 首 tick 误卖；首检由下轮扫描重新接线）
         this._resetAccountRecheckFor(tokenAddress);
+        // T116 GMGN 进场验证重置：再买入=重新开始新一轮检查点（防陈旧 'none'
+        // 首tick误卖，同款双保险）
+        this._resetGmgnEntryFor(tokenAddress);
 
         this.logger.info(this._experimentId, 'BuyEval',
           `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._buyAmountFor(signal)}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
@@ -3063,6 +3108,103 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (this._accountRecheckStates) this._accountRecheckStates.delete(tokenAddress);
     if (this._accountHealthEnabled) {
       require('../../services/FourMemeFactorAggregator').clearAccountHealthFactors(tokenAddress);
+    }
+  }
+
+  /**
+   * T116 GMGN 进场验证再买入重置（买入成功点调用，accountHealth 同款双保险）：
+   * 清旧检查态与 FA 注入——残留上一轮 'none' 会让再买入票首 tick 即满足卖臂。
+   */
+  _resetGmgnEntryFor(tokenAddress) {
+    if (!tokenAddress) return;
+    if (this._gmgnEntryStates) this._gmgnEntryStates.delete(tokenAddress);
+    if (this._gmgnEntryEnabled) {
+      require('../../services/FourMemeFactorAggregator').clearGmgnEntryFactors(tokenAddress);
+    }
+  }
+
+  /**
+   * GMGN 进场验证扫描（T116，默认 10s interval）：遍历持仓票，物理持仓
+   * （realHoldDuration，成交时刻起算）≥ holdMs 且未检查过 → GmgnEntryCheckService
+   * 检查恰一次（write-once per 持仓轮：done 后不再重查——「entered 3 分钟无人
+   * 进场」是单向判定，不随盘面滚动翻案）。fire-and-forget 回填 FA 五键：
+   * - 'entered'（三类任一在场）→ 留仓观察，info 留审计
+   * - 'none'（全零）→ 投影 checked=1/present=0，卖臂条件在下个 tick 接管全清
+   * - 'unknown'（失败/未索引/冷却）→ 不投影（fail-open 不误卖），retryIntervalMs
+   *   后重试（清仓前重试次数不设帽，配额受持仓数天然约束；service 侧失败冷却
+   *   60s 防连环烧）
+   * 买/卖执行中跳过（不重入）；顺手自清理：清仓 token 的检查态+FA 注入清掉
+   * （再买入另有买入成功点重置双保险）。回测无本扫描（零接线）。
+   */
+  async _gmgnEntryScan() {
+    if (!this._gmgnEntryEnabled || !this._gmgnEntryService) return;
+    const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+    const held = new Set();
+    const now = Date.now();
+
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      held.add(tokenAddress.toLowerCase());
+
+      let st = this._gmgnEntryStates.get(tokenAddress);
+      if (st && st.done) continue; // write-once：确定结果后本轮持仓不再重查
+      if (st && st.lastAttemptAt && now - st.lastAttemptAt < this._gmgnEntryRetryMs) continue;
+
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+
+      // 持仓时长读 FA 因子表（buildFactorMap 传 now——对齐持仓扫描惯例；断流期
+      // realHoldDuration 继续走=断流票到点照查）
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, now);
+      if (!factors) continue;
+      const heldMs = Number.isFinite(factors.realHoldDuration)
+        ? factors.realHoldDuration * 1000 : 0;
+      if (heldMs < this._gmgnEntryHoldMs) continue;
+
+      if (!st) {
+        st = {};
+        this._gmgnEntryStates.set(tokenAddress, st);
+      }
+      st.lastAttemptAt = now;
+
+      this._gmgnEntryService.checkEntry(tokenAddress, 'bsc')
+        .then(res => {
+          // 竞态防线：清态（stop/清仓/再买入重置）后不回填——完成晚于清理的检查
+          // 丢弃，下轮扫描重新接线（narrative identity 校验同款：instance 同一性
+          // 比对，防「重置后新轮 state 已建、旧结果冒充新轮」）
+          if (this._gmgnEntryStates.get(tokenAddress) !== st) return;
+          if (res.state === 'unknown') return; // fail-open：不投影，retryIntervalMs 后重试
+          st.done = true;
+          st.checkedAt = res.checkedAt;
+          FourMemeFactorAggregator.setGmgnEntryFactors(tokenAddress, {
+            state: res.state,
+            smartWallets: res.smartWallets,
+            whaleWallets: res.whaleWallets,
+            renownedWallets: res.renownedWallets,
+            topWallets: res.topWallets,
+            checkedAt: res.checkedAt,
+          });
+          const sym = token.symbol || tokenAddress.slice(0, 10);
+          if (res.state === 'none') {
+            this.logger.warn(this._experimentId, 'GmgnEntry',
+              `⚠️ 持仓 ${Math.round(heldMs / 1000)}s 无聪明钱/鲸鱼/KOL 进场（smart=0 whale=0 renowned=0）| ${sym}`);
+          } else {
+            this.logger.info(this._experimentId, 'GmgnEntry',
+              `聪明钱/KOL 在场留仓 | ${sym} smart=${res.smartWallets} whale=${res.whaleWallets} renowned=${res.renownedWallets}`);
+          }
+        })
+        .catch(err => this.logger.error(this._experimentId, 'GmgnEntry',
+          `进场验证回填异常 | ${tokenAddress} ${err.message}`));
+    }
+
+    // 自清理：清仓 token 的检查态 + FA 注入（Map 不大，全量比对）
+    for (const addr of [...this._gmgnEntryStates.keys()]) {
+      if (!held.has(addr.toLowerCase())) {
+        this._gmgnEntryStates.delete(addr);
+        FourMemeFactorAggregator.clearGmgnEntryFactors(addr);
+      }
     }
   }
 
@@ -4047,6 +4189,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         });
         // C166 账号复检重置：再买入=重新开始（防 sold→rebuy 陈旧账号态首 tick 误卖）
         this._resetAccountRecheckFor(tokenAddress);
+        // T116 GMGN 进场验证重置（同款双保险）
+        this._resetGmgnEntryFor(tokenAddress);
       }
       return result;
     } finally {

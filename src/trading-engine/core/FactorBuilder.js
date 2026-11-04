@@ -228,6 +228,14 @@ function buildFactorValuesForTimeSeries(factorResults) {
     //（_accountHealthOverrides 投影，卖腿与买腿同 FA 因子表）；未检测/unknown/回测
     // → null 不掩盖（unknown 投影 null 是刻意语义，见 FA 注入段）
     issuerAccountState: factorResults.issuerAccountState ?? null,
+    // T116 GMGN 进场验证五键（2026-11-04 卖臂消费）：checked=1 检查完成 /
+    // present=1 三类任一在场 0 全零 / 三类计数观测——未检查/unknown/回测 →
+    // null/0 不掩盖（_gmgnEntryOverrides 投影，卖腿与买腿同 FA 因子表）
+    gmgnEntryChecked: factorResults.gmgnEntryChecked ?? 0,
+    gmgnEntryPresent: factorResults.gmgnEntryPresent ?? null,
+    gmgnEntrySmartWallets: factorResults.gmgnEntrySmartWallets ?? null,
+    gmgnEntryWhaleWallets: factorResults.gmgnEntryWhaleWallets ?? null,
+    gmgnEntryRenownedWallets: factorResults.gmgnEntryRenownedWallets ?? null,
     // G1 作弊盘因子 24 键（2026-11-01 因子化，_cheatFactorOverrides 投影；**可进
     // 条件串**——值=最近一次判定，首判未完成/预触发未跑/回测 → null/0 不掩盖。
     // 数值序：grade healthy=0/unhealthy=1/cheat=2；题档 none=0/weak=1/moderate=2/

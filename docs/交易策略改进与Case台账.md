@@ -45,6 +45,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档·减 1 卡（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档卖 1 卡 p11/max1，三层梯队 T80 -15 减1卡→T99 -25 减1卡→拱形 -35 全清；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v58 `12ef2c48` 2026-10-29 起实跑）** / **T107 市值拱形时间全清臂（`mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec` 全清 p10；FA 三键 token 全生命口径——X=首交易→最高市值耗时，峰值市值超 15K USD（=20.1 BNB @745）后距峰 ≥ X/2 秒未再破新高→全清；库 mcap-arc-fullclose v1，v65 `aed2091d` 2026-10-29 14:33 UTC 起实跑）** / **T113 pump 失衡全清臂（`realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90` 全清 p5；FA 新键 sinceEntryNetBuyRatio=本仓成交锚以来 (Σ买−Σ卖)÷(Σ买+Σ卖)×100，锚=setBuyState 快照全史累计差值、补买轮各自重锚、入场后零交易 null fail-closed；v70 13 票探针：入场后 30s 仍单边买的 6 票 4 亏 -7~-37%（比特币银行/蝴蝶喊单/蝴蝶池/共建共赢全亏）；库 pump-imbalance-exit v1，v71 起实跑）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
 - **T114（2026-11-04）v71 卖臂大修剪——12 删 3 改 1 增，26→15 条**（详档 T114 案）：退役=P4 市值地板/死票族 4 条（快跑 3.5-4K/底部等待/地板 5.5K/死票 120s）、rug-exit-account-arm（去叙事后无推特检测输入）、超买止盈 T85/T78、T84 早期臂离场族 3 条（上位/protect20/600s）；合并=P0(-50)+P2(-35) → 单一 `-40`（minTicks 8 继承）；调参=T99 两档 -25 减仓 max1→**4**+cd**60s**、拱形低档全清 **-35→-45**；新增=stallClose 30s 断流全清（T104 复活）。**现行 v71 15 条：-40 止损 / 时间止损 1h / 毕业①② / T113 失衡 / 收益 100%+50% / T99 -25 两档(max4) / 拱形 -45/-35/-25 三档 / T107 拱形时间 / T97 停滞 / T80 锁盈 -15 + stallClose 引擎级**
+- **T116（2026-11-04）GMGN 进场验证卖臂（默认关未接线）**：`fourmemeWs.gmgnEntryCheck` 段（enabled 显式 true 才开；flap 经 _mergedWsConfig 同键）——持仓 holdSec（默认 180s）检查点查一次 GMGN `wallet_tags_stat`（smart/whale/renowned 三类在场数，探针实证分钟级票已填充），全零=无人接力 → FA 五键（gmgnEntryChecked/gmgnEntryPresent+三类计数）→ 卖臂 `realHoldDuration >= 180 AND gmgnEntryChecked == 1 AND gmgnEntryPresent == 0` 全清；任一在场=entered 留仓；unknown（失败/未索引/tags 残缺）fail-open 不投影不误卖 30s 重试；write-once per 持仓轮+清仓自清理+再买入重置；回测零接线因子恒 null（详档 T116 案）
 
 ---
 
@@ -581,6 +582,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - vanity 地址尾号团伙 sniper-like→retail 反向盲区（先快抢后接盘的反向画像）；TPA 双盲区
 
 ### 丁、卖腿 / 止损 / 毕业卖
+
+### T116 GMGN 进场验证卖臂：持仓 180s 无聪明钱/鲸鱼/KOL 在场全清（新机制 GmgnEntryCheckService + FA 五键 + 引擎扫描，默认关未接线；2026-11-04 落码；用户指令「我还想再增加一个卖出臂，就是如果持仓3分钟，调用一下 GMGN API，无聪明钱/鲸鱼/KOL 进场，就全部卖出。你觉得合适吗？感觉不好分析，可以先帮我做一下实现。」）
+
+- **可行性探针（落码前置，2026-11-04 `scripts/tmp-gmgn-entry-probe.cjs` 六票 0.3-1.0min）**：GMGN `getTokenInfo` 的 `wallet_tags_stat` 对分钟级票**已完整填充**（0.3min=18 秒票 tags/holders 全在动）——索引近乎实时，**无「数据滞后退化成 3 分钟无脑全清」风险**；`whale_wallets` 字段在原始响应里（extractGmgnRisk 未提取，本侧自提），三类 `smart_wallets`（聪明钱）/`whale_wallets`（鲸鱼）/`renowned_wallets`（KOL）**一次调用全覆盖**，零额外配额（=买侧 GmgnRiskCheckService 同款 getTokenInfo，per 持仓轮恰一次）
+- **「在场口径」论证（holders-stat ≠ 进场过，但殊途同归）**：GMGN tags 统计的是**当前在场**标签钱包数——聪明钱 3min 内进出后离场 → 计 0 → 卖，而「聪明钱已经跑路」的票本来也是该卖的形状；三类任一 >0=entered 留仓。top_traders+tag 过滤口径（真「进场过」）每票多烧 2 调用且「进过已走」形状同样该卖，弃
+- **机制形状（C166 AccountHealthMonitor 母版）**：`fourmemeWs.gmgnEntryCheck {enabled（**默认关 enabled===true 物化**）/holdSec 180/scanIntervalSec 10/retryIntervalSec 30/timeoutMs 8000/failCooldownMs 60000}`（flap 经 _mergedWsConfig 同键；default.json 段已入）；引擎 10s 扫描 → `realHoldDuration ≥ holdSec`（成交时刻起算，断流期继续走=断流票到点照查）→ Service 检查**恰一次**（write-once per 持仓轮——「3 分钟无人进场」单向判定不随盘面滚动翻案）→ FA 五键投影 `gmgnEntryChecked`（1=检查完成）/`gmgnEntryPresent`（1=三类任一在场/0=全零/null=未确定）+ 三类计数观测键（gmgnEntrySmart/Whale/RenownedWallets）
+- **fail-open（与买侧 2026-10-20 GMGN 裁定同向）**：失败/超时/未索引/key 缺失/冷却/**tags 三键任一非有限数（tags_malformed——缺失键当 0=「查不到当零进场」误卖方向，宁可不判定）** → state='unknown' 引擎**不投影**（因子 null → 卖臂条件恒 false 不误卖），retryIntervalSec 30s 后重试；inflight join+失败冷却 60s（GmgnRiskCheckService 同款组织，但无 TTL 复用——per 持仓轮 write-once 无重复调用语义）
+- **卖臂条件形状（建议，v72 未接线待裁定）**：`realHoldDuration >= 180 AND gmgnEntryChecked == 1 AND gmgnEntryPresent == 0`，cards='all' 全清（priority 建议 6：T113 p5 失衡之后收益族之前），bypass=false 走 3.5s+5tick 双门——活跃票 5 真笔秒级确认；断流票凑不齐证靠 maxWait 120s 逃生链重评仍真卖出
+- **生命周期**：清仓自清理（扫描轮全量比对）+ 再买入重置（策略买/手工买两处 `_resetGmgnEntryFor` 双保险，防 sold→rebuy 残留 'none' 首tick误卖）+ stop 逐 token 清；回填竞态防线=st 实例同一性校验（narrative identity 同款，防重置后旧结果冒充新轮）
+- **回测零接线**（BacktestEngine 无本链路，因子恒 null 条件恒 false——动态网络数据对历史 fire 时序穿越，accountHealthCheck/gwp 同款裁定）
+- **单测**：`_test_gmgn_entry_check.cjs` 39 断言（A 三态判定+残缺反证/inflight/冷却/无 key；B 五键投影+getFactorKeys 探针收键+条件实评 fail-open 方向；C 扫描 write-once/重试节流/自清理/竞态/重置/卖中跳过；D 源码口径九条）；受影响回归 account_recheck_engine/signal_metadata_cache/stop_loss_rules/sell_debounce_mechanisms 全绿（18+56+69+86）
+- **适配性意见（用户问「你觉得合适吗」）**：合适——与 T113 失衡全清/stallClose 同族「入场后盘面质量保险丝」，且探针证实数据源可靠；边界留观：①3min 检查点后聪明钱才进场的票会被误卖（固有代价，换「无人接力早离场」的截断收益，T115 同逻辑：晚到的信号质量差）②极小盘 top_wallets 个位数时三类恒 0 属常态（分母噪声）——好票本来就少人接，方向可接受；首版先跑观察 grade/触发频率再调 holdSec
+- **生效条件**：v72 config 加 `gmgnEntryCheck` 段+卖腿引用+进程重启（代码已 push，182 pull 后生效）
 
 ### T114 v71 卖臂大修剪：12 删 3 改 1 增（26→15 条）+ stallClose 30s 复活（2026-11-04，v71 `936e1bd9` 实验级 config 变更+重启生效，库未动；用户九点指令）
 

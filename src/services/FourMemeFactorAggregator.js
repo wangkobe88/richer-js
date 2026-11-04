@@ -287,6 +287,11 @@ let _narrativeFactorConfig = { ..._NARRATIVE_FACTOR_DEFAULTS };
 // 同款模块级单例——无回填恒 null → 卖臂条件 `issuerAccountState == 'deleted'` 恒
 // false = fail-closed 不误卖；引擎 stop 逐 token 清）
 let _accountHealthOverrides = null;
+// T116 GMGN 进场验证注入（引擎 GmgnEntryCheckService 持仓检查点回填；母版=
+// _accountHealthOverrides 同款模块级单例——无回填恒 null/0 → 卖臂条件
+// `gmgnEntryChecked == 1 AND gmgnEntryPresent == 0` 恒 false = fail-open 不误卖；
+// 引擎 stop/清仓/再买入重置清）
+let _gmgnEntryOverrides = null;
 // G1 作弊盘检测分级注入（2026-11-01 用户裁定升级为买门；引擎 _cheatGateEvaluate
 // 单写者，_narrativeFactorOverrides 同款模块级单例——无回填恒 null/0 → 纯观测键
 // 不进条件串（分级行为走引擎硬门）；引擎 stop 逐 token 清）
@@ -3648,6 +3653,30 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.issuerAccountState = _ah && _ah.state !== 'unknown' ? _ah.state : null;
         }
 
+        // ── GMGN 进场验证注入（T116，2026-11-04 用户裁定「持仓 3 分钟无聪明钱/
+        //    鲸鱼/KOL 进场全部卖出」）：引擎 GmgnEntryCheckService 持仓 holdSec
+        //    检查点查 GMGN wallet_tags_stat（smart/whale/renowned 在场数）回填。
+        //    五键：gmgnEntryChecked（1=检查完成有确定结果）/gmgnEntryPresent
+        //    （1=三类任一在场 / 0=全零无人接力 / null=未确定）+ 三类计数观测键。
+        //    null=未检查/unknown（API 故障 fail-open）→ 卖臂条件
+        //    `gmgnEntryChecked == 1 AND gmgnEntryPresent == 0` 恒 false 不误卖
+        //    （unknown 刻意不投影——故障不该产生任何信号形状，C166 同款）。
+        //    回测零接线（BacktestEngine 无本链路，因子恒 null——动态网络数据对
+        //    历史 fire 是时序穿越，gwp/accountHealthCheck 同款裁定）。
+        //    ★本块纯投影无周期判定，不涉及 now（Date.now 红线不适用但保持零调用）──
+        {
+            const _ge = state.tokenAddress && _gmgnEntryOverrides
+                ? _gmgnEntryOverrides.get(state.tokenAddress) || null
+                : null;
+            factors.gmgnEntryChecked = _ge ? 1 : 0;
+            factors.gmgnEntryPresent = _ge
+                ? (_ge.state === 'entered' ? 1 : _ge.state === 'none' ? 0 : null)
+                : null;
+            factors.gmgnEntrySmartWallets = _ge && _ge.state !== 'unknown' ? _ge.smartWallets : null;
+            factors.gmgnEntryWhaleWallets = _ge && _ge.state !== 'unknown' ? _ge.whaleWallets : null;
+            factors.gmgnEntryRenownedWallets = _ge && _ge.state !== 'unknown' ? _ge.renownedWallets : null;
+        }
+
         // ── 作弊盘检测因子注入（G1 因子化，2026-11-01 用户指令「以因子的形式放到
         //    表达式中」）：40 键全数值序（narrativeRating 先例同构）——cheatGrade
         //    （healthy=0/unhealthy=1/cheat=2）+ cheatUnhealthyGrades（unhealthy 真分析
@@ -3906,6 +3935,36 @@ class FourMemeFactorAggregator extends EventEmitter {
     static clearAccountHealthFactors(tokenAddress) {
         if (!_accountHealthOverrides) return false;
         return _accountHealthOverrides.delete(tokenAddress);
+    }
+
+    // ═══════════════ GMGN 进场验证回填接口（static，T116；母版=setAccountHealthFactors）═══════════════
+
+    /**
+     * 回填某 token 的聪明钱/鲸鱼/KOL 进场检查结果（引擎 GmgnEntryCheckService
+     * 单写者；清仓/再买入重置/stop 逐 token 清）。整包替换。
+     * @param {string} tokenAddress
+     * @param {{state: 'entered'|'none'|'unknown', smartWallets?: number|null,
+     *   whaleWallets?: number|null, renownedWallets?: number|null,
+     *   topWallets?: number|null, checkedAt?: number}} snapshot
+     *   state='unknown'（API 故障 fail-open）投影为 checked=0/present=null——
+     *   卖臂条件恒 false 不误卖，与「未检查」不可区分是刻意的
+     */
+    static setGmgnEntryFactors(tokenAddress, snapshot) {
+        if (!tokenAddress) return false;
+        if (!_gmgnEntryOverrides) _gmgnEntryOverrides = new Map();
+        _gmgnEntryOverrides.set(tokenAddress, snapshot);
+        return true;
+    }
+
+    /** 取回填的 GMGN 进场检查结果（无则 null）。 */
+    static getGmgnEntryFactors(tokenAddress) {
+        return (_gmgnEntryOverrides && _gmgnEntryOverrides.get(tokenAddress)) || null;
+    }
+
+    /** 清除某 token 的 GMGN 进场回填（引擎 stop / 再买入重置）。 */
+    static clearGmgnEntryFactors(tokenAddress) {
+        if (!_gmgnEntryOverrides) return false;
+        return _gmgnEntryOverrides.delete(tokenAddress);
     }
 
     // ═══════════════ 作弊盘检测因子回填接口（static，G1 因子化；母版=setNarrativeFactors）═══════════════
