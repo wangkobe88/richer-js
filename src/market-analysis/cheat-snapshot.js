@@ -167,6 +167,10 @@ function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
       tok: r.token_amount ?? null,
       priceBnb: r.price_bnb ?? null,
       wallet: walletOf(r),
+      // D3.54（CD161）creator 三域匹配原料：原始域小写保留——w=sender||trader
+      // 归一后另一域的 creator 出现会被顶走（创建者经自有合约买入形状）
+      tr: r.trader_address ? String(r.trader_address).toLowerCase() : null,
+      se: r.sender_address ? String(r.sender_address).toLowerCase() : null,
       block: r.block_number ?? null,
       txHash: r.tx_hash ?? null, // D3.8 捆绑题原料：同一笔链上交易拆出的多行（state 渲染 tx= 前缀）
       viaRouter: isRouterTrader(r),
@@ -389,6 +393,53 @@ function computeDerived(snapshot, famousRoster) {
         exactEqualBlockBuyPct = +((sum / totalBuyBnb) * 100).toFixed(1);
       }
       exactEqualBlockClusters.push(...clusters.slice(0, 5));
+    }
+  }
+
+  // ── D3.54 同块脉冲节拍（CD161：MAX 0xbe0d62b9…7777 创建者+捆绑簇垄断案——
+  // 2026-11-04 用户裁定立项，原话「sameBlockHoldCircPct 还是跟之前说的，活跃度
+  // 高的时候，它容易误伤。但是在这个币上，我认为不是误伤，它的block之间间隔
+  // 时间很久，但是单个block又挤了好多交易，诶，我认为这是一个异常现象，是不是
+  // 可以单独立个锚，或者在异常行为里头立个锚」）──
+  // 「≥SAME_BLOCK_CLUSTER_MIN 笔 buy 同块」的脉冲块（与 sb 簇同门槛同源
+  // blockBuys，不截 top10 展示帽）的**节拍维度**量化。分布探针（182 十二票）
+  // 实证两键硬组合在高活跃盘孪生（RAM@41 活跃块占比 9.8%/脉冲买入占比 71.5%
+  // 与立项票 9.8%/62.3% 完全孪生——占比数字分不开，G10 sbHold 活跃度函数问题
+  // 同款）；结构性分界=脉冲孤立性：立项票三脉冲块间 16/11 个空块整段空窗
+  // （孤立脉冲节拍=协同迹象），RAM/CD60/CD98 脉冲块背靠背相邻（连续活跃带，
+  // 高活跃盘撞块常态 CD133 反锚）。孤立性判读归 Jev（abnormal_behavior_ratio
+  // 题判读要点①，数值行只给间隔事实），代码不立门（D3.5 哲学）：
+  //   pulseBlockCount   = 脉冲块数（无合格脉冲块 → null 有证据缺席）
+  //   pulseBlockBuyPct  = 脉冲块买入金额合计 ÷ 窗口总买入 ×100（无脉冲块/
+  //                       总买≤0 → null）
+  //   pulseMaxGapBlocks = 相邻脉冲块间最大空块数（块差-1；<2 个脉冲块 → null
+  //                       =无节拍间隔证据；pulseGapBlocks 升块序数组仅渲染）
+  //   pulseBlockClusters= 叙事数组（block/dt/n/wallets/sumBnb 升块序 cap 5，
+  //                       exactEqualBlockClusters 同哲学不进 observation anchors）
+  let pulseBlockCount = null, pulseBlockBuyPct = null, pulseMaxGapBlocks = null;
+  const pulseGapBlocks = [];
+  const pulseBlockClusters = [];
+  {
+    const pulseAll = [...blockBuys.entries()]
+      .filter(([, a]) => a.length >= SAME_BLOCK_CLUSTER_MIN)
+      .map(([block, a]) => ({
+        block,
+        dt: a[0].dt,
+        n: a.length,
+        wallets: new Set(a.map((t) => t.wallet)).size,
+        sumBnb: a.reduce((s, t) => s + (t.bnb || 0), 0),
+      }))
+      .sort((x, y) => x.block - y.block);
+    if (pulseAll.length > 0) {
+      pulseBlockCount = pulseAll.length;
+      if (totalBuyBnb > 0) {
+        pulseBlockBuyPct = +((pulseAll.reduce((s, c) => s + c.sumBnb, 0) / totalBuyBnb) * 100).toFixed(1);
+      }
+      for (let i = 1; i < pulseAll.length; i++) {
+        pulseGapBlocks.push(pulseAll[i].block - pulseAll[i - 1].block - 1);
+      }
+      if (pulseGapBlocks.length > 0) pulseMaxGapBlocks = Math.max(...pulseGapBlocks);
+      pulseBlockClusters.push(...pulseAll.slice(0, 5));
     }
   }
 
@@ -891,7 +942,16 @@ function computeDerived(snapshot, famousRoster) {
   if (creatorAddr) {
     let net = 0, peak = 0, sawBuy = false, tokMissing = false;
     for (const t of ticks) {
-      if (!t.wallet || String(t.wallet).toLowerCase() !== creatorAddr) continue;
+      // D3.54（CD161）creator 三域匹配：创建者经自有合约买入时 trader 域=
+      // creator 合约、sender=调用人，wallet（sender||trader）归调用人口径把
+      // creator 行吞掉（立项票 0xbe0d62b9 实形：dev 专属合约 0x5116 仅 trader
+      // 域出现 1 行 2.827 BNB=窗内最大单，w=0x6cd6 → 改前 creator 全 null
+      // 「无 BUY 行」）——行级 w/tr/se 任一域命中即创建者通道流水，峰值/净额=
+      // 命中行累计（经手钱包口径，语义=「创建者通道持有」）。wallets 层
+      // isCreator 标注保持严格 w===creator（防公共工厂合约多人调用误标；立项
+      // 票合约经查 1/1000 票 dev 专属）
+      const w = t.wallet ? String(t.wallet).toLowerCase() : null;
+      if (w !== creatorAddr && t.tr !== creatorAddr && t.se !== creatorAddr) continue;
       creatorWallet = creatorAddr;
       if (t.side === 'BUY') { creatorBuyBnb += t.bnb || 0; creatorBuyN++; }
       else { creatorSellBnb += t.bnb || 0; creatorSellN++; }
@@ -1062,6 +1122,10 @@ function computeDerived(snapshot, famousRoster) {
     // 判读原料；叙事数组仅 state 渲染，数值三键进 observation anchors）
     exactEqualBlockBuyPct, exactEqualBlockClusterCount, exactEqualBlockMaxWallets,
     exactEqualBlockClusters,
+    // D3.54 同块脉冲节拍（CD161：abnormal_behavior_ratio/holdings_balance 时间
+    // 形状判读原料；pulseGapBlocks/pulseBlockClusters 仅 state 渲染）
+    pulseBlockCount, pulseBlockBuyPct, pulseMaxGapBlocks, pulseGapBlocks,
+    pulseBlockClusters,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,

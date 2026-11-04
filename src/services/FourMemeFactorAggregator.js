@@ -3714,6 +3714,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 簇买入合计占窗总买 %——题面判读原料，纯观察可进条件串；无合格簇
             // → null 不冒充）
             factors.cheatExactEqualBlockBuyPct = _an ? _an.exactEqualBlockBuyPct ?? null : null;
+            // D3.54 同块脉冲节拍三键（CD161 MAX 0xbe0d62b9…7777 立项：
+            // 「block 之间间隔时间很久+单块挤多笔」孤立脉冲节拍——abnormal_
+            // behavior_ratio/holdings_balance 题时间形状判读原料，纯观察可进
+            // 条件串；无合格脉冲块/<2 脉冲（maxGap）→ null 不冒充）
+            factors.cheatPulseBlockCount = _an ? _an.pulseBlockCount ?? null : null;
+            factors.cheatPulseBlockBuyPct = _an ? _an.pulseBlockBuyPct ?? null : null;
+            factors.cheatPulseMaxGapBlocks = _an ? _an.pulseMaxGapBlocks ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
             // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/

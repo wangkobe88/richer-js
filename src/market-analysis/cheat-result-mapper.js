@@ -281,6 +281,12 @@ function buildObservation(answers, anchors = null) {
       exactEqualBlockBuyPct: _anchorPct(anchors, 'exactEqualBlockBuyPct'),
       exactEqualBlockClusterCount: _anchorPct(anchors, 'exactEqualBlockClusterCount'),
       exactEqualBlockMaxWallets: _anchorPct(anchors, 'exactEqualBlockMaxWallets'),
+      // D3.54 同块脉冲节拍三键（CD161：abnormal_behavior_ratio/holdings_balance
+      // 时间形状判读原料——**无门侧消费**（grade G15 不动），state 事实行+FA
+      // 投影同源；无合格脉冲块/<2 脉冲（maxGap）→ null 不冒充）
+      pulseBlockCount: _anchorPct(anchors, 'pulseBlockCount'),
+      pulseBlockBuyPct: _anchorPct(anchors, 'pulseBlockBuyPct'),
+      pulseMaxGapBlocks: _anchorPct(anchors, 'pulseMaxGapBlocks'),
     },
   };
 }

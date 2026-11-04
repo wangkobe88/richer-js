@@ -362,6 +362,11 @@ function levelsFromObservation(observation, extras = {}) {
     exactEqualBlockBuyPct: _pct(an.exactEqualBlockBuyPct),
     exactEqualBlockClusterCount: _pct(an.exactEqualBlockClusterCount),
     exactEqualBlockMaxWallets: _pct(an.exactEqualBlockMaxWallets),
+    // D3.54 同块脉冲节拍三键（CD161：题面判读原料——**无门侧消费**（G15 通道
+    // 不动，R 通道消费的是题档非数值），state 事实行+FA 投影同源；null 不冒充）
+    pulseBlockCount: _pct(an.pulseBlockCount),
+    pulseBlockBuyPct: _pct(an.pulseBlockBuyPct),
+    pulseMaxGapBlocks: _pct(an.pulseMaxGapBlocks),
     // D3.35 协同买入参考四键 + 创建者曾持峰值（abnormal_behavior_ratio（D3.39 前
     // real_participation）/ holdings_balance
     // 补腿同源数值；参考锚非门——R 通道消费档位不消费数值）

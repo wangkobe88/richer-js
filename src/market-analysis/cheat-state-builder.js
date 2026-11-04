@@ -134,6 +134,22 @@ function buildCheatState(snapshot) {
       if (cls.length > 3) parts.push(`另有 ${cls.length - 3} 簇`);
       lines.push(`精确等额同块购买: ${d.exactEqualBlockClusterCount} 簇合计占窗口总买入 ${d.exactEqualBlockBuyPct.toFixed(1)}%（${parts.join('；')}）——事实数值非门槛：完全相等金额（四位小数）∧同一区块的多钱包买入=时间+金额双协同形状（同块撞块的独立买家金额通常各异；前端默认档跟风是跨块长尾不聚同块；经聚合路由的默认档买入钱包同址天然不成簇）；簇占比高且金额反推名义非常见默认档=配置单痕迹，如何定档由你按 equal_amount_split 题面判读`);
     }
+    // D3.54 同块脉冲节拍事实行（CD161：MAX 0xbe0d62b9…7777 立项——「block
+    // 之间间隔时间很久+单块挤多笔」的孤立脉冲节拍；2026-11-04 用户裁定
+    // 「把这个现象描述出来」同哲学：数值行只给脉冲块数/占比/间隔事实，孤立
+    // 性判读归 Jev（abnormal_behavior_ratio 题判读要点①）。分布孪生反锚入行
+    // （RAM@41 活跃块占比/脉冲占比与立项票孪生——分界在间隔不在占比）；无
+    // 合格脉冲块不渲染行（缺席语义）。
+    if (d.pulseBlockBuyPct !== null && d.pulseBlockBuyPct !== undefined) {
+      const cls = d.pulseBlockClusters || [];
+      const parts = cls.slice(0, 3).map((c) => `t+${c.dt}s 块${c.block} 挤 ${c.n} 笔`);
+      if (cls.length > 3) parts.push(`另有 ${cls.length - 3} 块`);
+      const gaps = d.pulseGapBlocks || [];
+      const gapStr = gaps.length > 0
+        ? `；相邻脉冲间隔 ${gaps.join('/')} 个空块` + (gaps.length === 1 ? '' : `（最大 ${d.pulseMaxGapBlocks}）`)
+        : '（仅一个脉冲块，无节拍间隔证据）';
+      lines.push(`同块脉冲节拍: ${d.pulseBlockCount} 个脉冲块（单块 ≥3 笔买入）合计占窗口总买入 ${d.pulseBlockBuyPct.toFixed(1)}%（${parts.join('；')}${gapStr}）——事实数值非门槛：脉冲块之间存在整段空块的孤立脉冲节拍（多波同块挤入+波间死寂，真实散户到达沿块散布不会只挑同样的少数块反复成波）是协同节拍迹象；脉冲块相邻成带（间隔 0-2 块）=连续活跃带撞块常态（高活跃盘独立买家并发，不因同块加档）；占比本身分不开两种形状，判读看间隔结构，如何计异常份额由你按 abnormal_behavior_ratio 题面判读`);
+    }
     // D3.38 单块买入集中度形状行（CD135 续，2026-11-02 用户裁定换喂法 C——
     // 「形状提示不给具体数字降锚定力」）：D3.36 撤出精确数字后 CD6 回退
     // （minimal 0.66→meaningful 0.4 放行——单块集中形状有信息量），而撤前
@@ -177,7 +193,7 @@ function buildCheatState(snapshot) {
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {
-      lines.push(`单一钱包持仓集中度: 占总供应量 ${d.top1HoldSupplyPct.toFixed(1)}% / 占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（分子同=最大单一正净持仓钱包；占总供应量过大=单一钱包控盘的事实证据；占总供应量低但占在场流通高=在场筹码少所致，不算控盘（豁免））`);
+      lines.push(`单一钱包持仓集中度: 占总供应量 ${d.top1HoldSupplyPct.toFixed(1)}% / 占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（分子同=最大单一正净持仓钱包；占总供应量过大=单一钱包控盘的事实证据；占总供应量低但占在场流通高=在场筹码少所致，单一钱包吃独食形状不算控盘（豁免）——本豁免只覆盖单一钱包独占形状，不外推：同块簇/捆绑簇成员**合计**占在场流通高的组合垄断不适用本豁免，看「捆绑簇持仓集中度」行按组合垄断判读）`);
     } else if (d.top1HoldCircPct !== null) {
       lines.push(`单一钱包持仓集中度: 总供应量未知（占供应量口径缺失）；占在场流通 ${d.top1HoldCircPct.toFixed(1)}%（判控盘须两口径齐备，仅流通口径不作控盘判据）`);
     } else {
