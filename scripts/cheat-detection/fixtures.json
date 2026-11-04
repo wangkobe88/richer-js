@@ -2800,6 +2800,822 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "CD184 用户裁定 unhealthy[E]（2026-11-04）——临近买点段金额死寂：开盘 30s 真实买流 1.2 BNB vs 临近 30s 尘单滴答（段中位 0.000163/吞吐 0.26 BNB/分），act 应 low 由 E 通道拒买（D3.59 同锚对拍已翻 act=low→unhealthy[E]）"
+    },
+    {
+      "caseId": "CD185",
+      "symbol": "草台班子",
+      "addr": "0xecce9958ad06089a2dbea60fe62eecc723ce7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD186",
+      "symbol": "龙虾AI",
+      "addr": "0xa1a727addde617246889b30d50612da03dbc7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 38
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 2；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 2；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD187",
+      "symbol": "暴力雪球",
+      "addr": "0x47922a47421d10d3d23687fec49f6077bcfb7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD188",
+      "symbol": "Go Brrr",
+      "addr": "0xf71413b7ea770f4816c59a21cc5880851f587777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 44
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD189",
+      "symbol": "Go Brrr",
+      "addr": "0x21d6f024b8b9e14b88bc92895e1d3527fb4c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 57
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=57=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=57=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD190",
+      "symbol": "Go Brrrrr",
+      "addr": "0xdae106c89f2748a213c91c506ce8a8dcde5f7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 41
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=41=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=41=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD191",
+      "symbol": "Go Brrrrr",
+      "addr": "0x4a9305db5ece1ebd9f16f715c206e8a088217777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 89
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=89=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=89=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD192",
+      "symbol": "Go Brrrrr",
+      "addr": "0xfff03181069d8ff12c02208c190297c8f0a67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD193",
+      "symbol": "GoBrrrrr",
+      "addr": "0x0234a0e8b3801ba550b03df7678fbc8ad20a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD194",
+      "symbol": "Go Brrrrr",
+      "addr": "0x2ab2f64d4ca659f8458c358c13878c9a917b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD195",
+      "symbol": "树",
+      "addr": "0x1dbb3d6b66a449ac7f3583f078dadd9af8ac7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 40
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD196",
+      "symbol": "大树",
+      "addr": "0xf8c7760afb9b5a96383cfc59a819ca5259ae7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 62
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=62=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=62=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD197",
+      "symbol": "币安大树",
+      "addr": "0xc92a1f83ede8ceb4be7abb4823c83231408d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 39
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=39=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD198",
+      "symbol": "EVER",
+      "addr": "0x44c72166408e2dd903cf0775caa8dbdd77147777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=28=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD199",
+      "symbol": "zion",
+      "addr": "0x5beb50dccf0de18bcdaea246a5fbdb07fd137777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD200",
+      "symbol": "배고파 개구리",
+      "addr": "0x0b268c8043c3d2dc33d84442d49d9f4c26307777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD201",
+      "symbol": "吉羊",
+      "addr": "0x57be40642f0dcb7b1e6c4dfc6c07c89801497777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD202",
+      "symbol": "克롱",
+      "addr": "0x53fd3328d80b78a80ba62fab28ce4d8a56ed7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 27
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=27=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=27=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD203",
+      "symbol": "크롱",
+      "addr": "0x0f7c96238301d26ad5945038aeb5aed8567d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD204",
+      "symbol": "크롱",
+      "addr": "0xdcb780fafb75ac89e8830a5b6a374564e0ae7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD205",
+      "symbol": "羊",
+      "addr": "0x77adc3f4ec8ce25e0d4758ae4684b74984157777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 61
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=61=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=61=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD206",
+      "symbol": "小兔得志",
+      "addr": "0x458292a2bf037d3708100f7b55262e6e1a767777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 31
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=31=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD207",
+      "symbol": "小兔得志",
+      "addr": "0x1fffe375f9a9d933ea5097494cf2e1536b867777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 60
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=60=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=60=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD208",
+      "symbol": "불사조",
+      "addr": "0x25085fd257ef58d4c142cb6ff9f529dcdee37777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD209",
+      "symbol": "불사조",
+      "addr": "0xa965bd00bbde5e2db8362c8ed6ab0ccafb7b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 35
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=35=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=35=cheat_detection 首判行；信号数 3；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD210",
+      "symbol": "不死鸟",
+      "addr": "0x2a05a1db973c45b7e13e75babe6212c38ae47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 58
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=58=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=58=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD211",
+      "symbol": "不死鸟",
+      "addr": "0x7c150e15daf77fcf769fa5ffe1daf1566b2d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD212",
+      "symbol": "袁熙",
+      "addr": "0x3c8b3f43bf2a79e5f08db7d3027c276c32367777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 29
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD213",
+      "symbol": "VETO",
+      "addr": "0xfb7612b67e5d560da47ceed60ad806170a4d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=21=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=21=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD214",
+      "symbol": "猫咪天团",
+      "addr": "0x0b181cce72a864bdf0e46318add71ac83f5c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=19=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD215",
+      "symbol": "AGENTINE",
+      "addr": "0xb47db73293380088a1d78fb5c51bf9038f217777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD216",
+      "symbol": "CBF",
+      "addr": "0x6a67b09a42e556515d77eb5c984dcfdccab47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 38
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=38=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD217",
+      "symbol": "HUSH",
+      "addr": "0x373d1f36ebc48ed61b964e37aa82e4271c3a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=20=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD218",
+      "symbol": "猴市",
+      "addr": "0x35266cd6089893cb07c2b420248c219c40df7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 44
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=44=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD219",
+      "symbol": "压力猴",
+      "addr": "0x72064b6f3e46895070aeb4e4c7d94f272c027777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD220",
+      "symbol": "flapfloat",
+      "addr": "0x2af76ff61fdb764b86b18e90e28f4e1c0ff17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 33
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD221",
+      "symbol": "雪梨",
+      "addr": "0x23458c616a2888032419abb7d813e1e47bb17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 22
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=22=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD222",
+      "symbol": "BWF",
+      "addr": "0x9fa9af094f52dbcb72a9e4b708b28be30aed7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 40
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=40=cheat_detection 首判行；信号数 4；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD223",
+      "symbol": "地外旅人",
+      "addr": "0x84c926614a7e1f3be9dff76407061fca0a4e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 71
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=71=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=71=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD224",
+      "symbol": "宇宙旅行者",
+      "addr": "0xf352a6a9170fd613207497ceb66f19d348907777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=42=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD225",
+      "symbol": "VETO",
+      "addr": "0x1192aee72fc59d4a2983f4eb6f8b01f549f27777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD226",
+      "symbol": "CeBM",
+      "addr": "0x1a50b006110c4d40d39c69675f14cc0122af7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD227",
+      "symbol": "CeBM",
+      "addr": "0xcb879a65cfc7cbc33318b87f87ba16dd7e167777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 78
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=78=cheat_detection 首判行；信号数 4；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=78=cheat_detection 首判行；信号数 4；执行 1；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD228",
+      "symbol": "全民BNB",
+      "addr": "0x726c041f854116be73bfc0b15c165c9df4467777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 33
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD229",
+      "symbol": "Pool",
+      "addr": "0xa5c044225e889e4c053327909e4a9eaf12a17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD230",
+      "symbol": "换币龙",
+      "addr": "0xc2552607319deadeb0e77466e18299d4450b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=30=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD231",
+      "symbol": "換幣龍",
+      "addr": "0x40772383e4e59b8443257f715e0b2db3a2637777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=26=cheat_detection 首判行；信号数 1；执行 1；D3.57 基线生产首判 grade=healthy）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD232",
+      "symbol": "Bee Monkey",
+      "addr": "0xa22b31a47faa859ed0a3247615b5dcb9bc747777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=23=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD233",
+      "symbol": "ASEAL",
+      "addr": "0xfef60cdd3200d302c5f2d1ffaa2d8f93369e7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=24=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD234",
+      "symbol": "恐龙抗狼",
+      "addr": "0xa41f83d6e34752fc6251797a51dd9c8d88e47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 33
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=33=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定）"
+    },
+    {
+      "caseId": "CD235",
+      "symbol": "buy",
+      "addr": "0x65a1490be5a17dc88d8a9a46d0b24b97842e8888",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 43
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=43=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=43=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定）"
     }
   ]
 }
