@@ -2401,6 +2401,22 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "2026-11-04 用户裁定「CD160 就 cheat吧」——D3.53 翻案达成（eq moderate→strong pct=50% 3 簇 7 钱包，grade=cheat[A_strong:equal_amount_split+slow_grind_pump,R_abnormal_dominant]）"
+    },
+    {
+      "caseId": "CD161",
+      "symbol": "MAX",
+      "addr": "0xbe0d62b9a00a9ca8ba917a3f790c25af68cb7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 16
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "CD161 立项票：v70 f0898589 MAX 创建者经自有合约 0x5116（trader 域，w 归一吞标注）t+0 独买 37.7% 已分批卖出+三孤立脉冲块（t+6/13/18 块258/274/285 间 15/10 空块）10 钱包零卖出锁 92.8% 正净/73.5% 流通；holdings_balance moderate@0.49 贴线；D3.54 节拍三键+creator 三域+豁免收窄翻案验证；anchor=16=生产买信号 created_at t+16s 锚窗（首买+4s 默认锚 87 手动修正——as-of 时点对齐生产判定）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "2026-11-04 用户裁定「可以给 unhealthy」——D3.54 翻案达成（holdings_balance moderate@0.49→strong=节拍行接捆绑簇维度+豁免句收窄双效；grade=unhealthy[J_holdings_strong] 复跑重掷稳定；拉黑级载体未中 abr=noticeable/pump=none→拒买级非拉黑级）"
     }
   ]
 }
