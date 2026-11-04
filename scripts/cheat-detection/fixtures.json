@@ -2477,9 +2477,10 @@
         "tickCount": 32
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 4；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 4；D3.56 基线）；expect=用户 review 裁定（11-04）unhealthy 与机器 grade[E_low_activity] 同向（尘埃死盘，4 信号全 unhealthy）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=32=cheat_detection 首判行；信号数 4；D3.56 基线））"
@@ -2493,9 +2494,10 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线）；expect=用户裁定（11-04）cheat=pump 盘——26 分钟缓推 +119%（小量买入卖压近零）后 +27 分钟单桶 56 笔卖 4.269 BNB 砸 -66%，锚窗 17 买钱包中 12 个同分钟齐出=拉抬组织实锤；机器 grade[clean] 为分歧留档（出货在锚后，as-of 锚窗 385s 只见缓推不见出货——锚窗内 pump 题判 none，识别加强待立项）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线））"
@@ -2509,9 +2511,10 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户裁定（11-04）healthy——还在交易中看不出 cheat，买入时刻形态算正常；与 D3.56 对拍同向（sell_dispersion=moderate 两轮稳定）；生产首析 D3.52 判 cheat[A_strong:sell_dispersion]=旧版题集误杀留档（qv 版本差：生产进程 02:45-04:33 时段跑 D3.52，05:23 重启才吃 D3.55）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2542,9 +2545,10 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "healthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线）；expect=用户裁定（11-04）healthy——生产实验显示 cheat 但人工 review 不认；与 D3.56 对拍同向（sell_dispersion=moderate）；生产 D3.52 判 cheat[A_strong:sell_dispersion]=旧版误杀同 CD167；区分锚 t1 供 3.37%/前二间隔 1s=同刻同额散户轮动（CD167 t1 23% 独大但盘仍在交易）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 1；D3.56 基线））"
@@ -2558,9 +2562,10 @@
         "tickCount": 18
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=18=cheat_detection 首判行；信号数 2；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=18=cheat_detection 首判行；信号数 2；D3.56 基线）；expect=用户 review 裁定（11-04）unhealthy 与机器 grade[R_abnormal_dominant] 同向（第二点位叠加 L_insider_sell28）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=18=cheat_detection 首判行；信号数 2；D3.56 基线））"
@@ -2591,9 +2596,10 @@
         "tickCount": 29
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy",
+        "since": "2026-11-04"
       },
-      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 2；D3.56 基线）",
+      "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 2；D3.56 基线）；expect=unhealthy 与机器 grade[R_abnormal_dominant] 同向（用户 11-04 与 CD170 同批裁定；第二点位锚=47 已翻 healthy=多点位语义例证）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=29=cheat_detection 首判行；信号数 2；D3.56 基线））"
