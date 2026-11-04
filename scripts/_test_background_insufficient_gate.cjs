@@ -19,8 +19,9 @@
  *   （data_fetch_failed/public_info_fetch_failed=技术失败形状刻意不动）
  *
  * 覆盖：
- *   A. 题面：版本 J1.158 / impact 四桶 / 三层优先序（背景层>事件层>代币层）/
- *      1113 例证 / vs empty 划界（理解先于空洞）/ vs ip_reuse 划界 / 两排除锚
+ *   A. 题面：版本 J1.159 / impact 四桶 / 三层优先序（背景层>事件层>代币层）/
+ *      1113 例证 / vs empty 划界（理解先于空洞）/ vs ip_reuse 划界 / 三排除锚
+ *      （③=J1.159/C269a DND 划界：宣告推带主体内容载体→不选本桶走正常评估）
  *   B. mapper 概率门：≥0.5 → unrated（pass=null 刻意非 false）/ 恰 0.5 边界 /
  *      stage2 pass=true + 审计键恒落 / unfit 同 hit 审计保留（1113 现场形状）/
  *      Stage3 不 __clear（强制清零后 pass=true）/ stageFinal unrated 化
@@ -89,8 +90,8 @@ async function main() {
   const pcSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/services/pre-check-service.mjs'), 'utf8');
   const anSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
 
-  console.log('\n── A. 题面（J1.158/C269 impact 题第四桶）──');
-  check('A1 版本 = J1.158', qm.JEV_QUESTIONS_VERSION === 'J1.158', qm.JEV_QUESTIONS_VERSION);
+  console.log('\n── A. 题面（J1.158/C269 impact 题第四桶；J1.159/C269a DND 划界）──');
+  check('A1 版本 = J1.159（C269a DND 划界排除锚③，题面-only mapper 零改动）', qm.JEV_QUESTIONS_VERSION === 'J1.159', qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
   const impQ = q.bsc_meme_user_event_impact;
   check('A2 impact 四桶（none/background_info_insufficient/event_empty_content/token_ip_reuse；加桶非加题）',
@@ -122,6 +123,12 @@ async function main() {
     bg.includes('纯零语料票')
     && bg.includes('无语料不进本题（上游 fail-closed 另行处理）')
     && bg.includes('本项只留给「认真看完所有证据仍然搞不明白」'), null);
+  check('A9 J1.159/C269a DND 划界排除锚③（宣告推在场且携带主体内容载体→不选本桶走正常评估——「有信息但难懂」≠「没有信息」）',
+    bg.includes('J1.159/C269a/DND 案裁定')
+    && bg.includes('币安广场猫视频「DND 😾」形状')
+    && bg.includes('宣告语料本身是内容载体、有可评估的事件本体')
+    && bg.includes('本项只收「在场语料本身无内容可依」的票')
+    && ins.includes('排除锚③'), null);
 
   console.log('\n── B. mapper 概率门 ≥0.5 → unrated ──');
   // 1113 现场形状：impact 新桶 0.6 + fit unfit 0.81 同 hit

@@ -447,7 +447,7 @@ async function main() {
     && entSeg.includes('专名即实体（J1.121/C190，混混猫案')
     && entSeg.includes('被用作特定主体称谓的自创专名（J1.121/C190')
     && entSeg.includes('混混猫=自创社区 mascot 专名不落本项')
-    && /JEV_QUESTIONS_VERSION = 'J1\.158'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 修复——4f4e817 同款坑；C249/J1.148 再跟；C252/J1.150 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复；C261/J1.152 cashtag 硬改道退役，同跟；C262/J1.153 china_politics 划界收窄，同跟；C263/J1.154 事件中心实体豁免，同跟；C264/J1.155 baseless 退役漏改本断言（存量红），C266/J1.156 语料原话提炼豁免同批修复；C268/J1.157 fit 题同形状蓝筹先例类比锚，再跟；C269/J1.158 背景信息不足桶→unrated/9，再跟）
+    && /JEV_QUESTIONS_VERSION = 'J1\.159'/.test(qsSrc)); // 版本断言随 bump 同步（C242 后 C244/C245/C246 三案漏改存量，C247/J1.145 修复——4f4e817 同款坑；C249/J1.148 再跟；C252/J1.150 漏改本断言 HEAD 存量红，C259/J1.151 同跟修复；C261/J1.152 cashtag 硬改道退役，同跟；C262/J1.153 china_politics 划界收窄，同跟；C263/J1.154 事件中心实体豁免，同跟；C264/J1.155 baseless 退役漏改本断言（存量红），C266/J1.156 语料原话提炼豁免同批修复；C268/J1.157 fit 题同形状蓝筹先例类比锚，再跟；C269/J1.158 背景信息不足桶→unrated/9，再跟；C269a/J1.159 DND 划界排除锚③，再跟）
   check('D5b block reason 选项按对象前缀化（event_* / token_*，J1.59）+ J1.87/C145 删 routine + J1.88/C150 删 institution + J1.101/C170 删 nhn + J1.110/C181 键名断代 event_quality_veto → web3_user_event_impact；J1.112/C183 再断代 → bsc_meme_user_event_impact',
     qsSrc.includes('bsc_meme_user_event_impact:')
     && qsSrc.includes('event_empty_content:') && !qsSrc.includes('event_institution_routine:')
