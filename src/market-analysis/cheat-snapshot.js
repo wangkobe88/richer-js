@@ -50,6 +50,11 @@ const ACTIVITY_IDLE_GAP_SEC = 20;
 const ACTIVITY_BUCKET_SEC = 30;
 const ACTIVITY_CV_MIN_BUCKETS = 3;
 const ACTIVITY_UNEVEN_CV = 1.0;
+// D3.59（CD184）临近买点段窗口长（秒）：锚窗末端固定 30s（BSC 0.75s 出块≈40 块）。
+// 「开盘密集→临近只剩尘单滴答」形状里尘单不断打破时间静默，idlePct/maxGap 对临近
+// 死盘失明，须段内中位/吞吐单独度量；spanSec ≤本值不出临近段（临近=全窗无对比
+// 语义，极短窗另有 act ④极早窗豁免臂管）。
+const NEAR_SEG_SEC = 30;
 /**
  * burst 波强度滑窗宽度（G8 弱 burst 代码臂，2026-11-02 批次六 CD37/CD79 用户裁定
  * 「长期停滞突然涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻
@@ -800,6 +805,70 @@ function computeDerived(snapshot, famousRoster) {
     }
   }
 
+  // ── D3.59 全窗金额三锚+临近买点段七键（CD184 暴力雪球 0x15583f…7777 立案：开盘
+  // 30s 真实买流 1.2 BNB 单调 +13.9% → t+29s 后 43s 只剩 <0.002 尘单滴答维持价格，
+  // 全窗 20 笔/分+笔均 0.0535 被开盘段与单笔 0.8 拉高，Jev act=high@0.50 vs low 0.35
+  // 惜败放行 → 锚后 -30%。用户裁定「应该强调下临近买入时间窗口的活跃度吧，得提供
+  // 临近买入的活跃度数据」——D3.29/D3.49「Jev 心算不可靠、组合数值代码算好」先例：
+  // act ④③⑤ 判读原料（买卖笔数、买盘中位、金额吞吐、窗内最大回撤）代码算好进数值
+  // 行，另加临近段（锚窗末端 NEAR_SEG_SEC 秒固定窗）独立口径——尘单滴答不断打破
+  // 时间静默使 ① 的静默占比对「开盘密集→临近尘单」形状失明，临近死寂由段内中位/
+  // 吞吐暴露。dt 缺失全族 null（绝不冒充）；spanSec ≤ NEAR_SEG_SEC 临近段全 null
+  // （无对比语义）；买盘中位=全量行不滤 outlier（与笔均同口径），偶数个取下中位
+  // （尘埃判读方向保守）；最大回撤=可靠价序列运行峰回撤（≥2 可靠价才有证据，
+  // 单调序列=0 有证据零值）。grade 零新增消费。──
+  let buyMedianBnb = null, throughputBnbPerMin = null, maxDrawdownPct = null;
+  let nearSegTickN = null, nearSegTicksPerMin = null, nearSegBuyMedianBnb = null;
+  let nearSegBnbPerMin = null, nearSegMaxGapSec = null, nearSegBuyN = null, nearSegSellN = null;
+  if (dts.length >= 2) {
+    const spanClampedAmt = Math.max(1, spanSec);
+    const buyAmts = [];
+    for (const t of ticks) {
+      if (t.side === 'BUY') buyAmts.push(t.bnb || 0);
+    }
+    buyAmts.sort((a, b) => a - b);
+    if (buyAmts.length) buyMedianBnb = +(buyAmts[Math.floor((buyAmts.length - 1) / 2)].toFixed(6));
+    throughputBnbPerMin = +(((totalBuyBnb + totalSellBnb) / spanClampedAmt) * 60).toFixed(2);
+    const relPx = [];
+    for (const t of ticks) {
+      if (t.outlier || t.priceBnb === null || t.priceBnb === undefined || !(t.priceBnb > 0)) continue;
+      relPx.push(t.priceBnb);
+    }
+    if (relPx.length >= 2) {
+      let pk = relPx[0], dd = 0;
+      for (const p of relPx) {
+        if (p > pk) pk = p;
+        const d = (pk - p) / pk;
+        if (d > dd) dd = d;
+      }
+      maxDrawdownPct = +(dd * 100).toFixed(1);
+    }
+    if (spanSec > NEAR_SEG_SEC) {
+      const fromDt = dts[dts.length - 1] - NEAR_SEG_SEC;
+      let segN = 0, segBuyN = 0, segSellN = 0, segBnbSum = 0;
+      const segBuyAmts = [];
+      const segDts = [];
+      for (const t of ticks) {
+        if (t.dt === null || t.dt === undefined || t.dt <= fromDt) continue;
+        segN++;
+        segDts.push(t.dt);
+        segBnbSum += t.bnb || 0;
+        if (t.side === 'BUY') { segBuyN++; segBuyAmts.push(t.bnb || 0); }
+        else segSellN++;
+      }
+      nearSegTickN = segN;
+      nearSegTicksPerMin = +((segN / NEAR_SEG_SEC) * 60).toFixed(2);
+      nearSegBnbPerMin = +((segBnbSum / NEAR_SEG_SEC) * 60).toFixed(2);
+      nearSegBuyN = segBuyN;
+      nearSegSellN = segSellN;
+      segBuyAmts.sort((a, b) => a - b);
+      if (segBuyAmts.length) nearSegBuyMedianBnb = +(segBuyAmts[Math.floor((segBuyAmts.length - 1) / 2)].toFixed(6));
+      let sg = 0;
+      for (let i = 1; i < segDts.length; i++) sg = Math.max(sg, segDts[i] - segDts[i - 1]);
+      nearSegMaxGapSec = sg;
+    }
+  }
+
   // ── burst 波强度两键（G8 弱 burst 代码臂，头注见 BURST_WAVE_SEC/BURST_NEAR_SEC）：
   // 定线研究（tmp-burst-strength@182 17 票 sbw=burst）——豁免挡住的全是自己人（14 票
   // Jev act 已判 low），豁免资格须由波强度承接；人工 healthy 4 票中 3 票 maxGap 仅
@@ -1292,6 +1361,11 @@ function computeDerived(snapshot, famousRoster) {
     ticksPerMin, avgTradeBnb, maxGapSec, idlePct,
     // D3.55 窗口时长/总笔数（act 题④开盘极早窗反锚阈值原料；dt 缺失 null）
     spanSec, tickCount,
+    // D3.59 全窗金额三锚+临近段七键（act 题④③⑤/⑦判读原料——CD184 临近段尘单
+    // 滴答形状：全窗密度/笔均被开盘段与单笔大额拉高，段内中位/吞吐暴露金额死寂）
+    buyMedianBnb, throughputBnbPerMin, maxDrawdownPct,
+    nearSegTickN, nearSegTicksPerMin, nearSegBuyMedianBnb, nearSegBnbPerMin,
+    nearSegMaxGapSec, nearSegBuyN, nearSegSellN,
     burstWaveBuyBnb, burstWaveWallets,
     // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,

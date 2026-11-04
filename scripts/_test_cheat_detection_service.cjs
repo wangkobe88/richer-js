@@ -212,6 +212,15 @@ async function main() {
       `snapshot_digest 落锚快照（数值透传；实际 ${JSON.stringify(row.snapshot_digest.anchors)}）`);
     ok(row.snapshot_digest.activity && typeof row.snapshot_digest.activity.ticksPerMin === 'number',
       'digest 保留代码活跃度原始数值（Jev 档位校准对照原料）');
+    // D3.59（CD184 临近买点段）：genTicks(20)=20 行 2s 间隔 → spanSec=38、临近段=dt>8 的 15 行
+    // （买 10×0.1+卖 5×0.11=1.55 → 段吞吐 3.1）；全窗买 14 笔全 0.1 → 中位 0.1、
+    // 总额 2.06÷38×60=3.25；价格全平 → maxDD=0
+    const dgAct59 = row.snapshot_digest.activity;
+    ok(dgAct59.buyMedianBnb === 0.1 && dgAct59.throughputBnbPerMin === 3.25 && dgAct59.maxDrawdownPct === 0,
+      `D3.59 digest activity 全窗三锚（中位 0.1/吞吐 2.06÷38×60=3.25/平价 maxDD=0；实际 ${dgAct59.buyMedianBnb}/${dgAct59.throughputBnbPerMin}/${dgAct59.maxDrawdownPct}）`);
+    ok(dgAct59.nearSegTickN === 15 && dgAct59.nearSegBuyN === 10 && dgAct59.nearSegSellN === 5
+      && dgAct59.nearSegBnbPerMin === 3.1 && dgAct59.nearSegBuyMedianBnb === 0.1,
+      `D3.59 digest activity 临近段七键（段=dt>末−30 共 15 行买 10/卖 5、段吞吐 (1.0+0.55)÷30×60=3.1；实际 ${dgAct59.nearSegTickN}/${dgAct59.nearSegBuyN}/${dgAct59.nearSegSellN}/${dgAct59.nearSegBnbPerMin}/${dgAct59.nearSegBuyMedianBnb}）`);
     ok(row.jev_prompt.includes('[TICKS]') && row.jev_prompt.includes('截至第 20 笔')
       && !row.jev_prompt.includes('超拉数帽'), '首行落 jev_prompt 全文（锚声明在、未满帽无截断注记）');
     ok(row.question_version === 'D3.26' && row.anchor_tick_count === 20 && row.source_experiment_id === 'exp-1',

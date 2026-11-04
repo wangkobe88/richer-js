@@ -28,6 +28,14 @@ function fmtBnb(x) {
   return x >= 0.01 ? x.toFixed(3) : x.toFixed(4);
 }
 
+/** D3.59 微额展示：中位可低至 1e-8 档（fmtBnb 四位定点会抹成 0.0000 失真），
+ *  <1e-4 落科学计数一位小数 */
+function fmtBnbFine(x) {
+  if (x === null || x === undefined) return '?';
+  if (x >= 0.0001) return x.toFixed(4);
+  return x.toExponential(1);
+}
+
 /** 价格展示：科学计数（meme 币价 1e-9 量级，定点小数不可读） */
 function fmtPrice(p) {
   if (p === null || p === undefined) return '?';
@@ -297,7 +305,15 @@ function buildCheatState(snapshot) {
     // ④开盘极早窗反锚的阈值原料，检测点位常落在开盘极短窗、Jev 沿 t+ 心算时长不
     // 可靠（D3.49 同款）；反锚连线 D3.57 收紧为「窗 <60s 且 总笔数 <30」（∨→∧，
     // CD166 缓推窗回归案——385s/25 笔被「笔 <30」支单独豁免致 act low→mid、E 失效）
-    lines.push(`活跃度数值: 窗口时长 ${d.spanSec !== null && d.spanSec !== undefined ? d.spanSec + ' 秒' : '未知'} / 共 ${d.tickCount !== null && d.tickCount !== undefined ? d.tickCount + ' 笔' : '未知'} / 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒 / 无交易期占比 ${d.idlePct !== null && d.idlePct !== undefined ? d.idlePct + '%' : '未知'}（无交易期占比=间隔≥20秒的完全静默段合计÷窗口总时长；窗口时长=首末 tick 时间差；代码口径频率事实，activity_level 档位由你综合各要素给出）`);
+    lines.push(`活跃度数值: 窗口时长 ${d.spanSec !== null && d.spanSec !== undefined ? d.spanSec + ' 秒' : '未知'} / 共 ${d.tickCount !== null && d.tickCount !== undefined ? d.tickCount + ' 笔' : '未知'} / 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒 / 无交易期占比 ${d.idlePct !== null && d.idlePct !== undefined ? d.idlePct + '%' : '未知'} / 买卖 ${d.buyN ?? '?'}:${d.sellN ?? '?'} 笔（额 ${fmtBnb(d.totalBuyBnb)}:${fmtBnb(d.totalSellBnb)} BNB）${d.sellN === 0 ? '——全窗零卖出' : ''} / 买盘中位 ${fmtBnbFine(d.buyMedianBnb)} BNB / 金额吞吐 ${d.throughputBnbPerMin ?? '?'} BNB/分 / 窗内最大回撤 ${d.maxDrawdownPct ?? '?'}%（无交易期占比=间隔≥20秒的完全静默段合计÷窗口总时长；窗口时长=首末 tick 时间差；买卖笔数/买盘中位/金额吞吐（总交易额÷分钟数）/窗内最大回撤（可靠价运行峰最大回落）均已算好直接采信；代码口径频率事实，activity_level 档位由你综合各要素给出）`);
+    // D3.59 临近买点段事实行（CD184 立项：开盘段密集+临近段尘单滴答的金额死寂——
+    // 买点发生在窗口末端，本段就是买点当下的盘面事实；全窗密度/笔均被开盘段与
+    // 单笔大额拉高，临近段的金额量级以本段中位/吞吐为准；尘单滴答不断打破时间
+    // 静默使无交易期占比对此形状失明）。spanSec ≤30s 不渲染（临近=全窗无对比
+    // 语义，极短窗另有④极早窗豁免臂；缺席语义）。
+    if (d.nearSegTickN !== null && d.nearSegTickN !== undefined) {
+      lines.push(`临近买点段（最后 30 秒）: ${d.nearSegTickN} 笔（买 ${d.nearSegBuyN}/卖 ${d.nearSegSellN}）/ 密度 ${d.nearSegTicksPerMin} 笔/分 / 买盘中位 ${fmtBnbFine(d.nearSegBuyMedianBnb)} BNB / 吞吐 ${d.nearSegBnbPerMin} BNB/分 / 段内最大间隔 ${d.nearSegMaxGapSec} 秒（口径：锚窗末端固定 30 秒；买点发生在窗口末端，本段=买点当下的盘面——开盘段的密集不救本段的金额死寂，判读同③⑤口径：段内中位尘埃级或吞吐 <1 BNB/分钟量级=临近买点死盘；尘单滴答会不断打破时间静默，无交易期占比对「开盘密集→临近只剩尘单滴答」的形状失明）`);
+    }
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
     // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）

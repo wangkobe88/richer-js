@@ -743,6 +743,16 @@ class CheatCheckService {
           idlePct: derived.idlePct ?? null, // D3.49 无交易期占比（间隔≥20s 静默段÷窗长；CD110 漏判数值化）
           spanSec: derived.spanSec ?? null, // D3.55 窗口时长（act 题④开盘极早窗反锚阈值原料，CD162）
           tickCount: derived.tickCount ?? null, // D3.55 窗口总笔数（同上）
+          buyMedianBnb: derived.buyMedianBnb ?? null, // D3.59 买盘中位（act ③尘埃判读主判据数值化）
+          throughputBnbPerMin: derived.throughputBnbPerMin ?? null, // D3.59 金额吞吐（act ⑤）
+          maxDrawdownPct: derived.maxDrawdownPct ?? null, // D3.59 窗内最大回撤（act ④）
+          nearSegTickN: derived.nearSegTickN ?? null, // D3.59 临近段（末端 30s）笔数
+          nearSegTicksPerMin: derived.nearSegTicksPerMin ?? null,
+          nearSegBuyMedianBnb: derived.nearSegBuyMedianBnb ?? null,
+          nearSegBnbPerMin: derived.nearSegBnbPerMin ?? null,
+          nearSegMaxGapSec: derived.nearSegMaxGapSec ?? null,
+          nearSegBuyN: derived.nearSegBuyN ?? null,
+          nearSegSellN: derived.nearSegSellN ?? null,
           level: derived.activityLevel ?? null,
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,
