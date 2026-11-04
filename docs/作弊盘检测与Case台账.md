@@ -186,6 +186,17 @@
 
 ## Case 倒序
 
+### 936e1bd9 BUY 信号票批量收录 CD242-CD279（38 案）+首轮裁定（2026-11-04）
+
+**背景**：用户指令「实验 936e1bd9 还有交易信号的币没收录的收录一下，然后把没过的一一过一遍」——BUY 信号去重 93 票、已收 56，**未收 37 票全量收录**（CD243-CD279，锚=各自生产首析行 anchor_tick_count，与代币×点位粒度裁定一致）+CD242 NEBULA@471（多点位第三锚，CD238 补充裁定的落地）。--add 入口判重同步修复对齐 addr#anchor 组合键（d475fc87 漏改 cmdAdd，904ac231 补）。
+
+**重析（D3.61）**：cheat=11 / unhealthy=20 / healthy=7；锚后结局三数（最大/15 分末/尾盘）随 review 表给出。
+
+**首轮裁定（用户 2026-11-04，逐票 review 表+信号页六票标签）**：「CD260 收录为强庄币，healthy；其它都认同当前结果」——
+- **CD260 Slime 人工翻案 healthy**（机器 cheat[A_strong:pump+spike,J,R,M_hyper_activity]，锚后 +216.8%/尾 +211.9%——真实强庄形状机器四通道全打，**强庄豁免分歧第 4 例**（CD237/CD238/CD239 同款），CD159 攒池域继续攒）
+- 36 案 expect=机器当前 grade（cheat 9/unhealthy 20/healthy 7，含 CD257 胖五@21 healthy+锚后 +460% 的漏拦受益面留档、CD278 凯恩 M_hyper 单通道拒买首例）
+- **CD242 NEBULA@471 保持 unclear 待裁**（首轮误开 936e1bd9 信号页无信息——该票信号在 4012ce39，已纠正重开；机器 cheat[A_strong:pump,R]，用户前裁定「到了后期才是强庄币」语义倾向 healthy 强庄收录）
+
 ### CD241 蝴蝶NFT🔥 全窗稀疏间歇死水+买点在二波缓推顶——全窗量级综合锚 D3.61（2026-11-04）
 
 **票**：0x0ba52e4445273668d1095dde970b79fd43ae7777（v71 both 实验 936e1bd9 信号票，flap 盘，symbol 蝴蝶NFT🔥）。**形状**：锚 43 笔 268s 窗/29 钱包/总买仅 1.6 BNB（吞吐 0.43 BNB/分、买盘中位 0.025、笔均 0.045）——开盘 27s 真实买流 ~0.6 BNB 后**中段 47s 完全静默**，一小波缓推买入后又现静默，全窗 ~27% 时间无任何交易；**买点恰在二波缓推顶**（锚末=全窗峰值）。生产首析（D3.57）：act=mid → grade=healthy 过门买入 0.004 BNB@5.78e-9 → 1m42s 后 P4 砍仓 **-35%**（锚后 -29%）。佐证：pump 组合门差一腿（稳定段 11 点<15 立案线，Jev pump=moderate 与数值一致——机器缓推形状证据不足，非本案立法域）。
@@ -212,7 +223,7 @@
 
 **验证**：单测 lib 630（D3.60 段：题面分层表/创建者不豁免/分层域/正反样本文本断言+11 持有者缩样 72.08/74.87/77.66 手算精确值+2 持有者前二恒 100 前三 null+1 持有者两键 null+全清仓 0+state 渲染+buildObservation 生产窗实值 23/76.1/78.5）+gate_engine 65（need 49 键+投影三键数值）+service 103/grade 125 全绿。
 
-**182 定向对拍（11-04，D3.60）**：**立项票翻案成功**——CD240@29 hold weak→**strong**、grade healthy→**unhealthy[J_holdings_strong]**（D3.59 基线存档对照确认）；反例四票：CD26（14 持有者 21.7/39.2/49.4 全不过线）hold=moderate/healthy 不误伤 ✓；CD237（64 持有者 31.1/37.7/40.7 全不过线）hold=moderate——其 grade=cheat 来自 A_strong:slow_grind_pump+R_abnormal_dominant 既有通道与 D3.60 无关；**CD238 NEBULA@121（15 持有者）前二 59.4>55、前三 71.4>70 双过线=分层线合法命中**（hold=strong→J 拒买；与强庄池人工 healthy 裁定**直接冲突**——机器按新立法执行无误，冲突=立法线 vs 强庄豁免研究的政策分歧，**待用户裁定**）；CD239（114 持有者 6.5/10.4/14.0 全不过线）hold=strong 疑漂移→**D3.59 题集临时回放同判 strong**（cluster 维度垄断 sbHold 47.4/eqHold 65.7 既有判读，非 D3.60 漂移，机器×人工分歧维持既有留档）。expect=unhealthy 已落（人工改写+because 留痕）。**余留**：①CD238 分层线×强庄池豁免冲突待用户裁定（豁免方向题属 CD159 攒池研究域）②v71 引擎进程重启换代后才吃到 D3.60（是否重启由用户定）。
+**182 定向对拍（11-04，D3.60）**：**立项票翻案成功**——CD240@29 hold weak→**strong**、grade healthy→**unhealthy[J_holdings_strong]**（D3.59 基线存档对照确认）；反例四票：CD26（14 持有者 21.7/39.2/49.4 全不过线）hold=moderate/healthy 不误伤 ✓；CD237（64 持有者 31.1/37.7/40.7 全不过线）hold=moderate——其 grade=cheat 来自 A_strong:slow_grind_pump+R_abnormal_dominant 既有通道与 D3.60 无关；**CD238 NEBULA@121（15 持有者）前二 59.4>55、前三 71.4>70 双过线=分层线合法命中**（hold=strong→J 拒买；与强庄池人工 healthy 裁定**直接冲突**——机器按新立法执行无误，冲突=立法线 vs 强庄豁免研究的政策分歧，**待用户裁定**）；CD239（114 持有者 6.5/10.4/14.0 全不过线）hold=strong 疑漂移→**D3.59 题集临时回放同判 strong**（cluster 维度垄断 sbHold 47.4/eqHold 65.7 既有判读，非 D3.60 漂移，机器×人工分歧维持既有留档）。expect=unhealthy 已落（人工改写+because 留痕）。**余留**：①~~CD238 分层线×强庄池豁免冲突待用户裁定~~→**已裁定（11-04 当日）**：用户原话「没关系 CD238 本来也放不了，它到了后期才是强庄币，前期判 cheat 问题不大。严谨的话这个币可以收录多个点位」——@121 点位 expect 改判 cheat 方向（强庄形成前的点位拒买无误，分层线不豁免）；后期强庄形态另立 **CD242@471** 多点位收录（代币×点位粒度第三锚，471=观察页截点 t2 回 5.1 后期回强段），--add 入口判重同步修复对齐 addr#anchor 组合键（d475fc87 只改了 lib 校验器漏了 cmdAdd）②v71 引擎进程重启换代后才吃到 D3.60（是否重启由用户定）。
 
 ### CD237 cheat 门提速：resolver 解析链重构（块预取 join+GMGN 路由事件映射）+ settle 双模 + 拉数双源行环（2026-11-04，机制案·无 token）
 

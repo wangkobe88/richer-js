@@ -3658,12 +3658,12 @@
         "tickCount": 121
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "cheat"
       },
       "note": "CD159 强庄池第 12 张（CD114 同代币后半段点位；锚=121=晚锚研究截点 sbp-late 非生产信号锚）。11-04 十票观察页用户裁定：「后半段的形态是健康的，可以算强庄币」——形状：截71/121 双 R 命中（bw 2.81/27户 t2 6.5→5.6 act high），中段 221 稀释（t2 3.2）后 471 回 5.1，波内钱包 27 持续；首析点位著名钱包主导 dom 78.1% 归 CD114@71（expect unhealthy 不动）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 十票观察页）「CD114/CD139 后半段的形态是健康的，可以算强庄币」"
+      "expectBecause": "用户裁定（2026-11-04）「CD238 本来也放不了，它到了后期才是强庄币，前期判 cheat 问题不大。严谨的话这个币可以收录多个点位」——@121 点位分层线 J+A 命中拒买无误；后期强庄形态另立 CD242@471"
     },
     {
       "caseId": "CD239",
@@ -3712,6 +3712,614 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "CD241 用户裁定 unhealthy（2026-11-04）原话「这个票落 unhealthy，我直观上看活跃度太低，不应该买的」——全窗稀疏间歇死水：四腿联立（密度 9.63<10 ∧ 吞吐 0.43<1 ∧ 中位 0.02475<0.05 ∧ 静默 27.2%≥1/4/空窗 47s≥40s）全中，act 应 low 由 E 通道拒买（D3.61 综合锚+⑥间歇死水边界；对拍翻案后复核）"
+    },
+    {
+      "caseId": "CD242",
+      "symbol": "NEBULA",
+      "addr": "0x1d377357eeeeffe34f4b59487bf5d0ee75337777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 471
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "NEBULA 后期强庄点位（CD114@71 前期 unhealthy 不动/CD238@121 中段）——同代币多点位第三锚：用户裁定「CD238 本来也放不了，到了后期才是强庄币，严谨的话可以收录多个点位」；471=观察页截点 t2 回 5.1 后期回强段",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（NEBULA 后期强庄点位（CD114@71 前期 unhealthy 不动/CD238@121 中段）——同代币多点位第三锚：用户裁定「CD238 本来也放不了，到了后期才是强庄币，严谨的话可以收录多个点位」；471=观察页截点 t2 回 5.1 后期回强段）"
+    },
+    {
+      "caseId": "CD243",
+      "symbol": "递烟大爷",
+      "addr": "0x59ba80de55008d6de43e8ce7cbc70b0eb3967777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=25，信号@11-04T11:37:50",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD244",
+      "symbol": "BNB领头羊",
+      "addr": "0xd5ea3f247c4424385dd020930a404d968bf87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 50
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=50，信号@11-04T11:39:49",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD245",
+      "symbol": "CatRunner",
+      "addr": "0xe2e77f2938ddcd20512b7ca2b3a050da294b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=18，信号@11-04T11:42:27",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD246",
+      "symbol": "MAMESUKE",
+      "addr": "0x052796138c19d88e182c171a5af2b7c6f5797777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=28，信号@11-04T11:46:18",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD247",
+      "symbol": "蝴蝶之星",
+      "addr": "0x44cc26500893cd636f3fd475ecb533d3e2657777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 49
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=49，信号@11-04T11:52:34",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD248",
+      "symbol": "VETO",
+      "addr": "0xad403221033a3d1b1eaf62f6ce3f814c46e47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=21，信号@11-04T11:56:06",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD249",
+      "symbol": "BOSS",
+      "addr": "0x6dcc6893f77aa362579125624d16be8d53427777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=24，信号@11-04T12:06:53",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD250",
+      "symbol": "羊羊得亿",
+      "addr": "0xb648a3fd8467644d6572d38671d8b253545a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=23，信号@11-04T12:14:05",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD251",
+      "symbol": "히랑이",
+      "addr": "0x3f7e659b7c21df6a022bad3fa6a2292946097777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=25，信号@11-04T12:17:18",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD252",
+      "symbol": "Boonthung",
+      "addr": "0x144ca68e0192ba9f06392e2e671478bda8c47777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 30
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=30，信号@11-04T12:21:20",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD253",
+      "symbol": "Moonbix",
+      "addr": "0xdf4059f6d5d8ba29e98f7c9e0e07daa474677777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 38
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=38，信号@11-04T12:22:11",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD254",
+      "symbol": "FlapFarm",
+      "addr": "0xa4b7cf6b3b1a63c2a1ba92a6c9e459207db67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 23
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=23，信号@11-04T12:22:47",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD255",
+      "symbol": "AI黑洞",
+      "addr": "0x65f4ffd19234cd5619c7a96849f6ee29ac9d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=42，信号@11-04T12:27:42",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD256",
+      "symbol": "中国吊会飞",
+      "addr": "0xb59692cce66342292b1334a889edabed85e07777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=37，信号@11-04T12:31:12",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD257",
+      "symbol": "胖五",
+      "addr": "0x58b2931f2bf31d2a6299e4f987c1d7ac6a967777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 21
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=21，信号@11-04T12:33:07",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD258",
+      "symbol": "FIREANT",
+      "addr": "0x00e346af4c54fda56fbf13e537826dc3f6fc7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=20，信号@11-04T12:33:09",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD259",
+      "symbol": "胖五",
+      "addr": "0x562ba26b71e6ad4e32a2c2b038a8d5a214867777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 62
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=62，信号@11-04T12:35:45",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD260",
+      "symbol": "Slime",
+      "addr": "0x8351311fe78e9045a5eebcb11db9d700658c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 28
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=28，信号@11-04T12:40:47",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「CD260 收录为强庄币，healthy」——机器 cheat[A_strong:pump+spike,J,R,M] 分歧留档（强庄池 CD159 域，锚后 +216.8%/尾 +211.9%）"
+    },
+    {
+      "caseId": "CD261",
+      "symbol": "FORTNITE",
+      "addr": "0xfcc2de591830e3445a343d1487908c520ff87777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 18
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=18，信号@11-04T12:41:31",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD262",
+      "symbol": "够中国",
+      "addr": "0x8ea194f88e4ca4b234d67ef4a6fd63825c917777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 56
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=56，信号@11-04T12:42:14",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD263",
+      "symbol": "胖五",
+      "addr": "0x01e84c5278dd39c52d266f97fd8bbb075ad17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=26，信号@11-04T12:42:24",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD264",
+      "symbol": "中国屌能飞",
+      "addr": "0xc212e5b829bbc6a4d0e28e4d642d80aa2b307777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 57
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=57，信号@11-04T12:43:18",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD265",
+      "symbol": "电动滑板",
+      "addr": "0x6b87facc39b23e2602a85fe0b3a26e3744dd7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 34
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=34，信号@11-04T12:50:50",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD266",
+      "symbol": "自律公约",
+      "addr": "0xc9cc69c049b90a6c935aab49189b5c9fd6cc7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 32
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=32，信号@11-04T12:51:38",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD267",
+      "symbol": "Future",
+      "addr": "0x26090ef1ad2545e2dceeaf5599571faaf8047777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 55
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=55，信号@11-04T12:52:51",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD268",
+      "symbol": "BSA",
+      "addr": "0x10e6ea89253096543080f88d29c4585a13647777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 15
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=15，信号@11-04T12:54:58",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD269",
+      "symbol": "币安社区",
+      "addr": "0x46348c5f70ed522f1a85378cbf1431c1cc1c7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=25，信号@11-04T12:58:08",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD270",
+      "symbol": "蝴蝶NFT🔥🔥🔥",
+      "addr": "0x1093be2abd712685a37fd5384cd586d3feca7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 53
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=53，信号@11-04T13:06:14",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD271",
+      "symbol": "朴泰斗",
+      "addr": "0x5bad2098c25c3cde275f2ad4d06602760de67777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=26，信号@11-04T13:06:49",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD272",
+      "symbol": "币安社区",
+      "addr": "0x6e4995376508e8f2ff7819cfa76abd7ed6e17777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=25，信号@11-04T13:08:22",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD273",
+      "symbol": "币安股权",
+      "addr": "0xbacd8183b89c47f1f4e69ea45d04ca4fdd257777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "cheat"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=26，信号@11-04T13:10:18",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD274",
+      "symbol": "唐爷爷",
+      "addr": "0xd94cd641542384d58032038d13e977af4fe77777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 20
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=20，信号@11-04T13:11:31",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD275",
+      "symbol": "币安骑士",
+      "addr": "0xf529c331aace8686b42b0f969fa75dae06237777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 37
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=37，信号@11-04T13:16:46",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD276",
+      "symbol": "HAS",
+      "addr": "0x6fb1767749297295aecedc23b11acac4ba197777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 26
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=26，信号@11-04T13:18:04",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD277",
+      "symbol": "TAPEFLAP",
+      "addr": "0x2858bb50b9cf0f8698a6fd09d2471f0d564a7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 76
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=76，信号@11-04T13:28:43",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD278",
+      "symbol": "凯恩",
+      "addr": "0x1e5d0f4cbcaa2e5b946e0d9ab7d097c41b447777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 25
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=25，信号@11-04T13:29:04",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
+    },
+    {
+      "caseId": "CD279",
+      "symbol": "滑板逃亡",
+      "addr": "0x5999f1013f72528c51d9afde545f2ed814087777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=24，信号@11-04T13:38:16",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「其它都认同当前结果」——expect=机器当前 grade"
     }
   ]
 }
