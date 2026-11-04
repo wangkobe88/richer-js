@@ -40,10 +40,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **sizing=卡牌唯一表达**（cards；sellPercentage 已退役 2026-10-24）；全清腿恒精确 1；卡账本 `cardTrade` 绝对值重放恢复
 - 全部卖腿 bypass=false 走 **3.5s+5tick 双门槛确认**（首真起计不重置、断流票不得按陈旧快照卖、maxWait 逃生）；**T109（2026-11-03）起证据口径修正**：同笔链上 tick（txHash:logIndex）两段喂食双 touch 只计一份、扫描 null-touch 不凑证据（minTicks=5 恢复设计意图的 5 真笔），且卖腿可配 `sellDebounce:{minTicks,debounceMs,maxWaitMs}` 腿级覆盖（首真起算固化腿门）；**唯一例外 gang-trail-exit bypass=true**（T83：gang 曲线价纯函数无 tick=价格真冻结+App 确认分钟级人在环，与 AMM 快照失真语境刻意不同）
 - 引擎级止损双腿（时间 `profitPercent<=0` / 价格）+ 断流票扫描兜底；用户裁定「所有卖出归卖出策略管」，现行实验以卖腿表达止损
-- **T104 流动性止损 stallClose（2026-10-29 v63 起实跑；【已废】2026-11-02 v67 起退役=用户指令「卖出臂中的断流臂（断流XX秒全部卖出）删除」，v67 config 不带 stallClose 段，断流票交 30s 持仓卖腿兜底扫描+P13 时间止损接管）**：持仓票距上一笔链上成交（FA lastTickAt）**>10s 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104；机制代码留档未删，配段即复活）
+- **T104 流动性止损 stallClose（2026-10-29 v63 起实跑；2026-11-02 v67 曾退役=用户指令「卖出臂中的断流臂（断流XX秒全部卖出）删除」；**2026-11-04 v71 复活（T114 用户指令「增加一个断流卖出的卖出臂，断流30秒以上，全部卖出」）——`stallClose:{stallMs:30000}` 配段即生效（机制代码留档未删的本意）**）**：持仓票距上一笔链上成交（FA lastTickAt）**>stallMs 全部清仓**——引擎级 `stallClose` 段（bypass 立即路径 + lockTokenAfterSell=false 放行再买臂），不配=关；实时 1s 墙钟扫描/回测 processTick 前虚拟时钟节流，10s 档回放净 +0.077 BNB/8d、代价=大票利润 −21%（详档 T104）
 - 毕业卖：four.meme 市值/72 锚 + flap **资金口径**（池净入金，2026-10-24 替换价格锚）；live 毕业票路由 **PCS V2 外盘**（quote 盘二跳）
 - 卖臂族：P4 市值清仓 4.5K / 120s 死票清仓 / rug-exit-account-arm（宣告账号删号删推→全清，v29）/ T79 地板 5500 全类目泛化（v43 起 5500+冻结 10s；**2026-10-28 追裁定冻结 10→16s**，现行 BNB 域形状 `<7.4 AND realHoldDuration>16 AND entryMcap 豁免臂`，v46 生效）/ **T80 回撤锁盈减仓臂·中档 -15（`peakProfitPct>=10 AND dd<=-15 AND 6K<=mcap<20K` 卖 1 卡 cd300s，priority 10 先于拱形 -35 全清；v44 `5be4c248` 2026-10-28 02:30 UTC 起实跑）** / **T97 高点停滞减仓臂（`peakProfitPct>=10 AND secSincePeak>60` 卖 1 卡 cd60 maxExecutions=2；FA 新键 secSincePeak=距持仓期峰值秒数；priority 10 数组序在 T80 前=时间停滞层先于幅度回撤层，打盈转亏 P13 全清之前；v55 编号被 T98 占用后重建 create-v56 换车，v56 `4ac10e23` 2026-10-29 04:05 UTC 起实跑）** / **T99 拱形回撤收紧 -25 下放低两档·减 1 卡（`peakProfitPct>=10 AND dd<=-25` `<8.1` 与 `8.1-27` BNB 两档卖 1 卡 p11/max1，三层梯队 T80 -15 减1卡→T99 -25 减1卡→拱形 -35 全清；SPERM 0x0590…7777 案 dd -41% 才 fire 动机；v58 `12ef2c48` 2026-10-29 起实跑）** / **T107 市值拱形时间全清臂（`mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec` 全清 p10；FA 三键 token 全生命口径——X=首交易→最高市值耗时，峰值市值超 15K USD（=20.1 BNB @745）后距峰 ≥ X/2 秒未再破新高→全清；库 mcap-arc-fullclose v1，v65 `aed2091d` 2026-10-29 14:33 UTC 起实跑）** / **T113 pump 失衡全清臂（`realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90` 全清 p5；FA 新键 sinceEntryNetBuyRatio=本仓成交锚以来 (Σ买−Σ卖)÷(Σ买+Σ卖)×100，锚=setBuyState 快照全史累计差值、补买轮各自重锚、入场后零交易 null fail-closed；v70 13 票探针：入场后 30s 仍单边买的 6 票 4 亏 -7~-37%（比特币银行/蝴蝶喊单/蝴蝶池/共建共赢全亏）；库 pump-imbalance-exit v1，v71 起实跑）**
 - 手动交易四按钮（live/virtual，2s 轮询 CAS + 停止卖出锁）
+- **T114（2026-11-04）v71 卖臂大修剪——12 删 3 改 1 增，26→15 条**（详档 T114 案）：退役=P4 市值地板/死票族 4 条（快跑 3.5-4K/底部等待/地板 5.5K/死票 120s）、rug-exit-account-arm（去叙事后无推特检测输入）、超买止盈 T85/T78、T84 早期臂离场族 3 条（上位/protect20/600s）；合并=P0(-50)+P2(-35) → 单一 `-40`（minTicks 8 继承）；调参=T99 两档 -25 减仓 max1→**4**+cd**60s**、拱形低档全清 **-35→-45**；新增=stallClose 30s 断流全清（T104 复活）。**现行 v71 15 条：-40 止损 / 时间止损 1h / 毕业①② / T113 失衡 / 收益 100%+50% / T99 -25 两档(max4) / 拱形 -45/-35/-25 三档 / T107 拱形时间 / T97 停滞 / T80 锁盈 -15 + stallClose 引擎级**
 
 ---
 
@@ -572,6 +573,17 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - vanity 地址尾号团伙 sniper-like→retail 反向盲区（先快抢后接盘的反向画像）；TPA 双盲区
 
 ### 丁、卖腿 / 止损 / 毕业卖
+
+### T114 v71 卖臂大修剪：12 删 3 改 1 增（26→15 条）+ stallClose 30s 复活（2026-11-04，v71 `936e1bd9` 实验级 config 变更+重启生效，库未动；用户九点指令）
+
+- **用户指令原文（九点）**：①「profitPercent <= -50 跟 profitPercent <= -35 矛盾了，改为 profitPercent <= -40 吧，原先两臂全部删除」②「反作弊不走推特检测了，"Rug 前兆臂" 可以删除」③「市值地板/死票清仓族（4 条，全部 P4）全部退役」④「超买止盈族 全部退役」⑤「T84 早期臂专属离场族 全部退役」⑥「增加一个断流卖出的卖出臂，断流30秒以上，全部卖出」⑦⑧「dd <= -25（<8.1 档与 8.1-27 档）最大执行次数改为4，冷却1分钟」⑨「dd <= -35 AND marketCap < 8.1 改为 dd <= -45 AND marketCap < 8.1」
+- **删 12 条**：P0 `<= -50` 与 P2 `<= -35`（①合并）、P2 rug-exit-account-arm（②动机=v71 去叙事（v56b）后推特账号检测无输入， issuerAccountState 恒 null 腿恒 false 形同虚设；libraryRefs 同步删孤儿 ref）、P4 四条（③快跑 3.5-4K/底部等待 <3.5K/地板 5.5K（minTicks 10 覆盖随腿删）/死票 120s）、T85 `rsi>85` 与 T78 `(78,85]`（④）、T84 三条（⑤上位离场 27/protect20/600s）。**残余语义接管**：地板/死票族的「阴跌归零票截断」→ 拱形回撤三档+T107 时间维度+stallClose 30s（死票即断流）+时间止损 1h 兜底；超买减仓 → 收益阶梯 50%/100% + T99 -25 两档（max4 后可打光 4 卡=全清等效）接管
+- **增 1 条（①合并臂）**：P2 `profitPercent <= -40` 全清，minTicks 8 继承原 -35 主止损确认门（T109b 全窗去重后=8 真笔），maxExecutions 不设（失败每轮重试），profitPercent null 恒 false fail-closed；断流冻结票归 stallClose 管
+- **⑥实现选型=配 `stallClose:{stallMs:30000}` 段（T104 复活）而非卖腿形状**：卖腿走确认窗双门（minTicks 需新 tick 凑证——断流票零新 tick 永远凑不齐，只能 maxWait 120s 强制逃生）+ 卖腿兜底扫描断流判据 60s 起评+30s 周期，实际离场 ≥90-150s 且语义拧巴；stallClose=bypass 立即路径+1s 墙钟扫描+lockTokenAfterSell=false 放行再买，30s 语义精确成立（机制代码/单测全程留档，配段即生效——T104 退役时「配段即复活」设计兑现）
+- **改 3 条**：⑦⑧ T99 两档 `dd<=-25`（<8.1/8.1-27）maxExecutions 1→4 + cooldownSec 60——原「max1 恰一次、dd 回升再落不重卖」语义退役，改为「持续/反复回撤每 60s 减 1 张、最多 4 张」（4 卡票可打光=减仓腿兼全清）；⑨ 拱形低档全清 -35→-45（低市值档噪声容忍回深，向 v2-A 模板原文「低市值档 -45」回归——原条件 -35 与模板描述 -45 不一致即本次纠正；中档 -35/高档 -25 不动）
+- **改后 v71 15 条卖腿（priority 序）**：p1 时间止损 1h / p2 止损 -40（minTicks 8）/ p3 毕业① 0.9 卖2 / p5 T113 失衡全清 / p7 收益 >100% cd80 max2 / p8 毕业② 0.98 卖2 / p9 收益 >50% cd300 / p10 T107 拱形时间全清 / p10 T97 停滞减仓 cd60 max2 / p10 T80 锁盈 -15 cd300 / p11 T99 -25 低档 max4 cd60 / p11 T99 -25 中档 max4 cd60 / p11 拱形 -45 低档全清 / p11 拱形 -35 中档全清 / p11 拱形 -25 高档全清；+引擎级 stallClose 30s 断流全清
+- **验证**：改动脚本 12 删除+3 修改目标 condition 等值断言各恰 1 命中+改后 15 条回读核对；15 条全过 loadStrategies 等价校验（parseCondition→validateCondition vs FA getFactorKeys 探针，零未知因子）；stallMs=30000 单测 `_test_stall_close.cjs` 既有形状覆盖（机制未改码，纯 config 数值）
+- **生效条件**：须重启 v71 实验进程（182 现跑进程持旧 config 内存态）；库未动（12 删 3 改均为实验 config 快照本体；-40 合并臂是否升库 replacement 待形状稳定后裁定——同 T112「实验级调参先跑再固化」先例）
 
 ### T109 卖确认去抖 tick 去重 + 腿级 sellDebounce 覆盖段（SellConfirmDebouncer/FA emit/StrategyEngine/validateLegs/库页五处；2026-11-03 0x89e4…7777 flap 梗案诊断后用户指令「解决一下 touch 两次的问题吧。此外，能不能把 debounce 的条件放到卖出臂中，作为卖出臂的配置，这样，这个止损臂我可以再增加一些 ticks 的要求」）
 
