@@ -197,6 +197,14 @@
 - 36 案 expect=机器当前 grade（cheat 9/unhealthy 20/healthy 7，含 CD257 胖五@21 healthy+锚后 +460% 的漏拦受益面留档、CD278 凯恩 M_hyper 单通道拒买首例）
 - **CD242 NEBULA@471 保持 unclear 待裁**（首轮误开 936e1bd9 信号页无信息——该票信号在 4012ce39，已纠正重开；机器 cheat[A_strong:pump,R]，用户前裁定「到了后期才是强庄币」语义倾向 healthy 强庄收录）
 
+**续轮复审（用户 2026-11-04 下午，六批 38 票全过+终态落定，commit 7a304486）**：每票信号页标签+今重析 grade（D3.61 二跑）+锚后结局三数逐批过目——
+
+- **同版本重析档位摆动四例（D3.61 两次跑 Jev 边际档位波动，D3.5 停产+expect=人工定锚的意义所在）**：CD246 MAMESUKE sbw burst→none、hold strong→moderate → pump strong 缓推主判坐实 **升 cheat**（用户认同）；CD265 电动滑板 bw 越 strong 坐实 A_strong 同块买入波 **升 cheat**（用户认同「当前结果都没问题」=认同今重析）；CD255 AI黑洞 abr dominant→noticeable 全通道空 healthy[clean] 漏判，**用户人工翻案 cheat**（「CD255 是 cheat，pump 集合收录一下吧」）；CD245 CatRunner abr 反向摆动触发 R → unhealthy，用户「其它能接受」=维持 healthy expect（摆动不追改，人工值锚定）。
+- **pump 缓推族校准池 +3 样本（人工翻案收录）**：CD255 AI黑洞（第六例，36m 长窗缓跌 -26.9%）/CD247 蝴蝶之星（第七例，「cheat 是 pump 但形态没有特别强」=边际弱形态样本，max +38.4%→尾 -33.5%）/CD276 HAS（第八例，「作弊，pump」，max +61.7%→尾 -27.9%，sbHold 63.1%/簇流 68.4% 高集中佐证）——三票机器均 healthy[clean]/unhealthy 漏 pump（pump=moderate 边际），全靠人工轨迹判读；池累计 8 样本（CD165/166/175/181/182 既有+本轮 3）。
+- **CD244 BNB领头羊 翻 unhealthy**：用户「244 感觉活跃度低」——act=low 但 sbw=burst 挡 E 通道（弱 burst 三键 gap47s<60 不满足）机器 healthy[clean] 放行=**低活跃假阴性**（E 通道 burst 豁免臂缝隙，与 CD241 D3.61 全窗量级域互补留档）；锚后 155m 长窗缓跌 -31.7% 方向支持。
+- **维持留档点**：CD257 胖五@21 healthy+锚后 2m 内 **+460.4%**（healthy 放行判对的最大盈利样本，与 CD259/CD263 同名不同票）；CD278 凯恩 **M_hyper_activity 单通道拒买首例**（act=ultra 其余通道全空，通道有效性独立实证）；CD271 朴泰斗 max +106.9%→尾 -45.5%、CD277 TAPEFLAP max +269.2%→尾 -42% 拉高出货形状（拒买躲过后段）。
+- **终态分布**：cheat 15 / unhealthy 18 / healthy 5（CD245/CD256/CD257/CD260/CD268）——38/38 全落定无 unclear。
+
 ### CD241 蝴蝶NFT🔥 全窗稀疏间歇死水+买点在二波缓推顶——全窗量级综合锚 D3.61（2026-11-04）
 
 **票**：0x0ba52e4445273668d1095dde970b79fd43ae7777（v71 both 实验 936e1bd9 信号票，flap 盘，symbol 蝴蝶NFT🔥）。**形状**：锚 43 笔 268s 窗/29 钱包/总买仅 1.6 BNB（吞吐 0.43 BNB/分、买盘中位 0.025、笔均 0.045）——开盘 27s 真实买流 ~0.6 BNB 后**中段 47s 完全静默**，一小波缓推买入后又现静默，全窗 ~27% 时间无任何交易；**买点恰在二波缓推顶**（锚末=全窗峰值）。生产首析（D3.57）：act=mid → grade=healthy 过门买入 0.004 BNB@5.78e-9 → 1m42s 后 P4 砍仓 **-35%**（锚后 -29%）。佐证：pump 组合门差一腿（稳定段 11 点<15 立案线，Jev pump=moderate 与数值一致——机器缓推形状证据不足，非本案立法域）。
