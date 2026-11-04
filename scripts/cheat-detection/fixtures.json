@@ -2385,6 +2385,22 @@
       "addedAt": "2026-11-03",
       "expectSince": "2026-11-03",
       "expectBecause": "2026-11-03 收尾裁定（v68 成交票扩集）：用户裁定原话「CD157 明显的 cheat。burst 流量 是作弊」——机器 healthy[clean] 与人工分歧（sbw=burst 档位在场+慢盘 36 tick 跨长窗约 1 笔/分钟+29 钱包 1.91 BNB；现行规则 sbw=burst 仅作 E 通道豁免条件、act=mid 不走 E=零通道触发放行）；burst 尖刺=作弊已随 D3.51/G15 立法承接（新题 burst_spike_concentration 四档 EXT+A 主判 strong→cheat，立法批准原话「好，落吧」；本票为两立项票之一，定向重析预期翻 cheat）"
+    },
+    {
+      "caseId": "CD160",
+      "symbol": "HomeBrew",
+      "addr": "0xf5e642bc79bd3dff16bb02794c6854933bb57777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 17
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "CD160 立项票：v69 8a51f2fd 三簇精确等额同块（0.3718x2/0.2479x2/0.0615x7）判 healthy，簇同块卖回铁证全在锚窗外（t+35/54/101/1503s）；D3.53 新锚+题面 double 载体翻案验证；expect 待对拍后人工裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（CD160 立项票：v69 8a51f2fd 三簇精确等额同块（0.3718x2/0.2479x2/0.0615x7）判 healthy，簇同块卖回铁证全在锚窗外（t+35/54/101/1503s）；D3.53 新锚+题面 double 载体翻案验证；expect 待对拍后人工裁定）"
     }
   ]
 }
