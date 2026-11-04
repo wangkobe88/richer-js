@@ -360,6 +360,14 @@ class CheatCheckService {
           exactEqualBlockBuyPct: snapshot.derived.exactEqualBlockBuyPct,
           exactEqualBlockClusterCount: snapshot.derived.exactEqualBlockClusterCount,
           exactEqualBlockMaxWallets: snapshot.derived.exactEqualBlockMaxWallets,
+          // D3.57 pump 数值锚族（CD166/CD165/CD175 pump 专项：slow_grind_pump 题
+          // 判读原料——state 事实行同源；斜率/perBnb 可为负=躺死阴跌方向证据）
+          pumpStablePoints: snapshot.derived.pumpStablePoints,
+          pumpStableSpanSec: snapshot.derived.pumpStableSpanSec,
+          pumpStableR2: snapshot.derived.pumpStableR2,
+          pumpStableSlopePctPerMin: snapshot.derived.pumpStableSlopePctPerMin,
+          pumpRisePerBuyBnb: snapshot.derived.pumpRisePerBuyBnb,
+          pumpSellTickCountPct: snapshot.derived.pumpSellTickCountPct,
         });
       } catch (e) {
         this.stats.errors++;

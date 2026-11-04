@@ -89,6 +89,26 @@ const BURST_NEAR_SEC = 120;
 const SPIKE_SEC = 3;
 const SPIKE_CLUSTER_GAP_SEC = 60;
 /**
+ * pump 数值锚族常量（D3.57，2026-11-04 用户判据立项——CD166 火龙果树/CD165 币安
+ * 分红/CD175 pump 专项「pump 盘的识别要加强一下」）：用户原话「从K线上看，它的
+ * 斜率非常稳定（或者是某一个长阶段斜率稳定），这根本不可能是正常用户参与搞出
+ * 来的」「通过很少的流动性拉升价格，价格上涨跟流动性也就是买量不匹配，卖方
+ * 长期缺失」。四判据分离度验证（tmp-pump-*@182 三正样本×六反例锚窗+全史双
+ * 视角）：①整窗 R² 无分离度（立项票 CD166 锚窗 0.649 反低于部分反例）——分离
+ * 键=最长稳定子段点数：pump 票锚窗 21-57 点直线（CD166 锚45=34 点/809s/0.951/
+ * 2.5%/分，CD175 锚36/55/75=34/54/57 点）vs 反例锚窗 ≤10 点波段（CD167=3 点
+ * 且斜率负）；②log 涨幅÷锚窗总买 BNB（perBnb）：pump 票 0.18-0.23 vs 反例
+ * 全史 ≤0.11（2 倍分离）；③卖笔占比：pump 票锚窗 3-19% vs 反例 ≥20%；④单笔
+ * 买额度无独立分离度（tmp-pump-buy-size 归档）只作题面佐证不作锚。本族=纯现象
+ * 数值不产结论（判读教学=slow_grind_pump 题面单一载体，grade G15 零新增消费）。
+ * 口径=锚窗可靠价序列（price_outlier=false 且 dt 非 null 且价 >0 行）O(n²)
+ * 枚举连续子段（起点固定增量扩展，回归 O(1) 更新），log 价线性回归 R²≥
+ * PUMP_STABLE_R2 取 span 最长（span 平手取先到——与探针 tmp-pump-signal3@182
+ * bit 一致）；可靠价 <PUMP_STABLE_MIN_POINTS 点全族 null（绝不冒充）。
+ */
+const PUMP_STABLE_R2 = 0.95;
+const PUMP_STABLE_MIN_POINTS = 4;
+/**
  * 著名钱包单极控盘锚（D3.2b，2026-10-31 用户裁定 CD5 语境：「描述盘面上单一著名
  * 钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档）。名单=
  * config/rosters/famous-copy-wallets.json（FA famousCopyWalletCircPct 同源用户点名
@@ -1114,6 +1134,52 @@ function computeDerived(snapshot, famousRoster) {
     last = t.priceBnb;
   }
 
+  // ── pump 数值锚族（D3.57，头注见 PUMP_STABLE_R2）：锚窗可靠价序列的最长稳定
+  // 斜率子段（log 价回归 R²≥0.95 取 span 最长）+ log 涨幅÷总买 + 卖笔占比。
+  // O(n²) 枚举连续子段（起点 i 固定向右增量扩展，sxy/sxx/syy O(1) 更新——与探针
+  // tmp-pump-signal3@182 数值 bit 一致）；斜率符号不筛（躺死阴跌直线也是稳定段，
+  // 方向判读归题面）；无合格稳定段=points/span 0 有证据零值、r2/slope null；
+  // 可靠价 <4 点/dt 缺失全族 null（绝不冒充）。grade 零新增消费。──
+  let pumpStablePoints = null, pumpStableSpanSec = null, pumpStableR2 = null;
+  let pumpStableSlopePctPerMin = null, pumpRisePerBuyBnb = null, pumpSellTickCountPct = null;
+  {
+    const relPump = [];
+    for (const t of ticks) {
+      if (t.outlier || t.priceBnb === null || t.priceBnb === undefined) continue;
+      if (t.dt === null || t.dt === undefined || !(t.priceBnb > 0)) continue;
+      relPump.push({ dt: t.dt, logP: Math.log(t.priceBnb) });
+    }
+    if (relPump.length >= PUMP_STABLE_MIN_POINTS) {
+      let best = null;
+      for (let i = 0; i < relPump.length; i++) {
+        let n = 0, sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+        for (let j = i; j < relPump.length; j++) {
+          const x = relPump[j].dt - relPump[i].dt;
+          const y = relPump[j].logP;
+          n++; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y;
+          if (n < 3) continue;
+          const dx = n * sxx - sx * sx;
+          const dy = n * syy - sy * sy;
+          if (dx <= 0 || dy <= 0) continue; // 全同 x/全同 y（水平线）回归无定义跳过
+          const r2 = ((n * sxy - sx * sy) ** 2) / (dx * dy);
+          if (r2 >= PUMP_STABLE_R2) {
+            const span = relPump[j].dt - relPump[i].dt;
+            if (best === null || span > best.span) {
+              best = { points: n, span, r2, slope: (n * sxy - sx * sy) / dx };
+            }
+          }
+        }
+      }
+      pumpStablePoints = best ? best.points : 0;
+      pumpStableSpanSec = best ? best.span : 0;
+      pumpStableR2 = best ? +best.r2.toFixed(3) : null;
+      pumpStableSlopePctPerMin = best ? +(best.slope * 60 * 100).toFixed(2) : null;
+      const logRise = relPump[relPump.length - 1].logP - relPump[0].logP;
+      pumpRisePerBuyBnb = +(logRise / Math.max(totalBuyBnb, 0.001)).toFixed(2);
+      pumpSellTickCountPct = +((sellN / ticks.length) * 100).toFixed(1);
+    }
+  }
+
   return {
     totalBuyBnb, totalSellBnb, buyN, sellN,
     walletCount: wallets.length,
@@ -1140,6 +1206,10 @@ function computeDerived(snapshot, famousRoster) {
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,
     spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,
     spikeBuyPctInBurst, spikePosNetBnb, spikeHoldPctAll,
+    // D3.57 pump 数值锚族（CD166/CD165/CD175 pump 专项：最长稳定斜率子段三键+
+    // log 涨幅÷总买+卖笔占比；slow_grind_pump 题面判读原料，grade 零新增消费）
+    pumpStablePoints, pumpStableSpanSec, pumpStableR2,
+    pumpStableSlopePctPerMin, pumpRisePerBuyBnb, pumpSellTickCountPct,
     noBuySellPct, noBuySellBnb, noBuySellWallets, noBuySellVolumePct,
     // D3.52 锚窗买卖比（strong_backer_pressure 题原料；观察期 grade 零消费）
     anchorBuySellRatio,
@@ -1188,4 +1258,6 @@ module.exports = {
   ACTIVITY_BUCKET_SEC,
   ACTIVITY_CV_MIN_BUCKETS,
   ACTIVITY_UNEVEN_CV,
+  PUMP_STABLE_R2,
+  PUMP_STABLE_MIN_POINTS,
 };

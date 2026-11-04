@@ -157,6 +157,7 @@ const OBS_ANCHOR_KEYS = [
   'noBuySellVolumePct', // D3.50
   'exactEqualBlockBuyPct', 'exactEqualBlockClusterCount', 'exactEqualBlockMaxWallets', // D3.53
   'pulseBlockCount', 'pulseBlockBuyPct', 'pulseMaxGapBlocks', // D3.54
+  'pumpStablePoints', 'pumpStableSpanSec', 'pumpStableR2', 'pumpStableSlopePctPerMin', 'pumpRisePerBuyBnb', 'pumpSellTickCountPct', // D3.57
 ];
 function obsAnchors(d) {
   const out = {};

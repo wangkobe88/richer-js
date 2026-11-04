@@ -97,6 +97,13 @@ function _anchorPct(anchors, key) {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
 }
 
+/** 带符号数值锚读取（D3.57：pump 斜率/log 涨幅÷总买可为负——负值=躺死阴跌/跌盘
+ * 的方向性证据，按 _anchorPct 的 ≥0 门会冒充「缺席」null，刻意放行负号） */
+function _anchorNum(anchors, key) {
+  const v = anchors && anchors[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
 /**
  * 活跃度题答案读取（D3.5：Jev 判断活跃度——题 id activity_level，独立档域，
  * 非现象四档轴）。容缺：旧存档（<D3.5）无该键 → null（重放兼容）；
@@ -287,6 +294,15 @@ function buildObservation(answers, anchors = null) {
       pulseBlockCount: _anchorPct(anchors, 'pulseBlockCount'),
       pulseBlockBuyPct: _anchorPct(anchors, 'pulseBlockBuyPct'),
       pulseMaxGapBlocks: _anchorPct(anchors, 'pulseMaxGapBlocks'),
+      // D3.57 pump 数值锚族（slow_grind_pump 题判读原料：最长稳定斜率子段三键+
+      // log 涨幅÷总买+卖笔占比；可靠价 <4 点/族门未开→null 不冒充；无合格
+      // 稳定段→points/span=0 有证据零值、r2/slope null）
+      pumpStablePoints: _anchorPct(anchors, 'pumpStablePoints'),
+      pumpStableSpanSec: _anchorPct(anchors, 'pumpStableSpanSec'),
+      pumpStableR2: _anchorPct(anchors, 'pumpStableR2'),
+      pumpStableSlopePctPerMin: _anchorNum(anchors, 'pumpStableSlopePctPerMin'),
+      pumpRisePerBuyBnb: _anchorNum(anchors, 'pumpRisePerBuyBnb'),
+      pumpSellTickCountPct: _anchorPct(anchors, 'pumpSellTickCountPct'),
     },
   };
 }

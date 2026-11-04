@@ -190,6 +190,17 @@ function buildCheatState(snapshot) {
     if (d.anchorBuySellRatio !== null && d.anchorBuySellRatio !== undefined) {
       lines.push(`锚窗买压: 买入合计 ${fmtBnb(d.totalBuyBnb)} BNB / 卖出合计 ${fmtBnb(d.totalSellBnb)} BNB，买卖比 ${d.anchorBuySellRatio}（比值=买入合计÷卖出合计。方向性事实——买卖比高只说明窗口方向偏买，单一/少数大户是否在持续吸筹推价由你结合 [WALLETS] 大户行判读）`);
     }
+    // D3.57 pump 数值锚事实行（CD166/CD165/CD175 pump 专项立项——用户判据原话
+    // 「从K线上看，它的斜率非常稳定（或者是某一个长阶段斜率稳定），这根本不可
+    // 能是正常用户参与搞出来的」「通过很少的流动性拉升价格，价格上涨跟流动性
+    // 也就是买量不匹配，卖方长期缺失」）：稳定段=可靠价序列中 log 价线性回归
+    // R²≥0.95 的最长连续子段（O(n²) 回归 Jev 心算不可靠——D3.29/D3.49「组合数值
+    // 代码算好」先例）；perBnb=log 涨幅÷锚窗总买（量价不匹配度量）；判读教学在
+    // slow_grind_pump 题面单一载体（三锚同向=机器拉盘组合形状，可 strong）；
+    // 可靠价 <4 点/dt 缺失不渲染行（缺席语义）
+    if (d.pumpStablePoints !== null && d.pumpStablePoints !== undefined) {
+      lines.push(`pump 数值锚: 最长稳定斜率段 ${d.pumpStablePoints} 点跨 ${d.pumpStableSpanSec} 秒（R²=${d.pumpStableR2 === null ? '—' : d.pumpStableR2}，斜率 ${d.pumpStableSlopePctPerMin === null ? '—' : d.pumpStableSlopePctPerMin + '%/分'}）· log 涨幅÷总买 ${d.pumpRisePerBuyBnb}（每 BNB 买入推升的对数涨幅——量价不匹配度量）· 卖笔占比 ${d.pumpSellTickCountPct}%（口径：稳定段=可靠价序列（剔 outlier 行）中 log 价线性拟合 R²≥0.95 的最长连续子段，0 点=窗内无三点以上直线段；数值事实非门槛，判读见「持续推价」题）`);
+    }
     // D3.20 单一钱包持仓集中双锚（用户裁定 2026-11-01 CD69 语境：一个钱包持有
     // 总额度占比过大=控盘事实证据；占供应量低但占流通量高=在场筹码少所致可豁免）
     if (d.top1HoldSupplyPct !== null && d.top1HoldCircPct !== null) {
@@ -272,8 +283,9 @@ function buildCheatState(snapshot) {
     // （derived 算好透传，@20s 14 票分布：目标 CD110/CD7/CD37/CD98/CD99 71-96%、高活跃
     // 反例 CD84/41/92/87/90/100/101 全 0%、匀速 CD57 maxGap 13s=0% 与阈值隔离）。
     // D3.55（CD162 v70 首信号 15s 翻正案）：行首补「窗口时长/共 N 笔」两数——act 题
-    // ④开盘极早窗反锚（窗 <60s ∨ 总笔数 <30 → 纯买入单向=价格发现常态不压档）的
-    // 阈值原料，检测点位常落在开盘极短窗、Jev 沿 t+ 心算时长不可靠（D3.49 同款）
+    // ④开盘极早窗反锚的阈值原料，检测点位常落在开盘极短窗、Jev 沿 t+ 心算时长不
+    // 可靠（D3.49 同款）；反锚连线 D3.57 收紧为「窗 <60s 且 总笔数 <30」（∨→∧，
+    // CD166 缓推窗回归案——385s/25 笔被「笔 <30」支单独豁免致 act low→mid、E 失效）
     lines.push(`活跃度数值: 窗口时长 ${d.spanSec !== null && d.spanSec !== undefined ? d.spanSec + ' 秒' : '未知'} / 共 ${d.tickCount !== null && d.tickCount !== undefined ? d.tickCount + ' 笔' : '未知'} / 每分钟 ${d.ticksPerMin} 笔 / 笔均 ${d.avgTradeBnb} BNB / 最大交易间隔 ${d.maxGapSec} 秒 / 无交易期占比 ${d.idlePct !== null && d.idlePct !== undefined ? d.idlePct + '%' : '未知'}（无交易期占比=间隔≥20秒的完全静默段合计÷窗口总时长；窗口时长=首末 tick 时间差；代码口径频率事实，activity_level 档位由你综合各要素给出）`);
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
