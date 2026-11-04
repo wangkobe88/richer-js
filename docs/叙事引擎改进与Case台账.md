@@ -54,6 +54,29 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 
 ## 二、Case 研究（倒序，卷四自 C181 起）
 
+### C269a DND 划界——背景信息不足桶排除锚③「宣告推带主体内容载体不选本桶」（DND 撞桶案，2026-11-04 用户裁定「题面加划界」）★
+
+- **案发**：J1.158 首轮对拍撞出边界票——DND `0x4dbc…7777`（C114/C118 双案正样本：币安广场猫视频「DND 😾」梗，@BinancePk 93384 粉宣告+币安视频缩略图图证+direct_tweet 豁免）翻 **unrated 69~73%**（骰面两轮 73/69）。证据面核实完整（hasTwitterInfo:true、图资产缓存命中、vision gate need_image 已跑）——非重析环境问题，是 Jev 真判：币名 DND 与猫视频语料建立不起**文字**关联（关联要靠「币安猫视频」背景知识）。
+- **冲突本质**：C114「图就是内容」豁免哲学（图证在场不拦，走影响力分）vs C269「理解不可能优先于一切」——DND 同时命中两形状：有主体内容（视频+图证+大账号宣告）∧ 币名与语料无文字关联。
+- **裁定（三选一呈报，用户选题面加划界）**：「有信息但难懂」（关联需背景知识）≠「没有信息」（1113 形状）。桶判据加**排除锚③**：宣告推在场且携带主体内容载体（配视频/图片的宣告、大影响力作者/机构账号的转发指认）→ 不选本桶，按事件本体走其余选项与第二层正常评估；本项只收「在场语料本身无内容可依」的票。instructions 三层优先序段尾同步呼应句（「内容载体在场，不落本层——排除锚③」）。
+- **处置（J1.159）**：题面-only——mapper 零改动（概率门 ≥0.5/门链短路/argmax 排除全不动）、题数 13 不变、版本 J1.158→J1.159；六件版本断言同跟（consolidation/angle_timing/cashtag/name_entity_acceptance/web3_fit/background_insufficient_gate 新增 A9 锚断言）。
+- **对拍（182 真调，J1.159）**：DND unrated 69%→**low 55（事件分不足 55<60）**=新桶退出、回 C230 系组三贴线已知基线（台账 C230 段留观察项，非本批引入；expect=[mid,high] 在该轮回归 FAIL 属已知待裁分歧票）；1113 维持 **unrated 100%**（无宣告无图不受划界影响）；反例 memeless high 86.57/BLACKBELT high 85.09 零翻转。
+- **事故留档（手敲地址陷阱第三次）**：调查中 DND 地址复制少一位 7（41 vs 42 字符）→ eq 查询 n=0 + 重析抛「代币不存在」（experiment_tokens 与 token_narrative 两层全空）——一度误判 DB 异常；like 前缀查询命中+字节级 diff 揭穿。fetchTokenData 行为正确。长地址一律从 fixtures/DB 输出结构化复制，不手敲不复读终端行。
+
+### C269 背景信息严重不足无法理解桶 → narrativeRating=9（极寒降临案，2026-11-04 用户裁定「这里明显不是什么 unfit，就是没搞明白这个代币到底啥意思，确实没有提供信息，并且搜索又没有明确结果……叙事分析模块返回一个"无法理解"的结果给实验引擎，narrativeRating == 9」）★★
+
+- **案发**：1113 `0x064f…7777`（symbol=1113，name=极寒降临）评 low——语料全空，C77 搜索兜底按「1113」只搜到无关撞名推文（巴西 Mercedes 1113 卡车梗/彩票数字），C130 旁路（去重剔转推后非空即旁路 no_public_info）进 Jev 后 **unfit 0.81 误拦 low**——「理解不可能」被当成了「质量否决」（web3UnfitBlock 评的是口味契合，前提是看懂了）。
+- **立法（J1.158）三层形状**：
+  - **A（主体）**：`bsc_meme_user_event_impact` 加第四桶 **background_info_insufficient**（背景层）——全部在场证据（主推/父推/载体语料/[TWITTER_SEARCH] 段/【图片内容分析】）都无法建立「币名↔叙事内容」对应 → 选本桶；**三层优先序「背景层>事件层>代币层」**（理解不可能优先于空洞/蹭名判定）。mapper 概率门 ≥0.5（学习 C244 <0.5 掷骰教训）→ llmResult rating='unrated'/pass=null → resolveFinalRating 规则 1 → **narrativeRating=9**。门链挂 C168/C256/C250 纯代码事实门之后（撞蓝筹名照样拦 low——代码事实不依赖 Jev 理解）、chinaPolitics 之前的 Jev 门之首；**门链短路**（命中时跳过整个 eventScoreBlocked 链防 unfit 同 hit 抢拦成 low）+ argmax 臂显式排除 + BLOCK_SCOPE 显式空域（未定义桶按 'all' 全域拦会打架）+ Stage3 强制清零（关联/质量分是噪声，且 relation pass=false 会被规则 3 先拦成 low）+ w3Block 审计补算（臂内补算 web3UnfitMass 供 stage2 审计，1113 的 unfit 0.81 可追溯）。
+  - **B**：precheck 规则 4 no_public_info（搜索零结果）'low'→'unrated'（pre-check-service 情况 A；public_info_fetch_failed 技术失败形状保持 low）。
+  - **C**：no_data 兜底（全抓取失败）llmResult+preCheckDataToSave 'low'→'unrated'（推翻 2026-09-27 no_data fail-closed low 教义，「无信息=无法理解」语义统一）。
+- **追裁（AskUserQuestion）**：①B/C 两域顺带改 9（用户原话「顺带改成 9」）；②**9 固化留观察点**——不接翻案域（TTL 穿透只管 rating=1；PrecheckFailRetry 看 ruleName 不看 rating，no_public_info 1800s 重试域不受影响；C84 引擎 noCorpus 补轮臂对 9 停——观察点留档）。
+- **行为差异（1→9，引擎侧零改动全链路原生支持）**：legacy 直调拉黑停（9 永不拉黑——顺带修掉「twitter 挂掉期间全票内存拉黑重启才清」隐患）；C84 补轮停（补轮臂只认 ===1）；买门同不买（narrativeRating==2|3 对 9 恒 false）；FA 四键/rebuild/回测归一（非 1/2/3 归 9）现成。
+- **划界留档**：data_fetch_failed（有 URL 抓取失败的技术失败）与 public_info_fetch_failed 保持 low 不动——技术失败≠无法理解，观察攒批再裁。
+- **对拍（182 真调，J1.158）**：1113 主票翻正 **unrated（background_info_insufficient 100%≥50%）**——全链路走通：GMGN→规则 4 unrated 文案→C77 搜索 38 条无关撞名→C130 旁路进 Jev→新桶 100% 命中；反例 memeless（C266）high 86.48/BLACKBELT（C231）high 85.09 零翻转。单测 `_test_background_insufficient_gate.cjs` 37 断言（题面/概率门/fail-open/优先级/六信封端到端 resolveFinalRating 'unrated'→9/图证不影响/源码口径锁）+适配 10 件（data_fetch_failed/knowledge_feedback/empty_content_img_exempt/jev_product_entity 等）。
+- **回归收录**：C269 票入 fixtures（128 票，expect rating=unrated+reasonIncludes 背景信息严重不足+审计键 backgroundInfoInsufficientMass）；182 单票回归 PASS。
+- **部署**：worker 重启生效（与 C259/C263/C266/C268 攒批同车）；v69 实验进程内嵌分析器不随 worker 更新（换代实验才吃到）。
+
 ### C268 fit 题同形状蓝筹先例类比加分锚——叙事层同构推论立法（持械入宋案二轮，2026-11-04 用户裁定「立重校，fit 判据承认同形状蓝筹先例。类比成功作为加分。起码 0x1243… 用户是认同的」）★
 
 - **案发与立法链**：C267 首数据点——注入牛来真语境后持械入宋 sf+fit 39%→45% 方向全对但仍被 web3FitMassBlock（<50%）拦 low；同日叙事口径裁定确立「牛来与持械入宋叙事层发射时刻同构（外部爆红作品名→币；前期社区行为不算叙事）」→ **同形状先例反证了「能刷到≠愿意买」对该形状的推定**——fit 判的是买家接受度，同形状实证在场就必须承认（用户裁定「起码 0x1243 用户是认同的」= 案票本身即买家认同证据）。
