@@ -202,7 +202,7 @@
 
 **单测**：lib 568 断言全过（D3.55 段 6 断言：④反锚三措辞锚+反例样本+criteria.low 引用+spanSec/tickCount 手算精确值 28/5+state 行两数渲染+dt 缺失 null fail-closed 反证；D3.30 数值行断言随行首扩两数改写）；grade/service/gate 三件 116/96/65 全绿（digest additive 零破坏）。
 
-**182 定向对拍**（D3.55 真调）：〔待跑后补〕
+**182 定向对拍**（D3.55 真调，8 票=立项票+七反例）：**立项票 CD162@19 三跑 act=high 全稳**（D3.52 生产 low@0.2 → 反锚稳定解除④误伤；pump 档 1/3 strong 抽样漂移属 Jev 固有方差、pump 题面未动非本次引入）；grade 终值 unhealthy 不变但**承载通道换臂**——D3.52=unhealthy[E_low_activity]（act 误判承载）→ D3.55=unhealthy[R_abnormal_dominant]（组织买 60.9%/abr=dominant 数值支撑，E 退出后 R 接棒，非干净盘非误伤）；与生产第二窗 healthy 放行自洽（unhealthy 每买信号重判=CD158 设计语义）。**反例七票 expect 零漂移**：CD110@15（①静默驱动——笔数 <30 反锚条件命中但只豁免④，act=low 照旧 E_low_activity 照拦 ✓ 豁免边界正例）、CD57@91（③尘埃长窗 E_low_activity 照拦 ✓）、CD137@172（长窗单向 pump strong+J_holdings_strong → cheat 照拦 ✓ 长窗不豁免）、CD70@27/CD79@28（笔数 <30 边缘——act 翻 mid 但 R_abnormal_dominant 承载 grade 不变 ✓）、CD99@34/CD108@35（act=mid 非 low、E 通道零承载，机器 grade 由 A/R 通道承载与 act 题无交集=非 D3.55 漂移；CD99 机器 cheat[pump strong] 为 128 票对拍既有分歧非新增）。fixtures 收录 CD162@19（anchor 显式 19=生产首析 anchorTicks，as-of 首信号 created_at——CD161 同款手动对齐，默认 --add 锚=现全量 289 不对），152 票。
 
 **余留**：①v70 实验进程换代才吃到（跑在 32137376/dc94426e 之前，当前进程仍 D3.52——D3.53/D3.54/D3.55 三版本攒批同车）；②开盘极早窗反锚的 <60s/<30 阈值为参考线非硬门，首个吃到的生产样本观察 act 档位分布。
 

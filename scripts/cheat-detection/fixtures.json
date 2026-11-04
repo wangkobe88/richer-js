@@ -2417,6 +2417,22 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "2026-11-04 用户裁定「可以给 unhealthy」——D3.54 翻案达成（holdings_balance moderate@0.49→strong=节拍行接捆绑簇维度+豁免句收窄双效；grade=unhealthy[J_holdings_strong] 复跑重掷稳定；拉黑级载体未中 abr=noticeable/pump=none→拒买级非拉黑级）"
+    },
+    {
+      "caseId": "CD162",
+      "symbol": "厉娜",
+      "addr": "0x0c3c88345196b05d8c75a9a2dc0b2f2be07d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 19
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "CD162 立项票：v70 f0898589 首信号 E_low_activity 15s 翻正案（窗 28s/19 笔纯买 18:1 单调上行零回撤；D3.55 act 题④开盘极早窗反锚窗<60s∨笔<30 只豁免④单向死水判读；锚=19 生产首析 anchorTicks as-of 首信号 created_at+28s）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "--add 基线快照（CD162 立项票：v70 f0898589 首信号 E_low_activity 15s 翻正案（窗 28s/19 笔纯买 18:1 单调上行零回撤；D3.55 act 题④开盘极早窗反锚窗<60s∨笔<30 只豁免④单向死水判读；锚=19 生产首析 anchorTicks as-of 首信号 created_at+28s））"
     }
   ]
 }
