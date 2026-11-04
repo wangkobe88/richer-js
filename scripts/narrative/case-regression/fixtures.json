@@ -1777,6 +1777,17 @@
       },
       "note": "语料原话提炼豁免案发票（memeless）：CZ 推文「现在的 meme 太多，反而找不出来梗了」→ 19 秒狙击发币 memeless——事件侧全绿（C 类 0.77/S 级/strong_fit 0.87/within_7d）被实体轴 not_entity 0.57→词句 not_acceptable 0.60 拦 low；J1.156 两腿豁免（sf+fit≥0.5 ∧ from_event≥0.5）后重析 low→high 86.39（from_event 0.72）",
       "addedAt": "2026-11-03"
+    },
+    {
+      "caseId": "C268",
+      "symbol": "持械入宋",
+      "addr": "0x12434b4a4e587984c0422929163b58c8a67c7777",
+      "expect": {
+        "rating": "high",
+        "tokenCategory": "event:E"
+      },
+      "note": "C268 持械入宋：J1.157 同形状蓝筹先例类比锚翻案票（C267 时 sf+fit 39%→45% 未过线 low；锚后 92% S 档 high 89.42）。意图翻转票：改锚回归若回 low=锚失效",
+      "addedAt": "2026-11-04"
     }
   ]
 }
