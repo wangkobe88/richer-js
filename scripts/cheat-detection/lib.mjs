@@ -27,15 +27,16 @@ export function loadAndValidateFixtures(doc) {
   const cases = Array.isArray(doc && doc.cases) ? doc.cases : [];
   if (!cases.length) errors.push('cases 为空');
   const seenId = new Set();
-  const seenAddr = new Set();
+  const seenPoint = new Set(); // 2026-11-04 裁定：case 粒度=代币×点位（同代币不同锚=不同案，CD237-239 两阶段两判）
   for (const c of cases) {
     const tag = c.caseId || '(无 caseId)';
     if (!/^CD\d+$/.test(c.caseId || '')) errors.push(`${tag}: caseId 须为 CD<n>`);
     if (seenId.has(c.caseId)) errors.push(`${tag}: caseId 重复`);
     seenId.add(c.caseId);
     if (!/^0x[0-9a-fA-F]{40}$/.test(c.addr || '')) errors.push(`${tag}: addr 须为 0x+40hex`);
-    if (seenAddr.has(String(c.addr || '').toLowerCase())) errors.push(`${tag}: addr 重复（一票一 case）`);
-    seenAddr.add(String(c.addr || '').toLowerCase());
+    const pointKey = `${String(c.addr || '').toLowerCase()}#${c.anchor && c.anchor.tickCount}`;
+    if (seenPoint.has(pointKey)) errors.push(`${tag}: 代币×点位重复（同 addr 同 anchor 才算一案重）`);
+    seenPoint.add(pointKey);
     const n = c.anchor && c.anchor.tickCount;
     if (!Number.isInteger(n) || n < 1) errors.push(`${tag}: anchor.tickCount 必填且为正整数（防全史马后炮——as-of 锚是一等公民）`);
     const e = c.expect || {};
