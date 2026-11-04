@@ -2433,6 +2433,23 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "用户裁定 healthy（2026-11-04）：新盘开盘极短窗价格发现期常态，生产第二窗 healthy 放行实际买入；机器 unhealthy[R_abnormal_dominant] 为分歧留档（组织买 60.9%/abr=dominant 偏严）"
+    },
+    {
+      "caseId": "CD163",
+      "symbol": "共建共赢",
+      "addr": "0xc0a62abacfbe8b80f1650e14f5b0c092347b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 86
+      },
+      "expect": {
+        "verdict": "unhealthy",
+        "since": "2026-11-04"
+      },
+      "note": "v70 首析锚对齐（anchorTicks=86=生产 cheat_detection 首判行）；开盘 t+0 一秒 8 笔 2.5683 BNB 抢筹波→t+2~62s 互踩砸盘→死盘（尘埃刷量占大半笔数、锚后 15min 22 笔）；Jev/代码双档 act=low@0.57 已对、grade=healthy 卡点=E 臂波额线收了开盘波（旧全窗 2.57≥1.05 误豁免）；D3.56 临近段收窄后预期翻 unhealthy[E]——expect 待对拍后裁定",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户立项裁定原话「我认为应该给 低活跃度」+「burst 是指临近购买点位的 burst，不是整体的，前面有不算」——开盘波远离锚不应推翻 low；D3.56 临近段收窄后对拍 unhealthy[E_low_activity] 翻案达成（旧全窗波 2.57≥1.05 误豁免）"
     }
   ]
 }
