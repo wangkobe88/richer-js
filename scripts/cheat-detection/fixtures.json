@@ -2778,12 +2778,12 @@
         "tickCount": 54
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
-      "note": "CD183 断流重启段稀释案（v71 both 936e1bd9 信号票）：开盘 38 笔后断流 741s、重启段 152s 三波 2 钱包同块等额全新钱包（段内买家 11/11 全新、等额簇段内 42.6% vs 全窗 17.5%）；生产 D3.57 锚 54 grade=healthy 过门放行、锚后九连卖 -11.4%；D3.58 postStall 六键立项票；182 定向对拍（11-04）两轮采样档位 bit 一致仍 healthy（eq moderate 0.72/strong 0.22 未过 argmax）——分段锚进 state 未翻案；expect 待用户裁定",
+      "note": "CD183 断流重启段稀释案（v71 both 936e1bd9 信号票）：开盘 38 笔后断流 741s、重启段 152s 三波 2 钱包同块等额全新钱包（段内买家 11/11 全新、等额簇段内 42.6% vs 全窗 17.5%）；生产 D3.57 锚 54 grade=healthy 过门放行、锚后九连卖 -11.4%；D3.58 postStall 六键立项票；182 定向对拍（11-04）两轮采样档位 bit 一致仍 healthy（eq moderate 0.72/strong 0.22 未过 argmax）——分段锚进 state 未翻案",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（CD183 断流重启段稀释案（v71 both 936e1bd9 信号票）：开盘 38 笔后断流 741s、重启段 152s 三波 2 钱包同块等额全新钱包（段内买家 11/11 全新、等额簇段内 42.6% vs 全窗 17.5%）；生产 D3.55 锚 54 grade=healthy 过门放行、锚后九连卖 -11.4%；D3.58 postStall 六键立项票；expect 待 182 定向对拍后裁定）"
+      "expectBecause": "用户裁定（11-04）「肯定是至少 unhealthy」——锚后九连卖集体砸盘 -11.4%、三波 2 钱包同块等额全新钱包（段内买家 11/11 全新）；机器 D3.58 两轮采样 stable healthy（eq strong 0.22 未过 argmax）=机器×人工分歧留档（expect 落人工值；eq 档位锚补强待裁定）"
     }
   ]
 }
