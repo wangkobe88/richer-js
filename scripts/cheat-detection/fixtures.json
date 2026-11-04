@@ -2784,6 +2784,22 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "用户裁定（11-04）「肯定是至少 unhealthy」——锚后九连卖集体砸盘 -11.4%、三波 2 钱包同块等额全新钱包（段内买家 11/11 全新）；机器 D3.58 两轮采样 stable healthy（eq strong 0.22 未过 argmax）=机器×人工分歧留档（expect 落人工值；eq 档位锚补强待裁定）"
+    },
+    {
+      "caseId": "CD184",
+      "symbol": "暴力雪球",
+      "addr": "0x15583fde3b3ca9260556556a995e6967471d7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 24
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "临近买点段死寂：开盘 30s 真实买流 1.2 BNB 单调 +13.9%（含创建者 0.8 单笔），t+29s 后 43s 只剩 <0.002 尘单滴答价格冻结 7.76e-9；全窗 idlePct=0/maxGap=9s 被开盘段拉高，Jev act=high@0.50 E 通道失守过门买入锚后 -30.6%——用户裁定「应该强调下临近买入时间窗口的活跃度，得提供临近买入的活跃度数据」expect=unhealthy[E]",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "CD184 用户裁定 unhealthy[E]（2026-11-04）——临近买点段金额死寂：开盘 30s 真实买流 1.2 BNB vs 临近 30s 尘单滴答（段中位 0.000163/吞吐 0.26 BNB/分），act 应 low 由 E 通道拒买（D3.59 同锚对拍已翻 act=low→unhealthy[E]）"
     }
   ]
 }
