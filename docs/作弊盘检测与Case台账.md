@@ -186,6 +186,23 @@
 
 ## Case 倒序
 
+### CD185-CD235 v71 全 BUY 信号批量收录 + 五批对拍（2026-11-04）
+
+- **收录**（commit `3150b29e`，fixtures 174→225）：v71 `936e1bd9`（both live）strategy_signals BUY 信号去重 53 票，扣除已收录 CD183/CD184 → **51 票批量收录 CD185-CD235**，全部 flap 平台（v71 信号潮=flap 热点族：Go Brrrrr 族×6、크롱族×3、불사조/不死鸟类×4、小兔得志×2、VETO×2、CeBM×2、换币龙×2 等）；**锚=cheat_detection 生产首析行 anchor_tick_count 显式对齐**（生产首析 qv=D3.57——v71 进程尚未吃到 D3.58/D3.59）；note 落「生产首判 grade=X」字符串作对拍权威基线（解析用正则，绝不能手打映射——本批曾手打错 ~13 票得出 19 票假漂移，改 note 正则解析后真实漂移仅 6 票）
+- **五批对拍**（182 跑，11-04 晚，现行 D3.59 题集；10+10+10+10+11）：51 票全 PASS（链路跑通）；与生产 D3.57 首判对照**同向 45/51（88%）**，漂移 6 票 → 同票重掷（方差甄别，存档 `cd-run-2026-11-04T11-28-17-246Z.json`）：CD208 불사조回落 cheat（首跑漂移=Jev 抽样方差）；**5 票两掷稳定=真漂移**：
+
+| 票 | 生产 D3.57 首判 | D3.59 两掷稳定值 | 方向 |
+|---|---|---|---|
+| CD194 Go Brrrrr@24 | unhealthy | healthy[clean] | 放松（E 通道不再触发） |
+| CD201 吉羊@29 | unhealthy | cheat[A_strong:insider_supply_sell + E_low_activity + L_insider_sell47 + R_abnormal_dominant] | 收紧→拉黑级 |
+| CD214 猫咪天团@19 | healthy（**exec=1 已买入**） | unhealthy[E_low_activity] | 收紧=潜在漏拦票 |
+| CD217 HUSH@20 | cheat | unhealthy[J_holdings_strong] | 降档（拉黑→拒买） |
+| CD233 ASEAL@24 | cheat | unhealthy[M_hyper_activity] | 降档（拉黑→拒买） |
+
+- **归因**：5 票中 3 票（CD194/CD214/CD233）承载通道=E/M（act 题）——与 D3.59 临近买点段活跃度锚改动同域，方向与 CD184 立案动机一致（临近段死寂票 CD214/CD233 被拦、开盘密集票 CD194 不再被全窗口径误拦）；CD201/CD217 为 insider_supply_sell/holdings_balance 档位随 state 增行的判读变化
+- **实盘影响**（v71 生产当时 D3.57）：CD214 猫咪天团放行并买入 1 笔，D3.59 会拒买（若人工认 unhealthy=漏拦，优先裁定）；CD201 生产拒买、D3.59 升拉黑（更严）；CD194/CD217/CD233 生产本就未买，档位变化无资金影响
+- **余留**：51 票 expect=unclear 待分批人工裁定（对拍数据已齐，直接看 G1 判定与信号页即可）；v71 重启换代后生产吃到 D3.58+D3.59（同域漂移届时同步观察生产 grade 轨迹）
+
 ### CD184 暴力雪球 开盘活跃→临近买点尘单死寂——临近买点段活跃度锚 D3.59（2026-11-04）
 
 **票**：0x15583fde3b3ca9260556556a995e6967471d7777（v71 both 实验 936e1bd9 信号票，flap 盘，symbol 暴力雪球）。**形状**：开盘 30s 真实买流 1.2 BNB（含创建者 0.8 单笔，top1HoldSupplyPct=12.31=creatorPeak）价格单调 +13.9% → **t+29s 后 43s 只剩 <0.002 尘单滴答**、价格冻结 7.76e-9 二十余秒；t+73s 买信号锚窗 24 笔/72s 全买 0 卖、maxDD 0.00%。生产首析（D3.57）：act=high@0.50（low 0.35 惜败）→ E 通道失守 grade=healthy 过门买入 0.004 BNB → **锚后 -30.6%**（P4 腿 08:42:58 止损 -6%）。佐证 near-miss：slow_grind_pump moderate@0.4（组合门稳定段 6 点<15 窗太短）、abnormal noticeable@0.43。
