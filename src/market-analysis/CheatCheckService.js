@@ -354,6 +354,12 @@ class CheatCheckService {
           // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚
           // 观察期：grade 零消费只攒分布；窗口卖=0 → null 比值不适用）
           anchorBuySellRatio: snapshot.derived.anchorBuySellRatio,
+          // D3.53 精确等额同块簇三键（CD160：equal_amount_split/same_block_buy_wave
+          // 题判读原料——state 事实行+FA 投影同源；叙事数组 exactEqualBlockClusters
+          // 不进 observation 仅 state 渲染，clusterRoundTrips 同款）
+          exactEqualBlockBuyPct: snapshot.derived.exactEqualBlockBuyPct,
+          exactEqualBlockClusterCount: snapshot.derived.exactEqualBlockClusterCount,
+          exactEqualBlockMaxWallets: snapshot.derived.exactEqualBlockMaxWallets,
         });
       } catch (e) {
         this.stats.errors++;

@@ -3710,6 +3710,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 观察
             // 期纯观察键：窗口买入合计÷卖出合计，卖=0 → null 比值不适用）
             factors.cheatAnchorBuySellRatio = _an ? _an.anchorBuySellRatio ?? null : null;
+            // D3.53 精确等额同块簇占比（CD160：同块∧金额四位小数全等∧≥2 钱包
+            // 簇买入合计占窗总买 %——题面判读原料，纯观察可进条件串；无合格簇
+            // → null 不冒充）
+            factors.cheatExactEqualBlockBuyPct = _an ? _an.exactEqualBlockBuyPct ?? null : null;
             factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
             factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
             // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/

@@ -31,6 +31,8 @@ const EQUAL_AMOUNT_ROUND = 10000;
 const EQUAL_AMOUNT_MIN_BNB = 0.001;
 /** 同块簇最小笔数 */
 const SAME_BLOCK_CLUSTER_MIN = 3;
+/** 精确等额同块簇最小钱包数（D3.53：两钱包成对也是「挤入」形状，与同块簇 ≥3 笔口径刻意不同） */
+const EXACT_EQUAL_BLOCK_MIN_WALLETS = 2;
 /** 近等额带宽度（比例；D3.1 锚：精确等额刻意抖金额逃分组也落入同带） */
 const EQUAL_BAND_PCT = 0.02;
 /** 快进快出判定窗（秒）：首买→首卖 < 窗即计 churn */
@@ -330,6 +332,65 @@ function computeDerived(snapshot, famousRoster) {
       wallets: new Set(a.map((t) => t.wallet)).size,
       firstDt: a[0].dt,
     }));
+
+  // ── D3.53 精确等额同块簇（CD160：0xf5e642bc…7777 七钱包 0.0615 同块案——
+  // 「完全相等金额挤入同一 block」的时间+金额双协同形状代码量化；Jev 判档
+  // 原料（equal_amount_split/same_block_buy_wave 题消费，D3.5 边界不变——
+  // 2026-11-04 用户裁定「把这个现象描述出来给 Jev」：代码只算事实占比与簇
+  // 结构，不做门）──
+  // 口径：同一 block 内买入金额 toFixed(4) 完全相等、不同钱包数 ≥
+  // EXACT_EQUAL_BLOCK_MIN_WALLETS(2) 成簇（对/簇都算「挤入」；撞块的独立
+  // 买家金额通常各异不进簇（RAM 7746 实形 0.2500/0.1037/0.1086）、前端默认
+  // 档跟风是跨块长尾不聚同块（MAI 0.1 档 62 钱包 80 分钟实形）；尘门与
+  // 等额簇锚同款 EQUAL_AMOUNT_MIN_BNB）：
+  //   exactEqualBlockBuyPct       = 全部合格簇内那批等额买入行金额合计（笔级
+  //     ——簇成员钱包的其余买入不计分子）÷ 窗口总买入 ×100（分母含 router
+  //     行=GMGN 散户聚合侧，bundleBuyPct 同哲学）；无合格簇/总买≤0 → null
+  //   router 聚合行天然不成簇：GMGN 多散户同块同档买入在 tick 层 wallet 同为
+  //   router 地址，去重后 1 钱包 < 2 不成簇（无需显式剔除）
+  //   exactEqualBlockClusterCount = 合格簇总数（未截帽）
+  //   exactEqualBlockMaxWallets   = 最大簇去重钱包数（档位判读的簇标尺）
+  //   exactEqualBlockClusters     = 叙事数组（block/amt/wallets/n/sumBnb/
+  //     firstDt，按 sumBnb 降序 cap 5——仅 state 渲染不进 observation anchors，
+  //     clusterRoundTrips 同款）
+  let exactEqualBlockBuyPct = null, exactEqualBlockClusterCount = 0, exactEqualBlockMaxWallets = 0;
+  const exactEqualBlockClusters = [];
+  {
+    const clusters = [];
+    for (const [block, arr] of blockBuys) {
+      const buckets = new Map(); // toFixed(4) 档 -> 行数组
+      for (const t of arr) {
+        if (t.wallet === null || t.wallet === undefined) continue;
+        const bnb = t.bnb || 0;
+        if (bnb < EQUAL_AMOUNT_MIN_BNB) continue;
+        const k = Number(bnb).toFixed(4);
+        if (!buckets.has(k)) buckets.set(k, []);
+        buckets.get(k).push(t);
+      }
+      for (const [k, a] of buckets) {
+        const wallets = new Set(a.map((t) => t.wallet)).size;
+        if (wallets < EXACT_EQUAL_BLOCK_MIN_WALLETS) continue;
+        clusters.push({
+          block,
+          amt: Number(k),
+          wallets,
+          n: a.length,
+          sumBnb: a.reduce((s, t) => s + (t.bnb || 0), 0),
+          firstDt: a[0].dt,
+        });
+      }
+    }
+    if (clusters.length > 0) {
+      clusters.sort((a, b) => b.sumBnb - a.sumBnb);
+      exactEqualBlockClusterCount = clusters.length;
+      exactEqualBlockMaxWallets = clusters.reduce((m, c) => Math.max(m, c.wallets), 0);
+      if (totalBuyBnb > 0) {
+        const sum = clusters.reduce((s, c) => s + c.sumBnb, 0);
+        exactEqualBlockBuyPct = +((sum / totalBuyBnb) * 100).toFixed(1);
+      }
+      exactEqualBlockClusters.push(...clusters.slice(0, 5));
+    }
+  }
 
   // ── 持仓占比锚（D3.1：买侧簇结构的代码侧量化）──
   // D3.0 实测 Jev 眼估「流量份额」类现象（同块/等额/配额梯 moderate 档）在 55 票全
@@ -997,6 +1058,10 @@ function computeDerived(snapshot, famousRoster) {
     noBuySellPct, noBuySellBnb, noBuySellWallets, noBuySellVolumePct,
     // D3.52 锚窗买卖比（strong_backer_pressure 题原料；观察期 grade 零消费）
     anchorBuySellRatio,
+    // D3.53 精确等额同块簇（CD160：equal_amount_split/same_block_buy_wave 题
+    // 判读原料；叙事数组仅 state 渲染，数值三键进 observation anchors）
+    exactEqualBlockBuyPct, exactEqualBlockClusterCount, exactEqualBlockMaxWallets,
+    exactEqualBlockClusters,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
     // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,

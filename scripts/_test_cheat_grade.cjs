@@ -692,6 +692,14 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r6.anchors.maxBlockPreGapSec === 412 && r6.anchors.sameAmountWalletPct === 66.7
       && r6.anchors.creatorPeakHoldSupplyPct === 35.2,
       'D3.39 abnormalBehavior 档位（dominant=2）+五锚透传（G13 R 通道/holdings_balance 同源——FA 40 键原料）');
+    // D3.53：精确等额同块簇三键透传（CD160——**无门侧消费**：用户裁定「把这个
+    // 现象描述出来给 Jev」，state 事实行+FA 投影同源；无合格簇→null 不冒充）
+    const r7 = levelsFromObservation({ phenomena: {}, extLevels: {},
+      anchors: { exactEqualBlockBuyPct: 97.1, exactEqualBlockClusterCount: 3, exactEqualBlockMaxWallets: 7 } });
+    ok(r7.anchors.exactEqualBlockBuyPct === 97.1 && r7.anchors.exactEqualBlockClusterCount === 3
+      && r7.anchors.exactEqualBlockMaxWallets === 7
+      && levelsFromObservation({ phenomena: {}, extLevels: {} }).anchors.exactEqualBlockBuyPct === null,
+      'D3.53 exactEqualBlock 三键透传（0xf5e6 实形 97.1/3 簇/7 钱包——FA cheatExactEqualBlockBuyPct 投影原料；未给键照 null；gradeObservation 全通道零消费=观察键）');
     ok(r6.levels.realParticipation === undefined,
       'levels 旧键 realParticipation 不得残留（D3.39 改名=换键——14 键域锁 abnormalBehavior）');
     ok(levelsFromObservation({ phenomena: {}, extLevels: {}, abnormalBehavior: { bucket: 'unclear' } }).levels.abnormalBehavior === null

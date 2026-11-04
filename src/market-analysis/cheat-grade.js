@@ -357,6 +357,11 @@ function levelsFromObservation(observation, extras = {}) {
     // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚
     // 观察期：**无门侧消费**，只进 FA 投影/研究侧攒分布；窗口卖=0 → null）
     anchorBuySellRatio: _pct(an.anchorBuySellRatio),
+    // D3.53 精确等额同块簇三键（CD160：题面判读原料——**无门侧消费**（用户裁定
+    // 「把这个现象描述出来给 Jev」），state 事实行+FA 投影同源；无合格簇→null）
+    exactEqualBlockBuyPct: _pct(an.exactEqualBlockBuyPct),
+    exactEqualBlockClusterCount: _pct(an.exactEqualBlockClusterCount),
+    exactEqualBlockMaxWallets: _pct(an.exactEqualBlockMaxWallets),
     // D3.35 协同买入参考四键 + 创建者曾持峰值（abnormal_behavior_ratio（D3.39 前
     // real_participation）/ holdings_balance
     // 补腿同源数值；参考锚非门——R 通道消费档位不消费数值）

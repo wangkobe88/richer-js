@@ -122,6 +122,18 @@ function buildCheatState(snapshot) {
     if (d.sameAmountWalletPct !== null && d.sameAmountWalletPct !== undefined) {
       lines.push(`同档金额参考: 最大同档金额的钱包去重占全部买入钱包 ${d.sameAmountWalletPct.toFixed(1)}%（参考数值非门槛——同档聚集可以来自前端默认交易额（0.1/0.05 档）等真实来源，但真实盘不必然聚档、众数落在哪一档不是判据；跨块长尾同档=跟风非分仓；真实用户像不像，由你结合 [TICKS] 时间/金额/行为序列综合判断）`);
     }
+    // D3.53 精确等额同块购买事实行（CD160：0xf5e642bc…7777 七钱包 0.0615 同块
+    // 案立项——「完全相等金额挤入同一 block」的时间+金额双协同形状；2026-11-04
+    // 用户裁定「把这个现象描述出来给 Jev」：代码算占比与簇结构，判档归 Jev
+    // （equal_amount_split/same_block_buy_wave 题面单一教学载体）。行内给精确数
+    // +双锚（D3.51 spike 行同款），簇列表按买入额降序前 3、多则计数；无合格簇
+    // 不渲染行（缺席语义——正常盘多数无此形状）。
+    if (d.exactEqualBlockBuyPct !== null && d.exactEqualBlockBuyPct !== undefined) {
+      const cls = d.exactEqualBlockClusters || [];
+      const parts = cls.slice(0, 3).map((c) => `t+${c.firstDt}s 块${c.block} 内 ${c.wallets} 钱包各买 ${c.amt.toFixed(4)}`);
+      if (cls.length > 3) parts.push(`另有 ${cls.length - 3} 簇`);
+      lines.push(`精确等额同块购买: ${d.exactEqualBlockClusterCount} 簇合计占窗口总买入 ${d.exactEqualBlockBuyPct.toFixed(1)}%（${parts.join('；')}）——事实数值非门槛：完全相等金额（四位小数）∧同一区块的多钱包买入=时间+金额双协同形状（同块撞块的独立买家金额通常各异；前端默认档跟风是跨块长尾不聚同块；经聚合路由的默认档买入钱包同址天然不成簇）；簇占比高且金额反推名义非常见默认档=配置单痕迹，如何定档由你按 equal_amount_split 题面判读`);
+    }
     // D3.38 单块买入集中度形状行（CD135 续，2026-11-02 用户裁定换喂法 C——
     // 「形状提示不给具体数字降锚定力」）：D3.36 撤出精确数字后 CD6 回退
     // （minimal 0.66→meaningful 0.4 放行——单块集中形状有信息量），而撤前

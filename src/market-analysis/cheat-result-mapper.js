@@ -276,6 +276,11 @@ function buildObservation(answers, anchors = null) {
       // 立项**观察期**：grade 零消费，只进 FA 投影/存档攒分布；窗口卖=0 → null
       // 比值不适用）
       anchorBuySellRatio: _anchorPct(anchors, 'anchorBuySellRatio'),
+      // D3.53 精确等额同块簇三键（CD160：equal_amount_split/same_block_buy_wave
+      // 题判读原料（state 事实行+FA 投影同源）；无合格簇/总买≤0 → null）
+      exactEqualBlockBuyPct: _anchorPct(anchors, 'exactEqualBlockBuyPct'),
+      exactEqualBlockClusterCount: _anchorPct(anchors, 'exactEqualBlockClusterCount'),
+      exactEqualBlockMaxWallets: _anchorPct(anchors, 'exactEqualBlockMaxWallets'),
     },
   };
 }

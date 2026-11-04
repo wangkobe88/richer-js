@@ -284,6 +284,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatMaxBlockPreGapSec: factorResults.cheatMaxBlockPreGapSec ?? null,
     cheatSameAmountWalletPct: factorResults.cheatSameAmountWalletPct ?? null,
     cheatCreatorPeakHoldSupplyPct: factorResults.cheatCreatorPeakHoldSupplyPct ?? null,
+    // D3.53 精确等额同块簇占比（CD160：同块∧四位小数全等∧≥2 钱包簇买入占窗
+    // 总买 %——题面判读原料纯观察键；无合格簇 → null）
+    cheatExactEqualBlockBuyPct: factorResults.cheatExactEqualBlockBuyPct ?? null,
   };
 }
 
