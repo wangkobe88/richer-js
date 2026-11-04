@@ -3632,6 +3632,54 @@
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
       "expectBecause": "用户裁定（2026-11-04 v71 review 第 9 批标签页）认同生产 unhealthy；D3.59 对拍同向 unhealthy[E_low_activity]"
+    },
+    {
+      "caseId": "CD237",
+      "symbol": "TROLLON",
+      "addr": "0x1b6a4336d860f28113f4e7cae0e066ef220b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 344
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "CD159 强庄池第 11 张（CD61 同代币第二阶段点位，CD case 粒度=代币×点位新开 case；锚=344=晚锚研究截点 sbp-late 非生产信号锚）。11-04 十票观察页用户裁定：「代币明显分为两个阶段，第二阶段不算 cheat，可以算强庄币」——形状：截294 波峰（bw 3.08/27户 t2 6.1）后第二阶段 t2 维持 5.3-6.1、簇锁仓 47.8→64.2 持续加深、act high、churn 敛散；第一阶段（对倒高换手 churn79）归 CD61@294 点位（expect cheat 不动）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 十票观察页）「CD61 的代币明显分为两个阶段，第二阶段不算 cheat，可以算强庄币」"
+    },
+    {
+      "caseId": "CD238",
+      "symbol": "NEBULA",
+      "addr": "0x1d377357eeeeffe34f4b59487bf5d0ee75337777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 121
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "CD159 强庄池第 12 张（CD114 同代币后半段点位；锚=121=晚锚研究截点 sbp-late 非生产信号锚）。11-04 十票观察页用户裁定：「后半段的形态是健康的，可以算强庄币」——形状：截71/121 双 R 命中（bw 2.81/27户 t2 6.5→5.6 act high），中段 221 稀释（t2 3.2）后 471 回 5.1，波内钱包 27 持续；首析点位著名钱包主导 dom 78.1% 归 CD114@71（expect unhealthy 不动）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 十票观察页）「CD114/CD139 后半段的形态是健康的，可以算强庄币」"
+    },
+    {
+      "caseId": "CD239",
+      "symbol": "梗",
+      "addr": "0x89e42b0bfe286b8f7f93c4c7e2bc65e6f8af7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 423
+      },
+      "expect": {
+        "verdict": "healthy"
+      },
+      "note": "CD159 强庄池第 13 张（CD139 同代币后半段点位；锚=423=晚锚研究截点 sbp-late 非生产信号锚）。11-04 十票观察页用户裁定：「后半段的形态是健康的，可以算强庄币」——形状：簇锁仓 12.9→31→46.6→60.2 三段持续加深、bw 1.9-2.6 维持、波内钱包 14→44 扩张、act mid→high、同档 5.8-6（无等额簇）、wash 恒 null；首析点位 pump strong 降级豁免拒归 CD139@23（expect unhealthy 不动）",
+      "addedAt": "2026-11-04",
+      "expectSince": "2026-11-04",
+      "expectBecause": "用户裁定（2026-11-04 十票观察页）「CD114/CD139 后半段的形态是健康的，可以算强庄币」"
     }
   ]
 }
