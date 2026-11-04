@@ -2613,12 +2613,12 @@
         "tickCount": 17
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 2；D3.56 基线）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=17=cheat_detection 首判行；信号数 2；D3.56 基线））"
+      "expectBecause": "用户裁定「173 unhealthy 没问题」（与机器 unhealthy[L_insider_sell100] 同向：零买入纯卖钱包占总卖 100% 分仓号实锤）"
     },
     {
       "caseId": "CD174",
@@ -2680,12 +2680,12 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "unhealthy"
       },
       "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=25=cheat_detection 首判行；信号数 3；D3.56 基线））"
+      "expectBecause": "用户裁定「177 unhealthy 没问题」（与机器 unhealthy[E,L_insider_sell76] 同向：对敲 1 对吃 3/4 卖量+纯卖 76%）"
     },
     {
       "caseId": "CD178",
@@ -2730,12 +2730,12 @@
         "tickCount": 37
       },
       "expect": {
-        "verdict": "unclear"
+        "verdict": "cheat"
       },
       "note": "v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=37=cheat_detection 首判行；信号数 3；D3.56 基线）",
       "addedAt": "2026-11-04",
       "expectSince": "2026-11-04",
-      "expectBecause": "--add 基线快照（v70 f0898589 信号收录（生产首析锚对齐 anchorTicks=37=cheat_detection 首判行；信号数 3；D3.56 基线））"
+      "expectBecause": "用户裁定「是 cheat」；终局锚 169 D3.57 对拍=cheat[A_strong:slow_grind_pump,E_low_activity,J_holdings_strong] 三通道（pump=strong+hold=strong+act=low）；本 case 收录锚=首析 37 机器 unhealthy[E]"
     },
     {
       "caseId": "CD181",
