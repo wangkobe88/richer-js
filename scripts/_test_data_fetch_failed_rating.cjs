@@ -11,7 +11,9 @@
  *   B1 new-apis.js getUserByScreenName 源头判空骨架 throw（三调用方全 catch）
  *   B2 twitter-fetcher.mjs fetchAccountInfo 缓存出口拦截旧空壳毒行 + invalidate
  *   A  account-analysis-service.mjs data_fetch_failed 早退补 preCheckData 载体
- *   A2 NarrativeAnalyzer.mjs no_data 分支补 preCheckDataToSave 载体（B 修复后落点）
+ *   A2 NarrativeAnalyzer.mjs no_data 分支补 preCheckDataToSave 载体（B 修复后落点；
+ *      J1.158/C269 起载体 rating=unrated——无信息=无法理解 9，data_fetch_failed
+ *      技术失败形状刻意不动仍 low）
  *
  * 零 DB 零网络：B1 打桩 globalThis.fetch（fixture=本案实证响应形状）；A/A2 用
  * resolveFinalRating 落库形状闭环 + 源码口径断言（项目惯例）。
@@ -151,11 +153,13 @@ console.log('\n══ 一、B1 getUserByScreenName 空 stub 源头判定（行�
   };
   assertEq(resolveFinalRating(dataFetchFailedRecord), 'low', '修复 A：data_fetch_failed 早退形状 → low（不再 null）');
 
-  // 3.3 修复 A2：no_data 分支载体 → low
+  // 3.3 修复 A2：no_data 分支载体 → unrated（J1.158/C269 用户追裁「顺带改成 9」：
+  // 无信息=无法理解，推翻 2026-09-27 no_data fail-closed low 教义——1113 案
+  // 背景信息严重不足桶同批；规则1 unrated 优先于规则3 pass=false）
   const noDataRecord = {
-    pre_check_result: { rating: 'low', pass: false, reason: '没有可用的数据进行分析（所有推文/内容获取失败），无语料不构成叙事', category: null, score: null, details: { category: 'no_data' } }
+    pre_check_result: { rating: 'unrated', pass: false, reason: '没有可用的数据进行分析（所有推文/内容获取失败）——背景信息严重不足，无法理解叙事', category: null, score: null, details: { category: 'no_data' } }
   };
-  assertEq(resolveFinalRating(noDataRecord), 'low', '修复 A2：no_data 载体形状 → low');
+  assertEq(resolveFinalRating(noDataRecord), 'unrated', '修复 A2：no_data 载体形状 → unrated（C269）');
 
   // 3.4 回归：既有形状不受影响
   const rulesValidationRecord = {
@@ -192,7 +196,7 @@ console.log('\n══ 一、B1 getUserByScreenName 空 stub 源头判定（行�
 
   // A2 no_data 载体
   const analyzer = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
-  assert(/promptType = 'no_data';[\s\S]*?preCheckDataToSave = \{[\s\S]*?rating: 'low',[\s\S]*?details: \{ category: 'no_data' \}/.test(analyzer), 'A2：no_data 分支赋 preCheckDataToSave 载体');
+  assert(/promptType = 'no_data';[\s\S]*?preCheckDataToSave = \{[\s\S]*?rating: 'unrated',[\s\S]*?details: \{ category: 'no_data' \}/.test(analyzer), 'A2：no_data 分支赋 preCheckDataToSave 载体（rating unrated——J1.158/C269 无信息=无法理解；data_fetch_failed 技术失败形状刻意不动仍 low）');
 
   // A3 C238b（2026-10-26 股城案用户裁定「走 W 类，也就是不提供 CA 这一臂，我认为
   // 也应该过」）：地址核验失败（账号质量未达标∧简介/推文无 CA）不再 terminal 拦死，

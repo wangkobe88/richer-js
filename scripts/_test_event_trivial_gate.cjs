@@ -79,9 +79,9 @@ async function main() {
     parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 142, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
   const impQ = q.bsc_meme_user_event_impact;
-  check('A2 impact 题三桶（trivial J1.142 拆出 + baseless J1.155/C264 退役：none/empty/ip_reuse）',
-    ['none', 'event_empty_content', 'token_ip_reuse'].every(k => impQ.criteria[k])
-    && Object.keys(impQ.criteria).length === 3
+  check('A2 impact 题四桶（trivial J1.142 拆出 + baseless J1.155/C264 退役 + J1.158/C269 加第四桶 background_info_insufficient=背景层 unrated 通道，不走拦截：none/background/empty/ip_reuse）',
+    ['none', 'background_info_insufficient', 'event_empty_content', 'token_ip_reuse'].every(k => impQ.criteria[k])
+    && Object.keys(impQ.criteria).length === 4
     && !('event_trivial' in impQ.criteria)
     && !('event_baseless_speculation' in impQ.criteria), Object.keys(impQ.criteria));
   // J1.155/C264 baseless 退役：SAGE 现场形状（baseless 0.61 argmax 压分腿）旧缓存行重放不再拦

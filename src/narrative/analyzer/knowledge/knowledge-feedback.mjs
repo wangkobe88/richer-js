@@ -23,7 +23,11 @@ import { dbManager } from '../../../services/dbManager.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 
 /**
- * 纯判定（单测锚）：rating ∈ captureRatings，或（graduatedAlso ∧ isGraduated ∧ rating ≠ 'low'）
+ * 纯判定（单测锚）：rating ∈ captureRatings，或（graduatedAlso ∧ isGraduated ∧
+ * rating ∈ {mid, high}）
+ * J1.158/C269 收紧：毕业臂原「rating ≠ 'low'」——unrated（无法理解，C269 三域）
+ * 落入会把「本系统评 unrated」噪声写进 quasi-feedback 占位；显式白名单 mid/high
+ * （旧域 low/mid/high 行为 bit 一致）
  * @param {Object} record - { address, symbol, name, rating, ... }
  * @param {Object} feedbackConfig - { captureRatings, graduatedAlso }
  * @param {boolean} isGraduated - 毕业点查结果
@@ -33,7 +37,7 @@ export function _shouldCapture(record, feedbackConfig, isGraduated) {
   if (!record || !record.address || !record.rating) return false;
   const cfg = feedbackConfig || { captureRatings: ['high'], graduatedAlso: true };
   if ((cfg.captureRatings || ['high']).includes(record.rating)) return true;
-  if (cfg.graduatedAlso !== false && isGraduated && record.rating !== 'low') return true;
+  if (cfg.graduatedAlso !== false && isGraduated && (record.rating === 'mid' || record.rating === 'high')) return true;
   return false;
 }
 

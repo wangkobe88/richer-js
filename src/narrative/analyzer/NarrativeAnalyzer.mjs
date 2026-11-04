@@ -770,10 +770,14 @@ export class NarrativeAnalyzer {
         const hasAnyData = hasValidDataForAnalysis(fetchResults) || bypassedBySearch;
         if (!hasAnyData) {
           // 2026-09-27 裁定：分析完成必须有结论，无语料 → low（fail-closed 不买）
-          logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回low（fail-closed）');
+          // J1.158/C269 追裁（用户 2026-11-04「顺带改成 9」）：无信息=无法理解——
+          // no_data 与 no_public_info/背景信息不足桶语义统一，low→unrated（9）。
+          // 引擎侧行为差异=legacy 拉黑停/C84 补轮停（9 不在拉黑与补轮域），买门
+          // 同样不买；PrecheckFailRetry 域看 ruleName 不看 rating，重试不受影响
+          logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回unrated（无法理解，C269）');
           llmResult = {
-            rating: 'low',
-            reason: '没有可用的数据进行分析（所有推文/内容获取失败），无语料不构成叙事',
+            rating: 'unrated',
+            reason: '没有可用的数据进行分析（所有推文/内容获取失败）——背景信息严重不足，无法理解叙事',
             score: null,
             pass: false
           };
@@ -782,9 +786,10 @@ export class NarrativeAnalyzer {
           analysisFailed = false;
           // 2026-10-02 C53：本分支此前只设内存 llmResult，无落库载体 → 六 stage 字段
           // 全空 → rating=null 行 is_valid=true 固化（与 data_fetch_failed 早退同病）。
-          // 补 preCheckDataToSave（precheck 分支构造形状同构）→ resolveFinalRating 出 low
+          // 补 preCheckDataToSave（precheck 分支构造形状同构）→ resolveFinalRating
+          // 规则1 接 unrated → narrativeRating=9
           preCheckDataToSave = {
-            rating: 'low',
+            rating: 'unrated',
             pass: false,
             reason: llmResult.reason,
             category: null,
@@ -1173,7 +1178,9 @@ export class NarrativeAnalyzer {
     // buildStageSaveData
     const stageFinalSaveData = stageFinalData ? {
       final_result: {
-        rating: stageFinalData.category, // high/mid/low
+        // J1.158/C269：bgInfoBlock 命中时 category='unrated'（无法理解）——
+        // resolveFinalRating 规则1 在规则3 之前接住 → narrativeRating=9
+        rating: stageFinalData.category, // high/mid/low/unrated
         pass: true,
         reason: null,
         category: stageFinalData.category,

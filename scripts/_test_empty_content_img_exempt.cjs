@@ -282,8 +282,9 @@ async function main() {
   // token_ip_reuse 0.52 / empty_content 0.31 分票，token_ip_reuse 域仅 A、
   // 票 category=C → argmax 域外放行 71.11 high。划界=无名口号式提及（含套
   // 人物/机构名）归 empty_content，token_ip_reuse 只管 meme IP/形象/梗换皮
-  check('H10 J1.111/C181b 事件层优先三点在场（instructions 优先序 + token_ip_reuse 划界句 + Richard Teng 例）',
-    qSrc.includes('两层缺陷同时命中时**事件层优先（J1.111/C181）**')
+  check('H10 J1.111/C181b 事件层优先三点在场（instructions 优先序 + token_ip_reuse 划界句 + Richard Teng 例；J1.158/C269 起两层扩三层——背景层>事件层>代币层，事件层优先句内嵌「J1.111/C181 事件层优先于 token_*」）',
+    qSrc.includes('多层缺陷同时命中时**背景层 > 事件层 > 代币层**')
+    && qSrc.includes('J1.111/C181 事件层优先于 token_*')
     && qSrc.includes('票的根基是没有事件，选 event_empty_content')
     && qSrc.includes('仅套用真实人物/机构名（如 CZ、Richard Teng、币安）而无 meme IP/形象/梗的复用，且事件本体=无名作者一句话')
     && qSrc.includes('本项只管 meme IP/形象/梗的换皮复用'), null);

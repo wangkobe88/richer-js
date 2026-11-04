@@ -191,7 +191,7 @@ async function main() {
   const src = fs.readFileSync(require('path').join(__dirname, '../src/narrative/analyzer/llm/jev-result-mapper.mjs'), 'utf8');
   const idxW3 = src.indexOf('} else if ((w3Block = web3UnfitBlock(answers))) {');
   const idxPe = src.indexOf('} else if ((peBlock = web3FitMassBlock(answers,');
-  const idxBr = src.indexOf("} else if (blockChoice !== 'none' && noneProb < 0.5");
+  const idxBr = src.indexOf("} else if (blockChoice !== 'none' && blockChoice !== 'background_info_insufficient' && noneProb < 0.5"); // J1.158/C269 argmax 臂排除背景信息不足桶（unrated 通道不走拦截）
   check('D1 挂点顺序：w3Block → 契合证据门 → event_quality_veto argmax', idxW3 > 0 && idxPe > idxW3 && idxBr > idxPe, { idxW3, idxPe, idxBr });
   check('D2 豁免四条件接线（pubProxyActive / isW / binanceCorpus / platformOfficial；J1.56 rideMass 退役）',
     src.includes('opts.pubProxyActive || opts.isW')

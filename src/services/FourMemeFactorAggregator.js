@@ -270,8 +270,9 @@ let _retentionBasis = null;
 // `buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1`）发起/重试叙事分析，
 // NarrativeDirectCaller.getRating 返回后经 setNarrativeFactors 回填，buildFactorMap
 // 无条件注入 narrativeRating/narrativeRounds/narrativeRetryDue——单一买条件里的
-// `narrativeRating == 2 OR == 3` 对 null（未完成）/1（low）/9（失败超时归一）
-// 恒 false =「分析未完成或不通过不参与信号生成」由条件表达式天然保证。
+// `narrativeRating == 2 OR == 3` 对 null（未完成）/1（low）/9（失败超时归一
+// + C269 背景信息严重不足无法理解，叙事侧三域 unrated）恒 false =「分析未完成
+// 或不通过或不参与信号生成」由条件表达式天然保证（9 不拉黑不补轮，与 low 刻意分开）。
 // TPA _holdingFactorOverrides 同款模块级单例先例（web 裸 FA 不回填 → rating 恒
 // null fail-closed；引擎 stop 逐 token 清）。★retryDue 的 now 由 buildFactorMap
 // 入参传入（FA 周期判定禁 Date.now 红线）。

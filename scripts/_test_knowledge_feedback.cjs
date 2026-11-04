@@ -64,6 +64,7 @@ function makeRecordingFs() {
     assert(_shouldCapture({ address: A('1'), rating: 'mid' }, fb, true) === true, 'A2 mid ∧ 毕业 → true');
     assert(_shouldCapture({ address: A('1'), rating: 'mid' }, fb, false) === false, 'A3 mid 非毕业 → false');
     assert(_shouldCapture({ address: A('1'), rating: 'low' }, fb, true) === false, 'A4 low 毕业 → false（低质不沉淀）');
+    assert(_shouldCapture({ address: A('1'), rating: 'unrated' }, fb, true) === false, 'A4b unrated 毕业 → false（J1.158/C269：无法理解票不沉淀——防「本系统评 unrated」噪声进 quasi-feedback；显式白名单 mid/high，旧域 low/mid/high bit 一致）');
     assert(_shouldCapture({ rating: 'high' }, fb, false) === false, 'A5 缺 address → false');
     assert(_shouldCapture({ address: A('1'), rating: 'mid' }, { captureRatings: ['high'], graduatedAlso: false }, true) === false, 'A6 graduatedAlso:false 关毕业臂');
   }

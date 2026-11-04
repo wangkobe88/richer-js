@@ -4,7 +4,9 @@
  * 全部确定性判定在本文件完成（原 V2.0/V1.0 prompt 的评级数学下沉代码端）：
  * - addressVerified=false → 固定 account_based_meme：名称关联≠none 且 P(has_traffic)≥0.5
  *   两条件同时满足 → mid，否则 low（2026-09-27 裁定：abm 双证据成立给结论 mid，
- *   不再 unrated——分析完成必须有 low/mid/high 结论，9 只保留给直调失败/超时/未触发）
+ *   不再 unrated——分析完成必须有 low/mid/high 结论，9 只保留给直调失败/超时/未触发
+ *   + C269 追裁（J1.158，2026-11-04）：背景信息严重不足无法理解（impact 题第四桶/
+ *   no_public_info/no_data 三域）——「无信息=无法理解」亦 unrated，prestage 侧不涉及）
  * - addressVerified=true → token_type 二分（V2.0 第一步）：
  *   - web3_native_ip_early → 按账号基本面定档（rateProject 粉丝带；2026-09-27 裁定
  *     不再 unrated"等社区成长"——过与不过要有结论）。

@@ -115,7 +115,8 @@ function _normalizeName(str) {
 
 /**
  * 构建统一的预检查返回结果
- * @param {string} rating - "low" | "mid"
+ * @param {string} rating - "low" | "mid" | "unrated"（J1.158/C269：no_public_info
+ *   无信息=无法理解 → 9；unrated 行 pass 仍 false 不进 Jev）
  * @param {string} reason - 原因描述
  * @param {string} ruleName - 规则名称（如 "symbol_too_long"）
  * @param {Object} [extra] - 额外的 details 字段；extra.pass=true 可覆盖默认
@@ -934,16 +935,22 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     classifiedUrls[platform] && classifiedUrls[platform].length > 0
   );
 
-  // 情况A：没有公开URL → low（缺少叙事信息，无叙事价值）
+  // 情况A：没有公开URL → unrated（缺少叙事信息=无法理解，J1.158/C269 用户追裁
+  // 「顺带改成 9」：无信息 ≠ 坏票——推翻 2026-09-27 no_data fail-closed low 教义，
+  // 「无信息=无法理解」语义与 impact 题背景信息不足桶统一；pass 仍 false（不进
+  // Jev），rating 'unrated' 由 resolveFinalRating 规则1 接住 → narrativeRating=9。
+  // 消费方全部看 ruleName 不看 rating（PrecheckFailRetry no_public_info 域/
+  // C130 搜索旁路判据），重试域不受影响；情况B public_info_fetch_failed 与
+  // data_fetch_failed 同为技术失败形状刻意不动（台账留划界观察点））
   if (!hasAnyPublicUrl) {
     const hasTelegram = !!(classifiedUrls.telegram && classifiedUrls.telegram.length > 0);
     const hasDiscord = !!(classifiedUrls.discord && classifiedUrls.discord.length > 0);
     const reason = (hasTelegram || hasDiscord)
-      ? '仅有通讯应用链接（Telegram/Discord），缺少公开可验证的叙事信息，无叙事价值'
-      : '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值';
+      ? '仅有通讯应用链接（Telegram/Discord），缺少公开可验证的叙事信息——背景信息严重不足，无法理解叙事'
+      : '缺少任何有效的公开信息来源（网站、社交媒体、视频等）——背景信息严重不足，无法理解叙事';
 
     console.log(`[NarrativeAnalyzer] 规则4触发: ${reason}`);
-    return buildPreCheckResult('low', reason, 'no_public_info', { scores: { credibility: 5, virality: 5 }, total_score: 10 });
+    return buildPreCheckResult('unrated', reason, 'no_public_info', { scores: { credibility: 5, virality: 5 }, total_score: 10 });
   }
 
   // 情况B：有公开URL，检查数据是否获取成功

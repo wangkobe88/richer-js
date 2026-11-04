@@ -85,7 +85,7 @@ export function getRatingMeta(rating) {
     3: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' },
     2: { label: '中质量', emoji: '📊', colorClass: 'text-blue-400', bgClass: 'bg-blue-900', borderClass: 'border-blue-700' },
     1: { label: '低质量', emoji: '📉', colorClass: 'text-orange-400', bgClass: 'bg-orange-900', borderClass: 'border-orange-700' },
-    9: { label: '未评级', emoji: '❓', colorClass: 'text-gray-400', bgClass: 'bg-gray-900', borderClass: 'border-gray-700' }
+    9: { label: '未评级/无法理解', emoji: '❓', colorClass: 'text-gray-400', bgClass: 'bg-gray-900', borderClass: 'border-gray-700' } // J1.158/C269：+背景信息严重不足三域（unrated）
   };
   return MAP[rating] ?? MAP[9];
 }

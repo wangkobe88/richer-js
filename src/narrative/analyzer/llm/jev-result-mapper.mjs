@@ -395,6 +395,9 @@ const BLOCK_LABELS = {
   token_ip_reuse: 'IP低质复用',
   event_negative_hard_news: '负面硬新闻事件',
   event_routine_content_product: '常规内容产品宣传',
+  // J1.158/C269：非拦截桶——命中走 unrated 概率门（backgroundInfoInsufficientBlock），
+  // label 供 unrated 通道 blockReason/finalReason 模板用
+  background_info_insufficient: '背景信息严重不足（无法理解叙事）',
 };
 
 /**
@@ -503,6 +506,13 @@ const BLOCK_SCOPE = {
   // + 名字/载体/关联/质量门判。J1.88/C150 再删 event_institution_routine（机构日常
   // 同交 bsc_meme_user_event_fit，见上）。
   event_routine_content_product: [],
+  // J1.158/C269（2026-11-04 极寒降临案，用户裁定「就是没搞明白这个代币到底啥意思，
+  // 确实没有提供信息」）：背景信息严重不足桶——**唯一活空域**：非拦截桶，命中走
+  // unrated 通道（backgroundInfoInsufficientBlock 概率 ≥0.5 → rating 'unrated' →
+  // narrativeRating=9），argmax 重放不得拦（C244 教训：<0.5 掷骰段不动作）。argmax
+  // 臂已显式排除本桶，此处显式空域兜未来任何 blockInScope 消费位——blockInScope
+  // 对未定义桶按 'all' 全域拦（J1.43/J1.155 先例：只删键无效），与本概率门打架
+  background_info_insufficient: [],
 };
 
 /**
@@ -775,6 +785,37 @@ function chinaPoliticsBlock(answers) {
   const c = q(answers, 'bsc_meme_user_event_fit', 'web3_user_event_fit')?.choice;
   if (c !== 'china_politics') return null;
   return { label: '中国政治主题不适合构建 meme 币（J1.122）' };
+}
+
+/**
+ * 背景信息严重不足 unrated 通道（J1.158/C269，2026-11-04 极寒降临案
+ * 0x064f86075d930544ac655350f8295d1ef04d7777 用户裁定「这里明显不是什么
+ * unfit，就是没搞明白这个代币到底啥意思，确实没有提供信息，并且搜索又没有
+ * 明确结果」）：语料全空 + C77 搜索兜底按 symbol 只搜到无关撞名推文 → C130
+ * 旁路进 Jev → 案票 unfit 0.81 误拦 low——「理解不可能」被当成了质量否决。
+ * impact 题新增第四桶 background_info_insufficient（题面三层优先序：背景层 >
+ * 事件层 > 代币层），本门=概率门 ≥0.5（学习 C244 <0.5 掷骰教训；旧缓存行
+ * 缺桶 ?? 0 fail-open 零翻转，china_politics/entity_event_mismatch 先例）。
+ *
+ * 命中 → **unrated 通道**（刻意不产 low）：llmResult rating='unrated' →
+ * resolveFinalRating 规则1 → narrativeRating=9——引擎侧不买/不拉黑/停补轮
+ * （「无法理解」不是「坏票」，与 low 的引擎行为刻意分开；同批 no_public_info/
+ * no_data 两域 low→unrated 追裁见 pre-check-service/NarrativeAnalyzer）。
+ *
+ * 挂位=C168/C256/C250 纯代码事实门之后、chinaPoliticsBlock 之前的 Jev 门
+ * 之首：代码事实（撞蓝筹名/借壳/陈旧）不依赖 Jev 理解，照拦 low。else-if 链
+ * 短路其后全部 Jev 门（政治/unfit/契合/argmax/名字轴/W 数学）——同 hit 时
+ * unfit 审计由臂内补算 w3Block 保留（web3UnfitMass 消费点在 stage2 审计，
+ * 无门行为影响）。Stage3 截断门强制清零（见 stage3Blocked 段）：信息不足下
+ * 关联/质量分是噪声，且 relation_result pass=false 会被 resolveFinalRating
+ * 规则3 先拦成 low（信封序在 final_result 之前，规则1 永远走不到）。argmax
+ * 臂显式排除本桶 + BLOCK_SCOPE 显式空域（blockInScope 未定义桶按 'all'
+ * 全域拦，会与本概率门打架——J1.43 先例：只删键无效）。
+ */
+function backgroundInfoInsufficientBlock(answers) {
+  const p = blockAnswers(answers)?.probabilities?.background_info_insufficient ?? 0;
+  if (p < 0.5) return null;
+  return { mass: Math.round(p * 100) / 100, label: BLOCK_LABELS.background_info_insufficient };
 }
 
 /**
@@ -1505,6 +1546,7 @@ export function mapStandardAnswers(answers, context) {
   let peBlock = null; // 契合证据门信息 {label, fitMass}（J1.83/C141；前身产品实体接纳门 J1.27/C55）
   let cpBlock = null; // 中国政治主题否决信息 {label}（J1.122/C192，fit 题 china_politics 桶）
   let shellStaleBlock = null; // 借壳语料陈旧门信息 {label, lagSec, staleSec, sources}（C250，无宣告推+全语料>30d）
+  let bgInfoBlock = null; // 背景信息严重不足 unrated 通道信息 {label, mass}（J1.158/C269，impact 题第四桶概率门）
   // C108：nrBlock（J1.10）/rmBlock（J1.28）/memFloorFired（C88）随名字门统一退役
   // J1.56（C126）：实体低影响力门回归——按旧 J1.10 规格吃新实体题的 unknown
   // （≥0.5，全域拦——C184b 方案一），挂在名字门之前（实体层否决先于形态层）
@@ -1672,6 +1714,9 @@ export function mapStandardAnswers(answers, context) {
   // bluechipDuplicate），票回门链正常评估（unfit/契合门/量级门照常接管）
   const dedupNewEventProb = answers.bluechip_event_identity?.probabilities?.new_event ?? 0;
   const dedupNewEvent = noneProb >= 0.5 && FRESH_TIMING_C88.has(timing) && dedupNewEventProb >= 0.5;
+  // J1.158/C269 恒落审计：背景信息不足概率（未过门票的分布可追溯，校准观察用；
+  // 旧缓存行缺桶 null 断代不冒充 0——emptyContentMass 同款形状）
+  const bgInfoInsufficientRaw = blockAnswers(answers)?.probabilities?.background_info_insufficient ?? null;
 
   // J1.11 负面硬新闻质量门（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
@@ -1715,6 +1760,14 @@ export function mapStandardAnswers(answers, context) {
     // SHELL_CORPUS_STALE_SEC 头注；mapper-only，全域不限类别
     eventScoreBlocked = true;
     gateBlockReason = shellStaleBlock.label;
+  } else if ((bgInfoBlock = backgroundInfoInsufficientBlock(answers))) {
+    // J1.158/C269 unrated 通道：刻意不设 eventScoreBlocked（那条链产 low）——
+    // else-if 短路其后全部 Jev 门（政治/unfit/契合/argmax/名字轴/W 数学）；
+    // 纯代码事实门 C168/C256/C250 已在前照拦（代码事实不依赖 Jev 理解）。补算
+    // unfit 质量仅供审计（w3Block 赋值位在下方臂⑥内，短路后不可达——1113 同
+    // hit 案 unfit 0.81 需可追溯；无门行为影响）。尾部 unrated 化（aggregation/
+    // stageFinalData/llmResult）+ Stage3 强制清零见下方各段
+    w3Block = web3UnfitBlock(answers);
   } else if ((cpBlock = chinaPoliticsBlock(answers))) {
     // J1.122/C192 中国政治主题否决（2026-10-25 用户裁定）：fit 题 china_politics
     // argmax → 确定性拦（独立否决桶，不参与四档比较；不看玩味空间/无豁免）。
@@ -1740,7 +1793,7 @@ export function mapStandardAnswers(answers, context) {
     // bsc_meme_user_event_impact argmax 之前（事件性质层面的否决）
     eventScoreBlocked = true;
     gateBlockReason = peBlock.label;
-  } else if (blockChoice !== 'none' && noneProb < 0.5
+  } else if (blockChoice !== 'none' && blockChoice !== 'background_info_insufficient' && noneProb < 0.5
     // J1.18 发布者指代豁免：官方域名=具体产品落地（J1.64 起 gimmick 选项已删，本注释仅存史）
     // 「无任何实质产品」的定义直接矛盾（CUE 本轮 gimmick 0.30/none 0.29 抖动即此
     // 形状——官方域名的存在本身就是反证），不拦
@@ -1760,6 +1813,9 @@ export function mapStandardAnswers(answers, context) {
     // 问候/表态/对实质事件的简短回应=事件素材，event_empty_content 臂不拦（用户裁定：
     // 「何一发一个问候语，在 BSC meme 币场景不是空洞行为，何况是回复实质事件」）。
     // 与 C114 图证豁免同构：只翻本门，名字/载体/量级门照常接管。
+    // J1.158/C269：background_info_insufficient 显式排除——非拦截桶，命中走
+    // bgInfoBlock unrated 通道（该臂在前已短路，此条件兜概率 <0.5 掷骰段：
+    // blockInScope 空域双保险之外的第二道防线）
     && !(blockChoice === 'event_empty_content' && !!context.corpusAuthorInRegistry)
     && blockInScope(blockChoice, category)) {
     eventScoreBlocked = true;
@@ -1935,6 +1991,11 @@ export function mapStandardAnswers(answers, context) {
         // J1.56 起本层另有 nameEntityLowBlock（unknown≥0.5，见拦截发生点审计）。
         // negativeHardNewsMass 随 J1.101/C170 nhn 门退役删除（历史行键保留展示）
         web3UnfitMass: w3Block?.mass ?? null,
+        // J1.158/C269 审计：background_info_insufficient 概率恒落（校准观察：
+        // 未过门票分布可追溯；旧缓存行 null 断代不冒充 0）
+        backgroundInfoInsufficientMass: bgInfoInsufficientRaw != null
+          ? Math.round(bgInfoInsufficientRaw * 100) / 100
+          : null,
         // J1.113/C184 实体类型门审计：命中才落 mass（unacceptable_type 概率），
         // 未命中 null。旧键 nameEntityLowMass（unknown 认知度轴）随桶断代停产出，
         // 历史行键保留展示
@@ -2074,12 +2135,26 @@ export function mapStandardAnswers(answers, context) {
     stage3BlockReason = `代币质量过低（${quality.total}分）`;
   }
 
+  // J1.158/C269：背景信息不足票 unrated 化——Stage3 截断门判据（拼写/关联/质量）
+  // 在信息不足下全是噪声极易误触，且 relation_result pass=false 会被
+  // resolveFinalRating 规则3 先拦成 low（信封序在 final_result 之前，规则1
+  // unrated 永远走不到）——强制不截断：全信封链 pass=true，终态统一由
+  // final_result.rating='unrated' 承载
+  if (bgInfoBlock != null && stage3Blocked) {
+    stage3Blocked = false;
+    stage3BlockReason = null;
+  }
+
   let aggregatedCategory;
   let aggregatedTotalScore = null;
   let weightedEventScore = null;
 
   if (eventScoreBlocked || stage3Blocked) {
     aggregatedCategory = 'low';
+  } else if (bgInfoBlock != null) {
+    // J1.158/C269：unrated=无法理解（非 low 拦截、非正常评级）；totalScore 保持
+    // null——链短路后 W 数学/标准数学均未跑，评分在信息不足下无意义
+    aggregatedCategory = 'unrated';
   } else {
     weightedEventScore = round2(eventCompositeScore * 0.6);
     aggregatedTotalScore = round2(weightedEventScore + relevance.score + quality.total);
@@ -2096,7 +2171,11 @@ export function mapStandardAnswers(answers, context) {
 
   const finalReason = eventScoreBlocked
     ? `阻断:${gateBlockReason}｜P=${w3Block?.mass ?? (blockProb ?? '-')}`
-    : stage3Blocked
+    : bgInfoBlock != null
+      // J1.158/C269 unrated 通道：理解不可能≠质量否决（1113 案 unfit 0.81 误拦
+      // 的形状改道）；unfit 同 hit 时质量在 stage2 审计 web3UnfitMass 可追溯
+      ? `无法理解:${bgInfoBlock.label}（background_info_insufficient ${Math.round(bgInfoBlock.mass * 100)}%≥50%）｜叙事分析返回无法理解，narrativeRating=9`
+      : stage3Blocked
       ? `截断:${stage3BlockReason}`
       : `${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${recognizedEntitySlogan ? '超级IP口号票豁免(C88)｜' : ''}${instagramSpreadAnchorActive ? 'IG影响力豁免(C44)｜' : ''}${web3FitSpreadAnchorActive ? 'Web3偏好传播豁免(C94)｜' : ''}事件分${weightedEventScore}(${eventCompositeScore}×0.6)｜关联${relevance.score}(${relPart})｜质量${quality.total}(${qualityPart})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
@@ -2155,14 +2234,19 @@ export function mapStandardAnswers(answers, context) {
       };
 
   const stageFinalData = {
+    // J1.158/C269：bgInfoBlock 命中时 category='unrated' → analyzer final_result
+    // 组装 rating='unrated' → resolveFinalRating 规则1 → narrativeRating=9；
+    // relevance/quality 在信息不足下是噪声，与 eventScoreBlocked 同置 null
     category: aggregatedCategory,
     totalScore: aggregatedTotalScore,
     weightedEventScore,
-    relevanceScore: eventScoreBlocked ? null : relevance.score,
-    qualityScore: eventScoreBlocked ? null : quality.total,
+    relevanceScore: (eventScoreBlocked || bgInfoBlock != null) ? null : relevance.score,
+    qualityScore: (eventScoreBlocked || bgInfoBlock != null) ? null : quality.total,
     eventWeight: 0.6,
     eventCompositeScore,
-    blockReason: eventScoreBlocked ? gateBlockReason : (stage3Blocked ? stage3BlockReason : null),
+    blockReason: eventScoreBlocked ? gateBlockReason
+      : bgInfoBlock != null ? bgInfoBlock.label
+      : (stage3Blocked ? stage3BlockReason : null),
   };
 
   const llmResult = eventScoreBlocked
@@ -2173,6 +2257,17 @@ export function mapStandardAnswers(answers, context) {
         pass: false,
         analysis_stage: 2,
       }
+    : bgInfoBlock != null
+      ? {
+          // J1.158/C269 unrated 通道：pass=null 刻意非 false（任何信封 pass=false
+          // 都会被 resolveFinalRating 规则3 拦成 low）；analysis_stage=3（全信封
+          // 链完整落库，Stage3 强制清零不跳过）
+          rating: 'unrated',
+          reason: finalReason,
+          score: null,
+          pass: null,
+          analysis_stage: 3,
+        }
     : {
         rating: aggregatedCategory,
         reason: finalReason,

@@ -44,7 +44,9 @@ export function interpret(row) {
   };
 }
 
-const RATING_SET = new Set(['low', 'mid', 'high']);
+// J1.158/C269：unrated 入枚举——背景信息严重不足桶/no_public_info/no_data 三域
+// rating=unrated（narrativeRating=9）可被 fixtures 断言（expect.rating='unrated'）
+const RATING_SET = new Set(['low', 'mid', 'high', 'unrated']);
 
 /**
  * 断言一份预期（expect DSL）对判读结果。
