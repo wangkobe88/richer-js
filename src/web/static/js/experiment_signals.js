@@ -3138,7 +3138,9 @@ class ExperimentSignals {
       const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? Number(val).toFixed(decimals) : 'N/A';
       const formatPercent = (val) => val !== undefined && val !== null ? Number(val).toFixed(1) + '%' : 'N/A';
 
-      // 显示实验配置的卖出策略条件
+      // 显示实验配置的卖出策略条件（2026-11-04 用户要求：卖出信号也像买入信号一样
+      // 展示条件因子值 chips——值取 fire 时刻 metadata.trendFactors 快照，171 键因子表
+      // 含 marketCap/realHoldDuration/entryMarketCap 等全部卖腿条件因子）
       let sellStrategyConfigHtml = '';
       if (sellCondition) {
         sellStrategyConfigHtml = `
@@ -3146,6 +3148,7 @@ class ExperimentSignals {
             <div class="text-xs">
               <span class="font-semibold text-blue-900">📋 卖出条件配置:</span>
               <code class="ml-2 px-2 py-0.5 bg-blue-200 rounded text-xs text-blue-900 break-all">${this._escapeHtml(sellCondition)}</code>
+              ${this._renderConditionFactorChips(sellCondition, metadata)}
             </div>
           </div>
         `;
