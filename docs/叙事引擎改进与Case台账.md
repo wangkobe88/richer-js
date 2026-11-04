@@ -62,7 +62,7 @@ Token URL → URL 分类（IPFS metadata 解包 C112：任意 http(s) meta 直�
 - **验证**：本地渲染对拍（持械入宋语料 corpus_contains 命中→注入段带真叙事 247 字符<300 无截断+偏好指引照带）；知识库单测七件全绿（loader/matcher/section/builder_core/feedback/bluechip_dedup/borrowed_corpus）。
 - **本票不翻案**：token_narrative 缓存行 rating=low 不动（语义=将来同形状「借蓝筹类比」票的注入质量）；与 C260 MAI 案同精神（注册意义在将来，不在翻旧案）。
 - **★出处纪律（同日修正，用户质询「从哪里得到信息」触发）**：初版叙事三处与一手证据不符——①「币安 Discord 社区原生梗」：Discord 表情包只是流通地，**起源=中国低成本电影片段梗化**（官方账号 bio 自述 "From a low-budget movie to a viral meme"+recap 推 "born from a Chinese movie that went viral"，2026-09-09 赞 151）；②「无圈外 IP 依托」：有电影出处（但已梗化脱离电影产品语境——恰是 C12「牛来可以 vs 绣春刀3 不行」的实质判据：梗化电影素材 vs 在映电影产品宣传）；③「冠军纪念票」：C168 台账「出过冠军」概念转写，无独立实证，删。一手核验法=apidance 拉官方账号（bio/近期推），零成本单账号小读取。**红线沉淀：manual 叙事每个事实须一手核验（官方账号自述/DB 行/GMGN 字段/用户裁定原话），台账转写与字面推断不算数**——与 manual-entries「地址必须查实」同纪律。补充实证事实：牛市来了 gloss=官方 bio "The bull is coming" ✓；flap 平台发射（via @flapdotsh）；峰值 70K+ 持有人；蓝标 8671 粉；2026-08-14 创建（DB created_at 精确换算）。
-- **观察点**：①持械入宋同形状票（语料提蓝筹做类比）注入真语境后的 fit/量级判分变化；②94 条占位符补全的攒批节奏与优先序（按 ATH 降序头部先行）。
+- **观察点**：①持械入宋同形状票（语料提蓝筹做类比）注入真语境后的 fit/量级判分变化——**首数据点（11-04 定向重析，182 真调）**：sf+fit 39%→45%（strong_fit 33→38/unfit 13→10/marginal 48→45）方向全对但未过 50% 线仍 low；impact none 0.87 与 E 0.9 纹丝不动——**类比语境能借来情绪借不来参与空间**（牛来=电影梗代币化 vs 持械入宋=热点旁观票，结构性差异）；②94 条占位符补全的攒批节奏与优先序（按 ATH 降序头部先行）。
 
 ### C264 baseless 桶退役——相信叙事陈述，不试图验证（SAGE 案三轮，2026-11-03 用户裁定）★
 
