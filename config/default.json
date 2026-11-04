@@ -165,6 +165,10 @@
       "enabled": false,
       "gate": {
         "awaitMs": 15000
+      },
+      "memSource": {
+        "enabled": false,
+        "auditShadow": true
       }
     },
     "buySignalCooldownMs": 3000,
@@ -341,13 +345,16 @@
       "https://bsc-dataseed1.defibit.io/",
       "https://bsc-dataseed2.defibit.io/"
     ],
-    "concurrency": 4,
+    "concurrency": 8,
     "backlogLimit": 20000,
     "retryLimit": 2,
     "retryDelayMs": 3000,
     "kindCacheLimit": 200000,
     "txFromCacheLimit": 50000,
-    "logEvery": 10000
+    "logEvery": 10000,
+    "callTimeoutMs": 0,
+    "blockCacheLimit": 16,
+    "routerEventMapLimit": 50000
   },
   "preBuyCheck": {
     "holderCheckEnabled": true,

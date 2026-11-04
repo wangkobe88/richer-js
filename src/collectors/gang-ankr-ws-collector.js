@@ -42,6 +42,7 @@
 
 const WebSocket = require('ws');
 const { ethers } = require('ethers');
+const { ROUTER_EVENT_SUBSCRIPTION, extractRouterEventUsers } = require('./router-events.js');
 
 // ── 事件签名（五 topic0 已与链上采样精确对拍，见头注释）──
 const EVENT_SIGS = {
@@ -88,6 +89,14 @@ const VQL_DATA_TYPES = ['uint256'];
 // gang LaunchToken totalSupply 恒 1e9（实测两个 V2 token 精确一致，供 marketCap 因子）
 const GANG_TOTAL_SUPPLY = 1e9;
 const ZERO_ADDRESS = '0x' + '0'.repeat(40);
+
+// ── per-token tick 行环（cheat 门 memSource ②，2026-11-04）──
+// 行对象与将 INSERT 的 DB 行同引用（_pushTickRow 咽喉点=sender 已定值）；环 =
+// cheat 门拉数的内存源，miss 回落 DB。锚语义与 DB 路径逐位同构（pullTokenTicks）。
+const RING_HEAD_LIMIT = 300;   // 出生最早段保底（满帽拼合用，永不滚出=DB head 300 同构）
+const RING_TAIL_LIMIT = 3000;  // FIFO 最近段（=DB tail pullLimit 同构）
+const RING_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 惰性清扫节流（挂 push，零 timer）
+const RING_IDLE_MAX_MS = 10 * 60 * 1000;      // 无新 tick 超时清环（断流票；门再来拉=miss 回落 DB）
 
 // BSC PancakeSwap V2 Router（BNB/USD 换算：WBNB→USDT getAmountsOut）
 const PANCAKE_V2_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
@@ -178,7 +187,8 @@ class GangAnkrWsCollector {
         this._ws = null;
         this._logSubId = null;
         this._headSubId = null;
-        this._rpcId = 100; // eth_getBlockByNumber 等请求 id；订阅请求用 1/2
+        this._routerEventSubId = null; // GMGN 路由事件订阅（sender 回查加速 0b）
+        this._rpcId = 100; // eth_getBlockByNumber 等请求 id；订阅请求用 1/2/3
         this._blockTimeRequests = new Map(); // rpcId → blockNumber
 
         this._reconnectDelay = this._reconnectMinDelay;
@@ -224,6 +234,11 @@ class GangAnkrWsCollector {
         this._flushInProgress = false;
         this._tickBufferHighWatermark = false; // 当前处于高水位告警态（回落一次性恢复）
         this._tickLastAlertAt = 0;
+
+        // per-token tick 行环（cheat 门 memSource ②）：token → { head, tail, total, lastPushAt }
+        this._tokenRing = new Map();
+        this._ringLastSweepAt = 0;
+
         this._supabase = null;
 
         this._bnbUsd = 0;
@@ -266,6 +281,10 @@ class GangAnkrWsCollector {
             tickBufferHighWatermarkAlerts: 0,
             bnbUsdUpdates: 0,
             reconnects: 0,
+            routerEvents: 0,      // GMGN 路由事件条数（0b）
+            routerEventUsers: 0,  // 从事件 topics 提取的用户 EOA 次数
+            ringTokens: 0,        // 行环当前 token 数（memSource ②）
+            ringSwept: 0,         // 惰性清扫清除的断流票环数（累计）
         };
     }
 
@@ -329,6 +348,7 @@ class GangAnkrWsCollector {
             this._pendingUnknownTrades = [];
             this.stats.unknownTokenPending = 0;
         }
+        this._tokenRing.clear(); // 行环随进程态清空（cheat 门 mem 源 miss 回落 DB）
         this.logger.info('', 'GangAnkrWsCollector', '已停止', this.stats);
     }
 
@@ -348,6 +368,14 @@ class GangAnkrWsCollector {
             // address 数组=V2+V3 双 pad（V3 配置存在时；Buy/Sell/VQL 两 pad 同签名共享白名单）
             const padAddresses = this._launchpadV3 ? [this._launchpad, this._launchpadV3] : [this._launchpad];
             this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: padAddresses, topics: [Array.from(TOPIC0_MAP.keys())] }] });
+
+            // GMGN 路由事件订阅（sender 回查加速 0b）：Swap/FeeCollected topics 带
+            // indexed 用户 EOA → resolver 内存映射 txHash→user（GMGN 行 sender 零 RPC
+            // 定值；miss 不等待走块预取 join——事件晚于 trade 事件几十 ms 到达）
+            if (this._senderResolver && this._senderResolver.routerEventMapEnabled) {
+                this._routerEventSubId = null;
+                this._send({ jsonrpc: '2.0', id: 3, method: 'eth_subscribe', params: ['logs', ROUTER_EVENT_SUBSCRIPTION] });
+            }
 
             this._pingTimer = setInterval(() => {
                 if (this._ws && this._ws.readyState === WebSocket.OPEN) {
@@ -407,6 +435,7 @@ class GangAnkrWsCollector {
             if (msg.id === 1 || msg.id === 2) {
                 this.logger.info('', 'GangAnkrWsCollector', `订阅确认 id=${msg.id} subId=${msg.result}`);
             }
+            if (msg.id === 3) this._routerEventSubId = msg.result;
             return;
         }
 
@@ -421,12 +450,32 @@ class GangAnkrWsCollector {
                 this._handleHead(msg.params.result);
             } else if (msg.params.subscription === this._logSubId) {
                 this._handleLog(msg.params.result);
+            } else if (this._routerEventSubId && msg.params.subscription === this._routerEventSubId) {
+                this._handleRouterEvent(msg.params.result);
             }
             return;
         }
 
         if (msg.error) {
             this.logger.warn('', 'GangAnkrWsCollector', `RPC 错误帧: ${JSON.stringify(msg.error).slice(0, 200)}`);
+        }
+    }
+
+    // ═══════════════ GMGN 路由事件 → sender 映射（阶段 0b） ═══════════════
+
+    /**
+     * 只写 resolver 内存映射（txHash→user EOA），零业务副作用。
+     * 消费点=resolver `_processItem` 最前（命中零 RPC 定值）；miss 不等待——
+     * 同 tx 内路由事件 logIndex 晚于 trade 事件几十 ms 到达，等不起也不必等，
+     * 直接走块预取 join 兜底（互补不互斥）。
+     */
+    _handleRouterEvent(log) {
+        this.stats.routerEvents++;
+        const extracted = extractRouterEventUsers(log);
+        if (!extracted) return;
+        this.stats.routerEventUsers += extracted.users.length;
+        for (const user of extracted.users) {
+            this._senderResolver.setRouterEventUser(extracted.txHash, user);
         }
     }
 
@@ -1250,6 +1299,7 @@ class GangAnkrWsCollector {
     /** tick 行进缓冲（resolver 回推与直推共用的单一咽喉点） */
     _pushTickRow(tickRow) {
         this.stats.ticksBuffered++;
+        this._ringPush(tickRow);
         this._tickBuffer.push(tickRow);
         // TPA live 缓冲钩子：行 push 后同步喂，此时 sender_address 已定值
         if (this._onTickBuffered) this._onTickBuffered(tickRow);
@@ -1257,6 +1307,78 @@ class GangAnkrWsCollector {
             this._flushTickBuffer();
         }
         this._checkTickBufferWatermark();
+    }
+
+    // ═══════════════ per-token tick 行环（cheat 门 memSource ②） ═══════════════
+
+    /**
+     * 行入环（挂 _pushTickRow 咽喉点，四路全经此：EOA 快路/合约回推/无 resolver 直推/尘 tick）。
+     * 环内行与将 INSERT 的 DB 行同引用（sender 恒终态）；head=出生最早 300 保底永不滚出，
+     * tail=FIFO 最近 3000；total 全量计数（锚语义源，不因淘汰减少）。
+     * 引用语义：行先入环后进 buffer，flush 失败批 unshift 回 buffer 不影响环。
+     */
+    _ringPush(tickRow) {
+        const tok = tickRow.token_address;
+        if (!tok) return;
+        let e = this._tokenRing.get(tok);
+        if (!e) {
+            e = { head: [], tail: [], total: 0, lastPushAt: 0 };
+            this._tokenRing.set(tok, e);
+            this.stats.ringTokens = this._tokenRing.size;
+        }
+        e.total++;
+        e.lastPushAt = Date.now();
+        if (e.head.length < RING_HEAD_LIMIT) e.head.push(tickRow);
+        e.tail.push(tickRow);
+        if (e.tail.length > RING_TAIL_LIMIT) e.tail.splice(0, e.tail.length - RING_TAIL_LIMIT);
+        const now = e.lastPushAt;
+        if (now - this._ringLastSweepAt >= RING_SWEEP_INTERVAL_MS) {
+            this._ringLastSweepAt = now;
+            this._sweepTokenRing(now);
+        }
+    }
+
+    /**
+     * 惰性清扫（push 时节流触发，零 timer 零 stop 管理）：清 lastPushAt 超时的断流票环。
+     * 安全论证：清扫条件=10min 无新 tick ⇒ 该票不会再有新买信号（cheat 门唯一拉数入口=
+     * 买信号=factorsUpdated tick 驱动）⇒ 门不会再来拉；即便极端时序下来拉，miss 回落
+     * DB 路径语义等价（重启后环空同款）。多保留无害（多轮 sweep 才清）。
+     */
+    _sweepTokenRing(now) {
+        for (const [tok, e] of this._tokenRing) {
+            if (now - e.lastPushAt > RING_IDLE_MAX_MS) {
+                this._tokenRing.delete(tok);
+                this.stats.ringSwept++;
+            }
+        }
+        this.stats.ringTokens = this._tokenRing.size;
+    }
+
+    /**
+     * 环拉数（cheat 门 mem 源；锚语义与 service._pullTicks DB 路径逐位同构）：
+     *   total ≤ pullLimit → rows=tail 全量（链上真序），anchorTickCount=total，capped=false
+     *   total > pullLimit → 满帽：anchorTickCount=pullLimit 帽值（真总数未知=DB 满帽同构），
+     *     rows=head 最早段去重拼 tail（head 保底不滚出=DB head 300 同构），capped=true
+     * 重叠窗（pullLimit < total ≤ pullLimit+headLimit）head 与 tail 有交集 → seen 去重
+     * （与 DB 路径同款）；行到达序无关——排序链上真序（resolver 乱序回推防御）。
+     * @returns {{ rows, anchorTickCount, capped } | null} 环无该票（重启后/断流清扫后）→ null
+     */
+    pullTokenTicks(token, pullLimit = RING_TAIL_LIMIT, headLimit = RING_HEAD_LIMIT) {
+        const e = this._tokenRing.get(token);
+        if (!e || e.total === 0) return null;
+        const cmp = (a, b) => {
+            const ab = a.block_number ?? Number.MAX_SAFE_INTEGER;
+            const bb = b.block_number ?? Number.MAX_SAFE_INTEGER;
+            if (ab !== bb) return ab - bb;
+            return (a.log_index ?? 0) - (b.log_index ?? 0);
+        };
+        const tail = e.tail.slice().sort(cmp);
+        if (e.total <= pullLimit) {
+            return { rows: tail, anchorTickCount: e.total, capped: false };
+        }
+        const seen = new Set(tail.map((r) => `${r.block_number}:${r.log_index}`));
+        const headOnly = e.head.filter((r) => !seen.has(`${r.block_number}:${r.log_index}`));
+        return { rows: headOnly.concat(tail), anchorTickCount: tail.length, capped: true };
     }
 
     /**
@@ -1435,6 +1557,7 @@ class GangAnkrWsCollector {
         }
         this._logSubId = null;
         this._headSubId = null;
+        this._routerEventSubId = null;
 
         this.logger.info('', 'GangAnkrWsCollector',
             `计划重连: delay=${this._reconnectDelay}ms attempt=${this.stats.reconnects}`);

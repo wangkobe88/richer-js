@@ -1,13 +1,13 @@
 /**
  * SenderResolver —— wss_price_ticks.sender_address（真实交易发起者）解析器
- * （2026-09-30 0x1de460 公共路由案）
+ * （2026-09-30 0x1de460 公共路由案；2026-11-04 块预取 join + GMGN 路由事件映射改造）
  *
  * 背景：flap TokenBought/TokenSold 与 four.meme TokenPurchase/TokenSale 事件的
  * trader 参数是 msg.sender（合约直接调用者）。用户经公共路由（0x1de460…，全 flap
- * 27.9% 行）交易时 trader_address 落的是 router 合约地址——top1 买入集中度 /
+ * ~28.8% 行）交易时 trader_address 落的是 router 合约地址——top1 买入集中度 /
  * sniper 持仓 / TPA 钱包画像全被污染。WSS logs 推送对象只有 transactionHash 钥匙
- * （182 实证字段全集无 from/to），真实买家 = 交易对象的 tx.from（BSC 上恒为 EOA，
- * 4337 bundler 场景同样）。
+ * （eth_subscribe 规范无 from 字段，execution-apis#611 提案未实现），真实买家 =
+ * 交易对象的 tx.from（BSC 上恒为 EOA，4337 bundler 场景同样）。
  *
  * 方案 X（延迟入 buffer）：_emitTick 构造 tickRow 后分流——
  *   - EOA 缓存命中 → sender=trader 同步直进 buffer（零延迟，大多数行）
@@ -16,27 +16,35 @@
  *     vs 90s 因子窗无感）。FA processTick / TokenPool 价格更新不受影响（只有 DB
  *     落库延迟）；price_outlier 回写在 _emitTick 同步段完成，异步回推时已定值
  *
- * RPC 量级：getCode per 新 trader 终身一次（kind 缓存）；getTransactionByHash
- * per 合约行 txHash 一次（txFrom 缓存——聚合交易一条 tx 多 log 共享）。合约行
- * ~30-40% ≈ 日 5-6 万次 ≈ 0.7 req/s，免费 dataseed 单发调用不受限（实测仅
- * eth_getLogs 恒 -32005）。效率不够时 config 切 rpcMode='ankrFromEnv' 零代码。
+ * 解析链（2026-11-04 起，逐级降级；此前=逐行 getCode 判型 + getTransaction 串行回查）：
+ *   0) EOA kind 缓存命中 → submit 内同步直推（零延迟零 RPC）
+ *   1) GMGN 路由事件映射（collector 订阅路由自 emit 的 Swap/FeeCollected 事件，
+ *      topics 直接带用户 EOA——链上实证 24/24 笔 tx.from 恒在 topics 零例外；
+ *      事件晚于 trade 事件几十 ms 到达，miss 不等待直接走 2）：命中零 RPC
+ *   2) txFrom 缓存（同 tx 多 log 共享一次回查结果）
+ *   3) 块预取 join（lazy per-block）：同块全部未定值行共享一次
+ *      getBlockByNumber(full=true)，块 map 到 → 全簇 join；**from 恒 EOA ⇒
+ *      sender=from 即答案，getCode 判型链退役**（EOA 直连时 from===trader 同样正确）
+ *   4) 单行 getTransactionByHash fallback（块结果无该 txHash=重组/边缘，或块拉取失败）
+ *   5) 重试 retryLimit 次耗尽 → sender=NULL 回推（保数据丢修复，绝不丢行）
+ *
+ * per-token 观测（waitTokenIdle/pendingFor）：enq/done 双计数 watermark，供
+ * CheatCheckService 事件驱动 settle（等 per-token 队列清空而非固定 4s）。
  *
  * 失败语义（绝不污染）：
- *   - getCode 失败 → 不缓存、不当 EOA 直通（那会把 sender 写成 router）——
- *     fail-safe 走 tx 反查（EOA 直连时 tx.from === trader，反查结果同样正确）
- *   - 反查重试 retryLimit 次耗尽 → sender=NULL 回推（保数据丢修复，绝不丢行）
+ *   - 块拉取/单行失败 → 逐级降级不冒充；重试耗尽 → sender=NULL 回推（保数据丢修复）
  *   - 暂存满 backlogLimit → 最老行 NULL 强制落库（同上）
  *
  * 共享实例：引擎进程构造一个传入各 collector（both 实验双平台共享，钱包跨平台
- * 交易 kind 缓存利用率更高；watcher 2026-10-09 废除前由其持有，语义同款迁入）。
+ * 交易 kind 缓存利用率更高）。路由事件映射同挂本实例（双 collector 订阅幂等写）。
  */
 
 'use strict';
 
 const { ethers } = require('ethers');
 
-const KIND_EOA = 'eoa';
-const KIND_CONTRACT = 'contract';
+const KIND_EOA = 'eoa'; // kindCache 唯一值域（getCode 判型随块预取 join 退役——
+// 合约 trader 无需显式标记：未知即入队，块 join/单行反查直接拿 tx.from 定值）
 
 // 默认 RPC 池：binance dataseed 多域名轮询 + per-call failover（免费、单发调用不限）
 const DEFAULT_RPC_URLS = [
@@ -61,7 +69,7 @@ function resolveAnkrHttpUrlFromEnv() {
 
 class SenderResolver {
     /**
-     * @param {Object} cfg - config.senderResolve 段（enabled 由 watcher 侧判定，构造即工作）
+     * @param {Object} cfg - config.senderResolve 段（enabled 由引擎侧判定，构造即工作）
      * @param {Object} logger - { info, warn, error }
      */
     constructor(cfg, logger) {
@@ -77,11 +85,27 @@ class SenderResolver {
         this._kindCacheLimit = this._cfg.kindCacheLimit ?? 200000;
         this._txFromCacheLimit = this._cfg.txFromCacheLimit ?? 50000;
         this._logEvery = this._cfg.logEvery ?? 10000;
+        // 2026-11-04 块预取 join + 路由事件映射 + per-call 超时
+        this._blockCacheLimit = this._cfg.blockCacheLimit ?? 16;
+        this._routerEventMapLimit = this._cfg.routerEventMapLimit ?? 50000;
+        this._callTimeoutMs = this._cfg.callTimeoutMs ?? 0; // 0=关（缺省现状）
+        this._seqCacheLimit = this._cfg.seqCacheLimit ?? 100000;
 
-        // trader 地址 → 'eoa' | 'contract'（终身缓存；getCode 失败不落）
+        // trader 地址 → 'eoa'（终身缓存；填充源=块 join/单行反查的 tx.from 反哺——
+        // BSC from 恒 EOA；合约 trader 永不落此缓存=每笔入队 per-tx 解析，语义正确）
         this._kindCache = new Map();
-        // txHash → tx.from（聚合交易一条 tx 多 log 共享一次反查；失败不缓存）
+        // txHash → tx.from（同 tx 多 log 共享；填充源=块 join 命中行/单行反查成功）
         this._txFromCache = new Map();
+        // blockNumber → Promise<Map<txHash, from>>（lazy：有未知行的块才拉；失败不留缓存）
+        this._blockTxCache = new Map();
+        // txHash → 用户 EOA（collector 路由事件订阅回调写入；GMGN 自 emit 事件
+        // topics 带 user——映射消费在 _processItem 最前，miss 走块 join 不等待）
+        this._routerEventMap = new Map();
+
+        // per-token enq/done watermark（waitTokenIdle 用；超限清一半——清掉活跃票
+        // 最坏=多等到 deadline 帽，等待语义无害）
+        this._enqSeq = new Map();
+        this._doneSeq = new Map();
 
         this._backlog = [];   // 待处理项 FIFO
         this._timers = new Set(); // { timer, item }（重试退避中的项，不在 backlog）
@@ -93,23 +117,51 @@ class SenderResolver {
         this.stats = {
             submitted: 0,
             eoaFast: 0,          // kind 缓存命中同步直推（零延迟）
-            eoaByCode: 0,        // getCode 判 EOA
-            txFromResolved: 0,   // 反查 tx.from 成功回推（合约行主体）
+            routerMapHits: 0,    // GMGN 路由事件映射命中（零 RPC）
+            routerMapMisses: 0,  // 映射 miss（含全部非 GMGN 合约行——粗粒度观测）
+            blockPulls: 0,       // getBlockByNumber(full) 发起次数（lazy per-block）
+            blockJoinRows: 0,    // 经块 join 定值行数
+            blockFallbackRows: 0,// 块 miss（无该 txHash/拉取失败）落单行回查行数
+            txFromResolved: 0,   // 单行反查 tx.from 成功回推（fallback 主体）
             senderNull: 0,       // 反查耗尽/停机/溢出 → NULL 回推（保数据丢修复）
             retried: 0,
             backlogOverflow: 0,
             backlogHighWater: 0,
-            getCodeCalls: 0,
+            blockLookups: 0,
             txLookups: 0,
             txFromCacheHits: 0,
+            callTimeouts: 0,     // callTimeoutMs 竞速超时次数
             rpcErrors: 0,
             pushFailures: 0,
         };
     }
 
-    /** 同步快路：kind 缓存命中（'eoa' 直通由 submit 处理；'contract' 供 submit 跳过 getCode） */
+    /** 同步快路：kind 缓存命中 EOA（submit 内直推）；未命中=合约/未知 → 入队解析 */
     kindSync(trader) {
         return this._kindCache.get(trader) || null;
+    }
+
+    /**
+     * 路由事件订阅开关（collector 侧读）：senderResolve.routerEventMap ?? true。
+     * false=collector 不发路由订阅（纯块预取 join，回退路径独立）。
+     */
+    get routerEventMapEnabled() {
+        return this._cfg.routerEventMap !== false;
+    }
+
+    /**
+     * 路由事件映射写入（collector 路由事件订阅回调）。
+     * GMGN 路由每笔 swap 同 tx emit Swap(0x8619026a…)/FeeCollected(0x205442d6…)，
+     * topics 带 indexed 用户 EOA（Swap topics[1]/[2]、FeeCollected topics[2]）。
+     * 幂等：双 collector 订阅/多事件重复写同值无害。
+     */
+    setRouterEventUser(txHash, user) {
+        if (!txHash || !user) return;
+        this._routerEventMap.set(txHash.toLowerCase(), user.toLowerCase());
+        if (this._routerEventMap.size > this._routerEventMapLimit) {
+            const keys = [...this._routerEventMap.keys()].slice(0, Math.floor(this._routerEventMap.size / 2));
+            for (const k of keys) this._routerEventMap.delete(k);
+        }
     }
 
     /**
@@ -122,6 +174,8 @@ class SenderResolver {
      */
     submit({ tickRow, trader, txHash, pushRow }) {
         this.stats.submitted++;
+        const token = tickRow.token_address || null;
+        if (token) this._bumpSeq(this._enqSeq, token);
 
         const kind = this.kindSync(trader);
         if (kind === KIND_EOA) {
@@ -136,13 +190,34 @@ class SenderResolver {
             return;
         }
 
-        this._enqueue({ tickRow, trader, txHash, pushRow, kind, retries: 0 });
+        this._enqueue({ tickRow, trader, txHash, pushRow, retries: 0 });
         this.stats.backlogHighWater = Math.max(this.stats.backlogHighWater, this._backlog.length);
         if (this.stats.submitted % this._logEvery === 0) {
             this._logInfo(
                 `进度: ${JSON.stringify(this.stats)}`);
         }
         this._pump();
+    }
+
+    /** per-token 未定值行数（观测键） */
+    pendingFor(token) {
+        return (this._enqSeq.get(token) || 0) - (this._doneSeq.get(token) || 0);
+    }
+
+    /**
+     * 等 per-token 已入队行全部定值（watermark：调用时刻后的新 tick 不打断等待——
+     * 活跃票 fire 后持续成交不阻塞 settle）。deadline 到即返回 false（帽语义，
+     * 调用方按超时处理不区分）。EOA 快路 submit 同帧定值不进等待。
+     * @returns {Promise<boolean>} true=追平 false=deadline 到
+     */
+    async waitTokenIdle(token, deadlineMs = 4000) {
+        const target = this._enqSeq.get(token) || 0;
+        const deadline = Date.now() + Math.max(0, deadlineMs);
+        while ((this._doneSeq.get(token) || 0) < target) {
+            if (Date.now() >= deadline) return false;
+            await new Promise((r) => setTimeout(r, 25));
+        }
+        return true;
     }
 
     /**
@@ -181,10 +256,25 @@ class SenderResolver {
     }
 
     getStats() {
-        return { ...this.stats, backlog: this._backlog.length, kindCacheSize: this._kindCache.size, txFromCacheSize: this._txFromCache.size };
+        return {
+            ...this.stats,
+            backlog: this._backlog.length,
+            kindCacheSize: this._kindCache.size,
+            txFromCacheSize: this._txFromCache.size,
+            blockCacheSize: this._blockTxCache.size,
+            routerEventMapSize: this._routerEventMap.size,
+        };
     }
 
     // ═══════════════ 内部 ═══════════════
+
+    _bumpSeq(map, token) {
+        map.set(token, (map.get(token) || 0) + 1);
+        if (map.size > this._seqCacheLimit) {
+            const keys = [...map.keys()].slice(0, Math.floor(map.size / 2));
+            for (const k of keys) map.delete(k);
+        }
+    }
 
     _enqueue(item) {
         if (this._backlog.length >= this._backlogLimit) {
@@ -204,7 +294,7 @@ class SenderResolver {
             this._inflight++;
             this._processItem(item)
                 .catch((err) => {
-                    // 防御层（_processItem 内部各步已 catch）：异步隔离防崩 watcher，
+                    // 防御层（_processItem 内部各步已 catch）：异步隔离防崩引擎，
                     // 异常行留 NULL 不丢（flap collector「内部全 catch 绝不 reject」同款先例）
                     this.stats.senderNull++;
                     this._logError(`处理异常留 NULL: ${err.message}`);
@@ -218,27 +308,46 @@ class SenderResolver {
     }
 
     async _processItem(item) {
-        // 1) kind 判定（kindSync 已知 contract 的项跳过 getCode）
-        let kind = item.kind || null;
-        if (!kind) {
-            try {
-                this.stats.getCodeCalls++;
-                const code = await this._rpcCall((p) => p.getCode(item.trader));
-                kind = code === '0x' ? KIND_EOA : KIND_CONTRACT;
-                this._cacheKind(item.trader, kind);
-                if (kind === KIND_EOA) this.stats.eoaByCode++;
-            } catch (err) {
-                this.stats.rpcErrors++;
-                this._logWarn(`getCode 失败走 tx 反查（fail-safe，不缓存）: trader=${item.trader} ${err.message}`);
-                kind = null; // 绝不当 EOA 直通——那会把 sender 写成 router（污染）
-            }
+        // 1) GMGN 路由事件映射（最前：零 RPC 零延迟；事件晚于 trade 事件几十 ms
+        //    到达——miss 不等待，直接走 2/3 互补兜底）
+        const routerUser = this._routerEventMap.get(item.txHash);
+        if (routerUser !== undefined) {
+            this.stats.routerMapHits++;
+            this._pushResolved(item, routerUser);
+            return;
         }
-        if (kind === KIND_EOA) {
-            this._pushResolved(item, item.trader);
+        this.stats.routerMapMisses++;
+
+        // 2) txFrom 缓存（同 tx 多 log 共享一次回查结果）
+        const cachedFrom = this._txFromCache.get(item.txHash);
+        if (cachedFrom !== undefined) {
+            this.stats.txFromCacheHits++;
+            this._pushResolved(item, cachedFrom);
             return;
         }
 
-        // 2) 合约 / 未知 → 反查交易对象 tx.from（txFrom 缓存：聚合交易一条 tx 多 log 共享）
+        // 3) 块预取 join（lazy per-block）：同块全部未定值行共享一次全块拉取。
+        //    from 恒 EOA ⇒ sender=from 即答案——getCode 判型不需要（EOA 直连时
+        //    from===trader，块 join 结果同样正确且反哺 kind 缓存走未来快路）
+        const blockNumber = item.tickRow.block_number ?? null;
+        if (blockNumber != null) {
+            let from = null;
+            try {
+                from = await this._joinBlock(item.txHash, blockNumber);
+            } catch (err) {
+                this.stats.rpcErrors++;
+                this._logWarn(`块拉取失败走单行 fallback: block=${blockNumber} ${err.message}`);
+            }
+            if (from != null) {
+                this.stats.blockJoinRows++;
+                this._pushResolved(item, from);
+                return;
+            }
+            // from=null：块内无该 txHash（重组/节点 lag）或拉取失败 → 单行 fallback
+            this.stats.blockFallbackRows++;
+        }
+
+        // 4) 单行 getTransactionByHash fallback（重组边缘/块拉取失败；重试有机会成功）
         const from = await this._lookupTxFrom(item.txHash);
         if (from != null) {
             this.stats.txFromResolved++;
@@ -246,10 +355,9 @@ class SenderResolver {
             return;
         }
 
-        // 3) 重试（退避后放回队首保序）或耗尽留 NULL
+        // 5) 重试（退避后放回队首保序）或耗尽留 NULL
         if (item.retries < this._retryLimit && !this._stopped) {
             item.retries++;
-            item.kind = kind || undefined;
             this.stats.retried++;
             const entry = { timer: null, item };
             entry.timer = setTimeout(() => {
@@ -270,24 +378,68 @@ class SenderResolver {
         this._pushResolved(item, null);
     }
 
+    /**
+     * 块预取 join：取/建该块的 txHash→from map（in-flight 去重——同块并发未定值行
+     * 挂同一 promise，一次拉取全簇共享）；命中行反哺双缓存。
+     * @returns {Promise<string|null>} from 或 null（块内无该 txHash）
+     * @throws 块拉取 RPC 失败（失败 promise 不留缓存，重试重新拉）
+     */
+    _joinBlock(txHash, blockNumber) {
+        let p = this._blockTxCache.get(blockNumber);
+        if (!p) {
+            this.stats.blockPulls++;
+            p = this._pullBlockTxMap(blockNumber);
+            this._blockTxCache.set(blockNumber, p);
+            if (this._blockTxCache.size > this._blockCacheLimit) {
+                const firstKey = this._blockTxCache.keys().next().value;
+                this._blockTxCache.delete(firstKey);
+            }
+            // 失败 promise 不留缓存（挂在它上面的行各自 catch 后走单行 fallback）
+            p.catch(() => {
+                if (this._blockTxCache.get(blockNumber) === p) this._blockTxCache.delete(blockNumber);
+            });
+        }
+        return p.then((map) => {
+            const from = map.get(txHash) || null;
+            if (from != null) {
+                this._cacheTxFrom(txHash, from);
+                // BSC tx.from 恒为 EOA（4337 bundler 同样）——反哺 kind 缓存省未来回查
+                this._cacheKind(from, KIND_EOA);
+            }
+            return from;
+        });
+    }
+
+    /** 全块拉取 → Map<txHash(lower), from(lower)>（tx.from 恒 EOA——map 即该块全部交易的发起者） */
+    async _pullBlockTxMap(blockNumber) {
+        this.stats.blockLookups++;
+        const block = await this._withTimeout(
+            this._rpcCall((p) => p.getBlock(blockNumber, true)),
+            `getBlock(${blockNumber})`,
+        );
+        if (!block || !Array.isArray(block.transactions)) return new Map();
+        const map = new Map();
+        for (const tx of block.transactions) {
+            if (tx && tx.hash && tx.from) map.set(tx.hash.toLowerCase(), tx.from.toLowerCase());
+        }
+        return map;
+    }
+
     /** txHash → from（缓存命中零 RPC；失败/tx 不可见不缓存，重试有机会成功） */
     async _lookupTxFrom(txHash) {
-        const cached = this._txFromCache.get(txHash);
-        if (cached !== undefined) {
-            this.stats.txFromCacheHits++;
-            return cached;
-        }
         try {
             this.stats.txLookups++;
-            const tx = await this._rpcCall((p) => p.getTransaction(txHash));
+            const tx = await this._withTimeout(
+                this._rpcCall((p) => p.getTransaction(txHash)),
+                `getTransaction(${txHash})`,
+            );
             if (tx && tx.from) {
                 const from = tx.from.toLowerCase();
                 this._cacheTxFrom(txHash, from);
-                // BSC tx.from 恒为 EOA（4337 bundler 同样）——反哺 kind 缓存省未来 getCode
                 this._cacheKind(from, KIND_EOA);
                 return from;
             }
-            return null; // tx 不可见（节点 lag / prune）
+            return null; // tx 不可见（节点 lag / prune / 重组）
         } catch (err) {
             this.stats.rpcErrors++;
             this._logWarn(`getTransactionByHash 失败: tx=${txHash} ${err.message}`);
@@ -295,11 +447,28 @@ class SenderResolver {
         }
     }
 
-    /** 回推（幂等防重复）：sender 写入行对象后交回 collector 进 tickBuffer */
+    /** per-call 超时竞速（callTimeoutMs=0 关=现状不包装）。超时 reject 走调用方降级链 */
+    _withTimeout(promise, label) {
+        if (!this._callTimeoutMs || this._callTimeoutMs <= 0) return promise;
+        let timer = null;
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                timer = setTimeout(() => {
+                    this.stats.callTimeouts++;
+                    reject(new Error(`${label} 超时 ${this._callTimeoutMs}ms`));
+                }, this._callTimeoutMs);
+            }),
+        ]).finally(() => clearTimeout(timer));
+    }
+
+    /** 回推（幂等防重复）：sender 写入行对象后交回 collector 进 tickBuffer；per-token done 计数 */
     _pushResolved(entry, sender) {
         if (entry.resolved) return;
         entry.resolved = true;
         entry.tickRow.sender_address = sender;
+        const token = entry.tickRow.token_address || null;
+        if (token) this._bumpSeq(this._doneSeq, token);
         try {
             entry.pushRow(entry.tickRow);
         } catch (err) {
@@ -366,11 +535,10 @@ class SenderResolver {
 
     // .call 保接收者：Logger 类实例的 info/warn/error 是依赖 this 的普通方法，
     // 解引用裸调用会 TypeError（2026-10-09 a21fa102 崩溃案：首次 RPC 失败 → _logWarn
-    // 炸 → reject → _pump catch → _logError 再炸 → unhandledRejection 崩进程；
-    // watcher 不炸只因它的 logger 是箭头字面量无 this 依赖）
+    // 炸 → reject → _pump catch → _logError 再炸 → unhandledRejection 崩进程）。
     _logInfo(msg) { (this._logger.info || this._logger.log)?.call(this._logger, '', 'SenderResolver', msg); }
     _logWarn(msg) { (this._logger.warn || this._logger.log)?.call(this._logger, '', 'SenderResolver', msg); }
     _logError(msg) { (this._logger.error || this._logger.log)?.call(this._logger, '', 'SenderResolver', msg); }
 }
 
-module.exports = { SenderResolver, resolveAnkrHttpUrlFromEnv, DEFAULT_RPC_URLS };
+module.exports = { SenderResolver, resolveAnkrHttpUrlFromEnv, DEFAULT_RPC_URLS, KIND_EOA };

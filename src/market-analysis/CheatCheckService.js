@@ -21,18 +21,27 @@
  *   查询——中间新写入即撕裂）；满帽（pullLimit）时行数饱和，重判锚定尾行水位
  *   （block:log 变=有新 tick，量未知按满值处理）
  *
- * 时序：买点触发 → settleDelayMs（默认 4s，覆盖 tickBuffer 500ms flush +
- * SenderResolver 0-3s RPC 回查）后拉数——**拉数发生在分析开始而非完成**，尾部
- * 突发簇（恰是触发买点的关键窗口）不能截在 DB 外。
+ * 时序（CD237 双模）：买点触发 → settle——引擎注入 waitIdle（resolver per-token
+ * watermark 清空即出窗，settleDelayMs=最长等待帽；正常路径 ~0-1s）→ 拉数——
+ * **拉数发生在分析开始而非完成**，尾部突发簇（恰是触发买点的关键窗口）不能截
+ * 在数据源外；未注入 waitIdle（独立跑测/旧接线）= 固定 settleDelayMs bit 一致。
  *
- * 拉数帽：单 tail 查询（链上真序倒序 limit pullLimit=3000）；满帽才补 head 300
- * （launch 窗对作弊检测关键：dev 抢跑/首发簇在头段）——anchor 恒=tail 单次查询
- * 返回行数，head 补充不参与锚（两查询窗缝=保守缺行，接受）。
+ * 拉数双源（CD237，memSource.enabled 默认 false）：注入 pullTicks（collector
+ * per-token 行环）→ mem 优先（锚语义与 DB 逐位同构：total≤pullLimit →
+ * anchor=total/capped=false；超帽 → anchor=pullLimit/capped=true/headOnly+tail
+ * seen 去重拼合），miss 等 settleFlushMs(600ms) flush 边界后回落 DB；auditShadow
+ * （默认开）mem hit 后异步 DB 重拉按 watermark 截断对拍 digest——不一致仅 warn
+ * 不拦截（灰度护栏）。DB 路径：单 tail 查询（链上真序倒序 limit pullLimit=3000）；
+ * 满帽才补 head 300（launch 窗 dev 抢跑/首发簇在头段）——anchor 恒=tail 单次
+ * 查询返回行数。
  *
- * 消费链：wss_price_ticks 单一组装路径（FA 内存 tick 明细仅 5min 滑窗不参与；
- * 实时/离线回归同源 bit-identical）→ cheat-snapshot → cheat-state-builder →
- * JevClient（ESM，dynamic import——NarrativeDirectCaller 先例）→ cheat-result-mapper
- * → insert cheat_detection。
+ * 同源红线（CD237 改写）：snapshot 输入口径=**wss_price_ticks 行形状**——排除的
+ * 是 FA 聚合口径（仅 5min 滑窗、序列不可重建），**非「任何内存」**：memSource 行
+ * 环行=collector `_pushTickRow` 咽喉点的同一行对象同引用（将被 INSERT 的 DB 行
+ * 超集，sender 恒终态）——入口径变更理由=同形状同引用即同源。离线回归 runner
+ * 自拉 DB 不经本服务（换源对回归零影响）。消费链：行环 / wss_price_ticks →
+ * cheat-snapshot → cheat-state-builder → JevClient（ESM，dynamic import——
+ * NarrativeDirectCaller 先例）→ cheat-result-mapper → insert cheat_detection。
  *
  * 失败语义：Jev 失败/超时落 error/timeout 行带 fail_reason（fail-loud 留痕）+
  * failCooldownMs 冷却（防故障环），绝不影响买点；DB 写失败 loud warn（行丢=可
@@ -71,12 +80,15 @@ const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBAC
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
-  settleDelayMs: 4000,       // 买点→拉数延迟（tickBuffer flush + sender 回查窗）
+  settleDelayMs: 4000,       // 买点→拉数延迟；waitIdle 注入时=最长等待帽（正常路径
+                             // ~1s 提前出窗，仅 RPC 劣化/停机兜底时吃满）
   minTicks: 8,               // 极新票预门（低于不调 Jev 不落表）
   failCooldownMs: 10000,     // 失败后冷却（冷却期内买点不再发起链）
   pullLimit: 3000,           // tail 拉数帽（anchor=该单次查询返回行数）
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）
   gateAwaitMs: 15000,        // 买点 await 竞速上限（超时 fail-open 放行）
+  settleFlushMs: 600,        // waitIdle 模式尾随等待（idle=回查清空≠DB 可见，还差
+                             // tickBuffer 500ms flush + INSERT 提交）
 };
 
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
@@ -101,6 +113,10 @@ class CheatCheckService {
     // 买点 await 竞速上限（gate 段只消费 awaitMs——gate.enabled/unhealthyReanalyses
     // 已随 CD158 退役；门激活=买腿携带 cheatCheckCondition，由引擎判定）
     this._gateAwaitMs = num(config.gate && config.gate.awaitMs, DEFAULTS.gateAwaitMs, 1);
+    this._settleFlushMs = num(config.settleFlushMs, DEFAULTS.settleFlushMs);
+    // ② mem 源对拍护栏（默认开）：mem hit 完成分析后异步 DB 重拉按 watermark 对齐比对
+    // digest——不一致 warn+计数不拦截（灰度观察期工具，验收后可关）
+    this._auditShadow = config.memSource ? config.memSource.auditShadow !== false : true;
 
     this._logger = logger;
     this._deps = deps;
@@ -128,6 +144,8 @@ class CheatCheckService {
       timeouts: 0, errors: 0, inflightJoined: 0,
       gateNoted: 0, gateBlockedHits: 0, gateTimeouts: 0, gateGraded: 0,
       stickyReused: 0, stickyBootstrapped: 0,
+      settleIdleHits: 0, settleIdleTimeouts: 0,  // waitIdle 双模观测（idle 提前出窗/吃满帽）
+      shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // ② 对拍护栏观测
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
     };
   }
@@ -228,7 +246,24 @@ class CheatCheckService {
   async _chain(token, tokenMeta, context) {
     try {
       // 1) settle：尾部突发簇落 DB（tickBuffer 500ms flush + sender 回查 0-3s）
-      if (this._settleDelayMs > 0) await new Promise((r) => setTimeout(r, this._settleDelayMs));
+      //    双模（①，2026-11-04）：注入 waitIdle → 等 per-token 回查清空（watermark，
+      //    提前出窗 ~1s）；未注入 → 固定 sleep 现状 bit 一致。
+      //    尾随 settleFlushMs（等 flush 边界）只在数据源仍 DB 时需要——② mem 源注入
+      //    时该等待移交 _pullTicks miss 路径（mem hit 行已定值零额外等待）
+      const waitIdle = this._deps.waitIdle;
+      if (waitIdle && this._settleDelayMs > 0) {
+        const idle = await Promise.race([
+          Promise.resolve(waitIdle(token)),
+          new Promise((r) => setTimeout(r, this._settleDelayMs)),
+        ]);
+        if (idle) this.stats.settleIdleHits++;
+        else this.stats.settleIdleTimeouts++;
+        if (!this._deps.pullTicks) {
+          await new Promise((r) => setTimeout(r, this._settleFlushMs));
+        }
+      } else if (this._settleDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, this._settleDelayMs));
+      }
 
       // 2) LLM 模块（ESM dynamic import；失败=机制不可用，loud warn 后静默）
       try {
@@ -267,8 +302,11 @@ class CheatCheckService {
         }
       }
 
-      // 5) 拉数（单查询定锚）
+      // 5) 拉数（单查询定锚；② mem 源注入时环优先，miss 回落 DB）
       const pull = await this._pullTicks(token);
+      if (pull.fromMem && this._auditShadow) {
+        this._shadowAudit(token, pull); // fire-and-forget 对拍护栏（全吞错，不拦截）
+      }
 
       // 6) minTicks 预门（不调 Jev 不落表；不粘滞——下个买信号可重析）
       if (pull.anchorTickCount < this._minTicks) {
@@ -603,10 +641,35 @@ class CheatCheckService {
   }
 
   /**
-   * 拉数：tail 单查询（链上真序倒序 limit pullLimit）=锚；满帽才补 head（launch 窗）。
-   * 行到达序无关，内存重排链上真序（与 buildSnapshotFromRows 双保险）。
+   * 拉数（双源 ②，2026-11-04）：deps.pullTicks 注入（引擎 collector 行环）→ mem 优先
+   * （环行=进程已定值全量，含未 flush 行——锚=拉数时刻进程已知行数，比 DB 路径更完整；
+   * 同源红线：排除的是 FA 聚合口径，非「任何内存」——环行=将被 INSERT 的同一对象）；
+   * miss（重启后环空/断流清扫后）→ 等 settleFlushMs 边界（等 buffer flush+INSERT）
+   * 再走 DB 现状路径（watermark/quoteToken 口径单点复用）。
    */
   async _pullTicks(token) {
+    const pullMem = this._deps.pullTicks;
+    if (pullMem) {
+      const mem = await pullMem(token);
+      if (mem && Array.isArray(mem.rows) && mem.rows.length > 0) {
+        return {
+          rows: mem.rows, anchorTickCount: mem.anchorTickCount, capped: !!mem.capped,
+          watermark: this._watermarkOf(mem.rows), quoteToken: this._latestQuoteToken(mem.rows),
+          fromMem: true,
+        };
+      }
+      // miss：环无该票——直接回落 DB 会拉到缺尾部行的集合（buffer 未 flush），
+      // 等一个 flush 边界再拉（与 waitIdle 模式尾随等待同源语义）
+      await new Promise((r) => setTimeout(r, this._settleFlushMs));
+    }
+    return this._pullTicksDb(token);
+  }
+
+  /**
+   * 拉数（DB 路径）：tail 单查询（链上真序倒序 limit pullLimit）=锚；满帽才补 head
+   * （launch 窗）。行到达序无关，内存重排链上真序（与 buildSnapshotFromRows 双保险）。
+   */
+  async _pullTicksDb(token) {
     const client = this._client();
     const tail = await client.from('wss_price_ticks')
       .select(TICK_SELECT_COLUMNS)
@@ -642,6 +705,36 @@ class CheatCheckService {
       rows, anchorTickCount: tailRows.length, capped: true,
       watermark: this._watermarkOf(rows), quoteToken: this._latestQuoteToken(rows),
     };
+  }
+
+  /**
+   * ② 对拍护栏（auditShadow，默认开）：mem hit 完成拉数后异步 sleep(settleDelayMs+2s)
+   * 用 DB 路径重拉同 token，按 mem watermark 截断对齐（mem 拉数后新到 tick 不参与
+   * 对拍），比对行集 digest（block:log:trader:sender:bnb:type:price:outlier）——
+   * 不一致 warn+计数（不拦截不重试）；DB 侧缺行=flush/INSERT 故障信号，mem 侧多行
+   * 未落库=正常瞬态（等待窗覆盖）。灰度观察期工具，验收后可关。
+   */
+  async _shadowAudit(token, memPull) {
+    try {
+      await new Promise((r) => setTimeout(r, this._settleDelayMs + 2000));
+      const dbPull = await this._pullTicksDb(token);
+      this.stats.shadowAudits++;
+      const wm = memPull.watermark;
+      if (!wm) return; // 无链上水位（block 缺失）无可比性，跳过不误报
+      const dbAligned = dbPull.rows.filter((r) => {
+        const b = r.block_number ?? Number.MAX_SAFE_INTEGER;
+        if (b !== wm.block) return b < wm.block;
+        return (r.log_index ?? 0) <= (wm.log ?? 0);
+      });
+      const digest = (rows) => rows.map((r) =>
+        `${r.block_number}:${r.log_index}:${r.trader_address}:${r.sender_address ?? 'null'}:${r.bnb_amount}:${r.trade_type}:${r.price_bnb}:${r.price_outlier ?? false}`).join(';');
+      if (digest(dbAligned) !== digest(memPull.rows)) {
+        this.stats.shadowMismatches++;
+        this._log('warn', `memSource 对拍不一致 | ${token} mem=${memPull.rows.length}行 capped=${memPull.capped}锚=${memPull.anchorTickCount} db对齐=${dbAligned.length}行（DB 侧缺行=flush 故障信号；mem 多行未落库=瞬态）`);
+      }
+    } catch (e) {
+      this.stats.shadowErrors++;
+    }
   }
 
   _watermarkOf(rowsAsc) {

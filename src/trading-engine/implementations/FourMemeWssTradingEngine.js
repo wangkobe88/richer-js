@@ -74,6 +74,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 组件（_initializeDataSources 中创建）
     this._factorAggregator = null;
     this._collectors = [];              // 内嵌 ANKR WSS collectors（直连架构 2026-10-09：per-platform 一枚，watcher 已废除）
+    this._collectorsByPlatform = new Map(); // platform → collector（② cheat 门行环分派）
     this._senderResolver = null;        // 共享 sender 解析器（config.senderResolve.enabled 才构造，单实例传各 collector）
     this._eventWriter = null;           // wss_events 写入器（token_create/graduation/token_quote_set + 重试队列）
     this._preBuyCheckService = null;
@@ -351,9 +352,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // enabled 缺省 false=新机制默认零影响）。回测零接线（BacktestEngine 不继承
     // 本类；门字段回测 fail-open 放行，cheat 因子回测恒 null）
     const { CheatCheckService } = require('../../market-analysis/CheatCheckService');
-    this._cheatCheckService = new CheatCheckService(
-      this._mergedWsConfig().cheatCheck || {}, this.logger);
     const _cheatCfg = this._mergedWsConfig().cheatCheck || {};
+    // ①+② mem 源注入（2026-11-04 settle 提速）：waitIdle 恒注入（事件驱动 settle——
+    // resolver per-token watermark 清空即出窗，帽=service settleDelayMs 与固定等待
+    // 现状同延迟上界；resolver 未启用=无回查零延迟立即 true）；pullTicks 仅
+    // memSource.enabled 显式开时注入（collector 行环拉数，默认关灰度对拍后翻；
+    // 闭包延迟解析——本构造点先于 _createCollectors，resolver/collectors 后到）
+    const _cheatMemCfg = _cheatCfg.memSource || {};
+    const _cheatSettleCap = Number.isFinite(_cheatCfg.settleDelayMs) && _cheatCfg.settleDelayMs > 0
+      ? _cheatCfg.settleDelayMs : 4000;
+    this._cheatMemEnabled = _cheatMemCfg.enabled === true;
+    this._cheatCheckService = new CheatCheckService(
+      this._mergedWsConfig().cheatCheck || {}, this.logger,
+      {
+        waitIdle: (token) => (this._senderResolver
+          ? this._senderResolver.waitTokenIdle(token, _cheatSettleCap + 1000)
+          : true),
+        ...(this._cheatMemEnabled ? { pullTicks: (token) => this._cheatRingPull(token) } : {}),
+      });
     this._cheatGateAwaitMs = Number.isFinite(_cheatCfg.gate && _cheatCfg.gate.awaitMs)
       && _cheatCfg.gate.awaitMs > 0 ? _cheatCfg.gate.awaitMs : 15000;
     this._cheatBlockedTokens = new Set();   // 拉黑（仅 cheat；与 service._gateBlocked 双保险，引擎短路更早省整条链）
@@ -963,6 +979,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       };
       collector._platformLabel = platform; // 日志/getStats 标签
       this._collectors.push(collector);
+      this._collectorsByPlatform.set(platform, collector); // ② cheat 门行环分派（both 按 token 平台）
     }
   }
 
@@ -1014,6 +1031,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const record = this._tokenPool?.getToken(tokenAddress, 'bsc');
     if (record?.platform) return record.platform;
     return this._factorAggregator.getTokenState(tokenAddress)?.platform || null;
+  }
+
+  /** ② cheat 门行环拉数分派（memSource）：单 collector 直取；both 按 token 平台
+   *  归属分派对应 collector 环（_liveTraderFor 同款 _platformForToken；平台未知/
+   *  环 miss → null，service 回落 DB 路径——绝不跨平台拿错环） */
+  _cheatRingPull(token) {
+    const byPlat = this._collectorsByPlatform;
+    if (!byPlat || byPlat.size === 0) return null;
+    let collector = null;
+    if (byPlat.size === 1) {
+      collector = byPlat.values().next().value;
+    } else {
+      const platform = this._platformForToken(token);
+      collector = platform ? byPlat.get(platform) : null;
+    }
+    return collector ? collector.pullTokenTicks(token) : null;
   }
 
   /**
@@ -1502,6 +1535,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }
     }
     this._collectors = [];
+    this._collectorsByPlatform.clear();
 
     // 市场截面 feed 关闭 + 模块级单例清除（main.js 同进程起下一实验不继承旧截面）
     require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);

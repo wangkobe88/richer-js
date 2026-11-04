@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 /**
- * SenderResolver + 两 collector 分流接线 + 引擎接线 单测（零 DB 零网络；
- * watcher 2026-10-09 废除后断言对象 = 引擎 _createCollectors/stop）
+ * SenderResolver + 两 collector 分流接线 + 引擎接线 单测（零 DB 零网络）
  *
- * 打桩点：SenderResolver._makeProvider（stub provider: getCode/getTransaction/destroy）
+ * 打桩点：SenderResolver._makeProvider（stub provider: getBlock/getTransaction/destroy）
  * 与 collector 构造第 6 参（stub resolver: submit）。
  *
+ * 2026-11-04 块预取 join + GMGN 路由事件映射改造后解析链（A 节锁定）：
+ *   EOA kind 快路 → 路由事件映射 → txFrom 缓存 → 块预取 join（getCode 判型退役）
+ *   → 单行 getTransaction fallback → 重试耗尽 NULL
+ *
  * 节：
- *   A  resolver 纯逻辑（快路/getCode 三态/反查/重试/缓存/failover/ankrFromEnv/溢出/stop）
+ *   A  resolver 纯逻辑（快路/映射/块 join/缓存/fallback/重试/failover/溢出/stop/
+ *      waitTokenIdle/callTimeoutMs）
  *   B  collector 分流接线（无 resolver 旧路径 / submit 回推 / EOA 快路 price_outlier 时序 /
  *      B5-B10 直连回迁补丁：延迟喂 FA / 直推 sender=null / 尘 tick 门 / offers 不传（tvl 口径）/
  *      _onTickBuffered 钩子 / registerToken platform 键）
- *   C  源码口径防回归（grep 断言）
+ *   C  源码口径防回归（grep 断言：getCode 退役/路由事件映射/块 join 存在）
  */
 
 'use strict';
@@ -29,22 +33,22 @@ function ok(cond, label) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** 挂桩 provider 工厂：按脚本控制 getCode/getTransaction */
-function makeStub(resolver, { codeOf, txOf }) {
-    const calls = { getCode: 0, getTransaction: 0 };
-    resolver._makeProvider = (url) => ({
+/** 挂桩 provider 工厂：按脚本控制 getBlock(full)/getTransaction */
+function makeStub(r, { blockOf, txOf }) {
+    const calls = { getBlock: 0, getTransaction: 0 };
+    r._makeProvider = (url) => ({
         url,
-        getCode: async (addr) => {
-            calls.getCode++;
-            const r = codeOf(addr);
-            if (r && r.__defer) return r.promise;
-            return r;
+        getBlock: async (bn) => {
+            calls.getBlock++;
+            const res = blockOf(bn);
+            if (res && res.__defer) return res.promise;
+            return res;
         },
         getTransaction: async (h) => {
             calls.getTransaction++;
-            const r = txOf(h);
-            if (r && r.__defer) return r.promise;
-            return r;
+            const res = txOf(h);
+            if (res && res.__defer) return res.promise;
+            return res;
         },
         destroy: () => {},
     });
@@ -56,8 +60,16 @@ function deferred() {
     return { promise, resolve, reject, __defer: true };
 }
 
+/** 全块对象（transactions: tx 对象数组——ethers getBlock(full=true) 形状） */
+const fullBlock = (entries) => ({ transactions: entries.map(([hash, from]) => ({ hash, from })) });
+
 const { SenderResolver, resolveAnkrHttpUrlFromEnv, DEFAULT_RPC_URLS } = require('../src/collectors/sender-resolver.js');
 const quietLogger = { info: () => {}, warn: () => {}, error: () => {}, log: () => {} };
+
+// tickRow 模板（block_number/token_address 为块 join 与 per-token seq 依赖键）
+const row = (txHash, blockNumber = 100, token = '0xtok') => ({
+    tx_hash: txHash, token_address: token, block_number: blockNumber, sender_address: null,
+});
 
 // ═══════════════ A 节：resolver 纯逻辑 ═══════════════
 
@@ -69,204 +81,260 @@ async function testA() {
         const r = new SenderResolver({}, quietLogger);
         const pushed = [];
         r._cacheKind('0xeoa1', 'eoa');
-        r.submit({ tickRow: { tx_hash: '0x1' }, trader: '0xeoa1', txHash: '0x1', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('0x1'), trader: '0xeoa1', txHash: '0x1', pushRow: (x) => pushed.push(x) });
         ok(pushed.length === 1 && pushed[0].sender_address === '0xeoa1', 'A1 EOA 快路同步回推 sender=trader');
         ok(r.stats.eoaFast === 1 && r._backlog.length === 0, 'A1 不进 backlog 零 RPC');
+        ok(r.pendingFor('0xtok') === 0, 'A1 快路同帧定值 pending=0');
     }
 
-    // A2 getCode '0x' → EOA（回推 trader；kind 落缓存后同地址走快路）
+    // A2 新 trader（无 blockNumber 行）→ 单行 fallback；from===trader（EOA 直连）
+    //    反哺 kind 缓存走未来快路；getCode 全链退役（永零调用）
     {
         const r = new SenderResolver({ concurrency: 1 }, quietLogger);
-        const calls = makeStub(r, { codeOf: () => '0x', txOf: () => { throw new Error('不应反查'); } });
+        const calls = makeStub(r, { blockOf: () => { throw new Error('不应拉块'); }, txOf: () => ({ from: '0xEoaDirect' }) });
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x2' }, trader: '0xeoa2', txHash: '0x2', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('0x2', null), trader: '0xeoadirect', txHash: '0x2', pushRow: (x) => pushed.push(x) });
         await sleep(20);
-        ok(pushed.length === 1 && pushed[0].sender_address === '0xeoa2', 'A2 getCode 0x 判 EOA 回推 trader');
-        ok(r.stats.eoaByCode === 1 && calls.getCode === 1, 'A2 stats.eoaByCode/getCode 计数');
-        r.submit({ tickRow: { tx_hash: '0x2b' }, trader: '0xeoa2', txHash: '0x2b', pushRow: (row) => pushed.push(row) });
-        ok(pushed.length === 2 && r.stats.eoaFast === 1 && calls.getCode === 1, 'A2 kind 缓存落盘后同地址快路零 getCode');
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xeoadirect', 'A2 无 blockNumber 单行 fallback 定值（lowercase）');
+        ok(calls.getTransaction === 1 && calls.getBlock === 0, 'A2 单行回查一次、块路径未触发');
+        ok(r.kindSync('0xeoadirect') === 'eoa', 'A2 from===trader 反哺 kind 缓存（from 恒 EOA）');
+        r.submit({ tickRow: row('0x2b', null), trader: '0xeoadirect', txHash: '0x2b', pushRow: (x) => pushed.push(x) });
+        ok(pushed.length === 2 && r.stats.eoaFast === 1 && calls.getTransaction === 1, 'A2 kind 落缓存后同地址快路零 RPC');
     }
 
-    // A3 getCode 合约 → 反查 tx.from（from 反哺 kind 缓存为 EOA）
+    // A3 块预取 join：同块 3 行（不同合约 trader）→ 一次 getBlock 全簇定值 + from 反哺
     {
-        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
-        const calls = makeStub(r, { codeOf: (a) => (a === '0xrouter' ? '0xdeadbeef' : '0x'), txOf: () => ({ from: '0xUSER' }) });
+        const r = new SenderResolver({ concurrency: 3 }, quietLogger);
+        const calls = makeStub(r, {
+            blockOf: (bn) => fullBlock([['0xt3a', '0xUserA'], ['0xt3b', '0xUserB'], ['0xt3c', '0xUserC']]),
+            txOf: () => { throw new Error('不应单行回查'); },
+        });
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x3' }, trader: '0xrouter', txHash: '0x3', pushRow: (row) => pushed.push(row) });
-        await sleep(20);
-        ok(pushed.length === 1 && pushed[0].sender_address === '0xuser', 'A3 合约行走反查 tx.from（lowercase）');
-        ok(r.stats.txFromResolved === 1 && calls.getTransaction === 1, 'A3 反查一次');
-        ok(r.kindSync('0xuser') === 'eoa', 'A3 tx.from 反哺 kind 缓存');
-    }
-
-    // A4 getCode 失败 → 不缓存、不当 EOA 直通 → 反查（EOA 直连时 from===trader 同样正确；
-    //    反查成功后 from 反哺 kind 缓存是正确语义——BSC tx.from 恒 EOA）
-    {
-        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
-        const calls = makeStub(r, { codeOf: () => { throw new Error('rpc down'); }, txOf: () => ({ from: '0xEoaDirect' }) });
-        const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x4' }, trader: '0xeoadirect', txHash: '0x4', pushRow: (row) => pushed.push(row) });
-        await sleep(20);
-        ok(pushed.length === 1 && pushed[0].sender_address === '0xeoadirect', 'A4 getCode 失败 fail-safe 走反查结果正确');
-        ok(r.kindSync('0xeoadirect') === 'eoa' && r.stats.rpcErrors === 1, 'A4 from===trader 反哺缓存为 eoa（tx.from 恒 EOA 安全结论）');
-        ok(calls.getTransaction === 1, 'A4 反查仍发生');
-    }
-
-    // A4b getCode + 反查两路全失败 → 耗尽 NULL；trader 不进 kind 缓存（绝不冒充 EOA）
-    {
-        const r = new SenderResolver({ concurrency: 1, retryLimit: 0 }, quietLogger);
-        makeStub(r, { codeOf: () => { throw new Error('down'); }, txOf: () => { throw new Error('down'); } });
-        const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x4b' }, trader: '0xunknown4b', txHash: '0x4b', pushRow: (row) => pushed.push(row) });
-        await sleep(20);
-        ok(pushed.length === 1 && pushed[0].sender_address === null, 'A4b 两路全失败 NULL 回推');
-        ok(r.kindSync('0xunknown4b') === null, 'A4b 失败不落 kind 缓存（下次有机会重试 getCode）');
-    }
-
-    // A4c（2026-10-09 a21fa102 崩溃案防线）：Logger 类实例形状（方法依赖 this）——
-    // 修复前 `_logWarn/_logError` 把方法解引用裸调用 `(this._logger.warn||...)?.(...)`
-    // → this=undefined → TypeError；事故链：_ensureProviders/_logInfo 炸 → getCode
-    // catch 的 _logWarn 再炸（从 catch 块抛出 reject）→ _pump catch 的 _logError 三炸
-    // → unhandledRejection 崩进程（watcher 几周不炸只因其 logger 是箭头字面量桩同款
-    // 无 this 依赖；quietLogger 桩同盲区——桩方法体内必须用 this 才能暴露解引用丢失）。
-    // 修复 = .call(this._logger)。本用例桩方法体内 this.warnN++ 自带 this 探针。
-    {
-        class ClassLogger {
-            constructor() { this.infoN = 0; this.warnN = 0; this.errN = 0; }
-            log() {}
-            info() { this.log('INFO'); this.infoN++; }
-            warn() { this.log('WARN'); this.warnN++; }
-            error() { this.log('ERROR'); this.errN++; }
+        for (const [tx, trader] of [['0xt3a', '0xr1'], ['0xt3b', '0xr2'], ['0xt3c', '0xr3']]) {
+            r.submit({ tickRow: row(tx, 777), trader, txHash: tx, pushRow: (x) => pushed.push(x) });
         }
-        const clog = new ClassLogger();
-        const r = new SenderResolver({ concurrency: 1, retryLimit: 0 }, clog);
-        makeStub(r, { codeOf: () => { throw new Error('rpc down'); }, txOf: () => { throw new Error('rpc down'); } });
-        const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x4c' }, trader: '0xunknown4c', txHash: '0x4c', pushRow: (row) => pushed.push(row) });
-        await sleep(20);
-        ok(pushed.length === 1 && pushed[0].sender_address === null, 'A4c 类实例 logger 全错误链不炸（NULL 回推照常）');
-        ok(clog.infoN >= 1, 'A4c _logInfo（RPC 池就绪）this 绑定正常');
-        ok(clog.warnN >= 2, 'A4c 真实走过 _logWarn 路径（getCode 失败 + 反查失败/耗尽）');
+        await sleep(40);
+        ok(pushed.length === 3, 'A3 同块 3 行全簇定值');
+        ok(pushed.find((x) => x.tx_hash === '0xt3a').sender_address === '0xusera'
+            && pushed.find((x) => x.tx_hash === '0xt3b').sender_address === '0xuserb'
+            && pushed.find((x) => x.tx_hash === '0xt3c').sender_address === '0xuserc', 'A3 各行 sender=各自 tx.from');
+        ok(calls.getBlock === 1 && r.stats.blockPulls === 1 && r.stats.blockJoinRows === 3, 'A3 一次块拉取全簇共享（in-flight 去重）');
+        ok(calls.getTransaction === 0, 'A3 块命中不落单行回查');
+        ok(r.kindSync('0xusera') === 'eoa', 'A3 from 反哺 kind 缓存');
+        ok(r._txFromCache.get('0xt3a') === '0xusera', 'A3 txFrom 缓存落盘（同 tx 后续行零调用）');
     }
 
-    // A5 反查 null → 重试 → 耗尽 NULL（重试保留 kind 不再 getCode）
+    // A4 GMGN 路由事件映射：setRouterEventUser 后合约行零 RPC 定值；miss 计数
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([]), txOf: () => null });
+        r.setRouterEventUser('0xgm1', '0xGmgnUser');
+        const pushed = [];
+        r.submit({ tickRow: row('0xgm1', 500), trader: '0x1de460router', txHash: '0xgm1', pushRow: (x) => pushed.push(x) });
+        await sleep(10);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xgmgnuser', 'A4 路由事件映射命中定值（lowercase）');
+        ok(calls.getBlock === 0 && calls.getTransaction === 0 && r.stats.routerMapHits === 1, 'A4 映射命中零 RPC');
+        r.submit({ tickRow: row('0xgm2', 501), trader: '0x1de460router', txHash: '0xgm2', pushRow: (x) => pushed.push(x) });
+        await sleep(10);
+        ok(r.stats.routerMapMisses >= 1, 'A4 映射 miss 计数（事件晚到窗口）');
+    }
+
+    // A4b 映射 LRU 上限
+    {
+        const r = new SenderResolver({ routerEventMapLimit: 4 }, quietLogger);
+        for (let i = 0; i < 5; i++) r.setRouterEventUser(`0xgm${i}`, '0xu');
+        ok(r._routerEventMap.size <= 4 && !r._routerEventMap.has('0xgm0') && r._routerEventMap.has('0xgm4'), 'A4b 映射超限清一半（插入序）');
+    }
+
+    // A5 块内无该 txHash（重组/节点 lag）→ blockFallbackRows + 单行 fallback 成功
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([['0xother', '0xsomeone']]), txOf: (h) => ({ from: '0xFallbackUser' }) });
+        const pushed = [];
+        r.submit({ tickRow: row('0x5', 900), trader: '0xrouter5', txHash: '0x5', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xfallbackuser', 'A5 块 miss 落单行回查成功');
+        ok(r.stats.blockFallbackRows === 1 && calls.getTransaction === 1, 'A5 fallback 计数');
+    }
+
+    // A5b 块拉取失败 → rpcErrors + 单行 fallback；失败 promise 不留缓存（第二行重拉块）
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        let blockFails = true;
+        const calls = makeStub(r, {
+            blockOf: () => { if (blockFails) throw new Error('block rpc down'); return fullBlock([['0x5b2', '0xBlockUser']]); },
+            txOf: (h) => (h === '0x5b1' ? { from: '0xSingleUser' } : null),
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0x5b1', 901), trader: '0xrouter5b', txHash: '0x5b1', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xsingleuser', 'A5b 块失败降级单行成功');
+        ok(r.stats.rpcErrors >= 1 && r.stats.blockFallbackRows === 1, 'A5b 块失败计数');
+        blockFails = false;
+        r.submit({ tickRow: row('0x5b2', 901), trader: '0xrouter5b', txHash: '0x5b2', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed[1].sender_address === '0xblockuser' && r.stats.blockPulls === 2, 'A5b 失败 promise 不留缓存（重试重新拉块成功，blockPulls=2）');
+    }
+
+    // A6 txFrom 缓存：块 join 命中行落缓存后，同 txHash 新行零调用共享
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([['0x6a', '0xagguser']]), txOf: () => { throw new Error('不应单行'); } });
+        const pushed = [];
+        r.submit({ tickRow: row('0x6a', 600), trader: '0xrouter6', txHash: '0x6a', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        r.submit({ tickRow: row('0x6a-1', 600), trader: '0xrouter6', txHash: '0x6a', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.length === 2 && pushed.every((x) => x.sender_address === '0xagguser'), 'A6 同 txHash 行共享定值');
+        ok(calls.getBlock === 1 && r.stats.txFromCacheHits === 1, 'A6 缓存命中零块拉取');
+    }
+
+    // A7 重试→耗尽 NULL：块+单行全失败 retryLimit=1 → retried=1 后 NULL
     {
         const r = new SenderResolver({ concurrency: 1, retryLimit: 1, retryDelayMs: 10 }, quietLogger);
-        const calls = makeStub(r, { codeOf: () => '0xc0de', txOf: () => null });
+        const calls = makeStub(r, { blockOf: () => { throw new Error('down'); }, txOf: () => null });
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x5' }, trader: '0xrouter5', txHash: '0x5', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('0x7', 700), trader: '0xrouter7', txHash: '0x7', pushRow: (x) => pushed.push(x) });
         await sleep(80);
-        ok(pushed.length === 1 && pushed[0].sender_address === null, 'A5 反查耗尽留 NULL（保数据丢修复）');
-        ok(r.stats.retried === 1 && r.stats.senderNull === 1, 'A5 重试 1 次后 NULL 计数');
-        ok(calls.getCode === 1 && calls.getTransaction === 2, 'A5 重试保留 kind 跳过 getCode、反查两次');
+        ok(pushed.length === 1 && pushed[0].sender_address === null, 'A7 全链失败耗尽 NULL（保数据丢修复）');
+        ok(r.stats.retried === 1 && r.stats.senderNull === 1, 'A7 重试 1 次后 NULL');
+        ok(r.kindSync('0xrouter7') === null, 'A7 失败不落 kind 缓存（下次有机会重解析）');
     }
 
-    // A6 txFrom 缓存：聚合交易一条 tx 多 log 共享一次反查
-    {
-        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
-        const calls = makeStub(r, { codeOf: () => '0xc0de', txOf: () => ({ from: '0xagguser' }) });
-        const pushed = [];
-        for (const tx of ['0x6a', '0x6b']) {
-            r.submit({ tickRow: { tx_hash: `${tx}-0` }, trader: '0xrouter6', txHash: tx, pushRow: (row) => pushed.push(row) });
-            await sleep(20);
-        }
-        r.submit({ tickRow: { tx_hash: '0x6a-1' }, trader: '0xrouter6', txHash: '0x6a', pushRow: (row) => pushed.push(row) });
-        await sleep(20);
-        ok(pushed.length === 3 && pushed.every((p) => p.sender_address === '0xagguser'), 'A6 同 txHash 行全部解析到同一 from');
-        ok(calls.getTransaction === 2 && r.stats.txFromCacheHits === 1, 'A6 缓存命中省一次反查');
-    }
-
-    // A7 溢出：backlog 满 → 最老行 NULL 强制落库
+    // A8 溢出：backlog 满 → 最老行 NULL 强制落库
     {
         const d1 = deferred();
         const r = new SenderResolver({ concurrency: 1, backlogLimit: 2 }, quietLogger);
-        makeStub(r, { codeOf: () => d1, txOf: () => null });
+        makeStub(r, { blockOf: () => d1, txOf: () => null });
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: 'i1' }, trader: '0xslow', txHash: 't1', pushRow: (row) => pushed.push(row) }); // 占 inflight
-        r.submit({ tickRow: { tx_hash: 'i2' }, trader: '0xslow', txHash: 't2', pushRow: (row) => pushed.push(row) });
-        r.submit({ tickRow: { tx_hash: 'i3' }, trader: '0xslow', txHash: 't3', pushRow: (row) => pushed.push(row) });
-        r.submit({ tickRow: { tx_hash: 'i4' }, trader: '0xslow', txHash: 't4', pushRow: (row) => pushed.push(row) }); // 触发溢出
-        ok(pushed.length === 1 && pushed[0].tx_hash === 'i2' && pushed[0].sender_address === null, 'A7 溢出最老行 NULL 强制落库');
-        ok(r.stats.backlogOverflow === 1 && r._backlog.length === 2, 'A7 溢出计数与剩余 backlog');
-        d1.resolve('0x'); // 释放 inflight 防泄漏到后续节
+        r.submit({ tickRow: row('t1', 1), trader: '0xslow', txHash: 't1', pushRow: (x) => pushed.push(x) }); // 占 inflight
+        r.submit({ tickRow: row('t2', 2), trader: '0xslow', txHash: 't2', pushRow: (x) => pushed.push(x) });
+        r.submit({ tickRow: row('t3', 3), trader: '0xslow', txHash: 't3', pushRow: (x) => pushed.push(x) });
+        r.submit({ tickRow: row('t4', 4), trader: '0xslow', txHash: 't4', pushRow: (x) => pushed.push(x) }); // 触发溢出
+        ok(pushed.length === 1 && pushed[0].tx_hash === 't2' && pushed[0].sender_address === null, 'A8 溢出最老行 NULL 强制落库');
+        ok(r.stats.backlogOverflow === 1 && r._backlog.length === 2, 'A8 溢出计数与剩余 backlog');
+        d1.resolve(fullBlock([])); // 释放 inflight 防泄漏到后续节
         await sleep(10);
     }
 
-    // A8 failover：rrIndex 起点轮询 + 逐 provider 降级
+    // A9 failover：rrIndex 起点轮询 + 逐 provider 降级（块拉取链）
     {
         const r = new SenderResolver({ rpcUrls: ['https://a', 'https://b'], concurrency: 1 }, quietLogger);
         const seen = [];
         r._makeProvider = (url) => ({
             url,
-            getCode: async () => { seen.push(url); if (url === 'https://a') throw new Error('down'); return '0x'; },
+            getBlock: async () => { seen.push(url); if (url === 'https://a') throw new Error('down'); return fullBlock([['0x8', '0xeoa8']]); },
             getTransaction: async () => null,
             destroy: () => {},
         });
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0x8' }, trader: '0xeoa8', txHash: '0x8', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('0x8', 800), trader: '0xeoa8', txHash: '0x8', pushRow: (x) => pushed.push(x) });
         await sleep(20);
-        ok(pushed.length === 1 && pushed[0].sender_address === '0xeoa8', 'A8 failover 到第二端点成功');
-        ok(seen.length >= 2 && seen.includes('https://b'), 'A8 失败端点后逐个降级');
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xeoa8', 'A9 failover 到第二端点成功（from===trader EOA 直连）');
+        ok(seen.length >= 2 && seen.includes('https://b'), 'A9 失败端点后逐个降级');
     }
 
-    // A9 ankrFromEnv 推导 + fail-loud
+    // A10 ankrFromEnv 推导 + fail-loud
     {
         const hadWs = process.env.ANKR_WS_URL, hadKey = process.env.ANKR_API_KEY;
         delete process.env.ANKR_WS_URL; delete process.env.ANKR_API_KEY;
-        ok(resolveAnkrHttpUrlFromEnv() === null, 'A9 无 env 推导 null');
+        ok(resolveAnkrHttpUrlFromEnv() === null, 'A10 无 env 推导 null');
         process.env.ANKR_WS_URL = 'wss://rpc.ankr.com/bsc/ws/0123456789abcdef0123456789';
-        ok(resolveAnkrHttpUrlFromEnv() === 'https://rpc.ankr.com/bsc/0123456789abcdef0123456789', 'A9 ANKR_WS_URL 尾段推导');
+        ok(resolveAnkrHttpUrlFromEnv() === 'https://rpc.ankr.com/bsc/0123456789abcdef0123456789', 'A10 ANKR_WS_URL 尾段推导');
         delete process.env.ANKR_WS_URL;
         process.env.ANKR_WS_URL = 'wss://rpc.ankr.com/bsc/ws'; // 无 key 尾段 'ws' 不合格
         process.env.ANKR_API_KEY = '0123456789abcdef0123456789abcdef';
-        ok(resolveAnkrHttpUrlFromEnv() === 'https://rpc.ankr.com/bsc/0123456789abcdef0123456789abcdef', 'A9 尾段不合格回退 ANKR_API_KEY');
+        ok(resolveAnkrHttpUrlFromEnv() === 'https://rpc.ankr.com/bsc/0123456789abcdef0123456789abcdef', 'A10 尾段不合格回退 ANKR_API_KEY');
         const r = new SenderResolver({ rpcMode: 'ankrFromEnv' }, quietLogger);
         delete process.env.ANKR_WS_URL; delete process.env.ANKR_API_KEY;
         assert.throws(() => r._resolveRpcUrls(), /ankrFromEnv/);
-        ok(true, 'A9 ankrFromEnv 推导失败 throw（部署错误 fail-loud，不静默回退）');
-        ok(Array.isArray(DEFAULT_RPC_URLS) && DEFAULT_RPC_URLS.length === 5, 'A9 默认 dataseed 池 5 域名');
+        ok(true, 'A10 ankrFromEnv 推导失败 throw（部署错误 fail-loud，不静默回退）');
+        ok(Array.isArray(DEFAULT_RPC_URLS) && DEFAULT_RPC_URLS.length === 5, 'A10 默认 dataseed 池 5 域名');
         if (hadWs === undefined) delete process.env.ANKR_WS_URL; else process.env.ANKR_WS_URL = hadWs;
         if (hadKey === undefined) delete process.env.ANKR_API_KEY; else process.env.ANKR_API_KEY = hadKey;
     }
 
-    // A10 stop：等 in-flight → 剩余 backlog 全部 NULL 回推
+    // A11 stop：等 in-flight → 剩余 backlog 全部 NULL 回推；停机后到货 NULL 直推
     {
         const d1 = deferred(), d2 = deferred();
         const r = new SenderResolver({ concurrency: 1 }, quietLogger);
         let i = 0;
         r._makeProvider = () => ({
-            getCode: async () => (i++ === 0 ? d1 : d2),
+            getBlock: async () => (i++ === 0 ? d1 : d2),
             getTransaction: async () => null,
             destroy: () => {},
         });
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: 's1' }, trader: '0xslow', txHash: 's1', pushRow: (row) => pushed.push(row) });
-        d1.resolve('0x');
+        r.submit({ tickRow: row('s1', 1), trader: '0xslow', txHash: 's1', pushRow: (x) => pushed.push(x) });
+        d1.resolve(fullBlock([['s1', '0xuser1']]));
         await sleep(10);
-        r.submit({ tickRow: { tx_hash: 's2' }, trader: '0xslow', txHash: 's2', pushRow: (row) => pushed.push(row) }); // 占 inflight
-        r.submit({ tickRow: { tx_hash: 's3' }, trader: '0xslow', txHash: 's3', pushRow: (row) => pushed.push(row) });
-        r.submit({ tickRow: { tx_hash: 's4' }, trader: '0xslow', txHash: 's4', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('s2', 2), trader: '0xslow', txHash: 's2', pushRow: (x) => pushed.push(x) }); // 占 inflight
+        r.submit({ tickRow: row('s3', 3), trader: '0xslow', txHash: 's3', pushRow: (x) => pushed.push(x) });
+        r.submit({ tickRow: row('s4', 4), trader: '0xslow', txHash: 's4', pushRow: (x) => pushed.push(x) });
         const stopP = r.stop();
-        d2.resolve('0x'); // 释放 in-flight（3s deadline 内）
+        d2.resolve(fullBlock([])); // 释放 in-flight（3s deadline 内）
         await stopP;
-        const s3 = pushed.find((p) => p.tx_hash === 's3');
-        const s4 = pushed.find((p) => p.tx_hash === 's4');
-        ok(s3 && s4 && s3.sender_address === null && s4.sender_address === null, 'A10 stop 剩余 backlog 全部 NULL 回推');
-        ok(r._backlog.length === 0 && r._stopped, 'A10 停机后 backlog 清空');
+        const s3 = pushed.find((x) => x.tx_hash === 's3');
+        const s4 = pushed.find((x) => x.tx_hash === 's4');
+        ok(s3 && s4 && s3.sender_address === null && s4.sender_address === null, 'A11 stop 剩余 backlog 全部 NULL 回推');
+        ok(r._backlog.length === 0 && r._stopped, 'A11 停机后 backlog 清空');
         // 停机后到货行：NULL 直推保行（竞态窗口）
-        r.submit({ tickRow: { tx_hash: 's5' }, trader: '0xany', txHash: 's5', pushRow: (row) => pushed.push(row) });
-        const s5 = pushed.find((p) => p.tx_hash === 's5');
-        ok(s5 && s5.sender_address === null, 'A10 停机后到货 NULL 直推不丢行');
+        r.submit({ tickRow: row('s5', 5), trader: '0xany', txHash: 's5', pushRow: (x) => pushed.push(x) });
+        const s5 = pushed.find((x) => x.tx_hash === 's5');
+        ok(s5 && s5.sender_address === null, 'A11 停机后到货 NULL 直推不丢行');
     }
 
-    // A11 回推幂等：同 entry 双 push 只一次
+    // A12 waitTokenIdle / pendingFor：watermark 防打断 + deadline 帽 + 快路零 pending
+    {
+        const d1 = deferred();
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        makeStub(r, { blockOf: () => d1, txOf: () => null });
+        const pushed = [];
+        r.submit({ tickRow: row('w1', 1, '0xwtok'), trader: '0xwslow', txHash: 'w1', pushRow: (x) => pushed.push(x) });
+        ok(r.pendingFor('0xwtok') === 1, 'A12 入队后 pending=1');
+        // 等待启动后再入队的新行不打断（watermark：target=调用时刻快照）
+        const idleP = r.waitTokenIdle('0xwtok', 2000);
+        r.submit({ tickRow: row('w2', 2, '0xwtok'), trader: '0xwslow', txHash: 'w2', pushRow: (x) => pushed.push(x) });
+        d1.resolve(fullBlock([['w1', '0xwuser'], ['w2', '0xwuser']]));
+        const idle = await idleP;
+        ok(idle === true && r.pendingFor('0xwtok') === 0, 'A12 watermark 等待不被等待期新入队行打断');
+        // deadline 帽：永不完成的块 → 等 80ms 帽后 false 返回
+        const d2 = deferred();
+        makeStub(r, { blockOf: () => d2, txOf: () => null });
+        r.submit({ tickRow: row('w3', 3, '0xwtok2'), trader: '0xwslow', txHash: 'w3', pushRow: (x) => pushed.push(x) });
+        const t0 = Date.now();
+        const idle2 = await r.waitTokenIdle('0xwtok2', 80);
+        ok(idle2 === false && Date.now() - t0 >= 70, 'A12 deadline 帽返回 false（调用方按超时处理）');
+        d2.resolve(fullBlock([]));
+        await sleep(10);
+        // EOA 快路：同帧定值零等待
+        r._cacheKind('0xeoaw', 'eoa');
+        r.submit({ tickRow: row('w4', 4, '0xwtok3'), trader: '0xeoaw', txHash: 'w4', pushRow: (x) => pushed.push(x) });
+        ok((await r.waitTokenIdle('0xwtok3', 100)) === true, 'A12 快路行 waitTokenIdle 即刻返回');
+    }
+
+    // A13 callTimeoutMs：块拉取超时 → 降级单行（callTimeouts 计数；超时≠失败重试）
+    {
+        const r = new SenderResolver({ concurrency: 1, rpcUrls: ['https://one'], callTimeoutMs: 30, retryLimit: 0 }, quietLogger);
+        const calls = makeStub(r, {
+            blockOf: () => new Promise(() => {}), // 永不返回 → 超时
+            txOf: () => ({ from: '0xSlowBlockUser' }),
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0x13', 1300), trader: '0xrouter13', txHash: '0x13', pushRow: (x) => pushed.push(x) });
+        await sleep(120);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xslowblockuser', 'A13 块超时降级单行成功');
+        ok(r.stats.callTimeouts >= 1, 'A13 超时计数');
+    }
+
+    // A14 _pushResolved 幂等：同 entry 双 push 只一次
     {
         const r = new SenderResolver({}, quietLogger);
         let n = 0;
-        const entry = { tickRow: { tx_hash: '0x11' }, pushRow: () => { n++; } };
+        const entry = { tickRow: row('0x14'), pushRow: () => { n++; } };
         r._pushResolved(entry, '0xa');
         r._pushResolved(entry, '0xb');
-        ok(n === 1 && entry.tickRow.sender_address === '0xa', 'A11 _pushResolved 幂等防重');
+        ok(n === 1 && entry.tickRow.sender_address === '0xa', 'A14 _pushResolved 幂等防重');
     }
 }
 
@@ -376,7 +444,7 @@ async function testB() {
         {
             const c = new Ctor({ [cfgKey]: {} }, quietLogger);
             const hooked = [];
-            c._onTickBuffered = (row) => hooked.push(row);
+            c._onTickBuffered = (r) => hooked.push(r);
             c._emitTick(decoded('0xb9'));
             ok(hooked.length === 1 && hooked[0] === c._tickBuffer[0] && hooked[0].sender_address === null, `B9[${name}] _onTickBuffered 同步触发（行引用=buffer 行）`);
         }
@@ -402,18 +470,61 @@ async function testB() {
         ok(faTicks.length === 1 && !('offers' in faTicks[0]) && !('funds_bnb' in faTicks[0]), 'B8[fourmeme] FA tick 无 offers/funds_bnb（tvl 口径对齐回测）');
     }
 
-    // B4 resolver 停机竞态口径：stop 后到货（kind 未知，需 RPC 才能判）→ NULL 直推保行；
+    // B4 resolver 停机竞态口径：stop 后到货（kind 未知，需回查才能定）→ NULL 直推保行；
     //    kind 已知 EOA 的行不受 stopped 影响（快路零资源，同步直推 sender=trader）
     {
         const r = new SenderResolver({}, quietLogger);
         await r.stop();
         const pushed = [];
-        r.submit({ tickRow: { tx_hash: '0xb4' }, trader: '0xunknownX', txHash: '0xb4', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('0xb4', 1), trader: '0xunknownX', txHash: '0xb4', pushRow: (x) => pushed.push(x) });
         ok(pushed.length === 1 && pushed[0].sender_address === null, 'B4 stop 后到货（kind 未知）NULL 直推不丢行');
         r._cacheKind('0xeoay', 'eoa');
-        r.submit({ tickRow: { tx_hash: '0xb4b' }, trader: '0xeoay', txHash: '0xb4b', pushRow: (row) => pushed.push(row) });
+        r.submit({ tickRow: row('0xb4b', 1), trader: '0xeoay', txHash: '0xb4b', pushRow: (x) => pushed.push(x) });
         ok(pushed.length === 2 && pushed[1].sender_address === '0xeoay', 'B4 stop 后 EOA 快路仍直推（零资源不受 stopped 影响）');
     }
+}
+
+// ═══════════════ B11 节：router-events 纯函数（GMGN 路由事件 → 用户 EOA） ═══════════════
+
+function testB11() {
+    console.log('\nB11. router-events 纯函数（extractRouterEventUsers 三形状）');
+    const { ROUTER_EVENT_SUBSCRIPTION, ROUTER_SWAP_TOPIC0, ROUTER_FEE_TOPIC0, GMGN_ROUTER_ADDRESS, extractRouterEventUsers } = require('../src/collectors/router-events.js');
+
+    const pad = (addr) => '0x' + '0'.repeat(24) + addr.toLowerCase().replace(/^0x/, '');
+
+    // B11.1 订阅形状：address=GMGN 路由 + topic0 白名单双值（ANKR 按消息计费压流量）
+    ok(ROUTER_EVENT_SUBSCRIPTION.address.length === 1 && ROUTER_EVENT_SUBSCRIPTION.address[0] === GMGN_ROUTER_ADDRESS,
+        'B11.1 订阅 address 单指 GMGN 路由');
+    ok(ROUTER_EVENT_SUBSCRIPTION.topics[0].length === 2 && ROUTER_EVENT_SUBSCRIPTION.topics[0].includes(ROUTER_SWAP_TOPIC0) && ROUTER_EVENT_SUBSCRIPTION.topics[0].includes(ROUTER_FEE_TOPIC0),
+        'B11.1 topic0 白名单=Swap+FeeCollected 两值');
+    ok(GMGN_ROUTER_ADDRESS === '0x1de460f363af910f51726def188f9004276bf4bc', 'B11.1 GMGN 路由地址与链上实证一致');
+
+    // B11.2 Swap 形状：topics[1]+[2] 均=用户（左填充 32 字节剥成 20 字节小写）
+    {
+        const u1 = pad('0xAa11aa22aa33aa44aa55aa66aa77aa88aa99AA11');
+        const u2 = pad('0xBb22bb33bb44bb55bb66bb77bb88bb99bb00BB22');
+        const got = extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0, u1, u2], transactionHash: '0xTXA' });
+        ok(got && got.txHash === '0xtxa' && got.users.length === 2
+            && got.users[0] === '0x' + u1.slice(26) && got.users[1] === '0x' + u2.slice(26),
+            'B11.2 Swap 双地址全提取（txHash lowercase、topic 剥 padding 小写带 0x）');
+    }
+
+    // B11.3 FeeCollected 形状：只取 topics[2]（topics[1]=收费方刻意不取）
+    {
+        const collector = pad('0xCC33cc44cc55cc66cc77cc88cc99cc00cc11CC33');
+        const user = pad('0xDD44dd55dd66dd77dd88dd99dd00dd11dd22DD44');
+        const got = extractRouterEventUsers({ topics: [ROUTER_FEE_TOPIC0, collector, user], transactionHash: '0xTXB' });
+        ok(got && got.users.length === 1 && got.users[0] === '0x' + user.slice(26),
+            'B11.3 FeeCollected 只取 topics[2]=用户（收费方不冒充用户）');
+    }
+
+    // B11.4 未知 topic0 / 缺字段 → null（fail-safe：绝不从 data 猜地址）
+    ok(extractRouterEventUsers({ topics: ['0xdeadbeef', pad('0xaaaa'), pad('0xbbbb')], transactionHash: '0xTXC' }) === null,
+        'B11.4 未知 topic0 不消费');
+    ok(extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0] }) === null, 'B11.4 缺 transactionHash → null');
+    ok(extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0, pad('0xaaaa')], transactionHash: '0xTXD' }) !== null,
+        'B11.4 Swap 单 indexed 地址（缺 topics[2]）仍取 topics[1]');
+    ok(extractRouterEventUsers(null) === null && extractRouterEventUsers({}) === null, 'B11.4 空形状 → null');
 }
 
 // ═══════════════ C 节：源码口径防回归 ═══════════════
@@ -445,9 +556,32 @@ function testC() {
         'C2 stop 顺序 eventWriter → senderResolver → collectors（回推行进 buffer 再 flush）');
     ok(eng.includes('senderResolver: this._senderResolver ? this._senderResolver.getStats() : null'), 'C2 getStats 带 senderResolve stats');
 
+    // C5（2026-11-04 块预取 join + 路由事件映射 + per-token 观测口径锁）
+    const rsrc = read('src/collectors/sender-resolver.js');
+    ok(!rsrc.includes('p.getCode'), 'C5 getCode 判型链退役（from 恒 EOA，块 join/单行反查即答案）');
+    ok(!rsrc.includes('KIND_CONTRACT'), 'C5 KIND_CONTRACT 死值清除（kindCache 唯一值域 eoa）');
+    ok(rsrc.includes('setRouterEventUser'), 'C5 GMGN 路由事件映射公共写入口存在');
+    ok(rsrc.includes('_routerEventMap.get(item.txHash)'), 'C5 映射消费在 _processItem 最前（零 RPC 快路）');
+    ok(rsrc.includes('getBlock(blockNumber, true)'), 'C5 块预取 join= getBlockByNumber(full=true)');
+    ok(rsrc.includes('waitTokenIdle') && rsrc.includes('pendingFor'), 'C5 per-token 观测（waitTokenIdle/pendingFor）存在');
+    ok(rsrc.includes('_withTimeout'), 'C5 callTimeoutMs 竞速包装存在');
+
     const cfg = JSON.parse(read('config/default.json'));
     ok(cfg.senderResolve?.enabled === true, 'C3 default.json senderResolve.enabled=true');
     ok(Array.isArray(cfg.senderResolve?.rpcUrls) && cfg.senderResolve.rpcUrls.length === 5, 'C3 rpcUrls dataseed 5 域名');
+    ok(cfg.senderResolve?.callTimeoutMs === 0, 'C3 callTimeoutMs 默认 0=关（现状语义缺省不变）');
+
+    // C6（2026-11-04 阶段 0b：三 collector GMGN 路由事件订阅同构锁）
+    const gang = read('src/collectors/gang-ankr-ws-collector.js');
+    for (const [name, src] of [['fourmeme', fm], ['flap', fl], ['gang', gang]]) {
+        ok(/id: 3, method: 'eth_subscribe', params: \['logs', ROUTER_EVENT_SUBSCRIPTION\]/.test(src), `C6[${name}] id=3 路由事件订阅`);
+        ok(/if \(this\._senderResolver && this\._senderResolver\.routerEventMapEnabled\) \{/.test(src), `C6[${name}] 订阅条件=resolver 在场且 routerEventMap 开`);
+        ok(/if \(msg\.id === 3\) this\._routerEventSubId = msg\.result;/.test(src), `C6[${name}] 订阅确认帧登记 subId`);
+        ok(/else if \(this\._routerEventSubId && msg\.params\.subscription === this\._routerEventSubId\) \{\s*this\._handleRouterEvent\(msg\.params\.result\);/.test(src), `C6[${name}] eth_subscription 分派路由事件`);
+        ok(/_handleRouterEvent\(log\) \{[\s\S]*?extractRouterEventUsers\(log\)[\s\S]*?setRouterEventUser/.test(src), `C6[${name}] _handleRouterEvent=提取+写映射（零业务副作用）`);
+        ok((src.match(/this\._routerEventSubId = null;/g) || []).length >= 2, `C6[${name}] ctor+断连双处清空 subId`);
+        ok(src.includes("require('./router-events.js')"), `C6[${name}] require router-events`);
+    }
 
     const ddl = read('scripts/sql/add-wss-ticks-sender-address.sql');
     ok(ddl.includes('ADD COLUMN IF NOT EXISTS sender_address text NULL'), 'C4 DDL 加列');
@@ -456,6 +590,7 @@ function testC() {
 (async () => {
     await testA();
     await testB();
+    testB11();
     testC();
     console.log(`\n✅ 全部通过：${passed} 断言`);
 })().catch((err) => {
