@@ -2601,6 +2601,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // T116 GMGN 进场验证重置：再买入=重新开始新一轮检查点（防陈旧 'none'
         // 首tick误卖，同款双保险）
         this._resetGmgnEntryFor(tokenAddress);
+        // T116b 买点进场观察：成交帧三类在场数落 signal metadata（纯观察不进门）
+        this._recordGmgnEntryBuyObs(signalId, tokenAddress);
 
         this.logger.info(this._experimentId, 'BuyEval',
           `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._buyAmountFor(signal)}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
@@ -3121,6 +3123,38 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (this._gmgnEntryEnabled) {
       require('../../services/FourMemeFactorAggregator').clearGmgnEntryFactors(tokenAddress);
     }
+  }
+
+  /**
+   * T116b 买点 GMGN 进场观察（2026-11-05 用户指令「买入的时候，GMGN API 也需要
+   * 调用一次，只进行辅助数据观察，暂时先不设置条件」）：买入成功点 fire-and-forget
+   * 查一次三类在场数（smart/whale/renowned），结果（含 unknown）落 signal metadata
+   * `gmgnEntryObs`——与 T116 180s 检查点构成「买点 vs 3min」两帧对照，攒分布后再
+   * 裁定是否进条件。纯观察不进任何门；每笔成交恰一次调用（策略买/手工买同挂，
+   * 补买轮各记一帧）；失败吞错不阻塞买入链路。
+   */
+  _recordGmgnEntryBuyObs(signalId, tokenAddress) {
+    if (!this._gmgnEntryEnabled || !this._gmgnEntryService || !signalId || !tokenAddress) return;
+    this._gmgnEntryService.checkEntry(tokenAddress, 'bsc')
+      .then(async res => {
+        await this._updateSignalMetadata(signalId, {
+          gmgnEntryObs: {
+            state: res.state,
+            smartWallets: res.smartWallets,
+            whaleWallets: res.whaleWallets,
+            renownedWallets: res.renownedWallets,
+            topWallets: res.topWallets,
+            checkedAt: res.checkedAt,
+            ...(res.failReason ? { failReason: res.failReason } : {}),
+          },
+        });
+        if (res.state === 'entered') {
+          this.logger.info(this._experimentId, 'GmgnEntry',
+            `买点观察：聪明钱/KOL 已在场 | smart=${res.smartWallets} whale=${res.whaleWallets} renowned=${res.renownedWallets}`);
+        }
+      })
+      .catch(err => this.logger.warn(this._experimentId, 'GmgnEntry',
+        `买点观察落库异常（吞）| ${tokenAddress} ${err.message}`));
   }
 
   /**
@@ -4191,6 +4225,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this._resetAccountRecheckFor(tokenAddress);
         // T116 GMGN 进场验证重置（同款双保险）
         this._resetGmgnEntryFor(tokenAddress);
+        // T116b 买点进场观察（手工买同挂）
+        this._recordGmgnEntryBuyObs(signalId, tokenAddress);
       }
       return result;
     } finally {

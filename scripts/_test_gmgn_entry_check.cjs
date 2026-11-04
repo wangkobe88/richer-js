@@ -289,6 +289,40 @@ async function withKey(fn) {
   check('C8 _resetGmgnEntryFor：state 删 + FA 清（sold→rebu 陈旧 none 误卖防线）',
     eng._gmgnEntryStates.size === 0 && FourMemeFactorAggregator.getGmgnEntryFactors(ADDR) === null);
 
+  // ── T116b 买点进场观察（2026-11-05 用户指令：买点也调一次，纯观察不设条件）──
+  eng = makeEng();
+  eng.metaWrites = [];
+  eng._updateSignalMetadata = async (sid, meta) => { eng.metaWrites.push({ sid, meta }); };
+  eng._recordGmgnEntryBuyObs('sig-1', ADDR); await settle(); await settle();
+  check('C9 买点观察：checkEntry 恰一次 + gmgnEntryObs 落 signal metadata（含计数）',
+    eng._gmgnEntryService.calls.length === 1
+      && eng.metaWrites.length === 1 && eng.metaWrites[0].sid === 'sig-1'
+      && eng.metaWrites[0].meta.gmgnEntryObs.state === 'none'
+      && eng.metaWrites[0].meta.gmgnEntryObs.smartWallets === 0);
+
+  eng = makeEng();
+  eng.metaWrites = [];
+  eng._updateSignalMetadata = async (sid, meta) => { eng.metaWrites.push({ sid, meta }); };
+  eng._gmgnEntryService.next = { state: 'entered', smartWallets: 0, whaleWallets: 0,
+    renownedWallets: 2, topWallets: 6, checkedAt: Date.now(), durationMs: 5,
+    fromCache: false, failReason: null };
+  eng._recordGmgnEntryBuyObs('sig-2', ADDR); await settle(); await settle();
+  check('C9b entered 帧：metadata 落 entered + info 日志留审计（KOL 在场）',
+    eng.metaWrites[0]?.meta?.gmgnEntryObs?.state === 'entered'
+      && eng.metaWrites[0].meta.gmgnEntryObs.renownedWallets === 2
+      && eng.logs.some(l => l[0] === 'info' && String(l[3]).includes('买点观察')));
+
+  eng = makeEng();
+  eng.metaWrites = [];
+  eng._updateSignalMetadata = async (sid, meta) => { eng.metaWrites.push({ sid, meta }); };
+  eng._gmgnEntryEnabled = false;
+  eng._recordGmgnEntryBuyObs('sig-3', ADDR);
+  eng._gmgnEntryEnabled = true;
+  eng._recordGmgnEntryBuyObs(null, ADDR);
+  await settle(); await settle();
+  check('C10 机制关/无 signalId → 零调用零落库（观察随 enabled 同开关）',
+    eng._gmgnEntryService.calls.length === 0 && eng.metaWrites.length === 0);
+
   // ══════════ D. 源码口径 ══════════
   console.log('D. 源码口径');
   const ENG_SRC = read('src/trading-engine/implementations/FourMemeWssTradingEngine.js');
@@ -323,6 +357,8 @@ async function withKey(fn) {
     /let _gmgnEntryOverrides = null;/.test(FA_SRC)
       && /static setGmgnEntryFactors/.test(FA_SRC)
       && /static clearGmgnEntryFactors/.test(FA_SRC));
+  check('D10 T116b 买点观察双挂点（策略买+手工买两处 _recordGmgnEntryBuyObs）',
+    (ENG_SRC.match(/this\._recordGmgnEntryBuyObs\(signalId, tokenAddress\)/g) || []).length === 2);
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);

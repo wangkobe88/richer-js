@@ -583,7 +583,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 丁、卖腿 / 止损 / 毕业卖
 
-### T116 GMGN 进场验证卖臂：持仓 180s 无聪明钱/鲸鱼/KOL 在场全清（新机制 GmgnEntryCheckService + FA 五键 + 引擎扫描，默认关未接线；2026-11-04 落码；用户指令「我还想再增加一个卖出臂，就是如果持仓3分钟，调用一下 GMGN API，无聪明钱/鲸鱼/KOL 进场，就全部卖出。你觉得合适吗？感觉不好分析，可以先帮我做一下实现。」）
+### T116 GMGN 进场验证卖臂：持仓 180s 无聪明钱/鲸鱼/KOL 在场全清 + 买点观察帧（新机制 GmgnEntryCheckService + FA 五键 + 引擎扫描，默认关；2026-11-04 落码 / 2026-11-05 v72 接线+买点观察帧；用户指令「我还想再增加一个卖出臂，就是如果持仓3分钟，调用一下 GMGN API，无聪明钱/鲸鱼/KOL 进场，就全部卖出。你觉得合适吗？感觉不好分析，可以先帮我做一下实现。」+「V72 买入的时候，GMGN API 也需要调用一次，只进行辅助数据观察，暂时先不设置条件」）
 
 - **可行性探针（落码前置，2026-11-04 `scripts/tmp-gmgn-entry-probe.cjs` 六票 0.3-1.0min）**：GMGN `getTokenInfo` 的 `wallet_tags_stat` 对分钟级票**已完整填充**（0.3min=18 秒票 tags/holders 全在动）——索引近乎实时，**无「数据滞后退化成 3 分钟无脑全清」风险**；`whale_wallets` 字段在原始响应里（extractGmgnRisk 未提取，本侧自提），三类 `smart_wallets`（聪明钱）/`whale_wallets`（鲸鱼）/`renowned_wallets`（KOL）**一次调用全覆盖**，零额外配额（=买侧 GmgnRiskCheckService 同款 getTokenInfo，per 持仓轮恰一次）
 - **「在场口径」论证（holders-stat ≠ 进场过，但殊途同归）**：GMGN tags 统计的是**当前在场**标签钱包数——聪明钱 3min 内进出后离场 → 计 0 → 卖，而「聪明钱已经跑路」的票本来也是该卖的形状；三类任一 >0=entered 留仓。top_traders+tag 过滤口径（真「进场过」）每票多烧 2 调用且「进过已走」形状同样该卖，弃
@@ -594,6 +594,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **回测零接线**（BacktestEngine 无本链路，因子恒 null 条件恒 false——动态网络数据对历史 fire 时序穿越，accountHealthCheck/gwp 同款裁定）
 - **单测**：`_test_gmgn_entry_check.cjs` 39 断言（A 三态判定+残缺反证/inflight/冷却/无 key；B 五键投影+getFactorKeys 探针收键+条件实评 fail-open 方向；C 扫描 write-once/重试节流/自清理/竞态/重置/卖中跳过；D 源码口径九条）；受影响回归 account_recheck_engine/signal_metadata_cache/stop_loss_rules/sell_debounce_mechanisms 全绿（18+56+69+86）
 - **适配性意见（用户问「你觉得合适吗」）**：合适——与 T113 失衡全清/stallClose 同族「入场后盘面质量保险丝」，且探针证实数据源可靠；边界留观：①3min 检查点后聪明钱才进场的票会被误卖（固有代价，换「无人接力早离场」的截断收益，T115 同逻辑：晚到的信号质量差）②极小盘 top_wallets 个位数时三类恒 0 属常态（分母噪声）——好票本来就少人接，方向可接受；首版先跑观察 grade/触发频率再调 holdSec
+- **T116b 买点观察帧（2026-11-05 用户指令，追加）**：买入成功点（策略买+手工买双挂点 `_recordGmgnEntryBuyObs`）fire-and-forget 查一次三类在场数，结果（含 unknown）落 **signal metadata `gmgnEntryObs`**（`_updateSignalMetadata` 缓存通道）——与 180s 检查点构成「买点 vs 3min」两帧对照，攒分布后再裁定是否进条件；**纯观察不进任何门**（用户「暂时先不设置条件」）；每笔成交恰一次调用（补买轮各记一帧）；调用频次裁定（用户确认问「是在3分钟的时候进行一次 GMGN 调用吗？其它时间不会调用吧？」——答：0~180s 零调用（扫描只读 FA 内存因子）、到点恰一次 write-once 终结、失败 unknown 才 30s 重试且 service 60s 冷却打网 ≤1 次/分/票、不到 180s 被清的仓零调用）；v72 买腿无 gmgnCheckCondition（T108 后）=买点此前零 GMGN 调用，本钩子为买点唯一一次
 - **生效条件**：v72 config 加 `gmgnEntryCheck` 段+卖腿引用+进程重启（代码已 push，182 pull 后生效）
 
 ### T114 v71 卖臂大修剪：12 删 3 改 1 增（26→15 条）+ stallClose 30s 复活（2026-11-04，v71 `936e1bd9` 实验级 config 变更+重启生效，库未动；用户九点指令）
