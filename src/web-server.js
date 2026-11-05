@@ -2645,6 +2645,27 @@ class RicherJsWebServer {
     // 查询代币的原始 ticks（block_time 升序，分页）
     // 与 tick-kline-service 同口径：price_outlier 剔除、null price_usd 剔除、
     // 按 token_address 全市场聚合（tick 表 UNIQUE(tx_hash, log_index) 全网去重）
+    // BP 测试集（本地 set JSON 文件——纯文件读零 DB；set 构建在 182 跑后 scp 回本地）
+    this.app.get('/api/buy-point-sets', (req, res) => {
+      try {
+        const bpSets = require('./web/services/BuyPointSetService');
+        res.json({ success: true, data: bpSets.listSets() });
+      } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+      }
+    });
+
+    this.app.get('/api/buy-point-set', (req, res) => {
+      try {
+        const { set, token } = req.query;
+        if (!set) return res.status(400).json({ success: false, error: '缺少必需参数: set' });
+        const bpSets = require('./web/services/BuyPointSetService');
+        res.json({ success: true, data: bpSets.getSet(set, token || null) });
+      } catch (e) {
+        res.status(e.status || 500).json({ success: false, error: e.message });
+      }
+    });
+
     this.app.get('/api/ticks', async (req, res) => {
       try {
         const { tokenAddress, from, to, tradeType, limit, offset, withinSeconds } = req.query;

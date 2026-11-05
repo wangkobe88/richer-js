@@ -178,3 +178,55 @@ export function quoteTokenOf(rowsAsc) {
   }
   return q;
 }
+
+/**
+ * 成交买点行映射（BP3 trades 源，2026-11-05 用户裁定「换最新三个 live 实验中所有
+ * 交易点位，cheat/unhealthy 不收录」）：trades 表成功 buy 行 → 点位行——与 signals
+ * 源同构 {id, token_address, token_symbol, created_at, experiment_id, signalInfo}，
+ * run.mjs 零改动消费。点位时刻=成交时刻（executed_at||created_at）。
+ *
+ * priceBnb=input_amount/output_amount 精确换算（BNB 域真实成交价；仅 input_currency
+ * 为 BNB 才算——live 买入恒 BNB，非 BNB 行 null 不冒充。trades.unit_price 是 USD
+ * 口径，直接放 signalInfo.price 会冒充 BNB fire 价污染 snapshot 对照=不采）。
+ * @param {Array} rows - trades 表行（须为成功 buy：调用方过滤）
+ * @param {string} expId
+ */
+export function buildTradePoints(rows, expId) {
+  const pts = [];
+  for (const r of rows || []) {
+    const cur = String((r && r.input_currency) || '').toUpperCase();
+    const inputBnb = Number(r.input_amount);
+    const outTok = Number(r.output_amount);
+    const priceBnb = cur.includes('BNB') && Number.isFinite(inputBnb) && Number.isFinite(outTok)
+      && inputBnb > 0 && outTok > 0 ? +(inputBnb / outTok).toFixed(12) : null;
+    pts.push({
+      id: r.id,
+      token_address: r.token_address,
+      token_symbol: r.token_symbol || null,
+      created_at: r.executed_at || r.created_at,
+      experiment_id: expId,
+      signalId: r.signal_id || null,       // provenance（trigger 信号链路可回溯）
+      tradeId: r.id,
+      priceBnb,
+      signalInfo: { price: priceBnb, strategyName: null },
+    });
+  }
+  return pts;
+}
+
+/**
+ * cheat/unhealthy 剔除（build-set 用，2026-11-05 用户裁定）：gradeMap=token→最新
+ * 判定 grade（'cheat'|'unhealthy'|'healthy'|null——无判定行=null 放行）。cheat/
+ * unhealthy 的 token 全部点位剔除；healthy/无判定放行。
+ * @returns {{kept:Array, excluded:Array<{token:string,grade:string}>}}
+ */
+export function filterByCheatGrades(points, gradeMap = new Map()) {
+  const kept = [];
+  const excluded = [];
+  for (const p of points || []) {
+    const g = gradeMap.get(String((p && p.token_address) || '').toLowerCase()) || null;
+    if (g === 'cheat' || g === 'unhealthy') excluded.push({ token: String(p.token_address).toLowerCase(), grade: g });
+    else kept.push(p);
+  }
+  return { kept, excluded };
+}

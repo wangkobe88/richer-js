@@ -91,6 +91,35 @@
                 <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><p class="text-sm font-medium text-gray-400">BNB 总量</p><p class="text-2xl font-bold text-yellow-400" id="stat-volume">0</p></div>
             </div>
 
+            <!-- BP 测试集点位（2026-11-05 BP3：set 构建在 182 跑、set JSON scp 回本地后此处可见；
+                 图上橙三角=trades 成交买点 / 紫菱形=ladder 挖掘点） -->
+            <div id="bp-section" class="bg-gray-800 rounded-lg border border-gray-700 mb-4 hidden">
+                <div class="p-4 border-b border-gray-700 flex flex-wrap items-center gap-3">
+                    <h2 class="text-lg font-semibold text-white">BP 测试集点位</h2>
+                    <select id="bp-set-select" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white text-sm"></select>
+                    <span id="bp-set-info" class="text-sm text-gray-400"></span>
+                </div>
+                <div class="overflow-x-auto p-4">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-gray-400 border-b border-gray-700">
+                                <th class="px-3 py-2">点位</th>
+                                <th class="px-3 py-2">源</th>
+                                <th class="px-3 py-2">策略/腿</th>
+                                <th class="px-3 py-2">时刻</th>
+                                <th class="px-3 py-2 text-right">锚 ticks</th>
+                                <th class="px-3 py-2 text-right">entry(BNB)</th>
+                                <th class="px-3 py-2 text-right">+1min</th>
+                                <th class="px-3 py-2 text-right">+5min</th>
+                                <th class="px-3 py-2 text-right">+15min</th>
+                                <th class="px-3 py-2 text-right">episode pnl(BNB)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bp-table-body" class="divide-y divide-gray-700"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Bubble Chart -->
             <div id="chart-wrapper" class="bg-gray-800 rounded-lg border border-gray-700 mb-4">
                 <div class="p-4 border-b border-gray-700">
@@ -146,6 +175,6 @@
         </main>
     </div>
 
-    <script src="/static/js/token-ticks.js?v=1.1"></script>
+    <script src="/static/js/token-ticks.js?v=1.2"></script>
 </body>
 </html>

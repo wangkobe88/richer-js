@@ -18,6 +18,11 @@ class TokenTicksPage {
     this.candleChart = null;   // 区块 K 线主图（candlestick）
     this.volumeChart = null;   // 区块 K 线副图（成交量 bar）
 
+    // BP 测试集点位（?bp=<setName> 直达；2026-11-05 BP3）
+    this.bpSetName = new URLSearchParams(window.location.search).get('bp') || '';
+    this.bpPoints = null;      // 当前 token 的点位（[{pointId, source, signalInfo, anchorTickCount, forwardReturns, ladder, ...}]）
+    this.bpSetMeta = null;     // {name, builtAt, sampleRule, counts}
+
     // 交易明细
     this.currentPage = 1;
     this.pageSize = 50;
@@ -52,6 +57,7 @@ class TokenTicksPage {
     await this._waitForChartJS();
 
     this._loadTokenInfo();
+    await this._loadBpSets();   // BP 点位先到（图叠画依赖 bpPoints 已就位）
     await this._loadChartData();
     await this._loadTableData();
   }
@@ -97,6 +103,176 @@ class TokenTicksPage {
       const summary = document.getElementById('token-summary');
       if (summary) summary.innerHTML = parts.join(' · ');
     } catch (e) { /* 忽略：信息缺失不影响 ticks 浏览 */ }
+  }
+
+  // ── BP 测试集点位（set JSON 本地文件；182 构建后 scp 回本地）──
+  async _loadBpSets() {
+    const sel = document.getElementById('bp-set-select');
+    if (!sel) return;
+    try {
+      const resp = await fetch('/api/buy-point-sets');
+      const j = await resp.json();
+      const sets = (j.success && j.data) || [];
+      sel.innerHTML = '<option value="">— 选择 BP 测试集 —</option>'
+        + sets.map(s => `<option value="${this._esc(s.name)}">${this._esc(s.name)}（${s.points} 点位 / ${s.tokens} token${s.source ? ' / ' + s.source : ''}）</option>`).join('');
+      sel.disabled = sets.length === 0;
+      if (sets.length === 0) {
+        document.getElementById('bp-section').classList.add('hidden');
+        return;
+      }
+      document.getElementById('bp-section').classList.remove('hidden');
+      sel.addEventListener('change', () => this._onBpSetChange());
+      if (this.bpSetName && sets.some(s => s.name === this.bpSetName)) {
+        sel.value = this.bpSetName;
+        await this._loadBpPoints(this.bpSetName);
+      }
+    } catch (e) {
+      console.warn('BP set 列表加载失败:', e);
+      document.getElementById('bp-section').classList.add('hidden');
+    }
+  }
+
+  async _onBpSetChange() {
+    const sel = document.getElementById('bp-set-select');
+    const name = sel ? sel.value : '';
+    this.bpSetName = name;
+    this._syncBpUrl();
+    if (!name) { this.bpPoints = null; this.bpSetMeta = null; this._renderBpSection(); await this._loadChartData(); return; }
+    await this._loadBpPoints(name);
+  }
+
+  _syncBpUrl() {
+    const url = new URL(window.location);
+    if (this.bpSetName) url.searchParams.set('bp', this.bpSetName); else url.searchParams.delete('bp');
+    window.history.replaceState({}, '', url);
+  }
+
+  async _loadBpPoints(name) {
+    try {
+      const resp = await fetch(`/api/buy-point-set?set=${encodeURIComponent(name)}&token=${encodeURIComponent(this.tokenAddress)}`);
+      const j = await resp.json();
+      if (!j.success) throw new Error(j.error || `HTTP ${resp.status}`);
+      const doc = j.data || {};
+      this.bpPoints = doc.points || [];
+      this.bpSetMeta = { name: doc.setName || name, builtAt: doc.builtAt, sampleRule: doc.sampleRule, counts: doc.counts };
+    } catch (e) {
+      console.warn('BP set 点位加载失败:', e);
+      this.bpPoints = [];
+      this.bpSetMeta = { name, error: e.message };
+    }
+    this._renderBpSection();
+    await this._loadChartData(); // 重画图叠点位
+  }
+
+  _renderBpSection() {
+    const tbody = document.getElementById('bp-table-body');
+    const info = document.getElementById('bp-set-info');
+    if (!tbody) return;
+    if (!this.bpSetMeta) { tbody.innerHTML = ''; if (info) info.textContent = ''; return; }
+    const pts = this.bpPoints || [];
+    if (info) {
+      const c = this.bpSetMeta.counts;
+      info.textContent = this.bpSetMeta.error
+        ? `加载失败: ${this.bpSetMeta.error}`
+        : `本 token ${pts.length} 点位${c ? ` · 全集 ${c.points} 点位（${c.pointsBySource ? Object.entries(c.pointsBySource).map(([k, v]) => `${k} ${v}`).join(' + ') : ''}）` : ''}`;
+    }
+    if (!pts.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="px-3 py-4 text-gray-500 text-center">本 token 无收录点位</td></tr>';
+      return;
+    }
+    const fwdCell = (p, sec) => {
+      const f = p.forwardReturns && p.forwardReturns.byHorizon && p.forwardReturns.byHorizon[sec];
+      if (!f) return '<span class="text-gray-600">-</span>';
+      const riseCls = f.maxRisePct >= 20 ? 'text-green-400' : f.maxRisePct >= 0 ? 'text-gray-200' : 'text-red-400';
+      return `<span class="${riseCls}">${f.maxRisePct >= 0 ? '+' : ''}${f.maxRisePct.toFixed(1)}%/${f.lastPct >= 0 ? '+' : ''}${f.lastPct.toFixed(1)}%</span>`;
+    };
+    const epCell = (p) => {
+      const ep = p.trade && p.trade.episode;
+      if (!ep) return '<span class="text-gray-600">-</span>';
+      const pnl = ep.pnlBnb;
+      if (pnl == null) return `<span class="text-gray-400">${ep.open ? '持仓中' : 'pnl 缺'}</span>`;
+      const cls = pnl >= 0 ? 'text-green-400' : 'text-red-400';
+      return `<span class="${cls}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)}</span>`;
+    };
+    tbody.innerHTML = pts.map(p => {
+      const isLadder = p.source === 'ladder';
+      const srcBadge = isLadder
+        ? '<span class="px-2 py-0.5 text-xs rounded-full bg-purple-900 text-purple-300">ladder</span>'
+        : '<span class="px-2 py-0.5 text-xs rounded-full bg-orange-900 text-orange-300">trade</span>';
+      const strat = isLadder
+        ? `<span class="font-mono text-purple-300" title="${this._esc(p.ladder ? p.ladder.condition : '')}">${this._esc(p.signalInfo && p.signalInfo.strategyName || p.ladder && p.ladder.legId || '?')}</span>`
+        : this._esc(p.signalInfo && p.signalInfo.strategyName || '-');
+      const price = p.signalInfo && p.signalInfo.price;
+      return `<tr class="hover:bg-gray-750 transition-colors">
+        <td class="px-3 py-2 font-mono text-gray-300">${this._esc(p.pointId)}</td>
+        <td class="px-3 py-2">${srcBadge}</td>
+        <td class="px-3 py-2">${strat}</td>
+        <td class="px-3 py-2 text-gray-300 whitespace-nowrap">${new Date(p.signalCreatedAt).toLocaleString('zh-CN')}</td>
+        <td class="px-3 py-2 text-right font-mono text-gray-400">${p.anchorTickCount}${p.thin ? '<span class="text-yellow-500" title="锚<8 行 thin">·t</span>' : ''}${p.anchorZero ? '<span class="text-red-500" title="锚 0">·z</span>' : ''}</td>
+        <td class="px-3 py-2 text-right font-mono text-gray-300">${price != null ? price.toExponential(2) : '-'}</td>
+        <td class="px-3 py-2 text-right font-mono">${fwdCell(p, 60)}</td>
+        <td class="px-3 py-2 text-right font-mono">${fwdCell(p, 300)}</td>
+        <td class="px-3 py-2 text-right font-mono">${fwdCell(p, 900)}</td>
+        <td class="px-3 py-2 text-right font-mono">${epCell(p)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /** 点位叠画 dataset（scatter 三角/菱形；y=锚时刻最近 tick 的 price_usd——USD 轴对齐） */
+  _bpScatterDatasets(tickData) {
+    if (!this.bpPoints || !this.bpPoints.length) return [];
+    const trades = [], ladder = [];
+    for (const p of this.bpPoints) {
+      const ts = new Date(p.signalCreatedAt).getTime();
+      if (!Number.isFinite(ts)) continue;
+      const y = this._anchorPriceUsd(tickData, ts);
+      if (y == null) continue; // 图窗内无价格行（点位在窗外）——不冒充
+      const raw = { _bp: true, pointId: p.pointId, source: p.source, strategy: (p.signalInfo && p.signalInfo.strategyName) || (p.ladder && p.ladder.legId) || '-', anchor: p.anchorTickCount, fwd: p.forwardReturns, ladder: p.ladder };
+      const pt = { x: ts, y, _bpRaw: raw };
+      if (p.source === 'ladder') ladder.push(pt); else trades.push(pt);
+    }
+    const mk = (data, color, pointStyle, label) => ({ type: 'scatter', label, data,
+      pointStyle, pointRadius: 7, pointHoverRadius: 9, backgroundColor: color, borderColor: color, borderWidth: 1 });
+    const out = [];
+    if (trades.length) out.push(mk(trades, 'rgba(251,146,60,0.95)', 'triangle', `BP 成交买点 (${trades.length})`));
+    if (ladder.length) out.push(mk(ladder, 'rgba(192,132,252,0.95)', 'rectRot', `BP ladder 挖掘 (${ladder.length})`));
+    return out;
+  }
+
+  /** 二分找 ≤ts 最近 tick 的 price_usd（tickData block_time 升序） */
+  _anchorPriceUsd(tickData, tsMs) {
+    if (!tickData || !tickData.length) return null;
+    let lo = 0, hi = tickData.length - 1, best = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const t = new Date(tickData[mid].block_time).getTime();
+      if (Number.isFinite(t) && t <= tsMs) { best = mid; lo = mid + 1; }
+      else hi = mid - 1;
+    }
+    // best 起回扫最近的有效价（个别行 price_usd 空）
+    for (let i = best; i >= 0 && i > best - 20; i--) {
+      const v = parseFloat(tickData[i].price_usd);
+      if (Number.isFinite(v) && v > 0) return v;
+    }
+    return null;
+  }
+
+  _bpTooltip(item) {
+    const r = item.raw && item.raw._bpRaw;
+    if (!r) return null;
+    const lines = [`📍 ${r.pointId} [${r.source}] 策略:${r.strategy}`, `锚 ${r.anchor} ticks`];
+    const fwd = r.fwd && r.fwd.byHorizon;
+    if (fwd) {
+      for (const sec of [60, 300, 900]) {
+        const f = fwd[sec];
+        lines.push(`+${sec / 60}min: ${f ? `${f.maxRisePct >= 0 ? '+' : ''}${f.maxRisePct}% 峰 / ${f.lastPct >= 0 ? '+' : ''}${f.lastPct}% 末` : 'null'}`);
+      }
+    }
+    if (r.ladder && r.ladder.factors) {
+      const f = r.ladder.factors;
+      lines.push(`tradeCount=${f.tradeCount} buyVol=${f.buyVolumeBnb} holders=${f.holdersExDust}`);
+    }
+    return lines;
   }
 
   // ── 图表数据（全量窗口，limit 5000）─────────────────────────
@@ -186,6 +362,7 @@ class TokenTicksPage {
       data: { datasets: [
         { label: `Buy (${buys.length})`, data: buys, backgroundColor: 'rgba(34,197,94,0.65)', borderColor: 'rgba(22,163,74,0.9)', borderWidth: 1 },
         { label: `Sell (${sells.length})`, data: sells, backgroundColor: 'rgba(239,68,68,0.65)', borderColor: 'rgba(220,38,38,0.9)', borderWidth: 1 },
+        ...this._bpScatterDatasets(tickData),
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
@@ -193,7 +370,9 @@ class TokenTicksPage {
           legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12 } },
           tooltip: { callbacks: {
             title(items) { return items.length ? new Date(items[0].raw.x).toLocaleString('zh-CN') : ''; },
-            label(item) {
+            label: (item) => {
+              const bp = this._bpTooltip(item);
+              if (bp) return bp;
               const raw = item.raw._raw;
               const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
               const price = parseFloat(raw.price_usd || 0);
@@ -289,6 +468,16 @@ class TokenTicksPage {
         },
       },
     });
+
+    // BP 点位叠画（candlestick 控制器 mixed scatter 兼容性未知——失败只 warn 不伤 K 线本体）
+    try {
+      const bpDs = this._bpScatterDatasets(tickData);
+      if (bpDs.length) {
+        bpDs.forEach(d => { d.parsing = { xAxisKey: 'x', yAxisKey: 'y' }; });
+        this.candleChart.data.datasets.push(...bpDs);
+        this.candleChart.update();
+      }
+    } catch (e) { console.warn('K 线 BP 叠画失败（气泡图仍有点位）:', e); }
 
     // 副图：成交量 bar（buy 绿 / sell 红 堆叠；time x 轴与主图对齐）
     this.volumeChart = new Chart(document.getElementById('volume-chart'), {
