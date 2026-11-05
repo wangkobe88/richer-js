@@ -4650,12 +4650,12 @@
         "tickCount": 30
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "healthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:07:51.431024+00:00 [A_strong:same_block_buy_wave+slow_grind_pump+burst_spike_concentration,D_famous_dominance,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD301",
@@ -4671,7 +4671,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:08:18.181237+00:00 [R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD302",
@@ -4687,7 +4687,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:03:02.048633+00:00 [E_low_activity,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD303",
@@ -4703,7 +4703,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:11:33.89783+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD304",
@@ -4719,7 +4719,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:15:00.100407+00:00 [E_low_activity_weak_burst]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD305",
@@ -4735,7 +4735,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:17:37.648546+00:00 [A_strong:same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD306",
@@ -4751,7 +4751,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:18:56.387155+00:00 [R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD307",
@@ -4767,7 +4767,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:19:41.247334+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD308",
@@ -4783,7 +4783,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:20:41.764109+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD309",
@@ -4799,7 +4799,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:24:35.978881+00:00 [A_strong:slow_grind_pump]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
     },
     {
       "caseId": "CD310",
