@@ -360,9 +360,11 @@ class TokenTicksPage {
     this.chart = new Chart(ctx, {
       type: 'bubble',
       data: { datasets: [
+        // BP 点位必须排最前：Chart.js 倒序绘制=数组靠前者最后画在上层，
+        // 排尾部会被几百个半透明气泡堆叠近似不透明地埋掉（实测橙三角零像素）
+        ...this._bpScatterDatasets(tickData),
         { label: `Buy (${buys.length})`, data: buys, backgroundColor: 'rgba(34,197,94,0.65)', borderColor: 'rgba(22,163,74,0.9)', borderWidth: 1 },
         { label: `Sell (${sells.length})`, data: sells, backgroundColor: 'rgba(239,68,68,0.65)', borderColor: 'rgba(220,38,38,0.9)', borderWidth: 1 },
-        ...this._bpScatterDatasets(tickData),
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
@@ -474,7 +476,8 @@ class TokenTicksPage {
       const bpDs = this._bpScatterDatasets(tickData);
       if (bpDs.length) {
         bpDs.forEach(d => { d.parsing = { xAxisKey: 'x', yAxisKey: 'y' }; });
-        this.candleChart.data.datasets.push(...bpDs);
+        // unshift 排最前：倒序绘制=排前者画在上层（与气泡图同修，密集蜡烛区不再压点）
+        this.candleChart.data.datasets.unshift(...bpDs);
         this.candleChart.update();
       }
     } catch (e) { console.warn('K 线 BP 叠画失败（气泡图仍有点位）:', e); }

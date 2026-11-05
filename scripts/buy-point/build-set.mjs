@@ -38,7 +38,7 @@ const SETS_DIR = resolve(HERE, 'sets');
 
 const require_ = createRequire(import.meta.url);
 
-const TICK_COLS = 'id,block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
+const TICK_COLS = 'id,block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token,token_address';
 const TICK_PAGE = 4000;   // id 水位翻页页大小（mcap-floor-sell-replay 同款）
 const TICK_PAGES_MAX = 15; // 6 万行帽（超=capped，宁截声明不静默）
 const CHEAT_IN_BATCH = 25; // .in() 批上限（红线 5：URL 8KB；25×~30 行/批 < PostgREST max-rows 1000）
@@ -158,7 +158,9 @@ async function loadCheatGrades(tokens) {
   return gradeMap;
 }
 
-/** ladder 库条目 legs（挖掘条件真相源=库快照，改库后重建 set 自动跟进） */
+/** ladder 库条目 legs（挖掘条件真相源=库快照，改库后重建 set 自动跟进）。
+ *  库条目腿无 id/name（引擎 config→strategy 映射时生成 `buy_${idx}_${priority}`——
+ *  挖掘腿标识从 priority 派生 `t${priority}`，与 deploy 命名 t1-t7 对齐） */
 async function loadLadderLegs(name) {
   const { data, error } = await sb().from('strategy_library')
     .select('id,name,version,legs')
@@ -166,10 +168,12 @@ async function loadLadderLegs(name) {
     .maybeSingle();
   if (error) throw new Error(`strategy_library 查询失败: ${error.message}`);
   if (!data) throw new Error(`strategy_library 无条目 ${name}（--legs-lib 指定或先部署）`);
-  const legs = Array.isArray(data.legs) ? data.legs : [];
-  for (const l of legs) {
-    if (!l || !l.id || !l.condition) throw new Error(`库条目 ${name} 腿形状非法（id/condition 缺）`);
-  }
+  const rawLegs = Array.isArray(data.legs) ? data.legs : [];
+  const legs = rawLegs.map((l, idx) => {
+    if (!l || !l.condition) throw new Error(`库条目 ${name} 腿形状非法（condition 缺）`);
+    const priority = Number.isFinite(Number(l.priority)) ? Number(l.priority) : idx;
+    return { id: l.id || `t${priority}`, priority, condition: l.condition, description: l.description || null };
+  });
   return { libId: data.id, libName: data.name, libVersion: data.version, legs };
 }
 

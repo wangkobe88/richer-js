@@ -54,6 +54,9 @@ export function mineLadderPoints({ rowsAsc, meta, legs, factorParams = null }) {
   if (!Array.isArray(rowsAsc) || !rowsAsc.length) return [];
   if (!Array.isArray(legs) || !legs.length) return [];
   const addr = String(meta.address || (rowsAsc[0] && rowsAsc[0].token_address) || '').toLowerCase();
+  if (!rowsAsc[0].token_address) {
+    throw new Error('mineLadderPoints: ticks 行缺 token_address 字段（拉取列漏列会让 processTick 全行静默跳过=因子恒零）——检查 TICK_COLS');
+  }
   const fa = new FourMemeFactorAggregator(factorParams ? { fourmemeWs: { factorParams } } : {}, null);
   const ev = new ConditionEvaluator();
   // createdAt 缺失回退首 tick（回测 P17 复流同款 fallback 语义）
