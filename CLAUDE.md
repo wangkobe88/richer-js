@@ -21,8 +21,8 @@ npm run case-regression [-- --only C98,C104 | --list | --add <addr> --case C112 
                                            # 叙事 case 回归集（票数随案渐增；重析对拍在 182 跑，工具文档 docs/case-regression-tool.md）
 node scripts/cheat-detection/run.mjs [--only CD1 | --list | --add <addr> --case CD2 --note .. | --update-expect CD2 --because ..]
                                            # 作弊盘回归集（as-of 锚截窗重析在 182 跑；anchor 必填防全史马后炮）
-node scripts/buy-point/build-set.mjs --name <set> [--exps <id,...> | --dedupe-sec 60 | --horizon-min 15]
-                                           # 买入点位测试集构建（最近 4 live 实验 BUY 信号→60s 去重→锚+前向收益+trades join；182 跑）
+node scripts/buy-point/build-set.mjs --name <set> [--source trades|signals] [--live-exp-count 3 | --exps <id,...>] [--dedupe-sec N] [--horizon-min 15] [--legs-lib <名|none>]
+                                           # 买入点位测试集构建（182 跑）。trades 源=最近 live 实验全部成交买点（cheat/unhealthy 剔除、不去重）+ ladder 腿 FA 重放挖掘（per token×leg 首触发，--legs-lib 缺省 signal-source-ladder-v1）；signals 源=旧口径 BUY 信号 60s 去重
 node scripts/buy-point/run.mjs --set <set> [--only BP-S001 | --limit N | --dry]
                                            # 买入点位重析（182 跑真调 Jev；--dry 只组装；`sets/*-ticks/` 不进 git）
 node scripts/deploy-signal-source-strategies.cjs [--commit]
