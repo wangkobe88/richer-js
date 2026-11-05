@@ -5775,7 +5775,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T22:30:49.397281+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第十批 review）CD371 币安人（唯一 fourmeme 票）「unhealthy」翻案（生产 healthy 放行锚后 -67.7%；今重析 unhealthy[E_low_weak_burst] 同向锚定）；其它 3 票无问题=认同"
     },
     {
       "caseId": "CD371",
@@ -5786,12 +5786,12 @@
         "tickCount": 32
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T22:44:18.295826+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第十批 review）CD371 币安人（唯一 fourmeme 票）「unhealthy」翻案（生产 healthy 放行锚后 -67.7%；今重析 unhealthy[E_low_weak_burst] 同向锚定）；其它 3 票无问题=认同"
     },
     {
       "caseId": "CD372",
@@ -5807,7 +5807,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T23:00:25.336472+00:00 [A_strong:slow_grind_pump,E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第十批 review）CD371 币安人（唯一 fourmeme 票）「unhealthy」翻案（生产 healthy 放行锚后 -67.7%；今重析 unhealthy[E_low_weak_burst] 同向锚定）；其它 3 票无问题=认同"
     },
     {
       "caseId": "CD373",
@@ -5823,7 +5823,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T23:22:39.537446+00:00 [E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第十批 review）CD371 币安人（唯一 fourmeme 票）「unhealthy」翻案（生产 healthy 放行锚后 -67.7%；今重析 unhealthy[E_low_weak_burst] 同向锚定）；其它 3 票无问题=认同"
     }
   ]
 }
