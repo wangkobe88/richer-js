@@ -264,9 +264,9 @@ ok(obsPartial.dimensions.point_category === null, 'E: 类别题缺席 → null �
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP3 九题/桶域对锁/分类判读框架/两调深相等）');
+  console.log('F. 题集形状（BP4 九题/桶域对锁/分类判读框架/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP3', 'F: 版本=BP3');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP4', 'F: 版本=BP4');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 9, `F: 恰 9 题（实际 ${ids.length}）`);
@@ -302,14 +302,19 @@ ok(obsPartial.dimensions.point_category === null, 'E: 类别题缺席 → null �
   ok(insA.includes('第一步先按类别题') && insA.includes('point_category'), 'F: 综合题判读总纲=先分类后权衡（路由轴=类别题）');
   ok(['early_bird', 'pullback_entry', 'high_chase', 'unclear'].every((c) => insA.includes(c)), 'F: 四类分路段全在场');
   ok(insA.includes('不买极快速上涨'), 'F: 早鸟类核心忌讳=不买极快速上涨/已拉高（用户原话锚）');
+  ok(insA.includes('不因低市值豁免'), 'F: 早鸟忌讳无条件化（BP4：急拉/已拉高不因低市值豁免——对拍 good 误放修正）');
+  ok(insA.includes('位置先于动能'), 'F: 早鸟类位置先于动能（贴高强买压=接力风险非入场信号）');
+  ok(insA.includes('仅限温和爬坡'), 'F: 豁免臂收紧=仅限温和爬坡（BP4）');
   ok(insA.includes('没跌到位'), 'F: 回调类忌讳①没跌到位（半山腰接飞刀）');
   ok(insA.includes('奔着归零'), 'F: 回调类忌讳②下跌奔着归零去（阴跌+流失+枯竭）');
-  ok(insA.includes('先等等') && insA.includes('一律 poor'), 'F: 追高类本轮先等等=一律 poor（类别锚留痕）');
+  ok(insA.includes('先等等') && insA.includes('无条件一律 poor'), 'F: 追高类本轮先等等=无条件一律 poor（BP4 硬路由）');
+  ok(insA.includes('分路是硬路由'), 'F: 总纲硬路由声明（维度档位不构成跨路放行）');
   ok(insA.includes('unclear') && insA.includes('insufficient'), 'F: unclear → insufficient 分路');
   ok(insA.includes('活跃度门槛') && insA.includes('降档'), 'F: 通用条保留（活跃门槛/协同降档不下结论）');
   ok(insA.includes('mcapBnb 尚低') && insA.includes('8-9 BNB'), 'F: 早鸟类豁免臂引用市值位置行（8-9 BNB 阈，BP2 收编）');
   ok(insA.includes('holdersDelta60 为负') && insA.includes('bigHolderSellBnb60'), 'F: 回调类归零臂引用 holder 流向行+大持仓卖压行');
   ok(qs[ASSESSMENT_ID].criteria.poor.includes('先等等'), 'F: poor 桶描述含追高类留痕');
+  ok(qs[ASSESSMENT_ID].criteria.good.includes('不含追高类'), 'F: good 桶描述显式排除追高类（BP4 桶描述级防线）');
   // 四维度题 BP2 反锚补强（BP3 原样保留）
   ok(qs.price_momentum.instructions.includes('8-9 BNB'), 'F: momentum 反锚④追高低市值豁免臂');
   ok(qs.entry_position.instructions.includes('8-9 BNB') && qs.entry_position.instructions.includes('市值位置行'), 'F: entry_position 反锚④贴高与市值位置并读');
