@@ -13,7 +13,7 @@
 
 **买入点位分析 = Jev 驱动的入场时机判定模块**。动机（用户原话）：「感觉简单指标无法满足要求……通过 ticks 判断当前点位是否可以买入」。与反作弊模块（CD）分工：**输入同样是 ticks（wss_price_ticks 锚截窗），CD 判「盘面是否作弊」，本模块判「当前点位是否适合买入」**——入场时机好坏（时点判定，非 token 终身属性、非盘面性质）；协同/作弊形状在题面里只作降档参考，结论归 CD。
 
-**BP2（2026-11-05）起第二步引擎融合已做（T117 信号源门链）**：新服务 `BuyPointCheckService` + 新表 `buy_point_analyses` + 引擎挂点——携带 `signalGate` 的买腿（初始买入信号源）触发后依次过作弊门（二元版）→ **BP 门**（`buy_point_assessment` 桶 ∈ bpPassLevels（缺省 good/neutral）过/拒），两门都过才买；BP 门**全 fail-closed**（超时/Jev 错/insufficient/disabled 均拒——BP 是点位判定唯一来源无据不买），回测恒拒（signalGate 腿全量排除）。详档交易台账 T117 案与下方 BP2 案。**现行判定形态（题集 BP7，案号 BP8）=活跃度门+三类质量题制**：综合判定=**代码侧两层**——①活跃度门（market_heat=low → poor，rule=activity_gate，「活跃度不够不参与交易」）；②三类质量题聚合（early_bird_quality / pullback_entry_quality / high_chase_quality，桶域 good/neutral/poor/insufficient，Jev 三视角**并行独立评估**，每题先判场景适用非场景→insufficient 不贡献；用户原话「这三者有任何一个为 good 则为 good，为 neutral 则为 neutral，否则为 poor」：任一 good→good，否则任一 neutral→neutral，否则 poor；三题全 insufficient→poor 且 prob=null）——替代 BP3-BP5「类别题路由+综合题」两步制（对拍实证 Jev 常忽略路由指令，形态从根消除路由依赖）；维度题（6 题）纯参考不进聚合；追高题=策略停买留痕（场景成立一律 poor，放开只改该题面）。6 维度现行：price_trend 六桶（动量窗 **5/10/30s 短窗**——BP6 用户裁定）｜ sell_pressure ｜ market_heat ｜ entry_position 相对价格高低四桶 ｜ price_level 绝对价格高低五桶·参照系=发行价 ｜ **tree_position 圣诞树形状与位置六桶=观察档（BP8——用户裁定「暂时圣诞树这一锚，先不参与决策吧。我觉得判断起来有点太难了，但是可以先放里头」：题照问、zigzag 摆动锚照算、digest 照落攒分布，mapper 不消费任何 tree 桶；后续启用只改 mapper 聚合+题面措辞届时 bump）**。
+**BP2（2026-11-05）起第二步引擎融合已做（T117 信号源门链）**：新服务 `BuyPointCheckService` + 新表 `buy_point_analyses` + 引擎挂点——携带 `signalGate` 的买腿（初始买入信号源）触发后依次过作弊门（二元版）→ **BP 门**（`buy_point_assessment` 桶 ∈ bpPassLevels（缺省 good/neutral）过/拒），两门都过才买；BP 门 **fail-closed**（超时/Jev 错/disabled 均拒——BP 是点位判定唯一来源无据不买；**insufficient_ticks 唯一例外放行（BP9 2026-11-05 用户裁定「反作弊检测中 bp_gate_insufficient_ticks 请去掉」——极早触发锚窗 tick<minTicks=early_bird 场景常态不判不拦，minTicks 预门保留在 service 不烧 Jev 配额）**），回测恒拒（signalGate 腿全量排除）。详档交易台账 T117 案与下方 BP2 案。**现行判定形态（题集 BP7，案号 BP8）=活跃度门+三类质量题制**：综合判定=**代码侧两层**——①活跃度门（market_heat=low → poor，rule=activity_gate，「活跃度不够不参与交易」）；②三类质量题聚合（early_bird_quality / pullback_entry_quality / high_chase_quality，桶域 good/neutral/poor/insufficient，Jev 三视角**并行独立评估**，每题先判场景适用非场景→insufficient 不贡献；用户原话「这三者有任何一个为 good 则为 good，为 neutral 则为 neutral，否则为 poor」：任一 good→good，否则任一 neutral→neutral，否则 poor；三题全 insufficient→poor 且 prob=null）——替代 BP3-BP5「类别题路由+综合题」两步制（对拍实证 Jev 常忽略路由指令，形态从根消除路由依赖）；维度题（6 题）纯参考不进聚合；追高题=策略停买留痕（场景成立一律 poor，放开只改该题面）。6 维度现行：price_trend 六桶（动量窗 **5/10/30s 短窗**——BP6 用户裁定）｜ sell_pressure ｜ market_heat ｜ entry_position 相对价格高低四桶 ｜ price_level 绝对价格高低五桶·参照系=发行价 ｜ **tree_position 圣诞树形状与位置六桶=观察档（BP8——用户裁定「暂时圣诞树这一锚，先不参与决策吧。我觉得判断起来有点太难了，但是可以先放里头」：题照问、zigzag 摆动锚照算、digest 照落攒分布，mapper 不消费任何 tree 桶；后续启用只改 mapper 聚合+题面措辞届时 bump）**。
 
 ### 模块分层（与 CD 模板同构，口径单点复用）
 
@@ -76,6 +76,18 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+
+### BP9 BP 门 insufficient_ticks 拒单去掉（放行）（2026-11-05，门语义案·T117 BP 门；用户指令）
+
+**触发背景**：T117 信号源门链（signal-source-ladder-v1 七腿阶梯）生产运行中，`bp_gate_insufficient_ticks` 成为高频拒单来源——阶梯触发键（recentBlockDropPct ≤4 块收盘环 / quietSurge 静默段突刺）本就瞄准**极早触发点**，触发时刻锚窗 tick 数常 <minTicks(8)，BP 门 minTicks 预门返回 insufficient_ticks 后引擎 fail-closed 拒（reason=`bp_gate_insufficient_ticks`）——信号源要抓的早鸟点位被 BP 门系统性拦截，机制自相矛盾。
+
+**用户指令原话**：「反作弊检测中 bp_gate_insufficient_ticks 请去掉」。
+
+**改动（引擎 `_bpGateEvaluate` 单点）**：`insufficient_ticks` 从 fail-closed 拒分支拆出为**唯一例外放行**——tick 不足不判不拦：pass=true、不打 signal failed、info 落 signal metadata `buyPoint` 段（status=insufficient_ticks + anchorTickCount + passed=true 留痕）+引擎 info 日志。**service 侧 minTicks 预门保留**（不调 Jev 不落表）：材料薄（tick<8）照调 Jev 只会三质量题全 insufficient→聚合 poor（BP7 规则三题全 insufficient→poor）=换皮仍拒且烧配额——预门保留=配额防线，拒单语义的消灭在引擎消费侧。其余门语义不动：assessed→bucket∈bpPassLevels 过/poor 拒（bp_gate_assessment）、timeout/fail/disabled/异常全拒（bp_gate_* 域）、cheat 门 fail-open 放行进 BP 兜底链不变。
+
+**门语义张力留档（刻意接受）**：BP 门「无据不买」原则对 insufficient_ticks 开口子后，极早票（tick<8）在 cheat 门 fail-open + BP 门放行的叠加下无 BP 判定直接进执行层——两门对该形状同向放行=设计意图（早鸟场景 tick 少是常态非异常，正是信号源阶梯的目标点位）；timeout/fail 等真故障仍全拒兜底。
+
+**验证**：`_test_signal_gate_engine` 92 断言（B5 改写：insufficient_ticks → 放行+不打 failed+metadata anchorTickCount 留痕；原 B5-B7 拒单循环收窄为 timeout/fail 两态）+`_test_buy_point_check_service` 26 断言复验（service 返回形状不变零回归）。**题集零改动**（BP7 版本不动、不 bump）。**余留**：v73 换代生效；生产 insufficient_ticks 放行量与该形状买点结局观测（早鸟票无 BP 判定的实际盈亏=本裁定代价/收益的直接证据）。
 
 ### BP8 圣诞树锚三层框架+活跃度门（题集版本 BP7）（2026-11-05，机制案·BP7 续案；三连用户指令+缓议裁定）
 

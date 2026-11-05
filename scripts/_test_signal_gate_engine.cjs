@@ -6,8 +6,10 @@
  * maxTriggers 默认 1，触发即消耗），fire 且 signal 落库成功后依次走
  * 作弊门（二元版 grade 直接决策）→ 买入点位分析（BP）门，两门都过才买。
  * 双门故障语义刻意不同向：cheat 检测层故障 fail-open 放行进 BP
- * （CD158/GMGN 同向，BP 门兜底）；BP 门全 fail-closed（超时/Jev 错/
- * insufficient/disabled 均拒——BP 是点位判定唯一来源无据不买）。
+ * （CD158/GMGN 同向，BP 门兜底）；BP 门 fail-closed（超时/Jev 错/disabled
+ * 均拒——BP 是点位判定唯一来源无据不买）——**insufficient_ticks 唯一例外
+ * 放行**（BP9 2026-11-05 用户裁定「bp_gate_insufficient_ticks 去掉」：
+ * 极早触发 tick<minTicks=early_bird 常态不判不拦，留痕放行）。
  *
  * 覆盖：
  *   A. _cheatGateEvaluateBinary（二元版）：service 缺失·enabled=false 放行
@@ -16,9 +18,10 @@
  *      形状 / timeout_fail_open 放行+late 挂钩 _cheatGateLateConsume /
  *      insufficient_ticks·fail 放行 / service 异常放行 / recheckUnhealthy
  *      两态透传（gateBuyPoint 第 4 参 opts）
- *   B. _bpGateEvaluate（全 fail-closed）：good·neutral 过 / poor·bucket=null 拒
- *      （bp_gate_assessment）/ insufficient_ticks·timeout·fail·disabled·异常
- *      全拒（reason 域 bp_gate_*）/ bpPassLevels 自定义集收紧 / 通过·拒绝均落
+ *   B. _bpGateEvaluate（fail-closed，insufficient_ticks 例外放行）：good·neutral
+ *      过 / poor·bucket=null 拒（bp_gate_assessment）/ insufficient_ticks 放行
+ *      不打 failed（BP9）/ timeout·fail·disabled·异常全拒（reason 域
+ *      bp_gate_*）/ bpPassLevels 自定义集收紧 / 通过·拒绝均落
  *      signal metadata buyPoint 段（metadata 更新失败吞不外抛）/ ctx 四键透传
  *   C. 触发计数三件套：_sgTriggerCount 无计数 0 / _sgRecordTrigger 只增不返还 /
  *      _signalGateExcludedIds 耗尽收集（非 signalGate 腿恒在集外；无耗尽 null；
@@ -191,7 +194,7 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
     [{ awaitMs: 15000, recheckUnhealthy: true }, { awaitMs: 15000, recheckUnhealthy: false }]);
 }
 
-console.log('B. _bpGateEvaluate（BP 门全 fail-closed——BP 是点位判定唯一来源无据不买）');
+console.log('B. _bpGateEvaluate（BP 门 fail-closed——BP 是点位判定唯一来源无据不买；insufficient_ticks 唯一例外放行）');
 {
   // B1 good → 过（默认 pass 集 good/neutral；通过不打 failed）
   const sts = [], metas = [];
@@ -238,9 +241,26 @@ console.log('B. _bpGateEvaluate（BP 门全 fail-closed——BP 是点位判定�
   ok('bucket=null → 拒', (await eng4._bpGateEvaluate('0xtok', TOKEN, null, 'sig-4', SG(), {})).pass === false);
   check('bucket=null → reason 同 bp_gate_assessment', sts4.map((s) => s.meta.reason), ['bp_gate_assessment']);
 
-  // B5-B7 insufficient_ticks / timeout / fail → 全拒（reason 域 bp_gate_<status>）
+  // B5 insufficient_ticks → 唯一例外放行（BP9 2026-11-05 用户裁定
+  // 「bp_gate_insufficient_ticks 去掉」：极早触发 tick<minTicks=early_bird
+  // 常态不判不拦；不打 failed、reason 域绝迹、metadata 留 anchorTickCount）
+  const sts5 = [], metas5 = [];
+  const eng5 = makeEngine({
+    _buyPointCheckService: bpSvc(async () => ({ status: 'insufficient_ticks', anchorTickCount: 5 })),
+    _updateSignalStatus: async (id, status, meta) => { sts5.push({ id, status, meta }); },
+    _updateSignalMetadata: async (id, data) => { metas5.push({ id, data }); },
+  });
+  const r5 = await eng5._bpGateEvaluate('0xtok', TOKEN, null, 'sig-5', SG(), {});
+  ok('insufficient_ticks → 放行（BP9 去拒）', r5.pass === true, r5);
+  check('insufficient_ticks → 不打 signal failed（非拒单）', sts5, []);
+  ok('insufficient_ticks → buyPoint metadata 形状（passed=true+anchorTickCount 留痕）',
+    metas5.length === 1 && metas5[0].data.buyPoint.status === 'insufficient_ticks'
+    && metas5[0].data.buyPoint.passed === true
+    && metas5[0].data.buyPoint.anchorTickCount === 5,
+    metas5);
+
+  // B6-B7 timeout / fail → 全拒（reason 域 bp_gate_<status>）
   for (const [name, res, reason] of [
-    ['insufficient_ticks', { status: 'insufficient_ticks' }, 'bp_gate_insufficient_ticks'],
     ['timeout', { status: 'timeout' }, 'bp_gate_timeout'],
     ['fail(jev_error)', { status: 'fail', reason: 'jev_error' }, 'bp_gate_fail'],
   ]) {

@@ -3009,11 +3009,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * T117 信号源门链·买入点位门（BP 门，全 fail-closed——BP 是点位判定唯一来源
+   * T117 信号源门链·买入点位门（BP 门，fail-closed——BP 是点位判定唯一来源
    * 无据不买；cheat 层 fail-open 放行的下游兜底正是本门）：
    * assessed → bucket ∈ bpPassLevels（默认 good/neutral）过 / 否则拒
-   * （bp_gate_assessment）；timeout / fail / insufficient_ticks / disabled → 全拒
-   * （disabled=配置矛盾 loud warn）。通过/拒绝均落 signal metadata `buyPoint` 段
+   * （bp_gate_assessment）；timeout / fail / disabled → 拒
+   * （disabled=配置矛盾 loud warn）。**insufficient_ticks 唯一例外放行**
+   * （BP9 2026-11-05 用户裁定「bp_gate_insufficient_ticks 去掉」）：信号源
+   * 阶梯极早触发（块窗跌幅/静默段突刺）锚窗 tick<minTicks 是 early_bird 场景
+   * 常态非异常，无 BP 分析≠点位差；minTicks 预门保留在 service（不烧 Jev
+   * 配额——材料薄照调三题全 insufficient→poor=换皮仍拒），引擎侧放行留痕
+   * （info 带 anchorTickCount）。通过/拒绝均落 signal metadata `buyPoint` 段
    * （研究主数据）；timeout 的 late 链在 service 内部落行（引擎零消费无副作用）。
    * 本方法不抛错（service 不抛；catch 兜底接线级异常=fail-closed 拒——与 cheat
    * 门 catch 放行刻意不同向）。
@@ -3071,9 +3076,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             `BP 门竞速超时拒买（${this._bpGateAwaitMs}ms fail-closed；迟到结果落表下个买信号可见） | ${token.symbol || tokenAddress.slice(0, 10)}`);
           await this._updateSignalStatus(signalId, 'failed',
             { message: `BP 门竞速超时拒买（${this._bpGateAwaitMs}ms）`, reason: 'bp_gate_timeout' });
+        } else if (res && res.status === 'insufficient_ticks') {
+          // BP9 唯一例外放行（用户裁定 bp_gate_insufficient_ticks 拒单去掉）：
+          // 极早触发 tick<minTicks=early_bird 常态，不判不拦；不打 failed
+          pass = true;
+          info = {
+            status: 'insufficient_ticks', anchorTickCount: res.anchorTickCount ?? null,
+            passLevels, passed: true,
+          };
+          this.logger.info(this._experimentId, 'SignalGate',
+            `BP 门放行（锚窗 tick 不足 ${res.anchorTickCount ?? '?'}<minTicks，不判定不拦——极早票 early_bird 场景） | ${token.symbol || tokenAddress.slice(0, 10)}`);
         } else {
           // fail（llm_load/cooldown/jev_timeout/jev_error/mapper_error/chain_error）/
-          // insufficient_ticks / unknown → 全 fail-closed 拒
+          // unknown → 全 fail-closed 拒
           info = res ? { ...res } : { status: 'unknown' };
           await this._updateSignalStatus(signalId, 'failed',
             {
