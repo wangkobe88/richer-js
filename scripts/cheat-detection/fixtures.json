@@ -4495,7 +4495,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:16:03.915495+00:00 [A_strong:same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD291",
@@ -4506,12 +4506,12 @@
         "tickCount": 21
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.59 @2026-11-04T14:28:21.226467+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD292",
@@ -4527,7 +4527,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:31:00.84868+00:00 [A_strong:same_block_buy_wave,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD293",
@@ -4543,7 +4543,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:34:10.157565+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD294",
@@ -4559,7 +4559,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T14:36:55.730764+00:00 [R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD295",
@@ -4575,7 +4575,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:37:05.28727+00:00 [A_strong:slow_grind_pump,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD296",
@@ -4591,7 +4591,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:46:33.226507+00:00 [A_strong:slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD297",
@@ -4607,7 +4607,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T14:56:12.81401+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD298",
@@ -4623,7 +4623,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:03:25.162688+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD299",
@@ -4634,12 +4634,12 @@
         "tickCount": 87
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "healthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:03:55.724627+00:00 [D_famous_dominance,E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
     },
     {
       "caseId": "CD300",
