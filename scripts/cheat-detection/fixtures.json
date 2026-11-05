@@ -5615,7 +5615,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:26:10.134771+00:00 [J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD361",
@@ -5631,7 +5631,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:54:49.622084+00:00 [A_strong:slow_grind_pump,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD362",
@@ -5642,12 +5642,12 @@
         "tickCount": 43
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "healthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:54:59.703243+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD363",
@@ -5663,7 +5663,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:54:56.962641+00:00 [M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD364",
@@ -5679,7 +5679,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:55:33.434+00:00 [A_strong:same_block_buy_wave+slow_grind_pump,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD365",
@@ -5690,12 +5690,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "healthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:55:41.168865+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD366",
@@ -5711,7 +5711,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 1）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:56:56.008835+00:00 [J_holdings_strong]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD367",
@@ -5727,7 +5727,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T20:58:02.444554+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD368",
@@ -5743,7 +5743,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:59:00.244983+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD369",
@@ -5759,7 +5759,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T21:37:58.791735+00:00 [E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
     },
     {
       "caseId": "CD370",
