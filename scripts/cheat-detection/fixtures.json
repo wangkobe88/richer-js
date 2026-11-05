@@ -4975,7 +4975,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:54:00.162726+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD321",
@@ -4991,7 +4991,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:56:06.069226+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD322",
@@ -5002,12 +5002,12 @@
         "tickCount": 55
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:56:12.197521+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD323",
@@ -5023,7 +5023,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:58:12.783336+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD324",
@@ -5034,12 +5034,12 @@
         "tickCount": 29
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "cheat"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T16:13:32.976463+00:00 [J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD325",
@@ -5055,7 +5055,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:13:56.480485+00:00 [A_strong:same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD326",
@@ -5071,7 +5071,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:17:16.959581+00:00 [A_strong:equal_amount_split+slow_grind_pump,E_low_activity,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD327",
@@ -5087,7 +5087,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T16:27:05.675383+00:00 [D_famous_dominance,L_insider_sell63]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD328",
@@ -5103,7 +5103,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:35:43.872079+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD329",
@@ -5119,7 +5119,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T16:41:12.917749+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD330",
