@@ -12,7 +12,9 @@
  * verdict/cheatProb 机器刷新随判定层停产退役（updateExpect 仅留痕，不覆盖人工裁定）。
  */
 
-export const VERDICTS = new Set(['cheat', 'unhealthy', 'healthy', 'unclear']);
+// strongbacked（2026-11-05 立法）=研究口径第四类型（强庄币）：机器 grade 域恒三值无此档，
+// run.mjs 对拍单列不进一致率；实时检出走 SB1 观察臂 cheatStrongbackerLike
+export const VERDICTS = new Set(['cheat', 'unhealthy', 'healthy', 'strongbacked', 'unclear']);
 export const PATTERNS = new Set([
   'dev_self_trade', 'same_block_burst', 'equal_amount_split',
   'rapid_churn', 'wash_pump', 'quota_ladder', 'slow_coordinated_accumulation',

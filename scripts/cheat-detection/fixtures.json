@@ -2906,12 +2906,12 @@
         "tickCount": 89
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=89=cheat_detection 首判行；信号数 5；执行 0；D3.57 基线生产首判 grade=unhealthy）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
-      "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 v71 review 第 3 批标签页）grade=healthy+收录强庄币组（CD159 池第 9 张）——人工×机器分歧票：两版均 unhealthy[D_famous_dominance,R_abnormal_dominant,M_hyper_activity]；组织集团拉盘形状（sbHold 40.4%/eqHold 46.0%/top1 仅 8.1%/churn 21/act ultra）"
+      "expectSince": "2026-11-05",
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-04）"
     },
     {
       "caseId": "CD192",
@@ -3418,12 +3418,12 @@
         "tickCount": 71
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v71 936e1bd9 信号收录（生产首析锚对齐 anchorTicks=71=cheat_detection 首判行；信号数 1；执行 0；D3.57 基线生产首判 grade=cheat）；expect 待对拍后裁定",
       "addedAt": "2026-11-04",
-      "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 v71 review 第 7 批标签页）grade=healthy+收录强庄币组（CD159 池第 10 张，攒批目标达成）——人工×机器最重分歧票：两版均 cheat[A_strong:same_block_buy_wave,J_holdings_strong,R_abnormal_dominant,M_hyper_activity] 拉黑，用户判强庄（集团同块持续吸筹+筹码锁定：71 笔/50 钱包/top1 12.9%/sbHold 74.9%/eqHold 59.1%）"
+      "expectSince": "2026-11-05",
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-04）"
     },
     {
       "caseId": "CD224",
@@ -3642,12 +3642,12 @@
         "tickCount": 344
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "CD159 强庄池第 11 张（CD61 同代币第二阶段点位，CD case 粒度=代币×点位新开 case；锚=344=晚锚研究截点 sbp-late 非生产信号锚）。11-04 十票观察页用户裁定：「代币明显分为两个阶段，第二阶段不算 cheat，可以算强庄币」——形状：截294 波峰（bw 3.08/27户 t2 6.1）后第二阶段 t2 维持 5.3-6.1、簇锁仓 47.8→64.2 持续加深、act high、churn 敛散；第一阶段（对倒高换手 churn79）归 CD61@294 点位（expect cheat 不动）",
       "addedAt": "2026-11-04",
-      "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 十票观察页）「CD61 的代币明显分为两个阶段，第二阶段不算 cheat，可以算强庄币」"
+      "expectSince": "2026-11-05",
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-04）"
     },
     {
       "caseId": "CD238",
@@ -3674,12 +3674,12 @@
         "tickCount": 423
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "CD159 强庄池第 13 张（CD139 同代币后半段点位；锚=423=晚锚研究截点 sbp-late 非生产信号锚）。11-04 十票观察页用户裁定：「后半段的形态是健康的，可以算强庄币」——形状：簇锁仓 12.9→31→46.6→60.2 三段持续加深、bw 1.9-2.6 维持、波内钱包 14→44 扩张、act mid→high、同档 5.8-6（无等额簇）、wash 恒 null；首析点位 pump strong 降级豁免拒归 CD139@23（expect unhealthy 不动）",
       "addedAt": "2026-11-04",
-      "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 十票观察页）「CD114/CD139 后半段的形态是健康的，可以算强庄币」"
+      "expectSince": "2026-11-05",
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-04）"
     },
     {
       "caseId": "CD240",
@@ -4010,12 +4010,12 @@
         "tickCount": 28
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v71 both 936e1bd9 BUY 信号票批量收录（用户 11-04 指令「有交易信号的币没收录的收录一下」）；锚=生产首析 anchor_tick_count=28，信号@11-04T12:40:47",
       "addedAt": "2026-11-04",
-      "expectSince": "2026-11-04",
-      "expectBecause": "用户裁定（2026-11-04 936e1bd9 信号票首轮 review）「CD260 收录为强庄币，healthy」——机器 cheat[A_strong:pump+spike,J,R,M] 分歧留档（强庄池 CD159 域，锚后 +216.8%/尾 +211.9%）"
+      "expectSince": "2026-11-05",
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-04）"
     },
     {
       "caseId": "CD261",
@@ -4639,7 +4639,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:03:55.724627+00:00 [D_famous_dominance,E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第二批 review）CD291「至少是 unhealthy，拉盘过快，活跃度过高」→unhealthy 翻案（生产 healthy 放行锚后 -58%~-60%；机器今重析 J_holdings 同向）；CD299 初步翻 healthy（锚后 +234.9%/+103.1% 真实拉盘，D_famous+E_low 拦截分歧留档，尾段再 review 确认）；其余 8 票认同今重析 D3.61"
+      "expectBecause": "用户终审（2026-11-05）「299 看来没啥好办法」维持 healthy——D_famous(top3 57.8%≥45%)+E_low(Jev act=low vs 代码数值 mid 邻界分歧)机器拦截留档不翻；锚后 +234.9%/+103.1% 真实拉盘、尾盘不回落=庄拉盘形状，但 E 通道 Jev 档位与代码判据分叉暂无解法；强庄池同款形状但用户未收录"
     },
     {
       "caseId": "CD300",
@@ -4650,12 +4650,12 @@
         "tickCount": 30
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:07:51.431024+00:00 [A_strong:same_block_buy_wave+slow_grind_pump+burst_spike_concentration,D_famous_dominance,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第三批 review）CD300 驴来「强庄币 healthy」翻案收录强庄池（机器五通道 A_strong:sbw+sgp+spike,D,J,R,M 全打，锚后 +382.9% 不回落=庄持续拉盘无出货，与 CD260 同款强庄豁免分歧）；其它都没问题=认同今重析 D3.61"
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-05）；KOL 钱包 0x3472ccf6…fda7e（famous/copy/sybil 三名单收录）94 票仅参与 5 票、4 票 1买1卖净0快闪、唯本票 idx5 开盘进场翻倍清本金后留 1002 万利润仓到尾盘（盘内买占比仅 1.1%=聪明钱跟庄非拉盘庄）——famousEarlyHold 判据候选首证"
     },
     {
       "caseId": "CD301",
@@ -5642,12 +5642,12 @@
         "tickCount": 43
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:54:59.703243+00:00 [A_strong:equal_amount_split+amount_tiering+same_block_buy_wave+slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-05）"
     },
     {
       "caseId": "CD363",
@@ -5690,12 +5690,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:55:41.168865+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第九批 review）CD362/CD365 BABYSTAR「强庄币 healthy」翻案收录强庄池（CD362 五通道 A_strong:eq+tier+sbw+sgp,J,R,M 全打锚后 +252% 不回落；CD365 A_strong:sgp,J,R,M 锚后 +82.1%；同代币 CD364 维持 cheat=多点位两判）；CD366 RESILIENT unhealthy[J] 放行实际买入 +759.9% 全量最大收益票留档、CD356 拒买错过对照；其余 8 票认同"
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-05）"
     },
     {
       "caseId": "CD366",
@@ -5706,12 +5706,12 @@
         "tickCount": 33
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "strongbacked"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 1）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T20:56:56.008835+00:00 [J_holdings_strong]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户补裁（2026-11-05 v72 edbd5b38 review）CD366 RESILIENT「也是 healthy 强庄币」翻案收录强庄池（第九批曾落 unhealthy 认同，本条补翻；机器 unhealthy[J_holdings_strong 单通道]非硬拒放行实际买入，锚后 +759.9% 尾盘不回落=庄持续拉盘无出货实证，全量最大实际收益票）"
+      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-05）"
     },
     {
       "caseId": "CD367",

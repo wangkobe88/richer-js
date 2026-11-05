@@ -520,10 +520,17 @@ async function main() {
   if (judged.length) {
     const byId = new Map(cases.map((c) => [c.caseId, c]));
     const withExpect = judged.filter((x) => byId.get(x.caseId)?.expect?.verdict);
-    if (withExpect.length) {
-      const agree = withExpect.filter((x) => x.grade === byId.get(x.caseId).expect.verdict);
-      console.log(`G1 分级对照（${CHEAT_GRADE_RULES_VERSION}）：机器×人工一致 ${agree.length}/${withExpect.length}` +
-        (withExpect.length - agree.length ? `，分歧=[${withExpect.filter((x) => x.grade !== byId.get(x.caseId).expect.verdict).map((x) => `${x.caseId}:${byId.get(x.caseId).expect.verdict}>${x.grade}`).join(' ')}]` : ''));
+    // strongbacked 第四类型（2026-11-05 立法）：研究口径人工档，机器 grade 域三值
+    // 无此档=天然全分歧，剔除出三值一致率单列展示（豁免立法攒池数据源）
+    const sbExpect = withExpect.filter((x) => byId.get(x.caseId).expect.verdict === 'strongbacked');
+    const threeWay = withExpect.filter((x) => byId.get(x.caseId).expect.verdict !== 'strongbacked');
+    if (threeWay.length) {
+      const agree = threeWay.filter((x) => x.grade === byId.get(x.caseId).expect.verdict);
+      console.log(`G1 分级对照（${CHEAT_GRADE_RULES_VERSION}）：机器×人工一致 ${agree.length}/${threeWay.length}` +
+        (threeWay.length - agree.length ? `，分歧=[${threeWay.filter((x) => x.grade !== byId.get(x.caseId).expect.verdict).map((x) => `${x.caseId}:${byId.get(x.caseId).expect.verdict}>${x.grade}`).join(' ')}]` : ''));
+    }
+    if (sbExpect.length) {
+      console.log(`strongbacked 池单列（机器无此档不进一致率）：${sbExpect.map((x) => `${x.caseId}:机器${x.grade}`).join(' ')}`);
     }
     const dist = {};
     for (const x of judged) dist[x.grade] = (dist[x.grade] || 0) + 1;

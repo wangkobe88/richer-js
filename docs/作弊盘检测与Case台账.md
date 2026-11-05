@@ -194,6 +194,20 @@
 
 **留档口径点**：94 票锚 min 13 / 中位 26 / max 126（v72 发射帽 2+早断臂=信号多落在小锚早窗，与 936e1bd9 批锚谱不同）；信号级 metadata 带 cheatCheck 轨迹仅 17/94（其余票门评估未及信号行落 trace，但表行齐全）。
 
+**十批 review（用户 2026-11-05，每批信号页标签+今重析 D3.61+锚后结局三数逐批过目；裁定逐批 commit 落 fixtures）**：
+
+- **人工翻案 14 票**：CD281 猫德学院→cheat（首批）、CD291 何一人生→unhealthy（「至少是 unhealthy，拉盘过快，活跃度过高」；机器今重析 J_holdings 同向，放行锚后 -58%~-60%）、CD310 AIB→unhealthy、CD312 ESK→cheat、CD322 川腐→unhealthy、CD324 莽小六→cheat、CD350 AI→unhealthy（「350 unhealthy 活跃度低」——生产/今重析两版均 healthy 分歧留档，放行锚后 -31.1% 方向支持）、CD351 ASI→unhealthy（今重析 E_low_activity 同向）、CD359→unhealthy（同版摆动回落）、CD362/CD365 BABYSTAR→strongbacked（五通道全打但 +252%/+82.1% 不回落；同代币 CD364 维持 cheat=多点位两判）、CD366 RESILIENT→strongbacked（补裁；机器 unhealthy[J] 放行实际买入 +759.9% 全量最大实际收益票=庄拉盘无出货实证）、CD371 币安人→unhealthy（唯一 fourmeme 票，放行锚后 -67.7%，今重析 E_low_weak_burst 同向）
+- **CD299 Donkey 终审维持 healthy**（「299 看来没啥好办法」）：机器 D_famous(跟单 top3 57.8%≥45%)+E_low 拦截——E 通道 Jev act=low 与代码数值档 mid（tpm 25.84/maxGap 40/idlePct 19.8% 按代码三判据均不满足 low）邻界分歧无解法留档；锚后 +234.9%/+103.1% 真实拉盘、尾盘不回落=强庄形状但用户未收录池
+- **机会成本留档**：CD356 Joe 拒买尾盘 +615.1% 全量最大机会成本票；CD300 驴来放行锚后 +234.9%（终裁 strongbacked）
+- **终态分布：cheat 44 / unhealthy 35 / healthy 11 / strongbacked 4**（94/94 全落定无 unclear）
+
+**strongbacked 第四类型立法（2026-11-05，用户「也就是把代币分为 healthy/unhealthy/cheat 跟 强庄币（起个名字吧帮忙）」）**：
+
+- **命名=strongbacked**（强庄币）——与既有 `strong_backer_pressure` 题/`strongbackerShapeHit`（SB1 观察臂）/FA `cheatStrongbackerLike` 词根统一
+- **域=研究口径第四值**：expect.verdict/VERDICTS 域扩展（fixtures 校验+run.mjs 对拍单列不进三值一致率）；**机器 grade 域恒三值不动**——实时判强庄需锚后未来数据（尾盘不回落）买点时刻结构不可知；实时检出走 SB1 观察臂（曾经命中粘滞），豁免立法等池 20-30 再谈
+- **首批判入 9 张**（原 healthy 强庄票全部改判）：CD191/CD223/CD237/CD239/CD260/CD300/CD362/CD365/CD366；**CD238 保持 cheat**（用户前裁定「到了后期才是强庄币，前期判 cheat 问题不大」=点位锚语义不改）；毕业 8 张（CD21/23/41/45/60/73/98/127）expect 维持原判不动（既有裁定）；**池累计 18 张**
+- **CD300 首案 KOL 钱包证据（famousEarlyHold 判据候选）**：`0x3472ccf6…fda7e`（famous-copy-wallets/copy-roster/sybil-clusters 三名单收录）94 票仅参与 5 票、4 票 1 买 1 卖净 0 快闪，**唯 CD300 idx5 开盘进场→价格翻倍处清掉全部本金（0.2472 进 0.5677 出）→利润仓 1002 万 token 躺到尾盘**（盘内买入占比仅 1.1%=聪明钱跟庄非拉盘庄）——「famous 钱包早期进场且锚后不清仓」本身成为强庄可判别信号，豁免立法攒池维度留档
+
 ### 936e1bd9 BUY 信号票批量收录 CD242-CD279（38 案）+首轮裁定（2026-11-04）
 
 **背景**：用户指令「实验 936e1bd9 还有交易信号的币没收录的收录一下，然后把没过的一一过一遍」——BUY 信号去重 93 票、已收 56，**未收 37 票全量收录**（CD243-CD279，锚=各自生产首析行 anchor_tick_count，与代币×点位粒度裁定一致）+CD242 NEBULA@471（多点位第三锚，CD238 补充裁定的落地）。--add 入口判重同步修复对齐 addr#anchor 组合键（d475fc87 漏改 cmdAdd，904ac231 补）。
