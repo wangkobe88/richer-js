@@ -422,8 +422,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('崩塌第一腿不是健康回撤'), 'F: 回调忌讳①前期暴涨级拉升后的下跌点（BP10 用户裁定：前期上涨太快的下跌点很危险）');
   ok(pb.instructions.includes('无论回撤深浅'), 'F: 回调崩塌第一腿无条件 poor（企稳迹象不救）');
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
-  ok(pb.instructions.includes('价格低优先救'), 'F: 回调价格低优先救判定指令（BP10：浅回调+低价位+早鸟窗内判 neutral；深回撤不救）');
-  ok(pb.instructions.includes('仅限浅回调'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
+  ok(pb.instructions.includes('价格低优先救（总判定指令，优先于①②）'), 'F: 回调价格低优先救升总指令（BP10 五改：优先于崩塌腿/接飞刀两忌讳——S021 maxChg5+58.3 过线仍救）');
+  ok(pb.instructions.includes('深回撤（half_off/ankle_cut）不走本指令'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
   const hc = qs.high_chase_quality;
