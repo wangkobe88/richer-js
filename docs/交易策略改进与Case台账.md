@@ -14,7 +14,7 @@
 - 已废机制标【已废】并注明继任；「版本」指 strategy_library buy-v2 版本或实验代号，谱系以 DB 各版本 legs 快照为准
 - 归因「没买入」先查 strategy_signals + 引擎日志（无日志=条件评估恒假），tick 重放须用已 fire 票快照校准后再下结论（T8 三坑）
 
-## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案）**；**T115（2026-11-04）v71 实验级发射帽 5→2（第三次检测=退场段接刀观察，见 T115 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004；**T112（2026-11-04）起 v70 实验级变体：净买门拆臂去 netL、短窗 20→12 笔（见 T112 案；库 v56 未动）**）
+## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案；**T120（2026-11-05）tick 增量门默认退役——缺省 0=只剩时间窗+帽，显式正值可恢复，见 T120 案**）**；**T115（2026-11-04）v71 实验级发射帽 5→2（第三次检测=退场段接刀观察，见 T115 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004；**T112（2026-11-04）起 v70 实验级变体：净买门拆臂去 netL、短窗 20→12 笔（见 T112 案；库 v56 未动）**）
 
 **T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1` 七腿阶梯（t1-t4 热度递升 / t5 块窗砸盘 / t6 低市值∨深回撤 / t7 跌底放量）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测恒拒**（signalGate 腿全量排除，用户裁定）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 7` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
 
@@ -77,6 +77,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测六件**：`_test_signal_gate_engine`（新，91 断言：双门全分支/计数三件套/互斥/透传源码锁/finally 收口）、`_test_signal_source_factors`（新，43：FA 五键手算/乱序语义/quiet 状态机）、`_test_buy_point_check_service`（新，26：五状态/迟到丢弃/首行 prompt/inflight/settle/冷却）、`_test_buy_point_lib`（扩至 144：BP2 版本+5 新锚+渲染+透传）、`_test_strategy_library_validate_legs`（扩 H 段）、`_test_fourmeme_fa_factors`（白名单补 T117 五键+存量欠账 73 键清点补登：T107/T113/T116/CD cheat 族/holderTrend——前批加键未同步白名单断言的欠账一并清）
 
 **余留**：①182 手工 DDL（`buy_point_analyses`，DDL 先于代码红线）→ 182 `deploy-signal-source-strategies.cjs --commit` ②新虚拟实验（引用 ladder 条目+cheatCheck.enabled+buyPointCheck.enabled+**buySignalMaxPerToken≥7 显式**）③BP2 对拍（182 跑 `run.mjs --set bp-2026-11-03-live4` 232 点位，跑前知会）④冒烟观察门链三段 metadata（signalGate/cheatCheck/buyPoint）
+
+### T120 tick 增量门默认退役：buySignalCooldownTicks 缺省 10→0（T110 双门拆单门；2026-11-05；用户翻案原话「关 ticks 门（我并未要求增加这个机制的）」+质疑原话「前期这个间隔的笔数太大了，何况我在买臂里头就增加了 tradecount 条件，为何还要再加一个机制」）
+
+- **案由（v73 逐代币复审 #11 白猪AI `0x11e20998df0c514ae8c9e829f983bc2868a97777` 滑走 22.9%）**：t1 三键（tradeCount≥8∧buyVolume≥0.75∧holdersExDust≥6）06:19:06 第 9 笔首齐，但被 tick 增量门拦到**第 12 笔**才发射（06:19:06 之前 t6 v1 盲买腿 06:18:54 已发射记账——throttle 锚=lastFireTicks 当时 WSS 只到第 2 笔，12−2=10 恰满半开窗），@5.777→@7.099=**+22.9% 滑走**→ATH 成交→-40.2%。**结构性发现：token 级 throttle 锚=lastFireTicks 被任何腿的发射记账垫高（13 腿共享，t6 盲买腿 1.5s 触发即垫锚）——腿级里程碑设计被 token 级增量门整体后移**。
+- **职能重叠论证（用户质疑成立，翻案依据）**：T110 立法时（2026-11-03）防重复职能=「担心纯时间窗在高频 tick 流下烧光次数帽」；T119 v3 十三腿上线后该前提消失——①**全腿 maxTriggers=1 触发即消耗**（per (token,legId) 计数，无重复发射形状）②**腿自带 tradeCount 里程碑**（8/16/20/24/30/36/45 七档天然间隔）③时间门 3000ms+发射帽（v74=13）兜底配额。tick 门只剩「延迟首发射」负作用。实跑拦截占比佐证：**v74 93/108（86%）、v73 2900/3212（90%）的 throttle 拦截来自 tick 门**（时间门只拦 10-14%）。
+- **改动（缺省翻转，机制代码保留——0=关既有语义，显式正值仍生效）**：`BuySignalThrottle` 构造缺省 cooldownTicks `10→0` + 头注翻案段；`config/default.json` **三平台段**（fourmemeWs/flapWs/gangWs）`10→0`；两引擎构造注释同步；单测 `_test_buy_signal_throttle.cjs` A 组断言缺省 3000/5/10→3000/5/0（47 断言全绿）+头注 T120 段+**A9 组 tick 门全量用例保留**（显式传 10 的机制行为维持锁定——机制在、只是默认关）；创建页节流区块文案更新（「冷却ticks(0=关)」placeholder 0+T120 说明）。admit 挂点/半开窗/被拦不记账语义零改动。
+- **部署链**：commit+push → 182 pull → v74 `7cb423af` config `buySignalCooldownTicks` 10→0（DB update）→ **重启前持仓确认**（live-restart-positions-check 铁律：卡账本净额口径）→ 重启进程生效。注意缺省翻转只影响「无显式配置」的新实验——v74 config 显式带 10 须 DB 改 0（clone 脚本 copy-in 的显式值优先于缺省）。
+- **余留**：①冒烟验证=tick 门零拦截（tickDropped 不再增长）、时间门照常（cooldownDropped 正常计数）②throttle 锚垫高效应随 tick 门退役整体消失（时间锚同理被垫但 3s 窗小、非结构性）③未来翻案恢复=显式配正值即可（单测 A9 锁定行为不漂移）。
 
 ### T119 信号源阶梯 v3：13 腿多臂版——三条纯热度腿+五档回撤臂上车、t5/t7 删臂（库条目 signal-source-ladder-v1 version 2→3；2026-11-05 吉祥 0xea7886d5 复盘五轮裁定）
 

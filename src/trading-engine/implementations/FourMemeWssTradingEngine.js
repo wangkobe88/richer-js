@@ -407,9 +407,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._signalSourceTriggerCounts = new Map();
 
     // T110 买信号发射节流（2026-11-03 用户裁定「全局买信号机制」，所有实验生效）：
-    // per-token 冷却双门（buySignalCooldownMs 缺省 3000，0=关；buySignalCooldownTicks
-    // 缺省 10，0=关——同日追裁定「3 秒 + 10 个 ticks」双条件 AND，防高频 tick 流
-    // 烧光次数帽）+ 发射次数帽（buySignalMaxPerToken 缺省 5，0=不限）——计数锚=
+    // per-token 冷却时间门（buySignalCooldownMs 缺省 3000，0=关）+ 发射次数帽
+    // （buySignalMaxPerToken 缺省 5，0=不限）——buySignalCooldownTicks 缺省 0
+    // （T120 2026-11-05 用户翻案默认退役：v3 腿消耗制下 tick 门职能与腿自带
+    // tradeCount 里程碑重叠、只剩延迟首发射负作用；显式正值仍生效）——计数锚=
     // 发射检查点（admit 即记，后续门拒/执行失败不退还，「无论是否通过」）。与既有
     // 节流层次：腿级 cooldownSec/maxExecutions（成交口径）→ signalDebounceMs（tick
     // 合并）→ 本类（信号发射口径）。买信号帽同时是作弊门配额上限（每代币最多 N 次检测）。

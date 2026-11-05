@@ -910,11 +910,12 @@
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-2">
                         <div>
-                            <h2 class="text-lg font-semibold text-gray-800">⏱️ 买信号发射节流（T110）</h2>
+                            <h2 class="text-lg font-semibold text-gray-800">⏱️ 买信号发射节流（T110/T120）</h2>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                全局机制（所有实验生效，回测同步）：per-token 买信号冷却双门+发射次数帽。
-                                无论上次信号是否通过（门拒/执行失败均计），冷却双门（时间窗 AND 新 ticks 数）
-                                任一未满足不再发新信号、超帽后不再发。发射帽同时是作弊检测的每代币检测次数上限
+                                全局机制（所有实验生效，回测同步）：per-token 买信号冷却时间窗+发射次数帽。
+                                无论上次信号是否通过（门拒/执行失败均计），冷却窗内不再发新信号、超帽后不再发。
+                                发射帽同时是作弊检测的每代币检测次数上限。tick 增量门已默认退役（T120，
+                                0=关；显式填正值可重新启用）
                             </p>
                         </div>
                     </div>
@@ -923,8 +924,8 @@
                         <input type="text" id="bs-cooldown-ms" placeholder="3000"
                                class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
-                        <span class="whitespace-nowrap">冷却ticks</span>
-                        <input type="text" id="bs-cooldown-ticks" placeholder="10"
+                        <span class="whitespace-nowrap">冷却ticks(0=关)</span>
+                        <input type="text" id="bs-cooldown-ticks" placeholder="0"
                                class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
                                spellcheck="false">
                         <span class="whitespace-nowrap">每代币发射上限</span>
@@ -933,9 +934,9 @@
                                spellcheck="false">
                     </div>
                     <p class="text-xs text-gray-500 mt-1">
-                        冷却默认 3000ms + 10 ticks 双条件 AND（各 0=各关各的）；发射上限默认 5（0=不限）。
-                        ticks=该代币累计链上交易数增量（须有 ≥10 笔新交易才解锁下一发——高频刷盘
-                        不会烧光次数帽）。计数为进程内存态，实验重启归零。数值空=默认
+                        冷却窗默认 3000ms（0=关）；发射上限默认 5（0=不限）。tick 增量门默认 0=已退役
+                        （T120：信号源阶梯腿自带 tradeCount 里程碑且触发即消耗，tick 门与之重叠、只剩
+                        延迟首发射的负作用）。计数为进程内存态，实验重启归零。数值空=默认
                     </p>
                 </div>
 

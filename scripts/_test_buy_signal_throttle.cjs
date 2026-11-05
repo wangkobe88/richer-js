@@ -2,18 +2,23 @@
 /**
  * 买信号发射节流单测（T110/CD158，2026-11-03）——零 DB 零网络
  *
- * 背景：用户裁定「全局买信号机制」——per-token 冷却**双门**（时间窗默认
- * 3000ms AND 新 ticks 默认 10——2026-11-03 追裁定「3 秒 + 10 个 ticks」，
- * 担心纯时间窗在高频 tick 流下烧光次数帽；ticks 口径=FA state.tradeCount
- * 全量链上交易数）+ 发射次数帽（默认 5），「无论最后是否通过」（门拒/执行
+ * 背景：用户裁定「全局买信号机制」——per-token 冷却时间窗（默认
+ * 3000ms）+ 发射次数帽（默认 5），「无论最后是否通过」（门拒/执行
  * 失败/save 失败均不退还）。live=FourMemeWssTradingEngine（Date.now）、
  * backtest=BacktestEngine（fireTs 虚拟时钟）同构挂点；OBSERVE/手工买不走本层。
+ *
+ * **T120（2026-11-05 用户翻案）**：tick 增量门**默认退役**——原话「关 ticks 门
+ * （我并未要求增加这个机制的）」。论证：v3 十三腿全 maxTriggers=1 触发即消耗+
+ * 腿自带 tradeCount 里程碑（8/16/20/24/30/36/45），tick 门防重复职能与腿设计
+ * 重叠、只剩延迟首发射的负作用（白猪AI 案 t1 第 9 笔三键首齐被推到第 12 笔
+ * +22.9% 滑走；实跑拦截 86-90% 来自本门）。cooldownTicks 缺省 10→0（0=关
+ * 既有语义）；显式传正值仍生效（机制代码保留，A9 组维持全量锁定）。
  *
  * 覆盖：
  *   A. BuySignalThrottle core：恰 cooldownMs 边界=放行（半开窗）/窗内拦/
  *      被拦不记账（冷却锚不重置=连续拦不续窗、帽拦截不加计数）/第 5 过第 6 拦/
- *      0=关（冷却/帽/ticks）/非数值=缺省 3000/5/10/now 入参（源码禁
- *      Date.now）/fireCount 递增/clear
+ *      0=关（冷却/帽/ticks）/非数值=缺省 3000/5/0（T120 tick 门默认退役）/
+ *      now 入参（源码禁 Date.now）/fireCount 递增/clear
  *   A9. tick 门（追裁定）：双门 AND（时间过 tick 不足拦、tick 过时间不足拦）/
  *      恰 10 ticks 放行/被拦不记 tick 锚/首发射天然过/tickCount 缺失退化
  *      纯时间（fail-open 放行不吞机会）
@@ -77,11 +82,11 @@ console.log('A. BuySignalThrottle core');
   const t4b = new BuySignalThrottle(-1, 5);
   ok('负 cooldownMs 同关（Math.max(0,·) 归一）', t4b.admit('0xd', 1).ok && t4b.admit('0xd', 1).ok);
 
-  // A5 非数值=缺省（3000/5/10）：undefined/NaN/Infinity 均落缺省
+  // A5 非数值=缺省（3000/5/0——T120 tick 门默认退役）：undefined/NaN/Infinity 均落缺省
   const t5 = new BuySignalThrottle(undefined, undefined);
-  check('缺省 cooldownMs=3000 / maxPerToken=5 / cooldownTicks=10', [t5.cooldownMs, t5.maxPerToken, t5.cooldownTicks], [3000, 5, 10]);
+  check('缺省 cooldownMs=3000 / maxPerToken=5 / cooldownTicks=0（T120）', [t5.cooldownMs, t5.maxPerToken, t5.cooldownTicks], [3000, 5, 0]);
   const t5b = new BuySignalThrottle(NaN, Infinity);
-  check('NaN/Infinity 也落缺省（Number.isFinite 门）', [t5b.cooldownMs, t5b.maxPerToken, t5b.cooldownTicks], [3000, 5, 10]);
+  check('NaN/Infinity 也落缺省（Number.isFinite 门）', [t5b.cooldownMs, t5b.maxPerToken, t5b.cooldownTicks], [3000, 5, 0]);
   check('缺省下第 6 次拦', (() => {
     const t = new BuySignalThrottle(0, 5);
     for (let i = 0; i < 5; i++) t.admit('0xe', i * 10000);
@@ -107,7 +112,7 @@ console.log('A. BuySignalThrottle core');
     coreSrc.includes('发射准入（检查+记账一体）'));
 }
 
-console.log('A9. tick 冷却门（2026-11-03 追裁定「3 秒 + 10 个 ticks」双门 AND）');
+console.log('A9. tick 冷却门（2026-11-03 追裁定「3 秒 + 10 个 ticks」双门 AND；T120 默认退役=缺省 0 关，显式正值仍生效——本组全量维持锁定）');
 {
   // A9.1 双门 AND 独立拦：时间过 tick 不足拦 / tick 过时间不足拦 / 双过放行
   const t = new BuySignalThrottle(3000, 0, 10);

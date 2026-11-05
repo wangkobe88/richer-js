@@ -17,7 +17,11 @@
  *
  * 配置（fourmemeWs 段，flap/gang 经 _mergedWsConfig 同键）：
  * - buySignalCooldownMs 缺省 3000；0/负=关时间门
- * - buySignalCooldownTicks 缺省 10；0/负=关 tick 门
+ * - buySignalCooldownTicks 缺省 0（T120 2026-11-05 用户翻案「我并未要求增加
+ *   这个机制的」：v3 十三腿全 maxTriggers=1 触发即消耗+腿自带 tradeCount 里程碑，
+ *   tick 门职能与腿设计重叠、只剩延迟首发射的负作用——白猪AI 案 t1 第 9 笔三键
+ *   首齐被推到第 12 笔才发射，+22.9% 被滑走；v73 全日 2900/3212 次拦截 90% 来自
+ *   本门）；显式传正值仍生效（0/负=关）
  * - buySignalMaxPerToken 缺省 5；0/负=不限
  *
  * 纯内存 per-process 态（重启归零——叙事触发状态机 _narrativeTriggerStates
@@ -29,12 +33,12 @@ class BuySignalThrottle {
   /**
    * @param {number} cooldownMs 冷却窗毫秒（0/负=关；非数值=缺省 3000）
    * @param {number} maxPerToken 每 token 发射上限（0/负=不限；非数值=缺省 5）
-   * @param {number} cooldownTicks 冷却 tick 增量门（0/负=关；非数值=缺省 10）
+   * @param {number} cooldownTicks 冷却 tick 增量门（0/负=关；非数值=缺省 0=T120 默认退役）
    */
   constructor(cooldownMs, maxPerToken, cooldownTicks) {
     this._cooldownMs = Number.isFinite(cooldownMs) ? Math.max(0, Math.floor(cooldownMs)) : 3000;
     this._maxPerToken = Number.isFinite(maxPerToken) ? Math.max(0, Math.floor(maxPerToken)) : 5;
-    this._cooldownTicks = Number.isFinite(cooldownTicks) ? Math.max(0, Math.floor(cooldownTicks)) : 10;
+    this._cooldownTicks = Number.isFinite(cooldownTicks) ? Math.max(0, Math.floor(cooldownTicks)) : 0;
     /** @type {Map<string, {lastFireAt: number, lastFireTicks: number, fireCount: number}>} token → 发射状态 */
     this._states = new Map();
     // 观测计数（metrics/单测断言用；引擎侧聚合进日志）
