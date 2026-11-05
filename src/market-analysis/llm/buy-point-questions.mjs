@@ -1,19 +1,22 @@
 /**
- * 买入点位分析题集（BP6，2026-11-05 三类质量题制）——Jev Choice 题 8 道
- * （5 维度 + 3 类别质量题）
+ * 买入点位分析题集（BP7，2026-11-05 活跃度门+三类质量题）——Jev Choice 题 9 道
+ * （6 维度 + 3 类别质量题）
  *
  * 定位（与反作弊题集分工）：输入同样是 ticks 快照（[TOKEN]/[ANCHOR]/[PRECOMPUTED]/
  * [PRICE]/[TICKS]/[WALLETS]），判的是「**当前点位是否适合买入**」——入场时机好坏，
  * 不判盘面是否作弊（协同/作弊形状只作降档参考，结论归反作弊模块）。
  *
- * BP6 判定形态（用户裁定 2026-11-05，60 点复审中续裁）：**三类入场各成一道
- * 质量题**（early_bird_quality / pullback_entry_quality / high_chase_quality，
- * 桶域 good/neutral/poor/insufficient），Jev 对三视角**并行独立评估**；综合判定
- * =代码侧确定性聚合（mapper）：**任一 good → good；否则任一 neutral → neutral；
- * 否则 poor**（insufficient=该视角不适用/材料薄，不贡献聚合）。替代 BP3-BP5 的
- * 「类别题路由 + 综合题」两步形态——分路不再依赖 Jev 执行路由指令（BP3/BP4
- * 对拍实证分路常被忽略），聚合规则收归代码。原综合题各类忌讳全量迁入对应
- * 质量题；追高题保留「本轮先等等一律 poor」策略停买留痕（放开只改该题面）。
+ * BP8 判定形态（用户裁定 2026-11-05 三层框架，圣诞树层后裁定暂缓）：**①活跃
+ * 度门**（market_heat low=不参与）→**②三质量题聚合**（早鸟/回调/追高三视角
+ * 并行独立评估，代码侧 any_good→any_neutral→else_poor）。两层全部代码侧确定
+ * 性执行，不依赖 Jev 路由指令（BP3/BP4 对拍实证分路常被忽略）。
+ * **圣诞树形状与位置（tree_position 题+摆动结构锚）=纯观察档**（用户裁定原话
+ * 「暂时圣诞树这一锚，先不参与决策吧。我觉得判断起来有点太难了，但是可以先
+ * 放里头」）：题照问、锚照算、digest 照落攒分布，mapper 不消费任何 tree 桶；
+ * 树位置与三类的对应（早鸟≈树左侧早段、回调≈树脚企稳=小树结束+可能的大树
+ * 开始、追高≈树顶贴高）作为质量题场景判别的参考佐证保留。
+ * 原综合题各类忌讳全量在对应质量题；追高题保留「本轮先等等一律 poor」策略
+ * 停买留痕（放开只改该题面）。
  *
  * 演进（详档 docs/买入点位分析与Case台账.md 版本演进表）：
  * - BP1（11-03）初版八题；BP2（11-05）五条判读框架+5 锚+T117 引擎融合
@@ -21,14 +24,16 @@
  * - BP5（11-05，案号 BP6）维度瘦身：删 chip_flow/pace_trend/buy_pressure_quality，
  *   price_momentum→price_trend 六桶，entry_position→相对价格高低四桶，
  *   新增 price_level 绝对价格高低五桶（发行价参照系）+发行价锚三键
- * - BP6（11-05，案号 BP7）本题版：三类质量题制（上段）
+ * - BP6（11-05，案号 BP7）三类质量题制+动量短窗 5/10/30s
+ * - BP7（11-05，案号 BP8）本题版：活跃度门（heat low 拒）+圣诞树形状与位置
+ *   题（tree_position 观察档，暂不参与决策）+摆动结构锚（zigzag 圣诞树原料）
  *
  * 版本纪律：改任何题面必须 bump BUY_POINT_QUESTIONS_VERSION（落存档标识）。
  * 真实样本段以「形状教学」代替并标「待校准」，测试集分布跑出后按案补充。
  */
 
 /** 题集版本（改题面必 bump；台账 docs/买入点位分析与Case台账.md） */
-export const BUY_POINT_QUESTIONS_VERSION = 'BP6';
+export const BUY_POINT_QUESTIONS_VERSION = 'BP7';
 
 /** 价格趋势六桶（BP5：方向×速度——快/慢参照 |chg30| 两位数界） */
 export const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
@@ -40,6 +45,10 @@ export const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 export const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 /** 绝对价格高低五桶（BP5：参照系=发行价——接近发行价/偏低/不高不低/偏高/很高） */
 export const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
+/** 圣诞树形状与位置六桶（BP8 观察档——暂不参与决策（用户裁定「判断起来有点太难了，
+ * 但是可以先放里头」）：left_side 待涨/top 待跌/right_side 下跌/right_bottom 树脚/
+ * not_tree 形状反常/unclear 判不出形状（前期常态）） */
+export const TREE_POSITION_LEVELS = ['left_side', 'top', 'right_side', 'right_bottom', 'not_tree', 'unclear'];
 /** 三类入场质量题 id（BP6：early_bird/pullback_entry/high_chase 各一道质量题） */
 export const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality', 'high_chase_quality'];
 /** 质量题桶域（BP6：与综合判定门桶同词表——insufficient=该视角不适用/材料薄不贡献聚合） */
@@ -92,7 +101,7 @@ export function buildBuyPointQuestions() {
       type: 'choice',
       instructions: `判断「近窗市场热度」：盘面当下的交易活跃程度（参与者多寡与流量密度）——不是价格方向，也不是长期属性。
 怎么算：[PRECOMPUTED] 近窗行——win30/60 的 ticksPerMin（笔/分）、买家/卖家数、newBuyers（新进场钱包）+ 节奏趋势行 burst 波（burst5In120：最密 5 秒滑窗的笔数/买入额/钱包数）+ 活跃度数值行（全窗 tpm/笔均/最大间隔）；热度=近窗密度为主、全窗作基线。
-反锚：①**尘埃笔堆叠的假活跃不判高档**——笔数多但笔均极小（远低于笔均行）+独立钱包少=机器人刷量形状，热度按真实参与者（钱包数）与资金量综合下调；②单脉冲 burst 后断流=瞬时脉冲不是持续热度（持续性归节奏趋势题，本题判「当下热度」时可计入 burst 但须看波后是否续流）；③热度高不等于适合买入（拥挤本身是风险），热度低也不等于不能买（吸筹段常安静）——本题只述热度档位；④活跃度是入场的必要条件之一：low 档（近窗稀疏/断流）意味着短线进出无流动性承接，本题如实给 low，拒买权衡由综合题「活跃度门槛」臂处理。
+反锚：①**尘埃笔堆叠的假活跃不判高档**——笔数多但笔均极小（远低于笔均行）+独立钱包少=机器人刷量形状，热度按真实参与者（钱包数）与资金量综合下调；②单脉冲 burst 后断流=瞬时脉冲不是持续热度（持续性归节奏趋势题，本题判「当下热度」时可计入 burst 但须看波后是否续流）；③热度高不等于适合买入（拥挤本身是风险），本题只述热度档位；④活跃度是入场的必要条件之一（BP8 活跃度门）：low 档（近窗稀疏/断流）意味着短线进出无流动性承接——代码侧活跃度门直接消费 low 档拒买（不参与交易），你只管如实判档。
 形状样本（初版待校准）：ultra=近窗持续百笔级/分+钱包数十；high=明显活跃；mid=有稳定流；low=稀疏/接近断流。
 只描述热度档位，不下入场结论。`,
       criteria: {
@@ -136,11 +145,33 @@ export function buildBuyPointQuestions() {
       },
     },
 
-    // 6. 早鸟入场质量（BP6 三类质量题制：早鸟视角独立评估；原综合题早鸟忌讳全量迁入）
+    // 6. 圣诞树形状与位置（BP8 观察档——暂不参与决策（用户裁定「判断起来有点太难了，
+    // 但是可以先放里头」）：题照问答照落攒分布，代码侧无门消费；三质量题把它当参考佐证）
+    tree_position: {
+      type: 'choice',
+      instructions: `判断「圣诞树形状与当前位置」：meme 币价格典型生命周期=圣诞树——从低点随传播抬升到高点（树的左侧），传播见顶（树的顶部），随传播退潮回落归于死寂（树的右侧）；曲线有波折，可多树串联（一棵结束后连着下一棵）；前期常见狙击手脉冲买入后的回调=小圣诞树结束+可能的大圣诞树开始。
+判定两步：
+第一步（形状）：**前期是否呈现暴涨暴跌形态**——短时垂直数倍窜升+急坠的脉冲反复、无自然爬坡结构=背后并非正常用户行为 → not_tree；一潭死水无峰谷结构同 not_tree。**形状判断不出来（unclear）≠ not_tree**：圣诞树形状在前期本来就很难判断（第一棵树的左侧早段没有完整树形可辨）——判不出形状是前期常态，如实给 unclear（位置判定同样不适用）。
+第二步（位置）：形状可辨时判当前位置——left_side 左侧（待涨：上涨传播段/爬坡中，含首树早段与回落企稳后的新树左侧）｜top 顶部（待跌：贴近峰顶、传播见顶）｜right_side 右侧（下跌：回落段中未到底）｜right_bottom 右侧底部（下跌到头：跌至低位/死寂企稳，可期待下一棵树）。
+怎么算：[PRECOMPUTED] 摆动结构行（zigzag 峰/谷摆点序列+每段幅度耗时+段计数+现价较最近摆动峰/谷——反向运动 ≥20% 确认摆点）+ [PRICE] 全窗轨迹形状（拱形/多拱串联/垂直脉冲）+ 时点位置行（currentVsAthPct/secSinceAth）+ 近窗动量行（chg5/10/30Pct）。
+反锚：①**贴高≠自动 top**——首树左侧爬坡中现价可贴近全窗高点（此刻高点即爬坡进行时，secSinceAth 秒级+仍处涨段），看轨迹方向与摆动结构并读；②右侧未到底≠不再跌——half_off 仍可能继续阴跌到脚脖子斩，right_bottom 需死寂/止跌+企稳迹象（买盘回流/走平），单纯跌得深不自动=底；③not_tree 只述价格形态异常（垂直脉冲反复/死水无峰谷），不作弊结论（协同/作弊判定归反作弊模块）；④小树回调点两可时（=小树右侧底部与可能的大树左侧起点）——优先按「回调后是否有新一轮传播启动证据」（近窗动量转正/新买家进场）定 left_side，无启动证据=right_bottom；⑤unclear 与 not_tree 分界=**有无明确反常证据**：脉冲反复/死水有证据 → not_tree；只是树形未成形/材料不足 → unclear；⑥摆动结构行 ? = 可靠价不足 → unclear（诚实不猜形状）。
+形状样本（初版待校准）：left_side=谷@t+30 后缓升多桶+现价处上涨段（chg5/10 正）；top=现价贴全窗 ATH 且 secSinceAth 秒级+摆动结构显示涨段末端（涨幅已大+波折收敛）；right_side=峰后回落中段（currentVsAthPct −30~−70 且仍处跌段 chg 负）；right_bottom=峰后深跌（≥70% 量级）且近窗死寂/止跌走平/买盘回流迹象；not_tree=数秒内 +300% 又 −80% 的脉冲反复无爬坡结构，或全程死水无峰谷；unclear=token 龄数十秒~一两分钟、窗口内只有缓升段（树形未成形）。
+只述形状与位置，不直接下买卖结论（入场权衡归三道质量题）。`,
+      criteria: {
+        left_side: '左侧（待涨）：处于上涨传播段/爬坡中——含首树早段与回落企稳后的新树左侧',
+        top: '顶部（待跌）：贴近峰顶、传播见顶——涨段末端的贴高',
+        right_side: '右侧（下跌）：回落段中、未见底——树上段到中段的下跌进行时',
+        right_bottom: '右侧底部：跌至低位/死寂企稳——可期待下一棵树的树脚',
+        not_tree: '非圣诞树形状：暴涨暴跌脉冲反复（非正常用户行为）或死水无峰谷结构',
+        unclear: '形状判断不出来：树形未成形（前期常态）或材料不足——非 not_tree',
+      },
+    },
+
+    // 7. 早鸟入场质量（BP6 三类质量题制：早鸟视角独立评估；原综合题早鸟忌讳全量迁入）
     early_bird_quality: {
       type: 'choice',
       instructions: `评估「早鸟入场质量」：若此刻入场属于早鸟形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**早鸟视角**独立评估，不与其它视角对齐。
-场景判别（先判是否早鸟场景）：tokenAgeSec 短（数十秒~几分钟量级）且价格仍处第一段爬坡/首波整理——「刚出+未走完明显一波拉升」（分界不是绝对 tokenAge：刚出的票首波拉升中贴高仍属早鸟场景）。**非此场景（tokenAge 已长/已走完一波拉升再跌下来/材料无法辨形）→ insufficient（本视角不适用，不是差）**。
+场景判别（先判是否早鸟场景）：tokenAgeSec 短（数十秒~几分钟量级）且价格仍处第一段爬坡/首波整理——「刚出+未走完明显一波拉升」（分界不是绝对 tokenAge：刚出的票首波拉升中贴高仍属早鸟场景；圣诞树视角=首棵树的左侧早段，tree_position=left_side/unclear 佐证——树形未成形正是早鸟窗口）。**非此场景（tokenAge 已长/已走完一波拉升再跌下来/材料无法辨形）→ insufficient（本视角不适用，不是差）**。
 怎么算（场景成立时）：[PRECOMPUTED] 近窗动量行 chg5/10/30Pct + [PRICE] 轨迹形状（缓升有回踩 vs 垂直窜升无回踩）+ 参与结构行（买家数/新买家/top1 买集中度）+ 热度维度档 + 时点位置行（currentVsAthPct/secSinceAth）+ 相对/绝对价格双轴（entry_position×price_level：接近最高价∧绝对价位低=早期爬坡中段佐证）。
 忌讳（poor 主判）：①**极快拉高/已拉高（无条件，不因低市值豁免）**——currentVsAthPct≈0/secSinceAth 秒级 ∧ chg30 两位数/轨迹垂直窜升无回踩（price_trend=fast_up）→ poor（**位置先于速度：贴高+快升是接力风险不是入场信号**；市值位置行 mcapBnb 尚低（约 8-9 BNB 以下）只佐证「温和爬坡的贴高」，急拉/已拉高形状不因低市值豁免）；②活跃度太低/断流（热度 low/近窗稀疏）= 进出无流动性承接 → poor（持续断流）；③协同/作弊形状（等额阵列/对敲/分仓指纹/top1 买集中度极高）作为降档因素计入（不下作弊结论——归反作弊模块），主导买盘 → poor。
 good 形状：温和爬坡（price_trend=slow_up：chg30 个位数、多桶缓升有回踩整理）+ 买家多元持续进场（买家数/新买家）+ 热度尚可 + 绝对价位尚低（price_level=near_launch/low 佐证早期空间）。
@@ -155,11 +186,11 @@ insufficient：非早鸟场景（见上）或材料太薄（窗内行数很少�
       },
     },
 
-    // 7. 回调入场质量（BP6 三类质量题制：回调视角独立评估；原综合题回调忌讳全量迁入）
+    // 8. 回调入场质量（BP6 三类质量题制：回调视角独立评估；原综合题回调忌讳全量迁入）
     pullback_entry_quality: {
       type: 'choice',
       instructions: `评估「回调入场质量」：若此刻入场属于回调形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**回调视角**独立评估，不与其它视角对齐。
-场景判别（先判是否回调场景）：此前有过明显高点（mcapPeakBnb 明显高于现值/currentVsAthPct 深负/距 ATH 有实质间隔）且现价处于从高点回落后的位置——「已走完一波明显拉升再跌下来」。**非此场景（首波爬坡中无「跌下来」/现价仍贴高无回落段/材料无法辨形）→ insufficient（本视角不适用）**。
+场景判别（先判是否回调场景）：此前有过明显高点（mcapPeakBnb 明显高于现值/currentVsAthPct 深负/距 ATH 有实质间隔）且现价处于从高点回落后的位置——「已走完一波明显拉升再跌下来」（圣诞树视角=上一棵树的右侧：前期狙击手脉冲买入后的回调=小圣诞树结束+可能的大圣诞树开始，tree_position=right_bottom 树脚企稳/新树 left_side 启动佐证）。**非此场景（首波爬坡中无「跌下来」/现价仍贴高无回落段/材料无法辨形）→ insufficient（本视角不适用）**。
 怎么算（场景成立时）：位置轴（时点位置行 currentVsAthPct/mcapFromPeakPct+entry_position 回撤档）+ 走势轴（近窗动量行+[PRICE] 轨迹：急砸 vs 阴跌）+ 承接轴（参与结构行买家数回升/holder 流向行 holdersDelta60/近窗流量行+burst 波）+ 卖压维度档（大持仓是否启动离场）+ 绝对价位佐证（price_level 中低位=残余空间）。
 忌讳（poor 主判）：①**没跌到位**——回撤浅（entry_position=near_high/shallow_pullback、半山腰）= 接飞刀候选 → poor（企稳证据极强时至多 neutral）；②**下跌奔着归零去**——阴跌失血（chg 阴性缓慢、非急砸）+ holdersDelta60 为负（持有人净流失）+ 买盘枯竭 + 大持仓派发启动（bigHolderSellBnb60/exitSellerCount60 放量）= 趋势性死亡形状 → poor；③活跃度太低断流（热度 low/近窗稀疏）→ poor；④协同/作弊形状降档计入（不下作弊结论），主导买盘 → poor。
 good 形状：**深回撤后企稳**——急砸（非阴跌）后买盘回流（买家数回升）/holder 稳定（holdersDelta60 不再恶化）/跌底放量（近窗流量行升温+burst 波）；绝对价位中低位佐证残余空间。
@@ -174,12 +205,12 @@ insufficient：非回调场景（见上）或材料太薄。
       },
     },
 
-    // 8. 追高入场质量（BP6 三类质量题制：追高视角——本轮策略停买留痕，恒 poor；
+    // 9. 追高入场质量（BP6 三类质量题制：追高视角——本轮策略停买留痕，恒 poor；
     //    将来策略放开追高只改本题面恢复真实质量评估）
     high_chase_quality: {
       type: 'choice',
       instructions: `评估「追高入场质量」：若此刻入场属于追高形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**追高视角**独立评估，不与其它视角对齐。
-场景判别（先判是否追高场景）：现价贴近全窗高点（currentVsAthPct 浅负或为正/secSinceAth 小）且价格已处拉升后的高位区间、非首波爬坡段——「已拉升兑现到明显高位仍贴高」。**非此场景（不贴高/仍在首波爬坡/材料无法辨形）→ insufficient（本视角不适用）**。
+场景判别（先判是否追高场景）：现价贴近全窗高点（currentVsAthPct 浅负或为正/secSinceAth 小）且价格已处拉升后的高位区间、非首波爬坡段——「已拉升兑现到明显高位仍贴高」（圣诞树视角=树的顶部/涨段末端贴高，tree_position=top 佐证；首树左侧爬坡中的贴高不是追高）。**非此场景（不贴高/仍在首波爬坡/材料无法辨形）→ insufficient（本视角不适用）**。
 怎么算（场景判别）：时点位置行 currentVsAthPct（浅负或为正=贴高）+ secSinceAth（小=高点新鲜）+ entry_position 档（near_high）+ [PRICE] 轨迹末段位置（拉升后高位区间 vs 首波爬坡段）——四源并读定场景；场景不成立即 insufficient，不进停买判定。
 **本轮先等等（策略停买留痕）**：追高场景成立 → **一律 poor**——即使 price_trend=fast_up、热度 ultra/high、买盘再强也 poor；这是策略层对该类的停买（类级结论），不是此刻盘面强弱的评估结论。将来策略放开追高时只改本题面（恢复按动量/热度/承接真实评估）。
 insufficient：非追高场景（见上）或材料太薄。

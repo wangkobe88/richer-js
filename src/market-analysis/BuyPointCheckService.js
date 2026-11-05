@@ -4,11 +4,15 @@
  *
  * 定位（与 CD 分工）：输入同样是 ticks 锚截窗，CD 判「盘面是否作弊」，本服务判
  * 「**当前点位是否适合买入**」（时点判定；协同形状只作降档参考，结论归 CD）。
- * 判定形态（题集 BP6 三类质量题制）：5 维度题（参考）+ 3 类别质量题
+ * 判定形态（题集 BP7 活跃度门+三类质量题）：6 维度题（参考；含 BP8 圣诞树形状与
+ * 位置 tree_position=**观察档，暂不参与决策**——用户裁定「判断起来有点太难了，
+ * 但是可以先放里头」，题照问答照落攒分布，mapper 不消费）+ 3 类别质量题
  * （early_bird/pullback_entry/high_chase_quality，桶域 good/neutral/poor/
- * insufficient）三视角并行独立评估；综合判定=**代码侧确定性聚合**
- * （任一 good→good，否则任一 neutral→neutral，否则 poor；insufficient
- * 不贡献；三题全 insufficient→poor 且 prob=null）。**无粘滞/拉黑/grade**
+ * insufficient）三视角并行独立评估；综合判定=**代码侧两层**（①活跃度门
+ * heat=low→poor；②质量题聚合任一 good→good，否则任一 neutral→neutral，
+ * 否则 poor；insufficient 不贡献；三题全 insufficient→poor 且 prob=null；
+ * 门题答案缺席=null 不拦放行）。
+ * **无粘滞/拉黑/grade**
  * （点位判定无终态：每个买信号独立 as-of 真析，多行历史留轨迹=校准研究数据）。
  *
  * 门语义（T117 门链第二门；与 cheat 门刻意不同向）：
@@ -252,6 +256,7 @@ class BuyPointCheckService {
       this._log('info', `买点观测 trend=${dim.price_trend?.bucket ?? '—'}` +
         ` sell=${dim.sell_pressure?.bucket ?? '—'} heat=${dim.market_heat?.bucket ?? '—'}` +
         ` entry=${dim.entry_position?.bucket ?? '—'} level=${dim.price_level?.bucket ?? '—'}` +
+        ` tree=${dim.tree_position?.bucket ?? '—'}` +
         ` 质量 早鸟=${q.early_bird?.bucket ?? '—'}/回调=${q.pullback_entry?.bucket ?? '—'}/追高=${q.high_chase?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
@@ -514,6 +519,14 @@ class BuyPointCheckService {
           chg5Pct: b.chg5Pct ?? null,
           chg10Pct: b.chg10Pct ?? null,
           chg30Pct: b.chg30Pct ?? null,
+          // 摆动结构族（BP8 圣诞树原料摘要；锚全量随 digest.anchors 落）
+          swingHighCount: b.swingHighCount ?? null,
+          swingLowCount: b.swingLowCount ?? null,
+          swingLastDir: b.swingLastDir ?? null,
+          secSinceSwingHigh: b.secSinceSwingHigh ?? null,
+          currentVsSwingHighPct: b.currentVsSwingHighPct ?? null,
+          currentVsSwingLowPct: b.currentVsSwingLowPct ?? null,
+          swingMaxAmplPct: b.swingMaxAmplPct ?? null,
           mcapBnb: b.mcapBnb ?? null,
           mcapPeakBnb: b.mcapPeakBnb ?? null,
           mcapFromPeakPct: b.mcapFromPeakPct ?? null,

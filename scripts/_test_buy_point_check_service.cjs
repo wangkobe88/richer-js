@@ -88,6 +88,7 @@ function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
         market_heat: { probabilities: { high: 0.6, mid: 0.4 } },
         entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
         price_level: { probabilities: { near_launch: 0.7, low: 0.3 } },
+        tree_position: { probabilities: { left_side: 0.75, unclear: 0.25 } },
         early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
         pullback_entry_quality: { probabilities: { insufficient: 0.8, poor: 0.2 } },
         high_chase_quality: { probabilities: { insufficient: 0.9, poor: 0.1 } },

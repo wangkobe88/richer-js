@@ -37,6 +37,8 @@ const BP_BURST_SEC = 5;
 const BP_PRICE_BUCKETS = 20;
 /** 发行价覆盖判据容差（秒）：数组最早 dt ≤ 此值 = ticks 含出生段（BP5 发行价锚） */
 const BP_LAUNCH_COVER_TOL = 90;
+/** 摆动确认阈值（%）：zigzag 反向运动超此值确认峰/谷摆点（BP8 圣诞树原料；初版待校准） */
+const BP_SWING_THRESHOLD_PCT = 20;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -51,6 +53,48 @@ function bpTEndOf(ticks) {
 /** 窗成员判定：半开区间 (tEnd−W, tEnd]（下界 exclusive，单测锁死） */
 function bpInWin(t, tEnd, W) {
   return tEnd !== null && t.dt !== null && t.dt !== undefined && t.dt > tEnd - W && t.dt <= tEnd;
+}
+
+/**
+ * zigzag 摆动检测（BP8 圣诞树原料）——阈值化峰谷交替，纯事实不判形状。
+ * dir=0（未定向）期双向追踪 runningMax/runningMin，反向幅度先触阈者确认首摆点
+ * （两阈同点命中时峰确认优先——确定性声明，罕见中间价深震荡形状）；
+ * 进段后常规：涨段找峰（自段内高点回落 ≥thr 确认峰）/跌段找谷（反弹 ≥thr 确认谷）。
+ * 返回 points=已确认摆点 {dt,price,kind}、ext=当前段极值候选（未完成段暂态，不冒充
+ * 树峰）、lastDir=当前段方向（1 涨/-1 跌/0 未定向）、legs=摆点（含末候选）相邻段
+ * {fromDt,toDt,amplPct}——树分段/位置判读的原料。
+ */
+function detectSwings(rel, thrPct) {
+  if (rel.length < 2) return { points: [], legs: [], lastDir: null, ext: null };
+  const points = [];
+  let dir = 0;
+  let ext = rel[0];
+  let runMax = rel[0], runMin = rel[0];
+  for (let i = 1; i < rel.length; i++) {
+    const t = rel[i];
+    if (dir === 0) {
+      if (t.priceBnb >= runMax.priceBnb) { runMax = t; ext = t; }
+      else if (t.priceBnb <= runMin.priceBnb) { runMin = t; ext = t; }
+      else {
+        const fromMax = (t.priceBnb / runMax.priceBnb - 1) * 100;
+        const fromMin = (t.priceBnb / runMin.priceBnb - 1) * 100;
+        if (fromMax <= -thrPct) { points.push({ dt: runMax.dt, price: runMax.priceBnb, kind: 'high' }); dir = -1; ext = t; }
+        else if (fromMin >= thrPct) { points.push({ dt: runMin.dt, price: runMin.priceBnb, kind: 'low' }); dir = 1; ext = t; }
+      }
+    } else if (dir === 1) {
+      if (t.priceBnb >= ext.priceBnb) ext = t;
+      else if ((t.priceBnb / ext.priceBnb - 1) * 100 <= -thrPct) { points.push({ dt: ext.dt, price: ext.priceBnb, kind: 'high' }); dir = -1; ext = t; }
+    } else {
+      if (t.priceBnb <= ext.priceBnb) ext = t;
+      else if ((t.priceBnb / ext.priceBnb - 1) * 100 >= thrPct) { points.push({ dt: ext.dt, price: ext.priceBnb, kind: 'low' }); dir = 1; ext = t; }
+    }
+  }
+  const seq = points.map((p) => ({ dt: p.dt, price: p.price })).concat([{ dt: ext.dt, price: ext.priceBnb }]);
+  const legs = [];
+  for (let i = 1; i < seq.length; i++) {
+    legs.push({ fromDt: seq[i - 1].dt, toDt: seq[i].dt, amplPct: +(((seq[i].price / seq[i - 1].price) - 1) * 100).toFixed(2) });
+  }
+  return { points, legs, lastDir: dir, ext };
 }
 
 /**
@@ -97,6 +141,31 @@ function computeBuyPointDerived(snapshot) {
       const lastTick = rel[Math.min(end, n) - 1];
       priceBuckets.push({ dt: lastTick.dt, price: lastTick.priceBnb });
     }
+  }
+
+  // ── 摆动结构族（BP8 圣诞树原料）：zigzag 阈值化峰谷检测（纯事实，形状与位置
+  // 判读归 Jev——「代码只组数据」纪律）；<2 可靠价全族 null；secSince/currentVs
+  // 族锚定**最近已确认**摆点（当前段极值候选是未完成段暂态，不冒充树峰）；
+  // swingLastDir=当前段方向（1=涨段/-1=跌段/0=未定向）；swingMaxAmplPct=段序列
+  // （含当前未完成段）最大幅度绝对值；swingPoints/swingLegs=state 渲染原料不进锚 ──
+  let swing = null;
+  if (rel.length >= 2) {
+    const s = detectSwings(rel, BP_SWING_THRESHOLD_PCT);
+    const lastPrice = rel[rel.length - 1].priceBnb;
+    const lastHigh = [...s.points].reverse().find((p) => p.kind === 'high') || null;
+    const lastLow = [...s.points].reverse().find((p) => p.kind === 'low') || null;
+    swing = {
+      points: s.points,
+      legs: s.legs,
+      lastDir: s.lastDir,
+      highCount: s.points.filter((p) => p.kind === 'high').length,
+      lowCount: s.points.filter((p) => p.kind === 'low').length,
+      secSinceHigh: lastHigh !== null && tEnd !== null ? tEnd - lastHigh.dt : null,
+      secSinceLow: lastLow !== null && tEnd !== null ? tEnd - lastLow.dt : null,
+      vsHighPct: lastHigh !== null && lastHigh.price > 0 ? +(((lastPrice / lastHigh.price) - 1) * 100).toFixed(2) : null,
+      vsLowPct: lastLow !== null && lastLow.price > 0 ? +(((lastPrice / lastLow.price) - 1) * 100).toFixed(2) : null,
+      maxAmplPct: s.legs.length ? Math.max(...s.legs.map((l) => Math.abs(l.amplPct))) : null,
+    };
   }
 
   // ── win[W] 族（资金口径不滤 outlier；人数类剔伪钱包；无钱包行计量不计人）──
@@ -291,6 +360,17 @@ function computeBuyPointDerived(snapshot) {
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
     // 价格（可靠价口径；BP6 短窗 5/10/30s）
     chg5Pct, chg10Pct, chg30Pct, priceBuckets,
+    // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；points/legs=state 渲染原料）
+    swingPoints: swing ? swing.points : null,
+    swingLegs: swing ? swing.legs : null,
+    swingHighCount: swing ? swing.highCount : null,
+    swingLowCount: swing ? swing.lowCount : null,
+    swingLastDir: swing ? swing.lastDir : null,
+    secSinceSwingHigh: swing ? swing.secSinceHigh : null,
+    secSinceSwingLow: swing ? swing.secSinceLow : null,
+    currentVsSwingHighPct: swing ? swing.vsHighPct : null,
+    currentVsSwingLowPct: swing ? swing.vsLowPct : null,
+    swingMaxAmplPct: swing ? swing.maxAmplPct : null,
     // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键）
     launchPriceBnb, currentVsLaunchPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
@@ -341,4 +421,6 @@ module.exports = {
   BP_TOP_HOLDER_N,
   BP_BURST_SEC,
   BP_PRICE_BUCKETS,
+  BP_SWING_THRESHOLD_PCT,
+  detectSwings,
 };

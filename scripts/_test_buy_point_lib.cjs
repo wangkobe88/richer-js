@@ -19,12 +19,13 @@ const { pathToFileURL } = require('url');
 const {
   buildBuyPointSnapshot, computeBuyPointDerived, bpTEndOf, bpInWin,
   BP_WINDOWS, BP_TOP_HOLDER_N, BP_BURST_SEC, BP_PRICE_BUCKETS,
+  BP_SWING_THRESHOLD_PCT, detectSwings,
 } = require('../src/market-analysis/buy-point-snapshot');
 const { buildBuyPointState, MAX_STATE_CHARS } = require('../src/market-analysis/buy-point-state-builder');
 const {
   buildBuyPointObservation, DIMENSION_IDS, QUALITY_IDS,
   PRICE_TREND_LEVELS, SELL_PRESSURE_LEVELS, HEAT_LEVELS,
-  ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
+  ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, TREE_POSITION_LEVELS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
@@ -102,6 +103,24 @@ ok(dA.chg5Pct === 6.67, `chg5=6.67%（1.6/1.5@200，实际 ${dA.chg5Pct}）`);
 ok(dA.chg10Pct === 6.67, `chg10=6.67%（205 前最后可靠价同 @200，实际 ${dA.chg10Pct}）`);
 ok(dA.chg30Pct === 14.29, `chg30=14.29%（1.6/1.4@185 卖行可靠价，实际 ${dA.chg30Pct}）`);
 ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删（BP6 短窗换 5/10/30）');
+// BP8 摆动结构族手算（thr=20%）：dir=0 期 1.0→1.5 后回落 1.4 触 fromMin=+40% → 确认谷@5(1.0)、dir=1；
+// ext 追至 110@2.0（ATH 行）；155@1.55 回落 −22.5% 触阈 → 确认峰@110(2.0)、dir=−1；ext 追至 185@1.4；
+// 末段 200/215 反弹 +14.3% <20 未确认谷 → 现处下跌段
+ok(BP_SWING_THRESHOLD_PCT === 20, 'BP8 摆动确认阈值=20%（初版待校准）');
+ok(dA.swingPoints.length === 2 && dA.swingPoints[0].dt === 5 && dA.swingPoints[0].kind === 'low'
+  && near(dA.swingPoints[0].price, 1.0 * E9) && dA.swingPoints[1].dt === 110 && dA.swingPoints[1].kind === 'high'
+  && near(dA.swingPoints[1].price, 2.0 * E9),
+  `swingPoints=[谷@5(1e-9), 峰@110(2e-9)]（实际 ${JSON.stringify(dA.swingPoints)}）`);
+ok(dA.swingHighCount === 1 && dA.swingLowCount === 1, `摆点计数 峰1/谷1（实际 ${dA.swingHighCount}/${dA.swingLowCount}）`);
+ok(dA.swingLastDir === -1, `swingLastDir=−1（末段下跌进行时，实际 ${dA.swingLastDir}）`);
+ok(dA.secSinceSwingHigh === 105 && dA.secSinceSwingLow === 210, `距最近摆动峰 105s/谷 210s（实际 ${dA.secSinceSwingHigh}/${dA.secSinceSwingLow}）`);
+ok(dA.currentVsSwingHighPct === -20 && dA.currentVsSwingLowPct === 60, `现价较最近摆动峰 −20%/谷 +60%（实际 ${dA.currentVsSwingHighPct}/${dA.currentVsSwingLowPct}）`);
+ok(dA.swingMaxAmplPct === 100, `swingMaxAmplPct=100（段 +100/−30 最大，实际 ${dA.swingMaxAmplPct}）`);
+ok(dA.swingLegs.length === 2 && dA.swingLegs[0].fromDt === 5 && dA.swingLegs[0].toDt === 110 && dA.swingLegs[0].amplPct === 100
+  && dA.swingLegs[1].fromDt === 110 && dA.swingLegs[1].toDt === 185 && dA.swingLegs[1].amplPct === -30,
+  `swingLegs=[5→110:+100, 110→185:−30]（实际 ${JSON.stringify(dA.swingLegs)}）`);
+// detectSwings 裸函数边界：<2 可靠价 → 空结构 lastDir=null
+ok(detectSwings([], 20).lastDir === null && detectSwings([{ dt: 1, priceBnb: 1 }], 20).points.length === 0, 'detectSwings <2 行 → 空结构（lastDir=null）');
 
 // win30=(185,215]：行 15/16 dt=185 恰=tEnd−30 不入（半开锁）→ 只含行 17,18
 ok(near(dA.win[30].buyBnb, 0.15) && dA.win[30].buyN === 2, `win30 买 0.15×2（实际 ${dA.win[30].buyBnb}×${dA.win[30].buyN}）`);
@@ -171,6 +190,10 @@ const dC0 = snapC0.buyDerived;
 ok(dC0.win[30].buyBnb === 0 && dC0.win[30].buyN === 0 && dC0.win[30].ticksPerMin === 0 && dC0.win[30].buyers === 0, 'C: 空 tick → win 族有证据零值');
 ok(dC0.win[30].buySharePct === null, 'C: 双边 0 → buySharePct=null（不以 0 冒充）');
 ok(dC0.chg5Pct === null && dC0.chg10Pct === null && dC0.chg30Pct === null, 'C: 无可靠价 → chg 族 null');
+ok(dC0.swingPoints === null && dC0.swingHighCount === null && dC0.swingLowCount === null && dC0.swingLastDir === null
+  && dC0.secSinceSwingHigh === null && dC0.secSinceSwingLow === null && dC0.currentVsSwingHighPct === null
+  && dC0.currentVsSwingLowPct === null && dC0.swingMaxAmplPct === null && dC0.swingLegs === null,
+  'C: 无可靠价 → 摆动结构族全 null（<2 可靠价，BP8）');
 ok(dC0.currentVsAthPct === null && dC0.secSinceAth === null && dC0.madeHigh120 === null, 'C: priceArc 缺 → 位置族 null');
 ok(dC0.rateTrend === null && dC0.halfTpmEarly === null && dC0.halfTpmLate === null, 'C: 两半窗皆 0 → rateTrend=null');
 ok(dC0.burst5In120 === null, 'C: 窗内行 <2 → burst null');
@@ -179,6 +202,7 @@ ok(dC0.tokenAgeSec === null && dC0.spanSec === null, 'C: 无 tick → tokenAge/s
 const rowsCOut = [row(5, 'BUY', W_B, 0.1, 99 * E9, 1e8, { outlier: true }), row(15, 'SELL', W_B, 0.05, 98 * E9, 5e7, { outlier: true })];
 const dCOut = buildBuyPointSnapshot(rowsCOut, metaA).buyDerived;
 ok(dCOut.chg30Pct === null && dCOut.priceBuckets.length === 0, 'C: 全 outlier → 价格族全缺（资金照算 win.buyBnb=0.1）');
+ok(dCOut.swingPoints === null && dCOut.swingMaxAmplPct === null, 'C: 全 outlier → 摆动族 null（可靠价口径，BP8）');
 ok(near(dCOut.win[30].buyBnb, 0.1), 'C: outlier 行资金照计');
 
 const rowsCTok = [row(5, 'BUY', W_B, 0.1, 1.0 * E9, null), row(60, 'SELL', W_B, 0.05, 1.1 * E9, 5e7)];
@@ -217,6 +241,11 @@ ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCo
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
+ok(stD.state.includes('摆动结构(圣诞树原料): 谷@t+5s→峰@t+110s，现处下跌段') && stD.state.includes('段幅度（旧→新）+100%/105s、-30%/75s')
+  && stD.state.includes('摆点 峰1/谷1，最大单段摆幅 100%') && stD.state.includes('现价较最近摆动峰 -20.00% / 较最近摆动谷 +60.00%'),
+  'D: 摆动结构行渲染（BP8 手算值——zigzag 峰谷序列/段幅度/现价较峰谷）');
+ok(stD.state.includes('判定结构') && stD.state.includes('暂不参与决策') && stD.state.includes('早鸟≈树左侧早段、回调≈树脚企稳'),
+  'D: 判定指引两层结构+圣诞树观察档声明（BP8——暂不参与决策+三题挂树教学）');
 ok(stD.promptChars === stD.state.length && stD.truncated.ticks === false && stD.truncated.wallets === false && stD.truncated.hardCap === false, 'D: 小夹具零截断');
 
 const rowsMany = [];
@@ -243,12 +272,13 @@ const fullAnswers = () => ({
   ...mkAns('market_heat', 'high'),
   ...mkAns('entry_position', 'near_high'),
   ...mkAns('price_level', 'near_launch'),
+  ...mkAns('tree_position', 'left_side'),
   ...mkAns('early_bird_quality', 'neutral', 0.7),
   ...mkAns('pullback_entry_quality', 'insufficient', 0.8),
   ...mkAns('high_chase_quality', 'poor', 0.61),
 });
 const obsE = buildBuyPointObservation(fullAnswers(), dA);
-ok(Object.keys(obsE.dimensions).length === 5 && obsE.dimensions.price_trend.bucket === 'fast_up', 'E: 五维度 argmax 透传（BP6 无类别题）');
+ok(Object.keys(obsE.dimensions).length === 6 && obsE.dimensions.price_trend.bucket === 'fast_up', 'E: 六维度 argmax 透传（BP8 增 tree_position）');
 ok(!('point_category' in obsE.dimensions) && JSON.stringify(obsE).indexOf('point_category') === -1 && JSON.stringify(obsE).indexOf('buy_point_assessment') === -1, 'E: point_category/buy_point_assessment 键绝迹（BP6 形态反证）');
 ok(Object.keys(obsE.qualities).length === 3 && obsE.qualities.early_bird.bucket === 'neutral' && obsE.qualities.pullback_entry.bucket === 'insufficient' && obsE.qualities.high_chase.bucket === 'poor', 'E: 三质量题 strict 透传（early_bird/pullback_entry/high_chase）');
 ok(obsE.assessment.bucket === 'neutral' && near(obsE.assessment.prob, 0.7) && obsE.assessment.rule === 'any_neutral', 'E: 聚合=任一 neutral → neutral（insufficient 不贡献，rule 留痕）');
@@ -273,7 +303,36 @@ aG = agg('good', 0.55, 'insufficient', 0.9, 'poor', 0.99);
 ok(aG.bucket === 'good' && near(aG.prob, 0.55), 'E: good 优先于 high prob poor（tier 序非概率序）');
 aG = agg('good', 0.6, 'poor', 0.5, 'good', 0.9);
 ok(aG.bucket === 'good' && near(aG.prob, 0.9), 'E: 多 good 并存 prob=取最大');
+// BP8 活跃度门+圣诞树观察档（用户裁定：①活跃度 low 不参与；②圣诞树锚「暂时先不
+// 参与决策…可以先放里头」——tree 各桶一律不拦，题照问答照落攒分布）
+let aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.88) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.88) && aM.rule === 'activity_gate', 'E: 门① heat=low → poor/activity_gate（prob=门题 argmax）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.88), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门① 优先于质量题（早鸟 good 0.95 不救——活跃度不够不参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'not_tree', 0.83) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=not_tree 不拦（观察档——圣诞树门裁定暂不参与决策，走质量题聚合）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'top', 0.77) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=top 不拦（观察档——位置门同缓）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'right_side', 0.75) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=right_side 不拦（观察档）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'unclear', 0.9) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=unclear → 质量题聚合（观察档全桶同路）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'right_bottom', 0.8) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=right_bottom → 质量题聚合（回调质量题主场）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.9), ...mkAns('tree_position', 'not_tree', 0.85) }, dA).assessment;
+ok(aM.rule === 'activity_gate', 'E: heat=low 门照拒（活跃度门独立于 tree 观察档）');
+ok(!['not_tree', 'position_gate'].includes(aM.rule), 'E: rule 域圣诞树门值绝迹（activity_gate/any_good/any_neutral/else_poor 四值——观察档反证）');
+const noTree = { ...fullAnswers() };
+delete noTree.tree_position;
+ok(buildBuyPointObservation(noTree, dA).assessment.rule === 'any_neutral' && buildBuyPointObservation(noTree, dA).dimensions.tree_position === null,
+  'E: tree_position 答案缺席 → 维度 null 容缺+聚合照走（拒=有证据的拒绝）');
+ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（六维度）');
 ok(obsE.anchors.chg5Pct === 6.67 && obsE.anchors.chg10Pct === 6.67 && obsE.anchors.chg30Pct === 14.29, 'E: 动量短窗族三键透传（BP6 5/10/30）');
+ok(obsE.anchors.swingHighCount === 1 && obsE.anchors.swingLowCount === 1 && obsE.anchors.swingLastDir === -1
+  && obsE.anchors.secSinceSwingHigh === 105 && obsE.anchors.secSinceSwingLow === 210
+  && obsE.anchors.currentVsSwingHighPct === -20 && obsE.anchors.currentVsSwingLowPct === 60
+  && obsE.anchors.swingMaxAmplPct === 100, 'E: 摆动结构族 8 键透传（BP8 圣诞树原料）');
+ok(obsE.anchors.swingPoints === undefined && obsE.anchors.swingLegs === undefined, 'E: swingPoints/swingLegs 数组不进锚（state 渲染原料）');
 ok(obsE.anchors.chg60Pct === undefined && obsE.anchors.chg120Pct === undefined, 'E: chg60/chg120 键绝迹（BP6 短窗反证）');
 const obsNeg = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: -12.34, win: dA.win });
 ok(obsNeg.anchors.chg30Pct === -12.34, 'E: chg 负值 −12.34 照读（不以 null 吞）');
@@ -297,19 +356,19 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP6 八题/桶域对锁/三类质量题制/两调深相等）');
+  console.log('F. 题集形状（BP7 九题/桶域对锁/活跃度门+三类质量题+圣诞树观察档/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP6', 'F: 版本=BP6（三类质量题制+动量短窗 5/10/30s）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP7', 'F: 版本=BP7（活跃度门+圣诞树形状与位置观察档+摆动结构锚）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
-  ok(ids.length === 8, `F: 恰 8 题=5 维度+3 质量题（实际 ${ids.length}）`);
-  ok(ids[0] === 'price_trend' && ids[3] === 'entry_position' && ids[4] === 'price_level', 'F: 维度序=price_trend/sell/heat/entry/level（前 5 题）');
-  ok(JSON.stringify(ids.slice(5)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
+  ok(ids.length === 9, `F: 恰 9 题=6 维度+3 质量题（实际 ${ids.length}）`);
+  ok(ids[0] === 'price_trend' && ids[3] === 'entry_position' && ids[4] === 'price_level' && ids[5] === 'tree_position', 'F: 维度序=price_trend/sell/heat/entry/level/tree（前 6 题）');
+  ok(JSON.stringify(ids.slice(6)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
   ok(!('point_category' in qs) && !('buy_point_assessment' in qs), 'F: 类别题/综合题已删（BP6 形态反证——路由依赖从根消除）');
   ok(!('price_momentum' in qs) && !('buy_pressure_quality' in qs) && !('chip_flow' in qs) && !('pace_trend' in qs), 'F: 四道旧维度题已删（BP5 瘦身反证）');
   ok(ids.every((id) => qs[id].type === 'choice' && qs[id].criteria && Object.keys(qs[id].criteria).length >= 3), 'F: 全 choice 且 criteria≥3 桶');
-  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 8 题各含「怎么算」显式算法段');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 五维度题各含反锚段');
+  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 9 题各含「怎么算」显式算法段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 六维度题各含反锚段');
   ok(qs.early_bird_quality.instructions.includes('忌讳') && qs.pullback_entry_quality.instructions.includes('忌讳'), 'F: 早鸟/回调题各含忌讳段（poor 主判教学）');
   ok(q.buildBuyPointQuestions() && JSON.stringify(q.buildBuyPointQuestions()) === JSON.stringify(qs), 'F: 函数产物两调深相等（无隐藏状态）');
   // 桶域与 mapper 常量对锁（ESM/CJS 双副本漂移防线）
@@ -318,11 +377,13 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.HEAT_LEVELS) === JSON.stringify(HEAT_LEVELS), 'F: HEAT_LEVELS 同域');
   ok(JSON.stringify(q.ENTRY_POSITION_LEVELS) === JSON.stringify(ENTRY_POSITION_LEVELS), 'F: ENTRY_POSITION_LEVELS 同域（BP5 四桶）');
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
+  ok(JSON.stringify(q.TREE_POSITION_LEVELS) === JSON.stringify(TREE_POSITION_LEVELS), 'F: TREE_POSITION_LEVELS 同域（BP8 六桶）');
+  ok(JSON.stringify(Object.keys(qs.tree_position.criteria)) === JSON.stringify(TREE_POSITION_LEVELS), 'F: tree_position 桶===TREE_POSITION_LEVELS（六桶）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
   const qSet = new Set(QUALITY_IDS);
-  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 5 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（5+3）');
+  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 6 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（6+3）');
   for (const id of QUALITY_IDS) {
     ok(JSON.stringify(Object.keys(qs[id].criteria)) === JSON.stringify(QUALITY_LEVELS), `F: ${id} 桶===QUALITY_LEVELS（四桶）`);
   }
@@ -351,7 +412,22 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(qs.price_level.instructions.includes('currentVsLaunchPct') && qs.price_level.instructions.includes('launchPriceBnb'), 'F: price_level 怎么算=发行价位置行两键（BP5 新增维度）');
   ok(qs.price_level.instructions.includes('未覆盖出生段'), 'F: price_level 反锚④? 行=材料缺失不猜（截窗不冒充）');
   ok(qs.price_level.instructions.includes('破发') && qs.price_level.instructions.includes('near_launch'), 'F: price_level 破发负值归接近发行价桶');
-  ok(qs.market_heat.instructions.includes('活跃度是入场的必要条件'), 'F: market_heat 反锚④活跃度门槛教学（拒买权衡归质量题）');
+  ok(qs.market_heat.instructions.includes('活跃度是入场的必要条件'), 'F: market_heat 反锚④活跃度门槛教学（BP8 门①消费 low 档）');
+  // tree_position 题面（BP8 观察档——形状+位置；圣诞树门裁定暂不参与决策，题照问攒分布）
+  const tp = qs.tree_position;
+  ok(tp.instructions.includes('暴涨暴跌'), 'F: tree_position 形状=暴涨暴跌反常 → not_tree（非正常用户行为形状）');
+  ok(tp.instructions.includes('形状判断不出来') && tp.instructions.includes('unclear') && tp.instructions.includes('≠ not_tree'), 'F: tree_position unclear=形状判不出非 not_tree（前期树形未成形是常态）');
+  ok(tp.instructions.includes('左侧') && tp.instructions.includes('顶部') && tp.instructions.includes('右侧底部'), 'F: tree_position 位置四态=左侧/顶部/右侧/树脚（用户原话桶名）');
+  ok(tp.instructions.includes('多树串联') || tp.instructions.includes('一棵结束后连着下一棵'), 'F: tree_position 多圣诞树串联教学');
+  ok(tp.instructions.includes('小圣诞树结束') && tp.instructions.includes('大圣诞树开始'), 'F: tree_position 狙击手回调=小树结束/大树开始（用户原话）');
+  ok(tp.instructions.includes('摆动结构行'), 'F: tree_position 怎么算引用摆动结构行（BP8 数值锚）');
+  ok(tp.instructions.includes('贴高≠自动 top'), 'F: tree_position 反锚①贴高≠自动 top（首树左侧爬坡进行时）');
+  ok(!tp.instructions.includes('形状门') && !tp.criteria.not_tree.includes('拦') && !tp.criteria.unclear.includes('放行'),
+    'F: tree_position 门语义措辞绝迹（观察档反证——不参与决策不暗示拦截/放行）');
+  // 三质量题场景判别挂树（BP8）
+  ok(qs.early_bird_quality.instructions.includes('left_side'), 'F: 早鸟场景挂树=left_side/unclear 佐证（树形未成形正是早鸟窗口）');
+  ok(qs.pullback_entry_quality.instructions.includes('right_bottom') && qs.pullback_entry_quality.instructions.includes('大圣诞树开始'), 'F: 回调场景挂树=树脚/小树结束大树开始');
+  ok(qs.high_chase_quality.instructions.includes('top 佐证') || qs.high_chase_quality.instructions.includes('tree_position=top'), 'F: 追高场景挂树=top 佐证（首树左侧贴高不是追高）');
 
   // ═══════════════ G/H/I. scripts/buy-point/lib.mjs（ESM dynamic import） ═══════════════
   console.log('G. 60s 窗去重');

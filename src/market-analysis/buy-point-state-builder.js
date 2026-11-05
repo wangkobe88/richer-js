@@ -98,6 +98,16 @@ function buildBuyPointState(snapshot) {
     // ② 近窗动量
     const chg = (v) => (v === null || v === undefined ? '?' : `${v.toFixed(2)}%`);
     lines.push(`近窗动量(涨跌%): 5s ${chg(b.chg5Pct)} / 10s ${chg(b.chg10Pct)} / 30s ${chg(b.chg30Pct)}（窗末可靠价 vs 窗起点前最后一笔可靠价；窗内无更早价则自全窗首可靠价起算——短窗常见，含义=可得最早价以来的动量；? = 可靠价不足）`);
+    // ②a 摆动结构（BP8 圣诞树原料：zigzag 阈值化峰谷——形状与位置判读素材，判读归 Jev）
+    {
+      const sw = Array.isArray(b.swingPoints) ? b.swingPoints : [];
+      const legs = Array.isArray(b.swingLegs) ? b.swingLegs : [];
+      const legTxt = legs.map((l) => `${l.amplPct > 0 ? '+' : ''}${l.amplPct.toFixed(0)}%/${Math.round(l.toDt - l.fromDt)}s`).join('、');
+      const dirTxt = b.swingLastDir === 1 ? '上涨段' : b.swingLastDir === -1 ? '下跌段' : b.swingLastDir === 0 ? '未定向' : '?';
+      const seq = sw.slice(-6).map((p) => `${p.kind === 'high' ? '峰' : '谷'}@${fmtDt(p.dt)}`).join('→');
+      const chgS = (v) => (v === null || v === undefined ? '?' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
+      lines.push(`摆动结构(圣诞树原料): ${seq || '?'}，现处${dirTxt}${legs.length ? `；段幅度（旧→新）${legTxt}` : ''}；摆点 峰${b.swingHighCount ?? '?'}/谷${b.swingLowCount ?? '?'}，最大单段摆幅 ${b.swingMaxAmplPct === null || b.swingMaxAmplPct === undefined ? '?' : b.swingMaxAmplPct.toFixed(0) + '%'}；现价较最近摆动峰 ${chgS(b.currentVsSwingHighPct)} / 较最近摆动谷 ${chgS(b.currentVsSwingLowPct)}（zigzag 反向 ≥20% 确认摆点——树形状与位置的判读素材（观察档暂不参与决策），判读归你；? = 可靠价不足）`);
+    }
     // ③ 近窗流量
     const w30 = b.win && b.win[30], w60 = b.win && b.win[60], w120 = b.win && b.win[120];
     const flow = (w) => (w ? `买 ${fmtBnb(w.buyBnb)}×${w.buyN} 卖 ${fmtBnb(w.sellBnb)}×${w.sellN} 净 ${fmtBnb(w.netBnb)}` : '?');
@@ -194,7 +204,7 @@ function buildBuyPointState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED]/[PRICE] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：此刻入场时机好坏。',
     '- 只判入场时机（时点），不下盘面性质结论：协同/作弊形状（等额阵列/对敲/分仓指纹）作为降档参考计入风险权衡，是否作弊由反作弊模块另行判定。',
-    '- 短线视角：秒~分钟级持仓的狙击交易者——三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
+    '- 判定结构（BP8 用户裁定）：①活跃度门——热度 low=不参与交易（代码侧硬门消费 market_heat）；②三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）——早鸟≈树左侧早段、回调≈树脚企稳（小树结束+可能的大树开始）、追高≈树顶贴高；圣诞树形状与位置（tree_position）暂不参与决策（用户裁定「判断起来有点太难了，但是可以先放里头」）——题照答、摆动结构照算，档位作三质量题的参考佐证；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
     '- 薄窗倾向 insufficient：窗内行数很少、锚过早、多数维度缺证据（? 多）时，诚实承认材料不足不硬判。',
     '- token 龄极短（[PRECOMPUTED] 时点位置行）时全程首波形状属常态：近高位置/节奏密集本身不是风险信号，权衡时结合 token 龄。',
   ].join('\n'));

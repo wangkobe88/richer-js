@@ -1,15 +1,23 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态（BP6 三类质量题制，用户裁定 2026-11-05）：维度题档位（5 题）+
- * **3 类别质量题**（early_bird_quality/pullback_entry_quality/high_chase_quality，
- * 桶域 good/neutral/poor/insufficient——Jev 三视角并行独立评估）；
- * 综合判定 = **代码侧确定性聚合**（用户原话「这三者有任何一个为 good 则为
- * good，为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则
- * 任一 neutral → neutral；否则 poor——insufficient（该视角不适用/材料薄）
- * **不贡献聚合**；三题全 insufficient → poor（fallback 无 poor 证据 prob=null）。
- * 维度题仍纯透传（argmax 照抄无规则映射——与 CD D3.5「判断一律 Jev」同哲学；
- * 聚合规则是用户明裁的确定性 max 规则非加权 grade）。
+ * 判定形态（BP8 活跃度门+三类质量题，用户裁定 2026-11-05）：维度题档位（6 题，
+ * 纯参考）+ **3 类别质量题**（early_bird_quality/pullback_entry_quality/
+ * high_chase_quality，桶域 good/neutral/poor/insufficient——Jev 三视角并行独立
+ * 评估）；综合判定 = **代码侧两层**（用户三层框架，圣诞树层裁定暂缓）：
+ *   ① 活跃度门——market_heat=low → poor（rule=activity_gate，活跃度不够不参与）
+ *   ② 三质量题确定性聚合（BP6 用户裁定原话「这三者有任何一个为 good 则为
+ *      good，为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则
+ *      任一 neutral → neutral；否则 poor——insufficient 不贡献聚合；三题全
+ *      insufficient → poor（fallback 无 poor 证据 prob=null）
+ * **圣诞树门暂不参与决策（用户裁定原话「暂时圣诞树这一锚，先不参与决策吧。
+ * 我觉得判断起来有点太难了，但是可以先放里头」）**：tree_position 题+摆动锚
+ * 族（snapshot）+digest 照算照落=纯观察档攒分布（T74/T76 同构），mapper 不消
+ * 费任何 tree 桶；后续启用只改本聚合+题面措辞（届时 bump 版本）。
+ * 门题答案缺席（null）= 无证据不拦，放行进下层（拒=有证据的拒绝）；门优先于
+ * 质量题（质量题证据再好，门拒即 poor，prob=门题 argmax）。
+ * 维度题仍纯透传（argmax 照抄——与 CD D3.5「判断一律 Jev」同哲学；门与聚合
+ * 规则是用户明裁的确定性规则非加权 grade）。
  *
  * 容错双轨（镜像 cheat mapper 纪律）：
  * - 质量题缺答案/形状异常/未知桶名 → **throw**（fail-loud：质量题是综合判定
@@ -17,20 +25,21 @@
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺放宽）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
- *   ——rule 键=聚合来源留痕（any_good/any_neutral/else_poor）非档位结论）
+ *   ——rule 键=聚合来源留痕（activity_gate/any_good/any_neutral/else_poor）非档位结论）
  *
  * 桶域常量与题集（llm/buy-point-questions.mjs ESM）同域同值：ESM 无法被本 CJS
  * require，故此处自持副本，由单测 `_test_buy_point_lib.cjs` F 组经 dynamic import
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP5 维度瘦身） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position） */
 const DIMENSION_IDS = [
   'price_trend',
   'sell_pressure',
   'market_heat',
   'entry_position',
   'price_level',
+  'tree_position',
 ];
 
 /** 三类质量题 id（BP6：Jev 三视角并行评估——综合判定唯一来源，strict 强制在场） */
@@ -42,6 +51,8 @@ const SELL_PRESSURE_LEVELS = ['low', 'mid', 'high'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
+/** 圣诞树位置六桶（BP8 观察档——用户裁定暂不参与决策：left_side 待涨/top 待跌/right_side 下跌/right_bottom 树脚/not_tree 形状反常/unclear 判不出；题照问答照落攒分布） */
+const TREE_POSITION_LEVELS = ['left_side', 'top', 'right_side', 'right_bottom', 'not_tree', 'unclear'];
 /** 质量题桶域（BP6——与题集同域；insufficient=不适用/材料薄不贡献聚合） */
 const QUALITY_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 /** 综合判定桶域（聚合产物 ∈ {good, neutral, poor}；门 bpPassLevels 消费域含 insufficient 历史行兼容） */
@@ -54,6 +65,7 @@ const DIMENSION_LEVELS = {
   market_heat: HEAT_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
+  tree_position: TREE_POSITION_LEVELS,
 };
 
 /**
@@ -117,19 +129,27 @@ function buildBuyPointObservation(answers, anchors = null) {
   for (const id of QUALITY_IDS) {
     qualities[id.replace('_quality', '')] = _choice(answers, id, QUALITY_LEVELS, true);
   }
-  // 聚合（BP6 用户裁定确定性规则，代码侧执行不依赖 Jev 路由）：
-  // 任一 good → good；否则任一 neutral → neutral；否则 poor。
+  // 活跃度门+聚合（BP8：用户三层框架的第②层圣诞树门裁定暂不参与决策——
+  // tree_position 纯观察攒分布，本聚合不消费任何 tree 桶）：
+  // ①活跃度门 heat=low → poor（活跃度不够不参与交易）；②质量题聚合：任一
+  // good → good；否则任一 neutral → neutral；否则 poor。
+  // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝）；门优先于质量题。
   // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
+  const heat = dimensions.market_heat;
   const qList = Object.values(qualities);
   const tier = (t) => qList.filter((e) => e && e.bucket === t);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
   let bucket, prob, rule;
-  const g = tier('good');
-  const n = tier('neutral');
-  const p = tier('poor');
-  if (g.length) { bucket = 'good'; prob = bestProb(g); rule = 'any_good'; }
-  else if (n.length) { bucket = 'neutral'; prob = bestProb(n); rule = 'any_neutral'; }
-  else { bucket = 'poor'; prob = bestProb(p); rule = 'else_poor'; }
+  if (heat && heat.bucket === 'low') {
+    bucket = 'poor'; prob = heat.prob; rule = 'activity_gate';
+  } else {
+    const g = tier('good');
+    const n = tier('neutral');
+    const p = tier('poor');
+    if (g.length) { bucket = 'good'; prob = bestProb(g); rule = 'any_good'; }
+    else if (n.length) { bucket = 'neutral'; prob = bestProb(n); rule = 'any_neutral'; }
+    else { bucket = 'poor'; prob = bestProb(p); rule = 'else_poor'; }
+  }
   const assessment = { bucket, prob, rule };
   const flat = {};
   for (const W of [30, 60, 120]) {
@@ -168,6 +188,16 @@ function buildBuyPointObservation(answers, anchors = null) {
       chg5Pct: _num(b, 'chg5Pct'),
       chg10Pct: _num(b, 'chg10Pct'),
       chg30Pct: _num(b, 'chg30Pct'),
+      // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；lastDir 1=涨段/-1=跌段/0=未定向；
+      // swingPoints/swingLegs=state 渲染原料不进锚）
+      swingHighCount: _num(b, 'swingHighCount'),
+      swingLowCount: _num(b, 'swingLowCount'),
+      swingLastDir: _num(b, 'swingLastDir'),
+      secSinceSwingHigh: _num(b, 'secSinceSwingHigh'),
+      secSinceSwingLow: _num(b, 'secSinceSwingLow'),
+      currentVsSwingHighPct: _num(b, 'currentVsSwingHighPct'),
+      currentVsSwingLowPct: _num(b, 'currentVsSwingLowPct'),
+      swingMaxAmplPct: _num(b, 'swingMaxAmplPct'),
       // 近窗族（W∈{30,60,120} 扁平 10 键/窗）
       ...flat,
       // 参与结构族（近 60s）
@@ -196,6 +226,7 @@ module.exports = {
   HEAT_LEVELS,
   ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,
+  TREE_POSITION_LEVELS,
   QUALITY_LEVELS,
   ASSESSMENT_LEVELS,
 };
