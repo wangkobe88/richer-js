@@ -160,6 +160,7 @@ const OBS_ANCHOR_KEYS = [
   'pulseBlockCount', 'pulseBlockBuyPct', 'pulseMaxGapBlocks', // D3.54
   'pumpStablePoints', 'pumpStableSpanSec', 'pumpStableR2', 'pumpStableSlopePctPerMin', 'pumpRisePerBuyBnb', 'pumpSellTickCountPct', // D3.57
   'postStallSpanSec', 'postStallBuyBnb', 'postStallBuyerCount', 'postStallFreshBuyerPct', 'postStallEqualClusterPct', 'postStallMaxBlockBuyPct', // D3.58
+  'routerEntryBuyPct', // D3.62 G17 N 通道源锚
 ];
 function obsAnchors(d) {
   const out = {};

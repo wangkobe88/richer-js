@@ -16,6 +16,11 @@
  * 仅 7.4% 全绕现有门）——综合判别交给 Jev 深度思考。
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump CHEAT_QUESTIONS_VERSION
+ * D3.62（2026-11-05 CD350 流量画像侦察——16 题题面零变化、state 零变化；bump
+ *   纯为 observation 新键断代：snapshot 新增数值锚 routerEntryBuyPct（锚窗买入
+ *   笔走聚合路由占比，G17 N 通道源锚），<D3.62 存档 anchors 缺键 → null
+ *   fail-open 门不触发；healthy 粘滞按版本域重判一次吃到新锚。同批扩录
+ *   AGGREGATOR_ROUTER_ADDRS 9 址（viaRouter 判定域变化））
  * D3.61（2026-11-04 CD241 立项 蝴蝶NFT🔥 0x0ba52e…7777 全窗量级综合锚，16 题
  *   不变——act 题面-only 零新键，四腿数据全在既有数值行）：v71 P1 首买 healthy
  *   放行、0.004 BNB 买入 1m42s 后 P4 砍仓 -35%。形状=开盘 27s 真实买流 0.6 BNB
@@ -821,7 +826,7 @@
  * D1.1（首版 3 题）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.61';
+export const CHEAT_QUESTIONS_VERSION = 'D3.62';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];

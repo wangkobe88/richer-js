@@ -9,7 +9,21 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G16=G15+D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定
+ * 规则（G17=G16+N 通道聚合路由入口占比（2026-11-05 CD350 流量画像侦察立项
+ * ——用户提案原话「我觉得一个简单点的方法，就是把 GMGN 路由的流量占比给过去，
+ * 如果太低就不行」+立法放行「门可以加」：锚窗买入笔走聚合路由
+ * （AGGREGATOR_ROUTER_ADDRS，2026-11-05 扩录 9 址）占比 <10% 且买入 ≥15 笔
+ * → unhealthy 留痕 N_no_retail_entry。语义=无散户入场通道——公共聚合器是
+ * 散户最主流入口，正常热度盘总有相当份额散户从聚合器进。定线（363 票锚窗
+ * 分布 tmp-router-dist@182，9 址笔数口径）：healthy 52 票 min 23.8/中位 75、
+ * strongbacked 8 票 min 50（不拦域零误伤且强庄盘入口最足——「庄+散户合力」
+ * 直觉再验证）；<10% 共 21 票全在 cheat 17/unhealthy 4；低占比票窗长
+ * 7-1862s 无「极早窗聚合器未索引」时序噪声。与 2026-10-31 删 routerPct
+ * state 行的裁定不冲突——彼裁「高占比方向」无判别价值（作弊钱包同样走路由
+ * ），本通道判「低占比方向」=入口缺失，方向相反；锚不进 state/题面（Jev
+ * 输入零变化），纯代码数值门+FA 投影观测。null（买 <15 笔/零买入/旧档断代
+ * 缺键）不触发 fail-open。**拒买级非拉黑级**（unhealthy 留重判域）；
+ * **独立通道不进 A 主判**。此前 G16=G15+D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定
  * 「我也认为是 famous 主导，unhealthy，可以 fix 一下」：dom=high ∧ 跟单 top3
  * ≥35 ∧ 集团买 ≥70 双贴线（距豁免线 45/80 各 <10 点）→ 豁免双臂证据均不
  * 显著不豁免，留痕 D_famous_near_band；G5/G6 豁免哲学不变=豁免须显著成立——
@@ -256,7 +270,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G16';
+const CHEAT_GRADE_RULES_VERSION = 'G17';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -636,6 +650,20 @@ function gradeObservation(observation, extras = {}) {
   // 不触发；mid/high 不触发
   if (act === 'ultra') {
     reasons.push({ level: 'unhealthy', code: 'M_hyper_activity' });
+  }
+
+  // N：聚合路由入口占比（G17，2026-11-05 CD350 侦察立项——用户提案「把 GMGN
+  // 路由的流量占比给过去，如果太低就不行」+「门可以加」）：锚窗买入笔走聚合
+  // 路由占比 <10% → unhealthy 留痕 N_no_retail_entry（带数值）。纯代码数值门
+  // （Jev 零参与——与 E 弱 burst 代码臂/G16 邻界臂同族：数据分布铁证+用户裁定
+  // 立线，锚不进 state/题面）。清单=AGGREGATOR_ROUTER_ADDRS 9 址全集（同日扩录
+  // ——GMGN 单址口径会把「流量走其他聚合器」的票误判无入口，如 CD36 真实
+  // 散户盘 GMGN 单址 5.9%、9 址合计 23.8%=healthy 组 min）。null（snapshot 层
+  // 买 <15 笔样本薄/零买入；<D3.62 旧档断代缺键）不触发 fail-open；恰 10.0
+  // 不触发（严格小于）。**拒买级非拉黑级，独立通道不进 A 主判**
+  const retailEntry = _pct(anchors.routerEntryBuyPct);
+  if (retailEntry !== null && retailEntry < 10) {
+    reasons.push({ level: 'unhealthy', code: `N_no_retail_entry${retailEntry.toFixed(1)}` });
   }
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'

@@ -3723,7 +3723,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    cheatPostStallBuyerCount/cheatPostStallFreshBuyerPct/
         //    cheatPostStallEqualClusterPct/cheatPostStallMaxBlockBuyPct（CD183：
         //    最长静默 ≥300s 后段内口径——占比分母=段内买入不被断流前流量稀释；
-        //    无断流全族 null）。
+        //    无断流全族 null）
+        //    + D3.62 cheatRouterEntryBuyPct（G17 N 通道源锚：锚窗买入**笔数**走
+        //    聚合路由占比——散户入场通道份额，笔数口径防直连单笔大户稀释；
+        //    买 <15 笔/零买入 → null 不评 fail-open；router 判定域=
+        //    AGGREGATOR_ROUTER_ADDRS 9 址（2026-11-05 扩录））。
         //    写者=引擎（gate 判定/迟到补投影/预触发 onResult）；**值=最近一次判定
         //    投影**（叙事 C84 同构：后台分析完成投影，下一 tick 条件可消费）——
         //    首判未完成/预触发未跑 → 全 null（条件裸比较恒 false fail-closed，未判定
@@ -3830,6 +3834,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatMaxBlockPreGapSec = _an ? _an.maxBlockPreGapSec ?? null : null;
             factors.cheatSameAmountWalletPct = _an ? _an.sameAmountWalletPct ?? null : null;
             factors.cheatCreatorPeakHoldSupplyPct = _an ? _an.creatorPeakHoldSupplyPct ?? null : null;
+            // D3.62 聚合路由入口占比（G17 N 通道源锚：锚窗买入**笔数**走聚合路由
+            // 占比——散户入场通道份额；买 <15 笔（ROUTER_ENTRY_MIN_BUYS 样本薄
+            // 保护）/零买入 → null 不评 fail-open；router 判定域=
+            // AGGREGATOR_ROUTER_ADDRS 9 址，头注见 cheat-snapshot）
+            factors.cheatRouterEntryBuyPct = _an ? _an.routerEntryBuyPct ?? null : null;
         }
 
         return factors;

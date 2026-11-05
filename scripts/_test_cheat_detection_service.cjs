@@ -75,9 +75,16 @@ function makeDb({ ticks = [], cheatLatest = [], failInsert = false, failTicks = 
 }
 
 // ── 行工厂（链上真序递增；2 tick/块）──
-function genTicks(n, { startBlock = 100, senderPrefix = '0xw' } = {}) {
+function genTicks(n, { startBlock = 100, senderPrefix = '0xw', routerEvery = 0 } = {}) {
   const rows = [];
+  let buyIdx = 0;
   for (let i = 0; i < n; i++) {
+    const isBuy = i % 3 !== 2;
+    // routerEvery（G17/D3.62）：每 N 笔买入走 GMGN 聚合路由（trader=router+sender 已解析
+    // =真钱包 viaRouter）——基底全直连形状买 ≥15 笔会被 N 通道拦（N_no_retail_entry0.0），
+    // 需要 healthy 终态的场景用零售混合形状
+    const viaRt = routerEvery > 0 && isBuy && (buyIdx % routerEvery === 0);
+    if (isBuy) buyIdx++;
     rows.push({
       block_time: new Date(1700000000000 + i * 2000).toISOString(),
       block_number: startBlock + Math.floor(i / 2), log_index: i % 2,
@@ -85,7 +92,9 @@ function genTicks(n, { startBlock = 100, senderPrefix = '0xw' } = {}) {
       // 基底若卖 0.1 会 6 对卖占 100% 触发 H 通道污染全部 gate 分级测试
       trade_type: i % 3 === 2 ? 'sell' : 'buy',
       bnb_amount: i % 3 === 2 ? 0.11 : 0.1, price_bnb: 1e-9, price_outlier: false,
-      trader_address: `${senderPrefix}${i % 10}`.padEnd(42, '0'),
+      trader_address: viaRt
+        ? '0x1de460f363af910f51726def188f9004276bf4bc'
+        : `${senderPrefix}${i % 10}`.padEnd(42, '0'),
       sender_address: `${senderPrefix}${i % 10}`.padEnd(42, '0'),
       quote_token: null,
     });
@@ -286,6 +295,9 @@ async function main() {
       '连续 6 次 unhealthy 永不拉黑（升级臂退役）+ 无顶帽连续落行（旧帽 4 在第 5 轮即拒——配额由引擎信号帽封顶）');
 
     // D4 unhealthy 翻案：下个信号判 healthy 后进入粘滞
+    // （换零售混合 tick：53 笔买 1/3 走路由≈32%——基底全直连形状会被 G17 N 通道
+    //  拦成 N_no_retail_entry0.0，翻案场景意图=档位翻正非入口锚，本段不测 N）
+    db4.holder.ticks = genTicks(80, { routerEvery: 3 });
     llm4.mod.JevClient.ask = async () => {
       llm4.calls.ask++;
       return { model: 'fake', answers: NONE_ANSWERS, usage: { total: 1 } };
@@ -369,7 +381,7 @@ async function main() {
   console.log('G. bootstrap 三态');
   {
     const digest = (grade) => ({
-      grade, gradeVersion: 'G16', capped: false, watermark: null,
+      grade, gradeVersion: 'G17', capped: false, watermark: null,
       phenomena: { equal_amount_split: 'strong', coordinated_sell_back: 'none', creator_front_run: 'none', sell_dispersion: 'none' },
       extLevels: { stall_burst_wave: 'none' },
       activityLevel: { bucket: 'mid' }, bundledDominance: { bucket: 'low' },
@@ -520,7 +532,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G16'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G17'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串
@@ -599,7 +611,10 @@ async function main() {
     for (let i = 0; i < 5; i++) {
       washRows.push({ block_time: new Date(1700000000000 + 40000 + i * 1000).toISOString(), block_number: 400 + i, log_index: 0,
         trade_type: 'buy', bnb_amount: 0.2, price_bnb: 1e-9, price_outlier: false,
-        trader_address: `0xwashrand${i}`.padEnd(42, '0'), sender_address: `0xwashrand${i}`.padEnd(42, '0'), quote_token: null });
+        // 尾部散买走 GMGN 路由（G17/D3.62）：全直连形状 15 笔买会被 N 通道拦
+        // （N_no_retail_entry0.0）污染本场景「wash 锚+G9 退役」意图；钱包=sender 不变
+        trader_address: '0x1de460f363af910f51726def188f9004276bf4bc',
+        sender_address: `0xwashrand${i}`.padEnd(42, '0'), quote_token: null });
     }
     const NONE_ALL = {
       equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),

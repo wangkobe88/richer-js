@@ -304,6 +304,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // D3.53 精确等额同块簇占比（CD160：同块∧四位小数全等∧≥2 钱包簇买入占窗
     // 总买 %——题面判读原料纯观察键；无合格簇 → null）
     cheatExactEqualBlockBuyPct: factorResults.cheatExactEqualBlockBuyPct ?? null,
+    // D3.62 聚合路由入口占比（G17 N 通道源锚：锚窗买入笔数走聚合路由 %——
+    // 散户入场通道份额；买 <15 笔/零买入 → null；旧 FA/历史信号无键 → null）
+    cheatRouterEntryBuyPct: factorResults.cheatRouterEntryBuyPct ?? null,
   };
 }
 

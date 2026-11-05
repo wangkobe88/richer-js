@@ -387,6 +387,8 @@ class CheatCheckService {
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
           // 伤害量级标尺（additive：观察/审计键，无门侧消费）
           noBuySellVolumePct: snapshot.derived.noBuySellVolumePct,
+          // D3.62 聚合路由入口占比（G17 N 通道源锚；头注见 cheat-snapshot）
+          routerEntryBuyPct: snapshot.derived.routerEntryBuyPct,
           // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前
           // real_participation）参考数值非门槛，头注见
           // snapshot）+ 创建者曾持峰值锚（holdings_balance 补腿；无 BUY 行=null

@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G16', '版本常量 G16（改规则必须 bump+同步台账+跑黄金集；G16=D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审）：dom=high ∧ top3≥35 ∧ 组织买≥70 双贴线豁免不显著 → 拦留痕 D_famous_near_band——豁免双臂须显著成立（分散 <35/承接 <70）；G15=D3.51 burst_spike_concentration 入 EXT 清单即被 A 主判自动吸收（strong→cheat 拉黑级）——CD157 가나/CD102 SAFU 两票裁定立项「burst 没有问题，但是这里的burst明显是一个尖刺……一算就知道这是作弊行为」+「这个裁定为 cheat」+「好，落吧」；25 票分离度实证占比硬门不可行（healthy CD104 54.6/CD98 48.8 与 cheat 群数值孪生）→结构判读交 Jev 新题、门侧零数值消费；G14=M 通道超高活跃度 ultra→unhealthy M_hyper_activity（CD138 sniper 两口径否证后活跃度档本身即载体，接受 Mamesuke 错杀））');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G17', '版本常量 G17（改规则必须 bump+同步台账+跑黄金集；G17=N 通道聚合路由入口占比（2026-11-05 CD350 侦察立项，CD374）：用户提案「把 GMGN 路由的流量占比给过去，如果太低就不行」+裁定「门可以加」——锚窗买入笔走聚合路由（AGGREGATOR_ROUTER_ADDRS 9 址全集，同日扩录）占比 <10% 且买 ≥15 笔（snapshot 层 ROUTER_ENTRY_MIN_BUYS 样本薄保护，<15 笔锚 null fail-open）→ unhealthy 拒买级留痕 N_no_retail_entry<值>；363 票分布定线 healthy 52 票 min 23.8/strongbacked 8 票 min 50、<10% 全在 cheat 17+unhealthy 4；与 2026-10-31 删 routerPct state 行裁定不冲突（彼判「高占比方向」无判别力，本轮判「低占比方向」=散户入口缺失）；独立通道不进 A 主判；G16=D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审）：dom=high ∧ top3≥35 ∧ 组织买≥70 双贴线豁免不显著 → 拦留痕 D_famous_near_band——豁免双臂须显著成立（分散 <35/承接 <70）；G15=D3.51 burst_spike_concentration 入 EXT 清单即被 A 主判自动吸收（strong→cheat 拉黑级）——CD157 가나/CD102 SAFU 两票裁定立项「burst 没有问题，但是这里的burst明显是一个尖刺……一算就知道这是作弊行为」+「这个裁定为 cheat」+「好，落吧」；25 票分离度实证占比硬门不可行（healthy CD104 54.6/CD98 48.8 与 cheat 群数值孪生）→结构判读交 Jev 新题、门侧零数值消费；G14=M 通道超高活跃度 ultra→unhealthy M_hyper_activity（CD138 sniper 两口径否证后活跃度档本身即载体，接受 Mamesuke 错杀））');
   ok(MAIN_IDS.length === 9 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -508,6 +508,31 @@ function main() {
     const rCheat = grade(obsCheat, { famousLevel: null });
     ok(rCheat.grade === 'cheat' && rCheat.reasons.some((x) => x.code === 'M_hyper_activity'),
       'M+A 同中双留痕取最重 cheat（M 不遮蔽留痕；CD140 币安兄弟 ultra∧holdings strong 同构=unhealthy 多通道留痕）');
+  }
+
+  console.log('N. 聚合路由入口占比通道（G17 新增，2026-11-05 CD374/CD350 侦察立项——routerEntryBuyPct<10% 且非 null → unhealthy N_no_retail_entry<值> 拒买级。用户提案「把 GMGN 路由的流量占比给过去，如果太低就不行」+裁定「门可以加」；363 票 9 址口径分布定线：healthy 52 票 min 23.8/中位 75、strongbacked 8 票 min 50、<10% 全在 cheat 17+unhealthy 4——散户入场通道份额=笔数口径（金额口径被直连单笔大户稀释，CD36 GMGN 单址 5.9% 误伤候选 vs 9 址合计 23.8%=healthy 组 min）；锚=纯代码数值门不进 state/题面（与 E 弱 burst 代码臂同族）；null（买 <15 笔 ROUTER_ENTRY_MIN_BUYS 样本薄/零买入/<D3.62 旧档断代缺键）fail-open 不触发；**独立通道不进 A 主判**');
+  {
+    const mkN = (pct) => { const o = baseObs(); o.anchors.routerEntryBuyPct = pct; return o; };
+    ok(grade(mkN(4.2), { famousLevel: null }).grade === 'unhealthy'
+      && grade(mkN(4.2), { famousLevel: null }).reasons.some((x) => x.level === 'unhealthy' && x.code === 'N_no_retail_entry4.2'),
+      'N：4.2% → unhealthy N_no_retail_entry4.2（码带一位小数=锚精度，不四舍五入吞界）');
+    ok(grade(mkN(9.9), { famousLevel: null }).reasons.some((x) => x.code === 'N_no_retail_entry9.9')
+      && grade(mkN(9.9), { famousLevel: null }).grade === 'unhealthy',
+      'N：9.9 贴线界内 → 触发（码显 9.9 而非 toFixed(0) 舍成 10 的误导形状）');
+    ok(grade(mkN(10), { famousLevel: null }).grade === 'healthy'
+      && grade(mkN(10), { famousLevel: null }).reasons.length === 0,
+      'N：恰 10.0 不触发（严格小于——10.0 已是「有一成散户入口」的合格形状；healthy 组 min 23.8 远离界线）');
+    ok(grade(mkN(null), { famousLevel: null }).grade === 'healthy'
+      && grade(mkN(null), { famousLevel: null }).reasons.length === 0,
+      'N：null（<15 笔样本薄/零买入/<D3.62 旧档断代）不触发 fail-open（黄金集重放零变化防线——G17 对 <15 笔票零影响）');
+    ok(grade(mkN(75), { famousLevel: null }).grade === 'healthy',
+      'N：75%（healthy 组中位）不触发（门只判低占比方向=入口缺失；2026-10-31 删 routerPct 高占比裁定不回潮）');
+    // 与 A 主判隔离：N 触发不升 cheat（独立拒买级通道，取最重仍由 A 决定）
+    const obsA = mkN(2.1);
+    withExt(obsA, 'wash_pair', 'strong');
+    const rA = grade(obsA, { famousLevel: null });
+    ok(rA.grade === 'cheat' && rA.reasons.some((x) => x.code === 'N_no_retail_entry2.1'),
+      'N+A 同中双留痕取最重 cheat（N 不遮蔽留痕不升档——拒买级非拉黑级）');
   }
 
   console.log('F.（G9/G10 退役反证）sbHold 纯数值不产档——G10 起门侧消费全撤（锚照产只喂 Jev/条件串）');

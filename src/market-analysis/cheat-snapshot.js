@@ -56,6 +56,13 @@ const ACTIVITY_UNEVEN_CV = 1.0;
 // 语义，极短窗另有 act ④极早窗豁免臂管）。
 const NEAR_SEG_SEC = 30;
 /**
+ * D3.62 聚合路由入口占比最小样本（笔）：锚窗买入 <此值 → routerEntryBuyPct
+ * null 不评（G17 N 通道 fail-open 同数）。样本薄时占比噪声大（12 笔里 1 笔
+ * 路由=8.3% 已在门内抖动）。363 票分布里 <15 笔买入的低占比票仅 CD161(11)/
+ * CD164(13) 两张（expect 已判），漏拦代价可接受换稳定。
+ */
+const ROUTER_ENTRY_MIN_BUYS = 15;
+/**
  * burst 波强度滑窗宽度（G8 弱 burst 代码臂，2026-11-02 批次六 CD37/CD79 用户裁定
  * 「长期停滞突然涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻
  * 低活跃度 结论」）：最密 BURST_WAVE_SEC 秒滑窗（按笔数取最密）内 Σ买入/独立钱包
@@ -304,6 +311,17 @@ function computeDerived(snapshot, famousRoster) {
 
   // ── routerPct：Σ(router 行买入 BNB) ÷ Σ买入 ×100（T70 tradesRouterPct 同口径）──
   const routerPct = totalBuyBnb > 0 ? (routerBuyBnb / totalBuyBnb) * 100 : null;
+
+  // ── D3.62 聚合路由入口占比（G17 N 通道源锚，CD350 侦察立项——用户提案「把
+  // GMGN 路由的流量占比给过去，如果太低就不行」）：锚窗买入**笔数**走聚合路由
+  // （viaRouter，AGGREGATOR_ROUTER_ADDRS 9 址全集）占比。笔数≠金额口径
+  // （routerPct）：金额被直连单笔大户稀释，笔数=散户入场通道份额。样本薄保护
+  // ——买入 <ROUTER_ENTRY_MIN_BUYS 笔 null 不评（fail-open 方向与门小样本保护
+  // 同数；363 票分布：healthy 52 票 min 23.8 / strongbacked min 50 零误伤，
+  // <10% 全在 cheat 17+unhealthy 4）；零买入同 null。viaRouter 判 trader 层
+  // （sender 解析无关，回测同构）。──
+  const routerEntryBuyPct = buyN >= ROUTER_ENTRY_MIN_BUYS
+    ? +((routerBuyN / buyN) * 100).toFixed(1) : null;
 
   // ── 快进快出：首买→首卖间隔 < CHURN_WINDOW_SEC 的钱包数 ──
   let churn60sWalletCount = 0;
@@ -1363,6 +1381,8 @@ function computeDerived(snapshot, famousRoster) {
     walletCount: wallets.length,
     top1BuyPct, top2BuyPct,
     routerPct, routerBuyN,
+    // D3.62 聚合路由入口占比（G17 N 通道源锚；头注见计算段）
+    routerEntryBuyPct,
     unresolvedSenderTickCount,
     churn60sWalletCount,
     sameBlockClusters, equalClusters,
@@ -1451,4 +1471,5 @@ module.exports = {
   PUMP_STABLE_R2,
   PUMP_STABLE_MIN_POINTS,
   POST_STALL_GAP_SEC,
+  ROUTER_ENTRY_MIN_BUYS,
 };

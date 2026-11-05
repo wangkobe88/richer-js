@@ -299,6 +299,9 @@ function buildObservation(answers, anchors = null) {
       pulseBlockCount: _anchorPct(anchors, 'pulseBlockCount'),
       pulseBlockBuyPct: _anchorPct(anchors, 'pulseBlockBuyPct'),
       pulseMaxGapBlocks: _anchorPct(anchors, 'pulseMaxGapBlocks'),
+      // D3.62 聚合路由入口占比（G17 N 通道源锚：锚窗买入笔走聚合路由 %，笔数
+      // 口径；买 <15 笔/零买入→null 不评 fail-open；头注见 cheat-snapshot）
+      routerEntryBuyPct: _anchorPct(anchors, 'routerEntryBuyPct'),
       // D3.57 pump 数值锚族（slow_grind_pump 题判读原料：最长稳定斜率子段三键+
       // log 涨幅÷总买+卖笔占比；可靠价 <4 点/族门未开→null 不冒充；无合格
       // 稳定段→points/span=0 有证据零值、r2/slope null）
