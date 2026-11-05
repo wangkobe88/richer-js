@@ -5455,7 +5455,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T19:00:47.477174+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD351",
@@ -5466,12 +5466,12 @@
         "tickCount": 26
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T19:02:55.672956+00:00 [A_strong:slow_grind_pump,E_low_activity,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD352",
@@ -5487,7 +5487,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:03:04.29055+00:00 [J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD353",
@@ -5503,7 +5503,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:21:34.342963+00:00 [J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD354",
@@ -5519,7 +5519,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T19:42:06.080447+00:00 [A_strong:equal_amount_split+slow_grind_pump+burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD355",
@@ -5535,7 +5535,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:46:52.72581+00:00 [R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD356",
@@ -5551,7 +5551,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:49:27.042409+00:00 [R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD357",
@@ -5567,7 +5567,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T19:50:05.839104+00:00 [J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD358",
@@ -5583,7 +5583,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:25:50.727718+00:00 [A_strong:slow_grind_pump,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD359",
@@ -5594,12 +5594,12 @@
         "tickCount": 64
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:25:50.025765+00:00 [A_strong:same_block_buy_wave,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD351 ASI「unhealthy 活跃度低」翻案（生产 cheat；今重析 unhealthy[E_low_activity,R] 同向锚定）；CD359 认同今重析降 unhealthy[J,R,M]（生产 cheat，同版摆动回落）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
     },
     {
       "caseId": "CD360",
