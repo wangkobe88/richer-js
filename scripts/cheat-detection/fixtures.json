@@ -4810,12 +4810,12 @@
         "tickCount": 27
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:34:25.589573+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD311",
@@ -4831,7 +4831,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:34:57.98307+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD312",
@@ -4842,12 +4842,12 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "cheat"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:35:04.76199+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD313",
@@ -4863,7 +4863,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:35:09.253184+00:00 [A_strong:equal_amount_split+coordinated_sell_back,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD314",
@@ -4879,7 +4879,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:35:46.813938+00:00 [R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD315",
@@ -4895,7 +4895,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:35:55.966065+00:00 [A_strong:slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD316",
@@ -4911,7 +4911,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T15:43:43.71044+00:00 [A_strong:burst_spike_concentration,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD317",
@@ -4927,7 +4927,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.61 @2026-11-04T15:45:41.392743+00:00 [D_famous_dominance,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD318",
@@ -4943,7 +4943,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:49:28.444717+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD319",
@@ -4959,7 +4959,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:50:01.974958+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.61），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
     },
     {
       "caseId": "CD320",
