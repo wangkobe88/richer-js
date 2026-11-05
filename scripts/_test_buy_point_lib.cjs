@@ -412,8 +412,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(eb.instructions.includes('不因低市值豁免'), 'F: 早鸟忌讳①暴涨无条件（BP4 臂保留）');
   ok(eb.instructions.includes('涨幅不是速度：不看累计涨幅、不看 chg30'), 'F: 早鸟主锚=速度非涨幅（BP10 四改用户原话「涨幅不是速度」）');
   ok(eb.instructions.includes('maxChg5Pct'), 'F: 早鸟主锚=maxChg5Pct 回看速度行（BP10：锚窗内任意 5 秒段最大涨幅）');
-  ok(eb.instructions.includes('早期快涨本身正常不拒'), 'F: 早鸟早期快涨正常（刚发出的代币前期上涨快是常态）');
-  ok(eb.instructions.includes('撑到 neutral 的依据'), 'F: 早鸟价格低=撑 neutral 的依据（BP10 用户裁定：前两点 neutral 因价格低）');
+  ok(eb.instructions.includes('第一分支·价格低救（命中即停，判 neutral 不判 poor）'), 'F: 早鸟价格低救=第一分支命中即停（BP10 六改：救臂前置压过忌讳分支）');
   ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+暴涨=接力风险）');
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
   const pb = qs.pullback_entry_quality;
@@ -422,8 +421,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('崩塌第一腿不是健康回撤'), 'F: 回调忌讳①前期暴涨级拉升后的下跌点（BP10 用户裁定：前期上涨太快的下跌点很危险）');
   ok(pb.instructions.includes('无论回撤深浅'), 'F: 回调崩塌第一腿无条件 poor（企稳迹象不救）');
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
-  ok(pb.instructions.includes('价格低优先救（总判定指令，优先于①②）'), 'F: 回调价格低优先救升总指令（BP10 五改：优先于崩塌腿/接飞刀两忌讳——S021 maxChg5+58.3 过线仍救）');
-  ok(pb.instructions.includes('深回撤（half_off/ankle_cut）不走本指令'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
+  ok(pb.instructions.includes('⓪**价格低优先救（第一分支，命中即停判 neutral 不判 poor）**'), 'F: 回调价格低救=第⓪分支命中即停（BP10 六改：救臂前置压过崩塌腿/接飞刀）');
+  ok(pb.instructions.includes('深回撤（half_off/ankle_cut）不走本分支'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
   const hc = qs.high_chase_quality;
