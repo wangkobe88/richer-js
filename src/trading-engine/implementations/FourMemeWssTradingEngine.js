@@ -885,9 +885,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const _sc = experimentConfig.stallClose || {};
     const _scMs = Number(_sc.stallMs);
     this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
+    // T118 断流足额门（0x48ce 案 2026-11-05 用户指令「这个级别的交易就给忽略掉吧，
+    // 至少 0.02 吧」）：微量成交（0.002/0.0067/0.01 级，过尘门进 FA 但撑不起对手盘）
+    // 不算流动性证据——stallClose 判据水位从 lastTickAt 切到 FA lastSubstantialTickAt
+    // （bnbAmount ≥ minTickBnb 才推进；缺省 null=原 lastTickAt 口径零变化）。
+    // 水位 null = 本进程未见过足额 tick，fail-open 不卖（与 lastTickAt-null 重启语义同向）。
+    const _scMin = Number(_sc.minTickBnb);
+    this._stallCloseMinTickBnb = Number.isFinite(_scMin) && _scMin > 0 ? _scMin : null;
+    if (this._stallCloseMinTickBnb != null) this._factorAggregator.setSubstantialTickBnb(this._stallCloseMinTickBnb);
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `🛡️ 流动性止损已启用 | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（FA lastTickAt 判据，1s 墙钟扫描）`);
+        `🛡️ 流动性止损已启用 | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（` +
+        `${this._stallCloseMinTickBnb != null ? `足额门≥${this._stallCloseMinTickBnb}BNB，FA lastSubstantialTickAt 判据` : 'FA lastTickAt 判据'}，1s 墙钟扫描）`);
     }
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
@@ -2762,7 +2771,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    */
   async _emitStallCloseSell(token, factors, stalledMs) {
     const strategy = {
-      id: 'stallClose', name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s)`,
+      id: 'stallClose',
+      name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s` +
+        `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
       action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
       priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
     };
@@ -3215,7 +3226,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const token = this._tokenPool.getToken(tokenAddress, 'bsc');
       if (!token || token.status !== 'bought') continue;
       const st = this._factorAggregator.getTokenState(tokenAddress);
-      const lastTickAt = st ? st.lastTickAt : null;
+      // T118 足额门开启 → 水位切 lastSubstantialTickAt（微量成交不算流动性证据）；
+      // null = 未见足额 tick，fail-open 不卖（与 lastTickAt-null 同语义）
+      const lastTickAt = this._stallCloseMinTickBnb != null
+        ? (st ? st.lastSubstantialTickAt : null)
+        : (st ? st.lastTickAt : null);
       if (lastTickAt == null) continue;
       const stalledMs = Date.now() - lastTickAt;
       if (stalledMs <= this._stallCloseMs) continue;

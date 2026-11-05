@@ -329,6 +329,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 回迁批 1 因子参数（默认值 ← config.factorParams 覆盖）
         this._fp = Object.assign({}, FACTOR_PARAM_DEFAULTS, this._config.factorParams || {});
 
+        // T118 断流足额门水位（默认 null=关）：引擎 stallClose.minTickBnb 注入。
+        //   仅 advance lastSubstantialTickAt 水位——lastTickAt 全量口径零变化，
+        //   idleSecSinceLastTick/act* 滑窗等所有既有消费者不受影响
+        this._substantialTickBnb = null;
+
         // P2b 死重维护开关（2026-10-12 回测性能案）：默认 true = 存量零变化。
         //   maintainClassifierTracks=false → 跳过 OPB 专用维护（_clsTicks push/prune、
         //     _lastBigTickAt、_relHighestPriceUsd 快照、afterFirst9s 族）——OPB enabled=false
@@ -1143,6 +1148,15 @@ class FourMemeFactorAggregator extends EventEmitter {
         // （实测 50.0→48.0 → idleSecSinceLastTick 虚高 3.593 假断流触发 P11 全清）
         state.lastTickAt = state.lastTickAt === null ? ts : Math.max(state.lastTickAt, ts);
 
+        // ── T118 断流足额门水位（0x48ce 案 2026-11-05 用户指令「这个级别的交易就
+        //    给忽略掉吧，至少 0.02 吧」）：微量成交不算流动性证据——bnbAmount ≥ 阈值
+        //    才推 lastSubstantialTickAt。与 lastTickAt 同点同 Math.max 防回拨；阈值
+        //    null（缺省）= 水位恒 null，零消费者零影响 ──
+        if (this._substantialTickBnb != null && bnbAmount >= this._substantialTickBnb) {
+            state.lastSubstantialTickAt = state.lastSubstantialTickAt === null
+                ? ts : Math.max(state.lastSubstantialTickAt, ts);
+        }
+
         // ── 因子构建与事件发射 ──
         let factors = null;
         if (emitFactors) {
@@ -1476,6 +1490,18 @@ class FourMemeFactorAggregator extends EventEmitter {
      * AND 链出 age 区间必 false 保证；双跑对拍臂 pf0（69b43310）验证中
      * @param {Array<{minAgeMinutes?:number, maxAgeMinutes?:number}>|null} ranges
      */
+    /**
+     * T118 断流足额门阈值注入（引擎 ctor 从 stallClose.minTickBnb 读入；缺省 null=关）：
+     * 开启后 processTick 价格段对 bnbAmount >= v 的 tick 另推 lastSubstantialTickAt 水位
+     * （Math.max 防回拨，与 lastTickAt 同点同防）；微量成交（0.001 ≤ bnb < v，过尘门
+     * 进 FA 但不够格）只推进 lastTickAt 不算流动性证据。v 非正数视为关（与引擎侧
+     * Number.isFinite && > 0 同判）。
+     * @param {number|null} v BNB 阈值
+     */
+    setSubstantialTickBnb(v) {
+        this._substantialTickBnb = Number.isFinite(v) && v > 0 ? v : null;
+    }
+
     setPreFilter(ranges) {
         if (!ranges || (Array.isArray(ranges) && ranges.length === 0)) {
             this._preFilter = null;
@@ -1721,6 +1747,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             firstTickAt: null,
             firstBlockNumber: null, // 首 tick 所在块（bigHolder early 判定基准 s0，write-once）
             lastTickAt: null,
+            lastSubstantialTickAt: null, // T118 断流足额门水位（≥ stallClose.minTickBnb 的最近 tick；阈值未注入恒 null）
             tickCount: 0,
 
             // 价格（BNB 原生）

@@ -508,10 +508,16 @@ class BacktestEngine extends AbstractTradingEngine {
     const _sc = experimentConfig.stallClose || {};
     const _scMs = Number(_sc.stallMs);
     this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
+    // T118 断流足额门（与实时引擎同配置同判据，回测 parity 红线）：微量成交不算
+    // 流动性证据，水位切 FA lastSubstantialTickAt；缺省 null=原口径零变化
+    const _scMin = Number(_sc.minTickBnb);
+    this._stallCloseMinTickBnb = Number.isFinite(_scMin) && _scMin > 0 ? _scMin : null;
+    if (this._stallCloseMinTickBnb != null) this._factorAggregator.setSubstantialTickBnb(this._stallCloseMinTickBnb);
     this._lastStallScanTs = null;
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'BacktestEngine',
-        `🛡️ 流动性止损已启用(回测) | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（虚拟时钟 1s 节流扫描）`);
+        `🛡️ 流动性止损已启用(回测) | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓` +
+        `${this._stallCloseMinTickBnb != null ? `（足额门≥${this._stallCloseMinTickBnb}BNB）` : ''}（虚拟时钟 1s 节流扫描）`);
     }
 
     // 7. 批量写入缓冲区
@@ -2345,7 +2351,9 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   async _emitStallCloseSell(token, factors, stalledMs, nowTs) {
     const strategy = {
-      id: 'stallClose', name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s)`,
+      id: 'stallClose',
+      name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s` +
+        `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
       action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
       priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
     };
@@ -2369,7 +2377,11 @@ class BacktestEngine extends AbstractTradingEngine {
       const token = this._tokenPool.getToken(tokenAddress, 'bsc');
       if (!token || token.status !== 'bought') continue;
       const st = this._factorAggregator.getTokenState(tokenAddress);
-      const lastTickAt = st ? st.lastTickAt : null;
+      // T118 足额门（与实时引擎同判据）：开启 → 水位切 lastSubstantialTickAt，
+      // null fail-open 不卖；关闭 → lastTickAt 原口径
+      const lastTickAt = this._stallCloseMinTickBnb != null
+        ? (st ? st.lastSubstantialTickAt : null)
+        : (st ? st.lastTickAt : null);
       if (lastTickAt == null) continue;
       if (nowTs - lastTickAt <= this._stallCloseMs) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + this._stallCloseMs);

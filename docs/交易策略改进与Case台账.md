@@ -78,6 +78,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **余留**：①182 手工 DDL（`buy_point_analyses`，DDL 先于代码红线）→ 182 `deploy-signal-source-strategies.cjs --commit` ②新虚拟实验（引用 ladder 条目+cheatCheck.enabled+buyPointCheck.enabled+**buySignalMaxPerToken≥7 显式**）③BP2 对拍（182 跑 `run.mjs --set bp-2026-11-03-live4` 232 点位，跑前知会）④冒烟观察门链三段 metadata（signalGate/cheatCheck/buyPoint）
 
+### T118 断流足额门：微量成交不算流动性证据（stallClose.minTickBnb ≥0.02 BNB；0x48ce 案；2026-11-05；用户指令「『4 笔微量成交（0.002/0.002/0.0067/0.01）』这个级别的交易就给忽略掉吧，至少 0.02 吧」）
+
+- **案（v73 `c6efed13` 票 `0x48ce…7777`）**：05:32:46 最后一笔足额成交（0.07 BNB）后，庄家 05:32:52-05:33:20 连续 4 笔微量成交（0.002/0.002/0.0067/0.01 BNB）——**全部过尘门 0.001 进 FA、逐笔推进 `lastTickAt`**，30s stallClose 判据永不满足；随后 05:33:29 起 0.39 BNB pump 拉高 +11% 再同秒砸盘，我们被 T116 进场验证臂（realHoldDuration=202s）在 05:34:32 深度回落位全清。**足额门若在场：水位停在 05:32:46，05:33:16 即触发全清，早 2min、价位高约 11%**。微量成交=挂单撑盘/维持「还活着」表象的控盘手段，撑不起真实对手盘——「有流动性」的证据必须够格。
+- **机制（水位切换，非条件因子）**：FA 新增 `lastSubstantialTickAt` 水位（state 工厂缺省 null；`processTick` 价格段 `bnbAmount ≥ 阈值` 才推进，与 `lastTickAt` 同点同 `Math.max` 防回拨；**买卖两向同判**——大卖也是流动性；阈值经 `setSubstantialTickBnb(v)` 由引擎 ctor 注入，`Number.isFinite && >0` 否则关）；两引擎 `_scanStallClose` 判据水位：`stallClose.minTickBnb` 配置（`_stallCloseMinTickBnb`）→ 切 `lastSubstantialTickAt`，不配 → 原 `lastTickAt` 口径 bit 一致（存量实验零变化）。**水位 null fail-open 不卖**（本进程未见过足额 tick——与 lastTickAt-null 重启恢复语义同向；刻意不做入场锚定 v1：重启恢复重放 setBuyState 带历史 buyTime，锚定=恢复即秒卖的陷阱形状）。回测 `_scanStallClose` 同判据镜像（parity 红线；asOf=lastSubstantialTickAt+stallMs 检测时点不变式保持）。策略名带档 `流动性止损-无成交超时(30s,≥0.02BNB)` 观测留痕；`lastTickAt` 全量口径照推（idleSecSinceLastTick/act* 滑窗等既有消费者零影响）。
+- **单测**：`_test_stall_close.cjs` 21→38 断言新增 D 段三件——D1 真 FA 水位（0x48ce 事故现场反证：微量三连不推进/lastTickAt 照推/恰等阈值 ≥ 推进/足额卖推进/迟到旧足额不回拨/阈值关恒 null/后补开启不追溯）；D2 实时引擎水位切换（同形状开=触发、关=零触发/水位 null fail-open/策略名后缀）；D3 回测镜像（asOf parity）。**顺手修存量竞速**：A 段「恰等阈值不触发」断言依赖测试体与引擎内部两次 `Date.now()` 间隔 0ms（晚 1ms 即 stalledMs=10001 翻越边界，stash 验证原始版 5/8 次假红）——runScan 扫描期冻结墙钟（锚=调用方同一 now），10 连跑全绿。受影响回归 11 件（fa_factors/signal_source/since_entry/stop_loss_rules/sell_leg_scan/sell_debounce/card_position/holdings_replay/mcap_arc/sec_since_peak/backtest_trigger_leg）全绿。
+- **部署链**：v73 config `stallClose` 段 `{stallMs: 30000}` → `{stallMs: 30000, minTickBnb: 0.02}`（实验级单键，重启进程生效）；**生效前置=重启前持仓确认**（live-restart-positions-check 铁律）。
+- **余留**：①足额门触发频率/早出代价观察（大票二次起飞形状 vs 微量撑盘形状分布）②阈值 0.02 校准（现值=用户指令原值，无分布依据）。
+
 ### T115 买信号发射帽收紧 5→2：砍掉第三次作弊检测的退场段接刀（v71 `936e1bd9` 实验级 config 变更+重启生效；2026-11-04；用户指令「买入策略也改一下，当前的买入策略只允许发出两个购买信号。（我发现检测第三次，往往是 unhealthy 的现象已经起了作用，在退场的时候买入，盘面起不来了）」）
 
 - **机制对应（非买腿 maxExecutions）**：「发出两个购买信号」的载体=T110 节流键 `fourmemeWs.buySignalMaxPerToken`（发射帽，**无论信号是否通过都计数**：门拒/执行失败/save 失败均不退还），非买腿 `maxExecutions`（那是**成交**上限，v71 早已是 2）；发射帽同时=**每代币作弊检测次数上限**（CD158 粘滞配额封顶——cheat 门烧配额在执行层之前）→ 帽 2 = 同 token 第 1/2 次发射各检测一次，**第三次 admit 直接 capDropped 静默拦截**（不落信号行不烧后续门），「检测第三次」根本不发生
