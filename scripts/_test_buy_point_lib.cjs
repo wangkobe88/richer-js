@@ -356,9 +356,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP7 九题/桶域对锁/活跃度门+三类质量题+圣诞树观察档/两调深相等）');
+  console.log('F. 题集形状（BP8 九题/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP10 早鸟收窄+回调崩塌腿/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP7', 'F: 版本=BP7（活跃度门+圣诞树形状与位置观察档+摆动结构锚）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP8', 'F: 版本=BP8（BP10 案：早鸟忌讳①收窄至暴涨级+价格低撑 neutral；回调新增崩塌第一腿忌讳）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 9, `F: 恰 9 题=6 维度+3 质量题（实际 ${ids.length}）`);
@@ -390,13 +390,19 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // 三道质量题（BP6 核心：场景判别→insufficient；按类忌讳权衡）
   const eb = qs.early_bird_quality;
   ok(eb.instructions.includes('场景') && eb.instructions.includes('insufficient'), 'F: 早鸟题含场景判别（非场景→insufficient 非差）');
-  ok(eb.instructions.includes('不因低市值豁免'), 'F: 早鸟忌讳①急拉/已拉高无条件（BP4 臂保留）');
-  ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+快升=接力风险）');
+  ok(eb.instructions.includes('不因低市值豁免'), 'F: 早鸟忌讳①暴涨无条件（BP4 臂保留）');
+  ok(eb.instructions.includes('chg30 三位数'), 'F: 早鸟忌讳①收窄至暴涨级（BP10：两位数快涨不拒——早期价格发现常态）');
+  ok(eb.instructions.includes('早期快涨本身正常不拒'), 'F: 早鸟早期快涨正常（刚发出的代币前期上涨快是常态）');
+  ok(eb.instructions.includes('撑到 neutral 的依据'), 'F: 早鸟价格低=撑 neutral 的依据（BP10 用户裁定：前两点 neutral 因价格低）');
+  ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+暴涨=接力风险）');
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
   const pb = qs.pullback_entry_quality;
   ok(pb.instructions.includes('场景') && pb.instructions.includes('insufficient'), 'F: 回调题含场景判别（无回撤形状→insufficient）');
-  ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳①没跌到位（接飞刀）');
-  ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳②奔着归零（阴跌+流失+派发）');
+  ok(pb.instructions.includes('崩塌第一腿不是健康回撤'), 'F: 回调忌讳①前期暴涨级拉升后的下跌点（BP10 用户裁定：前期上涨太快的下跌点很危险）');
+  ok(pb.instructions.includes('无论回撤深浅'), 'F: 回调崩塌第一腿无条件 poor（企稳迹象不救）');
+  ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
+  ok(pb.instructions.includes('价格低可救'), 'F: 回调浅回调价格低可救（BP10：温和上涨+低价位浅回调可 neutral）');
+  ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
   const hc = qs.high_chase_quality;
   ok(hc.instructions.includes('一律 poor'), 'F: 追高题策略停买=一律 poor（BP4 硬路由精神保留——放开只改本题面）');

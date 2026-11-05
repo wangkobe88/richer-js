@@ -33,7 +33,7 @@
  */
 
 /** 题集版本（改题面必 bump；台账 docs/买入点位分析与Case台账.md） */
-export const BUY_POINT_QUESTIONS_VERSION = 'BP7';
+export const BUY_POINT_QUESTIONS_VERSION = 'BP8';
 
 /** 价格趋势六桶（BP5：方向×速度——快/慢参照 |chg30| 两位数界） */
 export const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
@@ -173,7 +173,7 @@ export function buildBuyPointQuestions() {
       instructions: `评估「早鸟入场质量」：若此刻入场属于早鸟形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**早鸟视角**独立评估，不与其它视角对齐。
 场景判别（先判是否早鸟场景）：tokenAgeSec 短（数十秒~几分钟量级）且价格仍处第一段爬坡/首波整理——「刚出+未走完明显一波拉升」（分界不是绝对 tokenAge：刚出的票首波拉升中贴高仍属早鸟场景；圣诞树视角=首棵树的左侧早段，tree_position=left_side/unclear 佐证——树形未成形正是早鸟窗口）。**非此场景（tokenAge 已长/已走完一波拉升再跌下来/材料无法辨形）→ insufficient（本视角不适用，不是差）**。
 怎么算（场景成立时）：[PRECOMPUTED] 近窗动量行 chg5/10/30Pct + [PRICE] 轨迹形状（缓升有回踩 vs 垂直窜升无回踩）+ 参与结构行（买家数/新买家/top1 买集中度）+ 热度维度档 + 时点位置行（currentVsAthPct/secSinceAth）+ 相对/绝对价格双轴（entry_position×price_level：接近最高价∧绝对价位低=早期爬坡中段佐证）。
-忌讳（poor 主判）：①**极快拉高/已拉高（无条件，不因低市值豁免）**——currentVsAthPct≈0/secSinceAth 秒级 ∧ chg30 两位数/轨迹垂直窜升无回踩（price_trend=fast_up）→ poor（**位置先于速度：贴高+快升是接力风险不是入场信号**；市值位置行 mcapBnb 尚低（约 8-9 BNB 以下）只佐证「温和爬坡的贴高」，急拉/已拉高形状不因低市值豁免）；②活跃度太低/断流（热度 low/近窗稀疏）= 进出无流动性承接 → poor（持续断流）；③协同/作弊形状（等额阵列/对敲/分仓指纹/top1 买集中度极高）作为降档因素计入（不下作弊结论——归反作弊模块），主导买盘 → poor。
+忌讳（poor 主判）：①**暴涨级拉升/已暴涨（无条件，不因低市值豁免）**——chg30 三位数（30 秒内翻倍级）/轨迹垂直窜升无回踩（price_trend=fast_up 且速度极端）→ poor（**位置先于速度：贴高+暴涨是接力风险不是入场信号**；市值位置行 mcapBnb 尚低只佐证「温和爬坡的贴高」，暴涨形状不因低市值豁免）。**早期快涨本身正常不拒**（刚发出的代币前期上涨快是常态：chg30 两位数的 fast_up=早期价格发现，不是 poor 的充分条件——单纯看上涨速度快至多可买可不买之间；**价格低（price_level=near_launch/low）正是把这类点位撑到 neutral 的依据**——绝对价位尚低=早期空间仍在，快涨不改可买性；反之价格已不低（price_level=mid 及以上）的快涨无此支撑，回到接力风险方向评估）；②活跃度太低/断流（热度 low/近窗稀疏）= 进出无流动性承接 → poor（持续断流）；③协同/作弊形状（等额阵列/对敲/分仓指纹/top1 买集中度极高）作为降档因素计入（不下作弊结论——归反作弊模块），主导买盘 → poor。
 good 形状：温和爬坡（price_trend=slow_up：chg30 个位数、多桶缓升有回踩整理）+ 买家多元持续进场（买家数/新买家）+ 热度尚可 + 绝对价位尚低（price_level=near_launch/low 佐证早期空间）。
 neutral：早鸟场景成立、无忌讳命中，但 good 证据不全（买家结构一般/热度一般/温和爬坡证据弱/证据混合）。
 insufficient：非早鸟场景（见上）或材料太薄（窗内行数很少、多数维度缺证据——诚实承认不硬判）。
@@ -181,7 +181,7 @@ insufficient：非早鸟场景（见上）或材料太薄（窗内行数很少�
       criteria: {
         good: '优：温和爬坡+买家多元持续进场+热度尚可——早鸟入场的时机占优（绝对价位尚低佐证）',
         neutral: '中：早鸟场景成立无忌讳命中，但可买证据不全或证据混合',
-        poor: '差：极快拉高/已拉高（无条件不因低市值豁免）、活跃度太低断流、协同阵列主导买盘——早鸟视角此刻入场差',
+        poor: '差：暴涨级拉升/已暴涨（chg30 三位数翻倍级，无条件不因低市值豁免）、活跃度太低断流、协同阵列主导买盘——早鸟视角此刻入场差（早期两位数快涨+价格低不算差）',
         insufficient: '不适用/材料薄：非早鸟场景（tokenAge 已长/已走完一波拉升），或窗内证据太薄无法评估',
       },
     },
@@ -192,7 +192,7 @@ insufficient：非早鸟场景（见上）或材料太薄（窗内行数很少�
       instructions: `评估「回调入场质量」：若此刻入场属于回调形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**回调视角**独立评估，不与其它视角对齐。
 场景判别（先判是否回调场景）：此前有过明显高点（mcapPeakBnb 明显高于现值/currentVsAthPct 深负/距 ATH 有实质间隔）且现价处于从高点回落后的位置——「已走完一波明显拉升再跌下来」（圣诞树视角=上一棵树的右侧：前期狙击手脉冲买入后的回调=小圣诞树结束+可能的大圣诞树开始，tree_position=right_bottom 树脚企稳/新树 left_side 启动佐证）。**非此场景（首波爬坡中无「跌下来」/现价仍贴高无回落段/材料无法辨形）→ insufficient（本视角不适用）**。
 怎么算（场景成立时）：位置轴（时点位置行 currentVsAthPct/mcapFromPeakPct+entry_position 回撤档）+ 走势轴（近窗动量行+[PRICE] 轨迹：急砸 vs 阴跌）+ 承接轴（参与结构行买家数回升/holder 流向行 holdersDelta60/近窗流量行+burst 波）+ 卖压维度档（大持仓是否启动离场）+ 绝对价位佐证（price_level 中低位=残余空间）。
-忌讳（poor 主判）：①**没跌到位**——回撤浅（entry_position=near_high/shallow_pullback、半山腰）= 接飞刀候选 → poor（企稳证据极强时至多 neutral）；②**下跌奔着归零去**——阴跌失血（chg 阴性缓慢、非急砸）+ holdersDelta60 为负（持有人净流失）+ 买盘枯竭 + 大持仓派发启动（bigHolderSellBnb60/exitSellerCount60 放量）= 趋势性死亡形状 → poor；③活跃度太低断流（热度 low/近窗稀疏）→ poor；④协同/作弊形状降档计入（不下作弊结论），主导买盘 → poor。
+忌讳（poor 主判）：①**前期暴涨级拉升后的下跌点很危险**——此前一波上涨过快（锚窗内 chg30 曾达高两位数~三位数/mcapFromPeakPct 显示刚从急拉峰回落，secSinceAth 秒级）→ 这是**崩塌第一腿不是健康回撤** → poor（无论回撤深浅与企稳迹象——健康回调的前提是前期上涨温和；暴涨拉的峰跌下来是砸盘不是回调）；②**没跌到位**——回撤浅（entry_position=near_high/shallow_pullback、半山腰）= 接飞刀候选 → poor（企稳证据极强时至多 neutral；**价格低可救**：前期上涨温和（chg 两位数中低段）∧ 绝对价位尚低（price_level=near_launch/low）的浅回调不算危险，可 neutral——见①的界）；③**下跌奔着归零去**——阴跌失血（chg 阴性缓慢、非急砸）+ holdersDelta60 为负（持有人净流失）+ 买盘枯竭 + 大持仓派发启动（bigHolderSellBnb60/exitSellerCount60 放量）= 趋势性死亡形状 → poor；④活跃度太低断流（热度 low/近窗稀疏）→ poor；⑤协同/作弊形状降档计入（不下作弊结论），主导买盘 → poor。
 good 形状：**深回撤后企稳**——急砸（非阴跌）后买盘回流（买家数回升）/holder 稳定（holdersDelta60 不再恶化）/跌底放量（近窗流量行升温+burst 波）；绝对价位中低位佐证残余空间。
 neutral：回撤到位但企稳证据不足，或证据混合（如承接回暖但卖压未消）。
 insufficient：非回调场景（见上）或材料太薄。
@@ -200,7 +200,7 @@ insufficient：非回调场景（见上）或材料太薄。
       criteria: {
         good: '优：深回撤后企稳（急砸非阴跌+买盘回流+holder 稳定/跌底放量）——回调抄底的时机占优',
         neutral: '中：回撤到位但企稳证据不足，或好坏因素对冲',
-        poor: '差：没跌到位（半山腰接飞刀）、下跌奔着归零（阴跌+流失+派发）、活跃度太低断流、协同阵列主导买盘',
+        poor: '差：前期暴涨级拉升后的下跌点（崩塌第一腿，无论回撤深浅）、没跌到位（半山腰接飞刀）、下跌奔着归零（阴跌+流失+派发）、活跃度太低断流、协同阵列主导买盘',
         insufficient: '不适用/材料薄：非回调场景（无此前高点/仍贴高无回落段），或窗内证据太薄无法评估',
       },
     },
