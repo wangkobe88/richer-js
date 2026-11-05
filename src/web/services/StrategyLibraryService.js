@@ -41,7 +41,7 @@ function validateLegs(side, legs) {
     }
     // lazy require：保持「require 本文件零依赖」的可测性；require 缓存后无重复开销
     const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
-    const { normalizeSellDebounce } = require('../../strategies/StrategyEngine');
+    const { normalizeSellDebounce, normalizeSignalGate } = require('../../strategies/StrategyEngine');
     const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
     const { PreBuyCheckService } = require('../../trading-engine/pre-check/PreBuyCheckService');
     const { GmgnRiskCheckService } = require('../../trading-engine/pre-check/GmgnRiskCheckService');
@@ -112,6 +112,23 @@ function validateLegs(side, legs) {
         // loadStrategies 拒启同口径（入库 400 防漂移）
         if (String(leg.cheatCheckCondition || '').trim() !== '' && side !== 'buy') {
             errors.push(`腿[${i}] 非买腿携带 cheatCheckCondition（CD158 买信号驱动作弊门：该字段仅买腿可配）`);
+        }
+        // 信号源门链段（T117 2026-11-05 买入策略整体调整）：仅买腿可配，形状/值域
+        // 共享引擎侧 normalizeSignalGate 单点校验；与七个旧门字段互斥——与引擎
+        // loadStrategies 拒启同口径（入库 400 防漂移）
+        const sg = normalizeSignalGate(leg.signalGate);
+        if (sg.error) {
+            errors.push(`腿[${i}] ${sg.error}（T117 信号源门链）`);
+        } else if (sg.normalized != null && side !== 'buy') {
+            errors.push(`腿[${i}] 非买腿携带 signalGate（T117 信号源门链：该字段仅买腿可配）`);
+        } else if (sg.normalized != null) {
+            const conflicts = ['narrativeTriggerCondition', 'narrativeCallCondition',
+                'narrativePrefetchCondition', 'preBuyCheckCondition', 'repeatBuyCheckCondition',
+                'gmgnCheckCondition', 'cheatCheckCondition']
+                .filter((f) => String(leg[f] || '').trim() !== '');
+            if (conflicts.length > 0) {
+                errors.push(`腿[${i}] signalGate 与 ${conflicts.join('/')} 互斥（T117：纯盘面门链 vs 旧链路门字段，并存行为未定义）`);
+            }
         }
         for (const [field, ids] of CONDITION_FIELDS) {
             const raw = leg[field];

@@ -549,6 +549,44 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-10-29 T93 top2 持有人门键（前两大净持仓合计 ÷ _circDen；漏登记随 T98
         // 批次补，详见 _test_top2_holder_circ.cjs）
         'top2HolderCircPct',
+        // 2026-11-05 T117 信号源触发策略五键（recentBlockDropPct 块收盘环窗最深跌幅 /
+        // mcapFromPeakPct 较峰回撤 / quiet 静默段三键——详见 _test_signal_source_factors.cjs）
+        'recentBlockDropPct', 'mcapFromPeakPct',
+        'quietSpanMs', 'quietSurgeBuyBnb', 'quietSurgeSec',
+        // ── 存量补登（2026-11-05 清点：前批加键未同步本白名单，共 73 键零漏登核对）──
+        // T107 市值拱形三键（峰市值锚/距峰秒/半程秒）
+        'mcapPeakBnb', 'secSinceMcapPeak', 'mcapRiseHalfSec',
+        // T113 自入场累计净买三键（2026-11-04 pump 失衡全清臂）
+        'sinceEntryNetBuyRatio', 'sinceEntryBuyBnb', 'sinceEntrySellBnb',
+        // T116 GMGN 进场验证五键（2026-11-05）
+        'gmgnEntryChecked', 'gmgnEntryPresent', 'gmgnEntrySmartWallets',
+        'gmgnEntryWhaleWallets', 'gmgnEntryRenownedWallets',
+        // holderTrend 两 ExSniper 键（剔狙击者口径）
+        'holderTrendDataPointsExSniper', 'holderTrendSlopeExSniper',
+        // CD1/CD158 cheat 投影族（grade 三键+16 题档位+数值锚族——键集真相源=
+        // getFactorKeys 探针，此处白名单只防意外新增）
+        'cheatGrade', 'cheatUnhealthyGrades', 'cheatBlocked',
+        'cheatEqualAmountSplit', 'cheatCoordinatedSellBack', 'cheatCreatorFrontRun',
+        'cheatSellDispersion', 'cheatStallBurstWave', 'cheatAmountTiering',
+        'cheatSameBlockBuyWave', 'cheatInsiderSupplySell', 'cheatSlowGrindPump',
+        'cheatWashPair', 'cheatHoldingsBalance', 'cheatBurstSpikeConcentration',
+        'cheatStrongBackerPressure', 'cheatActivityLevel', 'cheatBundledDominance',
+        'cheatSameBlockHoldPct', 'cheatEqualBandHoldPct',
+        'cheatWashPairCount', 'cheatWashPairSellPct', 'cheatWashPairBuyPct',
+        'cheatTop1HoldSupplyPct', 'cheatTop1HoldCircPct', 'cheatTop2HoldSupplyPct',
+        'cheatTop1Top2HoldSupplyPct', 'cheatTop1Top2FirstBuyGapSec',
+        'cheatClusterHoldSupplyPct', 'cheatT1PlusClusterSupplyPct', 'cheatPosHolderCount',
+        'cheatTop1Top2HoldCircPct', 'cheatTop3HoldCircPct',
+        'cheatBurstMaxGapSec', 'cheatBurstWaveBuyBnb', 'cheatBurstWaveWallets',
+        'cheatNoBuySellPct', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll',
+        'cheatAnchorBuySellRatio', 'cheatStrongbackerLike',
+        'cheatExactEqualBlockBuyPct', 'cheatPulseBlockCount', 'cheatPulseBlockBuyPct',
+        'cheatPulseMaxGapBlocks',
+        'cheatPostStallSpanSec', 'cheatPostStallBuyBnb', 'cheatPostStallBuyerCount',
+        'cheatPostStallFreshBuyerPct', 'cheatPostStallEqualClusterPct', 'cheatPostStallMaxBlockBuyPct',
+        'cheatFamousDominancePct', 'cheatFamousDominance', 'cheatAbnormalBehaviorRatio',
+        'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct', 'cheatMaxBlockPreGapSec',
+        'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct', 'cheatRouterEntryBuyPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

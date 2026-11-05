@@ -16,6 +16,8 @@
 
 ## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案）**；**T115（2026-11-04）v71 实验级发射帽 5→2（第三次检测=退场段接刀观察，见 T115 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004；**T112（2026-11-04）起 v70 实验级变体：净买门拆臂去 netL、短窗 20→12 笔（见 T112 案；库 v56 未动）**）
 
+**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1` 七腿阶梯（t1-t4 热度递升 / t5 块窗砸盘 / t6 低市值∨深回撤 / t7 跌底放量）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测恒拒**（signalGate 腿全量排除，用户裁定）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 7` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
+
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
 AND marketCap > 4.7 AND marketCap < 27                   -- 市值窗 BNB 域（T84/v43 起 priceBnb×totalSupply 全域 BNB 断代；v34 曾 USD 3.5K-20K）
@@ -52,6 +54,29 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T117 买入策略整体调整：signalGate 信号源门链（触发条件 → 作弊门二元版 → BP 门）+ 阶梯策略库条目 + FA 五触发键 + BP2 题面改版+引擎融合（2026-11-05 落码；用户方案「之前增加了买入点位的 Jev 分析，尚未跟实验引擎融合，我梳理了一下方案，不仅仅涉及买入点位 Jev 分析，算是买入策略的一次整体调整」）
+
+**用户四裁定（2026-11-05）**：①**纯盘面**（新链路不看叙事评级，叙事引擎继续服务其他腿）；②**BP 通过档=good 或 neutral**（poor/insufficient 拒）；③**触发即消耗**（进门链就计数，门拒/超时不返还——7 条阶梯策略递进阈值=多次机会设计）；④**回测恒拒**（带 signalGate 的腿回测天然不触发）。
+
+**机制（signalGate 腿字段，字段存在性即门）**：
+
+- 腿归一化段 `{maxTriggers(缺省 1), cheatRecheck(缺省 false), bpPassLevels(缺省 ['good','neutral'])}`（`normalizeSignalGate` 单点，loadStrategies throw / validateLegs 400 同口径）；仅买腿可配；**与七个旧门字段互斥 fail-fast**（narrativeTrigger/Call/Prefetch、preBuyCheck、repeatBuyCheck、gmgnCheck、cheatCheckCondition——并存=两套门行为未定义）；StrategyEngine `evaluate` 加第 6 参 `opts.excludeStrategyIds`
+- **门链块**（signal 落库成功后）：①`_sgRecordTrigger` 计数 +1（触发即消耗，进程态重启归零；落库失败不消耗）②作弊门二元版 `_cheatGateEvaluateBinary`：cheat→拉黑+清仓+signal failed `cheat_gate_cheat` 硬拒；unhealthy→signal failed `cheat_gate_unhealthy` 拒（**cheatRecheck=true 下个买信号重判 ≈CD158 现行；=false service 侧粘滞秒回拒省配额**——CheatCheckService `gateBuyPoint` opts 新增 `recheckUnhealthy`，默认 true=存量零变化）；healthy→过；**检测层故障（insufficient_ticks/fail/disabled/超时）fail-open 放行进 BP**（BP 门兜底）③BP 门 `_bpGateEvaluate`：assessed→bucket ∈ bpPassLevels 过/拒（`bp_gate_assessment`）；**timeout/fail/insufficient/disabled/异常全 fail-closed 拒**（`bp_gate_*` 域；disabled=配置矛盾 loud warn+signal failed）——BP 是点位判定唯一来源无据不买，与 cheat 门 fail-open 刻意不同向；通过/拒绝均落 signal metadata `buyPoint` 段（研究主数据）
+- **计数三件套**：`_signalSourceTriggerCounts` Map<token, Map<legId, count>>；`_signalGateExcludedIds(token)` 耗尽腿 id Set 传 evaluate 第 6 参（**阶梯接棒**：t1 耗尽后次 tick t2 顶上）；signal metadata `signalGate` 段带 `triggerNo`（落库前预读 +1）
+- **finally 收口补丁**：买路径退出点复查 cheat 拉黑补清仓（`cheat 迟到判定（买路径收口）`）——超时放行→迟到拉黑在 buying 窗内到达时 `_cheatGateLateConsume` 被拦截=持仓滞留缺口（CD158 秒级窗已有；门链串 BP 门放大至 ~30-50s 一并修好）
+- **回测恒拒**：BacktestEngine loadStrategies 后一次性 `_sgExcludedIds`=全部 signalGate 腿（fail-fast 校验保留、运行期天然不触发）
+- **透传白名单**：`signalGate: s.signalGate || null` 实时+回测两处（漏透传=门静默失效，v15 GMGN/v69 cheat 透传事故同款形状，源码锁）
+
+**FA 五触发键（T117，t5-t7 条件原料）**：`recentBlockDropPct`（≤4 已闭合块收盘环+当前块实时收盘、1/2/3 块窗最深跌幅、环 <2 null、块号单调 guard 免疫乱序——迟到块丢弃不污染=刻意语义）、`mcapFromPeakPct`（100×(1−现价×supply/mcapPeakBnb)，任一缺失 null）、quiet 静默段三键 `quietSpanMs/quietSurgeBuyBnb/quietSurgeSec`（静默状态机挂 lastTickAt 更新**前**、gap≥quietThresholdMs（factorParams 缺省 60000）定格+重开 surge 波、surge 带 ts≥startTs guard 防迟到污染、quietSurgeSec 用 buildFactorMap 入参 now 禁 Date.now）
+
+**库条目 `signal-source-ladder-v1`**（`scripts/deploy-signal-source-strategies.cjs`，本地 dry-run 零错误；182 --commit）：t1 `tradeCount>=8 AND buyVolumeBnb>=0.75 AND holdersExDust>=6`（cheatRecheck:true）/ t2 `>=16/>=1/>=9`（true）/ t3 `>=20/>=1.2/>=12`（true）/ t4 `>=24/>=1.5/>=12`（false）/ t5 `recentBlockDropPct>=12`（占位待校准）/ t6 `marketCap>0 AND marketCap<=7.5 OR mcapFromPeakPct>=60`（marketCap>0 前卫防 supply 缺失=0 误触发）/ t7 `mcapFromPeakPct>=60 AND quietSpanMs>=60000 AND quietSurgeBuyBnb>=0.5`；maxTriggers 全 1、priority 1-7（t1 最优先）
+
+**BP2 题面改版+引擎融合**：题集版本 BP1→**BP2**（综合题按用户五条判读框架重写：①活跃度门槛②拉高拒+低市值豁免（mcapBnb ≈8-9 BNB 以下）③急砸抄底④阴跌流失拒（holdersDelta60 为负）⑤常态可买+激烈不合理拉盘拒）；snapshot 增 5 锚（mcapBnb/mcapPeakBnb/mcapFromPeakPct=priceArc×totalSupply 自算、holdersNow/holdersDelta60 两遍重放）；新表 `buy_point_analyses`（DDL `migrations/create_buy_point_analyses.sql`，182 手工执行）+ 新服务 `BuyPointCheckService`（五状态 assessed/timeout/fail/insufficient_ticks/disabled；settle 双模/mem 行环双源/首行 prompt 全文/冷却/inflight 镜像 CheatCheckService）；配置 `fourmemeWs.buyPointCheck`（flap 经 _mergedWsConfig 同键）——详档 BP 台账 BP2 案
+
+**单测六件**：`_test_signal_gate_engine`（新，91 断言：双门全分支/计数三件套/互斥/透传源码锁/finally 收口）、`_test_signal_source_factors`（新，43：FA 五键手算/乱序语义/quiet 状态机）、`_test_buy_point_check_service`（新，26：五状态/迟到丢弃/首行 prompt/inflight/settle/冷却）、`_test_buy_point_lib`（扩至 144：BP2 版本+5 新锚+渲染+透传）、`_test_strategy_library_validate_legs`（扩 H 段）、`_test_fourmeme_fa_factors`（白名单补 T117 五键+存量欠账 73 键清点补登：T107/T113/T116/CD cheat 族/holderTrend——前批加键未同步白名单断言的欠账一并清）
+
+**余留**：①182 手工 DDL（`buy_point_analyses`，DDL 先于代码红线）→ 182 `deploy-signal-source-strategies.cjs --commit` ②新虚拟实验（引用 ladder 条目+cheatCheck.enabled+buyPointCheck.enabled+**buySignalMaxPerToken≥7 显式**）③BP2 对拍（182 跑 `run.mjs --set bp-2026-11-03-live4` 232 点位，跑前知会）④冒烟观察门链三段 metadata（signalGate/cheatCheck/buyPoint）
 
 ### T115 买信号发射帽收紧 5→2：砍掉第三次作弊检测的退场段接刀（v71 `936e1bd9` 实验级 config 变更+重启生效；2026-11-04；用户指令「买入策略也改一下，当前的买入策略只允许发出两个购买信号。（我发现检测第三次，往往是 unhealthy 的现象已经起了作用，在退场的时候买入，盘面起不来了）」）
 

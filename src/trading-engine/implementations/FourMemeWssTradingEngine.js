@@ -378,6 +378,34 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 探针过滤 cheat 前缀——题集加键免改本引擎；FA 实例 ctor 后段构造故不能在此取）
     this._cheatFactorKeys = null;
 
+    // T117 信号源门链（2026-11-05 买入策略整体调整，BP1 引擎融合）：买腿携带
+    // signalGate = 初始买入信号源腿——condition=触发条件，触发即消耗（per
+    // (token, legId) 计数，signal 落库成功后 +1 不返还），门链=cheat 门（二元
+    // healthy 判定，recheckUnhealthy 按腿配置）→ BP 门（Jev 综合判定 ∈
+    // bpPassLevels）两门都过才买；纯盘面（无叙事/GMGN/preBuy 层）。回测恒拒
+    // （BacktestEngine 全量排除本腿）。配置 fourmemeWs.buyPointCheck（flap 同键经
+    // _mergedWsConfig；enabled 缺省 false）。cheat 门复用 _cheatCheckService
+    //（与 CD158 门共享粘滞/拉黑态——同 token 同判定域）
+    const { BuyPointCheckService } = require('../../market-analysis/BuyPointCheckService');
+    const _bpCfg = this._mergedWsConfig().buyPointCheck || {};
+    const _bpMemCfg = _bpCfg.memSource || {};
+    const _bpSettleCap = Number.isFinite(_bpCfg.settleDelayMs) && _bpCfg.settleDelayMs > 0
+      ? _bpCfg.settleDelayMs : 4000;
+    this._bpMemEnabled = _bpMemCfg.enabled === true;
+    this._buyPointCheckService = new BuyPointCheckService(
+      this._mergedWsConfig().buyPointCheck || {}, this.logger,
+      {
+        waitIdle: (token) => (this._senderResolver
+          ? this._senderResolver.waitTokenIdle(token, _bpSettleCap + 1000)
+          : true),
+        ...(this._bpMemEnabled ? { pullTicks: (token) => this._cheatRingPull(token) } : {}),
+      });
+    this._bpGateAwaitMs = Number.isFinite(_bpCfg.gate && _bpCfg.gate.awaitMs)
+      && _bpCfg.gate.awaitMs > 0 ? _bpCfg.gate.awaitMs : 15000;
+    // per (token, legId) 触发计数（进程态重启归零——叙事触发状态机同款先例）；
+    // 耗尽腿组装排除集传 evaluate（阶梯接棒：t1 耗尽 → t2 顶上）
+    this._signalSourceTriggerCounts = new Map();
+
     // T110 买信号发射节流（2026-11-03 用户裁定「全局买信号机制」，所有实验生效）：
     // per-token 冷却双门（buySignalCooldownMs 缺省 3000，0=关；buySignalCooldownTicks
     // 缺省 10，0=关——同日追裁定「3 秒 + 10 个 ticks」双条件 AND，防高频 tick 流
@@ -689,6 +717,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           // 且 cheat_detection 零行，2026-11-04 修复；v15 gmgnCheckCondition 事故
           // 同款形状）——单测 E5 锁此透传
           cheatCheckCondition: s.cheatCheckCondition || null,
+          // T117 信号源门链段（2026-11-05 买入策略整体调整）：携带 = 初始买入信号源
+          // 腿（condition=触发条件；触发即消耗 per-token 计数；门链=cheat 门→BP 门）。
+          // ★白名单映射漏透传 = 运行时 strategy.signalGate 恒 undefined = 门链静默
+          // 跳过、腿退化为裸买（v15 gmgnCheckCondition / v69 cheatCheckCondition
+          // 事故同款形状）——单测 _test_signal_gate_engine 锁此透传
+          signalGate: s.signalGate || null,
           // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
@@ -2070,7 +2104,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }
 
       // 评估（fire 时点因子；只看买腿——同优先级下避免卖策略遮蔽买入）
-      const strategy = this._strategyEngine.evaluate(factorResults, token.token, Date.now(), token, 'buy');
+      // T117 signalGate 腿触发耗尽排除：per (token, legId) 计数 ≥ maxTriggers 的腿
+      // 从评估集剔除（阶梯接棒——前腿耗尽次腿顶上；跳过语义与 maxExecutions 同构）
+      const strategy = this._strategyEngine.evaluate(factorResults, token.token, Date.now(), token, 'buy',
+        { excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) });
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
       }
@@ -2185,6 +2222,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
                 };
               })(),
             } : {}),
+            // T117 信号源门链触发留痕：triggerNo=本腿第 N 次触发（1 起；落库前
+            // 预读 +1，落库成功后门链块正式记账——门拒/超时均不返还，阶梯=多次
+            // 机会设计 2026-11-05 用户裁定）
+            ...(strategy.signalGate ? {
+              signalGate: {
+                legId: strategy.id,
+                triggerNo: this._sgTriggerCount(tokenAddress, strategy.id) + 1,
+                maxTriggers: strategy.signalGate.maxTriggers ?? 1,
+                cheatRecheck: strategy.signalGate.cheatRecheck === true,
+                bpPassLevels: strategy.signalGate.bpPassLevels || ['good', 'neutral'],
+              },
+            } : {}),
             ...signal.factors,
           },
         });
@@ -2193,6 +2242,42 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       } catch (saveError) {
         this.logger.error(this._experimentId, 'BuyEval', `信号保存失败 | ${token.symbol} ${saveError.message}`);
         return { success: false, reason: `信号保存失败: ${saveError.message}` };
+      }
+
+      // ── T117 信号源门链（2026-11-05 买入策略整体调整）──
+      // signalGate 腿：condition=初始买入信号源（触发策略），fire 且 signal 落库
+      // 成功后依次走作弊门 → 买入点位（BP）门，两门都过才买。
+      // ①触发即消耗：本腿计数 +1（门拒/超时均不返还——7 条阶梯策略递进阈值=多次
+      //   机会设计，用户裁定；进程态重启归零；落库失败不消耗——上面已 return）
+      // ②作弊门（二元版）：cheatRecheck=true → unhealthy 重判（CD158 现行）；
+      //   =false → unhealthy 粘滞秒回拒（省配额）；cheat 拉黑终态/healthy 同版粘滞
+      //   两态不变；检测层故障（insufficient/fail）fail-open 放行进 BP
+      // ③BP 门（点位判定唯一来源，全 fail-closed 无据不买）：assessment ∈
+      //   bpPassLevels（默认 good/neutral）过；poor/insufficient/超时/错/disabled 拒
+      // signalGate 腿与七个旧门字段互斥（loadStrategies fail-fast throw）→ 下方
+      // preBuy/叙事直调/旧版 cheat 门/GMGN 段天然 no-op，零旧链交互
+      if (strategy.signalGate) {
+        this._sgRecordTrigger(tokenAddress, strategy.id);
+
+        const cheatGate = await this._cheatGateEvaluateBinary(
+          tokenAddress, token, faState, signalId, strategy.signalGate);
+        if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
+        if (cheatGate.info && signalId) {
+          try {
+            await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, 'SignalGate',
+              `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+          }
+        }
+
+        const bpGate = await this._bpGateEvaluate(
+          tokenAddress, token, faState, signalId, strategy.signalGate, {
+            firePriceBnb,
+            strategyName: strategy.name,
+            signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+          });
+        if (!bpGate.pass) return { success: false, reason: bpGate.reason };
       }
 
       // ── 购买前检查 ──
@@ -2612,6 +2697,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       return { success: false, reason: result?.reason || result?.message || '交易执行失败' };
     } finally {
       this._buyingTokens.delete(tokenAddress);
+      // T117 收口补丁（2026-11-05）：作弊门超时放行→迟到拉黑在 buying 窗内到达时，
+      // _cheatGateLateConsume 的 _cheatExitPosition 因 _buyingTokens 拦截跳过=持仓
+      // 滞留缺口（CD158 秒级窗已有；T117 门链串 BP 门放大至 ~30-50s）——买路径
+      // 退出点复查拉黑补清仓（fire-and-forget；无持仓 no-op）
+      if (this._cheatBlockedTokens.has(tokenAddress)) {
+        this._cheatExitPosition(tokenAddress, 'cheat 迟到判定（买路径收口）').catch(() => {});
+      }
       // pending fire 峰兜底清理：成功路径 setBuyState 已消费（此处 no-op），失败/异常
       // 路径防残峰跨 fire 窗污染下一次回填
       this._factorAggregator.clearBuyFire(tokenAddress);
@@ -2730,13 +2822,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._projectCheatFactors(tokenAddress, res);
       const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
       if (res.grade === 'cheat') {
-        this._cheatBlockedTokens.add(tokenAddress);
-        this.logger.warn(this._experimentId, 'CheatGate',
-          `🚫 作弊盘门拉黑 | ${token.symbol || tokenAddress.slice(0, 10)} ${tokenAddress} [${reasonCodes}]`);
-        await this._cheatExitPosition(tokenAddress, 'cheat 判定');
-        await this._updateSignalStatus(signalId, 'failed',
-          { message: `作弊盘门拒买: cheat [${reasonCodes}]`, reason: 'cheat_gate_cheat' });
-        return { pass: false, reason: `作弊盘门拒买（cheat 拉黑+持仓清仓联动 [${reasonCodes}]）` };
+        return this._cheatGateHardReject(tokenAddress, token, signalId, reasonCodes);
       }
       // healthy / unhealthy（CD158：门条件表达式评估——grade 只投影不决策，
       // 拒/放由腿的 cheatCheckCondition 在投影后的因子表上判定）
@@ -2799,6 +2885,224 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // insufficient_ticks / fail / reused 无 grade（跨进程重启后首增量窗）/ unknown
     // → fail-open 放行
     return { pass: true, info: res || { status: 'unknown' } };
+  }
+
+  // ============ T117 信号源门链（2026-11-05 买入策略整体调整）============
+
+  /** signalGate 腿触发计数查询（per token×legId；进程态重启归零） */
+  _sgTriggerCount(tokenAddress, legId) {
+    return this._signalSourceTriggerCounts.get(tokenAddress)?.get(legId) ?? 0;
+  }
+
+  /** signalGate 腿触发记账 +1（触发即消耗：门拒/超时不返还；signal 落库成功后调） */
+  _sgRecordTrigger(tokenAddress, legId) {
+    let m = this._signalSourceTriggerCounts.get(tokenAddress);
+    if (!m) {
+      m = new Map();
+      this._signalSourceTriggerCounts.set(tokenAddress, m);
+    }
+    m.set(legId, (m.get(legId) || 0) + 1);
+  }
+
+  /**
+   * 触发耗尽腿排除集（T117 阶梯接棒）：signalGate 且计数 ≥ maxTriggers 的腿 id
+   * Set，传 evaluate 第 6 参（跳过=次腿顶上）；非 signalGate 腿恒在集外。
+   * 返回 null=无排除（evaluate 短路零开销）。
+   */
+  _signalGateExcludedIds(tokenAddress) {
+    const counts = this._signalSourceTriggerCounts.get(tokenAddress);
+    if (!counts || counts.size === 0) return null;
+    const excluded = new Set();
+    for (const s of this._strategyEngine.getAllStrategies()) {
+      if (!s.signalGate) continue;
+      if ((counts.get(s.id) ?? 0) >= (s.signalGate.maxTriggers ?? 1)) excluded.add(s.id);
+    }
+    return excluded.size > 0 ? excluded : null;
+  }
+
+  /** cheat 拉黑硬拒共用段（CD158 条件版与 T117 二元版共用）：拉黑+清仓+signal failed */
+  async _cheatGateHardReject(tokenAddress, token, signalId, reasonCodes) {
+    this._cheatBlockedTokens.add(tokenAddress);
+    this.logger.warn(this._experimentId, 'CheatGate',
+      `🚫 作弊盘门拉黑 | ${token.symbol || tokenAddress.slice(0, 10)} ${tokenAddress} [${reasonCodes}]`);
+    await this._cheatExitPosition(tokenAddress, 'cheat 判定');
+    await this._updateSignalStatus(signalId, 'failed',
+      { message: `作弊盘门拒买: cheat [${reasonCodes}]`, reason: 'cheat_gate_cheat' });
+    return { pass: false, reason: `作弊盘门拒买（cheat 拉黑+持仓清仓联动 [${reasonCodes}]）` };
+  }
+
+  /**
+   * T117 信号源门链·作弊门（二元版，与 _cheatGateEvaluate 条件表达式版并列）：
+   * grade 直接决策不走腿表达式——unhealthy 拒（cheatRecheck=true 下个买信号
+   * 自动重判；=false service 侧粘滞秒回拒省配额）；cheat/healthy/超时/故障语义
+   * 与条件版同向（cheat=拉黑+清仓+硬拒；检测层故障 fail-open 放行进 BP——BP 门
+   * fail-closed 全拒正是下游兜底）。grade 均投影 FA（cheat 56 键快照/卖腿可消费）。
+   * @param {Object} signalGate 腿归一化 signalGate 段（cheatRecheck）
+   */
+  async _cheatGateEvaluateBinary(tokenAddress, token, faState, signalId, signalGate) {
+    if (!this._cheatCheckService || !this._cheatCheckService.enabled) {
+      // 配置矛盾（门链腿在跑但 cheatCheck.enabled=false）——检测层不可用不拦买点
+      // fail-open 放行进 BP（cheatCheckCondition 版 skipped 同向；warn 留痕）
+      this.logger.warn(this._experimentId, 'SignalGate',
+        `信号源门链腿在跑但 cheatCheck.enabled=false（作弊门跳过放行进 BP） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+      return { pass: true, info: { status: 'skipped', reason: 'service_disabled' } };
+    }
+    const meta = {
+      address: token.token,
+      symbol: token.symbol || null,
+      name: token.name || null,
+      platform: token.platform || faState?.platform || null,
+      createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+      creatorAddress: token.creatorAddress || null,
+      totalSupply: faState?.totalSupply ?? null,
+    };
+    let res;
+    try {
+      res = await this._cheatCheckService.gateBuyPoint(tokenAddress, meta,
+        { experimentId: this._experimentId, signalId },
+        { awaitMs: this._cheatGateAwaitMs, recheckUnhealthy: signalGate.cheatRecheck === true });
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'SignalGate',
+        `作弊门异常放行 | ${token.symbol || tokenAddress.slice(0, 10)} ${e?.message || e}`);
+      return { pass: true, info: { status: 'error', reason: e?.message || String(e) } };
+    }
+
+    if (res && res.grade) {
+      this._projectCheatFactors(tokenAddress, res);
+      const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
+      if (res.grade === 'cheat') {
+        return this._cheatGateHardReject(tokenAddress, token, signalId, reasonCodes);
+      }
+      if (res.grade === 'unhealthy') {
+        // 唯一非拉黑级硬拒档：signal failed；cheatRecheck=true 下个买信号重判、
+        // =false 下个买信号粘滞秒回（service 侧同判拒，零 Jev 配额）
+        const n = res.unhealthyGrades ?? 0;
+        this.logger.info(this._experimentId, 'SignalGate',
+          `作弊门拒买 | ${token.symbol || tokenAddress.slice(0, 10)} grade=unhealthy` +
+          `${res.cached === true ? '（粘滞秒回，cheatRecheck=false）' : `（第 ${n} 次判定${signalGate.cheatRecheck === true ? '，下个买信号自动重判' : ''}）`}` +
+          ` [${reasonCodes}]`);
+        await this._updateSignalStatus(signalId, 'failed',
+          { message: `作弊门拒买: unhealthy [${reasonCodes}]`, reason: 'cheat_gate_unhealthy' });
+        return { pass: false, reason: `作弊门拒买（unhealthy [${reasonCodes}]）` };
+      }
+      // healthy → 放行进 BP（info 由调用方落 signal metadata cheatCheck 段）
+      return {
+        pass: true,
+        info: {
+          status: res.status, grade: res.grade, cached: res.cached === true,
+          reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
+          levels: res.levels ?? null, buckets: res.buckets ?? null,
+          strongbackerLike: res.strongbackerLike ?? 0,
+        },
+      };
+    }
+
+    if (res && res.status === 'timeout_fail_open') {
+      this.logger.warn(this._experimentId, 'SignalGate',
+        `作弊门竞速超时放行（${this._cheatGateAwaitMs}ms，本笔放行进 BP、迟到结果下轮生效） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+      res.late.then((late) => this._cheatGateLateConsume(tokenAddress, late)).catch(() => {});
+      return { pass: true, info: { status: 'timeout_fail_open', awaitMs: this._cheatGateAwaitMs } };
+    }
+
+    // insufficient_ticks / fail / unknown 无 grade → fail-open 放行进 BP（BP 门兜底）
+    return { pass: true, info: res || { status: 'unknown' } };
+  }
+
+  /**
+   * T117 信号源门链·买入点位门（BP 门，全 fail-closed——BP 是点位判定唯一来源
+   * 无据不买；cheat 层 fail-open 放行的下游兜底正是本门）：
+   * assessed → bucket ∈ bpPassLevels（默认 good/neutral）过 / 否则拒
+   * （bp_gate_assessment）；timeout / fail / insufficient_ticks / disabled → 全拒
+   * （disabled=配置矛盾 loud warn）。通过/拒绝均落 signal metadata `buyPoint` 段
+   * （研究主数据）；timeout 的 late 链在 service 内部落行（引擎零消费无副作用）。
+   * 本方法不抛错（service 不抛；catch 兜底接线级异常=fail-closed 拒——与 cheat
+   * 门 catch 放行刻意不同向）。
+   */
+  async _bpGateEvaluate(tokenAddress, token, faState, signalId, signalGate, ctx = {}) {
+    const passLevels = Array.isArray(signalGate.bpPassLevels) && signalGate.bpPassLevels.length > 0
+      ? signalGate.bpPassLevels : ['good', 'neutral'];
+    let info;
+    let pass = false;
+    if (!this._buyPointCheckService || !this._buyPointCheckService.enabled) {
+      this.logger.warn(this._experimentId, 'SignalGate',
+        `⚠️ 信号源门链腿在跑但 buyPointCheck.enabled=false（BP 门不可用=配置矛盾，fail-closed 拒） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+      info = { status: 'disabled', reason: 'service_disabled' };
+      // signal 已落库，拒买须打终态 failed 可归因（与其余全拒分支同构——不打=
+      // 行滞留 pending 状态页不可归因）
+      await this._updateSignalStatus(signalId, 'failed',
+        { message: 'BP 门不可用（buyPointCheck.enabled=false 配置矛盾），fail-closed 拒', reason: 'bp_gate_disabled' });
+    } else {
+      const meta = {
+        address: token.token,
+        symbol: token.symbol || null,
+        name: token.name || null,
+        platform: token.platform || faState?.platform || null,
+        createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+        creatorAddress: token.creatorAddress || null,
+        totalSupply: faState?.totalSupply ?? null,
+      };
+      try {
+        const res = await this._buyPointCheckService.gateBuyPoint(tokenAddress, meta, {
+          experimentId: this._experimentId,
+          signalId,
+          signalCreatedAt: ctx.signalCreatedAt ?? null,
+          firePriceBnb: ctx.firePriceBnb ?? null,
+          strategyName: ctx.strategyName ?? null,
+        }, { awaitMs: this._bpGateAwaitMs });
+        if (res && res.status === 'assessed') {
+          const bucket = res.assessment?.bucket ?? null;
+          pass = bucket != null && passLevels.includes(bucket);
+          info = {
+            status: 'assessed', assessment: res.assessment ?? null,
+            dimensions: res.dimensions ?? null, anchors: res.anchors ?? null,
+            passLevels, passed: pass,
+            model: res.model ?? null, usage: res.usage ?? null,
+          };
+          this.logger.info(this._experimentId, 'SignalGate',
+            `BP 门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)} assessment=${bucket}（pass=[${passLevels.join('/')}]）`);
+          if (!pass) {
+            await this._updateSignalStatus(signalId, 'failed',
+              { message: `BP 门拒买: ${bucket}`, reason: 'bp_gate_assessment' });
+          }
+        } else if (res && res.status === 'timeout') {
+          info = { status: 'timeout', awaitMs: this._bpGateAwaitMs };
+          this.logger.warn(this._experimentId, 'SignalGate',
+            `BP 门竞速超时拒买（${this._bpGateAwaitMs}ms fail-closed；迟到结果落表下个买信号可见） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+          await this._updateSignalStatus(signalId, 'failed',
+            { message: `BP 门竞速超时拒买（${this._bpGateAwaitMs}ms）`, reason: 'bp_gate_timeout' });
+        } else {
+          // fail（llm_load/cooldown/jev_timeout/jev_error/mapper_error/chain_error）/
+          // insufficient_ticks / unknown → 全 fail-closed 拒
+          info = res ? { ...res } : { status: 'unknown' };
+          await this._updateSignalStatus(signalId, 'failed',
+            {
+              message: `BP 门拒买: ${info.status}${info.reason ? ` (${info.reason})` : ''}`,
+              reason: `bp_gate_${info.status}`,
+            });
+        }
+      } catch (e) {
+        // 接线级异常：fail-closed 拒（BP 无下游兜底——与 cheat 门 catch 放行不同向）
+        info = { status: 'error', reason: e?.message || String(e) };
+        await this._updateSignalStatus(signalId, 'failed',
+          { message: `BP 门异常拒买: ${info.reason}`, reason: 'bp_gate_error' });
+      }
+    }
+    if (signalId) {
+      try {
+        await this._updateSignalMetadata(signalId, { buyPoint: info });
+      } catch (updateError) {
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${updateError.message}`);
+      }
+    }
+    return pass
+      ? { pass: true, info }
+      : {
+          pass: false,
+          reason: `BP 门拒买（${info.status}${
+            info.assessment?.bucket ? `: ${info.assessment.bucket}`
+              : info.reason ? `: ${info.reason}` : ''}）`,
+        };
   }
 
   /**

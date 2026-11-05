@@ -172,5 +172,41 @@ console.log('G. 卖腿 sizing 退役（sellPercentage 拒 / cards 必配）');
   ]).valid, true);
 }
 
+// ═══ H. T117 信号源门链段（2026-11-05：仅买腿可配，normalizeSignalGate 单点共享，与引擎拒启同口径）═══
+console.log('H. signalGate 段（T117 信号源门链）');
+{
+  check('买腿 signalGate={} 合法（归一化默认在引擎侧，入库只校验形状）', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: {} },
+  ]).valid, true);
+  check('买腿 signalGate 显式值合法', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: { maxTriggers: 3, cheatRecheck: true, bpPassLevels: ['good'] } },
+  ]).valid, true);
+  check('signalGate 非对象拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: 'x' },
+  ]).errors.some(e => e.includes('signalGate')), true);
+  check('signalGate 未知键拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: { foo: 1 } },
+  ]).errors.some(e => e.includes('未知键') && e.includes('（T117')), true);
+  check('signalGate.maxTriggers 越界拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: { maxTriggers: 0 } },
+  ]).errors.some(e => e.includes('maxTriggers')), true);
+  check('signalGate.bpPassLevels 非法桶拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: { bpPassLevels: ['excellent'] } },
+  ]).errors.some(e => e.includes('bpPassLevels')), true);
+  check('卖腿携带 signalGate 拒（仅买腿可配）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 1, signalGate: {} },
+  ]).errors.some(e => e.includes('仅买腿')), true);
+  // 七旧门字段互斥（抽查两字段+全列表在引擎侧 D4 已逐字段锁）
+  check('signalGate ∧ narrativeCallCondition 互斥拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: {}, narrativeCallCondition: 'profitPercent >= 10' },
+  ]).errors.some(e => e.includes('互斥')), true);
+  check('signalGate ∧ cheatCheckCondition 互斥拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', signalGate: {}, cheatCheckCondition: 'cheatGrade == 0' },
+  ]).errors.some(e => e.includes('互斥') && e.includes('cheatCheckCondition')), true);
+  check('signalGate 纯盘面腿（无旧门字段）合法', validateLegs('buy', [
+    { condition: 'tradeCount >= 8 AND buyVolumeBnb >= 0.75', signalGate: { cheatRecheck: true } },
+  ]).valid, true);
+}
+
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exitCode = fail === 0 ? 0 : 1;

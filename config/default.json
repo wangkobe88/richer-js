@@ -171,6 +171,16 @@
         "auditShadow": true
       }
     },
+    "buyPointCheck": {
+      "enabled": false,
+      "gate": {
+        "awaitMs": 15000
+      },
+      "memSource": {
+        "enabled": false,
+        "auditShadow": true
+      }
+    },
     "buySignalCooldownMs": 3000,
     "buySignalMaxPerToken": 5,
     "buySignalCooldownTicks": 10,

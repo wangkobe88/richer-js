@@ -302,6 +302,11 @@ class BacktestEngine extends AbstractTradingEngine {
           // 天然不触发」既有约定同源）；此处透传只为 loadStrategies FA 域校验可见
           //（漏透传=未知因子校验失明=v15 GMGN 事故同款形状）
           cheatCheckCondition: s.cheatCheckCondition || null,
+          // T117 信号源门链段（2026-11-05）：**回测恒拒**（用户裁定：门链=cheat 门→
+          // BP 门的实时盘面判定，回测无接线=全 signalGate 买腿被排除、天然零买信号）；
+          // 此处透传只为 loadStrategies 校验/排除集组装可见（漏透传=排除集失明，
+          // signalGate 腿在回测裸买=v15 GMGN 透传事故同款形状），单测锁两处透传
+          signalGate: s.signalGate || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
           // C84 新模型腿（2026-10-17）：叙事发起条件——与 narrativeCallCondition 同为
           // FA 集条件字段（loadStrategies 第四集校验+互斥）。★此白名单映射漏透传=
@@ -337,6 +342,13 @@ class BacktestEngine extends AbstractTradingEngine {
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds,
       new Set(_PreBuyCheckService.getConditionFactorKeys()),
       new Set(_GmgnRiskCheckService.getConditionFactorKeys()));
+
+    // T117 signalGate 腿回测排除集（2026-11-05 用户裁定「门在回测恒拒」）：
+    // loadStrategies 后一次性组装（计数无关——门链回测零接线，带腿即全排除），
+    // 买 evaluate 第 6 参传入；空集 null=零开销（非 signalGate 实验零影响）
+    const _sgIds = this._strategyEngine.getAllStrategies()
+      .filter(s => s.signalGate).map(s => s.id);
+    this._sgExcludedIds = _sgIds.length > 0 ? new Set(_sgIds) : null;
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化，语义同实时引擎）
@@ -1777,8 +1789,11 @@ class BacktestEngine extends AbstractTradingEngine {
         this._tokenPool.initStrategyExecutions(token.token, token.chain || 'bsc', strategyIds);
       }
 
-      // 分腿评估（只看买腿）
-      const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy');
+      // 分腿评估（只看买腿；T117 signalGate 腿全量排除——回测恒拒，用户裁定
+      // 2026-11-05：门链=cheat 门→BP 门的实时盘面判定，回测无接线；带 signalGate
+      // 买腿的实验回测零买信号=预期形状，排除集 loadStrategies 后一次性组装）
+      const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy',
+        this._sgExcludedIds ? { excludeStrategyIds: this._sgExcludedIds } : null);
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
       }

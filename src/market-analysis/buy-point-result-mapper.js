@@ -130,6 +130,13 @@ function buildBuyPointObservation(answers, anchors = null) {
       spanSec: _num(b, 'spanSec'),
       currentVsAthPct: _num(b, 'currentVsAthPct'),
       secSinceAth: _num(b, 'secSinceAth'),
+      // 市值位置族（BP2：supply 缺失 null fail-closed）
+      mcapBnb: _num(b, 'mcapBnb'),
+      mcapPeakBnb: _num(b, 'mcapPeakBnb'),
+      mcapFromPeakPct: _num(b, 'mcapFromPeakPct'),
+      // holder 流向族（BP2：tok 缺失 null fail-closed；delta 可负）
+      holdersNow: _num(b, 'holdersNow'),
+      holdersDelta60: _num(b, 'holdersDelta60'),
       // 近窗动量族（可负）
       chg30Pct: _num(b, 'chg30Pct'),
       chg60Pct: _num(b, 'chg60Pct'),

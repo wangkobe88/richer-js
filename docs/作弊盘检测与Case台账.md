@@ -16,7 +16,7 @@
 
 - **三分类语义（用户裁定原话）**：「作弊盘 / 不健康盘 / 健康盘。其中不健康盘跟健康盘可以相互转化，买点不同，性质可能会有差异」——cheat=协同资金主导的既成事实（不可逆）；unhealthy/healthy=**时点状态**→ unhealthy 每买信号自动重判、healthy 同题集版本粘滞（CD158；版本 bump 允许下次信号重判一次），`cheat_detection` 表多行历史留转化轨迹
 - **链路**：买信号发射后门触发（买腿带 `cheatCheckCondition` 才走；preBuy 过、GMGN 前——无 GMGN 条件腿/被 GMGN 拒的票也进样本）→ settle 4s（tickBuffer flush+sender 回查窗）→ **单 tail 查询** wss_price_ticks（链上真序倒序 limit 3000；锚=该单次查询返回行数，**绝不 count+select 两次**——撕裂防线）→ 满帽才补 head 300（launch 窗）→ `cheat-snapshot` 纯函数（与回归 runner 同源 bit-identical；**权威锚由调用方传入**，head 补充行不参与锚）→ `cheat-state-builder`（20k 预算纯文本：[TOKEN]/[ANCHOR]/[PRECOMPUTED]/[TICKS]/[WALLETS]/判定指引）→ `JevClient.ask`（ESM dynamic import）→ `cheat-result-mapper` → insert `cheat_detection`
-- **判定粘滞与配额（CD158，2026-11-03；增量门/顶帽/升级拉黑全退役）**：cheat=拉黑终态不再判（gateBuyPoint 入口+链内 bootstrap 复检两处 `_blockedResult` 同形状秒回终值）；healthy=同题集版本秒回 `cached:true` 零 Jev（版本 bump 后允许下次信号重判一次）；unhealthy=每买信号自动重判（永不拉黑——升级臂退役）；配额由全局买信号节流天然封顶（T110 发射帽=每代币检测次数上限）；`minTicks 8` 以下不调 Jev 不落表；失败冷却 10s。**bootstrap 门状态跨进程恢复（CD129 起，CD158 改版本域语义）**：`.eq(question_version)`+limit(8) 固定窗——cheat 行在场重启续接拉黑、_lastGrade 自 digest 重建 healthy 粘滞（stickyBootstrapped）、unhealthy 计数恢复续接（纯观测不拉黑）；无恢复则重启即重判一次=设计内
+- **判定粘滞与配额（CD158，2026-11-03；增量门/顶帽/升级拉黑全退役；**CD375 起 unhealthy 粘滞可配**——`gateBuyPoint` opts 新增 `recheckUnhealthy`（缺省 true=CD158 现行每买信号重判；T117 signalGate 腿 `cheatRecheck:false` 传入=unhealthy 粘滞秒回拒省配额，cheat 拉黑/healthy 同版粘滞两态不变））：cheat=拉黑终态不再判（gateBuyPoint 入口+链内 bootstrap 复检两处 `_blockedResult` 同形状秒回终值）；healthy=同题集版本秒回 `cached:true` 零 Jev（版本 bump 后允许下次信号重判一次）；unhealthy=每买信号自动重判（永不拉黑——升级臂退役；recheckUnhealthy=false 时改粘滞秒回）；配额由全局买信号节流天然封顶（T110 发射帽=每代币检测次数上限）；`minTicks 8` 以下不调 Jev 不落表；失败冷却 10s。**bootstrap 门状态跨进程恢复（CD129 起，CD158 改版本域语义）**：`.eq(question_version)`+limit(8) 固定窗——cheat 行在场重启续接拉黑、_lastGrade 自 digest 重建 healthy 粘滞（stickyBootstrapped）、unhealthy 计数恢复续接（纯观测不拉黑）；无恢复则重启即重判一次=设计内
 - **口径**：wallet=COALESCE(sender, trader)（FA 同款单点）；top1/top2 集中度**剔除聚合路由伪钱包**（未解析 sender 的 GMGN 行并包成巨型伪钱包=向 cheat 方向系统性偏置）；资金口径不滤 outlier/尘 tick，priceArc 仅可靠价行；routerPct/unresolvedSenderTickCount 单列进 state（证据洞告知）；bnb_amount 恒 BNB 域（flap quote 盘写入时已换算，读侧照抄）
 - **留痕纪律（观察模式已废 CD158）**：signal metadata 落 `cheatCheck` 轨迹（grade 四键+门条件表达式/评估结果——graded pass 路径 info={status,grade,cached,reasons,unhealthyGrades,levels,buckets,condition,conditionPassed,conditionError?}）；timeout late 链异步落表不回填信号行；实验 stop 不清理表行（token 级全局资产）；stop drain 上限 5s
 - **失败语义**：Jev 超时/失败落 timeout/error 行带 fail_reason（loud 留痕）+冷却；落库失败 loud warn 不重试；链内全吞错绝不 throw 进交易链
@@ -186,6 +186,16 @@
 - **⚠️上线首日接线事故（2026-11-04 00:08 UTC+8 发现并修复，`be5cb146`）**：v69 首 1h 西红柿 `0xd510…`（flap 税币）5 次买信号发射（15:58-16:00Z，rating=2 + earlyReturn 152-300% 每 tick fire，全被 GMGN issuer 分档门拒——门残段行为正常）**零 CheatGate 轨迹/cheat_detection 零行/metadata.cheatCheck 恒 null**——config.strategiesConfig.buyStrategies 腿已带 cheatCheckCondition（部署无误），但 `FourMemeWssTradingEngine` 装载映射白名单（strategyArray.push 段，v15 gmgnCheckCondition 漏透传事故同款位置）**漏了 cheatCheckCondition 透传** → 运行时 `strategy.cheatCheckCondition` 恒 undefined → :2354 if 恒不进=门静默跳过（无 warn 无留痕无 fail-open 轨迹）。E5 单测只锁 StrategyEngine.loadStrategies+BacktestEngine 两处映射，漏了 live 引擎这层 config→strategy 白名单。修复=映射白名单补 `cheatCheckCondition: s.cheatCheckCondition || null` + E5 扩为三处映射锁；零持仓窗口（trades=0）--force 重启 v69 生效（新 PID 3000912@182，代码 be5cb146，16:03:36Z 起）。**事故期 1h 门整体失效但方向=多买非乱卖**（门是拒买层，GMGN 层仍在工作），零资金影响（5 信号全被 GMGN 拒）。同日 T110 节流三态在生产全验证：西红柿冷却 ticks 门拦截（3/6/8/9<10 逐 tick 递增可见）+3s 时间门+发射帽 5/5 封顶（16:00:45 起「已发 5/5」），节流拦截不落信号行不烧门 ✓ 设计全符合
 
 ## Case 倒序
+
+### CD375 unhealthy 粘滞可配 recheckUnhealthy（2026-11-05，机制案·T117 信号源门链同批；用户方案「是否重新作弊分析」per 腿选项）
+
+**动机**：T117 信号源门链的阶梯策略里低阶触发源（t4-t7）不值得为 unhealthy 重判烧 Jev 配额——用户方案 per 腿配「是否重新作弊分析」。语义裁定：选=true → unhealthy 结论重判（≈CD158 现行）；不选 → **unhealthy 粘滞秒回拒**（新行为，省配额）；healthy 同版本粘滞/cheat 拉黑终态两态不变；无结论时先首析。
+
+**实现**：`CheatCheckService.gateBuyPoint` 第 4 参 opts 新增 `recheckUnhealthy`（**缺省 true=存量 CD158 链路零变化**）——入口粘滞判据从 `healthy` 扩为 `healthy || (recheckUnhealthy===false && unhealthy)`，`_stickyHealthyResult` 泛化 `_stickyResult`（grade 透传，消费端零改动）；链内 4c 复检（bootstrap 恢复的 unhealthy）同扩。引擎侧 `_cheatGateEvaluateBinary`（T117 二元版）传 `recheckUnhealthy: signalGate.cheatRecheck === true`；`cheatCheckCondition` 条件版（CD158 腿）不传=缺省 true 行为不变。
+
+**验证**：`_test_cheat_detection_service.cjs` 复跑全绿（缺省 true 零变化锚）+ `_test_signal_gate_engine.cjs` A8 两态透传断言（gateBuyPoint 第 4 参 opts {awaitMs, recheckUnhealthy} 精确对拍）。
+
+**余留**：生产 recheckUnhealthy=false 触发频率/省配额规模观察（signal-source-ladder-v1 t4-t7 四腿跑起来后看 cheat_detection 行数对比）。
 
 ### v72 edbd5b38 BUY 信号票批量收录 CD280-CD373（94 案，2026-11-05）
 

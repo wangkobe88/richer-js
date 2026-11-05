@@ -62,6 +62,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     mcapPeakBnb: factorResults.mcapPeakBnb ?? null,
     secSinceMcapPeak: factorResults.secSinceMcapPeak ?? null,
     mcapRiseHalfSec: factorResults.mcapRiseHalfSec ?? null,
+    // T117 信号源 t6/t7 市值回撤键（2026-11-05 买入策略整体调整）：现市值较峰市值
+    // 回撤 %——信号源 fire 复盘需落库；旧 FA 无键 → null 不掩盖
+    mcapFromPeakPct: factorResults.mcapFromPeakPct ?? null,
     // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
     // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
     peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,
@@ -141,6 +144,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     bigHolderTotal: factorResults.bigHolderTotal ?? null,
     bigHolderShare: factorResults.bigHolderShare ?? null,
     maxBlockDropPct: factorResults.maxBlockDropPct ?? null,
+    // T117 信号源 t5 连续区块跌幅键（2026-11-05）：FA 块收盘环不可离线重算
+    // （快照行无块级分辨率），不落库即丢（act* 先例）；旧 FA 无键 → null 不掩盖
+    recentBlockDropPct: factorResults.recentBlockDropPct ?? null,
     rsi14Sec: factorResults.rsi14Sec ?? null,
     crashSpeedPctPerSec: factorResults.crashSpeedPctPerSec ?? null,
     idleSecSinceLastTick: factorResults.idleSecSinceLastTick ?? null,
@@ -166,6 +172,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     actBuyers: factorResults.actBuyers ?? null,
     actSellers: factorResults.actSellers ?? null,
     actNewTraders: factorResults.actNewTraders ?? null,
+    // T117 信号源 t7 静默段三键（2026-11-05 买入策略整体调整）：FA 状态机不可离线
+    // 重算（act* 先例），不落库即丢；quietSurgeSec=波持续秒数（fire 时刻值），
+    // 旧 FA 无键 → null 不掩盖
+    quietSpanMs: factorResults.quietSpanMs ?? null,
+    quietSurgeBuyBnb: factorResults.quietSurgeBuyBnb ?? null,
+    quietSurgeSec: factorResults.quietSurgeSec ?? null,
     // 滚动净买窗两键（T77 2026-10-27 MUSK2028 案 W=10s）：RatioWin null=窗内零买缺
     // 近期证据 fail-closed；Bnb=窗买量观察键。FA 内存事件环不可重算（act* 先例），
     // 不落库即丢；旧 FA 无这些键 → null，不掩盖

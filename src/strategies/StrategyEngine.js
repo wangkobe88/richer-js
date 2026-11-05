@@ -70,6 +70,61 @@ function normalizeSellDebounce(raw) {
     return { normalized: Object.keys(out).length > 0 ? out : null, error: null };
 }
 
+/** signalGate 允许的 BP 综合判定桶全集（与 buy-point 题集综合题四桶同域） */
+const SIGNAL_GATE_BP_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
+
+/**
+ * 信号源门链段归一化（T117 2026-11-05 买入策略整体调整）：
+ * 腿携带 signalGate = 初始买入信号源腿——condition 语义变为「触发条件」，触发后
+ * 依次过作弊检测门 → 买入点位分析（BP）门，两门都过才买（纯盘面，无叙事/GMGN/
+ * preBuy 层）。
+ * 形状：plain object，键白名单 {maxTriggers, cheatRecheck, bpPassLevels}：
+ *   - maxTriggers：正整数，per (token, leg) 触发上限（触发即消耗——门拒不返还），
+ *     缺省 1（用户裁定「默认只触发一次」）
+ *   - cheatRecheck：bool，unhealthy 结论是否重判（true=重判≈CD158 现行；
+ *     false=unhealthy 粘滞秒回拒省配额；healthy 同版本粘滞/cheat 拉黑终态两态不变），
+ *     缺省 false
+ *   - bpPassLevels：BP 综合判定放行桶数组 ⊆ 四桶非空，缺省 ['good','neutral']
+ *     （用户裁定 2026-11-05）
+ * 非法形状/未知键/越界值 → error 字符串（loadStrategies throw 拒启 /
+ * StrategyLibraryService.validateLegs 400，sellDebounce 同款 fail-fast）。
+ * @param {*} raw - 腿配置原始值
+ * @returns {{normalized: Object|null, error: string|null}}
+ */
+function normalizeSignalGate(raw) {
+    if (raw == null) return { normalized: null, error: null };
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        return { normalized: null, error: `signalGate 必须是对象（键：maxTriggers/cheatRecheck/bpPassLevels），实际 ${JSON.stringify(raw)}` };
+    }
+    const out = { maxTriggers: 1, cheatRecheck: false, bpPassLevels: ['good', 'neutral'] };
+    for (const k of Object.keys(raw)) {
+        if (!['maxTriggers', 'cheatRecheck', 'bpPassLevels'].includes(k)) {
+            return { normalized: null, error: `signalGate 未知键 "${k}"（仅支持 maxTriggers/cheatRecheck/bpPassLevels）` };
+        }
+    }
+    if (raw.maxTriggers != null) {
+        const n = Number(raw.maxTriggers);
+        if (!Number.isInteger(n) || n < 1 || n > 100) {
+            return { normalized: null, error: `signalGate.maxTriggers 非法值 ${JSON.stringify(raw.maxTriggers)}（须整数 ∈ [1, 100]）` };
+        }
+        out.maxTriggers = n;
+    }
+    if (raw.cheatRecheck != null) {
+        if (typeof raw.cheatRecheck !== 'boolean') {
+            return { normalized: null, error: `signalGate.cheatRecheck 非法值 ${JSON.stringify(raw.cheatRecheck)}（须 bool）` };
+        }
+        out.cheatRecheck = raw.cheatRecheck;
+    }
+    if (raw.bpPassLevels != null) {
+        const arr = Array.isArray(raw.bpPassLevels) ? raw.bpPassLevels : [raw.bpPassLevels];
+        if (arr.length === 0 || !arr.every((x) => SIGNAL_GATE_BP_LEVELS.includes(x))) {
+            return { normalized: null, error: `signalGate.bpPassLevels 非法值 ${JSON.stringify(raw.bpPassLevels)}（须 ${SIGNAL_GATE_BP_LEVELS.join('/')} 的非空子集）` };
+        }
+        out.bpPassLevels = arr.slice();
+    }
+    return { normalized: out, error: null };
+}
+
 class StrategyEngine {
     /**
      * @param {Object} config - 策略引擎配置
@@ -231,6 +286,28 @@ class StrategyEngine {
                     throw new Error(`策略[${config.id}] 非买腿携带 cheatCheckCondition（买信号驱动作弊门条件）：该字段仅买腿可配，拒绝启动`);
                 }
 
+                // signalGate 信号源门链段（T117 2026-11-05 买入策略整体调整）：
+                // 买腿专属；携带 = 初始买入信号源腿（condition=触发条件，触发后依次过
+                // 作弊门→BP 门两门都过才买）。形状/值域 fail-fast（normalizeSignalGate
+                // 单点，与 validateLegs 同源）；与七个旧门字段互斥（旧门块的消费点在
+                // 信号落库后的中段，signalGate 腿走独立门链，并存=两套门行为未定义）
+                const sg = normalizeSignalGate(config.signalGate);
+                if (sg.error) {
+                    throw new Error(`策略[${config.id}] ${sg.error}（T117 信号源门链），拒绝启动`);
+                }
+                if (sg.normalized != null && config.action !== 'buy') {
+                    throw new Error(`策略[${config.id}] 非买腿携带 signalGate（T117 信号源门链）：该字段仅买腿可配，拒绝启动`);
+                }
+                if (sg.normalized != null) {
+                    const _sgConflicts = ['narrativeTriggerCondition', 'narrativeCallCondition',
+                        'narrativePrefetchCondition', 'preBuyCheckCondition', 'repeatBuyCheckCondition',
+                        'gmgnCheckCondition', 'cheatCheckCondition']
+                        .filter((f) => String(config[f] || '').trim() !== '');
+                    if (_sgConflicts.length > 0) {
+                        throw new Error(`策略[${config.id}] signalGate 与 ${_sgConflicts.join('/')} 互斥（T117）：signalGate 腿=纯盘面门链（触发→cheat 门→BP 门→执行），旧门字段属旧链路（fire 后中段消费），并存=两套门并发行为未定义，拒绝启动`);
+                    }
+                }
+
                 // 卖腿确认去抖覆盖段（T109 2026-11-03 0x89e4 flap 止损臂案）：
                 // sellDebounce={minTicks,debounceMs,maxWaitMs} 仅卖腿可配，逐键覆盖
                 // 引擎级缺省——首真起算时固化进 pending entry（窗口内不改门）。形状/
@@ -269,6 +346,11 @@ class StrategyEngine {
                     // 信号发射受 BuySignalThrottle 冷却/上限节流（默认 3s/5 次）。
                     // 回测零接线 fail-open 放行。null=零门零调用
                     cheatCheckCondition: config.cheatCheckCondition || null,
+                    // 信号源门链段（T117 2026-11-05）：null=普通腿（零变化）；携带 =
+                    // 初始买入信号源腿（condition=触发条件；触发即消耗 per-token 计数，
+                    // 门链=cheat 门→BP 门两门都过才买；回测恒拒——BacktestEngine 全量
+                    // 排除本腿）。归一化形状 {maxTriggers, cheatRecheck, bpPassLevels}
+                    signalGate: sg.normalized,
                     narrativeCallCondition: config.narrativeCallCondition || null,
                     // 叙事预触发条件（N3，2026-10-13 叙事提速案）：不配 = 预触发用
                     // narrativeCallCondition；配更宽松条件 = 更早发起（API 消耗与提前量
@@ -337,14 +419,25 @@ class StrategyEngine {
      * @param {number} timestamp - 当前时间戳
      * @param {Object} tokenData - 代币数据（用于检查执行次数）
      * @param {string|null} [actionFilter] - 只评估指定动作的策略（'buy'|'sell'），null 为混合（旧语义）
+     * @param {Object} [opts] - 附加选项：excludeStrategyIds=Set<string> 被排除的
+     *   策略 id 集合（T117 信号源腿触发次数耗尽后由次腿顶上——阶梯接棒；跳过
+     *   语义与 maxExecutions 同构：高优先级腿被滤掉 → 次优先级腿可顶上）。现有
+     *   调用点不传零影响
      * @returns {Object|null} 触发的策略对象，如果没有则返回null
      */
-    evaluate(factorResults, tokenAddress, timestamp = Date.now(), tokenData = null, actionFilter = null) {
+    evaluate(factorResults, tokenAddress, timestamp = Date.now(), tokenData = null, actionFilter = null, opts = null) {
         const triggeredStrategies = [];
+        const excludeIds = opts && opts.excludeStrategyIds ? opts.excludeStrategyIds : null;
 
         for (const strategy of this._strategies) {
             // 动作过滤（事件驱动引擎分腿评估用：持仓中只看卖腿，避免同优先级买策略遮蔽卖出）
             if (actionFilter && strategy.action !== actionFilter) {
+                continue;
+            }
+
+            // 触发次数耗尽排除（T117 2026-11-05）：excludeStrategyIds 内的腿直接跳过
+            // （信号源腿 maxTriggers 耗尽集，由引擎组装传入）
+            if (excludeIds && excludeIds.has(strategy.id)) {
                 continue;
             }
 
@@ -517,4 +610,4 @@ class StrategyEngine {
     }
 }
 
-module.exports = { StrategyEngine, normalizeSellDebounce };
+module.exports = { StrategyEngine, normalizeSellDebounce, normalizeSignalGate, SIGNAL_GATE_BP_LEVELS };

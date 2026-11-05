@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * 买入点位分析纯函数单测（BP1）——零 DB 零网络
+ * 买入点位分析纯函数单测（BP1→BP2 已扩）——零 DB 零网络
  *
  * 覆盖：buy-point-snapshot（buildBuyPointSnapshot/computeBuyPointDerived——A/B/C 组
- * 手算精确值）+ buy-point-state-builder（D 组分区/截断/超帽）+ buy-point-result-mapper
- * （E 组容错双轨/纯透传反证）+ llm/buy-point-questions.mjs（F 组形状与桶域对锁——
- * CJS 经 dynamic import）+ scripts/buy-point/lib.mjs（G 60s 去重 / H 前向收益 /
- * I as-of 与 episode）。
+ * 手算精确值，BP2 增市值位置/holder 流向两族）+ buy-point-state-builder（D 组分区/
+ * 截断/超帽+两新行渲染）+ buy-point-result-mapper（E 组容错双轨/纯透传反证+BP2 五锚）
+ * + llm/buy-point-questions.mjs（F 组形状与桶域对锁+五条判读框架——CJS 经 dynamic
+ * import）+ scripts/buy-point/lib.mjs（G 60s 去重 / H 前向收益 / I as-of 与 episode）。
  *
  * 合成微夹具（18 tick / 220s / 8 钱包）：跨窗钱包/router 双形状（viaRouter 用户行
  * +sender 缺失伪钱包行）/outlier 天价行/清仓卖家/同块 burst——buyDerived 全键手算
@@ -127,6 +127,13 @@ ok(dA.burst5In120 && dA.burst5In120.n === 2 && near(dA.burst5In120.buyBnb, 0.7) 
 // 持仓 top5 = {W_B 1.43e9, creator 3.2e8, W_C 3.105e8, W_F 3.0e8, W_G 1.36e8}；win60 卖家只有 W_D（不在 top5）
 ok(dA.bigHolderSellBnb60 === 0, `bigHolderSellBnb60=0（top5 近60s 零卖出=有证据零值，实际 ${dA.bigHolderSellBnb60}）`);
 ok(dA.exitSellerCount60 === 1, `exitSellerCount60=1（W_D 清仓净=0，实际 ${dA.exitSellerCount60}）`);
+// 市值位置族（BP2）：arc.last=1.6e-9/ATH=2.0e-9 × supply 1e9；currentVsAthPct=-20 同源互证
+ok(dA.mcapBnb === 1.6 && dA.mcapPeakBnb === 2, `mcap=1.6 / 峰=2.0 BNB（实际 ${dA.mcapBnb}/${dA.mcapPeakBnb}）`);
+ok(dA.mcapFromPeakPct === 20, `mcapFromPeakPct=20%（与 currentVsAthPct=−20 同源互证，实际 ${dA.mcapFromPeakPct}）`);
+// holder 流向族（BP2）：末点正净=7（CREATOR/W_B/W_C/W_E/W_F/W_G/W_H；W_D 净 0 不计）；
+// 60s 前（dt≤155，含 W_D 未清仓+W_C 未三买+W_H 首买恰 155 入）=8 → delta=−1（净流失）
+ok(dA.holdersNow === 7, `holdersNow=7（实际 ${dA.holdersNow}）`);
+ok(dA.holdersDelta60 === -1, `holdersDelta60=−1（W_D 尾窗清仓流失，实际 ${dA.holdersDelta60}）`);
 // priceBuckets：17 可靠价行 → 等笔距 20 桶 3 空（b∈{0,6,13}）=17 桶
 ok(dA.priceBuckets.length === 17, `priceBuckets=17 桶（实际 ${dA.priceBuckets.length}）`);
 ok(dA.priceBuckets[0].dt === 5 && near(dA.priceBuckets[0].price, 1.0 * E9), '首桶=行1 @t+5');
@@ -171,6 +178,12 @@ ok(near(dCOut.win[30].buyBnb, 0.1), 'C: outlier 行资金照计');
 const rowsCTok = [row(5, 'BUY', W_B, 0.1, 1.0 * E9, null), row(60, 'SELL', W_B, 0.05, 1.1 * E9, 5e7)];
 const dCTok = buildBuyPointSnapshot(rowsCTok, metaA).buyDerived;
 ok(dCTok.bigHolderSellBnb60 === null && dCTok.exitSellerCount60 === null, 'C: token_amount 任一行缺失 → 卖压族 null fail-closed');
+ok(dCTok.holdersNow === null && dCTok.holdersDelta60 === null, 'C: token_amount 缺失 → holder 流向族 null fail-closed（BP2）');
+
+// supply 缺失（meta.totalSupply 空洞）：可靠价在场也不冒充市值（BP2——两族证据门独立）
+const dCNoSupply = buildBuyPointSnapshot(rowsA, { ...metaA, totalSupply: null }).buyDerived;
+ok(dCNoSupply.mcapBnb === null && dCNoSupply.mcapPeakBnb === null && dCNoSupply.mcapFromPeakPct === null, 'C: supply 缺失 → 市值位置族 null fail-closed（BP2）');
+ok(dCNoSupply.holdersNow === 7 && dCNoSupply.holdersDelta60 === -1, 'C: supply 缺失不影响 holder 族（证据门独立，实际 7/-1）');
 
 const rowsCNoPos = [row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8), row(60, 'SELL', W_B, 0.1, 1.1 * E9, 1e8)];
 const dCNoPos = buildBuyPointSnapshot(rowsCNoPos, metaA).buyDerived;
@@ -189,6 +202,8 @@ ok(stD.state.includes('近120s 买'), 'D: [WALLETS] 近端字段在场');
 ok(stD.state.includes('近窗动量') && stD.state.includes('节奏趋势') && stD.state.includes('卖压') && stD.state.includes('参与结构') && stD.state.includes('时点位置'), 'D: PRECOMPUTED 七族行');
 ok(stD.state.includes('近窗动量(涨跌%): 30s 14.29% / 60s 3.23% / 120s 0.00%'), 'D: chg 手算值渲染');
 ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCount60=1');
+ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
+ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.promptChars === stD.state.length && stD.truncated.ticks === false && stD.truncated.wallets === false && stD.truncated.hardCap === false, 'D: 小夹具零截断');
 
 const rowsMany = [];
@@ -228,6 +243,8 @@ ok(obsE.anchors.chg30Pct === 14.29, 'E: 锚负数保留（chg30 正值臂）');
 const obsNeg = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: -12.34, win: dA.win });
 ok(obsNeg.anchors.chg30Pct === -12.34, 'E: chg 负值 −12.34 照读（不以 null 吞）');
 ok(obsE.anchors.win60BuyBnb !== undefined && near(obsE.anchors.win60BuyBnb, 0.27), 'E: win 族扁平键 win60BuyBnb 透传');
+ok(obsE.anchors.mcapBnb === 1.6 && obsE.anchors.mcapPeakBnb === 2 && obsE.anchors.mcapFromPeakPct === 20, 'E: 市值位置族三键透传（BP2）');
+ok(obsE.anchors.holdersNow === 7 && obsE.anchors.holdersDelta60 === -1, 'E: holder 流向族两键透传（BP2，delta 负值照读不吞）');
 ok(buildBuyPointObservation(fullAnswers(), null).assessment.bucket === 'poor', 'E: anchors 缺省 null 容忍');
 const badAnchor = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: 'not-a-number' });
 ok(badAnchor.anchors.chg30Pct === null, 'E: 非数值锚形状异常 → null 不冒充');
@@ -243,9 +260,9 @@ ok(obsPartial.dimensions.chip_flow === null && obsPartial.dimensions.price_momen
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP1 八题/桶域对锁/两调深相等）');
+  console.log('F. 题集形状（BP2 八题/桶域对锁/五条框架/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP1', 'F: 版本=BP1');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP2', 'F: 版本=BP2');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 8, `F: 恰 8 题（实际 ${ids.length}）`);
@@ -268,6 +285,16 @@ ok(obsPartial.dimensions.chip_flow === null && obsPartial.dimensions.price_momen
   ok(Object.keys(qs[ASSESSMENT_ID].criteria).every((b) => ASSESSMENT_LEVELS.includes(b)), 'F: 综合题桶===ASSESSMENT_LEVELS');
   ok(qs[ASSESSMENT_ID].instructions.includes('狙击'), 'F: 综合题角色代入（狙击交易者）');
   ok(qs[ASSESSMENT_ID].instructions.includes('材料太薄'), 'F: 综合题薄窗 insufficient 指引');
+  // BP2 五条判读框架（用户裁定 2026-11-05）逐条在综合题在场
+  const insA = qs[ASSESSMENT_ID].instructions;
+  ok(insA.includes('活跃度门槛') && insA.includes('低市值豁免') && insA.includes('急砸抄底') && insA.includes('阴跌流失拒') && insA.includes('激烈不合理的拉盘'), 'F: 综合题五条框架逐条在场（活跃门槛/拉高拒+低市值豁免/急砸抄底/阴跌流失拒/非理性拉盘拒）');
+  ok(insA.includes('mcapBnb 尚低') && insA.includes('8-9 BNB'), 'F: 综合题豁免臂引用市值位置行（8-9 BNB 阈）');
+  ok(insA.includes('holdersDelta60 为负'), 'F: 综合题阴跌臂引用 holder 流向行');
+  // 四维度题 BP2 反锚补强
+  ok(qs.price_momentum.instructions.includes('8-9 BNB'), 'F: momentum 反锚④追高低市值豁免臂');
+  ok(qs.entry_position.instructions.includes('8-9 BNB') && qs.entry_position.instructions.includes('市值位置行'), 'F: entry_position 反锚④贴高与市值位置并读');
+  ok(qs.chip_flow.instructions.includes('holdersDelta60'), 'F: chip_flow 怎算②holder 流向行 + 反锚④阴跌流失臂');
+  ok(qs.market_heat.instructions.includes('活跃度是入场的必要条件'), 'F: market_heat 反锚④活跃度门槛教学（拒买权衡归综合题）');
 
   // ═══════════════ G/H/I. scripts/buy-point/lib.mjs（ESM dynamic import） ═══════════════
   console.log('G. 60s 窗去重');

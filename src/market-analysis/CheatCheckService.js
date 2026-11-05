@@ -153,20 +153,20 @@ class CheatCheckService {
   get enabled() { return this._enabled; }
 
   /**
-   * CD158 粘滞秒回形状（healthy 不再重判）：入口与 _chain 内 bootstrap 复检两处
-   * 消费同一形状——{status:'graded', grade:'healthy', cached:true, reasons,
-   * unhealthyGrades, levels, buckets, anchors}（levels/buckets/anchors 供引擎
-   * FA 投影，与真分析返回同构=消费端零分叉）。
+   * CD158 粘滞秒回形状（healthy 不再重判；T117 2026-11-05 泛化 unhealthy 拒买
+   * 粘滞——recheckUnhealthy=false 腿不重判省配额秒回拒）：入口与 _chain 内
+   * bootstrap 复检两处消费同一形状——{status:'graded', grade, cached:true,
+   * reasons, unhealthyGrades, levels, buckets, anchors}（levels/buckets/anchors
+   * 供引擎 FA 投影，与真分析返回同构=消费端零分叉）。
    * @private
    */
-  _stickyHealthyResult(token) {
+  _stickyResult(token, lg) {
     this.stats.stickyReused++;
-    const lg = this._lastGrade.get(token);
     return {
-      status: 'graded', grade: 'healthy', cached: true,
-      reasons: lg?.reasons ?? [],
+      status: 'graded', grade: lg.grade, cached: true,
+      reasons: lg.reasons ?? [],
       unhealthyGrades: this._gateUnhealthyGrades.get(token) ?? 0,
-      levels: lg?.levels ?? null, buckets: lg?.buckets ?? null, anchors: lg?.anchors ?? null,
+      levels: lg.levels ?? null, buckets: lg.buckets ?? null, anchors: lg.anchors ?? null,
       strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞）
     };
   }
@@ -206,13 +206,21 @@ class CheatCheckService {
     if (this._gateBlocked.has(token)) return this._blockedResult(token);
 
     // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
-    // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）
+    // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）。
+    // T117（2026-11-05）recheckUnhealthy=false 腿：unhealthy 结论也粘滞秒回拒
+    //（省配额；用户裁定「不需重新作弊分析」=unhealthy 不重判直接用已有结论）；
+    // 默认缺省 true = CD158 现行行为（unhealthy 每买信号重判）。inflight join
+    // 边缘：recheck=false 腿 join 上 recheck=true 腿已起的真析链=拿更细结果，
+    // 不烧额外配额，方向安全接受
     const lg = this._lastGrade.get(token);
-    if (lg && lg.grade === 'healthy') return this._stickyHealthyResult(token);
+    if (lg && (lg.grade === 'healthy'
+        || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
+      return this._stickyResult(token, lg);
+    }
 
     let chain = this._inflight.get(token);
     if (!chain) {
-      chain = this._chain(token, tokenMeta, context).finally(() => this._inflight.delete(token));
+      chain = this._chain(token, tokenMeta, context, opts).finally(() => this._inflight.delete(token));
       chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
       this._inflight.set(token, chain);
     } else {
@@ -243,7 +251,7 @@ class CheatCheckService {
 
   // ─────────────────────────── 分析链（全吞错） ───────────────────────────
 
-  async _chain(token, tokenMeta, context) {
+  async _chain(token, tokenMeta, context, opts = {}) {
     try {
       // 1) settle：尾部突发簇落 DB（tickBuffer 500ms flush + sender 回查 0-3s）
       //    双模（①，2026-11-04）：注入 waitIdle → 等 per-token 回查清空（watermark，
@@ -292,13 +300,15 @@ class CheatCheckService {
 
       // 4c) 粘滞复检（CD158）：重启后首链入口粘滞不命中（内存空）——bootstrap
       // 恢复 healthy _lastGrade 后在此秒回，**不烧 Jev**（无此复检=粘滞语义跨重启
-      // 失效一次）。与入口短路同形状（_stickyHealthyResult）
+      // 失效一次）。与入口短路同形状（_stickyResult）；T117 recheckUnhealthy=false
+      // 腿 unhealthy 同样粘滞（bootstrap 恢复的 unhealthy 也秒回）
       {
         const lg = this._lastGrade.get(token);
-        if (lg && lg.grade === 'healthy') {
+        if (lg && (lg.grade === 'healthy'
+            || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
           this.stats.stickyBootstrapped++;
-          this._log('info', `粘滞 healthy 秒回（bootstrap 恢复） | ${token}`);
-          return this._stickyHealthyResult(token);
+          this._log('info', `粘滞 ${lg.grade} 秒回（bootstrap 恢复） | ${token}`);
+          return this._stickyResult(token, lg);
         }
       }
 

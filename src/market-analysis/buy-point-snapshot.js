@@ -233,11 +233,50 @@ function computeBuyPointDerived(snapshot) {
     exitSellerCount60 = exited.size;
   }
 
+  // ── 市值位置族（BP2/T117 2026-11-05）：priceArc × tokenMeta.totalSupply
+  // snapshot 自算（引擎/runner 单点同源，as-of 窗自洽——BP 窗=拉数窗，短龄票
+  // ≈全史、长票=窗口内位置）；totalSupply 缺失 → 全族 null fail-closed
+  //（FA mcapFromPeakPct 同向纪律——市值锚无 supply 不冒充）──
+  const supply = snapshot.tokenMeta && Number(snapshot.tokenMeta.totalSupply) > 0
+    ? Number(snapshot.tokenMeta.totalSupply) : null;
+  let mcapBnb = null, mcapPeakBnb = null, mcapFromPeakPct = null;
+  if (arc && supply !== null && arc.last > 0 && arc.ath > 0) {
+    mcapBnb = +(arc.last * supply).toFixed(2);
+    mcapPeakBnb = +(arc.ath * supply).toFixed(2);
+    mcapFromPeakPct = +((1 - arc.last / arc.ath) * 100).toFixed(2);
+  }
+
+  // ── holder 流向族（BP2/T117）：holdersNow=全窗末正净持仓钱包数（剔伪钱包）；
+  // holdersDelta60=末点与 60s 前同口径计数之差（两遍重放：净持仓=Σ买−Σ卖
+  // 求和交换律与序无关，pass1 只取 dt≤tEnd−60 行/pass2 全行——dt 缺失行末点
+  // 计入、时点计数排除）；token_amount 任一行缺失 → 全族 null fail-closed
+  //（与卖压族同一 tokMissing 纪律）──
+  let holdersNow = null, holdersDelta60 = null;
+  if (!tokMissing) {
+    const holdersAt = (untilDt) => {
+      const net = new Map();
+      for (const t of ticks) {
+        if (untilDt !== null && (t.dt === null || t.dt === undefined || t.dt > untilDt)) continue;
+        if (!t.wallet || isRouterWallet(t.wallet)) continue;
+        net.set(t.wallet, (net.get(t.wallet) || 0) + (t.side === 'BUY' ? (t.tok || 0) : -(t.tok || 0)));
+      }
+      let n = 0;
+      for (const v of net.values()) if (v > 0) n++;
+      return n;
+    };
+    holdersNow = holdersAt(null);
+    if (tEnd !== null) holdersDelta60 = holdersNow - holdersAt(tEnd - 60);
+  }
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
     // 价格（可靠价口径）
     chg30Pct, chg60Pct, chg120Pct, priceBuckets,
+    // 市值位置族（BP2：supply 缺失全族 null）
+    mcapBnb, mcapPeakBnb, mcapFromPeakPct,
+    // holder 流向族（BP2：tok 缺失全族 null）
+    holdersNow, holdersDelta60,
     // 近窗族（W∈{30,60,120}：buyBnb/sellBnb/buyN/sellN/netBnb/buySharePct/
     // ticksPerMin/buyers/sellers/newBuyers）
     win,

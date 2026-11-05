@@ -484,10 +484,11 @@ console.log('E. 引擎侧源码口径锁（CD158 形状）');
   ok('观察模式退役反证（noteBuyPoint 零出现——service API 已删）', !src.includes('noteBuyPoint'));
   ok('gate.enabled 双开关退役反证（_cheatGateEnabled 零出现——腿字段即门）', !src.includes('_cheatGateEnabled'));
   ok('unhealthyReanalyses 升级臂退役反证（引擎侧零出现）', !src.includes('unhealthyReanalyses'));
-  // E7 unhealthy 不拉黑：_cheatExitPosition 只由 cheat 路径调用（两处=硬拒+迟到）
+  // E7 unhealthy 不拉黑：_cheatExitPosition 只由 cheat 路径调用（三处=硬拒 helper
+  // +迟到 late 链+买路径收口补丁 T117——均 cheat 域；unhealthy 永不触发清仓）
   const exitCalls = (src.match(/this\._cheatExitPosition\(tokenAddress, 'cheat [^']*'\)/g) || []).length;
-  ok('_cheatExitPosition 调用恰两处且 why 恒 cheat 域（硬拒+迟到——unhealthy 永不触发清仓）',
-    exitCalls === 2, exitCalls);
+  ok('_cheatExitPosition 调用恰三处且 why 恒 cheat 域（硬拒 helper+迟到+买路径收口——unhealthy 永不触发清仓）',
+    exitCalls === 3, exitCalls);
 }
 
 console.log(`\n${pass} 通过, ${fail} 失败`);

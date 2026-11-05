@@ -189,6 +189,9 @@ const FACTOR_PARAM_DEFAULTS = {
     //    创建块捆绑簇已滑出（Konasu 时序洗白同根因），出生锚定窗让出生期指纹在任意
     //    迟到 fire 时刻可见；窗宽 90s）──
     launchBundleWinMs: 90000,    // 出生窗宽（首买簇累计+冻结）
+    // ── T117 信号源 t7 静默段（2026-11-05 买入策略整体调整：跌到底沉寂后突然放量）──
+    quietThresholdMs: 60000,     // 静默段判定阈：相邻 tick 间隔 ≥ 此值 = 一段沉寂
+                                 //   （quietSpanMs 定格 + surge 波重置）；factorParams 可覆盖
 };
 
 // 出生窗首买 map 防御帽（launch 系复用；对倒作业票 90s 内 <1 千钱包；超帽只停
@@ -1071,6 +1074,12 @@ class FourMemeFactorAggregator extends EventEmitter {
                             }
                         }
                         state._prevBlockClose = state._curBlockClose;
+                        // T117 块收盘环（recentBlockDropPct 原料，2026-11-05）：结算上块时
+                        // push 已闭合收盘，保最近 4 块；无可靠价块（收盘 null）不入环
+                        if (state._curBlockClose !== null) {
+                            state._blockCloseRing.push(state._curBlockClose);
+                            if (state._blockCloseRing.length > 4) state._blockCloseRing.shift();
+                        }
                     }
                     state._curBlock = blockNumber;
                     state._curBlockClose = null;
@@ -1113,6 +1122,22 @@ class FourMemeFactorAggregator extends EventEmitter {
         // ── 市场截面：全量 tick 口径累积（流量环 + registry 价格/存活推进 + FIFO 写时裁剪；
         //    市场状态与挂载策略无关。尘 tick 计流量不计价——priceReliable 守卫，S8）──
         this._marketOnTick(tokenAddress, ts, isBuy, bnbAmount, priceBnb, priceReliable);
+
+        // ── T117 t7 静默段状态机（2026-11-05）：跌到底沉寂后突然放量。本段与价格段
+        //    同点（两阶段喂食 wallet 段不进此——每笔链上 tick 恰一次），刻意在
+        //    lastTickAt 更新**前**判 gap（更新后 ts−max 恒 ≤0 永不触发）。gap ≥ 阈值
+        //    即定格 quietSpanMs + 重置 surge 波（起点=本笔苏醒 ts，本笔买入随后计入）；
+        //    不达标 gap 不覆盖旧段证据（沉寂过的票隔几笔小活动再评仍可见「最近一次
+        //    长静默段」）。surge 累计带 ts guard：defer 乱序晚到的旧行（ts < 波起点）
+        //    不污染新波 ──
+        if (state.lastTickAt !== null && ts - state.lastTickAt >= this._fp.quietThresholdMs) {
+            state._quietSpanMs = ts - state.lastTickAt;
+            state._quietSurgeStartTs = ts;
+            state._quietSurgeBuyBnb = 0;
+        }
+        if (state._quietSurgeStartTs !== null && ts >= state._quietSurgeStartTs && isBuy) {
+            state._quietSurgeBuyBnb += bnbAmount;
+        }
 
         // Math.max 防回拨（2026-10-14 鸡蛋案）：迟到旧 tick 的 ts 会把 lastTickAt 拉回
         // （实测 50.0→48.0 → idleSecSinceLastTick 虚高 3.593 假断流触发 P11 全清）
@@ -1820,6 +1845,16 @@ class FourMemeFactorAggregator extends EventEmitter {
             _curBlockHigh: null,
             _prevBlockClose: null,      // 前块收盘（相邻对结算；断链=null）
             _maxBlockDropPct: null,     // 单块最大跌幅 %（null=从无跌幅证据）
+
+            // ── T117 信号源 t5/t7 原料（2026-11-05 买入策略整体调整）──
+            _blockCloseRing: [],        // 最近 ≤4 个已闭合块收盘价（recentBlockDropPct 原料；
+                                         //   结算上块时 push，块号单调 guard 免疫迟到乱序；
+                                         //   无可靠价块不入环——环内收盘间可能隔无价块）
+            _quietSpanMs: 0,            // 最近完成的静默段时长 ms（T117 t7：gap ≥ quietThresholdMs
+                                         //   定格，非进行中——fire 由 tick 驱动评估时刻必在苏醒后；
+                                         //   值域 {0}∪[quietThresholdMs,∞)，0=从无静默证据）
+            _quietSurgeStartTs: null,   // 当前 surge 波起点 ts（静默段后苏醒第一笔；null=从未开波）
+            _quietSurgeBuyBnb: 0,       // 当前 surge 波累计买入 BNB（新静默段开新波时清零）
 
             _lastChainBlock: null,      // 链上序迟到水位（2026-10-14 鸡蛋案）：已见的最大
             _lastChainLogIdx: null,     // (blockNumber, log_index)——早于此的 tick 判 chainLate 不进价格链
@@ -3275,6 +3310,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 阈值全部随批换算——库条目/实验快照须同批更新，旧 USD 数字配新 BNB 域
             // 因子=市值门恒死（上线红线：先改库再换进程）
             marketCap: state.totalSupply > 0 && currentPriceBnb > 0 ? currentPriceBnb * state.totalSupply : 0,
+            // T117 信号源 t6/t7 市值回撤键（2026-11-05 买入策略整体调整）：当前市值较
+            // 峰值市值回撤 %（0=恰在峰顶；正数=回撤深度）。与 T107 mcapPeakBnb 同峰
+            // 同价轨（highestPriceBnb 任意接受价轨）——totalSupply 约分后=现价/峰价。
+            // null=峰值/现价/totalSupply 任一缺失 fail-closed（与 marketCap 缺 supply
+            // =0 的口径刻意不同：本键是「回撤深度」证据键，无峰无据不评不冒充）
+            mcapFromPeakPct: (state.totalSupply > 0 && currentPriceBnb > 0 && state.highestPriceBnb > 0)
+                ? parseFloat((100 * (1 - currentPriceBnb / state.highestPriceBnb)).toFixed(2)) : null,
             // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
             // flap/gang = 资金口径 池净入金 / 毕业阈值（flap 2026-10-24 替换价格锚：R 恒比
             // 假设实证不成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂；gang 2026-10-27
@@ -3418,6 +3460,34 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             // P 组防砸盘（maxBlockDropPct null=从无跌幅证据）
             maxBlockDropPct: state._maxBlockDropPct,
+            // ── T117 信号源 t5/t7 键（2026-11-05 买入策略整体调整）──
+            // t5 连续区块跌幅：最近 ≤5 时点价格（≤4 已闭合块收盘环+当前块实时收盘）内
+            //   窗宽 1/2/3 块的最深跌幅 %（正数=跌幅，与 maxBlockDropPct 同号；后者是
+            //   全史最大单对跌幅、本键是「刚刚正在发生的连续砸盘」近窗形状）。
+            //   <2 时点 → null（无跌幅证据 fail-closed）；0=有价格对但无下跌
+            recentBlockDropPct: (() => {
+                const closes = state._blockCloseRing.slice();
+                if (state._curBlockClose !== null) closes.push(state._curBlockClose);
+                if (closes.length < 2) return null;
+                let maxDrop = 0;
+                for (let w = 1; w <= 3; w++) {
+                    for (let i = 0; i + w < closes.length; i++) {
+                        if (closes[i] > 0) {
+                            const drop = (closes[i] - closes[i + w]) / closes[i] * 100;
+                            if (drop > maxDrop) maxDrop = drop;
+                        }
+                    }
+                }
+                return maxDrop > 0 ? parseFloat(maxDrop.toFixed(2)) : 0;
+            })(),
+            // t7 静默段三键：quietSpanMs=最近完成的静默段时长（值域 {0}∪[quietThresholdMs,∞)，
+            //   0=从无静默证据）；quietSurgeBuyBnb=当前波累计买入（新静默段清零重开）；
+            //   quietSurgeSec=波已持续秒数（now=buildFactorMap 入参，禁 Date.now——回测
+            //   虚拟时钟同源；从未开波 → null）
+            quietSpanMs: state._quietSpanMs,
+            quietSurgeBuyBnb: state._quietSurgeBuyBnb,
+            quietSurgeSec: state._quietSurgeStartTs !== null
+                ? Math.max(0, (now - state._quietSurgeStartTs) / 1000) : null,
             // 首块脉冲占比（母版首秒脉冲防钓鱼票；窗口冻结后才出值，null=窗口未过/无买入）
             firstBlockBuyShare: (state._firstBuyAt !== null
                 && (now - state._firstBuyAt) >= this._fp.firstBlockWindowMs
