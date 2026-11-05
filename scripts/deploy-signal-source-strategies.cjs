@@ -1,28 +1,32 @@
 #!/usr/bin/env node
 // ============================================================================
-// T117 信号源阶梯策略库条目部署（2026-11-05 买入策略整体调整，用户批准方案）
-//   单条目 signal-source-ladder-v1（side=buy）七腿阶梯递进——买腿 condition=
-//   「初始买入信号源」（触发策略），触发后依次过作弊门（二元版）→ 买入点位
-//   分析（BP）门，两门都过才买（纯盘面，无叙事/GMGN/preBuy 层）。
+// T117/T119 信号源阶梯策略库条目部署（2026-11-05 买入策略整体调整，用户批准）
+//   单条目 signal-source-ladder-v1（side=buy）——买腿 condition=「初始买入信号源」
+//   （触发策略），触发后依次过作弊门（二元版）→ 买入点位分析（BP）门，两门都过
+//   才买（纯盘面，无叙事/GMGN/preBuy 层）。
 //
-//   阶梯设计（触发即消耗 maxTriggers=1 不返还——门拒/超时均算消耗，7 条递进
-//   阈值=多次机会设计，2026-11-05 用户裁定）：
-//     t1-t4 热度门槛递升（tradeCount/buyVolumeBnb/holdersExDust——t1 最早最松
-//          优先级最高；t4 同 holders 更高热度）
-//     t5    块窗砸盘形状（recentBlockDropPct≥12 阈值占位，用户库中调）
-//     t6    跌回低市值 OR 深回撤（峰 ≥15 峰门防「出生即触发」——市值从 0 涨起
-//          前几笔必 ≤7.5，2026-11-05 用户澄清「从高点跌下来才触发非早期用」；
-//          59 票对拍：OLD 锚中位 1/回撤 0% → 峰门版锚中位 237/回撤 61%）
-//     t7    跌底放量（深回撤+静默段后 surge 放量）
-//   t1-t3 cheatRecheck:true（unhealthy 重判）；t4-t7 false（unhealthy 粘滞秒回
-//   拒省配额——低阶触发源不值得烧 Jev 重判）。
+//   v3（T119，2026-11-05 吉祥 0xea7886d5 复盘五轮裁定）：
+//     t1-t4  热度门槛递升（原七臂不动）+ N30/N36/N45 三条纯热度腿（用户给定
+//            条件串原文——阶梯接棒+T110 节流下实际触发落点由步进节奏决定，
+//            吉祥案实证全落贴高段与 t2/t3 同域；慢热票里程碑摊开才有价值）
+//     t6     跌回低市值 OR 深回撤（v2 峰门版不动，priority 6→8）
+//     D25-D55 五条回撤臂（纯阈值+峰门 15，浅到深排布=回撤进行时先穿浅档
+//            先消耗、加深后深档接力「每个深度一次机会」；不加活跃度门——
+//            BP 门 market_heat 已兜底，2026-11-05 用户裁定）
+//     t5 急砸/t7 跌底放量两臂删除（同日用户裁定；recentBlockDropPct 阈值
+//     本为占位、quiet 三键 FA 触发键保留无消费者=未来翻案可复用）
+//   合并制探索否决留档：等值 OR 链（tradeCount == 8/20/32…）求值器支持但被
+//   买腿 debounce 否决（signalDebounceMs 200 slot 合并+fire 重评，等值点窗尾
+//   重评时 tradeCount 已 +1=翻假丢里程碑；范围带=变相多臂）——终裁多臂制。
+//   急拉票回撤点 BP12 判 poor=BP11 接受现状复裁维持（D 臂价值在慢推票）。
 //
-//   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 7（T110 默认帽 5
-//   < 7 腿会截断阶梯——7 条腿 per token 各 1 次触发 = 帽 5 只放 5 次）；
-//   并配 cheatCheck.enabled=true + buyPointCheck.enabled=true（两门 disabled
-//   时：cheat 门 fail-open 放行、BP 门 fail-closed 全拒=零买入，配置矛盾）。
+//   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 13（13 腿各 1 次
+//   触发上限；T110 默认帽 5 会截断阶梯）；并配 cheatCheck.enabled=true +
+//   buyPointCheck.enabled=true（两门 disabled 时：cheat 门 fail-open 放行、
+//   BP 门 fail-closed 全拒=零买入，配置矛盾）。
 //
-// 防呆：validateLegs 纯函数本地预检零 DB；重名=已建读 id 幂等续跑。
+// 防呆：validateLegs 纯函数本地预检零 DB；重名=已建读 id 幂等续跑（同名
+// version+1，buy-v2 系惯例——挖掘/引用侧按名拉最新 version 自动跟进）。
 // 在 182 跑 --commit（写操作红线）；本地仅 dry-run。
 // 用法：node scripts/deploy-signal-source-strategies.cjs [--commit]
 // ============================================================================
@@ -41,19 +45,31 @@ const leg = (id, priority, condition, cheatRecheck, description) => ({
 
 const LEGS = [
     leg('t1', 1, 'tradeCount >= 8 AND buyVolumeBnb >= 0.75 AND holdersExDust >= 6', true,
-        '阶梯 1（最早最松）：8 笔/0.75 BNB/6 真持有者即触发门链；cheatRecheck=true（首触发源值得 unhealthy 重判攒判定轨迹）'),
+        '阶梯 1（最早最松）：8 笔/0.75 BNB/6 真持有者即触发门链；cheatRecheck=true（首触发源值得 unhealthy 重判攒判定轨迹）——吉祥案 t1 信号时刻双截窗重析=neutral 0.76 应过门（生产被 settle 锚窗漂移吞）'),
     leg('t2', 2, 'tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9', true,
         '阶梯 2：16 笔/1 BNB/9 真持有者；cheatRecheck=true'),
     leg('t3', 3, 'tradeCount >= 20 AND buyVolumeBnb >= 1.2 AND holdersExDust >= 12', true,
         '阶梯 3：20 笔/1.2 BNB/12 真持有者；cheatRecheck=true'),
     leg('t4', 4, 'tradeCount >= 24 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
-        '阶梯 4：24 笔/1.5 BNB/12 真持有者（最高热度门）；cheatRecheck=false（高热度票 unhealthy 粘滞秒回省配额）'),
-    leg('t5', 5, 'recentBlockDropPct >= 12', false,
-        '阶梯 5：块收盘环窗（≤4 块 1/2/3 块窗最深跌幅）≥12% 砸盘形状；阈值占位待票池分布校准（用户库中调）'),
-    leg('t6', 6, '(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5) OR mcapFromPeakPct >= 60', false,
-        '阶梯 6：跌回低市值（峰 ≥15=涨出 7.5 低线至少翻倍，市值 ≤7.5 时隐含回撤 ≥50%——2026-11-05 用户澄清「从高点跌下来才触发非早期用」，峰门防出生票市值从 0 涨起前几笔必 ≤7.5 的即触发）OR 较峰回撤 ≥60%'),
-    leg('t7', 7, 'mcapFromPeakPct >= 60 AND quietSpanMs >= 60000 AND quietSurgeBuyBnb >= 0.5', false,
-        '阶梯 7：跌底放量——深回撤 ≥60% + ≥60s 静默段后 surge 买量 ≥0.5 BNB'),
+        '阶梯 4：24 笔/1.5 BNB/12 真持有者；cheatRecheck=false（高热度票 unhealthy 粘滞秒回省配额）'),
+    leg('N30', 5, 'tradeCount >= 30 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '热度腿 5（T119 用户给定条件串原文）：30 笔/1.5 BNB/12 真持有者——阶梯接棒+节流下实际落点由步进节奏决定，慢热票里程碑摊开'),
+    leg('N36', 6, 'tradeCount >= 36 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '热度腿 6（T119）：36 笔/1.5 BNB/12 真持有者'),
+    leg('N45', 7, 'tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '热度腿 7（T119）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃'),
+    leg('t6', 8, '(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5) OR mcapFromPeakPct >= 60', false,
+        '跌回低市值（峰 ≥15=涨出 7.5 低线至少翻倍，市值 ≤7.5 时隐含回撤 ≥50%——峰门防出生票市值从 0 涨起前几笔必 ≤7.5 的即触发）OR 较峰回撤 ≥60%'),
+    leg('D25', 9, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 25', false,
+        '回撤臂 25%（T119 五臂之一，浅到深排布=先穿浅档先消耗）：峰 ≥15 峰门（实证后果留档：吉祥首峰 13.3 BNB<15 首波回撤点不触发，五臂实际覆盖 $10.7k+ 峰值票，阈值库中可调）∧ 较峰回撤 ≥25%；急拉票回撤点 BP12 判 poor=BP11 接受现状维持，本臂价值在慢推票深回撤企稳'),
+    leg('D30', 10, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 30', false,
+        '回撤臂 30%（T119）：峰 ≥15 ∧ 较峰回撤 ≥30%'),
+    leg('D35', 11, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 35', false,
+        '回撤臂 35%（T119）：峰 ≥15 ∧ 较峰回撤 ≥35%'),
+    leg('D45', 12, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 45', false,
+        '回撤臂 45%（T119）：峰 ≥15 ∧ 较峰回撤 ≥45%'),
+    leg('D55', 13, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 55', false,
+        '回撤臂 55%（T119）：峰 ≥15 ∧ 较峰回撤 ≥55%'),
 ];
 
 const ENTRIES = [
@@ -61,7 +77,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117 信号源阶梯（2026-11-05 用户批准）：七买腿 condition=初始买入信号源（触发策略），触发即消耗（maxTriggers=1）后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测恒拒（signalGate 腿全量排除）。⚠ 引用实验须 buySignalMaxPerToken ≥ 7 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v3（2026-11-05 吉祥复盘裁定）：13 买腿 condition=初始买入信号源（t1-t4 热度+N30/36/45 纯热度+t6 低市值OR深回撤+D25-D55 五档回撤臂，maxTriggers 全 1 触发即消耗；t5 急砸/t7 跌底放量已删），触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测恒拒（signalGate 腿全量排除）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
     },
 ];
 
