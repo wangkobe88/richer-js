@@ -4335,7 +4335,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T13:42:52.564914+00:00 [A_strong:same_block_buy_wave,J_holdings_strong]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD281",
@@ -4346,12 +4346,12 @@
         "tickCount": 55
       },
       "expect": {
-        "verdict": "unhealthy"
+        "verdict": "cheat"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T13:44:17.133191+00:00 [J_holdings_strong,L_insider_sell36,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD282",
@@ -4367,7 +4367,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T13:44:40.456758+00:00 [E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD283",
@@ -4383,7 +4383,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T13:49:13.891785+00:00 [E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD284",
@@ -4399,7 +4399,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.59 @2026-11-04T13:50:49.595521+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD285",
@@ -4415,7 +4415,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T13:54:26.216046+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD286",
@@ -4431,7 +4431,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T14:02:06.100604+00:00 [E_low_activity_weak_burst]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD287",
@@ -4447,7 +4447,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:03:57.029558+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD288",
@@ -4463,7 +4463,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 2/执行 0）；生产首判 grade=unhealthy qv=D3.59 @2026-11-04T14:06:37.61254+00:00 [E_low_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD289",
@@ -4479,7 +4479,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.59 @2026-11-04T14:07:31.977738+00:00 [A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration,R_abnormal_dominant]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "初值=v72 生产首判占位（D3.59），待分批 review 裁定"
+      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 首批 review）「这一批结果都没有问题」=认同今重析 D3.61 档位；CD281 生产 D3.59 unhealthy→cheat 翻案落定"
     },
     {
       "caseId": "CD290",
