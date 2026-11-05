@@ -484,26 +484,69 @@ async function testB() {
     }
 }
 
-// ═══════════════ B11 节：router-events 纯函数（GMGN 路由事件 → 用户 EOA） ═══════════════
+// ═══════════════ B11 节：router-events 纯函数（聚合路由事件 → 用户 EOA，CD376 扩 5 源） ═══════════════
 
 function testB11() {
-    console.log('\nB11. router-events 纯函数（extractRouterEventUsers 三形状）');
-    const { ROUTER_EVENT_SUBSCRIPTION, ROUTER_SWAP_TOPIC0, ROUTER_FEE_TOPIC0, GMGN_ROUTER_ADDRESS, extractRouterEventUsers } = require('../src/collectors/router-events.js');
+    console.log('\nB11. router-events 纯函数（extractRouterEventUsers：topics 槽位 + data 字位双解码）');
+    const {
+        ROUTER_EVENT_SUBSCRIPTION, ROUTER_SWAP_TOPIC0, ROUTER_FEE_TOPIC0, GMGN_ROUTER_ADDRESS,
+        ROUTER_EVENT_SOURCE_ADDRS, ROUTER_EVENT_TOPIC0_WHITELIST, ROUTER_EVENT_SPECS, extractRouterEventUsers,
+    } = require('../src/collectors/router-events.js');
 
     const pad = (addr) => '0x' + '0'.repeat(24) + addr.toLowerCase().replace(/^0x/, '');
+    // CD376 五新源地址（链上事实字面量——B11.1 集合锁的期望值，防手滑改错）
+    const R3508 = '0x3508dca95a64c9378cb07ef6f40553a50905372a';
+    const R01A2 = '0x01a21c857a3219991fba2b1a2824b1b758966b54';
+    const RD36B = '0xd36b6d646ac6e23672e9eedec558164c7f2d6deb';
+    const R296B = '0x296b00198dc7ec3410e12da814d9267bb8df506a';
+    const FRONT5994 = '0x5994814f2c4040b863a0125a45de152a8c2a4dec';
+    const ANON20EF = '0x20efd6d5195b7b50273f01cd79a27989255356f9f13293edc53ee142accfdb75';
+    const FRONT_T0 = '0x1bb43f2da90e35f7b0cf38521ca95a49e68eb42fac49924930a5bd73cdf7576c';
+    // 2026-11-05 链上真实样本（tx.from 对拍通过的 data 原文）
+    const D36B_REAL_DATA = '0x'
+        + '00000000000000000000000061794894c83de847818304f24347dea2eeb79728' // word0 用户 EOA
+        + '0000000000000000000000000f93636f10fbb4820f2c2f241d167c287041b190' // word1 tokenIn（非地址形状，不在候选序）
+        + '00000000000000000000000055d398326f99059ff775485246999027b3197955' // word2 tokenOut（USDT，地址形状——候选序刻意跳过）
+        + '00000000000000000000000061794894c83de847818304f24347dea2eeb79728' // word3 receiver（恒同 word0）
+        + '0000000000000000000000000000000000000000000000002498ab8899a9d582' // word4 amountIn
+        + '000000000000000000000000000000000000000000000001cf7e7c6723b34623'; // word5 amountOut
+    const FRONT5994_REAL_DATA = '0x'
+        + '000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' // word0 tokenIn=原生 BNB 哨兵（右对齐：高 12 字节零过朴素门、低 20 字节恒 e 被哨兵排除挡住）
+        + '0000000000000000000000004ebef4c08386b2b4a37aa2d056f26160573b7777' // word1 tokenOut（flap token 尾 7777，地址形状——候选序单槽刻意不取）
+        + '0000000000000000000000004362c9a9615bd6bc2fbdbf49ff2a90679672a3e6' // word2 用户 EOA（唯一候选槽位）
+        + '000000000000000000000000000000000000000000000000000388f27d8d3000' // word3 amount
+        + '000000000000000000000000000000000000000000000c9199d63409dca22f64'; // word4 amountOut
+    const word = (hex64) => hex64; // 可读性别名
+    const wUser = '00000000000000000000000061794894c83de847818304f24347dea2eeb79728';
+    const wAmount = '2498ab8899a9d582000000000000000000000000000000000000000000000000'; // 高位金额（高 12 字节非零 → 必不过形状门）
+    const wSentinel = '000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'; // 右对齐 0xEeee…×40 哨兵 word
 
-    // B11.1 订阅形状：address=GMGN 路由 + topic0 白名单双值（ANKR 按消息计费压流量）
-    ok(ROUTER_EVENT_SUBSCRIPTION.address.length === 1 && ROUTER_EVENT_SUBSCRIPTION.address[0] === GMGN_ROUTER_ADDRESS,
-        'B11.1 订阅 address 单指 GMGN 路由');
-    ok(ROUTER_EVENT_SUBSCRIPTION.topics[0].length === 2 && ROUTER_EVENT_SUBSCRIPTION.topics[0].includes(ROUTER_SWAP_TOPIC0) && ROUTER_EVENT_SUBSCRIPTION.topics[0].includes(ROUTER_FEE_TOPIC0),
-        'B11.1 topic0 白名单=Swap+FeeCollected 两值');
-    ok(GMGN_ROUTER_ADDRESS === '0x1de460f363af910f51726def188f9004276bf4bc', 'B11.1 GMGN 路由地址与链上实证一致');
+    // B11.1 订阅形状内容锁（C6 只锁 collector 侧字面量，本节是源表唯一内容锁——改漏无人报警）
+    {
+        const expectedSrcs = [GMGN_ROUTER_ADDRESS, R3508, R01A2, RD36B, R296B, FRONT5994];
+        const sub = ROUTER_EVENT_SUBSCRIPTION;
+        ok(sub.address.length === 6 && sub.address[0] === GMGN_ROUTER_ADDRESS
+            && JSON.stringify([...sub.address].sort()) === JSON.stringify([...expectedSrcs].sort()),
+            'B11.1 订阅 address=6 源集合（GMGN/3508/01a2/d36b/296b/5994 前置），GMGN 居首');
+        ok(sub.topics[0].length === 7 && sub.topics[0].includes(ROUTER_SWAP_TOPIC0) && sub.topics[0].includes(ROUTER_FEE_TOPIC0)
+            && sub.topics[0].includes(ANON20EF) && sub.topics[0].includes(FRONT_T0)
+            && JSON.stringify([...sub.topics[0]].sort()) === JSON.stringify([...ROUTER_EVENT_TOPIC0_WHITELIST].sort()),
+            'B11.1 topic0 白名单=7 值（swap+fee+01a2 三值+20ef+1bb4）');
+        ok(GMGN_ROUTER_ADDRESS === '0x1de460f363af910f51726def188f9004276bf4bc', 'B11.1 GMGN 路由地址与链上实证一致');
+        ok(ROUTER_EVENT_SOURCE_ADDRS.every((a) => ROUTER_EVENT_SPECS[a] && Object.keys(ROUTER_EVENT_SPECS[a]).length > 0)
+            && Object.keys(ROUTER_EVENT_SPECS).length === ROUTER_EVENT_SOURCE_ADDRS.length,
+            'B11.1 SPECS 双键表与订阅源一一对应（无孤儿源/无漏表项）');
+        const specced = new Set();
+        for (const byAddr of Object.values(ROUTER_EVENT_SPECS)) for (const t of Object.keys(byAddr)) specced.add(t);
+        ok(ROUTER_EVENT_TOPIC0_WHITELIST.every((t) => specced.has(t)) && specced.size === ROUTER_EVENT_TOPIC0_WHITELIST.length,
+            'B11.1 白名单与 SPECS 值域一致（无死值/无漏订）');
+    }
 
     // B11.2 Swap 形状：topics[1]+[2] 均=用户（左填充 32 字节剥成 20 字节小写）
     {
         const u1 = pad('0xAa11aa22aa33aa44aa55aa66aa77aa88aa99AA11');
         const u2 = pad('0xBb22bb33bb44bb55bb66bb77bb88bb99bb00BB22');
-        const got = extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0, u1, u2], transactionHash: '0xTXA' });
+        const got = extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: [ROUTER_SWAP_TOPIC0, u1, u2], transactionHash: '0xTXA' });
         ok(got && got.txHash === '0xtxa' && got.users.length === 2
             && got.users[0] === '0x' + u1.slice(26) && got.users[1] === '0x' + u2.slice(26),
             'B11.2 Swap 双地址全提取（txHash lowercase、topic 剥 padding 小写带 0x）');
@@ -513,18 +556,101 @@ function testB11() {
     {
         const collector = pad('0xCC33cc44cc55cc66cc77cc88cc99cc00cc11CC33');
         const user = pad('0xDD44dd55dd66dd77dd88dd99dd00dd11dd22DD44');
-        const got = extractRouterEventUsers({ topics: [ROUTER_FEE_TOPIC0, collector, user], transactionHash: '0xTXB' });
+        const got = extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: [ROUTER_FEE_TOPIC0, collector, user], transactionHash: '0xTXB' });
         ok(got && got.users.length === 1 && got.users[0] === '0x' + user.slice(26),
             'B11.3 FeeCollected 只取 topics[2]=用户（收费方不冒充用户）');
     }
 
-    // B11.4 未知 topic0 / 缺字段 → null（fail-safe：绝不从 data 猜地址）
-    ok(extractRouterEventUsers({ topics: ['0xdeadbeef', pad('0xaaaa'), pad('0xbbbb')], transactionHash: '0xTXC' }) === null,
+    // B11.4 未知组合 / 缺字段 → null（fail-safe：绝不从 data 猜地址）
+    ok(extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: ['0xdeadbeef', pad('0xaaaa'), pad('0xbbbb')], transactionHash: '0xTXC' }) === null,
         'B11.4 未知 topic0 不消费');
-    ok(extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0] }) === null, 'B11.4 缺 transactionHash → null');
-    ok(extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0, pad('0xaaaa')], transactionHash: '0xTXD' }) !== null,
+    ok(extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: [ROUTER_SWAP_TOPIC0] }) === null, 'B11.4 缺 transactionHash → null');
+    ok(extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: [ROUTER_SWAP_TOPIC0, pad('0xaaaa')], transactionHash: '0xTXD' }) !== null,
         'B11.4 Swap 单 indexed 地址（缺 topics[2]）仍取 topics[1]');
     ok(extractRouterEventUsers(null) === null && extractRouterEventUsers({}) === null, 'B11.4 空形状 → null');
+    ok(extractRouterEventUsers({ topics: [ROUTER_SWAP_TOPIC0, pad('0xaaaa'), pad('0xbbbb')], transactionHash: '0xTXE' }) === null,
+        'B11.4 缺 address → null（双键查表必需，不回退单键防跨源撞车洞）');
+
+    // B11.5 3508 与 GMGN 完全同款：同一事件两地址 decode 输出全等
+    {
+        const u1 = pad('0xAa11aa22aa33aa44aa55aa66aa77aa88aa99AA11');
+        const u2 = pad('0xBb22bb33bb44bb55bb66bb77bb88bb99bb00BB22');
+        const g1 = extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: [ROUTER_SWAP_TOPIC0, u1, u2], transactionHash: '0xTXF' });
+        const g2 = extractRouterEventUsers({ address: R3508, topics: [ROUTER_SWAP_TOPIC0, u1, u2], transactionHash: '0xTXF' });
+        const feeUser = pad('0xDD44dd55dd66dd77dd88dd99dd00dd11dd22DD44');
+        const g3 = extractRouterEventUsers({ address: R3508, topics: [ROUTER_FEE_TOPIC0, pad('0xcc33cc44cc55cc66cc77cc88cc99cc00cc11cc33'), feeUser], transactionHash: '0xTXG' });
+        ok(JSON.stringify(g1) === JSON.stringify(g2) && g2 && g2.users.length === 2,
+            'B11.5 3508 Swap 同款 decode=GMGN 同输出（同 topic0 双槽）');
+        ok(g3 && g3.users.length === 1 && g3.users[0] === '0x' + feeUser.slice(26),
+            'B11.5 3508 FeeCollected 同款只取 topics[2]');
+    }
+
+    // B11.6 01a2 三事件均 topics[1]=用户（单槽，缺 topics[2] 形状常态）
+    {
+        const t0s = ROUTER_EVENT_TOPIC0_WHITELIST.filter((t) => t !== ROUTER_SWAP_TOPIC0 && t !== ROUTER_FEE_TOPIC0 && t !== ANON20EF && t !== FRONT_T0);
+        ok(t0s.length === 3, 'B11.6 01a2 三 topic0 在白名单中（另 4 值为 GMGN/3508/20ef/1bb4）');
+        const u = pad('0xEe55ee66ee77ee88ee99ee00ee11ee22ee33EE44');
+        for (const t0 of t0s) {
+            const got = extractRouterEventUsers({ address: R01A2, topics: [t0, u], transactionHash: '0xTXH' });
+            ok(got && got.users.length === 1 && got.users[0] === '0x' + u.slice(26),
+                `B11.6 01a2 事件 ${t0.slice(2, 8)}… topics[1]=用户单提取`);
+        }
+    }
+
+    // B11.7 d36b/296b 匿名事件 data 解码（候选序 [0,3]：word0 主、word3 receiver 备；token 槽位刻意不取）
+    {
+        for (const [name, addr] of [['d36b', RD36B], ['296b', R296B]]) {
+            const got = extractRouterEventUsers({ address: addr, topics: [ANON20EF], data: D36B_REAL_DATA, transactionHash: '0xTXI' });
+            ok(got && got.users.length === 1 && got.users[0] === '0x61794894c83de847818304f24347dea2eeb79728',
+                `B11.7 ${name} 真实样本 data → word0 用户单提取（word1/2=token 槽位地址形状刻意跳过）`);
+        }
+        // word0 塞金额形状（高 24 字节非零）→ 落 word3（receiver 恒同 word0）
+        const amtFirst = '0x' + word(wAmount) + word(wUser) + word(wUser) + word(wUser) + word(wAmount) + word(wAmount);
+        const gotAmt = extractRouterEventUsers({ address: RD36B, topics: [ANON20EF], data: amtFirst, transactionHash: '0xTXJ' });
+        ok(gotAmt && gotAmt.users.length === 1 && gotAmt.users[0] === '0x61794894c83de847818304f24347dea2eeb79728',
+            'B11.7 word0 金额形状（前缀非零）→ 候选序落 word3 receiver');
+        // word0/3 均坏（金额+全零）→ null
+        const bothBad = '0x' + word(wAmount) + word(wUser) + word(wUser) + '0'.repeat(64) + word(wAmount) + word(wAmount);
+        ok(extractRouterEventUsers({ address: RD36B, topics: [ANON20EF], data: bothBad, transactionHash: '0xTXK' }) === null,
+            'B11.7 word0 金额形状+word3 全零 → 候选全坏 null 不冒充');
+        // word0=0xEeee 哨兵 + word3=用户 → 取 word3（哨兵不冒充用户）
+        const sentFirst = '0x' + word(wSentinel) + word(wUser) + word(wUser) + word(wUser) + word(wAmount) + word(wAmount);
+        const gotSent = extractRouterEventUsers({ address: R296B, topics: [ANON20EF], data: sentFirst, transactionHash: '0xTXL' });
+        ok(gotSent && gotSent.users.length === 1 && gotSent.users[0] === '0x61794894c83de847818304f24347dea2eeb79728',
+            'B11.7 word0=0xEeee 原生哨兵 → 形状门排除、落 word3 用户');
+        // word0=哨兵 + word3=哨兵 → null（两哨兵都不冒充）
+        const sentBoth = '0x' + word(wSentinel) + word(wUser) + word(wUser) + word(wSentinel) + word(wAmount) + word(wAmount);
+        ok(extractRouterEventUsers({ address: R296B, topics: [ANON20EF], data: sentBoth, transactionHash: '0xTXM' }) === null,
+            'B11.7 word0/3 均 0xEeee 哨兵 → null（哨兵恒不冒充用户）');
+        // data 缺失 / 非_string / 截短 → null
+        ok(extractRouterEventUsers({ address: RD36B, topics: [ANON20EF], transactionHash: '0xTXN' }) === null,
+            'B11.7 data kind 缺 data → null');
+        ok(extractRouterEventUsers({ address: RD36B, topics: [ANON20EF], data: D36B_REAL_DATA.slice(0, 65), transactionHash: '0xTXO' }) === null,
+            'B11.7 data 截短（差一位不足 word0）→ null');
+    }
+
+    // B11.8 5994 前置合约 data word2（0x168303 路由的恒定 tx.to 中介——两清单防混见 CD376）
+    {
+        const got = extractRouterEventUsers({ address: FRONT5994, topics: [FRONT_T0], data: FRONT5994_REAL_DATA, transactionHash: '0xTXP' });
+        ok(got && got.users.length === 1 && got.users[0] === '0x4362c9a9615bd6bc2fbdbf49ff2a90679672a3e6',
+            'B11.8 5994 真实样本 data → word2 用户（word0=0xEeee 哨兵被形状门排除）');
+        ok(extractRouterEventUsers({ address: FRONT5994, topics: [FRONT_T0], data: FRONT5994_REAL_DATA.slice(0, 2 + 2 * 64), transactionHash: '0xTXQ' }) === null,
+            'B11.8 data 截短（word2 不足）→ null');
+        // word2 换金额形状 → null（唯一候选坏不冒充）
+        const amtW2 = '0x' + word(wSentinel) + word(wUser) + word(wAmount) + word(wAmount) + word(wAmount);
+        ok(extractRouterEventUsers({ address: FRONT5994, topics: [FRONT_T0], data: amtW2, transactionHash: '0xTXR' }) === null,
+            'B11.8 word2 金额形状 → 唯一候选坏 null');
+    }
+
+    // B11.9 跨源撞车防线：双键 (address,topic0) 组合外一律 null
+    ok(extractRouterEventUsers({ address: GMGN_ROUTER_ADDRESS, topics: [ANON20EF], data: D36B_REAL_DATA, transactionHash: '0xTXS' }) === null,
+        'B11.9 20ef × GMGN 地址 → null（GMGN 表无此 topic0）');
+    ok(extractRouterEventUsers({ address: RD36B, topics: [ROUTER_SWAP_TOPIC0, pad('0xaaaa'), pad('0xbbbb')], transactionHash: '0xTXT' }) === null,
+        'B11.9 swap topic0 × d36b 地址 → null（d36b 表无 swap）');
+    ok(extractRouterEventUsers({ address: '0x9999999999999999999999999999999999999999', topics: [ROUTER_SWAP_TOPIC0, pad('0xaaaa'), pad('0xbbbb')], transactionHash: '0xTXU' }) === null,
+        'B11.9 已知 topic0 × 表外地址 → null');
+    ok(extractRouterEventUsers({ address: FRONT5994, topics: [ANON20EF], data: D36B_REAL_DATA, transactionHash: '0xTXV' }) === null,
+        'B11.9 20ef × 5994 地址 → null（同签名不同源不复用）');
 }
 
 // ═══════════════ C 节：源码口径防回归 ═══════════════

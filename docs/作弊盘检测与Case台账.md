@@ -187,6 +187,39 @@
 
 ## Case 倒序
 
+### CD376 路由事件映射扩 5 源：聚合路由行零 RPC 定值 sender（2026-11-05，机制案·无 token；CD237 续篇）
+
+**动机**：用户原话「之前做到了 GMGN 主路由行零 RPC（路由事件映射）+ EOA 直发行同步定值，可是依然有其它 Router 还需要调用。我认为其它 Router 跟 GMGN Router 大概率是类似实现，你试试看，能不能把其它的 Router 的调用也给省了」——CD374 扩录的 8 个补录聚合路由行仍走块预取 join（getBlock）/单行 getTransaction，逐址实证后把可省者切到事件映射零 RPC。
+
+**链上实证（2026-11-05，公共 RPC 只读：近窗 getLogs 采样+三平台池成交反查 receipt+tx.from 逐笔对拍，GMGN 对照组方法有效性双验证）8 址分型**：
+
+| 路由 | 载体 | 对拍 | 结论 |
+|---|---|---|---|
+| `0x3508dca9…372a` | 与 GMGN 完全同款 Swap/FeeCollected 同槽位 | 8/8+6/6 | ✓ topics 直接收（零新 topic0） |
+| `0x01a21c85…6b54` | 三事件均 topics[1] | 6/6、4/4、1/1 | ✓ topics 直接收 |
+| `0xd36b6d64…6deb` | 匿名 `0x20efd6d5…` data word0（word3=receiver 恒同；word1/2=token 槽位） | 8/8+6/6 | △ data 解码 |
+| `0x296b0019…506a` | 与 d36b 同族同款 | 8/8+6/6 | △ data 解码 |
+| `0x168303a9…72fa` | 本体事件无用户；**前置 `0x5994814f…4dec` 恒=tx.to（11/11）**，其 `0x1bb43f2d…` data word2（word0=右对齐 0xEeee 哨兵、word1=tokenOut） | 11/11 | △ 订阅前置+data 解码 |
+| `0x9689992f…8341` | 自身匿名事件纯金额；带用户的全是 per-token 变量合约 | 6/6 无命中 | ✗ 不可省（无固定载体） |
+| `0x9e698d36…f364` | 活跃但零事件（169 笔池成交 receipt 零 emit） | 零 emit | ✗ 不可省 |
+| `0x90497450…34c06` | 单事件 3 indexed 无用户无 data | 6/6 无命中 | ✗ 不可省 |
+
+用户裁定「**全上 5 址**」（topics-only 2+data 解码 3）；3 址不可省维持块预取 join 兜底。
+
+**实现**（`src/collectors/router-events.js` 单文件，collector×3/sender-resolver 零改动——订阅参数整体导入）：订阅源 GMGN 单址→**6 址 7 topic0**；解码 spec 表 `ROUTER_EVENT_SPECS` 双键 `(address 小写, topic0)` 查表（防跨源撞车——`0x20ef` 在 d36b/296b 两址共用同签名）；两类 spec：`{kind:'topics',slots}`（GMGN+3508 swap=[1,2]/fee=[2]、01a2 三事件=[1]，GMGN 输出 bit 一致）与 `{kind:'data',words}` 候选序（d36b/296b=[0,3]、5994=[2]）取**首个过地址形状门**的 word 返回单用户（多候选全返=last-write-wins 静默覆盖+计数虚增，否决）；形状门=高 12 字节（24 hex）全零 ∧ 低 20 字节非全零 ∧ 非 0xEeee…×40 哨兵（右对齐 20 字节地址标准 ABI 形状）。**与 CD237「其它路由先不处理」裁定不冲突**：彼裁范围=当轮专注块预取 join 主体，本案=sender 层订阅扩源零阈值耦合。
+
+**两张清单防混（红线）**：`ROUTER_EVENT_SOURCE_ADDRS`（sender 层订阅源）与 `AGGREGATOR_ROUTER_ADDRS`（9 址 trader 层识别，CD374）语义不同——**5994 前置中介非 trader 层地址，不得加入彼表**（router-events 头注双写明）。
+
+**结构性弱点留档（data kind）**：topics 漂移=可观测 miss（命中率掉、自动落回块预取不掩盖）；data 布局漂移到另一地址形状字=**静默错值且命中率不掉**——缓解=候选序按实证不变位收紧（d36b/296b 刻意不取 word1/2 token 槽位）+上线抽查+周期复采样观察点。
+
+**B11 头注勘误**：2026-11-04 版「0x9e69…/0xd36b…/0x3508… 不在自己事件里带用户」被本轮对拍推翻（3508 同款双事件、d36b 匿名事件 data 带用户）——当时近窗采样未命中；教训=匿名事件先看 data 再下「不带用户」结论。
+
+**实施事故留档（单测首跑即抓，防线生效实证）**：①形状门字节边界笔误——「高 12 字节（24 hex）」误写成 48 hex（24 字节），右对齐地址恒不过门；②`_dataWordAt` 返回 64 hex 裸串而门函数期望 66（带 0x）恒 false——两 bug 叠加 data kind 恒 null，`_test_sender_resolver.cjs` B11.7 真实样本断言首跑拦截，修复后全绿。另：手敲长 hex 常量两次抄错（word 边界+零数），改脚本从探测原文精确搬运——**长 hex 夹具禁手敲**。
+
+**验证**：①单测 B11 节重写扩至（文件 139→163 断言全绿）：B11.1 订阅形状内容锁（6 源集合 GMGN 居首+7 白名单+SPECS 一一对应+值域一致）、B11.2/3/4 GMGN 存量断言不变（夹具补 address 字段）、B11.5-9 新增（3508 同款=GMGN 同输出、01a2 三事件、d36b/296b 真实样本+金额形状落 word3+哨兵排除+截短 null、5994 真实样本+唯一候选坏 null、跨源撞车四臂全 null）；②相邻单测 fa_deferred_wallet_feeding 49/embedded_collector_architecture 42/gang_architecture 33 零翻动；③**端到端链上对拍（新代码真跑）：5 新源各 8 条最新事件 extractRouterEventUsers × tx.from = 40/40 全等零不一致**。
+
+**余留观察点**：①182 重启实验进程后（v73 both live 在跑持旧常量）`senderResolver.getStats()` 看 routerMapHits 占比升/blockPulls 降、首日盯订阅确认帧（ANKR 拒订→映射静默缺席+块预取兜底=设计内 fail-safe）；②data 漂移周期复采样（月度级对 5 新源各采 ~20 tx 复跑对拍）；③WSS 量评估（5 新源白名单后 ~+1 msg/s 量级 vs 省 RPC 预期净赚）。
+
 ### CD375 unhealthy 粘滞可配 recheckUnhealthy（2026-11-05，机制案·T117 信号源门链同批；用户方案「是否重新作弊分析」per 腿选项）
 
 **动机**：T117 信号源门链的阶梯策略里低阶触发源（t4-t7）不值得为 unhealthy 重判烧 Jev 配额——用户方案 per 腿配「是否重新作弊分析」。语义裁定：选=true → unhealthy 结论重判（≈CD158 现行）；不选 → **unhealthy 粘滞秒回拒**（新行为，省配额）；healthy 同版本粘滞/cheat 拉黑终态两态不变；无结论时先首析。
