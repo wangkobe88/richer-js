@@ -83,13 +83,12 @@ function mkDb({ ticksAsc = [], events = [], insertOk = true } = {}) {
 function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
     const calls = [];
     const baseAnswers = {
-        price_momentum: { probabilities: { moderate: 0.8, weak: 0.2 } },
-        buy_pressure_quality: { probabilities: { strong: 0.9, weak: 0.1 } },
-        chip_flow: { probabilities: { accumulating: 0.7, neutral_flow: 0.3 } },
+        price_trend: { probabilities: { fast_up: 0.8, slow_up: 0.2 } },
         sell_pressure: { probabilities: { low: 0.9, mid: 0.1 } },
         market_heat: { probabilities: { high: 0.6, mid: 0.4 } },
-        pace_trend: { probabilities: { heating: 0.9, steady: 0.1 } },
-        entry_position: { probabilities: { mid_range: 0.9, near_high: 0.1 } },
+        entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
+        price_level: { probabilities: { near_launch: 0.7, low: 0.3 } },
+        point_category: { probabilities: { early_bird: 0.66, unclear: 0.34 } },
         buy_point_assessment: { probabilities: { good: 0.72, neutral: 0.28 } },
     };
     return {
@@ -159,7 +158,8 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(r.status, 'assessed');
         assert.strictEqual(r.assessment.bucket, 'good');
         assert.strictEqual(r.assessment.prob, 0.72);
-        assert.strictEqual(r.dimensions.price_momentum.bucket, 'moderate');
+        assert.strictEqual(r.dimensions.price_trend.bucket, 'fast_up');
+        assert.strictEqual(r.dimensions.point_category.bucket, 'early_bird');
         assert.strictEqual(typeof r.anchors.mcapBnb, 'number');
         assert.strictEqual(r.model, 'stub-model');
         assert.deepStrictEqual(r.usage, { total: 42 });
@@ -198,7 +198,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
     });
     await check('fail/mapper_error：综合题缺答案 → error 行（failReason 含 mapper）', async () => {
         const answers = {
-            price_momentum: { probabilities: { moderate: 0.8, weak: 0.2 } },
+            price_trend: { probabilities: { fast_up: 0.8, slow_up: 0.2 } },
         };
         const db = mkDb({ ticksAsc: TICKS10 });
         const llm = mkLlm({ answers });

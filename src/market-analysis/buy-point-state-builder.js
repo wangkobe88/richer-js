@@ -9,9 +9,9 @@
  * 与 CD state 的差异：
  * - [TICKS] 展示窗=**首 50 + 末 250**（cheat 是首 200+末 100）——买点判读主体=锚前
  *   30-120s 近端（中高活跃 ≈200-250 笔恰覆盖），中段形状由数值承载，首 50 保开盘形状
- * - [WALLETS] 每行追加近端字段「近120s 买 X×n 卖 Y×n」（大持仓近端动向=chip_flow 题原料）
- * - [PRECOMPUTED] 以买点维度重组（时点位置/近窗动量/节奏/参与结构/卖压），全窗背景
- *   行（总买卖/活跃度/价格拱/对敲/零买纯卖/持仓前三）从 cheatDerived 直读不重算
+ * - [WALLETS] 每行追加近端字段「近120s 买 X×n 卖 Y×n」（大持仓近端动向=卖压题原料）
+ * - [PRECOMPUTED] 以买点维度重组（时点位置/发行价位置/近窗动量/节奏/参与结构/卖压），
+ *   全窗背景行（总买卖/活跃度/价格拱/对敲/零买纯卖/持仓前三）从 cheatDerived 直读不重算
  */
 
 const MAX_STATE_CHARS = 20000;
@@ -89,6 +89,8 @@ function buildBuyPointState(snapshot) {
     const lines = [];
     // ① 时点位置
     lines.push(`时点位置: token 龄 ${b.tokenAgeSec ?? '?'}s（窗口跨度 ${b.spanSec ?? '?'}s）；末可靠价较全窗 ATH ${b.currentVsAthPct === null || b.currentVsAthPct === undefined ? '?' : b.currentVsAthPct.toFixed(2) + '%'}${b.secSinceAth !== null && b.secSinceAth !== undefined ? `（距 ATH ${b.secSinceAth}s）` : ''}，近 120s 创全窗新高=${yn(b.madeHigh120)}`);
+    // ①a 发行价位置（BP5：绝对价格高低题锚；? = ticks 未覆盖出生段，截窗不冒充）
+    lines.push(`发行价位置: 现价较发行价 ${b.currentVsLaunchPct === null || b.currentVsLaunchPct === undefined ? '?' : (b.currentVsLaunchPct > 0 ? '+' : '') + b.currentVsLaunchPct.toFixed(1) + '%'}（发行价 ${b.launchPriceBnb === null || b.launchPriceBnb === undefined ? '?' : fmtPrice(b.launchPriceBnb)} BNB；? = ticks 未覆盖出生段不冒充）`);
     // ①b 市值位置（BP2/T117：末可靠价×totalSupply；? = supply 或可靠价缺失）
     lines.push(`市值位置(BNB 域): 现价市值 ${b.mcapBnb ?? '?'} / 窗内峰市值 ${b.mcapPeakBnb ?? '?'} / 较峰回撤 ${b.mcapFromPeakPct === null || b.mcapFromPeakPct === undefined ? '?' : b.mcapFromPeakPct.toFixed(2) + '%'}（? = supply 或可靠价缺失；窗=拉数窗，短龄票≈全史）`);
     // ①c holder 流向（BP2/T117：正净持仓钱包数与近 60s 变化——阴跌+流失=不宜入场形状）
@@ -192,7 +194,7 @@ function buildBuyPointState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED]/[PRICE] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：此刻入场时机好坏。',
     '- 只判入场时机（时点），不下盘面性质结论：协同/作弊形状（等额阵列/对敲/分仓指纹）作为降档参考计入风险权衡，是否作弊由反作弊模块另行判定。',
-    '- 短线视角：秒~分钟级持仓的狙击交易者——综合题五条主权衡轴：活跃度门槛 / 拉高拒+低市值豁免（市值位置行）/ 急砸抄底 / 阴跌流失拒（holder 流向行）/ 常态可买+非理性拉盘拒；维度档位是参考不是投票，综合题独立判无固定公式。',
+    '- 短线视角：秒~分钟级持仓的狙击交易者——综合题判读先分类后按类忌讳（类别题分路是硬路由：追高一律先等等；早鸟忌极快拉高/已拉高、位置先于速度；回调忌没跌到位与奔着归零），相对/绝对价格双轴并读；维度档位是参考不是投票，综合题独立判无固定公式。',
     '- 薄窗倾向 insufficient：窗内行数很少、锚过早、多数维度缺证据（? 多）时，诚实承认材料不足不硬判。',
     '- token 龄极短（[PRECOMPUTED] 时点位置行）时全程首波形状属常态：近高位置/节奏密集本身不是风险信号，权衡时结合 token 龄。',
   ].join('\n'));

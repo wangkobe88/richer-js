@@ -1,9 +1,11 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态=用户裁定「Jev 综合判定」：7 维度题档位 + 1 类别题（point_category，
+ * 判定形态=用户裁定「Jev 综合判定」：维度题档位 + 1 类别题（point_category，
  * BP3：早鸟/回调/追高/难分类）+ 1 综合题（buy_point_assessment）由 Jev 直接给
- * 「当前点位适合买入程度」（good/neutral/poor/insufficient）。
+ * 「当前点位适合买入程度」（good/neutral/poor/insufficient）。BP5 维度瘦身：
+ * 4 维度（price_trend 价格趋势六桶 / sell_pressure / market_heat / entry_position
+ * 相对价格高低四桶）+ price_level 绝对价格高低五桶 + 类别 + 综合。
  * 本 mapper **纯透传**：argmax 桶位照抄，代码不做任何规则映射/加权/grade
  * （无 grade.js——与 CD D3.5「判断一律 Jev」同哲学）。
  *
@@ -20,15 +22,13 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度/类别题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP3 加类别题） */
+/** 维度/类别题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP5 维度瘦身） */
 const DIMENSION_IDS = [
-  'price_momentum',
-  'buy_pressure_quality',
-  'chip_flow',
+  'price_trend',
   'sell_pressure',
   'market_heat',
-  'pace_trend',
   'entry_position',
+  'price_level',
   'point_category',
 ];
 
@@ -36,25 +36,21 @@ const DIMENSION_IDS = [
 const ASSESSMENT_ID = 'buy_point_assessment';
 
 // ── 桶域（与题集导出同域同值——单测锁相等）──
-const MOMENTUM_LEVELS = ['none', 'weak', 'moderate', 'strong'];
-const PRESSURE_QUALITY_LEVELS = ['none', 'weak', 'moderate', 'strong'];
-const CHIP_FLOW_LEVELS = ['accumulating', 'neutral_flow', 'distributing'];
+const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
 const SELL_PRESSURE_LEVELS = ['low', 'mid', 'high'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
-const PACE_LEVELS = ['heating', 'steady', 'cooling'];
-const ENTRY_POSITION_LEVELS = ['near_low', 'mid_range', 'near_high'];
+const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
+const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
 const POINT_CATEGORY_LEVELS = ['early_bird', 'pullback_entry', 'high_chase', 'unclear'];
 const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
 const DIMENSION_LEVELS = {
-  price_momentum: MOMENTUM_LEVELS,
-  buy_pressure_quality: PRESSURE_QUALITY_LEVELS,
-  chip_flow: CHIP_FLOW_LEVELS,
+  price_trend: PRICE_TREND_LEVELS,
   sell_pressure: SELL_PRESSURE_LEVELS,
   market_heat: HEAT_LEVELS,
-  pace_trend: PACE_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
+  price_level: PRICE_LEVEL_LEVELS,
   point_category: POINT_CATEGORY_LEVELS,
 };
 
@@ -134,6 +130,10 @@ function buildBuyPointObservation(answers, anchors = null) {
       spanSec: _num(b, 'spanSec'),
       currentVsAthPct: _num(b, 'currentVsAthPct'),
       secSinceAth: _num(b, 'secSinceAth'),
+      // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered boolean → 1/0 数值化）
+      launchPriceBnb: _num(b, 'launchPriceBnb'),
+      currentVsLaunchPct: _num(b, 'currentVsLaunchPct'),
+      launchCovered: b.launchCovered === null || b.launchCovered === undefined ? null : (b.launchCovered ? 1 : 0),
       // 市值位置族（BP2：supply 缺失 null fail-closed）
       mcapBnb: _num(b, 'mcapBnb'),
       mcapPeakBnb: _num(b, 'mcapPeakBnb'),
@@ -168,13 +168,11 @@ module.exports = {
   buildBuyPointObservation,
   DIMENSION_IDS,
   ASSESSMENT_ID,
-  MOMENTUM_LEVELS,
-  PRESSURE_QUALITY_LEVELS,
-  CHIP_FLOW_LEVELS,
+  PRICE_TREND_LEVELS,
   SELL_PRESSURE_LEVELS,
   HEAT_LEVELS,
-  PACE_LEVELS,
   ENTRY_POSITION_LEVELS,
+  PRICE_LEVEL_LEVELS,
   POINT_CATEGORY_LEVELS,
   ASSESSMENT_LEVELS,
 };

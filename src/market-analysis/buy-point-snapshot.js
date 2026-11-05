@@ -35,6 +35,8 @@ const BP_TOP_HOLDER_N = 5;
 const BP_BURST_SEC = 5;
 /** 价格轨迹等份桶数 */
 const BP_PRICE_BUCKETS = 20;
+/** 发行价覆盖判据容差（秒）：数组最早 dt ≤ 此值 = ticks 含出生段（BP5 发行价锚） */
+const BP_LAUNCH_COVER_TOL = 90;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -268,11 +270,28 @@ function computeBuyPointDerived(snapshot) {
     if (tEnd !== null) holdersDelta60 = holdersNow - holdersAt(tEnd - 60);
   }
 
+  // ── 发行价位置族（BP5/绝对价格高低维度锚）：launchPriceBnb=ticks 覆盖出生段时
+  // 的全数组首个可靠价（非 outlier/price>0 最早行，链上真序 rel[0]）；出生覆盖
+  // 判据=数组最早 dt ≤ BP_LAUNCH_COVER_TOL（首行贴近创建点=数组含出生段；锚窗
+  // 截窗的长票不覆盖 → 全族 null fail-closed 截窗不冒充发行价）；
+  // currentVsLaunchPct=末可靠价较发行价 %（可破发为负）──
+  let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null;
+  if (rel.length >= 1) {
+    const firstDt = dts.length ? Math.min(...dts) : null;
+    launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
+    if (launchCovered && arc && arc.last > 0 && rel[0].priceBnb > 0) {
+      launchPriceBnb = +rel[0].priceBnb.toFixed(10);
+      currentVsLaunchPct = +(((arc.last / launchPriceBnb) - 1) * 100).toFixed(1);
+    }
+  }
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
     // 价格（可靠价口径）
     chg30Pct, chg60Pct, chg120Pct, priceBuckets,
+    // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键）
+    launchPriceBnb, currentVsLaunchPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,
     // holder 流向族（BP2：tok 缺失全族 null）

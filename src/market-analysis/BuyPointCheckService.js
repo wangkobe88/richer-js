@@ -245,10 +245,10 @@ class BuyPointCheckService {
       this.stats.analyzed++;
 
       const dim = obs.dimensions;
-      this._log('info', `买点观测 mom=${dim.price_momentum?.bucket ?? '—'} bpq=${dim.buy_pressure_quality?.bucket ?? '—'}` +
-        ` chip=${dim.chip_flow?.bucket ?? '—'} sell=${dim.sell_pressure?.bucket ?? '—'}` +
-        ` heat=${dim.market_heat?.bucket ?? '—'} pace=${dim.pace_trend?.bucket ?? '—'}` +
-        ` entry=${dim.entry_position?.bucket ?? '—'}` +
+      this._log('info', `买点观测 trend=${dim.price_trend?.bucket ?? '—'}` +
+        ` sell=${dim.sell_pressure?.bucket ?? '—'} heat=${dim.market_heat?.bucket ?? '—'}` +
+        ` entry=${dim.entry_position?.bucket ?? '—'} level=${dim.price_level?.bucket ?? '—'}` +
+        ` cat=${dim.point_category?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob})` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
