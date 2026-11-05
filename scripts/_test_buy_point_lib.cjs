@@ -376,7 +376,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP10 八题=5 维度+3 质量/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP11 删卖压题+⓪两条件裁定级+①near_launch 例外/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP10', 'F: 版本=BP10（BP11 案二改：忌讳①内部开 near_launch 例外——maxChg5 过线∧near_launch=脉冲已被消化不判 poor，冲突源①「无论回撤深浅」与⓪救臂同票双命中矛盾从根消除）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP11', 'F: 版本=BP11（BP11 案三改：⓪升场景层前置分流——回调场景成立后第一个判定命中即定档不进忌讳；②加「跌到位只对 low+ 适用」排除句）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 8, `F: 恰 8 题=5 维度+3 质量题（实际 ${ids.length}）`);
@@ -422,9 +422,10 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('且价格已不低（price_level=low 及以上=涨过一截没跌干净）'), 'F: 忌讳①poor 判据=maxChg5 过线∧价格已不低（BP11 二改：①内部加价格档联立臂）');
   ok(pb.instructions.includes('near_launch 例外（判在本忌讳内部、优先于上句「无论回撤深浅」') && pb.instructions.includes('不判 poor（至多 neutral）'), 'F: 忌讳①内部 near_launch 例外=脉冲已被消化不判 poor（BP11 二改：例外开进①内部消除⓪①同票双命中矛盾——S021 八轮/S071 一轮措辞失败根因）');
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
-  ok(pb.instructions.includes('⓪**价格低优先救（裁定级规则，命中即停=肯定判 neutral，不是权衡项）**'), 'F: 回调价格低救=第⓪分支裁定级（BP11：两条件命中=肯定 neutral 非权衡项）');
-  ok(pb.instructions.includes('price_level=near_launch=较发行价涨幅还小）∧ 回撤浅（entry_position=near_high/shallow_pullback）'), 'F: ⓪分支两条件=near_launch∧浅回调（BP11 用户裁定「价格 near_launch∧浅回调 肯定要给中等」——tokenAgeSec 前提删除）');
-  ok(pb.instructions.includes('体系中本就无卖压/holder 流失这两个评估指标，不得用来否决本分支'), 'F: ⓪分支证据闭包=暗证据不得否决（BP11 用户裁定「我当前设计的体系中，没有这两个指标」）');
+  ok(pb.instructions.includes('子场景优先分流（回调场景成立后的第一个判定，命中即定档、不进忌讳清单）'), 'F: ⓪升场景层前置分流（BP11 三改：命中即定档不进忌讳——忌讳清单内救臂九轮全败后换结构层级）');
+  ok(pb.instructions.includes('本题直接判 neutral（肯定给中等）'), 'F: 子场景分流命中=直接 neutral（BP11 用户裁定「价格 near_launch∧浅回调 肯定要给中等」）');
+  ok(pb.instructions.includes('下方忌讳①②③⑤全部不再评估') && pb.instructions.includes('体系中本就无这两个评估指标'), 'F: 分流证据闭包=忌讳与暗证据双不评估（BP11 用户裁定「我当前设计的体系中，没有这两个指标」）');
+  ok(pb.instructions.includes('「跌到位」的要求只对价格已不低（price_level=low 及以上=涨过一截）的票适用——near_launch 票还没涨起来，无跌到位要求，不走本忌讳'), 'F: ②没跌到位加 low+ 排除句（BP11 三改第二道防线——②触发条件与⓪同域是九轮失败盲区）');
   ok(pb.instructions.includes('深回撤（half_off/ankle_cut）不走本分支'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
