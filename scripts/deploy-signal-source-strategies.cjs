@@ -10,7 +10,9 @@
 //     t1-t4 热度门槛递升（tradeCount/buyVolumeBnb/holdersExDust——t1 最早最松
 //          优先级最高；t4 同 holders 更高热度）
 //     t5    块窗砸盘形状（recentBlockDropPct≥12 阈值占位，用户库中调）
-//     t6    低市值 OR 深回撤（marketCap>0 前卫防 supply 缺失=0 误触发）
+//     t6    跌回低市值 OR 深回撤（峰 ≥15 峰门防「出生即触发」——市值从 0 涨起
+//          前几笔必 ≤7.5，2026-11-05 用户澄清「从高点跌下来才触发非早期用」；
+//          59 票对拍：OLD 锚中位 1/回撤 0% → 峰门版锚中位 237/回撤 61%）
 //     t7    跌底放量（深回撤+静默段后 surge 放量）
 //   t1-t3 cheatRecheck:true（unhealthy 重判）；t4-t7 false（unhealthy 粘滞秒回
 //   拒省配额——低阶触发源不值得烧 Jev 重判）。
@@ -48,8 +50,8 @@ const LEGS = [
         '阶梯 4：24 笔/1.5 BNB/12 真持有者（最高热度门）；cheatRecheck=false（高热度票 unhealthy 粘滞秒回省配额）'),
     leg('t5', 5, 'recentBlockDropPct >= 12', false,
         '阶梯 5：块收盘环窗（≤4 块 1/2/3 块窗最深跌幅）≥12% 砸盘形状；阈值占位待票池分布校准（用户库中调）'),
-    leg('t6', 6, 'marketCap > 0 AND marketCap <= 7.5 OR mcapFromPeakPct >= 60', false,
-        '阶梯 6：低市值（≤7.5 BNB，marketCap>0 前卫防 supply 缺失=0 误触发）OR 较峰回撤 ≥60%'),
+    leg('t6', 6, '(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5) OR mcapFromPeakPct >= 60', false,
+        '阶梯 6：跌回低市值（峰 ≥15=涨出 7.5 低线至少翻倍，市值 ≤7.5 时隐含回撤 ≥50%——2026-11-05 用户澄清「从高点跌下来才触发非早期用」，峰门防出生票市值从 0 涨起前几笔必 ≤7.5 的即触发）OR 较峰回撤 ≥60%'),
     leg('t7', 7, 'mcapFromPeakPct >= 60 AND quietSpanMs >= 60000 AND quietSurgeBuyBnb >= 0.5', false,
         '阶梯 7：跌底放量——深回撤 ≥60% + ≥60s 静默段后 surge 买量 ≥0.5 BNB'),
 ];
@@ -76,9 +78,26 @@ async function main() {
     const db = dbManager.getClient();
 
     for (const e of ENTRIES) {
-        const { data: dup } = await db.from('strategy_library').select('id,name,side,version').eq('name', e.name);
+        const { data: dup } = await db.from('strategy_library').select('id,name,side,version,legs').eq('name', e.name);
         if (dup && dup[0]) {
-            console.log(`[SKIP] 库条目已存在: ${e.name} ${dup[0].id} side=${dup[0].side} version=${dup[0].version}`);
+            // 同名迭代（buy-v2 系惯例：同名条目 version+1 而非新名）：legs/description 任一变化才 update
+            const { StrategyLibraryService } = require('../src/web/services/StrategyLibraryService');
+            const svc = new StrategyLibraryService();
+            const legsChanged = JSON.stringify(dup[0].legs) !== JSON.stringify(e.legs);
+            const descChanged = JSON.stringify(dup[0].description || '') !== JSON.stringify(e.description);
+            if (!legsChanged && !descChanged) {
+                console.log(`[SKIP] 库条目已是目标形状: ${e.name} ${dup[0].id} version=${dup[0].version}`);
+                continue;
+            }
+            if (!COMMIT) {
+                console.log(`[DRY-RUN] 库条目已存在将 UPDATE（version ${dup[0].version}→${dup[0].version + 1}）: ${e.name}`);
+                for (const l of e.legs) console.log(`  p${l.priority} ${l.condition}  signalGate=${JSON.stringify(l.signalGate)}`);
+                continue;
+            }
+            const updated = await svc.update(dup[0].id, {
+                name: e.name, description: e.description, legs: e.legs, expectedVersion: dup[0].version,
+            });
+            console.log(`[OK] strategy_library UPDATE: ${e.name} version ${dup[0].version}→${updated.version}（腿形变化=${legsChanged} 描述变化=${descChanged}）`);
             continue;
         }
         if (!COMMIT) {
