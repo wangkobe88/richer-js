@@ -24,7 +24,7 @@ const {
 const { buildBuyPointState, MAX_STATE_CHARS } = require('../src/market-analysis/buy-point-state-builder');
 const {
   buildBuyPointObservation, DIMENSION_IDS, QUALITY_IDS,
-  PRICE_TREND_LEVELS, HEAT_LEVELS,
+  PRICE_TREND_LEVELS, HEAT_LEVELS, ACTIVITY_LEVELS,
   ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, TREE_POSITION_LEVELS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
@@ -244,6 +244,19 @@ const dCNoPos = buildBuyPointSnapshot(rowsCNoPos, metaA).buyDerived;
 ok(dCNoPos.bigHolderSellBnb60 === null, 'C: 无正净持有人 → bigHolderSell null（轴不适用）');
 ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有证据零值路径）');
 
+// BP13 活跃度锚族透传（cheatDerived 同名单点照抄——不重算；rowsA 跨 180s 窗临近段在场）
+{
+  const snapAct = buildBuyPointSnapshot(rowsA, metaA);
+  const act = snapAct.buyDerived.activity;
+  const cd = snapAct.cheatDerived;
+  ok(act && act.idlePct === cd.idlePct && act.buyMedianBnb === cd.buyMedianBnb && act.throughputBnbPerMin === cd.throughputBnbPerMin
+    && act.nearSegTickN === cd.nearSegTickN && act.nearSegBnbPerMin === cd.nearSegBnbPerMin && act.spanSec === cd.spanSec && act.tickCount === cd.tickCount,
+    'C: activity 锚族=cheatDerived 同名同值透传（单点计算不重算——BP 锚窗=买点前窗口）');
+  const keysAct = Object.keys(act).sort().join(',');
+  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 13 键（实际 ${keysAct}）`);
+  ok(snapAct.buyDerived.activity.maxDrawdownPct === cd.maxDrawdownPct, 'C: maxDrawdownPct 透传（可靠价运行峰回撤）');
+}
+
 // ═══════════════ D. state builder ═══════════════
 console.log('D. state builder（分区/近端字段/截断/超帽）');
 const snapD = buildBuyPointSnapshot(rowsA, metaA, { signalInfo: { signalId: 'BP-S042', createdAt: '2026-11-03T10:03:35Z', strategyName: 'buy-v2 v54', firePriceBnb: 1.62 * E9 } });
@@ -256,6 +269,8 @@ ok(stD.state.includes('近120s 买'), 'D: [WALLETS] 近端字段在场');
 ok(stD.state.includes('近窗动量') && stD.state.includes('节奏趋势') && stD.state.includes('卖压') && stD.state.includes('参与结构') && stD.state.includes('时点位置'), 'D: PRECOMPUTED 七族行');
 ok(stD.state.includes('近窗动量(涨跌%): 5s 6.67% / 10s 6.67% / 30s 14.29%'), 'D: chg 手算值渲染（BP6 短窗 5/10/30s）');
 ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCount60=1');
+ok(stD.state.includes('活跃度数值:') && stD.state.includes('买盘中位') && stD.state.includes('金额吞吐') && stD.state.includes('无交易期占比') && stD.state.includes('窗口时长'), 'D: 活跃度数值行扩容（BP13：中位/吞吐/静默占比/窗口两原料——CD 数值族搬运渲染）');
+ok(stD.state.includes('临近买点段(最后30秒):') && stD.state.includes('买入点位之前的直接承接环境——开盘段/前期密集不救临近死寂'), 'D: 临近买点段行渲染（BP13：锚窗末端 30s 独立口径）');
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
@@ -287,6 +302,7 @@ const mkAns = (id, bucket, prob = 0.9) => ({ [id]: { probabilities: { [bucket]: 
 const fullAnswers = () => ({
   ...mkAns('price_trend', 'fast_up'),
   ...mkAns('market_heat', 'high'),
+  ...mkAns('activity_level', 'mid'),
   ...mkAns('entry_position', 'near_high'),
   ...mkAns('price_level', 'near_launch'),
   ...mkAns('tree_position', 'left_side'),
@@ -295,7 +311,7 @@ const fullAnswers = () => ({
   ...mkAns('high_chase_quality', 'poor', 0.61),
 });
 const obsE = buildBuyPointObservation(fullAnswers(), dA);
-ok(Object.keys(obsE.dimensions).length === 5 && obsE.dimensions.price_trend.bucket === 'fast_up', 'E: 五维度 argmax 透传（BP9 删 sell_pressure）');
+ok(Object.keys(obsE.dimensions).length === 6 && obsE.dimensions.price_trend.bucket === 'fast_up' && obsE.dimensions.activity_level.bucket === 'mid', 'E: 六维度 argmax 透传（BP13 增 activity_level——CD 判法搬运）');
 ok(!('point_category' in obsE.dimensions) && JSON.stringify(obsE).indexOf('point_category') === -1 && JSON.stringify(obsE).indexOf('buy_point_assessment') === -1, 'E: point_category/buy_point_assessment 键绝迹（BP6 形态反证）');
 ok(Object.keys(obsE.qualities).length === 3 && obsE.qualities.early_bird.bucket === 'neutral' && obsE.qualities.pullback_entry.bucket === 'insufficient' && obsE.qualities.high_chase.bucket === 'poor', 'E: 三质量题 strict 透传（early_bird/pullback_entry/high_chase）');
 ok(obsE.assessment.bucket === 'neutral' && near(obsE.assessment.prob, 0.7) && obsE.assessment.rule === 'any_neutral', 'E: 聚合=任一 neutral → neutral（insufficient 不贡献，rule 留痕）');
@@ -322,10 +338,28 @@ aG = agg('good', 0.6, 'poor', 0.5, 'good', 0.9);
 ok(aG.bucket === 'good' && near(aG.prob, 0.9), 'E: 多 good 并存 prob=取最大');
 // BP8 活跃度门+圣诞树观察档（用户裁定：①活跃度 low 不参与；②圣诞树锚「暂时先不
 // 参与决策…可以先放里头」——tree 各桶一律不拦，题照问答照落攒分布）
+// BP13 门扩双题：market_heat low（近窗密度）OR activity_level low（买点前全窗量级
+// ——CD 七要素判法搬运，ZELDA 案：market_heat 纯密度对「每分钟成交额 BNB」失真）
 let aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.88) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.88) && aM.rule === 'activity_gate', 'E: 门① heat=low → poor/activity_gate（prob=门题 argmax）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.88) && aM.rule === 'activity_gate', 'E: 门① heat=low → poor/activity_gate（prob=门题 argmax；act=mid 不参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'low', 0.81) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.81) && aM.rule === 'activity_gate', 'E: 门① BP13 臂 act=low（heat=high）→ poor/activity_gate（买点前全窗量级死寂——ZELDA 形状拦截臂）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.7), ...mkAns('activity_level', 'low', 0.93) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.93) && aM.rule === 'activity_gate', 'E: 门① 双 low → prob 取两臂最大（同 rule 留痕）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'mid', 0.6), ...mkAns('activity_level', 'mid', 0.6), ...mkAns('early_bird_quality', 'good', 0.9) }, dA).assessment;
+ok(aM.bucket === 'good' && aM.rule === 'any_good', 'E: 门① 双 mid 放行（低档才有证据拒——mid/high/ultra 不拦）');
+{
+  const legacyAns = fullAnswers();
+  delete legacyAns.activity_level; // BP12 旧档重放形状：无 activity_level 答案
+  const aLegacy = buildBuyPointObservation(legacyAns, dA).assessment;
+  ok(aLegacy.bucket === 'neutral' && aLegacy.rule === 'any_neutral', 'E: 门① act 答案缺席=该臂失效容缺放行（BP12 旧档重放兼容——market_heat 臂照常）');
+  const aLegacyHeat = buildBuyPointObservation({ ...legacyAns, ...mkAns('market_heat', 'low', 0.9) }, dA).assessment;
+  ok(aLegacyHeat.rule === 'activity_gate', 'E: 门① 旧档无 act 答案时 heat 臂照拦（单臂退化不吞门）');
+}
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.88), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门① 优先于质量题（早鸟 good 0.95 不救——活跃度不够不参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'low', 0.88), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门① BP13 臂同优先于质量题（act low+早鸟 good 不救）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'not_tree', 0.83) }, dA).assessment;
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=not_tree 不拦（观察档——圣诞树门裁定暂不参与决策，走质量题聚合）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'top', 0.77) }, dA).assessment;
@@ -352,6 +386,13 @@ ok(obsE.anchors.swingHighCount === 1 && obsE.anchors.swingLowCount === 1 && obsE
   && obsE.anchors.swingMaxAmplPct === 100, 'E: 摆动结构族 8 键透传（BP8 圣诞树原料）');
 ok(obsE.anchors.swingPoints === undefined && obsE.anchors.swingLegs === undefined, 'E: swingPoints/swingLegs 数组不进锚（state 渲染原料）');
 ok(obsE.anchors.chg60Pct === undefined && obsE.anchors.chg120Pct === undefined, 'E: chg60/chg120 键绝迹（BP6 短窗反证）');
+// BP13 活跃度锚族透传（cheatDerived 同名单点照抄——act 前缀=买点前窗口口径）
+ok(obsE.anchors.actIdlePct === (dA.activity ? dA.activity.idlePct : undefined) && obsE.anchors.actBuyMedianBnb === (dA.activity ? dA.activity.buyMedianBnb : undefined)
+  && obsE.anchors.actThroughputBnbPerMin === (dA.activity ? dA.activity.throughputBnbPerMin : undefined) && obsE.anchors.actNearSegTickN === (dA.activity ? dA.activity.nearSegTickN : undefined),
+  'E: 活跃度锚族 act 四代表键透传（idlePct/买盘中位/吞吐/临近段——与 buyDerived.activity 同值）');
+ok(obsE.anchors.actSpanSec !== undefined && obsE.anchors.actTickCount !== undefined && obsE.anchors.actNearSegBnbPerMin !== undefined && obsE.anchors.actNearSegMaxGapSec !== undefined
+  && obsE.anchors.actNearSegBuyN !== undefined && obsE.anchors.actNearSegSellN !== undefined && obsE.anchors.actNearSegTicksPerMin !== undefined && obsE.anchors.actNearSegBuyMedianBnb !== undefined,
+  'E: 活跃度锚族 act 13 键全在场（spanSec/tickCount/中位/吞吐/回撤/临近段七键）');
 const obsNeg = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: -12.34, win: dA.win });
 ok(obsNeg.anchors.chg30Pct === -12.34, 'E: chg 负值 −12.34 照读（不以 null 吞）');
 ok(obsE.anchors.win60BuyBnb !== undefined && near(obsE.anchors.win60BuyBnb, 0.27), 'E: win 族扁平键 win60BuyBnb 透传');
@@ -367,6 +408,7 @@ assert.throws(() => { const a = { ...fullAnswers() }; delete a.early_bird_qualit
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), high_chase_quality: { probabilities: { excellent: 0.9 } } }, dA), /未知桶名/, 'E: 质量题未知桶 throw');
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), pullback_entry_quality: {} }, dA), /答案缺失|无概率分布/, 'E: 质量题空答案 throw');
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), price_trend: { probabilities: { extreme: 0.9 } } }, dA), /未知桶名/, 'E: 维度题在场未知桶 throw');
+assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), activity_level: { probabilities: { dead: 0.9 } } }, dA), /未知桶名/, 'E: activity_level 在场未知桶 throw（容缺不因新题放宽桶域校验）');
 const partial = { ...fullAnswers() };
 delete partial.price_level;
 const obsPartial = buildBuyPointObservation(partial, dA);
@@ -374,25 +416,27 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP12 八题=5 维度+3 质量/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP11 删卖压题+回调三层结构/两调深相等）');
+  console.log('F. 题集形状（BP13 九题=6 维度+3 质量/桶域对锁/活跃度门双题+三类质量题+圣诞树观察档/BP12 案 CD 判法搬运/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP12', 'F: 版本=BP12（BP11 案四改：回调题三层结构重写——第二层核心规则=用户裁定原话直译「价格跌到很低+活跃度没丧失 → 中等」置顶，忌讳清单压成五行只服务 low+/深崩票）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP13', 'F: 版本=BP13（BP12 案：CD activity_level 七要素判法搬运——market_heat 纯密度口径对每分钟成交额 BNB 失真（ZELDA 案买点前已冷判 high 放行），活跃度门扩双题 low OR low）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
-  ok(ids.length === 8, `F: 恰 8 题=5 维度+3 质量题（实际 ${ids.length}）`);
-  ok(ids[0] === 'price_trend' && ids[1] === 'market_heat' && ids[2] === 'entry_position' && ids[3] === 'price_level' && ids[4] === 'tree_position', 'F: 维度序=price_trend/heat/entry/level/tree（前 5 题）');
-  ok(JSON.stringify(ids.slice(5)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
+  ok(ids.length === 9, `F: 恰 9 题=6 维度+3 质量题（实际 ${ids.length}）`);
+  ok(ids[0] === 'price_trend' && ids[1] === 'market_heat' && ids[2] === 'activity_level' && ids[3] === 'entry_position' && ids[4] === 'price_level' && ids[5] === 'tree_position', 'F: 维度序=price_trend/heat/activity/entry/level/tree（前 6 题——activity_level 插 heat 后）');
+  ok(JSON.stringify(ids.slice(6)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
   ok(!('point_category' in qs) && !('buy_point_assessment' in qs), 'F: 类别题/综合题已删（BP6 形态反证——路由依赖从根消除）');
   ok(!('price_momentum' in qs) && !('buy_pressure_quality' in qs) && !('chip_flow' in qs) && !('pace_trend' in qs), 'F: 四道旧维度题已删（BP5 瘦身反证）');
   ok(ids.every((id) => qs[id].type === 'choice' && qs[id].criteria && Object.keys(qs[id].criteria).length >= 3), 'F: 全 choice 且 criteria≥3 桶');
-  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 8 题各含「怎么算」显式算法段');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 五维度题各含反锚段');
+  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 9 题各含「怎么算」显式算法段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 六维度题各含反锚段');
   ok(qs.early_bird_quality.instructions.includes('忌讳') && qs.pullback_entry_quality.instructions.includes('忌讳'), 'F: 早鸟/回调题各含忌讳段（poor 主判教学）');
   ok(q.buildBuyPointQuestions() && JSON.stringify(q.buildBuyPointQuestions()) === JSON.stringify(qs), 'F: 函数产物两调深相等（无隐藏状态）');
   // 桶域与 mapper 常量对锁（ESM/CJS 双副本漂移防线）
   ok(JSON.stringify(q.PRICE_TREND_LEVELS) === JSON.stringify(PRICE_TREND_LEVELS), 'F: PRICE_TREND_LEVELS 同域（BP5 六桶）');
   ok(!('SELL_PRESSURE_LEVELS' in q) && !('sell_pressure' in qs), 'F: sell_pressure 题与桶域常量已删（BP11 用户裁定「sell_pressure 直接删掉」——体系中无此指标）');
   ok(JSON.stringify(q.HEAT_LEVELS) === JSON.stringify(HEAT_LEVELS), 'F: HEAT_LEVELS 同域');
+  ok(JSON.stringify(q.ACTIVITY_LEVELS) === JSON.stringify(ACTIVITY_LEVELS), 'F: ACTIVITY_LEVELS 同域（BP13——CD activity_level 同词表四档）');
+  ok(JSON.stringify(Object.keys(qs.activity_level.criteria)) === JSON.stringify(ACTIVITY_LEVELS), 'F: activity_level 桶===ACTIVITY_LEVELS（四桶）');
   ok(JSON.stringify(q.ENTRY_POSITION_LEVELS) === JSON.stringify(ENTRY_POSITION_LEVELS), 'F: ENTRY_POSITION_LEVELS 同域（BP5 四桶）');
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
   ok(JSON.stringify(q.TREE_POSITION_LEVELS) === JSON.stringify(TREE_POSITION_LEVELS), 'F: TREE_POSITION_LEVELS 同域（BP8 六桶）');
@@ -401,7 +445,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
   const qSet = new Set(QUALITY_IDS);
-  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 5 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（5+3）');
+  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 6 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（6+3）');
   for (const id of QUALITY_IDS) {
     ok(JSON.stringify(Object.keys(qs[id].criteria)) === JSON.stringify(QUALITY_LEVELS), `F: ${id} 桶===QUALITY_LEVELS（四桶）`);
   }
@@ -444,6 +488,17 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(qs.price_level.instructions.includes('未覆盖出生段'), 'F: price_level 反锚④? 行=材料缺失不猜（截窗不冒充）');
   ok(qs.price_level.instructions.includes('破发') && qs.price_level.instructions.includes('near_launch'), 'F: price_level 破发负值归接近发行价桶');
   ok(qs.market_heat.instructions.includes('活跃度是入场的必要条件'), 'F: market_heat 反锚④活跃度门槛教学（BP8 门①消费 low 档）');
+  // activity_level 题面（BP13：CD 七要素判法搬运——判读倾向临近买点段）
+  const al = qs.activity_level;
+  ok(al.instructions.includes('买入点位之前的盘面活跃度') && al.instructions.includes('判读倾向临近买入点位段'), 'F: activity_level 题头=买点前窗口+临近段倾向（BP12 案用户原话「活跃度检测要倾向于检测买入点位之前的」）');
+  ok(al.instructions.includes('与市场热度题（market_heat，近 30/60s 密度视角）分工'), 'F: activity_level 与 market_heat 分工声明（两题并读非替代——原题保留）');
+  for (const seg of ['无交易期占比', '笔密度', '买盘中位数为主、笔均为辅', '单向死水推进', '开盘极早窗反锚', '金额吞吐', '停滞突发反锚', '临近买入点位段（锚窗末端 30 秒=买点前最后 30 秒）', '全窗量级综合锚']) {
+    ok(al.instructions.includes(seg), `F: activity_level 七要素+综合锚段在场：${seg.slice(0, 18)}`);
+  }
+  ok(al.instructions.includes('数值行「临近买点段」事实已算好直接采信'), 'F: activity_level ⑦ 消费 state 临近买点段行（D3.59 搬运）');
+  ok(al.instructions.includes('活跃度门直接消费拒买（活跃度不够不参与交易——买点之前盘面已冷=无承接）'), 'F: activity_level 收尾=门消费声明（镜像 market_heat 反锚④）');
+  ok(al.criteria.low.includes('临近买点段（最后 30 秒）') && al.criteria.low.includes('四腿联立'), 'F: activity_level low 桶=临近段死寂+四腿联立双臂');
+  ok(al.criteria.high.includes('金额吞吐与之相称') && al.criteria.high.includes('尘埃假活跃不入本档'), 'F: activity_level high 桶=吞吐相称门槛（假活跃不入高档——ZELDA 案失真修复）');
   // tree_position 题面（BP8 观察档——形状+位置；圣诞树门裁定暂不参与决策，题照问攒分布）
   const tp = qs.tree_position;
   ok(tp.instructions.includes('暴涨暴跌'), 'F: tree_position 形状=暴涨暴跌反常 → not_tree（非正常用户行为形状）');

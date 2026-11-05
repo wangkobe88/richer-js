@@ -5,7 +5,9 @@
  * 纯参考）+ **3 类别质量题**（early_bird_quality/pullback_entry_quality/
  * high_chase_quality，桶域 good/neutral/poor/insufficient——Jev 三视角并行独立
  * 评估）；综合判定 = **代码侧两层**（用户三层框架，圣诞树层裁定暂缓）：
- *   ① 活跃度门——market_heat=low → poor（rule=activity_gate，活跃度不够不参与）
+ *   ① 活跃度门（BP13 扩双题）——market_heat=low（近窗密度）**或**
+ *      activity_level=low（买点前全窗量级——CD 七要素判法搬运）→ poor
+ *      （rule=activity_gate，活跃度不够不参与）
  *   ② 三质量题确定性聚合（BP6 用户裁定原话「这三者有任何一个为 good 则为
  *      good，为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则
  *      任一 neutral → neutral；否则 poor——insufficient 不贡献聚合；三题全
@@ -32,10 +34,11 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position；BP9 删 sell_pressure） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position；BP9 删 sell_pressure；BP13 增 activity_level） */
 const DIMENSION_IDS = [
   'price_trend',
   'market_heat',
+  'activity_level',
   'entry_position',
   'price_level',
   'tree_position',
@@ -47,6 +50,8 @@ const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality', 'high_chase
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
+/** 买点前活跃度四档（BP13：CD activity_level 判法搬运——与 HEAT_LEVELS 同词表） */
+const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
 /** 圣诞树位置六桶（BP8 观察档——用户裁定暂不参与决策：left_side 待涨/top 待跌/right_side 下跌/right_bottom 树脚/not_tree 形状反常/unclear 判不出；题照问答照落攒分布） */
@@ -60,6 +65,7 @@ const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
   market_heat: HEAT_LEVELS,
+  activity_level: ACTIVITY_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
   tree_position: TREE_POSITION_LEVELS,
@@ -108,8 +114,18 @@ function _winNum(anchors, W, key) {
 }
 
 /**
+ * buyDerived.activity 嵌套锚读取（BP13：cheatDerived 同名透传的买点前活跃度
+ * 锚族——idlePct/买盘中位/吞吐/临近段七键等；形状异常按缺席=null 不冒充）
+ */
+function _actNum(anchors, key) {
+  const a = anchors && anchors.activity;
+  const v = a && a[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/**
  * Jev answers → 买点观测记录（维度档位+三类质量+聚合综合判定+数值锚；无 verdict/grade）
- * @param {Object} answers - JevClient.ask 返回的 answers（8 题 Choice=5 维度+3 质量；
+ * @param {Object} answers - JevClient.ask 返回的 answers（9 题 Choice=6 维度+3 质量；
  *   维度题可缺席→null；质量题 strict 必须在场）
  * @param {Object|null} [anchors] - buyDerived 数值锚（buildBuyPointSnapshot
  *   产物 .buyDerived；缺省/形状异常=缺席）
@@ -128,17 +144,22 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   // 活跃度门+聚合（BP8：用户三层框架的第②层圣诞树门裁定暂不参与决策——
   // tree_position 纯观察攒分布，本聚合不消费任何 tree 桶）：
-  // ①活跃度门 heat=low → poor（活跃度不够不参与交易）；②质量题聚合：任一
-  // good → good；否则任一 neutral → neutral；否则 poor。
-  // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝）；门优先于质量题。
+  // ①活跃度门（BP13 扩双题）：market_heat=low（近窗密度死寂）**或**
+  //   activity_level=low（买点前全窗量级判法——CD 七要素搬运，临近买点段
+  //   死寂/尘埃假活跃/间歇死水等低档形状）→ poor（活跃度不够不参与交易）；
+  // ②质量题聚合：任一 good → good；否则任一 neutral → neutral；否则 poor。
+  // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；BP12 旧档重放无
+  // activity_level 答案=该臂自动失效，market_heat 臂照常）；门优先于质量题。
   // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
   const heat = dimensions.market_heat;
+  const act = dimensions.activity_level;
+  const gateArms = [heat, act].filter((e) => e && e.bucket === 'low');
   const qList = Object.values(qualities);
   const tier = (t) => qList.filter((e) => e && e.bucket === t);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
   let bucket, prob, rule;
-  if (heat && heat.bucket === 'low') {
-    bucket = 'poor'; prob = heat.prob; rule = 'activity_gate';
+  if (gateArms.length) {
+    bucket = 'poor'; prob = bestProb(gateArms); rule = 'activity_gate';
   } else {
     const g = tier('good');
     const n = tier('neutral');
@@ -211,6 +232,21 @@ function buildBuyPointObservation(answers, anchors = null) {
       // 卖压族
       bigHolderSellBnb60: _num(b, 'bigHolderSellBnb60'),
       exitSellerCount60: _num(b, 'exitSellerCount60'),
+      // 活跃度锚族（BP13：cheatDerived 同名透传——act 前缀=买点前窗口口径；
+      // 观察/校准素材非档位判定；临近段七键=? 时窗口 ≤30s 无对比语义）
+      actSpanSec: _actNum(anchors, 'spanSec'),
+      actTickCount: _actNum(anchors, 'tickCount'),
+      actIdlePct: _actNum(anchors, 'idlePct'),
+      actBuyMedianBnb: _actNum(anchors, 'buyMedianBnb'),
+      actThroughputBnbPerMin: _actNum(anchors, 'throughputBnbPerMin'),
+      actMaxDrawdownPct: _actNum(anchors, 'maxDrawdownPct'),
+      actNearSegTickN: _actNum(anchors, 'nearSegTickN'),
+      actNearSegTicksPerMin: _actNum(anchors, 'nearSegTicksPerMin'),
+      actNearSegBuyMedianBnb: _actNum(anchors, 'nearSegBuyMedianBnb'),
+      actNearSegBnbPerMin: _actNum(anchors, 'nearSegBnbPerMin'),
+      actNearSegMaxGapSec: _actNum(anchors, 'nearSegMaxGapSec'),
+      actNearSegBuyN: _actNum(anchors, 'nearSegBuyN'),
+      actNearSegSellN: _actNum(anchors, 'nearSegSellN'),
     },
   };
 }
@@ -221,6 +257,7 @@ module.exports = {
   QUALITY_IDS,
   PRICE_TREND_LEVELS,
   HEAT_LEVELS,
+  ACTIVITY_LEVELS,
   ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,
   TREE_POSITION_LEVELS,

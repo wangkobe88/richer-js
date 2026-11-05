@@ -123,7 +123,13 @@ function buildBuyPointState(snapshot) {
     lines.push(`卖压(近60s): 卖出 ${w60 ? `${fmtBnb(w60.sellBnb)}×${w60.sellN}` : '?'}；清仓式卖出钱包 ${b.exitSellerCount60 ?? '?'} 个（近 60s 卖出后全窗净持仓≤0；? = token 数量证据缺失）；全窗正净持仓 top5 钱包近 60s 卖出合计 ${b.bigHolderSellBnb60 === null || b.bigHolderSellBnb60 === undefined ? '?' : fmtBnb(b.bigHolderSellBnb60) + ' BNB'}`);
     // ⑦ 全窗背景（cheatDerived 直读不重算）
     lines.push(`全窗背景: 总买入 ${fmtBnb(d.totalBuyBnb)} BNB / ${d.buyN} 笔；总卖出 ${fmtBnb(d.totalSellBnb)} BNB / ${d.sellN} 笔；独立钱包（剔路由伪钱包）${d.walletCount}`);
-    lines.push(`活跃度数值: 每分钟 ${d.ticksPerMin ?? '?'} 笔 / 笔均 ${d.avgTradeBnb ?? '?'} BNB / 最大交易间隔 ${d.maxGapSec ?? '?'} 秒（全窗口径频率事实）`);
+    lines.push(`活跃度数值: 每分钟 ${d.ticksPerMin ?? '?'} 笔 / 笔均 ${d.avgTradeBnb ?? '?'} BNB / 买盘中位 ${d.buyMedianBnb ?? '?'} BNB / 金额吞吐 ${d.throughputBnbPerMin ?? '?'} BNB/分钟 / 最大交易间隔 ${d.maxGapSec ?? '?'} 秒 / 无交易期占比 ${d.idlePct ?? '?'}%（间隔 ≥20s 静默段合计÷窗长） / 窗内最大回撤 ${d.maxDrawdownPct ?? '?'}% / 窗口时长 ${d.spanSec ?? '?'} 秒 共 ${d.tickCount ?? '?'} 笔（全窗口径=买入点位之前的整个锚窗）`);
+    // BP13（案号 BP12）：临近买点段——锚窗末端 30s=买点前最后 30 秒，独立口径
+    //（CD D3.59 同构搬运：尘单滴答不断打破时间静默使无交易期占比对「前期密集→
+    // 临近只剩尘单」形状失明，临近死寂由段内中位/吞吐暴露）；? = 窗口 ≤30s 无对比语义
+    if (d.nearSegTickN !== null && d.nearSegTickN !== undefined) {
+      lines.push(`临近买点段(最后30秒): ${d.nearSegTickN} 笔（买 ${d.nearSegBuyN ?? '?'} / 卖 ${d.nearSegSellN ?? '?'}）/ ${d.nearSegTicksPerMin ?? '?'} 笔每分钟 / 段内金额吞吐 ${d.nearSegBnbPerMin ?? '?'} BNB/分钟 / 段内买盘中位 ${d.nearSegBuyMedianBnb ?? '?'} BNB / 段内最大间隔 ${d.nearSegMaxGapSec ?? '?'} 秒（买入点位之前的直接承接环境——开盘段/前期密集不救临近死寂）`);
+    }
     if (d.priceArc) {
       const drawdown = d.priceArc.ath > 0 ? ((d.priceArc.last / d.priceArc.ath - 1) * 100).toFixed(1) : '?';
       lines.push(`价格拱(全窗可靠价): 首 ${fmtPrice(d.priceArc.first)} → ATH ${fmtPrice(d.priceArc.ath)}（${fmtDt(d.priceArc.athDt)}）→ 末 ${fmtPrice(d.priceArc.last)}（较 ATH ${drawdown}%）`);
@@ -206,7 +212,7 @@ function buildBuyPointState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED]/[PRICE] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：此刻入场时机好坏。',
     '- 只判入场时机（时点），不下盘面性质结论：协同/作弊形状（等额阵列/对敲/分仓指纹）作为降档参考计入风险权衡，是否作弊由反作弊模块另行判定。',
-    '- 判定结构（BP8 用户裁定）：①活跃度门——热度 low=不参与交易（代码侧硬门消费 market_heat）；②三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）——早鸟≈树左侧早段、回调≈树脚企稳（小树结束+可能的大树开始）、追高≈树顶贴高；圣诞树形状与位置（tree_position）暂不参与决策（用户裁定「判断起来有点太难了，但是可以先放里头」）——题照答、摆动结构照算，档位作三质量题的参考佐证；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
+    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩为双题）：①活跃度门——热度（market_heat）low 或买点前活跃度（activity_level）low=不参与交易（代码侧硬门消费两题 low 档——活跃度不够不参与交易）；②三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）——早鸟≈树左侧早段、回调≈树脚企稳（小树结束+可能的大树开始）、追高≈树顶贴高；圣诞树形状与位置（tree_position）暂不参与决策（用户裁定「判断起来有点太难了，但是可以先放里头」）——题照答、摆动结构照算，档位作三质量题的参考佐证；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
     '- 薄窗倾向 insufficient：窗内行数很少、锚过早、多数维度缺证据（? 多）时，诚实承认材料不足不硬判。',
     '- token 龄极短（[PRECOMPUTED] 时点位置行）时全程首波形状属常态：近高位置/节奏密集本身不是风险信号，权衡时结合 token 龄。',
   ].join('\n'));

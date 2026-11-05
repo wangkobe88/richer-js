@@ -63,6 +63,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 | BP10 | 2026-11-05 | **①忌讳内部开 near_launch 例外（案号 BP11 二改）**：回调忌讳①崩塌第一腿加「maxChg5 过线但 price_level=near_launch→至多 neutral」内部例外——⓪救 vs ①拒同域冲突源从根消除（commit bdfc7550） | S021 poor 0.68 / S071 poor 0.61（忌讳教学 0.9→0.6 松动，仍未翻 neutral） |
 | BP11 | 2026-11-05 | **⓪升场景层前置分流+②加 low+ 排除句（案号 BP11 三改）**：回调题前置场景判别（⓪命中的浅回调贴低分流出去非回调场景）；②没跌到位限定 low+ 票（commit 40aaee2a；⚠带病提交：单测 FAIL 被 `&&` 链中 `tail` 吞 exit code——`node …|tail` 的退出码是 tail 的，教训留档） | S021 翻 neutral 0.61 / S071 poor 0.50（S021 疑 run-to-run 噪声抽中） |
 | BP12 | 2026-11-05 | **回调题三层结构重写终稿（案号 BP11 四改，用户确认版）+接受现状收口**：第一层场景判别（有高点+回落；圣诞树 right_bottom/left_side 佐证）→第二层核心规则置顶直译用户裁定「**价格跌到很低+活跃度没有丧失→中等**」（near_launch∧非深崩 ∧ heat≠low；依据三句+证据闭包卖压/holder 不否决）→第三层忌讳五行清单只服务 low+/深崩票；**终裁「先接受现状，然后下一个，不搞代码门」**：十轮迭代 9 poor 1 neutral，maxChg5 过线+near_launch+浅回调形状 Jev 稳定倾向 poor=设计内代价留档（commit 8b575324） | S021 poor 0.71 / S071 poor 0.69（双票退回 poor=终裁接受）；单测 248→252（F 组三层结构七组锚句）+26 |
+| BP13 | 2026-11-05 | **CD activity_level 七要素判法搬运+活跃度门扩双题（案号 BP12——ZELDA 误放案）**：新维度题 **activity_level 四档**（low/mid/high/ultra，CD 同名同词表——判法全文 BP 语境化：①无交易期占比（≥20s 静默段，idlePct）②笔密度③买盘中位为主笔均为辅（尘埃假活跃判读）④双向性+开盘极早窗反锚（<60s ∧ <30 笔两腿同时）⑤金额吞吐（<1 BNB/min 死寂，≥10 配高档）⑥停滞突发反锚（静默后买入涌入中档起判）⑦**临近买点段（锚窗末端 30s=买点前最后 30 秒，开盘段密集不救临近死寂）+全窗量级综合锚 D3.61 四腿联立**；题头声明判读倾向临近买点段=用户裁定原话「活跃度检测要倾向于检测买入点位之前的」；与 market_heat（近 30/60s 密度视角）分工并读，**原 market_heat 题保留不删**）；**活跃度门扩双题：market_heat low OR activity_level low → poor**（rule=activity_gate 不变，prob=触发臂最大；BP12 旧档无 activity_level 答案=该臂失效容缺、market_heat 臂照常=存档重放兼容）；snapshot 零改动——buyDerived 新增 activity 嵌套 13 键（cheatDerived 同名单点照抄不重算：spanSec/tickCount/idlePct/buyMedianBnb/throughputBnbPerMin/maxDrawdownPct/临近段七键）；state 活跃度数值行扩容（中位/吞吐/静默占比/回撤/窗口两原料）+新增「临近买点段(最后30秒)」行；mapper anchors 增 act 前缀 13 观察键 | 单测 `_test_buy_point_lib` 252→**282 断言**（E 组门双臂/双 low 取 max/旧档容缺/优先质量题+act 锚透传；D 组两新行；C 组 activity 同源+恰 13 键；F 组 BP13 九题=6 维度+3 质量/七要素段在场/分工句/门消费声明）+`_test_buy_point_check_service` 26 零影响+CD 三件零影响；ZELDA 单点对拍=见 BP12 案 |
 
 ## 首跑观测（BP1，2026-11-03，set=bp-2026-11-03-live4，232 点位全量零失败）
 
@@ -81,6 +82,18 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+
+### BP12 ZELDA 误放案：CD activity_level 七要素判法搬运进 BP+活跃度门扩双题（题集 BP13）（2026-11-05，机制案·v73 逐代币复审 #9 ZELDA 复审衍生；用户指令「搬一份」）
+
+**token**：ZELDA（完整地址见 set `bp-2026-11-05-v73-trades` BP-T013 点位的 tokenAddress；signal 05:56:59 t1 阶梯腿）｜**锚**=BP-T013（测试集点位，锚窗=信号前 ticks 截窗）。
+
+**案由（#9 复审实证）**：t1 信号 05:56:59 cheat healthy+BP2 good 放行买入 0.001@6.02e-9 → 05:57:43 stallClose 30s 断流全清 **-16.4%**（44s 无成交；vs 持到 900s -29% 省约 13 点）。误放根因=**market_heat 纯密度口径无绝对成交额门槛**：60s 窗 17 笔/12 买家/笔均 0.11 字面擦到「数十笔/分」high 下沿判 high，但每分钟成交额仅 **1.71 BNB**——用户质询「这个票活跃度不达标吧？」+裁定原话「**每分钟的交易量多少 BNB？这个是更加重要的指标**」。53 点集吞吐分布：p25=1.15 / p50=2.10 / p75=3.31 / max=16.10——1.71 落 p25-p50 区=**买点之前盘面已经很冷**（同窗「突突车」1.34 BNB/min 却 +317% 证明吞吐与收益非单调，判读归 Jev 权衡非代码硬门）；BP12 真跑 market_heat 仍判 high、综合 neutral(0.42)=放行（早鸟价格低救臂拖住、high_chase poor 0.80 方向对）=「不该放放了」形状，与 S021/S071（该救没救）反方向。用户指令原话：「**你把 cheat 检测的活跃度搬到买入点位分析一份吧（原来的不要删），活跃度检测要倾向于检测买入点位之前的，这个票买入点位之前已经很冷了**」。
+
+**搬运形状（题集 BP13）**：CD activity_level 题（D3.49/D3.55/D3.59/D3.61 四代演进成熟判法）整份 BP 语境化进新维度题——七要素判法（①无交易期占比 ②笔密度 ③买盘中位为主笔均为辅 ④双向性+开盘极早窗反锚 ⑤金额吞吐 ⑥停滞突发反锚 ⑦临近买点段+全窗量级综合锚四腿联立）+ 真实样本段全量照搬；题头声明「判读倾向临近买点段」=用户裁定直译。**BP 锚窗天然=买点前窗口**（锚=买点信号时刻，临近段=锚窗末端 30s=买点前最后 30 秒——CD 的「临近买点段」在 BP 语境无需改口径）；数值零重算（cheatDerived 同名 13 键透传，cheat-snapshot 单点）；**原 market_heat 保留不删**（近 30/60s 密度视角与全窗量级视角分工并读）。**活跃度门扩双题**：market_heat low OR activity_level low → poor（rule=activity_gate；BP12 旧档重放无 activity_level 答案=该臂失效容缺、heat 臂照常）。
+
+**验证**：单测 `_test_buy_point_lib` 282 断言（门双臂/双 low 取 max/旧档容缺/七要素段/act 13 键同源）+`_test_buy_point_check_service` 26+CD 三件零影响全绿；**ZELDA BP-T013 单点 BP13 重析对拍=待跑（182，期望 activity_level 判 low→综合 poor=BP 门拒）**；53 点全量重跑攒分布（吞吐阈值校准素材）=待用户放行。
+
+**余留**：①ZELDA 对拍结果回填本案；②act 观察锚 13 键攒 53 点分布（吞吐 <1 BNB/min 死寂线/中位 0.05 尘埃线在买点集的覆盖率）；③market_heat 与 activity_level 两题答案一致性观察（同判 low 率=分工句教学有效性）；④t1 极早腿（8 笔触发）与④开盘极早窗反锚（<60s∧<30 笔）的交互——BP13 生效后 t1 票 activity_level 分布观察。
 
 ### BP11 吉祥低点案：sell_pressure 维度题删除+回调题三层结构重写（题集 BP9→BP12 四改）（2026-11-05，校准案·v73 逐代币复审 #7；两问+七段裁定+冲突环诊断+十轮对拍+接受现状收口）
 

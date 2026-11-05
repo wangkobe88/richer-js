@@ -372,6 +372,29 @@ function computeBuyPointDerived(snapshot) {
     }
   }
 
+  // ── 活跃度锚族透传（BP13/案号 BP12：CD activity_level 七要素判法搬运——数值在
+  // cheat-snapshot 单点计算（D3.49/D3.55/D3.59/D3.61 演进产物）BP 不重算照抄；
+  // BP 锚窗=买入点位之前的窗口（锚=买点信号时刻），临近段 nearSeg=锚窗末端
+  // 30s=买点前最后 30 秒——「活跃度检测倾向于买点之前」的判读原料全在此族；
+  // dt 缺失全族 null（cheat 同款绝不冒充）；spanSec/tickCount=D3.55 开盘极早窗
+  // 反锚两原料（窗 <60s 且笔 <30 双腿）──
+  const cd = snapshot.derived || {};
+  const activity = {
+    spanSec: cd.spanSec ?? null,
+    tickCount: cd.tickCount ?? null,
+    idlePct: cd.idlePct ?? null,
+    buyMedianBnb: cd.buyMedianBnb ?? null,
+    throughputBnbPerMin: cd.throughputBnbPerMin ?? null,
+    maxDrawdownPct: cd.maxDrawdownPct ?? null,
+    nearSegTickN: cd.nearSegTickN ?? null,
+    nearSegTicksPerMin: cd.nearSegTicksPerMin ?? null,
+    nearSegBuyMedianBnb: cd.nearSegBuyMedianBnb ?? null,
+    nearSegBnbPerMin: cd.nearSegBnbPerMin ?? null,
+    nearSegMaxGapSec: cd.nearSegMaxGapSec ?? null,
+    nearSegBuyN: cd.nearSegBuyN ?? null,
+    nearSegSellN: cd.nearSegSellN ?? null,
+  };
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -402,6 +425,8 @@ function computeBuyPointDerived(snapshot) {
     halfTpmEarly, halfTpmLate, rateTrend, burst5In120,
     // 卖压族
     bigHolderSellBnb60, exitSellerCount60,
+    // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）
+    activity,
   };
 }
 
