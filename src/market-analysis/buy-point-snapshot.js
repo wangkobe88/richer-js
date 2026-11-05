@@ -130,6 +130,23 @@ function computeBuyPointDerived(snapshot) {
   };
   // BP6 用户裁定：价格动量短窗 5/10/30s（近窗趋势判定，30/60/120 太大——秒级狙击视角）
   const chg5Pct = chgOf(5), chg10Pct = chgOf(10), chg30Pct = chgOf(30);
+  // BP10 回看速度锚：锚窗内任意 5 秒段最大涨幅（当前时点 chg5 测不到「此前段的暴涨」——
+  // SB 案 S022 锚落脉冲后平台 chg5 仅 +9.1 但此前 5 秒段 +58.3）。纯事实（代码只组数据，
+  // 快慢判读归 Jev）；滑动窗最低价单调队列 O(n)：对每个终点 j 取 5 秒窗内最低价为起点。
+  let maxChg5Pct = null;
+  if (rel.length >= 2) {
+    const dq = []; // 存 idx，价格单调递增（队头=窗内最低）
+    for (let j = 0; j < rel.length; j++) {
+      while (dq.length && rel[dq[dq.length - 1]].priceBnb >= rel[j].priceBnb) dq.pop();
+      dq.push(j);
+      while (dq.length && rel[j].dt - rel[dq[0]].dt > 5) dq.shift();
+      if (dq.length && dq[0] < j) {
+        const chg = (rel[j].priceBnb / rel[dq[0]].priceBnb - 1) * 100;
+        if (maxChg5Pct === null || chg > maxChg5Pct) maxChg5Pct = chg;
+      }
+    }
+    if (maxChg5Pct !== null) maxChg5Pct = +maxChg5Pct.toFixed(2);
+  }
   // 价格轨迹：全窗可靠价等笔距 20 桶（桶价=桶内末笔可靠价；<20 行时空桶自然缺席）
   const priceBuckets = [];
   if (rel.length >= 2) {
@@ -358,8 +375,8 @@ function computeBuyPointDerived(snapshot) {
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
-    // 价格（可靠价口径；BP6 短窗 5/10/30s）
-    chg5Pct, chg10Pct, chg30Pct, priceBuckets,
+    // 价格（可靠价口径；BP6 短窗 5/10/30s；BP10 maxChg5=回看速度锚）
+    chg5Pct, chg10Pct, chg30Pct, maxChg5Pct, priceBuckets,
     // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；points/legs=state 渲染原料）
     swingPoints: swing ? swing.points : null,
     swingLegs: swing ? swing.legs : null,

@@ -103,6 +103,24 @@ ok(dA.chg5Pct === 6.67, `chg5=6.67%（1.6/1.5@200，实际 ${dA.chg5Pct}）`);
 ok(dA.chg10Pct === 6.67, `chg10=6.67%（205 前最后可靠价同 @200，实际 ${dA.chg10Pct}）`);
 ok(dA.chg30Pct === 14.29, `chg30=14.29%（1.6/1.4@185 卖行可靠价，实际 ${dA.chg30Pct}）`);
 ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删（BP6 短窗换 5/10/30）');
+// BP10 maxChg5 回看速度锚手算：3s 段 +40% / 2s 段 +25% / 3s 段 +50% → max=+50%；
+// 先跌后涨形状（40:1.3→42:1.0→44:1.3）锁定「窗内最低价为起点」而非最旧（最旧 1.3 会得 0% 低估）
+{
+  const rowsM = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
+    row(13, 'BUY', W_C, 0.1, 1.4 * E9, 1e8),
+    row(20, 'BUY', W_D, 0.1, 1.2 * E9, 1e8),
+    row(22, 'BUY', W_E, 0.1, 1.5 * E9, 1e8),
+    row(30, 'BUY', W_F, 0.1, 0.9 * E9, 1e8),
+    row(33, 'BUY', W_G, 0.1, 1.35 * E9, 1e8),
+    row(40, 'BUY', W_B, 0.1, 1.3 * E9, 1e8),
+    row(42, 'BUY', W_C, 0.1, 1.0 * E9, 1e8),
+    row(44, 'BUY', W_D, 0.1, 1.3 * E9, 1e8),
+  ];
+  const dM = buildBuyPointSnapshot(rowsM, metaA).buyDerived;
+  ok(dM.maxChg5Pct === 50, `maxChg5=+50%（33s 段 0.9→1.35 为最陡；44s 先跌后涨段 1.0→1.3=+30% 次之，实际 ${dM.maxChg5Pct}）`);
+}
+ok(dA.maxChg5Pct === null, `A fixture 无 ≤5s 跨行段（间隔≥10s、同块行队首==j 不计）→ maxChg5=null（实际 ${dA.maxChg5Pct}）`);
 // BP8 摆动结构族手算（thr=20%）：dir=0 期 1.0→1.5 后回落 1.4 触 fromMin=+40% → 确认谷@5(1.0)、dir=1；
 // ext 追至 110@2.0（ATH 行）；155@1.55 回落 −22.5% 触阈 → 确认峰@110(2.0)、dir=−1；ext 追至 185@1.4；
 // 末段 200/215 反弹 +14.3% <20 未确认谷 → 现处下跌段
@@ -328,6 +346,7 @@ ok(buildBuyPointObservation(noTree, dA).assessment.rule === 'any_neutral' && bui
   'E: tree_position 答案缺席 → 维度 null 容缺+聚合照走（拒=有证据的拒绝）');
 ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（六维度）');
 ok(obsE.anchors.chg5Pct === 6.67 && obsE.anchors.chg10Pct === 6.67 && obsE.anchors.chg30Pct === 14.29, 'E: 动量短窗族三键透传（BP6 5/10/30）');
+ok(obsE.anchors.maxChg5Pct === null, `E: maxChg5Pct 锚透传（A fixture 无 5s 段→null 容忍，实际 ${obsE.anchors.maxChg5Pct}）`);
 ok(obsE.anchors.swingHighCount === 1 && obsE.anchors.swingLowCount === 1 && obsE.anchors.swingLastDir === -1
   && obsE.anchors.secSinceSwingHigh === 105 && obsE.anchors.secSinceSwingLow === 210
   && obsE.anchors.currentVsSwingHighPct === -20 && obsE.anchors.currentVsSwingLowPct === 60
@@ -391,19 +410,20 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   const eb = qs.early_bird_quality;
   ok(eb.instructions.includes('场景') && eb.instructions.includes('insufficient'), 'F: 早鸟题含场景判别（非场景→insufficient 非差）');
   ok(eb.instructions.includes('不因低市值豁免'), 'F: 早鸟忌讳①暴涨无条件（BP4 臂保留）');
-  ok(eb.instructions.includes('涨幅不是速度：不看累计涨幅、不看 chg30'), 'F: 早鸟主锚=5 秒速度非涨幅（BP10 四改用户原话「涨幅不是速度」）');
-  ok(eb.instructions.includes('5 秒上涨速度'), 'F: 早鸟主锚=chg5 5 秒上涨速度（BP10 四改「最重要是参考 5 秒的上涨速度」）');
+  ok(eb.instructions.includes('涨幅不是速度：不看累计涨幅、不看 chg30'), 'F: 早鸟主锚=速度非涨幅（BP10 四改用户原话「涨幅不是速度」）');
+  ok(eb.instructions.includes('maxChg5Pct'), 'F: 早鸟主锚=maxChg5Pct 回看速度行（BP10：锚窗内任意 5 秒段最大涨幅）');
   ok(eb.instructions.includes('早期快涨本身正常不拒'), 'F: 早鸟早期快涨正常（刚发出的代币前期上涨快是常态）');
   ok(eb.instructions.includes('撑到 neutral 的依据'), 'F: 早鸟价格低=撑 neutral 的依据（BP10 用户裁定：前两点 neutral 因价格低）');
   ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+暴涨=接力风险）');
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
   const pb = qs.pullback_entry_quality;
   ok(pb.instructions.includes('场景') && pb.instructions.includes('insufficient'), 'F: 回调题含场景判别（无回撤形状→insufficient）');
-  ok(pb.instructions.includes('前期上涨速度'), 'F: 回调主锚=前期上涨速度（BP10 四改：轨迹最陡段 5 秒级涨幅，非累计涨幅非 chg30）');
+  ok(pb.instructions.includes('maxChg5Pct'), 'F: 回调主锚=maxChg5Pct 回看速度行（BP10 四改：前期拉升快慢，非累计涨幅非 chg30）');
   ok(pb.instructions.includes('崩塌第一腿不是健康回撤'), 'F: 回调忌讳①前期暴涨级拉升后的下跌点（BP10 用户裁定：前期上涨太快的下跌点很危险）');
   ok(pb.instructions.includes('无论回撤深浅'), 'F: 回调崩塌第一腿无条件 poor（企稳迹象不救）');
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
-  ok(pb.instructions.includes('价格低优先救'), 'F: 回调价格低优先救判定指令（BP10：速度温和+低价位+早鸟窗内浅回调判 neutral）');
+  ok(pb.instructions.includes('价格低优先救'), 'F: 回调价格低优先救判定指令（BP10：浅回调+低价位+早鸟窗内判 neutral；深回撤不救）');
+  ok(pb.instructions.includes('仅限浅回调'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
   const hc = qs.high_chase_quality;

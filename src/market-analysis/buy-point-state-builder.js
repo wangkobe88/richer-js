@@ -98,6 +98,8 @@ function buildBuyPointState(snapshot) {
     // ② 近窗动量
     const chg = (v) => (v === null || v === undefined ? '?' : `${v.toFixed(2)}%`);
     lines.push(`近窗动量(涨跌%): 5s ${chg(b.chg5Pct)} / 10s ${chg(b.chg10Pct)} / 30s ${chg(b.chg30Pct)}（窗末可靠价 vs 窗起点前最后一笔可靠价；窗内无更早价则自全窗首可靠价起算——短窗常见，含义=可得最早价以来的动量；? = 可靠价不足）`);
+    // ②b 回看速度（BP10：锚窗内任意 5 秒段最大涨幅——当前时点 chg5 测不到此前段的暴涨，判「前期上涨过快」看本值）
+    lines.push(`回看速度: 锚窗内任意 5 秒段最大涨幅 ${chg(b.maxChg5Pct)}（可靠价滚动 5s 窗最陡段；上涨速度的回看度量——涨幅不是速度，判「前期暴涨/上涨过快」以此为速锚而非累计涨幅；? = 可靠价不足）`);
     // ②a 摆动结构（BP8 圣诞树原料：zigzag 阈值化峰谷——形状与位置判读素材，判读归 Jev）
     {
       const sw = Array.isArray(b.swingPoints) ? b.swingPoints : [];

@@ -184,10 +184,11 @@ function buildBuyPointObservation(answers, anchors = null) {
       // holder 流向族（BP2：tok 缺失 null fail-closed；delta 可负）
       holdersNow: _num(b, 'holdersNow'),
       holdersDelta60: _num(b, 'holdersDelta60'),
-      // 近窗动量族（BP6 短窗 5/10/30s；可负）
+      // 近窗动量族（BP6 短窗 5/10/30s；可负；BP10 maxChg5=回看速度锚）
       chg5Pct: _num(b, 'chg5Pct'),
       chg10Pct: _num(b, 'chg10Pct'),
       chg30Pct: _num(b, 'chg30Pct'),
+      maxChg5Pct: _num(b, 'maxChg5Pct'),
       // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；lastDir 1=涨段/-1=跌段/0=未定向；
       // swingPoints/swingLegs=state 渲染原料不进锚）
       swingHighCount: _num(b, 'swingHighCount'),
