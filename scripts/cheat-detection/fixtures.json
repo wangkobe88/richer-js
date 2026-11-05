@@ -4943,7 +4943,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:49:28.444717+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
+      "expectBecause": "用户终审（2026-11-05 v72 终审页）维持 healthy——锚窗证据两版全干净（high 真流量 tpm 101/maxGap 3s、零簇零 famous、top1 流 16.5%），锚后 15min -53.7% 崩盘=市场行为非检测域（门管锚窗证据不管后验结局），机器判定无瑕疵"
     },
     {
       "caseId": "CD319",
@@ -4954,12 +4954,12 @@
         "tickCount": 31
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "cheat"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:50:01.974958+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
+      "expectBecause": "用户终审（2026-11-05 v72 终审页）「CD319 改为 cheat」——生产 healthy[clean] vs 今重析 cheat[A_strong:slow_grind_pump] **同版 D3.61 Jev 边际档位摆动**（第三例，先例 CD246/CD265）；锚窗强证据同块簇持仓 74.8%+组织买入 87.2%+top1 流 36.1%，但存量簇/组织买不进 A 主判题域（sbw 题判流量波时序）、pump 组合门三腿全不满足（7 点<15、卖 25.8%>20%、斜率负）→ 机器拦路径只剩 Jev 题面判读在 strong/none 摆动；锚后 +37.3% 拉高→尾 -49.8% 出货回落（非强庄形状）；前判 healthy（2026-11-05）"
     },
     {
       "caseId": "CD320",
@@ -5018,12 +5018,12 @@
         "tickCount": 67
       },
       "expect": {
-        "verdict": "healthy"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:58:12.783336+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第五批 review）CD322 川腐 判 unhealthy 翻案（机器两版 healthy 分歧留档；锚后 -49.0%）；CD323 huh 接受 healthy、尾段再 review；CD324 认同今重析升 cheat[A_strong:eq,J,R]（生产 unhealthy；锚后 +35.4% 拉高回落）；其余 7 票认同今重析"
+      "expectBecause": "用户终审（2026-11-05 v72 终审页）「我也认为是 famous 主导，unhealthy，可以 fix 一下」——D 通道邻界缝隙票：famous 集团主导 85.4%(high) 已亮，但跟单 top3 40.9%<45、集团买 75.7%<80 双双差几百分点未拦；锚即顶（max -0.5%）15min -52.2% 尾 -52.9% 佐证；触发 D 通道邻界联立臂立法（G16）；前判 healthy（2026-11-05）"
     },
     {
       "caseId": "CD324",

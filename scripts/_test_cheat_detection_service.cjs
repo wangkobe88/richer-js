@@ -369,7 +369,7 @@ async function main() {
   console.log('G. bootstrap 三态');
   {
     const digest = (grade) => ({
-      grade, gradeVersion: 'G15', capped: false, watermark: null,
+      grade, gradeVersion: 'G16', capped: false, watermark: null,
       phenomena: { equal_amount_split: 'strong', coordinated_sell_back: 'none', creator_front_run: 'none', sell_dispersion: 'none' },
       extLevels: { stall_burst_wave: 'none' },
       activityLevel: { bucket: 'mid' }, bundledDominance: { bucket: 'low' },
@@ -520,7 +520,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G15'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G16'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串

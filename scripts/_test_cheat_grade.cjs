@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G15', '版本常量 G15（改规则必须 bump+同步台账+跑黄金集；G15=D3.51 burst_spike_concentration 入 EXT 清单即被 A 主判自动吸收（strong→cheat 拉黑级）——CD157 가나/CD102 SAFU 两票裁定立项「burst 没有问题，但是这里的burst明显是一个尖刺……一算就知道这是作弊行为」+「这个裁定为 cheat」+「好，落吧」；25 票分离度实证占比硬门不可行（healthy CD104 54.6/CD98 48.8 与 cheat 群数值孪生）→结构判读交 Jev 新题、门侧零数值消费；G14=M 通道超高活跃度 ultra→unhealthy M_hyper_activity（CD138 sniper 两口径否证后活跃度档本身即载体，接受 Mamesuke 错杀））');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G16', '版本常量 G16（改规则必须 bump+同步台账+跑黄金集；G16=D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审）：dom=high ∧ top3≥35 ∧ 组织买≥70 双贴线豁免不显著 → 拦留痕 D_famous_near_band——豁免双臂须显著成立（分散 <35/承接 <70）；G15=D3.51 burst_spike_concentration 入 EXT 清单即被 A 主判自动吸收（strong→cheat 拉黑级）——CD157 가나/CD102 SAFU 两票裁定立项「burst 没有问题，但是这里的burst明显是一个尖刺……一算就知道这是作弊行为」+「这个裁定为 cheat」+「好，落吧」；25 票分离度实证占比硬门不可行（healthy CD104 54.6/CD98 48.8 与 cheat 群数值孪生）→结构判读交 Jev 新题、门侧零数值消费；G14=M 通道超高活跃度 ultra→unhealthy M_hyper_activity（CD138 sniper 两口径否证后活跃度档本身即载体，接受 Mamesuke 错杀））');
   ok(MAIN_IDS.length === 9 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -314,6 +314,21 @@ function main() {
       'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=92.9%（CD103 整个盘面全是它们的）→ 触发');
     ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: null, anchorSellCount: 10 }).grade === 'unhealthy',
       'G6: 组织买锚 null（旧档断代）→ 不豁免维持触发（承接证据缺席不给豁免）');
+    // G16 邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定「我也认为是
+    // famous 主导，unhealthy，可以 fix 一下」）：豁免双臂必须**显著成立**——双贴线
+    // （top3≥35 ∧ 组织买≥70，距豁免线 45/80 各 <10 点）=两臂证据均不显著不豁免，
+    // 留痕 D_famous_near_band 与主条件码区分
+    const nb = grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 40.9, famousGroupBuyPct: 75.7, anchorSellCount: 10 });
+    ok(nb.grade === 'unhealthy' && nb.reasons.some((x) => x.code === 'D_famous_near_band'),
+      'G16 事故现场: dom=high ∧ top3=40.9 ∧ 组织买=75.7（CD323 huh 双贴线形状）→ unhealthy D_famous_near_band（生产 G15 豁免放行=漏拦，锚即顶 15min -52.2% 佐证）');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 35, famousGroupBuyPct: 70, anchorSellCount: 10 }).grade === 'unhealthy'
+      && grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 34.9, famousGroupBuyPct: 75, anchorSellCount: 10 }).grade === 'healthy',
+      'G16 边界: top3=35∧组织买=70 恰界触发；top3=34.9 分散显著 → 豁免维持');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 37.5, famousGroupBuyPct: 67.5, anchorSellCount: 10 }).grade === 'healthy',
+      'G16 反例: CD302 形状（37.5/67.5 组织买<70 承接显著）→ 豁免维持（今重析 unhealthy 来自其它通道非 D）');
+    const mixA = grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 50, famousGroupBuyPct: 75, anchorSellCount: 10 });
+    ok(mixA.grade === 'unhealthy' && mixA.reasons.some((x) => x.code === 'D_famous_dominance') && !mixA.reasons.some((x) => x.code === 'D_famous_near_band'),
+      'G16 码区分: top3≥45 主条件触发 → 仍 D_famous_dominance 不产邻界码（联立臂不覆盖主条件语义）');
   }
 
   console.log('E. 活跃度低（G2 简化：唯一豁免=burst；t1流/卖笔豁免已撤销）');

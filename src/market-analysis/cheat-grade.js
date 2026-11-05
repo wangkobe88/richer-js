@@ -9,7 +9,12 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G15=G14+第 15 题 burst_spike_concentration 进 A 主判（D3.51，2026-11-03
+ * 规则（G16=G15+D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定
+ * 「我也认为是 famous 主导，unhealthy，可以 fix 一下」：dom=high ∧ 跟单 top3
+ * ≥35 ∧ 集团买 ≥70 双贴线（距豁免线 45/80 各 <10 点）→ 豁免双臂证据均不
+ * 显著不豁免，留痕 D_famous_near_band；G5/G6 豁免哲学不变=豁免须显著成立——
+ * 分散要 <35、承接要 <70。v72 批影响面=仅 CD323 新拦，CD302（gb 67.5）豁免
+ * 保持、CD299/CD327 主条件既有零变化）；G15=G14+第 15 题 burst_spike_concentration 进 A 主判（D3.51，2026-11-03
  * CD157 가나+CD102 SAFU 两票用户裁定立项——原话「burst 没有问题，但是这里的
  * burst明显是一个尖刺。单独这一个 block 持仓比例多少呢？这一个block 在这个
  * burst中流动性占比多少？一算就知道这是作弊行为」+「这个裁定为 cheat」+立法
@@ -251,7 +256,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G15';
+const CHEAT_GRADE_RULES_VERSION = 'G16';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -528,9 +533,21 @@ function gradeObservation(observation, extras = {}) {
   // 成）→ 不豁免——盘面流量构成基本是 famous∪跟单的独角戏，即使它们已部分撤退
   // 也是死盘形状。famousGroupBuyPct null（旧档断代）→ 不豁免（fail-closed 与
   // sbw null 同哲学：承接证据缺席不给豁免；生产链 dom=high 下该锚必产出数值）。
-  if (dom === 'high' && !(folTop3 !== null && folTop3 < 45
-    && famousBuyPct !== null && famousBuyPct < 80)) {
-    reasons.push({ level: 'unhealthy', code: 'D_famous_dominance' });
+  // G16 邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定「我也认为是
+  //  famous 主导，unhealthy，可以 fix 一下」）：豁免双臂必须**显著成立**——
+  //  足够分散（top3<35）或承接充分（gb<70）；双双贴线（top3≥35 ∧ gb≥70，
+  //  距原豁免线各 <10 点）=两臂证据都不显著，dom=high 语义（famous 生态主导
+  //  盘面）优先，豁免不成立 → 拦（留痕 D_famous_near_band 与主条件码区分）。
+  //  v72 批 dom=high 六票影响面：仅 CD323（40.9/75.7）新拦；CD302（37.5/67.5
+  //  gb<70 不中）豁免保持；CD299/CD327 top3≥45 主条件既有零变化；CD300 gb≥80
+  //  主条件既有。null 语义不变（top3 null 触发主条件、gb null 不豁免，G5/G6
+  //  原哲学）。
+  const dMain = !(folTop3 !== null && folTop3 < 45
+    && famousBuyPct !== null && famousBuyPct < 80);
+  const dNearBand = folTop3 !== null && folTop3 >= 35
+    && famousBuyPct !== null && famousBuyPct >= 70;
+  if (dom === 'high' && (dMain || dNearBand)) {
+    reasons.push({ level: 'unhealthy', code: dMain ? 'D_famous_dominance' : 'D_famous_near_band' });
   }
 
   // E：活跃度低（G2 简化，2026-11-01 用户裁定「活跃度这一臂为 low 的，也判为
