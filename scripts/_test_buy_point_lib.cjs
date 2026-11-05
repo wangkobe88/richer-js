@@ -374,9 +374,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP9 八题=5 维度+3 质量/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP11 删卖压题+⓪两条件裁定级/两调深相等）');
+  console.log('F. 题集形状（BP10 八题=5 维度+3 质量/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP11 删卖压题+⓪两条件裁定级+①near_launch 例外/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP9', 'F: 版本=BP9（BP11 案：删 sell_pressure 维度题+⓪价格低优先救升两条件裁定级——near_launch∧浅回调肯定 neutral）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP10', 'F: 版本=BP10（BP11 案二改：忌讳①内部开 near_launch 例外——maxChg5 过线∧near_launch=脉冲已被消化不判 poor，冲突源①「无论回撤深浅」与⓪救臂同票双命中矛盾从根消除）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 8, `F: 恰 8 题=5 维度+3 质量题（实际 ${ids.length}）`);
@@ -419,6 +419,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('maxChg5Pct'), 'F: 回调主锚=maxChg5Pct 回看速度行（BP10 四改：前期拉升快慢，非累计涨幅非 chg30）');
   ok(pb.instructions.includes('崩塌第一腿不是健康回撤'), 'F: 回调忌讳①前期暴涨级拉升后的下跌点（BP10 用户裁定：前期上涨太快的下跌点很危险）');
   ok(pb.instructions.includes('无论回撤深浅'), 'F: 回调崩塌第一腿无条件 poor（企稳迹象不救）');
+  ok(pb.instructions.includes('且价格已不低（price_level=low 及以上=涨过一截没跌干净）'), 'F: 忌讳①poor 判据=maxChg5 过线∧价格已不低（BP11 二改：①内部加价格档联立臂）');
+  ok(pb.instructions.includes('near_launch 例外（判在本忌讳内部、优先于上句「无论回撤深浅」') && pb.instructions.includes('不判 poor（至多 neutral）'), 'F: 忌讳①内部 near_launch 例外=脉冲已被消化不判 poor（BP11 二改：例外开进①内部消除⓪①同票双命中矛盾——S021 八轮/S071 一轮措辞失败根因）');
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
   ok(pb.instructions.includes('⓪**价格低优先救（裁定级规则，命中即停=肯定判 neutral，不是权衡项）**'), 'F: 回调价格低救=第⓪分支裁定级（BP11：两条件命中=肯定 neutral 非权衡项）');
   ok(pb.instructions.includes('price_level=near_launch=较发行价涨幅还小）∧ 回撤浅（entry_position=near_high/shallow_pullback）'), 'F: ⓪分支两条件=near_launch∧浅回调（BP11 用户裁定「价格 near_launch∧浅回调 肯定要给中等」——tokenAgeSec 前提删除）');
