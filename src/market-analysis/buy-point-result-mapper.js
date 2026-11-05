@@ -32,10 +32,9 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position；BP9 删 sell_pressure） */
 const DIMENSION_IDS = [
   'price_trend',
-  'sell_pressure',
   'market_heat',
   'entry_position',
   'price_level',
@@ -47,7 +46,6 @@ const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality', 'high_chase
 
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
-const SELL_PRESSURE_LEVELS = ['low', 'mid', 'high'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
@@ -61,7 +59,6 @@ const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
 const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
-  sell_pressure: SELL_PRESSURE_LEVELS,
   market_heat: HEAT_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
@@ -223,7 +220,6 @@ module.exports = {
   DIMENSION_IDS,
   QUALITY_IDS,
   PRICE_TREND_LEVELS,
-  SELL_PRESSURE_LEVELS,
   HEAT_LEVELS,
   ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,

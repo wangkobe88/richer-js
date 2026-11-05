@@ -258,7 +258,7 @@ class BuyPointCheckService {
       const dim = obs.dimensions;
       const q = obs.qualities;
       this._log('info', `买点观测 trend=${dim.price_trend?.bucket ?? '—'}` +
-        ` sell=${dim.sell_pressure?.bucket ?? '—'} heat=${dim.market_heat?.bucket ?? '—'}` +
+        ` heat=${dim.market_heat?.bucket ?? '—'}` +
         ` entry=${dim.entry_position?.bucket ?? '—'} level=${dim.price_level?.bucket ?? '—'}` +
         ` tree=${dim.tree_position?.bucket ?? '—'}` +
         ` 质量 早鸟=${q.early_bird?.bucket ?? '—'}/回调=${q.pullback_entry?.bucket ?? '—'}/追高=${q.high_chase?.bucket ?? '—'}` +

@@ -84,7 +84,6 @@ function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
     const calls = [];
     const baseAnswers = {
         price_trend: { probabilities: { fast_up: 0.8, slow_up: 0.2 } },
-        sell_pressure: { probabilities: { low: 0.9, mid: 0.1 } },
         market_heat: { probabilities: { high: 0.6, mid: 0.4 } },
         entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
         price_level: { probabilities: { near_launch: 0.7, low: 0.3 } },

@@ -24,7 +24,7 @@ const {
 const { buildBuyPointState, MAX_STATE_CHARS } = require('../src/market-analysis/buy-point-state-builder');
 const {
   buildBuyPointObservation, DIMENSION_IDS, QUALITY_IDS,
-  PRICE_TREND_LEVELS, SELL_PRESSURE_LEVELS, HEAT_LEVELS,
+  PRICE_TREND_LEVELS, HEAT_LEVELS,
   ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, TREE_POSITION_LEVELS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
@@ -286,7 +286,6 @@ console.log('E. mapper（BP6 三质量题聚合/容错双轨/纯透传反证）'
 const mkAns = (id, bucket, prob = 0.9) => ({ [id]: { probabilities: { [bucket]: prob, [bucket === 'good' ? 'neutral' : 'good']: 1 - prob } } });
 const fullAnswers = () => ({
   ...mkAns('price_trend', 'fast_up'),
-  ...mkAns('sell_pressure', 'low'),
   ...mkAns('market_heat', 'high'),
   ...mkAns('entry_position', 'near_high'),
   ...mkAns('price_level', 'near_launch'),
@@ -296,7 +295,7 @@ const fullAnswers = () => ({
   ...mkAns('high_chase_quality', 'poor', 0.61),
 });
 const obsE = buildBuyPointObservation(fullAnswers(), dA);
-ok(Object.keys(obsE.dimensions).length === 6 && obsE.dimensions.price_trend.bucket === 'fast_up', 'E: 六维度 argmax 透传（BP8 增 tree_position）');
+ok(Object.keys(obsE.dimensions).length === 5 && obsE.dimensions.price_trend.bucket === 'fast_up', 'E: 五维度 argmax 透传（BP9 删 sell_pressure）');
 ok(!('point_category' in obsE.dimensions) && JSON.stringify(obsE).indexOf('point_category') === -1 && JSON.stringify(obsE).indexOf('buy_point_assessment') === -1, 'E: point_category/buy_point_assessment 键绝迹（BP6 形态反证）');
 ok(Object.keys(obsE.qualities).length === 3 && obsE.qualities.early_bird.bucket === 'neutral' && obsE.qualities.pullback_entry.bucket === 'insufficient' && obsE.qualities.high_chase.bucket === 'poor', 'E: 三质量题 strict 透传（early_bird/pullback_entry/high_chase）');
 ok(obsE.assessment.bucket === 'neutral' && near(obsE.assessment.prob, 0.7) && obsE.assessment.rule === 'any_neutral', 'E: 聚合=任一 neutral → neutral（insufficient 不贡献，rule 留痕）');
@@ -344,7 +343,7 @@ const noTree = { ...fullAnswers() };
 delete noTree.tree_position;
 ok(buildBuyPointObservation(noTree, dA).assessment.rule === 'any_neutral' && buildBuyPointObservation(noTree, dA).dimensions.tree_position === null,
   'E: tree_position 答案缺席 → 维度 null 容缺+聚合照走（拒=有证据的拒绝）');
-ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（六维度）');
+ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（五维度）');
 ok(obsE.anchors.chg5Pct === 6.67 && obsE.anchors.chg10Pct === 6.67 && obsE.anchors.chg30Pct === 14.29, 'E: 动量短窗族三键透传（BP6 5/10/30）');
 ok(obsE.anchors.maxChg5Pct === null, `E: maxChg5Pct 锚透传（A fixture 无 5s 段→null 容忍，实际 ${obsE.anchors.maxChg5Pct}）`);
 ok(obsE.anchors.swingHighCount === 1 && obsE.anchors.swingLowCount === 1 && obsE.anchors.swingLastDir === -1
@@ -375,24 +374,24 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP8 九题/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP10 早鸟收窄+回调崩塌腿/两调深相等）');
+  console.log('F. 题集形状（BP9 八题=5 维度+3 质量/桶域对锁/活跃度门+三类质量题+圣诞树观察档/BP11 删卖压题+⓪两条件裁定级/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP8', 'F: 版本=BP8（BP10 案：早鸟忌讳①收窄至暴涨级+价格低撑 neutral；回调新增崩塌第一腿忌讳）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP9', 'F: 版本=BP9（BP11 案：删 sell_pressure 维度题+⓪价格低优先救升两条件裁定级——near_launch∧浅回调肯定 neutral）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
-  ok(ids.length === 9, `F: 恰 9 题=6 维度+3 质量题（实际 ${ids.length}）`);
-  ok(ids[0] === 'price_trend' && ids[3] === 'entry_position' && ids[4] === 'price_level' && ids[5] === 'tree_position', 'F: 维度序=price_trend/sell/heat/entry/level/tree（前 6 题）');
-  ok(JSON.stringify(ids.slice(6)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
+  ok(ids.length === 8, `F: 恰 8 题=5 维度+3 质量题（实际 ${ids.length}）`);
+  ok(ids[0] === 'price_trend' && ids[1] === 'market_heat' && ids[2] === 'entry_position' && ids[3] === 'price_level' && ids[4] === 'tree_position', 'F: 维度序=price_trend/heat/entry/level/tree（前 5 题）');
+  ok(JSON.stringify(ids.slice(5)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
   ok(!('point_category' in qs) && !('buy_point_assessment' in qs), 'F: 类别题/综合题已删（BP6 形态反证——路由依赖从根消除）');
   ok(!('price_momentum' in qs) && !('buy_pressure_quality' in qs) && !('chip_flow' in qs) && !('pace_trend' in qs), 'F: 四道旧维度题已删（BP5 瘦身反证）');
   ok(ids.every((id) => qs[id].type === 'choice' && qs[id].criteria && Object.keys(qs[id].criteria).length >= 3), 'F: 全 choice 且 criteria≥3 桶');
-  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 9 题各含「怎么算」显式算法段');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 六维度题各含反锚段');
+  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 8 题各含「怎么算」显式算法段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 五维度题各含反锚段');
   ok(qs.early_bird_quality.instructions.includes('忌讳') && qs.pullback_entry_quality.instructions.includes('忌讳'), 'F: 早鸟/回调题各含忌讳段（poor 主判教学）');
   ok(q.buildBuyPointQuestions() && JSON.stringify(q.buildBuyPointQuestions()) === JSON.stringify(qs), 'F: 函数产物两调深相等（无隐藏状态）');
   // 桶域与 mapper 常量对锁（ESM/CJS 双副本漂移防线）
   ok(JSON.stringify(q.PRICE_TREND_LEVELS) === JSON.stringify(PRICE_TREND_LEVELS), 'F: PRICE_TREND_LEVELS 同域（BP5 六桶）');
-  ok(JSON.stringify(q.SELL_PRESSURE_LEVELS) === JSON.stringify(SELL_PRESSURE_LEVELS), 'F: SELL_PRESSURE_LEVELS 同域');
+  ok(!('SELL_PRESSURE_LEVELS' in q) && !('sell_pressure' in qs), 'F: sell_pressure 题与桶域常量已删（BP11 用户裁定「sell_pressure 直接删掉」——体系中无此指标）');
   ok(JSON.stringify(q.HEAT_LEVELS) === JSON.stringify(HEAT_LEVELS), 'F: HEAT_LEVELS 同域');
   ok(JSON.stringify(q.ENTRY_POSITION_LEVELS) === JSON.stringify(ENTRY_POSITION_LEVELS), 'F: ENTRY_POSITION_LEVELS 同域（BP5 四桶）');
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
@@ -402,7 +401,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
   const qSet = new Set(QUALITY_IDS);
-  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 6 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（6+3）');
+  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 5 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（5+3）');
   for (const id of QUALITY_IDS) {
     ok(JSON.stringify(Object.keys(qs[id].criteria)) === JSON.stringify(QUALITY_LEVELS), `F: ${id} 桶===QUALITY_LEVELS（四桶）`);
   }
@@ -412,7 +411,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(eb.instructions.includes('不因低市值豁免'), 'F: 早鸟忌讳①暴涨无条件（BP4 臂保留）');
   ok(eb.instructions.includes('涨幅不是速度：不看累计涨幅、不看 chg30'), 'F: 早鸟主锚=速度非涨幅（BP10 四改用户原话「涨幅不是速度」）');
   ok(eb.instructions.includes('maxChg5Pct'), 'F: 早鸟主锚=maxChg5Pct 回看速度行（BP10：锚窗内任意 5 秒段最大涨幅）');
-  ok(eb.instructions.includes('第一分支·价格低救（命中即停，判 neutral 不判 poor）'), 'F: 早鸟价格低救=第一分支命中即停（BP10 六改：救臂前置压过忌讳分支）');
+  ok(eb.instructions.includes('第一分支·价格低救（命中即停，肯定判 neutral 不判 poor——确定性规则，不是权衡项）'), 'F: 早鸟价格低救=第一分支命中即停肯定 neutral（BP11：确定性规则非权衡项）');
   ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+暴涨=接力风险）');
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
   const pb = qs.pullback_entry_quality;
@@ -421,7 +420,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('崩塌第一腿不是健康回撤'), 'F: 回调忌讳①前期暴涨级拉升后的下跌点（BP10 用户裁定：前期上涨太快的下跌点很危险）');
   ok(pb.instructions.includes('无论回撤深浅'), 'F: 回调崩塌第一腿无条件 poor（企稳迹象不救）');
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
-  ok(pb.instructions.includes('⓪**价格低优先救（第一分支，命中即停判 neutral 不判 poor）**'), 'F: 回调价格低救=第⓪分支命中即停（BP10 六改：救臂前置压过崩塌腿/接飞刀）');
+  ok(pb.instructions.includes('⓪**价格低优先救（裁定级规则，命中即停=肯定判 neutral，不是权衡项）**'), 'F: 回调价格低救=第⓪分支裁定级（BP11：两条件命中=肯定 neutral 非权衡项）');
+  ok(pb.instructions.includes('price_level=near_launch=较发行价涨幅还小）∧ 回撤浅（entry_position=near_high/shallow_pullback）'), 'F: ⓪分支两条件=near_launch∧浅回调（BP11 用户裁定「价格 near_launch∧浅回调 肯定要给中等」——tokenAgeSec 前提删除）');
+  ok(pb.instructions.includes('体系中本就无卖压/holder 流失这两个评估指标，不得用来否决本分支'), 'F: ⓪分支证据闭包=暗证据不得否决（BP11 用户裁定「我当前设计的体系中，没有这两个指标」）');
   ok(pb.instructions.includes('深回撤（half_off/ankle_cut）不走本分支'), 'F: 回调救臂限浅回调（S026 half_off 深回撤不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
