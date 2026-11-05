@@ -199,7 +199,8 @@
 - **人工翻案 14 票**：CD281 猫德学院→cheat（首批）、CD291 何一人生→unhealthy（「至少是 unhealthy，拉盘过快，活跃度过高」；机器今重析 J_holdings 同向，放行锚后 -58%~-60%）、CD310 AIB→unhealthy、CD312 ESK→cheat、CD322 川腐→unhealthy、CD324 莽小六→cheat、CD350 AI→unhealthy（「350 unhealthy 活跃度低」——生产/今重析两版均 healthy 分歧留档，放行锚后 -31.1% 方向支持）、CD351 ASI→unhealthy（今重析 E_low_activity 同向）、CD359→unhealthy（同版摆动回落）、CD362/CD365 BABYSTAR→strongbacked（五通道全打但 +252%/+82.1% 不回落；同代币 CD364 维持 cheat=多点位两判）、CD366 RESILIENT→strongbacked（补裁；机器 unhealthy[J] 放行实际买入 +759.9% 全量最大实际收益票=庄拉盘无出货实证）、CD371 币安人→unhealthy（唯一 fourmeme 票，放行锚后 -67.7%，今重析 E_low_weak_burst 同向）
 - **CD299 Donkey 终审维持 healthy**（「299 看来没啥好办法」）：机器 D_famous(跟单 top3 57.8%≥45%)+E_low 拦截——E 通道 Jev act=low 与代码数值档 mid（tpm 25.84/maxGap 40/idlePct 19.8% 按代码三判据均不满足 low）邻界分歧无解法留档；锚后 +234.9%/+103.1% 真实拉盘、尾盘不回落=强庄形状但用户未收录池
 - **机会成本留档**：CD356 Joe 拒买尾盘 +615.1% 全量最大机会成本票；CD300 驴来放行锚后 +234.9%（终裁 strongbacked）
-- **终态分布（终审收口后）：cheat 45 / unhealthy 36 / healthy 9 / strongbacked 4**（94/94 全落定无 unclear）
+- **终态分布（含次日复议）：cheat 44 / unhealthy 37 / healthy 9 / strongbacked 3**（94/94 全落定；CD312→unhealthy、CD365→unhealthy 出池）
+- **次日复议三票（2026-11-05 晚续）**：CD312 ESK→**unhealthy**（用户「ESK 算 unhealthy 吧，第二波流量感觉不是自然的」——cheat 改判）；CD350 AI 维持 unhealthy 并补**流量画像证据**（用户「350 的流量不自然，不像是散户，你观察下」→182 画像四铁证：①买入 72 笔四档精确规整金额 0.0099×15/0.0198×7/0.1236×4/0.1487×3 合计 40%=脚本预设档位指纹；②单钱包 0x3d43…c104 买 15 笔占 21% 双向 churn；③GMGN 聚合路由 0/72=零散户入口；④锚后砸-托-砸循环（0xf944f5…b7f9 37s 内 0.25 档卖买卖三连）——**流量侧金额规整度无对应锚=检测盲区留档**，机器两版 healthy 空转因（代码桶 act=low 而 Jev 题不给 low/等额带算持仓非流量/无同块簇）并档）；CD365 BABYSTAR→**unhealthy 出强庄池**（用户「CD365 不盘强庄，给 unhealthy 吧」——同代币 CD362 维持 strongbacked=多点位两判，池 18→17）
 
 **strongbacked 第四类型立法（2026-11-05，用户「也就是把代币分为 healthy/unhealthy/cheat 跟 强庄币（起个名字吧帮忙）」）**：
 

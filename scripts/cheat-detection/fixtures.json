@@ -4842,12 +4842,12 @@
         "tickCount": 25
       },
       "expect": {
-        "verdict": "cheat"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T15:35:04.76199+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第四批 review）CD312 ESK 判 cheat 翻案（机器两版 healthy，人工×机器分歧留档；锚后 +19.8%→-40.0%）；CD310 认同今重析 unhealthy[E_low_weak_burst]（生产 healthy 放行，CD244 同臂）；CD318/CD319 先接受 healthy、尾段再 review 确认（CD319 今重析 cheat[A_strong:sgp] 不采纳暂）；其余 7 票认同今重析"
+      "expectBecause": "用户改判（2026-11-05 v72 复议）「ESK 算 unhealthy 吧，第二波流量感觉不是自然的」——cheat→unhealthy；前判 cheat（2026-11-05 第四批「312 cheat」）"
     },
     {
       "caseId": "CD313",
@@ -5455,7 +5455,7 @@
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 1）；生产首判 grade=healthy qv=D3.61 @2026-11-04T19:00:47.477174+00:00 []",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第八批 review）CD350 AI「unhealthy 活跃度低」人工翻案（生产/今重析两版 healthy 分歧留档；healthy 放行锚后 -31.1%）；CD351/CD359 认同今重析 unhealthy（生产 cheat 同版摆动回落：CD351 E_low+R、CD359 J+R+M）；CD356 Joe unhealthy[R] 拒买尾盘 +615.1% 全量最大机会成本票留档；其余 7 票认同"
+      "expectBecause": "用户裁定（2026-11-05 v72 复议+流量画像观察）「350 的流量不自然，不像是散户」——unhealthy 维持并补证据：①买入金额规整度异常：72 笔买 0.0099×15+0.0198×7+0.1236×4+0.1487×3 四档精确重复合计 40%（脚本预设档位铁指纹，散户金额应连续分布）；②单钱包 0x3d43…c104 买 15 笔占买入 21% 且高频双向 churn（买卖同钱包循环）；③GMGN 聚合路由 0/72=零散户入口；④锚后崩盘段同批钱包砸-托-砸循环（0xf944f5…b7f9 37s 内 0.25 档卖-买-卖三连，19:01:30-19:04 集体出货 -26%）；⑤机器两版 healthy[clean] 空转原因=代码数值桶 act=low（tpm 7.8）但 Jev 活跃度题不给 low、等额带锚算持仓非流量金额规整度、无同块簇——流量侧金额规整度无对应锚=检测盲区留档"
     },
     {
       "caseId": "CD351",
@@ -5690,12 +5690,12 @@
         "tickCount": 20
       },
       "expect": {
-        "verdict": "strongbacked"
+        "verdict": "unhealthy"
       },
       "note": "v72 edbd5b38 BUY 信号批量收录（信号 1/执行 0）；生产首判 grade=cheat qv=D3.61 @2026-11-04T20:55:41.168865+00:00 [A_strong:slow_grind_pump,J_holdings_strong,R_abnormal_dominant,M_hyper_activity]",
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
-      "expectBecause": "用户裁定（2026-11-05 strongbacked 第四类型立法）原 healthy 强庄票改判 strongbacked——分类学 fourth grade：healthy/unhealthy/cheat/strongbacked（研究口径，机器 grade 域三值不动，对拍单列）；形状=多通道机器命中但锚后尾盘不回落/大幅收高（庄拉盘无出货）；前判 healthy（2026-11-05）"
+      "expectBecause": "用户改判（2026-11-05 v72 复议）「CD365 不盘强庄，给 unhealthy 吧」——strongbacked→unhealthy 出强庄池；同代币 CD362 维持 strongbacked（多点位两判）；前判 strongbacked（2026-11-05 立法批）"
     },
     {
       "caseId": "CD366",
