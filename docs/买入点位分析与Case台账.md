@@ -52,7 +52,8 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 |---|---|---|---|
 | BP1 | 2026-11-03 | 初版八题（7 维度 + 综合题）：price_momentum / buy_pressure_quality / chip_flow / sell_pressure / market_heat / pace_trend / entry_position + buy_point_assessment；形状样本段标「初版待校准」（无实盘校准样本，测试集跑出分布后按案补充） | 单测 F 组形状锁；测试集首跑全量收官（bp-2026-11-03-live4，232 点位零失败，判定×前向收益末值中位单调——见下方首跑观测） |
 | BP2 | 2026-11-05 | **综合题按用户五条判读框架重写**：①活跃度门槛（太低拒）②拉高拒+低市值豁免（mcapBnb ≈8-9 BNB 以下）③急砸深跌=抄底正向④阴跌流失拒（holdersDelta60 为负）⑤常态可买+激烈不合理拉盘拒；维度题反锚补强（market_heat 活跃下限 / momentum+entry_position 追高豁免臂 / chip_flow 阴跌+holder 流失形状）；snapshot 增 5 锚（mcapBnb/mcapPeakBnb/mcapFromPeakPct=priceArc×totalSupply 自算、holdersNow/holdersDelta60 两遍重放）；state [PRECOMPUTED] 增市值位置/holder 流向两行；**同批引擎融合（T117 BP 门）** | 单测 `_test_buy_point_lib` 144 断言（BP2 版本+5 锚手算+五条框架措辞锁）；BP1→BP2 对拍（182 重析 232 点位）待跑（跑前知会用户） |
-| BP3 | 2026-11-05 | **分类判读框架（案号 BP4——题集版本号与 BP 案号体系撞号：BP3 案号已被同日测试集换源案占用，题集版本照 BP1/BP2 序数顺延）**：新增类别题 `point_category` 四桶（early_bird/pullback_entry/high_chase/unclear——只判类别事实不下买卖结论，三轴并读=时间轴 tokenAgeSec+位置轴 currentVsAthPct/mcapPeakBnb/mcapFromPeakPct+轨迹轴 chg30/60/120 与 PRICE 形状）；综合题判读总纲改「第一步先按类别分路，再按各类忌讳权衡」；BP2 五条框架收编（拉高拒+低市值豁免并入早鸟类、急砸抄底+阴跌流失拒并入回调类、活跃门槛/协同降档/薄窗 insufficient 作通用条保留）；**assessment 四桶域不动=服务端/bpPassLevels/引擎门零改动** | 单测 `_test_buy_point_lib` 182 断言（F 组重写：9 题/8+1 对齐/POINT_CATEGORY_LEVELS 双副本锁/分类框架措辞锁）；对拍待跑（跑前知会用户） |
+| BP3 | 2026-11-05 | **分类判读框架（案号 BP4——题集版本号与 BP 案号体系撞号：BP3 案号已被同日测试集换源案占用，题集版本照 BP1/BP2 序数顺延）**：新增类别题 `point_category` 四桶（early_bird/pullback_entry/high_chase/unclear——只判类别事实不下买卖结论，三轴并读=时间轴 tokenAgeSec+位置轴 currentVsAthPct/mcapPeakBnb/mcapFromPeakPct+轨迹轴 chg30/60/120 与 PRICE 形状）；综合题判读总纲改「第一步先按类别分路，再按各类忌讳权衡」；BP2 五条框架收编（拉高拒+低市值豁免并入早鸟类、急砸抄底+阴跌流失拒并入回调类、活跃门槛/协同降档/薄窗 insufficient 作通用条保留）；**assessment 四桶域不动=服务端/bpPassLevels/引擎门零改动** | 单测 `_test_buy_point_lib` 182 断言（F 组重写：9 题/8+1 对齐/POINT_CATEGORY_LEVELS 双副本锁/分类框架措辞锁）；60 点抽样对拍=台账 BP5 案 |
+| BP4 | 2026-11-05 | **BP3 对拍后执行修正（案号 BP5）——两处 Jev 分路未执行修正**：①追高类升级**硬路由**（「无条件一律 poor」+总纲「分路是硬路由：追高路内维度档位再强也输出 poor」+**good 桶描述显式排除追高类**——桶描述级防线）；②早鸟豁免臂收紧：忌讳「不买极快速上涨/已拉高」**无条件不因低市值豁免**，豁免仅限温和爬坡（chg30 个位数/多桶缓升有回踩整理）+「**位置先于动能**：贴高急拉下的强买压（price:strong+buy:strong）是接力风险不是入场信号」（已拉高形状锚=现价贴全窗高点∧chg30 两位数/垂直窜升无回踩） | 同 60 点复跑：good 23→3 / poor 35→56；追高点 good(0.44)→poor(0.75) 兑现；新 good 3 点全为回调贴低企稳（2/3 结局为正）；pullback 分化更纯（good +8.49% vs poor -15.93% 末中位）；错失面=猫咪天团单票 5 连点（设计内代价，见 BP5 案） |
 
 ## 首跑观测（BP1，2026-11-03，set=bp-2026-11-03-live4，232 点位全量零失败）
 
@@ -72,6 +73,24 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 ## Case 档案
 
+### BP5 题面分类判读框架（题集 BP3）60 点对拍观测 + BP4 执行修正（2026-11-05，机制案·BP4 续案）
+
+**BP3 题面 60 点抽样对拍**（用户裁定抽样档：set=bp-2026-11-05-live3-t6gate，trades 20/t1 10/t2 6/t3 4/t4 4/t5 5/t6 10/t7 1=60 点 27 独立 token，~72 万 tokens）：
+
+- **类别题判读准确**：early_bird=40 / pullback_entry=19 / high_chase=1 / unclear=0——BP-T009（CeBM，age=951s、5min 前创高、贴高 -5.5%）正确落 high_chase(0.66)；回调类内部判别有效（pullback good 末中位 +8.49% vs poor -15.93%）。
+- **问题①追高分路未执行**：BP-T009 类别判 high_chase(0.66) 但综合给 good(0.44)——「一律 poor」段落指令被 Jev 忽略。
+- **问题②早鸟豁免臂吞掉忌讳**：贴高早鸟点（entry:near_high ∧ early_bird）35 个里 good 15；good 里 +15min 末最差 5 点全为 `price:strong+buy:strong+entry:near_high` 贴高票（雪梨 -44.4%/胖五 -36.5%/龙虾AI -34.6%）——正是用户忌讳「极快速上涨/已拉高」的形状，但 BP2 继承的低市值豁免臂（本批票市值普遍 <8-9 BNB）把忌讳整个豁免掉了；early_bird/good 末中位 **-29.3% 反差于 early_bird/poor -19.4%**（类内分化方向反了）。
+
+**BP4 修正（commit `1f12dd87`）**：①追高类升级**硬路由**——「无条件一律 poor，即使动能/买压/热度全维 strong」+总纲加「分路是硬路由：追高路内维度档位再强也输出 poor」+**good 桶 criteria 显式排除追高类**（桶描述级防线）；②早鸟忌讳无条件化——「不买极快速上涨/已拉高的票（无条件，不因低市值豁免）」+已拉高形状数值锚（currentVsAthPct≈0/secSinceAth 秒级 ∧ chg30 两位数/垂直窜升无回踩）+「位置先于动能」教学（贴高急拉的强买压=接力风险非入场信号）+豁免臂收紧仅限温和爬坡（chg30 个位数/多桶缓升有回踩整理）。
+
+**BP4 复跑（同 60 点）**：good 23→3 / neutral 0 / poor 35→56 / insufficient 2→1；迁移 good→poor=21、poor→good=1。
+
+- **两修正均兑现**：BP-T009 good(0.44)→**poor(0.75)**；新 good 3 点**全部为 pullback_entry+entry:near_low**（回调贴低企稳=框架设计「最该买」形状；L073 +8.49%/L190 +14.36% 结局为正，L007 -25.88%）；pullback 分化保持且更纯（good +8.49% vs poor -15.93%）。
+- **错失面（设计内代价，非执行错误）**：old=good ∧ +15min 末>0 被杀 5 点全部=**猫咪天团单票**（0x0b181cce…f5c7777）age 30~96s 的 5 个连续点位——现/ATH -26.1%→0.0% 收敛贴顶+净买 0.8~1.1 BNB，正是「早鸟已拉高」忌讳形状，该票后续走出 +68%~+163%。**忌讳执行正确但错过单票行情**——「避雪梨式贴高深跌」与「错失猫咪天团式强势票」的净效须更大样本裁定（60 点抽 27 token，单票权重过高）。
+- **观察点**：neutral=0 两轮均为零——Jev 在四桶上倾向给明确 good/poor；样本扩大后若仍恒零可考虑措辞引导（暂不动，等全量分布）。
+
+**余留**：全量 363 点对拍（跑前知会用户）；「猫咪天团式错失 vs 雪梨式避损」净效大样本裁定；生产换代（v73 仍 BP2 题面在跑——重启吃到 BP4 需换代）；类别分布随 set 扩充观察（high_chase 仅 1 点=本批票中小峰形状为主，追高类样本池待攒）。
+
 ### BP4 题面分类判读框架（题集版本 BP3）（2026-11-05，机制案；⚠案号说明：题集版本号 BP3 与本台账案号体系撞号——BP3 案号已被同日「测试集换源 trades+ladder 挖掘」案占用，题集版本照 BP1/BP2 序数顺延为 BP3，本案记 BP4）
 
 **用户指令原话**：「我想，我们把买入点分为几类，一类是代币刚出时候的早鸟入场，一类是跌下来后回调入仓，还有一类应该是强庄币追高入场，但是这一类先等等。早鸟入场的核心在于不要买极快速上涨/高价票，跌下来入场的忌讳是没跌到位或者这次下跌是奔着归零去的。这个分类我建议放到 Jev Prompt 中。」
@@ -88,7 +107,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 **单测**：`_test_buy_point_lib.cjs` 168→**182 断言**——E 组 fullAnswers 加类别题答案+dimensions 8 键+透传/容缺断言；F 组重写（版本=BP3/恰 9 题/类别题居综合题前/8+1 对齐/POINT_CATEGORY_LEVELS 双副本对锁/类别题三轴材料引用+只判类别+反锚/综合题先分类后权衡总纲+四类分路+四忌讳措辞锁（不买极快速上涨/没跌到位/奔着归零/先等等一律 poor）+通用条保留+豁免臂收编；BP2 四维度反锚断言原样保留）。服务单测 `_test_buy_point_check_service.cjs` 26 断言照跑全绿（加题自动透传验证）。
 
-**余留**：BP3 题面对拍（182 `run.mjs --set bp-2026-11-05-live3-t6gate` 363 点位重析 vs BP2 生产 10 行对照，看分类分布与 good/neutral/poor 迁移；跑前知会用户烧 Jev 配额）；类别题分布观察（早鸟/回调/追高/unclear 四桶占比——追高票占比=将来放开该类的样本池规模）。
+**余留**：60 点抽样对拍已完成（发现两处分路未执行→题集 BP4 修正，见 BP5 案）；全量 363 点对拍与类别分布观察归 BP5 案余留。
 
 ### BP2 题面改版（五条判读框架）+ 引擎融合落地（2026-11-05，机制案·T117 同批；用户方案「不仅仅涉及买入点位 Jev 分析，算是买入策略的一次整体调整」）
 
