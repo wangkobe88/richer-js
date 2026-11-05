@@ -221,10 +221,15 @@ class TokenTicksPage {
   /** 点位叠画 dataset（scatter 三角/菱形；y=锚时刻最近 tick 的 price_usd——USD 轴对齐） */
   _bpScatterDatasets(tickData) {
     if (!this.bpPoints || !this.bpPoints.length) return [];
+    // 时间窗（「只显示代币发出后 N 秒内的 ticks」）启用时窗外点位不叠画：
+    // 与服务端 withinSeconds 同基=首个 tick 的 block_time；窗外点会把 time 轴拉宽、窗内 ticks 压扁
+    const winEndMs = (this.tickWindowSec && this.firstTickTime != null)
+      ? this.firstTickTime + this.tickWindowSec * 1000 : null;
     const trades = [], ladder = [];
     for (const p of this.bpPoints) {
       const ts = new Date(p.signalCreatedAt).getTime();
       if (!Number.isFinite(ts)) continue;
+      if (winEndMs != null && ts > winEndMs) continue; // 窗外点位——不展示
       const y = this._anchorPriceUsd(tickData, ts);
       if (y == null) continue; // 图窗内无价格行（点位在窗外）——不冒充
       const raw = { _bp: true, pointId: p.pointId, source: p.source, strategy: (p.signalInfo && p.signalInfo.strategyName) || (p.ladder && p.ladder.legId) || '-', anchor: p.anchorTickCount, fwd: p.forwardReturns, ladder: p.ladder };
