@@ -13,7 +13,7 @@
 
 **买入点位分析 = Jev 驱动的入场时机判定模块**。动机（用户原话）：「感觉简单指标无法满足要求……通过 ticks 判断当前点位是否可以买入」。与反作弊模块（CD）分工：**输入同样是 ticks（wss_price_ticks 锚截窗），CD 判「盘面是否作弊」，本模块判「当前点位是否适合买入」**——入场时机好坏（时点判定，非 token 终身属性、非盘面性质）；协同/作弊形状在题面里只作降档参考，结论归 CD。
 
-**BP2（2026-11-05）起第二步引擎融合已做（T117 信号源门链）**：新服务 `BuyPointCheckService` + 新表 `buy_point_analyses` + 引擎挂点——携带 `signalGate` 的买腿（初始买入信号源）触发后依次过作弊门（二元版）→ **BP 门**（`buy_point_assessment` 桶 ∈ bpPassLevels（缺省 good/neutral）过/拒），两门都过才买；BP 门**全 fail-closed**（超时/Jev 错/insufficient/disabled 均拒——BP 是点位判定唯一来源无据不买），回测恒拒（signalGate 腿全量排除）。详档交易台账 T117 案与下方 BP2 案。判定形态=用户裁定「Jev 综合判定」：维度题组给档位，综合题 `buy_point_assessment` 由 Jev 直接给 good/neutral/poor/insufficient；代码纯透传无规则映射层，与 CD D3.5「判断一律 Jev」同哲学。**BP3（题集版本，案号 BP4）起判读总纲=分类框架**：新增类别题 `point_category`（早鸟/回调/追高/难分类四桶，只判类别事实），综合题先分类后按各类忌讳权衡（早鸟忌极快拉高/回调忌没跌到位与奔着归零/追高本轮先等等一律 poor）。**现行题集=BP5（案号 BP6，维度瘦身）**：5 维度（price_trend 六桶快升/慢升/快跌/慢跌/平稳/波动 ｜ sell_pressure ｜ market_heat ｜ entry_position 相对价格高低四桶 ｜ price_level 绝对价格高低五桶·参照系=发行价）+1 类别+1 综合。
+**BP2（2026-11-05）起第二步引擎融合已做（T117 信号源门链）**：新服务 `BuyPointCheckService` + 新表 `buy_point_analyses` + 引擎挂点——携带 `signalGate` 的买腿（初始买入信号源）触发后依次过作弊门（二元版）→ **BP 门**（`buy_point_assessment` 桶 ∈ bpPassLevels（缺省 good/neutral）过/拒），两门都过才买；BP 门**全 fail-closed**（超时/Jev 错/insufficient/disabled 均拒——BP 是点位判定唯一来源无据不买），回测恒拒（signalGate 腿全量排除）。详档交易台账 T117 案与下方 BP2 案。**现行判定形态（题集 BP6，案号 BP7）=三类质量题制**：三类入场形态各成一道质量题（early_bird_quality / pullback_entry_quality / high_chase_quality，桶域 good/neutral/poor/insufficient），Jev 三视角**并行独立评估**（每题先判场景适用，非场景→insufficient 不贡献）；**综合判定=代码侧确定性聚合**（用户原话「这三者有任何一个为 good 则为 good，为 neutral 则为 neutral，否则为 poor」：任一 good→good，否则任一 neutral→neutral，否则 poor；三题全 insufficient→poor 且 prob=null）——替代 BP3-BP5「类别题路由+综合题」两步制（对拍实证 Jev 常忽略路由指令，形态从根消除路由依赖）；维度题（5 题）纯参考不进聚合；追高题=策略停买留痕（场景成立一律 poor，放开只改该题面）。5 维度现行：price_trend 六桶（动量窗 **5/10/30s 短窗**——BP6 用户裁定「窗口太大了，我们要判断的是近窗口的趋势」）｜ sell_pressure ｜ market_heat ｜ entry_position 相对价格高低四桶 ｜ price_level 绝对价格高低五桶·参照系=发行价。
 
 ### 模块分层（与 CD 模板同构，口径单点复用）
 
@@ -23,7 +23,8 @@ src/market-analysis/
                              （近窗 30/60/120s 族/动量/节奏/参与结构/卖压/价格 20 桶）
   buy-point-state-builder.js CJS 纯函数：[TOKEN]/[ANCHOR]/[PRECOMPUTED]/[PRICE]/[TICKS]/[WALLETS]/
                              [判定指引]，20k 预算；[TICKS] 展示=首 50+末 250（近端为主）
-  buy-point-result-mapper.js CJS 纯函数：answers→{dimensions, assessment, anchors} 纯透传
+  buy-point-result-mapper.js CJS 纯函数：answers→{dimensions, qualities, assessment, anchors}
+                             （BP6 起聚合=代码侧确定性 any_good→any_neutral→else_poor）
   llm/buy-point-questions.mjs ESM 题集：BUY_POINT_QUESTIONS_VERSION（BP1 起，改题面必 bump）
 scripts/buy-point/
   lib.mjs       测试集纯函数（dedupeBuySignals/anchorCountAt re-export/computeForwardReturns/
@@ -54,7 +55,8 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 | BP2 | 2026-11-05 | **综合题按用户五条判读框架重写**：①活跃度门槛（太低拒）②拉高拒+低市值豁免（mcapBnb ≈8-9 BNB 以下）③急砸深跌=抄底正向④阴跌流失拒（holdersDelta60 为负）⑤常态可买+激烈不合理拉盘拒；维度题反锚补强（market_heat 活跃下限 / momentum+entry_position 追高豁免臂 / chip_flow 阴跌+holder 流失形状）；snapshot 增 5 锚（mcapBnb/mcapPeakBnb/mcapFromPeakPct=priceArc×totalSupply 自算、holdersNow/holdersDelta60 两遍重放）；state [PRECOMPUTED] 增市值位置/holder 流向两行；**同批引擎融合（T117 BP 门）** | 单测 `_test_buy_point_lib` 144 断言（BP2 版本+5 锚手算+五条框架措辞锁）；BP1→BP2 对拍（182 重析 232 点位）待跑（跑前知会用户） |
 | BP3 | 2026-11-05 | **分类判读框架（案号 BP4——题集版本号与 BP 案号体系撞号：BP3 案号已被同日测试集换源案占用，题集版本照 BP1/BP2 序数顺延）**：新增类别题 `point_category` 四桶（early_bird/pullback_entry/high_chase/unclear——只判类别事实不下买卖结论，三轴并读=时间轴 tokenAgeSec+位置轴 currentVsAthPct/mcapPeakBnb/mcapFromPeakPct+轨迹轴 chg30/60/120 与 PRICE 形状）；综合题判读总纲改「第一步先按类别分路，再按各类忌讳权衡」；BP2 五条框架收编（拉高拒+低市值豁免并入早鸟类、急砸抄底+阴跌流失拒并入回调类、活跃门槛/协同降档/薄窗 insufficient 作通用条保留）；**assessment 四桶域不动=服务端/bpPassLevels/引擎门零改动** | 单测 `_test_buy_point_lib` 182 断言（F 组重写：9 题/8+1 对齐/POINT_CATEGORY_LEVELS 双副本锁/分类框架措辞锁）；60 点抽样对拍=台账 BP5 案 |
 | BP4 | 2026-11-05 | **BP3 对拍后执行修正（案号 BP5）——两处 Jev 分路未执行修正**：①追高类升级**硬路由**（「无条件一律 poor」+总纲「分路是硬路由：追高路内维度档位再强也输出 poor」+**good 桶描述显式排除追高类**——桶描述级防线）；②早鸟豁免臂收紧：忌讳「不买极快速上涨/已拉高」**无条件不因低市值豁免**，豁免仅限温和爬坡（chg30 个位数/多桶缓升有回踩整理）+「**位置先于动能**：贴高急拉下的强买压（price:strong+buy:strong）是接力风险不是入场信号」（已拉高形状锚=现价贴全窗高点∧chg30 两位数/垂直窜升无回踩） | 同 60 点复跑：good 23→3 / poor 35→56；追高点 good(0.44)→poor(0.75) 兑现；新 good 3 点全为回调贴低企稳（2/3 结局为正）；pullback 分化更纯（good +8.49% vs poor -15.93% 末中位）；错失面=猫咪天团单票 5 连点（设计内代价，见 BP5 案） |
-| BP5 | 2026-11-05 | **维度瘦身+双价格轴（案号 BP6——60 点逐点复审中用户裁定）**：删 chip_flow / pace_trend / buy_pressure_quality 三题（9→7 题=5 维度+1 类别+1 综合，「维度太多决策困难」）；price_momentum→**price_trend 六桶**（fast_up/slow_up/fast_down/slow_down/flat/volatile——快/慢参照 \|chg30\| 两位数界）；entry_position 改**相对价格高低四桶**（near_high/shallow_pullback/half_off/ankle_cut——回撤分界 <10%/10~35%/35~70%/>70%）；新增 **price_level 绝对价格高低五桶**（near_launch/low/mid/high/very_high——参照系=**发行价**，分界 ≤+50%（含破发）/+50~200%/+200~600%/+600~2000%/>+2000% 初版待校准）；snapshot 新增**发行价位置族三锚**（launchPriceBnb=全数组首个可靠价、launchCovered=出生段覆盖判据 min dt≤BP_LAUNCH_COVER_TOL(90s) 截窗不冒充、currentVsLaunchPct 可破发为负）；综合题总纲同步（已删维度引用改数值锚：买压→参与结构行买家数/新买家；「位置先于速度」；并读轴=**相对/绝对价格双轴交叉定位**）；state [PRECOMPUTED] 增发行价位置行（fmtPrice 口径） | 单测 `_test_buy_point_lib` 187→**197 断言**（E/F 组重写+A 组发行价手算+C 组截窗 null fail-closed+D 组发行价行渲染）；BP5 题面 60 点重跑对拍=待跑（烧 Jev 配额先知会） |
+| BP5 | 2026-11-05 | **维度瘦身+双价格轴（案号 BP6——60 点逐点复审中用户裁定）**：删 chip_flow / pace_trend / buy_pressure_quality 三题（9→7 题=5 维度+1 类别+1 综合，「维度太多决策困难」）；price_momentum→**price_trend 六桶**（fast_up/slow_up/fast_down/slow_down/flat/volatile——快/慢参照 \|chg30\| 两位数界）；entry_position 改**相对价格高低四桶**（near_high/shallow_pullback/half_off/ankle_cut——回撤分界 <10%/10~35%/35~70%/>70%）；新增 **price_level 绝对价格高低五桶**（near_launch/low/mid/high/very_high——参照系=**发行价**，分界 ≤+50%（含破发）/+50~200%/+200~600%/+600~2000%/>+2000% 初版待校准）；snapshot 新增**发行价位置族三锚**（launchPriceBnb=全数组首个可靠价、launchCovered=出生段覆盖判据 min dt≤BP_LAUNCH_COVER_TOL(90s) 截窗不冒充、currentVsLaunchPct 可破发为负）；综合题总纲同步（已删维度引用改数值锚：买压→参与结构行买家数/新买家；「位置先于速度」；并读轴=**相对/绝对价格双轴交叉定位**）；state [PRECOMPUTED] 增发行价位置行（fmtPrice 口径） | 单测 `_test_buy_point_lib` 187→**197 断言**（E/F 组重写+A 组发行价手算+C 组截窗 null fail-closed+D 组发行价行渲染）；BP5 题面 60 点重跑对拍**未及执行即被 BP6 形态替代**（价格轴/发行价锚并入 BP6 后一起跑） |
+| BP6 | 2026-11-05 | **三类质量题制+动量短窗（案号 BP7——用户裁定原话「将 early_bird/pullback_entry/high_chase 三者作为题本身，good/neutral/poor/insufficient 分别用于评估这三者的质量。这三者有任何一个为 good 则为 good，为 neutral 则为 neutral，否则为 poor」）**：①类别题+综合题两步制**整体退役**（对拍实证 Jev 常忽略路由指令——BP-T009 判 high_chase(0.66) 却给 good），改为 **3 类别质量题**（early_bird_quality / pullback_entry_quality / high_chase_quality，桶域 good/neutral/poor/insufficient）三视角并行独立评估——每题先判场景适用（非场景/材料薄→**insufficient 不贡献聚合**），场景成立按各类忌讳权衡（早鸟忌极快拉高/已拉高无条件不因低市值豁免·位置先于速度/断流/协同；回调忌没跌到位/奔着归零（阴跌+holdersDelta60 负+大持仓派发）/断流/协同，good=深回撤后企稳；**追高=策略停买留痕：场景成立一律 poor**，good/neutral 桶留「放开时改本题面」占位）；②**综合判定=代码侧确定性聚合**（mapper 内 any_good→any_neutral→else_poor 三臂；prob=该 tier 最大；rule 键=any_good/any_neutral/else_poor 聚合来源留痕；三题全 insufficient→poor 且 prob=null）——assessment 不再有 insufficient 桶（薄窗票聚合落 poor，门行为不变：poor/insufficient 都拒）；③**动量短窗 30/60/120→5/10/30s**（用户裁定「窗口太大了，我们要判断的是近窗口的趋势」——snapshot chg 族/state 近窗动量行/mapper 锚/price_trend 题面与早鸟题怎么算段同批；短窗内无更早价自全窗首可靠价起算=可得最早价以来动量，state 行显式声明）；④消费面：service 日志行换三质量题档位+`qualities` 透传（gateBuyPoint 返回+digest 落表——无独立列随 snapshot_digest 落）、引擎 BP 门 info 组装 additive `qualities`、run.mjs 判定行两行制+results 落 qualities；⑤题集 8 题=5 维度+3 质量（每题均含「怎么算」段）；**容错双轨**：质量题 strict（缺答案/未知桶 throw——综合判定唯一来源），维度题容缺照旧 | 单测 `_test_buy_point_lib` 197 断言重写（E 组聚合三臂+strict throw+全 insufficient prob=null；F 组 8 题/QUALITY_LEVELS 双副本锁/三题忌讳与停买锚/短窗锚）+`_test_buy_point_check_service` 26 断言（8 题桩+qualities 形状）；BP6 题面 60 点重跑对拍=待跑（烧 Jev 配额先知会；兼作 price_level 分界校准素材） |
 
 ## 首跑观测（BP1，2026-11-03，set=bp-2026-11-03-live4，232 点位全量零失败）
 
@@ -73,6 +75,30 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+
+### BP7 三类质量题制+动量短窗（题集版本 BP6）（2026-11-05，机制案·BP6 续案；两连用户指令）
+
+**触发背景**：BP5 维度瘦身后（commit `5df736b1`），用户对判定形态再裁定——不再要「类别题路由+综合题」两步制，三类入场形态直接各成一道质量题；随后审视题面发现动量窗口过大。
+
+**用户指令原话**：①「将 early_bird/pullback_entry/high_chase 三者，作为题本身，然后 good/neutral/poor/insufficient 分别用于评估这三者的质量。这三者有任何一个为good则为good，为neutral则为neutral，否则为poor」②「“价格在近 30/60/120 秒的运动方向与速度” 窗口太大了，我们要判断的是近窗口的趋势，5秒，10秒，30秒 差不多」③「看看其它地方有没有这个问题」（窗口口径审查，结论见下）。
+
+**改动一：三类质量题制（题集 7→8 题=5 维度+3 质量）**：
+
+- **类别题 point_category 与综合题 buy_point_assessment 整体删除**——BP3-BP5 两步制（类别题路由→综合题权衡）的对拍痼疾=Jev 常忽略路由指令（BP-T009 判 high_chase(0.66) 却给 good 0.44；BP4 硬路由措辞仍靠 Jev 自觉执行），新形态从根消除路由依赖：三视角**并行独立**评估，聚合归代码。
+- **early_bird_quality**：场景=tokenAgeSec 短且未走完一波拉升（贴高首波仍属早鸟——分界非绝对 tokenAge）；忌讳=极快拉高/已拉高（**无条件不因低市值豁免**·位置先于速度）/活跃度太低断流/协同阵列主导；good=温和爬坡+买家多元+热度尚可+绝对价位尚低；非场景或材料薄→insufficient。
+- **pullback_entry_quality**：场景=有过明显高点且现价处回落后的位置；忌讳=没跌到位（接飞刀，企稳证据极强时至多 neutral）/奔着归零（阴跌+holdersDelta60 负+买盘枯竭+bigHolderSellBnb60/exitSellerCount60 派发放量）/断流/协同；good=**深回撤后企稳**（急砸非阴跌+买盘回流+holder 稳定/跌底放量）。
+- **high_chase_quality**：场景=贴高且已兑现高位非首波；**本轮先等等=场景成立一律 poor（策略停买留痕）**——good/neutral 桶留「（本轮策略停买——放开时改本题面）」占位，与 BP4 硬路由精神同源但由聚合天然保证执行（追高题恒不贡献 good/neutral → 聚合实质=early_bird∨pullback）。
+- **聚合（mapper 代码侧确定性）**：`tier('good') 有 → good（prob=该 tier 最大，rule=any_good）→ tier('neutral') 有 → neutral（any_neutral）→ 否则 poor（else_poor；三题全 insufficient → prob=null）`；insufficient 不贡献；good 优先于 high-prob poor（tier 序非概率序，单测锁）；**rule 键=聚合来源留痕非档位结论**（无 verdict/grade 键纪律不破）。
+- **assessment 不再有 insufficient**：统计上三题全 insufficient 的薄窗票聚合落 poor（门行为不变——poor/insufficient 都拒）；对拍统计退化为看三题分布+rule 列，run.mjs 判定行改两行制（维度行/质量行）。
+- **容错双轨**：质量题=综合判定唯一来源 strict（缺答案/空答案/未知桶 throw fail-loud）；维度题容缺 null 照旧（在场未知桶仍 throw）。
+- **消费面**：`BuyPointCheckService.gateBuyPoint` 返回加 `qualities`+assessment.rule（日志行 `质量 早鸟=x/回调=x/追高=x ｜ 综合=bucket(prob,rule)`）；落表 `snapshot_digest.qualities`（**无独立列不加 DDL**，完整概率在 answers_raw）；引擎 `_bpGateEvaluate` info additive `qualities`（signal metadata `buyPoint` 段）；run.mjs results 加 qualities。
+
+**改动二：动量短窗 30/60/120→5/10/30s**：
+
+- snapshot `chgOf` 窗族换 5/10/30（chg5Pct/chg10Pct/chg30Pct，删 chg60Pct/chg120Pct）；短窗内无更早价**自全窗首可靠价起算**（=可得最早价以来动量，state 近窗动量行显式声明该语义——诚实不冒充）；state/mapper 锚/price_trend 题面（「近 5/10/30 秒」+chg5/10/30Pct 引用+波动=chg5/chg10 与 chg30 符号相反）/早鸟题怎么算段同批；速度参照仍 **|chg30| 两位数界**（30s 仍为最长窗）。
+- **窗口口径全模块审查（「看看其它地方」结论——以下维持不动，各有结构角色）**：win 流量族 30/60/120（资金/参与结构证据窗非趋势判定，题面消费主 60s 参与结构）；halfTpmEarly/Late 120s 前后半（节奏密度趋势，半窗 60s——缩到 30s 半窗稀疏票会 0/0 无统计意义）；burst5In120（与 CD BURST_NEAR_SEC=120 跨模块同口径）；madeHigh120（secSinceAth 已有精确值，120s 布尔仅佐证）；holdersDelta60/bigHolderSellBnb60/exitSellerCount60（承接/派发证据需累积窗）；[WALLETS] 近 120s 字段（大持仓近端动向）；[PRICE] 全窗 20 桶轨迹（背景形状非近窗趋势载体）。待用户对个别窗再裁定可另案。
+
+**验证**：`_test_buy_point_lib` 197 断言全绿（E 组聚合三臂+strict+键绝迹反证；F 组 8 题/双副本锁/三题忌讳锚/短窗锚；A 组 chg5/10/30 手算 6.67/6.67/14.29）；`_test_buy_point_check_service` 26 断言（8 题桩+qualities/rule 形状）；`_test_signal_gate_engine` 91 断言复验通过。**余留**：BP6 题面 60 点重跑对拍（烧 Jev 配额先知会；三题分布+rule 列+兼作 price_level 分界校准）；批 2-4 逐点复审以新口径继续；v73 换代。
 
 ### BP6 维度瘦身+双价格轴（题集版本 BP5）（2026-11-05，机制案·BP5 续案；60 点逐点复审第一批裁定后用户指令）
 

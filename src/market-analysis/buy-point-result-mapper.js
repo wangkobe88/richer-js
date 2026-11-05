@@ -1,39 +1,40 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态=用户裁定「Jev 综合判定」：维度题档位 + 1 类别题（point_category，
- * BP3：早鸟/回调/追高/难分类）+ 1 综合题（buy_point_assessment）由 Jev 直接给
- * 「当前点位适合买入程度」（good/neutral/poor/insufficient）。BP5 维度瘦身：
- * 4 维度（price_trend 价格趋势六桶 / sell_pressure / market_heat / entry_position
- * 相对价格高低四桶）+ price_level 绝对价格高低五桶 + 类别 + 综合。
- * 本 mapper **纯透传**：argmax 桶位照抄，代码不做任何规则映射/加权/grade
- * （无 grade.js——与 CD D3.5「判断一律 Jev」同哲学）。
+ * 判定形态（BP6 三类质量题制，用户裁定 2026-11-05）：维度题档位（5 题）+
+ * **3 类别质量题**（early_bird_quality/pullback_entry_quality/high_chase_quality，
+ * 桶域 good/neutral/poor/insufficient——Jev 三视角并行独立评估）；
+ * 综合判定 = **代码侧确定性聚合**（用户原话「这三者有任何一个为 good 则为
+ * good，为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则
+ * 任一 neutral → neutral；否则 poor——insufficient（该视角不适用/材料薄）
+ * **不贡献聚合**；三题全 insufficient → poor（fallback 无 poor 证据 prob=null）。
+ * 维度题仍纯透传（argmax 照抄无规则映射——与 CD D3.5「判断一律 Jev」同哲学；
+ * 聚合规则是用户明裁的确定性 max 规则非加权 grade）。
  *
  * 容错双轨（镜像 cheat mapper 纪律）：
- * - 综合题缺答案/形状异常/未知桶名 → **throw**（fail-loud：综合判定是本模块
- *   唯一产出，缺失=链路坏，调用方落 error 行）
+ * - 质量题缺答案/形状异常/未知桶名 → **throw**（fail-loud：质量题是综合判定
+ *   唯一来源，缺失=链路坏，调用方落 error 行）
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺放宽）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
- *   ——入场决策映射是第二步引擎融合的事，用户裁定后另行立项）
+ *   ——rule 键=聚合来源留痕（any_good/any_neutral/else_poor）非档位结论）
  *
  * 桶域常量与题集（llm/buy-point-questions.mjs ESM）同域同值：ESM 无法被本 CJS
  * require，故此处自持副本，由单测 `_test_buy_point_lib.cjs` F 组经 dynamic import
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度/类别题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP5 维度瘦身） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP5 维度瘦身） */
 const DIMENSION_IDS = [
   'price_trend',
   'sell_pressure',
   'market_heat',
   'entry_position',
   'price_level',
-  'point_category',
 ];
 
-/** 综合判定题 id（Jev 直接给适合买入程度） */
-const ASSESSMENT_ID = 'buy_point_assessment';
+/** 三类质量题 id（BP6：Jev 三视角并行评估——综合判定唯一来源，strict 强制在场） */
+const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality', 'high_chase_quality'];
 
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
@@ -41,7 +42,9 @@ const SELL_PRESSURE_LEVELS = ['low', 'mid', 'high'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
-const POINT_CATEGORY_LEVELS = ['early_bird', 'pullback_entry', 'high_chase', 'unclear'];
+/** 质量题桶域（BP6——与题集同域；insufficient=不适用/材料薄不贡献聚合） */
+const QUALITY_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
+/** 综合判定桶域（聚合产物 ∈ {good, neutral, poor}；门 bpPassLevels 消费域含 insufficient 历史行兼容） */
 const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
@@ -51,7 +54,6 @@ const DIMENSION_LEVELS = {
   market_heat: HEAT_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
-  point_category: POINT_CATEGORY_LEVELS,
 };
 
 /**
@@ -97,19 +99,38 @@ function _winNum(anchors, W, key) {
 }
 
 /**
- * Jev answers → 买点观测记录（维度档位+综合判定+数值锚；无 verdict/grade）
- * @param {Object} answers - JevClient.ask 返回的 answers（8 题 Choice；
- *   维度题可缺席→null；综合题必须在场）
+ * Jev answers → 买点观测记录（维度档位+三类质量+聚合综合判定+数值锚；无 verdict/grade）
+ * @param {Object} answers - JevClient.ask 返回的 answers（8 题 Choice=5 维度+3 质量；
+ *   维度题可缺席→null；质量题 strict 必须在场）
  * @param {Object|null} [anchors] - buyDerived 数值锚（buildBuyPointSnapshot
  *   产物 .buyDerived；缺省/形状异常=缺席）
- * @returns {{dimensions:Object, assessment:{bucket,prob}, anchors:Object}}
- * @throws {Error} 综合题缺失/形状异常/未知桶名；维度题在场但未知桶名
+ * @returns {{dimensions:Object, qualities:Object, assessment:{bucket,prob,rule}, anchors:Object}}
+ * @throws {Error} 质量题缺失/形状异常/未知桶名；维度题在场但未知桶名
  */
 function buildBuyPointObservation(answers, anchors = null) {
   const dimensions = {};
   for (const id of DIMENSION_IDS) {
     dimensions[id] = _choice(answers, id, DIMENSION_LEVELS[id], false);
   }
+  // 三类质量题（strict：早鸟/回调/追高三视角各一道，综合判定唯一来源）
+  const qualities = {};
+  for (const id of QUALITY_IDS) {
+    qualities[id.replace('_quality', '')] = _choice(answers, id, QUALITY_LEVELS, true);
+  }
+  // 聚合（BP6 用户裁定确定性规则，代码侧执行不依赖 Jev 路由）：
+  // 任一 good → good；否则任一 neutral → neutral；否则 poor。
+  // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
+  const qList = Object.values(qualities);
+  const tier = (t) => qList.filter((e) => e && e.bucket === t);
+  const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
+  let bucket, prob, rule;
+  const g = tier('good');
+  const n = tier('neutral');
+  const p = tier('poor');
+  if (g.length) { bucket = 'good'; prob = bestProb(g); rule = 'any_good'; }
+  else if (n.length) { bucket = 'neutral'; prob = bestProb(n); rule = 'any_neutral'; }
+  else { bucket = 'poor'; prob = bestProb(p); rule = 'else_poor'; }
+  const assessment = { bucket, prob, rule };
   const flat = {};
   for (const W of [30, 60, 120]) {
     for (const k of ['buyBnb', 'sellBnb', 'buyN', 'sellN', 'netBnb', 'buySharePct', 'ticksPerMin', 'buyers', 'sellers', 'newBuyers']) {
@@ -119,10 +140,12 @@ function buildBuyPointObservation(answers, anchors = null) {
   const b = anchors || {};
   const burst = b.burst5In120;
   return {
-    // 七维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
+    // 五维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
     dimensions,
-    // 综合判定（唯一强制产出——Jev 直接给「当前点位适合买入程度」）
-    assessment: _choice(answers, ASSESSMENT_ID, ASSESSMENT_LEVELS, true),
+    // 三类入场质量（BP6 strict：early_bird/pullback_entry/high_chase 各 {bucket,prob}）
+    qualities,
+    // 综合判定（代码侧聚合：any_good → any_neutral → else_poor；rule=聚合来源留痕）
+    assessment,
     // 数值锚（纯事实透传：观测/校准素材，非档位判定；异常形状缺席不冒充）
     anchors: {
       // 时点位置族
@@ -141,10 +164,10 @@ function buildBuyPointObservation(answers, anchors = null) {
       // holder 流向族（BP2：tok 缺失 null fail-closed；delta 可负）
       holdersNow: _num(b, 'holdersNow'),
       holdersDelta60: _num(b, 'holdersDelta60'),
-      // 近窗动量族（可负）
+      // 近窗动量族（BP6 短窗 5/10/30s；可负）
+      chg5Pct: _num(b, 'chg5Pct'),
+      chg10Pct: _num(b, 'chg10Pct'),
       chg30Pct: _num(b, 'chg30Pct'),
-      chg60Pct: _num(b, 'chg60Pct'),
-      chg120Pct: _num(b, 'chg120Pct'),
       // 近窗族（W∈{30,60,120} 扁平 10 键/窗）
       ...flat,
       // 参与结构族（近 60s）
@@ -167,12 +190,12 @@ function buildBuyPointObservation(answers, anchors = null) {
 module.exports = {
   buildBuyPointObservation,
   DIMENSION_IDS,
-  ASSESSMENT_ID,
+  QUALITY_IDS,
   PRICE_TREND_LEVELS,
   SELL_PRESSURE_LEVELS,
   HEAT_LEVELS,
   ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,
-  POINT_CATEGORY_LEVELS,
+  QUALITY_LEVELS,
   ASSESSMENT_LEVELS,
 };

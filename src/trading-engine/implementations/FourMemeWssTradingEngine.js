@@ -3054,6 +3054,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           pass = bucket != null && passLevels.includes(bucket);
           info = {
             status: 'assessed', assessment: res.assessment ?? null,
+            qualities: res.qualities ?? null,
             dimensions: res.dimensions ?? null, anchors: res.anchors ?? null,
             passLevels, passed: pass,
             model: res.model ?? null, usage: res.usage ?? null,

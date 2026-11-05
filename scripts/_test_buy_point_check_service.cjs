@@ -88,8 +88,9 @@ function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
         market_heat: { probabilities: { high: 0.6, mid: 0.4 } },
         entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
         price_level: { probabilities: { near_launch: 0.7, low: 0.3 } },
-        point_category: { probabilities: { early_bird: 0.66, unclear: 0.34 } },
-        buy_point_assessment: { probabilities: { good: 0.72, neutral: 0.28 } },
+        early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
+        pullback_entry_quality: { probabilities: { insufficient: 0.8, poor: 0.2 } },
+        high_chase_quality: { probabilities: { insufficient: 0.9, poor: 0.1 } },
     };
     return {
         calls,
@@ -150,7 +151,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(r.status, 'insufficient_ticks');
         assert.strictEqual(r.anchorTickCount, 0);
     });
-    await check('assessed：bucket/prob/dimensions/anchors/model/usage 全形状', async () => {
+    await check('assessed：bucket/prob/rule/qualities/dimensions/anchors/model/usage 全形状', async () => {
         const db = mkDb({ ticksAsc: TICKS10 });
         const llm = mkLlm({});
         const s = mkSvc(CFG, db, llm);
@@ -158,8 +159,11 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(r.status, 'assessed');
         assert.strictEqual(r.assessment.bucket, 'good');
         assert.strictEqual(r.assessment.prob, 0.72);
+        assert.strictEqual(r.assessment.rule, 'any_good');
+        assert.strictEqual(r.qualities.early_bird.bucket, 'good');
+        assert.strictEqual(r.qualities.pullback_entry.bucket, 'insufficient');
+        assert.strictEqual(r.qualities.high_chase.bucket, 'insufficient');
         assert.strictEqual(r.dimensions.price_trend.bucket, 'fast_up');
-        assert.strictEqual(r.dimensions.point_category.bucket, 'early_bird');
         assert.strictEqual(typeof r.anchors.mcapBnb, 'number');
         assert.strictEqual(r.model, 'stub-model');
         assert.deepStrictEqual(r.usage, { total: 42 });
@@ -196,7 +200,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         await sleep(450); // 等迟到 ask 落定（应被丢弃不二次落行）
         assert.strictEqual(db.inserted.length, 1, '迟到结果丢弃不追加行');
     });
-    await check('fail/mapper_error：综合题缺答案 → error 行（failReason 含 mapper）', async () => {
+    await check('fail/mapper_error：质量题缺答案 → error 行（failReason 含 mapper）', async () => {
         const answers = {
             price_trend: { probabilities: { fast_up: 0.8, slow_up: 0.2 } },
         };

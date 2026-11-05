@@ -4,8 +4,11 @@
  *
  * 定位（与 CD 分工）：输入同样是 ticks 锚截窗，CD 判「盘面是否作弊」，本服务判
  * 「**当前点位是否适合买入**」（时点判定；协同形状只作降档参考，结论归 CD）。
- * 判定形态=Jev 综合判定（7 维度题 + 综合题 buy_point_assessment 四桶
- * good/neutral/poor/insufficient）；mapper 纯透传——**无粘滞/拉黑/grade**
+ * 判定形态（题集 BP6 三类质量题制）：5 维度题（参考）+ 3 类别质量题
+ * （early_bird/pullback_entry/high_chase_quality，桶域 good/neutral/poor/
+ * insufficient）三视角并行独立评估；综合判定=**代码侧确定性聚合**
+ * （任一 good→good，否则任一 neutral→neutral，否则 poor；insufficient
+ * 不贡献；三题全 insufficient→poor 且 prob=null）。**无粘滞/拉黑/grade**
  * （点位判定无终态：每个买信号独立 as-of 真析，多行历史留轨迹=校准研究数据）。
  *
  * 门语义（T117 门链第二门；与 cheat 门刻意不同向）：
@@ -111,7 +114,7 @@ class BuyPointCheckService {
 
   /**
    * 买点 BP 门（T117 门链第二门）：竞速 awaitMs。
-   * - {status:'assessed', assessment:{bucket,prob}, dimensions, anchors, model, usage}
+   * - {status:'assessed', assessment:{bucket,prob,rule}, qualities, dimensions, anchors, model, usage}
    *   ——bucket 是否放行由引擎按腿 bpPassLevels 判（服务不做规则映射——判断一律 Jev）
    * - 竞速超时：{status:'timeout', late:Promise}——**调用方 fail-closed 拒本笔**，
    *   late 链续跑落行（无引擎态副作用，下个买信号可见）
@@ -245,15 +248,17 @@ class BuyPointCheckService {
       this.stats.analyzed++;
 
       const dim = obs.dimensions;
+      const q = obs.qualities;
       this._log('info', `买点观测 trend=${dim.price_trend?.bucket ?? '—'}` +
         ` sell=${dim.sell_pressure?.bucket ?? '—'} heat=${dim.market_heat?.bucket ?? '—'}` +
         ` entry=${dim.entry_position?.bucket ?? '—'} level=${dim.price_level?.bucket ?? '—'}` +
-        ` cat=${dim.point_category?.bucket ?? '—'}` +
-        ` 综合=${obs.assessment.bucket}(${obs.assessment.prob})` +
+        ` 质量 早鸟=${q.early_bird?.bucket ?? '—'}/回调=${q.pullback_entry?.bucket ?? '—'}/追高=${q.high_chase?.bucket ?? '—'}` +
+        ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
         status: 'assessed',
-        assessment: { bucket: obs.assessment.bucket, prob: obs.assessment.prob },
+        assessment: { bucket: obs.assessment.bucket, prob: obs.assessment.prob, rule: obs.assessment.rule },
+        qualities: obs.qualities,
         dimensions: obs.dimensions,
         anchors: obs.anchors,
         model: res.result.model || null,
@@ -499,14 +504,16 @@ class BuyPointCheckService {
         sellBnb: Number(sellBnb.toFixed(4)),
         // 买点摘要（失败行 mapped={verdict,failReason} → null）
         assessment: mapped.assessment ?? null,
+        qualities: mapped.qualities ?? null, // BP6 三类质量题（综合判定分来源；无独立列随 digest 落）
         dimensions: mapped.dimensions ?? null,
         anchors: mapped.anchors ?? null,
         bp: {
           tokenAgeSec: b.tokenAgeSec ?? null,
           spanSec: b.spanSec ?? null,
           currentVsAthPct: b.currentVsAthPct ?? null,
-          chg60Pct: b.chg60Pct ?? null,
-          chg120Pct: b.chg120Pct ?? null,
+          chg5Pct: b.chg5Pct ?? null,
+          chg10Pct: b.chg10Pct ?? null,
+          chg30Pct: b.chg30Pct ?? null,
           mcapBnb: b.mcapBnb ?? null,
           mcapPeakBnb: b.mcapPeakBnb ?? null,
           mcapFromPeakPct: b.mcapFromPeakPct ?? null,

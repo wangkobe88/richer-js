@@ -1,50 +1,34 @@
 /**
- * 买入点位分析题集（BP5，2026-11-05 维度瘦身）——Jev Choice 题 7 道
- * （5 维度 + 1 类别 + 1 综合）
+ * 买入点位分析题集（BP6，2026-11-05 三类质量题制）——Jev Choice 题 8 道
+ * （5 维度 + 3 类别质量题）
  *
  * 定位（与反作弊题集分工）：输入同样是 ticks 快照（[TOKEN]/[ANCHOR]/[PRECOMPUTED]/
  * [PRICE]/[TICKS]/[WALLETS]），判的是「**当前点位是否适合买入**」——入场时机好坏，
  * 不判盘面是否作弊（协同/作弊形状只作降档参考，结论归反作弊模块）。
  *
- * 判定形态=用户裁定「Jev 综合判定」：维度题组给档位，**综合题由 Jev 直接给
- * 适合买入程度**（good/neutral/poor/insufficient）；代码只透传不做规则映射
- * （不建 grade——与 CD D3.5「判断一律 Jev」同哲学）。
+ * BP6 判定形态（用户裁定 2026-11-05，60 点复审中续裁）：**三类入场各成一道
+ * 质量题**（early_bird_quality / pullback_entry_quality / high_chase_quality，
+ * 桶域 good/neutral/poor/insufficient），Jev 对三视角**并行独立评估**；综合判定
+ * =代码侧确定性聚合（mapper）：**任一 good → good；否则任一 neutral → neutral；
+ * 否则 poor**（insufficient=该视角不适用/材料薄，不贡献聚合）。替代 BP3-BP5 的
+ * 「类别题路由 + 综合题」两步形态——分路不再依赖 Jev 执行路由指令（BP3/BP4
+ * 对拍实证分路常被忽略），聚合规则收归代码。原综合题各类忌讳全量迁入对应
+ * 质量题；追高题保留「本轮先等等一律 poor」策略停买留痕（放开只改该题面）。
  *
- * BP2 改版（2026-11-05，T117 引擎融合）：综合题按用户五条判读框架重写
- * （活跃度门槛/拉高拒+低市值豁免/急砸抄底臂/阴跌流失拒/常态可买+非理性拉盘拒）；
- * 四维度题反锚补强（momentum+entry_position 追高低市值豁免臂、market_heat 活跃
- * 下限提示、chip_flow holder 流失形状）；snapshot 新增市值位置/holder 流向两组
- * 数值锚（buy-point-snapshot BP2 段）。
- *
- * BP3 改版（2026-11-05 用户裁定分类框架，同日续案）：买入点分三类，**分类进
- * Jev Prompt**——①早鸟入场（代币刚出；核心忌讳=不买极快速上涨/已拉高票）②回调
- * 入仓（从高点跌下来；忌讳=没跌到位、或下跌奔着归零）③强庄币追高入场（**本轮
- * 先等等**=综合题不给 good/neutral，类别锚留痕供策略层后续放开）。新增类别题
- * point_category（四桶，只判类别事实不下买卖结论）；综合题判读总纲改为「先分类
- * 后按类忌讳权衡」（BP2 五条框架收编为通用条：活跃门槛/协同降档/薄窗 insufficient
- * 保留，拉高拒并入早鸟类、急砸抄底与阴跌流失拒并入回调类）。桶域全不动
- * （good/neutral/poor/insufficient 与 mapper 同域；类别题新桶同步 mapper 副本）。
- *
- * BP4 改版（2026-11-05 同日，BP3 题面 60 点对拍后执行修正——观测详见台账 BP5 案）：
- * ①追高类分路从段落指令升级为**硬路由**措辞（对拍 BP-T009：类别题正确判
- * high_chase(0.66) 但综合给 good(0.44)——分路指令未执行）；②早鸟豁免臂收紧：
- * 「不买极快速上涨/已拉高」为**无条件**忌讳，低市值豁免仅限温和爬坡（对拍：
- * 贴高早鸟 35 点 good 15，good 里末值最差 5 点全为 price:strong+entry:near_high
- * 贴高票，early_bird/good 末中位 -29.3% 反差于 poor -19.4%）。
- *
- * BP5 改版（2026-11-05 同日，60 点逐点复审中用户裁定维度瘦身——详见台账 BP6 案）：
- * 删 chip_flow / pace_trend / buy_pressure_quality 三题（维度过多决策困难），题量
- * 9→6；price_momentum 改 price_trend（方向×速度六桶：fast_up/slow_up/fast_down/
- * slow_down/flat/volatile——快/慢参照 |chg30| 两位数界）。综合题总纲同步改写
- * （已删维度的引用改指数值锚：买压→参与结构行买家数/新买家；BP4 硬路由与
- * 无条件忌讳措辞保留）。
+ * 演进（详档 docs/买入点位分析与Case台账.md 版本演进表）：
+ * - BP1（11-03）初版八题；BP2（11-05）五条判读框架+5 锚+T117 引擎融合
+ * - BP3/BP4（11-05，案号 BP4/BP5）分类判读框架+硬路由修正（题面两步制）
+ * - BP5（11-05，案号 BP6）维度瘦身：删 chip_flow/pace_trend/buy_pressure_quality，
+ *   price_momentum→price_trend 六桶，entry_position→相对价格高低四桶，
+ *   新增 price_level 绝对价格高低五桶（发行价参照系）+发行价锚三键
+ * - BP6（11-05，案号 BP7）本题版：三类质量题制（上段）
  *
  * 版本纪律：改任何题面必须 bump BUY_POINT_QUESTIONS_VERSION（落存档标识）。
  * 真实样本段以「形状教学」代替并标「待校准」，测试集分布跑出后按案补充。
  */
 
 /** 题集版本（改题面必 bump；台账 docs/买入点位分析与Case台账.md） */
-export const BUY_POINT_QUESTIONS_VERSION = 'BP5';
+export const BUY_POINT_QUESTIONS_VERSION = 'BP6';
 
 /** 价格趋势六桶（BP5：方向×速度——快/慢参照 |chg30| 两位数界） */
 export const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
@@ -56,35 +40,35 @@ export const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 export const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 /** 绝对价格高低五桶（BP5：参照系=发行价——接近发行价/偏低/不高不低/偏高/很高） */
 export const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 点位类别四桶（BP3：早鸟/回调/追高/难分类——只判类别，买卖权衡归综合题） */
-export const POINT_CATEGORY_LEVELS = ['early_bird', 'pullback_entry', 'high_chase', 'unclear'];
-/** 综合判定四桶 */
-export const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
+/** 三类入场质量题 id（BP6：early_bird/pullback_entry/high_chase 各一道质量题） */
+export const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality', 'high_chase_quality'];
+/** 质量题桶域（BP6：与综合判定门桶同词表——insufficient=该视角不适用/材料薄不贡献聚合） */
+export const QUALITY_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 
 /**
- * 构建买入点位分析问题集（BP5：4 维度 + 1 类别 + 1 综合）。
+ * 构建买入点位分析问题集（BP6：5 维度 + 3 类别质量题）。
  * 每题=维度定义 + 从哪段材料看 + **怎么算**（消费 [PRECOMPUTED] 已算键的显式
- * 算法段）+ 反锚段（防误判教学）+ 形状样本（初版待校准）+ 收尾声明。
+ * 算法段）+ 反锚/忌讳段（防误判教学）+ 形状样本（初版待校准）+ 收尾声明。
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildBuyPointQuestions() {
   return {
 
-    // 1. 价格趋势（BP5：方向×速度六桶，替代原 price_momentum 四档）
+    // 1. 价格趋势（BP5 六桶；BP6 动量窗 30/60/120 → 5/10/30s——秒级狙击视角近窗趋势）
     price_trend: {
       type: 'choice',
-      instructions: `判断「近窗价格趋势」：截至锚时刻，价格在近 30/60/120 秒的运动方向与速度——快升/慢升/快跌/慢跌/平稳/波动。
-怎么算：[PRECOMPUTED] 近窗动量行的 chg30/60/120Pct（窗末可靠价 vs 窗起点前最后一笔可靠价的涨跌%，已算好直接采信）+ [PRICE] 轨迹行斜率（末段几桶持续抬升/平台/下探/来回）+ [TICKS] 末段可靠价肉眼复核。速度参照：|chg30| 两位数（≥10%）且轨迹短时陡峭/垂直=快；个位数（<10%）缓进=慢；chg30 与 chg60 符号相反或轨迹明显来回摆动=波动；窄幅微动（chg30/60 绝对值低个位）=平稳。
-反锚：①**末段单笔脉冲不定趋势**——一两笔 tick 的瞬时跳价不足以定桶，看持续段形状；②阴跌中的末段小反弹不判升：chg30 微正但 chg60/120 深负主导 → 按跌（速度按阴性段斜率定快慢）；③平稳与波动分界=幅度：来回都在窄幅（低个位数）=平稳，单边段两位数级交替的来回=波动；④[OUTLIER] 天价行价格不可信（已从价格口径剔除，勿从 tick 行单价反推）；⑤本题只述价格方向与速度事实——快升不等于该追、慢升不等于该买（买卖权衡归综合题）。
-形状样本（初版待校准）：快升=chg30 +30% 且末几桶垂直抬升；慢升=chg30 +5% 多桶缓进有回踩；快跌=chg30 -25% 直下；慢跌=chg60 -12% 阴跌失血；平稳=chg30 ±2% 横盘；波动=+15% 后 -12% 来回两段。
+      instructions: `判断「近窗价格趋势」：截至锚时刻，价格在近 5/10/30 秒的运动方向与速度——快升/慢升/快跌/慢跌/平稳/波动。
+怎么算：[PRECOMPUTED] 近窗动量行的 chg5/10/30Pct（窗末可靠价 vs 窗起点前最后一笔可靠价的涨跌%；5/10s 窗内无更早价时自全窗首可靠价起算=可得最早价以来动量，已算好直接采信）+ [PRICE] 轨迹行斜率（末段几桶持续抬升/平台/下探/来回）+ [TICKS] 末段可靠价肉眼复核。速度参照：|chg30| 两位数（≥10%）且轨迹短时陡峭/垂直=快；个位数（<10%）缓进=慢；chg5/chg10 与 chg30 符号相反或轨迹明显来回摆动=波动；窄幅微动（chg5/10/30 绝对值低个位）=平稳。
+反锚：①**末段单笔脉冲不定趋势**——一两笔 tick 的瞬时跳价不足以定桶，看持续段形状；②阴跌中的末段小反弹不判升：chg5 微正但 chg30 深负主导 → 按跌（速度按阴性段斜率定快慢）；③平稳与波动分界=幅度：来回都在窄幅（低个位数）=平稳，单边段两位数级交替的来回=波动；④[OUTLIER] 天价行价格不可信（已从价格口径剔除，勿从 tick 行单价反推）；⑤本题只述价格方向与速度事实——快升不等于该追、慢升不等于该买（买卖权衡归三道质量题）。
+形状样本（初版待校准）：快升=chg30 +30% 且末几桶垂直抬升；慢升=chg30 +5% 多桶缓进有回踩；快跌=chg30 -25% 直下；慢跌=chg30 -8% 阴跌失血；平稳=chg30 ±2% 横盘；波动=10s 内 +15% 后 -12% 来回两段。
 只描述趋势与速度，不下入场结论。`,
       criteria: {
         fast_up: '快升：近窗上涨陡峭（|chg30| 两位数%/轨迹短时垂直抬升），短时间内显著上行',
         slow_up: '慢升：近窗温和上行（chg30 个位数%、多桶缓进可含回踩整理）',
         fast_down: '快跌：近窗下跌陡峭（|chg30| 两位数%/轨迹垂直下探或急砸）',
         slow_down: '慢跌：近窗温和下跌（chg30 个位数阴性、阴跌失血状缓下）',
-        flat: '平稳：窄幅横盘（chg30/60 绝对值低个位，无方向）',
-        volatile: '波动：明显来回摆动（单边段交替、chg30 与 chg60 符号相反或轨迹大起大落）',
+        flat: '平稳：窄幅横盘（chg5/10/30 绝对值低个位，无方向）',
+        volatile: '波动：明显来回摆动（单边段交替、chg5/chg10 与 chg30 符号相反或轨迹大起大落）',
       },
     },
 
@@ -152,49 +136,59 @@ export function buildBuyPointQuestions() {
       },
     },
 
-    // 6. 点位类别（BP3 新增：先分类后判读——类别是综合题判读总纲的路由轴）
-    point_category: {
+    // 6. 早鸟入场质量（BP6 三类质量题制：早鸟视角独立评估；原综合题早鸟忌讳全量迁入）
+    early_bird_quality: {
       type: 'choice',
-      instructions: `判断「点位类别」：锚时刻这个买入点属于哪一类——早鸟入场（early_bird）/回调入仓（pullback_entry）/追高入场（high_chase）/难分类（unclear）。只判**类别事实**，不下买卖结论（权衡归综合题）。
-怎么算：三轴并读——①时间轴：[ANCHOR] 行 tokenAgeSec（代币刚出数十秒~几分钟内=早鸟候选段）+ [PRICE] 轨迹行数（轨迹长短=可辨历史厚度）；②位置轴：[PRECOMPUTED] 时点位置行（currentVsAthPct 现价较全窗 ATH、secSinceAth 距高点秒数）+ 市值位置行（mcapBnb 现市值、mcapPeakBnb 全窗峰值、mcapFromPeakPct 较峰回撤）；③轨迹轴：[PRICE] 轨迹形状（首波爬坡中 / 拉升后回落 / 高位贴顶）+ 近窗动量行 chg30/60/120Pct。
-分类锚（按类对号）：
-early_bird=代币刚出（tokenAge 短）且价格仍处第一段爬坡/首波整理——「刚出+未走完明显一波拉升」的时间事实为主轴；
-pullback_entry=此前有过明显高点（mcapPeakBnb 明显高于现值 / currentVsAthPct 深负 / 距 ATH 有实质间隔）且现价处于从高点回落后的位置——「已走完一波拉升再跌下来」；
-high_chase=现价贴近高点（currentVsAthPct 浅负或为正、secSinceAth 小）且价格已处拉升后的高位区间、非首波爬坡段——「已拉升到明显高位仍贴高」；
-unclear=材料无法归类（轨迹太短无可辨形状、多类特征混杂矛盾）。
-反锚：①**早鸟与回调的分界是「是否已走完一波明显拉升再跌下来」，不是绝对 tokenAge**——刚出的票还在首波拉升中贴高，按 early_bird 处理（拉高与否的权衡归综合题），不因「涨了」就改判 pullback；②**贴高≠自动 high_chase**——市值尚低的早期爬坡贴高归 early_bird（现价=ATH 但 tokenAge 极短是常态）；high_chase 强调拉升已兑现到明显高位后的追买形状；③本题只述类别，类别本身无好坏（各类利弊由综合题按类权衡）。
-形状样本（初版待校准）：early_bird=tokenAge 90s、轨迹一路缓升现贴 ATH、mcapBnb 个位数；pullback_entry=峰值 20 BNB 现回撤 55%、轨迹先扬后抑现横盘；high_chase=拉升兑现后高位横盘、现价距 ATH 秒级；unclear=轨迹 5 行无形状可辨。
-只描述类别，不下入场结论。`,
+      instructions: `评估「早鸟入场质量」：若此刻入场属于早鸟形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**早鸟视角**独立评估，不与其它视角对齐。
+场景判别（先判是否早鸟场景）：tokenAgeSec 短（数十秒~几分钟量级）且价格仍处第一段爬坡/首波整理——「刚出+未走完明显一波拉升」（分界不是绝对 tokenAge：刚出的票首波拉升中贴高仍属早鸟场景）。**非此场景（tokenAge 已长/已走完一波拉升再跌下来/材料无法辨形）→ insufficient（本视角不适用，不是差）**。
+怎么算（场景成立时）：[PRECOMPUTED] 近窗动量行 chg5/10/30Pct + [PRICE] 轨迹形状（缓升有回踩 vs 垂直窜升无回踩）+ 参与结构行（买家数/新买家/top1 买集中度）+ 热度维度档 + 时点位置行（currentVsAthPct/secSinceAth）+ 相对/绝对价格双轴（entry_position×price_level：接近最高价∧绝对价位低=早期爬坡中段佐证）。
+忌讳（poor 主判）：①**极快拉高/已拉高（无条件，不因低市值豁免）**——currentVsAthPct≈0/secSinceAth 秒级 ∧ chg30 两位数/轨迹垂直窜升无回踩（price_trend=fast_up）→ poor（**位置先于速度：贴高+快升是接力风险不是入场信号**；市值位置行 mcapBnb 尚低（约 8-9 BNB 以下）只佐证「温和爬坡的贴高」，急拉/已拉高形状不因低市值豁免）；②活跃度太低/断流（热度 low/近窗稀疏）= 进出无流动性承接 → poor（持续断流）；③协同/作弊形状（等额阵列/对敲/分仓指纹/top1 买集中度极高）作为降档因素计入（不下作弊结论——归反作弊模块），主导买盘 → poor。
+good 形状：温和爬坡（price_trend=slow_up：chg30 个位数、多桶缓升有回踩整理）+ 买家多元持续进场（买家数/新买家）+ 热度尚可 + 绝对价位尚低（price_level=near_launch/low 佐证早期空间）。
+neutral：早鸟场景成立、无忌讳命中，但 good 证据不全（买家结构一般/热度一般/温和爬坡证据弱/证据混合）。
+insufficient：非早鸟场景（见上）或材料太薄（窗内行数很少、多数维度缺证据——诚实承认不硬判）。
+只评估早鸟视角质量，聚合归代码。`,
       criteria: {
-        early_bird: '早鸟入场：代币刚出（tokenAge 短）且价格仍处首段爬坡/首波整理——尚未走完一波明显拉升',
-        pullback_entry: '回调入仓：此前已走过明显高点（较峰深回撤），现价处于从高点跌落后的位置',
-        high_chase: '追高入场：价格已拉升兑现到明显高位区间，现价仍贴近高点（追买已拉高的票）',
-        unclear: '难分类：轨迹太短或特征混杂，无法归入前三类',
+        good: '优：温和爬坡+买家多元持续进场+热度尚可——早鸟入场的时机占优（绝对价位尚低佐证）',
+        neutral: '中：早鸟场景成立无忌讳命中，但可买证据不全或证据混合',
+        poor: '差：极快拉高/已拉高（无条件不因低市值豁免）、活跃度太低断流、协同阵列主导买盘——早鸟视角此刻入场差',
+        insufficient: '不适用/材料薄：非早鸟场景（tokenAge 已长/已走完一波拉升），或窗内证据太薄无法评估',
       },
     },
 
-    // 7. 综合判定（buy_point_assessment——Jev 直接给「当前点位适合买入程度」；
-    //    BP3 按用户裁定分类判读框架重写：先分类（point_category）后按各类忌讳
-    //    权衡——早鸟忌极快拉高/回调忌没跌到位与奔着归零/追高本轮先等等；
-    //    BP4 执行修正：追高=硬路由无条件 poor+早鸟豁免臂收紧仅限温和爬坡；
-    //    BP5 维度瘦身后已删维度引用改数值锚：买压→参与结构行买家数/新买家；
-    //    相对/绝对价格高低双轴并读（全窗回撤深度 × 发行价倍数））
-    buy_point_assessment: {
+    // 7. 回调入场质量（BP6 三类质量题制：回调视角独立评估；原综合题回调忌讳全量迁入）
+    pullback_entry_quality: {
       type: 'choice',
-      instructions: `综合判定：**你现在是一名链上 meme 币狙击交易者**，只做短线（秒~分钟级持仓），面前是截至锚时刻的盘面材料——判断「此刻入场买入」的时机好坏。
-判读总纲（BP3 用户裁定分类框架）：**第一步先按类别题（point_category）的结果分路，再按各类忌讳权衡**；维度题档位是参考不是投票——**分路是硬路由：追高路内维度档位再强也输出 poor，其它路内忌讳优先于价格趋势/热度档位**。
-【早鸟类 early_bird】代币刚出的早鸟入场——核心忌讳：**不买极快速上涨/已拉高的票（无条件，不因低市值豁免）**。已拉高形状 = 现价贴全窗高点（currentVsAthPct≈0/secSinceAth 秒级）∧ 近窗涨幅陡峭（chg30 两位数/轨迹垂直窜升无回踩，price_trend=fast_up）→ 拒（poor）——**位置先于速度：贴高+快升是接力风险不是入场信号**；豁免臂**仅限温和爬坡**：price_trend=slow_up（chg30 个位数、轨迹多桶缓升有回踩整理）+ 近窗买家多元持续进场（参与结构行买家数/新买家）+ 热度尚可 = good/neutral 候选——市值位置行 mcapBnb 尚低（约 8-9 BNB 以下）只豁免「温和爬坡的贴高」，急拉/已拉高形状**不因低市值豁免**。
-【回调类 pullback_entry】从高点跌下来的回调入仓——两大忌讳：①**没跌到位**：回撤浅（mcapFromPeakPct/currentVsAthPct 浅负、半山腰）= 接飞刀候选，至多 neutral 倾向拒；②**下跌奔着归零去**：阴跌失血（chg 阴性缓慢、非急砸）+ holder 流向行净流失（holdersDelta60 为负）+ 买盘枯竭/大持仓派发启动（bigHolderSellBnb60/exitSellerCount60 放量）= 趋势性死亡形状，拒。可买形状 = 深回撤后企稳：急砸（非阴跌）后买盘回流（参与结构行买家数回升）/holder 稳定/跌底放量（近窗流量行升温+burst 波）→ good/neutral 候选。
-【追高类 high_chase】强庄币追高入场——**本轮先等等：无条件一律 poor**，即使 price_trend=fast_up 且热度 ultra/high 也不给 good/neutral——类别级停买与「此刻盘面强弱」无关；策略层后续放开该类时只改本段题面。
-【unclear】类别无法判定 → insufficient。
-通用条（全类别适用）：①活跃度门槛：临近点位交易活跃度须较高（热度档+近窗流量行 ticksPerMin/burst 波）——热度 low/近窗稀疏断流 = 进出无流动性承接，至多 neutral，持续断流 poor；②协同/作弊形状（等额阵列/对敲/分仓指纹）**作为降档因素处理但不下作弊结论**（盘面是否作弊由反作弊模块另行判定），你只把它计入「此刻入场的风险/成色」权衡；③材料太薄（窗内行数很少、锚过早、多数维度缺证据）→ insufficient（诚实承认材料不足，不硬判）。
-并读轴：买盘结构（参与结构行 top1 买集中度/买家数/新买家——多元持续 vs 单点脉冲/协同阵列）+ 卖压（大持仓是否启动离场）+ **相对/绝对价格双轴**（相对价格高低题 × 绝对价格高低题：接近最高价∧绝对价位低=早期爬坡中段；深回撤∧绝对很高=高位派发后的残局——两轴交叉定位真实价位处境）+ tokenAge（极短龄盘波动天然极端，仓位意识在你）。
-这是你对入场时机的直接判定——给出你作为交易者的结论档位。`,
+      instructions: `评估「回调入场质量」：若此刻入场属于回调形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**回调视角**独立评估，不与其它视角对齐。
+场景判别（先判是否回调场景）：此前有过明显高点（mcapPeakBnb 明显高于现值/currentVsAthPct 深负/距 ATH 有实质间隔）且现价处于从高点回落后的位置——「已走完一波明显拉升再跌下来」。**非此场景（首波爬坡中无「跌下来」/现价仍贴高无回落段/材料无法辨形）→ insufficient（本视角不适用）**。
+怎么算（场景成立时）：位置轴（时点位置行 currentVsAthPct/mcapFromPeakPct+entry_position 回撤档）+ 走势轴（近窗动量行+[PRICE] 轨迹：急砸 vs 阴跌）+ 承接轴（参与结构行买家数回升/holder 流向行 holdersDelta60/近窗流量行+burst 波）+ 卖压维度档（大持仓是否启动离场）+ 绝对价位佐证（price_level 中低位=残余空间）。
+忌讳（poor 主判）：①**没跌到位**——回撤浅（entry_position=near_high/shallow_pullback、半山腰）= 接飞刀候选 → poor（企稳证据极强时至多 neutral）；②**下跌奔着归零去**——阴跌失血（chg 阴性缓慢、非急砸）+ holdersDelta60 为负（持有人净流失）+ 买盘枯竭 + 大持仓派发启动（bigHolderSellBnb60/exitSellerCount60 放量）= 趋势性死亡形状 → poor；③活跃度太低断流（热度 low/近窗稀疏）→ poor；④协同/作弊形状降档计入（不下作弊结论），主导买盘 → poor。
+good 形状：**深回撤后企稳**——急砸（非阴跌）后买盘回流（买家数回升）/holder 稳定（holdersDelta60 不再恶化）/跌底放量（近窗流量行升温+burst 波）；绝对价位中低位佐证残余空间。
+neutral：回撤到位但企稳证据不足，或证据混合（如承接回暖但卖压未消）。
+insufficient：非回调场景（见上）或材料太薄。
+只评估回调视角质量，聚合归代码。`,
       criteria: {
-        good: '适合入场：活跃度足+结构有利（早鸟类温和爬坡慢升+买家多元进场、或回调类深回撤企稳的抄底形状）——此刻入场的时机占优；不含追高类点位（high_chase 一律见 poor 桶）',
-        neutral: '中性：证据混合或方向不明（好坏因素对冲、活跃度尚可但结构一般、或盘面处于过渡态）——无明确的时机优势也不明显不利',
-        poor: '不适合入场：明显不利组合（早鸟类极快拉高/已拉高、回调类没跌到位或奔着归零、追高类本轮先等等、活跃度太低断流、大持仓派发启动、协同阵列主导买盘）——此刻入场时机差',
-        insufficient: '材料不足：类别难判或窗内证据太薄（行数少/锚过早/多数维度缺证据），无法支撑有意义的入场时机判定',
+        good: '优：深回撤后企稳（急砸非阴跌+买盘回流+holder 稳定/跌底放量）——回调抄底的时机占优',
+        neutral: '中：回撤到位但企稳证据不足，或好坏因素对冲',
+        poor: '差：没跌到位（半山腰接飞刀）、下跌奔着归零（阴跌+流失+派发）、活跃度太低断流、协同阵列主导买盘',
+        insufficient: '不适用/材料薄：非回调场景（无此前高点/仍贴高无回落段），或窗内证据太薄无法评估',
+      },
+    },
+
+    // 8. 追高入场质量（BP6 三类质量题制：追高视角——本轮策略停买留痕，恒 poor；
+    //    将来策略放开追高只改本题面恢复真实质量评估）
+    high_chase_quality: {
+      type: 'choice',
+      instructions: `评估「追高入场质量」：若此刻入场属于追高形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**追高视角**独立评估，不与其它视角对齐。
+场景判别（先判是否追高场景）：现价贴近全窗高点（currentVsAthPct 浅负或为正/secSinceAth 小）且价格已处拉升后的高位区间、非首波爬坡段——「已拉升兑现到明显高位仍贴高」。**非此场景（不贴高/仍在首波爬坡/材料无法辨形）→ insufficient（本视角不适用）**。
+怎么算（场景判别）：时点位置行 currentVsAthPct（浅负或为正=贴高）+ secSinceAth（小=高点新鲜）+ entry_position 档（near_high）+ [PRICE] 轨迹末段位置（拉升后高位区间 vs 首波爬坡段）——四源并读定场景；场景不成立即 insufficient，不进停买判定。
+**本轮先等等（策略停买留痕）**：追高场景成立 → **一律 poor**——即使 price_trend=fast_up、热度 ultra/high、买盘再强也 poor；这是策略层对该类的停买（类级结论），不是此刻盘面强弱的评估结论。将来策略放开追高时只改本题面（恢复按动量/热度/承接真实评估）。
+insufficient：非追高场景（见上）或材料太薄。
+只评估追高视角质量，聚合归代码。`,
+      criteria: {
+        good: '优：（本轮策略停买——追高场景不给 good；放开时改本题面）',
+        neutral: '中：（本轮策略停买——追高场景不给 neutral；放开时改本题面）',
+        poor: '差：追高场景本轮先等等——一律 poor（策略层停买留痕，与盘面强弱无关）',
+        insufficient: '不适用/材料薄：非追高场景（不贴高/首波爬坡中），或窗内证据太薄无法评估',
       },
     },
   };

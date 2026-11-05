@@ -84,7 +84,8 @@ function computeBuyPointDerived(snapshot) {
     if (prev === null) prev = rel[0].priceBnb; // 窗起点前无可靠价 → 全窗首可靠价
     return +(((lastPrice / prev) - 1) * 100).toFixed(2);
   };
-  const chg30Pct = chgOf(30), chg60Pct = chgOf(60), chg120Pct = chgOf(120);
+  // BP6 用户裁定：价格动量短窗 5/10/30s（近窗趋势判定，30/60/120 太大——秒级狙击视角）
+  const chg5Pct = chgOf(5), chg10Pct = chgOf(10), chg30Pct = chgOf(30);
   // 价格轨迹：全窗可靠价等笔距 20 桶（桶价=桶内末笔可靠价；<20 行时空桶自然缺席）
   const priceBuckets = [];
   if (rel.length >= 2) {
@@ -288,8 +289,8 @@ function computeBuyPointDerived(snapshot) {
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
-    // 价格（可靠价口径）
-    chg30Pct, chg60Pct, chg120Pct, priceBuckets,
+    // 价格（可靠价口径；BP6 短窗 5/10/30s）
+    chg5Pct, chg10Pct, chg30Pct, priceBuckets,
     // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键）
     launchPriceBnb, currentVsLaunchPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
