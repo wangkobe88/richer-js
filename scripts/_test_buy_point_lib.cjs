@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * 买入点位分析纯函数单测（BP1→BP2 已扩）——零 DB 零网络
+ * 买入点位分析纯函数单测（BP1→BP3 已扩）——零 DB 零网络
  *
  * 覆盖：buy-point-snapshot（buildBuyPointSnapshot/computeBuyPointDerived——A/B/C 组
  * 手算精确值，BP2 增市值位置/holder 流向两族）+ buy-point-state-builder（D 组分区/
- * 截断/超帽+两新行渲染）+ buy-point-result-mapper（E 组容错双轨/纯透传反证+BP2 五锚）
- * + llm/buy-point-questions.mjs（F 组形状与桶域对锁+五条判读框架——CJS 经 dynamic
- * import）+ scripts/buy-point/lib.mjs（G 60s 去重 / H 前向收益 / I as-of 与 episode）。
+ * 截断/超帽+两新行渲染）+ buy-point-result-mapper（E 组容错双轨/纯透传反证+BP2 五锚
+ * +BP3 类别题透传）+ llm/buy-point-questions.mjs（F 组形状与桶域对锁+BP3 分类判读
+ * 框架——CJS 经 dynamic import）+ scripts/buy-point/lib.mjs（G 60s 去重 / H 前向收益 / I as-of 与 episode）。
  *
  * 合成微夹具（18 tick / 220s / 8 钱包）：跨窗钱包/router 双形状（viaRouter 用户行
  * +sender 缺失伪钱包行）/outlier 天价行/清仓卖家/同块 burst——buyDerived 全键手算
@@ -24,7 +24,7 @@ const { buildBuyPointState, MAX_STATE_CHARS } = require('../src/market-analysis/
 const {
   buildBuyPointObservation, DIMENSION_IDS, ASSESSMENT_ID,
   MOMENTUM_LEVELS, PRESSURE_QUALITY_LEVELS, CHIP_FLOW_LEVELS, SELL_PRESSURE_LEVELS,
-  HEAT_LEVELS, PACE_LEVELS, ENTRY_POSITION_LEVELS, ASSESSMENT_LEVELS,
+  HEAT_LEVELS, PACE_LEVELS, ENTRY_POSITION_LEVELS, POINT_CATEGORY_LEVELS, ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
@@ -232,10 +232,12 @@ const fullAnswers = () => ({
   ...mkAns('market_heat', 'high'),
   ...mkAns('pace_trend', 'heating'),
   ...mkAns('entry_position', 'near_high'),
+  ...mkAns('point_category', 'early_bird'),
   ...mkAns('buy_point_assessment', 'poor', 0.61),
 });
 const obsE = buildBuyPointObservation(fullAnswers(), dA);
-ok(Object.keys(obsE.dimensions).length === 7 && obsE.dimensions.price_momentum.bucket === 'moderate', 'E: 七维度 argmax 透传');
+ok(Object.keys(obsE.dimensions).length === 8 && obsE.dimensions.price_momentum.bucket === 'moderate', 'E: 七维度+类别题 argmax 透传（BP3）');
+ok(obsE.dimensions.point_category.bucket === 'early_bird', 'E: 类别题（point_category）进 dimensions 透传（BP3）');
 ok(obsE.assessment.bucket === 'poor' && near(obsE.assessment.prob, 0.61), 'E: 综合判定 argmax+prob 透传');
 const jsonE = JSON.stringify(obsE);
 ok(!jsonE.includes('"verdict"') && !jsonE.includes('"grade"') && !jsonE.includes('"score"') && !jsonE.includes('"recommendation"'), 'E: 观测记录无 verdict/grade/score/recommendation 键（纯透传反证）');
@@ -255,20 +257,23 @@ assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), buy_point_asses
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), price_momentum: { probabilities: { extreme: 0.9 } } }, dA), /未知桶名/, 'E: 维度题在场未知桶 throw');
 const partial = { ...fullAnswers() };
 delete partial.chip_flow;
+delete partial.point_category;
 const obsPartial = buildBuyPointObservation(partial, dA);
 ok(obsPartial.dimensions.chip_flow === null && obsPartial.dimensions.price_momentum.bucket === 'moderate', 'E: 维度题缺席 → null 容缺（在场照读）');
+ok(obsPartial.dimensions.point_category === null, 'E: 类别题缺席 → null 容缺（同维度轨道，不强制）');
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP2 八题/桶域对锁/五条框架/两调深相等）');
+  console.log('F. 题集形状（BP3 九题/桶域对锁/分类判读框架/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP2', 'F: 版本=BP2');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP3', 'F: 版本=BP3');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
-  ok(ids.length === 8, `F: 恰 8 题（实际 ${ids.length}）`);
+  ok(ids.length === 9, `F: 恰 9 题（实际 ${ids.length}）`);
+  ok(ids[ids.length - 2] === 'point_category' && ids[ids.length - 1] === ASSESSMENT_ID, 'F: 类别题居综合题前（分路→权衡序）');
   ok(ids.every((id) => qs[id].type === 'choice' && qs[id].criteria && Object.keys(qs[id].criteria).length >= 3), 'F: 全 choice 且 criteria≥3 桶');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('怎么算')), 'F: 七维度题各含「怎么算」显式算法段');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 七维度题各含反锚段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('怎么算')), 'F: 七维度+类别题各含「怎么算」显式算法段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 七维度+类别题各含反锚段');
   ok(qs[ASSESSMENT_ID].instructions.includes('降档'), 'F: 综合题含协同形状降档处理教学');
   ok(q.buildBuyPointQuestions() && JSON.stringify(q.buildBuyPointQuestions()) === JSON.stringify(qs), 'F: 函数产物两调深相等（无隐藏状态）');
   // 桶域与 mapper 常量对锁（ESM/CJS 双副本漂移防线）
@@ -279,18 +284,33 @@ ok(obsPartial.dimensions.chip_flow === null && obsPartial.dimensions.price_momen
   ok(JSON.stringify(q.HEAT_LEVELS) === JSON.stringify(HEAT_LEVELS), 'F: HEAT_LEVELS 同域');
   ok(JSON.stringify(q.PACE_LEVELS) === JSON.stringify(PACE_LEVELS), 'F: PACE_LEVELS 同域');
   ok(JSON.stringify(q.ENTRY_POSITION_LEVELS) === JSON.stringify(ENTRY_POSITION_LEVELS), 'F: ENTRY_POSITION_LEVELS 同域');
-  ok(JSON.stringify(q.ASSESSMENT_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS 同域');
+  ok(JSON.stringify(q.POINT_CATEGORY_LEVELS) === JSON.stringify(POINT_CATEGORY_LEVELS), 'F: POINT_CATEGORY_LEVELS 同域（BP3）');
+  ok(JSON.stringify(q.ASSESSMENT_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS 同域（good/neutral/poor/insufficient 不动=服务端零改动）');
   const dimSet = new Set(DIMENSION_IDS);
-  ok(ids.every((id) => id === ASSESSMENT_ID || dimSet.has(id)) && dimSet.size === 7, 'F: 题集 id 与 mapper DIMENSION_IDS/ASSESSMENT_ID 对齐');
+  ok(ids.every((id) => id === ASSESSMENT_ID || dimSet.has(id)) && dimSet.size === 8, 'F: 题集 id 与 mapper DIMENSION_IDS/ASSESSMENT_ID 对齐（8+1）');
   ok(Object.keys(qs[ASSESSMENT_ID].criteria).every((b) => ASSESSMENT_LEVELS.includes(b)), 'F: 综合题桶===ASSESSMENT_LEVELS');
+  // 类别题（point_category——BP3 核心）
+  const cat = qs.point_category;
+  ok(cat.instructions.includes('tokenAgeSec') && cat.instructions.includes('currentVsAthPct') && cat.instructions.includes('mcapPeakBnb'), 'F: 类别题三轴材料引用（时间轴/位置轴/轨迹轴）');
+  ok(cat.instructions.includes('只判**类别事实**') && cat.instructions.includes('不下入场结论'), 'F: 类别题只判类别不下买卖结论（权衡归综合题）');
+  ok(cat.instructions.includes('早鸟与回调的分界是') && cat.instructions.includes('贴高≠自动 high_chase'), 'F: 类别题反锚（分界=是否走完一波拉升再跌下来/贴高不自动追高）');
+  ok(JSON.stringify(Object.keys(cat.criteria)) === JSON.stringify(POINT_CATEGORY_LEVELS), 'F: 类别题桶===POINT_CATEGORY_LEVELS（四桶）');
   ok(qs[ASSESSMENT_ID].instructions.includes('狙击'), 'F: 综合题角色代入（狙击交易者）');
   ok(qs[ASSESSMENT_ID].instructions.includes('材料太薄'), 'F: 综合题薄窗 insufficient 指引');
-  // BP2 五条判读框架（用户裁定 2026-11-05）逐条在综合题在场
+  // BP3 分类判读框架（用户裁定 2026-11-05：早鸟/回调/追高三类，先分类后按类忌讳权衡）
   const insA = qs[ASSESSMENT_ID].instructions;
-  ok(insA.includes('活跃度门槛') && insA.includes('低市值豁免') && insA.includes('急砸抄底') && insA.includes('阴跌流失拒') && insA.includes('激烈不合理的拉盘'), 'F: 综合题五条框架逐条在场（活跃门槛/拉高拒+低市值豁免/急砸抄底/阴跌流失拒/非理性拉盘拒）');
-  ok(insA.includes('mcapBnb 尚低') && insA.includes('8-9 BNB'), 'F: 综合题豁免臂引用市值位置行（8-9 BNB 阈）');
-  ok(insA.includes('holdersDelta60 为负'), 'F: 综合题阴跌臂引用 holder 流向行');
-  // 四维度题 BP2 反锚补强
+  ok(insA.includes('第一步先按类别题') && insA.includes('point_category'), 'F: 综合题判读总纲=先分类后权衡（路由轴=类别题）');
+  ok(['early_bird', 'pullback_entry', 'high_chase', 'unclear'].every((c) => insA.includes(c)), 'F: 四类分路段全在场');
+  ok(insA.includes('不买极快速上涨'), 'F: 早鸟类核心忌讳=不买极快速上涨/已拉高（用户原话锚）');
+  ok(insA.includes('没跌到位'), 'F: 回调类忌讳①没跌到位（半山腰接飞刀）');
+  ok(insA.includes('奔着归零'), 'F: 回调类忌讳②下跌奔着归零去（阴跌+流失+枯竭）');
+  ok(insA.includes('先等等') && insA.includes('一律 poor'), 'F: 追高类本轮先等等=一律 poor（类别锚留痕）');
+  ok(insA.includes('unclear') && insA.includes('insufficient'), 'F: unclear → insufficient 分路');
+  ok(insA.includes('活跃度门槛') && insA.includes('降档'), 'F: 通用条保留（活跃门槛/协同降档不下结论）');
+  ok(insA.includes('mcapBnb 尚低') && insA.includes('8-9 BNB'), 'F: 早鸟类豁免臂引用市值位置行（8-9 BNB 阈，BP2 收编）');
+  ok(insA.includes('holdersDelta60 为负') && insA.includes('bigHolderSellBnb60'), 'F: 回调类归零臂引用 holder 流向行+大持仓卖压行');
+  ok(qs[ASSESSMENT_ID].criteria.poor.includes('先等等'), 'F: poor 桶描述含追高类留痕');
+  // 四维度题 BP2 反锚补强（BP3 原样保留）
   ok(qs.price_momentum.instructions.includes('8-9 BNB'), 'F: momentum 反锚④追高低市值豁免臂');
   ok(qs.entry_position.instructions.includes('8-9 BNB') && qs.entry_position.instructions.includes('市值位置行'), 'F: entry_position 反锚④贴高与市值位置并读');
   ok(qs.chip_flow.instructions.includes('holdersDelta60'), 'F: chip_flow 怎算②holder 流向行 + 反锚④阴跌流失臂');

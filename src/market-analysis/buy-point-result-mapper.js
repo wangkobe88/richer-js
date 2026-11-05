@@ -1,8 +1,9 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态=用户裁定「Jev 综合判定」：7 维度题档位 + 1 综合题（buy_point_assessment）
- * 由 Jev 直接给「当前点位适合买入程度」（good/neutral/poor/insufficient）。
+ * 判定形态=用户裁定「Jev 综合判定」：7 维度题档位 + 1 类别题（point_category，
+ * BP3：早鸟/回调/追高/难分类）+ 1 综合题（buy_point_assessment）由 Jev 直接给
+ * 「当前点位适合买入程度」（good/neutral/poor/insufficient）。
  * 本 mapper **纯透传**：argmax 桶位照抄，代码不做任何规则映射/加权/grade
  * （无 grade.js——与 CD D3.5「判断一律 Jev」同哲学）。
  *
@@ -19,7 +20,7 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住） */
+/** 维度/类别题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP3 加类别题） */
 const DIMENSION_IDS = [
   'price_momentum',
   'buy_pressure_quality',
@@ -28,6 +29,7 @@ const DIMENSION_IDS = [
   'market_heat',
   'pace_trend',
   'entry_position',
+  'point_category',
 ];
 
 /** 综合判定题 id（Jev 直接给适合买入程度） */
@@ -41,6 +43,7 @@ const SELL_PRESSURE_LEVELS = ['low', 'mid', 'high'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 const PACE_LEVELS = ['heating', 'steady', 'cooling'];
 const ENTRY_POSITION_LEVELS = ['near_low', 'mid_range', 'near_high'];
+const POINT_CATEGORY_LEVELS = ['early_bird', 'pullback_entry', 'high_chase', 'unclear'];
 const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
@@ -52,6 +55,7 @@ const DIMENSION_LEVELS = {
   market_heat: HEAT_LEVELS,
   pace_trend: PACE_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
+  point_category: POINT_CATEGORY_LEVELS,
 };
 
 /**
@@ -171,5 +175,6 @@ module.exports = {
   HEAT_LEVELS,
   PACE_LEVELS,
   ENTRY_POSITION_LEVELS,
+  POINT_CATEGORY_LEVELS,
   ASSESSMENT_LEVELS,
 };
