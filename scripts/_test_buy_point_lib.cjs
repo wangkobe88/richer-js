@@ -536,9 +536,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP20 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改：多笔 0.2 级双臂+硬笔数/两调深相等）');
+  console.log('F. 题集形状（BP21 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP20', 'F: 版本=BP20（突突车 T052 案②⑤边界修正两改：多笔 0.2 BNB 级左右买入（≥2~3 笔）或单笔 0.3+ 在场均算有参与不落②、全场买单全在 0.1 级及以下尘埃档才落②——用户裁定「买入点位之前有 3 个 0.2 BNB 左右的买入呢」；BP20 硬笔数句=到 0.2 级（≥0.19 视同）的钱包 ≥2 个、仅一笔 0.2 级凑不成多笔仍落②——T006/T008 单笔 0.2 被判 blended 的宽松执行收口）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP21', 'F: 版本=BP21（정책콕 T001/SB T003 两案①②分界补「大户卖出后的承接结构」轴——大户卖出承接方是像样买盘（0.2~0.3+ 级）=①强庄对倒、是一堆很小散户（0.0x~0.1 零散）=②散户化 PVP；①价格腿降级「拉高不排除①」、②扩 (b) 大户卖出散户承接形状+「多笔不落②」前提=买点时刻仍在场）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -569,14 +569,15 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶——ESM/CJS 双副本对锁）');
   ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（五桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable）');
   const mp = qs.market_pattern.instructions;
-  ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单'), 'F: ①强庄盘=最好类型（开盘大额进+未拉爆+盘面仍活——有直接判据不空判）');
-  ok(mp.includes('没有任何像样的买单') && mp.includes('散户们 PVP 把流动性攒高') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（原话直译——BP19 边界=无任何像样买单）');
+  ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案）');
+  ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、散户承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出散户承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的了'), 'F: ③famous 独食=盘子就是它的了（原话直译）');
   ok(mp.includes('购买力完全集中在最早期的数个 slot') && mp.includes('随之购买力衰竭') && mp.includes('这种盘子不要参与'), 'F: ④狙击衰竭=不要参与（原话直译）');
   ok(mp.includes('融合无明显特征盘') && mp.includes('这种出现好的点位可以赌一赌'), 'F: ⑤融合盘=好点位可赌（原话直译——中性不拦）');
   ok(mp.includes('同为开盘大额，后段死活定类'), 'F: ①④分界锚=大户买入后盘面是否仍活（同为开盘大额，后段死活定类）');
   ok(mp.includes('全场无任何像样买单') && mp.includes('才落②') && mp.includes('多笔 0.2 BNB 级左右的买入（≥2~3 笔）或单笔 0.3+ BNB 级买家'), 'F: ②⑤分界锚=全场无任何像样买单才落②——多笔 0.2 级（≥2~3 笔）或单笔 0.3+ 在场均算有参与不属纯散户 PVP（BP19 突突车案双臂边界）');
   ok(mp.includes('「多笔」是硬笔数') && mp.includes('（≥0.19 BNB 视同 0.2 级左右）的钱包须 ≥2 个') && mp.includes('仅一笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚（BP20 两改——到 0.2 级钱包 ≥2 个、单笔 0.2 凑不成多笔仍落②：T006/T008 单笔 0.2 判 blended 宽松执行收口）');
+  ok(mp.includes('①②分界=大户卖出后谁在接') && mp.includes('承接方全是一堆很小的散户') && mp.includes('「多笔不落②」的前提是像样买方买点时刻仍在场'), 'F: ①②分界承接轴（BP21 정책콕 T001/SB T003 两案——大户卖出像样单接=①对倒、小散堆接=②散户化；「多笔不落②」前提=像样买方买点时刻仍在场，已卖离场接盘全小散走②(b)）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
   ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
   ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
