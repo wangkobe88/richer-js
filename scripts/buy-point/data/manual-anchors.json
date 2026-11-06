@@ -1544,6 +1544,58 @@
       },
       "ruledAt": "2026-11-06",
       "note": "用户裁定原话「S005 点位给中等吧，庄盘的回调下跌位（但是可以先不针对性的修改）」——strong_backer 庄盘的浅回调位（现/ATH -23.7%、档位 near_launch、热度 ultra、活跃 high、famous none）至少 neutral；机器回调题 poor(0.76) 忌讳层压死、同 token P1 早鸟 neutral 0.80 放行；先不改题面，庄盘回调豁免攒批（与 BP21 ①强庄盘最好类型同向）"
+    },
+    {
+      "anchorId": "BPA-064",
+      "kind": "signal",
+      "tokenAddress": "0x4aac4818c1f71a7dbe9967498e65ba60d3b17777",
+      "tokenName": "吉祥A",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S016",
+        "legId": "P1",
+        "legName": "买入策略 P1",
+        "triggeredAt": "2026-11-05T05:47:58Z",
+        "anchorTickCount": 15
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.66,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T07-39-09-662Z",
+        "questionVersion": "BP22"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户裁定原话「S016 为庄盘，它的逻辑不一样，既然认为它是庄盘，下跌的坑是好东西」——盘型维度本判 strong_backer(0.56)，庄盘语境下下跌坑（maxChg5 41 过线 9 秒垂直 -14.4%）不是忌讳而是买点，质量题崩塌忌讳不适用庄盘=与 BPA-063（S005）同池「庄盘回调豁免」攒批两例；语气「是好东西」强于 S005 的「给中等」"
+    },
+    {
+      "anchorId": "BPA-065",
+      "kind": "signal",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥B",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S018",
+        "legId": "P1",
+        "legName": "买入策略 P1",
+        "triggeredAt": "2026-11-05T05:48:36Z",
+        "anchorTickCount": 14
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.69,
+        "rule": "pattern_gate",
+        "run": "bp-run-2026-11-06T07-39-09-662Z",
+        "questionVersion": "BP22"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户裁定原话「S018 有大户参与，且承接不是零散小散户（有大量零散小散户的可以明显看出来），至少也是混合盘，不是 PVP 盘」——盘型误判轴：retail_pvp(0.69) 应为 blended_unremarkable 以上；判读方法论锚=「大量零散小散户可明显看出」（정책콕 T001 中位 0.02 是零散小散形状），本案承接中位 0.11+第2/3大 0.198/0.160+大户 0x030d 在场持 41.8%（只卖 28%）不构成②(b)；与 BPA-001（同 token ticks 9-14 用户裁 neutral）冲突解除——BPA-001 维持、模型盘型门误拦；BP19 硬笔数「0.2 级 ≥2 个」刀口形状（仅 1 个 0.198）按线落②与用户判读相悖=②(b) 承接边界校准攒批"
     }
   ]
 }
