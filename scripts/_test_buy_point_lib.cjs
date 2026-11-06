@@ -19,14 +19,15 @@ const { pathToFileURL } = require('url');
 const {
   buildBuyPointSnapshot, computeBuyPointDerived, bpTEndOf, bpInWin,
   BP_WINDOWS, BP_TOP_HOLDER_N, BP_BURST_SEC, BP_PRICE_BUCKETS,
-  BP_SWING_THRESHOLD_PCT, detectSwings,
+  BP_SWING_THRESHOLD_PCT, BP_OPEN_SEG_SEC, BP_OPEN_BIG_BUY_BNB, detectSwings,
 } = require('../src/market-analysis/buy-point-snapshot');
 const { buildBuyPointState, MAX_STATE_CHARS } = require('../src/market-analysis/buy-point-state-builder');
 const {
   buildBuyPointObservation, DIMENSION_IDS, QUALITY_IDS,
   PRICE_TREND_LEVELS, HEAT_LEVELS, ACTIVITY_LEVELS,
   FAMOUS_DOMINATION_LEVELS, HOLDER_CONCENTRATION_LEVELS,
-  ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, TREE_POSITION_LEVELS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
+  ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, TREE_POSITION_LEVELS,
+  MARKET_PATTERN_LEVELS, PATTERN_GATE_POOR_BUCKETS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
@@ -122,6 +123,34 @@ ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删
   ok(dM.maxChg5Pct === 50, `maxChg5=+50%（33s 段 0.9→1.35 为最陡；44s 先跌后涨段 1.0→1.3=+30% 次之，实际 ${dM.maxChg5Pct}）`);
 }
 ok(dA.maxChg5Pct === null, `A fixture 无 ≤5s 跨行段（间隔≥10s、同块行队首==j 不计）→ maxChg5=null（实际 ${dA.maxChg5Pct}）`);
+// BP18 开盘段结构族手算：开盘段 dt<30 买入=行1 0.5+行2 1.0 → 1.5×2 笔（两笔均
+// ≥0.3 大额）；全窗买入 4.47（资金口径不滤 outlier，行8 ROUTER 0.4 照计）→ 占比
+// 33.6%；late 段（dt≥30）16 笔跨 210−30=180s → 5.33 笔/分、买入 2.97
+ok(BP_OPEN_SEG_SEC === 30 && BP_OPEN_BIG_BUY_BNB === 0.3, 'BP18 开盘段常量=30s/大额线 0.3 BNB（与 BP16 大户判据同线）');
+ok(dA.openSeg.buyBnb === 1.5 && dA.openSeg.buyN === 2 && dA.openSeg.buySharePct === 33.6
+  && dA.openSeg.bigBuyN === 2 && dA.openSeg.bigBuyBnb === 1.5
+  && dA.openSeg.lateBuyBnb === 2.97 && dA.openSeg.lateTicksPerMin === 5.33,
+  `开盘段结构七键手算（实际 ${JSON.stringify(dA.openSeg)}）`);
+{
+  // 短窗形状（spanSec≤30）：开盘段锚照出（判强庄在场不需后段）、late 族 null 无对比语义
+  const rowsShort = [
+    row(5, 'BUY', W_B, 0.4, 1.0 * E9, 4e8),
+    row(12, 'BUY', W_C, 0.05, 1.1 * E9, 4.5e7),
+    row(25, 'BUY', W_D, 0.1, 1.15 * E9, 8.7e7),
+  ];
+  const dS = buildBuyPointSnapshot(rowsShort, metaA).buyDerived;
+  ok(dS.openSeg.buyBnb === 0.55 && dS.openSeg.buyN === 3 && dS.openSeg.bigBuyN === 1 && dS.openSeg.bigBuyBnb === 0.4
+    && dS.openSeg.lateBuyBnb === null && dS.openSeg.lateTicksPerMin === null,
+    `短窗（span=20s≤30）开盘段照出+late 族 null（实际 ${JSON.stringify(dS.openSeg)}）`);
+  // 截窗未覆盖开盘段（首行 dt>90 容差线）：全族 null 不冒充（同 launchCovered 判据）
+  const rowsLate = [
+    row(120, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),
+    row(180, 'BUY', W_C, 0.3, 1.2 * E9, 2.5e8),
+  ];
+  const dL = buildBuyPointSnapshot(rowsLate, metaA).buyDerived;
+  ok(dL.openSeg.buyBnb === null && dL.openSeg.bigBuyN === null && dL.openSeg.lateBuyBnb === null,
+    '截窗未覆盖开盘段（首行 dt=120>90）→ 全族 null（开盘段缺席语义不冒充）');
+}
 // BP8 摆动结构族手算（thr=20%）：dir=0 期 1.0→1.5 后回落 1.4 触 fromMin=+40% → 确认谷@5(1.0)、dir=1；
 // ext 追至 110@2.0（ATH 行）；155@1.55 回落 −22.5% 触阈 → 确认峰@110(2.0)、dir=−1；ext 追至 185@1.4；
 // 末段 200/215 反弹 +14.3% <20 未确认谷 → 现处下跌段
@@ -313,12 +342,13 @@ const fullAnswers = () => ({
   ...mkAns('entry_position', 'near_high'),
   ...mkAns('price_level', 'near_launch'),
   ...mkAns('tree_position', 'left_side'),
+  ...mkAns('market_pattern', 'blended_unremarkable', 0.8),
   ...mkAns('early_bird_quality', 'neutral', 0.7),
   ...mkAns('pullback_entry_quality', 'insufficient', 0.8),
   ...mkAns('high_chase_quality', 'poor', 0.61),
 });
 const obsE = buildBuyPointObservation(fullAnswers(), dA);
-ok(Object.keys(obsE.dimensions).length === 8 && obsE.dimensions.price_trend.bucket === 'fast_up' && obsE.dimensions.activity_level.bucket === 'mid', 'E: 八维度 argmax 透传（BP14 增 famous_domination/holder_concentration——CD 筹码判法搬运）');
+ok(Object.keys(obsE.dimensions).length === 9 && obsE.dimensions.price_trend.bucket === 'fast_up' && obsE.dimensions.activity_level.bucket === 'mid', 'E: 九维度 argmax 透传（BP18 增 market_pattern 盘面分类——用户五类型学）');
 ok(!('point_category' in obsE.dimensions) && JSON.stringify(obsE).indexOf('point_category') === -1 && JSON.stringify(obsE).indexOf('buy_point_assessment') === -1, 'E: point_category/buy_point_assessment 键绝迹（BP6 形态反证）');
 ok(Object.keys(obsE.qualities).length === 3 && obsE.qualities.early_bird.bucket === 'neutral' && obsE.qualities.pullback_entry.bucket === 'insufficient' && obsE.qualities.high_chase.bucket === 'poor', 'E: 三质量题 strict 透传（early_bird/pullback_entry/high_chase）');
 ok(obsE.assessment.bucket === 'neutral' && near(obsE.assessment.prob, 0.7) && obsE.assessment.rule === 'any_neutral', 'E: 聚合=任一 neutral → neutral（insufficient 不贡献，rule 留痕）');
@@ -382,6 +412,32 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low',
 ok(aM.rule === 'activity_gate' && near(aM.prob, 0.85), 'E: 门① 活跃度门先于筹码门（双门命中 rule 留痕 activity_gate——首个命中门）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'heavy', 0.9), ...mkAns('holder_concentration', 'moderate', 0.9) }, dA).assessment;
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门①b heavy/moderate 观察档不拦（只取最高档拒——防误伤豁免域）');
+// ①c 盘型门（BP18 用户裁定五类型学：retail_pvp 散户 PVP/famous_monopoly famous
+// 独食/early_sniper_decay 狙击衰竭三桶硬拒买；strong_backer 强庄=最好类型与
+// blended_unremarkable 融合盘=好点位可赌 不拦——点位质量仍归三质量题）
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.86) && aM.rule === 'pattern_gate', 'E: 门①c retail_pvp 散户 PVP → poor/pattern_gate（只有小散户额度偏低互捅攒流动性——不要参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'famous_monopoly', 0.91) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.91) && aM.rule === 'pattern_gate', 'E: 门①c famous_monopoly famous 独食 → poor/pattern_gate（小散底子+一个 famous 拿太多筹码盘子就是它的）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E: 门①c early_sniper_decay 狙击衰竭 → poor/pattern_gate（购买力集中最早期数 slot 后衰竭）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门①c strong_backer 强庄盘不拦（最好类型——开盘大户进流动性未拉爆价，点位质量归质量题）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'blended_unremarkable', 0.77) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门①c blended_unremarkable 融合盘不拦（交易额中等无明显特征——好点位可以赌一赌）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 门①c 优先于质量题（散户 PVP+早鸟 good 0.95 不救——盘型不对不参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('market_pattern', 'retail_pvp', 0.95) }, dA).assessment;
+ok(aM.rule === 'activity_gate' && near(aM.prob, 0.85), 'E: 门序 活跃度门先于盘型门（双门命中 rule 留痕 activity_gate——首个命中门）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'dominant', 0.9), ...mkAns('market_pattern', 'famous_monopoly', 0.95) }, dA).assessment;
+ok(aM.rule === 'chip_gate' && aM.bucket === 'poor', 'E: 门序 筹码门先于盘型门（famous dominant+独食双语义命中留痕 chip_gate——阈值硬线优先）');
+{
+  const legacyPat = fullAnswers();
+  delete legacyPat.market_pattern; // BP17 及更早旧档重放形状：无盘面分类题答案
+  const aLegacy = buildBuyPointObservation(legacyPat, dA).assessment;
+  ok(aLegacy.bucket === 'neutral' && aLegacy.rule === 'any_neutral', 'E: 门①c 答案缺席=盘型门臂自动失效容缺放行（BP17 旧档重放兼容零影响——拒=有证据的拒绝）');
+}
+assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), market_pattern: { probabilities: { sniper_pool: 0.9 } } }, dA), /未知桶名/, 'E: market_pattern 在场未知桶 throw（容缺不因新题放宽桶域校验）');
 {
   const legacyChip = fullAnswers();
   delete legacyChip.famous_domination; // BP13 及更早旧档重放形状：无两筹码题答案
@@ -403,12 +459,12 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'rig
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=right_bottom → 质量题聚合（回调质量题主场）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.9), ...mkAns('tree_position', 'not_tree', 0.85) }, dA).assessment;
 ok(aM.rule === 'activity_gate', 'E: heat=low 门照拒（活跃度门独立于 tree 观察档）');
-ok(!['not_tree', 'position_gate'].includes(aM.rule), 'E: rule 域圣诞树门值绝迹（activity_gate/chip_gate/any_good/any_neutral/else_poor 五值——观察档反证）');
+ok(!['not_tree', 'position_gate'].includes(aM.rule), 'E: rule 域圣诞树门值绝迹（activity_gate/chip_gate/pattern_gate/any_good/any_neutral/else_poor 六值——观察档反证）');
 const noTree = { ...fullAnswers() };
 delete noTree.tree_position;
 ok(buildBuyPointObservation(noTree, dA).assessment.rule === 'any_neutral' && buildBuyPointObservation(noTree, dA).dimensions.tree_position === null,
   'E: tree_position 答案缺席 → 维度 null 容缺+聚合照走（拒=有证据的拒绝）');
-ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（八维度）');
+ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（九维度）');
 ok(obsE.anchors.chg5Pct === 6.67 && obsE.anchors.chg10Pct === 6.67 && obsE.anchors.chg30Pct === 14.29, 'E: 动量短窗族三键透传（BP6 5/10/30）');
 ok(obsE.anchors.maxChg5Pct === null, `E: maxChg5Pct 锚透传（A fixture 无 5s 段→null 容忍，实际 ${obsE.anchors.maxChg5Pct}）`);
 ok(obsE.anchors.swingHighCount === 1 && obsE.anchors.swingLowCount === 1 && obsE.anchors.swingLastDir === -1
@@ -446,6 +502,17 @@ ok(obsChip.anchors.chipFamousDominancePct === 74.5 && obsChip.anchors.chipFamous
   && obsChip.anchors.chipBuyersTotal === 29 && obsChip.anchors.chipSameBlockHoldPct === 0,
   'E: 筹码锚族 chip 锚值透传（BEM 实测形状——29 买过/3 持有/top2=100% 分叉）');
 ok(obsChip.anchors.chipEqualBandHoldPct === null, 'E: chip 锚 null 语义保持（无等额簇=缺证据 null 不冒充——非数值吞为 null）');
+// BP18 开盘段结构锚族透传（openSeg 嵌套段——A fixture 手算：开盘段 dt<30 买入
+// =行1 dt5 0.5+行2 dt20 1.0 → 1.5×2 笔全 ≥0.3 大额；全窗买入 4.47（资金不滤
+// outlier 行8 ROUTER 0.4 照计）→ 占比 33.6%；late 段 16 笔/180s → 5.33 笔/分）
+ok(obsE.anchors.openSegBuyBnb === 1.5 && obsE.anchors.openSegBuyN === 2 && obsE.anchors.openSegBuySharePct === 33.6
+  && obsE.anchors.openSegBigBuyN === 2 && obsE.anchors.openSegBigBuyBnb === 1.5
+  && obsE.anchors.openLateBuyBnb === 2.97 && obsE.anchors.openLateTicksPerMin === 5.33,
+  'E: 开盘段结构锚族七键手算（首 30s 买入 1.5×2 全大额/占比 33.6%/late 买入 2.97 密度 5.33 笔每分——BP18 判 strong_backer/early_sniper_decay 的数值原料）');
+{
+  const obsNoOpen = buildBuyPointObservation(fullAnswers(), { ...dA, openSeg: { buyBnb: null, buyN: null, buySharePct: null, bigBuyN: null, bigBuyBnb: null, lateBuyBnb: null, lateTicksPerMin: null } });
+  ok(obsNoOpen.anchors.openSegBigBuyN === null && obsNoOpen.anchors.openLateTicksPerMin === null, 'E: 开盘段锚全族 null 透传（截窗未覆盖开盘段不冒充）');
+}
 const obsNeg = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: -12.34, win: dA.win });
 ok(obsNeg.anchors.chg30Pct === -12.34, 'E: chg 负值 −12.34 照读（不以 null 吞）');
 ok(obsE.anchors.win60BuyBnb !== undefined && near(obsE.anchors.win60BuyBnb, 0.27), 'E: win 族扁平键 win60BuyBnb 透传');
@@ -469,19 +536,19 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP17 十一题=8 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+价格豁免锚+三类质量题+圣诞树观察档/BP16-17 案大户未清场两臂/两调深相等）');
+  console.log('F. 题集形状（BP18 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP18 案盘面分类五类型学/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP17', 'F: 版本=BP17（BP16 案 Lily T049 大户未清场立法初版三源判据对拍 1/6+正例 T041 误伤——占比/清仓数与用户语义错位；BP17 修正为绝对买入金额两臂：规模臂前列全小散尘级+撤退臂 top5 卖出占前列买入大半；BP15 案贴发行价豁免同车）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP18', 'F: 版本=BP18（53 点复审收官用户裁定五类型学：强庄盘最好类型/散户 PVP·famous 独食·狙击衰竭不要参与/融合盘好点位可赌——新维度题 market_pattern+盘型门 pattern_gate+开盘段结构锚族；BP16-17 案大户未清场两臂同车）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
-  ok(ids.length === 11, `F: 恰 11 题=8 维度+3 质量题（实际 ${ids.length}）`);
-  ok(ids[0] === 'price_trend' && ids[1] === 'market_heat' && ids[2] === 'activity_level' && ids[3] === 'famous_domination' && ids[4] === 'holder_concentration' && ids[5] === 'entry_position' && ids[6] === 'price_level' && ids[7] === 'tree_position', 'F: 维度序=price_trend/heat/activity/famous/holder/entry/level/tree（前 8 题——BP14 两筹码题插 activity 后）');
-  ok(JSON.stringify(ids.slice(8)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
+  ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
+  ok(ids[0] === 'price_trend' && ids[1] === 'market_heat' && ids[2] === 'activity_level' && ids[3] === 'famous_domination' && ids[4] === 'holder_concentration' && ids[5] === 'entry_position' && ids[6] === 'price_level' && ids[7] === 'tree_position' && ids[8] === 'market_pattern', 'F: 维度序=price_trend/heat/activity/famous/holder/entry/level/tree/market_pattern（前 9 题——BP18 盘面分类插 tree 后）');
+  ok(JSON.stringify(ids.slice(9)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
   ok(!('point_category' in qs) && !('buy_point_assessment' in qs), 'F: 类别题/综合题已删（BP6 形态反证——路由依赖从根消除）');
   ok(!('price_momentum' in qs) && !('buy_pressure_quality' in qs) && !('chip_flow' in qs) && !('pace_trend' in qs), 'F: 四道旧维度题已删（BP5 瘦身反证）');
   ok(ids.every((id) => qs[id].type === 'choice' && qs[id].criteria && Object.keys(qs[id].criteria).length >= 3), 'F: 全 choice 且 criteria≥3 桶');
-  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 11 题各含「怎么算」显式算法段');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 八维度题各含反锚段');
+  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 12 题各含「怎么算」显式算法段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 九维度题各含反锚段');
   ok(qs.early_bird_quality.instructions.includes('忌讳') && qs.pullback_entry_quality.instructions.includes('忌讳'), 'F: 早鸟/回调题各含忌讳段（poor 主判教学）');
   ok(q.buildBuyPointQuestions() && JSON.stringify(q.buildBuyPointQuestions()) === JSON.stringify(qs), 'F: 函数产物两调深相等（无隐藏状态）');
   // 桶域与 mapper 常量对锁（ESM/CJS 双副本漂移防线）
@@ -498,11 +565,25 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
   ok(JSON.stringify(q.TREE_POSITION_LEVELS) === JSON.stringify(TREE_POSITION_LEVELS), 'F: TREE_POSITION_LEVELS 同域（BP8 六桶）');
   ok(JSON.stringify(Object.keys(qs.tree_position.criteria)) === JSON.stringify(TREE_POSITION_LEVELS), 'F: tree_position 桶===TREE_POSITION_LEVELS（六桶）');
+  // BP18 盘面分类锚（五类型学——用户裁定原话直译）
+  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶——ESM/CJS 双副本对锁）');
+  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（五桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable）');
+  const mp = qs.market_pattern.instructions;
+  ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单'), 'F: ①强庄盘=最好类型（开盘大额进+未拉爆+盘面仍活——有直接判据不空判）');
+  ok(mp.includes('没有任何大户参与') && mp.includes('散户们 PVP 把流动性攒高') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（原话直译）');
+  ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的了'), 'F: ③famous 独食=盘子就是它的了（原话直译）');
+  ok(mp.includes('购买力完全集中在最早期的数个 slot') && mp.includes('随之购买力衰竭') && mp.includes('这种盘子不要参与'), 'F: ④狙击衰竭=不要参与（原话直译）');
+  ok(mp.includes('融合无明显特征盘') && mp.includes('这种出现好的点位可以赌一赌'), 'F: ⑤融合盘=好点位可赌（原话直译——中性不拦）');
+  ok(mp.includes('同为开盘大额，后段死活定类'), 'F: ①④分界锚=大户买入后盘面是否仍活（同为开盘大额，后段死活定类）');
+  ok(mp.includes('全场无任何真金大额') && mp.includes('才落②'), 'F: ②⑤分界锚=全场无任何真金大额才落②（0.3+ 买家在场即不属纯散户 PVP）');
+  ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
+  ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
+  ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
   const qSet = new Set(QUALITY_IDS);
-  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 8 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（8+3）');
+  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 9 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（9+3——market_pattern 入维度域）');
   for (const id of QUALITY_IDS) {
     ok(JSON.stringify(Object.keys(qs[id].criteria)) === JSON.stringify(QUALITY_LEVELS), `F: ${id} 桶===QUALITY_LEVELS（四桶）`);
   }

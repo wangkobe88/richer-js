@@ -16,7 +16,7 @@
         "logIndex": 124,
         "blockTime": "2026-11-05T05:48:36Z",
         "txPrefix": "0xf1fb842748",
-        "priceBnb": 7.330129758309663e-09
+        "priceBnb": 7.330129758309663e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -36,7 +36,7 @@
         "logIndex": 149,
         "blockTime": "2026-11-05T05:48:36Z",
         "txPrefix": "0xeb0b1ab5a4",
-        "priceBnb": 7.579137067115073e-09
+        "priceBnb": 7.579137067115073e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -56,7 +56,7 @@
         "logIndex": 505,
         "blockTime": "2026-11-05T05:48:36Z",
         "txPrefix": "0xb024064a18",
-        "priceBnb": 7.847428908446217e-09
+        "priceBnb": 7.847428908446217e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -76,7 +76,7 @@
         "logIndex": 101,
         "blockTime": "2026-11-05T05:48:36Z",
         "txPrefix": "0x7a39c9bf03",
-        "priceBnb": 8.031293453000675e-09
+        "priceBnb": 8.031293453000675e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -96,7 +96,7 @@
         "logIndex": 185,
         "blockTime": "2026-11-05T05:48:36Z",
         "txPrefix": "0xae4a5c2b68",
-        "priceBnb": 8.321664244640725e-09
+        "priceBnb": 8.321664244640725e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -116,7 +116,7 @@
         "logIndex": 294,
         "blockTime": "2026-11-05T05:48:36Z",
         "txPrefix": "0x3e46957cf7",
-        "priceBnb": 8.569345076296726e-09
+        "priceBnb": 8.569345076296726e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -136,7 +136,7 @@
         "logIndex": 15,
         "blockTime": "2026-11-05T05:49:33Z",
         "txPrefix": "0x2d3e3b0fd5",
-        "priceBnb": 9.370517807575567e-09
+        "priceBnb": 9.370517807575567e-9
       },
       "expect": {
         "bucket": "neutral"
@@ -836,7 +836,7 @@
       },
       "model": {
         "bucket": "poor",
-        "prob": 1.0,
+        "prob": 1,
         "rule": "activity_gate",
         "run": "bp-t029-signals 六点真调（2026-11-06T03:20Z）",
         "questionVersion": "BP15"
@@ -1106,8 +1106,16 @@
         "legName": "v1-t1（tick13/79，开盘 20s +38.8% 拉涨段成交点）",
         "triggeredAt": "2026-11-05T08:17:34Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "neutral", "prob": 0.64, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.65 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.64,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.65 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #38 人工翻案锚：用户裁定原话「T038 也是 poor，**作弊痕迹重但是没拦住**，之后再调整吧」——开盘 20s 拉涨段（fast_up+near_launch、maxChg5 29.5% 未过暴涨线）机器早鸟题 neutral 0.64 放行方向，用户判读**作弊痕迹重**应拒。**BP 题面作弊形状盲区素材**：八维 famous:none(1.0)/holder:weak(0.68)=筹码门未命中（BP14 门只覆盖 famous 控盘/筹码垄断，价格对倒拉升形状与链上行为痕迹无对应轴）；生产 v73 当时 cheat 门 healthy 放行+BP12 放行→买入（episode +5.5% 微盈、fwd 60s 末 -17%/15min 末 -37%）——「该拦没拦」方向，与「拦盈利点」池互为镜像。改进暂缓攒批（原话「之后再调整吧」）：候选=BP 题面加作弊形状轴 vs CD 侧复审生产 healthy 是否漏判（分工上盘面作弊归 CD）"
     },
@@ -1123,8 +1131,16 @@
         "legName": "v1-t2（tick50/79，+56.6% 贴顶横盘段成交点）",
         "triggeredAt": "2026-11-05T08:18:21Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "poor", "prob": 0.87, "rule": "else_poor", "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.88 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.87,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.88 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #39 认同 poor（用户「T038 **也是** poor」隐含 T039 先已 poor）：贴顶追高点三题全 poor（早鸟 0.77/回调 0.56/追高 0.87）——+56.6% 横盘段、maxChg5Pct 59.1%（5 秒段急拉）、vs 首摆低 +56.5% 高位、树=left_side(0.36) 首树左侧爬坡贴高；fwd 60s 峰 -8.1% **买入即跌无反弹**、15min 末 -35.4%；episode -9.3% 小亏——拒对了。同票 t6@tick1 insufficient_ticks 拒掉 +56% 峰（极早窗张力组第五例候选，用户未单独裁定暂不落锚）"
     },
@@ -1140,8 +1156,16 @@
         "legName": "v1-t5（tick12/16，vsFirst -15.4% 砸回段成交点）",
         "triggeredAt": "2026-11-05T08:26:33Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "neutral", "prob": 0.84, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-26Z 现场定向（与 03:54Z 全量 0.82 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.84,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-26Z 现场定向（与 03:54Z 全量 0.82 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #40 人工翻案锚（用户裁定「好，给 poor 吧」认同建议）：回调题第二层核心规则误放方向**校准组第三例**（Sun S3=BPA-041 之后）——shallow_pullback 浅回撤 -23% 未跌到位+near_launch+活跃度未失，机器给 neutral 0.84；用户口径=浅回撤不算「跌到很低」应走忌讳②拒。盘面同向证据：tree=right_side 右侧下坡未止（同 T037 判读）、16 ticks 全程阴跌死盘、fwd 60s 峰 -3.0% 买入即跌（仅 2 ticks 近断流）、15min 末 -6.4%；episode -4.9% 小亏。校准组现状：Sun S3（-15.9%）/T040（-23%）两例机器均 neutral、用户均 poor——回调题「跌到很低」门槛需足额回撤（半价级）的语义修正候选，攒批"
     },
@@ -1157,8 +1181,16 @@
         "legName": "v1-t5（tick15/294，开盘 24s 贴首笔价 vsFirst +0.5% 成交点）",
         "triggeredAt": "2026-11-05T08:32:13Z"
       },
-      "expect": { "bucket": "good" },
-      "model": { "bucket": "neutral", "prob": 0.5, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.54 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "good"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.5,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.54 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #41 用户裁定 good（「认同」建议）：**回调题「跌到很低+活跃没丧失」正例锚**——vsFirst +0.5%=真贴发行价（vs BPA-041/048 的 vs ATH 浅回撤假低位）、activity:ultra+近 60s 净买 +0.604、fwd 60s 峰 +90.8%/末 +75.2%（170 ticks 热络）、episode +23.5% 实盈全场第二——位置与活跃双真，回调题核心规则该给高档的场景机器只给 neutral 0.50（放行方向不亏错失但档位偏低）。**回调题校准组判别锚**：同 shallow_pullback 桶下「vs 首笔≈0 贴发行价+ultra 活跃」（本例 good）vs「vs ATH 浅回撤+阴跌断流」（BPA-041/048 poor）——「跌到很低」基准应锚 vsFirst/发行价而非 vs ATH。同票 t6@tick1 insufficient_ticks 拒掉 +98.8% 峰（全 tick 最高，极早窗张力组又一强素材，用户未单独裁定暂不落锚）"
     },
@@ -1174,8 +1206,16 @@
         "legName": "v1-t1（tick96/294，+85.2% 贴顶横盘段成交点）",
         "triggeredAt": "2026-11-05T08:32:29Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "poor", "prob": 0.82, "rule": "else_poor", "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.78 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.82,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.78 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #42 认同 poor（用户「认同」）：贴顶追高点（早鸟 0.79+追高 0.82）——+85.2% 横盘段、fast_up+near_high+left_side、**famous:heavy 留痕**（跟单形状重，BP14 观察档不拦防误伤——与 2026-11-06 用户点名 famous 名单 0x94cf…2d01 判读方向呼应）；fwd 60s 峰 +2.2%/末 -30.0% 买入即跌、15min 末 -53.6%、episode -31.4% 实亏——拒对了（生产买入亏了）。同票后段 t2/t3/t4 三砸回触发全被 bp_gate_assessment 拒=门链后半段全拦对"
     },
@@ -1191,8 +1231,16 @@
         "legName": "v1-t1（tick16/33，+39.5% 急拉后浅回撤段成交点）",
         "triggeredAt": "2026-11-05T08:32:56Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "poor", "prob": 0.74, "rule": "else_poor", "run": "bp-run-2026-11-06T04-31Z 现场定向（与 03:54Z 全量 0.69 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.74,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-31Z 现场定向（与 03:54Z 全量 0.69 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #43 认同 poor（用户「好，认同，下一票」）：急拉后浅回撤追入点（早鸟 0.74+回调 0.63 两题均拒）——fast_up+shallow_pullback -16.4%+near_launch，fwd 60s 峰 -1.4% 买入即跌/末 -27.0%、15min 末 -27.1%（14 ticks 断流死盘）、episode -28.7% 实亏。**同桶不同判对照**（回调题校准组注脚）：与 Sun S3（BPA-041）同为急拉浅回撤桶，本例机器两题均拒（正确）、Sun S3 机器误放 neutral——Jev 在 shallow_pullback 桶内判读方差实例，语义修正候选攒批。t6@tick3 被拒 +25.4% 峰 60s 末已 -23.5%（刀口回落拒了不亏，弱素材不入张力组）"
     },
@@ -1208,8 +1256,16 @@
         "legName": "v1-t1（tick13/35，+28.4% 急拉浅回撤段成交点）",
         "triggeredAt": "2026-11-05T08:33:35Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "poor", "prob": 0.69, "rule": "else_poor", "run": "bp-run-2026-11-06T04-33Z 现场定向（与 03:54Z 全量 0.71 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.69,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-33Z 现场定向（与 03:54Z 全量 0.71 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #44 认同 poor（用户「认同，下一票」）：与 TRENCHER（BPA-051）完全同族——+28.4% 急拉后 shallow_pullback -19.7% 浅回撤追入（volatile+near_launch），早鸟 0.69+回调 0.62 两题均拒；fwd 60s 峰 -2.3% 买入即跌/末 -26.4%、15min 末 -26.4%（16 ticks 断流死盘）、episode -36.1% 实亏（全场最大单笔亏损之一）。**BP15 会拦但生产 BP12 放行实亏**的换代改善实证（同 T043）；t6@tick3 拒 +34.3% 峰 60s 末 -20.4% 刀口拒了不亏"
     },
@@ -1225,8 +1281,16 @@
         "legName": "v1-t3（tick32/238，+6% 贴价震荡段成交点，flap）",
         "triggeredAt": "2026-11-05T08:33:36Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "neutral", "prob": 0.71, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.76 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.71,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.76 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #45 人工翻案锚（用户裁定「雪球SI **都是** poor」）：+6% 贴价震荡段（volatile+shallow_pullback -22% vs ATH）机器回调题 neutral 0.71（净买 +1.68 正+60s 峰 +15.4%），用户裁 poor——**15min 末 -32.9% 全吐回**、episode +3.7% 微盈全靠快卖腿（BPA-039「拦盈利点」同族刀口形状：短窗正收益=卖腿功劳非买点质量）。**回调题校准组第四例**：与 BPA-049（作茧自缚 T041 good 正例）构成判别对——vsFirst 同为贴价（+0.5% vs +6%），分界=活跃度（ultra vs mid）与持续性（15min 末 -15% vs -33%）——回调题核心规则「活跃度没有丧失」的门槛用户口径显著高于 Jev 现判"
     },
@@ -1242,8 +1306,16 @@
         "legName": "v1-t4（tick52/238，+19.6% 回落段成交点，flap）",
         "triggeredAt": "2026-11-05T08:34:34Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "neutral", "prob": 0.74, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.67 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.74,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.67 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #46 人工翻案锚（用户裁定「雪球SI 都是 poor」认同建议方向）：**slow_down 阴跌+shallow_pullback -24% 浅回撤没跌到位+近 60s 净买转负（-0.046）**——机器回调题 neutral 0.74=核心规则同一误放方向（校准组第五例）；fwd 60s 峰 +7.7% 后 15min 末 -31.1%、episode -36.8% 大亏（生产持有到慢跌砸出）=「慢跌到底不能买」（BPA-044）又一实证。校准组现况：Sun S3/中囯人能飞/T045/T046 四例机器全 neutral 用户全 poor，唯一正例 BPA-049——回调题语义修正（「跌到很低」=vsFirst 贴价级回撤+活跃门槛抬高）攒批素材已足，待用户启动立法"
     },
@@ -1259,8 +1331,16 @@
         "legName": "v1-t5（tick17/25，vsFirst -12.4% 跌破首笔阴跌段成交点）",
         "triggeredAt": "2026-11-05T08:34:47Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "neutral", "prob": 0.85, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-41Z 现场定向（与 03:54Z 全量 0.77 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.85,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-41Z 现场定向（与 03:54Z 全量 0.77 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #47 人工翻案锚（用户裁定「好 poor」）：**回调题校准组第六例**——fast_down+shallow_pullback -23.1% 浅回撤+tree right_side 阴跌未止+近 60s 净买近零（+0.025）+fwd 60s 仅 5 ticks 断流死盘，机器以「near_launch+活跃 mid」维持核心规则给 neutral 0.85，用户裁 poor。与作茧自缚（一）T041（BPA-049 good 正例）同币名成对：T041=ultra 活跃+净买 +0.6+贴价 vs 本例=mid 活跃+净买零+跌破首笔——**「活跃度没有丧失」门槛的用户真实口径显著高于 Jev 现判**（mid/近零净买/断流=已丧失）；episode -3.0% 微亏拒放皆可但口径入档"
     },
@@ -1276,10 +1356,168 @@
         "legName": "v1-t5（tick15/26，vsFirst -12.1% 跌破首笔阴跌段成交点，flap）",
         "triggeredAt": "2026-11-05T08:54:28Z"
       },
-      "expect": { "bucket": "poor" },
-      "model": { "bucket": "neutral", "prob": 0.83, "rule": "any_neutral", "run": "bp-run-2026-11-06T04-48Z 现场定向（与 03:54Z 全量 0.80 桶级一致）", "questionVersion": "BP15" },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.83,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-48Z 现场定向（与 03:54Z 全量 0.80 桶级一致）",
+        "questionVersion": "BP15"
+      },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #49 人工翻案锚（用户裁定「给 Poor」）+ **回调题「大户在场」立法启动锚**（原话「买入的时候，**完全没有大户在了，就只剩下几个小散户，这种情况不要抄**（改一下 prompt 吧）」）：fast_down+shallow_pullback -20.6%+right_side+activity:mid+60s 仅 4 ticks 断流死盘+买入即跌（fwd 60s 峰 -1.2%）、ep -9.2%——校准组第七例（同 T047 形状）。**用户点破校准组共同语义**：机器「活跃度没有丧失」只看笔数/密度，用户口径=**大户在场与否**——大户全部离场只剩小散户=活跃度实质丧失→不适用回调题核心规则（不给 neutral 走忌讳），当日立法改题面（BP16）"
+    },
+    {
+      "anchorId": "BPA-057",
+      "kind": "set",
+      "tokenAddress": "0xc0783ec50b216e364c290bb0b8606c3821c97777",
+      "tokenName": "突突车",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T050",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T08:56:28.012+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.53,
+        "rule": "else_poor",
+        "run": "bp17-parity-2026-11-06T05-1xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同名簇突突车之一（four.meme）：t5 成交腰斩阴跌（entry=half_off+slow_down+tree right_side）拦对——生产 BP13 放行亏 -11.2%、BP17 现场会拦=换代改进实证；t6 首 tick 拒掉 +49.5% 脉冲=极早窗张力组又一例（攒批不裁）"
+    },
+    {
+      "anchorId": "BPA-058",
+      "kind": "set",
+      "tokenAddress": "0x600c9299c12bdc7c8c7c082ae552491590e57777",
+      "tokenName": "FLAP 突突车",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T051",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T08:56:58.195+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.76,
+        "rule": "else_poor",
+        "run": "bp17-parity-2026-11-06T05-1xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "cheat unhealthy→healthy 19 秒翻绿缝隙案：t5@08:56:35 拒 cheat_gate_unhealthy → t1@08:56:54 重判 healthy+BP 门过放行成交 → -23.78%（CD158 unhealthy 每信号重判设计内缝隙，留档 CD 侧素材）；贴高 volatile 三题全 poor，BP17 会拦"
+    },
+    {
+      "anchorId": "BPA-059",
+      "kind": "set",
+      "tokenAddress": "0x78cd05cf0d0b2a8022fdda8c97baad31f2c07777",
+      "tokenName": "突突车二",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T052",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T08:58:17.35+00:00"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.7,
+        "rule": "any_neutral",
+        "run": "bp17-parity-2026-11-06T05-1xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "正面案例：t1 成交（早鸟 neutral 放行）吃到 +5min 峰 +448.7/末 +317.5、ep+0.0007 实赚——门链放行与结局一致；七腿全接力形状（t1/t7 双成交、t2-t4 重复买腿拒=资金管理正确、t5 高位拦对）；t6 首 tick 拒 +604% 峰=极早窗张力组又一例"
+    },
+    {
+      "anchorId": "BPA-060",
+      "kind": "set",
+      "tokenAddress": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
+      "tokenName": "FlapGuy",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T053",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T09:02:02.842+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.69,
+        "rule": "else_poor",
+        "run": "bp17-parity-2026-11-06T05-2xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "53 点收官票：t5 成交冲高回落小亏 -6.77%（回撤 -15.15）拦对方向；ep=open 余 149308 未平=53 点唯一未平仓票（v74 停机时状态待对账）；t6 首 tick 拒 +42.4% 峰=极早窗张力组又一例；t5+t1 双成交与 T052 同形"
+    },
+    {
+      "anchorId": "BPA-061",
+      "kind": "set",
+      "tokenAddress": "0x6862f5fd3d4efee4f9d452665d907f845827777",
+      "tokenName": "긴와",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T014",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T06:08:10.230+00:00"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.84,
+        "rule": "any_neutral",
+        "run": "bp17-parity-2026-11-06T05-2xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "悬案收官票①：t5 成交贴价回调 −3.7% 冲高仅 +0.9% 末 −9.1% 微亏在 neutral 代价带内；回调核心规则命中（near_launch+热度在场）机器 neutral 0.84 坚决；t6@tick3 极早窗拒 +24.2% 峰张力组又一例"
+    },
+    {
+      "anchorId": "BPA-062",
+      "kind": "set",
+      "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
+      "tokenName": "白猪AI",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T015",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T06:19:11.721+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.64,
+        "rule": "any_neutral",
+        "run": "bp17-parity-2026-11-06T05-2xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "悬案收官票②=T120 案本尊：t1 +53.9% 高位追入 1 分钟 −32% 末 −38.7% ep−0.0004=53 点最重不该放放了形状；机器早鸟救臂 neutral 0.64 vs 用户 poor 分歧票（救臂语义当初针对涨速快但累计小，非 +53.9% 追入）；high_chase insufficient（entry:near_high 未进追高场景）留档=追高题场景判别下一立项候选"
     }
   ]
 }

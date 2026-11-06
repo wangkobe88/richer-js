@@ -143,6 +143,14 @@ function buildBuyPointState(snapshot) {
     } else {
       lines.push('价格拱: 无可靠价行');
     }
+    // BP18 盘面分类锚：开盘段结构（首 30 秒买入占比/大额单/开盘后密度——判
+    //「强庄开盘进入/开盘狙击衰竭」的直接数值；? = 截窗未覆盖开盘段或窗口 ≤30s 无后段）
+    {
+      const o = b.openSeg || {};
+      if (o.bigBuyN !== null && o.bigBuyN !== undefined) {
+        lines.push(`开盘段结构(首30秒): 买入 ${fmtBnb(o.buyBnb)}×${o.buyN ?? '?'} 笔、占全窗买入 ${o.buySharePct === null || o.buySharePct === undefined ? '?' : o.buySharePct + '%'}；大额单(≥0.3 BNB) ${o.bigBuyN} 笔合计 ${fmtBnb(o.bigBuyBnb)} BNB；开盘段后: 买入 ${o.lateBuyBnb === null || o.lateBuyBnb === undefined ? '?' : fmtBnb(o.lateBuyBnb) + ' BNB'}、密度 ${o.lateTicksPerMin === null || o.lateTicksPerMin === undefined ? '?' : o.lateTicksPerMin + ' 笔/分'}（开盘大户进入 vs 开局抢完即衰竭的结构判据；后段 ? = 窗口 ≤30s 无对比语义）`);
+      }
+    }
     if (Array.isArray(d.holdingsProfile) && d.holdingsProfile.length > 0) {
       const prof = d.holdingsProfile.map((e, i) => `第${i + 1}大 ${shortWallet(e.w)}（占流通 ${e.circPct !== null && e.circPct !== undefined ? e.circPct.toFixed(1) + '%' : '?'}，买 ${fmtBnb(e.buyBnb)}×${e.buyN} 卖 ${fmtBnb(e.sellBnb)}×${e.sellN}，首买@${fmtDt(e.firstBuyDt)}）`).join('；');
       lines.push(`全窗持仓前三(正净 token): ${prof}（卖压行「top5」即此排名前五——大持仓近端动向另见 [WALLETS] 近 120s 字段）`);
@@ -219,7 +227,7 @@ function buildBuyPointState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED]/[PRICE] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：此刻入场时机好坏。',
     '- 只判入场时机（时点），不下盘面性质结论：协同/作弊形状（等额阵列/对敲/分仓指纹）作为降档参考计入风险权衡，是否作弊由反作弊模块另行判定。',
-    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩双题；BP14 新增筹码门）：①活跃度门——热度（market_heat）low 或买点前活跃度（activity_level）low=不参与交易；②筹码门——famous 控盘（famous_domination）dominant 或持仓集中（holder_concentration）strong=不参与交易（famous 掌控的盘子/持有者不少但 TOP 占比太大——代码侧硬门消费这两档）；③三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）——早鸟≈树左侧早段、回调≈树脚企稳（小树结束+可能的大树开始）、追高≈树顶贴高；圣诞树形状与位置（tree_position）暂不参与决策（用户裁定「判断起来有点太难了，但是可以先放里头」）——题照答、摆动结构照算，档位作三质量题的参考佐证；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
+    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩双题；BP14 新增筹码门；BP18 新增盘型门）：①活跃度门——热度（market_heat）low 或买点前活跃度（activity_level）low=不参与交易；②筹码门——famous 控盘（famous_domination）dominant 或持仓集中（holder_concentration）strong=不参与交易（famous 掌控的盘子/持有者不少但 TOP 占比太大——代码侧硬门消费这两档）；②c 盘型门——盘面类型（market_pattern）散户 PVP（retail_pvp）/famous 独食（famous_monopoly）/狙击衰竭（early_sniper_decay）=不参与交易（代码侧硬门消费这三桶）；强庄盘（strong_backer=最好类型）与融合盘（blended_unremarkable=好点位可赌）不拦——点位质量仍归质量题；③三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）——早鸟≈树左侧早段、回调≈树脚企稳（小树结束+可能的大树开始）、追高≈树顶贴高；圣诞树形状与位置（tree_position）暂不参与决策（用户裁定「判断起来有点太难了，但是可以先放里头」）——题照答、摆动结构照算，档位作三质量题的参考佐证；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
     '- 薄窗倾向 insufficient：窗内行数很少、锚过早、多数维度缺证据（? 多）时，诚实承认材料不足不硬判。',
     '- token 龄极短（[PRECOMPUTED] 时点位置行）时全程首波形状属常态：近高位置/节奏密集本身不是风险信号，权衡时结合 token 龄。',
   ].join('\n'));

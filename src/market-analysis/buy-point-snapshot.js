@@ -39,6 +39,10 @@ const BP_PRICE_BUCKETS = 20;
 const BP_LAUNCH_COVER_TOL = 90;
 /** 摆动确认阈值（%）：zigzag 反向运动超此值确认峰/谷摆点（BP8 圣诞树原料；初版待校准） */
 const BP_SWING_THRESHOLD_PCT = 20;
+/** 开盘段宽度（秒）：dt < 此值=开盘段（BP18 盘面分类锚——首段购买力结构度量） */
+const BP_OPEN_SEG_SEC = 30;
+/** 开盘段大额单判线（BNB）：单笔买入 ≥ 此值计大额（BP18；与 BP16 大户判据「0.3+ BNB 级」同线） */
+const BP_OPEN_BIG_BUY_BNB = 0.3;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -419,6 +423,45 @@ function computeBuyPointDerived(snapshot) {
     buyersTotal,
   };
 
+  // ── 开盘段结构族（BP18 盘面分类锚：判「强庄开盘进入 / 开盘狙击衰竭」的直接
+  // 度量）：开盘段=dt < 30s；资金口径不滤 outlier；大额线 0.3 BNB 与 BP16 大户
+  // 判据同线；截窗未覆盖开盘段（首行 dt > BP_LAUNCH_COVER_TOL 同款判据）全族
+  // null 不冒充；窗口 ≤30s 无后段 → late 族 null 无对比语义（开盘段内锚照出——
+  // 判「强庄在场」只需开盘段大额单在场，不需后段对照）──
+  const openSeg = (() => {
+    const firstDtAll = dts.length ? Math.min(...dts) : null;
+    if (firstDtAll === null || firstDtAll > BP_LAUNCH_COVER_TOL) {
+      return { buyBnb: null, buyN: null, buySharePct: null, bigBuyN: null, bigBuyBnb: null, lateBuyBnb: null, lateTicksPerMin: null };
+    }
+    let openBuyBnb = 0, openBuyN = 0, bigBuyN = 0, bigBuyBnb = 0;
+    let totalBuyBnb = 0, lateBuyBnb = 0, lateN = 0;
+    for (const t of ticks) {
+      if (t.dt === null || t.dt === undefined) continue;
+      const bnb = t.bnb || 0;
+      const isBuy = t.side === 'BUY';
+      if (isBuy) totalBuyBnb += bnb;
+      if (t.dt < BP_OPEN_SEG_SEC) {
+        if (isBuy) {
+          openBuyBnb += bnb; openBuyN++;
+          if (bnb >= BP_OPEN_BIG_BUY_BNB) { bigBuyN++; bigBuyBnb += bnb; }
+        }
+      } else {
+        lateN++;
+        if (isBuy) lateBuyBnb += bnb;
+      }
+    }
+    const hasLate = spanSec !== null && spanSec > BP_OPEN_SEG_SEC;
+    return {
+      buyBnb: +openBuyBnb.toFixed(4),
+      buyN: openBuyN,
+      buySharePct: totalBuyBnb > 0 ? +((openBuyBnb / totalBuyBnb) * 100).toFixed(1) : null,
+      bigBuyN,
+      bigBuyBnb: +bigBuyBnb.toFixed(4),
+      lateBuyBnb: hasLate ? +lateBuyBnb.toFixed(4) : null,
+      lateTicksPerMin: hasLate ? +((lateN / (spanSec - BP_OPEN_SEG_SEC)) * 60).toFixed(2) : null,
+    };
+  })();
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -454,6 +497,9 @@ function computeBuyPointDerived(snapshot) {
     // 筹码结构锚族透传（BP14：famous 控盘+持仓集中分层+参与/持有分叉——判读归
     // Jev famous_domination/holder_concentration 两题，门桶由 mapper 硬消费）
     chip,
+    // 开盘段结构族（BP18 盘面分类锚：首 30s 买入占比/大额单/后段密度——判读归
+    // Jev market_pattern 题，strong_backer/retail_pvp 桶判据直接原料）
+    openSeg,
   };
 }
 
@@ -491,5 +537,7 @@ module.exports = {
   BP_BURST_SEC,
   BP_PRICE_BUCKETS,
   BP_SWING_THRESHOLD_PCT,
+  BP_OPEN_SEG_SEC,
+  BP_OPEN_BIG_BUY_BNB,
   detectSwings,
 };
