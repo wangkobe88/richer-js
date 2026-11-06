@@ -536,9 +536,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP19 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界多笔 0.2 级双臂/两调深相等）');
+  console.log('F. 题集形状（BP20 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改：多笔 0.2 级双臂+硬笔数/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP19', 'F: 版本=BP19（突突车 T052 案②⑤边界修正：多笔 0.2 BNB 级左右买入（≥2~3 笔）或单笔 0.3+ 在场均算有参与不落②、全场买单全在 0.1 级及以下尘埃档才落②——用户裁定「买入点位之前有 3 个 0.2 BNB 左右的买入呢」；BP18 案五类型学+盘型门+开盘段结构锚族同车）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP20', 'F: 版本=BP20（突突车 T052 案②⑤边界修正两改：多笔 0.2 BNB 级左右买入（≥2~3 笔）或单笔 0.3+ 在场均算有参与不落②、全场买单全在 0.1 级及以下尘埃档才落②——用户裁定「买入点位之前有 3 个 0.2 BNB 左右的买入呢」；BP20 硬笔数句=到 0.2 级（≥0.19 视同）的钱包 ≥2 个、仅一笔 0.2 级凑不成多笔仍落②——T006/T008 单笔 0.2 被判 blended 的宽松执行收口）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -576,6 +576,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('融合无明显特征盘') && mp.includes('这种出现好的点位可以赌一赌'), 'F: ⑤融合盘=好点位可赌（原话直译——中性不拦）');
   ok(mp.includes('同为开盘大额，后段死活定类'), 'F: ①④分界锚=大户买入后盘面是否仍活（同为开盘大额，后段死活定类）');
   ok(mp.includes('全场无任何像样买单') && mp.includes('才落②') && mp.includes('多笔 0.2 BNB 级左右的买入（≥2~3 笔）或单笔 0.3+ BNB 级买家'), 'F: ②⑤分界锚=全场无任何像样买单才落②——多笔 0.2 级（≥2~3 笔）或单笔 0.3+ 在场均算有参与不属纯散户 PVP（BP19 突突车案双臂边界）');
+  ok(mp.includes('「多笔」是硬笔数') && mp.includes('（≥0.19 BNB 视同 0.2 级左右）的钱包须 ≥2 个') && mp.includes('仅一笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚（BP20 两改——到 0.2 级钱包 ≥2 个、单笔 0.2 凑不成多笔仍落②：T006/T008 单笔 0.2 判 blended 宽松执行收口）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
   ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
   ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
