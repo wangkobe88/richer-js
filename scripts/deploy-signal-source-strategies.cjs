@@ -58,8 +58,8 @@ const LEGS = [
         '热度腿 6（T119）：36 笔/1.5 BNB/12 真持有者'),
     leg('N45', 7, 'tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
         '热度腿 7（T119）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃'),
-    leg('t6', 8, '(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5) OR mcapFromPeakPct >= 60', false,
-        '跌回低市值（峰 ≥15=涨出 7.5 低线至少翻倍，市值 ≤7.5 时隐含回撤 ≥50%——峰门防出生票市值从 0 涨起前几笔必 ≤7.5 的即触发）OR 较峰回撤 ≥60%'),
+    leg('t6', 8, '(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5 AND buyVolumeBnb >= 1.5 AND actBuyBnb >= 0.3) OR (mcapFromPeakPct >= 60 AND buyVolumeBnb >= 1.5 AND actBuyBnb >= 0.3)', false,
+        '暴跌抄底臂（v4 双流动性门，2026-11-06 v73 复审 T032 用户裁定「希望能接住暴跌的底，而不是第一个 tick」）：跌回低市值（峰 ≥15 峰门防出生票前几笔必 ≤7.5 即触发）OR 较峰回撤 ≥60%，两臂各带 buyVolumeBnb ≥1.5（全局累计=到过 15 峰的票近冗余，防极端无量形状）+ actBuyBnb ≥0.3（近 10s 滑窗有人真金白银买=底部承接，防阴跌死盘底；阈值待票池校准）'),
     leg('D25', 9, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 25', false,
         '回撤臂 25%（T119 五臂之一，浅到深排布=先穿浅档先消耗）：峰 ≥15 峰门（实证后果留档：吉祥首峰 13.3 BNB<15 首波回撤点不触发，五臂实际覆盖 $10.7k+ 峰值票，阈值库中可调）∧ 较峰回撤 ≥25%；急拉票回撤点 BP12 判 poor=BP11 接受现状维持，本臂价值在慢推票深回撤企稳'),
     leg('D30', 10, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 30', false,
@@ -77,7 +77,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v3（2026-11-05 吉祥复盘裁定）：13 买腿 condition=初始买入信号源（t1-t4 热度+N30/36/45 纯热度+t6 低市值OR深回撤+D25-D55 五档回撤臂，maxTriggers 全 1 触发即消耗；t5 急砸/t7 跌底放量已删），触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测恒拒（signalGate 腿全量排除）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v4（2026-11-06 t6 双流动性门）：13 买腿 condition=初始买入信号源（t1-t4 热度+N30/36/45 纯热度+t6 暴跌抄底（峰门 15+双流动性门 buyVolumeBnb≥1.5/actBuyBnb≥0.3，接暴跌底非首 tick 盲买）+D25-D55 五档回撤臂，maxTriggers 全 1 触发即消耗；t5 急砸/t7 跌底放量已删），触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测恒拒（signalGate 腿全量排除）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
     },
 ];
 
