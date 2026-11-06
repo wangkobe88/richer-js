@@ -469,9 +469,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP14 十一题=8 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+三类质量题+圣诞树观察档/BP14 案 CD 筹码判法搬运/两调深相等）');
+  console.log('F. 题集形状（BP15 十一题=8 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+价格豁免锚+三类质量题+圣诞树观察档/BP15 案贴发行价豁免持有不均衡/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP14', 'F: 版本=BP14（BP14 案 BEM Miner：famous 控盘+持仓集中两题从 CD 搬运直接进判定——用户裁定「全部搬过来直接用于判定」）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP15', 'F: 版本=BP15（BP15 案谷谷 T020：价格临近发行价豁免持有者不均衡——用户裁定「极早期有大户在场没有问题」；BP14 案筹码门同车）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 11, `F: 恰 11 题=8 维度+3 质量题（实际 ${ids.length}）`);
@@ -573,6 +573,10 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   }
   ok(hc2.instructions.includes('**参与/持有分叉**') && hc2.instructions.includes('拉高出货'), 'F: holder_concentration 参与持有分叉=拉高出货前奏度量');
   ok(hc2.instructions.includes('极早窗筹码集中是价格发现常态'), 'F: holder_concentration 反锚①极早窗从宽（价格发现期天然集中）');
+  ok(hc2.instructions.includes('价格临近发行价豁免持有者不均衡') && hc2.instructions.includes('currentVsLaunchPct ≤ +50%') && hc2.instructions.includes('不坐实 strong'),
+    'F: holder_concentration 反锚⑥价格豁免锚（BP15 谷谷案——贴发行价头部无浮盈可砸，不坐实 strong）');
+  ok(hc2.instructions.includes('只豁本题（holder 集中轴），不豁 famous 控盘题'), 'F: holder_concentration 豁免⑥限定 holder 轴（BEM famous dominant 验收零翻案防线）');
+  ok(hc2.instructions.includes('谷谷案·价格豁免正例') && hc2.instructions.includes('56.5%'), 'F: holder_concentration 形状样本含谷谷正例（6~9 过线+佐证但 +25% 贴发行价→豁免落观察档）');
   ok(hc2.instructions.includes('top1 单一 >90%') && hc2.instructions.includes('一人控盘'), 'F: holder_concentration 一人控盘例外（≤5 豁免域破例 strong）');
   ok(hc2.instructions.includes('strong 档由代码侧筹码门直接消费拒买'), 'F: holder_concentration 收尾=门消费声明');
   ok(hc2.instructions.includes('BEM Miner') && hc2.instructions.includes('BOSS'), 'F: holder_concentration 形状样本=BEM（一人控盘）+BOSS（CD240 ≥10 过线坐实）双对照');
