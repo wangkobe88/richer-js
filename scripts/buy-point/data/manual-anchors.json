@@ -1596,6 +1596,58 @@
       },
       "ruledAt": "2026-11-06",
       "note": "用户裁定原话「S018 有大户参与，且承接不是零散小散户（有大量零散小散户的可以明显看出来），至少也是混合盘，不是 PVP 盘」——盘型误判轴：retail_pvp(0.69) 应为 blended_unremarkable 以上；判读方法论锚=「大量零散小散户可明显看出」（정책콕 T001 中位 0.02 是零散小散形状），本案承接中位 0.11+第2/3大 0.198/0.160+大户 0x030d 在场持 41.8%（只卖 28%）不构成②(b)；与 BPA-001（同 token ticks 9-14 用户裁 neutral）冲突解除——BPA-001 维持、模型盘型门误拦；BP19 硬笔数「0.2 级 ≥2 个」刀口形状（仅 1 个 0.198）按线落②与用户判读相悖=②(b) 承接边界校准攒批"
+    },
+    {
+      "anchorId": "BPA-066",
+      "kind": "signal",
+      "tokenAddress": "0x92e56dabe394a5fde578ab2f65f72cec9ff07777",
+      "tokenName": "VirusSI",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S038",
+        "legId": "P2",
+        "legName": "买入策略 P2",
+        "triggeredAt": "2026-11-05T06:50:25Z",
+        "anchorTickCount": 19
+      },
+      "expect": {
+        "bucket": "neutral",
+        "marketPattern": "blended_unremarkable"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.52,
+        "rule": "pattern_gate",
+        "run": "bp-run-2026-11-06T08-23-18-287Z",
+        "questionVersion": "BP23"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户裁定原话「大户离场后，持续有承接，盘面较强，可以给判为混合盘。这个币部分点位判为 PVP 有点不合适」+消解裁定「如果大户离场后，一波散户接了没下文了，我倾向认为是 PVP，如果大户持续卖，持有有接盘者，无论是散户还是什么，我倾向于混合盘」——BP24 案三改（BP24 离场后承接→BP25 卖压过程性→BP26 卖方在场性三分）后 BP26 对拍达成：S038 blended(0.54)/neutral(0.71)；同 token 同裁定 S039（P3，blended 0.74，综合 hold=strong 筹码门独立拒 poor）、S040（P4，BP23 已翻 neutral 0.64）；实证锚=卖方在场性：S038/S039/S040 bigSell60=0.48/0.83/1.00（大户持续卖）+承接持续（d60=+15/+21/+14），与 T001（BPA-067）bigSell60=0+top1 在场微卖结构性区分"
+    },
+    {
+      "anchorId": "BPA-067",
+      "kind": "trade",
+      "tokenAddress": "0x9d147fa0e447d98cf1a7ac32f114f6d0b9877777",
+      "tokenName": "정책콕",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T001",
+        "triggeredAt": "2026-11-05T04:46:18Z",
+        "anchorTickCount": 26
+      },
+      "expect": {
+        "bucket": "poor",
+        "marketPattern": "retail_pvp"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.51,
+        "rule": "chip_gate",
+        "run": "bp-run-2026-11-06T10-39-39-168Z",
+        "questionVersion": "BP26"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "锚窗信息 vs 后见裁定合理分歧留档（BP11 SB 案同款先例）：用户 BP21 裁「大户卖出小散承接散户化」落②、BP24 案消解裁定重申「大户离场后一波散户接了没下文=PVP」，但锚窗内 T001 top1 持流通 50.4%（巨鲸在场未走、top1SellPct60=76% 但绝对额 ~0.017 BNB 尘级微卖）+散户承接正处高潮（d60=+8、新买家 10/11、买卖比 20:1、贴发行价）——②(b) 两要件与「卖完离场」在锚窗内均不成立，BP24-BP26 三轮 Jev 稳定判 blended（0.33→0.41→0.48/0.48）；「一波接没下文」为前向结局（1min max +5.77% 后 −20%、实际成交亏 −23%）锚窗内不可见；综合防线=筹码门（top1 50.4% 单一 >45% 过线坐实 strong，chip_gate 拒）——盘型层分歧接受现状不硬掰，50% 独食巨鲸在场本身即拒买理由"
     }
   ]
 }
