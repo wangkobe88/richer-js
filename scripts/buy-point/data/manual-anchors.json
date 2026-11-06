@@ -1,1549 +1,1549 @@
 {
- "version": 1,
- "createdAt": "2026-11-06",
- "case": "BP13",
- "note": "BP 人工锚点集（案号 BP13 立）——用户对具体点位买入时机的人工裁定（expect.bucket ∈ good/neutral/poor），题集换代/全量重跑时对拍基准。锚不驱动代码：人工与模型的分歧锚（如 05:49:33 深回撤点）只留档不改模型，除非用户另裁。locator 两类：tick 锚=wss_price_ticks 主键 id + block_number/log_index 双保险（seqNo=token 链上真序第 N 笔）；ladder 锚=set 内 pointId（per token×leg v3 重放首触发点）。model 字段=认同时的模型快照（非人工裁定），expect 字段=人工裁定。",
- "anchors": [
-  {
-   "anchorId": "BPA-001",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11146886,
-    "seqNo": 9,
-    "blockNumber": 131763513,
-    "logIndex": 124,
-    "blockTime": "2026-11-05T05:48:36Z",
-    "txPrefix": "0xf1fb842748",
-    "priceBnb": 7.330129758309663e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户裁定「ticks 9-14 全部为 neutral」——早鸟可买窗口人工划定（maxChg5 尚低、距发行价 +7% 段；第 16 笔起 +39% 以上段模型 poor 用户认同）"
-  },
-  {
-   "anchorId": "BPA-002",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11146887,
-    "seqNo": 10,
-    "blockNumber": 131763513,
-    "logIndex": 149,
-    "blockTime": "2026-11-05T05:48:36Z",
-    "txPrefix": "0xeb0b1ab5a4",
-    "priceBnb": 7.579137067115073e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
-  },
-  {
-   "anchorId": "BPA-003",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11146888,
-    "seqNo": 11,
-    "blockNumber": 131763513,
-    "logIndex": 505,
-    "blockTime": "2026-11-05T05:48:36Z",
-    "txPrefix": "0xb024064a18",
-    "priceBnb": 7.847428908446217e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
-  },
-  {
-   "anchorId": "BPA-004",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11146889,
-    "seqNo": 12,
-    "blockNumber": 131763514,
-    "logIndex": 101,
-    "blockTime": "2026-11-05T05:48:36Z",
-    "txPrefix": "0x7a39c9bf03",
-    "priceBnb": 8.031293453000675e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
-  },
-  {
-   "anchorId": "BPA-005",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11146890,
-    "seqNo": 13,
-    "blockNumber": 131763514,
-    "logIndex": 185,
-    "blockTime": "2026-11-05T05:48:36Z",
-    "txPrefix": "0xae4a5c2b68",
-    "priceBnb": 8.321664244640725e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
-  },
-  {
-   "anchorId": "BPA-006",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11146891,
-    "seqNo": 14,
-    "blockNumber": 131763514,
-    "logIndex": 294,
-    "blockTime": "2026-11-05T05:48:36Z",
-    "txPrefix": "0x3e46957cf7",
-    "priceBnb": 8.569345076296726e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
-  },
-  {
-   "anchorId": "BPA-007",
-   "kind": "tick",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "tickId": 11147037,
-    "seqNo": null,
-    "blockNumber": 131763639,
-    "logIndex": 15,
-    "blockTime": "2026-11-05T05:49:33Z",
-    "txPrefix": "0x2d3e3b0fd5",
-    "priceBnb": 9.370517807575567e-9
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户裁定「13:49:33 的 ticks 也加入，也是 neutral」（北京 13:49:33=UTC 05:49:33 首波深回撤 V 反点，距峰约 -31.7%）。⚠分歧锚：BP12 真跑首波 W25/W30=poor 0.67（前向 +267%/+290%）、接受现状终裁维持——人工 neutral vs 模型 poor 分歧留档不改模型"
-  },
-  {
-   "anchorId": "BPA-008",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L034",
-    "legId": "t1",
-    "legName": "t1",
-    "triggeredAt": "2026-11-05T05:48:33Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.49,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同重析结果；生产 t1 发射点（05:48:36）当时 BP12 判 poor 0.55 拒——时刻差 3s 跨过价格低救窗（29s maxChg5=9.7 → 33s 89.8）非题集漂移"
-  },
-  {
-   "anchorId": "BPA-009",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L035",
-    "legId": "t2",
-    "legName": "t2",
-    "triggeredAt": "2026-11-05T05:48:37Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.79,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同；与生产 t2（05:48:43 poor 0.63 拒）同向"
-  },
-  {
-   "anchorId": "BPA-010",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L036",
-    "legId": "t3",
-    "legName": "t3",
-    "triggeredAt": "2026-11-05T05:48:37Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.78,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同；与生产 t3（05:48:47 poor 0.53 拒）同向"
-  },
-  {
-   "anchorId": "BPA-011",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L037",
-    "legId": "t4",
-    "legName": "t4",
-    "triggeredAt": "2026-11-05T05:48:37Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.79,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同；生产 t4 发射点（05:48:54）BP12 判 neutral 0.42 买入（#8 复审实买笔）——17s 时刻差+题集换代叠加下重析更严（反向漂移点）"
-  },
-  {
-   "anchorId": "BPA-012",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L038",
-    "legId": "t5",
-    "legName": "N30",
-    "triggeredAt": "2026-11-05T05:48:41Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.8,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿生产无判定；用户认同重析 poor"
-  },
-  {
-   "anchorId": "BPA-013",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L039",
-    "legId": "t6",
-    "legName": "N36",
-    "triggeredAt": "2026-11-05T05:48:44Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.82,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿生产无判定；用户认同重析 poor"
-  },
-  {
-   "anchorId": "BPA-014",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L040",
-    "legId": "t7",
-    "legName": "N45",
-    "triggeredAt": "2026-11-05T05:48:47Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.84,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿生产无判定；用户认同重析 poor"
-  },
-  {
-   "anchorId": "BPA-015",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L041",
-    "legId": "t9",
-    "legName": "D25",
-    "triggeredAt": "2026-11-05T05:55:24Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.96,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿；D 臂在急拉票回撤段前向 -31.8% 拦对（用户认同）"
-  },
-  {
-   "anchorId": "BPA-016",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L042",
-    "legId": "t10",
-    "legName": "D30",
-    "triggeredAt": "2026-11-05T05:55:24Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.97,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿；前向 -31.8% 拦对（用户认同）"
-  },
-  {
-   "anchorId": "BPA-017",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L043",
-    "legId": "t11",
-    "legName": "D35",
-    "triggeredAt": "2026-11-05T05:55:24Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.97,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿；前向 -31.8% 拦对（用户认同）"
-  },
-  {
-   "anchorId": "BPA-018",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L044",
-    "legId": "t12",
-    "legName": "D45",
-    "triggeredAt": "2026-11-05T05:56:07Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.96,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿；前向 -15.5% 拦对（用户认同）"
-  },
-  {
-   "anchorId": "BPA-019",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L045",
-    "legId": "t13",
-    "legName": "D55",
-    "triggeredAt": "2026-11-05T05:57:09Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.95,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 新腿；前向 -12.9% 拦对（用户认同）"
-  },
-  {
-   "anchorId": "BPA-020",
-   "kind": "ladder",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L046",
-    "legId": "t8",
-    "legName": "t6峰门",
-    "triggeredAt": "2026-11-05T05:58:58Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.94,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v3 峰门版重放点（生产 v1 t6=低市值盲买腿另一形状 insufficient_ticks 拒）；前向 +24.4% 拒掉=接受现状设计内代价（用户认同）"
-  },
-  {
-   "anchorId": "BPA-021",
-   "kind": "ladder",
-   "tokenAddress": "0x3ca2a09d2ac2155f46f0df2b4583936fd92e7777",
-   "tokenName": "ZELDA",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L047",
-    "legId": "t1",
-    "legName": "t1",
-    "triggeredAt": "2026-11-05T05:56:25Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.79,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同；生产 t1 发射点（05:56:59）BP12 判 good 0.72 买入（复审「放行好了」那笔）——34s 时刻差+换代下 good→neutral，仍放行档"
-  },
-  {
-   "anchorId": "BPA-022",
-   "kind": "ladder",
-   "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
-   "tokenName": "白猪AI",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L048",
-    "legId": "t1",
-    "legName": "t1",
-    "triggeredAt": "2026-11-05T06:19:06Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.75,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同；生产 t1 发射点（06:19:08）good 0.66 买入实亏 -40.2%（T120 案票）——BP13 题面重析仍 neutral=拦不住该形状，「该拦没拦」攒批案素材"
-  },
-  {
-   "anchorId": "BPA-023",
-   "kind": "ladder",
-   "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
-   "tokenName": "白猪AI",
-   "locator": {
-    "set": "bp-2026-11-06-v73-ladder",
-    "pointId": "BP-L049",
-    "legId": "t2",
-    "legName": "t2",
-    "triggeredAt": "2026-11-05T06:19:20Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.44,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T00-11-05-827Z",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同；生产无 t2 信号行（未发射——距 t1 发射仅 +3 笔与 T120 tick 门拦截形状一致，被拦不落行无从留痕）；前向 -33.2%"
-  },
-  {
-   "anchorId": "BPA-024",
-   "kind": "set",
-   "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
-   "tokenName": "吉祥",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T016",
-    "legId": null,
-    "legName": "v1-t7 跌底放量（生产发射）",
-    "triggeredAt": "2026-11-05T06:33:22Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.94,
-    "rule": "else_poor",
-    "run": "bp-run 2026-11-06T00:31",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #12 用户裁定「neutral 可以」。⚠分歧锚②：模型回调忌讳①崩塌第一腿（maxChg5=89.75 全史恒含）poor 0.94 vs 实际第二波主升 +193%（06:36:03 峰 3.24e-8，3 分钟）——长间隔失效反例（暴涨段在 45min 前）；t7 quiet 臂命中=signalGate 设计猎物被 BP 门拦。与 BPA-007 同族；生产 BP12 neutral 0.35 放行买入是对的（15s 卖腿离场错过 3 倍=卖侧另案）"
-  },
-  {
-   "anchorId": "BPA-025",
-   "kind": "set",
-   "tokenAddress": "0x75d5286d3ac478334fe098f015624486d7a77777",
-   "tokenName": "BEM Miner",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T018",
-    "legId": null,
-    "legName": "v1-t6 低市值盲买（生产发射）",
-    "triggeredAt": "2026-11-05T07:03:39Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.8,
-    "rule": "else_poor",
-    "run": "bp-run 2026-11-06T07:30",
-    "questionVersion": "BP13"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户认同 poor。「该拦没拦」方向质量题实证：生产 BP12 good 0.53 放行→出生 5s 买入→15s 闪崩 -33.4%（07:03:44 成交 6.57e-9→07:03:59 卖 4.38e-9）；BP13 早鸟暴涨忌讳 poor 0.80 拦对（25 ticks/age 5s/近 60s 买 1.710 BNB/贴 ATH -0.4%，market+activity 双 ultra 仍 poor=热度不救位置）。t6 v1 盲买腿出生触发 v3 峰门已根治；cheat insufficient_ticks（锚 7<8）fail-open 免检。用户同案提出新层面（famous 控盘+holders 不小但 top 集中）=CD 筹码锚迁移 BP 候选议题"
-  },
-  {
-   "anchorId": "BPA-026",
-   "kind": "set",
-   "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
-   "tokenName": "谷谷",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T020",
-    "legId": null,
-    "legName": "v1-t6 低市值盲买（生产发射）",
-    "triggeredAt": "2026-11-05T07:06:16Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.77,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T01-32",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #16 + BP15 立法案锚。用户裁定原话「这个是 good/中等也行，但是 poor 不行」+「极早期有大户在场没有问题，价格临近发布价豁免持有者不均衡」。开盘 3s 8 实质持有者抢筹前二 56.5%+同块簇 78%（BP14 判 strong→chip_gate 拦）但涨幅 +25% 贴发行价=豁免锚生效（holder→moderate、早鸟 neutral 0.77 聚合放行）；前向 +5min 峰 +114%=chip_gate 首个「拦掉盈利点」样本催生 BP15。dust 核查：9 持有者=8 实质+1 尘埃（0.001 BNB），剔后区间不变=豁免锚而非剔尘计数救回。生产实买 +0.000473（50s 持有）"
-  },
-  {
-   "anchorId": "BPA-027",
-   "kind": "set",
-   "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
-   "tokenName": "谷谷",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T021",
-    "legId": null,
-    "legName": "v1-t1（生产发射·接棒）",
-    "triggeredAt": "2026-11-05T07:07:16Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.64,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T01-15",
-    "questionVersion": "BP14"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #16 用户认同 poor（「其它 poor 都认同」）。63s 龄 chg60 +53% 追高二买：pullback poor 0.64+high_chase poor 0.61 双 poor（质量题自拦无门参与）；前向 +5min 末 -16%。生产实买 +0.000154（146s 持有）"
-  },
-  {
-   "anchorId": "BPA-028",
-   "kind": "set",
-   "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
-   "tokenName": "谷谷",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T024",
-    "legId": null,
-    "legName": "v1-t2（生产发射·接棒）",
-    "triggeredAt": "2026-11-05T07:09:44Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.99,
-    "rule": "chip_gate",
-    "run": "bp-run-2026-11-06T01-32",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #16 用户认同 poor（「其它 poor 都认同」）。210s 龄距峰 -27%：famous 控盘 68.8%≥50 dominant（G17 联立臂 33.2/40.9 未过线但主臂直判；holder 反而 weak 16%=famous 臂主场与 BEM 同款）——筹码门 famous 臂第二命中且拦对（前向 -27.5%；生产实买 -0.000315）。BP15 复跑维持 poor 0.99（价格 low 不在豁免域+famous 轴不豁）"
-  },
-  {
-   "anchorId": "BPA-029",
-   "kind": "set",
-   "tokenAddress": "0xbd74373a464021a15afab2e389bb1451a8477777",
-   "tokenName": "谷谷（同名票）",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T022",
-    "legId": null,
-    "legName": "v1-t1（t6 旧门拒后 22s 接棒）",
-    "triggeredAt": "2026-11-05T07:09:16Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.72,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T01-40-59-841Z",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #17 用户裁定 poor「先不改」=分歧锚落档。分歧形状：早鸟 near_launch（age 25s 贴发行价）救臂主导 neutral 0.72、追高 poor 0.56 被聚合压过；但 entry near_high 0.96/现 ATH -3.5% 贴高微回撤入场+前向全负（+1min 末 -10.3%/+5min 末 -19.0%/断流）+实买 -0.000053。与 T020（BP14 拦 +114% 盈利点）对偶=BP15 会放行实亏样本，归「不该放放了」池（ZELDA/T022 同池）攒批。附：t6 曾 07:08:54 先触发被 bp_gate_insufficient_ticks 拒（BP9 放行例外 11:31 UTC 重启前旧代码期，锚仅 3-4 tick），22s 后 t1 三键首齐接棒买入；cheat healthy（D3.62 首析 16 题无 strong）；两门不触发（famous none/holder moderate）"
-  },
-  {
-   "anchorId": "BPA-030",
-   "kind": "set",
-   "tokenAddress": "0x99144fb7a6dda0ed11020a03acd1b468d8797777",
-   "tokenName": "阿里美股",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T025",
-    "legId": null,
-    "legName": "v1-t1（t6 旧门拒后 21s 接棒）",
-    "triggeredAt": "2026-11-05T07:12:39Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.77,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T01-46-54Z",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #18 用户裁定 poor「先这么着」=分歧锚落档，「不该放放了」池第三例成池（ZELDA/T022/T025）。分歧形状（比 T022 更尖锐）：恰在 ATH 顶上（现/ATH 0.0%、0s 前）+price fast_up+纯买无卖（近 60s 买 1.006 卖 0=对手盘未现身）→顶点接货 +5min -29.9%；但早鸟 near_launch（age 24s）救臂主导 neutral 0.77（回调/追高均 insufficient 不贡献）。三例共同形状=极早龄 near_launch 救臂放过贴高/贴顶快涨票，攒批候选「早鸟救臂加 fast_up/贴 ATH 例外」。附：信号→成交滑 4.7%（flap quote 盘 6.528e-9→6.218e-9）；t6 曾 07:12:18 触发被 bp_gate_insufficient_ticks 拒（锚 5 旧代码期）21s 后 t1 接棒；cheat healthy；07:15:38 t2 再买被生产 BP2 拦（poor 0.83）拦对"
-  },
-  {
-   "anchorId": "BPA-031",
-   "kind": "set",
-   "tokenAddress": "0x0cd4cee39ed16ad3e39e3b261dc592648d137777",
-   "tokenName": "太空逆袭",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T027",
-    "legId": null,
-    "legName": "v1-t2（t6 旧门拒+t1 cheat unhealthy 拒后接棒）",
-    "triggeredAt": "2026-11-05T07:21:13Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.69,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T02-40-31-533Z",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #19 用户认同 poor（「poor 没问题」）。BP15 与生产同向拦截但方向反：生产 BP2 good 0.45 放行吃到 +49.8% 峰/+31% 实盈，BP15 poor 0.69 会拦=「拦盈利点」第二例（T020 后）且无价格豁免可用（price 已 low 档非 near_launch、entry near_high+fast_up=早鸟暴涨忌讳臂主场）。三票全反观察：T022/T025（BP15 neutral 放→实亏 -19%/-30%）+本票（BP15 poor 拦→实盈 +31%）=v73 trades 段 flap 极早票 BP15 判别力方向性失效素材，与 T020 合计攒「拦盈利/放亏损」两侧池。信号链六条：t6 07:20:06 insufficient_ticks 拒（锚 2）→t1 07:20:50 cheat unhealthy 硬拒（首析 R_abnormal_dominant）→t2 07:21:13 cheat 重判 healthy（3s 翻转，unhealthy 不拉黑可重判机制正常；R 通道 2 tick 薄窗形状留档）+BP good 0.45 买入——两道门拒滑走 +70.5%（5.95e-9→1.015e-9）仍盈利；t3/t4 再买均被 BP2 拦（poor 0.44/0.51，其后 +5min 仍 +22%=拦掉盈利再买点）。cheatRecheck 链：t1/t2 均 true。附：本地 set 曾存 T027 畸形 41 hex 地址旧版，已用 182 正本覆盖"
-  },
-  {
-   "anchorId": "BPA-032",
-   "kind": "set",
-   "tokenAddress": "0xfb09ffea6b945a4f086d3e49fd42c77cd92fffff",
-   "tokenName": "持械入宋",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T028",
-    "legId": null,
-    "legName": "v1-t5 急砸臂（t6 旧门拒后接棒）",
-    "triggeredAt": "2026-11-05T07:33:17Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.85,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T02-46-03-958Z",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #20 用户认同 neutral。回调题三层结构教科书正例：开盘 5s +27% 急拉（maxChg5 27.3 未过 +40~50% 忌讳线）后回落一半（half_off）+现价 +2% 贴发行价（near_launch）+热度/活跃度双 high=第二层核心规则「价格跌到很低+活跃度没有丧失→中等」全命中 neutral 0.85；与吉祥 S071/BPA-007/BPA-024 分歧族同判=判别一致性样本（本票 maxChg5 线内无争议）。附：触发臂=v1-t5 急砸臂（recentBlockDropPct≥12）=t5 删臂前生产触发实录（T119 v3 已删）；mcapPeak 7.29<15=v1→v3 覆盖面差异实例（小峰值票急跌点 v3 无腿可触）；t6 07:32:56 先触发被 bp_gate_insufficient_ticks 拒（锚 1 旧代码期）21s 后 t5 接棒；cheat healthy；结局 39s 卖出 -0.000009 基本打平（+1min 曾 +8.6%）"
-  },
-  {
-   "anchorId": "BPA-033",
-   "kind": "set",
-   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
-   "tokenName": "无税人生",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T029",
-    "legId": null,
-    "legName": "v1-t1（t6 旧门拒后接棒）",
-    "triggeredAt": "2026-11-05T07:53:21Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.67,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T02-49-20-787Z",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #21 用户认同 neutral（并追问「信号发晚了、有没有更早点位」）。182 逐 tick 重放结论：t6 07:53:00 第 1 笔即触发（价 4.483e-9、mcap 4.48≤7.5 盲买臂）=真正更早点位，被 bp_gate_insufficient_ticks 拒（锚 1 旧代码期，BP9 放行例外 11:31 UTC 后同形状会放行）；t1 无延迟——三键首齐 tradeCount≥8@07:53:16/buyVolume≥0.75@07:53:20 压线/**holdersExDust≥6@07:53:21 最慢键**（等第 6 个非尘持有者），发射 21.99=首齐+debounce 即时；「晚」=人气确认键的设计代价非链路延迟（成交 6.892e-9 vs 开盘 4.483e-9=+53.7%）。结局短长窗分裂：+1min 末 -30.6%（65s 卖在坑底 -0.000351=卖腿节奏问题）但 +5min 峰 +65.5%/+15min 峰 +213.8（V 反大行情）——买点在 5-15min 维度是对的。cheat healthy；v3 峰门 15 后 mcap 4.48 小峰值票第一笔入场窗口实际关闭（与 BPA-032 覆盖面差异同向）"
-  },
-  {
-   "anchorId": "BPA-034",
-   "kind": "set",
-   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
-   "tokenName": "无税人生",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T030",
-    "legId": null,
-    "legName": "v1-t2（T029 卖出后 86s 接棒再买）",
-    "triggeredAt": "2026-11-05T07:54:49Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.8,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T02-49-20-787Z",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #21 用户认同 poor。连环买第二笔形状：86s 后价 +13%（7.8e-9）、锚 53 笔、price low+tree top+fast_up 双 poor（早鸟 0.79/追高 0.80）=BP15 拦截逻辑自洽的「拦盈利点」第三例（T020/T027 后）——但盘面 +5min 峰 +177.3/末 +132.8、119s 持有实盈 +0.000396。与 T029 对照：判档随窗涨幅 neutral→poor 递进（位置更高判更严）而结局反着走=连环买第二笔「追高忌讳」本票失效。生产 BP2 good 0.49 放行吃到盈利；后段 t3/t5 再买均被 BP2 拒（poor 0.46/0.82）。cheat healthy 四轮复用"
-  },
-  {
-   "anchorId": "BPA-035",
-   "kind": "set",
-   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
-   "tokenName": "无税人生",
-   "locator": {
-    "set": "bp-t029-signals",
-    "pointId": "T029-S1",
-    "legId": "buy_5_6",
-    "legName": "v1-t6（信号触发点组 6 点）",
-    "triggeredAt": "2026-11-05T07:53:00Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 1,
-    "rule": "activity_gate",
-    "run": "bp-t029-signals 六点真调（2026-11-06T03:20Z）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "T029 无税人生 6 信号触发点位 BP15 评级组（锚=各触发时刻 tickNo 截窗，效果视角复审）用户整体认可「没问题」。全组：t6#1 poor 1.00 activity_gate｜t1#13 neutral 0.79 any_neutral（早鸟 fast_up+near_launch 救臂）｜t2#51 poor 0.79（早鸟 价已 low+）｜t3#125 poor 0.87（早鸟+追高双）｜t4#133 poor 0.84｜t5#275 poor 0.77（回调 shallow 未跌到位）。**核心发现（t6）**：BP15 下第一笔触发=activity_gate poor 1.00（锚 1 笔 0.010 BNB market:low+activity:low）——**BP9 insufficient_ticks 放行救不了极早点**：放行后进 BP 评估，首笔锚必然活跃度低→活跃度门照样拒，第一笔入场在现行判定形态下结构性死路（旧代码期 insufficient_ticks 拒→BP9 后 activity_gate 拒，结果都是不买）；而 t6 恰是全场最佳点位（+15min 峰 +377.7% vs t1 成交价）。效果侧：t2/t3/t4 三点 +5min 峰 +98~177% 全判 poor=「拦盈利点」池再添三例；t5 拒对（+298% 高位阴跌 +15min -69.2%）。t1/t2 评级与 53 点成交锚重跑高度一致（0.79/0.67、0.79/0.80）=触发锚↔成交锚差 4s 评级稳。t6 形状与 BP12 ZELDA 案（活跃度门误放）=活跃度门两个方向失分素材，攒批观察"
-  },
-  {
-   "anchorId": "BPA-036",
-   "kind": "set",
-   "tokenAddress": "0x490da05a44bd886391d48f6cbfb1d7bbc7584444",
-   "tokenName": "FIGHT",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T031",
-    "legId": null,
-    "legName": "v1-t1（t6 旧门拒后接棒）",
-    "triggeredAt": "2026-11-05T07:55:43Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.6,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T03-26Z 定向",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #22 用户裁定原话「这个点位没有理由拒掉，接受评级」——认同 neutral：volatile+market/activity 双 high+price low 盘面信息集内**无拦截依据**，-40% 山顶结局（+1min 峰仅 -0.7%=买入即顶、88s 卖 -0.000402）属事后信息不构成改判。**显式不进「不该放放了」池**：与 T022/T025 分界=那两例用户认为有拒的理由（贴 ATH 顶/纯买无卖形状），本例盘面干净无拒点。BP13/BP15 双版 stable neutral（0.67/0.60）。附：t5 #44（vs 首笔 -2.9% 崩盘位）BP2 poor 0.93 拒对（此后断流零 tick）；t6 #3 被旧门拒但前向末值亦负（+15min 末 -21.5%）非错过好点；生产 BP2 good 0.65 放行与 BP15 同向。cheat healthy（D3.62）"
-  },
-  {
-   "anchorId": "BPA-037",
-   "kind": "set",
-   "tokenAddress": "0x6af6cd7f35c1c1aa2392956938019a57c633ffff",
-   "tokenName": "FFFF",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T032",
-    "legId": null,
-    "legName": "v1-t5（t6 首笔旧门拒后 20s 接棒）",
-    "triggeredAt": "2026-11-05T08:04:32Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.64,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T03-29Z 定向",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #23 用户认同 poor（原话「认同当前的结果」）。**BP2→BP15 换代改善实例**：生产 BP2 good 0.49 放行吃到 -20.5%（+1min 峰仅 +0.92% 买在顶、+15min -33.8%），BP15 早鸟 poor 0.64 会拦——近 60s 买 1.924/卖 0.823（43% 卖压）+price fast_up=拉高出货形状，near_launch 救臂没救成，拦得有据。附：t6 #1/45 首笔盲买触发（v1 无峰门，mcap 4.5≤7.5 即 fire）被旧门 insufficient_ticks 拒、前向末 -17.6% 非好点；cheat healthy。本卡同轮用户裁定复审卡展示口径改以当前 BP15 评级为主体、生产运行门链弱化（memory 留档）"
-  },
-  {
-   "anchorId": "BPA-038",
-   "kind": "set",
-   "tokenAddress": "0x8a50ac7b044531ffec9074dede5f240d3c344444",
-   "tokenName": "奶蛙",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T033",
-    "legId": null,
-    "legName": "v1-t5（急砸臂；t6 首触发旧门拒后 12s 接棒）",
-    "triggeredAt": "2026-11-05T08:05:58Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.72,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T03-46Z 定向",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #33 用户认同 poor（原话「好，接受结果」）。快闪票全场仅 26 ticks：开盘 30s 急拉 +38% 后急砸，t5 成交点（tick15、vs 首笔 +31.1%、现/ATH -28%）=S021/S071「maxChg5 过线+near_launch+浅回调」接受现状形状（BP11/BP12 两度终裁）第三命中——拒单来自回调题本身（活跃度/筹码门未拦：market:high+activity:high、famous:none、holder:moderate）。前向三窗峰 +0.4%、+15min 末 -16.5%、episode -25.7% 判对。换代改善三连留档：v1 生产 t5 急砸臂成交吃到 -25.7%；v3 删 t5；t6 tick3 盲触发（开盘 0.5s、BPA-035 同款首笔形状）v4 双流动性门在触发层拦掉。t6#1 前向 +38.4% 峰=快闪瞬时峰（1min 末 -16.7%）非拦盈利点；D 臂峰门 15 对 60s 买量 1.6 BNB 小票覆盖不到（设计内）"
-  },
-  {
-   "anchorId": "BPA-039",
-   "kind": "set",
-   "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
-   "tokenName": "無為",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T034",
-    "legId": null,
-    "legName": "v1-t1（t6 首触发旧门拒后 8s 接棒）",
-    "triggeredAt": "2026-11-05T08:11:58Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.85,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T03-52Z 定向",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #34 两轮裁定：①「4/266 给 good，但是也先不针对性的改进了」（S1 翻案另立 BPA-040）②「無為的 14/266 是中等，其它都可以给 poor」——**本锚 S2（成交点）expect 修订 poor→neutral（人工 vs 模型分歧锚）**：11 秒 +119% 早鸟急拉点（price:fast_up+low+near_high）机器判 poor 0.84（暴涨忌讳，near_launch 救臂不适用），用户裁定 neutral——episode +66.8% 实盈全场最佳（+1min 峰 +97.2%、+15min 末 -53.1% 刀口）构成放行背书。**「拦盈利点」池头号素材**（BP15 会拦掉这笔最大实盈）。六点全景收口：S3/S4/S5/S6 poor 0.84/0.79/0.73/0.99 认同（贴顶段 +200~230% vsFirst 前向全 -70%）；**S6（tick138）=BP14 筹码门立法后首次实战级命中**（famous:dominant → chip_gate poor 0.99，拉高出货控盘形状）。改进暂缓攒批（用户裁定原话「先不针对性的改进了」）——候选方向：早鸟第一分支「价格低救」扩 low 桶或极早时间窗豁免"
-  },
-  {
-   "anchorId": "BPA-040",
-   "kind": "set",
-   "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
-   "tokenName": "無為",
-   "locator": {
-    "set": "bp-t034-signals",
-    "pointId": "T034-S1",
-    "legId": null,
-    "legName": "v1-t6 首触发（tick4，开盘 1 秒）",
-    "triggeredAt": "2026-11-05T08:11:50Z"
-   },
-   "expect": {
-    "bucket": "good"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.45,
-    "rule": "activity_gate",
-    "run": "bp-run-2026-11-06T04-00Z 定向",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #34 人工翻案锚：用户裁定原话「4/266 给 good，但是也先不针对性的改进了」——极早启动点（tick4、近 60s 买 0.974/卖 0 纯买、fast_up+near_launch、现/ATH 0% 爬峰中）应给 good；机器 activity_gate 拦（4 ticks market:low）。前向 +1min 峰 +190.5%/末 +55.6%、+15min 末 -30.9%。**与 BPA-035（无税人生 t6#1 tick1 拦对）构成活跃度门极早窗双向张力对**：分界素材=极早窗内买盘量级（0.974 BNB 真实买盘 vs 首笔微量）而非 tick 数；market:low 一刀切两形状都拦。附注：t6 v4 双流动性门下本点亦不触发（buyVolumeBnb 0.974<1.5）——v4 阈值 1.5/0.3 待票池分布校准素材。用户裁定暂不针对性改进=攒批，未来活跃度门极早窗臂校准首选证据"
-  },
-  {
-   "anchorId": "BPA-041",
-   "kind": "set",
-   "tokenAddress": "0x68690152aaa5729f9f3145d0a910d738eb2d4444",
-   "tokenName": "Sun",
-   "locator": {
-    "set": "bp-t035-signals",
-    "pointId": "T035-S3",
-    "legId": null,
-    "legName": "v1-t2（成交点 T035 本体，tick22/39）",
-    "triggeredAt": "2026-11-05T08:15:47Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.52,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-09Z 三跑 stable（0.62/0.69/0.52）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #35 人工翻案锚：用户裁定原话「最后的 22/39 为 poor，**回调没有到位**」——vs 首笔 +47% 后现/ATH -15.9% 浅回撤段，BP15 回调题第二层核心规则给 neutral（near_launch+活跃）三次 stable，用户裁定 shallow_pullback 浅回撤**不算「跌到很低」**→应走第三层忌讳②「没跌到位」拒。**回调题双向校准组新成员**：S021/S071（Jev 稳定 poor 用户接受现状）+本例（Jev 误放 neutral）→ 用户口径=浅回撤一律 poor、核心规则「跌到很低」门槛应更高（足额回撤）；暂不改题集攒批。episode +34.8% 实盈=卖点在窗外 V 反（fwd 窗内全负 -43%），盈利归卖腿非买点"
-  },
-  {
-   "anchorId": "BPA-042",
-   "kind": "set",
-   "tokenAddress": "0x68690152aaa5729f9f9f3145d0a910d738eb2d4444",
-   "tokenName": "Sun",
-   "locator": {
-    "set": "bp-t035-signals",
-    "pointId": "T035-S1",
-    "legId": null,
-    "legName": "v1-t6 首触发（tick2/39）+ v1-t1（tick11/39）组锚",
-    "triggeredAt": "2026-11-05T08:15:17Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.72,
-    "rule": "activity_gate",
-    "run": "bp-run-2026-11-06T04-09Z 定向（S1）；S2=neutral 0.54 any_neutral 一致",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #35 用户裁定原话「Sun 前两个是**至少中等**」——S1（t6@tick2，开盘 0.6 秒，近 60s 买盘真实）机器 activity_gate 拦（market:low 仅 2 ticks）；S2（t1@tick11，+22.3% 拉涨段）机器 neutral 0.54 一致。**极早窗活跃度门分界素材第三例**：无税人生 tick1（拦对 poor）/無為 tick4（good）/Sun tick2（neutral+）——用户判读极早点看买盘质量而非 tick 数，market:low 一刀切三形状全拦；S2 前向 +35.5% 峰被 cheat_gate_unhealthy 拒=CD 池素材（刀口 +1min 末 -35.3%）。「至少中等」=neutral 下限语义，good 亦可"
-  },
-  {
-   "anchorId": "BPA-043",
-   "kind": "set",
-   "tokenAddress": "0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444",
-   "tokenName": "疯狂星期四",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T036",
-    "legId": null,
-    "legName": "v1-t1（t6 首触发旧门拒后 14s 接棒，tick12/70）",
-    "triggeredAt": "2026-11-05T08:16:30Z"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.82,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T03-54Z 全量",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #36 用户正式裁定三点「第一 good，第二中等，第三 poor」——本锚=第二点（t1@tick12 成交点）expect=neutral 认同。开盘 16s +45% 急拉段（volatile+near_high+near_launch）机器早鸟暴涨忌讳 poor 0.82，用户裁定 neutral；episode +34.8% 实盈（与 Sun/無為 同族「刀口买点+快卖腿」）。「拦盈利点」池第二枚（+27.3% 峰/-43.4% 末）。第一点 good 另立 BPA-045、第三点 poor 补慢跌判读见 BPA-044"
-  },
-  {
-   "anchorId": "BPA-044",
-   "kind": "set",
-   "tokenAddress": "0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444",
-   "tokenName": "疯狂星期四",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T037",
-    "legId": null,
-    "legName": "v1-t5（tick59/70，+45% 峰后 44s 砸回 +2.8% 近首笔价）",
-    "triggeredAt": "2026-11-05T08:17:14Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.79,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T03-54Z 全量",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #37 用户裁定 poor + **跌速判读立法素材**（原话「慢跌到底不能买，注意我认为它是慢跌，不是快跌，快跌反而可以买」）：tick12→tick59 共 47 ticks/44s 连续阴跌回近首笔价，机器 price_trend 判 fast_down（短窗动量口径）与用户「慢跌」（全程形状口径）**相反**——用户语义=快跌急砸深坑可承接（反而可买）、慢跌阴跌到底（持续派发无承接、奔零形状）拒。回调题忌讳③奔零同向；t5（recentBlockDropPct 块窗快跌检测）在本票慢跌形状上误触发=快跌检测器误报实例，v3 删 t5 与用户语义一致。episode -4.6% 小亏/前向基本平（+1min 峰 +3.8%、+15min 末 -0.7%）拒了无损失。与 BPA-041「回调没到位」构成回调题两向对照：浅回撤（BPA-041）拒、慢跌到底（本锚）拒——「跌到位」要求=足额回撤+快跌形状，校准组"
-  },
-  {
-   "anchorId": "BPA-045",
-   "kind": "signal",
-   "tokenAddress": "0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444",
-   "tokenName": "疯狂星期四",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades-signals#mark",
-    "pointId": null,
-    "legId": "buy_5_6",
-    "legName": "v1-t6 首触发（tick3/70，vsFirst +10.1%）",
-    "triggeredAt": "2026-11-05T08:16:17Z"
-   },
-   "expect": {
-    "bucket": "good"
-   },
-   "model": {
-    "bucket": null,
-    "prob": null,
-    "rule": "bp_gate_insufficient_ticks（v73 时点门内拒未评；BP9 放行后同形状锚窗 3<8 仍不烧 Jev）",
-    "run": "v73 生产轨迹",
-    "questionVersion": "BP12（生产）"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #36 用户裁定三点之「第一 good」：t6 首触发开盘 1.5s/tick3（vsFirst +10.1%）被 bp_gate_insufficient_ticks 拒（BP9 放行裁定部署前口径），前向 +67.7% 峰/60s 末 -24.9%——拒错方向错失最大涨幅段。**极早窗张力组第四例**：无税人生 tick1（拦对 poor）/無為 tick4（good BPA-040）/Sun tick2（neutral+ BPA-042）/本例 tick3（good）——用户口径极早窗逐例判买盘质量，门侧 insufficient/低活跃一刀切四例全拦（三错一对）。v4 t6 双流动性门（buyVolumeBnb≥1.5+actBuyBnb≥0.3）tick3 处 buyVolume 未必到 1.5——v4 是否接得住本形状=下轮阶梯复审观察点。「拦盈利点」池第三枚"
-  },
-  {
-   "anchorId": "BPA-046",
-   "kind": "set",
-   "tokenAddress": "0x3816a4abb3ea7ba613359e9ae54603aa06c14444",
-   "tokenName": "我画地为牢",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T038",
-    "legId": null,
-    "legName": "v1-t1（tick13/79，开盘 20s +38.8% 拉涨段成交点）",
-    "triggeredAt": "2026-11-05T08:17:34Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.64,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.65 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #38 人工翻案锚：用户裁定原话「T038 也是 poor，**作弊痕迹重但是没拦住**，之后再调整吧」——开盘 20s 拉涨段（fast_up+near_launch、maxChg5 29.5% 未过暴涨线）机器早鸟题 neutral 0.64 放行方向，用户判读**作弊痕迹重**应拒。**BP 题面作弊形状盲区素材**：八维 famous:none(1.0)/holder:weak(0.68)=筹码门未命中（BP14 门只覆盖 famous 控盘/筹码垄断，价格对倒拉升形状与链上行为痕迹无对应轴）；生产 v73 当时 cheat 门 healthy 放行+BP12 放行→买入（episode +5.5% 微盈、fwd 60s 末 -17%/15min 末 -37%）——「该拦没拦」方向，与「拦盈利点」池互为镜像。改进暂缓攒批（原话「之后再调整吧」）：候选=BP 题面加作弊形状轴 vs CD 侧复审生产 healthy 是否漏判（分工上盘面作弊归 CD）"
-  },
-  {
-   "anchorId": "BPA-047",
-   "kind": "set",
-   "tokenAddress": "0x3816a4abb3ea7ba613359e9ae54603aa06c14444",
-   "tokenName": "我画地为牢",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T039",
-    "legId": null,
-    "legName": "v1-t2（tick50/79，+56.6% 贴顶横盘段成交点）",
-    "triggeredAt": "2026-11-05T08:18:21Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.87,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.88 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #39 认同 poor（用户「T038 **也是** poor」隐含 T039 先已 poor）：贴顶追高点三题全 poor（早鸟 0.77/回调 0.56/追高 0.87）——+56.6% 横盘段、maxChg5Pct 59.1%（5 秒段急拉）、vs 首摆低 +56.5% 高位、树=left_side(0.36) 首树左侧爬坡贴高；fwd 60s 峰 -8.1% **买入即跌无反弹**、15min 末 -35.4%；episode -9.3% 小亏——拒对了。同票 t6@tick1 insufficient_ticks 拒掉 +56% 峰（极早窗张力组第五例候选，用户未单独裁定暂不落锚）"
-  },
-  {
-   "anchorId": "BPA-048",
-   "kind": "set",
-   "tokenAddress": "0x30ca7a42a78cd56c1f9f112fb0e31b5165c54444",
-   "tokenName": "中囯人能飞",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T040",
-    "legId": null,
-    "legName": "v1-t5（tick12/16，vsFirst -15.4% 砸回段成交点）",
-    "triggeredAt": "2026-11-05T08:26:33Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.84,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-26Z 现场定向（与 03:54Z 全量 0.82 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #40 人工翻案锚（用户裁定「好，给 poor 吧」认同建议）：回调题第二层核心规则误放方向**校准组第三例**（Sun S3=BPA-041 之后）——shallow_pullback 浅回撤 -23% 未跌到位+near_launch+活跃度未失，机器给 neutral 0.84；用户口径=浅回撤不算「跌到很低」应走忌讳②拒。盘面同向证据：tree=right_side 右侧下坡未止（同 T037 判读）、16 ticks 全程阴跌死盘、fwd 60s 峰 -3.0% 买入即跌（仅 2 ticks 近断流）、15min 末 -6.4%；episode -4.9% 小亏。校准组现状：Sun S3（-15.9%）/T040（-23%）两例机器均 neutral、用户均 poor——回调题「跌到很低」门槛需足额回撤（半价级）的语义修正候选，攒批"
-  },
-  {
-   "anchorId": "BPA-049",
-   "kind": "set",
-   "tokenAddress": "0x57cd898802d54f93140513bc420b8e37ee614444",
-   "tokenName": "作茧自缚",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T041",
-    "legId": null,
-    "legName": "v1-t5（tick15/294，开盘 24s 贴首笔价 vsFirst +0.5% 成交点）",
-    "triggeredAt": "2026-11-05T08:32:13Z"
-   },
-   "expect": {
-    "bucket": "good"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.5,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.54 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #41 用户裁定 good（「认同」建议）：**回调题「跌到很低+活跃没丧失」正例锚**——vsFirst +0.5%=真贴发行价（vs BPA-041/048 的 vs ATH 浅回撤假低位）、activity:ultra+近 60s 净买 +0.604、fwd 60s 峰 +90.8%/末 +75.2%（170 ticks 热络）、episode +23.5% 实盈全场第二——位置与活跃双真，回调题核心规则该给高档的场景机器只给 neutral 0.50（放行方向不亏错失但档位偏低）。**回调题校准组判别锚**：同 shallow_pullback 桶下「vs 首笔≈0 贴发行价+ultra 活跃」（本例 good）vs「vs ATH 浅回撤+阴跌断流」（BPA-041/048 poor）——「跌到很低」基准应锚 vsFirst/发行价而非 vs ATH。同票 t6@tick1 insufficient_ticks 拒掉 +98.8% 峰（全 tick 最高，极早窗张力组又一强素材，用户未单独裁定暂不落锚）"
-  },
-  {
-   "anchorId": "BPA-050",
-   "kind": "set",
-   "tokenAddress": "0x57cd898802d54f93140513bc420b8e37ee614444",
-   "tokenName": "作茧自缚",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T042",
-    "legId": null,
-    "legName": "v1-t1（tick96/294，+85.2% 贴顶横盘段成交点）",
-    "triggeredAt": "2026-11-05T08:32:29Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.82,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.78 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #42 认同 poor（用户「认同」）：贴顶追高点（早鸟 0.79+追高 0.82）——+85.2% 横盘段、fast_up+near_high+left_side、**famous:heavy 留痕**（跟单形状重，BP14 观察档不拦防误伤——与 2026-11-06 用户点名 famous 名单 0x94cf…2d01 判读方向呼应）；fwd 60s 峰 +2.2%/末 -30.0% 买入即跌、15min 末 -53.6%、episode -31.4% 实亏——拒对了（生产买入亏了）。同票后段 t2/t3/t4 三砸回触发全被 bp_gate_assessment 拒=门链后半段全拦对"
-  },
-  {
-   "anchorId": "BPA-051",
-   "kind": "set",
-   "tokenAddress": "0xc6abc6b66438e07fd1600c023ebfad0a09184444",
-   "tokenName": "TRENCHER",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T043",
-    "legId": null,
-    "legName": "v1-t1（tick16/33，+39.5% 急拉后浅回撤段成交点）",
-    "triggeredAt": "2026-11-05T08:32:56Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.74,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T04-31Z 现场定向（与 03:54Z 全量 0.69 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #43 认同 poor（用户「好，认同，下一票」）：急拉后浅回撤追入点（早鸟 0.74+回调 0.63 两题均拒）——fast_up+shallow_pullback -16.4%+near_launch，fwd 60s 峰 -1.4% 买入即跌/末 -27.0%、15min 末 -27.1%（14 ticks 断流死盘）、episode -28.7% 实亏。**同桶不同判对照**（回调题校准组注脚）：与 Sun S3（BPA-041）同为急拉浅回撤桶，本例机器两题均拒（正确）、Sun S3 机器误放 neutral——Jev 在 shallow_pullback 桶内判读方差实例，语义修正候选攒批。t6@tick3 被拒 +25.4% 峰 60s 末已 -23.5%（刀口回落拒了不亏，弱素材不入张力组）"
-  },
-  {
-   "anchorId": "BPA-052",
-   "kind": "set",
-   "tokenAddress": "0x98e18f33dfaad9272feaa960ac780af8c2e54444",
-   "tokenName": "傻福",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T044",
-    "legId": null,
-    "legName": "v1-t1（tick13/35，+28.4% 急拉浅回撤段成交点）",
-    "triggeredAt": "2026-11-05T08:33:35Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.69,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T04-33Z 现场定向（与 03:54Z 全量 0.71 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #44 认同 poor（用户「认同，下一票」）：与 TRENCHER（BPA-051）完全同族——+28.4% 急拉后 shallow_pullback -19.7% 浅回撤追入（volatile+near_launch），早鸟 0.69+回调 0.62 两题均拒；fwd 60s 峰 -2.3% 买入即跌/末 -26.4%、15min 末 -26.4%（16 ticks 断流死盘）、episode -36.1% 实亏（全场最大单笔亏损之一）。**BP15 会拦但生产 BP12 放行实亏**的换代改善实证（同 T043）；t6@tick3 拒 +34.3% 峰 60s 末 -20.4% 刀口拒了不亏"
-  },
-  {
-   "anchorId": "BPA-053",
-   "kind": "set",
-   "tokenAddress": "0x92a130f2dd01d2cc32bbd5d107ce6853bc427777",
-   "tokenName": "雪球SI",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T045",
-    "legId": null,
-    "legName": "v1-t3（tick32/238，+6% 贴价震荡段成交点，flap）",
-    "triggeredAt": "2026-11-05T08:33:36Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.71,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.76 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #45 人工翻案锚（用户裁定「雪球SI **都是** poor」）：+6% 贴价震荡段（volatile+shallow_pullback -22% vs ATH）机器回调题 neutral 0.71（净买 +1.68 正+60s 峰 +15.4%），用户裁 poor——**15min 末 -32.9% 全吐回**、episode +3.7% 微盈全靠快卖腿（BPA-039「拦盈利点」同族刀口形状：短窗正收益=卖腿功劳非买点质量）。**回调题校准组第四例**：与 BPA-049（作茧自缚 T041 good 正例）构成判别对——vsFirst 同为贴价（+0.5% vs +6%），分界=活跃度（ultra vs mid）与持续性（15min 末 -15% vs -33%）——回调题核心规则「活跃度没有丧失」的门槛用户口径显著高于 Jev 现判"
-  },
-  {
-   "anchorId": "BPA-054",
-   "kind": "set",
-   "tokenAddress": "0x92a130f2dd01d2cc32bbd5d107ce6853bc427777",
-   "tokenName": "雪球SI",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T046",
-    "legId": null,
-    "legName": "v1-t4（tick52/238，+19.6% 回落段成交点，flap）",
-    "triggeredAt": "2026-11-05T08:34:34Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.74,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.67 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #46 人工翻案锚（用户裁定「雪球SI 都是 poor」认同建议方向）：**slow_down 阴跌+shallow_pullback -24% 浅回撤没跌到位+近 60s 净买转负（-0.046）**——机器回调题 neutral 0.74=核心规则同一误放方向（校准组第五例）；fwd 60s 峰 +7.7% 后 15min 末 -31.1%、episode -36.8% 大亏（生产持有到慢跌砸出）=「慢跌到底不能买」（BPA-044）又一实证。校准组现况：Sun S3/中囯人能飞/T045/T046 四例机器全 neutral 用户全 poor，唯一正例 BPA-049——回调题语义修正（「跌到很低」=vsFirst 贴价级回撤+活跃门槛抬高）攒批素材已足，待用户启动立法"
-  },
-  {
-   "anchorId": "BPA-055",
-   "kind": "set",
-   "tokenAddress": "0xe3d049c65cbbda6bf4a168c77132dc0712b64444",
-   "tokenName": "作茧自缚（二）",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T047",
-    "legId": null,
-    "legName": "v1-t5（tick17/25，vsFirst -12.4% 跌破首笔阴跌段成交点）",
-    "triggeredAt": "2026-11-05T08:34:47Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.85,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-41Z 现场定向（与 03:54Z 全量 0.77 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #47 人工翻案锚（用户裁定「好 poor」）：**回调题校准组第六例**——fast_down+shallow_pullback -23.1% 浅回撤+tree right_side 阴跌未止+近 60s 净买近零（+0.025）+fwd 60s 仅 5 ticks 断流死盘，机器以「near_launch+活跃 mid」维持核心规则给 neutral 0.85，用户裁 poor。与作茧自缚（一）T041（BPA-049 good 正例）同币名成对：T041=ultra 活跃+净买 +0.6+贴价 vs 本例=mid 活跃+净买零+跌破首笔——**「活跃度没有丧失」门槛的用户真实口径显著高于 Jev 现判**（mid/近零净买/断流=已丧失）；episode -3.0% 微亏拒放皆可但口径入档"
-  },
-  {
-   "anchorId": "BPA-056",
-   "kind": "set",
-   "tokenAddress": "0x617590a52829d3165d5539344d9e570d6f4b7777",
-   "tokenName": "Lily",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T049",
-    "legId": null,
-    "legName": "v1-t5（tick15/26，vsFirst -12.1% 跌破首笔阴跌段成交点，flap）",
-    "triggeredAt": "2026-11-05T08:54:28Z"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.83,
-    "rule": "any_neutral",
-    "run": "bp-run-2026-11-06T04-48Z 现场定向（与 03:54Z 全量 0.80 桶级一致）",
-    "questionVersion": "BP15"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "v73 复审 #49 人工翻案锚（用户裁定「给 Poor」）+ **回调题「大户在场」立法启动锚**（原话「买入的时候，**完全没有大户在了，就只剩下几个小散户，这种情况不要抄**（改一下 prompt 吧）」）：fast_down+shallow_pullback -20.6%+right_side+activity:mid+60s 仅 4 ticks 断流死盘+买入即跌（fwd 60s 峰 -1.2%）、ep -9.2%——校准组第七例（同 T047 形状）。**用户点破校准组共同语义**：机器「活跃度没有丧失」只看笔数/密度，用户口径=**大户在场与否**——大户全部离场只剩小散户=活跃度实质丧失→不适用回调题核心规则（不给 neutral 走忌讳），当日立法改题面（BP16）"
-  },
-  {
-   "anchorId": "BPA-057",
-   "kind": "set",
-   "tokenAddress": "0xc0783ec50b216e364c290bb0b8606c3821c97777",
-   "tokenName": "突突车",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T050",
-    "legId": null,
-    "legName": null,
-    "triggeredAt": "2026-11-05T08:56:28.012+00:00"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.53,
-    "rule": "else_poor",
-    "run": "bp17-parity-2026-11-06T05-1xZ",
-    "questionVersion": "BP17"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "同名簇突突车之一（four.meme）：t5 成交腰斩阴跌（entry=half_off+slow_down+tree right_side）拦对——生产 BP13 放行亏 -11.2%、BP17 现场会拦=换代改进实证；t6 首 tick 拒掉 +49.5% 脉冲=极早窗张力组又一例（攒批不裁）"
-  },
-  {
-   "anchorId": "BPA-058",
-   "kind": "set",
-   "tokenAddress": "0x600c9299c12bdc7c8c7c082ae552491590e57777",
-   "tokenName": "FLAP 突突车",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T051",
-    "legId": null,
-    "legName": null,
-    "triggeredAt": "2026-11-05T08:56:58.195+00:00"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.76,
-    "rule": "else_poor",
-    "run": "bp17-parity-2026-11-06T05-1xZ",
-    "questionVersion": "BP17"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "cheat unhealthy→healthy 19 秒翻绿缝隙案：t5@08:56:35 拒 cheat_gate_unhealthy → t1@08:56:54 重判 healthy+BP 门过放行成交 → -23.78%（CD158 unhealthy 每信号重判设计内缝隙，留档 CD 侧素材）；贴高 volatile 三题全 poor，BP17 会拦"
-  },
-  {
-   "anchorId": "BPA-059",
-   "kind": "set",
-   "tokenAddress": "0x78cd05cf0d0b2a8022fdda8c97baad31f2c07777",
-   "tokenName": "突突车二",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T052",
-    "legId": null,
-    "legName": null,
-    "triggeredAt": "2026-11-05T08:58:17.35+00:00"
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.7,
-    "rule": "any_neutral",
-    "run": "bp17-parity-2026-11-06T05-1xZ",
-    "questionVersion": "BP17"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "正面案例：t1 成交（早鸟 neutral 放行）吃到 +5min 峰 +448.7/末 +317.5、ep+0.0007 实赚——门链放行与结局一致；七腿全接力形状（t1/t7 双成交、t2-t4 重复买腿拒=资金管理正确、t5 高位拦对）；t6 首 tick 拒 +604% 峰=极早窗张力组又一例"
-  },
-  {
-   "anchorId": "BPA-060",
-   "kind": "set",
-   "tokenAddress": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
-   "tokenName": "FlapGuy",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T053",
-    "legId": null,
-    "legName": null,
-    "triggeredAt": "2026-11-05T09:02:02.842+00:00"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.69,
-    "rule": "else_poor",
-    "run": "bp17-parity-2026-11-06T05-2xZ",
-    "questionVersion": "BP17"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "53 点收官票：t5 成交冲高回落小亏 -6.77%（回撤 -15.15）拦对方向；ep=open 余 149308 未平=53 点唯一未平仓票（v74 停机时状态待对账）；t6 首 tick 拒 +42.4% 峰=极早窗张力组又一例；t5+t1 双成交与 T052 同形"
-  },
-  {
-   "anchorId": "BPA-061",
-   "kind": "set",
-   "tokenAddress": "0x6862f5fd3d4efee4f9d452665d907f845827777",
-   "tokenName": "긴와",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T014",
-    "legId": null,
-    "legName": null,
-    "triggeredAt": "2026-11-05T06:08:10.230+00:00"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.84,
-    "rule": "any_neutral",
-    "run": "bp17-parity-2026-11-06T05-2xZ",
-    "questionVersion": "BP17"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "BP18 盘型门复核裁定改判：BP18 全量重抛 market_pattern=early_sniper_decay（盘型门拒→poor·pattern_gate），用户复核 token-ticks 页后裁定认同（「其它都没问题」——前列 0.199/0.060×2 购买力全集中最早数 slot 后衰竭=狙击衰竭形状成立）；原 BP17 期 expect=neutral 撤回（回调核心规则命中的中性点位评估被盘型背景否决——盘型先于点位质量）。原留痕：t5 成交贴价回调 −3.7% 冲高仅 +0.9% 末 −9.1% 微亏；t6@tick3 极早窗拒 +24.2% 峰张力组又一例"
-  },
-  {
-   "anchorId": "BPA-062",
-   "kind": "set",
-   "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
-   "tokenName": "白猪AI",
-   "locator": {
-    "set": "bp-2026-11-05-v73-trades",
-    "pointId": "BP-T015",
-    "legId": null,
-    "legName": null,
-    "triggeredAt": "2026-11-05T06:19:11.721+00:00"
-   },
-   "expect": {
-    "bucket": "poor"
-   },
-   "model": {
-    "bucket": "neutral",
-    "prob": 0.64,
-    "rule": "any_neutral",
-    "run": "bp17-parity-2026-11-06T05-2xZ",
-    "questionVersion": "BP17"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "悬案收官票②=T120 案本尊：t1 +53.9% 高位追入 1 分钟 −32% 末 −38.7% ep−0.0004=53 点最重不该放放了形状；机器早鸟救臂 neutral 0.64 vs 用户 poor 分歧票（救臂语义当初针对涨速快但累计小，非 +53.9% 追入）；high_chase insufficient（entry:near_high 未进追高场景）留档=追高题场景判别下一立项候选"
-  },
-  {
-   "anchorId": "BPA-063",
-   "kind": "signal",
-   "tokenAddress": "0x92aac04f03278ce7ac82ba0367dbaf9686437777",
-   "tokenName": "SB",
-   "locator": {
-    "set": "bp-2026-11-06-v73-signals",
-    "pointId": "BP-S005",
-    "legId": "P2",
-    "legName": "买入策略 P2",
-    "triggeredAt": "2026-11-05T05:10:01Z",
-    "anchorTickCount": 27
-   },
-   "expect": {
-    "bucket": "neutral"
-   },
-   "model": {
-    "bucket": "poor",
-    "prob": 0.76,
-    "rule": "else_poor",
-    "run": "bp-run-2026-11-06T07-39-09-662Z",
-    "questionVersion": "BP22"
-   },
-   "ruledAt": "2026-11-06",
-   "note": "用户裁定原话「S005 点位给中等吧，庄盘的回调下跌位（但是可以先不针对性的修改）」——strong_backer 庄盘的浅回调位（现/ATH -23.7%、档位 near_launch、热度 ultra、活跃 high、famous none）至少 neutral；机器回调题 poor(0.76) 忌讳层压死、同 token P1 早鸟 neutral 0.80 放行；先不改题面，庄盘回调豁免攒批（与 BP21 ①强庄盘最好类型同向）"
-  }
- ]
+  "version": 1,
+  "createdAt": "2026-11-06",
+  "case": "BP13",
+  "note": "BP 人工锚点集（案号 BP13 立）——用户对具体点位买入时机的人工裁定（expect.bucket ∈ good/neutral/poor），题集换代/全量重跑时对拍基准。锚不驱动代码：人工与模型的分歧锚（如 05:49:33 深回撤点）只留档不改模型，除非用户另裁。locator 两类：tick 锚=wss_price_ticks 主键 id + block_number/log_index 双保险（seqNo=token 链上真序第 N 笔）；ladder 锚=set 内 pointId（per token×leg v3 重放首触发点）。model 字段=认同时的模型快照（非人工裁定），expect 字段=人工裁定。",
+  "anchors": [
+    {
+      "anchorId": "BPA-001",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11146886,
+        "seqNo": 9,
+        "blockNumber": 131763513,
+        "logIndex": 124,
+        "blockTime": "2026-11-05T05:48:36Z",
+        "txPrefix": "0xf1fb842748",
+        "priceBnb": 7.330129758309663e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户裁定「ticks 9-14 全部为 neutral」——早鸟可买窗口人工划定（maxChg5 尚低、距发行价 +7% 段；第 16 笔起 +39% 以上段模型 poor 用户认同）"
+    },
+    {
+      "anchorId": "BPA-002",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11146887,
+        "seqNo": 10,
+        "blockNumber": 131763513,
+        "logIndex": 149,
+        "blockTime": "2026-11-05T05:48:36Z",
+        "txPrefix": "0xeb0b1ab5a4",
+        "priceBnb": 7.579137067115073e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
+    },
+    {
+      "anchorId": "BPA-003",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11146888,
+        "seqNo": 11,
+        "blockNumber": 131763513,
+        "logIndex": 505,
+        "blockTime": "2026-11-05T05:48:36Z",
+        "txPrefix": "0xb024064a18",
+        "priceBnb": 7.847428908446217e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
+    },
+    {
+      "anchorId": "BPA-004",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11146889,
+        "seqNo": 12,
+        "blockNumber": 131763514,
+        "logIndex": 101,
+        "blockTime": "2026-11-05T05:48:36Z",
+        "txPrefix": "0x7a39c9bf03",
+        "priceBnb": 8.031293453000675e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
+    },
+    {
+      "anchorId": "BPA-005",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11146890,
+        "seqNo": 13,
+        "blockNumber": 131763514,
+        "logIndex": 185,
+        "blockTime": "2026-11-05T05:48:36Z",
+        "txPrefix": "0xae4a5c2b68",
+        "priceBnb": 8.321664244640725e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
+    },
+    {
+      "anchorId": "BPA-006",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11146891,
+        "seqNo": 14,
+        "blockNumber": 131763514,
+        "logIndex": 294,
+        "blockTime": "2026-11-05T05:48:36Z",
+        "txPrefix": "0x3e46957cf7",
+        "priceBnb": 8.569345076296726e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同 BPA-001 裁定（ticks 9-14 全 neutral）"
+    },
+    {
+      "anchorId": "BPA-007",
+      "kind": "tick",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "tickId": 11147037,
+        "seqNo": null,
+        "blockNumber": 131763639,
+        "logIndex": 15,
+        "blockTime": "2026-11-05T05:49:33Z",
+        "txPrefix": "0x2d3e3b0fd5",
+        "priceBnb": 9.370517807575567e-9
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户裁定「13:49:33 的 ticks 也加入，也是 neutral」（北京 13:49:33=UTC 05:49:33 首波深回撤 V 反点，距峰约 -31.7%）。⚠分歧锚：BP12 真跑首波 W25/W30=poor 0.67（前向 +267%/+290%）、接受现状终裁维持——人工 neutral vs 模型 poor 分歧留档不改模型"
+    },
+    {
+      "anchorId": "BPA-008",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L034",
+        "legId": "t1",
+        "legName": "t1",
+        "triggeredAt": "2026-11-05T05:48:33Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.49,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同重析结果；生产 t1 发射点（05:48:36）当时 BP12 判 poor 0.55 拒——时刻差 3s 跨过价格低救窗（29s maxChg5=9.7 → 33s 89.8）非题集漂移"
+    },
+    {
+      "anchorId": "BPA-009",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L035",
+        "legId": "t2",
+        "legName": "t2",
+        "triggeredAt": "2026-11-05T05:48:37Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.79,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同；与生产 t2（05:48:43 poor 0.63 拒）同向"
+    },
+    {
+      "anchorId": "BPA-010",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L036",
+        "legId": "t3",
+        "legName": "t3",
+        "triggeredAt": "2026-11-05T05:48:37Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.78,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同；与生产 t3（05:48:47 poor 0.53 拒）同向"
+    },
+    {
+      "anchorId": "BPA-011",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L037",
+        "legId": "t4",
+        "legName": "t4",
+        "triggeredAt": "2026-11-05T05:48:37Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.79,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同；生产 t4 发射点（05:48:54）BP12 判 neutral 0.42 买入（#8 复审实买笔）——17s 时刻差+题集换代叠加下重析更严（反向漂移点）"
+    },
+    {
+      "anchorId": "BPA-012",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L038",
+        "legId": "t5",
+        "legName": "N30",
+        "triggeredAt": "2026-11-05T05:48:41Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.8,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿生产无判定；用户认同重析 poor"
+    },
+    {
+      "anchorId": "BPA-013",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L039",
+        "legId": "t6",
+        "legName": "N36",
+        "triggeredAt": "2026-11-05T05:48:44Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.82,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿生产无判定；用户认同重析 poor"
+    },
+    {
+      "anchorId": "BPA-014",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L040",
+        "legId": "t7",
+        "legName": "N45",
+        "triggeredAt": "2026-11-05T05:48:47Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.84,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿生产无判定；用户认同重析 poor"
+    },
+    {
+      "anchorId": "BPA-015",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L041",
+        "legId": "t9",
+        "legName": "D25",
+        "triggeredAt": "2026-11-05T05:55:24Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.96,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿；D 臂在急拉票回撤段前向 -31.8% 拦对（用户认同）"
+    },
+    {
+      "anchorId": "BPA-016",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L042",
+        "legId": "t10",
+        "legName": "D30",
+        "triggeredAt": "2026-11-05T05:55:24Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.97,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿；前向 -31.8% 拦对（用户认同）"
+    },
+    {
+      "anchorId": "BPA-017",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L043",
+        "legId": "t11",
+        "legName": "D35",
+        "triggeredAt": "2026-11-05T05:55:24Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.97,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿；前向 -31.8% 拦对（用户认同）"
+    },
+    {
+      "anchorId": "BPA-018",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L044",
+        "legId": "t12",
+        "legName": "D45",
+        "triggeredAt": "2026-11-05T05:56:07Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.96,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿；前向 -15.5% 拦对（用户认同）"
+    },
+    {
+      "anchorId": "BPA-019",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L045",
+        "legId": "t13",
+        "legName": "D55",
+        "triggeredAt": "2026-11-05T05:57:09Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.95,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 新腿；前向 -12.9% 拦对（用户认同）"
+    },
+    {
+      "anchorId": "BPA-020",
+      "kind": "ladder",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L046",
+        "legId": "t8",
+        "legName": "t6峰门",
+        "triggeredAt": "2026-11-05T05:58:58Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.94,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v3 峰门版重放点（生产 v1 t6=低市值盲买腿另一形状 insufficient_ticks 拒）；前向 +24.4% 拒掉=接受现状设计内代价（用户认同）"
+    },
+    {
+      "anchorId": "BPA-021",
+      "kind": "ladder",
+      "tokenAddress": "0x3ca2a09d2ac2155f46f0df2b4583936fd92e7777",
+      "tokenName": "ZELDA",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L047",
+        "legId": "t1",
+        "legName": "t1",
+        "triggeredAt": "2026-11-05T05:56:25Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.79,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同；生产 t1 发射点（05:56:59）BP12 判 good 0.72 买入（复审「放行好了」那笔）——34s 时刻差+换代下 good→neutral，仍放行档"
+    },
+    {
+      "anchorId": "BPA-022",
+      "kind": "ladder",
+      "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
+      "tokenName": "白猪AI",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L048",
+        "legId": "t1",
+        "legName": "t1",
+        "triggeredAt": "2026-11-05T06:19:06Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.75,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同；生产 t1 发射点（06:19:08）good 0.66 买入实亏 -40.2%（T120 案票）——BP13 题面重析仍 neutral=拦不住该形状，「该拦没拦」攒批案素材"
+    },
+    {
+      "anchorId": "BPA-023",
+      "kind": "ladder",
+      "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
+      "tokenName": "白猪AI",
+      "locator": {
+        "set": "bp-2026-11-06-v73-ladder",
+        "pointId": "BP-L049",
+        "legId": "t2",
+        "legName": "t2",
+        "triggeredAt": "2026-11-05T06:19:20Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.44,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T00-11-05-827Z",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同；生产无 t2 信号行（未发射——距 t1 发射仅 +3 笔与 T120 tick 门拦截形状一致，被拦不落行无从留痕）；前向 -33.2%"
+    },
+    {
+      "anchorId": "BPA-024",
+      "kind": "set",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T016",
+        "legId": null,
+        "legName": "v1-t7 跌底放量（生产发射）",
+        "triggeredAt": "2026-11-05T06:33:22Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.94,
+        "rule": "else_poor",
+        "run": "bp-run 2026-11-06T00:31",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #12 用户裁定「neutral 可以」。⚠分歧锚②：模型回调忌讳①崩塌第一腿（maxChg5=89.75 全史恒含）poor 0.94 vs 实际第二波主升 +193%（06:36:03 峰 3.24e-8，3 分钟）——长间隔失效反例（暴涨段在 45min 前）；t7 quiet 臂命中=signalGate 设计猎物被 BP 门拦。与 BPA-007 同族；生产 BP12 neutral 0.35 放行买入是对的（15s 卖腿离场错过 3 倍=卖侧另案）"
+    },
+    {
+      "anchorId": "BPA-025",
+      "kind": "set",
+      "tokenAddress": "0x75d5286d3ac478334fe098f015624486d7a77777",
+      "tokenName": "BEM Miner",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T018",
+        "legId": null,
+        "legName": "v1-t6 低市值盲买（生产发射）",
+        "triggeredAt": "2026-11-05T07:03:39Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.8,
+        "rule": "else_poor",
+        "run": "bp-run 2026-11-06T07:30",
+        "questionVersion": "BP13"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同 poor。「该拦没拦」方向质量题实证：生产 BP12 good 0.53 放行→出生 5s 买入→15s 闪崩 -33.4%（07:03:44 成交 6.57e-9→07:03:59 卖 4.38e-9）；BP13 早鸟暴涨忌讳 poor 0.80 拦对（25 ticks/age 5s/近 60s 买 1.710 BNB/贴 ATH -0.4%，market+activity 双 ultra 仍 poor=热度不救位置）。t6 v1 盲买腿出生触发 v3 峰门已根治；cheat insufficient_ticks（锚 7<8）fail-open 免检。用户同案提出新层面（famous 控盘+holders 不小但 top 集中）=CD 筹码锚迁移 BP 候选议题"
+    },
+    {
+      "anchorId": "BPA-026",
+      "kind": "set",
+      "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+      "tokenName": "谷谷",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T020",
+        "legId": null,
+        "legName": "v1-t6 低市值盲买（生产发射）",
+        "triggeredAt": "2026-11-05T07:06:16Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.77,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T01-32",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #16 + BP15 立法案锚。用户裁定原话「这个是 good/中等也行，但是 poor 不行」+「极早期有大户在场没有问题，价格临近发布价豁免持有者不均衡」。开盘 3s 8 实质持有者抢筹前二 56.5%+同块簇 78%（BP14 判 strong→chip_gate 拦）但涨幅 +25% 贴发行价=豁免锚生效（holder→moderate、早鸟 neutral 0.77 聚合放行）；前向 +5min 峰 +114%=chip_gate 首个「拦掉盈利点」样本催生 BP15。dust 核查：9 持有者=8 实质+1 尘埃（0.001 BNB），剔后区间不变=豁免锚而非剔尘计数救回。生产实买 +0.000473（50s 持有）"
+    },
+    {
+      "anchorId": "BPA-027",
+      "kind": "set",
+      "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+      "tokenName": "谷谷",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T021",
+        "legId": null,
+        "legName": "v1-t1（生产发射·接棒）",
+        "triggeredAt": "2026-11-05T07:07:16Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.64,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T01-15",
+        "questionVersion": "BP14"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #16 用户认同 poor（「其它 poor 都认同」）。63s 龄 chg60 +53% 追高二买：pullback poor 0.64+high_chase poor 0.61 双 poor（质量题自拦无门参与）；前向 +5min 末 -16%。生产实买 +0.000154（146s 持有）"
+    },
+    {
+      "anchorId": "BPA-028",
+      "kind": "set",
+      "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+      "tokenName": "谷谷",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T024",
+        "legId": null,
+        "legName": "v1-t2（生产发射·接棒）",
+        "triggeredAt": "2026-11-05T07:09:44Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.99,
+        "rule": "chip_gate",
+        "run": "bp-run-2026-11-06T01-32",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #16 用户认同 poor（「其它 poor 都认同」）。210s 龄距峰 -27%：famous 控盘 68.8%≥50 dominant（G17 联立臂 33.2/40.9 未过线但主臂直判；holder 反而 weak 16%=famous 臂主场与 BEM 同款）——筹码门 famous 臂第二命中且拦对（前向 -27.5%；生产实买 -0.000315）。BP15 复跑维持 poor 0.99（价格 low 不在豁免域+famous 轴不豁）"
+    },
+    {
+      "anchorId": "BPA-029",
+      "kind": "set",
+      "tokenAddress": "0xbd74373a464021a15afab2e389bb1451a8477777",
+      "tokenName": "谷谷（同名票）",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T022",
+        "legId": null,
+        "legName": "v1-t1（t6 旧门拒后 22s 接棒）",
+        "triggeredAt": "2026-11-05T07:09:16Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.72,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T01-40-59-841Z",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #17 用户裁定 poor「先不改」=分歧锚落档。分歧形状：早鸟 near_launch（age 25s 贴发行价）救臂主导 neutral 0.72、追高 poor 0.56 被聚合压过；但 entry near_high 0.96/现 ATH -3.5% 贴高微回撤入场+前向全负（+1min 末 -10.3%/+5min 末 -19.0%/断流）+实买 -0.000053。与 T020（BP14 拦 +114% 盈利点）对偶=BP15 会放行实亏样本，归「不该放放了」池（ZELDA/T022 同池）攒批。附：t6 曾 07:08:54 先触发被 bp_gate_insufficient_ticks 拒（BP9 放行例外 11:31 UTC 重启前旧代码期，锚仅 3-4 tick），22s 后 t1 三键首齐接棒买入；cheat healthy（D3.62 首析 16 题无 strong）；两门不触发（famous none/holder moderate）"
+    },
+    {
+      "anchorId": "BPA-030",
+      "kind": "set",
+      "tokenAddress": "0x99144fb7a6dda0ed11020a03acd1b468d8797777",
+      "tokenName": "阿里美股",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T025",
+        "legId": null,
+        "legName": "v1-t1（t6 旧门拒后 21s 接棒）",
+        "triggeredAt": "2026-11-05T07:12:39Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.77,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T01-46-54Z",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #18 用户裁定 poor「先这么着」=分歧锚落档，「不该放放了」池第三例成池（ZELDA/T022/T025）。分歧形状（比 T022 更尖锐）：恰在 ATH 顶上（现/ATH 0.0%、0s 前）+price fast_up+纯买无卖（近 60s 买 1.006 卖 0=对手盘未现身）→顶点接货 +5min -29.9%；但早鸟 near_launch（age 24s）救臂主导 neutral 0.77（回调/追高均 insufficient 不贡献）。三例共同形状=极早龄 near_launch 救臂放过贴高/贴顶快涨票，攒批候选「早鸟救臂加 fast_up/贴 ATH 例外」。附：信号→成交滑 4.7%（flap quote 盘 6.528e-9→6.218e-9）；t6 曾 07:12:18 触发被 bp_gate_insufficient_ticks 拒（锚 5 旧代码期）21s 后 t1 接棒；cheat healthy；07:15:38 t2 再买被生产 BP2 拦（poor 0.83）拦对"
+    },
+    {
+      "anchorId": "BPA-031",
+      "kind": "set",
+      "tokenAddress": "0x0cd4cee39ed16ad3e39e3b261dc592648d137777",
+      "tokenName": "太空逆袭",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T027",
+        "legId": null,
+        "legName": "v1-t2（t6 旧门拒+t1 cheat unhealthy 拒后接棒）",
+        "triggeredAt": "2026-11-05T07:21:13Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.69,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T02-40-31-533Z",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #19 用户认同 poor（「poor 没问题」）。BP15 与生产同向拦截但方向反：生产 BP2 good 0.45 放行吃到 +49.8% 峰/+31% 实盈，BP15 poor 0.69 会拦=「拦盈利点」第二例（T020 后）且无价格豁免可用（price 已 low 档非 near_launch、entry near_high+fast_up=早鸟暴涨忌讳臂主场）。三票全反观察：T022/T025（BP15 neutral 放→实亏 -19%/-30%）+本票（BP15 poor 拦→实盈 +31%）=v73 trades 段 flap 极早票 BP15 判别力方向性失效素材，与 T020 合计攒「拦盈利/放亏损」两侧池。信号链六条：t6 07:20:06 insufficient_ticks 拒（锚 2）→t1 07:20:50 cheat unhealthy 硬拒（首析 R_abnormal_dominant）→t2 07:21:13 cheat 重判 healthy（3s 翻转，unhealthy 不拉黑可重判机制正常；R 通道 2 tick 薄窗形状留档）+BP good 0.45 买入——两道门拒滑走 +70.5%（5.95e-9→1.015e-9）仍盈利；t3/t4 再买均被 BP2 拦（poor 0.44/0.51，其后 +5min 仍 +22%=拦掉盈利再买点）。cheatRecheck 链：t1/t2 均 true。附：本地 set 曾存 T027 畸形 41 hex 地址旧版，已用 182 正本覆盖"
+    },
+    {
+      "anchorId": "BPA-032",
+      "kind": "set",
+      "tokenAddress": "0xfb09ffea6b945a4f086d3e49fd42c77cd92fffff",
+      "tokenName": "持械入宋",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T028",
+        "legId": null,
+        "legName": "v1-t5 急砸臂（t6 旧门拒后接棒）",
+        "triggeredAt": "2026-11-05T07:33:17Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.85,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T02-46-03-958Z",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #20 用户认同 neutral。回调题三层结构教科书正例：开盘 5s +27% 急拉（maxChg5 27.3 未过 +40~50% 忌讳线）后回落一半（half_off）+现价 +2% 贴发行价（near_launch）+热度/活跃度双 high=第二层核心规则「价格跌到很低+活跃度没有丧失→中等」全命中 neutral 0.85；与吉祥 S071/BPA-007/BPA-024 分歧族同判=判别一致性样本（本票 maxChg5 线内无争议）。附：触发臂=v1-t5 急砸臂（recentBlockDropPct≥12）=t5 删臂前生产触发实录（T119 v3 已删）；mcapPeak 7.29<15=v1→v3 覆盖面差异实例（小峰值票急跌点 v3 无腿可触）；t6 07:32:56 先触发被 bp_gate_insufficient_ticks 拒（锚 1 旧代码期）21s 后 t5 接棒；cheat healthy；结局 39s 卖出 -0.000009 基本打平（+1min 曾 +8.6%）"
+    },
+    {
+      "anchorId": "BPA-033",
+      "kind": "set",
+      "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+      "tokenName": "无税人生",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T029",
+        "legId": null,
+        "legName": "v1-t1（t6 旧门拒后接棒）",
+        "triggeredAt": "2026-11-05T07:53:21Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.67,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T02-49-20-787Z",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #21 用户认同 neutral（并追问「信号发晚了、有没有更早点位」）。182 逐 tick 重放结论：t6 07:53:00 第 1 笔即触发（价 4.483e-9、mcap 4.48≤7.5 盲买臂）=真正更早点位，被 bp_gate_insufficient_ticks 拒（锚 1 旧代码期，BP9 放行例外 11:31 UTC 后同形状会放行）；t1 无延迟——三键首齐 tradeCount≥8@07:53:16/buyVolume≥0.75@07:53:20 压线/**holdersExDust≥6@07:53:21 最慢键**（等第 6 个非尘持有者），发射 21.99=首齐+debounce 即时；「晚」=人气确认键的设计代价非链路延迟（成交 6.892e-9 vs 开盘 4.483e-9=+53.7%）。结局短长窗分裂：+1min 末 -30.6%（65s 卖在坑底 -0.000351=卖腿节奏问题）但 +5min 峰 +65.5%/+15min 峰 +213.8（V 反大行情）——买点在 5-15min 维度是对的。cheat healthy；v3 峰门 15 后 mcap 4.48 小峰值票第一笔入场窗口实际关闭（与 BPA-032 覆盖面差异同向）"
+    },
+    {
+      "anchorId": "BPA-034",
+      "kind": "set",
+      "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+      "tokenName": "无税人生",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T030",
+        "legId": null,
+        "legName": "v1-t2（T029 卖出后 86s 接棒再买）",
+        "triggeredAt": "2026-11-05T07:54:49Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.8,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T02-49-20-787Z",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #21 用户认同 poor。连环买第二笔形状：86s 后价 +13%（7.8e-9）、锚 53 笔、price low+tree top+fast_up 双 poor（早鸟 0.79/追高 0.80）=BP15 拦截逻辑自洽的「拦盈利点」第三例（T020/T027 后）——但盘面 +5min 峰 +177.3/末 +132.8、119s 持有实盈 +0.000396。与 T029 对照：判档随窗涨幅 neutral→poor 递进（位置更高判更严）而结局反着走=连环买第二笔「追高忌讳」本票失效。生产 BP2 good 0.49 放行吃到盈利；后段 t3/t5 再买均被 BP2 拒（poor 0.46/0.82）。cheat healthy 四轮复用"
+    },
+    {
+      "anchorId": "BPA-035",
+      "kind": "set",
+      "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+      "tokenName": "无税人生",
+      "locator": {
+        "set": "bp-t029-signals",
+        "pointId": "T029-S1",
+        "legId": "buy_5_6",
+        "legName": "v1-t6（信号触发点组 6 点）",
+        "triggeredAt": "2026-11-05T07:53:00Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 1,
+        "rule": "activity_gate",
+        "run": "bp-t029-signals 六点真调（2026-11-06T03:20Z）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "T029 无税人生 6 信号触发点位 BP15 评级组（锚=各触发时刻 tickNo 截窗，效果视角复审）用户整体认可「没问题」。全组：t6#1 poor 1.00 activity_gate｜t1#13 neutral 0.79 any_neutral（早鸟 fast_up+near_launch 救臂）｜t2#51 poor 0.79（早鸟 价已 low+）｜t3#125 poor 0.87（早鸟+追高双）｜t4#133 poor 0.84｜t5#275 poor 0.77（回调 shallow 未跌到位）。**核心发现（t6）**：BP15 下第一笔触发=activity_gate poor 1.00（锚 1 笔 0.010 BNB market:low+activity:low）——**BP9 insufficient_ticks 放行救不了极早点**：放行后进 BP 评估，首笔锚必然活跃度低→活跃度门照样拒，第一笔入场在现行判定形态下结构性死路（旧代码期 insufficient_ticks 拒→BP9 后 activity_gate 拒，结果都是不买）；而 t6 恰是全场最佳点位（+15min 峰 +377.7% vs t1 成交价）。效果侧：t2/t3/t4 三点 +5min 峰 +98~177% 全判 poor=「拦盈利点」池再添三例；t5 拒对（+298% 高位阴跌 +15min -69.2%）。t1/t2 评级与 53 点成交锚重跑高度一致（0.79/0.67、0.79/0.80）=触发锚↔成交锚差 4s 评级稳。t6 形状与 BP12 ZELDA 案（活跃度门误放）=活跃度门两个方向失分素材，攒批观察"
+    },
+    {
+      "anchorId": "BPA-036",
+      "kind": "set",
+      "tokenAddress": "0x490da05a44bd886391d48f6cbfb1d7bbc7584444",
+      "tokenName": "FIGHT",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T031",
+        "legId": null,
+        "legName": "v1-t1（t6 旧门拒后接棒）",
+        "triggeredAt": "2026-11-05T07:55:43Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.6,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T03-26Z 定向",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #22 用户裁定原话「这个点位没有理由拒掉，接受评级」——认同 neutral：volatile+market/activity 双 high+price low 盘面信息集内**无拦截依据**，-40% 山顶结局（+1min 峰仅 -0.7%=买入即顶、88s 卖 -0.000402）属事后信息不构成改判。**显式不进「不该放放了」池**：与 T022/T025 分界=那两例用户认为有拒的理由（贴 ATH 顶/纯买无卖形状），本例盘面干净无拒点。BP13/BP15 双版 stable neutral（0.67/0.60）。附：t5 #44（vs 首笔 -2.9% 崩盘位）BP2 poor 0.93 拒对（此后断流零 tick）；t6 #3 被旧门拒但前向末值亦负（+15min 末 -21.5%）非错过好点；生产 BP2 good 0.65 放行与 BP15 同向。cheat healthy（D3.62）"
+    },
+    {
+      "anchorId": "BPA-037",
+      "kind": "set",
+      "tokenAddress": "0x6af6cd7f35c1c1aa2392956938019a57c633ffff",
+      "tokenName": "FFFF",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T032",
+        "legId": null,
+        "legName": "v1-t5（t6 首笔旧门拒后 20s 接棒）",
+        "triggeredAt": "2026-11-05T08:04:32Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.64,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T03-29Z 定向",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #23 用户认同 poor（原话「认同当前的结果」）。**BP2→BP15 换代改善实例**：生产 BP2 good 0.49 放行吃到 -20.5%（+1min 峰仅 +0.92% 买在顶、+15min -33.8%），BP15 早鸟 poor 0.64 会拦——近 60s 买 1.924/卖 0.823（43% 卖压）+price fast_up=拉高出货形状，near_launch 救臂没救成，拦得有据。附：t6 #1/45 首笔盲买触发（v1 无峰门，mcap 4.5≤7.5 即 fire）被旧门 insufficient_ticks 拒、前向末 -17.6% 非好点；cheat healthy。本卡同轮用户裁定复审卡展示口径改以当前 BP15 评级为主体、生产运行门链弱化（memory 留档）"
+    },
+    {
+      "anchorId": "BPA-038",
+      "kind": "set",
+      "tokenAddress": "0x8a50ac7b044531ffec9074dede5f240d3c344444",
+      "tokenName": "奶蛙",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T033",
+        "legId": null,
+        "legName": "v1-t5（急砸臂；t6 首触发旧门拒后 12s 接棒）",
+        "triggeredAt": "2026-11-05T08:05:58Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.72,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T03-46Z 定向",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #33 用户认同 poor（原话「好，接受结果」）。快闪票全场仅 26 ticks：开盘 30s 急拉 +38% 后急砸，t5 成交点（tick15、vs 首笔 +31.1%、现/ATH -28%）=S021/S071「maxChg5 过线+near_launch+浅回调」接受现状形状（BP11/BP12 两度终裁）第三命中——拒单来自回调题本身（活跃度/筹码门未拦：market:high+activity:high、famous:none、holder:moderate）。前向三窗峰 +0.4%、+15min 末 -16.5%、episode -25.7% 判对。换代改善三连留档：v1 生产 t5 急砸臂成交吃到 -25.7%；v3 删 t5；t6 tick3 盲触发（开盘 0.5s、BPA-035 同款首笔形状）v4 双流动性门在触发层拦掉。t6#1 前向 +38.4% 峰=快闪瞬时峰（1min 末 -16.7%）非拦盈利点；D 臂峰门 15 对 60s 买量 1.6 BNB 小票覆盖不到（设计内）"
+    },
+    {
+      "anchorId": "BPA-039",
+      "kind": "set",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenName": "無為",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T034",
+        "legId": null,
+        "legName": "v1-t1（t6 首触发旧门拒后 8s 接棒）",
+        "triggeredAt": "2026-11-05T08:11:58Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.85,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T03-52Z 定向",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #34 两轮裁定：①「4/266 给 good，但是也先不针对性的改进了」（S1 翻案另立 BPA-040）②「無為的 14/266 是中等，其它都可以给 poor」——**本锚 S2（成交点）expect 修订 poor→neutral（人工 vs 模型分歧锚）**：11 秒 +119% 早鸟急拉点（price:fast_up+low+near_high）机器判 poor 0.84（暴涨忌讳，near_launch 救臂不适用），用户裁定 neutral——episode +66.8% 实盈全场最佳（+1min 峰 +97.2%、+15min 末 -53.1% 刀口）构成放行背书。**「拦盈利点」池头号素材**（BP15 会拦掉这笔最大实盈）。六点全景收口：S3/S4/S5/S6 poor 0.84/0.79/0.73/0.99 认同（贴顶段 +200~230% vsFirst 前向全 -70%）；**S6（tick138）=BP14 筹码门立法后首次实战级命中**（famous:dominant → chip_gate poor 0.99，拉高出货控盘形状）。改进暂缓攒批（用户裁定原话「先不针对性的改进了」）——候选方向：早鸟第一分支「价格低救」扩 low 桶或极早时间窗豁免"
+    },
+    {
+      "anchorId": "BPA-040",
+      "kind": "set",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenName": "無為",
+      "locator": {
+        "set": "bp-t034-signals",
+        "pointId": "T034-S1",
+        "legId": null,
+        "legName": "v1-t6 首触发（tick4，开盘 1 秒）",
+        "triggeredAt": "2026-11-05T08:11:50Z"
+      },
+      "expect": {
+        "bucket": "good"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.45,
+        "rule": "activity_gate",
+        "run": "bp-run-2026-11-06T04-00Z 定向",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #34 人工翻案锚：用户裁定原话「4/266 给 good，但是也先不针对性的改进了」——极早启动点（tick4、近 60s 买 0.974/卖 0 纯买、fast_up+near_launch、现/ATH 0% 爬峰中）应给 good；机器 activity_gate 拦（4 ticks market:low）。前向 +1min 峰 +190.5%/末 +55.6%、+15min 末 -30.9%。**与 BPA-035（无税人生 t6#1 tick1 拦对）构成活跃度门极早窗双向张力对**：分界素材=极早窗内买盘量级（0.974 BNB 真实买盘 vs 首笔微量）而非 tick 数；market:low 一刀切两形状都拦。附注：t6 v4 双流动性门下本点亦不触发（buyVolumeBnb 0.974<1.5）——v4 阈值 1.5/0.3 待票池分布校准素材。用户裁定暂不针对性改进=攒批，未来活跃度门极早窗臂校准首选证据"
+    },
+    {
+      "anchorId": "BPA-041",
+      "kind": "set",
+      "tokenAddress": "0x68690152aaa5729f9f3145d0a910d738eb2d4444",
+      "tokenName": "Sun",
+      "locator": {
+        "set": "bp-t035-signals",
+        "pointId": "T035-S3",
+        "legId": null,
+        "legName": "v1-t2（成交点 T035 本体，tick22/39）",
+        "triggeredAt": "2026-11-05T08:15:47Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.52,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-09Z 三跑 stable（0.62/0.69/0.52）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #35 人工翻案锚：用户裁定原话「最后的 22/39 为 poor，**回调没有到位**」——vs 首笔 +47% 后现/ATH -15.9% 浅回撤段，BP15 回调题第二层核心规则给 neutral（near_launch+活跃）三次 stable，用户裁定 shallow_pullback 浅回撤**不算「跌到很低」**→应走第三层忌讳②「没跌到位」拒。**回调题双向校准组新成员**：S021/S071（Jev 稳定 poor 用户接受现状）+本例（Jev 误放 neutral）→ 用户口径=浅回撤一律 poor、核心规则「跌到很低」门槛应更高（足额回撤）；暂不改题集攒批。episode +34.8% 实盈=卖点在窗外 V 反（fwd 窗内全负 -43%），盈利归卖腿非买点"
+    },
+    {
+      "anchorId": "BPA-042",
+      "kind": "set",
+      "tokenAddress": "0x68690152aaa5729f9f9f3145d0a910d738eb2d4444",
+      "tokenName": "Sun",
+      "locator": {
+        "set": "bp-t035-signals",
+        "pointId": "T035-S1",
+        "legId": null,
+        "legName": "v1-t6 首触发（tick2/39）+ v1-t1（tick11/39）组锚",
+        "triggeredAt": "2026-11-05T08:15:17Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.72,
+        "rule": "activity_gate",
+        "run": "bp-run-2026-11-06T04-09Z 定向（S1）；S2=neutral 0.54 any_neutral 一致",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #35 用户裁定原话「Sun 前两个是**至少中等**」——S1（t6@tick2，开盘 0.6 秒，近 60s 买盘真实）机器 activity_gate 拦（market:low 仅 2 ticks）；S2（t1@tick11，+22.3% 拉涨段）机器 neutral 0.54 一致。**极早窗活跃度门分界素材第三例**：无税人生 tick1（拦对 poor）/無為 tick4（good）/Sun tick2（neutral+）——用户判读极早点看买盘质量而非 tick 数，market:low 一刀切三形状全拦；S2 前向 +35.5% 峰被 cheat_gate_unhealthy 拒=CD 池素材（刀口 +1min 末 -35.3%）。「至少中等」=neutral 下限语义，good 亦可"
+    },
+    {
+      "anchorId": "BPA-043",
+      "kind": "set",
+      "tokenAddress": "0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444",
+      "tokenName": "疯狂星期四",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T036",
+        "legId": null,
+        "legName": "v1-t1（t6 首触发旧门拒后 14s 接棒，tick12/70）",
+        "triggeredAt": "2026-11-05T08:16:30Z"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.82,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T03-54Z 全量",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #36 用户正式裁定三点「第一 good，第二中等，第三 poor」——本锚=第二点（t1@tick12 成交点）expect=neutral 认同。开盘 16s +45% 急拉段（volatile+near_high+near_launch）机器早鸟暴涨忌讳 poor 0.82，用户裁定 neutral；episode +34.8% 实盈（与 Sun/無為 同族「刀口买点+快卖腿」）。「拦盈利点」池第二枚（+27.3% 峰/-43.4% 末）。第一点 good 另立 BPA-045、第三点 poor 补慢跌判读见 BPA-044"
+    },
+    {
+      "anchorId": "BPA-044",
+      "kind": "set",
+      "tokenAddress": "0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444",
+      "tokenName": "疯狂星期四",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T037",
+        "legId": null,
+        "legName": "v1-t5（tick59/70，+45% 峰后 44s 砸回 +2.8% 近首笔价）",
+        "triggeredAt": "2026-11-05T08:17:14Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.79,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T03-54Z 全量",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #37 用户裁定 poor + **跌速判读立法素材**（原话「慢跌到底不能买，注意我认为它是慢跌，不是快跌，快跌反而可以买」）：tick12→tick59 共 47 ticks/44s 连续阴跌回近首笔价，机器 price_trend 判 fast_down（短窗动量口径）与用户「慢跌」（全程形状口径）**相反**——用户语义=快跌急砸深坑可承接（反而可买）、慢跌阴跌到底（持续派发无承接、奔零形状）拒。回调题忌讳③奔零同向；t5（recentBlockDropPct 块窗快跌检测）在本票慢跌形状上误触发=快跌检测器误报实例，v3 删 t5 与用户语义一致。episode -4.6% 小亏/前向基本平（+1min 峰 +3.8%、+15min 末 -0.7%）拒了无损失。与 BPA-041「回调没到位」构成回调题两向对照：浅回撤（BPA-041）拒、慢跌到底（本锚）拒——「跌到位」要求=足额回撤+快跌形状，校准组"
+    },
+    {
+      "anchorId": "BPA-045",
+      "kind": "signal",
+      "tokenAddress": "0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444",
+      "tokenName": "疯狂星期四",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades-signals#mark",
+        "pointId": null,
+        "legId": "buy_5_6",
+        "legName": "v1-t6 首触发（tick3/70，vsFirst +10.1%）",
+        "triggeredAt": "2026-11-05T08:16:17Z"
+      },
+      "expect": {
+        "bucket": "good"
+      },
+      "model": {
+        "bucket": null,
+        "prob": null,
+        "rule": "bp_gate_insufficient_ticks（v73 时点门内拒未评；BP9 放行后同形状锚窗 3<8 仍不烧 Jev）",
+        "run": "v73 生产轨迹",
+        "questionVersion": "BP12（生产）"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #36 用户裁定三点之「第一 good」：t6 首触发开盘 1.5s/tick3（vsFirst +10.1%）被 bp_gate_insufficient_ticks 拒（BP9 放行裁定部署前口径），前向 +67.7% 峰/60s 末 -24.9%——拒错方向错失最大涨幅段。**极早窗张力组第四例**：无税人生 tick1（拦对 poor）/無為 tick4（good BPA-040）/Sun tick2（neutral+ BPA-042）/本例 tick3（good）——用户口径极早窗逐例判买盘质量，门侧 insufficient/低活跃一刀切四例全拦（三错一对）。v4 t6 双流动性门（buyVolumeBnb≥1.5+actBuyBnb≥0.3）tick3 处 buyVolume 未必到 1.5——v4 是否接得住本形状=下轮阶梯复审观察点。「拦盈利点」池第三枚"
+    },
+    {
+      "anchorId": "BPA-046",
+      "kind": "set",
+      "tokenAddress": "0x3816a4abb3ea7ba613359e9ae54603aa06c14444",
+      "tokenName": "我画地为牢",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T038",
+        "legId": null,
+        "legName": "v1-t1（tick13/79，开盘 20s +38.8% 拉涨段成交点）",
+        "triggeredAt": "2026-11-05T08:17:34Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.64,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.65 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #38 人工翻案锚：用户裁定原话「T038 也是 poor，**作弊痕迹重但是没拦住**，之后再调整吧」——开盘 20s 拉涨段（fast_up+near_launch、maxChg5 29.5% 未过暴涨线）机器早鸟题 neutral 0.64 放行方向，用户判读**作弊痕迹重**应拒。**BP 题面作弊形状盲区素材**：八维 famous:none(1.0)/holder:weak(0.68)=筹码门未命中（BP14 门只覆盖 famous 控盘/筹码垄断，价格对倒拉升形状与链上行为痕迹无对应轴）；生产 v73 当时 cheat 门 healthy 放行+BP12 放行→买入（episode +5.5% 微盈、fwd 60s 末 -17%/15min 末 -37%）——「该拦没拦」方向，与「拦盈利点」池互为镜像。改进暂缓攒批（原话「之后再调整吧」）：候选=BP 题面加作弊形状轴 vs CD 侧复审生产 healthy 是否漏判（分工上盘面作弊归 CD）"
+    },
+    {
+      "anchorId": "BPA-047",
+      "kind": "set",
+      "tokenAddress": "0x3816a4abb3ea7ba613359e9ae54603aa06c14444",
+      "tokenName": "我画地为牢",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T039",
+        "legId": null,
+        "legName": "v1-t2（tick50/79，+56.6% 贴顶横盘段成交点）",
+        "triggeredAt": "2026-11-05T08:18:21Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.87,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-17Z 现场定向（与 03:54Z 全量 0.88 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #39 认同 poor（用户「T038 **也是** poor」隐含 T039 先已 poor）：贴顶追高点三题全 poor（早鸟 0.77/回调 0.56/追高 0.87）——+56.6% 横盘段、maxChg5Pct 59.1%（5 秒段急拉）、vs 首摆低 +56.5% 高位、树=left_side(0.36) 首树左侧爬坡贴高；fwd 60s 峰 -8.1% **买入即跌无反弹**、15min 末 -35.4%；episode -9.3% 小亏——拒对了。同票 t6@tick1 insufficient_ticks 拒掉 +56% 峰（极早窗张力组第五例候选，用户未单独裁定暂不落锚）"
+    },
+    {
+      "anchorId": "BPA-048",
+      "kind": "set",
+      "tokenAddress": "0x30ca7a42a78cd56c1f9f112fb0e31b5165c54444",
+      "tokenName": "中囯人能飞",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T040",
+        "legId": null,
+        "legName": "v1-t5（tick12/16，vsFirst -15.4% 砸回段成交点）",
+        "triggeredAt": "2026-11-05T08:26:33Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.84,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-26Z 现场定向（与 03:54Z 全量 0.82 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #40 人工翻案锚（用户裁定「好，给 poor 吧」认同建议）：回调题第二层核心规则误放方向**校准组第三例**（Sun S3=BPA-041 之后）——shallow_pullback 浅回撤 -23% 未跌到位+near_launch+活跃度未失，机器给 neutral 0.84；用户口径=浅回撤不算「跌到很低」应走忌讳②拒。盘面同向证据：tree=right_side 右侧下坡未止（同 T037 判读）、16 ticks 全程阴跌死盘、fwd 60s 峰 -3.0% 买入即跌（仅 2 ticks 近断流）、15min 末 -6.4%；episode -4.9% 小亏。校准组现状：Sun S3（-15.9%）/T040（-23%）两例机器均 neutral、用户均 poor——回调题「跌到很低」门槛需足额回撤（半价级）的语义修正候选，攒批"
+    },
+    {
+      "anchorId": "BPA-049",
+      "kind": "set",
+      "tokenAddress": "0x57cd898802d54f93140513bc420b8e37ee614444",
+      "tokenName": "作茧自缚",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T041",
+        "legId": null,
+        "legName": "v1-t5（tick15/294，开盘 24s 贴首笔价 vsFirst +0.5% 成交点）",
+        "triggeredAt": "2026-11-05T08:32:13Z"
+      },
+      "expect": {
+        "bucket": "good"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.5,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.54 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #41 用户裁定 good（「认同」建议）：**回调题「跌到很低+活跃没丧失」正例锚**——vsFirst +0.5%=真贴发行价（vs BPA-041/048 的 vs ATH 浅回撤假低位）、activity:ultra+近 60s 净买 +0.604、fwd 60s 峰 +90.8%/末 +75.2%（170 ticks 热络）、episode +23.5% 实盈全场第二——位置与活跃双真，回调题核心规则该给高档的场景机器只给 neutral 0.50（放行方向不亏错失但档位偏低）。**回调题校准组判别锚**：同 shallow_pullback 桶下「vs 首笔≈0 贴发行价+ultra 活跃」（本例 good）vs「vs ATH 浅回撤+阴跌断流」（BPA-041/048 poor）——「跌到很低」基准应锚 vsFirst/发行价而非 vs ATH。同票 t6@tick1 insufficient_ticks 拒掉 +98.8% 峰（全 tick 最高，极早窗张力组又一强素材，用户未单独裁定暂不落锚）"
+    },
+    {
+      "anchorId": "BPA-050",
+      "kind": "set",
+      "tokenAddress": "0x57cd898802d54f93140513bc420b8e37ee614444",
+      "tokenName": "作茧自缚",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T042",
+        "legId": null,
+        "legName": "v1-t1（tick96/294，+85.2% 贴顶横盘段成交点）",
+        "triggeredAt": "2026-11-05T08:32:29Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.82,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-28Z 现场定向（与 03:54Z 全量 0.78 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #42 认同 poor（用户「认同」）：贴顶追高点（早鸟 0.79+追高 0.82）——+85.2% 横盘段、fast_up+near_high+left_side、**famous:heavy 留痕**（跟单形状重，BP14 观察档不拦防误伤——与 2026-11-06 用户点名 famous 名单 0x94cf…2d01 判读方向呼应）；fwd 60s 峰 +2.2%/末 -30.0% 买入即跌、15min 末 -53.6%、episode -31.4% 实亏——拒对了（生产买入亏了）。同票后段 t2/t3/t4 三砸回触发全被 bp_gate_assessment 拒=门链后半段全拦对"
+    },
+    {
+      "anchorId": "BPA-051",
+      "kind": "set",
+      "tokenAddress": "0xc6abc6b66438e07fd1600c023ebfad0a09184444",
+      "tokenName": "TRENCHER",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T043",
+        "legId": null,
+        "legName": "v1-t1（tick16/33，+39.5% 急拉后浅回撤段成交点）",
+        "triggeredAt": "2026-11-05T08:32:56Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.74,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-31Z 现场定向（与 03:54Z 全量 0.69 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #43 认同 poor（用户「好，认同，下一票」）：急拉后浅回撤追入点（早鸟 0.74+回调 0.63 两题均拒）——fast_up+shallow_pullback -16.4%+near_launch，fwd 60s 峰 -1.4% 买入即跌/末 -27.0%、15min 末 -27.1%（14 ticks 断流死盘）、episode -28.7% 实亏。**同桶不同判对照**（回调题校准组注脚）：与 Sun S3（BPA-041）同为急拉浅回撤桶，本例机器两题均拒（正确）、Sun S3 机器误放 neutral——Jev 在 shallow_pullback 桶内判读方差实例，语义修正候选攒批。t6@tick3 被拒 +25.4% 峰 60s 末已 -23.5%（刀口回落拒了不亏，弱素材不入张力组）"
+    },
+    {
+      "anchorId": "BPA-052",
+      "kind": "set",
+      "tokenAddress": "0x98e18f33dfaad9272feaa960ac780af8c2e54444",
+      "tokenName": "傻福",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T044",
+        "legId": null,
+        "legName": "v1-t1（tick13/35，+28.4% 急拉浅回撤段成交点）",
+        "triggeredAt": "2026-11-05T08:33:35Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.69,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T04-33Z 现场定向（与 03:54Z 全量 0.71 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #44 认同 poor（用户「认同，下一票」）：与 TRENCHER（BPA-051）完全同族——+28.4% 急拉后 shallow_pullback -19.7% 浅回撤追入（volatile+near_launch），早鸟 0.69+回调 0.62 两题均拒；fwd 60s 峰 -2.3% 买入即跌/末 -26.4%、15min 末 -26.4%（16 ticks 断流死盘）、episode -36.1% 实亏（全场最大单笔亏损之一）。**BP15 会拦但生产 BP12 放行实亏**的换代改善实证（同 T043）；t6@tick3 拒 +34.3% 峰 60s 末 -20.4% 刀口拒了不亏"
+    },
+    {
+      "anchorId": "BPA-053",
+      "kind": "set",
+      "tokenAddress": "0x92a130f2dd01d2cc32bbd5d107ce6853bc427777",
+      "tokenName": "雪球SI",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T045",
+        "legId": null,
+        "legName": "v1-t3（tick32/238，+6% 贴价震荡段成交点，flap）",
+        "triggeredAt": "2026-11-05T08:33:36Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.71,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.76 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #45 人工翻案锚（用户裁定「雪球SI **都是** poor」）：+6% 贴价震荡段（volatile+shallow_pullback -22% vs ATH）机器回调题 neutral 0.71（净买 +1.68 正+60s 峰 +15.4%），用户裁 poor——**15min 末 -32.9% 全吐回**、episode +3.7% 微盈全靠快卖腿（BPA-039「拦盈利点」同族刀口形状：短窗正收益=卖腿功劳非买点质量）。**回调题校准组第四例**：与 BPA-049（作茧自缚 T041 good 正例）构成判别对——vsFirst 同为贴价（+0.5% vs +6%），分界=活跃度（ultra vs mid）与持续性（15min 末 -15% vs -33%）——回调题核心规则「活跃度没有丧失」的门槛用户口径显著高于 Jev 现判"
+    },
+    {
+      "anchorId": "BPA-054",
+      "kind": "set",
+      "tokenAddress": "0x92a130f2dd01d2cc32bbd5d107ce6853bc427777",
+      "tokenName": "雪球SI",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T046",
+        "legId": null,
+        "legName": "v1-t4（tick52/238，+19.6% 回落段成交点，flap）",
+        "triggeredAt": "2026-11-05T08:34:34Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.74,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-35Z 现场定向（与 03:54Z 全量 0.67 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #46 人工翻案锚（用户裁定「雪球SI 都是 poor」认同建议方向）：**slow_down 阴跌+shallow_pullback -24% 浅回撤没跌到位+近 60s 净买转负（-0.046）**——机器回调题 neutral 0.74=核心规则同一误放方向（校准组第五例）；fwd 60s 峰 +7.7% 后 15min 末 -31.1%、episode -36.8% 大亏（生产持有到慢跌砸出）=「慢跌到底不能买」（BPA-044）又一实证。校准组现况：Sun S3/中囯人能飞/T045/T046 四例机器全 neutral 用户全 poor，唯一正例 BPA-049——回调题语义修正（「跌到很低」=vsFirst 贴价级回撤+活跃门槛抬高）攒批素材已足，待用户启动立法"
+    },
+    {
+      "anchorId": "BPA-055",
+      "kind": "set",
+      "tokenAddress": "0xe3d049c65cbbda6bf4a168c77132dc0712b64444",
+      "tokenName": "作茧自缚（二）",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T047",
+        "legId": null,
+        "legName": "v1-t5（tick17/25，vsFirst -12.4% 跌破首笔阴跌段成交点）",
+        "triggeredAt": "2026-11-05T08:34:47Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.85,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-41Z 现场定向（与 03:54Z 全量 0.77 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #47 人工翻案锚（用户裁定「好 poor」）：**回调题校准组第六例**——fast_down+shallow_pullback -23.1% 浅回撤+tree right_side 阴跌未止+近 60s 净买近零（+0.025）+fwd 60s 仅 5 ticks 断流死盘，机器以「near_launch+活跃 mid」维持核心规则给 neutral 0.85，用户裁 poor。与作茧自缚（一）T041（BPA-049 good 正例）同币名成对：T041=ultra 活跃+净买 +0.6+贴价 vs 本例=mid 活跃+净买零+跌破首笔——**「活跃度没有丧失」门槛的用户真实口径显著高于 Jev 现判**（mid/近零净买/断流=已丧失）；episode -3.0% 微亏拒放皆可但口径入档"
+    },
+    {
+      "anchorId": "BPA-056",
+      "kind": "set",
+      "tokenAddress": "0x617590a52829d3165d5539344d9e570d6f4b7777",
+      "tokenName": "Lily",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T049",
+        "legId": null,
+        "legName": "v1-t5（tick15/26，vsFirst -12.1% 跌破首笔阴跌段成交点，flap）",
+        "triggeredAt": "2026-11-05T08:54:28Z"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.83,
+        "rule": "any_neutral",
+        "run": "bp-run-2026-11-06T04-48Z 现场定向（与 03:54Z 全量 0.80 桶级一致）",
+        "questionVersion": "BP15"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #49 人工翻案锚（用户裁定「给 Poor」）+ **回调题「大户在场」立法启动锚**（原话「买入的时候，**完全没有大户在了，就只剩下几个小散户，这种情况不要抄**（改一下 prompt 吧）」）：fast_down+shallow_pullback -20.6%+right_side+activity:mid+60s 仅 4 ticks 断流死盘+买入即跌（fwd 60s 峰 -1.2%）、ep -9.2%——校准组第七例（同 T047 形状）。**用户点破校准组共同语义**：机器「活跃度没有丧失」只看笔数/密度，用户口径=**大户在场与否**——大户全部离场只剩小散户=活跃度实质丧失→不适用回调题核心规则（不给 neutral 走忌讳），当日立法改题面（BP16）"
+    },
+    {
+      "anchorId": "BPA-057",
+      "kind": "set",
+      "tokenAddress": "0xc0783ec50b216e364c290bb0b8606c3821c97777",
+      "tokenName": "突突车",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T050",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T08:56:28.012+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.53,
+        "rule": "else_poor",
+        "run": "bp17-parity-2026-11-06T05-1xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "同名簇突突车之一（four.meme）：t5 成交腰斩阴跌（entry=half_off+slow_down+tree right_side）拦对——生产 BP13 放行亏 -11.2%、BP17 现场会拦=换代改进实证；t6 首 tick 拒掉 +49.5% 脉冲=极早窗张力组又一例（攒批不裁）"
+    },
+    {
+      "anchorId": "BPA-058",
+      "kind": "set",
+      "tokenAddress": "0x600c9299c12bdc7c8c7c082ae552491590e57777",
+      "tokenName": "FLAP 突突车",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T051",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T08:56:58.195+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.76,
+        "rule": "else_poor",
+        "run": "bp17-parity-2026-11-06T05-1xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "cheat unhealthy→healthy 19 秒翻绿缝隙案：t5@08:56:35 拒 cheat_gate_unhealthy → t1@08:56:54 重判 healthy+BP 门过放行成交 → -23.78%（CD158 unhealthy 每信号重判设计内缝隙，留档 CD 侧素材）；贴高 volatile 三题全 poor，BP17 会拦"
+    },
+    {
+      "anchorId": "BPA-059",
+      "kind": "set",
+      "tokenAddress": "0x78cd05cf0d0b2a8022fdda8c97baad31f2c07777",
+      "tokenName": "突突车二",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T052",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T08:58:17.35+00:00"
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.7,
+        "rule": "any_neutral",
+        "run": "bp17-parity-2026-11-06T05-1xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "正面案例：t1 成交（早鸟 neutral 放行）吃到 +5min 峰 +448.7/末 +317.5、ep+0.0007 实赚——门链放行与结局一致；七腿全接力形状（t1/t7 双成交、t2-t4 重复买腿拒=资金管理正确、t5 高位拦对）；t6 首 tick 拒 +604% 峰=极早窗张力组又一例"
+    },
+    {
+      "anchorId": "BPA-060",
+      "kind": "set",
+      "tokenAddress": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
+      "tokenName": "FlapGuy",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T053",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T09:02:02.842+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.69,
+        "rule": "else_poor",
+        "run": "bp17-parity-2026-11-06T05-2xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "53 点收官票：t5 成交冲高回落小亏 -6.77%（回撤 -15.15）拦对方向；ep=open 余 149308 未平=53 点唯一未平仓票（v74 停机时状态待对账）；t6 首 tick 拒 +42.4% 峰=极早窗张力组又一例；t5+t1 双成交与 T052 同形"
+    },
+    {
+      "anchorId": "BPA-061",
+      "kind": "set",
+      "tokenAddress": "0x6862f5fd3d4efee4f9d452665d907f845827777",
+      "tokenName": "긴와",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T014",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T06:08:10.230+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.84,
+        "rule": "any_neutral",
+        "run": "bp17-parity-2026-11-06T05-2xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "BP18 盘型门复核裁定改判：BP18 全量重抛 market_pattern=early_sniper_decay（盘型门拒→poor·pattern_gate），用户复核 token-ticks 页后裁定认同（「其它都没问题」——前列 0.199/0.060×2 购买力全集中最早数 slot 后衰竭=狙击衰竭形状成立）；原 BP17 期 expect=neutral 撤回（回调核心规则命中的中性点位评估被盘型背景否决——盘型先于点位质量）。原留痕：t5 成交贴价回调 −3.7% 冲高仅 +0.9% 末 −9.1% 微亏；t6@tick3 极早窗拒 +24.2% 峰张力组又一例"
+    },
+    {
+      "anchorId": "BPA-062",
+      "kind": "set",
+      "tokenAddress": "0x11e20998df0c514ae8c9e829f983bc2868a97777",
+      "tokenName": "白猪AI",
+      "locator": {
+        "set": "bp-2026-11-05-v73-trades",
+        "pointId": "BP-T015",
+        "legId": null,
+        "legName": null,
+        "triggeredAt": "2026-11-05T06:19:11.721+00:00"
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.64,
+        "rule": "any_neutral",
+        "run": "bp17-parity-2026-11-06T05-2xZ",
+        "questionVersion": "BP17"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "悬案收官票②=T120 案本尊：t1 +53.9% 高位追入 1 分钟 −32% 末 −38.7% ep−0.0004=53 点最重不该放放了形状；机器早鸟救臂 neutral 0.64 vs 用户 poor 分歧票（救臂语义当初针对涨速快但累计小，非 +53.9% 追入）；high_chase insufficient（entry:near_high 未进追高场景）留档=追高题场景判别下一立项候选"
+    },
+    {
+      "anchorId": "BPA-063",
+      "kind": "signal",
+      "tokenAddress": "0x92aac04f03278ce7ac82ba0367dbaf9686437777",
+      "tokenName": "SB",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S005",
+        "legId": "P2",
+        "legName": "买入策略 P2",
+        "triggeredAt": "2026-11-05T05:10:01Z",
+        "anchorTickCount": 27
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.76,
+        "rule": "else_poor",
+        "run": "bp-run-2026-11-06T07-39-09-662Z",
+        "questionVersion": "BP22"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "用户裁定原话「S005 点位给中等吧，庄盘的回调下跌位（但是可以先不针对性的修改）」——strong_backer 庄盘的浅回调位（现/ATH -23.7%、档位 near_launch、热度 ultra、活跃 high、famous none）至少 neutral；机器回调题 poor(0.76) 忌讳层压死、同 token P1 早鸟 neutral 0.80 放行；先不改题面，庄盘回调豁免攒批（与 BP21 ①强庄盘最好类型同向）"
+    }
+  ]
 }
