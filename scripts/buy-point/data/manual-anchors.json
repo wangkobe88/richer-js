@@ -1792,6 +1792,30 @@
       },
       "ruledAt": "2026-11-06",
       "note": "盘型③复数 famous 裁定锚（用户裁定原话「Fight 是 famous 盘，0xfb4e4fa492217d8401aa9e893c78707b61923953 0x550647e8faf10116f0367526080c1005809b4653 这两个著名钱包（加入到著名钱包中），他俩入仓太早了拿的太多，起不来」）：0xfb4e t+7s 买 0.252+0x5506 t+13s 买 0.343 合计 0.595 BNB 极早抢筹零卖出，BP29 误判 strong_backer neutral(0.72) 放行即 -41.5%；roster 收录两址+BP30 ③复数 famous 扩句后 famous dominant(1.0)/盘型 famous_monopoly(0.75)/综合 poor(1.00, chip_gate) 翻案达成；外溢留档=S062 无税人生（同一对钱包另一盘，famous 控盘 100%/集团买入 98.9%）none→dominant、neutral→poor(chip_gate)=「famous 掌控不参与」立法语义内（257% 是 famous 自己拉的）"
+    },
+    {
+      "anchorId": "BPA-074",
+      "kind": "signal",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenName": "無為",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S072",
+        "triggeredAt": "2026-11-05T08:11:58Z",
+        "anchorTickCount": 14
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.71,
+        "rule": "any_neutral",
+        "run": "bp32-parity",
+        "questionVersion": "BP32"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "早鸟忌讳①庄盘豁免裁定锚（用户裁定原话「無為 是非常典型强庄币啊，第一个点位至少是中等。其它没啥问题」）：三大户 0.327/0.294/0.245 全部 t+0s 首买+只买未卖（卖压 0.0000）+开盘段大额单 1 笔+锚前尾段 8 笔 1.137 BNB 涌入，low 档（较发行价 +50~100%）拉升是强庄最早锁仓拉起的第一波非散户接力——忌讳①「价格已不低」前提不坐实；BP31 误判 poor(0.54, else_poor) 错过 1m 峰 +97.2%；BP32 豁免后早鸟 neutral(0.71)/综合 neutral(0.71, any_neutral) 翻案达成；边界对拍=同票 S073（mid=+100% 以上）照拒 poor(0.91)（豁免域只到 low 档）+反例 S007 SB P2 平水票照拒 poor(0.93) 未误放+S083 我画地为牢早鸟虽翻 neutral 但 famous dominant 综合仍 chip_gate 拒（豁免只在质量题层门层照拦）"
     }
   ]
 }
