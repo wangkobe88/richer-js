@@ -1720,6 +1720,78 @@
       },
       "ruledAt": "2026-11-06",
       "note": "盘型裁定锚（综合桶用户未裁维持 neutral）：用户裁定原话「S048 也不是庄盘，如果你是庄，肯定一开盘最早期买入大额，然后对倒分仓，它是一开始先小散户，然后有稍微大一点的散户接了罢了」+措辞更正「应该是最早的买入（至少是次早）得有大户」——BP28 误判 strong_backer（把 0.198/0.198 贴线单当大额+卖 0 读作强庄零卖出）；出生段 36 行 0.3+ 大额 0 笔、最早的买入（开局第一秒 5 笔）全 0.03~0.14 小散、13 秒后 0.1985/0.1976 接力=散户接力盘非庄建仓。BP27 案立法（题集 BP29 ①庄时序锚）后 182 对拍翻案达成：strong_backer→blended_unremarkable、综合 neutral(0.72) 维持（BP20 T025 0.198×2=blended 先例路径）；真庄反例 S044/S005 strong_backer 维持零翻动"
+    },
+    {
+      "anchorId": "BPA-071",
+      "kind": "signal",
+      "tokenAddress": "0x0cd4cee39ed16ad3e39e3b261dc592648d137777",
+      "tokenName": "太空逆袭",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S053",
+        "triggeredAt": "2026-11-05T07:20:50Z",
+        "anchorTickCount": 17
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.62,
+        "rule": "any_neutral",
+        "run": "bp28-parity",
+        "questionVersion": "BP31"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "activity 裁定锚（用户裁定原话「cheat 检测中有burst检测，豁免低活跃度，可以搬过来。S053 是中等」）：S053 三段形状=开局 7s 冲 7 笔→中段 24s 完全静默（无交易期占比 54.5%）→锚前 2s 内 8 笔 0.928 BNB 同块集中涌入（含三笔 0.2 级），1min 后 +55.6%。BP30 纯题面三段形状句三连跑稳定 low（题面救不动——临近段 totals 无时序、锚前涌入被段 totals 稀释 Jev 结构性看不到）；BP31 锚前尾段三键（nearTail5=8 笔近 1 BNB 直接可见）后三连跑稳定 activity=mid/综合 neutral（0.62/0.59/0.63）翻案达成"
+    },
+    {
+      "anchorId": "BPA-072",
+      "kind": "signal",
+      "tokenAddress": "0x0cd4cee39ed16ad3e39e3b261dc592648d137777",
+      "tokenName": "太空逆袭",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S055",
+        "triggeredAt": "2026-11-05T07:22:08Z",
+        "anchorTickCount": 56
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 0.79,
+        "rule": "else_poor",
+        "run": "bp28-parity",
+        "questionVersion": "BP31"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "早鸟累计位置裁定锚（用户裁定原话「S055 poor，这个给中等不对吧，涨了 100% 以上了」）：现价较发行价 +126.8%（price_level=mid）但 maxChg5=39.38% 未过 +40~50% 速锚线→BP29 第二分支不命中误 neutral(0.36) 放行（后 5m 末 -11.6%）；速度锚测不到慢涨（分波缓爬到 mid+ 同样是接力位）→BP30 第三分支·累计位置硬腿（+100% 以上一律 poor 无论 maxChg5）后 182 对拍早鸟 poor(0.74)/综合 poor(0.79) 翻案达成；边界安全=S054 +62.4%/S062 +33%/S063 +71.9% 等界外票零翻动"
+    },
+    {
+      "anchorId": "BPA-073",
+      "kind": "signal",
+      "tokenAddress": "0x490da05a44bd886391d48f6cbfb1d7bbc7584444",
+      "tokenName": "FIGHT",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S064",
+        "triggeredAt": "2026-11-05T07:55:39Z",
+        "anchorTickCount": 26
+      },
+      "expect": {
+        "bucket": "poor"
+      },
+      "model": {
+        "bucket": "poor",
+        "prob": 1,
+        "rule": "chip_gate",
+        "run": "bp28-parity",
+        "questionVersion": "BP31"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "盘型③复数 famous 裁定锚（用户裁定原话「Fight 是 famous 盘，0xfb4e4fa492217d8401aa9e893c78707b61923953 0x550647e8faf10116f0367526080c1005809b4653 这两个著名钱包（加入到著名钱包中），他俩入仓太早了拿的太多，起不来」）：0xfb4e t+7s 买 0.252+0x5506 t+13s 买 0.343 合计 0.595 BNB 极早抢筹零卖出，BP29 误判 strong_backer neutral(0.72) 放行即 -41.5%；roster 收录两址+BP30 ③复数 famous 扩句后 famous dominant(1.0)/盘型 famous_monopoly(0.75)/综合 poor(1.00, chip_gate) 翻案达成；外溢留档=S062 无税人生（同一对钱包另一盘，famous 控盘 100%/集团买入 98.9%）none→dominant、neutral→poor(chip_gate)=「famous 掌控不参与」立法语义内（257% 是 famous 自己拉的）"
     }
   ]
 }
