@@ -42,9 +42,10 @@ const TICK_COLS = 'id,block_time,block_number,log_index,tx_hash,trade_type,bnb_a
 const TICK_PAGE = 4000;   // id 水位翻页页大小（mcap-floor-sell-replay 同款）
 const TICK_PAGES_MAX = 15; // 6 万行帽（超=capped，宁截声明不静默）
 const CHEAT_IN_BATCH = 25; // .in() 批上限（红线 5：URL 8KB；25×~30 行/批 < PostgREST max-rows 1000）
+const PAGE_ROWS = 1000;   // 点位源翻页页大小（对齐 PostgREST max-rows=1000，翻满即有下一页）
 
 function parseArgs(argv) {
-  const args = { name: '', source: 'trades', exps: [], liveExpCount: 3, dedupeSec: null, horizonMin: 15, limitExp: 5000, legsLib: 'signal-source-ladder-v1' };
+  const args = { name: '', source: 'trades', exps: [], liveExpCount: 3, dedupeSec: null, horizonMin: 15, limitExp: 5000, legsLib: 'signal-source-ladder-v1', excludeLegs: '' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--name') args.name = String(argv[++i] || '');
@@ -55,9 +56,11 @@ function parseArgs(argv) {
     else if (a === '--horizon-min') args.horizonMin = Number(argv[++i]);
     else if (a === '--limit-exp') args.limitExp = Number(argv[++i]);
     else if (a === '--legs-lib') args.legsLib = String(argv[++i] || '');
+    else if (a === '--exclude-legs') args.excludeLegs = String(argv[++i] || '');
     else { console.error(`未知参数: ${a}`); process.exit(2); }
   }
-  if (!args.name) { console.error('用法: build-set.mjs --name <set> [--source trades|signals] [--exps id,...] [--live-exp-count 3] [--dedupe-sec N] [--horizon-min 15] [--legs-lib <name|none>]'); process.exit(2); }
+  args.excludeLegSet = new Set(args.excludeLegs.split(',').map((s) => s.trim()).filter(Boolean));
+  if (!args.name) { console.error('用法: build-set.mjs --name <set> [--source trades|signals] [--exps id,...] [--live-exp-count 3] [--dedupe-sec N] [--horizon-min 15] [--legs-lib <name|none>] [--exclude-legs 腿名1,腿名2]'); process.exit(2); }
   if (args.source !== 'trades' && args.source !== 'signals') { console.error('--source 须 trades|signals'); process.exit(2); }
   if (args.dedupeSec === null) args.dedupeSec = args.source === 'trades' ? 0 : 60;
   if (!Number.isInteger(args.dedupeSec) || args.dedupeSec < 0) { console.error('--dedupe-sec 须为 ≥0 整数（0=不去重）'); process.exit(2); }
@@ -89,17 +92,30 @@ async function loadLiveExperiments(limitExpCount, explicitIds) {
   return (data ?? []).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
 }
 
-/** per 实验 BUY 信号（超帽 fail-loud；metadata 只取 price/strategyName 两字段防 set 膨胀） */
+/** 通用分页拉全（PostgREST 服务端 max-rows=1000 静默截断防线：v73 实测 BUY 信号 1673 条被单查 limit 截成 1000 无报错；
+ * .range 翻页 + (created_at,id) 双键稳定排序防同时间戳行跨页滑动；每翻满一页查帽 fail-loud） */
+async function fetchAllPaged(table, select, filters, limitExp, label) {
+  const rows = [];
+  for (let from = 0; ; from += PAGE_ROWS) {
+    let q = sb().from(table).select(select)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_ROWS - 1);
+    for (const [col, val] of Object.entries(filters)) q = q.eq(col, val);
+    const { data, error } = await q;
+    if (error) throw new Error(`${table} 查询失败(${label}): ${error.message}`);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_ROWS) break;
+    if (rows.length > limitExp) { console.error(`${label} 超 ${limitExp} 帽（已拉 ${rows.length}+）——--limit-exp 放宽或收窄实验`); process.exit(1); }
+  }
+  return rows;
+}
+
+/** per 实验 BUY 信号（分页拉全；metadata 只取 price/strategyName 两字段防 set 膨胀） */
 async function loadBuySignals(expId, limitExp) {
-  const { data, error } = await sb().from('strategy_signals')
-    .select('id,token_address,token_symbol,created_at,metadata')
-    .eq('experiment_id', expId)
-    .eq('signal_type', 'BUY')
-    .order('created_at', { ascending: true })
-    .limit(limitExp + 1);
-  if (error) throw new Error(`strategy_signals 查询失败(${expId}): ${error.message}`);
-  const rows = data ?? [];
-  if (rows.length > limitExp) { console.error(`实验 ${expId} BUY 信号超 ${limitExp} 帽（${rows.length}+）——--limit-exp 放宽或收窄实验`); process.exit(1); }
+  const rows = await fetchAllPaged('strategy_signals', 'id,token_address,token_symbol,created_at,metadata',
+    { experiment_id: expId, signal_type: 'BUY' }, limitExp, `实验 ${expId} BUY 信号`);
   return rows.map((r) => {
     const md = r.metadata || {};
     return {
@@ -112,16 +128,8 @@ async function loadBuySignals(expId, limitExp) {
 
 /** per 实验成交买点（trades 源）：成功 buy 行 → buildTradePoints 点位（不去重=「所有交易点位」） */
 async function loadBuyTrades(expId, limitExp) {
-  const { data, error } = await sb().from('trades')
-    .select('id,token_address,input_currency,input_amount,output_amount,executed_at,created_at,signal_id')
-    .eq('experiment_id', expId)
-    .eq('trade_direction', 'buy')
-    .eq('success', true)
-    .order('created_at', { ascending: true })
-    .limit(limitExp + 1);
-  if (error) throw new Error(`trades 查询失败(${expId}): ${error.message}`);
-  const rows = data ?? [];
-  if (rows.length > limitExp) { console.error(`实验 ${expId} 成交买点超 ${limitExp} 帽（${rows.length}+）——--limit-exp 放宽或收窄实验`); process.exit(1); }
+  const rows = await fetchAllPaged('trades', 'id,token_address,input_currency,input_amount,output_amount,executed_at,created_at,signal_id',
+    { experiment_id: expId, trade_direction: 'buy', success: true }, limitExp, `实验 ${expId} 成交买点`);
   return buildTradePoints(rows, expId);
 }
 
@@ -266,12 +274,17 @@ async function main() {
   console.log(`\n实验集（${exps.length} 个）:`);
   for (const e of exps) console.log(`  ${e.id} ${e.experiment_name || ''} ${e.created_at}`);
 
-  // 1) 点位源汇总（trades=成交买点 / signals=BUY 信号）→ cheat/unhealthy 剔除 → 去重
+  // 1) 点位源汇总（trades=成交买点 / signals=BUY 信号）→ 腿剔除（--exclude-legs，按 signalInfo.strategyName 精确匹配）→ cheat/unhealthy 剔除 → 去重
   const raw = [];
   for (const e of exps) {
-    const pts = args.source === 'trades'
+    let pts = args.source === 'trades'
       ? await loadBuyTrades(e.id, args.limitExp)
       : await loadBuySignals(e.id, args.limitExp);
+    if (args.excludeLegSet.size) {
+      const before = pts.length;
+      pts = pts.filter((p) => !args.excludeLegSet.has((p.signalInfo && p.signalInfo.strategyName) || ''));
+      console.log(`  剔除腿 [${[...args.excludeLegSet].join('、')}]：${before} → ${pts.length}`);
+    }
     console.log(`  ${args.source === 'trades' ? '成交买点' : 'BUY 信号'} ${e.id}: ${pts.length} 条`);
     raw.push(...pts);
   }
@@ -465,6 +478,8 @@ async function main() {
       experiments: exps.map((e) => ({ id: e.id, name: e.experiment_name, createdAt: e.created_at })),
       expSelect: args.exps.length ? 'explicit --exps' : `最近 ${args.liveExpCount} 个 trading_mode=live（created_at 降序）`,
       dedupeSec: args.dedupeSec,
+      excludeLegs: args.excludeLegs ? args.excludeLegs.split(',').map((s) => s.trim()).filter(Boolean) : [],
+      pagination: '点位源 .range 翻页拉全（PAGE_ROWS=1000 对齐 PostgREST max-rows；v73 前 .limit 单查曾静默截 1000/1673）',
       cheatExclusion: '收录前剔除当前判定 cheat/unhealthy 的 token 全部点位（cheat_detection 最新带 grade 行；healthy/无判定放行；构建时点快照语义）',
       horizonsSec: [...FWD_HORIZONS_SEC],
       horizonMin: args.horizonMin,
