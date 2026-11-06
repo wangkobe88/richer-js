@@ -187,6 +187,27 @@
 
 ## Case 倒序
 
+### CD378 ANKR WSS 同连接单笔通道：sender 解析最坏延迟 3s→104ms、dataseed 降为回退层（2026-11-06，机制案·无 token；CD377 续篇）
+
+**动机**：用户原话「我依然不太认同『剩余 ~40% 行是非映射域合约…+ EOA 首现行（kind 缓存未热）』请再次进一步研究一下，尽最大努力不要去调用 RPC，这种调用直接损失好的点位，损失资金」——CD377 后仍有 ~40% 行走 dataseed HTTP RPC，核心痛点是**延迟**（dataseed 往返几百 ms + lag 行 3s 重试尾巴），不只调用量。方案讲清后用户裁定「**上，直接默认开**」。
+
+**核心洞察**：给我们推 trade log 的 ANKR 节点正是刚处理过这笔交易的节点——**它必然已持有该 tx**（dataseed 的 lag 问题在 ANKR 侧结构性不存在）；WSS 连接支持标准 JSON-RPC 请求/应答（flap collector id 应答先例）。**实测（2026-11-06 本地真 ANKR WSS）**：`eth_getTransactionByHash` **104ms 极稳**（串行 5 笔全 104ms）、**并发 10 笔总 136ms**（同连接管道化——块 join「一次拉取全簇共享」的摊销优势被替代）、1.3KB/次、不存在 tx 干净 `result=null`；对比 `eth_getBlockByNumber(full)` 318ms/119KB——**per-tx 全面胜出弃 per-block**（CD377 stats 注释预告的「二期 ANKR WSS 块拉取」在此兑现，实际选型修正为 per-tx）。
+
+**诚实边界（为什么不是 0 查询）**：9e69（622 行/h 最大头）169 笔 receipt 零 emit、9049 事件无用户、9689 per-token 变量合约——tx.from 是**交易级数据，log 层天然拿不到**（链上实证铁律）。同节点同连接 104ms 一次定值是物理极限（GMGN 索引器直读自家节点的同等架构平替）。
+
+**实现（两层）**：
+
+1. **collector 侧通用通道 `_rpcRequest`（三 collector 同型）**：`_rpcPending: Map<id,{resolve,reject,timer}>` + `_rpcRequest(method, params, timeoutMs=8s) → Promise<帧>`；id 复用现有 `_rpcId++` 发号器（≥100 单调）；**id≥100 分派仲裁**——现有 `_onMessage` 把所有 id≥100 吞进 `_onBlockTimeResponse`（冲突实锤），改「旧表 `_blockTimeRequests` 优先（blockTime 兜底先例不动），miss 查 `_rpcPending`；`msg.error` 帧 reject」；`_scheduleReconnect` 入口 reject 全表（`wss_connection_closed`）——现有 fire-and-forget 先例不处理 in-flight，Promise 化必须补，否则断连挂死到 8s 超时；collector `stop()` 同款 reject 残余（stop 不走 `_scheduleReconnect`，listeners 已摘无 close 路径）；'open' 回调挂 `senderResolver.attachWss(this._rpcRequest.bind(this))`——重连再 open 天然重挂。
+2. **resolver 侧 `attachWss(fn)` + 解析链插层 3（txFrom 缓存后、dataseed 块 join 前）**：fn 在场且未熔断且 in-flight<32 → `eth_getTransactionByHash(txHash)`（**per-tx in-flight join**：`Map<txHash,Promise>` 同 tx 多行共享一次查询）→ `result.from` 定值+反哺 txFrom/kind 双缓存（from==trader ⇒ trader 是 EOA 终身快路；from!=trader ⇒ trader 是合约，**getCode trader 预判层整个砍掉**——单次往返同时完成定值+判型）；null/reject → **复查 map（104ms 往返窗内路由事件几乎必到，hit 计 lateHits）** → miss 走 dataseed 块 join（CD377 全链原样=回退层）。**设计自纠**：原计划 reject 即弃用 fn 置 null——推演发现单请求超时≠断连，弃用后无重挂点（连接活着不会再 open）；改为**连续 5 次错误熔断 10min**（`_wssCooldownUntil`，期间层关直接 dataseed、不计 lookups/fallbacks），`attachWss` 重挂即清零冷却与连击（断连 reject 风暴熔断 → 重连 open=天然恢复点）。both 实验双 collector last-writer-wins（fn 功能等价，不做健康度计分）。
+
+**stats 新键**：resolver 五键 `wssTxResolved/wssTxLookups/wssTxFallbacks/wssOverflows/wssCooldowns` + collector 两键 `wssRpcRequests/wssRpcErrors`。**未注入 wssFn（存量单测/未接线形态）→ 层 3 天然跳过 = CD377 行为 bit 一致**。
+
+**验证**：①单测 184→**256 断言全绿**（A21-A27：主路定值+双缓存反哺/from==trader 与 from!=trader 分岔/null 后复查 map 接住+miss 落块 join/reject 落回退层/连续 3 败熔断+重挂恢复/in-flight 溢出直落 dataseed/同 tx 两行共享一次查询/熔断期不计 lookups/未注入五键全零；B12 节三 collector×7 用例：出站帧 id≥100/同 id 应答 resolve/error 帧 reject/超时表清/非 OPEN reject/断连全表 reject/id 仲裁旧表优先/stop reject 残余；C8 源码锁：层序位次锁+attachWss+熔断+三 collector 通道六字面量）；②相邻五测零翻动（fa_deferred/embedded/gang/run_engine_graceful/experiment_lock）；③**本地真跑冒烟（真 ANKR WSS）**：无订阅裸连零推送 → 通道自证 eth_getBlockByNumber(latest,full) 228ms 块 131953898 含 99 tx → 取 4 笔真 tx submit → **4 行全部 WSS 定值 213ms 总耗时（并发管道化均摊 ~53ms/行）+ 逐笔 sender=链上真 tx.from 对拍 + dataseed 零调用零 fallback** → 断连后行回落 dataseed 链路完整。
+
+**预期终态（v74 窗推算）**：EOA 直发 19.7% 首现一次 104ms 后终身 0ms（kind 反哺）；映射域 ~56% 零查询；合约中介行 ~40% WSS 104ms 必中（并发簇 ~136ms）；**dataseed RPC ~4800/h → 趋零**（WSS 故障窗口回退）。「损失点位」人群：51.6%×(几百 ms~3s) → ~40%×104ms 一次定值无重试尾巴。
+
+**余留观察点（下实验启动后）**：①wssTxResolved 占比应 ~40%、blockPulls/txLookups 趋零、wssTxFallbacks≈0、wssOverflows 量级（32 上限是否够）；②ANKR 限流形态未知——若 429 出现则 wssCooldowns>0 且行自动回落 dataseed（fail-safe 方向验证）；③v74↔v75 对拍注明：settle 窗 sender 完整度上升致 cheat/BP 判定漂移=CD377+CD378 合并修复目的非副作用。
+
 ### CD377 块预取 join 静默失效修复+映射竞态复查：补数据比例砍半（2026-11-06，机制案·无 token；CD376 续篇）
 
 **动机**：用户原话「深度思考一下，补数据的比例能不能进一步降低。我总是觉得现在的状态不合道理，GMGN 肯定不是用的这个方案，它的数据非常干净快速」——v74 生产统计（11859 行）拆解：EOA 直发 19.7% / 映射域 56.4%（域内仅 61% 被映射接住）/ 非映射域合约 23.9%，**51.6% 行走 RPC 回查**。深挖出两个实锤根因（均为失效 bug 与机制缺口，非架构必然），用户裁定 A+B 双修复（长尾九址 receipt 实证不做留观察）。

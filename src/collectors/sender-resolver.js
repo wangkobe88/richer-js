@@ -17,14 +17,18 @@
  *     落库延迟）；price_outlier 回写在 _emitTick 同步段完成，异步回推时已定值
  *
  * 解析链（2026-11-04 起，逐级降级；此前=逐行 getCode 判型 + getTransaction 串行回查；
- * 2026-11-06 CD377 块 join 裸调修复 + 映射竞态复查）：
+ * 2026-11-06 CD377 块 join 裸调修复 + 映射竞态复查；同日 CD378 ANKR WSS 单笔主路径）：
  *   0) EOA kind 缓存命中 → submit 内同步直推（零延迟零 RPC）
  *   1) 路由事件映射（collector 订阅路由自 emit 事件，topics/data 直接带用户 EOA——
  *      链上实证 24/24 笔 tx.from 恒在 topics 零例外；事件晚于 trade 事件几十 ms
  *      到达，miss 不等待直接走 2）：命中零 RPC
  *   2) txFrom 缓存（同 tx 多 log 共享一次回查结果）
- *   3) 块预取 join（lazy per-block）：同块全部未定值行共享一次
- *      eth_getBlockByNumber(full=true)（CD377：裸调 p.send——ethers getBlock(n,true)
+ *   3) 【CD378 主路径】ANKR WSS 同连接单笔 eth_getTransactionByHash：ankr 是刚推
+ *      这条 log 的节点必已持有该 tx（dataseed 的 lag 在 ankr 侧结构性不存在），
+ *      实测 104ms 极稳/1.3KB/并发 10 笔总 136ms（管道化）；from==trader 反哺 kind
+ *      缓存（EOA 终身快路）。失败/null/溢出/熔断 → 复查 map → 走 4（dataseed）
+ *   4) 块预取 join（lazy per-block，CD377 后=dataseed 回退层）：同块全部未定值行共享
+ *      一次 eth_getBlockByNumber(full=true)（CD377：裸调 p.send——ethers getBlock(n,true)
  *      抽象路径实测恒返回 hash 数组致 join 自上线起静默失效一周，blockJoinRows=0），
  *      块 map 到 → 全簇 join；**from 恒 EOA ⇒ sender=from 即答案，getCode 判型链退役**
  *      （EOA 直连时 from===trader 同样正确）。三类失败分治：null block（RPC 端点 lag，
@@ -32,12 +36,18 @@
  *      transactions=hash 数组/非数组）→ fn 内 throw 走端点 failover，全端点退化 →
  *      该块负缓存（空 Map 留缓存防同块重拉风暴）+ blockShapeDegrades + 连续退化
  *      熔断停预取；网络错误 → failover 后 reject 逐出缓存（现状）
- *   4) 单行 getTransactionByHash fallback（块结果无该 txHash=重组/边缘，或块拉取失败）
- *   5) 重试 retryLimit 次耗尽 → sender=NULL 回推（保数据丢修复，绝不丢行）
- *   路由映射复查（CD377）：3) 块路径未定值后与 4) 单行未定值后各复查一次 map——
- *   RPC 往返窗（100-300ms）内路由事件（几十 ms 到达）几乎必然已进 map，复查零新增
- *   延迟接住竞态 miss（routerMapLateHits/routerMapRetryHits）；与块 join 语义互补：
- *   ankr 领先端点（join null）→ 复查命中；ankr 落后 → 事件先到即时命中或 join 直接定值
+ *   5) 单行 getTransactionByHash fallback（dataseed；块结果无该 txHash=重组/边缘）
+ *   6) 重试 retryLimit 次耗尽 → sender=NULL 回推（保数据丢修复，绝不丢行）
+ *   路由映射复查（CD377/CD378）：3) WSS 未定值后、4) 块路径未定值后与 5) 单行未
+ *   定值后各复查一次 map——RPC 往返窗内路由事件（几十 ms 到达）几乎必然已进 map，
+ *   复查零新增延迟接住竞态 miss（routerMapLateHits/routerMapRetryHits）；
+ *   与块 join 语义互补：ankr 领先端点（join null）→ 复查命中；ankr 落后 →
+ *   事件先到即时命中或 join 直接定值
+ *
+ * WSS 通道（CD378）：collector 建连（'open'）后 attachWss(collector._rpcRequest)——
+ * 重连再 open 天然重挂（both 实验双 collector last-writer-wins，fn 功能等价）；
+ * 连续 5 次错误（429/超时/断连 reject 风暴）→ 熔断 10min 走 dataseed，重挂时
+ * 清零冷却。未注入 wssFn（单测/未接线）→ 层 3 天然跳过 = CD377 行为 bit 一致。
  *
  * per-token 观测（waitTokenIdle/pendingFor）：enq/done 双计数 watermark，供
  * CheatCheckService 事件驱动 settle（等 per-token 队列清空而非固定 4s）。
@@ -107,6 +117,15 @@ class SenderResolver {
         this._shapeDegradeStreak = 0;      // 连续全端点形状退化块数（成功即归零）
         this._prefetchPausedUntil = 0;     // 熔断截止时刻（Date.now 墙钟——回查链非 FA 周期判定无前视约束）
         this._warnTs = new Map();          // 限频 warn（key → 上次打印时刻）
+        // CD378 ANKR WSS 单笔通道（解析链层 3 主路径；dataseed 全链降为回退层）
+        this._wssFn = null;                // collector 'open' 挂入的 _rpcRequest（重挂=清零冷却）
+        this._wssTxInflight = new Map();   // txHash → Promise<from|null>（per-tx in-flight join，同 tx 共享一次查询）
+        this._wssInflightLimit = this._cfg.wssInflightLimit ?? 32;
+        this._wssRequestTimeoutMs = this._cfg.wssRequestTimeoutMs ?? 8000;
+        this._wssErrorStreak = 0;          // 连续错误计数（成功归零；达阈值熔断）
+        this._wssErrorBreakerThreshold = this._cfg.wssErrorBreakerThreshold ?? 5;
+        this._wssCooldownUntil = 0;        // 熔断截止时刻（墙钟——回查链非 FA 周期判定）
+        this._wssCooldownMs = this._cfg.wssCooldownMs ?? 10 * 60 * 1000;
 
         // trader 地址 → 'eoa'（终身缓存；填充源=块 join/单行反查的 tx.from 反哺——
         // BSC from 恒 EOA；合约 trader 永不落此缓存=每笔入队 per-tx 解析，语义正确）
@@ -143,6 +162,11 @@ class SenderResolver {
             blockNotFound: 0,    // CD377 null block（端点 lag）块数——二期 ANKR WSS 块拉取决策依据
             blockShapeDegrades: 0, // CD377 全端点形状退化块数（负缓存）
             blockFallbackRows: 0,// 块路径+映射复查均未定值落单行回查行数（CD377 收窄口径）
+            wssTxResolved: 0,   // CD378 WSS 单笔定值行数（主路径主体）
+            wssTxLookups: 0,    // CD378 eth_getTransactionByHash 请求次数（in-flight join 后）
+            wssTxFallbacks: 0,  // CD378 WSS 层未定值落 dataseed 行数（null/失败/溢出）
+            wssOverflows: 0,    // CD378 in-flight≥32 溢出直落 dataseed 行数
+            wssCooldowns: 0,    // CD378 连续 5 次错误进入熔断次数
             txFromResolved: 0,   // 单行反查 tx.from 成功回推（fallback 主体）
             senderNull: 0,       // 反查耗尽/停机/溢出 → NULL 回推（保数据丢修复）
             retried: 0,
@@ -182,6 +206,58 @@ class SenderResolver {
         if (this._routerEventMap.size > this._routerEventMapLimit) {
             const keys = [...this._routerEventMap.keys()].slice(0, Math.floor(this._routerEventMap.size / 2));
             for (const k of keys) this._routerEventMap.delete(k);
+        }
+    }
+
+    /**
+     * WSS 单笔查询通道挂入（collector 建连/重连 'open' 时调用）。
+     * fn = collector._rpcRequest 绑定（(method, params, timeoutMs) → Promise<msg>，resolve
+     * 整帧应答、reject=超时/断连/非 OPEN/JSON-RPC error）。
+     * both 实验双 collector last-writer-wins（fn 功能等价，任意一个可用即够）；
+     * 重挂即清零错误连击与冷却——断连 reject 风暴触发熔断后，重连 open 是天然恢复点。
+     */
+    attachWss(fn) {
+        this._wssFn = typeof fn === 'function' ? fn : null;
+        this._wssErrorStreak = 0;
+        this._wssCooldownUntil = 0;
+    }
+
+    /**
+     * WSS 单笔 eth_getTransactionByHash（永不 reject——内部消化错误返回 null，
+     * 调用方按 null 走 dataseed；错误连击/熔断在 _onWssError 记账）。
+     * ankr 是刚推这条 log 的节点必已持有该 tx（dataseed lag 在此结构性不存在）。
+     * from 恒 EOA（BSC 铁律）：反哺 kind 缓存（from==trader 时 trader 即 EOA 终身快路）。
+     */
+    async _wssLookupTx(txHash) {
+        const fn = this._wssFn;
+        if (!fn) return null;
+        let msg;
+        try {
+            msg = await fn('eth_getTransactionByHash', [txHash], this._wssRequestTimeoutMs);
+        } catch (err) {
+            this._onWssError(err);
+            return null;
+        }
+        this._wssErrorStreak = 0;
+        const from = (msg && msg.result && typeof msg.result.from === 'string')
+            ? msg.result.from.toLowerCase() : null;
+        if (from) {
+            this._cacheTxFrom(txHash, from);
+            this._cacheKind(from, KIND_EOA);
+        }
+        return from;
+    }
+
+    /** WSS 通道失败（reject/超时/断连/error 帧）连击记账；达阈值熔断 N 分钟走 dataseed */
+    _onWssError(err) {
+        this._wssErrorStreak++;
+        if (this._wssErrorStreak >= this._wssErrorBreakerThreshold
+            && this._wssCooldownUntil < Date.now()) {
+            this._wssCooldownUntil = Date.now() + this._wssCooldownMs;
+            this.stats.wssCooldowns++;
+            this._warnThrottled('wssCooldown',
+                `SenderResolver WSS 通道连续 ${this._wssErrorStreak} 次错误，熔断 ${Math.round(this._wssCooldownMs / 60000)}min 走 dataseed：${err && err.message ? err.message : err}`,
+                this._wssCooldownMs);
         }
     }
 
@@ -248,6 +324,8 @@ class SenderResolver {
     async stop() {
         if (this._stopped) return;
         this._stopped = true;
+        this._wssFn = null; // CD378：collector 先 stop 后 resolver.stop——fn 已死，
+        // 置 null 防残余 in-flight 行再走 WSS 层（await 中的行拿旧 promise 无害）
 
         const deadline = Date.now() + 3000;
         while (this._inflight > 0 && Date.now() < deadline) {
@@ -330,7 +408,7 @@ class SenderResolver {
 
     async _processItem(item) {
         // 1) GMGN 路由事件映射（最前：零 RPC 零延迟；事件晚于 trade 事件几十 ms
-        //    到达——miss 不等待，直接走 2/3 互补兜底）
+        //    到达——miss 不等待，直接走后续层互补兜底）
         const routerUser = this._routerEventMap.get(item.txHash);
         if (routerUser !== undefined) {
             this.stats.routerMapHits++;
@@ -347,9 +425,47 @@ class SenderResolver {
             return;
         }
 
-        // 3) 块预取 join（lazy per-block）：同块全部未定值行共享一次全块拉取。
-        //    from 恒 EOA ⇒ sender=from 即答案——getCode 判型不需要（EOA 直连时
-        //    from===trader，块 join 结果同样正确且反哺 kind 缓存走未来快路）
+        // 3)【CD378 主路径】ANKR WSS 同连接单笔 eth_getTransactionByHash：
+        //    ankr 是刚推这条 log 的节点必已持有该 tx（dataseed 的 lag 在 ankr 侧
+        //    结构性不存在），实测 104ms 极稳；未注入 wssFn/熔断/溢出 → 跳过走 4
+        //    （= CD377 行为）。per-tx in-flight join：同 tx 多行共享一次查询
+        if (this._wssFn && Date.now() >= this._wssCooldownUntil) {
+            if (this._wssTxInflight.size >= this._wssInflightLimit) {
+                this.stats.wssOverflows++;
+                this.stats.wssTxFallbacks++;
+            } else {
+                let p = this._wssTxInflight.get(item.txHash);
+                if (!p) {
+                    this.stats.wssTxLookups++;
+                    p = this._wssLookupTx(item.txHash);
+                    this._wssTxInflight.set(item.txHash, p);
+                    p.then(() => {
+                        if (this._wssTxInflight.get(item.txHash) === p) {
+                            this._wssTxInflight.delete(item.txHash);
+                        }
+                    });
+                }
+                const wssFrom = await p;
+                if (wssFrom != null) {
+                    this.stats.wssTxResolved++;
+                    this._pushResolved(item, wssFrom);
+                    return;
+                }
+                this.stats.wssTxFallbacks++;
+                // 复查点（CD378，同 CD377 ①② 逻辑）：WSS 往返窗（~104ms）内路由
+                // 事件几乎必到，零新增延迟接住竞态 miss
+                const wssLateUser = this._routerEventMap.get(item.txHash);
+                if (wssLateUser !== undefined) {
+                    this.stats.routerMapLateHits++;
+                    this._pushResolved(item, wssLateUser);
+                    return;
+                }
+            }
+        }
+
+        // 4) 块预取 join（lazy per-block，dataseed 回退层）：同块全部未定值行共享一次
+        //    全块拉取。from 恒 EOA ⇒ sender=from 即答案——getCode 判型不需要（EOA
+        //    直连时 from===trader，块 join 结果同样正确且反哺 kind 缓存走未来快路）
         const blockNumber = item.tickRow.block_number ?? null;
         if (blockNumber != null) {
             let from = null;
@@ -383,7 +499,7 @@ class SenderResolver {
             this.stats.blockFallbackRows++;
         }
 
-        // 4) 单行 getTransactionByHash fallback（重组边缘/块拉取失败；重试有机会成功）
+        // 5) 单行 getTransactionByHash fallback（dataseed；重组边缘/块拉取失败；重试有机会成功）
         const from = await this._lookupTxFrom(item.txHash);
         if (from != null) {
             this.stats.txFromResolved++;
@@ -399,7 +515,7 @@ class SenderResolver {
             return;
         }
 
-        // 5) 重试（退避后放回队首保序）或耗尽留 NULL
+        // 6) 重试（退避后放回队首保序）或耗尽留 NULL
         if (item.retries < this._retryLimit && !this._stopped) {
             item.retries++;
             this.stats.retried++;

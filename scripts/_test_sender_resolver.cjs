@@ -475,6 +475,163 @@ async function testA() {
         ok(s.blockFallbackRows === 2 && s.txFromResolved === 1 && s.senderNull === 1,
             'A20 fallback 口径=块+复查均未定值落单行（20c 单行定值/20d NULL）');
     }
+
+    // ═══ A21-A27 CD378 ANKR WSS 单笔主路径 ═══
+
+    // A21 WSS 主路定值：from 命中 → 零 dataseed；from 反哺 txFrom+kind 双缓存
+    //     （from==trader 场景 trader 即 EOA；from!=trader 场景合约 trader 不落 kind）
+    {
+        const r = new SenderResolver({ concurrency: 2 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => { throw new Error('不应拉块'); }, txOf: () => { throw new Error('不应单行'); } });
+        const wssCalls = [];
+        r.attachWss(async (method, params) => {
+            wssCalls.push([method, params[0]]);
+            return { result: { from: '0xWssUser' } };
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0x21', 2100), trader: '0xr21', txHash: '0x21', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xwssuser', 'A21 WSS 单笔定值 sender=tx.from（lowercase）');
+        ok(wssCalls.length === 1 && wssCalls[0][0] === 'eth_getTransactionByHash' && wssCalls[0][1] === '0x21',
+            'A21 请求=eth_getTransactionByHash(txHash)');
+        ok(calls.getBlock === 0 && calls.getTransaction === 0, 'A21 WSS 命中零 dataseed 调用');
+        ok(r.stats.wssTxLookups === 1 && r.stats.wssTxResolved === 1 && r.stats.wssTxFallbacks === 0,
+            'A21 lookups/resolved 计数、零 fallback');
+        ok(r._txFromCache.get('0x21') === '0xwssuser', 'A21 from 反哺 txFrom 缓存（同 tx 后续行零查询）');
+        ok(r.kindSync('0xwssuser') === 'eoa' && r.kindSync('0xr21') === null,
+            'A21 from 反哺 kind 缓存（合约 trader 不落 kind=语义正确）');
+    }
+
+    // A22 WSS result=null（ankr 侧 tx 不存在的极罕见形状）→ 复查 map（往返窗内事件
+    //     晚到）lateHits 定值；miss 走 dataseed 块 join（CD377 回退层不破）
+    {
+        const d = deferred();
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([['0x22', '0xjoin22']]), txOf: () => null });
+        r.attachWss(() => d.promise);
+        const pushed = [];
+        r.submit({ tickRow: row('0x22', 2200), trader: '0xr22', txHash: '0x22', pushRow: (x) => pushed.push(x) });
+        await sleep(10);                            // 行挂上 WSS await
+        r.setRouterEventUser('0x22', '0xwssLate');  // 往返窗内路由事件进 map
+        d.resolve({ result: null });                // ankr 无该 tx
+        await sleep(10);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xwsslate', 'A22 WSS null 后复查 map 接住定值');
+        ok(r.stats.routerMapLateHits === 1 && r.stats.wssTxFallbacks === 1, 'A22 lateHits 计数、WSS 未定值计 fallback');
+        ok(calls.getBlock === 0, 'A22 复查接住零 dataseed（块 join 不触发）');
+
+        // miss 形状：无 map 条目 → 落块 join 回退层照常定值
+        const r2 = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls2 = makeStub(r2, { blockOf: () => fullBlock([['0x22b', '0xjoin22b']]), txOf: () => null });
+        r2.attachWss(async () => ({ result: null }));
+        const pushed2 = [];
+        r2.submit({ tickRow: row('0x22b', 2201), trader: '0xr22b', txHash: '0x22b', pushRow: (x) => pushed2.push(x) });
+        await sleep(20);
+        ok(pushed2.length === 1 && pushed2[0].sender_address === '0xjoin22b', 'A22b WSS null+复查 miss → dataseed 块 join 定值');
+        ok(r2.stats.wssTxFallbacks === 1 && r2.stats.blockJoinRows === 1, 'A22b fallback 后块 join 接棒（CD377 回退层完好）');
+    }
+
+    // A23 WSS reject（超时/断连/error 帧）→ 行落 dataseed 块 join 照常定值
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([['0x23', '0xjoin23']]), txOf: () => null });
+        r.attachWss(async () => { throw new Error('wss_rpc_timeout'); });
+        const pushed = [];
+        r.submit({ tickRow: row('0x23', 2300), trader: '0xr23', txHash: '0x23', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xjoin23', 'A23 WSS reject → dataseed 块 join 定值（回退层接住）');
+        ok(r.stats.wssTxFallbacks === 1 && calls.getBlock === 1 && r.stats.blockJoinRows === 1,
+            'A23 reject 计 fallback、块 join 一次');
+    }
+
+    // A23b 连续错误熔断：达阈值进冷却（行直走 dataseed 不再烧 WSS）→ attachWss
+    //     重挂清零恢复（重连 open=天然恢复点）
+    {
+        const r = new SenderResolver({ concurrency: 1, wssErrorBreakerThreshold: 3 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([]), txOf: (h) => ({ from: '0xsingle' + h.slice(2, 5) }) });
+        let wssFail = true;
+        const wssCalls = [];
+        r.attachWss(async () => { wssCalls.push(1); if (wssFail) throw new Error('boom'); return { result: null }; });
+        const pushed = [];
+        for (let i = 0; i < 3; i++) { // 3 连败 → streak=3 达阈值熔断
+            r.submit({ tickRow: row('0x23b' + i, 2310), trader: '0xr23b', txHash: '0x23b' + i, pushRow: (x) => pushed.push(x) });
+            await sleep(10);
+        }
+        ok(r.stats.wssCooldowns === 1 && r._wssCooldownUntil > Date.now(), 'A23b 连续 3 败进熔断');
+        r.submit({ tickRow: row('0x23bx', 2311), trader: '0xr23b', txHash: '0x23bx', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(wssCalls.length === 3, 'A23b 熔断期行不再调 WSS（dataseed 单行接住）');
+        r.attachWss(async () => ({ result: { from: '0xwssRecovered' } })); // 重挂=清零冷却
+        r.submit({ tickRow: row('0x23by', 2312), trader: '0xr23b', txHash: '0x23by', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.find((x) => x.tx_hash === '0x23by').sender_address === '0xwssrecovered',
+            'A23b attachWss 重挂清零冷却恢复 WSS 主路');
+        ok(calls.getBlock >= 1 && pushed.length === 5, 'A23b 熔断期 dataseed 回退接住（5 行全定值零丢失）');
+    }
+
+    // A24 in-flight 溢出：wssInflightLimit=1 + 挂起查询 → 第 2 行 wssOverflows 直落
+    //     dataseed（不排队不等待——WSS 故障窗口回落）
+    {
+        const d = deferred();
+        const r = new SenderResolver({ concurrency: 2, wssInflightLimit: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([['0x24b', '0xjoin24']]), txOf: () => null });
+        r.attachWss(() => d.promise);
+        const pushed = [];
+        r.submit({ tickRow: row('0x24a', 2400), trader: '0xr24', txHash: '0x24a', pushRow: (x) => pushed.push(x) });
+        await sleep(10); // 行 1 挂上 WSS（in-flight 1/1）
+        r.submit({ tickRow: row('0x24b', 2400), trader: '0xr24', txHash: '0x24b', pushRow: (x) => pushed.push(x) });
+        await sleep(10);
+        ok(pushed.find((x) => x.tx_hash === '0x24b').sender_address === '0xjoin24',
+            'A24 溢出行直落 dataseed 块 join 定值');
+        ok(r.stats.wssOverflows === 1 && r.stats.wssTxFallbacks === 1, 'A24 溢出计数+fallback 计数');
+        d.resolve({ result: { from: '0xwss24' } });
+        await sleep(10);
+        ok(pushed.find((x) => x.tx_hash === '0x24a').sender_address === '0xwss24', 'A24 挂起行恢复后 WSS 定值');
+    }
+
+    // A25 per-tx in-flight join：同 tx 两行（不同 trader）共享一次查询
+    {
+        const r = new SenderResolver({ concurrency: 2 }, quietLogger);
+        makeStub(r, { blockOf: () => { throw new Error('不应拉块'); }, txOf: () => { throw new Error('不应单行'); } });
+        let wssCalls = 0;
+        const d = deferred();
+        r.attachWss(() => { wssCalls++; return d.promise; });
+        const pushed = [];
+        r.submit({ tickRow: row('0x25', 2500), trader: '0xr25a', txHash: '0x25', pushRow: (x) => pushed.push(x) });
+        r.submit({ tickRow: row('0x25', 2500), trader: '0xr25b', txHash: '0x25', pushRow: (x) => pushed.push(x) });
+        await sleep(10);
+        d.resolve({ result: { from: '0xwss25' } });
+        await sleep(10);
+        ok(wssCalls === 1, 'A25 同 tx 两行共享一次 WSS 查询（in-flight join）');
+        ok(pushed.length === 2 && pushed.every((x) => x.sender_address === '0xwss25'),
+            'A25 两行同 sender 定值（查询后 in-flight 表自清）');
+        ok(r.stats.wssTxLookups === 1 && r.stats.wssTxResolved === 2, 'A25 lookups=1/resolved=2');
+        ok(r._wssTxInflight.size === 0, 'A25 完成后 in-flight 表清空');
+    }
+
+    // A26 熔断期行直接跳过 WSS 层：不计数 lookups/fallbacks（层关=CD377 行为）
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => fullBlock([['0x26', '0xjoin26']]), txOf: () => null });
+        r.attachWss(async () => ({ result: { from: '0xnever' } }));
+        r._wssCooldownUntil = Date.now() + 60000; // 手动置熔断态
+        const pushed = [];
+        r.submit({ tickRow: row('0x26', 2600), trader: '0xr26', txHash: '0x26', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed[0].sender_address === '0xjoin26' && calls.getBlock === 1, 'A26 熔断期行走 dataseed 块 join');
+        ok(r.stats.wssTxLookups === 0 && r.stats.wssTxFallbacks === 0, 'A26 熔断期不计 lookups/fallbacks（层关语义）');
+    }
+
+    // A27 未注入 wssFn（单测/未接线形态）→ WSS 层天然跳过 = CD377 行为 bit 一致
+    {
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        makeStub(r, { blockOf: () => fullBlock([['0x27', '0xjoin27']]), txOf: () => null });
+        const pushed = [];
+        r.submit({ tickRow: row('0x27', 2700), trader: '0xr27', txHash: '0x27', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed[0].sender_address === '0xjoin27' && r.stats.blockJoinRows === 1, 'A27 无 wssFn 块 join 照常（存量路径）');
+        ok(r.stats.wssTxLookups === 0 && r.stats.wssTxResolved === 0 && r.stats.wssTxFallbacks === 0
+            && r.stats.wssOverflows === 0 && r.stats.wssCooldowns === 0, 'A27 WSS 五键全零（未注入零影响）');
+    }
 }
 
 // ═══════════════ B 节：collector 分流接线 ═══════════════
@@ -792,6 +949,109 @@ function testB11() {
         'B11.9 20ef × 5994 地址 → null（同签名不同源不复用）');
 }
 
+// ═══════════════ B12 节：collector 通用 WSS 请求通道（CD378 _rpcRequest） ═══════════════
+
+async function testB12() {
+    console.log('\nB12. 三 collector _rpcRequest 通道（请求/应答/仲裁/断连 reject）');
+    const { FourMemeAnkrWsCollector } = require('../src/collectors/fourmeme-ankr-ws-collector.js');
+    const { FlapAnkrWsCollector } = require('../src/collectors/flap-ankr-ws-collector.js');
+    const { GangAnkrWsCollector } = require('../src/collectors/gang-ankr-ws-collector.js');
+
+    // stub ws：readyState=OPEN(1) + send 捕获出站帧（不真连）
+    const OPEN = 1;
+    const mk = (Ctor, cfg) => {
+        const c = new Ctor(cfg, quietLogger, null, null, {}, {});
+        const sent = [];
+        c._ws = { readyState: OPEN, send: (raw) => sent.push(JSON.parse(raw)) };
+        return { c, sent };
+    };
+    const cfgs = [
+        ['fourmeme', FourMemeAnkrWsCollector, { fourmemeWs: {} }],
+        ['flap', FlapAnkrWsCollector, { flapWs: {} }],
+        ['gang', GangAnkrWsCollector, { gangWs: { contracts: { launchpadV2: '0x1B8F0ICIdumMyFAKEaddr0000000000966E'.toLowerCase() } } }],
+    ];
+
+    for (const [name, Ctor, cfg] of cfgs) {
+        // B12.1 应答分派：发请求 → 同 id 应答帧 → resolve 整帧；id≥100 发号
+        {
+            const { c, sent } = mk(Ctor, cfg);
+            const p = c._rpcRequest('eth_getTransactionByHash', ['0xtx1']);
+            ok(sent.length === 1 && sent[0].method === 'eth_getTransactionByHash' && sent[0].id >= 100,
+                `B12.1[${name}] 出站帧带 method+id≥100（jsonrpc 形状）`);
+            c._onMessage(JSON.stringify({ jsonrpc: '2.0', id: sent[0].id, result: { from: '0xa', hash: '0xtx1' } }));
+            const msg = await p;
+            ok(msg.result.from === '0xa', `B12.1[${name}] 同 id 应答 resolve 整帧`);
+            ok(c._rpcPending.size === 0 && c.stats.wssRpcRequests === 1 && c.stats.wssRpcErrors === 0,
+                `B12.1[${name}] 应答后表清、计数正确`);
+        }
+
+        // B12.2 error 帧 reject（429/方法不存在等）
+        {
+            const { c, sent } = mk(Ctor, cfg);
+            const p = c._rpcRequest('eth_getTransactionByHash', ['0xtx2']);
+            c._onMessage(JSON.stringify({ jsonrpc: '2.0', id: sent[0].id, error: { code: -32000, message: 'limit exceeded' } }));
+            await assert.rejects(p, /wss_rpc_error/, `B12.2[${name}] error 帧 reject`);
+            ok(c.stats.wssRpcErrors === 1 && c._rpcPending.size === 0, `B12.2[${name}] 失败计数+表清`);
+        }
+
+        // B12.3 超时 reject + 表清（timer 不泄漏）
+        {
+            const { c } = mk(Ctor, cfg);
+            await assert.rejects(c._rpcRequest('eth_getTransactionByHash', ['0xtx3'], 5), /wss_rpc_timeout/,
+                `B12.3[${name}] 超时 reject`);
+            ok(c._rpcPending.size === 0, `B12.3[${name}] 超时后表清`);
+        }
+
+        // B12.4 非 OPEN reject（连接未建/已断）
+        {
+            const c = new Ctor(cfg, quietLogger, null, null, {}, {});
+            await assert.rejects(c._rpcRequest('eth_getTransactionByHash', ['0xtx4']), /wss_not_open/,
+                `B12.4[${name}] 非 OPEN 立即 reject`);
+        }
+
+        // B12.5 断连全表 reject：挂 2 个 in-flight → _scheduleReconnect → 全部
+        //      wss_connection_closed（不 reject=Promise 挂死到 8s 超时）
+        {
+            const { c, sent } = mk(Ctor, cfg);
+            const p1 = c._rpcRequest('eth_getTransactionByHash', ['0xtx5'], 60000);
+            const p2 = c._rpcRequest('eth_getTransactionByHash', ['0xtx6'], 60000);
+            c._ws = null; // _scheduleReconnect 自身会摘 ws——先置 null 模拟摘除后状态
+            c._scheduleReconnect();
+            clearTimeout(c._reconnectTimer); // 测试不留重连定时器（不真连）
+            c._reconnectTimer = null;
+            await assert.rejects(p1, /wss_connection_closed/, `B12.5[${name}] 断连 reject in-flight 1`);
+            await assert.rejects(p2, /wss_connection_closed/, `B12.5[${name}] 断连 reject in-flight 2`);
+            ok(c._rpcPending.size === 0 && c.stats.wssRpcErrors >= 2, `B12.5[${name}] 全表 reject+清空`);
+            ok(sent.length === 2, `B12.5[${name}] 两请求都已出站（reject 非静默丢弃）`);
+        }
+
+        // B12.6 id≥100 分派仲裁：旧表 blockTime 优先（fire-and-forget 先例不动），
+        //      同 id 双登记不误入 _rpcPending
+        {
+            const { c } = mk(Ctor, cfg);
+            let blockTimeCalled = 0;
+            c._onBlockTimeResponse = () => { blockTimeCalled++; };
+            const id = c._rpcId++;
+            c._blockTimeRequests.set(id, 4321);              // 模拟在途 blockTime 兜底请求
+            const entry = { resolve: () => {}, reject: () => {}, timer: null }; // 同 id 也挂 rpc 表
+            c._rpcPending.set(id, entry);
+            c._onMessage(JSON.stringify({ jsonrpc: '2.0', id, result: { timestamp: '0x65bd4b40' } }));
+            ok(blockTimeCalled === 1 && c._rpcPending.size === 1,
+                `B12.6[${name}] 旧表优先命中走 blockTime（rpcPending 同 id 不被消费）`);
+        }
+
+        // B12.7 stop 残余 in-flight reject（stop 不走 _scheduleReconnect——listeners 已摘）
+        {
+            const { c } = mk(Ctor, cfg);
+            const p = c._rpcRequest('eth_getTransactionByHash', ['0xtx7'], 60000);
+            c._ws = null; // 摘除 ws（真进程=removeAllListeners+close；此处只测 rpcPending 清理）
+            await c.stop();
+            await assert.rejects(p, /wss_stopped/, `B12.7[${name}] stop reject 残余 in-flight（无 8s 挂死）`);
+            ok(c._rpcPending.size === 0, `B12.7[${name}] stop 后表清`);
+        }
+    }
+}
+
 // ═══════════════ C 节：源码口径防回归 ═══════════════
 
 function testC() {
@@ -857,12 +1117,33 @@ function testC() {
 
     const ddl = read('scripts/sql/add-wss-ticks-sender-address.sql');
     ok(ddl.includes('ADD COLUMN IF NOT EXISTS sender_address text NULL'), 'C4 DDL 加列');
+
+    // C8（CD378 ANKR WSS 单笔主路径：resolver 插层 + 三 collector 通道源码锁）
+    const wssIdx = rsrc.indexOf('eth_getTransactionByHash');
+    const txFromCacheIdx = rsrc.indexOf('2) txFrom 缓存');
+    const blockJoinIdx = rsrc.indexOf('4) 块预取 join');
+    ok(rsrc.includes('attachWss(fn)') && rsrc.includes('this._wssFn = typeof fn'), 'C8 resolver attachWss 公共入口（last-writer-wins+清零冷却）');
+    ok(wssIdx > 0 && txFromCacheIdx > 0 && blockJoinIdx > wssIdx && wssIdx > txFromCacheIdx,
+        'C8 WSS 层序=txFrom 缓存后、dataseed 块 join 前（主路径位次锁）');
+    ok(rsrc.includes('_wssTxInflight') && rsrc.includes('_wssInflightLimit') && rsrc.includes('wssOverflows'),
+        'C8 per-tx in-flight join+溢出门存在');
+    ok(rsrc.includes('_wssCooldownUntil') && rsrc.includes('wssCooldowns'), 'C8 连续错误熔断存在');
+    ok(rsrc.includes('_wssLookupTx') && rsrc.includes('KIND_EOA'),
+        'C8 WSS 定值反哺双缓存（txFrom+kind——from 恒 EOA）');
+    for (const [name, src] of [['fourmeme', fm], ['flap', fl], ['gang', gang]]) {
+        ok(src.includes('attachWss(this._rpcRequest.bind(this))'), `C8[${name}] collector open 挂 attachWss（重连再 open 天然重挂）`);
+        ok(src.includes('_rpcRequest(method, params, timeoutMs'), `C8[${name}] _rpcRequest 通道存在（Promise 化）`);
+        ok(src.includes('this._blockTimeRequests.has(msg.id)'), `C8[${name}] id≥100 分派仲裁（旧表 blockTime 优先）`);
+        ok(src.includes("'wss_connection_closed'") && src.includes("'wss_stopped'"),
+            `C8[${name}] 断连/stop 双处 reject in-flight（不挂死 8s）`);
+    }
 }
 
 (async () => {
     await testA();
     await testB();
     testB11();
+    await testB12();
     testC();
     console.log(`\n✅ 全部通过：${passed} 断言`);
 })().catch((err) => {

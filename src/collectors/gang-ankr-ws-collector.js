@@ -190,6 +190,10 @@ class GangAnkrWsCollector {
         this._routerEventSubId = null; // GMGN 路由事件订阅（sender 回查加速 0b）
         this._rpcId = 100; // eth_getBlockByNumber 等请求 id；订阅请求用 1/2/3
         this._blockTimeRequests = new Map(); // rpcId → blockNumber
+        // CD378 通用 WSS 请求通道（resolver eth_getTransactionByHash 主路径）：
+        // rpcId → { resolve, reject, timer }；断连/超时 reject 全表（Promise 化必须，
+        // 现有 blockTime fire-and-forget 先例不处理 in-flight）
+        this._rpcPending = new Map();
 
         this._reconnectDelay = this._reconnectMinDelay;
         this._reconnectTimer = null;
@@ -255,6 +259,8 @@ class GangAnkrWsCollector {
             lastMessageAt: null,
             headsReceived: 0,
             logsReceived: 0,
+            wssRpcRequests: 0,  // CD378 通用请求通道发起次数（resolver WSS 单笔主体）
+            wssRpcErrors: 0,    // CD378 通用请求通道失败次数（error 帧/超时/断连 reject）
             tokenCreated: 0,
             tokenBought: 0,
             tokenSold: 0,
@@ -325,6 +331,16 @@ class GangAnkrWsCollector {
     }
 
     async stop() {
+        // CD378：残余通用请求 in-flight reject（stop 不走 _scheduleReconnect——
+        // listeners 已摘无 close 路径，不 reject=timer 挂到 8s 超时阻进程退出）
+        if (this._rpcPending.size > 0) {
+            this.stats.wssRpcErrors += this._rpcPending.size;
+            for (const entry of this._rpcPending.values()) {
+                clearTimeout(entry.timer);
+                entry.reject(new Error('wss_stopped'));
+            }
+            this._rpcPending.clear();
+        }
         if (this._ws) {
             this._ws.removeAllListeners();
             // CONNECTING 态 close() 会 emit 'error'（监听器已摘 → 未捕获崩进程），改 terminate
@@ -377,6 +393,12 @@ class GangAnkrWsCollector {
                 this._send({ jsonrpc: '2.0', id: 3, method: 'eth_subscribe', params: ['logs', ROUTER_EVENT_SUBSCRIPTION] });
             }
 
+            // CD378 sender 解析主路径：WSS 单笔查询通道挂入（重连再 open 天然重挂=
+            // 清零 resolver 侧冷却；both 实验双 collector last-writer-wins）
+            if (this._senderResolver && typeof this._senderResolver.attachWss === 'function') {
+                this._senderResolver.attachWss(this._rpcRequest.bind(this));
+            }
+
             this._pingTimer = setInterval(() => {
                 if (this._ws && this._ws.readyState === WebSocket.OPEN) {
                     this._ws.ping();
@@ -409,6 +431,34 @@ class GangAnkrWsCollector {
         }
     }
 
+    /**
+     * CD378 通用 WSS 请求通道：同连接 JSON-RPC 请求/应答（Promise 化）。
+     * resolver 挂入（'open' → senderResolver.attachWss(this._rpcRequest.bind(this))）
+     * 作 sender 解析主路径 eth_getTransactionByHash——ankr 是刚推这条 log 的节点必
+     * 已持有该 tx，实测 104ms 极稳（dataseed HTTP 往返几百 ms + lag 行 3s 重试尾巴）。
+     * id 复用 _rpcId++ 发号器（与 blockTime 兜底共享，分派仲裁见 _onMessage）；
+     * 非 OPEN / 超时 / error 帧 / 断连（_scheduleReconnect reject 全表）均 reject。
+     */
+    _rpcRequest(method, params, timeoutMs = 8000) {
+        return new Promise((resolve, reject) => {
+            if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
+                this.stats.wssRpcErrors++;
+                reject(new Error('wss_not_open'));
+                return;
+            }
+            const id = this._rpcId++;
+            const entry = { resolve, reject, timer: null };
+            entry.timer = setTimeout(() => {
+                this._rpcPending.delete(id);
+                this.stats.wssRpcErrors++;
+                entry.reject(new Error(`wss_rpc_timeout: ${method}`));
+            }, timeoutMs);
+            this._rpcPending.set(id, entry);
+            this.stats.wssRpcRequests++;
+            this._send({ jsonrpc: '2.0', id, method, params });
+        });
+    }
+
     _onMessage(data) {
         let msg;
         try {
@@ -439,9 +489,24 @@ class GangAnkrWsCollector {
             return;
         }
 
-        // RPC 响应（eth_getBlockByNumber 兜底）
+        // RPC 响应（eth_getBlockByNumber 兜底 + CD378 通用请求通道）——
+        // 分派仲裁：旧表 blockTime 优先（fire-and-forget 先例不动），miss 走 _rpcPending
         if (msg.id !== undefined && msg.id >= 100) {
-            this._onBlockTimeResponse(msg);
+            if (this._blockTimeRequests.has(msg.id)) {
+                this._onBlockTimeResponse(msg);
+                return;
+            }
+            const entry = this._rpcPending.get(msg.id);
+            if (entry) {
+                this._rpcPending.delete(msg.id);
+                clearTimeout(entry.timer);
+                if (msg.error) {
+                    this.stats.wssRpcErrors++;
+                    entry.reject(new Error(`wss_rpc_error: ${JSON.stringify(msg.error).slice(0, 200)}`));
+                } else {
+                    entry.resolve(msg);
+                }
+            }
             return;
         }
 
@@ -1539,6 +1604,17 @@ class GangAnkrWsCollector {
 
     _scheduleReconnect() {
         if (this._reconnectTimer) return; // 已在重连中
+
+        // CD378：通用请求通道 in-flight 全表 reject（连接已死，不 reject=Promise 挂死
+        // 到 8s 超时——resolver 侧走 dataseed 回退，重连 open 后 attachWss 重挂恢复）
+        if (this._rpcPending.size > 0) {
+            this.stats.wssRpcErrors += this._rpcPending.size;
+            for (const entry of this._rpcPending.values()) {
+                clearTimeout(entry.timer);
+                entry.reject(new Error('wss_connection_closed'));
+            }
+            this._rpcPending.clear();
+        }
 
         this.stats.reconnects++;
 
