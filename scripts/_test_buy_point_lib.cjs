@@ -469,9 +469,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP16 十一题=8 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+价格豁免锚+三类质量题+圣诞树观察档/BP16 案大户未清场/两调深相等）');
+  console.log('F. 题集形状（BP17 十一题=8 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+价格豁免锚+三类质量题+圣诞树观察档/BP16-17 案大户未清场两臂/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP16', 'F: 版本=BP16（BP16 案 Lily T049：回调题「活跃度没有丧失」扩大户未清场——用户裁定「买入的时候完全没有大户在了，就只剩下几个小散户，这种情况不要抄」；BP15 案贴发行价豁免同车）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP17', 'F: 版本=BP17（BP16 案 Lily T049 大户未清场立法初版三源判据对拍 1/6+正例 T041 误伤——占比/清仓数与用户语义错位；BP17 修正为绝对买入金额两臂：规模臂前列全小散尘级+撤退臂 top5 卖出占前列买入大半；BP15 案贴发行价豁免同车）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 11, `F: 恰 11 题=8 维度+3 质量题（实际 ${ids.length}）`);
@@ -523,10 +523,11 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
   ok(pb.instructions.includes('判定按三层顺序') && pb.instructions.includes('第二层·核心规则（先于一切忌讳，命中即定档 neutral，不再评估第三层）'), 'F: 回调题=三层结构（BP12 重写：核心规则置顶先于一切忌讳——忌讳清单内救臂十轮全败后升层）');
   ok(pb.instructions.includes('**价格跌到很低 + 活跃度没有丧失 → 中等（neutral）**'), 'F: 核心规则=用户裁定原话直译（BP12「价格跌到很低，活跃度又没有丧失，可以给中等」）');
-  ok(pb.instructions.includes('价格跌到很低=price_level=near_launch') && pb.instructions.includes('活跃度没有丧失=热度未死寂 ∧ 大户未清场'), 'F: 核心规则两条件=维度档位可判化（near_launch + 热度∧大户双条件——BP16 立法）');
-  ok(pb.instructions.includes('大户已全部或近乎全部清仓离场') && pb.instructions.includes('这种情况不要抄'), 'F: 大户清场=活跃度实质丧失不适用核心规则（BP16 用户原话直译——Lily T049 案）');
+  ok(pb.instructions.includes('价格跌到很低=price_level=near_launch') && pb.instructions.includes('活跃度没有丧失=热度未死寂 ∧ 大户未清场'), 'F: 核心规则两条件=维度档位可判化（near_launch + 热度∧大户双条件——BP16/BP17 立法）');
+  ok(pb.instructions.includes('大户清场两臂任一成立') && pb.instructions.includes('这种情况不要抄') && pb.instructions.includes('①规模臂') && pb.instructions.includes('②撤退臂'), 'F: 大户清场两臂=活跃度实质丧失不适用核心规则（BP17 两臂——Lily T049 用户原话「完全没有大户在了只剩几个小散户不要抄」）');
   ok(pb.instructions.includes('不以清场否决本规则（判缺不猜，只有有证据的清场才否决）'), 'F: 大户证据缺失 fail-open（? 行不以清场否决——判缺不猜）');
-  ok(pb.instructions.includes('清仓式卖出钱包数少、全窗 top5 大持仓近 60s 卖出不放量、全窗持仓前三仍占实质流通份额'), 'F: 大户在场判读锚=state 三源（exitSellerCount60/bigHolderSellBnb60/holdingsProfile——零新增计算）');
+  ok(pb.instructions.includes('绝对买入金额') && pb.instructions.includes('占比高≠大户'), 'F: 大户判据=持仓前三绝对买入金额非流通占比（BP17 修正锚——T047 第 1 大占 64.2% 只买 0.02=小散互捅非大户）');
+  ok(pb.instructions.includes('「清仓式卖出钱包」数是快进快出噪音，不作清场主判据'), 'F: 清仓钱包数降级噪音参考（BP17 修正锚——正例 T041 清仓 6 个仍 good：真大户 0.412 刚进场锁仓）');
   ok(pb.instructions.includes('不再评估第三层') && pb.instructions.includes('卖压/holder 流向等观察证据一律不用来否决本规则（体系中本就无这两个评估指标）'), 'F: 核心规则证据闭包=忌讳与暗证据双不评估（BP11 用户裁定「我当前设计的体系中，没有这两个指标」）');
   ok(pb.instructions.includes('奔零叙事对贴近发行价的票不成立（无「从高位跌向归零」的起点与空间）'), 'F: 核心规则含奔零叙事排除（S071 阴跌+holders −3 不构成低位奔零证据）');
   ok(pb.instructions.includes('「跌到位」的要求只对涨过一截（low+）的票适用——没涨起来就无所谓跌到位'), 'F: 跌到位要求限 low+ 票（BP11 三改发现②触发条件与救臂同域的盲区句，BP12 收进核心规则）');
