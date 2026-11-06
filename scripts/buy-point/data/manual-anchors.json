@@ -1482,7 +1482,7 @@
         "triggeredAt": "2026-11-05T06:08:10.230+00:00"
       },
       "expect": {
-        "bucket": "neutral"
+        "bucket": "poor"
       },
       "model": {
         "bucket": "neutral",
@@ -1492,7 +1492,7 @@
         "questionVersion": "BP17"
       },
       "ruledAt": "2026-11-06",
-      "note": "悬案收官票①：t5 成交贴价回调 −3.7% 冲高仅 +0.9% 末 −9.1% 微亏在 neutral 代价带内；回调核心规则命中（near_launch+热度在场）机器 neutral 0.84 坚决；t6@tick3 极早窗拒 +24.2% 峰张力组又一例"
+      "note": "BP18 盘型门复核裁定改判：BP18 全量重抛 market_pattern=early_sniper_decay（盘型门拒→poor·pattern_gate），用户复核 token-ticks 页后裁定认同（「其它都没问题」——前列 0.199/0.060×2 购买力全集中最早数 slot 后衰竭=狙击衰竭形状成立）；原 BP17 期 expect=neutral 撤回（回调核心规则命中的中性点位评估被盘型背景否决——盘型先于点位质量）。原留痕：t5 成交贴价回调 −3.7% 冲高仅 +0.9% 末 −9.1% 微亏；t6@tick3 极早窗拒 +24.2% 峰张力组又一例"
     },
     {
       "anchorId": "BPA-062",
