@@ -536,9 +536,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP21 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴/两调深相等）');
+  console.log('F. 题集形状（BP22 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP21', 'F: 版本=BP21（정책콕 T001/SB T003 两案①②分界补「大户卖出后的承接结构」轴——大户卖出承接方是像样买盘（0.2~0.3+ 级）=①强庄对倒、是一堆很小散户（0.0x~0.1 零散）=②散户化 PVP；①价格腿降级「拉高不排除①」、②扩 (b) 大户卖出散户承接形状+「多笔不落②」前提=买点时刻仍在场）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP22', 'F: 版本=BP22（정책콕 T001/SB T003 两案①②分界补「大户卖出后的承接结构」轴——大户卖出承接方是像样买盘（0.2~0.3+ 级）=①强庄对倒、是一堆很小散户（0.0x~0.1 零散）=②散户化 PVP；①价格腿降级「拉高不排除①」、②扩 (b) 大户卖出散户承接形状+「多笔不落②」前提=买点时刻仍在场；BP22 两改=大户零卖出承接条件直接满足——HAUL T005 只买未卖被卡翻⑤收口）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -569,7 +569,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶——ESM/CJS 双副本对锁）');
   ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（五桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable）');
   const mp = qs.market_pattern.instructions;
-  ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案）');
+  ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、散户承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出散户承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的了'), 'F: ③famous 独食=盘子就是它的了（原话直译）');
   ok(mp.includes('购买力完全集中在最早期的数个 slot') && mp.includes('随之购买力衰竭') && mp.includes('这种盘子不要参与'), 'F: ④狙击衰竭=不要参与（原话直译）');
