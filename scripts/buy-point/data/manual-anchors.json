@@ -1696,6 +1696,30 @@
       },
       "ruledAt": "2026-11-06",
       "note": "用户裁定原话「谷谷S045为何给中等？ pvp 盘吧」「无像样大户参与」→ 立法「大户参与不满足是直接 pvp 盘的，满足之后根据承接再次分类」。灰区单错放：锚 14 行（22 秒）买入 8 钱包最大单笔 0.1568（0.2 级钱包 0 个+0.3+ 0 笔=大户参与不满足），但 0.1568/0.1484/0.1090 三笔落 0.1~0.19 灰区——既不满足②(a) 字面「全 0.1 级及以下」也不触发 0.2 级双臂「明确不落②」，Jev 被 activity high（38 笔/min+8 全新买家）带走判 blended(0.85) 放行；前向 1min 峰 +0.03% 后一路阴跌 −19% 零反弹。BP26 案立法（题集 BP28 大户参与判序前置）后 182 定向对拍翻案达成：blended(0.85)→retail_pvp、neutral(0.72)→poor(0.81,pattern_gate)；反例 S044/S018/S038 盘型零翻动。同日复核反转：S048（0.1984/0.1976 均 ≥0.19=双臂满足）非灰区、strong_backer 为判序正确执行"
+    },
+    {
+      "anchorId": "BPA-070",
+      "kind": "signal",
+      "tokenAddress": "0x99144fb7a6dda0ed11020a03acd1b468d8797777",
+      "tokenName": "阿里美股",
+      "locator": {
+        "set": "bp-2026-11-06-v73-signals",
+        "pointId": "BP-S048",
+        "triggeredAt": "2026-11-05T07:12:39Z",
+        "anchorTickCount": 12
+      },
+      "expect": {
+        "bucket": "neutral"
+      },
+      "model": {
+        "bucket": "neutral",
+        "prob": 0.73,
+        "rule": "any_neutral",
+        "run": "bp28-parity",
+        "questionVersion": "BP28"
+      },
+      "ruledAt": "2026-11-06",
+      "note": "盘型裁定锚（综合桶用户未裁维持 neutral）：用户裁定原话「S048 也不是庄盘，如果你是庄，肯定一开盘最早期买入大额，然后对倒分仓，它是一开始先小散户，然后有稍微大一点的散户接了罢了」+措辞更正「应该是最早的买入（至少是次早）得有大户」——BP28 误判 strong_backer（把 0.198/0.198 贴线单当大额+卖 0 读作强庄零卖出）；出生段 36 行 0.3+ 大额 0 笔、最早的买入（开局第一秒 5 笔）全 0.03~0.14 小散、13 秒后 0.1985/0.1976 接力=散户接力盘非庄建仓。BP27 案立法（题集 BP29 ①庄时序锚）后 182 对拍翻案达成：strong_backer→blended_unremarkable、综合 neutral(0.72) 维持（BP20 T025 0.198×2=blended 先例路径）；真庄反例 S044/S005 strong_backer 维持零翻动"
     }
   ]
 }
