@@ -1,0 +1,288 @@
+{
+ "setName": "bp-t029-signals",
+ "builtAt": "2026-11-06T03:20:05.739Z",
+ "sampleRule": {
+  "source": "signals",
+  "note": "T029 无税人生 6 信号触发点位（复审效果视角临时 set）"
+ },
+ "tokens": {
+  "0xfba95a4e00883f82f04a459b107bd4788e2c4444": {
+   "address": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "symbol": "无税人生"
+  }
+ },
+ "counts": {
+  "points": 6,
+  "tokens": 1
+ },
+ "points": [
+  {
+   "pointId": "T029-S1",
+   "source": "trades",
+   "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+   "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "tokenSymbol": "无税人生",
+   "signalId": null,
+   "signalCreatedAt": "2026-11-05T07:53:00.373+00:00",
+   "signalInfo": {
+    "price": 4.482742819e-9,
+    "strategyName": "信号触发 t6 (v1)"
+   },
+   "anchorTickCount": 1,
+   "thin": true,
+   "anchorZero": false,
+   "capped": false,
+   "ticksFile": "0xfba95a4e00883f82f04a459b107bd4788e2c4444.json",
+   "quoteToken": null,
+   "forwardReturns": {
+    "byHorizon": {
+     "60": {
+      "maxRisePct": 59.9,
+      "lastPct": 7.6
+     },
+     "300": {
+      "maxRisePct": 151.9,
+      "lastPct": 127.8
+     },
+     "900": {
+      "maxRisePct": 377.7,
+      "lastPct": 28.1
+     }
+    }
+   },
+   "trade": null,
+   "leg": "t6",
+   "exec": "failed",
+   "reason": "bp_gate_insufficient_ticks",
+   "vsFirstPct": 0
+  },
+  {
+   "pointId": "T029-S2",
+   "source": "trades",
+   "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+   "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "tokenSymbol": "无税人生",
+   "signalId": null,
+   "signalCreatedAt": "2026-11-05T07:53:21.991+00:00",
+   "signalInfo": {
+    "price": 5.987013367e-9,
+    "strategyName": "信号触发 t1 (v1)"
+   },
+   "anchorTickCount": 13,
+   "thin": false,
+   "anchorZero": false,
+   "capped": false,
+   "ticksFile": "0xfba95a4e00883f82f04a459b107bd4788e2c4444.json",
+   "quoteToken": null,
+   "forwardReturns": {
+    "byHorizon": {
+     "60": {
+      "maxRisePct": 19.7,
+      "lastPct": -19.6
+     },
+     "300": {
+      "maxRisePct": 88.6,
+      "lastPct": 77.9
+     },
+     "900": {
+      "maxRisePct": 257.7,
+      "lastPct": -6.8
+     }
+    }
+   },
+   "trade": {
+    "buyExecuted": true,
+    "buyTradeId": "d73fcbf8-b3bb-4b11-a0fd-e65a9854e35c",
+    "buyAt": "2026-11-05T07:53:25.452+00:00",
+    "episode": {
+     "open": false,
+     "openQtyToken": 0,
+     "costBnb": 0.001,
+     "proceedsBnb": 0.000649,
+     "pnlBnb": -0.000351
+    }
+   },
+   "leg": "t1",
+   "exec": "executed",
+   "reason": null,
+   "vsFirstPct": 33.6
+  },
+  {
+   "pointId": "T029-S3",
+   "source": "trades",
+   "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+   "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "tokenSymbol": "无税人生",
+   "signalId": null,
+   "signalCreatedAt": "2026-11-05T07:54:49.304+00:00",
+   "signalInfo": {
+    "price": 7.733421549e-9,
+    "strategyName": "信号触发 t2 (v1)"
+   },
+   "anchorTickCount": 51,
+   "thin": false,
+   "anchorZero": false,
+   "capped": false,
+   "ticksFile": "0xfba95a4e00883f82f04a459b107bd4788e2c4444.json",
+   "quoteToken": null,
+   "forwardReturns": {
+    "byHorizon": {
+     "60": {
+      "maxRisePct": 10.4,
+      "lastPct": 6.4
+     },
+     "300": {
+      "maxRisePct": 176.9,
+      "lastPct": 136.8
+     },
+     "900": {
+      "maxRisePct": 176.9,
+      "lastPct": -28.8
+     }
+    }
+   },
+   "trade": {
+    "buyExecuted": true,
+    "buyTradeId": "8e0b3dec-e71a-4380-bacc-4c3526dad058",
+    "buyAt": "2026-11-05T07:54:51.469+00:00",
+    "episode": {
+     "open": false,
+     "openQtyToken": 0,
+     "costBnb": 0.001,
+     "proceedsBnb": 0.001396,
+     "pnlBnb": 0.000396
+    }
+   },
+   "leg": "t2",
+   "exec": "executed",
+   "reason": null,
+   "vsFirstPct": 72.5
+  },
+  {
+   "pointId": "T029-S4",
+   "source": "trades",
+   "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+   "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "tokenSymbol": "无税人生",
+   "signalId": null,
+   "signalCreatedAt": "2026-11-05T07:56:50.139+00:00",
+   "signalInfo": {
+    "price": 1.0604283465e-8,
+    "strategyName": "信号触发 t3 (v1)"
+   },
+   "anchorTickCount": 125,
+   "thin": false,
+   "anchorZero": false,
+   "capped": false,
+   "ticksFile": "0xfba95a4e00883f82f04a459b107bd4788e2c4444.json",
+   "quoteToken": null,
+   "forwardReturns": {
+    "byHorizon": {
+     "60": {
+      "maxRisePct": 6.5,
+      "lastPct": 1.1
+     },
+     "300": {
+      "maxRisePct": 101.9,
+      "lastPct": 61
+     },
+     "900": {
+      "maxRisePct": 101.9,
+      "lastPct": -48.1
+     }
+    }
+   },
+   "trade": null,
+   "leg": "t3",
+   "exec": "failed",
+   "reason": "bp_gate_assessment",
+   "vsFirstPct": 136.6
+  },
+  {
+   "pointId": "T029-S5",
+   "source": "trades",
+   "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+   "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "tokenSymbol": "无税人生",
+   "signalId": null,
+   "signalCreatedAt": "2026-11-05T07:57:00.468+00:00",
+   "signalInfo": {
+    "price": 1.0822512111e-8,
+    "strategyName": "信号触发 t4 (v1)"
+   },
+   "anchorTickCount": 133,
+   "thin": false,
+   "anchorZero": false,
+   "capped": false,
+   "ticksFile": "0xfba95a4e00883f82f04a459b107bd4788e2c4444.json",
+   "quoteToken": null,
+   "forwardReturns": {
+    "byHorizon": {
+     "60": {
+      "maxRisePct": 0,
+      "lastPct": -5.6
+     },
+     "300": {
+      "maxRisePct": 97.9,
+      "lastPct": 60.1
+     },
+     "900": {
+      "maxRisePct": 97.9,
+      "lastPct": -49.1
+     }
+    }
+   },
+   "trade": null,
+   "leg": "t4",
+   "exec": "failed",
+   "reason": "bp_gate_assessment",
+   "vsFirstPct": 141.4
+  },
+  {
+   "pointId": "T029-S6",
+   "source": "trades",
+   "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+   "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+   "tokenAddress": "0xfba95a4e00883f82f04a459b107bd4788e2c4444",
+   "tokenSymbol": "无税人生",
+   "signalId": null,
+   "signalCreatedAt": "2026-11-05T07:59:38.888+00:00",
+   "signalInfo": {
+    "price": 1.7860813232e-8,
+    "strategyName": "信号触发 t5 (v1)"
+   },
+   "anchorTickCount": 275,
+   "thin": false,
+   "anchorZero": false,
+   "capped": false,
+   "ticksFile": "0xfba95a4e00883f82f04a459b107bd4788e2c4444.json",
+   "quoteToken": null,
+   "forwardReturns": {
+    "byHorizon": {
+     "60": {
+      "maxRisePct": 14.9,
+      "lastPct": -10.2
+     },
+     "300": {
+      "maxRisePct": 14.9,
+      "lastPct": -41.4
+     },
+     "900": {
+      "maxRisePct": 14.9,
+      "lastPct": -69.2
+     }
+    }
+   },
+   "trade": null,
+   "leg": "t5",
+   "exec": "failed",
+   "reason": "bp_gate_assessment",
+   "vsFirstPct": 298.4
+  }
+ ]
+}

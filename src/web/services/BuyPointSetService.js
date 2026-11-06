@@ -24,6 +24,7 @@ function listSets() {
     if (!f.endsWith('.json')) continue;
     const name = f.slice(0, -5);
     if (name.endsWith('-ticks')) continue; // ticks 目录同名 JSON 不存在，防御双保险
+    if (name.endsWith('-signals')) continue; // 信号标记伴生文件（build-set-signals.cjs 产物）非 set
     try {
       const doc = JSON.parse(fs.readFileSync(path.join(SETS_DIR, f), 'utf8'));
       out.push({
@@ -54,6 +55,12 @@ function getSet(name, tokenFilter) {
   if (tokenFilter) {
     const k = String(tokenFilter).toLowerCase();
     doc.points = (doc.points || []).filter((p) => String(p.tokenAddress || '').toLowerCase() === k);
+    // 信号触发点标记（build-set-signals.cjs 伴生文件；缺文件=无标记零影响）
+    const sigFile = path.join(SETS_DIR, `${name}-signals.json`);
+    if (fs.existsSync(sigFile)) {
+      const sigDoc = JSON.parse(fs.readFileSync(sigFile, 'utf8'));
+      doc.signals = (sigDoc.marks && sigDoc.marks[k]) || [];
+    }
   }
   return doc;
 }

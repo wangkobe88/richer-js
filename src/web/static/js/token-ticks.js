@@ -137,7 +137,7 @@ class TokenTicksPage {
     const name = sel ? sel.value : '';
     this.bpSetName = name;
     this._syncBpUrl();
-    if (!name) { this.bpPoints = null; this.bpSetMeta = null; this._renderBpSection(); await this._loadChartData(); return; }
+    if (!name) { this.bpPoints = null; this.bpSignals = null; this.bpSetMeta = null; this._renderBpSection(); await this._loadChartData(); return; }
     await this._loadBpPoints(name);
   }
 
@@ -148,12 +148,14 @@ class TokenTicksPage {
   }
 
   async _loadBpPoints(name) {
+    this.bpSignals = null; // 信号触发点标记（含被拒腿；伴生 -signals.json 缺=无）
     try {
       const resp = await fetch(`/api/buy-point-set?set=${encodeURIComponent(name)}&token=${encodeURIComponent(this.tokenAddress)}`);
       const j = await resp.json();
       if (!j.success) throw new Error(j.error || `HTTP ${resp.status}`);
       const doc = j.data || {};
       this.bpPoints = doc.points || [];
+      this.bpSignals = doc.signals || null;
       this.bpSetMeta = { name: doc.setName || name, builtAt: doc.builtAt, sampleRule: doc.sampleRule, counts: doc.counts };
     } catch (e) {
       console.warn('BP set 点位加载失败:', e);
@@ -165,6 +167,7 @@ class TokenTicksPage {
   }
 
   _renderBpSection() {
+    this._renderBpSignals();
     const tbody = document.getElementById('bp-table-body');
     const info = document.getElementById('bp-set-info');
     if (!tbody) return;
@@ -218,6 +221,40 @@ class TokenTicksPage {
     }).join('');
   }
 
+  /** 信号触发点子表（含被拒腿；伴生 -signals.json 缺=整表隐藏） */
+  _renderBpSignals() {
+    const wrap = document.getElementById('bp-signals-wrap');
+    const tbody = document.getElementById('bp-signals-body');
+    if (!wrap || !tbody) return;
+    const sigs = this.bpSignals || [];
+    if (!sigs.length) { wrap.classList.add('hidden'); tbody.innerHTML = ''; return; }
+    wrap.classList.remove('hidden');
+    const pct = (v) => v == null ? '<span class="text-gray-600">-</span>'
+      : `<span class="${v >= 20 ? 'text-green-400' : v >= 0 ? 'text-gray-200' : 'text-red-400'}">${v >= 0 ? '+' : ''}${v}%</span>`;
+    const fwdCell = (s, sec) => {
+      const f = s.fwd && s.fwd[String(sec)];
+      if (!f || f.mx == null) return '<span class="text-gray-600">-</span>';
+      return `<span class="font-mono">${pct(f.mx)} <span class="text-gray-500">/</span> ${pct(f.last)}</span>`;
+    };
+    const execBadge = (s) => {
+      if (s.exec === 'executed') return '<span class="px-2 py-0.5 text-xs rounded-full bg-green-900 text-green-300">成交</span>';
+      const r = s.reason || '';
+      const cls = r.startsWith('bp_gate_') || r.startsWith('cheat_') ? 'bg-red-900 text-red-300' : 'bg-yellow-900 text-yellow-300';
+      return `<span class="px-2 py-0.5 text-xs rounded-full ${cls}" title="${this._esc(r || s.exec || '')}">${this._esc(r || s.exec || '?')}</span>`;
+    };
+    tbody.innerHTML = sigs.map((s) => `<tr class="hover:bg-gray-750 transition-colors">
+        <td class="px-3 py-2 font-mono text-cyan-300">${this._esc(s.leg || s.legId || '?')}${s.triggerNo != null ? `<span class="text-gray-500 text-xs">#${s.triggerNo}</span>` : ''}</td>
+        <td class="px-3 py-2 text-gray-300 whitespace-nowrap">${new Date(s.at).toLocaleString('zh-CN')}</td>
+        <td class="px-3 py-2 text-right font-mono text-cyan-300">${s.tickNo}<span class="text-gray-500">/${s.totalTicks}</span></td>
+        <td class="px-3 py-2 text-right font-mono">${pct(s.vsFirstPct)}</td>
+        <td class="px-3 py-2 text-right font-mono text-gray-300">${s.priceBnb != null ? s.priceBnb.toExponential(2) : '-'}</td>
+        <td class="px-3 py-2 text-right font-mono">${fwdCell(s, 60)}</td>
+        <td class="px-3 py-2 text-right font-mono">${fwdCell(s, 300)}</td>
+        <td class="px-3 py-2 text-right font-mono">${fwdCell(s, 900)}</td>
+        <td class="px-3 py-2">${execBadge(s)}</td>
+      </tr>`).join('');
+  }
+
   /** 点位叠画 dataset（scatter 三角/菱形；y=锚时刻最近 tick 的 price_usd——USD 轴对齐） */
   _bpScatterDatasets(tickData) {
     if (!this.bpPoints || !this.bpPoints.length) return [];
@@ -239,6 +276,21 @@ class TokenTicksPage {
     const mk = (data, color, pointStyle, label) => ({ type: 'scatter', label, data,
       pointStyle, pointRadius: 7, pointHoverRadius: 9, backgroundColor: color, borderColor: color, borderWidth: 1 });
     const out = [];
+    // 信号触发点（含被拒腿）排最前=最上层：复审看的是触发位（成交点只晚几秒但口径不同）
+    if (this.bpSignals && this.bpSignals.length) {
+      const sigPts = [];
+      for (const s of this.bpSignals) {
+        const ts = new Date(s.at).getTime();
+        if (!Number.isFinite(ts)) continue;
+        if (winEndMs != null && ts > winEndMs) continue;
+        const y = this._anchorPriceUsd(tickData, ts);
+        if (y == null) continue;
+        sigPts.push({ x: ts, y, _sigRaw: s });
+      }
+      if (sigPts.length) out.push({ type: 'scatter', label: `信号触发点 (${sigPts.length})`, data: sigPts,
+        pointStyle: 'circle', pointRadius: 5, pointHoverRadius: 8,
+        backgroundColor: 'rgba(34,211,238,0.95)', borderColor: 'rgba(8,145,178,1)', borderWidth: 1 });
+    }
     if (trades.length) out.push(mk(trades, 'rgba(251,146,60,0.95)', 'triangle', `BP 成交买点 (${trades.length})`));
     if (ladder.length) out.push(mk(ladder, 'rgba(192,132,252,0.95)', 'rectRot', `BP ladder 挖掘 (${ladder.length})`));
     return out;
@@ -263,6 +315,21 @@ class TokenTicksPage {
   }
 
   _bpTooltip(item) {
+    const s = item.raw && item.raw._sigRaw;
+    if (s) {
+      const lines = [
+        `🎯 信号触发 ${s.leg || s.legId || '?'} · tick#${s.tickNo}/${s.totalTicks}`,
+        `时刻 ${new Date(s.at).toLocaleTimeString('zh-CN')}${s.vsFirstPct != null ? ` · vs 首笔 ${s.vsFirstPct >= 0 ? '+' : ''}${s.vsFirstPct}%` : ''}`,
+        `结果 ${s.exec || '?'}${s.reason ? ` · ${s.reason}` : ''}`,
+      ];
+      if (s.fwd) {
+        for (const sec of [60, 300, 900]) {
+          const f = s.fwd[String(sec)];
+          lines.push(`+${sec / 60}min: ${f && f.mx != null ? `${f.mx >= 0 ? '+' : ''}${f.mx}% 峰 / ${f.last >= 0 ? '+' : ''}${f.last}% 末` : 'null'}`);
+        }
+      }
+      return lines;
+    }
     const r = item.raw && item.raw._bpRaw;
     if (!r) return null;
     const lines = [`📍 ${r.pointId} [${r.source}] 策略:${r.strategy}`, `锚 ${r.anchor} ticks`];

@@ -99,6 +99,26 @@
                     <select id="bp-set-select" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white text-sm"></select>
                     <span id="bp-set-info" class="text-sm text-gray-400"></span>
                 </div>
+                <!-- 信号触发点（含被拒腿；build-set-signals 伴生文件，缺=整表隐藏） -->
+                <div id="bp-signals-wrap" class="overflow-x-auto p-4 pb-0 hidden">
+                    <div class="text-sm font-medium text-cyan-300 mb-2">信号触发点（含被拒）</div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-left text-gray-400 border-b border-gray-700">
+                                <th class="px-3 py-2">腿</th>
+                                <th class="px-3 py-2">触发时刻</th>
+                                <th class="px-3 py-2 text-right">tick 序号</th>
+                                <th class="px-3 py-2 text-right">vs 首笔</th>
+                                <th class="px-3 py-2 text-right">触发价(BNB)</th>
+                                <th class="px-3 py-2 text-right">+1min</th>
+                                <th class="px-3 py-2 text-right">+5min</th>
+                                <th class="px-3 py-2 text-right">+15min</th>
+                                <th class="px-3 py-2">结果</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bp-signals-body" class="divide-y divide-gray-700"></tbody>
+                    </table>
+                </div>
                 <div class="overflow-x-auto p-4">
                     <table class="w-full text-sm">
                         <thead>
@@ -175,6 +195,6 @@
         </main>
     </div>
 
-    <script src="/static/js/token-ticks.js?v=1.4"></script>
+    <script src="/static/js/token-ticks.js?v=1.6"></script>
 </body>
 </html>
