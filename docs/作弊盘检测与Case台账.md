@@ -187,6 +187,24 @@
 
 ## Case 倒序
 
+### CD377 块预取 join 静默失效修复+映射竞态复查：补数据比例砍半（2026-11-06，机制案·无 token；CD376 续篇）
+
+**动机**：用户原话「深度思考一下，补数据的比例能不能进一步降低。我总是觉得现在的状态不合道理，GMGN 肯定不是用的这个方案，它的数据非常干净快速」——v74 生产统计（11859 行）拆解：EOA 直发 19.7% / 映射域 56.4%（域内仅 61% 被映射接住）/ 非映射域合约 23.9%，**51.6% 行走 RPC 回查**。深挖出两个实锤根因（均为失效 bug 与机制缺口，非架构必然），用户裁定 A+B 双修复（长尾九址 receipt 实证不做留观察）。
+
+**根因 A——块预取 join 自上线（CD237）起从未生效，静默失效一周**：`_pullBlockTxMap` 用 ethers v6 `p.getBlock(n, true)`，交替实验实测（dataseed 同端点同块 15/15）**抽象路径恒返回 hash 字符串数组**、裸调 `p.send('eth_getBlockByNumber',[hexTag,true])` 恒返回 full tx 对象数组——线缆层源码看似同帧但实测稳定分歧（ethers 内部成因不深挖，修复以裸调为准+形状门承重）；L423 `tx.hash && tx.from` 恒 undefined → map 恒空 → **静默返回空 Map（200-OK、rpcErrors=0，无任何报警）**。铁证 v74 stats：`blockPulls=3652 / blockJoinRows=0 / blockFallbackRows=6750`——3652 次全块拉取（100-200KB/次）全白拉，回查行全部退化成最贵的逐行 getTransaction。
+
+**根因 B——映射域 39% 竞态 miss 且消费链从不复查**：同 tx 内路由事件 logIndex 恒大于 trade 事件（WSS 按序推、晚到几十 ms），`_processItem` 只在第 1 步查一次 map，块 join/单行 RPC 往返窗（100-300ms）内事件早已进 map 却无复查点。语义闭环：ankr 领先 RPC 池（join null 主因）→ 往返窗内事件必到 → 复查命中；ankr 落后 → 事件先到即时命中或 join 直接定值；双晚角落由 3s 重试兜住。
+
+**修复 A'（裸调+fn 内形状校验+三类失败分治+防风暴）**：①裸调替代 ethers 抽象（`'0x'+n.toString(16)` hexTag，`Number.isSafeInteger` 守卫）；②**形状校验放 `_rpcCall` fn 回调内部**（退化是 200-OK 成功响应，校验放外面 failover 永不触发——评审盲点 1）：null=端点 lag 原样返回 / transactions 非数组或首元素 string → throw `e.blockShape` 走端点 failover；③三类失败分治（现状把三者揉成一个静默空 Map=本次事故结构性根因）：**null block（lag）** → throw `e.isBlockLag` 逐出缓存计 `blockNotFound` **不 failover**（lag 风暴下逐端点重试 null 放大流量）——该计数=二期「ANKR WSS 同连接块拉取」决策依据；**形状退化** → failover 后仍退化=**全端点退化 → 该块负缓存（空 Map 留缓存）+ `blockShapeDegrades` + 连续 10 块熔断停块预取 10min**（error log 一次；否则 throw 逐出缓存后同块每行各自重拉 ×5 端点 ×全块 payload 最坏 3 万+次/h 比失效期还差一个量级——评审盲点 2）；**网络错误** → 现状不变（failover→reject→逐出）；④元素校验收紧 `typeof tx.hash/from === 'string'`；⑤per-row 降级与拉取失败 warn 全部 `_warnThrottled` 限频 30s（防 ~6750 条/h 刷屏）。
+
+**修复 B'（两个复查点，零新增延迟）**：①块路径 from==null 后（lag/空块/负缓存/熔断）复查 map → hit 计 `routerMapLateHits` 定值（ankr 领先主形态：块内无该 txHash 但事件已到）；②单行 `_lookupTxFrom` 返回 null 后、进重试前复查 map → hit 计 `routerMapRetryHits` 定值（直接砍 3s 重试尾巴，对 `waitTokenIdle` 追平时间最大单项改善）。`from!=null` 不复查（块结果与 map user 恒同值，链上实证 24/24）。`blockFallbackRows` 语义收窄=「块路径+复查①均未定值落单行」。
+
+**验证**：①单测 A15-A20 新增（163→184 断言全绿）：A15 形状退化 failover（fn 内 throw 200-OK 也走降级链、单端点退化被救回不计 degrade）/A16 全端点退化负缓存（同块第二行 blockPulls 仍 1）+连续 2 块熔断（threshold 可配）+熔断期停预取/A17 lag 分治（blockNotFound≠rpcErrors、lag promise 逐出同块重拉）/A18 复查①（deferred 通道：join 挂起期间 setRouterEventUser → resolve 空块 → lateHits=1 零单行）/A19 复查②（双晚角落 retryHits=1 零重试）/A20 **路径计数和不变量**（终态行数=eoaFast+routerMapHits+lateHits+retryHits+txFromCacheHits+blockJoinRows+txFromResolved+senderNull，无泄漏无双计）；C5 源码锁换锁裸调字面量+形状门+lag 分治+复查两点；②相邻三测零翻动（fa_deferred 49/embedded 42/gang 33）；③**本地真跑冒烟（dataseed 生产端点）**：真实近块裸调拉回 72 笔 tx 的 Map（hash→from 地址形状合法、shapeDegrades=0）、未来块正确走 isBlockLag throw——修复 A 端到端实证。
+
+**预期终态（v74 窗基准推算）**：零 RPC 定值 48.4%→**~54%**（EOA 19.7+映射即时 34.5；竞态人群走块 join 而非零 RPC）；块 join 定值 0%→**~40%**（~4800 次/h 摊 ~2.5 行/块）；单行 getTransaction 6750/h→≈0（仅重组/双晚边缘）；**RPC 总量 ~10402/h→~4800/h（-54%）**；wallet 段延迟 lag 行 3s 重试尾巴消失。生产验证指标（下个实验对拍）：`blockJoinRows≈blockPulls×2.5`、txLookups 暴跌、lateHits/retryHits 出现、blockShapeDegrades=0（或暴露真退化端点）、blockNotFound 量级；**v74↔v75 对拍须注明**：cheat/BP 门 settle 窗 sender 完整度上升，判定漂移是修复目的非副作用。
+
+**否决留档**：①newHeads 主动预取（收益仅首行 100-300ms+消 lag，成本空块多拉 ~24%+跨模块耦合）；②map 等待 Promise 化（簿记复杂度不值边际收益）。**二期候选（本期不做）**：ANKR WSS 同连接请求/应答式块拉取（flap collector id 应答先例）——ankr 正是推 log 的节点必然不早于 log 知道该块 → blockNotFound 人群归零+解除 dataseed 依赖，先看 blockNotFound 实测值再决策。**残余风险留档**：map user≠tx.from 残余分叉（合约调用路由时 user=调用合约；24/24 样本全 EOA 直连未观测，与 CD376 data 漂移同级）；map 命中路径不反哺 kindCache（与 join/lookup 不对称，现状无害）。
+
 ### CD376 路由事件映射扩 5 源：聚合路由行零 RPC 定值 sender（2026-11-05，机制案·无 token；CD237 续篇）
 
 **动机**：用户原话「之前做到了 GMGN 主路由行零 RPC（路由事件映射）+ EOA 直发行同步定值，可是依然有其它 Router 还需要调用。我认为其它 Router 跟 GMGN Router 大概率是类似实现，你试试看，能不能把其它的 Router 的调用也给省了」——CD374 扩录的 8 个补录聚合路由行仍走块预取 join（getBlock）/单行 getTransaction，逐址实证后把可省者切到事件映射零 RPC。

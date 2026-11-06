@@ -16,17 +16,28 @@
  *     vs 90s 因子窗无感）。FA processTick / TokenPool 价格更新不受影响（只有 DB
  *     落库延迟）；price_outlier 回写在 _emitTick 同步段完成，异步回推时已定值
  *
- * 解析链（2026-11-04 起，逐级降级；此前=逐行 getCode 判型 + getTransaction 串行回查）：
+ * 解析链（2026-11-04 起，逐级降级；此前=逐行 getCode 判型 + getTransaction 串行回查；
+ * 2026-11-06 CD377 块 join 裸调修复 + 映射竞态复查）：
  *   0) EOA kind 缓存命中 → submit 内同步直推（零延迟零 RPC）
- *   1) GMGN 路由事件映射（collector 订阅路由自 emit 的 Swap/FeeCollected 事件，
- *      topics 直接带用户 EOA——链上实证 24/24 笔 tx.from 恒在 topics 零例外；
- *      事件晚于 trade 事件几十 ms 到达，miss 不等待直接走 2）：命中零 RPC
+ *   1) 路由事件映射（collector 订阅路由自 emit 事件，topics/data 直接带用户 EOA——
+ *      链上实证 24/24 笔 tx.from 恒在 topics 零例外；事件晚于 trade 事件几十 ms
+ *      到达，miss 不等待直接走 2）：命中零 RPC
  *   2) txFrom 缓存（同 tx 多 log 共享一次回查结果）
  *   3) 块预取 join（lazy per-block）：同块全部未定值行共享一次
- *      getBlockByNumber(full=true)，块 map 到 → 全簇 join；**from 恒 EOA ⇒
- *      sender=from 即答案，getCode 判型链退役**（EOA 直连时 from===trader 同样正确）
+ *      eth_getBlockByNumber(full=true)（CD377：裸调 p.send——ethers getBlock(n,true)
+ *      抽象路径实测恒返回 hash 数组致 join 自上线起静默失效一周，blockJoinRows=0），
+ *      块 map 到 → 全簇 join；**from 恒 EOA ⇒ sender=from 即答案，getCode 判型链退役**
+ *      （EOA 直连时 from===trader 同样正确）。三类失败分治：null block（RPC 端点 lag，
+ *      ankr 领先）→ throw 逐出缓存计 blockNotFound 不 failover；形状退化（200-OK 但
+ *      transactions=hash 数组/非数组）→ fn 内 throw 走端点 failover，全端点退化 →
+ *      该块负缓存（空 Map 留缓存防同块重拉风暴）+ blockShapeDegrades + 连续退化
+ *      熔断停预取；网络错误 → failover 后 reject 逐出缓存（现状）
  *   4) 单行 getTransactionByHash fallback（块结果无该 txHash=重组/边缘，或块拉取失败）
  *   5) 重试 retryLimit 次耗尽 → sender=NULL 回推（保数据丢修复，绝不丢行）
+ *   路由映射复查（CD377）：3) 块路径未定值后与 4) 单行未定值后各复查一次 map——
+ *   RPC 往返窗（100-300ms）内路由事件（几十 ms 到达）几乎必然已进 map，复查零新增
+ *   延迟接住竞态 miss（routerMapLateHits/routerMapRetryHits）；与块 join 语义互补：
+ *   ankr 领先端点（join null）→ 复查命中；ankr 落后 → 事件先到即时命中或 join 直接定值
  *
  * per-token 观测（waitTokenIdle/pendingFor）：enq/done 双计数 watermark，供
  * CheatCheckService 事件驱动 settle（等 per-token 队列清空而非固定 4s）。
@@ -90,6 +101,12 @@ class SenderResolver {
         this._routerEventMapLimit = this._cfg.routerEventMapLimit ?? 50000;
         this._callTimeoutMs = this._cfg.callTimeoutMs ?? 0; // 0=关（缺省现状）
         this._seqCacheLimit = this._cfg.seqCacheLimit ?? 100000;
+        // CD377 形状退化熔断（全端点退化连续 N 块 → 停块预取 X 分钟，行直落单行 fallback）
+        this._shapeBreakerThreshold = this._cfg.shapeBreakerThreshold ?? 10;
+        this._shapeBreakerPauseMs = this._cfg.shapeBreakerPauseMs ?? 10 * 60 * 1000;
+        this._shapeDegradeStreak = 0;      // 连续全端点形状退化块数（成功即归零）
+        this._prefetchPausedUntil = 0;     // 熔断截止时刻（Date.now 墙钟——回查链非 FA 周期判定无前视约束）
+        this._warnTs = new Map();          // 限频 warn（key → 上次打印时刻）
 
         // trader 地址 → 'eoa'（终身缓存；填充源=块 join/单行反查的 tx.from 反哺——
         // BSC from 恒 EOA；合约 trader 永不落此缓存=每笔入队 per-tx 解析，语义正确）
@@ -117,11 +134,15 @@ class SenderResolver {
         this.stats = {
             submitted: 0,
             eoaFast: 0,          // kind 缓存命中同步直推（零延迟）
-            routerMapHits: 0,    // GMGN 路由事件映射命中（零 RPC）
-            routerMapMisses: 0,  // 映射 miss（含全部非 GMGN 合约行——粗粒度观测）
-            blockPulls: 0,       // getBlockByNumber(full) 发起次数（lazy per-block）
+            routerMapHits: 0,    // 路由事件映射命中（零 RPC）
+            routerMapLateHits: 0,   // CD377 块路径未定值后复查 map 接住（零新增延迟）
+            routerMapRetryHits: 0,  // CD377 单行未定值进重试前复查 map 接住（砍 3s 尾巴）
+            routerMapMisses: 0,  // 映射 miss（含全部非映射域合约行——粗粒度观测）
+            blockPulls: 0,       // eth_getBlockByNumber(full) 发起次数（lazy per-block）
             blockJoinRows: 0,    // 经块 join 定值行数
-            blockFallbackRows: 0,// 块 miss（无该 txHash/拉取失败）落单行回查行数
+            blockNotFound: 0,    // CD377 null block（端点 lag）块数——二期 ANKR WSS 块拉取决策依据
+            blockShapeDegrades: 0, // CD377 全端点形状退化块数（负缓存）
+            blockFallbackRows: 0,// 块路径+映射复查均未定值落单行回查行数（CD377 收窄口径）
             txFromResolved: 0,   // 单行反查 tx.from 成功回推（fallback 主体）
             senderNull: 0,       // 反查耗尽/停机/溢出 → NULL 回推（保数据丢修复）
             retried: 0,
@@ -335,15 +356,30 @@ class SenderResolver {
             try {
                 from = await this._joinBlock(item.txHash, blockNumber);
             } catch (err) {
-                this.stats.rpcErrors++;
-                this._logWarn(`块拉取失败走单行 fallback: block=${blockNumber} ${err.message}`);
+                if (err && err.isBlockLag) {
+                    // 端点 lag（ankr 领先 RPC 池）：不 failover（lag 风暴下逐端点重试
+                    // null 放大流量），缓存已逐出，行落单行/重试链兜底
+                    this.stats.blockNotFound++;
+                } else {
+                    this.stats.rpcErrors++;
+                    this._warnThrottled('blockFetchFail',
+                        `块拉取失败走单行 fallback: block=${blockNumber} ${err.message}`);
+                }
             }
             if (from != null) {
                 this.stats.blockJoinRows++;
                 this._pushResolved(item, from);
                 return;
             }
-            // from=null：块内无该 txHash（重组/节点 lag）或拉取失败 → 单行 fallback
+            // CD377 复查点①：块路径未定值（lag/空块/负缓存/熔断）——RPC 往返窗内
+            // 路由事件（晚到几十 ms）几乎必然已进 map，零新增延迟接住竞态 miss
+            const lateUser = this._routerEventMap.get(item.txHash);
+            if (lateUser !== undefined) {
+                this.stats.routerMapLateHits++;
+                this._pushResolved(item, lateUser);
+                return;
+            }
+            // from=null：块内无该 txHash（重组/节点 lag）或拉取失败且映射复查未接住
             this.stats.blockFallbackRows++;
         }
 
@@ -352,6 +388,14 @@ class SenderResolver {
         if (from != null) {
             this.stats.txFromResolved++;
             this._pushResolved(item, from);
+            return;
+        }
+        // CD377 复查点②：单行也未定值（lag/重组边缘）→ 进重试前最后机会，砍 3s
+        // 重试尾巴（lookup-null 行此刻 map 命中率极高——事件早于重试退避必到）
+        const retryUser = this._routerEventMap.get(item.txHash);
+        if (retryUser !== undefined) {
+            this.stats.routerMapRetryHits++;
+            this._pushResolved(item, retryUser);
             return;
         }
 
@@ -381,10 +425,13 @@ class SenderResolver {
     /**
      * 块预取 join：取/建该块的 txHash→from map（in-flight 去重——同块并发未定值行
      * 挂同一 promise，一次拉取全簇共享）；命中行反哺双缓存。
-     * @returns {Promise<string|null>} from 或 null（块内无该 txHash）
-     * @throws 块拉取 RPC 失败（失败 promise 不留缓存，重试重新拉）
+     * CD377 熔断门：形状退化连续触发后停块预取（行直落单行 fallback，回到失效期
+     * 行为但有报警）；pause 到期自然恢复（半开）。
+     * @returns {Promise<string|null>} from 或 null（块内无该 txHash/熔断期）
+     * @throws 块拉取失败（网络错误/lag——失败 promise 不留缓存，重试重新拉）
      */
     _joinBlock(txHash, blockNumber) {
+        if (Date.now() < this._prefetchPausedUntil) return Promise.resolve(null);
         let p = this._blockTxCache.get(blockNumber);
         if (!p) {
             this.stats.blockPulls++;
@@ -410,19 +457,87 @@ class SenderResolver {
         });
     }
 
-    /** 全块拉取 → Map<txHash(lower), from(lower)>（tx.from 恒 EOA——map 即该块全部交易的发起者） */
+    /**
+     * 全块拉取 → Map<txHash(lower), from(lower)>（tx.from 恒 EOA——map 即该块全部交易的发起者）。
+     * CD377：裸调 eth_getBlockByNumber——ethers getBlock(n,true) 抽象路径实测（dataseed
+     * 同端点同块 15/15）恒返回 hash 字符串数组，join 自上线起静默失效（blockJoinRows=0
+     * 一周）；裸调同端点恒返回 full 对象数组。形状校验放 _rpcCall fn 内部——退化是
+     * 200-OK 成功响应，只有 fn 内 throw 才触发端点 failover。
+     * @throws {Error} isBlockLag（端点无该块，暂态）| 网络错误（全端点失败）
+     *   全端点形状退化 → resolve 空 Map 负缓存（留缓存防同块重拉风暴）+ 熔断计数
+     */
     async _pullBlockTxMap(blockNumber) {
         this.stats.blockLookups++;
-        const block = await this._withTimeout(
-            this._rpcCall((p) => p.getBlock(blockNumber, true)),
-            `getBlock(${blockNumber})`,
-        );
-        if (!block || !Array.isArray(block.transactions)) return new Map();
+        const n = Number(blockNumber);
+        if (!Number.isSafeInteger(n) || n < 0) throw new Error(`块号非法: ${blockNumber}`);
+        const hexTag = '0x' + n.toString(16);
+        let block;
+        try {
+            block = await this._withTimeout(
+                this._rpcCall((p) => p.send('eth_getBlockByNumber', [hexTag, true]).then((b) => {
+                    if (b === null) return null; // 端点还没该块（lag）——成功返回不走 failover
+                    if (!b || !Array.isArray(b.transactions)) {
+                        const e = new Error(`块形状退化(transactions 非数组) host=${this._hostOf(p)}`);
+                        e.blockShape = true;
+                        throw e;
+                    }
+                    if (b.transactions.length && typeof b.transactions[0] === 'string') {
+                        const e = new Error(`块形状退化(hash 数组,verbose 未生效) host=${this._hostOf(p)}`);
+                        e.blockShape = true;
+                        throw e;
+                    }
+                    return b;
+                })),
+                `getBlock(${n})`,
+            );
+        } catch (err) {
+            if (err && err.blockShape) {
+                // 全端点形状退化：负缓存（空 Map 留缓存——同块后续行不再重拉，
+                // 防 throw 逐出后同块逐行 ×N 端点 ×全块 payload 的重拉风暴）
+                this.stats.blockShapeDegrades++;
+                this._shapeDegradeStreak++;
+                this._warnThrottled('blockShape',
+                    `全端点块形状退化(${this._shapeDegradeStreak} 连续) 负缓存生效: ${err.message}`);
+                if (this._shapeDegradeStreak >= this._shapeBreakerThreshold) {
+                    this._prefetchPausedUntil = Date.now() + this._shapeBreakerPauseMs;
+                    this._logError(`块预取熔断 ${this._shapeBreakerPauseMs / 60000}min（连续 ${this._shapeDegradeStreak} 块全端点退化），期间行直落单行 fallback`);
+                }
+                return new Map();
+            }
+            throw err; // 网络错误/超时：reject 逐出缓存（现状语义）
+        }
+        this._shapeDegradeStreak = 0; // 任何成功拉取归零
+        if (block === null) {
+            // lag：暂态，throw 逐出缓存（下一行/重试重新拉），行落单行/重试链兜底
+            const e = new Error(`端点暂无该块(lag): ${hexTag}`);
+            e.isBlockLag = true;
+            throw e;
+        }
         const map = new Map();
         for (const tx of block.transactions) {
-            if (tx && tx.hash && tx.from) map.set(tx.hash.toLowerCase(), tx.from.toLowerCase());
+            if (tx && typeof tx.hash === 'string' && typeof tx.from === 'string') {
+                map.set(tx.hash.toLowerCase(), tx.from.toLowerCase());
+            }
         }
         return map;
+    }
+
+    /** provider → host（形状退化 log 定位端点用；取不到给 unknown） */
+    _hostOf(p) {
+        try {
+            return new URL(p.connection?.url || '').host || 'unknown';
+        } catch {
+            return 'unknown';
+        }
+    }
+
+    /** 限频 warn（同 key 默认 30s 一条——降级路径 per-row 刷屏防线） */
+    _warnThrottled(key, msg, ms = 30000) {
+        const now = Date.now();
+        const last = this._warnTs.get(key) || 0;
+        if (now - last < ms) return;
+        this._warnTs.set(key, now);
+        this._logWarn(msg);
     }
 
     /** txHash → from（缓存命中零 RPC；失败/tx 不可见不缓存，重试有机会成功） */

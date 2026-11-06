@@ -2,12 +2,16 @@
 /**
  * SenderResolver + 两 collector 分流接线 + 引擎接线 单测（零 DB 零网络）
  *
- * 打桩点：SenderResolver._makeProvider（stub provider: getBlock/getTransaction/destroy）
+ * 打桩点：SenderResolver._makeProvider（stub provider: send(eth_getBlockByNumber)/
+ * getTransaction/destroy——CD377 起块拉取走裸调 send，ethers getBlock 抽象路径弃用）
  * 与 collector 构造第 6 参（stub resolver: submit）。
  *
  * 2026-11-04 块预取 join + GMGN 路由事件映射改造后解析链（A 节锁定）：
  *   EOA kind 快路 → 路由事件映射 → txFrom 缓存 → 块预取 join（getCode 判型退役）
  *   → 单行 getTransaction fallback → 重试耗尽 NULL
+ *
+ * 2026-11-06 CD377（A15-A20 锁定）：块拉取裸调+fn 内形状门（退化 failover/负缓存/
+ * 熔断）+ null block lag 分治 + 映射复查两点（块路径未定值/进重试前）+ 路径计数和不变量
  *
  * 节：
  *   A  resolver 纯逻辑（快路/映射/块 join/缓存/fallback/重试/failover/溢出/stop/
@@ -33,14 +37,17 @@ function ok(cond, label) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** 挂桩 provider 工厂：按脚本控制 getBlock(full)/getTransaction */
+/** 挂桩 provider 工厂：按脚本控制 send(eth_getBlockByNumber)/getTransaction。
+ *  CD377 起块拉取走裸调 send（hexTag 进/blockOf 收还原数字块号，计数仍记
+ *  calls.getBlock 保存量断言零翻动）；非块方法 throw=测试红（链路异常立即可见） */
 function makeStub(r, { blockOf, txOf }) {
     const calls = { getBlock: 0, getTransaction: 0 };
     r._makeProvider = (url) => ({
         url,
-        getBlock: async (bn) => {
+        send: async (method, params) => {
+            if (method !== 'eth_getBlockByNumber') throw new Error(`stub 未实现 method: ${method}`);
             calls.getBlock++;
-            const res = blockOf(bn);
+            const res = blockOf(Number.parseInt(params[0], 16));
             if (res && res.__defer) return res.promise;
             return res;
         },
@@ -223,7 +230,10 @@ async function testA() {
         const seen = [];
         r._makeProvider = (url) => ({
             url,
-            getBlock: async () => { seen.push(url); if (url === 'https://a') throw new Error('down'); return fullBlock([['0x8', '0xeoa8']]); },
+            send: async (method) => {
+                if (method !== 'eth_getBlockByNumber') throw new Error(`stub 未实现 method: ${method}`);
+                seen.push(url); if (url === 'https://a') throw new Error('down'); return fullBlock([['0x8', '0xeoa8']]);
+            },
             getTransaction: async () => null,
             destroy: () => {},
         });
@@ -260,7 +270,7 @@ async function testA() {
         const r = new SenderResolver({ concurrency: 1 }, quietLogger);
         let i = 0;
         r._makeProvider = () => ({
-            getBlock: async () => (i++ === 0 ? d1 : d2),
+            send: async () => (i++ === 0 ? d1.promise : d2.promise),
             getTransaction: async () => null,
             destroy: () => {},
         });
@@ -335,6 +345,135 @@ async function testA() {
         r._pushResolved(entry, '0xa');
         r._pushResolved(entry, '0xb');
         ok(n === 1 && entry.tickRow.sender_address === '0xa', 'A14 _pushResolved 幂等防重');
+    }
+
+    // A15 CD377 形状门 failover：端点 a 返回 hash 数组（ethers 抽象路径实测事故形状）
+    //    → fn 内 throw → 逐端点 failover → 端点 b full 对象建 map（单端点退化被救回不计 degrade）
+    {
+        const r = new SenderResolver({ rpcUrls: ['https://a', 'https://b'], concurrency: 1 }, quietLogger);
+        const seen = [];
+        r._makeProvider = (url) => ({
+            url,
+            send: async (method) => {
+                if (method !== 'eth_getBlockByNumber') throw new Error(`stub 未实现: ${method}`);
+                seen.push(url);
+                if (url === 'https://a') return { transactions: ['0xt15', '0xt15b'] }; // hash 数组=事故形状
+                return fullBlock([['0xt15', '0xuser15']]);
+            },
+            getTransaction: async () => { throw new Error('不应单行'); },
+            destroy: () => {},
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0xt15', 1500), trader: '0xr15', txHash: '0xt15', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xuser15', 'A15 形状退化端点 failover 到好端点定值');
+        ok(seen.length === 2 && seen[1] === 'https://b', 'A15 fn 内 throw 触发端点 failover（200-OK 也走降级链）');
+        ok(r.stats.blockShapeDegrades === 0 && r.stats.blockJoinRows === 1, 'A15 单端点退化被 failover 救回（不计全端点退化）');
+    }
+
+    // A16 CD377 全端点形状退化：负缓存（空 Map 留缓存防同块重拉风暴）+ 连续熔断停预取
+    {
+        const r = new SenderResolver({ rpcUrls: ['https://only'], concurrency: 1, shapeBreakerThreshold: 2 }, quietLogger);
+        makeStub(r, {
+            blockOf: () => ({ transactions: ['0xh'] }), // 恒 hash 数组=全端点退化
+            txOf: (h) => ({ from: '0xsingle16' }),
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0x16a', 1600), trader: '0xr16', txHash: '0x16a', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed[0].sender_address === '0xsingle16' && r.stats.blockShapeDegrades === 1, 'A16 全端点退化计 degrade、行落单行定值');
+        // 同块第二行：负缓存命中不重拉（防「throw 逐出→同块逐行×N 端点×全块 payload」重拉风暴）
+        r.submit({ tickRow: row('0x16b', 1600), trader: '0xr16', txHash: '0x16b', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(r.stats.blockPulls === 1 && pushed[1].sender_address === '0xsingle16', 'A16 同块负缓存不重拉（blockPulls 仍 1）');
+        // 第二块再退化 → streak 达阈 2 → 熔断；第三块不再发块拉取（行直落单行）
+        r.submit({ tickRow: row('0x16c', 1601), trader: '0xr16', txHash: '0x16c', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(r.stats.blockShapeDegrades === 2 && r._prefetchPausedUntil > Date.now(), 'A16 连续 2 块退化触发熔断（pause 未到期）');
+        const pullsBefore = r.stats.blockPulls;
+        r.submit({ tickRow: row('0x16d', 1602), trader: '0xr16', txHash: '0x16d', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(r.stats.blockPulls === pullsBefore && pushed[3].sender_address === '0xsingle16', 'A16 熔断期停块预取（行直落单行 fallback）');
+    }
+
+    // A17 CD377 null block（端点 lag，ankr 领先 RPC 池）：isBlockLag 不 failover 不计
+    //     rpcErrors、失败 promise 逐出缓存（同块第二行重拉）
+    {
+        const r = new SenderResolver({ rpcUrls: ['https://only'], concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, {
+            blockOf: () => null, // 端点还没该块（成功响应非错误——刻意不走 failover）
+            txOf: (h) => ({ from: '0xlagUser' }),
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0x17a', 1700), trader: '0xr17', txHash: '0x17a', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(pushed[0].sender_address === '0xlaguser', 'A17 lag 块行落单行定值');
+        ok(r.stats.blockNotFound === 1 && r.stats.rpcErrors === 0, 'A17 lag 计 blockNotFound 不计 rpcErrors（lag 风暴不放大流量）');
+        r.submit({ tickRow: row('0x17b', 1700), trader: '0xr17', txHash: '0x17b', pushRow: (x) => pushed.push(x) });
+        await sleep(20);
+        ok(r.stats.blockPulls === 2, 'A17 lag promise 不留缓存（同块第二行重拉）');
+    }
+
+    // A18 CD377 复查点①：块 join RPC 往返窗内路由事件进 map → from=null 后复查接住
+    //     （ankr 领先 dataseed 主形态：块内无该 txHash 但事件已到，零单行零新增延迟）
+    {
+        const d = deferred();
+        const r = new SenderResolver({ concurrency: 1 }, quietLogger);
+        const calls = makeStub(r, { blockOf: () => d, txOf: () => { throw new Error('不应单行'); } });
+        const pushed = [];
+        r.submit({ tickRow: row('0x18', 1800), trader: '0xr18', txHash: '0x18', pushRow: (x) => pushed.push(x) });
+        await sleep(10);                          // 行挂上块 join（in-flight）
+        r.setRouterEventUser('0x18', '0xlateUser'); // 路由事件晚到几十 ms 进 map
+        d.resolve(fullBlock([]));                 // 块内无该 txHash
+        await sleep(10);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xlateuser', 'A18 块路径未定值后复查 map 接住定值');
+        ok(r.stats.routerMapLateHits === 1 && calls.getTransaction === 0, 'A18 lateHits 计数、零单行回查');
+        ok(r.stats.blockFallbackRows === 0, 'A18 复查接住不计 fallback');
+    }
+
+    // A19 CD377 复查点②：块路径+单行回查均未定值（双晚角落）→ 进重试前复查接住砍 3s 尾巴
+    {
+        const d = deferred();
+        const r = new SenderResolver({ concurrency: 1, retryLimit: 2, retryDelayMs: 5 }, quietLogger);
+        makeStub(r, {
+            blockOf: () => fullBlock([]), // 块内无该 tx 且事件未到
+            txOf: () => d,                // 单行慢（lag 往返）
+        });
+        const pushed = [];
+        r.submit({ tickRow: row('0x19', 1900), trader: '0xr19', txHash: '0x19', pushRow: (x) => pushed.push(x) });
+        await sleep(10);                           // 块路径已过、单行挂起
+        r.setRouterEventUser('0x19', '0xretryUser');
+        d.resolve(null);                           // 单行也未定值
+        await sleep(10);
+        ok(pushed.length === 1 && pushed[0].sender_address === '0xretryuser', 'A19 重试前复查 map 接住定值');
+        ok(r.stats.routerMapRetryHits === 1 && r.stats.retried === 0, 'A19 retryHits 计数、零重试（尾巴砍掉）');
+        ok(r.stats.blockFallbackRows === 1, 'A19 块+复查①均未定值计 fallback（口径收窄后）');
+    }
+
+    // A20 CD377 定值路径计数和不变量：终态行数 = 各定值路径计数之和（无泄漏/无双计）
+    {
+        const r = new SenderResolver({ concurrency: 2, retryLimit: 0 }, quietLogger);
+        makeStub(r, {
+            blockOf: () => fullBlock([['0x20b', '0xjoinUser']]),
+            txOf: (h) => (h === '0x20c' ? { from: '0xsingleUser' } : null),
+        });
+        r._cacheKind('0xeoa20', 'eoa');
+        r.setRouterEventUser('0x20a', '0xmapUser');
+        const pushed = [];
+        const sub = (tx, trader) => r.submit({ tickRow: row(tx, 2000, '0xtok20'), trader, txHash: tx, pushRow: (x) => pushed.push(x) });
+        sub('0x20e', '0xeoa20'); // eoaFast
+        sub('0x20a', '0xr20');   // routerMapHits
+        sub('0x20b', '0xr20');   // blockJoinRows
+        sub('0x20c', '0xr20');   // blockFallbackRows → txFromResolved
+        await sleep(40);
+        sub('0x20d', '0xr20');   // blockFallbackRows → 单行 null → retryLimit=0 → senderNull
+        await sleep(40);
+        const s = r.stats;
+        const sum = s.eoaFast + s.routerMapHits + s.routerMapLateHits + s.routerMapRetryHits
+            + s.txFromCacheHits + s.blockJoinRows + s.txFromResolved + s.senderNull;
+        ok(pushed.length === 5 && sum === 5, 'A20 终态行数=路径计数和（5 行 5 路径全覆盖）');
+        ok(s.blockFallbackRows === 2 && s.txFromResolved === 1 && s.senderNull === 1,
+            'A20 fallback 口径=块+复查均未定值落单行（20c 单行定值/20d NULL）');
     }
 }
 
@@ -688,7 +827,14 @@ function testC() {
     ok(!rsrc.includes('KIND_CONTRACT'), 'C5 KIND_CONTRACT 死值清除（kindCache 唯一值域 eoa）');
     ok(rsrc.includes('setRouterEventUser'), 'C5 GMGN 路由事件映射公共写入口存在');
     ok(rsrc.includes('_routerEventMap.get(item.txHash)'), 'C5 映射消费在 _processItem 最前（零 RPC 快路）');
-    ok(rsrc.includes('getBlock(blockNumber, true)'), 'C5 块预取 join= getBlockByNumber(full=true)');
+    ok(rsrc.includes("p.send('eth_getBlockByNumber', [hexTag, true])"),
+        'C5 CD377 块拉取=裸调 eth_getBlockByNumber(full)（ethers getBlock 抽象路径实测恒 hash 数组弃用）');
+    ok(rsrc.includes('e.blockShape = true') && rsrc.includes('blockShapeDegrades'),
+        'C5 CD377 fn 内形状门（throw 触发 failover+全退化负缓存+熔断）');
+    ok(rsrc.includes('e.isBlockLag = true') && rsrc.includes('blockNotFound'),
+        'C5 CD377 null block lag 分治（不 failover 计 blockNotFound）');
+    ok(rsrc.includes('routerMapLateHits') && rsrc.includes('routerMapRetryHits'),
+        'C5 CD377 映射复查两点（块路径未定值/进重试前——竞态 miss 零延迟接住）');
     ok(rsrc.includes('waitTokenIdle') && rsrc.includes('pendingFor'), 'C5 per-token 观测（waitTokenIdle/pendingFor）存在');
     ok(rsrc.includes('_withTimeout'), 'C5 callTimeoutMs 竞速包装存在');
 
