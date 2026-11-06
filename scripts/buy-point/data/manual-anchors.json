@@ -249,6 +249,17 @@
       "model": { "bucket": "neutral", "prob": 0.44, "rule": "any_neutral", "run": "bp-run-2026-11-06T00-11-05-827Z", "questionVersion": "BP13" },
       "ruledAt": "2026-11-06",
       "note": "用户认同；生产无 t2 信号行（未发射——距 t1 发射仅 +3 笔与 T120 tick 门拦截形状一致，被拦不落行无从留痕）；前向 -33.2%"
+    },
+    {
+      "anchorId": "BPA-024",
+      "kind": "set",
+      "tokenAddress": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+      "tokenName": "吉祥",
+      "locator": { "set": "bp-2026-11-05-v73-trades", "pointId": "BP-T016", "legId": null, "legName": "v1-t7 跌底放量（生产发射）", "triggeredAt": "2026-11-05T06:33:22Z" },
+      "expect": { "bucket": "neutral" },
+      "model": { "bucket": "poor", "prob": 0.94, "rule": "else_poor", "run": "bp-run 2026-11-06T00:31", "questionVersion": "BP13" },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #12 用户裁定「neutral 可以」。⚠分歧锚②：模型回调忌讳①崩塌第一腿（maxChg5=89.75 全史恒含）poor 0.94 vs 实际第二波主升 +193%（06:36:03 峰 3.24e-8，3 分钟）——长间隔失效反例（暴涨段在 45min 前）；t7 quiet 臂命中=signalGate 设计猎物被 BP 门拦。与 BPA-007 同族；生产 BP12 neutral 0.35 放行买入是对的（15s 卖腿离场错过 3 倍=卖侧另案）"
     }
   ]
 }
