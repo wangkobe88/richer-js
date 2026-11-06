@@ -271,6 +271,39 @@
       "model": { "bucket": "poor", "prob": 0.80, "rule": "else_poor", "run": "bp-run 2026-11-06T07:30", "questionVersion": "BP13" },
       "ruledAt": "2026-11-06",
       "note": "用户认同 poor。「该拦没拦」方向质量题实证：生产 BP12 good 0.53 放行→出生 5s 买入→15s 闪崩 -33.4%（07:03:44 成交 6.57e-9→07:03:59 卖 4.38e-9）；BP13 早鸟暴涨忌讳 poor 0.80 拦对（25 ticks/age 5s/近 60s 买 1.710 BNB/贴 ATH -0.4%，market+activity 双 ultra 仍 poor=热度不救位置）。t6 v1 盲买腿出生触发 v3 峰门已根治；cheat insufficient_ticks（锚 7<8）fail-open 免检。用户同案提出新层面（famous 控盘+holders 不小但 top 集中）=CD 筹码锚迁移 BP 候选议题"
+    },
+    {
+      "anchorId": "BPA-026",
+      "kind": "set",
+      "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+      "tokenName": "谷谷",
+      "locator": { "set": "bp-2026-11-05-v73-trades", "pointId": "BP-T020", "legId": null, "legName": "v1-t6 低市值盲买（生产发射）", "triggeredAt": "2026-11-05T07:06:16Z" },
+      "expect": { "bucket": "neutral" },
+      "model": { "bucket": "neutral", "prob": 0.77, "rule": "any_neutral", "run": "bp-run-2026-11-06T01-32", "questionVersion": "BP15" },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #16 + BP15 立法案锚。用户裁定原话「这个是 good/中等也行，但是 poor 不行」+「极早期有大户在场没有问题，价格临近发布价豁免持有者不均衡」。开盘 3s 8 实质持有者抢筹前二 56.5%+同块簇 78%（BP14 判 strong→chip_gate 拦）但涨幅 +25% 贴发行价=豁免锚生效（holder→moderate、早鸟 neutral 0.77 聚合放行）；前向 +5min 峰 +114%=chip_gate 首个「拦掉盈利点」样本催生 BP15。dust 核查：9 持有者=8 实质+1 尘埃（0.001 BNB），剔后区间不变=豁免锚而非剔尘计数救回。生产实买 +0.000473（50s 持有）"
+    },
+    {
+      "anchorId": "BPA-027",
+      "kind": "set",
+      "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+      "tokenName": "谷谷",
+      "locator": { "set": "bp-2026-11-05-v73-trades", "pointId": "BP-T021", "legId": null, "legName": "v1-t1（生产发射·接棒）", "triggeredAt": "2026-11-05T07:07:16Z" },
+      "expect": { "bucket": "poor" },
+      "model": { "bucket": "poor", "prob": 0.64, "rule": "else_poor", "run": "bp-run-2026-11-06T01-15", "questionVersion": "BP14" },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #16 用户认同 poor（「其它 poor 都认同」）。63s 龄 chg60 +53% 追高二买：pullback poor 0.64+high_chase poor 0.61 双 poor（质量题自拦无门参与）；前向 +5min 末 -16%。生产实买 +0.000154（146s 持有）"
+    },
+    {
+      "anchorId": "BPA-028",
+      "kind": "set",
+      "tokenAddress": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+      "tokenName": "谷谷",
+      "locator": { "set": "bp-2026-11-05-v73-trades", "pointId": "BP-T024", "legId": null, "legName": "v1-t2（生产发射·接棒）", "triggeredAt": "2026-11-05T07:09:44Z" },
+      "expect": { "bucket": "poor" },
+      "model": { "bucket": "poor", "prob": 0.99, "rule": "chip_gate", "run": "bp-run-2026-11-06T01-32", "questionVersion": "BP15" },
+      "ruledAt": "2026-11-06",
+      "note": "v73 复审 #16 用户认同 poor（「其它 poor 都认同」）。210s 龄距峰 -27%：famous 控盘 68.8%≥50 dominant（G17 联立臂 33.2/40.9 未过线但主臂直判；holder 反而 weak 16%=famous 臂主场与 BEM 同款）——筹码门 famous 臂第二命中且拦对（前向 -27.5%；生产实买 -0.000315）。BP15 复跑维持 poor 0.99（价格 low 不在豁免域+famous 轴不豁）"
     }
   ]
 }
