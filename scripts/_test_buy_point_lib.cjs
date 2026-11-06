@@ -566,9 +566,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP31 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚+BP28 案四改（activity⑥三段形状+尾段锚/早鸟累计位置硬腿/③复数 famous）/两调深相等）');
+  console.log('F. 题集形状（BP32 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚+BP28 案四改（activity⑥三段形状+尾段锚/早鸟累计位置硬腿/③复数 famous）+BP29 案早鸟庄盘豁免/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP31', 'F: 版本=BP31（BP28 案=第 4 组 16 点复审三裁定一案四改——①S053 太空逆袭 activity 误 low：三段形状（开局冲一波→中段完全静默→锚前集中涌入）⑥反锚执行缝隙，补三段形状归属句「静默居中不压档、买点时刻盘面正被激活=中档起判」；②S055 早鸟 +126.8% 误 neutral：maxChg5=39.38% 未过速度锚线测不到慢涨，补第三分支·累计位置硬腿「现价较发行价 +100% 以上一律 poor」；③S064 FIGHT strong_backer 误放 -41.5%：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 极早抢筹 0.595 BNB 起不来，famous roster 收录两址+③复数 famous 扩句「两个及以上 famous 极早入场合计拿筹过多同落③」；④BP30 三段形状句对拍 S053 三连跑稳定 low（题面救不动=state 时序盲区：临近段 totals 稀释锚前涌入）→ snapshot 加锚前尾段三键 nearTail5{TickN,BuyN,BuyBnb}（锚前最后 5s 子窗）+state「锚前尾段」行+⑥句挂尾段行判读锚）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP32', 'F: 版本=BP32（BP29 案=第 5 组复审 無為 S072 强庄教科书形状被早鸟忌讳①「已拉高」拖死——用户裁定原话「無為 是非常典型强庄币啊，第一个点位至少是中等」：三大户 0.327/0.294/0.245 全部 t+0s 首买、只买未卖卖压 0.0000、开盘段大额单 1 笔、锚前尾段 8 笔 1.137 BNB 涌入，low 档拉升是庄拉第一波非散户接力 → 早鸟忌讳①前置庄盘豁免（BP23 回调题同构：开盘大额在场∧前列大户未清场、零卖出=最强形状），忌讳①「价格已不低」前提不坐实+第一分支救位放宽一档 near_launch→low；豁免域只到 low 档 mid+ 界外（与 BP25 一档帽同界）不解除②③；前案=BP31/BP28 案四改）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -650,6 +650,11 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
   // BP28 案改二（S055 无税人生 早鸟 +126.8% 误 neutral——累计位置硬腿）
   ok(eb.instructions.includes('第三分支·累计位置硬腿（BP30，速度锚的补位）') && eb.instructions.includes('现价较发行价已 +100% 以上（price_level=mid 及以上）→ **poor，无论 maxChg5 过没过线**') && eb.instructions.includes('速度锚测不到慢涨') && eb.instructions.includes('+100% 以上不存在早鸟救位'), 'F: 早鸟第三分支=累计位置硬腿（BP30/BP28 案 S055——用户裁定原话「涨了 100% 以上了」给中等不对：maxChg5=39.38% 未过 40~50% 速度锚线测不到慢涨，分波缓爬到 mid+ 同样是接力位不是早鸟位；+100% 以内才有「价格低」可谈，本腿与第二分支殊途同归 poor）');
+  // BP29 案（BP32）：早鸟忌讳①前置庄盘豁免——庄拉第一波贴高点位不是接力风险
+  ok(eb.instructions.includes('庄盘豁免（BP32，先于①判序查——命中则忌讳①不适用）') && eb.instructions.includes('庄拉的第一波贴高点位不是接力风险') && eb.instructions.includes('只买未卖零卖出=最强形状') && eb.instructions.includes('第一分支救位同步放宽一档：near_launch→low 档') && eb.instructions.includes('典型=**庄盘第一波早期至少 neutral**'), 'F: 早鸟庄盘豁免置顶（BP32/BP29 案 無為 S072——三大户 0.327/0.294/0.245 全 t+0s 首买+零卖出+开盘大额 1 笔+锚前尾段 8 笔 1.137 BNB：low 档拉升是强庄最早锁仓拉起的第一波、买点贴高也是对倒拉升早期位置非散户追高，忌讳①「价格已不低」前提不坐实+救位放宽一档，庄盘第一波早期至少 neutral=用户裁定「至少是中等」）');
+  ok(eb.instructions.includes('豁免域只到 low 档（较发行价 +50~100%）为止，price_level=mid 及以上（+100% 以上）不在豁免范围') && eb.instructions.includes('与回调题庄盘豁免同界——庄盘也不追二倍以上的位置'), 'F: 早鸟庄盘豁免域=一档帽（BP32——与 BP25 回调题庄盘豁免同界：low 为止 mid+ 界外照拒，突突车 S111/S113/S114 mid 硬腿不受本豁免影响）');
+  ok(eb.instructions.includes('豁免只解除忌讳①，不解除②活跃度断流③协同（庄盘断流/协同阵列照常 poor）') && eb.instructions.includes('开盘无大额单/大户已清场=非庄盘，照常走①判序'), 'F: 早鸟庄盘豁免边界（只解除①——②③庄盘照判 poor；非庄盘照常判序）');
+  ok(eb.criteria.neutral.includes('庄盘豁免命中（开盘大额在场∧前列大户未清场——庄拉的第一波贴高点位不是接力风险，忌讳①不适用）的庄盘第一波早期'), 'F: criteria neutral 庄盘豁免同步（BP32——桶描述与题面判据一致，Jev 选桶时同判序）');
   const pb = qs.pullback_entry_quality;
   ok(pb.instructions.includes('场景') && pb.instructions.includes('insufficient'), 'F: 回调题含场景判别（无回撤形状→insufficient）');
   ok(pb.instructions.includes('maxChg5Pct'), 'F: 回调主锚=maxChg5Pct 回看速度行（BP10 四改：前期拉升快慢，非累计涨幅非 chg30）');
