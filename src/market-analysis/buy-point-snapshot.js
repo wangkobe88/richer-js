@@ -43,6 +43,8 @@ const BP_SWING_THRESHOLD_PCT = 20;
 const BP_OPEN_SEG_SEC = 30;
 /** 开盘段大额单判线（BNB）：单笔买入 ≥ 此值计大额（BP18；与 BP16 大户判据「0.3+ BNB 级」同线） */
 const BP_OPEN_BIG_BUY_BNB = 0.3;
+/** 锚前尾段固定子窗（秒）：锚前最后 5 秒行数/买笔数/买额——「买点时刻即时状态」时序证据（BP28 案四改，S053 三段形状 state 盲区） */
+const BP_TAIL_SEC = 5;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -383,6 +385,28 @@ function computeBuyPointDerived(snapshot) {
   // dt 缺失全族 null（cheat 同款绝不冒充）；spanSec/tickCount=D3.55 开盘极早窗
   // 反锚两原料（窗 <60s 且笔 <30 双腿）──
   const cd = snapshot.derived || {};
+
+  // ── 锚前尾段三键（BP28 案四改：S053 三段形状 state 时序盲区）——nearSeg 30s
+  // 段 totals 无时序：「中段静默占比 54.5% + 段内最大间隔 24s」整体呈现为临近
+  // 死寂，锚前最后数秒的集中涌入被段 totals 稀释、Jev 结构性看不到（BP30 纯
+  // 题面三段形状句三连跑稳定 low 0.58/0.54/0.61 证实救不动——判读锚定「买点
+  // 时刻即时状态」却无时序原料可判）。尾段=锚前最后 BP_TAIL_SEC（5s）固定子窗
+  // 行数/买笔数/买额，BP 侧自算（CD 层零改动）；末行 dt=tEnd 恒在窗内=尾段最少
+  // 1 笔（「0 笔」不存在）——判读看行数与买额：仅末行 1 笔且尘级=锚点即静默边界
+  // （买点时刻死寂），多笔大额=涌入波内（双向锚）；dt 缺失全族 null（tEnd null
+  // 即 null 绝不冒充）──
+  let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null;
+  if (tEnd !== null) {
+    let tn5 = 0, bn5 = 0, bb5 = 0;
+    for (const t of ticks) {
+      if (!bpInWin(t, tEnd, BP_TAIL_SEC)) continue;
+      tn5++;
+      if (t.side === 'BUY') { bn5++; bb5 += t.bnb || 0; }
+    }
+    nearTail5TickN = tn5;
+    nearTail5BuyN = bn5;
+    nearTail5BuyBnb = +bb5.toFixed(4);
+  }
   const activity = {
     spanSec: cd.spanSec ?? null,
     tickCount: cd.tickCount ?? null,
@@ -397,6 +421,9 @@ function computeBuyPointDerived(snapshot) {
     nearSegMaxGapSec: cd.nearSegMaxGapSec ?? null,
     nearSegBuyN: cd.nearSegBuyN ?? null,
     nearSegSellN: cd.nearSegSellN ?? null,
+    nearTail5TickN,
+    nearTail5BuyN,
+    nearTail5BuyBnb,
   };
 
   // ── 筹码结构锚族透传（BP14/案号 BP14：CD famous 控盘+持仓集中判法搬运——
@@ -539,5 +566,6 @@ module.exports = {
   BP_SWING_THRESHOLD_PCT,
   BP_OPEN_SEG_SEC,
   BP_OPEN_BIG_BUY_BNB,
+  BP_TAIL_SEC,
   detectSwings,
 };

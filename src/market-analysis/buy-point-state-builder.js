@@ -130,6 +130,16 @@ function buildBuyPointState(snapshot) {
     if (d.nearSegTickN !== null && d.nearSegTickN !== undefined) {
       lines.push(`临近买点段(最后30秒): ${d.nearSegTickN} 笔（买 ${d.nearSegBuyN ?? '?'} / 卖 ${d.nearSegSellN ?? '?'}）/ ${d.nearSegTicksPerMin ?? '?'} 笔每分钟 / 段内金额吞吐 ${d.nearSegBnbPerMin ?? '?'} BNB/分钟 / 段内买盘中位 ${d.nearSegBuyMedianBnb ?? '?'} BNB / 段内最大间隔 ${d.nearSegMaxGapSec ?? '?'} 秒（买入点位之前的直接承接环境——开盘段/前期密集不救临近死寂）`);
     }
+    // BP28 案四改：锚前尾段——临近段 totals 无时序（三段形状的锚前涌入被段
+    // totals 稀释不可见），尾段行给「买点时刻即时状态」时序证据：锚前最后 5
+    // 秒多笔大额=涌入波内；仅末行 1 笔尘级=锚点即静默边界（双向锚；末行 dt=tEnd
+    // 恒在窗内、尾段最少 1 笔）。三键在 buyDerived.activity（BP 侧自算非 cheat 层）
+    {
+      const ta = (b.activity || {});
+      if (ta.nearTail5TickN !== null && ta.nearTail5TickN !== undefined) {
+        lines.push(`锚前尾段(最后5秒): ${ta.nearTail5TickN} 笔（买 ${ta.nearTail5BuyN ?? '?'}）合计买 ${ta.nearTail5BuyBnb ?? '?'} BNB（买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内，临近死寂判读不成立；仅 1 笔/尘级=锚点即静默边界、买点时刻盘面死寂）`);
+      }
+    }
     // BP14（案号 BP14 BEM Miner 案）：筹码结构行——famous 控盘+持仓集中分层+
     // 参与/持有分叉（CD famous/D240 判法搬运的判读原料；? = 筹码证据缺失）
     {

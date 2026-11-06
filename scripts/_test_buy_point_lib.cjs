@@ -19,7 +19,7 @@ const { pathToFileURL } = require('url');
 const {
   buildBuyPointSnapshot, computeBuyPointDerived, bpTEndOf, bpInWin,
   BP_WINDOWS, BP_TOP_HOLDER_N, BP_BURST_SEC, BP_PRICE_BUCKETS,
-  BP_SWING_THRESHOLD_PCT, BP_OPEN_SEG_SEC, BP_OPEN_BIG_BUY_BNB, detectSwings,
+  BP_SWING_THRESHOLD_PCT, BP_OPEN_SEG_SEC, BP_OPEN_BIG_BUY_BNB, BP_TAIL_SEC, detectSwings,
 } = require('../src/market-analysis/buy-point-snapshot');
 const { buildBuyPointState, MAX_STATE_CHARS } = require('../src/market-analysis/buy-point-state-builder');
 const {
@@ -123,6 +123,33 @@ ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删
   ok(dM.maxChg5Pct === 50, `maxChg5=+50%（33s 段 0.9→1.35 为最陡；44s 先跌后涨段 1.0→1.3=+30% 次之，实际 ${dM.maxChg5Pct}）`);
 }
 ok(dA.maxChg5Pct === null, `A fixture 无 ≤5s 跨行段（间隔≥10s、同块行队首==j 不计）→ maxChg5=null（实际 ${dA.maxChg5Pct}）`);
+// BP28 案四改：锚前尾段三键手算——A fixture tEnd=215，尾段 dt>210 只有行18@215
+ok(BP_TAIL_SEC === 5, 'BP_TAIL_SEC 常量=5（锚前尾段固定子窗）');
+ok(dA.activity.nearTail5TickN === 1 && dA.activity.nearTail5BuyN === 1 && near(dA.activity.nearTail5BuyBnb, 0.1), `A fixture 尾段=1 笔买 0.1（dt>210 只有行18@215，实际 ${dA.activity.nearTail5TickN}/${dA.activity.nearTail5BuyN}/${dA.activity.nearTail5BuyBnb}）`);
+{
+  // S053 三段形状迷你 fixture（BP28 案立法形状回归锁定）：开局冲 3 笔（dt 2/4/6）
+  // →中段完全静默 40s→锚前 4s 涌入 4 笔（dt 46/47/48/49 买 0.2/0.25/0.2/0.15）
+  // ——临近段 totals（30s 段 7 笔/段内最大间隔 40s）呈现死寂、尾段行见涌入
+  const rowsT = [
+    row(2, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
+    row(4, 'BUY', W_C, 0.1, 1.0 * E9, 1e8),
+    row(6, 'BUY', W_D, 0.1, 1.05 * E9, 1e8),
+    row(46, 'BUY', W_E, 0.2, 1.1 * E9, 2e8),
+    row(47, 'BUY', W_F, 0.25, 1.1 * E9, 2.5e8),
+    row(48, 'BUY', W_G, 0.2, 1.15 * E9, 2e8),
+    row(49, 'BUY', W_H, 0.15, 1.15 * E9, 1.5e8),
+  ];
+  const dT = buildBuyPointSnapshot(rowsT, metaA).buyDerived;
+  ok(dT.activity.nearTail5TickN === 4 && dT.activity.nearTail5BuyN === 4 && near(dT.activity.nearTail5BuyBnb, 0.8), `三段形状尾段=4 笔全买合计 0.8（dt>44 全入尾段，实际 ${dT.activity.nearTail5TickN}/${dT.activity.nearTail5BuyN}/${dT.activity.nearTail5BuyBnb}）`);
+  // 死寂臂：末行单笔尘级——末行 dt=tEnd 恒在尾段内（最少 1 笔），「仅 1 笔尘级」
+  // 才是买点时刻死寂的直接证据（0 笔数学上不存在）
+  const rowsDead = [
+    row(2, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),
+    row(42, 'BUY', W_C, 0.02, 1.0 * E9, 2e7),
+  ];
+  const dDead = buildBuyPointSnapshot(rowsDead, metaA).buyDerived;
+  ok(dDead.activity.nearTail5TickN === 1 && dDead.activity.nearTail5BuyN === 1 && near(dDead.activity.nearTail5BuyBnb, 0.02), `死寂臂尾段=仅末行 1 笔 0.02 尘级（tEnd=42 前静默 40s，实际 ${dDead.activity.nearTail5TickN}/${dDead.activity.nearTail5BuyN}/${dDead.activity.nearTail5BuyBnb}）`);
+}
 // BP18 开盘段结构族手算：开盘段 dt<30 买入=行1 0.5+行2 1.0 → 1.5×2 笔（两笔均
 // ≥0.3 大额）；全窗买入 4.47（资金口径不滤 outlier，行8 ROUTER 0.4 照计）→ 占比
 // 33.6%；late 段（dt≥30）16 笔跨 210−30=180s → 5.33 笔/分、买入 2.97
@@ -283,7 +310,7 @@ ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有
     && act.nearSegTickN === cd.nearSegTickN && act.nearSegBnbPerMin === cd.nearSegBnbPerMin && act.spanSec === cd.spanSec && act.tickCount === cd.tickCount,
     'C: activity 锚族=cheatDerived 同名同值透传（单点计算不重算——BP 锚窗=买点前窗口）');
   const keysAct = Object.keys(act).sort().join(',');
-  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 13 键（实际 ${keysAct}）`);
+  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail5BuyBnb,nearTail5BuyN,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 16 键（BP31 尾段三键后 13→16，实际 ${keysAct}）`);
   ok(snapAct.buyDerived.activity.maxDrawdownPct === cd.maxDrawdownPct, 'C: maxDrawdownPct 透传（可靠价运行峰回撤）');
 }
 
@@ -301,6 +328,7 @@ ok(stD.state.includes('近窗动量(涨跌%): 5s 6.67% / 10s 6.67% / 30s 14.29%'
 ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCount60=1');
 ok(stD.state.includes('活跃度数值:') && stD.state.includes('买盘中位') && stD.state.includes('金额吞吐') && stD.state.includes('无交易期占比') && stD.state.includes('窗口时长'), 'D: 活跃度数值行扩容（BP13：中位/吞吐/静默占比/窗口两原料——CD 数值族搬运渲染）');
 ok(stD.state.includes('临近买点段(最后30秒):') && stD.state.includes('买入点位之前的直接承接环境——开盘段/前期密集不救临近死寂'), 'D: 临近买点段行渲染（BP13：锚窗末端 30s 独立口径）');
+ok(stD.state.includes('锚前尾段(最后5秒):') && stD.state.includes('买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内') && stD.state.includes('仅 1 笔/尘级=锚点即静默边界'), 'D: 锚前尾段行渲染（BP31/BP28 案四改——临近段 totals 无时序的补位；末行恒在窗内最少 1 笔）');
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
@@ -480,6 +508,8 @@ ok(obsE.anchors.actIdlePct === (dA.activity ? dA.activity.idlePct : undefined) &
 ok(obsE.anchors.actSpanSec !== undefined && obsE.anchors.actTickCount !== undefined && obsE.anchors.actNearSegBnbPerMin !== undefined && obsE.anchors.actNearSegMaxGapSec !== undefined
   && obsE.anchors.actNearSegBuyN !== undefined && obsE.anchors.actNearSegSellN !== undefined && obsE.anchors.actNearSegTicksPerMin !== undefined && obsE.anchors.actNearSegBuyMedianBnb !== undefined,
   'E: 活跃度锚族 act 13 键全在场（spanSec/tickCount/中位/吞吐/回撤/临近段七键）');
+ok(obsE.anchors.actNearTail5TickN === dA.activity.nearTail5TickN && obsE.anchors.actNearTail5BuyN === dA.activity.nearTail5BuyN && obsE.anchors.actNearTail5BuyBnb === dA.activity.nearTail5BuyBnb,
+  'E: 活跃度锚族 act 尾段三键透传（BP31/BP28 案四改——nearTail5 与 buyDerived 同值）');
 // BP14 筹码锚族透传（buyDerived.chip 嵌套段——cheatDerived 同名/派生单点照抄零重算）
 ok(obsE.anchors.chipFamousDominancePct === null && obsE.anchors.chipFamousFollowerTop3Pct === null && obsE.anchors.chipFamousGroupBuyPct === null && obsE.anchors.chipSameBlockHoldPct === null,
   'E: 筹码锚族 famous 三键+同块簇=缺证据 null 容忍（A fixture 无 famous 名单钱包/无合格同块簇——不冒充）');
@@ -536,9 +566,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP30 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚+BP28 案三改（activity⑥三段形状/早鸟累计位置硬腿/③复数 famous）/两调深相等）');
+  console.log('F. 题集形状（BP31 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚+BP28 案四改（activity⑥三段形状+尾段锚/早鸟累计位置硬腿/③复数 famous）/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP30', 'F: 版本=BP30（BP28 案=第 4 组 16 点复审三裁定一案三改——①S053 太空逆袭 activity 误 low：三段形状（开局冲一波→中段完全静默→锚前集中涌入）⑥反锚执行缝隙，补三段形状归属句「静默居中不压档、买点时刻盘面正被激活=中档起判」；②S055 无税人生 早鸟 +126.8% 误 neutral：maxChg5=39.38% 未过速度锚线测不到慢涨，补第三分支·累计位置硬腿「现价较发行价 +100% 以上一律 poor」；③S064 FIGHT strong_backer 误放 -41.5%：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 极早抢筹 0.595 BNB 起不来，famous roster 收录两址+③复数 famous 扩句「两个及以上 famous 极早入场合计拿筹过多同落③」）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP31', 'F: 版本=BP31（BP28 案=第 4 组 16 点复审三裁定一案四改——①S053 太空逆袭 activity 误 low：三段形状（开局冲一波→中段完全静默→锚前集中涌入）⑥反锚执行缝隙，补三段形状归属句「静默居中不压档、买点时刻盘面正被激活=中档起判」；②S055 早鸟 +126.8% 误 neutral：maxChg5=39.38% 未过速度锚线测不到慢涨，补第三分支·累计位置硬腿「现价较发行价 +100% 以上一律 poor」；③S064 FIGHT strong_backer 误放 -41.5%：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 极早抢筹 0.595 BNB 起不来，famous roster 收录两址+③复数 famous 扩句「两个及以上 famous 极早入场合计拿筹过多同落③」；④BP30 三段形状句对拍 S053 三连跑稳定 low（题面救不动=state 时序盲区：临近段 totals 稀释锚前涌入）→ snapshot 加锚前尾段三键 nearTail5{TickN,BuyN,BuyBnb}（锚前最后 5s 子窗）+state「锚前尾段」行+⑥句挂尾段行判读锚）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -675,7 +705,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(al.instructions.includes('活跃度门直接消费拒买（活跃度不够不参与交易——买点之前盘面已冷=无承接）'), 'F: activity_level 收尾=门消费声明（镜像 market_heat 反锚④）');
   // BP28 案改一（S053 太空逆袭 activity 误 low——三段形状执行缝隙）
   ok(al.instructions.includes('三段形状（开局冲一波→中段完全静默→临近买点再集中涌入，BP30）同样属「静默后买入涌入」') && al.instructions.includes('判读锚定**买点时刻的即时状态**') && al.instructions.includes('中段静默的占比不压档') && al.instructions.includes('不是针对静默居中的三段形状'), 'F: activity⑥反锚三段形状归属句（BP30/BP28 案 S053——开局 7 秒冲 7 笔→中段 24 秒完全静默→锚前 2 秒 8 笔近 1 BNB 同块涌入：静默居中的三段形状按「静默后买入涌入」中档起判，「先冲一波后静默」不保护臂只管涌入后死到锚点的形状）');
-  ok(al.instructions.includes('买点时刻盘面正被涌入激活，静默居中的三段形状按「静默后买入涌入」中档起判，不因中段静默占比判低'), 'F: activity 反例样本段补三段形状反例（BP30——S053 形状直译锚）');
+  ok(al.instructions.includes('买点时刻盘面正被涌入激活（锚前尾段行=8 笔近 1 BNB 直接可见），静默居中的三段形状按「静默后买入涌入」中档起判，不因中段静默占比判低'), 'F: activity 反例样本段补三段形状反例（BP31——S053 形状直译锚+尾段行数值佐证）');
+  // BP28 案四改：⑥句挂尾段行判读锚（state 时序盲区补位）
+  ok(al.instructions.includes('判读原料=**数值行「锚前尾段(最后5秒)」**') && al.instructions.includes('锚前尾段多笔且金额可观（参考 ≥3 笔/合计 ≥0.3 BNB 级）=锚点时刻正被流量激活的直接证据') && al.instructions.includes('三段形状判尾段行不判段内最大间隔') && al.instructions.includes('尾段仅 1 笔/合计尘级=锚点即静默边界'), 'F: activity⑥尾段行判读锚（BP31——临近段 totals 无时序测不出涌入在段尾；末行恒在尾段内最少 1 笔，死寂臂=仅 1 笔尘级非 0 笔）');
   ok(al.criteria.low.includes('临近买点段（最后 30 秒）') && al.criteria.low.includes('四腿联立'), 'F: activity_level low 桶=临近段死寂+四腿联立双臂');
   ok(al.criteria.high.includes('金额吞吐与之相称') && al.criteria.high.includes('尘埃假活跃不入本档'), 'F: activity_level high 桶=吞吐相称门槛（假活跃不入高档——ZELDA 案失真修复）');
   // famous_domination 题面（BP14：CD famous 控盘判法搬运——BEM Miner 案）

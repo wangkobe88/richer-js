@@ -300,7 +300,8 @@ function buildBuyPointObservation(answers, anchors = null) {
       bigHolderSellBnb60: _num(b, 'bigHolderSellBnb60'),
       exitSellerCount60: _num(b, 'exitSellerCount60'),
       // 活跃度锚族（BP13：cheatDerived 同名透传——act 前缀=买点前窗口口径；
-      // 观察/校准素材非档位判定；临近段七键=? 时窗口 ≤30s 无对比语义）
+      // 观察/校准素材非档位判定；临近段七键=? 时窗口 ≤30s 无对比语义；
+      // 尾段三键=锚前最后 5s 时序证据（BP28 案四改，BP 侧自算））
       actSpanSec: _actNum(anchors, 'spanSec'),
       actTickCount: _actNum(anchors, 'tickCount'),
       actIdlePct: _actNum(anchors, 'idlePct'),
@@ -314,6 +315,9 @@ function buildBuyPointObservation(answers, anchors = null) {
       actNearSegMaxGapSec: _actNum(anchors, 'nearSegMaxGapSec'),
       actNearSegBuyN: _actNum(anchors, 'nearSegBuyN'),
       actNearSegSellN: _actNum(anchors, 'nearSegSellN'),
+      actNearTail5TickN: _actNum(anchors, 'nearTail5TickN'),
+      actNearTail5BuyN: _actNum(anchors, 'nearTail5BuyN'),
+      actNearTail5BuyBnb: _actNum(anchors, 'nearTail5BuyBnb'),
       // 筹码结构锚族（BP14：cheatDerived 同名透传 famous 三键+分层三键+簇持仓
       // 两键+参与/持有分叉锚——chip 前缀=买点前锚窗口径；观察/校准素材与门判读原料）
       chipFamousDominancePct: _chipNum(anchors, 'famousDominancePct'),
