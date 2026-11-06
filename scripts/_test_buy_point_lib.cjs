@@ -536,9 +536,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP26 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改/两调深相等）');
+  console.log('F. 题集形状（BP27 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP26', 'F: 版本=BP26（BP24 案第三改=卖方在场性优先三分——BP25 对拍 T001 未回②：触发时散户承接正处高潮 Jev 被承接活跃带走，「一波接没下文」是前向结局锚窗内不可见 → 判序改卖方在场性：①卖压行 >0 持续卖+承接持续=⑤；②卖压归零∧清仓式卖出成批/前列走空+承接只剩散户=②(b) 必然结局判结构；③卖压归零但前列大买家在场未卖=走 BP23 在场承接路径不落②）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP27', 'F: 版本=BP27（BP25 案=S043 高点接盘 price_level low 档校准——用户裁定「low，应该是较发行价 50%-100%，100% 以上应该只有非常少的情况才入，暂时还没有开这个口」「庄盘，价格要求只是豁免一个档位」：S043 +155% 踩原 low 档（装进了最低价近三倍的票）+假庄盘豁免（单笔 1.55 开盘大额+卖压归零但 top1 仅持流通 4%=庄已离场）→ ①low 收窄 +50~100%；②庄盘豁免一档帽 near_launch→low 为止；③mid+ 浅回调一律没跌不到位）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -616,9 +616,14 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('大户清场两臂任一成立') && pb.instructions.includes('这种情况不要抄') && pb.instructions.includes('①规模臂') && pb.instructions.includes('②撤退臂'), 'F: 大户清场两臂=活跃度实质丧失不适用核心规则（BP17 两臂——Lily T049 用户原话「完全没有大户在了只剩几个小散户不要抄」）');
   // BP23 庄盘豁免（吉祥A/S016+S021 案——用户裁定两连）
   ok(pb.instructions.includes('庄盘豁免（先于①②查——命中则①②不适用）') && pb.instructions.includes('下跌的坑是好东西') && pb.instructions.includes('庄盘加仓范围比普通盘宽'), 'F: 回调题庄盘豁免置顶（BP23/S016+S021 案——开盘大额在场∧大户未清场=庄盘语境，忌讳①②不适用+加仓范围比普通盘宽）');
-  ok(pb.instructions.includes('不止跌到很低的位置，从高点回落后的稍高位置（浅回调半山腰）也可以') && pb.instructions.includes('核心规则的「价格跌到很低」条件同步放宽') && pb.instructions.includes('稍高的浅回调位同样 neutral'), 'F: 庄盘价格条件放宽（BP23 用户追加裁定「不仅仅是临近购买点，稍微高一点也可以」——浅回调半山腰同样 neutral）');
+  ok(pb.instructions.includes('不止跌到很低的位置，从高点回落后的稍高位置（浅回调半山腰）也可以') && pb.instructions.includes('核心规则的「价格跌到很低」条件同步放宽') && pb.instructions.includes('low 档内的浅回调位同样 neutral'), 'F: 庄盘价格条件放宽（BP23 用户追加裁定「不仅仅是临近购买点，稍微高一点也可以」——浅回调半山腰同样 neutral；BP27 一档帽后=low 档内）');
   ok(pb.instructions.includes('豁免只解除①②，不解除③奔零④断流⑤协同') && pb.instructions.includes('开盘无大额单/大户已清场=非庄盘，照常走忌讳清单'), 'F: 庄盘豁免边界（只解除①②——奔零/断流/协同庄盘照判 poor；非庄盘照常忌讳清单）');
   ok(pb.instructions.includes('庄盘语境豁免——开盘大额在场∧大户未清场时本条不适用，下跌的坑是好东西'), 'F: 忌讳①句内庄盘豁免回指（崩塌第一腿庄盘语境不适用）');
+  // BP25 案三改（S043 高点接盘——low 档收窄+庄盘豁免一档帽+mid 浅回调一律拒）
+  ok(qs.price_level.instructions.includes('+50%~+100% ≈ 1.5~2 倍=偏低；+100%~+600% ≈ 2~7 倍=不高不低') && qs.price_level.criteria.low.includes('+50%~+100%，1.5~2 倍') && qs.price_level.criteria.mid.includes('+100%~+600%，2~7 倍'), 'F: price_level low 档收窄（BP27/BP25 案——原 +50~200% 装进了最低价近三倍的票（S043 +155% 判 low），用户裁定 low=较发行价 +50~100%、mid 改 +100~600%）');
+  ok(qs.price_level.instructions.includes('较发行价 >+100%（2 倍以上）=已明显脱离发行价区——正常路径不构成「价格低」的可参与证据') && qs.price_level.instructions.includes('+100% 以上的位置只有非常少的情况才可参与，此类豁免口暂未开设'), 'F: price_level 反锚④不开口句（BP27——用户裁定「100% 以上应该只有非常少的情况才入，暂时还没有开这个口」）');
+  ok(pb.instructions.includes('但只放宽一个档位') && pb.instructions.includes('从 near_launch 放宽到 low 档（较发行价 +50~100%）为止') && pb.instructions.includes('+100% 以上（price_level=mid 及以上）不在豁免范围') && pb.instructions.includes('庄盘也不追二倍以上的位置') && pb.instructions.includes('low 档内的浅回调位同样 neutral'), 'F: 庄盘豁免一档帽（BP27/BP25 案——用户裁定「庄盘，价格要求只是豁免一个档位」：near_launch→low 为止，mid+ 不在豁免范围）');
+  ok(pb.instructions.includes('price_level=mid 及以上（较发行价 >+100%）的浅回调一律没跌到位') && pb.instructions.includes('高位浅回调没有可参与路径，庄盘豁免也不覆盖'), 'F: 忌讳②mid+ 一律句（BP27——+100% 以上不开口，高位浅回调庄盘豁免也不覆盖）');
   ok(pb.instructions.includes('不以清场否决本规则（判缺不猜，只有有证据的清场才否决）'), 'F: 大户证据缺失 fail-open（? 行不以清场否决——判缺不猜）');
   ok(pb.instructions.includes('绝对买入金额') && pb.instructions.includes('占比高≠大户'), 'F: 大户判据=持仓前三绝对买入金额非流通占比（BP17 修正锚——T047 第 1 大占 64.2% 只买 0.02=小散互捅非大户）');
   ok(pb.instructions.includes('「清仓式卖出钱包」数是快进快出噪音，不作清场主判据'), 'F: 清仓钱包数降级噪音参考（BP17 修正锚——正例 T041 清仓 6 个仍 good：真大户 0.412 刚进场锁仓）');
