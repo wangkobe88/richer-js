@@ -395,6 +395,30 @@ function computeBuyPointDerived(snapshot) {
     nearSegSellN: cd.nearSegSellN ?? null,
   };
 
+  // ── 筹码结构锚族透传（BP14/案号 BP14：CD famous 控盘+持仓集中判法搬运——
+  // BEM Miner 案 0x75d5…7777 用户裁定「全部搬过来直接用于判定」：①famous 控盘
+  // （famousDominancePct=famous+跟单正净÷全场正净，CD D3.2 三档切点 50/25；
+  // D 通道联立臂原料 followerTop3/groupBuy）②持仓集中分层（CD240 案用户裁定
+  // 分层线：持有者 ≥10 单一 >45%/前二 >55%/前三 >70% 任一过线=垄断证据坐实，
+  // ≤5=筹码少豁免）③参与/持有分叉（buyersTotal=买过钱包数 vs posHolderCount
+  // =正净持有者数——「买过的人不少、拿货的只有两三个」=拉高出货温床直接度量；
+  // buyersTotal 为 BP 侧新增计数，其余全部 cheatDerived 同名单点照抄零重算，
+  // top1HoldCircPct 自 holdingsProfile[0] 切片派生）──
+  const hp = Array.isArray(cd.holdingsProfile) ? cd.holdingsProfile : [];
+  const buyersTotal = (snapshot.wallets || []).reduce((n, e) => n + ((e.buyN || 0) > 0 ? 1 : 0), 0);
+  const chip = {
+    famousDominancePct: cd.famousDominancePct ?? null,
+    famousFollowerTop3Pct: cd.famousFollowerTop3Pct ?? null,
+    famousGroupBuyPct: cd.famousGroupBuyPct ?? null,
+    posHolderCount: cd.posHolderCount ?? null,
+    top1HoldCircPct: hp.length > 0 ? hp[0].circPct ?? null : null,
+    top1Top2HoldCircPct: cd.top1Top2HoldCircPct ?? null,
+    top3HoldCircPct: cd.top3HoldCircPct ?? null,
+    sameBlockHoldPct: cd.sameBlockHoldPct ?? null,
+    equalBandHoldPct: cd.equalBandHoldPct ?? null,
+    buyersTotal,
+  };
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -427,6 +451,9 @@ function computeBuyPointDerived(snapshot) {
     bigHolderSellBnb60, exitSellerCount60,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）
     activity,
+    // 筹码结构锚族透传（BP14：famous 控盘+持仓集中分层+参与/持有分叉——判读归
+    // Jev famous_domination/holder_concentration 两题，门桶由 mapper 硬消费）
+    chip,
   };
 }
 

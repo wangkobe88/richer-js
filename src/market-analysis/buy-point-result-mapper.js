@@ -8,6 +8,10 @@
  *   ① 活跃度门（BP13 扩双题）——market_heat=low（近窗密度）**或**
  *      activity_level=low（买点前全窗量级——CD 七要素判法搬运）→ poor
  *      （rule=activity_gate，活跃度不够不参与）
+ *   ①b 筹码门（BP14/案号 BP14 BEM Miner 案——用户裁定「全部搬过来直接用于
+ *      判定」）：famous_domination=dominant（famous+跟单正净 ≥50 控盘主导）
+ *      **或** holder_concentration=strong（持有者不少但 TOP 过 CD240 分层线/
+ *      一人控盘）→ poor（rule=chip_gate，famous 掌控/筹码垄断的盘子不参与）
  *   ② 三质量题确定性聚合（BP6 用户裁定原话「这三者有任何一个为 good 则为
  *      good，为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则
  *      任一 neutral → neutral；否则 poor——insufficient 不贡献聚合；三题全
@@ -27,18 +31,21 @@
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺放宽）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
- *   ——rule 键=聚合来源留痕（activity_gate/any_good/any_neutral/else_poor）非档位结论）
+ *   ——rule 键=聚合来源留痕（activity_gate/chip_gate/any_good/any_neutral/
+ *   else_poor）非档位结论）
  *
  * 桶域常量与题集（llm/buy-point-questions.mjs ESM）同域同值：ESM 无法被本 CJS
  * require，故此处自持副本，由单测 `_test_buy_point_lib.cjs` F 组经 dynamic import
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position；BP9 删 sell_pressure；BP13 增 activity_level） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration） */
 const DIMENSION_IDS = [
   'price_trend',
   'market_heat',
   'activity_level',
+  'famous_domination',
+  'holder_concentration',
   'entry_position',
   'price_level',
   'tree_position',
@@ -52,6 +59,10 @@ const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'fla
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 买点前活跃度四档（BP13：CD activity_level 判法搬运——与 HEAT_LEVELS 同词表） */
 const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
+/** famous 控盘四桶（BP14：CD D3.2 三档切点 50/25 判法搬运——dominant=门桶硬消费） */
+const FAMOUS_DOMINATION_LEVELS = ['none', 'light', 'heavy', 'dominant'];
+/** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费） */
+const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
 /** 圣诞树位置六桶（BP8 观察档——用户裁定暂不参与决策：left_side 待涨/top 待跌/right_side 下跌/right_bottom 树脚/not_tree 形状反常/unclear 判不出；题照问答照落攒分布） */
@@ -66,6 +77,8 @@ const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
   market_heat: HEAT_LEVELS,
   activity_level: ACTIVITY_LEVELS,
+  famous_domination: FAMOUS_DOMINATION_LEVELS,
+  holder_concentration: HOLDER_CONCENTRATION_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
   tree_position: TREE_POSITION_LEVELS,
@@ -124,6 +137,16 @@ function _actNum(anchors, key) {
 }
 
 /**
+ * buyDerived.chip 嵌套锚读取（BP14：cheatDerived 同名透传的筹码结构锚族——
+ * famous 三键+分层三键+簇持仓两键+分叉锚；形状异常按缺席=null 不冒充）
+ */
+function _chipNum(anchors, key) {
+  const c = anchors && anchors.chip;
+  const v = c && c[key];
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/**
  * Jev answers → 买点观测记录（维度档位+三类质量+聚合综合判定+数值锚；无 verdict/grade）
  * @param {Object} answers - JevClient.ask 返回的 answers（9 题 Choice=6 维度+3 质量；
  *   维度题可缺席→null；质量题 strict 必须在场）
@@ -142,24 +165,36 @@ function buildBuyPointObservation(answers, anchors = null) {
   for (const id of QUALITY_IDS) {
     qualities[id.replace('_quality', '')] = _choice(answers, id, QUALITY_LEVELS, true);
   }
-  // 活跃度门+聚合（BP8：用户三层框架的第②层圣诞树门裁定暂不参与决策——
+  // 活跃度门+筹码门+聚合（BP8：用户三层框架的第②层圣诞树门裁定暂不参与决策——
   // tree_position 纯观察攒分布，本聚合不消费任何 tree 桶）：
   // ①活跃度门（BP13 扩双题）：market_heat=low（近窗密度死寂）**或**
   //   activity_level=low（买点前全窗量级判法——CD 七要素搬运，临近买点段
   //   死寂/尘埃假活跃/间歇死水等低档形状）→ poor（活跃度不够不参与交易）；
+  // ①b 筹码门（BP14/案号 BP14 BEM Miner 案——用户裁定「全部搬过来直接用于
+  //   判定」）：famous_domination=dominant（famous+跟单正净持仓 ≥50 控盘主导）
+  //   **或** holder_concentration=strong（持有者不少但 TOP 占比过分层线/一人
+  //   控盘——CD240 分层判法搬运）→ poor（rule=chip_gate：famous 掌控的盘子/
+  //   筹码垄断的盘子不参与交易）；活跃度门先裁（rule 留痕首个命中门）；
   // ②质量题聚合：任一 good → good；否则任一 neutral → neutral；否则 poor。
   // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；BP12 旧档重放无
-  // activity_level 答案=该臂自动失效，market_heat 臂照常）；门优先于质量题。
+  // activity_level 答案=该臂自动失效，market_heat 臂照常；BP13 及更早旧档无
+  // 两筹码题答案=筹码门臂自动失效零影响）；门优先于质量题。
   // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
   const heat = dimensions.market_heat;
   const act = dimensions.activity_level;
   const gateArms = [heat, act].filter((e) => e && e.bucket === 'low');
+  const chipArms = [
+    dimensions.famous_domination && dimensions.famous_domination.bucket === 'dominant' ? dimensions.famous_domination : null,
+    dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
+  ].filter(Boolean);
   const qList = Object.values(qualities);
   const tier = (t) => qList.filter((e) => e && e.bucket === t);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
   let bucket, prob, rule;
   if (gateArms.length) {
     bucket = 'poor'; prob = bestProb(gateArms); rule = 'activity_gate';
+  } else if (chipArms.length) {
+    bucket = 'poor'; prob = bestProb(chipArms); rule = 'chip_gate';
   } else {
     const g = tier('good');
     const n = tier('neutral');
@@ -247,6 +282,18 @@ function buildBuyPointObservation(answers, anchors = null) {
       actNearSegMaxGapSec: _actNum(anchors, 'nearSegMaxGapSec'),
       actNearSegBuyN: _actNum(anchors, 'nearSegBuyN'),
       actNearSegSellN: _actNum(anchors, 'nearSegSellN'),
+      // 筹码结构锚族（BP14：cheatDerived 同名透传 famous 三键+分层三键+簇持仓
+      // 两键+参与/持有分叉锚——chip 前缀=买点前锚窗口径；观察/校准素材与门判读原料）
+      chipFamousDominancePct: _chipNum(anchors, 'famousDominancePct'),
+      chipFamousFollowerTop3Pct: _chipNum(anchors, 'famousFollowerTop3Pct'),
+      chipFamousGroupBuyPct: _chipNum(anchors, 'famousGroupBuyPct'),
+      chipPosHolderCount: _chipNum(anchors, 'posHolderCount'),
+      chipTop1HoldCircPct: _chipNum(anchors, 'top1HoldCircPct'),
+      chipTop1Top2HoldCircPct: _chipNum(anchors, 'top1Top2HoldCircPct'),
+      chipTop3HoldCircPct: _chipNum(anchors, 'top3HoldCircPct'),
+      chipSameBlockHoldPct: _chipNum(anchors, 'sameBlockHoldPct'),
+      chipEqualBandHoldPct: _chipNum(anchors, 'equalBandHoldPct'),
+      chipBuyersTotal: _chipNum(anchors, 'buyersTotal'),
     },
   };
 }
@@ -258,6 +305,8 @@ module.exports = {
   PRICE_TREND_LEVELS,
   HEAT_LEVELS,
   ACTIVITY_LEVELS,
+  FAMOUS_DOMINATION_LEVELS,
+  HOLDER_CONCENTRATION_LEVELS,
   ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,
   TREE_POSITION_LEVELS,

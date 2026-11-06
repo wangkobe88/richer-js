@@ -1,6 +1,6 @@
 /**
- * 买入点位分析题集（BP13，2026-11-05 活跃度门+三类质量题）——Jev Choice 题 9 道
- * （6 维度 + 3 类别质量题）
+ * 买入点位分析题集（BP14，2026-11-06 筹码门+活跃度门+三类质量题）——Jev Choice 题 11 道
+ * （8 维度 + 3 类别质量题）
  *
  * 定位（与反作弊题集分工）：输入同样是 ticks 快照（[TOKEN]/[ANCHOR]/[PRECOMPUTED]/
  * [PRICE]/[TICKS]/[WALLETS]），判的是「**当前点位是否适合买入**」——入场时机好坏，
@@ -33,13 +33,23 @@
  *   与 market_heat 近窗密度视角分工并读；原 market_heat 保留不删）；活跃度门
  *   扩为双题——market_heat low OR activity_level low → poor。数值锚不重算，
  *   cheatDerived 同名单点透传（idlePct/买盘中位/吞吐/临近段七键）
+ * - BP14（11-06，案号 BP14）：CD 筹码结构判法全族搬运（BEM Miner 案
+ *   0x75d5…7777——出生 5s famousDominance 74.5% 控盘、29 钱包买过但正净持有
+ *   仅 3 人 top2 占流通 94%，生产 BP12 good 0.53 放行 15s 闪崩 -33.4%；用户
+ *   裁定「全部搬过来直接用于判定」）。新维度题两道：famous_domination
+ *   （famous 控盘四桶——CD D3.2 三档切点 50/25+D 通道联立臂判法搬运）+
+ *   holder_concentration（持仓集中四桶——CD240 案分层线判法搬运：持有者 ≥10
+ *   单一 >45%/前二 >55%/前三 >70% 任一过线=垄断坐实，≤5 筹码少豁免）；新
+ *   筹码门——famous dom=dominant OR 持仓集中=strong → poor（rule=chip_gate，
+ *   活跃度门后第二道门）。数值锚不重算：cheatDerived 同名透传 famous 三键+
+ *   分层三键+簇持仓两键，BP 侧新增参与/持有分叉锚 buyersTotal vs posHolderCount
  *
  * 版本纪律：改任何题面必须 bump BUY_POINT_QUESTIONS_VERSION（落存档标识）。
  * 真实样本段以「形状教学」代替并标「待校准」，测试集分布跑出后按案补充。
  */
 
 /** 题集版本（改题面必 bump；台账 docs/买入点位分析与Case台账.md） */
-export const BUY_POINT_QUESTIONS_VERSION = 'BP13';
+export const BUY_POINT_QUESTIONS_VERSION = 'BP14';
 
 /** 价格趋势六桶（BP5：方向×速度——快/慢参照 |chg30| 两位数界） */
 export const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
@@ -48,6 +58,14 @@ export const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 买点前活跃度四档（BP13/案号 BP12：CD activity_level 判法搬运——锚窗全窗量级
  * 视角，判读倾向临近买点段；与 market_heat（近窗密度视角）分工并读，桶域同词表） */
 export const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
+/** famous 控盘四桶（BP14/案号 BP14：CD famous 控盘判法搬运——none 无在场/
+ * light 边缘参与（dom<25）/heavy 明显影响（25~50）/dominant 控盘主导（≥50，
+ * CD D3.2 high 档线；门桶=dominant 代码侧硬消费拒买） */
+export const FAMOUS_DOMINATION_LEVELS = ['none', 'light', 'heavy', 'dominant'];
+/** 持仓集中四桶（BP14/案号 BP14：CD240 案分层线判法搬运——none 分散/weak 轻
+ * 度集中/moderate 中度（筹码少豁免域或证据不齐）/strong 垄断级（分层线过线
+ * 坐实；门桶=strong 代码侧硬消费拒买——「持有者不少但 TOP 占比太大」不参与） */
+export const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 /** 相对价格高低四桶（BP5：回撤深度分档——接近最高价/浅回调/腰斩/脚脖子斩） */
 export const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 /** 绝对价格高低五桶（BP5：参照系=发行价——接近发行价/偏低/不高不低/偏高/很高） */
@@ -130,7 +148,42 @@ export function buildBuyPointQuestions() {
       },
     },
 
-    // 4. 相对价格高低（BP5：回撤深度四档——综合题追高/回调判读的数值轴）
+    // 4. famous 控盘（BP14/案号 BP14：CD famous 控盘判法搬运——BEM Miner 案立案，
+    //    门桶=dominant 代码侧筹码门硬消费拒买「famous 掌控的盘子不参与」）
+    famous_domination: {
+      type: 'choice',
+      instructions: `判断「famous 控盘程度」：著名跟单钱包（famous 名单）与跟单簇合计对盘面筹码的控制程度——不是热度也不是买盘强弱，是**谁拿着货**。
+怎么算：[PRECOMPUTED] 筹码结构行——famous 控盘占比（famous 名单钱包+跟单簇的正净持仓合计 ÷ 全场正净持仓 ×100，已算好直接采信）。参考分界（CD D3.2 同款切点）：≥50=dominant（famous+跟单拿走一半以上筹码=控盘主导）；25~50=heavy（明显影响盘面走向）；<25 但 famous 在场有持仓=light（参与边缘）；famous 名单与跟单簇完全不在场（占比 ? 或 famous 持仓为零）=none。联立加重臂（CD G17 D 通道同款判读）：占比已高（heavy/dominant）且「跟单集中度（跟单簇前三钱包占跟单买入%）≥45」或「集团买入占比（famous 系买入 ÷ 全部买入%）≥80」任一成立 → 判读从重（往 dominant 方向靠）；两臂原料数值行均已算好。
+反锚：①**买过 ≠ 持有**——famous 系买过又卖掉（正净回落/清仓）不算控盘，一律看**正净持仓**口径的占比；②famous 在场 ≠ 自动控盘——占比 <25 的正常参与=light 不是风险档；③占比 ? （无人正净持仓/无筹码结构证据）=材料缺失如实 none 不猜；④本题只述筹码控制事实，不作弊结论（协同/作弊判定归反作弊模块）；⑤**占比高=价格由少数人决定**——买在这样的盘面=把出场交给 famous 的出货节奏，这正是 dominant 档被代码侧硬门拒买的原因（famous 掌控的盘子不参与交易），你只管如实判档。
+形状样本（真实案例·BEM Miner）：某票出生 5 秒 famous 控盘占比即 74.5%（跟单集中度 64.5%、集团买入 74.5%）、随建仓推到 87.5%，29 个钱包买过但正净持有仅 3 人——famous 系完全主导，判 dominant；对照：正常散户盘 famous 占比个位数=none/light。
+只描述控盘档位，不下入场结论：dominant 档由代码侧筹码门直接消费拒买，你只管如实判档。`,
+      criteria: {
+        none: '无控盘：famous 名单与跟单簇完全不在场（无持仓或占比 ? 缺证据）',
+        light: '边缘参与：famous 在场有持仓但占比 <25，不主导盘面',
+        heavy: '明显影响：famous+跟单正净持仓占 25~50，盘面走向受其影响',
+        dominant: '控盘主导：famous+跟单正净持仓 ≥50——价格由 famous 出货节奏决定（跟单集中度 ≥45 或集团买入 ≥80 联立时从重落本档）',
+      },
+    },
+
+    // 5. 持仓集中度（BP14/案号 BP14：CD240 案分层线判法搬运——用户裁定分层线原文
+    //    直译；门桶=strong 代码侧筹码门硬消费拒买「持有者不少但 TOP 占比太大不参与」）
+    holder_concentration: {
+      type: 'choice',
+      instructions: `判断「持仓集中度」：筹码分布在多少钱包手里、TOP 拿走多少——「多少人拿货、头部占多大」的结构事实。
+怎么算：[PRECOMPUTED] 筹码结构行——正净持有者数 / 第一大占流通% / 前二合计占流通% / 前三合计占流通% / 买过钱包数（均已算好直接采信，占流通口径）。分层判法（持有者基数分层，CD240 用户裁定线）：**持有者 ≥10**：单一 >45% 或 前二 >55% 或 前三 >70% 任一过线 = 垄断证据坐实 → strong（免协同迹象）；**持有者 6~9**：过线且簇持仓佐证（同块簇持仓占比/等额带簇持仓占比高）→ strong，过线无佐证 → moderate；**持有者 ≤5**：在场筹码少的天然集中（豁免域）→ 一般至多 moderate——但**top1 单一 >90% 且参与/持有分叉极端（买过 ≥10 钱包只有 1~2 人拿货）= 一人控盘形状**，可判 strong；未过任何线：持有者多元占比分散 → none/weak（按 top 占比高低分档）。
+**参与/持有分叉**（拉高出货温床的直接度量）：买过钱包数 vs 正净持有者数——「买过的人不少、拿货的只有两三个」=多数参与者的筹码沉淀到极少数钱包，是拉高出货的标准前奏形状，分叉越极端越压高档位。
+反锚：①**极早窗筹码集中是价格发现常态**——开盘几十秒筹码尚未分散，持有者少+top 占比高是自然结果不是垄断证据（≤5 豁免域天然覆盖；tokenAgeSec 极短时从宽判档）；②买过钱包多 ≠ 持有分散——分叉形状看正净持有者数不看买过数；③占比一律看**占流通%**（正净持仓 ÷ 全场正净，窗口内在场口径）；④持有者 ≤5 且占比未到一人控盘量级 = 筹码少域不给 strong（避免误伤刚开盘的小盘）；⑤本题只述筹码结构事实，不作弊结论（归反作弊模块）。
+形状样本（真实案例·BEM Miner）：某票 29 个钱包买过、正净持有仅 3 人、top2 合计占流通 94%、top1 后段推到 98%——一人控盘+参与/持有分叉极端，判 strong；对照（CD240 BOSS 案）：23 个正净持有者的盘第一大占流通 73%（≥10 持有者+单一 >45% 过线坐实）→ strong；对照：健康盘持有者数十人 top1 <10% → none。
+只描述集中度档位，不下入场结论：strong 档由代码侧筹码门直接消费拒买，你只管如实判档。`,
+      criteria: {
+        none: '分散：持有者多元、TOP 占比低（top1 低个位数~十余%）——筹码健康分散',
+        weak: '轻度集中：TOP 占比可感但远未过线（如 top1 二成上下、前二三四成），持有者不少',
+        moderate: '中度集中：过线但持有者 ≤5（筹码少豁免域）或 6~9 过线无簇持仓佐证——可感但证据不坐实',
+        strong: '垄断级：持有者 ≥10 且单一 >45%/前二 >55%/前三 >70% 任一过线坐实；或 6~9 过线+簇持仓佐证；或一人控盘（top1 >90%+参与/持有分叉极端）——「买过的人不少、拿货的只有几个」',
+      },
+    },
+
+    // 6. 相对价格高低（BP5：回撤深度四档——综合题追高/回调判读的数值轴）
     entry_position: {
       type: 'choice',
       instructions: `判断「相对价格高低」：锚时刻现价相对全窗高点的回撤深度档位——接近最高价（near_high）/浅回调（shallow_pullback）/腰斩（half_off）/脚脖子斩（ankle_cut）。只判**位置事实**，不判该位置该不该买（权衡归综合题）。
@@ -146,7 +199,7 @@ export function buildBuyPointQuestions() {
       },
     },
 
-    // 5. 绝对价格高低（BP5 新增：参照系=发行价——与相对价格高低（全窗高点参照）双轴并读）
+    // 7. 绝对价格高低（BP5 新增：参照系=发行价——与相对价格高低（全窗高点参照）双轴并读）
     price_level: {
       type: 'choice',
       instructions: `判断「绝对价格高低」：锚时刻现价相对**代币发行时价格**的绝对位置——接近发行价（near_launch）/偏低（low）/不高不低（mid）/偏高（high）/很高（very_high）。参照系=发行价（价格发现的起点），不是全窗高点。
@@ -163,7 +216,7 @@ export function buildBuyPointQuestions() {
       },
     },
 
-    // 6. 圣诞树形状与位置（BP8 观察档——暂不参与决策（用户裁定「判断起来有点太难了，
+    // 8. 圣诞树形状与位置（BP8 观察档——暂不参与决策（用户裁定「判断起来有点太难了，
     // 但是可以先放里头」）：题照问答照落攒分布，代码侧无门消费；三质量题把它当参考佐证）
     tree_position: {
       type: 'choice',
@@ -185,7 +238,7 @@ export function buildBuyPointQuestions() {
       },
     },
 
-    // 7. 早鸟入场质量（BP6 三类质量题制：早鸟视角独立评估；原综合题早鸟忌讳全量迁入）
+    // 9. 早鸟入场质量（BP6 三类质量题制：早鸟视角独立评估；原综合题早鸟忌讳全量迁入）
     early_bird_quality: {
       type: 'choice',
       instructions: `评估「早鸟入场质量」：若此刻入场属于早鸟形态，这个入场点的质量如何——good/neutral/poor/insufficient。你是一名链上 meme 币狙击交易者（秒~分钟级持仓），本题只从**早鸟视角**独立评估，不与其它视角对齐。
@@ -204,7 +257,7 @@ insufficient：非早鸟场景（见上）或材料太薄（窗内行数很少�
       },
     },
 
-    // 8. 回调入场质量（BP6 三类质量题制；BP12 三层结构重写——核心规则置顶直译用户裁定
+    // 10. 回调入场质量（BP6 三类质量题制；BP12 三层结构重写——核心规则置顶直译用户裁定
     //    「价格跌到很低+活跃度没丧失 → 中等」，忌讳清单只服务价格不低/深崩票）
     pullback_entry_quality: {
       type: 'choice',
@@ -233,7 +286,7 @@ insufficient：非回调场景（见第一层）或材料太薄。
       },
     },
 
-    // 9. 追高入场质量（BP6 三类质量题制：追高视角——本轮策略停买留痕，恒 poor；
+    // 11. 追高入场质量（BP6 三类质量题制：追高视角——本轮策略停买留痕，恒 poor；
     //    将来策略放开追高只改本题面恢复真实质量评估）
     high_chase_quality: {
       type: 'choice',

@@ -260,6 +260,17 @@
       "model": { "bucket": "poor", "prob": 0.94, "rule": "else_poor", "run": "bp-run 2026-11-06T00:31", "questionVersion": "BP13" },
       "ruledAt": "2026-11-06",
       "note": "v73 复审 #12 用户裁定「neutral 可以」。⚠分歧锚②：模型回调忌讳①崩塌第一腿（maxChg5=89.75 全史恒含）poor 0.94 vs 实际第二波主升 +193%（06:36:03 峰 3.24e-8，3 分钟）——长间隔失效反例（暴涨段在 45min 前）；t7 quiet 臂命中=signalGate 设计猎物被 BP 门拦。与 BPA-007 同族；生产 BP12 neutral 0.35 放行买入是对的（15s 卖腿离场错过 3 倍=卖侧另案）"
+    },
+    {
+      "anchorId": "BPA-025",
+      "kind": "set",
+      "tokenAddress": "0x75d5286d3ac478334fe098f015624486d7a77777",
+      "tokenName": "BEM Miner",
+      "locator": { "set": "bp-2026-11-05-v73-trades", "pointId": "BP-T018", "legId": null, "legName": "v1-t6 低市值盲买（生产发射）", "triggeredAt": "2026-11-05T07:03:39Z" },
+      "expect": { "bucket": "poor" },
+      "model": { "bucket": "poor", "prob": 0.80, "rule": "else_poor", "run": "bp-run 2026-11-06T07:30", "questionVersion": "BP13" },
+      "ruledAt": "2026-11-06",
+      "note": "用户认同 poor。「该拦没拦」方向质量题实证：生产 BP12 good 0.53 放行→出生 5s 买入→15s 闪崩 -33.4%（07:03:44 成交 6.57e-9→07:03:59 卖 4.38e-9）；BP13 早鸟暴涨忌讳 poor 0.80 拦对（25 ticks/age 5s/近 60s 买 1.710 BNB/贴 ATH -0.4%，market+activity 双 ultra 仍 poor=热度不救位置）。t6 v1 盲买腿出生触发 v3 峰门已根治；cheat insufficient_ticks（锚 7<8）fail-open 免检。用户同案提出新层面（famous 控盘+holders 不小但 top 集中）=CD 筹码锚迁移 BP 候选议题"
     }
   ]
 }
