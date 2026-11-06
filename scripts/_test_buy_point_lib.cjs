@@ -536,9 +536,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP29 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚/两调深相等）');
+  console.log('F. 题集形状（BP30 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚+BP28 案三改（activity⑥三段形状/早鸟累计位置硬腿/③复数 famous）/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP29', 'F: 版本=BP29（BP27 案=S048 散户接力盘误判① 庄时序锚——用户裁定原话「S048 也不是庄盘，如果你是庄，肯定一开盘最早期买入大额，然后对倒分仓，它是一开始先小散户，然后有稍微大一点的散户接了罢了」+措辞更正「应该是最早的买入（至少是次早）得有大户」：S048 出生段 36 行 0.3+ 大额 0 笔、最早的买入 5 笔全 0.03~0.14 小散、13 秒后 0.1985/0.1976 贴线单被 Jev 当大额判① → ①补庄时序锚：大额=0.3+、最早（至少次早）买入得有大户、散户接力盘不走①至多⑤）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP30', 'F: 版本=BP30（BP28 案=第 4 组 16 点复审三裁定一案三改——①S053 太空逆袭 activity 误 low：三段形状（开局冲一波→中段完全静默→锚前集中涌入）⑥反锚执行缝隙，补三段形状归属句「静默居中不压档、买点时刻盘面正被激活=中档起判」；②S055 无税人生 早鸟 +126.8% 误 neutral：maxChg5=39.38% 未过速度锚线测不到慢涨，补第三分支·累计位置硬腿「现价较发行价 +100% 以上一律 poor」；③S064 FIGHT strong_backer 误放 -41.5%：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 极早抢筹 0.595 BNB 起不来，famous roster 收录两址+③复数 famous 扩句「两个及以上 famous 极早入场合计拿筹过多同落③」）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
@@ -571,7 +571,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   const mp = qs.market_pattern.instructions;
   ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
-  ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的了'), 'F: ③famous 独食=盘子就是它的了（原话直译）');
+  ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
   ok(mp.includes('购买力完全集中在最早期的数个 slot') && mp.includes('随之购买力衰竭') && mp.includes('这种盘子不要参与'), 'F: ④狙击衰竭=不要参与（原话直译）');
   ok(mp.includes('融合无明显特征盘') && mp.includes('这种出现好的点位可以赌一赌'), 'F: ⑤融合盘=好点位可赌（原话直译——中性不拦）');
   ok(mp.includes('同为开盘大额，后段死活定类'), 'F: ①④分界锚=大户买入后盘面是否仍活（同为开盘大额，后段死活定类）');
@@ -595,6 +595,10 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('①的时序反锚=最早的买入（至少次早）得有大户') && mp.includes('开局最早的买入全小散铺垫、之后才来 0.19~0.2 级贴线单接盘') && mp.includes('（「一开始先小散户，然后有稍微大一点的散户接了罢了」）'), 'F: 反锚①时序反锚（BP29——S048 形状直译锚：最早的买入（开局第一秒 5 笔）全 0.03~0.14 小散+13 秒后 0.1985/0.1976 接力，双臂满足按承接分类至多⑤不走①）');
   ok(qs.market_pattern.criteria.strong_backer.includes('最早的买入（至少次早）里便有大额（单笔 0.3+，0.19~0.2 贴线单=稍微大一点的散户不算大额）') && qs.market_pattern.criteria.strong_backer.includes('最早的买入全小散铺垫+之后 0.2 级贴线单接力=散户接力盘不是庄建仓不走①（至多⑤）'), 'F: criteria strong_backer 时序锚同步（BP29——桶描述与题面判序一致）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
+  // BP28 案改三（S064 FIGHT strong_backer 误放 -41.5%——复数 famous 扩句+roster 收录）
+  ok(mp.includes('或两个及以上 famous 钱包极早入场（开盘段内/锚窗最早段首买）合计拿筹过多') && mp.includes('famous 抢筹建仓盘——famous 钱包入仓太早、拿的是最便宜的筹码，散户盘子起不来') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③复数 famous 扩句（BP30/BP28 案 S064——用户裁定原话「他俩入仓太早了拿的太多，起不来」：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 抢筹 0.252/0.343 合计 0.595 BNB，单个占比不及独食线的复数合计达线也落③；两址已收录 famous-copy-wallets.json）');
+  ok(mp.includes('复数 famous 形状（BP30）') && mp.includes('两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹（控盘占比 ≥25~30 且合计绝对额大）同样落③') && mp.includes('入仓太早拿的太多、盘子起不来'), 'F: 反锚③复数 famous 形状句（BP30——单 famous 24.4%<25 边缘不落③的 S062 反例保护：复数臂须 ≥2 钱包且合计达线）');
+  ok(qs.market_pattern.criteria.famous_monopoly.includes('单个 famous 占比极大，或两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹过多（控盘 ≥25~30 且合计绝对额大）=famous 抢筹建仓盘'), 'F: criteria famous_monopoly 复数 famous 同步（BP30——桶描述与题面判据一致）');
   ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
   ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');
@@ -614,6 +618,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(eb.instructions.includes('第一分支·价格低救（命中即停，肯定判 neutral 不判 poor——确定性规则，不是权衡项）'), 'F: 早鸟价格低救=第一分支命中即停肯定 neutral（BP11：确定性规则非权衡项）');
   ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+暴涨=接力风险）');
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
+  // BP28 案改二（S055 无税人生 早鸟 +126.8% 误 neutral——累计位置硬腿）
+  ok(eb.instructions.includes('第三分支·累计位置硬腿（BP30，速度锚的补位）') && eb.instructions.includes('现价较发行价已 +100% 以上（price_level=mid 及以上）→ **poor，无论 maxChg5 过没过线**') && eb.instructions.includes('速度锚测不到慢涨') && eb.instructions.includes('+100% 以上不存在早鸟救位'), 'F: 早鸟第三分支=累计位置硬腿（BP30/BP28 案 S055——用户裁定原话「涨了 100% 以上了」给中等不对：maxChg5=39.38% 未过 40~50% 速度锚线测不到慢涨，分波缓爬到 mid+ 同样是接力位不是早鸟位；+100% 以内才有「价格低」可谈，本腿与第二分支殊途同归 poor）');
   const pb = qs.pullback_entry_quality;
   ok(pb.instructions.includes('场景') && pb.instructions.includes('insufficient'), 'F: 回调题含场景判别（无回撤形状→insufficient）');
   ok(pb.instructions.includes('maxChg5Pct'), 'F: 回调主锚=maxChg5Pct 回看速度行（BP10 四改：前期拉升快慢，非累计涨幅非 chg30）');
@@ -667,6 +673,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   }
   ok(al.instructions.includes('数值行「临近买点段」事实已算好直接采信'), 'F: activity_level ⑦ 消费 state 临近买点段行（D3.59 搬运）');
   ok(al.instructions.includes('活跃度门直接消费拒买（活跃度不够不参与交易——买点之前盘面已冷=无承接）'), 'F: activity_level 收尾=门消费声明（镜像 market_heat 反锚④）');
+  // BP28 案改一（S053 太空逆袭 activity 误 low——三段形状执行缝隙）
+  ok(al.instructions.includes('三段形状（开局冲一波→中段完全静默→临近买点再集中涌入，BP30）同样属「静默后买入涌入」') && al.instructions.includes('判读锚定**买点时刻的即时状态**') && al.instructions.includes('中段静默的占比不压档') && al.instructions.includes('不是针对静默居中的三段形状'), 'F: activity⑥反锚三段形状归属句（BP30/BP28 案 S053——开局 7 秒冲 7 笔→中段 24 秒完全静默→锚前 2 秒 8 笔近 1 BNB 同块涌入：静默居中的三段形状按「静默后买入涌入」中档起判，「先冲一波后静默」不保护臂只管涌入后死到锚点的形状）');
+  ok(al.instructions.includes('买点时刻盘面正被涌入激活，静默居中的三段形状按「静默后买入涌入」中档起判，不因中段静默占比判低'), 'F: activity 反例样本段补三段形状反例（BP30——S053 形状直译锚）');
   ok(al.criteria.low.includes('临近买点段（最后 30 秒）') && al.criteria.low.includes('四腿联立'), 'F: activity_level low 桶=临近段死寂+四腿联立双臂');
   ok(al.criteria.high.includes('金额吞吐与之相称') && al.criteria.high.includes('尘埃假活跃不入本档'), 'F: activity_level high 桶=吞吐相称门槛（假活跃不入高档——ZELDA 案失真修复）');
   // famous_domination 题面（BP14：CD famous 控盘判法搬运——BEM Miner 案）
