@@ -24,7 +24,9 @@ function listSets() {
     if (!f.endsWith('.json')) continue;
     const name = f.slice(0, -5);
     if (name.endsWith('-ticks')) continue; // ticks 目录同名 JSON 不存在，防御双保险
-    if (name.endsWith('-signals')) continue; // 信号标记伴生文件（build-set-signals.cjs 产物）非 set
+    // 信号标记伴生文件（build-set-signals.cjs 产物）非 set——判据=同名基 set 在场
+    // （`--source signals` 构建的 set 本体也以 -signals 结尾，无基 set 在场=真 set 照列）
+    if (name.endsWith('-signals') && fs.existsSync(path.join(SETS_DIR, `${name.slice(0, -8)}.json`))) continue;
     try {
       const doc = JSON.parse(fs.readFileSync(path.join(SETS_DIR, f), 'utf8'));
       out.push({

@@ -201,7 +201,9 @@ class TokenTicksPage {
       const isLadder = p.source === 'ladder';
       const srcBadge = isLadder
         ? '<span class="px-2 py-0.5 text-xs rounded-full bg-purple-900 text-purple-300">ladder</span>'
-        : '<span class="px-2 py-0.5 text-xs rounded-full bg-orange-900 text-orange-300">trade</span>';
+        : p.source === 'signals'
+          ? '<span class="px-2 py-0.5 text-xs rounded-full bg-cyan-900 text-cyan-300">signal</span>'
+          : '<span class="px-2 py-0.5 text-xs rounded-full bg-orange-900 text-orange-300">trade</span>';
       const strat = isLadder
         ? `<span class="font-mono text-purple-300" title="${this._esc(p.ladder ? p.ladder.condition : '')}">${this._esc(p.signalInfo && p.signalInfo.strategyName || p.ladder && p.ladder.legId || '?')}</span>`
         : this._esc(p.signalInfo && p.signalInfo.strategyName || '-');
@@ -262,7 +264,7 @@ class TokenTicksPage {
     // 与服务端 withinSeconds 同基=首个 tick 的 block_time；窗外点会把 time 轴拉宽、窗内 ticks 压扁
     const winEndMs = (this.tickWindowSec && this.firstTickTime != null)
       ? this.firstTickTime + this.tickWindowSec * 1000 : null;
-    const trades = [], ladder = [];
+    const trades = [], ladder = [], trig = [];
     for (const p of this.bpPoints) {
       const ts = new Date(p.signalCreatedAt).getTime();
       if (!Number.isFinite(ts)) continue;
@@ -271,7 +273,9 @@ class TokenTicksPage {
       if (y == null) continue; // 图窗内无价格行（点位在窗外）——不冒充
       const raw = { _bp: true, pointId: p.pointId, source: p.source, strategy: (p.signalInfo && p.signalInfo.strategyName) || (p.ladder && p.ladder.legId) || '-', anchor: p.anchorTickCount, fwd: p.forwardReturns, ladder: p.ladder };
       const pt = { x: ts, y, _bpRaw: raw };
-      if (p.source === 'ladder') ladder.push(pt); else trades.push(pt);
+      if (p.source === 'ladder') ladder.push(pt);
+      else if (p.source === 'signals') trig.push(pt); // 信号源集=触发点位非成交点
+      else trades.push(pt);
     }
     const mk = (data, color, pointStyle, label) => ({ type: 'scatter', label, data,
       pointStyle, pointRadius: 7, pointHoverRadius: 9, backgroundColor: color, borderColor: color, borderWidth: 1 });
@@ -293,6 +297,7 @@ class TokenTicksPage {
     }
     if (trades.length) out.push(mk(trades, 'rgba(251,146,60,0.95)', 'triangle', `BP 成交买点 (${trades.length})`));
     if (ladder.length) out.push(mk(ladder, 'rgba(192,132,252,0.95)', 'rectRot', `BP ladder 挖掘 (${ladder.length})`));
+    if (trig.length) out.push(mk(trig, 'rgba(34,211,238,0.95)', 'circle', `BP 触发点位 (${trig.length})`));
     return out;
   }
 
