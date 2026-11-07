@@ -342,6 +342,8 @@ ok(stD.state.includes('②活跃度门') && stD.state.includes('activity_level=u
   'D: 判定指引②活跃度门 ultra 臂声明（BP30 改三——「act 为 ultra 也不玩」）');
 ok(stD.state.includes('③筹码门') && stD.state.includes('famous 控盘（famous_domination）heavy 或 dominant（≥25=famous 主导就不玩；light=正常参与不拦）'),
   'D: 判定指引③筹码门 heavy 扩档声明（BP30 改一——famous 主导就不玩）');
+ok(stD.state.includes('持续拉升弱回调（sustained_climb）代码侧位置门判定：现价仍临近发行价（≤+10% 含破发）的起点段放行走质量题、已拉离发行价=不参与（判型归你、位置归代码）'),
+  'D: 判定指引①盘型门⑥位置臂声明（BP34/BP31 案——只能临近发布价格参与；判型归 Jev 位置归代码）');
 ok(stD.state.includes('筹码结构: famous 控盘占比 ?%') && stD.state.includes('正净持有者 7 个，第一大占流通 55.1%') && stD.state.includes('买过钱包 8 个 vs 正净持有 7 个'),
   'D: 筹码结构行渲染（BP14：famous ? 缺证据如实渲染+持有者/top 占比手算值+参与持有分叉）');
 ok(stD.promptChars === stD.state.length && stD.truncated.ticks === false && stD.truncated.wallets === false && stD.truncated.hardCap === false, 'D: 小夹具零截断');
@@ -361,8 +363,8 @@ const snapHuge = buildBuyPointSnapshot(rowsA, { ...metaA, name: 'X'.repeat(25000
 const stHuge = buildBuyPointState(snapHuge);
 ok(stHuge.truncated.hardCap === true && stHuge.state.startsWith('⚠'), 'D: 超帽 → ⚠ 头 + 硬截断');
 
-// ═══════════════ E. mapper（BP30/题集 BP33 四层门链+两质量题聚合 + 容错双轨 + 纯透传反证） ═══════════════
-console.log('E. mapper（BP33 四层门链/两质量题聚合/容错双轨/纯透传反证）');
+// ═══════════════ E. mapper（BP34/案号 BP31 六桶制四层门链+两质量题聚合 + 容错双轨 + 纯透传反证） ═══════════════
+console.log('E. mapper（BP34 四层门链/两质量题聚合/容错双轨/纯透传反证）');
 const mkAns = (id, bucket, prob = 0.9) => ({ [id]: { probabilities: { [bucket]: prob, [bucket === 'good' ? 'neutral' : 'good']: 1 - prob } } });
 const fullAnswers = () => ({
   ...mkAns('price_trend', 'fast_up'),
@@ -462,6 +464,20 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'st
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门① strong_backer 强庄盘不拦（最好类型——开盘大户进流动性未拉爆价，点位质量归质量题）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'blended_unremarkable', 0.77) }, dA).assessment;
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门① blended_unremarkable 融合盘不拦（交易额中等无明显特征——好点位可以赌一赌）');
+// BP34/案号 BP31 ⑥sustained_climb 位置门（盘型六桶制）：贴发行价起点段放行、已拉离/
+// 锚缺失拒（rule 同 pattern_gate；判型归 Jev 位置归代码——界由羊王 0x5a8d94c6 四点定标：
+// S154 −4.2% 放 / S155 +17.1% 拒，界取 10；S072 無為 +86.6% 由题面强庄身份豁免保护不落⑥）
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'pattern_gate', 'E: 门① BP34 ⑥sustained_climb 已拉离（dA vsLaunch=+60% >+10%）→ poor/pattern_gate（位置臂拒——一开盘一直拉几乎无回调不给散户入场机会，只能临近发布价格参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87) }, { ...dA, currentVsLaunchPct: -4.2 }).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: ⑥位置门 贴发行价起点段（−4.2% ≤+10% 含破发）放行走质量题（羊王 S154 形状——起点段位置放行不因盘型扣分）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87) }, { ...dA, currentVsLaunchPct: 17.1 }).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置门 已拉离 +17.1% 拒（羊王 S155 形状——拉离发行价一截浮筹悬在拉升段上方）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87) }, { ...dA, currentVsLaunchPct: null }).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置门 锚缺失（发行价位置 ? = ticks 未覆盖出生段）宁拦不冒充拒');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置臂已拉离优先于质量题（早鸟 good 不救——盘型位置不对不参与）');
+ok(!PATTERN_GATE_POOR_BUCKETS.includes('sustained_climb'), 'E: PATTERN_GATE_POOR_BUCKETS 三桶不含⑥（⑥走 SUSTAINED_CLIMB_LAUNCH_PCT=10 独立位置臂——三桶硬拒与⑥位置拒分治）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 门① 优先于质量题（散户 PVP+早鸟 good 0.95 不救——盘型不对不参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('market_pattern', 'retail_pvp', 0.95) }, dA).assessment;
@@ -573,9 +589,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP33 十题=8 维度+2 质量/桶域对锁/盘型门前置预判断+活跃度门 low∪ultra+筹码门 heavy∪dominant+庄盘豁免锚/两调深相等）');
+  console.log('F. 题集形状（BP34 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂+强庄身份豁免/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP33', 'F: 版本=BP33（BP30 案=第 6 组复审一案六改——用户裁定原话「我画地为牢 既然是 famous 为啥还给中？famous 主导就不玩；로켓급(火箭级) 也是一样，分类是互斥的，如果是famous也不玩，act为altra也不玩。雪球SI 从我的角度应该是early_sniper_decay，也不能玩。此外，tree_position 可以去掉，market_pattern 要放到很靠前的位置，因为这是个预判断。high_chase_quality 也删除，不开这个选项」：改一筹码门 famous heavy 升拦截档（≥25 都拒 light 不拦）+改二盘型分类互斥教学（famous heavy+ 不落①⑤）+改三活跃度门 ultra 臂（act=ultra 拒 heat ultra 不拦）+改四雪球SI=early_sniper_decay 判读锚（④判据补强：开盘段占比 ≥70~80% ∧ 前列首买全在最初几秒 ∧ 后段金额吞吐骤降 ∧ 早期大买家清仓式撤退；①④分界大户在场性）+改五 market_pattern 前置预判断（题序首位+判定链最前）+改六 tree_position/high_chase_quality 两题退役（聚合两题化））');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP34', 'F: 版本=BP34（BP31 案=第 7 批 59 点复审 Shellbank/羊王 立法，盘型六桶制——用户裁定原话「强庄币，需要增加一个标准，就是有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会，一开盘一直拉几乎无回调的都不是啥好东西。……请给另一个类别吧：持续拉升弱回调类，这种只能临近发布价格参与」+补充「或者，拉盘的速度不是那么快，给散户入场机会」+「也可以视为是强庄盘（否则容易误伤）」：改一①强庄盘散户入场机会双臂（有卖出对倒∨拉得慢，两臂全失走⑥）+改二⑥sustained_climb 持续拉升弱回调新桶（几乎无回调∧买卖几乎完全不平衡）+改三⑥强庄身份豁免（开盘大额 ≥1 ∧ 前列大买家未清场=强庄身份证据在场视为①不落⑥——防误伤）+改四⑥参与窗口代码侧位置门（≤+10% 含破发放行/已拉离/锚缺失拒——界由羊王 S154 −4.2% 放与 S155 +17.1% 拒之间取 10）+改五 mapper MARKET_PATTERN_LEVELS 六桶+位置臂+SUSTAINED_CLIMB_LAUNCH_PCT=10）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -604,8 +620,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
   ok(!('TREE_POSITION_LEVELS' in q), 'F: TREE_POSITION_LEVELS 常量绝迹（BP30 tree_position 退役——ESM 侧同删）');
   // BP18 盘面分类锚（五类型学——用户裁定原话直译）
-  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶——ESM/CJS 双副本对锁）');
-  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（五桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable）');
+  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶+BP34 第六桶 sustained_climb——ESM/CJS 双副本对锁）');
+  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（BP34 六桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable/sustained_climb）');
   const mp = qs.market_pattern.instructions;
   ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
@@ -639,6 +655,15 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(qs.market_pattern.criteria.famous_monopoly.includes('单个 famous 占比极大，或两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹过多（控盘 ≥25~30 且合计绝对额大）=famous 抢筹建仓盘'), 'F: criteria famous_monopoly 复数 famous 同步（BP30——桶描述与题面判据一致）');
   ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
   ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
+  ok(mp.includes('⑥由代码侧位置门判参与') && mp.includes('已拉离（>+10%）或发行价位置行 ?（锚缺失宁拦不冒充）拒买'), 'F: 门桶声明 BP34 ⑥位置门句（锚缺失宁拦不冒充——判型归 Jev 位置归代码）');
+  // BP31 案（题集 BP34）：⑥持续拉升弱回调+①散户入场机会双臂+强庄身份豁免
+  ok(mp.includes('⑥持续拉升弱回调盘（sustained_climb，BP34 新增）') && mp.includes('一开盘一直拉、几乎无回调的都不是啥好东西') && mp.includes('没有庄筹码对倒、没有像样的换手') && mp.includes('浮筹全部悬在拉升段上方'), 'F: ⑥持续拉升弱回调盘立法（BP31 案 Shellbank 0x24436292 不健康最终证明 cheat——原话「一开盘一直拉几乎无回调的都不是啥好东西」：几乎无回调（窗内最大回撤极小 <10%）∧ 买卖几乎完全不平衡（近窗买占比 ≥90% 卖出稀薄——无对倒无换手不给散户入场机会））');
+  ok(mp.includes('①的散户入场机会双臂（BP34）') && mp.includes('有一定的卖出、买卖不是完全不平衡的') && mp.includes('或拉盘的速度不是那么快') && mp.includes('两臂全失，不是①走⑥持续拉升弱回调') && mp.includes('零卖出但盘面有回调/换手形状的照常①（落⑥须「几乎无回调+买卖完全不平衡」形状同在，零卖出本身不落⑥）'), 'F: ①散户入场机会双臂（BP31 案两段补充裁定「有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会」+「或者，拉盘的速度不是那么快，给散户入场机会」——两臂至少占一，两臂全失走⑥；零卖出+有回调/换手照常①防误伤）');
+  ok(mp.includes('强庄身份豁免（防误伤）') && mp.includes('也可视为强庄盘按①处理') && mp.includes('（不选本桶，BP29 庄盘豁免链照走）') && mp.includes('无强庄身份证据的纯拉形状才落本桶'), 'F: ⑥强庄身份豁免（BP31 案裁定「也可以视为是强庄盘（否则容易误伤）」——开盘段大额 ≥1 ∧ 持仓前列大买家未清场的持续拉升视为①不落⑥；無為 S072 BP29 豁免票防线）');
+  ok(mp.includes('参与窗口（代码侧位置门）') && mp.includes('≤+10%、含破发）的起点段点位可参与') && mp.includes('已拉离发行价一截（>+10%）→ 本桶=不要参与') && mp.includes('「这种只能临近发布价格参与」'), 'F: ⑥参与窗口位置门语义（原话「这种只能临近发布价格参与」——贴发行价起点段放行走质量题、已拉离拒）');
+  ok(mp.includes('①与⑥分界=散户入场机会双臂（BP34）') && mp.includes('但强庄身份证据在场（开盘段结构行大额单 ≥1 ∧ 持仓前列大买家未清场）的持续拉升也视为①') && mp.includes('④与⑥分界=死活') && mp.includes('④开局抢完即衰竭（开盘段后吞吐骤降/静默/大买家撤退），⑥持续在拉不衰竭'), 'F: 反锚①⑥/④⑥分界（①⑥=散户入场机会双臂+强庄身份豁免照走 BP29 链；④⑥=死活——④开局抢完即衰竭、⑥持续在拉不衰竭）');
+  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（窗内最大回撤极小参考 <10%）') && qs.market_pattern.criteria.sustained_climb.includes('强庄身份证据在场的持续拉升视为①不落本桶（防误伤）') && qs.market_pattern.criteria.sustained_climb.includes('已拉离发行价（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（桶描述与题面判据一致——含位置门与身份豁免）');
+  ok(qs.market_pattern.criteria.strong_backer.includes('①的散户入场机会双臂：拉升有一定卖出（买卖不完全不平衡）或拉得慢（缓推）至少占一'), 'F: criteria strong_backer 双臂同步（BP34——桶描述与题面双臂一致，Jev 选桶时同判序）');
   // BP30 案三改（盘型前置预判断+互斥教学+④判据补强——题集 BP33）
   ok(mp.includes('本题是预判断——先于其它题作答、先定盘面性质再谈点位'), 'F: BP30 改五 前置预判断声明（market_pattern 放最前——用户裁定原话「market_pattern 要放到很靠前的位置，因为这是个预判断」）');
   ok(mp.includes('分类互斥前置检查') && mp.includes('不是强庄盘也不是融合盘') && mp.includes('famous 的货是要出货的，不是锁仓拉盘的庄'), 'F: BP30 改二 分类互斥教学（famous 控盘 ≥25 heavy+ 的盘子不落①⑤——「我画地为牢 既然是 famous 为啥还给中」：强庄的庄不能是著名跟单钱包，归③或按散户化/狙击形状归②④）');

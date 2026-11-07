@@ -1,15 +1,21 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态（BP30/题集 BP33 盘型前置预判断+famous heavy/ultra 门扩+tree/追高题
- * 退役，用户裁定 2026-11-07）：维度题档位（7 题纯参考）+ **2 类别质量题**
+ * 判定形态（BP34/案号 BP31 六桶制——盘型前置预判断+famous heavy/ultra 门扩+
+ * tree/追高题退役（BP30）+⑥sustained_climb 位置门（BP34），用户裁定 2026-11-07）：
+ * 维度题档位（7 题纯参考）+ **2 类别质量题**
  * （early_bird_quality/pullback_entry_quality，桶域 good/neutral/poor/
  * insufficient——Jev 两视角并行独立评估）；综合判定 = **代码侧四层**：
  *   ① 盘型门（BP18 五类型学；**BP30 前置为预判断**——用户裁定「market_pattern
  *      要放到很靠前的位置，因为这是个预判断」）：market_pattern ∈ {retail_pvp
  *      散户 PVP/famous_monopoly famous 独食/early_sniper_decay 狙击衰竭}
  *      → poor（rule=pattern_gate，这三种盘子不要参与）；strong_backer（强庄盘
- *      =最好类型）与 blended_unremarkable（融合盘=好点位可赌）不拦
+ *      =最好类型）与 blended_unremarkable（融合盘=好点位可赌）不拦；
+ *      **BP34 ⑥sustained_climb 持续拉升弱回调走位置臂**（rule 同 pattern_gate）：
+ *      现价较发行价 ≤+10%（含破发）起点段放行走质量题、已拉离（>+10%）或锚缺失
+ *      （宁拦不冒充）拒买——用户裁定「一开盘一直拉几乎无回调的都不是啥好东西
+ *      ……这种只能临近发布价格参与」；判型归 Jev（题面教形状与强庄身份豁免）、
+ *      位置归代码（SUSTAINED_CLIMB_LAUNCH_PCT=10 由羊王四点定标）
  *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂）：market_heat=low（近窗密度）**或**
  *      activity_level=low（买点前全窗量级）**或** activity_level=ultra（机器盘
  *      级极端密集——用户裁定「act 为 ultra 也不玩」，对齐 CD M 通道）→ poor
@@ -74,14 +80,22 @@ const FAMOUS_DOMINATION_LEVELS = ['none', 'light', 'heavy', 'dominant'];
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 盘面分类五桶（BP18 用户裁定五类型学：strong_backer 强盘最好类型/retail_pvp 散户
- * PVP（门桶拒买）/famous_monopoly famous 独食（门桶拒买）/early_sniper_decay 狙击
- * 衰竭（门桶拒买）/blended_unremarkable 融合盘中性可赌） */
-const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable'];
+/** 盘面分类六桶（BP18 用户裁定五类型学；BP34 加第六桶 sustained_climb：strong_backer
+ * 强盘最好类型/retail_pvp 散户 PVP（门桶拒买）/famous_monopoly famous 独食（门桶
+ * 拒买）/early_sniper_decay 狙击衰竭（门桶拒买）/blended_unremarkable 融合盘中性
+ * 可赌/sustained_climb 持续拉升弱回调（走独立位置门非三桶硬拒） */
+const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb'];
 /** 盘型门拒买桶（BP18：retail_pvp/famous_monopoly/early_sniper_decay 三桶硬拒；
  * strong_backer（最好类型）与 blended_unremarkable（融合可赌）不拦；BP30 起为
- * 判定链首门（预判断最前） */
+ * 判定链首门（预判断最前）；BP34 的 sustained_climb **刻意不入本表**——走
+ * SUSTAINED_CLIMB_LAUNCH_PCT 独立位置臂（贴发行价起点段放行、已拉离/锚缺失拒） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_sniper_decay'];
+/** ⑥sustained_climb 参与位置界（BP34 用户裁定「这种只能临近发布价格参与」）：现价
+ * 较发行价 ≤+10%（含破发）=临近发行价起点段放行两道质量题正常评估；已拉离
+ * （>+10%）或锚缺失（宁拦不冒充——发行价位置 ? = ticks 未覆盖出生段）→ 盘型门拒。
+ * 界由羊王 0x5a8d94c6 四点定标：S154 −4.2% 贴发行价（用户裁 neutral 放行）与
+ * S155 +17.1%（拒）之间取 10；S072 無為 +86.6% 由题面强庄身份豁免保护不落⑥ */
+const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
  * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；market_heat
  * 的 ultra 不拦：近窗密度视角不拦过热，只拦全窗量级 ultra） */
@@ -199,7 +213,9 @@ function buildBuyPointObservation(answers, anchors = null) {
   // 四层判定链（BP30/题集 BP33——盘型门前置预判断最前，rule 留痕首个命中门）：
   // ①盘型门（BP18 五类型学；BP30 前置——用户裁定「market_pattern 要放到很靠前
   //   的位置，因为这是个预判断」）：retail_pvp/famous_monopoly/early_sniper_decay
-  //   → poor（不要参与）；strong_backer 与 blended_unremarkable 不拦；
+  //   → poor（不要参与）；strong_backer 与 blended_unremarkable 不拦；BP34 六桶
+  //   sustained_climb 走位置臂——现价较发行价 ≤+10%（含破发）起点段放行、已拉离
+  //   或锚缺失拒（rule 同 pattern_gate）；
   // ②活跃度门（BP13 双题+BP30 ultra 臂）：market_heat=low（近窗密度死寂）**或**
   //   activity_level ∈ {low（CD 七要素低档形状）, ultra（机器盘级极端密集——
   //   「act 为 ultra 也不玩」）}→ poor（rule=activity_gate）；
@@ -212,6 +228,13 @@ function buildBuyPointObservation(answers, anchors = null) {
   // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
   const patternArms = dimensions.market_pattern && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
     ? [dimensions.market_pattern] : [];
+  // ⑥sustained_climb 位置臂（BP34）：贴发行价起点段放行；已拉离/锚缺失（宁拦不
+  // 冒充）入盘型门拒（题面已教位置门语义，此处代码侧硬执行——判型归 Jev 位置归代码）
+  if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'sustained_climb') {
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
+  }
   const gateArms = [
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
     dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) ? dimensions.activity_level : null,
