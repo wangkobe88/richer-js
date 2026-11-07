@@ -14,7 +14,8 @@
  *      **BP34 ⑥sustained_climb 持续拉升弱回调走位置臂**（rule 同 pattern_gate）：
  *      现价较发行价 ≤+10%（含破发）起点段放行走质量题、已拉离（>+10%）或锚缺失
  *      （宁拦不冒充）拒买——用户裁定「一开盘一直拉几乎无回调的都不是啥好东西
- *      ……这种只能临近发布价格参与」；判型归 Jev（题面教形状与强庄身份豁免）、
+ *      ……这种只能临近发布价格参与」；判型归 Jev（题面教双臂形状+从宽①防误伤，
+ *      BP35——身份证据不是逃逸门）、
  *      位置归代码（SUSTAINED_CLIMB_LAUNCH_PCT=10 由羊王四点定标）
  *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂）：market_heat=low（近窗密度）**或**
  *      activity_level=low（买点前全窗量级）**或** activity_level=ultra（机器盘
@@ -94,7 +95,9 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_snipe
  * 较发行价 ≤+10%（含破发）=临近发行价起点段放行两道质量题正常评估；已拉离
  * （>+10%）或锚缺失（宁拦不冒充——发行价位置 ? = ticks 未覆盖出生段）→ 盘型门拒。
  * 界由羊王 0x5a8d94c6 四点定标：S154 −4.2% 贴发行价（用户裁 neutral 放行）与
- * S155 +17.1%（拒）之间取 10；S072 無為 +86.6% 由题面强庄身份豁免保护不落⑥ */
+ * S155 +17.1%（拒）之间取 10；S072 無為 +86.6% 不落⑥ 由①双臂保护（12min 前 8
+ * 大户人人有卖=对倒平衡——BP34 初版「强庄身份豁免」致⑥零命中，BP35 收口为家族
+ * 归属句非逃逸门，身份证据不豁免双臂判据） */
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
  * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；market_heat

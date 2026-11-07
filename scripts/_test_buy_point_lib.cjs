@@ -466,7 +466,8 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'bl
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门① blended_unremarkable 融合盘不拦（交易额中等无明显特征——好点位可以赌一赌）');
 // BP34/案号 BP31 ⑥sustained_climb 位置门（盘型六桶制）：贴发行价起点段放行、已拉离/
 // 锚缺失拒（rule 同 pattern_gate；判型归 Jev 位置归代码——界由羊王 0x5a8d94c6 四点定标：
-// S154 −4.2% 放 / S155 +17.1% 拒，界取 10；S072 無為 +86.6% 由题面强庄身份豁免保护不落⑥）
+// S154 −4.2% 放 / S155 +17.1% 拒，界取 10；S072 無為 +86.6% 不落⑥由①双臂保护（12min
+// 前 8 大户人人有卖=对倒平衡；BP35——身份证据不是逃逸门））
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87) }, dA).assessment;
 ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'pattern_gate', 'E: 门① BP34 ⑥sustained_climb 已拉离（dA vsLaunch=+60% >+10%）→ poor/pattern_gate（位置臂拒——一开盘一直拉几乎无回调不给散户入场机会，只能临近发布价格参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87) }, { ...dA, currentVsLaunchPct: -4.2 }).assessment;
@@ -589,9 +590,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP34 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂+强庄身份豁免/两调深相等）');
+  console.log('F. 题集形状（BP35 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂+①⑥强庄家族从宽①/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP34', 'F: 版本=BP34（BP31 案=第 7 批 59 点复审 Shellbank/羊王 立法，盘型六桶制——用户裁定原话「强庄币，需要增加一个标准，就是有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会，一开盘一直拉几乎无回调的都不是啥好东西。……请给另一个类别吧：持续拉升弱回调类，这种只能临近发布价格参与」+补充「或者，拉盘的速度不是那么快，给散户入场机会」+「也可以视为是强庄盘（否则容易误伤）」：改一①强庄盘散户入场机会双臂（有卖出对倒∨拉得慢，两臂全失走⑥）+改二⑥sustained_climb 持续拉升弱回调新桶（几乎无回调∧买卖几乎完全不平衡）+改三⑥强庄身份豁免（开盘大额 ≥1 ∧ 前列大买家未清场=强庄身份证据在场视为①不落⑥——防误伤）+改四⑥参与窗口代码侧位置门（≤+10% 含破发放行/已拉离/锚缺失拒——界由羊王 S154 −4.2% 放与 S155 +17.1% 拒之间取 10）+改五 mapper MARKET_PATTERN_LEVELS 六桶+位置臂+SUSTAINED_CLIMB_LAUNCH_PCT=10）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP35', 'F: 版本=BP35（BP31 案=第 7 批 59 点复审 Shellbank/羊王 立法，盘型六桶制——用户裁定原话「强庄币，需要增加一个标准，就是有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会，一开盘一直拉几乎无回调的都不是啥好东西。……请给另一个类别吧：持续拉升弱回调类，这种只能临近发布价格参与」+补充「或者，拉盘的速度不是那么快，给散户入场机会」+「也可以视为是强庄盘（否则容易误伤）」：改一①强庄盘散户入场机会双臂（有卖出对倒∨拉得慢，两臂全失走⑥）+改二⑥sustained_climb 持续拉升弱回调新桶（几乎无回调∧买卖几乎完全不平衡）+改三⑥参与窗口代码侧位置门（≤+10% 含破发放行/已拉离/锚缺失拒——界由羊王 S154 −4.2% 放与 S155 +17.1% 拒之间取 10）+改四 mapper MARKET_PATTERN_LEVELS 六桶+位置臂+SUSTAINED_CLIMB_LAUNCH_PCT=10；BP35 对拍修正（BP34 九点⑥桶零命中后三处收口）：修正一⑥「强庄身份豁免」句重写=「也可以视为是强庄盘」是①⑥家族归属不是逃逸门（羊王大户在场⑥恒被豁免吞掉——身份证据不豁免双臂判据；防误伤=双臂材料混合/证据薄时从宽①不落⑥，拒买类从严拿不准从宽）；修正二④极早窗反锚（tokenAge<90s 开盘段占比天然高，占比高本身不是④证据，④成立必须落在衰竭臂——S154 误杀修复）；修正三①承接臂收紧（近窗零买/纯卖无承接不落①按②(b) 判——S157 误放修复））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -656,14 +657,17 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
   ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
   ok(mp.includes('⑥由代码侧位置门判参与') && mp.includes('已拉离（>+10%）或发行价位置行 ?（锚缺失宁拦不冒充）拒买'), 'F: 门桶声明 BP34 ⑥位置门句（锚缺失宁拦不冒充——判型归 Jev 位置归代码）');
-  // BP31 案（题集 BP34）：⑥持续拉升弱回调+①散户入场机会双臂+强庄身份豁免
+  // BP31 案（题集 BP34/BP35）：⑥持续拉升弱回调+①散户入场机会双臂+①⑥强庄家族从宽①
   ok(mp.includes('⑥持续拉升弱回调盘（sustained_climb，BP34 新增）') && mp.includes('一开盘一直拉、几乎无回调的都不是啥好东西') && mp.includes('没有庄筹码对倒、没有像样的换手') && mp.includes('浮筹全部悬在拉升段上方'), 'F: ⑥持续拉升弱回调盘立法（BP31 案 Shellbank 0x24436292 不健康最终证明 cheat——原话「一开盘一直拉几乎无回调的都不是啥好东西」：几乎无回调（窗内最大回撤极小 <10%）∧ 买卖几乎完全不平衡（近窗买占比 ≥90% 卖出稀薄——无对倒无换手不给散户入场机会））');
-  ok(mp.includes('①的散户入场机会双臂（BP34）') && mp.includes('有一定的卖出、买卖不是完全不平衡的') && mp.includes('或拉盘的速度不是那么快') && mp.includes('两臂全失，不是①走⑥持续拉升弱回调') && mp.includes('零卖出但盘面有回调/换手形状的照常①（落⑥须「几乎无回调+买卖完全不平衡」形状同在，零卖出本身不落⑥）'), 'F: ①散户入场机会双臂（BP31 案两段补充裁定「有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会」+「或者，拉盘的速度不是那么快，给散户入场机会」——两臂至少占一，两臂全失走⑥；零卖出+有回调/换手照常①防误伤）');
-  ok(mp.includes('强庄身份豁免（防误伤）') && mp.includes('也可视为强庄盘按①处理') && mp.includes('（不选本桶，BP29 庄盘豁免链照走）') && mp.includes('无强庄身份证据的纯拉形状才落本桶'), 'F: ⑥强庄身份豁免（BP31 案裁定「也可以视为是强庄盘（否则容易误伤）」——开盘段大额 ≥1 ∧ 持仓前列大买家未清场的持续拉升视为①不落⑥；無為 S072 BP29 豁免票防线）');
+  ok(mp.includes('①的散户入场机会双臂（BP34）') && mp.includes('有一定的卖出、买卖不是完全不平衡的') && mp.includes('或拉盘的速度不是那么快') && mp.includes('两臂全失，不是①走⑥持续拉升弱回调') && mp.includes('大户在场/开盘有大额不救本臂（拉升的执行者就是大户，①⑥在这点上同形，分界只在双臂）') && mp.includes('零卖出但盘面有回调/换手形状的照常①（落⑥须「几乎无回调+买卖完全不平衡」形状同在，零卖出本身不落⑥）'), 'F: ①散户入场机会双臂（BP31 案两段补充裁定「有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会」+「或者，拉盘的速度不是那么快，给散户入场机会」——两臂至少占一，两臂全失走⑥；BP35 点明大户在场不救本臂（拉升执行者就是大户①⑥同形分界只在双臂）；零卖出+有回调/换手照常①防误伤）');
+  ok(mp.includes('近窗零买/纯卖无承接的不落①（BP35）') && mp.includes('大户在向市场出货、没有换手——承接臂不满足，不落①（按②(b) 散户化/出货形状判）'), 'F: ①承接臂收紧（BP35 修正三——羊王 S157 误放修复：近 60s 买 0.000 卖 0.661 纯卖零承接判① 0.71 错放，纯卖无承接=大户向市场出货没有换手，不落①按②(b) 散户化判）');
+  ok(mp.includes('极早窗反锚（BP35）') && mp.includes('占比高本身不是④的证据') && mp.includes('④的成立必须落在衰竭臂上') && mp.includes('买卖双向活跃、金额吞吐可观的=盘面没有衰竭**不落④**'), 'F: ④极早窗反锚（BP35 修正二——羊王 S154 误杀修复：63s 极早窗开盘段占比天然高（窗口内几乎全是开盘段）+近 60s 买 1.385 卖 1.575 双向活跃无衰竭被④误杀，④成立必须落在衰竭臂上——拉升后正常回踩/强庄运营中的盘不在此拦）');
+  ok(mp.includes('与①同属强庄家族（BP35 防误伤）') && mp.includes('「也可以视为是强庄盘」指家族归属、不是逃逸门') && mp.includes('身份证据在场不豁免双臂判据，近窗纯买零卖+急拉的即便大户在场也落本桶'), 'F: ⑥①⑥强庄家族句（BP35 修正一——BP34 对拍⑥桶零命中的根因：羊王 t+0/t+1 大额+多个零卖钱包，大户在场恒真→「强庄身份豁免」系统性吞掉⑥；「也可以视为是强庄盘（否则容易误伤）」=①⑥同属强庄家族的归属说明不是逃逸门——身份证据不豁免双臂判据）');
+  ok(mp.includes('防误伤的从宽方向=双臂材料混合/证据薄时从宽①') && mp.includes('拒买类从严、拿不准从宽') && mp.includes('有对倒证据（近窗有像样卖出）的照①评估'), 'F: ⑥从宽①防误伤（BP35 修正一——真强庄的对倒节奏可能间歇：双臂材料混合/证据薄时从宽①不落⑥，拒买类从严拿不准从宽；無為 S072 12min 前 8 大户人人有卖=对倒平衡照①）');
   ok(mp.includes('参与窗口（代码侧位置门）') && mp.includes('≤+10%、含破发）的起点段点位可参与') && mp.includes('已拉离发行价一截（>+10%）→ 本桶=不要参与') && mp.includes('「这种只能临近发布价格参与」'), 'F: ⑥参与窗口位置门语义（原话「这种只能临近发布价格参与」——贴发行价起点段放行走质量题、已拉离拒）');
-  ok(mp.includes('①与⑥分界=散户入场机会双臂（BP34）') && mp.includes('但强庄身份证据在场（开盘段结构行大额单 ≥1 ∧ 持仓前列大买家未清场）的持续拉升也视为①') && mp.includes('④与⑥分界=死活') && mp.includes('④开局抢完即衰竭（开盘段后吞吐骤降/静默/大买家撤退），⑥持续在拉不衰竭'), 'F: 反锚①⑥/④⑥分界（①⑥=散户入场机会双臂+强庄身份豁免照走 BP29 链；④⑥=死活——④开局抢完即衰竭、⑥持续在拉不衰竭）');
-  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（窗内最大回撤极小参考 <10%）') && qs.market_pattern.criteria.sustained_climb.includes('强庄身份证据在场的持续拉升视为①不落本桶（防误伤）') && qs.market_pattern.criteria.sustained_climb.includes('已拉离发行价（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（桶描述与题面判据一致——含位置门与身份豁免）');
-  ok(qs.market_pattern.criteria.strong_backer.includes('①的散户入场机会双臂：拉升有一定卖出（买卖不完全不平衡）或拉得慢（缓推）至少占一'), 'F: criteria strong_backer 双臂同步（BP34——桶描述与题面双臂一致，Jev 选桶时同判序）');
+  ok(mp.includes('①与⑥分界=散户入场机会双臂（BP34）') && mp.includes('大户在场/开盘有大额不区分①⑥（同属强庄家族——拉升的执行者就是大户，分界只在双臂；「视为强庄盘」是家族归属不是逃逸门）') && mp.includes('双臂材料混合/证据薄时从宽①不落⑥（BP35 防误伤——真强庄对倒节奏可能间歇，拒买类从严拿不准从宽）') && mp.includes('④与⑥分界=死活') && mp.includes('④开局抢完即衰竭（开盘段后吞吐骤降/静默/大买家撤退），⑥持续在拉不衰竭'), 'F: 反锚①⑥/④⑥分界（①⑥=散户入场机会双臂+家族归属不是逃逸门+从宽①防误伤；④⑥=死活——④开局抢完即衰竭、⑥持续在拉不衰竭）');
+  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（窗内最大回撤极小参考 <10%）') && qs.market_pattern.criteria.sustained_climb.includes('与①同属强庄家族（开盘大额与大户在场不区分①⑥——身份证据不是逃逸门，近窗纯买零卖急拉的即便大户在场也落本桶；双臂材料混合/证据薄时从宽①防误伤，有对倒证据的照①）') && qs.market_pattern.criteria.sustained_climb.includes('已拉离发行价（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（桶描述与题面判据一致——含位置门与家族归属+从宽①）');
+  ok(qs.market_pattern.criteria.strong_backer.includes('近窗零买/纯卖无承接的不落①（大户向市场出货无换手走②(b)）') && qs.market_pattern.criteria.strong_backer.includes('①的散户入场机会双臂：拉升（近窗）有一定卖出（买卖不完全不平衡）或拉得慢（缓推）至少占一') && qs.market_pattern.criteria.strong_backer.includes('双臂材料混合/证据薄时从宽①防误伤'), 'F: criteria strong_backer 承接臂收紧+双臂同步（BP35——桶描述与题面判据一致：纯卖无承接走②(b)、双臂全失走⑥不落①、从宽①防误伤，Jev 选桶时同判序）');
   // BP30 案三改（盘型前置预判断+互斥教学+④判据补强——题集 BP33）
   ok(mp.includes('本题是预判断——先于其它题作答、先定盘面性质再谈点位'), 'F: BP30 改五 前置预判断声明（market_pattern 放最前——用户裁定原话「market_pattern 要放到很靠前的位置，因为这是个预判断」）');
   ok(mp.includes('分类互斥前置检查') && mp.includes('不是强庄盘也不是融合盘') && mp.includes('famous 的货是要出货的，不是锁仓拉盘的庄'), 'F: BP30 改二 分类互斥教学（famous 控盘 ≥25 heavy+ 的盘子不落①⑤——「我画地为牢 既然是 famous 为啥还给中」：强庄的庄不能是著名跟单钱包，归③或按散户化/狙击形状归②④）');
