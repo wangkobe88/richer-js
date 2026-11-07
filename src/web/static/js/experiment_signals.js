@@ -21,6 +21,41 @@ const NARRATIVE_CATEGORY_MAP = {
   'super_ip_fast':        { label: '快车道', title: '已废弃 · superIP 快车道（C83 前旧行）' },
 };
 
+// T117 门链明细展示（2026-11-07）：cheat 16 题中文标签 + 门链拒因映射 + 档位配色
+const CHEAT_QUESTION_LABELS = {
+  equalAmountSplit: '等额拆单', coordinatedSellBack: '协同卖回', creatorFrontRun: '创建者抢跑',
+  sellDispersion: '卖出分散', stallBurstWave: '停滞突发波', amountTiering: '金额分层',
+  sameBlockBuyWave: '同块购买波', insiderSupplySell: '内部筹码卖出', slowGrindPump: '机器缓推',
+  washPair: '对倒配对', holdingsBalance: '持仓失衡', burstSpikeConcentration: '尖刺集中',
+  strongBackerPressure: '强庄压力', activityLevel: '活跃度', bundledDominance: '捆绑交易主导',
+  abnormalBehavior: '异常行为占比',
+};
+const GATE_REASON_LABELS = {
+  cheat_gate_cheat: '作弊门拉黑拒（cheat 终态：拉黑+清仓联动，该代币后续买信号全部短路拒）',
+  cheat_gate_unhealthy: '作弊门 unhealthy 拒（G17 通道触发；cheatRecheck 腿下个买信号自动重判）',
+  bp_gate_assessment: 'BP 门判定拒（点位评估 poor，不在放行档 good/neutral）',
+  bp_gate_insufficient_ticks: 'BP 门锚窗 tick 不足拒（历史形状——BP9 裁定后 insufficient 不再拦）',
+};
+const BP_DIMENSION_LABELS = {
+  market_heat: '市场热度', price_level: '价格位置', price_trend: '价格趋势',
+  activity_level: '活跃度', entry_position: '入场位置', market_pattern: '盘面类型',
+  famous_domination: '跟单控盘', holder_concentration: '持仓集中度',
+};
+const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题' };
+// 档位词 → 配色（none/mid 灰 · weak/noticeable/low 浅黄 · moderate/high amber · strong/dominant/ultra 红）
+function gateBucketClass(bucket) {
+  const b = String(bucket || '');
+  if (['strong', 'dominant', 'ultra'].includes(b)) return 'bg-red-100 text-red-800 border-red-300';
+  if (['moderate', 'high'].includes(b)) return 'bg-amber-100 text-amber-800 border-amber-300';
+  if (['weak', 'noticeable', 'low'].includes(b)) return 'bg-yellow-50 text-yellow-800 border-yellow-300';
+  return 'bg-gray-100 text-gray-600 border-gray-300';
+}
+function gateBucketSortKey(bucket) {
+  const order = ['strong', 'dominant', 'ultra', 'moderate', 'high', 'weak', 'noticeable', 'low', ''];
+  const i = order.indexOf(String(bucket || ''));
+  return i === -1 ? order.length : i;
+}
+
 class ExperimentSignals {
   constructor() {
     this.experimentId = null;
@@ -2697,15 +2732,17 @@ class ExperimentSignals {
     const strategyId = metadata.strategyId || signal.strategyId || null;
     const executionReason = signal.execution_reason || metadata.execution_reason || metadata.tradeResult?.reason || '';
 
-    // 构建拒绝原因HTML
+    // 构建拒绝原因HTML（门链域 execution_reason 带人类可读映射——T117 明细展示）
     let rejectionInfoHtml = '';
     if (isRejected && executionReason) {
+      const gateLabel = GATE_REASON_LABELS[executionReason];
       rejectionInfoHtml = `
         <div class="mt-2 p-2 bg-red-50 rounded border border-red-200">
           <div class="flex items-center space-x-2">
             <span class="text-red-700 font-medium text-sm">🚫 拒绝原因:</span>
             <span class="text-red-900 text-sm">${this._escapeHtml(executionReason)}</span>
           </div>
+          ${gateLabel ? `<div class="text-xs text-red-700 mt-1">${this._escapeHtml(gateLabel)}</div>` : ''}
         </div>
       `;
     }
@@ -2827,6 +2864,106 @@ class ExperimentSignals {
       const gmgnCheckInfo = metadata.gmgnCheck || null;
       // 作弊盘检测轨迹（CD1 观察层 / G1 分级门两形状，2026-11-01）
       const cheatCheckInfo = metadata.cheatCheck || null;
+      // T117 信号源门链：触发行（signalGate 段）+ BP 门判定（buyPoint 段）——2026-11-07 明细展示
+      const signalGateInfo = metadata.signalGate || null;
+      const buyPointInfo = metadata.buyPoint || null;
+
+      // 门链触发行：legId/triggerNo/maxTriggers/bpPassLevels/cheatRecheck
+      let signalGateHtml = '';
+      if (signalGateInfo) {
+        const sg = signalGateInfo;
+        signalGateHtml = `
+        <div class="flex items-center flex-wrap gap-2 text-xs mb-2">
+          <span class="text-amber-900 font-semibold">⚡ 信号源门链</span>
+          <span class="bg-white px-2 py-0.5 rounded border border-amber-200">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
+          <span class="bg-white px-2 py-0.5 rounded border border-amber-200">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
+          ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-white px-2 py-0.5 rounded border border-amber-200">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
+          ${sg.cheatRecheck != null ? `<span class="bg-white px-2 py-0.5 rounded border border-amber-200">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
+          <span class="text-gray-500">门序：作弊门 → BP 门，两门都过才买</span>
+        </div>
+        `;
+      }
+
+      // BP 买入点位门（T117 门链第二门）：assessed=badge+两质量题+九维度+anchors 折叠；
+      // insufficient_ticks=锚窗不足未判定放行；其余状态如实
+      let buyPointHtml = '';
+      if (buyPointInfo) {
+        const bpStatus = buyPointInfo.status || '';
+        if (bpStatus === 'assessed' && buyPointInfo.assessment) {
+          const a = buyPointInfo.assessment;
+          const bpBucket = String(a.bucket || '?');
+          const bpBadge = bpBucket === 'good'
+            ? '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full font-bold">✅ good（放行）</span>'
+            : (bpBucket === 'neutral'
+              ? '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full font-bold">🟡 neutral（放行）</span>'
+              : '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-bold">🚫 poor（拒）</span>');
+          const qRows = Object.entries(buyPointInfo.qualities || {})
+            .map(([qk, q]) => `
+            <div class="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded border border-blue-100">
+              <span class="text-gray-700">${this._escapeHtml(BP_QUALITY_LABELS[qk] || qk)}<span class="text-gray-400 ml-1">${this._escapeHtml(qk)}</span></span>
+              <span class="flex items-center gap-1">
+                <span class="px-1.5 py-0.5 rounded border ${gateBucketClass(q.bucket === 'insufficient' ? '' : q.bucket)}">${this._escapeHtml(String(q.bucket ?? '—'))}</span>
+                ${q.prob != null ? `<span class="text-gray-500">p=${Number(q.prob).toFixed(2)}</span>` : ''}
+              </span>
+            </div>`).join('');
+          const dimRows = Object.entries(buyPointInfo.dimensions || {})
+            .map(([dk, d]) => `
+            <div class="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded border border-blue-100">
+              <span class="text-gray-700">${this._escapeHtml(BP_DIMENSION_LABELS[dk] || dk)}</span>
+              <span class="flex items-center gap-1">
+                <span class="px-1.5 py-0.5 rounded border bg-gray-50 text-gray-700 border-gray-300">${this._escapeHtml(String(d.bucket ?? '—'))}</span>
+                ${d.prob != null ? `<span class="text-gray-500">p=${Number(d.prob).toFixed(2)}</span>` : ''}
+              </span>
+            </div>`).join('');
+          const anchorRows = Object.entries(buyPointInfo.anchors || {})
+            .map(([ak, av]) => `
+            <div class="flex items-center justify-between gap-2 bg-white px-2 py-0.5 rounded border border-blue-50">
+              <span class="text-gray-600">${this._escapeHtml(ak)}</span>
+              <span class="text-gray-800 font-mono">${av == null ? '—' : (typeof av === 'number' ? (Number.isInteger(av) ? av : Number(av).toFixed(4)) : this._escapeHtml(String(av)))}</span>
+            </div>`).join('');
+          buyPointHtml = `
+          <div class="mt-2 pt-2 border-t border-blue-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-blue-900">🎯 BP 买入点位门（门链第二门）</div>
+              ${bpBadge}
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs text-gray-600 mb-1">
+              <span>综合概率 p=${a.prob != null ? Number(a.prob).toFixed(2) : '—'}</span>
+              ${a.rule ? `<span>规则 <code class="bg-white px-1 rounded">${this._escapeHtml(String(a.rule))}</code></span>` : ''}
+              ${buyPointInfo.passed === true ? '<span class="text-green-700 font-medium">→ 放行</span>' : '<span class="text-red-700 font-medium">→ 拒</span>'}
+              <span class="text-gray-400">model=${this._escapeHtml(String(buyPointInfo.model || '—'))}${buyPointInfo.usage ? ` · in=${buyPointInfo.usage.input_tokens ?? '—'} out=${buyPointInfo.usage.output_tokens ?? '—'}` : ''}</span>
+            </div>
+            ${qRows ? `<div class="text-xs text-blue-800 mb-1">质量题（任一 good→good，否则任一 neutral→neutral，否则 poor）：</div><div class="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${qRows}</div>` : ''}
+            ${dimRows ? `<details class="mt-1"><summary class="text-xs text-blue-800 cursor-pointer select-none">📐 九维度题（参考不进聚合，点开展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
+            ${anchorRows ? `<details class="mt-1"><summary class="text-xs text-blue-800 cursor-pointer select-none">🧭 盘面锚值 ${Object.keys(buyPointInfo.anchors || {}).length} 锚（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-4">${anchorRows}</div></details>` : ''}
+          </div>
+          `;
+        } else if (bpStatus === 'insufficient_ticks') {
+          buyPointHtml = `
+          <div class="mt-2 pt-2 border-t border-blue-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-blue-900">🎯 BP 买入点位门（门链第二门）</div>
+              <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">未判定·放行</span>
+            </div>
+            <div class="text-xs text-gray-500">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 8，不调 Jev 不判定——BP9 裁定 insufficient_ticks 放行（极早触发锚窗短为常态）</div>
+          </div>
+          `;
+        } else {
+          const failLabel = bpStatus === 'fail' ? `判定失败（reason=${this._escapeHtml(String(buyPointInfo.reason || '—'))}）→ fail-closed 拒`
+            : bpStatus === 'timeout' ? '竞速超时 → fail-closed 拒'
+            : bpStatus === 'disabled' ? 'buyPointCheck.enabled=false → 全拒（配置矛盾）'
+            : `status=${this._escapeHtml(bpStatus || '—')}`;
+          buyPointHtml = `
+          <div class="mt-2 pt-2 border-t border-blue-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-blue-900">🎯 BP 买入点位门（门链第二门）</div>
+              <span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">拒</span>
+            </div>
+            <div class="text-xs text-gray-500">${failLabel}</div>
+          </div>
+          `;
+        }
+      }
 
       // 购买前置检查结果
       const checkResultBadge = pr.canBuy === false ?
@@ -3057,6 +3194,30 @@ class ExperimentSignals {
           const srcBit = cheatCheckInfo.cached === true ? '（粘滞秒回·零 Jev）'
             : (cs === 'graded' ? '（本信号真析）'
               : (cs === 'reused' ? '（增量门内重用上次判定·历史形状）' : ''));
+          // 16 题档位明细（buckets 词档 + levels 数值，按严重度降序——T117 明细展示）
+          let cheatQuestionsHtml = '';
+          const buckets = cheatCheckInfo.buckets || null;
+          const levels = cheatCheckInfo.levels || null;
+          if (buckets && typeof buckets === 'object') {
+            const rows = Object.keys(buckets)
+              .map((k) => ({ k, bucket: buckets[k], level: levels ? levels[k] : null }))
+              .sort((a, b) => gateBucketSortKey(a.bucket) - gateBucketSortKey(b.bucket));
+            cheatQuestionsHtml = `
+            <details class="mt-2">
+              <summary class="text-xs text-amber-800 cursor-pointer select-none">📋 16 题档位明细（Jev 题集，点开展开）</summary>
+              <div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+                ${rows.map((r) => `
+                <div class="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded border border-amber-100">
+                  <span class="text-gray-700 truncate" title="${this._escapeHtml(r.k)}">${this._escapeHtml(CHEAT_QUESTION_LABELS[r.k] || r.k)}<span class="text-gray-400 ml-1">${this._escapeHtml(r.k)}</span></span>
+                  <span class="flex items-center gap-1 shrink-0">
+                    <span class="px-1.5 py-0.5 rounded border ${gateBucketClass(r.bucket)}">${this._escapeHtml(String(r.bucket ?? '—'))}</span>
+                    ${r.level != null ? `<span class="text-gray-500">L=${this._escapeHtml(String(r.level))}</span>` : ''}
+                  </span>
+                </div>`).join('')}
+              </div>
+            </details>
+            `;
+          }
           cheatCheckHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
             <div class="flex items-center justify-between mb-1">
@@ -3070,6 +3231,7 @@ class ExperimentSignals {
               ${codes ? `<div class="col-span-3"><span class="text-amber-800">触发通道:</span> <code class="text-xs bg-white px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
               <div class="col-span-3 text-gray-500">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 15 题；映射=cheat-grade G15）'}</div>
             </div>
+            ${cheatQuestionsHtml}
           </div>
           `;
         } else if (cs === 'timeout_fail_open') {
@@ -3114,9 +3276,11 @@ class ExperimentSignals {
             </div>
           </div>
           ${strategyConfigHtml}
+          ${signalGateHtml}
           ${failedConditionsHtml}
           ${gmgnCheckHtml}
           ${cheatCheckHtml}
+          ${buyPointHtml}
           ${tpaFactorsHtml}
           ${narrativeRoundsHtml}
         </div>
