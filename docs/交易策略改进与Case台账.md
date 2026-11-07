@@ -16,7 +16,7 @@
 
 ## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案；**T120（2026-11-05）tick 增量门默认退役——缺省 0=只剩时间窗+帽，显式正值可恢复，见 T120 案**）**；**T115（2026-11-04）v71 实验级发射帽 5→2（第三次检测=退场段接刀观察，见 T115 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004；**T112（2026-11-04）起 v70 实验级变体：净买门拆臂去 netL、短窗 20→12 笔（见 T112 案；库 v56 未动）**）
 
-**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1`（**现行 v7 七腿**：t0b 12 笔·1 BNB·6 真持有者起步即最早臂 + t2-t4 热度递升 + N30/36/45 纯热度，全腿 `buyPhase:'first'` 每代币只买一次；谱系 v1 七腿→v3 十三腿→v5 九腿回测腿形→v6 删 t0a→v7 删 t1 8 笔档，见 T117/T119/T121 案）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测受控解禁（T121，2026-11-07）**——实验 `backtest.signalGateReal:true` 真调门链（缺省 false=signalGate 腿全量排除恒拒现状不变）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 7` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
+**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1`（**现行 v9 十腿**：t0b 12 笔·1 BNB·6 真持有者起步即最早臂 + t2-t4 热度递升 + N30/36/45 纯热度 + NL15/20/25 接近发行价三臂（v9 起带 `tradeCount >= 10` tick 数源头门），全腿 `buyPhase:'first'` 每代币只买一次；谱系 v1 七腿→v3 十三腿→v5 九腿回测腿形→v6 删 t0a→v7 删 t1 8 笔档→v8 增 NL 三臂→v9 NL 加 tick 门，见 T117/T119/T121/T122 案；卡牌形状：引用实验买腿宜配 `cards:4`+`perCardBNB:0.05`——缺省 1 卡下「卖 1 卡」即清光=阶梯退化，T122 bt-v79 案）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测受控解禁（T121，2026-11-07）**——实验 `backtest.signalGateReal:true` 真调门链（缺省 false=signalGate 腿全量排除恒拒现状不变）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 10` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -69,6 +69,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 2. **BP10 翻案**（见 BP 台账 BP10 案）：insufficient_ticks 数据不足从放行改拒——bt-v78 中 **53/114 买入走 insufficient_ticks 漏网**（例票 0x18cf6407884dddfa54442a6becea915f850c7777 anchorTickCount=3 放行买入 15s 后止损 -0.00053，用户点名）；BP10 后这类票全拒。
 
 **bt-v79**（1b1f9ee3）：bt-v78 基座+ladder v8 十腿+CD379 豁免+v74 全量 16 卖腿+BP10 拒——三改同车的干净窗口对照。
+
+**bt-v79 跑中三纠（2026-11-07，用户三条裁定）→ ladder v9 + bt-v80**：
+
+1. **卡牌买入形状修正**：用户观察 bt-v79「还是没有按照卡牌来卖出」+「应该是买入买 4 个卡牌，是不是买入就买了一个呢」——实证**判断正确**：bt-v79（及 v74 live 原配置）买腿无 `cards` 字段=缺省 1 卡（`cards ?? 1`，引擎 `_buyAmountFor` 口径），31 笔买入 input_amount 全 0.0010、31 笔卖出 cardTrade 全 `{before:1, after:0}`、**零票有第二次卖出**——持 1 卡时任何「卖 1 卡」腿 `min(cards=1, 余卡=1)`=清光，卡牌阶梯完全退化成整仓倒。裁定**买腿 cards=4 + perCardBNB 0.001→0.05（单卡 0.05 BNB、每笔 0.2 BNB）**——「卖 1 卡」=25% 仓位、卡牌语义真正生效；回测 initialBalance 缺省 100 BNB 资金充足。
+2. **NL 三臂 tick 门（ladder v9，库 version 9→10）**：用户裁定「NL 三臂也根据问题调整一下，tickCount >= 10」——FA `state.tickCount`（846 行）与发射键 `tradeCount`（889 行）之间**零 return 恒等**（每进 FA 的 tick 两键同步 +1），且 BP 锚 `anchorTickCount`（落库行含尘 tick）≥ tradeCount ⇒ 条件串用 `tradeCount >= 10` 即用户所指 tickCount ≥ 10，且保证 NL 触发时 BP 锚窗必过 minTicks=8（三臂不再产生 insufficient_ticks；bt-v78 53/114 漏网主源头从触发侧封堵，BP10 拒从门侧兜底=双防线）。NL15/20/25 三臂条件变为 `tradeCount >= 10 AND buyVolumeBnb >= 1.5/2/2.5 AND currentVsLaunchPct <= 50`。
+3. **bt-v80**（7a8ac18a）=bt-v79 基座+买腿库 v9 copy-in（全腿 cards=4）+perCardBNB 0.05——卡牌卖出形状+NL tick 门+BP10 三改同车的最终对照；bt-v79 跑完留档（BP10 拒效果对照仍有价值：买入信号/门链判定与 sizing 无关）。
+
+
 
 ### T121 回测门链真调受控解禁（backtest.signalGateReal）+ ladder v5/v6 两跑 + signals 页门链明细展示（2026-11-07；推翻 T117 裁定④「回测恒拒」，用户裁定基于 v73 时段数据回测真实调用 cheat+BP 门链）
 
