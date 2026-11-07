@@ -108,6 +108,14 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP10 BP 门 insufficient_ticks 改拒：数据不足=挡住（2026-11-07，门语义案·BP9 翻案；bt-v78 例票用户点名）
+
+**动机**：用户原话「如果购买前检查认为数据不够，那么挡住，而不是放行」，例票 `0x18cf6407884dddfa54442a6becea915f850c7777`（signals 页 bt-v78）——P8（NL15）信号 anchorTickCount=3 → insufficient_ticks 放行 → EXEC 买入 → 15s 后卖出止损 -0.00053。**推翻 BP9（2026-11-05 放行裁定）**。
+
+**改动**（`_bpGateEvaluate` 引擎分支，题集版本不 bump——门语义非题面）：insufficient_ticks 分支 `pass=true` 放行 → **fail-closed 拒**：打 signal failed `reason='bp_gate_insufficient_ticks'`（message 带锚窗 tick 数 `N<minTicks`），metadata buyPoint 段 `passed:false`+anchorTickCount 留痕；minTicks 预门保留在 service（不烧 Jev 配额——数据不足本来就不调 Jev）。signals 页拒因标签同步（「BP 门锚窗 tick 不足拒（数据不足=挡住，BP10 翻案 2026-11-07）」+?v=4.38）。`_test_signal_gate_engine` B5 分支翻案锁定（102/0）。
+
+**影响面实证（bt-v78）**：1461 BUY 信号中 insufficient_ticks 放行 **53 条全部买入**（占 114 买入的 46%）——极早触发票（NL/t0b 早臂）锚窗 tick<8 是常态形状，BP9 放行口径下近乎半数买入无点位判定裸奔；BP10 后这 53 笔全拒（其中多少本会盈亏由 bt-v79 对照验证）。
+
 ### BP34 ④开盘拉高出货盘+三证据弱化+①④分界两判例+真庄保护反锚（题集 BP39，2026-11-07，159 点复审第 8 批 S103/S104/S119/S120 三裁定）
 
 **背景**：BP36 题集 159 点全量重抛逐代币复审推进至第 8 批（BP33 案后）。三张翻案票：영복이 `0xe86b81fcd1dad72ea53ad59b8a357542c4b04444` S103（thin 两人盘+大户在卖，BP36 判 blended neutral 放行，前向全程阴跌 −15.3%）、Lily `0x617590a52829d3165d5539344d9e570d6f4b7777` S104（BP36 判 strong_backer 回撤位 neutral 放行，前向 −5.4%）、FlapGuy `0x3acb26b17dabef7b12edfc57ab1145f32eee7777` S119/S120（BP36 判 strong_backer 放行，前向 −24.2%/−21.5%）。用户裁定原话：

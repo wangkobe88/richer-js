@@ -187,6 +187,25 @@
 
 ## Case 倒序
 
+### CD379 活跃度豁免：activity high/ultra 票 cheat/unhealthy 不拦（2026-11-07，机制案·无 token；CD158 门链续篇）
+
+**动机**：用户原话「这样吧，作弊检测豁免所有活跃度在 high 之上的票，再跑一轮回测」——bt-v77 完整窗口复盘（1153 信号 13 买 -0.0008）发现门链通过率仅 1.1%，cheat 拉黑拒占大头（top50 中 38 票）；用户裁定高活跃度票整体放行，验证通过率与盈亏变化。
+
+**机制**（CheatCheckService 层门决策域变换，`gate.activityExemptLevels` 缺省 `['high','ultra']`、显式 `[]`=关、非法值 throw fail-fast）：
+
+1. **出口统一变换 `_applyActivityExempt`**：grade∈{cheat,unhealthy} ∧ `buckets.activityLevel`（obs.activityLevel.bucket 字符串桶名）∈豁免集 → 出口变换 `healthy`+`exempt:{code:'activity_<桶>', originalGrade}` 落 signal metadata；**四出口全覆盖**——入口 blocked 秒回（防御性）、入口 sticky 秒回（recheck=false 腿 unhealthy 粘滞票同豁免）、chain 结果（含 _chain 内 4b/4c 秒回，流到出口统一变换无需单改）、timeout 的 late 包（`chain.then` 变换——防迟到结果把豁免票错拉黑）。
+2. **gradeObservation 规则域零改动**：G17/CHEAT_GRADE_RULES_VERSION/题集版本全不 bump——观测行（cheat_detection 表）与「盘面观测」日志落**原始 grade**（研究原料保留）；豁免只改「档位→交易动作」的门出口。
+3. **拉黑登记点跳过**：`graded.grade==='cheat' && !activityExempt` 才 `_gateBlocked.add`——不 add 则引擎短路/秒回/清仓联动/迟到拉黑（`_cheatGateLateConsume`）全部自然不触发（AbstractTradingEngine/FourMemeWssTradingEngine 零改动）；引擎侧仅 `_cheatGateInfo` 加 `exempt` 透传字段。
+4. **bootstrap 恢复拉黑同查**：跨进程恢复查最新 cheat 行 digest 的 `activityLevel.bucket`——豁免配置上线前落的旧 cheat 行 activity high+ 不再恢复拉黑（恢复语义跟当前配置走）。
+5. **粘滞语义**：`_lastGrade` 存原始 grade 不做手脚——cheat 豁免票不粘滞**每买信号重判**（语义精确：activity 降级后恢复拦截，配额由 T110 节流帽天然封顶）；healthy 粘滞照常（豁免票出口 grade=healthy 但 _lastGrade 未写=无粘滞可复用，重判成本设计内）。
+6. **G17 M 通道天然失效**：M（activity ultra=机器盘拒买级）对 ultra 票豁免后恒不触发——用户裁定「high 之上」明确覆盖 ultra，知情范围；A/D/E/J/L/R/N 通道对高活跃度票同样不再拒（豁免是档位级不是通道级）。
+
+**ACTIVITY_EXEMPT_DOMAIN**=['low','mid','high','ultra']（Service 侧 CJS 自定义域与 questions.mjs ESM `ACTIVITY_LEVELS` 单测 dynamic import 双边锁一致——Service 不能静态 require mjs）。
+
+**bt-v78 实证**（完整窗口 2026-11-05 00:00→13:45:10Z，ladder v8 十腿+豁免+signalGateReal，对照 bt-v77 同窗口）：1461 BUY 信号（bt77=1153）→ 114 买入（bt77=13，通过率 1.1%→7.8%）→ 29 赢 85 亏 **-0.00883 BNB**（bt77=-0.00081）；**豁免 771 条信号**（activity_high 514/activity_ultra 257；原判 cheat 409/unhealthy 362），其中 50/114 买入 token 为豁免救回；残拒=cheat 硬拒 400（低/中活跃度照拦）+ unhealthy 拒 153 + BP poor 拒 794。盈亏榜前列多为豁免救回票（+0.00082/+0.00071/+0.00069/+0.00060……top10 中 8 张豁免救回）——**豁免方向有正贡献但卖腿全清缺陷放大亏损**（bt-v78 只带 3 条全清臂，用户点名后 bt-v79 换 v74 全量 16 腿卡牌阶梯重跑）；BP39 通过锚 8 票中 6 票豁免救回并买入（锚1 +0.00071/锚3 +0.00045/锚4 持平/锚5 +0.00002/锚6 未豁免 +0.00023/羊王 -0.00012），**無為 0xb97d5772 豁免生效（activity_ultra←cheat）但 BP 门 10/10 全拒 assessed:poor——两门语义张力从 cheat 门移到 BP 门**（BP29 强庄票应 neutral+ 的翻案语义在 as-of 锚窗下未兑现，余留待裁）。
+
+**单测**：`_test_cheat_gate_engine` F 段 17 断言（ctor 解析四态/_applyActivityExempt 六分支/sticky 零 DB 路径/源码口径锁四处/域一致锁/grade 规则域零改动反证）。
+
 ### CD378 ANKR WSS 同连接单笔通道：sender 解析最坏延迟 3s→104ms、dataseed 降为回退层（2026-11-06，机制案·无 token；CD377 续篇）
 
 **动机**：用户原话「我依然不太认同『剩余 ~40% 行是非映射域合约…+ EOA 首现行（kind 缓存未热）』请再次进一步研究一下，尽最大努力不要去调用 RPC，这种调用直接损失好的点位，损失资金」——CD377 后仍有 ~40% 行走 dataseed HTTP RPC，核心痛点是**延迟**（dataseed 往返几百 ms + lag 行 3s 重试尾巴），不只调用量。方案讲清后用户裁定「**上，直接默认开**」。

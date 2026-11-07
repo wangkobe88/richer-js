@@ -55,6 +55,21 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T122 接近发行价三臂（ladder v8 十腿：NL15/NL20/NL25）+ FA 新键 currentVsLaunchPct + bt-v78 跑后两纠（2026-11-07；bt-v77 完整窗口复盘同轮两改之一，与 CD379 活跃度豁免同车）
+
+**动机**：用户原话「参考购买前检测中『接近发布价』的判断，在买入触发条件中，增加一个 buyVolumeBnb >= 1.5 且『接近发行价』｜buyVolumeBnb >= 2 且『接近发行价』｜buyVolumeBnb >= 2.5 且『接近发行价』三个触发条件」——热度够+价格还贴发行价的入场点（BP near_launch 判据搬运：currentVsLaunchPct ≤ +50% 含破发）。
+
+**FA 新键 `currentVsLaunchPct`**：`(state._relPriceBnb > 0 && state._relFirstPriceBnb > 0) ? parseFloat((100 * (state._relPriceBnb / state._relFirstPriceBnb - 1)).toFixed(2)) : null`——分子分母同可靠价链（与 BP snapshot 的 arc.last/rel[0] 同源；T98 尘门首可靠价冻结基准同源）；null=未见可靠价 fail-closed（裸比较恒 false 不触发=宁拦不冒充）；与 TPA `TPAPre_asofRelFirst`（审批时刻冻结快照）语义刻意分开（单测 F 段锁两键分叉：setAsofMs 后冻结键停、实时键推进）。FactorBuilder 快照白名单透传（fourmeme_fa_factors 白名单 132→133 键）。新单测 `_test_current_vs_launch_factor`（15 断言：精确值/冻结基准/null 语义/探针收键/透传/TPA 分叉/源码口径锁）。
+
+**ladder v8 十腿**（库 signal-source-ladder-v1 version 8→9）：NL15 p8 `buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 50` / NL20 p9 `>= 2` / NL25 p10 `>= 2.5`——三条 cheatRecheck=true（t0b 早臂族同款每买信号重判）、无 tradeCount/holders 门=比 t 系更早可触发；引用实验须 buySignalMaxPerToken ≥ 10。
+
+**bt-v78 首跑**（完整窗口对照 bt-v77，CD379 同车）：1461 信号 114 买（NL15 臂 243 信号 70 买=最大贡献者；t0b 228→34、t2 156→8、NL20/25 因首买已耗 0-1 买）29 赢 85 亏 **-0.00883 BNB**；**跑后用户两纠**：
+
+1. **卖腿全清缺陷**：用户裁定「卖出应该是以卡牌的形式逐步卖出的……参考 Live 实验中的卡牌设置」+补充「一部分卖出臂是卖出一个卡牌仓位，还有的是清仓，不同臂设置不同」——bt-v77/78 卖腿只抄了 v74 的 3 条全清臂（p5 pump 失衡/p6 GMGN 进场/p10 mcap 拱），任何退出整仓倒；**bt-v79 换 v74 全量 16 腿卡牌阶梯**（1 卡×6/2 卡×2/全清×8：止损双腿+毕业两档 0.9/0.98+止盈 >100%/50% 卖 1 卡+峰回撤族 1 卡/全清混合+cd/maxExecutions 原样），perCardBNB=0.001 不变。
+2. **BP10 翻案**（见 BP 台账 BP10 案）：insufficient_ticks 数据不足从放行改拒——bt-v78 中 **53/114 买入走 insufficient_ticks 漏网**（例票 0x18cf6407884dddfa54442a6becea915f850c7777 anchorTickCount=3 放行买入 15s 后止损 -0.00053，用户点名）；BP10 后这类票全拒。
+
+**bt-v79**（1b1f9ee3）：bt-v78 基座+ladder v8 十腿+CD379 豁免+v74 全量 16 卖腿+BP10 拒——三改同车的干净窗口对照。
+
 ### T121 回测门链真调受控解禁（backtest.signalGateReal）+ ladder v5/v6 两跑 + signals 页门链明细展示（2026-11-07；推翻 T117 裁定④「回测恒拒」，用户裁定基于 v73 时段数据回测真实调用 cheat+BP 门链）
 
 **受控解禁机制**（缺省 `false`=恒拒现状 bit 不变，其它回测实验零影响——sim-8a51 等不受波及）：
