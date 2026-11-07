@@ -1960,6 +1960,102 @@
    },
    "ruledAt": "2026-11-07",
    "note": "BP38 立法锚（④极早窗衰竭三证据+strong_backer ultra 豁免双裁定票）：t+3s top1 64.75% 独食+正净持有 3 人+破发 −24.9%+大户已卖 1.05——BP36 下判 strong_backer 0.36 拦于 activity_gate ultra 臂，用户裁定原话「盘型 如果是 strong_backer ，活跃度 ultra 豁免，不给 poor；ALPHA 的盘形应该是 early_sniper_decay，除了最最早期无任何购买力」；BP38 对拍 early_sniper_decay 0.98→poor 0.98 pattern_gate 翻案达成（判型从摇摆 0.36 到坚定 0.98——三证据：正净持有人个位数且 top1 独食+现价已破发+开盘大额买家已在卖，极早窗占比臂天然失明不依赖占比）"
+  },
+  {
+   "anchorId": "BPA-081",
+   "kind": "signal",
+   "tokenAddress": "0xe86b81fcd1dad72ea53ad59b8a357542c4b04444",
+   "tokenName": "영복이",
+   "locator": {
+    "set": "bp-2026-11-06-v73-signals",
+    "pointId": "BP-S103",
+    "triggeredAt": "2026-11-05T08:35:14Z",
+    "anchorTickCount": 4
+   },
+   "expect": {
+    "bucket": "poor"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.9,
+    "rule": "pattern_gate",
+    "run": "bp39-parity",
+    "questionVersion": "BP39"
+   },
+   "ruledAt": "2026-11-07",
+   "note": "BP39 立法锚（④三证据弱化）：thin 两人盘（正净持有 2 人）+top1 59.5%≈60+已破发 −3.0%+大户在卖 0.39——三证据实际全命中（top1 贴线 60 未达 BP38 硬尺），BP36 旧版判 blended neutral 放行全程阴跌 −15.3%；用户裁定原话「영복이 也是 early_sniper_decay」；BP39 对拍 early_sniper_decay 三连 0.88/0.90/0.92→poor pattern_gate 翻案达成（三件充分非必要、任两件同向即落④）"
+  },
+  {
+   "anchorId": "BPA-082",
+   "kind": "signal",
+   "tokenAddress": "0x617590a52829d3165d5539344d9e570d6f4b7777",
+   "tokenName": "Lily",
+   "locator": {
+    "set": "bp-2026-11-06-v73-signals",
+    "pointId": "BP-S104",
+    "triggeredAt": "2026-11-05T08:54:25Z",
+    "anchorTickCount": 15
+   },
+   "expect": {
+    "bucket": "poor"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.38,
+    "rule": "pattern_gate",
+    "run": "bp39-parity",
+    "questionVersion": "BP39"
+   },
+   "ruledAt": "2026-11-07",
+   "note": "BP39 立法锚（①④分界「大户卖出后无承接」判例）：一个大户入场吸来一堆狙击手→大户离场+狙击手离场+盘面无承接——BP36 判 strong_backer 回撤位 neutral 放行浅亏 −5.0%；用户裁定原话「大户卖出后无承接，怎么能算强庄盘？」；BP39 对拍 early_sniper_decay 三连 0.38/0.33/0.39→poor pattern_gate 翻案达成（强庄的前提是庄还在/卖出有像样承接）"
+  },
+  {
+   "anchorId": "BPA-083",
+   "kind": "signal",
+   "tokenAddress": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
+   "tokenName": "FlapGuy",
+   "locator": {
+    "set": "bp-2026-11-06-v73-signals",
+    "pointId": "BP-S119",
+    "triggeredAt": "2026-11-05T09:01:59Z",
+    "anchorTickCount": 15
+   },
+   "expect": {
+    "bucket": "poor"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.79,
+    "rule": "pattern_gate",
+    "run": "bp39-parity",
+    "questionVersion": "BP39"
+   },
+   "ruledAt": "2026-11-07",
+   "note": "BP39 立法锚（④开盘拉高出货盘形态）：第一波购买太强开局拉高、卖出后承接接不住（现/ATH −26.5% 已砸回）——BP36 判 strong_backer 放行 −24.2%；用户裁定原话「开盘拉高然后出货盘……作为 early_sniper_decay 的一种形态」；BP39 对拍 early_sniper_decay 三连 0.82/0.79/0.75→poor pattern_gate 翻案达成（不看开盘段占比）"
+  },
+  {
+   "anchorId": "BPA-084",
+   "kind": "signal",
+   "tokenAddress": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
+   "tokenName": "FlapGuy",
+   "locator": {
+    "set": "bp-2026-11-06-v73-signals",
+    "pointId": "BP-S120",
+    "triggeredAt": "2026-11-05T09:05:06Z",
+    "anchorTickCount": 56
+   },
+   "expect": {
+    "bucket": "poor"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.72,
+    "rule": "pattern_gate",
+    "run": "bp39-parity",
+    "questionVersion": "BP39"
+   },
+   "ruledAt": "2026-11-07",
+   "note": "BP39 立法锚（④开盘拉高出货盘第二点+通则）：拉高砸回 −20.9%+尾段承接弱——BP36 判 strong_backer 放行 −21.5%；用户裁定通则「只要开盘拉的过高，都不行，都可以直接划为 early_sniper_decay」；BP39 对拍 early_sniper_decay 三连 0.72/0.77/0.72→poor pattern_gate 翻案达成；同票 S119/S120 双锚锁同判型"
   }
  ]
 }
