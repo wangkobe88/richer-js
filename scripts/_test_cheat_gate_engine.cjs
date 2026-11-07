@@ -562,8 +562,8 @@ async function testActivityExempt() {
   // F4 源码口径锁：拉黑登记点跳过豁免票（graded 段）+ bootstrap 恢复检查 + late 包
   ok('F4 拉黑登记点豁免跳过（grade===cheat && !activityExempt 恰一处）',
     (svcSrc.match(/graded\.grade === 'cheat' && !activityExempt/g) || []).length === 1);
-  ok('F4 bootstrap 恢复拉黑豁免检查（cheatSeen && !this._isActivityExempt）',
-    /cheatSeen && !this\._isActivityExempt\(cheatDigest/.test(svcSrc));
+  ok('F4 bootstrap 恢复拉黑豁免检查（cheatSeen && !(isExempt && !denied)——与拉黑登记点同构）',
+    svcSrc.includes('cheatSeen && !(this._isActivityExempt(cheatDigest'));
   ok('F4 timeout late 包豁免变换（迟到结果不把豁免票错拉黑）',
     svcSrc.includes('chain.then((r) => this._applyActivityExempt(r))'));
   ok('F4 四出口统一变换（this._applyActivityExempt 调用恰 4 处：blocked/sticky/late/chain）',
@@ -582,6 +582,64 @@ async function testActivityExempt() {
   const gradeSrc = fs.readFileSync(path.join(__dirname, '../src/market-analysis/cheat-grade.js'), 'utf8');
   ok('F6 gradeObservation 规则域零豁免引用（决策域变换只在 service 层）',
     !gradeSrc.includes('activityExempt') && !gradeSrc.includes('_applyActivityExempt'));
+
+  // F7 CD380 不豁免臂（2026-11-07 bt-v79 六案裁定：pump/wash/holdings 三臂在场
+  // =活跃度豁免失效原判保持——刷量/锁仓型形状天然高活跃度，豁免恰好专放这类票，
+  // 8 个放行信号 originalGrade 全∈{cheat,unhealthy} 全经豁免放走实证）
+  const s7 = mkSvc();
+  const dn = (levels) => s7._exemptDeniedReason(levels);
+  check('F7 pump=moderate → slow_grind_pump（0x94ea754b 判例 unhealthy+pump=2 亦拒）',
+    dn({ slowGrindPump: 2 }), 'slow_grind_pump');
+  check('F7 pump=strong 同拦（0xcb70708e/d0fbcc7b/4b3f1f7a 判例）',
+    dn({ slowGrindPump: 3 }), 'slow_grind_pump');
+  ok('F7 pump=weak 不拦（臂线=moderate）', dn({ slowGrindPump: 1 }) === null);
+  check('F7 washPair=strong → wash_pair_family（0x06810806 同块对敲判例）',
+    dn({ washPair: 3 }), 'wash_pair_family');
+  check('F7 equalAmountSplit=strong 同拦（0xcb70708e 等额分仓判例）',
+    dn({ equalAmountSplit: 3 }), 'wash_pair_family');
+  check('F7 coordinatedSellBack=strong 同拦（协同卖回）',
+    dn({ coordinatedSellBack: 3 }), 'wash_pair_family');
+  ok('F7 wash 族 moderate 不拦（「严重对倒盘」=strong 与 A 通道主判线同档）',
+    dn({ washPair: 2 }) === null && dn({ equalAmountSplit: 2 }) === null && dn({ coordinatedSellBack: 2 }) === null);
+  check('F7 holdingsBalance=moderate → holdings_balance（持仓维度独立成臂）',
+    dn({ holdingsBalance: 2 }), 'holdings_balance');
+  check('F7 holdingsBalance=strong 同拦（0xb788e63b 判例 J 通道唯一拦截臂）',
+    dn({ holdingsBalance: 3 }), 'holdings_balance');
+  ok('F7 holdings=weak 不拦', dn({ holdingsBalance: 1 }) === null);
+  ok('F7 levels null/键缺席（旧档断代/题未答）不拦=豁免照常（缺席不扩大收紧面）',
+    dn(null) === null && dn({}) === null && dn({ slowGrindPump: null }) === null);
+  const beforeDeny = s7.stats.exemptDenied;
+  const r7a = s7._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { slowGrindPump: 3 }, buckets: { activityLevel: 'high' } });
+  check('F7 出口：cheat+high+pump strong → 原判保持+exemptDenied 留痕',
+    { grade: r7a.grade, exempt: r7a.exempt, exemptDenied: r7a.exemptDenied },
+    { grade: 'cheat', exempt: undefined, exemptDenied: 'slow_grind_pump' });
+  const r7b = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 2 }, buckets: { activityLevel: 'ultra' } });
+  check('F7 出口：unhealthy+ultra+holdings moderate → 原判保持',
+    { grade: r7b.grade, exemptDenied: r7b.exemptDenied },
+    { grade: 'unhealthy', exemptDenied: 'holdings_balance' });
+  const r7c = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' } });
+  check('F7 出口：三臂不在场（F3 形状）→ 豁免照常（CD379 语义维持）',
+    { grade: r7c.grade, exempt: r7c.exempt, exemptDenied: r7c.exemptDenied },
+    { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'unhealthy' }, exemptDenied: undefined });
+  ok('F7 exemptDenied 计数恰 2 次（denied 才计，豁免照常不计）',
+    s7.stats.exemptDenied - beforeDeny === 2, s7.stats);
+  // F7 sticky 出口：denied 票粘滞秒回也不豁免（grade 恢复原判=引擎拒买路径生效）
+  const s7s = mkSvc();
+  s7s._lastGrade.set('0xdenied', {
+    grade: 'unhealthy', reasons: [{ code: 'J_holdings_strong' }], version: 'G17',
+    unhealthyGrades: 2, levels: { holdingsBalance: 3 }, buckets: { activityLevel: 'high' }, anchors: {},
+  });
+  const r7s = await s7s.gateBuyPoint('0xdenied', {}, {}, { recheckUnhealthy: false });
+  check('F7 sticky：unhealthy+high+holdings strong recheck=false → 秒回不豁免原判保持',
+    { grade: r7s.grade, cached: r7s.cached, exempt: r7s.exempt, exemptDenied: r7s.exemptDenied },
+    { grade: 'unhealthy', cached: true, exempt: undefined, exemptDenied: 'holdings_balance' });
+  // F7 源码口径锁：拉黑登记点+bootstrap 恢复同款收紧（denied 票照拉黑/照恢复拉黑）
+  ok('F7 拉黑登记点收紧在场（activityExempt = isExempt && !deniedReason(levels)）',
+    svcSrc.includes('this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)\n        && !this._exemptDeniedReason(levels)'));
+  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂）',
+    /!this\._exemptDeniedReason\(cheatDigest \? levelsFromObservation\(cheatDigest\)\.levels : null\)/.test(svcSrc));
+  ok('F7 豁免收紧收在 cheat 模块内部（引擎/BP 层零豁免逻辑——用户裁定）',
+    !fs.readFileSync(path.join(__dirname, '../src/market-analysis/buy-point-result-mapper.js'), 'utf8').includes('activityExempt'));
 }
 
 await testActivityExempt();

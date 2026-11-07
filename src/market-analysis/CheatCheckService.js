@@ -178,6 +178,7 @@ class CheatCheckService {
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
+      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：pump/wash/holdings）
     };
   }
 
@@ -292,20 +293,60 @@ class CheatCheckService {
   }
 
   /**
+   * CD380 不豁免臂（2026-11-07 用户三条裁定：「pump 不豁免」「出现严重对倒盘
+   * （0x06810806 washPair=strong 判例）这种已经检测出来的也不要豁免」
+   * 「holdingsBalance 也不豁免（持仓情况的问题，另一个维度）」）：刷量/锁仓
+   * 型形状本身制造高活跃度（缓推泵/对倒刷量盘 activity 天然 high/ultra），活跃度
+   * 豁免恰好专放这类票——bt-v79 复盘六案 8 个放行买入信号 originalGrade 全∈
+   * {cheat,unhealthy} 且全经 CD379 豁免放走（pump/wash/holdings 证据在场）实证。
+   * 三臂任一在场=豁免失效（门决策恢复原判/拉黑登记不跳过/bootstrap 恢复不豁免）：
+   * ① pump 臂：slowGrindPump ≥ moderate(2)——机器缓推在场即拦（0x94ea754b 判例
+   *    pump=moderate originalGrade=unhealthy 亦须拒；用户原话无限定档）
+   * ② wash 臂：对倒族任一 strong(3)——washPair 同块对敲/equalAmountSplit 等额
+   *    分仓/coordinatedSellBack 协同卖回（「严重对倒盘」「检测出来」=strong 与
+   *    A 通道主判线同档；0x06810806 washPair=3 判例）
+   * ③ holdings 臂：holdingsBalance ≥ moderate(2)——持仓维度独立成臂（0xb788e63b
+   *    判例 holdingsBalance=strong J 通道）
+   * 入参=levels 数值投影（levelsFromObservation 产物；秒回/late/blocked 行同构）；
+   * levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常（缺席不扩大收紧面，
+   * 维持 CD379 原语义）。豁免与收紧全部收在本模块内部（用户裁定「这种豁免全部
+   * 在 cheat 检测模块内部进行」——引擎/BP 层零豁免逻辑）。
+   */
+  _exemptDeniedReason(levels) {
+    if (!levels) return null;
+    const lv = (k) => {
+      const v = levels[k];
+      return v === null || v === undefined ? 0 : v; // 缺席/断代=none 不触发
+    };
+    if (lv('slowGrindPump') >= 2) return 'slow_grind_pump';
+    if (lv('washPair') >= 3 || lv('equalAmountSplit') >= 3 || lv('coordinatedSellBack') >= 3) return 'wash_pair_family';
+    if (lv('holdingsBalance') >= 2) return 'holdings_balance';
+    return null;
+  }
+
+  /**
    * CD379 活跃度豁免出口变换（2026-11-07 用户裁定「作弊检测豁免所有活跃度在
    * high 之上的票」）：grade∈{cheat,unhealthy} ∧ buckets.activityLevel∈豁免集
    * → healthy 放行——reasons/levels/buckets/anchors 原样保留（审计轨迹），
    * exempt 留痕 { code:'activity_<桶>', originalGrade }。观测行已在 _chain 内
    * 落库（原始 grade=研究原料），仅**门决策域**变换；gradeObservation 规则域
    * 零改动（CHEAT_GRADE_RULES_VERSION 不 bump——豁免不产新档位只改消费侧）。
-   * 非判定行/未命中/豁免关 → 原样返回。四个出口统一走本变换：入口 blocked 秒回
-   * / 入口 sticky 秒回 / chain 结果 / timeout 的 late 包。
+   * **CD380 收紧（同日用户三条裁定）**：pump/wash/holdings 三臂在场=豁免失效
+   * （见 _exemptDeniedReason），原判保持+exemptDenied 留痕——刷量型形状天然
+   * 高活跃度，活跃度豁免恰好专放这类票（bt-v79 六案实证），收紧后 grade 恢复
+   * 原判。非判定行/未命中/豁免关 → 原样返回。四个出口统一走本变换：入口
+   * blocked 秒回 / 入口 sticky 秒回 / chain 结果 / timeout 的 late 包。
    */
   _applyActivityExempt(res) {
     if (!res || this._activityExemptLevels.size === 0) return res;
     if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
     const act = res.buckets && res.buckets.activityLevel;
     if (!this._isActivityExempt(act)) return res;
+    const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
+    if (denied) {
+      this.stats.exemptDenied++;
+      return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
+    }
     this.stats.activityExemptions++;
     return { ...res, grade: 'healthy', exempt: { code: `activity_${act}`, originalGrade: res.grade } };
   }
@@ -537,6 +578,16 @@ class CheatCheckService {
       await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
       this.stats.analyzed++;
 
+      // 因子化投影原料（2026-11-01 用户指令）：14 题数值档（FA 出口，D3.35 起
+      // 含 abnormal_behavior_ratio（D3.39 前 real_participation））+字符串原值（metadata/日志）+数值锚二十四键
+      //（famous 掌控/持仓极不均衡/持仓分布/协同买入参考补点）——
+      // 随返回形状透传引擎投影 FA。CD380 起提前到拉黑登记前：不豁免臂读数值档
+      //（levelsFromObservation 只读 phenomena/extLevels/extras，与 grade 设值顺序无关）
+      const { levels, buckets, anchors } = levelsFromObservation(obs, {
+        famousDominancePct: snapshot.derived.famousDominancePct ?? null,
+        famousDominanceLevel: snapshot.derived.famousDominanceLevel ?? null,
+      });
+
       // G1 分级消费（CD158 形状）：cheat → 拉黑（终态，含清仓联动由引擎侧
       // 消费）；unhealthy → `_gateUnhealthyGrades` 纯观测计数（FA 键
       // cheatUnhealthyGrades 数据源，**无门效应**——2026-11-03 用户裁定移除
@@ -544,8 +595,11 @@ class CheatCheckService {
       // CD379 活跃度豁免：grade∈{cheat,unhealthy} ∧ activity 档∈豁免集 → 不登记
       // 拉黑（不 add → 引擎短路/秒回/清仓/迟到拉黑全部自然不触发）；unhealthy
       // 观测计数照记（原始判定轨迹）。判据 obs.activityLevel.bucket 与
-      // levelsFromObservation 的 buckets.activityLevel 同源；出口统一变换
-      const activityExempt = this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null);
+      // levelsFromObservation 的 buckets.activityLevel 同源；出口统一变换。
+      // CD380 不豁免臂同款收紧：pump/wash/holdings 三臂在场=豁免失效，cheat
+      // 恢复登记拉黑（与门决策出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）
+      const activityExempt = this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
+        && !this._exemptDeniedReason(levels);
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
       } else if (graded.grade === 'unhealthy') {
@@ -553,14 +607,6 @@ class CheatCheckService {
         this._gateUnhealthyGrades.set(token, n);
       }
 
-      // 因子化投影原料（2026-11-01 用户指令）：14 题数值档（FA 出口，D3.35 起
-      // 含 abnormal_behavior_ratio（D3.39 前 real_participation））+字符串原值（metadata/日志）+数值锚二十四键
-      //（famous 掌控/持仓极不均衡/持仓分布/协同买入参考补点）——
-      // 随返回形状透传引擎投影 FA
-      const { levels, buckets, anchors } = levelsFromObservation(obs, {
-        famousDominancePct: snapshot.derived.famousDominancePct ?? null,
-        famousDominanceLevel: snapshot.derived.famousDominanceLevel ?? null,
-      });
       this._lastGrade.set(token, {
         grade: graded.grade, reasons: graded.reasons, version: graded.version,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
@@ -711,8 +757,11 @@ class CheatCheckService {
         this._gateUnhealthyGrades.set(token, unhealthy);
         // CD379：恢复拉黑同查活跃度豁免——豁免配置上线前落的 cheat 行 activity
         // high+ 不再恢复拉黑（下个买信号重判走正常链）；digest.activityLevel.bucket
-        // 与判定行同源
-        if (cheatSeen && !this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)) {
+        // 与判定行同源。CD380 不豁免臂同款且同构（activityExempt = isExempt && !denied）：
+        // 豁免集内桶 ∧ 三臂不在场才不恢复；非豁免桶（mid/low）本来就轮不到豁免，
+        // 三臂在场与否不影响恢复拉黑（收紧只作用于「本来要豁免」的票）
+        if (cheatSeen && !(this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)
+          && !this._exemptDeniedReason(cheatDigest ? levelsFromObservation(cheatDigest).levels : null))) {
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
