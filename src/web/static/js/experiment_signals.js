@@ -45,10 +45,10 @@ const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题'
 // 档位词 → 配色（none/mid 灰 · weak/noticeable/low 浅黄 · moderate/high amber · strong/dominant/ultra 红）
 function gateBucketClass(bucket) {
   const b = String(bucket || '');
-  if (['strong', 'dominant', 'ultra'].includes(b)) return 'bg-red-100 text-red-800 border-red-300';
-  if (['moderate', 'high'].includes(b)) return 'bg-amber-100 text-amber-800 border-amber-300';
-  if (['weak', 'noticeable', 'low'].includes(b)) return 'bg-yellow-50 text-yellow-800 border-yellow-300';
-  return 'bg-gray-100 text-gray-600 border-gray-300';
+  if (['strong', 'dominant', 'ultra'].includes(b)) return 'bg-red-200 text-red-900 border-red-400';
+  if (['moderate', 'high'].includes(b)) return 'bg-amber-200 text-amber-900 border-amber-400';
+  if (['weak', 'noticeable', 'low'].includes(b)) return 'bg-yellow-200 text-yellow-900 border-yellow-400';
+  return 'bg-gray-200 text-gray-800 border-gray-400';
 }
 function gateBucketSortKey(bucket) {
   const order = ['strong', 'dominant', 'ultra', 'moderate', 'high', 'weak', 'noticeable', 'low', ''];
@@ -2755,7 +2755,7 @@ class ExperimentSignals {
           <div class="flex items-center space-x-2">
             <span class="text-purple-700 font-medium text-sm">📌 策略:</span>
             <span class="text-purple-900 font-semibold text-sm">${strategyName}</span>
-            ${strategyId ? `<span class="text-purple-500 text-xs">(${strategyId})</span>` : ''}
+            ${strategyId ? `<span class="text-purple-800 text-xs">(${strategyId})</span>` : ''}
           </div>
         </div>
       `;
@@ -2781,7 +2781,7 @@ class ExperimentSignals {
       const obsFactorChipsHtml = obsBuyCondition ? `
         <div class="text-xs mt-2">
           <span class="font-semibold text-gray-700">📋 买入条件（对拍）:</span>
-          <code class="ml-2 px-2 py-0.5 bg-gray-200 rounded text-xs text-gray-900 break-all">${this._escapeHtml(obsBuyCondition)}</code>
+          <code class="ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-gray-100 break-all">${this._escapeHtml(obsBuyCondition)}</code>
           ${this._renderConditionFactorChips(obsBuyCondition, metadata)}
         </div>
       ` : '';
@@ -2807,7 +2807,7 @@ class ExperimentSignals {
     // 构建价格和原因信息
     const priceValue = signal.price || metadata.price;
     const priceInfo = (priceValue !== undefined && priceValue !== null && !isNaN(priceValue)) ?
-      `<span class="text-gray-600">价格: <span class="font-medium text-gray-900">${parseFloat(priceValue).toFixed(8)}</span></span>` : '';
+      `<span class="text-gray-600">价格: <span class="font-medium text-gray-100">${parseFloat(priceValue).toFixed(8)}</span></span>` : '';
 
     // 构建额外信息（如果有）
     let extraInfoHtml = '';
@@ -2874,12 +2874,12 @@ class ExperimentSignals {
         const sg = signalGateInfo;
         signalGateHtml = `
         <div class="flex items-center flex-wrap gap-2 text-xs mb-2">
-          <span class="text-amber-900 font-semibold">⚡ 信号源门链</span>
-          <span class="bg-white px-2 py-0.5 rounded border border-amber-200">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
-          <span class="bg-white px-2 py-0.5 rounded border border-amber-200">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
-          ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-white px-2 py-0.5 rounded border border-amber-200">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
-          ${sg.cheatRecheck != null ? `<span class="bg-white px-2 py-0.5 rounded border border-amber-200">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
-          <span class="text-gray-500">门序：作弊门 → BP 门，两门都过才买</span>
+          <span class="text-amber-200 font-semibold">⚡ 信号源门链</span>
+          <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
+          <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
+          ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
+          ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
+          <span class="text-gray-700">门序：作弊门 → BP 门，两门都过才买</span>
         </div>
         `;
       }
@@ -2893,59 +2893,59 @@ class ExperimentSignals {
           const a = buyPointInfo.assessment;
           const bpBucket = String(a.bucket || '?');
           const bpBadge = bpBucket === 'good'
-            ? '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full font-bold">✅ good（放行）</span>'
+            ? '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ good（放行）</span>'
             : (bpBucket === 'neutral'
-              ? '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full font-bold">🟡 neutral（放行）</span>'
-              : '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-bold">🚫 poor（拒）</span>');
+              ? '<span class="text-xs px-2 py-1 bg-yellow-200 text-yellow-900 rounded-full font-bold">🟡 neutral（放行）</span>'
+              : '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 poor（拒）</span>');
           const qRows = Object.entries(buyPointInfo.qualities || {})
             .map(([qk, q]) => `
-            <div class="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded border border-blue-100">
-              <span class="text-gray-700">${this._escapeHtml(BP_QUALITY_LABELS[qk] || qk)}<span class="text-gray-400 ml-1">${this._escapeHtml(qk)}</span></span>
+            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 rounded border border-blue-400">
+              <span class="text-gray-800">${this._escapeHtml(BP_QUALITY_LABELS[qk] || qk)}<span class="text-gray-600 ml-1">${this._escapeHtml(qk)}</span></span>
               <span class="flex items-center gap-1">
                 <span class="px-1.5 py-0.5 rounded border ${gateBucketClass(q.bucket === 'insufficient' ? '' : q.bucket)}">${this._escapeHtml(String(q.bucket ?? '—'))}</span>
-                ${q.prob != null ? `<span class="text-gray-500">p=${Number(q.prob).toFixed(2)}</span>` : ''}
+                ${q.prob != null ? `<span class="text-gray-700">p=${Number(q.prob).toFixed(2)}</span>` : ''}
               </span>
             </div>`).join('');
           const dimRows = Object.entries(buyPointInfo.dimensions || {})
             .map(([dk, d]) => `
-            <div class="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded border border-blue-100">
-              <span class="text-gray-700">${this._escapeHtml(BP_DIMENSION_LABELS[dk] || dk)}</span>
+            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 rounded border border-blue-400">
+              <span class="text-gray-800">${this._escapeHtml(BP_DIMENSION_LABELS[dk] || dk)}</span>
               <span class="flex items-center gap-1">
-                <span class="px-1.5 py-0.5 rounded border bg-gray-50 text-gray-700 border-gray-300">${this._escapeHtml(String(d.bucket ?? '—'))}</span>
-                ${d.prob != null ? `<span class="text-gray-500">p=${Number(d.prob).toFixed(2)}</span>` : ''}
+                <span class="px-1.5 py-0.5 rounded border bg-gray-200 text-gray-800 border-gray-400">${this._escapeHtml(String(d.bucket ?? '—'))}</span>
+                ${d.prob != null ? `<span class="text-gray-700">p=${Number(d.prob).toFixed(2)}</span>` : ''}
               </span>
             </div>`).join('');
           const anchorRows = Object.entries(buyPointInfo.anchors || {})
             .map(([ak, av]) => `
-            <div class="flex items-center justify-between gap-2 bg-white px-2 py-0.5 rounded border border-blue-50">
-              <span class="text-gray-600">${this._escapeHtml(ak)}</span>
-              <span class="text-gray-800 font-mono">${av == null ? '—' : (typeof av === 'number' ? (Number.isInteger(av) ? av : Number(av).toFixed(4)) : this._escapeHtml(String(av)))}</span>
+            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-0.5 rounded border border-blue-400">
+              <span class="text-gray-700">${this._escapeHtml(ak)}</span>
+              <span class="text-gray-100 font-mono">${av == null ? '—' : (typeof av === 'number' ? (Number.isInteger(av) ? av : Number(av).toFixed(4)) : this._escapeHtml(String(av)))}</span>
             </div>`).join('');
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-900">🎯 BP 买入点位门（门链第二门）</div>
+              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
               ${bpBadge}
             </div>
-            <div class="flex flex-wrap gap-2 text-xs text-gray-600 mb-1">
+            <div class="flex flex-wrap gap-2 text-xs text-gray-800 mb-1">
               <span>综合概率 p=${a.prob != null ? Number(a.prob).toFixed(2) : '—'}</span>
-              ${a.rule ? `<span>规则 <code class="bg-white px-1 rounded">${this._escapeHtml(String(a.rule))}</code></span>` : ''}
-              ${buyPointInfo.passed === true ? '<span class="text-green-700 font-medium">→ 放行</span>' : '<span class="text-red-700 font-medium">→ 拒</span>'}
-              <span class="text-gray-400">model=${this._escapeHtml(String(buyPointInfo.model || '—'))}${buyPointInfo.usage ? ` · in=${buyPointInfo.usage.input_tokens ?? '—'} out=${buyPointInfo.usage.output_tokens ?? '—'}` : ''}</span>
+              ${a.rule ? `<span>规则 <code class="bg-gray-900 px-1 rounded">${this._escapeHtml(String(a.rule))}</code></span>` : ''}
+              ${buyPointInfo.passed === true ? '<span class="text-green-400 font-medium">→ 放行</span>' : '<span class="text-red-400 font-medium">→ 拒</span>'}
+              <span class="text-gray-600">model=${this._escapeHtml(String(buyPointInfo.model || '—'))}${buyPointInfo.usage ? ` · in=${buyPointInfo.usage.input_tokens ?? '—'} out=${buyPointInfo.usage.output_tokens ?? '—'}` : ''}</span>
             </div>
-            ${qRows ? `<div class="text-xs text-blue-800 mb-1">质量题（任一 good→good，否则任一 neutral→neutral，否则 poor）：</div><div class="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${qRows}</div>` : ''}
-            ${dimRows ? `<details class="mt-1"><summary class="text-xs text-blue-800 cursor-pointer select-none">📐 九维度题（参考不进聚合，点开展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
-            ${anchorRows ? `<details class="mt-1"><summary class="text-xs text-blue-800 cursor-pointer select-none">🧭 盘面锚值 ${Object.keys(buyPointInfo.anchors || {}).length} 锚（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-4">${anchorRows}</div></details>` : ''}
+            ${qRows ? `<div class="text-xs text-blue-300 mb-1">质量题（任一 good→good，否则任一 neutral→neutral，否则 poor）：</div><div class="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${qRows}</div>` : ''}
+            ${dimRows ? `<details class="mt-1"><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 九维度题（参考不进聚合，点开展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
+            ${anchorRows ? `<details class="mt-1"><summary class="text-xs text-blue-300 cursor-pointer select-none">🧭 盘面锚值 ${Object.keys(buyPointInfo.anchors || {}).length} 锚（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-4">${anchorRows}</div></details>` : ''}
           </div>
           `;
         } else if (bpStatus === 'insufficient_ticks') {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-900">🎯 BP 买入点位门（门链第二门）</div>
-              <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">未判定·放行</span>
+              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
+              <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·放行</span>
             </div>
-            <div class="text-xs text-gray-500">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 8，不调 Jev 不判定——BP9 裁定 insufficient_ticks 放行（极早触发锚窗短为常态）</div>
+            <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 8，不调 Jev 不判定——BP9 裁定 insufficient_ticks 放行（极早触发锚窗短为常态）</div>
           </div>
           `;
         } else {
@@ -2956,10 +2956,10 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-900">🎯 BP 买入点位门（门链第二门）</div>
-              <span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">拒</span>
+              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
+              <span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full">拒</span>
             </div>
-            <div class="text-xs text-gray-500">${failLabel}</div>
+            <div class="text-xs text-gray-700">${failLabel}</div>
           </div>
           `;
         }
@@ -2967,8 +2967,8 @@ class ExperimentSignals {
 
       // 购买前置检查结果
       const checkResultBadge = pr.canBuy === false ?
-        '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
-        '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>';
+        '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full">❌ 失败</span>' :
+        '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ 通过</span>';
 
       // 永久阻断标识
       const permanentBlockBadge = pf.permanentBlockTriggered
@@ -2982,22 +2982,22 @@ class ExperimentSignals {
           <div class="mb-2 pb-2 border-b border-amber-300">
             ${buyCondition ? `
               <div class="text-xs mb-1">
-                <span class="font-semibold text-amber-900">📋 买入条件配置:</span>
-                <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(buyCondition)}</code>
+                <span class="font-semibold text-amber-200">📋 买入条件配置:</span>
+                <code class="ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-amber-200 break-all">${this._escapeHtml(buyCondition)}</code>
                 ${this._renderConditionFactorChips(buyCondition, metadata)}
               </div>
             ` : ''}
             ${preBuyCheckCondition ? `
               <div class="text-xs">
-                <span class="font-semibold text-amber-900">🔍 预检查条件配置 (第${buyRound}轮${buyRound > 1 ? '购买' : ''}):</span>
-                <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
+                <span class="font-semibold text-amber-200">🔍 预检查条件配置 (第${buyRound}轮${buyRound > 1 ? '购买' : ''}):</span>
+                <code class="ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-amber-200 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
                 ${this._renderConditionFactorChips(preBuyCheckCondition, metadata)}
               </div>
             ` : ''}
             ${gmgnCheckCondition ? `
               <div class="text-xs mt-1">
                 <span class="font-semibold text-amber-900">🛡️ GMGN 条件配置 (买前第三层实时):</span>
-                <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(gmgnCheckCondition)}</code>
+                <code class="ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-amber-200 break-all">${this._escapeHtml(gmgnCheckCondition)}</code>
                 ${this._renderGmgnCheckChips(gmgnCheckCondition, gmgnCheckInfo, metadata)}
               </div>
             ` : ''}
@@ -3018,33 +3018,33 @@ class ExperimentSignals {
       if (tpf) {
         const analyzed = tpf.TPAAnalyzed === 1;
         // 从买入条件解析 TPAPre_tokenScore 阈值染色（如 "TPAPre_tokenScore > 2.2"）
-        let tsClass = 'text-gray-900';
+        let tsClass = 'text-gray-100';
         const tsMatch = buyCondition && buyCondition.match(/TPAPre_tokenScore\s*([<>]=?|==)\s*([0-9.]+)/);
         if (tsMatch && tpf.TPAPre_tokenScore != null) {
           const op = tsMatch[1], thr = parseFloat(tsMatch[2]), v = Number(tpf.TPAPre_tokenScore);
           const ok = op === '>' ? v > thr : op === '>=' ? v >= thr : op === '<' ? v < thr : op === '<=' ? v <= thr : v === thr;
-          tsClass = ok ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+          tsClass = ok ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold';
         }
         const ratioDisp = tpf.TPAPre_zhuangRetailRatioInfinite ? '∞'
           : (tpf.TPAPre_zhuangRetailRatio == null ? 'null' : Number(tpf.TPAPre_zhuangRetailRatio).toFixed(2));
         const pct = (v) => v == null ? 'N/A' : Number(v).toFixed(1) + '%';
         const num = (v, d = 2) => v == null ? 'null' : Number(v).toFixed(d);
         tpaFactorsHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">🎯 TPA 持仓分析因子（fire 时刻快照）</div>
+          <div class="mt-2 pt-2 border-t border-gray-600">
+            <div class="text-xs font-semibold text-amber-200 mb-1">🎯 TPA 持仓分析因子（fire 时刻快照）</div>
             <div class="grid grid-cols-3 gap-2 text-xs">
-              <div><span class="text-amber-800">TPA 状态:</span> <span class="${analyzed ? 'text-green-600' : 'text-red-600'}">${analyzed ? '✅ 已检测' : '❌ 未检测(null fail-closed)'}</span></div>
-              <div><span class="text-amber-800">总分(0-5):</span> <span class="${tsClass}">${num(tpf.TPAPre_tokenScore)}</span></div>
-              <div><span class="text-amber-800">庄散比:</span> <span class="text-gray-900">${ratioDisp}</span></div>
-              <div><span class="text-amber-800">净吸收:</span> <span class="text-gray-900">${pct(tpf.TPAPre_walletHoldingPct)}</span></div>
-              <div><span class="text-amber-800">庄占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_zhuangPct)}</span></div>
-              <div><span class="text-amber-800">新钱包占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_newWalletPct)}</span></div>
-              <div><span class="text-amber-800">散占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_retailPct)}</span></div>
-              <div><span class="text-amber-800">中占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_neutralPct)}</span></div>
-              <div><span class="text-amber-800">庄/散/新/中分:</span> <span class="text-gray-900">${num(tpf.TPAPre_zhuangScore)}/${num(tpf.TPAPre_retailScore)}/${num(tpf.TPAPre_newWalletScore)}/${num(tpf.TPAPre_neutralScore)}</span></div>
-              <div><span class="text-amber-800">retention:</span> <span class="text-gray-900">${num(tpf.TPAPre_retention)}</span></div>
-              <div><span class="text-amber-800">asof相对首价:</span> <span class="text-gray-900">${num(tpf.TPAPre_asofRelFirst)}</span></div>
-              <div><span class="text-amber-800">画像就绪年龄:</span> <span class="text-gray-900">${tpf.TPAPre_analyzedAgeSec == null ? 'null' : num(tpf.TPAPre_analyzedAgeSec, 0) + 's'}</span></div>
+              <div><span class="text-amber-200">TPA 状态:</span> <span class="${analyzed ? 'text-green-400' : 'text-red-400'}">${analyzed ? '✅ 已检测' : '❌ 未检测(null fail-closed)'}</span></div>
+              <div><span class="text-amber-200">总分(0-5):</span> <span class="${tsClass}">${num(tpf.TPAPre_tokenScore)}</span></div>
+              <div><span class="text-amber-200">庄散比:</span> <span class="text-gray-100">${ratioDisp}</span></div>
+              <div><span class="text-amber-200">净吸收:</span> <span class="text-gray-100">${pct(tpf.TPAPre_walletHoldingPct)}</span></div>
+              <div><span class="text-amber-200">庄占比:</span> <span class="text-gray-100">${pct(tpf.TPAPre_zhuangPct)}</span></div>
+              <div><span class="text-amber-200">新钱包占比:</span> <span class="text-gray-100">${pct(tpf.TPAPre_newWalletPct)}</span></div>
+              <div><span class="text-amber-200">散占比:</span> <span class="text-gray-100">${pct(tpf.TPAPre_retailPct)}</span></div>
+              <div><span class="text-amber-200">中占比:</span> <span class="text-gray-100">${pct(tpf.TPAPre_neutralPct)}</span></div>
+              <div><span class="text-amber-200">庄/散/新/中分:</span> <span class="text-gray-100">${num(tpf.TPAPre_zhuangScore)}/${num(tpf.TPAPre_retailScore)}/${num(tpf.TPAPre_newWalletScore)}/${num(tpf.TPAPre_neutralScore)}</span></div>
+              <div><span class="text-amber-200">retention:</span> <span class="text-gray-100">${num(tpf.TPAPre_retention)}</span></div>
+              <div><span class="text-amber-200">asof相对首价:</span> <span class="text-gray-100">${num(tpf.TPAPre_asofRelFirst)}</span></div>
+              <div><span class="text-amber-200">画像就绪年龄:</span> <span class="text-gray-100">${tpf.TPAPre_analyzedAgeSec == null ? 'null' : num(tpf.TPAPre_analyzedAgeSec, 0) + 's'}</span></div>
             </div>
           </div>
         `;
@@ -3058,12 +3058,12 @@ class ExperimentSignals {
         const pass = nrs.finalRating === 2 || nrs.finalRating === 3;
         const lead = Number(nrs.leadMs);
         narrativeRoundsHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">🧠 叙事分析轮次（触发条件链）</div>
+          <div class="mt-2 pt-2 border-t border-gray-600">
+            <div class="text-xs font-semibold text-amber-200 mb-1">🧠 叙事分析轮次（触发条件链）</div>
             <div class="grid grid-cols-3 gap-2 text-xs">
-              <div><span class="text-amber-800">轮数:</span> <span class="text-gray-900">${nrs.rounds}</span></div>
-              <div><span class="text-amber-800">终评:</span> <span class="${pass ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}">${nrs.finalRating == null ? 'null' : nrs.finalRating}${pass ? '（过门）' : '（拦截）'}</span></div>
-              <div><span class="text-amber-800">分析提前量:</span> <span class="text-gray-900">${Number.isFinite(lead) ? (lead / 1000).toFixed(1) + 's' : '—'}</span></div>
+              <div><span class="text-amber-200">轮数:</span> <span class="text-gray-100">${nrs.rounds}</span></div>
+              <div><span class="text-amber-200">终评:</span> <span class="${pass ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}">${nrs.finalRating == null ? 'null' : nrs.finalRating}${pass ? '（过门）' : '（拦截）'}</span></div>
+              <div><span class="text-amber-200">分析提前量:</span> <span class="text-gray-100">${Number.isFinite(lead) ? (lead / 1000).toFixed(1) + 's' : '—'}</span></div>
             </div>
           </div>
         `;
@@ -3080,11 +3080,11 @@ class ExperimentSignals {
             return `
               <div class="flex items-start justify-between py-1 border-b border-amber-100 last:border-0 bg-amber-50">
                 <div class="flex-1 pl-4">
-                  <div class="text-xs text-amber-800">
+                  <div class="text-xs text-amber-200">
                     <span class="font-medium">${fc.name}</span>
                   </div>
-                  <div class="text-xs text-amber-600 ml-4">
-                    <span class="text-gray-500">表达式:</span> <code class="text-xs bg-amber-100 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
+                  <div class="text-xs text-amber-300 ml-4">
+                    <span class="text-gray-700">表达式:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
                   </div>
                 </div>
                 <div class="ml-2 text-right">
@@ -3096,7 +3096,7 @@ class ExperimentSignals {
 
           // 正常条件的显示逻辑
           const statusIcon = fc.satisfied ? '✅' : '❌';
-          const statusClass = fc.satisfied ? 'text-green-700' : 'text-red-700';
+          const statusClass = fc.satisfied ? 'text-green-400' : 'text-red-400';
 
           // 风险指示：宽松/边缘
           let marginBadge = '';
@@ -3109,13 +3109,13 @@ class ExperimentSignals {
           return `
             <div class="flex items-start justify-between py-1 border-b border-amber-200 last:border-0 ${fc.isComplex ? 'bg-amber-50' : ''}">
               <div class="flex-1">
-                <div class="text-xs text-amber-900">
+                <div class="text-xs text-amber-200">
                   <span class="mr-1">${severityIcon}</span>
                   <span class="font-semibold">${fc.name}</span>
                   ${marginBadge}
                 </div>
-                <div class="text-xs text-amber-700 ml-5">
-                  <span class="text-gray-600">条件:</span> <code class="text-xs bg-amber-200 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
+                <div class="text-xs text-amber-300 ml-5">
+                  <span class="text-gray-600">条件:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
                 </div>
               </div>
               <div class="ml-2 text-right">
@@ -3127,16 +3127,16 @@ class ExperimentSignals {
         }).join('');
 
         failedConditionsHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">📋 条件检查详情</div>
-            <div class="bg-white rounded p-2 border border-amber-200 max-h-80 overflow-y-auto">
+          <div class="mt-2 pt-2 border-t border-gray-600">
+            <div class="text-xs font-semibold text-amber-200 mb-1">📋 条件检查详情</div>
+            <div class="bg-gray-900 rounded p-2 border border-gray-700 max-h-80 overflow-y-auto">
               ${failedItems}
             </div>
-            ${pr.reason ? `<div class="text-xs text-amber-800 mt-2">📝 ${this._escapeHtml(pr.reason)}</div>` : ''}
+            ${pr.reason ? `<div class="text-xs text-amber-200 mt-2">📝 ${this._escapeHtml(pr.reason)}</div>` : ''}
           </div>
         `;
       } else if (pr.reason) {
-        failedConditionsHtml = `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>`;
+        failedConditionsHtml = `<div class="text-xs text-amber-200 mt-2 border-t border-gray-600 pt-2">${this._escapeHtml(pr.reason)}</div>`;
       }
 
       // 第三层 GMGN 检查审计块（metadata.gmgnCheck：拒/过两路径引擎都落；
@@ -3148,27 +3148,27 @@ class ExperimentSignals {
         // 通过三态：真评估过=绿；无数据跳过（fail-open，2026-10-20）=琥珀；未过=红
         const gmgnPassBadge = gmgnCheckInfo.passed
           ? (covered
-            ? '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>'
-            : '<span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⚠️ 放行（无数据跳过）</span>')
-          : '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 未过</span>';
+            ? '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ 通过</span>'
+            : '<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ 放行（无数据跳过）</span>')
+          : '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full">❌ 未过</span>';
         const num = (v, d = 1) => v == null ? 'null' : Number(v).toFixed(d);
-        const valueCls = covered ? 'text-gray-900' : 'text-gray-400';
+        const valueCls = covered ? 'text-gray-100' : 'text-gray-400';
         const auditBits = [];
         if (gf.durationMs != null) auditBits.push(`耗时 ${num(gf.durationMs, 0)}ms`);
         if (gf.fromCache != null) auditBits.push(`cache=${gf.fromCache ? '1' : '0'}`);
         gmgnCheckHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
+          <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-900">🛡️ GMGN 风险检查（买前第三层实时）</div>
+              <div class="text-xs font-semibold text-amber-200">🛡️ GMGN 风险检查（买前第三层实时）</div>
               ${gmgnPassBadge}
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-              <div><span class="text-amber-800">bundler 钱包占比:</span> <span class="${valueCls}">${num(gf.gmgnBundlerWalletRatio)}%</span></div>
-              <div><span class="text-amber-800">推特关联发币数:</span> <span class="${valueCls}">${num(gf.gmgnIssuerTokenCount, 0)}</span></div>
-              <div><span class="text-amber-800">实时访问人数:</span> <span class="${valueCls}">${num(gf.gmgnVisitingCount, 0)}</span></div>
-              <div><span class="text-amber-800">covered:</span> <span class="${covered ? 'text-green-600' : 'text-amber-600'}">${covered ? '1（有数据）' : '0（无数据 → 放行）'}</span></div>
-              ${auditBits.length > 0 ? `<div class="col-span-3 text-gray-500">${auditBits.join(' · ')}</div>` : ''}
-              ${gmgnCheckInfo.reason ? `<div class="col-span-3 ${gmgnCheckInfo.passed ? 'text-amber-700' : 'text-red-700'}">📝 ${this._escapeHtml(gmgnCheckInfo.reason)}</div>` : ''}
+              <div><span class="text-amber-200">bundler 钱包占比:</span> <span class="${valueCls}">${num(gf.gmgnBundlerWalletRatio)}%</span></div>
+              <div><span class="text-amber-200">推特关联发币数:</span> <span class="${valueCls}">${num(gf.gmgnIssuerTokenCount, 0)}</span></div>
+              <div><span class="text-amber-200">实时访问人数:</span> <span class="${valueCls}">${num(gf.gmgnVisitingCount, 0)}</span></div>
+              <div><span class="text-amber-200">covered:</span> <span class="${covered ? 'text-green-400' : 'text-amber-300'}">${covered ? '1（有数据）' : '0（无数据 → 放行）'}</span></div>
+              ${auditBits.length > 0 ? `<div class="col-span-3 text-gray-700">${auditBits.join(' · ')}</div>` : ''}
+              ${gmgnCheckInfo.reason ? `<div class="col-span-3 ${gmgnCheckInfo.passed ? 'text-amber-300' : 'text-red-400'}">📝 ${this._escapeHtml(gmgnCheckInfo.reason)}</div>` : ''}
             </div>
           </div>
         `;
@@ -3184,10 +3184,10 @@ class ExperimentSignals {
         if (cheatCheckInfo.grade) {
           const g = cheatCheckInfo.grade;
           const gBadge = g === 'cheat'
-            ? '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full font-bold">🚫 cheat（拉黑不再交易+持仓清仓）</span>'
+            ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 cheat（拉黑不再交易+持仓清仓）</span>'
             : (g === 'unhealthy'
-              ? `<span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>`
-              : `<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`);
+              ? `<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>`
+              : `<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`);
           const codes = (cheatCheckInfo.reasons || []).map((r) => r.code).filter(Boolean).join(', ');
           // CD158 来源位：cached=同题集版本粘滞秒回（零 Jev）；graded=本信号真析；
           // reused=旧形状（增量门重用，历史行）
@@ -3204,14 +3204,14 @@ class ExperimentSignals {
               .sort((a, b) => gateBucketSortKey(a.bucket) - gateBucketSortKey(b.bucket));
             cheatQuestionsHtml = `
             <details class="mt-2">
-              <summary class="text-xs text-amber-800 cursor-pointer select-none">📋 16 题档位明细（Jev 题集，点开展开）</summary>
+              <summary class="text-xs text-amber-200 cursor-pointer select-none">📋 16 题档位明细（Jev 题集，点开展开）</summary>
               <div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
                 ${rows.map((r) => `
-                <div class="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded border border-amber-100">
-                  <span class="text-gray-700 truncate" title="${this._escapeHtml(r.k)}">${this._escapeHtml(CHEAT_QUESTION_LABELS[r.k] || r.k)}<span class="text-gray-400 ml-1">${this._escapeHtml(r.k)}</span></span>
+                <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 rounded border border-gray-700">
+                  <span class="text-gray-800 truncate" title="${this._escapeHtml(r.k)}">${this._escapeHtml(CHEAT_QUESTION_LABELS[r.k] || r.k)}<span class="text-gray-600 ml-1">${this._escapeHtml(r.k)}</span></span>
                   <span class="flex items-center gap-1 shrink-0">
                     <span class="px-1.5 py-0.5 rounded border ${gateBucketClass(r.bucket)}">${this._escapeHtml(String(r.bucket ?? '—'))}</span>
-                    ${r.level != null ? `<span class="text-gray-500">L=${this._escapeHtml(String(r.level))}</span>` : ''}
+                    ${r.level != null ? `<span class="text-gray-700">L=${this._escapeHtml(String(r.level))}</span>` : ''}
                   </span>
                 </div>`).join('')}
               </div>
@@ -3219,29 +3219,29 @@ class ExperimentSignals {
             `;
           }
           cheatCheckHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
+          <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（买信号门 CD158）</div>
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（买信号门 CD158）</div>
               ${gBadge}
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-              ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-800">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（下个买信号自动重判）</div>` : ''}
-              ${cheatCheckInfo.conditionPassed === true ? '<div><span class="text-amber-800">门条件:</span> 通过</div>' : ''}
-              ${cheatCheckInfo.condition ? `<div class="col-span-3"><span class="text-amber-800">门条件表达式:</span> <code class="text-xs bg-white px-1 rounded">${this._escapeHtml(String(cheatCheckInfo.condition))}</code>${cheatCheckInfo.conditionError ? ` <span class="text-red-700">评估异常: ${this._escapeHtml(String(cheatCheckInfo.conditionError))}</span>` : ''}</div>` : ''}
-              ${codes ? `<div class="col-span-3"><span class="text-amber-800">触发通道:</span> <code class="text-xs bg-white px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
-              <div class="col-span-3 text-gray-500">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 15 题；映射=cheat-grade G15）'}</div>
+              ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-200">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（下个买信号自动重判）</div>` : ''}
+              ${cheatCheckInfo.conditionPassed === true ? '<div><span class="text-amber-200">门条件:</span> 通过</div>' : ''}
+              ${cheatCheckInfo.condition ? `<div class="col-span-3"><span class="text-amber-200">门条件表达式:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(String(cheatCheckInfo.condition))}</code>${cheatCheckInfo.conditionError ? ` <span class="text-red-700">评估异常: ${this._escapeHtml(String(cheatCheckInfo.conditionError))}</span>` : ''}</div>` : ''}
+              ${codes ? `<div class="col-span-3"><span class="text-amber-200">触发通道:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
+              <div class="col-span-3 text-gray-700">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 15 题；映射=cheat-grade G15）'}</div>
             </div>
             ${cheatQuestionsHtml}
           </div>
           `;
         } else if (cs === 'timeout_fail_open') {
           cheatCheckHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
+          <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（G1 分级门）</div>
-              <span class="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">⏱️ 竞速超时放行</span>
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（G1 分级门）</div>
+              <span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⏱️ 竞速超时放行</span>
             </div>
-            <div class="text-xs text-gray-500">本笔放行（等待 ${cheatCheckInfo.awaitMs ?? '—'}ms 未出结果）；迟到结果下轮生效（cheat 迟到则补拉黑+清仓）</div>
+            <div class="text-xs text-gray-700">本笔放行（等待 ${cheatCheckInfo.awaitMs ?? '—'}ms 未出结果）；迟到结果下轮生效（cheat 迟到则补拉黑+清仓）</div>
           </div>
           `;
         } else {
@@ -3255,21 +3255,21 @@ class ExperimentSignals {
             : cs === 'joined_inflight' ? '历史观察行（CD158 前观察模式：并入进行中的分析）'
             : `放行（status=${cs || '—'}）`;
           cheatCheckHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
+          <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-900">🚨 作弊盘检测（买信号门 CD158）</div>
-              <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">放行</span>
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（买信号门 CD158）</div>
+              <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">放行</span>
             </div>
-            <div class="text-xs text-gray-500">${this._escapeHtml(label)}${cheatCheckInfo.lastAnchorTickCount != null ? ` · 上次锚窗 ${cheatCheckInfo.lastAnchorTickCount} ticks` : ''}</div>
+            <div class="text-xs text-gray-700">${this._escapeHtml(label)}${cheatCheckInfo.lastAnchorTickCount != null ? ` · 上次锚窗 ${cheatCheckInfo.lastAnchorTickCount} ticks` : ''}</div>
           </div>
           `;
         }
       }
 
       preBuyCheckHtml = `
-        <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
+        <div class="mt-2 p-3 bg-gray-800 rounded-lg border border-gray-600">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-amber-900 font-semibold text-sm">🔍 购买前置检查</span>
+            <span class="text-amber-200 font-semibold text-sm">🔍 购买前置检查</span>
             <div class="flex items-center gap-1">
               ${checkResultBadge}
               ${permanentBlockBadge}
@@ -3323,7 +3323,7 @@ class ExperimentSignals {
       if (Object.keys(tf).length > 0) {
         const drawdownClass = this._getFactorClass('drawdownFromHighest', tf.drawdownFromHighest || 0, sellThresholds);
         const holdDurationClass = this._getFactorClass('holdDuration', (tf.holdDuration || 0) / 60, sellThresholds);
-        const profitPercentClass = tf.profitPercent >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+        const profitPercentClass = tf.profitPercent >= 0 ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold';
 
         sellFactorsHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
@@ -3342,7 +3342,7 @@ class ExperimentSignals {
               ${tf.holdDuration !== undefined ? `<div><span class="text-blue-800">买入后时长:</span> <span class="text-gray-900">${formatNum(tf.holdDuration / 60)}分</span></div>` : ''}
               ${tf.trendRecentDownRatio !== undefined ? `<div><span class="text-blue-800">近期下跌比:</span> <span class="text-gray-900">${formatNum(tf.trendRecentDownRatio)}</span></div>` : ''}
               ${tf.trendConsecutiveDowns !== undefined ? `<div><span class="text-blue-800">连跌次数:</span> <span class="text-gray-900">${tf.trendConsecutiveDowns}</span></div>` : ''}
-              ${tf.trendDrawdownFromWindowHigh !== undefined ? `<div><span class="text-blue-800">窗口回撤:</span> <span class="${tf.trendDrawdownFromWindowHigh < -20 ? 'text-red-600' : 'text-gray-900'}">${formatPercent(tf.trendDrawdownFromWindowHigh)}</span></div>` : ''}
+              ${tf.trendDrawdownFromWindowHigh !== undefined ? `<div><span class="text-blue-800">窗口回撤:</span> <span class="${tf.trendDrawdownFromWindowHigh < -20 ? 'text-red-700' : 'text-gray-900'}">${formatPercent(tf.trendDrawdownFromWindowHigh)}</span></div>` : ''}
               ${tf.txVolumeU24h !== undefined ? `<div><span class="text-blue-800">24h交易量:</span> <span class="text-gray-900">$${formatNum(tf.txVolumeU24h / 1000)}K</span></div>` : ''}
             </div>
           </div>
@@ -3367,7 +3367,7 @@ class ExperimentSignals {
             <div class="grid grid-cols-2 gap-2 text-xs">
               <div><span class="text-blue-800">卖出数量:</span> <span class="text-gray-900">${formatNum(inputAmount)}</span></div>
               <div><span class="text-blue-800">获得金额:</span> <span class="text-gray-900">${formatNum(outputAmount, 4)} BNB</span></div>
-              <div><span class="text-blue-800">实际利润率:</span> <span class="${actualProfitPercent >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercent(actualProfitPercent)}</span></div>
+              <div><span class="text-blue-800">实际利润率:</span> <span class="${actualProfitPercent >= 0 ? 'text-green-700' : 'text-red-700'}">${formatPercent(actualProfitPercent)}</span></div>
               <div><span class="text-blue-800">交易状态:</span> <span class="text-green-600">✅ 成功</span></div>
             </div>
           </div>
@@ -3419,10 +3419,10 @@ class ExperimentSignals {
       ${sellStrategyHtml}
 
       <details class="mt-3">
-        <summary class="cursor-pointer text-xs text-blue-600 hover:text-blue-800">
+        <summary class="cursor-pointer text-xs text-blue-300 hover:text-blue-200">
           📋 查看完整元数据
         </summary>
-        <div class="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+        <div class="mt-2 p-3 bg-gray-900 rounded-md border border-gray-700">
           <pre class="text-xs bg-gray-900 text-green-400 p-2 rounded overflow-x-auto max-h-64 font-mono">${JSON.stringify(signal.metadata || {}, null, 2)}</pre>
         </div>
       </details>
@@ -3883,7 +3883,7 @@ class ExperimentSignals {
       }
       chips.push(`<code class="px-1.5 py-0.5 rounded text-xs ${cls}">${this._escapeHtml(text)}</code>`);
     }
-    return `<div class="mt-1 flex flex-wrap gap-1 items-center"><span class="text-amber-800">📊 因子值:</span>${chips.join('')}</div>`;
+    return `<div class="mt-1 flex flex-wrap gap-1 items-center"><span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">📊 因子值:</span>${chips.join('')}</div>`;
   }
 
   /**
