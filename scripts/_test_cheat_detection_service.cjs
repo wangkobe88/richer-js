@@ -33,22 +33,32 @@ function ok(cond, label) {
 // ── 内存 DB 桩：链式 builder（select/eq/order/limit/insert），holder 数据可热替换 ──
 function makeDb({ ticks = [], cheatLatest = [], failInsert = false, failTicks = false } = {}) {
   const holder = { ticks, cheatLatest, failInsert, failTicks };
-  const state = { inserts: [], tickQueries: 0, headQueries: 0, latestQueries: 0, cheatOps: [] };
+  const state = { inserts: [], tickQueries: 0, headQueries: 0, latestQueries: 0, cheatOps: [], tickOps: [], otherTables: [] };
   function resultFor(table, ops) {
     if (table === 'wss_price_ticks') {
       state.tickQueries++;
+      state.tickOps.push(ops);
       if (holder.failTicks) return { data: null, error: { message: 'db down' } };
       const limitOp = ops.find((o) => o[0] === 'limit');
       const limit = limitOp ? limitOp[1][0] : 1000;
+      // anchorMs 截窗（backtest.signalGateReal）语义过滤：.lte('block_time', iso) →
+      // 锚后行不可见（as-of 防前视——服务侧由 DB 截窗承担，桩侧同款实现供断言）
+      const lteOp = ops.find((o) => o[0] === 'lte' && o[1][0] === 'block_time');
+      const anchorTs = lteOp ? new Date(lteOp[1][1]).getTime() : null;
       const orders = ops.filter((o) => o[0] === 'order');
       const asc = orders.length ? orders[0][1][1] && orders[0][1][1].ascending !== false : true;
       if (asc) state.headQueries++;
-      const sorted = [...holder.ticks].sort((a, b) => (a.block_number - b.block_number) || (a.log_index - b.log_index));
+      const visible = anchorTs != null
+        ? holder.ticks.filter((r) => new Date(r.block_time).getTime() <= anchorTs)
+        : holder.ticks;
+      const sorted = [...visible].sort((a, b) => (a.block_number - b.block_number) || (a.log_index - b.log_index));
       const data = asc ? sorted.slice(0, limit) : sorted.slice(-limit).reverse();
       return { data, error: null };
     }
     // cheat_detection：bootstrap 最新行查询（CD158：count 起底已退役）/ insert
+    // （wss_events createMeta 查询同走本分支——Y 段按 otherTables 表名断言）
     state.latestQueries++;
+    state.otherTables.push(table);
     state.cheatOps.push(ops);
     return { data: holder.cheatLatest, error: null };
   }
@@ -58,6 +68,7 @@ function makeDb({ ticks = [], cheatLatest = [], failInsert = false, failTicks = 
       const p = {
         select: (...a) => { ops.push(['select', a]); return p; },
         eq: (...a) => { ops.push(['eq', a]); return p; },
+        lte: (...a) => { ops.push(['lte', a]); return p; },
         order: (...a) => { ops.push(['order', a]); return p; },
         limit: (...a) => { ops.push(['limit', a]); return p; },
         insert: (rows) => {
@@ -728,6 +739,69 @@ async function main() {
     const blockedAdds = (svcSrc.match(/this\._gateBlocked\.add\(token\)/g) || []).length;
     ok(hasBlockedAdd && blockedAdds === 2,
       `_gateBlocked.add 恰两处（cheat 判定+bootstrap cheat 行恢复——无 unhealthy 来源；实际 ${blockedAdds}）`);
+  }
+
+  // ═══════════════ Y. anchorMs 截窗 + persist:false 回测隔离（backtest.signalGateReal） ═══════════════
+  console.log('Y. anchorMs 截窗 + persist:false 回测隔离');
+  {
+    // Y1 anchorMs 截窗（tail 单查询）：.lte('block_time', 锚 iso) 传参 + 桩语义过滤
+    // genTicks(50, { routerEvery: 2 })：行 i 的 block_time=1700000000000+i*2000ms——锚=行 30 时刻 → 锚内 31 行
+    const anchorMs = 1700000000000 + 30 * 2000;
+    const db1 = makeDb({ ticks: genTicks(50, { routerEvery: 2 }) });
+    const r1 = await makeSvc(db1, makeLlm({ answers: NONE_ANSWERS }))
+      .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs });
+    const ltes1 = db1.state.tickOps.flatMap((o) => o.filter((x) => x[0] === 'lte'));
+    ok(r1.status === 'analyzed' && r1.grade === 'healthy',
+      `锚内 31 行 ≥ minTicks 全链（实际 ${r1.status}/${r1.grade}）`);
+    ok(ltes1.length === 1 && ltes1[0][1][0] === 'block_time' && ltes1[0][1][1] === new Date(anchorMs).toISOString(),
+      `tail 查询 .lte('block_time', 锚 iso)（实际 ${JSON.stringify(ltes1.map((x) => x[1]))}）`);
+    // Y1b 锚切到行 6（锚内 7 行 < minTicks 8）→ insufficient_ticks：锚后 43 行被截
+    //（无锚=50 行必过预门——截窗「真的截」的行为证据）
+    const db1b = makeDb({ ticks: genTicks(50, { routerEvery: 2 }) });
+    const r1b = await makeSvc(db1b, makeLlm({ answers: NONE_ANSWERS }))
+      .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs: 1700000000000 + 6 * 2000 });
+    ok(r1b.status === 'insufficient_ticks' && r1b.anchorTickCount === 7,
+      `锚截 7 行 < minTicks → insufficient_ticks（实际 ${r1b.status}/${r1b.anchorTickCount}）`);
+    // Y1c 满帽补 head：pullLimit 20 × 锚内 31 行 → tail 20=capped → head 查询同样带 lte
+    const db1c = makeDb({ ticks: genTicks(50, { routerEvery: 2 }) });
+    const svc1c = makeSvc(db1c, makeLlm({ answers: NONE_ANSWERS }), { pullLimit: 20, headLimit: 10 });
+    await svc1c.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs });
+    const ltes1c = db1c.state.tickOps.flatMap((o) => o.filter((x) => x[0] === 'lte'));
+    ok(ltes1c.length === 2 && ltes1c.every((x) => x[1][1] === new Date(anchorMs).toISOString()),
+      `capped 补 head 两查询均 .lte 截窗（实际 ${ltes1c.length} 处）`);
+    // Y2 无/非法 anchorMs=零 lte（生产现状 bit 一致；0/负数=有限正数门拒收）
+    const db2 = makeDb({ ticks: genTicks(50, { routerEvery: 2 }) });
+    const r2 = await makeSvc(db2, makeLlm({ answers: NONE_ANSWERS }))
+      .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.status === 'analyzed' && db2.state.tickOps.every((o) => !o.some((x) => x[0] === 'lte')),
+      '不传 anchorMs → 零 lte（生产 tail 语义不变）');
+    const db2b = makeDb({ ticks: genTicks(50, { routerEvery: 2 }) });
+    await makeSvc(db2b, makeLlm({ answers: NONE_ANSWERS }))
+      .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs: 0 });
+    ok(db2b.state.tickOps.every((o) => !o.some((x) => x[0] === 'lte')),
+      'anchorMs=0（非法）→ 同不传（有限正数门）');
+    // Y3 persist:false：跳写 cheat_detection + 禁 bootstrap 读（回测隔离——防污染生产
+    // bootstrap/粘滞判定域；判定链本身完整照常）
+    const db3 = makeDb({ ticks: genTicks(20) });
+    const svc3 = makeSvc(db3, makeLlm({ answers: NONE_ANSWERS }), { persist: false });
+    const r3 = await svc3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r3.status === 'analyzed' && r3.grade === 'healthy', 'persist=false 判定链完整照常');
+    ok(db3.state.inserts.length === 0 && svc3.stats.persistSkipped >= 1,
+      `跳写 cheat_detection（inserts=0/persistSkipped=${svc3.stats.persistSkipped}）`);
+    ok(db3.state.otherTables.every((t) => t !== 'cheat_detection') && svc3._bootstrapped.has('0xtok'),
+      `禁 bootstrap 读（cheat_detection 零查询（其余表=${[...new Set(db3.state.otherTables)]}——wss_events createMeta 照常=一次性历史事实无前视）；_bootstrapped 标记防重复进段）`);
+    const db3b = makeDb({ ticks: genTicks(20) });
+    await makeSvc(db3b, makeLlm({ answers: NONE_ANSWERS })).gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(db3b.state.inserts.length === 1, '对照组 persist 默认=true 照常落 1 行');
+    // Y4 回测构造形状物化：settleDelayMs:0 不回落 4000（num min=0）+ persist 物化
+    const svc4 = new CheatCheckService({ enabled: true, settleDelayMs: 0, persist: false }, null,
+      { dbClient: makeDb().client });
+    ok(svc4._settleDelayMs === 0 && svc4._persist === false,
+      `settleDelayMs:0/persist:false 物化（实际 ${svc4._settleDelayMs}/${svc4._persist}——回测注入跳 settle 等待）`);
+    // Y5 源码口径：.lte('block_time', anchorIso) 恰两处（tail+head）
+    const src5 = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
+    const lteSrc = (src5.match(/\.lte\('block_time', anchorIso\)/g) || []).length;
+    ok(lteSrc === 2, `.lte('block_time', anchorIso) 源码恰两处 tail+head（实际 ${lteSrc}）`);
   }
 
   console.log(`\n✅ _test_cheat_detection_service 全过（${passed} 断言）`);

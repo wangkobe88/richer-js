@@ -88,6 +88,10 @@ class BuyPointCheckService {
     this._gateAwaitMs = num(config.gate && config.gate.awaitMs, DEFAULTS.gateAwaitMs, 1);
     this._settleFlushMs = num(config.settleFlushMs, DEFAULTS.settleFlushMs);
     this._auditShadow = config.memSource ? config.memSource.auditShadow !== false : true;
+    // 回测隔离（backtest.signalGateReal 实验专用，引擎构造时硬编码注入）：persist=false
+    // 禁 _writeRow——buy_point_analyses 是全局表，回测判定行会污染生产域；判定轨迹由
+    // signal metadata（buyPoint 段）留档。BP 无 bootstrap/粘滞（每买信号真析）无禁读面
+    this._persist = config.persist !== false;
 
     this._logger = logger;
     this._deps = deps;
@@ -106,6 +110,7 @@ class BuyPointCheckService {
       gateNoted: 0, gateTimeouts: 0, gateAssessed: 0,
       settleIdleHits: 0, settleIdleTimeouts: 0,  // waitIdle 双模观测
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // mem 对拍护栏观测
+      persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
     };
   }
 
@@ -140,7 +145,7 @@ class BuyPointCheckService {
 
     let chain = this._inflight.get(token);
     if (!chain) {
-      chain = this._chain(token, tokenMeta, context).finally(() => this._inflight.delete(token));
+      chain = this._chain(token, tokenMeta, context, opts).finally(() => this._inflight.delete(token));
       chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
       this._inflight.set(token, chain);
     } else {
@@ -164,7 +169,7 @@ class BuyPointCheckService {
 
   // ─────────────────────────── 分析链（全吞错） ───────────────────────────
 
-  async _chain(token, tokenMeta, context) {
+  async _chain(token, tokenMeta, context, opts = {}) {
     try {
       // 1) settle：尾部突发簇落 DB（tickBuffer 500ms flush + sender 回查 0-3s）
       //    双模（与 cheat 同款）：注入 waitIdle → 等 per-token 回查清空；未注入=固定 sleep
@@ -200,8 +205,12 @@ class BuyPointCheckService {
         return { status: 'fail', reason: 'cooldown' };
       }
 
-      // 4) 拉数（双源：mem 行环优先，miss 回落 DB）
-      const pull = await this._pullTicks(token);
+      // 4) 拉数（双源：mem 行环优先，miss 回落 DB）。anchorMs（回测 as-of 锚，
+      // backtest.signalGateReal 链路传入=信号 fire 虚拟时刻）：DB 查询 .lte(block_time)
+      // 截窗防前视——回测时 DB 已有全史，无锚=「最新」行集=马后炮；生产不传=现状
+      // tail 语义（inflight join 边缘：join 上的链用首触发票锚——回测串行回放无并发）
+      const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
+      const pull = await this._pullTicks(token, _anchorMs);
       if (pull.fromMem && this._auditShadow) {
         this._shadowAudit(token, pull); // fire-and-forget 对拍护栏（全吞错，不拦截）
       }
@@ -331,7 +340,7 @@ class BuyPointCheckService {
    * 拉数（双源，与 cheat CD237 同构）：deps.pullTicks 注入（引擎 collector 行环）
    * → mem 优先；miss 等 settleFlushMs 边界（等 buffer flush+INSERT）再走 DB。
    */
-  async _pullTicks(token) {
+  async _pullTicks(token, anchorMs = null) {
     const pullMem = this._deps.pullTicks;
     if (pullMem) {
       const mem = await pullMem(token);
@@ -344,17 +353,22 @@ class BuyPointCheckService {
       }
       await new Promise((r) => setTimeout(r, this._settleFlushMs));
     }
-    return this._pullTicksDb(token);
+    return this._pullTicksDb(token, anchorMs);
   }
 
   /**
    * 拉数（DB 路径）：tail 单查询（链上真序倒序 limit pullLimit）=锚；满帽才补 head。
+   * anchorMs（回测 as-of 锚）非空时两查询均 .lte(block_time) 截窗——锚计数语义
+   * 不变；null=现状生产 tail 语义。
    */
-  async _pullTicksDb(token) {
+  async _pullTicksDb(token, anchorMs = null) {
     const client = this._client();
-    const tail = await client.from('wss_price_ticks')
+    const anchorIso = anchorMs != null ? new Date(anchorMs).toISOString() : null;
+    let tailQ = client.from('wss_price_ticks')
       .select(TICK_SELECT_COLUMNS)
-      .eq('token_address', token)
+      .eq('token_address', token);
+    if (anchorIso) tailQ = tailQ.lte('block_time', anchorIso);
+    const tail = await tailQ
       .order('block_number', { ascending: false })
       .order('log_index', { ascending: false })
       .limit(this._pullLimit);
@@ -370,9 +384,11 @@ class BuyPointCheckService {
         watermark: this._watermarkOf(rows), quoteToken: this._latestQuoteToken(rows),
       };
     }
-    const head = await client.from('wss_price_ticks')
+    let headQ = client.from('wss_price_ticks')
       .select(TICK_SELECT_COLUMNS)
-      .eq('token_address', token)
+      .eq('token_address', token);
+    if (anchorIso) headQ = headQ.lte('block_time', anchorIso);
+    const head = await headQ
       .order('block_number', { ascending: true })
       .order('log_index', { ascending: true })
       .limit(this._headLimit);
@@ -496,6 +512,9 @@ class BuyPointCheckService {
    * jev_prompt 仅每 (token, question_version) 首行落全文（无界增长防线）。
    */
   async _writeRow(token, meta, pull, mapped, raw, context, snapshot) {
+    // persist=false（回测隔离）：绝不写 buy_point_analyses 全局表；判定轨迹由引擎侧
+    // signal metadata（buyPoint 段）留档
+    if (!this._persist) { this.stats.persistSkipped++; return; }
     try {
       const promptKey = `${token}\0${this._version}`;
       const isFirst = !this._promptWritten.has(promptKey);

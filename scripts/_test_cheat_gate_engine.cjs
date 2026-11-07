@@ -485,10 +485,14 @@ console.log('E. 引擎侧源码口径锁（CD158 形状）');
   ok('gate.enabled 双开关退役反证（_cheatGateEnabled 零出现——腿字段即门）', !src.includes('_cheatGateEnabled'));
   ok('unhealthyReanalyses 升级臂退役反证（引擎侧零出现）', !src.includes('unhealthyReanalyses'));
   // E7 unhealthy 不拉黑：_cheatExitPosition 只由 cheat 路径调用（三处=硬拒 helper
-  // +迟到 late 链+买路径收口补丁 T117——均 cheat 域；unhealthy 永不触发清仓）
+  // +迟到 late 链+买路径收口补丁 T117——均 cheat 域；unhealthy 永不触发清仓）。
+  // 2026-11-07 门链上移 core/AbstractTradingEngine：定义+硬拒/迟到两调用在基类
+  // （ABS 计 3 处），FourMeme 仅买路径收口 1 处——跨文件同口径锁
+  const absSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
   const exitCalls = (src.match(/this\._cheatExitPosition\(tokenAddress, 'cheat [^']*'\)/g) || []).length;
-  ok('_cheatExitPosition 调用恰三处且 why 恒 cheat 域（硬拒 helper+迟到+买路径收口——unhealthy 永不触发清仓）',
-    exitCalls === 3, exitCalls);
+  const exitCallsBase = (absSrc.match(/this\._cheatExitPosition\(tokenAddress, 'cheat [^']*'/g) || []).length;
+  ok('_cheatExitPosition 调用恰三处且 why 恒 cheat 域（基类硬拒 helper+迟到 2 处+FourMeme 买路径收口 1 处——unhealthy 永不触发清仓）',
+    exitCalls === 1 && exitCallsBase === 2, { fourmeme: exitCalls, base: exitCallsBase });
 }
 
 console.log(`\n${pass} 通过, ${fail} 失败`);

@@ -439,6 +439,7 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
 {
   const ENG = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
   const BT = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  const ABS = fs.readFileSync(path.join(__dirname, '../src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
   const SE = fs.readFileSync(path.join(__dirname, '../src/strategies/StrategyEngine.js'), 'utf8');
 
   // E1 门链块顺序：记账在作弊门前（触发即消耗先落账，门拒时已消耗=阶梯多次机会设计）
@@ -474,13 +475,38 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
   // E6 实时 evaluate 传排除集（阶梯接棒接线点）
   ok('实时 evaluate 第 6 参接线', ENG.includes('{ excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) })'));
 
-  // E7 计数无回滚：_sgRecordTrigger 全源码恰 2 处（定义+门链块唯一调用）——
-  // 多一处=有旁路记账点；无「门拒回退」代码（触发即消耗用户裁定）
-  check('_sgRecordTrigger 调用点恰 2 处（定义+门链）', ENG.split('_sgRecordTrigger').length - 1, 2);
-  ok('无计数回滚形状（源码不含减法回退）', !/_sgRecordTrigger[\s\S]{0,40}-\s*1/.test(ENG));
+  // E7 计数无回滚：_sgRecordTrigger 定义在基类（2026-11-07 门链上移）、调用在
+  // FourMeme 门链块恰 1 处——多一处=有旁路记账点；无「门拒回退」代码（触发即
+  // 消耗用户裁定）；BacktestEngine signalGateReal 挂点为第二调用域（接线时此处
+  // 同步放宽）
+  check('_sgRecordTrigger 定义在基类恰 1 处', ABS.split('_sgRecordTrigger').length - 1, 1);
+  check('_sgRecordTrigger FourMeme 调用恰 1 处（门链块）', ENG.split('_sgRecordTrigger').length - 1, 1);
+  ok('无计数回滚形状（源码不含减法回退）',
+    !/_sgRecordTrigger[\s\S]{0,40}-\s*1/.test(ENG) && !/_sgRecordTrigger[\s\S]{0,40}-\s*1/.test(ABS));
 
   // E8 StrategyEngine 互斥七字段清单在场（防字段漏配回退成静默并存）
   ok('互斥七字段数组', SE.includes("'narrativeTriggerCondition', 'narrativeCallCondition'") && SE.includes("'cheatCheckCondition'"));
+
+  // E9 signalGateReal 条件化（2026-11-07 受控解禁「回测恒拒」2026-11-05 裁定）：
+  // 缺省 false=排除集全量组装现状零影响；=true 真调门链——排除集按触发计数、
+  // 挂点先记账后两门（anchorMs=nowTs 虚拟时刻透传防 DB 全史前视）、服务构造
+  // persist:false 隔离注入（禁写 cheat_detection/buy_point_analyses 全局表）
+  ok('signalGateReal 开关缺省 false（其它回测实验恒拒现状零影响）',
+    BT.includes('this._signalGateReal = backtestConfig.signalGateReal === true;'));
+  ok('signalGateReal 排除集短路（真调链路不组装全量排除集）',
+    BT.includes('const _sgIds = this._signalGateReal ? [] :'));
+  ok('signalGateReal evaluate 走触发计数排除集（阶梯接棒与实时同语义）',
+    BT.includes('this._signalGateReal\n        ? { excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) }'));
+  ok('signalGateReal 门链挂点（signal 落库后先记账→作弊门→BP 门）',
+    BT.includes('strategy.signalGate && this._signalGateReal') &&
+    BT.includes('this._sgRecordTrigger(tokenAddress, strategy.id);\n\n        const _meta'));
+  ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视）',
+    BT.includes('strategy.signalGate, { anchorMs: nowTs })') &&
+    BT.includes('anchorMs: nowTs,'));
+  ok('signalGateReal 服务构造 persist:false 隔离注入',
+    BT.includes('persist: false, settleDelayMs: 0'));
+  ok('signal 落库 metadata signalGate 段（triggerNo 预读 +1 留痕）',
+    BT.includes('triggerNo: this._sgTriggerCount(tokenAddress, strategy.id) + 1'));
 }
 
 console.log(`\n${'='.repeat(60)}`);

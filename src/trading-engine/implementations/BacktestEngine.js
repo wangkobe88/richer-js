@@ -94,6 +94,19 @@ class BacktestEngine extends AbstractTradingEngine {
     this._inflightEvals = new Set();    // 回放中 fire-and-forget 的评估 promise（买评估/卖去抖 fire；drain 用）
     this._finalStatusSet = false;       // 回放终态已写（stop 保护用）
 
+    // T117 signalGateReal 门链字段（2026-11-07 受控解禁；_initializeDataSources
+    // 读 config 后 _signalGateReal=true 才构造服务）。门链方法本体在
+    // core/AbstractTradingEngine（与实时引擎单一真相源）；字段形状对齐 FourMeme
+    // ctor——缺省 null/空集=非 signalGateReal 实验零交互
+    this._signalGateReal = false;
+    this._cheatCheckService = null;
+    this._buyPointCheckService = null;
+    this._cheatGateAwaitMs = 15000;
+    this._bpGateAwaitMs = 15000;
+    this._cheatBlockedTokens = new Set();
+    this._cheatProjectedTokens = new Set();
+    this._signalSourceTriggerCounts = new Map();
+
     // graduation 事件回放（2026-10-10 虚拟↔回测一致性对齐，a21fa102 CZ 毕业票案）：
     // 毕业后 token ticks 停止，虚拟引擎有事件驱动全清（_handleGraduation →
     // _emitGraduationSell，断流前最后可靠价落袋），回测缺事件流时毕业持仓只能靠
@@ -167,6 +180,14 @@ class BacktestEngine extends AbstractTradingEngine {
     }
     this._startTimeFilter = backtestConfig.startTime ? new Date(backtestConfig.startTime).getTime() : null;
     this._endTimeFilter = backtestConfig.endTime ? new Date(backtestConfig.endTime).getTime() : null;
+
+    // T117 signalGateReal（2026-11-07 受控解禁「门在回测恒拒」2026-11-05 裁定）：
+    // signalGate 腿回测真调门链（cheat 16 题+BP 题集 Jev）。缺省 false=恒拒现状
+    // （其它回测实验零影响）；=true 时门链服务 persist:false 隔离注入（禁写
+    // cheat_detection/buy_point_analyses 全局表+禁读生产 bootstrap，防污染生产
+    // 判定域）+ 挂点 anchorMs=信号 fire 虚拟时刻（service DB 拉数 lte 截窗，
+    // 防 DB 全史前视）
+    this._signalGateReal = backtestConfig.signalGateReal === true;
 
     const { ExperimentFactory } = require('../factories/ExperimentFactory');
     const sourceExp = await ExperimentFactory.getInstance().load(this._sourceExperimentId);
@@ -343,12 +364,37 @@ class BacktestEngine extends AbstractTradingEngine {
       new Set(_PreBuyCheckService.getConditionFactorKeys()),
       new Set(_GmgnRiskCheckService.getConditionFactorKeys()));
 
-    // T117 signalGate 腿回测排除集（2026-11-05 用户裁定「门在回测恒拒」）：
-    // loadStrategies 后一次性组装（计数无关——门链回测零接线，带腿即全排除），
-    // 买 evaluate 第 6 参传入；空集 null=零开销（非 signalGate 实验零影响）
-    const _sgIds = this._strategyEngine.getAllStrategies()
+    // T117 signalGate 腿回测排除集（2026-11-05 用户裁定「门在回测恒拒」；2026-11-07
+    // signalGateReal 受控解禁——真调链路不组装）：缺省 loadStrategies 后一次性组装
+    // （计数无关——门链零接线时带腿即全排除），买 evaluate 第 6 参传入；
+    // 空集 null=零开销（非 signalGate 实验零影响）
+    const _sgIds = this._signalGateReal ? [] : this._strategyEngine.getAllStrategies()
       .filter(s => s.signalGate).map(s => s.id);
     this._sgExcludedIds = _sgIds.length > 0 ? new Set(_sgIds) : null;
+
+    // T117 signalGateReal 门链服务（2026-11-07 受控解禁，仅 signalGateReal=true 构造）：
+    // 构造隔离注入——persist:false（服务 _writeRow 跳过+cheat _bootstrapHistory 直返，
+    // 绝不读写 cheat_detection/buy_point_analyses 全局表=生产 bootstrap/粘滞判定域
+    // 零污染）；settleDelayMs:0（无 collector/resolver——回放数据已在 DB，无 flush
+    // 边界零等待）；deps 不注入 waitIdle/pullTicks（mem 源恒关=纯 DB 路径，per-signal
+    // anchorMs lte 截窗防全史前视）。gate awaitMs 读实验 config（回测实验配 60s——
+    // Jev 秒级竞速超时几乎不触发；缺省 15s 与生产同）；拉黑清仓联动依赖的
+    // _tokenPool/_factorAggregator/_emitSellSignal 引擎既有件（Abstract 门链共用）
+    if (this._signalGateReal) {
+      const _wsCfg = this._experiment.config?.fourmemeWs || {};
+      const { CheatCheckService } = require('../../market-analysis/CheatCheckService');
+      const { BuyPointCheckService } = require('../../market-analysis/BuyPointCheckService');
+      this._cheatCheckService = new CheatCheckService(
+        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, {});
+      this._buyPointCheckService = new BuyPointCheckService(
+        { ...(_wsCfg.buyPointCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, {});
+      const _cgAw = _wsCfg.cheatCheck?.gate?.awaitMs;
+      const _bpAw = _wsCfg.buyPointCheck?.gate?.awaitMs;
+      this._cheatGateAwaitMs = Number.isFinite(_cgAw) && _cgAw > 0 ? _cgAw : 15000;
+      this._bpGateAwaitMs = Number.isFinite(_bpAw) && _bpAw > 0 ? _bpAw : 15000;
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}（persist:false 隔离+anchorMs 截窗）`);
+    }
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化，语义同实时引擎）
@@ -1795,11 +1841,15 @@ class BacktestEngine extends AbstractTradingEngine {
         this._tokenPool.initStrategyExecutions(token.token, token.chain || 'bsc', strategyIds);
       }
 
-      // 分腿评估（只看买腿；T117 signalGate 腿全量排除——回测恒拒，用户裁定
-      // 2026-11-05：门链=cheat 门→BP 门的实时盘面判定，回测无接线；带 signalGate
-      // 买腿的实验回测零买信号=预期形状，排除集 loadStrategies 后一次性组装）
-      const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy',
-        this._sgExcludedIds ? { excludeStrategyIds: this._sgExcludedIds } : null);
+      // 分腿评估（只看买腿；T117 signalGate 腿两态：signalGateReal=false 全量排除
+      // ——回测恒拒 2026-11-05 用户裁定（门链=cheat 门→BP 门的实时盘面判定，回测
+      // 无接线；带 signalGate 买腿的实验回测零买信号=预期形状，排除集
+      // loadStrategies 后一次性组装）；=true 受控解禁——signalGate 腿正常评估，
+      // 排除集按触发计数组装（阶梯接棒，与实时引擎同语义，signal 落库成功后记账）
+      const _sgOpts = this._signalGateReal
+        ? { excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) }
+        : (this._sgExcludedIds ? { excludeStrategyIds: this._sgExcludedIds } : null);
+      const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy', _sgOpts);
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
       }
@@ -1869,6 +1919,17 @@ class BacktestEngine extends AbstractTradingEngine {
             price: signal.price,
             strategyId: signal.strategyId,
             strategyName: signal.strategyName,
+            // T117 信号源门链触发留痕（signalGateReal 腿；triggerNo=落库前预读+1，
+            // 门链块随后正式记账——门拒/超时均不返还，与实时引擎同形状）
+            ...(strategy.signalGate && this._signalGateReal ? {
+              signalGate: {
+                legId: strategy.id,
+                triggerNo: this._sgTriggerCount(tokenAddress, strategy.id) + 1,
+                maxTriggers: strategy.signalGate.maxTriggers ?? 1,
+                cheatRecheck: strategy.signalGate.cheatRecheck === true,
+                bpPassLevels: strategy.signalGate.bpPassLevels || ['good', 'neutral'],
+              },
+            } : {}),
             ...signal.factors,
           },
           createdAt: signal.timestamp,
@@ -1883,6 +1944,51 @@ class BacktestEngine extends AbstractTradingEngine {
       } catch (saveError) {
         this.logger.error(this._experimentId, 'BuyEval', `信号保存失败 | ${token.symbol} ${saveError.message}`);
         return { success: false, reason: `信号保存失败: ${saveError.message}` };
+      }
+
+      // ── T117 signalGateReal 门链（2026-11-07 受控解禁；挂点/序对齐实时引擎：
+      // signal 落库成功后、preBuy 前）── signalGate 腿两门串行：①触发即消耗
+      // （计数 +1 不返还——落库失败上面已 return 不消耗，门拒/超时均消耗=阶梯
+      // 多次机会设计）②作弊门（二元版，检测层故障 fail-open 放行进 BP）③BP 门
+      // （fail-closed 全拒；insufficient_ticks 唯一例外放行）。anchorMs=nowTs
+      // 虚拟时刻透传两门（service DB 拉数 lte(block_time) 截窗——DB 已有全史，
+      // 不截=锚窗吃信号后数据=马后炮）；gateToken 组装=回测 token 形状适配
+      // （created_at 秒/creator_address 双形状 + _tokenMeta 兜底 meta 缺行——
+      // createdAt 锚缺失会让 cheat 题面锚窗退化，尽量补齐）
+      if (strategy.signalGate && this._signalGateReal) {
+        this._sgRecordTrigger(tokenAddress, strategy.id);
+
+        const _meta = this._tokenMeta.get(tokenAddress) || {};
+        const gateToken = {
+          ...token,
+          symbol: token.symbol ?? (_meta.symbol || null),
+          name: token.name ?? (_meta.name || null),
+          platform: token.platform ?? null,
+          createdAt: token.createdAt ?? (token.created_at ?? _meta.createdAtSec ?? null),
+          creatorAddress: token.creatorAddress ?? (token.creator_address ?? (_meta.creator || null)),
+        };
+        const firePriceBnb = factorResults.currentPriceBnb || 0;
+
+        const cheatGate = await this._cheatGateEvaluateBinary(
+          tokenAddress, gateToken, factorResults, signalId, strategy.signalGate, { anchorMs: nowTs });
+        if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
+        if (cheatGate.info && signalId) {
+          try {
+            await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, 'SignalGate',
+              `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+          }
+        }
+
+        const bpGate = await this._bpGateEvaluate(
+          tokenAddress, gateToken, factorResults, signalId, strategy.signalGate, {
+            anchorMs: nowTs,
+            firePriceBnb,
+            strategyName: strategy.name,
+            signalCreatedAt: nowTs,
+          });
+        if (!bpGate.pass) return { success: false, reason: bpGate.reason };
       }
 
       // ── 购买前检查（与实时引擎同构；checkTime 用回放时点）──
@@ -3037,6 +3143,41 @@ class BacktestEngine extends AbstractTradingEngine {
       this._writeBuffer.addSignalUpdate(signalId, updateData);
     }
     // writeBuffer 关闭时信号已即时落库，此处无直写路径（与旧回测一致：缓冲关闭仅调试用）
+  }
+
+  /**
+   * 覆写（T117 signalGateReal 门链接线 2026-11-07）：signal 状态/metadata 更新
+   * 转发 writeBuffer 批量路径——基类实现 DB 直 UPDATE，writeBuffer 模式下刚
+   * addSignalInsert 的行尚未 flush 会打空（0 行 match 静默丢=failed 状态/
+   * execution_reason/门链 metadata 段全部丢失）；buffer 的 addSignalUpdate 与
+   * pending insert 行深合并+flush 批量 UPDATE。副作用=回测全部信号终态更新
+   * （买执行结果等）从「打空丢」变「可靠落库」——signals 页回测信号开始可见
+   * 终态与归因（丢更新修复方向，addSignalUpdate 设计意图即此）。
+   * 基类墙钟 executed_at 不带（回测落库时刻非虚拟时钟，无观测价值）。
+   */
+  async _updateSignalStatus(signalId, status, result, signalRow = null) {
+    const metadata = { execution_status: status };
+    if (result && typeof result === 'object') {
+      if (result.message) metadata.execution_reason = result.message;
+      if (result.reason) metadata.execution_reason = result.reason;
+      if (result.error) metadata.execution_error = result.error;
+    }
+    this._bufferSignalUpdate(signalId, { executed: status === 'executed', metadata });
+  }
+
+  /** 覆写同款：metadata 增量合并转发 buffer（cheatCheck/buyPoint 门链段落库路径） */
+  async _updateSignalMetadata(signalId, additionalMetadata, directFields = null) {
+    if (!additionalMetadata || typeof additionalMetadata !== 'object') return;
+    const updateData = { metadata: additionalMetadata };
+    if (directFields && typeof directFields === 'object') {
+      if (directFields.gmgn_security_raw_data !== undefined) {
+        updateData.gmgn_security_raw_data = directFields.gmgn_security_raw_data;
+      }
+      if (directFields.gmgn_token_info_raw_data !== undefined) {
+        updateData.gmgn_token_info_raw_data = directFields.gmgn_token_info_raw_data;
+      }
+    }
+    this._bufferSignalUpdate(signalId, updateData);
   }
 
   /** 永久阻断条件评估（扁平标量上下文上的 JS 表达式，AND/OR/NOT 语法糖） */

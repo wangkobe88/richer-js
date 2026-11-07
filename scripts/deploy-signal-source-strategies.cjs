@@ -20,7 +20,15 @@
 //   重评时 tradeCount 已 +1=翻假丢里程碑；范围带=变相多臂）——终裁多臂制。
 //   急拉票回撤点 BP12 判 poor=BP11 接受现状复裁维持（D 臂价值在慢推票）。
 //
-//   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 13（13 腿各 1 次
+//   v5（2026-11-07 v73 时段回测专用腿形，用户裁定）：
+//     t6 暴跌抄底整腿删除 + D25-D55 五档回撤臂全删（回撤族整体退役）
+//     t0a/t0b 两条更早人气臂新增：6 笔/0.75 BNB/4 真持有者、12 笔/1 BNB/
+//            6 真持有者（更早入场点验证门链过滤价值）
+//     全腿 buyPhase:'first'（每代币只买一次——T100 既有机制纯配置化）
+//     9 腿：t0a/t0b + t1-t4 + N30/N36/N45；回测经 backtest.signalGateReal
+//            真调门链（cheat 16 题+BP 题集 Jev；生产 v74 引用 v3 copy-in 不动）
+//
+//   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 腿数（各腿 1 次
 //   触发上限；T110 默认帽 5 会截断阶梯）；并配 cheatCheck.enabled=true +
 //   buyPointCheck.enabled=true（两门 disabled 时：cheat 门 fail-open 放行、
 //   BP 门 fail-closed 全拒=零买入，配置矛盾）。
@@ -39,37 +47,33 @@ const leg = (id, priority, condition, cheatRecheck, description) => ({
     priority,
     condition,
     maxExecutions: null,
+    // buyPhase:'first'（v5 全腿，2026-11-07 用户裁定「每个代币只允许买入一次」）：
+    // 仅 completedPairs.length===0 可见（T100 既有机制纯配置零新代码——首买/
+    // 再买分臂路由）；再买轮全部不可见=每 token 恰一次买入
+    buyPhase: 'first',
     signalGate: { maxTriggers: 1, cheatRecheck, bpPassLevels: ['good', 'neutral'] },
     description,
 });
 
 const LEGS = [
-    leg('t1', 1, 'tradeCount >= 8 AND buyVolumeBnb >= 0.75 AND holdersExDust >= 6', true,
-        '阶梯 1（最早最松）：8 笔/0.75 BNB/6 真持有者即触发门链；cheatRecheck=true（首触发源值得 unhealthy 重判攒判定轨迹）——吉祥案 t1 信号时刻双截窗重析=neutral 0.76 应过门（生产被 settle 锚窗漂移吞）'),
-    leg('t2', 2, 'tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9', true,
-        '阶梯 2：16 笔/1 BNB/9 真持有者；cheatRecheck=true'),
-    leg('t3', 3, 'tradeCount >= 20 AND buyVolumeBnb >= 1.2 AND holdersExDust >= 12', true,
-        '阶梯 3：20 笔/1.2 BNB/12 真持有者；cheatRecheck=true'),
-    leg('t4', 4, 'tradeCount >= 24 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
-        '阶梯 4：24 笔/1.5 BNB/12 真持有者；cheatRecheck=false（高热度票 unhealthy 粘滞秒回省配额）'),
-    leg('N30', 5, 'tradeCount >= 30 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
-        '热度腿 5（T119 用户给定条件串原文）：30 笔/1.5 BNB/12 真持有者——阶梯接棒+节流下实际落点由步进节奏决定，慢热票里程碑摊开'),
-    leg('N36', 6, 'tradeCount >= 36 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
-        '热度腿 6（T119）：36 笔/1.5 BNB/12 真持有者'),
-    leg('N45', 7, 'tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
-        '热度腿 7（T119）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃'),
-    leg('t6', 8, '(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5 AND buyVolumeBnb >= 1.5 AND actBuyBnb >= 0.3) OR (mcapFromPeakPct >= 60 AND buyVolumeBnb >= 1.5 AND actBuyBnb >= 0.3)', false,
-        '暴跌抄底臂（v4 双流动性门，2026-11-06 v73 复审 T032 用户裁定「希望能接住暴跌的底，而不是第一个 tick」）：跌回低市值（峰 ≥15 峰门防出生票前几笔必 ≤7.5 即触发）OR 较峰回撤 ≥60%，两臂各带 buyVolumeBnb ≥1.5（全局累计=到过 15 峰的票近冗余，防极端无量形状）+ actBuyBnb ≥0.3（近 10s 滑窗有人真金白银买=底部承接，防阴跌死盘底；阈值待票池校准）'),
-    leg('D25', 9, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 25', false,
-        '回撤臂 25%（T119 五臂之一，浅到深排布=先穿浅档先消耗）：峰 ≥15 峰门（实证后果留档：吉祥首峰 13.3 BNB<15 首波回撤点不触发，五臂实际覆盖 $10.7k+ 峰值票，阈值库中可调）∧ 较峰回撤 ≥25%；急拉票回撤点 BP12 判 poor=BP11 接受现状维持，本臂价值在慢推票深回撤企稳'),
-    leg('D30', 10, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 30', false,
-        '回撤臂 30%（T119）：峰 ≥15 ∧ 较峰回撤 ≥30%'),
-    leg('D35', 11, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 35', false,
-        '回撤臂 35%（T119）：峰 ≥15 ∧ 较峰回撤 ≥35%'),
-    leg('D45', 12, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 45', false,
-        '回撤臂 45%（T119）：峰 ≥15 ∧ 较峰回撤 ≥45%'),
-    leg('D55', 13, 'mcapPeakBnb >= 15 AND mcapFromPeakPct >= 55', false,
-        '回撤臂 55%（T119）：峰 ≥15 ∧ 较峰回撤 ≥55%'),
+    leg('t0a', 1, 'tradeCount >= 6 AND buyVolumeBnb >= 0.75 AND holdersExDust >= 4', true,
+        '人气臂 a（v5 新增，2026-11-07 用户给定条件串原文）：6 笔/0.75 BNB/4 真持有者——最早入场点（比 v4 t1 更早一档），验证门链在极早票上的过滤价值；cheatRecheck=true（首触发源 unhealthy 重判攒判定轨迹）'),
+    leg('t0b', 2, 'tradeCount >= 12 AND buyVolumeBnb >= 1 AND holdersExDust >= 6', true,
+        '人气臂 b（v5 新增）：12 笔/1 BNB/6 真持有者——早档第二级；cheatRecheck=true'),
+    leg('t1', 3, 'tradeCount >= 8 AND buyVolumeBnb >= 0.75 AND holdersExDust >= 6', true,
+        '阶梯 1（v4 原文）：8 笔/0.75 BNB/6 真持有者即触发门链；cheatRecheck=true——吉祥案 t1 信号时刻双截窗重析=neutral 0.76 应过门（生产被 settle 锚窗漂移吞）'),
+    leg('t2', 4, 'tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9', true,
+        '阶梯 2（v4 原文）：16 笔/1 BNB/9 真持有者；cheatRecheck=true'),
+    leg('t3', 5, 'tradeCount >= 20 AND buyVolumeBnb >= 1.2 AND holdersExDust >= 12', true,
+        '阶梯 3（v4 原文）：20 笔/1.2 BNB/12 真持有者；cheatRecheck=true'),
+    leg('t4', 6, 'tradeCount >= 24 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '阶梯 4（v4 原文）：24 笔/1.5 BNB/12 真持有者；cheatRecheck=false（高热度票 unhealthy 粘滞秒回省配额）'),
+    leg('N30', 7, 'tradeCount >= 30 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '热度腿（T119 用户给定条件串原文，v4 原文）：30 笔/1.5 BNB/12 真持有者——阶梯接棒+节流下实际落点由步进节奏决定，慢热票里程碑摊开'),
+    leg('N36', 8, 'tradeCount >= 36 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '热度腿（T119，v4 原文）：36 笔/1.5 BNB/12 真持有者'),
+    leg('N45', 9, 'tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12', false,
+        '热度腿（T119，v4 原文）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃'),
 ];
 
 const ENTRIES = [
@@ -77,7 +81,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v4（2026-11-06 t6 双流动性门）：13 买腿 condition=初始买入信号源（t1-t4 热度+N30/36/45 纯热度+t6 暴跌抄底（峰门 15+双流动性门 buyVolumeBnb≥1.5/actBuyBnb≥0.3，接暴跌底非首 tick 盲买）+D25-D55 五档回撤臂，maxTriggers 全 1 触发即消耗；t5 急砸/t7 跌底放量已删），触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测恒拒（signalGate 腿全量排除）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v5（2026-11-07 v73 时段回测专用腿形）：9 买腿 condition=初始买入信号源（t0a/t0b 两条更早人气臂 6 笔·0.75·4 持有者/12 笔·1·6 持有者 + t1-t4 热度 + N30/36/45 纯热度；t6 暴跌抄底+D25-D55 回撤臂全删——回撤族退役；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 9 + cheatCheck.enabled + buyPointCheck.enabled',
     },
 ];
 

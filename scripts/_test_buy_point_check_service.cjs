@@ -48,17 +48,33 @@ const trow = (dt, side, bnb, price, o = {}) => ({
     tx_hash: '0x' + (1000 + dt), quote_token: o.quote ?? null,
 });
 
-/** supabase 风格链式 stub：from().select().eq().order().limit() → {data,error} */
+/** supabase 风格链式 stub：from().select().eq().lte().order().limit() → {data,error}
+ *  lte 语义过滤（anchorMs 截窗断言原料）：block_time ≤ 锚 的行才可见——服务侧由
+ *  DB 截窗承担，桩侧同款实现（as-of 防前视） */
 function mkDb({ ticksAsc = [], events = [], insertOk = true } = {}) {
     const inserted = [];
-    const mkChain = (data) => ({
-        select() { return this; },
-        eq() { return this; },
-        order() { return this; },
-        limit() { return Promise.resolve({ data, error: null }); },
-    });
+    const lteCalls = []; // 全部 .lte(col, val) 传参记录
+    const mkChain = (data) => {
+        const filters = [];
+        return {
+            select() { return this; },
+            eq() { return this; },
+            order() { return this; },
+            lte(col, val) { filters.push([col, val]); lteCalls.push([col, val]); return this; },
+            limit() {
+                let out = data;
+                for (const [c, v] of filters) {
+                    if (c !== 'block_time') continue;
+                    const t = new Date(v).getTime();
+                    out = out.filter((r) => new Date(r.block_time).getTime() <= t);
+                }
+                return Promise.resolve({ data: out, error: null });
+            },
+        };
+    };
     return {
         inserted,
+        lteCalls,
         from(table) {
             if (table === 'wss_price_ticks') {
                 const desc = ticksAsc.slice().reverse(); // 服务期望倒序 DB 形状
@@ -395,6 +411,66 @@ function mkSvc(config, db, llm, extraDeps = {}) {
             assert.ok(!/_sticky|isBlocked|_blacklist/.test(src), '出现粘滞/拉黑形状（BP 不应有）');
         });
     }
+
+    // ═══ I. anchorMs 截窗 + persist:false 回测隔离（backtest.signalGateReal） ═══
+    console.log('I. anchorMs 截窗 + persist:false 回测隔离');
+    await check('anchorMs：tail 查询 .lte(block_time, 锚 iso) + 锚后行不可见（截到 7 行 < minTicks）', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        const s = mkSvc({ ...CFG }, db, mkLlm());
+        const anchorMs = T0 + 65 * 1000; // dt 5..65 共 7 行 ≤ 锚；70..95 共 3 行在锚后
+        const r = await s.gateBuyPoint('0x' + 'ab'.repeat(20), META, {}, { anchorMs });
+        assert.strictEqual(r.status, 'insufficient_ticks', JSON.stringify(r));
+        assert.strictEqual(r.anchorTickCount, 7, '锚后行不可见（无锚=10 行必过预门——截窗「真的截」的行为证据）');
+        assert.ok(db.lteCalls.length >= 1, 'lte 传参在场');
+        assert.ok(db.lteCalls.every(([c, v]) => c === 'block_time' && v === new Date(anchorMs).toISOString()),
+            JSON.stringify(db.lteCalls));
+    });
+    await check('anchorMs：锚内 8 行恰过 minTicks → assessed（截窗下全链）且未满帽仅 tail 单查询', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        const s = mkSvc({ ...CFG }, db, mkLlm());
+        const r = await s.gateBuyPoint('0x' + 'ab'.repeat(20), META, {}, { anchorMs: T0 + 75 * 1000 });
+        assert.strictEqual(r.status, 'assessed', JSON.stringify(r));
+        assert.strictEqual(db.lteCalls.length, 1, `tail 单查询（实际 ${db.lteCalls.length} 处 lte）`);
+    });
+    await check('anchorMs：满帽补 head 查询同样 .lte 截窗', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        // pullLimit 下限 10（num min=10）：锚=末行时刻 → 10 行=帽 → capped → 补 head
+        const s = mkSvc({ ...CFG, pullLimit: 10, headLimit: 5 }, db, mkLlm());
+        const r = await s.gateBuyPoint('0x' + 'ab'.repeat(20), META, {}, { anchorMs: T0 + 95 * 1000 });
+        assert.strictEqual(r.status, 'assessed', JSON.stringify(r));
+        assert.strictEqual(db.lteCalls.length, 2, `tail+head 两查询均带 lte（实际 ${db.lteCalls.length}）`);
+    });
+    await check('无/非法 anchorMs=零 lte（生产现状 bit 一致；0=有限正数门拒收）', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        const s = mkSvc({ ...CFG }, db, mkLlm());
+        const r = await s.gateBuyPoint('0x' + 'ab'.repeat(20), META, {});
+        assert.strictEqual(r.status, 'assessed');
+        assert.strictEqual(db.lteCalls.length, 0, '不传 → 零 lte');
+        const db0 = mkDb({ ticksAsc: TICKS10 });
+        await mkSvc({ ...CFG }, db0, mkLlm()).gateBuyPoint('0x' + 'ab'.repeat(20), META, {}, { anchorMs: 0 });
+        assert.strictEqual(db0.lteCalls.length, 0, 'anchorMs=0 → 同不传');
+    });
+    await check('persist:false 跳写 buy_point_analyses（判定照常）+ 对照组照常落行', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        const s = mkSvc({ ...CFG, persist: false }, db, mkLlm());
+        const r = await s.gateBuyPoint('0x' + 'ab'.repeat(20), META, {});
+        assert.strictEqual(r.status, 'assessed');
+        assert.strictEqual(db.inserted.length, 0, '零 insert（回测不污染生产 BP 判定域）');
+        assert.ok(s.stats.persistSkipped >= 1, `persistSkipped=${s.stats.persistSkipped}`);
+        const db2 = mkDb({ ticksAsc: TICKS10 });
+        await mkSvc({ ...CFG }, db2, mkLlm()).gateBuyPoint('0x' + 'ab'.repeat(20), META, {});
+        assert.strictEqual(db2.inserted.length, 1, '对照组 persist 默认=true 落 1 行');
+    });
+    await check('回测构造形状物化：settleDelayMs:0 不回落 4000（num min=0）+ persist 物化', () => {
+        const s = mkSvc({ enabled: true, settleDelayMs: 0, persist: false }, mkDb(), mkLlm());
+        assert.strictEqual(s._settleDelayMs, 0);
+        assert.strictEqual(s._persist, false);
+    });
+    await check('源码口径：.lte(block_time, anchorIso) 恰两处（tail+head）', () => {
+        const src = read('src/market-analysis/BuyPointCheckService.js');
+        const n = (src.match(/\.lte\('block_time', anchorIso\)/g) || []).length;
+        assert.strictEqual(n, 2, `实际 ${n}`);
+    });
 
     console.log(failed === 0 ? `\n✅ buy_point_check_service 全部通过（${passed} 断言）` : `\n❌ buy_point_check_service：${failed} 失败 / ${passed} 通过`);
     process.exit(failed === 0 ? 0 : 1);

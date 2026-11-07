@@ -69,6 +69,10 @@ function makeStub(opts) {
     _tokenBlacklist: new Map(),
     _permanentBlockCondition: null,
     _tokenMeta: new Map(),
+    // T110 买信号发射节流桩（2026-11-03 引擎接线时本测试漏补——恒放行：
+    // 本测试聚焦叙事否决/登记挂点，节流语义另有 _test_signal_gate_engine 覆盖）
+    _buySignalThrottle: { admit: () => ({ ok: true }) },
+    _signalGateReal: false,
     // 信号落库走 buffer 分支（else 直写 tradeSignal.save() 会打真 DB）
     _writeBufferEnabled: true,
     _writeBuffer: {
