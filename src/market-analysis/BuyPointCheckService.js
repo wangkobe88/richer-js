@@ -22,10 +22,10 @@
  *   mapper_error）/ disabled → 引擎一律拒（BP 是点位判定唯一来源，无据不买
  *   ——cheat 层「检测故障 fail-open 放行进 BP」的下游兜底正是本门）。
  *   disabled 另加 loud warn（配置矛盾：signalGate 腿配了门却没开服务）。
- *   **insufficient_ticks 唯一例外放行**（BP9 2026-11-05 用户裁定
- *   「bp_gate_insufficient_ticks 去掉」）：极早触发锚窗 tick<minTicks=
- *   early_bird 场景常态，引擎侧放行留痕（minTicks 预门保留=不烧 Jev 配额，
- *   材料薄照调三题全 insufficient→poor=换皮仍拒无意义）
+ *   **insufficient_ticks 拒（BP10 翻案，2026-11-07 用户裁定「数据不够就
+ *   挡住而不是放行」——推翻 BP9 2026-11-05 放行；例票 0x18cf6407
+ *   anchorTickCount=3 放行买入 15s 后止损）**：极早触发锚窗 tick<minTicks
+ *   =数据不足不判定，引擎侧 fail-closed 拒（minTicks 预门保留=不烧 Jev 配额）
  * - 竞速超时 late 链续跑落行（无引擎态副作用——落行后下个买信号可见）
  *
  * 时序（与 cheat 同款）：买点触发 → settle（引擎注入 waitIdle → resolver
@@ -44,7 +44,7 @@
  *
  * 失败语义：Jev 失败/超时落 error/timeout 行带 fail_reason（fail-loud 留痕）+
  * failCooldownMs 冷却（防故障环）；DB 写失败 loud warn（行丢=可观测）。
- * minTicks 预门：拉数后 tickCount<8 → 不调 Jev 不落表（引擎侧 BP9 放行不拒）。
+ * minTicks 预门：拉数后 tickCount<8 → 不调 Jev 不落表（引擎侧 BP10 拒——数据不足=挡住）。
  * 配额由引擎侧
  * BuySignalThrottle 信号帽 + signalGate maxTriggers 触发帽天然封顶。
  *

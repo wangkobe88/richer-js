@@ -34,7 +34,7 @@ const GATE_REASON_LABELS = {
   cheat_gate_cheat: '作弊门拉黑拒（cheat 终态：拉黑+清仓联动，该代币后续买信号全部短路拒）',
   cheat_gate_unhealthy: '作弊门 unhealthy 拒（G17 通道触发；cheatRecheck 腿下个买信号自动重判）',
   bp_gate_assessment: 'BP 门判定拒（点位评估 poor，不在放行档 good/neutral）',
-  bp_gate_insufficient_ticks: 'BP 门锚窗 tick 不足拒（历史形状——BP9 裁定后 insufficient 不再拦）',
+  bp_gate_insufficient_ticks: 'BP 门锚窗 tick 不足拒（数据不足=挡住，BP10 翻案 2026-11-07）',
 };
 // G17 触发通道码中文映射（拒因块具体原因——前缀匹配吸收动态后缀：L_insider_sell25 /
 // N_no_retail_entry9.8 / A_strong:xxx；2026-11-07 用户要求拒因给具体原因）

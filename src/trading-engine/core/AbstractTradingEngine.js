@@ -1525,12 +1525,12 @@ class AbstractTradingEngine extends ITradingEngine {
    * 无据不买；cheat 层 fail-open 放行的下游兜底正是本门）：
    * assessed → bucket ∈ bpPassLevels（默认 good/neutral）过 / 否则拒
    * （bp_gate_assessment）；timeout / fail / disabled → 拒
-   * （disabled=配置矛盾 loud warn）。**insufficient_ticks 唯一例外放行**
-   * （BP9 2026-11-05 用户裁定「bp_gate_insufficient_ticks 去掉」）：信号源
-   * 阶梯极早触发（块窗跌幅/静默段突刺）锚窗 tick<minTicks 是 early_bird 场景
-   * 常态非异常，无 BP 分析≠点位差；minTicks 预门保留在 service（不烧 Jev
-   * 配额——材料薄照调三题全 insufficient→poor=换皮仍拒），引擎侧放行留痕
-   * （info 带 anchorTickCount）。通过/拒绝均落 signal metadata `buyPoint` 段
+   * （disabled=配置矛盾 loud warn）。**insufficient_ticks 拒（BP10 翻案）**
+   * （2026-11-07 用户裁定「数据不够就挡住，而不是放行」——推翻 BP9 2026-11-05
+   * 放行裁定；例票 0x18cf6407 anchorTickCount=3 放行买入 15s 后止损）：
+   * 锚窗 tick<minTicks=数据不足不判定，宁拦不冒充拒单
+   * （bp_gate_insufficient_ticks）；minTicks 预门保留在 service（不烧 Jev
+   * 配额），info 带 anchorTickCount 留痕。通过/拒绝均落 signal metadata `buyPoint` 段
    * （研究主数据）；timeout 的 late 链在 service 内部落行（引擎零消费无副作用）。
    * 本方法不抛错（service 不抛；catch 兜底接线级异常=fail-closed 拒——与 cheat
    * 门 catch 放行刻意不同向）。ctx.anchorMs=回测 as-of 锚（生产不传=现状）。
@@ -1592,15 +1592,17 @@ class AbstractTradingEngine extends ITradingEngine {
           await this._updateSignalStatus(signalId, 'failed',
             { message: `BP 门竞速超时拒买（${this._bpGateAwaitMs}ms）`, reason: 'bp_gate_timeout' });
         } else if (res && res.status === 'insufficient_ticks') {
-          // BP9 唯一例外放行（用户裁定 bp_gate_insufficient_ticks 拒单去掉）：
-          // 极早触发 tick<minTicks=early_bird 常态，不判不拦；不打 failed
-          pass = true;
+          // BP10 翻案（2026-11-07 用户裁定「数据不够就挡住，而不是放行」）：
+          // 锚窗 tick<minTicks=数据不足不判定，fail-closed 拒（宁拦不冒充）
+          pass = false;
           info = {
             status: 'insufficient_ticks', anchorTickCount: res.anchorTickCount ?? null,
-            passLevels, passed: true,
+            passLevels, passed: false,
           };
           this.logger.info(this._experimentId, 'SignalGate',
-            `BP 门放行（锚窗 tick 不足 ${res.anchorTickCount ?? '?'}<minTicks，不判定不拦——极早票 early_bird 场景） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+            `BP 门拒买（锚窗 tick 不足 ${res.anchorTickCount ?? '?'}<minTicks，数据不足=挡住） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+          await this._updateSignalStatus(signalId, 'failed',
+            { message: `BP 门拒买: 锚窗 tick 不足（${res.anchorTickCount ?? '?'}<minTicks，数据不足）`, reason: 'bp_gate_insufficient_ticks' });
         } else {
           // fail（llm_load/cooldown/jev_timeout/jev_error/mapper_error/chain_error）/
           // unknown → 全 fail-closed 拒
