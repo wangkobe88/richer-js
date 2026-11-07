@@ -127,7 +127,8 @@ ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删
 ok(dA.maxChg5Pct === null, `A fixture 无 ≤5s 跨行段（间隔≥10s、同块行队首==j 不计）→ maxChg5=null（实际 ${dA.maxChg5Pct}）`);
 // BP28 案四改：锚前尾段三键手算——A fixture tEnd=215，尾段 dt>210 只有行18@215
 ok(BP_TAIL_SEC === 5, 'BP_TAIL_SEC 常量=5（锚前尾段固定子窗）');
-ok(dA.activity.nearTail5TickN === 1 && dA.activity.nearTail5BuyN === 1 && near(dA.activity.nearTail5BuyBnb, 0.1), `A fixture 尾段=1 笔买 0.1（dt>210 只有行18@215，实际 ${dA.activity.nearTail5TickN}/${dA.activity.nearTail5BuyN}/${dA.activity.nearTail5BuyBnb}）`);
+ok(dA.activity.nearTail5TickN === 1 && dA.activity.nearTail5BuyN === 1 && near(dA.activity.nearTail5BuyBnb, 0.1)
+  && dA.activity.nearTail5BuySharePct === 2.2, `A fixture 尾段=1 笔买 0.1 占全窗买 2.2%（dt>210 只有行18@215；全窗买 4.47 → 0.1/4.47，实际 ${dA.activity.nearTail5TickN}/${dA.activity.nearTail5BuyN}/${dA.activity.nearTail5BuyBnb}/${dA.activity.nearTail5BuySharePct}）`);
 {
   // S053 三段形状迷你 fixture（BP28 案立法形状回归锁定）：开局冲 3 笔（dt 2/4/6）
   // →中段完全静默 40s→锚前 4s 涌入 4 笔（dt 46/47/48/49 买 0.2/0.25/0.2/0.15）
@@ -142,7 +143,8 @@ ok(dA.activity.nearTail5TickN === 1 && dA.activity.nearTail5BuyN === 1 && near(d
     row(49, 'BUY', W_H, 0.15, 1.15 * E9, 1.5e8),
   ];
   const dT = buildBuyPointSnapshot(rowsT, metaA).buyDerived;
-  ok(dT.activity.nearTail5TickN === 4 && dT.activity.nearTail5BuyN === 4 && near(dT.activity.nearTail5BuyBnb, 0.8), `三段形状尾段=4 笔全买合计 0.8（dt>44 全入尾段，实际 ${dT.activity.nearTail5TickN}/${dT.activity.nearTail5BuyN}/${dT.activity.nearTail5BuyBnb}）`);
+  ok(dT.activity.nearTail5TickN === 4 && dT.activity.nearTail5BuyN === 4 && near(dT.activity.nearTail5BuyBnb, 0.8)
+    && dT.activity.nearTail5BuySharePct === 72.7, `三段形状尾段=4 笔全买合计 0.8 占全窗买 72.7%（dt>44 全入尾段；全窗买 1.1 → 0.8/1.1，实际 ${dT.activity.nearTail5TickN}/${dT.activity.nearTail5BuyN}/${dT.activity.nearTail5BuyBnb}/${dT.activity.nearTail5BuySharePct}）`);
   // 死寂臂：末行单笔尘级——末行 dt=tEnd 恒在尾段内（最少 1 笔），「仅 1 笔尘级」
   // 才是买点时刻死寂的直接证据（0 笔数学上不存在）
   const rowsDead = [
@@ -150,7 +152,8 @@ ok(dA.activity.nearTail5TickN === 1 && dA.activity.nearTail5BuyN === 1 && near(d
     row(42, 'BUY', W_C, 0.02, 1.0 * E9, 2e7),
   ];
   const dDead = buildBuyPointSnapshot(rowsDead, metaA).buyDerived;
-  ok(dDead.activity.nearTail5TickN === 1 && dDead.activity.nearTail5BuyN === 1 && near(dDead.activity.nearTail5BuyBnb, 0.02), `死寂臂尾段=仅末行 1 笔 0.02 尘级（tEnd=42 前静默 40s，实际 ${dDead.activity.nearTail5TickN}/${dDead.activity.nearTail5BuyN}/${dDead.activity.nearTail5BuyBnb}）`);
+  ok(dDead.activity.nearTail5TickN === 1 && dDead.activity.nearTail5BuyN === 1 && near(dDead.activity.nearTail5BuyBnb, 0.02)
+    && dDead.activity.nearTail5BuySharePct === 3.8, `死寂臂尾段=仅末行 1 笔 0.02 尘级占全窗买 3.8%（tEnd=42 前静默 40s；全窗买 0.52 → 0.02/0.52——两成线以下=burst 已过形状，实际 ${dDead.activity.nearTail5TickN}/${dDead.activity.nearTail5BuyN}/${dDead.activity.nearTail5BuyBnb}/${dDead.activity.nearTail5BuySharePct}）`);
 }
 // BP18 开盘段结构族手算：开盘段 dt<30 买入=行1 0.5+行2 1.0 → 1.5×2 笔（两笔均
 // ≥0.3 大额）；全窗买入 4.47（资金口径不滤 outlier，行8 ROUTER 0.4 照计）→ 占比
@@ -315,7 +318,7 @@ ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有
     && act.nearSegTickN === cd.nearSegTickN && act.nearSegBnbPerMin === cd.nearSegBnbPerMin && act.spanSec === cd.spanSec && act.tickCount === cd.tickCount,
     'C: activity 锚族=cheatDerived 同名同值透传（单点计算不重算——BP 锚窗=买点前窗口）');
   const keysAct = Object.keys(act).sort().join(',');
-  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail5BuyBnb,nearTail5BuyN,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 16 键（BP31 尾段三键后 13→16，实际 ${keysAct}）`);
+  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 17 键（BP41 尾段加占比锚 16→17，实际 ${keysAct}）`);
   ok(snapAct.buyDerived.activity.maxDrawdownPct === cd.maxDrawdownPct, 'C: maxDrawdownPct 透传（可靠价运行峰回撤）');
 }
 
@@ -333,7 +336,8 @@ ok(stD.state.includes('近窗动量(涨跌%): 5s 6.67% / 10s 6.67% / 30s 14.29%'
 ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCount60=1');
 ok(stD.state.includes('活跃度数值:') && stD.state.includes('买盘中位') && stD.state.includes('金额吞吐') && stD.state.includes('无交易期占比') && stD.state.includes('窗口时长'), 'D: 活跃度数值行扩容（BP13：中位/吞吐/静默占比/窗口两原料——CD 数值族搬运渲染）');
 ok(stD.state.includes('临近买点段(最后30秒):') && stD.state.includes('买入点位之前的直接承接环境——开盘段/前期密集不救临近死寂'), 'D: 临近买点段行渲染（BP13：锚窗末端 30s 独立口径）');
-ok(stD.state.includes('锚前尾段(最后5秒):') && stD.state.includes('买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内') && stD.state.includes('仅 1 笔/尘级=锚点即静默边界'), 'D: 锚前尾段行渲染（BP31/BP28 案四改——临近段 totals 无时序的补位；末行恒在窗内最少 1 笔）');
+ok(stD.state.includes('锚前尾段(最后5秒):') && stD.state.includes('买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内') && stD.state.includes('仅 1 笔/尘级=锚点即静默边界')
+  && stD.state.includes('合计买 0.1 BNB、占全窗买入 2.2%') && stD.state.includes('两成上下=burst 已过的顶部、三分之一以上=拉升进行时'), 'D: 锚前尾段行渲染（BP31/BP28 案四改+BP41 占比口径——A fixture 手算 0.1/4.47=2.2%；占比判读句两成/三分之一线）');
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
@@ -554,8 +558,9 @@ ok(obsE.anchors.actIdlePct === (dA.activity ? dA.activity.idlePct : undefined) &
 ok(obsE.anchors.actSpanSec !== undefined && obsE.anchors.actTickCount !== undefined && obsE.anchors.actNearSegBnbPerMin !== undefined && obsE.anchors.actNearSegMaxGapSec !== undefined
   && obsE.anchors.actNearSegBuyN !== undefined && obsE.anchors.actNearSegSellN !== undefined && obsE.anchors.actNearSegTicksPerMin !== undefined && obsE.anchors.actNearSegBuyMedianBnb !== undefined,
   'E: 活跃度锚族 act 13 键全在场（spanSec/tickCount/中位/吞吐/回撤/临近段七键）');
-ok(obsE.anchors.actNearTail5TickN === dA.activity.nearTail5TickN && obsE.anchors.actNearTail5BuyN === dA.activity.nearTail5BuyN && obsE.anchors.actNearTail5BuyBnb === dA.activity.nearTail5BuyBnb,
-  'E: 活跃度锚族 act 尾段三键透传（BP31/BP28 案四改——nearTail5 与 buyDerived 同值）');
+ok(obsE.anchors.actNearTail5TickN === dA.activity.nearTail5TickN && obsE.anchors.actNearTail5BuyN === dA.activity.nearTail5BuyN && obsE.anchors.actNearTail5BuyBnb === dA.activity.nearTail5BuyBnb
+  && obsE.anchors.actNearTail5BuySharePct === dA.activity.nearTail5BuySharePct,
+  'E: 活跃度锚族 act 尾段四键透传（BP31/BP28 三键+BP41 占比锚——nearTail5 与 buyDerived 同值）');
 // BP14 筹码锚族透传（buyDerived.chip 嵌套段——cheatDerived 同名/派生单点照抄零重算）
 ok(obsE.anchors.chipFamousDominancePct === null && obsE.anchors.chipFamousFollowerTop3Pct === null && obsE.anchors.chipFamousGroupBuyPct === null && obsE.anchors.chipSameBlockHoldPct === null,
   'E: 筹码锚族 famous 三键+同块簇=缺证据 null 容忍（A fixture 无 famous 名单钱包/无合格同块簇——不冒充）');
@@ -612,9 +617,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP40 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/④极早窗三证据+弱化/④开盘拉高出货盘 BP40 收紧单独成立/strong_backer ultra 豁免）');
+  console.log('F. 题集形状（BP41 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/④极早窗三证据+弱化/④开盘拉高出货盘 BP40 收紧单独成立+BP41 真庄反锚判序前置+尾段占比锚/strong_backer ultra 豁免）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP40', 'F: 版本=BP40（BP35 案=bt-v79 六票漏网复盘③裁定三票 0xb788e63b/0xd0fbcc7b/0x4b3f1f7a「一开盘就拉高太多的票没有好，不玩」：④开盘拉高出货盘收紧——拉得过高**单独成立即落④**（去 BP39「已砸回∧承接太弱」两要件，仍在拉升中的除真庄反锚外同样落）；参考线锚窗最高价较发行价 +50% 下调至 +35%（三票锚 47.4/37.6/54.4 全覆盖）；对倒/刷量形状本体由 cheat 门 CD380 不豁免臂接棒（用户裁定「买入检测不用做重复的事情了」——BP 不做重复检测）；真庄保护反锚维持两腿贴顶+同量级重承接（無為 S072 保护不变）。前版 BP39（BP34 案=开盘拉高出货盘新形态+三证据弱化+athVsLaunchPct 锚）；BP38（BP33 案=strong_backer ultra 豁免+④极早窗三证据）；BP37（⑥对倒臂 0.12 线）；BP36（①⑥分界近窗锚定+⑥现在进行时+②⑤承接归零例外）；BP34-36=BP31 案六桶制；BP30/题集 BP33=盘型前置预判断）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP41', 'F: 版本=BP41（BP40 对拍 S072 红线破防修正——BP40「拉得过高单独成立」把無為 S072（BP29/BP32 立法保护的真庄贴顶票，贴顶 0% 回落+尾段 8 笔 1.137 BNB 两腿证据全在场）误判④0.92：救臂写在忌讳后=BP10 同款病灶 Jev 恒选崩塌腿。修正=①真庄保护反锚**判序前置**（先判反锚后判拉高，命中即停）②腿②机械化——「同量级重承接」落实为 snapshot 代码锚 nearTail5BuySharePct（尾段买÷全窗买×100）：≥ 约三分之一=拉升进行时不落④（無為 50%/S006 39%/S109 57% 全过）；两成及以下=burst 已过不救（b788e63b 判例 20%：t+0s 巨单 1.5 BNB 占全窗买近半、尾段绝对额可观但流量已枯——绝对额判别子被否（S006 top1=1.0 BNB 受保护票会破））；两成~三分之一边缘**从宽救**（用户裁定「不好处理就先不要误伤」——拒买类从严、真庄第一波勿误伤）。前版 BP40（BP35 案=拉得过高单独成立+35 线）；BP39（BP34 案=开盘拉高出货盘新形态+三证据弱化+athVsLaunchPct 锚）；BP38（BP33 案=strong_backer ultra 豁免+④极早窗三证据）；BP37（⑥对倒臂 0.12 线）；BP36（①⑥分界近窗锚定+⑥现在进行时+②⑤承接归零例外）；BP34-36=BP31 案六桶制；BP30/题集 BP33=盘型前置预判断）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -704,20 +709,26 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // BP39（案号 BP34）④开盘拉高出货盘+三证据弱化+①④分界两判例+真庄保护反锚+athVsLaunchPct 锚
   ok(mp.includes('证据不齐也可落④（BP39 弱化）：三件是充分不是必要——三证据中任两件在场且方向同向') && mp.includes('영복이 判例：正净持有 2 人+top1 近 60%+已破发+大户在卖=④'),
     'F: ④三证据弱化（BP39——三件充分非必要、任两件同向即落④，영복이 S103 判例）');
-  ok(mp.includes('开盘拉高出货盘（BP39 新增形态，不看开盘段占比；BP40 收紧）') && mp.includes('很短的窗内把价格拉得过高') && mp.includes('参考 **+35% 以上**——BP40 由 +50 下调') && mp.includes('FlapGuy 判例：第一波购买太强、卖出后承接接不住'),
-    'F: ④开盘拉高出货盘新形态（BP39 立法+BP40 参考线下调 35——开局拉得过高，不看开盘段占比）');
-  ok(mp.includes('BP40 收紧：拉得过高单独成立即落④——不再要求「已砸回+承接太弱」两要件') && mp.includes('仍在拉升中的（现价贴锚窗最高价）除真庄保护反锚外同样落④') && mp.includes('一开盘就拉高太多的票没有好，开局拉离发行价过远的位置本身就是风险，无论其后走势如何'),
+  ok(mp.includes('开盘拉高出货盘（BP39 新增形态，不看开盘段占比；BP40 收紧；BP41 反锚判序前置）——判序：先判真庄保护反锚，命中即停不落④；反锚不成立才按拉高判') && mp.includes('很短的窗内把价格拉得过高') && mp.includes('参考 **+35% 以上**——BP40 由 +50 下调') && mp.includes('FlapGuy 判例：第一波购买太强、卖出后承接接不住'),
+    'F: ④开盘拉高出货盘新形态（BP39 立法+BP40 参考线下调 35+BP41 判序前置——开局拉得过高不看开盘段占比；先判反锚后判拉高命中即停）');
+  ok(mp.includes('反锚不成立的按拉高判**：很短的窗内把价格拉得过高') && mp.includes('**单独成立即落④——不再要求「已砸回+承接太弱」两要件**') && mp.includes('仍在拉升中的（现价贴锚窗最高价）同样落④——一开盘就拉高太多的票没有好，开局拉离发行价过远的位置本身就是风险，无论其后走势如何'),
     'F: ④拉得过高单独成立（BP40 收紧核心——bt-v79 三票 47.4/37.6/54.4 全 ≥35 线；已砸回/承接弱照落、仍在拉升中除真庄反锚外同落）');
-  ok(mp.includes('真庄保护反锚**：现价仍贴锚窗最高价（回落 <5% 级=拉升进行时）') && mp.includes('庄拉的第一波仍在推进，不落④（走①⑥分界）；缓推盘（maxChg5 不过线**且**锚窗最高价较发行价 <35%——两臂都不命中）不算拉过高（缓推但锚窗高点已拉离发行价一截的照落本形态——位置不看速度）'),
-    'F: ④真庄保护反锚（BP39 两腿维持+BP40 缓推豁免收两臂——贴顶进行时+尾段重承接不落④；缓推但锚窗高点 ≥35% 照落④位置不看速度）');
+  ok(mp.includes('**真庄保护反锚（BP41 判序前置+机械两腿）**：腿①现价仍贴锚窗最高价（回落 <5% 级=拉升进行时）∧ 腿②锚前尾段（最后 5 秒）买入合计占全窗买入 **≥ 约三分之一**（活跃度行「锚前尾段」的占比口径——买量仍占全窗流量实质份额=庄拉的第一波仍在推进）→ **不落④**（拉升速度与位置高低交给两道质量题与①⑥分界——真庄第一波贴高点位不是接力风险）'),
+    'F: ④真庄保护反锚 BP41 机械两腿（判序前置+腿②占比锚——贴顶 ∧ 尾段买占全窗买 ≥ 约三分之一=庄拉第一波推进中不落④；速度与位置交给质量题与①⑥分界）');
+  ok(mp.includes('尾段占比**两成及以下**=burst 已过的顶部、只剩零散接盘，反锚不成立（b788e63b 判例 20%：t+0s 单笔 1.5 BNB 巨单占全窗买入近半、尾段绝对额可观但流量已枯）') && mp.includes('**两成~三分之一的边缘从宽救不落④**（不好处理就先不要误伤——拒买类从严、真庄第一波勿误伤）'),
+    'F: ④反锚腿②两档边界（两成及以下=burst 已过不救（b788e63b 判例 20%——巨单绝对额可观但流量已枯）；两成~三分之一边缘从宽救（用户裁定「不好处理就先不要误伤」——勿误伤真庄第一波））');
+  ok(mp.includes('缓推盘（maxChg5 不过线**且**锚窗最高价较发行价 <35%——两臂都不命中）不算拉过高（缓推但锚窗高点已拉离发行价一截的照落本形态——位置不看速度）'),
+    'F: ④缓推豁免两臂维持（BP40——缓推但锚窗高点 ≥35% 照落④位置不看速度）');
   ok(mp.includes('大户卖出后无承接=④不走①（BP39，Lily 判例）') && mp.includes('大户入场吸来一堆狙击手跟风') && mp.includes('「大户卖出后无承接」不是强庄盘'),
     'F: ①④分界 Lily 判例（BP39——大户离场+狙击手离场+无承接=④非①）');
   ok(mp.includes('开盘拉得过高=④（BP39 通则，BP40 收紧为单独成立）') && mp.includes('——不看是否已砸回/承接强弱（已砸回或承接太弱的更落；仍在拉升中的除真庄反锚外同样落，见④桶）'),
     'F: ①④分界开盘拉过高通则（BP39 立法+BP40 收紧为单独成立——反锚块同步）');
+  ok(mp.includes('**真庄保护反锚（BP41 机械两腿，判序在拉高判据前）**：现价仍贴锚窗最高价（回落 <5% 级=拉升进行时）∧ 锚前尾段买入占全窗买入 ≥ 约三分之一（两成及以下=burst 已过不救；两成~三分之一边缘从宽救）=庄拉第一波仍在推进，不落④'),
+    'F: 反锚块 BP41 同步（④桶主文改判序后反锚块同款机械两腿——Jev 对照反锚段与④桶判读一致）');
   ok(mp.includes('④⑥分位（BP40）') && mp.includes('锚窗最高价较发行价已拉得过高（参考 +35% 以上）的持续拉升归**④开盘拉高形态**不落本桶') && mp.includes('本桶收拉得不高（<35%）的持续纯拉——两桶门行为都拒，分位只影响归类'),
     'F: ④⑥分位句（BP40——拉得过高 ≥35% 归④位置风险、<35% 归⑥位置门再分，两桶门行为同效都拒只明归类）');
-  ok(qs.market_pattern.criteria.early_sniper_decay.includes('BP39 弱化：任两件在场且同向即落④，三件充分非必要') && qs.market_pattern.criteria.early_sniper_decay.includes('开盘拉高出货盘（BP39，BP40 收紧）：开局短窗拉得过高') && qs.market_pattern.criteria.early_sniper_decay.includes('锚窗最高价较发行价过大（参考 +35% 以上）') && qs.market_pattern.criteria.early_sniper_decay.includes('单独成立即落④——不看是否已砸回/承接强弱（一开盘就拉高太多的票没有好；仍在拉升中的同样落，现价贴锚窗最高价+尾段重承接的拉升进行时真庄除外）'),
-    'F: ④criteria 同步（BP39 弱化句+BP40 拉高收紧句+35 线+真庄除外句）');
+  ok(qs.market_pattern.criteria.early_sniper_decay.includes('BP39 弱化：任两件在场且同向即落④，三件充分非必要') && qs.market_pattern.criteria.early_sniper_decay.includes('开盘拉高出货盘（BP39，BP40 收紧，BP41 反锚前置）：开局短窗拉得过高') && qs.market_pattern.criteria.early_sniper_decay.includes('锚窗最高价较发行价过大（参考 +35% 以上）') && qs.market_pattern.criteria.early_sniper_decay.includes('单独成立即落④——不看是否已砸回/承接强弱（一开盘就拉高太多的票没有好；仍在拉升中的同样落——**真庄反锚除外：现价贴锚窗最高价（回落 <5%）∧ 尾段买占全窗买 ≥ 约三分之一=庄拉第一波推进中不落④**（两成及以下=burst 已过不救；两成~三分之一边缘从宽救——勿误伤真庄第一波））'),
+    'F: ④criteria 同步（BP39 弱化句+BP40 拉高收紧句+35 线+BP41 反锚机械两腿句——桶描述与题面判序一致）');
   ok(qs.market_pattern.instructions.includes('锚窗最高价较发行价过大') && qs.market_pattern.instructions.includes('发行价位置行锚窗最高价较发行价'),
     'F: ④桶引用 athVsLaunchPct 渲染锚（发行价位置行「锚窗最高价较发行价」——BP39）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');

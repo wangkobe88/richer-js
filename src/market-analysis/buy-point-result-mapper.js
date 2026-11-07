@@ -362,6 +362,8 @@ function buildBuyPointObservation(answers, anchors = null) {
       actNearTail5TickN: _actNum(anchors, 'nearTail5TickN'),
       actNearTail5BuyN: _actNum(anchors, 'nearTail5BuyN'),
       actNearTail5BuyBnb: _actNum(anchors, 'nearTail5BuyBnb'),
+      // BP41 真庄反锚腿②：尾段买 ÷ 全窗买 ×100（拉升进行时=买量仍占全窗流量实质份额）
+      actNearTail5BuySharePct: _actNum(anchors, 'nearTail5BuySharePct'),
       // 筹码结构锚族（BP14：cheatDerived 同名透传 famous 三键+分层三键+簇持仓
       // 两键+参与/持有分叉锚——chip 前缀=买点前锚窗口径；观察/校准素材与门判读原料）
       chipFamousDominancePct: _chipNum(anchors, 'famousDominancePct'),

@@ -399,7 +399,7 @@ function computeBuyPointDerived(snapshot) {
   // 1 笔（「0 笔」不存在）——判读看行数与买额：仅末行 1 笔且尘级=锚点即静默边界
   // （买点时刻死寂），多笔大额=涌入波内（双向锚）；dt 缺失全族 null（tEnd null
   // 即 null 绝不冒充）──
-  let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null;
+  let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null, nearTail5BuySharePct = null;
   if (tEnd !== null) {
     let tn5 = 0, bn5 = 0, bb5 = 0;
     for (const t of ticks) {
@@ -410,6 +410,12 @@ function computeBuyPointDerived(snapshot) {
     nearTail5TickN = tn5;
     nearTail5BuyN = bn5;
     nearTail5BuyBnb = +bb5.toFixed(4);
+    // BP41 真庄反锚腿②机械锚：尾段买 ÷ 全窗买 ×100（「与拉升同量级」的占比口径
+    // ——拉升进行时=买量仍占全窗流量实质份额；资金口径不滤 outlier 同 openSeg。
+    // 有证据零值：tEnd 在场即数值（全窗零买=0），tEnd 缺失才 null 族语义）
+    let winBuyBnb = 0;
+    for (const t of ticks) if (t.side === 'BUY') winBuyBnb += t.bnb || 0;
+    nearTail5BuySharePct = winBuyBnb > 0 ? +((bb5 / winBuyBnb) * 100).toFixed(1) : 0;
   }
   const activity = {
     spanSec: cd.spanSec ?? null,
@@ -428,6 +434,7 @@ function computeBuyPointDerived(snapshot) {
     nearTail5TickN,
     nearTail5BuyN,
     nearTail5BuyBnb,
+    nearTail5BuySharePct,
   };
 
   // ── 筹码结构锚族透传（BP14/案号 BP14：CD famous 控盘+持仓集中判法搬运——

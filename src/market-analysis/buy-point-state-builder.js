@@ -130,7 +130,7 @@ function buildBuyPointState(snapshot) {
     {
       const ta = (b.activity || {});
       if (ta.nearTail5TickN !== null && ta.nearTail5TickN !== undefined) {
-        lines.push(`锚前尾段(最后5秒): ${ta.nearTail5TickN} 笔（买 ${ta.nearTail5BuyN ?? '?'}）合计买 ${ta.nearTail5BuyBnb ?? '?'} BNB（买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内，临近死寂判读不成立；仅 1 笔/尘级=锚点即静默边界、买点时刻盘面死寂）`);
+        lines.push(`锚前尾段(最后5秒): ${ta.nearTail5TickN} 笔（买 ${ta.nearTail5BuyN ?? '?'}）合计买 ${ta.nearTail5BuyBnb ?? '?'} BNB、占全窗买入 ${ta.nearTail5BuySharePct ?? '?'}%（买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内，临近死寂判读不成立；仅 1 笔/尘级=锚点即静默边界、买点时刻盘面死寂；占比口径=买量是否仍占全窗流量实质份额，两成上下=burst 已过的顶部、三分之一以上=拉升进行时）`);
       }
     }
     // BP14（案号 BP14 BEM Miner 案）：筹码结构行——famous 控盘+持仓集中分层+
