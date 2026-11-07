@@ -16,7 +16,7 @@
 
 ## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案；**T120（2026-11-05）tick 增量门默认退役——缺省 0=只剩时间窗+帽，显式正值可恢复，见 T120 案**）**；**T115（2026-11-04）v71 实验级发射帽 5→2（第三次检测=退场段接刀观察，见 T115 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004；**T112（2026-11-04）起 v70 实验级变体：净买门拆臂去 netL、短窗 20→12 笔（见 T112 案；库 v56 未动）**）
 
-**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1` 七腿阶梯（t1-t4 热度递升 / t5 块窗砸盘 / t6 低市值∨深回撤 / t7 跌底放量）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测恒拒**（signalGate 腿全量排除，用户裁定）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 7` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
+**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1`（**现行 v6 八腿**：t0b 12 笔·1 BNB·6 真持有者起步即最早臂 + t1-t4 热度递升 + N30/36/45 纯热度，全腿 `buyPhase:'first'` 每代币只买一次；谱系 v1 七腿→v3 十三腿→v5 九腿回测腿形→v6 删 t0a，见 T117/T119/T121 案）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测受控解禁（T121，2026-11-07）**——实验 `backtest.signalGateReal:true` 真调门链（缺省 false=signalGate 腿全量排除恒拒现状不变）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 8` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -54,6 +54,24 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T121 回测门链真调受控解禁（backtest.signalGateReal）+ ladder v5/v6 两跑 + signals 页门链明细展示（2026-11-07；推翻 T117 裁定④「回测恒拒」，用户裁定基于 v73 时段数据回测真实调用 cheat+BP 门链）
+
+**受控解禁机制**（缺省 `false`=恒拒现状 bit 不变，其它回测实验零影响——sim-8a51 等不受波及）：
+- **服务层防前视+隔离**：`CheatCheckService/BuyPointCheckService.gateBuyPoint(..., opts)` 新增 `opts.anchorMs`——有限正数时 `_pullTicksDb` 的 tail/head 两查询均加 `.lte('block_time', new Date(anchorMs).toISOString())`（回测时 DB 已有全史，纯 tail 查询=拉信号时刻之后的行=马后炮；截窗后锚计数 anchorCountAt 语义不变=「≤anchor 行中最新 pullLimit 行」；生产不传=bit 一致）；`config.persist:false`（**回测恒由 BacktestEngine ctor 硬编码注入、不走实验 config**）→ `_writeRow` 跳过（stats.persistSkipped 留观测，**绝不写 cheat_detection/buy_point_analyses 全局表**——防污染生产 bootstrap/粘滞判定域）+ CheatCheckService `_bootstrapHistory` 直接 return（禁读生产历史行——生产判定锚窗≠回测锚窗，复用=秒回错判定）；进程内粘滞/拉黑/inflight 照常（回测进程内语义完整）
+- **门链三方法搬 `core/AbstractTradingEngine.js`**（单一真相源）：`_cheatGateEvaluateBinary`/`_cheatGateHardReject`/`_bpGateEvaluate` + 辅件 `_projectCheatFactors`/`_cheatExitPosition`/`_cheatGateLateConsume`/`_sgTriggerCount`/`_sgRecordTrigger` 从 FourMemeWssTradingEngine 物理搬移，FourMeme 调用点 `this.*` 不变；`_cheatExitPosition` 内部 `Date.now()` 改可传 nowMs（FourMeme 调用点显式传 bit 一致、回测传虚拟时钟）
+- **BacktestEngine 接线**：`_signalGateReal = config.backtest?.signalGateReal === true`——仅 false 时组装 `_sgExcludedIds` 排除集（现状锁定）；true 时 signal 落库成功后与 FourMeme 同位真调门链（metadata 三段 `signalGate/cheatCheck/buyPoint` 照落 signal 行，triggerNo 预读+1；`anchorMs` 传当刻虚拟时钟）；服务构造读 `config.fourmemeWs` 同键，不注入 waitIdle/pullTicks（无 collector/resolver——数据已在 DB 无 flush 边界，settleDelayMs:0）
+- **单测**：`_test_cheat_detection_service`/`_test_buy_point_check_service` 补 anchorMs 截窗（lte 传参）+ persist 跳写/禁 bootstrap 断言；`_test_signal_gate_engine` 搬移后全绿；排除集条件化断言（false=组装、true=null）
+
+**ladder v5 九腿首跑**（库 version 6，commit `41013aa9`；实验 `415749ba-8bac-418e-bfe2-04b8624973eb`「bt-v75」）：v4 十三腿删 t6 暴跌抄底整腿 + D25-D55 五档回撤臂（回撤族整体退役），增 t0a `tradeCount >= 6 AND buyVolumeBnb >= 0.75 AND holdersExDust >= 4` / t0b `>= 12 AND >= 1 AND >= 6` 两条更早人气臂，全腿 `buyPhase:'first'`（T100 纯配置零新代码）。源=v73 `c6efed13-ce9d-41b0-89a5-8ca8b029a609`（2026-11-05 11:31:27→13:45:10 UTC，both）窗；gate.awaitMs 60000 + settleDelayMs 0 + memSource 关 + `buySignalMaxPerToken 9`。**结果**：13 token 买入全平仓，合计 **-0.0020 BNB**（未平仓 0）。
+
+**v6 八腿第二跑**（库 version 7，commit `c515da0b`；实验 `b67513a8-a389-4297-86d0-868a5b8eab1a`「bt-v76」）：用户裁定原话「去掉买腿 tradeCount >= 6 AND buyVolumeBnb >= 0.75 AND holdersExDust >= 4 再跑一次」——t0a 删除、priority 重排 t0b→1 … N45→8。**结果**：287 BUY 信号（腿触发分布 P1 t0b 48 / P2 t1 55 / P3 t2 39 / P4 t3 31 / P5 t4 31 / P6 N30 29 / P7 N36 27 / P8 N45 27）→ 作弊门 186 cheat 拉黑 + 81 unhealthy + 20 healthy（cached 粘滞 13）→ BP 门 20 assessed = 15 拒（poor/else_poor 10 + poor/pattern_gate 4 + poor/activity_gate 1）+ 5 放 → **5 笔买入全平仓全亏合计 -0.0010 BNB**（팔꿈치 매수 0x1ff6da98 -0.0001 / 29 0xdc191037 -0.0002 / SI 0x04a65d5c -0.0003 / 羊王 0x5a8d94c6 -0.0002 / 热搜拼好歌 0xcba062de -0.0002）；insufficient_ticks 放行 0。**persist 隔离验证**：cheat_detection/buy_point_analyses 按 source_experiment_id 与 analyzed_at≥回测窗双查**均零行**。
+
+**两跑对照**：共同买入 4 token（팔꿈치 매수 0x1ff6da98 / SI 0x04a65d5c / 羊王 0x5a8d94c6 / 热搜拼好歌 0xcba062de）；t0a 边际=+8 token 买入（13 vs 5，竖琴海豹 0xbc6c3459 / 刘家郡 0x996e6d92 / 坟头蹦迪 0x1417a158 / SI 0x1f24d0af / SI 0xea7dc082 / 钱从四面八方来 0x6f1d06df / 玩币归赵 0x6c06ee23 / FOR 0xa7cc6168 / 小奶格 0x0710b38f）且 8 票全亏——**t0a 6 笔档更早入场点的票未被门链拦下且全亏，t0a 价值未证实**（删 t0a 后 v6 亏损同步减半 -0.0020→-0.0010）。
+
+**signals 页门链明细展示**（commit `a9de5e78`，模板 `?v=4.32`；起因=用户看 v73 突突车 0x78cd05cf…777 「为什么没有买入」——该票实际买过两轮（P1 healthy+good 0.61 执行、P7 good 0.5 执行），P2-P5 BP poor 拒仅一行拒因不可读）：signalGate 段（legId/第 N 次·触发即消耗/BP 放行档/cheatRecheck/门序）+ cheatCheck「16 题档位明细」details（中文题名+英文键+词档徽章按严重度着色降序+L=数值）+ buyPoint 完整明细（综合徽章+p/rule/passed+质量题两行+九维度+「盘面锚值 N 锚」四列网格）+ `cheat_gate_*/bp_gate_*` 门链拒因中文映射。
+
+**余留观察**：①门链联合通过率 5/287≈1.7%（cheat 门 healthy 20/287≈7%），两跑零正收益票——触发条件侧（人气里程碑）与门链质量侧联合校准待更多时段样本；②回测门链 Jev 配额消耗速率未单独计量（gateAwaitMs 60s 下全程零竞速超时）；③cheat 拉黑 186/287=65% 与生产分布（CD158 系列）量级一致性待对照。
 
 ### T117 买入策略整体调整：signalGate 信号源门链（触发条件 → 作弊门二元版 → BP 门）+ 阶梯策略库条目 + FA 五触发键 + BP2 题面改版+引擎融合（2026-11-05 落码；用户方案「之前增加了买入点位的 Jev 分析，尚未跟实验引擎融合，我梳理了一下方案，不仅仅涉及买入点位 Jev 分析，算是买入策略的一次整体调整」）
 
