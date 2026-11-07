@@ -162,13 +162,14 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
     info: {
       status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0,
       levels: { same_block_buy_wave: 'none' }, buckets: { activity: 'mid' }, strongbackerLike: 1,
+      exempt: null, // CD379 活跃度豁免留痕位（service 出口变换才有值）
     },
   });
   // healthy 缺席键 → 缺省形状（不冒充）
   const eng4b = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy' })) });
   check('healthy 缺席键 → 缺省形状', (await eng4b._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4b', SG())).info, {
     status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0,
-    levels: null, buckets: null, strongbackerLike: 0,
+    levels: null, buckets: null, strongbackerLike: 0, exempt: null,
   });
 
   // A5 timeout_fail_open → 放行 + late 挂钩 _cheatGateLateConsume（迟到拉黑下轮生效）

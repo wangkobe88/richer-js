@@ -1439,6 +1439,7 @@ class AbstractTradingEngine extends ITradingEngine {
       reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
       levels: res.levels ?? null, buckets: res.buckets ?? null,
       strongbackerLike: res.strongbackerLike ?? 0,
+      exempt: res.exempt ?? null, // CD379 活跃度豁免留痕 { code:'activity_<桶>', originalGrade }
     };
   }
 

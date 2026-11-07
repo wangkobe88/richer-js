@@ -93,6 +93,23 @@ const DEFAULTS = {
 
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
+// CD379 活跃度豁免合法域（2026-11-07 用户裁定）——与 llm/cheat-questions.mjs 的
+// ACTIVITY_LEVELS 同域（ESM 不能静态 require，单测 _test_cheat_gate_engine.cjs
+// dynamic import 锁两边一致防漂移）
+const ACTIVITY_EXEMPT_DOMAIN = ['low', 'mid', 'high', 'ultra'];
+function parseActivityExemptLevels(v) {
+  if (v === undefined || v === null) return new Set(['high', 'ultra']);
+  if (!Array.isArray(v)) {
+    throw new Error(`cheatCheck.gate.activityExemptLevels 须为数组（合法域 ${ACTIVITY_EXEMPT_DOMAIN.join('/')}），got ${typeof v}`);
+  }
+  for (const x of v) {
+    if (!ACTIVITY_EXEMPT_DOMAIN.includes(x)) {
+      throw new Error(`cheatCheck.gate.activityExemptLevels 非法档位 '${x}'（合法域 ${ACTIVITY_EXEMPT_DOMAIN.join('/')}；显式 []=关豁免）`);
+    }
+  }
+  return new Set(v);
+}
+
 class CheatCheckService {
   /**
    * @param {Object} [config] - fourmemeWs.cheatCheck 段（flap 实验经 _mergedWsConfig 同键）
@@ -113,6 +130,13 @@ class CheatCheckService {
     // 买点 await 竞速上限（gate 段只消费 awaitMs——gate.enabled/unhealthyReanalyses
     // 已随 CD158 退役；门激活=买腿携带 cheatCheckCondition，由引擎判定）
     this._gateAwaitMs = num(config.gate && config.gate.awaitMs, DEFAULTS.gateAwaitMs, 1);
+    // CD379 活跃度豁免（2026-11-07 用户裁定「作弊检测豁免所有活跃度在 high 之上的票」）：
+    // 门决策域变换——grade∈{cheat,unhealthy} ∧ activityLevel 桶∈豁免集 → 出口变换
+    // healthy 放行（exempt 留痕含 originalGrade）；观测行落库保留原始 grade（研究
+    // 原料）；豁免命中不登记拉黑（引擎短路/清仓/迟到拉黑自然不触发）。
+    // 缺省 ['high','ultra'] 默认生效；显式 []=关；非法值 throw（配置错误 fail-fast
+    // 防静默失效——CheatCheckServiceTest CD379 段锁域与题集 ACTIVITY_LEVELS 一致）
+    this._activityExemptLevels = parseActivityExemptLevels(config.gate && config.gate.activityExemptLevels);
     this._settleFlushMs = num(config.settleFlushMs, DEFAULTS.settleFlushMs);
     // ② mem 源对拍护栏（默认开）：mem hit 完成分析后异步 DB 重拉按 watermark 对齐比对
     // digest——不一致 warn+计数不拦截（灰度观察期工具，验收后可关）
@@ -153,6 +177,7 @@ class CheatCheckService {
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // ② 对拍护栏观测
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
+      activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
     };
   }
 
@@ -209,7 +234,10 @@ class CheatCheckService {
     if (!token) return { status: 'invalid_token' };
     this.stats.gateNoted++;
 
-    if (this._gateBlocked.has(token)) return this._blockedResult(token);
+    // CD379 活跃度豁免：出口统一包 _applyActivityExempt（拉黑登记/恢复点已跳过
+    // 豁免票，blocked 出口此处为纯防御形状统一——bootstrap 恢复的旧拉黑行以
+    // 恢复点的 activity 档检查为准）
+    if (this._gateBlocked.has(token)) return this._applyActivityExempt(this._blockedResult(token));
 
     // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
     // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）。
@@ -221,7 +249,7 @@ class CheatCheckService {
     const lg = this._lastGrade.get(token);
     if (lg && (lg.grade === 'healthy'
         || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
-      return this._stickyResult(token, lg);
+      return this._applyActivityExempt(this._stickyResult(token, lg)); // CD379：sticky unhealthy 豁免票同放行
     }
 
     let chain = this._inflight.get(token);
@@ -242,17 +270,44 @@ class CheatCheckService {
     ]);
     if (result === timedOut) {
       this.stats.gateTimeouts++;
-      return { status: 'timeout_fail_open', late: chain, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 }; // CD159 观察臂（此刻粘滞值；late 完成后可能翻转，投影以 late 消费为准）
+      // CD379：late 包同款豁免变换——迟到结果若 activity high+ 豁免，_cheatGateLateConsume
+      // 收到 healthy 不补拉黑不清仓（原样 chain 会把豁免票错拉黑）
+      const late = chain.then((r) => this._applyActivityExempt(r));
+      return { status: 'timeout_fail_open', late, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 }; // CD159 观察臂（此刻粘滞值；late 完成后可能翻转，投影以 late 消费为准）
     }
     if (result && (result.grade === 'cheat' || result.grade === 'unhealthy' || result.grade === 'healthy')) {
       this.stats.gateGraded++;
     }
-    return result;
+    return this._applyActivityExempt(result); // CD379：chain 结果（含 4b/4c 秒回）统一出口变换
   }
 
   /** G1 拉黑查询（引擎买条件评估后短路用——省叙事直调/preBuy 整条链） */
   isGateBlocked(tokenAddress) {
     return this._gateBlocked.has(String(tokenAddress || '').toLowerCase());
+  }
+
+  /** CD379 活跃度豁免命中判定（桶∈豁免集；空集恒 false=关；bucket null/缺席不豁免） */
+  _isActivityExempt(bucket) {
+    return !!bucket && this._activityExemptLevels.size > 0 && this._activityExemptLevels.has(bucket);
+  }
+
+  /**
+   * CD379 活跃度豁免出口变换（2026-11-07 用户裁定「作弊检测豁免所有活跃度在
+   * high 之上的票」）：grade∈{cheat,unhealthy} ∧ buckets.activityLevel∈豁免集
+   * → healthy 放行——reasons/levels/buckets/anchors 原样保留（审计轨迹），
+   * exempt 留痕 { code:'activity_<桶>', originalGrade }。观测行已在 _chain 内
+   * 落库（原始 grade=研究原料），仅**门决策域**变换；gradeObservation 规则域
+   * 零改动（CHEAT_GRADE_RULES_VERSION 不 bump——豁免不产新档位只改消费侧）。
+   * 非判定行/未命中/豁免关 → 原样返回。四个出口统一走本变换：入口 blocked 秒回
+   * / 入口 sticky 秒回 / chain 结果 / timeout 的 late 包。
+   */
+  _applyActivityExempt(res) {
+    if (!res || this._activityExemptLevels.size === 0) return res;
+    if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
+    const act = res.buckets && res.buckets.activityLevel;
+    if (!this._isActivityExempt(act)) return res;
+    this.stats.activityExemptions++;
+    return { ...res, grade: 'healthy', exempt: { code: `activity_${act}`, originalGrade: res.grade } };
   }
 
   // ─────────────────────────── 分析链（全吞错） ───────────────────────────
@@ -486,7 +541,12 @@ class CheatCheckService {
       // 消费）；unhealthy → `_gateUnhealthyGrades` 纯观测计数（FA 键
       // cheatUnhealthyGrades 数据源，**无门效应**——2026-11-03 用户裁定移除
       // 升级拉黑，unhealthy 每个买信号重判直至翻案）
-      if (graded.grade === 'cheat') {
+      // CD379 活跃度豁免：grade∈{cheat,unhealthy} ∧ activity 档∈豁免集 → 不登记
+      // 拉黑（不 add → 引擎短路/秒回/清仓/迟到拉黑全部自然不触发）；unhealthy
+      // 观测计数照记（原始判定轨迹）。判据 obs.activityLevel.bucket 与
+      // levelsFromObservation 的 buckets.activityLevel 同源；出口统一变换
+      const activityExempt = this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null);
+      if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
       } else if (graded.grade === 'unhealthy') {
         const n = (this._gateUnhealthyGrades.get(token) || 0) + 1;
@@ -642,13 +702,19 @@ class CheatCheckService {
         // 门状态恢复（版本域）：cheat 行在场 → 拉黑；unhealthy 只恢复观测计数
         let unhealthy = 0;
         let cheatSeen = false;
+        let cheatDigest = null; // 最新 cheat 行 digest（rows 时间倒序，首个=最新）
         for (const r of rows) {
           const g = r.snapshot_digest && r.snapshot_digest.grade;
-          if (g === 'cheat') cheatSeen = true;
+          if (g === 'cheat') { cheatSeen = true; cheatDigest ||= r.snapshot_digest; }
           else if (g === 'unhealthy') unhealthy++;
         }
         this._gateUnhealthyGrades.set(token, unhealthy);
-        if (cheatSeen) this._gateBlocked.add(token);
+        // CD379：恢复拉黑同查活跃度豁免——豁免配置上线前落的 cheat 行 activity
+        // high+ 不再恢复拉黑（下个买信号重判走正常链）；digest.activityLevel.bucket
+        // 与判定行同源
+        if (cheatSeen && !this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)) {
+          this._gateBlocked.add(token);
+        }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
         // unhealthy 投影不缺位（下次信号重判覆盖）
         const gradedRow = rows.find((r) => r.snapshot_digest && r.snapshot_digest.grade);

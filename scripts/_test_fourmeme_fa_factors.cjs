@@ -587,6 +587,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'cheatFamousDominancePct', 'cheatFamousDominance', 'cheatAbnormalBehaviorRatio',
         'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct', 'cheatMaxBlockPreGapSec',
         'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct', 'cheatRouterEntryBuyPct',
+        // 2026-11-07 T122 接近发行价臂（现价较首可靠价涨幅，BP near_launch 同口径；
+        // 详见 _test_current_vs_launch_factor.cjs）
+        'currentVsLaunchPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

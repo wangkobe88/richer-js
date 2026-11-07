@@ -65,6 +65,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T117 信号源 t6/t7 市值回撤键（2026-11-05 买入策略整体调整）：现市值较峰市值
     // 回撤 %——信号源 fire 复盘需落库；旧 FA 无键 → null 不掩盖
     mcapFromPeakPct: factorResults.mcapFromPeakPct ?? null,
+    // T122 接近发行价臂（2026-11-07）：现价较首可靠价涨幅 %（BP near_launch 同口径
+    // ≤+50% 含破发）——新腿条件串主键，信号复盘需落库；旧 FA/无可靠价 → null 不掩盖
+    currentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
     // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
     // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
     peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,

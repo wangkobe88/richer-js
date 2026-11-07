@@ -58,6 +58,9 @@ function makeEngine(fields = {}) {
     _cheatBlockedTokens: new Set(),
     _cheatProjectedTokens: new Set(),
     _cheatFactorKeys: null,
+    // 1bcd0222 拒前 metadata.cheatCheck 落段依赖 _updateSignalMetadata（真实实现
+    // 走 DB）；基底 no-op 桩，需要断言的用例（A1）自带收集桩覆盖
+    _updateSignalMetadata: async () => {},
     ...fields,
   });
 }
@@ -82,16 +85,20 @@ function faStub(cheatGrade) {
 console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/放=腿表达式）');
 {
   // A1 cheat：拉黑 + 清仓联动 + signal failed + 拒买（不评表达式——buildFactorMap 桩抛错反证）
-  const exits = [], signals = [];
+  const exits = [], signals = [], metas = [];
   const eng = makeEngine({
     _cheatCheckService: svcStub(async () => ({ status: 'analyzed', grade: 'cheat', reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0 })),
     _cheatExitPosition: async (addr, why) => { exits.push({ addr, why }); },
     _updateSignalStatus: async (id, status, meta) => { signals.push({ id, status, meta }); },
+    _updateSignalMetadata: async (id, data) => { metas.push({ id, data }); },
     _factorAggregator: { buildFactorMap: () => { throw new Error('cheat 路径不评表达式不应重建上下文'); } },
   });
   const r = await eng._cheatGateEvaluate('0xtok', TOKEN, null, 'sig-1', 'cheatGrade == 0', {});
   check('cheat → 拒买', r, { pass: false, reason: '作弊盘门拒买（cheat 拉黑+持仓清仓联动 [A_strong:same_block_buy_wave]）' });
   ok('cheat → 引擎侧拉黑（_cheatBlockedTokens）', eng._cheatBlockedTokens.has('0xtok'));
+  // 1bcd0222 拒前 metadata.cheatCheck 落段（拒行可观测性：拒因带通道/档位+CD379 exempt 位）
+  check('cheat → 拒前 metadata.cheatCheck 段（grade/reasons+exempt:null 形状）', metas,
+    [{ id: 'sig-1', data: { cheatCheck: { status: 'analyzed', grade: 'cheat', cached: false, reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0, levels: null, buckets: null, strongbackerLike: 0, exempt: null } } }]);
   check('cheat → 清仓联动（why=cheat 判定）', exits, [{ addr: '0xtok', why: 'cheat 判定' }]);
   check('cheat → signal failed reason=cheat_gate_cheat', signals.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_cheat']]);
@@ -494,6 +501,90 @@ console.log('E. 引擎侧源码口径锁（CD158 形状）');
   ok('_cheatExitPosition 调用恰三处且 why 恒 cheat 域（基类硬拒 helper+迟到 2 处+FourMeme 买路径收口 1 处——unhealthy 永不触发清仓）',
     exitCalls === 1 && exitCallsBase === 2, { fourmeme: exitCalls, base: exitCallsBase });
 }
+
+// ═══ F. CD379 活跃度豁免（2026-11-07 用户裁定「作弊检测豁免所有活跃度在 high 之上的票」）═══
+async function testActivityExempt() {
+  console.log('\n── F. CD379 活跃度豁免 ──');
+  const svcSrc = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
+  const { CheatCheckService } = require('../src/market-analysis/CheatCheckService');
+
+  // F1 ctor 解析：缺省 ['high','ultra'] 默认生效；显式 []=关；非法值/非数组 throw fail-fast
+  const mkSvc = (levels) => new CheatCheckService(
+    { enabled: true, ...(levels !== undefined ? { gate: { activityExemptLevels: levels } } : {}) },
+    { info: () => {}, warn: () => {}, error: () => {} }, {});
+  ok('F1 缺省=high/ultra 豁免（默认生效）', (() => {
+    const s = mkSvc(); return s._isActivityExempt('high') && s._isActivityExempt('ultra') && !s._isActivityExempt('mid');
+  })());
+  ok('F1 显式 []=关（任何桶不豁免）', (() => {
+    const s = mkSvc([]); return !s._isActivityExempt('high') && !s._isActivityExempt('ultra');
+  })());
+  ok('F1 低档可显式配（low 配置生效——豁免域=配置自由度）', (() => {
+    const s = mkSvc(['low']); return s._isActivityExempt('low') && !s._isActivityExempt('high');
+  })());
+  let threw = null; try { mkSvc(['hyper']); } catch (e) { threw = e.message; }
+  ok('F1 非法档位 throw fail-fast', /非法档位/.test(threw || ''), threw);
+  threw = null; try { mkSvc('high'); } catch (e) { threw = e.message; }
+  ok('F1 非数组 throw fail-fast', /须为数组/.test(threw || ''), threw);
+
+  // F2 _applyActivityExempt 出口变换全分支
+  const s2 = mkSvc();
+  const cheatHi = { status: 'graded', grade: 'cheat', reasons: [{ code: 'A_slow_grind' }], buckets: { activityLevel: 'high' } };
+  const r2a = s2._applyActivityExempt(cheatHi);
+  check('F2 cheat+high → healthy+exempt 留痕（reasons 保留审计）', { grade: r2a.grade, exempt: r2a.exempt, reasons: r2a.reasons },
+    { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'cheat' }, reasons: [{ code: 'A_slow_grind' }] });
+  const r2b = s2._applyActivityExempt({ status: 'graded', grade: 'unhealthy', buckets: { activityLevel: 'ultra' } });
+  check('F2 unhealthy+ultra → healthy+exempt', { grade: r2b.grade, exempt: r2b.exempt },
+    { grade: 'healthy', exempt: { code: 'activity_ultra', originalGrade: 'unhealthy' } });
+  const r2c = s2._applyActivityExempt({ status: 'graded', grade: 'cheat', buckets: { activityLevel: 'mid' } });
+  check('F2 cheat+mid → 原样不豁免', { grade: r2c.grade, exempt: r2c.exempt }, { grade: 'cheat', exempt: undefined });
+  const r2d = s2._applyActivityExempt({ status: 'graded', grade: 'unhealthy', buckets: null });
+  check('F2 buckets null → 原样（题答案缺席不豁免）', { grade: r2d.grade, exempt: r2d.exempt }, { grade: 'unhealthy', exempt: undefined });
+  const beforeCnt = s2.stats.activityExemptions;
+  s2._applyActivityExempt({ status: 'analyzed', grade: 'healthy', buckets: { activityLevel: 'high' } });
+  s2._applyActivityExempt({ status: 'fail', reason: 'cooldown' });
+  s2._applyActivityExempt(null);
+  ok('F2 healthy/fail/null 不计数（豁免只发生在 cheat/unhealthy 变换；前两断言已计 2）',
+    beforeCnt === 2 && s2.stats.activityExemptions === 2, s2.stats);
+  const s2off = mkSvc([]);
+  const r2e = s2off._applyActivityExempt({ status: 'graded', grade: 'cheat', buckets: { activityLevel: 'high' } });
+  ok('F2 豁免关（[]）原样返回', r2e.grade === 'cheat' && r2e.exempt === undefined);
+
+  // F3 sticky 出口真调（零 DB 零 LLM：unhealthy 粘滞+recheck=false → 豁免变换 healthy 放行）
+  const s3 = mkSvc();
+  s3._lastGrade.set('0xexempt', {
+    grade: 'unhealthy', reasons: [{ code: 'E_low_activity' }], version: 'G17',
+    unhealthyGrades: 2, levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' }, anchors: {},
+  });
+  const r3 = await s3.gateBuyPoint('0xexempt', {}, {}, { recheckUnhealthy: false });
+  check('F3 sticky unhealthy+high recheck=false → 秒回也豁免放行', { grade: r3.grade, exempt: r3.exempt, cached: r3.cached },
+    { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'unhealthy' }, cached: true });
+
+  // F4 源码口径锁：拉黑登记点跳过豁免票（graded 段）+ bootstrap 恢复检查 + late 包
+  ok('F4 拉黑登记点豁免跳过（grade===cheat && !activityExempt 恰一处）',
+    (svcSrc.match(/graded\.grade === 'cheat' && !activityExempt/g) || []).length === 1);
+  ok('F4 bootstrap 恢复拉黑豁免检查（cheatSeen && !this._isActivityExempt）',
+    /cheatSeen && !this\._isActivityExempt\(cheatDigest/.test(svcSrc));
+  ok('F4 timeout late 包豁免变换（迟到结果不把豁免票错拉黑）',
+    svcSrc.includes('chain.then((r) => this._applyActivityExempt(r))'));
+  ok('F4 四出口统一变换（this._applyActivityExempt 调用恰 4 处：blocked/sticky/late/chain）',
+    (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length === 4,
+    (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length);
+
+  // F5 域一致锁：CJS 豁免域 ⊇ 题集 ACTIVITY_LEVELS（ESM dynamic import 防漂移）
+  const q = await import(path.join(__dirname, '../src/market-analysis/llm/cheat-questions.mjs'));
+  const lvls = q.ACTIVITY_LEVELS;
+  ok('F5 题集 ACTIVITY_LEVELS 四桶（low/mid/high/ultra）', JSON.stringify(lvls) === JSON.stringify(['low', 'mid', 'high', 'ultra']), lvls);
+  let allLegal = true;
+  for (const l of lvls) { try { mkSvc([l]); } catch (e) { allLegal = false; } }
+  ok('F5 题集每个桶都是豁免合法域成员（域漂移=ctor throw 拒启）', allLegal);
+
+  // F6 grade 规则域零改动反证：豁免不碰 gradeObservation/规则版本（只改消费侧）
+  const gradeSrc = fs.readFileSync(path.join(__dirname, '../src/market-analysis/cheat-grade.js'), 'utf8');
+  ok('F6 gradeObservation 规则域零豁免引用（决策域变换只在 service 层）',
+    !gradeSrc.includes('activityExempt') && !gradeSrc.includes('_applyActivityExempt'));
+}
+
+await testActivityExempt();
 
 console.log(`\n${pass} 通过, ${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);
