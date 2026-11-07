@@ -17,11 +17,13 @@
  *      ……这种只能临近发布价格参与」；判型归 Jev（题面教双臂形状+从宽①防误伤，
  *      BP35——身份证据不是逃逸门）、
  *      位置归代码（SUSTAINED_CLIMB_LAUNCH_PCT=10 由羊王四点定标）
- *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂）：market_heat=low（近窗密度）**或**
- *      activity_level=low（买点前全窗量级）**或** activity_level=ultra（机器盘
- *      级极端密集——用户裁定「act 为 ultra 也不玩」，对齐 CD M 通道）→ poor
- *      （rule=activity_gate；market_heat=ultra 不拦——近窗密度视角不拦过热，
- *      只拦全窗量级 ultra）
+ *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
+ *      market_heat=low（近窗密度）**或** activity_level=low（买点前全窗量级）
+ *      **或** activity_level=ultra（机器盘级极端密集——用户裁定「act 为 ultra
+ *      也不玩」，对齐 CD M 通道）→ poor（rule=activity_gate；market_heat=ultra
+ *      不拦——近窗密度视角不拦过热，只拦全窗量级 ultra；**BP38：盘型=
+ *      strong_backer 时 ultra 臂豁免不拦**——强庄盘拉盘天然密集，ultra 密度
+ *      不是拒买证据；low 臂不豁免）
  *   ③ 筹码门（BP14+BP30 heavy 扩档）：famous_domination ∈ {heavy, dominant}
  *      （famous+跟单正净持仓 ≥25 即 famous 主导——用户裁定「famous 主导就
  *      不玩」；light 正常参与不拦）**或** holder_concentration=strong（TOP 过
@@ -101,7 +103,10 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_snipe
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
  * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；market_heat
- * 的 ultra 不拦：近窗密度视角不拦过热，只拦全窗量级 ultra） */
+ * 的 ultra 不拦：近窗密度视角不拦过热，只拦全窗量级 ultra；
+ * BP38 豁免：盘型=strong_backer 时 ultra 臂不拦——强庄盘拉盘天然密集，ultra
+ * 密度不是拒买证据（用户裁定「盘型如果是 strong_backer，活跃度 ultra 豁免，不
+ * 给 poor」）；low 臂（heat/activity）不豁免——活跃度死寂的强庄盘照拦） */
 const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low', 'ultra'] };
 /** 筹码门 famous 拒买档（BP30：heavy+dominant ≥25=famous 主导不玩；light 正常参与不拦） */
 const CHIP_GATE_FAMOUS_POOR_BUCKETS = ['heavy', 'dominant'];
@@ -219,9 +224,10 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   → poor（不要参与）；strong_backer 与 blended_unremarkable 不拦；BP34 六桶
   //   sustained_climb 走位置臂——现价较发行价 ≤+10%（含破发）起点段放行、已拉离
   //   或锚缺失拒（rule 同 pattern_gate）；
-  // ②活跃度门（BP13 双题+BP30 ultra 臂）：market_heat=low（近窗密度死寂）**或**
-  //   activity_level ∈ {low（CD 七要素低档形状）, ultra（机器盘级极端密集——
-  //   「act 为 ultra 也不玩」）}→ poor（rule=activity_gate）；
+  // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
+  //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
+  //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
+  //   strong_backer 时豁免不拦——强庄盘拉盘天然密集）}→ poor（rule=activity_gate）；
   // ③筹码门（BP14+BP30 heavy 扩档）：famous_domination ∈ {heavy, dominant}
   //   （正净 ≥25=famous 主导不玩）**或** holder_concentration=strong（CD240
   //   分层线/一人控盘）→ poor（rule=chip_gate）；
@@ -238,9 +244,16 @@ function buildBuyPointObservation(answers, anchors = null) {
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
+  // BP38：strong_backer ultra 豁免——强庄盘拉盘天然密集，ultra 密度不是拒买证据
+  //   （ultra 臂仅此豁免；low 臂不豁免——活跃度死寂强庄盘照拦；market_pattern 缺席
+  //   时豁免不生效=照拦保守方向；盘型门最前，走④②③⑥拒的票轮不到本门不受影响）
+  const actUltraExempt = dimensions.activity_level
+    && dimensions.activity_level.bucket === 'ultra'
+    && dimensions.market_pattern
+    && dimensions.market_pattern.bucket === 'strong_backer';
   const gateArms = [
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
-    dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) ? dimensions.activity_level : null,
+    dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !actUltraExempt ? dimensions.activity_level : null,
   ].filter(Boolean);
   const chipArms = [
     dimensions.famous_domination && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,

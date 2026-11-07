@@ -418,6 +418,23 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'ul
 ok(aM.bucket === 'poor' && near(aM.prob, 0.86) && aM.rule === 'activity_gate', 'E: 门② BP30 ultra 臂 act=ultra → poor/activity_gate（机器盘级极端密集也不玩）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'ultra', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门② ultra 臂优先于质量题（act ultra+早鸟 good 不救）');
+// BP38 strong_backer ultra 豁免：强庄盘拉盘天然密集，ultra 密度不是拒买证据
+// （用户裁定「盘型如果是 strong_backer，活跃度 ultra 豁免，不给 poor」——SB 四点/
+// S011 ALPHA 形状；豁免后走质量题正常聚合；low 臂不豁免；heat 臂不豁免；
+// 盘型缺席豁免不生效=照拦保守方向）
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.69), ...mkAns('activity_level', 'ultra', 0.65) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: BP38 豁免 strong_backer+ultra → 不拦走质量题（SB S004 形状——盘型①+act ultra 豁免，聚合 neutral）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.69), ...mkAns('activity_level', 'ultra', 0.65), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'good' && aM.rule === 'any_good', 'E: BP38 豁免后质量题正常生效（strong_backer+ultra+早鸟 good → good）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.69), ...mkAns('activity_level', 'low', 0.8) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.8) && aM.rule === 'activity_gate', 'E: BP38 豁免只豁 ultra 臂——strong_backer+act low 照拦（活跃度死寂强庄盘不豁免）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.69), ...mkAns('activity_level', 'ultra', 0.65), ...mkAns('market_heat', 'low', 0.9) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.9) && aM.rule === 'activity_gate', 'E: BP38 豁免不覆盖 heat 臂——strong_backer+ultra+heat low 照拦（prob=heat 臂）');
+{
+  const { market_pattern: _drop, ...noPattern } = fullAnswers();
+  aM = buildBuyPointObservation({ ...noPattern, ...mkAns('activity_level', 'ultra', 0.86) }, dA).assessment;
+  ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: BP38 盘型缺席豁免不生效（market_pattern=null+ultra 照拦——保守方向）');
+}
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'ultra', 0.9), ...mkAns('activity_level', 'high', 0.8) }, dA).assessment;
 ok(aM.rule === 'any_neutral', 'E: 门② market_heat=ultra 不拦（近窗密度视角不拦过热——只拦全窗量级 ultra）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'mid', 0.6), ...mkAns('activity_level', 'mid', 0.6), ...mkAns('early_bird_quality', 'good', 0.9) }, dA).assessment;
@@ -590,9 +607,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP37 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/两调深相等）');
+  console.log('F. 题集形状（BP38 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/④极早窗三证据/strong_backer ultra 豁免）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP37', 'F: 版本=BP37（BP31 案=第 7 批 59 点复审 Shellbank/羊王 立法，盘型六桶制——用户裁定原话「强庄币，需要增加一个标准，就是有一定的卖出，买卖不是完全不平衡的，庄筹码对倒，给散户进场机会，一开盘一直拉几乎无回调的都不是啥好东西。……请给另一个类别吧：持续拉升弱回调类，这种只能临近发布价格参与」+补充「或者，拉盘的速度不是那么快，给散户入场机会」+「也可以视为是强庄盘（否则容易误伤）」：改一①强庄盘散户入场机会双臂（有卖出对倒∨拉得慢，两臂全失走⑥）+改二⑥sustained_climb 持续拉升弱回调新桶（几乎无回调∧买卖几乎完全不平衡）+改三⑥参与窗口代码侧位置门（≤+10% 含破发放行/已拉离/锚缺失拒——界由羊王 S154 −4.2% 放与 S155 +17.1% 拒之间取 10）+改四 mapper MARKET_PATTERN_LEVELS 六桶+位置臂+SUSTAINED_CLIMB_LAUNCH_PCT=10；BP35 修正（⑥身份豁免→家族归属+从宽①、④极早窗反锚、①承接臂收紧）；BP36 对拍修正二（①⑥分界近窗锚定+0.1 线：①对倒臂=近窗卖出 ≥0.1 BNB（無類 S072 卖 0.128→①红线保住）∧⑥对倒臂失=近窗卖出归零/尘埃 <0.1（羊王 S156 卖 0.0000→⑥；S108 0.05→⑥；S110 0.2464/S128 1.085/S138 0.707→①反例稳定）+⑥现在进行时（更早段对倒不救近窗纯拉）+⑥回撤看全窗价格拱（临近段单根深急回针收复创新高不破坏——S156 回针 35.3% 后 0s 创新高）+②⑤第三臂承接归零例外（近窗买占比 ≈0 无人接=无论谁在卖落②(b)——S157 买 0.0001 卖 0.661））；BP37（BP36 全量重抛复审第 5 批——⑥对倒臂 0.1→0.12 收紧：太空逆袭 S054 近 30s 卖 0.1021 刚过线被从宽判 blended 放行，用户裁定「还是应该维持 sustained_climb，有非常微小的卖出力量不豁免」——贴线微小卖出 0.10x 级不构成对倒证据，新线 0.12 定标于 S054 0.1021→⑥ 与 無為 S072 0.128→① 之间）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP38', 'F: 版本=BP38（BP33 案=159 点复审 ultra 专题用户两裁定：①strong_backer ultra 豁免——SB 四点/S011 ALPHA 盘型①被 activity_gate ultra 臂拦（BP30 立法），用户裁定「盘型如果是 strong_backer，活跃度 ultra 豁免，不给 poor」——强庄盘拉盘天然密集，ultra 密度不是拒买证据，mapper ultra 臂加 strong_backer 豁免（low/heat 臂不豁免、盘型缺席照拦保守）；②early_sniper_decay 极早窗衰竭判据补强——ALPHA S011（t+3s）判 strong_backer 0.36，用户裁定「ALPHA 的盘形应该是 early_sniper_decay，除了最最早期无任何购买力」：窗内正净持有人个位数+top1 独食 60%+现价已破发+开盘大额买家已在卖=开局抢完无人接（极早窗占比臂天然失明，看持有人结构/破发/大买家动向三证据，不落①——开局大额单本身不救①）。前版 BP37（⑥对倒臂 0.1→0.12 收紧——太空逆袭 S054 贴线微小卖出 0.1021 不豁免，新线定标于 S054 0.1021→⑥ 与 無為 S072 0.128→① 之间）；BP36（①⑥分界近窗锚定+⑥现在进行时+②⑤承接归零例外）；BP34-36=BP31 案 Shellbank/羊王 一案三代六桶制；BP30/题集 BP33=盘型前置预判断+⑥代码侧位置门 10% 线+tree/追高题退役）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -678,6 +695,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('开盘段买入占全窗买入比例极高（参考 ≥70~80%）') && mp.includes('[WALLETS] 前列钱包首买@全在 t+0~几秒') && mp.includes('金额衰减比笔数衰减更本质') && mp.includes('早期大买家清仓式撤退或只出不进'), 'F: BP30 改四 ④狙击衰竭判据补强（雪球SI S092/S100 案——开盘段占比 ≥70~80% ∧ 前列首买全在最初几秒 ∧ 后段金额吞吐骤降（笔密度可靠尘埃单撑、金额撑不住）∧ 早期大买家清仓式撤退）');
   ok(mp.includes('开局抢完即衰竭') && mp.includes('庄跑了的开盘大额只是狙击痕迹'), 'F: BP30 改四 ①④分界大户在场性（开盘大额但大买家已清仓式撤退=庄/狙击手已跑 → 走④不走①——S100 第 1 大 0x915e 清仓式卖出 1.247/1.300 只出不进）');
   ok(qs.market_pattern.criteria.early_sniper_decay.includes('开盘段后金额吞吐骤降') && qs.market_pattern.criteria.early_sniper_decay.includes('早期大买家清仓式撤退'), 'F: criteria early_sniper_decay 判据补强同步（BP30——桶描述与题面④判据一致）');
+  ok(qs.market_pattern.criteria.early_sniper_decay.includes('极早窗（<90s 占比臂天然失明）看三证据：正净持有人个位数且 top1 独食（60%+）+现价已破发+开盘大额买家已在卖=开局抢完无人接（BP38，不落①') && mp.includes('极早窗内也可见的衰竭形态（BP38，不依赖开盘段占比——窗极短时占比臂天然失明）') && mp.includes('窗内正净持有人极少（筹码结构行正净持有者个位数）且 top1 独食') && mp.includes('②**现价已破发**') && mp.includes('③**开盘大额买家已在卖**'), 'F: ④极早窗衰竭三证据（BP38——ALPHA S011 判例：t+3s top1 64.8% 独食+正净持有 3 人+破发 −25%+大户已在卖=「除了最最早期无任何购买力」判④不判①；极早窗占比臂天然失明不依赖占比）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
@@ -751,7 +769,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     ok(al.instructions.includes(seg), `F: activity_level 七要素+综合锚段在场：${seg.slice(0, 18)}`);
   }
   ok(al.instructions.includes('数值行「临近买点段」事实已算好直接采信'), 'F: activity_level ⑦ 消费 state 临近买点段行（D3.59 搬运）');
-  ok(al.instructions.includes('低档与超高档均由代码侧活跃度门直接消费拒买') && al.instructions.includes('超高=机器盘级极端密集——正常散户参与盘到不了这个密度，BP30 用户裁定「act 为 ultra 也不玩」'), 'F: activity_level 收尾=门消费声明（BP30 ultra 臂同被门消费——镜像 market_heat 反锚④）');
+  ok(al.instructions.includes('低档与超高档均由代码侧活跃度门直接消费拒买') && al.instructions.includes('超高=机器盘级极端密集——正常散户参与盘到不了这个密度，BP30 用户裁定「act 为 ultra 也不玩」') && al.instructions.includes('BP38 豁免：盘型题判①strong_backer 的票 ultra 不由活跃度门拦') && al.instructions.includes('强庄盘拉盘天然密集，ultra 密度不是拒买证据，代码侧豁免'), 'F: activity_level 收尾=门消费声明（BP30 ultra 臂+BP38 strong_backer 豁免教学——Jev 只管判档，豁免由代码执行）');
   // BP28 案改一（S053 太空逆袭 activity 误 low——三段形状执行缝隙）
   ok(al.instructions.includes('三段形状（开局冲一波→中段完全静默→临近买点再集中涌入，BP30）同样属「静默后买入涌入」') && al.instructions.includes('判读锚定**买点时刻的即时状态**') && al.instructions.includes('中段静默的占比不压档') && al.instructions.includes('不是针对静默居中的三段形状'), 'F: activity⑥反锚三段形状归属句（BP30/BP28 案 S053——开局 7 秒冲 7 笔→中段 24 秒完全静默→锚前 2 秒 8 笔近 1 BNB 同块涌入：静默居中的三段形状按「静默后买入涌入」中档起判，「先冲一波后静默」不保护臂只管涌入后死到锚点的形状）');
   ok(al.instructions.includes('买点时刻盘面正被涌入激活（锚前尾段行=8 笔近 1 BNB 直接可见），静默居中的三段形状按「静默后买入涌入」中档起判，不因中段静默占比判低'), 'F: activity 反例样本段补三段形状反例（BP31——S053 形状直译锚+尾段行数值佐证）');
