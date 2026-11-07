@@ -50,6 +50,14 @@
 //     每买信号重判省误杀）
 //     10 腿：t0b + t2-t4 + N30/N36/N45 + NL15/NL20/NL25
 //
+//   v9（2026-11-07 bt-v78 复盘后用户裁定「NL 三臂也根据问题调整一下，
+//     tickCount >= 10」）：NL 三臂加 tradeCount >= 10——bt-v78 首跑 114 买
+//     中 53 笔（46%）走 BP insufficient_ticks（锚窗 tick<8 不判定）放行漏网
+//     （BP10 起改拒）。FA state.tickCount 与发射键 tradeCount 之间零 return
+//     恒等（每进 FA 的 tick 两键同步 +1），且 BP 锚 anchorTickCount（落库行
+//     含尘 tick）≥ tradeCount——tradeCount ≥ 10 即用户所指 tickCount ≥ 10，
+//     且保证 NL 触发时 BP 锚窗必过 minTicks=8（三臂不再产生 insufficient）。
+//
 //   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 10（各腿 1 次
 //   触发上限；T110 默认帽 5 会截断阶梯）；并配 cheatCheck.enabled=true +
 //   buyPointCheck.enabled=true（两门 disabled 时：cheat 门 fail-open 放行、
@@ -95,13 +103,17 @@ const LEGS = [
     // v8 接近发行价臂（T122，2026-11-07 用户裁定「参考购买前检测中『接近发布价』的判断，
     // buyVolumeBnb >= 1.5/2/2.5 且接近发行价」）：currentVsLaunchPct=现价较首可靠价涨幅
     // （FA 新键），<=50 含破发=BP near_launch 同口径贴发行价区；无可靠价 null 恒 false
-    // 宁拦不冒充。cheatRecheck=true（t0b 早臂族同款：每买信号重判）
-    leg('NL15', 8, 'buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 50', true,
-        '接近发行价臂 a（v8 新增，T122）：买量 1.5 BNB ∧ 现价较发行价 ≤+50%（含破发）——热度够+价格贴发行价'),
-    leg('NL20', 9, 'buyVolumeBnb >= 2 AND currentVsLaunchPct <= 50', true,
-        '接近发行价臂 b（v8 新增，T122）：买量 2 BNB ∧ 现价较发行价 ≤+50%（含破发）'),
-    leg('NL25', 10, 'buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', true,
-        '接近发行价臂 c（v8 新增，T122）：买量 2.5 BNB ∧ 现价较发行价 ≤+50%（含破发）——三档中最高热度确认'),
+    // 宁拦不冒充。cheatRecheck=true（t0b 早臂族同款：每买信号重判）。
+    // v9（bt-v78 复盘后用户裁定「NL 三臂也根据问题调整一下，tickCount >= 10」）：
+    // 三臂加 tradeCount >= 10——FA tickCount 与 tradeCount 恒等（零 return 同步 +1），
+    // BP 锚 anchorTickCount ≥ tradeCount ⇒ 触发时 BP 锚窗必过 minTicks=8，
+    // 不再产生 insufficient_ticks（bt-v78 53/114 漏网主源头）
+    leg('NL15', 8, 'tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 50', true,
+        '接近发行价臂 a（v8 新增 T122；v9 加 tradeCount>=10——tick 数源头门防 BP 锚窗不足）：买量 1.5 BNB ∧ 现价较发行价 ≤+50%（含破发）——热度够+价格贴发行价'),
+    leg('NL20', 9, 'tradeCount >= 10 AND buyVolumeBnb >= 2 AND currentVsLaunchPct <= 50', true,
+        '接近发行价臂 b（v8 新增 T122；v9 加 tradeCount>=10）：买量 2 BNB ∧ 现价较发行价 ≤+50%（含破发）'),
+    leg('NL25', 10, 'tradeCount >= 10 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', true,
+        '接近发行价臂 c（v8 新增 T122；v9 加 tradeCount>=10）：买量 2.5 BNB ∧ 现价较发行价 ≤+50%（含破发）——三档中最高热度确认'),
 ];
 
 const ENTRIES = [
@@ -109,7 +121,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v8（2026-11-07 bt-v77 复盘后同轮两改：①NL15/NL20/NL25 接近发行价三臂新增——buyVolumeBnb ≥1.5/2/2.5 AND currentVsLaunchPct <= 50（T122 新 FA 键=现价较首可靠价涨幅，BP near_launch 同口径 ≤+50% 含破发）；②cheat 门 CD379 活跃度豁免 activity high/ultra 不拦）：10 买腿 condition=初始买入信号源（t0b 12 笔起步臂 + t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 10 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v9（2026-11-07 bt-v78 复盘后用户裁定：NL 三臂加 tradeCount >= 10——FA tickCount 与 tradeCount 恒等，BP 锚 anchorTickCount ≥ tradeCount ⇒ 触发时锚窗必过 minTicks=8，bt-v78 114 买中 53 笔 insufficient_ticks 漏网的主源头封堵；其余同 v8=NL15/NL20/NL25 接近发行价三臂（buyVolumeBnb ≥1.5/2/2.5 AND currentVsLaunchPct <= 50，T122 新 FA 键）+ CD379 活跃度豁免）：10 买腿 condition=初始买入信号源（t0b 12 笔起步臂 + t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 10 + cheatCheck.enabled + buyPointCheck.enabled',
     },
 ];
 
