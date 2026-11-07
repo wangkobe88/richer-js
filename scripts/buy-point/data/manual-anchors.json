@@ -1936,6 +1936,30 @@
    },
    "ruledAt": "2026-11-07",
    "note": "BP37 立法锚（⑥对倒臂 0.1→0.12 收紧定标票）：t+67s 第二点近 30s 卖 0.1021/买占比 93.9%，BP36 下刚过 0.1 线被 Jev 从宽判 blended neutral(0.40) 放行——用户裁定原话「我认为还是应该维持 sustained_climb，有非常微小的卖出力量不豁免」：贴线微小卖出（0.10x 级）不构成对倒证据，线抬至 0.12（定标=S054 0.1021→⑥ 与 無為 S072 0.128→① 之间）；BP37 对拍三连 sustained_climb→poor（0.58/0.60/0.69 pattern_gate）翻案达成"
+  },
+  {
+   "anchorId": "BPA-080",
+   "kind": "signal",
+   "tokenAddress": "0x672f509c5d78c29aa051a55e216974256f877777",
+   "tokenName": "ALPHA",
+   "locator": {
+    "set": "bp-2026-11-06-v73-signals",
+    "pointId": "BP-S011",
+    "triggeredAt": "2026-11-05T05:17:36Z",
+    "anchorTickCount": 7
+   },
+   "expect": {
+    "bucket": "poor"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.98,
+    "rule": "pattern_gate",
+    "run": "bp38-parity",
+    "questionVersion": "BP38"
+   },
+   "ruledAt": "2026-11-07",
+   "note": "BP38 立法锚（④极早窗衰竭三证据+strong_backer ultra 豁免双裁定票）：t+3s top1 64.75% 独食+正净持有 3 人+破发 −24.9%+大户已卖 1.05——BP36 下判 strong_backer 0.36 拦于 activity_gate ultra 臂，用户裁定原话「盘型 如果是 strong_backer ，活跃度 ultra 豁免，不给 poor；ALPHA 的盘形应该是 early_sniper_decay，除了最最早期无任何购买力」；BP38 对拍 early_sniper_decay 0.98→poor 0.98 pattern_gate 翻案达成（判型从摇摆 0.36 到坚定 0.98——三证据：正净持有人个位数且 top1 独食+现价已破发+开盘大额买家已在卖，极早窗占比臂天然失明不依赖占比）"
   }
  ]
 }
