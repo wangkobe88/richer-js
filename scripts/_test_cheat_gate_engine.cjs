@@ -588,11 +588,11 @@ async function testActivityExempt() {
   // 8 个放行信号 originalGrade 全∈{cheat,unhealthy} 全经豁免放走实证）
   const s7 = mkSvc();
   const dn = (levels) => s7._exemptDeniedReason(levels);
-  check('F7 pump=moderate → slow_grind_pump（0x94ea754b 判例 unhealthy+pump=2 亦拒）',
-    dn({ slowGrindPump: 2 }), 'slow_grind_pump');
-  check('F7 pump=strong 同拦（0xcb70708e/d0fbcc7b/4b3f1f7a 判例）',
+  ok('F7 pump=moderate 不拦（2026-11-08 用户裁定三臂统一 strong——moderate 不用于判定 cheat；0x94ea754b pump=2 信号恢复豁免）',
+    dn({ slowGrindPump: 2 }) === null);
+  check('F7 pump=strong 拦（0xcb70708e/d0fbcc7b/4b3f1f7a 判例）',
     dn({ slowGrindPump: 3 }), 'slow_grind_pump');
-  ok('F7 pump=weak 不拦（臂线=moderate）', dn({ slowGrindPump: 1 }) === null);
+  ok('F7 pump=weak 不拦（臂线=strong）', dn({ slowGrindPump: 1 }) === null);
   check('F7 washPair=strong → wash_pair_family（0x06810806 同块对敲判例）',
     dn({ washPair: 3 }), 'wash_pair_family');
   check('F7 equalAmountSplit=strong 同拦（0xcb70708e 等额分仓判例）',
@@ -601,9 +601,9 @@ async function testActivityExempt() {
     dn({ coordinatedSellBack: 3 }), 'wash_pair_family');
   ok('F7 wash 族 moderate 不拦（「严重对倒盘」=strong 与 A 通道主判线同档）',
     dn({ washPair: 2 }) === null && dn({ equalAmountSplit: 2 }) === null && dn({ coordinatedSellBack: 2 }) === null);
-  check('F7 holdingsBalance=moderate → holdings_balance（持仓维度独立成臂）',
-    dn({ holdingsBalance: 2 }), 'holdings_balance');
-  check('F7 holdingsBalance=strong 同拦（0xb788e63b 判例 J 通道唯一拦截臂）',
+  ok('F7 holdingsBalance=moderate 不拦（三臂统一 strong 档位修正）',
+    dn({ holdingsBalance: 2 }) === null);
+  check('F7 holdingsBalance=strong 拦（0xb788e63b 判例 J 通道唯一拦截臂同档）',
     dn({ holdingsBalance: 3 }), 'holdings_balance');
   ok('F7 holdings=weak 不拦', dn({ holdingsBalance: 1 }) === null);
   ok('F7 levels null/键缺席（旧档断代/题未答）不拦=豁免照常（缺席不扩大收紧面）',
@@ -613,10 +613,14 @@ async function testActivityExempt() {
   check('F7 出口：cheat+high+pump strong → 原判保持+exemptDenied 留痕',
     { grade: r7a.grade, exempt: r7a.exempt, exemptDenied: r7a.exemptDenied },
     { grade: 'cheat', exempt: undefined, exemptDenied: 'slow_grind_pump' });
-  const r7b = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 2 }, buckets: { activityLevel: 'ultra' } });
-  check('F7 出口：unhealthy+ultra+holdings moderate → 原判保持',
+  const r7b = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 3 }, buckets: { activityLevel: 'ultra' } });
+  check('F7 出口：unhealthy+ultra+holdings strong → 原判保持',
     { grade: r7b.grade, exemptDenied: r7b.exemptDenied },
     { grade: 'unhealthy', exemptDenied: 'holdings_balance' });
+  const r7b2 = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 2 }, buckets: { activityLevel: 'ultra' } });
+  check('F7 出口：holdings moderate（档位修正后）→ 豁免照常恢复放行（0x94ea754b pump=moderate 信号同形状）',
+    { grade: r7b2.grade, exemptDenied: r7b2.exemptDenied, exemptCode: r7b2.exempt && r7b2.exempt.code },
+    { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_ultra' });
   const r7c = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' } });
   check('F7 出口：三臂不在场（F3 形状）→ 豁免照常（CD379 语义维持）',
     { grade: r7c.grade, exempt: r7c.exempt, exemptDenied: r7c.exemptDenied },

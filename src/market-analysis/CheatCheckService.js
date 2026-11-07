@@ -300,13 +300,16 @@ class CheatCheckService {
    * 豁免恰好专放这类票——bt-v79 复盘六案 8 个放行买入信号 originalGrade 全∈
    * {cheat,unhealthy} 且全经 CD379 豁免放走（pump/wash/holdings 证据在场）实证。
    * 三臂任一在场=豁免失效（门决策恢复原判/拉黑登记不跳过/bootstrap 恢复不豁免）：
-   * ① pump 臂：slowGrindPump ≥ moderate(2)——机器缓推在场即拦（0x94ea754b 判例
-   *    pump=moderate originalGrade=unhealthy 亦须拒；用户原话无限定档）
+   * **三臂统一 strong(3) 档（2026-11-08 用户裁定档位修正「三不臂都需要 strong 才
+   * 不豁免，moderate 我们之前也不用于判定 cheat 的」——moderate 在 G17 体系从不
+   * 参与 cheat 级判定，不豁免臂与 A/J 通道主判线同档；首版 pump/holdings 臂误取
+   * moderate 档，0x94ea754b pump=moderate 信号随修正恢复豁免）**：
+   * ① pump 臂：slowGrindPump = strong（机器缓推；0xcb70708e/d0fbcc7b/4b3f1f7a 判例）
    * ② wash 臂：对倒族任一 strong(3)——washPair 同块对敲/equalAmountSplit 等额
    *    分仓/coordinatedSellBack 协同卖回（「严重对倒盘」「检测出来」=strong 与
    *    A 通道主判线同档；0x06810806 washPair=3 判例）
-   * ③ holdings 臂：holdingsBalance ≥ moderate(2)——持仓维度独立成臂（0xb788e63b
-   *    判例 holdingsBalance=strong J 通道）
+   * ③ holdings 臂：holdingsBalance = strong——持仓维度独立成臂（0xb788e63b
+   *    判例 holdingsBalance=strong J 通道同档）
    * 入参=levels 数值投影（levelsFromObservation 产物；秒回/late/blocked 行同构）；
    * levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常（缺席不扩大收紧面，
    * 维持 CD379 原语义）。豁免与收紧全部收在本模块内部（用户裁定「这种豁免全部
@@ -318,9 +321,9 @@ class CheatCheckService {
       const v = levels[k];
       return v === null || v === undefined ? 0 : v; // 缺席/断代=none 不触发
     };
-    if (lv('slowGrindPump') >= 2) return 'slow_grind_pump';
+    if (lv('slowGrindPump') >= 3) return 'slow_grind_pump';
     if (lv('washPair') >= 3 || lv('equalAmountSplit') >= 3 || lv('coordinatedSellBack') >= 3) return 'wash_pair_family';
-    if (lv('holdingsBalance') >= 2) return 'holdings_balance';
+    if (lv('holdingsBalance') >= 3) return 'holdings_balance';
     return null;
   }
 
