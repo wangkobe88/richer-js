@@ -101,15 +101,10 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_snipe
  * 大户人人有卖=对倒平衡——BP34 初版「强庄身份豁免」致⑥零命中，BP35 收口为家族
  * 归属句非逃逸门，身份证据不豁免双臂判据） */
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
-// BP41 真庄反锚机械门（代码侧——题面判序前置三保护票仍全破防后收 mapper，BP10
-// 「分数锚定必须代码侧门」教训同款）：Jev 选④ ∧ 两腿数值锚命中 → ④不成立改判
-// ⑤融合桶（题面语义「交给质量题与①⑥分界」；⑤含「没有明确分类」），留痕 exempt。
-//   腿①贴顶：现价较锚窗 ATH 回落 ≤5%（currentVsAthPct ≥ −5）=拉升进行时；
-//   腿②尾段占比：锚前尾段（最后 5s）买 ÷ 全窗买 ≥25%——1/3 硬线（無為 48.7/突突车
-//     56.6）+两成~1/3 从宽带的代码化取 25（S006 SB 28.9 真庄 in / b788e63b 20.5
-//     t+0s 巨单顶 out）；任一锚 null=反锚不成立（拒买类从严 fail-closed）。
-const STRONG_BACKER_ATH_DRAWDOWN_PCT = 5;
-const STRONG_BACKER_TAIL_SHARE_PCT = 25;
+// BP42（2026-11-08 用户裁定）：真庄反锚机械门整段拆除，回归 BP12「不搞代码门」
+// 两次明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内
+// 代价入攒批池（复审候选=题面独立前置题形态，仍非代码门）。题面层④桶反锚判序
+// 前置句与尾段占比锚（nearTail5BuySharePct 数据供给）保留不动。
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
  * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；market_heat
  * 的 ultra 不拦：近窗密度视角不拦过热，只拦全窗量级 ultra；
@@ -226,28 +221,6 @@ function buildBuyPointObservation(answers, anchors = null) {
   const qualities = {};
   for (const id of QUALITY_IDS) {
     qualities[id.replace('_quality', '')] = _choice(answers, id, QUALITY_LEVELS, true);
-  }
-  // BP41 真庄反锚机械门（先于盘型门执行——题面判序前置的代码侧硬实现）：
-  // Jev 选④ ∧ 腿①贴顶（回落 ≤5%）∧ 腿②尾段买占全窗买 ≥25% = 庄拉第一波仍在
-  // 推进 → ④不成立，桶改判⑤融合桶走质量题聚合（CD379 exempt 同款留痕形状——
-  // originalBucket 保 Jev 原判、legs 保两腿数值证据；锚缺失=不救 fail-closed）
-  if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'early_sniper_decay') {
-    const rawAth = anchors && typeof anchors.currentVsAthPct === 'number' && Number.isFinite(anchors.currentVsAthPct)
-      ? anchors.currentVsAthPct : null;
-    const rawTail = _actNum(anchors, 'nearTail5BuySharePct');
-    if (rawAth !== null && rawTail !== null
-      && rawAth >= -STRONG_BACKER_ATH_DRAWDOWN_PCT && rawTail >= STRONG_BACKER_TAIL_SHARE_PCT) {
-      dimensions.market_pattern = {
-        bucket: 'blended_unremarkable',
-        prob: dimensions.market_pattern.prob,
-        exempt: {
-          code: 'strong_backer_first_wave',
-          originalBucket: 'early_sniper_decay',
-          drawdownFromAthPct: rawAth,
-          nearTail5BuySharePct: rawTail,
-        },
-      };
-    }
   }
   // 四层判定链（BP30/题集 BP33——盘型门前置预判断最前，rule 留痕首个命中门）：
   // ①盘型门（BP18 五类型学；BP30 前置——用户裁定「market_pattern 要放到很靠前
@@ -434,8 +407,6 @@ module.exports = {
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
   PATTERN_GATE_POOR_BUCKETS,
-  STRONG_BACKER_ATH_DRAWDOWN_PCT,
-  STRONG_BACKER_TAIL_SHARE_PCT,
   ACTIVITY_GATE_POOR_BUCKETS,
   CHIP_GATE_FAMOUS_POOR_BUCKETS,
   QUALITY_LEVELS,

@@ -30,7 +30,6 @@ const {
   MARKET_PATTERN_LEVELS, PATTERN_GATE_POOR_BUCKETS,
   ACTIVITY_GATE_POOR_BUCKETS, CHIP_GATE_FAMOUS_POOR_BUCKETS,
   QUALITY_LEVELS, ASSESSMENT_LEVELS,
-  STRONG_BACKER_ATH_DRAWDOWN_PCT, STRONG_BACKER_TAIL_SHARE_PCT,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
@@ -487,38 +486,17 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'fa
 ok(aM.bucket === 'poor' && near(aM.prob, 0.91) && aM.rule === 'pattern_gate', 'E: 门① famous_monopoly famous 独食 → poor/pattern_gate（小散底子+一个 famous 拿太多筹码盘子就是它的）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84) }, dA).assessment;
 ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E: 门① early_sniper_decay 狙击衰竭 → poor/pattern_gate（购买力集中最早期数 slot 后衰竭）');
-// BP41 真庄反锚机械门（代码侧）：Jev 选④ ∧ 腿①贴顶（回落 ≤5%）∧ 腿②尾段买占
-// 全窗买 ≥25% → ④不成立改判⑤融合桶走质量题（CD379 exempt 同款留痕）——题面判序
-// 前置三保护票（S072 48.7/S006 28.9/S109 56.6 两腿证据全在场）仍全判④后的收口：
-// 分数锚定必须代码侧门（BP10/S053 教训同款）；dA fixture（回落 −20/占比 2.2）两腿
-// 全不命中=反锚不成立照拒，上文④测试即此形状
+// BP42（2026-11-08 用户裁定）真庄反锚机械门整段拆除：回归 BP12「不搞代码门」两次
+// 明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内代价入
+// 攒批池。拆除反证断言：两腿证据全在场的④形状（贴顶 0%+尾段 48.7=無為 S072 形状）
+// 现在照拒 pattern_gate，dimensions 无 exempt 留痕（BP41 机制绝迹锁）
 {
   const anchor4 = (ath, tail) => ({ ...dA, currentVsAthPct: ath, activity: { ...dA.activity, nearTail5BuySharePct: tail } });
-  ok(STRONG_BACKER_ATH_DRAWDOWN_PCT === 5 && STRONG_BACKER_TAIL_SHARE_PCT === 25,
-    'E: BP41 反锚常量=回落 ≤5% / 尾段占比 ≥25%（1/3 硬线+两成~1/3 从宽带代码化取 25：S006 28.9 真庄 in / b788e63b 20.5 巨单顶 out）');
-  const obsEx = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.92) }, anchor4(0, 48.7));
-  ok(obsEx.dimensions.market_pattern.bucket === 'blended_unremarkable'
-    && obsEx.dimensions.market_pattern.exempt
-    && obsEx.dimensions.market_pattern.exempt.code === 'strong_backer_first_wave'
-    && obsEx.dimensions.market_pattern.exempt.originalBucket === 'early_sniper_decay'
-    && obsEx.dimensions.market_pattern.exempt.drawdownFromAthPct === 0
-    && obsEx.dimensions.market_pattern.exempt.nearTail5BuySharePct === 48.7,
-    'E: BP41 反锚命中：④改判⑤融合桶+exempt 留痕（無為 S072 形状——贴顶 0%+尾段 48.7%，originalBucket 保 Jev 原判）');
-  ok(obsEx.assessment.bucket === 'neutral' && obsEx.assessment.rule === 'any_neutral',
-    'E: BP41 反锚后走质量题聚合（④→⑤放行，聚合 neutral=neutral——S072 红线恢复的机制路径）');
-  ok(buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.92) }, anchor4(0, 56.6)).assessment.bucket === 'neutral'
-    && buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.78) }, anchor4(-2.59, 28.9)).assessment.bucket === 'neutral',
-    'E: BP41 反锚两保护票（突突车 S109 56.6/贴顶；SB S006 28.9 边缘带 ≥25 从宽救）——不落④走质量题');
-  ok(buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.87) }, anchor4(0, 20.5)).assessment.bucket === 'poor'
-    && buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.87) }, anchor4(0, 20.5)).assessment.rule === 'pattern_gate',
-    'E: BP41 腿②不足：尾段占比 20.5（两成带=b788e63b t+0s 巨单顶 burst 已过）不救照拒④');
-  ok(buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.86) }, anchor4(-6.01, 100)).assessment.rule === 'pattern_gate',
-    'E: BP41 腿①不足：回落 6.01% >5%（d0fbcc7b 已砸回形状——占比 100 也不救，贴顶是必要腿）');
-  ok(buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84) }, { ...dA, currentVsAthPct: null, activity: { ...dA.activity, nearTail5BuySharePct: 50 } }).assessment.rule === 'pattern_gate'
-    && buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84) }, { ...dA, currentVsAthPct: 0, activity: { ...dA.activity, nearTail5BuySharePct: null } }).assessment.rule === 'pattern_gate',
-    'E: BP41 锚缺失 fail-closed：任一腿锚 null=反锚不成立照拒（拒买类从严不冒充）');
-  ok(buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86) }, anchor4(0, 48.7)).assessment.rule === 'pattern_gate',
-    'E: BP41 反锚只救④桶：②③桶不适用机械门（retail_pvp/famous_monopoly 照拒——反锚语义=庄拉第一波非④开盘拉高）');
+  const obs42 = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.92) }, anchor4(0, 48.7));
+  ok(obs42.dimensions.market_pattern.bucket === 'early_sniper_decay'
+    && obs42.dimensions.market_pattern.exempt === undefined
+    && obs42.assessment.bucket === 'poor' && obs42.assessment.rule === 'pattern_gate',
+    'E: BP42 机械门已拆：④+贴顶 0%+尾段 48.7（BP41 救臂证据全在场）照拒④不动 Jev 判定、无 exempt 留痕（S072 形状回归设计内代价）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
 ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门① strong_backer 强庄盘不拦（最好类型——开盘大户进流动性未拉爆价，点位质量归质量题）');
