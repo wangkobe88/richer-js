@@ -36,6 +36,21 @@ const GATE_REASON_LABELS = {
   bp_gate_assessment: 'BP 门判定拒（点位评估 poor，不在放行档 good/neutral）',
   bp_gate_insufficient_ticks: 'BP 门锚窗 tick 不足拒（历史形状——BP9 裁定后 insufficient 不再拦）',
 };
+// G17 触发通道码中文映射（拒因块具体原因——前缀匹配吸收动态后缀：L_insider_sell25 /
+// N_no_retail_entry9.8 / A_strong:xxx；2026-11-07 用户要求拒因给具体原因）
+const CHEAT_CODE_LABELS = [
+  [/^A_strong:/, 'A 主判题 strong（九主判任一 strong 即 cheat）'],
+  [/^A_downgrade_single_pump_burst/, 'A 降级豁免未达（唯一 pump strong 且 burst 波不弱）'],
+  [/^D_famous_dominance/, 'D 跟单集中控盘（famous dom=high ∧ 跟单 top3/集团买过线）'],
+  [/^D_famous_near_band/, 'D 邻界联立（跟单 top3≥35 ∧ 集团买≥70 双贴线）'],
+  [/^E_low_activity_weak_burst/, 'E 活跃度低·弱 burst（三键全中不豁免）'],
+  [/^E_low_activity/, 'E 活跃度低（act=low 且非强 burst）'],
+  [/^J_holdings_strong/, 'J 持仓分布失衡 strong（拒买级非拉黑级）'],
+  [/^L_insider_sell/, 'L 内部人卖出联立（insider≥moderate ∧ 零买纯卖≥25%）'],
+  [/^R_abnormal_dominant/, 'R 异常行为占比 dominant（整体形状通道）'],
+  [/^M_hyper_activity/, 'M 活跃度 ultra（机器盘级极端密集，拒买级）'],
+  [/^N_no_retail_entry/, 'N 无散户入场（聚合路由入口占比 <10%，拒买级）'],
+];
 const BP_DIMENSION_LABELS = {
   market_heat: '市场热度', price_level: '价格位置', price_trend: '价格趋势',
   activity_level: '活跃度', entry_position: '入场位置', market_pattern: '盘面类型',
@@ -2732,10 +2747,33 @@ class ExperimentSignals {
     const strategyId = metadata.strategyId || signal.strategyId || null;
     const executionReason = signal.execution_reason || metadata.execution_reason || metadata.tradeResult?.reason || '';
 
-    // 构建拒绝原因HTML（门链域 execution_reason 带人类可读映射——T117 明细展示）
+    // 构建拒绝原因HTML（门链域 execution_reason 带人类可读映射——T117 明细展示；
+    // cheat 域拒因附带具体触发通道+高档题简报——2026-11-07 用户要求，明细源
+    // =metadata.cheatCheck 段（拒前落段同批启用；历史拒行无段只显通用映射））
     let rejectionInfoHtml = '';
     if (isRejected && executionReason) {
       const gateLabel = GATE_REASON_LABELS[executionReason];
+      let cheatDetailHtml = '';
+      const cc = (metadata || {}).cheatCheck;
+      if (executionReason.startsWith('cheat_gate_') && cc && cc.grade) {
+        const codeDesc = (cc.reasons || []).map((r) => {
+          const hit = CHEAT_CODE_LABELS.find(([re]) => re.test(r.code || ''));
+          return hit ? `${r.code}（${hit[1]}）` : (r.code || '—');
+        }).filter(Boolean);
+        // levels 高档题简报（strong/moderate 按严重度降序，中文名标签）
+        const hiLevels = Object.entries(cc.levels || {})
+          .filter(([, lv]) => lv === 'strong' || lv === 'moderate')
+          .sort((a, b) => (a[1] === b[1] ? 0 : (a[1] === 'strong' ? -1 : 1)))
+          .map(([k, lv]) => `${CHEAT_QUESTION_LABELS[k] || k} ${lv}`);
+        if (codeDesc.length || hiLevels.length) {
+          cheatDetailHtml = `
+          <div class="text-xs text-red-900 mt-1 space-y-0.5">
+            ${codeDesc.length ? `<div>触发通道: ${codeDesc.map((d) => this._escapeHtml(d)).join(' · ')}</div>` : ''}
+            ${hiLevels.length ? `<div>高档题: ${this._escapeHtml(hiLevels.join(' · '))}</div>` : ''}
+            ${cc.cached === true ? '<div>（粘滞秒回判定，非本信号真析）</div>' : ''}
+          </div>`;
+        }
+      }
       rejectionInfoHtml = `
         <div class="mt-2 p-2 bg-red-50 rounded border border-red-200">
           <div class="flex items-center space-x-2">
@@ -2743,6 +2781,7 @@ class ExperimentSignals {
             <span class="text-red-900 text-sm">${this._escapeHtml(executionReason)}</span>
           </div>
           ${gateLabel ? `<div class="text-xs text-red-700 mt-1">${this._escapeHtml(gateLabel)}</div>` : ''}
+          ${cheatDetailHtml}
         </div>
       `;
     }
@@ -2934,7 +2973,7 @@ class ExperimentSignals {
               <span class="text-gray-600">model=${this._escapeHtml(String(buyPointInfo.model || '—'))}${buyPointInfo.usage ? ` · in=${buyPointInfo.usage.input_tokens ?? '—'} out=${buyPointInfo.usage.output_tokens ?? '—'}` : ''}</span>
             </div>
             ${qRows ? `<div class="text-xs text-blue-300 mb-1">质量题（任一 good→good，否则任一 neutral→neutral，否则 poor）：</div><div class="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${qRows}</div>` : ''}
-            ${dimRows ? `<details class="mt-1"><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 九维度题（参考不进聚合，点开展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
+            ${dimRows ? `<details class="mt-1" open><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 九维度题（参考不进聚合，默认展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
             ${anchorRows ? `<details class="mt-1"><summary class="text-xs text-blue-300 cursor-pointer select-none">🧭 盘面锚值 ${Object.keys(buyPointInfo.anchors || {}).length} 锚（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-4">${anchorRows}</div></details>` : ''}
           </div>
           `;
@@ -3186,7 +3225,9 @@ class ExperimentSignals {
           const gBadge = g === 'cheat'
             ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 cheat（拉黑不再交易+持仓清仓）</span>'
             : (g === 'unhealthy'
-              ? `<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>`
+              ? (executionReason === 'cheat_gate_unhealthy'
+                ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">⚠️ unhealthy（本信号拒·cheatRecheck 腿下个买信号自动重判）</span>'
+                : '<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>')
               : `<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`);
           const codes = (cheatCheckInfo.reasons || []).map((r) => r.code).filter(Boolean).join(', ');
           // CD158 来源位：cached=同题集版本粘滞秒回（零 Jev）；graded=本信号真析；

@@ -1417,8 +1417,12 @@ class AbstractTradingEngine extends ITradingEngine {
    * cheat 拉黑硬拒共用段（CD158 条件版与 T117 二元版共用）：拉黑+清仓+signal
    * failed。nowMs：清仓 factors 时刻——生产缺省 Date.now()；回测 signalGateReal
    * 链路传信号 fire 虚拟时刻（前视红线）。
+   * res：service 判定原文（grade/reasons/levels/buckets…）——在场时拒前先落
+   * signal metadata.cheatCheck 段（与放行 info 同构；拒行可观测性——2026-11-07
+   * 用户要求拒因给具体通道/档位，此前拒路径只落 execution_reason 一值）。
    */
-  async _cheatGateHardReject(tokenAddress, token, signalId, reasonCodes, nowMs = Date.now()) {
+  async _cheatGateHardReject(tokenAddress, token, signalId, reasonCodes, nowMs = Date.now(), res = null) {
+    if (res) await this._updateSignalMetadata(signalId, { cheatCheck: this._cheatGateInfo(res) });
     this._cheatBlockedTokens.add(tokenAddress);
     this.logger.warn(this._experimentId, 'CheatGate',
       `🚫 作弊盘门拉黑 | ${token.symbol || tokenAddress.slice(0, 10)} ${tokenAddress} [${reasonCodes}]`);
@@ -1426,6 +1430,16 @@ class AbstractTradingEngine extends ITradingEngine {
     await this._updateSignalStatus(signalId, 'failed',
       { message: `作弊盘门拒买: cheat [${reasonCodes}]`, reason: 'cheat_gate_cheat' });
     return { pass: false, reason: `作弊盘门拒买（cheat 拉黑+持仓清仓联动 [${reasonCodes}]）` };
+  }
+
+  /** service 判定原文 → signal metadata.cheatCheck 段（放行 info 与拒路径共用形状） */
+  _cheatGateInfo(res) {
+    return {
+      status: res.status, grade: res.grade, cached: res.cached === true,
+      reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
+      levels: res.levels ?? null, buckets: res.buckets ?? null,
+      strongbackerLike: res.strongbackerLike ?? 0,
+    };
   }
 
   /**
@@ -1474,30 +1488,24 @@ class AbstractTradingEngine extends ITradingEngine {
       const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
       if (res.grade === 'cheat') {
         const _nowMs = Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? ctx.anchorMs : Date.now();
-        return this._cheatGateHardReject(tokenAddress, token, signalId, reasonCodes, _nowMs);
+        return this._cheatGateHardReject(tokenAddress, token, signalId, reasonCodes, _nowMs, res);
       }
       if (res.grade === 'unhealthy') {
         // 唯一非拉黑级硬拒档：signal failed；cheatRecheck=true 下个买信号重判、
-        // =false 下个买信号粘滞秒回（service 侧同判拒，零 Jev 配额）
+        // =false 下个买信号粘滞秒回（service 侧同判拒，零 Jev 配额）。
+        // 拒前先落 cheatCheck 段（拒行可观测性：通道/档位明细进 signal metadata）
         const n = res.unhealthyGrades ?? 0;
         this.logger.info(this._experimentId, 'SignalGate',
           `作弊门拒买 | ${token.symbol || tokenAddress.slice(0, 10)} grade=unhealthy` +
           `${res.cached === true ? '（粘滞秒回，cheatRecheck=false）' : `（第 ${n} 次判定${signalGate.cheatRecheck === true ? '，下个买信号自动重判' : ''}）`}` +
           ` [${reasonCodes}]`);
+        await this._updateSignalMetadata(signalId, { cheatCheck: this._cheatGateInfo(res) });
         await this._updateSignalStatus(signalId, 'failed',
           { message: `作弊门拒买: unhealthy [${reasonCodes}]`, reason: 'cheat_gate_unhealthy' });
         return { pass: false, reason: `作弊门拒买（unhealthy [${reasonCodes}]）` };
       }
       // healthy → 放行进 BP（info 由调用方落 signal metadata cheatCheck 段）
-      return {
-        pass: true,
-        info: {
-          status: res.status, grade: res.grade, cached: res.cached === true,
-          reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
-          levels: res.levels ?? null, buckets: res.buckets ?? null,
-          strongbackerLike: res.strongbackerLike ?? 0,
-        },
-      };
+      return { pass: true, info: this._cheatGateInfo(res) };
     }
 
     if (res && res.status === 'timeout_fail_open') {

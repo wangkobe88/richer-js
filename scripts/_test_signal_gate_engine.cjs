@@ -74,6 +74,8 @@ function makeEngine(fields = {}) {
     _cheatBlockedTokens: new Set(),
     _signalSourceTriggerCounts: new Map(),
     _projectCheatFactors: () => {},
+    _updateSignalStatus: async () => {},
+    _updateSignalMetadata: async () => {},
     ...fields,
   });
 }
@@ -100,11 +102,12 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
     { pass: true, info: { status: 'skipped', reason: 'service_disabled' } });
 
   // A2 cheat → 拉黑 + 清仓联动 + signal failed + 拒（hardReject 共用段）
-  const exits = [], signals = [], projections = [];
+  const exits = [], signals = [], projections = [], metas = [];
   const eng = makeEngine({
     _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'cheat', reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0 })),
     _cheatExitPosition: async (addr, why) => { exits.push({ addr, why }); },
     _updateSignalStatus: async (id, status, meta) => { signals.push({ id, status, meta }); },
+    _updateSignalMetadata: async (id, data) => { metas.push({ id, data }); },
     _projectCheatFactors: (addr, res) => { projections.push(res.grade); },
   });
   const r = await eng._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-1', SG());
@@ -114,19 +117,28 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
   check('cheat → signal failed reason=cheat_gate_cheat', signals.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_cheat']]);
   check('cheat → grade 照投影（cheat 56 键快照/卖腿可消费）', projections, ['cheat']);
+  // 拒前先落 cheatCheck 段（拒行可观测性——通道/档位明细，2026-11-07）
+  ok('cheat → 拒前落 metadata.cheatCheck 段（grade+reasons）',
+    metas.length === 1 && metas[0].data.cheatCheck.grade === 'cheat'
+    && metas[0].data.cheatCheck.reasons[0].code === 'A_strong:same_block_buy_wave', metas);
 
   // A3 unhealthy → signal failed 拒（不拉黑不清仓——cheatRecheck 下个买信号重判）
-  const signals3 = [];
+  const signals3 = [], metas3 = [];
   const eng3 = makeEngine({
     _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'unhealthy', reasons: [{ level: 'unhealthy', code: 'D_famous_dominance' }], unhealthyGrades: 2 })),
     _cheatExitPosition: async () => { throw new Error('unhealthy 不应清仓'); },
     _updateSignalStatus: async (id, status, meta) => { signals3.push({ id, status, meta }); },
+    _updateSignalMetadata: async (id, data) => { metas3.push({ id, data }); },
   });
   const r3 = await eng3._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-2', SG());
   ok('unhealthy → 拒买', r3.pass === false && r3.reason.includes('unhealthy'), r3);
   ok('unhealthy → 不拉黑', !eng3._cheatBlockedTokens.has('0xtok'));
   check('unhealthy → signal failed reason=cheat_gate_unhealthy', signals3.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_unhealthy']]);
+  ok('unhealthy → 拒前落 metadata.cheatCheck 段（grade+reasons+unhealthyGrades）',
+    metas3.length === 1 && metas3[0].data.cheatCheck.grade === 'unhealthy'
+    && metas3[0].data.cheatCheck.reasons[0].code === 'D_famous_dominance'
+    && metas3[0].data.cheatCheck.unhealthyGrades === 2, metas3);
 
   // A3b unhealthy + cached=true（cheatRecheck=false 粘滞秒回）→ 同拒
   const signals3b = [];

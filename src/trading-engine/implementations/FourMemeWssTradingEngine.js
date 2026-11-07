@@ -2834,7 +2834,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._projectCheatFactors(tokenAddress, res);
       const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
       if (res.grade === 'cheat') {
-        return this._cheatGateHardReject(tokenAddress, token, signalId, reasonCodes);
+        return this._cheatGateHardReject(tokenAddress, token, signalId, reasonCodes, Date.now(), res);
       }
       // healthy / unhealthy（CD158：门条件表达式评估——grade 只投影不决策，
       // 拒/放由腿的 cheatCheckCondition 在投影后的因子表上判定）
