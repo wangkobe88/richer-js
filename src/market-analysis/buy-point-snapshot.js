@@ -367,14 +367,18 @@ function computeBuyPointDerived(snapshot) {
   // 的全数组首个可靠价（非 outlier/price>0 最早行，链上真序 rel[0]）；出生覆盖
   // 判据=数组最早 dt ≤ BP_LAUNCH_COVER_TOL（首行贴近创建点=数组含出生段；锚窗
   // 截窗的长票不覆盖 → 全族 null fail-closed 截窗不冒充发行价）；
-  // currentVsLaunchPct=末可靠价较发行价 %（可破发为负）──
-  let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null;
+  // currentVsLaunchPct=末可靠价较发行价 %（可破发为负）；athVsLaunchPct=锚窗最高
+  // 可靠价（arc.ath）较发行价 %（BP39/案号 BP34「开盘拉得过高」直接度量锚——Jev
+  // 结构性组合不了 currentVsLaunch+currentVsAth 两数，直供；launchCovered 域内
+  // arc.ath≤0 时 null fail-closed）──
+  let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
     launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
     if (launchCovered && arc && arc.last > 0 && rel[0].priceBnb > 0) {
       launchPriceBnb = +rel[0].priceBnb.toFixed(10);
       currentVsLaunchPct = +(((arc.last / launchPriceBnb) - 1) * 100).toFixed(1);
+      if (arc.ath > 0) athVsLaunchPct = +(((arc.ath / launchPriceBnb) - 1) * 100).toFixed(1);
     }
   }
 
@@ -505,8 +509,9 @@ function computeBuyPointDerived(snapshot) {
     currentVsSwingHighPct: swing ? swing.vsHighPct : null,
     currentVsSwingLowPct: swing ? swing.vsLowPct : null,
     swingMaxAmplPct: swing ? swing.maxAmplPct : null,
-    // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键）
-    launchPriceBnb, currentVsLaunchPct, launchCovered,
+    // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键；
+    // athVsLaunchPct=锚窗最高可靠价较发行价 %，BP39「开盘拉高出货盘」度量锚）
+    launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,
     // holder 流向族（BP2：tok 缺失全族 null）

@@ -233,9 +233,11 @@ ok(dA.mcapFromPeakPct === 20, `mcapFromPeakPct=20%（与 currentVsAthPct=−20 �
 ok(dA.holdersNow === 7, `holdersNow=7（实际 ${dA.holdersNow}）`);
 ok(dA.holdersDelta60 === -1, `holdersDelta60=−1（W_D 尾窗清仓流失，实际 ${dA.holdersDelta60}）`);
 // 发行价位置族（BP5）：发行价=rel[0]=行1 1.0e-9@t+5（出生段覆盖：firstDt=5≤90）；
-// arc.last=1.6e-9 → +60.0%
+// arc.last=1.6e-9 → +60.0%；arc.ath=2.0e-9 → 锚窗最高较发行 +100.0%（BP39）
 ok(dA.launchCovered === true && near(dA.launchPriceBnb, 1.0 * E9) && dA.currentVsLaunchPct === 60,
   `launch 族：覆盖=true / 发行价=1e-9 / 现价较发行 +60%（实际 ${dA.launchCovered}/${dA.launchPriceBnb}/${dA.currentVsLaunchPct}）`);
+ok(dA.athVsLaunchPct === 100,
+  `athVsLaunchPct=+100（锚窗最高 2e-9 ÷ 发行价 1e-9 −1=+100.0%，BP39「开盘拉得过高」度量锚——Jev 组合不了 currentVsLaunch+currentVsAth 两数故直供，实际 ${dA.athVsLaunchPct}）`);
 // priceBuckets：17 可靠价行 → 等笔距 20 桶 3 空（b∈{0,6,13}）=17 桶
 ok(dA.priceBuckets.length === 17, `priceBuckets=17 桶（实际 ${dA.priceBuckets.length}）`);
 ok(dA.priceBuckets[0].dt === 5 && near(dA.priceBuckets[0].price, 1.0 * E9), '首桶=行1 @t+5');
@@ -297,6 +299,7 @@ const rowsCStart = [row(200, 'BUY', W_B, 0.1, 2.0 * E9, 1e8), row(210, 'BUY', W_
 const dCStart = buildBuyPointSnapshot(rowsCStart, metaA).buyDerived;
 ok(dCStart.launchCovered === false && dCStart.launchPriceBnb === null && dCStart.currentVsLaunchPct === null,
   'C: ticks 首行 >90s → 发行价族 null fail-closed（截窗不冒充，BP5）');
+ok(dCStart.athVsLaunchPct === null, 'C: athVsLaunchPct 同族 null（launchCovered 域内 fail-closed，BP39）');
 
 const rowsCNoPos = [row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8), row(60, 'SELL', W_B, 0.1, 1.1 * E9, 1e8)];
 const dCNoPos = buildBuyPointSnapshot(rowsCNoPos, metaA).buyDerived;
@@ -334,6 +337,8 @@ ok(stD.state.includes('锚前尾段(最后5秒):') && stD.state.includes('买点
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
+ok(stD.state.includes('锚窗最高价较发行价 +100.0%'), 'D: 发行价位置行渲染锚窗最高价较发行价（BP39 athVsLaunchPct——锚窗 ATH 2e-9 ÷ 发行价 1e-9）');
+ok(stD.state.includes('④开盘拉高出货盘新形态'), 'D: 判定指引行含 BP39 新形态句');
 ok(!stD.state.includes('摆动结构') && !stD.state.includes('圣诞树原料'),
   'D: 摆动结构行已删（BP30/题集 BP33 tree_position 退役——state 不再渲染圣诞树原料行，zigzag 锚照算落 digest 纯留档）');
 ok(stD.state.includes('判定结构') && stD.state.includes('①盘型门（预判断，最前）') && stD.state.includes('tree_position 与追高质量题已退役'),
@@ -607,9 +612,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP38 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/④极早窗三证据/strong_backer ultra 豁免）');
+  console.log('F. 题集形状（BP39 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/④极早窗三证据+弱化/④开盘拉高出货盘/strong_backer ultra 豁免）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP38', 'F: 版本=BP38（BP33 案=159 点复审 ultra 专题用户两裁定：①strong_backer ultra 豁免——SB 四点/S011 ALPHA 盘型①被 activity_gate ultra 臂拦（BP30 立法），用户裁定「盘型如果是 strong_backer，活跃度 ultra 豁免，不给 poor」——强庄盘拉盘天然密集，ultra 密度不是拒买证据，mapper ultra 臂加 strong_backer 豁免（low/heat 臂不豁免、盘型缺席照拦保守）；②early_sniper_decay 极早窗衰竭判据补强——ALPHA S011（t+3s）判 strong_backer 0.36，用户裁定「ALPHA 的盘形应该是 early_sniper_decay，除了最最早期无任何购买力」：窗内正净持有人个位数+top1 独食 60%+现价已破发+开盘大额买家已在卖=开局抢完无人接（极早窗占比臂天然失明，看持有人结构/破发/大买家动向三证据，不落①——开局大额单本身不救①）。前版 BP37（⑥对倒臂 0.1→0.12 收紧——太空逆袭 S054 贴线微小卖出 0.1021 不豁免，新线定标于 S054 0.1021→⑥ 与 無為 S072 0.128→① 之间）；BP36（①⑥分界近窗锚定+⑥现在进行时+②⑤承接归零例外）；BP34-36=BP31 案 Shellbank/羊王 一案三代六桶制；BP30/题集 BP33=盘型前置预判断+⑥代码侧位置门 10% 线+tree/追高题退役）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP39', 'F: 版本=BP39（BP34 案=159 点复审第 8 批 S103/S104/S119/S120 用户三裁定：①영복이 S103=④——BP38 极早窗三证据弱化=三件充分非必要，任两件在场且方向同向即落④（S103 形状：正净持有 2 人+top1 近 60%+已破发+大户在卖）；②Lily S104「大户入场吸来狙击手→大户离场+狙击手离场+盘面无承接」≠强庄盘——「大户卖出后无承接」走④不走①；③FlapGuy S119/S120=「开盘拉高然后出货盘」作为④的一种形态：第一波购买太强拉得过高、卖出后承接接不住；通则「只要开盘拉的过高，都不行，直接划 early_sniper_decay」——snapshot 新增 athVsLaunchPct 锚（锚窗最高可靠价较发行价 %，开盘拉得过高直接度量——Jev 结构性组合不了 currentVsLaunch+currentVsAth 两数故直供）；真庄保护反锚=现价贴锚窗最高价（回落 <5% 级=拉升进行时）∧尾段重承接=不落④（保护無為/S004/S006/S109 贴顶真庄票）。前版 BP38（BP33 案=strong_backer ultra 豁免+④极早窗三证据）；BP37（⑥对倒臂 0.12 线）；BP36（①⑥分界近窗锚定+⑥现在进行时+②⑤承接归零例外）；BP34-36=BP31 案六桶制；BP30/题集 BP33=盘型前置预判断）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -696,6 +701,21 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('开局抢完即衰竭') && mp.includes('庄跑了的开盘大额只是狙击痕迹'), 'F: BP30 改四 ①④分界大户在场性（开盘大额但大买家已清仓式撤退=庄/狙击手已跑 → 走④不走①——S100 第 1 大 0x915e 清仓式卖出 1.247/1.300 只出不进）');
   ok(qs.market_pattern.criteria.early_sniper_decay.includes('开盘段后金额吞吐骤降') && qs.market_pattern.criteria.early_sniper_decay.includes('早期大买家清仓式撤退'), 'F: criteria early_sniper_decay 判据补强同步（BP30——桶描述与题面④判据一致）');
   ok(qs.market_pattern.criteria.early_sniper_decay.includes('极早窗（<90s 占比臂天然失明）看三证据：正净持有人个位数且 top1 独食（60%+）+现价已破发+开盘大额买家已在卖=开局抢完无人接（BP38，不落①') && mp.includes('极早窗内也可见的衰竭形态（BP38，不依赖开盘段占比——窗极短时占比臂天然失明）') && mp.includes('窗内正净持有人极少（筹码结构行正净持有者个位数）且 top1 独食') && mp.includes('②**现价已破发**') && mp.includes('③**开盘大额买家已在卖**'), 'F: ④极早窗衰竭三证据（BP38——ALPHA S011 判例：t+3s top1 64.8% 独食+正净持有 3 人+破发 −25%+大户已在卖=「除了最最早期无任何购买力」判④不判①；极早窗占比臂天然失明不依赖占比）');
+  // BP39（案号 BP34）④开盘拉高出货盘+三证据弱化+①④分界两判例+真庄保护反锚+athVsLaunchPct 锚
+  ok(mp.includes('证据不齐也可落④（BP39 弱化）：三件是充分不是必要——三证据中任两件在场且方向同向') && mp.includes('영복이 判例：正净持有 2 人+top1 近 60%+已破发+大户在卖=④'),
+    'F: ④三证据弱化（BP39——三件充分非必要、任两件同向即落④，영복이 S103 判例）');
+  ok(mp.includes('开盘拉高出货盘（BP39 新增形态，不看开盘段占比）') && mp.includes('很短的窗内把价格拉得过高') && mp.includes('随后价格已砸回') && mp.includes('承接力量太弱/不够') && mp.includes('FlapGuy 判例：第一波购买太强、卖出后承接接不住') && mp.includes('只要开盘拉的过高，基本没啥好'),
+    'F: ④开盘拉高出货盘新形态（BP39——开局拉得过高+砸回+承接弱=④，不看开盘段占比）');
+  ok(mp.includes('真庄保护反锚**：现价仍贴锚窗最高价（回落 <5% 级=拉升进行时）') && mp.includes('庄拉的第一波仍在推进，不落④（走①⑥分界）；缓推盘（maxChg5 不过线）不算拉过高'),
+    'F: ④真庄保护反锚（BP39——贴顶进行时+尾段重承接不落④，缓推不算拉过高）');
+  ok(mp.includes('大户卖出后无承接=④不走①（BP39，Lily 判例）') && mp.includes('大户入场吸来一堆狙击手跟风') && mp.includes('「大户卖出后无承接」不是强庄盘'),
+    'F: ①④分界 Lily 判例（BP39——大户离场+狙击手离场+无承接=④非①）');
+  ok(mp.includes('开盘拉得过高=④（BP39 通则）') && mp.includes('开局拉高出货盘（④的形态之一，见④桶）'),
+    'F: ①④分界开盘拉过高通则（BP39 反锚块）');
+  ok(qs.market_pattern.criteria.early_sniper_decay.includes('BP39 弱化：任两件在场且同向即落④，三件充分非必要') && qs.market_pattern.criteria.early_sniper_decay.includes('开盘拉高出货盘（BP39）：开局短窗拉得过高') && qs.market_pattern.criteria.early_sniper_decay.includes('现价贴锚窗最高价+尾段重承接的拉升进行时真庄除外'),
+    'F: ④criteria 同步（BP39 弱化句+拉高出货句+真庄除外句）');
+  ok(qs.market_pattern.instructions.includes('锚窗最高价较发行价过大') && qs.market_pattern.instructions.includes('发行价位置行锚窗最高价较发行价'),
+    'F: ④桶引用 athVsLaunchPct 渲染锚（发行价位置行「锚窗最高价较发行价」——BP39）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
