@@ -83,6 +83,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 | BP30 | 2026-11-06 | **第 4 组 16 点复审三裁定一案三改（案号 BP28——159 点复审第 4 组：太空逆袭 0x0cd4cee3×5/无税人生 0xfba95a4e×5/FIGHT 0x490da05a×2/谷谷本尊/桃豆世界/持械入宋/:-) 散点）**：**改一（activity ⑥反锚三段形状句，S053 太空逆袭案）**用户裁定原话「cheat 检测中有burst检测，豁免低活跃度，可以搬过来。S053 是中等」——S053 三段形状（开局 7s 冲 7 笔→中段 24s 完全静默无交易期占比 54.5%→锚前 2s 内 8 笔 0.928 BNB 同块集中涌入含三笔 0.2 级）activity=low 拦（1min 后 +55.6%），BP13 已搬⑥反锚但「先冲一波后长时间静默不保护」句被 Jev 读成三段不保护→补三段形状归属句：静默之后、买点之前有集中买入涌入=「静默后买入涌入」中档起判，判读锚定买点时刻即时状态，「静默在涌入之后」不保护臂只管涌入后死到锚点的形状；**改二（早鸟题第三分支·累计位置硬腿，S055 太空逆袭案）**用户裁定原话「S055 poor，这个给中等不对吧，涨了 100% 以上了」——现价较发行价 +126.8%（mid）但 maxChg5=39.38% 未过 +40~50% 速锚线→第二分支不命中误 neutral（5m 末 -11.6%），速度锚测不到慢涨→补位置硬腿：**现价较发行价 +100% 以上（price_level=mid 及以上）一律 poor 无论 maxChg5 过没过线**（+100% 以内才有「价格低」可谈，low 档维持 BP25 口径）；**改三（盘型③famous_monopoly 复数 famous 扩句+FIGHT 案 roster 收录，S064 FIGHT 案）**用户裁定原话「Fight 是 famous 盘，0xfb4e4fa492217d8401aa9e893c78707b61923953 0x550647e8faf10116f0367526080c1005809b4653 这两个著名钱包（加入到著名钱包中），他俩入仓太早了拿的太多，起不来」——0xfb4e t+7s 买 0.252+0x5506 t+13s 买 0.343 合计 0.595 BNB 极早抢筹零卖出，BP29 误判 strong_backer neutral(0.72) 放行即 -41.5%→**famous-copy-wallets.json 收录两址**+③扩句：**两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹过多（控盘 ≥25~30 且合计绝对额大）同样落③**（famous 抢筹建仓盘）；单 famous 占比 <25 边缘参与不落③（S062 无税人生 0xfb4e 单钱包 24.4% 反例保护，扩句边界安全） | 单测 374→**380 断言**（版本+⑥三段形状句+反例样本+第三分支硬腿+③复数 famous 三处+③门槛既有断言跟随单复数句式）；**182 定向 8 点对拍**：**S055 翻案达成** 早鸟 poor(0.74)/综合 **poor(0.79)** ✓、**S064 翻案达成** famous dominant(1.0)/盘型 **famous_monopoly**(0.75)/综合 **poor(1.00,chip_gate)** ✓、S054/S062 维持 neutral ✓（当时）、S057/S067/S117 维持 poor ✓；**S053 未达成**（三连跑稳定 activity=low 0.58/0.54/0.61 vs mid 0.39）——纯题面救不动，真因=state 时序盲区（临近段 totals 无时序）→ 触发四改 BP31；**roster 外溢**：S062 无税人生 famous none→dominant（两址在该票控盘 100%/集团买入 98.9%）neutral→poor(chip_gate)=「famous 掌控不参与」立法语义内（257% 是 famous 自己拉的）；commit 3715a5e5 |
 | BP31 | 2026-11-06 | **锚前尾段三键（案号 BP28 四改——S053 三段形状 state 时序盲区补位）**：BP30 三段形状句对拍 S053 三连跑稳定 low 证实题面救不动——**临近段行只有段 totals（8 笔/16 笔每分钟/段内最大间隔 24s），「锚前 2s 涌入」被段 totals 稀释，Jev 结构性看不到**（「无交易期占比 54.5%+段内最大间隔 24s」整体呈现为临近死寂）→ snapshot 加**锚前尾段三键 nearTail5{TickN,BuyN,BuyBnb}**（锚前最后 5s 固定子窗行数/买笔数/买额，BP 侧自算 CD 层零改动）+state 渲染「锚前尾段(最后5秒)」行+activity 题⑥句挂尾段行判读锚（**多笔且金额可观（参考 ≥3 笔/合计 ≥0.3 BNB 级）=锚点落在涌入波内直接证据；仅 1 笔/尘级=锚点即静默边界**——末行 dt=tEnd 恒在窗内尾段最少 1 笔、0 笔数学上不存在）；mapper actNearTail5* 三键透传；语义分层：⑥三段形状句（BP30）管归属教学、尾段行（BP31）管判读原料——判尾段行不判段内最大间隔（临近段最大间隔覆盖整段 30s 测不出涌入在段尾） | 单测 380→**387 断言**（BP_TAIL_SEC 常量+A fixture 手算 dt>210 只行18@215=1 笔 0.1+三段形状迷你 fixture 4 笔 0.8 涌入臂+死寂臂 1 笔 0.02+activity 16 键锁+state 尾段行渲染+act 三键透传+⑥尾段行判读锚句）；**182 定向复跑**：**S053 翻案达成** activity low→**mid**、综合 poor→**neutral(0.62)** ✓✓ 三连稳定（0.62/0.59/0.63）；S054 维持 neutral（首跑 low=概率平手 0.41/0.41 argmax 边缘方差，复跑两连 neutral 0.44/0.44 留档）；S055/S057/S117 维持 poor ✓；S117 盘型桶 blended→strong_backer 漂移留档（门不走 strong_backer 综合维持 poor 无实质影响）；commit 16e8ada0 |
 | BP32 | 2026-11-06 | **早鸟忌讳①前置庄盘豁免（案号 BP29——159 点复审第 5 组 無為 S072 强庄教科书形状被「已拉高」拖死）**：用户裁定原话「無為 是非常典型强庄币啊，第一个点位至少是中等。其它没啥问题」——S072（無為 P1）三大户 0.327/0.294/0.245 **全部 t+0s 首买+只买未卖（卖压 0.0000）**+开盘段大额单 1 笔+锚前尾段 8 笔 1.137 BNB 涌入（BP27 ①庄时序锚+BP22 零卖出满足全命中），low 档（+50~100%）拉升是**强庄最早锁仓拉起的第一波**非散户接力，BP31 早鸟忌讳①第二分支「low 档贴高=已拉高」判 poor(0.54) 拖死综合错过 1m 峰 +97.2% → 忌讳①前置庄盘豁免段（BP23 回调题庄盘豁免同构、判据用 state 材料不引用盘型题答案保质量题独立性）：**开盘段大额单 ≥1 ∧ 持仓前列大买家仍在场（只买未卖零卖出=最强形状）=庄盘语境——庄拉的第一波贴高点位不是接力风险**（买点贴高也是对倒拉升的早期位置而非散户追高），忌讳①「价格已不低」前提不坐实+第一分支救位同步放宽一档 near_launch→low，典型=庄盘第一波早期至少 neutral；**豁免域只到 low 档为止 mid+ 界外**（与 BP25 回调题一档帽同界——庄盘也不追二倍以上的位置）；豁免只解除①不解除②活跃度断流③协同（庄盘断流/协同阵列照常 poor）；criteria neutral 同步补句 | 单测 387→**391 断言**（版本+豁免置顶四句+一档帽+边界不解除②③+criteria 同步）；**182 定向 6 点对拍**：**S072 翻案达成** 早鸟 poor→**neutral(0.71)**/综合 **neutral(0.71,any_neutral)** ✓；**S073 同票 mid 界外照拒** poor(0.91) ✓；**反例 S007 SB P2 平水票照拒** poor(0.93) 未误放 ✓；S083 我画地为牢早鸟虽翻 neutral(0.61) 但 famous dominant **综合仍 chip_gate 拒**（poor 0.99，前向 5m 末 -43%）=豁免只在质量题层门层照拦多层防线生效 ✓；S019 吉祥翻 neutral（前向 5m 峰 +229% 豁免波及方向正确=BP23 庄盘语境票语义连贯）；S006 SB P1 未翻（poor 0.56 边缘保守，前向 +20.6% 保守侧损失可接受留档）；豁免影响域全量摸底=31 张早鸟 poor 中 26 张 strong_backer 盘（前向除 S007 平/S083 -4% 外全部为正 +5~+276%）=「强庄盘最好类型」语义实证；commit 00d04f22 |
+| BP33 | 2026-11-07 | **盘型前置预判断+famous heavy/ultra 门扩+tree/追高题退役（案号 BP30——159 点复审第 6 组 15 点一案六改：Sun×2/疯狂星期四×2/我画地为牢×3/로켓급(火箭级)×4/雪球SI×4）**：用户裁定原话「我画地为牢 既然是 famous 为啥还给中？famous 主导就不玩； 로켓급(火箭级) 也是一样，分类是互斥的，如果是famous也不玩，act为altra也不玩。雪球SI 从我的角度应该是early_sniper_decay，也不能玩。 此外，tree_position 可以去掉，market_pattern 要放到很靠前的位置，因为这是个预判断。high_chase_quality 也删除，不开这个选项。」——六改：**改一（筹码门 famous heavy 升拦截档）** famous_domination 拦截域 dominant→**{heavy,dominant}**（≥25=famous 主导就不玩；light 正常参与不拦）——BP32 疯狂星期四 S080 famous heavy 走 strong_backer neutral(0.81) 放行即违例；**改二（盘型分类互斥前置检查）** market_pattern 题头置顶加互斥检查教学——**famous 控盘占比已达 heavy 及以上（筹码结构行 famous 控盘 ≥25）的盘子不是强庄盘也不是融合盘**（强庄的「庄」不能是著名跟单钱包——famous 的货是要出货的，不是锁仓拉盘的庄），famous 主导票盘型只能在③famous_monopoly/②④等散户/衰竭桶内选——BP32 根因=7 张 famous heavy/dominant 票被判 strong_backer（S080/S082/S083/S086/S087/S088/S092）；**改三（活跃度门 ultra 臂）** activity_level 拦截域 {low}→**{low,ultra}**（对齐 CD G17 M 通道=机器盘级极端密集，正常散户参与盘到不了这个密度）；market_heat ultra 刻意不拦（热度高≠机器盘）；**改四（雪球SI=early_sniper_decay 判读锚）** ④狙击衰竭判据补强：**开盘段买入占全窗买入比例极高（参考 ≥70~80%）∧ [WALLETS] 前列钱包首买全在 t+0~几秒 ∧ 开盘段后金额吞吐骤降（金额衰减比笔数衰减更本质）∧ 早期大买家清仓式撤退或只出不进**；**①与④分界=大户在场性+盘面死活**——同为开盘大额，庄在场持续运营=①、开局抢完即衰竭=④（庄跑了的开盘大额只是狙击痕迹）；**改五（market_pattern 前置预判断）** 题序首位+题头「本题是预判断——先于其它题作答、先定盘面性质再谈点位」+判定链门序最前（pattern_gate 先于 activity_gate/chip_gate 裁）；**改六（tree_position 与 high_chase_quality 两题退役）** 聚合两题化（早鸟/回调）——追高形状的拦截由早鸟忌讳（速度/累计位置硬腿）与门链承接，将来策略放开追高时恢复本题（改题面+bump）；snapshot zigzag 数值锚（8 标量）保留落 digest=纯留档无消费者；旧档 answers 带两题答案不被消费不 throw（重放兼容）；质量题三视角变两视角，树佐证句整链删除（早鸟场景判别改「刚出的票首波拉升中贴高仍属早鸟场景」） | 单测 391→**388 断言**（版本 BP33+用户裁定原话全文+10 题形状/首键 market_pattern/QUALITY_IDS 两键化+门桶常量 ACTIVITY_GATE_POOR_BUCKETS{heat:[low],act:[low,ultra]}/CHIP_GATE_FAMOUS_POOR_BUCKETS[heavy,dominant]+门序翻转三组断言 pattern_gate 先裁+heavy 拦截断言翻转+ultra 三断言+tree/high_chase 退役反证段（旧答案不被消费不 throw）+TREE_POSITION_LEVELS 常量绝迹+互斥/预判断/④判据四新断言）+service 测 26 断言（baseAnswers 删两题+qualities 两键化）；**182 定向 20 点对拍（BP33 首跑）**：**翻案组全达成**——S080 疯狂星期四 neutral(0.81)→**poor(0.93,pattern_gate)**（互斥教学：heavy 票 strong_backer→famous_monopoly）✓、S086 로켓급 neutral(0.76)（strong_backer+act=ultra+fam=heavy 三重违例放行票）→**poor(0.95,pattern_gate)** ✓、S082/S083 我画地为牢 poor(chip_gate)→poor(pattern_gate) 盘型分类修正（strong_backer→famous_monopoly=「famous 为啥还给中」根因修复）✓、S092 雪球SI neutral(0.89)→**poor(0.63,activity_gate)**（ultra 臂首中）✓、S100 雪球SI poor(0.47,activity_gate)→poor(0.57,**pattern_gate**,pat=early_sniper_decay)=用户裁定判读达成 ✓、S081/S084/S085/S087/S088 维持拒（门序前移 pattern_gate 先裁留痕）✓；**维持组** S077/S078 Sun neutral 维持、S094/S096 雪球SI neutral 维持 ✓；**反例 5 点零翻动**——**S072 無為（BP29 立法票）neutral(0.80) 零翻动**（fam=none/act=high 不触新门、pat strong_backer 维持=BP29 庄盘豁免与 BP30 六改零冲突无需豁免链）✓、S073 mid 界外照拒 poor(0.96)（chip_gate→pattern_gate 门序）、S045 pattern_gate 维持 poor(0.83)、S018/S040 neutral 维持 ✓；20 点分布 good=0/neutral=7/poor=13；commit 0fced27b |
 
 ## 首跑观测（BP1，2026-11-03，set=bp-2026-11-03-live4，232 点位全量零失败）
 
@@ -101,7 +102,65 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
-### BP29 早鸟忌讳①前置庄盘豁免：S072 無為 强庄教科书形状被「已拉高」拖死案（题集 BP32，2026-11-06，159 点复审第 5 组）
+### BP30 盘型前置预判断+famous heavy/ultra 门扩+tree/追高题退役：第 6 组 15 点一案六改（题集 BP33，2026-11-07，159 点复审第 6 组）
+
+**背景**：159 点 signals 集第 6 组 15 点（Sun×2（S077/S078 `0x68690152`）/疯狂星期四×2（S080/S081 `0xeefe9f2f`）/我画地为牢×3（S082-S084 `0x3816a4ab`）/로켓급(火箭级)×4（S085-S088 `0x9cbe7b5a`）/雪球SI×4（S092/S094/S096/S100 `0x92a130f2`））BP32 重析（poor=9/neutral=6）人工审毕，用户一案六改裁定原话：「我画地为牢 既然是 famous 为啥还给中？famous 主导就不玩； 로켓급(火箭级) 也是一样，分类是互斥的，如果是famous也不玩，act为altra也不玩。雪球SI 从我的角度应该是early_sniper_decay，也不能玩。 此外，tree_position 可以去掉，market_pattern 要放到很靠前的位置，因为这是个预判断。high_chase_quality 也删除，不开这个选项。」
+
+**BP32 基线违例形状（六改的靶子）**：
+- **S080 疯狂星期四**（famous=heavy）判 strong_backer → neutral(0.81) 放行——heavy 控盘票走「强庄」路径放行=改一靶
+- **S086 로켓급**（fam=heavy ∧ act=ultra ∧ pat=strong_backer）三重违例 → neutral(0.76) 放行——分类互斥+ultra 门=改二改三靶
+- **S082/S083/S087/S088 我画地为牢/로켓급**（fam=dominant）盘型题全判 strong_backer、靠 chip_gate 兜底拒——盘型分类本身错了（dominant 票不可能是强庄盘）=改二根因
+- **S092 雪球SI**（act=ultra）→ neutral(0.89) 放行——ultra 门=改三靶
+- **S100 雪球SI**（开盘段占比极高+前列首买全在最初几秒+后段骤降）判 strong_backer、activity_gate 拒——判读角度错（形状是④狙击衰竭不是强庄）=改四靶
+
+**六改全文**：
+
+1. **筹码门 famous heavy 升拦截档（改一）**：`famous_domination` 拦截域 dominant→**{heavy,dominant}**（≥25=famous 主导就不玩）；light（<25 正常参与）不拦。题面 famous 反锚⑤同步：「买在这样的盘面=把出场交给 famous 的出货节奏，这正是 heavy/dominant 两档（占比 ≥25）被代码侧硬门拒买的原因」。
+
+2. **盘型分类互斥前置检查（改二，根因修复）**：market_pattern 题头置顶互斥教学——「**分类互斥前置检查（BP33）**：famous 控盘占比已达 heavy 及以上（筹码结构行 famous 控盘 ≥25）的盘子**不是强庄盘也不是融合盘**——强庄的「庄」不能是著名跟单钱包：famous 的货是要出货的，不是锁仓拉盘的庄；famous 主导的盘子盘型只能在 famous_monopoly（独食）/散户 PVP/狙击衰竭等桶内选」。BP32 根因=盘型题把 famous heavy/dominant 票判 strong_backer（把 famous 巨鲸当「庄」）——「庄」与「famous」是两种对立角色：庄锁仓拉盘、famous 跟单出货。
+
+3. **活跃度门 ultra 臂（改三）**：`activity_level` 拦截域 {low}→**{low,ultra}**（对齐 CD G17 M 通道语义=机器盘级极端密集，正常散户参与盘到不了这个密度）；`market_heat` ultra 刻意不拦（热度高本身不是机器盘证据）。activity_level 题尾句同步：「低档与超高档均由代码侧活跃度门直接消费拒买」。
+
+4. **④狙击衰竭判据补强+①④分界（改四，雪球SI S100 案）**：④判据四要件——开盘段买入占全窗买入比例极高（参考 **≥70~80%**）∧ [WALLETS] 前列钱包首买全在 t+0~几秒 ∧ 开盘段后**金额吞吐骤降（金额衰减比笔数衰减更本质）** ∧ 早期大买家清仓式撤退或只出不进；**①与④分界=大户在场性+盘面死活**：同为开盘大额，庄在场持续运营=①强庄盘，开局抢完即衰竭=④（庄跑了的开盘大额只是狙击痕迹）。
+
+5. **market_pattern 前置预判断（改五）**：题序首位（questions 数组第一题）+题头「本题是预判断——先于其它题作答、先定盘面性质再谈点位」+mapper 判定链门序最前（pattern_gate 先于 activity_gate/chip_gate 裁，rule 留痕首个命中门）。
+
+6. **tree_position 与 high_chase_quality 两题退役（改六）**：聚合三视角→**两视角**（早鸟/回调）；追高形状的拦截由早鸟忌讳（maxChg5 速度锚+BP28 累计位置硬腿）与门链承接；将来策略放开追高时恢复本题（改题面+bump）。tree_position 题删除后 snapshot zigzag 数值锚（swingHighCount 等 8 标量）保留落 digest=**纯留档无消费者**（历史 run 对拍兼容）；早鸟/回调题树佐证句整链删除（早鸟场景判别改「刚出的票首波拉升中贴高仍属早鸟场景」非树形依赖）；旧档 answers 带两题答案=不被消费不 throw（重放兼容）。
+
+**判定链 BP33 四层**（mapper）：**①盘型门 pattern_gate（预判断最前）**——retail_pvp/famous_monopoly/early_sniper_decay → poor → **②活跃度门 activity_gate**——market_heat=low 或 activity_level∈{low,ultra} → poor → **③筹码门 chip_gate**——famous_domination∈{heavy,dominant} 或 holder_concentration=strong → poor → **④两质量题聚合**——任一 good→good/任一 neutral→neutral/否则 poor（insufficient 不贡献；两题全 insufficient→poor 且 prob=null）。
+
+**单测**：`_test_buy_point_lib.cjs` 391→**388 断言**全绿（版本 BP33+用户裁定原话全文锁定+10 题形状/首键 market_pattern/QUALITY_IDS 两键化+门桶常量 `ACTIVITY_GATE_POOR_BUCKETS`/`CHIP_GATE_FAMOUS_POOR_BUCKETS` 断言+门序翻转三组断言（pattern_gate 先裁）+heavy 拦截断言由放行翻转为拦截+ultra 三断言+tree/high_chase 退役反证段（legacyTree 旧答案不被消费不 throw）+`TREE_POSITION_LEVELS` 常量绝迹+互斥/预判断/④判据四新断言）；`_test_buy_point_check_service.cjs` 26 断言（baseAnswers 删两题+qualities 两键化+high_chase 键绝迹）。
+
+**182 定向 20 点对拍（BP33 首跑，`--only` 第 6 组 15 点+反例 5 点）**：
+
+| 点位 | 代币 | BP32 | BP33 | 判定 |
+|---|---|---|---|---|
+| S077 | Sun `0x68690152…` | neutral(0.79) | neutral(0.73) blended | 维持 ✓ |
+| S078 | Sun | neutral(0.79) strong_backer | neutral(0.81) blended | 维持（盘型桶漂移无门影响）✓ |
+| S080 | 疯狂星期四 `0xeefe9f2f…` | **neutral(0.81)** strong_backer+fam=heavy | **poor(0.93,pattern_gate)** famous_monopoly | **翻案达成**（互斥教学+heavy 门）✓ |
+| S081 | 疯狂星期四 | poor(1,chip_gate) | poor(0.94,pattern_gate) | 维持拒（门序前移）✓ |
+| S082 | 我画地为牢 `0x3816a4ab…` | poor(1,chip_gate) strong_backer | poor(0.94,pattern_gate) famous_monopoly | **分类修正**（famous dominant 不落①）✓ |
+| S083 | 我画地为牢 | poor(0.99,chip_gate) | poor(0.95,pattern_gate) | 分类修正 ✓ |
+| S084 | 我画地为牢 | poor(0.8,activity_gate) | poor(0.96,pattern_gate) | 维持拒 ✓ |
+| S085 | 로켓급 `0x9cbe7b5a…` | poor(0.3,pattern_gate) | poor(0.89,pattern_gate) | 维持拒（prob 收敛）✓ |
+| S086 | 로켓급 | **neutral(0.76)** strong_backer+act=ultra+fam=heavy | **poor(0.95,pattern_gate)** famous_monopoly | **翻案达成**（三重违例票）✓ |
+| S087 | 로켓급 | poor(1,chip_gate) | poor(0.95,pattern_gate) | 维持拒 ✓ |
+| S088 | 로켓급 | poor(1,chip_gate) | poor(0.95,pattern_gate) | 维持拒 ✓ |
+| S092 | 雪球SI `0x92a130f2…` | **neutral(0.89)** act=ultra | **poor(0.63,activity_gate)** | **翻案达成**（ultra 臂首中）✓ |
+| S094 | 雪球SI | neutral(0.6) | neutral(0.59) | 维持 ✓ |
+| S096 | 雪球SI | neutral(0.6) | neutral(0.71) | 维持 ✓ |
+| S100 | 雪球SI | poor(0.47,activity_gate) strong_backer | poor(0.57,**pattern_gate**) **early_sniper_decay** | **判读达成**（用户裁定形状）✓ |
+| S072 | 無為 `0xb97d5772…` | neutral(0.71)（BP29 立法票） | **neutral(0.80) 零翻动**（fam=none/act=high/pat strong_backer 维持） | **立法票安全**——BP29 庄盘豁免与 BP30 六改零冲突、无需豁免链 ✓ |
+| S073 | 無為 | poor(0.91,chip_gate) | poor(0.96,pattern_gate) | mid 界外照拒 ✓ |
+| S045 | 谷谷② `0xbd74373a…` | poor(0.81,pattern_gate) | poor(0.83,pattern_gate) | 维持 ✓ |
+| S018 | 吉祥B | neutral | neutral(0.87) | 反例稳定 ✓ |
+| S040 | 吉祥反例 | neutral | neutral(0.64) | 反例稳定 ✓ |
+
+20 点分布 good=0/neutral=7/poor=13；commit `0fced27b`。
+
+**余留**：159 点 BP33 全量重抛待用户裁定时机（tree/追高退役后 10 题形状全量重分布+互斥教学对 101 张 strong_backer 盘的重分类影响面=最大观察点）；S078 盘型桶漂移（strong_backer→blended，fam=none 不触门综合不变）方差观察；追高题退役后追高形状票的实际拦截路径验证（早鸟忌讳+门链承接是否完备）；生产首验待下实验启动。
+
+
 
 **背景**：159 点 signals 集第 5 组 16 点（突突车×6（S109-S114）/無為×5（S072-S076）/作茧自缚×5（S091-S095））BP31 重析（poor=14/neutral=2）人工审毕，用户裁定：「無為 是非常典型强庄币啊，第一个点位至少是中等。其它没啥问题」——15 点认同（含突突车 S111/S113/S114 mid 位置硬腿拒、無為/作茧自缚后段 chip_gate 拒=roster 外溢全认），S072 一点翻案目标至少 neutral。
 
