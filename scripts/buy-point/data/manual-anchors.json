@@ -1733,7 +1733,7 @@
     "anchorTickCount": 17
    },
    "expect": {
-    "bucket": "neutral"
+    "bucket": "poor"
    },
    "model": {
     "bucket": "neutral",
@@ -1743,7 +1743,7 @@
     "questionVersion": "BP31"
    },
    "ruledAt": "2026-11-06",
-   "note": "activity 裁定锚（用户裁定原话「cheat 检测中有burst检测，豁免低活跃度，可以搬过来。S053 是中等」）：S053 三段形状=开局 7s 冲 7 笔→中段 24s 完全静默（无交易期占比 54.5%）→锚前 2s 内 8 笔 0.928 BNB 同块集中涌入（含三笔 0.2 级），1min 后 +55.6%。BP30 纯题面三段形状句三连跑稳定 low（题面救不动——临近段 totals 无时序、锚前涌入被段 totals 稀释 Jev 结构性看不到）；BP31 锚前尾段三键（nearTail5=8 笔近 1 BNB 直接可见）后三连跑稳定 activity=mid/综合 neutral（0.62/0.59/0.63）翻案达成"
+   "note": "activity 裁定锚（用户裁定原话「cheat 检测中有burst检测，豁免低活跃度，可以搬过来。S053 是中等」）：S053 三段形状=开局 7s 冲 7 笔→中段 24s 完全静默（无交易期占比 54.5%）→锚前 2s 内 8 笔 0.928 BNB 同块集中涌入（含三笔 0.2 级），1min 后 +55.6%。BP30 纯题面三段形状句三连跑稳定 low（题面救不动——临近段 totals 无时序、锚前涌入被段 totals 稀释 Jev 结构性看不到）；BP31 锚前尾段三键（nearTail5=8 笔近 1 BNB 直接可见）后三连跑稳定 activity=mid/综合 neutral（0.62/0.59/0.63）翻案达成。【BP37 改判（2026-11-07）】：BP36 全量重抛 S053 判 sustained_climb ⑥拒（近窗纯拉），第五批复审用户对太空逆袭组⑥方向接受（同组 S054 裁定原话「还是应该维持 sustained_climb，有非常微小的卖出力量不豁免」）——activity 翻案记录（BP31 act=mid 三连）仍有效，综合桶由⑥门改判 poor（activity 锚语义收窄为 act 档位锚）。"
   },
   {
    "anchorId": "BPA-072",
@@ -1912,6 +1912,30 @@
    },
    "ruledAt": "2026-11-07",
    "note": "BP31 案纯卖零承接锚（用户裁定 poor）：近窗 60s 买 0.0001×2 卖 0.661×7 买占比 0%=承接归零、7 个清仓式钱包在卖（非 top5 大户）、大户在场持有未卖锁仓——BP35 ①承接臂收紧句+BP36 ②⑤第三臂承接归零例外（落②(b)）后桶级 poor 达成（act=low activity_gate 拒，吞吐 1.17 BNB/min）；pat 仍 strong_backer 0.51 低置信（承接归零例外的判型采纳待观察）"
+  },
+  {
+   "anchorId": "BPA-079",
+   "kind": "signal",
+   "tokenAddress": "0x0cd4cee39ed16ad3e39e3b261dc592648d137777",
+   "tokenName": "太空逆袭",
+   "locator": {
+    "set": "bp-2026-11-06-v73-signals",
+    "pointId": "BP-S054",
+    "triggeredAt": "2026-11-05T07:21:58Z",
+    "anchorTickCount": 102
+   },
+   "expect": {
+    "bucket": "poor"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.58,
+    "rule": "pattern_gate",
+    "run": "bp37-parity",
+    "questionVersion": "BP37"
+   },
+   "ruledAt": "2026-11-07",
+   "note": "BP37 立法锚（⑥对倒臂 0.1→0.12 收紧定标票）：t+67s 第二点近 30s 卖 0.1021/买占比 93.9%，BP36 下刚过 0.1 线被 Jev 从宽判 blended neutral(0.40) 放行——用户裁定原话「我认为还是应该维持 sustained_climb，有非常微小的卖出力量不豁免」：贴线微小卖出（0.10x 级）不构成对倒证据，线抬至 0.12（定标=S054 0.1021→⑥ 与 無為 S072 0.128→① 之间）；BP37 对拍三连 sustained_climb→poor（0.58/0.60/0.69 pattern_gate）翻案达成"
   }
  ]
 }
