@@ -303,6 +303,7 @@ function buildBuyPointObservation(answers, anchors = null) {
       // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered boolean → 1/0 数值化）
       launchPriceBnb: _num(b, 'launchPriceBnb'),
       currentVsLaunchPct: _num(b, 'currentVsLaunchPct'),
+      athVsLaunchPct: _num(b, 'athVsLaunchPct'), // BP39 开盘拉高出货度量锚（锚窗最高价较发行价 %）
       launchCovered: b.launchCovered === null || b.launchCovered === undefined ? null : (b.launchCovered ? 1 : 0),
       // 市值位置族（BP2：supply 缺失 null fail-closed）
       mcapBnb: _num(b, 'mcapBnb'),
