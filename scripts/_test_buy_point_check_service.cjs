@@ -87,10 +87,8 @@ function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
         market_heat: { probabilities: { high: 0.6, mid: 0.4 } },
         entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
         price_level: { probabilities: { near_launch: 0.7, low: 0.3 } },
-        tree_position: { probabilities: { left_side: 0.75, unclear: 0.25 } },
         early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
         pullback_entry_quality: { probabilities: { insufficient: 0.8, poor: 0.2 } },
-        high_chase_quality: { probabilities: { insufficient: 0.9, poor: 0.1 } },
     };
     return {
         calls,
@@ -162,7 +160,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(r.assessment.rule, 'any_good');
         assert.strictEqual(r.qualities.early_bird.bucket, 'good');
         assert.strictEqual(r.qualities.pullback_entry.bucket, 'insufficient');
-        assert.strictEqual(r.qualities.high_chase.bucket, 'insufficient');
+        assert.strictEqual(!('high_chase' in r.qualities), true, 'BP30 两题化：high_chase 键绝迹');
         assert.strictEqual(r.dimensions.price_trend.bucket, 'fast_up');
         assert.strictEqual(typeof r.anchors.mcapBnb, 'number');
         assert.strictEqual(r.model, 'stub-model');

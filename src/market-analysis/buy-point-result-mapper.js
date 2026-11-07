@@ -1,31 +1,34 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态（BP8 活跃度门+三类质量题，用户裁定 2026-11-05）：维度题档位（6 题，
- * 纯参考）+ **3 类别质量题**（early_bird_quality/pullback_entry_quality/
- * high_chase_quality，桶域 good/neutral/poor/insufficient——Jev 三视角并行独立
- * 评估）；综合判定 = **代码侧两层**（用户三层框架，圣诞树层裁定暂缓）：
- *   ① 活跃度门（BP13 扩双题）——market_heat=low（近窗密度）**或**
- *      activity_level=low（买点前全窗量级——CD 七要素判法搬运）→ poor
- *      （rule=activity_gate，活跃度不够不参与）
- *   ①b 筹码门（BP14/案号 BP14 BEM Miner 案——用户裁定「全部搬过来直接用于
- *      判定」）：famous_domination=dominant（famous+跟单正净 ≥50 控盘主导）
- *      **或** holder_concentration=strong（持有者不少但 TOP 过 CD240 分层线/
- *      一人控盘）→ poor（rule=chip_gate，famous 掌控/筹码垄断的盘子不参与）
- *   ①c 盘型门（BP18 用户裁定五类型学）：market_pattern ∈ {retail_pvp 散户 PVP
- *      （无任何大额参与散户互捅攒流动性）/famous_monopoly famous 独食（小散底子
- *      +一个 famous 拿太多筹码）/early_sniper_decay 狙击衰竭（购买力集中最早期
- *      数 slot 后衰竭）} → poor（rule=pattern_gate，这三种盘子不要参与）；
- *      strong_backer（强庄盘=最好类型）与 blended_unremarkable（融合盘=好点位
- *      可赌）不拦——点位质量仍归三质量题
- *   ② 三质量题确定性聚合（BP6 用户裁定原话「这三者有任何一个为 good 则为
- *      good，为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则
- *      任一 neutral → neutral；否则 poor——insufficient 不贡献聚合；三题全
+ * 判定形态（BP30/题集 BP33 盘型前置预判断+famous heavy/ultra 门扩+tree/追高题
+ * 退役，用户裁定 2026-11-07）：维度题档位（7 题纯参考）+ **2 类别质量题**
+ * （early_bird_quality/pullback_entry_quality，桶域 good/neutral/poor/
+ * insufficient——Jev 两视角并行独立评估）；综合判定 = **代码侧四层**：
+ *   ① 盘型门（BP18 五类型学；**BP30 前置为预判断**——用户裁定「market_pattern
+ *      要放到很靠前的位置，因为这是个预判断」）：market_pattern ∈ {retail_pvp
+ *      散户 PVP/famous_monopoly famous 独食/early_sniper_decay 狙击衰竭}
+ *      → poor（rule=pattern_gate，这三种盘子不要参与）；strong_backer（强庄盘
+ *      =最好类型）与 blended_unremarkable（融合盘=好点位可赌）不拦
+ *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂）：market_heat=low（近窗密度）**或**
+ *      activity_level=low（买点前全窗量级）**或** activity_level=ultra（机器盘
+ *      级极端密集——用户裁定「act 为 ultra 也不玩」，对齐 CD M 通道）→ poor
+ *      （rule=activity_gate；market_heat=ultra 不拦——近窗密度视角不拦过热，
+ *      只拦全窗量级 ultra）
+ *   ③ 筹码门（BP14+BP30 heavy 扩档）：famous_domination ∈ {heavy, dominant}
+ *      （famous+跟单正净持仓 ≥25 即 famous 主导——用户裁定「famous 主导就
+ *      不玩」；light 正常参与不拦）**或** holder_concentration=strong（TOP 过
+ *      CD240 分层线/一人控盘）→ poor（rule=chip_gate）
+ *   ④ 两质量题确定性聚合（BP6 原话裁定的两题化：「任何一个为 good 则为 good，
+ *      为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则任一
+ *      neutral → neutral；否则 poor——insufficient 不贡献聚合；两题全
  *      insufficient → poor（fallback 无 poor 证据 prob=null）
- * **圣诞树门暂不参与决策（用户裁定原话「暂时圣诞树这一锚，先不参与决策吧。
- * 我觉得判断起来有点太难了，但是可以先放里头」）**：tree_position 题+摆动锚
- * 族（snapshot）+digest 照算照落=纯观察档攒分布（T74/T76 同构），mapper 不消
- * 费任何 tree 桶；后续启用只改本聚合+题面措辞（届时 bump 版本）。
+ * **tree_position 已退役（BP30 用户裁定「tree_position 可以去掉」）**：题/题面/
+ *   state 摆动结构行整链删除；snapshot zigzag 数值锚保留落 digest=纯留档
+ *   （历史 run 对拍兼容，本 mapper 无消费者）。
+ * **high_chase_quality 已退役（BP30 用户裁定「high_chase_quality 也删除，不开
+ *   这个选项」）**：聚合两题化；追高形状的拦截由早鸟忌讳（速度/累计位置）与
+ *   门链承接。
  * 门题答案缺席（null）= 无证据不拦，放行进下层（拒=有证据的拒绝）；门优先于
  * 质量题（质量题证据再好，门拒即 poor，prob=门题 argmax）。
  * 维度题仍纯透传（argmax 照抄——与 CD D3.5「判断一律 Jev」同哲学；门与聚合
@@ -37,7 +40,7 @@
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺放宽）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
- *   ——rule 键=聚合来源留痕（activity_gate/chip_gate/pattern_gate/any_good/
+ *   ——rule 键=聚合来源留痕（pattern_gate/activity_gate/chip_gate/any_good/
  *   any_neutral/else_poor）非档位结论）
  *
  * 桶域常量与题集（llm/buy-point-questions.mjs ESM）同域同值：ESM 无法被本 CJS
@@ -45,7 +48,7 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP8 增 tree_position；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position） */
 const DIMENSION_IDS = [
   'price_trend',
   'market_heat',
@@ -54,33 +57,37 @@ const DIMENSION_IDS = [
   'holder_concentration',
   'entry_position',
   'price_level',
-  'tree_position',
   'market_pattern',
 ];
 
-/** 三类质量题 id（BP6：Jev 三视角并行评估——综合判定唯一来源，strict 强制在场） */
-const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality', 'high_chase_quality'];
+/** 两类质量题 id（BP6 两题制——BP30 删 high_chase_quality；综合判定唯一来源，strict 强制在场） */
+const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality'];
 
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 买点前活跃度四档（BP13：CD activity_level 判法搬运——与 HEAT_LEVELS 同词表） */
 const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
-/** famous 控盘四桶（BP14：CD D3.2 三档切点 50/25 判法搬运——dominant=门桶硬消费） */
+/** famous 控盘四桶（BP14：CD D3.2 三档切点 50/25 判法搬运；BP30 heavy+dominant 两档=门桶硬消费拒买（famous 主导就不玩），light=正常参与不拦） */
 const FAMOUS_DOMINATION_LEVELS = ['none', 'light', 'heavy', 'dominant'];
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
 const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 圣诞树位置六桶（BP8 观察档——用户裁定暂不参与决策：left_side 待涨/top 待跌/right_side 下跌/right_bottom 树脚/not_tree 形状反常/unclear 判不出；题照问答照落攒分布） */
-const TREE_POSITION_LEVELS = ['left_side', 'top', 'right_side', 'right_bottom', 'not_tree', 'unclear'];
 /** 盘面分类五桶（BP18 用户裁定五类型学：strong_backer 强盘最好类型/retail_pvp 散户
  * PVP（门桶拒买）/famous_monopoly famous 独食（门桶拒买）/early_sniper_decay 狙击
  * 衰竭（门桶拒买）/blended_unremarkable 融合盘中性可赌） */
 const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable'];
 /** 盘型门拒买桶（BP18：retail_pvp/famous_monopoly/early_sniper_decay 三桶硬拒；
- * strong_backer（最好类型）与 blended_unremarkable（融合可赌）不拦） */
+ * strong_backer（最好类型）与 blended_unremarkable（融合可赌）不拦；BP30 起为
+ * 判定链首门（预判断最前） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_sniper_decay'];
+/** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
+ * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；market_heat
+ * 的 ultra 不拦：近窗密度视角不拦过热，只拦全窗量级 ultra） */
+const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low', 'ultra'] };
+/** 筹码门 famous 拒买档（BP30：heavy+dominant ≥25=famous 主导不玩；light 正常参与不拦） */
+const CHIP_GATE_FAMOUS_POOR_BUCKETS = ['heavy', 'dominant'];
 /** 质量题桶域（BP6——与题集同域；insufficient=不适用/材料薄不贡献聚合） */
 const QUALITY_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 /** 综合判定桶域（聚合产物 ∈ {good, neutral, poor}；门 bpPassLevels 消费域含 insufficient 历史行兼容） */
@@ -95,7 +102,6 @@ const DIMENSION_LEVELS = {
   holder_concentration: HOLDER_CONCENTRATION_LEVELS,
   entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
-  tree_position: TREE_POSITION_LEVELS,
   market_pattern: MARKET_PATTERN_LEVELS,
 };
 
@@ -172,8 +178,8 @@ function _openNum(anchors, key) {
 }
 
 /**
- * Jev answers → 买点观测记录（维度档位+三类质量+聚合综合判定+数值锚；无 verdict/grade）
- * @param {Object} answers - JevClient.ask 返回的 answers（9 题 Choice=6 维度+3 质量；
+ * Jev answers → 买点观测记录（维度档位+两类质量+聚合综合判定+数值锚；无 verdict/grade）
+ * @param {Object} answers - JevClient.ask 返回的 answers（9 题 Choice=7 维度+2 质量；
  *   维度题可缺席→null；质量题 strict 必须在场）
  * @param {Object|null} [anchors] - buyDerived 数值锚（buildBuyPointSnapshot
  *   产物 .buyDerived；缺省/形状异常=缺席）
@@ -185,48 +191,45 @@ function buildBuyPointObservation(answers, anchors = null) {
   for (const id of DIMENSION_IDS) {
     dimensions[id] = _choice(answers, id, DIMENSION_LEVELS[id], false);
   }
-  // 三类质量题（strict：早鸟/回调/追高三视角各一道，综合判定唯一来源）
+  // 两类质量题（strict：早鸟/回调两视角各一道，综合判定唯一来源）
   const qualities = {};
   for (const id of QUALITY_IDS) {
     qualities[id.replace('_quality', '')] = _choice(answers, id, QUALITY_LEVELS, true);
   }
-  // 活跃度门+筹码门+聚合（BP8：用户三层框架的第②层圣诞树门裁定暂不参与决策——
-  // tree_position 纯观察攒分布，本聚合不消费任何 tree 桶）：
-  // ①活跃度门（BP13 扩双题）：market_heat=low（近窗密度死寂）**或**
-  //   activity_level=low（买点前全窗量级判法——CD 七要素搬运，临近买点段
-  //   死寂/尘埃假活跃/间歇死水等低档形状）→ poor（活跃度不够不参与交易）；
-  // ①b 筹码门（BP14/案号 BP14 BEM Miner 案——用户裁定「全部搬过来直接用于
-  //   判定」）：famous_domination=dominant（famous+跟单正净持仓 ≥50 控盘主导）
-  //   **或** holder_concentration=strong（持有者不少但 TOP 占比过分层线/一人
-  //   控盘——CD240 分层判法搬运）→ poor（rule=chip_gate：famous 掌控的盘子/
-  //   筹码垄断的盘子不参与交易）；活跃度门先裁（rule 留痕首个命中门）；
-  // ②质量题聚合：任一 good → good；否则任一 neutral → neutral；否则 poor。
-  // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；BP12 旧档重放无
-  // activity_level 答案=该臂自动失效，market_heat 臂照常；BP13 及更早旧档无
-  // 两筹码题答案=筹码门臂自动失效零影响）；门优先于质量题。
+  // 四层判定链（BP30/题集 BP33——盘型门前置预判断最前，rule 留痕首个命中门）：
+  // ①盘型门（BP18 五类型学；BP30 前置——用户裁定「market_pattern 要放到很靠前
+  //   的位置，因为这是个预判断」）：retail_pvp/famous_monopoly/early_sniper_decay
+  //   → poor（不要参与）；strong_backer 与 blended_unremarkable 不拦；
+  // ②活跃度门（BP13 双题+BP30 ultra 臂）：market_heat=low（近窗密度死寂）**或**
+  //   activity_level ∈ {low（CD 七要素低档形状）, ultra（机器盘级极端密集——
+  //   「act 为 ultra 也不玩」）}→ poor（rule=activity_gate）；
+  // ③筹码门（BP14+BP30 heavy 扩档）：famous_domination ∈ {heavy, dominant}
+  //   （正净 ≥25=famous 主导不玩）**或** holder_concentration=strong（CD240
+  //   分层线/一人控盘）→ poor（rule=chip_gate）；
+  // ④两质量题聚合：任一 good → good；否则任一 neutral → neutral；否则 poor。
+  // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；旧档重放缺答案=该臂
+  // 自动失效）；门优先于质量题。
   // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
-  const heat = dimensions.market_heat;
-  const act = dimensions.activity_level;
-  const gateArms = [heat, act].filter((e) => e && e.bucket === 'low');
-  const chipArms = [
-    dimensions.famous_domination && dimensions.famous_domination.bucket === 'dominant' ? dimensions.famous_domination : null,
-    dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
-  ].filter(Boolean);
-  // ②c 盘型门（BP18 五类型学）：散户 PVP/famous 独食/狙击衰竭 → poor（不要参与）；
-  // strong_backer（最好类型）与 blended_unremarkable（融合可赌）不拦；答案缺席 null
-  // = 无证据不拦（拒=有证据的拒绝——BP18 旧档重放无 market_pattern 答案=门自动失效）
   const patternArms = dimensions.market_pattern && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
     ? [dimensions.market_pattern] : [];
+  const gateArms = [
+    dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
+    dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) ? dimensions.activity_level : null,
+  ].filter(Boolean);
+  const chipArms = [
+    dimensions.famous_domination && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
+    dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
+  ].filter(Boolean);
   const qList = Object.values(qualities);
   const tier = (t) => qList.filter((e) => e && e.bucket === t);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
   let bucket, prob, rule;
-  if (gateArms.length) {
+  if (patternArms.length) {
+    bucket = 'poor'; prob = bestProb(patternArms); rule = 'pattern_gate';
+  } else if (gateArms.length) {
     bucket = 'poor'; prob = bestProb(gateArms); rule = 'activity_gate';
   } else if (chipArms.length) {
     bucket = 'poor'; prob = bestProb(chipArms); rule = 'chip_gate';
-  } else if (patternArms.length) {
-    bucket = 'poor'; prob = bestProb(patternArms); rule = 'pattern_gate';
   } else {
     const g = tier('good');
     const n = tier('neutral');
@@ -245,9 +248,9 @@ function buildBuyPointObservation(answers, anchors = null) {
   const b = anchors || {};
   const burst = b.burst5In120;
   return {
-    // 五维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
+    // 维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
     dimensions,
-    // 三类入场质量（BP6 strict：early_bird/pullback_entry/high_chase 各 {bucket,prob}）
+    // 两类入场质量（BP6 两题制 strict：early_bird/pullback_entry 各 {bucket,prob}）
     qualities,
     // 综合判定（代码侧聚合：any_good → any_neutral → else_poor；rule=聚合来源留痕）
     assessment,
@@ -274,8 +277,9 @@ function buildBuyPointObservation(answers, anchors = null) {
       chg10Pct: _num(b, 'chg10Pct'),
       chg30Pct: _num(b, 'chg30Pct'),
       maxChg5Pct: _num(b, 'maxChg5Pct'),
-      // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；lastDir 1=涨段/-1=跌段/0=未定向；
-      // swingPoints/swingLegs=state 渲染原料不进锚）
+      // 摆动结构族（BP8 圣诞树原料；BP30/题集 BP33 tree_position 题退役后**无消费者
+      // 纯留档**——历史 run 对拍兼容照落 digest；<2 可靠价全族 null；lastDir
+      // 1=涨段/-1=跌段/0=未定向；swingPoints/swingLegs=state 渲染原料不进锚）
       swingHighCount: _num(b, 'swingHighCount'),
       swingLowCount: _num(b, 'swingLowCount'),
       swingLastDir: _num(b, 'swingLastDir'),
@@ -355,9 +359,10 @@ module.exports = {
   HOLDER_CONCENTRATION_LEVELS,
   ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,
-  TREE_POSITION_LEVELS,
   MARKET_PATTERN_LEVELS,
   PATTERN_GATE_POOR_BUCKETS,
+  ACTIVITY_GATE_POOR_BUCKETS,
+  CHIP_GATE_FAMOUS_POOR_BUCKETS,
   QUALITY_LEVELS,
   ASSESSMENT_LEVELS,
 };

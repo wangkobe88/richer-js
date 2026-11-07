@@ -100,16 +100,8 @@ function buildBuyPointState(snapshot) {
     lines.push(`近窗动量(涨跌%): 5s ${chg(b.chg5Pct)} / 10s ${chg(b.chg10Pct)} / 30s ${chg(b.chg30Pct)}（窗末可靠价 vs 窗起点前最后一笔可靠价；窗内无更早价则自全窗首可靠价起算——短窗常见，含义=可得最早价以来的动量；? = 可靠价不足）`);
     // ②b 回看速度（BP10：锚窗内任意 5 秒段最大涨幅——当前时点 chg5 测不到此前段的暴涨，判「前期上涨过快」看本值）
     lines.push(`回看速度: 锚窗内任意 5 秒段最大涨幅 ${chg(b.maxChg5Pct)}（可靠价滚动 5s 窗最陡段；上涨速度的回看度量——涨幅不是速度，判「前期暴涨/上涨过快」以此为速锚而非累计涨幅；? = 可靠价不足）`);
-    // ②a 摆动结构（BP8 圣诞树原料：zigzag 阈值化峰谷——形状与位置判读素材，判读归 Jev）
-    {
-      const sw = Array.isArray(b.swingPoints) ? b.swingPoints : [];
-      const legs = Array.isArray(b.swingLegs) ? b.swingLegs : [];
-      const legTxt = legs.map((l) => `${l.amplPct > 0 ? '+' : ''}${l.amplPct.toFixed(0)}%/${Math.round(l.toDt - l.fromDt)}s`).join('、');
-      const dirTxt = b.swingLastDir === 1 ? '上涨段' : b.swingLastDir === -1 ? '下跌段' : b.swingLastDir === 0 ? '未定向' : '?';
-      const seq = sw.slice(-6).map((p) => `${p.kind === 'high' ? '峰' : '谷'}@${fmtDt(p.dt)}`).join('→');
-      const chgS = (v) => (v === null || v === undefined ? '?' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`);
-      lines.push(`摆动结构(圣诞树原料): ${seq || '?'}，现处${dirTxt}${legs.length ? `；段幅度（旧→新）${legTxt}` : ''}；摆点 峰${b.swingHighCount ?? '?'}/谷${b.swingLowCount ?? '?'}，最大单段摆幅 ${b.swingMaxAmplPct === null || b.swingMaxAmplPct === undefined ? '?' : b.swingMaxAmplPct.toFixed(0) + '%'}；现价较最近摆动峰 ${chgS(b.currentVsSwingHighPct)} / 较最近摆动谷 ${chgS(b.currentVsSwingLowPct)}（zigzag 反向 ≥20% 确认摆点——树形状与位置的判读素材（观察档暂不参与决策），判读归你；? = 可靠价不足）`);
-    }
+    // （②a 摆动结构行已删——BP30/题集 BP33 tree_position 题退役：zigzag 锚照算
+    //    落 digest 纯留档，state 不再渲染圣诞树原料行）
     // ③ 近窗流量
     const w30 = b.win && b.win[30], w60 = b.win && b.win[60], w120 = b.win && b.win[120];
     const flow = (w) => (w ? `买 ${fmtBnb(w.buyBnb)}×${w.buyN} 卖 ${fmtBnb(w.sellBnb)}×${w.sellN} 净 ${fmtBnb(w.netBnb)}` : '?');
@@ -237,7 +229,7 @@ function buildBuyPointState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED]/[PRICE] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：此刻入场时机好坏。',
     '- 只判入场时机（时点），不下盘面性质结论：协同/作弊形状（等额阵列/对敲/分仓指纹）作为降档参考计入风险权衡，是否作弊由反作弊模块另行判定。',
-    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩双题；BP14 新增筹码门；BP18 新增盘型门）：①活跃度门——热度（market_heat）low 或买点前活跃度（activity_level）low=不参与交易；②筹码门——famous 控盘（famous_domination）dominant 或持仓集中（holder_concentration）strong=不参与交易（famous 掌控的盘子/持有者不少但 TOP 占比太大——代码侧硬门消费这两档）；②c 盘型门——盘面类型（market_pattern）散户 PVP（retail_pvp）/famous 独食（famous_monopoly）/狙击衰竭（early_sniper_decay）=不参与交易（代码侧硬门消费这三桶）；强庄盘（strong_backer=最好类型）与融合盘（blended_unremarkable=好点位可赌）不拦——点位质量仍归质量题；③三道质量题（早鸟/回调/追高）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零；追高本轮先等等一律 poor）——早鸟≈树左侧早段、回调≈树脚企稳（小树结束+可能的大树开始）、追高≈树顶贴高；圣诞树形状与位置（tree_position）暂不参与决策（用户裁定「判断起来有点太难了，但是可以先放里头」）——题照答、摆动结构照算，档位作三质量题的参考佐证；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。',
+    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩双题；BP14 新增筹码门；BP18 新增盘型门；BP30 盘型前置预判断+famous heavy/ultra 门扩+tree/追高题退役）：**①盘型门（预判断，最前）**——盘面类型（market_pattern）散户 PVP（retail_pvp）/famous 独食（famous_monopoly）/狙击衰竭（early_sniper_decay）=不参与交易（代码侧硬门消费这三桶，**先于其余门裁**——预判断定盘子的类型，点位再好类型不对不参与）；强庄盘（strong_backer=最好类型）与融合盘（blended_unremarkable=好点位可赌）不拦；**分类互斥前置检查**：famous 控盘占比已达 heavy 及以上（筹码结构行 famous 控盘 ≥25）的盘子不是强庄盘也不是融合盘（famous 的货是要出货的，不是锁仓拉盘的庄）——归 famous 独食或按散户化/狙击形状归类；**②活跃度门**——热度（market_heat）low、或买点前活跃度（activity_level）low、或 activity_level=ultra（机器盘级极端密集）=不参与交易；**③筹码门**——famous 控盘（famous_domination）heavy 或 dominant（≥25=famous 主导就不玩；light=正常参与不拦）或持仓集中（holder_concentration）strong=不参与交易；**④两道质量题**（早鸟/回调）各视角独立评估：先判场景适用（不适用 → insufficient 非差），再按各类忌讳权衡（早鸟忌极快拉高/已拉高·位置先于速度；回调忌没跌到位与奔着归零）；相对/绝对价格双轴并读；维度档位是参考不是投票，聚合归代码不归你。（tree_position 与追高质量题已退役——BP30 用户裁定，不再作答。）',
     '- 薄窗倾向 insufficient：窗内行数很少、锚过早、多数维度缺证据（? 多）时，诚实承认材料不足不硬判。',
     '- token 龄极短（[PRECOMPUTED] 时点位置行）时全程首波形状属常态：近高位置/节奏密集本身不是风险信号，权衡时结合 token 龄。',
   ].join('\n'));

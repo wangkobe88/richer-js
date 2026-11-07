@@ -4,13 +4,14 @@
  *
  * 定位（与 CD 分工）：输入同样是 ticks 锚截窗，CD 判「盘面是否作弊」，本服务判
  * 「**当前点位是否适合买入**」（时点判定；协同形状只作降档参考，结论归 CD）。
- * 判定形态（题集 BP7 活跃度门+三类质量题）：6 维度题（参考；含 BP8 圣诞树形状与
- * 位置 tree_position=**观察档，暂不参与决策**——用户裁定「判断起来有点太难了，
- * 但是可以先放里头」，题照问答照落攒分布，mapper 不消费）+ 3 类别质量题
- * （early_bird/pullback_entry/high_chase_quality，桶域 good/neutral/poor/
- * insufficient）三视角并行独立评估；综合判定=**代码侧两层**（①活跃度门
- * heat=low→poor；②质量题聚合任一 good→good，否则任一 neutral→neutral，
- * 否则 poor；insufficient 不贡献；三题全 insufficient→poor 且 prob=null；
+ * 判定形态（题集 BP33 盘型前置预判断+两质量题）：7 维度题（参考；**market_pattern
+ * 前置为预判断**——BP30 用户裁定；tree_position/追高质量题已退役——BP30 用户
+ * 裁定「tree_position 可以去掉」「high_chase_quality 也删除」）+ 2 类别质量题
+ * （early_bird/pullback_entry，桶域 good/neutral/poor/insufficient）两视角并行
+ * 独立评估；综合判定=**代码侧四层**（①盘型门 pattern∈②③④桶→poor；②活跃度门
+ * heat=low 或 act∈{low,ultra}→poor；③筹码门 famous∈{heavy,dominant} 或
+ * holder=strong→poor；④质量题聚合任一 good→good，否则任一 neutral→neutral，
+ * 否则 poor；insufficient 不贡献；两题全 insufficient→poor 且 prob=null；
  * 门题答案缺席=null 不拦放行）。
  * **无粘滞/拉黑/grade**
  * （点位判定无终态：每个买信号独立 as-of 真析，多行历史留轨迹=校准研究数据）。
@@ -257,11 +258,11 @@ class BuyPointCheckService {
 
       const dim = obs.dimensions;
       const q = obs.qualities;
-      this._log('info', `买点观测 trend=${dim.price_trend?.bucket ?? '—'}` +
-        ` heat=${dim.market_heat?.bucket ?? '—'}` +
-        ` entry=${dim.entry_position?.bucket ?? '—'} level=${dim.price_level?.bucket ?? '—'}` +
-        ` tree=${dim.tree_position?.bucket ?? '—'}` +
-        ` 质量 早鸟=${q.early_bird?.bucket ?? '—'}/回调=${q.pullback_entry?.bucket ?? '—'}/追高=${q.high_chase?.bucket ?? '—'}` +
+      this._log('info', `买点观测 pattern=${dim.market_pattern?.bucket ?? '—'}` +
+        ` trend=${dim.price_trend?.bucket ?? '—'}` +
+        ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
+        ` famous=${dim.famous_domination?.bucket ?? '—'} holder=${dim.holder_concentration?.bucket ?? '—'}` +
+        ` 质量 早鸟=${q.early_bird?.bucket ?? '—'}/回调=${q.pullback_entry?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {

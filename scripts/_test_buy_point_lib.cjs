@@ -26,8 +26,10 @@ const {
   buildBuyPointObservation, DIMENSION_IDS, QUALITY_IDS,
   PRICE_TREND_LEVELS, HEAT_LEVELS, ACTIVITY_LEVELS,
   FAMOUS_DOMINATION_LEVELS, HOLDER_CONCENTRATION_LEVELS,
-  ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS, TREE_POSITION_LEVELS,
-  MARKET_PATTERN_LEVELS, PATTERN_GATE_POOR_BUCKETS, QUALITY_LEVELS, ASSESSMENT_LEVELS,
+  ENTRY_POSITION_LEVELS, PRICE_LEVEL_LEVELS,
+  MARKET_PATTERN_LEVELS, PATTERN_GATE_POOR_BUCKETS,
+  ACTIVITY_GATE_POOR_BUCKETS, CHIP_GATE_FAMOUS_POOR_BUCKETS,
+  QUALITY_LEVELS, ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
 const ROUTER = '0x1de460f363af910f51726def188f9004276bf4bc'; // GMGN 聚合路由（AGGREGATOR_ROUTER_ADDRS）
@@ -332,13 +334,14 @@ ok(stD.state.includes('锚前尾段(最后5秒):') && stD.state.includes('买点
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
-ok(stD.state.includes('摆动结构(圣诞树原料): 谷@t+5s→峰@t+110s，现处下跌段') && stD.state.includes('段幅度（旧→新）+100%/105s、-30%/75s')
-  && stD.state.includes('摆点 峰1/谷1，最大单段摆幅 100%') && stD.state.includes('现价较最近摆动峰 -20.00% / 较最近摆动谷 +60.00%'),
-  'D: 摆动结构行渲染（BP8 手算值——zigzag 峰谷序列/段幅度/现价较峰谷）');
-ok(stD.state.includes('判定结构') && stD.state.includes('暂不参与决策') && stD.state.includes('早鸟≈树左侧早段、回调≈树脚企稳'),
-  'D: 判定指引三层结构+圣诞树观察档声明（BP8 挂树教学——暂不参与决策）');
-ok(stD.state.includes('②筹码门') && stD.state.includes('famous 控盘（famous_domination）dominant 或持仓集中（holder_concentration）strong=不参与交易'),
-  'D: 判定指引②筹码门声明（BP14——BEM 案 famous 掌控/持仓集中两档硬门消费）');
+ok(!stD.state.includes('摆动结构') && !stD.state.includes('圣诞树原料'),
+  'D: 摆动结构行已删（BP30/题集 BP33 tree_position 退役——state 不再渲染圣诞树原料行，zigzag 锚照算落 digest 纯留档）');
+ok(stD.state.includes('判定结构') && stD.state.includes('①盘型门（预判断，最前）') && stD.state.includes('tree_position 与追高质量题已退役'),
+  'D: 判定指引四层结构+tree/追高退役声明（BP30 盘型前置预判断）');
+ok(stD.state.includes('②活跃度门') && stD.state.includes('activity_level=ultra（机器盘级极端密集）'),
+  'D: 判定指引②活跃度门 ultra 臂声明（BP30 改三——「act 为 ultra 也不玩」）');
+ok(stD.state.includes('③筹码门') && stD.state.includes('famous 控盘（famous_domination）heavy 或 dominant（≥25=famous 主导就不玩；light=正常参与不拦）'),
+  'D: 判定指引③筹码门 heavy 扩档声明（BP30 改一——famous 主导就不玩）');
 ok(stD.state.includes('筹码结构: famous 控盘占比 ?%') && stD.state.includes('正净持有者 7 个，第一大占流通 55.1%') && stD.state.includes('买过钱包 8 个 vs 正净持有 7 个'),
   'D: 筹码结构行渲染（BP14：famous ? 缺证据如实渲染+持有者/top 占比手算值+参与持有分叉）');
 ok(stD.promptChars === stD.state.length && stD.truncated.ticks === false && stD.truncated.wallets === false && stD.truncated.hardCap === false, 'D: 小夹具零截断');
@@ -358,8 +361,8 @@ const snapHuge = buildBuyPointSnapshot(rowsA, { ...metaA, name: 'X'.repeat(25000
 const stHuge = buildBuyPointState(snapHuge);
 ok(stHuge.truncated.hardCap === true && stHuge.state.startsWith('⚠'), 'D: 超帽 → ⚠ 头 + 硬截断');
 
-// ═══════════════ E. mapper（BP6 三质量题聚合 + 容错双轨 + 纯透传反证） ═══════════════
-console.log('E. mapper（BP6 三质量题聚合/容错双轨/纯透传反证）');
+// ═══════════════ E. mapper（BP30/题集 BP33 四层门链+两质量题聚合 + 容错双轨 + 纯透传反证） ═══════════════
+console.log('E. mapper（BP33 四层门链/两质量题聚合/容错双轨/纯透传反证）');
 const mkAns = (id, bucket, prob = 0.9) => ({ [id]: { probabilities: { [bucket]: prob, [bucket === 'good' ? 'neutral' : 'good']: 1 - prob } } });
 const fullAnswers = () => ({
   ...mkAns('price_trend', 'fast_up'),
@@ -369,38 +372,34 @@ const fullAnswers = () => ({
   ...mkAns('holder_concentration', 'none'),
   ...mkAns('entry_position', 'near_high'),
   ...mkAns('price_level', 'near_launch'),
-  ...mkAns('tree_position', 'left_side'),
   ...mkAns('market_pattern', 'blended_unremarkable', 0.8),
   ...mkAns('early_bird_quality', 'neutral', 0.7),
   ...mkAns('pullback_entry_quality', 'insufficient', 0.8),
-  ...mkAns('high_chase_quality', 'poor', 0.61),
 });
 const obsE = buildBuyPointObservation(fullAnswers(), dA);
-ok(Object.keys(obsE.dimensions).length === 9 && obsE.dimensions.price_trend.bucket === 'fast_up' && obsE.dimensions.activity_level.bucket === 'mid', 'E: 九维度 argmax 透传（BP18 增 market_pattern 盘面分类——用户五类型学）');
+ok(Object.keys(obsE.dimensions).length === 8 && obsE.dimensions.price_trend.bucket === 'fast_up' && obsE.dimensions.activity_level.bucket === 'mid', 'E: 八维度 argmax 透传（BP30 删 tree_position 后——9→8）');
+ok(!('tree_position' in obsE.dimensions) && !('high_chase' in obsE.qualities), 'E: tree_position/high_chase 键绝迹（BP30 退役反证）');
 ok(!('point_category' in obsE.dimensions) && JSON.stringify(obsE).indexOf('point_category') === -1 && JSON.stringify(obsE).indexOf('buy_point_assessment') === -1, 'E: point_category/buy_point_assessment 键绝迹（BP6 形态反证）');
-ok(Object.keys(obsE.qualities).length === 3 && obsE.qualities.early_bird.bucket === 'neutral' && obsE.qualities.pullback_entry.bucket === 'insufficient' && obsE.qualities.high_chase.bucket === 'poor', 'E: 三质量题 strict 透传（early_bird/pullback_entry/high_chase）');
+ok(Object.keys(obsE.qualities).length === 2 && obsE.qualities.early_bird.bucket === 'neutral' && obsE.qualities.pullback_entry.bucket === 'insufficient', 'E: 两质量题 strict 透传（early_bird/pullback_entry——BP30 两题化）');
 ok(obsE.assessment.bucket === 'neutral' && near(obsE.assessment.prob, 0.7) && obsE.assessment.rule === 'any_neutral', 'E: 聚合=任一 neutral → neutral（insufficient 不贡献，rule 留痕）');
 const jsonE = JSON.stringify(obsE);
 ok(!jsonE.includes('"verdict"') && !jsonE.includes('"grade"') && !jsonE.includes('"score"') && !jsonE.includes('"recommendation"'), 'E: 观测记录无 verdict/grade/score/recommendation 键（纯透传反证——rule 是聚合来源留痕不在禁列）');
-// 聚合三臂（用户裁定 2026-11-05 原话：任一 good→good；任一 neutral→neutral；否则 poor）
-const agg = (e, ep, p, pp, h, hp) => buildBuyPointObservation({
+// 聚合三臂（用户裁定原话两题化：任一 good→good；任一 neutral→neutral；否则 poor）
+const agg = (e, ep, p, pp) => buildBuyPointObservation({
   ...fullAnswers(),
   ...mkAns('early_bird_quality', e, ep),
   ...mkAns('pullback_entry_quality', p, pp),
-  ...mkAns('high_chase_quality', h, hp),
 }, dA).assessment;
-let aG = agg('good', 0.9, 'poor', 0.5, 'good', 0.8);
+let aG = agg('good', 0.9, 'poor', 0.5);
 ok(aG.bucket === 'good' && near(aG.prob, 0.9) && aG.rule === 'any_good', 'E: 聚合臂① 任一 good → good（prob=该 tier 最大）');
-aG = agg('poor', 0.5, 'insufficient', 0.9, 'neutral', 0.66);
+aG = agg('poor', 0.5, 'neutral', 0.66);
 ok(aG.bucket === 'neutral' && near(aG.prob, 0.66) && aG.rule === 'any_neutral', 'E: 聚合臂② 无 good 有 neutral → neutral（压过 poor）');
-aG = agg('insufficient', 0.9, 'poor', 0.55, 'insufficient', 0.9);
+aG = agg('insufficient', 0.9, 'poor', 0.55);
 ok(aG.bucket === 'poor' && near(aG.prob, 0.55) && aG.rule === 'else_poor', 'E: 聚合臂③ 无 good/neutral → poor（poor 证据 prob 照带）');
-aG = agg('insufficient', 0.9, 'insufficient', 0.9, 'insufficient', 0.9);
-ok(aG.bucket === 'poor' && aG.prob === null && aG.rule === 'else_poor', 'E: 三题全 insufficient → poor 且 prob=null（fallback 无 poor 证据）');
-aG = agg('good', 0.55, 'insufficient', 0.9, 'poor', 0.99);
+aG = agg('insufficient', 0.9, 'insufficient', 0.9);
+ok(aG.bucket === 'poor' && aG.prob === null && aG.rule === 'else_poor', 'E: 两题全 insufficient → poor 且 prob=null（fallback 无 poor 证据）');
+aG = agg('good', 0.55, 'poor', 0.99);
 ok(aG.bucket === 'good' && near(aG.prob, 0.55), 'E: good 优先于 high prob poor（tier 序非概率序）');
-aG = agg('good', 0.6, 'poor', 0.5, 'good', 0.9);
-ok(aG.bucket === 'good' && near(aG.prob, 0.9), 'E: 多 good 并存 prob=取最大');
 // BP8 活跃度门+圣诞树观察档（用户裁定：①活跃度 low 不参与；②圣诞树锚「暂时先不
 // 参与决策…可以先放里头」——tree 各桶一律不拦，题照问答照落攒分布）
 // BP13 门扩双题：market_heat low（近窗密度）OR activity_level low（买点前全窗量级
@@ -410,9 +409,17 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.88) && aM.rule === 'activity_gate', '
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'low', 0.81) }, dA).assessment;
 ok(aM.bucket === 'poor' && near(aM.prob, 0.81) && aM.rule === 'activity_gate', 'E: 门① BP13 臂 act=low（heat=high）→ poor/activity_gate（买点前全窗量级死寂——ZELDA 形状拦截臂）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.7), ...mkAns('activity_level', 'low', 0.93) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.93) && aM.rule === 'activity_gate', 'E: 门① 双 low → prob 取两臂最大（同 rule 留痕）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.93) && aM.rule === 'activity_gate', 'E: 门② 双 low → prob 取两臂最大（同 rule 留痕）');
+// BP30 改三 ultra 臂：act=ultra 机器盘级极端密集同拒（로켓급 S086/雪球SI S092 形状——
+// 用户裁定「act 为altra也不玩」，对齐 CD M 通道）；market_heat 的 ultra 不拦
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'ultra', 0.86) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.86) && aM.rule === 'activity_gate', 'E: 门② BP30 ultra 臂 act=ultra → poor/activity_gate（机器盘级极端密集也不玩）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'ultra', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门② ultra 臂优先于质量题（act ultra+早鸟 good 不救）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'ultra', 0.9), ...mkAns('activity_level', 'high', 0.8) }, dA).assessment;
+ok(aM.rule === 'any_neutral', 'E: 门② market_heat=ultra 不拦（近窗密度视角不拦过热——只拦全窗量级 ultra）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'mid', 0.6), ...mkAns('activity_level', 'mid', 0.6), ...mkAns('early_bird_quality', 'good', 0.9) }, dA).assessment;
-ok(aM.bucket === 'good' && aM.rule === 'any_good', 'E: 门① 双 mid 放行（低档才有证据拒——mid/high/ultra 不拦）');
+ok(aM.bucket === 'good' && aM.rule === 'any_good', 'E: 门② 双 mid 放行（low/act-ultra 才有证据拒——mid/high 不拦）');
 {
   const legacyAns = fullAnswers();
   delete legacyAns.activity_level; // BP12 旧档重放形状：无 activity_level 答案
@@ -425,45 +432,49 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low',
 ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门① 优先于质量题（早鸟 good 0.95 不救——活跃度不够不参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('activity_level', 'low', 0.88), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'activity_gate', 'E: 门① BP13 臂同优先于质量题（act low+早鸟 good 不救）');
-// ①b 筹码门（BP14/案号 BP14 BEM Miner 案——用户裁定「全部搬过来直接用于判定」：
-// famous_domination=dominant ∨ holder_concentration=strong → poor/chip_gate；
-// 只取最高档 dominant/strong 拒买，heavy/moderate=观察档不拦防误伤）
+// ③ 筹码门（BP14 BEM 案+BP30 heavy 扩档——用户裁定「famous 主导就不玩」：
+// famous_domination ∈ {heavy, dominant}（正净 ≥25）∨ holder_concentration=strong
+// → poor/chip_gate；light=正常参与不拦）
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'dominant', 0.92) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.92) && aM.rule === 'chip_gate', 'E: 门①b famous=dominant → poor/chip_gate（BEM 案主拦截臂——famous 掌控的盘子不参与）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.92) && aM.rule === 'chip_gate', 'E: 门③ famous=dominant → poor/chip_gate（BEM 案主拦截臂——famous 掌控的盘子不参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'heavy', 0.9) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.9) && aM.rule === 'chip_gate', 'E: 门③ BP30 heavy 扩档 famous=heavy → poor/chip_gate（≥25=famous 主导就不玩——我画地为牢 S082 案「既然是 famous 为啥还给中」）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('holder_concentration', 'strong', 0.87) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'chip_gate', 'E: 门①b holder=strong → poor/chip_gate（CD240 分层线臂——持有者不少但 TOP 占比太大）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'chip_gate', 'E: 门③ holder=strong → poor/chip_gate（CD240 分层线臂——持有者不少但 TOP 占比太大）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'dominant', 0.8), ...mkAns('holder_concentration', 'strong', 0.94) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.94) && aM.rule === 'chip_gate', 'E: 门①b 双臂命中 → prob 取两臂最大（同 rule 留痕）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.94) && aM.rule === 'chip_gate', 'E: 门③ 双臂命中 → prob 取两臂最大（同 rule 留痕）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'dominant', 0.9), ...mkAns('early_bird_quality', 'good', 0.97) }, dA).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'chip_gate', 'E: 门①b 优先于质量题（dominant+早鸟 good 0.97 不救——控盘盘不参与）');
+ok(aM.bucket === 'poor' && aM.rule === 'chip_gate', 'E: 门③ 优先于质量题（dominant+早鸟 good 0.97 不救——控盘盘不参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('famous_domination', 'dominant', 0.95) }, dA).assessment;
-ok(aM.rule === 'activity_gate' && near(aM.prob, 0.85), 'E: 门① 活跃度门先于筹码门（双门命中 rule 留痕 activity_gate——首个命中门）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'heavy', 0.9), ...mkAns('holder_concentration', 'moderate', 0.9) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门①b heavy/moderate 观察档不拦（只取最高档拒——防误伤豁免域）');
-// ①c 盘型门（BP18 用户裁定五类型学：retail_pvp 散户 PVP/famous_monopoly famous
-// 独食/early_sniper_decay 狙击衰竭三桶硬拒买；strong_backer 强庄=最好类型与
-// blended_unremarkable 融合盘=好点位可赌 不拦——点位质量仍归三质量题）
+ok(aM.rule === 'activity_gate' && near(aM.prob, 0.85), 'E: 门序 活跃度门先于筹码门（双门命中 rule 留痕 activity_gate——首个命中门）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'light', 0.9), ...mkAns('holder_concentration', 'moderate', 0.9) }, dA).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门③ light/moderate 不拦（<25 正常参与——heavy+ 才是 famous 主导；防误伤豁免域）');
+// ① 盘型门（BP18 五类型学；BP30 前置为预判断——用户裁定「market_pattern 要放到
+// 很靠前的位置，因为这是个预判断」：判定链最前，②③④桶硬拒买；strong_backer
+// 强庄=最好类型与 blended_unremarkable 融合盘=好点位可赌 不拦）
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.86) && aM.rule === 'pattern_gate', 'E: 门①c retail_pvp 散户 PVP → poor/pattern_gate（只有小散户额度偏低互捅攒流动性——不要参与）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.86) && aM.rule === 'pattern_gate', 'E: 门① retail_pvp 散户 PVP → poor/pattern_gate（只有小散户额度偏低互捅攒流动性——不要参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'famous_monopoly', 0.91) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.91) && aM.rule === 'pattern_gate', 'E: 门①c famous_monopoly famous 独食 → poor/pattern_gate（小散底子+一个 famous 拿太多筹码盘子就是它的）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.91) && aM.rule === 'pattern_gate', 'E: 门① famous_monopoly famous 独食 → poor/pattern_gate（小散底子+一个 famous 拿太多筹码盘子就是它的）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E: 门①c early_sniper_decay 狙击衰竭 → poor/pattern_gate（购买力集中最早期数 slot 后衰竭）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E: 门① early_sniper_decay 狙击衰竭 → poor/pattern_gate（购买力集中最早期数 slot 后衰竭）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门①c strong_backer 强庄盘不拦（最好类型——开盘大户进流动性未拉爆价，点位质量归质量题）');
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门① strong_backer 强庄盘不拦（最好类型——开盘大户进流动性未拉爆价，点位质量归质量题）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'blended_unremarkable', 0.77) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门①c blended_unremarkable 融合盘不拦（交易额中等无明显特征——好点位可以赌一赌）');
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: 门① blended_unremarkable 融合盘不拦（交易额中等无明显特征——好点位可以赌一赌）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 门①c 优先于质量题（散户 PVP+早鸟 good 0.95 不救——盘型不对不参与）');
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 门① 优先于质量题（散户 PVP+早鸟 good 0.95 不救——盘型不对不参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('market_pattern', 'retail_pvp', 0.95) }, dA).assessment;
-ok(aM.rule === 'activity_gate' && near(aM.prob, 0.85), 'E: 门序 活跃度门先于盘型门（双门命中 rule 留痕 activity_gate——首个命中门）');
+ok(aM.rule === 'pattern_gate' && near(aM.prob, 0.95), 'E: 门序 BP30 盘型门前置最前（pattern+heat 双命中留痕 pattern_gate——预判断先于活跃度门）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'dominant', 0.9), ...mkAns('market_pattern', 'famous_monopoly', 0.95) }, dA).assessment;
-ok(aM.rule === 'chip_gate' && aM.bucket === 'poor', 'E: 门序 筹码门先于盘型门（famous dominant+独食双语义命中留痕 chip_gate——阈值硬线优先）');
+ok(aM.rule === 'pattern_gate' && aM.bucket === 'poor', 'E: 门序 盘型门前置于筹码门（famous dominant+独食双语义命中留痕 pattern_gate）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('activity_level', 'ultra', 0.95) }, dA).assessment;
+ok(aM.rule === 'pattern_gate', 'E: 门序 盘型门前置于活跃度门 ultra 臂（pattern+act ultra 双命中留痕 pattern_gate）');
 {
   const legacyPat = fullAnswers();
   delete legacyPat.market_pattern; // BP17 及更早旧档重放形状：无盘面分类题答案
   const aLegacy = buildBuyPointObservation(legacyPat, dA).assessment;
-  ok(aLegacy.bucket === 'neutral' && aLegacy.rule === 'any_neutral', 'E: 门①c 答案缺席=盘型门臂自动失效容缺放行（BP17 旧档重放兼容零影响——拒=有证据的拒绝）');
+  ok(aLegacy.bucket === 'neutral' && aLegacy.rule === 'any_neutral', 'E: 门① 答案缺席=盘型门臂自动失效容缺放行（BP17 旧档重放兼容零影响——拒=有证据的拒绝）');
 }
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), market_pattern: { probabilities: { sniper_pool: 0.9 } } }, dA), /未知桶名/, 'E: market_pattern 在场未知桶 throw（容缺不因新题放宽桶域校验）');
 {
@@ -475,24 +486,20 @@ assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), market_pattern:
 }
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), famous_domination: { probabilities: { control: 0.9 } } }, dA), /未知桶名/, 'E: famous_domination 在场未知桶 throw（容缺不因新题放宽桶域校验）');
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), holder_concentration: { probabilities: { extreme: 0.9 } } }, dA), /未知桶名/, 'E: holder_concentration 在场未知桶 throw');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'not_tree', 0.83) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=not_tree 不拦（观察档——圣诞树门裁定暂不参与决策，走质量题聚合）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'top', 0.77) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=top 不拦（观察档——位置门同缓）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'right_side', 0.75) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=right_side 不拦（观察档）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'unclear', 0.9) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=unclear → 质量题聚合（观察档全桶同路）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('tree_position', 'right_bottom', 0.8) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: tree=right_bottom → 质量题聚合（回调质量题主场）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.9), ...mkAns('tree_position', 'not_tree', 0.85) }, dA).assessment;
-ok(aM.rule === 'activity_gate', 'E: heat=low 门照拒（活跃度门独立于 tree 观察档）');
-ok(!['not_tree', 'position_gate'].includes(aM.rule), 'E: rule 域圣诞树门值绝迹（activity_gate/chip_gate/pattern_gate/any_good/any_neutral/else_poor 六值——观察档反证）');
-const noTree = { ...fullAnswers() };
-delete noTree.tree_position;
-ok(buildBuyPointObservation(noTree, dA).assessment.rule === 'any_neutral' && buildBuyPointObservation(noTree, dA).dimensions.tree_position === null,
-  'E: tree_position 答案缺席 → 维度 null 容缺+聚合照走（拒=有证据的拒绝）');
-ok(buildBuyPointObservation(fullAnswers(), dA).dimensions.tree_position.bucket === 'left_side', 'E: tree_position 维度 argmax 透传（九维度）');
+// BP30 改六 tree_position/high_chase 退役：题/维度/质量键绝迹——旧档 answers 带两题
+// 答案（BP32 及更早存档）也不消费不 throw（重放兼容）
+{
+  const legacyTree = { ...fullAnswers(), ...mkAns('tree_position', 'not_tree', 0.83), ...mkAns('high_chase_quality', 'poor', 0.61) };
+  const obsLegacyTree = buildBuyPointObservation(legacyTree, dA);
+  ok(!('tree_position' in obsLegacyTree.dimensions) && !('high_chase' in obsLegacyTree.qualities)
+    && obsLegacyTree.assessment.bucket === 'neutral' && obsLegacyTree.assessment.rule === 'any_neutral',
+    'E: BP30 退役反证——旧档带 tree_position/high_chase 答案=不被消费不 throw（键绝迹+聚合照走）');
+  ok(!['not_tree', 'position_gate'].includes(obsLegacyTree.assessment.rule), 'E: rule 域圣诞树门值绝迹（pattern_gate/activity_gate/chip_gate/any_good/any_neutral/else_poor 六值）');
+}
+ok(JSON.stringify(ACTIVITY_GATE_POOR_BUCKETS) === JSON.stringify({ market_heat: ['low'], activity_level: ['low', 'ultra'] }),
+  'E: 活跃度门拒买档常量（BP30 ultra 臂——heat 只 low、act low+ultra）');
+ok(JSON.stringify(CHIP_GATE_FAMOUS_POOR_BUCKETS) === JSON.stringify(['heavy', 'dominant']),
+  'E: 筹码门 famous 拒买档常量（BP30 heavy 扩档——light 不在拒买域）');
 ok(obsE.anchors.chg5Pct === 6.67 && obsE.anchors.chg10Pct === 6.67 && obsE.anchors.chg30Pct === 14.29, 'E: 动量短窗族三键透传（BP6 5/10/30）');
 ok(obsE.anchors.maxChg5Pct === null, `E: maxChg5Pct 锚透传（A fixture 无 5s 段→null 容忍，实际 ${obsE.anchors.maxChg5Pct}）`);
 ok(obsE.anchors.swingHighCount === 1 && obsE.anchors.swingLowCount === 1 && obsE.anchors.swingLastDir === -1
@@ -555,7 +562,7 @@ const badAnchor = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: 'no
 ok(badAnchor.anchors.chg30Pct === null, 'E: 非数值锚形状异常 → null 不冒充');
 
 assert.throws(() => { const a = { ...fullAnswers() }; delete a.early_bird_quality; buildBuyPointObservation(a, dA); }, /答案缺失/, 'E: 质量题缺答案 throw（strict——综合判定唯一来源）');
-assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), high_chase_quality: { probabilities: { excellent: 0.9 } } }, dA), /未知桶名/, 'E: 质量题未知桶 throw');
+assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), pullback_entry_quality: { probabilities: { excellent: 0.9 } } }, dA), /未知桶名/, 'E: 质量题未知桶 throw');
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), pullback_entry_quality: {} }, dA), /答案缺失|无概率分布/, 'E: 质量题空答案 throw');
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), price_trend: { probabilities: { extreme: 0.9 } } }, dA), /未知桶名/, 'E: 维度题在场未知桶 throw');
 assert.throws(() => buildBuyPointObservation({ ...fullAnswers(), activity_level: { probabilities: { dead: 0.9 } } }, dA), /未知桶名/, 'E: activity_level 在场未知桶 throw（容缺不因新题放宽桶域校验）');
@@ -566,19 +573,21 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP32 十二题=9 维度+3 质量/桶域对锁/活跃度门双题+筹码门双题+盘型门三桶+价格豁免锚+三类质量题+圣诞树观察档/BP19 案②⑤边界两改+BP21 案①②承接轴两改+BP23 案庄盘豁免+②(b) 收窄+BP24 案大户持续卖持续承接臂三改+BP25 案 low 档收窄+庄盘豁免一档帽+BP26 案大户参与判序前置+BP27 案①庄时序锚+BP28 案四改（activity⑥三段形状+尾段锚/早鸟累计位置硬腿/③复数 famous）+BP29 案早鸟庄盘豁免/两调深相等）');
+  console.log('F. 题集形状（BP33 十题=8 维度+2 质量/桶域对锁/盘型门前置预判断+活跃度门 low∪ultra+筹码门 heavy∪dominant+庄盘豁免锚/两调深相等）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP32', 'F: 版本=BP32（BP29 案=第 5 组复审 無為 S072 强庄教科书形状被早鸟忌讳①「已拉高」拖死——用户裁定原话「無為 是非常典型强庄币啊，第一个点位至少是中等」：三大户 0.327/0.294/0.245 全部 t+0s 首买、只买未卖卖压 0.0000、开盘段大额单 1 笔、锚前尾段 8 笔 1.137 BNB 涌入，low 档拉升是庄拉第一波非散户接力 → 早鸟忌讳①前置庄盘豁免（BP23 回调题同构：开盘大额在场∧前列大户未清场、零卖出=最强形状），忌讳①「价格已不低」前提不坐实+第一分支救位放宽一档 near_launch→low；豁免域只到 low 档 mid+ 界外（与 BP25 一档帽同界）不解除②③；前案=BP31/BP28 案四改）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP33', 'F: 版本=BP33（BP30 案=第 6 组复审一案六改——用户裁定原话「我画地为牢 既然是 famous 为啥还给中？famous 主导就不玩；로켓급(火箭级) 也是一样，分类是互斥的，如果是famous也不玩，act为altra也不玩。雪球SI 从我的角度应该是early_sniper_decay，也不能玩。此外，tree_position 可以去掉，market_pattern 要放到很靠前的位置，因为这是个预判断。high_chase_quality 也删除，不开这个选项」：改一筹码门 famous heavy 升拦截档（≥25 都拒 light 不拦）+改二盘型分类互斥教学（famous heavy+ 不落①⑤）+改三活跃度门 ultra 臂（act=ultra 拒 heat ultra 不拦）+改四雪球SI=early_sniper_decay 判读锚（④判据补强：开盘段占比 ≥70~80% ∧ 前列首买全在最初几秒 ∧ 后段金额吞吐骤降 ∧ 早期大买家清仓式撤退；①④分界大户在场性）+改五 market_pattern 前置预判断（题序首位+判定链最前）+改六 tree_position/high_chase_quality 两题退役（聚合两题化））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
-  ok(ids.length === 12, `F: 恰 12 题=9 维度+3 质量题（实际 ${ids.length}）`);
-  ok(ids[0] === 'price_trend' && ids[1] === 'market_heat' && ids[2] === 'activity_level' && ids[3] === 'famous_domination' && ids[4] === 'holder_concentration' && ids[5] === 'entry_position' && ids[6] === 'price_level' && ids[7] === 'tree_position' && ids[8] === 'market_pattern', 'F: 维度序=price_trend/heat/activity/famous/holder/entry/level/tree/market_pattern（前 9 题——BP18 盘面分类插 tree 后）');
-  ok(JSON.stringify(ids.slice(9)) === JSON.stringify(QUALITY_IDS), 'F: 后 3 题=early_bird/pullback_entry/high_chase 质量题（BP6 用户裁定）');
+  ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
+  ok(ids[0] === 'market_pattern', 'F: BP30 改五 market_pattern 题序首位（前置预判断）');
+  ok(JSON.stringify(ids.slice(1, 8)) === JSON.stringify(['price_trend', 'market_heat', 'activity_level', 'famous_domination', 'holder_concentration', 'entry_position', 'price_level']), 'F: 维度序=heat 前 7 题（pattern 后接 trend/heat/activity/famous/holder/entry/level）');
+  ok(JSON.stringify(ids.slice(8)) === JSON.stringify(QUALITY_IDS), 'F: 后 2 题=early_bird/pullback_entry 质量题（BP30 两题化）');
+  ok(!('tree_position' in qs) && !('high_chase_quality' in qs), 'F: BP30 改六 tree_position/high_chase_quality 题绝迹（退役反证）');
   ok(!('point_category' in qs) && !('buy_point_assessment' in qs), 'F: 类别题/综合题已删（BP6 形态反证——路由依赖从根消除）');
   ok(!('price_momentum' in qs) && !('buy_pressure_quality' in qs) && !('chip_flow' in qs) && !('pace_trend' in qs), 'F: 四道旧维度题已删（BP5 瘦身反证）');
   ok(ids.every((id) => qs[id].type === 'choice' && qs[id].criteria && Object.keys(qs[id].criteria).length >= 3), 'F: 全 choice 且 criteria≥3 桶');
-  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 12 题各含「怎么算」显式算法段');
-  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 九维度题各含反锚段');
+  ok([...DIMENSION_IDS, ...QUALITY_IDS].every((id) => qs[id].instructions.includes('怎么算')), 'F: 10 题各含「怎么算」显式算法段');
+  ok(DIMENSION_IDS.every((id) => qs[id].instructions.includes('反锚')), 'F: 八维度题各含反锚段');
   ok(qs.early_bird_quality.instructions.includes('忌讳') && qs.pullback_entry_quality.instructions.includes('忌讳'), 'F: 早鸟/回调题各含忌讳段（poor 主判教学）');
   ok(q.buildBuyPointQuestions() && JSON.stringify(q.buildBuyPointQuestions()) === JSON.stringify(qs), 'F: 函数产物两调深相等（无隐藏状态）');
   // 桶域与 mapper 常量对锁（ESM/CJS 双副本漂移防线）
@@ -593,8 +602,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(Object.keys(qs.holder_concentration.criteria)) === JSON.stringify(HOLDER_CONCENTRATION_LEVELS), 'F: holder_concentration 桶===HOLDER_CONCENTRATION_LEVELS（四桶 none/weak/moderate/strong）');
   ok(JSON.stringify(q.ENTRY_POSITION_LEVELS) === JSON.stringify(ENTRY_POSITION_LEVELS), 'F: ENTRY_POSITION_LEVELS 同域（BP5 四桶）');
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
-  ok(JSON.stringify(q.TREE_POSITION_LEVELS) === JSON.stringify(TREE_POSITION_LEVELS), 'F: TREE_POSITION_LEVELS 同域（BP8 六桶）');
-  ok(JSON.stringify(Object.keys(qs.tree_position.criteria)) === JSON.stringify(TREE_POSITION_LEVELS), 'F: tree_position 桶===TREE_POSITION_LEVELS（六桶）');
+  ok(!('TREE_POSITION_LEVELS' in q), 'F: TREE_POSITION_LEVELS 常量绝迹（BP30 tree_position 退役——ESM 侧同删）');
   // BP18 盘面分类锚（五类型学——用户裁定原话直译）
   ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶——ESM/CJS 双副本对锁）');
   ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（五桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable）');
@@ -604,9 +612,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
   ok(mp.includes('购买力完全集中在最早期的数个 slot') && mp.includes('随之购买力衰竭') && mp.includes('这种盘子不要参与'), 'F: ④狙击衰竭=不要参与（原话直译）');
   ok(mp.includes('融合无明显特征盘') && mp.includes('这种出现好的点位可以赌一赌'), 'F: ⑤融合盘=好点位可赌（原话直译——中性不拦）');
-  ok(mp.includes('同为开盘大额，后段死活定类'), 'F: ①④分界锚=大户买入后盘面是否仍活（同为开盘大额，后段死活定类）');
+  ok(mp.includes('①与④分界=大户在场性+盘面死活（BP33 补强）') && mp.includes('同为开盘大额，强庄买完盘面持续有交易'), 'F: ①④分界锚=大户在场性+盘面是否仍活（BP33 补强后措辞）');
   ok(mp.includes('多笔 0.2 BNB 级左右的买入（≥2~3 笔）或单笔 0.3+ BNB 级买家=像样买方在场'), 'F: ②⑤分界双臂语义保留（BP19 突突车案——多笔 0.2 级（≥2~3 笔）或单笔 0.3+ 在场=满足大户参与不属纯散户 PVP；BP28 判序化后该双臂成为前置门判据）');
-  ok(mp.includes('「多笔」是硬笔数') && mp.includes('（≥0.19 BNB 视同 0.2 级左右）的钱包须 ≥2 个') && mp.includes('仅一笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚（BP20 两改——到 0.2 级钱包 ≥2 个、单笔 0.2 凑不成多笔仍落②：T006/T008 单笔 0.2 判 blended 宽松执行收口）');
+  ok(mp.includes('「多笔」是硬笔数') && mp.includes('（≥0.19 视同 0.2 级左右）的钱包须 ≥2 个') && mp.includes('仅一笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚（BP20 两改——到 0.2 级钱包 ≥2 个、单笔 0.2 凑不成多笔仍落②：T006/T008 单笔 0.2 判 blended 宽松执行收口）');
   ok(mp.includes('①②分界=大户卖出后谁在接') && mp.includes('承接方全是一堆很小的散户') && mp.includes('「多笔不落②」的前提是像样买方买点时刻仍在场'), 'F: ①②分界承接轴（BP21 정책콕 T001/SB T003 两案——大户卖出像样单接=①对倒、小散堆接=②散户化；「多笔不落②」前提=像样买方买点时刻仍在场，已卖离场接盘全小散走②(b)）');
   // BP23 两轴（159 点复审第 2-3 批立法）
   ok(mp.includes('大量零散小散户——这种形状可以明显看出来') && mp.includes('「一眼可辨的大量小散单」两要件缺一不落②') && mp.includes('中位尘埃级（0.0x 级，不是 0.1 级常见交易档）') && mp.includes('至少是⑤融合盘'), 'F: ②(b) 收窄=零散小散须一眼可辨（BP23/S018 吉祥B 案——「有大量零散小散户的可以明显看出来」方法论锚：中位尘埃级+前列无像样买方两要件缺一不落②；大户在场+承接 0.1~0.2 级=至少⑤）');
@@ -631,15 +639,21 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(qs.market_pattern.criteria.famous_monopoly.includes('单个 famous 占比极大，或两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹过多（控盘 ≥25~30 且合计绝对额大）=famous 抢筹建仓盘'), 'F: criteria famous_monopoly 复数 famous 同步（BP30——桶描述与题面判据一致）');
   ok(mp.includes('按⑤处理不硬归类') && mp.includes('⑤含「没有明确分类」语义'), 'F: 材料不足按⑤融合桶处理不硬归类（⑤语义含无明确分类）');
   ok(mp.includes('②③④由代码侧盘型门硬消费拒买'), 'F: 门桶声明=②③④盘型门硬消费、①⑤不拦（点位质量归质量题）');
+  // BP30 案三改（盘型前置预判断+互斥教学+④判据补强——题集 BP33）
+  ok(mp.includes('本题是预判断——先于其它题作答、先定盘面性质再谈点位'), 'F: BP30 改五 前置预判断声明（market_pattern 放最前——用户裁定原话「market_pattern 要放到很靠前的位置，因为这是个预判断」）');
+  ok(mp.includes('分类互斥前置检查') && mp.includes('不是强庄盘也不是融合盘') && mp.includes('famous 的货是要出货的，不是锁仓拉盘的庄'), 'F: BP30 改二 分类互斥教学（famous 控盘 ≥25 heavy+ 的盘子不落①⑤——「我画地为牢 既然是 famous 为啥还给中」：强庄的庄不能是著名跟单钱包，归③或按散户化/狙击形状归②④）');
+  ok(mp.includes('开盘段买入占全窗买入比例极高（参考 ≥70~80%）') && mp.includes('[WALLETS] 前列钱包首买@全在 t+0~几秒') && mp.includes('金额衰减比笔数衰减更本质') && mp.includes('早期大买家清仓式撤退或只出不进'), 'F: BP30 改四 ④狙击衰竭判据补强（雪球SI S092/S100 案——开盘段占比 ≥70~80% ∧ 前列首买全在最初几秒 ∧ 后段金额吞吐骤降（笔密度可靠尘埃单撑、金额撑不住）∧ 早期大买家清仓式撤退）');
+  ok(mp.includes('开局抢完即衰竭') && mp.includes('庄跑了的开盘大额只是狙击痕迹'), 'F: BP30 改四 ①④分界大户在场性（开盘大额但大买家已清仓式撤退=庄/狙击手已跑 → 走④不走①——S100 第 1 大 0x915e 清仓式卖出 1.247/1.300 只出不进）');
+  ok(qs.market_pattern.criteria.early_sniper_decay.includes('开盘段后金额吞吐骤降') && qs.market_pattern.criteria.early_sniper_decay.includes('早期大买家清仓式撤退'), 'F: criteria early_sniper_decay 判据补强同步（BP30——桶描述与题面④判据一致）');
   ok(JSON.stringify(q.QUALITY_LEVELS) === JSON.stringify(QUALITY_LEVELS), 'F: QUALITY_LEVELS 同域（BP6 good/neutral/poor/insufficient）');
   ok(JSON.stringify(QUALITY_LEVELS) === JSON.stringify(ASSESSMENT_LEVELS), 'F: ASSESSMENT_LEVELS（门域）与 QUALITY_LEVELS 同域（bpPassLevels 消费域不动）');
   const dimSet = new Set(DIMENSION_IDS);
   const qSet = new Set(QUALITY_IDS);
-  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 9 && qSet.size === 3, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（9+3——market_pattern 入维度域）');
+  ok(ids.every((id) => dimSet.has(id) || qSet.has(id)) && dimSet.size === 8 && qSet.size === 2, 'F: 题集 id 与 mapper DIMENSION_IDS/QUALITY_IDS 对齐（8+2——BP30 删 tree_position/high_chase 后）');
   for (const id of QUALITY_IDS) {
     ok(JSON.stringify(Object.keys(qs[id].criteria)) === JSON.stringify(QUALITY_LEVELS), `F: ${id} 桶===QUALITY_LEVELS（四桶）`);
   }
-  // 三道质量题（BP6 核心：场景判别→insufficient；按类忌讳权衡）
+  // 两道质量题（BP6 核心：场景判别→insufficient；按类忌讳权衡）
   const eb = qs.early_bird_quality;
   ok(eb.instructions.includes('场景') && eb.instructions.includes('insufficient'), 'F: 早鸟题含场景判别（非场景→insufficient 非差）');
   ok(eb.instructions.includes('不因低市值豁免'), 'F: 早鸟忌讳①暴涨无条件（BP4 臂保留）');
@@ -684,9 +698,6 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('half_off/ankle_cut 腰斩级=跌过头是崩塌形状，不算「跌到很低」，走第三层'), 'F: 核心规则深崩排除（S026 near_launch+half_off 深崩不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
-  const hc = qs.high_chase_quality;
-  ok(hc.instructions.includes('一律 poor'), 'F: 追高题策略停买=一律 poor（BP4 硬路由精神保留——放开只改本题面）');
-  ok(hc.instructions.includes('insufficient'), 'F: 追高题非场景→insufficient（不贡献聚合）');
   // price_trend BP6 短窗锚（用户裁定：近窗趋势 5/10/30s）
   ok(qs.price_trend.instructions.includes('近 5/10/30 秒'), 'F: price_trend 动量窗=5/10/30s（BP6 短窗）');
   ok(qs.price_trend.instructions.includes('chg5/10/30Pct'), 'F: price_trend 引用短窗键族');
@@ -707,7 +718,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     ok(al.instructions.includes(seg), `F: activity_level 七要素+综合锚段在场：${seg.slice(0, 18)}`);
   }
   ok(al.instructions.includes('数值行「临近买点段」事实已算好直接采信'), 'F: activity_level ⑦ 消费 state 临近买点段行（D3.59 搬运）');
-  ok(al.instructions.includes('活跃度门直接消费拒买（活跃度不够不参与交易——买点之前盘面已冷=无承接）'), 'F: activity_level 收尾=门消费声明（镜像 market_heat 反锚④）');
+  ok(al.instructions.includes('低档与超高档均由代码侧活跃度门直接消费拒买') && al.instructions.includes('超高=机器盘级极端密集——正常散户参与盘到不了这个密度，BP30 用户裁定「act 为 ultra 也不玩」'), 'F: activity_level 收尾=门消费声明（BP30 ultra 臂同被门消费——镜像 market_heat 反锚④）');
   // BP28 案改一（S053 太空逆袭 activity 误 low——三段形状执行缝隙）
   ok(al.instructions.includes('三段形状（开局冲一波→中段完全静默→临近买点再集中涌入，BP30）同样属「静默后买入涌入」') && al.instructions.includes('判读锚定**买点时刻的即时状态**') && al.instructions.includes('中段静默的占比不压档') && al.instructions.includes('不是针对静默居中的三段形状'), 'F: activity⑥反锚三段形状归属句（BP30/BP28 案 S053——开局 7 秒冲 7 笔→中段 24 秒完全静默→锚前 2 秒 8 笔近 1 BNB 同块涌入：静默居中的三段形状按「静默后买入涌入」中档起判，「先冲一波后静默」不保护臂只管涌入后死到锚点的形状）');
   ok(al.instructions.includes('买点时刻盘面正被涌入激活（锚前尾段行=8 笔近 1 BNB 直接可见），静默居中的三段形状按「静默后买入涌入」中档起判，不因中段静默占比判低'), 'F: activity 反例样本段补三段形状反例（BP31——S053 形状直译锚+尾段行数值佐证）');
@@ -739,21 +750,11 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(hc2.instructions.includes('top1 单一 >90%') && hc2.instructions.includes('一人控盘'), 'F: holder_concentration 一人控盘例外（≤5 豁免域破例 strong）');
   ok(hc2.instructions.includes('strong 档由代码侧筹码门直接消费拒买'), 'F: holder_concentration 收尾=门消费声明');
   ok(hc2.instructions.includes('BEM Miner') && hc2.instructions.includes('BOSS'), 'F: holder_concentration 形状样本=BEM（一人控盘）+BOSS（CD240 ≥10 过线坐实）双对照');
-  // tree_position 题面（BP8 观察档——形状+位置；圣诞树门裁定暂不参与决策，题照问攒分布）
-  const tp = qs.tree_position;
-  ok(tp.instructions.includes('暴涨暴跌'), 'F: tree_position 形状=暴涨暴跌反常 → not_tree（非正常用户行为形状）');
-  ok(tp.instructions.includes('形状判断不出来') && tp.instructions.includes('unclear') && tp.instructions.includes('≠ not_tree'), 'F: tree_position unclear=形状判不出非 not_tree（前期树形未成形是常态）');
-  ok(tp.instructions.includes('左侧') && tp.instructions.includes('顶部') && tp.instructions.includes('右侧底部'), 'F: tree_position 位置四态=左侧/顶部/右侧/树脚（用户原话桶名）');
-  ok(tp.instructions.includes('多树串联') || tp.instructions.includes('一棵结束后连着下一棵'), 'F: tree_position 多圣诞树串联教学');
-  ok(tp.instructions.includes('小圣诞树结束') && tp.instructions.includes('大圣诞树开始'), 'F: tree_position 狙击手回调=小树结束/大树开始（用户原话）');
-  ok(tp.instructions.includes('摆动结构行'), 'F: tree_position 怎么算引用摆动结构行（BP8 数值锚）');
-  ok(tp.instructions.includes('贴高≠自动 top'), 'F: tree_position 反锚①贴高≠自动 top（首树左侧爬坡进行时）');
-  ok(!tp.instructions.includes('形状门') && !tp.criteria.not_tree.includes('拦') && !tp.criteria.unclear.includes('放行'),
-    'F: tree_position 门语义措辞绝迹（观察档反证——不参与决策不暗示拦截/放行）');
-  // 三质量题场景判别挂树（BP8）
-  ok(qs.early_bird_quality.instructions.includes('left_side'), 'F: 早鸟场景挂树=left_side/unclear 佐证（树形未成形正是早鸟窗口）');
-  ok(qs.pullback_entry_quality.instructions.includes('right_bottom') && qs.pullback_entry_quality.instructions.includes('大圣诞树开始'), 'F: 回调场景挂树=树脚/小树结束大树开始');
-  ok(qs.high_chase_quality.instructions.includes('top 佐证') || qs.high_chase_quality.instructions.includes('tree_position=top'), 'F: 追高场景挂树=top 佐证（首树左侧贴高不是追高）');
+  // BP30 改六 tree_position/追高题退役——两题题面与挂树佐证句绝迹（反证）
+  ok(!('tree_position' in qs) && !('high_chase_quality' in qs), 'F: BP30 改六 tree_position/high_chase_quality 两题绝迹（题面/桶域/常量整链删除）');
+  ok(!qs.early_bird_quality.instructions.includes('left_side') && !qs.early_bird_quality.instructions.includes('圣诞树视角'), 'F: 早鸟场景树佐证句已删（BP30——树形未成形句退役）');
+  ok(!qs.pullback_entry_quality.instructions.includes('right_bottom') && !qs.pullback_entry_quality.instructions.includes('圣诞树视角'), 'F: 回调场景树佐证句已删（BP30）');
+  ok(!JSON.stringify(qs).includes('tree_position') && !JSON.stringify(qs).includes('high_chase'), 'F: 全题集文本 tree_position/high_chase 字样绝迹（BP30 退役反证）');
 
   // ═══════════════ G/H/I. scripts/buy-point/lib.mjs（ESM dynamic import） ═══════════════
   console.log('G. 60s 窗去重');
