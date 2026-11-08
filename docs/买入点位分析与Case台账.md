@@ -118,6 +118,40 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP46 ④early_sniper_decay 高热近价豁免（2026-11-08，苍蝇④贴线攒批 BP43 案立法落地·mapper 消费侧豁免案；题集零改动不 bump）
+
+**背景**：cangying-bp44（68886943）全链回测零成交复盘后用户问「苍蝇各个点位被拒的原因是什么」——E 段查证六信号：cheat 门 6/6 healthy 豁免（activity_ultra←cheat 三臂 pump/holdings strong，四票 pumpExempt=true）；BP 门 Jev 全调全判④（0.79~0.86，athVsLaunchPct=+324.4 拉高通则 BP40「拉得过高单独成立」五轮稳定执行）；四票（curVs +80.5/+75.4/+53.6/+159.9 >+40）pump_exempt_gate 位置拒、两票（05:10:06 curVs +32.2 / 05:10:09 +26.8 ≤+40）pattern_gate ④判读拒=BP43 攒批焦点。用户立法裁定原话：
+
+> 「pattern_gate 是判成了 early_sniper_decay？这样吧，如果热度是高热以上，价格到 near_launch 以内，可以买。」
+> （适用域澄清）「我是指如果盘形是 early_sniper_decay」
+
+**立法**：盘型判④ ∧ `market_heat∈{high,ultra}`（高热以上——④的「衰竭/无人接」前提被高热度证伪，热度本身就是活跃证据）∧ `currentVsLaunchPct ≤+40`（near_launch 以内含 almost_launch/破发）→ ④臂不拦放行走后续门链。常量 `SNIPER_DECAY_HEAT_LAUNCH_PCT=40`+`SNIPER_DECAY_HEAT_BUCKETS=['high','ultra']`（同线同值各自常量先例——PUMP_EXEMPT/RESTART/BLENDED/GOLDEN=40）。
+
+**设计张力与裁定推演（act ultra 臂同豁免）**：苍蝇六信号 `activity_level` 全=ultra（0.69~0.79）——若豁免只解除④盘型臂，06/09 两点会被活跃度门 ultra 臂（BP30「act 为 ultra 也不玩」）接棒拦=立法对目标票空文。用户规则「热度高热以上…可以买」中热度即活跃证据（heat ultra 票的 act ultra 密集=真实参与非机器盘）→ **同条件一并豁免 act ultra 臂**（BP38 strong_backer ultra 豁免同构扩展；`ultraArmExempt` 语义收窄=仅 ultra 臂——act low/heat low 死寂臂照拦，实现首版曾误豁 low 臂被单测当场反证、补 `bucket==='ultra'` 前提收窄）。筹码门不豁免=BP14 holder strong 防线保留（豁免后被 chip 拒仍带 exempt 留痕审计完整）。
+
+**fail-closed 四态**（宁拦不冒充，同⑥⑦位置门模式）：market_heat 答案缺席（旧档重放）/curVsLaunchPct 锚缺失/已拉离（>+40）/heat 不够（mid 及以下）→ 一律不豁免照拦。
+
+**留痕**：豁免成立时 `assessment.exempt={code:'sniper_decay_heat_price',heat,curVsLaunchPct}`（additive 旧形状零变化；service 返回白名单+审计日志+`snapshot_digest.assessment` 原样落库三处透传；pump_exempt_gate 替换分支不带=位置拒时豁免无关）。④答案原样保留=代码不改写 Jev 桶判定（BP42 铁律不冲突——与⑥⑦位置门/actUltraExempt 同「模式判型归 Jev、参与决策归代码」形态）。
+
+**反例天然保护（价格腿=唯一区分器）**：BEM(BPA-025) curVs **+56.4**/FIGHT(BPA-036) **+76.1** 均④+「高热以上」（heat ultra/high）——未回到 near_launch 由价格腿精确守住照拦；即高热④票的放行域严格=回落 near_launch 以内。
+
+**版本口径**：题集零改动不 bump（BP37/CD380/BP42 案先例——mapper-only 门行为改动不 bump 题面版本，exempt 落 assessment 即行为指纹）；`BUY_POINT_QUESTIONS_VERSION` 保持 BP49。
+
+**落码清单**：`buy-point-result-mapper.js`（常量+豁免计算+patternArms 装配条件+ultraArmExempt 收窄+assessment.exempt 留痕+总注释同步）；`BuyPointCheckService.js`（返回白名单透传+审计日志补豁免段）；单测 `_test_buy_point_lib` 439→**452 断言**（豁免 12 断言组：苍蝇 06/09 形状核心断言/heat high 边界/恰 +40 含/+40.1 拒/heat mid 拒/锚缺失拒/heat 答案缺席拒/act low 照拦/chip strong 照拦+exempt 留痕/②③适用域外/restart 零交互/双常量导出锁；另 ④基础拒断言适配 heat=mid 形状+BP42 拆除断言补 assessment.exempt 绝迹）；service 38/gate 124 全绿（本地+182）。
+
+**182 定向对拍（2026-11-08 达成，tmp-bp46-parity.cjs 真调 anchorMs persist:false）**：
+
+| 票 | 锚 | 结果 | 判读 |
+|---|---|---|---|
+| 苍蝇#06 | 05:10:06 | **综=neutral(gates_passed)** exempt=sniper_decay_heat_price(ultra,+32.2)，④0.84 heat=ultra act=ultra holder=none | **翻案达成**（旧 poor pattern_gate 0.86）——ultra 臂同豁免兑现「可以买」 |
+| 苍蝇#09 | 05:10:09 | **综=neutral(gates_passed)** exempt=(ultra,+26.8)，④0.85 act=ultra holder=weak | **翻案达成**（旧 0.85） |
+| BEM 反例 | 07:03:44 | 综=poor(pattern_gate) 0.71，④0.71 heat=**ultra** act=ultra curVs=**+56.4** | 价格腿守住（高热但未回 near_launch） |
+| FIGHT 反例 | 07:55:43 | 综=poor(pattern_gate) 0.74，④0.74 heat=**high** act=high curVs=**+76.1** | 价格腿守住 |
+
+**BP43 案攒批就此实质回应**：用户选了 C 变体方向（自己的立法）——④贴线误杀的「高热+回落近价」子集由本案豁免接住；「题面判序失灵第三例」攒批（BP35/BP41/BP43-BP47 五轮）对低热/拉离④票仍存，A/B/C 终裁待后续票池分布。
+
+**余留观察点**：①生产豁免触发面分布（④∧高热∧≤40 三腿联立频率+exempt 留痕行采集）；②放行域前向收益验证（苍蝇 06/09 形状 vs 拉离④票——下次引用实验回测首验）；③与 pump_exempt_gate 叠加形状（cheat 侧 pumpExempt 票 Jev 判④高热近价：service 出口 pump 位置门在 mapper 之后仍拒 >40，两门独立各管一域）。
+
 ### BP45 famous_domination 与 entry_position 两维度题退役（题集 BP49，2026-11-08，题集瘦身案·famous 判型归并盘型题）
 
 **背景**：BP48 质量题退役收口后用户对剩余维度题继续存废复审，两条裁定原话：
