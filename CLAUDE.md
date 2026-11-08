@@ -27,6 +27,8 @@ node scripts/buy-point/run.mjs --set <set> [--only BP-S001 | --limit N | --dry]
                                            # 买入点位重析（182 跑真调 Jev；--dry 只组装；`sets/*-ticks/` 不进 git）
 node scripts/deploy-signal-source-strategies.cjs [--commit]
                                            # T117 信号源阶梯库条目部署（本地 dry-run/182 --commit；validateLegs 预检）
+node scripts/backtest-token-case.cjs --src <基底expId> --token <addr> [--lib signal-source-ladder-v1] [--commit]
+                                           # 单 token case 门链回测工具（182 跑；create/run/report 三模式：create=窗口锚 token_create±pad+买腿换现行库快照 copy-in+cards:4+帽抬腿数；run=setsid 后台+**终态防呆**（重跑终态实验=BUY 信号行翻倍污染，拒绝）；report=信号×cheat/BP 门×盈亏对照 [--token] [--baseline <基底>]，按 (时刻,腿,triggerNo) 去重+检测双跑留痕）
 npm run narrative-sample-build -- --exps <id,...> --name <set> --top 60 --bottom 60 --random 60 --seed N
 npm run narrative-sample -- --set <set>    # 叙事抽样测试集构建/重析（C136 统计评估姊妹资产；涨幅分层，182 跑）
 node scripts/scan-unknown-factor-conditions.cjs   # 存量条件未知因子扫描（退出码 1=有命中）
