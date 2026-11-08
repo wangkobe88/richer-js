@@ -148,6 +148,16 @@ openShare=100%=开盘一波流冲高砸落、买点落在下跌途中残余热�
 
 **单测**：`_test_buy_point_lib` 452→**455 断言**——oCy 苍蝇 ultra 形状（④+heat ultra+act ultra）**反转为 poor/pattern_gate 无 exempt**（BP46 案核心断言方向翻转=ultra 退出豁免域）；oH 留痕增 heat==='high'+openSegBuySharePct===33.6（嵌套键读取锁）；新增 openShare 79.9 过/恰 80 拒（严格小于）/null 拒三断言；常量断言 `['high']`+`SNIPER_DECAY_OPEN_SHARE_MAX===80`；service 38/gate 128 全绿（本地；182 pull 后复跑）。
 
+**182 对拍达成（commit 02c7021b，`tmp-bp47-parity.cjs` persist:false 真调 gateBuyPoint；苍蝇两锚未按实验过滤=跨实验多行全部命中，天然多轮稳定性）**：
+
+| 锚 | 结果 | 关键读数 |
+|---|---|---|
+| 苍蝇 05:10:06（11 行跨实验） | **综=poor(pattern_gate) 无 exempt** 全一致 | pattern=④ 0.81-0.88 / heat=**ultra** / act=ultra / curVs=+32.2 / **os=90.5** |
+| 苍蝇 05:10:09（8 行跨实验） | **综=poor(pattern_gate) 无 exempt** 全一致 | pattern=④ 0.81-0.86 / heat=**ultra** / curVs=+26.8 / **os=90.1** |
+| bt-v84 正例 05:31:17（④+high+exempt 成交信号） | **综=neutral(gates_passed)** | exempt=`sniper_decay_heat_price(high,+37.2,os=26.2)`——os 留痕新键带值 |
+
+收紧两腿独立可验：苍蝇两锚 **heat=ultra ∧ os=90.5/90.1 双双越线**（任一腿已拒）不再放行——BP46 案翻案票随 ultra 域退出照拒（放弃面知情）；正例 os=26.2<80 仍走豁免臂放行，exempt 留痕新增 openSegBuySharePct 值。tokens=42153/42146 无超限。
+
 **余留观察点**：①生产豁免触发面收缩后分布（④∧high∧≤40∧os<80 四腿联立频率）；②70-80 层样本仅 3 票零贡献=线值 80 的中间地带观察；③苍蝇④攒批 BP43 案「题面判序失灵」对低热/拉离④票仍存（本案只切 ultra 与 openShare≥80 子集）；④cangying-bp44/bp46、laicai-bp46 等终态实验留行不删。
 
 ### BP46 ④early_sniper_decay 高热近价豁免（2026-11-08，苍蝇④贴线攒批 BP43 案立法落地·mapper 消费侧豁免案；题集零改动不 bump；**同日 BP47 案收紧=heat 仅 high∧openShare<80，ultra 域与 openShare≥80 已退出豁免**）
