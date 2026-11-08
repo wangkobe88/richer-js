@@ -187,6 +187,24 @@
 
 ## Case 倒序
 
+### CD383 cheat 门豁免 burst 资格臂：「长期沉积一朝开始操盘」豁免（2026-11-08，机制案；高大上 0x838657df t0a 触发被拒案·T125 续篇；commits cb60804d+0183b6c8）
+
+**动机（用户裁定原话）**：「"activity 判 low" 这里 burst 在作弊检测内部豁免 activity low 的，所以外部豁免这里也加一下，将 burst 也豁免」+「高大上应该是 长期沉积一朝开始操盘，这种情况豁免一下」。案由 = **T125 高大上 `0x838657df…7777` t0a 首触发被 cheat 门拒**（gaodashang-v12=4b3fa2a9）：13 分钟死盘仅 1 笔 0.70B → 06:57:05 第二笔点火 2 秒 9 笔 → t0a 06:57:07（+47.4%）触发 → cheat 门 A 主判拒（slowGrindPump+burstSpikeConcentration strong、holdings strong；activity=low——死盘 14 分钟窗 idlePct 极高——不在 CD379 豁免集 {high,ultra}）。E 通道内部本有同形状豁免（G8：act=low ∧ sbw=burst ∧ 非弱 burst 不落 E），但豁免只免 E 不免 A/J——pump/spike/holdings strong 照走主判。用户裁定把 burst 形状提升为**外部豁免资格臂**。
+
+**机制（`_isStallBurstExempt(levels, anchors)` 资格判据三键）**：
+
+1. **sbw=burst**（`levels.stallBurstWave === 1` 二桶投影 none=0/burst=1；null/缺席不豁免）∧ **沉积前提** `anchors.burstMaxGapSec >= 60`（非 null——G8 定线研究「人工 healthy 4 票中 3 票 maxGap 仅 19~43s=无停滞开盘密集正常形状，停滞深度是必要第三维」；夹具反例 `sbw=burst act=mid gap=2s` 开盘即密集无停滞+三 strong cheat 盘首版误放已锁死）∧ **波有力**（`burstWaveBuyBnb >= 1.05 ∨ burstWaveWallets >= 13` 至少一键非 null 过线=与 G8 weakBurst 三键逐位同线）。⚠️ **波三键在 anchors 段不在 levels**（levelsFromObservation 两段投影：levels 只有 16 题档位、波三键 anchors 段）——`_isStallBurstExempt(levels, anchors)` 双参签名，三消费点同步（出口 res.anchors/拉黑登记 anchors/bootstrap cheatLv.anchors）；首版单参读 levels undefined 182 对拍 FAIL 后修（commit 0183b6c8）。
+2. **null 语义与 G8 刻意不同向**：G8（E 通道内部）三键任一 null 维持豁免=「不扩大收紧面」（拒绝方向）；本臂是**资格授予方向**——null=无沉积/波力正证据不授予 fail-closed。
+3. **三点同构**（CD379 出口母版）：①出口 `_applyActivityExempt` 与 activityExemptLevels **∨ 并列第二资格臂（不限 activity 档位——高大上重判时 act=mid 同样够格）**；②拉黑登记点 `(isActivityExempt || stallBurst) && !denied` 豁免票不 add 拉黑；③bootstrap 恢复拉黑同查（cheatLv 局部变量提 levels+anchors 双段）。CD380 不豁免臂（现行唯一 wash：washPair 同块对敲 strong）在出口统一优先；pump 臂已随四修移除——burst 豁免票同场 slowGrindPump≥3 天然被引擎打标 **pumpExempt**（`res.exempt && res.levels.slowGrindPump >= 3`，引擎读 exempt 不区分 code）→ BP 门位置门 PUMP_EXEMPT_LAUNCH_PCT=40 接力钳制。双臂同中取 activity 桶首因（code=activity_high/ultra；burst 独立命中 code='stall_burst'）；观测计数 `stats.stallBurstExemptions`。
+
+**gradeObservation 规则域/题集版本/G17 通道零改动**（mapper-only 门行为改动不 bump，CD380 三修/四修先例）——E 通道内部 G8 豁免原样保留（本臂不替代它，是外移扩授）。
+
+**单测**：`_test_cheat_gate_engine.cjs` 132 全绿——F8 新增段 13 断言（资格：高大上形状 780/1.4/9 true、夹具反例 gap=2 false、三键 null false、弱波 90/0.5/5 false、波有力独立过线两例 true、sbw none/null/levels null false；出口：主案 cheat→healthy+exempt stall_burst、弱波原判保持、burst 强+washPair3 denied wash_pair、双臂同中 activity_high 首因、[] 关原样、sticky unhealthy 秒回豁免；源码锁 `_isStallBurstExempt(` 恰 3 处+grade 层零豁免逻辑）+F7/F4 拉黑登记/bootstrap 锁同步。`_test_cheat_detection_service.cjs` 139 全绿（首版夹具反例 FAIL 逼出沉积前提）。
+
+**182 对拍 3/3（tmp-cd383-burst-parity.cjs，gateBuyPoint anchorMs=信号时刻 persist:false）**：①**高大上 @06:57:07 cheat 重判 → healthy+exempt{code:'stall_burst', originalGrade:'cheat'}**（原判 A_strong pump+spike+J_holdings；act=mid 不在桶豁免集、纯靠 burst 资格臂——07:15:41 类漏买形状闭合）；②对照·来财 `0xc84a0ff2…7777` @12:31:15 → healthy+exempt{code:'activity_ultra'}（sbw=0 无 burst 臂，纯桶臂对照）；③**BP 联验**：pumpExempt=true（exempt ∧ slowGrindPump=3）→ BP 判 **poor·pump_exempt_gate**（06:57:07 curVs +47.4 > 40 拉离拒=价格钳制设计内）、不带标对照 poor·pattern_gate 0.69。**豁免≠追高许可**：高大上豁免后仍买不进（全程 >+40 涨到毕业）——回到 ≤+40 才给买，burst 臂放行的是「点火初段 ≤+40 窗」（t0a 触发点若在 +47.4 之前的价格段即成交）。
+
+**余留观察点**：①生产 `stallBurstExemptions` 计数与 burst 臂独立命中分布（vs activity 桶臂）；②burst 豁免票放行后的前向收益对拍（vs 拉黑期零参与基线）；③「点火即拉飞」票 +40 内成交率（豁免给资格、价格钳制守位置，两门联合实际成交面）。
+
 ### CD382 盘面重置截窗：回到过 almost_launch 的证据窗重置到最低点行起（2026-11-08，机制案；bt-s01 0x28ad2c7d cheat 翻案迟滞复盘·与 BP44 案号 BP39 同日同语义）
 
 **动机（用户裁定原话）**：「cheat 的判定也要改一下，如果代币到过了 almost_launch 又起来，那么对它的判定也是从 almost_launch 之后的最低点开始」。案由 **bt-s01 0x28ad2c7d「让我们回到过去」**（实验 `6a02e983-9a6f-48d3-b47e-aa796bef4c18`）：07:14:05 创建（launch=5.0346e-9）→ 07:14:10 七笔 0.1078 等额分仓同块抢筹（131774917:135-195）→ equalAmountSplit=strong=A 主判 cheat 拉黑 → 07:15:42 七钱包同块递减砸盘（0.1208→0.0762 公比 0.92，131775122:32-86）至破发 −9.9%（回到 almost_launch）→ 07:15:41 RL15 信号窗 CD381 forceRecheck 重判，但锚窗 3000 行内上一轮等额分仓形状仍在=持续 cheat → **07:16:15（#6）才翻 healthy，此时价格已 +70% 拉离且 RL15 触发即消耗不返——34s almost_launch 买窗被上一轮形状独占**。
