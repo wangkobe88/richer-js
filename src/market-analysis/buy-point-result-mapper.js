@@ -324,7 +324,7 @@ function buildBuyPointObservation(answers, anchors = null) {
       launchPriceBnb: _num(b, 'launchPriceBnb'),
       currentVsLaunchPct: _num(b, 'currentVsLaunchPct'),
       athVsLaunchPct: _num(b, 'athVsLaunchPct'), // BP39 开盘拉高出货度量锚（锚窗最高价较发行价 %）
-      minVsLaunchPct: _num(b, 'minVsLaunchPct'), // BP43 restart 重启盘轨迹锚（锚窗峰后最低价较发行价 %）
+      minVsLaunchPct: _num(b, 'minVsLaunchPct'), // BP43 restart 重启盘轨迹锚（锚窗涨起后最低价较发行价 %；BP44 定义=首个突破 +20% 之后，创新高不遮蔽回落）
       launchCovered: b.launchCovered === null || b.launchCovered === undefined ? null : (b.launchCovered ? 1 : 0),
       // 市值位置族（BP2：supply 缺失 null fail-closed）
       mcapBnb: _num(b, 'mcapBnb'),

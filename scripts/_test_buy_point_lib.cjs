@@ -241,14 +241,17 @@ ok(dA.launchCovered === true && near(dA.launchPriceBnb, 1.0 * E9) && dA.currentV
   `launch 族：覆盖=true / 发行价=1e-9 / 现价较发行 +60%（实际 ${dA.launchCovered}/${dA.launchPriceBnb}/${dA.currentVsLaunchPct}）`);
 ok(dA.athVsLaunchPct === 100,
   `athVsLaunchPct=+100（锚窗最高 2e-9 ÷ 发行价 1e-9 −1=+100.0%，BP39「开盘拉得过高」度量锚——Jev 组合不了 currentVsLaunch+currentVsAth 两数故直供，实际 ${dA.athVsLaunchPct}）`);
-// minVsLaunchPct=锚窗峰后最低较发行价 %（BP43 restart 轨迹锚）：dA ATH=2.0e-9@110
-// 行9，峰后段=行10~18 最低 1.4e-9（行15/16）→ +40.0%——涨过 +100% 后只回到 +40，
-// 未回到 almost_launch（>20）；刻意不取整窗最低（整窗最低=发行价本身 → 恒 0% 结构性失效）
-ok(dA.minVsLaunchPct === 40,
-  `minVsLaunchPct=+40（峰后最低 1.4e-9 ÷ 发行价 1e-9=+40.0%——ATH@110 后回落段最低；整窗最低恒=发行价不作判据，实际 ${dA.minVsLaunchPct}）`);
+// minVsLaunchPct=锚窗涨起后最低较发行价 %（BP43 restart 轨迹锚；BP44 定义=首个突破
+// +20% 离开 almost_launch 起（含离开那一笔）的最低）：dA 首个 >1.2e-9=行4（1.3e-9；
+// 行3=1.2 恰等不算离开），涨起后段最低=行4 本身 1.3e-9（其后再未低于 1.3）→ +30.0%
+// ——涨过 +100% 后只回到 +30，未回到 almost_launch（>20）；
+// 刻意不取整窗最低（整窗最低=发行价本身 → 恒 0% 结构性失效）
+ok(dA.minVsLaunchPct === 30,
+  `minVsLaunchPct=+30（涨起后最低 1.3e-9 ÷ 发行价 1e-9=+30.0%——涨起后段最低=突破行本身，其后最低 1.4 未再低于；整窗最低恒=发行价不作判据，实际 ${dA.minVsLaunchPct}）`);
 {
-  // BP43 restart 形状微夹具手算：1.0→1.4→2.0(ATH)→1.3→1.05→1.3——峰后最低 1.05=+5.0% ≤20
-  // （重启盘价格回到腿成立）；对照 ATH 在末位（单调涨 1.0→1.2→1.5→1.8）=从未回落 → null
+  // BP43 restart 形状微夹具手算：1.0→1.4→2.0(ATH)→1.3→1.05→1.3——首个突破 1.2=行2(1.4)，
+  // 涨起后段最低 1.05=+5.0% ≤20（重启盘价格回到腿成立）；对照单调涨（1.0→1.2→1.5→1.8，
+  // 首个突破 1.2=行3(1.5)）涨起后段最低 1.5=+50.0% >20=从未回到（值非 null——判据不成立而非无证据）
   const rowsR = [
     row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
     row(20, 'BUY', W_C, 0.1, 1.4 * E9, 1e8),
@@ -259,7 +262,7 @@ ok(dA.minVsLaunchPct === 40,
   ];
   const dR = buildBuyPointSnapshot(rowsR, metaA).buyDerived;
   ok(dR.minVsLaunchPct === 5 && dR.currentVsLaunchPct === 30 && dR.athVsLaunchPct === 100,
-    `restart 形状：峰后最低 +5.0% ≤20（回到腿成立）/现价 +30%/ATH +100%（实际 ${dR.minVsLaunchPct}/${dR.currentVsLaunchPct}/${dR.athVsLaunchPct}）`);
+    `restart 形状：涨起后最低 +5.0% ≤20（回到腿成立）/现价 +30%/ATH +100%（实际 ${dR.minVsLaunchPct}/${dR.currentVsLaunchPct}/${dR.athVsLaunchPct}）`);
   const rowsMono = [
     row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
     row(20, 'BUY', W_C, 0.1, 1.2 * E9, 1e8),
@@ -267,8 +270,32 @@ ok(dA.minVsLaunchPct === 40,
     row(40, 'BUY', W_E, 0.1, 1.8 * E9, 1e8),
   ];
   const dMono = buildBuyPointSnapshot(rowsMono, metaA).buyDerived;
-  ok(dMono.minVsLaunchPct === null,
-    `ATH 在末位（单调涨从未回落）→ minVsLaunchPct=null 不冒充「回到过」（实际 ${dMono.minVsLaunchPct}）`);
+  ok(dMono.minVsLaunchPct === 50,
+    `单调涨（从未回落）：涨起后最低 +50.0% >20=从未回到 almost_launch——值非 null（有证据的「没回到」，BP44 定义下不再因 ATH 在末位失明；回到腿不成立，实际 ${dMono.minVsLaunchPct}）`);
+  // BP44 案核心形状（bt-s01 0x28ad2c7d）：回落 almost_launch 后重新拉起创新高——
+  // 1.0→1.5→1.1→1.05→1.6(ATH 在末位)。BP43 首版「峰后」定义下 ATH 在末位→null 结构性
+  // 失明（对拍 0/9 判④根因）；涨起后定义=首个突破 1.2=行2(1.5) 之后段最低 1.05=+5.0%
+  // ≤20 → 回到腿成立（创新高不遮蔽回落）
+  const rowsNH = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
+    row(20, 'BUY', W_C, 0.1, 1.5 * E9, 1e8),
+    row(30, 'SELL', W_D, 0.1, 1.1 * E9, 1e8),
+    row(40, 'SELL', W_E, 0.1, 1.05 * E9, 1e8),
+    row(50, 'BUY', W_F, 0.1, 1.6 * E9, 1e8),
+  ];
+  const dNH = buildBuyPointSnapshot(rowsNH, metaA).buyDerived;
+  ok(dNH.minVsLaunchPct === 5 && dNH.athVsLaunchPct === 60 && dNH.currentVsLaunchPct === 60,
+    `创新高重启形状（BP44 案核心）：涨起后最低 +5.0% ≤20（回到腿成立——ATH 在末位不失明）/ATH +60%=现价（重新拉起创新高中）（实际 ${dNH.minVsLaunchPct}/${dNH.athVsLaunchPct}/${dNH.currentVsLaunchPct}）`);
+  // 从未离开 almost_launch（1.0→1.1→1.15，全程 ≤+20%）→ null（无「回到」语义不冒充）
+  const rowsStay = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
+    row(20, 'BUY', W_C, 0.1, 1.1 * E9, 1e8),
+    row(30, 'SELL', W_D, 0.1, 1.05 * E9, 1e8),
+    row(40, 'BUY', W_E, 0.1, 1.15 * E9, 1e8),
+  ];
+  const dStay = buildBuyPointSnapshot(rowsStay, metaA).buyDerived;
+  ok(dStay.minVsLaunchPct === null,
+    `从未离开 almost_launch（全程 ≤+20%）→ null（无「回到」语义不冒充，实际 ${dStay.minVsLaunchPct}）`);
 }
 // priceBuckets：17 可靠价行 → 等笔距 20 桶 3 空（b∈{0,6,13}）=17 桶
 ok(dA.priceBuckets.length === 17, `priceBuckets=17 桶（实际 ${dA.priceBuckets.length}）`);
@@ -372,7 +399,7 @@ ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
 ok(stD.state.includes('锚窗最高价较发行价 +100.0%'), 'D: 发行价位置行渲染锚窗最高价较发行价（BP39 athVsLaunchPct——锚窗 ATH 2e-9 ÷ 发行价 1e-9）');
-ok(stD.state.includes('锚窗峰后最低价较发行价 +40.0%'), 'D: 发行价位置行渲染锚窗峰后最低价较发行价（BP43 minVsLaunchPct——峰后段最低 1.4e-9 ÷ 发行价 1e-9，restart 重启盘回到腿判据行）');
+ok(stD.state.includes('锚窗涨起后最低价较发行价 +30.0%'), 'D: 发行价位置行渲染锚窗涨起后最低价较发行价（BP43 minVsLaunchPct——涨起后段最低 1.3e-9 ÷ 发行价 1e-9，restart 重启盘回到腿判据行）');
 ok(stD.state.includes('④开盘拉高出货盘新形态'), 'D: 判定指引行含 BP39 新形态句');
 ok(!stD.state.includes('摆动结构') && !stD.state.includes('圣诞树原料'),
   'D: 摆动结构行已删（BP30/题集 BP33 tree_position 退役——state 不再渲染圣诞树原料行，zigzag 锚照算落 digest 纯留档）');
@@ -659,8 +686,8 @@ ok(obsE.anchors.mcapBnb === 1.6 && obsE.anchors.mcapPeakBnb === 2 && obsE.anchor
 ok(obsE.anchors.holdersNow === 7 && obsE.anchors.holdersDelta60 === -1, 'E: holder 流向族两键透传（BP2，delta 负值照读不吞）');
 ok(obsE.anchors.launchPriceBnb !== null && near(obsE.anchors.launchPriceBnb, 1.0 * E9) && obsE.anchors.currentVsLaunchPct === 60 && obsE.anchors.launchCovered === 1,
   'E: 发行价位置族三键透传（BP5——launchCovered boolean → 1 数值化）');
-ok(obsE.anchors.athVsLaunchPct === 100 && obsE.anchors.minVsLaunchPct === 40,
-  'E: 发行价位置族 ath/min 两锚透传（BP39 athVsLaunchPct + BP43 minVsLaunchPct 峰后最低——与 buyDerived 同值零重算）');
+ok(obsE.anchors.athVsLaunchPct === 100 && obsE.anchors.minVsLaunchPct === 30,
+  'E: 发行价位置族 ath/min 两锚透传（BP39 athVsLaunchPct + BP43 minVsLaunchPct 涨起后最低（BP44 定义）——与 buyDerived 同值零重算）');
 ok(buildBuyPointObservation(fullAnswers(), null).assessment.bucket === 'neutral', 'E: anchors 缺省 null 容忍（聚合照常）');
 const badAnchor = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: 'not-a-number' });
 ok(badAnchor.anchors.chg30Pct === null, 'E: 非数值锚形状异常 → null 不冒充');
@@ -679,7 +706,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP44 十题=8 维度+2 质量/桶域对锁/price_level 六桶 almost_launch+盘型七桶 restart 位置门 40/BP44 盘面重置判序 restart 优先不落④/④⑦分界交易量与回落方向/⑥位置门 10+①散户入场机会双臂 0.12 线/④开盘拉高 BP40 单独成立+BP41 反锚判序前置）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP44', 'F: 版本=BP44（案号 BP39 盘面重置判读+restart 优先判序——0x28ad2c7d 单票回测 bt-s01 判例：等额分仓狙击→cheat 拉黑→价格回 almost_launch 重检翻案放行时锚窗判 early_sniper_decay 三拒，用户裁定「到了 almost_launch 交易活跃度又起来的应该是 restart，优先判为 restart」+「一旦 almost_launch 会认为这个代币的盘面重新计算了」：回到过 almost_launch（峰后最低 ≤+20 含破发）=盘面重新计算、此前高位形状是上一轮痕迹，回落后活跃度又起来的优先判⑦不落④（④衰竭语义=回落之后没人玩了）、回落死寂仍走④（重启失败）；BP35 极早窗反锚「近窗吞吐活跃不落④」出口接本判序；纯题面判读层零 mapper 改动（BP42 不搞代码门铁律，位置门 RESTART_LAUNCH_PCT=40 不动）。前版 BP43（CD381 同车 almost_launch 六桶+restart 第七桶））');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP44', 'F: 版本=BP44（案号 BP39 盘面重置判读+restart 优先判序+涨起后最低锚修正——0x28ad2c7d 单票回测 bt-s01 判例：等额分仓狙击→cheat 拉黑→价格回 almost_launch 重检翻案放行时锚窗判 early_sniper_decay 三拒，用户裁定「到了 almost_launch 交易活跃度又起来的应该是 restart，优先判为 restart」+「一旦 almost_launch 会认为这个代币的盘面重新计算了」：回到过 almost_launch（涨起后最低 ≤+20 含破发）=盘面重新计算、此前高位形状是上一轮痕迹，回落后活跃度又起来的优先判⑦不落④（④衰竭语义=回落之后没人玩了）、回落死寂仍走④（重启失败）；BP35 极早窗反锚「近窗吞吐活跃不落④」出口接本判序；纯题面判读层零 mapper 改动（BP42 不搞代码门铁律，位置门 RESTART_LAUNCH_PCT=40 不动）；**锚修正=minVsLaunchPct 由「首个最高价之后（峰后）」改「首个突破 +20% 离开 almost_launch 之后（涨起后）的最低」——首版对回落→创新高形状结构性失明（ATH 推到末位→null，对拍 0/9 判④根因），创新高不遮蔽回落，从未 >+20% 或刚离开 → null 不冒充**。前版 BP43（CD381 同车 almost_launch 六桶+restart 第七桶））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -717,7 +744,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(MARKET_PATTERN_LEVELS.includes('restart') && !PATTERN_GATE_POOR_BUCKETS.includes('restart'), 'F: restart 进七桶但不进 PATTERN_GATE_POOR_BUCKETS（⑦走 RESTART_LAUNCH_PCT=40 独立位置臂非三桶硬拒——与⑥同模式分治）');
   ok(require('../src/market-analysis/buy-point-result-mapper').RESTART_LAUNCH_PCT === 40 && require('../src/market-analysis/buy-point-result-mapper').SUSTAINED_CLIMB_LAUNCH_PCT === 10, 'F: 位置门常量导出（RESTART_LAUNCH_PCT=40/SUSTAINED_CLIMB_LAUNCH_PCT=10——用户裁定「盘型判重启后现价 ≤+40% 位置门放行质量题」）');
   const mp = qs.market_pattern.instructions;
-  ok(mp.includes('⑦重启盘（restart，BP43 新增）') && mp.includes('价格又回到了 almost_launch') && mp.includes('①交易量腿') && mp.includes('②价格回到腿') && mp.includes('窗口总笔数参考 ≥10 笔 ∧ 全窗买入额参考 ≥1.5 BNB') && mp.includes('锚窗**峰后最低**价较发行价 ≤+20%') && mp.includes('整窗最低恒是发行价本身不作判据') && mp.includes('仍在最高点=?=从未回落不算回到过'), 'F: ⑦重启盘立法（BP43——交易量腿 ≥10 笔 ∧ ≥1.5 BNB 与 ladder RL15 臂同线+价格回到腿=锚窗峰后最低 ≤+20（峰后非整窗：整窗最低恒=发行价结构性失效；ATH 在末位=从未回落不算）两腿制）');
+  ok(mp.includes('⑦重启盘（restart，BP43 新增）') && mp.includes('价格又回到了 almost_launch') && mp.includes('①交易量腿') && mp.includes('②价格回到腿') && mp.includes('窗口总笔数参考 ≥10 笔 ∧ 全窗买入额参考 ≥1.5 BNB') && mp.includes('锚窗**涨起后最低**价较发行价 ≤+20%') && mp.includes('整窗最低恒是发行价本身不作判据') && mp.includes('重新创新高不遮蔽回落'), 'F: ⑦重启盘立法（BP43——交易量腿 ≥10 笔 ∧ ≥1.5 BNB 与 ladder RL15 臂同线+价格回到腿=锚窗涨起后最低 ≤+20（首个突破 +20% 离开后的最低非整窗：整窗最低恒=发行价结构性失效；BP44 创新高不遮蔽回落）两腿制）');
   ok(mp.includes('④的回落=没人玩了，⑦的回落=玩过一轮又回到起点') && mp.includes('**④与⑦分界=交易量与回落方向（BP43）+判序优先（BP44 盘面重置）**') && mp.includes('交易量腿不达标的回落票走④不走⑦（无人问津不是重启）') && mp.includes('⑦与①⑤分界=判的是回落形状不是盘面好坏'), 'F: ④⑦/⑦①⑤分界（④开局抢完就没人玩了/⑦玩过一轮回到起点——交易量腿不达标走④；⑦只述结构事实质量归质量题）');
   // BP44（案号 BP39 盘面重置判读+restart 优先判序——0x28ad2c7d 单票回测 bt-s01 判例）
   ok(mp.includes('**盘面重置前置（BP44 判序，先于④⑦评分类）**') && mp.includes('=**盘面重新计算**——此前的高位形状（狙击抢筹/开盘拉高/出货）是**上一轮**的痕迹') && mp.includes('优先判⑦重启盘**，不落④狙击衰竭（④的衰竭语义=回落之后没人玩了；活跃度又起来的回落是重启不是衰竭）') && mp.includes('回落之后死寂无人玩的仍走④（重启失败=衰竭）'), 'F: BP44 题头盘面重置前置段（用户裁定「一旦 almost_launch 会认为这个代币的盘面重新计算了」——回到过 almost_launch=盘面重新计算，回落后活跃度又起来的优先判⑦不落④，死寂仍走④）');
@@ -726,7 +753,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(qs.market_pattern.criteria.early_sniper_decay.includes('**盘面重置让位（BP44）**') && qs.market_pattern.criteria.early_sniper_decay.includes('优先判⑦重启盘不落本桶'), 'F: criteria ④桶 BP44 让位同步（Jev 选桶时同判序）');
   ok(qs.market_pattern.criteria.restart.includes('**判序优先（BP44 盘面重置）：回到过 almost_launch=盘面重新计算') && qs.market_pattern.criteria.restart.includes('回落后活跃度又起来的（近窗/锚窗末段吞吐双向活跃金额可观）优先落本桶不落④'), 'F: criteria ⑦桶 BP44 优先句同步（Jev 选桶时同判序）');
   ok(mp.includes('⑦由代码侧位置门判参与——现价较发行价 ≤+40%（near_launch 以内，含 almost_launch 与破发）的重启起点段放行走两道质量题、已重新拉离（>+40%）或锚缺失拒买'), 'F: 门桶声明 BP43 ⑦位置门句（≤+40 near_launch 以内放行、已拉离/锚缺失拒——判型归 Jev 位置归代码）');
-  ok(qs.market_pattern.criteria.restart.includes('锚窗峰后最低价较发行价 ≤+20%，含破发') && qs.market_pattern.criteria.restart.includes('窗口总笔数参考 ≥10 ∧ 全窗买入额参考 ≥1.5 BNB') && qs.market_pattern.criteria.restart.includes('现价较发行价 ≤+40%（near_launch 以内含 almost_launch 与破发）放行两道质量题'), 'F: criteria restart 同步（BP43——桶描述与题面两腿+位置门一致，Jev 选桶时同判据）');
+  ok(qs.market_pattern.criteria.restart.includes('锚窗涨起后最低价较发行价 ≤+20%，含破发') && qs.market_pattern.criteria.restart.includes('窗口总笔数参考 ≥10 ∧ 全窗买入额参考 ≥1.5 BNB') && qs.market_pattern.criteria.restart.includes('现价较发行价 ≤+40%（near_launch 以内含 almost_launch 与破发）放行两道质量题'), 'F: criteria restart 同步（BP43——桶描述与题面两腿+位置门一致，Jev 选桶时同判据；BP44 涨起后定义）');
   ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
