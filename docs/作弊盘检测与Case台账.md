@@ -187,6 +187,14 @@
 
 ## Case 倒序
 
+### CD385 发行价锚换平台 curve 常量——reset 截窗 almost_launch 判定基准不再用首可靠价（2026-11-08，锚口径案·题集/grade 零改动；主体=T127，commit `df9c7a6b`）
+
+**改动**：`computeMarketResetIndex(rows, platform)` 签名加第二参——发行价先查 `resolveLaunchPriceBnb(platform, quoteToken)`（新模块 `launch-price.js`：fourmeme→主流档常量 4496173469e-18、flap∧无 quoteToken→BNB 盘常量 ≈5.546e-9、其余→null），null 才回落旧口径（排序后首可靠价）。quote 盘判定=rows 行 `quote_token`（snapshot 侧 `buildSnapshotFromRows` ticks 已带 quote 键）。调用点：CheatCheckService `pull.rows` 处传 `tokenMeta.platform`；回归 runner 三调用点同步（runCase=c.platform、cmdAdd/batch=loadTokenMeta 提前读 platform）。
+
+**语义影响**：reset 判定腿「涨起后最低价回到 almost_launch（≤+20% 含破发）」的发行价基准对常量平台换真 curve 零点——主流档票首单滑点抬锚失真消除（首可靠价>P₀ 时旧锚把「回到 +25%」误判成「回到 +20% 内」=reset 假触发面偏大；反之首单砸盘票误偏小）、高价模板票（初始市值 16.5~3194 BNB 档）旧锚=首笔均价、reset 几乎永不触发→换常量后破发域显形。**flap BNB 盘常量 5.546 与统计主簇 [4,6) 同簇，flap 侧判定面变化最小**。CD381 `priceBackToAlmostLaunch` FA 键随 FA `currentVsLaunchPct` 分母同换（`_resolveLaunchPriceBnb(state.platform, state.quoteToken) ?? _relFirstPriceBnb`）；quote 盘/gang 平台 bit 不变。
+
+**单测**：`_test_cheat_market_reset` 35（B 段 14 断言 null 平台旧口径 bit 锁+C2 段 CD 常量锚重置+C4 quote/gang 旧口径）；`_test_cheat_detection_service` 142（priceTicks 工厂价乘 FL=真常量链路，META platform='flap' BNB 盘）；`_test_cheat_gate_engine` 136（CD381 轨迹价换 FM 域，百分比断言 bit 不变）。**回测装载列 `quote_token` 加入 TICK_SELECT_COLUMNS**（BacktestTickCache columnsTag 漂移→全量重拉一次设计内）；同车修回测两门 supply 断链（factorResults→getTokenState）。对照回测 **bt-v85=`ba242cca-2237-4e31-9807-75a87871b7ba`**（克隆 bt-v84 同窗同配置唯一变量=锚代码）**净 -0.4902 → +0.8112**（完整对照记 T127）；CD 侧读数：`reset_insufficient_ticks` 拒 281→346（+65——常量锚破发域扩大→CD382 reset 触发面变大，方向=收紧）；④桶成交 100 票 -0.57→29 票 +0.95、豁免通道分布基本稳定（activity_high 324→561 信号、stall_burst 22→15、healthy 36→86）。
+
 ### CD384 reset 截窗不足 fail-closed：盘面重置后重置窗 <minTicks 硬拒不进 BP（2026-11-08，机制案·无 token；bt-v83 完整窗口 -1.9158 复盘裁定 A；commit `44ee397a`，同车 ladder v13 量门提高=裁定 B）
 
 **动机（用户裁定原话「A/B 两个建议接受」）**：bt-v83 完整窗口回测（`b0b3bf11`，11-05 00:00→13:45 全量票 × v12 十三腿 × CD383 二修+BP46+BP49）**净 -1.9158 BNB**（买 195 笔 39.0/卖 300 笔 37.08；漏斗 1372 信号→cheat 拒 455→BP 拒 723→成交 194 票：盈 47 票 +3.358/亏 139 票 -5.274）。分票归因定位最大单一亏损源：**87 票净 -1.383（占全窗口亏损 72%）全部是 `marketReset` 触发 + 重置窗 <minTicks → insufficient_ticks fail-open 放行 → BP 三门全过 → 成交——87/87 无一例外全部 reset=1，零票天然短窗**。最亏三票形状高度一致：`0x68bb8cd4`（首价→3s 冲 +65%→砸回→t0b 买→-26% 归零，整票 117 行）/`0x258e4857`（+30%→NL15→-41%，31 行）/`0x2a5fdaaf`（+25%→NL15→-26%，30 行）——**整票生命周期 30~120 行 tick 的冲高砸落小票**。

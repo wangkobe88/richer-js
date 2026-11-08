@@ -118,6 +118,16 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP50 发行价锚换平台 curve 常量——launch 族数值锚分母不再用锚窗首可靠价（2026-11-08，snapshot 锚口径案·题集/mapper 零改动；主体=T127，commit `df9c7a6b`）
+
+**背景**：用户发现 BP 位置门全族（①⑤⑧≤40/⑥≤10/⑦≤40/pump_exempt≤40/黄金点 almost_launch 区内/BP46 ④豁免 near_launch 以内/BP15 价格豁免锚 ≤+20）的输入值 `currentVsLaunchPct` 与 `minVsLaunchPct`（BP43/BP44 restart 判定腿）/`athVsLaunchPct`（④开盘拉高判据）的分母=**锚窗首可靠价**（≈首笔成交后价格），不是 curve 定义的真发行价。合约实证（详档 auto-memory launch-price-curve-constants）：four.meme=模板制 143 档常量（主流档 P₀=4496173469e-18）、flap BNB 盘=tier 制常量（主力档 ≈5.546e-9）；用户裁定「fourmeme 使用主流档即可，flap 也是使用主力档即可，价格门的话只能是重新回测看一下效果了」。
+
+**改动（`buy-point-snapshot.js` launch 族双臂）**：`resolveLaunchPriceBnb(platform, quoteToken)`（新模块 `launch-price.js`）——fourmeme→FM 常量/flap BNB 盘→FL 常量/flap quote 盘与 gang 与未知平台→null 保留旧口径（launchCovered 门+首可靠价 toFixed(10) bit 不变）。常量平台锚**恒有效不看 launchCovered**——截窗长票（首行 dt>90 开盘段不在窗）与高价模板票失真消除；`launchPriceBnb/currentVsLaunchPct/athVsLaunchPct/minVsLaunchPct` 四锚自动跟随，`launchCovered` 键照落（纯观测）。snapshot 判定语义（almost_launch ≤+20/near_launch +20~40/low +40~80 六桶、restart 回到过线、④拉高 +35%、⑧区内判定）全部不变——**换的是尺子的零点，不是刻度**。
+
+**单测**：`_test_buy_point_lib` 455（metaA 去 platform=旧口径 bit 回归锁）；`_test_buy_point_check_service` 39（META 去 platform+P 段新增常量锚专断言：价格 (1+i*0.08)*FM→+72%→poor/pump_exempt_gate 真常量链路）；`_test_cheat_market_reset` C1 锁 BP 侧常量锚（currentVsLaunchPct=30/minVsLaunchPct=5）。
+
+**对拍与回测**：对照回测 **bt-v85=`ba242cca-2237-4e31-9807-75a87871b7ba`**（克隆 bt-v84 同窗 2026-11-05 00:00~13:45:10 同配置 ladder v13+CD384+全量卖腿+signalGateReal，唯一变量=发行价锚代码）——**净 -0.4902 → +0.8112**（完整数字表与读数记 T127）。BP 侧读数：④桶成交 100 票 -0.57 → 29 票 **+0.95**（开盘冲高④票被收紧后的价格门批量拒、剩贴发行价黄金形状）；①strong_backer 7 票→0（≤40 位置门在新锚 curVs 上移下全拒）；⑦restart 14→6 净 +0.3169→-0.0855；来财 0xc84a0ff2…7777（+0.3017）8 信号全被 `bp_gate_assessment` 综合评估拒（curVs 反降 52.19→29.27 非位置门——BP 盘型判读随 launch 族锚输入变化的单票样本，攒批观察）。同车修复：回测两门 supply 断链（BacktestEngine 曾把 factorResults 当 faState 传→BP 市值族锚恒 null，bt-v83/v84 702/707），对 bt-v85 的 BP 判定属**双重变化**（锚口径+supply 修复），对照读数时注意归因区分。
+
 ### BP48 ①strong_backer 位置门收紧=同样不接受 low（80→40，①⑤⑧三臂同线 40；2026-11-08 用户裁定·mapper-only 题集不 bump）
 
 **背景**：CD384/T126 验证链收官后，用户在 182 开出 bt-v84 全部 8 票 strong_backer（①强庄盘）信号页复查，随后裁定收紧①的位置门。裁定原话：

@@ -666,6 +666,26 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 乙、因子口径
 
+### T127 发行价口径换平台 curve 常量锚——currentVsLaunchPct 族分母不再用首笔成交价（2026-11-08；commit `df9c7a6b`）
+
+- **问题**（用户发现，例票苍蝇 0x2a5fdaaf…7777/实验 68017ac6、小四 0xca7b4ed5…ffff/实验 cd5759bf）：`currentVsLaunchPct` 全族（BP 位置门/黄金点/CD reset 截窗、FA 因子、ladder v13 价格门）的发行价锚=**锚窗首可靠价**（≈首笔成交后价格），不是 curve 定义的真发行价。合约实证（详档 auto-memory launch-price-curve-constants）：**两平台都是 curve 定义的固定发行价**——four.meme 模板制 143 档（主流档 P₀=4496173469e-18 BNB/枚=初始市值 4.4962 BNB 占绝大多数，跨档闭式 P₀=K×8.66989e-19 五档全验，143 档初始市值横跨 ~700 倍）；flap BNB 盘 tier 制（主力档 CURVE_RH_BNB(20)：r=6.14、h=107036752 → P₀≈5.546e-9=初始市值 5.55 BNB，LibCurve `(1e9+h−s)×(eth+r)=k`）。旧锚失真两源：①首单滑点抬锚（主流档票 92% <1.33 倍，温和）②高价位模板票旧锚贴首笔均价、真发行价高得多（小四 maxRaising=1988.1 档 P₀=6.34e-7，旧锚 7.68e-7 失真 +21%；「首单抬锚 170 倍」旧归因**错误**——该票是模板高价档非滑点）
+- **裁定**（用户原话）：「不需要我认为 fourmeme 使用主流档即可。flap 也是使用主力档即可。价格门的话只能是重新回测看一下效果了。」——**统一平台常量，不逐票 eth_call**；ladder/位置门阈值不重设计，换锚后重新回测对照
+- **落码**：新模块 `src/market-analysis/launch-price.js`（零依赖叶子，防循环依赖）三态接口 `resolveLaunchPriceBnb(platform, quoteToken)`：'fourmeme'→FM 常量；'flap'∧无 quoteToken→FL 常量；其余（flap quote 盘/gang/未知/null）→**null=调用方保留旧口径**。五个消费点：①BP snapshot launch 族（launchPriceBnb/currentVsLaunchPct/athVsLaunchPct/minVsLaunchPct——常量锚恒有效不看 launchCovered，截窗长票/高价模板票失真消除；null 平台走 launchCovered 门+toFixed(10) bit 不变）②CD `computeMarketResetIndex(rows, platform)`（quote 盘判 rows 行 quote_token；service 调用点传 tokenMeta.platform；回归 runner 三调用点同步）③FA `currentVsLaunchPct` 分母 `_resolveLaunchPriceBnb(state.platform, state.quoteToken) ?? _relFirstPriceBnb`（_relFirstPriceBnb 首值冻结保留=quote/gang/TPA 域仍用；_asofRelFirst 审批时刻冻结刻意不动）④回测 TICK_SELECT_COLUMNS 加 `quote_token`（BacktestTickCache columnsTag 漂移→全量重拉一次设计内 ~4.5min/平台）⑤**顺手修回测两门 supply 断链**：BacktestEngine `_cheatGateEvaluateBinary`/`_bpGateEvaluate` 曾把 factorResults（因子表）当 faState 传→BP 市值族+CD supply 族锚恒 null（bt-v83/v84 702/707）；改传 `getTokenState(tokenAddress)`（与实时侧 FourMemeWssTradingEngine 同姿势）
+- **单测七件**（策略=夹具 platform 缺席锁旧口径 bit 回归+常量锚专段价格域乘常量保百分比断言数值不变）：cheat_market_reset 35（B 段旧口径锁+C 段常量锚 FM/FL/quote/gang 四臂）/current_vs_launch_factor 21（G 段公式源码锁+常量字面量锁+H 段四平台臂）/buy_point_lib 455/cheat_detection_service 142（priceTicks 工厂价乘 FL 走真常量链路）/cheat_gate_engine 136（CD381 轨迹价换 FM 域百分比 bit 不变）/buy_point_check_service 39（pump 门常量锚专断言）/fourmeme_fa_factors 35（顺手补 CD381 漏更的 preCheatResult/priceBackToAlmostLaunch 白名单）
+- **对照回测 bt-v85**（`ba242cca-2237-4e31-9807-75a87871b7ba`，克隆 bt-v84 同窗 2026-11-05 00:00~13:45:10 同配置 ladder v13+CD384+全量卖腿+signalGateReal，唯一变量=发行价锚代码；总时长 ~14min，含 tick 缓存 columnsTag 漂移全量重拉 ~9min）——**净 -0.4902 → +0.8112 BNB（改善 +1.30，完整窗口首次正收益）**：
+
+| | bt-v84 旧首可靠价锚 | bt-v85 curve 常量锚 |
+|---|---|---|
+| BUY 信号 | 1442 | 1776（fire 面变化本身=锚差异读数） |
+| 成交票 | 128（花 25.60 收 25.11） | **37（花 7.40 收 8.21）** |
+| 胜率/每票期望 | 28.1% / -0.0038 | 29.7% / **+0.0219** |
+| reset_insufficient 拒 | 281 | 346（破发域扩大→reset 触发面+65） |
+| ④ early_sniper_decay 成交 | 100 票净 **-0.5693** | 29 票净 **+0.9485** |
+| ⑦ restart / ① strong_backer | 14 票 +0.3169 / 7 票 -0.0866 | 6 票 -0.0855 / 0 票（被 ≤40 位置门拒） |
+| t2/t3/N36 腿成交 | 15/8/3 | 0/1/0（价格门拦掉） |
+
+- **读数**：①新锚下 curVs 分母换 curve 零点——主流档票（首可靠价>FM 常量）curVs 整体上移、flap 部分开盘砸盘票下移（来财 52.19→29.27），**价格门（≤80/50/20/10/40）实质大幅收紧**：开盘冲高④票批量被拒，剩下贴近发行价的④票=黄金形状大正；②大正票三保二——M4GA 0xba5ed45b +0.5152 与 0x78cd05cf +0.4088 两实验都成交，**来财 0xc84a0ff2…7777（+0.3017）v85 被 BP 门综合评估拒（bp_gate_assessment，8 信号全拒；curVs 更低非位置门——BP 盘型判读随锚输入变化，单票 Jev 方差待观察）**；③小四 0xca7b4ed5…ffff（高价档票，v84 -0.0109）如预期被拒；④v85 独有成交仅 3 票全小负（-0.06/-0.004/-0.009）；⑤误拒代价=restart/strong_backer 正票（0x962ba5c2 +0.2234、0x165d20f5 +0.2008、0x373b917c +0x2002 等被位置门拒）——价格门阈值按旧锚校准，换锚=阈值等效收紧，**是否重新校准阈值待用户裁定**（现状=严格版已净正）
+
 ### T17 信号/执行双口径——0xc7fe 案（2026-10-15）
 - 事故：fire 锚 1.1445e-8 → 检查 12s 冲高 +23.6% → 成交价介于中间 → 峰值从成交时刻起算 → P11 回撤臂不具资格走 P2 止损 -53%（反事实 P11 提前 75s 多回收 ~+50%）
 - 裁定：**信号体系全用 fire 时刻/价格**（markBuyFire pending 双轨峰，peakAny/peakRel）；`holdDuration`=fire 起算，新键 `realHoldDuration`（物理持有）+ `buyExecutedPriceBnb`；止损时间臂读 realHoldDuration，**P4 腿须显式 realHoldDuration>10** 保「成交后 10s 缓冲」
