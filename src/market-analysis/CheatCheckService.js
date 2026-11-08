@@ -305,9 +305,12 @@ class CheatCheckService {
    * 参与 cheat 级判定，不豁免臂与 A/J 通道主判线同档；首版 pump/holdings 臂误取
    * moderate 档，0x94ea754b pump=moderate 信号随修正恢复豁免）**：
    * ① pump 臂：slowGrindPump = strong（机器缓推；0xcb70708e/d0fbcc7b/4b3f1f7a 判例）
-   * ② wash 臂：对倒族任一 strong(3)——washPair 同块对敲/equalAmountSplit 等额
-   *    分仓/coordinatedSellBack 协同卖回（「严重对倒盘」「检测出来」=strong 与
-   *    A 通道主判线同档；0x06810806 washPair=3 判例）
+   * ② wash 臂：washPair 同块对敲 = strong（「同区块刷量」；0x06810806 判例）
+   *    ——**仅此一题（2026-11-08 用户裁定收窄「wash 我只是要拦截同区块刷量这
+   *    一种情况，不是全部」+「其他的我没说的，依然可以走活跃度豁免」）**：首
+   *    版误扩对倒族三题（equalAmountSplit 等额分仓/coordinatedSellBack 协同
+   *    卖回），两键退出不豁免臂恢复 CD379 豁免资格；留痕码同步 wash_pair_family
+   *    → wash_pair
    * ③ holdings 臂：holdingsBalance = strong——持仓维度独立成臂（0xb788e63b
    *    判例 holdingsBalance=strong J 通道同档）
    * 入参=levels 数值投影（levelsFromObservation 产物；秒回/late/blocked 行同构）；
@@ -322,7 +325,7 @@ class CheatCheckService {
       return v === null || v === undefined ? 0 : v; // 缺席/断代=none 不触发
     };
     if (lv('slowGrindPump') >= 3) return 'slow_grind_pump';
-    if (lv('washPair') >= 3 || lv('equalAmountSplit') >= 3 || lv('coordinatedSellBack') >= 3) return 'wash_pair_family';
+    if (lv('washPair') >= 3) return 'wash_pair';
     if (lv('holdingsBalance') >= 3) return 'holdings_balance';
     return null;
   }

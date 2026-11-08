@@ -593,14 +593,14 @@ async function testActivityExempt() {
   check('F7 pump=strong 拦（0xcb70708e/d0fbcc7b/4b3f1f7a 判例）',
     dn({ slowGrindPump: 3 }), 'slow_grind_pump');
   ok('F7 pump=weak 不拦（臂线=strong）', dn({ slowGrindPump: 1 }) === null);
-  check('F7 washPair=strong → wash_pair_family（0x06810806 同块对敲判例）',
-    dn({ washPair: 3 }), 'wash_pair_family');
-  check('F7 equalAmountSplit=strong 同拦（0xcb70708e 等额分仓判例）',
-    dn({ equalAmountSplit: 3 }), 'wash_pair_family');
-  check('F7 coordinatedSellBack=strong 同拦（协同卖回）',
-    dn({ coordinatedSellBack: 3 }), 'wash_pair_family');
-  ok('F7 wash 族 moderate 不拦（「严重对倒盘」=strong 与 A 通道主判线同档）',
-    dn({ washPair: 2 }) === null && dn({ equalAmountSplit: 2 }) === null && dn({ coordinatedSellBack: 2 }) === null);
+  check('F7 washPair=strong → wash_pair（0x06810806 同块对敲判例）',
+    dn({ washPair: 3 }), 'wash_pair');
+  ok('F7 equalAmountSplit=strong 不拦（2026-11-08 用户裁定 wash 臂收窄「只拦截同区块刷量这一种情况」+「其他的我没说的，依然可以走活跃度豁免」——等额分仓退出不豁免臂恢复 CD379 豁免资格）',
+    dn({ equalAmountSplit: 3 }) === null);
+  ok('F7 coordinatedSellBack=strong 不拦（协同卖回退出不豁免臂——同上裁定）',
+    dn({ coordinatedSellBack: 3 }) === null);
+  ok('F7 washPair=moderate 不拦（strong 与 A 通道主判线同档）',
+    dn({ washPair: 2 }) === null);
   ok('F7 holdingsBalance=moderate 不拦（三臂统一 strong 档位修正）',
     dn({ holdingsBalance: 2 }) === null);
   check('F7 holdingsBalance=strong 拦（0xb788e63b 判例 J 通道唯一拦截臂同档）',
@@ -621,6 +621,12 @@ async function testActivityExempt() {
   check('F7 出口：holdings moderate（档位修正后）→ 豁免照常恢复放行（0x94ea754b pump=moderate 信号同形状）',
     { grade: r7b2.grade, exemptDenied: r7b2.exemptDenied, exemptCode: r7b2.exempt && r7b2.exempt.code },
     { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_ultra' });
+  const r7b3 = s7._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { equalAmountSplit: 3, coordinatedSellBack: 3 }, buckets: { activityLevel: 'high' } });
+  check('F7 出口：equalAmountSplit/coordinatedSellBack strong（wash 臂收窄后）→ 豁免照常放行（用户裁定「其他的我没说的，依然可以走活跃度豁免」）',
+    { grade: r7b3.grade, exemptDenied: r7b3.exemptDenied, exemptCode: r7b3.exempt && r7b3.exempt.code },
+    { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_high' });
+  check('F7 0xcb70708e 形状（pump+wash 两退出键+holdings 全 3）→ wash 收窄后仍靠 pump 臂拦截（判例票行为不变）',
+    dn({ slowGrindPump: 3, equalAmountSplit: 3, coordinatedSellBack: 3, holdingsBalance: 3 }), 'slow_grind_pump');
   const r7c = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' } });
   check('F7 出口：三臂不在场（F3 形状）→ 豁免照常（CD379 语义维持）',
     { grade: r7c.grade, exempt: r7c.exempt, exemptDenied: r7c.exemptDenied },
