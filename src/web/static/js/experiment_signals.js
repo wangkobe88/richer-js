@@ -2917,6 +2917,7 @@ class ExperimentSignals {
           <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
           <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
           ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
+          ${sg.recheckCondition ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">作弊重判（CD381）<code>${this._escapeHtml(sg.recheckCondition)}</code></span>` : ''}
           ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
           <span class="text-gray-700">门序：作弊门 → BP 门，两门都过才买</span>
         </div>

@@ -241,6 +241,35 @@ ok(dA.launchCovered === true && near(dA.launchPriceBnb, 1.0 * E9) && dA.currentV
   `launch 族：覆盖=true / 发行价=1e-9 / 现价较发行 +60%（实际 ${dA.launchCovered}/${dA.launchPriceBnb}/${dA.currentVsLaunchPct}）`);
 ok(dA.athVsLaunchPct === 100,
   `athVsLaunchPct=+100（锚窗最高 2e-9 ÷ 发行价 1e-9 −1=+100.0%，BP39「开盘拉得过高」度量锚——Jev 组合不了 currentVsLaunch+currentVsAth 两数故直供，实际 ${dA.athVsLaunchPct}）`);
+// minVsLaunchPct=锚窗峰后最低较发行价 %（BP43 restart 轨迹锚）：dA ATH=2.0e-9@110
+// 行9，峰后段=行10~18 最低 1.4e-9（行15/16）→ +40.0%——涨过 +100% 后只回到 +40，
+// 未回到 almost_launch（>20）；刻意不取整窗最低（整窗最低=发行价本身 → 恒 0% 结构性失效）
+ok(dA.minVsLaunchPct === 40,
+  `minVsLaunchPct=+40（峰后最低 1.4e-9 ÷ 发行价 1e-9=+40.0%——ATH@110 后回落段最低；整窗最低恒=发行价不作判据，实际 ${dA.minVsLaunchPct}）`);
+{
+  // BP43 restart 形状微夹具手算：1.0→1.4→2.0(ATH)→1.3→1.05→1.3——峰后最低 1.05=+5.0% ≤20
+  // （重启盘价格回到腿成立）；对照 ATH 在末位（单调涨 1.0→1.2→1.5→1.8）=从未回落 → null
+  const rowsR = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
+    row(20, 'BUY', W_C, 0.1, 1.4 * E9, 1e8),
+    row(30, 'BUY', W_D, 0.1, 2.0 * E9, 1e8),
+    row(40, 'SELL', W_E, 0.1, 1.3 * E9, 1e8),
+    row(50, 'BUY', W_F, 0.1, 1.05 * E9, 1e8),
+    row(60, 'BUY', W_G, 0.1, 1.3 * E9, 1e8),
+  ];
+  const dR = buildBuyPointSnapshot(rowsR, metaA).buyDerived;
+  ok(dR.minVsLaunchPct === 5 && dR.currentVsLaunchPct === 30 && dR.athVsLaunchPct === 100,
+    `restart 形状：峰后最低 +5.0% ≤20（回到腿成立）/现价 +30%/ATH +100%（实际 ${dR.minVsLaunchPct}/${dR.currentVsLaunchPct}/${dR.athVsLaunchPct}）`);
+  const rowsMono = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8),
+    row(20, 'BUY', W_C, 0.1, 1.2 * E9, 1e8),
+    row(30, 'BUY', W_D, 0.1, 1.5 * E9, 1e8),
+    row(40, 'BUY', W_E, 0.1, 1.8 * E9, 1e8),
+  ];
+  const dMono = buildBuyPointSnapshot(rowsMono, metaA).buyDerived;
+  ok(dMono.minVsLaunchPct === null,
+    `ATH 在末位（单调涨从未回落）→ minVsLaunchPct=null 不冒充「回到过」（实际 ${dMono.minVsLaunchPct}）`);
+}
 // priceBuckets：17 可靠价行 → 等笔距 20 桶 3 空（b∈{0,6,13}）=17 桶
 ok(dA.priceBuckets.length === 17, `priceBuckets=17 桶（实际 ${dA.priceBuckets.length}）`);
 ok(dA.priceBuckets[0].dt === 5 && near(dA.priceBuckets[0].price, 1.0 * E9), '首桶=行1 @t+5');
@@ -303,6 +332,7 @@ const dCStart = buildBuyPointSnapshot(rowsCStart, metaA).buyDerived;
 ok(dCStart.launchCovered === false && dCStart.launchPriceBnb === null && dCStart.currentVsLaunchPct === null,
   'C: ticks 首行 >90s → 发行价族 null fail-closed（截窗不冒充，BP5）');
 ok(dCStart.athVsLaunchPct === null, 'C: athVsLaunchPct 同族 null（launchCovered 域内 fail-closed，BP39）');
+ok(dCStart.minVsLaunchPct === null, 'C: minVsLaunchPct 同族 null（launchCovered 域内 fail-closed，BP43——截窗不冒充发行价往返轨迹）');
 
 const rowsCNoPos = [row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8), row(60, 'SELL', W_B, 0.1, 1.1 * E9, 1e8)];
 const dCNoPos = buildBuyPointSnapshot(rowsCNoPos, metaA).buyDerived;
@@ -342,6 +372,7 @@ ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
 ok(stD.state.includes('锚窗最高价较发行价 +100.0%'), 'D: 发行价位置行渲染锚窗最高价较发行价（BP39 athVsLaunchPct——锚窗 ATH 2e-9 ÷ 发行价 1e-9）');
+ok(stD.state.includes('锚窗峰后最低价较发行价 +40.0%'), 'D: 发行价位置行渲染锚窗峰后最低价较发行价（BP43 minVsLaunchPct——峰后段最低 1.4e-9 ÷ 发行价 1e-9，restart 重启盘回到腿判据行）');
 ok(stD.state.includes('④开盘拉高出货盘新形态'), 'D: 判定指引行含 BP39 新形态句');
 ok(!stD.state.includes('摆动结构') && !stD.state.includes('圣诞树原料'),
   'D: 摆动结构行已删（BP30/题集 BP33 tree_position 退役——state 不再渲染圣诞树原料行，zigzag 锚照算落 digest 纯留档）');
@@ -517,6 +548,21 @@ ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置门 锚缺�
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置臂已拉离优先于质量题（早鸟 good 不救——盘型位置不对不参与）');
 ok(!PATTERN_GATE_POOR_BUCKETS.includes('sustained_climb'), 'E: PATTERN_GATE_POOR_BUCKETS 三桶不含⑥（⑥走 SUSTAINED_CLIMB_LAUNCH_PCT=10 独立位置臂——三桶硬拒与⑥位置拒分治）');
+// BP43/CD381 ⑦restart 重启盘位置门（同⑥模式）：现价 ≤+40%（near_launch 以内含
+// almost_launch 与破发）放行质量题、已重新拉离（>+40%）/锚缺失拒 rule=pattern_gate
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, dA).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'pattern_gate', 'E: 门① BP43 ⑦restart 已拉离（dA vsLaunch=+60% >+40%）→ poor/pattern_gate（位置臂拒——重启盘已重新拉离起点段不参与）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: 40 }).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: ⑦位置门 恰 +40% 放行（≤+40 边界含——near_launch 以内含 almost_launch 与破发，重启起点段走质量题）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: 40.1 }).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑦位置门 +40.1% 拒（严格大于 40=已重新拉离）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: -12 }).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'any_neutral', 'E: ⑦位置门 破发 −12% 放行（含破发——重启回到起点以下也是重启起点段）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: null }).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑦位置门 锚缺失（发行价位置 ? = ticks 未覆盖出生段）宁拦不冒充拒');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑦位置臂已拉离优先于质量题（早鸟 good 不救——重启盘已拉离不参与）');
+ok(!PATTERN_GATE_POOR_BUCKETS.includes('restart'), 'E: PATTERN_GATE_POOR_BUCKETS 不含⑦（restart 走 RESTART_LAUNCH_PCT=40 独立位置臂——与⑥同模式分治）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 门① 优先于质量题（散户 PVP+早鸟 good 0.95 不救——盘型不对不参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('market_pattern', 'retail_pvp', 0.95) }, dA).assessment;
@@ -613,6 +659,8 @@ ok(obsE.anchors.mcapBnb === 1.6 && obsE.anchors.mcapPeakBnb === 2 && obsE.anchor
 ok(obsE.anchors.holdersNow === 7 && obsE.anchors.holdersDelta60 === -1, 'E: holder 流向族两键透传（BP2，delta 负值照读不吞）');
 ok(obsE.anchors.launchPriceBnb !== null && near(obsE.anchors.launchPriceBnb, 1.0 * E9) && obsE.anchors.currentVsLaunchPct === 60 && obsE.anchors.launchCovered === 1,
   'E: 发行价位置族三键透传（BP5——launchCovered boolean → 1 数值化）');
+ok(obsE.anchors.athVsLaunchPct === 100 && obsE.anchors.minVsLaunchPct === 40,
+  'E: 发行价位置族 ath/min 两锚透传（BP39 athVsLaunchPct + BP43 minVsLaunchPct 峰后最低——与 buyDerived 同值零重算）');
 ok(buildBuyPointObservation(fullAnswers(), null).assessment.bucket === 'neutral', 'E: anchors 缺省 null 容忍（聚合照常）');
 const badAnchor = buildBuyPointObservation(fullAnswers(), { ...dA, chg30Pct: 'not-a-number' });
 ok(badAnchor.anchors.chg30Pct === null, 'E: 非数值锚形状异常 → null 不冒充');
@@ -629,9 +677,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP41 十题=8 维度+2 质量/桶域对锁/盘型六桶+⑥位置门+①散户入场机会双臂近窗 0.12 线+①⑥强庄家族从宽①/④极早窗三证据+弱化/④开盘拉高出货盘 BP40 收紧单独成立+BP41 真庄反锚判序前置+尾段占比锚/strong_backer ultra 豁免）');
+  console.log('F. 题集形状（BP43 十题=8 维度+2 质量/桶域对锁/price_level 六桶 almost_launch+盘型七桶 restart 位置门 40/数值锚全量联动 +20/40/80 新分界/④⑦分界交易量与回落方向/⑥位置门 10+①散户入场机会双臂 0.12 线/④开盘拉高 BP40 单独成立+BP41 反锚判序前置）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP41', 'F: 版本=BP41（BP40 对拍 S072 红线破防修正——BP40「拉得过高单独成立」把無為 S072（BP29/BP32 立法保护的真庄贴顶票，贴顶 0% 回落+尾段 8 笔 1.137 BNB 两腿证据全在场）误判④0.92：救臂写在忌讳后=BP10 同款病灶 Jev 恒选崩塌腿。修正=①真庄保护反锚**判序前置**（先判反锚后判拉高，命中即停）②腿②机械化——「同量级重承接」落实为 snapshot 代码锚 nearTail5BuySharePct（尾段买÷全窗买×100）：≥ 约三分之一=拉升进行时不落④（無為 50%/S006 39%/S109 57% 全过）；两成及以下=burst 已过不救（b788e63b 判例 20%：t+0s 巨单 1.5 BNB 占全窗买近半、尾段绝对额可观但流量已枯——绝对额判别子被否（S006 top1=1.0 BNB 受保护票会破））；两成~三分之一边缘**从宽救**（用户裁定「不好处理就先不要误伤」——拒买类从严、真庄第一波勿误伤）。前版 BP40（BP35 案=拉得过高单独成立+35 线）；BP39（BP34 案=开盘拉高出货盘新形态+三证据弱化+athVsLaunchPct 锚）；BP38（BP33 案=strong_backer ultra 豁免+④极早窗三证据）；BP37（⑥对倒臂 0.12 线）；BP36（①⑥分界近窗锚定+⑥现在进行时+②⑤承接归零例外）；BP34-36=BP31 案六桶制；BP30/题集 BP33=盘型前置预判断）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP43', 'F: 版本=BP43（CD381 同车六条批量需求 2/4\'——almost_launch 六桶改制+restart 重启盘第七桶，用户三项裁定「数值锚跟随新分界」+「盘型判重启后现价 ≤+40% 位置门」：①price_level 五桶→六桶 almost_launch ≤+20 含破发/near_launch 收 20~40/low 收 40~80/mid 下界 +100→+80，全部引用旧分界的数值锚联动改写（BP15 豁免锚 ≤+50→≤+20、庄盘帽 +50~100→+40~80 界 +100→+80、早鸟第三分支 +100→+80、回调「跌到很低」≤+50→≤+40 含破发、price_level 反锚④ >+100→>+80）；②market_pattern 第七桶 restart 重启盘=交易量腿（tradeCount≥10 ∧ buyVolumeBnb≥1.5 与 ladder RL15 臂同线）+价格回到腿（锚窗峰后最低价较发行价 ≤+20——刻意不取整窗最低：launchCovered 窗整窗最低恒=发行价=判据腿结构性失效；峰后段=首个最高价之后，ATH 在末位=从未回落 null）两腿制，代码侧位置门 RESTART_LAUNCH_PCT=40 同⑥模式（判型归 Jev 位置归代码），④⑦分界=交易量与回落方向（④开局抢完衰竭无人问津/⑦玩过一轮洗回起点）。前版 BP42（机械门拆除零题面改动不 bump 版本）；BP41（BP36 案 S072 红线修正反锚判序前置）；BP40（BP35 案拉得过高单独成立 +35 线））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -657,12 +705,22 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.HOLDER_CONCENTRATION_LEVELS) === JSON.stringify(HOLDER_CONCENTRATION_LEVELS), 'F: HOLDER_CONCENTRATION_LEVELS 同域（BP14——CD240 分层线词表）');
   ok(JSON.stringify(Object.keys(qs.holder_concentration.criteria)) === JSON.stringify(HOLDER_CONCENTRATION_LEVELS), 'F: holder_concentration 桶===HOLDER_CONCENTRATION_LEVELS（四桶 none/weak/moderate/strong）');
   ok(JSON.stringify(q.ENTRY_POSITION_LEVELS) === JSON.stringify(ENTRY_POSITION_LEVELS), 'F: ENTRY_POSITION_LEVELS 同域（BP5 四桶）');
-  ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP5 五桶）');
+  ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP43 六桶 almost_launch 前插——ESM/CJS 双副本对锁）');
   ok(!('TREE_POSITION_LEVELS' in q), 'F: TREE_POSITION_LEVELS 常量绝迹（BP30 tree_position 退役——ESM 侧同删）');
   // BP18 盘面分类锚（五类型学——用户裁定原话直译）
-  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶+BP34 第六桶 sustained_climb——ESM/CJS 双副本对锁）');
-  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（BP34 六桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable/sustained_climb）');
+  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP18 五桶+BP34 第六桶 sustained_climb+BP43 第七桶 restart——ESM/CJS 双副本对锁）');
+  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（BP43 七桶 strong_backer/retail_pvp/famous_monopoly/early_sniper_decay/blended_unremarkable/sustained_climb/restart）');
+  // BP43（CD381 同车需求 2/4'）：almost_launch 六桶+restart 第七桶+数值锚联动
+  ok(JSON.stringify(PRICE_LEVEL_LEVELS) === JSON.stringify(['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high']), 'F: price_level 六桶域=almost_launch/near_launch/low/mid/high/very_high（BP43 almost_launch ≤+20 含破发前插）');
+  ok(JSON.stringify(Object.keys(qs.price_level.criteria)) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: price_level 桶===PRICE_LEVEL_LEVELS（六桶——ESM 题集 criteria 键序一致）');
+  ok(qs.price_level.criteria.almost_launch.includes('≤ +20%，含破发') && qs.price_level.criteria.near_launch.includes('+20%~+40%') && qs.price_level.criteria.low.includes('+40%~+80%，1.4~1.8 倍') && qs.price_level.criteria.mid.includes('+80%~+600%，1.8~7 倍'), 'F: price_level criteria 六桶分界（almost_launch ≤+20/near_launch 20~40/low 40~80/mid 80~600——BP43 六桶改制）');
+  ok(MARKET_PATTERN_LEVELS.includes('restart') && !PATTERN_GATE_POOR_BUCKETS.includes('restart'), 'F: restart 进七桶但不进 PATTERN_GATE_POOR_BUCKETS（⑦走 RESTART_LAUNCH_PCT=40 独立位置臂非三桶硬拒——与⑥同模式分治）');
+  ok(require('../src/market-analysis/buy-point-result-mapper').RESTART_LAUNCH_PCT === 40 && require('../src/market-analysis/buy-point-result-mapper').SUSTAINED_CLIMB_LAUNCH_PCT === 10, 'F: 位置门常量导出（RESTART_LAUNCH_PCT=40/SUSTAINED_CLIMB_LAUNCH_PCT=10——用户裁定「盘型判重启后现价 ≤+40% 位置门放行质量题」）');
   const mp = qs.market_pattern.instructions;
+  ok(mp.includes('⑦重启盘（restart，BP43 新增）') && mp.includes('价格又回到了 almost_launch') && mp.includes('①交易量腿') && mp.includes('②价格回到腿') && mp.includes('窗口总笔数参考 ≥10 笔 ∧ 全窗买入额参考 ≥1.5 BNB') && mp.includes('锚窗**峰后最低**价较发行价 ≤+20%') && mp.includes('整窗最低恒是发行价本身不作判据') && mp.includes('仍在最高点=?=从未回落不算回到过'), 'F: ⑦重启盘立法（BP43——交易量腿 ≥10 笔 ∧ ≥1.5 BNB 与 ladder RL15 臂同线+价格回到腿=锚窗峰后最低 ≤+20（峰后非整窗：整窗最低恒=发行价结构性失效；ATH 在末位=从未回落不算）两腿制）');
+  ok(mp.includes('④的回落=没人玩了，⑦的回落=玩过一轮又回到起点') && mp.includes('**④与⑦分界=交易量与回落方向（BP43）**') && mp.includes('交易量腿不达标的回落票走④不走⑦（无人问津不是重启）') && mp.includes('⑦与①⑤分界=判的是回落形状不是盘面好坏'), 'F: ④⑦/⑦①⑤分界（④开局抢完就没人玩了/⑦玩过一轮回到起点——交易量腿不达标走④；⑦只述结构事实质量归质量题）');
+  ok(mp.includes('⑦由代码侧位置门判参与——现价较发行价 ≤+40%（near_launch 以内，含 almost_launch 与破发）的重启起点段放行走两道质量题、已重新拉离（>+40%）或锚缺失拒买'), 'F: 门桶声明 BP43 ⑦位置门句（≤+40 near_launch 以内放行、已拉离/锚缺失拒——判型归 Jev 位置归代码）');
+  ok(qs.market_pattern.criteria.restart.includes('锚窗峰后最低价较发行价 ≤+20%，含破发') && qs.market_pattern.criteria.restart.includes('窗口总笔数参考 ≥10 ∧ 全窗买入额参考 ≥1.5 BNB') && qs.market_pattern.criteria.restart.includes('现价较发行价 ≤+40%（near_launch 以内含 almost_launch 与破发）放行两道质量题'), 'F: criteria restart 同步（BP43——桶描述与题面两腿+位置门一致，Jev 选桶时同判据）');
   ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
@@ -761,10 +819,10 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(eb.instructions.includes('位置先于速度'), 'F: 早鸟位置先于速度（贴高+暴涨=接力风险）');
   ok(eb.instructions.includes('温和爬坡'), 'F: 早鸟 good=温和爬坡+买家多元');
   // BP28 案改二（S055 无税人生 早鸟 +126.8% 误 neutral——累计位置硬腿）
-  ok(eb.instructions.includes('第三分支·累计位置硬腿（BP30，速度锚的补位）') && eb.instructions.includes('现价较发行价已 +100% 以上（price_level=mid 及以上）→ **poor，无论 maxChg5 过没过线**') && eb.instructions.includes('速度锚测不到慢涨') && eb.instructions.includes('+100% 以上不存在早鸟救位'), 'F: 早鸟第三分支=累计位置硬腿（BP30/BP28 案 S055——用户裁定原话「涨了 100% 以上了」给中等不对：maxChg5=39.38% 未过 40~50% 速度锚线测不到慢涨，分波缓爬到 mid+ 同样是接力位不是早鸟位；+100% 以内才有「价格低」可谈，本腿与第二分支殊途同归 poor）');
+  ok(eb.instructions.includes('第三分支·累计位置硬腿（BP30，速度锚的补位；BP43 分界 +100→+80）') && eb.instructions.includes('现价较发行价已 +80% 以上（price_level=mid 及以上）→ **poor，无论 maxChg5 过没过线**') && eb.instructions.includes('速度锚测不到慢涨') && eb.instructions.includes('+80% 以上不存在早鸟救位'), 'F: 早鸟第三分支=累计位置硬腿（BP30/BP28 案 S055+BP43 分界 +100→+80 随六桶改制——mid 下界收到 +80，+80% 以内才有「价格低」可谈，本腿与第二分支殊途同归 poor）');
   // BP29 案（BP32）：早鸟忌讳①前置庄盘豁免——庄拉第一波贴高点位不是接力风险
-  ok(eb.instructions.includes('庄盘豁免（BP32，先于①判序查——命中则忌讳①不适用）') && eb.instructions.includes('庄拉的第一波贴高点位不是接力风险') && eb.instructions.includes('只买未卖零卖出=最强形状') && eb.instructions.includes('第一分支救位同步放宽一档：near_launch→low 档') && eb.instructions.includes('典型=**庄盘第一波早期至少 neutral**'), 'F: 早鸟庄盘豁免置顶（BP32/BP29 案 無為 S072——三大户 0.327/0.294/0.245 全 t+0s 首买+零卖出+开盘大额 1 笔+锚前尾段 8 笔 1.137 BNB：low 档拉升是强庄最早锁仓拉起的第一波、买点贴高也是对倒拉升早期位置非散户追高，忌讳①「价格已不低」前提不坐实+救位放宽一档，庄盘第一波早期至少 neutral=用户裁定「至少是中等」）');
-  ok(eb.instructions.includes('豁免域只到 low 档（较发行价 +50~100%）为止，price_level=mid 及以上（+100% 以上）不在豁免范围') && eb.instructions.includes('与回调题庄盘豁免同界——庄盘也不追二倍以上的位置'), 'F: 早鸟庄盘豁免域=一档帽（BP32——与 BP25 回调题庄盘豁免同界：low 为止 mid+ 界外照拒，突突车 S111/S113/S114 mid 硬腿不受本豁免影响）');
+  ok(eb.instructions.includes('庄盘豁免（BP32，先于①判序查——命中则忌讳①不适用）') && eb.instructions.includes('庄拉的第一波贴高点位不是接力风险') && eb.instructions.includes('只买未卖零卖出=最强形状') && eb.instructions.includes('第一分支救位同步放宽一档：almost_launch/near_launch→low 档') && eb.instructions.includes('典型=**庄盘第一波早期至少 neutral**'), 'F: 早鸟庄盘豁免置顶（BP32/BP29 案 無為 S072+BP43 救位域随六桶 almost_launch/near_launch→low——三大户 0.327/0.294/0.245 全 t+0s 首买+零卖出+开盘大额 1 笔+锚前尾段 8 笔 1.137 BNB：low 档拉升是强庄最早锁仓拉起的第一波、买点贴高也是对倒拉升早期位置非散户追高，忌讳①「价格已不低」前提不坐实+救位放宽一档，庄盘第一波早期至少 neutral=用户裁定「至少是中等」）');
+  ok(eb.instructions.includes('豁免域只到 low 档（较发行价 +40~80%）为止，price_level=mid 及以上（+80% 以上）不在豁免范围') && eb.instructions.includes('与回调题庄盘豁免同界——庄盘也不追近二倍以上的位置'), 'F: 早鸟庄盘豁免域=一档帽（BP32+BP43 界随六桶改制 +50~100→+40~80——与 BP25 回调题庄盘豁免同界：low 为止 mid+ 界外照拒，突突车 S111/S113/S114 mid 硬腿不受本豁免影响）');
   ok(eb.instructions.includes('豁免只解除忌讳①，不解除②活跃度断流③协同（庄盘断流/协同阵列照常 poor）') && eb.instructions.includes('开盘无大额单/大户已清场=非庄盘，照常走①判序'), 'F: 早鸟庄盘豁免边界（只解除①——②③庄盘照判 poor；非庄盘照常判序）');
   ok(eb.criteria.neutral.includes('庄盘豁免命中（开盘大额在场∧前列大户未清场——庄拉的第一波贴高点位不是接力风险，忌讳①不适用）的庄盘第一波早期'), 'F: criteria neutral 庄盘豁免同步（BP32——桶描述与题面判据一致，Jev 选桶时同判序）');
   const pb = qs.pullback_entry_quality;
@@ -775,18 +833,19 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('没跌到位'), 'F: 回调忌讳②没跌到位（接飞刀）');
   ok(pb.instructions.includes('判定按三层顺序') && pb.instructions.includes('第二层·核心规则（先于一切忌讳，命中即定档 neutral，不再评估第三层）'), 'F: 回调题=三层结构（BP12 重写：核心规则置顶先于一切忌讳——忌讳清单内救臂十轮全败后升层）');
   ok(pb.instructions.includes('**价格跌到很低 + 活跃度没有丧失 → 中等（neutral）**'), 'F: 核心规则=用户裁定原话直译（BP12「价格跌到很低，活跃度又没有丧失，可以给中等」）');
-  ok(pb.instructions.includes('价格跌到很低=price_level=near_launch') && pb.instructions.includes('活跃度没有丧失=热度未死寂 ∧ 大户未清场'), 'F: 核心规则两条件=维度档位可判化（near_launch + 热度∧大户双条件——BP16/BP17 立法）');
+  ok(pb.instructions.includes('价格跌到很低=price_level=almost_launch/near_launch（现价较发行价涨幅还小，≤+40% 含破发') && pb.instructions.includes('活跃度没有丧失=热度未死寂 ∧ 大户未清场'), 'F: 核心规则两条件=维度档位可判化（BP43 almost_launch/near_launch ≤+40 含破发 + 热度∧大户双条件——BP16/BP17 立法+BP43 分界联动）');
   ok(pb.instructions.includes('大户清场两臂任一成立') && pb.instructions.includes('这种情况不要抄') && pb.instructions.includes('①规模臂') && pb.instructions.includes('②撤退臂'), 'F: 大户清场两臂=活跃度实质丧失不适用核心规则（BP17 两臂——Lily T049 用户原话「完全没有大户在了只剩几个小散户不要抄」）');
   // BP23 庄盘豁免（吉祥A/S016+S021 案——用户裁定两连）
   ok(pb.instructions.includes('庄盘豁免（先于①②查——命中则①②不适用）') && pb.instructions.includes('下跌的坑是好东西') && pb.instructions.includes('庄盘加仓范围比普通盘宽'), 'F: 回调题庄盘豁免置顶（BP23/S016+S021 案——开盘大额在场∧大户未清场=庄盘语境，忌讳①②不适用+加仓范围比普通盘宽）');
   ok(pb.instructions.includes('不止跌到很低的位置，从高点回落后的稍高位置（浅回调半山腰）也可以') && pb.instructions.includes('核心规则的「价格跌到很低」条件同步放宽') && pb.instructions.includes('low 档内的浅回调位同样 neutral'), 'F: 庄盘价格条件放宽（BP23 用户追加裁定「不仅仅是临近购买点，稍微高一点也可以」——浅回调半山腰同样 neutral；BP27 一档帽后=low 档内）');
   ok(pb.instructions.includes('豁免只解除①②，不解除③奔零④断流⑤协同') && pb.instructions.includes('开盘无大额单/大户已清场=非庄盘，照常走忌讳清单'), 'F: 庄盘豁免边界（只解除①②——奔零/断流/协同庄盘照判 poor；非庄盘照常忌讳清单）');
   ok(pb.instructions.includes('庄盘语境豁免——开盘大额在场∧大户未清场时本条不适用，下跌的坑是好东西'), 'F: 忌讳①句内庄盘豁免回指（崩塌第一腿庄盘语境不适用）');
-  // BP25 案三改（S043 高点接盘——low 档收窄+庄盘豁免一档帽+mid 浅回调一律拒）
-  ok(qs.price_level.instructions.includes('+50%~+100% ≈ 1.5~2 倍=偏低；+100%~+600% ≈ 2~7 倍=不高不低') && qs.price_level.criteria.low.includes('+50%~+100%，1.5~2 倍') && qs.price_level.criteria.mid.includes('+100%~+600%，2~7 倍'), 'F: price_level low 档收窄（BP27/BP25 案——原 +50~200% 装进了最低价近三倍的票（S043 +155% 判 low），用户裁定 low=较发行价 +50~100%、mid 改 +100~600%）');
-  ok(qs.price_level.instructions.includes('较发行价 >+100%（2 倍以上）=已明显脱离发行价区——正常路径不构成「价格低」的可参与证据') && qs.price_level.instructions.includes('+100% 以上的位置只有非常少的情况才可参与，此类豁免口暂未开设'), 'F: price_level 反锚④不开口句（BP27——用户裁定「100% 以上应该只有非常少的情况才入，暂时还没有开这个口」）');
-  ok(pb.instructions.includes('但只放宽一个档位') && pb.instructions.includes('从 near_launch 放宽到 low 档（较发行价 +50~100%）为止') && pb.instructions.includes('+100% 以上（price_level=mid 及以上）不在豁免范围') && pb.instructions.includes('庄盘也不追二倍以上的位置') && pb.instructions.includes('low 档内的浅回调位同样 neutral'), 'F: 庄盘豁免一档帽（BP27/BP25 案——用户裁定「庄盘，价格要求只是豁免一个档位」：near_launch→low 为止，mid+ 不在豁免范围）');
-  ok(pb.instructions.includes('price_level=mid 及以上（较发行价 >+100%）的浅回调一律没跌到位') && pb.instructions.includes('高位浅回调没有可参与路径，庄盘豁免也不覆盖'), 'F: 忌讳②mid+ 一律句（BP27——+100% 以上不开口，高位浅回调庄盘豁免也不覆盖）');
+  // BP25 案三改（S043 高点接盘——low 档收窄+庄盘豁免一档帽+mid 浅回调一律拒）；
+  // BP43 六桶改制（almost_launch 前插/near_launch 20~40/low 40~80/mid 下界 +100→+80）
+  ok(qs.price_level.instructions.includes('+20%~+40% =接近发行价；+40%~+80% ≈ 1.4~1.8 倍=偏低；+80%~+600% ≈ 1.8~7 倍=不高不低') && qs.price_level.criteria.low.includes('+40%~+80%，1.4~1.8 倍') && qs.price_level.criteria.mid.includes('+80%~+600%，1.8~7 倍'), 'F: price_level 六桶分界（BP27/BP25 案 low 档收窄+BP43 六桶改制 almost_launch 前插——low=较发行价 +40~80、mid 改 +80~600）');
+  ok(qs.price_level.instructions.includes('较发行价 >+80%（近 2 倍以上）=已明显脱离发行价区——正常路径不构成「价格低」的可参与证据') && qs.price_level.instructions.includes('+80% 以上的位置只有非常少的情况才可参与，此类豁免口暂未开设'), 'F: price_level 反锚④不开口句（BP27+BP43 界 +100→+80——mid 下界收到 +80，+80 以上只有非常少的情况才入暂未开口）');
+  ok(pb.instructions.includes('但只放宽一个档位') && pb.instructions.includes('从 almost_launch/near_launch 放宽到 low 档（较发行价 +40~80%）为止') && pb.instructions.includes('+80% 以上（price_level=mid 及以上）不在豁免范围') && pb.instructions.includes('庄盘也不追近二倍以上的位置') && pb.instructions.includes('low 档内的浅回调位同样 neutral'), 'F: 庄盘豁免一档帽（BP27/BP25 案+BP43 界随六桶改制——almost_launch/near_launch→low +40~80 为止，mid+ 不在豁免范围）');
+  ok(pb.instructions.includes('price_level=mid 及以上（较发行价 >+80%）的浅回调一律没跌到位') && pb.instructions.includes('高位浅回调没有可参与路径，庄盘豁免也不覆盖'), 'F: 忌讳②mid+ 一律句（BP27+BP43 界 +100→+80——+80% 以上不开口，高位浅回调庄盘豁免也不覆盖）');
   ok(pb.instructions.includes('不以清场否决本规则（判缺不猜，只有有证据的清场才否决）'), 'F: 大户证据缺失 fail-open（? 行不以清场否决——判缺不猜）');
   ok(pb.instructions.includes('绝对买入金额') && pb.instructions.includes('占比高≠大户'), 'F: 大户判据=持仓前三绝对买入金额非流通占比（BP17 修正锚——T047 第 1 大占 64.2% 只买 0.02=小散互捅非大户）');
   ok(pb.instructions.includes('「清仓式卖出钱包」数是快进快出噪音，不作清场主判据'), 'F: 清仓钱包数降级噪音参考（BP17 修正锚——正例 T041 清仓 6 个仍 good：真大户 0.412 刚进场锁仓）');
@@ -841,8 +900,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   }
   ok(hc2.instructions.includes('**参与/持有分叉**') && hc2.instructions.includes('拉高出货'), 'F: holder_concentration 参与持有分叉=拉高出货前奏度量');
   ok(hc2.instructions.includes('极早窗筹码集中是价格发现常态'), 'F: holder_concentration 反锚①极早窗从宽（价格发现期天然集中）');
-  ok(hc2.instructions.includes('价格临近发行价豁免持有者不均衡') && hc2.instructions.includes('currentVsLaunchPct ≤ +50%') && hc2.instructions.includes('不坐实 strong'),
-    'F: holder_concentration 反锚⑥价格豁免锚（BP15 谷谷案——贴发行价头部无浮盈可砸，不坐实 strong）');
+  ok(hc2.instructions.includes('价格几乎发行价豁免持有者不均衡') && hc2.instructions.includes('currentVsLaunchPct ≤ +20%') && hc2.instructions.includes('不坐实 strong'),
+    'F: holder_concentration 反锚⑥价格豁免锚（BP15 谷谷案+BP43 界 ≤+50 收至 ≤+20 almost_launch 档——贴发行价头部无浮盈可砸，不坐实 strong）');
   ok(hc2.instructions.includes('只豁本题（holder 集中轴），不豁 famous 控盘题'), 'F: holder_concentration 豁免⑥限定 holder 轴（BEM famous dominant 验收零翻案防线）');
   ok(hc2.instructions.includes('谷谷案·价格豁免正例') && hc2.instructions.includes('56.5%'), 'F: holder_concentration 形状样本含谷谷正例（6~9 过线+佐证但 +25% 贴发行价→豁免落观察档）');
   ok(hc2.instructions.includes('top1 单一 >90%') && hc2.instructions.includes('一人控盘'), 'F: holder_concentration 一人控盘例外（≤5 豁免域破例 strong）');

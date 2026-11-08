@@ -299,6 +299,15 @@ let _gmgnEntryOverrides = null;
 // 单写者，_narrativeFactorOverrides 同款模块级单例——无回填恒 null/0 → 纯观测键
 // 不进条件串（分级行为走引擎硬门）；引擎 stop 逐 token 清）
 let _cheatFactorOverrides = null;
+// CD381 almost_launch 重检锚（per token：自上次作弊门链评估以来 currentVsLaunchPct
+// 轨迹最小值；引擎门链评估点 markCheatGateEvaluated 重锚，stop 逐 token 清）。
+// 配套因子 priceBackToAlmostLaunch：min ≤ ALMOST_LAUNCH_PCT → 1（价格回到过
+// almost_launch=无论上次结果如何须重检，cheat 拉黑可翻案）；无锚（未检测过）
+// → null fail-closed（裸比较恒 false 不触发重检）
+let _cheatGatePriceAnchor = null;
+// almost_launch 价格级别定义（用户裁定 2026-11-08：相对发行价涨幅 ≤+20%）——
+// 定义非调参，改=改口径须同步 BP 题面 price_level 分界
+const ALMOST_LAUNCH_PCT = 20;
 // sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
 // BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
 // token_count 写入方=mine-smart-wallets.cjs --apply（入榜钱包 rawTotalRun）。⚠口径边界：当前
@@ -3946,6 +3955,32 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatRouterEntryBuyPct = _an ? _an.routerEntryBuyPct ?? null : null;
         }
 
+        // ── CD381 重检双键（2026-11-08 用户裁定：cheat 重判条件因子表达式化）──
+        // preCheatResult=上次作弊门链检测结果原值（字符串域，重判条件表达式主键
+        //   如 `preCheatResult == 'unhealthy'`；复用 _cheatFactorOverrides 通道零
+        //   新状态；null=未检测过）
+        // priceBackToAlmostLaunch=自上次门链评估以来价格回到过 almost_launch
+        //   （currentVsLaunchPct 轨迹 min ≤ ALMOST_LAUNCH_PCT=20）→ 1 / 未回过 → 0；
+        //   无锚（该 token 从未过门链）→ null fail-closed（裸比较恒 false 不触发
+        //   重检）。min 更新在本发射点（幂等单调，defer 两段喂食/回测乱序重放天然
+        //   收敛——min 只减不增）；锚由引擎门链评估点 markCheatGateEvaluated 重置
+        {
+            const _cgPc = state.tokenAddress && _cheatFactorOverrides
+                ? _cheatFactorOverrides.get(state.tokenAddress) || null : null;
+            factors.preCheatResult = _cgPc && _cgPc.grade ? _cgPc.grade : null;
+            if (state.tokenAddress && _cheatGatePriceAnchor && _cheatGatePriceAnchor.has(state.tokenAddress)) {
+                const _anchor = _cheatGatePriceAnchor.get(state.tokenAddress);
+                const _vsL = factors.currentVsLaunchPct;
+                if (_vsL != null) {
+                    _anchor.minVsLaunch = _anchor.minVsLaunch == null ? _vsL : Math.min(_anchor.minVsLaunch, _vsL);
+                }
+                factors.priceBackToAlmostLaunch = _anchor.minVsLaunch != null
+                    ? (_anchor.minVsLaunch <= ALMOST_LAUNCH_PCT ? 1 : 0) : null;
+            } else {
+                factors.priceBackToAlmostLaunch = null;
+            }
+        }
+
         return factors;
     }
 
@@ -4109,6 +4144,33 @@ class FourMemeFactorAggregator extends EventEmitter {
     /** 取回填的作弊盘分级（无则 null）。 */
     static getCheatFactors(tokenAddress) {
         return (_cheatFactorOverrides && _cheatFactorOverrides.get(tokenAddress)) || null;
+    }
+
+    /**
+     * CD381 almost_launch 重检锚重置（引擎写者：作弊门链每次评估点——含粘滞
+     * 秒回/拉黑秒回/真判/翻案，检测后价格轨迹从该点重新起算；stop 逐 token 清）。
+     * @param {string} tokenAddress
+     * @param {number|null} vsLaunchPct 评估时刻 currentVsLaunchPct（null=未见
+     *   可靠价——锚置 min:null，之后首个可靠价开始追踪）
+     */
+    static markCheatGateEvaluated(tokenAddress, vsLaunchPct) {
+        if (!tokenAddress) return false;
+        if (!_cheatGatePriceAnchor) _cheatGatePriceAnchor = new Map();
+        _cheatGatePriceAnchor.set(String(tokenAddress).toLowerCase(),
+            { minVsLaunch: Number.isFinite(vsLaunchPct) ? vsLaunchPct : null });
+        return true;
+    }
+
+    /** 读 almost_launch 重检锚（单测/诊断用；无锚 null）。 */
+    static getCheatGatePriceAnchor(tokenAddress) {
+        return (_cheatGatePriceAnchor
+            && _cheatGatePriceAnchor.get(String(tokenAddress || '').toLowerCase())) || null;
+    }
+
+    /** 清除 almost_launch 重检锚（引擎 stop 清单例，防同进程下一实验继承）。 */
+    static clearCheatGatePriceAnchor(tokenAddress) {
+        if (!_cheatGatePriceAnchor) return false;
+        return _cheatGatePriceAnchor.delete(String(tokenAddress || '').toLowerCase());
     }
 
     /** 清除某 token 的作弊盘分级回填（引擎 stop 清单例，防同进程下一实验继承）。 */

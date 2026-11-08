@@ -78,12 +78,20 @@ const SIGNAL_GATE_BP_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
  * 腿携带 signalGate = 初始买入信号源腿——condition 语义变为「触发条件」，触发后
  * 依次过作弊检测门 → 买入点位分析（BP）门，两门都过才买（纯盘面，无叙事/GMGN/
  * preBuy 层）。
- * 形状：plain object，键白名单 {maxTriggers, cheatRecheck, bpPassLevels}：
+ * 形状：plain object，键白名单 {maxTriggers, cheatRecheck, recheckCondition, bpPassLevels}：
  *   - maxTriggers：正整数，per (token, leg) 触发上限（触发即消耗——门拒不返还），
  *     缺省 1（用户裁定「默认只触发一次」）
  *   - cheatRecheck：bool，unhealthy 结论是否重判（true=重判≈CD158 现行；
  *     false=unhealthy 粘滞秒回拒省配额；healthy 同版本粘滞/cheat 拉黑终态两态不变），
- *     缺省 false
+ *     缺省 false。**CD381（2026-11-08）起为回落兼容字段——recheckCondition 在场
+ *     时本键被覆盖**（表达式真=重检，含翻案；假=粘滞/拉黑保持）
+ *   - recheckCondition（CD381 2026-11-08 用户裁定「cheat 重判条件因子表达式化」）：
+ *     FA 因子表达式字符串（如 `preCheatResult == 'unhealthy' OR
+ *     priceBackToAlmostLaunch == 1`）——门链评估点以 fire 因子表求值，真=绕过
+ *     粘滞与拉黑秒回真调重检（价格回到 almost_launch 重检可翻 cheat 案）、
+ *     假=沿用粘滞/拉黑态。缺省 null=回落 cheatRecheck 布尔语义（存量腿 bit 不变）；
+ *     表达式键域校验走 FA 因子集（condition 同款三防线，loadStrategies throw /
+ *     validateLegs 400）
  *   - bpPassLevels：BP 综合判定放行桶数组 ⊆ 四桶非空，缺省 ['good','neutral']
  *     （用户裁定 2026-11-05）
  * 非法形状/未知键/越界值 → error 字符串（loadStrategies throw 拒启 /
@@ -96,10 +104,10 @@ function normalizeSignalGate(raw) {
     if (typeof raw !== 'object' || Array.isArray(raw)) {
         return { normalized: null, error: `signalGate 必须是对象（键：maxTriggers/cheatRecheck/bpPassLevels），实际 ${JSON.stringify(raw)}` };
     }
-    const out = { maxTriggers: 1, cheatRecheck: false, bpPassLevels: ['good', 'neutral'] };
+    const out = { maxTriggers: 1, cheatRecheck: false, recheckCondition: null, bpPassLevels: ['good', 'neutral'] };
     for (const k of Object.keys(raw)) {
-        if (!['maxTriggers', 'cheatRecheck', 'bpPassLevels'].includes(k)) {
-            return { normalized: null, error: `signalGate 未知键 "${k}"（仅支持 maxTriggers/cheatRecheck/bpPassLevels）` };
+        if (!['maxTriggers', 'cheatRecheck', 'recheckCondition', 'bpPassLevels'].includes(k)) {
+            return { normalized: null, error: `signalGate 未知键 "${k}"（仅支持 maxTriggers/cheatRecheck/recheckCondition/bpPassLevels）` };
         }
     }
     if (raw.maxTriggers != null) {
@@ -114,6 +122,17 @@ function normalizeSignalGate(raw) {
             return { normalized: null, error: `signalGate.cheatRecheck 非法值 ${JSON.stringify(raw.cheatRecheck)}（须 bool）` };
         }
         out.cheatRecheck = raw.cheatRecheck;
+    }
+    // CD381 重判条件表达式（非空字符串；键域/语法校验在 loadStrategies FA 因子集
+    // 校验点做——normalize 只锁类型与长度，空串/null=回落 cheatRecheck 布尔语义）
+    if (raw.recheckCondition != null) {
+        if (typeof raw.recheckCondition !== 'string' || !raw.recheckCondition.trim()) {
+            return { normalized: null, error: `signalGate.recheckCondition 非法值 ${JSON.stringify(raw.recheckCondition)}（须非空字符串因子表达式）` };
+        }
+        if (raw.recheckCondition.length > 500) {
+            return { normalized: null, error: `signalGate.recheckCondition 超长（${raw.recheckCondition.length} > 500 字符）` };
+        }
+        out.recheckCondition = raw.recheckCondition;
     }
     if (raw.bpPassLevels != null) {
         const arr = Array.isArray(raw.bpPassLevels) ? raw.bpPassLevels : [raw.bpPassLevels];
@@ -236,6 +255,20 @@ class StrategyEngine {
                                 this._evaluator.parseCondition(raw), availableFactorIds);
                             if (!v.valid) {
                                 throw new Error(`策略[${config.id}] ${field} 引用未知因子: ${v.errors.join(', ')}——因子名写错会让子句静默失效，拒绝启动`);
+                            }
+                        }
+                    }
+                    // CD381（2026-11-08）signalGate.recheckCondition 重判条件表达式：
+                    // 评估上下文=门链评估点 fire 因子表（preCheatResult/
+                    // priceBackToAlmostLaunch 已进 FA 键域），同集校验；键域校验在
+                    // normalizeSignalGate 归一化产物上做（signalGate 段内字段非腿顶层）
+                    if (config.signalGate && typeof config.signalGate === 'object') {
+                        const rc = config.signalGate.recheckCondition;
+                        if (typeof rc === 'string' && rc.trim() !== '') {
+                            const v = this._evaluator.validateCondition(
+                                this._evaluator.parseCondition(rc), availableFactorIds);
+                            if (!v.valid) {
+                                throw new Error(`策略[${config.id}] signalGate.recheckCondition 引用未知因子: ${v.errors.join(', ')}——因子名写错会让重判条件静默恒假（永不重检），拒绝启动`);
                             }
                         }
                     }

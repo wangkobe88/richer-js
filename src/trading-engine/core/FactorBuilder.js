@@ -68,6 +68,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T122 接近发行价臂（2026-11-07）：现价较首可靠价涨幅 %（BP near_launch 同口径
     // ≤+50% 含破发）——新腿条件串主键，信号复盘需落库；旧 FA/无可靠价 → null 不掩盖
     currentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
+    // CD381 重检双键（2026-11-08）：preCheatResult=上次门链检测结果字符串原值 /
+    // priceBackToAlmostLaunch=自上次检测价格回到过 almost_launch（重判条件表达式
+    // 主键，signal 复盘须落库）；未检测/无锚 → null 不掩盖
+    preCheatResult: factorResults.preCheatResult ?? null,
+    priceBackToAlmostLaunch: factorResults.priceBackToAlmostLaunch ?? null,
     // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
     // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
     peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,
@@ -263,6 +268,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatGrade: factorResults.cheatGrade ?? null,
     cheatUnhealthyGrades: factorResults.cheatUnhealthyGrades ?? 0,
     cheatBlocked: factorResults.cheatBlocked ?? 0,
+    // CD381 重检双键（2026-11-08）——重判条件表达式主键，signal 复盘须落库
+    preCheatResult: factorResults.preCheatResult ?? null,
+    priceBackToAlmostLaunch: factorResults.priceBackToAlmostLaunch ?? null,
     cheatEqualAmountSplit: factorResults.cheatEqualAmountSplit ?? null,
     cheatCoordinatedSellBack: factorResults.cheatCoordinatedSellBack ?? null,
     cheatCreatorFrontRun: factorResults.cheatCreatorFrontRun ?? null,

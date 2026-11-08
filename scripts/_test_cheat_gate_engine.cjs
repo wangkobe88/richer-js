@@ -97,8 +97,8 @@ console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/�
   check('cheat → 拒买', r, { pass: false, reason: '作弊盘门拒买（cheat 拉黑+持仓清仓联动 [A_strong:same_block_buy_wave]）' });
   ok('cheat → 引擎侧拉黑（_cheatBlockedTokens）', eng._cheatBlockedTokens.has('0xtok'));
   // 1bcd0222 拒前 metadata.cheatCheck 落段（拒行可观测性：拒因带通道/档位+CD379 exempt 位）
-  check('cheat → 拒前 metadata.cheatCheck 段（grade/reasons+exempt:null 形状）', metas,
-    [{ id: 'sig-1', data: { cheatCheck: { status: 'analyzed', grade: 'cheat', cached: false, reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0, levels: null, buckets: null, strongbackerLike: 0, exempt: null } } }]);
+  check('cheat → 拒前 metadata.cheatCheck 段（grade/reasons+exempt:null+unblocked:false 形状）', metas,
+    [{ id: 'sig-1', data: { cheatCheck: { status: 'analyzed', grade: 'cheat', cached: false, reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0, levels: null, buckets: null, strongbackerLike: 0, exempt: null, unblocked: false } } }]);
   check('cheat → 清仓联动（why=cheat 判定）', exits, [{ addr: '0xtok', why: 'cheat 判定' }]);
   check('cheat → signal failed reason=cheat_gate_cheat', signals.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_cheat']]);
@@ -321,7 +321,7 @@ console.log('C. _cheatExitPosition');
   ok('内部异常 → 吞掉不外抛（warn 留痕，拉黑不受影响）', threw === false);
 }
 
-console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 数值锚二十六键——D3.39 abnormalBehavior（改名前 realParticipation）+协同买入四键+创建者峰值+D3.51 尖刺档一键两锚+D3.52 强庄档一键买卖比一锚扩（观察期零门侧消费））');
+console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 数值锚二十六键——D3.39 abnormalBehavior（改名前 realParticipation）+协同买入四键+创建者峰值+D3.51 尖刺档一键两锚+D3.52 强庄档一键买卖比一锚扩（观察期零门侧消费）；CD381 重检双键 preCheatResult/priceBackToAlmostLaunch）');
 {
   const FAmod = require('../src/services/FourMemeFactorAggregator');
   check('初始 null', FAmod.getCheatFactors('0xround'), null);
@@ -366,8 +366,8 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     'cheatMaxBlockPreGapSec', 'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct',
     'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll',
     'cheatStrongBackerPressure', 'cheatAnchorBuySellRatio', 'cheatStrongbackerLike',
-    'cheatRouterEntryBuyPct'];
-  ok('50 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键+CD159 SB1 观察键+D3.60 持有者基数三锚+D3.62 聚合路由入口锚（G17 N 通道源）纯观察：门侧零消费，条件串/研究侧自由消费）', need.every((k) => keys.includes(k)),
+    'cheatRouterEntryBuyPct', 'preCheatResult', 'priceBackToAlmostLaunch'];
+  ok('52 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键+CD159 SB1 观察键+D3.60 持有者基数三锚+D3.62 聚合路由入口锚（G17 N 通道源）纯观察：门侧零消费，条件串/研究侧自由消费；CD381 重检双键）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
     !keys.includes('cheatRealParticipation'));
@@ -410,6 +410,11 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
       dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
       nbs: fm.cheatNoBuySellPct, abr: fm.cheatAbnormalBehaviorRatio, mbk: fm.cheatMaxBlockBuyCount } : 'build null');
+  // CD381 双键发射：preCheatResult 投影上次 grade 字符串；无锚 →
+  // priceBackToAlmostLaunch null fail-closed（裸比较恒 false 不触发重检）
+  ok('CD381 双键发射：preCheatResult=unhealthy 投影 / 无锚 priceBackToAlmostLaunch=null',
+    fm && fm.preCheatResult === 'unhealthy' && fm.priceBackToAlmostLaunch === null,
+    fm ? { pc: fm.preCheatResult, pb: fm.priceBackToAlmostLaunch } : 'fm null');
   FAmod.clearCheatFactors('0xround');
   const fm2 = fa.buildFactorMap('0xround', T0 + 3000);
   ok('清投影 → 全 null/0（未判定语义，条件裸比较恒 false fail-closed）',
@@ -425,6 +430,56 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm2.cheatStrongBackerPressure === null && fm2.cheatAnchorBuySellRatio === null
     && fm2.cheatStrongbackerLike === 0,
     fm2 ? fm2.cheatGrade : 'build null');
+  ok('CD381 清投影后 preCheatResult=null / 仍无锚 priceBackToAlmostLaunch=null',
+    fm2 && fm2.preCheatResult === null && fm2.priceBackToAlmostLaunch === null,
+    fm2 ? { pc: fm2.preCheatResult, pb: fm2.priceBackToAlmostLaunch } : 'fm2 null');
+
+  // ── CD381 almost_launch 锚语义（第二 token 独立价格轨迹）──
+  // 轨迹：5e-9 发行 → 8e-9（+60%）→ mark(60) 窗口起算 → 回落 5.9e-9（+18%）
+  //   → 1 → 拉回 8e-9 → 重锚 mark(60) 复位（回落史不延续）→ 0
+  fa.registerToken('0xrl2', { createdAtMs: T0, totalSupply: 1e9, symbol: 'RL2' });
+  const rlTick = (price, txh, ts, logIdx) => fa.processTick({
+    token_address: '0xrl2', trade_type: 'buy', trader_address: '0xt1',
+    price_bnb: price, price_usd: price * 600, bnb_amount: 0.01,
+    token_amount: 2e6, block_number: 40000002, timestamp: ts, tx_hash: txh,
+    log_index: logIdx, price_outlier: false, platform: 'fourmeme' }, { emitFactors: false });
+  rlTick(5e-9, '0xrl-t1', T0 + 1000, 0);
+  rlTick(8e-9, '0xrl-t2', T0 + 2000, 1); // +60%
+  const fmRa = fa.buildFactorMap('0xrl2', T0 + 2100);
+  ok('CD381 无锚（从未过门链）→ priceBackToAlmostLaunch=null（fail-closed 不触发重检）',
+    fmRa && fmRa.currentVsLaunchPct === 60 && fmRa.priceBackToAlmostLaunch === null,
+    fmRa ? { vs: fmRa.currentVsLaunchPct, pb: fmRa.priceBackToAlmostLaunch } : 'build null');
+  FAmod.markCheatGateEvaluated('0xrl2', 60);
+  const fmRb = fa.buildFactorMap('0xrl2', T0 + 2200);
+  ok('CD381 mark(60) 窗口起算：现价仍 +60% 未回 almost_launch → 0',
+    fmRb && fmRb.priceBackToAlmostLaunch === 0 && fmRb.preCheatResult === null,
+    fmRb ? { pb: fmRb.priceBackToAlmostLaunch } : 'build null');
+  rlTick(5.9e-9, '0xrl-t3', T0 + 3000, 2); // +18% 回到 almost_launch
+  const fmRc = fa.buildFactorMap('0xrl2', T0 + 3100);
+  ok('CD381 回落到 +18% → min=18 ≤ 20 → priceBackToAlmostLaunch=1（触发重检）',
+    fmRc && fmRc.currentVsLaunchPct === 18 && fmRc.priceBackToAlmostLaunch === 1,
+    fmRc ? { vs: fmRc.currentVsLaunchPct, pb: fmRc.priceBackToAlmostLaunch } : 'build null');
+  rlTick(8e-9, '0xrl-t4', T0 + 4000, 3); // 拉回 +60%
+  FAmod.markCheatGateEvaluated('0xrl2', 60); // 门链再评估 → 锚复位
+  const fmRd = fa.buildFactorMap('0xrl2', T0 + 4100);
+  ok('CD381 重锚复位：mark(60) 后 min 从 60 重新起算（此前回落史不延续）→ 0',
+    fmRd && fmRd.currentVsLaunchPct === 60 && fmRd.priceBackToAlmostLaunch === 0,
+    fmRd ? { vs: fmRd.currentVsLaunchPct, pb: fmRd.priceBackToAlmostLaunch } : 'build null');
+  check('CD381 锚 API 往返（getCheatGatePriceAnchor 读 min）', FAmod.getCheatGatePriceAnchor('0xrl2'),
+    { minVsLaunch: 60 });
+  ok('CD381 mark(null/非有限值) → 锚 min=null（未见可靠价，之后首个可靠价开始追踪）',
+    FAmod.markCheatGateEvaluated('0xrl2', null) === true
+      && FAmod.getCheatGatePriceAnchor('0xrl2').minVsLaunch === null);
+  const fmRe = fa.buildFactorMap('0xrl2', T0 + 4200);
+  ok('CD381 锚 min=null + 现价可靠 → 首个可靠价接管 min → 60 > 20 → 0（有证据零值非 null）',
+    fmRe && fmRe.priceBackToAlmostLaunch === 0,
+    fmRe ? { pb: fmRe.priceBackToAlmostLaunch } : 'build null');
+  ok('CD381 清锚 API（stop 清单例语义）',
+    FAmod.clearCheatGatePriceAnchor('0xrl2') === true
+      && FAmod.getCheatGatePriceAnchor('0xrl2') === null);
+  const fmRf = fa.buildFactorMap('0xrl2', T0 + 4300);
+  ok('CD381 清锚后 → null（回到无锚 fail-closed）', fmRf && fmRf.priceBackToAlmostLaunch === null,
+    fmRf ? { pb: fmRf.priceBackToAlmostLaunch } : 'build null');
 
   // 事故现场反证（2026-11-04 太空制药 0x6a4f…7777 门旁路）：真 FA（非桩）探针
   // 返回 **Set**——旧引擎代码 Array.isArray(keys) 对 Set 恒 false → _cheatFactorKeys
@@ -564,8 +619,8 @@ async function testActivityExempt() {
     (svcSrc.match(/graded\.grade === 'cheat' && !activityExempt/g) || []).length === 1);
   ok('F4 bootstrap 恢复拉黑豁免检查（cheatSeen && !(isExempt && !denied)——与拉黑登记点同构）',
     svcSrc.includes('cheatSeen && !(this._isActivityExempt(cheatDigest'));
-  ok('F4 timeout late 包豁免变换（迟到结果不把豁免票错拉黑）',
-    svcSrc.includes('chain.then((r) => this._applyActivityExempt(r))'));
+  ok('F4 timeout late 包豁免+翻案变换（迟到结果不把豁免票错拉黑；CD381 重检迟到翻正同解除）',
+    svcSrc.includes('chain.then((r) => this._maybeUnblock(token, this._applyActivityExempt(r)))'));
   ok('F4 四出口统一变换（this._applyActivityExempt 调用恰 4 处：blocked/sticky/late/chain）',
     (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length === 4,
     (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length);

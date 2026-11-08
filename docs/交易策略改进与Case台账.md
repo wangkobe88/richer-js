@@ -16,7 +16,7 @@
 
 ## 一、现行买腿门链一屏（buy-v2 v55 快照；live v67 起实跑本屏——T89 门放宽+二次入场+T90 人气门 AND+T91 集中度瘦身+T93 保护瘦身+T96 净买门换轨+T98 剔尘埃人气换键+T105 剔狙击趋势键+T106 删集中度两门/短窗净买 20+T108 GMGN bundler 组退役/CD1 反作弊分级门上线；**T110（2026-11-03）起条件 fire 后加买信号发射节流（3000ms∧10 ticks∧帽 5 全局机制，见 T110 案；**T120（2026-11-05）tick 增量门默认退役——缺省 0=只剩时间窗+帽，显式正值可恢复，见 T120 案**）**；**T115（2026-11-04）v71 实验级发射帽 5→2（第三次检测=退场段接刀观察，见 T115 案）**；早期臂已撤（T84 撤臂 2026-10-29）；**T108b（2026-11-02）起 v67 二次买入关闭（repeat 腿删）+首买 cards 3→4（v55）**——单卡 BNB 0.001，单票首仓 0.004；**T112（2026-11-04）起 v70 实验级变体：净买门拆臂去 netL、短窗 20→12 笔（见 T112 案；库 v56 未动）**）
 
-**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1`（**现行 v9 十腿**：t0b 12 笔·1 BNB·6 真持有者起步即最早臂 + t2-t4 热度递升 + N30/36/45 纯热度 + NL15/20/25 接近发行价三臂（v9 起带 `tradeCount >= 10` tick 数源头门），全腿 `buyPhase:'first'` 每代币只买一次；谱系 v1 七腿→v3 十三腿→v5 九腿回测腿形→v6 删 t0a→v7 删 t1 8 笔档→v8 增 NL 三臂→v9 NL 加 tick 门，见 T117/T119/T121/T122 案；卡牌形状：引用实验买腿宜配 `cards:4`+`perCardBNB:0.05`——缺省 1 卡下「卖 1 卡」即清光=阶梯退化，T122 bt-v79 案）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测受控解禁（T121，2026-11-07）**——实验 `backtest.signalGateReal:true` 真调门链（缺省 false=signalGate 腿全量排除恒拒现状不变）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 10` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
+**T117（2026-11-05）起并存第二条买腿门链——「初始买入信号源门链」（signalGate 腿，纯盘面）**：携带 `signalGate` 段的买腿 condition 语义变为**触发条件**，fire 且 signal 落库成功后依次走**作弊门（二元版，grade 直接决策不走腿表达式）→ 买入点位分析门（BP 门，good/neutral 过）**两门都过才买；无叙事/GMGN/preBuy 任何层（与七个旧门字段互斥 fail-fast throw/400，见 T117 案）。首版载体=库条目 `signal-source-ladder-v1`（**现行 v10 十一腿**：t0b 12 笔·1 BNB·6 真持有者起步即最早臂 + t2-t4 热度递升 + N30/36/45 纯热度 + NL15/20/25 接近发行价三臂（v9 起带 `tradeCount >= 10` tick 数源头门）+ **RL15 重启臂（v10 新增，用户条件串原文）**，v10 起七 t/N 臂加价格门 `AND currentVsLaunchPct <= 80`（low 上界）+ **cheatRecheck 布尔全删、`recheckCondition` 因子表达式接棒（CD381：早臂族=`preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1`、NL 三臂=`priceBackToAlmostLaunch == 1`）**，全腿 `buyPhase:'first'` 每代币只买一次；谱系 v1 七腿→v3 十三腿→v5 九腿回测腿形→v6 删 t0a→v7 删 t1 8 笔档→v8 增 NL 三臂→v9 NL 加 tick 门→v10 价格门+RL15+recheck 表达式，见 T117/T119/T121/T122/T123 案；卡牌形状：引用实验买腿宜配 `cards:4`+`perCardBNB:0.05`——缺省 1 卡下「卖 1 卡」即清光=阶梯退化，T122 bt-v79 案）；触发即消耗（maxTriggers=1，门拒/超时不返还）+ 耗尽腿评估期排除次腿顶上（阶梯接棒）；**回测受控解禁（T121，2026-11-07）**——实验 `backtest.signalGateReal:true` 真调门链（缺省 false=signalGate 腿全量排除恒拒现状不变）。⚠ 引用实验须 `buySignalMaxPerToken ≥ 11` + `cheatCheck.enabled=true` + `buyPointCheck.enabled=true`（BP 门 disabled=fail-closed 全拒零买入）。
 
 ```
 (tokenAgeSec < 90 OR tradeCount >= 25)                    -- 时窗：90s 快窗 OR 慢热臂（T70/v39：非尘成交≥25 笔，去 600s 帽；preFilter age 无上界=不裁慢热票）
@@ -54,6 +54,21 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## 三、Case 档案
 
 ### 甲、买腿门与策略库
+
+### T123 ladder v10 十一腿：全臂价格门 ≤+80+RL15 重启臂+cheatRecheck→recheckCondition 表达式接棒（2026-11-08；用户六条批量需求之 4/5，CD381/BP43 同车）
+
+**动机（用户原话）**：「4. 所有的买入臂都要加入价格要求，都要在 low 范围内（现在除了强庄币开 low 外，其它都不开）」+「5. 增加买入臂 tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 20」（条件串原文直用）；同车需求 3「重检以或的形式放到作弊检测的因子表达式中，所有买腿都要加」=cheatRecheck 布尔全删、recheckCondition 因子表达式接棒（CD381 案，见 CD 台账——本侧只记库条目形状）。
+
+**ladder v10 十一腿**（库 signal-source-ladder-v1 version 10→11，`scripts/deploy-signal-source-strategies.cjs`）：
+
+1. **七臂加价格门**（t0b/t2/t3/t4/N30/N36/N45）：condition 尾加 `AND currentVsLaunchPct <= 80`——low 上界新档（BP43 六桶分界 low=+40~80）；null（未见可靠价）裸比较恒 false=宁拦不冒充，与 NL 臂 fail-closed 方向一致。NL15/20/25/RL15 自带 ≤50/…/≤20 价格门不加。
+2. **RL15 重启臂新增 p11**：`tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 20`（用户条件串原文）——BP43 restart 重启盘第七桶的入场点载体（BP 侧判「交易量充分后洗回起点」的票，位置 ≤+20=almost_launch 档）；recheckCondition=RECHECK_EARLY。
+3. **recheckCondition 两式接棒 cheatRecheck**：RECHECK_EARLY=`preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1`（t0b/t2/t3/t4/N30/N36/N45/RL15 八腿——早臂族语义：unhealthy 每信号重检 + 价格回到 almost_launch 重检）；RECHECK_STICKY=`priceBackToAlmostLaunch == 1`（NL15/20/25 三腿——高热度臂原 cheatRecheck=false 粘滞省配额，只有价格重检才真调）；全腿 signalGate `{maxTriggers:1, recheckCondition, bpPassLevels:['good','neutral']}`，cheatRecheck 字段全删（CD381 回落兼容字段，库条目不再携带）。
+4. 引用实验须 `buySignalMaxPerToken ≥ 11`（腿数 10→11）+cheatCheck.enabled+buyPointCheck.enabled。
+
+**部署链**：本地 dry-run validateLegs 零错误（version 10→11 UPDATE）→ commit+push → 182 pull + `node scripts/deploy-signal-source-strategies.cjs --commit` → 下次引用实验 copy-in 快照生效（改库不影响已建实验，须新建/换车）。
+
+**验证**：单测 signal_gate_engine 119/cheat_gate_engine 118/validate_legs 同批全绿；生产首跑对拍攒批（重启臂触发面/价格门拦截分布/CD381 forceRechecks 计数）。
 
 ### T122 接近发行价三臂（ladder v8 十腿：NL15/NL20/NL25）+ FA 新键 currentVsLaunchPct + bt-v78 跑后两纠（2026-11-07；bt-v77 完整窗口复盘同轮两改之一，与 CD379 活跃度豁免同车）
 

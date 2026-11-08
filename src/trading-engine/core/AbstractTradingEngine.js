@@ -1440,6 +1440,7 @@ class AbstractTradingEngine extends ITradingEngine {
       levels: res.levels ?? null, buckets: res.buckets ?? null,
       strongbackerLike: res.strongbackerLike ?? 0,
       exempt: res.exempt ?? null, // CD379 活跃度豁免留痕 { code:'activity_<桶>', originalGrade }
+      unblocked: res.unblocked === true, // CD381 翻案留痕（重检解除拉黑）
     };
   }
 
@@ -1449,9 +1450,20 @@ class AbstractTradingEngine extends ITradingEngine {
    * 自动重判；=false service 侧粘滞秒回拒省配额）；cheat=拉黑+清仓+硬拒；
    * 检测层故障 fail-open 放行进 BP（BP 门 fail-closed 全拒正是下游兜底）。
    * grade 均投影 FA（cheat 键快照/卖腿可消费）。
-   * @param {Object} signalGate 腿归一化 signalGate 段（cheatRecheck）
-   * @param {Object} [ctx] { anchorMs }——回测 as-of 锚（backtest.signalGateReal
-   *   链路传信号 fire 虚拟时刻；生产不传=service DB tail「最新」现状语义）
+   * **CD381 重判条件表达式化（2026-11-08 用户裁定）**：signalGate.recheckCondition
+   * （FA 因子表达式，fire 因子表评估）真 → gateBuyPoint 带 forceRecheck——
+   * 绕 service 拉黑秒回/粘滞秒回真调重判（主键 preCheatResult=上次 grade 字符串、
+   * priceBackToAlmostLaunch=自上次评估价格回到过 almost_launch≤+20%）；重检
+   * 不再判 cheat → service _maybeUnblock 解除拉黑+引擎侧 Set 同步解除（含 cheat
+   * 翻案）。表达式评估异常 warn+按假（保守不重检——表达式错误是配置问题，
+   * loadStrategies 三防线已拦键集外因子，此处兜运行期异常）。
+   * 每次评估点（含秒回）FA.markCheatGateEvaluated 重锚 almost_launch 窗
+   * （检测后价格轨迹从该点重新起算）。
+   * @param {Object} signalGate 腿归一化 signalGate 段（cheatRecheck/recheckCondition）
+   * @param {Object} [ctx] { anchorMs, factorResults }——anchorMs=回测 as-of 锚
+   *   （backtest.signalGateReal 链路传信号 fire 虚拟时刻；生产不传=service DB
+   *   tail「最新」现状语义）；factorResults=fire 因子表（recheckCondition 评估
+   *   与重锚 vsLaunch 取值）
    */
   async _cheatGateEvaluateBinary(tokenAddress, token, faState, signalId, signalGate, ctx = {}) {
     if (!this._cheatCheckService || !this._cheatCheckService.enabled) {
@@ -1470,12 +1482,27 @@ class AbstractTradingEngine extends ITradingEngine {
       creatorAddress: token.creatorAddress || null,
       totalSupply: faState?.totalSupply ?? null,
     };
+    // CD381 重判条件评估（fire 因子表；异常按假=保守不重检，warn 留痕）
+    let recheckDue = false;
+    const _recheckCond = signalGate.recheckCondition;
+    if (_recheckCond && ctx.factorResults) {
+      try {
+        const { ConditionEvaluator: _CE } = require('../../strategies/ConditionEvaluator');
+        const _ev = new _CE();
+        recheckDue = _ev.evaluate(_ev.parseCondition(_recheckCond), ctx.factorResults) === true;
+      } catch (e) {
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `重判条件评估异常按假（不重检） | ${token.symbol || tokenAddress.slice(0, 10)} ${e?.message || e}`);
+        recheckDue = false;
+      }
+    }
     let res;
     try {
       res = await this._cheatCheckService.gateBuyPoint(tokenAddress, meta,
         { experimentId: this._experimentId, signalId },
         {
           awaitMs: this._cheatGateAwaitMs, recheckUnhealthy: signalGate.cheatRecheck === true,
+          ...(recheckDue ? { forceRecheck: true } : {}), // CD381：绕拉黑/粘滞秒回真调重判
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
         });
     } catch (e) {
@@ -1484,7 +1511,21 @@ class AbstractTradingEngine extends ITradingEngine {
       return { pass: true, info: { status: 'error', reason: e?.message || String(e) } };
     }
 
+    // CD381 重锚：评估点重置 almost_launch 窗（fire 时刻现价起算——锚数据
+    // 锚定 fire 时点 anchorMs，非完成时刻；fail/insufficient 无 grade 不重锚，
+    // 重检窗保持武装下轮信号自动重试）
+    const _vsLaunchAtFire = Number.isFinite(ctx.factorResults?.currentVsLaunchPct)
+      ? ctx.factorResults.currentVsLaunchPct : null;
+
     if (res && res.grade) {
+      require('../../services/FourMemeFactorAggregator')
+        .markCheatGateEvaluated(tokenAddress, _vsLaunchAtFire);
+      if (res.unblocked === true) {
+        // CD381 翻案：重检不再判 cheat → service 已解除拉黑，引擎侧 Set 同步解除
+        this._cheatBlockedTokens.delete(tokenAddress);
+        this.logger.warn(this._experimentId, 'CheatGate',
+          `♻️ 作弊盘拉黑解除（almost_launch 重检不再判 cheat） | ${tokenAddress.slice(0, 10)} grade=${res.grade}`);
+      }
       this._projectCheatFactors(tokenAddress, res);
       const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
       if (res.grade === 'cheat') {
@@ -1512,7 +1553,8 @@ class AbstractTradingEngine extends ITradingEngine {
     if (res && res.status === 'timeout_fail_open') {
       this.logger.warn(this._experimentId, 'SignalGate',
         `作弊门竞速超时放行（${this._cheatGateAwaitMs}ms，本笔放行进 BP、迟到结果下轮生效） | ${token.symbol || tokenAddress.slice(0, 10)}`);
-      res.late.then((late) => this._cheatGateLateConsume(tokenAddress, late)).catch(() => {});
+      res.late.then((late) => this._cheatGateLateConsume(tokenAddress, late, _vsLaunchAtFire))
+        .catch(() => {});
       return { pass: true, info: { status: 'timeout_fail_open', awaitMs: this._cheatGateAwaitMs } };
     }
 
@@ -1638,9 +1680,20 @@ class AbstractTradingEngine extends ITradingEngine {
         };
   }
 
-  /** 竞速超时后迟到结果消费（本笔已放行）：补投影；cheat 补拉黑+清仓（下轮生效） */
-  _cheatGateLateConsume(tokenAddress, late) {
+  /**
+   * 竞速超时后迟到结果消费（本笔已放行）：补投影；cheat 补拉黑+清仓（下轮生效）。
+   * CD381：迟到结果同样重锚 almost_launch 窗（vsLaunchAtFire=fire 时刻值透传）；
+   * forceRecheck 重检迟到翻正（unblocked）同步解除引擎侧拉黑。
+   */
+  _cheatGateLateConsume(tokenAddress, late, vsLaunchAtFire = null) {
     if (!late || !late.grade) return;
+    require('../../services/FourMemeFactorAggregator')
+      .markCheatGateEvaluated(tokenAddress, Number.isFinite(vsLaunchAtFire) ? vsLaunchAtFire : null);
+    if (late.unblocked === true) {
+      this._cheatBlockedTokens.delete(tokenAddress);
+      this.logger.warn(this._experimentId, 'CheatGate',
+        `♻️ 作弊盘拉黑解除（迟到重检不再判 cheat） | ${tokenAddress.slice(0, 10)} grade=${late.grade}`);
+    }
     this._projectCheatFactors(tokenAddress, late);
     if (late.grade === 'cheat') {
       this._cheatBlockedTokens.add(tokenAddress);

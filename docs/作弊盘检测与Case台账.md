@@ -187,6 +187,24 @@
 
 ## Case 倒序
 
+### CD381 cheat 重判条件因子表达式化 + almost_launch 重检 + cheat 可翻案（2026-11-08，机制案·无 token；T117 门链续篇·用户六条批量需求之 1/3）
+
+**动机（用户六条批量需求 + 三项 AskUserQuestion 裁定）**：原话「对 cheat 的重判条件，作为买腿的一个配置项，也使用因子表达式进行表达，例如早臂的条件是 preCheatResult == 'unhealthy'。这个因子表达式要展示在 create-experiment 页面上」+「如果上次代币检测后，价格回到过 almost_launch（相对发布价涨幅 ≤+20%），无论上次检测结果如何都需要重新检测。这个新增的检测以或的形式放到作弊检测的因子表达式中，所有买腿都要加」；三项裁定：**「含 cheat，可翻案」**（价格回到 almost_launch 后拉黑票重检，不再判 cheat 即解除拉黑恢复可买）、「数值锚跟随新分界」（BP43 侧）、「≤+40% 位置门」（BP43 restart 侧）。
+
+**机制五件**：
+
+1. **`signalGate.recheckCondition`（FA 因子表达式，CD381 主载体）**：StrategyEngine `normalizeSignalGate` 白名单扩第四键（string 非空、≤500 字符）+ `loadStrategies` FA 键域校验（未知因子 throw 拒启——因子名写错会让重判条件静默恒假永不重检，三防线同款语义）+ `StrategyLibraryService.validateLegs` 同口径 400；**`cheatRecheck` 布尔降为回落兼容字段**（recheckCondition 在场时忽略；ladder v10 起全腿删除）。评估点=`_cheatGateEvaluateBinary` fire 因子表直评（`ConditionEvaluator` 直调；**评估异常 warn+按假**=保守不重检——表达式错误是配置问题，键域防线已拦，此处兜运行期异常）——真 → `gateBuyPoint` 带 `forceRecheck:true`。
+2. **FA 重检双键**：`preCheatResult`=上次作弊门链检测结果原值（字符串域 healthy/unhealthy/cheat；复用 `_cheatFactorOverrides` 通道零新状态；null=未检测过）；`priceBackToAlmostLaunch`=自上次门链评估以来价格回到过 almost_launch（`currentVsLaunchPct` 轨迹 min ≤ `ALMOST_LAUNCH_PCT`=20）→ 1/0，**无锚（该 token 从未过门链）null fail-closed**（裸比较恒 false 不触发重检）。锚=`_cheatGatePriceAnchor` 模块级 Map（`markCheatGateEvaluated` 评估点重锚、min 幂等单调 defer 乱序天然收敛；引擎 stop 逐 token 清）。**锚口径裁定**：每次门链评估点（含秒回）都重锚——越界触发有界（每段 pump-away 至多一次）、launch 段恒重检是合理行为，不改。⚠️ 与 BP43 `minVsLaunchPct`（锚窗**峰后最低**）是两个不同载体：FA=「自上次检测后回到过」（轨迹 min 重锚制）、BP=「锚窗历史形状」（峰后最低快照制）。
+3. **service `forceRecheck` 绕秒回**：入口拉黑秒回（`_blockedResult`）/粘滞秒回（healthy 粘滞、recheckUnhealthy=false unhealthy 粘滞）**全部绕过**真调重检（重检语义覆盖 recheckUnhealthy 布尔）；重检结果 ∈{healthy, unhealthy} ∧ 拉黑在场 → `_maybeUnblock` **解除拉黑恢复可买**（`unblocked:true` 留痕；出/迟到两路统一；引擎侧 `_cheatBlockedTokens` Set 同步解除；**清仓联动不回滚**——已清的仓不自动买回）；重检再判 cheat → 拉黑保持（`_gateBlocked` 未删，天然再秒回）。观测计数 `stats.forceRechecks`/`stats.unblocked`。
+4. **引擎拉黑短路放行臂+⚠️重启桥（兜底策略，显著标记供裁定可否决）**：`FourMemeWssTradingEngine` 拉黑双源短路处——signalGate 腿 ∧ `priceBackToAlmostLaunch==1` → 放行进门链走 forceRecheck 真调重判（可翻案）；legacy 腿保持终态短路不动（重检语义只活在 signalGate 链）。**重启桥**：bootstrap 恢复的拉黑票进程内无 FA 锚（锚=进程态随重启清空 → `priceBackToAlmostLaunch` 恒 null → 放行臂永不触发=翻案路径死锁）——signalGate 腿 ∧ FA 无锚条目 → **以 fire 现价武装锚**（`markCheatGateEvaluated(fire 现价)`）：本笔照旧短路，下 tick 因子重 build 后价格轨迹从此点起算（此后回到 ≤+20 即放行重检）。释放只导致真调重检、cheat 复判会再拉黑再重锚——安全性在重检本身。**用户须知**：此桥是「重启后翻案路径自愈」的兜底，若不认可可要求拆除（拆除后果=重启恢复的拉黑票永久无翻案路径，直到下次非重启用信号重建锚）。
+5. **留痕与 UI**：signal metadata `signalGate` 段加 `recheckCondition` 原文（FourMeme/Backtest 两引擎同形状；signals 页门链明细行展示 ?v=4.39）；创建页腿只读卡新增「作弊重判（信号源门链，CD381 表达式）」子条件行+「⚡信号源门·触发≤N」徽章+库引用浮层 ⚡标识（需求 1「表达式要展示在 create-experiment 页面」落地）。
+
+**配套**：ladder v10 十一腿全带 recheckCondition（早臂族七条=`preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1`、高热度四条=`priceBackToAlmostLaunch == 1`——需求 3「以或的形式放到所有买腿」由库条目统一承载；T 台账 T119 段）；BP43 almost_launch 六桶分界（BP 台账）。gradeObservation 规则域/G17 通道域/题集版本零改动（重检是门链消费侧，检测本体不变）；`CHEAT_QUESTIONS_VERSION` 不 bump。
+
+**单测**：`_test_signal_gate_engine.cjs` 119 断言（recheckCondition 评估/forceRecheck 传递/翻案解除/异常按假）/`_test_cheat_gate_engine.cjs` 118（拉黑短路放行臂+重启桥+FA 双键源码锁）/`_test_cheat_detection_service.cjs` 125（forceRecheck 绕秒回+_maybeUnblock 出/迟到两路）全绿。
+
+**余留观察点**：①生产 `forceRechecks`/`unblocked` 计数分布（重检触发面与翻案率）；②重启桥触发频率（bootstrap 恢复拉黑票首个 signalGate 信号）；③重检翻案票前向收益对拍（vs 拉黑期零参与基线）；④重检再判 cheat 率（almost_launch 回落票的 cheat 复发率）。
+
 ### CD380 豁免收紧三不臂：pump/wash/holdings 在场=活跃度豁免失效原判保持（2026-11-07，机制案·无 token；CD379 续篇+bt-v79 六票漏网复盘）
 
 **动机（bt-v79 复盘六票，用户三条裁定）**：原话「我觉得把 cheat 层面的豁免再收一下，pump 不豁免，出现严重对倒盘（0x06810806）这种情况如果已经检测出来的话，也不要豁免」+「holdingsBalance 也不豁免（持仓情况的问题，另一个维度）」+「我建议，这种豁免全部在 cheat 检测模块内部进行」——bt-v79 六票漏网买入诊断（`scripts/tmp-bp40-diagnose.cjs`）实证：**8 个放行买入信号 originalGrade 全∈{cheat,unhealthy} 且全部经 CD379 活跃度豁免放走**——刷量/锁仓型形状（缓推泵/对倒/持仓集中）天然制造高活跃度，活跃度豁免恰好专放这类票：

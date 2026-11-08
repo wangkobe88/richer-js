@@ -163,14 +163,42 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
       status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0,
       levels: { same_block_buy_wave: 'none' }, buckets: { activity: 'mid' }, strongbackerLike: 1,
       exempt: null, // CD379 活跃度豁免留痕位（service 出口变换才有值）
+      unblocked: false, // CD381 翻案留痕位（forceRecheck 重检解除拉黑才有 true）
     },
   });
   // healthy 缺席键 → 缺省形状（不冒充）
   const eng4b = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy' })) });
   check('healthy 缺席键 → 缺省形状', (await eng4b._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4b', SG())).info, {
     status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0,
-    levels: null, buckets: null, strongbackerLike: 0, exempt: null,
+    levels: null, buckets: null, strongbackerLike: 0, exempt: null, unblocked: false,
   });
+
+  // A4b CD381 重锚：grade 路径 markCheatGateEvaluated（fire 时刻 vsLaunch 透传）
+  const FA = require('../src/services/FourMemeFactorAggregator');
+  FA.clearCheatGatePriceAnchor('0xtok');
+  const eng4c = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy' })) });
+  await eng4c._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4c', SG(),
+    { factorResults: { currentVsLaunchPct: 35.2 } });
+  check('grade 路径 → FA 重锚（fire vsLaunch 原值）', FA.getCheatGatePriceAnchor('0xtok'), { minVsLaunch: 35.2 });
+  const eng4d = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy' })) });
+  await eng4d._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4d', SG(), {});
+  check('factorResults 缺席 → 重锚 min:null（未见可靠价不冒充）', FA.getCheatGatePriceAnchor('0xtok'), { minVsLaunch: null });
+  // insufficient/fail 无 grade → 不重锚（重检窗保持武装，下轮信号自动重试）
+  const eng4e = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'insufficient_ticks' })) });
+  await eng4e._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4e', SG(),
+    { factorResults: { currentVsLaunchPct: 10 } });
+  check('insufficient 无 grade → 不重锚（锚保持）', FA.getCheatGatePriceAnchor('0xtok'), { minVsLaunch: null });
+  FA.clearCheatGatePriceAnchor('0xtok');
+
+  // A4c CD381 翻案：res.unblocked=true → 引擎侧拉黑 Set 同步解除
+  const eng4f = makeEngine({
+    _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy', unblocked: true })),
+  });
+  eng4f._cheatBlockedTokens.add('0xtok');
+  const r4f = await eng4f._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4f', SG());
+  ok('翻案 → 放行', r4f.pass === true);
+  ok('翻案 → 引擎侧拉黑解除', !eng4f._cheatBlockedTokens.has('0xtok'));
+  ok('翻案 → info.unblocked 留痕', r4f.info.unblocked === true);
 
   // A5 timeout_fail_open → 放行 + late 挂钩 _cheatGateLateConsume（迟到拉黑下轮生效）
   const lateCalls = [];
@@ -205,6 +233,58 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
   await mkEng8(SG())._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-8b', SG({ cheatRecheck: false }));
   check('recheckUnhealthy 透传（true/false 两态）', optsSeen,
     [{ awaitMs: 15000, recheckUnhealthy: true }, { awaitMs: 15000, recheckUnhealthy: false }]);
+
+  // A9 CD381 recheckCondition 表达式评估 → forceRecheck 透传（真=重检绕拉黑/粘滞；
+  // 假=零 forceRecheck 键走原路径；异常=按假保守不重检 warn 留痕）
+  const RC = "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1";
+  const opts9 = [];
+  const mkEng9 = () => makeEngine({
+    _cheatCheckService: cheatSvc(async (a, m, c, opts) => { opts9.push(opts); return { status: 'analyzed', grade: 'healthy', reasons: [] }; }),
+  });
+  await mkEng9()._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9', SG({ recheckCondition: RC }),
+    { factorResults: { preCheatResult: 'unhealthy', priceBackToAlmostLaunch: 0 } });
+  await mkEng9()._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9b', SG({ recheckCondition: RC }),
+    { factorResults: { preCheatResult: 'cheat', priceBackToAlmostLaunch: 1 } });
+  await mkEng9()._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9c', SG({ recheckCondition: RC }),
+    { factorResults: { preCheatResult: 'healthy', priceBackToAlmostLaunch: 0 } });
+  await mkEng9()._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9d', SG({ recheckCondition: RC }),
+    { factorResults: { preCheatResult: null, priceBackToAlmostLaunch: null } });
+  check('recheckCondition 表达式评估 → forceRecheck 两态（unhealthy 命中/backToAlmost 命中/全不命中/缺证不命中）',
+    opts9.map((o) => o.forceRecheck === true),
+    [true, true, false, false]);
+  // 无 recheckCondition / 无 factorResults → 零 forceRecheck（回落现状）
+  const opts9b = [];
+  const mkEng9b = () => makeEngine({
+    _cheatCheckService: cheatSvc(async (a, m, c, opts) => { opts9b.push(opts); return { status: 'analyzed', grade: 'healthy', reasons: [] }; }),
+  });
+  await mkEng9b()._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9e', SG(), { factorResults: { preCheatResult: 'unhealthy' } });
+  await mkEng9b()._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9f', SG({ recheckCondition: RC }), {});
+  check('无 recheckCondition / 无 factorResults → 零 forceRecheck 键', opts9b.map((o) => o.forceRecheck), [undefined, undefined]);
+  // 表达式语法错 → 按假保守不重检（运行期兜底；键集错 loadStrategies 三防线已拦）
+  const opts9c = [];
+  const eng9c = makeEngine({
+    _cheatCheckService: cheatSvc(async (a, m, c, opts) => { opts9c.push(opts); return { status: 'analyzed', grade: 'healthy', reasons: [] }; }),
+  });
+  await eng9c._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-9g', SG({ recheckCondition: '&&& 语法错' }),
+    { factorResults: { preCheatResult: 'unhealthy' } });
+  check('表达式异常 → 按假不重检（fail-safe）', opts9c[0].forceRecheck, undefined);
+
+  // A10 CD381 timeout late 路径：迟到 grade 重锚 + unblocked 解除引擎拉黑
+  const eng10 = Object.assign(makeEngine({
+    _cheatCheckService: cheatSvc(async () => ({
+      status: 'timeout_fail_open',
+      late: Promise.resolve({ status: 'analyzed', grade: 'unhealthy', unblocked: true, reasons: [] }),
+    })),
+  }), { _projectCheatFactors: () => {}, _cheatExitPosition: async () => {} });
+  eng10._cheatBlockedTokens.add('0xtok');
+  FA.clearCheatGatePriceAnchor('0xtok');
+  const r10 = await eng10._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-10', SG(),
+    { factorResults: { currentVsLaunchPct: 12.5 } });
+  ok('timeout → 放行 fail-open', r10.pass === true);
+  await flush();
+  ok('迟到 unblocked → 引擎侧拉黑解除', !eng10._cheatBlockedTokens.has('0xtok'));
+  check('迟到 grade → 重锚（fire vsLaunch 透传）', FA.getCheatGatePriceAnchor('0xtok'), { minVsLaunch: 12.5 });
+  FA.clearCheatGatePriceAnchor('0xtok');
 }
 
 console.log('B. _bpGateEvaluate（BP 门 fail-closed——BP 是点位判定唯一来源无据不买；insufficient_ticks 同拒=BP10 翻案）');
@@ -404,13 +484,13 @@ console.log('D. StrategyEngine（归一化/fail-fast/互斥/evaluate 排除）')
   const leg = (o) => Object.assign({ id: 't1', name: 't1', action: 'buy', priority: 1, condition: 'tradeCount >= 1' }, o);
   const load = (legs) => { const se = new StrategyEngine({}); se.loadStrategies(legs); return se; };
 
-  // D1 缺省默认值（maxTriggers=1 / cheatRecheck=false / bpPassLevels=good+neutral）
+  // D1 缺省默认值（maxTriggers=1 / cheatRecheck=false / recheckCondition=null / bpPassLevels=good+neutral）
   const se1 = load([leg({ signalGate: {} })]);
   check('signalGate={} → 归一化默认值', se1.getAllStrategies()[0].signalGate,
-    { maxTriggers: 1, cheatRecheck: false, bpPassLevels: ['good', 'neutral'] });
-  const se1b = load([leg({ signalGate: { maxTriggers: 3, cheatRecheck: true, bpPassLevels: ['good'] } })]);
+    { maxTriggers: 1, cheatRecheck: false, recheckCondition: null, bpPassLevels: ['good', 'neutral'] });
+  const se1b = load([leg({ signalGate: { maxTriggers: 3, cheatRecheck: true, recheckCondition: 'tradeCount >= 5', bpPassLevels: ['good'] } })]);
   check('显式值原样归一化', se1b.getAllStrategies()[0].signalGate,
-    { maxTriggers: 3, cheatRecheck: true, bpPassLevels: ['good'] });
+    { maxTriggers: 3, cheatRecheck: true, recheckCondition: 'tradeCount >= 5', bpPassLevels: ['good'] });
   ok('无 signalGate 腿 → null（零变化）', load([leg({ id: 'plain' })]).getAllStrategies()[0].signalGate === null);
 
   // D2 非法形状 fail-fast throw
@@ -421,6 +501,19 @@ console.log('D. StrategyEngine（归一化/fail-fast/互斥/evaluate 排除）')
   await throwsWith('cheatRecheck=字符串 → throw', () => load([leg({ signalGate: { cheatRecheck: 'yes' } })]), 'cheatRecheck');
   await throwsWith('bpPassLevels=[] → throw', () => load([leg({ signalGate: { bpPassLevels: [] } })]), 'bpPassLevels');
   await throwsWith('bpPassLevels 非法桶 → throw', () => load([leg({ signalGate: { bpPassLevels: ['excellent'] } })]), 'bpPassLevels');
+  // D2b CD381 recheckCondition 非法形状（非字符串/空串/超长）fail-fast
+  await throwsWith('recheckCondition=数字 → throw', () => load([leg({ signalGate: { recheckCondition: 5 } })]), 'recheckCondition');
+  await throwsWith('recheckCondition=空串 → throw', () => load([leg({ signalGate: { recheckCondition: '  ' } })]), 'recheckCondition');
+  await throwsWith('recheckCondition=超长 → throw', () => load([leg({ signalGate: { recheckCondition: 'x'.repeat(501) } })]), '超长');
+  // D2c recheckCondition 未知因子 → loadStrategies 键域 throw（键名写错=重判条件
+  // 静默恒假永不重检，拒启；availableFactorIds 传入才校验）
+  const loadIds = (legs, ids) => { const se = new StrategyEngine({}); se.loadStrategies(legs, ids); return se; };
+  const IDS = new Set(['tradeCount', 'preCheatResult', 'priceBackToAlmostLaunch']);
+  await throwsWith('recheckCondition 未知因子 → throw（FA 键域）',
+    () => loadIds([leg({ signalGate: { recheckCondition: 'preCheatReslt == 1' } })], IDS), 'recheckCondition');
+  ok('recheckCondition 合法键 → 加载通过',
+    loadIds([leg({ signalGate: { recheckCondition: "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1" } })], IDS)
+      .getAllStrategies()[0].signalGate.recheckCondition === "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1");
 
   // D3 卖腿携带 → throw（仅买腿可配）
   await throwsWith('卖腿携带 signalGate → throw',
@@ -516,7 +609,7 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     BT.includes('strategy.signalGate && this._signalGateReal') &&
     BT.includes('this._sgRecordTrigger(tokenAddress, strategy.id);\n\n        const _meta'));
   ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视）',
-    BT.includes('strategy.signalGate, { anchorMs: nowTs })') &&
+    BT.includes('strategy.signalGate,\n          { anchorMs: nowTs, factorResults })') &&
     BT.includes('anchorMs: nowTs,'));
   ok('signalGateReal 服务构造 persist:false 隔离注入',
     BT.includes('persist: false, settleDelayMs: 0'));

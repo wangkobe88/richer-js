@@ -1,0 +1,166 @@
+{
+  "setName": "bp-t035-signals",
+  "builtAt": "2026-11-06T04:24:00.000Z",
+  "sampleRule": {
+    "source": "signals",
+    "note": "T035 Sun 3 信号触发点位（复审效果视角临时 set）"
+  },
+  "tokens": {
+    "0x68690152aaa5729f9f3145d0a910d738eb2d4444": {
+      "address": "0x68690152aaa5729f9f3145d0a910d738eb2d4444",
+      "symbol": "Sun"
+    }
+  },
+  "counts": {
+    "points": 3,
+    "tokens": 1
+  },
+  "points": [
+    {
+      "pointId": "T035-S1",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0x68690152aaa5729f9f3145d0a910d738eb2d4444",
+      "tokenSymbol": "Sun",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:15:17.553+00:00",
+      "signalInfo": {
+        "price": 5.705405098e-09,
+        "strategyName": "信号触发 t6 (v1)",
+        "legId": "buy_5_6",
+        "triggerNo": 1,
+        "tickNo": 2,
+        "totalTicks": 39
+      },
+      "anchorTickCount": 2,
+      "thin": true,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0x68690152aaa5729f9f3145d0a910d738eb2d4444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 63.9,
+            "lastPct": -1.9
+          },
+          "300": {
+            "maxRisePct": 63.9,
+            "lastPct": -21.8
+          },
+          "900": {
+            "maxRisePct": 63.9,
+            "lastPct": -21.8
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t6",
+      "exec": "failed",
+      "reason": "bp_gate_insufficient_ticks",
+      "vsFirstPct": 1.2
+    },
+    {
+      "pointId": "T035-S2",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0x68690152aaa5729f9f3145d0a910d738eb2d4444",
+      "tokenSymbol": "Sun",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:15:30.192+00:00",
+      "signalInfo": {
+        "price": 6.897087997e-09,
+        "strategyName": "信号触发 t1 (v1)",
+        "legId": "buy_0_1",
+        "triggerNo": 1,
+        "tickNo": 11,
+        "totalTicks": 39
+      },
+      "anchorTickCount": 11,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0x68690152aaa5729f9f3145d0a910d738eb2d4444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 35.5,
+            "lastPct": -35.3
+          },
+          "300": {
+            "maxRisePct": 35.5,
+            "lastPct": -35.3
+          },
+          "900": {
+            "maxRisePct": 35.5,
+            "lastPct": -35.3
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t1",
+      "exec": "failed",
+      "reason": "cheat_gate_unhealthy",
+      "vsFirstPct": 22.3
+    },
+    {
+      "pointId": "T035-S3",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0x68690152aaa5729f9f3145d0a910d738eb2d4444",
+      "tokenSymbol": "Sun",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:15:47.746+00:00",
+      "signalInfo": {
+        "price": 8.291421194e-09,
+        "strategyName": "信号触发 t2 (v1)",
+        "legId": "buy_1_2",
+        "triggerNo": 1,
+        "tickNo": 22,
+        "totalTicks": 39
+      },
+      "anchorTickCount": 22,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0x68690152aaa5729f9f3145d0a910d738eb2d4444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": -2.7,
+            "lastPct": -46.1
+          },
+          "300": {
+            "maxRisePct": -2.7,
+            "lastPct": -46.2
+          },
+          "900": {
+            "maxRisePct": -2.7,
+            "lastPct": -46.2
+          }
+        }
+      },
+      "trade": {
+        "buyExecuted": true,
+        "buyTradeId": "9dd70fe7-a306-4217-9c83-4ef9682f6438",
+        "buyAt": "2026-11-05T08:15:51.195+00:00",
+        "episode": {
+          "open": false,
+          "openQtyToken": 0,
+          "costBnb": 0.001,
+          "proceedsBnb": 0.001348,
+          "pnlBnb": 0.000348
+        }
+      },
+      "leg": "t2",
+      "exec": "executed",
+      "reason": null,
+      "vsFirstPct": 47
+    }
+  ]
+}

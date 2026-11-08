@@ -129,6 +129,17 @@ function validateLegs(side, legs) {
             if (conflicts.length > 0) {
                 errors.push(`腿[${i}] signalGate 与 ${conflicts.join('/')} 互斥（T117：纯盘面门链 vs 旧链路门字段，并存行为未定义）`);
             }
+            // CD381（2026-11-08）recheckCondition 键域校验（FA 集——与引擎
+            // loadStrategies 同口径；键名写错=重判条件静默恒假永不重检，入库即拦）
+            const rc = sg.normalized.recheckCondition;
+            if (typeof rc === 'string' && rc.trim() !== '') {
+                try {
+                    const v = evaluator.validateCondition(evaluator.parseCondition(rc), faIds);
+                    if (!v.valid) errors.push(`腿[${i}] signalGate.recheckCondition ${v.errors.join('; ')}`);
+                } catch (e) {
+                    errors.push(`腿[${i}] signalGate.recheckCondition 语法错误: ${e.message}`);
+                }
+            }
         }
         for (const [field, ids] of CONDITION_FIELDS) {
             const raw = leg[field];

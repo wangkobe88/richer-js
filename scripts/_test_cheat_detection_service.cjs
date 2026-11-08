@@ -318,6 +318,60 @@ async function main() {
       'unhealthy 翻案：真析 healthy（unhealthyGrades 观测计数保留不重置）');
     const rFlip2 = await svc4.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(rFlip2.cached === true && rFlip2.grade === 'healthy', '翻案后即粘滞（healthy 秒回）');
+    ok(rFlip.unblocked === undefined && svc4.stats.unblocked === 0,
+      '非 forceRecheck 真析天然零 unblocked（_maybeUnblock no-op——拉黑只在 cheat 判定登记）');
+  }
+
+  // ═══════════════ D5. CD381 forceRecheck 重检（almost_launch 回落可翻案） ═══════════════
+  console.log('D5. CD381 forceRecheck 重检+翻案');
+  {
+    // D5a forceRecheck 绕拉黑秒回真调：cheat 拉黑后普通二击=blocked 秒回零 Jev；
+    // forceRecheck=true → 真调重检（价格回到 almost_launch 的重检主路径）
+    const db = makeDb({ ticks: genTicks(20) });
+    const llm = makeLlm(); // GOOD 形状=A 通道 strong→cheat
+    const svc = makeSvc(db, llm);
+    await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(svc.isGateBlocked('0xtok') === true, '首判 cheat 拉黑');
+    const askAtBlock = llm.calls.ask;
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.grade === 'cheat' && r2.blocked === true && r2.cached !== true
+      && llm.calls.ask === askAtBlock && svc.stats.gateBlockedHits === 1,
+      '拉黑票普通二击=blocked 秒回（零 Jev）');
+    const r3 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, forceRecheck: true });
+    ok(r3.status === 'analyzed' && llm.calls.ask === askAtBlock + 1 && svc.stats.forceRechecks === 1,
+      'forceRecheck 绕拉黑秒回真调重检（ask+1、forceRechecks 计数）');
+    ok(r3.grade === 'cheat' && r3.unblocked !== true && svc.isGateBlocked('0xtok') === true,
+      '重检再判 cheat → 保持拉黑（无 unblocked 留痕）');
+
+    // D5b forceRecheck 重检翻正 → 解除拉黑（unblocked 留痕+可买恢复+清仓不回滚）
+    db.holder.ticks = genTicks(80, { routerEvery: 3 }); // 零售混合防 N 通道拦截（同 D4 形状）
+    llm.mod.JevClient.ask = async () => {
+      llm.calls.ask++;
+      return { model: 'fake', answers: NONE_ANSWERS, usage: { total: 1 } };
+    };
+    const r4 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, forceRecheck: true });
+    ok(r4.grade === 'healthy' && r4.unblocked === true && svc.isGateBlocked('0xtok') === false
+      && svc.stats.unblocked === 1,
+      '重检翻 healthy → 解除拉黑恢复可买（unblocked 留痕+stats.unblocked）');
+    const r5 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r5.cached === true && r5.grade === 'healthy' && r5.unblocked !== true,
+      '解除后下击=healthy 粘滞秒回（不再 blocked）');
+
+    // D5c forceRecheck 绕粘滞（healthy/unhealthy 两态——重检语义覆盖 recheckUnhealthy 布尔）
+    const r6 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, forceRecheck: true });
+    ok(r6.cached !== true && llm.calls.ask >= 3, 'forceRecheck 绕 healthy 粘滞真调');
+    const db6 = makeDb({ ticks: genTicks(20) });
+    const llm6 = makeLlm({ answers: PUMP_BURST });
+    const svc6 = makeSvc(db6, llm6);
+    await svc6.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }); // unhealthy 真析
+    const ask6 = llm6.calls.ask;
+    const r7 = await svc6.gateBuyPoint('0xtok', META, {},
+      { awaitMs: 3000, recheckUnhealthy: false }); // 粘滞秒回
+    ok(r7.cached === true && llm6.calls.ask === ask6, 'recheckUnhealthy=false → unhealthy 粘滞秒回');
+    const r8 = await svc6.gateBuyPoint('0xtok', META, {},
+      { awaitMs: 3000, recheckUnhealthy: false, forceRecheck: true });
+    ok(r8.cached !== true && llm6.calls.ask === ask6 + 1,
+      'forceRecheck 覆盖 recheckUnhealthy=false 绕粘滞真调');
   }
 
   // ═══════════════ E. 满帽拉数（capped） ═══════════════

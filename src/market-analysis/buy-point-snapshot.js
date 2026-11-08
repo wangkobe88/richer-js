@@ -370,8 +370,14 @@ function computeBuyPointDerived(snapshot) {
   // currentVsLaunchPct=末可靠价较发行价 %（可破发为负）；athVsLaunchPct=锚窗最高
   // 可靠价（arc.ath）较发行价 %（BP39/案号 BP34「开盘拉得过高」直接度量锚——Jev
   // 结构性组合不了 currentVsLaunch+currentVsAth 两数，直供；launchCovered 域内
-  // arc.ath≤0 时 null fail-closed）──
+  // arc.ath≤0 时 null fail-closed）；minVsLaunchPct=锚窗**峰后最低**可靠价较发行价 %
+  //（BP43 restart 重启盘「涨起来→又跌回 almost_launch」往返轨迹直供锚——**峰后**而非
+  // 整窗最低：launchCovered 窗含出生段，整窗最低恒=发行价本身 → ≤+20 恒真=判据腿
+  // 结构性失效；峰后段=首个最高价之后，仍在最高点（ATH 在末位）=从未回落 → null
+  // 不冒充「回到过」；Jev 组合不了峰后最低与发行价两数故直供；BP 侧 rel 自算零 CD
+  // 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
+  let minVsLaunchPct = null;
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
     launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
@@ -379,6 +385,15 @@ function computeBuyPointDerived(snapshot) {
       launchPriceBnb = +rel[0].priceBnb.toFixed(10);
       currentVsLaunchPct = +(((arc.last / launchPriceBnb) - 1) * 100).toFixed(1);
       if (arc.ath > 0) athVsLaunchPct = +(((arc.ath / launchPriceBnb) - 1) * 100).toFixed(1);
+      // 峰后最低：首个最高价（严格 > 前值取首个）之后段的最低可靠价——多峰取首峰后
+      // 全段（第二峰的回落也计入）；ATH 在末位 → 峰后段空 → null（仍在最高点）
+      let athIdx = 0;
+      for (let i = 1; i < rel.length; i++) if (rel[i].priceBnb > rel[athIdx].priceBnb) athIdx = i;
+      if (athIdx < rel.length - 1) {
+        let minRel = rel[athIdx + 1].priceBnb;
+        for (let i = athIdx + 2; i < rel.length; i++) if (rel[i].priceBnb < minRel) minRel = rel[i].priceBnb;
+        if (minRel > 0) minVsLaunchPct = +(((minRel / launchPriceBnb) - 1) * 100).toFixed(1);
+      }
     }
   }
 
@@ -517,8 +532,9 @@ function computeBuyPointDerived(snapshot) {
     currentVsSwingLowPct: swing ? swing.vsLowPct : null,
     swingMaxAmplPct: swing ? swing.maxAmplPct : null,
     // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键；
-    // athVsLaunchPct=锚窗最高可靠价较发行价 %，BP39「开盘拉高出货盘」度量锚）
-    launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, launchCovered,
+    // athVsLaunchPct=锚窗最高可靠价较发行价 %，BP39「开盘拉高出货盘」度量锚；
+    // minVsLaunchPct=锚窗峰后最低可靠价较发行价 %，BP43 restart 重启盘轨迹锚）
+    launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, minVsLaunchPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,
     // holder 流向族（BP2：tok 缺失全族 null）

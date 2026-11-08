@@ -82,12 +82,13 @@ const FAMOUS_DOMINATION_LEVELS = ['none', 'light', 'heavy', 'dominant'];
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
-const PRICE_LEVEL_LEVELS = ['near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 盘面分类六桶（BP18 用户裁定五类型学；BP34 加第六桶 sustained_climb：strong_backer
- * 强盘最好类型/retail_pvp 散户 PVP（门桶拒买）/famous_monopoly famous 独食（门桶
- * 拒买）/early_sniper_decay 狙击衰竭（门桶拒买）/blended_unremarkable 融合盘中性
- * 可赌/sustained_climb 持续拉升弱回调（走独立位置门非三桶硬拒） */
-const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb'];
+const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
+/** 盘面分类七桶（BP18 用户裁定五类型学；BP34 加 sustained_climb；BP43 加 restart
+ * 重启盘：strong_backer 强盘最好类型/retail_pvp 散户 PVP（门桶拒买）/famous_monopoly
+ * famous 独食（门桶拒买）/early_sniper_decay 狙击衰竭（门桶拒买）/blended_unremarkable
+ * 融合盘中性可赌/sustained_climb 持续拉升弱回调（走独立位置门非三桶硬拒）/restart
+ * 重启盘（走独立位置门非三桶硬拒） */
+const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb', 'restart'];
 /** 盘型门拒买桶（BP18：retail_pvp/famous_monopoly/early_sniper_decay 三桶硬拒；
  * strong_backer（最好类型）与 blended_unremarkable（融合可赌）不拦；BP30 起为
  * 判定链首门（预判断最前）；BP34 的 sustained_climb **刻意不入本表**——走
@@ -101,6 +102,14 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_snipe
  * 大户人人有卖=对倒平衡——BP34 初版「强庄身份豁免」致⑥零命中，BP35 收口为家族
  * 归属句非逃逸门，身份证据不豁免双臂判据） */
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
+/** ⑦restart 重启盘参与位置界（BP43/CD381 2026-11-08 用户裁定「盘型判重启后现价
+ * ≤+40% 位置门放行质量题」）：盘型判 restart（经历一定交易量后价格回到过
+ * almost_launch）的票，现价较发行价 ≤+40%（near_launch 以内，含 almost_launch
+ * 与破发）=放行两道质量题正常评估；已拉离（>+40%）或锚缺失（宁拦不冒充——发行价
+ * 位置 ? = ticks 未覆盖出生段）→ 盘型门拒。与 ⑥SUSTAINED_CLIMB_LAUNCH_PCT 同款
+ * 「判型归 Jev、位置归代码」模式；交易量门槛（tradeCount≥10 ∧ buyVolumeBnb≥1.5）
+ * 是题面判据材料非代码门——BP42「不搞代码门」铁律 */
+const RESTART_LAUNCH_PCT = 40;
 // BP42（2026-11-08 用户裁定）：真庄反锚机械门整段拆除，回归 BP12「不搞代码门」
 // 两次明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内
 // 代价入攒批池（复审候选=题面独立前置题形态，仍非代码门）。题面层④桶反锚判序
@@ -248,6 +257,13 @@ function buildBuyPointObservation(answers, anchors = null) {
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
+  // ⑦restart 重启盘位置臂（BP43）：near_launch 以内（≤+40% 含 almost_launch 与
+  //   破发）放行质量题；已拉离/锚缺失拒（同⑥模式——判型归 Jev 位置归代码）
+  if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'restart') {
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > RESTART_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
+  }
   // BP38：strong_backer ultra 豁免——强庄盘拉盘天然密集，ultra 密度不是拒买证据
   //   （ultra 臂仅此豁免；low 臂不豁免——活跃度死寂强庄盘照拦；market_pattern 缺席
   //   时豁免不生效=照拦保守方向；盘型门最前，走④②③⑥拒的票轮不到本门不受影响）
@@ -308,6 +324,7 @@ function buildBuyPointObservation(answers, anchors = null) {
       launchPriceBnb: _num(b, 'launchPriceBnb'),
       currentVsLaunchPct: _num(b, 'currentVsLaunchPct'),
       athVsLaunchPct: _num(b, 'athVsLaunchPct'), // BP39 开盘拉高出货度量锚（锚窗最高价较发行价 %）
+      minVsLaunchPct: _num(b, 'minVsLaunchPct'), // BP43 restart 重启盘轨迹锚（锚窗峰后最低价较发行价 %）
       launchCovered: b.launchCovered === null || b.launchCovered === undefined ? null : (b.launchCovered ? 1 : 0),
       // 市值位置族（BP2：supply 缺失 null fail-closed）
       mcapBnb: _num(b, 'mcapBnb'),
@@ -407,6 +424,8 @@ module.exports = {
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
   PATTERN_GATE_POOR_BUCKETS,
+  SUSTAINED_CLIMB_LAUNCH_PCT,
+  RESTART_LAUNCH_PCT,
   ACTIVITY_GATE_POOR_BUCKETS,
   CHIP_GATE_FAMOUS_POOR_BUCKETS,
   QUALITY_LEVELS,

@@ -1,0 +1,301 @@
+{
+  "setName": "bp-t034-signals",
+  "builtAt": "2026-11-06T03:58:00.000Z",
+  "sampleRule": {
+    "source": "signals",
+    "note": "T034 無為 6 信号触发点位（复审效果视角临时 set）"
+  },
+  "tokens": {
+    "0xb97d5772bf70814161d29243b0e39ec62f734444": {
+      "address": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "symbol": "無為"
+    }
+  },
+  "counts": {
+    "points": 6,
+    "tokens": 1
+  },
+  "points": [
+    {
+      "pointId": "T034-S1",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenSymbol": "無為",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:11:50.955+00:00",
+      "signalInfo": {
+        "price": 6.461596153e-09,
+        "strategyName": "信号触发 t6 (v1)",
+        "legId": "buy_5_6",
+        "triggerNo": 1,
+        "tickNo": 4,
+        "totalTicks": 266
+      },
+      "anchorTickCount": 4,
+      "thin": true,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0xb97d5772bf70814161d29243b0e39ec62f734444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 190.5,
+            "lastPct": 55.6
+          },
+          "300": {
+            "maxRisePct": 190.5,
+            "lastPct": -25.6
+          },
+          "900": {
+            "maxRisePct": 190.5,
+            "lastPct": -30.9
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t6",
+      "exec": "failed",
+      "reason": "bp_gate_insufficient_ticks",
+      "vsFirstPct": 26.9
+    },
+    {
+      "pointId": "T034-S2",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenSymbol": "無為",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:11:58.211+00:00",
+      "signalInfo": {
+        "price": 9.516215421e-09,
+        "strategyName": "信号触发 t1 (v1)",
+        "legId": "buy_0_1",
+        "triggerNo": 1,
+        "tickNo": 14,
+        "totalTicks": 266
+      },
+      "anchorTickCount": 14,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0xb97d5772bf70814161d29243b0e39ec62f734444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 97.2,
+            "lastPct": -11.3
+          },
+          "300": {
+            "maxRisePct": 97.2,
+            "lastPct": -49.5
+          },
+          "900": {
+            "maxRisePct": 97.2,
+            "lastPct": -53.1
+          }
+        }
+      },
+      "trade": {
+        "buyExecuted": true,
+        "buyTradeId": "a7aa72f5-20e1-496e-8e89-6a82c9cf0d91",
+        "buyAt": "2026-11-05T08:12:01.241+00:00",
+        "episode": {
+          "open": false,
+          "openQtyToken": 0,
+          "costBnb": 0.001,
+          "proceedsBnb": 0.001668,
+          "pnlBnb": 0.000668
+        }
+      },
+      "leg": "t1",
+      "exec": "executed",
+      "reason": null,
+      "vsFirstPct": 86.8
+    },
+    {
+      "pointId": "T034-S3",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenSymbol": "無為",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:12:26.631+00:00",
+      "signalInfo": {
+        "price": 1.6815930962e-08,
+        "strategyName": "信号触发 t2 (v1)",
+        "legId": "buy_1_2",
+        "triggerNo": 1,
+        "tickNo": 97,
+        "totalTicks": 266
+      },
+      "anchorTickCount": 97,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0xb97d5772bf70814161d29243b0e39ec62f734444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 10.5,
+            "lastPct": -70.2
+          },
+          "300": {
+            "maxRisePct": 10.5,
+            "lastPct": -71.4
+          },
+          "900": {
+            "maxRisePct": 10.5,
+            "lastPct": -73.4
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t2",
+      "exec": "failed",
+      "reason": "bp_gate_assessment",
+      "vsFirstPct": 230.1
+    },
+    {
+      "pointId": "T034-S4",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenSymbol": "無為",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:12:30.163+00:00",
+      "signalInfo": {
+        "price": 1.5653134817e-08,
+        "strategyName": "信号触发 t3 (v1)",
+        "legId": "buy_2_3",
+        "triggerNo": 1,
+        "tickNo": 111,
+        "totalTicks": 266
+      },
+      "anchorTickCount": 111,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0xb97d5772bf70814161d29243b0e39ec62f734444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 18.7,
+            "lastPct": -68
+          },
+          "300": {
+            "maxRisePct": 18.7,
+            "lastPct": -69.3
+          },
+          "900": {
+            "maxRisePct": 18.7,
+            "lastPct": -71.5
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t3",
+      "exec": "failed",
+      "reason": "bp_gate_assessment",
+      "vsFirstPct": 207.3
+    },
+    {
+      "pointId": "T034-S5",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenSymbol": "無為",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:12:33.798+00:00",
+      "signalInfo": {
+        "price": 1.6691227366e-08,
+        "strategyName": "信号触发 t4 (v1)",
+        "legId": "buy_3_4",
+        "triggerNo": 1,
+        "tickNo": 125,
+        "totalTicks": 266
+      },
+      "anchorTickCount": 125,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0xb97d5772bf70814161d29243b0e39ec62f734444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 11.3,
+            "lastPct": -71
+          },
+          "300": {
+            "maxRisePct": 11.3,
+            "lastPct": -71.2
+          },
+          "900": {
+            "maxRisePct": 11.3,
+            "lastPct": -73.2
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t4",
+      "exec": "failed",
+      "reason": "bp_gate_assessment",
+      "vsFirstPct": 227.7
+    },
+    {
+      "pointId": "T034-S6",
+      "source": "trades",
+      "experimentId": "c6efed13-ce9d-41b0-89a5-8ca8b029a609",
+      "experimentName": "v73-实盘-both-T117信号源阶梯-门链-1105",
+      "tokenAddress": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+      "tokenSymbol": "無為",
+      "signalId": null,
+      "signalCreatedAt": "2026-11-05T08:12:37.387+00:00",
+      "signalInfo": {
+        "price": 1.5303090298e-08,
+        "strategyName": "信号触发 t5 (v1)",
+        "legId": "buy_4_5",
+        "triggerNo": 1,
+        "tickNo": 138,
+        "totalTicks": 266
+      },
+      "anchorTickCount": 138,
+      "thin": false,
+      "anchorZero": false,
+      "capped": false,
+      "ticksFile": "0xb97d5772bf70814161d29243b0e39ec62f734444.json",
+      "quoteToken": null,
+      "forwardReturns": {
+        "byHorizon": {
+          "60": {
+            "maxRisePct": 1.9,
+            "lastPct": -67.2
+          },
+          "300": {
+            "maxRisePct": 1.9,
+            "lastPct": -68.6
+          },
+          "900": {
+            "maxRisePct": 1.9,
+            "lastPct": -70.8
+          }
+        }
+      },
+      "trade": null,
+      "leg": "t5",
+      "exec": "failed",
+      "reason": "bp_gate_assessment",
+      "vsFirstPct": 200.4
+    }
+  ]
+}

@@ -173,6 +173,7 @@ class CheatCheckService {
       timeouts: 0, errors: 0, inflightJoined: 0,
       gateNoted: 0, gateBlockedHits: 0, gateTimeouts: 0, gateGraded: 0,
       stickyReused: 0, stickyBootstrapped: 0,
+      forceRechecks: 0, unblocked: 0, // CD381 almost_launch 重检（真调次数/翻案解除数）
       settleIdleHits: 0, settleIdleTimeouts: 0,  // waitIdle 双模观测（idle 提前出窗/吃满帽）
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // ② 对拍护栏观测
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
@@ -238,7 +239,13 @@ class CheatCheckService {
     // CD379 活跃度豁免：出口统一包 _applyActivityExempt（拉黑登记/恢复点已跳过
     // 豁免票，blocked 出口此处为纯防御形状统一——bootstrap 恢复的旧拉黑行以
     // 恢复点的 activity 档检查为准）
-    if (this._gateBlocked.has(token)) return this._applyActivityExempt(this._blockedResult(token));
+    // CD381 forceRecheck（2026-11-08 用户裁定「价格回到 almost_launch 无论上次
+    // 结果如何都重检，cheat 可翻案」）：重判条件表达式真→拉黑秒回/粘滞秒回全部
+    // 绕过真调重检；重检不再判 cheat=解除拉黑（_maybeUnblock，出/迟到两路统一）
+    if (this._gateBlocked.has(token) && opts.forceRecheck !== true) {
+      return this._applyActivityExempt(this._blockedResult(token));
+    }
+    if (opts.forceRecheck === true) this.stats.forceRechecks++; // CD381 重检观测
 
     // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
     // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）。
@@ -246,9 +253,11 @@ class CheatCheckService {
     //（省配额；用户裁定「不需重新作弊分析」=unhealthy 不重判直接用已有结论）；
     // 默认缺省 true = CD158 现行行为（unhealthy 每买信号重判）。inflight join
     // 边缘：recheck=false 腿 join 上 recheck=true 腿已起的真析链=拿更细结果，
-    // 不烧额外配额，方向安全接受
+    // 不烧额外配额，方向安全接受。CD381 forceRecheck：healthy/unhealthy 粘滞
+    // 全部绕过（重检语义覆盖 recheckUnhealthy 布尔）
     const lg = this._lastGrade.get(token);
-    if (lg && (lg.grade === 'healthy'
+    if (opts.forceRecheck !== true
+        && lg && (lg.grade === 'healthy'
         || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
       return this._applyActivityExempt(this._stickyResult(token, lg)); // CD379：sticky unhealthy 豁免票同放行
     }
@@ -272,14 +281,34 @@ class CheatCheckService {
     if (result === timedOut) {
       this.stats.gateTimeouts++;
       // CD379：late 包同款豁免变换——迟到结果若 activity high+ 豁免，_cheatGateLateConsume
-      // 收到 healthy 不补拉黑不清仓（原样 chain 会把豁免票错拉黑）
-      const late = chain.then((r) => this._applyActivityExempt(r));
+      // 收到 healthy 不补拉黑不清仓（原样 chain 会把豁免票错拉黑）；
+      // CD381：late 包加翻案变换（forceRecheck 重检迟到翻正同解除拉黑）
+      const late = chain.then((r) => this._maybeUnblock(token, this._applyActivityExempt(r)));
       return { status: 'timeout_fail_open', late, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 }; // CD159 观察臂（此刻粘滞值；late 完成后可能翻转，投影以 late 消费为准）
     }
     if (result && (result.grade === 'cheat' || result.grade === 'unhealthy' || result.grade === 'healthy')) {
       this.stats.gateGraded++;
     }
-    return this._applyActivityExempt(result); // CD379：chain 结果（含 4b/4c 秒回）统一出口变换
+    // CD381 翻案统一出口：forceRecheck 重检结果非 cheat ∧ 原拉黑在场 → 解除
+    //（非 forceRecheck 路径结果必 cheat 才会拉黑在场，_maybeUnblock 天然 no-op）
+    return this._applyActivityExempt(this._maybeUnblock(token, result)); // CD379：chain 结果（含 4b/4c 秒回）统一出口变换
+  }
+
+  /**
+   * CD381 翻案（2026-11-08 用户裁定「含 cheat 可翻案」）：forceRecheck 重检结果
+   * ∈ {healthy, unhealthy} ∧ 拉黑在场 → 解除拉黑（恢复可买；清仓联动不回滚——
+   * 已清的仓不自动买回）。非重检路径调用天然 no-op（拉黑只在 cheat 判定登记，
+   * 无 forceRecheck 的真析若翻 healthy 说明此前未拉黑）。返回 res 原样+unblocked
+   * 留痕（引擎侧同步解引擎 Set）。
+   */
+  _maybeUnblock(token, res) {
+    if (!res || !this._gateBlocked.has(token)) return res;
+    if (res.grade !== 'healthy' && res.grade !== 'unhealthy') return res;
+    this._gateBlocked.delete(token);
+    this.stats.unblocked = (this.stats.unblocked ?? 0) + 1;
+    this._logger && this._logger.info && this._logger.info('CheatGate',
+      `🔓 CD381 翻案：价格回到 almost_launch 重检 ${res.grade}，解除拉黑恢复可买 | ${token}`);
+    return { ...res, unblocked: true };
   }
 
   /** G1 拉黑查询（引擎买条件评估后短路用——省叙事直调/preBuy 整条链） */
@@ -403,16 +432,19 @@ class CheatCheckService {
 
       // 4b) 拉黑复检（bootstrap 门状态恢复配套）：重启后首链走不到入口内存短路——
       // bootstrap 才从 DB 行恢复拉黑；此处不复检则已拉黑票重启后白烧一次 Jev。
-      // 恢复即终态：秒回 graded/blocked（与入口短路同形状，消费端零改动）
-      if (this._gateBlocked.has(token)) return this._blockedResult(token);
+      // 恢复即终态：秒回 graded/blocked（与入口短路同形状，消费端零改动）。
+      // CD381 forceRecheck：绕过（almost_launch 重检可翻案）
+      if (this._gateBlocked.has(token) && opts.forceRecheck !== true) return this._blockedResult(token);
 
       // 4c) 粘滞复检（CD158）：重启后首链入口粘滞不命中（内存空）——bootstrap
       // 恢复 healthy _lastGrade 后在此秒回，**不烧 Jev**（无此复检=粘滞语义跨重启
       // 失效一次）。与入口短路同形状（_stickyResult）；T117 recheckUnhealthy=false
-      // 腿 unhealthy 同样粘滞（bootstrap 恢复的 unhealthy 也秒回）
+      // 腿 unhealthy 同样粘滞（bootstrap 恢复的 unhealthy 也秒回）；
+      // CD381 forceRecheck：绕过（同入口语义）
       {
         const lg = this._lastGrade.get(token);
-        if (lg && (lg.grade === 'healthy'
+        if (opts.forceRecheck !== true
+            && lg && (lg.grade === 'healthy'
             || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
           this.stats.stickyBootstrapped++;
           this._log('info', `粘滞 ${lg.grade} 秒回（bootstrap 恢复） | ${token}`);

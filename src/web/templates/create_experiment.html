@@ -1948,6 +1948,11 @@
             if (cfg.cards != null) badges.push(`🃏${cfg.cards}`);
             if (cfg.cooldownSec != null) badges.push(`⏱️${cfg.cooldownSec}s`);
             if (cfg.bypassDebounce) badges.push('旁路去抖');
+            // T117 信号源门链徽章：标识门链腿 + 触发帽（触发即消耗）
+            if (cfg.signalGate) {
+                badges.push(cfg.signalGate.maxTriggers != null
+                    ? `⚡信号源门·触发≤${cfg.signalGate.maxTriggers}` : '⚡信号源门');
+            }
             // T109 卖确认去抖覆盖段（仅卖腿）：逐键徽章，配了哪个键显示哪个
             if (cfg.sellDebounce) {
                 if (cfg.sellDebounce.minTicks != null) badges.push(`卖确认≥${cfg.sellDebounce.minTicks}tick`);
@@ -1962,6 +1967,11 @@
             if (cfg.preBuyCheckCondition) subConds.push(['预检查', cfg.preBuyCheckCondition]);
             if (cfg.repeatBuyCheckCondition) subConds.push(['复购检查', cfg.repeatBuyCheckCondition]);
             if (cfg.gmgnCheckCondition) subConds.push(['GMGN 检查（买前实时调）', cfg.gmgnCheckCondition]);
+            // CD381（2026-11-08）作弊重判因子表达式：signalGate 腿的 cheat 门重判条件
+            // （真=该信号真调重检，如 preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1）
+            if (cfg.signalGate && cfg.signalGate.recheckCondition) {
+                subConds.push(['作弊重判（信号源门链，CD381 表达式）', cfg.signalGate.recheckCondition]);
+            }
             if (cfg.cheatCheckCondition) subConds.push(['作弊盘检查（GMGN 前最后一层，CD158）', cfg.cheatCheckCondition]);
             if (cfg.narrativeTriggerCondition) subConds.push(['叙事发起（后台分析轮，C84 新链）', cfg.narrativeTriggerCondition]);
             if (cfg.narrativeCallCondition) subConds.push(['叙事直调（legacy：fire 同步直调）', cfg.narrativeCallCondition]);
@@ -2045,6 +2055,7 @@
                         const bits = [];
                         if (l.buyPhase === 'first') bits.push('首买');
                         if (l.buyPhase === 'repeat') bits.push('再买');
+                        if (l.signalGate) bits.push('⚡信号源门'); // T117 门链腿标识（recheckCondition 全文在引用后的腿卡展示）
                         if (l.sellDebounce && l.sellDebounce.minTicks != null) bits.push(`卖确认≥${l.sellDebounce.minTicks}tick`);
                         bits.push(`P${l.priority ?? '-'}`, l.condition || '');
                         return bits.join(' ');

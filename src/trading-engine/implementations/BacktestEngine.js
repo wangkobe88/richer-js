@@ -1927,6 +1927,8 @@ class BacktestEngine extends AbstractTradingEngine {
                 triggerNo: this._sgTriggerCount(tokenAddress, strategy.id) + 1,
                 maxTriggers: strategy.signalGate.maxTriggers ?? 1,
                 cheatRecheck: strategy.signalGate.cheatRecheck === true,
+                // CD381 重判条件表达式留痕（真=本信号真调重检绕粘滞/拉黑秒回）
+                recheckCondition: strategy.signalGate.recheckCondition || null,
                 bpPassLevels: strategy.signalGate.bpPassLevels || ['good', 'neutral'],
               },
             } : {}),
@@ -1970,7 +1972,8 @@ class BacktestEngine extends AbstractTradingEngine {
         const firePriceBnb = factorResults.currentPriceBnb || 0;
 
         const cheatGate = await this._cheatGateEvaluateBinary(
-          tokenAddress, gateToken, factorResults, signalId, strategy.signalGate, { anchorMs: nowTs });
+          tokenAddress, gateToken, factorResults, signalId, strategy.signalGate,
+          { anchorMs: nowTs, factorResults });
         if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
         if (cheatGate.info && signalId) {
           try {

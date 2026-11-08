@@ -1643,6 +1643,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (this._cheatProjectedTokens) {
       for (const addr of this._cheatProjectedTokens) {
         require('../../services/FourMemeFactorAggregator').clearCheatFactors(addr);
+        // CD381 almost_launch 重检锚同批清（与 cheat 投影同生命周期——门链评估锚）
+        require('../../services/FourMemeFactorAggregator').clearCheatGatePriceAnchor(addr);
       }
       this._cheatProjectedTokens.clear();
     }
@@ -2150,8 +2152,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 秒回，白白多写一行信号+跑叙事直调）。拦在叙事直调/preBuy/signal 落库前
       // =省整条链（_buyingTokens 拦截同窗并发）。**仅 cheat 拉黑**——unhealthy
       // 拒买不拉黑（每买信号重判，CD158 裁定移除升级臂）
+      // CD381 放行臂：signalGate 腿 ∧ priceBackToAlmostLaunch==1（检测后价格
+      // 回到过 almost_launch）→ 放行进门链走 forceRecheck 真调重判（可翻案
+      // 解除拉黑）；legacy 腿保持终态短路不动（重检语义只活在 signalGate 链）
+      // CD381 重启桥：bootstrap 恢复的拉黑票进程内无评估锚（FA 锚=进程态，随
+      // 重启清空 → priceBackToAlmostLaunch 恒 null → 放行臂永不触发=翻案路径
+      // 死锁）。signalGate 腿 ∧ FA 无锚条目 → 以 fire 现价武装锚：本笔照旧短路，
+      // 下 tick 因子重 build 后价格轨迹从此点起算（此后回到 ≤+20 即放行重检）。
+      // 释放只导致真调重检、cheat 复判会再拉黑再重锚——安全性在重检本身
       if (this._cheatCheckService.enabled
-        && (this._cheatBlockedTokens.has(tokenAddress) || this._cheatCheckService.isGateBlocked(tokenAddress))) {
+        && (this._cheatBlockedTokens.has(tokenAddress) || this._cheatCheckService.isGateBlocked(tokenAddress))
+        && !(strategy.signalGate && factorResults.priceBackToAlmostLaunch === 1)) {
+        if (strategy.signalGate && Number.isFinite(factorResults.currentVsLaunchPct)
+          && !require('../../services/FourMemeFactorAggregator').getCheatGatePriceAnchor(tokenAddress)) {
+          require('../../services/FourMemeFactorAggregator')
+            .markCheatGateEvaluated(tokenAddress, factorResults.currentVsLaunchPct);
+          this.logger.info(this._experimentId, 'CheatGate',
+            `CD381 重启桥：拉黑票无进程锚，以 fire 现价武装 almost_launch 窗 | ${token.symbol || tokenAddress.slice(0, 10)} vsLaunch=${factorResults.currentVsLaunchPct.toFixed(1)}%`);
+        }
         return { success: false, reason: '作弊盘拉黑短路（cheat 判定终态，不再交易）' };
       }
 
@@ -2241,6 +2259,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
                 triggerNo: this._sgTriggerCount(tokenAddress, strategy.id) + 1,
                 maxTriggers: strategy.signalGate.maxTriggers ?? 1,
                 cheatRecheck: strategy.signalGate.cheatRecheck === true,
+                // CD381 重判条件表达式留痕（真=本信号真调重检绕粘滞/拉黑秒回）
+                recheckCondition: strategy.signalGate.recheckCondition || null,
                 bpPassLevels: strategy.signalGate.bpPassLevels || ['good', 'neutral'],
               },
             } : {}),
@@ -2270,7 +2290,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
         const cheatGate = await this._cheatGateEvaluateBinary(
-          tokenAddress, token, faState, signalId, strategy.signalGate);
+          tokenAddress, token, faState, signalId, strategy.signalGate, { factorResults });
         if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
         if (cheatGate.info && signalId) {
           try {
