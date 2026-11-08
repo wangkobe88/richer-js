@@ -187,6 +187,25 @@
 
 ## Case 倒序
 
+### CD382 盘面重置截窗：回到过 almost_launch 的证据窗重置到最低点行起（2026-11-08，机制案；bt-s01 0x28ad2c7d cheat 翻案迟滞复盘·与 BP44 案号 BP39 同日同语义）
+
+**动机（用户裁定原话）**：「cheat 的判定也要改一下，如果代币到过了 almost_launch 又起来，那么对它的判定也是从 almost_launch 之后的最低点开始」。案由 **bt-s01 0x28ad2c7d「让我们回到过去」**（实验 `6a02e983-9a6f-48d3-b47e-aa796bef4c18`）：07:14:05 创建（launch=5.0346e-9）→ 07:14:10 七笔 0.1078 等额分仓同块抢筹（131774917:135-195）→ equalAmountSplit=strong=A 主判 cheat 拉黑 → 07:15:42 七钱包同块递减砸盘（0.1208→0.0762 公比 0.92，131775122:32-86）至破发 −9.9%（回到 almost_launch）→ 07:15:41 RL15 信号窗 CD381 forceRecheck 重判，但锚窗 3000 行内上一轮等额分仓形状仍在=持续 cheat → **07:16:15（#6）才翻 healthy，此时价格已 +70% 拉离且 RL15 触发即消耗不返——34s almost_launch 买窗被上一轮形状独占**。
+
+**机制（commit `c5027ff2`，CheatCheckService._chain 5b 挂点=拉数后 minTicks 前）**：
+
+1. **`computeMarketResetIndex`（cheat-snapshot.js 纯函数）**：锚窗可靠价序列找「首个严格 >1.2×发行价突破起（含突破笔）的全段最低」，该最低较发行价 ≤+20%（含破发）=回到过 almost_launch=盘面重新计算 → **证据窗重置到最低点行起**——上一轮抢筹/等额分仓/拉高形状不再进判定。与 BP44 `minVsLaunchPct` 同款涨起后定义（创新高不遮蔽回落；从未离开/刚离开无回落/没回到过 → null）；**CD 侧独立实现防循环依赖**（cheat-snapshot 已被 buy-point-snapshot 依赖），口径由单测双向锁（七形状数值与 BP 侧逐位一致）。
+2. **截断全链单点生效**：重置命中 → pull 换截断形状（snapshot/minTicks/digest/anchorSellCount 全链）；**capped 满帽不应用**——锚窗不含出生段时首可靠价≠发行价=伪锚，宁保持原判不以伪锚翻案；重置窗 <minTicks(8) 走预门 insufficient_ticks=引擎 **fail-open 放行进 BP**（BP 锚窗=全窗不受本截断影响，restart 位置门照常判）；`stats.marketResets`+`digest.marketReset`/返回 info 留痕（fullAnchorTickCount 记原锚行数）。
+3. **回归 runner 同款接线**：run.mjs 三处拉数点（runCase/add/baseline）applyMarketReset——对拍与生产同窗口径。
+4. **题集/grade 规则版本零改动**：窗口口径非题面，CHEAT_QUESTIONS_VERSION 不 bump=粘滞域不动（版本 bump 允许重判的语义与本机制正交——同版本内锚窗本身换了）。
+
+**182 定向对拍（bt-s01 生产等价链 gateBuyPoint anchorMs=信号时刻，persist:false）**：首锚 t0b 07:14:21（时价 +23.7%、涨起后最低 +22.3% > +20%）正确返回 null=未重置——锚选早了非机制失效；换 #3（07:15:41 RL15）/#5（07:15:58）/#6（07:16:15）三锚重跑：**marketReset 全触发、上一轮 equalAmountSplit strong 出窗（3→1）**。但翻案未在 #3 达成——**重置窗内真有第二轮组织化行为**：07:14:55 0xcd4750b7+0xfb4e4fa4 同块买 0.2223/0.2482 → 07:15:40-41 同块协同卖回 0.2463/0.2330（恰在信号前 1 秒）→ coordinated_sell_back=strong，#3 维持 cheat 有理（且该窗 activityLevel=mid 不到 CD379 豁免线）；#5 窗=07:15:42 七钱包同块递减砸盘 → burst_spike_concentration=strong+holdingsBalance=strong（前三大 0.198/0.147/0.147 同块背靠背+前二流通 57.3%/前三 82.0%+等额带簇 50.9%），activityLevel=high 豁免恰被 CD380 holdings 臂拦 → **引出同日 CD380 三修（holdings 臂退出不豁免臂）** → 三修后对拍 **#5 cheat→healthy（exempt:activity_high）=比生产翻案（07:16:15）提前 17 秒、落在 almost_launch 买窗内**；#6 healthy 同向。
+
+**触发面摸底**：回归集 363 票扫描 **110 触发（~30%）**——大面翻动可能，全量回归需用户放行；生产新信号直接吃到（无版本门槛）。
+
+**单测**：`_test_cheat_market_reset.cjs` 28 断言（四形状+边界+双向锁）+`_test_cheat_detection_service.cjs` Z2 段 14 断言（重置全链/insufficient/capped 拦截/恒价 bit 不变/anchorMs 锚内照常）全套 139 全绿；相邻五件（gate_engine/lib/grade/bp_check/bp_lib）零翻动。
+
+**余留观察点**：①全量回归 110 触发票的 grade 翻动分布（需用户放行）；②生产 `marketResets` 计数与重置票前向收益对拍；③重置窗第二轮形状（如 bt-s01 #3 coordinated_sell_back）的复判率——重置只清上一轮，窗内新形状照判是设计内。
+
 ### CD381 cheat 重判条件因子表达式化 + almost_launch 重检 + cheat 可翻案（2026-11-08，机制案·无 token；T117 门链续篇·用户六条批量需求之 1/3）
 
 **动机（用户六条批量需求 + 三项 AskUserQuestion 裁定）**：原话「对 cheat 的重判条件，作为买腿的一个配置项，也使用因子表达式进行表达，例如早臂的条件是 preCheatResult == 'unhealthy'。这个因子表达式要展示在 create-experiment 页面上」+「如果上次代币检测后，价格回到过 almost_launch（相对发布价涨幅 ≤+20%），无论上次检测结果如何都需要重新检测。这个新增的检测以或的形式放到作弊检测的因子表达式中，所有买腿都要加」；三项裁定：**「含 cheat，可翻案」**（价格回到 almost_launch 后拉黑票重检，不再判 cheat 即解除拉黑恢复可买）、「数值锚跟随新分界」（BP43 侧）、「≤+40% 位置门」（BP43 restart 侧）。
@@ -205,7 +224,7 @@
 
 **余留观察点**：①生产 `forceRechecks`/`unblocked` 计数分布（重检触发面与翻案率）；②重启桥触发频率（bootstrap 恢复拉黑票首个 signalGate 信号）；③重检翻案票前向收益对拍（vs 拉黑期零参与基线）；④重检再判 cheat 率（almost_launch 回落票的 cheat 复发率）。
 
-### CD380 豁免收紧三不臂：pump/wash/holdings 在场=活跃度豁免失效原判保持（2026-11-07，机制案·无 token；CD379 续篇+bt-v79 六票漏网复盘）
+### CD380 豁免收紧三不臂：pump/wash/holdings 在场=活跃度豁免失效原判保持（2026-11-07，机制案·无 token；CD379 续篇+bt-v79 六票漏网复盘；**11-08 三修 holdings 臂移除，现行 pump/wash 两臂——见段内「holdings 臂移除」**）
 
 **动机（bt-v79 复盘六票，用户三条裁定）**：原话「我觉得把 cheat 层面的豁免再收一下，pump 不豁免，出现严重对倒盘（0x06810806）这种情况如果已经检测出来的话，也不要豁免」+「holdingsBalance 也不豁免（持仓情况的问题，另一个维度）」+「我建议，这种豁免全部在 cheat 检测模块内部进行」——bt-v79 六票漏网买入诊断（`scripts/tmp-bp40-diagnose.cjs`）实证：**8 个放行买入信号 originalGrade 全∈{cheat,unhealthy} 且全部经 CD379 活跃度豁免放走**——刷量/锁仓型形状（缓推泵/对倒/持仓集中）天然制造高活跃度，活跃度豁免恰好专放这类票：
 
@@ -220,12 +239,14 @@
 
 **机制（CheatCheckService 单点，引擎/BP 层零豁免逻辑——用户裁定「豁免全部在 cheat 检测模块内部」+「买入检测不用做重复的事情了」）**：
 
-1. **`_exemptDeniedReason(levels)` 三臂**（levels 数值投影=levelsFromObservation 产物，CHEAT_LEVEL_SCORES.level none=0/weak=1/moderate=2/strong=3）：**三臂统一 strong(3) 档（2026-11-08 用户裁定档位修正，见下）+wash 臂收窄（同日，见下）**：①pump 臂 `slowGrindPump = strong(3)`→`'slow_grind_pump'`（0xcb70708e/d0fbcc7b/4b3f1f7a 判例全 strong）；②wash 臂**仅 `washPair = strong(3)`→`'wash_pair'`（同区块刷量=同块对敲——0x06810806 判例）**；③holdings 臂 `holdingsBalance = strong(3)`→`'holdings_balance'`（持仓维度独立成臂——0xb788e63b 判例 holdingsBalance=strong J 通道唯一拦截臂同档）。**levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常**（缺席不扩大收紧面，维持 CD379 原语义）。
+1. **`_exemptDeniedReason(levels)` 三臂**（levels 数值投影=levelsFromObservation 产物，CHEAT_LEVEL_SCORES.level none=0/weak=1/moderate=2/strong=3）：**三臂统一 strong(3) 档（2026-11-08 用户裁定档位修正，见下）+wash 臂收窄（同日，见下）+holdings 臂移除（同日三修，见下）**：①pump 臂 `slowGrindPump = strong(3)`→`'slow_grind_pump'`（0xcb70708e/d0fbcc7b/4b3f1f7a 判例全 strong）；②wash 臂**仅 `washPair = strong(3)`→`'wash_pair'`（同区块刷量=同块对敲——0x06810806 判例）**；③holdings 臂 `holdingsBalance = strong(3)`→`'holdings_balance'`（持仓维度独立成臂——0xb788e63b 判例 holdingsBalance=strong J 通道唯一拦截臂同档；**已移除（2026-11-08 三修，见下）**）。**levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常**（缺席不扩大收紧面，维持 CD379 原语义）。
 
 **档位修正（2026-11-08，用户裁定原话「三不臂都需要 strong 才不豁免，moderate 我们之前也不用于判定 cheat 的」）**：首版 pump/holdings 臂误取 moderate(2) 档（当时把「pump 不豁免」原话解读为「无限定档」——解读越权，moderate 在 G17 体系从不参与 cheat 级判定：A 主判/J 通道全 strong 触发，moderate 只进 unhealthy 级 L 通道联立臂）。修正=三臂统一 strong 与 A/J 通道主判线同档。**影响面（bt-v81 六判例回放）**：五票拦截证据全 strong 不受影响（cb70708e 三臂全 3/d0fbcc7b pump=3/4b3f1f7a 信号2 靠 holdings=3 兜住（pump=2 臂失效）/b788e63b holdings=3/06810806 washPair=3）；0x94ea754b 信号级有变化——pump=moderate 信号（信号3）恢复豁免放行，但该票 pump=strong 信号（信号1 在前）denied 照拉黑=token 级终态结局大概率不变（仅并发竞态下存在先买后拉黑清仓窗口）；首版注释「pump=moderate originalGrade=unhealthy 亦须拒」句作废。单测 `_test_cheat_gate_engine` F7 三断言翻转+出口反证新增（moderate 形状豁免恢复放行 activity_ultra 留痕）104→105。
 
 **wash 臂收窄（2026-11-08，用户裁定原话「还有 wash 我只是要拦截 同区块刷量这一种情况，不是全部」+「其他的我没说的，依然可以走活跃度豁免」）**：首版 wash 臂误扩对倒族三题（washPair/equalAmountSplit/coordinatedSellBack 任一 strong）——用户立法动机票 0x06810806 的证据只有 washPair=3（同块对敲），「严重对倒盘」指的就是这种同区块刷量形状；equalAmountSplit（等额分仓，可跨块）/coordinatedSellBack（协同卖回，时序协同非同块）不是同区块刷量。修正=wash 臂仅 `washPair = strong(3)` 一题，两键退出不豁免臂恢复 CD379 豁免资格；留痕码 `wash_pair_family`→`wash_pair`。**影响面（bt-v81 六判例回放）**：六票全部仍拦——0x06810806 washPair=3 本就是立法动机票照拦；cb70708e 的 equalAmountSplit=3/coordinatedSellBack=3 两键退出后靠 slowGrindPump=3 pump 臂+holdingsBalance=3 holdings 臂兜住照拦；其余四票 wash 臂不涉。收窄面=生产将来 equalAmountSplit/coordinatedSellBack 单独 strong 且高活跃度的票恢复豁免放行（原判 cheat 也不拉黑）——「其他的依然可以走活跃度豁免」的裁定语义。单测 F7：equalAmountSplit/coordinatedSellBack 两条断言翻转为不拦+出口反证（两键 strong+high → healthy 放行 activity_high 留痕）+cb70708e 四键全 3 组合断言（pump 臂优先仍拦）105→107。
-2. **`_applyActivityExempt` 出口**：豁免集内桶 ∧ 三臂任一在场 → **原判保持（cheat/unhealthy）+`exemptDenied:<臂名>` 留痕**（stats.exemptDenied 计数，供生产对拍）；四出口（blocked/sticky/late/chain）统一走本变换天然全覆盖——denied 票 sticky 秒回不豁免（grade 恢复原判=引擎拒买路径生效）。
+**holdings 臂移除（2026-11-08 三修，用户裁定原话「气死我了，那就 cheat 模块高活跃度豁免 J_holdings_strong」）**：案由 CD382 对拍 bt-s01 0x28ad2c7d 复盘——#5 锚（07:15:58 almost_launch 买窗内）activityLevel=high 豁免恰被 holdings 臂拦：重置窗内 holdingsBalance=strong 的判据=「前三大 0.198/0.147/0.147 同块背靠背+前二流通 57.3%/前三 82.0%+等额带簇 50.9%」的组合垄断——但这是**砸盘后的接盘侧新阵列**（上一轮抢筹形状已被 CD382 截窗清掉），不是刷量/锁仓形状；holdings 高集中对「回到 almost_launch 的重启盘」是常态而非作弊信号，持仓维度不适合做豁免例外。修正=③holdings 臂整臂退出不豁免臂（`_exemptDeniedReason` 不再消费 holdingsBalance；头注③改移除记录；stats 注释同步），**J 通道（holdings_balance=strong → unhealthy 拒买级）保持不动**——判定层不受影响，只是高活跃度豁免不再被它阻断（0xb788e63b 判例留档为臂移除前行为；bt-v79 表③ holdings-only 拦截类信号恢复豁免资格）。**现行两臂=pump/wash**。182 对拍（CD382 同探针）：#5 cheat→healthy（exempt:activity_high，holdingsBalance=3 不再拦）=比生产翻案提前 17 秒落在 almost_launch 买窗内；#6 healthy 同向；#3 仍 cheat（activityLevel=mid 不到豁免线+A 主判 coordinated_sell_back=strong 有理）。单测 `_test_cheat_gate_engine` F7 四断言翻转（holdingsBalance=3 单臂不拦/ultra 出口豁免恢复/计数 2→1/sticky 出口豁免）118 全绿。commit `376bb0d3`。
+
+2. **`_applyActivityExempt` 出口**：豁免集内桶 ∧ 不豁免臂在场（现行 pump/wash 两臂） → **原判保持（cheat/unhealthy）+`exemptDenied:<臂名>` 留痕**（stats.exemptDenied 计数，供生产对拍）；四出口（blocked/sticky/late/chain）统一走本变换天然全覆盖——denied 票 sticky 秒回不豁免（grade 恢复原判=引擎拒买路径生效）。
 3. **拉黑登记点**：`activityExempt = isExempt(bucket) && !deniedReason(levels)`——denied 票照拉黑+清仓联动照触发；`levelsFromObservation` 提前到拉黑登记前（只读档位题答案与 grade 设值顺序无关，零行为差）。
 4. **bootstrap 恢复拉黑同构收紧**：`cheatSeen && !(isExempt(bucket) && !deniedReason(levels))`——**非豁免桶（mid/low）本来就轮不到豁免，三臂在场与否不影响恢复拉黑**（收紧只作用于「本来要豁免」的票；G1 单测 digest=mid+equalAmountSplit=strong 反例锁定此语义——首版独立 AND 写法把非豁免票也拦住=收紧面扩大过度，单测抓出后改同构形状）。
 5. **gradeObservation 规则域/G17 通道域零改动**：观测行与拉黑登记读原始 grade；CHEAT_GRADE_RULES_VERSION/CHEAT_QUESTIONS_VERSION 不 bump（豁免收紧只改消费侧）。G17 M 通道（activity ultra 拒买级）对 ultra 票天然失效维持 CD379 知情范围；本收紧后 ultra 票带三臂证据的恢复拦截。

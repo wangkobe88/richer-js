@@ -55,6 +55,20 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T124 ladder v11 十二腿：RL10 深重启臂（≤+10 含破发）——重启臂成对分档（2026-11-08；bt-s01 0x28ad2c7d cheat 翻案迟滞案同日收口链，CD380 三修/CD382 同车）
+
+**动机（用户裁定原话）**：「再增加一个买入臂 tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 10」（条件串原文直用）。案由链：bt-s01 0x28ad2c7d 复盘——CD382 截窗+CD380 三修后 07:15:58（almost_launch 买窗内）cheat 翻案 healthy 达成，但生产翻案在 07:16:15（价格已 +70% 拉离）且 RL15 触发即消耗不返——**翻案速度与入场臂位置门联合决定 almost_launch 买窗能否吃到**；RL15（≤+20）在砸回段一旦触发消耗，破发深半区（≤+10）无臂可接。RL10=重启臂成对分档的深档：与 RL15 同 tradeCount/buyVolumeBnb 门槛，位置门更深（≤+10=almost_launch 深半区含破发）。
+
+**ladder v11 十二腿**（库 signal-source-ladder-v1 version 11→12，`scripts/deploy-signal-source-strategies.cjs`）：
+
+1. **RL10 深重启臂新增 p12**：`tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 10`——BP43 restart 第七桶的深档入场点（涨起后洗回 almost_launch 深半区/破发段=BP44「盘面重置判序」最优先形状）；recheckCondition=RECHECK_EARLY（`preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1`——重启臂天然要 almost_launch 重检）；`buyPhase:'first'`/maxTriggers:1 与全腿同。
+2. 腿序 p12 追加在 RL15（p11）之后；引用实验须 `buySignalMaxPerToken ≥ 12`（腿数 11→12）+cheatCheck.enabled+buyPointCheck.enabled。
+3. 谱系补一条：v10 价格门+RL15+recheck 表达式 → **v11 RL10 深重启臂**（T123 段谱系句同步）。
+
+**部署链**：本地 dry-run validateLegs 12 腿零错误（version 11→12 UPDATE）→ commit+push → 182 pull + `--commit` → strategy_library version 11→12 回读 → 下次引用实验 copy-in 快照生效（改库不影响已建实验）。
+
+**验证**：单测 `_test_signal_gate_engine` 119/`_test_cheat_gate_engine` 118 同批全绿（库形状变化不涉引擎代码）；生产首跑对拍攒批（RL10 vs RL15 触发分布/破发段入场前向收益/CD381 forceRecheck 联合）。
+
 ### T123 ladder v10 十一腿：全臂价格门 ≤+80+RL15 重启臂+cheatRecheck→recheckCondition 表达式接棒（2026-11-08；用户六条批量需求之 4/5，CD381/BP43 同车）
 
 **动机（用户原话）**：「4. 所有的买入臂都要加入价格要求，都要在 low 范围内（现在除了强庄币开 low 外，其它都不开）」+「5. 增加买入臂 tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 20」（条件串原文直用）；同车需求 3「重检以或的形式放到作弊检测的因子表达式中，所有买腿都要加」=cheatRecheck 布尔全删、recheckCondition 因子表达式接棒（CD381 案，见 CD 台账——本侧只记库条目形状）。
