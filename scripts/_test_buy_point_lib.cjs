@@ -647,14 +647,15 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E
     'E: BP46/BP47 豁免常量导出（≤+40 near_launch 以内含 almost_launch/破发；heat 域 BP47 收窄=仅 high；openShare 硬线 <80）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: 门① strong_backer 强庄盘不拦（dA vsLaunch=+60% ≤+80 庄盘独享 low 档放行——BP48 ①位置门内）');
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 案号 BP48 ①位置门收紧 dA vsLaunch=+60% >+40（low 档——庄盘同样不接受 low）→ poor/pattern_gate（BP48 立法时 +60 曾放行，收紧断言反转）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'blended_unremarkable', 0.77) }, dA).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: BP48 ⑤blended 位置门（dA vsLaunch=+60% >+40=low 档起）→ poor/pattern_gate（「blended 接受 价格 near_launch 以及 almost_launch」——low 只有庄盘①可接受；S055 无税人生 +126.8% 形状收口）');
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: BP48 ⑤blended 位置门（dA vsLaunch=+60% >+40=low 档起）→ poor/pattern_gate（「blended 接受 价格 near_launch 以及 almost_launch」；S055 无税人生 +126.8% 形状收口）');
 // BP48/案号 BP44 盘型位置门收口三新臂（用户裁定「当前只有庄盘可以接受 low，其它最多是 near_launch」）
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, { ...dA, currentVsLaunchPct: 80 }).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: ①位置门 恰 +80% 放行（≤+80 边界含——庄盘独享 low 档上界）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, { ...dA, currentVsLaunchPct: 80.1 }).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ①位置门 +80.1% 拒（严格大于 80=mid 及以上——庄盘也不追近二倍以上的位置，坑要够深）');
+// 案号 BP48 收紧（2026-11-08 用户裁定「strong_backer 也同样不接受 low 的价格范围」——①⑤⑧三臂同线 40）
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, { ...dA, currentVsLaunchPct: 40 }).assessment;
+ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: ①位置门 恰 +40% 放行（≤+40 边界含——案号 BP48 收紧后 near_launch 上界）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, { ...dA, currentVsLaunchPct: 40.1 }).assessment;
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ①位置门 +40.1% 拒（严格大于 40=low 档起——案号 BP48 庄盘同样不接受 low，不再独享 low +40~80）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, { ...dA, currentVsLaunchPct: null }).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ①位置门 锚缺失（发行价位置 ?）宁拦不冒充拒');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'blended_unremarkable', 0.77) }, { ...dA, currentVsLaunchPct: 40 }).assessment;
@@ -671,7 +672,7 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'go
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑧防御门 +45% 拒（判⑧但现价 >+40%=判序错位按⑦位置门同线拒）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'golden_point', 0.85) }, { ...dA, currentVsLaunchPct: null }).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑧防御门 锚缺失拒（宁拦不冒充）');
-ok(STRONG_BACKER_LAUNCH_PCT === 80 && BLENDED_LAUNCH_PCT === 40 && GOLDEN_POINT_LAUNCH_PCT === 40, 'E: 三新位置界常量导出（①=80 庄盘独享 low/⑤=40/⑧=40 防御门）');
+ok(STRONG_BACKER_LAUNCH_PCT === 40 && BLENDED_LAUNCH_PCT === 40 && GOLDEN_POINT_LAUNCH_PCT === 40, 'E: 三新位置界常量导出（案号 BP48 收紧后 ①⑤⑧三臂同线 40——无盘型接受 low 档）');
 // BP34/案号 BP31 ⑥sustained_climb 位置门（盘型六桶制）：贴发行价起点段放行、已拉离/
 // 锚缺失拒（rule 同 pattern_gate；判型归 Jev 位置归代码——界由羊王 0x5a8d94c6 四点定标：
 // S154 −4.2% 放 / S155 +17.1% 拒，界取 10；S072 無為 +86.6% 不落⑥由①双臂保护（12min

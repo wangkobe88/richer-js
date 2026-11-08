@@ -10,11 +10,14 @@
  *      散户 PVP/famous_monopoly famous 独食/early_sniper_decay 狙击衰竭}
  *      → poor（rule=pattern_gate，这三种盘子不要参与）；
  *      **盘型位置门（BP48 收口用户裁定「blended 接受 价格 near_launch 以及
- *      almost_launch，当前只有庄盘可以接受 low，其它最多是 near_launch」——
- *      判型归 Jev、位置归代码，rule 同 pattern_gate）**：⑥sustained_climb
+ *      almost_launch，当前只有庄盘可以接受 low，其它最多是 near_launch」；
+ *      案号 BP48 收紧=strong_backer 也同样不接受 low（用户裁定 2026-11-08，
+ *      ①⑤⑧三臂同线 40——判型归 Jev、位置归代码，rule 同 pattern_gate）**：
+ *      ⑥sustained_climb
  *      ≤+10%（含破发）起点段放行、已拉离或锚缺失（宁拦不冒充）拒；⑦restart
  *      ≤+40%（near_launch 以内含 almost_launch 与破发）放行、已拉离或锚缺失拒；
- *      ①strong_backer ≤+80%（庄盘独享 low 档 +40~80）放行、>+80% 或锚缺失拒；
+ *      ①strong_backer ≤+40%（案号 BP48 自 80 收紧——low 档 +40~80 不再接受）
+ *      放行、>+40% 或锚缺失拒；
  *      ⑤blended ≤+40%（almost_launch/near_launch）放行、>+40% 或锚缺失拒；
  *      ⑧golden_point ≤+40% 防御门（判据自带 ≤+20，>+40%=判序错位按⑦同线拒）
  *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
@@ -121,18 +124,19 @@ const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
  * 「判型归 Jev、位置归代码」模式；交易量门槛（tradeCount≥10 ∧ buyVolumeBnb≥1.5）
  * 是题面判据材料非代码门——BP42「不搞代码门」铁律 */
 const RESTART_LAUNCH_PCT = 40;
-/** ①strong_backer 强庄盘参与位置界（BP48/案号 BP44 2026-11-08 用户裁定「当前
- * 只有庄盘可以接受 low」）：现价较发行价 ≤+80%（almost_launch/near_launch/low
- * ——庄盘独享 low 档 +40~80）=放行走后续门链（活跃度门/筹码门）；>+80%（mid 及
- * 以上）或锚缺失（宁拦不冒充）→ 盘型门拒。庄盘加仓域最宽但也不追近二倍以上的
- * 位置（BP25「坑要够深」一档帽语义的盘型化收口）；与⑥⑦同款「判型归 Jev、位置归
- * 代码」模式 */
-const STRONG_BACKER_LAUNCH_PCT = 80;
+/** ①strong_backer 强庄盘参与位置界（BP48/案号 BP44 立法 80；**案号 BP48 收紧
+ * 2026-11-08 用户裁定「strong_backer 也同样不接受 low 的价格范围」——①⑤⑧三臂
+ * 同线 40**）：现价较发行价 ≤+40%（almost_launch/near_launch 含破发）=放行走
+ * 后续门链（活跃度门/筹码门）；>+40%（low 档 +40~80 起，庄盘不再独享）或锚缺失
+ * （宁拦不冒充）→ 盘型门拒（BP25「坑要够深」一档帽语义的盘型化收口）；与⑥⑦
+ * 同款「判型归 Jev、位置归代码」模式 */
+const STRONG_BACKER_LAUNCH_PCT = 40;
 /** ⑤blended_unremarkable 融合盘参与位置界（BP48/案号 BP44 2026-11-08 用户裁定
  * 「blended 接受 价格 near_launch 以及 almost_launch」）：现价较发行价 ≤+40%
  * （almost_launch/near_launch 含破发）=放行走后续门链；>+40%（low 档起）或锚
- * 缺失（宁拦不冒充）→ 盘型门拒——low 档（+40~80）只有庄盘①可接受，融合盘最多
- * near_launch。与⑥⑦①同款「判型归 Jev、位置归代码」模式 */
+ * 缺失（宁拦不冒充）→ 盘型门拒——案号 BP48 起 low 档（+40~80）无盘型接受
+ * （strong_backer 同线收紧），融合盘最多 near_launch。与⑥⑦①同款「判型归
+ * Jev、位置归代码」模式 */
 const BLENDED_LAUNCH_PCT = 40;
 /** ⑧golden_point 黄金点防御门（BP48/案号 BP44）：判据自带位置（现价在
  * almost_launch 区内 ≤+20 含破发），代码侧另有 ≤+40 防御门兜判序错位——判⑧但
@@ -290,10 +294,10 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   → poor（不要参与）；**④桶另有高热近价豁免臂（案号 BP46：④∧heat∈
   //   {high,ultra}∧curVsLaunch ≤+40 放行，详 SNIPER_DECAY_HEAT_LAUNCH_PCT；
   //   BP47 收紧=heat 仅 high ∧ openSegBuySharePct<80）**；
-  //   BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ①
-  //   strong_backer ≤+80（庄盘独享 low 档）/⑤ blended ≤+40/⑧ golden_point
-  //   ≤+40 防御门**——各桶位置臂（判型归 Jev、位置归代码；锚缺失一律宁拦不
-  //   冒充拒）；
+  //   BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ① strong_backer ≤+40
+  //   （案号 BP48 收紧自 80——庄盘同样不接受 low）/⑤ blended ≤+40/⑧ golden_point
+  //   ≤+40 防御门——①⑤⑧三臂同线 40**——各桶位置臂（判型归 Jev、位置归代码；
+  //   锚缺失一律宁拦不冒充拒）；
   // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免+BP46 ④高热近价
   //   豁免同盖 ultra 臂——BP47 收紧后豁免票 heat 恒 high，act ultra 臂同盖条件
   //   收紧自动跟随 sniperHeatExempt 三要件）：
@@ -342,9 +346,9 @@ function buildBuyPointObservation(answers, anchors = null) {
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > RESTART_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
-  // ①strong_backer 强庄盘位置臂（BP48）：≤+80%（almost_launch/near_launch/low
-  //   庄盘独享 low 档）放行走后续门链；>+80%（mid 及以上——庄盘也不追近二倍
-  //   以上的位置）或锚缺失拒（同⑥⑦模式）
+  // ①strong_backer 强庄盘位置臂（BP48 立法 80；案号 BP48 收紧）：≤+40%
+  //   （almost_launch/near_launch 含破发——庄盘同样不接受 low）放行走后续门链；
+  //   >+40%（low 档 +40~80 起）或锚缺失拒（同⑥⑦模式；①⑤⑧三臂同线 40）
   if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'strong_backer') {
     const rawVs = anchors ? anchors.currentVsLaunchPct : null;
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
@@ -352,7 +356,7 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   // ⑤blended_unremarkable 融合盘位置臂（BP48）：≤+40%（almost_launch/near_launch
   //   含破发——「blended 接受 价格 near_launch 以及 almost_launch」）放行走后续
-  //   门链；>+40%（low 档起——low 只有庄盘①可接受）或锚缺失拒（同⑥⑦模式）
+  //   门链；>+40%（low 档起——案号 BP48 起无盘型接受 low）或锚缺失拒（同⑥⑦模式）
   if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'blended_unremarkable') {
     const rawVs = anchors ? anchors.currentVsLaunchPct : null;
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;

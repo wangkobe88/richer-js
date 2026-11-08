@@ -118,6 +118,28 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP48 ①strong_backer 位置门收紧=同样不接受 low（80→40，①⑤⑧三臂同线 40；2026-11-08 用户裁定·mapper-only 题集不 bump）
+
+**背景**：CD384/T126 验证链收官后，用户在 182 开出 bt-v84 全部 8 票 strong_backer（①强庄盘）信号页复查，随后裁定收紧①的位置门。裁定原话：
+
+> 「调整一下 strong_backer 也同样不接受 low 的价格范围。」
+
+**机制改动（`src/market-analysis/buy-point-result-mapper.js`，纯常量收紧）**：
+
+- `STRONG_BACKER_LAUNCH_PCT` **80 → 40**：①strong_backer 臂现价较发行价须 ≤+40%（almost_launch+near_launch 含破发）才放行走后续门链；>+40%（low 档 +40~80 起）或锚缺失（宁拦不冒充）→ 盘型门拒 `pattern_gate`（与⑥⑦同款「判型归 Jev、位置归代码」模式，rule 同 pattern_gate）
+- **①⑤⑧三臂同线 40**（`STRONG_BACKER_LAUNCH_PCT`/`BLENDED_LAUNCH_PCT`/`GOLDEN_POINT_LAUNCH_PCT` 各自定义同值）——low 档 +40~80 **无任何盘型接受**，庄盘不再独享；臂逻辑本体零改动（常量驱动），题面零改动（位置门本就只活在代码侧，buy-point-questions.mjs 的 prompt 不含位置界）
+- 溯源：题集 BP48/案号 BP44 立①=80 时 low 档仅①可接受（BP25「坑要够深」一档帽的盘型化）；本案收口=①与⑤⑧同线，**买点位置域全面收进 almost+near**（≤+40 含破发）
+
+**单测（`scripts/_test_buy_point_lib.cjs`，455 断言全绿）**：
+
+- 断言反转：strong_backer 夹具 `currentVsLaunchPct=+60%`（low 档）原 neutral/gates_passed → **poor/pattern_gate**（BP48 立法时 +60 曾放行——收紧断言反转留档）
+- 边界迁移：80/80.1 → **40 恰放行 / 40.1 拒**；常量断言 ①⑤⑧三臂同线 40
+- `_test_buy_point_check_service`（38）/`_test_signal_gate_engine`（128）零改动全绿
+
+**影响面**：position 域收紧不触判型——强庄盘判型（开盘大额+庄时序锚+承接轴）照归 Jev 题面；只有「拉离发行价 >+40 后才触发」的①票被位置门拒（与⑤blended 同形状）。bt-v84 8 票①成交点全部 ≤+40 档位不受影响（对拍见下）。
+
+**182 对拍（commit 后补）**：bt-v84 全部 strong_backer 信号（8 票 9 信号）重跑 gateBuyPoint（anchorMs 截窗 persist:false）——*[待补]*
+
 ### BP47 ④豁免臂收紧=heat 仅 high ∧ openSegBuySharePct<80（2026-11-08，bt-v83/v84 187 票④真判票复盘·mapper 消费侧收紧案；题集零改动不 bump）
 
 **背景**：CD384+ladder v13 双防线验证后 bt-v84 净 -0.4902（vs bt-v83 -1.9158），用户要求「从另一个角度看一下，购买的代币都是哪些盘形，各个盘形的盈亏情况如何」——盘形×盈亏拆解（128 成交票）：**④early_sniper_decay 100 票（占 78%）净 -0.5693=亏损主体**，100% 走 BP46 高热近价豁免臂（exempt=sniper_decay_heat_price）；臂内一分为二：④+heat=high 52 票 **+0.2934** / ④+heat=ultra 48 票 **-0.8627**；⑦restart 14 票 +0.3169 唯一稳定正盘形。用户再提直觉：
