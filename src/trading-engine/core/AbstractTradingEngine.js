@@ -1625,7 +1625,7 @@ class AbstractTradingEngine extends ITradingEngine {
           pass = bucket != null && passLevels.includes(bucket);
           info = {
             status: 'assessed', assessment: res.assessment ?? null,
-            qualities: res.qualities ?? null,
+            // BP48 两质量题退役：qualities 键随服务返回删除（signal metadata 不再携带）
             dimensions: res.dimensions ?? null, anchors: res.anchors ?? null,
             passLevels, passed: pass,
             model: res.model ?? null, usage: res.usage ?? null,

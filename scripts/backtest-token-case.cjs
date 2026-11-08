@@ -214,9 +214,8 @@ function fmtSignals(rows, label) {
     console.log(`${s.created_at} ${String(sg.legId ?? '-').padEnd(9)} t${sg.triggerNo ?? '-'} | cheat=${cc.grade ?? cc.status ?? '-'}${ex}${dn}${rs}${arms ? ' 三臂:' + arms : ''}`);
     const bp = m.buyPoint;
     if (bp) {
-      const as = bp.assessment || {}; // bucket/rule/prob 在 assessment 子对象（model,usage,passed,status,anchors,qualities,assessment,dimensions,passLevels）
-      const qs = Object.entries(bp.qualities || {}).map(([k, v]) => `${k.slice(0, 4)}:${v.bucket}(${v.prob})`).join(' ');
-      console.log(`    bp=${as.bucket ?? bp.status ?? '-'} rule=${as.rule ?? '-'} prob=${as.prob ?? '-'}${qs ? ' | ' + qs : ''}`);
+      const as = bp.assessment || {}; // bucket/rule/prob 在 assessment 子对象（model,usage,passed,status,anchors,assessment,dimensions,passLevels；BP48 起无 qualities）
+      console.log(`    bp=${as.bucket ?? bp.status ?? '-'} rule=${as.rule ?? '-'} prob=${as.prob ?? '-'}`);
     }
     console.log(`    exec=${m.execution_status ?? '-'} ${m.execution_reason ? '| ' + String(m.execution_reason).slice(0, 80) : ''}`);
   }

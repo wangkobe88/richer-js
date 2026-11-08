@@ -56,7 +56,7 @@ const BP_DIMENSION_LABELS = {
   activity_level: '活跃度', entry_position: '入场位置', market_pattern: '盘面类型',
   famous_domination: '跟单控盘', holder_concentration: '持仓集中度',
 };
-const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题' };
+const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题' }; // BP48 两质量题退役——仅历史 signal 行（metadata 带 qualities）展示用，新行无该段
 // 档位词 → 配色（none/mid 灰 · weak/noticeable/low 浅黄 · moderate/high amber · strong/dominant/ultra 红）
 function gateBucketClass(bucket) {
   const b = String(bucket || '');
@@ -2924,8 +2924,9 @@ class ExperimentSignals {
         `;
       }
 
-      // BP 买入点位门（T117 门链第二门）：assessed=badge+两质量题+九维度+anchors 折叠；
-      // insufficient_ticks=锚窗不足未判定放行；其余状态如实
+      // BP 买入点位门（T117 门链第二门）：assessed=badge+维度+anchors 折叠
+      // （BP48 两质量题退役——历史行或含质量题区照展示）；insufficient_ticks=锚窗
+      // 不足未判定放行；其余状态如实
       let buyPointHtml = '';
       if (buyPointInfo) {
         const bpStatus = buyPointInfo.status || '';
@@ -2974,7 +2975,7 @@ class ExperimentSignals {
               <span class="text-gray-600">model=${this._escapeHtml(String(buyPointInfo.model || '—'))}${buyPointInfo.usage ? ` · in=${buyPointInfo.usage.input_tokens ?? '—'} out=${buyPointInfo.usage.output_tokens ?? '—'}` : ''}</span>
             </div>
             ${qRows ? `<div class="text-xs text-blue-300 mb-1">质量题（任一 good→good，否则任一 neutral→neutral，否则 poor）：</div><div class="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${qRows}</div>` : ''}
-            ${dimRows ? `<details class="mt-1" open><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 九维度题（参考不进聚合，默认展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
+            ${dimRows ? `<details class="mt-1" open><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 维度题（参考不进门链，默认展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
             ${anchorRows ? `<details class="mt-1"><summary class="text-xs text-blue-300 cursor-pointer select-none">🧭 盘面锚值 ${Object.keys(buyPointInfo.anchors || {}).length} 锚（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-4">${anchorRows}</div></details>` : ''}
           </div>
           `;

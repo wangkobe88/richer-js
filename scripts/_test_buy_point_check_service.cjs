@@ -99,12 +99,13 @@ function mkDb({ ticksAsc = [], events = [], insertOk = true } = {}) {
 function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
     const calls = [];
     const baseAnswers = {
+        // BP48 两质量题退役：stub 答案不带 early_bird/pullback（8 维度形状，
+        // market_pattern/activity/famous/holder 缺席=容缺 null——mapper 层全分支
+        // 已在 _test_buy_point_lib 锁定，服务层只测透传与门变换）
         price_trend: { probabilities: { fast_up: 0.8, slow_up: 0.2 } },
         market_heat: { probabilities: { high: 0.6, mid: 0.4 } },
         entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
         price_level: { probabilities: { near_launch: 0.7, low: 0.3 } },
-        early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
-        pullback_entry_quality: { probabilities: { insufficient: 0.8, poor: 0.2 } },
     };
     return {
         calls,
@@ -165,19 +166,18 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(r.status, 'insufficient_ticks');
         assert.strictEqual(r.anchorTickCount, 0);
     });
-    await check('assessed：bucket/prob/rule/qualities/dimensions/anchors/model/usage 全形状', async () => {
+    await check('assessed：bucket/prob/rule/dimensions/anchors/model/usage 全形状（BP48 无 qualities）', async () => {
         const db = mkDb({ ticksAsc: TICKS10 });
         const llm = mkLlm({});
         const s = mkSvc(CFG, db, llm);
         const r = await s.gateBuyPoint('0x' + 'ab'.repeat(20), META, { signalId: 'SIG-A' });
         assert.strictEqual(r.status, 'assessed');
-        assert.strictEqual(r.assessment.bucket, 'good');
-        assert.strictEqual(r.assessment.prob, 0.72);
-        assert.strictEqual(r.assessment.rule, 'any_good');
-        assert.strictEqual(r.qualities.early_bird.bucket, 'good');
-        assert.strictEqual(r.qualities.pullback_entry.bucket, 'insufficient');
-        assert.strictEqual(!('high_chase' in r.qualities), true, 'BP30 两题化：high_chase 键绝迹');
+        assert.strictEqual(r.assessment.bucket, 'neutral');
+        assert.strictEqual(r.assessment.prob, null, '纯门链 prob=null（BP48 无质量层）');
+        assert.strictEqual(r.assessment.rule, 'gates_passed');
+        assert.strictEqual(!('qualities' in r), true, 'BP48 qualities 键随服务返回删除');
         assert.strictEqual(r.dimensions.price_trend.bucket, 'fast_up');
+        assert.strictEqual(r.dimensions.market_pattern, null, '缺席维度容缺 null');
         assert.strictEqual(typeof r.anchors.mcapBnb, 'number');
         assert.strictEqual(r.model, 'stub-model');
         assert.deepStrictEqual(r.usage, { total: 42 });
@@ -214,9 +214,9 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         await sleep(450); // 等迟到 ask 落定（应被丢弃不二次落行）
         assert.strictEqual(db.inserted.length, 1, '迟到结果丢弃不追加行');
     });
-    await check('fail/mapper_error：质量题缺答案 → error 行（failReason 含 mapper）', async () => {
+    await check('fail/mapper_error：维度题在场未知桶 → error 行（failReason 含 mapper；BP48 缺答案容缺不再 throw）', async () => {
         const answers = {
-            price_trend: { probabilities: { fast_up: 0.8, slow_up: 0.2 } },
+            price_trend: { probabilities: { bogus_bucket: 0.9 } },
         };
         const db = mkDb({ ticksAsc: TICKS10 });
         const llm = mkLlm({ answers });
@@ -485,17 +485,17 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         const r = await s.gateBuyPoint(PUMP_TOK, META, {}, { pumpExempt: true });
         assert.strictEqual(r.status, 'assessed');
         assert.deepStrictEqual(r.assessment, { bucket: 'poor', prob: null, rule: 'pump_exempt_gate' }, JSON.stringify(r.assessment));
-        // 观测行（研究主数据）落 mapper 原样：baseAnswers early=good → any_good 不因位置门改写
+        // 观测行（研究主数据）落 mapper 原样：BP48 纯门链 neutral/gates_passed 不因位置门改写
         assert.strictEqual(db.inserted.length, 1);
         const rowAssess = db.inserted[0].snapshot_digest.assessment;
-        assert.strictEqual(rowAssess.bucket, 'good', `落表行综合应保持 mapper 原样（实际 ${JSON.stringify(rowAssess)}）`);
+        assert.strictEqual(rowAssess.bucket, 'neutral', `落表行综合应保持 mapper 原样（实际 ${JSON.stringify(rowAssess)}）`);
     });
-    await check('pumpExempt ∧ near_launch 内（vsLaunch≈+9 ≤ 40）→ 照常评估（any_good 放行）', async () => {
+    await check('pumpExempt ∧ near_launch 内（vsLaunch≈+9 ≤ 40）→ 照常评估（门链放行）', async () => {
         const db = mkDb({ ticksAsc: TICKS10 });
         const s = mkSvc({ ...CFG }, db, mkLlm());
         const r = await s.gateBuyPoint(PUMP_TOK, META, {}, { pumpExempt: true });
         assert.strictEqual(r.status, 'assessed');
-        assert.strictEqual(r.assessment.bucket, 'good');
+        assert.strictEqual(r.assessment.bucket, 'neutral');
         assert.notStrictEqual(r.assessment.rule, 'pump_exempt_gate');
     });
     await check('pumpExempt ∧ 锚缺失（全 outlier 无可靠价 → vsLaunch null）→ 宁拦不冒充拒 pump_exempt_gate', async () => {
@@ -505,11 +505,12 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(r.status, 'assessed');
         assert.strictEqual(r.assessment.rule, 'pump_exempt_gate');
     });
-    await check('不传 pumpExempt ∧ 已拉离 → 位置门不触发（普通票照常 any_good）', async () => {
+    await check('不传 pumpExempt ∧ 已拉离 → pump 位置门不触发（普通票照常门链评估）', async () => {
         const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS_PUMP }), mkLlm());
         const r = await s.gateBuyPoint(PUMP_TOK, META, {});
         assert.strictEqual(r.status, 'assessed');
-        assert.strictEqual(r.assessment.bucket, 'good');
+        assert.strictEqual(r.assessment.bucket, 'neutral');
+        assert.strictEqual(r.assessment.rule, 'gates_passed');
     });
     await check('源码口径：PUMP_EXEMPT_LAUNCH_PCT=40 与 RESTART_LAUNCH_PCT 同线独立常量（语义独立防联动漂移）', () => {
         const svc = read('src/market-analysis/BuyPointCheckService.js');

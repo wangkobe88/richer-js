@@ -132,15 +132,14 @@ async function main() {
       const obs = buildBuyPointObservation(res.answers, b);
       writeFileSync(resolve(PROMPT_DIR, `${p.pointId}-${version}.txt`), state, 'utf8');
       const dims = Object.entries(obs.dimensions).map(([id, v]) => `${id.split('_')[0]}:${v ? v.bucket : 'null'}`).join(' ');
-      const qline = Object.entries(obs.qualities).map(([k, v]) => `${k}:${v.bucket}(${fmt(v.prob)})`).join(' ');
       console.log(`  判定 ${dims}`);
-      console.log(`  质量 ${qline} ｜ 综合=${obs.assessment.bucket}(${fmt(obs.assessment.prob)},${obs.assessment.rule})`);
+      console.log(`  综合=${obs.assessment.bucket}(${fmt(obs.assessment.prob)},${obs.assessment.rule})`);
       console.log(`  结局 ${outcomeLine(p)}`);
       results.push({
         pointId: p.pointId, tokenAddress: p.tokenAddress, experimentId: p.experimentId,
         signalId: p.signalId, signalCreatedAt: p.signalCreatedAt, anchorTickCount: p.anchorTickCount,
         thin: !!p.thin, questionVersion: version, model: res.model,
-        dimensions: obs.dimensions, qualities: obs.qualities, assessment: obs.assessment, anchors: obs.anchors,
+        dimensions: obs.dimensions, assessment: obs.assessment, anchors: obs.anchors,
         answersRaw: res.answers, promptChars,
         forwardReturns: p.forwardReturns || null, trade: p.trade || null,
       });

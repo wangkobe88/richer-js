@@ -143,7 +143,7 @@ class BuyPointCheckService {
 
   /**
    * 买点 BP 门（T117 门链第二门）：竞速 awaitMs。
-   * - {status:'assessed', assessment:{bucket,prob,rule}, qualities, dimensions, anchors, model, usage}
+   * - {status:'assessed', assessment:{bucket,prob,rule}, dimensions, anchors, model, usage}（BP48 起无 qualities——两质量题退役）
    *   ——bucket 是否放行由引擎按腿 bpPassLevels 判（服务不做规则映射——判断一律 Jev）
    * - 竞速超时：{status:'timeout', late:Promise}——**调用方 fail-closed 拒本笔**，
    *   late 链续跑落行（无引擎态副作用，下个买信号可见）
@@ -266,8 +266,8 @@ class BuyPointCheckService {
         return { status: 'fail', reason: res.kind === 'timeout' ? 'jev_timeout' : 'jev_error' };
       }
 
-      // 8) mapper 观测组装 + 落库（综合题 strict：缺失/未知桶 throw → catch 落
-      //    error 行——综合判定是本模块唯一产出，缺失=链路坏 fail-loud）
+      // 8) mapper 观测组装 + 落库（维度题未知桶 throw → catch 落 error 行——
+      //    判定链路坏 fail-loud；BP48 起无质量层=纯门链）
       let obs;
       try {
         obs = buildBuyPointObservation(res.result.answers, snapshot.buyDerived);
@@ -281,7 +281,6 @@ class BuyPointCheckService {
       this.stats.analyzed++;
 
       const dim = obs.dimensions;
-      const q = obs.qualities;
       // BP42 pump 豁免票位置门（见 PUMP_EXEMPT_LAUNCH_PCT 头注）：观测行已原样
       // 落库，此处仅门决策域变换——≤+40 照常评估放行，已拉离/锚缺失拒
       let assessment = obs.assessment;
@@ -296,13 +295,11 @@ class BuyPointCheckService {
         ` trend=${dim.price_trend?.bucket ?? '—'}` +
         ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
         ` famous=${dim.famous_domination?.bucket ?? '—'} holder=${dim.holder_concentration?.bucket ?? '—'}` +
-        ` 质量 早鸟=${q.early_bird?.bucket ?? '—'}/回调=${q.pullback_entry?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
         status: 'assessed',
         assessment: { bucket: assessment.bucket, prob: assessment.prob, rule: assessment.rule },
-        qualities: obs.qualities,
         dimensions: obs.dimensions,
         anchors: obs.anchors,
         model: res.result.model || null,
@@ -558,7 +555,7 @@ class BuyPointCheckService {
         sellBnb: Number(sellBnb.toFixed(4)),
         // 买点摘要（失败行 mapped={verdict,failReason} → null）
         assessment: mapped.assessment ?? null,
-        qualities: mapped.qualities ?? null, // BP6 三类质量题（综合判定分来源；无独立列随 digest 落）
+        qualities: mapped.qualities ?? null, // BP48 两质量题退役=恒 null（键保留=历史 digest 行形状兼容，旧档重放仍有值）
         dimensions: mapped.dimensions ?? null,
         anchors: mapped.anchors ?? null,
         bp: {

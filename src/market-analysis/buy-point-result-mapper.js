@@ -1,22 +1,22 @@
 /**
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
- * 判定形态（BP34/案号 BP31 六桶制——盘型前置预判断+famous heavy/ultra 门扩+
- * tree/追高题退役（BP30）+⑥sustained_climb 位置门（BP34），用户裁定 2026-11-07）：
- * 维度题档位（7 题纯参考）+ **2 类别质量题**
- * （early_bird_quality/pullback_entry_quality，桶域 good/neutral/poor/
- * insufficient——Jev 两视角并行独立评估）；综合判定 = **代码侧四层**：
+ * 判定形态（BP48/案号 BP44——两质量题退役+盘型位置门收口，用户裁定 2026-11-08
+ * 「现在是使用活跃度/盘形做第一层判断，然后根据盘形，再确定能接受的价格范围。
+ * 但是点位本身的类似似乎意义不大，而且前期比较难分清」）：维度题档位（8 题
+ * 纯参考）+ 综合判定 = **代码侧纯门链**（无质量层）：
  *   ① 盘型门（BP18 五类型学；**BP30 前置为预判断**——用户裁定「market_pattern
  *      要放到很靠前的位置，因为这是个预判断」）：market_pattern ∈ {retail_pvp
  *      散户 PVP/famous_monopoly famous 独食/early_sniper_decay 狙击衰竭}
- *      → poor（rule=pattern_gate，这三种盘子不要参与）；strong_backer（强庄盘
- *      =最好类型）与 blended_unremarkable（融合盘=好点位可赌）不拦；
- *      **BP34 ⑥sustained_climb 持续拉升弱回调走位置臂**（rule 同 pattern_gate）：
- *      现价较发行价 ≤+10%（含破发）起点段放行走质量题、已拉离（>+10%）或锚缺失
- *      （宁拦不冒充）拒买——用户裁定「一开盘一直拉几乎无回调的都不是啥好东西
- *      ……这种只能临近发布价格参与」；判型归 Jev（题面教双臂形状+从宽①防误伤，
- *      BP35——身份证据不是逃逸门）、
- *      位置归代码（SUSTAINED_CLIMB_LAUNCH_PCT=10 由羊王四点定标）
+ *      → poor（rule=pattern_gate，这三种盘子不要参与）；
+ *      **盘型位置门（BP48 收口用户裁定「blended 接受 价格 near_launch 以及
+ *      almost_launch，当前只有庄盘可以接受 low，其它最多是 near_launch」——
+ *      判型归 Jev、位置归代码，rule 同 pattern_gate）**：⑥sustained_climb
+ *      ≤+10%（含破发）起点段放行、已拉离或锚缺失（宁拦不冒充）拒；⑦restart
+ *      ≤+40%（near_launch 以内含 almost_launch 与破发）放行、已拉离或锚缺失拒；
+ *      ①strong_backer ≤+80%（庄盘独享 low 档 +40~80）放行、>+80% 或锚缺失拒；
+ *      ⑤blended ≤+40%（almost_launch/near_launch）放行、>+40% 或锚缺失拒；
+ *      ⑧golden_point ≤+40% 防御门（判据自带 ≤+20，>+40%=判序错位按⑦同线拒）
  *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
  *      market_heat=low（近窗密度）**或** activity_level=low（买点前全窗量级）
  *      **或** activity_level=ultra（机器盘级极端密集——用户裁定「act 为 ultra
@@ -24,33 +24,32 @@
  *      不拦——近窗密度视角不拦过热，只拦全窗量级 ultra；**BP38：盘型=
  *      strong_backer 时 ultra 臂豁免不拦**——强庄盘拉盘天然密集，ultra 密度
  *      不是拒买证据；low 臂不豁免）
- *   ③ 筹码门（BP14+BP30 heavy 扩档）：famous_domination ∈ {heavy, dominant}
- *      （famous+跟单正净持仓 ≥25 即 famous 主导——用户裁定「famous 主导就
- *      不玩」；light 正常参与不拦）**或** holder_concentration=strong（TOP 过
+ *   ③ 筹码门（BP14+BP30 heavy 扩档+BP45 famous 轴域）：famous_domination ∈
+ *      {heavy, dominant}（famous+跟单正净持仓 ≥25 即 famous 主导——用户裁定
+ *      「famous 主导就不玩」；light 正常参与不拦；**BP45 再起来域**：锚窗涨起
+ *      后最低 ≤+20=盘面再起来，famous 臂退出——落底后 famous 未离场=正面证据；
+ *      null=第一波域照拦保守）**或** holder_concentration=strong（TOP 过
  *      CD240 分层线/一人控盘）→ poor（rule=chip_gate）
- *   ④ 两质量题确定性聚合（BP6 原话裁定的两题化：「任何一个为 good 则为 good，
- *      为 neutral 则为 neutral，否则为 poor」）：任一 good → good；否则任一
- *      neutral → neutral；否则 poor——insufficient 不贡献聚合；两题全
- *      insufficient → poor（fallback 无 poor 证据 prob=null）
+ *   ④ 全部门过 → **neutral 放行**（rule='gates_passed'，prob=null——无质量层，
+ *      bpPassLevels=['good','neutral'] 门链消费域天然放行）
+ * **两道质量题（early_bird_quality/pullback_entry_quality）已退役（BP48）**：
+ *   判定职责迁移——大户未清场两臂（BP16/BP17）迁⑦⑧题面判读（B 迁）、深崩阴跌
+ *   失血并入⑦题面判读（D 并入⑦）、maxChg5 速度锚不迁移（C 弃——④桶拉高判据
+ *   保留在盘型层）；旧档 answers 带两题答案不被消费不 throw（重放兼容）。
  * **tree_position 已退役（BP30 用户裁定「tree_position 可以去掉」）**：题/题面/
  *   state 摆动结构行整链删除；snapshot zigzag 数值锚保留落 digest=纯留档
  *   （历史 run 对拍兼容，本 mapper 无消费者）。
- * **high_chase_quality 已退役（BP30 用户裁定「high_chase_quality 也删除，不开
- *   这个选项」）**：聚合两题化；追高形状的拦截由早鸟忌讳（速度/累计位置）与
- *   门链承接。
- * 门题答案缺席（null）= 无证据不拦，放行进下层（拒=有证据的拒绝）；门优先于
- * 质量题（质量题证据再好，门拒即 poor，prob=门题 argmax）。
- * 维度题仍纯透传（argmax 照抄——与 CD D3.5「判断一律 Jev」同哲学；门与聚合
- * 规则是用户明裁的确定性规则非加权 grade）。
+ * **high_chase_quality 已退役（BP30）**：追高形状的拦截由门链与④桶拉高判据承接。
+ * 门题答案缺席（null）= 无证据不拦，放行进下层（拒=有证据的拒绝；位置臂锚缺失
+ * = 宁拦不冒充拒）。维度题仍纯透传（argmax 照抄——与 CD D3.5「判断一律 Jev」
+ * 同哲学；门规则是用户明裁的确定性规则非加权 grade）。
  *
  * 容错双轨（镜像 cheat mapper 纪律）：
- * - 质量题缺答案/形状异常/未知桶名 → **throw**（fail-loud：质量题是综合判定
- *   唯一来源，缺失=链路坏，调用方落 error 行）
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺放宽）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
- *   ——rule 键=聚合来源留痕（pattern_gate/activity_gate/chip_gate/any_good/
- *   any_neutral/else_poor）非档位结论）
+ *   ——rule 键=门来源留痕（pattern_gate/activity_gate/chip_gate/gates_passed）
+ *   非档位结论）
  *
  * 桶域常量与题集（llm/buy-point-questions.mjs ESM）同域同值：ESM 无法被本 CJS
  * require，故此处自持副本，由单测 `_test_buy_point_lib.cjs` F 组经 dynamic import
@@ -69,8 +68,12 @@ const DIMENSION_IDS = [
   'market_pattern',
 ];
 
-/** 两类质量题 id（BP6 两题制——BP30 删 high_chase_quality；综合判定唯一来源，strict 强制在场） */
-const QUALITY_IDS = ['early_bird_quality', 'pullback_entry_quality'];
+// 两质量题（early_bird_quality/pullback_entry_quality）已随 BP48 退役（用户裁定
+// 「现在是使用活跃度/盘形做第一层判断，然后根据盘形，再确定能接受的价格范围。
+// 但是点位本身的类似似乎意义不大，而且前期比较难分清」）——QUALITY_IDS 删除；
+// 判定职责迁移：大户未清场两臂→⑦⑧题面判读（B 迁）、深崩阴跌失血→⑦题面判读
+// （D 并入⑦）、maxChg5 速度锚不迁移（C 弃——④桶拉高判据保留在盘型层）；旧档
+// answers 带两题答案不被消费不 throw（重放兼容）。
 
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
@@ -95,7 +98,8 @@ const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly',
  * SUSTAINED_CLIMB_LAUNCH_PCT 独立位置臂（贴发行价起点段放行、已拉离/锚缺失拒） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'early_sniper_decay'];
 /** ⑥sustained_climb 参与位置界（BP34 用户裁定「这种只能临近发布价格参与」）：现价
- * 较发行价 ≤+10%（含破发）=临近发行价起点段放行两道质量题正常评估；已拉离
+ * 较发行价 ≤+10%（含破发）=临近发行价起点段放行走后续门链（活跃度门/筹码门，
+ * BP48 前为「放行两道质量题」）；已拉离
  * （>+10%）或锚缺失（宁拦不冒充——发行价位置 ? = ticks 未覆盖出生段）→ 盘型门拒。
  * 界由羊王 0x5a8d94c6 四点定标：S154 −4.2% 贴发行价（用户裁 neutral 放行）与
  * S155 +17.1%（拒）之间取 10；S072 無為 +86.6% 不落⑥ 由①双臂保护（12min 前 8
@@ -105,11 +109,30 @@ const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
 /** ⑦restart 重启盘参与位置界（BP43/CD381 2026-11-08 用户裁定「盘型判重启后现价
  * ≤+40% 位置门放行质量题」）：盘型判 restart（经历一定交易量后价格回到过
  * almost_launch）的票，现价较发行价 ≤+40%（near_launch 以内，含 almost_launch
- * 与破发）=放行两道质量题正常评估；已拉离（>+40%）或锚缺失（宁拦不冒充——发行价
+ * 与破发）=放行走后续门链（活跃度门/筹码门，BP48 前为「放行两道质量题」）；已拉离
+ * （>+40%）或锚缺失（宁拦不冒充——发行价
  * 位置 ? = ticks 未覆盖出生段）→ 盘型门拒。与 ⑥SUSTAINED_CLIMB_LAUNCH_PCT 同款
  * 「判型归 Jev、位置归代码」模式；交易量门槛（tradeCount≥10 ∧ buyVolumeBnb≥1.5）
  * 是题面判据材料非代码门——BP42「不搞代码门」铁律 */
 const RESTART_LAUNCH_PCT = 40;
+/** ①strong_backer 强庄盘参与位置界（BP48/案号 BP44 2026-11-08 用户裁定「当前
+ * 只有庄盘可以接受 low」）：现价较发行价 ≤+80%（almost_launch/near_launch/low
+ * ——庄盘独享 low 档 +40~80）=放行走后续门链（活跃度门/筹码门）；>+80%（mid 及
+ * 以上）或锚缺失（宁拦不冒充）→ 盘型门拒。庄盘加仓域最宽但也不追近二倍以上的
+ * 位置（BP25「坑要够深」一档帽语义的盘型化收口）；与⑥⑦同款「判型归 Jev、位置归
+ * 代码」模式 */
+const STRONG_BACKER_LAUNCH_PCT = 80;
+/** ⑤blended_unremarkable 融合盘参与位置界（BP48/案号 BP44 2026-11-08 用户裁定
+ * 「blended 接受 价格 near_launch 以及 almost_launch」）：现价较发行价 ≤+40%
+ * （almost_launch/near_launch 含破发）=放行走后续门链；>+40%（low 档起）或锚
+ * 缺失（宁拦不冒充）→ 盘型门拒——low 档（+40~80）只有庄盘①可接受，融合盘最多
+ * near_launch。与⑥⑦①同款「判型归 Jev、位置归代码」模式 */
+const BLENDED_LAUNCH_PCT = 40;
+/** ⑧golden_point 黄金点防御门（BP48/案号 BP44）：判据自带位置（现价在
+ * almost_launch 区内 ≤+20 含破发），代码侧另有 ≤+40 防御门兜判序错位——判⑧但
+ * 现价 >+40%=判序错位按⑦位置门同线拒；锚缺失同拒（宁拦不冒充）。与
+ * RESTART_LAUNCH_PCT「同线同值各自常量」先例 */
+const GOLDEN_POINT_LAUNCH_PCT = 40;
 /** BP45 famous 轴再起来域（用户裁定原话「famous 轴本身不应该用于再起来的盘子，
  * 它只适用于第一波」+「价格落到底了，但是famous没有离场，这不是好事吗」）：锚窗
  * 涨起后最低价较发行价 ≤+20%（含破发）=盘面再起来（回到过 almost_launch），
@@ -136,9 +159,10 @@ const FAMOUS_AXIS_RELAUNCH_PCT = 20;
 const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low', 'ultra'] };
 /** 筹码门 famous 拒买档（BP30：heavy+dominant ≥25=famous 主导不玩；light 正常参与不拦） */
 const CHIP_GATE_FAMOUS_POOR_BUCKETS = ['heavy', 'dominant'];
-/** 质量题桶域（BP6——与题集同域；insufficient=不适用/材料薄不贡献聚合） */
-const QUALITY_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
-/** 综合判定桶域（聚合产物 ∈ {good, neutral, poor}；门 bpPassLevels 消费域含 insufficient 历史行兼容） */
+// 质量题桶域 QUALITY_LEVELS 已随两题退役删除（BP48）。
+/** 综合判定桶域（BP48 纯门链产物 ∈ {neutral=门全过放行, poor=门拒}；good 不再
+ * 产出——保留 good/insufficient 值为门 bpPassLevels 消费域与历史 digest 行兼容，
+ * 桶域不收窄防旧档重放 throw） */
 const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
@@ -226,30 +250,25 @@ function _openNum(anchors, key) {
 }
 
 /**
- * Jev answers → 买点观测记录（维度档位+两类质量+聚合综合判定+数值锚；无 verdict/grade）
- * @param {Object} answers - JevClient.ask 返回的 answers（9 题 Choice=7 维度+2 质量；
- *   维度题可缺席→null；质量题 strict 必须在场）
+ * Jev answers → 买点观测记录（维度档位+纯门链综合判定+数值锚；无 verdict/grade）
+ * @param {Object} answers - JevClient.ask 返回的 answers（8 题 Choice 维度；可缺席→null）
  * @param {Object|null} [anchors] - buyDerived 数值锚（buildBuyPointSnapshot
  *   产物 .buyDerived；缺省/形状异常=缺席）
- * @returns {{dimensions:Object, qualities:Object, assessment:{bucket,prob,rule}, anchors:Object}}
- * @throws {Error} 质量题缺失/形状异常/未知桶名；维度题在场但未知桶名
+ * @returns {{dimensions:Object, assessment:{bucket,prob,rule}, anchors:Object}}
+ * @throws {Error} 维度题在场但未知桶名（题集/映射漂移防线）
  */
 function buildBuyPointObservation(answers, anchors = null) {
   const dimensions = {};
   for (const id of DIMENSION_IDS) {
     dimensions[id] = _choice(answers, id, DIMENSION_LEVELS[id], false);
   }
-  // 两类质量题（strict：早鸟/回调两视角各一道，综合判定唯一来源）
-  const qualities = {};
-  for (const id of QUALITY_IDS) {
-    qualities[id.replace('_quality', '')] = _choice(answers, id, QUALITY_LEVELS, true);
-  }
-  // 四层判定链（BP30/题集 BP33——盘型门前置预判断最前，rule 留痕首个命中门）：
+  // 纯门链（BP48/案号 BP44——两质量题退役，rule 留痕首个命中门）：
   // ①盘型门（BP18 五类型学；BP30 前置——用户裁定「market_pattern 要放到很靠前
   //   的位置，因为这是个预判断」）：retail_pvp/famous_monopoly/early_sniper_decay
-  //   → poor（不要参与）；strong_backer 与 blended_unremarkable 不拦；BP34 六桶
-  //   sustained_climb 走位置臂——现价较发行价 ≤+10%（含破发）起点段放行、已拉离
-  //   或锚缺失拒（rule 同 pattern_gate）；
+  //   → poor（不要参与）；BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ①
+  //   strong_backer ≤+80（庄盘独享 low 档）/⑤ blended ≤+40/⑧ golden_point
+  //   ≤+40 防御门**——各桶位置臂（判型归 Jev、位置归代码；锚缺失一律宁拦不
+  //   冒充拒）；
   // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
   //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
   //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
@@ -260,10 +279,10 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   未离场=正面证据；null=第一波域照拦保守）**或** holder_concentration=strong
   //   （CD240 分层线/一人控盘；BP15 价格豁免锚照旧、不受本域影响）→ poor
   //   （rule=chip_gate）；
-  // ④两质量题聚合：任一 good → good；否则任一 neutral → neutral；否则 poor。
+  // ④全部门过 → neutral 放行（rule='gates_passed'，prob=null——bpPassLevels
+  //   消费域 ['good','neutral'] 天然放行）。
   // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；旧档重放缺答案=该臂
-  // 自动失效）；门优先于质量题。
-  // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
+  // 自动失效；位置臂锚缺失=宁拦不冒充拒）。
   const patternArms = dimensions.market_pattern && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
     ? [dimensions.market_pattern] : [];
   // ⑥sustained_climb 位置臂（BP34）：贴发行价起点段放行；已拉离/锚缺失（宁拦不
@@ -274,11 +293,35 @@ function buildBuyPointObservation(answers, anchors = null) {
     if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
   // ⑦restart 重启盘位置臂（BP43）：near_launch 以内（≤+40% 含 almost_launch 与
-  //   破发）放行质量题；已拉离/锚缺失拒（同⑥模式——判型归 Jev 位置归代码）
+  //   破发）放行走后续门链；已拉离/锚缺失拒（同⑥模式——判型归 Jev 位置归代码）
   if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'restart') {
     const rawVs = anchors ? anchors.currentVsLaunchPct : null;
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > RESTART_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
+  }
+  // ①strong_backer 强庄盘位置臂（BP48）：≤+80%（almost_launch/near_launch/low
+  //   庄盘独享 low 档）放行走后续门链；>+80%（mid 及以上——庄盘也不追近二倍
+  //   以上的位置）或锚缺失拒（同⑥⑦模式）
+  if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'strong_backer') {
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > STRONG_BACKER_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
+  }
+  // ⑤blended_unremarkable 融合盘位置臂（BP48）：≤+40%（almost_launch/near_launch
+  //   含破发——「blended 接受 价格 near_launch 以及 almost_launch」）放行走后续
+  //   门链；>+40%（low 档起——low 只有庄盘①可接受）或锚缺失拒（同⑥⑦模式）
+  if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'blended_unremarkable') {
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > BLENDED_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
+  }
+  // ⑧golden_point 黄金点防御门位置臂（BP48）：判据自带位置（现价 almost_launch
+  //   区内 ≤+20 含破发），此处 ≤+40 防御门兜判序错位——判⑧但现价 >+40%=判序
+  //   错位按⑦位置门同线拒；锚缺失拒（宁拦不冒充，同⑥⑦模式）
+  if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'golden_point') {
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > GOLDEN_POINT_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
   // BP38：strong_backer ultra 豁免——强庄盘拉盘天然密集，ultra 密度不是拒买证据
   //   （ultra 臂仅此豁免；low 臂不豁免——活跃度死寂强庄盘照拦；market_pattern 缺席
@@ -301,8 +344,6 @@ function buildBuyPointObservation(answers, anchors = null) {
     dimensions.famous_domination && !famousRelaunched && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
     dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
   ].filter(Boolean);
-  const qList = Object.values(qualities);
-  const tier = (t) => qList.filter((e) => e && e.bucket === t);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
   let bucket, prob, rule;
   if (patternArms.length) {
@@ -312,12 +353,8 @@ function buildBuyPointObservation(answers, anchors = null) {
   } else if (chipArms.length) {
     bucket = 'poor'; prob = bestProb(chipArms); rule = 'chip_gate';
   } else {
-    const g = tier('good');
-    const n = tier('neutral');
-    const p = tier('poor');
-    if (g.length) { bucket = 'good'; prob = bestProb(g); rule = 'any_good'; }
-    else if (n.length) { bucket = 'neutral'; prob = bestProb(n); rule = 'any_neutral'; }
-    else { bucket = 'poor'; prob = bestProb(p); rule = 'else_poor'; }
+    // BP48 纯门链收口：全部门过=neutral 放行（无质量层；prob=null 无档位概率）
+    bucket = 'neutral'; prob = null; rule = 'gates_passed';
   }
   const assessment = { bucket, prob, rule };
   const flat = {};
@@ -331,9 +368,8 @@ function buildBuyPointObservation(answers, anchors = null) {
   return {
     // 维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
     dimensions,
-    // 两类入场质量（BP6 两题制 strict：early_bird/pullback_entry 各 {bucket,prob}）
-    qualities,
-    // 综合判定（代码侧聚合：any_good → any_neutral → else_poor；rule=聚合来源留痕）
+    // 综合判定（BP48 纯门链：pattern_gate → activity_gate → chip_gate →
+    // gates_passed=neutral 放行；rule=门来源留痕；qualities 键已随两题退役删除）
     assessment,
     // 数值锚（纯事实透传：观测/校准素材，非档位判定；异常形状缺席不冒充）
     anchors: {
@@ -436,7 +472,6 @@ function buildBuyPointObservation(answers, anchors = null) {
 module.exports = {
   buildBuyPointObservation,
   DIMENSION_IDS,
-  QUALITY_IDS,
   PRICE_TREND_LEVELS,
   HEAT_LEVELS,
   ACTIVITY_LEVELS,
@@ -448,9 +483,11 @@ module.exports = {
   PATTERN_GATE_POOR_BUCKETS,
   SUSTAINED_CLIMB_LAUNCH_PCT,
   RESTART_LAUNCH_PCT,
+  STRONG_BACKER_LAUNCH_PCT,
+  BLENDED_LAUNCH_PCT,
+  GOLDEN_POINT_LAUNCH_PCT,
   FAMOUS_AXIS_RELAUNCH_PCT,
   ACTIVITY_GATE_POOR_BUCKETS,
   CHIP_GATE_FAMOUS_POOR_BUCKETS,
-  QUALITY_LEVELS,
   ASSESSMENT_LEVELS,
 };
