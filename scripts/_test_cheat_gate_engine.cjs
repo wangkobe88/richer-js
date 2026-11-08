@@ -701,10 +701,10 @@ async function testActivityExempt() {
   // F7 源码口径锁：拉黑登记点+bootstrap 恢复同款收紧（denied 票照拉黑/照恢复拉黑）
   // CD383 起 activityExempt 资格=（activity 桶 ∨ stallBurst 臂）∧ !denied
   ok('F7 拉黑登记点收紧在场（activityExempt = (isExempt ∨ stallBurst) && !deniedReason(levels)）',
-    svcSrc.includes('this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)\n        || this._isStallBurstExempt(levels)')
+    svcSrc.includes('this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)\n        || this._isStallBurstExempt(levels, anchors)')
       && svcSrc.includes('&& !this._exemptDeniedReason(levels);'));
-  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂）',
-    svcSrc.includes('const cheatLevels = cheatDigest ? levelsFromObservation(cheatDigest).levels : null;')
+  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂，CD383 双参 levels+anchors）',
+    svcSrc.includes('const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;')
       && svcSrc.includes('!this._exemptDeniedReason(cheatLevels)))'));
   ok('F7 豁免收紧收在 cheat 模块内部（引擎/BP 层零豁免逻辑——用户裁定）',
     !fs.readFileSync(path.join(__dirname, '../src/market-analysis/buy-point-result-mapper.js'), 'utf8').includes('activityExempt'));
@@ -715,28 +715,30 @@ async function testActivityExempt() {
   // 被 cheat 门拒复盘：E 通道内部豁免口径（act=low ∧ sbw=burst ∧ 非弱 burst
   // 不落 E）外移到门豁免资格，与 activityExemptLevels 并列第二臂（∨））
   const s8 = mkSvc();
-  const sb = (levels) => s8._isStallBurstExempt(levels);
+  const sb = (lv, an) => s8._isStallBurstExempt(lv, an); // levels=档位投影 / anchors=波三键数值锚（levelsFromObservation 两段——对拍实证波三键在 anchors 段）
   ok('F8 sbw=burst+三键强形状（高大上 06:57:07 形状：gap 780s/buy 1.4B/wallets 9——buy≥1.05 波有力非弱）→ 资格成立',
-    sb({ stallBurstWave: 1, burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }) === true);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }) === true);
   ok('F8 gap<60 无沉积（sbw=burst 但开盘即密集）→ 资格不成立（B 段夹具反例：gap 2s+tier/同块/内幕三 strong cheat 盘被首版误放——停滞深度是必要维度，E 通道内部不限 gap 是因其语境恒 act=low）',
-    sb({ stallBurstWave: 1, burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15 }) === false);
-  ok('F8 三键 null（旧档断代/dt 缺失）→ 不授予（资格授予方向 fail-closed 与 G8 维持豁免刻意不同向——无沉积/波力正证据不冒充）',
-    sb({ stallBurstWave: 1, burstMaxGapSec: null, burstWaveBuyBnb: null, burstWaveWallets: null }) === false
-      && sb({ stallBurstWave: 1 }) === false
-      && sb({ stallBurstWave: 1, burstMaxGapSec: 90, burstWaveBuyBnb: null, burstWaveWallets: null }) === false);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15 }) === false);
+  ok('F8 波三键 null/缺席（旧档断代/dt 缺失/anchors null）→ 不授予（资格授予方向 fail-closed 与 G8 维持豁免刻意不同向——无沉积/波力正证据不冒充）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: null, burstWaveBuyBnb: null, burstWaveWallets: null }) === false
+      && sb({ stallBurstWave: 1 }, {}) === false && sb({ stallBurstWave: 1 }) === false
+      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: null, burstWaveWallets: null }) === false);
   ok('F8 弱 burst（gap≥60 ∧ buy<1.05 ∧ wallets<13——长期停滞后只涌入一点小流量）→ 资格不成立（G8 弱波否定侧）',
-    sb({ stallBurstWave: 1, burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5 }) === false);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5 }) === false);
   ok('F8 波有力两键独立过线（buy≥1.05 或 wallets≥13 任一）→ 资格成立',
-    sb({ stallBurstWave: 1, burstMaxGapSec: 90, burstWaveBuyBnb: 2.0, burstWaveWallets: 5 }) === true
-      && sb({ stallBurstWave: 1, burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 15 }) === true);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 2.0, burstWaveWallets: 5 }) === true
+      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 15 }) === true);
   ok('F8 sbw=none/缺席/null/levels null → 不豁免 fail-closed（无 burst 证据不冒充）',
-    sb({ stallBurstWave: 0 }) === false && sb({ stallBurstWave: null }) === false
-      && sb({}) === false && sb(null) === false);
+    sb({ stallBurstWave: 0 }, {}) === false && sb({ stallBurstWave: null }, {}) === false
+      && sb({}, {}) === false && sb(null, null) === false);
   // F8 出口变换（主案=高大上：cheat+act=low+burst 强 → 豁免放行）
   const beforeSB = s8.stats.stallBurstExemptions;
+  const GDS_AN = { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }; // 高大上波三键（anchors 段）
   const r8a = s8._applyActivityExempt({
     status: 'graded', grade: 'cheat',
-    levels: { stallBurstWave: 1, burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, slowGrindPump: 3 },
+    levels: { stallBurstWave: 1, slowGrindPump: 3 },
+    anchors: GDS_AN,
     buckets: { activityLevel: 'low' },
     reasons: [{ level: 'cheat', code: 'A_strong:slow_grind_pump+holdings_balance' }],
   });
@@ -744,26 +746,25 @@ async function testActivityExempt() {
     { grade: r8a.grade, exempt: r8a.exempt, reasons: r8a.reasons },
     { grade: 'healthy', exempt: { code: 'stall_burst', originalGrade: 'cheat' }, reasons: [{ level: 'cheat', code: 'A_strong:slow_grind_pump+holdings_balance' }] });
   ok('F8 stallBurstExemptions 计数+1（生产对拍观测点）', s8.stats.stallBurstExemptions - beforeSB === 1, s8.stats);
-  const r8b = s8._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { stallBurstWave: 1, burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5 }, buckets: { activityLevel: 'low' } });
+  const r8b = s8._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { stallBurstWave: 1 }, anchors: { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5 }, buckets: { activityLevel: 'low' } });
   check('F8 出口：弱 burst 三键全中 → 资格不成立原判保持（无 exemptDenied=非 CD380 臂，是资格缺席）',
     { grade: r8b.grade, exempt: r8b.exempt, exemptDenied: r8b.exemptDenied },
     { grade: 'unhealthy', exempt: undefined, exemptDenied: undefined });
-  const r8c = s8._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1, washPair: 3, burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }, buckets: { activityLevel: 'low' } });
+  const r8c = s8._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1, washPair: 3 }, anchors: GDS_AN, buckets: { activityLevel: 'low' } });
   check('F8 出口：burst 强+washPair strong（同块对敲）→ CD380 臂优先豁免失效原判保持（资格≠生效）',
     { grade: r8c.grade, exemptDenied: r8c.exemptDenied, exempt: r8c.exempt },
     { grade: 'cheat', exemptDenied: 'wash_pair', exempt: undefined });
-  const r8d = s8._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, buckets: { activityLevel: 'high' } });
+  const r8d = s8._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, anchors: GDS_AN, buckets: { activityLevel: 'high' } });
   check('F8 出口：双臂同中（high+burst）→ code 取 activity_high（activity 桶为首因，更具体来源）',
     { grade: r8d.grade, exempt: r8d.exempt }, { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'cheat' } });
   const s8off = mkSvc([]);
-  ok('F8 豁免总开关显式 [] 关 → burst 臂同关（豁免机制整体关，原样返回）',
-    s8off._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, buckets: { activityLevel: 'low' } }).grade === 'cheat'
-      && s8off._isStallBurstExempt({ stallBurstWave: 1, burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }) === true);
-  // F8 sticky 出口：粘滞 unhealthy 携带 levels → 秒回同走 burst 豁免
+  ok('F8 豁免总开关显式 [] 关 → burst 臂同关（豁免机制整体关，原样返回；资格判定本身不读开关但出口不授予）',
+    s8off._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, anchors: GDS_AN, buckets: { activityLevel: 'low' } }).grade === 'cheat');
+  // F8 sticky 出口：粘滞 unhealthy 携带 levels/anchors → 秒回同走 burst 豁免
   const s8s = mkSvc();
   s8s._lastGrade.set('0xburst', {
     grade: 'unhealthy', reasons: [{ code: 'E_low_activity' }], version: 'G17',
-    unhealthyGrades: 1, levels: { stallBurstWave: 1, burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }, buckets: { activityLevel: 'low' }, anchors: {},
+    unhealthyGrades: 1, levels: { stallBurstWave: 1 }, buckets: { activityLevel: 'low' }, anchors: GDS_AN,
   });
   const r8s = await s8s.gateBuyPoint('0xburst', {}, {}, { recheckUnhealthy: false });
   check('F8 sticky：unhealthy+low+burst 强 recheck=false → 秒回豁免放行 stall_burst（四出口统一）',

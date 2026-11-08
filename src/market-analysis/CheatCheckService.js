@@ -346,16 +346,18 @@ class CheatCheckService {
    * 与 activityExemptLevels **并列第二资格臂（∨）**，不限 activity 档位——
    * 对齐 CD379 高活跃豁免不区分判定通道的语义；CD380 不豁免臂（wash_pair）
    * 在出口统一优先（资格成立 ≠ 豁免生效）；豁免总开关（activityExemptLevels
-   * 显式 []=关）同盖本臂（豁免机制整体关）。levels 键：stallBurstWave（sbw
-   * 二桶投影 burst=1）+ 波三键数值锚（E 通道消费同源键）。
+   * 显式 []=关）同盖本臂（豁免机制整体关）。键位：levels.stallBurstWave（sbw
+   * 二桶投影 burst=1）+ anchors 波三键数值锚（levelsFromObservation anchors 段，
+   * E 通道消费同源键）——对拍实证 levels 段只有档位投影，波三键必须从 anchors 读。
    */
-  _isStallBurstExempt(levels) {
+  _isStallBurstExempt(levels, anchors) {
     if (!levels) return false;
     if (levels.stallBurstWave !== 1) return false; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
-    const gap = levels.burstMaxGapSec;
+    const an = anchors || {};
+    const gap = an.burstMaxGapSec;
     if (gap == null || gap < 60) return false; // 长期沉积前提：无停滞（<60s/null）不授予
-    const buy = levels.burstWaveBuyBnb;
-    const wallets = levels.burstWaveWallets;
+    const buy = an.burstWaveBuyBnb;
+    const wallets = an.burstWaveWallets;
     return (buy != null && buy >= 1.05) || (wallets != null && wallets >= 13); // 波有力：至少一键过线
   }
 
@@ -425,7 +427,7 @@ class CheatCheckService {
     if (!res || this._activityExemptLevels.size === 0) return res;
     if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
     const act = res.buckets && res.buckets.activityLevel;
-    const stallBurst = this._isStallBurstExempt(res.levels); // CD383 burst 豁免资格臂（∨ 并列）
+    const stallBurst = this._isStallBurstExempt(res.levels, res.anchors); // CD383 burst 豁免资格臂（∨ 并列）
     if (!this._isActivityExempt(act) && !stallBurst) return res;
     const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
     if (denied) {
@@ -722,7 +724,7 @@ class CheatCheckService {
       // CD380 不豁免臂同款收紧：pump/wash/holdings 三臂在场=豁免失效，cheat
       // 恢复登记拉黑（与门决策出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）
       const activityExempt = (this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
-        || this._isStallBurstExempt(levels)) // CD383 burst 资格臂同构（长期沉积一朝操盘不登记拉黑）
+        || this._isStallBurstExempt(levels, anchors)) // CD383 burst 资格臂同构（长期沉积一朝操盘不登记拉黑）
         && !this._exemptDeniedReason(levels);
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
@@ -885,9 +887,10 @@ class CheatCheckService {
         // 与判定行同源。CD380 不豁免臂同款且同构（activityExempt = isExempt && !denied）：
         // 豁免集内桶 ∧ 三臂不在场才不恢复；非豁免桶（mid/low）本来就轮不到豁免，
         // 三臂在场与否不影响恢复拉黑（收紧只作用于「本来要豁免」的票）
-        const cheatLevels = cheatDigest ? levelsFromObservation(cheatDigest).levels : null;
+        const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;
+        const cheatLevels = cheatLv ? cheatLv.levels : null;
         if (cheatSeen && !((this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)
-          || this._isStallBurstExempt(cheatLevels)) // CD383 burst 资格臂同构
+          || this._isStallBurstExempt(cheatLevels, cheatLv ? cheatLv.anchors : null)) // CD383 burst 资格臂同构
           && !this._exemptDeniedReason(cheatLevels))) {
           this._gateBlocked.add(token);
         }
