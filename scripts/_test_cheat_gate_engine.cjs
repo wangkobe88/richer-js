@@ -729,6 +729,19 @@ async function testActivityExempt() {
   ok('F8 波有力两键独立过线（buy≥1.05 或 wallets≥13 任一）→ 资格成立',
     sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 2.0, burstWaveWallets: 5 }) === true
       && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 15 }) === true);
+  // F8b CD383 二修放宽（2026-11-08 M4GA 0xba5ed45b 案用户裁定「这个币应该是 burst，
+  // 豁免 cheat」：47324b0b 单票回测 07:40:47 首判 sbw=burst 但三键贴线全差一口气
+  // gap 58<60/buy 0.7735<1.05/wallets 11<13=weakBurst 全中不授予；t0a 首判窗仅 83s
+  // ——burstMaxGapSec 全窗口径被窗长天然压住，线降至 50/0.7/10）
+  ok('F8b M4GA 贴线形状（gap 58/buy 0.7735/wallets 11——首版三键全差一口气）→ 二修后资格成立',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 58, burstWaveBuyBnb: 0.7735, burstWaveWallets: 11 }) === true);
+  ok('F8b 新线负例（gap 49/buy 0.69/wallets 9 全贴下方）→ 资格不成立（贴线不过就是不过）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 49, burstWaveBuyBnb: 0.69, burstWaveWallets: 9 }) === false);
+  ok('F8b 开盘密集反例不回归（gap 2s）→ 仍不成立（沉积维度必要不动摇）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15 }) === false);
+  ok('F8b 源码锁：二修线 50/0.7/10 在 _isStallBurstExempt（M4GA 案裁定）',
+    (() => { const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'market-analysis', 'CheatCheckService.js'), 'utf8');
+      return src.includes('gap < 50') && src.includes('buy >= 0.7') && src.includes('wallets >= 10'); })());
   ok('F8 sbw=none/缺席/null/levels null → 不豁免 fail-closed（无 burst 证据不冒充）',
     sb({ stallBurstWave: 0 }, {}) === false && sb({ stallBurstWave: null }, {}) === false
       && sb({}, {}) === false && sb(null, null) === false);

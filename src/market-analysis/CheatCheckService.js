@@ -331,14 +331,17 @@ class CheatCheckService {
    * act=low ∧ sbw=burst ∧ 非弱 burst 不落 E）外移到门豁免——「长期沉积一朝
    * 开始操盘」形状里长期静默压低 activity 档（全窗 idlePct 极高）不构成拒买
    * 证据，爆发波才是盘面当下的真状态。
-   * 资格=sbw=burst ∧ **长期沉积前提** ∧ 波有力，两维键与 E 通道 G8 弱波线同源：
-   * ①沉积=burstMaxGapSec≥60（停滞深度是必要维度——G8 定线研究「人工 healthy
+   * 资格=sbw=burst ∧ **长期沉积前提** ∧ 波有力，两维键与 E 通道 G8 弱波线同源
+   * （**2026-11-08 二修放宽**，M4GA 0xba5ed45b 案用户裁定「这个币应该是 burst，
+   * 豁免 cheat」——t0a 首判窗仅 83s 时 gap 被窗长压住、波 0.77/11 户贴线，
+   * 60/1.05/13 三键全差一口气；降至 50/0.7/10）：
+   * ①沉积=burstMaxGapSec≥50（停滞深度是必要维度——G8 定线研究「人工 healthy
    * 4 票中 3 票 maxGap 仅 19~43s=无停滞开盘密集正常形状」；**单测夹具反例
    * gap=2s 开盘即密集 tier+同块+内幕三 strong 的 cheat 盘实证无沉积的 sbw=burst
    * 不可授予**——E 通道内部豁免不限 gap 是因其语境恒 act=low（窗内必有大静默段），
-   * 本臂不限 act 档位必须自带沉积正证据）；②波有力=burstWaveBuyBnb≥1.05 ∨
-   * burstWaveWallets≥13 至少一键非 null 过线（G8 弱波「buy<1.05 ∧ wallets<13」
-   * 的否定侧；全 null/全不过线=「停滞后只涌入一点小流量」弱波不授予）。
+   * 本臂不限 act 档位必须自带沉积正证据）；②波有力=burstWaveBuyBnb≥0.7 ∨
+   * burstWaveWallets≥10 至少一键非 null 过线（G8 弱波线的否定侧；全 null/全
+   * 不过线=「停滞后只涌入一点小流量」弱波不授予）。
    * **null 语义与 G8 刻意不同向**：G8 三键任一 null 维持（内部）豁免是「不扩大
    * 收紧面」；本臂是**资格授予方向**——gap/buy/wallets null=沉积或波力无证据，
    * 不授予 fail-closed（不冒充「长期沉积一朝操盘」）。sbw null/缺席（旧档断代/
@@ -355,10 +358,16 @@ class CheatCheckService {
     if (levels.stallBurstWave !== 1) return false; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
     const an = anchors || {};
     const gap = an.burstMaxGapSec;
-    if (gap == null || gap < 60) return false; // 长期沉积前提：无停滞（<60s/null）不授予
+    // 长期沉积前提：无停滞（<50s/null）不授予。首版 60s（G8 同线）2026-11-08 二修
+    // 降至 50s（M4GA 0xba5ed45b 案用户裁定「这个币应该是 burst，豁免 cheat」：t0a
+    // 9 笔起步臂首判锚窗仅 83s——burstMaxGapSec 全窗口径被窗长天然压住，58s 实测
+    // 形状「沉积近一分钟一波点火」贴线未达；开盘密集反例（gap 2s 级夹具）仍拦）
+    if (gap == null || gap < 50) return false;
     const buy = an.burstWaveBuyBnb;
     const wallets = an.burstWaveWallets;
-    return (buy != null && buy >= 1.05) || (wallets != null && wallets >= 13); // 波有力：至少一键过线
+    // 波有力：至少一键过线（同上二修 1.05→0.7 / 13→10——M4GA 波 0.7735 BNB/11 户
+    // 贴线形状授予；「停滞后只涌入一点小流量」的弱波（远低于线）仍不授予）
+    return (buy != null && buy >= 0.7) || (wallets != null && wallets >= 10);
   }
 
   /**
