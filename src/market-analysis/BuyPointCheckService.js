@@ -296,10 +296,13 @@ class BuyPointCheckService {
         ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
         ` holder=${dim.holder_concentration?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
+        `${obs.assessment.exempt ? `+exempt:${obs.assessment.exempt.code}(${obs.assessment.exempt.heat},+${obs.assessment.exempt.curVsLaunchPct})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
         status: 'assessed',
-        assessment: { bucket: assessment.bucket, prob: assessment.prob, rule: assessment.rule },
+        // 案号 BP46：assessment.exempt（④高热近价豁免留痕）additive 透传（mapper 带
+        //   才有——旧形状零变化；pump_exempt_gate 替换分支不带=位置拒时豁免无关）
+        assessment: { bucket: assessment.bucket, prob: assessment.prob, rule: assessment.rule, ...(assessment.exempt ? { exempt: assessment.exempt } : {}) },
         dimensions: obs.dimensions,
         anchors: obs.anchors,
         model: res.result.model || null,
