@@ -97,6 +97,17 @@
 //     原 t0b…RL10 顺移 +1；recheck=早臂族式。
 //     13 腿：t0a + t0b + t2-t4 + N30/N36/N45 + NL15/NL20/NL25 + RL15 + RL10
 //
+//   v13（2026-11-08 bt-v83 完整窗口回测 87/87 reset 小票放行实证后用户裁定 B
+//     「量门提高」）：NL15/20/25+RL15/RL10 五臂 tradeCount >= 10→15 ∧
+//     buyVolumeBnb 统一 ≥2.5（NL25 原即 2.5 不变）。动机=「10 笔/1.5 BNB」
+//     对整票生命周期 30~120 行 tick 的冲高砸落小票无区分度（30 行票
+//     tradeCount 也能到 20-30、1.5 BNB 买量几分钟凑满）——量门抬到 NL25
+//     既有线五臂同线。t0a/t0b/t2-t4/N 系不动（t0a 9 笔档为「点火即拉飞」
+//     早臂语义，与 CD384 fail-closed（cheat 侧同案裁定 A）双防线配合：
+//     reset 截窗不足由 cheat 门硬拒、量够窗足的小票由本量门收紧）。
+//     13 腿（结构不变）：t0a + t0b + t2-t4 + N30/N36/N45 + NL15/NL20/NL25
+//     + RL15 + RL10
+//
 //   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 13（各腿 1 次
 //   触发上限；T110 默认帽 5 会截断阶梯）；并配 cheatCheck.enabled=true +
 //   buyPointCheck.enabled=true（两门 disabled 时：cheat 门 fail-open 放行、
@@ -161,23 +172,26 @@ const LEGS = [
     // 三臂加 tradeCount >= 10——FA tickCount 与 tradeCount 恒等（零 return 同步 +1），
     // BP 锚 anchorTickCount ≥ tradeCount ⇒ 触发时 BP 锚窗必过 minTicks=8，
     // 不再产生 insufficient_ticks（bt-v78 53/114 漏网主源头）
-    leg('NL15', 9, 'tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
-        '接近发行价臂 a（v8 新增 T122；v9 加 tradeCount>=10——tick 数源头门防 BP 锚窗不足）：买量 1.5 BNB ∧ 现价较发行价 ≤+50%（含破发）——热度够+价格贴发行价'),
-    leg('NL20', 10, 'tradeCount >= 10 AND buyVolumeBnb >= 2 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
-        '接近发行价臂 b（v8 新增 T122；v9 加 tradeCount>=10）：买量 2 BNB ∧ 现价较发行价 ≤+50%（含破发）'),
-    leg('NL25', 11, 'tradeCount >= 10 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
-        '接近发行价臂 c（v8 新增 T122；v9 加 tradeCount>=10）：买量 2.5 BNB ∧ 现价较发行价 ≤+50%（含破发）——三档中最高热度确认'),
-    // v10 重启臂（CD381 用户给定条件串原文，2026-11-08）：经历一定交易量
-    // （tradeCount >= 10 ∧ buyVolumeBnb >= 1.5）后回到 almost_launch
-    // （currentVsLaunchPct <= 20 含破发）——重启盘入场点；BP43 restart 桶
-    // 判形+位置门 ≤+40 配套（本腿自身 ≤20 已天然在门内）
-    leg('RL15', 12, 'tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 20', RECHECK_EARLY,
-        '重启臂（v10 新增，用户条件串原文）：10 笔/1.5 BNB ∧ 现价较发行价 ≤+20%（含破发）——经历交易量后回到 almost_launch 的重启盘入场点'),
-    // v11 深重启臂（2026-11-08 用户裁定原文「再增加一个买入臂 tradeCount >= 10
-    // AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 10」）：同 RL15 形状、
-    // 价格门 ≤+10=almost_launch 深半区更贴发行价的入场点（≤+20 为桶界）
-    leg('RL10', 13, 'tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 10', RECHECK_EARLY,
-        '深重启臂（v11 新增，用户条件串原文）：10 笔/1.5 BNB ∧ 现价较发行价 ≤+10%（含破发）——回到 almost_launch 深半区的更贴发行价入场点'),
+    // v13 量门提高（2026-11-08 bt-v83 完整窗口 87/87 实证后用户裁定 B）：NL/RL 五臂
+    // tradeCount >= 10→15 ∧ buyVolumeBnb 统一 ≥2.5——「10 笔/1.5 BNB」对整票生命
+    // 周期 30~120 行的冲高砸落小票无区分度（30 行票 tradeCount 也能到 20-30，
+    // 1.5 BNB 买量几分钟即凑满），量门抬到 NL25 既有线=五臂同线
+    leg('NL15', 9, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
+        '接近发行价臂 a（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB——bt-v83 87 票小票放行实证）：现价较发行价 ≤+50%（含破发）——热度够+价格贴发行价'),
+    leg('NL20', 10, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
+        '接近发行价臂 b（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB）：现价较发行价 ≤+50%（含破发）'),
+    leg('NL25', 11, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
+        '接近发行价臂 c（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 tradeCount 10→15，量 2.5 不变）：现价较发行价 ≤+50%（含破发）——三档中最高热度确认'),
+    // v10 重启臂（CD381 用户给定条件串原文，2026-11-08）：经历一定交易量后回到
+    // almost_launch（currentVsLaunchPct <= 20 含破发）——重启盘入场点；BP43
+    // restart 桶判形+位置门 ≤+40 配套（本腿自身 ≤20 已天然在门内）；v13 量门
+    // 提高 15 笔/2.5 BNB（bt-v83 实证同上）
+    leg('RL15', 12, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 20', RECHECK_EARLY,
+        '重启臂（v10 新增；v13 量门提高 15 笔/2.5 BNB）：现价较发行价 ≤+20%（含破发）——经历交易量后回到 almost_launch 的重启盘入场点'),
+    // v11 深重启臂（2026-11-08 用户裁定原文）：同 RL15 形状、价格门 ≤+10=
+    // almost_launch 深半区更贴发行价的入场点（≤+20 为桶界）；v13 量门提高同上
+    leg('RL10', 13, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 10', RECHECK_EARLY,
+        '深重启臂（v11 新增；v13 量门提高 15 笔/2.5 BNB）：现价较发行价 ≤+10%（含破发）——回到 almost_launch 深半区的更贴发行价入场点'),
 ];
 
 const ENTRIES = [
@@ -185,7 +199,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v12（2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒（早臂族=preCheatResult == unhealthy OR priceBackToAlmostLaunch == 1、高热度四条=priceBackToAlmostLaunch == 1）；v11 新增 RL10 深重启臂（≤+10 含破发）；v12 高大上零触发复盘后新增 t0a 更早人气臂 tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80（用户条件串原文，9 笔档接住「点火即拉飞」形状点火初段））：13 买腿 condition=初始买入信号源（t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v13（2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒（早臂族=preCheatResult == unhealthy OR priceBackToAlmostLaunch == 1、高热度四条=priceBackToAlmostLaunch == 1）；v11 新增 RL10 深重启臂（≤+10 含破发）；v12 高大上零触发复盘后新增 t0a 更早人气臂 tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80（用户条件串原文，9 笔档接住「点火即拉飞」形状点火初段）；v13 bt-v83 完整窗口 87/87 reset 小票放行实证后量门提高：NL15/20/25+RL15/RL10 五臂 tradeCount 10→15 ∧ buyVolumeBnb 统一 ≥2.5）：13 买腿 condition=初始买入信号源（t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
     },
 ];
 

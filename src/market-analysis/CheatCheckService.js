@@ -182,6 +182,7 @@ class CheatCheckService {
       stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
       marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
+      resetInsufficientRejects: 0, // CD384 reset 截窗后窗 <minTicks fail-closed 拒计数（bt-v83 87/87 实证后立法）
     };
   }
 
@@ -559,8 +560,19 @@ class CheatCheckService {
       }
 
       // 6) minTicks 预门（不调 Jev 不落表；不粘滞——下个买信号可重析）
+      //    CD384（2026-11-08 用户裁定 A，bt-v83 完整窗口 87/87 实证）：reset 截窗
+      //    制造的不足 → **fail-closed 拒**（独立 status=reset_insufficient_ticks，
+      //    引擎侧硬拒不进 BP）——原设计「放行进 BP、BP 全窗兜底」对整票生命周期
+      //    <2min 的冲高砸落小票失效（BP ⑦ restart 位置门与 cheat fail-open 同向
+      //    放行，87 票净 -1.38 全部 reset=1 无一例外）；天然短窗（无 reset）维持
+      //    insufficient_ticks fail-open 存量语义零变化。
       if (pull.anchorTickCount < this._minTicks) {
         this.stats.skippedInsufficientTicks++;
+        if (pull.marketReset) {
+          this.stats.resetInsufficientRejects++;
+          this._log('info', `盘面重置后 tick 不足拒（CD384 fail-closed：${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
+          return { status: 'reset_insufficient_ticks', anchorTickCount: pull.anchorTickCount, marketReset: pull.marketReset, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
+        }
         this._log('info', `ticks 不足跳过（${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
         return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount, marketReset: pull.marketReset ?? null, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }

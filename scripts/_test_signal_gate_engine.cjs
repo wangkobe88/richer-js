@@ -261,6 +261,25 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
   check('fail → 放行（info 原样透传）', await eng6b._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-6b', SG()),
     { pass: true, info: { status: 'fail', reason: 'jev_error' } });
 
+  // A6b CD384 reset_insufficient_ticks → fail-closed 硬拒不进 BP（bt-v83 完整窗口
+  // 87/87 实证：reset 截窗制造的不足放行 → BP ⑦ 位置门同向放行 → 87 票净 -1.38
+  // 占全窗口亏损 72%；「上一轮冲高形状出窗+新窗无证据」双盲区宁拦不冒充）
+  const sts6c = []; const metas6c = [];
+  const eng6c = makeEngine({
+    _cheatCheckService: cheatSvc(async () => ({ status: 'reset_insufficient_ticks', anchorTickCount: 3, marketReset: { minVsLaunchPct: 5, fullAnchorTickCount: 30 } })),
+    _updateSignalStatus: (id, st, m) => { sts6c.push({ id, st, reason: m.reason }); },
+    _updateSignalMetadata: (id, d) => { metas6c.push({ id, d }); },
+  });
+  const r6c = await eng6c._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-6c', SG());
+  ok(r6c.pass === false && /盘面重置后 tick 不足/.test(r6c.reason || ''),
+    `reset_insufficient → 拒（CD384 fail-closed；实际 ${JSON.stringify(r6c.pass)}/${r6c.reason}）`);
+  ok(sts6c.length === 1 && sts6c[0].st === 'failed' && sts6c[0].reason === 'cheat_gate_reset_insufficient',
+    `signal failed reason=cheat_gate_reset_insufficient（实际 ${JSON.stringify(sts6c)}）`);
+  ok(metas6c.length === 1 && metas6c[0].d.cheatCheck.status === 'reset_insufficient_ticks'
+    && metas6c[0].d.cheatCheck.anchorTickCount === 3 && metas6c[0].d.cheatCheck.marketReset.fullAnchorTickCount === 30,
+    `cheatCheck metadata 留痕（status/anchorTickCount/marketReset；实际 ${JSON.stringify(metas6c[0] && metas6c[0].d.cheatCheck)}）`);
+  ok(eng6c._cheatBlockedTokens.size === 0, 'reset_insufficient 拒不拉黑（非 cheat 判定——下个买信号可重析）');
+
   // A7 service 抛错 → 放行 error 留痕（检测层故障不拦买点）
   const eng7 = makeEngine({ _cheatCheckService: cheatSvc(async () => { throw new Error('rpc down'); }) });
   const r7 = await eng7._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-7', SG());
