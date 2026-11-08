@@ -31,7 +31,7 @@ const {
   ACTIVITY_GATE_POOR_BUCKETS,
   SUSTAINED_CLIMB_LAUNCH_PCT, RESTART_LAUNCH_PCT,
   STRONG_BACKER_LAUNCH_PCT, BLENDED_LAUNCH_PCT, GOLDEN_POINT_LAUNCH_PCT,
-  SNIPER_DECAY_HEAT_LAUNCH_PCT, SNIPER_DECAY_HEAT_BUCKETS,
+  SNIPER_DECAY_HEAT_LAUNCH_PCT, SNIPER_DECAY_HEAT_BUCKETS, SNIPER_DECAY_OPEN_SHARE_MAX,
   ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
@@ -579,25 +579,39 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E
 }
 // 案号 BP46（2026-11-08 用户裁定「如果热度是高热以上，价格到 near_launch 以内，
 // 可以买」——适用域=盘型④ early_sniper_decay；苍蝇 0xb30f0b8a…7777 ④贴线误杀
-// 攒批 BP43 案立法落地）：④ ∧ market_heat∈{high,ultra} ∧ curVsLaunchPct ≤+40 →
-// ④臂不拦放行走后续门链（同条件豁免 act ultra 臂——BP38 strong_backer ultra
-// 豁免同构扩展；act low/heat low 死寂臂照拦；chip strong 照拦=BP14 防线保留；
-// heat 答案缺席/锚缺失/已拉离（>+40）不豁免宁拦不冒充；②③不受豁免影响）
+// 攒批 BP43 案立法落地）+ **BP47 收紧（2026-11-08 同日，bt-v83/v84 187 票④真判票
+// 复盘「必须有热度一阵了，才能打开它的交易」——用户裁定「那是不是 openShare < 80
+// ∧ heat = high ?」）**：④ ∧ market_heat=high（ultra 退出豁免域——63 票两窗 -1.08
+// 机器盘密度，BP45 ⑧「ultra 机器盘不适用」同语义）∧ curVsLaunchPct ≤+40 ∧
+// openSegBuySharePct < 80（开盘 30s 段买入占锚窗总买入比——openShare=100%=开盘
+// 一波流冲高砸落、买点落在下跌途中残余热度里=④亏损全部来源 106 票 -1.95；<80 两窗
+// 30 票 +1.39 与 <70 净额等价）→ ④臂不拦放行走后续门链（同条件豁免 act ultra 臂
+// ——BP38 strong_backer ultra 豁免同构扩展；act low/heat low 死寂臂照拦；chip
+// strong 照拦=BP14 防线保留；heat 答案缺席/openShare 锚缺失/curVs 锚缺失/已拉离
+// （>+40）不豁免宁拦不冒充；②③不受豁免影响）
 {
   const ans46 = (heat, extra = {}) => ({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.86), ...mkAns('market_heat', heat, 0.98), ...extra });
-  // 苍蝇 06/09 形状：④+heat ultra+curVs 26.8+act ultra → 豁免成立全链放行（核心
-  // 断言——不豁免 ultra 臂则本形状被 activity_gate 接棒拦=立法空文）
+  // 苍蝇 06/09 形状（④+heat ultra+curVs 26.8+act ultra）BP47 后反转为拒：ultra 退出
+  // 豁免域（63 票两窗 -1.08 机器盘密度）——BP46 立臂时漏了 BP45 ⑧ 同款排除
   const oCy = buildBuyPointObservation(ans46('ultra', mkAns('activity_level', 'ultra', 0.73)), { ...dE, currentVsLaunchPct: 26.8 });
-  ok(oCy.assessment.bucket === 'neutral' && oCy.assessment.rule === 'gates_passed' && oCy.assessment.prob === null
-    && oCy.assessment.exempt && oCy.assessment.exempt.code === 'sniper_decay_heat_price'
-    && oCy.assessment.exempt.heat === 'ultra' && near(oCy.assessment.exempt.curVsLaunchPct, 26.8)
-    && oCy.dimensions.market_pattern.bucket === 'early_sniper_decay',
-    'E: BP46 豁免 ④+heat ultra+≤+40+act ultra → neutral 放行+exempt 留痕（苍蝇 06/09 形状——同条件豁免 act ultra 臂；④答案原样保留代码不改写 Jev 桶判定）');
+  ok(oCy.assessment.bucket === 'poor' && oCy.assessment.rule === 'pattern_gate' && !oCy.assessment.exempt,
+    'E: BP47 收紧 heat=ultra 退出豁免域 → 照拒④ pattern_gate 无 exempt（苍蝇 06/09 形状两窗 ultra 63 票 -1.08=机器盘密度，BP45 ⑧「ultra 机器盘不适用」同语义；BP46 立臂漏同款排除、来财类 ultra 票放弃=大样本为负用户已取舍）');
   const oH = buildBuyPointObservation(ans46('high'), dE);
-  ok(oH.assessment.bucket === 'neutral' && oH.assessment.rule === 'gates_passed' && oH.assessment.exempt && oH.assessment.exempt.code === 'sniper_decay_heat_price',
-    'E: BP46 豁免 heat=high（curVs=30 ≤+40）→ 放行（「高热以上」={high,ultra}——heat ultra 同域）');
+  ok(oH.assessment.bucket === 'neutral' && oH.assessment.rule === 'gates_passed' && oH.assessment.exempt && oH.assessment.exempt.code === 'sniper_decay_heat_price'
+    && oH.assessment.exempt.heat === 'high' && near(oH.assessment.exempt.openSegBuySharePct, dE.openSeg.buySharePct),
+    'E: BP46/BP47 豁免 heat=high（curVs=30 ≤+40∧openShare 33.6<80）→ 放行+exempt 留痕带 openSegBuySharePct（「高热以上」域 BP47 收窄为仅 high；读取走 openSeg.buySharePct 嵌套键）');
   const oB = buildBuyPointObservation(ans46('high'), { ...dE, currentVsLaunchPct: 40 });
   ok(oB.assessment.bucket === 'neutral' && oB.assessment.rule === 'gates_passed', 'E: BP46 豁免 恰 +40% 放行（≤+40 边界含——near_launch 上界）');
+  const osAnchor = (v) => ({ ...dE, openSeg: { ...dE.openSeg, buySharePct: v } });
+  const oOs79 = buildBuyPointObservation(ans46('high'), osAnchor(79.9));
+  ok(oOs79.assessment.bucket === 'neutral' && oOs79.assessment.rule === 'gates_passed' && oOs79.assessment.exempt && near(oOs79.assessment.exempt.openSegBuySharePct, 79.9),
+    'E: BP47 收紧 openShare 79.9<80 → 豁免放行（80-90 层 v83 转负故线取 80 不越 90；<80∧high 两窗 30 票 +1.39）');
+  const oOs80 = buildBuyPointObservation(ans46('high'), osAnchor(80));
+  ok(oOs80.assessment.bucket === 'poor' && oOs80.assessment.rule === 'pattern_gate' && !oOs80.assessment.exempt,
+    'E: BP47 收紧 openShare 恰 80 → 拒（< 80 严格小于——80-90 层 16 票 -0.09 零贡献、90-99 层 21 票 -0.31 v83 转负，90 线不能越）');
+  const oOsNull = buildBuyPointObservation(ans46('high'), osAnchor(null));
+  ok(oOsNull.assessment.bucket === 'poor' && oOsNull.assessment.rule === 'pattern_gate' && !oOsNull.assessment.exempt,
+    'E: BP47 收紧 openShare 锚缺失（截窗未覆盖开盘段/旧档断代）→ 不豁免宁拦不冒充（fail-closed 与 curVs 锚缺失同向）');
   const oOut = buildBuyPointObservation(ans46('high'), { ...dE, currentVsLaunchPct: 40.1 });
   ok(oOut.assessment.bucket === 'poor' && oOut.assessment.rule === 'pattern_gate' && !oOut.assessment.exempt,
     'E: BP46 豁免 +40.1% 已拉离不豁免照拒（反例天然保护：BEM +56.4/FIGHT +76.1 未回 near_launch 由价格腿守住）');
@@ -629,8 +643,8 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E
   const oRst = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.8) }, dE);
   ok(oRst.assessment.bucket === 'neutral' && oRst.assessment.rule === 'gates_passed' && !oRst.assessment.exempt,
     'E: BP46 零交互——restart ≤+40 原位置门放行照旧（无 exempt 留痕——豁免仅④装配点）');
-  ok(SNIPER_DECAY_HEAT_LAUNCH_PCT === 40 && JSON.stringify(SNIPER_DECAY_HEAT_BUCKETS) === JSON.stringify(['high', 'ultra']),
-    'E: BP46 豁免常量导出（≤+40 near_launch 以内含 almost_launch/破发；高热以上={high,ultra}）');
+  ok(SNIPER_DECAY_HEAT_LAUNCH_PCT === 40 && JSON.stringify(SNIPER_DECAY_HEAT_BUCKETS) === JSON.stringify(['high']) && SNIPER_DECAY_OPEN_SHARE_MAX === 80,
+    'E: BP46/BP47 豁免常量导出（≤+40 near_launch 以内含 almost_launch/破发；heat 域 BP47 收窄=仅 high；openShare 硬线 <80）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
 ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: 门① strong_backer 强庄盘不拦（dA vsLaunch=+60% ≤+80 庄盘独享 low 档放行——BP48 ①位置门内）');

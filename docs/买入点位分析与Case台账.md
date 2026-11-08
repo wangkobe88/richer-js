@@ -118,7 +118,39 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
-### BP46 ④early_sniper_decay 高热近价豁免（2026-11-08，苍蝇④贴线攒批 BP43 案立法落地·mapper 消费侧豁免案；题集零改动不 bump）
+### BP47 ④豁免臂收紧=heat 仅 high ∧ openSegBuySharePct<80（2026-11-08，bt-v83/v84 187 票④真判票复盘·mapper 消费侧收紧案；题集零改动不 bump）
+
+**背景**：CD384+ladder v13 双防线验证后 bt-v84 净 -0.4902（vs bt-v83 -1.9158），用户要求「从另一个角度看一下，购买的代币都是哪些盘形，各个盘形的盈亏情况如何」——盘形×盈亏拆解（128 成交票）：**④early_sniper_decay 100 票（占 78%）净 -0.5693=亏损主体**，100% 走 BP46 高热近价豁免臂（exempt=sniper_decay_heat_price）；臂内一分为二：④+heat=high 52 票 **+0.2934** / ④+heat=ultra 48 票 **-0.8627**；⑦restart 14 票 +0.3169 唯一稳定正盘形。用户再提直觉：
+
+> 「狙击衰竭，一个直观的感觉，就是我们开启这个类型币的交易，是因为有一些代币经历了大量的交易后，活跃度依然高并且有概率能起来，但是直观上看现在这一批，都是下跌途中活跃度没有流失的情况，我觉得里面需要加入交易量的要求，必须是已经有热度一阵了，才能打开它的交易。」
+
+**分析（187 票④真判票=bt-v83/v84 两窗信号 metadata 全量分层，openSegBuySharePct=开盘 30s 段买入占锚窗总买入比）**：直觉成立，但「热度一阵」的正确度量不是票龄/tick 数——**tokenAgeSec 无区分度**（143/187 票 <60s=BP46 臂入口天然筛短龄票；age≥300 仅 2 票全亏）；**actTickCount 非单调**（≥200 层反而 -0.5565）；**win60BuyBnb 弱区分非单调**。真区分器=**openSegBuySharePct**（开盘段之后热度是否仍在延续）：
+
+| openShare 层 | 票数 | 净额 BNB |
+|---|---|---|
+| <70 | 44 | **+0.9355** |
+| 70-80 | 3 | -0.006（零贡献） |
+| 80-90 | 16 | -0.0885 |
+| 90-99 | 21 | -0.3052 |
+| =100% | 106 | **-1.9489** |
+
+openShare=100%=开盘一波流冲高砸落、买点落在下跌途中残余热度里——④亏损全部来源；「大量交易后活跃度依然高」的真④语义=开盘段买入占比低（<80）∧热度高，即开盘段之后热度仍在延续。ultra 全层两窗 63 票 **-1.08** 皆负=机器盘密度（BP45 ⑧「ultra 机器盘不适用」同语义——BP46 立臂时漏了同款排除）。
+
+**立法（用户裁定原话）**：
+
+> 「那是不是 openShare < 80 ∧ heat = high ?」
+
+三要件：④ ∧ `market_heat=high`（ultra 退出豁免域）∧ `currentVsLaunchPct ≤+40`（BP46 原腿不动）∧ `openSegBuySharePct < 80`（严格小于；80-90 层 v83 转负故线取 80 不越 90——<80∧high 两窗 30 票 **+1.3886**（v84 17 票 +0.7058/v83 13 票 +0.6828）与 <70 净额 +1.3943 等价=70-80 层零贡献）。act ultra 臂同盖自动跟随（同盖前提=sniperHeatExempt 非 null，收紧后豁免票 heat 恒 high——BP46 的「苍蝇六信号 act=ultra 只豁④会被活跃度门接棒拦」立法空文问题随 ultra 退出豁免域整体消失）。
+
+**放弃面（知情取舍）**：BP46 案放行域首验两例——苍蝇 05:10:06（ultra,+32.2，已实现 -14.88% 卖腿归因、市价前向毕业前 ~7.5x）与来财 0xc84a0ff2…7777（ultra,+30.4，+150.9% 净 +0.0060 正例）——两票均 ultra 随收紧不再放行；两案一亏一赚、ultra 大样本两窗 63 票 -1.08 为负，用户已取舍（与 BP45 ⑧ ultra 排除、BP38「act=ultra 也不玩」同向）。
+
+**实现**：`buy-point-result-mapper.js`——`SNIPER_DECAY_HEAT_BUCKETS ['high','ultra']→['high']`；新增 `SNIPER_DECAY_OPEN_SHARE_MAX=80`（常量导出）；sniperHeatExempt 增 openShare 取值与判断，**读取走 `_openNum(anchors,'buySharePct')`（buyDerived.openSeg 嵌套键——首版直读顶层 `anchors.openSegBuySharePct` 恒 undefined 被单测 oH 断言当场反证后改访问器；fail-closed 方向保证了这类错只会收紧不会放开）**；openShare null（截窗未覆盖开盘段/旧档断代）或 ≥80 → 不豁免照拦；exempt 留痕带 `openSegBuySharePct`。`BuyPointCheckService.js` 审计日志豁免段补 `os=<值>`。题集零改动不 bump（BP46 同日先例——mapper-only 门行为改动；`BUY_POINT_QUESTIONS_VERSION` 保持 BP49）。
+
+**单测**：`_test_buy_point_lib` 452→**455 断言**——oCy 苍蝇 ultra 形状（④+heat ultra+act ultra）**反转为 poor/pattern_gate 无 exempt**（BP46 案核心断言方向翻转=ultra 退出豁免域）；oH 留痕增 heat==='high'+openSegBuySharePct===33.6（嵌套键读取锁）；新增 openShare 79.9 过/恰 80 拒（严格小于）/null 拒三断言；常量断言 `['high']`+`SNIPER_DECAY_OPEN_SHARE_MAX===80`；service 38/gate 128 全绿（本地；182 pull 后复跑）。
+
+**余留观察点**：①生产豁免触发面收缩后分布（④∧high∧≤40∧os<80 四腿联立频率）；②70-80 层样本仅 3 票零贡献=线值 80 的中间地带观察；③苍蝇④攒批 BP43 案「题面判序失灵」对低热/拉离④票仍存（本案只切 ultra 与 openShare≥80 子集）；④cangying-bp44/bp46、laicai-bp46 等终态实验留行不删。
+
+### BP46 ④early_sniper_decay 高热近价豁免（2026-11-08，苍蝇④贴线攒批 BP43 案立法落地·mapper 消费侧豁免案；题集零改动不 bump；**同日 BP47 案收紧=heat 仅 high∧openShare<80，ultra 域与 openShare≥80 已退出豁免**）
 
 **背景**：cangying-bp44（68886943）全链回测零成交复盘后用户问「苍蝇各个点位被拒的原因是什么」——E 段查证六信号：cheat 门 6/6 healthy 豁免（activity_ultra←cheat 三臂 pump/holdings strong，四票 pumpExempt=true）；BP 门 Jev 全调全判④（0.79~0.86，athVsLaunchPct=+324.4 拉高通则 BP40「拉得过高单独成立」五轮稳定执行）；四票（curVs +80.5/+75.4/+53.6/+159.9 >+40）pump_exempt_gate 位置拒、两票（05:10:06 curVs +32.2 / 05:10:09 +26.8 ≤+40）pattern_gate ④判读拒=BP43 攒批焦点。用户立法裁定原话：
 

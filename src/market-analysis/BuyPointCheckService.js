@@ -296,7 +296,7 @@ class BuyPointCheckService {
         ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
         ` holder=${dim.holder_concentration?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
-        `${obs.assessment.exempt ? `+exempt:${obs.assessment.exempt.code}(${obs.assessment.exempt.heat},+${obs.assessment.exempt.curVsLaunchPct})` : ''}` +
+        `${obs.assessment.exempt ? `+exempt:${obs.assessment.exempt.code}(${obs.assessment.exempt.heat},+${obs.assessment.exempt.curVsLaunchPct}${typeof obs.assessment.exempt.openSegBuySharePct === 'number' ? `,os=${obs.assessment.exempt.openSegBuySharePct}` : ''})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
         status: 'assessed',

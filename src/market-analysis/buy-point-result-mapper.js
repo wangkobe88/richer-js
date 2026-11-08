@@ -151,9 +151,22 @@ const GOLDEN_POINT_LAUNCH_PCT = 40;
  * 保护：BEM +56.4/FIGHT +76.1 未回到 near_launch 照拦。同线同值各自常量先例
  * （PUMP_EXEMPT/RESTART/BLENDED/GOLDEN=40）；mapper-only 门改动不 bump 题集
  * 版本（BP37/CD380 先例——exempt 落 assessment 留痕即指纹）；代码不改写
- * Jev 桶判定（④答案原样保留，仅参与决策=与⑥⑦位置门/actUltraExempt 同形态） */
+ * Jev 桶判定（④答案原样保留，仅参与决策=与⑥⑦位置门/actUltraExempt 同形态）。
+ * **BP47 收紧（2026-11-08 用户裁定「openShare < 80 ∧ heat = high」——bt-v83/v84
+ * 两窗④真判票 187 票复盘：④亏损全部来自「热度只在开盘一波」的票，openSegBuy
+ * SharePct=100% 两窗各 53 票各亏 ~1 BNB（开盘一波流冲高砸落=买点落在下跌途中
+ * 残余热度里）；<70∧high 两窗 27 票 +1.39、<80∧high 30 票 +1.39（70-80 层 3 票
+ * 零贡献，80 线与 70 线净额等价略宽容）；heat=ultra 全层两窗皆负（63 票 -1.08
+ * 机器盘密度，BP45 ⑧「ultra 机器盘不适用」同语义——BP46 立臂时漏了同款排除）。
+ * 三要件=heat 仅 high（ultra 退出豁免域）∧ openSegBuySharePct < 80（开盘 30s 段
+ * 买入占锚窗总买入比——「开盘段之后热度仍在延续」才是「大量交易后活跃度依然
+ * 高」的真④语义；票龄/actTickCount 无区分度：臂内 143/187 票 <60s、age≥300 仅
+ * 2 票全亏，tick≥200 层反而 -0.56）∧ curVsLaunchPct ≤+40 照旧；openShare 锚
+ * 缺失（截窗未覆盖开盘段/旧档断代）→ 不豁免宁拦不冒充。mapper-only 不 bump 题
+ * 集版本；豁免票 exempt 留痕带 openSegBuySharePct 值）** */
 const SNIPER_DECAY_HEAT_LAUNCH_PCT = 40;
-const SNIPER_DECAY_HEAT_BUCKETS = ['high', 'ultra'];
+const SNIPER_DECAY_HEAT_BUCKETS = ['high'];
+const SNIPER_DECAY_OPEN_SHARE_MAX = 80;
 // FAMOUS_AXIS_RELAUNCH_PCT（BP45 famous 轴再起来域 20）已随 famous_domination 题
 //   退役删除（BP49/案号 BP45）——唯一消费者 chip_gate famous 臂同退役；再起来域
 //   语义（落底后 famous 未离场=正面证据）保留在盘型题⑦⑧桶判读里（题面层）。
@@ -275,13 +288,15 @@ function buildBuyPointObservation(answers, anchors = null) {
   // ①盘型门（BP18 五类型学；BP30 前置——用户裁定「market_pattern 要放到很靠前
   //   的位置，因为这是个预判断」）：retail_pvp/famous_monopoly/early_sniper_decay
   //   → poor（不要参与）；**④桶另有高热近价豁免臂（案号 BP46：④∧heat∈
-  //   {high,ultra}∧curVsLaunch ≤+40 放行，详 SNIPER_DECAY_HEAT_LAUNCH_PCT）**；
+  //   {high,ultra}∧curVsLaunch ≤+40 放行，详 SNIPER_DECAY_HEAT_LAUNCH_PCT；
+  //   BP47 收紧=heat 仅 high ∧ openSegBuySharePct<80）**；
   //   BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ①
   //   strong_backer ≤+80（庄盘独享 low 档）/⑤ blended ≤+40/⑧ golden_point
   //   ≤+40 防御门**——各桶位置臂（判型归 Jev、位置归代码；锚缺失一律宁拦不
   //   冒充拒）；
   // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免+BP46 ④高热近价
-  //   豁免同盖 ultra 臂）：
+  //   豁免同盖 ultra 臂——BP47 收紧后豁免票 heat 恒 high，act ultra 臂同盖条件
+  //   收紧自动跟随 sniperHeatExempt 三要件）：
   //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
   //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
   //   strong_backer 时豁免不拦——强庄盘拉盘天然密集）}→ poor（rule=activity_gate）；
@@ -296,13 +311,18 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   ∧ curVsLaunchPct ≤+40 → ④臂不拦（放行走活跃度门/筹码门，同条件豁免 act
   //   ultra 臂）；heat 答案缺席/锚缺失/已拉离 → null 不豁免（宁拦不冒充）；
   //   豁免对象仅④（sniperHeatExempt 非 null 时 bucket 必为④，②③不受影响）
+  //   **BP47 收紧：heat 仅 high（ultra 退出——机器盘密度两窗皆负）∧ 新增
+  //   openSegBuySharePct < 80 硬腿（开盘段后热度延续才放——=100% 开盘一波流
+  //   冲高砸落两窗各亏 ~1 BNB 是④亏损全部来源）；openShare 锚缺失同 null 拒**
   const sniperHeatExempt = (() => {
     if (!dimensions.market_pattern || dimensions.market_pattern.bucket !== 'early_sniper_decay') return null;
     if (!dimensions.market_heat || !SNIPER_DECAY_HEAT_BUCKETS.includes(dimensions.market_heat.bucket)) return null;
     const rawVs = anchors ? anchors.currentVsLaunchPct : null;
     const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > SNIPER_DECAY_HEAT_LAUNCH_PCT) return null;
-    return { code: 'sniper_decay_heat_price', heat: dimensions.market_heat.bucket, curVsLaunchPct: vsLaunch };
+    const openShare = _openNum(anchors, 'buySharePct');
+    if (openShare == null || openShare >= SNIPER_DECAY_OPEN_SHARE_MAX) return null;
+    return { code: 'sniper_decay_heat_price', heat: dimensions.market_heat.bucket, curVsLaunchPct: vsLaunch, openSegBuySharePct: openShare };
   })();
   const patternArms = dimensions.market_pattern
     && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
@@ -514,6 +534,7 @@ module.exports = {
   GOLDEN_POINT_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_BUCKETS,
+  SNIPER_DECAY_OPEN_SHARE_MAX,
   ACTIVITY_GATE_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
 };
