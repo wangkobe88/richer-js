@@ -677,9 +677,9 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
 
 (async () => {
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
-  console.log('F. 题集形状（BP43 十题=8 维度+2 质量/桶域对锁/price_level 六桶 almost_launch+盘型七桶 restart 位置门 40/数值锚全量联动 +20/40/80 新分界/④⑦分界交易量与回落方向/⑥位置门 10+①散户入场机会双臂 0.12 线/④开盘拉高 BP40 单独成立+BP41 反锚判序前置）');
+  console.log('F. 题集形状（BP44 十题=8 维度+2 质量/桶域对锁/price_level 六桶 almost_launch+盘型七桶 restart 位置门 40/BP44 盘面重置判序 restart 优先不落④/④⑦分界交易量与回落方向/⑥位置门 10+①散户入场机会双臂 0.12 线/④开盘拉高 BP40 单独成立+BP41 反锚判序前置）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP43', 'F: 版本=BP43（CD381 同车六条批量需求 2/4\'——almost_launch 六桶改制+restart 重启盘第七桶，用户三项裁定「数值锚跟随新分界」+「盘型判重启后现价 ≤+40% 位置门」：①price_level 五桶→六桶 almost_launch ≤+20 含破发/near_launch 收 20~40/low 收 40~80/mid 下界 +100→+80，全部引用旧分界的数值锚联动改写（BP15 豁免锚 ≤+50→≤+20、庄盘帽 +50~100→+40~80 界 +100→+80、早鸟第三分支 +100→+80、回调「跌到很低」≤+50→≤+40 含破发、price_level 反锚④ >+100→>+80）；②market_pattern 第七桶 restart 重启盘=交易量腿（tradeCount≥10 ∧ buyVolumeBnb≥1.5 与 ladder RL15 臂同线）+价格回到腿（锚窗峰后最低价较发行价 ≤+20——刻意不取整窗最低：launchCovered 窗整窗最低恒=发行价=判据腿结构性失效；峰后段=首个最高价之后，ATH 在末位=从未回落 null）两腿制，代码侧位置门 RESTART_LAUNCH_PCT=40 同⑥模式（判型归 Jev 位置归代码），④⑦分界=交易量与回落方向（④开局抢完衰竭无人问津/⑦玩过一轮洗回起点）。前版 BP42（机械门拆除零题面改动不 bump 版本）；BP41（BP36 案 S072 红线修正反锚判序前置）；BP40（BP35 案拉得过高单独成立 +35 线））');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP44', 'F: 版本=BP44（案号 BP39 盘面重置判读+restart 优先判序——0x28ad2c7d 单票回测 bt-s01 判例：等额分仓狙击→cheat 拉黑→价格回 almost_launch 重检翻案放行时锚窗判 early_sniper_decay 三拒，用户裁定「到了 almost_launch 交易活跃度又起来的应该是 restart，优先判为 restart」+「一旦 almost_launch 会认为这个代币的盘面重新计算了」：回到过 almost_launch（峰后最低 ≤+20 含破发）=盘面重新计算、此前高位形状是上一轮痕迹，回落后活跃度又起来的优先判⑦不落④（④衰竭语义=回落之后没人玩了）、回落死寂仍走④（重启失败）；BP35 极早窗反锚「近窗吞吐活跃不落④」出口接本判序；纯题面判读层零 mapper 改动（BP42 不搞代码门铁律，位置门 RESTART_LAUNCH_PCT=40 不动）。前版 BP43（CD381 同车 almost_launch 六桶+restart 第七桶））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -718,7 +718,13 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(require('../src/market-analysis/buy-point-result-mapper').RESTART_LAUNCH_PCT === 40 && require('../src/market-analysis/buy-point-result-mapper').SUSTAINED_CLIMB_LAUNCH_PCT === 10, 'F: 位置门常量导出（RESTART_LAUNCH_PCT=40/SUSTAINED_CLIMB_LAUNCH_PCT=10——用户裁定「盘型判重启后现价 ≤+40% 位置门放行质量题」）');
   const mp = qs.market_pattern.instructions;
   ok(mp.includes('⑦重启盘（restart，BP43 新增）') && mp.includes('价格又回到了 almost_launch') && mp.includes('①交易量腿') && mp.includes('②价格回到腿') && mp.includes('窗口总笔数参考 ≥10 笔 ∧ 全窗买入额参考 ≥1.5 BNB') && mp.includes('锚窗**峰后最低**价较发行价 ≤+20%') && mp.includes('整窗最低恒是发行价本身不作判据') && mp.includes('仍在最高点=?=从未回落不算回到过'), 'F: ⑦重启盘立法（BP43——交易量腿 ≥10 笔 ∧ ≥1.5 BNB 与 ladder RL15 臂同线+价格回到腿=锚窗峰后最低 ≤+20（峰后非整窗：整窗最低恒=发行价结构性失效；ATH 在末位=从未回落不算）两腿制）');
-  ok(mp.includes('④的回落=没人玩了，⑦的回落=玩过一轮又回到起点') && mp.includes('**④与⑦分界=交易量与回落方向（BP43）**') && mp.includes('交易量腿不达标的回落票走④不走⑦（无人问津不是重启）') && mp.includes('⑦与①⑤分界=判的是回落形状不是盘面好坏'), 'F: ④⑦/⑦①⑤分界（④开局抢完就没人玩了/⑦玩过一轮回到起点——交易量腿不达标走④；⑦只述结构事实质量归质量题）');
+  ok(mp.includes('④的回落=没人玩了，⑦的回落=玩过一轮又回到起点') && mp.includes('**④与⑦分界=交易量与回落方向（BP43）+判序优先（BP44 盘面重置）**') && mp.includes('交易量腿不达标的回落票走④不走⑦（无人问津不是重启）') && mp.includes('⑦与①⑤分界=判的是回落形状不是盘面好坏'), 'F: ④⑦/⑦①⑤分界（④开局抢完就没人玩了/⑦玩过一轮回到起点——交易量腿不达标走④；⑦只述结构事实质量归质量题）');
+  // BP44（案号 BP39 盘面重置判读+restart 优先判序——0x28ad2c7d 单票回测 bt-s01 判例）
+  ok(mp.includes('**盘面重置前置（BP44 判序，先于④⑦评分类）**') && mp.includes('=**盘面重新计算**——此前的高位形状（狙击抢筹/开盘拉高/出货）是**上一轮**的痕迹') && mp.includes('优先判⑦重启盘**，不落④狙击衰竭（④的衰竭语义=回落之后没人玩了；活跃度又起来的回落是重启不是衰竭）') && mp.includes('回落之后死寂无人玩的仍走④（重启失败=衰竭）'), 'F: BP44 题头盘面重置前置段（用户裁定「一旦 almost_launch 会认为这个代币的盘面重新计算了」——回到过 almost_launch=盘面重新计算，回落后活跃度又起来的优先判⑦不落④，死寂仍走④）');
+  ok(mp.includes('**盘面重置让位（BP44 判序）**') && mp.includes('本桶所述的开盘段狙击/拉高/出货形状是**上一轮**的痕迹'), 'F: BP44 ④桶让位句（开盘段形状在回到 almost_launch 后是上一轮痕迹，活跃度又起来的让位⑦——BP35 反锚出口接本判序）');
+  ok(mp.includes('**判序优先（BP44）**') && mp.includes('价格回到腿已成立时=**盘面重新计算**') && mp.includes('即便锚窗内同时可见④的开盘段集中抢筹形状（上一轮的痕迹不改本轮定性'), 'F: BP44 ⑦桶优先句（两桶形状同现优先⑦——上一轮痕迹不改本轮定性）');
+  ok(qs.market_pattern.criteria.early_sniper_decay.includes('**盘面重置让位（BP44）**') && qs.market_pattern.criteria.early_sniper_decay.includes('优先判⑦重启盘不落本桶'), 'F: criteria ④桶 BP44 让位同步（Jev 选桶时同判序）');
+  ok(qs.market_pattern.criteria.restart.includes('**判序优先（BP44 盘面重置）：回到过 almost_launch=盘面重新计算') && qs.market_pattern.criteria.restart.includes('回落后活跃度又起来的（近窗/锚窗末段吞吐双向活跃金额可观）优先落本桶不落④'), 'F: criteria ⑦桶 BP44 优先句同步（Jev 选桶时同判序）');
   ok(mp.includes('⑦由代码侧位置门判参与——现价较发行价 ≤+40%（near_launch 以内，含 almost_launch 与破发）的重启起点段放行走两道质量题、已重新拉离（>+40%）或锚缺失拒买'), 'F: 门桶声明 BP43 ⑦位置门句（≤+40 near_launch 以内放行、已拉离/锚缺失拒——判型归 Jev 位置归代码）');
   ok(qs.market_pattern.criteria.restart.includes('锚窗峰后最低价较发行价 ≤+20%，含破发') && qs.market_pattern.criteria.restart.includes('窗口总笔数参考 ≥10 ∧ 全窗买入额参考 ≥1.5 BNB') && qs.market_pattern.criteria.restart.includes('现价较发行价 ≤+40%（near_launch 以内含 almost_launch 与破发）放行两道质量题'), 'F: criteria restart 同步（BP43——桶描述与题面两腿+位置门一致，Jev 选桶时同判据）');
   ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
