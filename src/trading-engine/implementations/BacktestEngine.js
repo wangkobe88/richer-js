@@ -91,6 +91,26 @@ function filterTokenMetaByAddresses(metaMap, addresses) {
   return { before, kept: metaMap.size, removed, missing: missing.sort() };
 }
 
+/**
+ * 单票 token 集限定行级过滤（m4ga-v12 案二修 2026-11-08，59e77601 现场）：仅裁
+ * _tokenMeta 不够——BacktestTickCache FRESH/STALE 命中返回缓存文件**全量行**
+ *（getOrFetch 的 addresses 参数只做 meta.tokenCount 诊断，不参与行过滤；缓存文件
+ * 按源实验粒度存全量供多实验共用）。首版单票实验 m4ga-v12s 实录：token 集限定
+ * warn 打出「3629 票 → 1 票」但 ticks 装载 source=fresh 77429 行（污染版首跑 MISS
+ * 写下的全量缓存），80 票照进主循环。修复=装载出口统一行级过滤，覆盖缓存/直拉
+ * 两路径（直拉 fetchRows 本就按 addresses 拉取，此处幂等零差异）。filter 为空
+ * 返回原数组引用（宽窗口实验零开销零拷贝）。
+ */
+function filterTickRowsByTokenSet(rows, filter) {
+  if (!Array.isArray(filter) || !filter.length) return rows;
+  const want = new Set(filter.map((a) => String(a).toLowerCase()));
+  const out = [];
+  for (const r of rows || []) {
+    if (want.has(String((r && r.token_address) || '').toLowerCase())) out.push(r);
+  }
+  return out;
+}
+
 function compareByChainOrder(a, b) {
   return (a.block_number - b.block_number) || (a.log_index - b.log_index) || (a.id - b.id);
 }
@@ -957,7 +977,8 @@ class BacktestEngine extends AbstractTradingEngine {
         this._fetchPlatformTicksRows(supabase, addresses, platform, 0, 0)));
       const raw = [];
       for (const rows of perPlatform) for (const r of rows) raw.push(r);   // 禁 spread（大数组展开参数溢出风险）
-      return raw;
+      // 单票限定行级过滤（幂等：直拉已按 addresses 拉取；统一出口防路径差异）
+      return filterTickRowsByTokenSet(raw, this._tokenAddressFilter);
     }
     if (!this._tickCache) {
       const { BacktestTickCache } = require('../core/BacktestTickCache');
@@ -977,10 +998,13 @@ class BacktestEngine extends AbstractTradingEngine {
       });
       // FRESH 纯读文件不经过 _fetchPlatformTicksRows（拉取行已在方法内计数），此处补计；
       // miss/stale/bypass 均经过 fetchRows 已计，按 source 区分防双计
-      if (source === 'fresh') this.metrics.processedDataPoints += rows.length;
+      // 单票限定行级过滤（m4ga-v12s 现场根因：缓存文件存源实验全量行，FRESH 命中
+      // 返回全量——滤后行数才是本实验装载语义的行数（日志/护栏/processedDataPoints））
+      const kept = filterTickRowsByTokenSet(rows, this._tokenAddressFilter);
+      if (source === 'fresh') this.metrics.processedDataPoints += kept.length;
       this.logger.info(this._experimentId, 'BacktestEngine',
-        `${platform}: raw ticks 装载 source=${source}, ${rows.length} 行`);
-      return rows;
+        `${platform}: raw ticks 装载 source=${source}, ${kept.length} 行${kept.length !== rows.length ? `（token 集限定过滤 ${rows.length} → ${kept.length}）` : ''}`);
+      return kept;
     }));
     const raw = [];
     for (const rows of perPlatform) for (const r of rows) raw.push(r);
@@ -3288,4 +3312,4 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 }
 
-module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses };
+module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet };

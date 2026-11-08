@@ -32,7 +32,7 @@ const path = require('path');
 const ENGINE_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'BacktestEngine.js');
 const TOOL_PATH = path.join(__dirname, 'backtest-token-case.cjs');
 
-const { filterTokenMetaByAddresses } = require(ENGINE_PATH);
+const { filterTokenMetaByAddresses, filterTickRowsByTokenSet } = require(ENGINE_PATH);
 const engineSrc = fs.readFileSync(ENGINE_PATH, 'utf8');
 const toolSrc = fs.readFileSync(TOOL_PATH, 'utf8');
 
@@ -97,14 +97,49 @@ console.log('D. 引擎源码锁');
   ok(engineSrc.includes('不在源实验 experiment_tokens（将零 ticks 零信号）'),
     'D5 missing loud warn 接线（绝不静默）');
   ok(engineSrc.includes('filterTokenMetaByAddresses'), 'D6 纯函数在引擎文件内定义');
-  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses \};/.test(engineSrc),
-    'D7 导出三件');
+  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet \};/.test(engineSrc),
+    'D7 导出（三件+行级过滤二修，详 F8）');
 }
 
 console.log('E. 工具源码锁');
 {
   ok(toolSrc.includes('tokenAddresses: [TOKEN]'), 'E1 backtest-token-case create 写单票限定');
   ok(toolSrc.includes('源实验 token 表裁剪到单票'), 'E2 dry-run 打印限定行（可见性）');
+}
+
+// F. 行级过滤（二修 59e77601 现场：仅裁 _tokenMeta 不够——BacktestTickCache FRESH
+//    命中返回缓存文件全量行（addresses 只做 meta.tokenCount 诊断），污染版首跑
+//    MISS 写下的全量缓存被单票版整文件吃进，80 票照进主循环）
+console.log('F. 行级过滤纯函数（缓存 FRESH 漏点）');
+{
+  const rows = [
+    { id: 1, token_address: '0xaaa' },
+    { id: 2, token_address: '0xbbb' },
+    { id: 3, token_address: '0xccc' },
+    { id: 4, token_address: '0xaaa' },
+    { id: 5, token_address: null },       // 防御：缺地址行
+    { id: 6 },                            // 防御：无 token_address 键
+  ];
+  const out = filterTickRowsByTokenSet(rows, ['0xbbb']);
+  ok(out.length === 1 && out[0].id === 2, 'F1 全量缓存行滤到单票（null/缺键行剔除）');
+
+  const out2 = filterTickRowsByTokenSet(rows, ['0xAAA0000000000000000000000000000000000001']);
+  ok(out2.length === 0, 'F2 大写限定地址小写归一比较');
+
+  const same = filterTickRowsByTokenSet(rows, null);
+  ok(same === rows, 'F3 filter 缺省返回原数组引用（宽窗口实验零拷贝）');
+  const same2 = filterTickRowsByTokenSet(rows, []);
+  ok(same2 === rows, 'F4 空数组=未限定返回原引用');
+
+  ok(filterTickRowsByTokenSet(null, ['0x1']).length === 0, 'F5 rows null 防御空数组');
+
+  // 引擎源码锁：两出口都接线（缓存路径 kept 行数进日志；直拉路径幂等过滤）
+  ok(engineSrc.includes('const kept = filterTickRowsByTokenSet(rows, this._tokenAddressFilter)'),
+    'F6 缓存路径 FRESH/STALE 行级过滤接线（滤后行数=装载语义行数）');
+  ok(/return filterTickRowsByTokenSet\(raw, this\._tokenAddressFilter\);/.test(engineSrc),
+    'F7 直拉路径出口统一过滤（幂等）');
+  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet \};/.test(engineSrc),
+    'F8 导出四件');
 }
 
 console.log(`\n全部通过: ${n} 断言`);
