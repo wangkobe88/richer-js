@@ -179,7 +179,7 @@ class CheatCheckService {
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
-      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：pump/wash/holdings）
+      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：pump/wash——holdings 臂 11-08 三修移除）
       marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
     };
   }
@@ -329,7 +329,7 @@ class CheatCheckService {
    * 型形状本身制造高活跃度（缓推泵/对倒刷量盘 activity 天然 high/ultra），活跃度
    * 豁免恰好专放这类票——bt-v79 复盘六案 8 个放行买入信号 originalGrade 全∈
    * {cheat,unhealthy} 且全经 CD379 豁免放走（pump/wash/holdings 证据在场）实证。
-   * 三臂任一在场=豁免失效（门决策恢复原判/拉黑登记不跳过/bootstrap 恢复不豁免）：
+   * 不豁免臂在场=豁免失效（门决策恢复原判/拉黑登记不跳过/bootstrap 恢复不豁免）：
    * **三臂统一 strong(3) 档（2026-11-08 用户裁定档位修正「三不臂都需要 strong 才
    * 不豁免，moderate 我们之前也不用于判定 cheat 的」——moderate 在 G17 体系从不
    * 参与 cheat 级判定，不豁免臂与 A/J 通道主判线同档；首版 pump/holdings 臂误取
@@ -341,8 +341,13 @@ class CheatCheckService {
    *    版误扩对倒族三题（equalAmountSplit 等额分仓/coordinatedSellBack 协同
    *    卖回），两键退出不豁免臂恢复 CD379 豁免资格；留痕码同步 wash_pair_family
    *    → wash_pair
-   * ③ holdings 臂：holdingsBalance = strong——持仓维度独立成臂（0xb788e63b
-   *    判例 holdingsBalance=strong J 通道同档）
+   * ③ holdings 臂：**已移除（2026-11-08 同日第三次裁定「气死我了，那就 cheat
+   *    模块高活跃度豁免 J_holdings_strong」）**：CD382 盘面重置对拍 bt-s01
+   *    0x28ad2c7d 复盘——#5 锚（07:15:58 almost_launch 买窗内）activityLevel=
+   *    high 且豁免恰被 holdings 臂拦（重置窗内「同块背靠背+等额对组合垄断在场
+   *    流通 57.3%」=接盘侧新阵列非刷量形状），holdingsBalance=strong 退出不豁
+   *    免臂；J 通道保持 unhealthy 拒买级判定不受影响（0xb788e63b 判例留档为
+   *    臂移除前行为）。现行为两臂=pump/wash。
    * 入参=levels 数值投影（levelsFromObservation 产物；秒回/late/blocked 行同构）；
    * levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常（缺席不扩大收紧面，
    * 维持 CD379 原语义）。豁免与收紧全部收在本模块内部（用户裁定「这种豁免全部
@@ -356,8 +361,7 @@ class CheatCheckService {
     };
     if (lv('slowGrindPump') >= 3) return 'slow_grind_pump';
     if (lv('washPair') >= 3) return 'wash_pair';
-    if (lv('holdingsBalance') >= 3) return 'holdings_balance';
-    return null;
+    return null; // holdings 臂已移除（2026-11-08 三修裁定，见头注③）
   }
 
   /**

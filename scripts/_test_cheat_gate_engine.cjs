@@ -658,8 +658,8 @@ async function testActivityExempt() {
     dn({ washPair: 2 }) === null);
   ok('F7 holdingsBalance=moderate 不拦（三臂统一 strong 档位修正）',
     dn({ holdingsBalance: 2 }) === null);
-  check('F7 holdingsBalance=strong 拦（0xb788e63b 判例 J 通道唯一拦截臂同档）',
-    dn({ holdingsBalance: 3 }), 'holdings_balance');
+  ok('F7 holdingsBalance=strong 不拦（2026-11-08 三修裁定「cheat 模块高活跃度豁免 J_holdings_strong」——holdings 臂退出不豁免臂：CD382 重置对拍 bt-s01 0x28ad2c7d #5 锚 activityLevel=high 豁免恰被 holdings 臂拦，重置窗内组合垄断=接盘侧新阵列非刷量形状；0xb788e63b 判例留档为臂移除前行为）',
+    dn({ holdingsBalance: 3 }) === null);
   ok('F7 holdings=weak 不拦', dn({ holdingsBalance: 1 }) === null);
   ok('F7 levels null/键缺席（旧档断代/题未答）不拦=豁免照常（缺席不扩大收紧面）',
     dn(null) === null && dn({}) === null && dn({ slowGrindPump: null }) === null);
@@ -669,9 +669,9 @@ async function testActivityExempt() {
     { grade: r7a.grade, exempt: r7a.exempt, exemptDenied: r7a.exemptDenied },
     { grade: 'cheat', exempt: undefined, exemptDenied: 'slow_grind_pump' });
   const r7b = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 3 }, buckets: { activityLevel: 'ultra' } });
-  check('F7 出口：unhealthy+ultra+holdings strong → 原判保持',
-    { grade: r7b.grade, exemptDenied: r7b.exemptDenied },
-    { grade: 'unhealthy', exemptDenied: 'holdings_balance' });
+  check('F7 出口：unhealthy+ultra+holdings strong → 豁免照常放行（三修裁定后 holdings 臂不再拦——J 通道判定不受影响、仅豁免路径放开）',
+    { grade: r7b.grade, exemptDenied: r7b.exemptDenied, exemptCode: r7b.exempt && r7b.exempt.code },
+    { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_ultra' });
   const r7b2 = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 2 }, buckets: { activityLevel: 'ultra' } });
   check('F7 出口：holdings moderate（档位修正后）→ 豁免照常恢复放行（0x94ea754b pump=moderate 信号同形状）',
     { grade: r7b2.grade, exemptDenied: r7b2.exemptDenied, exemptCode: r7b2.exempt && r7b2.exempt.code },
@@ -680,24 +680,24 @@ async function testActivityExempt() {
   check('F7 出口：equalAmountSplit/coordinatedSellBack strong（wash 臂收窄后）→ 豁免照常放行（用户裁定「其他的我没说的，依然可以走活跃度豁免」）',
     { grade: r7b3.grade, exemptDenied: r7b3.exemptDenied, exemptCode: r7b3.exempt && r7b3.exempt.code },
     { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_high' });
-  check('F7 0xcb70708e 形状（pump+wash 两退出键+holdings 全 3）→ wash 收窄后仍靠 pump 臂拦截（判例票行为不变）',
+  check('F7 0xcb70708e 形状（pump+wash 两退出键+holdings 全 3）→ wash 收窄+holdings 臂移除后仍靠 pump 臂拦截（判例票行为不变）',
     dn({ slowGrindPump: 3, equalAmountSplit: 3, coordinatedSellBack: 3, holdingsBalance: 3 }), 'slow_grind_pump');
   const r7c = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' } });
   check('F7 出口：三臂不在场（F3 形状）→ 豁免照常（CD379 语义维持）',
     { grade: r7c.grade, exempt: r7c.exempt, exemptDenied: r7c.exemptDenied },
     { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'unhealthy' }, exemptDenied: undefined });
-  ok('F7 exemptDenied 计数恰 2 次（denied 才计，豁免照常不计）',
-    s7.stats.exemptDenied - beforeDeny === 2, s7.stats);
-  // F7 sticky 出口：denied 票粘滞秒回也不豁免（grade 恢复原判=引擎拒买路径生效）
+  ok('F7 exemptDenied 计数恰 1 次（denied 才计——holdings 臂移除后 r7b 转豁免不计）',
+    s7.stats.exemptDenied - beforeDeny === 1, s7.stats);
+  // F7 sticky 出口：holdings 臂移除后 sticky 秒回同样走豁免变换（粘滞态不改、决策域放行）
   const s7s = mkSvc();
   s7s._lastGrade.set('0xdenied', {
     grade: 'unhealthy', reasons: [{ code: 'J_holdings_strong' }], version: 'G17',
     unhealthyGrades: 2, levels: { holdingsBalance: 3 }, buckets: { activityLevel: 'high' }, anchors: {},
   });
   const r7s = await s7s.gateBuyPoint('0xdenied', {}, {}, { recheckUnhealthy: false });
-  check('F7 sticky：unhealthy+high+holdings strong recheck=false → 秒回不豁免原判保持',
-    { grade: r7s.grade, cached: r7s.cached, exempt: r7s.exempt, exemptDenied: r7s.exemptDenied },
-    { grade: 'unhealthy', cached: true, exempt: undefined, exemptDenied: 'holdings_balance' });
+  check('F7 sticky：unhealthy+high+holdings strong recheck=false → 秒回照豁免放行（三修裁定后同形状翻案）',
+    { grade: r7s.grade, cached: r7s.cached, exemptCode: r7s.exempt && r7s.exempt.code, exemptDenied: r7s.exemptDenied },
+    { grade: 'healthy', cached: true, exemptCode: 'activity_high', exemptDenied: undefined });
   // F7 源码口径锁：拉黑登记点+bootstrap 恢复同款收紧（denied 票照拉黑/照恢复拉黑）
   ok('F7 拉黑登记点收紧在场（activityExempt = isExempt && !deniedReason(levels)）',
     svcSrc.includes('this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)\n        && !this._exemptDeniedReason(levels)'));
