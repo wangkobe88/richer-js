@@ -139,6 +139,21 @@ const BLENDED_LAUNCH_PCT = 40;
  * 现价 >+40%=判序错位按⑦位置门同线拒；锚缺失同拒（宁拦不冒充）。与
  * RESTART_LAUNCH_PCT「同线同值各自常量」先例 */
 const GOLDEN_POINT_LAUNCH_PCT = 40;
+/** ④early_sniper_decay 高热近价豁免（案号 BP46/2026-11-08 用户裁定「如果热度是
+ * 高热以上，价格到 near_launch 以内，可以买」——适用域=盘型④狙击衰竭；苍蝇
+ * 0xb30f0b8a…7777 ④贴线误杀攒批（BP43 案）的立法落地）：盘型判④ ∧ market_heat∈
+ * {high,ultra}（高热以上——④的「衰竭/无人接」前提被高热度证伪，热度本身就是
+ * 活跃证据）∧ 现价较发行价 ≤+40%（near_launch 以内，含 almost_launch 与破发）
+ * → ④臂不拦放行走后续门链；**同条件一并豁免活跃度门 ultra 臂**（高热④票的
+ * 密集是真实参与非机器盘——BP38 strong_backer ultra 豁免同构扩展；act low/
+ * heat low 死寂臂不豁免照拦）。market_heat 答案缺席（旧档重放）/curVsLaunchPct
+ * 锚缺失/已拉离（>+40%）→ 不豁免宁拦不冒充（同⑥⑦位置门模式）。反例天然
+ * 保护：BEM +56.4/FIGHT +76.1 未回到 near_launch 照拦。同线同值各自常量先例
+ * （PUMP_EXEMPT/RESTART/BLENDED/GOLDEN=40）；mapper-only 门改动不 bump 题集
+ * 版本（BP37/CD380 先例——exempt 落 assessment 留痕即指纹）；代码不改写
+ * Jev 桶判定（④答案原样保留，仅参与决策=与⑥⑦位置门/actUltraExempt 同形态） */
+const SNIPER_DECAY_HEAT_LAUNCH_PCT = 40;
+const SNIPER_DECAY_HEAT_BUCKETS = ['high', 'ultra'];
 // FAMOUS_AXIS_RELAUNCH_PCT（BP45 famous 轴再起来域 20）已随 famous_domination 题
 //   退役删除（BP49/案号 BP45）——唯一消费者 chip_gate famous 臂同退役；再起来域
 //   语义（落底后 famous 未离场=正面证据）保留在盘型题⑦⑧桶判读里（题面层）。
@@ -259,11 +274,14 @@ function buildBuyPointObservation(answers, anchors = null) {
   // 纯门链（BP48/案号 BP44——两质量题退役，rule 留痕首个命中门）：
   // ①盘型门（BP18 五类型学；BP30 前置——用户裁定「market_pattern 要放到很靠前
   //   的位置，因为这是个预判断」）：retail_pvp/famous_monopoly/early_sniper_decay
-  //   → poor（不要参与）；BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ①
+  //   → poor（不要参与）；**④桶另有高热近价豁免臂（案号 BP46：④∧heat∈
+  //   {high,ultra}∧curVsLaunch ≤+40 放行，详 SNIPER_DECAY_HEAT_LAUNCH_PCT）**；
+  //   BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ①
   //   strong_backer ≤+80（庄盘独享 low 档）/⑤ blended ≤+40/⑧ golden_point
   //   ≤+40 防御门**——各桶位置臂（判型归 Jev、位置归代码；锚缺失一律宁拦不
   //   冒充拒）；
-  // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
+  // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免+BP46 ④高热近价
+  //   豁免同盖 ultra 臂）：
   //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
   //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
   //   strong_backer 时豁免不拦——强庄盘拉盘天然密集）}→ poor（rule=activity_gate）；
@@ -274,7 +292,21 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   消费域 ['good','neutral'] 天然放行）。
   // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；旧档重放缺答案=该臂
   // 自动失效；位置臂锚缺失=宁拦不冒充拒）。
-  const patternArms = dimensions.market_pattern && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
+  // 案号 BP46：④early_sniper_decay 高热近价豁免——盘型④ ∧ market_heat∈{high,ultra}
+  //   ∧ curVsLaunchPct ≤+40 → ④臂不拦（放行走活跃度门/筹码门，同条件豁免 act
+  //   ultra 臂）；heat 答案缺席/锚缺失/已拉离 → null 不豁免（宁拦不冒充）；
+  //   豁免对象仅④（sniperHeatExempt 非 null 时 bucket 必为④，②③不受影响）
+  const sniperHeatExempt = (() => {
+    if (!dimensions.market_pattern || dimensions.market_pattern.bucket !== 'early_sniper_decay') return null;
+    if (!dimensions.market_heat || !SNIPER_DECAY_HEAT_BUCKETS.includes(dimensions.market_heat.bucket)) return null;
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > SNIPER_DECAY_HEAT_LAUNCH_PCT) return null;
+    return { code: 'sniper_decay_heat_price', heat: dimensions.market_heat.bucket, curVsLaunchPct: vsLaunch };
+  })();
+  const patternArms = dimensions.market_pattern
+    && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
+    && !sniperHeatExempt
     ? [dimensions.market_pattern] : [];
   // ⑥sustained_climb 位置臂（BP34）：贴发行价起点段放行；已拉离/锚缺失（宁拦不
   // 冒充）入盘型门拒（题面已教位置门语义，此处代码侧硬执行——判型归 Jev 位置归代码）
@@ -321,9 +353,15 @@ function buildBuyPointObservation(answers, anchors = null) {
     && dimensions.activity_level.bucket === 'ultra'
     && dimensions.market_pattern
     && dimensions.market_pattern.bucket === 'strong_backer';
+  // 案号 BP46：④高热近价豁免成立时同盖 ultra 臂——高热④票的密集是真实参与非
+  //   机器盘（豁免条件含 heat∈{high,ultra} 本身排除死寂；ultraArmExempt 语义=
+  //   「act ultra 臂豁免」——act low 死寂臂不豁免照拦，actUltraExempt 自带
+  //   bucket===ultra 前提、sniperHeatExempt 侧显式补同一前提防 low 臂误豁免）
+  const ultraArmExempt = actUltraExempt
+    || (Boolean(sniperHeatExempt) && Boolean(dimensions.activity_level) && dimensions.activity_level.bucket === 'ultra');
   const gateArms = [
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
-    dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !actUltraExempt ? dimensions.activity_level : null,
+    dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !ultraArmExempt ? dimensions.activity_level : null,
   ].filter(Boolean);
   // ③筹码门（BP49 起单臂）：famous 臂已随 famous_domination 题退役（BP49/案号
   //   BP45 用户裁定「盘形中已经分析了」）——famous 拦截归盘型题③独食桶+互斥
@@ -344,6 +382,9 @@ function buildBuyPointObservation(answers, anchors = null) {
     bucket = 'neutral'; prob = null; rule = 'gates_passed';
   }
   const assessment = { bucket, prob, rule };
+  // 案号 BP46 豁免留痕（豁免成立时 additive——旧形状零变化；豁免后被其它门拒
+  //   （如 chip strong）也带，审计完整）
+  if (sniperHeatExempt) assessment.exempt = sniperHeatExempt;
   const flat = {};
   for (const W of [30, 60, 120]) {
     for (const k of ['buyBnb', 'sellBnb', 'buyN', 'sellN', 'netBnb', 'buySharePct', 'ticksPerMin', 'buyers', 'sellers', 'newBuyers']) {
@@ -471,6 +512,8 @@ module.exports = {
   STRONG_BACKER_LAUNCH_PCT,
   BLENDED_LAUNCH_PCT,
   GOLDEN_POINT_LAUNCH_PCT,
+  SNIPER_DECAY_HEAT_LAUNCH_PCT,
+  SNIPER_DECAY_HEAT_BUCKETS,
   ACTIVITY_GATE_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
 };

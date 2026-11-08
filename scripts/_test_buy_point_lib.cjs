@@ -31,6 +31,7 @@ const {
   ACTIVITY_GATE_POOR_BUCKETS,
   SUSTAINED_CLIMB_LAUNCH_PCT, RESTART_LAUNCH_PCT,
   STRONG_BACKER_LAUNCH_PCT, BLENDED_LAUNCH_PCT, GOLDEN_POINT_LAUNCH_PCT,
+  SNIPER_DECAY_HEAT_LAUNCH_PCT, SNIPER_DECAY_HEAT_BUCKETS,
   ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
@@ -561,8 +562,8 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 're
 ok(aM.bucket === 'poor' && near(aM.prob, 0.86) && aM.rule === 'pattern_gate', 'E: 门① retail_pvp 散户 PVP → poor/pattern_gate（只有小散户额度偏低互捅攒流动性——不要参与）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'famous_monopoly', 0.91) }, dE).assessment;
 ok(aM.bucket === 'poor' && near(aM.prob, 0.91) && aM.rule === 'pattern_gate', 'E: 门① famous_monopoly famous 独食 → poor/pattern_gate（小散底子+一个 famous 拿太多筹码盘子就是它的）');
-aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84) }, dE).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E: 门① early_sniper_decay 狙击衰竭 → poor/pattern_gate（购买力集中最早期数 slot 后衰竭）');
+aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.84), ...mkAns('market_heat', 'mid', 0.6) }, dE).assessment;
+ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E: 门① early_sniper_decay 狙击衰竭 → poor/pattern_gate（购买力集中最早期数 slot 后衰竭；heat=mid 不够热不豁免——BP46 豁免断言见下）');
 // BP42（2026-11-08 用户裁定）真庄反锚机械门整段拆除：回归 BP12「不搞代码门」两次
 // 明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内代价入
 // 攒批池。拆除反证断言：两腿证据全在场的④形状（贴顶 0%+尾段 48.7=無為 S072 形状）
@@ -572,8 +573,64 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E
   const obs42 = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.92) }, anchor4(0, 48.7));
   ok(obs42.dimensions.market_pattern.bucket === 'early_sniper_decay'
     && obs42.dimensions.market_pattern.exempt === undefined
-    && obs42.assessment.bucket === 'poor' && obs42.assessment.rule === 'pattern_gate',
-    'E: BP42 机械门已拆：④+贴顶 0%+尾段 48.7（BP41 救臂证据全在场）照拒④不动 Jev 判定、无 exempt 留痕（S072 形状回归设计内代价）');
+    && obs42.assessment.bucket === 'poor' && obs42.assessment.rule === 'pattern_gate'
+    && obs42.assessment.exempt === undefined,
+    'E: BP42 机械门已拆：④+贴顶 0%+尾段 48.7（BP41 救臂证据全在场）照拒④不动 Jev 判定、无 exempt 留痕（S072 形状回归设计内代价；dA curVs=+60 界外 BP46 豁免亦不适用）');
+}
+// 案号 BP46（2026-11-08 用户裁定「如果热度是高热以上，价格到 near_launch 以内，
+// 可以买」——适用域=盘型④ early_sniper_decay；苍蝇 0xb30f0b8a…7777 ④贴线误杀
+// 攒批 BP43 案立法落地）：④ ∧ market_heat∈{high,ultra} ∧ curVsLaunchPct ≤+40 →
+// ④臂不拦放行走后续门链（同条件豁免 act ultra 臂——BP38 strong_backer ultra
+// 豁免同构扩展；act low/heat low 死寂臂照拦；chip strong 照拦=BP14 防线保留；
+// heat 答案缺席/锚缺失/已拉离（>+40）不豁免宁拦不冒充；②③不受豁免影响）
+{
+  const ans46 = (heat, extra = {}) => ({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.86), ...mkAns('market_heat', heat, 0.98), ...extra });
+  // 苍蝇 06/09 形状：④+heat ultra+curVs 26.8+act ultra → 豁免成立全链放行（核心
+  // 断言——不豁免 ultra 臂则本形状被 activity_gate 接棒拦=立法空文）
+  const oCy = buildBuyPointObservation(ans46('ultra', mkAns('activity_level', 'ultra', 0.73)), { ...dE, currentVsLaunchPct: 26.8 });
+  ok(oCy.assessment.bucket === 'neutral' && oCy.assessment.rule === 'gates_passed' && oCy.assessment.prob === null
+    && oCy.assessment.exempt && oCy.assessment.exempt.code === 'sniper_decay_heat_price'
+    && oCy.assessment.exempt.heat === 'ultra' && near(oCy.assessment.exempt.curVsLaunchPct, 26.8)
+    && oCy.dimensions.market_pattern.bucket === 'early_sniper_decay',
+    'E: BP46 豁免 ④+heat ultra+≤+40+act ultra → neutral 放行+exempt 留痕（苍蝇 06/09 形状——同条件豁免 act ultra 臂；④答案原样保留代码不改写 Jev 桶判定）');
+  const oH = buildBuyPointObservation(ans46('high'), dE);
+  ok(oH.assessment.bucket === 'neutral' && oH.assessment.rule === 'gates_passed' && oH.assessment.exempt && oH.assessment.exempt.code === 'sniper_decay_heat_price',
+    'E: BP46 豁免 heat=high（curVs=30 ≤+40）→ 放行（「高热以上」={high,ultra}——heat ultra 同域）');
+  const oB = buildBuyPointObservation(ans46('high'), { ...dE, currentVsLaunchPct: 40 });
+  ok(oB.assessment.bucket === 'neutral' && oB.assessment.rule === 'gates_passed', 'E: BP46 豁免 恰 +40% 放行（≤+40 边界含——near_launch 上界）');
+  const oOut = buildBuyPointObservation(ans46('high'), { ...dE, currentVsLaunchPct: 40.1 });
+  ok(oOut.assessment.bucket === 'poor' && oOut.assessment.rule === 'pattern_gate' && !oOut.assessment.exempt,
+    'E: BP46 豁免 +40.1% 已拉离不豁免照拒（反例天然保护：BEM +56.4/FIGHT +76.1 未回 near_launch 由价格腿守住）');
+  const oMid = buildBuyPointObservation(ans46('mid', mkAns('activity_level', 'mid', 0.7)), dE);
+  ok(oMid.assessment.bucket === 'poor' && oMid.assessment.rule === 'pattern_gate' && !oMid.assessment.exempt,
+    'E: BP46 豁免 heat=mid 不够热不豁免（「高热以上」门槛——mid 豁免域外）');
+  const oNull = buildBuyPointObservation(ans46('high'), { ...dE, currentVsLaunchPct: null });
+  ok(oNull.assessment.bucket === 'poor' && oNull.assessment.rule === 'pattern_gate' && !oNull.assessment.exempt,
+    'E: BP46 豁免 锚缺失不豁免（宁拦不冒充——同⑥⑦位置门模式）');
+  {
+    const { market_heat: _dropHeat, ...noHeat } = ans46('high');
+    const oNo = buildBuyPointObservation(noHeat, dE);
+    ok(oNo.assessment.bucket === 'poor' && oNo.assessment.rule === 'pattern_gate',
+      'E: BP46 豁免 market_heat 答案缺席不豁免（旧档重放保守方向——豁免=放行语义缺席不触发）');
+  }
+  const oLow = buildBuyPointObservation(ans46('high', mkAns('activity_level', 'low', 0.85)), dE);
+  ok(oLow.assessment.bucket === 'poor' && oLow.assessment.rule === 'activity_gate' && near(oLow.assessment.prob, 0.85),
+    'E: BP46 豁免只盖 ultra 臂——豁免后 act=low 照拦 activity_gate（高热④的密集是参与证据、死寂不是）');
+  const oChip = buildBuyPointObservation(ans46('high', mkAns('holder_concentration', 'strong', 0.93)), dE);
+  ok(oChip.assessment.bucket === 'poor' && oChip.assessment.rule === 'chip_gate' && near(oChip.assessment.prob, 0.93)
+    && oChip.assessment.exempt && oChip.assessment.exempt.code === 'sniper_decay_heat_price',
+    'E: BP46 豁免不盖筹码门——holder=strong 照拦 chip_gate（BP14 防线保留；豁免留痕仍带=审计完整）');
+  const oPvp = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('market_heat', 'ultra', 0.98), ...mkAns('activity_level', 'ultra', 0.7) }, dE);
+  ok(oPvp.assessment.bucket === 'poor' && oPvp.assessment.rule === 'pattern_gate' && !oPvp.assessment.exempt,
+    'E: BP46 适用域仅④——retail_pvp 高热近价照拒（用户澄清「我是指如果盘形是 early_sniper_decay」）');
+  const oMono = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'famous_monopoly', 0.9), ...mkAns('market_heat', 'ultra', 0.98), ...mkAns('activity_level', 'ultra', 0.7) }, dE);
+  ok(oMono.assessment.bucket === 'poor' && oMono.assessment.rule === 'pattern_gate',
+    'E: BP46 适用域仅④——famous_monopoly 高热近价照拒（②③④中仅④享豁免）');
+  const oRst = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.8) }, dE);
+  ok(oRst.assessment.bucket === 'neutral' && oRst.assessment.rule === 'gates_passed' && !oRst.assessment.exempt,
+    'E: BP46 零交互——restart ≤+40 原位置门放行照旧（无 exempt 留痕——豁免仅④装配点）');
+  ok(SNIPER_DECAY_HEAT_LAUNCH_PCT === 40 && JSON.stringify(SNIPER_DECAY_HEAT_BUCKETS) === JSON.stringify(['high', 'ultra']),
+    'E: BP46 豁免常量导出（≤+40 near_launch 以内含 almost_launch/破发；高热以上={high,ultra}）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
 ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: 门① strong_backer 强庄盘不拦（dA vsLaunch=+60% ≤+80 庄盘独享 low 档放行——BP48 ①位置门内）');
