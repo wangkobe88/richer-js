@@ -728,7 +728,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP44 十题=8 维度+2 质量/桶域对锁/price_level 六桶 almost_launch+盘型七桶 restart 位置门 40/BP44 盘面重置判序 restart 优先不落④/④⑦分界交易量与回落方向/⑥位置门 10+①散户入场机会双臂 0.12 线/④开盘拉高 BP40 单独成立+BP41 反锚判序前置）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP45', 'F: 版本=BP45（案号 BP40 高活跃度黄金点+famous 轴只适用第一波——bt-s02 0x28ad2c7d 单票门链回测判例：07:15:45 RL10 破发段（−9.9%）信号 BP 判 restart 正确却被 chip_gate 拒（famous dominant=砸盘后 famous 接盘筹码集中），用户三段裁定：①「购买前检查再增加一个盘面：高活跃度黄金点。当前的交易活跃度依然高，但是价格回落到 almost_launch 范围内，且在落到 almost_launch 之后，依然有买入。这个盘面也是性价比极高的点，允许买入」=market_pattern 第八桶 golden_point 三条件（活跃度依然高（high 档量级，ultra 机器盘不适用）∧现价 almost_launch 区内（≤+20 含破发——现价在区内非⑦「回到过」历史轨迹）∧区内仍有买入（现价在区内 → 近窗买入行即直接证据，归零/尘埃=不成立）），回落票判序最前（区内+高活跃+有买入优先⑧、现价已拉离 >+20% 才落⑦走位置门）、不进硬拒表（允许买入型，质量照归质量题）；②「famous 轴本身不应该用于再起来的盘子，它只适用于第一波」=chip_gate famous 臂域收缩（mapper FAMOUS_AXIS_RELAUNCH_PCT=20：minVsLaunchPct ≤+20 再起来域 famous 臂退出，null=第一波域照拦保守；holder 臂不受影响）；③「价格落到底了，但是famous没有离场，这不是好事吗」=正面语义进题面（落底后 famous 持无浮盈筹码未离场=继续看好，第一波「拿最便宜筹码等抬轿砸盘」风险模型才成立）；互斥检查同域放开（再起来的 famous 盘可落⑦⑧不落③）。前版 BP44（案号 BP39 盘面重置判序+涨起后最低锚修正））');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP46', 'F: 版本=BP46（案号 BP41 黄金点豁免奔零臂——BP40 案对拍遗留张力收口：⑧命中 07:15:45 综合仍 else_poor 0.50-0.53=pullback poor 0.53 贴线拒（奔零臂材料：chg30 −29.78 阴跌+holdersDelta60 −4+近窗 30s 净卖 −0.98/清仓式卖出 13 个——但价格已 almost_launch 区内+热度 high+尾段有买入），用户裁定原话「黄金点豁免归零臂。也就是说，没到黄金点区间听归零臂的，但是到了黄金点区间（跌也没啥跌头），可以买」=回调题忌讳③奔零臂加黄金点豁免（先于本条判：区内 ≤+20 含破发∧活跃度依然高∧区内仍有买入承接=跌也没啥跌头——奔零风险模型前提「下行空间未兑现」在贴发行价+活跃承接形状下不成立；三条件任一不成立=奔零臂照常照拦；只豁免③不豁免①②④⑤与核心规则大户未清场两臂；题面层豁免=BP23/BP29 庄盘豁免同构判据用 state 材料不引用盘型题答案）。前版 BP45（案号 BP40 高活跃度黄金点第八桶+famous 轴只适用第一波））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 10, `F: 恰 10 题=8 维度+2 质量题（实际 ${ids.length}）`);
@@ -910,6 +910,11 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(pb.instructions.includes('「跌到位」的要求只对涨过一截（low+）的票适用——没涨起来就无所谓跌到位'), 'F: 跌到位要求限 low+ 票（BP11 三改发现②触发条件与救臂同域的盲区句，BP12 收进核心规则）');
   ok(pb.instructions.includes('half_off/ankle_cut 腰斩级=跌过头是崩塌形状，不算「跌到很低」，走第三层'), 'F: 核心规则深崩排除（S026 near_launch+half_off 深崩不救——SB 案分界锁定）');
   ok(pb.instructions.includes('奔着归零'), 'F: 回调忌讳③奔着归零（阴跌+流失+派发）');
+  // BP46（2026-11-08，案号 BP41）黄金点豁免奔零臂——用户裁定原话「黄金点豁免归零臂。
+  // 也就是说，没到黄金点区间听归零臂的，但是到了黄金点区间（跌也没啥跌头），可以买」
+  ok(pb.instructions.includes('黄金点豁免（先于本条判——命中则本条不适用）') && pb.instructions.includes('到了黄金点区间跌也没啥跌头') && pb.instructions.includes('奔零的风险模型前提是「从高位跌向归零还有大量下行空间未兑现」，价格已贴发行价=下行空间兑现大半'), 'F: 忌讳③黄金点豁免置顶（BP41——区内 ≤+20 含破发∧活跃度依然高∧区内仍有买入承接=跌也没啥跌头，奔零臂不适用；题面层豁免 BP23/BP29 同构判据用 state 材料）');
+  ok(pb.instructions.includes('三条件任一不成立（未回到区内 / 活跃度死寂 / 区内无承接）=不在黄金点区间，奔零臂照常评估照常拦截') && pb.instructions.includes('判据用 state 材料（发行价位置行+热度/近窗行），不引用盘型题答案'), 'F: 黄金点豁免域=三条件全成立（区间外奔零臂照拦——「没到黄金点区间听归零臂的」；不引用盘型题答案防跨题引用）');
+  ok(pb.criteria.neutral.includes('或黄金点形状（现价 almost_launch 区内∧活跃度依然高∧区内仍有买入承接——跌也没啥跌头）下奔零臂不适用') && pb.criteria.poor.includes('黄金点形状=区内∧活跃∧有承接时奔零臂不适用'), 'F: 回调题 criteria 双侧同步黄金点豁免（neutral 加豁免路径/poor 标奔零臂豁免边界）');
   ok(pb.instructions.includes('企稳'), 'F: 回调 good=深回撤后企稳（急砸+买盘回流）');
   // price_trend BP6 短窗锚（用户裁定：近窗趋势 5/10/30s）
   ok(qs.price_trend.instructions.includes('近 5/10/30 秒'), 'F: price_trend 动量窗=5/10/30s（BP6 短窗）');
