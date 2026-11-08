@@ -112,6 +112,36 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP39 盘面重置判读+restart 优先判序+minVsLaunchPct 涨起后锚修正（题集 BP44，2026-11-08，bt-s01 0x28ad2c7d 单票复盘·判序立法案）
+
+**背景**：bt-s01（`6a02e983`，BP43 后门链受控回测）单票 0x28ad2c7d「让我们回到过去」BP 门三拒复盘——判定桶 early_sniper_decay 0.79/0.83/0.79 三点稳定拒。判例时间线：07:14 创建等额分仓狙击抢筹→cheat 拉黑；07:15:41 价格回 almost_launch（RL15 触发但 cheat 拉黑拒在 BP 门前）；三次 forceRecheck 仍 cheat；07:16:15 CD379 activity_high 豁免翻案 healthy（unblocked:true）→BP 门三拒（early_sniper_decay）；现实 14 分钟毕业 13.6 倍。用户裁定原话：
+
+> 「判为 early_sniper_decay 肯定不对，应该是 restart，到了 almost_launch，交易活跃度又起来的，应该是 restart，优先判为 restart。」
+> 「也就是说一旦 almost_launch 会认为这个代币的盘面重新计算了」
+
+**立法核心=盘面重置语义**：锚窗内价格**回到过 almost_launch**（涨起后最低 ≤+20% 含破发）=**盘面重新计算**——此前的高位形状（开盘段狙击抢筹/拉高/出货）是**上一轮的痕迹**，不改本轮定性；回落后**交易活跃度又起来**的（近窗/锚窗末段吞吐双向活跃金额可观）**优先判⑦ restart 不落④**；回落之后死寂无人玩的仍走④（重启失败=衰竭）。BP35 极早窗反锚「近窗吞吐活跃不落④」的出口接本判序；交易量腿不达标的回落票不在重置语境内照④/⑤评估。
+
+**题面落法（八处，纯题面层零 mapper 判定改动——BP42 铁律）**：题头「盘面重置前置」段（互斥前置检查后、④桶前，先于④⑦评分类）+④桶让位句（开盘段狙击/拉高/出货形状是上一轮痕迹）+⑦桶「判序优先」句（两桶形状同现时优先落⑦——活跃度又起来的回落是重启不是衰竭）+④⑦分界句（交易量与回落方向+判序优先）+criteria ④/restart 两桶同步+头注释+MARKET_PATTERN_LEVELS 注释。
+
+**同案锚修正（minVsLaunchPct 峰后→涨起后，实现 bug 级——把 BP43 已裁定语义正确实现）**：BP43 首版「峰后=首个最高价之后段最低」对**回落→重新拉起创新高**的重启形状结构性失明——ATH 被新一轮拉起推到锚窗末位→峰后段空→null 不冒充→Jev 拿不到「回到过」证据照判④（0x28ad2c7d 对拍首轮 0/9 全 early_sniper_decay 实证；digest `minVsLaunchPct:null`+`secSinceAth:0` 定位）。修正定义：**涨起后=首个突破 almost_launch 上界（严格 >1.2×发行价，+20 恰在桶界内不算离开）起、含离开那一笔（其必然 >+20 不影响 ≤+20 判定）的全段最低**——多轮回落/再拉起全覆盖（ATH 位置无关，创新高不遮蔽回落）；从未 >+20%（没离开过 almost_launch）或突破点即末位（刚离开无回落）→ null 不冒充「回到过」。实现单点 `buy-point-snapshot.js`（state 渲染行/mapper 注释措辞同步「峰后」→「涨起后」）。
+
+**对拍（182 真调 gateBuyPoint，anchorMs=信号 created_at as-of 截窗；锚修正前后各一轮）**：
+
+| 轮 | 07:16:15 ×3 | 07:16:18 ×3 | 07:16:21 ×3 | 判定桶 |
+|---|---|---|---|---|
+| 修正前（BP43 判型） | early_sniper_decay 0.79 | 0.83 | 0.79 | 0/9 ❌ |
+| 修正后（BP44） | restart 0.57/0.62/0.52 | restart 0.54/0.63/0.55 | restart 0.69/0.67/0.73 | **9/9 ✅ restart 稳定** |
+
+minVsLaunch=−9.3（涨起后最低破发 −9.3%≤+20=回到腿成立）；curVsLaunch=70.7/71.8/86.9。
+
+**综合判定仍 poor(pattern_gate)=位置门拒（结构性预期非缺陷）**：restart 判型后走代码侧位置门 `RESTART_LAUNCH_PCT=40`——现价 +70.7~86.9% 已拉离 >+40% 拒。门链顺序结构性结果：价格真正在 almost_launch 的 07:15:41 RL15 触发点被 cheat 拉黑挡在 BP 之前，翻案时（07:16:15）价格已重新拉离——本票回测仍 0 成交属门链时序结果，判型翻案本身达成（almost_launch 时点若 cheat 已翻案则位置门放行）。
+
+**单测**：`_test_buy_point_lib` 455→**462 断言**（F 组版本锁 BP44 含锚修正描述+题头前置段/④让位/⑦优先/criteria 同步五断言+新夹具两形状：**dNH 创新高重启=案核心形状**（1.0→1.5→1.1→1.05→1.6 ATH 末位，minVsLaunch=+5≤20 回到腿成立不失明+athVsLaunch/currentVsLaunch=60）、**dStay 从未离开**（全 ≤+20→null）；dMono 语义反转=单调涨涨起后最低 +50（有证据的「没回到」非 null）；dA 期望 40→30（段含突破点，最低=突破点本身 1.3e-9）；渲染行/obsE/⑦桶判据措辞同步）；`_test_buy_point_check_service` 33 全绿。
+
+**commit**：d1dc8750（题面八处+单测 455→460）、75ac38b5（锚修正+措辞同步+单测 460→462）；均已 push、182 已 pull。
+
+**余留**：159 点 BP44 全量重抛攒批待用户通知（回归攒批纪律）；almost_launch/restart 分布首验；CD381 重启桥兜底（bootstrap 恢复拉黑票的 fire 现价武装锚）仍待用户裁定——本票翻案依赖运行期内 forceRecheck，重启后拉黑票无翻案路径则 restart 判型在生产拿不到 almost_launch 时点的 BP 评估机会。
+
 ### BP38 price_level 六桶改制 almost_launch+restart 重启盘第七桶+数值锚全量联动新分界（题集 BP43，2026-11-08，用户六条批量需求之 2/4'·机制立法案）
 
 **背景**：CD381 六条批量需求同车（cheat 重判表达式化=CD 台账；本侧承接价格级别与盘型两条）。用户原话：
