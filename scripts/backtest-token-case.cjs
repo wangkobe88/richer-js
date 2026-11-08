@@ -139,10 +139,22 @@ async function create() {
 }
 
 // ─────────────────────────── run ───────────────────────────
+const TERMINAL_STATUS = ['completed', 'failed', 'stopped', 'error'];
+
 async function run() {
   const { spawn } = require('child_process');
   const { dbManager } = require('../src/services/dbManager.js');
   const db = dbManager.getClient();
+  // 防呆（bt-s02 双跑教训 2026-11-08）：run-engine 无状态检查，终态实验重跑=信号行翻倍污染
+  //（同实验每跑一遍 BUY 信号各写一遍——20 行=10 信号×2 的现场）。重跑请另建新实验。
+  {
+    const { data, error } = await db.from('experiments').select('status').eq('id', RUN_ID).limit(1);
+    if (error) throw new Error(error.message);
+    const pre = data && data[0] && data[0].status;
+    if (TERMINAL_STATUS.includes(pre)) {
+      throw new Error(`实验已终态（${pre}）——拒绝重跑（防信号行翻倍）；重跑请 --src --token --commit 另建新实验`);
+    }
+  }
   const logFile = path.join(__dirname, '..', 'data', `btc-${RUN_ID.slice(0, 8)}.log`);
   const child = spawn('node', ['src/run-engine.js', RUN_ID], {
     cwd: path.join(__dirname, '..'),
@@ -163,7 +175,7 @@ async function run() {
     if (error) throw new Error(error.message);
     const st = data && data[0] && data[0].status;
     process.stdout.write(`  [${new Date().toISOString().slice(11, 19)}] status=${st}\n`);
-    if (st === 'completed' || st === 'failed' || st === 'stopped' || st === 'error') {
+    if (TERMINAL_STATUS.includes(st)) {
       console.log('\n终态 =', st);
       console.log('报告: node scripts/backtest-token-case.cjs --report ' + RUN_ID);
       return;
@@ -173,10 +185,24 @@ async function run() {
 }
 
 // ─────────────────────────── report ───────────────────────────
+// 同实验双跑会让同 (created_at, legId, triggerNo) 信号各写一遍——打印前去重并留痕
+function dedupeSignals(rows) {
+  const seen = new Set();
+  const out = [];
+  let dup = 0;
+  for (const s of rows || []) {
+    const k = `${s.created_at}|${s.metadata?.signalGate?.legId}|${s.metadata?.signalGate?.triggerNo}`;
+    if (seen.has(k)) dup++; else { seen.add(k); out.push(s); }
+  }
+  return { out, dup };
+}
+
 function fmtSignals(rows, label) {
   console.log(`\n──── ${label} ────`);
   if (!rows || !rows.length) { console.log('（无 BUY 信号）'); return; }
-  for (const s of rows) {
+  const { out, dup } = dedupeSignals(rows);
+  if (dup > 0) console.log(`⚠ 检测到 ${dup} 行重复信号（同时刻同腿——疑似同实验被跑过多次），已按 (时刻,腿,triggerNo) 去重展示`);
+  for (const s of out) {
     const m = s.metadata || {};
     const sg = m.signalGate || {};
     const cc = m.cheatCheck || {};
@@ -187,7 +213,11 @@ function fmtSignals(rows, label) {
     const arms = [lv.slowGrindPump >= 3 && 'pump', lv.washPair >= 3 && 'wash', lv.holdingsBalance >= 3 && 'holdings'].filter(Boolean).join(',');
     console.log(`${s.created_at} ${String(sg.legId ?? '-').padEnd(9)} t${sg.triggerNo ?? '-'} | cheat=${cc.grade ?? cc.status ?? '-'}${ex}${dn}${rs}${arms ? ' 三臂:' + arms : ''}`);
     const bp = m.buyPoint;
-    if (bp) console.log(`    bp=${bp.bucket ?? bp.status ?? '-'} rule=${bp.rule ?? '-'} prob=${bp.prob ?? '-'}${bp.why ? ' why=' + String(bp.why).slice(0, 60) : ''}`);
+    if (bp) {
+      const as = bp.assessment || {}; // bucket/rule/prob 在 assessment 子对象（model,usage,passed,status,anchors,qualities,assessment,dimensions,passLevels）
+      const qs = Object.entries(bp.qualities || {}).map(([k, v]) => `${k.slice(0, 4)}:${v.bucket}(${v.prob})`).join(' ');
+      console.log(`    bp=${as.bucket ?? bp.status ?? '-'} rule=${as.rule ?? '-'} prob=${as.prob ?? '-'}${qs ? ' | ' + qs : ''}`);
+    }
     console.log(`    exec=${m.execution_status ?? '-'} ${m.execution_reason ? '| ' + String(m.execution_reason).slice(0, 80) : ''}`);
   }
 }
