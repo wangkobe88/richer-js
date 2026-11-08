@@ -179,6 +179,7 @@ class CheatCheckService {
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
+      stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
       marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
     };
@@ -323,6 +324,42 @@ class CheatCheckService {
   }
 
   /**
+   * CD383 burst 豁免资格臂（2026-11-08 用户裁定「burst 在作弊检测内部豁免
+   * activity low 的，所以外部豁免这里也加一下，将 burst 也豁免」+「高大上应该
+   * 是 长期沉积一朝开始操盘，这种情况豁免一下」——高大上 0x838657df t0a 触发
+   * 被 cheat 门拒复盘）：E 通道内部豁免口径（gradeObservation G2/G8：
+   * act=low ∧ sbw=burst ∧ 非弱 burst 不落 E）外移到门豁免——「长期沉积一朝
+   * 开始操盘」形状里长期静默压低 activity 档（全窗 idlePct 极高）不构成拒买
+   * 证据，爆发波才是盘面当下的真状态。
+   * 资格=sbw=burst ∧ **长期沉积前提** ∧ 波有力，两维键与 E 通道 G8 弱波线同源：
+   * ①沉积=burstMaxGapSec≥60（停滞深度是必要维度——G8 定线研究「人工 healthy
+   * 4 票中 3 票 maxGap 仅 19~43s=无停滞开盘密集正常形状」；**单测夹具反例
+   * gap=2s 开盘即密集 tier+同块+内幕三 strong 的 cheat 盘实证无沉积的 sbw=burst
+   * 不可授予**——E 通道内部豁免不限 gap 是因其语境恒 act=low（窗内必有大静默段），
+   * 本臂不限 act 档位必须自带沉积正证据）；②波有力=burstWaveBuyBnb≥1.05 ∨
+   * burstWaveWallets≥13 至少一键非 null 过线（G8 弱波「buy<1.05 ∧ wallets<13」
+   * 的否定侧；全 null/全不过线=「停滞后只涌入一点小流量」弱波不授予）。
+   * **null 语义与 G8 刻意不同向**：G8 三键任一 null 维持（内部）豁免是「不扩大
+   * 收紧面」；本臂是**资格授予方向**——gap/buy/wallets null=沉积或波力无证据，
+   * 不授予 fail-closed（不冒充「长期沉积一朝操盘」）。sbw null/缺席（旧档断代/
+   * 题未答）→ 不豁免（与 _isActivityExempt bucket null 同哲学）。
+   * 与 activityExemptLevels **并列第二资格臂（∨）**，不限 activity 档位——
+   * 对齐 CD379 高活跃豁免不区分判定通道的语义；CD380 不豁免臂（wash_pair）
+   * 在出口统一优先（资格成立 ≠ 豁免生效）；豁免总开关（activityExemptLevels
+   * 显式 []=关）同盖本臂（豁免机制整体关）。levels 键：stallBurstWave（sbw
+   * 二桶投影 burst=1）+ 波三键数值锚（E 通道消费同源键）。
+   */
+  _isStallBurstExempt(levels) {
+    if (!levels) return false;
+    if (levels.stallBurstWave !== 1) return false; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
+    const gap = levels.burstMaxGapSec;
+    if (gap == null || gap < 60) return false; // 长期沉积前提：无停滞（<60s/null）不授予
+    const buy = levels.burstWaveBuyBnb;
+    const wallets = levels.burstWaveWallets;
+    return (buy != null && buy >= 1.05) || (wallets != null && wallets >= 13); // 波有力：至少一键过线
+  }
+
+  /**
    * CD380 不豁免臂（2026-11-07 用户三条裁定：「pump 不豁免」「出现严重对倒盘
    * （0x06810806 washPair=strong 判例）这种已经检测出来的也不要豁免」
    * 「holdingsBalance 也不豁免（持仓情况的问题，另一个维度）」）：刷量/锁仓
@@ -388,14 +425,18 @@ class CheatCheckService {
     if (!res || this._activityExemptLevels.size === 0) return res;
     if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
     const act = res.buckets && res.buckets.activityLevel;
-    if (!this._isActivityExempt(act)) return res;
+    const stallBurst = this._isStallBurstExempt(res.levels); // CD383 burst 豁免资格臂（∨ 并列）
+    if (!this._isActivityExempt(act) && !stallBurst) return res;
     const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
     if (denied) {
       this.stats.exemptDenied++;
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
     this.stats.activityExemptions++;
-    return { ...res, grade: 'healthy', exempt: { code: `activity_${act}`, originalGrade: res.grade } };
+    if (stallBurst) this.stats.stallBurstExemptions++;
+    // 双臂同中取 activity 桶为首因（更具体来源）；burst 臂独立命中（桶不在豁免集）留 stall_burst 码
+    const code = this._isActivityExempt(act) ? `activity_${act}` : 'stall_burst';
+    return { ...res, grade: 'healthy', exempt: { code, originalGrade: res.grade } };
   }
 
   // ─────────────────────────── 分析链（全吞错） ───────────────────────────
@@ -680,7 +721,8 @@ class CheatCheckService {
       // levelsFromObservation 的 buckets.activityLevel 同源；出口统一变换。
       // CD380 不豁免臂同款收紧：pump/wash/holdings 三臂在场=豁免失效，cheat
       // 恢复登记拉黑（与门决策出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）
-      const activityExempt = this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
+      const activityExempt = (this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
+        || this._isStallBurstExempt(levels)) // CD383 burst 资格臂同构（长期沉积一朝操盘不登记拉黑）
         && !this._exemptDeniedReason(levels);
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
@@ -843,8 +885,10 @@ class CheatCheckService {
         // 与判定行同源。CD380 不豁免臂同款且同构（activityExempt = isExempt && !denied）：
         // 豁免集内桶 ∧ 三臂不在场才不恢复；非豁免桶（mid/low）本来就轮不到豁免，
         // 三臂在场与否不影响恢复拉黑（收紧只作用于「本来要豁免」的票）
-        if (cheatSeen && !(this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)
-          && !this._exemptDeniedReason(cheatDigest ? levelsFromObservation(cheatDigest).levels : null))) {
+        const cheatLevels = cheatDigest ? levelsFromObservation(cheatDigest).levels : null;
+        if (cheatSeen && !((this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)
+          || this._isStallBurstExempt(cheatLevels)) // CD383 burst 资格臂同构
+          && !this._exemptDeniedReason(cheatLevels))) {
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
