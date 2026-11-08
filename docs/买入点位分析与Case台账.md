@@ -138,7 +138,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 **影响面**：position 域收紧不触判型——强庄盘判型（开盘大额+庄时序锚+承接轴）照归 Jev 题面；只有「拉离发行价 >+40 后才触发」的①票被位置门拒（与⑤blended 同形状）。bt-v84 8 票①成交点全部 ≤+40 档位不受影响（对拍见下）。
 
-**182 对拍（commit 后补）**：bt-v84 全部 strong_backer 信号（8 票 9 信号）重跑 gateBuyPoint（anchorMs 截窗 persist:false）——*[待补]*
+**182 对拍（commit 6e0284f2 后，题集 BP49 真调重跑 gateBuyPoint anchorMs 截窗 persist:false）**：bt-v84 全部 strong_backer 信号 9 行重跑——curVs 全部 ≤+30.5（8 票买点全在 near_launch 以内），①位置门零翻转（收紧带 40~80 本窗无样本）；**bt-v83 另 19 行 strong_backer 信号纯读旧档 curVs 分布：max +30.8**——两窗合计 28 行全部 ≤+40，①强庄盘信号在本策略阶梯的触发形状天然贴发行价，收紧 40 对两窗既有判定零影响（约束对象=未来 40~80 触发带的①票）。对拍唯一翻转 1 行=0x44441e41 08:19:05 neutral→poor/chip_gate：curVs=29.7 ≤40 位置门本就放行，属筹码题 LLM 方差（同票 6s 前姊妹锚 08:18:59 两轮均 chip strong，新判反而与姊妹锚一致），与本案位置门无关。边界行为由单测锁定（40 恰放行/40.1 拒/三常量同线 40）。
 
 ### BP47 ④豁免臂收紧=heat 仅 high ∧ openSegBuySharePct<80（2026-11-08，bt-v83/v84 187 票④真判票复盘·mapper 消费侧收紧案；题集零改动不 bump）
 
