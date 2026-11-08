@@ -187,6 +187,22 @@
 
 ## Case 倒序
 
+### CD384 reset 截窗不足 fail-closed：盘面重置后重置窗 <minTicks 硬拒不进 BP（2026-11-08，机制案·无 token；bt-v83 完整窗口 -1.9158 复盘裁定 A；commit `44ee397a`，同车 ladder v13 量门提高=裁定 B）
+
+**动机（用户裁定原话「A/B 两个建议接受」）**：bt-v83 完整窗口回测（`b0b3bf11`，11-05 00:00→13:45 全量票 × v12 十三腿 × CD383 二修+BP46+BP49）**净 -1.9158 BNB**（买 195 笔 39.0/卖 300 笔 37.08；漏斗 1372 信号→cheat 拒 455→BP 拒 723→成交 194 票：盈 47 票 +3.358/亏 139 票 -5.274）。分票归因定位最大单一亏损源：**87 票净 -1.383（占全窗口亏损 72%）全部是 `marketReset` 触发 + 重置窗 <minTicks → insufficient_ticks fail-open 放行 → BP 三门全过 → 成交——87/87 无一例外全部 reset=1，零票天然短窗**。最亏三票形状高度一致：`0x68bb8cd4`（首价→3s 冲 +65%→砸回→t0b 买→-26% 归零，整票 117 行）/`0x258e4857`（+30%→NL15→-41%，31 行）/`0x2a5fdaaf`（+25%→NL15→-26%，30 行）——**整票生命周期 30~120 行 tick 的冲高砸落小票**。
+
+**根因（CD382 设计假设失效）**：CD382 立法时「重置窗 <minTicks 走 insufficient_ticks fail-open 放行进 BP——BP 锚窗=全窗不受截断影响兜底」。实际对生命周期 <2min 的小票：①cheat 侧 reset 截窗把上一轮冲高形状出窗+新窗 <8 行=双盲区放行；②BP 侧全窗判型对这形状多数落⑦ restart（位置门 ≤+40 放行）或不拦——**BP ⑦ 位置门与 cheat fail-open 同向放行**，兜底不成立。CD382 翻案票 bt-s01 0x28ad2c7d 当时重置窗 ≥8 行走真判不受影响。
+
+**机制**：service 预门（6) 处）区分来源——`pull.marketReset` 在场 ∧ 窗 <minTicks → 返回独立 `status: 'reset_insufficient_ticks'`（`stats.resetInsufficientRejects` 计数，不落表不粘滞不烧 Jev）；引擎 `_cheatGateEvaluateBinary` 对该 status **fail-closed 硬拒**（signal failed reason=`cheat_gate_reset_insufficient`，metadata.cheatCheck 留痕 status/anchorTickCount/marketReset；不拉黑非 cheat 判定——下个买信号可重析）。**天然短窗（无 reset）维持 insufficient_ticks fail-open 存量语义零变化**（BP10 域：天然短窗的兜底在 BP 侧 bp_gate_insufficient_ticks 仍拒）。与 CD382 的关系：reset 逻辑本身不动（回到过 almost_launch 重置证据窗照常），只收「重置后证据不足」这一分支的放行方向——宁拦不冒充。
+
+**同车裁定 B（ladder v12→v13，T117/T119 谱系，deploy 脚本 commit `44ee397a`）**：NL15/NL20/NL25+RL15/RL10 五臂 `tradeCount >= 10→15 ∧ buyVolumeBnb 统一 ≥2.5`（NL25 原即 2.5）——「10 笔/1.5 BNB」对 30~120 行小票无区分度（30 行票 tradeCount 也能到 20-30、1.5 BNB 买量几分钟凑满），量门抬到 NL25 既有线五臂同线（库 version 13→14）；t0a/t0b/t2-t4/N 系不动（t0a 9 笔档为「点火即拉飞」早臂语义）。双防线分工：reset 截窗不足由 cheat 门硬拒（A）、量够窗足的小票由量门收紧（B）。
+
+**单测**：`_test_cheat_detection_service.cjs` Z2-2 改写+Z2-2b 新增（142 全绿）——reset 窗 3 行 → reset_insufficient_ticks+计数+不烧 Jev；天然短窗 5 行（恒价不触发 reset）→ insufficient_ticks 照旧+marketReset=null+不计数。`_test_signal_gate_engine.cjs` A6b 新增（128 全绿）——拒分支/reason=cheat_gate_reset_insufficient/metadata 三键留痕/不拉黑；A6 天然 insufficient 放行断言原样保留。`_test_cheat_market_reset.cjs` 28 全绿（computeMarketResetIndex 纯函数零改动）。
+
+**验证**：bt-v84（`cd5759bf`）完整窗口同窗重跑（ladder v13+CD384）——见余留。
+
+**余留**：①bt-v84 对 bt-v83 差异分解（87 票通道应清零、NL/RL 触发面收缩后的盈亏变化、其余豁免通道票不受影响的对拍）；②生产 resetInsufficientRejects 计数观察（放行→拒的方向性变化幅度）；③87 票中 reset 窗 ≥8 行的同类小票（走真判但 Jev 判不出）是否仍漏——B 量门收缩后残余量观察。
+
 ### CD383 cheat 门豁免 burst 资格臂：「长期沉积一朝开始操盘」豁免（2026-11-08，机制案；高大上 0x838657df t0a 触发被拒案·T125 续篇；commits cb60804d+0183b6c8+**5e4ca801 二修放宽**）
 
 **动机（用户裁定原话）**：「"activity 判 low" 这里 burst 在作弊检测内部豁免 activity low 的，所以外部豁免这里也加一下，将 burst 也豁免」+「高大上应该是 长期沉积一朝开始操盘，这种情况豁免一下」。案由 = **T125 高大上 `0x838657df…7777` t0a 首触发被 cheat 门拒**（gaodashang-v12=4b3fa2a9）：13 分钟死盘仅 1 笔 0.70B → 06:57:05 第二笔点火 2 秒 9 笔 → t0a 06:57:07（+47.4%）触发 → cheat 门 A 主判拒（slowGrindPump+burstSpikeConcentration strong、holdings strong；activity=low——死盘 14 分钟窗 idlePct 极高——不在 CD379 豁免集 {high,ultra}）。E 通道内部本有同形状豁免（G8：act=low ∧ sbw=burst ∧ 非弱 burst 不落 E），但豁免只免 E 不免 A/J——pump/spike/holdings strong 照走主判。用户裁定把 burst 形状提升为**外部豁免资格臂**。
