@@ -68,6 +68,29 @@ const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, send
  * 把未来 3 秒的峰提前喂进 FA 价格史，P11 据此算出回撤 -35% 提前全清（真实时序
  * 该刻峰值利润仅 +8.7% 不触发）。链上真序是回测有效性的前提。
  */
+
+/**
+ * 单票 token 集限定纯函数（2026-11-08 m4ga-v12 案用户裁定「只回测一个代币，只取
+ * 这一个代币的数据」）：backtest.tokenAddresses 在场时把源实验 experiment_tokens
+ * 元数据 Map 就地裁剪到该子集（_tokenMeta 是 token 集合唯一真相源——ticks 装载/
+ * graduation/叙事预载全下游，单点裁剪即全链生效）。返回 { before, kept, removed,
+ * missing }；missing=限定地址不在源表（调用方 loud warn 该地址将零 ticks 零信号，
+ * 绝不静默）。地址比较恒小写归一。
+ */
+function filterTokenMetaByAddresses(metaMap, addresses) {
+  const want = new Set((addresses || []).filter((a) => typeof a === 'string' && a).map((a) => a.toLowerCase()));
+  const before = metaMap.size;
+  const keyHit = new Map(); // lowerKey → 原键（DB 行恒小写，防御混大写键）
+  for (const key of metaMap.keys()) keyHit.set(String(key).toLowerCase(), key);
+  const missing = [];
+  for (const a of want) if (!keyHit.has(a)) missing.push(a);
+  let removed = 0;
+  for (const [lowerKey, key] of keyHit) {
+    if (!want.has(lowerKey)) { metaMap.delete(key); removed++; }
+  }
+  return { before, kept: metaMap.size, removed, missing: missing.sort() };
+}
+
 function compareByChainOrder(a, b) {
   return (a.block_number - b.block_number) || (a.log_index - b.log_index) || (a.id - b.id);
 }
@@ -188,6 +211,23 @@ class BacktestEngine extends AbstractTradingEngine {
     // 判定域）+ 挂点 anchorMs=信号 fire 虚拟时刻（service DB 拉数 lte 截窗，
     // 防 DB 全史前视）
     this._signalGateReal = backtestConfig.signalGateReal === true;
+
+    // 单票 token 集限定（2026-11-08 m4ga-v12 案用户裁定「只回测一个代币，只取这
+    // 一个代币的数据」）：backtest.tokenAddresses 显式数组在场=源实验
+    // experiment_tokens 裁剪到该子集——单 case 回测不再连带源实验全量 token
+    //（bp46 谱系基底 token 表数百票，45min 窗口一筛 80 票同跑=Jev 配额浪费+
+    // 共享资金池争抢污染目标票成交）。缺省 null=全量现状 bit 不变（宽窗口
+    // 对比实验零影响）；显式空数组=配置错误 fail-fast 拒启（防静默退化全量误跑）
+    if (Array.isArray(backtestConfig.tokenAddresses)) {
+      const addrList = backtestConfig.tokenAddresses
+        .map((a) => String(a).toLowerCase()).filter(Boolean);
+      if (!addrList.length) {
+        throw new Error('backtest.tokenAddresses 显式配置但为空——单票限定地址缺失，拒绝启动（防全量误跑）');
+      }
+      this._tokenAddressFilter = addrList;
+    } else {
+      this._tokenAddressFilter = null;
+    }
 
     const { ExperimentFactory } = require('../factories/ExperimentFactory');
     const sourceExp = await ExperimentFactory.getInstance().load(this._sourceExperimentId);
@@ -832,6 +872,16 @@ class BacktestEngine extends AbstractTradingEngine {
       if (!data || data.length < TICK_PAGE_SIZE) break;
       from += TICK_PAGE_SIZE;
       if (from > MAX_TICK_PAGES * TICK_PAGE_SIZE) throw new Error('源实验代币数超出分页保护上限');
+    }
+    // 单票 token 集限定（m4ga-v12 案）：_tokenMeta 是 token 集合唯一真相源
+    //（ticks 装载/graduation/叙事预载全下游）——此处单点裁剪即全链生效
+    if (this._tokenAddressFilter) {
+      const res = filterTokenMetaByAddresses(this._tokenMeta, this._tokenAddressFilter);
+      const missNote = res.missing.length
+        ? `；⚠️ ${res.missing.length} 个限定地址不在源实验 experiment_tokens（将零 ticks 零信号）: ${res.missing.join(', ')}`
+        : '';
+      this.logger.warn(this._experimentId, 'BacktestEngine',
+        `token 集限定 (backtest.tokenAddresses): 源实验 ${res.before} 票 → ${res.kept} 票${missNote}`);
     }
   }
 
@@ -3238,4 +3288,4 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 }
 
-module.exports = { BacktestEngine, compareByChainOrder };
+module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses };

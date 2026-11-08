@@ -99,7 +99,11 @@ async function create() {
   });
 
   // 4) 组装 cfg
-  cfg.backtest = { ...cfg.backtest, startTime: startIso, endTime: endIso };
+  // tokenAddresses 单票限定（2026-11-08 m4ga-v12 案用户裁定「只回测一个代币，只取
+  // 这一个代币的数据」）：不限定时 token 集继承源实验 experiment_tokens 全量——
+  // bp46 谱系基底数百票，45min 窗口一筛 80 票同跑（Jev 配额浪费+资金池争抢污染
+  // 目标票成交）。引擎 _loadTokenMetadata 单点裁剪（缺省 null=宽窗口实验不变）
+  cfg.backtest = { ...cfg.backtest, startTime: startIso, endTime: endIso, tokenAddresses: [TOKEN] };
   cfg.strategiesConfig = { ...cfg.strategiesConfig, buyStrategies: buyLegs };
   const refs = Array.isArray(cfg.strategiesConfig.libraryRefs) ? [...cfg.strategiesConfig.libraryRefs] : [];
   const snapAt = new Date().toISOString();
@@ -120,6 +124,7 @@ async function create() {
   console.log('== 基底 ==', expRows[0].experiment_name, `(${SRC.slice(0, 8)})`);
   console.log('== token ==', TOKEN, '| 创建锚', createdAt.toISOString());
   console.log('== 窗口 ==', startIso, '→', endIso, `（前 ${PRE_MIN}min/后 ${POST_MIN}min${START || END ? ' 显式覆盖' : ''}）`);
+  console.log('== token 集限定 == backtest.tokenAddresses = [' + TOKEN + ']（源实验 token 表裁剪到单票）');
   console.log('== 买腿 ==', `${LIB} v${lib.version}（${buyLegs.length} 腿，copy-in ${snapAt}）：`);
   for (const l of buyLegs) console.log(`   p${l.priority} ${l.condition}${l.cards ? ` [cards:${l.cards}]` : ''}`);
   console.log('== 卖腿 ==', sells.length + ' 条（整包保留基底）');

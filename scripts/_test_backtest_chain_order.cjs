@@ -90,8 +90,8 @@ ok(src.includes('raw.sort(compareByChainOrder)'),
   '装载排序已接线 raw.sort(compareByChainOrder)');
 ok(!src.includes('raw.sort((a, b) => a.id - b.id)'),
   '旧 id 排序已移除（不再出现 raw.sort((a, b) => a.id - b.id)）');
-ok(/module\.exports\s*=\s*\{\s*BacktestEngine,\s*compareByChainOrder\s*\}/.test(src),
-  'compareByChainOrder 随模块导出（单测与装载共用同一实现）');
+ok(/module\.exports\s*=\s*\{\s*BacktestEngine,\s*compareByChainOrder(,\s*\w+)*\s*\}/.test(src),
+  'compareByChainOrder 随模块导出（单测与装载共用同一实现；2026-11-08 增 filterTokenMetaByAddresses 单票限定）');
 ok(src.includes('tsRegressions'),
   'block_time 倒退检测存在（链序下 timestamp 应单调，倒退=WARN 留痕）');
 ok(src.includes('compareByChainOrder(a, b)'),
