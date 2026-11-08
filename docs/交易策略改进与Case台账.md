@@ -55,6 +55,20 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T125 ladder v12 十三腿：t0a 更早人气臂（9 笔档）——「点火即拉飞」形状接住（2026-11-08；高大上 0x838657df…7777 单票回测零触发案）
+
+**动机（用户裁定原话）**：「增加一个 tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80」（条件串原文直用）。案由：高大上 0x838657df…7777（06:43:53 创建→08:18:05 毕业 94 分钟 10.12x）单票回测（gaodashang-bp46=63a5c315，v11 十二腿）**全窗零触发**——FA 真重放确认「点火即拉飞」形状：前 13 分钟死盘（仅 1 笔 0.70 BNB）→ 06:57:05 第二笔 0.70 BNB 点火 2 秒 9 笔 → 06:57:07 tc=11 时 t0b（12 笔门）差 1 笔（curVs +47.4 其余三门全过）→ 06:57:11 tc=12 时 curVs 已 +82.5 破 ≤80 门（差 2.5 个点）→ 15 秒后 +368%→毕业。**量门攒够与价格拉离是同一场爆发**——t0b 十二笔门槛差一笔错过全窗。
+
+**ladder v12 十三腿**（库 signal-source-ladder-v1 version 12→13，`scripts/deploy-signal-source-strategies.cjs`，commit 07e5903a）：
+
+1. **t0a 更早人气臂新增 p1**：`tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80`——点火初段（tc 9-11、价格尚 ≤+80）即可触发；recheckCondition=RECHECK_EARLY（早臂族）；`buyPhase:'first'`/maxTriggers:1/cards:4 与全腿同。命名= v5 旧 t0a（6 笔档，v6 删）重生，参数不同（9 笔/1 BNB/6 持有者）注释留痕。
+2. **priority 顺移**：t0a=1 起步即最早臂，原 t0b(1→2)/t2(2→3)/t3(3→4)/t4(4→5)/N30(5→6)/N36(6→7)/N45(7→8)/NL15(8→9)/NL20(9→10)/NL25(10→11)/RL15(11→12)/RL10(12→13)。
+3. 引用实验须 `buySignalMaxPerToken ≥ 13`（腿数 12→13）+cheatCheck.enabled+buyPointCheck.enabled；谱系：v11 RL10 深重启臂 → **v12 t0a 9 笔档**。
+
+**部署链**：本地 dry-run validateLegs 13 腿零错误 → commit+push → 182 pull + `--commit` → strategy_library version 12→13（腿形变化=true）。
+
+**验证（gaodashang-v12=4b3fa2a9 单票回测，同窗对照 63a5c315）**：**t0a 触发达成**——06:57:07（点火后 2 秒、+47% 区）触发 p1 腿；cheat 门判 **cheat 三臂 pump,holdings strong**（A 主判拒）——死盘 13 分钟+2 秒爆发形状 activity_level 判 low（全窗 idlePct 极高），不在 CD379 豁免集 {high,ultra} → 原判保持拒，无 pumpExempt（豁免出口才打标）。零成交=门链设计内行为：单庄点火拉飞票 cheat 体系定性 pump 盘照拒（10x 毕业错过=「死盘点火」形状的已知保守面，与 CD380 四修「高活跃 pump 豁免+位置钳制」不冲突——该豁免域 activity high 以上，本票 low）。生产首跑对拍攒批（t0a 触发面分布/点火票 cheat 拒率/activity 边界票豁免面）。
+
 ### T124 ladder v11 十二腿：RL10 深重启臂（≤+10 含破发）——重启臂成对分档（2026-11-08；bt-s01 0x28ad2c7d cheat 翻案迟滞案同日收口链，CD380 三修/CD382 同车）
 
 **动机（用户裁定原话）**：「再增加一个买入臂 tradeCount >= 10 AND buyVolumeBnb >= 1.5 AND currentVsLaunchPct <= 10」（条件串原文直用）。案由链：bt-s01 0x28ad2c7d 复盘——CD382 截窗+CD380 三修后 07:15:58（almost_launch 买窗内）cheat 翻案 healthy 达成，但生产翻案在 07:16:15（价格已 +70% 拉离）且 RL15 触发即消耗不返——**翻案速度与入场臂位置门联合决定 almost_launch 买窗能否吃到**；RL15（≤+20）在砸回段一旦触发消耗，破发深半区（≤+10）无臂可接。RL10=重启臂成对分档的深档：与 RL15 同 tradeCount/buyVolumeBnb 门槛，位置门更深（≤+10=almost_launch 深半区含破发）。
