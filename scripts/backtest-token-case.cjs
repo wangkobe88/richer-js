@@ -211,12 +211,26 @@ async function report() {
     return (data && data[0] && data[0].experiment_name) || expId.slice(0, 8);
   }
   async function pnl(expId, t) {
-    let q = db.from('trades').select('token_address,side,amount_bnb').eq('experiment_id', expId).limit(2000);
+    let q = db.from('trades')
+      .select('token_address,trade_direction,input_currency,input_amount,output_currency,output_amount,success,sold_cards')
+      .eq('experiment_id', expId).limit(2000);
     if (t) q = q.eq('token_address', t);
     const { data, error } = await q;
     if (error) throw new Error(error.message);
     let buy = 0, sell = 0, nB = 0, nS = 0;
-    for (const r of data || []) { if (r.side === 'buy') { buy += Number(r.amount_bnb || 0); nB++; } else { sell += Number(r.amount_bnb || 0); nS++; } }
+    for (const r of data || []) {
+      if (r.success === false) continue;
+      if (r.trade_direction === 'buy') {
+        // 买入成本 = BNB 侧投入（input 或 output 中的 BNB 腿）
+        const bnbIn = r.input_currency === 'BNB' ? Number(r.input_amount || 0)
+          : r.output_currency === 'BNB' ? Number(r.output_amount || 0) : 0;
+        buy += bnbIn; nB++;
+      } else if (r.trade_direction === 'sell') {
+        const bnbOut = r.output_currency === 'BNB' ? Number(r.output_amount || 0)
+          : r.input_currency === 'BNB' ? Number(r.input_amount || 0) : 0;
+        sell += bnbOut; nS++;
+      }
+    }
     return { buy, sell, net: sell - buy, nB, nS, tokens: new Set((data || []).map((r) => r.token_address)).size };
   }
   if (BASELINE_ID) {
