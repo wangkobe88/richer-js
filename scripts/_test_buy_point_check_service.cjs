@@ -518,6 +518,126 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.ok(/const RESTART_LAUNCH_PCT = 40;/.test(mapper), 'mapper restart 常量不受影响');
     });
 
+    // ═══ Q. BP43 ④高活跃豁免+famous 轴回撤入仓域（2026-11-08 用户裁定「活跃度高，
+    //     豁免 early_sniper_decay，可以按照混合盘来，价格在 near_launch 可以买」+
+    //     「famous 我一直强调，它不适合后期，早鸟可以因为famous挡住，但是回撤入仓
+    //     不需要」）——案由苍蝇 0xb30f0b8a…7777 05:10:06/09 两信号（ultra 活跃
+    //     0.71+fast_down+half_off/ankle_cut 被④贴线 0.49/0.44 误杀，ultra 吞吐下
+    //     盘面没有衰竭形状）═══
+    console.log('Q. BP43 ④高活跃豁免+famous 回撤入仓域');
+    // 本案形状答案（Jev 档位照判照落档——豁免在门消费侧）：④0.49+ultra0.71+
+    // dominant1.0+half_off0.97；质量 early=insufficient/pullback=neutral → 聚合 any_neutral
+    const Q_ANS = (o = {}) => ({
+        price_trend: { probabilities: { fast_down: 0.96, slow_up: 0.04 } },
+        market_heat: { probabilities: { ultra: 0.98, high: 0.02 } },
+        activity_level: { probabilities: { ultra: 0.71, high: 0.29 } },
+        famous_domination: { probabilities: { dominant: 1.0, heavy: 0.0 } },
+        holder_concentration: { probabilities: { none: 0.6, weak: 0.4 } },
+        entry_position: { probabilities: { half_off: 0.97, ankle_cut: 0.03 } },
+        price_level: { probabilities: { near_launch: 0.99, low: 0.01 } },
+        market_pattern: { probabilities: { early_sniper_decay: 0.49, blended_unremarkable: 0.3, strong_backer: 0.21 } },
+        early_bird_quality: { probabilities: { insufficient: 0.6, neutral: 0.4 } },
+        pullback_entry_quality: { probabilities: { neutral: 0.5, poor: 0.5 } },
+        ...o,
+    });
+    await check('正例（本案 05:10:06 形状）：④高活跃豁免+ultra 连带豁免+famous 回撤域退出 → any_neutral 放行+双豁免留痕', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({ answers: Q_ANS() }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.status, 'assessed', JSON.stringify(r));
+        assert.strictEqual(r.assessment.bucket, 'neutral', JSON.stringify(r.assessment));
+        assert.strictEqual(r.assessment.rule, 'any_neutral', '三道门全放行走质量聚合');
+        assert.deepStrictEqual(r.assessment.exempts, ['esd_activity', 'famous_pullback'], JSON.stringify(r.assessment));
+        // 观测行（研究主数据）随 digest 落同款豁免留痕
+        // （persist 默认开——本断言组独立 mkDb，inserted[0] 即本行）
+    });
+    await check('esd 豁免留痕随 digest 落库（snapshot_digest.assessment.exempts）', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        await mkSvc({ ...CFG }, db, mkLlm({ answers: Q_ANS() })).gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        const rowAssess = db.inserted[0].snapshot_digest.assessment;
+        assert.deepStrictEqual(rowAssess.exempts, ['esd_activity', 'famous_pullback'], JSON.stringify(rowAssess));
+    });
+    await check('位置臂反例：已拉离（vsLaunch≈+72 > 40）→ esd 豁免失效 pattern_gate 照拦', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS_PUMP }), mkLlm({ answers: Q_ANS() }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'pattern_gate', JSON.stringify(r.assessment));
+        assert.ok(!(r.assessment.exempts || []).includes('esd_activity'), 'esd 留痕不应在场');
+    });
+    await check('锚缺失反例：全 outlier → vsLaunch null → 宁拦不冒充 pattern_gate 照拦', async () => {
+        const ticksOut = TICKS10.map((r) => ({ ...r, price_outlier: true }));
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: ticksOut }), mkLlm({ answers: Q_ANS() }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'pattern_gate', JSON.stringify(r.assessment));
+    });
+    await check('活跃度不足反例：activity=mid（不到 high/ultra）→ esd 豁免失效 pattern_gate 照拦', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({
+            answers: Q_ANS({ activity_level: { probabilities: { mid: 0.8, high: 0.2 } } }),
+        }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'pattern_gate', JSON.stringify(r.assessment));
+    });
+    await check('豁免只对④：retail_pvp 活跃 ultra+回撤位+低价 → 照拦 pattern_gate（②不受豁免）', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({
+            answers: Q_ANS({ market_pattern: { probabilities: { retail_pvp: 0.9, blended_unremarkable: 0.1 } } }),
+        }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'pattern_gate', JSON.stringify(r.assessment));
+    });
+    await check('ultra 连带豁免绑④豁免票：blended+ultra（非 strong_backer 非 esd）→ activity_gate 照拦', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({
+            answers: Q_ANS({
+                market_pattern: { probabilities: { blended_unremarkable: 0.9, early_sniper_decay: 0.1 } },
+                famous_domination: { probabilities: { none: 0.9, light: 0.1 } },
+            }),
+        }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'activity_gate', JSON.stringify(r.assessment));
+    });
+    await check('famous 回撤域独立生效（非④票）：blended+high+dominant+ankle_cut → famous 臂退出 any_good', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({
+            answers: Q_ANS({
+                market_pattern: { probabilities: { blended_unremarkable: 0.9, early_sniper_decay: 0.1 } },
+                activity_level: { probabilities: { high: 0.8, mid: 0.2 } },
+                entry_position: { probabilities: { ankle_cut: 0.81, half_off: 0.19 } },
+                early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
+            }),
+        }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.bucket, 'good', JSON.stringify(r.assessment));
+        assert.deepStrictEqual(r.assessment.exempts, ['famous_pullback'], JSON.stringify(r.assessment));
+    });
+    await check('famous 贴高域照拦：dominant+near_high（浅回撤=早鸟域）→ chip_gate', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({
+            answers: Q_ANS({
+                market_pattern: { probabilities: { blended_unremarkable: 0.9, early_sniper_decay: 0.1 } },
+                activity_level: { probabilities: { high: 0.8, mid: 0.2 } },
+                entry_position: { probabilities: { near_high: 0.9, shallow_pullback: 0.1 } },
+                early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
+            }),
+        }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'chip_gate', JSON.stringify(r.assessment));
+    });
+    await check('holder 臂不受回撤域影响：half_off+holder=strong → chip_gate（holder）照拦', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS10 }), mkLlm({
+            answers: Q_ANS({
+                market_pattern: { probabilities: { blended_unremarkable: 0.9, early_sniper_decay: 0.1 } },
+                activity_level: { probabilities: { high: 0.8, mid: 0.2 } },
+                famous_domination: { probabilities: { none: 0.9, light: 0.1 } },
+                holder_concentration: { probabilities: { strong: 0.9, moderate: 0.1 } },
+                early_bird_quality: { probabilities: { good: 0.72, neutral: 0.28 } },
+            }),
+        }));
+        const r = await s.gateBuyPoint('0x' + 'ef'.repeat(20), META, {});
+        assert.strictEqual(r.assessment.rule, 'chip_gate', JSON.stringify(r.assessment));
+    });
+    await check('源码口径：ESD_ACTIVITY_EXEMPT_LAUNCH_PCT=40 常量+high/ultra 豁免档+exempts 留痕键', () => {
+        const mapper = read('src/market-analysis/buy-point-result-mapper.js');
+        assert.ok(/const ESD_ACTIVITY_EXEMPT_LAUNCH_PCT = 40;/.test(mapper), '位置界常量在场');
+        assert.ok(/\['high', 'ultra'\]\.includes\(dimensions\.activity_level\.bucket\)/.test(mapper), '豁免档=high/ultra（CD379 同线）');
+        assert.ok(/FAMOUS_AXIS_PULLBACK_POSITIONS = \['half_off', 'ankle_cut'\]/.test(mapper), '回撤域桶名常量');
+        assert.ok(/assessment\.exempts \? \{ exempts: assessment\.exempts \} : \{\}/.test(read('src/market-analysis/BuyPointCheckService.js')), 'info 透传留痕');
+    });
+
     console.log(failed === 0 ? `\n✅ buy_point_check_service 全部通过（${passed} 断言）` : `\n❌ buy_point_check_service：${failed} 失败 / ${passed} 通过`);
     process.exit(failed === 0 ? 0 : 1);
 })().catch((e) => {

@@ -301,7 +301,9 @@ class BuyPointCheckService {
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
         status: 'assessed',
-        assessment: { bucket: assessment.bucket, prob: assessment.prob, rule: assessment.rule },
+        assessment: { bucket: assessment.bucket, prob: assessment.prob, rule: assessment.rule,
+          // BP43 豁免留痕透传（esd_activity/famous_pullback，命中才填）
+          ...(assessment.exempts ? { exempts: assessment.exempts } : {}) },
         qualities: obs.qualities,
         dimensions: obs.dimensions,
         anchors: obs.anchors,

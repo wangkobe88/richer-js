@@ -123,6 +123,29 @@ const RESTART_LAUNCH_PCT = 40;
  * 破发段（−9.9%）BP 判 restart 正确却被 chip_gate 拒（famous dominant=砸盘后
  * famous 接盘筹码集中——正是再起来盘面的正面形状被第一波判法误杀） */
 const FAMOUS_AXIS_RELAUNCH_PCT = 20;
+/** BP43 ④early_sniper_decay 高活跃豁免位置界（2026-11-08 用户裁定「活跃度高，
+ * 豁免 early_sniper_decay，可以按照混合盘来，价格在 near_launch 可以买」）：④
+ * 狙击衰竭的本质是「开局抢完即衰竭」——活跃度持续 high/ultra（对齐 CD379 豁免
+ * 档）=盘面没有衰竭证据，④判据不成立，桶不进盘型门硬拒（后续门照走=按混合盘
+ * 待遇）；豁免票价格须在 near_launch 以内（≤+40% 含 almost_launch 与破发——
+ * 与 BP42 PUMP_EXEMPT_LAUNCH_PCT 同线同语义「只许 near_launch 范围内的价格
+ * 买入」）；已拉离（>+40%）或锚缺失=照拦（宁拦不冒充，同⑥⑦位置门方向）。
+ * 连带：豁免票 activity_level=ultra 的活跃度门 ultra 臂不拦（同 BP38
+ * strong_backer 豁免形状——「活跃度高」是豁免理由不是拦截理由；low/heat low
+ * 臂不豁免——近窗死寂不是「活跃度一直高」）。门消费侧加域非代码改判——④档位
+ * 照判照落档，与 BP38/BP45 同模式。案由苍蝇 0xb30f0b8a…7777（flap）05:10:06/09
+ * 两信号：ultra 活跃（0.71）+fast_down+half_off/ankle_cut 回撤位被④贴线误杀
+ * （0.49/0.44）——ultra 吞吐下盘面没有衰竭形状 */
+const ESD_ACTIVITY_EXEMPT_LAUNCH_PCT = 40;
+/** BP43 famous 轴回撤入仓域（2026-11-08 用户裁定原话「famous 我一直强调，它
+ * 不适合后期，早鸟可以因为famous挡住，但是回撤入仓不需要」）：famous 控盘的
+ * 风险模型=「拿最早期最便宜筹码等抬轿砸盘」只适用于第一波/早鸟位；回撤入仓位
+ * （entry_position ∈ half_off/ankle_cut=距锚窗高点回撤 ≥35%）famous 未离场是
+ * 承接证据非砸盘前兆，famous 臂退出 chip_gate——与 BP45 再起来域
+ * （minVsLaunchPct ≤+20）并列为 famous 轴两个退出域，任一命中退出；浅回撤
+ * （near_high/shallow_pullback<35%）=贴高早鸟域照拦（「早鸟可以因为 famous
+ * 挡住」）；holder 臂不受影响；判档归 Jev 域归代码（门消费侧加域非代码改判） */
+const FAMOUS_AXIS_PULLBACK_POSITIONS = ['half_off', 'ankle_cut'];
 // BP42（2026-11-08 用户裁定）：真庄反锚机械门整段拆除，回归 BP12「不搞代码门」
 // 两次明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内
 // 代价入攒批池（复审候选=题面独立前置题形态，仍非代码门）。题面层④桶反锚判序
@@ -264,29 +287,36 @@ function buildBuyPointObservation(answers, anchors = null) {
   // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；旧档重放缺答案=该臂
   // 自动失效）；门优先于质量题。
   // insufficient（不适用/材料薄）不贡献；全 insufficient → poor（prob=null 无 poor 证据）。
-  const patternArms = dimensions.market_pattern && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
+  // 发行价位置锚（⑥⑦位置臂与 BP43 ④高活跃豁免公共读取；形状异常=null 不冒充）
+  const rawVsLaunch = anchors ? anchors.currentVsLaunchPct : null;
+  const vsLaunch = typeof rawVsLaunch === 'number' && Number.isFinite(rawVsLaunch) ? rawVsLaunch : null;
+  // BP43：④early_sniper_decay 高活跃豁免——活跃 high/ultra ∧ 价格 ≤+40 =盘面
+  //   没有衰竭证据，④不进硬拒表（后续门照走=按混合盘待遇）；>40/锚缺失=照拦
+  const esdActExempt = dimensions.market_pattern
+    && dimensions.market_pattern.bucket === 'early_sniper_decay'
+    && dimensions.activity_level
+    && ['high', 'ultra'].includes(dimensions.activity_level.bucket)
+    && vsLaunch != null && vsLaunch <= ESD_ACTIVITY_EXEMPT_LAUNCH_PCT;
+  const patternArms = dimensions.market_pattern && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket) && !esdActExempt
     ? [dimensions.market_pattern] : [];
   // ⑥sustained_climb 位置臂（BP34）：贴发行价起点段放行；已拉离/锚缺失（宁拦不
   // 冒充）入盘型门拒（题面已教位置门语义，此处代码侧硬执行——判型归 Jev 位置归代码）
   if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'sustained_climb') {
-    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
-    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
   // ⑦restart 重启盘位置臂（BP43）：near_launch 以内（≤+40% 含 almost_launch 与
   //   破发）放行质量题；已拉离/锚缺失拒（同⑥模式——判型归 Jev 位置归代码）
   if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'restart') {
-    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
-    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
     if (vsLaunch == null || vsLaunch > RESTART_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
   // BP38：strong_backer ultra 豁免——强庄盘拉盘天然密集，ultra 密度不是拒买证据
-  //   （ultra 臂仅此豁免；low 臂不豁免——活跃度死寂强庄盘照拦；market_pattern 缺席
-  //   时豁免不生效=照拦保守方向；盘型门最前，走④②③⑥拒的票轮不到本门不受影响）
+  //   （ultra 臂仅此豁免+BP43 ④高活跃豁免票连带；low 臂不豁免——活跃度死寂强庄
+  //   盘照拦；market_pattern 缺席时豁免不生效=照拦保守方向；盘型门最前，走④②③⑥
+  //   拒的票轮不到本门不受影响）
   const actUltraExempt = dimensions.activity_level
     && dimensions.activity_level.bucket === 'ultra'
     && dimensions.market_pattern
-    && dimensions.market_pattern.bucket === 'strong_backer';
+    && (dimensions.market_pattern.bucket === 'strong_backer' || esdActExempt);
   const gateArms = [
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
     dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !actUltraExempt ? dimensions.activity_level : null,
@@ -297,8 +327,13 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   门锚缺失拒方向）；holder 臂不受影响
   const rawMinVs = anchors ? anchors.minVsLaunchPct : null;
   const famousRelaunched = typeof rawMinVs === 'number' && Number.isFinite(rawMinVs) && rawMinVs <= FAMOUS_AXIS_RELAUNCH_PCT;
+  // BP43：famous 轴回撤入仓域——回撤位（half_off/ankle_cut ≥35%）famous 未离场
+  //   是承接证据非砸盘前兆，与 BP45 再起来域并列的第二个退出域（任一命中退出）；
+  //   贴高/浅回撤=早鸟域照拦；holder 臂不受影响
+  const famousPullbackExempt = dimensions.entry_position
+    && FAMOUS_AXIS_PULLBACK_POSITIONS.includes(dimensions.entry_position.bucket);
   const chipArms = [
-    dimensions.famous_domination && !famousRelaunched && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
+    dimensions.famous_domination && !famousRelaunched && !famousPullbackExempt && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
     dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
   ].filter(Boolean);
   const qList = Object.values(qualities);
@@ -320,6 +355,12 @@ function buildBuyPointObservation(answers, anchors = null) {
     else { bucket = 'poor'; prob = bestProb(p); rule = 'else_poor'; }
   }
   const assessment = { bucket, prob, rule };
+  // BP43 豁免留痕（additive，随 digest 落库——生产豁免分布观察）：④高活跃豁免
+  //   （含 ultra 臂连带）与 famous 轴回撤入仓域退出，命中才填
+  const exempts = [];
+  if (esdActExempt) exempts.push('esd_activity');
+  if (famousPullbackExempt && dimensions.famous_domination && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) && !famousRelaunched) exempts.push('famous_pullback');
+  if (exempts.length) assessment.exempts = exempts;
   const flat = {};
   for (const W of [30, 60, 120]) {
     for (const k of ['buyBnb', 'sellBnb', 'buyN', 'sellN', 'netBnb', 'buySharePct', 'ticksPerMin', 'buyers', 'sellers', 'newBuyers']) {
@@ -449,6 +490,8 @@ module.exports = {
   SUSTAINED_CLIMB_LAUNCH_PCT,
   RESTART_LAUNCH_PCT,
   FAMOUS_AXIS_RELAUNCH_PCT,
+  ESD_ACTIVITY_EXEMPT_LAUNCH_PCT,
+  FAMOUS_AXIS_PULLBACK_POSITIONS,
   ACTIVITY_GATE_POOR_BUCKETS,
   CHIP_GATE_FAMOUS_POOR_BUCKETS,
   QUALITY_LEVELS,
