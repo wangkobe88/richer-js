@@ -150,7 +150,9 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 **BP43 案攒批就此实质回应**：用户选了 C 变体方向（自己的立法）——④贴线误杀的「高热+回落近价」子集由本案豁免接住；「题面判序失灵第三例」攒批（BP35/BP41/BP43-BP47 五轮）对低热/拉离④票仍存，A/B/C 终裁待后续票池分布。
 
-**余留观察点**：①生产豁免触发面分布（④∧高热∧≤40 三腿联立频率+exempt 留痕行采集）；②放行域前向收益验证（苍蝇 06/09 形状 vs 拉离④票——下次引用实验回测首验）；③与 pump_exempt_gate 叠加形状（cheat 侧 pumpExempt 票 Jev 判④高热近价：service 出口 pump 位置门在 mapper 之后仍拒 >40，两门独立各管一域）。
+**全链回测首验（2026-11-08，cangying-bp46=68017ac6，基底 cangying-bp44 同配置 ladder v11 十二腿+BP46 代码，report --baseline 对照）**：基底（BP44 代码）6 信号（05:10:00-15 每 3s 一条）cheat 门 6/6 healthy 豁免（activity_ultra←cheat 三臂）→ BP 门 4×pump_exempt_gate+2×pattern_gate ④ 拒**零成交**；BP46 代码下 3 条信号：05:10:00/03 照拒 pump_exempt_gate（curVs +80.5/+75.4 >+40 价格腿守住=反例零误放）、**05:10:06（p2 腿）翻 neutral·gates_passed exec=executed 首次买入成交**；05:10:09/12/15 被 `buyPhase:'first'` 正确抑制（每代币只买一次）。成交明细：0.004 BNB（4 卡×perCardBNB 0.001 口径）买 660.29 token → 05:10:10 P10 卖腿（peak≥+10∧drawdown≤-45 全清）4 秒全清 0.0034 BNB，pnl -14.88%（signal ca5ff295/a7ef96df）。**放行域前向收益（quote 域 tick 归一，基准=05:10:06 即时市价）**：买入后 4s 内最低 0.93x（P10 卖在局部底）→ 05:10 分钟内 max 2.94x → 05:11 3.97x → 05:16 6.34x → **05:20:17 graduation 毕业**（末价 9.36x，按 quote↔BNB 换算相对买入信号价约 7.5x）——买入后 10 分钟毕业票，**豁免方向正确、本案亏损归因 P10 卖腿 4 秒深回撤打在局部底非买点**（用户裁定「买入成交即可，先求成交，至于卖出我们再说」）。全窗 12 token 汇总：每票 1 买 0.004 BNB，净额仅 0xf36cf29a +0.000419、两票打平、9 票小亏（-0.0005~-0.0018）。量纲注记：本案 trades.unit_price=in/out 数额自洽为 **BNB 域**（0.004÷660.29=6.057e-6），wss_price_ticks.price_bnb 为 quote 域（flap 非 BNB 计价盘）——两域比值≈629-786 不可直接比、相对走势归一有效。
+
+**余留观察点**：①生产豁免触发面分布（④∧高热∧≤40 三腿联立频率+exempt 留痕行采集）；②放行域前向收益验证——**首验已做**（苍蝇 06 点位：-14.88% 已实现=卖腿归因，市价前向毕业前 ~7.5x；续验攒后续引用实验）；③与 pump_exempt_gate 叠加形状（cheat 侧 pumpExempt 票 Jev 判④高热近价：service 出口 pump 位置门在 mapper 之后仍拒 >40，两门独立各管一域）；④卖腿侧对 4s 内深回撤形状的适配（P10 在急跌局部底打掉 10 分钟毕业票——卖出域待用户另行处置）。
 
 ### BP45 famous_domination 与 entry_position 两维度题退役（题集 BP49，2026-11-08，题集瘦身案·famous 判型归并盘型题）
 
