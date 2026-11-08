@@ -88,7 +88,7 @@ const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high'
  * famous 独食（门桶拒买）/early_sniper_decay 狙击衰竭（门桶拒买）/blended_unremarkable
  * 融合盘中性可赌/sustained_climb 持续拉升弱回调（走独立位置门非三桶硬拒）/restart
  * 重启盘（走独立位置门非三桶硬拒） */
-const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb', 'restart'];
+const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb', 'restart', 'golden_point'];
 /** 盘型门拒买桶（BP18：retail_pvp/famous_monopoly/early_sniper_decay 三桶硬拒；
  * strong_backer（最好类型）与 blended_unremarkable（融合可赌）不拦；BP30 起为
  * 判定链首门（预判断最前）；BP34 的 sustained_climb **刻意不入本表**——走
@@ -110,6 +110,19 @@ const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
  * 「判型归 Jev、位置归代码」模式；交易量门槛（tradeCount≥10 ∧ buyVolumeBnb≥1.5）
  * 是题面判据材料非代码门——BP42「不搞代码门」铁律 */
 const RESTART_LAUNCH_PCT = 40;
+/** BP45 famous 轴再起来域（用户裁定原话「famous 轴本身不应该用于再起来的盘子，
+ * 它只适用于第一波」+「价格落到底了，但是famous没有离场，这不是好事吗」）：锚窗
+ * 涨起后最低价较发行价 ≤+20%（含破发）=盘面再起来（回到过 almost_launch），
+ * chip_gate 的 famous 臂退出拦截——落底后 famous 持的是无浮盈筹码，未离场=正面
+ * 证据；第一波 famous 拿最早期最便宜筹码「拉升给 famous 抬轿、一砸就崩」的风险
+ * 模型才成立。null（从未离开过/刚离开无回落/launchCovered 截窗缺失）=第一波域
+ * 照拦保守（宁拦不冒充，与⑥⑦位置门锚缺失拒同向）；holder 臂不受影响（BP15
+ * 价格豁免锚照旧）；域归代码、判档归 Jev（读 anchors.minVsLaunchPct，与⑦位置门
+ * 同源锚）——非「代码改写 Jev 桶判定」（famous_domination 档位照判照落档，仅门
+ * 消费侧加域，与 BP38 actUltraExempt 同模式）。案由 bt-s02 07:15:45 信号：RL10
+ * 破发段（−9.9%）BP 判 restart 正确却被 chip_gate 拒（famous dominant=砸盘后
+ * famous 接盘筹码集中——正是再起来盘面的正面形状被第一波判法误杀） */
+const FAMOUS_AXIS_RELAUNCH_PCT = 20;
 // BP42（2026-11-08 用户裁定）：真庄反锚机械门整段拆除，回归 BP12「不搞代码门」
 // 两次明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内
 // 代价入攒批池（复审候选=题面独立前置题形态，仍非代码门）。题面层④桶反锚判序
@@ -241,9 +254,12 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
   //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
   //   strong_backer 时豁免不拦——强庄盘拉盘天然密集）}→ poor（rule=activity_gate）；
-  // ③筹码门（BP14+BP30 heavy 扩档）：famous_domination ∈ {heavy, dominant}
-  //   （正净 ≥25=famous 主导不玩）**或** holder_concentration=strong（CD240
-  //   分层线/一人控盘）→ poor（rule=chip_gate）；
+  // ③筹码门（BP14+BP30 heavy 扩档+**BP45 famous 轴域**）：famous_domination ∈
+  //   {heavy, dominant}（正净 ≥25=famous 主导不玩——**仅第一波：盘面再起来
+  //   （anchors.minVsLaunchPct ≤+20 含破发）后 famous 臂退出**，落底后 famous
+  //   未离场=正面证据；null=第一波域照拦保守）**或** holder_concentration=strong
+  //   （CD240 分层线/一人控盘；BP15 价格豁免锚照旧、不受本域影响）→ poor
+  //   （rule=chip_gate）；
   // ④两质量题聚合：任一 good → good；否则任一 neutral → neutral；否则 poor。
   // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；旧档重放缺答案=该臂
   // 自动失效）；门优先于质量题。
@@ -275,8 +291,14 @@ function buildBuyPointObservation(answers, anchors = null) {
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
     dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !actUltraExempt ? dimensions.activity_level : null,
   ].filter(Boolean);
+  // BP45：famous 轴只适用第一波——盘面再起来（锚窗涨起后最低 ≤+20 含破发=回到过
+  //   almost_launch）后 famous 臂退出拦截（落底后 famous 未离场=正面证据）；
+  //   null（从未离开/刚离开无回落/锚缺失）=第一波域照拦（宁拦不冒充，同⑥⑦位置
+  //   门锚缺失拒方向）；holder 臂不受影响
+  const rawMinVs = anchors ? anchors.minVsLaunchPct : null;
+  const famousRelaunched = typeof rawMinVs === 'number' && Number.isFinite(rawMinVs) && rawMinVs <= FAMOUS_AXIS_RELAUNCH_PCT;
   const chipArms = [
-    dimensions.famous_domination && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
+    dimensions.famous_domination && !famousRelaunched && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
     dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
   ].filter(Boolean);
   const qList = Object.values(qualities);
@@ -426,6 +448,7 @@ module.exports = {
   PATTERN_GATE_POOR_BUCKETS,
   SUSTAINED_CLIMB_LAUNCH_PCT,
   RESTART_LAUNCH_PCT,
+  FAMOUS_AXIS_RELAUNCH_PCT,
   ACTIVITY_GATE_POOR_BUCKETS,
   CHIP_GATE_FAMOUS_POOR_BUCKETS,
   QUALITY_LEVELS,
