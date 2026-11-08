@@ -187,7 +187,7 @@
 
 ## Case 倒序
 
-### CD383 cheat 门豁免 burst 资格臂：「长期沉积一朝开始操盘」豁免（2026-11-08，机制案；高大上 0x838657df t0a 触发被拒案·T125 续篇；commits cb60804d+0183b6c8）
+### CD383 cheat 门豁免 burst 资格臂：「长期沉积一朝开始操盘」豁免（2026-11-08，机制案；高大上 0x838657df t0a 触发被拒案·T125 续篇；commits cb60804d+0183b6c8+**5e4ca801 二修放宽**）
 
 **动机（用户裁定原话）**：「"activity 判 low" 这里 burst 在作弊检测内部豁免 activity low 的，所以外部豁免这里也加一下，将 burst 也豁免」+「高大上应该是 长期沉积一朝开始操盘，这种情况豁免一下」。案由 = **T125 高大上 `0x838657df…7777` t0a 首触发被 cheat 门拒**（gaodashang-v12=4b3fa2a9）：13 分钟死盘仅 1 笔 0.70B → 06:57:05 第二笔点火 2 秒 9 笔 → t0a 06:57:07（+47.4%）触发 → cheat 门 A 主判拒（slowGrindPump+burstSpikeConcentration strong、holdings strong；activity=low——死盘 14 分钟窗 idlePct 极高——不在 CD379 豁免集 {high,ultra}）。E 通道内部本有同形状豁免（G8：act=low ∧ sbw=burst ∧ 非弱 burst 不落 E），但豁免只免 E 不免 A/J——pump/spike/holdings strong 照走主判。用户裁定把 burst 形状提升为**外部豁免资格臂**。
 
@@ -203,7 +203,9 @@
 
 **182 对拍 3/3（tmp-cd383-burst-parity.cjs，gateBuyPoint anchorMs=信号时刻 persist:false）**：①**高大上 @06:57:07 cheat 重判 → healthy+exempt{code:'stall_burst', originalGrade:'cheat'}**（原判 A_strong pump+spike+J_holdings；act=mid 不在桶豁免集、纯靠 burst 资格臂——07:15:41 类漏买形状闭合）；②对照·来财 `0xc84a0ff2…7777` @12:31:15 → healthy+exempt{code:'activity_ultra'}（sbw=0 无 burst 臂，纯桶臂对照）；③**BP 联验**：pumpExempt=true（exempt ∧ slowGrindPump=3）→ BP 判 **poor·pump_exempt_gate**（06:57:07 curVs +47.4 > 40 拉离拒=价格钳制设计内）、不带标对照 poor·pattern_gate 0.69。**豁免≠追高许可**：高大上豁免后仍买不进（全程 >+40 涨到毕业）——回到 ≤+40 才给买，burst 臂放行的是「点火初段 ≤+40 窗」（t0a 触发点若在 +47.4 之前的价格段即成交）。
 
-**余留观察点**：①生产 `stallBurstExemptions` 计数与 burst 臂独立命中分布（vs activity 桶臂）；②burst 豁免票放行后的前向收益对拍（vs 拉黑期零参与基线）；③「点火即拉飞」票 +40 内成交率（豁免给资格、价格钳制守位置，两门联合实际成交面）。
+**二修放宽三键线（2026-11-08 同日，M4GA `0xba5ed45b…4444` 47324b0b 单票回测案，commit `5e4ca801`；用户裁定原话「这个币应该是 burst，豁免 cheat」+「如果不是的话，检查问题」）**：单票门链回测（backtest-token-case v12 十三腿，tokenAddresses 单票限定二修后）首判 07:40:47 t0a sbw=burst ✓ 但三键贴线全差一口气——`burstMaxGapSec=58 < 60 / burstWaveBuyBnb=0.7735 < 1.05 / burstWaveWallets=11 < 13`，weakBurst 前两键全中不授予+act=low 不在 CD379 桶 → cheat A 主判拒（pump/spike/holdings strong）。**检查结论=非 bug**：代码按立法执行、Jev 判 sbw=burst 正确；**结构性因素 = t0a 首判窗仅 83s**（tradeCount≥9 起步即触发）——burstMaxGapSec 全窗口径被窗长天然压住（58s≈开盘到波起点间隔），「沉积近一分钟一波点火」形状在早臂上贴线未达是线值问题非判读问题。**改线 60/1.05/13 → 50/0.7/10**（gap≥50 ∧（波买≥0.7 ∨ 波户≥10）至少一键；gap=2s 开盘密集夹具反例仍拦）。单测 F8b 新增 5 断言（贴线形状 58/0.77/11→true、新线负例 49/0.69/9→false、开盘密集仍拦、源码三线锁），`_test_cheat_gate_engine` 136 全绿。**182 对拍达成（d3ec07a7）**：07:40:47 t0a cheat→**healthy+exempt stall_burst**（三臂 pump,holdings 同场）→ BP **neutral·gates_passed**（curVs 在 +40 内 pumpExempt 放行）→ **executed 成交**（买 1 笔 0.0040 BNB 4 卡，卖 4 笔 0.0143 → **净 +0.0103 BNB 正收益**）；买后其余 12 腿 buyPhase:'first' 首买遮蔽（设计内）。版本零 bump（豁免臂门决策域）。
+
+**余留观察点**：①生产 `stallBurstExemptions` 计数与 burst 臂独立命中分布（vs activity 桶臂）；②burst 豁免票放行后的前向收益对拍（vs 拉黑期零参与基线）；③「点火即拉飞」票 +40 内成交率（豁免给资格、价格钳制守位置，两门联合实际成交面）；④二修后 50/0.7/10 线的开盘密集误放面观察（F8b 反例 gap=2s 仍拦，中间地带 10~50s 待生产分布）。
 
 ### CD382 盘面重置截窗：回到过 almost_launch 的证据窗重置到最低点行起（2026-11-08，机制案；bt-s01 0x28ad2c7d cheat 翻案迟滞复盘·与 BP44 案号 BP39 同日同语义）
 
