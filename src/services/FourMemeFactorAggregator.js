@@ -82,6 +82,7 @@ const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 // G1 作弊盘因子化：grade 档位→数值出口映射（levelsFromObservation 同源表；无环——market-analysis 不反向 require FA）
 const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
+const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb } = require('../market-analysis/launch-price');
 // PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
 // 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
@@ -3354,13 +3355,20 @@ class FourMemeFactorAggregator extends EventEmitter {
             mcapFromPeakPct: (state.totalSupply > 0 && currentPriceBnb > 0 && state.highestPriceBnb > 0)
                 ? parseFloat((100 * (1 - currentPriceBnb / state.highestPriceBnb)).toFixed(2)) : null,
             // 现价较发行价涨幅 %（T122 接近发行价臂，2026-11-07 用户裁定「参考购买前
-            // 检测中『接近发布价』的判断」）：BP currentVsLaunchPct 同口径——分子分母
-            // 同可靠价链（_relPriceBnb/_relFirstPriceBnb，与 BP snapshot 的 arc.last/
-            // rel[0] 同源），near_launch 判据=≤+50% 含破发。null=未见可靠价
+            // 检测中『接近发布价』的判断」）：分母=平台 curve 初始价常量（2026-11-08
+            // 发行价口径修正——four.meme 主流档 4.496173469e-9/flap BNB 盘主力档
+            // 5.546e-9，用户裁定「主流档即可」；quote 盘/gang/未知平台=回落旧口径
+            // 首可靠价 _relFirstPriceBnb），分子=可靠价链现价（与 BP snapshot 的
+            // arc.last 同源）；near_launch 判据=≤+50% 含破发。null=未见可靠价
             // fail-closed（裸比较恒 false 不触发=宁拦不冒充）；TPAPre_asofRelFirst 是
             // TPA 审批时刻冻结快照，本键是买点时刻实时值——语义刻意分开
-            currentVsLaunchPct: (state._relPriceBnb > 0 && state._relFirstPriceBnb > 0)
-                ? parseFloat((100 * (state._relPriceBnb / state._relFirstPriceBnb - 1)).toFixed(2)) : null,
+            currentVsLaunchPct: (() => {
+                if (!(state._relPriceBnb > 0)) return null;
+                const launch = _resolveLaunchPriceBnb(state.platform, state.quoteToken)
+                    ?? state._relFirstPriceBnb;
+                return (launch > 0)
+                    ? parseFloat((100 * (state._relPriceBnb / launch - 1)).toFixed(2)) : null;
+            })(),
             // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
             // flap/gang = 资金口径 池净入金 / 毕业阈值（flap 2026-10-24 替换价格锚：R 恒比
             // 假设实证不成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂；gang 2026-10-27

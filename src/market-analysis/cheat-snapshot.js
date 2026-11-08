@@ -24,6 +24,7 @@
  */
 
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
+const { resolveLaunchPriceBnb } = require('./launch-price');
 
 /** 等额簇金额舍入粒度（0.0001 BNB，T74 口径） */
 const EQUAL_AMOUNT_ROUND = 10000;
@@ -231,6 +232,9 @@ function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
       txHash: r.tx_hash ?? null, // D3.8 捆绑题原料：同一笔链上交易拆出的多行（state 渲染 tx= 前缀）
       viaRouter: isRouterTrader(r),
       outlier: r.price_outlier === true,
+      // flap 非 BNB 计价盘行级标记（wss_price_ticks.quote_token：quote 地址|null=BNB 盘）——
+      // BP 发行价常量锚的 quote 盘判定源（quote 盘 per-token snapshot 定价无常量→旧口径）
+      quote: r.quote_token ?? null,
       senderMissing: !r.sender_address,
     });
   }
@@ -1457,8 +1461,10 @@ function isRouterWallet(wallet) {
  *
  * 判据=BP44 minVsLaunchPct 同款定义（buy-point-snapshot 独立实现，口径由
  * _test_cheat_market_reset 双向锁定——cheat-snapshot 已被 buy-point-snapshot
- * 依赖，反向 import 成环，故 CD 侧独立实现）：launchPrice=首可靠价（不满帽
- * 锚窗首行=出生段发行价，capped 由调用方拦）；涨起后段=首个突破 almost_launch
+ * 依赖，反向 import 成环，故 CD 侧独立实现）：launchPrice=平台 curve 初始价常量
+ * （2026-11-08 发行价口径修正——four.meme 主流档/flap BNB 盘主力档，第二参
+ * platform 传 'fourmeme'/'flap' 时启用；quote 盘/gang/null 平台=首可靠价旧口径
+ * （不满帽锚窗首行=出生段发行价，capped 由调用方拦））；涨起后段=首个突破 almost_launch
  * 上界（严格 > 1.2×launchPrice——+20 恰在桶界内不算离开）的可靠价起（含离开
  * 那一笔——突破笔本身必然 >+20 不影响「≤+20」判定；创新高不遮蔽回落，ATH
  * 位置无关）全段；段最低 ≤+20%（含破发）=「回到过」→ 重置生效。
@@ -1467,7 +1473,9 @@ function isRouterWallet(wallet) {
  * 资金口径不滤是钱包侧的事）；dt/block 字段不参与判定。
  *
  * @param {Array} rows DB 形状行（price_bnb/price_outlier/block_number/log_index/
- *   block_time；到达序无关——内部按链上真序拷贝排序）
+ *   block_time/quote_token；到达序无关——内部按链上真序拷贝排序）
+ * @param {string|null} [platform] 平台标识（'fourmeme'|'flap'——传则优先 curve
+ *   常量锚；quote 盘（rows 行 quote_token 非空）/gang/null=首可靠价旧口径）
  * @returns {null|Object} null=未重置（无可靠价/从未离开 almost_launch/刚离开
  *   无后续/涨起后最低 >+20 没回到过——调用方维持全窗 bit 不变）；
  *   {resetIdx, sortedRows, launchPriceBnb, minPriceBnb, minVsLaunchPct,
@@ -1477,17 +1485,23 @@ function isRouterWallet(wallet) {
  *   自然后移，as-of 无前视）；minVsLaunchPct=段最低较发行价 %（toFixed(1)，
  *   破发为负）
  */
-function computeMarketResetIndex(rows) {
+function computeMarketResetIndex(rows, platform = null) {
   const sorted = [...(rows || [])].sort((a, b) => {
     const ba = a.block_number ?? 0, bb = b.block_number ?? 0;
     if (ba !== bb) return ba - bb;
     return (a.log_index ?? 0) - (b.log_index ?? 0);
   });
   const isRel = (r) => r.price_bnb != null && r.price_bnb > 0 && r.price_outlier !== true;
-  // launchPrice=首可靠价；无可靠价 → null（宁不重置，不以伪锚翻案）
-  let launchPrice = null;
-  for (const r of sorted) {
-    if (isRel(r)) { launchPrice = r.price_bnb; break; }
+  // launchPrice=平台 curve 初始价常量（2026-11-08 发行价口径修正：four.meme 主流档/
+  // flap BNB 盘主力档，用户裁定；quote 盘/gang/未知=null）；无常量锚回落首可靠价旧口径。
+  // 无可靠价且无常量锚 → null（宁不重置，不以伪锚翻案）
+  // quote 判定=rows 行 quote_token（flap 非 BNB 计价盘行级标记；BNB 盘 null）
+  const quoteToken = (rows || []).some((r) => r.quote_token) ? 'quote' : null;
+  let launchPrice = resolveLaunchPriceBnb(platform, quoteToken);
+  if (launchPrice === null) {
+    for (const r of sorted) {
+      if (isRel(r)) { launchPrice = r.price_bnb; break; }
+    }
   }
   if (launchPrice === null || !(launchPrice > 0)) return null;
   // 涨起点：首个严格 > 1.2×launchPrice 的可靠价（+20 恰等在 almost_launch 桶界内不算离开）

@@ -435,16 +435,19 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     fm2 ? { pc: fm2.preCheatResult, pb: fm2.priceBackToAlmostLaunch } : 'fm2 null');
 
   // ── CD381 almost_launch 锚语义（第二 token 独立价格轨迹）──
-  // 轨迹：5e-9 发行 → 8e-9（+60%）→ mark(60) 窗口起算 → 回落 5.9e-9（+18%）
-  //   → 1 → 拉回 8e-9 → 重锚 mark(60) 复位（回落史不延续）→ 0
+  // 轨迹（2026-11-08 发行价口径修正：platform='fourmeme' → currentVsLaunchPct 分母
+  // =主流档常量 FM——价格域乘 FM 使常量口径下百分比仍为 +60/+18，断言数值 bit 不变）：
+  // FM（发行 0%）→ 1.6×FM（+60%）→ mark(60) 窗口起算 → 回落 1.18×FM（+18%）
+  //   → 1 → 拉回 1.6×FM → 重锚 mark(60) 复位（回落史不延续）→ 0
+  const FM = require('../src/market-analysis/launch-price').FOURMEME_LAUNCH_PRICE_BNB;
   fa.registerToken('0xrl2', { createdAtMs: T0, totalSupply: 1e9, symbol: 'RL2' });
   const rlTick = (price, txh, ts, logIdx) => fa.processTick({
     token_address: '0xrl2', trade_type: 'buy', trader_address: '0xt1',
     price_bnb: price, price_usd: price * 600, bnb_amount: 0.01,
     token_amount: 2e6, block_number: 40000002, timestamp: ts, tx_hash: txh,
     log_index: logIdx, price_outlier: false, platform: 'fourmeme' }, { emitFactors: false });
-  rlTick(5e-9, '0xrl-t1', T0 + 1000, 0);
-  rlTick(8e-9, '0xrl-t2', T0 + 2000, 1); // +60%
+  rlTick(FM, '0xrl-t1', T0 + 1000, 0);
+  rlTick(FM * 1.6, '0xrl-t2', T0 + 2000, 1); // +60%
   const fmRa = fa.buildFactorMap('0xrl2', T0 + 2100);
   ok('CD381 无锚（从未过门链）→ priceBackToAlmostLaunch=null（fail-closed 不触发重检）',
     fmRa && fmRa.currentVsLaunchPct === 60 && fmRa.priceBackToAlmostLaunch === null,
@@ -454,12 +457,12 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
   ok('CD381 mark(60) 窗口起算：现价仍 +60% 未回 almost_launch → 0',
     fmRb && fmRb.priceBackToAlmostLaunch === 0 && fmRb.preCheatResult === null,
     fmRb ? { pb: fmRb.priceBackToAlmostLaunch } : 'build null');
-  rlTick(5.9e-9, '0xrl-t3', T0 + 3000, 2); // +18% 回到 almost_launch
+  rlTick(FM * 1.18, '0xrl-t3', T0 + 3000, 2); // +18% 回到 almost_launch
   const fmRc = fa.buildFactorMap('0xrl2', T0 + 3100);
   ok('CD381 回落到 +18% → min=18 ≤ 20 → priceBackToAlmostLaunch=1（触发重检）',
     fmRc && fmRc.currentVsLaunchPct === 18 && fmRc.priceBackToAlmostLaunch === 1,
     fmRc ? { vs: fmRc.currentVsLaunchPct, pb: fmRc.priceBackToAlmostLaunch } : 'build null');
-  rlTick(8e-9, '0xrl-t4', T0 + 4000, 3); // 拉回 +60%
+  rlTick(FM * 1.6, '0xrl-t4', T0 + 4000, 3); // 拉回 +60%
   FAmod.markCheatGateEvaluated('0xrl2', 60); // 门链再评估 → 锚复位
   const fmRd = fa.buildFactorMap('0xrl2', T0 + 4100);
   ok('CD381 重锚复位：mark(60) 后 min 从 60 重新起算（此前回落史不延续）→ 0',

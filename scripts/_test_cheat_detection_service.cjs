@@ -861,13 +861,16 @@ async function main() {
   // ═══════════════ Z2. CD382 盘面重置截窗（回到过 almost_launch=证据窗重置到最低点行起）═══════════════
   console.log('Z2. CD382 盘面重置截窗');
   {
-    // 价格轨迹行工厂（拉高→砸回 almost_launch 重启形状；genTicks 恒价 1e-9=从不离开不触发）
-    const E9 = 1e-9;
+    // 价格轨迹行工厂（拉高→砸回 almost_launch 重启形状；genTicks 恒价 1e-9=从不离开不触发）。
+    // 2026-11-08 发行价口径修正：META platform='flap'+BNB 盘（quote_token null）→ CD382
+    // reset 锚=FLAP 主力档常量 5.546e-9——价格域乘常量（形状倍数不变=断言数值 bit 不变，
+    // 且真实锁「常量平台锚」生产链路；乘 1e-9 会全落破发域=从未离开不触发 reset）
+    const FL = 6.14 / (107036752 + 1e9);
     const priceTicks = (prices) => prices.map((p, i) => ({
       block_time: new Date(1700000000000 + i * 2000).toISOString(),
       block_number: 100 + i, log_index: 0,
       trade_type: 'buy', bnb_amount: 0.1, token_amount: 1e8,
-      price_bnb: p * E9, price_outlier: false,
+      price_bnb: p * FL, price_outlier: false,
       trader_address: `0xp${i % 8}`.padEnd(42, '0'), sender_address: `0xp${i % 8}`.padEnd(42, '0'),
       quote_token: null,
     }));

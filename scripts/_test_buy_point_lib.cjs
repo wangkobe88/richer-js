@@ -103,7 +103,10 @@ const rowsA = [
   row(200, 'BUY', W_H, 0.05, 1.5 * E9, 3.3e7),                   // 17
   row(215, 'BUY', W_C, 0.1, 1.6 * E9, 6.25e7),                   // 18 末行 tEnd=215
 ];
-const metaA = { address: '0x' + 'ab'.repeat(20), symbol: 'TEST', name: 'Test Token', platform: 'fourmeme', createdAt: T0, creatorAddress: CREATOR, totalSupply: 1e9 };
+// platform 刻意不设（2026-11-08 发行价口径修正后）：场景 A 全链=旧口径（首可靠价
+// launchCovered 门）bit 回归锁——null 平台零变化；常量平台锚行为锁在
+// _test_cheat_market_reset C 段/_test_current_vs_launch_factor H 段
+const metaA = { address: '0x' + 'ab'.repeat(20), symbol: 'TEST', name: 'Test Token', createdAt: T0, creatorAddress: CREATOR, totalSupply: 1e9 };
 const snapA = buildBuyPointSnapshot(rowsA, metaA);
 const dA = snapA.buyDerived;
 

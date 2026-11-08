@@ -42,7 +42,9 @@ function row(dt, price, opts = {}) {
 /** 价格轨迹 → 行集（dt 递增=链上真序） */
 function traj(prices) { return prices.map((p, i) => row((i + 1) * 10, p)); }
 
-const metaBP = { address: '0x' + 'ab'.repeat(20), symbol: 'T', name: 'T', platform: 'fourmeme', createdAt: T0, creatorAddress: null, totalSupply: 1e9 };
+// platform 刻意不设（2026-11-08 发行价口径修正后）：B 段=旧口径（首可靠价+launchCovered
+// 门）回归 bit 锁——null 平台零变化；常量平台锚行为锁在 C 段
+const metaBP = { address: '0x' + 'ab'.repeat(20), symbol: 'T', name: 'T', createdAt: T0, creatorAddress: null, totalSupply: 1e9 };
 
 // ═══════════════ A. 纯函数四形状+边界 ═══════════════
 console.log('A. computeMarketResetIndex 纯函数');
@@ -139,6 +141,48 @@ console.log('B. BP44 minVsLaunchPct 双向口径锁（两侧独立实现）');
   // 方向差异说明（非断言）：BP 侧 launchCovered=false（截窗不含出生段）时给 null，
   // CD 侧不看出生段（capped 由调用方拦截，不满帽=全史必含出生段）——CD 判据刻
   // 意收窄为 capped 单防线，见 Service 5b。
+}
+
+// ═══════════════ C. 平台常量锚（2026-11-08 发行价口径修正）═══════════════
+console.log('C. 常量锚（four.meme 主流档 4.496173469e-9——恒有效不依赖 launchCovered；CD 侧传 platform 同口径）');
+{
+  const FM = 4496173469e-18;
+  const metaConst = { ...metaBP, platform: 'fourmeme' };
+  // C1 BP 侧：锚窗不含出生段（首行 dt=100 > 90 → launchCovered=false）——常量平台下
+  // 锚恒有效：价格轨迹=常量×[1.5, 1.05, 2.0, 1.3, 1.102, 1.3]（首行=滑点后的中途价）
+  // → minVsLaunchPct=涨起后最低 1.05×FM 较常量=+5（旧口径下 launchCovered=false
+  // → 全族 null=截窗不冒充——常量锚消除该失明）
+  const mult = [1.5, 1.05, 2.0, 1.3, 1.102, 1.3];
+  const rowsC = mult.map((m, i) => row(100 + i * 10, FM * m));
+  const bdC = buildBuyPointSnapshot(rowsC, metaConst).buyDerived;
+  ok(bdC.launchPriceBnb === FM,
+    `C1 BP 常量锚原值（launchCovered=false 仍有效；实际 ${bdC.launchPriceBnb}）`);
+  ok(bdC.minVsLaunchPct === 5,
+    `C1 BP 涨起后最低=+5（首行 1.5 已突破 → 段最低=全行最低 1.05×FM；实际 ${bdC.minVsLaunchPct}）`);
+  ok(bdC.currentVsLaunchPct === 30,
+    `C1 BP currentVsLaunchPct=+30（1.3×FM；实际 ${bdC.currentVsLaunchPct}）`);
+
+  // C2 CD 侧同口径：传 platform='fourmeme' → 常量锚；同形状 reset 生效
+  //（涨起后最低 1.05×FM=+5 ≤+20 → 重置）
+  const rC2 = computeMarketResetIndex(rowsC, 'fourmeme');
+  ok(rC2 !== null && rC2.minVsLaunchPct === 5 && rC2.launchPriceBnb === FM,
+    `C2 CD 常量锚重置（min=+5/launch=FM 原值；实际 ${rC2 && rC2.minVsLaunchPct}/${rC2 && rC2.launchPriceBnb}）`);
+
+  // C3 CD 侧不传 platform=同形状走旧口径（首可靠价=1.5×FM 伪锚 → 涨起后最低 1.102/1.05
+  // 段最低=1.05×FM=1.05/1.5−1=−30 ≤+20 也重置但锚不同——锁两口径锚差异）
+  const rC3 = computeMarketResetIndex(rowsC);
+  ok(rC3 !== null && rC3.launchPriceBnb === FM * 1.5,
+    `C3 CD null platform=旧口径首可靠价锚（1.5×FM；实际 ${rC3 && rC3.launchPriceBnb}）`);
+
+  // C4 flap quote 盘（rows 行 quote_token 非空）传 'flap' → 常量失效走旧口径
+  //（per-token snapshot 定价无常量）；gang 平台同旧口径
+  const rowsQ = rowsC.map((r) => ({ ...r, quote_token: '0xquote', platform: 'flap' }));
+  const rC4 = computeMarketResetIndex(rowsQ, 'flap');
+  ok(rC4 !== null && rC4.launchPriceBnb === FM * 1.5,
+    `C4 flap quote 盘=旧口径（quote_token 行标记；实际 ${rC4 && rC4.launchPriceBnb}）`);
+  const rC4g = computeMarketResetIndex(rowsC, 'gang');
+  ok(rC4g !== null && rC4g.launchPriceBnb === FM * 1.5,
+    `C4 gang=旧口径（已停未调研；实际 ${rC4g && rC4g.launchPriceBnb}）`);
 }
 
 console.log(`\n✅ _test_cheat_market_reset 全过（${passed} 断言）`);

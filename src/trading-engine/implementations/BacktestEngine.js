@@ -58,7 +58,11 @@ const LOAD_POOL_CONCURRENCY = 5;  // 装载段批并发（P5，2026-10-12）：�
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
 //（列变更时旧缓存自动判废重拉，不静默缺列）
-const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, sender_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform';
+// quote_token（2026-11-08 发行价口径修正）：flap 非 BNB 计价盘行级标记——FA
+// state.quoteToken write-once 捕获 → currentVsLaunchPct 常量锚的 quote 盘判定
+// （quote 盘 per-token snapshot 定价无常量→首可靠价旧口径）。加列=tick 缓存
+// columnsTag 漂移全量重拉一次（设计内）
+const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, sender_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform, quote_token';
 
 /**
  * 回放排序比较函数：链上真序 (block_number, log_index)，id 仅作最终 tie-breaker
@@ -2045,8 +2049,12 @@ class BacktestEngine extends AbstractTradingEngine {
         };
         const firePriceBnb = factorResults.currentPriceBnb || 0;
 
+        // 两门第三参=FA state（实时侧 FourMemeWssTradingEngine 同姿势）——门内
+        // snapshot meta 的 totalSupply/platform 等锚取自 state 而非因子表（回测
+        // 曾错传 factorResults → BP 市值族/CD supply 族锚恒 null，bt-v83/v84 702/702）
+        const faState = this._factorAggregator.getTokenState(tokenAddress);
         const cheatGate = await this._cheatGateEvaluateBinary(
-          tokenAddress, gateToken, factorResults, signalId, strategy.signalGate,
+          tokenAddress, gateToken, faState, signalId, strategy.signalGate,
           { anchorMs: nowTs, factorResults });
         if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
         if (cheatGate.info && signalId) {
@@ -2059,7 +2067,7 @@ class BacktestEngine extends AbstractTradingEngine {
         }
 
         const bpGate = await this._bpGateEvaluate(
-          tokenAddress, gateToken, factorResults, signalId, strategy.signalGate, {
+          tokenAddress, gateToken, faState, signalId, strategy.signalGate, {
             anchorMs: nowTs,
             firePriceBnb,
             strategyName: strategy.name,

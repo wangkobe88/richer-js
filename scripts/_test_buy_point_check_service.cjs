@@ -121,7 +121,9 @@ function mkLlm({ delayMs = 0, answers, fail = null, version = 'BPTEST' } = {}) {
     };
 }
 
-const META = { symbol: 'TST', name: 'Test', platform: 'fourmeme', createdAtMs: T0, totalSupply: 1e9, creatorAddress: '0x' + 'aa'.repeat(20) };
+// platform 刻意不设（2026-11-08 发行价口径修正后）：全文件=旧口径（首可靠价锚）
+// bit 回归锁——null 平台零变化；常量平台锚行为锁在 P 段末（META_FM 专断言）
+const META = { symbol: 'TST', name: 'Test', createdAtMs: T0, totalSupply: 1e9, creatorAddress: '0x' + 'aa'.repeat(20) };
 const TICKS10 = Array.from({ length: 10 }, (_, i) => trow(5 + i * 10, i % 2 ? 'sell' : 'buy', 0.1, (1 + i * 0.01) * 1e-9, { li: i }));
 
 function mkSvc(config, db, llm, extraDeps = {}) {
@@ -517,6 +519,16 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.ok(/const PUMP_EXEMPT_LAUNCH_PCT = 40;/.test(svc), 'BP 侧常量在场');
         const mapper = read('src/market-analysis/buy-point-result-mapper.js');
         assert.ok(/const RESTART_LAUNCH_PCT = 40;/.test(mapper), 'mapper restart 常量不受影响');
+    });
+    // 常量平台锚（2026-11-08 发行价口径修正）：platform='fourmeme' → vsLaunch 分母
+    // =主流档常量 4.496e-9——价格域乘常量保持 +72% 拉离形状 → 位置门照拒（常量链路锁）
+    await check('常量锚：platform fourmeme + 价格 1.0→1.72×FM（+72%）→ poor/pump_exempt_gate（常量口径位置门照工作）', async () => {
+        const FM = require('../src/market-analysis/launch-price').FOURMEME_LAUNCH_PRICE_BNB;
+        const ticksFm = Array.from({ length: 10 }, (_, i) => trow(5 + i * 10, i % 2 ? 'sell' : 'buy', 0.1, (1 + i * 0.08) * FM, { li: i }));
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: ticksFm }), mkLlm());
+        const r = await s.gateBuyPoint(PUMP_TOK, { ...META, platform: 'fourmeme' }, {}, { pumpExempt: true });
+        assert.strictEqual(r.status, 'assessed');
+        assert.deepStrictEqual(r.assessment, { bucket: 'poor', prob: null, rule: 'pump_exempt_gate' }, JSON.stringify(r.assessment));
     });
 
     console.log(failed === 0 ? `\n✅ buy_point_check_service 全部通过（${passed} 断言）` : `\n❌ buy_point_check_service：${failed} 失败 / ${passed} 通过`);

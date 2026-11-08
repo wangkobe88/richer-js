@@ -26,6 +26,7 @@
  */
 
 const { buildSnapshotFromRows, isRouterWallet } = require('./cheat-snapshot');
+const { resolveLaunchPriceBnb } = require('./launch-price');
 
 /** 近窗宽度族（秒）：30/60/120 */
 const BP_WINDOWS = [30, 60, 120];
@@ -363,10 +364,16 @@ function computeBuyPointDerived(snapshot) {
     if (tEnd !== null) holdersDelta60 = holdersNow - holdersAt(tEnd - 60);
   }
 
-  // ── 发行价位置族（BP5/绝对价格高低维度锚）：launchPriceBnb=ticks 覆盖出生段时
+  // ── 发行价位置族（BP5/绝对价格高低维度锚）——锚=平台 curve 初始价（2026-11-08
+  // 发行价口径修正：four.meme 主流档 P₀=4.496173469e-9 / flap BNB 盘主力档
+  // 5.546e-9 常量，用户裁定「主流档即可」；出处与全档实证=launch-price.js 头注）。
+  // 常量平台锚**恒有效不依赖 launchCovered**（锚窗截窗的长票/首行远离创建点照样有
+  // 真发行价——旧口径「首笔成交价」对首单滑点/高价模板票的结构性失真就此消除）；
+  // quote 盘（flap 非 BNB 计价）/gang/未知平台=null 走旧口径=launchCovered 门下
   // 的全数组首个可靠价（非 outlier/price>0 最早行，链上真序 rel[0]）；出生覆盖
   // 判据=数组最早 dt ≤ BP_LAUNCH_COVER_TOL（首行贴近创建点=数组含出生段；锚窗
-  // 截窗的长票不覆盖 → 全族 null fail-closed 截窗不冒充发行价）；
+  // 截窗的长票不覆盖 → 全族 null fail-closed 截窗不冒充发行价）；launchCovered
+  // 键两口径下照落（观测：窗口是否覆盖出生段）；
   // currentVsLaunchPct=末可靠价较发行价 %（可破发为负）；athVsLaunchPct=锚窗最高
   // 可靠价（arc.ath）较发行价 %（BP39/案号 BP34「开盘拉得过高」直接度量锚——Jev
   // 结构性组合不了 currentVsLaunch+currentVsAth 两数，直供；launchCovered 域内
@@ -387,8 +394,21 @@ function computeBuyPointDerived(snapshot) {
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
     launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
-    if (launchCovered && arc && arc.last > 0 && rel[0].priceBnb > 0) {
-      launchPriceBnb = +rel[0].priceBnb.toFixed(10);
+    // 常量锚解析：platform 缺席（旧夹具/旧档）或 quote 盘 → null=旧口径 bit 不变；
+    // quote 判定=rows 行 quote_token（flap collector write 行级标记，BNB 盘 null）
+    const quoteToken = ticks.some((t) => t.quote) ? 'quote' : null;
+    const constLaunch = resolveLaunchPriceBnb(
+      snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, quoteToken);
+    // 常量锚保原值精度（4.496173469e-9 量级 toFixed(10) 只剩 1 位有效数字不可磨）；
+    // 旧口径锚保 toFixed(10) bit 不变
+    let launchAnchor = null;
+    if (constLaunch !== null) {
+      launchAnchor = constLaunch; // 常量平台锚恒有效（不看 launchCovered）
+    } else if (launchCovered && rel[0].priceBnb > 0) {
+      launchAnchor = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段时的首可靠价
+    }
+    if (launchAnchor !== null && arc && arc.last > 0) {
+      launchPriceBnb = launchAnchor;
       currentVsLaunchPct = +(((arc.last / launchPriceBnb) - 1) * 100).toFixed(1);
       if (arc.ath > 0) athVsLaunchPct = +(((arc.ath / launchPriceBnb) - 1) * 100).toFixed(1);
       // 涨起后最低：首个突破 almost_launch 上界（严格 > 1.2×发行价）的可靠价起

@@ -109,7 +109,53 @@ console.log('C. 未见可靠价 → null fail-closed（裸比较恒 false 不触
         assert.strictEqual(faDust.buildFactorMap('0xtoken', T0 + 1000).currentVsLaunchPct, null));
 }
 
-// ═══════════════ D. getFactorKeys 探针 ═══════════════
+// ═══════════════ H. 平台常量锚（2026-11-08 发行价口径修正）═══════════════
+console.log('H. 平台 curve 常量锚（four.meme 主流档/flap BNB 盘主力档；quote 盘/gang=null 旧口径）');
+{
+    const FM = 4496173469e-18, FL = 6.14 / (107036752 + 1e9);
+    // four.meme：分母=主流档常量（首单滑点 +35.2% 不再抬锚——现价 1.5×常量 → +50
+    // 而非旧口径 10.95=1.5/1.352−1）
+    const faFm = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faFm.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+    faFm.processTick(mkTick({ price_bnb: FM * 1.352, timestamp: T0 + 1000 }));
+    faFm.processTick(mkTick({ price_bnb: FM * 1.5, timestamp: T0 + 2000 }));
+    check('fourmeme 分母=主流档常量（首价滑点 +35.2% 不抬锚：+50 非旧口径 10.95）', () =>
+        assert.strictEqual(faFm.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 50));
+
+    // four.meme 破发臂：现价=0.8×常量 → -20（首可靠价口径会给出别的数，锁常量分母）
+    const faFmD = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faFmD.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+    faFmD.processTick(mkTick({ price_bnb: FM * 1.1, timestamp: T0 + 1000 }));
+    faFmD.processTick(mkTick({ price_bnb: FM * 0.8, timestamp: T0 + 2000 }));
+    check('fourmeme 破发=现价/常量−1（-20 含破发）', () =>
+        assert.strictEqual(faFmD.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, -20));
+
+    // flap BNB 盘：分母=主力档常量（无 quote_token 行）
+    const faFl = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faFl.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'flap' });
+    faFl.processTick(mkTick({ price_bnb: FL, timestamp: T0 + 1000 }));
+    faFl.processTick(mkTick({ price_bnb: FL * 2, timestamp: T0 + 2000 }));
+    check('flap BNB 盘分母=主力档常量（首价即常量 → +100）', () =>
+        assert.strictEqual(faFl.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 100));
+
+    // flap quote 盘：per-token snapshot 定价无常量 → 旧口径首可靠价（quote_token 行标记）
+    const faQ = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faQ.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'flap' });
+    faQ.processTick(mkTick({ price_bnb: 2.0 * 1e-9, timestamp: T0 + 1000, quote_token: '0xquote' }));
+    faQ.processTick(mkTick({ price_bnb: 3.0 * 1e-9, timestamp: T0 + 2000, quote_token: '0xquote' }));
+    check('flap quote 盘=旧口径首可靠价（3/2−1=+50 非常量口径 −45.9）', () =>
+        assert.strictEqual(faQ.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 50));
+
+    // gang：已停未调研 → 旧口径
+    const faG = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faG.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'gang' });
+    faG.processTick(mkTick({ price_bnb: 1.0 * 1e-9, timestamp: T0 + 1000 }));
+    faG.processTick(mkTick({ price_bnb: 2.0 * 1e-9, timestamp: T0 + 2000 }));
+    check('gang=旧口径首可靠价（+100）', () =>
+        assert.strictEqual(faG.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 100));
+}
+
+
 console.log('D. getFactorKeys 探针含键（未知因子三防线自动认得）');
 {
     const fa = newFA();
@@ -144,8 +190,13 @@ console.log('F. TPAPre_asofRelFirst（冻结）与 currentVsLaunchPct（实时�
 console.log('G. 源码口径断言');
 {
     const src = read('src/services/FourMemeFactorAggregator.js');
-    ok('G 发射公式=可靠价链双哨兵（_relPriceBnb>0 ∧ _relFirstPriceBnb>0——不用任意价轨 currentPriceBnb）',
-        src.includes('currentVsLaunchPct: (state._relPriceBnb > 0 && state._relFirstPriceBnb > 0)'));
+    ok('G 发射公式=分母常量锚优先（platform curve 常量 ?? 首可靠价回退；分子 _relPriceBnb>0 哨兵——不用任意价轨 currentPriceBnb）',
+        src.includes('currentVsLaunchPct: (() => {')
+        && src.includes('_resolveLaunchPriceBnb(state.platform, state.quoteToken)')
+        && src.includes('?? state._relFirstPriceBnb'));
+    ok('G 常量模块锁（four.meme 主流档 raw 4496173469 wei / flap BNB 盘 r=6.14,h=107036752——零依赖叶子防循环依赖）',
+        read('src/market-analysis/launch-price.js').includes('4496173469e-18')
+        && read('src/market-analysis/launch-price.js').includes('6.14 / (107036752 + 1e9)'));
     ok('G 回测同源（as-of 冻结键 _asofRelFirst 同分母首可靠价——BP 对拍口径一致）',
         src.includes('_asofRelFirst = ((state._relPriceBnb - state._relFirstPriceBnb) / state._relFirstPriceBnb) * 100'));
     const fb = read('src/trading-engine/core/FactorBuilder.js');
