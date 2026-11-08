@@ -199,9 +199,9 @@
 
 **单测**：`_test_cheat_detection_service.cjs` Z2-2 改写+Z2-2b 新增（142 全绿）——reset 窗 3 行 → reset_insufficient_ticks+计数+不烧 Jev；天然短窗 5 行（恒价不触发 reset）→ insufficient_ticks 照旧+marketReset=null+不计数。`_test_signal_gate_engine.cjs` A6b 新增（128 全绿）——拒分支/reason=cheat_gate_reset_insufficient/metadata 三键留痕/不拉黑；A6 天然 insufficient 放行断言原样保留。`_test_cheat_market_reset.cjs` 28 全绿（computeMarketResetIndex 纯函数零改动）。
 
-**验证**：bt-v84（`cd5759bf`）完整窗口同窗重跑（ladder v13+CD384）——见余留。
+**验证（bt-v84 `cd5759bf` 完整窗口同窗重跑，11-08 达成）**：净 **-0.4902**（bt-v83 -1.9158，**改善 +1.4256**）。①**87 票通道清零**——`cheat_gate_reset_insufficient` 信号级拒 280 次；成交票 fail-open（noGrade insufficient）**0 票**（bt-v83 为 87 票 -1.3831），128 成交票 grade 全 healthy；②**ladder v13 收缩**——NL15 42 票 -0.60→18 票 -0.1475、NL20 21 -0.4136→12 -0.2249、RL15 26 -0.2779→6 **+0.0193 转正**、RL10 1→**0 消失**、t0b 27 -0.70→24 -0.2308 减半；正腿扩大（t2 +0.1451/t4 +0.0828/NL25 +0.0589 转正）；③**豁免通道不受影响对拍达成**——stall_burst 4→5 票 +0.4989→+0.5719 依然全正、healthy 9→10 票 +0.1911→+0.2132、单票四票（M4GA +0.5152/突突车 +0.4088/来财 +0.3017/吉祥 +0.2941）全部保留仍在盈利 Top4。漏斗：BUY 1435（v13 量门延迟触发→腿消耗拓扑略变）→cheat 拒 738（reset_insufficient 280+cheat 233+unhealthy 225）→BP 拒 570→成交 128（盈 35 +3.0203/亏 91 -3.5104）。**残余亏损结构**：-0.4902 全部来自 activity 豁免域（high 74 票 -0.8680+ultra 39 票 -0.4073=113 票 -1.2753，未裁定域）；剔除该域 healthy+stall_burst 15 票净 **+0.7851**。
 
-**余留**：①bt-v84 对 bt-v83 差异分解（87 票通道应清零、NL/RL 触发面收缩后的盈亏变化、其余豁免通道票不受影响的对拍）；②生产 resetInsufficientRejects 计数观察（放行→拒的方向性变化幅度）；③87 票中 reset 窗 ≥8 行的同类小票（走真判但 Jev 判不出）是否仍漏——B 量门收缩后残余量观察。
+**余留**：①生产 resetInsufficientRejects 计数观察（放行→拒的方向性变化幅度）；②reset 窗 ≥8 行的同类小票（走真判但 Jev 判不出）是否仍漏——B 量门收缩后残余量观察；③activity 豁免域（-1.2753）为当前唯一亏损源——t0b/N30/NL15/NL20 负腿全在该域，豁免立法（CD379）与量门/门链的联合校准待用户裁定。
 
 ### CD383 cheat 门豁免 burst 资格臂：「长期沉积一朝开始操盘」豁免（2026-11-08，机制案；高大上 0x838657df t0a 触发被拒案·T125 续篇；commits cb60804d+0183b6c8+**5e4ca801 二修放宽**）
 
