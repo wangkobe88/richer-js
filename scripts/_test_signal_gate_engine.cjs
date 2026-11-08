@@ -165,6 +165,7 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
       exempt: null, // CD379 活跃度豁免留痕位（service 出口变换才有值）
       unblocked: false, // CD381 翻案留痕位（forceRecheck 重检解除拉黑才有 true）
     },
+    pumpExempt: false, // BP42 位置门透传位（exempt ∧ slowGrindPump≥3 才 true——本行无豁免）
   });
   // healthy 缺席键 → 缺省形状（不冒充）
   const eng4b = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy' })) });
@@ -199,6 +200,47 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
   ok('翻案 → 放行', r4f.pass === true);
   ok('翻案 → 引擎侧拉黑解除', !eng4f._cheatBlockedTokens.has('0xtok'));
   ok('翻案 → info.unblocked 留痕', r4f.info.unblocked === true);
+
+  // A4d BP42 pump 豁免票位置门透传（2026-11-08 用户裁定「把活跃度高的命中 pump 的
+  //     依然豁免掉，但是把信息传入购买前检查，只允许 near_launch 范围内的价格买入」）：
+  //     CD379 豁免出口（exempt 在场）∧ levels.slowGrindPump≥3（strong，与 A 通道主判
+  //     线同档）→ cheat 门出口打标 pumpExempt → 调用方透传 _bpGateEvaluate ctx →
+  //     service opts.pumpExempt（BuyPointCheckService 位置门 PUMP_EXEMPT_LAUNCH_PCT=40）
+  const eng4g = makeEngine({
+    _cheatCheckService: cheatSvc(async () => ({
+      status: 'analyzed', grade: 'healthy',
+      exempt: { code: 'activity_high', originalGrade: 'cheat' }, // CD379 豁免已发生
+      levels: { slowGrindPump: 3 }, buckets: { activityLevel: 'high' },
+    })),
+  });
+  const r4g = await eng4g._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4g', SG());
+  ok('豁免 pump strong → 放行+打标 pumpExempt', r4g.pass === true && r4g.pumpExempt === true, r4g);
+  const eng4h = makeEngine({
+    _cheatCheckService: cheatSvc(async () => ({
+      status: 'analyzed', grade: 'healthy',
+      exempt: { code: 'activity_high', originalGrade: 'unhealthy' },
+      levels: { slowGrindPump: 2, washPair: 3 }, buckets: { activityLevel: 'high' }, // pump=moderate（≠strong）+wash strong 非豁免票路径
+    })),
+  });
+  const r4h = await eng4h._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4h', SG());
+  ok('pump=moderate/无 pump → 不打标（strong 档与 A 通道主判线同档）', r4h.pumpExempt === false, r4h);
+  // service opts 透传：_bpGateEvaluate ctx.pumpExempt → gateBuyPoint opts.pumpExempt
+  const bpOptsSeen = [];
+  const eng4i = makeEngine({
+    _buyPointCheckService: bpSvc(async (_a, _m, _c, opts) => {
+      bpOptsSeen.push(opts);
+      return { status: 'assessed', assessment: { bucket: 'good', prob: 0.8, rule: 'any_good' } };
+    }),
+  });
+  await eng4i._bpGateEvaluate('0xtok', TOKEN, null, 'sig-4i', SG(), { pumpExempt: true });
+  ok('BP 门 opts.pumpExempt 透传（service 收到 true）', bpOptsSeen.length === 1 && bpOptsSeen[0].pumpExempt === true, bpOptsSeen);
+  await eng4i._bpGateEvaluate('0xtok', TOKEN, null, 'sig-4i2', SG(), {});
+  ok('ctx 不带 pumpExempt → opts 无键（普通票位置门不触发）', !('pumpExempt' in bpOptsSeen[1]), bpOptsSeen[1]);
+  // 门链调用点源码锁：两引擎门链 cheat 结果 → BP ctx 透传在场（FourMemeWss + Backtest）
+  const srcFm = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+  const srcBt = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  ok('门链调用点透传在场（FourMemeWss/Backtest 两处 cheatGate.pumpExempt === true）',
+    srcFm.includes('pumpExempt: cheatGate.pumpExempt === true') && srcBt.includes('pumpExempt: cheatGate.pumpExempt === true'));
 
   // A5 timeout_fail_open → 放行 + late 挂钩 _cheatGateLateConsume（迟到拉黑下轮生效）
   const lateCalls = [];

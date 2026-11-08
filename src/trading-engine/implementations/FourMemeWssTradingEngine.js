@@ -2306,6 +2306,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             firePriceBnb,
             strategyName: strategy.name,
             signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+            pumpExempt: cheatGate.pumpExempt === true, // BP42 pump 豁免票位置门透传
           });
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
       }

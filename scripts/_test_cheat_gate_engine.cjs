@@ -645,8 +645,8 @@ async function testActivityExempt() {
   const dn = (levels) => s7._exemptDeniedReason(levels);
   ok('F7 pump=moderate 不拦（2026-11-08 用户裁定三臂统一 strong——moderate 不用于判定 cheat；0x94ea754b pump=2 信号恢复豁免）',
     dn({ slowGrindPump: 2 }) === null);
-  check('F7 pump=strong 拦（0xcb70708e/d0fbcc7b/4b3f1f7a 判例）',
-    dn({ slowGrindPump: 3 }), 'slow_grind_pump');
+  ok('F7 pump=strong 不拦（2026-11-08 四修裁定「把活跃度高的命中 pump 的依然豁免掉」——pump 臂整体移除：slow_grind_pump+burst_spike_concentration 是作弊盘/强庄盘共同特性，pump 臂拦豁免=强庄盘也进不来；价格约束移交 BP 门位置门（PUMP_EXEMPT_LAUNCH_PCT=40）；0xcb70708e/d0fbcc7b/4b3f1f7a 判例留档为臂移除前行为）',
+    dn({ slowGrindPump: 3 }) === null);
   ok('F7 pump=weak 不拦（臂线=strong）', dn({ slowGrindPump: 1 }) === null);
   check('F7 washPair=strong → wash_pair（0x06810806 同块对敲判例）',
     dn({ washPair: 3 }), 'wash_pair');
@@ -665,9 +665,9 @@ async function testActivityExempt() {
     dn(null) === null && dn({}) === null && dn({ slowGrindPump: null }) === null);
   const beforeDeny = s7.stats.exemptDenied;
   const r7a = s7._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { slowGrindPump: 3 }, buckets: { activityLevel: 'high' } });
-  check('F7 出口：cheat+high+pump strong → 原判保持+exemptDenied 留痕',
-    { grade: r7a.grade, exempt: r7a.exempt, exemptDenied: r7a.exemptDenied },
-    { grade: 'cheat', exempt: undefined, exemptDenied: 'slow_grind_pump' });
+  check('F7 出口：cheat+high+pump strong → 豁免放行（四修裁定 pump 臂移除——高活跃度命中 pump 的依然豁免，BP 门位置门接棒价格约束）',
+    { grade: r7a.grade, exemptDenied: r7a.exemptDenied, exemptCode: r7a.exempt && r7a.exempt.code },
+    { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_high' });
   const r7b = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { holdingsBalance: 3 }, buckets: { activityLevel: 'ultra' } });
   check('F7 出口：unhealthy+ultra+holdings strong → 豁免照常放行（三修裁定后 holdings 臂不再拦——J 通道判定不受影响、仅豁免路径放开）',
     { grade: r7b.grade, exemptDenied: r7b.exemptDenied, exemptCode: r7b.exempt && r7b.exempt.code },
@@ -680,14 +680,14 @@ async function testActivityExempt() {
   check('F7 出口：equalAmountSplit/coordinatedSellBack strong（wash 臂收窄后）→ 豁免照常放行（用户裁定「其他的我没说的，依然可以走活跃度豁免」）',
     { grade: r7b3.grade, exemptDenied: r7b3.exemptDenied, exemptCode: r7b3.exempt && r7b3.exempt.code },
     { grade: 'healthy', exemptDenied: undefined, exemptCode: 'activity_high' });
-  check('F7 0xcb70708e 形状（pump+wash 两退出键+holdings 全 3）→ wash 收窄+holdings 臂移除后仍靠 pump 臂拦截（判例票行为不变）',
-    dn({ slowGrindPump: 3, equalAmountSplit: 3, coordinatedSellBack: 3, holdingsBalance: 3 }), 'slow_grind_pump');
+  ok('F7 0xcb70708e 形状（pump+wash 退出键+holdings 全 3，washPair 不在场）→ 四修后全臂退出豁免放行（pump 臂移除+wash 臂仅同块对敲+holdings 臂移除——价格约束归 BP 门位置门）',
+    dn({ slowGrindPump: 3, equalAmountSplit: 3, coordinatedSellBack: 3, holdingsBalance: 3 }) === null);
   const r7c = s7._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' } });
   check('F7 出口：三臂不在场（F3 形状）→ 豁免照常（CD379 语义维持）',
     { grade: r7c.grade, exempt: r7c.exempt, exemptDenied: r7c.exemptDenied },
     { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'unhealthy' }, exemptDenied: undefined });
-  ok('F7 exemptDenied 计数恰 1 次（denied 才计——holdings 臂移除后 r7b 转豁免不计）',
-    s7.stats.exemptDenied - beforeDeny === 1, s7.stats);
+  ok('F7 exemptDenied 计数 0 次（四修后 r7a 亦转豁免——现行唯一 wash 臂不在场；denied 才计）',
+    s7.stats.exemptDenied - beforeDeny === 0, s7.stats);
   // F7 sticky 出口：holdings 臂移除后 sticky 秒回同样走豁免变换（粘滞态不改、决策域放行）
   const s7s = mkSvc();
   s7s._lastGrade.set('0xdenied', {

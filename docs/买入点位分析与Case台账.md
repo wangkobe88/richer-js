@@ -113,6 +113,26 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP42 pump 豁免票位置门：只允许 near_launch ≤+40 买入（2026-11-08，CD380 pump 臂四修·门链透传+mapper 位置门案；题集零改动不 bump）
+
+**背景**：E 段查证 bt-s02 0x28ad2c7d 15:54 点位（almost_launch 区内未拉高、判「极好的点位」）未买——15:55 NL20/15:58 NL25 信号被 cheat 门 A 主判拒（slowGrindPump=strong+burst_spike_concentration=strong），activityLevel=high 豁免恰被 CD380 pump 不豁免臂拦（15:41 RL15 同拒；15:45 RL10 进 BP 被 BP44 restart 位置门拒）。用户洞察裁定原话：
+
+> 「"slow_grind_pump+burst_spike_concentration" 这几个行为，作弊盘/强庄盘 是共同特性，如果因为这个拒绝了，那么强庄盘也进不来。我想的是这样吧，把活跃度高的命中 pump 的依然豁免掉，但是把信息传入购买前检查，在买入前检查中，只允许 near_launch 范围内的价格买入。也就是说，这种币在购买前检查中，不再因为划分为庄盘而接受 low 这个范围的买入。」
+
+**三件改动（跨 CD/BP 两模块单案）**：
+
+1. **CD 侧 pump 臂移除**（CD380 四修，详 CD 台账）：`_exemptDeniedReason` 现行唯一剩余臂=wash（washPair 同块对敲）；高活跃度 pump strong 票恢复 CD379 豁免放行（原判 cheat 不拉黑不清仓）。
+2. **门链透传 pumpExempt**：cheat 门 healthy 出口打标——`res.exempt`（CD379 豁免在场）∧ `levels.slowGrindPump>=3`（strong 档与 A 主判线同档；moderate/无 pump 不打标）→ 返回对象顶层 `pumpExempt:true`；调用点（FourMemeWss/Backtest 两引擎+AbstractTradingEngine `_bpGateEvaluate` opts）透传至 `BuyPointCheckService.gateBuyPoint` opts.pumpExempt（T121 signalGateReal 回测同构——门链三方法在基类单一真相源）。
+3. **BP 侧位置门**：`PUMP_EXEMPT_LAUNCH_PCT=40`（BuyPointCheckService assessed 出口）——pumpExempt 票 `snapshot.buyDerived.currentVsLaunchPct`（末可靠价较发行价 %，含破发可负）≤+40 才放行（almost_launch ≤+20 ∪ near_launch +20~40 两桶）；>+40 或锚缺失 → assessment={bucket:'poor',prob:null,rule:'pump_exempt_gate'} 拒。**庄盘 low 档 +40~80 加仓域（BP25/BP29 庄盘豁免一档帽放宽域）对这类票刻意不开放**=「不再因为划分为庄盘而接受 low 这个范围的买入」——盘面检测分不清「庄拉第一波」与「bot 缓推出货」（共同特性），价格钳制把分辨交给位置：贴发行价区风险收益比成立、拉离后不参与。**观测行 _writeRow 原样落库（mapper 桶判定照常、研究主数据不污染），仅门决策域 assessment 变换**——CD379 `_applyActivityExempt` 出口变换同构；BP42 机械门拆除铁律不冲突（位置门=BP43「模式判型归 Jev 位置归代码」先例，RESTART_LAUNCH_PCT=40 同线同值、刻意各自常量防联动漂移）。
+
+**版本口径**：BP 题集零改动不 bump（BP37 先例：mapper-only 不动题面，rule='pump_exempt_gate' 落表即行为指纹）；CHEAT_GRADE_RULES_VERSION 不 bump（三修先例）。
+
+**落码清单**：CheatCheckService（头注①改移除+`_exemptDeniedReason` 删 pump 行+stats 注释）；AbstractTradingEngine（healthy 出口打标+`_bpGateEvaluate` opts 透传+assessed 拒分支 message 特化）；FourMemeWssTradingEngine/BacktestEngine（门链调用点 ctx 透传两处）；BuyPointCheckService（常量+assessed 出口位置门+return assessment 扁平化）；单测四件——`_test_cheat_gate_engine` F7 四断言翻转 118、`_test_buy_point_check_service` P 段新增五断言 33→**38**（>40 拒且落表行保持 mapper 原样/≤40 照常 any_good/全 outlier 锚缺失拒/不传 pumpExempt 不触发/双常量源码锁）、`_test_signal_gate_engine` A4d 透传断言 119→**124**（豁免 pump strong 打标/pump moderate 不打标/opts 透传 service 收到/ctx 无键不触发/两引擎调用点源码锁）、`_test_cheat_detection_service` 139 零翻动。
+
+**182 定向对拍（待跑，跑后回填）**：①CheatCheckService 真调 0x28ad2c7d 15:55 锚（bt-s02 生产等价链 anchorMs=信号时刻 persist:false）——验四修后 slowGrindPump=strong+activityLevel=high 恢复豁免（期望 grade=healthy+exempt+pumpExempt:true，对照四修前=A 主判拒+exemptDenied:slow_grind_pump）；②BuyPointCheckService opts.pumpExempt:true 真调两锚——15:55 锚（curVs +19.2 ≤40 期望放行 assessment 照常）、16:21 锚（curVs +86.9 >40 期望拒 rule=pump_exempt_gate 观测行照落）。
+
+**余留观察点**：①pumpExempt 票生产分布（cheat 豁免率×位置门拒率=钳制面）；②low 档 +40~80 被钳掉的票前向收益对拍（vs 放行域）——「庄盘也不追近二倍位置」在 pump 形状上的适用性验证；③与 BP44 restart 位置门（RESTART_LAUNCH_PCT=40）的联合形状：restart 票带 pump strong 时两门同值 40 完全重叠=设计内（各自常量防联动漂移留拆分自由度）。
+
 ### BP41 黄金点豁免奔零臂（题集 BP46，2026-11-08，BP40 案对拍遗留张力收口·题面层豁免案）
 
 **背景**：BP45 182 定向对拍达成但留张力——主对拍点 0x28ad2c7d 07:15:45（curVs −0.1~−4.6 区内/minVs −9.3 再起域）pattern=golden_point 三连 0.54/0.56/0.54 稳定命中⑧+famous dominant(1.00) 照判+综合不再 chip_gate（再起域 famous 臂退出立法兑现），**但综合=poor(else_poor) 0.50-0.53 仍买不进**：质量题 early_bird=insufficient(0.6)+pullback_entry=**poor(0.53) vs neutral(0.41) 贴线刀口**（confidence 0.37）。证据复盘（07:14:05-07:15:45 共 38 行锚窗）：pullback poor 0.53 的材料主力=**忌讳③奔零臂三要素齐**——阴跌（chg5 −15.4/chg30 −29.78 急跌进行时）+holdersDelta60 **−4**（正净持有者只剩 4 个）+派发（近 30s 买 0.293×4 笔 vs 卖 1.274×14 笔净 −0.98 BNB、20 个独立钱包 13 个已清仓式卖出）；核心规则「大户未清场」规模臂同向（持仓前列买入 0.147/0.098/0.044=0.1~0.2 尘级=小散互捅档）→核心规则不命中走第三层。而忌讳①崩塌第一腿不成立（maxChg5=31.84 未过 +40~50 线）；neutral 0.41 的拉力=almost_launch 贴发行价+热度 high（吞吐 2.19 BNB/min）。**关键盲点**：全窗持仓前三（0x7c57…b1e7 占 53.5%/0x86c0…c3ec 34.1%/0xf83f…41db 10.9%=75.4% famous dominant 接盘阵列）全部 t+91/98/100s 首买=**买点前 2~9 秒刚进场只买未卖**——「落到 almost_launch 之后依然有买入」的买入就是它们，用户裁定③「价格落到底了，但是famous没有离场，这不是好事吗」语义下这是正面证据，但奔零臂把 famous 进场前的抛售流判成派发。用户裁定原话：

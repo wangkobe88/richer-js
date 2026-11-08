@@ -472,6 +472,52 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.strictEqual(n, 2, `实际 ${n}`);
     });
 
+    // ═══ P. BP42 pump 豁免票位置门（2026-11-08 用户裁定「把活跃度高的命中 pump
+    //     的依然豁免掉，但是把信息传入购买前检查，在买入前检查中，只允许
+    //     near_launch 范围内的价格买入；不再因为划分为庄盘而接受 low 范围」）═══
+    console.log('P. BP42 pump 豁免票位置门');
+    // 高价 ticks：价格自 1e-9 → 1.72e-9（+72%，low 档拉离）；TICKS10=+9%（near_launch 内）
+    const TICKS_PUMP = Array.from({ length: 10 }, (_, i) => trow(5 + i * 10, i % 2 ? 'sell' : 'buy', 0.1, (1 + i * 0.08) * 1e-9, { li: i }));
+    const PUMP_TOK = '0x' + 'cd'.repeat(20);
+    await check('pumpExempt ∧ 已拉离（vsLaunch≈+72 > 40）→ poor/pump_exempt_gate（观测行原样落库综合不受改写）', async () => {
+        const db = mkDb({ ticksAsc: TICKS_PUMP });
+        const s = mkSvc({ ...CFG }, db, mkLlm());
+        const r = await s.gateBuyPoint(PUMP_TOK, META, {}, { pumpExempt: true });
+        assert.strictEqual(r.status, 'assessed');
+        assert.deepStrictEqual(r.assessment, { bucket: 'poor', prob: null, rule: 'pump_exempt_gate' }, JSON.stringify(r.assessment));
+        // 观测行（研究主数据）落 mapper 原样：baseAnswers early=good → any_good 不因位置门改写
+        assert.strictEqual(db.inserted.length, 1);
+        const rowAssess = db.inserted[0].snapshot_digest.assessment;
+        assert.strictEqual(rowAssess.bucket, 'good', `落表行综合应保持 mapper 原样（实际 ${JSON.stringify(rowAssess)}）`);
+    });
+    await check('pumpExempt ∧ near_launch 内（vsLaunch≈+9 ≤ 40）→ 照常评估（any_good 放行）', async () => {
+        const db = mkDb({ ticksAsc: TICKS10 });
+        const s = mkSvc({ ...CFG }, db, mkLlm());
+        const r = await s.gateBuyPoint(PUMP_TOK, META, {}, { pumpExempt: true });
+        assert.strictEqual(r.status, 'assessed');
+        assert.strictEqual(r.assessment.bucket, 'good');
+        assert.notStrictEqual(r.assessment.rule, 'pump_exempt_gate');
+    });
+    await check('pumpExempt ∧ 锚缺失（全 outlier 无可靠价 → vsLaunch null）→ 宁拦不冒充拒 pump_exempt_gate', async () => {
+        const ticksOut = TICKS10.map((r) => ({ ...r, price_outlier: true }));
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: ticksOut }), mkLlm());
+        const r = await s.gateBuyPoint(PUMP_TOK, META, {}, { pumpExempt: true });
+        assert.strictEqual(r.status, 'assessed');
+        assert.strictEqual(r.assessment.rule, 'pump_exempt_gate');
+    });
+    await check('不传 pumpExempt ∧ 已拉离 → 位置门不触发（普通票照常 any_good）', async () => {
+        const s = mkSvc({ ...CFG }, mkDb({ ticksAsc: TICKS_PUMP }), mkLlm());
+        const r = await s.gateBuyPoint(PUMP_TOK, META, {});
+        assert.strictEqual(r.status, 'assessed');
+        assert.strictEqual(r.assessment.bucket, 'good');
+    });
+    await check('源码口径：PUMP_EXEMPT_LAUNCH_PCT=40 与 RESTART_LAUNCH_PCT 同线独立常量（语义独立防联动漂移）', () => {
+        const svc = read('src/market-analysis/BuyPointCheckService.js');
+        assert.ok(/const PUMP_EXEMPT_LAUNCH_PCT = 40;/.test(svc), 'BP 侧常量在场');
+        const mapper = read('src/market-analysis/buy-point-result-mapper.js');
+        assert.ok(/const RESTART_LAUNCH_PCT = 40;/.test(mapper), 'mapper restart 常量不受影响');
+    });
+
     console.log(failed === 0 ? `\n✅ buy_point_check_service 全部通过（${passed} 断言）` : `\n❌ buy_point_check_service：${failed} 失败 / ${passed} 通过`);
     process.exit(failed === 0 ? 0 : 1);
 })().catch((e) => {

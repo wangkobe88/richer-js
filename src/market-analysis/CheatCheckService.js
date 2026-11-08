@@ -179,7 +179,7 @@ class CheatCheckService {
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
-      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：pump/wash——holdings 臂 11-08 三修移除）
+      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
       marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
     };
   }
@@ -334,7 +334,14 @@ class CheatCheckService {
    * 不豁免，moderate 我们之前也不用于判定 cheat 的」——moderate 在 G17 体系从不
    * 参与 cheat 级判定，不豁免臂与 A/J 通道主判线同档；首版 pump/holdings 臂误取
    * moderate 档，0x94ea754b pump=moderate 信号随修正恢复豁免）**：
-   * ① pump 臂：slowGrindPump = strong（机器缓推；0xcb70708e/d0fbcc7b/4b3f1f7a 判例）
+   * ① pump 臂：**已移除（2026-11-08 第四次裁定「把活跃度高的命中 pump 的依然
+   *    豁免掉，但是把信息传入购买前检查，在买入前检查中只允许 near_launch
+   *    范围内的价格买入」——slow_grind_pump+burst_spike_concentration 是
+   *    作弊盘/强庄盘共同特性，pump 臂拦豁免=强庄盘也进不来；豁免恢复，价格
+   *    约束移交 BP 门位置门接棒（引擎门链 pumpExempt 透传 → BuyPointCheckService
+   *    PUMP_EXEMPT_LAUNCH_PCT=40：该类票只允许 near_launch ≤+40 买入，庄盘
+   *    low 档加仓域对其不开放）；0xcb70708e/d0fbcc7b/4b3f1f7a 判例留档为臂
+   *    移除前行为）**
    * ② wash 臂：washPair 同块对敲 = strong（「同区块刷量」；0x06810806 判例）
    *    ——**仅此一题（2026-11-08 用户裁定收窄「wash 我只是要拦截同区块刷量这
    *    一种情况，不是全部」+「其他的我没说的，依然可以走活跃度豁免」）**：首
@@ -351,7 +358,8 @@ class CheatCheckService {
    * 入参=levels 数值投影（levelsFromObservation 产物；秒回/late/blocked 行同构）；
    * levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常（缺席不扩大收紧面，
    * 维持 CD379 原语义）。豁免与收紧全部收在本模块内部（用户裁定「这种豁免全部
-   * 在 cheat 检测模块内部进行」——引擎/BP 层零豁免逻辑）。
+   * 在 cheat 检测模块内部进行」——引擎/BP 层零豁免逻辑；pump 臂移除后的价格
+   * 约束在 BP 门位置门=门链消费侧非本模块）。
    */
   _exemptDeniedReason(levels) {
     if (!levels) return null;
@@ -359,9 +367,8 @@ class CheatCheckService {
       const v = levels[k];
       return v === null || v === undefined ? 0 : v; // 缺席/断代=none 不触发
     };
-    if (lv('slowGrindPump') >= 3) return 'slow_grind_pump';
     if (lv('washPair') >= 3) return 'wash_pair';
-    return null; // holdings 臂已移除（2026-11-08 三修裁定，见头注③）
+    return null; // pump 臂已移除（2026-11-08 四修裁定，见头注①）；holdings 臂已移除（三修，头注③）
   }
 
   /**
