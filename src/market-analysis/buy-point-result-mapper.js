@@ -24,12 +24,12 @@
  *      不拦——近窗密度视角不拦过热，只拦全窗量级 ultra；**BP38：盘型=
  *      strong_backer 时 ultra 臂豁免不拦**——强庄盘拉盘天然密集，ultra 密度
  *      不是拒买证据；low 臂不豁免）
- *   ③ 筹码门（BP14+BP30 heavy 扩档+BP45 famous 轴域）：famous_domination ∈
- *      {heavy, dominant}（famous+跟单正净持仓 ≥25 即 famous 主导——用户裁定
- *      「famous 主导就不玩」；light 正常参与不拦；**BP45 再起来域**：锚窗涨起
- *      后最低 ≤+20=盘面再起来，famous 臂退出——落底后 famous 未离场=正面证据；
- *      null=第一波域照拦保守）**或** holder_concentration=strong（TOP 过
- *      CD240 分层线/一人控盘）→ poor（rule=chip_gate）
+ *   ③ 筹码门（BP14 holder 臂单臂）：holder_concentration=strong（TOP 过
+ *      CD240 分层线/一人控盘——筹码垄断不参与）→ poor（rule=chip_gate）。
+ *      **famous 臂已随 famous_domination 题退役（BP49/案号 BP45 用户裁定
+ *      「盘形中已经分析了」）**：famous 判型全归盘型题判读（③独食桶+互斥检查
+ *      ≥25 不落⑤①⑥——BP45 再起来域/BP47 厚度域适用域均在题面判读里）；
+ *      FAMOUS_AXIS_RELAUNCH_PCT/CHIP_GATE_FAMOUS_POOR_BUCKETS 常量随之删除
  *   ④ 全部门过 → **neutral 放行**（rule='gates_passed'，prob=null——无质量层，
  *      bpPassLevels=['good','neutral'] 门链消费域天然放行）
  * **两道质量题（early_bird_quality/pullback_entry_quality）已退役（BP48）**：
@@ -40,6 +40,13 @@
  *   state 摆动结构行整链删除；snapshot zigzag 数值锚保留落 digest=纯留档
  *   （历史 run 对拍兼容，本 mapper 无消费者）。
  * **high_chase_quality 已退役（BP30）**：追高形状的拦截由门链与④桶拉高判据承接。
+ * **famous_domination/entry_position 已退役（BP49/案号 BP45 用户裁定——「famous
+ *   _domination 盘形中已经分析了」「entry_position 现在买入基本不看相对价格」）**：
+ *   famous_domination=chip_gate famous 臂（BP30「famous 主导就不玩」）唯一消费者，
+ *   退役后 famous 拦截全归 Jev 盘型判读（③独食桶+互斥检查——失去代码侧兜底为知情
+ *   trade-off；state 筹码结构行 famous 材料照渲染供③桶判读）；entry_position=
+ *   纯参考题三门零消费（现行位置门全用 currentVsLaunchPct 绝对位置，回撤深度无
+ *   消费者）零行为变化；旧档 answers 带两题答案不被消费不 throw（重放兼容）。
  * 门题答案缺席（null）= 无证据不拦，放行进下层（拒=有证据的拒绝；位置臂锚缺失
  * = 宁拦不冒充拒）。维度题仍纯透传（argmax 照抄——与 CD D3.5「判断一律 Jev」
  * 同哲学；门规则是用户明裁的确定性规则非加权 grade）。
@@ -56,14 +63,12 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position；BP49 删 famous_domination/entry_position） */
 const DIMENSION_IDS = [
   'price_trend',
   'market_heat',
   'activity_level',
-  'famous_domination',
   'holder_concentration',
-  'entry_position',
   'price_level',
   'market_pattern',
 ];
@@ -80,11 +85,12 @@ const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'fla
 const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 买点前活跃度四档（BP13：CD activity_level 判法搬运——与 HEAT_LEVELS 同词表） */
 const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
-/** famous 控盘四桶（BP14：CD D3.2 三档切点 50/25 判法搬运；BP30 heavy+dominant 两档=门桶硬消费拒买（famous 主导就不玩），light=正常参与不拦） */
-const FAMOUS_DOMINATION_LEVELS = ['none', 'light', 'heavy', 'dominant'];
+// FAMOUS_DOMINATION_LEVELS 已随 famous_domination 题退役删除（BP49/案号 BP45——
+//   chip_gate famous 臂退役，famous 判型归盘型题③独食桶+互斥检查）。
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
-const ENTRY_POSITION_LEVELS = ['near_high', 'shallow_pullback', 'half_off', 'ankle_cut'];
+// ENTRY_POSITION_LEVELS 已随 entry_position 题退役删除（BP49/案号 BP45——纯参考
+//   题三门零消费，现行位置门全用 currentVsLaunchPct 绝对位置）。
 const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
 /** 盘面分类七桶（BP18 用户裁定五类型学；BP34 加 sustained_climb；BP43 加 restart
  * 重启盘：strong_backer 强盘最好类型/retail_pvp 散户 PVP（门桶拒买）/famous_monopoly
@@ -133,19 +139,9 @@ const BLENDED_LAUNCH_PCT = 40;
  * 现价 >+40%=判序错位按⑦位置门同线拒；锚缺失同拒（宁拦不冒充）。与
  * RESTART_LAUNCH_PCT「同线同值各自常量」先例 */
 const GOLDEN_POINT_LAUNCH_PCT = 40;
-/** BP45 famous 轴再起来域（用户裁定原话「famous 轴本身不应该用于再起来的盘子，
- * 它只适用于第一波」+「价格落到底了，但是famous没有离场，这不是好事吗」）：锚窗
- * 涨起后最低价较发行价 ≤+20%（含破发）=盘面再起来（回到过 almost_launch），
- * chip_gate 的 famous 臂退出拦截——落底后 famous 持的是无浮盈筹码，未离场=正面
- * 证据；第一波 famous 拿最早期最便宜筹码「拉升给 famous 抬轿、一砸就崩」的风险
- * 模型才成立。null（从未离开过/刚离开无回落/launchCovered 截窗缺失）=第一波域
- * 照拦保守（宁拦不冒充，与⑥⑦位置门锚缺失拒同向）；holder 臂不受影响（BP15
- * 价格豁免锚照旧）；域归代码、判档归 Jev（读 anchors.minVsLaunchPct，与⑦位置门
- * 同源锚）——非「代码改写 Jev 桶判定」（famous_domination 档位照判照落档，仅门
- * 消费侧加域，与 BP38 actUltraExempt 同模式）。案由 bt-s02 07:15:45 信号：RL10
- * 破发段（−9.9%）BP 判 restart 正确却被 chip_gate 拒（famous dominant=砸盘后
- * famous 接盘筹码集中——正是再起来盘面的正面形状被第一波判法误杀） */
-const FAMOUS_AXIS_RELAUNCH_PCT = 20;
+// FAMOUS_AXIS_RELAUNCH_PCT（BP45 famous 轴再起来域 20）已随 famous_domination 题
+//   退役删除（BP49/案号 BP45）——唯一消费者 chip_gate famous 臂同退役；再起来域
+//   语义（落底后 famous 未离场=正面证据）保留在盘型题⑦⑧桶判读里（题面层）。
 // BP42（2026-11-08 用户裁定）：真庄反锚机械门整段拆除，回归 BP12「不搞代码门」
 // 两次明裁——代码不改写 Jev 桶判定；S072/S006/S109 类真庄贴顶票被④吞=设计内
 // 代价入攒批池（复审候选=题面独立前置题形态，仍非代码门）。题面层④桶反锚判序
@@ -157,8 +153,8 @@ const FAMOUS_AXIS_RELAUNCH_PCT = 20;
  * 密度不是拒买证据（用户裁定「盘型如果是 strong_backer，活跃度 ultra 豁免，不
  * 给 poor」）；low 臂（heat/activity）不豁免——活跃度死寂的强庄盘照拦） */
 const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low', 'ultra'] };
-/** 筹码门 famous 拒买档（BP30：heavy+dominant ≥25=famous 主导不玩；light 正常参与不拦） */
-const CHIP_GATE_FAMOUS_POOR_BUCKETS = ['heavy', 'dominant'];
+// CHIP_GATE_FAMOUS_POOR_BUCKETS 已随 famous_domination 题退役删除（BP49/案号
+//   BP45）——筹码门只剩 holder_concentration strong 单臂。
 // 质量题桶域 QUALITY_LEVELS 已随两题退役删除（BP48）。
 /** 综合判定桶域（BP48 纯门链产物 ∈ {neutral=门全过放行, poor=门拒}；good 不再
  * 产出——保留 good/insufficient 值为门 bpPassLevels 消费域与历史 digest 行兼容，
@@ -170,9 +166,7 @@ const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
   market_heat: HEAT_LEVELS,
   activity_level: ACTIVITY_LEVELS,
-  famous_domination: FAMOUS_DOMINATION_LEVELS,
   holder_concentration: HOLDER_CONCENTRATION_LEVELS,
-  entry_position: ENTRY_POSITION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
   market_pattern: MARKET_PATTERN_LEVELS,
 };
@@ -273,12 +267,9 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
   //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
   //   strong_backer 时豁免不拦——强庄盘拉盘天然密集）}→ poor（rule=activity_gate）；
-  // ③筹码门（BP14+BP30 heavy 扩档+**BP45 famous 轴域**）：famous_domination ∈
-  //   {heavy, dominant}（正净 ≥25=famous 主导不玩——**仅第一波：盘面再起来
-  //   （anchors.minVsLaunchPct ≤+20 含破发）后 famous 臂退出**，落底后 famous
-  //   未离场=正面证据；null=第一波域照拦保守）**或** holder_concentration=strong
-  //   （CD240 分层线/一人控盘；BP15 价格豁免锚照旧、不受本域影响）→ poor
-  //   （rule=chip_gate）；
+  // ③筹码门（BP14 holder 单臂——famous 臂已随 famous_domination 题退役 BP49）：
+  //   holder_concentration=strong（CD240 分层线/一人控盘；BP15 价格豁免锚照旧）
+  //   → poor（rule=chip_gate）；
   // ④全部门过 → neutral 放行（rule='gates_passed'，prob=null——bpPassLevels
   //   消费域 ['good','neutral'] 天然放行）。
   // 门题答案缺席（null）=无证据不拦放行（拒=有证据的拒绝；旧档重放缺答案=该臂
@@ -334,14 +325,10 @@ function buildBuyPointObservation(answers, anchors = null) {
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
     dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !actUltraExempt ? dimensions.activity_level : null,
   ].filter(Boolean);
-  // BP45：famous 轴只适用第一波——盘面再起来（锚窗涨起后最低 ≤+20 含破发=回到过
-  //   almost_launch）后 famous 臂退出拦截（落底后 famous 未离场=正面证据）；
-  //   null（从未离开/刚离开无回落/锚缺失）=第一波域照拦（宁拦不冒充，同⑥⑦位置
-  //   门锚缺失拒方向）；holder 臂不受影响
-  const rawMinVs = anchors ? anchors.minVsLaunchPct : null;
-  const famousRelaunched = typeof rawMinVs === 'number' && Number.isFinite(rawMinVs) && rawMinVs <= FAMOUS_AXIS_RELAUNCH_PCT;
+  // ③筹码门（BP49 起单臂）：famous 臂已随 famous_domination 题退役（BP49/案号
+  //   BP45 用户裁定「盘形中已经分析了」）——famous 拦截归盘型题③独食桶+互斥
+  //   检查（BP45 再起来域/BP47 厚度域在题面判读里）；holder strong 臂照旧
   const chipArms = [
-    dimensions.famous_domination && !famousRelaunched && CHIP_GATE_FAMOUS_POOR_BUCKETS.includes(dimensions.famous_domination.bucket) ? dimensions.famous_domination : null,
     dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
   ].filter(Boolean);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
@@ -475,9 +462,7 @@ module.exports = {
   PRICE_TREND_LEVELS,
   HEAT_LEVELS,
   ACTIVITY_LEVELS,
-  FAMOUS_DOMINATION_LEVELS,
   HOLDER_CONCENTRATION_LEVELS,
-  ENTRY_POSITION_LEVELS,
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
   PATTERN_GATE_POOR_BUCKETS,
@@ -486,8 +471,6 @@ module.exports = {
   STRONG_BACKER_LAUNCH_PCT,
   BLENDED_LAUNCH_PCT,
   GOLDEN_POINT_LAUNCH_PCT,
-  FAMOUS_AXIS_RELAUNCH_PCT,
   ACTIVITY_GATE_POOR_BUCKETS,
-  CHIP_GATE_FAMOUS_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
 };

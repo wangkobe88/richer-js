@@ -561,8 +561,9 @@ function computeBuyPointDerived(snapshot) {
     bigHolderSellBnb60, exitSellerCount60,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）
     activity,
-    // 筹码结构锚族透传（BP14：famous 控盘+持仓集中分层+参与/持有分叉——判读归
-    // Jev famous_domination/holder_concentration 两题，门桶由 mapper 硬消费）
+    // 筹码结构锚族透传（BP14：famous 控盘+持仓集中分层+参与/持有分叉——famous 判读
+    // 归 market_pattern ③独食桶+互斥检查（famous_domination 题已随 BP49 退役）；
+    // holder_concentration 题照旧、门桶由 mapper 硬消费）
     chip,
     // 开盘段结构族（BP18 盘面分类锚：首 30s 买入占比/大额单/后段密度——判读归
     // Jev market_pattern 题，strong_backer/retail_pvp 桶判据直接原料）

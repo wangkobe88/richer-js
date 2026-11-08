@@ -294,7 +294,7 @@ class BuyPointCheckService {
       this._log('info', `买点观测 pattern=${dim.market_pattern?.bucket ?? '—'}` +
         ` trend=${dim.price_trend?.bucket ?? '—'}` +
         ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
-        ` famous=${dim.famous_domination?.bucket ?? '—'} holder=${dim.holder_concentration?.bucket ?? '—'}` +
+        ` holder=${dim.holder_concentration?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {

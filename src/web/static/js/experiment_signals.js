@@ -53,8 +53,11 @@ const CHEAT_CODE_LABELS = [
 ];
 const BP_DIMENSION_LABELS = {
   market_heat: '市场热度', price_level: '价格位置', price_trend: '价格趋势',
-  activity_level: '活跃度', entry_position: '入场位置', market_pattern: '盘面类型',
-  famous_domination: '跟单控盘', holder_concentration: '持仓集中度',
+  activity_level: '活跃度', market_pattern: '盘面类型',
+  holder_concentration: '持仓集中度',
+  // entry_position/famous_domination 已随维度题退役（BP49）——仅历史 signal 行
+  // （metadata.dimensions 带旧维度）展示用，新行无该两键
+  entry_position: '入场位置', famous_domination: '跟单控盘',
 };
 const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题' }; // BP48 两质量题退役——仅历史 signal 行（metadata 带 qualities）展示用，新行无该段
 // 档位词 → 配色（none/mid 灰 · weak/noticeable/low 浅黄 · moderate/high amber · strong/dominant/ultra 红）
