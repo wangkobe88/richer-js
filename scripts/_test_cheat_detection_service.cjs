@@ -858,6 +858,75 @@ async function main() {
     ok(lteSrc === 2, `.lte('block_time', anchorIso) 源码恰两处 tail+head（实际 ${lteSrc}）`);
   }
 
+  // ═══════════════ Z2. CD382 盘面重置截窗（回到过 almost_launch=证据窗重置到最低点行起）═══════════════
+  console.log('Z2. CD382 盘面重置截窗');
+  {
+    // 价格轨迹行工厂（拉高→砸回 almost_launch 重启形状；genTicks 恒价 1e-9=从不离开不触发）
+    const E9 = 1e-9;
+    const priceTicks = (prices) => prices.map((p, i) => ({
+      block_time: new Date(1700000000000 + i * 2000).toISOString(),
+      block_number: 100 + i, log_index: 0,
+      trade_type: 'buy', bnb_amount: 0.1, token_amount: 1e8,
+      price_bnb: p * E9, price_outlier: false,
+      trader_address: `0xp${i % 8}`.padEnd(42, '0'), sender_address: `0xp${i % 8}`.padEnd(42, '0'),
+      quote_token: null,
+    }));
+    // Z2-1 重置全链：12 行轨迹（首个 >1.2=行1(1.5)；涨起后最低 1.05@行4）→ 判定窗
+    // idx4..11=8 行 ≥minTicks 真调 Jev；digest/返回双留痕；资金只计截断窗
+    const dbZ1 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12, 1.15]) });
+    const svcZ1 = makeSvc(dbZ1, makeLlm({ answers: NONE_ANSWERS }));
+    const rZ1 = await svcZ1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rZ1.status === 'analyzed' && rZ1.grade === 'healthy', `重置窗 8 行 ≥minTicks 全链（实际 ${rZ1.status}/${rZ1.grade}）`);
+    ok(rZ1.marketReset && rZ1.marketReset.minVsLaunchPct === 5 && rZ1.marketReset.fullAnchorTickCount === 12,
+      `返回 marketReset 留痕（minVsLaunchPct=+5/fullAnchorTickCount=12；实际 ${JSON.stringify(rZ1.marketReset)}）`);
+    const rowZ1 = dbZ1.state.inserts[0];
+    ok(rowZ1 && rowZ1.anchor_tick_count === 8 && rowZ1.snapshot_digest.tickCount === 8,
+      `落行锚数=截断后 8 行（实际 ${rowZ1 && rowZ1.anchor_tick_count}/${rowZ1 && rowZ1.snapshot_digest.tickCount}）`);
+    ok(rowZ1.snapshot_digest.marketReset && rowZ1.snapshot_digest.marketReset.minVsLaunchPct === 5,
+      'digest.marketReset 留痕（应用行才有键——新旧窗口径区分）');
+    ok(Math.abs(rowZ1.snapshot_digest.buyBnb - 0.8) < 1e-9,
+      `digest 资金只计截断窗（8 行×0.1=0.8——上一轮 4 行不进；实际 ${rowZ1.snapshot_digest.buyBnb}）`);
+    ok(svcZ1.stats.marketResets === 1, `stats.marketResets 计数（实际 ${svcZ1.stats.marketResets}）`);
+    // Z2-2 重置窗 <minTicks → insufficient_ticks（不落表不粘滞；info 带 marketReset）
+    const dbZ2 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07]) });
+    const svcZ2 = makeSvc(dbZ2, makeLlm({ answers: NONE_ANSWERS }));
+    const rZ2 = await svcZ2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rZ2.status === 'insufficient_ticks' && rZ2.anchorTickCount === 3,
+      `重置窗 3 行 <minTicks → insufficient_ticks（实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
+    ok(rZ2.marketReset && rZ2.marketReset.fullAnchorTickCount === 7 && dbZ2.state.inserts.length === 0,
+      `insufficient 行 info 留痕+不落表（实际 full=${rZ2.marketReset && rZ2.marketReset.fullAnchorTickCount}/inserts=${dbZ2.state.inserts.length}）`);
+    ok(svcZ2._llm === null || dbZ2.state.inserts.length === 0, 'insufficient 不烧 Jev 判定（落表零行）');
+    // Z2-3 满帽（capped）不重置：锚窗不含出生段=伪发行价，宁保持原判（config
+    // pullLimit 最小合法值 10——num() min 拒收更小值；14 行票 tail 10=满帽 →
+    // capped=true，head 补前段 → 不应用重置）
+    const capTicks = priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12, 1.15, 1.2, 1.25]);
+    const dbZ3 = makeDb({ ticks: capTicks });
+    const svcZ3 = makeSvc(dbZ3, makeLlm({ answers: NONE_ANSWERS }), { pullLimit: 10, headLimit: 10 });
+    const rZ3 = await svcZ3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rZ3.status === 'analyzed' && rZ3.marketReset === null && svcZ3.stats.marketResets === 0,
+      `capped 满帽不重置（tail 10 行=帽 → capped=true；实际 ${rZ3.status}/mr=${rZ3.marketReset}/resets=${svcZ3.stats.marketResets}）`);
+    const rowZ3 = dbZ3.state.inserts[0];
+    ok(rowZ3.snapshot_digest.marketReset === null && rowZ3.snapshot_digest.tickCount === 10,
+      `capped 行 digest.marketReset=null 全窗口径（anchor=tail 10；实际 ${JSON.stringify(rowZ3.snapshot_digest.marketReset)}/${rowZ3.snapshot_digest.tickCount}）`);
+    // Z2-4 从未离开（恒价）→ bit 不变零重置（既有语义回归锚）
+    const dbZ4 = makeDb({ ticks: genTicks(20, { routerEvery: 2 }) });
+    const svcZ4 = makeSvc(dbZ4, makeLlm({ answers: NONE_ANSWERS }));
+    const rZ4 = await svcZ4.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(rZ4.status === 'analyzed' && rZ4.marketReset === null && svcZ4.stats.marketResets === 0,
+      `恒价票（从未离开 almost_launch）零重置 bit 不变（实际 ${rZ4.status}/resets=${svcZ4.stats.marketResets}）`);
+    // Z2-5 anchorMs 截窗后重置照常应用（回测 signalGateReal：锚窗内判形状）
+    const anchorMsZ5 = 1700000000000 + 11 * 2000; // 锚=行 11 → 锚内 12 行同 Z2-1
+    const dbZ5 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12, 1.15, 1.3, 1.5]) });
+    const rZ5 = await makeSvc(dbZ5, makeLlm({ answers: NONE_ANSWERS }))
+      .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs: anchorMsZ5 });
+    ok(rZ5.status === 'analyzed' && rZ5.marketReset && rZ5.marketReset.fullAnchorTickCount === 12,
+      `anchorMs 锚内重置照常（锚后 2 行不进窗不影响 resetIdx；实际 ${rZ5.marketReset && rZ5.marketReset.fullAnchorTickCount}）`);
+    // Z2-6 题集版本不 bump（窗口口径非题面——粘滞域零变化）
+    const srcZ6 = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
+    ok(srcZ6.includes('computeMarketResetIndex'),
+      'Service 接线在场（_chain 5b 消费 computeMarketResetIndex）');
+  }
+
   console.log(`\n✅ _test_cheat_detection_service 全过（${passed} 断言）`);
 }
 

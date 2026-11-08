@@ -1446,12 +1446,86 @@ function isRouterWallet(wallet) {
   return wallet !== null && AGGREGATOR_ROUTER_ADDRS.has(String(wallet).toLowerCase());
 }
 
+/**
+ * CD382 盘面重置截窗（2026-11-08 用户裁定，与 BP44 案号 BP39 同日同语义）：
+ * 「如果代币到过了 almost_launch 又起来，那么对它的判定也是从 almost_launch
+ * 之后的最低点开始」——锚窗内价格回到过 almost_launch = 盘面重新计算，cheat
+ * 判定的证据窗重置到 almost_launch 之后的最低点行起（上一轮抢筹/等额分仓/拉高
+ * 形状不再进证据窗。案由 bt-s01 0x28ad2c7d：07:14 等额分仓拉高 cheat 拉黑 →
+ * 07:15:41 砸回 almost_launch 重判，锚窗内上一轮形状保持 strong=A 主判翻不了案，
+ * 翻案时价格已拉离——重置窗使重判只看新一轮）。
+ *
+ * 判据=BP44 minVsLaunchPct 同款定义（buy-point-snapshot 独立实现，口径由
+ * _test_cheat_market_reset 双向锁定——cheat-snapshot 已被 buy-point-snapshot
+ * 依赖，反向 import 成环，故 CD 侧独立实现）：launchPrice=首可靠价（不满帽
+ * 锚窗首行=出生段发行价，capped 由调用方拦）；涨起后段=首个突破 almost_launch
+ * 上界（严格 > 1.2×launchPrice——+20 恰在桶界内不算离开）的可靠价起（含离开
+ * 那一笔——突破笔本身必然 >+20 不影响「≤+20」判定；创新高不遮蔽回落，ATH
+ * 位置无关）全段；段最低 ≤+20%（含破发）=「回到过」→ 重置生效。
+ *
+ * 价格口径滤 outlier/空/≤0（与 priceArc/可靠价链一致——重置判形状看价格；
+ * 资金口径不滤是钱包侧的事）；dt/block 字段不参与判定。
+ *
+ * @param {Array} rows DB 形状行（price_bnb/price_outlier/block_number/log_index/
+ *   block_time；到达序无关——内部按链上真序拷贝排序）
+ * @returns {null|Object} null=未重置（无可靠价/从未离开 almost_launch/刚离开
+ *   无后续/涨起后最低 >+20 没回到过——调用方维持全窗 bit 不变）；
+ *   {resetIdx, sortedRows, launchPriceBnb, minPriceBnb, minVsLaunchPct,
+ *    resetAt, exitAt}——sortedRows=链上真序全行拷贝（resetIdx 在其上；调用方
+ *   直接 slice，防 pull.rows 到达序与排序 idx 错位）；resetIdx=最低点行下标
+ *   （重置窗起点=该行含——锚时刻视角的可见最低，锚推移后更低点出现则起点
+ *   自然后移，as-of 无前视）；minVsLaunchPct=段最低较发行价 %（toFixed(1)，
+ *   破发为负）
+ */
+function computeMarketResetIndex(rows) {
+  const sorted = [...(rows || [])].sort((a, b) => {
+    const ba = a.block_number ?? 0, bb = b.block_number ?? 0;
+    if (ba !== bb) return ba - bb;
+    return (a.log_index ?? 0) - (b.log_index ?? 0);
+  });
+  const isRel = (r) => r.price_bnb != null && r.price_bnb > 0 && r.price_outlier !== true;
+  // launchPrice=首可靠价；无可靠价 → null（宁不重置，不以伪锚翻案）
+  let launchPrice = null;
+  for (const r of sorted) {
+    if (isRel(r)) { launchPrice = r.price_bnb; break; }
+  }
+  if (launchPrice === null || !(launchPrice > 0)) return null;
+  // 涨起点：首个严格 > 1.2×launchPrice 的可靠价（+20 恰等在 almost_launch 桶界内不算离开）
+  const exitThreshold = launchPrice * 1.2;
+  let exitIdx = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    if (isRel(sorted[i]) && sorted[i].price_bnb > exitThreshold) { exitIdx = i; break; }
+  }
+  // 从未离开 / 刚离开无后续（突破点即末位=无回落证据）→ null 不冒充「回到过」
+  if (exitIdx < 0 || exitIdx >= sorted.length - 1) return null;
+  // 涨起后段最低（含突破笔）——创新高不遮蔽回落：段最低=突破点之后全部可靠价的最低
+  let minIdx = -1, minPrice = null;
+  for (let i = exitIdx; i < sorted.length; i++) {
+    if (!isRel(sorted[i])) continue;
+    const p = sorted[i].price_bnb;
+    if (minPrice === null || p < minPrice) { minPrice = p; minIdx = i; }
+  }
+  if (minIdx < 0 || minPrice === null) return null;
+  // 段最低 >+20 = 涨起后没回到过 almost_launch → 不重置（≤ 含恰等与破发）
+  if (minPrice > exitThreshold) return null;
+  return {
+    resetIdx: minIdx,
+    sortedRows: sorted,
+    launchPriceBnb: launchPrice,
+    minPriceBnb: minPrice,
+    minVsLaunchPct: +(((minPrice / launchPrice) - 1) * 100).toFixed(1),
+    resetAt: sorted[minIdx].block_time ?? null,
+    exitAt: sorted[exitIdx].block_time ?? null,
+  };
+}
+
 module.exports = {
   buildSnapshotFromRows,
   computeDerived,
   aggregateWallets,
   walletOf,
   isRouterWallet,
+  computeMarketResetIndex,
   loadFamousRoster,
   EQUAL_AMOUNT_MIN_BNB,
   EQUAL_BAND_PCT,

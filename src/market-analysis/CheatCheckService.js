@@ -73,7 +73,7 @@
  * 实验零分析零落行（数据采集期已收官）。
  */
 
-const { buildSnapshotFromRows } = require('./cheat-snapshot');
+const { buildSnapshotFromRows, computeMarketResetIndex } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
@@ -180,6 +180,7 @@ class CheatCheckService {
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：pump/wash/holdings）
+      marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
     };
   }
 
@@ -457,16 +458,48 @@ class CheatCheckService {
       // 时刻）：DB tail/head 查询均 .lte(block_time) 截窗防前视——回测时 DB 已有
       // 全史，无锚=「最新」行集=马后炮；生产不传=现状 tail（「最新」≈信号时刻）
       const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
-      const pull = await this._pullTicks(token, _anchorMs);
-      if (pull.fromMem && this._auditShadow) {
-        this._shadowAudit(token, pull); // fire-and-forget 对拍护栏（全吞错，不拦截）
+      const pull0 = await this._pullTicks(token, _anchorMs);
+      if (pull0.fromMem && this._auditShadow) {
+        this._shadowAudit(token, pull0); // fire-and-forget 对拍护栏（全吞错，不拦截）
+      }
+
+      // 5b) CD382 盘面重置截窗（2026-11-08 用户裁定，与 BP44 案号 BP39 同语义）：
+      //     锚窗内价格回到过 almost_launch（涨起后最低 ≤+20% 含破发）=盘面重新
+      //     计算——证据窗重置到最低点行起，上一轮抢筹/等额分仓/拉高形状不再进
+      //     判定（bt-s01 0x28ad2c7d：拉黑后砸回 almost_launch 重判被上一轮
+      //     equalAmountSplit strong 拖住翻不了案）。**满帽（capped）不应用**：
+      //     锚窗不含出生段，首可靠价≠发行价=伪锚，宁保持原判不以伪锚翻案。
+      //     重置后行数 <minTicks 走 ⑥ 预门 insufficient_ticks（引擎 fail-open
+      //     放行进 BP——BP 锚窗=全窗不受本截断影响，restart 位置门照常判）；
+      //     digest.marketReset 留痕区分新旧窗口径（题集/grade 规则版本零改动
+      //     ——窗口口径非题面）；题集版本不 bump=粘滞域不动。
+      let pull = pull0;
+      if (!pull.capped) {
+        const reset = computeMarketResetIndex(pull.rows);
+        if (reset) {
+          const rows = reset.sortedRows.slice(reset.resetIdx);
+          this.stats.marketResets++;
+          this._log('info', `盘面重置截窗（CD382）｜涨起后最低 ${reset.minVsLaunchPct}% @${reset.resetAt}｜窗 ${pull.anchorTickCount}→${rows.length} 行 | ${token}`);
+          pull = {
+            ...pull,
+            rows,
+            anchorTickCount: rows.length,
+            // digest/信号 info 留痕（fullAnchorTickCount=重置前原锚数）
+            marketReset: {
+              minVsLaunchPct: reset.minVsLaunchPct,
+              resetAt: reset.resetAt,
+              exitAt: reset.exitAt,
+              fullAnchorTickCount: pull0.anchorTickCount,
+            },
+          };
+        }
       }
 
       // 6) minTicks 预门（不调 Jev 不落表；不粘滞——下个买信号可重析）
       if (pull.anchorTickCount < this._minTicks) {
         this.stats.skippedInsufficientTicks++;
         this._log('info', `ticks 不足跳过（${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
-        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount, marketReset: pull.marketReset ?? null, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
 
       // 7) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
@@ -682,6 +715,7 @@ class CheatCheckService {
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
         levels, buckets, anchors,
         strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞值）
+        marketReset: pull.marketReset ?? null, // CD382 盘面重置截窗留痕（persist=false 回测链路唯一留痕点）
       };
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
@@ -1041,6 +1075,9 @@ class CheatCheckService {
         gradeVersion: mapped.gradeVersion ?? null,
         anchorSellCount: mapped.anchorSellCount ?? null,
         strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 SB1 观察臂粘滞值（本轮刻度；研究对拍原料，与 signal metadata 双源）
+        // CD382 盘面重置截窗留痕（应用时才有键；fullAnchorTickCount=重置前原锚数——
+        // 区分新旧窗口径，未应用行无键=全窗口径）
+        marketReset: pull.marketReset ?? null,
         activity: { // D3.2 代码活跃度原始数值——Jev 档位（activityLevel）的校准对照原料
           ticksPerMin: derived.ticksPerMin ?? null,
           avgTradeBnb: derived.avgTradeBnb ?? null,
