@@ -12,6 +12,9 @@
  * - [WALLETS] 每行追加近端字段「近120s 买 X×n 卖 Y×n」（大持仓近端动向=卖压题原料）
  * - [PRECOMPUTED] 以买点维度重组（时点位置/发行价位置/近窗动量/节奏/参与结构/卖压），
  *   全窗背景行（总买卖/活跃度/价格拱/对敲/零买纯卖/持仓前三）从 cheatDerived 直读不重算
+ * - BP58 点位性质判读锚随行渲染：发行价位置行带 curVsMinGapPct（现价−锚窗涨起后最低，
+ *   crash 贴底臂原料）、回看速度行扩全窗最大跌幅+临近段（锚前 120s）最大涨/跌四键
+ *   （crash 直线砸盘/spike 尖刺拉盘速度证据）——Jev 只能看渲染行，不渲染=题盲
  */
 
 const MAX_STATE_CHARS = 20000;
@@ -93,8 +96,10 @@ function buildBuyPointState(snapshot) {
     // athVsLaunchPct=锚窗最高可靠价较发行价 %（BP39「开盘拉得过高」度量锚）；
     // minVsLaunchPct=锚窗涨起后最低可靠价较发行价 %（BP43 restart 重启盘「价格回到过
     // almost_launch」轨迹直供锚——判重启盘的关键证据行；BP44 定义=首个突破 almost 上界（2026-11-09 起 +10%）离开
-    // almost_launch 之后的最低（涨起→又跌回的往返；创新高不遮蔽回落）））
-    lines.push(`发行价位置: 现价较发行价 ${b.currentVsLaunchPct === null || b.currentVsLaunchPct === undefined ? '?' : (b.currentVsLaunchPct > 0 ? '+' : '') + b.currentVsLaunchPct.toFixed(1) + '%'}，锚窗最高价较发行价 ${b.athVsLaunchPct === null || b.athVsLaunchPct === undefined ? '?' : (b.athVsLaunchPct > 0 ? '+' : '') + b.athVsLaunchPct.toFixed(1) + '%'}，锚窗涨起后最低价较发行价 ${b.minVsLaunchPct === null || b.minVsLaunchPct === undefined ? '?' : (b.minVsLaunchPct > 0 ? '+' : '') + b.minVsLaunchPct.toFixed(1) + '%'}（发行价 ${b.launchPriceBnb === null || b.launchPriceBnb === undefined ? '?' : fmtPrice(b.launchPriceBnb)} BNB；? = ticks 未覆盖出生段或从未离开 almost_launch=无回到语义，不冒充）`);
+    // almost_launch 之后的最低（涨起→又跌回的往返；创新高不遮蔽回落））；
+    // curVsMinGapPct=现价较该最低的距离（BP58 点位性质 crash 贴底臂判读原料——
+    //   ≤2pp=现价贴着锚窗最低价=暴跌刚发生/仍在进行，个位数 pp=仍在底部附近））
+    lines.push(`发行价位置: 现价较发行价 ${b.currentVsLaunchPct === null || b.currentVsLaunchPct === undefined ? '?' : (b.currentVsLaunchPct > 0 ? '+' : '') + b.currentVsLaunchPct.toFixed(1) + '%'}，锚窗最高价较发行价 ${b.athVsLaunchPct === null || b.athVsLaunchPct === undefined ? '?' : (b.athVsLaunchPct > 0 ? '+' : '') + b.athVsLaunchPct.toFixed(1) + '%'}，锚窗涨起后最低价较发行价 ${b.minVsLaunchPct === null || b.minVsLaunchPct === undefined ? '?' : (b.minVsLaunchPct > 0 ? '+' : '') + b.minVsLaunchPct.toFixed(1) + '%'}，现价高于该最低 ${b.curVsMinGapPct === null || b.curVsMinGapPct === undefined ? '?' : b.curVsMinGapPct.toFixed(1) + 'pp'}（发行价 ${b.launchPriceBnb === null || b.launchPriceBnb === undefined ? '?' : fmtPrice(b.launchPriceBnb)} BNB；? = ticks 未覆盖出生段或从未离开 almost_launch=无回到语义，不冒充）`);
     // ①b 市值位置（BP2/T117：末可靠价×totalSupply；? = supply 或可靠价缺失）
     lines.push(`市值位置(BNB 域): 现价市值 ${b.mcapBnb ?? '?'} / 窗内峰市值 ${b.mcapPeakBnb ?? '?'} / 较峰回撤 ${b.mcapFromPeakPct === null || b.mcapFromPeakPct === undefined ? '?' : b.mcapFromPeakPct.toFixed(2) + '%'}（? = supply 或可靠价缺失；窗=拉数窗，短龄票≈全史）`);
     // ①c holder 流向（BP2/T117：正净持仓钱包数与近 60s 变化——阴跌+流失=不宜入场形状）
@@ -102,8 +107,11 @@ function buildBuyPointState(snapshot) {
     // ② 近窗动量
     const chg = (v) => (v === null || v === undefined ? '?' : `${v.toFixed(2)}%`);
     lines.push(`近窗动量(涨跌%): 5s ${chg(b.chg5Pct)} / 10s ${chg(b.chg10Pct)} / 30s ${chg(b.chg30Pct)}（窗末可靠价 vs 窗起点前最后一笔可靠价；窗内无更早价则自全窗首可靠价起算——短窗常见，含义=可得最早价以来的动量；? = 可靠价不足）`);
-    // ②b 回看速度（BP10：锚窗内任意 5 秒段最大涨幅——当前时点 chg5 测不到此前段的暴涨，判「前期上涨过快」看本值）
-    lines.push(`回看速度: 锚窗内任意 5 秒段最大涨幅 ${chg(b.maxChg5Pct)}（可靠价滚动 5s 窗最陡段；上涨速度的回看度量——涨幅不是速度，判「前期暴涨/上涨过快」以此为速锚而非累计涨幅；? = 可靠价不足）`);
+    // ②b 回看速度（BP10：锚窗内任意 5 秒段最大涨幅——当前时点 chg5 测不到此前段的
+    // 暴涨，判「前期上涨过快」看本值；BP58 扩四键=点位性质判读原料：maxDn5 全窗
+    // 最深 5s 段跌幅、nearMaxUp5/nearMaxDn5=锚前 120s 临近段最深 5s 段涨/跌——
+    // crash 直线砸盘/spike 尖刺拉盘的速度证据）
+    lines.push(`回看速度(5秒段): 全窗最大涨幅 ${chg(b.maxChg5Pct)} / 最大跌幅 ${chg(b.maxDn5Pct)}；临近段(锚前120s)最大涨幅 ${chg(b.nearMaxUp5Pct)} / 最大跌幅 ${chg(b.nearMaxDn5Pct)}（可靠价滚动 5s 窗最陡段；涨幅不是速度，判「前期暴涨/暴跌」以此为速锚而非累计涨幅；点位性质判读原料——临近段单段跌 ≥15%=直线砸盘进行时、单段涨 ≥15%=尖刺拉升；? = 可靠价不足）`);
     // （②a 摆动结构行已删——BP30/题集 BP33 tree_position 题退役：zigzag 锚照算
     //    落 digest 纯留档，state 不再渲染圣诞树原料行）
     // ③ 近窗流量
@@ -238,7 +246,7 @@ function buildBuyPointState(snapshot) {
     '[判定指引]',
     '- [PRECOMPUTED]/[PRICE] 统计是代码端计算的事实，直接采信；你的任务是这些事实编不出的判断：此刻入场时机好坏。',
     '- 只判入场时机（时点），不下盘面性质结论：协同/作弊形状（等额阵列/对敲/分仓指纹）作为降档参考计入风险权衡，是否作弊由反作弊模块另行判定。',
-    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩双题；BP14 新增筹码门；BP18 新增盘型门；BP30 盘型前置预判断+famous heavy/ultra 门扩+tree/追高题退役；BP34 盘型六桶+⑥位置门；BP38 strong_backer ultra 豁免；BP39 ④开盘拉高出货盘新形态；BP43 ⑦restart 重启盘+⑧golden_point 黄金点；BP48 两质量题退役=纯门链；**BP49 famous 控盘/相对价格两维度题退役——famous 判型归③独食桶+互斥检查**）：**①盘型门（预判断，最前）**——盘面类型（market_pattern）散户 PVP（retail_pvp）/famous 独食（famous_monopoly）/狙击衰竭（early_sniper_decay，含开盘拉高出货盘形态——开局拉得过高+砸回/承接太弱）=不参与交易（代码侧硬门消费这三桶，**先于其余门裁**——预判断定盘子的类型，点位再好类型不对不参与）；持续拉升弱回调（sustained_climb）代码侧位置门判定：现价仍临近发行价（≤+10% 含破发）的起点段放行、已拉离发行价=不参与（判型归你、位置归代码）；重启盘（restart）同款位置门 ≤+40%；强庄盘（strong_backer=最好类型，位置门 ≤+80 庄盘独享 low 档）与融合盘（blended_unremarkable=好点位可赌，位置门 ≤+40 最多 near_launch）不拦但受各自位置门；黄金点（golden_point）≤+40 防御门；**分类互斥前置检查**：famous 控盘占比已达 heavy 及以上（筹码结构行 famous 控盘 ≥25）的盘子不是强庄盘也不是融合盘（famous 的货是要出货的，不是锁仓拉盘的庄）——归 famous 独食或按散户化/狙击/持续拉升形状归类（仅早期薄盘域适用，见题面）；**②活跃度门**——热度（market_heat）low、或买点前活跃度（activity_level）low、或 activity_level=ultra（机器盘级极端密集）=不参与交易（**BP38 豁免：盘型=strong_backer 时 ultra 不拦**——强庄盘拉盘天然密集，ultra 密度不是拒买证据，代码侧豁免；low 档不豁免）；**③筹码门**——持仓集中（holder_concentration）strong=不参与交易（famous 控盘臂已随维度题退役——famous 判型由盘型门③独食桶与互斥检查承接）；**④全部门过=放行（neutral）**——参与与否与可接受价格范围由盘型+位置+活跃度+筹码的门链确定性决定。（早鸟/回调两道质量题与 tree_position、追高质量题、famous 控盘、相对价格维度题均已退役——BP30/BP48/BP49 用户裁定，不再作答；大户未清场/阴跌失血等判读已并入⑦⑧桶题面。）',
+    '- 判定结构（BP8 用户裁定；BP13 活跃度门扩双题；BP14 新增筹码门；BP18 新增盘型门；BP30 盘型前置预判断；BP48 两质量题退役=纯门链；BP49 famous 控盘/相对价格两维度题退役；**BP58 改制——盘型题改「异常盘面识别」四桶+新增点位性质题（entry_shape）+统一位置门 27.5**）：**①盘型门（预判断，最前）——异常盘面识别**：只把异常盘面找出来（强庄盘/狙击衰竭/融合盘/重启盘/黄金点等处理方式完全一致，归 none 正常盘面不再细分识别）。**异常桶=不参与交易（代码侧硬门硬拒，先于其余门裁）**：散户 PVP（retail_pvp——买点时刻无像样买方/大户向小散出货散户化）/famous 独食（famous_monopoly——famous 钱包拿筹过多「这个盘子就是它的/它们的了」，复数 famous 极早入场合计拿筹过多同落）；**持续拉升弱回调（sustained_climb）走独立位置门**：现价仍临近发行价（≤+10% 含破发）的起点段放行、已拉离=不参与（判型归你、位置归代码）；**none 正常盘面统一位置门 ≤+27.5%**：现价较发行价 ≤+27.5%（含破发）=临近发行价的参与区、已拉离（>+27.5%）=不参与（只买性价比高的点位，不追高）。**分类互斥前置检查**：famous 控盘占比已达 heavy 及以上（筹码结构行 famous 控盘 ≥25）的盘子归 famous 独食或按散户化/持续拉升形状归类——famous 的货是要出货的，不是锁仓拉盘的庄（仅再起来域/厚度维度适用，见题面）；**②点位性质门（BP58 新题 entry_shape）**——好点位=活跃交易中对倒中的低价/正常下跌造成的低价：**直线砸盘（crash——庄离场暴跌：较锚窗高点回撤 ≥25%/30s 跌 ≥25%/临近段 5s 单段跌 ≥15%/现价贴着锚窗最低 ≤2pp 任一臂，砸盘后的反弹不救）**与**尖刺拉盘追高（spike——30s 涨 ≥20%/临近段 5s 单段涨 ≥15%/现价贴锚窗高点 ≥-5% 任一臂）**=不参与交易；正常回调低价（normal_dip——有下跌但非直线砸盘，对倒/正常下跌造成的低价=目标买入形状）与横盘缓行（flat）=放行；**③活跃度门**——热度（market_heat）low、或买点前活跃度（activity_level）low、或 activity_level=ultra（机器盘级极端密集「act 为 ultra 也不玩」）=不参与交易（**无条件拦**——旧豁免臂已随桶改制删除；market_heat=ultra 不拦：近窗密度视角只拦死寂）；**④筹码门**——持仓集中（holder_concentration）strong（**代码侧停用中不激活**——答案照答落档，观察材料保留）；**全部门过=放行（neutral）**——参与与否与可接受价格范围由盘型+位置+点位性质+活跃度的门链确定性决定。（早鸟/回调两道质量题与 tree_position、追高、famous 控盘、相对价格维度题均已退役——BP30/BP48/BP49 用户裁定，不再作答。）',
     '- 薄窗倾向 insufficient：窗内行数很少、锚过早、多数维度缺证据（? 多）时，诚实承认材料不足不硬判。',
     '- token 龄极短（[PRECOMPUTED] 时点位置行）时全程首波形状属常态：近高位置/节奏密集本身不是风险信号，权衡时结合 token 龄。',
   ].join('\n'));

@@ -507,7 +507,8 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.ok(!/opts\.pumpExempt/.test(svc), 'opts.pumpExempt 消费应绝迹');
         assert.ok(!/rule: 'pump_exempt_gate'/.test(svc), 'rule 产出应绝迹');
         const mapper = read('src/market-analysis/buy-point-result-mapper.js');
-        assert.ok(/const RESTART_LAUNCH_PCT = 40;/.test(mapper), 'mapper restart 常量不受影响');
+        assert.ok(/const NORMAL_ENTRY_LAUNCH_PCT = 27\.5;/.test(mapper), 'BP58 统一位置门常量（none+LEGACY 放行上界 27.5）');
+        assert.ok(!/RESTART_LAUNCH_PCT/.test(mapper) && !/STRONG_BACKER_LAUNCH_PCT/.test(mapper) && !/SNIPER_ULTRA_ROUTER_LAUNCH_PCT/.test(mapper) && !/GOLDEN_POINT_LAUNCH_PCT/.test(mapper), '随宿主桶退役的四位置臂常量绝迹');
     });
 
     console.log(failed === 0 ? `\n✅ buy_point_check_service 全部通过（${passed} 断言）` : `\n❌ buy_point_check_service：${failed} 失败 / ${passed} 通过`);

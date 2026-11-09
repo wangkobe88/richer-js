@@ -46,6 +46,8 @@ const BP_OPEN_SEG_SEC = 30;
 const BP_OPEN_BIG_BUY_BNB = 0.3;
 /** 锚前尾段固定子窗（秒）：锚前最后 5 秒行数/买笔数/买额——「买点时刻即时状态」时序证据（BP28 案四改，S053 三段形状 state 盲区） */
 const BP_TAIL_SEC = 5;
+/** 点位性质临近段宽度（秒）：锚前 120s 内 5 秒段最大涨/跌幅（BP58 entry_shape——很久以前的急拉/急砸不定义买点当下的点位性质） */
+const BP_NEAR_SPEED_SEC = 120;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -153,6 +155,42 @@ function computeBuyPointDerived(snapshot) {
       }
     }
     if (maxChg5Pct !== null) maxChg5Pct = +maxChg5Pct.toFixed(2);
+  }
+  // BP58 点位性质速度锚三键：maxDn5Pct=锚窗任意 5 秒段最大跌幅（maxChg5Pct 对称
+  // 跌方向——「直线砸盘」直接度量，单调队列队头=窗内最高价为起点）；nearMaxUp5/
+  // nearMaxDn5=**锚前 120s 临近段**（BP_NEAR_SPEED_SEC）内 5 秒段最大涨/跌幅——很久
+  // 以前的急拉/急砸不定义买点当下的点位性质（全窗 maxChg5 对长票锚不住「此刻正在
+  // 尖刺/砸盘」）；起点可略早于段界（5 秒滑窗自身限界），终点须落在段内；<2 可靠价
+  // 全族 null；纯事实（代码只组数据，形状判读归 Jev entry_shape 题）
+  let maxDn5Pct = null, nearMaxUp5Pct = null, nearMaxDn5Pct = null;
+  if (rel.length >= 2) {
+    const dqLo = []; // 涨：队头=窗内最低
+    const dqHi = []; // 跌：队头=窗内最高
+    for (let j = 0; j < rel.length; j++) {
+      while (dqLo.length && rel[dqLo[dqLo.length - 1]].priceBnb >= rel[j].priceBnb) dqLo.pop();
+      dqLo.push(j);
+      while (dqHi.length && rel[dqHi[dqHi.length - 1]].priceBnb <= rel[j].priceBnb) dqHi.pop();
+      dqHi.push(j);
+      while (dqLo.length && rel[j].dt - rel[dqLo[0]].dt > 5) dqLo.shift();
+      while (dqHi.length && rel[j].dt - rel[dqHi[0]].dt > 5) dqHi.shift();
+      if (dqHi.length && dqHi[0] < j) {
+        const chg = (rel[j].priceBnb / rel[dqHi[0]].priceBnb - 1) * 100;
+        if (maxDn5Pct === null || chg < maxDn5Pct) maxDn5Pct = chg;
+      }
+      if (tEnd !== null && rel[j].dt >= tEnd - BP_NEAR_SPEED_SEC) {
+        if (dqLo.length && dqLo[0] < j) {
+          const chg = (rel[j].priceBnb / rel[dqLo[0]].priceBnb - 1) * 100;
+          if (nearMaxUp5Pct === null || chg > nearMaxUp5Pct) nearMaxUp5Pct = chg;
+        }
+        if (dqHi.length && dqHi[0] < j) {
+          const chg = (rel[j].priceBnb / rel[dqHi[0]].priceBnb - 1) * 100;
+          if (nearMaxDn5Pct === null || chg < nearMaxDn5Pct) nearMaxDn5Pct = chg;
+        }
+      }
+    }
+    if (maxDn5Pct !== null) maxDn5Pct = +maxDn5Pct.toFixed(2);
+    if (nearMaxUp5Pct !== null) nearMaxUp5Pct = +nearMaxUp5Pct.toFixed(2);
+    if (nearMaxDn5Pct !== null) nearMaxDn5Pct = +nearMaxDn5Pct.toFixed(2);
   }
   // 价格轨迹：全窗可靠价等笔距 20 桶（桶价=桶内末笔可靠价；<20 行时空桶自然缺席）
   const priceBuckets = [];
@@ -391,7 +429,7 @@ function computeBuyPointDerived(snapshot) {
   // （刚离开无回落证据）→ null 不冒充；Jev 组合不了涨起后最低与发行价两数故直供；
   // BP 侧 rel 自算零 CD 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
-  let minVsLaunchPct = null;
+  let minVsLaunchPct = null, curVsMinGapPct = null;
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
     launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
@@ -434,6 +472,10 @@ function computeBuyPointDerived(snapshot) {
         for (let i = exitIdx + 1; i < rel.length; i++) if (rel[i].priceBnb < minRel) minRel = rel[i].priceBnb;
         if (minRel > 0) minVsLaunchPct = +(((minRel / launchPriceBnb) - 1) * 100).toFixed(1);
       }
+      // BP58 点位性质：现价距涨起后最低的差值（curVs−minVs，pp）——「正在创新低 /
+      // 已从低点回升」直接度量锚（Jev 结构性组合不了两数差，直供）；minVs null
+      //（从未离开 almost_launch/刚离开无回落）→ null 不冒充
+      if (minVsLaunchPct !== null) curVsMinGapPct = +(currentVsLaunchPct - minVsLaunchPct).toFixed(1);
     }
   }
 
@@ -564,8 +606,9 @@ function computeBuyPointDerived(snapshot) {
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
-    // 价格（可靠价口径；BP6 短窗 5/10/30s；BP10 maxChg5=回看速度锚）
-    chg5Pct, chg10Pct, chg30Pct, maxChg5Pct, priceBuckets,
+    // 价格（可靠价口径；BP6 短窗 5/10/30s；BP10 maxChg5=回看速度锚；BP58 跌方向
+    // 对称键 maxDn5 + 临近段速度双键——entry_shape 判读原料）
+    chg5Pct, chg10Pct, chg30Pct, maxChg5Pct, maxDn5Pct, nearMaxUp5Pct, nearMaxDn5Pct, priceBuckets,
     // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；points/legs=state 渲染原料）
     swingPoints: swing ? swing.points : null,
     swingLegs: swing ? swing.legs : null,
@@ -581,7 +624,7 @@ function computeBuyPointDerived(snapshot) {
     // athVsLaunchPct=锚窗最高可靠价较发行价 %，BP39「开盘拉高出货盘」度量锚；
     // minVsLaunchPct=锚窗涨起后最低可靠价较发行价 %，BP43 restart 重启盘轨迹锚——
     // BP44 修正为「首个突破 almost 上界之后」定义（创新高不遮蔽回落）；2026-11-09 上界 20→10））
-    launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, minVsLaunchPct, launchCovered,
+    launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, minVsLaunchPct, curVsMinGapPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,
     // holder 流向族（BP2：tok 缺失全族 null）
