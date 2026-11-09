@@ -1342,6 +1342,12 @@ class FlapAnkrWsCollector {
             timestamp: decoded.blockTimeMs,
             tx_hash: decoded.txHash,
             log_index: decoded.logIndex,
+            // flap 非 BNB 计价盘标记（T127）：FA state.quoteToken write-once 捕获 →
+            // currentVsLaunchPct 的 quote 盘判定（quote 盘无常量锚→旧口径首可靠价）。
+            // 断链事故（2026-11-09）：decoded.quoteToken 在场但此处漏透传 → 实时链
+            // quote 盘票误用 FL 常量分母——与回测 _loadWssTicks 同款断链，单测
+            // _test_backtest_quote_token_passthrough 锁死
+            quote_token: decoded.quoteToken || null,
         }, opts);
         // FA 离群价判定回写落表行（行入 buffer 前定值 → INSERT 携带最终 flag）
         if (faResult && faResult.priceOutlier) {

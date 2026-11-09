@@ -955,6 +955,12 @@ class BacktestEngine extends AbstractTradingEngine {
         log_index: row.log_index,
         price_outlier: row.price_outlier || false,
         platform: row.platform,   // token 级 fallback 证据（_registerToken/_evaluateBuyPath）
+        // flap 非 BNB 计价盘行级标记（T127）：FA state.quoteToken write-once 捕获 →
+        // currentVsLaunchPct 的 quote 盘判定（quote 盘无常量锚→旧口径首可靠价）。
+        // 断链事故（2026-11-09）：TICK_SELECT_COLUMNS 加列但此处组装漏透传 → quote 盘
+        // 全部误判 BNB 盘用 FL 常量分母（bt-v85 128/162 token curVs 失真）——单测
+        // _test_backtest_quote_token_passthrough 锁死
+        quote_token: row.quote_token || null,
       });
     }
     if (tsRegressions > 0) {
