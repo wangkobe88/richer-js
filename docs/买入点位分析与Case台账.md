@@ -161,7 +161,25 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **bt-v87 全链回测对照达成（2026-11-09，`c84fc413-4928-45ca-9a55-b0791921820e` 克隆 bt-v86 同窗同配置唯一变量=BP50 代码，12.7min）**：**净 +0.9402 → +1.0238（+11.38%）、成交 34 → 45 票、胜率 32.4% → 33.3%、BUY 信号 1820 → 1787（触发面收窄如预期）、reset_insufficient 硬拒 352 → 228（-124）**——机制：**(10,20] 带票 reset 退场后走原窗判定，原窗干净的照常放行**（CD384 硬拒的小票中含无辜票，BP50 下被解救），受益腿 RL15 3→11 / RL10 维持、stall_burst 豁免 14→30（原窗锚窗变长 burst 形状重新可见）、activity_high 584→607/ultra 254→282；差集：v87 独有 14 票（4 票正：0x32f18a98 +0.1562/0x1c107d70 +0.0436/0x9fb45eaf +0.0293/0xc70a1cbe +0.0271，10 票小亏 -0.003~-0.047）、v86 独有 3 票（0xf485ec1d +0.0749 被挤出=收紧代价，两小亏）；Top 盈利两端全保住（0xba5ed45b +0.5152/0x78cd05cf +0.4088/0xea7886d5 +0.2941）。**结论：收紧未损失收益、净额与胜率双升**——「20% 代入太多正常波动」裁定方向实证；净差 +0.084 量级在 LLM 判读方差带内，结构性指标（reset 拒 -124/成交 +11/信号 -33）为主证据。
 
 
-### BP50 发行价锚换平台 curve 常量——launch 族数值锚分母不再用锚窗首可靠价（2026-11-08，snapshot 锚口径案·题集/mapper 零改动；主体=T127，commit `df9c7a6b`）
+### BP52 restart 重启盘豁免筹码门（2026-11-09 用户裁定·mapper-only 题集不 bump；案由=0x28ad2c7d bt-v87 未买入归因）
+
+**背景与归因**：bt-v87（c84fc413）per-pattern 盈亏统计后用户指出「我们辛苦调好不容易买入的全没了，先看看 0x28ad2c7d08d83a85467bd4afcfd673dfce564444 为何没买入」。门链全轨迹对照（tmp-btv87-28ad-why.cjs，三实验 bt-v84/v86/v87 同票信号）：该票 6 条 BUY 信号全拒——07:14:12 t0a / 07:14:20 t0b 两条 T127 换锚后盘型判读翻④（blended 0.29→early_sniper_decay 0.81/0.83，launch 族读数移位 curVs 25.4→39.4 / minVs 23.1→12，v84 同时刻同腿即成交腿 +0.0270）被盘型门/pump 位置门拒；07:14:56 t2 被 cheat 硬拒（cheat 无豁免）；**深归零后（minVs=0.9 reset 全触发）07:15:55 NL15 / 07:16:00 NL20 两条 restart 判型正确（0.57/0.60）、RESTART 位置门 ≤+40 已过（curVs 32.6/27），全部被 chip=strong 拦（rule=chip_gate）**；07:16:05 NL25 curVs=40.9>40 位置门拒。翻转点=v84→v86（T127 换锚），BP50 对该票零影响（v86/v87 判读逐位相同）。
+
+**裁定原话**：
+
+> 「restart 豁免 holder_concentration （重启的盘子，零星的持有者很多，但是大持有者可能就几个，这种情况下，集中度高是没关系的）」
+
+**机制改动（`buy-point-result-mapper.js`，纯 mapper 门臂豁免）**：
+
+- `RESTART_CHIP_EXEMPT_PATTERN='restart'`：盘型=restart ∧ holder_concentration=strong → 筹码门不拦（chipArms 空），与 BP38 strong_backer 豁 ultra 臂同构（盘型维度对门臂的定向豁免；门间联动豁免非代码改判——holder/market_pattern 答案原样透传，不违 BP42 铁律）
+- **消费点天然只在 restart 位置门（≤+40）已过的信号上**：curVs>+40 时盘型门先拒（patternArms push）轮不到筹码门，豁免无行为面；盘型缺席 → 豁免不生效 holder strong 照拦（保守方向，同 BP38）；豁免对象仅 restart——④/blended/strong_backer 等其它盘型 holder strong 照拦（BP14 防线保留）；BP15 价格豁免锚（≤+10 贴发行价不坐实 strong）语义不变——本题豁免后 strong 答案本身不再消费于 restart 票
+- 留痕：`assessment.exempt={code:'restart_chip', pattern:'restart'}`（与 BP46 sniper_decay_heat_price 同形态 additive；二者盘型互斥（④ vs restart）不会同时成立）；mapper-only 不 bump 题集版本（BP46/BP47/BP48 收紧先例）
+
+**单测（`_test_buy_point_lib.cjs` 455→460）**：E 段 BP52 五断言——restart+strong+curVs≤40 → neutral/gates_passed+exempt=restart_chip（0x28ad2c7d 07:15:55/07:16:00 形状）/curVs=50 已拉离 → 盘型门先拒（轮不到豁免）/盘型缺席照拦/strong_backer+strong 照拦（豁免对象仅 restart）/restart+moderate → exempt 不出现（仅 strong∧restart 才带）。`_test_buy_point_check_service` 39 全绿零改动。
+
+**影响面**：深归零重启票（BP43 ⑦/BP44 判序/BP45⑧黄金点一族的回落形状）在筹码集中时不再被 chip_gate 双杀——restart 判型+位置门+cheat 门三道防线仍在；真·一人控盘重启盘（拉高砸回庄还有 90% 货）同被放行=知情 trade-off（用户裁定语义内）。**182 对拍待跑**：0x28ad2c7d 07:15:55/07:16:00 两锚重跑 gateBuyPoint 应翻 neutral(gates_passed)+exempt=restart_chip。
+
+
 
 **背景**：用户发现 BP 位置门全族（①⑤⑧≤40/⑥≤10/⑦≤40/pump_exempt≤40/黄金点 almost_launch 区内/BP46 ④豁免 near_launch 以内/BP15 价格豁免锚 ≤+20）的输入值 `currentVsLaunchPct` 与 `minVsLaunchPct`（BP43/BP44 restart 判定腿）/`athVsLaunchPct`（④开盘拉高判据）的分母=**锚窗首可靠价**（≈首笔成交后价格），不是 curve 定义的真发行价。合约实证（详档 auto-memory launch-price-curve-constants）：four.meme=模板制 143 档常量（主流档 P₀=4496173469e-18）、flap BNB 盘=tier 制常量（主力档 ≈5.546e-9）；用户裁定「fourmeme 使用主流档即可，flap 也是使用主力档即可，价格门的话只能是重新回测看一下效果了」。
 

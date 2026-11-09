@@ -553,6 +553,28 @@ aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 
 ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: BP45 域语义归题面后 mapper 第一波域（minVs=22.3）也不拦（famous 臂全域退役——0x28ad2c7d 首锚 +22.3 形状由 Jev ③桶判读决定）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('famous_domination', 'dominant', 0.92), ...mkAns('holder_concentration', 'strong', 0.94) }, { ...dE, minVsLaunchPct: -9.9 }).assessment;
 ok(aM.bucket === 'poor' && near(aM.prob, 0.94) && aM.rule === 'chip_gate', 'E: 再起来域 holder=strong 照拦（筹码集中臂不受 famous 退役影响）');
+// BP52 restart 筹码豁免（2026-11-09 用户裁定「restart 豁免 holder_concentration
+// （重启的盘子，零星的持有者很多，但是大持有者可能就几个，这种情况下，集中度高是
+// 没关系的）」——0x28ad2c7d bt-v87 未买入归因案：NL15/20 深归零后 restart 判型
+// 正确、位置门 ≤40 已过，全被 chip=strong 拦）：盘型=restart ∧ holder=strong →
+// 筹码门不拦（exempt={code:'restart_chip'} 留痕）；盘型缺席照拦保守方向；豁免
+// 对象仅 restart（④/blended 等照拦）；curVs>+40 时盘型门先拒轮不到豁免（留痕仍带）
+{
+  const oR = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.57), ...mkAns('holder_concentration', 'strong', 0.91) }, dE);
+  ok(oR.assessment.bucket === 'neutral' && oR.assessment.rule === 'gates_passed' && oR.assessment.exempt && oR.assessment.exempt.code === 'restart_chip',
+    'E: BP52 restart+holder=strong+curVs≤40 → 筹码门不拦 neutral/gates_passed+exempt=restart_chip（0x28ad2c7d 07:15:55/07:16:00 形状——重启盘集中度高是常态非垄断）');
+  aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.57), ...mkAns('holder_concentration', 'strong', 0.91) }, { ...dE, currentVsLaunchPct: 50 }).assessment;
+  ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: BP52 restart 已拉离（curVs=50>40）→ 盘型门先拒（restart 位置臂——轮不到筹码门，豁免无行为）');
+  {
+    const { market_pattern: _drop, ...noPat } = fullAnswers();
+    aM = buildBuyPointObservation({ ...noPat, ...mkAns('holder_concentration', 'strong', 0.9) }, dE).assessment;
+    ok(aM.bucket === 'poor' && aM.rule === 'chip_gate', 'E: BP52 盘型缺席豁免不生效（holder=strong 照拦——保守方向，同 BP38）');
+  }
+  aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.69), ...mkAns('holder_concentration', 'strong', 0.93) }, dE).assessment;
+  ok(aM.bucket === 'poor' && near(aM.prob, 0.93) && aM.rule === 'chip_gate', 'E: BP52 豁免对象仅 restart——strong_backer+holder=strong 照拦（BP14 防线保留）');
+  aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.57), ...mkAns('holder_concentration', 'moderate', 0.9) }, dE).assessment;
+  ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed' && !aM.exempt, 'E: BP52 restart+holder=moderate → 本就不过筹码门（豁免留痕不出现——exempt 仅 strong∧restart 才带）');
+}
 ok(require('../src/market-analysis/buy-point-result-mapper').FAMOUS_AXIS_RELAUNCH_PCT === undefined, 'E: FAMOUS_AXIS_RELAUNCH_PCT 已随 famous_domination 退役删除（BP49——域语义归题面，常量绝迹锁）');
 ok(!PATTERN_GATE_POOR_BUCKETS.includes('golden_point'), 'E: ⑧golden_point 不进 PATTERN_GATE_POOR_BUCKETS（允许买入型桶——判据自带现价位置 ≤+20，代码侧另有 ≤+40 防御门兜判序错位）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('holder_concentration', 'strong', 0.95) }, dE).assessment;

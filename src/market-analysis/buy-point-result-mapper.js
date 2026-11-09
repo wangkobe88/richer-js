@@ -29,6 +29,8 @@
  *      不是拒买证据；low 臂不豁免）
  *   ③ 筹码门（BP14 holder 臂单臂）：holder_concentration=strong（TOP 过
  *      CD240 分层线/一人控盘——筹码垄断不参与）→ poor（rule=chip_gate）。
+ *      **BP52 restart 豁免：盘型=restart 时 holder strong 臂不拦（重启盘零星
+ *      持有者很多、大持有者就那几个——集中度高是重启盘常态非垄断信号）**。
  *      **famous 臂已随 famous_domination 题退役（BP49/案号 BP45 用户裁定
  *      「盘形中已经分析了」）**：famous 判型全归盘型题判读（③独食桶+互斥检查
  *      ≥25 不落⑤①⑥——BP45 再起来域/BP47 厚度域适用域均在题面判读里）；
@@ -187,6 +189,19 @@ const SNIPER_DECAY_OPEN_SHARE_MAX = 80;
 const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low', 'ultra'] };
 // CHIP_GATE_FAMOUS_POOR_BUCKETS 已随 famous_domination 题退役删除（BP49/案号
 //   BP45）——筹码门只剩 holder_concentration strong 单臂。
+/** BP52 restart 筹码豁免（2026-11-09 用户裁定「restart 豁免 holder_concentration
+ * （重启的盘子，零星的持有者很多，但是大持有者可能就几个，这种情况下，集中度高是
+ * 没关系的）」——0x28ad2c7d bt-v87 未买入归因案：深归零后 NL15/20 三信号 restart
+ * 判型正确、位置门 ≤40 已过，全被 chip=strong 拦）：盘型=restart ∧ holder=strong →
+ * 筹码门不拦（豁免成立即 chipArms 空；与 BP38 strong_backer 豁 ultra 臂同构——
+ * 盘型维度对门臂的定向豁免）。消费点天然只在 restart 位置门（≤+40）已过的信号上：
+ * curVs>+40 时盘型门先拒（patternArms push）轮不到筹码门，豁免无行为；盘型缺席
+ * → 豁免不生效 holder strong 照拦（保守方向，同 BP38）；豁免对象仅 restart——
+ * ④/⑥/blended 等其它盘型 holder strong 照拦（BP14 防线保留）。mapper-only 门改动
+ * 不 bump 题集版本（BP46/BP47/BP48 先例）；exempt 落 assessment 留痕
+ * （code='restart_chip'——与 BP46 sniper_decay_heat_price 同形态，二者盘型互斥
+ * 不会同时成立）；代码不改写 Jev 桶判定（holder/market_pattern 答案原样透传） */
+const RESTART_CHIP_EXEMPT_PATTERN = 'restart';
 // 质量题桶域 QUALITY_LEVELS 已随两题退役删除（BP48）。
 /** 综合判定桶域（BP48 纯门链产物 ∈ {neutral=门全过放行, poor=门拒}；good 不再
  * 产出——保留 good/insufficient 值为门 bpPassLevels 消费域与历史 digest 行兼容，
@@ -390,8 +405,15 @@ function buildBuyPointObservation(answers, anchors = null) {
   // ③筹码门（BP49 起单臂）：famous 臂已随 famous_domination 题退役（BP49/案号
   //   BP45 用户裁定「盘形中已经分析了」）——famous 拦截归盘型题③独食桶+互斥
   //   检查（BP45 再起来域/BP47 厚度域在题面判读里）；holder strong 臂照旧
+  //   **BP52 restart 豁免：盘型=restart 时 holder strong 不拦（重启盘零星持有者
+  //   很多、大持有者就那几个——集中度高是重启盘常态非垄断信号；0x28ad2c7d
+  //   bt-v87 未买入归因案立法；RESTART_CHIP_EXEMPT_PATTERN 注释全档）**
+  const restartChipExempt = dimensions.holder_concentration
+    && dimensions.holder_concentration.bucket === 'strong'
+    && dimensions.market_pattern
+    && dimensions.market_pattern.bucket === RESTART_CHIP_EXEMPT_PATTERN;
   const chipArms = [
-    dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
+    dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' && !restartChipExempt ? dimensions.holder_concentration : null,
   ].filter(Boolean);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
   let bucket, prob, rule;
@@ -407,8 +429,10 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   const assessment = { bucket, prob, rule };
   // 案号 BP46 豁免留痕（豁免成立时 additive——旧形状零变化；豁免后被其它门拒
-  //   （如 chip strong）也带，审计完整）
+  //   （如 chip strong）也带，审计完整）；BP52 restart 筹码豁免同形态留痕
+  //   （二者盘型互斥（④ vs restart）不会同时成立，if/if 并列）
   if (sniperHeatExempt) assessment.exempt = sniperHeatExempt;
+  else if (restartChipExempt) assessment.exempt = { code: 'restart_chip', pattern: RESTART_CHIP_EXEMPT_PATTERN };
   const flat = {};
   for (const W of [30, 60, 120]) {
     for (const k of ['buyBnb', 'sellBnb', 'buyN', 'sellN', 'netBnb', 'buySharePct', 'ticksPerMin', 'buyers', 'sellers', 'newBuyers']) {
@@ -539,6 +563,7 @@ module.exports = {
   SNIPER_DECAY_HEAT_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_BUCKETS,
   SNIPER_DECAY_OPEN_SHARE_MAX,
+  RESTART_CHIP_EXEMPT_PATTERN,
   ACTIVITY_GATE_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
 };
