@@ -3234,6 +3234,12 @@ class ExperimentSignals {
           const exempt = cheatCheckInfo.exempt || null;
           const denied = cheatCheckInfo.exemptDenied || null;
           const showG = exempt && exempt.originalGrade ? exempt.originalGrade : g;
+          // 活跃度桶徽章（2026-11-09 用户要求放判定结果旁边——原来只在 16 题明细
+          // 折叠里可见，cheat/unhealthy 豁免判读须一眼对照 activity 档位）
+          const actBucket = (cheatCheckInfo.buckets && cheatCheckInfo.buckets.activityLevel) || null;
+          const actBadge = actBucket
+            ? `<span class="text-xs px-2 py-1 rounded-full border ${gateBucketClass(actBucket)}">活跃度 ${this._escapeHtml(String(actBucket))}</span>`
+            : '';
           const EXEMPT_LABELS = {
             activity_high: '活跃度豁免（high 档）',
             activity_ultra: '活跃度豁免（ultra 档）',
@@ -3288,7 +3294,7 @@ class ExperimentSignals {
           <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
               <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（买信号门 CD158）</div>
-              ${gBadge}
+              <div class="flex items-center gap-1 flex-wrap justify-end">${gBadge}${actBadge}</div>
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
               ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-200">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（下个买信号自动重判）</div>` : ''}
