@@ -187,6 +187,16 @@
 
 ## Case 倒序
 
+### CD389 cheat 门 alwaysRecheck 每信号重判——全部秒回点绕过真调 Jev（2026-11-09，门行为案·题集/grade/规则域零改动；commit `3641316a`；用户指令「重新回测一下（已经确定的改进，例如ultra的豁免去cheat需要上），这一次，cheat 检测每一次都重新做，不缓存 cheat 的结果，每一次都重新算」）
+
+**动机**：CD158 判定粘滞是配额优化（cheat 拉黑终态/healthy 同版秒回/unhealthy 粘滞秒回拒），回测对照里粘滞=盘面演化被冻结在首判时刻——bt-v90 复盘期 CD388 对拍即发现同版 Jev grade run-to-run 方差与粘滞旧判叠加，掩盖「重判会翻案」的真实效果面；用户要求回测里 cheat 判定**每买信号从头算**以拿到干净的重判效果读数。
+
+**落法（`CheatCheckService.js` 新配置 `cheatCheck.gate.alwaysRecheck`，缺省 false 生产零变化）**：flag 开 → gateBuyPoint 全部秒回点绕过恒真调重判——①入口拉黑秒回（`_gateBlocked`）②入口粘滞秒回（healthy/`recheckUnhealthy:false` unhealthy）③④`_chain` 4b bootstrap 拉黑复检/4c 粘滞复检（经 `_chainOpts` 归一化注入 `forceRecheck:true` 透传——与 CD381 表达式驱动重检**同通路同语义**：重检不再判 cheat=`_maybeUnblock` 解除拉黑可翻案、重检结果照走 CD379/CD380/CD383/CD388 豁免出口变换）；⑤虚拟引擎侧预信号拉黑短路加放行臂（`_cheatCheckService.alwaysRecheck === true` 时不做引擎级终态短路，拉黑票送门重判）——回测引擎无预信号短路天然干净，服务级 flag 即全覆盖。**观测分账**：`stats.alwaysRechecks` 与 `stats.forceRechecks`（CD381）独立计数，显式 `opts.forceRecheck` 优先计后者（表达式驱动观测域零污染）。**配额**：无秒回缓存后每买信号一次 Jev 16 题，由 T110 买信号节流（冷却窗+发射帽）天然封顶；BP 门（BuyPointCheckService）粘滞语义不动（用户指令只及 cheat 检测）。
+
+**接线**：BacktestEngine ctor `{...(_wsCfg.cheatCheck), persist:false, settleDelayMs:0}` → 实验 config `fourmemeWs.cheatCheck.gate.alwaysRecheck` 直达；web-server 校验布尔类型（非布尔 400）。单测 `_test_cheat_gate_engine.cjs` G 段 16 断言（ctor/getter 三态/拉黑票真调+翻案通路透传/healthy 粘滞绕过/缺省关对照 bit 不变/计数分账/inflight join 不重复归一化/`_force` 归一化+`_chainOpts`+4b 源码锁/引擎放行臂源码锁/web 校验源码锁），161 全绿。
+
+**首跑**：bt-v91（`94c89601-427b-42b1-8828-9c6d47d05f9b`，克隆 bt-v90 同窗同配置，config 唯一变量=`gate.alwaysRecheck:true`；三变量叠加=CD388（bt-v90 未含）+T128 拱臂持仓期化+本案）——**重判效果读数见跑毕汇报**（预计时长数小时：~1700 BUY 信号每信号真调 16 题 2-5s）。生产实验不开（配额代价+粘滞本为生产语义），开关留作回测/研究工具。
+
 ### CD388 ultra 档豁免资格收紧——ultra∧原判 cheat 不豁免（刷量机器恢复拉黑），ultra∧unhealthy 照旧豁免（2026-11-09，豁免资格案·题集/grade/规则域零改动；commit `0fbc3c88`）
 
 **案情**：bt-v90（`cebf56f5`，T127 quote 常量锚对照，净 +0.6126/65 票）复盘亏损归因——**亏损 Top1/2/4/5 全部走 CD379 活跃度豁免通道的 activity_ultra 票**（45ec0489 -0.0948 / 68bb8cd4 -0.0740 / 04323e04 -0.0634 / BEM 75d5286d -0.0614），用户指示收紧：「**对于 ultra 票，增加一个交易量的阈值，也就是说，需要这些币，在长期交易后，依然维持超高活跃度，那么就接纳它（0xc84a0ff2e7bab3d32cb6426f07855b70694f7777 需要能买入，0x32f18a98e4fc3b33013f80454faae710a6367777 因为活跃度会下降，也应该没问题。0xf485ec1d518185e73ca53164ddaa85dcfde77777 也需要能买入），否则则不接纳**」。
