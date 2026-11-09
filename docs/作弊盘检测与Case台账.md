@@ -201,6 +201,8 @@
 
 **单测**：`_test_cheat_gate_engine.cjs` F 段对齐——F2 cheat+high 翻转+分账计数、F4/F7 源码锁三点同构换 `_isCheatBurstExempt`、F8 双臂同中 grade=cheat code 翻 stall_burst、F9 整段重写（资格子式四断言+r9a/r9c 两桶拒+r9b/r9b2 unhealthy 照旧+r9d wash 优先+r9e/r9f burst 保留+r9g 资格缺席早退+源码锁三消费点），164 全绿。
 
+**验证（bt-v92 `0514e1bc` 完整窗口对照，11-09 跑毕；与 T129 同车，总读数详交易台账 T129 段）**：净 -0.1063/24 票 vs bt-v91 +0.9039/62 票。CD390 敞口逐票归因：**CD390 纯增量=15 张**（v91 cheat∧activity_high 豁免买进→v92 原判保持拒）v91 净额合计 **+0.1698**（4 正 11 负——28ad2c7d restart 立法票 +0.293 一张撑正、余 14 张合计 -0.123=「cheat∧high 两桶全负」在 v91 已被该票单点打破，v90 口径 -0.167 的分布基础变化知情）；CD388 增量 0 张（v91 已拦 ultra∧cheat）；grade 方差翻 cheat 3 张 v91 净 +0.5135 全正（c84a0ff2 +0.412/f485ec1d/9fb45eaf——v91 unhealthy/healthy 直过→v92 同版题集翻 cheat 被既有 CD388/拉黑域拒，CD319/387/388 同族 run-to-run 方差非 CD390 增量，误伤兜底=CD389 alwaysRecheck+CD381 翻案路径）；M4GA ba5ed45b +0.515 复合损失（T129 砍 06:57 +47 域 t0a 早期触发为主，07:52 回落域再触发时 burst 三键窗口已变形不在场=设计内贴线）。**CD390 自身代价温和（+0.17），bt-v92 净额差 -1.01 主因=T129 27.5 价格门砍掉回落域成交**（归因详 T129 段）；生产 activityCheatDenied 分布+误伤票攒批留观。
+
 ### CD389 cheat 门 alwaysRecheck 每信号重判——全部秒回点绕过真调 Jev（2026-11-09，门行为案·题集/grade/规则域零改动；commit `3641316a`；用户指令「重新回测一下（已经确定的改进，例如ultra的豁免去cheat需要上），这一次，cheat 检测每一次都重新做，不缓存 cheat 的结果，每一次都重新算」）
 
 **动机**：CD158 判定粘滞是配额优化（cheat 拉黑终态/healthy 同版秒回/unhealthy 粘滞秒回拒），回测对照里粘滞=盘面演化被冻结在首判时刻——bt-v90 复盘期 CD388 对拍即发现同版 Jev grade run-to-run 方差与粘滞旧判叠加，掩盖「重判会翻案」的真实效果面；用户要求回测里 cheat 判定**每买信号从头算**以拿到干净的重判效果读数。
