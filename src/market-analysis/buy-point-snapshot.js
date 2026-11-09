@@ -369,7 +369,8 @@ function computeBuyPointDerived(snapshot) {
   // 5.546e-9 常量，用户裁定「主流档即可」；出处与全档实证=launch-price.js 头注）。
   // 常量平台锚**恒有效不依赖 launchCovered**（锚窗截窗的长票/首行远离创建点照样有
   // 真发行价——旧口径「首笔成交价」对首单滑点/高价模板票的结构性失真就此消除）；
-  // quote 盘（flap 非 BNB 计价）/gang/未知平台=null 走旧口径=launchCovered 门下
+  // quote 盘（flap 非 BNB 计价）2026-11-09 起同 FL 常量（实证 11/11 首 tick=1.00x）；
+  // gang/未知平台=null 走旧口径=launchCovered 门下
   // 的全数组首个可靠价（非 outlier/price>0 最早行，链上真序 rel[0]）；出生覆盖
   // 判据=数组最早 dt ≤ BP_LAUNCH_COVER_TOL（首行贴近创建点=数组含出生段；锚窗
   // 截窗的长票不覆盖 → 全族 null fail-closed 截窗不冒充发行价）；launchCovered
@@ -394,8 +395,9 @@ function computeBuyPointDerived(snapshot) {
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
     launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
-    // 常量锚解析：platform 缺席（旧夹具/旧档）或 quote 盘 → null=旧口径 bit 不变；
-    // quote 判定=rows 行 quote_token（flap collector write 行级标记，BNB 盘 null）
+    // 常量锚解析：platform 缺席（旧夹具/旧档）或 gang/未知 → null=旧口径 bit 不变；
+    // quote 判定=rows 行 quote_token（flap collector write 行级标记，2026-11-09 起
+    // quote 盘同 FL 常量不再分流，传参保留）
     const quoteToken = ticks.some((t) => t.quote) ? 'quote' : null;
     const constLaunch = resolveLaunchPriceBnb(
       snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, quoteToken);

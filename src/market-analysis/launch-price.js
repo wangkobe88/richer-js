@@ -17,15 +17,21 @@
  *   LibCurve `(1e9+h−s)×(eth+r)=k`，初始价 P₀=r/(h+1e9)。**BNB 盘主力档
  *   CURVE_RH_BNB(20)：r=6.14、h=107036752 → P₀=6.14/(107036752+1e9)=5.546e-9（初始市值
  *   5.55 BNB）**，落统计主簇 [4,6)。用户裁定统一用主力档常量。
- * - quote 盘（flap 非 BNB 计价）：per-token snapshot 定价（signed QuoteCurveAuth，
- *   fromPrice(USD) 逐票可变）**无常量可言** → 返回 null=调用方保留旧口径（首可靠价）。
+ * - quote 盘（flap 非 BNB 计价）：T127 调研曾判「per-token snapshot 定价
+ *   （signed QuoteCurveAuth，fromPrice USD 逐票可变）无常量可言」——2026-11-09
+ *   182 实证推翻：wss_events token_quote_set 近 400 票中 11 张有成交票首 tick
+ *   （price_bnb=换算后 BNB 域）全部 5.10~5.68e-9、p50=5.55e-9=FL 常量 1.00x
+ *   （池初始价即常量，生态同 four.meme「43 档但主流档占绝大多数」）；赵公主
+ *   0x5793b7ea…7777 案（bt-v89 亏损 Top1 -0.0867）11:17:12 买点首 tick 口径
+ *   +38.5% 实为常量口径 +107.3%>40 被放走——用户裁定「落码吧，quote 盘也直接
+ *   用常量」。quoteToken 参数保留（调用方签名不变）但不再影响返回值。
  * - gang：已停（T86），未调研 → 返回 null=旧口径。
  *
  * ## 接口语义
  * resolveLaunchPriceBnb(platform, quoteToken) → number|null：
  * - 'fourmeme' → 主流档常量（quote 盘概念不存在于 four.meme）
- * - 'flap' ∧ 无 quoteToken → BNB 盘主力档常量
- * - 其余（flap quote 盘/gang/未知/null）→ null=调用方走旧口径（首可靠价）
+ * - 'flap' → 主力档常量（2026-11-09 起 quote 盘同常量，quoteToken 不再分流）
+ * - 其余（gang/未知/null）→ null=调用方走旧口径（首可靠价）
  *
  * 零依赖叶子模块（不 require 本项目任何文件）——BP/CD/FA/引擎任意层可安全引入。
  */
@@ -40,13 +46,15 @@ const FLAP_LAUNCH_PRICE_BNB = 6.14 / (107036752 + 1e9); // ≈ 5.546e-9 BNB/枚
 /**
  * 平台 curve 发行价（常量锚）解析。
  * @param {string|null} platform 平台标识（'fourmeme'|'flap'|'gang'|null）
- * @param {string|null} quoteToken flap 非 BNB 计价盘 quote 地址（null/空=BNB 盘）
- * @returns {number|null} 发行价 BNB 常量；null=无常量锚（调用方保留旧口径首可靠价）
+ * @param {string|null} quoteToken flap 非 BNB 计价盘 quote 地址——2026-11-09 起
+ *   不再影响返回值（quote 盘同常量，保留参数为调用方签名兼容；透传链另有
+ *   毕业阈值学习/PCS 二跳路由消费者）
+ * @returns {number|null} 发行价 BNB 常量；null=无常量锚（gang/未知，调用方保留旧口径首可靠价）
  */
 function resolveLaunchPriceBnb(platform, quoteToken) {
   if (platform === 'fourmeme') return FOURMEME_LAUNCH_PRICE_BNB;
-  if (platform === 'flap') return quoteToken ? null : FLAP_LAUNCH_PRICE_BNB;
-  return null; // gang/quote 盘/未知平台：旧口径
+  if (platform === 'flap') return FLAP_LAUNCH_PRICE_BNB;
+  return null; // gang/未知平台：旧口径
 }
 
 module.exports = {

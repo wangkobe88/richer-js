@@ -540,7 +540,7 @@ class CheatCheckService {
       //     ——窗口口径非题面）；题集版本不 bump=粘滞域不动。
       let pull = pull0;
       if (!pull.capped) {
-        // platform=f调用方 tokenMeta（four.meme/flap 曲线常量锚；quote 盘/gang/缺失=首可靠价旧口径）
+        // platform=f调用方 tokenMeta（four.meme/flap 曲线常量锚，flap 含 quote 盘同 FL 常量 2026-11-09；gang/缺失=首可靠价旧口径）
         const reset = computeMarketResetIndex(pull.rows, tokenMeta.platform || null);
         if (reset) {
           const rows = reset.sortedRows.slice(reset.resetIdx);

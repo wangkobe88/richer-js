@@ -110,7 +110,7 @@ console.log('C. 未见可靠价 → null fail-closed（裸比较恒 false 不触
 }
 
 // ═══════════════ H. 平台常量锚（2026-11-08 发行价口径修正）═══════════════
-console.log('H. 平台 curve 常量锚（four.meme 主流档/flap BNB 盘主力档；quote 盘/gang=null 旧口径）');
+console.log('H. 平台 curve 常量锚（four.meme 主流档/flap 主力档；quote 盘 2026-11-09 起同 FL 常量；gang=null 旧口径）');
 {
     const FM = 4496173469e-18, FL = 6.14 / (107036752 + 1e9);
     // four.meme：分母=主流档常量（首单滑点 +35.2% 不再抬锚——现价 1.5×常量 → +50
@@ -138,13 +138,17 @@ console.log('H. 平台 curve 常量锚（four.meme 主流档/flap BNB 盘主力�
     check('flap BNB 盘分母=主力档常量（首价即常量 → +100）', () =>
         assert.strictEqual(faFl.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 100));
 
-    // flap quote 盘：per-token snapshot 定价无常量 → 旧口径首可靠价（quote_token 行标记）
+    // flap quote 盘：2026-11-09 用户裁定「落码吧，quote 盘也直接用常量」——182 实证
+    // 11/11 有成交 quote 盘票首 tick=FL 常量 1.00x（p50=5.55e-9）；赵公主案首 tick
+    // 口径 +38.5% 实为常量口径 +107.3%>40 放走 -0.0867 引出。首 tick=2×常量（模拟
+    // 开盘冲击后，如赵公主 8.26e-9=×1.49）、现价 3×常量：常量口径 +200、旧口径 +50
+    // ——数值互异锁死常量分母（quote_token 标记不再分流）
     const faQ = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
     faQ.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'flap' });
-    faQ.processTick(mkTick({ price_bnb: 2.0 * 1e-9, timestamp: T0 + 1000, quote_token: '0xquote' }));
-    faQ.processTick(mkTick({ price_bnb: 3.0 * 1e-9, timestamp: T0 + 2000, quote_token: '0xquote' }));
-    check('flap quote 盘=旧口径首可靠价（3/2−1=+50 非常量口径 −45.9）', () =>
-        assert.strictEqual(faQ.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 50));
+    faQ.processTick(mkTick({ price_bnb: FL * 2, timestamp: T0 + 1000, quote_token: '0xquote' }));
+    faQ.processTick(mkTick({ price_bnb: FL * 3, timestamp: T0 + 2000, quote_token: '0xquote' }));
+    check('flap quote 盘=FL 常量分母（3FL/FL−1=+200，旧口径首可靠价会得 +50）', () =>
+        assert.strictEqual(faQ.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 200));
 
     // gang：已停未调研 → 旧口径
     const faG = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });

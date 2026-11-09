@@ -174,12 +174,14 @@ console.log('C. 常量锚（four.meme 主流档 4.496173469e-9——恒有效不
   ok(rC3 !== null && rC3.launchPriceBnb === FM * 1.5,
     `C3 CD null platform=旧口径首可靠价锚（1.5×FM；实际 ${rC3 && rC3.launchPriceBnb}）`);
 
-  // C4 flap quote 盘（rows 行 quote_token 非空）传 'flap' → 常量失效走旧口径
-  //（per-token snapshot 定价无常量）；gang 平台同旧口径
+  // C4 flap quote 盘（rows 行 quote_token 非空）传 'flap' → 2026-11-09 用户裁定
+  //「落码吧，quote 盘也直接用常量」（182 实证 11/11 首 tick=FL 常量 1.00x）——
+  // quote 盘同 FL 常量不再分流；gang 平台维持旧口径
   const rowsQ = rowsC.map((r) => ({ ...r, quote_token: '0xquote', platform: 'flap' }));
+  const FL = 6.14 / (107036752 + 1e9);
   const rC4 = computeMarketResetIndex(rowsQ, 'flap');
-  ok(rC4 !== null && rC4.launchPriceBnb === FM * 1.5,
-    `C4 flap quote 盘=旧口径（quote_token 行标记；实际 ${rC4 && rC4.launchPriceBnb}）`);
+  ok(rC4 !== null && rC4.launchPriceBnb === FL,
+    `C4 flap quote 盘=FL 常量（2026-11-09 同常量裁定；实际 ${rC4 && rC4.launchPriceBnb}）`);
   const rC4g = computeMarketResetIndex(rowsC, 'gang');
   ok(rC4g !== null && rC4g.launchPriceBnb === FM * 1.5,
     `C4 gang=旧口径（已停未调研；实际 ${rC4g && rC4g.launchPriceBnb}）`);

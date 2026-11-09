@@ -233,7 +233,7 @@ function buildSnapshotFromRows(rows, tokenMeta, options = {}) {
       viaRouter: isRouterTrader(r),
       outlier: r.price_outlier === true,
       // flap 非 BNB 计价盘行级标记（wss_price_ticks.quote_token：quote 地址|null=BNB 盘）——
-      // BP 发行价常量锚的 quote 盘判定源（quote 盘 per-token snapshot 定价无常量→旧口径）
+      // 发行价常量锚的 quote 盘判定源（2026-11-09 起 quote 盘同 FL 常量，不再分流）
       quote: r.quote_token ?? null,
       senderMissing: !r.sender_address,
     });
@@ -1463,8 +1463,9 @@ function isRouterWallet(wallet) {
  * _test_cheat_market_reset 双向锁定——cheat-snapshot 已被 buy-point-snapshot
  * 依赖，反向 import 成环，故 CD 侧独立实现）：launchPrice=平台 curve 初始价常量
  * （2026-11-08 发行价口径修正——four.meme 主流档/flap BNB 盘主力档，第二参
- * platform 传 'fourmeme'/'flap' 时启用；quote 盘/gang/null 平台=首可靠价旧口径
- * （不满帽锚窗首行=出生段发行价，capped 由调用方拦））；涨起后段=首个突破 almost_launch
+ * platform 传 'fourmeme'/'flap' 时启用，flap 含 quote 盘同 FL 常量（2026-11-09）；
+ * gang/null 平台=首可靠价旧口径（不满帽锚窗首行=出生段发行价，capped 由调用方拦））；
+ * 涨起后段=首个突破 almost_launch
  * 上界（严格 > 1.1×launchPrice——+10 恰在桶界内不算离开；2026-11-09 almost 20→10）的可靠价起（含离开
  * 那一笔——突破笔本身必然 >+10 不影响「≤+10」判定；创新高不遮蔽回落，ATH
  * 位置无关）全段；段最低 ≤+10%（含破发）=「回到过」→ 重置生效。
@@ -1475,7 +1476,7 @@ function isRouterWallet(wallet) {
  * @param {Array} rows DB 形状行（price_bnb/price_outlier/block_number/log_index/
  *   block_time/quote_token；到达序无关——内部按链上真序拷贝排序）
  * @param {string|null} [platform] 平台标识（'fourmeme'|'flap'——传则优先 curve
- *   常量锚；quote 盘（rows 行 quote_token 非空）/gang/null=首可靠价旧口径）
+ *   常量锚（flap 含 quote 盘同 FL 常量，2026-11-09）；gang/null=首可靠价旧口径）
  * @returns {null|Object} null=未重置（无可靠价/从未离开 almost_launch/刚离开
  *   无后续/涨起后最低 >+20 没回到过——调用方维持全窗 bit 不变）；
  *   {resetIdx, sortedRows, launchPriceBnb, minPriceBnb, minVsLaunchPct,
@@ -1493,8 +1494,8 @@ function computeMarketResetIndex(rows, platform = null) {
   });
   const isRel = (r) => r.price_bnb != null && r.price_bnb > 0 && r.price_outlier !== true;
   // launchPrice=平台 curve 初始价常量（2026-11-08 发行价口径修正：four.meme 主流档/
-  // flap BNB 盘主力档，用户裁定；quote 盘/gang/未知=null）；无常量锚回落首可靠价旧口径。
-  // 无可靠价且无常量锚 → null（宁不重置，不以伪锚翻案）
+  // flap 主力档，用户裁定；2026-11-09 起 quote 盘同 FL 常量）；gang/未知=null
+  // 无常量锚回落首可靠价旧口径；无可靠价且无常量锚 → null（宁不重置，不以伪锚翻案）
   // quote 判定=rows 行 quote_token（flap 非 BNB 计价盘行级标记；BNB 盘 null）
   const quoteToken = (rows || []).some((r) => r.quote_token) ? 'quote' : null;
   let launchPrice = resolveLaunchPriceBnb(platform, quoteToken);

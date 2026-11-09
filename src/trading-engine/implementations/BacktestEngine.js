@@ -59,8 +59,8 @@ const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐�
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
 //（列变更时旧缓存自动判废重拉，不静默缺列）
 // quote_token（2026-11-08 发行价口径修正）：flap 非 BNB 计价盘行级标记——FA
-// state.quoteToken write-once 捕获 → currentVsLaunchPct 常量锚的 quote 盘判定
-// （quote 盘 per-token snapshot 定价无常量→首可靠价旧口径）。加列=tick 缓存
+// state.quoteToken write-once 捕获 → 毕业阈值学习（per-quote）/PCS 二跳路由消费；
+// curVs 常量锚 2026-11-09 起 quote 盘同 FL 常量不再分流。加列=tick 缓存
 // columnsTag 漂移全量重拉一次（设计内）
 const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, sender_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform, quote_token';
 
@@ -956,7 +956,8 @@ class BacktestEngine extends AbstractTradingEngine {
         price_outlier: row.price_outlier || false,
         platform: row.platform,   // token 级 fallback 证据（_registerToken/_evaluateBuyPath）
         // flap 非 BNB 计价盘行级标记（T127）：FA state.quoteToken write-once 捕获 →
-        // currentVsLaunchPct 的 quote 盘判定（quote 盘无常量锚→旧口径首可靠价）。
+        // 毕业阈值学习（per-quote）/PCS 二跳路由消费；curVs 常量锚 2026-11-09 起
+        // quote 盘同 FL 常量不再分流。
         // 断链事故（2026-11-09）：TICK_SELECT_COLUMNS 加列但此处组装漏透传 → quote 盘
         // 全部误判 BNB 盘用 FL 常量分母（bt-v85 128/162 token curVs 失真）——单测
         // _test_backtest_quote_token_passthrough 锁死

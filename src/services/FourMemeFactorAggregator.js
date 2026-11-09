@@ -3357,9 +3357,9 @@ class FourMemeFactorAggregator extends EventEmitter {
                 ? parseFloat((100 * (1 - currentPriceBnb / state.highestPriceBnb)).toFixed(2)) : null,
             // 现价较发行价涨幅 %（T122 接近发行价臂，2026-11-07 用户裁定「参考购买前
             // 检测中『接近发布价』的判断」）：分母=平台 curve 初始价常量（2026-11-08
-            // 发行价口径修正——four.meme 主流档 4.496173469e-9/flap BNB 盘主力档
-            // 5.546e-9，用户裁定「主流档即可」；quote 盘/gang/未知平台=回落旧口径
-            // 首可靠价 _relFirstPriceBnb），分子=可靠价链现价（与 BP snapshot 的
+            // 发行价口径修正——four.meme 主流档 4.496173469e-9/flap 主力档
+            // 5.546e-9，用户裁定「主流档即可」；2026-11-09 起 quote 盘同 FL 常量；
+            // gang/未知平台=回落旧口径首可靠价 _relFirstPriceBnb），分子=可靠价链现价（与 BP snapshot 的
             // arc.last 同源）；near_launch 判据=≤+50% 含破发。null=未见可靠价
             // fail-closed（裸比较恒 false 不触发=宁拦不冒充）；TPAPre_asofRelFirst 是
             // TPA 审批时刻冻结快照，本键是买点时刻实时值——语义刻意分开
