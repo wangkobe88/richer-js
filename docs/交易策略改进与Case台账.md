@@ -696,6 +696,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **对拍（182 达成）**：赵公主 11:17:12 锚 BP 门重判——curVs 38.5→**107.3**、综 neutral(ultra_router_entry exempt curVs:38.5/router:30.7)→**poor(pattern_gate)** 翻拒 ✓（④桶 early_sniper_decay 0.90、router60=30.7 照旧 ≥30 但 BP56 价格腿 curVs≤40 失效拦截）；CD 侧 grade=healthy 不变（散户盘非作弊盘，拦截本就在 BP 门层）。买点价 1.1498e-8÷FL=+107.3% 超 near_launch ≤40 近 3 倍——-0.0867 亏损正是 quote 盘首 tick 锚偏松放走的
 - **单测三件同步**：current_vs_launch H 段 quote 盘断言改常量口径（3FL/FL−1=+200 vs 旧口径 +50 数值互异锁死）/backtest_quote_token_passthrough 三态→两态改写（A/D 段口径统一锁，B/C 源码锁保留防透传链再删）/cheat_market_reset C4 quote 盘=FL 常量；本地+182 全绿。**存量失败留档**：cheat_mem_pull_ticks D2 `pull.fromMem` 源码锁断言（现实现为 `pull0.fromMem`，rename 时断言未跟上，与本轮无关待裁定）
 - **回测记账域留档不修（调查副产品）**：BacktestEngine 虚拟成交价 `signal.price` 为 USD 域 → ÷BNB 预算枚数虚低 ~714 倍，但买卖同域抵消**净盈亏正确**（=0.2×卖买价比）；trades 行 unit_price 语义标错域——是否立案待用户
+- **回测对照 bt-v90 `cebf56f5`**（v89 克隆同窗，唯一变量=quote 盘 FL 常量锚；BUY 1642 信号/成交 65 票/净 **+0.6126** vs v89 +0.9261/73 票，-0.3135 仍正收益）：
+  - **赵公主细读（核心验证票）**：v89 11:17:12 executed（ultra_router_entry curVs 38.5）-0.0867 → v90 四条信号常量口径 curVs 逐步回落 **75.5→62.5→48.7→31.5**，前三条 pattern_gate 拒（>40），11:18:16 第四条 **BP46 高热近价豁免放行**（sniper_decay_heat_price：heat=high ∧ openShare 66.2<80 ∧ curVs 31.5≤40）gates_passed 成交 → 净 **-0.0112**（-0.0867→-0.0112 缩 87%）——新锚不是把票拒掉，是**把买点从 +107% 山顶压到回落段 +31.5%**，位置门按设计工作
+  - 换手面：v89 独有 15 票合计 ≈**+0.09**（翻拒面=收紧代价，含 0xea7886d5 +0.2941 大正票——BP53 对拍正票被新锚价格腿误拒）；v90 独有 7 票 ≈**-0.12**（新增面全小亏）；其余净差在共有票买点移动
+  - **豁免通道×净额（v90 票级）**：stall_burst 4 票 +0.4506 ＞ activity_ultra 12 票 +0.1603 ＞ activity_high 42 票 +0.0698 ＞ healthy 直过 7 票 **-0.0682（唯一净负通道）**；**亏损 Top5 单票全部 activity_ultra**（0x45ec0489 -0.0948 t0b/0x68bb8cd4 -0.0740 t0a/0xc62d2dff -0.0660 t3/0x04323e04 -0.0634 t0a/0x75d5286d -0.0614 t2=BEM）——「单票亏损深度集中 ultra 豁免」成立（用户观察印证），但 ultra 通道净额为正（0xc84a0ff2 +0.4023/0x32f18a98 +0.1592 两张正票同域）——**与 CD384 挂账「activity 豁免域=唯一亏损源待裁定（CD379×门链联合校准）」同形状并档**
+  - 结论：quote 常量锚方向正确（单票最大亏损直接砍掉、BP56 价格腿钳制生效），代价=误拒面 ≈+0.09 与买点整体后移——口径修正非策略优化，窗口净额下降为知情取舍
 - **余留**：生产 quote 盘票 curVs 分布观察（首个引用实验吃到）；价格门阈值按旧锚校准问题（T127 原余留）在 quote 盘侧同解——换锚=等效收紧，重校与否待裁定
 
 ### T17 信号/执行双口径——0xc7fe 案（2026-10-15）
