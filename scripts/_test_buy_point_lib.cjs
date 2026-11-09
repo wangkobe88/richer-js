@@ -27,7 +27,7 @@ const {
   PRICE_TREND_LEVELS, HEAT_LEVELS, ACTIVITY_LEVELS,
   HOLDER_CONCENTRATION_LEVELS,
   PRICE_LEVEL_LEVELS,
-  MARKET_PATTERN_LEVELS, LEGACY_MARKET_PATTERN_LEVELS, PATTERN_GATE_POOR_BUCKETS,
+  MARKET_PATTERN_LEVELS, PATTERN_GATE_POOR_BUCKETS,
   ACTIVITY_GATE_POOR_BUCKETS,
   SUSTAINED_CLIMB_LAUNCH_PCT, NORMAL_ENTRY_LAUNCH_PCT,
   ENTRY_SHAPE_LEVELS, ENTRY_GATE_POOR_BUCKETS,
@@ -758,31 +758,30 @@ ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置门 锚缺�
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'sustained_climb', 0.87), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: ⑥位置臂已拉离拒（盘型位置不对不参与——旧档质量题答案不被消费）');
 ok(!PATTERN_GATE_POOR_BUCKETS.includes('sustained_climb'), 'E: PATTERN_GATE_POOR_BUCKETS 两桶不含⑥（⑥走 SUSTAINED_CLIMB_LAUNCH_PCT=10 独立位置臂——硬拒与⑥位置拒分治）');
-// BP58 异常盘面识别桶域清单（四桶）+LEGACY 五桶并域重放（行为同 none）
-ok(JSON.stringify(MARKET_PATTERN_LEVELS) === JSON.stringify(['retail_pvp', 'famous_monopoly', 'sustained_climb', 'none'])
-  && JSON.stringify(LEGACY_MARKET_PATTERN_LEVELS) === JSON.stringify(['strong_backer', 'early_sniper_decay', 'blended_unremarkable', 'restart', 'golden_point']),
-  'E: BP58 桶域清单（异常盘面识别四桶 retail_pvp/famous_monopoly/sustained_climb/none+LEGACY 五桶并域——strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 重放归 none 语义）');
+// BP58 二修判型恢复：八桶清单（识别全保留——「简化而不是删除」；无 none/LEGACY 桶）
+ok(JSON.stringify(MARKET_PATTERN_LEVELS) === JSON.stringify(['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb', 'restart', 'golden_point']),
+  'E: BP58 二修桶域清单=八桶全恢复（判型识别能力全保留，处理统一简化——②③硬拒/⑥≤10/①④⑤⑦⑧统一门 27.5；无 none/LEGACY 桶）');
 ok(JSON.stringify(PATTERN_GATE_POOR_BUCKETS) === JSON.stringify(['retail_pvp', 'famous_monopoly']),
-  'E: BP58 硬拒桶恰两桶（用户裁定「只需要识别出 retail_pvp famous_monopoly sustained_climb 即可」——③⑥中⑥走位置门，硬拒=②③）');
-for (const legacyBucket of LEGACY_MARKET_PATTERN_LEVELS) {
-  const oLeg = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', legacyBucket, 0.8) }, dE).assessment;
-  ok(oLeg.bucket === 'neutral' && oLeg.rule === 'gates_passed', `E: BP58 LEGACY 桶 ${legacyBucket} 重放=none 语义（curVs=20≤27.5 统一门放行——旧档重放不 throw 行为同 none）`);
+  'E: BP58 硬拒桶恰两桶（③⑥中⑥走位置门，硬拒=②③——①④⑤⑦⑧判型留档不独立硬拒，④拉高/砸盘由 entry_shape+统一门接力）');
+for (const passBucket of ['strong_backer', 'early_sniper_decay', 'blended_unremarkable', 'restart', 'golden_point']) {
+  const oPass = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', passBucket, 0.8) }, dE).assessment;
+  ok(oPass.bucket === 'neutral' && oPass.rule === 'gates_passed', `E: BP58 二修判型恢复桶 ${passBucket} 统一门域内放行（curVs=20≤27.5——①④⑤⑦⑧不独立硬拒走 else 分支）`);
 }
-// BP58 ⑦restart 桶退役归 LEGACY（重放=none 语义走统一门 27.5——BP43/CD381 独立
-// 位置门 40 与 BP44 涨起后最低锚判据全归题面判读，mapper 单门）
+// BP58 二修 ⑦restart=正式桶走统一门 27.5（BP43 时代独立 RESTART_LAUNCH_PCT=40
+// 已退役；BP44 涨起后最低锚判据全归题面判读，mapper 单门）
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, dA).assessment;
-ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'pattern_gate', 'E: 门① BP58 restart（LEGACY）已拉离（dA vsLaunch=+60% >+27.5%）→ poor/pattern_gate（统一位置门拒）');
+ok(aM.bucket === 'poor' && near(aM.prob, 0.87) && aM.rule === 'pattern_gate', 'E: 门① BP58 二修 restart 已拉离（dA vsLaunch=+60% >+27.5%）→ poor/pattern_gate（统一位置门拒）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: 27.5 }).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: restart（LEGACY）恰 +27.5% 放行（重启起点段域内——BP43 时代恰 40 放行断言随改制反转）');
+ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: restart 恰 +27.5% 放行（重启起点段域内——BP43 时代恰 40 放行断言随改制反转）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: 40 }).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: restart（LEGACY）+40% 拒（RESTART_LAUNCH_PCT=40 独立臂退役——统一门 27.5 接管）');
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: restart +40% 拒（RESTART_LAUNCH_PCT=40 独立臂已退役——统一门 27.5 接管）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: -12 }).assessment;
-ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: restart（LEGACY）破发 −12% 放行（含破发——重启回到起点以下也是重启起点段）');
+ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: restart 破发 −12% 放行（含破发——重启回到起点以下也是重启起点段）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87) }, { ...dA, currentVsLaunchPct: null }).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: restart（LEGACY）锚缺失（发行价位置 ? = ticks 未覆盖出生段）宁拦不冒充拒');
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: restart 锚缺失（发行价位置 ? = ticks 未覆盖出生段）宁拦不冒充拒');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'restart', 0.87), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
-ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: restart（LEGACY）已拉离拒（旧档质量题答案不被消费）');
-ok(!PATTERN_GATE_POOR_BUCKETS.includes('restart'), 'E: PATTERN_GATE_POOR_BUCKETS 不含 restart（LEGACY 域归 none 语义——硬拒仅 retail_pvp/famous_monopoly 两桶）');
+ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: restart 已拉离拒（旧档质量题答案不被消费）');
+ok(!PATTERN_GATE_POOR_BUCKETS.includes('restart'), 'E: PATTERN_GATE_POOR_BUCKETS 不含 restart（①④⑤⑦⑧走统一门 27.5——硬拒仅 retail_pvp/famous_monopoly 两桶）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'retail_pvp', 0.86), ...mkAns('early_bird_quality', 'good', 0.95) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 门① 散户 PVP 拒（盘型不对不参与——旧档质量题答案不被消费）');
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_heat', 'low', 0.85), ...mkAns('market_pattern', 'retail_pvp', 0.95) }, dA).assessment;
@@ -938,77 +937,77 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(q.PRICE_LEVEL_LEVELS) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: PRICE_LEVEL_LEVELS 同域（BP43 六桶 almost_launch 前插——ESM/CJS 双副本对锁）');
   ok(!('TREE_POSITION_LEVELS' in q), 'F: TREE_POSITION_LEVELS 常量绝迹（BP30 tree_position 退役——ESM 侧同删）');
   // BP18 盘面分类锚（五类型学——用户裁定原话直译）
-  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP58 异常盘面识别改制四桶 retail_pvp/famous_monopoly/sustained_climb/none——ESM/CJS 双副本对锁）');
-  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（BP58 四桶——PATTERN_GATE_POOR_BUCKETS 硬拒恰 retail_pvp/famous_monopoly 两桶）');
+  ok(JSON.stringify(q.MARKET_PATTERN_LEVELS) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: MARKET_PATTERN_LEVELS 同域（BP58 二修判型恢复八桶——ESM/CJS 双副本对锁）');
+  ok(JSON.stringify(Object.keys(qs.market_pattern.criteria)) === JSON.stringify(MARKET_PATTERN_LEVELS), 'F: market_pattern 桶===MARKET_PATTERN_LEVELS（BP58 二修八桶——PATTERN_GATE_POOR_BUCKETS 硬拒恰 retail_pvp/famous_monopoly 两桶）');
   // BP43（CD381 同车需求 2/4'）：almost_launch 六桶+restart 第七桶+数值锚联动
   ok(JSON.stringify(PRICE_LEVEL_LEVELS) === JSON.stringify(['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high']), 'F: price_level 六桶域=almost_launch/near_launch/low/mid/high/very_high（BP43 almost_launch 前插；BP50 上界 20→10）');
   ok(JSON.stringify(Object.keys(qs.price_level.criteria)) === JSON.stringify(PRICE_LEVEL_LEVELS), 'F: price_level 桶===PRICE_LEVEL_LEVELS（六桶——ESM 题集 criteria 键序一致）');
   ok(qs.price_level.criteria.almost_launch.includes('≤ +10%，含破发') && qs.price_level.criteria.near_launch.includes('+10%~+40%') && qs.price_level.criteria.low.includes('+40%~+80%，1.4~1.8 倍') && qs.price_level.criteria.mid.includes('+80%~+600%，1.8~7 倍'), 'F: price_level criteria 六桶分界（almost_launch ≤+10/near_launch 10~40/low 40~80/mid 80~600——BP43 六桶改制+BP50 almost 20→10「基本再次归零」）');
-  ok(!MARKET_PATTERN_LEVELS.includes('restart') && !MARKET_PATTERN_LEVELS.includes('golden_point') && !MARKET_PATTERN_LEVELS.includes('strong_backer') && !MARKET_PATTERN_LEVELS.includes('early_sniper_decay') && !MARKET_PATTERN_LEVELS.includes('blended_unremarkable'), 'F: 五桶退出桶域（BP58——strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 处理方式已完全一致归 none 不再细分）');
-  ok(!('LEGACY_MARKET_PATTERN_LEVELS' in q) && JSON.stringify(LEGACY_MARKET_PATTERN_LEVELS) === JSON.stringify(['strong_backer', 'early_sniper_decay', 'blended_unremarkable', 'restart', 'golden_point']), 'F: LEGACY_MARKET_PATTERN_LEVELS 仅 mapper 侧重放并域（BP58 五退役桶——题集侧刻意不导出：Jev 判读域只见现行四桶，LEGACY 语义属 mapper 旧档兼容；mapper 侧字面量锁 D 组 763 行双保险）');
-  ok(require('../src/market-analysis/buy-point-result-mapper').NORMAL_ENTRY_LAUNCH_PCT === 27.5 && require('../src/market-analysis/buy-point-result-mapper').SUSTAINED_CLIMB_LAUNCH_PCT === 10, 'F: 位置门常量导出（NORMAL_ENTRY_LAUNCH_PCT=27.5 none+LEGACY 统一放行上界/SUSTAINED_CLIMB_LAUNCH_PCT=10——BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」）');
+  ok(MARKET_PATTERN_LEVELS.includes('restart') && MARKET_PATTERN_LEVELS.includes('golden_point') && MARKET_PATTERN_LEVELS.includes('strong_backer') && MARKET_PATTERN_LEVELS.includes('early_sniper_decay') && MARKET_PATTERN_LEVELS.includes('blended_unremarkable') && !MARKET_PATTERN_LEVELS.includes('none'), 'F: 五桶判型恢复+无 none 桶（BP58 二修「简化而不是删除」——识别全保留八桶、处理统一简化走统一门 27.5）');
+  ok(!('LEGACY_MARKET_PATTERN_LEVELS' in q) && !('LEGACY_MARKET_PATTERN_LEVELS' in require('../src/market-analysis/buy-point-result-mapper')), 'F: LEGACY_MARKET_PATTERN_LEVELS 两侧绝迹（BP58 二修判型恢复后无并域语义——八桶均在役，题集/mapper 均不导出）');
+  ok(require('../src/market-analysis/buy-point-result-mapper').NORMAL_ENTRY_LAUNCH_PCT === 27.5 && require('../src/market-analysis/buy-point-result-mapper').SUSTAINED_CLIMB_LAUNCH_PCT === 10, 'F: 位置门常量导出（NORMAL_ENTRY_LAUNCH_PCT=27.5 ①④⑤⑦⑧统一放行上界/SUSTAINED_CLIMB_LAUNCH_PCT=10——BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」）');
   const mp = qs.market_pattern.instructions;
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('②这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
-  ok(mp.includes('famous 集团买入主导判序（BP57）') && mp.includes('优先判本桶') && qs.market_pattern.criteria.famous_monopoly.includes('famous 集团自己买出来的吞吐不算厚'),
-    'F: BP57 ③桶 famous 集团买入主导判序（徐苍蝇案 0x59f5…7777 两 famous 控盘 85.4%/集团买 80.1%/两 famous 买入 1.445=全窗 56% 误判④——famous 抢筹天然制造开盘集中+吞吐骤降形状是进场方式产物非衰竭证据；④桶退役后判序句「优先判本桶」；厚度域界=famous 之外多元参与承接主要买入才算厚）');
-  ok(mp.includes('none 正常盘面：以上②③⑥异常都不命中的其余一切盘面——强庄盘/狙击衰竭盘/融合盘/回落重启盘/高活跃度黄金点等正常形状**不再细分**'), 'F: none 正常盘面桶=其余一切（BP58 改制核心——①④⑤⑦⑧五正常形状处理方式完全一致归 none 不再细分）');
-  ok(mp.includes('本题是**异常盘面识别**（BP52 改制，用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」）') && mp.includes('只需要把**不该参与的异常盘面**识别出来——②散户 PVP/③famous 独食/⑥持续拉升弱回调三类（四类互斥择一）'), 'F: 异常盘面识别改制句（BP58 用户裁定原话直译——②③⑥三类异常+none 兜底）');
+  ok(mp.includes('famous 集团买入主导判序（BP57，优先于④）') && mp.includes('优先判本桶') && qs.market_pattern.criteria.famous_monopoly.includes('famous 集团自己买出来的吞吐不算厚'),
+    'F: BP57 ③桶 famous 集团买入主导判序（徐苍蝇案 0x59f5…7777 两 famous 控盘 85.4%/集团买 80.1%/两 famous 买入 1.445=全窗 56% 误判④——famous 抢筹天然制造开盘集中+吞吐骤降形状是进场方式产物非衰竭证据；BP58 二修④桶恢复后判序句「优先判本桶不判④」；厚度域界=famous 之外多元参与承接主要买入才算厚）');
+  ok(mp.includes('BP58 二修——判型照旧、处理统一') && mp.includes('八桶识别能力全保留'), 'F: BP58 二修判型恢复句（用户裁定「我觉得这个模块是简化而不是删除」——识别全保留八桶、处理统一简化：②③硬拒/⑥≤10/①④⑤⑦⑧统一门 27.5）');
+  ok(mp.includes('盘面重置前置（BP44 判序，先于④⑦评分类）'), 'F: 盘面重置前置段恢复（BP44 判序⑦优先/⑧分层——二修随八桶全文回迁）');
   ok(mp.includes('买入额到 0.2 BNB 级（≥0.19 视同）的钱包 ≥2 个，或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足'), 'F: ②⑤分界双臂语义保留（BP19 突突车案——多笔 0.2 级（≥2 钱包）或单笔 0.3+ 在场=满足大户参与不属纯散户 PVP；BP28 判序化后该双臂成为前置门判据；BP47 精简后主述在②桶 (a) 判序前置段）');
   ok(mp.includes('「多笔」是硬笔数') && mp.includes('0.2 BNB 级（≥0.19 视同）钱包须 ≥2 个') && mp.includes('仅一笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚（BP20 两改——到 0.2 级钱包 ≥2 个、单笔 0.2 凑不成多笔仍落②：T006/T008 单笔 0.2 判 blended 宽松执行收口；BP47 精简去冗词）');
   // BP23 两轴（159 点复审第 2-3 批立法）
-  ok(mp.includes('「一眼可辨的大量小散单」两要件：买盘中位尘埃级 0.0x+前列再无像样买方，缺一不落②'), 'F: ②(b) 收窄=零散小散须一眼可辨（BP23/S018 吉祥B 案——「有大量零散小散户的可以明显看出来」方法论锚：中位尘埃级+前列无像样买方两要件缺一不落②；BP58 后⑤桶语义归 none）');
-  ok(mp.includes('承接单在 0.1~0.2 BNB 级常见交易档（买盘中位 0.1 级）→ 不落②归 none'), 'F: ②(b) 承接中间档不落②（BP23——大户参与+承接非零散小散归 none 不落②；像样级更不落）');
+  ok(mp.includes('「一眼可辨的大量小散单」两要件缺一不落②') && mp.includes('①买盘中位尘埃级（0.0x 级，不是 0.1 级常见交易档）②前列再无任何像样买方'), 'F: ②(b) 收窄=零散小散须一眼可辨（BP23/S018 吉祥B 案——「有大量零散小散户的可以明显看出来」方法论锚：中位尘埃级+前列无像样买方两要件缺一不落②；BP58 二修后承接档位分界回①⑤）');
+  ok(mp.includes('承接单在 0.1~0.2 BNB 级常见交易档（买盘中位 0.1 级）→ 不落②') && mp.includes('至少是⑤融合盘') && mp.includes('承接达 0.2~0.3+ 像样级走①'), 'F: ②(b) 承接中间档不落②（BP23——大户在场+承接非零散小散至少⑤不落②；像样级走①）');
   // BP24 案大户持续卖持续承接臂（三改：BP24 离场后承接→BP25 卖压消化过程性→BP26 卖方在场性优先三分）
   ok(mp.includes('卖方在场性三分') && mp.includes('「一波接没下文」是这种结构的必然结局、不是锚窗内可见的状态') && mp.includes('判结构不判承接当下的活跃度'), 'F: ②(b) 必然结局判结构（BP26——T001 触发时散户承接高潮致 Jev 误判：「一波接没下文」是前向结局锚窗不可见 → 卖压归零∧清仓成批+散户一波接=②(b) 判结构不看承接当下活跃度）');
-  ok(mp.includes('①**大户卖出仍在进行**（卖压行近 60s 大户卖出额 >0）') && mp.includes('②**大户已卖完离场**') && mp.includes('③**大户在场持有未卖**') && mp.includes('→ **不落②归 none**'), 'F: ②(b) 卖方在场性三分（BP26——①持续卖+持续接（身份不限）=归 none（VirusSI）/②卖完离场+散户一波接没下文=②(b)（T001）/③在场未卖看承接档位；BP58 后⑤桶语义归 none）');
+  ok(mp.includes('**①大户卖出仍在进行**（卖压行近 60s 大户卖出额 >0') && mp.includes('**②大户已卖完离场**') && mp.includes('**③大户在场持有未卖**') && mp.includes('→ **⑤融合盘不落②**'), 'F: ②(b) 卖方在场性三分（BP26——①持续卖+持续接（身份不限）=⑤不落②（VirusSI）/②卖完离场+散户一波接没下文=②(b)（T001）/③在场未卖看承接档位）');
   // BP26 案大户参与判序前置（2026-11-06 S045 谷谷② 灰区单误判案——题集 BP28）
   ok(mp.includes('从来无像样买单（判序前置）'), 'F: ②(a) 判序前置声明（BP28——先判大户参与再分类，S045 灰区单案）');
   ok(mp.includes('先判「大户参与」') && mp.includes('或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足') && mp.includes('直接落②，不再看承接、不看盘面活跃度') && mp.includes('0.1~0.19 BNB 级灰区单不构成大户参与'), 'F: ②(a) 大户参与双臂+不满足直接落②（BP26 案立法核心——用户裁定原话「大户参与不满足是直接 pvp 盘的，满足之后根据承接再次分类」；灰区 0.1~0.19 单不构成大户参与=S045 前列 0.1568/0.1484/0.1090 三笔灰区单成因）');
-  ok(mp.includes('小散互捅的盘面再活跃（新买家多、吞吐高、笔密度大）也只是散户 PVP，不是正常盘') && mp.includes('满足大户参与之后才按承接分类'), 'F: ②(a) 活跃度不救+承接分类后置（BP28——S045 灰区单被 activity high 带走错放；小散互捅的活跃不是大户参与；BP58 措辞「不是正常盘」随⑤桶归 none）');
-  ok(mp.includes('小散互捅的盘面再活跃也不救②(a)') && mp.includes('②(b) 两要件缺一不落'), 'F: 反锚②判序回指（BP28——小散互捅的活跃不救②(a)、②(b) 两要件缺一不落归 none；判据主述在②桶）');
-  ok(qs.market_pattern.criteria.retail_pvp.includes('判序前置——先判大户参与（0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场）：不满足（前列最大 0.1x 级灰区单/尘埃档、仅一笔 0.2 级凑不成多笔）=直接落②，盘面活跃度不救'), 'F: criteria retail_pvp 判序同步（BP28——桶描述与题面判序一致，Jev 选桶时同判序）');
+  ok(mp.includes('小散互捅的盘面再活跃（新买家多、吞吐高、笔密度大）也只是散户 PVP，不是融合盘') && mp.includes('满足大户参与之后才按承接分类'), 'F: ②(a) 活跃度不救+承接分类后置（BP28——S045 灰区单被 activity high 带走错放；小散互捅的活跃不是大户参与）');
+  ok(mp.includes('不满足直接落②、盘面活跃度不救') && mp.includes('卖方在场性三分见②桶 (b) 第三通道'), 'F: 反锚②判序回指（BP28——大户参与不满足直接落②活跃度不救；卖方三分回指②桶主述）');
+  ok(qs.market_pattern.criteria.retail_pvp.includes('判序前置——先判大户参与（0.2 级钱包 ≥2 个或单笔 0.3+ 且**买点时刻仍在场**') && qs.market_pattern.criteria.retail_pvp.includes('判例 a8e70'), 'F: criteria retail_pvp 判序同步（BP28+BP58 二修在场加硬——桶描述与题面判序一致，Jev 选桶时同判序；a8e70 判例在场=末笔后已清仓式离场的历史大户不算在场）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
   // BP28 案改三（S064 FIGHT strong_backer 误放 -41.5%——复数 famous 扩句+roster 收录）
   ok(mp.includes('或两个及以上 famous 钱包极早入场（开盘段内/锚窗最早段首买）合计拿筹过多') && mp.includes('famous 抢筹建仓盘——famous 钱包入仓太早、拿的是最便宜的筹码，散户盘子起不来') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③复数 famous 扩句（BP30/BP28 案 S064——用户裁定原话「他俩入仓太早了拿的太多，起不来」：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 抢筹 0.252/0.343 合计 0.595 BNB，单个占比不及独食线的复数合计达线也落③；两址已收录 famous-copy-wallets.json）');
   ok(qs.market_pattern.criteria.famous_monopoly.includes('单个 famous 占比极大，或两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹过多（控盘 ≥25~30 且合计绝对额大）=famous 抢筹建仓盘'), 'F: criteria famous_monopoly 复数 famous 同步（BP30——桶描述与题面判据一致）');
-  ok(mp.includes('材料不足（开盘段结构行 ?/钱包证据缺/窗极短）按 none 处理不硬归类'), 'F: 材料不足按 none 处理不硬归类（BP58——⑤桶退役后 none 承载「没有明确分类」语义）');
+  ok(mp.includes('材料不足（开盘段结构行 ? /钱包证据缺/窗极短）按⑤处理不硬归类（⑤含「没有明确分类」语义）'), 'F: 材料不足按⑤处理不硬归类（BP58 二修⑤桶恢复——融合桶承载「没有明确分类」语义）');
   ok(mp.includes('②③由盘型门硬拒（不要参与）'), 'F: 门桶声明=②③盘型门硬拒（BP58——⑥/none 走各自位置臂非不拦）');
-  ok(mp.includes('⑥ ≤+10% 起点段放行、已拉离（>+10%）拒') && mp.includes('**none 统一位置门 ≤+27.5%（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」）放行、已拉离（>+27.5%）拒**') && mp.includes('锚缺失（发行价位置行 ?）宁拦不冒充一律拒'), 'F: 收尾位置门（⑥ ≤+10 独立臂+none 统一门 ≤+27.5——锚缺失宁拦不冒充一律拒、放行后统一走点位性质门/活跃度门；判型归 Jev 位置归代码）');
+  ok(mp.includes('⑥ ≤+10% 起点段放行、已拉离（>+10%）拒') && mp.includes('其余各桶（①④⑤⑦⑧）统一位置门 ≤+27.5%（含破发，BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」）放行、已拉离（>+27.5%）拒') && mp.includes('④判型照判但不再独立硬拒') && mp.includes('锚缺失（发行价位置行 ?）宁拦不冒充一律拒'), 'F: 收尾位置门（⑥ ≤+10 独立臂+①④⑤⑦⑧统一门 ≤+27.5+④不再独立硬拒——锚缺失宁拦不冒充一律拒、放行后统一走点位性质门/活跃度门；判型归 Jev 位置归代码）');
   // ═══ BP58 entry_shape 点位性质新题（四桶+判序+判读线+形状样本） ═══
   ok(JSON.stringify(q.ENTRY_SHAPE_LEVELS) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: ENTRY_SHAPE_LEVELS 同域（BP58 四桶 crash/spike/normal_dip/flat——ESM/CJS 双副本对锁）');
   ok(JSON.stringify(Object.keys(qs.entry_shape.criteria)) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: entry_shape 桶===ENTRY_SHAPE_LEVELS（四桶——ENTRY_GATE_POOR_BUCKETS 硬拒恰 crash/spike 两桶）');
   const esIns = qs.entry_shape.instructions;
   ok(esIns.includes('判定**买点时刻价格走到当前位置的方式**') && esIns.includes('BP58 立法：只买性价比高的点位、不追高——好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌，也不是尖刺拉起的追高点'), 'F: entry_shape 题头=交易理念直译（BP58 用户裁定——好点位=对倒中的低价/正常下跌的低价）');
-  ok(esIns.includes('四桶判序：先判 crash（直线砸盘）各臂，再判 spike（尖刺拉起）各臂，都不命中按回落深度与形状分 normal_dip/flat'), 'F: entry_shape 四桶判序句（crash→spike→normal_dip/flat）');
+  ok(esIns.includes('四桶判序：先看 crash 数值提示臂（命中进入**形态复核**——[PRICE] 价格拱直线垂直砸落才落 crash），再判 spike（尖刺拉起）各臂，都不命中按回落形态分 normal_dip/flat') && esIns.includes('crash/normal_dip 判的是价格拱形态、不是跌幅数值'), 'F: entry_shape 四桶判序句（BP58 二修形态判读——crash 数值臂=复核提示、定桶看 [PRICE] 拱形态；判序 crash→spike→normal_dip/flat）');
   ok(esIns.includes('① 现价较锚窗最高价深跌：currentVsAthPct ≤ -25%') && esIns.includes('② 近 30s 动量深跌：chg30Pct ≤ -25%') && esIns.includes('③ 临近段单 5s 段急跌：nearMaxDn5Pct ≤ -15%') && esIns.includes('④ 现价贴着锚窗最低价：curVsMinGapPct ≤ 2 个百分点'), 'F: crash 四臂判读线（bt-v94 三砸盘 LOVE/STOCKLESS/币安之心 curVsAth -28~-37+chg30 深跌全中；对倒正例米/施工鸭 -6~-7 不中）');
-  ok(esIns.includes('砸盘后的反弹不救 crash'), 'F: crash 反弹不救句（深跌臂事实不变——curVsMinGapPct 只用于判「贴底」臂不洗深跌臂）');
+  ok(!esIns.includes('砸盘后的反弹不救 crash') && esIns.includes('较最高深跌/急跌数值命中不等于 crash') && esIns.includes('f485/40a2 深跌+急跌数值双中、用户裁定「能接受的盘形」照放'), 'F: crash 反弹不救句已随二修删除（f485/40a2 实证推翻——反弹台阶是 normal_dip 证据非 crash 洗白；数值命中不等于 crash 反锚句在场）');
   ok(esIns.includes('① 现价贴锚窗最高价：currentVsAthPct ≥ -5%（拉升进行时贴顶——单独成立，此刻买入=顶上接）') && esIns.includes('② 贴顶+近 30s 动量急涨：chg30Pct ≥ +20%（须与①联立）') && esIns.includes('③ 贴顶+临近段单 5s 段急拉：nearMaxUp5Pct ≥ +15%（须与①联立）') && esIns.includes('急拉但已从高点回落超过 5 个百分点（currentVsAthPct < -5）不判 spike'), 'F: spike 三臂判读线=贴顶必要条件+联立（首版米/施工鸭误中急拉臂后修正：对倒回升波段 5s 段 +20~25 同样有急拉，区分轴=现价在不在刺尖上——YiYi curVsAth 0 贴顶中臂+统一门 38.8>27.5 双拦；米 -6.98/施工鸭 -6.38 已回落 6~7pp 不贴顶走 normal_dip）');
   ok(esIns.includes('④急拉不贴顶不误判 spike（贴顶是必要条件——对倒回升波段 5s 段 +20~25% 但现价离顶 6~7pp 照 normal_dip）'), 'F: 反锚④回升波段反例（对拍修正案——急拉数值轴无区分度，位置轴才是判据）');
-  ok(esIns.includes('normal_dip 正常回调低价（好点位）') && esIns.includes('对倒盘/正常换手造成的低价，回落有节奏非直线、盘面仍活跃'), 'F: normal_dip=目标形状（好点位=对倒盘低价）');
+  ok(esIns.includes('normal_dip 阶梯/震荡/阴跌回落（好点位）') && esIns.includes('即便深跌+急跌数值双中、只要形态是阶梯/震荡/阴跌的照放本桶') && esIns.includes('对倒盘/正常换手造成的低价、回落有节奏盘面仍活跃'), 'F: normal_dip=目标形状（二修形态判读版——阶梯/震荡/阴跌皆好点位深浅不是判据；判例 a813 阶梯阴跌 -52%/f485 -62% 穿插反弹/28ad V 形收复/c84a 慢跌横盘企稳）');
   ok(esIns.includes('flat 横盘/缓行'), 'F: flat 横盘桶（各臂不命中且无回落结构如实归本桶）');
-  ok(esIns.includes('crash=较锚窗最高 -37%+chg30 -29%（庄离场直线砸盘，跌势未尽）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩低价=目标形状）') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶，不追）'), 'F: entry_shape 形状样本三句（bt-v94 判例直译——LOVE 砸盘/米对倒/YiYi 尖刺）');
+  ok(esIns.includes('crash=拉顶后连续两个 5s 段 -16.9%/-16.1% 零反弹垂直砸落（LOVE）/顶上 3s 单段 -22.3% 大单直砸（STOCKLESS）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩=目标形状）/90s 阶梯阴跌 -52% 段间企稳（a813）/-62% 震荡下行穿插 +25% 反弹段（f485）') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶，不追）'), 'F: entry_shape 形状样本（二修版——crash 两判例 LOVE 连续垂直砸落/STOCKLESS 单段直砸+normal_dip 三判例 米温回踩/a813 阶梯阴跌/f485 震荡下行+YiYi 尖刺）');
   ok(esIns.includes('怎么算：[PRECOMPUTED] 现价较锚窗最高价行（currentVsAthPct）+ 近窗动量行（chg30Pct）+ 临近段 5s 段最大涨/跌行（nearMaxUp5Pct/nearMaxDn5Pct）+ 发行价位置行的 curVsMinGapPct'), 'F: entry_shape 怎么算=四键直供（snapshot 临近段 5s 双单调队列 nearMaxUp5Pct/nearMaxDn5Pct+发行价位置行 curVsMinGapPct）');
   // BP31 案（题集 BP34/BP35）：⑥持续拉升弱回调+①散户入场机会双臂+①⑥强庄家族从宽①
-  ok(mp.includes('⑥持续拉升弱回调盘（sustained_climb）') && mp.includes('一开盘一直拉、几乎无回调的都不是啥好东西') && mp.includes('没有对倒、没有像样的换手') && mp.includes('浮筹全部悬在拉升段上方'), 'F: ⑥持续拉升弱回调盘立法（BP31 案 Shellbank 0x24436292 不健康最终证明 cheat——原话「一开盘一直拉几乎无回调的都不是啥好东西」：几乎无回调 ∧ 买卖几乎完全不平衡（近窗卖归零/尘埃+买占比 ≥90% 无对倒无换手不给散户入场机会））');
-  ok(mp.includes('**大户在场/开盘有大额不区分**（拉升的执行者就是大户——身份证据不是逃逸门，近窗纯买零卖+急拉的即便大户在场也落本桶）'), 'F: ⑥身份证据不豁免双臂判据（BP35——拉升执行者就是大户①⑥同形；①桶退役后家族归属句简化为「不区分」）');
-  ok(mp.includes('防误伤的从宽方向=双臂材料混合/证据薄时从宽归 none') && mp.includes('有对倒证据（近窗有像样卖出 ≥0.12）的照 none 评估'), 'F: ⑥从宽归 none 防误伤（BP35——①桶退役后从宽方向随⑤桶并 none；拒买类从严拿不准从宽）');
+  ok(mp.includes('⑥持续拉升弱回调盘（sustained_climb，BP34 新增）') && mp.includes('「一开盘一直拉、几乎无回调的都不是啥好东西」') && mp.includes('没有庄筹码对倒、没有像样的换手') && mp.includes('浮筹全部悬在拉升段上方，拉不动的那一下就是山顶'), 'F: ⑥持续拉升弱回调盘立法（BP31 案 Shellbank 0x24436292 不健康最终证明 cheat——原话「一开盘一直拉几乎无回调的都不是啥好东西」：几乎无回调 ∧ 买卖几乎完全不平衡（近窗卖归零/尘埃+买占比 ≥90% 无对倒无换手不给散户入场机会）；二修恢复 BP51 全文）');
+  ok(mp.includes('与①同属强庄家族（BP35 防误伤）') && mp.includes('不区分①⑥') && mp.includes('身份证据在场不豁免双臂判据，近窗纯买零卖+急拉的即便大户在场也落本桶'), 'F: ⑥身份证据不豁免双臂判据（BP35——拉升执行者就是大户①⑥同形；二修恢复家族归属句全文）');
+  ok(mp.includes('防误伤的从宽方向=双臂材料混合/证据薄时从宽①') && mp.includes('有对倒证据（近窗有像样卖出）的照①评估'), 'F: ⑥从宽①防误伤（BP35——①桶二修恢复后从宽方向回指①；拒买类从严拿不准从宽）');
   ok(mp.includes('⑥ ≤+10% 起点段放行、已拉离（>+10%）拒'), 'F: ⑥参与窗口位置门语义（原话「这种只能临近发布价格参与」——贴发行价起点段放行、已拉离拒；BP58 后表述并收尾门段）');
-  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（全窗价格拱一路向上——单根深急回针迅速收复创新高不破坏形状）') && qs.market_pattern.criteria.sustained_climb.includes('近窗卖出归零/仅尘埃级 <0.12 ∧ 买占比 ≥90%') && qs.market_pattern.criteria.sustained_climb.includes('近窗卖出 ≥0.12 BNB=对倒痕迹归 none（贴线微小卖出 0.10x 级不算对倒，BP37）') && qs.market_pattern.criteria.sustained_climb.includes('更早段对倒不救近窗纯拉段') && qs.market_pattern.criteria.sustained_climb.includes('大户在场/开盘有大额不豁免双臂判据（身份证据不是逃逸门，近窗纯买零卖急拉的即便大户在场也落本桶；双臂材料混合/证据薄时从宽归 none 防误伤，有对倒证据的照 none）') && qs.market_pattern.criteria.sustained_climb.includes('已拉离（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（BP37+BP58——0.12 线+贴线微小卖出不算+现在进行时+价格拱回针句+身份不豁免+从宽归 none+位置门）');
-  ok(mp.includes('（参考合计 <0.12 BNB）∧ 买占比极高（参考 ≥90%）（BP36 近窗锚定，BP37 收紧）') && mp.includes('近窗卖出合计有像样金额（参考 ≥0.12 BNB）=对倒痕迹在场，不落本桶归 none；刚过 0.1 的贴线微小卖出（0.10x 级）不构成对倒痕迹、照常落本桶'), 'F: ⑥对倒臂 0.12 线（BP37 收紧——無為 S072 近窗卖 0.128≥0.12=对倒痕迹归 none，太空逆袭 S054 卖 0.1021=贴线微小卖出不算对倒仍⑥，羊王 S156 卖 0.0000=臂失落⑥：⑥/none 分界客观化，Jev 对照近窗流量行即可判；BP58 后①桶语义由 none 承载）');
+  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（全窗价格拱一路向上——单根深急回针迅速收复创新高不破坏形状）') && qs.market_pattern.criteria.sustained_climb.includes('近窗卖出归零/仅尘埃级 <0.12 ∧ 买占比 ≥90%') && qs.market_pattern.criteria.sustained_climb.includes('近窗卖出 ≥0.12 BNB=对倒痕迹走①（贴线微小卖出 0.10x 级不算对倒，BP37）') && qs.market_pattern.criteria.sustained_climb.includes('更早段对倒不救近窗纯拉段') && qs.market_pattern.criteria.sustained_climb.includes('（开盘大额与大户在场不区分①⑥——身份证据不是逃逸门，近窗纯买零卖急拉的即便大户在场也落本桶；双臂材料混合/证据薄时从宽①防误伤，有对倒证据的照①）') && qs.market_pattern.criteria.sustained_climb.includes('已拉离（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（BP37+BP58 二修——0.12 线+贴线微小卖出不算+现在进行时+价格拱回针句+身份不豁免+从宽①+位置门）');
+  ok(mp.includes('（参考合计 <0.12 BNB）∧ 买占比极高（参考 ≥90%）（BP36 近窗锚定，BP37 收紧）') && mp.includes('近窗卖出合计有像样金额（参考 ≥0.12 BNB）=对倒痕迹在场，走①不落本桶；刚过 0.1 的贴线微小卖出（0.10x 级）不构成对倒痕迹、照常落本桶'), 'F: ⑥对倒臂 0.12 线（BP37 收紧——無為 S072 近窗卖 0.128≥0.12=对倒痕迹走①，太空逆袭 S054 卖 0.1021=贴线微小卖出不算对倒仍⑥，羊王 S156 卖 0.0000=臂失落⑥：⑥/①分界客观化，Jev 对照近窗流量行即可判；二修恢复①桶指向）');
   ok(mp.includes('看价格拱形状不看单根回针（BP36）') && mp.includes('回针是拉升途中的洗盘针不是回调结构，不破坏「一路向上」形状'), 'F: ⑥回撤判据看全窗价格拱（BP36——「窗内最大回撤」行是临近段口径：S156 回针 35.3% 但末价=ATH 0s 前刚创新高，单根深急回针收复不破坏一路向上）');
   ok(mp.includes('⑥看拉升的「现在进行时」（BP36）') && mp.includes('全窗更早段的对倒（如开盘大额买进后部分兑现）不救近窗纯拉段'), 'F: ⑥现在进行时（BP36——S156 第 1 大 0xb036 全窗卖 0.756 是更早段兑现，近窗 30s 卖 0.0000×0 纯拉进行时不给入场机会仍落⑥）');
-  ok(mp.includes('承接归零的除外（BP36）') && mp.includes('近窗买入归零/仅尘埃（买占比 ≈0、无人接盘）=没有买方的盘面（对倒停摆的死盘）→ 落②(b)'), 'F: ②(b) 承接归零例外（BP36——S157 近窗买 0.0001 卖 0.661：大户在场持有未卖但承接归零，没有买方的盘面不是正常盘落②(b)；BP58 后⑤桶语义归 none）');
+  ok(mp.includes('承接归零的除外（BP36）') && mp.includes('近窗买入归零/仅尘埃（买占比 ≈0、无人接盘）=没有任何人在接——没有买方的盘面不是⑤，落②(b)（在场持有+零承接=对倒停摆的死盘）'), 'F: ②(b) 承接归零例外（BP36——S157 近窗买 0.0001 卖 0.661：大户在场持有未卖但承接归零，没有买方的盘面不是⑤融合盘落②(b)；二修恢复⑤桶语义）');
   // BP30 案三改（盘型前置预判断+互斥教学+④判据补强——题集 BP33）
   ok(mp.includes('本题是预判断——先于其它题作答、先定盘面性质再谈点位'), 'F: BP30 改五 前置预判断声明（market_pattern 放最前——用户裁定原话「market_pattern 要放到很靠前的位置，因为这是个预判断」）');
   ok(mp.includes('才做互斥检查（BP33）') && mp.includes('强庄盘的「庄」不能是著名跟单钱包') && mp.includes('famous 的货是要出货的，不是锁仓拉盘的庄'), 'F: BP30 改二 分类互斥教学（famous 控盘 ≥25 的盘子在早期薄盘域内对照②⑥判——强庄的庄不能是著名跟单钱包，归③或按散户化/持续拉升形状归②⑥；①⑤桶退役后互斥目标改②⑥/none；互斥主述在 famous 轴前置段）');
   // BP47（案号 BP43 第二版）famous 轴适用域厚度维度+③桶薄盘限定+控盘题厚盘不判拦截档（题面化——用户裁定「famous盘只用于判定早期，盘子很薄，famous入场收割」「famous 盘不适合已经有大量交易的情况」）
   ok(mp.includes('对归类的约束**只在早期薄盘成立**') && mp.includes('两维度任一命中即**退出 famous 轴**') && mp.includes('厚度维度（BP47') && mp.includes('**盘子已厚**') && mp.includes('famous 占比是换手结果不是收割前兆'), 'F: BP47 famous 轴互斥适用域厚度维度（已有大量交易的盘面=盘子已厚，famous 占比是换手结果不是收割前兆，不触发互斥不落③——与 BP45 第一波价格维度并列双维度；主述在 famous 轴前置段）');
-  ok(mp.includes('适用域=早期薄盘（判据见前置检查）——「盘子很薄、famous 入场收割」才是本桶的形状') && mp.includes('苍蝇判例：出生数十秒 ultra 吞吐大量成交的盘面，famous 占比高但绝不是 famous 收割形状'), 'F: BP47 ③桶薄盘适用域限定（famous 独食致命前提=盘子还薄——薄盘 famous 大额才拿得动太多筹码；大量交易厚盘不落本桶退出 famous 轴；BP58 后判据引用压前置检查）');
+  ok(mp.includes('适用域=早期薄盘（BP47，判据见前置检查②厚度维度）——「盘子很薄、famous 入场收割」才是本桶的形状') && mp.includes('苍蝇判例：出生数十秒 ultra 吞吐大量成交的盘面，famous 占比高但绝不是 famous 收割形状'), 'F: BP47 ③桶薄盘适用域限定（famous 独食致命前提=盘子还薄——薄盘 famous 大额才拿得动太多筹码；大量交易厚盘不落本桶退出 famous 轴；二修恢复 BP51 判据全文）');
   ok(!('famous_domination' in qs), 'F: BP47 控盘题厚盘判档语义已随题退役（BP49——厚盘不判拦截档/先看厚薄再谈切点等判档教学随题删除，厚度维度适用域主述在 market_pattern 前置检查②承接）');
-  // BP58 ④桶随改制退役——early_sniper_decay/strong_backer/blended/restart/golden_point 五桶桶名+判据文本整链绝迹
-  // （拉高出货/衰竭三证据/真庄反锚/庄时序锚/大户未清场两臂/深崩阴跌/athVsLaunchPct 渲染锚等①④⑤⑦⑧族判据随桶删除）
-  ok(!JSON.stringify(qs).includes('early_sniper_decay') && !JSON.stringify(qs).includes('blended_unremarkable') && !JSON.stringify(qs).includes('golden_point') && !JSON.stringify(qs).includes('restart') && !JSON.stringify(qs).includes('strong_backer'), 'F: 五退役桶桶名在题集文本绝迹（BP58——判据文本随桶删除；速度证据由 entry_shape 临近段 5s 段双锚承载、athVsLaunchPct 锚照算落 digest 纯留档）');
+  // BP58 二修——判型恢复：五桶桶名+判据全文在场（首版误删被用户裁定「简化而不是删除」推翻）
+  // （识别能力全保留=Jev 判型落档留观察；处理统一=②③硬拒+⑥≤10+①④⑤⑦⑧统一门 27.5）
+  ok(JSON.stringify(qs).includes('early_sniper_decay') && JSON.stringify(qs).includes('blended_unremarkable') && JSON.stringify(qs).includes('golden_point') && JSON.stringify(qs).includes('restart') && JSON.stringify(qs).includes('strong_backer'), 'F: 八桶判型恢复在场（BP58 二修——五桶桶名+判据全文恢复：strong_backer/early_sniper_decay/blended/restart/golden_point；判型落档仅留观察、位置处理无桶间差异走统一门 27.5）');
   // BP48 两质量题退役：QUALITY_LEVELS/QUALITY_IDS 双侧绝迹（ESM 题集+CJS mapper）；
   // ASSESSMENT_LEVELS 门域四值保留（bpPassLevels 消费域与历史 digest 行兼容不收窄）
   ok(!('QUALITY_LEVELS' in q) && !('QUALITY_IDS' in q), 'F: ESM 侧 QUALITY_LEVELS/QUALITY_IDS 常量绝迹（BP48 两质量题退役反证）');
@@ -1016,8 +1015,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(ids.every((id) => DIMENSION_IDS.includes(id)) && DIMENSION_IDS.length === 7, 'F: 题集 id 与 mapper DIMENSION_IDS 对齐（7 维度 0 质量——BP58 entry_shape 入域）');
   // BP58 收尾门链=②③硬拒+位置门（⑥ 10/none 27.5）+点位性质门+活跃度门（①⑤⑧位置臂随桶退役）
   ok(mp.includes('放行后统一走点位性质门/活跃度门'), 'F: 收尾门链句（BP58——②③硬拒；⑥/none 过位置门后统一走点位性质门/活跃度门）');
-  // BP58 ④桶随改制退役——maxChg5 速度锚不再进任何门链（速度证据由 entry_shape 临近段 5s 段锚承载）
-  ok(!JSON.stringify(qs).includes('maxChg5'), 'F: maxChg5 速度锚在题集文本绝迹（BP58——④桶拉高判据随桶删除）');
+  // BP58 二修——④桶拉高判据恢复在场（maxChg5 速度锚回题面；拦截执行归 entry_shape+统一门）
+  ok(JSON.stringify(qs).includes('maxChg5'), 'F: maxChg5 速度锚恢复在场（BP58 二修——④桶拉高判据随桶恢复；拉高/砸盘形状的拦截执行由 entry_shape+统一位置门接力）');
   const noQuality = JSON.stringify(qs);
   ok(!noQuality.includes('第一分支·价格低救') && !noQuality.includes('累计位置硬腿') && !noQuality.includes('崩塌第一腿') && !noQuality.includes('庄盘豁免（BP32'), 'F: 早鸟/回调题忌讳救臂句绝迹（BP48 退役反证——maxChg5 救臂/忌讳/庄盘豁免链不迁移，①庄盘语义由①桶 strong_backer ≤+80 位置门承载）');
   // BP48 裁定 3（C 弃）后两质量题整段删除——⑦⑧承载大户未清场判读（B 迁）、

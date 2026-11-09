@@ -12,11 +12,12 @@
  *      · ⑥sustained_climb 位置臂：现价较发行价 ≤+10%（含破发）起点段放行、
  *        已拉离（>+10%）或锚缺失（宁拦不冒充）拒
  *      · none 统一位置门：**≤+27.5%**（BP58 收口，与 T129 ladder v14 触发线同线）
- *        放行、已拉离（>+27.5%）或锚缺失拒——①strong_backer/④early_sniper_decay/
- *        ⑤blended_unremarkable/⑦restart/⑧golden_point 五桶已随 BP58 改制退役归
- *        none（处理方式完全一致=统一位置门，不再细分）；**旧档重放兼容**：BP51
- *        及以前存档 answers 带五桶名，mapper 侧 LEGACY_MARKET_PATTERN_LEVELS
- *        并入桶域校验（行为同 none 走统一位置门，不 throw）
+ *        放行、已拉离（>+27.5%）或锚缺失拒——**BP58 二修（判型恢复）**：①strong_
+ *        backer/④early_sniper_decay/⑤blended_unremarkable/⑦restart/⑧golden_point
+ *        五桶判型恢复（用户裁定「这个模块是简化而不是删除」——识别照旧、落 digest
+ *        留观察），处理不变=统一位置门 27.5（判型不改变处理；各桶专属位置臂
+ *        不再恢复）；首版五桶名重放归 LEGACY 并域已随判型恢复删除（桶名重新成为
+ *        正式域——BP52 未部署生产无中间存档行）
  *   ② 点位性质门（BP58 新题 entry_shape）：crash 庄离场直线砸盘 / spike 尖刺
  *      拉盘追高 → poor（rule=entry_gate——好点位=活跃交易中对倒中的低价/正常下跌
  *      造成的低价，不是庄家离场时的暴跌也不是尖刺拉起的追高点）；normal_dip
@@ -55,16 +56,14 @@
  * 容错双轨（镜像 cheat mapper 纪律）：
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺
- *   放宽；market_pattern 桶域=新四桶 ∪ LEGACY 五桶——旧档重放不 throw 但行为
- *   同 none）
+ *   放宽；market_pattern 桶域=八桶全域（BP58 二修判型恢复，旧档重放天然合法）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
  *   ——rule 键=门来源留痕（pattern_gate/entry_gate/activity_gate/chip_gate/
  *   gates_passed）非档位结论）
  *
  * 桶域常量与题集（llm/buy-point-questions.mjs ESM）同域同值：ESM 无法被本 CJS
  * require，故此处自持副本，由单测 `_test_buy_point_lib.cjs` F 组经 dynamic import
- * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底；LEGACY 域=本 mapper
- * 特有兼容域不参与锁）。
+ * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
 /** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position；BP49 删 famous_domination/entry_position；BP58 增 entry_shape） */
@@ -86,19 +85,14 @@ const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费；BP54 停用不激活） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 盘面分类四桶（BP52 改制「异常盘面识别」——用户裁定「没必要费劲识别太多盘形，
- * 只需要把异常的找出来即可」）：retail_pvp 散户 PVP（门桶硬拒）/famous_monopoly
- * famous 独食（门桶硬拒）/sustained_climb 持续拉升弱回调（独立位置门 ≤+10）/
- * none 正常盘面（统一位置门 ≤+27.5）——①strong_backer/④early_sniper_decay/
- * ⑤blended_unremarkable/⑦restart/⑧golden_point 五桶退役归 none（处理方式完全
- * 一致不再细分；开局拉高/尖刺拦截移交 entry_shape+统一位置门） */
-const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'sustained_climb', 'none'];
-/** 旧档 market_pattern 五桶名（BP51 及以前存档重放兼容——并入桶域校验防 throw，
- * 行为同 none 走统一位置门 NORMAL_ENTRY_LAUNCH_PCT：五桶处理方式已完全一致
- * （BP58 用户裁定），旧档重放=新语义；题集侧不导出本域（新答案域=新四桶） */
-const LEGACY_MARKET_PATTERN_LEVELS = ['strong_backer', 'early_sniper_decay', 'blended_unremarkable', 'restart', 'golden_point'];
-/** 盘型门拒买桶（BP58 改制：retail_pvp/famous_monopoly 两异常桶硬拒；④
- * early_sniper_decay 硬拒桶已退役——其形状（开盘拉高/尖刺）的拦截由 entry_shape
+/** 盘面分类八桶（BP58 二修——判型恢复：用户裁定「这个模块是简化而不是删除」：
+ * 识别能力全保留（八桶判型照旧、落 digest 留观察），处理统一简化——②retail_pvp/
+ * ③famous_monopoly 两异常桶硬拒、⑥sustained_climb 独立位置门 ≤+10、其余桶
+ * （①strong_backer/④early_sniper_decay/⑤blended_unremarkable/⑦restart/
+ * ⑧golden_point/none）统一位置门 ≤+27.5，判型不改变处理） */
+const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb', 'restart', 'golden_point'];
+/** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；④early_sniper_
+ * decay 恢复判型但不再独立硬拒——其形状（开盘拉高/尖刺）的拦截由 entry_shape
  * spike/crash 臂+统一位置门 27.5 接力；sustained_climb 刻意不入本表——走
  * SUSTAINED_CLIMB_LAUNCH_PCT 独立位置臂） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
@@ -108,11 +102,12 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
  * 界由羊王 0x5a8d94c6 四点定标：S154 −4.2% 贴发行价（用户裁 neutral 放行）与
  * S155 +17.1%（拒）之间取 10 */
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
-/** none 统一参与位置界（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于
- * 27.5」——与 T129 ladder v14 触发线同线）：正常盘面（none 及 LEGACY 五桶重放）
- * 现价较发行价 ≤+27.5%（含破发）=放行走点位性质门/活跃度门；已拉离（>+27.5%）
- * 或锚缺失（宁拦不冒充）→ 盘型门拒（rule=pattern_gate）。改制前各桶位置臂
- * （①80→40/⑤40/⑦40/⑧40/④豁免臂 40）全部随桶退役，统一收口本线 */
+/** 统一参与位置界（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于
+ * 27.5」——与 T129 ladder v14 触发线同线）：正常盘面（none 与①④⑤⑦⑧判型桶——
+ * BP58 二修判型恢复后处理同 none 统一走本门，判型仅留痕观察）现价较发行价
+ * ≤+27.5%（含破发）=放行走点位性质门/活跃度门；已拉离（>+27.5%）或锚缺失
+ * （宁拦不冒充）→ 盘型门拒（rule=pattern_gate）。改制前各桶专属位置臂
+ * （①80→40/⑤40/⑦40/⑧40/④豁免臂 40）不再恢复，统一收口本线 */
 const NORMAL_ENTRY_LAUNCH_PCT = 27.5;
 /** 点位性质四桶（BP58 新题 entry_shape——用户理念「只买性价比高的点位，不追高」：
  * 好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌
@@ -139,15 +134,14 @@ const CHIP_GATE_ENABLED = false;
  * 桶域不收窄防旧档重放 throw） */
 const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 
-/** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本；market_pattern 域=
- * 新四桶 ∪ LEGACY 五桶——旧档重放防 throw，行为同 none） */
+/** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
 const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
   market_heat: HEAT_LEVELS,
   activity_level: ACTIVITY_LEVELS,
   holder_concentration: HOLDER_CONCENTRATION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
-  market_pattern: [...MARKET_PATTERN_LEVELS, ...LEGACY_MARKET_PATTERN_LEVELS],
+  market_pattern: MARKET_PATTERN_LEVELS,
   entry_shape: ENTRY_SHAPE_LEVELS,
 };
 
@@ -238,14 +232,14 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   const rawVs = anchors ? anchors.currentVsLaunchPct : null;
   const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
-  // 纯门链（BP58——盘型门（改制）→点位性质门（新）→活跃度门→筹码门（停用））
-  // ①盘型门（BP30 前置预判断；BP52 改制「异常盘面识别」四桶）：
+  // 纯门链（BP58——盘型门→点位性质门→活跃度门→筹码门（停用））
+  // ①盘型门（BP30 前置预判断；BP58 二修判型恢复八桶、处理保持统一）：
   //   · retail_pvp/famous_monopoly 两异常桶硬拒（不要参与）
   //   · ⑥sustained_climb 位置臂：≤+10（含破发）起点段放行；已拉离/锚缺失拒
   //     （判型归 Jev、位置归代码——宁拦不冒充）
-  //   · none（含 LEGACY 五桶重放）统一位置臂：≤+27.5（BP58）放行；已拉离/
-  //     锚缺失拒——①④⑤⑦⑧五桶退役后处理方式完全一致（统一位置门），旧档
-  //     重放带旧桶名行为同 none 不 throw（LEGACY_MARKET_PATTERN_LEVELS 并域）
+  //   · 其余桶（none 与①④⑤⑦⑧判型桶）统一位置臂：≤+27.5（BP58）放行；
+  //     已拉离/锚缺失拒——判型恢复后①④⑤⑦⑧不改变处理（统一位置门，判型
+  //     落 digest 仅留痕观察；各桶专属位置臂不再恢复）
   const patternArms = [];
   if (dimensions.market_pattern) {
     const mp = dimensions.market_pattern.bucket;
@@ -254,8 +248,8 @@ function buildBuyPointObservation(answers, anchors = null) {
     } else if (mp === 'sustained_climb') {
       if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     } else {
-      // none 与 LEGACY 五桶（strong_backer/early_sniper_decay/blended_unremarkable/
-      // restart/golden_point）同走统一位置门
+      // none 与①strong_backer/④early_sniper_decay/⑤blended_unremarkable/
+      // ⑦restart/⑧golden_point 同走统一位置门
       if (vsLaunch == null || vsLaunch > NORMAL_ENTRY_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     }
   }
@@ -428,7 +422,6 @@ module.exports = {
   HOLDER_CONCENTRATION_LEVELS,
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
-  LEGACY_MARKET_PATTERN_LEVELS,
   PATTERN_GATE_POOR_BUCKETS,
   SUSTAINED_CLIMB_LAUNCH_PCT,
   NORMAL_ENTRY_LAUNCH_PCT,
