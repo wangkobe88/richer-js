@@ -191,10 +191,16 @@ const SNIPER_DECAY_OPEN_SHARE_MAX = 80;
  * 全 ≥57.4，深负票 router 多为 0（两极化）。**BP55 起 pump 专属位置门退役**
  * （2026-11-09 用户裁定「这个已经不需要特殊处理了，现在庄盘也不接受价格高于
  * 40%」——BP48 起①⑤⑧位置门同线 ≤+40，pump 豁免票走盘型桶位置门即可；④桶
- * 本臂放行的 pump 豁免票不再被二次拦——臂本无价格腿，来财 curVs=109 正票形状
- * 是用户裁定的放行面）。
+ * 本臂放行的 pump 豁免票不再被二次拦）。
+ * **BP56 价格腿补齐（2026-11-09 用户裁定「当前所有的情况都不允许价格超过
+ * near_launch」——bt-v88 实跑 0xd9289dbf curVs low 档放行案触发）**：本臂
+ * 原落地无价格腿（来财 curVs=109 正票形状曾是放行面依据），补 curVsLaunchPct
+ * ≤+40（SNIPER_ULTRA_ROUTER_LAUNCH_PCT）——至此门链全部放行出口价格上界统一
+ * near_launch（⑥≤10 更紧/⑦①⑤⑧=40/BP47④高热臂=40/本臂=40）；来财 109 形状
+ * 不再是放行面（bt-v88 实跑该票 -0.0609，+5min 观察正≠卖腿路径正）。
  * fail-closed：market_pattern/heat/act 答案缺席（非 ultra 域）/routerBuyPct60
- * 锚缺失（60s 窗零买入=null）→ 不豁免宁拦不冒充；豁免对象仅④（②③照拦）。
+ * 锚缺失（60s 窗零买入=null）/curVsLaunchPct 缺失或 >+40（已拉离）→ 不豁免
+ * 宁拦不冒充；豁免对象仅④（②③照拦）。
  * 试验性豁免（「试试」）：护栏数据留档待票池分布裁定——B1 内 win30 买者数
  * 10-20 带 10 票全负（Σ5=-0.485）为 B1 打平主因、≥20 带 5 票 +0.729；信号
  * 条数（≥4 条 +0.799）=前视不可用不进臂；sgp<3（+0.313）=cheat 侧数据
@@ -202,6 +208,11 @@ const SNIPER_DECAY_OPEN_SHARE_MAX = 80;
  * BP48/BP52 先例）；exempt 落 assessment 留痕（code='ultra_router_entry' 带
  * routerBuyPct60 值）；代码不改写 Jev 桶判定（④答案原样保留） */
 const SNIPER_ULTRA_ROUTER_MIN_PCT = 30;
+// BP56（2026-11-09 用户裁定「当前所有的情况都不允许价格超过 near_launch」）：
+//   BP53 豁免臂价格腿——curVsLaunchPct ≤+40 才豁免（null/>40 不豁免宁拦不冒充，
+//   与 BP47 SNIPER_DECAY_HEAT_LAUNCH_PCT 同线同值各自常量先例）；门链全部放行
+//   出口价格上界由此统一 near_launch
+const SNIPER_ULTRA_ROUTER_LAUNCH_PCT = 40;
 // FAMOUS_AXIS_RELAUNCH_PCT（BP45 famous 轴再起来域 20）已随 famous_domination 题
 //   退役删除（BP49/案号 BP45）——唯一消费者 chip_gate famous 臂同退役；再起来域
 //   语义（落底后 famous 未离场=正面证据）保留在盘型题⑦⑧桶判读里（题面层）。
@@ -397,7 +408,11 @@ function buildBuyPointObservation(answers, anchors = null) {
     const rawRouter = anchors ? anchors.routerBuyPct60 : null;
     const router60 = typeof rawRouter === 'number' && Number.isFinite(rawRouter) ? rawRouter : null;
     if (router60 == null || router60 < SNIPER_ULTRA_ROUTER_MIN_PCT) return null;
-    return { code: 'ultra_router_entry', routerBuyPct60: router60 };
+    // BP56 价格腿（curVs≤+40 才豁免；null/已拉离不豁免——与 BP47 臂同构 fail-closed）
+    const rawVs = anchors ? anchors.currentVsLaunchPct : null;
+    const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+    if (vsLaunch == null || vsLaunch > SNIPER_ULTRA_ROUTER_LAUNCH_PCT) return null;
+    return { code: 'ultra_router_entry', routerBuyPct60: router60, curVsLaunchPct: vsLaunch };
   })();
   const patternArms = dimensions.market_pattern
     && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
@@ -625,6 +640,7 @@ module.exports = {
   BLENDED_LAUNCH_PCT,
   GOLDEN_POINT_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_LAUNCH_PCT,
+  SNIPER_ULTRA_ROUTER_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_BUCKETS,
   SNIPER_DECAY_OPEN_SHARE_MAX,
   SNIPER_ULTRA_ROUTER_MIN_PCT,

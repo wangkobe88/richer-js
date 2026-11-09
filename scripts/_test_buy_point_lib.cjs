@@ -33,6 +33,7 @@ const {
   STRONG_BACKER_LAUNCH_PCT, BLENDED_LAUNCH_PCT, GOLDEN_POINT_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_LAUNCH_PCT, SNIPER_DECAY_HEAT_BUCKETS, SNIPER_DECAY_OPEN_SHARE_MAX,
   SNIPER_ULTRA_ROUTER_MIN_PCT,
+  SNIPER_ULTRA_ROUTER_LAUNCH_PCT,
   ASSESSMENT_LEVELS,
 } = require('../src/market-analysis/buy-point-result-mapper');
 
@@ -689,7 +690,10 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E
 // （用户裁定「这个已经不需要特殊处理了，现在庄盘也不接受价格高于 40%」——BP48
 // 起①⑤⑧位置门同线 ≤+40，pump 豁免票走盘型桶位置门）；护栏数据
 // （win30 买者 10-20 带 10 票全负 -0.485）留档待票池分布裁定不进臂；mapper-only
-// 不 bump（BP46/BP47/BP48/BP52 先例）
+// 不 bump（BP46/BP47/BP48/BP52 先例）；**BP56 价格腿（2026-11-09 用户裁定「当前的
+// 所有情况都不允许价格超过 near_launch」——bt-v88 实跑 0xd9289dbf curVs low 档
+// router=85.9 放行案触发）：本臂补 curVsLaunchPct ≤+40（来财 curVs=109 形状不再
+// 是放行面，bt-v88 实跑 -0.0609）；门链全部放行出口价格上界由此统一 near_launch**
 {
   const rA = (v) => ({ ...dE, routerBuyPct60: v });
   const ans53 = (heat, act) => ({ ...fullAnswers(), ...mkAns('market_pattern', 'early_sniper_decay', 0.86), ...mkAns('market_heat', heat, 0.98), ...mkAns('activity_level', act, 0.73) });
@@ -724,6 +728,20 @@ ok(aM.bucket === 'poor' && near(aM.prob, 0.84) && aM.rule === 'pattern_gate', 'E
   ok(oBoth.assessment.bucket === 'neutral' && oBoth.assessment.rule === 'gates_passed' && oBoth.assessment.exempt && oBoth.assessment.exempt.code === 'sniper_decay_heat_price',
     'E: BP53 与 BP47 双臂同时成立（heat=high∧act=ultra 两臂要件全过）→ exempt 取 sniperHeatExempt 优先（放行语义相同仅指纹差异，else if 序）');
   ok(SNIPER_ULTRA_ROUTER_MIN_PCT === 30, 'E: BP53 常量=30（B1 实测 30-50 间仅 1 票两极化——30 与 50 几乎等价，取 30 放行面最大）');
+  // BP56 价格腿（2026-11-09 用户裁定「当前所有的情况都不允许价格超过 near_launch」
+  // ——bt-v88 实跑 0xd9289dbf curVs=low 档 router=85.9 放行案触发）：curVs>40 或
+  // 缺失不豁免，来财 curVs=109 形状不再是放行面
+  const rV = (v) => ({ ...dE, routerBuyPct60: 85.9, currentVsLaunchPct: v });
+  const oVL = buildBuyPointObservation(ans53('ultra', 'ultra'), rV(60));
+  ok(oVL.assessment.bucket === 'poor' && oVL.assessment.rule === 'pattern_gate' && !oVL.assessment.exempt,
+    'E: BP56 ④∧ultra 双轴∧router 85.9 但 curVs=+60（low 档=0xd9289dbf 08:55:59 实跑形状）→ 不豁免照拒 pattern_gate（来财 +109 形状同弃——门链全部放行出口上界统一 near_launch）');
+  const oVN = buildBuyPointObservation(ans53('ultra', 'ultra'), { ...dE, routerBuyPct60: 85.9, currentVsLaunchPct: null });
+  ok(oVN.assessment.bucket === 'poor' && oVN.assessment.rule === 'pattern_gate' && !oVN.assessment.exempt,
+    'E: BP56 curVsLaunchPct 缺失不豁免（宁拦不冒充——与 BP47 价格腿/⑥⑦位置臂同构 fail-closed）');
+  const oV40 = buildBuyPointObservation(ans53('ultra', 'ultra'), rV(40));
+  ok(oV40.assessment.bucket === 'neutral' && oV40.assessment.rule === 'gates_passed' && oV40.assessment.exempt && oV40.assessment.exempt.code === 'ultra_router_entry' && near(oV40.assessment.exempt.curVsLaunchPct, 40),
+    'E: BP56 curVs=+40 贴线放行（≤ 含 40=near_launch 上界；exempt 带 curVsLaunchPct 值留痕——dE 原 30 档三断言走 30≤40 同判不动）');
+  ok(SNIPER_ULTRA_ROUTER_LAUNCH_PCT === 40, 'E: BP56 常量=40（与 SNIPER_DECAY_HEAT_LAUNCH_PCT 同线同值各自常量先例）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'strong_backer', 0.88) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: 案号 BP48 ①位置门收紧 dA vsLaunch=+60% >+40（low 档——庄盘同样不接受 low）→ poor/pattern_gate（BP48 立法时 +60 曾放行，收紧断言反转）');
