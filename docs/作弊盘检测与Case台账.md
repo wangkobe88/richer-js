@@ -187,6 +187,18 @@
 
 ## Case 倒序
 
+### CD388 ultra 档豁免资格收紧——ultra∧原判 cheat 不豁免（刷量机器恢复拉黑），ultra∧unhealthy 照旧豁免（2026-11-09，豁免资格案·题集/grade/规则域零改动；commit `0fbc3c88`）
+
+**案情**：bt-v90（`cebf56f5`，T127 quote 常量锚对照，净 +0.6126/65 票）复盘亏损归因——**亏损 Top1/2/4/5 全部走 CD379 活跃度豁免通道的 activity_ultra 票**（45ec0489 -0.0948 / 68bb8cd4 -0.0740 / 04323e04 -0.0634 / BEM 75d5286d -0.0614），用户指示收紧：「**对于 ultra 票，增加一个交易量的阈值，也就是说，需要这些币，在长期交易后，依然维持超高活跃度，那么就接纳它（0xc84a0ff2e7bab3d32cb6426f07855b70694f7777 需要能买入，0x32f18a98e4fc3b33013f80454faae710a6367777 因为活跃度会下降，也应该没问题。0xf485ec1d518185e73ca53164ddaa85dcfde77777 也需要能买入），否则则不接纳**」。
+
+**定线过程（三条澄清+两轮方向修正）**：①「**不是，是纯交易量**」——否定时间观察窗/买入后轨迹方向；②「**当然你发现其它因子更加有用也行**」——授权换轴；③「**注意，这里不需要保住正例，收益最大的能保住即可**」（32f18a98 首信号被卡没关系，活跃度降档后正常区间可买）→ 放松验收。**纯量维度实证无解**（182 探针，12 票首锚 BP 锚 14 维）：c62d2dff 45 笔/7.50 BNB 全场最大却 -0.0660（净亏）；32f18a98 9 笔/1.31 BNB 最小却 +0.1592（净赚）；f485ec1d（11 笔/1.79/median 0.183）与 45ec0489（11 笔/1.44/median 0.088）首锚孪生一正一负——笔数/金额/中位数/holders/curVs 任何单维或组合都分不开。**决定性发现（信号序列探针）**：`exempt.originalGrade` 完美分离——用户点名三票（32f18a98 +0.1592 / f485ec1d 0 平 / c84a0ff2 +0.4023 全场最大）全部 `activity_ultra(unhealthy)`，亏损 Top1/2/4/5 全部 `activity_ultra(cheat)`，唯一漏网 c62d2dff（-0.0660）unhealthy。**语义依据**：act=ultra 恒触发 G17 M 通道——原判 unhealthy 的 ultra 票唯一拒因=密度本身（真实热度该放）；原判 cheat=A 通道九主判题 strong 实锤（等额分仓/同块对敲/拉高组织化买入）+ultra 密度=**刷量机器 burst 后即死**，与 CD380「作弊实锤不豁免」（wash 臂）同族。方案呈报后用户裁定「**明白了，使用原始 unhealthy 也可以。**」
+
+**落法（`CheatCheckService.js`，三点同构防「门拒但不拉黑」分叉）**：新臂 `_isUltraCheatDenied(bucket, grade)` = `grade==='cheat' && bucket==='ultra' && _isActivityExempt('ultra')`——①`_applyActivityExempt` 出口（wash 臂后=特定形状臂优先报码）：命中 → 原判保持 cheat+`exemptDenied:'ultra_cheat'` 留痕+stats.ultraCheatDenied 计数（拉黑+清仓联动照常）；②拉黑登记点 `activityExempt` 条件加 `&& !_isUltraCheatDenied(...)`；③bootstrap 恢复拉黑同构（ultra∧cheat 行恢复拉黑）。**作用域**：仅 activity 路径 ultra 桶（high 桶 CD379 原语义不动；豁免集显式不含 ultra 时不触发；CD383 burst 臂 low 桶独立不受影响；gradeObservation 规则域/题集版本零改动——观测行照落原始 grade）。单测 `_test_cheat_gate_engine.cjs` F9 段 8 断言（资格唯一组合/豁免集不含 ultra 不触发/出口四形状/washPair 优先码/low∧cheat∧burst 不受影响/三消费点源码锁），145 全绿。
+
+**182 门级对拍（bt-v90 12 票 32 条带 cheatCheck 的 BUY 信号，fresh 实例+persist:false+anchorMs 逐信号真调）**：**27 达成/5 未达成，5 个未达成全部=同版 Jev run-to-run grade 方差（CD319/CD387 先例），门行为 100% 符合设计**——29 条判到 ultra∧cheat 的全部翻拒 `denied=ultra_cheat`（含全部亏损 Top 票）、ultra∧unhealthy/high 的全部照旧放。逐条：①`af7ee141@07:22:44` 重放 act 桶漂到 high（CD388 域外，high 豁免照放=机制正确）；②`f485ec1d@09:05:50` 重判直过 healthy（非豁免路径照买，断言要求 exempt 在场=断言瑕疵非行为差）；③`c84a0ff2@12:31:24`（成交信号）重判 unhealthy→cheat 被拒——**收益最大正例的 grade 方差风险**（其前两条信号 12:31:15/21 重放仍豁免 ✓；生产里 t0a/t0b 先触发，该窗口有多次买点机会，且票一路上涨 N 系腿会续触发）；④`c62d2dff@12:31:37/12:32:06`（后者=成交信号）重判翻 cheat 被拒=**超额拦截**（唯一漏网负例 -0.0660 意外收回）。
+
+**余留**：生产 `ultraCheatDenied` 分布观察；c84a0ff2 形状（grade 贴线票）同版方差面攒批（CD319/CD387/本例三例后若再出现考虑判读锚方法论）；是否跑全窗口回测验证净额由用户裁定。
+
 ### CD387 M4GA sbw 贴线摆动案——同版 Jev run-to-run 方差，④数值判读锚题面化 D3.63（2026-11-09，题面案·grade/state 零改动；commit `e7da02bd`）
 
 **案情**：M4GA `0xba5ed45b42479e0a75316de7bf990ec90a3e4444`（11-05 窗口）07:40:47 首判——bt-v87（`c84fc413`）判 **sbw=burst**（01:17:29 跑）→ CD383 burst 豁免臂成立 healthy+exempt 买入 4 卡净 **+0.5152（该窗口全场最大单票盈利）**；bt-v88（`9b0b43c5`，同基底同窗口同锚）判 **sbw=none**（04:04:51 跑）→ burst 臂失效 A_strong 四题 strong（pump/wash/spike/hold…）裸判 cheat 拉黑未买。bt-v88 vs bt-v87 净差 -1.0592 中 M4GA 一票占 -0.5152。
