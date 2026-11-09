@@ -193,7 +193,7 @@
 
 **联动面**：FA `ALMOST_LAUNCH_PCT` 20→10（CD381 `priceBackToAlmostLaunch` 重检锚——轨迹 min ≤10 才触发 almost_launch 重检臂）；BP 侧 minVsLaunchPct exitThreshold 同车 1.1（BP44 定义，双侧独立实现防循环依赖，`_test_cheat_market_reset` B 段双向锁判据随界改 ≤10⟺非 null）。
 
-**语义影响**：reset 触发面收窄——涨起后须跌得更深（段最低 ≤+10 含破发）才算「回到过 almost_launch」，+10~20 回落带不再触发盘面重置（旧证据窗保留、上一轮抢筹/拉高形状仍在窗内=更倾向 unhealthy/cheat 原判维持）；BT 系完整窗口 reset 小票（87 票净 -1.38 那批 30~120 行冲高砸落形状）中跌回段最低落 +10~20 带的将走原判不重置。**182 对拍达成（2026-11-09，`tmp-bp50-parity.cjs` forceRecheck 真调 0x28ad2c7d 07:15:55）**：grade=healthy 接线正常；minVs=0.9 三锚恒定（深归零远低于新旧界）→ reset 三锚全触发（BP 侧 ⑦ pattern 0.43/0.59/0.55 全中）=1.2→1.1 对深归零票零翻转；翻转面全量=bt-v84 全窗 1000 BUY 信号 minVs 落 (10,20] 带共 **65 信号/26 token**（reset 判定退场改走原窗判定，清单留档 tmp-bp50-flipband 输出）。
+**语义影响**：reset 触发面收窄——涨起后须跌得更深（段最低 ≤+10 含破发）才算「回到过 almost_launch」，+10~20 回落带不再触发盘面重置（旧证据窗保留、上一轮抢筹/拉高形状仍在窗内=更倾向 unhealthy/cheat 原判维持）；BT 系完整窗口 reset 小票（87 票净 -1.38 那批 30~120 行冲高砸落形状）中跌回段最低落 +10~20 带的将走原判不重置。**182 对拍达成（2026-11-09，`tmp-bp50-parity.cjs` forceRecheck 真调 0x28ad2c7d 07:15:55）**：grade=healthy 接线正常；minVs=0.9 三锚恒定（深归零远低于新旧界）→ reset 三锚全触发（BP 侧 ⑦ pattern 0.43/0.59/0.55 全中）=1.2→1.1 对深归零票零翻转；翻转面全量=bt-v84 全窗 1000 BUY 信号 minVs 落 (10,20] 带共 **65 信号/26 token**（reset 判定退场改走原窗判定，清单留档 tmp-bp50-flipband 输出）。**bt-v87 全链对照（c84fc413 vs bt-v86 单变量=BP50/CD386 代码）**：reset_insufficient 硬拒 352 → 228（-124=触发面收窄直接读数）、净 +0.9402 → +1.0238、成交 34 → 45——**reset 退场的 (10,20] 带票走原窗判定，原窗干净的照常放行（CD384 硬拒小票中含无辜票被解救，RL15 腿 3→11/stall_burst 豁免 14→30 受益最大）**；CD384 语义边界随之显形：它拒的是「回到过 almost（旧界 ≤20）但重置窗不足」的票，BP50 后该族群缩小到 ≤10 深归零票。
 
 **单测**：`_test_cheat_market_reset` 35 全过（A2/A2b/A4/A6 夹具按 1.1 锚重构造+B 段 shapes expectBp 随新界）；`_test_cheat_gate_engine` 136 全过（CD381 回到价 +18→+8）；相邻 detection_service 142/detection_lib 640/grade 135 全绿。
 
