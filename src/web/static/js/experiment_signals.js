@@ -3227,13 +3227,33 @@ class ExperimentSignals {
         const cs = cheatCheckInfo.status || '';
         if (cheatCheckInfo.grade) {
           const g = cheatCheckInfo.grade;
-          const gBadge = g === 'cheat'
-            ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 cheat（拉黑不再交易+持仓清仓）</span>'
-            : (g === 'unhealthy'
-              ? (executionReason === 'cheat_gate_unhealthy'
-                ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">⚠️ unhealthy（本信号拒·cheatRecheck 腿下个买信号自动重判）</span>'
-                : '<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>')
-              : `<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`);
+          // 展示口径（2026-11-09 用户裁定）：检测出作弊就是作弊——豁免票主徽章显示
+          // 原始判定 grade（exempt.originalGrade），豁免信息单独说明；不把检测是
+          // 作弊/不健康的票展示成 healthy。grade 字段本身=豁免改写后的门决策语义
+          // （下游消费不动），此处仅展示层还原。
+          const exempt = cheatCheckInfo.exempt || null;
+          const denied = cheatCheckInfo.exemptDenied || null;
+          const showG = exempt && exempt.originalGrade ? exempt.originalGrade : g;
+          const EXEMPT_LABELS = {
+            activity_high: '活跃度豁免（high 档）',
+            activity_ultra: '活跃度豁免（ultra 档）',
+            stall_burst: '长期沉积一波操盘豁免（burst 臂）',
+          };
+          const exemptBadge = exempt
+            ? `<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-900 rounded-full font-bold">🟡 已豁免放行：${this._escapeHtml(EXEMPT_LABELS[exempt.code] || exempt.code)}</span>`
+            : '';
+          const deniedBadge = denied
+            ? `<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">豁免失效（${this._escapeHtml(denied)}·原判保持）</span>`
+            : '';
+          const gBadge = showG === 'cheat'
+            ? `<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 cheat（检测判定${exempt ? '' : '：拉黑不再交易+持仓清仓'}）</span>${exemptBadge}${deniedBadge}`
+            : (showG === 'unhealthy'
+              ? `<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full font-bold">⚠️ unhealthy（检测判定）</span>${exemptBadge}${deniedBadge}`
+              : (g === 'unhealthy'
+                ? (executionReason === 'cheat_gate_unhealthy'
+                  ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">⚠️ unhealthy（本信号拒·cheatRecheck 腿下个买信号自动重判）</span>'
+                  : '<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>')
+                : `<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`));
           const codes = (cheatCheckInfo.reasons || []).map((r) => r.code).filter(Boolean).join(', ');
           // CD158 来源位：cached=同题集版本粘滞秒回（零 Jev）；graded=本信号真析；
           // reused=旧形状（增量门重用，历史行）
@@ -3275,6 +3295,8 @@ class ExperimentSignals {
               ${cheatCheckInfo.conditionPassed === true ? '<div><span class="text-amber-200">门条件:</span> 通过</div>' : ''}
               ${cheatCheckInfo.condition ? `<div class="col-span-3"><span class="text-amber-200">门条件表达式:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(String(cheatCheckInfo.condition))}</code>${cheatCheckInfo.conditionError ? ` <span class="text-red-700">评估异常: ${this._escapeHtml(String(cheatCheckInfo.conditionError))}</span>` : ''}</div>` : ''}
               ${codes ? `<div class="col-span-3"><span class="text-amber-200">触发通道:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
+              ${exempt ? `<div class="col-span-3"><span class="text-amber-200">豁免链路:</span> 检测判定 <b>${this._escapeHtml(exempt.originalGrade)}</b> → ${this._escapeHtml(EXEMPT_LABELS[exempt.code] || exempt.code)} → 门决策 grade=${this._escapeHtml(g)} 放行</div>` : ''}
+              ${denied ? `<div class="col-span-3"><span class="text-amber-200">豁免失效:</span> exemptDenied=${this._escapeHtml(denied)}（不豁免臂/资格收紧命中，原判保持）</div>` : ''}
               <div class="col-span-3 text-gray-700">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 15 题；映射=cheat-grade G15）'}</div>
             </div>
             ${cheatQuestionsHtml}
