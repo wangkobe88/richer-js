@@ -202,6 +202,8 @@
 
 **单测**：`_test_cheat_detection_service.cjs` Z2 整段改写（全窗口径 12 行 analyzed/marketReset 键不写/资金计全窗 1.2/短窗回 insufficient_ticks/capped 满帽 analyzed/anchorMs 照常/CD393 三源码锁——service 无接线+snapshot 函数本体删+引擎分支删）140 全绿；`_test_cheat_market_reset.cjs` 整文件改写（CD 侧双向锁退役=BP 侧独存：BP44 minVsLaunchPct 七形状+常量锚+T130 地板 B2-B4 断言）17 全绿；`_test_cheat_mem_pull_ticks.cjs` D2 断言跟变量名（`pull0.fromMem`——5b 改写后 pull0 直通）。
 
+**回测（bt-v94，2026-11-09，commit acf8835a；克隆 bt-v91 同窗库 v15 腿，四改同车 CD391/CD392/CD393+T130）**：立法票 6a1e4567 彪姐 3 信号 1 成交（P9 06:49:21 healthy 豁免 activity_high+BP assessed 过门买入）净 -0.0339（bt-v91 同票 -0.0551）——「ticks 不够买不了」诉求闭合：全窗判定后 P1/P2/P9 连续触发不再被重置窗行数挡死；净值层面全窗证据下 Jev 判 healthy 高热豁免。注意 bt-v93（e8df7e6d）因 TypeSafe 402 欠费作废（1199 信号 0 成交——cheat fail-open 放行但 BP fail-closed 全拒），充值后 bt-v94 重跑为准。
+
 ### CD392 burst 豁免资格臂加价格腿——波起点 ≤+40% 才算「跌到很低再起来」（2026-11-09，豁免资格案·题集/grade 零改动；ad80fb7a 案；用户裁定原话「burst 是指 价格跌到很低再起来，不是价格维持高位再一个流量拉升」）
 
 **动机（ad80fb7a 案）**：four.meme 票高位横盘 280s/87 行 +140~175% 后一波流量拉升，CD383 burst 臂三键（gap≥50/波买 ≥0.7/波户 ≥10）全过 → 高位流量波被当「长期沉积一朝操盘」豁免 cheat——但 burst 的立法语义（M4GA 案）是「**价格跌到很低再起来**」，高位横盘再拉升是另一形状（拉高维持，庄盘在场的持续运营），豁免资格臂需要价格腿区分。正例锚：M4GA 0xba5ed45b 波起点 +2.9%（贴发行价起来的）；反例锚：ad80fb7a 波起点 +152%。
@@ -214,6 +216,8 @@
 
 **单测**：`_test_cheat_gate_engine.cjs` F8 全夹具加 startVs 2.9+GDS_AN 第四键+**F8c 专项块**（+2.9 放/+152 拒/恰 40 放 40.1 拒/null 拒+源码锁正则）+F9 资格子式弱波夹具补第四键；`_test_cheat_detection_lib.cjs` mapper anchors 键数 53→54；170/640 全绿。
 
+**回测（bt-v94）**：反例票 ad80fb7a FourPool 7 信号全 cheat 拒零豁免（bt-v92 里它靠 cheat→stall_burst 豁免买入 -0.0433）——第四腿闭合（波起点 +152>40 豁免资格失）。代价面 SPP 0xb20a8aab：bt-v92 同刻 P9 信号 cheat→豁免:stall_burst 成交 +0.1020 → bt-v94 同刻 grade=cheat 无豁免（第四腿拒，波起点高位）+后续 4 腿全拒。burst 通道两票净 +0.0588（避 FourPool 亏 -0.0433、弃 SPP 赚 +0.1020）——方向符合「高位流量拉升不豁免」立法，正票误伤面留档观察。
+
 ### CD391 cheat 豁免资格收回 ultra 单档——high 档恢复 cheat 豁免（CD390 收回=CD388 形态恢复）（2026-11-09，豁免资格案·题集/grade/规则域零改动；用户裁定原话「交易活跃度热，cheat 继续豁免」）
 
 **动机**：CD390（同日）把 CD388 ultra 收紧推广到 high 全档（cheat 只有 burst 豁免）；bt-v92 读数显示 CD390 纯增量 15 张代价 +0.17 温和、但净额差主因在 T129 价格门，且 grade 方差（CD319 同族）下单窗口对照的「两桶全负」证据不稳——用户翻案收回：**high 档 cheat 恢复豁免（CD379 原语义），ultra 档维持 CD388 收紧（刷量机器不豁免）**。
@@ -225,6 +229,8 @@
 - gradeObservation/题集版本零改动（观测行照落原始 grade）。
 
 **单测**：`_test_cheat_gate_engine.cjs` F2 改 CD391（cheat+high 豁免+新增 r2a2 ultra_cheat 拒）、F4/F7 源码锁改 `_isCheatExemptEligible`、F9 整段重写（ultra_cheat 码/high 恢复豁免/ultraCheatDenied +1/wash 优先/burst 保留双臂/资格子式含 CD392 第四腿/源码锁=子式 2 消费点+burstExempt 2 消费点），170 全绿。
+
+**回测（bt-v94 vs bt-v92 同 v15 腿对照，2026-11-09）**：四改净增量 **+0.7137**（v92 24 票 -0.1063 → v94 58 票 +0.6074、胜率 32.8%；新增 37 票 +0.5641/消失 3 票净 -0.0132/同票行为差 +0.1628）。CD391 主贡献：`cheat→豁免:activity_high` 通道 140 信号/**33 成交票净值 +0.2618**（v92 该通道为 0）；`unhealthy→豁免` 两桶照旧（activity_high 45 信号/12 票 -0.0439、activity_ultra 1 信号/1 票=来财 c84a0ff2 **+0.4117 全场最正**）；**ultra∧cheat 拒面（exemptDenied=ultra_cheat）本窗口零触发**=收紧保守面无误伤。vs bt-v91（v14 腿 80 门）净额差 -0.30 主因仍是 T129 27.5 砍 M4GA +0.515/突突车 +0.409/memes +0.293 回落域成交（bt-v92 读数已留档，M4GA 在 v92/v94 均 8 信号全 cheat 拒零豁免=非本批回归）；信号 872 vs v92 1085（-213=CD391 豁免票不拉黑→引擎短路行减少+T130 触发时点变化，方向良性）。
 
 
 

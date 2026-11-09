@@ -69,6 +69,8 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **单测**：`_test_current_vs_launch_factor.cjs` 新 I 段五断言（低开 +25/高开不降锚 +20/write-once 只认 BUY/gang 无常量旧口径/源码锁）；`_test_cheat_market_reset.cjs` B2-B4（BP 低开 launch=首买/高开常量/launchCovered=false 用常量）；13 件相关单测全绿（cheat_gate_engine 170/detection_service 140/detection_lib 640/grade 135/market_reset 17/mem_pull 109/buy_point_lib 476/buy_point_check 36/signal_source 43/signal_gate 127/fa_factors/quote 9）。
 
+**回测（bt-v94，2026-11-09，四改同车）**：例票 6efa11ce 시룩 bt-v91/bt-v92 零信号 → bt-v94 05:36:41 P1 触发（cheat 拒）/05:36:54 P2 触发（cheat→豁免 activity_high+BP assessed）成交 4 卡净 -0.0320——地板锚让首 tick 读数从 +20%（low 档）回到 almost_launch 域、价格门过→信号链闭合；例票 67ad68e0 英伟达SI 3 信号触发（04:34-04:35 P1/P2/P3，两版均无信号）但全被 cheat 门拒（grade=cheat 无豁免资格）——触发层修复到位、门链照常把关非 T130 职责。注意 6efa11ce 实际成交地址 `0x6efa11ceafb7af0b56b37e9140c0c390077777`（flap 票尾 7777=常态）。
+
 
 
 **动机（bt-v91 涨幅 Top10 前期低点分布复盘）**：254 票池涨幅 Top10（+499%~+1426%）**前期最低点全部在 +23.9% 以内**——memes +1426%（前期最低 +0.9%）、苍蝇 +1200%（+3.3%）、来财 +1200%（+16.6%）、高大上 +1041%（**-10.9% 破发**）、M4GA +772%（+0.9%）、突突车 +663%（+0.3%）、吉祥 +652%（+12.9%）、7 +543%（+0.3%）、Dawn +525%（+12.0%）、海水过滤器 +524%（-0.6% 破发）；6 票前期低点 ≤+3.3%、2-3 票直接破发（=RL 臂目标域）。**所有大涨幅票的入场窗口都在 +27.5% 以下——门上界 80 收进 27.5 不损失任何正收益分布、砍掉全部 +27.5~80 追高域**（该域无正收益分布支撑）。分界线 27.5=用户给定（涨幅 30% 以下减半档容差）。
