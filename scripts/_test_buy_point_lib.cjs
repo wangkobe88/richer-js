@@ -949,8 +949,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   const mp = qs.market_pattern.instructions;
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('②这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
-  ok(mp.includes('famous 集团买入主导判序（BP57，优先于④）') && mp.includes('优先判本桶') && qs.market_pattern.criteria.famous_monopoly.includes('famous 集团自己买出来的吞吐不算厚'),
-    'F: BP57 ③桶 famous 集团买入主导判序（徐苍蝇案 0x59f5…7777 两 famous 控盘 85.4%/集团买 80.1%/两 famous 买入 1.445=全窗 56% 误判④——famous 抢筹天然制造开盘集中+吞吐骤降形状是进场方式产物非衰竭证据；BP58 二修④桶恢复后判序句「优先判本桶不判④」；厚度域界=famous 之外多元参与承接主要买入才算厚）');
+  ok(mp.includes('famous 集团买入主导判序（BP57，优先于④）') && mp.includes('优先判本桶') && qs.market_pattern.criteria.famous_monopoly.includes('famous 集团买入主导（占全窗买入大头）优先判本桶不判④') && qs.market_pattern.criteria.famous_monopoly.includes('famous 之外多元参与承接主要买入=盘子已厚退出'),
+    'F: BP57 ③桶 famous 集团买入主导判序（徐苍蝇案 0x59f5…7777 两 famous 控盘 85.4%/集团买 80.1%/两 famous 买入 1.445=全窗 56% 误判④——famous 抢筹天然制造开盘集中+吞吐骤降形状是进场方式产物非衰竭证据；BP58 二修④桶恢复后判序句「优先判本桶不判④」；厚度域界=famous 之外多元参与承接主要买入才算厚；BP58 精简 criteria 压缩版双锚）');
   ok(mp.includes('BP58 二修——判型照旧、处理统一') && mp.includes('八桶识别能力全保留'), 'F: BP58 二修判型恢复句（用户裁定「我觉得这个模块是简化而不是删除」——识别全保留八桶、处理统一简化：②③硬拒/⑥≤10/①④⑤⑦⑧统一门 27.5）');
   ok(mp.includes('盘面重置前置（BP44 判序，先于④⑦评分类）'), 'F: 盘面重置前置段恢复（BP44 判序⑦优先/⑧分层——二修随八桶全文回迁）');
   ok(mp.includes('买入额到 0.2 BNB 级（≥0.19 视同）的钱包 ≥2 个，或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足'), 'F: ②⑤分界双臂语义保留（BP19 突突车案——多笔 0.2 级（≥2 钱包）或单笔 0.3+ 在场=满足大户参与不属纯散户 PVP；BP28 判序化后该双臂成为前置门判据；BP47 精简后主述在②桶 (a) 判序前置段）');
@@ -966,11 +966,11 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('先判「大户参与」') && mp.includes('或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足') && mp.includes('直接落②，不再看承接、不看盘面活跃度') && mp.includes('0.1~0.19 BNB 级灰区单不构成大户参与'), 'F: ②(a) 大户参与双臂+不满足直接落②（BP26 案立法核心——用户裁定原话「大户参与不满足是直接 pvp 盘的，满足之后根据承接再次分类」；灰区 0.1~0.19 单不构成大户参与=S045 前列 0.1568/0.1484/0.1090 三笔灰区单成因）');
   ok(mp.includes('小散互捅的盘面再活跃（新买家多、吞吐高、笔密度大）也只是散户 PVP，不是融合盘') && mp.includes('满足大户参与之后才按承接分类'), 'F: ②(a) 活跃度不救+承接分类后置（BP28——S045 灰区单被 activity high 带走错放；小散互捅的活跃不是大户参与）');
   ok(mp.includes('不满足直接落②、盘面活跃度不救') && mp.includes('卖方在场性三分见②桶 (b) 第三通道'), 'F: 反锚②判序回指（BP28——大户参与不满足直接落②活跃度不救；卖方三分回指②桶主述）');
-  ok(qs.market_pattern.criteria.retail_pvp.includes('判序前置——先判大户参与（0.2 级钱包 ≥2 个或单笔 0.3+ 且**买点时刻仍在场**') && qs.market_pattern.criteria.retail_pvp.includes('判例 a8e70'), 'F: criteria retail_pvp 判序同步（BP28+BP58 二修在场加硬——桶描述与题面判序一致，Jev 选桶时同判序；a8e70 判例在场=末笔后已清仓式离场的历史大户不算在场）');
+  ok(qs.market_pattern.criteria.retail_pvp.includes('大户参与判序前置（0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场——末笔后已清仓离场的历史大户不算在场）不满足直接落②、盘面活跃度不救') && qs.market_pattern.criteria.retail_pvp.includes('判据全文见题面②桶'), 'F: criteria retail_pvp 判序同步（BP28+BP58 二修在场加硬——桶描述与题面判序一致，Jev 选桶时同判序；末笔后已清仓离场的历史大户不算在场=a8e70 在场加硬语义核心；BP58 精简压缩版判据全文指针回②桶）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
   // BP28 案改三（S064 FIGHT strong_backer 误放 -41.5%——复数 famous 扩句+roster 收录）
   ok(mp.includes('或两个及以上 famous 钱包极早入场（开盘段内/锚窗最早段首买）合计拿筹过多') && mp.includes('famous 抢筹建仓盘——famous 钱包入仓太早、拿的是最便宜的筹码，散户盘子起不来') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③复数 famous 扩句（BP30/BP28 案 S064——用户裁定原话「他俩入仓太早了拿的太多，起不来」：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 抢筹 0.252/0.343 合计 0.595 BNB，单个占比不及独食线的复数合计达线也落③；两址已收录 famous-copy-wallets.json）');
-  ok(qs.market_pattern.criteria.famous_monopoly.includes('单个 famous 占比极大，或两个及以上 famous 钱包极早入场（开盘段内首买）合计拿筹过多（控盘 ≥25~30 且合计绝对额大）=famous 抢筹建仓盘'), 'F: criteria famous_monopoly 复数 famous 同步（BP30——桶描述与题面判据一致）');
+  ok(qs.market_pattern.criteria.famous_monopoly.includes('单个占比极大，或两个及以上 famous 极早入场合计达线') && qs.market_pattern.criteria.famous_monopoly.includes('这个盘子就是它的/它们的了'), 'F: criteria famous_monopoly 复数 famous 同步（BP30——桶描述与题面判据一致；BP58 精简压缩版保留单/复数双臂+原话锚）');
   ok(mp.includes('材料不足（开盘段结构行 ? /钱包证据缺/窗极短）按⑤处理不硬归类（⑤含「没有明确分类」语义）'), 'F: 材料不足按⑤处理不硬归类（BP58 二修⑤桶恢复——融合桶承载「没有明确分类」语义）');
   ok(mp.includes('②③由盘型门硬拒（不要参与）'), 'F: 门桶声明=②③盘型门硬拒（BP58——⑥/none 走各自位置臂非不拦）');
   ok(mp.includes('⑥ ≤+10% 起点段放行、已拉离（>+10%）拒') && mp.includes('其余各桶（①④⑤⑦⑧）统一位置门 ≤+27.5%（含破发，BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」）放行、已拉离（>+27.5%）拒') && mp.includes('④判型照判但不再独立硬拒') && mp.includes('锚缺失（发行价位置行 ?）宁拦不冒充一律拒'), 'F: 收尾位置门（⑥ ≤+10 独立臂+①④⑤⑦⑧统一门 ≤+27.5+④不再独立硬拒——锚缺失宁拦不冒充一律拒、放行后统一走点位性质门/活跃度门；判型归 Jev 位置归代码）');
@@ -993,7 +993,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('与①同属强庄家族（BP35 防误伤）') && mp.includes('不区分①⑥') && mp.includes('身份证据在场不豁免双臂判据，近窗纯买零卖+急拉的即便大户在场也落本桶'), 'F: ⑥身份证据不豁免双臂判据（BP35——拉升执行者就是大户①⑥同形；二修恢复家族归属句全文）');
   ok(mp.includes('防误伤的从宽方向=双臂材料混合/证据薄时从宽①') && mp.includes('有对倒证据（近窗有像样卖出）的照①评估'), 'F: ⑥从宽①防误伤（BP35——①桶二修恢复后从宽方向回指①；拒买类从严拿不准从宽）');
   ok(mp.includes('⑥ ≤+10% 起点段放行、已拉离（>+10%）拒'), 'F: ⑥参与窗口位置门语义（原话「这种只能临近发布价格参与」——贴发行价起点段放行、已拉离拒；BP58 后表述并收尾门段）');
-  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（全窗价格拱一路向上——单根深急回针迅速收复创新高不破坏形状）') && qs.market_pattern.criteria.sustained_climb.includes('近窗卖出归零/仅尘埃级 <0.12 ∧ 买占比 ≥90%') && qs.market_pattern.criteria.sustained_climb.includes('近窗卖出 ≥0.12 BNB=对倒痕迹走①（贴线微小卖出 0.10x 级不算对倒，BP37）') && qs.market_pattern.criteria.sustained_climb.includes('更早段对倒不救近窗纯拉段') && qs.market_pattern.criteria.sustained_climb.includes('（开盘大额与大户在场不区分①⑥——身份证据不是逃逸门，近窗纯买零卖急拉的即便大户在场也落本桶；双臂材料混合/证据薄时从宽①防误伤，有对倒证据的照①）') && qs.market_pattern.criteria.sustained_climb.includes('已拉离（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（BP37+BP58 二修——0.12 线+贴线微小卖出不算+现在进行时+价格拱回针句+身份不豁免+从宽①+位置门）');
+  ok(qs.market_pattern.criteria.sustained_climb.includes('价格从开盘起持续单边拉升几乎无回调（全窗价格拱一路向上）∧ 买卖几乎完全不平衡（近窗卖出归零/仅尘埃级 <0.12 ∧ 买占比 ≥90%；近窗卖出 ≥0.12=对倒痕迹走①）') && qs.market_pattern.criteria.sustained_climb.includes('判据全文见题面⑥桶') && qs.market_pattern.criteria.sustained_climb.includes('本桶只有现价 ≤+10%（含破发）起点段可参与，已拉离（>+10%）或锚缺失=不要参与'), 'F: criteria sustained_climb 同步（BP37+BP58 二修+精简压缩版——0.12 线/回针句/现在进行时/身份不豁免/从宽① 全文在⑥桶主述，criteria 指针+位置门双臂保留）');
   ok(mp.includes('（参考合计 <0.12 BNB）∧ 买占比极高（参考 ≥90%）（BP36 近窗锚定，BP37 收紧）') && mp.includes('近窗卖出合计有像样金额（参考 ≥0.12 BNB）=对倒痕迹在场，走①不落本桶；刚过 0.1 的贴线微小卖出（0.10x 级）不构成对倒痕迹、照常落本桶'), 'F: ⑥对倒臂 0.12 线（BP37 收紧——無為 S072 近窗卖 0.128≥0.12=对倒痕迹走①，太空逆袭 S054 卖 0.1021=贴线微小卖出不算对倒仍⑥，羊王 S156 卖 0.0000=臂失落⑥：⑥/①分界客观化，Jev 对照近窗流量行即可判；二修恢复①桶指向）');
   ok(mp.includes('看价格拱形状不看单根回针（BP36）') && mp.includes('回针是拉升途中的洗盘针不是回调结构，不破坏「一路向上」形状'), 'F: ⑥回撤判据看全窗价格拱（BP36——「窗内最大回撤」行是临近段口径：S156 回针 35.3% 但末价=ATH 0s 前刚创新高，单根深急回针收复不破坏一路向上）');
   ok(mp.includes('⑥看拉升的「现在进行时」（BP36）') && mp.includes('全窗更早段的对倒（如开盘大额买进后部分兑现）不救近窗纯拉段'), 'F: ⑥现在进行时（BP36——S156 第 1 大 0xb036 全窗卖 0.756 是更早段兑现，近窗 30s 卖 0.0000×0 纯拉进行时不给入场机会仍落⑥）');
