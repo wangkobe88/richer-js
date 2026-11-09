@@ -983,7 +983,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(esIns.includes('四桶判序：先判 crash（直线砸盘）各臂，再判 spike（尖刺拉起）各臂，都不命中按回落深度与形状分 normal_dip/flat'), 'F: entry_shape 四桶判序句（crash→spike→normal_dip/flat）');
   ok(esIns.includes('① 现价较锚窗最高价深跌：currentVsAthPct ≤ -25%') && esIns.includes('② 近 30s 动量深跌：chg30Pct ≤ -25%') && esIns.includes('③ 临近段单 5s 段急跌：nearMaxDn5Pct ≤ -15%') && esIns.includes('④ 现价贴着锚窗最低价：curVsMinGapPct ≤ 2 个百分点'), 'F: crash 四臂判读线（bt-v94 三砸盘 LOVE/STOCKLESS/币安之心 curVsAth -28~-37+chg30 深跌全中；对倒正例米/施工鸭 -6~-7 不中）');
   ok(esIns.includes('砸盘后的反弹不救 crash'), 'F: crash 反弹不救句（深跌臂事实不变——curVsMinGapPct 只用于判「贴底」臂不洗深跌臂）');
-  ok(esIns.includes('① 近 30s 动量急涨：chg30Pct ≥ +20%') && esIns.includes('② 临近段单 5s 段急拉：nearMaxUp5Pct ≥ +15%') && esIns.includes('③ 现价贴锚窗最高价：currentVsAthPct ≥ -5%'), 'F: spike 三臂判读线（YiYi chg30 +23.4 中臂+统一门 38.8>27.5 双拦；对倒正例米/施工鸭 5s 段 10~12 线下不中）');
+  ok(esIns.includes('① 现价贴锚窗最高价：currentVsAthPct ≥ -5%（拉升进行时贴顶——单独成立，此刻买入=顶上接）') && esIns.includes('② 贴顶+近 30s 动量急涨：chg30Pct ≥ +20%（须与①联立）') && esIns.includes('③ 贴顶+临近段单 5s 段急拉：nearMaxUp5Pct ≥ +15%（须与①联立）') && esIns.includes('急拉但已从高点回落超过 5 个百分点（currentVsAthPct < -5）不判 spike'), 'F: spike 三臂判读线=贴顶必要条件+联立（首版米/施工鸭误中急拉臂后修正：对倒回升波段 5s 段 +20~25 同样有急拉，区分轴=现价在不在刺尖上——YiYi curVsAth 0 贴顶中臂+统一门 38.8>27.5 双拦；米 -6.98/施工鸭 -6.38 已回落 6~7pp 不贴顶走 normal_dip）');
+  ok(esIns.includes('④急拉不贴顶不误判 spike（贴顶是必要条件——对倒回升波段 5s 段 +20~25% 但现价离顶 6~7pp 照 normal_dip）'), 'F: 反锚④回升波段反例（对拍修正案——急拉数值轴无区分度，位置轴才是判据）');
   ok(esIns.includes('normal_dip 正常回调低价（好点位）') && esIns.includes('对倒盘/正常换手造成的低价，回落有节奏非直线、盘面仍活跃'), 'F: normal_dip=目标形状（好点位=对倒盘低价）');
   ok(esIns.includes('flat 横盘/缓行'), 'F: flat 横盘桶（各臂不命中且无回落结构如实归本桶）');
   ok(esIns.includes('crash=较锚窗最高 -37%+chg30 -29%（庄离场直线砸盘，跌势未尽）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩低价=目标形状）') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶，不追）'), 'F: entry_shape 形状样本三句（bt-v94 判例直译——LOVE 砸盘/米对倒/YiYi 尖刺）');
