@@ -181,6 +181,7 @@ class CheatCheckService {
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
       stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
+      ultraCheatDenied: 0, // CD388 ultra 档资格收紧命中计数（ultra∧原判 cheat=刷量机器不豁免，恢复拉黑原判；11-09 裁定）
       marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
       resetInsufficientRejects: 0, // CD384 reset 截窗后窗 <minTicks fail-closed 拒计数（bt-v83 87/87 实证后立法）
     };
@@ -422,6 +423,36 @@ class CheatCheckService {
   }
 
   /**
+   * CD388 ultra 档豁免资格收紧（2026-11-09 用户裁定「对于 ultra 票……需要这些币
+   * 在长期交易后依然维持超高活跃度，那么才接纳它，否则则不接纳」+「使用原始
+   * unhealthy 也可以」）：**原判 cheat 的 ultra 票不豁免**（原判保持 → 拉黑+清仓
+   * 联动照常），原判 unhealthy 的 ultra 票照旧豁免（CD379 原语义）。
+   *
+   * 判据语义：act=ultra 恒触发 G17 M 通道（M_hyper_activity）——原判 unhealthy
+   * 的 ultra 票唯一拒因就是密度本身（真实热度，高活跃该放）；原判 cheat 说明
+   * A 通道九主判题有 strong 实锤（等额分仓/同块对敲/拉高等组织化买入）——ultra
+   * 密度+作弊实锤=刷量机器（burst 后即死），活跃度豁免恰好专放这类票。与 CD380
+   * 「作弊实锤不豁免」（wash 臂）同族、方向一致（豁免收紧）。
+   *
+   * bt-v90 12 张 activity_ultra 豁免票实证（11-09）：亏损 Top1/2/4/5
+   * （45ec0489/68bb8cd4/04323e04/75d5286d BEM）原判全 cheat；盈利三票
+   * （c84a0ff2 +0.4023 / 32f18a98 +0.1592 / f485ec1d）原判全 unhealthy——
+   * originalGrade 是完美分离器。纯交易量维度正负例数学上无解（c62d2dff 45 笔
+   * /7.50 BNB 全场最大却 -0.0660、32f18a98 9 笔/1.31 BNB 最小却 +0.159、
+   * f485ec1d 与 45ec0489 首锚孪生），用户裁定采信 grade 因子（「你发现其它
+   * 因子更加有用也行」）。唯一漏网 c62d2dff（unhealthy 原判 -0.0660）留档。
+   *
+   * 作用域：仅 activity 豁免路径的 ultra 桶（high 桶 CD379 原语义不动）；豁免集
+   * 显式不含 ultra 时本臂不触发（act 不在集=activity 路径本来不适用，burst 臂
+   * CD383 语义独立不受影响）。三点同构：_applyActivityExempt 出口 / 拉黑登记
+   * 点 / bootstrap 恢复点（防「门拒但不拉黑/不触发清仓」分叉，CD380 同款纪律）。
+   * gradeObservation 规则域/题集版本零改动（观测行照落原始 grade=研究原料）。
+   */
+  _isUltraCheatDenied(bucket, grade) {
+    return grade === 'cheat' && bucket === 'ultra' && this._isActivityExempt('ultra');
+  }
+
+  /**
    * CD379 活跃度豁免出口变换（2026-11-07 用户裁定「作弊检测豁免所有活跃度在
    * high 之上的票」）：grade∈{cheat,unhealthy} ∧ buckets.activityLevel∈豁免集
    * → healthy 放行——reasons/levels/buckets/anchors 原样保留（审计轨迹），
@@ -444,6 +475,10 @@ class CheatCheckService {
     if (denied) {
       this.stats.exemptDenied++;
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
+    }
+    if (this._isUltraCheatDenied(act, res.grade)) { // CD388 ultra 档资格收紧（wash 臂后=特定形状臂优先报码）
+      this.stats.ultraCheatDenied++;
+      return { ...res, exemptDenied: 'ultra_cheat' }; // 原判保持 cheat（拉黑+清仓联动照常）
     }
     this.stats.activityExemptions++;
     if (stallBurst) this.stats.stallBurstExemptions++;
@@ -748,7 +783,8 @@ class CheatCheckService {
       // 恢复登记拉黑（与门决策出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）
       const activityExempt = (this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
         || this._isStallBurstExempt(levels, anchors)) // CD383 burst 资格臂同构（长期沉积一朝操盘不登记拉黑）
-        && !this._exemptDeniedReason(levels);
+        && !this._exemptDeniedReason(levels)
+        && !this._isUltraCheatDenied(obs.activityLevel ? obs.activityLevel.bucket : null, graded.grade); // CD388 ultra∧cheat=刷量机器恢复登记拉黑
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
       } else if (graded.grade === 'unhealthy') {
@@ -914,7 +950,8 @@ class CheatCheckService {
         const cheatLevels = cheatLv ? cheatLv.levels : null;
         if (cheatSeen && !((this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)
           || this._isStallBurstExempt(cheatLevels, cheatLv ? cheatLv.anchors : null)) // CD383 burst 资格臂同构
-          && !this._exemptDeniedReason(cheatLevels))) {
+          && !this._exemptDeniedReason(cheatLevels)
+          && !this._isUltraCheatDenied(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket, 'cheat'))) { // CD388 同构：ultra∧cheat 行恢复拉黑
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/

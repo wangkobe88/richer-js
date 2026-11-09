@@ -702,13 +702,13 @@ async function testActivityExempt() {
     { grade: r7s.grade, cached: r7s.cached, exemptCode: r7s.exempt && r7s.exempt.code, exemptDenied: r7s.exemptDenied },
     { grade: 'healthy', cached: true, exemptCode: 'activity_high', exemptDenied: undefined });
   // F7 源码口径锁：拉黑登记点+bootstrap 恢复同款收紧（denied 票照拉黑/照恢复拉黑）
-  // CD383 起 activityExempt 资格=（activity 桶 ∨ stallBurst 臂）∧ !denied
-  ok('F7 拉黑登记点收紧在场（activityExempt = (isExempt ∨ stallBurst) && !deniedReason(levels)）',
+  // CD383 起 activityExempt 资格=（activity 桶 ∨ stallBurst 臂）∧ !denied；CD388 起 ∧ !ultraCheat
+  ok('F7 拉黑登记点收紧在场（activityExempt = (isExempt ∨ stallBurst) && !deniedReason(levels) && !ultraCheatDenied）',
     svcSrc.includes('this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)\n        || this._isStallBurstExempt(levels, anchors)')
-      && svcSrc.includes('&& !this._exemptDeniedReason(levels);'));
-  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂，CD383 双参 levels+anchors）',
+      && svcSrc.includes('&& !this._exemptDeniedReason(levels)\n        && !this._isUltraCheatDenied(obs.activityLevel ? obs.activityLevel.bucket : null, graded.grade);'));
+  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂，CD383 双参 levels+anchors；CD388 ultra∧cheat 行恢复拉黑）',
     svcSrc.includes('const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;')
-      && svcSrc.includes('!this._exemptDeniedReason(cheatLevels)))'));
+      && svcSrc.includes("!this._exemptDeniedReason(cheatLevels)\n          && !this._isUltraCheatDenied(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket, 'cheat'))"));
   ok('F7 豁免收紧收在 cheat 模块内部（引擎/BP 层零豁免逻辑——用户裁定）',
     !fs.readFileSync(path.join(__dirname, '../src/market-analysis/buy-point-result-mapper.js'), 'utf8').includes('activityExempt'));
 
@@ -789,6 +789,47 @@ async function testActivityExempt() {
   ok('F8 源码锁：_isStallBurstExempt 三消费点（出口/拉黑登记/bootstrap）+ grade 层零豁免逻辑（gradeObservation 不动）',
     (svcSrc.match(/this\._isStallBurstExempt\(/g) || []).length === 3
       && !fs.readFileSync(path.join(__dirname, '../src/market-analysis/cheat-grade.js'), 'utf8').includes('StallBurstExempt'));
+
+  // F9 CD388 ultra 档豁免资格收紧（2026-11-09 用户裁定「对于 ultra 票……需要这些
+  // 币在长期交易后依然维持超高活跃度，那么才接纳它」+方案确认「使用原始
+  // unhealthy 也可以」）：原判 cheat 的 ultra 票不豁免（刷量机器恢复拉黑），原判
+  // unhealthy 的 ultra 票照旧豁免（纯 M 通道密度超标=真实热度）。bt-v90 12 票实证：
+  // 亏损 Top1/2/4/5 原判全 cheat、盈利三票（c84a0ff2/32f18a98/f485ec1d）原判全
+  // unhealthy——originalGrade 完美分离；纯交易量维度正负例无解（c62d2dff 45 笔
+  // /7.50 BNB 最大却亏、32f18a98 9 笔/1.31 BNB 最小却赚）
+  const s9 = mkSvc();
+  const uc = (bucket, grade) => s9._isUltraCheatDenied(bucket, grade);
+  ok('F9 资格判定：ultra∧cheat → true（唯一命中组合）；ultra∧unhealthy/high∧cheat/low∧cheat/mid∧cheat → false',
+    uc('ultra', 'cheat') === true && uc('ultra', 'unhealthy') === false
+    && uc('high', 'cheat') === false && uc('low', 'cheat') === false && uc('mid', 'cheat') === false);
+  const s9hi = mkSvc(['high']); // 豁免集显式不含 ultra
+  ok('F9 豁免集不含 ultra → 本臂不触发（act 不在集=activity 路径不适用，burst 臂 CD383 语义独立）',
+    s9hi._isUltraCheatDenied('ultra', 'cheat') === false);
+  const beforeUC = s9.stats.ultraCheatDenied;
+  const r9a = s9._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: {}, buckets: { activityLevel: 'ultra' } });
+  check('F9 出口：ultra∧cheat（bt-v90 亏损 Top1/2/4/5 形状：45ec0489/68bb8cd4/04323e04/BEM 全此组合）→ 原判保持+exemptDenied ultra_cheat',
+    { grade: r9a.grade, exemptDenied: r9a.exemptDenied, exempt: r9a.exempt },
+    { grade: 'cheat', exemptDenied: 'ultra_cheat', exempt: undefined });
+  ok('F9 ultraCheatDenied 计数+1（生产对拍观测点）', s9.stats.ultraCheatDenied - beforeUC === 1, s9.stats);
+  const r9b = s9._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: {}, buckets: { activityLevel: 'ultra' } });
+  check('F9 出口：ultra∧unhealthy（盈利三票形状：c84a0ff2 +0.4023/32f18a98 +0.1592/f485ec1d 全此组合——纯 M 通道密度超标）→ 照旧豁免 activity_ultra（CD379 原语义）',
+    { grade: r9b.grade, exempt: r9b.exempt },
+    { grade: 'healthy', exempt: { code: 'activity_ultra', originalGrade: 'unhealthy' } });
+  const r9c = s9._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: {}, buckets: { activityLevel: 'high' } });
+  check('F9 出口：high∧cheat → 照旧豁免 activity_high（CD388 只收紧 ultra 桶，high 桶不动）',
+    { grade: r9c.grade, exempt: r9c.exempt },
+    { grade: 'healthy', exempt: { code: 'activity_high', originalGrade: 'cheat' } });
+  const r9d = s9._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { washPair: 3 }, buckets: { activityLevel: 'ultra' } });
+  check('F9 出口：ultra∧cheat∧washPair strong → CD380 特定形状臂优先报码 wash_pair（两臂同向原判保持）',
+    { grade: r9d.grade, exemptDenied: r9d.exemptDenied },
+    { grade: 'cheat', exemptDenied: 'wash_pair' });
+  const r9e = s9._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, anchors: GDS_AN, buckets: { activityLevel: 'low' } });
+  check('F9 出口：low∧cheat∧burst 强（CD383 高大上主案形状）→ stall_burst 豁免不受 CD388 影响（low 桶不在收紧域）',
+    { grade: r9e.grade, exempt: r9e.exempt },
+    { grade: 'healthy', exempt: { code: 'stall_burst', originalGrade: 'cheat' } });
+  ok('F9 源码锁：_isUltraCheatDenied 三消费点（出口/拉黑登记/bootstrap 同构——防门拒但不拉黑分叉）+ ultraCheatDenied 计数器',
+    (svcSrc.match(/this\._isUltraCheatDenied\(/g) || []).length === 3
+    && svcSrc.includes('ultraCheatDenied: 0'));
 }
 
 await testActivityExempt();
