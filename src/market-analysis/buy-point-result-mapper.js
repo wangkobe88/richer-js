@@ -596,6 +596,11 @@ function buildBuyPointObservation(answers, anchors = null) {
       actNearTail5TickN: _actNum(anchors, 'nearTail5TickN'),
       actNearTail5BuyN: _actNum(anchors, 'nearTail5BuyN'),
       actNearTail5BuyBnb: _actNum(anchors, 'nearTail5BuyBnb'),
+      // CD394 尾窗键（act 定档主锚判读原料——尾 10s/前 20s 断崖对比，短窗照出）
+      actNearTail10TickN: _actNum(anchors, 'nearTail10TickN'),
+      actNearTail10BnbPerMin: _actNum(anchors, 'nearTail10BnbPerMin'),
+      actNearPre20BnbPerMin: _actNum(anchors, 'nearPre20BnbPerMin'),
+      actNearTail10SellWallets: _actNum(anchors, 'nearTail10SellWallets'), // CD394 出货臂判读线（末 10s 独立卖侧钱包数）
       // BP41 真庄反锚腿②：尾段买 ÷ 全窗买 ×100（拉升进行时=买量仍占全窗流量实质份额）
       actNearTail5BuySharePct: _actNum(anchors, 'nearTail5BuySharePct'),
       // 筹码结构锚族（BP14：cheatDerived 同名透传 famous 三键+分层三键+簇持仓

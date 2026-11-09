@@ -324,6 +324,13 @@ function buildCheatState(snapshot) {
     if (d.nearSegTickN !== null && d.nearSegTickN !== undefined) {
       lines.push(`临近买点段（最后 30 秒）: ${d.nearSegTickN} 笔（买 ${d.nearSegBuyN}/卖 ${d.nearSegSellN}）/ 密度 ${d.nearSegTicksPerMin} 笔/分 / 买盘中位 ${fmtBnbFine(d.nearSegBuyMedianBnb)} BNB / 吞吐 ${d.nearSegBnbPerMin} BNB/分 / 段内最大间隔 ${d.nearSegMaxGapSec} 秒（口径：锚窗末端固定 30 秒；买点发生在窗口末端，本段=买点当下的盘面——开盘段的密集不救本段的金额死寂，判读同③⑤口径：段内中位尘埃级或吞吐 <1 BNB/分钟量级=临近买点死盘；尘单滴答会不断打破时间静默，无交易期占比对「开盘密集→临近只剩尘单滴答」的形状失明）`);
     }
+    // CD394 尾窗事实行（四案裁定「活跃度要以临近买入点附近的行为为准；burst 豁免
+    // 活跃度低本质就是这个原因」）：尾 10s/前 20s/尾 5s 三窗分解——临近段内部趋势
+    // （涌入/断崖/趋零）与短窗票（临近段行 spanSec ≤30s 缺席）的主锚判读原料。
+    // 前置行为绝对位置窗恒算：与「临近买点段」行（spanSec>30s 才渲染）互补。
+    if (d.nearTail10TickN !== null && d.nearTail10TickN !== undefined) {
+      lines.push(`临近尾窗（锚前最后 10 秒 / 此前 20 秒 / 最后 5 秒）: 尾 10 秒 ${d.nearTail10TickN} 笔、吞吐 ${d.nearTail10BnbPerMin} BNB/分、卖侧独立钱包 ${d.nearTail10SellWallets} 个 / 此前 20 秒吞吐 ${d.nearPre20BnbPerMin} BNB/分 / 尾 5 秒 ${d.nearTail5TickN} 笔、买入 ${d.nearTail5BuyN} 笔/${fmtBnbFine(d.nearTail5BuyBnb)} BNB（口径：绝对位置窗恒算、短窗照出；吞吐为固定窗归一（尾 10 秒=总额×6、前 20 秒=总额×3，区内无行时段摊入分母，前 20 秒零流量=0 有证据零值）；activity_level 定档主锚=临近买点四臂判读——尾 10 秒多个独立钱包几乎纯卖（买入趋零/只剩尘埃单）=协同出货，档位照实落超高、不因买卖失衡降档；尾 10 秒吞吐较此前 20 秒断崖下降+尾 5 秒趋零/纯尘滴答=临近衰减，全窗密集不救；尾 10 秒未断崖且尾 5 秒仍有真实买入（AMM/曲线池语境卖出恒被池子接走，买入方向才是买方需求在场的证据）=临近仍活；前 20 秒死寂而尾段有真实流量=静默后涌入，全窗稀疏不抹）`);
+    }
     // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
     // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
     // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）

@@ -860,6 +860,10 @@ function computeDerived(snapshot, famousRoster) {
   let buyMedianBnb = null, throughputBnbPerMin = null, maxDrawdownPct = null;
   let nearSegTickN = null, nearSegTicksPerMin = null, nearSegBuyMedianBnb = null;
   let nearSegBnbPerMin = null, nearSegMaxGapSec = null, nearSegBuyN = null, nearSegSellN = null;
+  // CD394 尾窗键（头注见计算段）：短窗票临近段主锚判读原料
+  let nearTail10TickN = null, nearTail10BnbPerMin = null, nearPre20BnbPerMin = null;
+  let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null;
+  let nearTail10SellWallets = null;
   if (dts.length >= 2) {
     const spanClampedAmt = Math.max(1, spanSec);
     const buyAmts = [];
@@ -907,6 +911,42 @@ function computeDerived(snapshot, famousRoster) {
       for (let i = 1; i < segDts.length; i++) sg = Math.max(sg, segDts[i] - segDts[i - 1]);
       nearSegMaxGapSec = sg;
     }
+
+    // ── CD394 尾窗键（2026-11-09 四案裁定「活跃度要以临近买入点附近的行为为准，
+    // burst 豁免活跃度低本质就是这个原因」）：D3.59 临近段七键 spanSec ≤
+    // NEAR_SEG_SEC 全 null（临近=全窗无对比），短窗票（苍蝇 0x0432…7777 26s 窗
+    // 60tick 开盘 ultra，段内 10s 桶 30t→25t→5t 断崖、尾 5s 仅 1 笔纯卖滴答）
+    // 临近段数值行缺席=Jev 只能按全窗口径定档（act=high 豁免放行）的结构性盲区。
+    // 尾窗键按绝对位置窗恒算（不依赖与全窗的对比语义，短窗照出）：尾 10s（末
+    // 10 秒行数/吞吐——「末 10 秒仍持续成交」与「断崖下降」判读）+前 20s（尾
+    // 10s 之前 20s 固定窗吞吐，口径与 nearSegBnbPerMin 同为固定窗归一——区内
+    // 无行时段摊入分母；零流量=有证据零值 0 非_null，与尾部对比即「静默后涌入」
+    // 判读）+尾 5s（行数/买笔/买额——「趋零/纯尘滴答」判读）。dt 缺失全族 null
+    // （绝不冒充）。──
+    const _lastDt = dts[dts.length - 1];
+    let _t10N = 0, _t10Bnb = 0, _t5N = 0, _t5BuyN = 0, _t5BuyBnb = 0, _pre20Bnb = 0;
+    const _t10SellW = new Set();
+    for (const t of ticks) {
+      if (t.dt === null || t.dt === undefined) continue;
+      if (t.dt > _lastDt - 10) {
+        _t10N++;
+        _t10Bnb += t.bnb || 0;
+        if (t.side !== 'BUY' && t.wallet) _t10SellW.add(t.wallet);
+        if (t.dt > _lastDt - 5) {
+          _t5N++;
+          if (t.side === 'BUY') { _t5BuyN++; _t5BuyBnb += t.bnb || 0; }
+        }
+      } else if (t.dt > _lastDt - 30) {
+        _pre20Bnb += t.bnb || 0;
+      }
+    }
+    nearTail10TickN = _t10N;
+    nearTail10BnbPerMin = +((_t10Bnb / 10) * 60).toFixed(2);
+    nearPre20BnbPerMin = +((_pre20Bnb / 20) * 60).toFixed(2);
+    nearTail5TickN = _t5N;
+    nearTail5BuyN = _t5BuyN;
+    nearTail5BuyBnb = +_t5BuyBnb.toFixed(4);
+    nearTail10SellWallets = _t10SellW.size;
   }
 
   // ── burst 波强度两键（G8 弱 burst 代码臂，头注见 BURST_WAVE_SEC/BURST_NEAR_SEC）：
@@ -1434,6 +1474,9 @@ function computeDerived(snapshot, famousRoster) {
     buyMedianBnb, throughputBnbPerMin, maxDrawdownPct,
     nearSegTickN, nearSegTicksPerMin, nearSegBuyMedianBnb, nearSegBnbPerMin,
     nearSegMaxGapSec, nearSegBuyN, nearSegSellN,
+    // CD394 尾窗键（act 题⑦定档主锚判读原料——尾 10s/前 20s/尾 5s）
+    nearTail10TickN, nearTail10BnbPerMin, nearPre20BnbPerMin,
+    nearTail5TickN, nearTail5BuyN, nearTail5BuyBnb, nearTail10SellWallets,
     burstWaveBuyBnb, burstWaveWallets,
     // CD392 burst 波起点价锚（头注见计算段；_isStallBurstExempt 第四腿判据源）
     burstWaveStartVsLaunchPct,

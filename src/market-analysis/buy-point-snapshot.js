@@ -486,6 +486,12 @@ function computeBuyPointDerived(snapshot) {
     nearSegMaxGapSec: cd.nearSegMaxGapSec ?? null,
     nearSegBuyN: cd.nearSegBuyN ?? null,
     nearSegSellN: cd.nearSegSellN ?? null,
+    // CD394 尾窗键透传（act 题定档主锚判读原料——cheat-snapshot 单点计算，BP 不
+    // 重算照抄，与 nearSeg 族同款；短窗票照出=临近段内部趋势判读）
+    nearTail10TickN: cd.nearTail10TickN ?? null,
+    nearTail10BnbPerMin: cd.nearTail10BnbPerMin ?? null,
+    nearPre20BnbPerMin: cd.nearPre20BnbPerMin ?? null,
+    nearTail10SellWallets: cd.nearTail10SellWallets ?? null, // CD394 出货臂判读线（末 10s 独立卖侧钱包数）
     nearTail5TickN,
     nearTail5BuyN,
     nearTail5BuyBnb,

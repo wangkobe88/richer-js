@@ -393,7 +393,7 @@ ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有
     && act.nearSegTickN === cd.nearSegTickN && act.nearSegBnbPerMin === cd.nearSegBnbPerMin && act.spanSec === cd.spanSec && act.tickCount === cd.tickCount,
     'C: activity 锚族=cheatDerived 同名同值透传（单点计算不重算——BP 锚窗=买点前窗口）');
   const keysAct = Object.keys(act).sort().join(',');
-  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 17 键（BP41 尾段加占比锚 16→17，实际 ${keysAct}）`);
+  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearPre20BnbPerMin,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail10BnbPerMin,nearTail10SellWallets,nearTail10TickN,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 21 键（BP41 尾段占比锚 16→17+CD394 尾窗四键 17→21：nearTail10TickN/BnbPerMin+nearPre20BnbPerMin+nearTail10SellWallets 出货臂判读线，实际 ${keysAct}）`);
   ok(snapAct.buyDerived.activity.maxDrawdownPct === cd.maxDrawdownPct, 'C: maxDrawdownPct 透传（可靠价运行峰回撤）');
 }
 
@@ -413,6 +413,8 @@ ok(stD.state.includes('活跃度数值:') && stD.state.includes('买盘中位') 
 ok(stD.state.includes('临近买点段(最后30秒):') && stD.state.includes('买入点位之前的直接承接环境——开盘段/前期密集不救临近死寂'), 'D: 临近买点段行渲染（BP13：锚窗末端 30s 独立口径）');
 ok(stD.state.includes('锚前尾段(最后5秒):') && stD.state.includes('买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内') && stD.state.includes('仅 1 笔/尘级=锚点即静默边界')
   && stD.state.includes('合计买 0.1 BNB、占全窗买入 2.2%') && stD.state.includes('两成上下=burst 已过的顶部、三分之一以上=拉升进行时'), 'D: 锚前尾段行渲染（BP31/BP28 案四改+BP41 占比口径——A fixture 手算 0.1/4.47=2.2%；占比判读句两成/三分之一线）');
+ok(stD.state.includes('临近尾窗(尾10秒/前20秒):') && stD.state.includes('卖侧独立钱包') && stD.state.includes('协同出货') && stD.state.includes('档位照实落超高') && stD.state.includes('买入方向才是买方需求在场'),
+  'D: BP57 临近尾窗行渲染（CD394 尾窗锚+出货臂判读线卖侧独立钱包数+四臂句——AMM 卖出恒被池子接走的认知修正句）');
 ok(stD.state.includes('市值位置(BNB 域): 现价市值 1.6 / 窗内峰市值 2 / 较峰回撤 20.00%'), 'D: 市值位置行手算值渲染（BP2）');
 ok(stD.state.includes('holder 流向: 现正净持仓钱包 7 个；近 60s 变化 -1'), 'D: holder 流向行渲染（W_D 尾窗清仓净流失）');
 ok(stD.state.includes('发行价位置: 现价较发行价 +60.0%') && stD.state.includes('发行价 1.00e-9 BNB'), 'D: 发行价位置行渲染（BP5——fmtPrice 同 [PRICE] 口径）');
@@ -928,7 +930,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP49 六题=6 维度 0 质量/桶域对锁/price_level 六桶 almost_launch+①⑤⑧盘型位置门收口/④两路径判序/P0 矛盾修复/⑥位置门 10+⑦位置门 40）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP50', 'F: 版本=BP50（almost_launch 上界 20→10 全域收紧——用户裁定原话 2026-11-09「将黄金点位，定位于 10% 涨幅以内吧，almost_launch 等也随之改动一下，黄金点位的意义在于：代币已经基本再次归零了……20%，代入了太多正常的波动」=题面 24 处分界改写+FA ALMOST_LAUNCH_PCT 10+CD/BP 两侧 computeMarketResetIndex/minVsLaunchPct exitThreshold 1.2→1.1 联动；near_launch 档随 +20~40→+10~40；ladder RL15 ≤20 独立触发线不随动待裁；前版 BP49 案号 BP45 两维度题退役）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP51', 'F: 版本=BP51（BP57 案 CD394 同车——bt-v94 六案驱动用户裁定「活跃度要以临近买入点附近的行为为准。burst 豁免活跃度低本质就是这个原因」：activity_level ⑦升级定档主锚+四臂判读（协同出货→ultra：末 10 秒 ≥10 独立钱包几乎纯卖+买入趋零/纯尘，档位不因买卖失衡降档/临近衰减→≤mid：尾 10s 较前 20s 断崖+尾 5s 趋零，全窗密集不救/临近仍活→≥high：未断崖∧尾 5s 有真实买入——AMM 卖出恒被池子接走买入才是买方需求在场/临近死寂→low）+判序（⑦定基准档全窗背景校验只压不抬）+③桶 famous 集团买入主导判序（famous 控盘达线∧集团买入占全窗 ≥50% 优先判③不判④——famous 抢筹天然制造开盘集中+吞吐骤降形状）+⑧桶时点精度句（「依然有买入」看锚点当下非临近 30s 历史买入）+snapshot 尾窗七键透传（nearTail10SellWallets 出货臂判读线）；五案定标=彪姐 mid→high/memes mid→high/苍蝇 high→≤mid/第五案 71 钱包协同卖 ultra/第六案庄跑路 CD 侧 ultra 补 BP 半边；前版 BP50 案号 BP51 almost_launch 上界 20→10 全域收紧）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 6, `F: 恰 6 题=6 维度 0 质量（BP48 两质量题+BP49 两维度题退役；实际 ${ids.length}）`);
@@ -978,6 +980,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('这是最好的类型') && mp.includes('开盘段结构行大额单') && mp.includes('大户卖出后有像样的承接') && mp.includes('价格已被拉高不排除①') && mp.includes('大户尚未卖出') && mp.includes('承接条件直接满足'), 'F: ①强庄盘=最好类型（BP21 承接轴——大户卖出有像样买盘承接=对倒换手流动性在场；价格拉高不排除①：定类看承接结构不看价格高度=SB 案；BP22 零卖出满足路径——大户只买未卖=强庄在场承接条件直接满足=HAUL 案防误翻⑤）');
   ok(mp.includes('没有任何像样的买方力量') && mp.includes('大户卖出、零散小散承接') && mp.includes('开盘段大额单 >0 不自动排除②') && mp.includes('这种不要参与'), 'F: ②散户 PVP=不要参与（BP21 双形状——(a) 从来无像样买单+(b) 大户卖出零散小散承接：大户向小散出货盘面散户化仍②=정책콕 案）');
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
+  ok(mp.includes('famous 集团买入主导判序') && mp.includes('优先判本桶**不判④') && mp.includes('famous 集团自己买出来的吞吐不算厚'),
+    'F: BP57 ③桶 famous 集团买入主导判序（徐苍蝇案 0x59f5…7777 两 famous 控盘 85.4%/集团买 80.1%/两 famous 买入 1.445=全窗 56% 误判④——famous 抢筹天然制造开盘集中+吞吐骤降形状是进场方式产物非狙击衰竭证据；厚度域界=famous 之外多元参与承接主要买入才算厚）');
   ok(mp.includes('购买力完全集中在最早期的数个 slot') && mp.includes('随之购买力衰竭') && mp.includes('这种盘子不要参与'), 'F: ④狙击衰竭=不要参与（原话直译）');
   ok(mp.includes('融合无明显特征盘') && mp.includes('这种出现好的点位可以赌一赌'), 'F: ⑤融合盘=好点位可赌（原话直译——中性不拦）');
   ok(mp.includes('①与④分界=大户在场性+盘面死活（BP33）') && mp.includes('同为开盘大额，强庄买完盘面持续有交易'), 'F: ①④分界锚=大户在场性+盘面是否仍活（BP33 措辞；BP47 精简去「补强」二字）');
@@ -1070,6 +1074,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // BP48 裁定 2（B 迁）——大户未清场两臂（BP16/BP17）迁入⑦⑧题面判读
   ok(mp.includes('大户未清场前提（BP48 迁移，先于两腿判）') && mp.includes('看「全窗持仓前三(正净 token)」行的**绝对买入金额**而非流通占比') && mp.includes('①**规模臂**——持仓前列买入全是小散尘级') && mp.includes('②**撤退臂**——在场大户正离场：全窗正净持仓 top5 钱包近 60s 卖出合计已占到前列持仓者买入额的大半（过半即撤退）') && mp.includes('两臂任一成立=大户已清场——回落无人承接，**不落⑦，按②(b) 散户化/④衰竭评**'), 'F: ⑦桶大户未清场前提（BP48 B 迁——BP16/BP17 规模臂+撤退臂判据原样迁入⑦题面：大户已清场的回落不落⑦按②(b)/④评；绝对买入金额口径非流通占比；判缺不猜保留）');
   ok(mp.includes('大户已清场（规模臂/撤退臂判据同⑦桶）的回落**不落本桶，按②(b)/④评**') && mp.includes('「盘面仍然活着」不只看交易笔数、也要有真金承接者在场') && mp.includes('判缺不猜'), 'F: ⑧桶大户未清场前提（BP48 B 迁与⑦同判——黄金点「盘面仍然活着」含真金承接者在场；复述回收后判据压引用同⑦桶）');
+  ok(mp.includes('看锚点当下的买入在场') && mp.includes('不是临近 30s 整段的历史买入') && mp.includes('巨量砸盘中的零星尘买不构成「依然有买入」'),
+    'F: BP57 ⑧桶时点精度句（第五案 0x6d20…7777 尾 5s 71 钱包协同卖 6.2 BNB+买入仅 1 笔 0.0001 尘埃被⑧第三条件「依然有买入」误收——「有买入」看锚点当下尾窗行非整段历史，防复发）');
   ok(mp.includes('⑦⑧的大户未清场前提（BP48 迁移）**：大户已清场（判据见⑦桶）的回落不落⑦⑧、按②(b)/④评——承接要有真金在场'), 'F: 反锚段⑦⑧大户未清场前提回指（BP48 B 迁——判据主述在⑦桶反锚压引用）');
   ok(qs.market_pattern.criteria.restart.includes('大户未清场前提（BP48 迁移，判据全文见⑦桶）**：大户已清场的回落不落本桶、按②(b)/④评') && qs.market_pattern.criteria.golden_point.includes('大户未清场前提（BP48 迁移，判据同⑦桶）**：大户已清场的回落不落本桶、按②(b)/④评'), 'F: criteria restart/golden_point 大户未清场同步（桶描述与题面判据一致，Jev 选桶时同判序；BP48 复述回收后两 criteria 判据压引用主述在⑦桶）');
   // BP48 裁定 4（D 并入⑦）——深崩阴跌失血形状并入⑦题面判读（不落⑦按④/②(b)）
@@ -1102,7 +1108,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   for (const seg of ['无交易期占比', '笔密度', '买盘中位数为主、笔均为辅', '单向死水推进', '开盘极早窗反锚', '金额吞吐', '停滞突发反锚', '临近买入点位段（锚窗末端 30 秒=买点前最后 30 秒）', '全窗量级综合锚']) {
     ok(al.instructions.includes(seg), `F: activity_level 七要素+综合锚段在场：${seg.slice(0, 18)}`);
   }
-  ok(al.instructions.includes('数值行「临近买点段」事实已算好直接采信'), 'F: activity_level ⑦ 消费 state 临近买点段行（D3.59 搬运）');
+  ok(al.instructions.includes('数值行「临近买点段」「锚前尾段」与「临近尾窗（尾 10 秒 / 此前 20 秒）」事实均已算好直接采信') && al.instructions.includes('尾窗按绝对位置取窗：窗口不足 30 秒时临近段行可能缺席，尾窗行仍有值'), 'F: activity_level ⑦ 消费 state 临近买点段/临近尾窗行（D3.59 搬运+BP57 尾窗绝对位置窗——短窗票临近段 null 盲区修复）');
   ok(al.instructions.includes('低档与超高档均由代码侧活跃度门直接消费拒买') && al.instructions.includes('超高=机器盘级极端密集——正常散户参与盘到不了这个密度，BP30 用户裁定「act 为 ultra 也不玩」') && al.instructions.includes('BP38 豁免：盘型题判①strong_backer 的票 ultra 不由活跃度门拦') && al.instructions.includes('强庄盘拉盘天然密集，ultra 密度不是拒买证据，代码侧豁免'), 'F: activity_level 收尾=门消费声明（BP30 ultra 臂+BP38 strong_backer 豁免教学——Jev 只管判档，豁免由代码执行）');
   // BP28 案改一（S053 太空逆袭 activity 误 low——三段形状执行缝隙）
   ok(al.instructions.includes('三段形状（开局冲一波→中段完全静默→临近买点再集中涌入，BP30）同样属「静默后买入涌入」') && al.instructions.includes('判读锚定**买点时刻的即时状态**') && al.instructions.includes('中段静默的占比不压档') && al.instructions.includes('不是针对静默居中的三段形状'), 'F: activity⑥反锚三段形状归属句（BP30/BP28 案 S053——开局 7 秒冲 7 笔→中段 24 秒完全静默→锚前 2 秒 8 笔近 1 BNB 同块涌入：静默居中的三段形状按「静默后买入涌入」中档起判，「先冲一波后静默」不保护臂只管涌入后死到锚点的形状）');
@@ -1111,6 +1117,21 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(al.instructions.includes('判读原料=**数值行「锚前尾段(最后5秒)」**') && al.instructions.includes('锚前尾段多笔且金额可观（参考 ≥3 笔/合计 ≥0.3 BNB 级）=锚点时刻正被流量激活的直接证据') && al.instructions.includes('三段形状判尾段行不判段内最大间隔') && al.instructions.includes('尾段仅 1 笔/合计尘级=锚点即静默边界'), 'F: activity⑥尾段行判读锚（BP31——临近段 totals 无时序测不出涌入在段尾；末行恒在尾段内最少 1 笔，死寂臂=仅 1 笔尘级非 0 笔）');
   ok(al.criteria.low.includes('临近买点段（最后 30 秒）') && al.criteria.low.includes('四腿联立'), 'F: activity_level low 桶=临近段死寂+四腿联立双臂');
   ok(al.criteria.high.includes('金额吞吐与之相称') && al.criteria.high.includes('尘埃假活跃不入本档'), 'F: activity_level high 桶=吞吐相称门槛（假活跃不入高档——ZELDA 案失真修复）');
+  // ═══ BP57/CD394 同车：activity ⑦定档主锚四臂判读（bt-v94 六案「活跃度以临近买入点附近行为为准」） ═══
+  ok(al.instructions.includes('定档主锚') && al.instructions.includes('四臂判读'), 'F: BP57 activity ⑦升级定档主锚+四臂判读声明在场');
+  for (const seg of ['协同出货', '临近衰减', '临近仍活', '临近死寂']) {
+    ok(al.instructions.includes(seg), `F: BP57 activity 四臂段在场：${seg}`);
+  }
+  ok(al.instructions.includes('多个独立钱包（参考 ≥10 个）几乎纯卖出') && al.instructions.includes('照实落超高') && al.instructions.includes('档位只述节奏事实') && al.instructions.includes('出货臂须协同钱包数与买入趋零两腿同时在场') && al.criteria.ultra.includes('不因买卖失衡降档'),
+    'F: BP57 协同出货臂（末 10s ≥10 独立卖侧钱包+买入趋零/纯尘 → ultra——第五案 71 钱包协同卖 6.2 BNB/第六案庄极速跑路 15 钱包；出货臂两腿同在场才命中防误伤——彪姐 5 钱包/徐苍蝇 10 钱包但买 7 笔在场不命中）');
+  ok(al.instructions.includes('末 10 秒吞吐较此前 20 秒断崖跌落') && al.instructions.includes('全窗密集不救临近衰减') && al.instructions.includes('档位至多「中」'),
+    'F: BP57 衰减臂（苍蝇案 05:09:44 尾 10s 3.93 vs 前 20s 33.69 断崖 1/8.6+尾 5s 趋零 → 至多 mid——CD391 activity_high 豁免失效）');
+  ok(al.instructions.includes('尾 5 秒仍有真实买入') && al.instructions.includes('卖出恒被池子接走') && al.instructions.includes('买入方向才是买方需求在场'),
+    'F: BP57 密集臂真实买入腿（AMM/曲线池语境卖出恒成交≠对手方在场——第六案暴露的原认知错误修正：memes 尾 5s 6 买 0.62 → ≥high）');
+  ok(al.instructions.includes('先按⑦定基准档') && al.instructions.includes('只压不抬'),
+    'F: BP57 判序句（⑦定基准档+全窗背景校验只压不抬——全窗密集不救临近衰减/全窗稀疏不抹临近真实涌入）');
+  ok(al.criteria.ultra.includes('协同出货') && al.criteria.mid.includes('临近衰减（末 10 秒断崖+尾 5 秒趋零）的档位上限为本档') && al.criteria.high.includes('尾 5 秒仍有真实买入') && al.criteria.low.includes('不救临近死寂') && al.criteria.low.includes('见题面⑦衰减臂'),
+    'F: BP57 criteria 四桶同步四臂句');
   // famous_domination 题面（BP14 立法：CD famous 控盘判法搬运 BEM Miner 案）已随 BP49 整题
   // 退役——题头/三档切点/联立加重臂/门消费声明全删；famous 判读材料（筹码结构行
   // famous 控盘占比/跟单集中度/集团买入占比）仍在 state 供 market_pattern ③桶判读

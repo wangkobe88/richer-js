@@ -135,6 +135,11 @@ function buildBuyPointState(snapshot) {
       if (ta.nearTail5TickN !== null && ta.nearTail5TickN !== undefined) {
         lines.push(`锚前尾段(最后5秒): ${ta.nearTail5TickN} 笔（买 ${ta.nearTail5BuyN ?? '?'}）合计买 ${ta.nearTail5BuyBnb ?? '?'} BNB、占全窗买入 ${ta.nearTail5BuySharePct ?? '?'}%（买点时刻的即时状态——多笔且金额可观=锚点落在涌入波内，临近死寂判读不成立；仅 1 笔/尘级=锚点即静默边界、买点时刻盘面死寂；占比口径=买量是否仍占全窗流量实质份额，两成上下=burst 已过的顶部、三分之一以上=拉升进行时）`);
       }
+      // CD394 尾窗行（activity_level 定档主锚判读原料——尾 10s vs 此前 20s 断崖
+      // 对比+短窗票照出；cheat-snapshot 单点计算 BP 透传）
+      if (ta.nearTail10TickN !== null && ta.nearTail10TickN !== undefined) {
+        lines.push(`临近尾窗(尾10秒/前20秒): 尾 10 秒 ${ta.nearTail10TickN} 笔、吞吐 ${ta.nearTail10BnbPerMin ?? '?'} BNB/分钟、卖侧独立钱包 ${ta.nearTail10SellWallets ?? '?'} 个；此前 20 秒吞吐 ${ta.nearPre20BnbPerMin ?? '?'} BNB/分钟（活跃度定档主锚=临近买点四臂判读：尾 10 秒多个独立钱包几乎纯卖（买入趋零/纯尘）=协同出货，档位照实落超高、不因买卖失衡降档；尾 10 秒吞吐较此前 20 秒断崖下降+尾 5 秒趋零/纯尘=临近衰减，全窗密集不救；尾 10 秒未断崖且尾 5 秒仍有真实买入（AMM 卖出恒被池子接走，买入方向才是买方需求在场）=临近仍活；前 20 秒死寂而尾段有真实流量=静默后涌入，全窗稀疏不抹——吞吐为固定窗归一，前 20 秒零流量=0 有证据零值）`);
+      }
     }
     // BP14（案号 BP14 BEM Miner 案）：筹码结构行——famous 控盘+持仓集中分层+
     // 参与/持有分叉（CD famous/D240 判法搬运的判读原料；? = 筹码证据缺失）

@@ -1242,6 +1242,14 @@ class CheatCheckService {
           nearSegMaxGapSec: derived.nearSegMaxGapSec ?? null,
           nearSegBuyN: derived.nearSegBuyN ?? null,
           nearSegSellN: derived.nearSegSellN ?? null,
+          // CD394 尾窗键（act 题⑦定档主锚判读原料——短窗票照出，见 snapshot 头注）
+          nearTail10TickN: derived.nearTail10TickN ?? null,
+          nearTail10BnbPerMin: derived.nearTail10BnbPerMin ?? null,
+          nearPre20BnbPerMin: derived.nearPre20BnbPerMin ?? null,
+          nearTail5TickN: derived.nearTail5TickN ?? null,
+          nearTail5BuyN: derived.nearTail5BuyN ?? null,
+          nearTail5BuyBnb: derived.nearTail5BuyBnb ?? null,
+          nearTail10SellWallets: derived.nearTail10SellWallets ?? null, // CD394 出货臂判读线（末 10s 独立卖侧钱包数，参考 ≥10）
           level: derived.activityLevel ?? null,
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,
