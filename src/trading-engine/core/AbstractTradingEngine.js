@@ -1453,7 +1453,7 @@ class AbstractTradingEngine extends ITradingEngine {
    * **CD381 重判条件表达式化（2026-11-08 用户裁定）**：signalGate.recheckCondition
    * （FA 因子表达式，fire 因子表评估）真 → gateBuyPoint 带 forceRecheck——
    * 绕 service 拉黑秒回/粘滞秒回真调重判（主键 preCheatResult=上次 grade 字符串、
-   * priceBackToAlmostLaunch=自上次评估价格回到过 almost_launch≤+20%）；重检
+   * priceBackToAlmostLaunch=自上次评估价格回到过 almost_launch≤+10%）；重检
    * 不再判 cheat → service _maybeUnblock 解除拉黑+引擎侧 Set 同步解除（含 cheat
    * 翻案）。表达式评估异常 warn+按假（保守不重检——表达式错误是配置问题，
    * loadStrategies 三防线已拦键集外因子，此处兜运行期异常）。

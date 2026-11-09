@@ -58,29 +58,29 @@ console.log('A. computeMarketResetIndex 纯函数');
     `sortedRows 全行+resetAt/exitAt（实际 ${r1.sortedRows.length}/${r1.resetAt}/${r1.exitAt}）`);
   ok(near(r1.launchPriceBnb, 1.0 * E9), 'launchPriceBnb=首可靠价 1.0e-9');
 
-  // A2 从未离开（1.0→1.1→1.05→1.15 全程 ≤+20%；1.2 恰等=在 almost_launch 桶界内
-  // 不算离开——严格 >）→ null
-  ok(computeMarketResetIndex(traj([1.0 * E9, 1.1 * E9, 1.05 * E9, 1.15 * E9])) === null,
-    '从未离开 almost_launch（全程 ≤+20）→ null 不冒充「回到过」');
-  // A2b 恰 +20 不触发离开：1.0→1.2→1.3→1.18——1.2 恰等不算（严格 >），1.3 触发；
-  // 段最低 1.18 → 重置（判据 ≤ 含恰等与破发）
-  const r2b = computeMarketResetIndex(traj([1.0 * E9, 1.2 * E9, 1.3 * E9, 1.18 * E9]));
-  ok(r2b !== null && r2b.resetIdx === 3 && r2b.minVsLaunchPct === 18,
-    `恰 +20 不算离开（1.2 恰等）但回到 ≤+20 算（1.18=+18 重置；实际 ${r2b && r2b.minVsLaunchPct}）`);
+  // A2 从未离开（1.0→1.05→1.08→1.05 全程 ≤+10%；1.1 恰等=在 almost_launch 桶界内
+  // 不算离开——严格 >；2026-11-09 almost 上界 20→10 夹具同步收紧）→ null
+  ok(computeMarketResetIndex(traj([1.0 * E9, 1.05 * E9, 1.08 * E9, 1.05 * E9])) === null,
+    '从未离开 almost_launch（全程 ≤+10）→ null 不冒充「回到过」');
+  // A2b 恰 +10 不触发离开：1.0→1.1→1.3→1.05——1.1 恰等不算（严格 >），1.3 触发；
+  // 段最低 1.05=+5 → 重置（判据 ≤ 含恰等与破发）
+  const r2b = computeMarketResetIndex(traj([1.0 * E9, 1.1 * E9, 1.3 * E9, 1.05 * E9]));
+  ok(r2b !== null && r2b.resetIdx === 3 && r2b.minVsLaunchPct === 5,
+    `恰 +10 不算离开（1.1 恰等）但回到 ≤+10 算（1.05=+5 重置；实际 ${r2b && r2b.minVsLaunchPct}）`);
 
   // A3 刚离开无后续（突破点即末位——无回落证据）→ null
   ok(computeMarketResetIndex(traj([1.0 * E9, 1.0 * E9, 1.5 * E9])) === null,
     '刚离开（突破点=末位）→ null（无「回到」证据）');
-  // A4 没回到过（dMono 1.0→1.2→1.5→1.8 单调涨；涨起后最低 1.5=+50 >+20）→ null
+  // A4 没回到过（dMono 1.0→1.2→1.5→1.8 单调涨；涨起后最低 1.2=+20 >+10）→ null
   ok(computeMarketResetIndex(traj([1.0 * E9, 1.2 * E9, 1.5 * E9, 1.8 * E9])) === null,
-    '涨起后最低 +50 >+20（没回到过）→ null');
+    '涨起后最低 +20 >+10（没回到过）→ null');
   // A5 破发回到（1.0→1.5→0.9）→ 重置，minVsLaunchPct=-10（含破发）
   const r5 = computeMarketResetIndex(traj([1.0 * E9, 1.5 * E9, 0.9 * E9]));
   ok(r5 !== null && r5.resetIdx === 2 && r5.minVsLaunchPct === -10,
     `破发回到：-10.0%（含破发；实际 ${r5 && r5.minVsLaunchPct}）`);
-  // A6 恰回到 +20（1.0→1.5→1.2：段最低恰=上界）→ 重置（≤ 含恰等）
-  const r6 = computeMarketResetIndex(traj([1.0 * E9, 1.5 * E9, 1.2 * E9]));
-  ok(r6 !== null && r6.minVsLaunchPct === 20, `恰 +20.0=回到（≤ 含恰等；实际 ${r6 && r6.minVsLaunchPct}）`);
+  // A6 恰回到 +10（1.0→1.5→1.1：段最低恰=上界）→ 重置（≤ 含恰等）
+  const r6 = computeMarketResetIndex(traj([1.0 * E9, 1.5 * E9, 1.1 * E9]));
+  ok(r6 !== null && r6.minVsLaunchPct === 10, `恰 +10.0=回到（≤ 含恰等；实际 ${r6 && r6.minVsLaunchPct}）`);
 
   // A7 创新高不遮蔽回落（BP44 案核心形状 1.0→1.5→1.1→1.05→1.6，ATH 在末位）：
   // 涨起后段=突破点之后全段——最低 1.05@行3（重置窗起点），创新高不重置 exit
@@ -114,14 +114,14 @@ console.log('B. BP44 minVsLaunchPct 双向口径锁（两侧独立实现）');
 {
   // BP 侧锚窗=近窗（buildBuyPointSnapshot 内部再截 launchCovered 判出生段覆盖）；
   // 本段构造首行 dt≤90 全程短窗=launchCovered 恒真，两侧同视图。
-  // 判据：BP minVsLaunchPct ≤20 ⟺ CD 非 null 且数值相等；BP >20 或 null ⟺ CD null。
+  // 判据：BP minVsLaunchPct ≤10 ⟺ CD 非 null 且数值相等；BP >10 或 null ⟺ CD null（2026-11-09 上界 20→10）。
   const shapes = [
     { name: 'dR 回到 +5', prices: [1.0, 1.4, 2.0, 1.3, 1.05, 1.3], expectBp: 5 },
-    { name: 'dMono 没回到 +50', prices: [1.0, 1.2, 1.5, 1.8], expectBp: 50 },
+    { name: 'dMono 没回到 +20', prices: [1.0, 1.2, 1.5, 1.8], expectBp: 20 },
     { name: 'dNH 创新高重启 +5', prices: [1.0, 1.5, 1.1, 1.05, 1.6], expectBp: 5 },
-    { name: 'dStay 从未离开 null', prices: [1.0, 1.1, 1.05, 1.15], expectBp: null },
-    { name: 'dA 涨起后最低 +30', prices: [1.0, 1.0, 1.2, 1.3, 1.4, 1.5], expectBp: 30 },
-    { name: '恰回到 +20', prices: [1.0, 1.5, 1.2], expectBp: 20 },
+    { name: 'dStay 从未离开 null', prices: [1.0, 1.05, 1.08, 1.05], expectBp: null },
+    { name: 'dA 涨起后最低 +20', prices: [1.0, 1.0, 1.2, 1.3, 1.4, 1.5], expectBp: 20 },
+    { name: '恰回到 +10', prices: [1.0, 1.5, 1.1], expectBp: 10 },
     { name: '破发回到 −10', prices: [1.0, 1.5, 0.9], expectBp: -10 },
   ];
   for (const s of shapes) {
@@ -130,12 +130,12 @@ console.log('B. BP44 minVsLaunchPct 双向口径锁（两侧独立实现）');
     const cd = computeMarketResetIndex(rows);
     ok(bp === s.expectBp,
       `BP 侧 ${s.name}：minVsLaunchPct=${s.expectBp}（实际 ${bp}）`);
-    if (s.expectBp === null || s.expectBp > 20) {
+    if (s.expectBp === null || s.expectBp > 10) {
       ok(cd === null,
-        `CD 侧 ${s.name}：null（BP ${s.expectBp === null ? 'null=从未离开' : '>20=没回到'} ⟺ 不重置；实际 ${cd && cd.minVsLaunchPct}）`);
+        `CD 侧 ${s.name}：null（BP ${s.expectBp === null ? 'null=从未离开' : '>10=没回到'} ⟺ 不重置；实际 ${cd && cd.minVsLaunchPct}）`);
     } else {
       ok(cd !== null && cd.minVsLaunchPct === s.expectBp,
-        `CD 侧 ${s.name}：重置 minVsLaunchPct=${s.expectBp}（≤20 ⟺ 重置且数值同；实际 ${cd && cd.minVsLaunchPct}）`);
+        `CD 侧 ${s.name}：重置 minVsLaunchPct=${s.expectBp}（≤10 ⟺ 重置且数值同；实际 ${cd && cd.minVsLaunchPct}）`);
     }
   }
   // 方向差异说明（非断言）：BP 侧 launchCovered=false（截窗不含出生段）时给 null，
@@ -163,13 +163,13 @@ console.log('C. 常量锚（four.meme 主流档 4.496173469e-9——恒有效不
     `C1 BP currentVsLaunchPct=+30（1.3×FM；实际 ${bdC.currentVsLaunchPct}）`);
 
   // C2 CD 侧同口径：传 platform='fourmeme' → 常量锚；同形状 reset 生效
-  //（涨起后最低 1.05×FM=+5 ≤+20 → 重置）
+  //（涨起后最低 1.05×FM=+5 ≤+10 → 重置）
   const rC2 = computeMarketResetIndex(rowsC, 'fourmeme');
   ok(rC2 !== null && rC2.minVsLaunchPct === 5 && rC2.launchPriceBnb === FM,
     `C2 CD 常量锚重置（min=+5/launch=FM 原值；实际 ${rC2 && rC2.minVsLaunchPct}/${rC2 && rC2.launchPriceBnb}）`);
 
   // C3 CD 侧不传 platform=同形状走旧口径（首可靠价=1.5×FM 伪锚 → 涨起后最低 1.102/1.05
-  // 段最低=1.05×FM=1.05/1.5−1=−30 ≤+20 也重置但锚不同——锁两口径锚差异）
+  // 段最低=1.05×FM=1.05/1.5−1=−30 ≤+10 也重置但锚不同——锁两口径锚差异）
   const rC3 = computeMarketResetIndex(rowsC);
   ok(rC3 !== null && rC3.launchPriceBnb === FM * 1.5,
     `C3 CD null platform=旧口径首可靠价锚（1.5×FM；实际 ${rC3 && rC3.launchPriceBnb}）`);

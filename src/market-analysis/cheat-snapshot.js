@@ -1465,9 +1465,9 @@ function isRouterWallet(wallet) {
  * （2026-11-08 发行价口径修正——four.meme 主流档/flap BNB 盘主力档，第二参
  * platform 传 'fourmeme'/'flap' 时启用；quote 盘/gang/null 平台=首可靠价旧口径
  * （不满帽锚窗首行=出生段发行价，capped 由调用方拦））；涨起后段=首个突破 almost_launch
- * 上界（严格 > 1.2×launchPrice——+20 恰在桶界内不算离开）的可靠价起（含离开
- * 那一笔——突破笔本身必然 >+20 不影响「≤+20」判定；创新高不遮蔽回落，ATH
- * 位置无关）全段；段最低 ≤+20%（含破发）=「回到过」→ 重置生效。
+ * 上界（严格 > 1.1×launchPrice——+10 恰在桶界内不算离开；2026-11-09 almost 20→10）的可靠价起（含离开
+ * 那一笔——突破笔本身必然 >+10 不影响「≤+10」判定；创新高不遮蔽回落，ATH
+ * 位置无关）全段；段最低 ≤+10%（含破发）=「回到过」→ 重置生效。
  *
  * 价格口径滤 outlier/空/≤0（与 priceArc/可靠价链一致——重置判形状看价格；
  * 资金口径不滤是钱包侧的事）；dt/block 字段不参与判定。
@@ -1504,8 +1504,9 @@ function computeMarketResetIndex(rows, platform = null) {
     }
   }
   if (launchPrice === null || !(launchPrice > 0)) return null;
-  // 涨起点：首个严格 > 1.2×launchPrice 的可靠价（+20 恰等在 almost_launch 桶界内不算离开）
-  const exitThreshold = launchPrice * 1.2;
+  // 涨起点：首个严格 > 1.1×launchPrice 的可靠价（+10 恰等在 almost_launch 桶界内不算离开；
+  // 2026-11-09 用户裁定 almost 上界 20→10「基本再次归零」——1.2→1.1 同步）
+  const exitThreshold = launchPrice * 1.1;
   let exitIdx = -1;
   for (let i = 0; i < sorted.length; i++) {
     if (isRel(sorted[i]) && sorted[i].price_bnb > exitThreshold) { exitIdx = i; break; }
@@ -1520,7 +1521,7 @@ function computeMarketResetIndex(rows, platform = null) {
     if (minPrice === null || p < minPrice) { minPrice = p; minIdx = i; }
   }
   if (minIdx < 0 || minPrice === null) return null;
-  // 段最低 >+20 = 涨起后没回到过 almost_launch → 不重置（≤ 含恰等与破发）
+  // 段最低 >+10 = 涨起后没回到过 almost_launch → 不重置（≤ 含恰等与破发）
   if (minPrice > exitThreshold) return null;
   return {
     resetIdx: minIdx,

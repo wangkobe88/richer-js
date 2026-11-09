@@ -528,7 +528,7 @@ class CheatCheckService {
       }
 
       // 5b) CD382 盘面重置截窗（2026-11-08 用户裁定，与 BP44 案号 BP39 同语义）：
-      //     锚窗内价格回到过 almost_launch（涨起后最低 ≤+20% 含破发）=盘面重新
+      //     锚窗内价格回到过 almost_launch（涨起后最低 ≤+10% 含破发）=盘面重新
       //     计算——证据窗重置到最低点行起，上一轮抢筹/等额分仓/拉高形状不再进
       //     判定（bt-s01 0x28ad2c7d：拉黑后砸回 almost_launch 重判被上一轮
       //     equalAmountSplit strong 拖住翻不了案）。**满帽（capped）不应用**：

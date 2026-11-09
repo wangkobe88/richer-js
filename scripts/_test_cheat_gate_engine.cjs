@@ -437,7 +437,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
   // ── CD381 almost_launch 锚语义（第二 token 独立价格轨迹）──
   // 轨迹（2026-11-08 发行价口径修正：platform='fourmeme' → currentVsLaunchPct 分母
   // =主流档常量 FM——价格域乘 FM 使常量口径下百分比仍为 +60/+18，断言数值 bit 不变）：
-  // FM（发行 0%）→ 1.6×FM（+60%）→ mark(60) 窗口起算 → 回落 1.18×FM（+18%）
+  // FM（发行 0%）→ 1.6×FM（+60%）→ mark(60) 窗口起算 → 回落 1.08×FM（+8%）
   //   → 1 → 拉回 1.6×FM → 重锚 mark(60) 复位（回落史不延续）→ 0
   const FM = require('../src/market-analysis/launch-price').FOURMEME_LAUNCH_PRICE_BNB;
   fa.registerToken('0xrl2', { createdAtMs: T0, totalSupply: 1e9, symbol: 'RL2' });
@@ -457,10 +457,10 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
   ok('CD381 mark(60) 窗口起算：现价仍 +60% 未回 almost_launch → 0',
     fmRb && fmRb.priceBackToAlmostLaunch === 0 && fmRb.preCheatResult === null,
     fmRb ? { pb: fmRb.priceBackToAlmostLaunch } : 'build null');
-  rlTick(FM * 1.18, '0xrl-t3', T0 + 3000, 2); // +18% 回到 almost_launch
+  rlTick(FM * 1.08, '0xrl-t3', T0 + 3000, 2); // +8% 回到 almost_launch（2026-11-09 上界 20→10）
   const fmRc = fa.buildFactorMap('0xrl2', T0 + 3100);
-  ok('CD381 回落到 +18% → min=18 ≤ 20 → priceBackToAlmostLaunch=1（触发重检）',
-    fmRc && fmRc.currentVsLaunchPct === 18 && fmRc.priceBackToAlmostLaunch === 1,
+  ok('CD381 回落到 +8% → min=8 ≤ 10 → priceBackToAlmostLaunch=1（触发重检）',
+    fmRc && fmRc.currentVsLaunchPct === 8 && fmRc.priceBackToAlmostLaunch === 1,
     fmRc ? { vs: fmRc.currentVsLaunchPct, pb: fmRc.priceBackToAlmostLaunch } : 'build null');
   rlTick(FM * 1.6, '0xrl-t4', T0 + 4000, 3); // 拉回 +60%
   FAmod.markCheatGateEvaluated('0xrl2', 60); // 门链再评估 → 锚复位

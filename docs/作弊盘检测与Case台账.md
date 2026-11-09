@@ -187,6 +187,16 @@
 
 ## Case 倒序
 
+### CD386 盘面重置判定腿 almost 上界 20→10 同车收紧（2026-11-09，语义定义案·题集/grade 零改动；主体=BP51/题集 BP50——用户裁定「黄金点位的意义在于：代币已经基本再次归零了……20%，代入了太多正常的波动」）
+
+**改动**：`computeMarketResetIndex` exitThreshold `launchPrice × 1.2 → × 1.1`（`cheat-snapshot.js`）——「离开 almost_launch」与「涨起后最低回到 ≤+10%（含破发）」两判据同步随 almost 上界收紧；严格 > 语义不变（1.1 恰等=仍在桶界内不算离开）。CD384 reset_insufficient_ticks（重置窗 <8 硬拒）与 CD382 重置窗起点（最低点行起）机制零改动——只有「什么算回到过」的界移动。
+
+**联动面**：FA `ALMOST_LAUNCH_PCT` 20→10（CD381 `priceBackToAlmostLaunch` 重检锚——轨迹 min ≤10 才触发 almost_launch 重检臂）；BP 侧 minVsLaunchPct exitThreshold 同车 1.1（BP44 定义，双侧独立实现防循环依赖，`_test_cheat_market_reset` B 段双向锁判据随界改 ≤10⟺非 null）。
+
+**语义影响**：reset 触发面收窄——涨起后须跌得更深（段最低 ≤+10 含破发）才算「回到过 almost_launch」，+10~20 回落带不再触发盘面重置（旧证据窗保留、上一轮抢筹/拉高形状仍在窗内=更倾向 unhealthy/cheat 原判维持）；BT 系完整窗口 reset 小票（87 票净 -1.38 那批 30~120 行冲高砸落形状）中跌回段最低落 +10~20 带的将走原判不重置。**182 对拍待跑**（0x28ad2c7d 三锚）。
+
+**单测**：`_test_cheat_market_reset` 35 全过（A2/A2b/A4/A6 夹具按 1.1 锚重构造+B 段 shapes expectBp 随新界）；`_test_cheat_gate_engine` 136 全过（CD381 回到价 +18→+8）；相邻 detection_service 142/detection_lib 640/grade 135 全绿。
+
 ### CD385 发行价锚换平台 curve 常量——reset 截窗 almost_launch 判定基准不再用首可靠价（2026-11-08，锚口径案·题集/grade 零改动；主体=T127，commit `df9c7a6b`）
 
 **改动**：`computeMarketResetIndex(rows, platform)` 签名加第二参——发行价先查 `resolveLaunchPriceBnb(platform, quoteToken)`（新模块 `launch-price.js`：fourmeme→主流档常量 4496173469e-18、flap∧无 quoteToken→BNB 盘常量 ≈5.546e-9、其余→null），null 才回落旧口径（排序后首可靠价）。quote 盘判定=rows 行 `quote_token`（snapshot 侧 `buildSnapshotFromRows` ticks 已带 quote 键）。调用点：CheatCheckService `pull.rows` 处传 `tokenMeta.platform`；回归 runner 三调用点同步（runCase=c.platform、cmdAdd/batch=loadTokenMeta 提前读 platform）。

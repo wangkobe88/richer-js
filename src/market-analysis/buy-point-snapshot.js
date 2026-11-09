@@ -379,14 +379,14 @@ function computeBuyPointDerived(snapshot) {
   // 结构性组合不了 currentVsLaunch+currentVsAth 两数，直供；launchCovered 域内
   // arc.ath≤0 时 null fail-closed）；minVsLaunchPct=锚窗**涨起后最低**可靠价较发行价 %
   //（BP43 restart 重启盘「涨起来→又跌回 almost_launch」往返轨迹直供锚——**涨起后**
-  // 而非整窗最低：launchCovered 窗含出生段，整窗最低恒=发行价本身 → ≤+20 恒真=判据腿
-  // 结构性失效；涨起后段=**首个突破 almost_launch 上界（>+20%，严格大于——+20 恰在
+  // 而非整窗最低：launchCovered 窗含出生段，整窗最低恒=发行价本身 → ≤+10 恒真=判据腿
+  // 结构性失效；涨起后段=**首个突破 almost_launch 上界（>+10%，严格大于——+10 恰在
   // almost_launch 桶界内不算离开）的可靠价之后**的全段；BP44（案号 BP39）锚定义修正：
   // BP43 首版「首个最高价之后」对「回落→重新拉起创新高」的重启形状结构性失明——ATH
   // 被新一轮拉起推到锚窗末位 → 峰后段空 → null 不冒充 → 判据腿材料缺席（bt-s01
-  // 0x28ad2c7d 对拍 0/9 实证：07:15:41 回到 ≤+20 后 07:16 重新拉起创新高，锚 null，
+  // 0x28ad2c7d 对拍 0/9 实证：07:15:41 回到 almost_launch 后 07:16 重新拉起创新高，锚 null，
   // Jev 看不到「回到过」证据判④）；涨起后定义下创新高不遮蔽回落（突破点之后的最低
-  // 覆盖全部回落段）；从未 >+20%（整窗都在 almost_launch 内没离开过）或突破点即末位
+  // 覆盖全部回落段）；从未 >+10%（整窗都在 almost_launch 内没离开过）或突破点即末位
   // （刚离开无回落证据）→ null 不冒充；Jev 组合不了涨起后最低与发行价两数故直供；
   // BP 侧 rel 自算零 CD 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
@@ -411,11 +411,12 @@ function computeBuyPointDerived(snapshot) {
       launchPriceBnb = launchAnchor;
       currentVsLaunchPct = +(((arc.last / launchPriceBnb) - 1) * 100).toFixed(1);
       if (arc.ath > 0) athVsLaunchPct = +(((arc.ath / launchPriceBnb) - 1) * 100).toFixed(1);
-      // 涨起后最低：首个突破 almost_launch 上界（严格 > 1.2×发行价）的可靠价起
-      //（含离开那一笔——突破点本身必然 >+20 不影响「≤+20」判定）全段的最低——
+      // 涨起后最低：首个突破 almost_launch 上界（严格 > 1.1×发行价）的可靠价起
+      //（含离开那一笔——突破点本身必然 >+10 不影响「≤+10」判定）全段的最低——
       // 多轮回落/再拉起全覆盖（ATH 位置无关）；从未突破（整窗未离开 almost_launch）
-      // 或突破点为末位（刚离开无后续）→ null 不冒充「回到过」
-      const exitThreshold = launchPriceBnb * 1.2;
+      // 或突破点为末位（刚离开无后续）→ null 不冒充「回到过」；
+      // 2026-11-09 用户裁定 almost 上界 20→10「基本再次归零」——1.2→1.1 同步
+      const exitThreshold = launchPriceBnb * 1.1;
       let exitIdx = -1;
       for (let i = 0; i < rel.length; i++) {
         if (rel[i].priceBnb > exitThreshold) { exitIdx = i; break; }
@@ -565,7 +566,7 @@ function computeBuyPointDerived(snapshot) {
     // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键；
     // athVsLaunchPct=锚窗最高可靠价较发行价 %，BP39「开盘拉高出货盘」度量锚；
     // minVsLaunchPct=锚窗涨起后最低可靠价较发行价 %，BP43 restart 重启盘轨迹锚——
-    // BP44 修正为「首个突破 +20% 之后」定义（创新高不遮蔽回落））
+    // BP44 修正为「首个突破 almost 上界之后」定义（创新高不遮蔽回落）；2026-11-09 上界 20→10））
     launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, minVsLaunchPct, launchCovered,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,

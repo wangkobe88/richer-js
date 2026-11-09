@@ -19,7 +19,7 @@
  *      ①strong_backer ≤+40%（案号 BP48 自 80 收紧——low 档 +40~80 不再接受）
  *      放行、>+40% 或锚缺失拒；
  *      ⑤blended ≤+40%（almost_launch/near_launch）放行、>+40% 或锚缺失拒；
- *      ⑧golden_point ≤+40% 防御门（判据自带 ≤+20，>+40%=判序错位按⑦同线拒）
+ *      ⑧golden_point ≤+40% 防御门（判据自带 ≤+10，>+40%=判序错位按⑦同线拒）
  *   ② 活跃度门（BP13 扩双题+BP30 ultra 臂+BP38 strong_backer 豁免）：
  *      market_heat=low（近窗密度）**或** activity_level=low（买点前全窗量级）
  *      **或** activity_level=ultra（机器盘级极端密集——用户裁定「act 为 ultra
@@ -139,7 +139,7 @@ const STRONG_BACKER_LAUNCH_PCT = 40;
  * Jev、位置归代码」模式 */
 const BLENDED_LAUNCH_PCT = 40;
 /** ⑧golden_point 黄金点防御门（BP48/案号 BP44）：判据自带位置（现价在
- * almost_launch 区内 ≤+20 含破发），代码侧另有 ≤+40 防御门兜判序错位——判⑧但
+ * almost_launch 区内 ≤+10 含破发），代码侧另有 ≤+40 防御门兜判序错位——判⑧但
  * 现价 >+40%=判序错位按⑦位置门同线拒；锚缺失同拒（宁拦不冒充）。与
  * RESTART_LAUNCH_PCT「同线同值各自常量」先例 */
 const GOLDEN_POINT_LAUNCH_PCT = 40;
@@ -363,7 +363,7 @@ function buildBuyPointObservation(answers, anchors = null) {
     if (vsLaunch == null || vsLaunch > BLENDED_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
   }
   // ⑧golden_point 黄金点防御门位置臂（BP48）：判据自带位置（现价 almost_launch
-  //   区内 ≤+20 含破发），此处 ≤+40 防御门兜判序错位——判⑧但现价 >+40%=判序
+  //   区内 ≤+10 含破发），此处 ≤+40 防御门兜判序错位——判⑧但现价 >+40%=判序
   //   错位按⑦位置门同线拒；锚缺失拒（宁拦不冒充，同⑥⑦模式）
   if (dimensions.market_pattern && dimensions.market_pattern.bucket === 'golden_point') {
     const rawVs = anchors ? anchors.currentVsLaunchPct : null;

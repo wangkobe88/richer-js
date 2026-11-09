@@ -92,7 +92,7 @@ function buildBuyPointState(snapshot) {
     // ①a 发行价位置（BP5：绝对价格高低题锚；? = ticks 未覆盖出生段，截窗不冒充；
     // athVsLaunchPct=锚窗最高可靠价较发行价 %（BP39「开盘拉得过高」度量锚）；
     // minVsLaunchPct=锚窗涨起后最低可靠价较发行价 %（BP43 restart 重启盘「价格回到过
-    // almost_launch」轨迹直供锚——判重启盘的关键证据行；BP44 定义=首个突破 +20% 离开
+    // almost_launch」轨迹直供锚——判重启盘的关键证据行；BP44 定义=首个突破 almost 上界（2026-11-09 起 +10%）离开
     // almost_launch 之后的最低（涨起→又跌回的往返；创新高不遮蔽回落）））
     lines.push(`发行价位置: 现价较发行价 ${b.currentVsLaunchPct === null || b.currentVsLaunchPct === undefined ? '?' : (b.currentVsLaunchPct > 0 ? '+' : '') + b.currentVsLaunchPct.toFixed(1) + '%'}，锚窗最高价较发行价 ${b.athVsLaunchPct === null || b.athVsLaunchPct === undefined ? '?' : (b.athVsLaunchPct > 0 ? '+' : '') + b.athVsLaunchPct.toFixed(1) + '%'}，锚窗涨起后最低价较发行价 ${b.minVsLaunchPct === null || b.minVsLaunchPct === undefined ? '?' : (b.minVsLaunchPct > 0 ? '+' : '') + b.minVsLaunchPct.toFixed(1) + '%'}（发行价 ${b.launchPriceBnb === null || b.launchPriceBnb === undefined ? '?' : fmtPrice(b.launchPriceBnb)} BNB；? = ticks 未覆盖出生段或从未离开 almost_launch=无回到语义，不冒充）`);
     // ①b 市值位置（BP2/T117：末可靠价×totalSupply；? = supply 或可靠价缺失）

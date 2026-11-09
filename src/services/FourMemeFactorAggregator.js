@@ -306,9 +306,10 @@ let _cheatFactorOverrides = null;
 // almost_launch=无论上次结果如何须重检，cheat 拉黑可翻案）；无锚（未检测过）
 // → null fail-closed（裸比较恒 false 不触发重检）
 let _cheatGatePriceAnchor = null;
-// almost_launch 价格级别定义（用户裁定 2026-11-08：相对发行价涨幅 ≤+20%）——
-// 定义非调参，改=改口径须同步 BP 题面 price_level 分界
-const ALMOST_LAUNCH_PCT = 20;
+// almost_launch 价格级别定义（用户裁定 2026-11-09 由 20 收紧至 10：「黄金点位的
+// 意义在于：代币已经基本再次归零了……20% 代入了太多正常的波动」）——
+// 定义非调参，改=改口径须同步 BP 题面 price_level 分界与 CD/BP 两侧 reset 判据
+const ALMOST_LAUNCH_PCT = 10;
 // sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
 // BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
 // token_count 写入方=mine-smart-wallets.cjs --apply（入榜钱包 rawTotalRun）。⚠口径边界：当前
