@@ -106,6 +106,18 @@
 
         .token-symbol-cell {
             min-width: 140px;
+            max-width: 260px;
+        }
+
+        /* 长代币名分行：限制符号行宽度 + 允许在任意字符处换行，避免第一列被顶宽 */
+        .symbol-line {
+            max-width: 240px;
+        }
+
+        .symbol-text {
+            word-break: break-all;
+            overflow-wrap: anywhere;
+            min-width: 0;
         }
 
         .token-badges {
@@ -566,6 +578,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.3"></script>
-    <script src="/static/js/experiment_token_returns.js?v=6.6"></script>
+    <script src="/static/js/experiment_token_returns.js?v=6.7"></script>
 </body>
 </html>

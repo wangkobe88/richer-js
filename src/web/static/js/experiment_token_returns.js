@@ -760,13 +760,13 @@ class ExperimentTokenReturns {
     return `
       <tr class="table-row main-row ${hasBlacklist ? 'bg-red-900/20' : ''}" data-token="${item.tokenAddress}" data-main-row="true">
         <td class="px-2 py-2 token-symbol-cell">
-          <div class="flex items-center justify-between mb-1">
-            <div class="flex items-center">
+          <div class="flex items-center justify-between mb-1 symbol-line">
+            <div class="flex items-center min-w-0">
               ${expandBtn}
-              <span class="font-medium text-white text-sm">${item.symbol}</span>
+              <span class="font-medium text-white text-sm symbol-text">${item.symbol}</span>
               ${(blacklistBadge || whitelistBadge) ? `<div class="token-badges ml-1">${blacklistBadge}${whitelistBadge}</div>` : ''}
             </div>
-            <div class="flex items-center space-x-1">
+            <div class="flex items-center space-x-1 flex-shrink-0">
               <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors p-0.5"
                       data-address="${item.tokenAddress}"
                       title="复制代币地址">
