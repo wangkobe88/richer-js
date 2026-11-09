@@ -1,32 +1,36 @@
 #!/usr/bin/env node
 /**
- * T107 市值拱形时间全清臂因子单测（2026-10-29 用户裁定：X=首次交易→最高市值耗时；
- * 峰值市值超 15K USD（=20.1 BNB，T84 换算率 bnbUsd≈745）后距峰已流逝 ≥ X/2 秒且未再
- * 破新高 → 全部清仓）——本地零 DB 零网络。
+ * T107 市值拱形时间全清臂因子单测——**持仓期口径**（2026-11-09 用户裁定
+ * 「mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec 改为持有后的 Peak（其它的类似臂
+ * 也要换）。否则如果 Peak 在持有之前，会很快卖出」）——本地零 DB 零网络。
  *
- * 三键 token 级全生命口径（与持仓期 secSincePeak/peakMarketCapSinceLastBuy 分轨）：
- *   mcapPeakBnb     = highestPriceBnb × totalSupply（峰=既有任意接受价轨峰，
- *                     与 drawdownFromHighest 同峰：outlier（>1000× 中位数判）不推峰、
- *                     chainLate 不推、尘价照推——T97 同门同价流）
- *   secSinceMcapPeak= (now − highestPriceAt) / 1000（now=buildFactorMap 入参，回测
+ * 三键持仓期轨道（峰=pos.highestPriceSinceBuyBnb，与 secSincePeak/
+ * peakMarketCapSinceLastBuy 同门同价流：任意接受价轨——outlier（>1000× 中位数判）
+ * 不推峰、chainLate 不推、尘价照推）：
+ *   mcapPeakBnb     = 入场后峰价 × totalSupply（= peakMarketCapSinceLastBuy 同源同值）
+ *   secSinceMcapPeak= (now − 入场后峰时刻) / 1000（now=buildFactorMap 入参，回测
  *                     =虚拟时钟，红线 6 禁 Date.now）
- *   mcapRiseHalfSec = (highestPriceAt − firstTickAt) / 2000（X/2 预计算——条件求值器
- *                     无算术文法，除法不能写在条件串里）
- * 无接受价/totalSupply 缺失 → null 恒 false fail-closed（marketCap 族惯例）。
- * 首峰即首 tick（开跌即峰）→ X=0 → X/2=0 → secSinceMcapPeak >= 0 恒真：过市值门即清
- * （忠实用户口径，非兜底）。首交易锚=firstTickAt 首 tick 到达序 write-once：进程晚接管/
- * 回测窗口晚于真实首交易 → X 低估提前触发（保守出场方向，trend age 家族同限）。
+ *   mcapRiseHalfSec = (入场后峰时刻 − buyTime 成交锚) / 2000（X/2 预计算——条件
+ *                     求值器无算术文法；fire→成交窗冲高回填使峰时刻可早于 buyTime
+ *                     → max(0,·)=0=「入场即峰」）
+ * 无持仓 / totalSupply 缺失 → mcapPeakBnb null 恒 false fail-closed（marketCap 族惯例）。
+ * 入场即峰 → X=0 → secSinceMcapPeak >= 0 恒真：过市值门即清（忠实用户口径，非兜底）。
+ *
+ * ★事故形状反证（2026-11-09 用户报告「如果 Peak 在持有之前，会很快卖出」）：
+ * 持有前大峰（mcap 30）+ 回落段入场（mcap 15 未过门）→ 持仓期峰 15 不过 20.1 门
+ * → 不触发（旧 token 全生命口径拿持有前峰 30 过门+时间早过 → 入场即秒卖）。
  *
  * 覆盖：
- *   A. 仅注册无 tick → 三键 null + 条件 fail-closed
- *   B. 基础拱形：X=29s/X/2=14.5s；时间未到 false / 时间到 true；峰值市值不过门恒 false
- *   C. 再破新高：计时归零 + X 变大（原窗已过但不再触发）
- *   D. 不新高回落震荡：峰值时刻不动，时间到即触发
- *   E. outlier 突刺不推峰（>1000× 中位数拒收——幽灵峰不得重置计时）
- *   F. 尘价新高推峰（任意接受价轨，mcap 峰与 T97 峰同门）
- *   G. X=0 退化（首 tick 即峰）：过门即触发（含峰当刻 0 >= 0）
+ *   A. 仅注册无 tick / 有 tick 未持仓 → 三键 null + 条件 fail-closed
+ *   B. 事故形状反证：持有前峰 30 过门，入场 15 未过门 → 恒 false（不再秒卖）
+ *   C. 基础拱形（持仓期）：入场 15 → 持仓期涨至 25 过门（X=29s/X/2=14.5s）；
+ *      时间未到 false / 时间到 true；持仓期峰不过门恒 false
+ *   D. 再破新高：计时归零 + X 变大（原窗已过但不再触发）
+ *   E. 不新高回落震荡：峰值时刻不动，时间到即触发
+ *   F. outlier 突刺不推峰（幽灵峰不得重置计时）；尘价新高推峰（任意接受价轨）
+ *   G. X=0 退化（入场即峰且过门）：过门即触发（含峰当刻 0 >= 0）
  *   H. totalSupply 缺失 → mcapPeakBnb null fail-closed（时间键独立非 null）
- *   I. asOf 入参口径 + 源码口径锁（now 入参/X/2 除 2000/无 Date.now）
+ *   I. 清仓后三键归 null（持仓期轨道随仓销毁）+ asOf 入参口径 + 源码口径锁
  *   J. FactorBuilder 快照透传三键（值透传 + undefined → null 不掩盖 + 源码白名单锁）
  *   K. 探针收键（getFactorKeys/getAvailableFactorIds）+ 条件四态 + 右因子缺失恒 false
  *
@@ -67,135 +71,183 @@ function newFA(token = '0xtoken', withSupply = true) {
   return fa;
 }
 
-// T107 卖腿条件（create-v65 内联腿同串；20.1 BNB ≈ 15K USD @745）
+// T107 卖腿条件（mcap-arc-fullclose v1 同串；20.1 BNB ≈ 15K USD @745）
 const COND = 'mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec';
 
-// ═══════════════ A. 仅注册无 tick ═══════════════
-console.log('A. 仅注册无 tick → null + fail-closed');
+/** 建 FA + 峰前史 ticks + 入场（buyTime=Tbuy，入场价 entryBnb） */
+function positionedFA(preTicks, entryBnb, Tbuy, withSupply = true) {
+  const fa = newFA('0xtoken', withSupply);
+  for (const t of preTicks) fa.processTick(mkTick(t), {});
+  fa.setBuyState('0xtoken', { buyPriceBnb: entryBnb, buyPriceUsd: null, buyTime: Tbuy });
+  return fa;
+}
+
+// ═══════════════ A. 未持仓 → null ═══════════════
+console.log('A. 仅注册无 tick / 有 tick 未持仓 → null + fail-closed');
 {
   const fa = newFA();
   const f = fa.buildFactorMap('0xtoken', T0 + 60000);
-  check('A1 三键全 null（无接受价=缺证据）', () => {
+  check('A1 三键全 null（无仓=缺证据，持仓期轨道随仓存在）', () => {
     assert.strictEqual(f.mcapPeakBnb, null);
     assert.strictEqual(f.secSinceMcapPeak, null);
     assert.strictEqual(f.mcapRiseHalfSec, null);
   });
   check('A2 条件恒 false（fail-closed 不卖）', () =>
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), false));
+
+  // 有 tick（token 全生命峰 30 已过门）但未持仓 → 仍 null：卖腿仅持仓期评估，
+  // 但本断言锁「未持仓读数不得泄漏全生命峰」（旧口径在此给 30/秒数——形状回归锚）
+  const fa2 = newFA();
+  fa2.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
+  fa2.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 3.0e-8, block_number: 101 }), {});
+  const f2 = fa2.buildFactorMap('0xtoken', T0 + 100000);
+  check('A3 有 tick 未持仓：三键仍 null（全生命峰 30 不泄漏进持仓期键）', () => {
+    assert.strictEqual(f2.mcapPeakBnb, null);
+    assert.strictEqual(f2.secSinceMcapPeak, null);
+    assert.strictEqual(f2.mcapRiseHalfSec, null);
+  });
 }
 
-// ═══════════════ B. 基础拱形 ═══════════════
-console.log('B. 基础拱形：X=29s → X/2=14.5s');
+// ═══════════════ B. 事故形状反证 ═══════════════
+console.log('B. ★事故形状反证：持有前峰 30 过门，回落段入场 15 未过门 → 不再秒卖');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {}); // mcap 15（不过门）
-  fa.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 2.5e-8, block_number: 101 }), {}); // 新高 mcap 25 过门
-  const f = fa.buildFactorMap('0xtoken', T0 + 40000);
-  check('B1 mcapPeakBnb = 25（峰价×supply）', () =>
+  // token 全生命：T0+1s 涨到 3.0e-8（mcap 30）后回落——旧 token 级口径下
+  // mcapPeakBnb=30>20.1、secSinceMcapPeak 巨大、X/2=(30−1)/2=14.5s 早过 → 入场即清
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+    { timestamp: T0 + 30000, price_bnb: 3.0e-8, block_number: 101 },
+    { timestamp: T0 + 60000, price_bnb: 1.5e-8, block_number: 102 },
+  ], 1.5e-8, T0 + 100000); // 回落段入场 mcap 15（未过门；入场时刻现价=入场价）
+  const f = fa.buildFactorMap('0xtoken', T0 + 100000);
+  check('B1 mcapPeakBnb = 持仓期峰 15（持有前峰 30 不进键）', () =>
+    assert.ok(Math.abs(f.mcapPeakBnb - 15) < 1e-6, `got ${f.mcapPeakBnb}`));
+  check('B2 mcapRiseHalfSec = 0（入场即持仓期峰）', () =>
+    assert.ok(Math.abs(f.mcapRiseHalfSec) < 1e-6, `got ${f.mcapRiseHalfSec}`));
+  check('B3 条件 false（市值门 15<20.1 拦——事故形状不再秒卖）', () =>
+    assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), false));
+  const f2 = fa.buildFactorMap('0xtoken', T0 + 500000);
+  check('B4 之后任意时刻仍 false（持仓期峰未过门前拱形臂不武装）', () => {
+    assert.ok(f2.secSinceMcapPeak > 300);
+    assert.strictEqual(new ConditionEvaluator().evaluate(COND, f2), false);
+  });
+}
+
+// ═══════════════ C. 基础拱形（持仓期）═══════════════
+console.log('C. 基础拱形：入场 15 → 持仓期涨至 25 过门，X=29s → X/2=14.5s');
+{
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+  ], 1.5e-8, T0 + 10000); // 入场 mcap 15
+  fa.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: 2.5e-8, block_number: 101 }), {}); // 持仓期新高 mcap 25 过门
+  const f = fa.buildFactorMap('0xtoken', T0 + 49000);
+  check('C1 mcapPeakBnb = 25（持仓期峰价×supply）', () =>
     assert.ok(Math.abs(f.mcapPeakBnb - 25) < 1e-6, `got ${f.mcapPeakBnb}`));
-  check('B2 mcapRiseHalfSec = 14.5（(30000−1000)/2/1000）', () =>
+  check('C2 mcapRiseHalfSec = 14.5（(39000−10000)/2/1000，buyTime 成交锚起算）', () =>
     assert.ok(Math.abs(f.mcapRiseHalfSec - 14.5) < 1e-6, `got ${f.mcapRiseHalfSec}`));
-  check('B3 secSinceMcapPeak = 10 < 14.5 → 条件 false（时间未到）', () => {
+  check('C3 secSinceMcapPeak = 10 < 14.5 → 条件 false（时间未到）', () => {
     assert.ok(Math.abs(f.secSinceMcapPeak - 10) < 1e-6, `got ${f.secSinceMcapPeak}`);
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), false);
   });
-  const f2 = fa.buildFactorMap('0xtoken', T0 + 45000);
-  check('B4 流逝 15s ≥ 14.5s → 条件 true（拱形完成全清）', () =>
+  const f2 = fa.buildFactorMap('0xtoken', T0 + 54500);
+  check('C4 流逝 15.5s ≥ 14.5s → 条件 true（拱形完成全清）', () =>
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f2), true));
-  check('B5 恰 14.5s 在线上也触发（>= 含等）', () => {
-    const f3 = fa.buildFactorMap('0xtoken', T0 + 44500);
+  check('C5 恰 14.5s 在线上也触发（>= 含等）', () => {
+    const f3 = fa.buildFactorMap('0xtoken', T0 + 53500);
     assert.ok(Math.abs(f3.secSinceMcapPeak - 14.5) < 1e-6);
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f3), true);
   });
 }
-console.log('B6. 峰值市值不过门（15 BNB < 20.1）恒 false——时间再久也不清');
+console.log('C6. 持仓期峰不过门（15 BNB < 20.1）恒 false——时间再久也不清');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.2e-8, block_number: 100 },
+  ], 1.2e-8, T0 + 10000);
   const f = fa.buildFactorMap('0xtoken', T0 + 600000);
-  check('B6a 峰 15 不过门：secSince 已 599s 仍 false', () => {
-    assert.ok(Math.abs(f.mcapPeakBnb - 15) < 1e-6);
-    assert.ok(f.secSinceMcapPeak >= 599);
+  check('C6a 持仓期峰 12 不过门：secSince 已 ~590s 仍 false', () => {
+    assert.ok(Math.abs(f.mcapPeakBnb - 12) < 1e-6);
+    assert.ok(f.secSinceMcapPeak >= 590);
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), false);
   });
 }
 
-// ═══════════════ C. 再破新高重置 ═══════════════
-console.log('C. 再破新高：计时归零 + X 变大');
+// ═══════════════ D. 再破新高重置 ═══════════════
+console.log('D. 再破新高：计时归零 + X 变大');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 2.5e-8, block_number: 101 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 50000, price_bnb: 3.0e-8, block_number: 102 }), {}); // 再破高 mcap 30
-  const f = fa.buildFactorMap('0xtoken', T0 + 60000);
-  check('C1 X 重算 = 49/2 = 24.5（首 tick→新峰 49s）', () =>
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+  ], 1.5e-8, T0 + 10000);
+  fa.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: 2.5e-8, block_number: 101 }), {}); // mcap 25
+  fa.processTick(mkTick({ timestamp: T0 + 59000, price_bnb: 3.0e-8, block_number: 102 }), {}); // 再破高 mcap 30
+  const f = fa.buildFactorMap('0xtoken', T0 + 69000);
+  check('D1 X 重算 = 49/2 = 24.5（buyTime→新峰 49s）', () =>
     assert.ok(Math.abs(f.mcapRiseHalfSec - 24.5) < 1e-6, `got ${f.mcapRiseHalfSec}`));
-  check('C2 新峰后 10s < 24.5s → false（旧窗 15≥14.5 已过但重置后不再触发）', () => {
+  check('D2 新峰后 10s < 24.5s → false（旧窗 20≥14.5 已过但重置后不再触发）', () => {
     assert.ok(Math.abs(f.secSinceMcapPeak - 10) < 1e-6);
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), false);
   });
-  check('C3 mcapPeakBnb 推进 = 30', () =>
+  check('D3 mcapPeakBnb 推进 = 30', () =>
     assert.ok(Math.abs(f.mcapPeakBnb - 30) < 1e-6, `got ${f.mcapPeakBnb}`));
 }
 
-// ═══════════════ D. 不新高回落震荡 ═══════════════
-console.log('D. 不新高：峰值时刻不动，时间到即触发');
+// ═══════════════ E. 不新高回落震荡 ═══════════════
+console.log('E. 不新高：峰值时刻不动，时间到即触发');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 2.5e-8, block_number: 101 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 50000, price_bnb: 3.0e-8, block_number: 102 }), {});
-  // 回落震荡均低于峰 3.0e-8——峰值时刻保持 T0+50000
-  fa.processTick(mkTick({ timestamp: T0 + 70000, price_bnb: 2.8e-8, block_number: 103 }), {});
-  const f = fa.buildFactorMap('0xtoken', T0 + 75000);
-  check('D1 峰值不动（mcapPeakBnb 仍 30）', () =>
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+  ], 1.5e-8, T0 + 10000);
+  fa.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: 2.5e-8, block_number: 101 }), {});
+  fa.processTick(mkTick({ timestamp: T0 + 59000, price_bnb: 3.0e-8, block_number: 102 }), {});
+  // 回落震荡均低于峰 3.0e-8——持仓期峰值时刻保持 T0+59000
+  fa.processTick(mkTick({ timestamp: T0 + 79000, price_bnb: 2.8e-8, block_number: 103 }), {});
+  const f = fa.buildFactorMap('0xtoken', T0 + 84500);
+  check('E1 峰值不动（mcapPeakBnb 仍 30）', () =>
     assert.ok(Math.abs(f.mcapPeakBnb - 30) < 1e-6, `got ${f.mcapPeakBnb}`));
-  check('D2 流逝 25s ≥ 24.5s → true（回落不救，拱形完成）', () => {
-    assert.ok(Math.abs(f.secSinceMcapPeak - 25) < 1e-6, `got ${f.secSinceMcapPeak}`);
+  check('E2 流逝 25.5s ≥ 24.5s → true（回落不救，拱形完成）', () => {
+    assert.ok(Math.abs(f.secSinceMcapPeak - 25.5) < 1e-6, `got ${f.secSinceMcapPeak}`);
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), true);
   });
 }
 
-// ═══════════════ E. outlier 突刺不推峰 ═══════════════
-console.log('E. outlier 不推峰（>1000× 中位数拒收——_acceptPrice 窗≥3 才评）');
+// ═══════════════ F. outlier 突刺不推峰 / 尘价新高推峰 ═══════════════
+console.log('F. outlier 不推峰（>1000× 中位数拒收——_acceptPrice 窗≥3 才评）；尘价新高推峰');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 2.5e-8, block_number: 101 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 50000, price_bnb: 3.0e-8, block_number: 102 }), {});
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+  ], 1.5e-8, T0 + 10000);
+  fa.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: 2.5e-8, block_number: 101 }), {});
+  fa.processTick(mkTick({ timestamp: T0 + 59000, price_bnb: 3.0e-8, block_number: 102 }), {});
   // 窗 [1.5e-8, 2.5e-8, 3.0e-8] 中位 2.5e-8；1e-4 = 4000× 突刺 → 离群拒收
-  fa.processTick(mkTick({ timestamp: T0 + 60000, price_bnb: 1e-4, block_number: 103 }), {});
-  const f = fa.buildFactorMap('0xtoken', T0 + 65000);
-  check('E1 幽灵峰不进 mcapPeakBnb（仍 30 非 100000）', () =>
+  fa.processTick(mkTick({ timestamp: T0 + 69000, price_bnb: 1e-4, block_number: 103 }), {});
+  const f = fa.buildFactorMap('0xtoken', T0 + 74500);
+  check('F1 幽灵峰不进 mcapPeakBnb（仍 30 非 100000）', () =>
     assert.ok(Math.abs(f.mcapPeakBnb - 30) < 1e-6, `got ${f.mcapPeakBnb}`));
-  check('E2 峰值时刻不动（secSince=15 自 T0+50000）', () =>
-    assert.ok(Math.abs(f.secSinceMcapPeak - 15) < 1e-6, `got ${f.secSinceMcapPeak}`));
+  check('F2 峰值时刻不动（secSince=15.5 自 T0+59000）', () =>
+    assert.ok(Math.abs(f.secSinceMcapPeak - 15.5) < 1e-6, `got ${f.secSinceMcapPeak}`));
 }
-
-// ═══════════════ F. 尘价新高推峰（任意接受价轨）═══════════════
-console.log('F. 尘价新高推峰——mcap 峰与 T97 峰同门同价流（尘不卡尘门）');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 2.5e-8, block_number: 101 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 50000, price_bnb: 3.0e-8, block_number: 102 }), {});
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+  ], 1.5e-8, T0 + 10000);
+  fa.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: 2.5e-8, block_number: 101 }), {});
+  fa.processTick(mkTick({ timestamp: T0 + 59000, price_bnb: 3.0e-8, block_number: 102 }), {});
   // 尘量 0.0005 BNB < 可靠价尘门 0.002：不进可靠价轨但非离群 → 接受价轨推峰
-  fa.processTick(mkTick({ timestamp: T0 + 90000, price_bnb: 3.5e-8, bnb_amount: 0.0005, block_number: 104 }), {});
-  const f = fa.buildFactorMap('0xtoken', T0 + 100000);
-  check('F1 尘价新高推进 mcapPeakBnb = 35', () =>
+  fa.processTick(mkTick({ timestamp: T0 + 99000, price_bnb: 3.5e-8, bnb_amount: 0.0005, block_number: 104 }), {});
+  const f = fa.buildFactorMap('0xtoken', T0 + 109000);
+  check('F3 尘价新高推进 mcapPeakBnb = 35', () =>
     assert.ok(Math.abs(f.mcapPeakBnb - 35) < 1e-6, `got ${f.mcapPeakBnb}`));
-  check('F2 计时重置（secSince=10 自 T0+90000）+ X 重算 44.5', () => {
+  check('F4 计时重置（secSince=10 自 T0+99000）+ X 重算 44.5', () => {
     assert.ok(Math.abs(f.secSinceMcapPeak - 10) < 1e-6, `got ${f.secSinceMcapPeak}`);
     assert.ok(Math.abs(f.mcapRiseHalfSec - 44.5) < 1e-6, `got ${f.mcapRiseHalfSec}`);
   });
 }
 
-// ═══════════════ G. X=0 退化（首 tick 即峰）═══════════════
-console.log('G. X=0 退化：开跌即峰票过市值门即清（忠实口径非兜底）');
+// ═══════════════ G. X=0 退化（入场即峰且过门）═══════════════
+console.log('G. X=0 退化：入场即峰票过市值门即清（忠实口径非兜底）');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 3.0e-8, block_number: 100 }), {}); // 首 tick 即峰 mcap 30
-  const f = fa.buildFactorMap('0xtoken', T0 + 1000);
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.0e-8, block_number: 100 },
+  ], 3.0e-8, T0 + 2000); // 入场价即 mcap 30（>20.1）——入场即峰
+  const f = fa.buildFactorMap('0xtoken', T0 + 2000);
   check('G1 X=0 → mcapRiseHalfSec=0、峰当刻 0 >= 0 → 条件 true', () => {
     assert.strictEqual(f.mcapRiseHalfSec, 0);
     assert.strictEqual(f.secSinceMcapPeak, 0);
@@ -209,8 +261,9 @@ console.log('G. X=0 退化：开跌即峰票过市值门即清（忠实口径非
 // ═══════════════ H. totalSupply 缺失 ═══════════════
 console.log('H. totalSupply 缺失 → mcapPeakBnb null fail-closed');
 {
-  const fa = newFA('0xtoken', false);
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 3.0e-8, block_number: 100 }), {});
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.0e-8, block_number: 100 },
+  ], 3.0e-8, T0 + 2000, false);
   const f = fa.buildFactorMap('0xtoken', T0 + 100000);
   check('H1 mcapPeakBnb null（marketCap 族 fail-closed）', () =>
     assert.strictEqual(f.mcapPeakBnb, null));
@@ -222,26 +275,44 @@ console.log('H. totalSupply 缺失 → mcapPeakBnb null fail-closed');
     assert.strictEqual(new ConditionEvaluator().evaluate(COND, f), false));
 }
 
-// ═══════════════ I. asOf 入参口径 + 源码锁 ═══════════════
-console.log('I. asOf 入参口径（禁 Date.now）+ 源码口径锁');
+// ═══════════════ I. 清仓归 null + asOf 入参口径 + 源码锁 ═══════════════
+console.log('I. 清仓后三键归 null（持仓期轨道随仓销毁）+ asOf 口径 + 源码口径锁');
 {
-  const fa = newFA();
-  fa.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 }), {});
-  fa.processTick(mkTick({ timestamp: T0 + 30000, price_bnb: 2.5e-8, block_number: 101 }), {});
-  const fa1 = fa.buildFactorMap('0xtoken', T0 + 40000).secSinceMcapPeak;
-  const fa2 = fa.buildFactorMap('0xtoken', T0 + 90000).secSinceMcapPeak;
+  const fa = positionedFA([
+    { timestamp: T0 + 1000, price_bnb: 1.5e-8, block_number: 100 },
+  ], 1.5e-8, T0 + 10000);
+  fa.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: 2.5e-8, block_number: 101 }), {});
+  const fa1 = fa.buildFactorMap('0xtoken', T0 + 49000).secSinceMcapPeak;
+  const fa2 = fa.buildFactorMap('0xtoken', T0 + 99000).secSinceMcapPeak;
   check('I1 同 state 不同 asOf：差值精确=50s（虚拟时钟驱动，回测同源）', () =>
     assert.ok(Math.abs((fa2 - fa1) - 50) < 1e-6, `${fa1} → ${fa2}`));
+  fa.clearBuyState('0xtoken');
+  const f3 = fa.buildFactorMap('0xtoken', T0 + 150000);
+  check('I2 清仓后三键归 null（全生命峰 25 不复活）', () => {
+    assert.strictEqual(f3.mcapPeakBnb, null);
+    assert.strictEqual(f3.secSinceMcapPeak, null);
+    assert.strictEqual(f3.mcapRiseHalfSec, null);
+  });
   const src = read('src/services/FourMemeFactorAggregator.js');
-  check('I2 发射式用入参 now 非时钟（源码口径锁）', () =>
-    assert.ok(src.includes('secSinceMcapPeak: state.highestPriceAt !== null')
-      && src.includes('? Math.max(0, (now - state.highestPriceAt) / 1000) : null'),
-      'secSinceMcapPeak 发射式形状漂移'));
-  check('I3 X/2 = (峰时刻−首tick)/2000（除法预计算锁——求值器无算术文法）', () =>
-    assert.ok(src.includes('? Math.max(0, (state.highestPriceAt - state.firstTickAt) / 2000) : null'),
-      'mcapRiseHalfSec 发射式形状漂移'));
-  check('I4 三键发射段无 Date.now', () => {
-    const block = src.split('T107 市值拱形时间全清臂')[1].split('── WSS 事件流口径')[0];
+  check('I3 三键映射持仓期轨道（发射式形状锁——factors 字面量零算术）', () => {
+    assert.ok(src.includes('mcapPeakBnb: positionFactors.mcapPeakBnb ?? null'),
+      'mcapPeakBnb 发射式形状漂移');
+    assert.ok(src.includes('secSinceMcapPeak: positionFactors.secSinceMcapPeak ?? null'),
+      'secSinceMcapPeak 发射式形状漂移');
+    assert.ok(src.includes('mcapRiseHalfSec: positionFactors.mcapRiseHalfSec ?? null'),
+      'mcapRiseHalfSec 发射式形状漂移');
+  });
+  check('I4 时间键用入参 now 与 buyTime 锚（源码口径锁，禁 Date.now/全生命锚）', () => {
+    assert.ok(src.includes('? Math.max(0, (now - pos.highestPriceSinceBuyAt) / 1000) : null'),
+      'secSinceMcapPeak 持仓期发射式形状漂移');
+    assert.ok(src.includes('? Math.max(0, (pos.highestPriceSinceBuyAt - pos.buyTime) / 2000) : null'),
+      'mcapRiseHalfSec 持仓期发射式形状漂移');
+  });
+  check('I5 旧 token 全生命发射式退役（反证锁：不得回归 state.highestPrice 口径）', () =>
+    assert.ok(!src.includes('secSinceMcapPeak: state.highestPriceAt !== null'),
+      '旧全生命口径残留'));
+  check('I6 发射段无 Date.now', () => {
+    const block = src.split('T107 持仓期化三键')[1].split('无持仓 → null fail-closed')[0];
     assert.ok(!block.includes('Date.now'), '发射段泄漏 Date.now');
   });
 }

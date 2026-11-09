@@ -2909,6 +2909,23 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 接受价轨：outlier 不推峰、尘 tick 不卡尘门——与 peakProfitPct 可靠价轨分轨，
             // 尘价新高可重置计时但不可武装；创新高归零重计）；now=buildFactorMap 入参（回测=虚拟时钟）
             secSincePeak: pos.highestPriceSinceBuyAt ? Math.max(0, (now - pos.highestPriceSinceBuyAt) / 1000) : null,
+            // T107 持仓期化三键（2026-11-09 用户裁定「mcapPeakBnb/secSinceMcapPeak/
+            // mcapRiseHalfSec 改为持有后的 Peak（其它的类似臂也要换）。否则如果 Peak
+            // 在持有之前，会很快卖出」）：拱形时间臂从 token 全生命口径换持仓期轨道——
+            // mcapPeakBnb=入场后峰市值（与 peakMarketCapSinceLastBuy 同源同值）、
+            // secSinceMcapPeak=距入场后峰秒数（与 secSincePeak 同源同锚）、
+            // mcapRiseHalfSec=（入场→峰时刻）/2000（buyTime=成交锚；fire→成交窗冲高
+            // 回填使峰时刻可早于 buyTime → max(0,·)=0=「入场即峰」拱形完成即清，忠实
+            // 口径）。峰推进任意接受价轨（outlier/chainLate 不推、尘价照推，T97 同门）；
+            // 入场即峰 X=0 → secSinceMcapPeak >= 0 恒真：过市值门即清（G 案同判）。
+            // 事故形状反证：持有前大峰+入场市值未过门（如 12 BNB）→ 持仓期峰 12 不过
+            // 20.1 门 → 不再秒卖（旧全生命口径拿持有前峰 30 过门即刻清仓——单测锁）。
+            // 无持仓 → null fail-closed（marketCap 族惯例，卖腿仅持仓期评估零影响）
+            mcapPeakBnb: pos.highestPriceSinceBuyBnb > 0 && state.totalSupply > 0
+                ? pos.highestPriceSinceBuyBnb * state.totalSupply : null,
+            secSinceMcapPeak: pos.highestPriceSinceBuyAt ? Math.max(0, (now - pos.highestPriceSinceBuyAt) / 1000) : null,
+            mcapRiseHalfSec: pos.highestPriceSinceBuyAt != null && pos.buyTime
+                ? Math.max(0, (pos.highestPriceSinceBuyAt - pos.buyTime) / 2000) : null,
         };
     }
 
@@ -2981,6 +2998,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             holderDrawdownFromHighestSinceLastBuy: null,
             peakProfitPct: null,
             secSincePeak: null,
+            // T107 持仓期化三键（2026-11-09）：未持仓 → null fail-closed
+            //（_positionFactors 持仓票覆盖；旧 token 全生命口径已退役）
+            mcapPeakBnb: null,
+            secSinceMcapPeak: null,
+            mcapRiseHalfSec: null,
             // T113 自入场累计净买三键（未持仓 → null；含本仓的持仓票由 _positionFactors 覆盖）
             sinceEntryNetBuyRatio: null,
             sinceEntryBuyBnb: null,
@@ -3308,22 +3330,21 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceEntryBuyBnb: positionFactors.sinceEntryBuyBnb ?? null,
             sinceEntrySellBnb: positionFactors.sinceEntrySellBnb ?? null,
 
-            // ── T107 市值拱形时间全清臂（2026-10-29 用户裁定）──
-            // X = 首次交易→最高市值耗时；峰值超 15K USD（=20.1 BNB @T84 换算率 745）后
-            // 距峰已流逝 ≥ X/2 秒且未再破新高 → 全清。三键为 token 级全生命口径（峰=既有
-            // highestPriceBnb×totalSupply，与 drawdownFromHighest 同峰同价轨：任意接受价
-            // 推进、outlier/chainLate 不推、尘价照推），与持仓期 secSincePeak/
-            // peakMarketCapSinceLastBuy 分轨。无接受价/totalSupply 缺失 → null（marketCap
-            // 族 fail-closed 惯例，条件恒 false 不卖）。首峰即首 tick 时 X=0 → X/2=0 →
-            // secSinceMcapPeak >= 0 恒真：开跌即峰的票过市值门即清（忠实用户口径）。
-            // 首交易锚=state.firstTickAt（首 tick 到达序 write-once）：进程晚接管/回测窗口
-            // 起点晚于真实首交易的票 X 低估 → 提前触发（保守出场方向，家族同限）。
-            mcapPeakBnb: state.highestPriceBnb > 0 && state.totalSupply > 0
-                ? state.highestPriceBnb * state.totalSupply : null,
-            secSinceMcapPeak: state.highestPriceAt !== null
-                ? Math.max(0, (now - state.highestPriceAt) / 1000) : null,
-            mcapRiseHalfSec: state.highestPriceAt !== null && state.firstTickAt !== null
-                ? Math.max(0, (state.highestPriceAt - state.firstTickAt) / 2000) : null,
+            // ── T107 市值拱形时间全清臂（2026-10-29 立法；2026-11-09 用户裁定持仓期化
+            // 「mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec 改为持有后的 Peak（其它的
+            // 类似臂也要换）。否则如果 Peak 在持有之前，会很快卖出」）── 峰值市值超
+            // 15K USD（=20.1 BNB @T84 换算率 745）后距峰已流逝 ≥ 入场→峰耗时/2 秒且
+            // 未再破新高 → 全清。三键改持仓期轨道（_positionFactors 同源：峰=
+            // pos.highestPriceSinceBuyBnb×totalSupply 任意接受价轨——outlier/chainLate
+            // 不推、尘价照推，与 secSincePeak/peakMarketCapSinceLastBuy 同门同价流；
+            // X=（峰时刻−buyTime 成交锚）/2000）。无持仓 → null（marketCap 族
+            // fail-closed 惯例，条件恒 false 不卖）。入场即峰 → X=0 → 恒真：过市值门
+            // 即清（忠实用户口径）。旧 token 级全生命口径退役（峰在持有前的票不再被
+            // 持有前峰秒杀——事故形状反证单测锁定；全生命形状=state.highestPrice* 键
+            // 仍在（highestPrice/drawdownFromHighest 族），历史口径见 git 历史）。
+            mcapPeakBnb: positionFactors.mcapPeakBnb ?? null,
+            secSinceMcapPeak: positionFactors.secSinceMcapPeak ?? null,
+            mcapRiseHalfSec: positionFactors.mcapRiseHalfSec ?? null,
 
             // ── WSS 事件流口径的「AVE 替代」因子 ──
             holders: state.holderCount,

@@ -917,6 +917,11 @@ class RicherJsWebServer {
               if (cd.gate.awaitMs !== undefined && !intInRange(cd.gate.awaitMs, 1000, 120000)) {
                 return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.awaitMs 须为整数 [1000,120000]（买点竞速毫秒）` });
               }
+              // CD389（2026-11-09）每信号重判布尔：true=cheat 门秒回点（拉黑/粘滞/
+              // bootstrap 复检）全绕过恒真调 Jev；缺省 false 生产零变化
+              if (cd.gate.alwaysRecheck !== undefined && typeof cd.gate.alwaysRecheck !== 'boolean') {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.alwaysRecheck 须为布尔（CD389 每信号重判）` });
+              }
             }
             // 买信号发射节流（T110 2026-11-03「全局买信号机制」，回测同步生效）：
             // 冷却双门（毫秒 [0,3600000] AND ticks [0,10000]，0=各关各的）/

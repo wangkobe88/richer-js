@@ -832,7 +832,107 @@ async function testActivityExempt() {
     && svcSrc.includes('ultraCheatDenied: 0'));
 }
 
+// ═══ G. CD389 alwaysRecheck 每信号重判（2026-11-09 用户裁定「cheat 检测每一次
+// 都重新做，不缓存 cheat 的结果，每一次都重新算」——bt-v91 回测引出）═══
+async function testAlwaysRecheck() {
+  console.log('\n── G. CD389 alwaysRecheck 每信号重判 ──');
+  const { CheatCheckService } = require('../src/market-analysis/CheatCheckService');
+  const mkSvcG = (gate) => new CheatCheckService(
+    { enabled: true, ...(gate !== undefined ? { gate } : {}) },
+    { info: () => {}, warn: () => {}, error: () => {} }, {});
+  // _chain 拦截桩：零 DB 零 LLM，捕获 opts 断言归一化透传
+  const chainStub = (log) => async (tok, meta, ctx, o) => {
+    log.push({ token: tok, forceRecheck: o.forceRecheck === true });
+    return { status: 'graded', grade: 'healthy', reasons: [], buckets: { activityLevel: 'mid' }, levels: {}, anchors: {} };
+  };
+
+  // G1 ctor/getter：缺省 false 生产零变化；gate.alwaysRecheck=true 生效
+  ok('G1 缺省 alwaysRecheck=false（CD158 粘滞语义 bit 不变）', mkSvcG().alwaysRecheck === false);
+  ok('G1 gate.alwaysRecheck=true → getter true', mkSvcG({ alwaysRecheck: true }).alwaysRecheck === true);
+  ok('G1 gate 其它键在场不影响开关（awaitMs 同段共存）',
+    mkSvcG({ awaitMs: 60000, alwaysRecheck: true }).alwaysRecheck === true);
+
+  // G2 入口拉黑秒回绕过：flag 开 → 不走 _blockedResult、chain 收到 forceRecheck=true
+  const s2 = mkSvcG({ alwaysRecheck: true });
+  s2._gateBlocked.add('0xblk');
+  const c2 = []; s2._chain = chainStub(c2);
+  const r2 = await s2.gateBuyPoint('0xblk', {}, {});
+  check('G2 拉黑票真调重判（chain 1 次、翻案通路 forceRecheck 透传）',
+    { grade: r2.grade, chainCalls: c2.length, chainForce: c2[0] && c2[0].forceRecheck },
+    { grade: 'healthy', chainCalls: 1, chainForce: true });
+  // 对照：flag 关 → 拉黑秒回零 chain（CD158 原语义）
+  const s2b = mkSvcG();
+  s2b._gateBlocked.add('0xblk');
+  const c2b = []; s2b._chain = chainStub(c2b);
+  const r2b = await s2b.gateBuyPoint('0xblk', {}, {});
+  check('G2 对照（缺省关）：拉黑秒回 blocked=true、chain 零调用',
+    { grade: r2b.grade, blocked: r2b.blocked, chainCalls: c2b.length },
+    { grade: 'cheat', blocked: true, chainCalls: 0 });
+
+  // G3 healthy 粘滞绕过：flag 开 → 不秒回；缺省 → 秒回 cached 零 chain
+  const s3 = mkSvcG({ alwaysRecheck: true });
+  s3._lastGrade.set('0xst', { grade: 'healthy', reasons: [], version: 'G17', unhealthyGrades: 0, levels: {}, buckets: { activityLevel: 'mid' }, anchors: {} });
+  const c3 = []; s3._chain = chainStub(c3);
+  const r3 = await s3.gateBuyPoint('0xst', {}, {});
+  check('G3 healthy 粘滞绕过（chain 真调非 cached 秒回）',
+    { grade: r3.grade, cached: r3.cached === true, chainCalls: c3.length },
+    { grade: 'healthy', cached: false, chainCalls: 1 });
+  const s3b = mkSvcG();
+  s3b._lastGrade.set('0xst', { grade: 'healthy', reasons: [], version: 'G17', unhealthyGrades: 0, levels: {}, buckets: { activityLevel: 'mid' }, anchors: {} });
+  const c3b = []; s3b._chain = chainStub(c3b);
+  const r3b = await s3b.gateBuyPoint('0xst', {}, {});
+  check('G3 对照（缺省关）：healthy 秒回 cached 零 chain（CD158 语义维持）',
+    { grade: r3b.grade, cached: r3b.cached === true, chainCalls: c3b.length },
+    { grade: 'healthy', cached: true, chainCalls: 0 });
+
+  // G4 观测计数分账：flag 计 alwaysRechecks；显式 opts.forceRecheck 优先计 forceRechecks
+  const s4 = mkSvcG({ alwaysRecheck: true });
+  const c4 = []; s4._chain = chainStub(c4);
+  const b4a = { al: s4.stats.alwaysRechecks, fo: s4.stats.forceRechecks };
+  await s4.gateBuyPoint('0xcnt1', {}, {});
+  await s4.gateBuyPoint('0xcnt2', {}, {}, { forceRecheck: true });
+  check('G4 分账（flag 开 2 调：1 计 alwaysRechecks / 显式 forceRecheck 1 计 forceRechecks）',
+    { al: s4.stats.alwaysRechecks - b4a.al, fo: s4.stats.forceRechecks - b4a.fo }, { al: 1, fo: 1 });
+  const s4b = mkSvcG();
+  const c4b = []; s4b._chain = chainStub(c4b);
+  const b4b = s4b.stats.alwaysRechecks;
+  await s4b.gateBuyPoint('0xcnt3', {}, {});
+  ok('G4 对照（缺省关）：alwaysRechecks 零增长（观测域零污染）', s4b.stats.alwaysRechecks - b4b === 0, s4b.stats);
+
+  // G5 inflight join 边缘：同 token 并发第二调用 join 已起链不归一化二次（chain 恰 1 次）
+  const s5 = mkSvcG({ alwaysRecheck: true });
+  let release; const c5 = [];
+  s5._chain = (tok, meta, ctx, o) => { c5.push(o.forceRecheck === true); return new Promise((res) => { release = () => res({ status: 'graded', grade: 'healthy', buckets: { activityLevel: 'mid' } }); }); };
+  const p1 = s5.gateBuyPoint('0xinf', {}, {});
+  const p2 = s5.gateBuyPoint('0xinf', {}, {});
+  release && release();
+  await Promise.all([p1, p2]);
+  check('G5 inflight join：并发两调 chain 恰 1 次（join 不重复归一化）', { chainCalls: c5.length, force: c5[0] }, { chainCalls: 1, force: true });
+
+  // G6 源码口径锁：_force 归一化 + _chainOpts 透传（4b/4c bootstrap 秒回同绕过）+ stats 键
+  const svcSrc = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
+  ok('G6 入口归一化（_force = opts.forceRecheck ∨ alwaysRecheck——两秒回点同判）',
+    svcSrc.includes('const _force = opts.forceRecheck === true || this._alwaysRecheck === true;'));
+  ok('G6 链归一化透传（_chainOpts 注入 forceRecheck:true——_chain 4b/4c bootstrap 复检读 opts.forceRecheck 天然绕过）',
+    svcSrc.includes('const _chainOpts = this._alwaysRecheck === true && opts.forceRecheck !== true')
+    && svcSrc.includes('? { ...opts, forceRecheck: true } : opts;'));
+  ok('G6 stats.alwaysRechecks 独立计数器在场（与 forceRechecks 分账）',
+    svcSrc.includes('alwaysRechecks: 0'));
+  ok('G6 _chain 4b bootstrap 拉黑复检读 opts.forceRecheck（归一化后天然绕过）',
+    svcSrc.includes('if (this._gateBlocked.has(token) && opts.forceRecheck !== true) return this._blockedResult(token);'));
+
+  // G7 引擎侧拉黑短路放行臂（虚拟引擎预信号短路——flag 开不做引擎级终态短路）
+  const engSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+  ok('G7 引擎短路条件含 alwaysRecheck 放行臂（拉黑票送门重判而非引擎级秒拒）',
+    engSrc.includes('|| this._cheatCheckService.alwaysRecheck === true'));
+
+  // G8 web-server 配置校验：布尔类型门（非布尔 400）
+  ok('G8 web-server alwaysRecheck 布尔校验在场',
+    fs.readFileSync(path.join(__dirname, '../src/web-server.js'), 'utf8').includes('alwaysRecheck 须为布尔'));
+}
+
 await testActivityExempt();
+await testAlwaysRecheck();
 
 console.log(`\n${pass} 通过, ${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);

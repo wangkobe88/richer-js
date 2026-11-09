@@ -137,6 +137,14 @@ class CheatCheckService {
     // 缺省 ['high','ultra'] 默认生效；显式 []=关；非法值 throw（配置错误 fail-fast
     // 防静默失效——CheatCheckServiceTest CD379 段锁域与题集 ACTIVITY_LEVELS 一致）
     this._activityExemptLevels = parseActivityExemptLevels(config.gate && config.gate.activityExemptLevels);
+    // CD389 每信号重判开关（2026-11-09 用户裁定「cheat 检测每一次都重新做，不缓存
+    // cheat 的结果，每一次都重新算」——bt-v91 重跑引出；缺省 false 生产零变化）：
+    // gateBuyPoint 全部秒回点（拉黑入口秒回/healthy 粘滞/unhealthy 粘滞/bootstrap
+    // 复检 4b/4c）绕过恒真调 Jev 重判——走 CD381 forceRecheck 同一通路（重检不再判
+    // cheat → _maybeUnblock 解除拉黑可翻案）；配额由 T110 买信号节流天然封顶。
+    // 观测计数独立（alwaysRechecks，不混 forceRechecks——CD381 表达式驱动的观测域
+    // 不受污染）
+    this._alwaysRecheck = !!(config.gate && config.gate.alwaysRecheck);
     this._settleFlushMs = num(config.settleFlushMs, DEFAULTS.settleFlushMs);
     // ② mem 源对拍护栏（默认开）：mem hit 完成分析后异步 DB 重拉按 watermark 对齐比对
     // digest——不一致 warn+计数不拦截（灰度观察期工具，验收后可关）
@@ -174,6 +182,7 @@ class CheatCheckService {
       gateNoted: 0, gateBlockedHits: 0, gateTimeouts: 0, gateGraded: 0,
       stickyReused: 0, stickyBootstrapped: 0,
       forceRechecks: 0, unblocked: 0, // CD381 almost_launch 重检（真调次数/翻案解除数）
+      alwaysRechecks: 0, // CD389 每信号重判（gate.alwaysRecheck 配置驱动秒回绕过计数）
       settleIdleHits: 0, settleIdleTimeouts: 0,  // waitIdle 双模观测（idle 提前出窗/吃满帽）
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // ② 对拍护栏观测
       strongbackerHits: 0, // CD159 强庄形状首次命中计数（曾经命中粘滞置位数）
@@ -188,6 +197,9 @@ class CheatCheckService {
   }
 
   get enabled() { return this._enabled; }
+
+  /** CD389 每信号重判开关（gate.alwaysRecheck；引擎侧拉黑短路同步放行判据） */
+  get alwaysRecheck() { return this._alwaysRecheck === true; }
 
   /**
    * CD158 粘滞秒回形状（healthy 不再重判；T117 2026-11-05 泛化 unhealthy 拒买
@@ -228,6 +240,9 @@ class CheatCheckService {
    *   内存态天然全当前题集版本，版本域由 bootstrap 的 .eq(question_version) 承担）
    * - unhealthy / 未判定 → 真析（每买信号重判；增量门/顶帽已退役，配额由引擎
    *   侧 BuySignalThrottle 信号帽天然封顶）
+   * - CD389 gate.alwaysRecheck=true（2026-11-09 用户裁定「cheat 检测每一次都
+   *   重新做，不缓存 cheat 的结果，每一次都重新算」）：拉黑/粘滞全部秒回点绕过
+   *   恒真调重判（forceRecheck 同通路，可翻案）；缺省 false 生产零变化
    * - 竞速超时：{status:'timeout_fail_open', late:Promise}——**链续跑不终止**，
    *   调用方挂 late.then 补拉黑/清仓/投影（本笔已放行，下轮生效）
    * - 放行态（不拦买，GMGN fail-open 同向）：insufficient_ticks / fail
@@ -245,11 +260,16 @@ class CheatCheckService {
     // 恢复点的 activity 档检查为准）
     // CD381 forceRecheck（2026-11-08 用户裁定「价格回到 almost_launch 无论上次
     // 结果如何都重检，cheat 可翻案」）：重判条件表达式真→拉黑秒回/粘滞秒回全部
-    // 绕过真调重检；重检不再判 cheat=解除拉黑（_maybeUnblock，出/迟到两路统一）
-    if (this._gateBlocked.has(token) && opts.forceRecheck !== true) {
+    // 绕过真调重检；重检不再判 cheat=解除拉黑（_maybeUnblock，出/迟到两路统一）。
+    // CD389 alwaysRecheck（2026-11-09 用户裁定「cheat 检测每一次都重新做，不缓存
+    // cheat 的结果，每一次都重新算」——gate.alwaysRecheck=true 每买信号恒重判，
+    // 与 forceRecheck 同通路同语义；opts.forceRecheck 显式真优先，观测计数分账）
+    const _force = opts.forceRecheck === true || this._alwaysRecheck === true;
+    if (this._gateBlocked.has(token) && !_force) {
       return this._applyActivityExempt(this._blockedResult(token));
     }
     if (opts.forceRecheck === true) this.stats.forceRechecks++; // CD381 重检观测
+    else if (this._alwaysRecheck === true) this.stats.alwaysRechecks++; // CD389 观测
 
     // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
     // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）。
@@ -258,9 +278,9 @@ class CheatCheckService {
     // 默认缺省 true = CD158 现行行为（unhealthy 每买信号重判）。inflight join
     // 边缘：recheck=false 腿 join 上 recheck=true 腿已起的真析链=拿更细结果，
     // 不烧额外配额，方向安全接受。CD381 forceRecheck：healthy/unhealthy 粘滞
-    // 全部绕过（重检语义覆盖 recheckUnhealthy 布尔）
+    // 全部绕过（重检语义覆盖 recheckUnhealthy 布尔）；CD389 同绕（每信号重判）
     const lg = this._lastGrade.get(token);
-    if (opts.forceRecheck !== true
+    if (!_force
         && lg && (lg.grade === 'healthy'
         || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
       return this._applyActivityExempt(this._stickyResult(token, lg)); // CD379：sticky unhealthy 豁免票同放行
@@ -268,7 +288,11 @@ class CheatCheckService {
 
     let chain = this._inflight.get(token);
     if (!chain) {
-      chain = this._chain(token, tokenMeta, context, opts).finally(() => this._inflight.delete(token));
+      // CD389：配置级重判经 opts 归一化透传 _chain（4b/4c bootstrap 秒回同绕过；
+      // 显式 opts.forceRecheck 已真则原样透传）
+      const _chainOpts = this._alwaysRecheck === true && opts.forceRecheck !== true
+        ? { ...opts, forceRecheck: true } : opts;
+      chain = this._chain(token, tokenMeta, context, _chainOpts).finally(() => this._inflight.delete(token));
       chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
       this._inflight.set(token, chain);
     } else {

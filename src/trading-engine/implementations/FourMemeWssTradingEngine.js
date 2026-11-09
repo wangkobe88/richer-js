@@ -2159,10 +2159,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 重启清空 → priceBackToAlmostLaunch 恒 null → 放行臂永不触发=翻案路径
       // 死锁）。signalGate 腿 ∧ FA 无锚条目 → 以 fire 现价武装锚：本笔照旧短路，
       // 下 tick 因子重 build 后价格轨迹从此点起算（此后回到 ≤+20 即放行重检）。
-      // 释放只导致真调重检、cheat 复判会再拉黑再重锚——安全性在重检本身
+      // 释放只导致真调重检、cheat 复判会再拉黑再重锚——安全性在重检本身。
+      // CD389（2026-11-09 用户裁定「cheat 检测每一次都重新做，不缓存」）：
+      // gate.alwaysRecheck=true 时拉黑票不做引擎级终态短路——放行进门链真调
+      // 重判（秒回绕过与 service 侧同语义；缺省 false 短路行为 bit 不变）
       if (this._cheatCheckService.enabled
         && (this._cheatBlockedTokens.has(tokenAddress) || this._cheatCheckService.isGateBlocked(tokenAddress))
-        && !(strategy.signalGate && factorResults.priceBackToAlmostLaunch === 1)) {
+        && !(strategy.signalGate && (factorResults.priceBackToAlmostLaunch === 1
+            || this._cheatCheckService.alwaysRecheck === true))) {
         if (strategy.signalGate && Number.isFinite(factorResults.currentVsLaunchPct)
           && !require('../../services/FourMemeFactorAggregator').getCheatGatePriceAnchor(tokenAddress)) {
           require('../../services/FourMemeFactorAggregator')
