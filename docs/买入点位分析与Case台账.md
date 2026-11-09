@@ -161,7 +161,62 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **bt-v87 全链回测对照达成（2026-11-09，`c84fc413-4928-45ca-9a55-b0791921820e` 克隆 bt-v86 同窗同配置唯一变量=BP50 代码，12.7min）**：**净 +0.9402 → +1.0238（+11.38%）、成交 34 → 45 票、胜率 32.4% → 33.3%、BUY 信号 1820 → 1787（触发面收窄如预期）、reset_insufficient 硬拒 352 → 228（-124）**——机制：**(10,20] 带票 reset 退场后走原窗判定，原窗干净的照常放行**（CD384 硬拒的小票中含无辜票，BP50 下被解救），受益腿 RL15 3→11 / RL10 维持、stall_burst 豁免 14→30（原窗锚窗变长 burst 形状重新可见）、activity_high 584→607/ultra 254→282；差集：v87 独有 14 票（4 票正：0x32f18a98 +0.1562/0x1c107d70 +0.0436/0x9fb45eaf +0.0293/0xc70a1cbe +0.0271，10 票小亏 -0.003~-0.047）、v86 独有 3 票（0xf485ec1d +0.0749 被挤出=收紧代价，两小亏）；Top 盈利两端全保住（0xba5ed45b +0.5152/0x78cd05cf +0.4088/0xea7886d5 +0.2941）。**结论：收紧未损失收益、净额与胜率双升**——「20% 代入太多正常波动」裁定方向实证；净差 +0.084 量级在 LLM 判读方差带内，结构性指标（reset 拒 -124/成交 +11/信号 -33）为主证据。
 
 
-### BP52 restart 重启盘豁免筹码门（2026-11-09 用户裁定·mapper-only 题集不 bump；案由=0x28ad2c7d bt-v87 未买入归因）
+### BP56 BP53 ultra router 豁免臂补价格腿 curVs≤+40——门链全部放行出口价格上界统一 near_launch（2026-11-09 用户裁定·mapper-only 不 bump；commit `021da3bf`；触发=bt-v88 实跑 0xd9289dbf curVs low 档放行案）
+
+**背景**：BP53 臂落地时无价格腿——来财 curVs=109 正票形状曾是放行面依据。bt-v88 实跑 `0xd9289dbf`（curVs=low 档、routerBuyPct60=85.9）经 BP53 臂放行成交后 **-0.0948**；来财两锚（curVs≈109）实跑 **-0.0609**——「+5min 观察正」≠「卖腿路径正」，高位的 ultra 密集票放行面整体为负。
+
+**裁定原话**：
+
+> 「当前所有的情况都不允许价格超过 near_launch」
+
+**机制改动**：`SNIPER_ULTRA_ROUTER_LAUNCH_PCT=40`（与 BP47 `SNIPER_DECAY_HEAT_LAUNCH_PCT` 同线同值各自常量先例）——BP53 臂加第三腿 `curVsLaunchPct ≤+40`，null（锚缺失）/已拉离（>+40）不豁免宁拦不冒充；exempt 留痕带 curVsLaunchPct 值。**至此门链全部放行出口价格上界统一 near_launch**：⑥ sustained_climb ≤+10（更紧）/⑦ restart=40（RESTART）/① strong_backer=40/⑤ blended=40/⑧ golden=40（BP48 三臂）/BP47 ④高热臂=40/本臂=40。来财 109 形状不再是放行面。
+
+**单测**：lib 472→476（BP56 四断言：curVs≤40 豁免成立带值/curVs=50 不豁免照拦④臂/curVs null fail-closed/exempt 留痕含 curVsLaunchPct）。
+
+**读数**：bt-v88 vs bt-v87 净差 -1.0592 拆解中 BP53 放行面 21 票 ≈-0.5408（正仅 4 票）——本腿砍掉的正是其中已拉离票（0xd9289dbf -0.0948 等）；低位 ultra 散户票放行面保留。bt-v89（`b7941b0c`，021da3bf 代码）单变量对照验证中。
+
+### BP55 pump 专属位置门退役——①⑤⑧已同线 ≤40，pump_exempt_gate 无独立语义（2026-11-09 用户裁定·service/mapper 门改动不 bump；commit `c1165d5c` 与 BP54 同车）
+
+**背景**：BP42 pump 豁免票位置门（`PUMP_EXEMPT_LAUNCH_PCT=40`：cheat 门 CD379 豁免 ∧ slowGrindPump=strong 透传票只许 near_launch 内买入）——BP48 起 ①strong_backer/⑤blended/⑧golden 三臂位置门已同线 ≤+40（low 档 +40~80 加仓域对所有放行型盘型桶关闭），专属门不再有独立拦截面。
+
+**裁定原话**：
+
+> 「这个已经不需要特殊处理了，现在庄盘也不接受价格高于 40%（也就是超出 near_launch）」
+
+**机制改动**：整链删除——常量+`BuyPointCheckService` 位置门分支（rule=`pump_exempt_gate`）+引擎门链 pumpExempt 打标与透传；历史 buy_point_analyses 行带该 rule 照留档不清洗。**行为变化面**：④桶 BP47/BP53 豁免臂放行的 pump 豁免票不再被本门二次拦（BP53 臂落地时曾刻意保留本门二次拦——「豁免≠追高许可」；BP56 价格腿（同日稍后）把价格上界收进臂内，二次拦与臂内腿语义合并，pump 豁免票与其它票同走盘型位置门）。
+
+### BP54 筹码门停用（先不激活看效果）——holder strong 不再拒（2026-11-09 用户裁定·mapper-only 不 bump；commit `c1165d5c`；触发=BP53 对拍来财/VirusSI 被 chip 再拦）
+
+**背景**：BP53 落码后 182 五票对拍——来财/VirusSI 两条 ④ultra 豁免臂成立翻过盘型门（rule 从 pattern_gate 变 gates_passed 候选）后**被 chip=strong 再拦**（rule=chip_gate）：多层门链串联下豁免臂救回的票被下一道门吃掉，放行面互相抵消。
+
+**裁定原话**：
+
+> 「筹码门可以去掉（改为先不激活），看看效果」
+
+**机制改动**：`CHIP_GATE_ENABLED=false`——筹码门拦截臂不激活（holder strong 不再拒、rule=chip_gate 不产出）；holder 维度答案原样透传、digest/观察材料照落；BP14 防线代码全保留（chipArms 构造+BP52 restart 豁免逻辑不动，**恢复=置 true 一键还原**）；停用期间 BP52 restart 豁免自然无行为（豁免对象就是拦截臂）。试验性停用（同 BP53「试试」语义）——效果由 bt-v89 对照回测读数后再裁定恢复/删除。
+
+### BP53 ④ultra 散户入口豁免（routerBuyPct60≥30 放行，试验性）（2026-11-09 用户裁定·mapper-only 不 bump；commit `03c110b0`；触发=bt-v87 ultra 拒票复盘）
+
+**背景与数据**：bt-v87（c84fc413）ultra 相关拒票复盘（92 票）——BP47 已把 ultra 退出④高热豁免域（两窗 63 票 -1.08 机器盘密度），但 ultra 票并非全负：B1 子集（④∧pattern_gate 拒∧router≥30）**21 票正 3/负 18、首拒锚 Σ+5min=+0.080 打平**（对照④全集 47 票 -1.127）；正票 c84a0ff2/ea7886d5/92e56dab 首拒锚 router 全 ≥57.4、深负票 router 多为 0（**两极化=router 轴有区分度**）。锚=60s 窗买入金额走聚合路由占比 `routerBuyPct60`——与 CD G17 N 通道（锚窗笔数 <10% 拒「无散户入场通道」）对称锚：BP 侧 60s 窗 ≥30% 放「散户入口在场」。
+
+**裁定原话**：
+
+> 「先通过 routerBuyPct60 豁免一下 ultra 试试」
+
+**机制改动（`buy-point-result-mapper.js`）**：
+
+- `SNIPER_ULTRA_ROUTER_MIN_PCT=30`：盘型④ ∧ ultra 域（market_heat=ultra ∨ activity_level=ultra）∧ routerBuyPct60≥30 → ④臂不拦放行+`exempt={code:'ultra_router_entry', routerBuyPct60}` 留痕；与 BP47 高热近价臂（heat/openShare/curVs 轴）**独立评估互不代位**，双臂同时成立取 sniperHeatExempt 优先（放行语义相同仅指纹差异）
+- 活跃度门 act ultra 臂**同盖豁免**（散户入口在场的 ultra 密集=真实参与非机器盘——BP38 strong_backer 豁 ultra/BP46 ④高热豁免同构第三臂）；act low/heat low 死寂臂照拦；holder strong 照拦（BP14 防线，后 BP54 停用）；②③桶不享豁免
+- fail-closed：pattern/heat/act 答案缺席（非 ultra 域）/routerBuyPct60 锚缺失（60s 窗零买入=null）→ 不豁免宁拦不冒充；pumpExempt 拒票当时不在豁免域（PUMP_EXEMPT 钳制照拒——后随 BP55/BP56 改形）
+- 护栏数据留档不进臂：B1 内 win30 买者 10-20 带 10 票全负（Σ5=-0.485）为 B1 打平主因、≥20 带 5 票 +0.729；信号条数（≥4 条 +0.799）=前视不可用；sgp<3（+0.313）=cheat 侧数据 BP snapshot 拿不到——待票池分布裁定
+
+**单测**：lib 460→471（BP53 十一断言+BP47 苍蝇断言描述补 router=0 机制）。
+
+**182 对拍（五票）**：正票翻放行达成；来财/VirusSI 翻过盘型门后被 chip=strong 再拦——**直接引出 BP54 筹码门停用**（同日裁定）。
+
+**bt-v88 实跑（9b0b43c5，BP52+53 两变量）**：净 -0.0354/61 成交（vs bt-v87 +1.0238/45）；BP53 放行面 21 票 ≈-0.5408（正仅 4 票：ea7886d5 +0.2618/f485ec1d +0.1026/c62d2dff +0.0293/f62bebcd +0.0004）；exempt 分布 ultra_router_entry 56/sniper_decay_heat_price 34/restart_chip 6；bpRule 分布 pattern_gate 587/pump_exempt_gate 209/chip_gate 43/activity_gate 4/gates_passed 61——**放行面为负+被 chip/pump 二道门再拦=同日连出 BP54/55/56 三修**，bt-v89（b7941b0c）单变量对照验证中。
+
+
 
 **背景与归因**：bt-v87（c84fc413）per-pattern 盈亏统计后用户指出「我们辛苦调好不容易买入的全没了，先看看 0x28ad2c7d08d83a85467bd4afcfd673dfce564444 为何没买入」。门链全轨迹对照（tmp-btv87-28ad-why.cjs，三实验 bt-v84/v86/v87 同票信号）：该票 6 条 BUY 信号全拒——07:14:12 t0a / 07:14:20 t0b 两条 T127 换锚后盘型判读翻④（blended 0.29→early_sniper_decay 0.81/0.83，launch 族读数移位 curVs 25.4→39.4 / minVs 23.1→12，v84 同时刻同腿即成交腿 +0.0270）被盘型门/pump 位置门拒；07:14:56 t2 被 cheat 硬拒（cheat 无豁免）；**深归零后（minVs=0.9 reset 全触发）07:15:55 NL15 / 07:16:00 NL20 两条 restart 判型正确（0.57/0.60）、RESTART 位置门 ≤+40 已过（curVs 32.6/27），全部被 chip=strong 拦（rule=chip_gate）**；07:16:05 NL25 curVs=40.9>40 位置门拒。翻转点=v84→v86（T127 换锚），BP50 对该票零影响（v86/v87 判读逐位相同）。
 
