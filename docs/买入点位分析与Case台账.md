@@ -177,7 +177,16 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 **单测（`_test_buy_point_lib.cjs` 455→460）**：E 段 BP52 五断言——restart+strong+curVs≤40 → neutral/gates_passed+exempt=restart_chip（0x28ad2c7d 07:15:55/07:16:00 形状）/curVs=50 已拉离 → 盘型门先拒（轮不到豁免）/盘型缺席照拦/strong_backer+strong 照拦（豁免对象仅 restart）/restart+moderate → exempt 不出现（仅 strong∧restart 才带）。`_test_buy_point_check_service` 39 全绿零改动。
 
-**影响面**：深归零重启票（BP43 ⑦/BP44 判序/BP45⑧黄金点一族的回落形状）在筹码集中时不再被 chip_gate 双杀——restart 判型+位置门+cheat 门三道防线仍在；真·一人控盘重启盘（拉高砸回庄还有 90% 货）同被放行=知情 trade-off（用户裁定语义内）。**182 对拍待跑**：0x28ad2c7d 07:15:55/07:16:00 两锚重跑 gateBuyPoint 应翻 neutral(gates_passed)+exempt=restart_chip。
+**影响面**：深归零重启票（BP43 ⑦/BP44 判序/BP45⑧黄金点一族的回落形状）在筹码集中时不再被 chip_gate 双杀——restart 判型+位置门+cheat 门三道防线仍在；真·一人控盘重启盘（拉高砸回庄还有 90% 货）同被放行=知情 trade-off（用户裁定语义内）。
+
+**182 对拍达成（2026-11-09，commit `8fc811d8` 后，`tmp-bp52-parity.cjs` 真调 gateBuyPoint anchorMs=bt-v87 六信号时刻 persist:false，Jev 六调全成功 30681-35380 tokens 零超限）**：
+
+- **07:15:55 NL15（curVs=32.6）**：restart(0.56)+chip=strong → **翻 neutral(gates_passed)+exempt=restart_chip**（bt-v87 当时 poor/chip_gate）✓
+- **07:16:00 NL20（curVs=27）**：同形状 → **翻 neutral+exempt=restart_chip**（当时 poor/chip_gate）✓
+- 07:16:05 NL25（curVs=40.9>40）：照拒 pattern_gate（restart 位置臂已拉离——轮不到筹码门，豁免无行为面=单测同款）
+- 07:14 段三条④判读票不在豁免域照拒（BP14 防线保留）；07:14:12 锚本轮 Jev 判读较回测略漂（pump_exempt_gate→pattern_gate、chip weak→strong）但综判 poor 方向一致=LLM 方差非 BP52 影响（pattern=④ 恒不在豁免域）
+
+**读数**：该票深归零段两条信号即被救回——正是「辛苦调好的买入全没了」关切的直接修复；若需量化全窗口效果（含其它 chip strong 重启票）可克隆 bt-v88 单变量回测。
 
 
 
