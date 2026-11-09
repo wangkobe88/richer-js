@@ -29,6 +29,9 @@
  *      不是拒买证据；low 臂不豁免）
  *   ③ 筹码门（BP14 holder 臂单臂）：holder_concentration=strong（TOP 过
  *      CD240 分层线/一人控盘——筹码垄断不参与）→ poor（rule=chip_gate）。
+ *      **BP54 停用（2026-11-09 用户裁定「筹码门可以去掉（改为先不激活），看看
+ *      效果」——BP53 对拍来财/VirusSI 被 chip 再拦后）：CHIP_GATE_ENABLED=false
+ *      拦截臂不激活，holder strong 不再拒；BP14 防线代码保留恢复=置 true**。
  *      **BP52 restart 豁免：盘型=restart 时 holder strong 臂不拦（重启盘零星
  *      持有者很多、大持有者就那几个——集中度高是重启盘常态非垄断信号）**。
  *      **famous 臂已随 famous_domination 题退役（BP49/案号 BP45 用户裁定
@@ -185,9 +188,11 @@ const SNIPER_DECAY_OPEN_SHARE_MAX = 80;
  * 在 openShare/curVs 轴收紧；本臂在 router 轴开窗——bt-v87 实测 B1（④∧
  * pattern_gate 拒∧router≥30）21 票正 3/负 18、首拒锚 Σ+5min=+0.080 打平
  * （对照④全集 47 票 -1.127），正票 c84a0ff2/ea7886d5/92e56dab 首拒锚 router
- * 全 ≥57.4，深负票 router 多为 0（两极化）。**不覆盖 pumpExempt 拒票**：
- * cheat 侧 pumpExempt 透传票走 service PUMP_EXEMPT_LAUNCH_PCT=40 价格钳制
- * 照拒（豁免≠追高许可，CD380 立法语义不动——同形状 6 深负票说明动不得）。
+ * 全 ≥57.4，深负票 router 多为 0（两极化）。**BP55 起 pump 专属位置门退役**
+ * （2026-11-09 用户裁定「这个已经不需要特殊处理了，现在庄盘也不接受价格高于
+ * 40%」——BP48 起①⑤⑧位置门同线 ≤+40，pump 豁免票走盘型桶位置门即可；④桶
+ * 本臂放行的 pump 豁免票不再被二次拦——臂本无价格腿，来财 curVs=109 正票形状
+ * 是用户裁定的放行面）。
  * fail-closed：market_pattern/heat/act 答案缺席（非 ultra 域）/routerBuyPct60
  * 锚缺失（60s 窗零买入=null）→ 不豁免宁拦不冒充；豁免对象仅④（②③照拦）。
  * 试验性豁免（「试试」）：护栏数据留档待票池分布裁定——B1 内 win30 买者数
@@ -226,6 +231,15 @@ const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low
  * （code='restart_chip'——与 BP46 sniper_decay_heat_price 同形态，二者盘型互斥
  * 不会同时成立）；代码不改写 Jev 桶判定（holder/market_pattern 答案原样透传） */
 const RESTART_CHIP_EXEMPT_PATTERN = 'restart';
+/** BP54 筹码门停用（2026-11-09 用户裁定「筹码门可以去掉（改为先不激活），看看
+ * 效果」——BP53 五票对拍来财/VirusSI ④ultra 豁免放行盘型门后被 chip=strong
+ * 再拦的形状引出）：CHIP_GATE_ENABLED=false 筹码门拦截臂不激活——holder
+ * strong 不再拒（rule=chip_gate 不产出），holder 维度答案原样透传 digest 照落
+ * （观察材料保留）；BP14 防线代码全保留（chipArms 构造与 BP52 restart 豁免
+ * 逻辑不动，恢复=置 true 一键还原）；停用期间 BP52 restart 豁免自然无行为
+ * （豁免对象就是拦截臂）。mapper-only 不 bump 题集版本（BP46/47/48/52/53
+ * 先例） */
+const CHIP_GATE_ENABLED = false;
 // 质量题桶域 QUALITY_LEVELS 已随两题退役删除（BP48）。
 /** 综合判定桶域（BP48 纯门链产物 ∈ {neutral=门全过放行, poor=门拒}；good 不再
  * 产出——保留 good/insufficient 值为门 bpPassLevels 消费域与历史 digest 行兼容，
@@ -467,7 +481,8 @@ function buildBuyPointObservation(answers, anchors = null) {
     bucket = 'poor'; prob = bestProb(patternArms); rule = 'pattern_gate';
   } else if (gateArms.length) {
     bucket = 'poor'; prob = bestProb(gateArms); rule = 'activity_gate';
-  } else if (chipArms.length) {
+  } else if (CHIP_GATE_ENABLED && chipArms.length) {
+    // BP54 停用开关（false=holder strong 不拦，chipArms 照算留档观察）
     bucket = 'poor'; prob = bestProb(chipArms); rule = 'chip_gate';
   } else {
     // BP48 纯门链收口：全部门过=neutral 放行（无质量层；prob=null 无档位概率）
@@ -614,6 +629,7 @@ module.exports = {
   SNIPER_DECAY_OPEN_SHARE_MAX,
   SNIPER_ULTRA_ROUTER_MIN_PCT,
   RESTART_CHIP_EXEMPT_PATTERN,
+  CHIP_GATE_ENABLED,
   ACTIVITY_GATE_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
 };

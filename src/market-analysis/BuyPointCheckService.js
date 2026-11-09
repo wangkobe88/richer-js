@@ -70,19 +70,16 @@ const DEFAULTS = {
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
 /**
- * BP42 pump 豁免票位置门（2026-11-08 用户裁定原话「把活跃度高的命中 pump 的依然
- * 豁免掉，但是把信息传入购买前检查，在买入前检查中，只允许 near_launch 范围内的
- * 价格买入。也就是说，这种币在购买前检查中，不再因为划分为庄盘而接受 low 这个
- * 范围的买入」）：slow_grind_pump+burst_spike_concentration 是作弊盘/强庄盘共同
- * 特性——CD380 pump 不豁免臂四修移除（高活跃度豁免恢复），价格约束由本门接棒：
- * opts.pumpExempt（引擎门链透传：cheat 门 CD379 豁免 ∧ slowGrindPump=strong）票
- * 只允许 near_launch 以内（≤+40% 含 almost_launch 与破发）买入——BP25/BP29 庄盘
- * 豁免的 low 档（+40~80）加仓域对该类票不开放；已拉离/锚缺失（宁拦不冒充）→
- * poor（rule=pump_exempt_gate）。观测行 _writeRow 已原样落库（研究主数据），
- * 仅门决策域变换（CD379 _applyActivityExempt 出口变换同构——门题/档位零改写）。
- * 与 RESTART_LAUNCH_PCT 同线同值刻意各自常量（语义独立防联动漂移）。
+ * BP42 pump 豁免票位置门已随 BP55 退役（2026-11-09 用户裁定「这个已经不需要特殊
+ * 处理了，现在庄盘也不接受价格高于 40%（也就是超出 near_launch）」）：BP48 起
+ * ①strong_backer/⑤blended/⑧golden_point 三臂位置门已同线收紧至 ≤+40（low 档
+ * +40~80 加仓域对所有放行型盘型桶关闭），pump 豁免票（slowGrindPump=strong 的
+ * CD379 活跃度豁免票）走盘型桶位置门即可——专属 PUMP_EXEMPT_LAUNCH_PCT 门与
+ * rule=pump_exempt_gate 不再有独立语义，整链删除（常量/位置门分支/引擎门链
+ * pumpExempt 打标与透传）。历史 buy_point_analyses 行带 pump_exempt_gate rule
+ * 照留档不清洗。行为变化面：④桶 BP47/BP53 豁免臂放行的 pump 豁免票不再被本门
+ * 二次拦（BP53 臂本无价格腿——来财 curVs=109 正票形状，用户裁定的放行面）。
  */
-const PUMP_EXEMPT_LAUNCH_PCT = 40;
 
 class BuyPointCheckService {
   /**
@@ -281,16 +278,8 @@ class BuyPointCheckService {
       this.stats.analyzed++;
 
       const dim = obs.dimensions;
-      // BP42 pump 豁免票位置门（见 PUMP_EXEMPT_LAUNCH_PCT 头注）：观测行已原样
-      // 落库，此处仅门决策域变换——≤+40 照常评估放行，已拉离/锚缺失拒
-      let assessment = obs.assessment;
-      if (opts.pumpExempt === true) {
-        const _vs = snapshot.buyDerived ? snapshot.buyDerived.currentVsLaunchPct : null;
-        if (typeof _vs !== 'number' || !Number.isFinite(_vs) || _vs > PUMP_EXEMPT_LAUNCH_PCT) {
-          assessment = { bucket: 'poor', prob: null, rule: 'pump_exempt_gate' };
-          this._log('info', `pump 豁免票位置门拒（vsLaunch=${_vs ?? 'null'} > ${PUMP_EXEMPT_LAUNCH_PCT}/锚缺失——只允许 near_launch 以内买入） | ${token}`);
-        }
-      }
+      // BP42 pump 豁免票位置门已随 BP55 退役（头注）——assessment 恒=obs.assessment
+      const assessment = obs.assessment;
       this._log('info', `买点观测 pattern=${dim.market_pattern?.bucket ?? '—'}` +
         ` trend=${dim.price_trend?.bucket ?? '—'}` +
         ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
@@ -301,7 +290,7 @@ class BuyPointCheckService {
       return {
         status: 'assessed',
         // 案号 BP46：assessment.exempt（④高热近价豁免留痕）additive 透传（mapper 带
-        //   才有——旧形状零变化；pump_exempt_gate 替换分支不带=位置拒时豁免无关）
+        //   才有——旧形状零变化）
         assessment: { bucket: assessment.bucket, prob: assessment.prob, rule: assessment.rule, ...(assessment.exempt ? { exempt: assessment.exempt } : {}) },
         dimensions: obs.dimensions,
         anchors: obs.anchors,

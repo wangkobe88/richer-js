@@ -387,10 +387,11 @@ class CheatCheckService {
    *    豁免掉，但是把信息传入购买前检查，在买入前检查中只允许 near_launch
    *    范围内的价格买入」——slow_grind_pump+burst_spike_concentration 是
    *    作弊盘/强庄盘共同特性，pump 臂拦豁免=强庄盘也进不来；豁免恢复，价格
-   *    约束移交 BP 门位置门接棒（引擎门链 pumpExempt 透传 → BuyPointCheckService
-   *    PUMP_EXEMPT_LAUNCH_PCT=40：该类票只允许 near_launch ≤+40 买入，庄盘
-   *    low 档加仓域对其不开放）；0xcb70708e/d0fbcc7b/4b3f1f7a 判例留档为臂
-   *    移除前行为）**
+   *    约束曾移交 BP 门专属位置门（BP42 pumpExempt 透传；**该门已随 BP55
+   *    2026-11-09 退役**——用户裁定「这个已经不需要特殊处理了，现在庄盘也
+   *    不接受价格高于 40%」：BP48 起①⑤⑧位置门同线 ≤+40，pump 豁免票走盘型
+   *    桶位置门即可，专属透传链整段删除）；0xcb70708e/d0fbcc7b/4b3f1f7a 判例
+   *    留档为臂移除前行为）**
    * ② wash 臂：washPair 同块对敲 = strong（「同区块刷量」；0x06810806 判例）
    *    ——**仅此一题（2026-11-08 用户裁定收窄「wash 我只是要拦截同区块刷量这
    *    一种情况，不是全部」+「其他的我没说的，依然可以走活跃度豁免」）**：首

@@ -758,7 +758,7 @@ async function testActivityExempt() {
     buckets: { activityLevel: 'low' },
     reasons: [{ level: 'cheat', code: 'A_strong:slow_grind_pump+holdings_balance' }],
   });
-  check('F8 出口：cheat+low+burst 强（高大上主案，pump strong 同场）→ healthy+exempt stall_burst（slowGrindPump≥3 由引擎门链打标 pumpExempt→BP 位置门 ≤+40 钳制）',
+  check('F8 出口：cheat+low+burst 强（高大上主案，pump strong 同场）→ healthy+exempt stall_burst（pump strong 同场不再有下游专属钳制——BP55 pump 位置门退役，价格约束归盘型桶位置门）',
     { grade: r8a.grade, exempt: r8a.exempt, reasons: r8a.reasons },
     { grade: 'healthy', exempt: { code: 'stall_burst', originalGrade: 'cheat' }, reasons: [{ level: 'cheat', code: 'A_strong:slow_grind_pump+holdings_balance' }] });
   ok('F8 stallBurstExemptions 计数+1（生产对拍观测点）', s8.stats.stallBurstExemptions - beforeSB === 1, s8.stats);

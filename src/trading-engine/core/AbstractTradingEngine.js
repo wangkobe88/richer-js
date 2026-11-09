@@ -1547,15 +1547,11 @@ class AbstractTradingEngine extends ITradingEngine {
         return { pass: false, reason: `作弊门拒买（unhealthy [${reasonCodes}]）` };
       }
       // healthy → 放行进 BP（info 由调用方落 signal metadata cheatCheck 段）
-      // BP42（2026-11-08 用户裁定「把活跃度高的命中 pump 的依然豁免掉，但是把信息
-      // 传入购买前检查，在买入前检查中只允许 near_launch 范围内的价格买入」——
-      // slow_grind_pump+burst_spike_concentration 是作弊盘/强庄盘共同特性，pump
-      // 臂拦豁免=强庄盘也进不来）：CD379 豁免放行的 pump strong 票打标 pumpExempt，
-      // 调用方透传 _bpGateEvaluate → service 位置门（PUMP_EXEMPT_LAUNCH_PCT=40，
-      // 庄盘 low 档加仓域对该类票不开放）。exempt 在场=豁免已发生（activityLevel
-      // 已在豁免集内）；levels.slowGrindPump≥3=strong（与 A 通道主判线同档）。
-      const _pumpExempt = !!(res.exempt && res.levels && (res.levels.slowGrindPump ?? 0) >= 3);
-      return { pass: true, info: this._cheatGateInfo(res), pumpExempt: _pumpExempt };
+      // BP42 pump 豁免票打标 pumpExempt 已随 BP55 退役（2026-11-09 用户裁定「这个
+      // 已经不需要特殊处理了，现在庄盘也不接受价格高于 40%」）：BP48 起①⑤⑧位置
+      // 门同线 ≤+40，pump 豁免票走盘型桶位置门即可，专属透传链整段删除（历史
+      // pumpExempt 打标/位置门行为见 git 历史与台账 BP42/CD380 四修）
+      return { pass: true, info: this._cheatGateInfo(res) };
     }
 
     if (res && res.status === 'timeout_fail_open') {
@@ -1637,7 +1633,6 @@ class AbstractTradingEngine extends ITradingEngine {
           strategyName: ctx.strategyName ?? null,
         }, {
           awaitMs: this._bpGateAwaitMs,
-          ...(ctx.pumpExempt === true ? { pumpExempt: true } : {}), // BP42 pump 豁免票位置门（CheatCheckService 头注①四修）
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
         });
         if (res && res.status === 'assessed') {
@@ -1653,10 +1648,8 @@ class AbstractTradingEngine extends ITradingEngine {
           this.logger.info(this._experimentId, 'SignalGate',
             `BP 门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)} assessment=${bucket}（pass=[${passLevels.join('/')}]）`);
           if (!pass) {
-            // BP42 位置门拒特化 message（可归因：现价已拉离 near_launch/锚缺失）
-            const _pumpPos = res.assessment?.rule === 'pump_exempt_gate';
             await this._updateSignalStatus(signalId, 'failed',
-              { message: `BP 门拒买: ${bucket}${_pumpPos ? '（pump 豁免票位置门：现价已拉离 near_launch >+40%/锚缺失）' : ''}`, reason: 'bp_gate_assessment' });
+              { message: `BP 门拒买: ${bucket}`, reason: 'bp_gate_assessment' });
           }
         } else if (res && res.status === 'timeout') {
           info = { status: 'timeout', awaitMs: this._bpGateAwaitMs };
