@@ -173,6 +173,30 @@ const GOLDEN_POINT_LAUNCH_PCT = 40;
 const SNIPER_DECAY_HEAT_LAUNCH_PCT = 40;
 const SNIPER_DECAY_HEAT_BUCKETS = ['high'];
 const SNIPER_DECAY_OPEN_SHARE_MAX = 80;
+/** ④ultra 散户入口豁免（案号 BP53/2026-11-09 用户裁定「先通过 routerBuyPct60
+ * 豁免一下 ultra 试试」——bt-v87 92 票 ultra 相关拒票复盘的试验性豁免）：
+ * 盘型④ ∧ ultra 域（market_heat=ultra ∨ activity_level=ultra）∧
+ * routerBuyPct60 ≥30（60s 窗买入金额走聚合路由占比——散户入场通道在场，与 CD
+ * G17 N 通道 routerEntryBuyPct<10% 拒「无散户入场通道」的对称锚）→ ④臂不拦
+ * 放行走后续门链，**同条件一并豁免活跃度门 act ultra 臂**（散户入口在场的
+ * ultra 密集=真实参与非机器盘——BP38 strong_backer 豁 ultra 臂/BP46 ④高热
+ * 豁免同构扩展；act low/heat low 死寂臂不豁免照拦）。与 BP47 高热近价臂是
+ * 不同轴的反转证据：BP47 把 ultra 退出 heat 域（两窗 63 票 -1.08 机器盘密度）
+ * 在 openShare/curVs 轴收紧；本臂在 router 轴开窗——bt-v87 实测 B1（④∧
+ * pattern_gate 拒∧router≥30）21 票正 3/负 18、首拒锚 Σ+5min=+0.080 打平
+ * （对照④全集 47 票 -1.127），正票 c84a0ff2/ea7886d5/92e56dab 首拒锚 router
+ * 全 ≥57.4，深负票 router 多为 0（两极化）。**不覆盖 pumpExempt 拒票**：
+ * cheat 侧 pumpExempt 透传票走 service PUMP_EXEMPT_LAUNCH_PCT=40 价格钳制
+ * 照拒（豁免≠追高许可，CD380 立法语义不动——同形状 6 深负票说明动不得）。
+ * fail-closed：market_pattern/heat/act 答案缺席（非 ultra 域）/routerBuyPct60
+ * 锚缺失（60s 窗零买入=null）→ 不豁免宁拦不冒充；豁免对象仅④（②③照拦）。
+ * 试验性豁免（「试试」）：护栏数据留档待票池分布裁定——B1 内 win30 买者数
+ * 10-20 带 10 票全负（Σ5=-0.485）为 B1 打平主因、≥20 带 5 票 +0.729；信号
+ * 条数（≥4 条 +0.799）=前视不可用不进臂；sgp<3（+0.313）=cheat 侧数据
+ * BP snapshot 拿不到不进臂。mapper-only 门改动不 bump 题集版本（BP46/BP47/
+ * BP48/BP52 先例）；exempt 落 assessment 留痕（code='ultra_router_entry' 带
+ * routerBuyPct60 值）；代码不改写 Jev 桶判定（④答案原样保留） */
+const SNIPER_ULTRA_ROUTER_MIN_PCT = 30;
 // FAMOUS_AXIS_RELAUNCH_PCT（BP45 famous 轴再起来域 20）已随 famous_domination 题
 //   退役删除（BP49/案号 BP45）——唯一消费者 chip_gate famous 臂同退役；再起来域
 //   语义（落底后 famous 未离场=正面证据）保留在盘型题⑦⑧桶判读里（题面层）。
@@ -308,14 +332,17 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   的位置，因为这是个预判断」）：retail_pvp/famous_monopoly/early_sniper_decay
   //   → poor（不要参与）；**④桶另有高热近价豁免臂（案号 BP46：④∧heat∈
   //   {high,ultra}∧curVsLaunch ≤+40 放行，详 SNIPER_DECAY_HEAT_LAUNCH_PCT；
-  //   BP47 收紧=heat 仅 high ∧ openSegBuySharePct<80）**；
+  //   BP47 收紧=heat 仅 high ∧ openSegBuySharePct<80）+④ultra 散户入口豁免臂
+  //   （案号 BP53：④∧ultra 域（heat/act=ultra）∧routerBuyPct60≥30 放行，详
+  //   SNIPER_ULTRA_ROUTER_MIN_PCT）**；
   //   BP34 ⑥ sustained_climb/BP43 ⑦ restart/**BP48 ① strong_backer ≤+40
   //   （案号 BP48 收紧自 80——庄盘同样不接受 low）/⑤ blended ≤+40/⑧ golden_point
   //   ≤+40 防御门——①⑤⑧三臂同线 40**——各桶位置臂（判型归 Jev、位置归代码；
   //   锚缺失一律宁拦不冒充拒）；
   // ②活跃度门（BP13 双题+BP30 ultra 臂+BP38 strong_backer 豁免+BP46 ④高热近价
   //   豁免同盖 ultra 臂——BP47 收紧后豁免票 heat 恒 high，act ultra 臂同盖条件
-  //   收紧自动跟随 sniperHeatExempt 三要件）：
+  //   收紧自动跟随 sniperHeatExempt 三要件+BP53 ④ultra 散户入口豁免同盖
+  //   ultra 臂——router 证据反转 ultra 域）：
   //   market_heat=low（近窗密度死寂）**或** activity_level ∈ {low（CD 七要素
   //   低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」；盘型=
   //   strong_backer 时豁免不拦——强庄盘拉盘天然密集）}→ poor（rule=activity_gate）；
@@ -343,9 +370,25 @@ function buildBuyPointObservation(answers, anchors = null) {
     if (openShare == null || openShare >= SNIPER_DECAY_OPEN_SHARE_MAX) return null;
     return { code: 'sniper_decay_heat_price', heat: dimensions.market_heat.bucket, curVsLaunchPct: vsLaunch, openSegBuySharePct: openShare };
   })();
+  // 案号 BP53：④ultra 散户入口豁免（试验性）——④ ∧ ultra 域（heat=ultra ∨
+  //   act=ultra）∧ routerBuyPct60 ≥30 → ④臂不拦（详 SNIPER_ULTRA_ROUTER_MIN_PCT
+  //   注释全档）；与 sniperHeatExempt 并列独立评估（两臂证据轴不同：heat/openShare/
+  //   curVs vs router；理论上可同时成立（heat=high∧act=ultra 且两臂要件全过），
+  //   exempt 留痕取 sniperHeatExempt 优先——放行语义相同仅指纹差异）
+  const sniperUltraRouterExempt = (() => {
+    if (!dimensions.market_pattern || dimensions.market_pattern.bucket !== 'early_sniper_decay') return null;
+    const heatUltra = dimensions.market_heat && dimensions.market_heat.bucket === 'ultra';
+    const actUltra = dimensions.activity_level && dimensions.activity_level.bucket === 'ultra';
+    if (!heatUltra && !actUltra) return null;
+    const rawRouter = anchors ? anchors.routerBuyPct60 : null;
+    const router60 = typeof rawRouter === 'number' && Number.isFinite(rawRouter) ? rawRouter : null;
+    if (router60 == null || router60 < SNIPER_ULTRA_ROUTER_MIN_PCT) return null;
+    return { code: 'ultra_router_entry', routerBuyPct60: router60 };
+  })();
   const patternArms = dimensions.market_pattern
     && PATTERN_GATE_POOR_BUCKETS.includes(dimensions.market_pattern.bucket)
     && !sniperHeatExempt
+    && !sniperUltraRouterExempt
     ? [dimensions.market_pattern] : [];
   // ⑥sustained_climb 位置臂（BP34）：贴发行价起点段放行；已拉离/锚缺失（宁拦不
   // 冒充）入盘型门拒（题面已教位置门语义，此处代码侧硬执行——判型归 Jev 位置归代码）
@@ -397,7 +440,10 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   「act ultra 臂豁免」——act low 死寂臂不豁免照拦，actUltraExempt 自带
   //   bucket===ultra 前提、sniperHeatExempt 侧显式补同一前提防 low 臂误豁免）
   const ultraArmExempt = actUltraExempt
-    || (Boolean(sniperHeatExempt) && Boolean(dimensions.activity_level) && dimensions.activity_level.bucket === 'ultra');
+    || (Boolean(sniperHeatExempt) && Boolean(dimensions.activity_level) && dimensions.activity_level.bucket === 'ultra')
+    // 案号 BP53：④ultra 散户入口豁免成立时同盖 ultra 臂（散户入口在场的 ultra
+    //   密集=真实参与——豁免臂自带 act/heat=ultra 前提，act low 死寂臂照拦）
+    || (Boolean(sniperUltraRouterExempt) && Boolean(dimensions.activity_level) && dimensions.activity_level.bucket === 'ultra');
   const gateArms = [
     dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
     dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) && !ultraArmExempt ? dimensions.activity_level : null,
@@ -429,9 +475,12 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   const assessment = { bucket, prob, rule };
   // 案号 BP46 豁免留痕（豁免成立时 additive——旧形状零变化；豁免后被其它门拒
-  //   （如 chip strong）也带，审计完整）；BP52 restart 筹码豁免同形态留痕
-  //   （二者盘型互斥（④ vs restart）不会同时成立，if/if 并列）
+  //   （如 chip strong）也带，审计完整）；BP53 ④ultra 散户入口豁免与 BP52
+  //   restart 筹码豁免同形态留痕（④/restart 盘型互斥不会同时成立；④双臂
+  //   （BP47 高热近价/BP53 ultra 散户入口）理论可同时成立时取 sniperHeatExempt
+  //   优先——放行语义相同仅指纹差异，if/else if 并列）
   if (sniperHeatExempt) assessment.exempt = sniperHeatExempt;
+  else if (sniperUltraRouterExempt) assessment.exempt = sniperUltraRouterExempt;
   else if (restartChipExempt) assessment.exempt = { code: 'restart_chip', pattern: RESTART_CHIP_EXEMPT_PATTERN };
   const flat = {};
   for (const W of [30, 60, 120]) {
@@ -563,6 +612,7 @@ module.exports = {
   SNIPER_DECAY_HEAT_LAUNCH_PCT,
   SNIPER_DECAY_HEAT_BUCKETS,
   SNIPER_DECAY_OPEN_SHARE_MAX,
+  SNIPER_ULTRA_ROUTER_MIN_PCT,
   RESTART_CHIP_EXEMPT_PATTERN,
   ACTIVITY_GATE_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
