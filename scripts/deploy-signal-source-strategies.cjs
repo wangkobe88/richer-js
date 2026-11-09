@@ -108,6 +108,18 @@
 //     13 腿（结构不变）：t0a + t0b + t2-t4 + N30/N36/N45 + NL15/NL20/NL25
 //     + RL15 + RL10
 //
+//   v14（2026-11-09 bt-v91 涨幅 Top10 前期低点分布复盘后用户裁定「near_launch
+//     的范围改为涨幅 30% 以下，也就是说当前系统不会买入涨幅超过 27.5 的任何
+//     代币……currentVsLaunchPct <= 80 需要改为 currentVsLaunchPct <= 27.5，
+//     其它买入臂也是如此」）：全 t/N 系八臂价格门 80→27.5 + NL 三臂 50→27.5
+//     （=门上界统一 27.5，系统全局不买现价较发行价 >+27.5% 的票）；RL15 ≤20/
+//     RL10 ≤10 刻意不动（已低于 27.5 上界，改 27.5=放宽非收紧）。动机=Top10
+//     涨幅票（+499%~+1426%）前期最低点全部在 +23.9% 以内（6 票 ≤+3.3%、
+//     2 票破发、来财 +16.6%/吉祥 +12.9%/钱来 +23.9%）——大涨幅票的底都在
+//     almost_launch 区附近，+27.5 以上的追高入场无正收益分布支撑。
+//     13 腿（结构不变）：t0a + t0b + t2-t4 + N30/N36/N45 + NL15/NL20/NL25
+//     + RL15 + RL10
+//
 //   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 13（各腿 1 次
 //   触发上限；T110 默认帽 5 会截断阶梯）；并配 cheatCheck.enabled=true +
 //   buyPointCheck.enabled=true（两门 disabled 时：cheat 门 fail-open 放行、
@@ -148,22 +160,22 @@ const LEGS = [
     // holdersExDust >= 6 AND currentVsLaunchPct <= 80」）：9 笔/1 BNB/6 真持有
     // 者/≤+80——「点火即拉飞」形状在 tc 9-11、价格尚 ≤+80 的点火初段即可触发
     // （v5 旧 t0a 为 6 笔档不同参数、v6 删除，本次重生）；priority 1 起步即最早臂
-    leg('t0a', 1, 'tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80', RECHECK_EARLY,
-        '更早人气臂（v12 新增，用户条件串原文——高大上零触发案：点火即拉飞形状 t0b 十二笔门槛差一笔错过全窗）：9 笔/1 BNB/6 真持有者；价格 ≤+80%'),
-    leg('t0b', 2, 'tradeCount >= 12 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80', RECHECK_EARLY,
-        '人气臂 b（v5 新增，v12 前为最早臂——t0a 6 笔档 2026-11-07 首跑对照后用户裁定删除、v12 以 9 笔档重生）：12 笔/1 BNB/6 真持有者；v10 加价 ≤+80%'),
-    leg('t2', 3, 'tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9 AND currentVsLaunchPct <= 80', RECHECK_EARLY,
-        '阶梯 2（v4 原文）：16 笔/1 BNB/9 真持有者；v10 加价 ≤+80%'),
-    leg('t3', 4, 'tradeCount >= 20 AND buyVolumeBnb >= 1.2 AND holdersExDust >= 12 AND currentVsLaunchPct <= 80', RECHECK_EARLY,
-        '阶梯 3（v4 原文）：20 笔/1.2 BNB/12 真持有者；v10 加价 ≤+80%'),
-    leg('t4', 5, 'tradeCount >= 24 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 80', RECHECK_STICKY,
-        '阶梯 4（v4 原文）：24 笔/1.5 BNB/12 真持有者；高热度 unhealthy 粘滞秒回省配额（v10=表达式化）；v10 加价 ≤+80%'),
-    leg('N30', 6, 'tradeCount >= 30 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 80', RECHECK_STICKY,
-        '热度腿（T119 用户给定条件串原文，v4 原文）：30 笔/1.5 BNB/12 真持有者——阶梯接棒+节流下实际落点由步进节奏决定，慢热票里程碑摊开；v10 加价 ≤+80%'),
-    leg('N36', 7, 'tradeCount >= 36 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 80', RECHECK_STICKY,
-        '热度腿（T119，v4 原文）：36 笔/1.5 BNB/12 真持有者；v10 加价 ≤+80%'),
-    leg('N45', 8, 'tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 80', RECHECK_STICKY,
-        '热度腿（T119，v4 原文）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃；v10 加价 ≤+80%'),
+    leg('t0a', 1, 'tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '更早人气臂（v12 新增，用户条件串原文——高大上零触发案：点火即拉飞形状 t0b 十二笔门槛差一笔错过全窗）：9 笔/1 BNB/6 真持有者；价格 ≤+80%（v14 收紧 ≤+27.5%）'),
+    leg('t0b', 2, 'tradeCount >= 12 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '人气臂 b（v5 新增，v12 前为最早臂——t0a 6 笔档 2026-11-07 首跑对照后用户裁定删除、v12 以 9 笔档重生）：12 笔/1 BNB/6 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
+    leg('t2', 3, 'tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '阶梯 2（v4 原文）：16 笔/1 BNB/9 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
+    leg('t3', 4, 'tradeCount >= 20 AND buyVolumeBnb >= 1.2 AND holdersExDust >= 12 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '阶梯 3（v4 原文）：20 笔/1.2 BNB/12 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
+    leg('t4', 5, 'tradeCount >= 24 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 27.5', RECHECK_STICKY,
+        '阶梯 4（v4 原文）：24 笔/1.5 BNB/12 真持有者；高热度 unhealthy 粘滞秒回省配额（v10=表达式化）；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
+    leg('N30', 6, 'tradeCount >= 30 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 27.5', RECHECK_STICKY,
+        '热度腿（T119 用户给定条件串原文，v4 原文）：30 笔/1.5 BNB/12 真持有者——阶梯接棒+节流下实际落点由步进节奏决定，慢热票里程碑摊开；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
+    leg('N36', 7, 'tradeCount >= 36 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 27.5', RECHECK_STICKY,
+        '热度腿（T119，v4 原文）：36 笔/1.5 BNB/12 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
+    leg('N45', 8, 'tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 27.5', RECHECK_STICKY,
+        '热度腿（T119，v4 原文）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃；v10 加价 ≤+80%、v14 收紧 ≤+27.5%'),
     // v8 接近发行价臂（T122，2026-11-07 用户裁定「参考购买前检测中『接近发布价』的判断，
     // buyVolumeBnb >= 1.5/2/2.5 且接近发行价」）：currentVsLaunchPct=现价较首可靠价涨幅
     // （FA 新键），<=50 含破发=BP near_launch 同口径贴发行价区；无可靠价 null 恒 false
@@ -176,12 +188,12 @@ const LEGS = [
     // tradeCount >= 10→15 ∧ buyVolumeBnb 统一 ≥2.5——「10 笔/1.5 BNB」对整票生命
     // 周期 30~120 行的冲高砸落小票无区分度（30 行票 tradeCount 也能到 20-30，
     // 1.5 BNB 买量几分钟即凑满），量门抬到 NL25 既有线=五臂同线
-    leg('NL15', 9, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
-        '接近发行价臂 a（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB——bt-v83 87 票小票放行实证）：现价较发行价 ≤+50%（含破发）——热度够+价格贴发行价'),
-    leg('NL20', 10, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
-        '接近发行价臂 b（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB）：现价较发行价 ≤+50%（含破发）'),
-    leg('NL25', 11, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 50', RECHECK_EARLY,
-        '接近发行价臂 c（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 tradeCount 10→15，量 2.5 不变）：现价较发行价 ≤+50%（含破发）——三档中最高热度确认'),
+    leg('NL15', 9, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '接近发行价臂 a（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB——bt-v83 87 票小票放行实证；v14 价格门 50→27.5）：现价较发行价 ≤+27.5%（含破发）——热度够+价格贴发行价'),
+    leg('NL20', 10, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '接近发行价臂 b（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB；v14 价格门 50→27.5）：现价较发行价 ≤+27.5%（含破发）'),
+    leg('NL25', 11, 'tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 27.5', RECHECK_EARLY,
+        '接近发行价臂 c（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 tradeCount 10→15，量 2.5 不变；v14 价格门 50→27.5）：现价较发行价 ≤+27.5%（含破发）——三档中最高热度确认'),
     // v10 重启臂（CD381 用户给定条件串原文，2026-11-08）：经历一定交易量后回到
     // almost_launch（currentVsLaunchPct <= 20 含破发）——重启盘入场点；BP43
     // restart 桶判形+位置门 ≤+40 配套（本腿自身 ≤20 已天然在门内）；v13 量门
@@ -199,7 +211,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v13（2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒（早臂族=preCheatResult == unhealthy OR priceBackToAlmostLaunch == 1、高热度四条=priceBackToAlmostLaunch == 1）；v11 新增 RL10 深重启臂（≤+10 含破发）；v12 高大上零触发复盘后新增 t0a 更早人气臂 tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80（用户条件串原文，9 笔档接住「点火即拉飞」形状点火初段）；v13 bt-v83 完整窗口 87/87 reset 小票放行实证后量门提高：NL15/20/25+RL15/RL10 五臂 tradeCount 10→15 ∧ buyVolumeBnb 统一 ≥2.5）：13 买腿 condition=初始买入信号源（t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v14（2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」；RL15 ≤20/RL10 ≤10 已低于上界不动）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：13 买腿 condition=初始买入信号源（t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers 全 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 13 + cheatCheck.enabled + buyPointCheck.enabled',
     },
 ];
 

@@ -187,6 +187,20 @@
 
 ## Case 倒序
 
+### CD390 activity 桶通道对 cheat 全档关闭——cheat 的唯一豁免通道=CD383 burst 臂（2026-11-09，豁免资格案·题集/grade/规则域零改动；用户裁定原话「高活跃度不再豁免 cheat 这种情况，只豁免 unhealthy。cheat 模块的信息也非常有作用，虽然它容易造成误伤，如果发现误伤我们再想办法解决。所以当前 cheat 只有 burst 豁免」）
+
+**动机（CD388 ultra 档收紧的全档推广）**：CD388（同日）以 bt-v90 originalGrade 完美分离定线收紧了 ultra∧cheat 格子；bt-v91 全档对照随即给出同一分离的 high 桶证据——cheat∧activity 两桶全负（ultra -0.395/high -0.167，正率 15%/21%）、unhealthy 两桶全正（ultra +0.568 全场最正/high +0.122）→ 桶维度不再有区分度，grade 维度（原判 cheat=组织化买入实锤 vs 原判 unhealthy=纯密度超标）是唯一可靠分离器，high 桶无需单独裁定即可推广。用户知情接受误伤面（「如果发现误伤我们再想办法解决」——CD389 alwaysRecheck 每信号重判+CD381 重检表达式翻案路径是既有兜底）。
+
+**落法（`CheatCheckService.js` 三点同构）**：
+- **出口 `_applyActivityExempt`**：`grade=cheat ∧ actHit ∧ burst 资格不在场 → 原判保持 + exemptDenied='cheat_activity'`（新码取代 CD388 'ultra_cheat'；拉黑+清仓联动照常恢复）；cheat 豁免 code 恒 `stall_burst`（activity 首因规则只留给 unhealthy）；unhealthy 两通道照旧（CD379 原语义，双臂同中 activity 桶首因不变）。CD380 wash 臂优先级在前不变（cheat∧wash strong 照报 wash_pair）。
+- **`_isUltraCheatDenied` 退役 → `_isCheatBurstExempt(levels, anchors)`**：cheat 的豁免资格单一子式=`_isStallBurstExempt ∧ !_exemptDeniedReason`（三点共用防分叉，CD380 纪律）；拉黑登记点 cheat 分支/bootstrap 恢复点均换此子式（unhealthy 分支照旧双通道 ∧ !denied）。
+- **stats 分账**：`activityCheatDenied`（新，全档命中计数）；`ultraCheatDenied` 停用恒 0 保留键（读数连续性）。
+- **gradeObservation/题集版本零改动**（观测行照落原始 grade=研究原料）；signals 页 exemptDenied 通用渲染无需改（v4.42 主徽章=原始 grade 语义下 'cheat_activity' 自动正确显示）。
+
+**行为变化面**：原「cheat+high/ultra+无 burst → 豁免放行」全部翻为拒+拉黑+清仓（bt-v91 该域 20+19 票敞口 -0.56 净额即本次收紧目标收益面）；cheat∧burst（含双臂同中，M4GA 案）豁免完整保留；CD380 四修「cheat∧pump strong 豁免+BpumpExempt 位置门」的豁免入口此后仅剩 burst 通道可达（pump strong 单独不再构成豁免资格——11-09 裁定推翻 11-08 四修方向中 cheat 侧的豁免向，BP 位置门机制不动）。
+
+**单测**：`_test_cheat_gate_engine.cjs` F 段对齐——F2 cheat+high 翻转+分账计数、F4/F7 源码锁三点同构换 `_isCheatBurstExempt`、F8 双臂同中 grade=cheat code 翻 stall_burst、F9 整段重写（资格子式四断言+r9a/r9c 两桶拒+r9b/r9b2 unhealthy 照旧+r9d wash 优先+r9e/r9f burst 保留+r9g 资格缺席早退+源码锁三消费点），164 全绿。
+
 ### CD389 cheat 门 alwaysRecheck 每信号重判——全部秒回点绕过真调 Jev（2026-11-09，门行为案·题集/grade/规则域零改动；commit `3641316a`；用户指令「重新回测一下（已经确定的改进，例如ultra的豁免去cheat需要上），这一次，cheat 检测每一次都重新做，不缓存 cheat 的结果，每一次都重新算」）
 
 **动机**：CD158 判定粘滞是配额优化（cheat 拉黑终态/healthy 同版秒回/unhealthy 粘滞秒回拒），回测对照里粘滞=盘面演化被冻结在首判时刻——bt-v90 复盘期 CD388 对拍即发现同版 Jev grade run-to-run 方差与粘滞旧判叠加，掩盖「重判会翻案」的真实效果面；用户要求回测里 cheat 判定**每买信号从头算**以拿到干净的重判效果读数。

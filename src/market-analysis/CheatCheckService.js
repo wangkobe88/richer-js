@@ -190,7 +190,8 @@ class CheatCheckService {
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
       stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
-      ultraCheatDenied: 0, // CD388 ultra 档资格收紧命中计数（ultra∧原判 cheat=刷量机器不豁免，恢复拉黑原判；11-09 裁定）
+      ultraCheatDenied: 0, // CD388 ultra 档资格收紧命中计数（ultra∧原判 cheat=刷量机器不豁免，恢复拉黑原判；11-09 裁定）——CD390 起 activity 臂全档收紧（见 activityCheatDenied），本计数停用保留读数连续性
+      activityCheatDenied: 0, // CD390 全档资格收紧命中计数（原判 cheat ∧ activity 桶命中 ∧ burst 臂不在场=不豁免原判保持；11-09 裁定「高活跃度不再豁免 cheat，只豁免 unhealthy」——CD388 ultra 档收紧推广到 high 档）
       marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
       resetInsufficientRejects: 0, // CD384 reset 截窗后窗 <minTicks fail-closed 拒计数（bt-v83 87/87 实证后立法）
     };
@@ -447,33 +448,29 @@ class CheatCheckService {
   }
 
   /**
-   * CD388 ultra 档豁免资格收紧（2026-11-09 用户裁定「对于 ultra 票……需要这些币
-   * 在长期交易后依然维持超高活跃度，那么才接纳它，否则则不接纳」+「使用原始
-   * unhealthy 也可以」）：**原判 cheat 的 ultra 票不豁免**（原判保持 → 拉黑+清仓
-   * 联动照常），原判 unhealthy 的 ultra 票照旧豁免（CD379 原语义）。
+   * CD388 ultra 档豁免资格收紧（2026-11-09 用户裁定）→ **CD390 全档推广**
+   * （2026-11-09 用户裁定「高活跃度不再豁免 cheat 这种情况，只豁免 unhealthy。
+   * cheat 模块的信息也非常有作用，虽然它容易造成误伤，如果发现误伤我们再想
+   * 办法解决。所以当前 cheat 只有 burst 豁免」）：**原判 cheat 的票不再享
+   * activity 桶豁免**（high/ultra 全档——原判保持 → 拉黑+清仓联动照常），
+   * 原判 unhealthy 的票照旧豁免（CD379 原语义）；**cheat 的唯一豁免通道=
+   * CD383 burst 臂**（长期沉积一波操盘，M4GA 案语义保留——双臂同中时 burst
+   * 通道在场=豁免）。
    *
-   * 判据语义：act=ultra 恒触发 G17 M 通道（M_hyper_activity）——原判 unhealthy
-   * 的 ultra 票唯一拒因就是密度本身（真实热度，高活跃该放）；原判 cheat 说明
-   * A 通道九主判题有 strong 实锤（等额分仓/同块对敲/拉高等组织化买入）——ultra
-   * 密度+作弊实锤=刷量机器（burst 后即死），活跃度豁免恰好专放这类票。与 CD380
-   * 「作弊实锤不豁免」（wash 臂）同族、方向一致（豁免收紧）。
+   * CD388 案史（ultra 档先行实证，CD390 的直接依据）：bt-v90 12 张 activity_
+   * ultra 豁免票中亏损 Top1/2/4/5 原判全 cheat、盈利三票原判全 unhealthy——
+   * originalGrade 是完美分离器；bt-v91 全档对照（cheat∧activity 两桶全负、
+   * unhealthy 两桶全正）把同一分离推广到 high 档。误伤（cheat 原判但真热票）
+   * 由 CD389 alwaysRecheck 每信号重判+CD381 重检表达式翻案路径兜住——
+   * 「如果发现误伤我们再想办法解决」。
    *
-   * bt-v90 12 张 activity_ultra 豁免票实证（11-09）：亏损 Top1/2/4/5
-   * （45ec0489/68bb8cd4/04323e04/75d5286d BEM）原判全 cheat；盈利三票
-   * （c84a0ff2 +0.4023 / 32f18a98 +0.1592 / f485ec1d）原判全 unhealthy——
-   * originalGrade 是完美分离器。纯交易量维度正负例数学上无解（c62d2dff 45 笔
-   * /7.50 BNB 全场最大却 -0.0660、32f18a98 9 笔/1.31 BNB 最小却 +0.159、
-   * f485ec1d 与 45ec0489 首锚孪生），用户裁定采信 grade 因子（「你发现其它
-   * 因子更加有用也行」）。唯一漏网 c62d2dff（unhealthy 原判 -0.0660）留档。
-   *
-   * 作用域：仅 activity 豁免路径的 ultra 桶（high 桶 CD379 原语义不动）；豁免集
-   * 显式不含 ultra 时本臂不触发（act 不在集=activity 路径本来不适用，burst 臂
-   * CD383 语义独立不受影响）。三点同构：_applyActivityExempt 出口 / 拉黑登记
-   * 点 / bootstrap 恢复点（防「门拒但不拉黑/不触发清仓」分叉，CD380 同款纪律）。
+   * 三点同构：_applyActivityExempt 出口 / 拉黑登记点 / bootstrap 恢复点
+   * （防「门拒但不拉黑/不触发清仓」分叉，CD380 同款纪律）。本函数=三点共用
+   * 子式「cheat 的豁免资格」：burst 臂在场 ∧ CD380 不豁免臂不在场。
    * gradeObservation 规则域/题集版本零改动（观测行照落原始 grade=研究原料）。
    */
-  _isUltraCheatDenied(bucket, grade) {
-    return grade === 'cheat' && bucket === 'ultra' && this._isActivityExempt('ultra');
+  _isCheatBurstExempt(levels, anchors) {
+    return this._isStallBurstExempt(levels, anchors) && !this._exemptDeniedReason(levels);
   }
 
   /**
@@ -488,26 +485,35 @@ class CheatCheckService {
    * 高活跃度，活跃度豁免恰好专放这类票（bt-v79 六案实证），收紧后 grade 恢复
    * 原判。非判定行/未命中/豁免关 → 原样返回。四个出口统一走本变换：入口
    * blocked 秒回 / 入口 sticky 秒回 / chain 结果 / timeout 的 late 包。
+   * **CD390（2026-11-09 用户裁定「高活跃度不再豁免 cheat 这种情况，只豁免
+   * unhealthy……当前 cheat 只有 burst 豁免」）**：activity 桶通道对 grade=cheat
+   * 全档关闭（CD388 ultra 档收紧推广到 high 档），cheat 的唯一豁免通道=CD383
+   * burst 臂（双臂同中 burst 通道在场=豁免）；unhealthy 两通道照旧（CD379 原语义）。
    */
   _applyActivityExempt(res) {
     if (!res || this._activityExemptLevels.size === 0) return res;
     if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
     const act = res.buckets && res.buckets.activityLevel;
+    const actHit = this._isActivityExempt(act);
     const stallBurst = this._isStallBurstExempt(res.levels, res.anchors); // CD383 burst 豁免资格臂（∨ 并列）
-    if (!this._isActivityExempt(act) && !stallBurst) return res;
+    if (!actHit && !stallBurst) return res;
     const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
     if (denied) {
       this.stats.exemptDenied++;
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
-    if (this._isUltraCheatDenied(act, res.grade)) { // CD388 ultra 档资格收紧（wash 臂后=特定形状臂优先报码）
-      this.stats.ultraCheatDenied++;
-      return { ...res, exemptDenied: 'ultra_cheat' }; // 原判保持 cheat（拉黑+清仓联动照常）
+    // CD390（wash 臂后=CD380 特定形状臂优先报码）：cheat ∧ activity 桶命中 ∧
+    // burst 资格不在场（_isCheatBurstExempt 单一子式——denied 已在前早退，此处
+    // 等价 !stallBurst）→ 不豁免原判保持 cheat（拉黑+清仓联动照常恢复）
+    if (res.grade === 'cheat' && actHit && !this._isCheatBurstExempt(res.levels, res.anchors)) {
+      this.stats.activityCheatDenied++;
+      return { ...res, exemptDenied: 'cheat_activity' };
     }
     this.stats.activityExemptions++;
     if (stallBurst) this.stats.stallBurstExemptions++;
-    // 双臂同中取 activity 桶为首因（更具体来源）；burst 臂独立命中（桶不在豁免集）留 stall_burst 码
-    const code = this._isActivityExempt(act) ? `activity_${act}` : 'stall_burst';
+    // unhealthy 双臂同中取 activity 桶为首因（更具体来源）；cheat 豁免唯一通道=
+    // burst（code 恒 stall_burst）；burst 臂独立命中（桶不在豁免集）同留 stall_burst 码
+    const code = actHit && res.grade !== 'cheat' ? `activity_${act}` : 'stall_burst';
     return { ...res, grade: 'healthy', exempt: { code, originalGrade: res.grade } };
   }
 
@@ -803,12 +809,16 @@ class CheatCheckService {
       // 拉黑（不 add → 引擎短路/秒回/清仓/迟到拉黑全部自然不触发）；unhealthy
       // 观测计数照记（原始判定轨迹）。判据 obs.activityLevel.bucket 与
       // levelsFromObservation 的 buckets.activityLevel 同源；出口统一变换。
-      // CD380 不豁免臂同款收紧：pump/wash/holdings 三臂在场=豁免失效，cheat
-      // 恢复登记拉黑（与门决策出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）
-      const activityExempt = (this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
-        || this._isStallBurstExempt(levels, anchors)) // CD383 burst 资格臂同构（长期沉积一朝操盘不登记拉黑）
-        && !this._exemptDeniedReason(levels)
-        && !this._isUltraCheatDenied(obs.activityLevel ? obs.activityLevel.bucket : null, graded.grade); // CD388 ultra∧cheat=刷量机器恢复登记拉黑
+      // CD380 不豁免臂同款收紧：wash 臂在场=豁免失效，恢复登记拉黑（与门决策
+      // 出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）。
+      // CD390（2026-11-09）：cheat 的豁免资格=burst 臂唯一通道（activity 桶对
+      // grade=cheat 全档关闭——CD388 ultra 档收紧推广到 high 档，_isCheatBurstExempt
+      // 单一子式）；unhealthy 照旧双通道（activity 桶 ∨ burst，均受 CD380 约束）
+      const activityExempt = graded.grade === 'cheat'
+        ? this._isCheatBurstExempt(levels, anchors) // CD390：cheat 只有 burst 豁免（长期沉积一朝操盘不登记拉黑）
+        : ((this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
+            || this._isStallBurstExempt(levels, anchors)) // CD383 burst 资格臂
+          && !this._exemptDeniedReason(levels));
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
       } else if (graded.grade === 'unhealthy') {
@@ -968,14 +978,14 @@ class CheatCheckService {
         // CD379：恢复拉黑同查活跃度豁免——豁免配置上线前落的 cheat 行 activity
         // high+ 不再恢复拉黑（下个买信号重判走正常链）；digest.activityLevel.bucket
         // 与判定行同源。CD380 不豁免臂同款且同构（activityExempt = isExempt && !denied）：
-        // 豁免集内桶 ∧ 三臂不在场才不恢复；非豁免桶（mid/low）本来就轮不到豁免，
-        // 三臂在场与否不影响恢复拉黑（收紧只作用于「本来要豁免」的票）
+        // 豁免集内桶 ∧ wash 臂不在场才不恢复；非豁免桶（mid/low）本来就轮不到豁免，
+        // 三臂在场与否不影响恢复拉黑（收紧只作用于「本来要豁免」的票）。
+        // CD390（2026-11-09）：cheat 的豁免资格=burst 臂唯一通道（activity 桶对
+        // grade=cheat 全档关闭——_isCheatBurstExempt 单一子式，与出口/拉黑登记
+        // 点三点同构）；此处 grade 恒 'cheat'（cheatSeen 扫描域）
         const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;
         const cheatLevels = cheatLv ? cheatLv.levels : null;
-        if (cheatSeen && !((this._isActivityExempt(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket)
-          || this._isStallBurstExempt(cheatLevels, cheatLv ? cheatLv.anchors : null)) // CD383 burst 资格臂同构
-          && !this._exemptDeniedReason(cheatLevels)
-          && !this._isUltraCheatDenied(cheatDigest && cheatDigest.activityLevel && cheatDigest.activityLevel.bucket, 'cheat'))) { // CD388 同构：ultra∧cheat 行恢复拉黑
+        if (cheatSeen && !this._isCheatBurstExempt(cheatLevels, cheatLv ? cheatLv.anchors : null)) { // CD383/CD390：cheat 只有 burst 豁免
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
