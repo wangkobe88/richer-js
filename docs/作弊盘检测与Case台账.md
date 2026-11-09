@@ -195,7 +195,14 @@
 
 **接线**：BacktestEngine ctor `{...(_wsCfg.cheatCheck), persist:false, settleDelayMs:0}` → 实验 config `fourmemeWs.cheatCheck.gate.alwaysRecheck` 直达；web-server 校验布尔类型（非布尔 400）。单测 `_test_cheat_gate_engine.cjs` G 段 16 断言（ctor/getter 三态/拉黑票真调+翻案通路透传/healthy 粘滞绕过/缺省关对照 bit 不变/计数分账/inflight join 不重复归一化/`_force` 归一化+`_chainOpts`+4b 源码锁/引擎放行臂源码锁/web 校验源码锁），161 全绿。
 
-**首跑**：bt-v91（`94c89601-427b-42b1-8828-9c6d47d05f9b`，克隆 bt-v90 同窗同配置，config 唯一变量=`gate.alwaysRecheck:true`；三变量叠加=CD388（bt-v90 未含）+T128 拱臂持仓期化+本案）——**重判效果读数见跑毕汇报**（预计时长数小时：~1700 BUY 信号每信号真调 16 题 2-5s）。生产实验不开（配额代价+粘滞本为生产语义），开关留作回测/研究工具。
+**首跑**：bt-v91（`94c89601-427b-42b1-8828-9c6d47d05f9b`，克隆 bt-v90 同窗同配置，config 唯一变量=`gate.alwaysRecheck:true`；三变量叠加=CD388（bt-v90 未含）+T128 拱臂持仓期化+本案）——实际 ~17 分钟跑毕（07:49 UTC completed，1455 次盘面观测/136 次买点观测，单次 Jev ~0.4-1s 快于预估）。生产实验不开（配额代价+粘滞本为生产语义），开关留作回测/研究工具。
+
+**bt-v91 重判读数（2026-11-09，vs bt-v90 基线 +0.6126/65）**：净 **+0.9039/62（17 正 45 负）**。本案专属面：
+- **翻案面**：44 token 解除拉黑（日志 50 次「拉黑解除」），其中 6 token 成交净 **+0.4194**——**来财 0xc84a0ff2 序列=方差自愈教科书**：#0b63d3fe/#2c920289 重判 cheat（ultra∧cheat，CD388 拒+拉黑）→ #50fcc98d 重判 **unhealthy** → ultra∧unhealthy 豁免照旧（CD388 语义内）+unblocked 翻案 → 买入 4 卡净 **+0.4117**（CD388 案点名要保的正票，粘滞语义下首判 cheat 即永久拉黑买不回——重判把它救回来了）。
+- **重判分布**：cheat 拒 356→463（+107=CD388 ultra 拦 151 信号/53 token+同版 Jev 重判方差翻 cheat，方向与 CD388 案五未达成同源）；unhealthy 重检 166→249（每信号自动重判，不粘滞）。
+- **豁免矩阵变化（v90→v91，成交票口径）**：ultra|cheat 20 票 -0.395 → **消失**（CD388 生效）；ultra|unhealthy 4 票 +0.568 → 3 票 +0.446；high|cheat 33 票 -0.167 → 41 票 -0.101；high|unhealthy 19 票 +0.122 → 21 票 **-0.368**（转负：重判后更多票落 unhealthy 豁免买亏——豁免域内部恶化，挂账 CD379×门链联合校准）；非豁免 healthy 直过 7 票 -0.068 → 11 票 **+0.416**（翻案票贡献，豁免通道外首次出现显著正贡献格）。
+- **CD388 拦截面×翻案组合净效果**：53 个被拦 token 的 v90 敞口=23 票 +0.1005；v91 拦+重判后其中 15 token 翻案/重判 healthy 买回净 +0.3399——**拦截+重判组合比全豁免多赚 +0.24**（「先拦后放」比「一刀切」好：真刷量票拦死、方差误判票下个信号自愈放回）。CD388 案点名三票：来财 +0.4117 买回 ✓／memetuk（0xf485ec1d）翻案买回 +0.0725 ✓／**谷谷 0x32f18a98 +0.1592 漏网**——信号序列归因=cheat 门已翻案放行（07:07:02 unblocked=true+activity_high/unhealthy 豁免过门），**卡点=BP 盘型门 pattern_gate 7 信号全拒**（锚窗 34s 极早窗盘型判 poor；v90 同票买进=BP 判读 run-to-run 方差+锚窗时点差异，与 S072/S006/S109 真庄误伤攒批同族挂 BP 侧，**非 cheat 侧问题**）。
+- 拆分归因：T128 拱臂贡献=消失 5 笔 P10 秒卖（详 T128 案续段）；本案+CD388 合成贡献=豁免矩阵重排+翻案面。
 
 ### CD388 ultra 档豁免资格收紧——ultra∧原判 cheat 不豁免（刷量机器恢复拉黑），ultra∧unhealthy 照旧豁免（2026-11-09，豁免资格案·题集/grade/规则域零改动；commit `0fbc3c88`）
 
