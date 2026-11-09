@@ -26,7 +26,7 @@
  */
 
 const { buildSnapshotFromRows, isRouterWallet } = require('./cheat-snapshot');
-const { resolveLaunchPriceBnb } = require('./launch-price');
+const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price');
 
 /** 近窗宽度族（秒）：30/60/120 */
 const BP_WINDOWS = [30, 60, 120];
@@ -405,7 +405,13 @@ function computeBuyPointDerived(snapshot) {
     // 旧口径锚保 toFixed(10) bit 不变
     let launchAnchor = null;
     if (constLaunch !== null) {
-      launchAnchor = constLaunch; // 常量平台锚恒有效（不看 launchCovered）
+      // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 低开票案）：首笔买入可靠价低于
+      // 平台常量时地板改为首买价（launch 锚=min(常量, 首买价)，floorLaunchPriceBnb）。
+      // launchCovered 保护——窗不含出生段时窗内首买≠全局首买（截窗长票首买被裁，
+      // 窗内首笔 buy 冒充全局首买=错锚，宁用常量）；首买=窗内首笔可靠 BUY 行价
+      const firstBuyRel = launchCovered
+        ? (rel.find((t) => t.side === 'BUY') || {}).priceBnb || 0 : 0;
+      launchAnchor = floorLaunchPriceBnb(constLaunch, firstBuyRel); // 常量平台锚恒有效（不看 launchCovered）
     } else if (launchCovered && rel[0].priceBnb > 0) {
       launchAnchor = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段时的首可靠价
     }

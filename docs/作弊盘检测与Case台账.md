@@ -187,7 +187,46 @@
 
 ## Case 倒序
 
-### CD390 activity 桶通道对 cheat 全档关闭——cheat 的唯一豁免通道=CD383 burst 臂（2026-11-09，豁免资格案·题集/grade/规则域零改动；用户裁定原话「高活跃度不再豁免 cheat 这种情况，只豁免 unhealthy。cheat 模块的信息也非常有作用，虽然它容易造成误伤，如果发现误伤我们再想办法解决。所以当前 cheat 只有 burst 豁免」）
+### CD393 「代币价格跌到底 ticks 截断」整链退役——CD382 盘面重置截窗+CD384 reset_insufficient 硬拒全部拆除，判定窗回到锚截窗全窗（2026-11-09，机制案·题集/grade 零改动；6a1e4567 案；用户裁定原话「把『代币价格跌到底 ticks 截断』这个策略去掉吧，否则 ticks 不够，更买入不了了」）
+
+**动机（6a1e4567 案）**：flap quote 盘回到 almost_launch 后重置截窗把证据窗砍到最低点行起，短生命周期小票（30~120 行）重置窗常 <minTicks=8 → CD384 `reset_insufficient_ticks` 硬拒——「价格跌到底又起来的票」恰好是被截窗机制挡在门外的票（reset 本身=重启买点信号），截窗与买入目标自相矛盾；用户直接裁决拆除。
+
+**落法（四点全删+注释留痕）**：
+- **service `_chain` 5b**：CD382 截窗段+CD384 分支整段替换为 `const pull = pull0;` 恒定——回到 almost_launch 不再截断证据窗（全窗判定，上一轮形状与重启段并入同一锚窗由 Jev 权衡），重置后短窗回到天然 `insufficient_ticks` fail-open 存量语义（BP10「数据不够就挡住」照旧=仍是拒，只是不再有独立 status）；`marketReset` 返回值+digest 透传双删（历史行读侧兼容，写侧不再产出）。
+- **`cheat-snapshot.js`**：`computeMarketResetIndex` 函数本体+export 删除（BP 侧 minVsLaunchPct 是独立实现不受影响——restart 桶⑦判定照常）。
+- **引擎 `AbstractTradingEngine`**：`cheat_gate_reset_insufficient` 拒绝分支删除。
+- **回归 runner `run.mjs` 同步退役**（对拍同窗口径原则——生产拆 runner 必拆）：`applyMarketReset` 删换注释，runCase/add/batch 三拉数点全部直连锚截窗行。
+- stats 两键 `marketResets`/`resetInsufficientRejects` 停用恒 0 保留键（读数连续性）。
+
+**防线接棒**：bt-v83 立法票形状（30~120s 冲高砸落小票）防线由 T129 27.5 价格门+BP43 restart 位置门（现价 ≤+40 放行）接棒——CD384 当时拦的 87 票净 -1.38 形状，在 v14 门链下高位买点已被价格门挡死，重启后低点位反而需要全窗证据判定 restart/④。CD382 立法票 0x28ad2c7d 案史留档：截窗曾救它翻案 almost_launch 买窗，但 CD393 后它走 BP restart 桶（minVsLaunchPct 独立实现照常）+全窗 cheat 判定，bt-v87/v88 已实证 restart 通道可放行。
+
+**单测**：`_test_cheat_detection_service.cjs` Z2 整段改写（全窗口径 12 行 analyzed/marketReset 键不写/资金计全窗 1.2/短窗回 insufficient_ticks/capped 满帽 analyzed/anchorMs 照常/CD393 三源码锁——service 无接线+snapshot 函数本体删+引擎分支删）140 全绿；`_test_cheat_market_reset.cjs` 整文件改写（CD 侧双向锁退役=BP 侧独存：BP44 minVsLaunchPct 七形状+常量锚+T130 地板 B2-B4 断言）17 全绿；`_test_cheat_mem_pull_ticks.cjs` D2 断言跟变量名（`pull0.fromMem`——5b 改写后 pull0 直通）。
+
+### CD392 burst 豁免资格臂加价格腿——波起点 ≤+40% 才算「跌到很低再起来」（2026-11-09，豁免资格案·题集/grade 零改动；ad80fb7a 案；用户裁定原话「burst 是指 价格跌到很低再起来，不是价格维持高位再一个流量拉升」）
+
+**动机（ad80fb7a 案）**：four.meme 票高位横盘 280s/87 行 +140~175% 后一波流量拉升，CD383 burst 臂三键（gap≥50/波买 ≥0.7/波户 ≥10）全过 → 高位流量波被当「长期沉积一朝操盘」豁免 cheat——但 burst 的立法语义（M4GA 案）是「**价格跌到很低再起来**」，高位横盘再拉升是另一形状（拉高维持，庄盘在场的持续运营），豁免资格臂需要价格腿区分。正例锚：M4GA 0xba5ed45b 波起点 +2.9%（贴发行价起来的）；反例锚：ad80fb7a 波起点 +152%。
+
+**落法（第四腿，`CheatCheckService.js` `_isStallBurstExempt`）**：
+- **新锚 `burstWaveStartVsLaunchPct`**（cheat-snapshot.js burst 段）：临近段（BURST_NEAR_SEC=120）**首个可靠价** vs 发行价 %（刻意取段首不取段内最低——ad80fb7a 末段砸落 17.5% 不是「起来的起点」，取最低会放行高位砸落再弹形状=本案误豁免面）；分母经 T130 地板补丁 `floorLaunchPriceBnb(constLaunch, waveTicksAll 首笔可靠 BUY 行价)`（低开票起点价也用地板锚计）。
+- **投影链四处同步**：cheat-grade.js `levelsFromObservation` anchors、CheatCheckService observation anchors 构造、cheat-result-mapper.js `_anchorPct(anchors, 'burstWaveStartVsLaunchPct')`（mapper anchors 53→54 键）。
+- **资格判定**：`startVs == null || startVs > 40 → return false`（早退在波有力判断之后）；40=near_launch 上界同线（BP48 三臂/T129 门链同值）；null fail-closed 不授予（锚缺失宁不豁免）。
+- 既有三腿（sbw=burst/gap≥50/波有力 ≥0.7∨≥10）不动；`_isCheatBurstExempt`（cheat∧ultra 资格）与 `_isStallBurstExempt`（独立臂/单一子式）共用第四腿自动生效，三点同构不破。
+
+**单测**：`_test_cheat_gate_engine.cjs` F8 全夹具加 startVs 2.9+GDS_AN 第四键+**F8c 专项块**（+2.9 放/+152 拒/恰 40 放 40.1 拒/null 拒+源码锁正则）+F9 资格子式弱波夹具补第四键；`_test_cheat_detection_lib.cjs` mapper anchors 键数 53→54；170/640 全绿。
+
+### CD391 cheat 豁免资格收回 ultra 单档——high 档恢复 cheat 豁免（CD390 收回=CD388 形态恢复）（2026-11-09，豁免资格案·题集/grade/规则域零改动；用户裁定原话「交易活跃度热，cheat 继续豁免」）
+
+**动机**：CD390（同日）把 CD388 ultra 收紧推广到 high 全档（cheat 只有 burst 豁免）；bt-v92 读数显示 CD390 纯增量 15 张代价 +0.17 温和、但净额差主因在 T129 价格门，且 grade 方差（CD319 同族）下单窗口对照的「两桶全负」证据不稳——用户翻案收回：**high 档 cheat 恢复豁免（CD379 原语义），ultra 档维持 CD388 收紧（刷量机器不豁免）**。
+
+**落法（`CheatCheckService.js`，CD388 形态恢复）**：
+- **出口 `_applyActivityExempt`**：denied（CD380 wash 臂）优先拒 → `cheat ∧ actHit ∧ act==='ultra' ∧ !burst 资格` → `ultraCheatDenied++`+`exemptDenied='ultra_cheat'` 原判保持（拉黑+清仓照常）→ 否则豁免；code 行恢复 CD379 原形状 `actHit ? activity_${act} : 'stall_burst'`（cheat∧high→豁免 code=activity_high；cheat∧ultra∧burst 强双臂同中→豁免 code=activity_ultra，actHit 首因与 r9b2 同构）。
+- **单一子式 `_isCheatExemptEligible(bucket, levels, anchors)`**：`actHit ∧ bucket==='ultra' ∧ !burst 资格 → false；return (actHit ∨ burst 独立臂) ∧ !denied`——拉黑登记点（cheat 分支三元）+bootstrap 恢复点共用，与出口逐案等价（六分支核对：denied∧双臂/ultra∧无burst/high∧cheat/ultra∧burst/low∧burst 独立命中/资格缺席早退）。
+- **stats**：`ultraCheatDenied` 恢复计数；`activityCheatDenied` 停用恒 0 保留键（读数连续性）；`_isUltraCheatDenied` 维持全删。
+- gradeObservation/题集版本零改动（观测行照落原始 grade）。
+
+**单测**：`_test_cheat_gate_engine.cjs` F2 改 CD391（cheat+high 豁免+新增 r2a2 ultra_cheat 拒）、F4/F7 源码锁改 `_isCheatExemptEligible`、F9 整段重写（ultra_cheat 码/high 恢复豁免/ultraCheatDenied +1/wash 优先/burst 保留双臂/资格子式含 CD392 第四腿/源码锁=子式 2 消费点+burstExempt 2 消费点），170 全绿。
+
+
 
 **动机（CD388 ultra 档收紧的全档推广）**：CD388（同日）以 bt-v90 originalGrade 完美分离定线收紧了 ultra∧cheat 格子；bt-v91 全档对照随即给出同一分离的 high 桶证据——cheat∧activity 两桶全负（ultra -0.395/high -0.167，正率 15%/21%）、unhealthy 两桶全正（ultra +0.568 全场最正/high +0.122）→ 桶维度不再有区分度，grade 维度（原判 cheat=组织化买入实锤 vs 原判 unhealthy=纯密度超标）是唯一可靠分离器，high 桶无需单独裁定即可推广。用户知情接受误伤面（「如果发现误伤我们再想办法解决」——CD389 alwaysRecheck 每信号重判+CD381 重检表达式翻案路径是既有兜底）。
 

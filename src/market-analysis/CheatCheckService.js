@@ -73,7 +73,7 @@
  * 实验零分析零落行（数据采集期已收官）。
  */
 
-const { buildSnapshotFromRows, computeMarketResetIndex } = require('./cheat-snapshot');
+const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
@@ -190,10 +190,10 @@ class CheatCheckService {
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
       stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
-      ultraCheatDenied: 0, // CD388 ultra 档资格收紧命中计数（ultra∧原判 cheat=刷量机器不豁免，恢复拉黑原判；11-09 裁定）——CD390 起 activity 臂全档收紧（见 activityCheatDenied），本计数停用保留读数连续性
-      activityCheatDenied: 0, // CD390 全档资格收紧命中计数（原判 cheat ∧ activity 桶命中 ∧ burst 臂不在场=不豁免原判保持；11-09 裁定「高活跃度不再豁免 cheat，只豁免 unhealthy」——CD388 ultra 档收紧推广到 high 档）
-      marketResets: 0, // CD382 盘面重置截窗命中计数（回到过 almost_launch=证据窗重置到最低点行起）
-      resetInsufficientRejects: 0, // CD384 reset 截窗后窗 <minTicks fail-closed 拒计数（bt-v83 87/87 实证后立法）
+      ultraCheatDenied: 0, // CD388/CD391 ultra 档资格收紧命中计数（cheat∧ultra∧burst 不在场=不豁免原判保持；11-09 两度裁定：CD390 曾推广全档、CD391「交易活跃度热，cheat 继续豁免」收回 ultra 单档恢复 high 豁免）
+      activityCheatDenied: 0, // CD390 全档资格收紧命中计数——CD391 收回 ultra 单档后本计数停用恒 0，保留键读数连续性
+      marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
+      resetInsufficientRejects: 0, // CD384 fail-closed 拒计数——CD393 退役后停用恒 0，保留键读数连续性
     };
   }
 
@@ -394,7 +394,17 @@ class CheatCheckService {
     const wallets = an.burstWaveWallets;
     // 波有力：至少一键过线（同上二修 1.05→0.7 / 13→10——M4GA 波 0.7735 BNB/11 户
     // 贴线形状授予；「停滞后只涌入一点小流量」的弱波（远低于线）仍不授予）
-    return (buy != null && buy >= 0.7) || (wallets != null && wallets >= 10);
+    if (!((buy != null && buy >= 0.7) || (wallets != null && wallets >= 10))) return false;
+    // CD392（2026-11-09 ad80fb7a 案用户裁定「burst 是指 价格跌到很低再起来，不是
+    // 价格维持高位再一个流量拉升」）：波的起点须在低域——burst 波起点价（锚前
+    // 120s 临近段首可靠价 vs 发行价常量）≤ +40%（near_launch 上界同线）才授予。
+    // ad80fb7a=+152% 高位横盘 280s 末段砸落（反例拒）；M4GA=+2.9% 贴地板沉积
+    // （正例放）。锚缺席（旧档断代/临近段 <2 行/gang 无常量）fail-closed 不授予
+    // ——与 CD383 gap null 的「不扩大收紧面」方向不同：起点价是「起来之前的
+    // 价格水平」这一本质维度，缺席=形状不可判宁不授予。
+    const startVs = an.burstWaveStartVsLaunchPct;
+    if (startVs == null || startVs > 40) return false;
+    return true;
   }
 
   /**
@@ -474,6 +484,21 @@ class CheatCheckService {
   }
 
   /**
+   * CD391 cheat 豁免资格单一子式（2026-11-09 用户裁定「交易活跃度热，cheat 继续
+   * 豁免」——CD390 全档收紧收回 ultra 单档=CD388 形态恢复）：grade=cheat 票的
+   * 豁免资格=（activity 桶命中 ∨ CD383 burst 臂）∧ CD380 不豁免臂不在场，且
+   * **ultra 桶 ∧ burst 资格不在场 → false**（刷量机器不豁免=CD388 收紧维持，
+   * bt-v90 ultra∧cheat 亏损 Top 实证）。cheat∧high 恢复豁免；双臂同中 burst
+   * 在场=豁免。三点同构（出口/拉黑登记/bootstrap）防「门拒但不拉黑」分叉——
+   * 出口另有 stats/留痕保留显式分支，本子式供后两点共用（与出口逐案等价）。
+   */
+  _isCheatExemptEligible(bucket, levels, anchors) {
+    const actHit = this._isActivityExempt(bucket);
+    if (actHit && bucket === 'ultra' && !this._isCheatBurstExempt(levels, anchors)) return false;
+    return (actHit || this._isStallBurstExempt(levels, anchors)) && !this._exemptDeniedReason(levels);
+  }
+
+  /**
    * CD379 活跃度豁免出口变换（2026-11-07 用户裁定「作弊检测豁免所有活跃度在
    * high 之上的票」）：grade∈{cheat,unhealthy} ∧ buckets.activityLevel∈豁免集
    * → healthy 放行——reasons/levels/buckets/anchors 原样保留（审计轨迹），
@@ -502,18 +527,19 @@ class CheatCheckService {
       this.stats.exemptDenied++;
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
-    // CD390（wash 臂后=CD380 特定形状臂优先报码）：cheat ∧ activity 桶命中 ∧
-    // burst 资格不在场（_isCheatBurstExempt 单一子式——denied 已在前早退，此处
-    // 等价 !stallBurst）→ 不豁免原判保持 cheat（拉黑+清仓联动照常恢复）
-    if (res.grade === 'cheat' && actHit && !this._isCheatBurstExempt(res.levels, res.anchors)) {
-      this.stats.activityCheatDenied++;
-      return { ...res, exemptDenied: 'cheat_activity' };
+    // CD391（2026-11-09 用户裁定「交易活跃度热，cheat 继续豁免」——CD390 全档
+    // 收回 ultra 单档=CD388 形态恢复）：cheat ∧ activity=ultra ∧ burst 资格不在场
+    // → 不豁免原判保持 cheat（拉黑+清仓联动照常，exemptDenied='ultra_cheat'）；
+    // cheat ∧ high 恢复豁免（code=activity_high）；unhealthy 两桶照旧（CD379 原语义）
+    if (res.grade === 'cheat' && actHit && act === 'ultra' && !this._isCheatBurstExempt(res.levels, res.anchors)) {
+      this.stats.ultraCheatDenied++;
+      return { ...res, exemptDenied: 'ultra_cheat' };
     }
     this.stats.activityExemptions++;
     if (stallBurst) this.stats.stallBurstExemptions++;
-    // unhealthy 双臂同中取 activity 桶为首因（更具体来源）；cheat 豁免唯一通道=
-    // burst（code 恒 stall_burst）；burst 臂独立命中（桶不在豁免集）同留 stall_burst 码
-    const code = actHit && res.grade !== 'cheat' ? `activity_${act}` : 'stall_burst';
+    // 双臂同中取 activity 桶为首因（更具体来源）；burst 臂独立命中（桶不在豁免集）
+    // 同留 stall_burst 码（CD379 原形状恢复——cheat∧high 豁免 code=activity_high）
+    const code = actHit ? `activity_${act}` : 'stall_burst';
     return { ...res, grade: 'healthy', exempt: { code, originalGrade: res.grade } };
   }
 
@@ -593,55 +619,23 @@ class CheatCheckService {
         this._shadowAudit(token, pull0); // fire-and-forget 对拍护栏（全吞错，不拦截）
       }
 
-      // 5b) CD382 盘面重置截窗（2026-11-08 用户裁定，与 BP44 案号 BP39 同语义）：
-      //     锚窗内价格回到过 almost_launch（涨起后最低 ≤+10% 含破发）=盘面重新
-      //     计算——证据窗重置到最低点行起，上一轮抢筹/等额分仓/拉高形状不再进
-      //     判定（bt-s01 0x28ad2c7d：拉黑后砸回 almost_launch 重判被上一轮
-      //     equalAmountSplit strong 拖住翻不了案）。**满帽（capped）不应用**：
-      //     锚窗不含出生段，首可靠价≠发行价=伪锚，宁保持原判不以伪锚翻案。
-      //     重置后行数 <minTicks 走 ⑥ 预门 insufficient_ticks（引擎 fail-open
-      //     放行进 BP——BP 锚窗=全窗不受本截断影响，restart 位置门照常判）；
-      //     digest.marketReset 留痕区分新旧窗口径（题集/grade 规则版本零改动
-      //     ——窗口口径非题面）；题集版本不 bump=粘滞域不动。
-      let pull = pull0;
-      if (!pull.capped) {
-        // platform=f调用方 tokenMeta（four.meme/flap 曲线常量锚，flap 含 quote 盘同 FL 常量 2026-11-09；gang/缺失=首可靠价旧口径）
-        const reset = computeMarketResetIndex(pull.rows, tokenMeta.platform || null);
-        if (reset) {
-          const rows = reset.sortedRows.slice(reset.resetIdx);
-          this.stats.marketResets++;
-          this._log('info', `盘面重置截窗（CD382）｜涨起后最低 ${reset.minVsLaunchPct}% @${reset.resetAt}｜窗 ${pull.anchorTickCount}→${rows.length} 行 | ${token}`);
-          pull = {
-            ...pull,
-            rows,
-            anchorTickCount: rows.length,
-            // digest/信号 info 留痕（fullAnchorTickCount=重置前原锚数）
-            marketReset: {
-              minVsLaunchPct: reset.minVsLaunchPct,
-              resetAt: reset.resetAt,
-              exitAt: reset.exitAt,
-              fullAnchorTickCount: pull0.anchorTickCount,
-            },
-          };
-        }
-      }
+      // 5b) CD393（2026-11-09 6a1e4567 案用户裁定「把『代币价格跌到底 ticks 截断』
+      //     这个策略去掉吧，否则 ticks 不够，更买入不了了」）：CD382 盘面重置
+      //     截窗+CD384 reset_insufficient fail-closed 硬拒**整链退役**——盘面
+      //     回到 almost_launch 不再截断证据窗（全窗判定，上一轮形状与重启段
+      //     并入同一锚窗由 Jev 权衡），重置后短窗回到天然 insufficient_ticks
+      //     fail-open 存量语义；BP 锚窗=全窗从不受截断影响（restart 位置门照常
+      //     判）。bt-v83 立法票（30~120s 冲高砸落小票）防线由 T129 27.5 价格门
+      //     +BP43 restart 位置门接棒。历史行 digest.marketReset 键读侧兼容（写侧
+      //     不再产出）。
+      const pull = pull0;
 
-      // 6) minTicks 预门（不调 Jev 不落表；不粘滞——下个买信号可重析）
-      //    CD384（2026-11-08 用户裁定 A，bt-v83 完整窗口 87/87 实证）：reset 截窗
-      //    制造的不足 → **fail-closed 拒**（独立 status=reset_insufficient_ticks，
-      //    引擎侧硬拒不进 BP）——原设计「放行进 BP、BP 全窗兜底」对整票生命周期
-      //    <2min 的冲高砸落小票失效（BP ⑦ restart 位置门与 cheat fail-open 同向
-      //    放行，87 票净 -1.38 全部 reset=1 无一例外）；天然短窗（无 reset）维持
-      //    insufficient_ticks fail-open 存量语义零变化。
+      // 6) minTicks 预门（不调 Jev 不落表；不粘滞——下个买信号可重析；天然短窗
+      //    fail-open 放行进 BP=存量语义）
       if (pull.anchorTickCount < this._minTicks) {
         this.stats.skippedInsufficientTicks++;
-        if (pull.marketReset) {
-          this.stats.resetInsufficientRejects++;
-          this._log('info', `盘面重置后 tick 不足拒（CD384 fail-closed：${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
-          return { status: 'reset_insufficient_ticks', anchorTickCount: pull.anchorTickCount, marketReset: pull.marketReset, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
-        }
         this._log('info', `ticks 不足跳过（${pull.anchorTickCount}<${this._minTicks}） | ${token}`);
-        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount, marketReset: pull.marketReset ?? null, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount, strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0 };
       }
 
       // 7) 快照 + state（createMeta=token_create 行 creator/createTx 兜底，fail-open）
@@ -711,6 +705,8 @@ class CheatCheckService {
           burstMaxGapSec: snapshot.derived.maxGapSec,
           burstWaveBuyBnb: snapshot.derived.burstWaveBuyBnb,
           burstWaveWallets: snapshot.derived.burstWaveWallets,
+          // CD392 burst 波起点价锚（vs 发行价常量 %；豁免资格价格腿判据源）
+          burstWaveStartVsLaunchPct: snapshot.derived.burstWaveStartVsLaunchPct,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
@@ -811,12 +807,13 @@ class CheatCheckService {
       // levelsFromObservation 的 buckets.activityLevel 同源；出口统一变换。
       // CD380 不豁免臂同款收紧：wash 臂在场=豁免失效，恢复登记拉黑（与门决策
       // 出口变换同语义——防「门拒但不拉黑/不触发清仓」分叉）。
-      // CD390（2026-11-09）：cheat 的豁免资格=burst 臂唯一通道（activity 桶对
-      // grade=cheat 全档关闭——CD388 ultra 档收紧推广到 high 档，_isCheatBurstExempt
-      // 单一子式）；unhealthy 照旧双通道（activity 桶 ∨ burst，均受 CD380 约束）
+      // CD391（2026-11-09「交易活跃度热，cheat 继续豁免」）：cheat 的豁免资格=
+      // activity 桶（high 恢复/ultra 单档拒，CD388 形态）∨ burst 臂——单一子式
+      // 与出口/bootstrap 三点同构；unhealthy 照旧双通道（均受 CD380 约束）
+      const _actBucket = obs.activityLevel ? obs.activityLevel.bucket : null;
       const activityExempt = graded.grade === 'cheat'
-        ? this._isCheatBurstExempt(levels, anchors) // CD390：cheat 只有 burst 豁免（长期沉积一朝操盘不登记拉黑）
-        : ((this._isActivityExempt(obs.activityLevel ? obs.activityLevel.bucket : null)
+        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过
+        : ((this._isActivityExempt(_actBucket)
             || this._isStallBurstExempt(levels, anchors)) // CD383 burst 资格臂
           && !this._exemptDeniedReason(levels));
       if (graded.grade === 'cheat' && !activityExempt) {
@@ -863,7 +860,6 @@ class CheatCheckService {
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
         levels, buckets, anchors,
         strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞值）
-        marketReset: pull.marketReset ?? null, // CD382 盘面重置截窗留痕（persist=false 回测链路唯一留痕点）
       };
     } catch (e) {
       // 兜底吞错（观察期纪律：绝不影响交易链）——loud 留痕
@@ -980,12 +976,14 @@ class CheatCheckService {
         // 与判定行同源。CD380 不豁免臂同款且同构（activityExempt = isExempt && !denied）：
         // 豁免集内桶 ∧ wash 臂不在场才不恢复；非豁免桶（mid/low）本来就轮不到豁免，
         // 三臂在场与否不影响恢复拉黑（收紧只作用于「本来要豁免」的票）。
-        // CD390（2026-11-09）：cheat 的豁免资格=burst 臂唯一通道（activity 桶对
-        // grade=cheat 全档关闭——_isCheatBurstExempt 单一子式，与出口/拉黑登记
-        // 点三点同构）；此处 grade 恒 'cheat'（cheatSeen 扫描域）
+        // CD391（2026-11-09）：cheat 的豁免资格=activity 桶（high 恢复/ultra 单档
+        // 拒）∨ burst 臂——_isCheatExemptEligible 单一子式与出口/拉黑登记点三点
+        // 同构；此处 grade 恒 'cheat'（cheatSeen 扫描域）
         const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;
         const cheatLevels = cheatLv ? cheatLv.levels : null;
-        if (cheatSeen && !this._isCheatBurstExempt(cheatLevels, cheatLv ? cheatLv.anchors : null)) { // CD383/CD390：cheat 只有 burst 豁免
+        if (cheatSeen && !this._isCheatExemptEligible(
+          cheatLv && cheatLv.buckets ? cheatLv.buckets.activityLevel : null,
+          cheatLevels, cheatLv ? cheatLv.anchors : null)) { // CD383/CD391：不豁免=恢复拉黑
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
@@ -1227,9 +1225,6 @@ class CheatCheckService {
         gradeVersion: mapped.gradeVersion ?? null,
         anchorSellCount: mapped.anchorSellCount ?? null,
         strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 SB1 观察臂粘滞值（本轮刻度；研究对拍原料，与 signal metadata 双源）
-        // CD382 盘面重置截窗留痕（应用时才有键；fullAnchorTickCount=重置前原锚数——
-        // 区分新旧窗口径，未应用行无键=全窗口径）
-        marketReset: pull.marketReset ?? null,
         activity: { // D3.2 代码活跃度原始数值——Jev 档位（activityLevel）的校准对照原料
           ticksPerMin: derived.ticksPerMin ?? null,
           avgTradeBnb: derived.avgTradeBnb ?? null,

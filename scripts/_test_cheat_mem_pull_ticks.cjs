@@ -357,7 +357,7 @@ async function main() {
     const svc = read('src/market-analysis/CheatCheckService.js');
     ok(svc.includes('_pullTicksDb(token)'), 'D2 service DB 路径独立方法（shadow 复用不经 mem）');
     ok(/if \(!this\._deps\.pullTicks\) \{\s*await new Promise\(\(r\) => setTimeout\(r, this\._settleFlushMs\)\);/.test(svc), 'D2 尾随等待只在无 mem 源时（组合语义锁）');
-    ok(svc.includes('pull.fromMem'), 'D2 mem hit 标记消费（shadow 挂点）');
+    ok(svc.includes('pull0.fromMem'), 'D2 mem hit 标记消费（shadow 挂点；CD393 5b 改写后 pull0 直通）');
     const eng = read('src/trading-engine/implementations/FourMemeWssTradingEngine.js');
     ok(/waitIdle: \(token\) => \(this\._senderResolver/.test(eng), 'D3 引擎 waitIdle 恒注入（闭包延迟解析）');
     ok(/_cheatMemCfg\.enabled === true/.test(eng), 'D3 pullTicks 仅 memSource.enabled 显式开注入');

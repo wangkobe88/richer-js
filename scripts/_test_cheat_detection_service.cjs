@@ -858,13 +858,12 @@ async function main() {
     ok(lteSrc === 2, `.lte('block_time', anchorIso) 源码恰两处 tail+head（实际 ${lteSrc}）`);
   }
 
-  // ═══════════════ Z2. CD382 盘面重置截窗（回到过 almost_launch=证据窗重置到最低点行起）═══════════════
-  console.log('Z2. CD382 盘面重置截窗');
+  // ═══════════════ Z2. CD393 截窗整链退役（判定窗=锚截窗全窗——回到 CD382 前口径）═══════════════
+  console.log('Z2. CD393 截窗整链退役（全窗口径回归）');
   {
-    // 价格轨迹行工厂（拉高→砸回 almost_launch 重启形状；genTicks 恒价 1e-9=从不离开不触发）。
-    // 2026-11-08 发行价口径修正：META platform='flap'+BNB 盘（quote_token null）→ CD382
-    // reset 锚=FLAP 主力档常量 5.546e-9——价格域乘常量（形状倍数不变=断言数值 bit 不变，
-    // 且真实锁「常量平台锚」生产链路；乘 1e-9 会全落破发域=从未离开不触发 reset）
+    // 价格轨迹行工厂（拉高→砸回 almost_launch 重启形状；6a1e4567 案=reset 截窗把
+    // 8 行票截剩 3 行 insufficient 拒——CD382/CD384 整链退役后此形状不再截窗）。
+    // META platform='flap'+BNB 盘（quote_token null）→ 常量锚=FLAP 主力档 5.546e-9
     const FL = 6.14 / (107036752 + 1e9);
     const priceTicks = (prices) => prices.map((p, i) => ({
       block_time: new Date(1700000000000 + i * 2000).toISOString(),
@@ -874,71 +873,68 @@ async function main() {
       trader_address: `0xp${i % 8}`.padEnd(42, '0'), sender_address: `0xp${i % 8}`.padEnd(42, '0'),
       quote_token: null,
     }));
-    // Z2-1 重置全链：12 行轨迹（首个 >1.2=行1(1.5)；涨起后最低 1.05@行4）→ 判定窗
-    // idx4..11=8 行 ≥minTicks 真调 Jev；digest/返回双留痕；资金只计截断窗
+    // Z2-1 全窗口径：12 行轨迹（拉高砸回形状）→ 不截窗，判定窗=全 12 行真调 Jev；
+    // marketReset 键不再透传（返回+digest 双删）；资金计全窗
     const dbZ1 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12, 1.15]) });
     const svcZ1 = makeSvc(dbZ1, makeLlm({ answers: NONE_ANSWERS }));
     const rZ1 = await svcZ1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rZ1.status === 'analyzed' && rZ1.grade === 'healthy', `重置窗 8 行 ≥minTicks 全链（实际 ${rZ1.status}/${rZ1.grade}）`);
-    ok(rZ1.marketReset && rZ1.marketReset.minVsLaunchPct === 5 && rZ1.marketReset.fullAnchorTickCount === 12,
-      `返回 marketReset 留痕（minVsLaunchPct=+5/fullAnchorTickCount=12；实际 ${JSON.stringify(rZ1.marketReset)}）`);
+    ok(rZ1.status === 'analyzed' && rZ1.grade === 'healthy', `全窗 12 行真调 Jev（实际 ${rZ1.status}/${rZ1.grade}）`);
+    ok(rZ1.marketReset === undefined,
+      `返回 marketReset 不再透传（CD393；实际 ${JSON.stringify(rZ1.marketReset)}）`);
     const rowZ1 = dbZ1.state.inserts[0];
-    ok(rowZ1 && rowZ1.anchor_tick_count === 8 && rowZ1.snapshot_digest.tickCount === 8,
-      `落行锚数=截断后 8 行（实际 ${rowZ1 && rowZ1.anchor_tick_count}/${rowZ1 && rowZ1.snapshot_digest.tickCount}）`);
-    ok(rowZ1.snapshot_digest.marketReset && rowZ1.snapshot_digest.marketReset.minVsLaunchPct === 5,
-      'digest.marketReset 留痕（应用行才有键——新旧窗口径区分）');
-    ok(Math.abs(rowZ1.snapshot_digest.buyBnb - 0.8) < 1e-9,
-      `digest 资金只计截断窗（8 行×0.1=0.8——上一轮 4 行不进；实际 ${rowZ1.snapshot_digest.buyBnb}）`);
-    ok(svcZ1.stats.marketResets === 1, `stats.marketResets 计数（实际 ${svcZ1.stats.marketResets}）`);
-    // Z2-2 重置窗 <minTicks → reset_insufficient_ticks（CD384 fail-closed：bt-v83
-    // 完整窗口 87/87 实证 reset 截窗制造的不足放行=最大亏损源 -1.38，独立 status
-    // 引擎侧硬拒不进 BP；不落表不粘滞；info 带 marketReset）
+    ok(rowZ1 && rowZ1.anchor_tick_count === 12 && rowZ1.snapshot_digest.tickCount === 12,
+      `落行锚数=全窗 12 行（不截断；实际 ${rowZ1 && rowZ1.anchor_tick_count}/${rowZ1 && rowZ1.snapshot_digest.tickCount}）`);
+    ok(!('marketReset' in rowZ1.snapshot_digest),
+      'digest.marketReset 键不写（CD393 透传删除；历史行读侧兼容）');
+    ok(Math.abs(rowZ1.snapshot_digest.buyBnb - 1.2) < 1e-9,
+      `digest 资金计全窗（12 行×0.1=1.2；实际 ${rowZ1.snapshot_digest.buyBnb}）`);
+    ok(svcZ1.stats.marketResets === 0, `stats.marketResets 停用恒 0（CD393；实际 ${svcZ1.stats.marketResets}）`);
+    // Z2-2 短窗 reset 形状（7 行）→ 回到天然 insufficient_ticks（CD384
+    // reset_insufficient_ticks 独立 status 随截窗退役；BP10「数据不够就挡住」
+    // 存量语义照旧——仍是拒，不落表不烧 Jev）
     const dbZ2 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07]) });
     const svcZ2 = makeSvc(dbZ2, makeLlm({ answers: NONE_ANSWERS }));
     const rZ2 = await svcZ2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rZ2.status === 'reset_insufficient_ticks' && rZ2.anchorTickCount === 3,
-      `重置窗 3 行 <minTicks → reset_insufficient_ticks（CD384 fail-closed；实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
-    ok(rZ2.marketReset && rZ2.marketReset.fullAnchorTickCount === 7 && dbZ2.state.inserts.length === 0,
-      `reset_insufficient 行 info 留痕+不落表（实际 full=${rZ2.marketReset && rZ2.marketReset.fullAnchorTickCount}/inserts=${dbZ2.state.inserts.length}）`);
-    ok(svcZ2.stats.resetInsufficientRejects === 1, `stats.resetInsufficientRejects 计数（实际 ${svcZ2.stats.resetInsufficientRejects}）`);
-    ok(svcZ2._llm === null || dbZ2.state.inserts.length === 0, 'reset_insufficient 不烧 Jev 判定（落表零行）');
-    // Z2-2b 天然短窗（无 reset）维持 insufficient_ticks fail-open 存量语义（CD384
-    // 只收 reset 截窗制造的不足；genTicks 恒价不触发 reset → 5 行天然不足）
-    const dbZ2b = makeDb({ ticks: priceTicks([1.0, 1.0, 1.0, 1.0, 1.0]) });
-    const svcZ2b = makeSvc(dbZ2b, makeLlm({ answers: NONE_ANSWERS }));
-    const rZ2b = await svcZ2b.gateBuyPoint('0xtok2', META, {}, { awaitMs: 3000 });
-    ok(rZ2b.status === 'insufficient_ticks' && rZ2b.marketReset == null && rZ2b.anchorTickCount === 5,
-      `天然短窗 5 行 → insufficient_ticks 照旧（无 marketReset；实际 ${rZ2b.status}/mr=${rZ2b.marketReset}/${rZ2b.anchorTickCount}）`);
-    ok(svcZ2b.stats.resetInsufficientRejects === 0, `天然短窗不计 resetInsufficientRejects（实际 ${svcZ2b.stats.resetInsufficientRejects}）`);
-    // Z2-3 满帽（capped）不重置：锚窗不含出生段=伪发行价，宁保持原判（config
-    // pullLimit 最小合法值 10——num() min 拒收更小值；14 行票 tail 10=满帽 →
-    // capped=true，head 补前段 → 不应用重置）
+    ok(rZ2.status === 'insufficient_ticks' && rZ2.anchorTickCount === 7,
+      `7 行 <minTicks → insufficient_ticks（reset_insufficient_ticks 状态不再产出；实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
+    ok(dbZ2.state.inserts.length === 0 && svcZ2.stats.resetInsufficientRejects === 0,
+      `短窗不落表+resetInsufficientRejects 停用恒 0（实际 inserts=${dbZ2.state.inserts.length}/ri=${svcZ2.stats.resetInsufficientRejects}）`);
+    // Z2-3 满帽（capped）：tail 10 行=帽 → 判定窗=帽内 10 行全窗（无 reset 分叉，
+    // capped 补 head 后原样判定）
     const capTicks = priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12, 1.15, 1.2, 1.25]);
     const dbZ3 = makeDb({ ticks: capTicks });
     const svcZ3 = makeSvc(dbZ3, makeLlm({ answers: NONE_ANSWERS }), { pullLimit: 10, headLimit: 10 });
     const rZ3 = await svcZ3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rZ3.status === 'analyzed' && rZ3.marketReset === null && svcZ3.stats.marketResets === 0,
-      `capped 满帽不重置（tail 10 行=帽 → capped=true；实际 ${rZ3.status}/mr=${rZ3.marketReset}/resets=${svcZ3.stats.marketResets}）`);
+    ok(rZ3.status === 'analyzed' && svcZ3.stats.marketResets === 0,
+      `capped 满帽 analyzed 全窗（实际 ${rZ3.status}/resets=${svcZ3.stats.marketResets}）`);
     const rowZ3 = dbZ3.state.inserts[0];
-    ok(rowZ3.snapshot_digest.marketReset === null && rowZ3.snapshot_digest.tickCount === 10,
-      `capped 行 digest.marketReset=null 全窗口径（anchor=tail 10；实际 ${JSON.stringify(rowZ3.snapshot_digest.marketReset)}/${rowZ3.snapshot_digest.tickCount}）`);
-    // Z2-4 从未离开（恒价）→ bit 不变零重置（既有语义回归锚）
+    ok(!('marketReset' in rowZ3.snapshot_digest) && rowZ3.snapshot_digest.tickCount === 10,
+      `capped 行 digest 无 marketReset 键（anchor=tail 10；实际 tc=${rowZ3.snapshot_digest.tickCount}）`);
+    // Z2-4 恒价票 → analyzed bit 不变（既有语义回归锚）
     const dbZ4 = makeDb({ ticks: genTicks(20, { routerEvery: 2 }) });
     const svcZ4 = makeSvc(dbZ4, makeLlm({ answers: NONE_ANSWERS }));
     const rZ4 = await svcZ4.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rZ4.status === 'analyzed' && rZ4.marketReset === null && svcZ4.stats.marketResets === 0,
-      `恒价票（从未离开 almost_launch）零重置 bit 不变（实际 ${rZ4.status}/resets=${svcZ4.stats.marketResets}）`);
-    // Z2-5 anchorMs 截窗后重置照常应用（回测 signalGateReal：锚窗内判形状）
+    ok(rZ4.status === 'analyzed' && rZ4.marketReset === undefined && svcZ4.stats.marketResets === 0,
+      `恒价票 analyzed 零 reset 键（实际 ${rZ4.status}/resets=${svcZ4.stats.marketResets}）`);
+    // Z2-5 anchorMs 截窗照常（回测 signalGateReal：锚内行集不截断）
     const anchorMsZ5 = 1700000000000 + 11 * 2000; // 锚=行 11 → 锚内 12 行同 Z2-1
     const dbZ5 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07, 1.08, 1.09, 1.1, 1.12, 1.15, 1.3, 1.5]) });
     const rZ5 = await makeSvc(dbZ5, makeLlm({ answers: NONE_ANSWERS }))
       .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs: anchorMsZ5 });
-    ok(rZ5.status === 'analyzed' && rZ5.marketReset && rZ5.marketReset.fullAnchorTickCount === 12,
-      `anchorMs 锚内重置照常（锚后 2 行不进窗不影响 resetIdx；实际 ${rZ5.marketReset && rZ5.marketReset.fullAnchorTickCount}）`);
-    // Z2-6 题集版本不 bump（窗口口径非题面——粘滞域零变化）
+    const rowZ5 = dbZ5.state.inserts[0];
+    ok(rZ5.status === 'analyzed' && rZ5.marketReset === undefined && rowZ5 && rowZ5.anchor_tick_count === 12,
+      `anchorMs 锚内 12 行 analyzed（锚后 2 行不进窗；实际 tc=${rowZ5 && rowZ5.anchor_tick_count}）`);
+    // Z2-6 源码锁：computeMarketResetIndex 整链退役（函数本体+service 接线+独立
+    // status 全删；stats 两键保留恒 0 读数连续性）
     const srcZ6 = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
-    ok(srcZ6.includes('computeMarketResetIndex'),
-      'Service 接线在场（_chain 5b 消费 computeMarketResetIndex）');
+    ok(!srcZ6.includes('computeMarketResetIndex') && !srcZ6.includes('reset_insufficient_ticks'),
+      'CD393 源码锁：Service 无 computeMarketResetIndex 接线、无 reset_insufficient_ticks 状态');
+    const snapZ6 = fs.readFileSync(path.join(__dirname, '../src/market-analysis/cheat-snapshot.js'), 'utf8');
+    ok(!/computeMarketResetIndex/.test(snapZ6.replace(/CD393[\s\S]{0,400}/g, '')),
+      'CD393 源码锁：cheat-snapshot 函数本体删除（仅注释留痕）');
+    const engineZ6 = fs.readFileSync(path.join(__dirname, '../src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
+    ok(!engineZ6.includes('cheat_gate_reset_insufficient'),
+      'CD393 源码锁：引擎 reset_insufficient 拒绝分支删除');
   }
 
   console.log(`\n✅ _test_cheat_detection_service 全过（${passed} 断言）`);

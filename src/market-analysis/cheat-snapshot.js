@@ -24,7 +24,7 @@
  */
 
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
-const { resolveLaunchPriceBnb } = require('./launch-price');
+const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price');
 
 /** 等额簇金额舍入粒度（0.0001 BNB，T74 口径） */
 const EQUAL_AMOUNT_ROUND = 10000;
@@ -917,12 +917,36 @@ function computeDerived(snapshot, famousRoster) {
   // 笔数取最密），窗内钱包计数 map 精确去重（同钱包多笔逐出时不误删）；dt 缺失
   // 全族 null（绝不冒充）；<2 有效 dt 行波形状不可评同 null。D3.56 起搜索段=
   // 锚前 BURST_NEAR_SEC 临近段（头注见 BURST_NEAR_SEC——开盘/中段波「前面有不算」）。──
-  let burstWaveBuyBnb = null, burstWaveWallets = null;
+  let burstWaveBuyBnb = null, burstWaveWallets = null, burstWaveStartVsLaunchPct = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
   if (waveTicksAll.length >= 2) {
     const nearFrom = waveTicksAll[waveTicksAll.length - 1].dt - BURST_NEAR_SEC;
     const waveTicks = nearFrom <= 0 ? waveTicksAll : waveTicksAll.filter((t) => t.dt >= nearFrom);
     if (waveTicks.length >= 2) {
+      // CD392（2026-11-09 ad80fb7a 案）：burst 波起点价锚——临近段首个可靠价 vs
+      // 发行价常量 %。用户裁定「burst 是指 价格跌到很低再起来，不是价格维持
+      // 高位再一个流量拉升」——豁免资格价格腿（CheatCheckService
+      // _isStallBurstExempt 第四腿 ≤+40）的判据源。起点=临近段**首价**（刻意
+      // 不取段内最低：末段砸落的低点不是「起来的起点」——ad80fb7a +152% 高位
+      // 横盘 280s 末段砸落 17.5% 的形状必须以首价拒；M4GA 波起点 +2.9% 贴地板
+      // 放行）。null 条件与波两键同源（临近段 <2 行）+无常量平台（gang）+
+      // 首个可靠价缺席，fail-closed 不授予。
+      const _quoteTk = waveTicks.some((t) => t.quote) ? 'quote' : null;
+      // T130 地板补丁同源（launch=min(常量, 首笔买入可靠价)，锚窗首笔 BUY 行）——
+      // 低开票（67ad68e0/6efa11ce 案）以常量为分母会把波起点位置整体抬高，
+      // 与 FA/BP 的 currentVsLaunchPct 同锚换（capped 满帽窗不含出生段时窗内
+      // 首买=可得最早，宁用不冒充缺锚 null）
+      const _constLaunch = resolveLaunchPriceBnb(
+        snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, _quoteTk);
+      const _launch = _constLaunch !== null && _constLaunch > 0
+        ? floorLaunchPriceBnb(_constLaunch, (waveTicksAll.find(
+            (t) => t.side === 'BUY' && !t.outlier && t.priceBnb > 0,
+          ) || {}).priceBnb || 0)
+        : null;
+      if (_launch !== null && _launch > 0) {
+        const _firstRel = waveTicks.find((t) => !t.outlier && t.priceBnb > 0);
+        if (_firstRel) burstWaveStartVsLaunchPct = +(((_firstRel.priceBnb / _launch) - 1) * 100).toFixed(1);
+      }
       let j = 0, curN = 0, curBuy = 0, bestN = 0, bestBuy = 0, bestWalletN = 0;
       const curWallets = new Map(); // wallet → 窗内笔数
       for (let i = 0; i < waveTicks.length; i++) {
@@ -1411,6 +1435,8 @@ function computeDerived(snapshot, famousRoster) {
     nearSegTickN, nearSegTicksPerMin, nearSegBuyMedianBnb, nearSegBnbPerMin,
     nearSegMaxGapSec, nearSegBuyN, nearSegSellN,
     burstWaveBuyBnb, burstWaveWallets,
+    // CD392 burst 波起点价锚（头注见计算段；_isStallBurstExempt 第四腿判据源）
+    burstWaveStartVsLaunchPct,
     // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,
     spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,
@@ -1450,90 +1476,11 @@ function isRouterWallet(wallet) {
   return wallet !== null && AGGREGATOR_ROUTER_ADDRS.has(String(wallet).toLowerCase());
 }
 
-/**
- * CD382 盘面重置截窗（2026-11-08 用户裁定，与 BP44 案号 BP39 同日同语义）：
- * 「如果代币到过了 almost_launch 又起来，那么对它的判定也是从 almost_launch
- * 之后的最低点开始」——锚窗内价格回到过 almost_launch = 盘面重新计算，cheat
- * 判定的证据窗重置到 almost_launch 之后的最低点行起（上一轮抢筹/等额分仓/拉高
- * 形状不再进证据窗。案由 bt-s01 0x28ad2c7d：07:14 等额分仓拉高 cheat 拉黑 →
- * 07:15:41 砸回 almost_launch 重判，锚窗内上一轮形状保持 strong=A 主判翻不了案，
- * 翻案时价格已拉离——重置窗使重判只看新一轮）。
- *
- * 判据=BP44 minVsLaunchPct 同款定义（buy-point-snapshot 独立实现，口径由
- * _test_cheat_market_reset 双向锁定——cheat-snapshot 已被 buy-point-snapshot
- * 依赖，反向 import 成环，故 CD 侧独立实现）：launchPrice=平台 curve 初始价常量
- * （2026-11-08 发行价口径修正——four.meme 主流档/flap BNB 盘主力档，第二参
- * platform 传 'fourmeme'/'flap' 时启用，flap 含 quote 盘同 FL 常量（2026-11-09）；
- * gang/null 平台=首可靠价旧口径（不满帽锚窗首行=出生段发行价，capped 由调用方拦））；
- * 涨起后段=首个突破 almost_launch
- * 上界（严格 > 1.1×launchPrice——+10 恰在桶界内不算离开；2026-11-09 almost 20→10）的可靠价起（含离开
- * 那一笔——突破笔本身必然 >+10 不影响「≤+10」判定；创新高不遮蔽回落，ATH
- * 位置无关）全段；段最低 ≤+10%（含破发）=「回到过」→ 重置生效。
- *
- * 价格口径滤 outlier/空/≤0（与 priceArc/可靠价链一致——重置判形状看价格；
- * 资金口径不滤是钱包侧的事）；dt/block 字段不参与判定。
- *
- * @param {Array} rows DB 形状行（price_bnb/price_outlier/block_number/log_index/
- *   block_time/quote_token；到达序无关——内部按链上真序拷贝排序）
- * @param {string|null} [platform] 平台标识（'fourmeme'|'flap'——传则优先 curve
- *   常量锚（flap 含 quote 盘同 FL 常量，2026-11-09）；gang/null=首可靠价旧口径）
- * @returns {null|Object} null=未重置（无可靠价/从未离开 almost_launch/刚离开
- *   无后续/涨起后最低 >+20 没回到过——调用方维持全窗 bit 不变）；
- *   {resetIdx, sortedRows, launchPriceBnb, minPriceBnb, minVsLaunchPct,
- *    resetAt, exitAt}——sortedRows=链上真序全行拷贝（resetIdx 在其上；调用方
- *   直接 slice，防 pull.rows 到达序与排序 idx 错位）；resetIdx=最低点行下标
- *   （重置窗起点=该行含——锚时刻视角的可见最低，锚推移后更低点出现则起点
- *   自然后移，as-of 无前视）；minVsLaunchPct=段最低较发行价 %（toFixed(1)，
- *   破发为负）
- */
-function computeMarketResetIndex(rows, platform = null) {
-  const sorted = [...(rows || [])].sort((a, b) => {
-    const ba = a.block_number ?? 0, bb = b.block_number ?? 0;
-    if (ba !== bb) return ba - bb;
-    return (a.log_index ?? 0) - (b.log_index ?? 0);
-  });
-  const isRel = (r) => r.price_bnb != null && r.price_bnb > 0 && r.price_outlier !== true;
-  // launchPrice=平台 curve 初始价常量（2026-11-08 发行价口径修正：four.meme 主流档/
-  // flap 主力档，用户裁定；2026-11-09 起 quote 盘同 FL 常量）；gang/未知=null
-  // 无常量锚回落首可靠价旧口径；无可靠价且无常量锚 → null（宁不重置，不以伪锚翻案）
-  // quote 判定=rows 行 quote_token（flap 非 BNB 计价盘行级标记；BNB 盘 null）
-  const quoteToken = (rows || []).some((r) => r.quote_token) ? 'quote' : null;
-  let launchPrice = resolveLaunchPriceBnb(platform, quoteToken);
-  if (launchPrice === null) {
-    for (const r of sorted) {
-      if (isRel(r)) { launchPrice = r.price_bnb; break; }
-    }
-  }
-  if (launchPrice === null || !(launchPrice > 0)) return null;
-  // 涨起点：首个严格 > 1.1×launchPrice 的可靠价（+10 恰等在 almost_launch 桶界内不算离开；
-  // 2026-11-09 用户裁定 almost 上界 20→10「基本再次归零」——1.2→1.1 同步）
-  const exitThreshold = launchPrice * 1.1;
-  let exitIdx = -1;
-  for (let i = 0; i < sorted.length; i++) {
-    if (isRel(sorted[i]) && sorted[i].price_bnb > exitThreshold) { exitIdx = i; break; }
-  }
-  // 从未离开 / 刚离开无后续（突破点即末位=无回落证据）→ null 不冒充「回到过」
-  if (exitIdx < 0 || exitIdx >= sorted.length - 1) return null;
-  // 涨起后段最低（含突破笔）——创新高不遮蔽回落：段最低=突破点之后全部可靠价的最低
-  let minIdx = -1, minPrice = null;
-  for (let i = exitIdx; i < sorted.length; i++) {
-    if (!isRel(sorted[i])) continue;
-    const p = sorted[i].price_bnb;
-    if (minPrice === null || p < minPrice) { minPrice = p; minIdx = i; }
-  }
-  if (minIdx < 0 || minPrice === null) return null;
-  // 段最低 >+10 = 涨起后没回到过 almost_launch → 不重置（≤ 含恰等与破发）
-  if (minPrice > exitThreshold) return null;
-  return {
-    resetIdx: minIdx,
-    sortedRows: sorted,
-    launchPriceBnb: launchPrice,
-    minPriceBnb: minPrice,
-    minVsLaunchPct: +(((minPrice / launchPrice) - 1) * 100).toFixed(1),
-    resetAt: sorted[minIdx].block_time ?? null,
-    exitAt: sorted[exitIdx].block_time ?? null,
-  };
-}
+// CD393（2026-11-09）：CD382 盘面重置截窗 computeMarketResetIndex 整链退役（用户裁定
+// 6a1e4567 案——重置窗行数不足反而拦买「ticks 不够，更买入不了了」）；生产 _chain 5b、
+// 回归 runner 三拉数点、digest.marketReset 键同步退役。BP 侧 minVsLaunchPct/restart 桶
+// （buy-point-snapshot 独立实现）不动——BP 锚窗从不受截断影响。历史行带 marketReset
+// 键照留档（读侧不再产出）。
 
 module.exports = {
   buildSnapshotFromRows,
@@ -1541,7 +1488,6 @@ module.exports = {
   aggregateWallets,
   walletOf,
   isRouterWallet,
-  computeMarketResetIndex,
   loadFamousRoster,
   EQUAL_AMOUNT_MIN_BNB,
   EQUAL_BAND_PCT,

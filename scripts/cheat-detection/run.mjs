@@ -42,7 +42,7 @@ const PULL_LIMIT = 3000; // 与 CheatCheckService 默认 pullLimit 一致（--ad
 
 const require_ = createRequire(import.meta.url);
 // 与实时 service 同一组装路径（CJS 纯函数复用=口径单点）
-const { buildSnapshotFromRows, computeMarketResetIndex } = require_('../../src/market-analysis/cheat-snapshot.js');
+const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snapshot.js');
 // G1 分级门对拍同源（gradeObservation=生产 gate 同款纯函数；anchorSellCount 与
 // service 口径一致=锚窗卖笔数 derived.sellN；famousLevel=famousDominanceLevel）
 const { gradeObservation, CHEAT_GRADE_RULES_VERSION } = require_('../../src/market-analysis/cheat-grade.js');
@@ -78,29 +78,10 @@ function sb() {
   return dbManager.getClient();
 }
 
-/**
- * CD382 盘面重置截窗（2026-11-08，与生产 CheatCheckService._chain 5b 同款口径——
- * 回归对拍必须同窗口径，否则窗口径改动在生产生效、对拍集漂移）：锚窗内回到过
- * almost_launch（涨起后最低 ≤+20% 含破发）=盘面重新计算，判定证据窗重置到
- * 最低点行起（上一轮抢筹/等额分仓/拉高形状不再进证据窗）。capped 同生产不应用
- * （锚窗不含出生段=伪发行价，宁保持原判）。三处拉数点（runCase/add/baseline）
- * 统一走本函数。返回 {rows, marketReset}（未重置 marketReset=null）。
- * platform（2026-11-08 发行价口径修正）：传 'fourmeme'/'flap' 用 curve 常量锚
- * （生产 CheatCheckService 5b 同款）；null/undefined=首可靠价旧口径。
- */
-function applyMarketReset(rows, capped, platform = null) {
-  if (capped) return { rows, marketReset: null };
-  const reset = computeMarketResetIndex(rows, platform || null);
-  if (!reset) return { rows, marketReset: null };
-  const out = reset.sortedRows.slice(reset.resetIdx);
-  return {
-    rows: out,
-    marketReset: {
-      minVsLaunchPct: reset.minVsLaunchPct, resetAt: reset.resetAt, exitAt: reset.exitAt,
-      fullAnchorTickCount: rows.length,
-    },
-  };
-}
+// CD393（2026-11-09）：CD382 盘面重置截窗+CD384 reset_insufficient 整链退役（用户裁定
+// 6a1e4567 案——重置窗行数不足反而拦买「ticks 不够，更买入不了了」）；生产 _chain 5b 与
+// 回归 runner 三拉数点同步退役，判定窗=锚截窗原样。历史 fixture 重放行为变化=对拍窗口径
+// 与生产一致（reset 票判定窗恢复全锚窗——bt-v83 立法票防线由 T129 27.5 价格门接棒）。
 
 /** 链上真序前 N 笔（锚截窗）；行数不足=fail-loud */
 async function pullTicksToAnchor(token, n) {
@@ -206,16 +187,9 @@ function obsLine(interp) {
   return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} bw=${ext('same_block_buy_wave') ?? '-'} rat=${ext('insider_supply_sell') ?? '-'} pump=${ext('slow_grind_pump') ?? '-'} act=${act ?? '-'} bd=${bd ?? '-'} abr=${part ?? '-'}`;
 }
 
-/** 单 case 全链（锚截窗→CD382 盘面重置截窗→快照→state→[Jev]→mapper 观测组装） */
+/** 单 case 全链（锚截窗→快照→state→[Jev]→mapper 观测组装；CD393 起判定窗=锚截窗原样） */
 async function runCase(c, { dry, version }) {
-  const anchorRows = await pullTicksToAnchor(c.addr.toLowerCase(), c.anchor.tickCount);
-  // CD382 盘面重置（生产 5b 同款）：capped 不应用；重置后锚数=截断行数（fixture
-  // anchor=拉数锚（数据定位），判定窗=重置窗——与生产 digest.marketReset 留痕同构）；
-  // platform=fixture 记录（旧 fixture 缺键=null 旧口径）
-  const { rows, marketReset } = applyMarketReset(anchorRows, c.anchor.capped === true, c.platform || null);
-  if (marketReset) {
-    console.log(`  ↻ CD382 盘面重置：涨起后最低 ${marketReset.minVsLaunchPct}% @${marketReset.resetAt}｜判定窗 ${marketReset.fullAnchorTickCount}→${rows.length} 行（上一轮形状出窗）`);
-  }
+  const rows = await pullTicksToAnchor(c.addr.toLowerCase(), c.anchor.tickCount);
   const meta = { ...await loadTokenMeta(c.addr.toLowerCase()), quoteToken: quoteTokenOf(rows) };
   const snapshot = buildSnapshotFromRows(rows, meta, { capped: c.anchor.capped === true, anchorTickCount: rows.length });
   const { state, promptChars } = buildCheatState(snapshot);
@@ -256,14 +230,10 @@ async function cmdAdd(args, doc, cases) {
     console.error(`代币×点位已收录: ${pointKey}（同 addr 不同 anchor 可另立新案）`); process.exit(2);
   }
   console.log(`--add 锚=${anchorN}（现全量 ${count}${capped ? '，超帽截 3000' : ''}${Number.isInteger(args.anchor) && args.anchor > 0 ? '（--anchor 显式指定）' : '（收录时刻全量）'}）→ 分析一次记基线`);
-  // CD382 盘面重置截窗（生产 5b 同款口径——add 也是一次真调重析，判定窗与生产一致）
+  // CD393：截窗退役，判定窗=锚截窗原样（与生产 _chain 5b 同款退役）
   const winCapped = capped && anchorN === rows.length;
-  const addMeta0 = await loadTokenMeta(addr); // platform 先取（reset 常量锚用）
-  const { rows: winRows, marketReset } = applyMarketReset(
-    anchorN === rows.length ? rows : rows.slice(0, anchorN), winCapped, addMeta0.platform || null);
-  if (marketReset) {
-    console.log(`  ↻ CD382 盘面重置：涨起后最低 ${marketReset.minVsLaunchPct}% @${marketReset.resetAt}｜判定窗 ${marketReset.fullAnchorTickCount}→${winRows.length} 行`);
-  }
+  const addMeta0 = await loadTokenMeta(addr);
+  const winRows = anchorN === rows.length ? rows : rows.slice(0, anchorN);
   const meta = { ...addMeta0, quoteToken: quoteTokenOf(winRows) };
   const snapshot = buildSnapshotFromRows(
     winRows,
@@ -371,14 +341,9 @@ async function cmdExperimentBaseline(args) {
       if (rawAnchor < 1) { console.log(`${rowHead} 锚=0（首买前无 tick=数据洞），跳过`); continue; }
       const capped = fullCapped && rawAnchor > PULL_LIMIT;
       const anchorN = Math.min(rawAnchor, PULL_LIMIT);
-      // CD382 盘面重置截窗（生产 5b 同款）：capped 不应用；重置后 <8 行走同款
-      // insufficient 跳过（生产 5b→⑥ 预门同语义）
-      const batchMeta0 = await loadTokenMeta(t.addr); // platform 先取（reset 常量锚用）
-      const { rows: winRows, marketReset } = applyMarketReset(rows.slice(0, anchorN), capped, batchMeta0.platform || null);
-      if (marketReset) {
-        console.log(`     ↻ CD382 盘面重置：涨起后最低 ${marketReset.minVsLaunchPct}% @${marketReset.resetAt}｜判定窗 ${marketReset.fullAnchorTickCount}→${winRows.length} 行`);
-      }
-      const window = winRows;
+      // CD393：截窗退役，判定窗=锚截窗原样（与生产 _chain 5b 同款退役）
+      const batchMeta0 = await loadTokenMeta(t.addr);
+      const window = rows.slice(0, anchorN);
       const meta = { ...batchMeta0, quoteToken: quoteTokenOf(window) };
       const snapshot = buildSnapshotFromRows(window, meta, { capped, anchorTickCount: window.length });
       const { state, promptChars } = buildCheatState(snapshot);

@@ -159,6 +159,60 @@ console.log('H. 平台 curve 常量锚（four.meme 主流档/flap 主力档；qu
         assert.strictEqual(faG.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 100));
 }
 
+// ═══════════════ I. T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 案）═══════════════
+// 用户裁定「如果代币首次购买价格低于我们配置的代币初始价格，那么地板改为首次购买价」
+// ——launch 锚=min(平台常量, 首笔买入可靠价)。低开票（flap quote 盘 -4.9%/-20.2% 实证）
+// 以常量为地板会把 currentVsLaunchPct 整体抬高（首 tick 即 +20%=low 档），near_launch/
+// almost_launch 位置判定系统性失真。state._firstBuyPriceBnb write-once 只认 BUY。
+console.log('I. T130 地板补丁（launch=min(常量, 首笔买入可靠价)）');
+{
+    const FM = 4496173469e-18;
+    // I1 低开票：首笔 buy 0.8×FM（-20%）→ 地板=首买价；现价 1.0×FM → +25
+    //（常量锚下显 0=发行价即视；near_launch ≤40 判定随锚修正——6efa11ce 案形状）
+    const faLow = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faLow.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+    faLow.processTick(mkTick({ price_bnb: FM * 0.8, timestamp: T0 + 1000 }));
+    faLow.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 2000 }));
+    check('I1 低开票地板=首买价 0.8×FM（现价 1.0×FM → +25 非常量口径 0）', () =>
+        assert.strictEqual(faLow.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 25));
+
+    // I2 高开不降锚：首笔 buy 1.5×FM > 常量 → 地板=常量原值（min 语义只降不升）；
+    // 现价 1.2×FM → +20
+    const faHigh = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faHigh.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+    faHigh.processTick(mkTick({ price_bnb: FM * 1.5, timestamp: T0 + 1000 }));
+    faHigh.processTick(mkTick({ price_bnb: FM * 1.2, timestamp: T0 + 2000 }));
+    check('I2 高开票地板=常量原值（min 语义；1.2×FM → +20 非旧首可靠价口径 -20）', () =>
+        assert.strictEqual(faHigh.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 20));
+
+    // I3 write-once 只认 BUY：首笔可靠价是 sell 0.7×FM（不冻结）→ 首笔 buy 0.9×FM
+    // 才是地板；现价 0.945×FM → +5
+    const faSellFirst = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faSellFirst.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+    faSellFirst.processTick(mkTick({ price_bnb: FM * 0.7, timestamp: T0 + 1000, trade_type: 'sell' }));
+    faSellFirst.processTick(mkTick({ price_bnb: FM * 0.9, timestamp: T0 + 2000, trade_type: 'buy' }));
+    faSellFirst.processTick(mkTick({ price_bnb: FM * 0.945, timestamp: T0 + 3000 }));
+    check('I3 write-once 只认 BUY（首 sell 0.7 不冻结 → 地板=首 buy 0.9；+5）', () =>
+        assert.strictEqual(faSellFirst.buildFactorMap('0xtoken', T0 + 3000).currentVsLaunchPct, 5));
+
+    // I4 无常量平台（gang）不应用地板（floorLaunchPriceBnb 返回 null → 旧口径
+    // 首可靠价；首笔 buy 0.8e-9 → 现价 1.6e-9 → +100）
+    const faGang = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faGang.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'gang' });
+    faGang.processTick(mkTick({ price_bnb: 0.8 * 1e-9, timestamp: T0 + 1000 }));
+    faGang.processTick(mkTick({ price_bnb: 1.6 * 1e-9, timestamp: T0 + 2000 }));
+    check('I4 gang 无常量=旧口径首可靠价（+100）', () =>
+        assert.strictEqual(faGang.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 100));
+
+    // I5 源码锁：地板接线在 currentVsLaunchPct 发射（_floorLaunchPriceBnb 包
+    // _resolveLaunchPriceBnb；_firstBuyPriceBnb write-once 冻结点=priceReliable 块）
+    const srcI = read('src/services/FourMemeFactorAggregator.js');
+    ok('I5 源码锁（发射=地板包裹常量锚 ?? 首可靠价；冻结点 isBuy write-once）',
+        srcI.includes('_floorLaunchPriceBnb(')
+        && srcI.includes('state._firstBuyPriceBnb === 0 && isBuy')
+        && srcI.includes('state._firstBuyPriceBnb = priceBnb'));
+}
+
 
 console.log('D. getFactorKeys 探针含键（未知因子三防线自动认得）');
 {

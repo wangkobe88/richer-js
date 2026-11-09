@@ -55,7 +55,21 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
-### T129 ladder v14 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5——系统全局不买现价较发行价 >+27.5% 的票（2026-11-09；用户裁定原话「near_launch 的范围 改为 涨幅 30% 以下，也就是说当前系统不会买入涨幅超过 27.5 的任何代币。所以 tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 80 中 currentVsLaunchPct <= 80 需要改为 currentVsLaunchPct <= 27.5。其它买入臂也是如此」）
+### T130 发行价地板补丁：launch 锚=min(平台常量, 代币首笔买入可靠价)——低开票 currentVsLaunchPct 族换地板锚（2026-11-09；用户裁定原话「我发现很多币的第一次购买价格，低于普遍代币的发布价格……这里再打一个补丁，如果代币首次购买价格低于我们配置的代币初始价格，那么地板改为首次购买价」；例票 67ad68e0/-4.9%、6efa11ce/-20.2% 两张 flap quote 盘）
+
+**动机**：flap quote 盘（及个别低开票）首笔成交价可显著低于平台常量（67ad68e0 首笔 buy 5.2737e-9 vs FL 常量 5.546e-9=-4.9%；6efa11ce 4.4263e-9=-20.2%）——T127 常量锚下这类票 currentVsLaunchPct 整体抬高（6efa11ce 首 tick 即 +20%=low 档），near_launch(≤+40)/almost_launch(≤+10) 位置判定与 T129 27.5 价格门系统性失真：低开票的「发行价」事实是首买价不是常量。
+
+**落法（`launch-price.js` 新函数+三个消费者）**：
+- **`floorLaunchPriceBnb(launchConstBnb, firstBuyPriceBnb)`**：无常量锚（gang/未知）返回 null=调用方保留旧口径首可靠价；`firstBuy > 0 && firstBuy < const` 取 first 否则 const（min 语义只降不升，高开不抬地板）。
+- **FA（`FourMemeFactorAggregator.js`）**：state 新增 `_firstBuyPriceBnb: 0` write-once（processTick priceReliable 块内首可靠价冻结点之后 `=== 0 && isBuy` 才冻结——只认 BUY 行，回放任意序收敛、defer 两段喂食价格段同步到达无竞态、FA state 全史内存=天然全局首买不受窗口限制）；`currentVsLaunchPct` 发射锚链 `_floorLaunchPriceBnb(_resolveLaunchPriceBnb(...), state._firstBuyPriceBnb) ?? state._relFirstPriceBnb`；**`priceBackToAlmostLaunch`（CD381 重检锚）走 factors.currentVsLaunchPct 自动吃到新锚**，`_anchor.minVsLaunch` 单调 min 口径不变。
+- **BP snapshot（`buy-point-snapshot.js` launch 族）**：`constLaunch !== null` 时 `firstBuyRel = launchCovered ? (锚窗首笔可靠 BUY 行价 || 0) : 0` → `launchAnchor = floorLaunchPriceBnb(constLaunch, firstBuyRel)`——**launchCovered=false（截窗不含出生段）时宁用常量**（中途窗首行不是「首买」，不冒充）；launchPriceBnb/athVsLaunchPct/minVsLaunchPct/currentVsLaunchPct 四键全换地板锚；gang 无常量维持 rel[0] 旧口径。
+- **CD burst 锚（cheat-snapshot.js，CD392 同车）**：burst 波起点 `burstWaveStartVsLaunchPct` 分母同款地板（waveTicksAll 首笔可靠 BUY 行价）。
+
+**ladder v15 不变**：本批无腿改动（价格门阈值照旧读 currentVsLaunchPct 因子，换锚后低开票读数自动修正）；若低开票密集上线导致 27.5/40 门实际放行面变化，属语义修复非阈值漂移。
+
+**单测**：`_test_current_vs_launch_factor.cjs` 新 I 段五断言（低开 +25/高开不降锚 +20/write-once 只认 BUY/gang 无常量旧口径/源码锁）；`_test_cheat_market_reset.cjs` B2-B4（BP 低开 launch=首买/高开常量/launchCovered=false 用常量）；13 件相关单测全绿（cheat_gate_engine 170/detection_service 140/detection_lib 640/grade 135/market_reset 17/mem_pull 109/buy_point_lib 476/buy_point_check 36/signal_source 43/signal_gate 127/fa_factors/quote 9）。
+
+
 
 **动机（bt-v91 涨幅 Top10 前期低点分布复盘）**：254 票池涨幅 Top10（+499%~+1426%）**前期最低点全部在 +23.9% 以内**——memes +1426%（前期最低 +0.9%）、苍蝇 +1200%（+3.3%）、来财 +1200%（+16.6%）、高大上 +1041%（**-10.9% 破发**）、M4GA +772%（+0.9%）、突突车 +663%（+0.3%）、吉祥 +652%（+12.9%）、7 +543%（+0.3%）、Dawn +525%（+12.0%）、海水过滤器 +524%（-0.6% 破发）；6 票前期低点 ≤+3.3%、2-3 票直接破发（=RL 臂目标域）。**所有大涨幅票的入场窗口都在 +27.5% 以下——门上界 80 收进 27.5 不损失任何正收益分布、砍掉全部 +27.5~80 追高域**（该域无正收益分布支撑）。分界线 27.5=用户给定（涨幅 30% 以下减半档容差）。
 

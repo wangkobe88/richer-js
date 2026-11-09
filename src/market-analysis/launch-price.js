@@ -57,8 +57,32 @@ function resolveLaunchPriceBnb(platform, quoteToken) {
   return null; // gang/未知平台：旧口径
 }
 
+/**
+ * T130 地板补丁（2026-11-09 用户裁定，67ad68e0/6efa11ce 案）：「很多币的第一次购买
+ * 价格低于普遍代币的发布价格……如果代币首次购买价格低于我们配置的代币初始价格，
+ * 那么地板改为首次购买价」——launch 锚取 min(平台常量, 首笔买入价)。
+ *
+ * 形状：flap quote 盘/低开票首笔成交价可显著低于常量（67ad68e0 -4.9%、6efa11ce
+ * -20.2%），以常量为地板会把这类票的 currentVsLaunchPct 整体抬高（首 tick 即 +20%
+ * =low 档），near_launch/almost_launch 位置判定系统性失真。
+ *
+ * @param {number|null} launchConstBnb resolveLaunchPriceBnb 结果（null=无常量锚，
+ *   返回 null=调用方保留旧口径首可靠价，不应用地板）
+ * @param {number} firstBuyPriceBnb 代币首笔买入可靠价（write-once 冻结值；0/null=
+ *   未见首买，返回常量原值）
+ * @returns {number|null} 地板修正后 launch 锚；null=无常量锚（透传，调用方走旧口径）
+ */
+function floorLaunchPriceBnb(launchConstBnb, firstBuyPriceBnb) {
+  if (launchConstBnb === null || !(launchConstBnb > 0)) return null;
+  if (firstBuyPriceBnb != null && firstBuyPriceBnb > 0 && firstBuyPriceBnb < launchConstBnb) {
+    return firstBuyPriceBnb;
+  }
+  return launchConstBnb;
+}
+
 module.exports = {
   FOURMEME_LAUNCH_PRICE_BNB,
   FLAP_LAUNCH_PRICE_BNB,
   resolveLaunchPriceBnb,
+  floorLaunchPriceBnb,
 };

@@ -82,7 +82,7 @@ const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 // G1 作弊盘因子化：grade 档位→数值出口映射（levelsFromObservation 同源表；无环——market-analysis 不反向 require FA）
 const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
-const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb } = require('../market-analysis/launch-price');
+const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb, floorLaunchPriceBnb: _floorLaunchPriceBnb } = require('../market-analysis/launch-price');
 // PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
 // 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
@@ -1009,6 +1009,17 @@ class FourMemeFactorAggregator extends EventEmitter {
                 }
             }
 
+            // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 案）：首笔买入可靠价
+            // write-once 冻结——currentVsLaunchPct 的 launch 锚取 min(平台常量, 首买价)
+            // （floorLaunchPriceBnb）。低开票首买价低于平台常量时以常量为地板会把
+            // 整票涨幅系统性抬高（首 tick 即 +20%=low 档），位置门/价格门失真。
+            // 只计 buy 腿；priceReliable 已滤尘/离群/chainLate——首买=首个过门可靠买价。
+            // defer 两段喂食价格段同步到达（WSS 到达即喂）无乱序竞态；回放任意序
+            // write-once 冻结收敛（与本块首可靠价同性质）。
+            if (state._firstBuyPriceBnb === 0 && isBuy) {
+                state._firstBuyPriceBnb = priceBnb;
+            }
+
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
             //    只累不减：卖出不清——"参与过"留痕；名单 null（未加载/失败）整段跳过=因子恒 0 fail-open）
@@ -1869,6 +1880,7 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
             _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
+            _firstBuyPriceBnb: 0,       // T130 首笔买入可靠价 write-once（launch 锚 min(常量, 首买价) 地板补丁原料；0=未见首买）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
 
@@ -3386,8 +3398,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             // TPA 审批时刻冻结快照，本键是买点时刻实时值——语义刻意分开
             currentVsLaunchPct: (() => {
                 if (!(state._relPriceBnb > 0)) return null;
-                const launch = _resolveLaunchPriceBnb(state.platform, state.quoteToken)
-                    ?? state._relFirstPriceBnb;
+                // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 低开票案）：常量锚先过
+                // floorLaunchPriceBnb=min(常量, 首笔买入可靠价)——首买价低于常量时
+                // 地板改为首买价（防低开票涨幅整体抬高位置门失真）
+                const launch = _floorLaunchPriceBnb(
+                    _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+                    state._firstBuyPriceBnb,
+                ) ?? state._relFirstPriceBnb;
                 return (launch > 0)
                     ? parseFloat((100 * (state._relPriceBnb / launch - 1)).toFixed(2)) : null;
             })(),

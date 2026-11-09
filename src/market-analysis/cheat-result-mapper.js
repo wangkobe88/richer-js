@@ -255,6 +255,9 @@ function buildObservation(answers, anchors = null) {
       burstMaxGapSec: _anchorPct(anchors, 'burstMaxGapSec'),
       burstWaveBuyBnb: _anchorPct(anchors, 'burstWaveBuyBnb'),
       burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
+      // CD392 burst 波起点价锚（vs 发行价常量 %；门侧第四腿判据源，题面不进——
+      // sbw 题判「停滞波现象」、豁免资格价格域归代码臂分层）
+      burstWaveStartVsLaunchPct: _anchorPct(anchors, 'burstWaveStartVsLaunchPct'),
       noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),
       // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
       // 伤害量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）

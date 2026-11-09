@@ -1562,25 +1562,9 @@ class AbstractTradingEngine extends ITradingEngine {
       return { pass: true, info: { status: 'timeout_fail_open', awaitMs: this._cheatGateAwaitMs } };
     }
 
-    // CD384（2026-11-08 用户裁定 A，bt-v83 完整窗口实证）：reset 截窗制造的 tick
-    // 不足 → **fail-closed 硬拒**（不再放行进 BP）。原 CD382 设计假设「BP 锚窗
-    // 全窗兜底」，但 BP ⑦ restart 位置门与 cheat fail-open 同向放行（87/87 票全
-    // 部 reset=1 净 -1.38，占全窗口亏损 72%）——盘面重置后证据窗被截到 <minTicks
-    // =「上一轮冲高形状出窗+新窗无证据」双盲区，宁拦不冒充。天然短窗（无 reset）
-    // 仍走下方 insufficient_ticks fail-open（存量语义零变化）。
-    if (res && res.status === 'reset_insufficient_ticks') {
-      this.logger.info(this._experimentId, 'SignalGate',
-        `作弊门拒买 | ${token.symbol || tokenAddress.slice(0, 10)} 盘面重置后 tick 不足（${res.anchorTickCount ?? '?'}<minTicks，fail-closed）`);
-      await this._updateSignalMetadata(signalId, { cheatCheck: {
-        status: res.status, grade: null, cached: false,
-        reasons: [], unhealthyGrades: 0, levels: null, buckets: null,
-        strongbackerLike: res.strongbackerLike ?? 0, exempt: null, unblocked: false,
-        anchorTickCount: res.anchorTickCount ?? null, marketReset: res.marketReset ?? null,
-      } });
-      await this._updateSignalStatus(signalId, 'failed',
-        { message: `作弊门拒买: 盘面重置后 tick 不足（${res.anchorTickCount ?? '?'}<minTicks）`, reason: 'cheat_gate_reset_insufficient' });
-      return { pass: false, reason: `作弊门拒买（盘面重置后 tick 不足 ${res.anchorTickCount ?? '?'}<minTicks）` };
-    }
+    // CD393（2026-11-09）：CD384 reset_insufficient_ticks 硬拒随 CD382 截窗整链退役
+    // （用户裁定 6a1e4567 案「ticks 不够，更买入不了了」）；天然短窗 insufficient_ticks
+    // fail-open 放行进 BP 语义不变（下方统一出口）。
 
     // insufficient_ticks / fail / unknown 无 grade → fail-open 放行进 BP（BP 门兜底）
     return { pass: true, info: res || { status: 'unknown' } };
