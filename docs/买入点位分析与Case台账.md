@@ -173,7 +173,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 **单测**：lib 472→476（BP56 四断言：curVs≤40 豁免成立带值/curVs=50 不豁免照拦④臂/curVs null fail-closed/exempt 留痕含 curVsLaunchPct）。
 
-**读数**：bt-v88 vs bt-v87 净差 -1.0592 拆解中 BP53 放行面 21 票 ≈-0.5408（正仅 4 票）——本腿砍掉的正是其中已拉离票（0xd9289dbf -0.0948 等）；低位 ultra 散户票放行面保留。bt-v89（`b7941b0c`，021da3bf 代码）单变量对照验证中。
+**读数**：bt-v88 vs bt-v87 净差 -1.0592 拆解中 BP53 放行面 21 票 ≈-0.5408（正仅 4 票）——本腿砍掉的正是其中已拉离票（0xd9289dbf -0.0948 等）；低位 ultra 散户票放行面保留。**bt-v89 对照达成（`b7941b0c`，021da3bf 代码，11-09 终态）**：73 票净 **+0.9261**（+6.34%）/胜率 28.8%——vs bt-v88（-0.0354/61，单变量=BP54/55/56）净回升 +0.9615；vs bt-v87 基线（+1.0238/45）基本持平（-0.098 方差带内）但交易面 45→73。三机制验证生效：**chip_gate 43→0**（BP54）/ **pump_exempt_gate 209→0、pattern_gate 587→848 吸收**（BP55——被 pump 门拒的票统一由盘型位置门裁决）/ **ultra_router_entry 56→25**（本腿砍掉已拉离豁免）。净回升归因拆解：①M4GA `0xba5ed45b` +0.5152=**D3.62 同版 Jev run-to-run 方差翻回 burst**（v88 同锚 07:40:47 sbw=none→A 拒 13 腿全灭 vs v89 sbw=burst→stall_burst 豁免+④高热臂 curVs=35.7→成交；CD387/D3.63 立法的完整窗口代价实证，非门改动功劳）；②本腿砍 v88 独有 3 深负票（d9289dbf -0.0948/a994b16c -0.0769/2b7738df -0.0610）≈+0.233；③**来财单票对照=价格腿移动入场点**：v88 12:31:15 curVs≈109 区外点经 BP53 放行 -0.0609 → v89 该锚被价格腿挡（回落④ pattern_gate 拒）、12:31:24 curVs=32.9 区内点 ultra_router_entry 豁免成交 **+0.4023**（净差 +0.46）；④BP54 chip 停用新增成交面净 ≈-0.28（v89 独有 15 票净 +0.2375 剔 M4GA 后 -0.2777）；ex-M4GA 合计 ≈+0.45。**口径注记**：v89 跑 D3.62 题集（启动早于 D3.63 pull）——BP 门三改动均 mapper/service 层不受题集影响；M4GA sbw 判读属 D3.62 方差行为，D3.63 已锚定。未平仓 52 票残值不计（v87 30 票，净额口径对 v89 略不利）。
 
 ### BP55 pump 专属位置门退役——①⑤⑧已同线 ≤40，pump_exempt_gate 无独立语义（2026-11-09 用户裁定·service/mapper 门改动不 bump；commit `c1165d5c` 与 BP54 同车）
 
@@ -193,7 +193,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 > 「筹码门可以去掉（改为先不激活），看看效果」
 
-**机制改动**：`CHIP_GATE_ENABLED=false`——筹码门拦截臂不激活（holder strong 不再拒、rule=chip_gate 不产出）；holder 维度答案原样透传、digest/观察材料照落；BP14 防线代码全保留（chipArms 构造+BP52 restart 豁免逻辑不动，**恢复=置 true 一键还原**）；停用期间 BP52 restart 豁免自然无行为（豁免对象就是拦截臂）。试验性停用（同 BP53「试试」语义）——效果由 bt-v89 对照回测读数后再裁定恢复/删除。
+**机制改动**：`CHIP_GATE_ENABLED=false`——筹码门拦截臂不激活（holder strong 不再拒、rule=chip_gate 不产出）；holder 维度答案原样透传、digest/观察材料照落；BP14 防线代码全保留（chipArms 构造+BP52 restart 豁免逻辑不动，**恢复=置 true 一键还原**）；停用期间 BP52 restart 豁免自然无行为（豁免对象就是拦截臂）。试验性停用（同 BP53「试试」语义）——**bt-v89 对照读数已采（chip_gate 43→0 验证生效；新增成交面净 ≈-0.28 小亏，详 BP56 案读数段），恢复/删除待用户裁定**。
 
 ### BP53 ④ultra 散户入口豁免（routerBuyPct60≥30 放行，试验性）（2026-11-09 用户裁定·mapper-only 不 bump；commit `03c110b0`；触发=bt-v87 ultra 拒票复盘）
 
