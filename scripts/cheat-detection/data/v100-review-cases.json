@@ -172,32 +172,72 @@
         101,
         110
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:30（UTC+8）",
+          "coveredIdx": [
+            101,
+            110
+          ],
+          "summary": "10 票全 accept（本批 0 成交）：8 票 cheat 硬拒（全 A 强）+1 票 unhealthy 拒（104 FFFF E_low+J_hold+N）+1 票 BP pattern_gate 拒（107 M7GA unhealthy→activity_high 豁免后 famous_monopoly(0.63) 盘型接力拦截，与第八批 idx 71 George 同形状双层防线）。「4meme」蹭名盘两票（103/109）不同地址均硬拒；104/108 的 pnl 小负为同 token 前序轮次成交残留记账。"
+        }
+      ]
     },
     "12": {
       "range": [
         111,
         120
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:35（UTC+8）",
+          "coveredIdx": [
+            111,
+            120
+          ],
+          "summary": "10 票全 accept：6 票 cheat 硬拒（全 A 强）+4 成交（113/115 healthy 干净直过；118 unhealthy J_hold→high 豁免 spike(1.00) 满分判型落档不拦=BP68 执行案例；119 cheat→high 豁免 +0.0129 本批唯一正收益）。115 黎明 curVs 28.3 贴统一门 28.5 线放行；「我画地为牢」同名两票分流（118 豁免成交/120 硬拒）；111 4GUY L_insider_sell81 本批唯一 insider 通道票；成交合计约 -0.0161。"
+        }
+      ]
     },
     "13": {
       "range": [
         121,
         130
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:40（UTC+8）",
+          "coveredIdx": [
+            121,
+            130
+          ],
+          "summary": "10 票 = 7 accept + 3 issue（用户裁定先记录不动手修）：①idx 124 汽茫「burst 判定问题」+②idx 130 MMGA「burst 问题」——两票均为 cheat 硬拒票，signals 页 burst 判定（sbw 题/CD383 资格臂）有问题，并入 burst 案族攒批池（idx 19/72/81/96/123/124/130）；③idx 126 Dawn「点位本身为大幅度砸盘，且盘面是长期无回弹阴跌」——activity_high 豁免+BP normal_dip(0.77) 放行成交 -0.0037=crash/normal_dip 边界阴跌漏判，与第十批 idx 98 불개미同族。接受侧看点：123 4cat=burst 豁免通路第 5 例（成交平出）；127 我画地为牢=burst 豁免后 BP famous_monopoly(0.42) 接力拦双层防线（同名第三例分流）；129 SAFU=A 强全家桶+M_ultra；2 成交合计 -0.0041。"
+        }
+      ]
     },
     "14": {
       "range": [
         131,
         140
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:45（UTC+8）",
+          "coveredIdx": [
+            131,
+            140
+          ],
+          "summary": "10 票全 accept（2 成交合计 -0.0179）：7 票 cheat/unhealthy 拒 + 3 票豁免后 BP famous_monopoly pattern_gate 三连拦（132 0.74/134 0.73/140 0.67=双层防线密集批）。134 meme.jpg curVs=minVs=8.9 正在砸新低+crash(0.64) 判型在场（最终 pattern_gate 拒）；138 佛咪咪 curVs 27.3 贴统一门 28.5 线第 3 例+spike(0.57) 落档不拦；137 中囯人能飞=唯一完全干净 healthy 零通道成交票；139 VirusSI=E_low 无豁免档设计内拒。同名票：SAFU 三例均拒、meme/meme.jpg 两对四票。"
+        }
+      ]
     },
     "15": {
       "range": [
@@ -8521,13 +8561,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "41ce77c4-febf-48b2-8836-28ca340821f5",
       "anchorIso": "2026-11-05T08:05:23+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004090469034448784,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:pump+D_famous+J_hold+R_abn+N，未进 BP）"
     },
     {
       "idx": 102,
@@ -8552,13 +8593,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0a5f3a98-3cf4-4d70-b16d-c6aca28083d2",
       "anchorIso": "2026-11-05T08:05:52+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004081582159450611,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:equal+pump+R_abn+N，未进 BP）"
     },
     {
       "idx": 103,
@@ -8583,13 +8625,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "ea5961d3-f2c8-4103-b2db-e8b1587cbd7e",
       "anchorIso": "2026-11-05T08:06:10+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003974410667009935,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强全家桶 equal+coordSell+sameBlock+pump+D_famous+E_low_activity+R_abn+N；「4meme」蹭名盘之一，两票不同地址同被硬拒）"
     },
     {
       "idx": 104,
@@ -8614,13 +8657,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0025,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "60baad78-3e50-470e-9499-426a18ea06ca",
       "anchorIso": "2026-11-05T08:06:17+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003537667540415519,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（unhealthy 拒 E_low_activity+J_hold+N 无 A 强不拉黑=下信号重判语义；pnl -0.0025 为同 token 前序轮次成交残留记账，本点位被拒）"
     },
     {
       "idx": 105,
@@ -8645,13 +8689,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "b6828116-307f-4a85-b405-34566077bb5d",
       "anchorIso": "2026-11-05T08:06:33+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000037134933967338773,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:sameBlock+pump+D_famous+J_hold+R_abn+N，未进 BP）"
     },
     {
       "idx": 106,
@@ -8676,13 +8721,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1e05809c-131a-49dd-a1a5-7bc781eeeb64",
       "anchorIso": "2026-11-05T08:07:15+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004102986938022796,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:equal+J_hold+R_abn+N，未进 BP）"
     },
     {
       "idx": 107,
@@ -8707,8 +8753,8 @@
       "minVs": 4.3,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "9d66b183-ec4c-4241-85ed-4ce37f7081e2",
       "anchorIso": "2026-11-05T08:07:22+00:00",
       "anchorDate": "2026-11-05",
@@ -8822,7 +8868,8 @@
         "chipTop1Top2HoldCircPct": 57.32909536898332,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": 74.1
-      }
+      },
+      "note": "第十一批 review 接受（unhealthy D_famous+J_hold+L_insider_sell30→activity_high 豁免放行→BP famous_monopoly(0.63) 盘型桶 pattern_gate 拒=cheat 豁免域放行后 BP 盘型门接力拦截，与第八批 idx 71 George 同形状双层防线；flap 盘 curVs +18.2）"
     },
     {
       "idx": 108,
@@ -8847,13 +8894,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0008,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "50b4f7d1-3ec7-4c3c-9377-72b8ada7e904",
       "anchorIso": "2026-11-05T08:09:22+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003985073921846838,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:sameBlock+pump+J_hold+R_abn；pnl -0.0008 为同 token 前序轮次成交残留记账，本点位被拒）"
     },
     {
       "idx": 109,
@@ -8878,13 +8926,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0d60993b-9209-47ed-a5ab-af83b6791d13",
       "anchorIso": "2026-11-05T08:10:00+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000039942204879286515,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:pump+E_low_activity+R_abn+N；「4meme」蹭名盘第二票）"
     },
     {
       "idx": 110,
@@ -8909,13 +8958,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "301de9e0-1bf4-4d53-a664-13d2bc67e5d2",
       "anchorIso": "2026-11-05T08:10:17+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003635911301293567,
-      "anchors": null
+      "anchors": null,
+      "note": "第十一批 review 接受（cheat 硬拒 A 强:sameBlock+pump+J_hold+R_abn+N，未进 BP）"
     },
     {
       "idx": 111,
@@ -8940,13 +8990,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "60d72d29-90e8-45c4-9599-9e0c0d7f1516",
       "anchorIso": "2026-11-05T08:10:37+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000031749898450394654,
-      "anchors": null
+      "anchors": null,
+      "note": "第十二批 review 接受（cheat 硬拒 A 强:pump+spike+J_hold+L_insider_sell81+R_abn；内部人卖出占比 81% 本批唯一 insider 通道票）"
     },
     {
       "idx": 112,
@@ -8971,13 +9022,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "21b5d5b6-7e2d-414a-8539-e559f44bd7f4",
       "anchorIso": "2026-11-05T08:13:26+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000035636778091252407,
-      "anchors": null
+      "anchors": null,
+      "note": "第十二批 review 接受（cheat 硬拒 A 强:pump+D_famous+J_hold+R_abn+N；「無為」名与强庄教科书票 S072 同名不同地址非同一票；pnl 0 为同 token 前序轮次残留记账，本点位被拒）"
     },
     {
       "idx": 113,
@@ -9002,8 +9054,8 @@
       "minVs": 12.4,
       "firstPointStatus": "executed",
       "pnl": -0.0091,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "f212b1b9-f80e-406b-9bcc-f10ea9c8920a",
       "anchorIso": "2026-11-05T08:14:12+00:00",
       "anchorDate": "2026-11-05",
@@ -9117,7 +9169,8 @@
         "chipTop1Top2HoldCircPct": 59.762489444619725,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第十二批 review 接受（healthy 干净直过四门全过成交 -0.0091）"
     },
     {
       "idx": 114,
@@ -9142,13 +9195,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "6f45f38d-079e-4b5e-9b7c-93d93a87db52",
       "anchorIso": "2026-11-05T08:14:19+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003782561937344629,
-      "anchors": null
+      "anchors": null,
+      "note": "第十二批 review 接受（cheat 硬拒 A 强全家桶 equal+coordSell+tier+sameBlock+pump+D_famous+E_low_activity+J_hold+R_abn）"
     },
     {
       "idx": 115,
@@ -9173,8 +9227,8 @@
       "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": -0.0094,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "06d8d325-bc7c-459c-bfee-48392620827b",
       "anchorIso": "2026-11-05T08:15:40+00:00",
       "anchorDate": "2026-11-05",
@@ -9288,7 +9342,8 @@
         "chipTop1Top2HoldCircPct": 48.99655619651253,
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第十二批 review 接受（healthy 干净直过四门全过成交 -0.0094；curVs 28.3 贴统一门 28.5 线下 0.2pp 放行=BP69 微放宽语义连续第二批贴线票）"
     },
     {
       "idx": 116,
@@ -9313,13 +9368,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "37923324-fa57-4f0f-92c1-d57823046900",
       "anchorIso": "2026-11-05T08:16:19+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003685212707425668,
-      "anchors": null
+      "anchors": null,
+      "note": "第十二批 review 接受（cheat 硬拒 A 强:pump+E_low_activity+J_hold+R_abn+N）"
     },
     {
       "idx": 117,
@@ -9344,13 +9400,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "548236c9-a498-4e5a-aa7f-5ccf0736c70e",
       "anchorIso": "2026-11-05T08:17:13+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003975392219703855,
-      "anchors": null
+      "anchors": null,
+      "note": "第十二批 review 接受（cheat 硬拒 A 强:pump+D_famous+J_hold+N）"
     },
     {
       "idx": 118,
@@ -9375,8 +9432,8 @@
       "minVs": -0.7,
       "firstPointStatus": "executed",
       "pnl": -0.0105,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "2a9bfd7b-74cc-4c99-b0d6-248e3b2b0836",
       "anchorIso": "2026-11-05T08:17:19+00:00",
       "anchorDate": "2026-11-05",
@@ -9490,7 +9547,8 @@
         "chipTop1Top2HoldCircPct": 70.36374889894486,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第十二批 review 接受（unhealthy J_hold→activity_high 豁免四门全过成交 -0.0105；spike(1.00) 满分判型落档不拦=BP68『spike 不 block』执行案例，与第七批 idx 61 NoStock spike(0.93) +0.0485 构成一正一负两侧样本）"
     },
     {
       "idx": 119,
@@ -9515,8 +9573,8 @@
       "minVs": 6.5,
       "firstPointStatus": "executed",
       "pnl": 0.0129,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "5184a783-026a-4687-a718-502209f0a630",
       "anchorIso": "2026-11-05T08:17:41+00:00",
       "anchorDate": "2026-11-05",
@@ -9630,7 +9688,8 @@
         "chipTop1Top2HoldCircPct": 40.03016537863358,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": 22.1
-      }
+      },
+      "note": "第十二批 review 接受（cheat A 强 equal+sameBlock+pump+D_famous+J_hold+R_abn+N→activity_high 豁免四门全过成交 +0.0129 本批唯一正收益）"
     },
     {
       "idx": 120,
@@ -9655,13 +9714,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1abf07e2-27be-4fea-9146-9cb611f97190",
       "anchorIso": "2026-11-05T08:18:23+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003940037700026137,
-      "anchors": null
+      "anchors": null,
+      "note": "第十二批 review 接受（cheat 硬拒 A 强:pump+D_famous+E_low_activity+R_abn+N；与 118「我画地为牢」同名不同地址蹭名系，本批一放一拦）"
     },
     {
       "idx": 121,
@@ -9686,13 +9746,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0.0029,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "4430a663-6bad-49a6-9fa6-e83fb3c8488f",
       "anchorIso": "2026-11-05T08:18:29+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000040794112351056975,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review 接受（cheat 硬拒 A 强:pump+D_famous+J_hold+R_abn+N；pnl +0.0029 为同 token 前序轮次残留记账）"
     },
     {
       "idx": 122,
@@ -9717,13 +9778,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0e581786-bad8-49bf-91b1-6341e2cab4e2",
       "anchorIso": "2026-11-05T08:19:44+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003956974636696906,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review 接受（cheat 硬拒 A 强:pump+E_low弱；flap 盘尾号 7777 常态）"
     },
     {
       "idx": 123,
@@ -9748,8 +9810,8 @@
       "minVs": 20.3,
       "firstPointStatus": "executed",
       "pnl": -0.0004,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "473b37c1-9c61-4bc0-a017-60111fb00413",
       "anchorIso": "2026-11-05T08:20:11+00:00",
       "anchorDate": "2026-11-05",
@@ -9863,7 +9925,8 @@
         "chipTop1Top2HoldCircPct": 42.63056853582845,
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": 25.4
-      }
+      },
+      "note": "第十三批 review 接受（cheat A 强 equal+coordSell+pump+J_hold+R_abn+N→stall_burst 豁免+BP burst(0.99) 第五档不拦，neutral 四门全过成交 -0.0004=burst 豁免通路第 5 例，与 idx 19/72/81/96 同族攒批）"
     },
     {
       "idx": 124,
@@ -9888,13 +9951,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0004,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "18c18419-fd22-4ad1-bdaa-24175c8f370a",
       "anchorIso": "2026-11-05T08:21:23+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004078574432309665,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review issue（用户裁定「burst 判定问题」：cheat 硬拒票 A 强:pump+R_abn+N，signals 页 burst 判定（sbw 题/CD383 资格臂）有问题——先记录不动手修，与 idx 19/72/81/96/123 burst 案族攒批同池）"
     },
     {
       "idx": 125,
@@ -9919,13 +9983,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "25021e37-0875-4252-a26e-50cc71780ae0",
       "anchorIso": "2026-11-05T08:21:32+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.00000384503235206354,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review 接受（cheat 硬拒 A 强:pump+D_famous+E_low_activity+R_abn+N）"
     },
     {
       "idx": 126,
@@ -9950,8 +10015,8 @@
       "minVs": 18.5,
       "firstPointStatus": "executed",
       "pnl": -0.0037,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "fe3ad896-adc5-4173-8da2-d718f2fe8950",
       "anchorIso": "2026-11-05T08:22:10+00:00",
       "anchorDate": "2026-11-05",
@@ -10065,7 +10130,8 @@
         "chipTop1Top2HoldCircPct": 45.88258022278885,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": 38.8
-      }
+      },
+      "note": "第十三批 review issue（用户裁定「点位本身为大幅度砸盘，且盘面是长期无回弹阴跌」：cheat A 强 pump+D_famous+R_abn+N→activity_high 豁免+BP neutral 四门全过（entry normal_dip 0.77/curVs 18.5）成交 -0.0037——砸盘点被 normal_dip 放行=crash/normal_dip 边界阴跌形状漏判，与第十批 idx 98 불개미「长期无回弹阴跌被 normal_dip 放行」同族（另参 idx 95 咪咪运行期滚动基准立法方向），先记录攒批待裁）"
     },
     {
       "idx": 127,
@@ -10090,8 +10156,8 @@
       "minVs": 10,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1bbdd1a9-7d88-4bac-a39f-0048a7ea9dbf",
       "anchorIso": "2026-11-05T08:22:32+00:00",
       "anchorDate": "2026-11-05",
@@ -10205,7 +10271,8 @@
         "chipTop1Top2HoldCircPct": 53.86699321715326,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": 57.6
-      }
+      },
+      "note": "第十三批 review 接受（cheat A 强 pump+D_famous+J_hold+R_abn+N→stall_burst 豁免后被 BP 盘型门 famous_monopoly(0.42) pattern_gate 接力拦=双层防线（与 idx 71/107 同形状）；「我画地为牢」同名第三例（118 成交/120 硬拒/127 BP 拒））"
     },
     {
       "idx": 128,
@@ -10230,13 +10297,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "3b135aa7-9233-46f9-b185-7d7023ca56a5",
       "anchorIso": "2026-11-05T08:23:11+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000040133622828743775,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review 接受（cheat 硬拒 A 强:pump+E_low_activity+J_hold+R_abn+N）"
     },
     {
       "idx": 129,
@@ -10261,13 +10329,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0564b02b-4230-4956-80f5-6394f1084030",
       "anchorIso": "2026-11-05T08:23:24+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000038161047408055415,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review 接受（cheat 硬拒 A 强全家桶 equal+coordSell+sameBlock+pump+D_famous+J_hold+R_abn+M_ultra+N）"
     },
     {
       "idx": 130,
@@ -10292,13 +10361,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "1e24d257-b729-4454-9d03-5cd9eb487150",
       "anchorIso": "2026-11-05T08:23:25+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004536347341009877,
-      "anchors": null
+      "anchors": null,
+      "note": "第十三批 review issue（用户裁定「burst 问题」：cheat 硬拒票 A 强:pump+D_famous+E_low_activity+J_hold+R_abn（0x4444 开头 flap 盘），signals 页 burst 判定有问题——与 idx 124 同日同族，先记录不动手修，burst 案族攒批同池）"
     },
     {
       "idx": 131,
@@ -10323,13 +10393,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "01f1ea04-ef0d-46ad-be8f-6efaad56449d",
       "anchorIso": "2026-11-05T08:24:52+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003928556015438892,
-      "anchors": null
+      "anchors": null,
+      "note": "第十四批 review 接受（cheat 硬拒 A 强:sameBlock+pump+J_hold+R_abn+N；SAFU 同名第二例均拒）"
     },
     {
       "idx": 132,
@@ -10354,8 +10425,8 @@
       "minVs": 11.8,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "37abed93-8255-401c-af01-b4f874327693",
       "anchorIso": "2026-11-05T08:25:08+00:00",
       "anchorDate": "2026-11-05",
@@ -10469,7 +10540,8 @@
         "chipTop1Top2HoldCircPct": 48.306926623832474,
         "actNearTail10SellWallets": 8,
         "chipFamousFollowerTop3Pct": 64.7
-      }
+      },
+      "note": "第十四批 review 接受（unhealthy D_famous+J_hold→activity_high 豁免后被 BP 盘型门 famous_monopoly(0.74) pattern_gate 接力拦=双层防线；meme/meme.jpg 同名对之一）"
     },
     {
       "idx": 133,
@@ -10494,13 +10566,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1b253fb5-0c81-4d05-8173-f1c23cf58d1e",
       "anchorIso": "2026-11-05T08:25:12+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004038233349796386,
-      "anchors": null
+      "anchors": null,
+      "note": "第十四批 review 接受（cheat 硬拒 A 强:pump+D_famous+J_hold+R_abn）"
     },
     {
       "idx": 134,
@@ -10525,8 +10598,8 @@
       "minVs": 8.9,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "a6748fd4-5a4c-4b23-b5e2-7afabfe971b8",
       "anchorIso": "2026-11-05T08:25:13+00:00",
       "anchorDate": "2026-11-05",
@@ -10640,7 +10713,8 @@
         "chipTop1Top2HoldCircPct": 49.82927084284223,
         "actNearTail10SellWallets": 5,
         "chipFamousFollowerTop3Pct": 51.6
-      }
+      },
+      "note": "第十四批 review 接受（unhealthy D_famous+N→high 豁免后被 BP famous_monopoly(0.73) 拒；curVs=minVs=8.9 当前价即全窗最低（正在砸新低，almost_launch 域）+crash(0.64) 判型在场，最终 pattern_gate 拒）"
     },
     {
       "idx": 135,
@@ -10665,13 +10739,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "2bd5a847-35ca-4904-858c-caae6bf21d7a",
       "anchorIso": "2026-11-05T08:25:32+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003977188341193071,
-      "anchors": null
+      "anchors": null,
+      "note": "第十四批 review 接受（cheat 硬拒 A 强全家桶 equal+coordSell+tier+sameBlock+pump+D_famous+E_low+J_hold+R_abn）"
     },
     {
       "idx": 136,
@@ -10696,13 +10771,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "3cf07ca0-fe74-416b-9cd6-87105c967f41",
       "anchorIso": "2026-11-05T08:25:57+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000036663554105485157,
-      "anchors": null
+      "anchors": null,
+      "note": "第十四批 review 接受（cheat 硬拒 A 强:pump+E_low+J_hold+R_abn+N；SAFU 同名第三例均拒）"
     },
     {
       "idx": 137,
@@ -10727,8 +10803,8 @@
       "minVs": 3.3,
       "firstPointStatus": "executed",
       "pnl": -0.0069,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "80192959-cf71-407c-a942-878870d20f6e",
       "anchorIso": "2026-11-05T08:26:25+00:00",
       "anchorDate": "2026-11-05",
@@ -10842,7 +10918,8 @@
         "chipTop1Top2HoldCircPct": 77.74154649401198,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第十四批 review 接受（cheat 完全干净 healthy 零通道，neutral 四门全过成交 -0.0069=本批唯一干净票；curVs 19.4/minVs 3.3）"
     },
     {
       "idx": 138,
@@ -10867,8 +10944,8 @@
       "minVs": 11.9,
       "firstPointStatus": "executed",
       "pnl": -0.011,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "8f201808-dfca-447a-92fe-b6d54d3bf362",
       "anchorIso": "2026-11-05T08:26:44+00:00",
       "anchorDate": "2026-11-05",
@@ -10982,7 +11059,8 @@
         "chipTop1Top2HoldCircPct": 79.6460030961389,
         "actNearTail10SellWallets": 4,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第十四批 review 接受（unhealthy J_hold+R_abn→high 豁免四门全过成交 -0.011；curVs 27.3 贴统一门 28.5 线第 3 例（115 黎明 28.3/118 画地为牢 27.9 同族）+spike(0.57) 落档不拦 BP68 执行）"
     },
     {
       "idx": 139,
@@ -11007,13 +11085,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1a657688-bab6-4cbf-a159-0f7acf50048f",
       "anchorIso": "2026-11-05T08:26:57+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004772554860927165,
-      "anchors": null
+      "anchors": null,
+      "note": "第十四批 review 接受（unhealthy 拒 E_low_activity 低活跃不在豁免档=设计内；flap 盘尾 7777；VirusSI 与 BP24 案 S038 同名不同地址）"
     },
     {
       "idx": 140,
@@ -11038,8 +11117,8 @@
       "minVs": 12,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "cafedd72-b0c2-4c71-9895-a5e6aac65a40",
       "anchorIso": "2026-11-05T08:27:06+00:00",
       "anchorDate": "2026-11-05",
@@ -11153,7 +11232,8 @@
         "chipTop1Top2HoldCircPct": 85.70832658814312,
         "actNearTail10SellWallets": 7,
         "chipFamousFollowerTop3Pct": 74.1
-      }
+      },
+      "note": "第十四批 review 接受（cheat A 强 coordSell+D_famous+J_hold+R_abn→high 豁免后被 BP famous_monopoly(0.67) pattern_gate 拒=famous_monopoly 三连拦（132/134/140）双层防线密集批）"
     },
     {
       "idx": 141,
@@ -11240,8 +11320,9 @@
       "minVs": -0.7,
       "firstPointStatus": "executed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "异常开盘/初始价格口径问题（2026-11-10 第 15 批 review 用户点名：「初始价格太低了，感觉是个异常币」）。链上取证（182 tmp-b15-143-148-probe.cjs）：首笔即 0.6594 BNB 大单、开盘价 5.7767e-9=较 FM 主流档常量 +28.5%（从未在常量附近开盘），8 笔内拉至 athVs=+53.1% 后全程回踩 minVs=-0.7（触锚）再反弹至 curVs=19.7 买入、平出（pnl=0）；cheat healthy 零通道直过+BP burst·0.98 不拦+normal_dip·0.89。⚠口径矛盾待澄清：用户判「初始价格太低」，链上首笔实为高开 +28.5%——可能所指=①系统发行价锚（常量 4.496e-9）对该票偏低（开盘即离锚 28.5%，curVs 全程虚高、almost/near_launch 桶对高开盘系统性失真——与 idx95 价格基准线案同族反向）；②GMGN/其它侧显示的初始价口径；③大单高开抢跑=异常开盘形状（首笔 0.66 BNB 非零散开盘）。处置：先记录不动手修，口径待用户澄清后归入 T130 锚族/异常开盘检测候选",
       "signalId": "6477da54-0a98-40d4-b745-4f23c0f0236e",
       "anchorIso": "2026-11-05T08:30:02+00:00",
       "anchorDate": "2026-11-05",
@@ -11613,8 +11694,9 @@
       "minVs": 16.3,
       "firstPointStatus": "executed",
       "pnl": -0.0097,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "famous 收录类（2026-11-10 第 15 批 review 用户点名 0x40e569e9b5458c89b4910f3ecfade0f650e92a40 加入 famous 钱包）。链上取证（182）：该钱包锚后 2s（08:32:52）买 0.1333 BNB、3s 后全卖 0.1445 快进快出；锚窗内零行=BP 判型 as-of 语义正确非门缺陷（healthy 直过+gates_passed 成交 -0.0097 在钱包进场前完成）；当日 40 行扫 18+ 票同款 0.1333 买/快卖节奏=famous scalper。处置：roster 已收录 13→14（config/rosters/famous-copy-wallets.json，随下轮部署/重启生效）；本票行为正确留档",
       "signalId": "1716d1e0-1800-448e-b597-82602c007f5e",
       "anchorIso": "2026-11-05T08:32:50+00:00",
       "anchorDate": "2026-11-05",
