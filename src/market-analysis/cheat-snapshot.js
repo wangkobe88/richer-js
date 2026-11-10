@@ -71,16 +71,19 @@ const ROUTER_ENTRY_MIN_BUYS = 15;
  */
 const BURST_WAVE_SEC = 5;
 /**
- * burst 波临近段（D3.56，2026-11-04 用户裁定 0xc0a6…7777 案：「burst 是指临近
- * 购买点位的 burst，不是整体的，前面有不算」）：波两键搜索段从「全窗最密 5s」
- * 收窄为「锚前 BURST_NEAR_SEC 秒内最密 5s」——开盘波（窗首抢筹，每票自然现象，
- * 大小反映开盘热度不反映持续流量）与中段波不再计入「涌入流量大推翻低活跃度」
- * 的判断（G8 语义脱节修复：sbw 题面排除项早已排除开盘首波，数值锚此前仍收
- * 全窗）。窗不足 BURST_NEAR_SEC=临近段退化为全窗（短窗信号票语义不变）；
- * 临近段 <2 有效 dt 行 → 波两键 null（有证据缺席不冒充）；burstMaxGapSec
- * 维持全窗 maxGapSec（停滞深度=低活跃度佐证，方向不受波位置影响）。
+ * burst 波搜索段（D3.56→**D3.65 全窗化**）：D3.56（2026-11-04 用户裁定 0xc0a6…7777
+ * 案「burst 是指临近购买点位的 burst，不是整体的，前面有不算」）曾收窄为锚前
+ * BURST_NEAR_SEC(120s) 临近段；**D3.65（2026-11-10 用户裁定 ba5e/M4GA 案「一个
+ * 涨幅这么大倍数的票（涨幅排名前几）不买你玩啥……肯定要修复，这是顶级的好票」）
+ * 搜索段扩回锚前全窗**——CD383 沉积前提 burstMaxGapSec 本就是全窗口径、波两键
+ * 却限临近段=同臂两键口径不对称；「一朝爆发」不必恰在信号前 120s（ba5e 07:39
+ * 出生 3 分钟拉到 +772% 后崩回 +21%，07:52:18 锚临近段死寂无波证据→sbw 判 none
+ * +波键 0，豁免结构性无法兑现）。startVs 起点价锚随搜索段自然变「全窗首个
+ * 可靠价」（=「起来的起点」）：ba5e 低开 +2.85% 放、ad80fb7a 高开 +152% 拒
+ * （「价格维持高位再一个流量拉升」语义保持）。临近段 <2 行 null 语义退役为
+ * 全窗 <2 行 null；burstMaxGapSec 维持全窗 maxGapSec 不变。G8 弱 burst 臂/
+ * strongbacker 判据/sbw 题判读原料随本口径同车全窗化（题集 D3.65）。
  */
-const BURST_NEAR_SEC = 120;
 /**
  * burst 尖刺簇常量（D3.51，2026-11-03 CD157 가나/CD102 SAFU 两票用户裁定立项
  * ——原话「burst 没有问题，但是这里的burst明显是一个尖刺。单独这一个 block
@@ -955,22 +958,30 @@ function computeDerived(snapshot, famousRoster) {
   // 19~43s（无停滞=开盘密集正常形状）→ 停滞深度是必要第三维（复用 maxGapSec，
   // grade 侧锚名 burstMaxGapSec）。算法=最密 BURST_WAVE_SEC 秒滑窗双指针（按窗内
   // 笔数取最密），窗内钱包计数 map 精确去重（同钱包多笔逐出时不误删）；dt 缺失
-  // 全族 null（绝不冒充）；<2 有效 dt 行波形状不可评同 null。D3.56 起搜索段=
-  // 锚前 BURST_NEAR_SEC 临近段（头注见 BURST_NEAR_SEC——开盘/中段波「前面有不算」）。──
+  // 全族 null（绝不冒充）；<2 有效 dt 行波形状不可评同 null。
+  // D3.56 起搜索段=锚前 BURST_NEAR_SEC 临近段（头注见 BURST_NEAR_SEC——开盘/中段
+  // 波「前面有不算」）。**D3.65（2026-11-10）搜索段扩为锚前全窗**：用户裁定
+  // 「一个涨幅这么大倍数的票（涨幅排名前几）不买你玩啥……肯定要修复，这是顶级
+  // 的好票」（ba5e/M4GA 案：07:39 出生 3 分钟拉到 +772% 后崩回 +21%，07:52:18
+  // t0a 首触发锚临近段死寂无波证据→sbw 判 none+波键 0，CD383「长期沉积一朝操盘」
+  // 豁免结构性无法兑现）——沉积前提 burstMaxGapSec 本就是全窗口径、波两键却限
+  // 临近段=同臂两键口径不对称；「一朝」不必恰在信号前 120s。全窗化后三判例
+  // 全部自洽：M4GA 全窗波 2.04B/59 笔过线+全窗首价 +2.85% 过 startVs 腿=豁免；
+  // ad80fb7a 高开 +152% 横盘=全窗首价 +152% 仍拒（「价格维持高位再一个流量
+  // 拉升」不豁免语义保持）；gap=2s 开盘密集反例（无沉积）仍拦。──
   let burstWaveBuyBnb = null, burstWaveWallets = null, burstWaveStartVsLaunchPct = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
   if (waveTicksAll.length >= 2) {
-    const nearFrom = waveTicksAll[waveTicksAll.length - 1].dt - BURST_NEAR_SEC;
-    const waveTicks = nearFrom <= 0 ? waveTicksAll : waveTicksAll.filter((t) => t.dt >= nearFrom);
-    if (waveTicks.length >= 2) {
-      // CD392（2026-11-09 ad80fb7a 案）：burst 波起点价锚——临近段首个可靠价 vs
-      // 发行价常量 %。用户裁定「burst 是指 价格跌到很低再起来，不是价格维持
-      // 高位再一个流量拉升」——豁免资格价格腿（CheatCheckService
-      // _isStallBurstExempt 第四腿 ≤+40）的判据源。起点=临近段**首价**（刻意
-      // 不取段内最低：末段砸落的低点不是「起来的起点」——ad80fb7a +152% 高位
-      // 横盘 280s 末段砸落 17.5% 的形状必须以首价拒；M4GA 波起点 +2.9% 贴地板
-      // 放行）。null 条件与波两键同源（临近段 <2 行）+无常量平台（gang）+
-      // 首个可靠价缺席，fail-closed 不授予。
+    const waveTicks = waveTicksAll; // D3.65：锚前全窗（D3.56 临近段过滤退役，见上头注）
+    {
+      // CD392（2026-11-09 ad80fb7a 案）：burst 波起点价锚——**全窗首个可靠价**
+      // （D3.65 起随搜索段全窗化；D3.56-D3.64 为临近段首价）vs 发行价常量 %。
+      // 用户裁定「burst 是指 价格跌到很低再起来，不是价格维持高位再一个流量
+      // 拉升」——豁免资格价格腿（CheatCheckService _isStallBurstExempt 第四腿
+      // ≤+40）的判据源。起点=全窗**首价**（刻意不取段内最低：末段砸落的低点
+      // 不是「起来的起点」——ad80fb7a +152% 高开横盘的全窗首价即 +152% 必须
+      // 拒；ba5e/M4GA 低开 +2.85% 起来的行情起点放行）。null 条件与波两键同源
+      // （全窗 <2 行）+无常量平台（gang）+首个可靠价缺席，fail-closed 不授予。
       const _quoteTk = waveTicks.some((t) => t.quote) ? 'quote' : null;
       // T130 地板补丁同源（launch=min(常量, 首笔买入可靠价)，锚窗首笔 BUY 行）——
       // 低开票（67ad68e0/6efa11ce 案）以常量为分母会把波起点位置整体抬高，
