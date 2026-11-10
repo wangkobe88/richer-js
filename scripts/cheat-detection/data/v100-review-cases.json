@@ -130,8 +130,18 @@
         61,
         70
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:25（UTC+8）",
+          "coveredIdx": [
+            61,
+            70
+          ],
+          "summary": "10 票：7 accept + 3 issue（62/63/69 同主题=burst 判定标准案）。accept：61 NoStock +0.0485 与 64 FLAPLESS -0.0112 对称贴线 28.5 放行；65-68 Stockless 同名系连环发币族四票 cheat 整族拦截；70 M4GA stall_burst 豁免成交 +0.0375（正样本第二例）。issue 三票取证合批：62 王涛『肯定不算 burst』+『0.1 BNB 购买额显然不够』（T133 actTotalBnb≥0.1 触发门太低，尘埃单堆的 act=low 盘不该触发；39 钱包 2.59B 波单笔均 0.066 尘埃级）；63 memeful『额度太小还是卖出』（波锚只计买入 1.7B，主力是卖出/对敲 coordSell strong+famous 100%；波构成缺卖出维度）；69 VirusSI sbw 误判 burst（出口 +85.4 高位=CD392 明文非 burst 形状）经 E 通道解药+BP67 第五档透传双路绕过 CD396 第四腿钳制成交 -0.0024——三条全先记录不处理，review 完统一裁定"
+        }
+      ]
     },
     "8": {
       "range": [
@@ -5512,8 +5522,8 @@
       "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": 0.0485,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "81cfee1f-ba7c-4ce6-923b-5f09bf0f2b79",
       "anchorIso": "2026-11-05T07:36:11+00:00",
       "anchorDate": "2026-11-05",
@@ -5627,7 +5637,8 @@
         "chipTop1Top2HoldCircPct": 36.91185084975209,
         "actNearTail10SellWallets": 6,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第七批 review 接受（cheat→high 豁免放行，spike(0.93) 判型落档不拦 BP68，四门全过成交 +0.0485 本批最大正收益；curVs 28.1 贴统一门 28.5 线下 0.4pp 放行=BP69 设计语义）"
     },
     {
       "idx": 62,
@@ -5652,13 +5663,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "258ae2a7-2d42-4ae6-9352-5e37e9f1954a",
       "anchorIso": "2026-11-05T07:37:02+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003582658602232909,
-      "anchors": null
+      "anchors": null,
+      "note": "用户反馈（2026-11-10 第七批 review）：『肯定不算 burst 了，标准要改一下，记得你设置了 0.1 BNB 的购买额，显然不够』。signal metadata 取证（signalId 258ae2a7）：sbw=none（题判不算 burst，方向正确）+activityLevel=low；burst 锚族 gap=67s/waveBuy=2.5866B/39 钱包（单笔均 0.066 BNB 尘埃级）/exit +17.5/waveStart +7.7；另 famousDominancePct=88.5（D 通道）+exactEqualBlockBuyPct=39.3%/21 簇+A强 pump=刷量盘形状。cheat 硬拒结果正确（前向观测 0）。问题点=①买腿低活跃门 T133 actTotalBnb>=0.1（10s 窗买+卖合计）额度太低——尘埃单堆出来的低活跃（act=low）也能过门触发信号进 Jev 门链烧配额；②burst 波锚（waveBuyBnb）量的是买入合计，39 钱包 2.59 BNB 的尘埃堆波不构成『流量涌入』——波量级标准要与钱包数/单笔档位联判。处置=先记录不处理（用户裁定 review 完一起改），与 63/69 同攒批 burst 判定标准案。"
     },
     {
       "idx": 63,
@@ -5683,13 +5695,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "49786f0b-5a4b-4a08-b216-67605584c1b4",
       "anchorIso": "2026-11-05T07:37:28+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004005780640223776,
-      "anchors": null
+      "anchors": null,
+      "note": "用户反馈（2026-11-10 第七批 review）：『应该也是 burst 的问题（额度太小，还是卖出）』。signal metadata 取证（signalId 49786f0b）：sbw=none+activityLevel=ultra；burst 锚族 gap=3s（无沉积段，离 CD383 gap≥50 前提差一个数量级）/waveBuy=1.7043B/34 钱包（单笔均 0.05 BNB 尘埃级）/spikeBuyPctInBurst=44.2；famousDominancePct=100（famous 独食 100%）+exactEqualBlockBuyPct=38.1%/5 簇+coordSell strong+A强（equal+coordSell+pump）+spikeHoldPctAll=38.4。cheat 硬拒结果正确。问题点=『额度太小，还是卖出』——burst 波锚只计买入额 1.7 BNB，但盘面主力是卖出/对敲（coordSell strong+famous 100% 主导），单笔 0.05 级尘埃买入堆出来的波不是『一朝放量』；波构成判据缺卖出维度。处置=先记录不处理，与 62/69 同攒批。"
     },
     {
       "idx": 64,
@@ -5714,8 +5727,8 @@
       "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": -0.0112,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "ede71b14-9ffe-403d-8296-defb3b047fe7",
       "anchorIso": "2026-11-05T07:38:13+00:00",
       "anchorDate": "2026-11-05",
@@ -5829,7 +5842,8 @@
         "chipTop1Top2HoldCircPct": 25.41179831647523,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第七批 review 接受（cheat→high 豁免放行，四门全过成交 -0.0112；curVs 28.1 同贴线放行与 61 对称，一正一负）"
     },
     {
       "idx": 65,
@@ -5854,13 +5868,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "010d62f8-09f9-4fe6-804a-c01fd9768eae",
       "anchorIso": "2026-11-05T07:38:15+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000003435668283067048,
-      "anchors": null
+      "anchors": null,
+      "note": "第七批 review 接受（cheat 硬拒未进 BP；Stockless 同名系连环发币族之一，07:38:15-37 四票整族被 cheat 门拦截）"
     },
     {
       "idx": 66,
@@ -5885,13 +5900,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "5693ca8c-2503-4a36-adac-018f199928f8",
       "anchorIso": "2026-11-05T07:38:27+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000005063993011056797,
-      "anchors": null
+      "anchors": null,
+      "note": "第七批 review 接受（cheat 硬拒未进 BP；同名系连环发币族）"
     },
     {
       "idx": 67,
@@ -5916,13 +5932,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "02280fbe-c50e-4106-a3b9-49ac059b9eec",
       "anchorIso": "2026-11-05T07:38:31+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.00000328442571158351,
-      "anchors": null
+      "anchors": null,
+      "note": "第七批 review 接受（cheat 硬拒未进 BP；同名系连环发币族）"
     },
     {
       "idx": 68,
@@ -5947,13 +5964,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0082,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0586dd4c-0fc9-4178-b78f-c617c729f27e",
       "anchorIso": "2026-11-05T07:38:37+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000040084066920711615,
-      "anchors": null
+      "anchors": null,
+      "note": "第七批 review 接受（cheat 硬拒未进 BP；同名系连环发币族，前向 -0.0082 验证拦截正确）"
     },
     {
       "idx": 69,
@@ -5978,8 +5996,8 @@
       "minVs": 20.8,
       "firstPointStatus": "executed",
       "pnl": -0.0024,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "3b2d3161-4f83-4dda-9e76-c7a2fa202515",
       "anchorIso": "2026-11-05T07:38:47+00:00",
       "anchorDate": "2026-11-05",
@@ -6093,7 +6111,8 @@
         "chipTop1Top2HoldCircPct": 55.65515278498198,
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "用户反馈（2026-11-10 第七批 review）：『这个也是 burst 问题』——sbw 误判 burst 且双消费点绕过高位出口语义。signal metadata 取证（signalId 3b2d3161）：sbw=burst（题判 1）+activityLevel=low；burst 锚族 gap=61s/waveBuy=2.3782B/10 钱包（恰贴 CD383 ≥10 线）/exit +85.4（高位！）/waveStart +60.2/spikeBuyPctInBurst=41.3。链路：cheat 侧 act=low 本应走 E 通道 unhealthy，但 E 豁免条件『sbw≠burst ∨ 弱 burst 三键』因 sbw=burst ∧ 弱 burst 三键不全中（gap 61≥60 过但 wave 2.38>1.05 破）→ E 不命中 → healthy 直过（无豁免痕迹）；BP 侧 act=burst 第五档透传（BP67）不拦 → 四门全过成交 -0.0024。核心缝隙=CD396 第四腿 burstExitVsLaunchPct>40 只钳制 CD383 豁免资格臂一个消费点，sbw=burst 的另两个消费点（E 通道解药+BP67 act 第五档透传）不受钳制——出口 +85.4% 的『高位流量拉升』（CD392 明文『不是价格维持高位再一个流量拉升』）从两条路绕过。处置=先记录不处理，与 62/63 同攒批（burst 判定标准+消费点统一钳制待裁）。"
     },
     {
       "idx": 70,
@@ -6118,8 +6137,8 @@
       "minVs": 0.9,
       "firstPointStatus": "executed",
       "pnl": 0.0375,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "623973ef-1607-49b0-946e-decdeae319e3",
       "anchorIso": "2026-11-05T07:40:45+00:00",
       "anchorDate": "2026-11-05",
@@ -6233,7 +6252,8 @@
         "chipTop1Top2HoldCircPct": 48.17954018187109,
         "actNearTail10SellWallets": 0,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第七批 review 接受（CD383 定线票 0xba5ed45b：stall_burst 资格臂豁免（gap 67s+波有力+exit ≤40 三腿全过）四门全过成交 +0.0375——burst 豁免臂正样本第二例（首例 +0.0103），与 idx 51 同 Token 不同点位（07:24 unhealthy 拒 vs 07:40 豁免盈利）分流正确）"
     },
     {
       "idx": 71,
@@ -6398,8 +6418,9 @@
       "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "burst 判定问题（2026-11-10 第 8 批 review 用户点名）。链路现状：cheat 真判=cheat（A 强六通道 equal+coordSell+pump+D_famous+J_hold+R_abn+N 0.0）→ CD383 stall_burst 豁免臂翻 healthy → BP 门 burst 第五档（BP67=cheat sbw 透传不拦）activity=burst·0.99 → gates_passed 成交，平出（pnl=0）。与 idx19（Flap 0xe622…7777）同族=stall_burst 豁免通路第二例；差异：本票 minVs=12 归零后起来的重启形状（CD396 第四腿方向真 burst），但 A 强六通道坐实等额分仓+协同卖回+pump 对倒组在操盘——豁免臂对「真重启波」与「对倒组拉盘」两类形状无区分度；BP 侧 chip=strong·0.64（BP54 停用中不拦）+pattern=none·0.48 双门一停一放。处置：先记录不改，与 idx19 候选 A-D 同池攒批待裁",
       "signalId": "3f858dea-15ad-4df6-82d5-70932493f11c",
       "anchorIso": "2026-11-05T07:41:31+00:00",
       "anchorDate": "2026-11-05",
