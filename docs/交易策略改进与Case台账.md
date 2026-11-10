@@ -55,6 +55,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T133 四条批量：t0 6 笔+两次 Jev（maxTriggers 2）+actTotalBnb 低活跃门（买腿全腿+镜像卖臂）+famous near_launch 入场撤离臂；库 v17（2026-11-10，46d4d44d；用户裁定原话「再允许 tradeCount 为 6 的数据允许过两次Jev模块」「使用因子表达出"低活跃度"这个情况，请在买入条件中，也加入，毕竟买入是不接受低活跃度」「买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出」「代币在价格 low 区间（不包含 near_launch 区间），活跃度掉到 low，立即全部卖出」）
+
+**四条逐项**：
+- **① t0 笔数门 7→6 + `signalGate.maxTriggers` 1→2（t0 专属）**：「允许过两次 Jev 模块」=首次 Jev 门拒（cheat/BP 任一门拒）后允许再判一次。**无双买实证（三道防线）**：`_onFactorsUpdated` 买腿分支入口 `!_buyingTokens.has && status !== 'bought'` 门 + live `_runBuyEvaluation`/回测同位 `status === 'bought'` 单仓 return + T132 per-tick 路径防重入——买入成功后第二次触发永不被评估（计数不消耗）；首次门拒/执行失败 → status 不变 → 下个满足触发条件 tick 用掉第二次 Jev。触发计数 per (token,legId) 进程态（AbstractTradingEngine `counts >= (maxTriggers ?? 1)`）。**cheat/BP 双门 minTicks 7→6 同线配套**（DEFAULTS；T131 8→7→T133 6）——t0 6 笔档触发即过预门。**信号帽连带**：t0 两次+其余 13 腿各 1=最坏 15 信号/票 → 引用实验 `buySignalMaxPerToken >= 15`（v16 时代 14）。
+- **② 各处 27.5→28.5（BP69 同车，见 BP 台账）**：deploy 脚本十一臂（t0a/t0b/t2-t4/N30/N36/N45/NL15/NL20/NL25）+BP 统一门常量；RL15 ≤20/RL10 ≤10 刻意不动。
+- **③ famous 进场撤离臂（库 famous-entry-exit v1）**：FA 新键 `sinceEntryFamousNearLaunchBuys`（T113 差值 latch 家族）——全史单调计数器 `_famousNearLaunchBuys`（famous roster 钱包可靠价买入逐笔过 near_launch 区间门 `curVs ∈ (+10,+40]` 计数；launch 锚与 currentVsLaunchPct 同源 `_floorLaunchPriceBnb(平台常量,首买价) ?? 首可靠价`；锚不可得不计数宁漏不冒充；**curVs 取 toFixed(2) 与 currentVsLaunchPct 发射口径同源**——裸浮点在边界 10% 处 P0*1.1/P0 残差 >10 误计，单测 J1 锁）+setBuyState 时刻快照 `entryFamousNearLaunchBuys`+持仓期差值 `Math.max(0, 当前−快照)`（补买轮各自重锚；未持仓 null fail-closed）。**计数双段喂食**（smartBot 同款）：写点①processTick 价格段（priceReliable 块 `!deferWallet` 门）+写点②`_applyWalletAggregation` 补跑段（`price_accepted: true` 透传置位）→ 每 tick 恰计一次，直推/defer/回测三路径 bit 一致。卖腿 `sinceEntryFamousNearLaunchBuys >= 1` bypass cards:'all' 全清——BP61/65 案法（famous 在场=收割前兆）立法到交易侧。
+- **④「低活跃度」单一因子表达 + 买卖双侧镜像**：FA act\* 家族第 9 键 **`actTotalBnb`**（10s 滑窗买+卖合计，`_activityFactors` 派生）——阈值 0.1 依据=CD act 题「1 BNB/min 死寂线」10s 折算 ≈0.167 取略放宽（金额吞吐比笔数重要）；ea78 n=6 时刻 10s 窗 0.751 BNB 远超线不受影响。**买腿**：全 14 腿加 `AND actTotalBnb >= 0.1`（买不进低活跃度——与 T133 指令④）；**卖臂**（库 low-zone-stall-exit v1）`currentVsLaunchPct > 40 AND currentVsLaunchPct <= 80 AND actTotalBnb < 0.1` bypass cards:'all' 全清——low 区=BP43 六桶 +40~80 **刻意不含 near_launch +10~40**（贴发行价的低活跃是黄金点域非撤离域）；已脱离发行价区+成交枯竭=滞涨死盘立即撤。两臂 bypass 立即路径=「立即全部卖出」语义（不等 3.5s+5tick 确认窗——与 stallClose/毕业卖同族保命腿待遇）。
+
+**单测**：since_entry J 段 7 项 39 全绿（区间口径/名单外+卖腿/差值 latch 三态/未持仓 null/defer 双段恰一次/名单缺失/源码锁五件——J7b 区间判据+J7c 锚链同源+J7d FactorBuilder 透传+J7e null 域）+activity L 段 6 项 49 全绿（精确公式/真值表/窗过滤/探针/透传/禁 Date.now）+buy_point_lib 494（BP69 断言同步：边界 27.6 放行/28.6 拒）+双门服务 DEFAULTS=6 源码锁。
+
+**部署**：库 16→17 UPDATE（signal-source-ladder-v1）+famous-entry-exit/low-zone-stall-exit INSERT（182 --commit）；bt-v100=首引用实验（克隆 bt-v96：14 买腿 v17+18 卖腿+帽 15）。
+
 ### T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并）——ea78 t0 点位零信号双重根因修复（2026-11-10，313f161c+61f4d57c+18cfd8f2；用户指令「修复后，单独的回测一下 0xea78…」兑现链）
 
 **动机（事故现场）**：ea78（flap）n=7（05:48:33，+21.61%）与 n=8（同秒，+27.75% 破 27.5）**毫秒级同 block_time 秒**。T131 落地后两次单票回测（4087f6cc/a53dd50b）均零 BUY 信号——裸 FA 重放（registerToken platform:'flap' + DB 行逐 processTick + buildFactorMap）n=7 时刻四键真（tradeCount=7/buyVol=1.529/holdersExDust=5/curVs=+21.61），引擎内却零触发。**双重根因**：①TickDebouncer burst 合并——n=7/n=8 同刻进同一 burst，fire 回调 `_runBuyEvaluation` 在 fire 时刻重读因子已含 n=8 → curVs 27.75 破线翻假，单 tick 真窗被吃掉（实时引擎同形状同样 miss）；②tickBuildSkip 默认开时未持仓窗内票（C 类）主循环 factors=null，per-tick 挂点首版写在 `if (factors)` 内=恒短路——ea78 全程未持仓=纯 C 类，per-tick 一次都没评过。**第三 bug（首跑实锤）**：StrategyEngine.evaluate 的 excludeStrategyIds 消费 `.has`（与 _signalGateExcludedIds 同型=Set），首版四处传数组 → `excludeIds.has is not a function` 回测 failed（回测二未崩只因 ② 恒短路从未执行到）。
