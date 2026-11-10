@@ -2987,9 +2987,9 @@ class ExperimentSignals {
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
               <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
-              <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·放行</span>
+              <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·拒</span>
             </div>
-            <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 8，不调 Jev 不判定——BP9 裁定 insufficient_ticks 放行（极早触发锚窗短为常态）</div>
+            <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 7，不调 Jev 不判定——BP10 裁定 insufficient_ticks 硬拒（数据不够就挡住）</div>
           </div>
           `;
         } else {

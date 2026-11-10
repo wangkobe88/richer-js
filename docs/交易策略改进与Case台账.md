@@ -55,6 +55,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T131 ladder v15 十四腿：t0 最早臂（7 笔档）+ cheat/BP 双门 minTicks 8→7——ea78 开盘 25 秒窗差一笔案（2026-11-10；用户裁定原话「针对这个问题，增加一个买入臂吧。cheat 重新解析并不能解决这个问题」「之后的买入点位肯定远不如早期的」+ minTicks 红线配套裁定「可以适当降低一下，例如降低为 7」）
+
+**动机**：吉祥 ea78 `0xea7886d5…7777`（flap，token_create 2026-11-05T05:48:04Z=北京 13:48:04）形状=「开盘贴发行价慢攒 25 秒 → t+30s 17 笔 2.26 BNB 拉到 +131% 永久离开买窗，此后 4h 最低 +67%」：用户质询「13:48:33（北京）为啥没发出信号？他的购买点应该在这个时间点之前」——逐 tick 重放四门实证 t0a（9 笔/1 BNB/6 人/≤27.5）在唯一价格窗（开盘前 29 秒）内**差 1 笔差 2 人全程未同时满足**（t+29s 时 n=7/买额 1.53B/钱包 5/curVs +21.6%；t0a 要 9 笔第 8 笔已 +27.8% 出窗、第 9 笔 +44.8% 深出窗）；8 笔档同样死结（第 8 笔 +27.8% 恰破 27.5 线）——**笔数门 7 是唯一能接住该点位的档**。同日 CD395「拉黑票价格重检臂」立项施工后被用户回退零落地（「感觉这不是针对这个 case 的方案，建议先回退，不要引入更多变量」+「担忧对于 cheat 票在上涨后归零区间翻盘」——ea78 的 09:59 回落段死结归 cheat 门判定域非本批职责，回退后引擎三文件 git restore 零残留）。
+
+**落法（`scripts/deploy-signal-source-strategies.cjs` v15 + 两 service DEFAULTS）**：
+- **t0 最早臂**：`tradeCount >= 7 AND buyVolumeBnb >= 1 AND holdersExDust >= 4 AND currentVsLaunchPct <= 27.5`（RECHECK_EARLY 早臂族式重检；priority 1 起步即最早臂，原 t0a…RL10 顺移 +1 成十四腿；库条目 version 15→16）。笔数门与预门同线=触发即有效判定；4 人门低于 t0a 的 6 人（ea78 t+29s 实测 5 钱包，v5 旧 t0a 6 笔档同为 4 人门先例）。风险留档：极早窗 7 行证据 Jev 判定方差大，由门链（cheat 16 题+BP 题集）兜底；触发面自然收窄（「低开慢攒+点火即拉飞」形状——开盘即冲快的票价格迅速 >27.5 不触发）。
+- **minTicks 8→7 配套**（`CheatCheckService`/`BuyPointCheckService` 两处 DEFAULTS）：7 笔触发时锚窗恰过双门预门不再 insufficient_ticks 白烧（BP 锚 anchorTickCount ≥ tradeCount=7 恒成立）；生产 config 无显式覆盖（DEFAULTS 直效）。历史 v5 t0a 6 笔档（无价格门时代 69 触发被删）/v7 删 t1 8 笔档均为不同参数不同环境，本次 7 笔档带 27.5 价格门+门链环境重生。
+- **signals 页旧文案顺手修正**（`experiment_signals.js` ?v=4.44）：insufficient_ticks 分支「未判定·放行——BP9 裁定放行」为 BP9 时代残留，现行 BP10=硬拒，改为「未判定·拒——BP10 裁定 insufficient_ticks 硬拒（数据不够就挡住）」。
+
+**单测**：validate_legs 46/signal_gate_engine 127/cheat_detection_service 140（Y1b 改显式传 minTicks: 8 保锚截窗用例本意、Z2-2 短窗夹具 7 行→6 行随 DEFAULTS 降——「天然短窗 insufficient_ticks」语义断言锚定新默认线）/buy_point_check 36/cheat_gate_engine 170 全绿（其余用例显式传 8 自洽不受 DEFAULTS 影响）。
+
+**回测**：ea78 单票回测（backtest-token-case.cjs，v98 基底窗口）——见部署后汇报（进行中）。
+
 ### T130 发行价地板补丁：launch 锚=min(平台常量, 代币首笔买入可靠价)——低开票 currentVsLaunchPct 族换地板锚（2026-11-09；用户裁定原话「我发现很多币的第一次购买价格，低于普遍代币的发布价格……这里再打一个补丁，如果代币首次购买价格低于我们配置的代币初始价格，那么地板改为首次购买价」；例票 67ad68e0/-4.9%、6efa11ce/-20.2% 两张 flap quote 盘）
 
 **动机**：flap quote 盘（及个别低开票）首笔成交价可显著低于平台常量（67ad68e0 首笔 buy 5.2737e-9 vs FL 常量 5.546e-9=-4.9%；6efa11ce 4.4263e-9=-20.2%）——T127 常量锚下这类票 currentVsLaunchPct 整体抬高（6efa11ce 首 tick 即 +20%=low 档），near_launch(≤+40)/almost_launch(≤+10) 位置判定与 T129 27.5 价格门系统性失真：低开票的「发行价」事实是首买价不是常量。

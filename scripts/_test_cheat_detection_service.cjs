@@ -809,10 +809,11 @@ async function main() {
       `锚内 31 行 ≥ minTicks 全链（实际 ${r1.status}/${r1.grade}）`);
     ok(ltes1.length === 1 && ltes1[0][1][0] === 'block_time' && ltes1[0][1][1] === new Date(anchorMs).toISOString(),
       `tail 查询 .lte('block_time', 锚 iso)（实际 ${JSON.stringify(ltes1.map((x) => x[1]))}）`);
-    // Y1b 锚切到行 6（锚内 7 行 < minTicks 8）→ insufficient_ticks：锚后 43 行被截
-    //（无锚=50 行必过预门——截窗「真的截」的行为证据）
+    // Y1b 锚切到行 6（锚内 7 行 < minTicks 8[显式传参——DEFAULTS 已 T131 降 7，
+    // 7 行恰过默认预门，本用例验证的是锚截窗「真的截」非预门数值]）→
+    // insufficient_ticks：锚后 43 行被截（无锚=50 行必过预门——行为证据）
     const db1b = makeDb({ ticks: genTicks(50, { routerEvery: 2 }) });
-    const r1b = await makeSvc(db1b, makeLlm({ answers: NONE_ANSWERS }))
+    const r1b = await makeSvc(db1b, makeLlm({ answers: NONE_ANSWERS }), { minTicks: 8 })
       .gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, anchorMs: 1700000000000 + 6 * 2000 });
     ok(r1b.status === 'insufficient_ticks' && r1b.anchorTickCount === 7,
       `锚截 7 行 < minTicks → insufficient_ticks（实际 ${r1b.status}/${r1b.anchorTickCount}）`);
@@ -889,14 +890,15 @@ async function main() {
     ok(Math.abs(rowZ1.snapshot_digest.buyBnb - 1.2) < 1e-9,
       `digest 资金计全窗（12 行×0.1=1.2；实际 ${rowZ1.snapshot_digest.buyBnb}）`);
     ok(svcZ1.stats.marketResets === 0, `stats.marketResets 停用恒 0（CD393；实际 ${svcZ1.stats.marketResets}）`);
-    // Z2-2 短窗 reset 形状（7 行）→ 回到天然 insufficient_ticks（CD384
-    // reset_insufficient_ticks 独立 status 随截窗退役；BP10「数据不够就挡住」
-    // 存量语义照旧——仍是拒，不落表不烧 Jev）
-    const dbZ2 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06, 1.07]) });
+    // Z2-2 短窗 reset 形状（6 行<DEFAULTS minTicks 7——T131 8→7 后天然短窗线
+    // 随降）→ 回到天然 insufficient_ticks（CD384 reset_insufficient_ticks
+    // 独立 status 随截窗退役；BP10「数据不够就挡住」存量语义照旧——仍是拒，
+    // 不落表不烧 Jev）
+    const dbZ2 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06]) });
     const svcZ2 = makeSvc(dbZ2, makeLlm({ answers: NONE_ANSWERS }));
     const rZ2 = await svcZ2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rZ2.status === 'insufficient_ticks' && rZ2.anchorTickCount === 7,
-      `7 行 <minTicks → insufficient_ticks（reset_insufficient_ticks 状态不再产出；实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
+    ok(rZ2.status === 'insufficient_ticks' && rZ2.anchorTickCount === 6,
+      `6 行 <minTicks(7) → insufficient_ticks（reset_insufficient_ticks 状态不再产出；实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
     ok(dbZ2.state.inserts.length === 0 && svcZ2.stats.resetInsufficientRejects === 0,
       `短窗不落表+resetInsufficientRejects 停用恒 0（实际 inserts=${dbZ2.state.inserts.length}/ri=${svcZ2.stats.resetInsufficientRejects}）`);
     // Z2-3 满帽（capped）：tail 10 行=帽 → 判定窗=帽内 10 行全窗（无 reset 分叉，
