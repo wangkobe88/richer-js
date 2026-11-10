@@ -1454,7 +1454,7 @@ class BacktestEngine extends AbstractTradingEngine {
             if (_sgPerTickExcl !== null) {
               const _exhausted = this._signalGateExcludedIds(tick.token_address);
               const _excl = _exhausted
-                ? [...new Set([..._exhausted, ..._sgPerTickExcl])]
+                ? new Set([..._exhausted, ..._sgPerTickExcl])
                 : _sgPerTickExcl;
               const _sgStrategy = this._strategyEngine.evaluate(
                 _evalFactors, tick.token_address, tickTs, token, 'buy', { excludeStrategyIds: _excl });
@@ -1978,8 +1978,8 @@ class BacktestEngine extends AbstractTradingEngine {
       const _exclBase = this._signalGateReal
         ? this._signalGateExcludedIds(tokenAddress)
         : this._sgExcludedIds;
-      const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.length > 0)
-        ? (_exclBase ? [...new Set([..._exclBase, ...opts.evalExcludeIds])] : opts.evalExcludeIds)
+      const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.size > 0)
+        ? (_exclBase ? new Set([..._exclBase, ...opts.evalExcludeIds]) : opts.evalExcludeIds)
         : _exclBase;
       const _sgOpts = _excl ? { excludeStrategyIds: _excl } : null;
       const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy', _sgOpts);

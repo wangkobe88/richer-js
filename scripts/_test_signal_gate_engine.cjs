@@ -640,7 +640,9 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     BT.includes('const _sgOpts = _excl ? { excludeStrategyIds: _excl } : null;'));
 
   // E6 实时 evaluate 传排除集（阶梯接棒接线点；T132 改写为 _excl 并集形状）
-  ok('实时 evaluate 第 6 参接线', ENG.includes('const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.length > 0)') &&
+  ok('实时 evaluate 第 6 参接线（Set 并集=evaluate .has 消费型）',
+    ENG.includes('const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.size > 0)') &&
+    ENG.includes('new Set([..._exclBase, ...opts.evalExcludeIds])') &&
     ENG.includes("{ excludeStrategyIds: _excl }"));
 
   // E7 计数无回滚：_sgRecordTrigger 定义在基类（2026-11-07 门链上移）、调用在
@@ -673,9 +675,9 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
   // 内短路=恒不评（ea78 全程未持仓=纯 C 类，裸 FA 重放四键真 vs 引擎零触发）。
   // 修=per-tick 用本 tick 因子直评（C 类票 signalGate 实验现补全量 build），触发
   // clear pending + 走 _evaluateBuyPath（限定只评 signalGate 腿））
-  ok('基类 per-tick 排除集 helper 定义（null=无 signalGate 腿快速 no-op）',
+  ok('基类 per-tick 排除集 helper 定义（null=无 signalGate 腿快速 no-op；Set=evaluate .has 消费型）',
     ABS.includes('_signalGatePerTickExcludedIds()') &&
-    ABS.includes('this._sgPerTickExcludedIds = has ? ids : null;'));
+    ABS.includes('this._sgPerTickExcludedIds = has ? new Set(ids) : null;'));
   ok('实时引擎 per-tick 挂点（命中即 clear debounce + 直调 _evaluateBuyPath）',
     ENG.includes('const _sgPerTickExcl = this._signalGatePerTickExcludedIds();') &&
     ENG.includes('this._buyDebouncer.clear(tokenAddress);') &&

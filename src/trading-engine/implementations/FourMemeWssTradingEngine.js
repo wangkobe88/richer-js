@@ -1779,7 +1779,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (_sgPerTickExcl !== null) {
         const _exhausted = this._signalGateExcludedIds(tokenAddress);
         const _excl = _exhausted
-          ? [...new Set([..._exhausted, ..._sgPerTickExcl])]
+          ? new Set([..._exhausted, ..._sgPerTickExcl])
           : _sgPerTickExcl;
         const _sgStrategy = this._strategyEngine.evaluate(
           factors, tokenAddress, Date.now(), token, 'buy', { excludeStrategyIds: _excl });
@@ -2148,8 +2148,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // T132 opts.evalExcludeIds：per-tick 发起路径限定只评 signalGate 腿（防 legacy
       // 腿借 per-tick 路径提前触发绕 debounce——混合腿实验 legacy 行为 bit 不变）
       const _exclBase = this._signalGateExcludedIds(tokenAddress);
-      const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.length > 0)
-        ? (_exclBase ? [...new Set([..._exclBase, ...opts.evalExcludeIds])] : opts.evalExcludeIds)
+      const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.size > 0)
+        ? (_exclBase ? new Set([..._exclBase, ...opts.evalExcludeIds]) : opts.evalExcludeIds)
         : _exclBase;
       const strategy = this._strategyEngine.evaluate(factorResults, token.token, Date.now(), token, 'buy',
         { excludeStrategyIds: _excl });

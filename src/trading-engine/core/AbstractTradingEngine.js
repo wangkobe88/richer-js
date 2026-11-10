@@ -1438,7 +1438,9 @@ class AbstractTradingEngine extends ITradingEngine {
       if (s.signalGate) has = true;
       else ids.push(s.id);
     }
-    this._sgPerTickExcludedIds = has ? ids : null;
+    // Set（与 _signalGateExcludedIds 同型）：StrategyEngine.evaluate
+    // excludeStrategyIds 消费 .has——数组在此 TypeError（T132b 回测首跑实锤）
+    this._sgPerTickExcludedIds = has ? new Set(ids) : null;
     return this._sgPerTickExcludedIds;
   }
 
