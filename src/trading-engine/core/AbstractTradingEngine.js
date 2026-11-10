@@ -1414,6 +1414,35 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
+   * T132 signalGate 触发腿 per-tick 评估排除集：全部**非** signalGate 买腿 id
+   * 数组（per-tick 路径只评触发腿，legacy 腿防提前触发绕 debounce——混合腿实验
+   * 下 legacy 腿行为 bit 不变）。返回 null=实验无 signalGate 买腿（per-tick 挂点
+   * 快速 no-op）；空数组=全 signalGate（不排除）。
+   *
+   * 动机（ea78 t0 案）：买腿 debounce 是「burst 内每 tick 重置 + fire 时以 fire
+   * 时刻最新状态重读因子」语义——对真窗只有单笔 tick 的极早触发形状结构性失明
+   * （n=7 +21.6% 与 n=8 +27.8% 同秒到达合并进同一 burst，fire 时因子已含 n=8 →
+   * curVs 破 27.5 线翻假，t0 立法点位被吃掉；实时引擎同形状同样 miss）。signalGate
+   * 腿自带触发即消耗（maxTriggers）+ T110 发射节流 + cheat/BP 门链 fail-closed
+   * 兜底，debounce 的防毛刺职能对触发腿冗余 → 触发腿绕过 debounce per-tick 评估；
+   * legacy 腿（condition+直调链）不受影响照走 debounce。
+   *
+   * 进程级缓存（loadStrategies 后策略集不变；首次调用在买腿评估挂点=策略必已装载）。
+   */
+  _signalGatePerTickExcludedIds() {
+    if (this._sgPerTickExcludedIds !== undefined) return this._sgPerTickExcludedIds;
+    let has = false;
+    const ids = [];
+    for (const s of this._strategyEngine.getAllStrategies()) {
+      if (s.action !== 'buy') continue;
+      if (s.signalGate) has = true;
+      else ids.push(s.id);
+    }
+    this._sgPerTickExcludedIds = has ? ids : null;
+    return this._sgPerTickExcludedIds;
+  }
+
+  /**
    * cheat 拉黑硬拒共用段（CD158 条件版与 T117 二元版共用）：拉黑+清仓+signal
    * failed。nowMs：清仓 factors 时刻——生产缺省 Date.now()；回测 signalGateReal
    * 链路传信号 fire 虚拟时刻（前视红线）。

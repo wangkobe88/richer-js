@@ -635,10 +635,13 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
 
   // E5 BacktestEngine 全量排除集（回测恒拒——用户裁定 2026-11-05）
   ok('回测排除集组装（loadStrategies 后一次性）', BT.includes('.filter(s => s.signalGate).map(s => s.id)'));
-  ok('回测买 evaluate 传排除集', BT.includes('this._sgExcludedIds ? { excludeStrategyIds: this._sgExcludedIds } : null'));
+  ok('回测买 evaluate 传排除集（T132 改写为 _excl 并集形状）',
+    BT.includes('this._signalGateReal\n        ? this._signalGateExcludedIds(tokenAddress)\n        : this._sgExcludedIds;') &&
+    BT.includes('const _sgOpts = _excl ? { excludeStrategyIds: _excl } : null;'));
 
-  // E6 实时 evaluate 传排除集（阶梯接棒接线点）
-  ok('实时 evaluate 第 6 参接线', ENG.includes('{ excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) })'));
+  // E6 实时 evaluate 传排除集（阶梯接棒接线点；T132 改写为 _excl 并集形状）
+  ok('实时 evaluate 第 6 参接线', ENG.includes('const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.length > 0)') &&
+    ENG.includes("{ excludeStrategyIds: _excl }"));
 
   // E7 计数无回滚：_sgRecordTrigger 定义在基类（2026-11-07 门链上移）、调用在
   // FourMeme 门链块恰 1 处——多一处=有旁路记账点；无「门拒回退」代码（触发即
@@ -660,8 +663,27 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     BT.includes('this._signalGateReal = backtestConfig.signalGateReal === true;'));
   ok('signalGateReal 排除集短路（真调链路不组装全量排除集）',
     BT.includes('const _sgIds = this._signalGateReal ? [] :'));
-  ok('signalGateReal evaluate 走触发计数排除集（阶梯接棒与实时同语义）',
-    BT.includes('this._signalGateReal\n        ? { excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) }'));
+  ok('signalGateReal evaluate 走触发计数排除集（阶梯接棒与实时同语义；T132 _exclBase 形状）',
+    BT.includes('const _exclBase = this._signalGateReal\n        ? this._signalGateExcludedIds(tokenAddress)\n        : this._sgExcludedIds;'));
+
+  // E10 T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——ea78 t0 案
+  // 事故现场反证：n=7 +21.6% 与 n=8 +27.8% 同秒合并进同一 burst，fire 重读因子
+  // 已含 n=8 → curVs 破 27.5 翻假，单 tick 真窗被吃掉；per-tick 用本 tick 因子
+  // 直评，触发 clear pending + 走 _evaluateBuyPath（限定只评 signalGate 腿））
+  ok('基类 per-tick 排除集 helper 定义（null=无 signalGate 腿快速 no-op）',
+    ABS.includes('_signalGatePerTickExcludedIds()') &&
+    ABS.includes('this._sgPerTickExcludedIds = has ? ids : null;'));
+  ok('实时引擎 per-tick 挂点（命中即 clear debounce + 直调 _evaluateBuyPath）',
+    ENG.includes('const _sgPerTickExcl = this._signalGatePerTickExcludedIds();') &&
+    ENG.includes('this._buyDebouncer.clear(tokenAddress);') &&
+    ENG.includes("{ evalExcludeIds: _sgPerTickExcl }"));
+  ok('回测引擎 per-tick 挂点（factors 在手才评；inflightEvals 串行语义）',
+    BT.includes("if (factors) {\n            const _sgPerTickExcl = this._signalGatePerTickExcludedIds();") &&
+    BT.includes('this._buyDebouncer.clear(tick.token_address);') &&
+    BT.includes("{ evalExcludeIds: _sgPerTickExcl }"));
+  ok('legacy 腿不受影响（per-tick 未命中照旧 touch debounce）',
+    BT.includes('if (!_perTickFired) {') &&
+    ENG.includes('this._scheduleDebouncedBuy(tokenAddress, tick);'));
   ok('signalGateReal 门链挂点（signal 落库后先记账→作弊门→BP 门）',
     BT.includes('strategy.signalGate && this._signalGateReal') &&
     BT.includes('this._sgRecordTrigger(tokenAddress, strategy.id);\n\n        const _meta'));

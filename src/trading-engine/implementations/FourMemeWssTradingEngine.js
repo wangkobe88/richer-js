@@ -405,6 +405,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // per (token, legId) 触发计数（进程态重启归零——叙事触发状态机同款先例）；
     // 耗尽腿组装排除集传 evaluate（阶梯接棒：t1 耗尽 → t2 顶上）
     this._signalSourceTriggerCounts = new Map();
+    // T132 signalGate 触发腿 per-tick 评估排除集缓存（基类 _signalGatePerTickExcludedIds）
+    this._sgPerTickExcludedIds = undefined;
 
     // T110 买信号发射节流（2026-11-03 用户裁定「全局买信号机制」，所有实验生效）：
     // per-token 冷却时间门（buySignalCooldownMs 缺省 3000，0=关）+ 发射次数帽
@@ -1766,6 +1768,31 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // repeat-buy 轮可再观察，per-token 上限全局兜底）；同步纯内存判定+写行
       // fire-and-forget，绝不进买腿去抖链
       if (this._observationService) this._observationService.evaluate(token, factors, tick.timestamp);
+      // T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——单 tick 真窗
+      // 形状：burst 末笔重读因子语义对 ea78 t0 案「真窗只存在于一笔 tick」结构性
+      // 失明，实时/回测同形状同 miss；动机与语义详基类 _signalGatePerTickExcludedIds）。
+      // 本 tick 因子直评触发腿（fire-and-forget；_evaluateBuyPath 入口同步
+      // buyingTokens.add → 门链 await 期后续 tick 天然全跳过）；触发则 clear 该
+      // token 的 debounce pending（burst 已由 per-tick 路径接管，防下次 advance
+      // 重评）并跳过本 tick touch；未触发照旧 touch（legacy 腿 debounce 不动）
+      const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
+      if (_sgPerTickExcl !== null) {
+        const _exhausted = this._signalGateExcludedIds(tokenAddress);
+        const _excl = _exhausted
+          ? [...new Set([..._exhausted, ..._sgPerTickExcl])]
+          : _sgPerTickExcl;
+        const _sgStrategy = this._strategyEngine.evaluate(
+          factors, tokenAddress, Date.now(), token, 'buy', { excludeStrategyIds: _excl });
+        if (_sgStrategy) {
+          this._buyDebouncer.clear(tokenAddress);
+          this.logger.info(this._experimentId, 'BuyEval',
+            `${token.symbol} signalGate 触发腿 per-tick 命中(绕 debounce): ${_sgStrategy.name}`);
+          this._evaluateBuyPath(token, factors, tick, { evalExcludeIds: _sgPerTickExcl })
+            .catch(e => this.logger.error(this._experimentId, 'BuyEval',
+              `${token.symbol || tokenAddress.slice(0, 10)} 买腿评估异常: ${e.message}`));
+          return;
+        }
+      }
       this._scheduleDebouncedBuy(tokenAddress, tick);
     }
   }
@@ -2098,7 +2125,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * 买路径主体（对齐旧 VirtualTradingEngine._executeStrategy 的 buy 分支）：
    * 信号先落库（预检查失败也留痕）→ 购买前检查 → processSignal 执行 → 池/FA 状态推进。
    */
-  async _evaluateBuyPath(token, factorResults, tick) {
+  async _evaluateBuyPath(token, factorResults, tick, opts = {}) {
     const tokenAddress = token.token;
     const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues, buildTpaFactorSnapshot } = require('../core/FactorBuilder');
 
@@ -2118,8 +2145,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 评估（fire 时点因子；只看买腿——同优先级下避免卖策略遮蔽买入）
       // T117 signalGate 腿触发耗尽排除：per (token, legId) 计数 ≥ maxTriggers 的腿
       // 从评估集剔除（阶梯接棒——前腿耗尽次腿顶上；跳过语义与 maxExecutions 同构）
+      // T132 opts.evalExcludeIds：per-tick 发起路径限定只评 signalGate 腿（防 legacy
+      // 腿借 per-tick 路径提前触发绕 debounce——混合腿实验 legacy 行为 bit 不变）
+      const _exclBase = this._signalGateExcludedIds(tokenAddress);
+      const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.length > 0)
+        ? (_exclBase ? [...new Set([..._exclBase, ...opts.evalExcludeIds])] : opts.evalExcludeIds)
+        : _exclBase;
       const strategy = this._strategyEngine.evaluate(factorResults, token.token, Date.now(), token, 'buy',
-        { excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) });
+        { excludeStrategyIds: _excl });
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
       }

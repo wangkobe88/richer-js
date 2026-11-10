@@ -153,6 +153,8 @@ class BacktestEngine extends AbstractTradingEngine {
     this._cheatBlockedTokens = new Set();
     this._cheatProjectedTokens = new Set();
     this._signalSourceTriggerCounts = new Map();
+    // T132 signalGate 触发腿 per-tick 评估排除集缓存（基类 _signalGatePerTickExcludedIds）
+    this._sgPerTickExcludedIds = undefined;
 
     // graduation 事件回放（2026-10-10 虚拟↔回测一致性对齐，a21fa102 CZ 毕业票案）：
     // 毕业后 token ticks 停止，虚拟引擎有事件驱动全清（_handleGraduation →
@@ -1431,8 +1433,40 @@ class BacktestEngine extends AbstractTradingEngine {
           }
           perf.sell += Date.now() - _p0;
         } else if (!this._buyingTokens.has(tick.token_address) && token.status !== 'bought') {
-          if (this._buyDebouncer.pending.has(tick.token_address)) this.metrics.debounceSuppressed++;
-          this._buyDebouncer.touch(tick.token_address, tick);
+          // T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——单 tick 真窗
+          // 形状，与实时引擎 _onFactorsUpdated 同构；动机与语义详基类
+          // _signalGatePerTickExcludedIds）。本 tick 因子直评触发腿；factors=null
+          //（tickBuildSkip 开的 C 类票）时跳过=退化为 fire 语义（现状，留档——
+          // 该优化场景与本路径互斥，全量 build 实验/实时不受影响）。回放串行语义：
+          // eval 进 inflightEvals，下一 tick 前 _advanceDebouncer drain 完成后才
+          // 消费次笔（n=8 的翻假因子永远不会覆盖 n=7 的触发判定）
+          let _perTickFired = false;
+          if (factors) {
+            const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
+            if (_sgPerTickExcl !== null) {
+              const _exhausted = this._signalGateExcludedIds(tick.token_address);
+              const _excl = _exhausted
+                ? [...new Set([..._exhausted, ..._sgPerTickExcl])]
+                : _sgPerTickExcl;
+              const _sgStrategy = this._strategyEngine.evaluate(
+                factors, tick.token_address, tickTs, token, 'buy', { excludeStrategyIds: _excl });
+              if (_sgStrategy) {
+                _perTickFired = true;
+                this._buyDebouncer.clear(tick.token_address);
+                this.logger.info(this._experimentId, 'BuyEval',
+                  `${token.symbol} signalGate 触发腿 per-tick 命中(绕 debounce): ${_sgStrategy.name}`);
+                const _p = this._evaluateBuyPath(token, factors, tick, tickTs, { evalExcludeIds: _sgPerTickExcl })
+                  .catch(e => this.logger.error(this._experimentId, 'BuyEval',
+                    `${token.symbol || tick.token_address.slice(0, 10)} 回放买腿评估异常: ${e.message}`));
+                this._inflightEvals.add(_p);
+                _p.finally(() => this._inflightEvals.delete(_p));
+              }
+            }
+          }
+          if (!_perTickFired) {
+            if (this._buyDebouncer.pending.has(tick.token_address)) this.metrics.debounceSuppressed++;
+            this._buyDebouncer.touch(tick.token_address, tick);
+          }
           perf.other += Date.now() - _p0;
         }
 
@@ -1914,7 +1948,7 @@ class BacktestEngine extends AbstractTradingEngine {
     return p;
   }
 
-  async _evaluateBuyPath(token, factorResults, tick, fireTs) {
+  async _evaluateBuyPath(token, factorResults, tick, fireTs, opts = {}) {
     const tokenAddress = token.token;
     const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues, buildTpaFactorSnapshot } = require('../core/FactorBuilder');
     const nowTs = fireTs;
@@ -1931,9 +1965,15 @@ class BacktestEngine extends AbstractTradingEngine {
       // 无接线；带 signalGate 买腿的实验回测零买信号=预期形状，排除集
       // loadStrategies 后一次性组装）；=true 受控解禁——signalGate 腿正常评估，
       // 排除集按触发计数组装（阶梯接棒，与实时引擎同语义，signal 落库成功后记账）
-      const _sgOpts = this._signalGateReal
-        ? { excludeStrategyIds: this._signalGateExcludedIds(tokenAddress) }
-        : (this._sgExcludedIds ? { excludeStrategyIds: this._sgExcludedIds } : null);
+      // T132 opts.evalExcludeIds：per-tick 发起路径限定只评 signalGate 腿（防 legacy
+      // 腿借 per-tick 路径提前触发绕 debounce——混合腿实验 legacy 行为 bit 不变）
+      const _exclBase = this._signalGateReal
+        ? this._signalGateExcludedIds(tokenAddress)
+        : this._sgExcludedIds;
+      const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.length > 0)
+        ? (_exclBase ? [...new Set([..._exclBase, ...opts.evalExcludeIds])] : opts.evalExcludeIds)
+        : _exclBase;
+      const _sgOpts = _excl ? { excludeStrategyIds: _excl } : null;
       const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy', _sgOpts);
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
