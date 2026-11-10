@@ -258,6 +258,23 @@ function buildBuyPointState(snapshot) {
     if (wallets.length > WALLET_SHOW_MAX) truncated.wallets = true;
     const lines = [];
     if (truncated.wallets) lines.push(`（共 ${wallets.length} 个钱包，按买入额保留 top ${WALLET_SHOW_MAX}）`);
+    // BP55 单笔口径判读直供（判据与 state 直供同构铁律——a8e70 对拍三连不翻②教训：
+    // 题面判据已单笔化但 Jev 需从钱包行多步自算「单笔 0.2 级钱包数」，组好直供一行）
+    {
+      const bigSingles = wallets.filter((e) => e.maxBuyBnb >= 0.19);
+      const arm30 = bigSingles.filter((e) => e.maxBuyBnb >= 0.3);
+      const grayAccum = wallets.filter((e) => e.maxBuyBnb < 0.19 && e.buyBnb >= 0.19);
+      const fmtEntry = (e) => {
+        const soldPct = e.buyBnb > 0 ? Math.round((e.sellBnb / e.buyBnb) * 100) : 0;
+        return `${shortWallet(e.w)} 单笔最大 ${fmtBnb(e.maxBuyBnb)}（累计 ${fmtBnb(e.buyBnb)}×${e.buyN}、已卖 ${fmtBnb(e.sellBnb)}≈${soldPct}% 净 ${fmtBnb(e.buyBnb - e.sellBnb)}、末动@${fmtDt(e.lastActDt)}）`;
+      };
+      const capList = (arr, cap) => arr.length > cap ? arr.slice(0, cap).map(fmtEntry).join('；') + ` 等 ${arr.length} 个` : arr.map(fmtEntry).join('；');
+      lines.push(
+        `大户参与判读（0.2 级按单笔计不累计/BP55）: 单笔 ≥0.19 的钱包 ${bigSingles.length} 个${bigSingles.length ? '——' + capList(bigSingles, 6) : ''}｜单笔 0.3+ 的钱包 ${arm30.length} 个` +
+        `${grayAccum.length ? `｜累计到 0.2 级但单笔不到线的灰区单不计入（${capList(grayAccum, 3)}）` : ''}` +
+        '——判序线=单笔 0.2 级钱包 ≥2 个（或单笔 0.3+）且买点时刻在场（末笔后清仓式卖出离场的历史大户不算在场）；不满足=无大户参与直接落②散户 PVP，盘面活跃度不救',
+      );
+    }
     for (const e of shown) {
       const r = recent.get(e.w);
       lines.push(

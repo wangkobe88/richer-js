@@ -522,6 +522,14 @@ ok(stD.state.includes('近120s 买'), 'D: [WALLETS] 近端字段在场');
   ok(stD.state.includes('买 0.220×2(最大单笔0.120)'), 'D: [WALLETS] 行渲染「(最大单笔X)」直供判读（BP55——判据与 state 直供同构铁律；fmtBnb 三位小数）');
   const wb = snapD.wallets.find((e) => e.w === W_B);
   ok(wb && near(wb.buyBnb, 1.8) && wb.maxBuyBnb === 1.0, 'D: W_B 累计 1.8 / 单笔最大 1.0（多笔钱包 maxBuyBnb=单笔最大非累计）');
+  // BP55 二层直供（a8e70 对拍三连不翻②教训——判据与 state 直供同构铁律：题面单笔化之外，
+  // Jev 从行内自算「单笔 0.2 级钱包数」判序失灵（BP43/BP53 同族），组好计数直供一行）
+  ok(stD.state.includes('大户参与判读（0.2 级按单笔计不累计/BP55）: 单笔 ≥0.19 的钱包 5 个') && stD.state.includes('单笔 0.3+ 的钱包 4 个'),
+    'D: 大户参与判读直供行计数（rowsA=单笔 ≥0.19 五个 W_B/W_F/CREATOR/W_C/W_D、0.3+ 四个——判序材料组好直供不再依赖 Jev 行内自算）');
+  ok(stD.state.includes('灰区单不计入') && stD.state.includes('单笔最大 0.120（累计 0.220×2、已卖 0.0000≈0% 净 0.220'),
+    'D: 直供行灰区单 fmtEntry（W_G 累计 0.220×2 单笔 0.120=灰区单不计入教学现场——BP55 核心形状随行直供）');
+  ok(stD.state.includes('判序线=单笔 0.2 级钱包 ≥2 个（或单笔 0.3+）且买点时刻在场') && stD.state.includes('不满足=无大户参与直接落②散户 PVP，盘面活跃度不救'),
+    'D: 直供行判序线句（≥2 个单笔 0.2 级且在场、不满足直接落②活跃度不救——BP26 判序前置语义随直供行重申）');
 }
 ok(stD.state.includes('近窗动量') && stD.state.includes('节奏趋势') && stD.state.includes('卖压') && stD.state.includes('参与结构') && stD.state.includes('时点位置'), 'D: PRECOMPUTED 七族行');
 ok(stD.state.includes('近窗动量(涨跌%): 5s 6.67% / 10s 6.67% / 30s 14.29%'), 'D: chg 手算值渲染（BP6 短窗 5/10/30s）');
