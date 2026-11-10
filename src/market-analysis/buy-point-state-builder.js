@@ -156,6 +156,24 @@ function buildBuyPointState(snapshot) {
       const pct1 = (v) => (v === null || v === undefined ? '?' : v.toFixed(1));
       lines.push(`筹码结构: famous 控盘占比 ${pct1(c.famousDominancePct)}%（famous 名单+跟单簇正净持仓 ÷ 全场正净；≥50=dominant 控盘主导）｜跟单集中度 ${pct1(c.famousFollowerTop3Pct)}% / 集团买入占比 ${pct1(c.famousGroupBuyPct)}%（联立加重臂：≥45 / ≥80）｜正净持有者 ${c.posHolderCount ?? '?'} 个，第一大占流通 ${pct1(c.top1HoldCircPct)}% / 前二 ${pct1(c.top1Top2HoldCircPct)}% / 前三 ${pct1(c.top3HoldCircPct)}%（持有者 ≥10 单一 >45%/前二 >55%/前三 >70% 任一过线=垄断坐实）｜买过钱包 ${c.buyersTotal ?? '?'} 个 vs 正净持有 ${c.posHolderCount ?? '?'} 个（参与/持有分叉——买过的人不少、拿货的只有两三个=拉高出货前奏）｜同块簇持仓 ${pct1(c.sameBlockHoldPct)}% / 等额带簇持仓 ${pct1(c.equalBandHoldPct)}%（? = 筹码结构证据缺失，如实判缺不猜）`);
     }
+    // BP53 二修（案号 BP61）：famous 痕迹行——名单钱包时间线+在场性直供。
+    // 缺口实测（147d/0432/59f5/米338a 四票 dom 81~100 groupBuy 71~100 全 high
+    // 仍判 none）：[WALLETS] 前列行不标名单身份、famous 本人净持仓无直供键，
+    // 「famous 还在场吗」（退出臂前提/③桶收割完臂的第一判据）Jev 无从判定。
+    // 纯事实行（代码不产「收割完」结论，判读句在题面）；S053→BP31 尾段三键
+    // state 补行先例同构。
+    {
+      const ft = b.famousTraces;
+      const sgn = (v) => (v >= 0 ? '+' : '') + v.toFixed(4);
+      if (ft === null || ft === undefined) {
+        lines.push(`famous 痕迹: ?（名单缺失，famous 轴不可评）`);
+      } else if (!ft.wallets.length) {
+        lines.push(`famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据，famous 轴不适用）`);
+      } else {
+        const rowOf = (e) => `${shortWallet(e.w)} 买 ${e.buyBnb.toFixed(4)}×${e.buyN}（首买@${fmtDt(e.firstBuyDt)}）卖 ${e.sellBnb.toFixed(4)}×${e.sellN}（首卖@${fmtDt(e.firstSellDt)}）净 ${sgn(e.netBnb)}`;
+        lines.push(`famous 痕迹: 锚窗内名单钱包 ${ft.wallets.length} 个——${ft.wallets.map(rowOf).join('；')}｜合计买 ${ft.groupBuyBnb.toFixed(4)}（占全窗买 ${fmtPct(ft.groupBuyPct)}）卖 ${ft.groupSellBnb.toFixed(4)}（占全窗卖 ${fmtPct(ft.groupSellPct)}）Σ净 ${sgn(ft.netSumBnb)}，净持仓>0 的名单钱包 ${ft.inCustodyCount} 个（在场性判读：单钱包/Σ净 ≈0 或负=已清仓离场、净 >0=在场持有——famous 轴退出臂前提与③桶收割完臂的证据行；时刻为锚窗内相对秒）`);
+      }
+    }
     if (d.priceArc) {
       const drawdown = d.priceArc.ath > 0 ? ((d.priceArc.last / d.priceArc.ath - 1) * 100).toFixed(1) : '?';
       lines.push(`价格拱(全窗可靠价): 首 ${fmtPrice(d.priceArc.first)} → ATH ${fmtPrice(d.priceArc.ath)}（${fmtDt(d.priceArc.athDt)}）→ 末 ${fmtPrice(d.priceArc.last)}（较 ATH ${drawdown}%）`);

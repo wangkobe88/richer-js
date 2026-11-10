@@ -25,7 +25,7 @@
  *   → null fail-closed（cheat creator 峰值锚同款纪律）
  */
 
-const { buildSnapshotFromRows, isRouterWallet } = require('./cheat-snapshot');
+const { buildSnapshotFromRows, isRouterWallet, loadFamousRoster } = require('./cheat-snapshot');
 const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price');
 
 /** 近窗宽度族（秒）：30/60/120 */
@@ -109,9 +109,12 @@ function detectSwings(rel, thrPct) {
 /**
  * 买点派生统计（纯函数；cheat snapshot 形状 → buyDerived）。
  * @param {Object} snapshot - buildSnapshotFromRows 产物（消费 ticks/wallets/derived）
+ * @param {Set<string>|undefined|null} [famousRoster] - 著名钱包名单注入（单测用；
+ *   undefined=读 config 名单（loadFamousRoster），null=模拟名单缺失——famousTraces
+ *   整体 null（轴不可评），与 cheatDerived famous 族 null 语义同向
  * @returns {Object} buyDerived（菜单见模块头注；win 嵌套 {30:{…},60:{…},120:{…}}）
  */
-function computeBuyPointDerived(snapshot) {
+function computeBuyPointDerived(snapshot, famousRoster) {
   const ticks = snapshot.ticks || [];
   const tEnd = bpTEndOf(ticks);
   const dts = ticks.map((t) => t.dt).filter((v) => v !== null && v !== undefined);
@@ -603,6 +606,56 @@ function computeBuyPointDerived(snapshot) {
     };
   })();
 
+  // ── famous 痕迹族（BP53 二修/案号 BP61：S053→BP31 state 补行路线）──
+  // ③桶收割完臂/退出臂前提「famous 还在场吗」的时序证据直供：名单钱包各自
+  // 首买/首卖时刻+买卖额+全窗净持仓。此前 Jev 只有筹码结构行的聚合数（控盘
+  // 占比/集团买入占比），[WALLETS] 前列行不标名单身份——在场性无从判定，实测
+  // 四票（147d/0432/59f5/米338a）dom 81~100 groupBuy 71~100 全 high 仍判 none
+  // （走厚度退出臂归 none），题面判据 BP53/BP57 句不被执行。纯事实：代码只组
+  // 时间线不产「收割完」结论（D3.5 同哲学），在场性判读句在题面。
+  // null 语义：roster 缺失 → 键整体 null（轴不可评，与 cheatDerived famous 族
+  // 同向）；窗内无名单命中 → wallets=[] / inCustodyCount=0（有证据的缺席）。
+  // 占比分母=cheatDerived totalBuy/totalSell（与 famousGroupBuyPct 同源口径，
+  // 但分子只计 famous 本人不含跟单——跟单者归 followers 轴不冒充 famous 痕迹）。
+  const famousTraces = (() => {
+    const rosterFt = famousRoster !== undefined ? famousRoster : loadFamousRoster();
+    if (!rosterFt) return null;
+    const fam = new Map();
+    for (const t of ticks) {
+      if (!t.wallet) continue;
+      const w = t.wallet.toLowerCase();
+      if (!rosterFt.has(w)) continue;
+      const e = fam.get(w) || {
+        w, buyBnb: 0, buyN: 0, firstBuyDt: null, sellBnb: 0, sellN: 0, firstSellDt: null, netBnb: 0,
+      };
+      const bnb = t.bnb || 0;
+      if (t.side === 'BUY') {
+        e.buyBnb += bnb; e.buyN++; e.netBnb += bnb;
+        if (t.dt !== null && t.dt !== undefined && (e.firstBuyDt === null || t.dt < e.firstBuyDt)) e.firstBuyDt = t.dt;
+      } else {
+        e.sellBnb += bnb; e.sellN++; e.netBnb -= bnb;
+        if (t.dt !== null && t.dt !== undefined && (e.firstSellDt === null || t.dt < e.firstSellDt)) e.firstSellDt = t.dt;
+      }
+      fam.set(w, e);
+    }
+    const wallets = [...fam.values()].sort((a, b) => b.buyBnb - a.buyBnb)
+      .map((e) => ({
+        ...e,
+        buyBnb: +e.buyBnb.toFixed(4), sellBnb: +e.sellBnb.toFixed(4), netBnb: +e.netBnb.toFixed(4),
+      }));
+    const groupBuyBnb = +wallets.reduce((s, e) => s + e.buyBnb, 0).toFixed(4);
+    const groupSellBnb = +wallets.reduce((s, e) => s + e.sellBnb, 0).toFixed(4);
+    return {
+      wallets,
+      groupBuyBnb,
+      groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
+      groupSellBnb,
+      groupSellPct: cd.totalSellBnb > 0 ? +((groupSellBnb / cd.totalSellBnb) * 100).toFixed(1) : null,
+      netSumBnb: +wallets.reduce((s, e) => s + e.netBnb, 0).toFixed(4),
+      inCustodyCount: wallets.filter((e) => e.netBnb > 0).length,
+    };
+  })();
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -646,6 +699,9 @@ function computeBuyPointDerived(snapshot) {
     // 开盘段结构族（BP18 盘面分类锚：首 30s 买入占比/大额单/后段密度——判读归
     // Jev market_pattern 题，strong_backer/retail_pvp 桶判据直接原料）
     openSeg,
+    // famous 痕迹族（BP53 二修/案号 BP61：名单钱包时间线+在场性——③桶收割完臂/
+    // 退出臂前提的证据行；roster 缺失整体 null）
+    famousTraces,
   };
 }
 
@@ -668,7 +724,7 @@ function buildBuyPointSnapshot(rows, tokenMeta, options = {}) {
     ticks: base.ticks,
     wallets: base.wallets,
     cheatDerived: base.derived,
-    buyDerived: computeBuyPointDerived(base),
+    buyDerived: computeBuyPointDerived(base, options.famousRoster),
     signalInfo: options.signalInfo || null,
   };
 }

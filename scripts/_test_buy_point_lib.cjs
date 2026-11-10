@@ -345,6 +345,54 @@ ok(dA.priceBuckets[16].dt === 215 && near(dA.priceBuckets[16].price, 1.6 * E9), 
 // cheatDerived 背景直读不重算
 ok(snapA.cheatDerived.totalBuyBnb > 0 && Array.isArray(snapA.cheatDerived.holdingsProfile), 'cheatDerived 原样在场（背景复用）');
 
+// ═══════════════ A9. famous 痕迹族（BP53 二修/案号 BP61——state 补行路线） ═══════════════
+console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命中/名单缺失四形状）');
+{
+  const W_FA = '0x' + 'fa'.repeat(20); // famous A：t+0 买 0.30 → t+5 卖 0.29（净 +0.01 在场）
+  const W_FB = '0x' + 'fb'.repeat(20); // famous B：t+8 买 0.35 → t+11 卖 0.36（净 −0.01 已清仓）
+  const rosterFt = new Set([W_FA, W_FB]);
+  const rowsFt = [
+    row(0, 'BUY', W_FA, 0.30, 1.0 * E9, 3e8),
+    row(5, 'SELL', W_FA, 0.29, 1.2 * E9, 2.4e8),
+    row(8, 'BUY', W_FB, 0.35, 1.1 * E9, 3.2e8),
+    row(11, 'SELL', W_FB, 0.36, 1.05 * E9, 3.4e8),
+    row(20, 'BUY', W_B, 0.20, 1.15 * E9, 1.7e8), // 散户（占比分母）
+    row(30, 'BUY', W_C, 0.15, 1.2 * E9, 1.25e8),
+  ];
+  const metaFt = { ...metaA, address: '0x' + 'cd'.repeat(20) };
+  const snapFt = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: rosterFt });
+  const ft = snapFt.buyDerived.famousTraces;
+  // 手算：famous 买 0.30+0.35=0.65 / 全窗买 1.00 → 65.0%；famous 卖 0.65 / 全窗卖 0.65 → 100.0%
+  // Σ净 = +0.01−0.01 = 0.00；净>0 的名单钱包=1（W_FA）；排序按买额降序 W_FB 首
+  ok(ft && ft.wallets.length === 2, `famousTraces 钱包 2 个（实际 ${ft && ft.wallets.length}）`);
+  ok(ft.wallets[0].w === W_FB && ft.wallets[0].buyBnb === 0.35 && ft.wallets[0].buyN === 1
+    && ft.wallets[0].firstBuyDt === 8 && ft.wallets[0].sellBnb === 0.36 && ft.wallets[0].firstSellDt === 11
+    && ft.wallets[0].netBnb === -0.01, `FB 行精确值（买 0.35@t+8/卖 0.36@t+11/净 −0.01，实际 ${JSON.stringify(ft.wallets[0])}）`);
+  ok(ft.wallets[1].w === W_FA && ft.wallets[1].firstBuyDt === 0 && ft.wallets[1].firstSellDt === 5
+    && ft.wallets[1].netBnb === 0.01, `FA 行精确值（买 0.30@t+0/卖 0.29@t+5/净 +0.01，实际 ${JSON.stringify(ft.wallets[1])}）`);
+  ok(ft.groupBuyBnb === 0.65 && ft.groupBuyPct === 65.0 && ft.groupSellPct === 100.0,
+    `合计占比（groupBuy 0.65=65.0%/groupSell=100.0%，实际 ${ft.groupBuyBnb}/${ft.groupBuyPct}/${ft.groupSellPct}）`);
+  ok(ft.netSumBnb === 0.00 && ft.inCustodyCount === 1, `Σ净 0.00 且在场计数 1（实际 ${ft.netSumBnb}/${ft.inCustodyCount}）`);
+  // state 渲染三形状
+  const stFt = buildBuyPointState(snapFt).state;
+  ok(stFt.includes('famous 痕迹: 锚窗内名单钱包 2 个') && stFt.includes('0xfbfb…fbfb') && stFt.includes('0xfafa…fafa'),
+    'state 命中行（2 钱包+短址直供——slice(0,6)+…+slice(-4)）');
+  ok(stFt.includes('净 +0.0100') && stFt.includes('净 -0.0100') && stFt.includes('Σ净 +0.0000')
+    && stFt.includes('净持仓>0 的名单钱包 1 个') && stFt.includes('占全窗买 65.0%') && stFt.includes('占全窗卖 100.0%'),
+    'state 命中行数值（单钱包净/Σ净/在场计数/占比）');
+  const ftMiss = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) }).buyDerived.famousTraces;
+  ok(ftMiss.wallets.length === 0 && ftMiss.inCustodyCount === 0
+    && buildBuyPointState(buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) })).state.includes('famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据'),
+    '无命中形状（wallets=[] 计数 0 + state 0 个行）');
+  const snapFtNull = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: null });
+  ok(snapFtNull.buyDerived.famousTraces === null
+    && buildBuyPointState(snapFtNull).state.includes('famous 痕迹: ?（名单缺失'),
+    '名单缺失形状（键整体 null + state ? 行——与 cheatDerived famous 族 null 语义同向）');
+  // 注入路径反证：不传 options.famousRoster → 读真实 config 名单（rowsFt 钱包不在册=0 命中）
+  const ftDefault = buildBuyPointSnapshot(rowsFt, metaFt).buyDerived.famousTraces;
+  ok(ftDefault && ftDefault.wallets.length === 0, '缺省名单加载路径（真实 config 名单——rowsFt 钱包不在册零命中）');
+}
+
 // ═══════════════ B. 窗语义边界 ═══════════════
 console.log('B. 窗语义边界（半开/伪钱包/双口径）');
 const rowsB = [
@@ -949,10 +997,11 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('拿了太多筹码') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③famous 独食=盘子就是它的了（原话直译；BP30 复数 famous 扩句后单复数并表「它的/它们的」）');
   ok(mp.includes('famous 集团买入主导判序（BP57）') && mp.includes('famous 集团买入占全窗买入大头') && mp.includes('教科书形状') && qs.market_pattern.criteria.famous_monopoly.includes('famous 集团买入占全窗买入大头=教科书形状') && qs.market_pattern.criteria.famous_monopoly.includes('再起来/已有大量交易的盘面 famous 在场=正面证据，退出 famous 轴归 none'),
     'F: BP57 ③桶 famous 集团买入主导判序（徐苍蝇案 0x59f5…7777 两 famous 控盘 85.4%/集团买 80.1%/两 famous 买入 1.445=全窗 56% 误判④——famous 抢筹天然制造开盘集中+吞吐骤降形状是进场方式产物非衰竭证据；BP60 四桶化后④桶已删判序句改判本桶；厚度域界=再起来/已有大量交易退出 famous 轴归 none；题面+criteria 双锚）');
-  ok(mp.includes('famous 快进快出收割完的残局同落本桶（BP53）') && mp.includes('随即秒级~极快清仓式卖出全部离场') && mp.includes('判例 147d') && qs.market_pattern.criteria.famous_monopoly.includes('收割完残局同落本桶（不适用再起来/厚盘退出臂'),
-    'F: BP53 ③桶 famous 收割完残局臂（147d/0432 案用户裁定「买入的时候算是 famous 收割完了的状态」——famous 早段大额买入+秒级清仓离场+买点时刻控盘归零=现行持仓视角③判据结构性失明；历史痕迹判读=买入 Top famous 大额在场+清仓卖出行在场+合计买入占比约一成以上→同落③；题面+criteria 双锚）');
-  ok(mp.includes('两退出臂的前提=famous 还在场（BP53）') && mp.includes('不适用退出臂') && mp.includes('砸回发行价的正是 famous 自己的出货'),
-    'F: BP53 退出臂前提修正（「再起来/盘子已厚」退出臂正面证据主体=famous 本身（落底后持无浮盈筹码继续看好）——famous 已清仓离场的收割完残局不适用退出臂；147d minVs=−7.7 再起来域仍判③的法律依据）');
+  ok(mp.includes('famous 快进快出收割完的残局同落本桶（BP53，判读看「famous 痕迹」行）') && mp.includes('随即秒级~极快清仓式卖出全部离场') && mp.includes('判例 147d') && mp.includes('判例米 338a') && mp.includes('痕迹行单钱包/Σ净 ≈0 或负、净持仓>0 的名单钱包 0 个') && mp.includes('[WALLETS] 前列行不标名单身份') && qs.market_pattern.criteria.famous_monopoly.includes('收割完残局同落本桶（不适用再起来/厚盘退出臂'),
+    'F: BP53 ③桶 famous 收割完残局臂·二修改读痕迹行（147d/0432/米338a 案用户裁定「买入的时候算是 famous 收割完了的状态」——首版判据在题面但 [WALLETS] 不标名单身份+famous 本人净持仓无直供键=Jev 无法判在场性走厚度退出臂归 none（③采信率七案）；二修=snapshot famousTraces 锚族+state「famous 痕迹」行直供名单钱包时间线/在场性+占比，判据句改读该行（S053→BP31 state 补行先例同构）；题面+criteria 双锚）');
+  ok(mp.includes('两退出臂的前提=famous 还在场（BP53，在场性看「famous 痕迹」行）') && mp.includes('不适用退出臂') && mp.includes('砸回发行价的正是 famous 自己的出货') && mp.includes('痕迹行净持仓>0 的名单钱包在场=在场持有'),
+    'F: BP53 退出臂前提修正·二修同读痕迹行（「再起来/盘子已厚」退出臂正面证据主体=famous 本身（落底后持无浮盈筹码继续看好）——痕迹行净>0 名单钱包在场=正常评估退出臂、Σ净 ≈0 或负=收割完残局不适用退出臂；147d minVs=−7.7 再起来域仍判③的法律依据）');
+  ok(mp.includes('famous 集团买入主导判序（BP57）') && mp.includes('「famous 痕迹」行直供名单钱包时间线与在场性'), 'F: BP57 判序句补痕迹行引用（③采信七案根因=BP57 句只给占比聚合键无名单身份直供——二修补「famous 痕迹」行引用后 famous 轴判读证据链完整）');
   ok(mp.includes('BP60 收口——只识别「不参与交易」的异常盘形') && mp.includes('不再细分识别，一律归 none 正常盘面'), 'F: BP60 收口题头句（用户裁定「只识别出不交易的盘形即可」——处理一致的正常盘面不细分识别一律归 none；四桶=②③⑥+none 兜底）');
   ok(qs.market_pattern.criteria.none.includes('回落重启') && mp.includes('回落重启'), 'F: 回落重启归 none 兜底（BP44 判序语义随④⑦⑧桶退役简化——回落发生在交易量充分之后=上一轮痕迹，按当前形状归类，四桶化后不再细分识别一律归 none 正常盘面）');
   ok(mp.includes('买入额到 0.2 BNB 级（≥0.19 视同）的钱包 ≥2 个，或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足'), 'F: ②⑤分界双臂语义保留（BP19 突突车案——多笔 0.2 级（≥2 钱包）或单笔 0.3+ 在场=满足大户参与不属纯散户 PVP；BP28 判序化后该双臂成为前置门判据；BP47 精简后主述在②桶 (a) 判序前置段）');
