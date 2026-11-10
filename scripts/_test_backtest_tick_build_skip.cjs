@@ -378,8 +378,8 @@ console.log('C. 源码口径防线');
   const sellLegIdx = mainLoop.indexOf('await this._evaluateSellPath(token, factors, tick)');
   ok(touchIdx > -1 && scanIdx > touchIdx && consumeIdx > scanIdx,
     'C5 C 类票三段保留：touch → 扫描 → 毕业消费顺序');
-  ok(sellLegIdx > -1 && Math.abs(sellLegIdx - touchIdx) < 400,
-    'C5 卖腿/touch 是 if/else-if 分腿形状（相邻）');
+  ok(sellLegIdx > -1 && Math.abs(sellLegIdx - touchIdx) < 3000,
+    'C5 卖腿/touch 是 if/else-if 分腿形状（相邻；T132 per-tick 段插入买分支后距离上限放宽）');
 
   // C6 TPA minimal factors 形状
   ok(mainLoop.includes('factors || { currentPriceBnb: _st?.currentPriceBnb || 0 }'),

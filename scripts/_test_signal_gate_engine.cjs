@@ -667,9 +667,12 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     BT.includes('const _exclBase = this._signalGateReal\n        ? this._signalGateExcludedIds(tokenAddress)\n        : this._sgExcludedIds;'));
 
   // E10 T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——ea78 t0 案
-  // 事故现场反证：n=7 +21.6% 与 n=8 +27.8% 同秒合并进同一 burst，fire 重读因子
-  // 已含 n=8 → curVs 破 27.5 翻假，单 tick 真窗被吃掉；per-tick 用本 tick 因子
-  // 直评，触发 clear pending + 走 _evaluateBuyPath（限定只评 signalGate 腿））
+  // 事故现场反证（双重根因）：①n=7 +21.6% 与 n=8 +27.8% 同秒合并进同一 burst，
+  // fire 重读因子已含 n=8 → curVs 破 27.5 翻假，单 tick 真窗被吃掉；②tickBuildSkip
+  // 开的 C 类票（未持仓窗内）主循环 factors=null，首版 per-tick 挂点在 if(factors)
+  // 内短路=恒不评（ea78 全程未持仓=纯 C 类，裸 FA 重放四键真 vs 引擎零触发）。
+  // 修=per-tick 用本 tick 因子直评（C 类票 signalGate 实验现补全量 build），触发
+  // clear pending + 走 _evaluateBuyPath（限定只评 signalGate 腿））
   ok('基类 per-tick 排除集 helper 定义（null=无 signalGate 腿快速 no-op）',
     ABS.includes('_signalGatePerTickExcludedIds()') &&
     ABS.includes('this._sgPerTickExcludedIds = has ? ids : null;'));
@@ -677,8 +680,9 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     ENG.includes('const _sgPerTickExcl = this._signalGatePerTickExcludedIds();') &&
     ENG.includes('this._buyDebouncer.clear(tokenAddress);') &&
     ENG.includes("{ evalExcludeIds: _sgPerTickExcl }"));
-  ok('回测引擎 per-tick 挂点（factors 在手才评；inflightEvals 串行语义）',
-    BT.includes("if (factors) {\n            const _sgPerTickExcl = this._signalGatePerTickExcludedIds();") &&
+  ok('回测引擎 per-tick 挂点（C 类票 signalGate 实验补 build；inflightEvals 串行语义）',
+    BT.includes("if (!_evalFactors && this._signalGatePerTickExcludedIds() !== null) {\n            _evalFactors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);") &&
+    BT.includes("if (_evalFactors) {\n            const _sgPerTickExcl = this._signalGatePerTickExcludedIds();") &&
     BT.includes('this._buyDebouncer.clear(tick.token_address);') &&
     BT.includes("{ evalExcludeIds: _sgPerTickExcl }"));
   ok('legacy 腿不受影响（per-tick 未命中照旧 touch debounce）',

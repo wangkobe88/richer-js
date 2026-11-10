@@ -1435,13 +1435,21 @@ class BacktestEngine extends AbstractTradingEngine {
         } else if (!this._buyingTokens.has(tick.token_address) && token.status !== 'bought') {
           // T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——单 tick 真窗
           // 形状，与实时引擎 _onFactorsUpdated 同构；动机与语义详基类
-          // _signalGatePerTickExcludedIds）。本 tick 因子直评触发腿；factors=null
-          //（tickBuildSkip 开的 C 类票）时跳过=退化为 fire 语义（现状，留档——
-          // 该优化场景与本路径互斥，全量 build 实验/实时不受影响）。回放串行语义：
-          // eval 进 inflightEvals，下一 tick 前 _advanceDebouncer drain 完成后才
-          // 消费次笔（n=8 的翻假因子永远不会覆盖 n=7 的触发判定）
+          // _signalGatePerTickExcludedIds）。回放串行语义：eval 进 inflightEvals，
+          // 下一 tick 前 _advanceDebouncer drain 完成后才消费次笔（n=8 的翻假因子
+          // 永远不会覆盖 n=7 的触发判定）。T132b（ea78 案）：tickBuildSkip 开的
+          // C 类票（未持仓窗内）主循环不 build、factors=null——首版在此短路=per-tick
+          // 恒不评（ea78 全程未持仓=纯 C 类，两次回测零信号的双重根因之二）；
+          // 现补 signalGate 实验现 build 全量快照（fire 路径 _runBuyEvaluation 同款
+          // 重读；非 signalGate 实验恒 null 快速跳过零成本，tickBuildSkip 性能收益
+          // 对 legacy 实验保留——signalGate 实验本就逐 tick 找触发点，窗内 build 是
+          // 语义必需的代价）
           let _perTickFired = false;
-          if (factors) {
+          let _evalFactors = factors;
+          if (!_evalFactors && this._signalGatePerTickExcludedIds() !== null) {
+            _evalFactors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);
+          }
+          if (_evalFactors) {
             const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
             if (_sgPerTickExcl !== null) {
               const _exhausted = this._signalGateExcludedIds(tick.token_address);
@@ -1449,13 +1457,13 @@ class BacktestEngine extends AbstractTradingEngine {
                 ? [...new Set([..._exhausted, ..._sgPerTickExcl])]
                 : _sgPerTickExcl;
               const _sgStrategy = this._strategyEngine.evaluate(
-                factors, tick.token_address, tickTs, token, 'buy', { excludeStrategyIds: _excl });
+                _evalFactors, tick.token_address, tickTs, token, 'buy', { excludeStrategyIds: _excl });
               if (_sgStrategy) {
                 _perTickFired = true;
                 this._buyDebouncer.clear(tick.token_address);
                 this.logger.info(this._experimentId, 'BuyEval',
                   `${token.symbol} signalGate 触发腿 per-tick 命中(绕 debounce): ${_sgStrategy.name}`);
-                const _p = this._evaluateBuyPath(token, factors, tick, tickTs, { evalExcludeIds: _sgPerTickExcl })
+                const _p = this._evaluateBuyPath(token, _evalFactors, tick, tickTs, { evalExcludeIds: _sgPerTickExcl })
                   .catch(e => this.logger.error(this._experimentId, 'BuyEval',
                     `${token.symbol || tick.token_address.slice(0, 10)} 回放买腿评估异常: ${e.message}`));
                 this._inflightEvals.add(_p);
