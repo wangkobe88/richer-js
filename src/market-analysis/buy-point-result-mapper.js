@@ -2,7 +2,8 @@
  * 买入点位分析 Jev 结果映射（BP1）——纯函数，零 DB 零网络
  *
  * 判定形态（BP52/案号 BP58——market_pattern 改制「异常盘面识别」+点位性质新题+
- * 统一位置门 27.5；用户裁定 2026-11-09「只买性价比高的点位，不追高」「没必要
+ * 统一位置门 27.5（**BP69 2026-11-10 →28.5**）；用户裁定 2026-11-09「只买性价比
+ * 高的点位，不追高」「没必要
  * 费劲识别太多盘形，只需要把异常的找出来即可」「现在买入点位已经不是小于 40，
  * 应该是小于 27.5」）：维度题档位（7 题纯参考）+ 综合判定 = **代码侧纯门链**：
  *   ① 盘型门（BP30 前置为预判断——用户裁定「market_pattern 要放到很靠前的位置，
@@ -11,8 +12,9 @@
  *        （rule=pattern_gate，这两种盘子不要参与）
  *      · ⑥sustained_climb 位置臂：现价较发行价 ≤+10%（含破发）起点段放行、
  *        已拉离（>+10%）或锚缺失（宁拦不冒充）拒
- *      · none 统一位置门：**≤+27.5%**（BP58 收口，与 T129 ladder v14 触发线同线）
- *        放行、已拉离（>+27.5%）或锚缺失拒——**BP60 收口四桶**（用户裁定「只识别
+ *      · none 统一位置门：**≤+28.5%**（BP58 收口 27.5；BP69 2026-11-10 →28.5
+ *        「只稍微宽一点再继续观察」，与 ladder v17 触发线同线）
+ *        放行、已拉离（>+28.5%）或锚缺失拒——**BP60 收口四桶**（用户裁定「只识别
  *        出不交易的盘形即可」）：①strong_backer/④early_sniper_decay/⑤blended_
  *        unremarkable/⑧golden_point 判型随桶域删除（处理与 none 完全一致没必要
  *        保留；旧档四桶名答案→未知桶 throw fail-closed 拒——BP52 未部署生产无
@@ -22,7 +24,7 @@
  *      不是庄家离场时的暴跌）；normal_dip 正常回调低价=目标买入形状、flat 横盘
  *      缓行 → 放行；**spike 尖刺拉盘判型保留但出拦域（BP68/2026-11-10 用户裁定
  *      「我们已经控制了价格，所以 spike 没有必要再存在，直接删除即可/或者保留
- *      也可以但是不 block 买入」——统一位置门 ≤+27.5 已控价，控价域内 spike
+ *      也可以但是不 block 买入」——统一位置门 ≤+28.5 已控价，控价域内 spike
  *      判定本身不正常（判例 ea78 开盘 28s 薄票贴顶臂 -5.13 恰过线判 spike、锚窗
  *      买盘中位仅 0.136——正常小单抬薄票到新高附近就贴「顶」）；判型如实落档
  *      观察，有真实追高亏损 case 再思考对策；恢复拦截=把 'spike' 加回本数组）**；
@@ -48,7 +50,7 @@
  *   豁免 sniperUltraRouterExempt）/BP52（restart 筹码豁免）——①④⑤⑦⑧五桶
  *   退役后豁免宿主不存在；bt-v94 七票复盘=现行豁免臂正是放走三砸盘票（BP53
  *   ultra_router_entry）+币安之心（BP47 sniper_decay_heat_price）的通道，改制
- *   后由 entry_shape crash 臂+统一位置门 27.5 接力拦截；RESTART/STRONG_BACKER/
+ *   后由 entry_shape crash 臂+统一位置门（BP69 起 28.5）接力拦截；RESTART/STRONG_BACKER/
  *   BLENDED/GOLDEN_POINT/SNIPER_DECAY_HEAT/SNIPER_ULTRA_ROUTER 常量随之删除。
  * **两道质量题（early_bird_quality/pullback_entry_quality）已退役（BP48）**：
  *   旧档 answers 带答案不被消费不 throw（重放兼容）。
@@ -95,14 +97,14 @@ const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
 /** 盘面分类四桶（BP60 收口——用户裁定「只识别出不交易的盘形即可」：①strong_
  * backer/④early_sniper_decay/⑤blended_unremarkable/⑧golden_point 判型随桶域
- * 删除——处理与 none 完全一致（统一位置门 ≤+27.5）没必要保留；保留=②
+ * 删除——处理与 none 完全一致（统一位置门 ≤+28.5）没必要保留；保留=②
  * retail_pvp/③famous_monopoly 两异常桶（盘型门硬拒）+⑥sustained_climb（独立
- * 位置门 ≤+10）+none 正常盘面兜底（统一位置门 ≤+27.5））
+ * 位置门 ≤+10）+none 正常盘面兜底（统一位置门 ≤+28.5））
  * 演进：BP18 五类型学→BP30 六桶→BP38 七桶→BP45 八桶→BP58 二修判型恢复→
  * BP60 删⑦restart→BP60 收口四桶 */
 const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'sustained_climb', 'none'];
 /** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；砸盘形状的拦截
- * 由 entry_shape crash 臂+统一位置门 27.5 接力（拉高拦截 BP68 起全归统一位置门
+ * 由 entry_shape crash 臂+统一位置门（BP69 起 28.5）接力（拉高拦截 BP68 起全归统一位置门
  * ——spike 出拦域）；sustained_climb 刻意不入本表——走 SUSTAINED_CLIMB_LAUNCH_PCT
  * 独立位置臂） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
@@ -113,12 +115,14 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
  * S155 +17.1%（拒）之间取 10 */
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
 /** 统一参与位置界（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于
- * 27.5」——与 T129 ladder v14 触发线同线）：正常盘面（none——BP60 四桶化后
- * 正常形状全部归 none 统一走本门）现价较发行价 ≤+27.5%（含破发）=放行走点位
- * 性质门/活跃度门；已拉离（>+27.5%）或锚缺失（宁拦不冒充）→ 盘型门拒
+ * 27.5」——与 T129 ladder v14 触发线同线；**BP69（2026-11-10）27.5→28.5**：用户
+ * 裁定「只稍微宽一点，再继续观察」——ea78 案同秒 n=8 +27.75 进 BP 锚窗被 27.5 拒
+ * 0.25pp 毫秒竞态，28.5 吃下同秒抖动）：正常盘面（none——BP60 四桶化后
+ * 正常形状全部归 none 统一走本门）现价较发行价 ≤+28.5%（含破发）=放行走点位
+ * 性质门/活跃度门；已拉离（>+28.5%）或锚缺失（宁拦不冒充）→ 盘型门拒
  * （rule=pattern_gate）。改制前各桶专属位置臂（①80→40/⑤40/⑦40/⑧40/④豁免
  * 臂 40）不再恢复，统一收口本线 */
-const NORMAL_ENTRY_LAUNCH_PCT = 27.5;
+const NORMAL_ENTRY_LAUNCH_PCT = 28.5;
 /** 点位性质四桶（BP58 新题 entry_shape——用户理念「只买性价比高的点位，不追高」：
  * 好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌
  * （直线砸盘），也不是尖刺拉起的追高点） */
@@ -128,7 +132,7 @@ const ENTRY_SHAPE_LEVELS = ['crash', 'spike', 'normal_dip', 'flat'];
  * normal_dip 正常回调低价=目标买入形状、flat 横盘缓行 → 放行。
  * **BP68（2026-11-10）spike 出拦域**：用户裁定「因为我们已经控制了价格，所以
  * spike 没有必要再存在，直接删除即可／或者保留也可以，但是不 block 买入」——
- * 统一位置门 ≤+27.5 已保证只在临近发行价域买入，控价域内出现 spike（贴顶/急拉）
+ * 统一位置门 ≤+28.5 已保证只在临近发行价域买入，控价域内出现 spike（贴顶/急拉）
  * 判定本身不正常（ea78 案实证：开盘 28s 薄票 curVs 27.8、贴顶臂 currentVsAthPct
  * -5.13 恰过 -5 线判 spike(0.49)、锚窗买盘中位仅 0.136/两笔 0.136+0.16——正常
  * 小单就能把薄票价格抬到新高附近贴「顶」）；spike 判型保留落档观察（题面桶域
@@ -254,7 +258,7 @@ function buildBuyPointObservation(answers, anchors = null) {
   // ①盘型门（BP30 前置预判断；BP60 收口四桶）：· retail_pvp/famous_monopoly
   //   两异常桶硬拒（不要参与）；· ⑥sustained_climb 位置臂：≤+10（含破发）起点段
   //   放行，已拉离/锚缺失拒（判型归 Jev、位置归代码——宁拦不冒充）；· none
-  //   统一位置臂：≤+27.5（BP58）放行，已拉离/锚缺失拒（①④⑤⑧判型已随桶域
+  //   统一位置臂：≤+28.5（BP69；BP58 立线 27.5）放行，已拉离/锚缺失拒（①④⑤⑧判型已随桶域
   //   删除，正常形状全归 none）
   const patternArms = [];
   if (dimensions.market_pattern) {

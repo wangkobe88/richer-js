@@ -45,7 +45,7 @@
  *
  * 失败语义：Jev 失败/超时落 error/timeout 行带 fail_reason（fail-loud 留痕）+
  * failCooldownMs 冷却（防故障环），绝不影响买点；DB 写失败 loud warn（行丢=可
- * 观测）。minTicks 预门：拉数后 tickCount<7 → 不调 Jev 不落表（unclear 桶留给
+ * 观测）。minTicks 预门：拉数后 tickCount<6 → 不调 Jev 不落表（T133 7→6；unclear 桶留给
  * 「有量但证据矛盾」的真判定）。顶帽（maxAnalysesPerToken）已随 CD158 退役——
  * 由引擎侧信号帽（buySignalMaxPerToken 默认 5）天然封顶。
  *
@@ -82,7 +82,7 @@ const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
   settleDelayMs: 4000,       // 买点→拉数延迟；waitIdle 注入时=最长等待帽（正常路径
                              // ~1s 提前出窗，仅 RPC 劣化/停机兜底时吃满）
-  minTicks: 7,               // 极新票预门（低于不调 Jev 不落表；T131 8→7：ea78 开盘 7 笔档早臂配套）
+  minTicks: 6,               // 极新票预门（低于不调 Jev 不落表；T131 8→7、T133 7→6：ladder v17 t0 6 笔档早臂配套——触发即过预门）
   failCooldownMs: 10000,     // 失败后冷却（冷却期内买点不再发起链）
   pullLimit: 3000,           // tail 拉数帽（anchor=该单次查询返回行数）
   headLimit: 300,            // 满帽时补的首段行数（launch 窗）

@@ -371,5 +371,49 @@ console.log('K. fail-fast 回归（cycle 机制删除配套，2026-10-15）');
   });
 }
 
+// ═══════════════ L. actTotalBnb 第 9 键（T133 低活跃度单一因子表达） ═══════════════
+console.log('L. actTotalBnb（T133 2026-11-10 用户裁定「使用因子表达出低活跃度……买入不接受低活跃度」：买腿量门 >= 0.1 + 卖臂 low 区死寂 < 0.1）');
+{
+  check('L1 精确公式：窗内买 0.7 + 卖 0.2 → actTotalBnb = 0.9（=buyBnb+sellBnb）', () => {
+    const fa = newFA();
+    const NOW = T0 + 60000;
+    fa.processTick(mkTick({ bnb_amount: 0.7, timestamp: NOW - 5000 }));
+    fa.processTick(mkTick({ trade_type: 'sell', bnb_amount: 0.2, timestamp: NOW - 1000 }));
+    const f = fa.buildFactorMap('0xtoken', NOW);
+    assert.ok(Math.abs(f.actTotalBnb - 0.9) < 1e-9, `got ${f.actTotalBnb}`);
+    assert.ok(Math.abs(f.actTotalBnb - (f.actBuyBnb + f.actSellBnb)) < 1e-12, '与 actBuyBnb+actSellBnb 恒等');
+  });
+  check('L2 买腿量门真值表：actTotalBnb >= 0.1（0.9 过 / 空窗 0 拒——空窗=有证据零值非 null）', () => {
+    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+    const ev = new ConditionEvaluator();
+    assert.strictEqual(ev.evaluate('actTotalBnb >= 0.1', { actTotalBnb: 0.9 }), true);
+    assert.strictEqual(ev.evaluate('actTotalBnb >= 0.1', { actTotalBnb: 0 }), false);
+    assert.strictEqual(ev.evaluate('actTotalBnb < 0.1', { actTotalBnb: 0.09 }), true, '卖臂死寂侧');
+  });
+  check('L3 窗过滤同源：now-11s 出局（0.5 不计入）/ now-10s 边界留（0.1 计入）', () => {
+    const fa = newFA();
+    const NOW = T0 + 60000;
+    fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: NOW - 11000 }));
+    fa.processTick(mkTick({ bnb_amount: 0.1, timestamp: NOW - 10000 }));
+    const f = fa.buildFactorMap('0xtoken', NOW);
+    assert.ok(Math.abs(f.actTotalBnb - 0.1) < 1e-9, `got ${f.actTotalBnb}`);
+  });
+  check('L4 getFactorKeys 探针含 actTotalBnb（未知因子三防线自动认得）', () => {
+    assert.ok(newFA().getFactorKeys().has('actTotalBnb'), '探针缺键');
+  });
+  check('L5 FactorBuilder 快照透传（有值透传 / 缺键 null 不掩盖）', () => {
+    const { buildFactorValuesForTimeSeries } =
+      require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
+    assert.strictEqual(buildFactorValuesForTimeSeries({ actTotalBnb: 1.3 }).actTotalBnb, 1.3);
+    assert.strictEqual(buildFactorValuesForTimeSeries({ currentPrice: 1 }).actTotalBnb, null);
+  });
+  check('L6 源码口径：派生段 actTotalBnb 禁 Date.now（防前视红线）', () => {
+    const src = read('src/services/FourMemeFactorAggregator.js');
+    const seg = src.slice(src.indexOf('_activityFactors(state, now)'), src.indexOf('_positionFactors('));
+    const derivSeg = seg.slice(seg.indexOf('return {'), seg.indexOf('};', seg.indexOf('return {')));
+    assert.ok(!/Date\.now/.test(derivSeg), '派生段出现 Date.now');
+  });
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);

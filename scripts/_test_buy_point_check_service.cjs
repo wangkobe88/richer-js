@@ -151,6 +151,10 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         const s = mkSvc(CFG, mkDb(), mkLlm({}));
         assert.strictEqual((await s.gateBuyPoint('', META, {})).status, 'invalid_token');
     });
+    await check('DEFAULTS.minTicks=6 源码锁（T133 与 ladder v17 t0 腿 tradeCount>=6 同线——触发即过预门；fixtures 显式传 8 不受影响）', async () => {
+        const s = mkSvc({ enabled: true, settleDelayMs: 1, timeoutMs: 5000, gate: { awaitMs: 5000 } }, mkDb(), mkLlm({}));
+        assert.strictEqual(s._minTicks, 6);
+    });
     await check('insufficient_ticks：3 行 < minTicks 8 → 不调 Jev 不落表', async () => {
         const db = mkDb({ ticksAsc: TICKS10.slice(0, 3) });
         const llm = mkLlm({});
@@ -507,7 +511,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.ok(!/opts\.pumpExempt/.test(svc), 'opts.pumpExempt 消费应绝迹');
         assert.ok(!/rule: 'pump_exempt_gate'/.test(svc), 'rule 产出应绝迹');
         const mapper = read('src/market-analysis/buy-point-result-mapper.js');
-        assert.ok(/const NORMAL_ENTRY_LAUNCH_PCT = 27\.5;/.test(mapper), 'BP58 统一位置门常量（none+LEGACY 放行上界 27.5）');
+        assert.ok(/const NORMAL_ENTRY_LAUNCH_PCT = 28\.5;/.test(mapper), 'BP58 统一位置门常量（none+LEGACY 放行上界 28.5——BP58 立线 27.5、BP69 微放宽）');
         assert.ok(!/RESTART_LAUNCH_PCT/.test(mapper) && !/STRONG_BACKER_LAUNCH_PCT/.test(mapper) && !/SNIPER_ULTRA_ROUTER_LAUNCH_PCT/.test(mapper) && !/GOLDEN_POINT_LAUNCH_PCT/.test(mapper), '随宿主桶退役的四位置臂常量绝迹');
     });
 

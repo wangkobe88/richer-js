@@ -255,6 +255,10 @@ async function main() {
   // ═══════════════ C. minTicks 跳过（不调 Jev 不落表不粘滞） ═══════════════
   console.log('C. minTicks 预门');
   {
+    // T133 源码锁：DEFAULTS.minTicks=6（T131 8→7、T133 7→6——ladder v17 t0 6 笔档早臂配套，
+    // 触发即过预门；fixtures 显式传 8 不受影响）
+    const svcD = makeSvc(makeDb({ ticks: [] }), makeLlm(), {});
+    ok(svcD._minTicks === 6, 'DEFAULTS.minTicks=6 源码锁（T133 与 t0 腿 tradeCount>=6 同线）');
     const db = makeDb({ ticks: genTicks(5) });
     const llm = makeLlm();
     const svc = makeSvc(db, llm, { minTicks: 8 });
@@ -890,15 +894,15 @@ async function main() {
     ok(Math.abs(rowZ1.snapshot_digest.buyBnb - 1.2) < 1e-9,
       `digest 资金计全窗（12 行×0.1=1.2；实际 ${rowZ1.snapshot_digest.buyBnb}）`);
     ok(svcZ1.stats.marketResets === 0, `stats.marketResets 停用恒 0（CD393；实际 ${svcZ1.stats.marketResets}）`);
-    // Z2-2 短窗 reset 形状（6 行<DEFAULTS minTicks 7——T131 8→7 后天然短窗线
-    // 随降）→ 回到天然 insufficient_ticks（CD384 reset_insufficient_ticks
+    // Z2-2 短窗 reset 形状（5 行<DEFAULTS minTicks 6——T131 8→7、T133 7→6 后天然
+    // 短窗线随降）→ 回到天然 insufficient_ticks（CD384 reset_insufficient_ticks
     // 独立 status 随截窗退役；BP10「数据不够就挡住」存量语义照旧——仍是拒，
     // 不落表不烧 Jev）
-    const dbZ2 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05, 1.06]) });
+    const dbZ2 = makeDb({ ticks: priceTicks([1.0, 1.5, 2.0, 1.3, 1.05]) });
     const svcZ2 = makeSvc(dbZ2, makeLlm({ answers: NONE_ANSWERS }));
     const rZ2 = await svcZ2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-    ok(rZ2.status === 'insufficient_ticks' && rZ2.anchorTickCount === 6,
-      `6 行 <minTicks(7) → insufficient_ticks（reset_insufficient_ticks 状态不再产出；实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
+    ok(rZ2.status === 'insufficient_ticks' && rZ2.anchorTickCount === 5,
+      `5 行 <minTicks(6) → insufficient_ticks（reset_insufficient_ticks 状态不再产出；实际 ${rZ2.status}/${rZ2.anchorTickCount}）`);
     ok(dbZ2.state.inserts.length === 0 && svcZ2.stats.resetInsufficientRejects === 0,
       `短窗不落表+resetInsufficientRejects 停用恒 0（实际 inserts=${dbZ2.state.inserts.length}/ri=${svcZ2.stats.resetInsufficientRejects}）`);
     // Z2-3 满帽（capped）：tail 10 行=帽 → 判定窗=帽内 10 行全窗（无 reset 分叉，

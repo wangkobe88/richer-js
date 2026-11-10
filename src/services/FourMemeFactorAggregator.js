@@ -1030,6 +1030,19 @@ class FourMemeFactorAggregator extends EventEmitter {
                     (state._smartBotBuyBnb.get(walletAddr) || 0) + bnbAmount);
             }
 
+            // ── T133 famous near_launch 入场计数（2026-11-10 用户立法「买入后有
+            //    famous 钱包在 near_launch 区间内入场，立即全部卖出」——卖臂
+            //    sinceEntryFamousNearLaunchBuys 的全史计数器写点①）：famous roster
+            //    钱包的可靠价买入，且该笔价格落在 near_launch 区间（curVs ∈
+            //    (+10,+40]，BP43 六桶界）才计数。defer 行 walletAddr=sender 未知的
+            //    假值——跳过，由 wallet 段 applyWalletTick 补跑（smartBot 同款双段）。
+            //    直推路径（回放/回测）sender 已在行上=本段直计，补跑段不触发
+            //   （smartBotEligible 仅 defer 路径置位）→ 每 tick 恰计一次 ──
+            if (!deferWallet && isBuy && _famousCopyWallets && _famousCopyWallets.size > 0
+                && walletAddr && _famousCopyWallets.has(walletAddr)) {
+                this._countFamousNearLaunchBuy(state, priceBnb);
+            }
+
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
             // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
             // 峰 tick 缺 USD → 0，其后非峰 tick 不回填——保守方向与离线一致）
@@ -1288,6 +1301,16 @@ class FourMemeFactorAggregator extends EventEmitter {
             && _smartBotWallets && walletAddr && _smartBotWallets.has(walletAddr)) {
             state._smartBotBuyBnb.set(walletAddr,
                 (state._smartBotBuyBnb.get(walletAddr) || 0) + bnbAmount);
+        }
+
+        // ── T133 famous near_launch 入场计数写点②（defer 专属补跑）：价格段
+        //    deferWallet 跳过的计数在此用真 sender 补（priceReliable 等价重算=
+        //    vars.smartBotEligible，直推路径该 flag 缺省不跑防双计）。写点①在
+        //    processTick 价格段可靠价块（!deferWallet 门）──
+        if (vars.smartBotEligible === true && isBuy
+            && _famousCopyWallets && _famousCopyWallets.size > 0
+            && walletAddr && _famousCopyWallets.has(walletAddr)) {
+            this._countFamousNearLaunchBuy(state, tick.price_bnb || 0);
         }
 
         // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
@@ -1640,6 +1663,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // buy tick，窗含自身））。补买轮各自重锚=每仓独立「入场以来」。
             entryTotalBuyBnb: state.totalBuyBnb || 0,
             entryTotalSellBnb: state.totalSellBnb || 0,
+            // T133 famous near_launch 入场锚快照（2026-11-10 卖臂）：登记时刻的
+            // famous near_launch 区间买入计数（全史单调计数器），差值=「本仓入场
+            // 以来 famous 在 near_launch 新进了几笔」——单调 latch，入场前的 famous
+            // 进场不计。补买轮各自重锚（T113 同款）
+            entryFamousNearLaunchBuys: state._famousNearLaunchBuys || 0,
             highestPriceSinceBuyBnb: Math.max(anchorBnb, state.currentPriceBnb || 0, pend ? pend.peakAnyBnb : 0),
             highestPriceSinceBuyAt: (pend && pend.peakAnyAt) || buyState.buyTime || Date.now(),
             highestHoldersSinceBuy: state.holderCount || 0,
@@ -1881,6 +1909,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
             _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
             _firstBuyPriceBnb: 0,       // T130 首笔买入可靠价 write-once（launch 锚 min(常量, 首买价) 地板补丁原料；0=未见首买）
+            _famousNearLaunchBuys: 0,   // T133 famous near_launch 入场计数（全史单调计数器；写点=价格段/wallet 段补跑双段，见 _countFamousNearLaunchBuy）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
 
@@ -2298,9 +2327,35 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
-     * act* 8 键派生（2026-10-15 交易活跃度滑窗，取代同日删除的 cycle 分桶路由）：
+     * T133 famous near_launch 入场计数（2026-11-10 用户立法）：famous roster 钱包的
+     * 可靠价买入逐笔过 near_launch 区间门（curVs ∈ (+10,+40]——BP43 六桶 near_launch
+     * 界，含 40 不含 10）计数。launch 锚与 currentVsLaunchPct 同源=_floorLaunchPriceBnb
+     * (平台常量, 首买价)（T130 地板）；锚不可得（gang/未知平台且无首可靠价兜底）→
+     * 不计数（宁漏不冒充——卖臂 `>=1` 恒 false 不触发）。单调递增全史计数器 →
+     * sinceEntryFamousNearLaunchBuys 差值天然事件 latch（入场后新出现才 >0）。
+     * 回放任意序：计数只依赖单笔 tick 价与 write-once 锚（锚冻结早于计数写点①
+     * 同块），乱序回推下晚到行各自独立判定收敛。
+     */
+    _countFamousNearLaunchBuy(state, priceBnb) {
+        if (!(priceBnb > 0)) return;
+        const launch = _floorLaunchPriceBnb(
+            _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+            state._firstBuyPriceBnb,
+        ) ?? state._relFirstPriceBnb;
+        if (!(launch > 0)) return;
+        // toFixed(2) 与 currentVsLaunchPct 发射口径同源（裸浮点在边界 10% 处
+        // P0*1.1/P0 残差 >10 会误计——区间判据必须吃系统统一呈现值）
+        const curVs = parseFloat((100 * (priceBnb / launch - 1)).toFixed(2));
+        if (curVs > 10 && curVs <= 40) state._famousNearLaunchBuys++;
+    }
+
+    /**
+     * act* 9 键派生（2026-10-15 交易活跃度滑窗，取代同日删除的 cycle 分桶路由）：
      * activityWinMs（默认 10s，factorParams 可覆盖）窗内单趟全扫。
      *   actBuyBnb/actSellBnb/actNetBnb —— 窗内买/卖/净 BNB 量；
+     *   actTotalBnb —— 窗内总成交额 buy+sell（T133 2026-11-10「低活跃度」单一因子
+     *     表达：买腿量门 `actTotalBnb >= 0.1` + 卖臂 low 区死寂清仓 `< 0.1` 的
+     *     判据键——金额吞吐比笔数更重要（CD 法则 1 BNB/min 死寂线，10s 窗折算）；
      *   actTrades   —— 窗内笔数（含 wallet null 行，照计）；
      *   actTraders/actBuyers/actSellers —— 窗内独立钱包数（sender||trader 口径；
      *     null wallet 行计量不计人）；
@@ -2330,6 +2385,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             actBuyBnb: buyBnb,
             actSellBnb: sellBnb,
             actNetBnb: buyBnb - sellBnb,
+            actTotalBnb: buyBnb + sellBnb,
             actTrades: trades,
             actTraders: traders.size,
             actBuyers: buyers.size,
@@ -2883,12 +2939,20 @@ class FourMemeFactorAggregator extends EventEmitter {
         const sinceEntryNetBuyRatio = sinceEntryTotBnb > 0
             ? ((sinceEntryBuyBnb - sinceEntrySellBnb) / sinceEntryTotBnb) * 100
             : null;
+        // T133 famous near_launch 入场差值（2026-11-10 用户立法卖臂主键）：当前全史
+        // 计数 −setBuyState 锚快照=本仓入场以来 famous 在 near_launch 区间的新进场
+        // 笔数（单调 latch，≥1 即事件发生过；Math.max(0,·) 防锚竞态瞬时负——计数
+        // 器只增不减，负值仅出现在快照晚于计数回推的竞态窗，收敛后差值正确）
+        const sinceEntryFamousNearLaunchBuys = Math.max(0,
+            (state._famousNearLaunchBuys || 0) - (pos.entryFamousNearLaunchBuys || 0));
         return {
             // T113 三键（BNB 域，命名对齐 tradesNetBuyRatio* 族；ratio 主键进条件串，
             // 两原料键纯观察供阈值复盘——不落库即丢，FactorBuilder 快照透传）
             sinceEntryNetBuyRatio,
             sinceEntryBuyBnb,
             sinceEntrySellBnb,
+            // T133 卖臂主键（0=入场以来无 famous near_launch 进场，有证据零值非 null）
+            sinceEntryFamousNearLaunchBuys,
             buyPrice: pos.buyPriceUsd || pos.buyPriceBnb, // USD 优先（买入时点锁定），缺 USD 时退 BNB（比值因子不受影响）
             buyPriceBnb: pos.buyPriceBnb,
             buyTime: pos.buyTime,
@@ -3019,6 +3083,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceEntryNetBuyRatio: null,
             sinceEntryBuyBnb: null,
             sinceEntrySellBnb: null,
+            // T133 famous near_launch 入场差值（未持仓 → null fail-closed）
+            sinceEntryFamousNearLaunchBuys: null,
         };
         if (state._lastPositionKey && state._positions.has(state._lastPositionKey)) {
             positionFactors = this._positionFactors(
@@ -3341,6 +3407,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceEntryNetBuyRatio: positionFactors.sinceEntryNetBuyRatio ?? null,
             sinceEntryBuyBnb: positionFactors.sinceEntryBuyBnb ?? null,
             sinceEntrySellBnb: positionFactors.sinceEntrySellBnb ?? null,
+            // T133 famous near_launch 入场差值（2026-11-10 卖臂主键；无持仓 → null）
+            sinceEntryFamousNearLaunchBuys: positionFactors.sinceEntryFamousNearLaunchBuys ?? null,
 
             // ── T107 市值拱形时间全清臂（2026-10-29 立法；2026-11-09 用户裁定持仓期化
             // 「mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec 改为持有后的 Peak（其它的
@@ -3457,11 +3525,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             tradesNetBuyShortWinBnb: netBuyWin.tradesNetBuyShortWinBnb,
             tradesNetBuyRatioLongWin: netBuyWin.tradesNetBuyRatioLongWin,
 
-            // ── 交易活跃度滑窗 act* 8 键（2026-10-15；取代已删的 cycle 分桶路由。
-            //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null）──
+            // ── 交易活跃度滑窗 act* 9 键（2026-10-15；取代已删的 cycle 分桶路由。
+            //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null；
+            //    actTotalBnb=T133 2026-11-10「低活跃度」判据键（buy+sell））──
             actBuyBnb: activity.actBuyBnb,
             actSellBnb: activity.actSellBnb,
             actNetBnb: activity.actNetBnb,
+            actTotalBnb: activity.actTotalBnb,
             actTrades: activity.actTrades,
             actTraders: activity.actTraders,
             actBuyers: activity.actBuyers,

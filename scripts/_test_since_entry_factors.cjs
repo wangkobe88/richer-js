@@ -235,5 +235,139 @@ console.log('I. 源码口径断言');
         assert.ok(fbSrc.includes('sinceEntryNetBuyRatio: factorResults.sinceEntryNetBuyRatio ?? null')));
 }
 
+// ═══════════════ J. T133 famous near_launch 入场计数 + sinceEntryFamousNearLaunchBuys ═══════════════
+console.log('J. T133 famous near_launch 计数（2026-11-10 用户立法「买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出」——卖臂 famous-entry-exit 主键）');
+{
+    const FAM = '0xfamous1111111111111111111111111111111111111';
+    const NOTFAM = '0xother22222222222222222222222222222222222222';
+    const P0 = 0.00001; // 首可靠价=launch 兜底锚（无平台常量 → ?? _relFirstPriceBnb）
+    /** famous 买入 @curVs%（相对 P0） */
+    const famBuy = (pct, ts) => mkTick({
+        sender_address: FAM, bnb_amount: 0.3, price_bnb: P0 * (1 + pct / 100), timestamp: ts,
+    });
+    let liJ = 0;
+    const tickJ = (t) => Object.assign({}, t, { tx_hash: '0xj' + (++liJ), log_index: liJ });
+
+    FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([FAM]));
+    try {
+        // J1 区间口径：curVs ∈ (+10,+40] 才计（BP43 near_launch 界；含 40 不含 10）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 })); // launch 锚定值 P0
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickJ(famBuy(5, T0 + 3000)));    // almost_launch 区 → 不计
+            fa.processTick(tickJ(famBuy(10, T0 + 4000)));   // 恰 10（区间开边界）→ 不计
+            fa.processTick(tickJ(famBuy(15, T0 + 5000)));   // 计 1
+            fa.processTick(tickJ(famBuy(40, T0 + 6000)));   // 恰 40（区间闭边界）→ 计 2
+            fa.processTick(tickJ(famBuy(45, T0 + 7000)));   // low 区 → 不计
+            const f = fa.buildFactorMap('0xtoken', T0 + 8000);
+            check('J1 区间口径：(10,40] 含 40 不含 10——5%/10%/45% 三笔不计、15%/40% 两笔计 → 计数 2', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 2, `got ${f.sinceEntryFamousNearLaunchBuys}`));
+        }
+        // J2 名单外钱包 near_launch 买不计 / famous 卖腿不计（isBuy 门）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickJ(mkTick({ sender_address: NOTFAM, bnb_amount: 0.3, price_bnb: P0 * 1.2, timestamp: T0 + 3000 })));
+            fa.processTick(tickJ(mkTick({ sender_address: FAM, trade_type: 'sell', bnb_amount: 0.3, price_bnb: P0 * 1.2, timestamp: T0 + 4000 })));
+            const f = fa.buildFactorMap('0xtoken', T0 + 5000);
+            check('J2 名单外不计 + famous 卖腿不计（isBuy 门）→ 计数 0（有证据零值）', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 0));
+        }
+        // J3 差值 latch：入场锚前的 famous near_launch 买不进差值；补买轮重锚
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tickJ(famBuy(20, T0 + 1500)));  // 入场前 famous near_launch 买
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            let f = fa.buildFactorMap('0xtoken', T0 + 2500);
+            check('J3a 入场前计数不进差值 → 0', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 0));
+            fa.processTick(tickJ(famBuy(25, T0 + 3000)));
+            f = fa.buildFactorMap('0xtoken', T0 + 3500);
+            check('J3b 入场后新 famous near_launch 买 → 1（卖臂 >=1 即全清）', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 1));
+            // 补买轮重锚：全清后再买（第二轮 setBuyState 从新锚起算）
+            fa.clearBuyState('0xtoken');
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 5000 });
+            f = fa.buildFactorMap('0xtoken', T0 + 5500);
+            check('J3c 补买轮重锚 → 第一轮计数不再计入 → 0', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 0));
+        }
+        // J4 未持仓 null 域（fail-closed：`>= 1` 恒 false 不触发）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tickJ(famBuy(20, T0 + 2000)));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+            check('J4 未持仓 → sinceEntryFamousNearLaunchBuys null（差值因子 T113 同域；`>= 1` 恒 false）', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, null));
+        }
+        // J5 defer 双段恰一次：价格段(!deferWallet) 直计 + wallet 段(smartBotEligible) 补跑；
+        //    直推路径写点②不跑（flag 缺省）防双计
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            // 直推（回放/回测）：sender 在行上 → 写点①计一次
+            fa.processTick(tickJ(famBuy(20, T0 + 3000)));
+            let f = fa.buildFactorMap('0xtoken', T0 + 3500);
+            check('J5a 直推路径恰计一次 → 1', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 1));
+
+            // defer 路径：价格段 sender 未知跳过 → applyWalletTick 真名补跑一次
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa2.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            const raw = tickJ({ ...famBuy(20, T0 + 3000), sender_address: null });
+            fa2.processTick(raw, { deferWallet: true, emitFactors: false });
+            let f2 = fa2.buildFactorMap('0xtoken', T0 + 3200);
+            check('J5b defer 价格段（sender 未知）不计 → 0', () =>
+                assert.strictEqual(f2.sinceEntryFamousNearLaunchBuys, 0));
+            fa2.applyWalletTick({ ...raw, sender_address: FAM, price_accepted: true }, { emitFactors: false });
+            f2 = fa2.buildFactorMap('0xtoken', T0 + 3500);
+            check('J5c wallet 段真 sender 补跑恰一次 → 1（与直推 J5a bit 一致）', () =>
+                assert.strictEqual(f2.sinceEntryFamousNearLaunchBuys, 1));
+        }
+        // J6 名单缺失（null=未加载）不计数（写点① `size>0` 门）
+        {
+            FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickJ(mkTick({ sender_address: FAM, bnb_amount: 0.3, price_bnb: P0 * 1.2, timestamp: T0 + 3000 })));
+            const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+            check('J6 名单缺失不计数 → 0（宁漏不冒充）', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 0));
+        }
+        // J7 源码口径断言
+        {
+            const src = read('src/services/FourMemeFactorAggregator.js');
+            const cntStart = src.indexOf('_countFamousNearLaunchBuy(state, priceBnb) {');
+            const cntSeg = src.slice(cntStart, src.indexOf('state._famousNearLaunchBuys++;', cntStart));
+            check('J7a 计数器段禁 Date.now（单笔价+write-once 锚，回放任意序收敛）', () =>
+                assert.ok(!/Date\.now/.test(cntSeg), '计数器函数体出现 Date.now'));
+            check('J7b 区间判据源码锁：curVs > 10 && curVs <= 40（near_launch 界）', () =>
+                assert.ok(cntSeg.includes('curVs > 10 && curVs <= 40')));
+            check('J7c 锚链与 currentVsLaunchPct 同源（_floorLaunchPriceBnb(_resolveLaunchPriceBnb…, _firstBuyPriceBnb)）', () => {
+                assert.ok(cntSeg.includes('_floorLaunchPriceBnb('));
+                assert.ok(cntSeg.includes('_resolveLaunchPriceBnb(state.platform, state.quoteToken)'));
+                assert.ok(cntSeg.includes('state._firstBuyPriceBnb'));
+                assert.ok(cntSeg.includes('?? state._relFirstPriceBnb'));
+            });
+            const fbSrc = read('src/trading-engine/core/FactorBuilder.js');
+            check('J7d FactorBuilder 快照透传（不落库即丢防线）', () =>
+                assert.ok(fbSrc.includes('sinceEntryFamousNearLaunchBuys: factorResults.sinceEntryFamousNearLaunchBuys ?? null')));
+            check('J7e 未持仓 null 域字面量（三处：positionFactors 前置对象+主表发射）', () => {
+                assert.ok(src.includes('sinceEntryFamousNearLaunchBuys: null,'));
+                assert.ok(src.includes('sinceEntryFamousNearLaunchBuys: positionFactors.sinceEntryFamousNearLaunchBuys ?? null,'));
+            });
+        }
+    } finally {
+        FourMemeFactorAggregator.setFamousCopyWalletsForTest(null); // 复位未加载态（防污染其它段/测试）
+    }
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);
