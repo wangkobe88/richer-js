@@ -170,8 +170,8 @@ function buildBuyPointState(snapshot) {
       } else if (!ft.wallets.length) {
         lines.push(`famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据，famous 轴不适用）`);
       } else {
-        const rowOf = (e) => `${shortWallet(e.w)} 买 ${e.buyBnb.toFixed(4)}×${e.buyN}（首买@${fmtDt(e.firstBuyDt)}）卖 ${e.sellBnb.toFixed(4)}×${e.sellN}（首卖@${fmtDt(e.firstSellDt)}）净 ${sgn(e.netBnb)}`;
-        lines.push(`famous 痕迹: 锚窗内名单钱包 ${ft.wallets.length} 个——${ft.wallets.map(rowOf).join('；')}｜合计买 ${ft.groupBuyBnb.toFixed(4)}（占全窗买 ${fmtPct(ft.groupBuyPct)}）卖 ${ft.groupSellBnb.toFixed(4)}（占全窗卖 ${fmtPct(ft.groupSellPct)}）Σ净 ${sgn(ft.netSumBnb)}，净持仓>0 的名单钱包 ${ft.inCustodyCount} 个（在场性判读：单钱包/Σ净 ≈0 或负=已清仓离场、净 >0=在场持有——famous 轴退出臂前提与③桶收割完臂的证据行；时刻为锚窗内相对秒）`);
+        const rowOf = (e) => `${shortWallet(e.w)} 买 ${e.buyBnb.toFixed(4)}×${e.buyN}（首买@${fmtDt(e.firstBuyDt)}）卖 ${(e.sellBnb || 0).toFixed(4)}×${e.sellN}（首卖@${fmtDt(e.firstSellDt)}）净 ${sgn(e.netBnb)}（卖出/买入 ${e.buyBnb > 0 ? (((e.sellBnb || 0) / e.buyBnb) * 100).toFixed(1) : '?'}%）`;
+        lines.push(`famous 痕迹: 锚窗内名单钱包 ${ft.wallets.length} 个——${ft.wallets.map(rowOf).join('；')}｜合计买 ${ft.groupBuyBnb.toFixed(4)}（占全窗买 ${fmtPct(ft.groupBuyPct)}）卖 ${ft.groupSellBnb.toFixed(4)}（占全窗卖 ${fmtPct(ft.groupSellPct)}）Σ净 ${sgn(ft.netSumBnb)}，净持仓>0 的名单钱包 ${ft.inCustodyCount} 个（在场性判读三分：单钱包/Σ净 ≈0 或负=已清仓离场（收割完）；净 >0 但已卖出绝大部分（卖出/买入 ≥95%、净投入 ≈0 差微末）=收割中——收割完/收割中同落③桶残局臂、不适用退出臂；净投入与买入额相当（基本未卖）=在场持有，正常评估退出臂——famous 轴退出臂前提与③桶残局臂的证据行；时刻为锚窗内相对秒）`);
       }
     }
     if (d.priceArc) {

@@ -348,7 +348,7 @@ ok(snapA.cheatDerived.totalBuyBnb > 0 && Array.isArray(snapA.cheatDerived.holdin
 // ═══════════════ A9. famous 痕迹族（BP53 二修/案号 BP61——state 补行路线） ═══════════════
 console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命中/名单缺失四形状）');
 {
-  const W_FA = '0x' + 'fa'.repeat(20); // famous A：t+0 买 0.30 → t+5 卖 0.29（净 +0.01 在场）
+  const W_FA = '0x' + 'fa'.repeat(20); // famous A：t+0 买 0.30 → t+5 卖 0.29（净 +0.01、卖/买 96.7%=收割中形状）
   const W_FB = '0x' + 'fb'.repeat(20); // famous B：t+8 买 0.35 → t+11 卖 0.36（净 −0.01 已清仓）
   const rosterFt = new Set([W_FA, W_FB]);
   const rowsFt = [
@@ -378,8 +378,9 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   ok(stFt.includes('famous 痕迹: 锚窗内名单钱包 2 个') && stFt.includes('0xfbfb…fbfb') && stFt.includes('0xfafa…fafa'),
     'state 命中行（2 钱包+短址直供——slice(0,6)+…+slice(-4)）');
   ok(stFt.includes('净 +0.0100') && stFt.includes('净 -0.0100') && stFt.includes('Σ净 +0.0000')
-    && stFt.includes('净持仓>0 的名单钱包 1 个') && stFt.includes('占全窗买 65.0%') && stFt.includes('占全窗卖 100.0%'),
-    'state 命中行数值（单钱包净/Σ净/在场计数/占比）');
+    && stFt.includes('净持仓>0 的名单钱包 1 个') && stFt.includes('占全窗买 65.0%') && stFt.includes('占全窗卖 100.0%')
+    && stFt.includes('卖出/买入 102.9%') && stFt.includes('卖出/买入 96.7%') && stFt.includes('在场性判读三分') && stFt.includes('=收割中——收割完/收割中同落③桶残局臂'),
+    'state 命中行数值（单钱包净/Σ净/在场计数/占比+三修卖/买比与判读三分句——FB 102.9%/FA 96.7%）');
   const ftMiss = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) }).buyDerived.famousTraces;
   ok(ftMiss.wallets.length === 0 && ftMiss.inCustodyCount === 0
     && buildBuyPointState(buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) })).state.includes('famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据'),
