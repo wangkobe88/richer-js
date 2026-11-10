@@ -55,6 +55,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并）——ea78 t0 点位零信号双重根因修复（2026-11-10，313f161c+61f4d57c+18cfd8f2；用户指令「修复后，单独的回测一下 0xea78…」兑现链）
+
+**动机（事故现场）**：ea78（flap）n=7（05:48:33，+21.61%）与 n=8（同秒，+27.75% 破 27.5）**毫秒级同 block_time 秒**。T131 落地后两次单票回测（4087f6cc/a53dd50b）均零 BUY 信号——裸 FA 重放（registerToken platform:'flap' + DB 行逐 processTick + buildFactorMap）n=7 时刻四键真（tradeCount=7/buyVol=1.529/holdersExDust=5/curVs=+21.61），引擎内却零触发。**双重根因**：①TickDebouncer burst 合并——n=7/n=8 同刻进同一 burst，fire 回调 `_runBuyEvaluation` 在 fire 时刻重读因子已含 n=8 → curVs 27.75 破线翻假，单 tick 真窗被吃掉（实时引擎同形状同样 miss）；②tickBuildSkip 默认开时未持仓窗内票（C 类）主循环 factors=null，per-tick 挂点首版写在 `if (factors)` 内=恒短路——ea78 全程未持仓=纯 C 类，per-tick 一次都没评过。**第三 bug（首跑实锤）**：StrategyEngine.evaluate 的 excludeStrategyIds 消费 `.has`（与 _signalGateExcludedIds 同型=Set），首版四处传数组 → `excludeIds.has is not a function` 回测 failed（回测二未崩只因 ② 恒短路从未执行到）。
+
+**落法（三 commit）**：
+- **T132（313f161c）**：signalGate 触发腿 per-tick 评估绕 debounce——本 tick 因子直评命中即 `_buyDebouncer.clear` + 直调 `_evaluateBuyPath`（opts.evalExcludeIds 限定只评 signalGate 腿，混合腿实验 legacy 行为 bit 不变）；防重=`_evaluateBuyPath` 入口 buyingTokens.add；回测 eval 进 `_inflightEvals`（`_advanceDebouncer` 下一 tick 前 drain，n=8 翻假因子永不覆盖 n=7 判定）。debounce 防毛刺对触发腿冗余（maxTriggers 消耗+T110 节流+门链 fail-closed 兜底）。基类 helper `_signalGatePerTickExcludedIds()`（null=无 signalGate 腿快速 no-op）。
+- **T132b（61f4d57c）**：回测 C 类票（tickBuildSkip 未持仓窗内）signalGate 实验现补全量 `buildFactorMap`（fire 路径同款重读）；非 signalGate 实验恒 null 快速跳过零成本，tickBuildSkip 性能收益对 legacy 实验保留。
+- **T132c（18cfd8f2）**：排除集全链 Set 化（基类 helper 返回 Set + 两引擎 per-tick 并集 + 两 `_evaluateBuyPath` 并集 length→size）。
+
+**单测**：signal_gate_engine 131（E10 四断言改锚+C 类补 build 锚+Set 锚）/backtest_tick_build_skip 43（C5 距离上限 400→3000 放宽）全绿。
+
+**回测（ea78 第四跑 2fad5c9a，v16 库+t0 腿）**：**链路全通读数**——`05:48:33`（=北京 13:48:33=t0 立法点位）t0 腿（legId buy_0_1/P1·首买，v15 序 t0=p1）正确触发；cheat 门真调 healthy（levels 全 low，cached:false）放行；**BP 门拒在 none 统一位置门**：market_pattern=none（正常盘面，②③⑥异常桶均未判）→ 现价 +27.8% > 27.5 → rule=pattern_gate prob=0.98 拒（entry_shape=spike 0.49 同向）。**根因=BP 锚窗秒粒度**：锚=block_time≤created_at 行集，n=7/n=8 同秒 05:48:33 → 锚窗恒含 n=8（actTickCount=8、mcap 7.09=n=8 价实锤），现价取锚窗末价即 n=8 的 +27.75%，差 0.25pp 破线。**语义判定=保护正确非 bug**：n=7/n=8 毫秒竞态下真实可成交价已是 +27.75%，BP 用 27.5 拒掉=T129「系统不买 >+27.5%」的正确执行（entry spike 0.49 同向佐证）。结论：t0 立法点位「触发即有效判定」达成（信号正确发出+cheat 过），该票最终不成交是价格保护门设计内代价；ea78 09:59 回落段死结（cheat 判定域）已随 CD395 回退不处理留档。
+
 ### T131 ladder v15 十四腿：t0 最早臂（7 笔档）+ cheat/BP 双门 minTicks 8→7——ea78 开盘 25 秒窗差一笔案（2026-11-10；用户裁定原话「针对这个问题，增加一个买入臂吧。cheat 重新解析并不能解决这个问题」「之后的买入点位肯定远不如早期的」+ minTicks 红线配套裁定「可以适当降低一下，例如降低为 7」）
 
 **动机**：吉祥 ea78 `0xea7886d5…7777`（flap，token_create 2026-11-05T05:48:04Z=北京 13:48:04）形状=「开盘贴发行价慢攒 25 秒 → t+30s 17 笔 2.26 BNB 拉到 +131% 永久离开买窗，此后 4h 最低 +67%」：用户质询「13:48:33（北京）为啥没发出信号？他的购买点应该在这个时间点之前」——逐 tick 重放四门实证 t0a（9 笔/1 BNB/6 人/≤27.5）在唯一价格窗（开盘前 29 秒）内**差 1 笔差 2 人全程未同时满足**（t+29s 时 n=7/买额 1.53B/钱包 5/curVs +21.6%；t0a 要 9 笔第 8 笔已 +27.8% 出窗、第 9 笔 +44.8% 深出窗）；8 笔档同样死结（第 8 笔 +27.8% 恰破 27.5 线）——**笔数门 7 是唯一能接住该点位的档**。同日 CD395「拉黑票价格重检臂」立项施工后被用户回退零落地（「感觉这不是针对这个 case 的方案，建议先回退，不要引入更多变量」+「担忧对于 cheat 票在上涨后归零区间翻盘」——ea78 的 09:59 回落段死结归 cheat 门判定域非本批职责，回退后引擎三文件 git restore 零残留）。
@@ -66,7 +79,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **单测**：validate_legs 46/signal_gate_engine 127/cheat_detection_service 140（Y1b 改显式传 minTicks: 8 保锚截窗用例本意、Z2-2 短窗夹具 7 行→6 行随 DEFAULTS 降——「天然短窗 insufficient_ticks」语义断言锚定新默认线）/buy_point_check 36/cheat_gate_engine 170 全绿（其余用例显式传 8 自洽不受 DEFAULTS 影响）。
 
-**回测**：ea78 单票回测（backtest-token-case.cjs，v98 基底窗口）——见部署后汇报（进行中）。
+**回测**：ea78 单票回测四跑（backtest-token-case.cjs，bt-v98 基底+库 v16 换腿）——前两跑（4087f6cc/a53dd50b）零 BUY 引出 T132 双重根因修复（见 T132 案），第四跑（2fad5c9a）t0 腿正确触发+cheat healthy，BP 统一位置门 27.5 拒（同秒 n=8 价 +27.8%，保护语义正确）——详读数见 T132 案。
 
 ### T130 发行价地板补丁：launch 锚=min(平台常量, 代币首笔买入可靠价)——低开票 currentVsLaunchPct 族换地板锚（2026-11-09；用户裁定原话「我发现很多币的第一次购买价格，低于普遍代币的发布价格……这里再打一个补丁，如果代币首次购买价格低于我们配置的代币初始价格，那么地板改为首次购买价」；例票 67ad68e0/-4.9%、6efa11ce/-20.2% 两张 flap quote 盘）
 
