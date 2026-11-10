@@ -203,7 +203,12 @@
 
 **单测**：`_test_cheat_detection_lib.cjs` D3.66 段四夹具（ba5e 缩样：低开首买 launch 地板+崩回两段静默最后出口 +35；ad80 缩样：高开>常量→launch=常量、出口 +122.4 拒；段后唯一行 outlier→null；密集无段→null）+mapper anchors 键数 54→55，655 全绿；`_test_cheat_gate_engine.cjs` F8/F8b 夹具全换新键+F8c 专项块改写（ba5e/ad80 实测锚正反例+断代反证旧档只带旧键=false+贴线 40/40.1+null/缺席+**源码锁限定函数体只锁代码访问形状**——`an./anchors.` 属性访问，注释留档不算；首版否定正则 `[\s\S]*?` 跨出函数体误报已修）172 全绿；service 140/grade 135 全绿。
 
-**余留**：PostgREST 1000 行帽为**独立缺陷**（生产超活跃票 cheat 窗不含 launch、head 补窗从未触发）——是否另案修复（分页拉满/帽顶补 head）留用户裁定，D3.66 出口价判据不依赖它；对拍读数见下（182 真调 Jev）。
+**182 对拍（11-10，tmp-d365-parity.mjs 真调 Jev 题集 D3.65/G17，锚=生产首信号）**：
+- **ad80fb7a 反例稳定拒**：5 跑全 `_isStallBurstExempt=false`——Jev sbw 稳判 burst（levels=1）但 exitVs=161.3>40 第四腿拒 → grade 保持 cheat+denied=ultra_cheat（A_strong:equal_amount_split+coordinated_sell_back+slow_grind_pump|J|R|M|N 六通道同场）——**CD392「高位流量波不豁免」立法在新判据源下闭合**（D3.65 旧源此处曾误放）。
+- **ba5e 正例豁免 3/5 达成**：exitVs=35.4（代码侧恒定）+gap 68/波买 2.04/波户 55 三腿全过；**残差=sbw 题 run-to-run 方差**（5 跑 burst/none/burst/none/burst——三键全部远过 D3.63 ④数值判读锚线仍交替判 none，CD319/CD387 同族第三例）：sbw=burst 时链路全通 healthy+exempt stall_burst（原判 A_strong:slow_grind_pump|L|R|N → 豁免放行，用户「涨幅排名前几的顶级好票」裁定在代码侧全部就绪）；sbw=none 时资格臂不入场照拒。方差面=锚窗 1000 行/买卖 418:582 双向 frenzy 大噪声 state（20048 chars，波三键实测最密 5s 波=拉峰 frenzy 波 55 户非重启波）——sbw 题④判读锚对该形状采信不稳，攒批待裁（D3.63「写 prompt 不代码魔改」裁定维持，不另动）。
+- 旧键读数留档：ba5e startVs=294.9（生产 1000 帽窗窗首——旧源恒拒现场）/ad80 startVs=29.7（旧源误放现场）。
+
+**余留**：sbw 题 run-to-run 方差（ba5e 形状大噪声窗）攒批；PostgREST 1000 行帽为**独立缺陷**（生产超活跃票 cheat 窗不含 launch、head 补窗从未触发）——是否另案修复（分页拉满/帽顶补 head）留用户裁定，D3.66 出口价判据不依赖它。
 
 ### CD394 活跃度四臂判读——act 题⑦升级定档主锚「临近买点段行为为准」+尾窗七键（协同出货/衰减/密集/死寂；2026-11-09，题面+snapshot 案·题集 D3.63→D3.64、BP 侧同车 BP57；commit `802d42e2`；bt-v94 `85cbad14` signals 页六案驱动；用户总裁定原话「我看了如上几个结果，我认为"活跃度"，要以临近买入点附近的行为为准。burst 豁免活跃度低本质就是这个原因。」）
 
