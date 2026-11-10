@@ -533,8 +533,8 @@ console.log('E. 引擎侧源码口径锁（CD158 形状）');
   ok('买信号节流 stop 清理', /if \(this\._buySignalThrottle\) this\._buySignalThrottle\.clear\(\);/.test(src));
   // E5 faState 作用域事故现场反证（v67 首日 2026-11-02：`faState is not defined` 炸断
   // 买路径）：声明必须提升到 _evaluateBuyPath 函数域且先于 preBuy 块，函数体内
-  // 不得再有块级重复声明
-  const buyPathStart = src.indexOf('async _evaluateBuyPath(token, factorResults, tick) {');
+  // 不得再有块级重复声明（签名锚用前缀匹配——T132 起第 4 参 opts evalExcludeIds）
+  const buyPathStart = src.indexOf('async _evaluateBuyPath(token, factorResults, tick');
   const gateCallIdx2 = src.indexOf('tokenAddress, token, faState, signalId, cheatCheckCondition, factorResults);', buyPathStart);
   const buyPathSlice = src.slice(buyPathStart, gateCallIdx2);
   const declIdx = buyPathSlice.indexOf('const faState = this._factorAggregator.getTokenState(tokenAddress);');
