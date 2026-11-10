@@ -710,9 +710,12 @@ function computeBuyPointDerived(snapshot, famousRoster) {
  * buildSnapshotFromRows——见 cheat-snapshot 头注）。options 额外：
  * - signalInfo：{ signalId, createdAt, firePriceBnb, strategyName }——买点信号
  *   溯源（state [ANCHOR] 渲染；runner 透传），可选
+ * - cheatBurst：作弊门 burst 判定透传（BP67：{ source, sbw, maxGapSec,
+ *   waveBuyBnb, waveWallets, exitVsLaunchPct }——cheat 侧 levels.stallBurstWave==1
+ *   时引擎组装；null/缺=无 burst 证据，state 不渲染该行、act 照常判），可选
  * @returns {Object} { tokenMeta, anchor, capped, dtBase, ticks, wallets,
- *   cheatDerived, buyDerived, signalInfo }——cheatDerived=cheat 快照 derived 原样
- *   （背景事实不重算）；buyDerived=computeBuyPointDerived 产物
+ *   cheatDerived, buyDerived, signalInfo, cheatBurst }——cheatDerived=cheat 快照
+ *   derived 原样（背景事实不重算）；buyDerived=computeBuyPointDerived 产物
  */
 function buildBuyPointSnapshot(rows, tokenMeta, options = {}) {
   const base = buildSnapshotFromRows(rows, tokenMeta, options);
@@ -726,6 +729,7 @@ function buildBuyPointSnapshot(rows, tokenMeta, options = {}) {
     cheatDerived: base.derived,
     buyDerived: computeBuyPointDerived(base, options.famousRoster),
     signalInfo: options.signalInfo || null,
+    cheatBurst: options.cheatBurst || null,
   };
 }
 

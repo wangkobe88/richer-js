@@ -27,7 +27,10 @@
  *      ultra 也不玩」，对齐 CD M 通道）→ poor（rule=activity_gate；**BP60 起
  *      market_heat 臂删除**——题与 activity_level 重复，整题退役；ultra 臂
  *      无条件拦——BP38 strong_backer 豁免已随①桶退役删除，BP46/BP47 ④高热近价
- *      豁免与 BP53 ④ultra 散户入口豁免已随④桶退役删除）
+ *      豁免与 BP53 ④ultra 散户入口豁免已随④桶退役删除）；**BP67 burst 桶不拦**
+ *      （cheat 门 burst 判定输入桶——引擎透传 sbw，[ANCHOR] 行在场 Jev 选
+ *      burst；ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒的叙事矛盾立法
+ *      「这个选项不 block 买入」）
  *   ④ 筹码门（BP14 holder 臂单臂）：holder_concentration=strong → poor
  *      （rule=chip_gate）。**BP54 停用（2026-11-09 用户裁定「筹码门可以去掉
  *      （改为先不激活），看看效果」）：CHIP_GATE_ENABLED=false 拦截臂不激活**，
@@ -78,8 +81,10 @@ const DIMENSION_IDS = [
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
 /** 买点前活跃度四档（BP13：CD activity_level 判法搬运；BP60 起唯一活跃度题——
- * market_heat 已退役（与 activity_level 重复，题/门臂/日志段整链删除） */
-const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
+ * market_heat 已退役（与 activity_level 重复，题/门臂/日志段整链删除））；
+ * BP67 加第五档 burst=cheat 门 burst 判定输入桶（[ANCHOR] 行在场才选）——
+ * **不在拦域**（burst 不拦买入，沉积期低活跃度是 burst 前提语义） */
+const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra', 'burst'];
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费；BP54 停用不激活） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
@@ -122,7 +127,9 @@ const ENTRY_GATE_POOR_BUCKETS = ['crash', 'spike'];
  * market_heat 臂删除**（题与 activity_level 重复整题退役，旧档 answers 带答案
  * 不被消费不 throw——维度缺席容缺）；**ultra 臂无条件拦**——BP38 strong_backer
  * 豁免/BP46+47 ④高热豁免同盖/BP53 ④ultra 散户入口豁免同盖三臂已随宿主桶退役
- * 删除） */
+ * 删除；**BP67 burst 桶不在拦域**（cheat 门 burst 判定输入桶——上游判 burst=
+ * 沉积期低活跃度前提语义，不拦买入；cheat 侧 sbw 与 BP act low 的活跃度叙事
+ * 矛盾由引擎透传+burst 桶解决，不在门上加臂） */
 const ACTIVITY_GATE_POOR_BUCKETS = { activity_level: ['low', 'ultra'] };
 /** BP54 筹码门停用（2026-11-09 用户裁定「筹码门可以去掉（改为先不激活），看看
  * 效果」）：CHIP_GATE_ENABLED=false 筹码门拦截臂不激活——holder strong 不再拒

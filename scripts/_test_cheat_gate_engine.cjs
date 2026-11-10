@@ -98,7 +98,7 @@ console.log('A. _cheatGateEvaluate 新路径（grade 只投影不决策，拒/�
   ok('cheat → 引擎侧拉黑（_cheatBlockedTokens）', eng._cheatBlockedTokens.has('0xtok'));
   // 1bcd0222 拒前 metadata.cheatCheck 落段（拒行可观测性：拒因带通道/档位+CD379 exempt 位）
   check('cheat → 拒前 metadata.cheatCheck 段（grade/reasons+exempt:null+unblocked:false 形状）', metas,
-    [{ id: 'sig-1', data: { cheatCheck: { status: 'analyzed', grade: 'cheat', cached: false, reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0, levels: null, buckets: null, strongbackerLike: 0, exempt: null, unblocked: false } } }]);
+    [{ id: 'sig-1', data: { cheatCheck: { status: 'analyzed', grade: 'cheat', cached: false, reasons: [{ level: 'cheat', code: 'A_strong:same_block_buy_wave' }], unhealthyGrades: 0, levels: null, buckets: null, anchors: null, strongbackerLike: 0, exempt: null, unblocked: false } } }]);
   check('cheat → 清仓联动（why=cheat 判定）', exits, [{ addr: '0xtok', why: 'cheat 判定' }]);
   check('cheat → signal failed reason=cheat_gate_cheat', signals.map((s) => [s.status, s.meta.reason]),
     [['failed', 'cheat_gate_cheat']]);

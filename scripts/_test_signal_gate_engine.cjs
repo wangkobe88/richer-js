@@ -161,7 +161,9 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
     pass: true,
     info: {
       status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0,
-      levels: { same_block_buy_wave: 'none' }, buckets: { activity: 'mid' }, strongbackerLike: 1,
+      levels: { same_block_buy_wave: 'none' }, buckets: { activity: 'mid' },
+      anchors: null, // BP67 波三键/exitVs 数值锚透出位（cheat 侧 sbw=1 时 _cheatBurstForBp 组装）
+      strongbackerLike: 1,
       exempt: null, // CD379 活跃度豁免留痕位（service 出口变换才有值）
       unblocked: false, // CD381 翻案留痕位（forceRecheck 重检解除拉黑才有 true）
     },
@@ -170,8 +172,20 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
   const eng4b = makeEngine({ _cheatCheckService: cheatSvc(async () => ({ status: 'analyzed', grade: 'healthy' })) });
   check('healthy 缺席键 → 缺省形状', (await eng4b._cheatGateEvaluateBinary('0xtok', TOKEN, null, 'sig-4b', SG())).info, {
     status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0,
-    levels: null, buckets: null, strongbackerLike: 0, exempt: null, unblocked: false,
+    levels: null, buckets: null, anchors: null, strongbackerLike: 0, exempt: null, unblocked: false,
   });
+
+  // A4+ BP67 _cheatBurstForBp 四分支（cheat sbw → BP act burst 输入桶透传链起点）
+  const engBp = makeEngine({});
+  check('BP67 sbw=1 → burst 载体组装（anchors 波三键+exitVs 直取）',
+    engBp._cheatBurstForBp({ levels: { stallBurstWave: 1 }, anchors: { burstMaxGapSec: 58, burstWaveBuyBnb: 0.77, burstWaveWallets: 11, burstExitVsLaunchPct: 2.9 } }),
+    { source: 'cheat', sbw: 1, maxGapSec: 58, waveBuyBnb: 0.77, waveWallets: 11, exitVsLaunchPct: 2.9 });
+  ok('BP67 sbw=0 → null（非 burst 形状无输入桶）', engBp._cheatBurstForBp({ levels: { stallBurstWave: 0 }, anchors: {} }) === null);
+  ok('BP67 info=null（cheat skipped/fail-open）→ null（BP act 照常判宁拦不冒充）', engBp._cheatBurstForBp(null) === null);
+  ok('BP67 levels 缺席 → null（无 levels=无 burst 证据）', engBp._cheatBurstForBp({ anchors: { burstMaxGapSec: 58 } }) === null);
+  check('BP67 sbw=1 但 anchors 缺 → 波锚全 null 仍组装（sbw 是唯一资格键，锚缺失不冒充数值）',
+    engBp._cheatBurstForBp({ levels: { stallBurstWave: 1 } }),
+    { source: 'cheat', sbw: 1, maxGapSec: null, waveBuyBnb: null, waveWallets: null, exitVsLaunchPct: null });
 
   // A4b CD381 重锚：grade 路径 markCheatGateEvaluated（fire 时刻 vsLaunch 透传）
   const FA = require('../src/services/FourMemeFactorAggregator');
@@ -232,11 +246,29 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
   });
   await eng4i._bpGateEvaluate('0xtok', TOKEN, null, 'sig-4i', SG(), { pumpExempt: true });
   ok('ctx 带 pumpExempt → opts 无键（BP55 后透传行删除）', bpOptsSeen.length === 1 && !('pumpExempt' in bpOptsSeen[0]), bpOptsSeen);
+  // BP67 cheatBurst 透传：ctx 带载体 → opts.cheatBurst 在场（_cheatBurstForBp 产物直通 BP 门）
+  const bpOptsSeen67 = [];
+  const eng4j = makeEngine({
+    _buyPointCheckService: bpSvc(async (_a, _m, _c, opts) => {
+      bpOptsSeen67.push(opts);
+      return { status: 'assessed', assessment: { bucket: 'neutral', prob: 0.7, rule: 'gates_passed' } };
+    }),
+  });
+  const cbCtx = { cheatBurst: { source: 'cheat', sbw: 1, maxGapSec: 58, waveBuyBnb: 0.77, waveWallets: 11, exitVsLaunchPct: 2.9 } };
+  await eng4j._bpGateEvaluate('0xtok', TOKEN, null, 'sig-4j', SG(), cbCtx);
+  await eng4j._bpGateEvaluate('0xtok', TOKEN, null, 'sig-4j2', SG(), {});
+  ok('BP67 ctx 带 cheatBurst → opts.cheatBurst 整包透传（BP 门→snapshot [ANCHOR] 行）',
+    bpOptsSeen67.length === 2 && JSON.stringify(bpOptsSeen67[0].cheatBurst) === JSON.stringify(cbCtx.cheatBurst), bpOptsSeen67);
+  ok('BP67 ctx 无 cheatBurst → opts 无键（null 不落 opts——照常七要素判档）',
+    !('cheatBurst' in bpOptsSeen67[1]), bpOptsSeen67[1]);
   // 门链调用点源码锁：两引擎门链透传行绝迹（FourMemeWss + Backtest）
   const srcFm = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
   const srcBt = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
   ok('门链调用点透传行绝迹（FourMemeWss/Backtest 两处 cheatGate.pumpExempt === true 不在场）',
     !srcFm.includes('pumpExempt: cheatGate.pumpExempt === true') && !srcBt.includes('pumpExempt: cheatGate.pumpExempt === true'));
+  // BP67 门链调用点源码锁：两引擎 cheatBurst 透传行在场（FourMemeWss + Backtest 同构）
+  ok('BP67 门链调用点透传行在场（两引擎 cheatBurst: this._cheatBurstForBp(cheatGate.info)）',
+    srcFm.includes('cheatBurst: this._cheatBurstForBp(cheatGate.info)') && srcBt.includes('cheatBurst: this._cheatBurstForBp(cheatGate.info)'));
 
   // A5 timeout_fail_open → 放行 + late 挂钩 _cheatGateLateConsume（迟到拉黑下轮生效）
   const lateCalls = [];

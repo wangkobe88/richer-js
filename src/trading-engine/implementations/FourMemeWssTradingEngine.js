@@ -2343,6 +2343,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             firePriceBnb,
             strategyName: strategy.name,
             signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+            // BP67：cheat 门 burst 判定输入 BP（activity_level burst 桶不拦）
+            cheatBurst: this._cheatBurstForBp(cheatGate.info),
           });
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
       }

@@ -244,6 +244,9 @@ class BuyPointCheckService {
         signalInfo: context.signalId
           ? { signalId: context.signalId, createdAt: context.signalCreatedAt || null, firePriceBnb: context.firePriceBnb ?? null, strategyName: context.strategyName || null }
           : null,
+        // BP67：cheat 门 burst 判定输入（[ANCHOR] burst 判定行——activity_level
+        // 采信上游 burst 桶不重复检测；null=无 burst 证据 act 照常判）
+        cheatBurst: opts.cheatBurst || null,
       });
       const { state } = buildBuyPointState(snapshot);
 

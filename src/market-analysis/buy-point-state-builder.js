@@ -15,6 +15,8 @@
  * - BP58 点位性质判读锚随行渲染：发行价位置行带 curVsMinGapPct（现价−锚窗涨起后最低，
  *   crash 贴底臂原料）、回看速度行扩全窗最大跌幅+临近段（锚前 120s）最大涨/跌四键
  *   （crash 直线砸盘/spike 尖刺拉盘速度证据）——Jev 只能看渲染行，不渲染=题盲
+ * - [ANCHOR] 渲染 cheat 门 burst 判定输入行（BP67：cheatBurst 在场=activity_level
+ *   采信上游 burst 桶不重复检测；缺席不渲染=act 照常判）
  */
 
 const MAX_STATE_CHARS = 20000;
@@ -83,6 +85,15 @@ function buildBuyPointState(snapshot) {
     const si = snapshot.signalInfo;
     if (si) {
       lines.push(`信号溯源: ${si.signalId || '?'}@${si.createdAt || '?'}${si.strategyName ? ` 策略=${si.strategyName}` : ''}${si.firePriceBnb !== null && si.firePriceBnb !== undefined ? ` fire价=${fmtPrice(si.firePriceBnb)}` : ''}（测试集采样点——材料本身与实时引擎路径同源）`);
+    }
+    // BP67（2026-11-10 用户裁定）：cheat 门 burst 判定输入——「cheat 模块给 burst，
+    // 买入检查给 low，非常明显的矛盾……不要重复检测，把 burst 信息输入到买入检查
+    // 模块，活跃度给新增一个选项：burst，这个选项不 block 买入」。行在场=上游
+    // （作弊盘检测，同窗）已判定本票为 burst 形状；BP 不重复判定 burst，activity_level
+    // 采信该结论选 burst 桶。缺席=无 burst 证据不渲染（act 照常判——宁拦不冒充）。
+    const cb = snapshot.cheatBurst;
+    if (cb) {
+      lines.push(`作弊盘检测 burst 判定: 本票在作弊盘检测（同窗）中已判定为 burst 形状（长期沉积后一朝放量操盘；波锚 最长静默 ${cb.maxGapSec ?? '?'}s、最密波买 ${cb.waveBuyBnb ?? '?'} BNB / ${cb.waveWallets ?? '?'} 钱包、波起点较发行价 ${cb.exitVsLaunchPct ?? '?'}%）——activity_level 判读采信该结论：沉积期低活跃度正是 burst 形状的前提而非拒买证据，activity_level 选 burst（不因全窗量级低压低档；本题不重复判定 burst 形状）`);
     }
     parts.push(`[ANCHOR]\n${lines.join('\n')}`);
   }

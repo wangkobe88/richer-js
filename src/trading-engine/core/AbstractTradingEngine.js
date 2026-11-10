@@ -1469,9 +1469,32 @@ class AbstractTradingEngine extends ITradingEngine {
       status: res.status, grade: res.grade, cached: res.cached === true,
       reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
       levels: res.levels ?? null, buckets: res.buckets ?? null,
+      anchors: res.anchors ?? null, // BP67：波三键/exitVs 数值锚随 info 透出（burst 输入 BP 与审计）
       strongbackerLike: res.strongbackerLike ?? 0,
       exempt: res.exempt ?? null, // CD379 活跃度豁免留痕 { code:'activity_<桶>', originalGrade }
       unblocked: res.unblocked === true, // CD381 翻案留痕（重检解除拉黑）
+    };
+  }
+
+  /**
+   * BP67（2026-11-10 用户裁定）：cheat 门 burst 判定 → BP activity_level burst
+   * 输入桶。「cheat 模块给 burst，买入检查给 low，非常明显的矛盾……不要重复
+   * 检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个
+   * 选项不 block 买入」——BP 不重复检测 burst（CD380「不重复」同思路），采信
+   * 上游 sbw（levels.stallBurstWave==1，D3.x 二桶题）；ba5e 案（v100 07:52 两行
+   * cheat sbw=burst 豁免放行 vs BP act low(0.9) activity_gate 拒）。无 levels
+   * （跳过/故障/超时放行进 BP 的 info）=无 burst 证据返 null——BP act 照常判
+   * （宁拦不冒充，与上游 fail 方向一致）。
+   */
+  _cheatBurstForBp(cheatInfo) {
+    if (!cheatInfo || !cheatInfo.levels || cheatInfo.levels.stallBurstWave !== 1) return null;
+    const an = cheatInfo.anchors || {};
+    return {
+      source: 'cheat', sbw: 1,
+      maxGapSec: an.burstMaxGapSec ?? null,
+      waveBuyBnb: an.burstWaveBuyBnb ?? null,
+      waveWallets: an.burstWaveWallets ?? null,
+      exitVsLaunchPct: an.burstExitVsLaunchPct ?? null,
     };
   }
 
@@ -1649,6 +1672,8 @@ class AbstractTradingEngine extends ITradingEngine {
         }, {
           awaitMs: this._bpGateAwaitMs,
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
+          // BP67：cheat 门 burst 判定输入（activity_level burst 桶证据行；null=无证据不注入）
+          ...(ctx.cheatBurst ? { cheatBurst: ctx.cheatBurst } : {}),
         });
         if (res && res.status === 'assessed') {
           const bucket = res.assessment?.bucket ?? null;
