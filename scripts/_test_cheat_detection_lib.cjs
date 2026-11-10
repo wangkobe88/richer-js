@@ -73,6 +73,11 @@ ok(creator.firstBuyDt === 0 && creator.firstSellDt === 6 && creator.buyBnb === 0
   && creator.sellBnb.toFixed(1) === '0.4',
   `dev 抢跑现场：t+0s 买 0.5 → t+6s 卖 0.4（税后净额；实际 ${creator.firstBuyDt}/${creator.firstSellDt}s）`);
 ok(snap.wallets[0].buyBnb >= creator.buyBnb, 'wallets 按买入额降序');
+// BP55/v100-R2：maxBuyBnb=单笔最大买入额（0.2 级大户判据单笔口径数据源；cheat/BP 共享
+// aggregateWallets——cheat 侧零消费仅锁键存在与恒等式）
+ok(creator.maxBuyBnb === 0.5, `creator 单笔最大买入 0.5（单笔买入 → maxBuyBnb=buyBnb，实际 ${creator.maxBuyBnb}）`);
+ok(snap.wallets.every((w) => w.maxBuyBnb >= 0 && w.maxBuyBnb <= w.buyBnb + 1e-9),
+  'maxBuyBnb 恒等式：0 ≤ 单笔最大 ≤ 累计买入（全钱包）');
 
 // ═══════════════ B. as-of 截窗 + 到达序无关 ═══════════════
 console.log('B. as-of 截窗与乱序重排');

@@ -261,13 +261,13 @@ function buildBuyPointState(snapshot) {
     for (const e of shown) {
       const r = recent.get(e.w);
       lines.push(
-        `${shortWallet(e.w)} 买 ${fmtBnb(e.buyBnb)}×${e.buyN} 卖 ${fmtBnb(e.sellBnb)}×${e.sellN}` +
+        `${shortWallet(e.w)} 买 ${fmtBnb(e.buyBnb)}×${e.buyN}(最大单笔${fmtBnb(e.maxBuyBnb)}) 卖 ${fmtBnb(e.sellBnb)}×${e.sellN}` +
         ` 首买@${fmtDt(e.firstBuyDt)} 首卖@${fmtDt(e.firstSellDt)} 末动@${fmtDt(e.lastActDt)}` +
         `｜近120s 买 ${r ? `${fmtBnb(r.buyBnb)}×${r.buyN}` : '0'} 卖 ${r ? `${fmtBnb(r.sellBnb)}×${r.sellN}` : '0'}` +
         (e.isCreator ? ' [CREATOR]' : ''),
       );
     }
-    parts.push('[WALLETS]（按买入额降序；已剔除聚合路由伪钱包；「近120s」=以锚末 tick 为终点的 120s 窗）\n' + lines.join('\n'));
+    parts.push('[WALLETS]（按买入额降序；已剔除聚合路由伪钱包；「最大单笔」=该钱包单笔最大买入额——0.2 级大户判据按单笔计不累计（BP55）；「近120s」=以锚末 tick 为终点的 120s 窗）\n' + lines.join('\n'));
   }
 
   // ── 判定指引 ──

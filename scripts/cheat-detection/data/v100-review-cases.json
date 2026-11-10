@@ -3,77 +3,163 @@
   "label": "bt-v100",
   "source": "per-token 首个 BUY 信号点位（时间序），共 270 票分 27 批 review，每批 ~10 票开 signals#token= tab 看核心数据（活跃度/盘形/点位/筹码/价格档）",
   "generatedBy": "scripts/cheat-detection/tmp-v100-review-set.cjs（tmp 脚本不进 git，清单快照留档本地）",
-  "verdicts": ["accept", "issue"],
+  "verdicts": [
+    "accept",
+    "issue"
+  ],
   "batches": {
     "1": {
-      "range": [1, 10],
+      "range": [
+        1,
+        10
+      ],
       "reviewedAt": "2026-11-10",
       "summary": "四案 issue（v100-R1 정책콕 launch 锚——T130 地板已生效锚≈真实发布价 / v100-R2 阿拉伯散户PVP 盘形丢失——BP26 大户线 0.23×2 踩线 / v100-R3 苹果SI 速跌尾声——E_low 拒后 5min 反弹 +34.6% / v100-R4 苍蝇 0x0432 famous——已识别 0.49 贴线+0xd44e 收录闭环），其余六票 accept（用户原话「其它先接受当前结果」）"
     }
   },
   "cases": [
     {
-      "idx": 1, "token": "0x67ad68e06abb97572fe24c5c7b7c0fe47b8d7777", "symbol": "英伟达SI",
-      "anchorAt": "04:34:36", "cheat": "healthy", "bp": "neutral/gates_passed", "curVs": 22.8, "minVs": 3.4, "pnl": 0,
-      "verdict": "accept", "note": "第一批 review 接受当前结果（healthy 直过+BP gates_passed，成交）"
+      "idx": 1,
+      "token": "0x67ad68e06abb97572fe24c5c7b7c0fe47b8d7777",
+      "symbol": "英伟达SI",
+      "anchorAt": "04:34:36",
+      "cheat": "healthy",
+      "bp": "neutral/gates_passed",
+      "curVs": 22.8,
+      "minVs": 3.4,
+      "pnl": 0,
+      "verdict": "accept",
+      "note": "第一批 review 接受当前结果（healthy 直过+BP gates_passed，成交）"
     },
     {
-      "idx": 2, "token": "0x9d147fa0e447d98cf1a7ac32f114f6d0b9877777", "symbol": "정책콕",
-      "anchorAt": "04:45:14", "cheat": "healthy(豁免←unhealthy)", "bp": "neutral/gates_passed", "curVs": 13, "minVs": 10, "pnl": -0.0055,
-      "verdict": "issue", "caseId": "v100-R1",
+      "idx": 2,
+      "token": "0x9d147fa0e447d98cf1a7ac32f114f6d0b9877777",
+      "symbol": "정책콕",
+      "anchorAt": "04:45:14",
+      "cheat": "healthy(豁免←unhealthy)",
+      "bp": "neutral/gates_passed",
+      "curVs": 13,
+      "minVs": 10,
+      "pnl": -0.0055,
+      "verdict": "issue",
+      "caseId": "v100-R1",
       "note": "用户反馈：『价格涨幅基线是多少，这个代币，发布价格似乎比设定价格低一大截，而第一次买入又比较多，导致第一次买入的价格跟发布价格又有距离，所以买入偏高。看看能否通过第一次买入，推断一下发布价格，尽量使用真实的发布价格更好。』",
-      "evidence": "2026-11-10 取证：flap 票（数学确证：launchPriceBnb=5.056828362111343e-9 全精度=首笔买入价原值 → floorLaunchPriceBnb 常量地板路径，FL 常量 5.546e-9 > 首买价才取地板）；token_create 04:44:41 与首笔 0.6045 BNB 买入同秒、首买均价 5.0568e-9（vs FL 常量 -8.8%）；第二笔 0.005 BNB 小额买入均价 5.0669e-9=首笔滑点后边际价 → 首笔滑点仅 ~0.2% → 真实发布价 P0≈5.05e-9 ≈ 锚值。T130 地板（launch=min(常量,首买价)）正是『从第一次买入推断发布价』机制且此票已生效，锚误差≈首笔滑点 0.2%。用户观察的『发布价比设定价格低一大截』=FL 常量对低开票高估 8.8%，已被地板兜住",
-      "followUp": "curVs=13 已是 vs≈真实发布价口径；『买入偏高』残余原因=买点位置（+13% vs 锚后 ATH +21% 接近顶部回落）非锚偏差。首笔大单滑点大的票锚仍会高估（本票实测 flap 池深滑点极小）——待攒批，暂无改动"
+      "evidence": "2026-11-10 二轮取证（推翻一轮『滑点 0.2%』误判——postP 非成交均价）：flap 曲线 P(x) 线性 ⟹ 成交均价=(P_b+P_a)/2 ⟺ P_b=2×(f×ΔB/ΔT)−P_a（买侧 f=0.98/卖侧 f=1.0204）。首笔 0.604529 BNB→133177549.6 tok @postP=5.0568e-9 反解 P0=3.8401e-9（FL 常量 5.546e-9 对本票高估 31.7%/对首买价高估 44.4%）；前 19 笔逐笔滚动反解闭合验证平均残差 0.082%、最大 0.628%（大额笔轻微凸性）→ 公式数学正确。免模型硬论证：买入必推涨 ⟹ P0 < 首笔 postP=5.0568e-9 < FL 常量 5.546e-9——FL 常量对 quote 盘恒高估（quote 盘 BNB 域 P0=quote 域 P0×汇率随行就市漂移，FL 常量是 BNB 盘校准值）。影响面（tmp-v100-r1-impact.cjs 182 跑 270 票）：BNB 盘首笔 ≥0.05 BNB 可信子集 188 票 P0/FL 中位 0.772/p25 0.768=FL 常量系统性高估 ~23%，分布双峰（0.77 峰+1.0 峰）暗示 flap 至少两档起始价——逐票反解是唯一正确姿势；quote 盘 54 票 ΔcurVs 中位 +15.4pp/max +47.2pp、锚变中位 −11.6%。跨 28.5 门（首信号时刻）：旧锚放行 267 → 新锚 min(FL,P0) 放行 140；旧放→新拒 127、旧拒→新放 0——拦截面近乎砍半，与 T129/BP69 校准的 28.5 线冲突（等效把 28.5 收到 ~10-13），不能自行落地",
+      "resolution": "公式验证正确（19 笔闭合 0.082%+免模型硬论证）；影响面评估重大（127/267 跨门）。用户裁定『如果是，那么可以做，但这个可能会对当前的价格体系产生多大影响需要评估』——评估已出数，落地方式待用户裁定：a) 全修+阈值重校准（回测对照）b) 只修 quote 盘（汇率漂移纯错误）c) 攒 case。落点=FA _resolveLaunchPriceBnb/_floorLaunchPriceBnb flap 分支+首笔 (bnb,tok) 反解冻结+BP snapshot launch 族+CD burst 锚同车（T127 五点换锚同规模）"
     },
     {
-      "idx": 3, "token": "0xa8e70ca07b68a07683c963513a26f2fa91647777", "symbol": "﷽",
-      "anchorAt": "04:46:51", "cheat": "healthy(豁免←unhealthy)", "bp": "neutral/gates_passed", "curVs": 16.9, "minVs": 11.6, "pnl": -0.0071,
-      "verdict": "issue", "caseId": "v100-R2",
+      "idx": 3,
+      "token": "0xa8e70ca07b68a07683c963513a26f2fa91647777",
+      "symbol": "﷽",
+      "anchorAt": "04:46:51",
+      "cheat": "healthy(豁免←unhealthy)",
+      "bp": "neutral/gates_passed",
+      "curVs": 16.9,
+      "minVs": 11.6,
+      "pnl": -0.0071,
+      "verdict": "issue",
+      "caseId": "v100-R2",
       "note": "用户反馈：『阿拉伯代币应该是 散户pvp 盘，根本没有任何大户参与，这个盘形的分辨我们为何丢掉了？』——BP 判 none 放行（gates_passed 成交，-0.0071）",
-      "evidence": "2026-11-10 取证：锚窗 19 笔 1.08 BNB，top 钱包 0.2309/0.2286 两个（其余全 ≤0.0992）——BP26 大户参与双臂『≥0.19 视同 0.2 级钱包 ≥2 个』恰好被 0.23×2 踩线满足 → 判据执行正确但线值把 0.23 散户当大户 → 不落②放行。用户裁定『根本没有任何大户参与』=0.23 BNB 不是大户",
-      "followUp": "BP26 大户线校准案（攒批）：候选=0.2 级（≥0.19 视同）上调至 0.3 级（与 openSeg/①⑥大额线 0.3+ 同线统一）——待用户裁定；可用 270 票锚窗 top 钱包分布做分离度分析"
+      "evidence": "2026-11-10 取证：锚窗 19 笔 1.08 BNB。0xa440 三笔买入 0.1264/0.0385/0.0660 累计 0.2309（trader=GMGN 路由 0x3508，04:46:44 起五笔卖出清仓离场）；0x2757 单笔买入 0.2286 后 04:46:44 卖 0.2094 离场（trader=0xd36b）。旧口径（累计）：两钱包 0.23/0.23 形式上满足『0.2 级 ≥2 个』双臂 → 判 none 放行（-0.0071）。新口径（单笔 BP55）：0xa440 单笔最大 0.1264=0.1 级灰区单不是大户；0x2757 单笔 0.2286 算 1 个 <2 凑不成双臂；且两钱包买点前 8~9s 双双清仓离场（BP58 在场腿同向）→ 大户参与不满足落② retail_pvp → pattern_gate 拒 ✓",
+      "resolution": "用户裁定『买入仓位不累计，三笔买到 0.23 不算 0.2 以上』+『就是多笔买入累计仓位到 0.2 不算数』→ 0.2 级大户判据改单笔口径。已落地 BP55/案号 BP71（2026-11-10）：cheat-snapshot aggregateWallets 加 maxBuyBnb 键+[WALLETS] 行渲染『(最大单笔X)』直供+题面②桶主述/反锚/criteria 三处单笔化+判例 a8e70 改写"
     },
     {
-      "idx": 4, "token": "0x45ec048990b80b70448cf352b7064fda47557777", "symbol": "OCTO",
-      "anchorAt": "04:52:17", "cheat": "cheat", "bp": "无段", "curVs": null, "minVs": null, "pnl": null,
-      "verdict": "accept", "note": "第一批 review 接受当前结果（cheat 拒）"
+      "idx": 4,
+      "token": "0x45ec048990b80b70448cf352b7064fda47557777",
+      "symbol": "OCTO",
+      "anchorAt": "04:52:17",
+      "cheat": "cheat",
+      "bp": "无段",
+      "curVs": null,
+      "minVs": null,
+      "pnl": null,
+      "verdict": "accept",
+      "note": "第一批 review 接受当前结果（cheat 拒）"
     },
     {
-      "idx": 5, "token": "0xc9bf4530033f6497002d228296fedb45036f7777", "symbol": "苹果SI",
-      "anchorAt": "05:05:33", "cheat": "unhealthy", "bp": "无段", "curVs": null, "minVs": null, "pnl": -0.0016,
-      "verdict": "issue", "caseId": "v100-R3",
+      "idx": 5,
+      "token": "0xc9bf4530033f6497002d228296fedb45036f7777",
+      "symbol": "苹果SI",
+      "anchorAt": "05:05:33",
+      "cheat": "unhealthy",
+      "bp": "无段",
+      "curVs": null,
+      "minVs": null,
+      "pnl": -0.0016,
+      "verdict": "issue",
+      "caseId": "v100-R3",
       "note": "用户反馈：『买入点位是速跌后的尾声，你看一下，相对于它整个生命周期（上涨），下跌是多么迅速。』——cheat 判 unhealthy（E_low 拒）与用户「上涨生命周期+速跌尾声」观察相左",
-      "evidence": "2026-11-10 取证：生命周期 143 分钟，ATH 9.27e-9（+70.7% vs 首价）；锚 05:05:33 价 6.89e-9（vs ATH -25.7%，距 ATH 233s≈4 分钟）；锚前 5s 跌 3.8%/30s 跌 6.4%/120s 跌 0.3%（买点本地窗不急）；锚后 5min 内最高 +34.6% 冲回 ATH=用户『速跌尾声』判断正确；但全程末价 -24.5%。cheat 首判 E_low：act=low ∧ sbw=0（burstMaxGapSec=29<50 不满足 CD383 沉积前提 → 非 burst → E 拒）；同票 6 分钟后（05:11:26-40）Jev 自判 act=2/healthy=同版 Jev 方差——流量回来后同一形状判 healthy",
-      "followUp": "『速跌尾声』（价格从 ATH 显著回落+流量未回）与 act=low 的张力待裁定：候选 A 接受现状（E 拒=等流量回来自动翻案，05:11 信号 healthy 即此路径）B 为『大幅回落后的 low』开 E 豁免臂（须防死盘误放）——待用户裁定"
+      "evidence": "2026-11-10 取证：quote 盘（quote=0x431a3bee…，rate≈713.6）；生命周期 143 分钟，ATH 9.27e-9（+70.7%）；锚 05:05:33 价 -25.7% vs ATH；锚后 5min 内最高 +34.6% 冲回=用户『速跌尾声』判断正确；同票 05:11 第 4 次判定 healthy（Jev 方差）。P7 信号 05:11:40 → 05:12:26 执行 @4.1033e-6 USD 域（=5.75e-9 BNB 域，ATH 崩 -41% 后低位）→ 46s 后 stallClose 流动性止损全清。附带发现（虚拟/回测 USD 域记账 bug）：signal.price=currentPriceBnb×bnbUsd（USD 域），虚拟/回测买入 tokenAmount=amountInBNB/signal.price 漏 ×bnbUsd → token 数低估 ~700 倍（live 侧 FourMemeWss L3808-3810 显式 ×bnbUsd 正确）；比例/胜率/相对比较不受影响，trades token 数列系统性失真、bt-vXX 净额绝对值是『卡面值数字』域非 BNB",
+      "resolution": "用户裁定『如果现在不好修，可以再攒点 case』→ 不修、攒 case 留档（USD 域记账 T 系攒批）"
     },
     {
-      "idx": 6, "token": "0x04323e04c5f48587951c2d974b7f1b007b6e7777", "symbol": "苍蝇",
-      "anchorAt": "05:09:30", "cheat": "healthy(豁免←cheat)", "bp": "poor/pattern_gate", "curVs": 27.2, "minVs": 8.4, "pnl": -0.0103,
-      "verdict": "accept", "note": "第一批 review 接受当前结果（BP pattern_gate 拒，避免亏损）"
+      "idx": 6,
+      "token": "0x04323e04c5f48587951c2d974b7f1b007b6e7777",
+      "symbol": "苍蝇",
+      "anchorAt": "05:09:30",
+      "cheat": "healthy(豁免←cheat)",
+      "bp": "poor/pattern_gate",
+      "curVs": 27.2,
+      "minVs": 8.4,
+      "pnl": -0.0103,
+      "verdict": "accept",
+      "note": "第一批 review 接受当前结果（BP pattern_gate 拒，避免亏损）"
     },
     {
-      "idx": 7, "token": "0x68bb8cd436bdc8b178ab886b5a7abed5e6177777", "symbol": "苍蝇",
-      "anchorAt": "05:09:33", "cheat": "cheat", "bp": "无段", "curVs": null, "minVs": null, "pnl": 0,
-      "verdict": "issue", "caseId": "v100-R4",
+      "idx": 7,
+      "token": "0x68bb8cd436bdc8b178ab886b5a7abed5e6177777",
+      "symbol": "苍蝇",
+      "anchorAt": "05:09:33",
+      "cheat": "cheat",
+      "bp": "无段",
+      "curVs": null,
+      "minVs": null,
+      "pnl": 0,
+      "verdict": "issue",
+      "caseId": "v100-R4",
       "note": "用户反馈：『苍蝇这个case，0xd44e17d5daeab4ec126e2c8395758b55f959298b 0x3472ccf6209925204b9cf352171ee150904fda7e 都是famous，这个没有被识别为 famous 盘吗？』",
       "evidence": "2026-11-10 取证：用户所指=idx6 0x0432（非 idx7）——两址都在该盘：0xd44e 锚窗买 0.66 占买入 15.1%/卖 0.85 净 -0.19 快进快出，0x3472 买 0.3465 占 7.9%，合计 23%；BP 盘型已判 famous_monopoly(0.49 贴线) 且 pattern_gate 拒（识别到了）；0.49 贴线原因=0xd44e 当时不在 roster，famousTraces 痕迹行只有 0x3472 的 7.9% 证据。idx7 0x68bb 两址零参与（sender NULL 0 行排除解析缺口）属独立票，其 cheat 拒（A强五题+M_ultra）与 famous 无关",
       "resolution": "0xd44e17d5 已收录 famous roster（2026-11-10 用户点名，12→13 址，commit 同批）——收录后 famousTraces 补全两址痕迹（15.1%+7.9%），下次判型证据充足不再贴线",
       "followUp": "无（收录即闭环）"
     },
     {
-      "idx": 8, "token": "0xfc128b9c372bee1eb87e0edeff88dc0c64b27777", "symbol": "SB",
-      "anchorAt": "05:09:35", "cheat": "healthy(豁免←unhealthy)", "bp": "neutral/gates_passed", "curVs": 27.6, "minVs": 22.6, "pnl": -0.0011,
-      "verdict": "accept", "note": "第一批 review 接受当前结果"
+      "idx": 8,
+      "token": "0xfc128b9c372bee1eb87e0edeff88dc0c64b27777",
+      "symbol": "SB",
+      "anchorAt": "05:09:35",
+      "cheat": "healthy(豁免←unhealthy)",
+      "bp": "neutral/gates_passed",
+      "curVs": 27.6,
+      "minVs": 22.6,
+      "pnl": -0.0011,
+      "verdict": "accept",
+      "note": "第一批 review 接受当前结果"
     },
     {
-      "idx": 9, "token": "0x59f5ccb671f1651db2ca8aba4fd0254fcef87777", "symbol": "徐苍蝇",
-      "anchorAt": "05:10:10", "cheat": "unhealthy", "bp": "无段", "curVs": null, "minVs": null, "pnl": null,
-      "verdict": "accept", "note": "第一批 review 接受当前结果（unhealthy 拒）"
+      "idx": 9,
+      "token": "0x59f5ccb671f1651db2ca8aba4fd0254fcef87777",
+      "symbol": "徐苍蝇",
+      "anchorAt": "05:10:10",
+      "cheat": "unhealthy",
+      "bp": "无段",
+      "curVs": null,
+      "minVs": null,
+      "pnl": null,
+      "verdict": "accept",
+      "note": "第一批 review 接受当前结果（unhealthy 拒）"
     },
     {
-      "idx": 10, "token": "0x92aac04f03278ce7ac82ba0367dbaf9686437777", "symbol": "SB",
-      "anchorAt": "05:10:22", "cheat": "healthy(豁免←cheat)", "bp": "poor/entry_gate", "curVs": 28.4, "minVs": 28.4, "pnl": -0.004,
-      "verdict": "accept", "note": "第一批 review 接受当前结果（entry_gate 拒，避免亏损）"
+      "idx": 10,
+      "token": "0x92aac04f03278ce7ac82ba0367dbaf9686437777",
+      "symbol": "SB",
+      "anchorAt": "05:10:22",
+      "cheat": "healthy(豁免←cheat)",
+      "bp": "poor/entry_gate",
+      "curVs": 28.4,
+      "minVs": 28.4,
+      "pnl": -0.004,
+      "verdict": "accept",
+      "note": "第一批 review 接受当前结果（entry_gate 拒，避免亏损）"
     }
   ]
 }

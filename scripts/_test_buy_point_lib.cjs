@@ -513,6 +513,16 @@ for (const sec of ['[TOKEN]', '[ANCHOR]', '[PRECOMPUTED]', '[PRICE]', '[TICKS]',
 }
 ok(stD.state.includes('BP-S042') && stD.state.includes('buy-v2 v54') && stD.state.includes('1.62e-9'), 'D: signalInfo（signalId/策略/fire 价）进 [ANCHOR]');
 ok(stD.state.includes('近120s 买'), 'D: [WALLETS] 近端字段在场');
+// BP55/v100-R2 案：0.2 级大户判据单笔口径——W_G 两笔 0.1+0.12 累计 0.22 形式上过
+// 0.2 级，单笔最大 0.12=灰区单不算大户（用户裁定「买入仓位不累计」）
+{
+  const wg = snapD.wallets.find((e) => e.w === W_G);
+  ok(wg && near(wg.buyBnb, 0.22) && wg.maxBuyBnb === 0.12,
+    `D: [WALLETS] maxBuyBnb 单笔口径键（W_G 累计 0.22 vs 单笔最大 0.12 分离——BP55 判读读单笔不读累计，实际 ${wg && wg.buyBnb}/${wg && wg.maxBuyBnb}）`);
+  ok(stD.state.includes('买 0.220×2(最大单笔0.120)'), 'D: [WALLETS] 行渲染「(最大单笔X)」直供判读（BP55——判据与 state 直供同构铁律；fmtBnb 三位小数）');
+  const wb = snapD.wallets.find((e) => e.w === W_B);
+  ok(wb && near(wb.buyBnb, 1.8) && wb.maxBuyBnb === 1.0, 'D: W_B 累计 1.8 / 单笔最大 1.0（多笔钱包 maxBuyBnb=单笔最大非累计）');
+}
 ok(stD.state.includes('近窗动量') && stD.state.includes('节奏趋势') && stD.state.includes('卖压') && stD.state.includes('参与结构') && stD.state.includes('时点位置'), 'D: PRECOMPUTED 七族行');
 ok(stD.state.includes('近窗动量(涨跌%): 5s 6.67% / 10s 6.67% / 30s 14.29%'), 'D: chg 手算值渲染（BP6 短窗 5/10/30s）');
 ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCount60=1');
@@ -1001,7 +1011,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP52 七题=7 维度 0 质量/桶域对锁/market_pattern 异常盘面识别四桶+entry_shape 点位性质新题/统一位置门 28.5）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP54', 'F: 版本=BP54（BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场直线砸盘、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）；**BP68=spike 出拦域（mapper-only 不 bump——桶域四桶不变）**：ENTRY_GATE_POOR_BUCKETS 收 crash 单桶、spike 判型保留落档观察（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——判例 ea78 开盘 28s 薄票两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike；恢复拦截=把 spike 加回数组一键还原）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP55', 'F: 版本=BP55（**BP55=案号 BP71 ②桶大户参与 0.2 级判据单笔口径**——v100-R2 案用户裁定「买入仓位不累计，三笔买到 0.23 不算 0.2 以上」：判读读 [WALLETS]「最大单笔」不读累计，snapshot wallets 加 maxBuyBnb 键；BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场直线砸盘、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）；**BP68=spike 出拦域（mapper-only 不 bump——桶域四桶不变）**：ENTRY_GATE_POOR_BUCKETS 收 crash 单桶、spike 判型保留落档观察（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——判例 ea78 开盘 28s 薄票两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike；恢复拦截=把 spike 加回数组一键还原）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 6, `F: 恰 6 题=6 维度 0 质量（BP48 两质量题+BP49 两维度题退役+BP58 entry_shape 新题+BP60 market_heat 退役；实际 ${ids.length}）`);
@@ -1068,8 +1078,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('famous 集团买入主导判序（BP57）') && mp.includes('「famous 痕迹」行直供名单钱包时间线与在场性'), 'F: BP57 判序句补痕迹行引用（③采信七案根因=BP57 句只给占比聚合键无名单身份直供——二修补「famous 痕迹」行引用后 famous 轴判读证据链完整）');
   ok(mp.includes('BP60 收口——只识别「不参与交易」的异常盘形') && mp.includes('不再细分识别，一律归 none 正常盘面'), 'F: BP60 收口题头句（用户裁定「只识别出不交易的盘形即可」——处理一致的正常盘面不细分识别一律归 none；四桶=②③⑥+none 兜底）');
   ok(qs.market_pattern.criteria.none.includes('回落重启') && mp.includes('回落重启'), 'F: 回落重启归 none 兜底（BP44 判序语义随④⑦⑧桶退役简化——回落发生在交易量充分之后=上一轮痕迹，按当前形状归类，四桶化后不再细分识别一律归 none 正常盘面）');
-  ok(mp.includes('买入额到 0.2 BNB 级（≥0.19 视同）的钱包 ≥2 个，或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足'), 'F: ②⑤分界双臂语义保留（BP19 突突车案——多笔 0.2 级（≥2 钱包）或单笔 0.3+ 在场=满足大户参与不属纯散户 PVP；BP28 判序化后该双臂成为前置门判据；BP47 精简后主述在②桶 (a) 判序前置段）');
-  ok(mp.includes('「多笔」是硬笔数') && mp.includes('0.2 BNB 级（≥0.19 视同）钱包须 ≥2 个') && mp.includes('仅一笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚（BP20 两改——到 0.2 级钱包 ≥2 个、单笔 0.2 凑不成多笔仍落②：T006/T008 单笔 0.2 判 blended 宽松执行收口；BP47 精简去冗词）');
+  ok(mp.includes('**单笔买入** 0.2 BNB 级（≥0.19 视同）的钱包 ≥2 个，或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足') && mp.includes('0.2 级按单笔计、多笔累计到 0.2 级不算数（BP55）') && mp.includes('判例 a8e70：0.1264+0.0385+0.0660 三笔累计 0.2309 的钱包按单笔只是 0.1 级灰区单，单笔 0.2286 的钱包恰 1 个凑不成双臂'), 'F: ②⑤分界双臂单笔口径（BP19 突突车案+BP55/v100-R2 用户裁定「买入仓位不累计，三笔买到 0.23 不算 0.2 以上」——0.2 级按单笔计、判读读 [WALLETS]「最大单笔」不读累计；判例 a8e70 双路不满足：三笔累计灰区单+单笔 0.2286 恰 1 个凑不成双臂）');
+  ok(mp.includes('「多笔」是硬笔数且按单笔计（BP55）') && mp.includes('单笔 0.2 BNB 级（≥0.19 视同）钱包须 ≥2 个') && mp.includes('多笔累计到 0.2 级的钱包不算（读 [WALLETS]「最大单笔」不读累计）；仅 1 个单笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②'), 'F: ②「多笔」硬笔数锚单笔化（BP20 两改+BP55 单笔计——到 0.2 级钱包 ≥2 个按单笔判、多笔累计不算、仅 1 个单笔 0.2 级凑不成多笔仍落②）');
   // BP23 两轴（159 点复审第 2-3 批立法）
   ok(mp.includes('「一眼可辨的大量小散单」两要件缺一不落②') && mp.includes('①买盘中位尘埃级（0.0x 级，不是 0.1 级常见交易档）②前列再无任何像样买方'), 'F: ②(b) 收窄=零散小散须一眼可辨（BP23/S018 吉祥B 案——「有大量零散小散户的可以明显看出来」方法论锚：中位尘埃级+前列无像样买方两要件缺一不落②；BP58 二修后承接档位分界回①⑤）');
   ok(mp.includes('承接单在 0.1~0.2 BNB 级常见交易档（买盘中位 0.1 级）→ 不落②') && mp.includes('正常换手盘面（归 none') && mp.includes('0.2~0.3+ BNB 级像样买盘承接') , 'F: ②(b) 承接中间档不落②（BP23——大户在场+承接非零散小散=正常换手盘面归 none 不落②；像样级承接=对倒换手流动性在场同归 none——BP60 四桶化后①⑤桶退役统一归 none）');
@@ -1080,8 +1090,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('从来无像样买单（判序前置）'), 'F: ②(a) 判序前置声明（BP28——先判大户参与再分类，S045 灰区单案）');
   ok(mp.includes('先判「大户参与」') && mp.includes('或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足') && mp.includes('直接落②，不再看承接、不看盘面活跃度') && mp.includes('0.1~0.19 BNB 级灰区单不构成大户参与'), 'F: ②(a) 大户参与双臂+不满足直接落②（BP26 案立法核心——用户裁定原话「大户参与不满足是直接 pvp 盘的，满足之后根据承接再次分类」；灰区 0.1~0.19 单不构成大户参与=S045 前列 0.1568/0.1484/0.1090 三笔灰区单成因）');
   ok(mp.includes('小散互捅的盘面再活跃（新买家多、吞吐高、笔密度大）也只是散户 PVP，不是融合盘') && mp.includes('满足大户参与之后才按承接分类'), 'F: ②(a) 活跃度不救+承接分类后置（BP28——S045 灰区单被 activity high 带走错放；小散互捅的活跃不是大户参与）');
-  ok(mp.includes('大户参与不满足（开盘段大额单 0 笔、[WALLETS] 前列买入最大也就 0.1x 级灰区单或 0.0x 尘埃档') && mp.includes('卖方在场性三分见②桶 (b) 第三通道'), 'F: 反锚②判序回指（BP28——大户参与不满足直接落②活跃度不救；卖方三分回指②桶主述）');
-  ok(qs.market_pattern.criteria.retail_pvp.includes('大户参与判序前置（0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场——末笔后已清仓离场的历史大户不算在场）不满足直接落本桶、盘面活跃度不救') && qs.market_pattern.criteria.retail_pvp.includes('判据全文见题面②桶'), 'F: criteria retail_pvp 判序同步（BP28+BP58 二修在场加硬——桶描述与题面判序一致，Jev 选桶时同判序；末笔后已清仓离场的历史大户不算在场=a8e70 在场加硬语义核心；BP58 精简压缩版判据全文指针回②桶）');
+  ok(mp.includes('大户参与不满足（开盘段大额单 0 笔、[WALLETS] 前列最大单笔也就 0.1x 级灰区单或 0.0x 尘埃档') && mp.includes('卖方在场性三分见②桶 (b) 第三通道'), 'F: 反锚②判序回指（BP28——大户参与不满足直接落②活跃度不救；BP55 单笔化后「前列买入最大」改「前列最大单笔」；卖方三分回指②桶主述）');
+  ok(qs.market_pattern.criteria.retail_pvp.includes('大户参与判序前置（单笔 0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场——0.2 级按单笔计不累计、末笔后已清仓离场的历史大户不算在场）不满足直接落本桶、盘面活跃度不救') && qs.market_pattern.criteria.retail_pvp.includes('判据全文见题面②桶'), 'F: criteria retail_pvp 判序同步（BP28+BP58 二修在场加硬+BP55 单笔计不累计——桶描述与题面判序一致，Jev 选桶时同判序；末笔后已清仓离场的历史大户不算在场=a8e70 在场加硬语义核心；BP58 精简压缩版判据全文指针回②桶）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
   // BP28 案改三（S064 FIGHT strong_backer 误放 -41.5%——复数 famous 扩句+roster 收录）
   ok(mp.includes('或两个及以上 famous 钱包极早入场（开盘段内/锚窗最早段首买）合计拿筹过多') && mp.includes('famous 抢筹建仓盘——famous 钱包入仓太早、拿的是最便宜的筹码，散户盘子起不来') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③复数 famous 扩句（BP30/BP28 案 S064——用户裁定原话「他俩入仓太早了拿的太多，起不来」：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 抢筹 0.252/0.343 合计 0.595 BNB，单个占比不及独食线的复数合计达线也落③；两址已收录 famous-copy-wallets.json）');

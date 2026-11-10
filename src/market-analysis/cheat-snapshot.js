@@ -281,11 +281,11 @@ function aggregateWallets(ticks, tokenMeta) {
     if (!t.wallet) continue;          // 无钱包行计量不计人
     if (isRouterWallet(t.wallet)) continue; // 伪钱包不进 wallets（见 walletOf 注）
     let e = byWallet.get(t.wallet);
-    if (!e) { e = { w: t.wallet, buyBnb: 0, buyN: 0, sellBnb: 0, sellN: 0, buyTok: 0, sellTok: 0, firstBuyDt: null, firstSellDt: null, lastActDt: null, isCreator: false }; byWallet.set(t.wallet, e); }
+    if (!e) { e = { w: t.wallet, buyBnb: 0, buyN: 0, sellBnb: 0, sellN: 0, buyTok: 0, sellTok: 0, maxBuyBnb: 0, firstBuyDt: null, firstSellDt: null, lastActDt: null, isCreator: false }; byWallet.set(t.wallet, e); }
     const isBuy = t.side === 'BUY';
     const bnb = t.bnb || 0;
     const tok = t.tok || 0; // D3.20：token 数累计（行缺列按 0 容缺——锚在缺列数据上失真时 fail-closed 于键层）
-    if (isBuy) { e.buyBnb += bnb; e.buyN++; e.buyTok += tok; if (e.firstBuyDt === null) e.firstBuyDt = t.dt; }
+    if (isBuy) { e.buyBnb += bnb; e.buyN++; e.buyTok += tok; if (bnb > e.maxBuyBnb) e.maxBuyBnb = bnb; if (e.firstBuyDt === null) e.firstBuyDt = t.dt; }
     else { e.sellBnb += bnb; e.sellN++; e.sellTok += tok; if (e.firstSellDt === null) e.firstSellDt = t.dt; }
     if (t.dt !== null && t.dt !== undefined && (e.lastActDt === null || t.dt > e.lastActDt)) e.lastActDt = t.dt;
   }
