@@ -530,9 +530,10 @@ ok(stD.state.includes('判定结构') && stD.state.includes('①盘型门（预�
   'D: 判定指引纯门链结构+质量题/tree/追高/热度退役声明（BP48 两质量题退役+BP30 盘型前置预判断+BP49 famous 控盘/相对价格两维度题退役+BP60 market_heat 退役）');
 ok(stD.state.includes('②点位性质门（BP58 新题 entry_shape）') && stD.state.includes('好点位=活跃交易中对倒中的低价/正常下跌造成的低价')
   && stD.state.includes('直线砸盘（crash——庄离场暴跌：较锚窗高点回撤 ≥25%/30s 跌 ≥25%/临近段 5s 单段跌 ≥15%/现价贴着锚窗最低 ≤2pp 任一臂，砸盘后的反弹不救）')
-  && stD.state.includes('尖刺拉盘追高（spike——30s 涨 ≥20%/临近段 5s 单段涨 ≥15%/现价贴锚窗高点 ≥-5% 任一臂）')
-  && stD.state.includes('正常回调低价（normal_dip——有下跌但非直线砸盘，对倒/正常下跌造成的低价=目标买入形状）'),
-  'D: 判定指引②点位性质门四桶判读句（BP58 新题——crash 四臂/spike 三臂判读线+normal_dip 目标形状声明）');
+  && stD.state.includes('尖刺拉盘（spike——30s 涨 ≥20%/临近段 5s 单段涨 ≥15%/现价贴锚窗高点 ≥-5% 任一臂）判型如实落档、不拦买入')
+  && stD.state.includes('正常回调低价（normal_dip——有下跌但非直线砸盘，对倒/正常下跌造成的低价=目标买入形状）')
+  && stD.state.includes('BP68 用户裁定：统一位置门 27.5 已控价'),
+  'D: 判定指引②点位性质门四桶判读句（BP58 新题——crash 四臂/spike 三臂判读线+normal_dip 目标形状声明；BP68 spike 判型落档不拦）');
 ok(stD.state.includes('③活跃度门') && stD.state.includes('activity_level=ultra（机器盘级极端密集') && stD.state.includes('无条件拦'),
   'D: 判定指引③活跃度门 ultra 臂无条件拦声明（BP30 改三「act 为 ultra 也不玩」+BP58 豁免臂随桶改制删除）');
 ok(stD.state.includes('④筹码门') && stD.state.includes('持仓集中（holder_concentration）strong') && stD.state.includes('代码侧停用中不激活'),
@@ -768,16 +769,17 @@ ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: BP60 狙击衰竭�
 // BP58 ②点位性质门（entry_shape 新题——用户交易理念「只买性价比高的点位，不追高；
 // 我希望买入的是活跃交易中对倒中的低价/正常下跌造成的低价，而不是庄家离场时的暴跌
 // （直线砸盘）」；bt-v94 七票复盘四分类：砸盘三票 LOVE/STOCKLESS/币安之心+尖刺
-// YiYi=拒、对倒两票 米/施工鸭=目标形状、苍蝇=act 门已闭环）：crash/spike →
-// poor/entry_gate；normal_dip/flat 放行；门序=盘型门后、活跃度门前
+// YiYi=拒、对倒两票 米/施工鸭=目标形状、苍蝇=act 门已闭环）：crash →
+// poor/entry_gate；normal_dip/flat 放行（BP68 起 spike 判型保留但不拦——
+// 统一位置门 27.5 已控价，控价域内 spike 判定不正常，判例 ea78）；门序=盘型门后、活跃度门前
 {
   const es = (shape, p) => ({ ...fullAnswers(), ...mkAns('entry_shape', shape, p) });
   const oCrash = buildBuyPointObservation(es('crash', 0.92), dE);
   ok(oCrash.assessment.bucket === 'poor' && near(oCrash.assessment.prob, 0.92) && oCrash.assessment.rule === 'entry_gate',
     'E: BP58 entry_gate crash 直线砸盘 → poor/entry_gate（庄离场暴跌不参与——LOVE curVsAth -37.0/chg30 -29.3 形状）');
   const oSpike = buildBuyPointObservation(es('spike', 0.77), dE);
-  ok(oSpike.assessment.bucket === 'poor' && near(oSpike.assessment.prob, 0.77) && oSpike.assessment.rule === 'entry_gate',
-    'E: BP58 entry_gate spike 尖刺拉盘 → poor/entry_gate（追高不参与——YiYi chg30 +23.4 形状）');
+  ok(oSpike.assessment.bucket === 'neutral' && oSpike.assessment.rule === 'gates_passed' && oSpike.assessment.prob == null,
+    'E: BP68 spike 尖刺拉盘 → 判型落档不拦、综 neutral/gates_passed（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——统一位置门 27.5 已控价，控价域内 spike 判定不正常；判例 ea78 两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike）');
   const oDip = buildBuyPointObservation(es('normal_dip'), dE);
   ok(oDip.assessment.bucket === 'neutral' && oDip.assessment.rule === 'gates_passed',
     'E: BP58 entry_gate normal_dip 正常回调低价 → 放行（目标买入形状——米 curVsAth -7.0/施工鸭 -6.4 对倒盘低价）');
@@ -991,7 +993,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP52 七题=7 维度 0 质量/桶域对锁/market_pattern 异常盘面识别四桶+entry_shape 点位性质新题/统一位置门 27.5）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP54', 'F: 版本=BP54（BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场直线砸盘、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP54', 'F: 版本=BP54（BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场直线砸盘、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）；**BP68=spike 出拦域（mapper-only 不 bump——桶域四桶不变）**：ENTRY_GATE_POOR_BUCKETS 收 crash 单桶、spike 判型保留落档观察（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——判例 ea78 开盘 28s 薄票两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike；恢复拦截=把 spike 加回数组一键还原）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 6, `F: 恰 6 题=6 维度 0 质量（BP48 两质量题+BP49 两维度题退役+BP58 entry_shape 新题+BP60 market_heat 退役；实际 ${ids.length}）`);
@@ -1081,7 +1083,8 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('⑥ ≤+10% 起点段放行、已拉离（>+10%）拒') && mp.includes('none 统一位置门 ≤+27.5%（含破发，BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」）放行、已拉离（>+27.5%）拒') && mp.includes('拉高/砸盘形状的拦截由点位性质题 entry_shape+位置门接力（BP58 二修语义，原④桶已删）') && mp.includes('锚缺失（发行价位置行 ?）宁拦不冒充一律拒'), 'F: 收尾位置门（⑥ ≤+10 独立臂+none 统一门 ≤+27.5——拉高/砸盘拦截由 entry_shape+位置门接力；锚缺失宁拦不冒充一律拒、放行后统一走点位性质门/活跃度门；判型归 Jev 位置归代码）');
   // ═══ BP58 entry_shape 点位性质新题（四桶+判序+判读线+形状样本） ═══
   ok(JSON.stringify(q.ENTRY_SHAPE_LEVELS) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: ENTRY_SHAPE_LEVELS 同域（BP58 四桶 crash/spike/normal_dip/flat——ESM/CJS 双副本对锁）');
-  ok(JSON.stringify(Object.keys(qs.entry_shape.criteria)) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: entry_shape 桶===ENTRY_SHAPE_LEVELS（四桶——ENTRY_GATE_POOR_BUCKETS 硬拒恰 crash/spike 两桶）');
+  ok(JSON.stringify(Object.keys(qs.entry_shape.criteria)) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: entry_shape 桶===ENTRY_SHAPE_LEVELS（四桶——判型桶域不变，BP68 只是 mapper 拦截域收窄）');
+  ok(JSON.stringify(ENTRY_GATE_POOR_BUCKETS) === JSON.stringify(['crash']), 'F: BP68 ENTRY_GATE_POOR_BUCKETS 收 crash 单桶（用户裁定「因为我们已经控制了价格，所以 spike 没有必要再存在，直接删除即可」+「或者保留也可以，但是不 block 买入」——判型保留落档观察、有 case 再思考对策；恢复拦截=把 spike 加回本数组）');
   const esIns = qs.entry_shape.instructions;
   ok(esIns.includes('判定**买点时刻价格走到当前位置的方式**') && esIns.includes('BP58 立法：只买性价比高的点位、不追高——好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌，也不是尖刺拉起的追高点'), 'F: entry_shape 题头=交易理念直译（BP58 用户裁定——好点位=对倒中的低价/正常下跌的低价）');
   ok(esIns.includes('四桶判序：先看 crash 数值提示臂（命中进入**形态复核**——[PRICE] 价格拱直线垂直砸落才落 crash），再判 spike（尖刺拉起）各臂，都不命中按回落形态分 normal_dip/flat') && esIns.includes('crash/normal_dip 判的是价格拱形态、不是跌幅数值'), 'F: entry_shape 四桶判序句（BP58 二修形态判读——crash 数值臂=复核提示、定桶看 [PRICE] 拱形态；判序 crash→spike→normal_dip/flat）');
@@ -1091,7 +1094,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(esIns.includes('④急拉不贴顶不误判 spike（贴顶是必要条件——对倒回升波段 5s 段 +20~25% 但现价离顶 6~7pp 照 normal_dip）'), 'F: 反锚④回升波段反例（对拍修正案——急拉数值轴无区分度，位置轴才是判据）');
   ok(esIns.includes('normal_dip 阶梯/震荡/阴跌回落（好点位）') && esIns.includes('即便深跌+急跌数值双中、只要形态是阶梯/震荡/阴跌的照放本桶') && esIns.includes('对倒盘/正常换手造成的低价、回落有节奏盘面仍活跃'), 'F: normal_dip=目标形状（二修形态判读版——阶梯/震荡/阴跌皆好点位深浅不是判据；判例 a813 阶梯阴跌 -52%/f485 -62% 穿插反弹/28ad V 形收复/c84a 慢跌横盘企稳）');
   ok(esIns.includes('flat 横盘/缓行'), 'F: flat 横盘桶（各臂不命中且无回落结构如实归本桶）');
-  ok(esIns.includes('crash=拉顶后连续两个 5s 段 -16.9%/-16.1% 零反弹垂直砸落（LOVE）/顶上 3s 单段 -22.3% 大单直砸（STOCKLESS）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩=目标形状）/90s 阶梯阴跌 -52% 段间企稳（a813）/-62% 震荡下行穿插 +25% 反弹段（f485）') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶，不追）'), 'F: entry_shape 形状样本（二修版——crash 两判例 LOVE 连续垂直砸落/STOCKLESS 单段直砸+normal_dip 三判例 米温回踩/a813 阶梯阴跌/f485 震荡下行+YiYi 尖刺）');
+  ok(esIns.includes('crash=拉顶后连续两个 5s 段 -16.9%/-16.1% 零反弹垂直砸落（LOVE）/顶上 3s 单段 -22.3% 大单直砸（STOCKLESS）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩=目标形状）/90s 阶梯阴跌 -52% 段间企稳（a813）/-62% 震荡下行穿插 +25% 反弹段（f485）') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶——判型例）'), 'F: entry_shape 形状样本（二修版——crash 两判例 LOVE 连续垂直砸落/STOCKLESS 单段直砸+normal_dip 三判例 米温回踩/a813 阶梯阴跌/f485 震荡下行+YiYi 尖刺；BP68 样本句改判型例=判型落档不拦同语义）');
   // BP59（案号同 BP58 二修续）crash 第三形态轴=急跌进行时（bt-v96 2ef6 判例——用户裁定「买入时刻突然下跌不是可以接受的点位」）
   ok(esIns.includes('突发砸落进行时同落本桶（BP59）') && esIns.includes('chg5Pct≈chg10Pct 同深=整个下跌就发生在眼下几秒') && esIns.includes('下跌刚开始，买点接在急跌进行中=接刀进行时') && esIns.includes('判例 2ef6：+81.6% 高位横盘后买点前 5s 突发 -32%'), 'F: BP59 crash 急跌进行时第三形态轴（2ef6——+81.6% 横盘后买点前 5s 突发 -32%、chg5=chg10 同深无铺垫=接刀进行时落 crash；可接受的「跌」=已走完一段的位置）');
   ok(esIns.includes('且下跌已走完一段、此刻不在急跌进行中（BP59：chg5 深负无铺垫的急跌进行时落 crash）') && qs.entry_shape.criteria.crash.includes('买点时刻突发急跌进行时（chg5 深负+chg5≈chg10 同深无铺垫=刚开始砸）也落本桶') && qs.entry_shape.criteria.normal_dip.includes('前提=下跌已走完一段、此刻不在急跌进行中'), 'F: BP59 normal_dip 前提+criteria 两桶同步（正例对照锚 a813 chg5 -0.8/28ad +14 温和或已收复照放；chg5 深负无铺垫急跌进行时归 crash）');
@@ -1149,7 +1152,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // BP58 收尾门链=②③硬拒+位置门（⑥ 10/none 27.5）+点位性质门+活跃度门（①⑤⑧位置臂随桶退役）
   ok(mp.includes('放行后统一走点位性质门/活跃度门'), 'F: 收尾门链句（BP58——②③硬拒；⑥/none 过位置门后统一走点位性质门/活跃度门）');
   // BP58 二修——④桶拉高判据恢复在场（maxChg5 速度锚回题面；拦截执行归 entry_shape+统一门）
-  ok(!JSON.stringify(qs).includes('maxChg5'), 'F: maxChg5 速度锚题面绝迹（BP60 四桶化——④桶拉高判据随桶删除，拉高拦截由 entry_shape spike 臂+统一门接力；snapshot maxChg5Pct 锚照算照渲染纯留档——E 组「maxChg5Pct 锚透传」断言锁）');
+  ok(!JSON.stringify(qs).includes('maxChg5'), 'F: maxChg5 速度锚题面绝迹（BP60 四桶化——④桶拉高判据随桶删除；拉高拦截 BP68 起全归统一位置门（spike 出拦域判型落档）；snapshot maxChg5Pct 锚照算照渲染纯留档——E 组「maxChg5Pct 锚透传」断言锁）');
   const noQuality = JSON.stringify(qs);
   ok(!noQuality.includes('第一分支·价格低救') && !noQuality.includes('累计位置硬腿') && !noQuality.includes('崩塌第一腿') && !noQuality.includes('庄盘豁免（BP32'), 'F: 早鸟/回调题忌讳救臂句绝迹（BP48 退役反证——maxChg5 救臂/忌讳/庄盘豁免链不迁移，①庄盘语义由①桶 strong_backer ≤+80 位置门承载）');
   // BP48 裁定 3（C 弃）后两质量题整段删除——⑦⑧承载大户未清场判读（B 迁）、

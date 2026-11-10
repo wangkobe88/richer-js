@@ -17,11 +17,16 @@
  *        unremarkable/⑧golden_point 判型随桶域删除（处理与 none 完全一致没必要
  *        保留；旧档四桶名答案→未知桶 throw fail-closed 拒——BP52 未部署生产无
  *        中间存档行，buy_point_analyses 零历史行）
- *   ② 点位性质门（BP58 新题 entry_shape）：crash 庄离场直线砸盘 / spike 尖刺
- *      拉盘追高 → poor（rule=entry_gate——好点位=活跃交易中对倒中的低价/正常下跌
- *      造成的低价，不是庄家离场时的暴跌也不是尖刺拉起的追高点）；normal_dip
- *      正常回调低价=目标买入形状、flat 横盘缓行 → 放行；答案缺席容缺不拦
- *      （与其它门题同语义：拒=有证据的拒绝）
+ *   ② 点位性质门（BP58 新题 entry_shape）：crash 庄离场直线砸盘 → poor
+ *      （rule=entry_gate——好点位=活跃交易中对倒中的低价/正常下跌造成的低价，
+ *      不是庄家离场时的暴跌）；normal_dip 正常回调低价=目标买入形状、flat 横盘
+ *      缓行 → 放行；**spike 尖刺拉盘判型保留但出拦域（BP68/2026-11-10 用户裁定
+ *      「我们已经控制了价格，所以 spike 没有必要再存在，直接删除即可/或者保留
+ *      也可以但是不 block 买入」——统一位置门 ≤+27.5 已控价，控价域内 spike
+ *      判定本身不正常（判例 ea78 开盘 28s 薄票贴顶臂 -5.13 恰过线判 spike、锚窗
+ *      买盘中位仅 0.136——正常小单抬薄票到新高附近就贴「顶」）；判型如实落档
+ *      观察，有真实追高亏损 case 再思考对策；恢复拦截=把 'spike' 加回本数组）**；
+ *      答案缺席容缺不拦（与其它门题同语义：拒=有证据的拒绝）
  *   ③ 活跃度门（BP30 ultra 臂+BP60 收单题）：activity_level=low（买点前全窗
  *      量级）**或** activity_level=ultra（机器盘级极端密集——用户裁定「act 为
  *      ultra 也不玩」，对齐 CD M 通道）→ poor（rule=activity_gate；**BP60 起
@@ -96,9 +101,10 @@ const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high'
  * 演进：BP18 五类型学→BP30 六桶→BP38 七桶→BP45 八桶→BP58 二修判型恢复→
  * BP60 删⑦restart→BP60 收口四桶 */
 const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'sustained_climb', 'none'];
-/** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；拉高/砸盘形状
- * 的拦截由 entry_shape spike/crash 臂+统一位置门 27.5 接力；sustained_climb
- * 刻意不入本表——走 SUSTAINED_CLIMB_LAUNCH_PCT 独立位置臂） */
+/** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；砸盘形状的拦截
+ * 由 entry_shape crash 臂+统一位置门 27.5 接力（拉高拦截 BP68 起全归统一位置门
+ * ——spike 出拦域）；sustained_climb 刻意不入本表——走 SUSTAINED_CLIMB_LAUNCH_PCT
+ * 独立位置臂） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
 /** ⑥sustained_climb 参与位置界（BP34 用户裁定「这种只能临近发布价格参与」）：现价
  * 较发行价 ≤+10%（含破发）=临近发行价起点段放行走后续门链；已拉离（>+10%）或
@@ -118,10 +124,16 @@ const NORMAL_ENTRY_LAUNCH_PCT = 27.5;
  * （直线砸盘），也不是尖刺拉起的追高点） */
 const ENTRY_SHAPE_LEVELS = ['crash', 'spike', 'normal_dip', 'flat'];
 /** 点位性质门拒买桶（BP58）：crash 庄离场直线砸盘（curVsAth≤-25/chg30≤-25/
- * nearMaxDn5≤-15/curVsMinGap≤2pp 任一臂）/spike 尖刺拉盘追高（chg30≥+20/
- * nearMaxUp5≥+15/curVsAth≥-5 贴顶任一臂）→ poor（rule=entry_gate）；
- * normal_dip 正常回调低价=目标买入形状、flat 横盘缓行 → 放行 */
-const ENTRY_GATE_POOR_BUCKETS = ['crash', 'spike'];
+ * nearMaxDn5≤-15/curVsMinGap≤2pp 任一臂）→ poor（rule=entry_gate）；
+ * normal_dip 正常回调低价=目标买入形状、flat 横盘缓行 → 放行。
+ * **BP68（2026-11-10）spike 出拦域**：用户裁定「因为我们已经控制了价格，所以
+ * spike 没有必要再存在，直接删除即可／或者保留也可以，但是不 block 买入」——
+ * 统一位置门 ≤+27.5 已保证只在临近发行价域买入，控价域内出现 spike（贴顶/急拉）
+ * 判定本身不正常（ea78 案实证：开盘 28s 薄票 curVs 27.8、贴顶臂 currentVsAthPct
+ * -5.13 恰过 -5 线判 spike(0.49)、锚窗买盘中位仅 0.136/两笔 0.136+0.16——正常
+ * 小单就能把薄票价格抬到新高附近贴「顶」）；spike 判型保留落档观察（题面桶域
+ * 不变、Jev 照判），有真实追高亏损 case 再思考对策；恢复拦截=加回 'spike' */
+const ENTRY_GATE_POOR_BUCKETS = ['crash'];
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
  * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；**BP60 起
  * market_heat 臂删除**（题与 activity_level 重复整题退役，旧档 answers 带答案
@@ -256,10 +268,11 @@ function buildBuyPointObservation(answers, anchors = null) {
       if (vsLaunch == null || vsLaunch > NORMAL_ENTRY_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     }
   }
-  // ②点位性质门（BP58 新题）：crash 庄离场直线砸盘/spike 尖刺拉盘追高 → poor
-  //   （rule=entry_gate——「我希望买入的是，活跃交易中对倒中的低价/正常下跌造成
-  //   的低价，而不是庄家离场时的暴跌」）；normal_dip/flat 放行；答案缺席容缺
-  //   不拦（拒=有证据的拒绝；旧档 BP51 及以前无 entry_shape 答案=门自动失效）
+  // ②点位性质门（BP58 新题）：crash 庄离场直线砸盘 → poor（rule=entry_gate——
+  //   「我希望买入的是，活跃交易中对倒中的低价/正常下跌造成的低价，而不是庄家
+  //   离场时的暴跌」）；spike 已出拦域（BP68 判型落档不拦）、normal_dip/flat
+  //   放行；答案缺席容缺不拦（拒=有证据的拒绝；旧档 BP51 及以前无 entry_shape
+  //   答案=门自动失效）
   const entryArms = dimensions.entry_shape
     && ENTRY_GATE_POOR_BUCKETS.includes(dimensions.entry_shape.bucket)
     ? [dimensions.entry_shape] : [];
