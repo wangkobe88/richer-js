@@ -71,6 +71,12 @@ const ROUTER_ENTRY_MIN_BUYS = 15;
  */
 const BURST_WAVE_SEC = 5;
 /**
+ * burst 沉积静默段阈值（D3.66，2026-11-10）：「长期沉积」的操作化口径=相邻
+ * tick 间隔 ≥此值算一段静默；与 CheatCheckService _isStallBurstExempt gap 腿
+ * （burstMaxGapSec≥50，CD383 二修 60→50 M4GA 案）同线——两处同改。
+ */
+const BURST_STALL_GAP_SEC = 50;
+/**
  * burst 波搜索段（D3.56→**D3.65 全窗化**）：D3.56（2026-11-04 用户裁定 0xc0a6…7777
  * 案「burst 是指临近购买点位的 burst，不是整体的，前面有不算」）曾收窄为锚前
  * BURST_NEAR_SEC(120s) 临近段；**D3.65（2026-11-10 用户裁定 ba5e/M4GA 案「一个
@@ -78,11 +84,18 @@ const BURST_WAVE_SEC = 5;
  * 搜索段扩回锚前全窗**——CD383 沉积前提 burstMaxGapSec 本就是全窗口径、波两键
  * 却限临近段=同臂两键口径不对称；「一朝爆发」不必恰在信号前 120s（ba5e 07:39
  * 出生 3 分钟拉到 +772% 后崩回 +21%，07:52:18 锚临近段死寂无波证据→sbw 判 none
- * +波键 0，豁免结构性无法兑现）。startVs 起点价锚随搜索段自然变「全窗首个
- * 可靠价」（=「起来的起点」）：ba5e 低开 +2.85% 放、ad80fb7a 高开 +152% 拒
- * （「价格维持高位再一个流量拉升」语义保持）。临近段 <2 行 null 语义退役为
- * 全窗 <2 行 null；burstMaxGapSec 维持全窗 maxGapSec 不变。G8 弱 burst 臂/
- * strongbacker 判据/sbw 题判读原料随本口径同车全窗化（题集 D3.65）。
+ * +波键 0，豁免结构性无法兑现）。临近段 <2 行 null 语义退役为全窗 <2 行 null；
+ * burstMaxGapSec 维持全窗 maxGapSec 不变。G8 弱 burst 臂/strongbacker 判据/
+ * sbw 题判读原料随本口径同车全窗化（题集 D3.65）。
+ * ⚠D3.65 首版注释曾断言「startVs 随全窗化=全窗首价（=『起来的起点』）：ba5e
+ * 低开 +2.85% 放、ad80fb7a 高开 +152% 拒」——部署前对拍取证推翻（182 全量行
+ * 实测）：①ba5e 生产拉数被 PostgREST 1000 行帽截断（anchor_tick_count 上界
+ * =1000 实证），生产帽窗窗首价 +294.9%>40 拒=立法正例没修好；全窗最密 5s 波
+ * =07:42:19 拉峰 frenzy（2.04B/59 笔）波起点 +659.7%，波起点价语义同样过不了；
+ * ②ad80fb7a 全窗首价实为高开开盘价 +29.7%≤40 过线=CD392 反例翻案误放
+ * （D3.64 旧拒靠临近段首价 +152% 近似才成立，语义随扩窗滑移）。**D3.66 起
+ * 第四腿判据源移交 burstExitVsLaunchPct（沉积段出口价，见 burst 计算段头注），
+ * burstWaveStartVsLaunchPct 保留纯观察（历史档重放兼容）**。
  */
 /**
  * burst 尖刺簇常量（D3.51，2026-11-03 CD157 가나/CD102 SAFU 两票用户裁定立项
@@ -970,18 +983,18 @@ function computeDerived(snapshot, famousRoster) {
   // ad80fb7a 高开 +152% 横盘=全窗首价 +152% 仍拒（「价格维持高位再一个流量
   // 拉升」不豁免语义保持）；gap=2s 开盘密集反例（无沉积）仍拦。──
   let burstWaveBuyBnb = null, burstWaveWallets = null, burstWaveStartVsLaunchPct = null;
+  let burstExitVsLaunchPct = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
   if (waveTicksAll.length >= 2) {
     const waveTicks = waveTicksAll; // D3.65：锚前全窗（D3.56 临近段过滤退役，见上头注）
     {
-      // CD392（2026-11-09 ad80fb7a 案）：burst 波起点价锚——**全窗首个可靠价**
-      // （D3.65 起随搜索段全窗化；D3.56-D3.64 为临近段首价）vs 发行价常量 %。
-      // 用户裁定「burst 是指 价格跌到很低再起来，不是价格维持高位再一个流量
-      // 拉升」——豁免资格价格腿（CheatCheckService _isStallBurstExempt 第四腿
-      // ≤+40）的判据源。起点=全窗**首价**（刻意不取段内最低：末段砸落的低点
-      // 不是「起来的起点」——ad80fb7a +152% 高开横盘的全窗首价即 +152% 必须
-      // 拒；ba5e/M4GA 低开 +2.85% 起来的行情起点放行）。null 条件与波两键同源
-      // （全窗 <2 行）+无常量平台（gang）+首个可靠价缺席，fail-closed 不授予。
+      // CD392（2026-11-09 ad80fb7a 案）：burst 波起点价锚——D3.56-D3.64 为临近段
+      // 首价、D3.65 起随搜索段全窗化变全窗首个可靠价 vs 发行价常量 %。用户裁定
+      // 「burst 是指 价格跌到很低再起来，不是价格维持高位再一个流量拉升」。
+      // **D3.66（2026-11-10）起退出第四腿判据源、保留纯观察**（历史档重放兼容
+      // +波结构留档）：对拍取证证明「窗首价/波起点价」都不能表达「起来的起点」
+      // （见文件头注 ⚠段——ba5e 全窗首价 +2.9% 但生产 1000 帽窗窗首 +294.9% 拒/
+      // 最密波=拉峰 frenzy 波起点 +659.7%；ad80fb7a 高开全窗首价 +29.7% 误放）。
       const _quoteTk = waveTicks.some((t) => t.quote) ? 'quote' : null;
       // T130 地板补丁同源（launch=min(常量, 首笔买入可靠价)，锚窗首笔 BUY 行）——
       // 低开票（67ad68e0/6efa11ce 案）以常量为分母会把波起点位置整体抬高，
@@ -997,6 +1010,28 @@ function computeDerived(snapshot, famousRoster) {
       if (_launch !== null && _launch > 0) {
         const _firstRel = waveTicks.find((t) => !t.outlier && t.priceBnb > 0);
         if (_firstRel) burstWaveStartVsLaunchPct = +(((_firstRel.priceBnb / _launch) - 1) * 100).toFixed(1);
+        // D3.66（2026-11-10 用户裁定）：burst 豁免第四腿判据源=**起来起点价**
+        // burstExitVsLaunchPct——最后一个 ≥BURST_STALL_GAP_SEC 静默段的出口首
+        // 可靠价 vs launch 地板（T130 地板同分母）。「价格跌到很低再起来」的
+        // 「起来」=沉积结束重新启动的那一刻，出口价即起来时的价格水平；高位
+        // 横盘的间歇静默出口仍高位（ad80fb7a +161.3% 拒）、「跌下来沉积后再起」
+        // 出口在低域（ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放；M4GA/
+        // CD383 原案 +2.9% 放）。刻意不取段内最低/锚时刻现价：CD392 台账「取
+        // 最低会放行高位砸落再弹形状」（ad80 末段砸落 +17.5% 必须拒）。扫描域
+        // =waveTicksAll（dt 过滤序与 maxGapSec 的 dts 同源，静默段与 gap 腿
+        // ≥50 判据 bit 同口径：gap 腿过 ⟺ 至少一段 ≥50s 静默）。null 条件：
+        // 无 ≥50s 段（gap 腿本就不过）/段后无可靠价/launch 地板缺失（无常量
+        // 平台）→ fail-closed 不授予（与 CD383 gap null「不扩大收紧面」不同向
+        // ——本臂是资格授予方向，形状不可判宁不授予）。不受 PostgREST 1000 行
+        // 帽影响（出口段在锚侧，帽窗内必含）。
+        let _lastGapIdx = -1;
+        for (let i = 1; i < waveTicksAll.length; i++) {
+          if (waveTicksAll[i].dt - waveTicksAll[i - 1].dt >= BURST_STALL_GAP_SEC) _lastGapIdx = i;
+        }
+        if (_lastGapIdx >= 0) {
+          const _exitRel = waveTicksAll.slice(_lastGapIdx).find((t) => !t.outlier && t.priceBnb > 0);
+          if (_exitRel) burstExitVsLaunchPct = +(((_exitRel.priceBnb / _launch) - 1) * 100).toFixed(1);
+        }
       }
       let j = 0, curN = 0, curBuy = 0, bestN = 0, bestBuy = 0, bestWalletN = 0;
       const curWallets = new Map(); // wallet → 窗内笔数
@@ -1489,8 +1524,11 @@ function computeDerived(snapshot, famousRoster) {
     nearTail10TickN, nearTail10BnbPerMin, nearPre20BnbPerMin,
     nearTail5TickN, nearTail5BuyN, nearTail5BuyBnb, nearTail10SellWallets,
     burstWaveBuyBnb, burstWaveWallets,
-    // CD392 burst 波起点价锚（头注见计算段；_isStallBurstExempt 第四腿判据源）
+    // CD392 burst 波起点价锚（D3.66 起纯观察——第四腿判据源移交 burstExitVsLaunchPct）
     burstWaveStartVsLaunchPct,
+    // D3.66 burst 起来起点价锚（最后 ≥BURST_STALL_GAP_SEC 静默段出口首可靠价 vs
+    // launch 地板；_isStallBurstExempt 第四腿判据源，头注见计算段）
+    burstExitVsLaunchPct,
     // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,
     spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,

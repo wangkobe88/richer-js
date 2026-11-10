@@ -396,14 +396,21 @@ class CheatCheckService {
     // 贴线形状授予；「停滞后只涌入一点小流量」的弱波（远低于线）仍不授予）
     if (!((buy != null && buy >= 0.7) || (wallets != null && wallets >= 10))) return false;
     // CD392（2026-11-09 ad80fb7a 案用户裁定「burst 是指 价格跌到很低再起来，不是
-    // 价格维持高位再一个流量拉升」）：波的起点须在低域——burst 波起点价（锚前
-    // 120s 临近段首可靠价 vs 发行价常量）≤ +40%（near_launch 上界同线）才授予。
-    // ad80fb7a=+152% 高位横盘 280s 末段砸落（反例拒）；M4GA=+2.9% 贴地板沉积
-    // （正例放）。锚缺席（旧档断代/临近段 <2 行/gang 无常量）fail-closed 不授予
-    // ——与 CD383 gap null 的「不扩大收紧面」方向不同：起点价是「起来之前的
-    // 价格水平」这一本质维度，缺席=形状不可判宁不授予。
-    const startVs = an.burstWaveStartVsLaunchPct;
-    if (startVs == null || startVs > 40) return false;
+    // 价格维持高位再一个流量拉升」）：**起来起点须在低域 ≤ +40%**（near_launch
+    // 上界同线）才授予。**D3.66（2026-11-10 用户裁定）判据源=burstExitVsLaunchPct
+    // （最后一个 ≥50s 静默段的出口首可靠价 vs launch 地板）**——D3.65 部署前对拍
+    // 取证推翻旧源（全窗首价/波起点价）：ba5e/M4GA 生产 1000 帽窗窗首 +294.9%/
+    // 最密波=拉峰 frenzy 波起点 +659.7% 仍拒（立法正例修不了），ad80fb7a 高开
+    // 全窗首价 +29.7%≤40 反例误放（D3.64 旧拒靠临近段首价 +152% 近似）；锚时刻
+    // 现价同被否（ad80 末段砸落 +17.5%——CD392「取最低会放行高位砸落再弹」防的
+    // 正是它）。沉积出口价三案全达成：ba5e 最后静默段出口 +35.4% 放（用户「涨幅
+    // 排名前几的顶级好票」裁定兑现；不受 1000 行帽影响）、ad80 高位横盘间歇静默
+    // 出口 +161.3% 拒、M4GA/CD383 原案 +2.9% 放。锚缺席（无 ≥50s 段= gap 腿本就
+    // 不过/段后无可靠价/gang 无常量）fail-closed 不授予——与 CD383 gap null 的
+    // 「不扩大收紧面」方向不同：本臂是资格授予方向，形状不可判宁不授予。
+    // 旧键 burstWaveStartVsLaunchPct 保留纯观察（历史档重放兼容，不再进本腿）。
+    const exitVs = an.burstExitVsLaunchPct;
+    if (exitVs == null || exitVs > 40) return false;
     return true;
   }
 
@@ -705,8 +712,11 @@ class CheatCheckService {
           burstMaxGapSec: snapshot.derived.maxGapSec,
           burstWaveBuyBnb: snapshot.derived.burstWaveBuyBnb,
           burstWaveWallets: snapshot.derived.burstWaveWallets,
-          // CD392 burst 波起点价锚（vs 发行价常量 %；豁免资格价格腿判据源）
+          // CD392 burst 波起点价锚（D3.66 起纯观察——第四腿判据源移交出口价锚）
           burstWaveStartVsLaunchPct: snapshot.derived.burstWaveStartVsLaunchPct,
+          // D3.66 burst 起来起点价锚（最后 ≥50s 静默段出口首可靠价 vs launch 地板
+          // %；_isStallBurstExempt 第四腿判据源，头注见 _isStallBurstExempt）
+          burstExitVsLaunchPct: snapshot.derived.burstExitVsLaunchPct,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的

@@ -727,59 +727,76 @@ async function testActivityExempt() {
   // 被 cheat 门拒复盘：E 通道内部豁免口径（act=low ∧ sbw=burst ∧ 非弱 burst
   // 不落 E）外移到门豁免资格，与 activityExemptLevels 并列第二臂（∨））
   const s8 = mkSvc();
-  const sb = (lv, an) => s8._isStallBurstExempt(lv, an); // levels=档位投影 / anchors=波四键数值锚（levelsFromObservation 两段——对拍实证波键在 anchors 段；CD392 起第四键 startVs）
-  ok('F8 sbw=burst+三键强形状（高大上 06:57:07 形状：gap 780s/buy 1.4B/wallets 9/起点 +2.9%——buy≥0.7 波有力非弱）→ 资格成立',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 2.9 }) === true);
+  const sb = (lv, an) => s8._isStallBurstExempt(lv, an); // levels=档位投影 / anchors=波五键数值锚（levelsFromObservation 两段——对拍实证波键在 anchors 段；CD392 起第四键、D3.66 起判据源=burstExitVsLaunchPct）
+  ok('F8 sbw=burst+三键强形状（高大上 06:57:07 形状：gap 780s/buy 1.4B/wallets 9/沉积出口 +2.9%——buy≥0.7 波有力非弱）→ 资格成立',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstExitVsLaunchPct: 2.9 }) === true);
   ok('F8 gap<60 无沉积（sbw=burst 但开盘即密集）→ 资格不成立（B 段夹具反例：gap 2s+tier/同块/内幕三 strong cheat 盘被首版误放——停滞深度是必要维度，E 通道内部不限 gap 是因其语境恒 act=low）',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15, burstWaveStartVsLaunchPct: 2.9 }) === false);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15, burstExitVsLaunchPct: 2.9 }) === false);
   ok('F8 波键 null/缺席（旧档断代/dt 缺失/anchors null）→ 不授予（资格授予方向 fail-closed 与 G8 维持豁免刻意不同向——无沉积/波力正证据不冒充）',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: null, burstWaveBuyBnb: null, burstWaveWallets: null, burstWaveStartVsLaunchPct: null }) === false
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: null, burstWaveBuyBnb: null, burstWaveWallets: null, burstExitVsLaunchPct: null }) === false
       && sb({ stallBurstWave: 1 }, {}) === false && sb({ stallBurstWave: 1 }) === false
-      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: null, burstWaveWallets: null, burstWaveStartVsLaunchPct: 2.9 }) === false);
+      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: null, burstWaveWallets: null, burstExitVsLaunchPct: 2.9 }) === false);
   ok('F8 弱 burst（gap≥50 ∧ buy<0.7 ∧ wallets<10——长期停滞后只涌入一点小流量）→ 资格不成立（G8 弱波否定侧）',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5, burstWaveStartVsLaunchPct: 2.9 }) === false);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5, burstExitVsLaunchPct: 2.9 }) === false);
   ok('F8 波有力两键独立过线（buy≥0.7 或 wallets≥10 任一）→ 资格成立',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 2.0, burstWaveWallets: 5, burstWaveStartVsLaunchPct: 2.9 }) === true
-      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 15, burstWaveStartVsLaunchPct: 2.9 }) === true);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 2.0, burstWaveWallets: 5, burstExitVsLaunchPct: 2.9 }) === true
+      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 15, burstExitVsLaunchPct: 2.9 }) === true);
   // F8b CD383 二修放宽（2026-11-08 M4GA 0xba5ed45b 案用户裁定「这个币应该是 burst，
   // 豁免 cheat」：47324b0b 单票回测 07:40:47 首判 sbw=burst 但三键贴线全差一口气
   // gap 58<60/buy 0.7735<1.05/wallets 11<13=weakBurst 全中不授予；t0a 首判窗仅 83s
   // ——burstMaxGapSec 全窗口径被窗长天然压住，线降至 50/0.7/10）
-  ok('F8b M4GA 贴线形状（gap 58/buy 0.7735/wallets 11/起点 +2.9——首版三键全差一口气）→ 二修后资格成立',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 58, burstWaveBuyBnb: 0.7735, burstWaveWallets: 11, burstWaveStartVsLaunchPct: 2.9 }) === true);
+  ok('F8b M4GA 贴线形状（gap 58/buy 0.7735/wallets 11/沉积出口 +2.9——首版三键全差一口气）→ 二修后资格成立',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 58, burstWaveBuyBnb: 0.7735, burstWaveWallets: 11, burstExitVsLaunchPct: 2.9 }) === true);
   ok('F8b 新线负例（gap 49/buy 0.69/wallets 9 全贴下方）→ 资格不成立（贴线不过就是不过）',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 49, burstWaveBuyBnb: 0.69, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 2.9 }) === false);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 49, burstWaveBuyBnb: 0.69, burstWaveWallets: 9, burstExitVsLaunchPct: 2.9 }) === false);
   ok('F8b 开盘密集反例不回归（gap 2s）→ 仍不成立（沉积维度必要不动摇）',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15, burstWaveStartVsLaunchPct: 2.9 }) === false);
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 2, burstWaveBuyBnb: 2.0, burstWaveWallets: 15, burstExitVsLaunchPct: 2.9 }) === false);
   ok('F8b 源码锁：二修线 50/0.7/10 在 _isStallBurstExempt（M4GA 案裁定）',
     (() => { const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'market-analysis', 'CheatCheckService.js'), 'utf8');
       return src.includes('gap < 50') && src.includes('buy >= 0.7') && src.includes('wallets >= 10'); })());
-  // F8c CD392 burst 波起点价格腿（2026-11-09 ad80fb7a 案用户裁定「burst 是指 价格
-  // 跌到很低再起来，不是价格维持高位再一个流量拉升」——豁免资格加第四腿：波起点
-  // （锚前 120s 临近段首可靠价 vs 发行价锚=T130 地板补丁 min(常量,首买价)）≤+40
-  // 才授予；起点=段首价刻意不取段内最低——ad80fb7a +152% 高位横盘 280s 末段砸落
-  // 17.5% 的形状必须以首价拒；M4GA +2.9% 贴地板放行。null（旧档断代/gang 无常量/
-  // 临近段 <2 行）fail-closed 不授予——起点价是「起来之前的价格水平」本质维度，
-  // 缺席=形状不可判宁不授予（与 CD383 gap null 的「不扩大收紧面」不同向）
-  ok('F8c CD392 正例：波起点 +2.9%（M4GA 贴地板沉积后拉起）→ 资格成立',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 2.9 }) === true);
-  ok('F8c CD392 反例：波起点 +152（ad80fb7a 高位横盘的流量波——「价格维持高位再一个流量拉升」非 burst）→ 资格不成立',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 152 }) === false);
-  ok('F8c CD392 贴线：起点恰 +40（near_launch 上界同线）→ 资格成立（≤ 含恰等）；+40.1 → 不成立',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 40 }) === true
-      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 40.1 }) === false);
-  ok('F8c CD392 null/缺席（旧档断代/gang 无常量锚/临近段首可靠价缺席）→ fail-closed 不授予（三键全过也不放——形状维度缺席宁不授予）',
-    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: null }) === false
+  // F8c CD392 burst 起来起点价格腿（2026-11-09 ad80fb7a 案用户裁定「burst 是指 价格
+  // 跌到很低再起来，不是价格维持高位再一个流量拉升」——豁免资格加第四腿 ≤+40
+  // 才授予；刻意不取段内最低——ad80fb7a 高位横盘 280s 末段砸落 17.5% 的形状必须
+  // 拒；M4GA +2.9% 贴地板放行。null fail-closed 不授予——起点价是「起来之前的
+  // 价格水平」本质维度，缺席=形状不可判宁不授予（与 CD383 gap null 的「不扩大
+  // 收紧面」不同向）。
+  // **D3.66（2026-11-10 用户裁定）：判据源=burstExitVsLaunchPct（最后一个 ≥50s
+  // 静默段的出口首可靠价 vs launch 地板=T130 min(常量,首买价)）**——D3.65 部署前
+  // 对拍取证双向否证旧源（全窗首价/波起点价）：①ba5e/M4GA 生产 1000 帽窗窗首
+  // +294.9%/全窗最密波=拉峰 frenzy 波起点 +659.7% 仍拒（立法正例修不了——
+  // 「涨幅排名前几的顶级好票」裁定未兑现）；②ad80fb7a 高开全窗首价 +29.7%≤40
+  // 反例误放（D3.64 旧拒靠临近段首价 +152% 近似，语义随扩窗滑移）；锚时刻现价
+  // 同被否（ad80 末段砸落 +17.5%——「取最低会放行高位砸落再弹」）。沉积出口价
+  // 三案全达成：ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4 放（不受 PostgREST
+  // 1000 行帽影响）、ad80 高位横盘间歇静默出口 +161.3 拒、M4GA/CD383 原案 +2.9
+  // 放。旧键 burstWaveStartVsLaunchPct 保留纯观察（历史档重放兼容，不再进本腿）。
+  ok('F8c CD392 正例（D3.66 判据源）：沉积出口 +2.9%（M4GA 贴地板沉积后拉起）→ 资格成立',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstExitVsLaunchPct: 2.9 }) === true);
+  ok('F8c D3.66 立法正例：ba5e/M4GA 形状（崩回沉积后再起来，最后静默段出口 +35.4≤40）→ 资格成立（用户「涨幅排名前几的顶级好票」裁定兑现；拉峰 frenzy 波起点 +659.7 旧源拒不了=出口价不受波位置影响）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 68, burstWaveBuyBnb: 2.04, burstWaveWallets: 59, burstExitVsLaunchPct: 35.4 }) === true);
+  ok('F8c CD392 反例（D3.66 判据源）：ad80fb7a 高位横盘的流量波（间歇静默出口 +161.3——「价格维持高位再一个流量拉升」非 burst）→ 资格不成立（D3.65 部署形状全窗首价 +29.7≤40 曾误放）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 69, burstWaveBuyBnb: 0.0097, burstWaveWallets: 21, burstExitVsLaunchPct: 161.3 }) === false);
+  ok('F8c 贴线：沉积出口恰 +40（near_launch 上界同线）→ 资格成立（≤ 含恰等）；+40.1 → 不成立',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstExitVsLaunchPct: 40 }) === true
+      && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstExitVsLaunchPct: 40.1 }) === false);
+  ok('F8c null/缺席（无 ≥50s 段=gap 腿本就不过/段后无可靠价/gang 无常量）→ fail-closed 不授予（三键全过也不放——形状维度缺席宁不授予）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstExitVsLaunchPct: null }) === false
       && sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9 }) === false);
-  ok('F8c 源码锁：CD392 第四腿 startVs ≤40 在 _isStallBurstExempt（早退在波有力之后——分层判序）',
+  ok('F8c D3.66 断代反证：旧档形状只带 burstWaveStartVsLaunchPct（<D3.66 存档 anchors 无出口价键）→ 不授予（历史档 burst 豁免失效=fail-closed 设计内；bootstrap 恢复拉黑票的 ultra∧burst 资格臂同失效，多拦不错放方向安全）',
+    sb({ stallBurstWave: 1 }, { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 2.9 }) === false);
+  ok('F8c 源码锁：D3.66 第四腿 exitVs ≤40 在 _isStallBurstExempt（早退在波有力之后——分层判序；函数体内旧键零代码引用=纯观察——注释留档不算，锁 an./anchors. 属性访问形状防跨函数体误报）',
     (() => { const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'market-analysis', 'CheatCheckService.js'), 'utf8');
-      return /const startVs = an\.burstWaveStartVsLaunchPct;[\s\S]*?if \(startVs == null \|\| startVs > 40\) return false;[\s\S]*?return true;/.test(src); })());
+      const fnStart = src.indexOf('_isStallBurstExempt(levels, anchors)');
+      const fnEnd = src.indexOf('\n  }', fnStart); // 类方法体收口=两空格缩进 }（首次出现即本函数尾——防 [\s\S]*? 跨出函数体）
+      const fnBody = src.slice(fnStart, fnEnd);
+      return /const exitVs = an\.burstExitVsLaunchPct;[\s\S]*?if \(exitVs == null \|\| exitVs > 40\) return false;[\s\S]*?return true;/.test(fnBody)
+        && !/an\.burstWaveStartVsLaunchPct|anchors\.burstWaveStartVsLaunchPct/.test(fnBody); })());
   ok('F8 sbw=none/缺席/null/levels null → 不豁免 fail-closed（无 burst 证据不冒充）',
     sb({ stallBurstWave: 0 }, {}) === false && sb({ stallBurstWave: null }, {}) === false
       && sb({}, {}) === false && sb(null, null) === false);
   // F8 出口变换（主案=高大上：cheat+act=low+burst 强 → 豁免放行）
   const beforeSB = s8.stats.stallBurstExemptions;
-  const GDS_AN = { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstWaveStartVsLaunchPct: 2.9 }; // 高大上波四键（anchors 段；startVs=CD392 第四腿 M4GA 实测贴地板）
+  const GDS_AN = { burstMaxGapSec: 780, burstWaveBuyBnb: 1.4, burstWaveWallets: 9, burstExitVsLaunchPct: 2.9, burstWaveStartVsLaunchPct: 2.9 }; // 高大上波五键（anchors 段；exitVs=D3.66 第四腿 M4GA 沉积出口实测贴地板，startVs=纯观察同值）
   const r8a = s8._applyActivityExempt({
     status: 'graded', grade: 'cheat',
     levels: { stallBurstWave: 1, slowGrindPump: 3 },
@@ -791,7 +808,7 @@ async function testActivityExempt() {
     { grade: r8a.grade, exempt: r8a.exempt, reasons: r8a.reasons },
     { grade: 'healthy', exempt: { code: 'stall_burst', originalGrade: 'cheat' }, reasons: [{ level: 'cheat', code: 'A_strong:slow_grind_pump+holdings_balance' }] });
   ok('F8 stallBurstExemptions 计数+1（生产对拍观测点）', s8.stats.stallBurstExemptions - beforeSB === 1, s8.stats);
-  const r8b = s8._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { stallBurstWave: 1 }, anchors: { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5, burstWaveStartVsLaunchPct: 2.9 }, buckets: { activityLevel: 'low' } });
+  const r8b = s8._applyActivityExempt({ status: 'graded', grade: 'unhealthy', levels: { stallBurstWave: 1 }, anchors: { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5, burstExitVsLaunchPct: 2.9 }, buckets: { activityLevel: 'low' } });
   check('F8 出口：弱 burst 三键全中 → 资格不成立原判保持（无 exemptDenied=非 CD380 臂，是资格缺席）',
     { grade: r8b.grade, exempt: r8b.exempt, exemptDenied: r8b.exemptDenied },
     { grade: 'unhealthy', exempt: undefined, exemptDenied: undefined });
@@ -832,7 +849,7 @@ async function testActivityExempt() {
   ok('F9 资格子式：burst 强（CD383 二修线+CD392 四腿）→ true；burst 缺席/弱波/null → false',
     cbe({ stallBurstWave: 1 }, GDS_AN) === true
     && cbe({}, GDS_AN) === false && cbe(null, null) === false
-    && cbe({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5, burstWaveStartVsLaunchPct: 2.9 }) === false);
+    && cbe({ stallBurstWave: 1 }, { burstMaxGapSec: 90, burstWaveBuyBnb: 0.5, burstWaveWallets: 5, burstExitVsLaunchPct: 2.9 }) === false);
   ok('F9 资格子式：burst 强 ∧ washPair strong（CD380 臂）→ false（wash 臂对 cheat 豁免同样否决）',
     cbe({ stallBurstWave: 1, washPair: 3 }, GDS_AN) === false);
   const beforeUC9 = s9.stats.ultraCheatDenied;

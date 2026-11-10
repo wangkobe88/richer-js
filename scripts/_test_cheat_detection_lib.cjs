@@ -434,7 +434,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 54, 'D3.62 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+D3.60 持有者基数三键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键+D3.52 锚窗买卖比+D3.53 精确等额同块三键+D3.54 同块脉冲节拍三键+D3.57 pump 锚族六键+D3.58 断流重启段六键+D3.62 聚合路由入口一键+CD392 burst 波起点一键=五十四数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键/D3.52 加 anchorBuySellRatio/D3.53 加 exactEqualBlock 三观察键/D3.54 加 pulseBlockCount/BuyPct/MaxGapBlocks 三观察键/D3.57 加 pumpStable 三键+perBnb+卖笔占比（斜率/perBnb 带符号）/D3.58 加 postStall 六键（占比分母=段内买入不被断流前流量稀释）/D3.60 加 posHolderCount+前二/前三流通合计三键（CD240 持有者基数分层——<2/<3 持有人 null=轴不适用）/D3.62 加 routerEntryBuyPct（CD374 G17 N 通道源锚：锚窗买入笔走聚合路由 %，<15 笔/零买入 null fail-open）/CD392 加 burstWaveStartVsLaunchPct（burst 波起点 vs 发行价 %，起点=段首价，service burst 豁免第四腿判据源）——无门侧消费 FA 投影同源）');
+ok(Object.keys(f1.anchors).length === 55, 'D3.66 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+D3.60 持有者基数三键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键+D3.52 锚窗买卖比+D3.53 精确等额同块三键+D3.54 同块脉冲节拍三键+D3.57 pump 锚族六键+D3.58 断流重启段六键+D3.62 聚合路由入口一键+CD392 burst 波起点一键+D3.66 burst 起来起点价一键=五十五数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键/D3.52 加 anchorBuySellRatio/D3.53 加 exactEqualBlock 三观察键/D3.54 加 pulseBlockCount/BuyPct/MaxGapBlocks 三观察键/D3.57 加 pumpStable 三键+perBnb+卖笔占比（斜率/perBnb 带符号）/D3.58 加 postStall 六键（占比分母=段内买入不被断流前流量稀释）/D3.60 加 posHolderCount+前二/前三流通合计三键（CD240 持有者基数分层——<2/<3 持有人 null=轴不适用）/D3.62 加 routerEntryBuyPct（CD374 G17 N 通道源锚：锚窗买入笔走聚合路由 %，<15 笔/零买入 null fail-open）/CD392 加 burstWaveStartVsLaunchPct（D3.66 起纯观察——第四腿判据源移交出口价锚）/D3.66 加 burstExitVsLaunchPct（最后 ≥50s 静默段出口首可靠价 vs launch 地板 %，service burst 豁免第四腿判据源）——无门侧消费 FA 投影同源）');
 ok(f1.anchors.anchorBuySellRatio === null,
   'D3.52 锚窗买卖比未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
@@ -1208,6 +1208,48 @@ console.log('I. 著名钱包单极控盘锚');
     const dShort = buildSnapshotFromRows(rowsShort, microMeta).derived;
     ok(dShort.burstWaveBuyBnb === 2.0 && dShort.burstWaveWallets === 2,
       `D3.65 窗 60s 全窗零变化：旧口径临近段退化全窗（末 tick dt=60-120<0）与新口径全窗同段 → 开盘四笔波 2.0/2 钱包照收（实际 ${dShort.burstWaveBuyBnb}/${dShort.burstWaveWallets}——短窗信号票开盘即锚前，g8 夹具 100s 窗现有断言天然同口径）`);
+  }
+  // ═══════════════ D3.66（2026-11-10）：burst 起来起点价锚（第四腿判据源换沉积段出口价） ═══════════════
+  console.log('D3.66 burstExitVsLaunchPct（最后 ≥50s 静默段出口首可靠价 vs launch 地板——CD392 判据源 D3.65 对拍双向缺陷修复）');
+  {
+    const fmMeta = { ...microMeta, platform: 'fourmeme' }; // FM 常量 4496173469e-18（T130 地板 launch=min(常量,首买价)）
+    // 缩样一（ba5e/M4GA 形状）：低开 +0%→拉高 +525%→崩回→两段 ≥50s 静默，最后段出口
+    // +35.0（≤40 低域=「跌下来沉积后再起来」）；旧键 startVs（全窗首可靠价）=+0 观察
+    const e66a = [
+      mkRow(0, 300, 0, 'buy', 0.5, 4.0e-9),        // 低开首买 → launch 地板=4.0e-9
+      mkRow(10, 310, 0, 'buy', 0.3, 2.5e-8),       // 拉高（ba5e 3 分钟 +772% 缩样）
+      mkRow(100, 400, 0, 'buy', 0.4, 4.4e-9),      // 崩回（gap 90s 静默段①；出口 +10）
+      mkRow(300, 600, 0, 'buy', 0.5, 5.4e-9),      // 再起来（gap 200s 静默段②=最后段；出口 +35.0）
+    ];
+    const d66a = buildSnapshotFromRows(e66a, fmMeta).derived;
+    ok(d66a.burstExitVsLaunchPct === 35 && d66a.burstWaveStartVsLaunchPct === 0,
+      `D3.66 ba5e 形状：最后 ≥50s 静默段（t+100→t+300）出口价 +35.0 ≤40 授予域（实测出口 ${d66a.burstExitVsLaunchPct}/旧键窗首价观察值 ${d66a.burstWaveStartVsLaunchPct}——launch 地板=min(FM 常量, 低开首买 4.0e-9)；缩样对应实测 ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放）`);
+    // 缩样二（ad80fb7a 形状）：高开 +29.8%（>常量 → launch=常量地板）+高位横盘两段
+    // 间歇静默，最后段出口 +122.4 高位（>40=「价格维持高位再一个流量拉升」拒）
+    const e66b = [
+      mkRow(0, 500, 0, 'buy', 0.3, 5.83e-9),       // 高开首买>常量 → launch=FM 常量（首价即 +29.8）
+      mkRow(62, 570, 0, 'buy', 0.4, 1.176e-8),     // 静默段①（62s）；出口 +161.6
+      mkRow(131, 640, 0, 'buy', 0.5, 1.0e-8),      // 静默段②=最后段（69s）；出口 +122.4
+    ];
+    const d66b = buildSnapshotFromRows(e66b, fmMeta).derived;
+    ok(d66b.burstExitVsLaunchPct === 122.4 && d66b.burstExitVsLaunchPct > 40,
+      `D3.66 ad80fb7a 形状：高位横盘间歇静默最后段出口 +122.4 >40 拒（实测 ${d66b.burstExitVsLaunchPct}——缩样对应实测 ad80 最后静默段出口 +161.3% 拒；D3.65 部署形状全窗首价 +29.7≤40 曾误放）`);
+    // null 反证：段后无可靠价（段后唯一行 outlier）/无 ≥50s 静默段（密集）→ fail-closed 不授予
+    const e66c1 = [
+      mkRow(0, 700, 0, 'buy', 0.4, 4.0e-9),
+      mkRow(100, 800, 0, 'buy', 0.3, 4.2e-9, { outlier: true }), // gap 100s 段在场但出口首行= outlier
+    ];
+    const d66c1 = buildSnapshotFromRows(e66c1, fmMeta).derived;
+    const e66c2 = [
+      mkRow(0, 900, 0, 'buy', 0.4, 4.0e-9),
+      mkRow(3, 903, 0, 'buy', 0.3, 4.1e-9),
+      mkRow(6, 906, 0, 'buy', 0.5, 4.2e-9),
+    ];
+    const d66c2 = buildSnapshotFromRows(e66c2, fmMeta).derived;
+    ok(d66c1.burstExitVsLaunchPct === null,
+      `D3.66 段后无可靠价 → null fail-closed（实测 ${d66c1.burstExitVsLaunchPct}——段在场但出口首行 outlier 不冒充；与 gap 腿「不扩大收紧面」不同向=资格授予方向宁不授予）`);
+    ok(d66c2.burstExitVsLaunchPct === null && d66c2.maxGapSec === 3,
+      `D3.66 无 ≥50s 静默段（密集）→ null（实测 ${d66c2.burstExitVsLaunchPct}/maxGap ${d66c2.maxGapSec}——gap 腿本就 <50 不过，两腿天然一致）`);
   }
   // ═══════════════ CD394（2026-11-09 bt-v94 六案）：尾窗七键+出货臂卖侧钱包数 ═══════════════
   console.log('CD394 尾窗七键（尾 10s/前 20s 绝对位置窗+卖侧独立钱包数——短窗照出=NEAR_SEG spanSec≤30 盲区修复）');

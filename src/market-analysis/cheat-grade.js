@@ -368,8 +368,10 @@ function levelsFromObservation(observation, extras = {}) {
     burstMaxGapSec: _pct(an.burstMaxGapSec),
     burstWaveBuyBnb: _pct(an.burstWaveBuyBnb),
     burstWaveWallets: _pct(an.burstWaveWallets),
-    // CD392 burst 波起点价锚（vs 发行价常量 %；service 侧 burst 豁免第四腿判据源）
+    // CD392 burst 波起点价锚（D3.66 起纯观察）+ D3.66 burst 起来起点价锚（最后
+    // ≥50s 静默段出口首可靠价 vs launch 地板 %；service 侧 burst 豁免第四腿判据源）
     burstWaveStartVsLaunchPct: _pct(an.burstWaveStartVsLaunchPct),
+    burstExitVsLaunchPct: _pct(an.burstExitVsLaunchPct),
     noBuySellPct: _pct(an.noBuySellPct),
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
