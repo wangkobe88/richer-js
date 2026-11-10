@@ -373,6 +373,9 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   ok(ft.groupBuyBnb === 0.65 && ft.groupBuyPct === 65.0 && ft.groupSellPct === 100.0,
     `合计占比（groupBuy 0.65=65.0%/groupSell=100.0%，实际 ${ft.groupBuyBnb}/${ft.groupBuyPct}/${ft.groupSellPct}）`);
   ok(ft.netSumBnb === 0.00 && ft.inCustodyCount === 1, `Σ净 0.00 且在场计数 1（实际 ${ft.netSumBnb}/${ft.inCustodyCount}）`);
+  // BP70：在场净和=presenceNetBnb（净>0 钱包净额合计——W_FA +0.01 入、W_FB −0.01 不入；
+  // 与 netSumBnb（含负）刻意分开：尘埃残仓判读锚=28ad 案在场净和 0.0152 vs 59f5 0.7810 定线）
+  ok(ft.presenceNetBnb === 0.01, `在场净和 0.01（只计净>0 的 W_FA，实际 ${ft.presenceNetBnb}）`);
   // state 渲染三形状
   const stFt = buildBuyPointState(snapFt).state;
   ok(stFt.includes('famous 痕迹: 锚窗内名单钱包 2 个') && stFt.includes('0xfbfb…fbfb') && stFt.includes('0xfafa…fafa'),
@@ -381,6 +384,9 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
     && stFt.includes('净持仓>0 的名单钱包 1 个') && stFt.includes('占全窗买 65.0%') && stFt.includes('占全窗卖 100.0%')
     && stFt.includes('卖出/买入 102.9%') && stFt.includes('卖出/买入 96.7%') && stFt.includes('在场性判读三分') && stFt.includes('=收割中——收割完/收割中同落③桶残局臂'),
     'state 命中行数值（单钱包净/Σ净/在场计数/占比+三修卖/买比与判读三分句——FB 102.9%/FA 96.7%）');
+  // BP70：在场净额合计直供+尘埃残仓判读指针（判据与 state 直供同构——BP61 三修铁律）
+  ok(stFt.includes('在场净额合计（净>0 钱包净额之和）+0.0100') && stFt.includes('在场净额合计=尘埃量级（参考 <0.05 BNB）∧盘面基本归零过（发行价位置行「涨起后最低」≤+10%）后又流量涌入的 burst 重启形状=上一轮尘埃残仓不算在场（BP70 判读见③桶）'),
+    'state 痕迹行 BP70 直供（在场净额合计数值+burst 重启尘埃残仓指针句）');
   const ftMiss = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) }).buyDerived.famousTraces;
   ok(ftMiss.wallets.length === 0 && ftMiss.inCustodyCount === 0
     && buildBuyPointState(buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) })).state.includes('famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据'),
@@ -1138,6 +1144,16 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // 三薄盘放行即套引出用户立法「famous 在场的话，需要略大的交易额历史才能豁免」
   ok(mp.includes('区分锚（在场持有→厚薄分流，BP65 用户立法「famous 在场的话，需要略大的交易额历史才能豁免」）') && mp.includes('**在场持有不是无条件豁免**：①**薄盘在场持有照落本桶**——锚窗买入额仅个位数 BNB 量级（参考 <5 BNB）的薄盘') && mp.includes('famous 的货是要出的，在场 ≠ 护盘') && mp.includes('判例 59f5：锚窗买入仅 2.59 BNB 薄+双 famous 在场合计持有过半筹码（控盘 85%/集团买入 80%），三门放行买入 34s 即割肉 -17.6%') && mp.includes('判例 d928：3.19 BNB 薄+双 famous 在场 hold 69.5% 同形状，判例 ea7d：1.55 BNB 薄+单 famous 在场，放行 -9%') && mp.includes('②**厚盘在场持有不落本桶**——锚窗买入额量级 ≥5 BNB') && mp.includes('在场持有=换手结果不是收割前兆，正常评估退出臂与互斥检查（判例 c84a：买入 6.96 BNB 厚吞吐+famous 本人占买仅 12.7% 卖/买 123% 带底仓连续操作）'), 'F: BP65 ③桶区分锚厚薄分流（在场持有非无条件豁免——薄盘 <5 BNB 照落③：在场 ≠ 护盘，59f5/d928/ea7d 三薄盘放行即套定标；厚盘 ≥5 BNB 在场持有=换手结果归 none，c84a 判例；用户立法原话锚定）');
   ok(mp.includes('退出臂评估**须并读③桶区分锚的厚薄分流（BP65）**：薄盘（锚窗买入额 <5 BNB 量级）在场持有照落③不豁免') && qs.market_pattern.criteria.famous_monopoly.includes('**在场持有的厚薄分流（BP65）**：薄盘（锚窗买入 <5 BNB）famous 在场持有照落本桶——在场 ≠ 护盘（判例 59f5/d928/ea7d），≥5 BNB 厚盘充分换手的在场持有不落（换手结果非收割前兆，判例 c84a）'), 'F: BP65 前置句指针+criteria 同步（651 前置段「退出臂正常评估」与③桶「薄盘在场持有照落③」矛盾缝合——退出臂评估须并读厚薄分流；criteria.famous_monopoly 桶级语义句同步）');
+  // BP53 十修/案号 BP70（版本内返工不 bump）：③桶 burst 重启盘尘埃残仓豁免臂——28ad 案
+  ok(mp.includes('③**burst 重启盘的尘埃残仓不算在场（BP70，用户裁定「盘面相当于重启了，重启的时候有 famous 的尘埃残仓，不算特别大就好」）**：盘面此前**基本归零过**（发行价位置行「锚窗涨起后最低价较发行价」≤+10% 含破发=回到过 almost_launch 域）之后**又一波流量涌入重新拉起**')
+    && mp.includes('痕迹行的在场仓位若只是已基本卖完剩下的**尘埃残仓**（名单钱包卖出/买入九成以上乃至已清仓离场、在场净额合计仅尘埃量级——痕迹行直供，参考 <0.05 BNB），不算在场持有也不构成独食，不落本桶')
+    && mp.includes('判例 28ad：涨到 +58% 后砸回 +0.9% 基本归零、重启后近 60s 买 1.45 BNB/14 笔涌入，两 famous 一已清仓离场（卖/买 112%）一剩 +0.015 尘埃（卖/买 94%）、在场净额合计仅 0.0152')
+    && mp.includes('**豁免只给尘埃残仓**：在场净额大（真实大额持仓贯穿归零——卖/买低、一笔未卖级）或归零后新一轮入场吸筹的仍按①在场持有照落本桶（判例 59f5：同回到过 almost_launch（涨起后最低 +5.2%）但 0xe1e3 买 0.693 一笔未卖、在场净额合计 0.78=盘面近三成的真实在场，照落本桶）')
+    && mp.includes('**未基本归零过的盘子不适用本豁免**（判例 ea7d +14/d928 +20.9 从未回到 almost_launch 域，照①判读）'),
+    'F: BP70 ③桶 burst 重启盘尘埃残仓豁免臂（28ad restart 立法票被 BP65 薄盘臂吞入引出——两要件=基本归零（minVs ≤+10 含破发）+流量涌入构成 burst 重启语境→famous 痕迹=上一轮遗迹；豁免只给尘埃残仓（在场净额合计 <0.05 级+已基本卖完），59f5 大额在场（0xe1e3 一笔未卖 0.693）照落③；未归零过（ea7d/d928）不适用——用户裁定「结合基本归零跟流量涌入这两个特点，还是应该判为 burst，而在 burst 的时候，有 famous 在场可以豁免」）');
+  ok(mp.includes('薄盘（锚窗买入额 <5 BNB 量级）在场持有照落③不豁免（famous 的货是要出的、在场 ≠ 护盘，判例 59f5/d928/ea7d；**burst 重启盘的尘埃残仓除外——基本归零过+流量涌入、在场净额合计尘埃量级=上一轮遗迹不算在场，判读见③桶 BP70**）')
+    && qs.market_pattern.criteria.famous_monopoly.includes('**burst 重启盘（基本归零过+流量涌入）famous 仅剩尘埃残仓（在场净额合计 <0.05 级、已基本卖完）不算在场不落本桶（BP70，判例 28ad；在场净额大的照落，判例 59f5）**'),
+    'F: BP70 前置句指针+criteria 同步（651 前置段薄盘臂加「尘埃残仓除外」指针；criteria.famous_monopoly 桶级语义句同步——判型归 Jev 不搞代码门）');
   // BP53 九修/案号 BP66（版本内返工不 bump）：c84a v100 双误判（12:31:26 crash 0.5 贴线拒/
   // 12:31:32 act ultra 拒）引出两立法——①crash 必要条件=买点本身急跌；②act ultra 密度数值锚
   ok(esIns.includes('**判 crash 的必要条件=买点本身处在急跌里（BP66）**') && esIns.includes('累计跌幅大不等于点位急') && esIns.includes('较长时间的中等速率下跌（阴跌/阶梯下行数十秒、累计幅度可以很深）在买点时刻本地窗平缓') && esIns.includes('俩 0.1 级买入接一笔 0.25 级卖出的节奏') && esIns.includes('不是 crash，落 normal_dip**（判例 c84a：开盘 2 秒拉到 +200% 后 40 余秒中等速率阴跌破 +27.5% 线、买点前每秒 1~2 笔平缓换手') && esIns.includes('急了幅度浅也砸（44d9：一秒翻转 -22）、不急跌得多也不砸（c84a：累计深但点位缓）——判桶只看买点本地窗的急缓，与累计幅度无关'), 'F: BP66 crash 必要条件=买点本身急跌（用户裁定「所谓 crash，至少在该点位本身是急跌的……比较长时间的中等速率下跌，但是在点位本身并不是急跌」——判桶看本地窗急缓不看累计幅度；与 44d9 幅度浅照样砸合成完整框架）');

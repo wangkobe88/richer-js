@@ -652,6 +652,9 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       groupSellBnb,
       groupSellPct: cd.totalSellBnb > 0 ? +((groupSellBnb / cd.totalSellBnb) * 100).toFixed(1) : null,
       netSumBnb: +wallets.reduce((s, e) => s + e.netBnb, 0).toFixed(4),
+      // BP70：在场净和=净>0 钱包净额合计（尘埃残仓判读锚——burst 重启盘 famous
+      // 在场净额是否尘埃量级；与 netSumBnb（含负钱包）刻意分开，判读归题面③桶）
+      presenceNetBnb: +wallets.filter((e) => e.netBnb > 0).reduce((s, e) => s + e.netBnb, 0).toFixed(4),
       inCustodyCount: wallets.filter((e) => e.netBnb > 0).length,
     };
   })();
