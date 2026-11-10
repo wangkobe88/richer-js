@@ -1042,6 +1042,13 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // BP59（案号同 BP58 二修续）crash 第三形态轴=急跌进行时（bt-v96 2ef6 判例——用户裁定「买入时刻突然下跌不是可以接受的点位」）
   ok(esIns.includes('突发砸落进行时同落本桶（BP59）') && esIns.includes('chg5Pct≈chg10Pct 同深=整个下跌就发生在眼下几秒') && esIns.includes('下跌刚开始，买点接在急跌进行中=接刀进行时') && esIns.includes('判例 2ef6：+81.6% 高位横盘后买点前 5s 突发 -32%'), 'F: BP59 crash 急跌进行时第三形态轴（2ef6——+81.6% 横盘后买点前 5s 突发 -32%、chg5=chg10 同深无铺垫=接刀进行时落 crash；可接受的「跌」=已走完一段的位置）');
   ok(esIns.includes('且下跌已走完一段、此刻不在急跌进行中（BP59：chg5 深负无铺垫的急跌进行时落 crash）') && qs.entry_shape.criteria.crash.includes('买点时刻突发急跌进行时（chg5 深负+chg5≈chg10 同深无铺垫=刚开始砸）也落本桶') && qs.entry_shape.criteria.normal_dip.includes('前提=下跌已走完一段、此刻不在急跌进行中'), 'F: BP59 normal_dip 前提+criteria 两桶同步（正例对照锚 a813 chg5 -0.8/28ad +14 温和或已收复照放；chg5 深负无铺垫急跌进行时归 crash）');
+  // BP53 六修/案号 BP63（版本内返工不 bump）：258e 暴跌接刀漏拦引出 BP59 判例样本化——
+  // bt-v97/v98 258e（flap 赵公主）11:24:42 首信号 crash(0.77) 拒 ✓、3 秒后 11:24:45 第二信号
+  // 被 Jev 判 normal_dip(0.51) 放行成交即套（100s 卖）——两锚数值几乎同深全负（chg5 -44.7/-43.1、
+  // chg10 -41.8/-40.0 同深差 3pp 无铺垫、nearMaxDn5 -52.1、curVsAth≈-93%、curVs 仅 +6~+10）
+  // =BP59 急跌进行时教科书形状被形态复核翻摆；修=判例 258e 入题面（位置低≠跌势已止）。
+  ok(esIns.includes('判例 258e：**暴跌回落到 almost_launch 区（curVs 仅 +6~+10%）也不是豁免理由**') && esIns.includes('价格回到发行价附近的方式是「正在暴跌」而非「跌完企稳」') && esIns.includes('chg5 -43、chg10 -40 同深差仅 3pp（无铺垫）、nearMaxDn5 -52，三秒前同形状的首信号判 crash 拒了、第二信号被误判 normal_dip 放行买入即套') && esIns.includes('**回到 almost_launch 只说明位置低，不说明跌势已止**') && esIns.includes('可接受的「跌」=已走完一段：chg5 收敛于 0 或为正、或 chg5 明显浅于 chg10（下跌主体在过去几秒而非眼下）'), 'F: BP63 258e 判例样本（BP59 急跌进行时段补真实 case——暴跌回 almost_launch 区不豁免：位置低≠跌势已止；可接受的「跌」方向锚=chg5 收敛于 0/为正或明显浅于 chg10，与 28ad/c84a 企稳判例同向）');
+  ok(esIns.includes('暴跌回 almost_launch 区 chg5 -43≈chg10 -40 同深无铺垫（258e 接刀进行时）') && qs.entry_shape.criteria.crash.includes('（判例 2ef6/258e：暴跌回到 almost_launch 区也不豁免——位置低≠跌势已止）'), 'F: BP63 形状样本+criteria 两处同步（crash 形状样本第三判例+criteria 指针句 2ef6/258e 双引）');
   ok(esIns.includes('怎么算：[PRECOMPUTED] 现价较锚窗最高价行（currentVsAthPct）+ 近窗动量行（chg30Pct）+ 临近段 5s 段最大涨/跌行（nearMaxUp5Pct/nearMaxDn5Pct）+ 发行价位置行的 curVsMinGapPct'), 'F: entry_shape 怎么算=四键直供（snapshot 临近段 5s 双单调队列 nearMaxUp5Pct/nearMaxDn5Pct+发行价位置行 curVsMinGapPct）');
   // BP31 案（题集 BP34/BP35）：⑥持续拉升弱回调+①散户入场机会双臂+①⑥强庄家族从宽①
   ok(mp.includes('⑥持续拉升弱回调盘（sustained_climb，BP34 新增）') && mp.includes('「一开盘一直拉、几乎无回调的都不是啥好东西」') && mp.includes('没有庄筹码对倒、没有像样的换手') && mp.includes('浮筹全部悬在拉升段上方，拉不动的那一下就是山顶'), 'F: ⑥持续拉升弱回调盘立法（BP31 案 Shellbank 0x24436292 不健康最终证明 cheat——原话「一开盘一直拉几乎无回调的都不是啥好东西」：几乎无回调 ∧ 买卖几乎完全不平衡（近窗卖归零/尘埃+买占比 ≥90% 无对倒无换手不给散户入场机会）；二修恢复 BP51 全文）');
