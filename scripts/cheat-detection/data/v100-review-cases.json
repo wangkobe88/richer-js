@@ -16,6 +16,14 @@
       "covered": "batch 1 全批 10 票（idx 1-10）",
       "outcome": "4 issue（v100-R1 정책콕 launch 锚 / v100-R2 a8e70 阿拉伯散户PVP 盘形丢失 / v100-R3 苹果SI 速跌尾声 / v100-R4 苍蝇 0x0432 famous 未识别）+ 6 accept",
       "resolutions": "R1=价格反解公式方案先记录不做（2026-11-10 终裁）；R2=已落地 BP55/案号 BP71 大户参与单笔口径（423839d2+1eb76955）；R3=USD 域记账 bug 攒 case 不修；R4=0xd44e 已收录 famous roster（c5ccd066，12→13 址）"
+    },
+    {
+      "round": 1,
+      "date": "2026-11-10",
+      "time": "20:54–21:57（UTC+8，第二批；批次 3-7 用户在别处 review，本条只覆盖 batch 2）",
+      "covered": "batch 2 全批 10 票（idx 11-20）",
+      "outcome": "1 issue（idx19 Flap 0xe622…7777 双角度：cheat 侧 stall_burst 豁免波=协同拉盘腿 9/10 离场回吐 82%（豁免两腿由对倒组买单凑成）+ BP 侧 crash 接刀进行时形状坐实但数值四臂全贴线 miss 判 normal_dip 放行，成交 -0.0071）+ 9 accept",
+      "resolutions": "先记录不改（2026-11-10 用户裁定）：CD 候选 A（波钱包锚时刻在场性腿：波量回吐 ≥70% 不算买入流量 burst）/B（买点本地窗卖主导不授予豁免）；BP 候选 C（接刀形状臂数值化：末 10s ≥3 笔同块连卖 ∧ 零有效买 ∧ chg5≈chg10 ∧ chg5≤-8% 直接进 crash 复核）/D（nearMaxDn5 -15→-10 放宽）——对拍脚本 tmp-b2-19-burst-window.cjs（182）"
     }
   ],
   "batches": {
@@ -42,8 +50,18 @@
         11,
         20
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 20:54–21:57（UTC+8，含 idx19 双角度取证）",
+          "coveredIdx": [
+            11,
+            20
+          ],
+          "summary": "一案 issue（idx19 Flap 0xe622…7777 双角度：cheat stall_burst 豁免波=协同拉盘腿 9/10 波钱包锚前离场回吐 82% + BP crash 接刀形状四臂贴线 miss——先记录不改，候选 A-D 留档待裁，详 case note），其余九票 accept（用户原话「其它都没问题」）；批次 3-7 用户在别处 review 跳过"
+        }
+      ]
     },
     "3": {
       "range": [
@@ -58,24 +76,54 @@
         31,
         40
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 21:47（UTC+8）",
+          "coveredIdx": [
+            31,
+            40
+          ],
+          "summary": "全批 10 票 accept（用户原话「全部没有问题」）：五票 cheat 硬拒（31/34/35/39/40）+idx32 crash entry_gate 正确拒+idx37 crash/pattern_gate 拒+三票豁免放行成交（33 毛小亏/36 spike 判型不拦微赚/38 彪姐 CD391 闭合案）"
+        }
+      ]
     },
     "5": {
       "range": [
         41,
         50
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:05（UTC+8）",
+          "coveredIdx": [
+            41,
+            50
+          ],
+          "summary": "全批 10 票 accept（用户原话「没问题」）：三票 cheat 硬拒（42/49/50）+M4GA unhealthy 拒（48）未进 BP；三票 BP 拒（41 谷谷⑥桶 pattern_gate=CD389 点名漏网票下游闭环/45 memes-28ad famous_monopoly 贴线+curVs 30.3 双破/46 恐龙抗狼 crash almost_launch=BP63 同语义）；三票豁免放行成交（43/44 打平微亏、47 BNBFATHER +0.0183 唯一正收益）"
+        }
+      ]
     },
     "6": {
       "range": [
         51,
         60
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-10 22:12（UTC+8）",
+          "coveredIdx": [
+            51,
+            60
+          ],
+          "summary": "10 票：9 accept + 1 issue。六票 cheat 侧硬拒未进 BP（51/54/57/58 cheat+56/60 unhealthy，其中 51 FourPool=CD396 定线票立法后稳定拒）；53 持械入宋 crash(0.40) entry_gate 拒前向 -0.008 验证正确；两票豁免放行成交（55 王涛 +0.0049/59 TAIGAN -0.0103）。issue=52 王涛『也属于 crash』（crash 接刀案族第三例：BP59 三特征全中+数值三臂全中，被上游 cheat 硬拒=行为正确、前向 -0.0099 验证；正样本积累与 19/26 漏判例同攒批待裁）"
+        }
+      ]
     },
     "7": {
       "range": [
@@ -276,7 +324,7 @@
       "signalId": "39f9794f-5c2f-4b44-8f10-4715d7debba6",
       "anchorIso": "2026-11-05T04:34:36+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.2956470989332986e-06,
+      "priceBnb": 0.0000042956470989332986,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": 0.01,
@@ -331,7 +379,7 @@
         "athVsLaunchPct": 22.8,
         "curVsMinGapPct": 19.4,
         "holdersDelta60": 1,
-        "launchPriceBnb": 4.9040100848700695e-09,
+        "launchPriceBnb": 4.9040100848700695e-9,
         "minVsLaunchPct": 3.4,
         "openLateBuyBnb": 0.492,
         "openSegBigBuyN": 1,
@@ -407,8 +455,8 @@
         "chip": "moderate(0.90)",
         "priceLevel": "near_launch(0.98)"
       },
-      "curVs": 13.0,
-      "minVs": 10.0,
+      "curVs": 13,
+      "minVs": 10,
       "firstPointStatus": "executed",
       "pnl": -0.0055,
       "verdict": "issue",
@@ -420,7 +468,7 @@
       "signalId": "0d0daa24-ec23-4ee3-aa27-70cc2006683d",
       "anchorIso": "2026-11-05T04:45:14+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.017773898302975e-06,
+      "priceBnb": 0.000004017773898302975,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": 2.66,
@@ -475,7 +523,7 @@
         "athVsLaunchPct": 21.2,
         "curVsMinGapPct": 3,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.056828362111343e-09,
+        "launchPriceBnb": 5.056828362111343e-9,
         "minVsLaunchPct": 10,
         "openLateBuyBnb": 0.0696,
         "openSegBigBuyN": 2,
@@ -564,7 +612,7 @@
       "signalId": "20ee32a3-81aa-445d-8a2c-7e02f2f9d716",
       "anchorIso": "2026-11-05T04:46:51+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.627197612503273e-06,
+      "priceBnb": 0.000004627197612503273,
       "anchors": {
         "burst5N": 15,
         "chg5Pct": 1.89,
@@ -619,7 +667,7 @@
         "athVsLaunchPct": 24.2,
         "curVsMinGapPct": 5.3,
         "holdersDelta60": 10,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 11.6,
         "openLateBuyBnb": 1.0821,
         "openSegBigBuyN": 0,
@@ -705,7 +753,7 @@
       "signalId": "699e8b16-b710-4ec0-8d74-603a8b09f525",
       "anchorIso": "2026-11-05T04:52:17+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.6186475556370473e-06,
+      "priceBnb": 0.0000036186475556370473,
       "anchors": null
     },
     {
@@ -740,7 +788,7 @@
       "signalId": "06818dae-c8d1-460a-b75a-d99b922a4092",
       "anchorIso": "2026-11-05T05:05:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.914777311774782e-06,
+      "priceBnb": 0.000004914777311774782,
       "anchors": null
     },
     {
@@ -772,7 +820,7 @@
       "signalId": "24d24d74-892f-4037-b060-82b6985d1a66",
       "anchorIso": "2026-11-05T05:09:30+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.033749655616244e-06,
+      "priceBnb": 0.000005033749655616244,
       "anchors": {
         "burst5N": 40,
         "chg5Pct": 2.9,
@@ -827,7 +875,7 @@
         "athVsLaunchPct": 99.4,
         "curVsMinGapPct": 18.8,
         "holdersDelta60": 13,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 8.4,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 8,
@@ -917,7 +965,7 @@
       "signalId": "43f4428b-c824-4d2d-b8c9-bbb56de06b30",
       "anchorIso": "2026-11-05T05:09:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.628720989987114e-06,
+      "priceBnb": 0.000004628720989987114,
       "anchors": null
     },
     {
@@ -949,7 +997,7 @@
       "signalId": "c2b86165-5201-4f0a-a2cb-2e3fff235af0",
       "anchorIso": "2026-11-05T05:09:35+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.051048140097418e-06,
+      "priceBnb": 0.000005051048140097418,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -10.39,
@@ -1004,7 +1052,7 @@
         "athVsLaunchPct": 42.5,
         "curVsMinGapPct": 5,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 22.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -1090,7 +1138,7 @@
       "signalId": "226091ba-d01e-4a76-b808-4f80d86e6e3c",
       "anchorIso": "2026-11-05T05:10:10+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.114378652142918e-06,
+      "priceBnb": 0.000004114378652142918,
       "anchors": null
     },
     {
@@ -1122,7 +1170,7 @@
       "signalId": "6d3e4785-dbc9-425b-ae43-6bfc099cd8f7",
       "anchorIso": "2026-11-05T05:10:22+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.080298661462492e-06,
+      "priceBnb": 0.000005080298661462492,
       "anchors": {
         "burst5N": 46,
         "chg5Pct": -39.06,
@@ -1177,7 +1225,7 @@
         "athVsLaunchPct": 224,
         "curVsMinGapPct": 0,
         "holdersDelta60": 30,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 28.4,
         "openLateBuyBnb": 0.0694,
         "openSegBigBuyN": 7,
@@ -1257,12 +1305,13 @@
       "minVs": 20.3,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat 豁免 activity_high 过、BP entry_gate 拒）",
       "signalId": "9e2d9c40-2846-4806-823d-5d262f0db0df",
       "anchorIso": "2026-11-05T05:10:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.7610458556865065e-06,
+      "priceBnb": 0.0000047610458556865065,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": -14.9,
@@ -1317,7 +1366,7 @@
         "athVsLaunchPct": 68.8,
         "curVsMinGapPct": 0,
         "holdersDelta60": 10,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 20.3,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 3,
@@ -1397,12 +1446,13 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat unhealthy 拒）",
       "signalId": "5d51739b-c4a9-4105-85ec-a127f955100c",
       "anchorIso": "2026-11-05T05:14:34+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.9601301742655445e-06,
+      "priceBnb": 0.0000049601301742655445,
       "anchors": null
     },
     {
@@ -1428,12 +1478,13 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat 拒）",
       "signalId": "3225ccdc-8983-4e69-99bf-ec265eebd77f",
       "anchorIso": "2026-11-05T05:17:17+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.047664303965865e-06,
+      "priceBnb": 0.000005047664303965865,
       "anchors": null
     },
     {
@@ -1459,12 +1510,13 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat unhealthy 拒）",
       "signalId": "083df197-5fcb-4e05-81f2-d85d2c8eef20",
       "anchorIso": "2026-11-05T05:19:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.553295835941829e-06,
+      "priceBnb": 0.000004553295835941829,
       "anchors": null
     },
     {
@@ -1486,16 +1538,17 @@
         "chip": "moderate(0.66)",
         "priceLevel": "almost_launch(0.99)"
       },
-      "curVs": 7.0,
-      "minVs": -10.0,
+      "curVs": 7,
+      "minVs": -10,
       "firstPointStatus": "executed",
       "pnl": 0.0396,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（豁免翻案 healthy、BP 放行成交 +0.0396）",
       "signalId": "08640cfd-72b3-4c70-b4c2-10c162dd83f9",
       "anchorIso": "2026-11-05T05:24:56+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0118321013983526e-06,
+      "priceBnb": 0.0000040118321013983526,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": 18.89,
@@ -1550,7 +1603,7 @@
         "athVsLaunchPct": 25.5,
         "curVsMinGapPct": 17,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.441017250585948e-09,
+        "launchPriceBnb": 5.441017250585948e-9,
         "minVsLaunchPct": -10,
         "openLateBuyBnb": 0.5119,
         "openSegBigBuyN": 0,
@@ -1630,12 +1683,13 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat 拒）",
       "signalId": "02d87cfa-cf09-4db3-a8ba-5a3c10e9c3bd",
       "anchorIso": "2026-11-05T05:26:56+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.974128375625291e-06,
+      "priceBnb": 0.000004974128375625291,
       "anchors": null
     },
     {
@@ -1661,12 +1715,13 @@
       "minVs": 9.8,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（healthy 直过、BP entry_gate 拒）",
       "signalId": "4fd60f7a-f001-45d3-89e2-f8dc6273afcf",
       "anchorIso": "2026-11-05T05:30:05+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.343048946276399e-06,
+      "priceBnb": 0.000004343048946276399,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -12.85,
@@ -1721,7 +1776,7 @@
         "athVsLaunchPct": 63.7,
         "curVsMinGapPct": 0,
         "holdersDelta60": -8,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 9.8,
         "openLateBuyBnb": 2.0773,
         "openSegBigBuyN": 0,
@@ -1801,12 +1856,13 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat unhealthy 拒）",
       "signalId": "d2dad8ed-f119-4c76-8e44-8ad570cdf5b6",
       "anchorIso": "2026-11-05T05:31:18+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.85188638147104e-06,
+      "priceBnb": 0.00000485188638147104,
       "anchors": null
     },
     {
@@ -1838,7 +1894,7 @@
       "signalId": "5c953aeb-70a6-47b3-aa52-0c3943df267d",
       "anchorIso": "2026-11-05T05:32:15+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.019845106235152e-06,
+      "priceBnb": 0.000005019845106235152,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": -11.89,
@@ -1893,7 +1949,7 @@
         "athVsLaunchPct": 61,
         "curVsMinGapPct": 10.9,
         "holdersDelta60": -2,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 13.3,
         "openLateBuyBnb": 1.2702,
         "openSegBigBuyN": 1,
@@ -1973,12 +2029,13 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第二批 review 接受当前结果（cheat 拒）",
       "signalId": "aff64edf-8965-4fe4-bc3a-02561e75b10a",
       "anchorIso": "2026-11-05T05:34:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.922541377825611e-06,
+      "priceBnb": 0.000004922541377825611,
       "anchors": null
     },
     {
@@ -2009,7 +2066,7 @@
       "signalId": "1fe12098-3598-42ca-a919-e6ecabda574a",
       "anchorIso": "2026-11-05T05:36:39+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.860702255524854e-06,
+      "priceBnb": 0.000003860702255524854,
       "anchors": null
     },
     {
@@ -2040,7 +2097,7 @@
       "signalId": "378b91f8-d344-4675-a5fc-ad64e8775c72",
       "anchorIso": "2026-11-05T05:42:42+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.454877301783502e-06,
+      "priceBnb": 0.000004454877301783502,
       "anchors": {
         "burst5N": 20,
         "chg5Pct": 5.03,
@@ -2095,7 +2152,7 @@
         "athVsLaunchPct": 33.9,
         "curVsMinGapPct": 14.6,
         "holdersDelta60": 12,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -2171,7 +2228,7 @@
         "chip": "moderate(0.91)",
         "priceLevel": "near_launch(1.00)"
       },
-      "curVs": 27.0,
+      "curVs": 27,
       "minVs": 15.8,
       "firstPointStatus": "failed",
       "pnl": -0.0019,
@@ -2180,7 +2237,7 @@
       "signalId": "0fb508fa-2c40-4451-bc97-10c0346e1dcb",
       "anchorIso": "2026-11-05T05:47:50+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.908767766390654e-06,
+      "priceBnb": 0.000004908767766390654,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 26.98,
@@ -2235,7 +2292,7 @@
         "athVsLaunchPct": 27,
         "curVsMinGapPct": 11.2,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.471756652085332e-09,
+        "launchPriceBnb": 5.471756652085332e-9,
         "minVsLaunchPct": 15.8,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -2320,7 +2377,7 @@
       "signalId": "e1f1bd75-9476-43ed-9d7a-f73c17bfd476",
       "anchorIso": "2026-11-05T05:48:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.606654307664965e-06,
+      "priceBnb": 0.000004606654307664965,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": 3.22,
@@ -2375,7 +2432,7 @@
         "athVsLaunchPct": 34.7,
         "curVsMinGapPct": 3.6,
         "holdersDelta60": 4,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 12.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -2460,7 +2517,7 @@
       "signalId": "24de2f56-55b3-42c2-801e-ce0ee2f8d6df",
       "anchorIso": "2026-11-05T05:50:11+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.913994692162238e-06,
+      "priceBnb": 0.000004913994692162238,
       "anchors": null
     },
     {
@@ -2483,15 +2540,15 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 19.3,
-      "minVs": 9.0,
+      "minVs": 9,
       "firstPointStatus": "executed",
       "pnl": -0.0039,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "8c92ca64-ad4c-46cf-a1d5-9917ac63f7b6",
       "anchorIso": "2026-11-05T05:54:09+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.9910783772669934e-06,
+      "priceBnb": 0.0000049910783772669934,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": -12.73,
@@ -2546,7 +2603,7 @@
         "athVsLaunchPct": 39.1,
         "curVsMinGapPct": 10.3,
         "holdersDelta60": 2,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 9,
         "openLateBuyBnb": 0.7552,
         "openSegBigBuyN": 0,
@@ -2601,7 +2658,8 @@
         "chipTop1Top2HoldCircPct": 75.41770188107975,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "用户反馈（2026-11-10 第三批 review）：『也属于 crash』（呼应 idx 19 FlapGuy crash 接刀裁定，同族第二例）。锚窗证据（case anchors）：secSinceAth=1（1 秒前刚见顶）+ chg5Pct=-12.73 ≈ chg10Pct=-12.7（同深无铺垫）+ chg30Pct=+3.45（此前上涨）=BP59 急跌进行时/接刀形状；crash 数值四臂全 miss（curVsAth -14.21 vs -25 / chg30 +3.45 vs -25 / nearMaxDn5 -14.21 vs -15 贴线差 0.79pp / curVsMinGap +10.3pp vs 2pp）不进形态复核，Jev 判 normal_dip(0.74) 放行 gates_passed 成交，-0.0039。cheat 侧=healthy(豁免←cheat,activity_high)（A强 spike+J_hold+R_abn 被高活跃豁免）。处置=先记录不改，与 idx 19 同攒批（crash 接刀形状连续两例贴线滑过）。"
     },
     {
       "idx": 27,
@@ -2631,7 +2689,7 @@
       "signalId": "74c0493b-e3b4-4138-ab66-c3afcfe1e15c",
       "anchorIso": "2026-11-05T05:56:44+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.277180287911666e-06,
+      "priceBnb": 0.000004277180287911666,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 3.92,
@@ -2686,7 +2744,7 @@
         "athVsLaunchPct": 29.5,
         "curVsMinGapPct": 15.3,
         "holdersDelta60": 8,
-        "launchPriceBnb": 4.774026140331659e-09,
+        "launchPriceBnb": 4.774026140331659e-9,
         "minVsLaunchPct": 10.4,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -2771,7 +2829,7 @@
       "signalId": "b1c55f1e-bba3-4ef7-8d31-b65eebfbd048",
       "anchorIso": "2026-11-05T06:07:40+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.995767335657042e-06,
+      "priceBnb": 0.000003995767335657042,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": 15.99,
@@ -2826,7 +2884,7 @@
         "athVsLaunchPct": 26.9,
         "curVsMinGapPct": 27.1,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.422362577194315e-09,
+        "launchPriceBnb": 4.422362577194315e-9,
         "minVsLaunchPct": -0.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -2911,7 +2969,7 @@
       "signalId": "4734c4d3-847e-4348-bdc9-1445ee4b992c",
       "anchorIso": "2026-11-05T06:11:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.234827665392999e-06,
+      "priceBnb": 0.000004234827665392999,
       "anchors": null
     },
     {
@@ -2942,7 +3000,7 @@
       "signalId": "66daf3fc-5c67-4195-9819-e6c55d747feb",
       "anchorIso": "2026-11-05T06:19:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.045974307758624e-06,
+      "priceBnb": 0.000005045974307758624,
       "anchors": null
     },
     {
@@ -2968,13 +3026,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "984f85c3-ca70-47e8-9f2a-9cc9bb0d26cc",
       "anchorIso": "2026-11-05T06:19:46+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.505728843610167e-06,
-      "anchors": null
+      "priceBnb": 0.000003505728843610167,
+      "anchors": null,
+      "note": "第四批 review 接受当前结果（cheat 硬拒（未进 BP））"
     },
     {
       "idx": 32,
@@ -2995,16 +3054,16 @@
         "chip": "moderate(0.92)",
         "priceLevel": "almost_launch(0.99)"
       },
-      "curVs": 0.0,
-      "minVs": 0.0,
+      "curVs": 0,
+      "minVs": 0,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "f942bfa2-e607-4eed-b0e3-86d446f73c9d",
       "anchorIso": "2026-11-05T06:20:04+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.849124418794325e-06,
+      "priceBnb": 0.000004849124418794325,
       "anchors": {
         "burst5N": 14,
         "chg5Pct": -40.68,
@@ -3059,7 +3118,7 @@
         "athVsLaunchPct": 110.9,
         "curVsMinGapPct": 0,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -3114,7 +3173,8 @@
         "chipTop1Top2HoldCircPct": 99.99590864180148,
         "actNearTail10SellWallets": 9,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第四批 review 接受当前结果（crash(0.78) 被 entry_gate 正确拒）"
     },
     {
       "idx": 33,
@@ -3139,12 +3199,12 @@
       "minVs": 10.1,
       "firstPointStatus": "executed",
       "pnl": -0.006,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "7752f976-7c30-45a9-b96d-fd99bb976eca",
       "anchorIso": "2026-11-05T06:20:05+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.0499923830026715e-06,
+      "priceBnb": 0.0000050499923830026715,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": -7.79,
@@ -3199,7 +3259,7 @@
         "athVsLaunchPct": 56.5,
         "curVsMinGapPct": 17.8,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10.1,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -3254,7 +3314,8 @@
         "chipTop1Top2HoldCircPct": 55.89624591527814,
         "actNearTail10SellWallets": 6,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第四批 review 接受当前结果（gates_passed 放行成交 normal_dip，-0.006）"
     },
     {
       "idx": 34,
@@ -3279,13 +3340,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "7d22471d-fdcc-4943-b540-01b5253c54fe",
       "anchorIso": "2026-11-05T06:27:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.870351452075199e-06,
-      "anchors": null
+      "priceBnb": 0.000004870351452075199,
+      "anchors": null,
+      "note": "第四批 review 接受当前结果（cheat 硬拒（未进 BP））"
     },
     {
       "idx": 35,
@@ -3310,13 +3372,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0866bc5b-68ae-4ec7-9d60-0a52f9879437",
       "anchorIso": "2026-11-05T06:30:07+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.955491389421774e-06,
-      "anchors": null
+      "priceBnb": 0.000004955491389421774,
+      "anchors": null,
+      "note": "第四批 review 接受当前结果（cheat 硬拒（未进 BP））"
     },
     {
       "idx": 36,
@@ -3341,12 +3404,12 @@
       "minVs": 10.8,
       "firstPointStatus": "executed",
       "pnl": 0.0036,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "db4db19f-b4a6-4f8c-9246-6f42d1bd6034",
       "anchorIso": "2026-11-05T06:40:46+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.068026407386561e-06,
+      "priceBnb": 0.000005068026407386561,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": 5.51,
@@ -3401,7 +3464,7 @@
         "athVsLaunchPct": 28.5,
         "curVsMinGapPct": 17.7,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10.8,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -3456,7 +3519,8 @@
         "chipTop1Top2HoldCircPct": 62.19899566574267,
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第四批 review 接受当前结果（豁免放行成交 spike(0.99) 判型落档不拦（BP68），+0.0036）"
     },
     {
       "idx": 37,
@@ -3481,12 +3545,12 @@
       "minVs": 13.7,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0477ffcb-4452-4e33-9a0c-f95d9bc8d43e",
       "anchorIso": "2026-11-05T06:45:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.758738923621059e-06,
+      "priceBnb": 0.000004758738923621059,
       "anchors": {
         "burst5N": 15,
         "chg5Pct": -26.28,
@@ -3541,7 +3605,7 @@
         "athVsLaunchPct": 102.9,
         "curVsMinGapPct": 6.7,
         "holdersDelta60": 11,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 13.7,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 3,
@@ -3596,7 +3660,8 @@
         "chipTop1Top2HoldCircPct": 22.199009693263395,
         "actNearTail10SellWallets": 6,
         "chipFamousFollowerTop3Pct": 33.2
-      }
+      },
+      "note": "第四批 review 接受当前结果（crash(0.54) 判型+pattern_gate 拒）"
     },
     {
       "idx": 38,
@@ -3621,12 +3686,12 @@
       "minVs": 12.5,
       "firstPointStatus": "executed",
       "pnl": -0.0086,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "5dd9a42d-498c-4942-8485-76a2a8d12ee5",
       "anchorIso": "2026-11-05T06:48:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.620689635479674e-06,
+      "priceBnb": 0.000004620689635479674,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": -9.74,
@@ -3681,7 +3746,7 @@
         "athVsLaunchPct": 113.6,
         "curVsMinGapPct": 12.6,
         "holdersDelta60": -4,
-        "launchPriceBnb": 5.190345974449001e-09,
+        "launchPriceBnb": 5.190345974449001e-9,
         "minVsLaunchPct": 12.5,
         "openLateBuyBnb": 3.242,
         "openSegBigBuyN": 2,
@@ -3736,7 +3801,8 @@
         "chipTop1Top2HoldCircPct": 54.71278212865804,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": 96.5
-      }
+      },
+      "note": "第四批 review 接受当前结果（豁免放行成交 normal_dip，-0.0086（CD391 两案例票之一，链路闭合案））"
     },
     {
       "idx": 39,
@@ -3761,13 +3827,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "55873735-76c5-4066-b350-71d7d9d6224e",
       "anchorIso": "2026-11-05T06:51:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.961923928544751e-06,
-      "anchors": null
+      "priceBnb": 0.000003961923928544751,
+      "anchors": null,
+      "note": "第四批 review 接受当前结果（cheat 硬拒（未进 BP））"
     },
     {
       "idx": 40,
@@ -3792,13 +3859,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "09e9ca97-b2d7-4b8a-ad4d-65fbffab2645",
       "anchorIso": "2026-11-05T07:03:52+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.365218850450689e-06,
-      "anchors": null
+      "priceBnb": 0.000004365218850450689,
+      "anchors": null,
+      "note": "第四批 review 接受当前结果（cheat 硬拒（未进 BP））"
     },
     {
       "idx": 41,
@@ -3823,12 +3891,12 @@
       "minVs": 10.5,
       "firstPointStatus": "failed",
       "pnl": 0.0082,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "2e3d2075-4f7c-4d9b-9f96-ebfac56f769f",
       "anchorIso": "2026-11-05T07:06:17+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.893383270724547e-06,
+      "priceBnb": 0.000004893383270724547,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": 25.22,
@@ -3883,7 +3951,7 @@
         "athVsLaunchPct": 27.6,
         "curVsMinGapPct": 17.1,
         "holdersDelta60": 8,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10.5,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -3938,7 +4006,8 @@
         "chipTop1Top2HoldCircPct": 58.2949123286719,
         "actNearTail10SellWallets": 0,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第五批 review 接受（cheat unhealthy 被 high 档豁免放行，卡 BP pattern_gate：⑥ sustained_climb(0.60)+spike(0.91) 判型落档不拦 BP68；CD389 台账点名同款形状——漏网票在门链下游被拦，闭环）"
     },
     {
       "idx": 42,
@@ -3963,13 +4032,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "3a4d5e20-d377-4cee-9359-c7fd3a6e5026",
       "anchorIso": "2026-11-05T07:12:02+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.746738749626314e-06,
-      "anchors": null
+      "priceBnb": 0.000004746738749626314,
+      "anchors": null,
+      "note": "第五批 review 接受（cheat 硬拒未进 BP）"
     },
     {
       "idx": 43,
@@ -3994,12 +4064,12 @@
       "minVs": 13.2,
       "firstPointStatus": "executed",
       "pnl": -0.0001,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0f94ab66-adc6-424e-ba4a-58ffd9514119",
       "anchorIso": "2026-11-05T07:12:49+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.081784781952283e-06,
+      "priceBnb": 0.000004081784781952283,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -7.77,
@@ -4054,7 +4124,7 @@
         "athVsLaunchPct": 36.3,
         "curVsMinGapPct": 12.5,
         "holdersDelta60": 11,
-        "launchPriceBnb": 4.562926655180865e-09,
+        "launchPriceBnb": 4.562926655180865e-9,
         "minVsLaunchPct": 13.2,
         "openLateBuyBnb": 0,
         "openSegBigBuyN": 0,
@@ -4109,7 +4179,8 @@
         "chipTop1Top2HoldCircPct": 44.64107571527326,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第五批 review 接受（四门全过成交 -0.0001 打平；BP27 庄时序锚 S048 案票，none(0.82)/normal_dip(0.91) 判定合理）"
     },
     {
       "idx": 44,
@@ -4134,12 +4205,12 @@
       "minVs": 7.4,
       "firstPointStatus": "executed",
       "pnl": -0.0002,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "2fb70e55-eec5-4bb5-8fcd-2cc1f88f55d8",
       "anchorIso": "2026-11-05T07:14:12+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.821504866737462e-06,
+      "priceBnb": 0.000004821504866737462,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 16.79,
@@ -4194,7 +4265,7 @@
         "athVsLaunchPct": 34,
         "curVsMinGapPct": 18.1,
         "holdersDelta60": 8,
-        "launchPriceBnb": 5.290554922399007e-09,
+        "launchPriceBnb": 5.290554922399007e-9,
         "minVsLaunchPct": 7.4,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -4249,7 +4320,8 @@
         "chipTop1Top2HoldCircPct": 51.64311477103054,
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第五批 review 接受（cheat→high 豁免放行；spike(0.66) BP68 判型落档不拦；成交 -0.0002 打平）"
     },
     {
       "idx": 45,
@@ -4274,12 +4346,12 @@
       "minVs": 0.9,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "33544d17-dde8-43c5-ada7-42eda5f6db88",
       "anchorIso": "2026-11-05T07:15:54+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.7570299356656506e-06,
+      "priceBnb": 0.0000037570299356656506,
       "anchors": {
         "burst5N": 15,
         "chg5Pct": 17.25,
@@ -4334,7 +4406,7 @@
         "athVsLaunchPct": 58.2,
         "curVsMinGapPct": 29.4,
         "holdersDelta60": 0,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 0.9,
         "openLateBuyBnb": 1.4478,
         "openSegBigBuyN": 0,
@@ -4389,7 +4461,8 @@
         "chipTop1Top2HoldCircPct": 48.78739421915616,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": 59.8
-      }
+      },
+      "note": "第五批 review 接受（BP44/BP70 restart 立法票：cheat→high 豁免后 BP famous_monopoly(0.50) 贴线 pattern_gate 拒；curVs +30.3 同破统一门 28.5，双防线一致）"
     },
     {
       "idx": 46,
@@ -4414,12 +4487,12 @@
       "minVs": 4.2,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "3bf1039e-b0d4-46ee-8702-a8e2e22a4105",
       "anchorIso": "2026-11-05T07:17:49+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.114647637655423e-06,
+      "priceBnb": 0.000004114647637655423,
       "anchors": {
         "burst5N": 74,
         "chg5Pct": -1.03,
@@ -4474,7 +4547,7 @@
         "athVsLaunchPct": 313.3,
         "curVsMinGapPct": 0,
         "holdersDelta60": -58,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 4.2,
         "openLateBuyBnb": 7.8724,
         "openSegBigBuyN": 0,
@@ -4521,7 +4594,7 @@
         "actNearSegTicksPerMin": 164,
         "chipFamousGroupBuyPct": null,
         "currentVsSwingHighPct": -74.78,
-        "actNearSegBuyMedianBnb": 9.4e-05,
+        "actNearSegBuyMedianBnb": 0.000094,
         "actNearTail10BnbPerMin": 36.53,
         "actThroughputBnbPerMin": 1.46,
         "chipFamousDominancePct": null,
@@ -4529,7 +4602,8 @@
         "chipTop1Top2HoldCircPct": 79.28669718653809,
         "actNearTail10SellWallets": 73,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第五批 review 接受（cheat→ultra∧burst 双臂同中取 activity 桶豁免（CD391 形状）；BP crash(0.68) 在 almost_launch(+4.2) entry_gate 拒=BP63 258e「暴跌回到 almost_launch 也不豁免」同语义）"
     },
     {
       "idx": 47,
@@ -4551,15 +4625,15 @@
         "priceLevel": "near_launch(0.99)"
       },
       "curVs": 16.4,
-      "minVs": 0.0,
+      "minVs": 0,
       "firstPointStatus": "executed",
       "pnl": 0.0183,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0a92de8e-6162-451a-b577-1945853865f0",
       "anchorIso": "2026-11-05T07:22:43+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.311586824102622e-06,
+      "priceBnb": 0.000004311586824102622,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": -13.42,
@@ -4614,7 +4688,7 @@
         "athVsLaunchPct": 34.5,
         "curVsMinGapPct": 16.4,
         "holdersDelta60": 9,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -4669,7 +4743,8 @@
         "chipTop1Top2HoldCircPct": 30.139629087510883,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第五批 review 接受（cheat→high 豁免放行，四门全过成交 +0.0183 本批唯一正收益）"
     },
     {
       "idx": 48,
@@ -4694,13 +4769,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "5cd23d4d-0a47-4323-8331-d6709afd26ed",
       "anchorIso": "2026-11-05T07:24:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.9427249735023916e-06,
-      "anchors": null
+      "priceBnb": 0.0000039427249735023916,
+      "anchors": null,
+      "note": "第五批 review 接受（unhealthy 拒未进 BP；CD383 burst 二修定线票 0xba5ed45b）"
     },
     {
       "idx": 49,
@@ -4725,13 +4801,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "81cdde52-4a27-46ab-88ad-7792d0896575",
       "anchorIso": "2026-11-05T07:25:11+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.633483856456108e-06,
-      "anchors": null
+      "priceBnb": 0.000003633483856456108,
+      "anchors": null,
+      "note": "第五批 review 接受（cheat 硬拒未进 BP）"
     },
     {
       "idx": 50,
@@ -4756,13 +4833,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "b24fdcc6-095a-4638-a55b-eae22627cf1f",
       "anchorIso": "2026-11-05T07:25:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.021587564560862e-06,
-      "anchors": null
+      "priceBnb": 0.000004021587564560862,
+      "anchors": null,
+      "note": "第五批 review 接受（cheat 硬拒未进 BP）"
     },
     {
       "idx": 51,
@@ -4787,13 +4865,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1472b0c5-54b4-4aec-bab8-f289e1928b1e",
       "anchorIso": "2026-11-05T07:28:52+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.607964253633728e-06,
-      "anchors": null
+      "priceBnb": 0.000003607964253633728,
+      "anchors": null,
+      "note": "第六批 review 接受（cheat 硬拒未进 BP；CD396 定线票 0xad80fb7a——burst 第四腿 exitVs>40 立法后稳定拒，正确行为）"
     },
     {
       "idx": 52,
@@ -4818,13 +4897,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0099,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "37d02440-d287-423a-94b9-cefb848ec14d",
       "anchorIso": "2026-11-05T07:30:36+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.804830120210055e-06,
-      "anchors": null
+      "priceBnb": 0.000003804830120210055,
+      "anchors": null,
+      "note": "用户反馈（2026-11-10 第六批 review）：『也属于 crash』（crash 接刀案族第三例，续 idx 19 FlapGuy/idx 26 LABU）。182 取证（tmp-52-wangtao-crash.cjs，锚 07:30:36Z）：BP59 急跌进行时三特征全中——chg5Pct=-22.48 深负 ∧ chg5≈chg10（差 0.13pp 同深无铺垫）∧ secSinceAth=28s 刚见顶；且 crash 数值四臂三臂全中（curVsAthPct=-52.35≤-25 / chg30Pct=-46.74≤-25 / nearMaxDn5Pct=-29.28≤-15）——锚时刻正是三连卖 0.33+0.26+0.11 BNB 从 +31% 砸到 +14% 的动作末尾（接刀进行时，非跌完企稳）。与 19/26 不同向：那两例数值臂贴线 miss 被 Jev 判 normal_dip 放行成交（模块漏判），本例被上游 cheat 硬拒（A强:pump+D_famous+J_hold+R_abn+N_no_retail_entry0.0，未进 BP）=门链行为正确、前向 -0.0099 验证拦截正确。裁定价值=crash 模块正样本积累（三臂全中的强 crash 若非 cheat 先拒，数值臂+BP64 44d9 判例形状应稳定拦住）；处置=先记录不改，与 19/26 同攒批（候选 A-D 待裁）。"
     },
     {
       "idx": 53,
@@ -4849,12 +4929,12 @@
       "minVs": 25.7,
       "firstPointStatus": "failed",
       "pnl": -0.008,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "57af6e0f-15df-48f8-90e8-8b1f28aab903",
       "anchorIso": "2026-11-05T07:33:06+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.020051371428159e-06,
+      "priceBnb": 0.000004020051371428159,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": -1.17,
@@ -4909,7 +4989,7 @@
         "athVsLaunchPct": 62.1,
         "curVsMinGapPct": 0,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 25.7,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -4964,7 +5044,8 @@
         "chipTop1Top2HoldCircPct": 82.80425943760453,
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第六批 review 接受（cheat→high 豁免放行，BP crash(0.40) 过形态复核 entry_gate 拒；前向 -0.008 验证拦截正确——与 19/26 滑过族相反方向的正确拦截例）"
     },
     {
       "idx": 54,
@@ -4989,13 +5070,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "2275ec42-1c55-4007-9628-8b00f273c8d3",
       "anchorIso": "2026-11-05T07:33:12+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.340538355690301e-06,
-      "anchors": null
+      "priceBnb": 0.000004340538355690301,
+      "anchors": null,
+      "note": "第六批 review 接受（cheat 硬拒未进 BP）"
     },
     {
       "idx": 55,
@@ -5020,12 +5102,12 @@
       "minVs": -6.9,
       "firstPointStatus": "executed",
       "pnl": 0.0049,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "02c26c01-492f-409f-9357-5db0027e9b4e",
       "anchorIso": "2026-11-05T07:34:10+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.614573769201075e-06,
+      "priceBnb": 0.000004614573769201075,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": 17.35,
@@ -5080,7 +5162,7 @@
         "athVsLaunchPct": 26.5,
         "curVsMinGapPct": 33.4,
         "holdersDelta60": 4,
-        "launchPriceBnb": 5.291863184101578e-09,
+        "launchPriceBnb": 5.291863184101578e-9,
         "minVsLaunchPct": -6.9,
         "openLateBuyBnb": 0.9107,
         "openSegBigBuyN": 0,
@@ -5135,7 +5217,8 @@
         "chipTop1Top2HoldCircPct": 65.47591324748585,
         "actNearTail10SellWallets": 0,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第六批 review 接受（cheat→high 豁免，act=burst(0.99)+spike(0.97) 判型落档不拦 BP68，四门全过成交 +0.0049 正收益）"
     },
     {
       "idx": 56,
@@ -5160,13 +5243,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1166833a-3c35-461d-9344-87da5b82b85b",
       "anchorIso": "2026-11-05T07:34:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.820334323246445e-06,
-      "anchors": null
+      "priceBnb": 0.000004820334323246445,
+      "anchors": null,
+      "note": "第六批 review 接受（unhealthy 拒未进 BP）"
     },
     {
       "idx": 57,
@@ -5191,13 +5275,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "86326808-4bdd-496d-9b9d-3e42e5687caf",
       "anchorIso": "2026-11-05T07:34:40+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.613051944199876e-06,
-      "anchors": null
+      "priceBnb": 0.000004613051944199876,
+      "anchors": null,
+      "note": "第六批 review 接受（cheat 硬拒未进 BP）"
     },
     {
       "idx": 58,
@@ -5222,13 +5307,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "772d1f72-a627-49eb-b692-4f5c98b934f2",
       "anchorIso": "2026-11-05T07:34:44+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.034326294987442e-06,
-      "anchors": null
+      "priceBnb": 0.000004034326294987442,
+      "anchors": null,
+      "note": "第六批 review 接受（cheat 硬拒未进 BP）"
     },
     {
       "idx": 59,
@@ -5250,15 +5336,15 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 21.3,
-      "minVs": 12.0,
+      "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": -0.0103,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "4e34f9d7-e267-41ea-818d-2956579a17c8",
       "anchorIso": "2026-11-05T07:35:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0026199501294065e-06,
+      "priceBnb": 0.0000040026199501294065,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": 8.33,
@@ -5313,7 +5399,7 @@
         "athVsLaunchPct": 64.2,
         "curVsMinGapPct": 9.3,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -5368,7 +5454,8 @@
         "chipTop1Top2HoldCircPct": 83.56261562279369,
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
-      }
+      },
+      "note": "第六批 review 接受（cheat→high 豁免放行，四门全过成交 -0.0103 小亏）"
     },
     {
       "idx": 60,
@@ -5393,13 +5480,14 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": null,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "4b8ea237-e76e-421e-8a82-a2b252c7aaab",
       "anchorIso": "2026-11-05T07:35:35+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.2868934221513365e-06,
-      "anchors": null
+      "priceBnb": 0.0000042868934221513365,
+      "anchors": null,
+      "note": "第六批 review 接受（unhealthy 拒未进 BP）"
     },
     {
       "idx": 61,
@@ -5421,7 +5509,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 28.1,
-      "minVs": 12.0,
+      "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": 0.0485,
       "verdict": null,
@@ -5429,7 +5517,7 @@
       "signalId": "81cfee1f-ba7c-4ce6-923b-5f09bf0f2b79",
       "anchorIso": "2026-11-05T07:36:11+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.096660903311382e-06,
+      "priceBnb": 0.000004096660903311382,
       "anchors": {
         "burst5N": 13,
         "chg5Pct": 7.22,
@@ -5484,7 +5572,7 @@
         "athVsLaunchPct": 33.2,
         "curVsMinGapPct": 16.1,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -5569,7 +5657,7 @@
       "signalId": "258ae2a7-2d42-4ae6-9352-5e37e9f1954a",
       "anchorIso": "2026-11-05T07:37:02+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.582658602232909e-06,
+      "priceBnb": 0.000003582658602232909,
       "anchors": null
     },
     {
@@ -5600,7 +5688,7 @@
       "signalId": "49786f0b-5a4b-4a08-b216-67605584c1b4",
       "anchorIso": "2026-11-05T07:37:28+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.005780640223776e-06,
+      "priceBnb": 0.000004005780640223776,
       "anchors": null
     },
     {
@@ -5623,7 +5711,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 28.1,
-      "minVs": 12.0,
+      "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": -0.0112,
       "verdict": null,
@@ -5631,7 +5719,7 @@
       "signalId": "ede71b14-9ffe-403d-8296-defb3b047fe7",
       "anchorIso": "2026-11-05T07:38:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.096846687908041e-06,
+      "priceBnb": 0.000004096846687908041,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": -11.29,
@@ -5686,7 +5774,7 @@
         "athVsLaunchPct": 44.4,
         "curVsMinGapPct": 16.1,
         "holdersDelta60": 9,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -5771,7 +5859,7 @@
       "signalId": "010d62f8-09f9-4fe6-804a-c01fd9768eae",
       "anchorIso": "2026-11-05T07:38:15+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.435668283067048e-06,
+      "priceBnb": 0.000003435668283067048,
       "anchors": null
     },
     {
@@ -5802,7 +5890,7 @@
       "signalId": "5693ca8c-2503-4a36-adac-018f199928f8",
       "anchorIso": "2026-11-05T07:38:27+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.063993011056797e-06,
+      "priceBnb": 0.000005063993011056797,
       "anchors": null
     },
     {
@@ -5833,7 +5921,7 @@
       "signalId": "02280fbe-c50e-4106-a3b9-49ac059b9eec",
       "anchorIso": "2026-11-05T07:38:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.28442571158351e-06,
+      "priceBnb": 0.00000328442571158351,
       "anchors": null
     },
     {
@@ -5864,7 +5952,7 @@
       "signalId": "0586dd4c-0fc9-4178-b78f-c617c729f27e",
       "anchorIso": "2026-11-05T07:38:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0084066920711615e-06,
+      "priceBnb": 0.0000040084066920711615,
       "anchors": null
     },
     {
@@ -5895,7 +5983,7 @@
       "signalId": "3b2d3161-4f83-4dda-9e76-c7a2fa202515",
       "anchorIso": "2026-11-05T07:38:47+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.834458113554356e-06,
+      "priceBnb": 0.000004834458113554356,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 2.84,
@@ -5950,7 +6038,7 @@
         "athVsLaunchPct": 125.2,
         "curVsMinGapPct": 3.4,
         "holdersDelta60": 0,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 20.8,
         "openLateBuyBnb": 2.4019,
         "openSegBigBuyN": 1,
@@ -6035,7 +6123,7 @@
       "signalId": "623973ef-1607-49b0-946e-decdeae319e3",
       "anchorIso": "2026-11-05T07:40:45+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.7349404391571016e-06,
+      "priceBnb": 0.0000037349404391571016,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 21.36,
@@ -6090,7 +6178,7 @@
         "athVsLaunchPct": 38.2,
         "curVsMinGapPct": 21.5,
         "holdersDelta60": 3,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 0.9,
         "openLateBuyBnb": 0.4911,
         "openSegBigBuyN": 1,
@@ -6175,7 +6263,7 @@
       "signalId": "40489ba2-29eb-4514-b73e-4331cd85f7e5",
       "anchorIso": "2026-11-05T07:41:20+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.872967784298798e-06,
+      "priceBnb": 0.000003872967784298798,
       "anchors": {
         "burst5N": 13,
         "chg5Pct": -22.27,
@@ -6230,7 +6318,7 @@
         "athVsLaunchPct": 67.6,
         "curVsMinGapPct": 0.5,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 20.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -6307,7 +6395,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 24.4,
-      "minVs": 12.0,
+      "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": 0,
       "verdict": null,
@@ -6315,7 +6403,7 @@
       "signalId": "3f858dea-15ad-4df6-82d5-70932493f11c",
       "anchorIso": "2026-11-05T07:41:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.977565165779766e-06,
+      "priceBnb": 0.000003977565165779766,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": -3.98,
@@ -6370,7 +6458,7 @@
         "athVsLaunchPct": 47.6,
         "curVsMinGapPct": 12.4,
         "holdersDelta60": 2,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": 0.4327,
         "openSegBigBuyN": 0,
@@ -6455,7 +6543,7 @@
       "signalId": "2c376dec-3715-40c9-ae6e-cdaa2dfedf5a",
       "anchorIso": "2026-11-05T07:41:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.899691189366436e-06,
+      "priceBnb": 0.000003899691189366436,
       "anchors": null
     },
     {
@@ -6486,7 +6574,7 @@
       "signalId": "f8b5f35b-613c-421a-a0de-39afe711f7ea",
       "anchorIso": "2026-11-05T07:42:47+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.945099398507816e-06,
+      "priceBnb": 0.000003945099398507816,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": -9.85,
@@ -6541,7 +6629,7 @@
         "athVsLaunchPct": 41.9,
         "curVsMinGapPct": 2.5,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 20.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -6626,7 +6714,7 @@
       "signalId": "27dcfc12-b00e-493e-9c85-3f716e0acd9b",
       "anchorIso": "2026-11-05T07:43:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.946757501640884e-06,
+      "priceBnb": 0.000003946757501640884,
       "anchors": null
     },
     {
@@ -6649,7 +6737,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 25.7,
-      "minVs": 12.0,
+      "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": -0.0105,
       "verdict": null,
@@ -6657,7 +6745,7 @@
       "signalId": "7299947a-2d45-46d7-adab-675563fb8cbd",
       "anchorIso": "2026-11-05T07:43:23+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.019278310950406e-06,
+      "priceBnb": 0.000004019278310950406,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": -19.07,
@@ -6712,7 +6800,7 @@
         "athVsLaunchPct": 55.4,
         "curVsMinGapPct": 13.7,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -6797,7 +6885,7 @@
       "signalId": "37cea885-8568-42ef-a9d8-37af135b596d",
       "anchorIso": "2026-11-05T07:43:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.951683238407338e-06,
+      "priceBnb": 0.000003951683238407338,
       "anchors": null
     },
     {
@@ -6828,7 +6916,7 @@
       "signalId": "0cf3c294-2fba-4b44-844a-782e9bf8391d",
       "anchorIso": "2026-11-05T07:45:08+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.005855837208218e-06,
+      "priceBnb": 0.000004005855837208218,
       "anchors": null
     },
     {
@@ -6859,7 +6947,7 @@
       "signalId": "0047fd8a-36cd-4727-93d6-b196cc7d07ec",
       "anchorIso": "2026-11-05T07:46:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.604367412735471e-06,
+      "priceBnb": 0.000003604367412735471,
       "anchors": null
     },
     {
@@ -6890,7 +6978,7 @@
       "signalId": "0b1512f0-d5f8-47c3-8a94-2fe2ca53ebce",
       "anchorIso": "2026-11-05T07:46:57+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.074189124290771e-06,
+      "priceBnb": 0.000004074189124290771,
       "anchors": {
         "burst5N": 26,
         "chg5Pct": -23.02,
@@ -6945,7 +7033,7 @@
         "athVsLaunchPct": 140.1,
         "curVsMinGapPct": 8.2,
         "holdersDelta60": 4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 13.2,
         "openLateBuyBnb": 0.5732,
         "openSegBigBuyN": 5,
@@ -7030,7 +7118,7 @@
       "signalId": "215f9bff-2f98-4094-8da1-2860fe3b9440",
       "anchorIso": "2026-11-05T07:48:14+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.6256862504907884e-06,
+      "priceBnb": 0.0000036256862504907884,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 43.32,
@@ -7085,7 +7173,7 @@
         "athVsLaunchPct": 146,
         "curVsMinGapPct": 55.1,
         "holdersDelta60": 8,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.2,
         "openLateBuyBnb": 3.1538,
         "openSegBigBuyN": 5,
@@ -7170,7 +7258,7 @@
       "signalId": "32f222bb-5b71-46b7-b671-86bcccd1d47e",
       "anchorIso": "2026-11-05T07:48:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.716431699512425e-06,
+      "priceBnb": 0.000003716431699512425,
       "anchors": null
     },
     {
@@ -7201,7 +7289,7 @@
       "signalId": "3bd880bc-38a4-4343-a84c-7807f3a3945b",
       "anchorIso": "2026-11-05T07:50:48+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.056200183315484e-06,
+      "priceBnb": 0.000004056200183315484,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": -7.11,
@@ -7256,7 +7344,7 @@
         "athVsLaunchPct": 41.4,
         "curVsMinGapPct": 6.3,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 20.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -7341,7 +7429,7 @@
       "signalId": "003af48d-d389-40b3-8e78-78a480992c36",
       "anchorIso": "2026-11-05T07:51:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.049395530169497e-06,
+      "priceBnb": 0.000004049395530169497,
       "anchors": {
         "burst5N": 27,
         "chg5Pct": -21.81,
@@ -7396,7 +7484,7 @@
         "athVsLaunchPct": 84.8,
         "curVsMinGapPct": 11.9,
         "holdersDelta60": 9,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 14.8,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -7481,7 +7569,7 @@
       "signalId": "99c8bed2-2ed9-4f27-a440-24e80afe09ff",
       "anchorIso": "2026-11-05T07:51:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.874531413722982e-06,
+      "priceBnb": 0.000003874531413722982,
       "anchors": null
     },
     {
@@ -7512,7 +7600,7 @@
       "signalId": "76f6c62c-3232-49da-8932-9e607df8c458",
       "anchorIso": "2026-11-05T07:53:30+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.96227959124634e-06,
+      "priceBnb": 0.00000396227959124634,
       "anchors": null
     },
     {
@@ -7543,7 +7631,7 @@
       "signalId": "29c8f96c-f230-4bea-b7a1-679e481b8e5d",
       "anchorIso": "2026-11-05T07:53:49+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.573046692999421e-06,
+      "priceBnb": 0.000003573046692999421,
       "anchors": null
     },
     {
@@ -7574,7 +7662,7 @@
       "signalId": "dbb7effc-3137-4461-a404-94e1cad6b3eb",
       "anchorIso": "2026-11-05T07:55:07+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.994282194281254e-06,
+      "priceBnb": 0.000003994282194281254,
       "anchors": null
     },
     {
@@ -7605,7 +7693,7 @@
       "signalId": "25ffb500-b50b-48bc-9055-d36fd2f0faa0",
       "anchorIso": "2026-11-05T07:56:02+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.882645762125667e-06,
+      "priceBnb": 0.000003882645762125667,
       "anchors": null
     },
     {
@@ -7636,7 +7724,7 @@
       "signalId": "0e3ccf68-8daf-4cf4-8851-1d1100defd51",
       "anchorIso": "2026-11-05T07:56:06+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.103024302673709e-06,
+      "priceBnb": 0.000004103024302673709,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -10.96,
@@ -7691,7 +7779,7 @@
         "athVsLaunchPct": 96.7,
         "curVsMinGapPct": 17,
         "holdersDelta60": 9,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 11.4,
         "openLateBuyBnb": 0.4411,
         "openSegBigBuyN": 3,
@@ -7776,7 +7864,7 @@
       "signalId": "6427f3b4-42b4-40df-aecf-3352622c93b0",
       "anchorIso": "2026-11-05T07:57:10+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.1072445180548845e-06,
+      "priceBnb": 0.0000041072445180548845,
       "anchors": null
     },
     {
@@ -7807,7 +7895,7 @@
       "signalId": "42e3e4e1-36d6-4d47-b9e5-5628fa477cad",
       "anchorIso": "2026-11-05T07:58:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.896706997935725e-06,
+      "priceBnb": 0.000003896706997935725,
       "anchors": null
     },
     {
@@ -7838,7 +7926,7 @@
       "signalId": "45a1761d-5931-488d-8009-9a013838755a",
       "anchorIso": "2026-11-05T07:59:14+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0795453780026255e-06,
+      "priceBnb": 0.0000040795453780026255,
       "anchors": null
     },
     {
@@ -7869,7 +7957,7 @@
       "signalId": "413271df-ddcb-4f7c-9bf2-fae264d5ba11",
       "anchorIso": "2026-11-05T07:59:52+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.7496833147932886e-06,
+      "priceBnb": 0.0000047496833147932886,
       "anchors": null
     },
     {
@@ -7900,7 +7988,7 @@
       "signalId": "3bfa3c67-62aa-486a-b041-83f6f984c82a",
       "anchorIso": "2026-11-05T08:00:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.966443489372991e-06,
+      "priceBnb": 0.000003966443489372991,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 20.94,
@@ -7955,7 +8043,7 @@
         "athVsLaunchPct": 36.7,
         "curVsMinGapPct": 34.1,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 2.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -8040,7 +8128,7 @@
       "signalId": "4d8d73f9-e73e-401e-aa1a-9097284d5eb6",
       "anchorIso": "2026-11-05T08:01:15+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.005763569065533e-06,
+      "priceBnb": 0.000004005763569065533,
       "anchors": {
         "burst5N": 1,
         "chg5Pct": -5.24,
@@ -8095,7 +8183,7 @@
         "athVsLaunchPct": 136.2,
         "curVsMinGapPct": 7.1,
         "holdersDelta60": -1,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 18.2,
         "openLateBuyBnb": 5.246,
         "openSegBigBuyN": 1,
@@ -8180,7 +8268,7 @@
       "signalId": "58a87eb6-bb8a-4346-9d0d-7d236c17c5b5",
       "anchorIso": "2026-11-05T08:02:20+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.8647966972356285e-06,
+      "priceBnb": 0.0000038647966972356285,
       "anchors": null
     },
     {
@@ -8211,7 +8299,7 @@
       "signalId": "1ada8446-db90-409c-9d3e-fee9c07c5cbc",
       "anchorIso": "2026-11-05T08:02:53+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.066292814449899e-06,
+      "priceBnb": 0.000004066292814449899,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": -19.94,
@@ -8266,7 +8354,7 @@
         "athVsLaunchPct": 98.6,
         "curVsMinGapPct": 13.9,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 13.3,
         "openLateBuyBnb": 0,
         "openSegBigBuyN": 3,
@@ -8351,7 +8439,7 @@
       "signalId": "d60a2911-4102-4768-aaa7-5b1f078372d6",
       "anchorIso": "2026-11-05T08:03:20+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.066397323702749e-06,
+      "priceBnb": 0.000004066397323702749,
       "anchors": null
     },
     {
@@ -8382,7 +8470,7 @@
       "signalId": "87f28c62-f539-4610-b985-3723fd3e936f",
       "anchorIso": "2026-11-05T08:04:05+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.1091120206272586e-06,
+      "priceBnb": 0.0000041091120206272586,
       "anchors": null
     },
     {
@@ -8413,7 +8501,7 @@
       "signalId": "41ce77c4-febf-48b2-8836-28ca340821f5",
       "anchorIso": "2026-11-05T08:05:23+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.090469034448784e-06,
+      "priceBnb": 0.000004090469034448784,
       "anchors": null
     },
     {
@@ -8444,7 +8532,7 @@
       "signalId": "0a5f3a98-3cf4-4d70-b16d-c6aca28083d2",
       "anchorIso": "2026-11-05T08:05:52+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.081582159450611e-06,
+      "priceBnb": 0.000004081582159450611,
       "anchors": null
     },
     {
@@ -8475,7 +8563,7 @@
       "signalId": "ea5961d3-f2c8-4103-b2db-e8b1587cbd7e",
       "anchorIso": "2026-11-05T08:06:10+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.974410667009935e-06,
+      "priceBnb": 0.000003974410667009935,
       "anchors": null
     },
     {
@@ -8506,7 +8594,7 @@
       "signalId": "60baad78-3e50-470e-9499-426a18ea06ca",
       "anchorIso": "2026-11-05T08:06:17+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.537667540415519e-06,
+      "priceBnb": 0.000003537667540415519,
       "anchors": null
     },
     {
@@ -8537,7 +8625,7 @@
       "signalId": "b6828116-307f-4a85-b405-34566077bb5d",
       "anchorIso": "2026-11-05T08:06:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.7134933967338773e-06,
+      "priceBnb": 0.0000037134933967338773,
       "anchors": null
     },
     {
@@ -8568,7 +8656,7 @@
       "signalId": "1e05809c-131a-49dd-a1a5-7bc781eeeb64",
       "anchorIso": "2026-11-05T08:07:15+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.102986938022796e-06,
+      "priceBnb": 0.000004102986938022796,
       "anchors": null
     },
     {
@@ -8599,7 +8687,7 @@
       "signalId": "9d66b183-ec4c-4241-85ed-4ce37f7081e2",
       "anchorIso": "2026-11-05T08:07:22+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.662137003074234e-06,
+      "priceBnb": 0.000004662137003074234,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": -1.31,
@@ -8654,7 +8742,7 @@
         "athVsLaunchPct": 42.9,
         "curVsMinGapPct": 13.9,
         "holdersDelta60": 1,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 4.3,
         "openLateBuyBnb": 0.5076,
         "openSegBigBuyN": 1,
@@ -8739,7 +8827,7 @@
       "signalId": "50b4f7d1-3ec7-4c3c-9377-72b8ada7e904",
       "anchorIso": "2026-11-05T08:09:22+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.985073921846838e-06,
+      "priceBnb": 0.000003985073921846838,
       "anchors": null
     },
     {
@@ -8770,7 +8858,7 @@
       "signalId": "0d60993b-9209-47ed-a5ab-af83b6791d13",
       "anchorIso": "2026-11-05T08:10:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.9942204879286515e-06,
+      "priceBnb": 0.0000039942204879286515,
       "anchors": null
     },
     {
@@ -8801,7 +8889,7 @@
       "signalId": "301de9e0-1bf4-4d53-a664-13d2bc67e5d2",
       "anchorIso": "2026-11-05T08:10:17+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.635911301293567e-06,
+      "priceBnb": 0.000003635911301293567,
       "anchors": null
     },
     {
@@ -8832,7 +8920,7 @@
       "signalId": "60d72d29-90e8-45c4-9599-9e0c0d7f1516",
       "anchorIso": "2026-11-05T08:10:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.1749898450394654e-06,
+      "priceBnb": 0.0000031749898450394654,
       "anchors": null
     },
     {
@@ -8863,7 +8951,7 @@
       "signalId": "21b5d5b6-7e2d-414a-8539-e559f44bd7f4",
       "anchorIso": "2026-11-05T08:13:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.5636778091252407e-06,
+      "priceBnb": 0.0000035636778091252407,
       "anchors": null
     },
     {
@@ -8894,7 +8982,7 @@
       "signalId": "f212b1b9-f80e-406b-9bcc-f10ea9c8920a",
       "anchorIso": "2026-11-05T08:14:12+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.877147239101669e-06,
+      "priceBnb": 0.000003877147239101669,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 1.91,
@@ -8949,7 +9037,7 @@
         "athVsLaunchPct": 43.4,
         "curVsMinGapPct": 8.9,
         "holdersDelta60": 4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12.4,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -9034,7 +9122,7 @@
       "signalId": "6f45f38d-079e-4b5e-9b7c-93d93a87db52",
       "anchorIso": "2026-11-05T08:14:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.782561937344629e-06,
+      "priceBnb": 0.000003782561937344629,
       "anchors": null
     },
     {
@@ -9057,7 +9145,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 28.3,
-      "minVs": 12.0,
+      "minVs": 12,
       "firstPointStatus": "executed",
       "pnl": -0.0094,
       "verdict": null,
@@ -9065,7 +9153,7 @@
       "signalId": "06d8d325-bc7c-459c-bfee-48392620827b",
       "anchorIso": "2026-11-05T08:15:40+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.103582043033055e-06,
+      "priceBnb": 0.000004103582043033055,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": -8.08,
@@ -9120,7 +9208,7 @@
         "athVsLaunchPct": 39.6,
         "curVsMinGapPct": 16.3,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -9205,7 +9293,7 @@
       "signalId": "37923324-fa57-4f0f-92c1-d57823046900",
       "anchorIso": "2026-11-05T08:16:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.685212707425668e-06,
+      "priceBnb": 0.000003685212707425668,
       "anchors": null
     },
     {
@@ -9236,7 +9324,7 @@
       "signalId": "548236c9-a498-4e5a-aa7f-5ccf0736c70e",
       "anchorIso": "2026-11-05T08:17:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.975392219703855e-06,
+      "priceBnb": 0.000003975392219703855,
       "anchors": null
     },
     {
@@ -9267,7 +9355,7 @@
       "signalId": "2a9bfd7b-74cc-4c99-b0d6-248e3b2b0836",
       "anchorIso": "2026-11-05T08:17:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.090539551934066e-06,
+      "priceBnb": 0.000004090539551934066,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 28.81,
@@ -9322,7 +9410,7 @@
         "athVsLaunchPct": 27.9,
         "curVsMinGapPct": 28.6,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.7,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -9407,7 +9495,7 @@
       "signalId": "5184a783-026a-4687-a718-502209f0a630",
       "anchorIso": "2026-11-05T08:17:41+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.5305164121048683e-06,
+      "priceBnb": 0.0000035305164121048683,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": 10.27,
@@ -9462,7 +9550,7 @@
         "athVsLaunchPct": 468.6,
         "curVsMinGapPct": 11.8,
         "holdersDelta60": -8,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 6.5,
         "openLateBuyBnb": 17.9933,
         "openSegBigBuyN": 2,
@@ -9547,7 +9635,7 @@
       "signalId": "1abf07e2-27be-4fea-9146-9cb611f97190",
       "anchorIso": "2026-11-05T08:18:23+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.940037700026137e-06,
+      "priceBnb": 0.000003940037700026137,
       "anchors": null
     },
     {
@@ -9578,7 +9666,7 @@
       "signalId": "4430a663-6bad-49a6-9fa6-e83fb3c8488f",
       "anchorIso": "2026-11-05T08:18:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0794112351056975e-06,
+      "priceBnb": 0.0000040794112351056975,
       "anchors": null
     },
     {
@@ -9609,7 +9697,7 @@
       "signalId": "0e581786-bad8-49bf-91b1-6341e2cab4e2",
       "anchorIso": "2026-11-05T08:19:44+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.956974636696906e-06,
+      "priceBnb": 0.000003956974636696906,
       "anchors": null
     },
     {
@@ -9640,7 +9728,7 @@
       "signalId": "473b37c1-9c61-4bc0-a017-60111fb00413",
       "anchorIso": "2026-11-05T08:20:11+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.846857746755311e-06,
+      "priceBnb": 0.000003846857746755311,
       "anchors": {
         "burst5N": 1,
         "chg5Pct": -5.95,
@@ -9695,7 +9783,7 @@
         "athVsLaunchPct": 268.4,
         "curVsMinGapPct": 0,
         "holdersDelta60": -3,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 20.3,
         "openLateBuyBnb": 8.9169,
         "openSegBigBuyN": 5,
@@ -9780,7 +9868,7 @@
       "signalId": "18c18419-fd22-4ad1-bdaa-24175c8f370a",
       "anchorIso": "2026-11-05T08:21:23+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.078574432309665e-06,
+      "priceBnb": 0.000004078574432309665,
       "anchors": null
     },
     {
@@ -9811,7 +9899,7 @@
       "signalId": "25021e37-0875-4252-a26e-50cc71780ae0",
       "anchorIso": "2026-11-05T08:21:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.84503235206354e-06,
+      "priceBnb": 0.00000384503235206354,
       "anchors": null
     },
     {
@@ -9842,7 +9930,7 @@
       "signalId": "fe3ad896-adc5-4173-8da2-d718f2fe8950",
       "anchorIso": "2026-11-05T08:22:10+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.790186752943366e-06,
+      "priceBnb": 0.000003790186752943366,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -11.1,
@@ -9897,7 +9985,7 @@
         "athVsLaunchPct": 404.2,
         "curVsMinGapPct": 0,
         "holdersDelta60": -6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 18.5,
         "openLateBuyBnb": 15.7648,
         "openSegBigBuyN": 2,
@@ -9973,8 +10061,8 @@
         "chip": "moderate(0.78)",
         "priceLevel": "almost_launch(0.95)"
       },
-      "curVs": 10.0,
-      "minVs": 10.0,
+      "curVs": 10,
+      "minVs": 10,
       "firstPointStatus": "failed",
       "pnl": null,
       "verdict": null,
@@ -9982,7 +10070,7 @@
       "signalId": "1bbdd1a9-7d88-4bac-a39f-0048a7ea9dbf",
       "anchorIso": "2026-11-05T08:22:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.5213453605618826e-06,
+      "priceBnb": 0.0000035213453605618826,
       "anchors": {
         "burst5N": 2,
         "chg5Pct": -0.06,
@@ -10037,7 +10125,7 @@
         "athVsLaunchPct": 89.2,
         "curVsMinGapPct": 0,
         "holdersDelta60": -2,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 10,
         "openLateBuyBnb": 2.5743,
         "openSegBigBuyN": 1,
@@ -10122,7 +10210,7 @@
       "signalId": "3b135aa7-9233-46f9-b185-7d7023ca56a5",
       "anchorIso": "2026-11-05T08:23:11+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0133622828743775e-06,
+      "priceBnb": 0.0000040133622828743775,
       "anchors": null
     },
     {
@@ -10153,7 +10241,7 @@
       "signalId": "0564b02b-4230-4956-80f5-6394f1084030",
       "anchorIso": "2026-11-05T08:23:24+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.8161047408055415e-06,
+      "priceBnb": 0.0000038161047408055415,
       "anchors": null
     },
     {
@@ -10184,7 +10272,7 @@
       "signalId": "1e24d257-b729-4454-9d03-5cd9eb487150",
       "anchorIso": "2026-11-05T08:23:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.536347341009877e-06,
+      "priceBnb": 0.000004536347341009877,
       "anchors": null
     },
     {
@@ -10215,7 +10303,7 @@
       "signalId": "01f1ea04-ef0d-46ad-be8f-6efaad56449d",
       "anchorIso": "2026-11-05T08:24:52+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.928556015438892e-06,
+      "priceBnb": 0.000003928556015438892,
       "anchors": null
     },
     {
@@ -10246,7 +10334,7 @@
       "signalId": "37abed93-8255-401c-af01-b4f874327693",
       "anchorIso": "2026-11-05T08:25:08+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.822995931441294e-06,
+      "priceBnb": 0.000003822995931441294,
       "anchors": {
         "burst5N": 15,
         "chg5Pct": -22.29,
@@ -10301,7 +10389,7 @@
         "athVsLaunchPct": 67.7,
         "curVsMinGapPct": 8.1,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 11.8,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -10386,7 +10474,7 @@
       "signalId": "1b253fb5-0c81-4d05-8173-f1c23cf58d1e",
       "anchorIso": "2026-11-05T08:25:12+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.038233349796386e-06,
+      "priceBnb": 0.000004038233349796386,
       "anchors": null
     },
     {
@@ -10417,7 +10505,7 @@
       "signalId": "a6748fd4-5a4c-4b23-b5e2-7afabfe971b8",
       "anchorIso": "2026-11-05T08:25:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.902190894562377e-06,
+      "priceBnb": 0.000003902190894562377,
       "anchors": {
         "burst5N": 13,
         "chg5Pct": -21.48,
@@ -10472,7 +10560,7 @@
         "athVsLaunchPct": 62.7,
         "curVsMinGapPct": 0,
         "holdersDelta60": 11,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 8.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -10557,7 +10645,7 @@
       "signalId": "2bd5a847-35ca-4904-858c-caae6bf21d7a",
       "anchorIso": "2026-11-05T08:25:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.977188341193071e-06,
+      "priceBnb": 0.000003977188341193071,
       "anchors": null
     },
     {
@@ -10588,7 +10676,7 @@
       "signalId": "3cf07ca0-fe74-416b-9cd6-87105c967f41",
       "anchorIso": "2026-11-05T08:25:57+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.6663554105485157e-06,
+      "priceBnb": 0.0000036663554105485157,
       "anchors": null
     },
     {
@@ -10619,7 +10707,7 @@
       "signalId": "80192959-cf71-407c-a942-878870d20f6e",
       "anchorIso": "2026-11-05T08:26:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.821715891441935e-06,
+      "priceBnb": 0.000003821715891441935,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -13.4,
@@ -10674,7 +10762,7 @@
         "athVsLaunchPct": 37.9,
         "curVsMinGapPct": 16.1,
         "holdersDelta60": 4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 3.3,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -10759,7 +10847,7 @@
       "signalId": "8f201808-dfca-447a-92fe-b6d54d3bf362",
       "anchorIso": "2026-11-05T08:26:44+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.076403051141568e-06,
+      "priceBnb": 0.000004076403051141568,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -0.8,
@@ -10814,7 +10902,7 @@
         "athVsLaunchPct": 36,
         "curVsMinGapPct": 15.4,
         "holdersDelta60": 4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 11.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -10899,7 +10987,7 @@
       "signalId": "1a657688-bab6-4cbf-a159-0f7acf50048f",
       "anchorIso": "2026-11-05T08:26:57+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.772554860927165e-06,
+      "priceBnb": 0.000004772554860927165,
       "anchors": null
     },
     {
@@ -10921,8 +11009,8 @@
         "chip": "moderate(0.55)",
         "priceLevel": "near_launch(1.00)"
       },
-      "curVs": 21.0,
-      "minVs": 12.0,
+      "curVs": 21,
+      "minVs": 12,
       "firstPointStatus": "failed",
       "pnl": null,
       "verdict": null,
@@ -10930,7 +11018,7 @@
       "signalId": "cafedd72-b0c2-4c71-9895-a5e6aac65a40",
       "anchorIso": "2026-11-05T08:27:06+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.873569103649053e-06,
+      "priceBnb": 0.000003873569103649053,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -17.1,
@@ -10985,7 +11073,7 @@
         "athVsLaunchPct": 59.9,
         "curVsMinGapPct": 9,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -11070,7 +11158,7 @@
       "signalId": "6dac9a94-b181-4444-9aa0-0ad4f2f8530c",
       "anchorIso": "2026-11-05T08:29:10+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.1031309844331814e-06,
+      "priceBnb": 0.0000041031309844331814,
       "anchors": null
     },
     {
@@ -11101,7 +11189,7 @@
       "signalId": "0ad47b8f-e484-43b0-be7a-1b9798029d60",
       "anchorIso": "2026-11-05T08:29:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.109118581769213e-06,
+      "priceBnb": 0.000004109118581769213,
       "anchors": null
     },
     {
@@ -11132,7 +11220,7 @@
       "signalId": "6477da54-0a98-40d4-b745-4f23c0f0236e",
       "anchorIso": "2026-11-05T08:30:02+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.832097998428537e-06,
+      "priceBnb": 0.000003832097998428537,
       "anchors": {
         "burst5N": 2,
         "chg5Pct": 9.2,
@@ -11187,7 +11275,7 @@
         "athVsLaunchPct": 53.1,
         "curVsMinGapPct": 20.4,
         "holdersDelta60": 3,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.7,
         "openLateBuyBnb": 0.4698,
         "openSegBigBuyN": 1,
@@ -11272,7 +11360,7 @@
       "signalId": "881fa162-a717-4bb0-b8d0-60526a12f549",
       "anchorIso": "2026-11-05T08:30:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.541848329305476e-06,
+      "priceBnb": 0.000004541848329305476,
       "anchors": null
     },
     {
@@ -11303,7 +11391,7 @@
       "signalId": "3fbbe02f-5f3d-40b7-82ed-3775be1d3f78",
       "anchorIso": "2026-11-05T08:31:58+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.003527784007544e-06,
+      "priceBnb": 0.000005003527784007544,
       "anchors": null
     },
     {
@@ -11334,7 +11422,7 @@
       "signalId": "699ef7ef-9a4d-430a-9d6e-19b9bb9f644a",
       "anchorIso": "2026-11-05T08:32:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.996320465246043e-06,
+      "priceBnb": 0.000003996320465246043,
       "anchors": {
         "burst5N": 19,
         "chg5Pct": 0.54,
@@ -11389,7 +11477,7 @@
         "athVsLaunchPct": 59.2,
         "curVsMinGapPct": 23.4,
         "holdersDelta60": 14,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 2.5,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -11474,7 +11562,7 @@
       "signalId": "150ca8bd-930a-4601-9a7f-90fb52f85b5d",
       "anchorIso": "2026-11-05T08:32:40+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.2510243808804867e-06,
+      "priceBnb": 0.0000032510243808804867,
       "anchors": null
     },
     {
@@ -11505,7 +11593,7 @@
       "signalId": "1716d1e0-1800-448e-b597-82602c007f5e",
       "anchorIso": "2026-11-05T08:32:50+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.9494618399811075e-06,
+      "priceBnb": 0.0000039494618399811075,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": 6.1,
@@ -11560,7 +11648,7 @@
         "athVsLaunchPct": 48.5,
         "curVsMinGapPct": 7.1,
         "holdersDelta60": 4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 16.3,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -11645,7 +11733,7 @@
       "signalId": "173d16bc-00a5-44eb-b6f8-d06662fc1f55",
       "anchorIso": "2026-11-05T08:33:42+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0097478297592936e-06,
+      "priceBnb": 0.0000040097478297592936,
       "anchors": {
         "burst5N": 13,
         "chg5Pct": -18.07,
@@ -11700,7 +11788,7 @@
         "athVsLaunchPct": 72.9,
         "curVsMinGapPct": 0,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 11.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -11785,7 +11873,7 @@
       "signalId": "e376fa76-3a2a-4c86-9651-ccd25f3452a9",
       "anchorIso": "2026-11-05T08:34:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.061092566551207e-06,
+      "priceBnb": 0.000004061092566551207,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": 2.33,
@@ -11840,7 +11928,7 @@
         "athVsLaunchPct": 30.5,
         "curVsMinGapPct": 6,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 14.5,
         "openLateBuyBnb": 0.196,
         "openSegBigBuyN": 1,
@@ -11925,7 +12013,7 @@
       "signalId": "d0e65a47-c961-4c26-9a1a-a9d9710a86f3",
       "anchorIso": "2026-11-05T08:35:07+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.183000522152498e-06,
+      "priceBnb": 0.000004183000522152498,
       "anchors": null
     },
     {
@@ -11948,7 +12036,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 28.8,
-      "minVs": 5.0,
+      "minVs": 5,
       "firstPointStatus": "failed",
       "pnl": null,
       "verdict": null,
@@ -11956,7 +12044,7 @@
       "signalId": "2bf6a031-8395-43d9-ae15-b9f9153052e1",
       "anchorIso": "2026-11-05T08:35:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.700171491612059e-06,
+      "priceBnb": 0.000003700171491612059,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": 8.19,
@@ -12011,7 +12099,7 @@
         "athVsLaunchPct": 108.2,
         "curVsMinGapPct": 23.8,
         "holdersDelta60": 13,
-        "launchPriceBnb": 4.190985772137467e-09,
+        "launchPriceBnb": 4.190985772137467e-9,
         "minVsLaunchPct": 5,
         "openLateBuyBnb": 0.9234,
         "openSegBigBuyN": 2,
@@ -12096,7 +12184,7 @@
       "signalId": "0aa4cec7-cbb8-487e-a04a-c0edf733ea6e",
       "anchorIso": "2026-11-05T08:36:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.110722768915799e-06,
+      "priceBnb": 0.000004110722768915799,
       "anchors": null
     },
     {
@@ -12127,7 +12215,7 @@
       "signalId": "0fa675f9-b0de-4b0d-8d02-0ee7151e6bba",
       "anchorIso": "2026-11-05T08:37:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.02116605843711e-06,
+      "priceBnb": 0.00000502116605843711,
       "anchors": null
     },
     {
@@ -12158,7 +12246,7 @@
       "signalId": "29a187d1-02d2-42e0-a11d-dec71d23eeeb",
       "anchorIso": "2026-11-05T08:38:39+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.7309979171430955e-06,
+      "priceBnb": 0.0000037309979171430955,
       "anchors": null
     },
     {
@@ -12189,7 +12277,7 @@
       "signalId": "45a618c2-0e4a-4154-80c3-0ec102336686",
       "anchorIso": "2026-11-05T08:38:52+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.884900465172184e-06,
+      "priceBnb": 0.000003884900465172184,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": -16.62,
@@ -12244,7 +12332,7 @@
         "athVsLaunchPct": 53.2,
         "curVsMinGapPct": 17.8,
         "holdersDelta60": 8,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 3.4,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -12329,7 +12417,7 @@
       "signalId": "928350d4-ca7c-43ac-9035-7135da4e64b8",
       "anchorIso": "2026-11-05T08:39:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.976102220802762e-06,
+      "priceBnb": 0.000003976102220802762,
       "anchors": null
     },
     {
@@ -12360,7 +12448,7 @@
       "signalId": "18e2c29a-a6ef-453d-9383-33d00f56700d",
       "anchorIso": "2026-11-05T08:47:39+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.03481612174055e-06,
+      "priceBnb": 0.00000403481612174055,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": -4.42,
@@ -12415,7 +12503,7 @@
         "athVsLaunchPct": 35,
         "curVsMinGapPct": 9.6,
         "holdersDelta60": 4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 16.3,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -12500,7 +12588,7 @@
       "signalId": "5a75c0c8-0779-458f-a049-0fcd63c0925b",
       "anchorIso": "2026-11-05T08:56:01+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.07366813878706e-06,
+      "priceBnb": 0.00000507366813878706,
       "anchors": null
     },
     {
@@ -12523,7 +12611,7 @@
         "priceLevel": "almost_launch(1.00)"
       },
       "curVs": 0.4,
-      "minVs": 0.0,
+      "minVs": 0,
       "firstPointStatus": "failed",
       "pnl": null,
       "verdict": null,
@@ -12531,7 +12619,7 @@
       "signalId": "ab98049e-86e8-4f21-9624-f09101d93061",
       "anchorIso": "2026-11-05T08:56:42+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.975769943253944e-06,
+      "priceBnb": 0.000003975769943253944,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": -11.2,
@@ -12586,7 +12674,7 @@
         "athVsLaunchPct": 79.8,
         "curVsMinGapPct": 0.4,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": 0.0283,
         "openSegBigBuyN": 3,
@@ -12671,7 +12759,7 @@
       "signalId": "361c68b4-154c-460f-aa3c-ed9881165061",
       "anchorIso": "2026-11-05T08:56:45+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.949095147656894e-06,
+      "priceBnb": 0.000004949095147656894,
       "anchors": {
         "burst5N": 30,
         "chg5Pct": -27.92,
@@ -12726,7 +12814,7 @@
         "athVsLaunchPct": 81.6,
         "curVsMinGapPct": 13.4,
         "holdersDelta60": 23,
-        "launchPriceBnb": 5.419666922621812e-09,
+        "launchPriceBnb": 5.419666922621812e-9,
         "minVsLaunchPct": 13.3,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 4,
@@ -12811,7 +12899,7 @@
       "signalId": "395a89e7-555b-4f8c-8263-82546adfe4e5",
       "anchorIso": "2026-11-05T08:56:45+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.7285603147551413e-06,
+      "priceBnb": 0.0000037285603147551413,
       "anchors": null
     },
     {
@@ -12842,7 +12930,7 @@
       "signalId": "d0264799-9f7a-442c-97a2-75b9e87cba19",
       "anchorIso": "2026-11-05T08:57:24+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.406701315833314e-06,
+      "priceBnb": 0.000004406701315833314,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -8.09,
@@ -12897,7 +12985,7 @@
         "athVsLaunchPct": 15,
         "curVsMinGapPct": 4,
         "holdersDelta60": 4,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 1.7,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -12982,7 +13070,7 @@
       "signalId": "87bf0adf-66cc-48ee-989b-de27ab3424ff",
       "anchorIso": "2026-11-05T08:57:41+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.984657518279823e-06,
+      "priceBnb": 0.000004984657518279823,
       "anchors": null
     },
     {
@@ -13013,7 +13101,7 @@
       "signalId": "1f270b0b-4580-4e14-8993-4657ecd55ddf",
       "anchorIso": "2026-11-05T08:59:45+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.662613560567999e-06,
+      "priceBnb": 0.000004662613560567999,
       "anchors": null
     },
     {
@@ -13044,7 +13132,7 @@
       "signalId": "2b003dda-8cbf-4df8-a4c7-6000edd4f423",
       "anchorIso": "2026-11-05T09:00:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.89392802832627e-06,
+      "priceBnb": 0.00000489392802832627,
       "anchors": null
     },
     {
@@ -13075,7 +13163,7 @@
       "signalId": "ba29d113-9256-4649-9bd5-4cb27fdbccc6",
       "anchorIso": "2026-11-05T09:00:34+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.151691191471967e-06,
+      "priceBnb": 0.000004151691191471967,
       "anchors": null
     },
     {
@@ -13098,7 +13186,7 @@
         "priceLevel": "near_launch(0.97)"
       },
       "curVs": 15.1,
-      "minVs": 0.0,
+      "minVs": 0,
       "firstPointStatus": "executed",
       "pnl": 0.0003,
       "verdict": null,
@@ -13106,7 +13194,7 @@
       "signalId": "038d9d63-fb2b-43cc-a03d-6064b7fb7223",
       "anchorIso": "2026-11-05T09:00:47+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.465217779811989e-06,
+      "priceBnb": 0.000004465217779811989,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 15.05,
@@ -13161,7 +13249,7 @@
         "athVsLaunchPct": 20.2,
         "curVsMinGapPct": 15.1,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": 0.455,
         "openSegBigBuyN": 1,
@@ -13238,7 +13326,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 22.5,
-      "minVs": 0.0,
+      "minVs": 0,
       "firstPointStatus": "executed",
       "pnl": -0.0022,
       "verdict": null,
@@ -13246,7 +13334,7 @@
       "signalId": "4853e02e-f8c2-4bf6-89d4-2a7b40899cec",
       "anchorIso": "2026-11-05T09:00:58+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.8424637001369295e-06,
+      "priceBnb": 0.0000048424637001369295,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": 22.48,
@@ -13301,7 +13389,7 @@
         "athVsLaunchPct": 22.5,
         "curVsMinGapPct": 22.5,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": 0.6778,
         "openSegBigBuyN": 1,
@@ -13386,7 +13474,7 @@
       "signalId": "1c6e2cd1-4b49-4928-8796-3283b7beac27",
       "anchorIso": "2026-11-05T09:01:59+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.071310383851198e-06,
+      "priceBnb": 0.000005071310383851198,
       "anchors": {
         "burst5N": 21,
         "chg5Pct": -13.45,
@@ -13441,7 +13529,7 @@
         "athVsLaunchPct": 46.8,
         "curVsMinGapPct": 0,
         "holdersDelta60": 4,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 4.7,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -13526,7 +13614,7 @@
       "signalId": "2feaf8d7-8fa1-4092-805f-153d64e9172f",
       "anchorIso": "2026-11-05T09:01:59+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.541525397599915e-06,
+      "priceBnb": 0.000004541525397599915,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -12.19,
@@ -13581,7 +13669,7 @@
         "athVsLaunchPct": 61,
         "curVsMinGapPct": 10.1,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 8.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -13666,7 +13754,7 @@
       "signalId": "476ceb34-a7b9-48b0-a70c-07c189846e98",
       "anchorIso": "2026-11-05T09:03:18+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.979230947871023e-06,
+      "priceBnb": 0.000004979230947871023,
       "anchors": null
     },
     {
@@ -13697,7 +13785,7 @@
       "signalId": "5d32e89a-c67e-4e12-b444-017e91b7f03d",
       "anchorIso": "2026-11-05T09:03:19+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.801288490601074e-06,
+      "priceBnb": 0.000004801288490601074,
       "anchors": null
     },
     {
@@ -13728,7 +13816,7 @@
       "signalId": "e7da2bbc-565b-49cf-9164-94b75464fb01",
       "anchorIso": "2026-11-05T09:05:12+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.724336105308111e-06,
+      "priceBnb": 0.000004724336105308111,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": 6.1,
@@ -13783,7 +13871,7 @@
         "athVsLaunchPct": 19.5,
         "curVsMinGapPct": 18.4,
         "holdersDelta60": 10,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 1.1,
         "openLateBuyBnb": 0.1977,
         "openSegBigBuyN": 0,
@@ -13868,7 +13956,7 @@
       "signalId": "29c25b1a-71fc-49e7-a37a-1cee5b33f140",
       "anchorIso": "2026-11-05T09:05:15+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.023480717418319e-06,
+      "priceBnb": 0.000005023480717418319,
       "anchors": null
     },
     {
@@ -13899,7 +13987,7 @@
       "signalId": "218de259-2b2a-4d64-9c71-b76f45beb737",
       "anchorIso": "2026-11-05T09:06:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.729837945938632e-06,
+      "priceBnb": 0.000003729837945938632,
       "anchors": {
         "burst5N": 19,
         "chg5Pct": -13.86,
@@ -13954,7 +14042,7 @@
         "athVsLaunchPct": 88.2,
         "curVsMinGapPct": 11.7,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": -9.5,
         "openLateBuyBnb": 0.4725,
         "openSegBigBuyN": 1,
@@ -14039,7 +14127,7 @@
       "signalId": "9416670b-794e-4741-8673-718b71165fe7",
       "anchorIso": "2026-11-05T09:06:56+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.7327142882454614e-06,
+      "priceBnb": 0.0000047327142882454614,
       "anchors": null
     },
     {
@@ -14070,7 +14158,7 @@
       "signalId": "4c4e600a-1075-4600-b0dc-b5b9d2f63729",
       "anchorIso": "2026-11-05T09:13:30+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.0725518439907606e-06,
+      "priceBnb": 0.0000040725518439907606,
       "anchors": null
     },
     {
@@ -14101,7 +14189,7 @@
       "signalId": "11b4625d-ac04-447a-aa16-acaeb8dce787",
       "anchorIso": "2026-11-05T09:13:41+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.7182752227679975e-06,
+      "priceBnb": 0.0000047182752227679975,
       "anchors": null
     },
     {
@@ -14132,7 +14220,7 @@
       "signalId": "050ceff6-23e8-4a62-9f4d-555b4233a735",
       "anchorIso": "2026-11-05T09:17:56+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.558463519534159e-06,
+      "priceBnb": 0.000004558463519534159,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": -10.05,
@@ -14187,7 +14275,7 @@
         "athVsLaunchPct": 60.1,
         "curVsMinGapPct": 1.7,
         "holdersDelta60": 8,
-        "launchPriceBnb": 5.4186333591624035e-09,
+        "launchPriceBnb": 5.4186333591624035e-9,
         "minVsLaunchPct": 16.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -14272,7 +14360,7 @@
       "signalId": "9f766b51-1ed6-4a29-b272-6f43de99fdcb",
       "anchorIso": "2026-11-05T09:17:58+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.9238924701073415e-06,
+      "priceBnb": 0.0000049238924701073415,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": -4.46,
@@ -14327,7 +14415,7 @@
         "athVsLaunchPct": 78.1,
         "curVsMinGapPct": 0,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 24.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 3,
@@ -14412,7 +14500,7 @@
       "signalId": "88705073-adfc-4d22-ab3a-4393f1dc11ea",
       "anchorIso": "2026-11-05T09:19:03+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.7326359957424658e-06,
+      "priceBnb": 0.0000037326359957424658,
       "anchors": null
     },
     {
@@ -14435,7 +14523,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 23.6,
-      "minVs": 10.0,
+      "minVs": 10,
       "firstPointStatus": "executed",
       "pnl": 0.0001,
       "verdict": null,
@@ -14443,7 +14531,7 @@
       "signalId": "300d26d4-98cc-4fcc-88ea-0672a39d71c8",
       "anchorIso": "2026-11-05T09:19:04+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.8854073819059604e-06,
+      "priceBnb": 0.0000048854073819059604,
       "anchors": {
         "burst5N": 2,
         "chg5Pct": -9.36,
@@ -14498,7 +14586,7 @@
         "athVsLaunchPct": 157.2,
         "curVsMinGapPct": 13.6,
         "holdersDelta60": -1,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10,
         "openLateBuyBnb": 13.0803,
         "openSegBigBuyN": 0,
@@ -14583,7 +14671,7 @@
       "signalId": "0bc9445c-d6ad-4759-93f3-82fbf6407481",
       "anchorIso": "2026-11-05T09:20:08+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.087222781095044e-06,
+      "priceBnb": 0.000004087222781095044,
       "anchors": null
     },
     {
@@ -14614,7 +14702,7 @@
       "signalId": "05f6f1dd-d696-4b95-b05c-b96644ec630e",
       "anchorIso": "2026-11-05T09:21:07+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.049014523665163e-06,
+      "priceBnb": 0.000004049014523665163,
       "anchors": null
     },
     {
@@ -14645,7 +14733,7 @@
       "signalId": "195cac35-1df1-45d3-9a3f-f956da74d66a",
       "anchorIso": "2026-11-05T09:21:08+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.9473975678518e-06,
+      "priceBnb": 0.0000049473975678518,
       "anchors": {
         "burst5N": 12,
         "chg5Pct": 27.76,
@@ -14700,7 +14788,7 @@
         "athVsLaunchPct": 35.2,
         "curVsMinGapPct": 24.9,
         "holdersDelta60": 13,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10.3,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -14785,7 +14873,7 @@
       "signalId": "0030e7a6-8139-4919-8ab3-67cbd2b14360",
       "anchorIso": "2026-11-05T09:22:57+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.995057136768113e-06,
+      "priceBnb": 0.000004995057136768113,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": 17.36,
@@ -14840,7 +14928,7 @@
         "athVsLaunchPct": 26.4,
         "curVsMinGapPct": 11.2,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 15.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -14925,7 +15013,7 @@
       "signalId": "8bbb1ead-bced-4bce-8508-8af4302b152e",
       "anchorIso": "2026-11-05T09:24:09+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.521791692062091e-06,
+      "priceBnb": 0.000004521791692062091,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -2.91,
@@ -14980,7 +15068,7 @@
         "athVsLaunchPct": 31.5,
         "curVsMinGapPct": 5.6,
         "holdersDelta60": 4,
-        "launchPriceBnb": 5.466510167216847e-09,
+        "launchPriceBnb": 5.466510167216847e-9,
         "minVsLaunchPct": 10.5,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -15065,7 +15153,7 @@
       "signalId": "2ce4133b-2879-4c45-88a6-b0d3dfac1528",
       "anchorIso": "2026-11-05T09:26:03+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.084994435369828e-06,
+      "priceBnb": 0.000004084994435369828,
       "anchors": {
         "burst5N": 12,
         "chg5Pct": -4.77,
@@ -15120,7 +15208,7 @@
         "athVsLaunchPct": 45.9,
         "curVsMinGapPct": 12.4,
         "holdersDelta60": 12,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12.8,
         "openLateBuyBnb": 1.0498,
         "openSegBigBuyN": 0,
@@ -15205,7 +15293,7 @@
       "signalId": "73595d1c-f1ce-44dc-ab1d-d456977a9b91",
       "anchorIso": "2026-11-05T09:26:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.05398866658029e-06,
+      "priceBnb": 0.00000405398866658029,
       "anchors": null
     },
     {
@@ -15236,7 +15324,7 @@
       "signalId": "12050bfb-7a7d-4111-84f7-7f9bdb407121",
       "anchorIso": "2026-11-05T09:27:21+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.915783103573734e-06,
+      "priceBnb": 0.000004915783103573734,
       "anchors": null
     },
     {
@@ -15267,7 +15355,7 @@
       "signalId": "17497e38-f588-4e41-835a-ada3a903ce09",
       "anchorIso": "2026-11-05T09:27:56+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.962210849084098e-06,
+      "priceBnb": 0.000004962210849084098,
       "anchors": null
     },
     {
@@ -15298,7 +15386,7 @@
       "signalId": "5faf11c0-c6e6-4f2b-a4aa-f677ee1328db",
       "anchorIso": "2026-11-05T09:27:57+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.000724240434791e-06,
+      "priceBnb": 0.000004000724240434791,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": 4.88,
@@ -15353,7 +15441,7 @@
         "athVsLaunchPct": 44.7,
         "curVsMinGapPct": 19.4,
         "holdersDelta60": 6,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 12.5,
         "openLateBuyBnb": 0.9802,
         "openSegBigBuyN": 1,
@@ -15438,7 +15526,7 @@
       "signalId": "8702c7eb-9ee7-4963-9bfa-aed780061dcc",
       "anchorIso": "2026-11-05T09:33:18+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.421476979354743e-06,
+      "priceBnb": 0.000004421476979354743,
       "anchors": {
         "burst5N": 14,
         "chg5Pct": 18.52,
@@ -15493,7 +15581,7 @@
         "athVsLaunchPct": 44.5,
         "curVsMinGapPct": 51.4,
         "holdersDelta60": 10,
-        "launchPriceBnb": 5.278642263049032e-09,
+        "launchPriceBnb": 5.278642263049032e-9,
         "minVsLaunchPct": -6.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -15578,7 +15666,7 @@
       "signalId": "19d0a64e-ab1e-49cf-b063-a5c3cfca99f9",
       "anchorIso": "2026-11-05T09:35:50+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.0312451880998e-06,
+      "priceBnb": 0.0000050312451880998,
       "anchors": null
     },
     {
@@ -15609,7 +15697,7 @@
       "signalId": "14c57c46-9557-4572-a1e3-2d8a9dfcadf2",
       "anchorIso": "2026-11-05T09:39:06+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.2448574497347764e-06,
+      "priceBnb": 0.0000042448574497347764,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": -7.17,
@@ -15664,7 +15752,7 @@
         "athVsLaunchPct": 215.4,
         "curVsMinGapPct": 0,
         "holdersDelta60": -9,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 3.3,
         "openLateBuyBnb": 10.2594,
         "openSegBigBuyN": 5,
@@ -15749,7 +15837,7 @@
       "signalId": "4be8eafa-3eb4-4f21-9577-6c195d3fc872",
       "anchorIso": "2026-11-05T09:43:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.8831979452106255e-06,
+      "priceBnb": 0.0000048831979452106255,
       "anchors": null
     },
     {
@@ -15780,7 +15868,7 @@
       "signalId": "19aecd80-21cb-41a0-b783-eb4c16a30768",
       "anchorIso": "2026-11-05T09:48:24+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.3901697049691166e-06,
+      "priceBnb": 0.0000033901697049691166,
       "anchors": null
     },
     {
@@ -15802,8 +15890,8 @@
         "chip": "moderate(0.61)",
         "priceLevel": "almost_launch(1.00)"
       },
-      "curVs": 6.0,
-      "minVs": 6.0,
+      "curVs": 6,
+      "minVs": 6,
       "firstPointStatus": "failed",
       "pnl": null,
       "verdict": null,
@@ -15811,7 +15899,7 @@
       "signalId": "7238c55f-1b27-4743-9cd3-b53e850d93da",
       "anchorIso": "2026-11-05T09:50:03+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.2234415334178285e-06,
+      "priceBnb": 0.0000042234415334178285,
       "anchors": {
         "burst5N": 62,
         "chg5Pct": -1.38,
@@ -15866,7 +15954,7 @@
         "athVsLaunchPct": 225.2,
         "curVsMinGapPct": 0,
         "holdersDelta60": -48,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 6,
         "openLateBuyBnb": 5.2685,
         "openSegBigBuyN": 0,
@@ -15951,7 +16039,7 @@
       "signalId": "1411a506-adf7-4884-8c39-48c00262d542",
       "anchorIso": "2026-11-05T09:53:46+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.7165396750640345e-06,
+      "priceBnb": 0.0000047165396750640345,
       "anchors": {
         "burst5N": 15,
         "chg5Pct": -19.98,
@@ -16006,7 +16094,7 @@
         "athVsLaunchPct": 114.4,
         "curVsMinGapPct": 0,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 10.6,
         "openLateBuyBnb": 3.4121,
         "openSegBigBuyN": 1,
@@ -16091,7 +16179,7 @@
       "signalId": "2e97cc45-e441-433b-b25a-c6f807ddcb06",
       "anchorIso": "2026-11-05T10:02:40+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.786773098774778e-06,
+      "priceBnb": 0.000003786773098774778,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": 10.17,
@@ -16146,7 +16234,7 @@
         "athVsLaunchPct": 164.2,
         "curVsMinGapPct": 18.8,
         "holdersDelta60": 5,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": null,
@@ -16231,7 +16319,7 @@
       "signalId": "1ac0cc33-e2f1-48e9-8ccd-7ec1c20b17d0",
       "anchorIso": "2026-11-05T10:03:21+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.328229489962074e-06,
+      "priceBnb": 0.000004328229489962074,
       "anchors": null
     },
     {
@@ -16262,7 +16350,7 @@
       "signalId": "187006d7-5588-41e2-ac5d-aaa895ee2d30",
       "anchorIso": "2026-11-05T10:08:01+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.048836001284502e-06,
+      "priceBnb": 0.000004048836001284502,
       "anchors": {
         "burst5N": 17,
         "chg5Pct": 7.55,
@@ -16317,7 +16405,7 @@
         "athVsLaunchPct": 138.7,
         "curVsMinGapPct": 17.2,
         "holdersDelta60": -1,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 9.2,
         "openLateBuyBnb": 3.3012,
         "openSegBigBuyN": 0,
@@ -16402,7 +16490,7 @@
       "signalId": "1784623a-2f89-4c03-bf87-048cb8090bea",
       "anchorIso": "2026-11-05T10:11:34+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.074999564453695e-06,
+      "priceBnb": 0.000004074999564453695,
       "anchors": null
     },
     {
@@ -16433,7 +16521,7 @@
       "signalId": "25f06452-ad05-4454-afd7-8fa9a9464ff5",
       "anchorIso": "2026-11-05T10:11:49+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.025018402276065e-06,
+      "priceBnb": 0.000005025018402276065,
       "anchors": null
     },
     {
@@ -16464,7 +16552,7 @@
       "signalId": "4105fa08-4793-4bc3-9b6d-2540188d9055",
       "anchorIso": "2026-11-05T10:21:16+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.3695595086505956e-06,
+      "priceBnb": 0.0000043695595086505956,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": 10.16,
@@ -16519,7 +16607,7 @@
         "athVsLaunchPct": 27.4,
         "curVsMinGapPct": 16.2,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.808213135355229e-09,
+        "launchPriceBnb": 4.808213135355229e-9,
         "minVsLaunchPct": 11.2,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -16604,7 +16692,7 @@
       "signalId": "5c13d67e-b801-4812-afeb-72b652f8ce5b",
       "anchorIso": "2026-11-05T10:27:53+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.587320904221771e-06,
+      "priceBnb": 0.000004587320904221771,
       "anchors": {
         "burst5N": 12,
         "chg5Pct": -17.47,
@@ -16659,7 +16747,7 @@
         "athVsLaunchPct": 38.9,
         "curVsMinGapPct": 0.2,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.1154933418769275e-09,
+        "launchPriceBnb": 5.1154933418769275e-9,
         "minVsLaunchPct": 14.5,
         "openLateBuyBnb": 1.0214,
         "openSegBigBuyN": 0,
@@ -16744,7 +16832,7 @@
       "signalId": "10676f99-c2ca-45f1-8678-6e3c940cc4aa",
       "anchorIso": "2026-11-05T10:37:01+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.430501068586964e-06,
+      "priceBnb": 0.000004430501068586964,
       "anchors": null
     },
     {
@@ -16775,7 +16863,7 @@
       "signalId": "035256b5-f02b-41a9-8843-7773061f3578",
       "anchorIso": "2026-11-05T10:41:34+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.956273645419433e-06,
+      "priceBnb": 0.000003956273645419433,
       "anchors": null
     },
     {
@@ -16798,7 +16886,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 22.6,
-      "minVs": 11.0,
+      "minVs": 11,
       "firstPointStatus": "executed",
       "pnl": -0.0033,
       "verdict": null,
@@ -16806,7 +16894,7 @@
       "signalId": "5b20ec26-a459-47e8-8b76-a0a1c7c649b4",
       "anchorIso": "2026-11-05T10:47:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.72370001936995e-06,
+      "priceBnb": 0.00000472370001936995,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": 25.99,
@@ -16861,7 +16949,7 @@
         "athVsLaunchPct": 22.6,
         "curVsMinGapPct": 11.6,
         "holdersDelta60": 11,
-        "launchPriceBnb": 5.402458909602989e-09,
+        "launchPriceBnb": 5.402458909602989e-9,
         "minVsLaunchPct": 11,
         "openLateBuyBnb": 0.6915,
         "openSegBigBuyN": 0,
@@ -16938,7 +17026,7 @@
         "priceLevel": "near_launch(0.99)"
       },
       "curVs": 18.7,
-      "minVs": 3.0,
+      "minVs": 3,
       "firstPointStatus": "executed",
       "pnl": 0.0009,
       "verdict": null,
@@ -16946,7 +17034,7 @@
       "signalId": "602905c6-58d8-44da-8813-24215c8abf9c",
       "anchorIso": "2026-11-05T10:51:09+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.693761549088745e-06,
+      "priceBnb": 0.000004693761549088745,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": 14.24,
@@ -17001,7 +17089,7 @@
         "athVsLaunchPct": 39.7,
         "curVsMinGapPct": 15.7,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 3,
         "openLateBuyBnb": 0.4675,
         "openSegBigBuyN": 1,
@@ -17086,7 +17174,7 @@
       "signalId": "c58c98cf-6fbf-4386-a6d3-4666bec6c48b",
       "anchorIso": "2026-11-05T10:54:07+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.32058165967872e-06,
+      "priceBnb": 0.00000432058165967872,
       "anchors": {
         "burst5N": 13,
         "chg5Pct": -18.9,
@@ -17141,7 +17229,7 @@
         "athVsLaunchPct": 128.9,
         "curVsMinGapPct": 0,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 9.2,
         "openLateBuyBnb": 2.3303,
         "openSegBigBuyN": 2,
@@ -17218,7 +17306,7 @@
         "priceLevel": "near_launch(0.56)"
       },
       "curVs": 10.8,
-      "minVs": 0.0,
+      "minVs": 0,
       "firstPointStatus": "executed",
       "pnl": -0.0052,
       "verdict": null,
@@ -17226,7 +17314,7 @@
       "signalId": "43d19181-0398-4ac1-a9c3-59410d45888f",
       "anchorIso": "2026-11-05T10:59:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.523428311561561e-06,
+      "priceBnb": 0.000004523428311561561,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -6.32,
@@ -17281,7 +17369,7 @@
         "athVsLaunchPct": 66.9,
         "curVsMinGapPct": 10.8,
         "holdersDelta60": 5,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": 1.3119,
         "openSegBigBuyN": 1,
@@ -17366,7 +17454,7 @@
       "signalId": "dbe4a3ca-2b23-4a88-90e1-c48dabbc49e6",
       "anchorIso": "2026-11-05T11:09:21+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.840490955898956e-06,
+      "priceBnb": 0.000004840490955898956,
       "anchors": null
     },
     {
@@ -17397,7 +17485,7 @@
       "signalId": "1e8d55d9-0dae-464e-8e70-128cc0158a38",
       "anchorIso": "2026-11-05T11:09:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.436714110814967e-06,
+      "priceBnb": 0.000004436714110814967,
       "anchors": null
     },
     {
@@ -17428,7 +17516,7 @@
       "signalId": "9968bb61-9243-4ed2-8e31-dcba5be2aba3",
       "anchorIso": "2026-11-05T11:15:27+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.000561539037115e-06,
+      "priceBnb": 0.000005000561539037115,
       "anchors": null
     },
     {
@@ -17459,7 +17547,7 @@
       "signalId": "50f393ef-76f7-44cc-a4e0-f6667cc237d8",
       "anchorIso": "2026-11-05T11:18:04+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.140373908315758e-06,
+      "priceBnb": 0.000004140373908315758,
       "anchors": null
     },
     {
@@ -17490,7 +17578,7 @@
       "signalId": "55ad3895-65e3-4537-975e-6986c310b0e5",
       "anchorIso": "2026-11-05T11:18:32+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.762504623349148e-06,
+      "priceBnb": 0.000004762504623349148,
       "anchors": {
         "burst5N": 10,
         "chg5Pct": 7.37,
@@ -17545,7 +17633,7 @@
         "athVsLaunchPct": 20.3,
         "curVsMinGapPct": 11.9,
         "holdersDelta60": 10,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 8.4,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -17630,7 +17718,7 @@
       "signalId": "5628bd45-7c03-4b97-bd58-0228ea5d1b86",
       "anchorIso": "2026-11-05T11:19:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.062026900303361e-06,
+      "priceBnb": 0.000005062026900303361,
       "anchors": {
         "burst5N": 29,
         "chg5Pct": -0.3,
@@ -17685,7 +17773,7 @@
         "athVsLaunchPct": 152.7,
         "curVsMinGapPct": 13,
         "holdersDelta60": 1,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 14.8,
         "openLateBuyBnb": 4.2109,
         "openSegBigBuyN": 1,
@@ -17770,7 +17858,7 @@
       "signalId": "01152ab4-e5c8-4dca-8af6-bd333cbe1d78",
       "anchorIso": "2026-11-05T11:20:30+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.973103448974837e-06,
+      "priceBnb": 0.000003973103448974837,
       "anchors": {
         "burst5N": 14,
         "chg5Pct": -26.92,
@@ -17825,7 +17913,7 @@
         "athVsLaunchPct": 95.6,
         "curVsMinGapPct": 0.1,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 0.2,
         "openLateBuyBnb": 1.1054,
         "openSegBigBuyN": 2,
@@ -17910,7 +17998,7 @@
       "signalId": "6d4d054b-60a8-4bd4-a4e7-67f65119a5e0",
       "anchorIso": "2026-11-05T11:21:04+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.066057042088968e-06,
+      "priceBnb": 0.000004066057042088968,
       "anchors": {
         "burst5N": 2,
         "chg5Pct": -4.63,
@@ -17965,7 +18053,7 @@
         "athVsLaunchPct": 155.9,
         "curVsMinGapPct": 15.7,
         "holdersDelta60": -3,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 10.9,
         "openLateBuyBnb": 7.8052,
         "openSegBigBuyN": 0,
@@ -18050,7 +18138,7 @@
       "signalId": "23fd3c6e-f733-4764-8811-9b0c851d8086",
       "anchorIso": "2026-11-05T11:24:41+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.204734274624326e-06,
+      "priceBnb": 0.000004204734274624326,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": -44.67,
@@ -18105,7 +18193,7 @@
         "athVsLaunchPct": 92.8,
         "curVsMinGapPct": 0,
         "holdersDelta60": 7,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 6.1,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -18190,7 +18278,7 @@
       "signalId": "6ef037d6-5318-4d3e-846f-90fb08bfb160",
       "anchorIso": "2026-11-05T11:26:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.671150532940796e-06,
+      "priceBnb": 0.000004671150532940796,
       "anchors": null
     },
     {
@@ -18221,7 +18309,7 @@
       "signalId": "27bd3b70-6de5-4beb-914f-cd41f13749e4",
       "anchorIso": "2026-11-05T11:29:22+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.032560335318122e-06,
+      "priceBnb": 0.000005032560335318122,
       "anchors": null
     },
     {
@@ -18252,7 +18340,7 @@
       "signalId": "150415a3-ae34-4bc8-8534-deac85cf0342",
       "anchorIso": "2026-11-05T11:30:42+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.012588491270087e-06,
+      "priceBnb": 0.000004012588491270087,
       "anchors": null
     },
     {
@@ -18275,7 +18363,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 23.2,
-      "minVs": 6.0,
+      "minVs": 6,
       "firstPointStatus": "executed",
       "pnl": -0.0032,
       "verdict": null,
@@ -18283,7 +18371,7 @@
       "signalId": "0c7bdc4d-dd7f-463c-ab3e-9e19d2752fe3",
       "anchorIso": "2026-11-05T11:35:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.6321621799473257e-06,
+      "priceBnb": 0.0000036321621799473257,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": 2.78,
@@ -18338,7 +18426,7 @@
         "athVsLaunchPct": 29.6,
         "curVsMinGapPct": 17.2,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.1271287942691075e-09,
+        "launchPriceBnb": 4.1271287942691075e-9,
         "minVsLaunchPct": 6,
         "openLateBuyBnb": 0.4858,
         "openSegBigBuyN": 0,
@@ -18423,7 +18511,7 @@
       "signalId": "a2aa6b9e-5b17-4905-83f8-29d4cd99ec15",
       "anchorIso": "2026-11-05T11:43:14+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.064057115115861e-06,
+      "priceBnb": 0.000005064057115115861,
       "anchors": {
         "burst5N": 15,
         "chg5Pct": -4.26,
@@ -18478,7 +18566,7 @@
         "athVsLaunchPct": 39.7,
         "curVsMinGapPct": 0,
         "holdersDelta60": 5,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 1.8,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -18563,7 +18651,7 @@
       "signalId": "74fa21a7-69f4-4c6e-a42c-75fc7757e5b7",
       "anchorIso": "2026-11-05T12:00:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.727895995974218e-06,
+      "priceBnb": 0.000004727895995974218,
       "anchors": {
         "burst5N": 5,
         "chg5Pct": -11.99,
@@ -18618,7 +18706,7 @@
         "athVsLaunchPct": 35.7,
         "curVsMinGapPct": 7,
         "holdersDelta60": 10,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 12.4,
         "openLateBuyBnb": 0,
         "openSegBigBuyN": 1,
@@ -18694,7 +18782,7 @@
         "chip": "moderate(0.82)",
         "priceLevel": "near_launch(0.99)"
       },
-      "curVs": 13.0,
+      "curVs": 13,
       "minVs": 6.2,
       "firstPointStatus": "executed",
       "pnl": 0.0027,
@@ -18703,7 +18791,7 @@
       "signalId": "3fa2bb56-5344-4d3f-b90f-9d19bd50a6e2",
       "anchorIso": "2026-11-05T12:02:34+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.476500310727898e-06,
+      "priceBnb": 0.000004476500310727898,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": 6.44,
@@ -18758,7 +18846,7 @@
         "athVsLaunchPct": 40.9,
         "curVsMinGapPct": 6.8,
         "holdersDelta60": 2,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 6.2,
         "openLateBuyBnb": 0.6036,
         "openSegBigBuyN": 0,
@@ -18835,7 +18923,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 22.4,
-      "minVs": 13.0,
+      "minVs": 13,
       "firstPointStatus": "executed",
       "pnl": -0.0071,
       "verdict": null,
@@ -18843,7 +18931,7 @@
       "signalId": "1eb56922-23dd-4f09-b184-cf55a63d3422",
       "anchorIso": "2026-11-05T12:11:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.8452787700950675e-06,
+      "priceBnb": 0.0000048452787700950675,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": -3.92,
@@ -18898,7 +18986,7 @@
         "athVsLaunchPct": 74.4,
         "curVsMinGapPct": 9.4,
         "holdersDelta60": 3,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 13,
         "openLateBuyBnb": 1.7153,
         "openSegBigBuyN": 0,
@@ -18945,7 +19033,7 @@
         "actNearSegTicksPerMin": 24,
         "chipFamousGroupBuyPct": null,
         "currentVsSwingHighPct": -29.82,
-        "actNearSegBuyMedianBnb": 5e-06,
+        "actNearSegBuyMedianBnb": 0.000005,
         "actNearTail10BnbPerMin": 11.17,
         "actThroughputBnbPerMin": 1.5,
         "chipFamousDominancePct": null,
@@ -18975,7 +19063,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 23.2,
-      "minVs": 11.0,
+      "minVs": 11,
       "firstPointStatus": "executed",
       "pnl": -0.0043,
       "verdict": null,
@@ -18983,7 +19071,7 @@
       "signalId": "ee9b0fdf-b035-4bec-a71c-c55699e38d9d",
       "anchorIso": "2026-11-05T12:14:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.335980009936211e-06,
+      "priceBnb": 0.000004335980009936211,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 3.62,
@@ -19038,7 +19126,7 @@
         "athVsLaunchPct": 38.2,
         "curVsMinGapPct": 12.2,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.930439976903508e-09,
+        "launchPriceBnb": 4.930439976903508e-9,
         "minVsLaunchPct": 11,
         "openLateBuyBnb": 0.1085,
         "openSegBigBuyN": 1,
@@ -19123,7 +19211,7 @@
       "signalId": "58c15489-bd86-4d3d-b080-12b457124f46",
       "anchorIso": "2026-11-05T12:17:48+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.968215815123813e-06,
+      "priceBnb": 0.000003968215815123813,
       "anchors": null
     },
     {
@@ -19154,7 +19242,7 @@
       "signalId": "03628d86-1b09-443a-9a08-3d9e1761c0a5",
       "anchorIso": "2026-11-05T12:17:54+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.24150119157331e-06,
+      "priceBnb": 0.00000424150119157331,
       "anchors": null
     },
     {
@@ -19185,7 +19273,7 @@
       "signalId": "468563e4-9341-4b9f-bb97-3a86a6e62a7a",
       "anchorIso": "2026-11-05T12:25:04+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.662912655041559e-06,
+      "priceBnb": 0.000004662912655041559,
       "anchors": null
     },
     {
@@ -19216,7 +19304,7 @@
       "signalId": "0a48c8fc-e222-4a44-93f7-16342b59c156",
       "anchorIso": "2026-11-05T12:26:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.960006144145302e-06,
+      "priceBnb": 0.000003960006144145302,
       "anchors": {
         "burst5N": 2,
         "chg5Pct": -9.14,
@@ -19271,7 +19359,7 @@
         "athVsLaunchPct": 184.7,
         "curVsMinGapPct": 11.6,
         "holdersDelta60": -2,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 11.9,
         "openLateBuyBnb": 17.9204,
         "openSegBigBuyN": 3,
@@ -19356,7 +19444,7 @@
       "signalId": "1e64e5d3-0d86-44a3-b5a7-1705befdb8fc",
       "anchorIso": "2026-11-05T12:26:06+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.594320350915746e-06,
+      "priceBnb": 0.000004594320350915746,
       "anchors": null
     },
     {
@@ -19379,7 +19467,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 21.4,
-      "minVs": 14.0,
+      "minVs": 14,
       "firstPointStatus": "failed",
       "pnl": -0.004,
       "verdict": null,
@@ -19387,7 +19475,7 @@
       "signalId": "210a1e63-2099-426e-9373-029ce4479778",
       "anchorIso": "2026-11-05T12:27:57+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.795375916039459e-06,
+      "priceBnb": 0.000004795375916039459,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": -9.07,
@@ -19442,7 +19530,7 @@
         "athVsLaunchPct": 36.4,
         "curVsMinGapPct": 7.4,
         "holdersDelta60": 8,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 14,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -19527,7 +19615,7 @@
       "signalId": "6b5657b9-77dc-48b2-9592-976c01123cf6",
       "anchorIso": "2026-11-05T12:28:11+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.9067702587358324e-06,
+      "priceBnb": 0.0000049067702587358324,
       "anchors": null
     },
     {
@@ -19558,7 +19646,7 @@
       "signalId": "08bf8966-e5db-42fa-aebd-768aedb667ec",
       "anchorIso": "2026-11-05T12:29:23+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.048270974300242e-06,
+      "priceBnb": 0.000005048270974300242,
       "anchors": null
     },
     {
@@ -19589,7 +19677,7 @@
       "signalId": "18264da2-6842-44a0-a506-25d75cdda38b",
       "anchorIso": "2026-11-05T12:30:28+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.005515787757662e-06,
+      "priceBnb": 0.000004005515787757662,
       "anchors": {
         "burst5N": 11,
         "chg5Pct": -23,
@@ -19644,7 +19732,7 @@
         "athVsLaunchPct": 90,
         "curVsMinGapPct": 25.8,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.7,
         "openLateBuyBnb": 2.6072,
         "openSegBigBuyN": 0,
@@ -19729,7 +19817,7 @@
       "signalId": "0ec3da77-2a85-4b39-bdc4-32c2ddc661d5",
       "anchorIso": "2026-11-05T12:30:40+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.446258561872497e-06,
+      "priceBnb": 0.000004446258561872497,
       "anchors": null
     },
     {
@@ -19760,7 +19848,7 @@
       "signalId": "3848d907-2f26-4893-8116-32673101939f",
       "anchorIso": "2026-11-05T12:30:44+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.408881999089916e-06,
+      "priceBnb": 0.000004408881999089916,
       "anchors": {
         "burst5N": 8,
         "chg5Pct": -11.38,
@@ -19815,7 +19903,7 @@
         "athVsLaunchPct": 31.5,
         "curVsMinGapPct": 0,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 11.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -19900,7 +19988,7 @@
       "signalId": "4f1a9212-240a-4e63-85e8-a283a5c044e5",
       "anchorIso": "2026-11-05T12:30:51+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.834263081144273e-06,
+      "priceBnb": 0.000003834263081144273,
       "anchors": null
     },
     {
@@ -19922,7 +20010,7 @@
         "chip": "moderate(0.98)",
         "priceLevel": "near_launch(1.00)"
       },
-      "curVs": 24.0,
+      "curVs": 24,
       "minVs": 19.9,
       "firstPointStatus": "executed",
       "pnl": -0.0027,
@@ -19931,7 +20019,7 @@
       "signalId": "7864e568-121a-46d5-9ef3-495db678fac5",
       "anchorIso": "2026-11-05T12:30:54+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.897140462161683e-06,
+      "priceBnb": 0.000004897140462161683,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 3.45,
@@ -19986,7 +20074,7 @@
         "athVsLaunchPct": 35.1,
         "curVsMinGapPct": 4.1,
         "holdersDelta60": 5,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 19.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 2,
@@ -20071,7 +20159,7 @@
       "signalId": "96ed006f-d68b-418d-a11b-73073e6abcb1",
       "anchorIso": "2026-11-05T12:31:26+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.027152464916232e-06,
+      "priceBnb": 0.000005027152464916232,
       "anchors": {
         "burst5N": 49,
         "chg5Pct": -16.71,
@@ -20126,7 +20214,7 @@
         "athVsLaunchPct": 148.8,
         "curVsMinGapPct": 10.7,
         "holdersDelta60": 20,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 16.6,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 5,
@@ -20211,7 +20299,7 @@
       "signalId": "58f22576-dfb8-4736-a789-bf379c00af76",
       "anchorIso": "2026-11-05T12:31:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.981795503512557e-06,
+      "priceBnb": 0.000003981795503512557,
       "anchors": {
         "burst5N": 25,
         "chg5Pct": -28.13,
@@ -20266,7 +20354,7 @@
         "athVsLaunchPct": 116.5,
         "curVsMinGapPct": 15.5,
         "holdersDelta60": 7,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.7,
         "openLateBuyBnb": 0.0098,
         "openSegBigBuyN": 1,
@@ -20351,7 +20439,7 @@
       "signalId": "380fc73f-9064-4f46-a397-64a4aade0739",
       "anchorIso": "2026-11-05T12:32:09+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.883186927540559e-06,
+      "priceBnb": 0.000003883186927540559,
       "anchors": null
     },
     {
@@ -20382,7 +20470,7 @@
       "signalId": "2f0f173b-96ab-4d3a-8982-e01037f677b6",
       "anchorIso": "2026-11-05T12:32:31+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.567320319335128e-06,
+      "priceBnb": 0.000004567320319335128,
       "anchors": null
     },
     {
@@ -20413,7 +20501,7 @@
       "signalId": "1a4ac242-3040-40de-b982-f3c6e1ce8468",
       "anchorIso": "2026-11-05T12:32:34+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.1788795154113515e-06,
+      "priceBnb": 0.0000031788795154113515,
       "anchors": null
     },
     {
@@ -20444,7 +20532,7 @@
       "signalId": "5f67b739-6e37-4325-9c8e-4be5296a7f4d",
       "anchorIso": "2026-11-05T12:33:18+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.94937541441653e-06,
+      "priceBnb": 0.00000394937541441653,
       "anchors": null
     },
     {
@@ -20467,7 +20555,7 @@
         "priceLevel": "almost_launch(1.00)"
       },
       "curVs": 3.7,
-      "minVs": 0.0,
+      "minVs": 0,
       "firstPointStatus": "failed",
       "pnl": null,
       "verdict": null,
@@ -20475,7 +20563,7 @@
       "signalId": "6c4ee376-2eb0-43cb-a02a-0b568d2a34a7",
       "anchorIso": "2026-11-05T12:33:33+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.4972571818783918e-06,
+      "priceBnb": 0.0000034972571818783918,
       "anchors": {
         "burst5N": 14,
         "chg5Pct": -6.99,
@@ -20530,7 +20618,7 @@
         "athVsLaunchPct": 104.1,
         "curVsMinGapPct": 3.7,
         "holdersDelta60": -4,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": 0,
         "openLateBuyBnb": 0.9132,
         "openSegBigBuyN": 4,
@@ -20615,7 +20703,7 @@
       "signalId": "69aabe2d-939d-4d4f-89ea-0ef5881aae2e",
       "anchorIso": "2026-11-05T12:33:50+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.814988890357179e-06,
+      "priceBnb": 0.000004814988890357179,
       "anchors": {
         "burst5N": 41,
         "chg5Pct": -7.65,
@@ -20670,7 +20758,7 @@
         "athVsLaunchPct": 516.2,
         "curVsMinGapPct": 0,
         "holdersDelta60": -46,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 18.1,
         "openLateBuyBnb": 19.4454,
         "openSegBigBuyN": 20,
@@ -20755,7 +20843,7 @@
       "signalId": "271ed6a0-d850-4450-a504-d1d31f5fb23f",
       "anchorIso": "2026-11-05T12:34:21+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.360376504440558e-06,
+      "priceBnb": 0.000004360376504440558,
       "anchors": null
     },
     {
@@ -20786,7 +20874,7 @@
       "signalId": "c16083b4-8e5d-4982-a3e6-3e31f935eef9",
       "anchorIso": "2026-11-05T12:35:37+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.004081797618145e-06,
+      "priceBnb": 0.000005004081797618145,
       "anchors": null
     },
     {
@@ -20817,7 +20905,7 @@
       "signalId": "7a181a1f-8ffe-4a4c-ae54-93a1925b4b80",
       "anchorIso": "2026-11-05T12:36:46+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.003444522912616e-06,
+      "priceBnb": 0.000004003444522912616,
       "anchors": {
         "burst5N": 7,
         "chg5Pct": -24.48,
@@ -20872,7 +20960,7 @@
         "athVsLaunchPct": 37.8,
         "curVsMinGapPct": 0,
         "holdersDelta60": -7,
-        "launchPriceBnb": 4.496173469e-09,
+        "launchPriceBnb": 4.496173469e-9,
         "minVsLaunchPct": -0.7,
         "openLateBuyBnb": 0.9508,
         "openSegBigBuyN": 0,
@@ -20957,7 +21045,7 @@
       "signalId": "0cda60bc-04df-4e03-bcc1-df6a155f6ab2",
       "anchorIso": "2026-11-05T12:39:43+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.971124483799505e-06,
+      "priceBnb": 0.000003971124483799505,
       "anchors": null
     },
     {
@@ -20979,7 +21067,7 @@
         "chip": "weak(0.81)",
         "priceLevel": "near_launch(1.00)"
       },
-      "curVs": 24.0,
+      "curVs": 24,
       "minVs": 17.5,
       "firstPointStatus": "executed",
       "pnl": 0.0042,
@@ -20988,7 +21076,7 @@
       "signalId": "0f2555ff-33f8-4787-ad8d-b8e0f5347e6c",
       "anchorIso": "2026-11-05T12:42:08+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.842586685398878e-06,
+      "priceBnb": 0.000004842586685398878,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": -15.7,
@@ -21043,7 +21131,7 @@
         "athVsLaunchPct": 75.4,
         "curVsMinGapPct": 6.5,
         "holdersDelta60": -3,
-        "launchPriceBnb": 5.502717371217754e-09,
+        "launchPriceBnb": 5.502717371217754e-9,
         "minVsLaunchPct": 17.5,
         "openLateBuyBnb": 1.4729,
         "openSegBigBuyN": 3,
@@ -21128,7 +21216,7 @@
       "signalId": "04e9892d-7dcf-49bb-adba-7ef1ed413461",
       "anchorIso": "2026-11-05T12:43:05+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.395118071005415e-06,
+      "priceBnb": 0.000004395118071005415,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": -26.35,
@@ -21183,7 +21271,7 @@
         "athVsLaunchPct": 51.6,
         "curVsMinGapPct": 0,
         "holdersDelta60": 2,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 11.7,
         "openLateBuyBnb": 1.1168,
         "openSegBigBuyN": 0,
@@ -21268,7 +21356,7 @@
       "signalId": "1983d0f4-ebc7-4f04-9ea8-2b084e1086a1",
       "anchorIso": "2026-11-05T12:45:23+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 5.0435565930068464e-06,
+      "priceBnb": 0.0000050435565930068464,
       "anchors": null
     },
     {
@@ -21299,7 +21387,7 @@
       "signalId": "18f6c82b-bf11-4eea-92ed-7ac21fd37cb8",
       "anchorIso": "2026-11-05T12:45:29+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 3.6122791206528123e-06,
+      "priceBnb": 0.0000036122791206528123,
       "anchors": null
     },
     {
@@ -21330,7 +21418,7 @@
       "signalId": "dc435662-15d9-4d2a-a9f8-349d7c0c1e7d",
       "anchorIso": "2026-11-05T13:00:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.525587664092595e-06,
+      "priceBnb": 0.000004525587664092595,
       "anchors": {
         "burst5N": 4,
         "chg5Pct": 3.63,
@@ -21385,7 +21473,7 @@
         "athVsLaunchPct": 18.3,
         "curVsMinGapPct": 10.5,
         "holdersDelta60": 6,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 4.7,
         "openLateBuyBnb": 0.2965,
         "openSegBigBuyN": 2,
@@ -21470,7 +21558,7 @@
       "signalId": "27c881d2-508d-451a-81d6-4aef2d2b6903",
       "anchorIso": "2026-11-05T13:03:03+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.944930973319024e-06,
+      "priceBnb": 0.000004944930973319024,
       "anchors": null
     },
     {
@@ -21493,7 +21581,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 19.5,
-      "minVs": 11.0,
+      "minVs": 11,
       "firstPointStatus": "executed",
       "pnl": 0.0104,
       "verdict": null,
@@ -21501,7 +21589,7 @@
       "signalId": "ae65d2e9-3537-4be6-a8e9-f9e13cc7ffa3",
       "anchorIso": "2026-11-05T13:08:13+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.6396728283840455e-06,
+      "priceBnb": 0.0000046396728283840455,
       "anchors": {
         "burst5N": 6,
         "chg5Pct": 20.49,
@@ -21556,7 +21644,7 @@
         "athVsLaunchPct": 19.5,
         "curVsMinGapPct": 8.5,
         "holdersDelta60": 8,
-        "launchPriceBnb": 5.481637284449249e-09,
+        "launchPriceBnb": 5.481637284449249e-9,
         "minVsLaunchPct": 11,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 0,
@@ -21641,7 +21729,7 @@
       "signalId": "57682f4c-56fb-4e0b-8780-0875bdca1237",
       "anchorIso": "2026-11-05T13:09:05+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.8977754628764064e-06,
+      "priceBnb": 0.0000048977754628764064,
       "anchors": null
     },
     {
@@ -21672,7 +21760,7 @@
       "signalId": "44191880-c3c6-4890-a629-a305295e1964",
       "anchorIso": "2026-11-05T13:20:16+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.18527738854334e-06,
+      "priceBnb": 0.00000418527738854334,
       "anchors": null
     },
     {
@@ -21695,7 +21783,7 @@
         "priceLevel": "near_launch(1.00)"
       },
       "curVs": 22.7,
-      "minVs": 13.0,
+      "minVs": 13,
       "firstPointStatus": "failed",
       "pnl": -0.0065,
       "verdict": null,
@@ -21703,7 +21791,7 @@
       "signalId": "019f7e87-79be-4c39-beb9-e40b4750a571",
       "anchorIso": "2026-11-05T13:36:06+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.8224291363999245e-06,
+      "priceBnb": 0.0000048224291363999245,
       "anchors": {
         "burst5N": 3,
         "chg5Pct": -32.43,
@@ -21758,7 +21846,7 @@
         "athVsLaunchPct": 81.6,
         "curVsMinGapPct": 9.7,
         "holdersDelta60": 1,
-        "launchPriceBnb": 5.546337995470633e-09,
+        "launchPriceBnb": 5.546337995470633e-9,
         "minVsLaunchPct": 13,
         "openLateBuyBnb": 2.3674,
         "openSegBigBuyN": 0,
@@ -21843,7 +21931,7 @@
       "signalId": "d1965f62-dc64-4bb8-a029-83c6ef8c3bf5",
       "anchorIso": "2026-11-05T13:39:17+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.931339749907636e-06,
+      "priceBnb": 0.000004931339749907636,
       "anchors": null
     },
     {
@@ -21874,7 +21962,7 @@
       "signalId": "32e4b15f-a163-43f8-a4a3-0ed720dc3169",
       "anchorIso": "2026-11-05T13:43:25+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.966763520754e-06,
+      "priceBnb": 0.000004966763520754,
       "anchors": null
     },
     {
@@ -21896,7 +21984,7 @@
         "chip": "strong(0.85)",
         "priceLevel": "near_launch(1.00)"
       },
-      "curVs": 25.0,
+      "curVs": 25,
       "minVs": 10.9,
       "firstPointStatus": "failed",
       "pnl": -0.0108,
@@ -21905,7 +21993,7 @@
       "signalId": "52154acd-28d2-492b-91c5-fff236bf9332",
       "anchorIso": "2026-11-05T13:44:00+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.479752413941735e-06,
+      "priceBnb": 0.000004479752413941735,
       "anchors": {
         "burst5N": 9,
         "chg5Pct": 24.99,
@@ -21960,7 +22048,7 @@
         "athVsLaunchPct": 25,
         "curVsMinGapPct": 14.1,
         "holdersDelta60": 8,
-        "launchPriceBnb": 5.0573571852318175e-09,
+        "launchPriceBnb": 5.0573571852318175e-9,
         "minVsLaunchPct": 10.9,
         "openLateBuyBnb": null,
         "openSegBigBuyN": 1,
@@ -22045,7 +22133,7 @@
       "signalId": "1f9f937c-9f40-40b9-aaed-3bfd88a71339",
       "anchorIso": "2026-11-05T13:44:46+00:00",
       "anchorDate": "2026-11-05",
-      "priceBnb": 4.937733324723408e-06,
+      "priceBnb": 0.000004937733324723408,
       "anchors": null
     }
   ]
