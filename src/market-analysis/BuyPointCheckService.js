@@ -282,7 +282,7 @@ class BuyPointCheckService {
       const assessment = obs.assessment;
       this._log('info', `买点观测 pattern=${dim.market_pattern?.bucket ?? '—'}` +
         ` trend=${dim.price_trend?.bucket ?? '—'}` +
-        ` heat=${dim.market_heat?.bucket ?? '—'} act=${dim.activity_level?.bucket ?? '—'}` +
+        ` act=${dim.activity_level?.bucket ?? '—'}` +
         ` holder=${dim.holder_concentration?.bucket ?? '—'}` +
         ` 综合=${obs.assessment.bucket}(${obs.assessment.prob},${obs.assessment.rule})` +
         `${obs.assessment.exempt ? `+exempt:${obs.assessment.exempt.code}(${obs.assessment.exempt.heat},+${obs.assessment.exempt.curVsLaunchPct}${typeof obs.assessment.exempt.openSegBuySharePct === 'number' ? `,os=${obs.assessment.exempt.openSegBuySharePct}` : ''})` : ''}` +

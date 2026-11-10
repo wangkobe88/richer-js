@@ -12,24 +12,22 @@
  *      · ⑥sustained_climb 位置臂：现价较发行价 ≤+10%（含破发）起点段放行、
  *        已拉离（>+10%）或锚缺失（宁拦不冒充）拒
  *      · none 统一位置门：**≤+27.5%**（BP58 收口，与 T129 ladder v14 触发线同线）
- *        放行、已拉离（>+27.5%）或锚缺失拒——**BP58 二修（判型恢复）**：①strong_
- *        backer/④early_sniper_decay/⑤blended_unremarkable/⑦restart/⑧golden_point
- *        五桶判型恢复（用户裁定「这个模块是简化而不是删除」——识别照旧、落 digest
- *        留观察），处理不变=统一位置门 27.5（判型不改变处理；各桶专属位置臂
- *        不再恢复）；首版五桶名重放归 LEGACY 并域已随判型恢复删除（桶名重新成为
- *        正式域——BP52 未部署生产无中间存档行）
+ *        放行、已拉离（>+27.5%）或锚缺失拒——**BP60 收口四桶**（用户裁定「只识别
+ *        出不交易的盘形即可」）：①strong_backer/④early_sniper_decay/⑤blended_
+ *        unremarkable/⑧golden_point 判型随桶域删除（处理与 none 完全一致没必要
+ *        保留；旧档四桶名答案→未知桶 throw fail-closed 拒——BP52 未部署生产无
+ *        中间存档行，buy_point_analyses 零历史行）
  *   ② 点位性质门（BP58 新题 entry_shape）：crash 庄离场直线砸盘 / spike 尖刺
  *      拉盘追高 → poor（rule=entry_gate——好点位=活跃交易中对倒中的低价/正常下跌
  *      造成的低价，不是庄家离场时的暴跌也不是尖刺拉起的追高点）；normal_dip
  *      正常回调低价=目标买入形状、flat 横盘缓行 → 放行；答案缺席容缺不拦
  *      （与其它门题同语义：拒=有证据的拒绝）
- *   ③ 活跃度门（BP13 扩双题+BP30 ultra 臂）：market_heat=low（近窗密度）**或**
- *      activity_level=low（买点前全窗量级）**或** activity_level=ultra（机器盘级
- *      极端密集——用户裁定「act 为 ultra 也不玩」，对齐 CD M 通道）→ poor
- *      （rule=activity_gate；market_heat=ultra 不拦——近窗密度视角不拦过热，
- *      只拦全窗量级 ultra；**BP58 起 ultra 臂无条件拦**——BP38 strong_backer
- *      豁免已随①桶退役删除，BP46/BP47 ④高热近价豁免与 BP53 ④ultra 散户入口
- *      豁免已随④桶退役删除）
+ *   ③ 活跃度门（BP30 ultra 臂+BP60 收单题）：activity_level=low（买点前全窗
+ *      量级）**或** activity_level=ultra（机器盘级极端密集——用户裁定「act 为
+ *      ultra 也不玩」，对齐 CD M 通道）→ poor（rule=activity_gate；**BP60 起
+ *      market_heat 臂删除**——题与 activity_level 重复，整题退役；ultra 臂
+ *      无条件拦——BP38 strong_backer 豁免已随①桶退役删除，BP46/BP47 ④高热近价
+ *      豁免与 BP53 ④ultra 散户入口豁免已随④桶退役删除）
  *   ④ 筹码门（BP14 holder 臂单臂）：holder_concentration=strong → poor
  *      （rule=chip_gate）。**BP54 停用（2026-11-09 用户裁定「筹码门可以去掉
  *      （改为先不激活），看看效果」）：CHIP_GATE_ENABLED=false 拦截臂不激活**，
@@ -56,7 +54,8 @@
  * 容错双轨（镜像 cheat mapper 纪律）：
  * - 维度题缺席 → null（容缺：材料薄时 Jev 可能拒答个别维度，存档重放兼容）；
  *   在场答案走 argmax + 桶域校验，未知桶名 throw（题集/映射漂移防线不因容缺
- *   放宽；market_pattern 桶域=八桶全域（BP58 二修判型恢复，旧档重放天然合法）
+ *   放宽；market_pattern 桶域=BP60 四桶+none（旧档带①④⑤⑧桶名答案 throw
+ *   fail-closed 拒——BP52 未部署生产零存档行，无重放污染面）
  * - 观测记录**无 verdict/grade/score/recommendation 键**（纯透传反证，单测锁死
  *   ——rule 键=门来源留痕（pattern_gate/entry_gate/activity_gate/chip_gate/
  *   gates_passed）非档位结论）
@@ -66,10 +65,9 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position；BP49 删 famous_domination/entry_position；BP58 增 entry_shape） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position；BP49 删 famous_domination/entry_position；BP58 增 entry_shape；BP60 删 market_heat） */
 const DIMENSION_IDS = [
   'price_trend',
-  'market_heat',
   'activity_level',
   'holder_concentration',
   'price_level',
@@ -79,22 +77,23 @@ const DIMENSION_IDS = [
 
 // ── 桶域（与题集导出同域同值——单测锁相等）──
 const PRICE_TREND_LEVELS = ['fast_up', 'slow_up', 'fast_down', 'slow_down', 'flat', 'volatile'];
-const HEAT_LEVELS = ['low', 'mid', 'high', 'ultra'];
-/** 买点前活跃度四档（BP13：CD activity_level 判法搬运——与 HEAT_LEVELS 同词表） */
+/** 买点前活跃度四档（BP13：CD activity_level 判法搬运；BP60 起唯一活跃度题——
+ * market_heat 已退役（与 activity_level 重复，题/门臂/日志段整链删除） */
 const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费；BP54 停用不激活） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 盘面分类八桶（BP58 二修——判型恢复：用户裁定「这个模块是简化而不是删除」：
- * 识别能力全保留（八桶判型照旧、落 digest 留观察），处理统一简化——②retail_pvp/
- * ③famous_monopoly 两异常桶硬拒、⑥sustained_climb 独立位置门 ≤+10、其余桶
- * （①strong_backer/④early_sniper_decay/⑤blended_unremarkable/⑦restart/
- * ⑧golden_point/none）统一位置门 ≤+27.5，判型不改变处理） */
-const MARKET_PATTERN_LEVELS = ['strong_backer', 'retail_pvp', 'famous_monopoly', 'early_sniper_decay', 'blended_unremarkable', 'sustained_climb', 'restart', 'golden_point'];
-/** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；④early_sniper_
- * decay 恢复判型但不再独立硬拒——其形状（开盘拉高/尖刺）的拦截由 entry_shape
- * spike/crash 臂+统一位置门 27.5 接力；sustained_climb 刻意不入本表——走
- * SUSTAINED_CLIMB_LAUNCH_PCT 独立位置臂） */
+/** 盘面分类四桶（BP60 收口——用户裁定「只识别出不交易的盘形即可」：①strong_
+ * backer/④early_sniper_decay/⑤blended_unremarkable/⑧golden_point 判型随桶域
+ * 删除——处理与 none 完全一致（统一位置门 ≤+27.5）没必要保留；保留=②
+ * retail_pvp/③famous_monopoly 两异常桶（盘型门硬拒）+⑥sustained_climb（独立
+ * 位置门 ≤+10）+none 正常盘面兜底（统一位置门 ≤+27.5））
+ * 演进：BP18 五类型学→BP30 六桶→BP38 七桶→BP45 八桶→BP58 二修判型恢复→
+ * BP60 删⑦restart→BP60 收口四桶 */
+const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'sustained_climb', 'none'];
+/** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；拉高/砸盘形状
+ * 的拦截由 entry_shape spike/crash 臂+统一位置门 27.5 接力；sustained_climb
+ * 刻意不入本表——走 SUSTAINED_CLIMB_LAUNCH_PCT 独立位置臂） */
 const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
 /** ⑥sustained_climb 参与位置界（BP34 用户裁定「这种只能临近发布价格参与」）：现价
  * 较发行价 ≤+10%（含破发）=临近发行价起点段放行走后续门链；已拉离（>+10%）或
@@ -103,11 +102,11 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
  * S155 +17.1%（拒）之间取 10 */
 const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
 /** 统一参与位置界（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于
- * 27.5」——与 T129 ladder v14 触发线同线）：正常盘面（none 与①④⑤⑦⑧判型桶——
- * BP58 二修判型恢复后处理同 none 统一走本门，判型仅留痕观察）现价较发行价
- * ≤+27.5%（含破发）=放行走点位性质门/活跃度门；已拉离（>+27.5%）或锚缺失
- * （宁拦不冒充）→ 盘型门拒（rule=pattern_gate）。改制前各桶专属位置臂
- * （①80→40/⑤40/⑦40/⑧40/④豁免臂 40）不再恢复，统一收口本线 */
+ * 27.5」——与 T129 ladder v14 触发线同线）：正常盘面（none——BP60 四桶化后
+ * 正常形状全部归 none 统一走本门）现价较发行价 ≤+27.5%（含破发）=放行走点位
+ * 性质门/活跃度门；已拉离（>+27.5%）或锚缺失（宁拦不冒充）→ 盘型门拒
+ * （rule=pattern_gate）。改制前各桶专属位置臂（①80→40/⑤40/⑦40/⑧40/④豁免
+ * 臂 40）不再恢复，统一收口本线 */
 const NORMAL_ENTRY_LAUNCH_PCT = 27.5;
 /** 点位性质四桶（BP58 新题 entry_shape——用户理念「只买性价比高的点位，不追高」：
  * 好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌
@@ -119,11 +118,12 @@ const ENTRY_SHAPE_LEVELS = ['crash', 'spike', 'normal_dip', 'flat'];
  * normal_dip 正常回调低价=目标买入形状、flat 横盘缓行 → 放行 */
 const ENTRY_GATE_POOR_BUCKETS = ['crash', 'spike'];
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
- * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；market_heat
- * 的 ultra 不拦：近窗密度视角不拦过热，只拦全窗量级 ultra；**BP58 起 ultra 臂
- * 无条件拦**——BP38 strong_backer 豁免/BP46+47 ④高热豁免同盖/BP53 ④ultra
- * 散户入口豁免同盖三臂已随宿主桶退役删除） */
-const ACTIVITY_GATE_POOR_BUCKETS = { market_heat: ['low'], activity_level: ['low', 'ultra'] };
+ * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；**BP60 起
+ * market_heat 臂删除**（题与 activity_level 重复整题退役，旧档 answers 带答案
+ * 不被消费不 throw——维度缺席容缺）；**ultra 臂无条件拦**——BP38 strong_backer
+ * 豁免/BP46+47 ④高热豁免同盖/BP53 ④ultra 散户入口豁免同盖三臂已随宿主桶退役
+ * 删除） */
+const ACTIVITY_GATE_POOR_BUCKETS = { activity_level: ['low', 'ultra'] };
 /** BP54 筹码门停用（2026-11-09 用户裁定「筹码门可以去掉（改为先不激活），看看
  * 效果」）：CHIP_GATE_ENABLED=false 筹码门拦截臂不激活——holder strong 不再拒
  * （rule=chip_gate 不产出），holder 维度答案原样透传 digest 照落（观察材料
@@ -137,7 +137,6 @@ const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
 const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
-  market_heat: HEAT_LEVELS,
   activity_level: ACTIVITY_LEVELS,
   holder_concentration: HOLDER_CONCENTRATION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
@@ -233,13 +232,11 @@ function buildBuyPointObservation(answers, anchors = null) {
   const rawVs = anchors ? anchors.currentVsLaunchPct : null;
   const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
   // 纯门链（BP58——盘型门→点位性质门→活跃度门→筹码门（停用））
-  // ①盘型门（BP30 前置预判断；BP58 二修判型恢复八桶、处理保持统一）：
-  //   · retail_pvp/famous_monopoly 两异常桶硬拒（不要参与）
-  //   · ⑥sustained_climb 位置臂：≤+10（含破发）起点段放行；已拉离/锚缺失拒
-  //     （判型归 Jev、位置归代码——宁拦不冒充）
-  //   · 其余桶（none 与①④⑤⑦⑧判型桶）统一位置臂：≤+27.5（BP58）放行；
-  //     已拉离/锚缺失拒——判型恢复后①④⑤⑦⑧不改变处理（统一位置门，判型
-  //     落 digest 仅留痕观察；各桶专属位置臂不再恢复）
+  // ①盘型门（BP30 前置预判断；BP60 收口四桶）：· retail_pvp/famous_monopoly
+  //   两异常桶硬拒（不要参与）；· ⑥sustained_climb 位置臂：≤+10（含破发）起点段
+  //   放行，已拉离/锚缺失拒（判型归 Jev、位置归代码——宁拦不冒充）；· none
+  //   统一位置臂：≤+27.5（BP58）放行，已拉离/锚缺失拒（①④⑤⑧判型已随桶域
+  //   删除，正常形状全归 none）
   const patternArms = [];
   if (dimensions.market_pattern) {
     const mp = dimensions.market_pattern.bucket;
@@ -248,8 +245,7 @@ function buildBuyPointObservation(answers, anchors = null) {
     } else if (mp === 'sustained_climb') {
       if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     } else {
-      // none 与①strong_backer/④early_sniper_decay/⑤blended_unremarkable/
-      // ⑦restart/⑧golden_point 同走统一位置门
+      // none 走统一位置门（BP60 四桶化后唯一正常桶）
       if (vsLaunch == null || vsLaunch > NORMAL_ENTRY_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     }
   }
@@ -260,12 +256,11 @@ function buildBuyPointObservation(answers, anchors = null) {
   const entryArms = dimensions.entry_shape
     && ENTRY_GATE_POOR_BUCKETS.includes(dimensions.entry_shape.bucket)
     ? [dimensions.entry_shape] : [];
-  // ③活跃度门（BP13 双题+BP30 ultra 臂；BP58 起 ultra 无条件拦——三豁免臂已随
-  //   宿主桶退役删除）：market_heat=low（近窗密度死寂）**或** activity_level ∈
-  //   {low（CD 七要素低档形状）, ultra（机器盘级极端密集——「act 为 ultra 也不
-  //   玩」）}→ poor（rule=activity_gate）
+  // ③活跃度门（BP60 收单题——market_heat 臂已随题退役删除；BP58 起 ultra 无条件
+  //   拦——三豁免臂已随宿主桶退役删除）：activity_level ∈ {low（CD 七要素低档
+  //   形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」）}→ poor
+  //   （rule=activity_gate；旧档带 market_heat 答案不被消费不 throw）
   const gateArms = [
-    dimensions.market_heat && ACTIVITY_GATE_POOR_BUCKETS.market_heat.includes(dimensions.market_heat.bucket) ? dimensions.market_heat : null,
     dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) ? dimensions.activity_level : null,
   ].filter(Boolean);
   // ④筹码门（BP14 holder 单臂；BP54 停用 CHIP_GATE_ENABLED=false 不产出——
@@ -315,7 +310,7 @@ function buildBuyPointObservation(answers, anchors = null) {
       launchPriceBnb: _num(b, 'launchPriceBnb'),
       currentVsLaunchPct: _num(b, 'currentVsLaunchPct'),
       athVsLaunchPct: _num(b, 'athVsLaunchPct'), // BP39 开盘拉高出货度量锚（锚窗最高价较发行价 %）
-      minVsLaunchPct: _num(b, 'minVsLaunchPct'), // BP43 restart 重启盘轨迹锚（锚窗涨起后最低价较发行价 %；BP44 定义=首个突破 +20% 之后，创新高不遮蔽回落）
+      minVsLaunchPct: _num(b, 'minVsLaunchPct'), // 锚窗涨起后最低价较发行价 %（BP44 定义=首个突破 almost 上界之后，创新高不遮蔽回落；BP60 ⑦桶删除后消费者=famous 轴前置「再起来」价格维度判读锚）
       curVsMinGapPct: _num(b, 'curVsMinGapPct'), // BP58 点位性质锚（现价−minVsLaunchPct，单位个百分点；≤2=贴着锚窗最低价）
       launchCovered: b.launchCovered === null || b.launchCovered === undefined ? null : (b.launchCovered ? 1 : 0),
       // 市值位置族（BP2：supply 缺失 null fail-closed）
@@ -417,7 +412,6 @@ module.exports = {
   buildBuyPointObservation,
   DIMENSION_IDS,
   PRICE_TREND_LEVELS,
-  HEAT_LEVELS,
   ACTIVITY_LEVELS,
   HOLDER_CONCENTRATION_LEVELS,
   PRICE_LEVEL_LEVELS,
