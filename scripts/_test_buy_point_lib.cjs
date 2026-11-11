@@ -1003,7 +1003,7 @@ ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: BP60 狙击衰竭�
   const oCrashOut = buildBuyPointObservation(es('crash'), { ...dE, currentVsLaunchPct: 50 }).assessment;
   ok(oCrashOut.rule === 'pattern_gate', 'E: BP58 门序 统一位置门（盘型门）先拒已拉离（crash+curVs 50>28.5 双命中留痕 pattern_gate）');
   ok(JSON.stringify(buildBuyPointObservation({ ...es('crash'), ...mkAns('market_pattern', 'none', 0.6), ...mkAns('holder_concentration', 'strong', 0.9) }, dE)).includes('exempt') === false,
-    'E: BP58 exempt 键全绝迹（BP38/BP46/BP47/BP52/BP53 五豁免臂随桶改制删除——任何组合不留 exempt 指纹）');
+    'E: BP58 exempt 键绝迹于 crash 域（BP38/BP46/BP47/BP52/BP53 五豁免臂随桶改制删除；**BP78 恢复=malicious_dump 域专属 dump_total_volume 豁免**——crash 域仍零 exempt 指纹）');
   // BP77 恶意砸盘桶：malicious_dump → entry_gate 拒（与 crash 同 rule 双桶拦域）
   const oDump77 = buildBuyPointObservation(es('malicious_dump', 0.9), dE);
   ok(oDump77.assessment.bucket === 'poor' && near(oDump77.assessment.prob, 0.9) && oDump77.assessment.rule === 'entry_gate'
@@ -1046,6 +1046,43 @@ ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: BP60 狙击衰竭�
   ok(anMiss77.dumpBlockBnb === null && anMiss77.dumpBlockDropPct === null && anMiss77.dumpBlockFollowBuyRatio === null
     && anMiss77.dump2BlockBnb === null && anMiss77.dump2BlockFollowBuyRatio === null && anMiss77.exactEqualBlockMaxWallets === 0,
     'E: BP77 砸块/塞单锚缺席 → null/0 透传不冒充（dE=存量夹具零簇零砸块——题面「砸块行缺席不落」同向）');
+}
+// ═══ BP78 malicious_dump 总交易额豁免（mapper 代码侧豁免臂——「交易了比较久往下的
+// 过程中的恐慌砸盘不像是恶意的」；线=20 BNB 用户裁定「有一些作弊币也刷量的别被骗」） ═══
+{
+  ok(require('../src/market-analysis/buy-point-result-mapper').DUMP_EXEMPT_TOTAL_VOLUME_BNB === 20,
+    'E: BP78 豁免线常量 DUMP_EXEMPT_TOTAL_VOLUME_BNB=20（锚定读数：获救票 T031 4=46.85/588 笔，被拦五张 SI 2.45/蝴蝶 2.61/海水 5.92/meme.jpg 6.02/CR 6.77 全 ≤6.77——7 倍 gap 中间无票；20 线下 T031 照过五张照拦）');
+  // snapshot 侧全窗合计（A 段 18 tick 手算 5.17——含 outlier 行 0.4 资金照计）
+  ok(near(dA.totalVolumeBnb, 5.17, 1e-9) && buildBuyPointObservation(fullAnswers(), dE).anchors.totalVolumeBnb === 5.17,
+    'E: BP78 totalVolumeBnb 全窗合计手算锁（rowsA Σbnb=5.17 含 outlier 资金口径；dE 继承同值）');
+  const esD = (p) => ({ ...fullAnswers(), ...mkAns('entry_shape', 'malicious_dump', p) });
+  // 豁免触发：mdump ∧ tv ≥20 → 本门不拦放行+exempt 留痕
+  const exHit = buildBuyPointObservation(esD(0.86), { ...dE, totalVolumeBnb: 46.85 }).assessment;
+  ok(exHit.bucket === 'neutral' && exHit.rule === 'gates_passed' && exHit.exempt
+    && exHit.exempt.code === 'dump_total_volume' && near(exHit.exempt.totalVolumeBnb, 46.85),
+    'E: BP78 豁免触发 mdump+tv 46.85 ≥20 → neutral/gates_passed+exempt={code:dump_total_volume,totalVolumeBnb}（Jev 桶答案原样保留落档，代码不改写判定——门层放行留痕）');
+  // 贴线边界
+  const exEdge = buildBuyPointObservation(esD(0.8), { ...dE, totalVolumeBnb: 20 }).assessment;
+  ok(exEdge.bucket === 'neutral' && exEdge.exempt && near(exEdge.exempt.totalVolumeBnb, 20),
+    'E: BP78 恰 20 BNB 放行（≥ 边界含）；19.99 拒（见下 dE 天然 5.17）');
+  // 线下照拦：dE 自带 tv=5.17（被拦五张同域 ≤6.77）
+  const exUnder = buildBuyPointObservation(esD(0.86), dE).assessment;
+  ok(exUnder.bucket === 'poor' && exUnder.rule === 'entry_gate' && near(exUnder.prob, 0.86) && exUnder.exempt === undefined,
+    'E: BP78 线下（tv 5.17<20）照拦 poor/entry_gate 零 exempt（SI/蝴蝶/海水/meme.jpg/CR 五张保持被拦——市场化大额豁免只放真大额盘）');
+  // 锚缺失宁拦不冒充（旧档重放 buyDerived 无键）
+  const exNull = buildBuyPointObservation(esD(0.86), { ...dE, totalVolumeBnb: null }).assessment;
+  ok(exNull.bucket === 'poor' && exNull.rule === 'entry_gate' && exNull.exempt === undefined,
+    'E: BP78 锚缺失照拦不豁免（宁拦不冒充——旧档重放域无键=fail-closed）');
+  ok(buildBuyPointObservation(esD(0.7), { ...dE, totalVolumeBnb: 'x' }).assessment.rule === 'entry_gate',
+    'E: BP78 非有限数 → null 不豁免（typeof number ∧ finite 守卫）');
+  // crash 臂不豁免（庄离场直线砸盘判轴与恐慌抛售无关）
+  const exCrash = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('entry_shape', 'crash', 0.9) }, { ...dE, totalVolumeBnb: 100 }).assessment;
+  ok(exCrash.bucket === 'poor' && exCrash.rule === 'entry_gate' && exCrash.exempt === undefined,
+    'E: BP78 crash 臂不豁免（tv 100 照拦——豁免臂 malicious_dump 域专属）');
+  // 豁免后后续门拒不吞没 exempt 留痕（activity low 双命中 → 门链顺序拒但 entry 放行记录在场）
+  const exLate = buildBuyPointObservation({ ...esD(0.86), ...mkAns('activity_level', 'low', 0.9) }, { ...dE, totalVolumeBnb: 46.85 }).assessment;
+  ok(exLate.bucket === 'poor' && exLate.rule === 'activity_gate' && exLate.exempt && exLate.exempt.code === 'dump_total_volume',
+    'E: BP78 豁免后 act low 仍拒（rule=activity_gate）+ exempt 留痕不吞没（BP46/BP53 additive 同构——本门放行记录与后续门拒互不遮蔽）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'none', 0.88) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: BP58 统一位置门 dA vsLaunch=+60% >+28.5 → poor/pattern_gate（正常盘面唯一放行上界——不追高）');

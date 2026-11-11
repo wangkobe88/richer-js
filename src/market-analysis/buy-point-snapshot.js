@@ -303,6 +303,13 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     win[W].newBuyers = n;
   }
 
+  // ── BP78 全窗总成交额（锚窗买+卖合计 BNB；口径与 win 族同——资金不滤 outlier、
+  //    side 归一）：malicious_dump 豁免臂判据源（「交易了比较久往下的过程中的恐慌
+  //    砸盘不像是恶意的」——市场化深跌与庄出逃的分离轴），0 行=0 有证据零值 ──
+  let totalVolumeBnb = 0;
+  for (const t of ticks) totalVolumeBnb += t.bnb || 0;
+  totalVolumeBnb = +totalVolumeBnb.toFixed(4);
+
   // ── 动能族（集中度剔伪钱包；routerBuyPct 是散户通道代理=纯事实）──
   const win60 = win[60];
   let top1BuyPct60 = null, top1SellPct60 = null, routerBuyPct60 = null;
@@ -910,8 +917,9 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     halfTpmEarly, halfTpmLate, rateTrend, burst5In120, bundledBlock,
     // BP77 塞单簇/恶意砸块族（exactEqualBlockMaxWallets 0=无合格簇有证据零值——
     // mapper 塞单门消费；clusters top3=state 渲染原料不进锚；dumpBlock/dump2Block
-    // =砸块结构锚，判读线在题面 crash 桶恶意砸盘臂，缺候选=null 不判砸盘）
-    exactEqualBlockMaxWallets, exactEqualBlockClusters, dumpBlock, dump2Block,
+    // =砸块结构锚，判读线在题面 crash 桶恶意砸盘臂，缺候选=null 不判砸盘）；
+    // BP78 totalVolumeBnb=全窗总成交额——mapper malicious_dump 豁免臂消费
+    exactEqualBlockMaxWallets, exactEqualBlockClusters, dumpBlock, dump2Block, totalVolumeBnb,
     // 卖压族
     bigHolderSellBnb60, exitSellerCount60,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）

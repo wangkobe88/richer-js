@@ -122,6 +122,16 @@ const NORMAL_ENTRY_LAUNCH_PCT = 28.5;
  * 例外（BP37「判形状归 Jev」总则不适用于此）；7 值带（盈亏混杂）在线外不拦；
  * 锚缺席（旧档重放）容缺不拦；全年龄无域（方案四 D 裁定） */
 const STUFFING_MAX_EQ_WALLETS = 8;
+/** BP78 malicious_dump 总交易额豁免线（锚窗买+卖合计 BNB，totalVolumeBnb）：
+ * 用户裁定「交易了比较久往下的过程中有一个恐慌砸盘，不像是恶意的，这种情况
+ * 用总交易额豁免」+线值裁定「卡 20 个 BNB 吧，因为有一些作弊币也刷量的，别被
+ * 骗了」——大额盘的深跌=市场化恐慌抛售（多散户参与、价格发现成熟），小额新
+ * 盘深砸无承接=庄出逃形状。锚定读数（bt-v103-r2 43 点砸块锚全量）：获救票
+ * T031 4=46.85/588 笔，被拦五张 SI 2.45/蝴蝶 2.61/海水 5.92/meme.jpg 6.02/
+ * CR 6.77 全 ≤6.77（7 倍 gap 中间无票）；≥20 域其余三张（Dawn×2/钱来）砸块
+ * 承接 5~7 天然不过落桶腿=零误放。锚缺失（旧档重放）宁拦不冒充不豁免；
+ * crash 臂不豁免（庄离场直线砸盘判轴与恐慌抛售无关） */
+const DUMP_EXEMPT_TOTAL_VOLUME_BNB = 20;
 /** 点位性质五桶（BP58 新题 entry_shape——用户理念「只买性价比高的点位，不追高」：
  * 好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌
  * （直线砸盘），也不是尖刺拉起的追高点；BP77 恶意砸盘单独落桶 malicious_dump
@@ -279,9 +289,24 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   离场时的暴跌」）；spike 已出拦域（BP68 判型落档不拦）、normal_dip/flat
   //   放行；答案缺席容缺不拦（拒=有证据的拒绝；旧档 BP51 及以前无 entry_shape
   //   答案=门自动失效）
-  const entryArms = dimensions.entry_shape
+  let entryArms = dimensions.entry_shape
     && ENTRY_GATE_POOR_BUCKETS.includes(dimensions.entry_shape.bucket)
     ? [dimensions.entry_shape] : [];
+  // BP78 malicious_dump 总交易额豁免（用户裁定——见 DUMP_EXEMPT_TOTAL_VOLUME_BNB
+  // 头注）：Jev 判 malicious_dump ∧ 锚窗总成交额 ≥20 BNB → 本门不拦（市场化恐慌
+  // 抛售≠庄出逃），exempt 留痕 additive（assessment.exempt，BP46/BP53 同构——
+  // 后续门拒不吞没本门放行记录）；桶答案原样保留落档（代码不改写 Jev 桶判定）；
+  // 锚缺失/阈值下=不豁免照拦（宁拦不冒充——刷量作弊币刻意抬不了的诚信线：豁免
+  // 只放真大额盘，刷量票总成交额够线但砸盘四腿本就全中，风险=大额刷量+深砸
+  // 无承接，由 CD 门/活跃度门接力）
+  let entryExempt = null;
+  if (entryArms.length && dimensions.entry_shape.bucket === 'malicious_dump') {
+    const tv = _num(anchors, 'totalVolumeBnb');
+    if (tv !== null && tv >= DUMP_EXEMPT_TOTAL_VOLUME_BNB) {
+      entryArms = [];
+      entryExempt = { code: 'dump_total_volume', totalVolumeBnb: tv };
+    }
+  }
   // ③活跃度门（BP60 收单题——market_heat 臂已随题退役删除；BP58 起 ultra 无条件
   //   拦——三豁免臂已随宿主桶退役删除）：activity_level ∈ {low（CD 七要素低档
   //   形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」）}→ poor
@@ -314,7 +339,7 @@ function buildBuyPointObservation(answers, anchors = null) {
     // BP48 纯门链收口：全部门过=neutral 放行（无质量层；prob=null 无档位概率）
     bucket = 'neutral'; prob = null; rule = 'gates_passed';
   }
-  const assessment = { bucket, prob, rule };
+  const assessment = { bucket, prob, rule, ...(entryExempt ? { exempt: entryExempt } : {}) };
   const flat = {};
   for (const W of [30, 60, 120]) {
     for (const k of ['buyBnb', 'sellBnb', 'buyN', 'sellN', 'netBnb', 'buySharePct', 'ticksPerMin', 'buyers', 'sellers', 'newBuyers']) {
@@ -416,6 +441,8 @@ function buildBuyPointObservation(answers, anchors = null) {
       dump2BlockSellers: dump2 && typeof dump2.sellers === 'number' ? dump2.sellers : null,
       dump2BlockTopSellerPct: dump2 && typeof dump2.topSellerPct === 'number' ? dump2.topSellerPct : null,
       dump2BlockFollowBuyRatio: dump2 && typeof dump2.followBuyRatio === 'number' ? dump2.followBuyRatio : null,
+      // BP78 全窗总成交额（锚窗买+卖合计 BNB；malicious_dump 豁免臂判据源+观测）
+      totalVolumeBnb: _num(b, 'totalVolumeBnb'),
       // 卖压族
       bigHolderSellBnb60: _num(b, 'bigHolderSellBnb60'),
       exitSellerCount60: _num(b, 'exitSellerCount60'),
@@ -477,6 +504,7 @@ module.exports = {
   PRICE_TREND_LEVELS,
   ACTIVITY_LEVELS,
   STUFFING_MAX_EQ_WALLETS,
+  DUMP_EXEMPT_TOTAL_VOLUME_BNB,
   HOLDER_CONCENTRATION_LEVELS,
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
