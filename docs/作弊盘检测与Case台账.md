@@ -187,6 +187,22 @@
 
 ## Case 倒序
 
+### CD398 burst 豁免流向硬腿——主判量 `burstWaveNetBnb`（波窗自身净流 Σ买−Σ卖）+辅助 `burstWaveWalletNetBnb`（波钱包全窗净额）任一 <0 不授予（2026-11-11，豁免资格案·snapshot+mapper+grade+service 四投影；bt-v103 复盘统一裁定③「burst 按分析调整=流向键硬条件」驱动；首版 `10212302^`主判量误取波钱包全窗净额引出二修 `10212302`）
+
+**动机（裁定③）**：CD397 四要素判读③「流向（入非出）」只作 Jev 判读不作否决——用户裁定把流向升**硬条件**：售卖引发的 burst 波（庄对倒拉盘腿/卖家巨鲸在波内出货）不授予 stall_burst 豁免。与 CD397 案 19 号票「波钱包全窗回吐 82% 仍是有力波」直接呼应。
+
+**首版→二修（主判量换锚，谷歌SI 反例驱动）**：首版主判量=`burstWaveWalletNetBnb`（波钱包**全窗**净额）——对「波内卖家巨鲸」失明：谷歌SI `0xb714df9f…7777`（#51，-0.0426）波内两卖家 0.429+0.590 BNB 拆 block 卖出，但它们低买高卖**全窗净额为正** → 首版腿放行=误豁免。**二修主判量换 `burstWaveNetBnb`=波窗自身 Σ(买−卖) 带符号**（卖单直接进分子，卖家巨鲸即显形：同锚复算 -0.5829）；`burstWaveWalletNetBnb` 降辅助腿（全窗口径仍捕「波内买入、窗外回吐」形状）。
+
+**落法**：`_isStallBurstExempt(levels, anchors)` 加流向腿（anchors 参数恢复——CD397 曾删）：`burstWaveNetBnb`（主）/`burstWaveWalletNetBnb`（辅）**任一 typeof number 且 <0 → 不授予**；null/undefined 容缺照授予（旧行断代/无波防误杀，宁漏不冒充方向=与 CD398 立法语义一致：只否决「有证据的流出」）；三点同构（豁免出口/拉黑登记/bootstrap 恢复）。投影四处：service observation anchors（CheatCheckService `_pullTicksDb` 后 normalize 阶）→ mapper `buildObservation` 白名单（`_anchorNum` 带符号透传）→ cheat-grade `levelsFromObservation`（Number() 透传）→ state wnet/wnet0 句（sbw 题「停滞突发波事实」行补流向数值）。snapshot 层 `burstWaveNetBnb` 与 D3.67 波族同窗计算（单段绑定波出口 60s 最密 5s 滑窗内 Σ买−Σ卖）。
+
+**单测**：`_test_cheat_detection_service` r8n 组流向腿 12 断言（sbw=burst∧winNet<0→拒/winNet≥0→豁免/两键 null 容缺→豁免/仅 wnet0<0→拒/digest 通道锁——十新键不进 FA 投影沿 CD397 Option 2）全绿。
+
+**182 对拍（二修版 6 票，2026-11-11）**：TukTuk#54 `sbw=burst exempt=activity_high winNet:+0.455`✓ / M4GA#84 `sbw=burst exempt=stall_burst winNet:+0.4911`✓（CD383 立法票保持）/ 海水#78 `sbw=burst exempt=stall_burst winNet:+0.206`✓（sellBack 41.9% 但净流正→放行=设计内）/ memes#85 `sbw=none grade=healthy exempt=activity_high`✓（sbw 方差但 activity 臂保住）/ 谷歌SI#51 `sbw=none grade=unhealthy(E) winNet:-0.5829`（卖家巨鲸 0.429+0.590 已进波窗净流分子——本跑 sbw=none 走 E 通道拒，流向腿门级行为由 r8n 单测锁；digest 值实锤二修主判量生效）/ 小四#82 `sbw=none grade=cheat` 拒维持（波族全 null，见下行集时点差）。
+
+**小四#82 行集时点差（重要注记，攒批待裁）**：生产 bt-v103 07:47:56 成交信号 `grade=cheat → exempt=stall_burst`（CD397 单条件 sbw=burst 才能授予），但全量 DB 行集同锚（07:47:55.852）复算波族十键**全 null**=窗内无 ≥50s 静默段——机理=生产拉数时 late rows 尚未 flush（tickBuffer 500ms+WssEventWriter per-row）造出**伪静默段**，全量行集下小四持续活跃非 burst 形状。即：生产豁免来自缺行窗的伪 burst，CD397 单段绑定后该票豁免**不可复现** → 高盈利批 #82（+0.4929，Top4）在现行门链回测中会拒——**保护约束（「高盈利批尽量不要损失」）显式冲突点，上报待用户裁定**；同机理候选=CD319/CD387/CD396 残差族「run-to-run 方差」的一部分（行集时点差 vs 真 Jev 方差两形态，复盘对拍时注意区分：digest 复算确定性、sbw 答案受行集影响）。
+
+**余留**：生产 winNet 分布观察（正票是否常正）；谷歌SI sbw=none 方差（首版对拍曾 burst，本跑 none——E 通道兜底拒但流向腿未被生产路径测试，观察后续跑）；小四#82 行集时点差裁定；伪静默段（late-row 缺行）是否需要在 settle 边界加固（现状=settle 4s 上界内等 flush，长尾行缺席风险留档）。
+
 ### CD397 族三 burst 深化——单段绑定波族十键+sbw 题重写四要素（无硬阈值）+G8/CD383 四腿/D3.66 第四腿全拆=判定权归 Jev（2026-11-11，题面+snapshot+grade 案·题集 D3.65→D3.67、grade G17→G18；v100 review 14 票 burst 问题票波形状取证驱动；用户四条裁定「动手」批准）
 
 **动机（v100 review 第 19-20 批 14 票 burst 问题票取证，四条裁定原文）**：
