@@ -48,6 +48,14 @@
       "covered": "batch 19 全批 10 票（idx 181-190，重构后文件；全批豁免票：4 stall_burst + 6 activity_high）",
       "outcome": "6 issue（181/182/185/188/189/190）+ 4 accept（183/184/186/187）；净 -0.0152，三正七负",
       "resolutions": "全部先记录不动手修（2026-11-11 用户裁定 idx188 卖臂「记录一下，可以先不处理」同批适用）。归族：crash 漏拦（181/185/188 买点/190 反弹段=BP59 判例生产漏拦首例，连 idx19 候选 C 攒批）；launch 价格基准（182=idx95 滚动基准族）；burst 族（185/189，案族第 9/10 例——189 揭示 actTotalBnb 买卖合计口径纯卖盘也过门盲点）；卖臂删除待执行（188：config sellStrategies[7] mc<8.1 档，bt-v100 已 completed）"
+    },
+    {
+      "round": 1,
+      "date": "2026-11-11",
+      "time": "2026-11-11 08:34（UTC+8）",
+      "covered": "batch 18 全批 10 票（idx 171-180，全部有成交）",
+      "outcome": "5 issue（174/175/177/179/180）+ 5 accept（171/172/173/176/178）",
+      "resolutions": "全部先记录不动手修（用户确认「先记录，不需要处理」）。归族：burst 识别（174/179，案族第 9/10 例）；长期无回调阴跌（175，idx98 불개미同族）；持仓期卖侧枯竭异常盘应及卖全清（177，卖出侧新机制候选，与 T118/T133 撤离臂同族）；初始价格太低（180，idx143 我靠同族 T130 锚族第二例）"
     }
   ],
   "batches": {
@@ -306,8 +314,10 @@
         171,
         180
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [],
+      "reviewedAt": "2026-11-11 08:34（UTC+8）",
+      "coveredIdx": "171-180（原 idx 186/188/194/196/198/200/201/203/205/206）"
     },
     "19": {
       "range": [
@@ -14182,8 +14192,8 @@
       "minVs": 10.3,
       "firstPointStatus": "failed",
       "pnl": 0.0054,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "195cac35-1df1-45d3-9a3f-f956da74d66a",
       "anchorIso": "2026-11-05T09:21:08+00:00",
       "anchorDate": "2026-11-05",
@@ -14298,7 +14308,8 @@
         "actNearTail10SellWallets": 0,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 186
+      "origIdx": 186,
+      "note": "第十八批 review 接受（首点位统一门 28.5 拒（curVs 35.2 已拉离）后翻过 +0.0054；cheat sameBlock+pump+spike activity_high 豁免）"
     },
     {
       "idx": 172,
@@ -14323,8 +14334,8 @@
       "minVs": 10.5,
       "firstPointStatus": "executed",
       "pnl": -0.0041,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "8bbb1ead-bced-4bce-8508-8af4302b152e",
       "anchorIso": "2026-11-05T09:24:09+00:00",
       "anchorDate": "2026-11-05",
@@ -14439,7 +14450,8 @@
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 188
+      "origIdx": 188,
+      "note": "第十八批 review 接受（首点位成交 -0.0041；A强 spike+J_hold+L_insider_sell77 activity_high 豁免，BP neutral 直过）"
     },
     {
       "idx": 173,
@@ -14464,8 +14476,8 @@
       "minVs": -6.9,
       "firstPointStatus": "failed",
       "pnl": -0.0035,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "8702c7eb-9ee7-4963-9bfa-aed780061dcc",
       "anchorIso": "2026-11-05T09:33:18+00:00",
       "anchorDate": "2026-11-05",
@@ -14580,7 +14592,8 @@
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 194
+      "origIdx": 194,
+      "note": "第十八批 review 接受（首点位统一门拒（curVs 44.5 已拉离）后翻过 -0.0035；cheat unhealthy→activity_high 豁免）"
     },
     {
       "idx": 174,
@@ -14605,8 +14618,8 @@
       "minVs": 3.3,
       "firstPointStatus": "executed",
       "pnl": -0.002,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "14c57c46-9557-4572-a1e3-2d8a9dfcadf2",
       "anchorIso": "2026-11-05T09:39:06+00:00",
       "anchorDate": "2026-11-05",
@@ -14721,7 +14734,8 @@
         "actNearTail10SellWallets": 9,
         "chipFamousFollowerTop3Pct": 49.7
       },
-      "origIdx": 196
+      "origIdx": 196,
+      "note": "第十八批 review issue（用户裁定『burst 识别错误』：cheat A强 pump→stall_burst 豁免+BP activity burst(0.99) 档放行，almost_launch +3.3 买入 -0.002——burst 案族第 9 例（19/72/81/96/123/124/130/170/174）；先记录不动手修）"
     },
     {
       "idx": 175,
@@ -14746,14 +14760,15 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0095,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "19aecd80-21cb-41a0-b783-eb4c16a30768",
       "anchorIso": "2026-11-05T09:48:24+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.0000033901697049691166,
       "anchors": null,
-      "origIdx": 198
+      "origIdx": 198,
+      "note": "第十八批 review issue（用户裁定『买在长期全无回调的下跌期』：首点位 unhealthy 拒（A_downgrade_single_pump_burst+E_low弱+N_no_retail_entry0.0）后 P11 后续点位翻过成交 -0.0095——长期无回调阴跌形状，与 idx98 불개미『长期无回弹阴跌被 normal_dip 放行』同族归 crash/entry_shape 边界族；先记录不动手修）"
     },
     {
       "idx": 176,
@@ -14778,8 +14793,8 @@
       "minVs": 10.6,
       "firstPointStatus": "failed",
       "pnl": 0.0164,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "1411a506-adf7-4884-8c39-48c00262d542",
       "anchorIso": "2026-11-05T09:53:46+00:00",
       "anchorDate": "2026-11-05",
@@ -14894,7 +14909,8 @@
         "actNearTail10SellWallets": 12,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 200
+      "origIdx": 200,
+      "note": "第十八批 review 接受（首点位 crash(0.66) entry_gate 拒后翻过 +0.0164；CD391 批『弃 SPP +0.102 代价』同票本次链路放行）"
     },
     {
       "idx": 177,
@@ -14919,8 +14935,8 @@
       "minVs": -0.6,
       "firstPointStatus": "executed",
       "pnl": 0.0433,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "2e97cc45-e441-433b-b25a-c6f807ddcb06",
       "anchorIso": "2026-11-05T10:02:40+00:00",
       "anchorDate": "2026-11-05",
@@ -15035,7 +15051,8 @@
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 201
+      "origIdx": 201,
+      "note": "第十八批 review issue（用户裁定『买入后发现，较长时间几乎没有卖出的异常盘，需要及时全部卖了』：cheat A强 pump+N0.0 activity_high 豁免+BP neutral 直过，破发后 near_launch 买入 +0.0433 全批最大正——卖侧长期枯竭=异常盘信号应持仓期及时全清：卖出侧新机制候选（持仓期无卖出检测卖臂，与 T118 足额门/T133 low-zone-stall-exit 撤离方向同族）；先记录不动手修攒批）"
     },
     {
       "idx": 178,
@@ -15060,8 +15077,8 @@
       "minVs": 9.2,
       "firstPointStatus": "executed",
       "pnl": -0.0073,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "187006d7-5588-41e2-ac5d-aaa895ee2d30",
       "anchorIso": "2026-11-05T10:08:01+00:00",
       "anchorDate": "2026-11-05",
@@ -15176,7 +15193,8 @@
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 203
+      "origIdx": 203,
+      "note": "第十八批 review 接受（CD380 wash 臂判例原地址 0x94ea754b；coordSell+pump activity_high 豁免 neutral 直过 -0.0073）"
     },
     {
       "idx": 179,
@@ -15201,14 +15219,15 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0106,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "25f06452-ad05-4454-afd7-8fa9a9464ff5",
       "anchorIso": "2026-11-05T10:11:49+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000005025018402276065,
       "anchors": null,
-      "origIdx": 205
+      "origIdx": 205,
+      "note": "第十八批 review issue（用户裁定『burst 识别错误』：cheat unhealthy（R_abn）首点位拒后 P3 后续点位翻过成交 -0.0106——burst 案族第 10 例（19/72/81/96/123/124/130/170/174/179）；先记录不动手修）"
     },
     {
       "idx": 180,
@@ -15233,8 +15252,8 @@
       "minVs": 11.2,
       "firstPointStatus": "failed",
       "pnl": -0.0121,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "4105fa08-4793-4bc3-9b6d-2540188d9055",
       "anchorIso": "2026-11-05T10:21:16+00:00",
       "anchorDate": "2026-11-05",
@@ -15349,7 +15368,8 @@
         "actNearTail10SellWallets": 0,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 206
+      "origIdx": 206,
+      "note": "第十八批 review issue（用户裁定『初始价格太低的，感觉异常』：sustained_climb(0.64)+spike(0.98)+act low(0.40)+chip strong(0.93) 首点位 ⑥ 位置门拒后翻过成交 -0.0121——『初始价格太低』与第 15 批 idx143 我靠同族（T130 launch 锚口径案族第二例）；先记录不动手修攒批）"
     },
     {
       "idx": 181,
@@ -19186,6 +19206,28 @@
         "chipFamousFollowerTop3Pct": null
       },
       "origIdx": 269
+    }
+  ],
+  "reviews": [
+    {
+      "round": 1,
+      "batch": "18",
+      "date": "2026-11-11",
+      "idx": "171-180",
+      "issues": [
+        174,
+        175,
+        177,
+        179,
+        180
+      ],
+      "accepts": [
+        171,
+        172,
+        173,
+        176,
+        178
+      ]
     }
   ]
 }
