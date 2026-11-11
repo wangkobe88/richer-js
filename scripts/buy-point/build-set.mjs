@@ -45,11 +45,12 @@ const CHEAT_IN_BATCH = 25; // .in() 批上限（红线 5：URL 8KB；25×~30 行
 const PAGE_ROWS = 1000;   // 点位源翻页页大小（对齐 PostgREST max-rows=1000，翻满即有下一页）
 
 function parseArgs(argv) {
-  const args = { name: '', source: 'trades', exps: [], liveExpCount: 3, dedupeSec: null, horizonMin: 15, limitExp: 5000, legsLib: 'signal-source-ladder-v1', excludeLegs: '' };
+  const args = { name: '', source: 'trades', exps: [], liveExpCount: 3, dedupeSec: null, horizonMin: 15, limitExp: 5000, legsLib: 'signal-source-ladder-v1', excludeLegs: '', keepCheat: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--name') args.name = String(argv[++i] || '');
     else if (a === '--source') args.source = String(argv[++i] || '');
+    else if (a === '--keep-cheat') args.keepCheat = true;
     else if (a === '--exps') args.exps = String(argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--live-exp-count') args.liveExpCount = Number(argv[++i]);
     else if (a === '--dedupe-sec') args.dedupeSec = Number(argv[++i]);
@@ -293,10 +294,12 @@ async function main() {
   const gradeTally = new Map();
   for (const g of gradeMap.values()) gradeTally.set(g, (gradeTally.get(g) || 0) + 1);
   console.log(`cheat 判定图: ${gradeMap.size}/${allTokens.size} token（${[...gradeTally].map(([g, n]) => `${g}=${n}`).join(' ') || '无判定'}）`);
-  const { kept: keptAfterCheat, excluded } = filterByCheatGrades(raw, gradeMap);
+  const { kept: keptAfterCheat, excluded } = args.keepCheat
+    ? { kept: raw, excluded: [] } // --keep-cheat：保留 cheat/unhealthy 票（复盘视角=grade 本身是认知材料；判定图照打）
+    : filterByCheatGrades(raw, gradeMap);
   const kept = args.dedupeSec > 0 ? dedupeBuySignals(keptAfterCheat, args.dedupeSec) : keptAfterCheat;
   const nameOf = new Map(exps.map((e) => [e.id, e.experiment_name || e.id]));
-  console.log(`\n${args.source === 'trades' ? '成交买点' : 'BUY 信号'} ${raw.length} 条 → cheat/unhealthy 剔除 ${excluded.length} 点位（${new Set(excluded.map((x) => x.token)).size} token）→ 去重（同 token ${args.dedupeSec}s 窗取首）→ ${kept.length} 点位，涉及 token ${new Set(kept.map((s) => String(s.token_address).toLowerCase())).size} 个`);
+  console.log(`\n${args.source === 'trades' ? '成交买点' : 'BUY 信号'} ${raw.length} 条 → ${args.keepCheat ? '保留全部（--keep-cheat，不剔 cheat/unhealthy）' : `cheat/unhealthy 剔除 ${excluded.length} 点位（${new Set(excluded.map((x) => x.token)).size} token）`} → 去重（同 token ${args.dedupeSec}s 窗取首）→ ${kept.length} 点位，涉及 token ${new Set(kept.map((s) => String(s.token_address).toLowerCase())).size} 个`);
 
   // ladder 库条目（挖掘条件真相源）
   let ladder = null;
@@ -480,7 +483,7 @@ async function main() {
       dedupeSec: args.dedupeSec,
       excludeLegs: args.excludeLegs ? args.excludeLegs.split(',').map((s) => s.trim()).filter(Boolean) : [],
       pagination: '点位源 .range 翻页拉全（PAGE_ROWS=1000 对齐 PostgREST max-rows；v73 前 .limit 单查曾静默截 1000/1673）',
-      cheatExclusion: '收录前剔除当前判定 cheat/unhealthy 的 token 全部点位（cheat_detection 最新带 grade 行；healthy/无判定放行；构建时点快照语义）',
+      cheatExclusion: args.keepCheat ? 'off（--keep-cheat：保留 cheat/unhealthy 票，grade 落 points 元数据供复盘）' : '收录前剔除当前判定 cheat/unhealthy 的 token 全部点位（cheat_detection 最新带 grade 行；healthy/无判定放行；构建时点快照语义）',
       horizonsSec: [...FWD_HORIZONS_SEC],
       horizonMin: args.horizonMin,
       anchorBasis: 'anchorCountAt=block_time≤点位时刻 的行数（宁多勿少近似——引擎墙钟 vs 链钟偏差沿 cheat --experiment 同款）',
