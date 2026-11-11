@@ -153,6 +153,17 @@
 //     滑窗买卖合计，「低活跃度」单一因子表达——「买入是不接受低活跃度」；
 //     CD act 题 1 BNB/min 死寂线 10s 折算取 0.1）
 //
+//   v18（2026-11-11 T135 bt-v102 因子分析案，用户裁定「好，加」）：t0/t0a 两条
+//     最早臂加 AND tokenAgeSec >= 15——bt-v102（109 成交票 BP74 版）买点年龄
+//     分桶单调：P1 腿（t0 6 笔臂）age≤12s 30 票胜率 27% 净 -0.37 / 25~200s
+//     +1.32 / >200s 胜率 60%；全体腿 age<15s 拦截面 36 票净 -0.25（止血 24 票
+//     -0.70 vs 误伤 12 票 +0.45，净增量 +0.25/+12%）。语义=15s 内走完 6~9 笔
+//     =开盘 bot 抢速盘（BP ④开局抢完衰竭的 FA 侧画像）；大正票（memes/M4GA/
+//     来财/小四/吉祥）与 t0 立法案票吉祥 ea78（age=24）全部不受影响。t0b 起
+//     不加（12 笔档 <15s 形状样本不足无区分度）。同批否证留档：「尾5买<3 拦截」
+//     误伤 11 正票 +0.93 含小四/吉祥/海水三张 stall_burst 大肉票=打平还杀肉票
+//     弃；CZ 盲区「尾10 卖>买」被来财（×20 卖钱包 +257%）反证弃。
+//
 //   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 15（t0 两次 +
 //   其余十三腿各 1 次触发上限；T110 默认帽 5 会截断阶梯）；并配
 //   cheatCheck.enabled=true + buyPointCheck.enabled=true（两门 disabled 时：
@@ -200,16 +211,16 @@ const LEGS = [
     // v17（T133）：笔数门 7→6 + maxTriggers 1→2 + 价格门 28.5 + actTotalBnb
     // 门（ea78 第四跑 t0 触发正确但 BP 同秒 n=8 价 +27.8% 被统一门 27.5 拒
     // 0.25pp 竞态——用户裁定 6 笔档+两次 Jev+统一门 28.5 三件套）
-    leg('t0', 1, 'tradeCount >= 6 AND buyVolumeBnb >= 1 AND holdersExDust >= 4 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1', RECHECK_EARLY,
-        '最早臂（v15/T131 新增——吉祥 ea78 开盘 25 秒窗差一笔错过全窗案；v17/T133：6 笔+两次 Jev——maxTriggers 2 首次门拒后再判一次，单仓语义防双买；cheat/BP minTicks 同线 7→6）：6 笔/1 BNB/4 真持有者；价格 ≤+28.5%；10s 窗买卖合计 ≥0.1 BNB（低活跃度不买）', { maxTriggers: 2 }),
+    leg('t0', 1, 'tradeCount >= 6 AND buyVolumeBnb >= 1 AND holdersExDust >= 4 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15', RECHECK_EARLY,
+        '最早臂（v15/T131 新增——吉祥 ea78 开盘 25 秒窗差一笔错过全窗案；v17/T133：6 笔+两次 Jev——maxTriggers 2 首次门拒后再判一次，单仓语义防双买；cheat/BP minTicks 同线 7→6；v18/T135：加 tokenAgeSec >= 15——bt-v102 因子分析 age<15s 30 票胜率 27% 净 -0.37 开盘 bot 抢速盘，15s 内走完 6 笔=抢速非人气）：6 笔/1 BNB/4 真持有者；价格 ≤+28.5%；10s 窗买卖合计 ≥0.1 BNB（低活跃度不买）；年龄 ≥15s', { maxTriggers: 2 }),
     // v12 更早人气臂（2026-11-08 高大上 0x838657df…7777 单票回测零触发复盘后
     // 用户裁定原文「增加一个 tradeCount >= 9 AND buyVolumeBnb >= 1 AND
     // holdersExDust >= 6 AND currentVsLaunchPct <= 80」）：9 笔/1 BNB/6 真持有
     // 者/≤+80——「点火即拉飞」形状在 tc 9-11、价格尚 ≤+80 的点火初段即可触发
     // （v5 旧 t0a 为 6 笔档不同参数、v6 删除，本次重生）；v15 前为 priority 1
     // 最早臂、v15 t0 插入后顺移 2
-    leg('t0a', 2, 'tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1', RECHECK_EARLY,
-        '更早人气臂（v12 新增，用户条件串原文——高大上零触发案：点火即拉飞形状 t0b 十二笔门槛差一笔错过全窗）：9 笔/1 BNB/6 真持有者；价格 ≤+80%（v14 收紧 ≤+27.5%；v17 微放宽 ≤+28.5+actTotalBnb 门；v15 顺移 p2）'),
+    leg('t0a', 2, 'tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15', RECHECK_EARLY,
+        '更早人气臂（v12 新增，用户条件串原文——高大上零触发案：点火即拉飞形状 t0b 十二笔门槛差一笔错过全窗）：9 笔/1 BNB/6 真持有者；价格 ≤+80%（v14 收紧 ≤+27.5%；v17 微放宽 ≤+28.5+actTotalBnb 门；v18/T135 加 tokenAgeSec >= 15 同 t0 抢速门；v15 顺移 p2）'),
     leg('t0b', 3, 'tradeCount >= 12 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1', RECHECK_EARLY,
         '人气臂 b（v5 新增，v12 前为最早臂——t0a 6 笔档 2026-11-07 首跑对照后用户裁定删除、v12 以 9 笔档重生）：12 笔/1 BNB/6 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p3'),
     leg('t2', 4, 'tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1', RECHECK_EARLY,
@@ -259,7 +270,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v17（2026-11-10 v17=T133 用户四条批量：t0 笔数门 7→6 + signalGate.maxTriggers 1→2（「允许过两次 Jev 模块」——首次门拒后再判一次；单仓语义 status=bought 阻断=无双买）+ 全 14 腿加 actTotalBnb >= 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「买入不接受低活跃度」——CD 1 BNB/min 死寂线 10s 折算）+ t/N/NL 十一臂价格门 27.5→28.5（BP69 统一门同车「只稍微宽一点，再继续观察」；RL15 ≤20/RL10 ≤10 已低于上界不动）+ cheat/BP 双门 minTicks 7→6 同线；v15=T131 吉祥 ea78 开盘 25 秒窗差一笔案：t0 最早臂新增 + 双门 minTicks 8→7 配套——「之后的买入点位肯定远不如早期的」，最早入场点由 t0 接住；2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：14 买腿 condition=初始买入信号源（t0/t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers t0=2 其余 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 15 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v18（2026-11-11 v18=T135 bt-v102 因子分析案：t0/t0a 两条最早臂加 tokenAgeSec >= 15——买点年龄分桶单调（age<15s 开盘 bot 抢速盘 30 票胜率 27% 净 -0.37 / >25s 全正），拦截面净增量 +0.25（止血 24 票 -0.70 vs 误伤 12 票 +0.45），大正票与 t0 立法案票吉祥 ea78（age=24）零影响；2026-11-10 v17=T133 用户四条批量：t0 笔数门 7→6 + signalGate.maxTriggers 1→2（「允许过两次 Jev 模块」——首次门拒后再判一次；单仓语义 status=bought 阻断=无双买）+ 全 14 腿加 actTotalBnb >= 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「买入不接受低活跃度」——CD 1 BNB/min 死寂线 10s 折算）+ t/N/NL 十一臂价格门 27.5→28.5（BP69 统一门同车「只稍微宽一点，再继续观察」；RL15 ≤20/RL10 ≤10 已低于上界不动）+ cheat/BP 双门 minTicks 7→6 同线；v15=T131 吉祥 ea78 开盘 25 秒窗差一笔案：t0 最早臂新增 + 双门 minTicks 8→7 配套——「之后的买入点位肯定远不如早期的」，最早入场点由 t0 接住；2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：14 买腿 condition=初始买入信号源（t0/t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers t0=2 其余 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 15 + cheatCheck.enabled + buyPointCheck.enabled',
     },
     // ── T133 两条卖出臂（2026-11-10 用户裁定「3. 卖出方面，也做一下更改：
     //    买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出，代币在
@@ -309,12 +320,19 @@ async function main() {
     const db = dbManager.getClient();
 
     for (const e of ENTRIES) {
-        const { data: dup } = await db.from('strategy_library').select('id,name,side,version,legs').eq('name', e.name);
+        const { data: dup } = await db.from('strategy_library').select('id,name,side,version,legs,description').eq('name', e.name);
         if (dup && dup[0]) {
             // 同名迭代（buy-v2 系惯例：同名条目 version+1 而非新名）：legs/description 任一变化才 update
+            // ⚠ 比较必须键序无关：strategy_library.legs 是 jsonb，Postgres 规范化键序，
+            //   直接 JSON.stringify 顺序比较=每次重跑必误报 UPDATE 无谓 bump（2026-11-11 实锤）
+            const norm = (v) => {
+                if (Array.isArray(v)) return v.map(norm);
+                if (v && typeof v === 'object') return Object.keys(v).sort().reduce((acc, k) => { acc[k] = norm(v[k]); return acc; }, {});
+                return v;
+            };
             const { StrategyLibraryService } = require('../src/web/services/StrategyLibraryService');
             const svc = new StrategyLibraryService();
-            const legsChanged = JSON.stringify(dup[0].legs) !== JSON.stringify(e.legs);
+            const legsChanged = JSON.stringify(norm(dup[0].legs)) !== JSON.stringify(norm(e.legs));
             const descChanged = JSON.stringify(dup[0].description || '') !== JSON.stringify(e.description);
             if (!legsChanged && !descChanged) {
                 console.log(`[SKIP] 库条目已是目标形状: ${e.name} ${dup[0].id} version=${dup[0].version}`);
