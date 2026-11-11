@@ -354,6 +354,12 @@ function buildBuyPointObservation(answers, anchors = null) {
       maxDn5Pct: _num(b, 'maxDn5Pct'),
       nearMaxUp5Pct: _num(b, 'nearMaxUp5Pct'),
       nearMaxDn5Pct: _num(b, 'nearMaxDn5Pct'),
+      // BP72 臂 B 近期暴跌血缘锚（锚前 30s 内最深 5s 段深度/距今/未收复幅度；
+      // 首版落地漏透传 mapper anchors——state 直供行在=Jev 判定不受影响，此处补
+      // digest 落档与 res.anchors 审计读数；mapper-only additive 题集不 bump）
+      recentDip5Pct: _num(b, 'recentDip5Pct'),
+      recentDip5SecAgo: _num(b, 'recentDip5SecAgo'),
+      recentDip5UnrecoveredPct: _num(b, 'recentDip5UnrecoveredPct'),
       // 摆动结构族（BP8 圣诞树原料；BP30/题集 BP33 tree_position 题退役后**无消费者
       // 纯留档**——历史 run 对拍兼容照落 digest；<2 可靠价全族 null；lastDir
       // 1=涨段/-1=跌段/0=未定向；swingPoints/swingLegs=state 渲染原料不进锚）

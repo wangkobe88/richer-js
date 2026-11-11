@@ -204,9 +204,9 @@
 
 **单测（六件全绿）**：lib 658（十键手算夹具三态：zone 恰界 t124 含入/窗外/区外+键数 55→65+sbw 题四要素/样本/criteria 断言组按 D3.67 改写+D3.13 ≥25% 硬线退役反证+版本史 D3.67 条目；**Z1d 教训=断言十新键必须查 digest 通道**——`r.anchors` 走 levelsFromObservation 白名单=FA 投影 37 键集，十新键 Option 2 刻意不进，误查 `r.anchors` 即假 FAIL）；service 153（Z1e 手算夹具全数值断言换 digest 通道+Option 2 双通道锁：digest 十新键在场 ∧ r.anchors 旧两键同值）；gate_engine 159/0（CD383 四腿退役 sbw 单条件+cheat∧unhealthy 两档豁免）；grade 133+黄金集 G18；mem_pull_ticks 109；buy_point_check_service 37。
 
-**182 对拍（19 票=14 burst 问题票+M4GA/ba5e/ad80+189/198）**：期望 19/62/63/69/72/96/170/198 翻 none（跨度/尘埃/流向各轴坐实）、191 翻 burst 豁免（exitVs 113.9 不再硬拒）、M4GA/ba5e 保持、123/174/179 按 Jev 判——读数后补。
+**182 对拍（19 票=14 burst 问题票+M4GA/ba5e/ad80+189/198，2026-11-11 读数）**：fresh 真调（锚=v100 `11fc182a` signal created_at；M4GA/ba5e 同址 0xba5ed45b 两锚分别取 07:40:45/07:52:17）+同锚复算 digest 读单段绑定波族。**翻 none 八票 7/8 达成**（19 Flap/62 王涛二/63 memeful/69 VirusSI/96 四/170 M7GA/198 CR 全 `sbw=none grade=cheat`——63 另有 `act=ultra denied=ultra_cheat` 双保险拒；19 出口波净 0.321 但回吐 70% 流出轴否/62/69/96/123/170/174/179/198 出口段买=0 或尘埃、62/191 段买 0.001/1 户）——**唯一未翻=idx72 持械入宋 3/3 稳定 burst 豁免**（0.1582/2 户户均 0.0791 恰落 0.066~0.070 重叠域上沿、SecSinceWaveEnd=31s 跨度短、回吐 0.9%、exitVs=19.1 低位——四要素三好一弱 Jev 稳定判 burst=判据边界非方差，**攒批待裁**）；**191 拒向 sbw=none**（非预期「翻 burst 豁免」——出口波 0.001/1 户尘埃先被裁定②否掉、exitVs 轴轮不到，净门效果与生产一致=拒；期望行写于取证时只看 exitVs 轴未预料尘埃轴先否=**立法语义正确执行**）；**M4GA 保持达成**（07:40:45 锚 burst 豁免：0.4911/5 户户均 0.0982 有力+exitVs=6.1+净 0.4911 回吐 0）；**ba5e 07:52:17 锚 2/2 稳定翻 none**（旧全窗波 2.04/55 户有力→新单段绑定波 0.001/1 户尘埃=「波不在临近段」的票新锚取不到有力波——**D3.67 立法意图本身**；与 BP 门 act low 拒形成一致拒，BP67 立法时的 CD/BP 叙事矛盾消失）；**ad80 稳定拒达成**（sbw=none+ultra_cheat denied；exitVs=161.3 高位+段买 0.0097/1 户尘埃双轴否，CD392 案闭合）；123/174/179 按 Jev 判=全 cheat 拒 ✓；观察票 81 小四 sbw=burst（activity_high 豁免；0.9861/6 户户均 0.164 有力+exitVs=4.1=真 burst 形状）、124 汽茫 unhealthy/130 MMGA cheat/189 AURVEN cheat。
 
-**余留**：对拍残差=sbw 题 run-to-run 方差（CD319/CD387/ba5e 同族第四例）攒批；户均/中位分布形状 Jev 采信率观察；`burstWaveWalletAvgBnb` 与正例重叠域（0.066~0.070）判读精度观察。
+**余留**：对拍残差=**idx72 持械入宋 3/3 稳定 burst 未翻**（户均 0.0791 落重叠域上沿——判据边界非方差，攒批待裁）；本轮 19 票+方差 5 跑零 run-to-run 摆动（CD319 同族方差本轮未复现）；户均/中位分布形状 Jev 采信率观察；`burstWaveWalletAvgBnb` 与正例重叠域（0.066~0.070）判读精度观察。
 
 ### CD396 burst 豁免第四腿判据源换锚——「起来起点价」=最后 ≥50s 静默段的出口首可靠价 vs launch 地板 ≤+40（2026-11-10，豁免资格案·服务层 mapper-only 题集 D3.65/grade G17 零改动；ba5e/ad80fb7a 双向否证案；用户裁定原话选项「改『起来起点价』（推荐）」；承接 CD392/D3.65）
 
