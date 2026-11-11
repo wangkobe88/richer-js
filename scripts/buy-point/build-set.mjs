@@ -157,10 +157,13 @@ async function patchTickTimeAxis(points) {
   let patched = 0, fallback = 0, noSig = 0;
   for (const p of points) {
     const md = p.signalId ? metaById.get(p.signalId) : null;
-    const tokCreate = md && md.tokenCreateTime ? Date.parse(md.tokenCreateTime) : NaN;
+    // tokenCreateTime 双形状：Unix 秒时间戳（number，如 1793868979.361）或 ISO 串
+    const rawCreate = md ? md.tokenCreateTime : null;
+    const tokCreateMs = typeof rawCreate === 'number' && Number.isFinite(rawCreate) ? rawCreate * 1000
+      : typeof rawCreate === 'string' && rawCreate ? Date.parse(rawCreate) : NaN;
     const age = md && md.buyPoint && md.buyPoint.anchors ? md.buyPoint.anchors.tokenAgeSec : null;
-    if (Number.isFinite(tokCreate) && Number.isFinite(Number(age)) && age != null) {
-      p.anchorTimeIso = new Date(tokCreate + Number(age) * 1000).toISOString();
+    if (Number.isFinite(tokCreateMs) && age != null && Number.isFinite(Number(age))) {
+      p.anchorTimeIso = new Date(tokCreateMs + Number(age) * 1000).toISOString();
       patched++;
     } else if (!p.signalId) { p.anchorTimeIso = p.created_at; noSig++; }
     else { p.anchorTimeIso = p.created_at; fallback++; }
