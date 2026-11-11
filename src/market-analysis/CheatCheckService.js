@@ -372,10 +372,27 @@ class CheatCheckService {
    * secSinceWaveEnd/户均中位/净额卖回率，state 直供）。
    * sbw null/缺席（旧档断代/题未答）→ 不豁免（与 _isActivityExempt bucket
    * null 同哲学：资格授予方向 fail-closed）。
+   *
+   * **CD398 流向硬腿（2026-11-11 bt-v103 复盘统一裁定③「burst 按分析调整=
+   * 流向键硬条件」）**：burst 波的流量必须是**买入主导**——`burstWaveWalletNetBnb`
+   * （D3.67 单段绑定波族：波钱包全窗 Σ(买−卖) BNB，可负）**净负 = 卖方主导
+   * burst，不授予豁免**。判例：谷歌SI 卖出波单笔 0.590B 净 -0.590 拒 / TukTuk
+   * 8 钱包同步买 +0.460 放。这是 CD397「判读权归还 Jev」后唯一的代码硬线：
+   * 流向是「流量涌入非流出」（裁定②原文维度）的机械可判事实（净额符号），
+   * 与跨度/流量真实度（需 Jev 权衡）不同档——符号无权衡空间，Jev run-to-run
+   * 方差（CD319/CD387/ba5e 族）在卖出波形状上会漏放，硬线兜底。
+   * null/undefined（无波/旧档断代/D3.67 前行）→ 容缺照常授予（不扩大收紧面，
+   * _exemptDeniedReason 缺席=不触发同哲学）；净额恰 0 → 不拒（零净=无卖出
+   * 证据，非卖方主导）。anchors 参数=levelsFromObservation 产物同源透传
+   * （obs.anchors → digest 持久化 → bootstrap 重建全链在场）。
    */
-  _isStallBurstExempt(levels) {
+  _isStallBurstExempt(levels, anchors) {
     if (!levels) return false;
-    return levels.stallBurstWave === 1; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
+    if (levels.stallBurstWave !== 1) return false; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
+    // CD398 流向硬腿：波钱包净额净负=卖方主导 burst 不豁免；null/undefined 容缺（旧档防误杀）
+    const net = anchors ? anchors.burstWaveWalletNetBnb : undefined;
+    if (typeof net === 'number' && net < 0) return false;
+    return true;
   }
 
   /**
@@ -450,8 +467,8 @@ class CheatCheckService {
    * 子式「cheat 的豁免资格」：burst 臂在场 ∧ CD380 不豁免臂不在场。
    * gradeObservation 规则域/题集版本零改动（观测行照落原始 grade=研究原料）。
    */
-  _isCheatBurstExempt(levels) {
-    return this._isStallBurstExempt(levels) && !this._exemptDeniedReason(levels);
+  _isCheatBurstExempt(levels, anchors) {
+    return this._isStallBurstExempt(levels, anchors) && !this._exemptDeniedReason(levels);
   }
 
   /**
@@ -463,10 +480,10 @@ class CheatCheckService {
    * 在场=豁免。三点同构（出口/拉黑登记/bootstrap）防「门拒但不拉黑」分叉——
    * 出口另有 stats/留痕保留显式分支，本子式供后两点共用（与出口逐案等价）。
    */
-  _isCheatExemptEligible(bucket, levels) {
+  _isCheatExemptEligible(bucket, levels, anchors) {
     const actHit = this._isActivityExempt(bucket);
-    if (actHit && bucket === 'ultra' && !this._isCheatBurstExempt(levels)) return false;
-    return (actHit || this._isStallBurstExempt(levels)) && !this._exemptDeniedReason(levels);
+    if (actHit && bucket === 'ultra' && !this._isCheatBurstExempt(levels, anchors)) return false;
+    return (actHit || this._isStallBurstExempt(levels, anchors)) && !this._exemptDeniedReason(levels);
   }
 
   /**
@@ -491,7 +508,7 @@ class CheatCheckService {
     if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
     const act = res.buckets && res.buckets.activityLevel;
     const actHit = this._isActivityExempt(act);
-    const stallBurst = this._isStallBurstExempt(res.levels); // CD383/CD397 burst 豁免资格臂（sbw 单条件，∨ 并列）
+    const stallBurst = this._isStallBurstExempt(res.levels, res.anchors); // CD383/CD397 burst 豁免资格臂（sbw 单条件+CD398 流向硬腿，∨ 并列）
     if (!actHit && !stallBurst) return res;
     const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
     if (denied) {
@@ -502,7 +519,7 @@ class CheatCheckService {
     // 收回 ultra 单档=CD388 形态恢复）：cheat ∧ activity=ultra ∧ burst 资格不在场
     // → 不豁免原判保持 cheat（拉黑+清仓联动照常，exemptDenied='ultra_cheat'）；
     // cheat ∧ high 恢复豁免（code=activity_high）；unhealthy 两桶照旧（CD379 原语义）
-    if (res.grade === 'cheat' && actHit && act === 'ultra' && !this._isCheatBurstExempt(res.levels)) {
+    if (res.grade === 'cheat' && actHit && act === 'ultra' && !this._isCheatBurstExempt(res.levels, res.anchors)) {
       this.stats.ultraCheatDenied++;
       return { ...res, exemptDenied: 'ultra_cheat' };
     }
@@ -799,9 +816,9 @@ class CheatCheckService {
       // 与出口/bootstrap 三点同构；unhealthy 照旧双通道（均受 CD380 约束）
       const _actBucket = obs.activityLevel ? obs.activityLevel.bucket : null;
       const activityExempt = graded.grade === 'cheat'
-        ? this._isCheatExemptEligible(_actBucket, levels) // CD391：cheat 豁免登记拉黑跳过
+        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿同判）
         : ((this._isActivityExempt(_actBucket)
-            || this._isStallBurstExempt(levels)) // CD383/CD397 burst 资格臂
+            || this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）
           && !this._exemptDeniedReason(levels));
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
@@ -972,7 +989,8 @@ class CheatCheckService {
         const cheatLevels = cheatLv ? cheatLv.levels : null;
         if (cheatSeen && !this._isCheatExemptEligible(
           cheatLv && cheatLv.buckets ? cheatLv.buckets.activityLevel : null,
-          cheatLevels)) { // CD383/CD391/CD397：不豁免=恢复拉黑
+          cheatLevels,
+          cheatLv ? cheatLv.anchors : null)) { // CD383/CD391/CD397/CD398：不豁免=恢复拉黑
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/

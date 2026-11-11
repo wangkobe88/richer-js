@@ -379,9 +379,13 @@ function levelsFromObservation(observation, extras = {}) {
     burstWaveWallets: _pct(an.burstWaveWallets),
     // CD392 burst 波起点价锚（D3.66 起纯观察）+ D3.66 burst 起来起点价锚（最后
     // ≥50s 静默段出口首可靠价 vs launch 地板 %；G18 起第四腿代码门退役=题面
-    // 「位置参考」事实）
+    // 「位置参考」事实）+ CD398 burst 波流向锚（波钱包全窗 Σ(买−卖) BNB 可负
+    // ——净负=波是卖方主导（谷歌SI 单笔 -0.590 卖出），burst 豁免流向硬腿消费）
     burstWaveStartVsLaunchPct: _pct(an.burstWaveStartVsLaunchPct),
     burstExitVsLaunchPct: _pct(an.burstExitVsLaunchPct),
+    burstWaveWalletNetBnb: an.burstWaveWalletNetBnb === null || an.burstWaveWalletNetBnb === undefined
+      ? null
+      : Number(an.burstWaveWalletNetBnb),
     noBuySellPct: _pct(an.noBuySellPct),
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）

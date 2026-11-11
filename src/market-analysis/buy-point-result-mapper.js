@@ -8,10 +8,8 @@
  * 应该是小于 27.5」）：维度题档位（7 题纯参考）+ 综合判定 = **代码侧纯门链**：
  *   ① 盘型门（BP30 前置为预判断——用户裁定「market_pattern 要放到很靠前的位置，
  *      因为这是个预判断」）：
- *      · 硬拒桶：retail_pvp 散户 PVP / famous_monopoly famous 独食 → poor
- *        （rule=pattern_gate，这两种盘子不要参与）
- *      · ⑥sustained_climb 位置臂：现价较发行价 ≤+10%（含破发）起点段放行、
- *        已拉离（>+10%）或锚缺失（宁拦不冒充）拒
+ *      · 硬拒桶：retail_pvp 散户 PVP / famous_monopoly famous 独食 / one_wave_dump
+ *        先买后卖一波流（BP59）→ poor（rule=pattern_gate，这三种盘子不要参与）
  *      · none 统一位置门：**≤+28.5%**（BP58 收口 27.5；BP69 2026-11-10 →28.5
  *        「只稍微宽一点再继续观察」，与 ladder v17 触发线同线）
  *        放行、已拉离（>+28.5%）或锚缺失拒——**BP60 收口四桶**（用户裁定「只识别
@@ -95,25 +93,20 @@ const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra', 'burst'];
 /** 持仓集中四桶（BP14：CD240 分层线判法搬运——strong=门桶硬消费；BP54 停用不激活） */
 const HOLDER_CONCENTRATION_LEVELS = ['none', 'weak', 'moderate', 'strong'];
 const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high', 'very_high'];
-/** 盘面分类四桶（BP60 收口——用户裁定「只识别出不交易的盘形即可」：①strong_
- * backer/④early_sniper_decay/⑤blended_unremarkable/⑧golden_point 判型随桶域
- * 删除——处理与 none 完全一致（统一位置门 ≤+28.5）没必要保留；保留=②
- * retail_pvp/③famous_monopoly 两异常桶（盘型门硬拒）+⑥sustained_climb（独立
- * 位置门 ≤+10）+none 正常盘面兜底（统一位置门 ≤+28.5））
+/** 盘面分类四桶（BP59——BT-v103 复盘统一裁定①：⑥sustained_climb 整桶退役
+ * （持续拉升形状归 none 走统一位置门 28.5，独立 ≤+10 位置臂删除）+新增⑨
+ * one_wave_dump 先买后卖一波流（硬拒）：①strong_backer/④early_sniper_decay/
+ * ⑤blended_unremarkable/⑧golden_point 判型随 BP60 收口删除——处理与 none 完全
+ * 一致（统一位置门 ≤+28.5）没必要保留；保留=②retail_pvp/③famous_monopoly/
+ * ⑨one_wave_dump 三异常桶（盘型门硬拒）+none 正常盘面兜底（统一位置门 ≤+28.5））
  * 演进：BP18 五类型学→BP30 六桶→BP38 七桶→BP45 八桶→BP58 二修判型恢复→
- * BP60 删⑦restart→BP60 收口四桶 */
-const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'sustained_climb', 'none'];
-/** 盘型门拒买桶（BP58：retail_pvp/famous_monopoly 两异常桶硬拒；砸盘形状的拦截
- * 由 entry_shape crash 臂+统一位置门（BP69 起 28.5）接力（拉高拦截 BP68 起全归统一位置门
- * ——spike 出拦域）；sustained_climb 刻意不入本表——走 SUSTAINED_CLIMB_LAUNCH_PCT
- * 独立位置臂） */
-const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly'];
-/** ⑥sustained_climb 参与位置界（BP34 用户裁定「这种只能临近发布价格参与」）：现价
- * 较发行价 ≤+10%（含破发）=临近发行价起点段放行走后续门链；已拉离（>+10%）或
- * 锚缺失（宁拦不冒充——发行价位置 ? = ticks 未覆盖出生段）→ 盘型门拒。
- * 界由羊王 0x5a8d94c6 四点定标：S154 −4.2% 贴发行价（用户裁 neutral 放行）与
- * S155 +17.1%（拒）之间取 10 */
-const SUSTAINED_CLIMB_LAUNCH_PCT = 10;
+ * BP60 删⑦restart 收口四桶→BP59 ⑥退役+⑨一波流 */
+const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'one_wave_dump', 'none'];
+/** 盘型门拒买桶（BP59：retail_pvp/famous_monopoly/one_wave_dump 三异常桶硬拒；
+ * 砸盘形状的拦截由 entry_shape crash 臂+统一位置门（BP69 起 28.5）接力（拉高拦截
+ * BP68 起全归统一位置门——spike 出拦域）；⑥sustained_climb 已随 BP59 退役——
+ * 持续拉升形状归 none 走统一门，原 ≤+10 独立位置臂删除） */
+const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'one_wave_dump'];
 /** 统一参与位置界（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于
  * 27.5」——与 T129 ladder v14 触发线同线；**BP69（2026-11-10）27.5→28.5**：用户
  * 裁定「只稍微宽一点，再继续观察」——ea78 案同秒 n=8 +27.75 进 BP 锚窗被 27.5 拒
@@ -255,20 +248,17 @@ function buildBuyPointObservation(answers, anchors = null) {
   const rawVs = anchors ? anchors.currentVsLaunchPct : null;
   const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
   // 纯门链（BP58——盘型门→点位性质门→活跃度门→筹码门（停用））
-  // ①盘型门（BP30 前置预判断；BP60 收口四桶）：· retail_pvp/famous_monopoly
-  //   两异常桶硬拒（不要参与）；· ⑥sustained_climb 位置臂：≤+10（含破发）起点段
-  //   放行，已拉离/锚缺失拒（判型归 Jev、位置归代码——宁拦不冒充）；· none
-  //   统一位置臂：≤+28.5（BP69；BP58 立线 27.5）放行，已拉离/锚缺失拒（①④⑤⑧判型已随桶域
-  //   删除，正常形状全归 none）
+  // ①盘型门（BP30 前置预判断；BP59 三硬拒桶）：· retail_pvp/famous_monopoly/
+  //   one_wave_dump 三异常桶硬拒（不要参与）；· none 统一位置臂：≤+28.5（BP69；
+  //   BP58 立线 27.5）放行，已拉离/锚缺失拒（①④⑤⑧判型已随桶域删除、⑥已随
+  //   BP59 退役，正常形状全归 none）
   const patternArms = [];
   if (dimensions.market_pattern) {
     const mp = dimensions.market_pattern.bucket;
     if (PATTERN_GATE_POOR_BUCKETS.includes(mp)) {
       patternArms.push(dimensions.market_pattern);
-    } else if (mp === 'sustained_climb') {
-      if (vsLaunch == null || vsLaunch > SUSTAINED_CLIMB_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     } else {
-      // none 走统一位置门（BP60 四桶化后唯一正常桶）
+      // none 走统一位置门（BP59 三桶化后唯一正常桶）
       if (vsLaunch == null || vsLaunch > NORMAL_ENTRY_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     }
   }
@@ -454,7 +444,6 @@ module.exports = {
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
   PATTERN_GATE_POOR_BUCKETS,
-  SUSTAINED_CLIMB_LAUNCH_PCT,
   NORMAL_ENTRY_LAUNCH_PCT,
   ENTRY_SHAPE_LEVELS,
   ENTRY_GATE_POOR_BUCKETS,

@@ -410,6 +410,11 @@ async function main() {
       && r1.exempt && r1.exempt.code === 'stall_burst' && r1.exempt.originalGrade === 'unhealthy'
       && svc.stats.stallBurstExemptions === 1 && svc.isGateBlocked('0xtok') === false,
       `unhealthy ∧ sbw=burst → burst 臂豁免 healthy（code=stall_burst/原判 unhealthy 留痕；不拉黑；实际 ${r1.grade}/${JSON.stringify(r1.exempt)}/sb=${svc.stats.stallBurstExemptions}）`);
+    // CD398 流向腿容缺路径（服务级）：genTicks 基底无 ≥50s 沉积段 → 波族键 null
+    // → 流向腿容缺照授予（本豁免达成即证 null 不误杀；D3.67 前旧行断代同语义）。
+    // 净负拒向的单元级行为在 gate_engine F8（谷歌SI -0.590/TukTuk +0.460 直调锁）
+    ok(r1.anchors == null || r1.anchors.burstWaveWalletNetBnb == null,
+      `CD398 容缺路径：无沉积段 → anchors.burstWaveWalletNetBnb null → 流向腿容缺照豁免（实际 ${r1.anchors && r1.anchors.burstWaveWalletNetBnb}——豁免已达成即证 null 不拦）`);
     const ask1 = llm.calls.ask;
     const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(ask1 >= 1 && llm.calls.ask >= ask1 && r2.grade === 'healthy',

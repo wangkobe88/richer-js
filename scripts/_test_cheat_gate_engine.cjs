@@ -371,6 +371,8 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
     !keys.includes('cheatRealParticipation'));
+  ok('CD398 burstWaveWalletNetBnb 进 levelsFromObservation 白名单（service 豁免腿数据通道）但不进 FA 投影键域（Option 2 语义保持：FA=显式逐键映射缺行即不投影，getFactorKeys 无 cheatBurstWaveWalletNetBnb——回测零接线/条件串不引用，键只活在 digest+service 豁免腿）',
+    !keys.includes('cheatBurstWaveWalletNetBnb'));
   // 数值序出口（grade healthy=0/unhealthy=1/cheat=2；题档 0-3；锚 % 数值直传；null 透传）——
   // registerToken+单 tick 建 state 后 buildFactorMap 直读（cheat 块纯投影）
   const T0 = 1700000000000;
@@ -712,11 +714,12 @@ async function testActivityExempt() {
   // F7 源码口径锁：拉黑登记点+bootstrap 恢复同款收紧（denied 票照拉黑/照恢复拉黑）
   // CD391 起 cheat 分支资格=_isCheatExemptEligible 单一子式（activity 桶 high 恢复/
   // ultra 单档拒 ∨ burst 臂）、unhealthy 分支照旧双通道 ∧ !denied
-  ok('F7 拉黑登记点收紧在场（cheat → _isCheatExemptEligible；unhealthy → (isExempt ∨ stallBurst) && !deniedReason(levels)）',
-    svcSrc.includes("graded.grade === 'cheat'\n        ? this._isCheatExemptEligible(_actBucket, levels) // CD391：cheat 豁免登记拉黑跳过")
-      && svcSrc.includes('|| this._isStallBurstExempt(levels)) // CD383/CD397 burst 资格臂\n          && !this._exemptDeniedReason(levels));'));
-  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂；CD391 起单一子式三点同构）',
+  ok('F7 拉黑登记点收紧在场（cheat → _isCheatExemptEligible；unhealthy → (isExempt ∨ stallBurst) && !deniedReason(levels)；CD398 起 anchors 双参透传流向腿）',
+    svcSrc.includes("graded.grade === 'cheat'\n        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿同判）")
+      && svcSrc.includes('|| this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）\n          && !this._exemptDeniedReason(levels));'));
+  ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂；CD391 起单一子式三点同构；CD398 三参透传 cheatLv.anchors）',
     svcSrc.includes('const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;')
+      && svcSrc.includes('cheatLv ? cheatLv.anchors : null')
       && svcSrc.includes("if (cheatSeen && !this._isCheatExemptEligible("));
   ok('F7 豁免收紧收在 cheat 模块内部（引擎/BP 层零豁免逻辑——用户裁定）',
     !fs.readFileSync(path.join(__dirname, '../src/market-analysis/buy-point-result-mapper.js'), 'utf8').includes('activityExempt'));
@@ -731,20 +734,35 @@ async function testActivityExempt() {
   // 定案（三锚独立测量=结构性病灶；191 案 exitVs=113.9 拒向张力首例；M4GA 0.070
   // vs 62 案 0.066 户均实锤硬线不可分——19/81/96/170/198 放行向全靠 wallets≥10
   // 臂撑）→ 判定权归还 Jev（BP37 机械门拆除同款先例）。
+  // **CD398 流向硬腿（2026-11-11 bt-v103 复盘统一裁定③「burst 按分析调整=流向
+  // 键硬条件」同日立）**：burst 波流量必须买入主导——burstWaveWalletNetBnb 净负
+  // =卖方主导不授予豁免（谷歌SI 卖出波单笔 0.590B 净 -0.590 漏放引出/TukTuk 8
+  // 钱包同步买 +0.460 放）；CD397「判读权归 Jev」后唯一代码硬线——净额符号是
+  // 「流量涌入非流出」（裁定②原文维度）的机械可判事实，无权衡空间，Jev 方差
+  // （CD319 同族）在卖出波形状会漏放，硬线兜底；null/undefined 容缺照授予
+  // （D3.67 前旧行断代防误杀，_exemptDeniedReason 缺席=不触发同哲学）。
   const s8 = mkSvc();
-  const sb = (lv) => s8._isStallBurstExempt(lv); // levels=档位投影（sbw 二桶题）；CD397 起 anchors 不再进资格判定
-  ok('F8 sbw=burst（Jev 四要素判读后 burst）→ 资格成立（M4GA 0.77/11 户均 0.070 与 62 案 2.59/39 户均 0.066 硬线不可分——代码不再看任何波键数值，形状判断全在题面）',
-    sb({ stallBurstWave: 1 }) === true);
-  ok('F8 anchors 已不是参数（2026-11-11 前签名 _isStallBurstExempt(levels, anchors)——旧档 anchors 缺席/断代不再影响资格，sbw 答案即资格）',
+  const sb = (lv, an) => s8._isStallBurstExempt(lv, an); // levels=档位投影（sbw 二桶题）+anchors（CD398 流向键）；CD397 sbw 单条件仍在首位守卫
+  ok('F8 sbw=burst（Jev 四要素判读后 burst）→ 资格成立（M4GA 0.77/11 户均 0.070 与 62 案 2.59/39 户均 0.066 硬线不可分——代码不再看任何波键数值，形状判断全在题面；CD398 流向键净正同放）',
+    sb({ stallBurstWave: 1 }) === true
+      && sb({ stallBurstWave: 1 }, { burstWaveWalletNetBnb: 0.46 }) === true);
+  ok('F8 CD398 流向硬腿：sbw=burst ∧ 波钱包净额净负（谷歌SI 卖出波 -0.590——单笔 0.590B 卖出拉起的 burst，流量是流出非涌入）→ 资格不成立',
+    sb({ stallBurstWave: 1 }, { burstWaveWalletNetBnb: -0.59 }) === false);
+  ok('F8 CD398 容缺三态：净额 null（无波/键缺席）/anchors 整体缺席/零净 → 照常授予（旧行断代防误杀；零净=无卖出证据非卖方主导，与净负语义刻意不同向）',
+    sb({ stallBurstWave: 1 }, { burstWaveWalletNetBnb: null }) === true
+      && sb({ stallBurstWave: 1 }, {}) === true
+      && sb({ stallBurstWave: 1 }, { burstWaveWalletNetBnb: 0 }) === true);
+  ok('F8 源码锁：签名双参（levels, anchors）——CD398 恢复 anchors 参数但只读流向键（CD397 曾删参；重引入=流向硬腿单一用途）',
     (() => { const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'market-analysis', 'CheatCheckService.js'), 'utf8');
-      return src.includes('_isStallBurstExempt(levels) {'); })());
-  ok('F8 源码锁：函数体零硬线零锚读取（gap<50/buy>=0.7/wallets>=10/exitVs>40 四腿全退役；lock 函数体切片防头注/其它函数误报）',
+      return src.includes('_isStallBurstExempt(levels, anchors) {'); })());
+  ok('F8 源码锁：函数体=CD397 sbw 守卫+CD398 流向腿（burstWaveWalletNetBnb<0 拒）恰两条腿；gap<50/buy>=0.7/wallets>=10/exitVs>40 四旧腿绝迹（lock 函数体切片防头注/其它函数误报）',
     (() => { const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'market-analysis', 'CheatCheckService.js'), 'utf8');
-      const fnStart = src.indexOf('_isStallBurstExempt(levels) {');
+      const fnStart = src.indexOf('_isStallBurstExempt(levels, anchors) {');
       const fnEnd = src.indexOf('\n  }', fnStart);
       const fnBody = src.slice(fnStart, fnEnd);
-      return fnBody.includes('return levels.stallBurstWave === 1;')
-        && !/an\.|anchors\./.test(fnBody)
+      return fnBody.includes('if (levels.stallBurstWave !== 1) return false;')
+        && fnBody.includes('burstWaveWalletNetBnb')
+        && fnBody.includes('net < 0')
         && !/gap < 50|buy >= 0\.7|wallets >= 10|exitVs > 40/.test(fnBody); })());
   ok('F8 sbw=none/缺席/null/levels null → 不豁免 fail-closed（无 burst 证据不冒充——题未答/旧档断代/null 桶同拒）',
     sb({ stallBurstWave: 0 }) === false && sb({ stallBurstWave: null }) === false
@@ -786,6 +804,20 @@ async function testActivityExempt() {
   check('F8 sticky：unhealthy+low+sbw=burst recheck=false → 秒回豁免放行 stall_burst（四出口统一）',
     { grade: r8s.grade, cached: r8s.cached, exemptCode: r8s.exempt && r8s.exempt.code },
     { grade: 'healthy', cached: true, exemptCode: 'stall_burst' });
+  // CD398 出口级：sbw=burst 但波净额净负 → burst 资格不成立原判保持（谷歌SI 形状）
+  const r8n = s8._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, anchors: { burstWaveWalletNetBnb: -0.59 }, buckets: { activityLevel: 'low' } });
+  check('F8 CD398 出口：cheat+low+sbw=burst ∧ 波净额 -0.590（谷歌SI 卖出波）→ 资格不成立原判保持 cheat（low 桶不在豁免集无 actHit，早退无 exemptDenied=资格缺席非 denied）',
+    { grade: r8n.grade, exempt: r8n.exempt, exemptDenied: r8n.exemptDenied },
+    { grade: 'cheat', exempt: undefined, exemptDenied: undefined });
+  const r8n2 = s8._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, anchors: { burstWaveWalletNetBnb: 0.46 }, buckets: { activityLevel: 'low' } });
+  check('F8 CD398 出口同形状净正（TukTuk +0.460）→ 照常豁免 stall_burst（流向腿只拒净负）',
+    { grade: r8n2.grade, exempt: r8n2.exempt },
+    { grade: 'healthy', exempt: { code: 'stall_burst', originalGrade: 'cheat' } });
+  ok('F8 源码锁：burstWaveWalletNetBnb 投影链在场（cheat-grade levelsFromObservation anchors→CD398 流向腿唯一数据源；null 透传 Number() 非 _pct 归一——BNB 原值域可负）',
+    (() => { const src = fs.readFileSync(path.join(__dirname, '../src/market-analysis/cheat-grade.js'), 'utf8');
+      return src.includes('burstWaveWalletNetBnb: an.burstWaveWalletNetBnb === null || an.burstWaveWalletNetBnb === undefined')
+        && src.includes('? null')
+        && src.includes(': Number(an.burstWaveWalletNetBnb)'); })());
   ok('F8 源码锁：_isStallBurstExempt 四消费点（出口/拉黑登记 unhealthy 分支/_isCheatBurstExempt/_isCheatExemptEligible——bootstrap 经子式间接同构）+ grade 层零豁免逻辑（gradeObservation 不动）',
     (svcSrc.match(/this\._isStallBurstExempt\(/g) || []).length === 4
       && !fs.readFileSync(path.join(__dirname, '../src/market-analysis/cheat-grade.js'), 'utf8').includes('StallBurstExempt'));
@@ -798,13 +830,20 @@ async function testActivityExempt() {
   // 两桶全负，CD390 据此全档关闭后被 CD391 收回——grade 方差（CD319 同族）与单窗
   // 噪声下用户裁定回到 CD388 线。
   const s9 = mkSvc();
-  const cbe = (lv) => s9._isCheatBurstExempt(lv); // cheat∧ultra 桶的 burst 资格子式（出口/单一子式两点共用；CD397 起 sbw 单条件）
+  const cbe = (lv, an) => s9._isCheatBurstExempt(lv, an); // cheat∧ultra 桶的 burst 资格子式（出口/单一子式两点共用；CD397 sbw 单条件+CD398 流向腿）
   ok('F9 资格子式：sbw=burst（CD397 单条件）→ true；sbw 缺席/null → false',
     cbe({ stallBurstWave: 1 }) === true
     && cbe({}) === false && cbe(null) === false
     && cbe({ stallBurstWave: null }) === false);
   ok('F9 资格子式：sbw=burst ∧ washPair strong（CD380 臂）→ false（wash 臂对 cheat 豁免同样否决）',
     cbe({ stallBurstWave: 1, washPair: 3 }) === false);
+  // CD398 流向腿透传（三子式全参数化：流向键对 cheat∧ultra 桶的 burst 资格同约束）
+  ok('F9 CD398 双参透传：_isCheatBurstExempt(levels, anchors) 净负 → false / 净正 → true（谷歌SI/TukTuk 判例同 F8，cheat 侧资格同受流向腿）',
+    cbe({ stallBurstWave: 1 }, { burstWaveWalletNetBnb: -0.59 }) === false
+      && cbe({ stallBurstWave: 1 }, { burstWaveWalletNetBnb: 0.46 }) === true);
+  ok('F9 CD398 三参透传：_isCheatExemptEligible(bucket, levels, anchors)——low 桶（actHit false）走 burst 臂，净负不豁免=登记拉黑/净正豁免（拉黑登记/bootstrap 两消费点同构）',
+    s9._isCheatExemptEligible('low', { stallBurstWave: 1 }, { burstWaveWalletNetBnb: -0.59 }) === false
+      && s9._isCheatExemptEligible('low', { stallBurstWave: 1 }, { burstWaveWalletNetBnb: 0.46 }) === true);
   const beforeUC9 = s9.stats.ultraCheatDenied;
   const r9a = s9._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: {}, buckets: { activityLevel: 'ultra' } });
   check('F9 出口：ultra∧cheat（bt-v90 亏损 Top1/2/4/5 形状：45ec0489/68bb8cd4/04323e04/BEM 全此组合）→ 原判保持+exemptDenied ultra_cheat（CD388 码恢复；拉黑+清仓联动照常）',
