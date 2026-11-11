@@ -51,6 +51,18 @@ const BP_NEAR_SPEED_SEC = 120;
 /** BP72 暴跌血缘域宽（秒）：锚前 30s 内最深 5 秒段三键的取值域——「近期暴跌」的时间界
  * （v100 族二判例：目标票最深段距锚 0~17s、反例 a813 57s/CR 651s 都在域外） */
 const BP_RECENT_DIP_SEC = 30;
+/** BP77 塞单簇尘门（BNB）：exactEqualBlock 等额判定单笔下限（与 CD 侧
+ * EQUAL_AMOUNT_MIN_BNB 同线——尘埃单不进簇） */
+const BP_STUFF_DUST_BNB = 0.001;
+/** BP77 砸块预筛卖额下限（BNB）：候选=块内跌幅 ≤-8% ∧ 块卖额 ≥ 此值——
+ * 预筛线宽于题面判读线（0.5）一档防边缘截断，锚只报事实、判读线在题面 */
+const BP_DUMP_MIN_SELL_BNB = 0.3;
+/** BP77 砸块预筛跌幅（% 绝对值）：块首行价→末行价（含 outlier=价格影响事实口径） */
+const BP_DUMP_MIN_DROP_PCT = 8;
+/** BP77 砸块承接观察窗（秒）：砸块末行 dt 后此窗内买入额 ÷ 砸卖额=承接比 */
+const BP_DUMP_FOLLOW_SEC = 60;
+/** BP77 承接观察窗下限（秒）：锚末距砸块末行不足此值=观察窗不足，承接比 null 不冒充 */
+const BP_DUMP_FOLLOW_MIN_OBS_SEC = 10;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -389,6 +401,128 @@ function computeBuyPointDerived(snapshot, famousRoster) {
         dt: best.dt, // 块内首行 dt（ticks 链上真序稳定——判读该块在开盘段/近窗的时点用）
       };
     }
+  }
+
+  // ── BP77 塞单簇（exactEqualBlock）：同 block ∧ BUY ∧ 金额 toFixed(4) 全等 ∧
+  //    ≥2 不同钱包（尘门 BP_STUFF_DUST_BNB）——「同一 block 内完全等额金额的
+  //    多钱包买入」=链上同时性的组织性分仓/塞单形状（CD 侧 cheat-snapshot
+  //    exactEqualBlockBuy 算法同款搬移；router 聚合行天然不成簇：多散户同块
+  //    同档买入在 tick 层 wallet 同为 router 地址，去重后 1 钱包 <2 不成簇）。
+  //    maxWallets=最大簇去重钱包数（0=无合格簇有证据零值——mapper 塞单门消费）；
+  //    clusters=按 sumBnb 降序 top3（state 渲染原料，不进锚）──
+  let exactEqualBlockMaxWallets = 0;
+  const exactEqualBlockClusters = [];
+  {
+    const blocks = new Map(); // block -> BUY 行数组
+    for (const t of ticks) {
+      if (t.side !== 'BUY' || t.block === null || t.block === undefined) continue;
+      if (t.wallet === null || t.wallet === undefined) continue;
+      let a = blocks.get(t.block);
+      if (!a) { a = []; blocks.set(t.block, a); }
+      a.push(t);
+    }
+    const clusters = [];
+    for (const a of blocks.values()) {
+      const buckets = new Map(); // toFixed(4) 档 -> 行数组
+      for (const t of a) {
+        if ((t.bnb || 0) < BP_STUFF_DUST_BNB) continue;
+        const k = Number(t.bnb).toFixed(4);
+        if (!buckets.has(k)) buckets.set(k, []);
+        buckets.get(k).push(t);
+      }
+      for (const [k, rows] of buckets) {
+        const wallets = new Set(rows.map((t) => t.wallet)).size;
+        if (wallets < 2) continue;
+        clusters.push({
+          block: rows[0].block, amt: Number(k), wallets, n: rows.length,
+          sumBnb: rows.reduce((s, t) => s + (t.bnb || 0), 0),
+          firstDt: rows[0].dt,
+        });
+      }
+    }
+    if (clusters.length > 0) {
+      clusters.sort((x, y) => y.sumBnb - x.sumBnb);
+      exactEqualBlockMaxWallets = clusters.reduce((m, c) => Math.max(m, c.wallets), 0);
+      exactEqualBlockClusters.push(...clusters.slice(0, 3));
+    }
+  }
+
+  // ── BP77 恶意砸块族（dumpBlock/dump2Block）：锚窗内「块内大额卖出把价格砸出
+  //    深跌幅」的块级结构证据——代码只算事实（卖额/块内跌幅/卖方阵列/砸后承接
+  //    比），判形状归 Jev（crash 桶恶意砸盘臂）。预筛=块内跌幅 ≤-8% ∧ 块卖额
+  //    ≥0.3（宽于判读线一档防边缘截断），各取卖额最大者；dropPct=块首行价→
+  //    末行价（含 outlier=价格影响事实口径，非可靠价口径）；sellers/topSellerPct
+  //    剔 router 伪钱包（组织性判读）÷ 块全卖额（规模量全口径）；followBuyRatio=
+  //    砸块末行 dt 后 60s 买入额（含 router——任何承接都算）÷ 砸卖额，锚末距砸块
+  //    <10s 观察窗不足 → null 不冒充。dump2Block=相邻 block 对（b+1）合并同款
+  //    （接力砸拆块形状）──
+  let dumpBlock = null, dump2Block = null;
+  {
+    const blocks = new Map(); // block -> {firstDt,endDt,firstPx,lastPx,sells,sellBnb}
+    for (const t of ticks) {
+      if (t.block === null || t.block === undefined) continue;
+      let e = blocks.get(t.block);
+      if (!e) {
+        e = { firstDt: t.dt, endDt: t.dt, firstPx: null, lastPx: null, sells: new Map(), sellBnb: 0 };
+        blocks.set(t.block, e);
+      }
+      if (typeof t.priceBnb === 'number' && t.priceBnb > 0) {
+        if (e.firstPx === null) e.firstPx = t.priceBnb;
+        e.lastPx = t.priceBnb;
+      }
+      e.endDt = t.dt;
+      if (t.side === 'SELL') {
+        e.sellBnb += t.bnb || 0;
+        if (t.wallet && !isRouterWallet(t.wallet)) e.sells.set(t.wallet, (e.sells.get(t.wallet) || 0) + (t.bnb || 0));
+      }
+    }
+    const dropOf = (a, b) => (a && b ? +(((b / a) - 1) * 100).toFixed(2) : null);
+    const followRatio = (endDt, sellBnb) => {
+      if (tEnd === null || endDt === null || endDt === undefined) return null;
+      if (tEnd - endDt < BP_DUMP_FOLLOW_MIN_OBS_SEC) return null;
+      let buy = 0;
+      for (const t of ticks) {
+        if (t.side !== 'BUY' || t.dt === null || t.dt === undefined) continue;
+        if (t.dt > endDt && t.dt <= endDt + BP_DUMP_FOLLOW_SEC) buy += t.bnb || 0;
+      }
+      return sellBnb > 0 ? +(buy / sellBnb).toFixed(3) : null;
+    };
+    const mkDump = (block, block2, sellBnb, dropPct, sells, firstDt, endDt) => ({
+      block, block2, sellBnb: +sellBnb.toFixed(4), dropPct,
+      sellers: sells.size,
+      topSellerPct: sellBnb > 0
+        ? +((Math.max(0, ...sells.values()) / sellBnb) * 100).toFixed(1)
+        : null,
+      dt: firstDt, endDt,
+      followBuyRatio: followRatio(endDt, sellBnb),
+    });
+    let best1 = null, best1Bnb = -1;
+    for (const [block, e] of blocks) {
+      const d = dropOf(e.firstPx, e.lastPx);
+      if (d === null || d > -BP_DUMP_MIN_DROP_PCT) continue;
+      if (e.sellBnb < BP_DUMP_MIN_SELL_BNB) continue;
+      if (e.sellBnb > best1Bnb) {
+        best1Bnb = e.sellBnb;
+        best1 = mkDump(block, null, e.sellBnb, d, e.sells, e.firstDt, e.endDt);
+      }
+    }
+    dumpBlock = best1;
+    let best2 = null, best2Bnb = -1;
+    for (const [b1, e1] of blocks) {
+      const e2 = blocks.get(b1 + 1);
+      if (!e2) continue;
+      const sellBnb = e1.sellBnb + e2.sellBnb;
+      const d = dropOf(e1.firstPx, e2.lastPx);
+      if (d === null || d > -BP_DUMP_MIN_DROP_PCT) continue;
+      if (sellBnb < BP_DUMP_MIN_SELL_BNB) continue;
+      if (sellBnb > best2Bnb) {
+        best2Bnb = sellBnb;
+        const merged = new Map(e1.sells);
+        for (const [w, v] of e2.sells) merged.set(w, (merged.get(w) || 0) + v);
+        best2 = mkDump(b1, b1 + 1, sellBnb, d, merged, e1.firstDt, e2.endDt);
+      }
+    }
+    dump2Block = best2;
   }
 
   // ── 卖压族（token 域；token_amount 任一行缺失 → 全族 null fail-closed）──
@@ -774,6 +908,10 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // 动能族
     top1BuyPct60, top1SellPct60, routerBuyPct60,
     halfTpmEarly, halfTpmLate, rateTrend, burst5In120, bundledBlock,
+    // BP77 塞单簇/恶意砸块族（exactEqualBlockMaxWallets 0=无合格簇有证据零值——
+    // mapper 塞单门消费；clusters top3=state 渲染原料不进锚；dumpBlock/dump2Block
+    // =砸块结构锚，判读线在题面 crash 桶恶意砸盘臂，缺候选=null 不判砸盘）
+    exactEqualBlockMaxWallets, exactEqualBlockClusters, dumpBlock, dump2Block,
     // 卖压族
     bigHolderSellBnb60, exitSellerCount60,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）

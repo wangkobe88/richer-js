@@ -155,6 +155,27 @@ function buildBuyPointState(snapshot) {
     if (bundled) {
       lines.push(`同块捆绑买入(锚窗单block买入合计最大块): 块 ${bundled.block} / 买 ${fmtBnb(bundled.buyBnb)} BNB × ${bundled.n} 笔 / ${bundled.wallets} 钱包（块首行时刻 t+${bundled.dt} 秒；同一 block 内多钱包同时买入=链上同时性的组织性买入证据——捆绑 bots/庄分仓形状；已剔聚合路由伪钱包，散单堆凑的合计不算）`);
     }
+    // BP77 塞单簇——同 block 等额买入（金额 toFixed(4) 全等 ∧ ≥2 钱包成簇、
+    // 尘门 0.001；最大簇钱包数 ≥8 代码侧塞单门直接拒买；簇行=块号/钱包数/等额
+    // 金额/笔数合计，按合计降序 top3）
+    const eqMax = b.exactEqualBlockMaxWallets;
+    if (eqMax !== null && eqMax !== undefined && eqMax >= 2) {
+      const cs = (b.exactEqualBlockClusters || [])
+        .map((c) => `块${c.block} ${c.wallets} 钱包×${c.amt.toFixed(4)}（${c.n} 笔合计 ${fmtBnb(c.sumBnb)}）`);
+      lines.push(`同块等额买单(锚窗): 最大簇 ${eqMax} 钱包${cs.length ? '——' + cs.join('；') : ''}（同一 block 内完全等额金额的多钱包买入=组织性分仓/塞单形状；金额四位小数全等 ∧ ≥2 钱包成簇、已过尘门，router 聚合行天然不成簇；**≥8 钱包的簇=代码侧塞单门直接拒买，不走本题判读**）`);
+    }
+    // BP77 恶意砸块族——单块/相邻两块砸盘结构锚（预筛=块内跌幅 ≤-8% ∧ 卖
+    // ≥0.3 BNB 取卖额最大；跌幅=块首行价→末行价含离群价行=价格影响事实口径；
+    // 卖方剔路由、卖额含全部卖行；承接比=砸块末行后 60s 买入额÷砸卖额、任何
+    // 买方都算，? =观察窗不足——判读（四腿联立）归 entry_shape 恶意砸盘臂）
+    const db1 = b.dumpBlock;
+    if (db1) {
+      lines.push(`恶意砸块(单block): 块 ${db1.block} 卖 ${fmtBnb(db1.sellBnb)} BNB、块内 ${db1.dropPct}%、卖方 ${db1.sellers} 钱包（剔路由）、最大卖家占 ${db1.topSellerPct !== null && db1.topSellerPct !== undefined ? db1.topSellerPct + '%' : '?'}、砸后60s承接比 ${db1.followBuyRatio ?? '?'}（块首行时刻 t+${db1.dt} 秒；承接比=砸块末行后 60 秒买入额÷砸卖额——砸掉的货有没有人接的直接度量，承接 ≥0.5=有承接的正常出货/换手；? =观察窗不足不冒充）`);
+    }
+    const db2 = b.dump2Block;
+    if (db2) {
+      lines.push(`恶意砸块(相邻两block): 块 ${db2.block}→${db2.block2} 合并卖 ${fmtBnb(db2.sellBnb)} BNB、首块首价→末块末价 ${db2.dropPct}%、卖方并集 ${db2.sellers} 钱包（剔路由）、最大卖家占 ${db2.topSellerPct !== null && db2.topSellerPct !== undefined ? db2.topSellerPct + '%' : '?'}、砸后60s承接比 ${db2.followBuyRatio ?? '?'}（连续两块接力砸=把巨量拆成相邻两块的形状；判读口径同单块行）`);
+    }
     // ⑤ 参与结构（近 60s）
     lines.push(`参与结构(近60s): 笔/分 ${w60 ? w60.ticksPerMin : '?'}；买家 ${w60 ? w60.buyers : '?'} / 卖家 ${w60 ? w60.sellers : '?'} / 新进场 ${w60 ? w60.newBuyers : '?'}（全窗首见买入落在窗内）；top1 买集中度 ${fmtPct(b.top1BuyPct60)} / top1 卖 ${fmtPct(b.top1SellPct60)}（剔路由伪钱包）；路由买占比 ${fmtPct(b.routerBuyPct60)}（散户通道代理，纯事实）`);
     // ⑥ 卖压（近 60s）

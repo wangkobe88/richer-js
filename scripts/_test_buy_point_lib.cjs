@@ -487,6 +487,101 @@ console.log('A10. cheatBurst 透传（cheat 门 sbw 引擎组装 [ANCHOR] 渲染
     'A10: cheatBurst null/缺席 → snapshot null + state 不渲染（行缺席=act 照常判档不冒充 burst——宁拦方向）');
 }
 
+// ═══════════════ A11. BP77 塞单簇（exactEqualBlock）+恶意砸块族（dumpBlock/dump2Block）手算 ═══════════════
+console.log('A11. BP77 塞单簇+恶意砸块族手算（四件方案立法①③）');
+{
+  // 存量夹具 A 反证：无等额簇/无砸块 → 零值/null（有证据零值 vs 缺证据 null 两态口径）
+  ok(dA.exactEqualBlockMaxWallets === 0 && Array.isArray(dA.exactEqualBlockClusters) && dA.exactEqualBlockClusters.length === 0
+    && dA.dumpBlock === null && dA.dump2Block === null,
+    'A11: 存量夹具 A 零簇零砸块（无等额同块买入=0 有证据零值；无合格砸块=null 缺证据——两态口径反证）');
+
+  // 塞单簇夹具：7000=8 钱包×0.25 等额簇（≥8 塞单门线）；7001=3 钱包×0.5；7002 尘门下；
+  // 7003 同钱包两笔去重；7004 router 聚合两笔（多散户同块同档天然不成簇）
+  const rowsStuff = [
+    row(100, 'BUY', W_B, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 0 }),
+    row(100, 'BUY', W_C, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 1 }),
+    row(100, 'BUY', W_D, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 2 }),
+    row(100, 'BUY', W_E, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 3 }),
+    row(100, 'BUY', W_F, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 4 }),
+    row(100, 'BUY', W_G, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 5 }),
+    row(100, 'BUY', W_H, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 6 }),
+    row(100, 'BUY', CREATOR, 0.25, 1.0 * E9, 2.5e8, { block: 7000, li: 7 }),
+    row(105, 'BUY', W_B, 0.5, 1.0 * E9, 5e8, { block: 7001, li: 0 }),
+    row(105, 'BUY', W_C, 0.5, 1.0 * E9, 5e8, { block: 7001, li: 1 }),
+    row(105, 'BUY', W_D, 0.5, 1.0 * E9, 5e8, { block: 7001, li: 2 }),
+    row(110, 'BUY', W_E, 0.0005, 1.0 * E9, 5e5, { block: 7002, li: 0 }),
+    row(110, 'BUY', W_F, 0.0005, 1.0 * E9, 5e5, { block: 7002, li: 1 }),
+    row(115, 'BUY', W_G, 0.3, 1.0 * E9, 3e8, { block: 7003, li: 0 }),
+    row(115, 'BUY', W_G, 0.3, 1.0 * E9, 3e8, { block: 7003, li: 1 }),
+    row(120, 'BUY', ROUTER, 0.2, 1.0 * E9, 2e8, { block: 7004, li: 0, sender: null }),
+    row(120, 'BUY', ROUTER, 0.2, 1.0 * E9, 2e8, { block: 7004, li: 1, sender: null }),
+    row(130, 'BUY', W_H, 0.1, 1.0 * E9, 1e8, { block: 7005 }),
+  ];
+  const dS77 = buildBuyPointSnapshot(rowsStuff, metaA).buyDerived;
+  ok(dS77.exactEqualBlockMaxWallets === 8,
+    `A11: 塞单簇 maxWallets=8（block 7000 八钱包 ×0.25 同块等额——实际 ${dS77.exactEqualBlockMaxWallets}）`);
+  const cl77 = dS77.exactEqualBlockClusters;
+  ok(Array.isArray(cl77) && cl77.length === 2 && cl77[0].block === 7000 && cl77[0].amt === 0.25
+    && cl77[0].wallets === 8 && cl77[0].n === 8 && near(cl77[0].sumBnb, 2.0) && cl77[0].firstDt === 100
+    && cl77[1].block === 7001 && cl77[1].wallets === 3 && near(cl77[1].sumBnb, 1.5),
+    'A11: clusters 按 sumBnb 降序 top3（7000 簇 2.0 在前/7001 簇 1.5 次之；尘门 0.0005 不入桶、同钱包去重 1<2、router 聚合行 wallet 同址去重不成簇——三反证）');
+  ok(dS77.dumpBlock === null && dS77.dump2Block === null, 'A11: 纯买夹具零砸块（无 SELL 行 → 无候选）');
+
+  // 砸块夹具：4001 块内 1.0→0.89=-11% 卖 0.5（dump1）；4002 单行块只进相邻对；
+  // 4001+4002 合并卖 1.0、1.0→0.8=-20%（dump2）；承接窗 (endDt, endDt+60]
+  const rowsDump = [
+    row(10, 'BUY', W_B, 0.3, 1.0 * E9, 3e8, { block: 4000 }),
+    row(20, 'BUY', CREATOR, 0.1, 1.0 * E9, 1e8, { block: 4001, li: 0 }),
+    row(21, 'SELL', W_C, 0.5, 0.89 * E9, 5.6e8, { block: 4001, li: 1 }),
+    row(30, 'SELL', W_D, 0.5, 0.8 * E9, 6.25e8, { block: 4002 }),
+    row(40, 'BUY', W_E, 0.3, 0.81 * E9, 3.7e8, { block: 4003 }),
+    row(55, 'BUY', W_F, 0.2, 0.805 * E9, 2.5e8, { block: 4004 }),
+    row(60, 'BUY', W_G, 0.1, 0.8 * E9, 1.25e8, { block: 4005 }),
+  ];
+  const dD77 = buildBuyPointSnapshot(rowsDump, metaA).buyDerived;
+  const db1 = dD77.dumpBlock, db2 = dD77.dump2Block;
+  ok(db1 && db1.block === 4001 && db1.block2 === null && near(db1.sellBnb, 0.5) && db1.dropPct === -11
+    && db1.sellers === 1 && db1.topSellerPct === 100 && db1.dt === 20 && db1.endDt === 21
+    && near(db1.followBuyRatio, 1.2),
+    `A11: dumpBlock 手算（4001 块内 1.0→0.89=-11% 卖 0.5 单卖方 top 100%；承接 (21,81] 买 0.3+0.2+0.1=0.6÷0.5=1.2——实际 ${db1 && JSON.stringify(db1)}）`);
+  ok(db2 && db2.block === 4001 && db2.block2 === 4002 && near(db2.sellBnb, 1.0) && db2.dropPct === -20
+    && db2.sellers === 2 && db2.topSellerPct === 50 && db2.endDt === 30 && near(db2.followBuyRatio, 0.6),
+    `A11: dump2Block 相邻对手算（4001+4002 合并卖 1.0、首块首价 1.0→末块末价 0.8=-20、卖方并集 2、top 50%；承接 (30,90] 买 0.6÷1.0=0.6；单行块 4002 块内零跌幅只进相邻对——实际 ${db2 && JSON.stringify(db2)}）`);
+  ok(dS77.exactEqualBlockMaxWallets === 8 && dD77.exactEqualBlockMaxWallets === 0,
+    'A11: 两族算法独立（砸块夹具无等额簇=0；塞单夹具照上）');
+
+  // 承接观察窗不足：tEnd−endDt <10s → followBuyRatio null 不冒充
+  const rowsDumpNear = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8, { block: 5000 }),
+    row(15, 'BUY', W_C, 0.1, 1.0 * E9, 1e8, { block: 5001, li: 0 }),
+    row(15, 'SELL', W_D, 0.5, 0.85 * E9, 5.9e8, { block: 5001, li: 1 }),
+    row(20, 'BUY', W_E, 0.05, 0.85 * E9, 6e7, { block: 5002 }),
+  ];
+  const dN77 = buildBuyPointSnapshot(rowsDumpNear, metaA).buyDerived;
+  ok(dN77.dumpBlock && dN77.dumpBlock.block === 5001 && dN77.dumpBlock.dropPct === -15
+    && dN77.dumpBlock.followBuyRatio === null,
+    'A11: 承接观察窗不足 → followBuyRatio null（tEnd 20−endDt 15=5s<10s 下限——砸块事实照出、承接腿缺证据不冒充）');
+
+  // 砸块跌幅=价格影响事实口径含 outlier（与价格族可靠价口径刻意不同向）
+  const rowsDumpOut = [
+    row(10, 'BUY', W_B, 0.1, 1.0 * E9, 1e8, { block: 6000 }),
+    row(50, 'BUY', W_C, 0.1, 1.0 * E9, 1e8, { block: 6001, li: 0 }),
+    row(50, 'SELL', W_D, 0.5, 0.6 * E9, 8.3e8, { block: 6001, li: 1, outlier: true }),
+    row(80, 'BUY', W_E, 0.05, 0.99 * E9, 5e7, { block: 6002 }),
+  ];
+  const dO77 = buildBuyPointSnapshot(rowsDumpOut, metaA).buyDerived;
+  ok(dO77.dumpBlock && near(dO77.dumpBlock.sellBnb, 0.5) && dO77.dumpBlock.dropPct === -40,
+    `A11: 砸块跌幅含 outlier（块末 outlier 价 0.6 计入 lastPx → -40%——价格影响事实口径；实际 ${dO77.dumpBlock && dO77.dumpBlock.dropPct}）`);
+
+  // state 三渲染行
+  const st77 = buildBuyPointState(buildBuyPointSnapshot(rowsDump, metaA)).state;
+  ok(st77.includes('恶意砸块(单block)') && st77.includes('恶意砸块(相邻两block)'),
+    'A11: state 渲染砸块两行（单 block/相邻两 block——Jev 四腿判读原料）');
+  const st77s = buildBuyPointState(buildBuyPointSnapshot(rowsStuff, metaA)).state;
+  ok(st77s.includes('同块等额买单(锚窗)') && st77s.includes('8'),
+    'A11: state 渲染塞单簇行（eqMax ≥2 才渲染——8 钱包 ×0.25 簇在场）');
+}
+
 // ═══════════════ B. 窗语义边界 ═══════════════
 console.log('B. 窗语义边界（半开/伪钱包/双口径）');
 const rowsB = [
@@ -909,6 +1004,48 @@ ok(aM.bucket === 'neutral' && aM.rule === 'gates_passed', 'E: BP60 狙击衰竭�
   ok(oCrashOut.rule === 'pattern_gate', 'E: BP58 门序 统一位置门（盘型门）先拒已拉离（crash+curVs 50>28.5 双命中留痕 pattern_gate）');
   ok(JSON.stringify(buildBuyPointObservation({ ...es('crash'), ...mkAns('market_pattern', 'none', 0.6), ...mkAns('holder_concentration', 'strong', 0.9) }, dE)).includes('exempt') === false,
     'E: BP58 exempt 键全绝迹（BP38/BP46/BP47/BP52/BP53 五豁免臂随桶改制删除——任何组合不留 exempt 指纹）');
+  // BP77 恶意砸盘桶：malicious_dump → entry_gate 拒（与 crash 同 rule 双桶拦域）
+  const oDump77 = buildBuyPointObservation(es('malicious_dump', 0.9), dE);
+  ok(oDump77.assessment.bucket === 'poor' && near(oDump77.assessment.prob, 0.9) && oDump77.assessment.rule === 'entry_gate'
+    && oDump77.dimensions.entry_shape.bucket === 'malicious_dump',
+    'E: BP77 malicious_dump 桶 → poor/entry_gate（恶意砸盘单独落桶与 crash 同走点位门——判轴分离拦截同门）');
+}
+// ═══ BP77 塞单门（mapper 门链最前代码门）+砸块/塞单锚透传 ═══
+{
+  ok(require('../src/market-analysis/buy-point-result-mapper').STUFFING_MAX_EQ_WALLETS === 8, 'E: BP77 塞单门常量 STUFFING_MAX_EQ_WALLETS=8（≥8 拒买；7 值带在线外）');
+  const stuff = (v) => buildBuyPointObservation(fullAnswers(), { ...dE, exactEqualBlockMaxWallets: v }).assessment;
+  ok(stuff(8).bucket === 'poor' && stuff(8).rule === 'stuffing_gate' && stuff(8).prob === null,
+    'E: BP77 塞单门 ≥8 → poor/stuffing_gate/prob null（代码门无 Jev 概率——门链最前先于盘型门）');
+  ok(stuff(7).bucket === 'neutral' && stuff(7).rule === 'gates_passed',
+    'E: BP77 塞单门 7=线外不拦（走正常门链——dE curVs +20 过统一门 neutral）');
+  ok(stuff(0).rule === 'gates_passed' && stuff(null).rule === 'gates_passed',
+    'E: BP77 塞单门 0/null 容缺不拦（无簇=有证据零值放行；锚缺席=null 放行——拒=有证据的拒绝）');
+  ok(stuff('x').rule === 'gates_passed' && stuff(Infinity).rule === 'gates_passed',
+    'E: BP77 塞单门非有限数 → null 不拦（typeof number ∧ finite 守卫）');
+  // 塞单门先于盘型门：⑨硬拒桶+塞单 8 同命中 → stuffing_gate 留痕（门链最前）
+  const stuffBoth = buildBuyPointObservation(
+    { ...fullAnswers(), ...mkAns('market_pattern', 'one_wave_dump', 0.9) },
+    { ...dE, exactEqualBlockMaxWallets: 12 }).assessment;
+  ok(stuffBoth.rule === 'stuffing_gate' && stuffBoth.bucket === 'poor',
+    'E: BP77 塞单门=门链最前（⑨硬拒桶+塞单 12 双命中 → stuffing_gate 留痕先于 pattern_gate）');
+  // 砸块族扁平十键+塞单锚透传
+  const dDump77 = {
+    ...dE,
+    exactEqualBlockMaxWallets: 3,
+    dumpBlock: { block: 4001, block2: null, sellBnb: 0.5, dropPct: -11, sellers: 1, topSellerPct: 100, dt: 20, endDt: 21, followBuyRatio: 1.2 },
+    dump2Block: { block: 4001, block2: 4002, sellBnb: 1.0, dropPct: -20, sellers: 2, topSellerPct: 50, dt: 20, endDt: 30, followBuyRatio: 0.6 },
+  };
+  const an77 = buildBuyPointObservation(fullAnswers(), dDump77).anchors;
+  ok(an77.exactEqualBlockMaxWallets === 3
+    && an77.dumpBlockBnb === 0.5 && an77.dumpBlockDropPct === -11 && an77.dumpBlockSellers === 1
+    && an77.dumpBlockTopSellerPct === 100 && an77.dumpBlockFollowBuyRatio === 1.2
+    && an77.dump2BlockBnb === 1 && an77.dump2BlockDropPct === -20 && an77.dump2BlockSellers === 2
+    && an77.dump2BlockTopSellerPct === 50 && an77.dump2BlockFollowBuyRatio === 0.6,
+    'E: BP77 砸块族扁平十键+塞单锚透传（dumpBlock*/dump2Block*——signal metadata/digest 消费，四腿判读原料不进门）');
+  const anMiss77 = buildBuyPointObservation(fullAnswers(), dE).anchors;
+  ok(anMiss77.dumpBlockBnb === null && anMiss77.dumpBlockDropPct === null && anMiss77.dumpBlockFollowBuyRatio === null
+    && anMiss77.dump2BlockBnb === null && anMiss77.dump2BlockFollowBuyRatio === null && anMiss77.exactEqualBlockMaxWallets === 0,
+    'E: BP77 砸块/塞单锚缺席 → null/0 透传不冒充（dE=存量夹具零簇零砸块——题面「砸块行缺席不落」同向）');
 }
 aM = buildBuyPointObservation({ ...fullAnswers(), ...mkAns('market_pattern', 'none', 0.88) }, dA).assessment;
 ok(aM.bucket === 'poor' && aM.rule === 'pattern_gate', 'E: BP58 统一位置门 dA vsLaunch=+60% >+28.5 → poor/pattern_gate（正常盘面唯一放行上界——不追高）');
@@ -1099,7 +1236,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP60 四题=4 维度 0 质量/桶域对锁/题面清洗——零编号零判例名，判例剥名留形状为匿名例）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP60', 'F: 版本=BP60（**BP60=题面全面整理**：①演进史/编号/「用户裁定/二修三修」叙事框全部移出题面归台账②已删概念陈述清除③price_trend+price_level 两纯参考零消费题退役（桶域常量保留旧档重放）④判例地址与昵称全剥、形状+数值边界保留为匿名例⑤判序重组为唯一顺序——**判据线值零改动**）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP61', 'F: 版本=BP61（**BP61=四件方案立法**：①塞单门=代码门 exactEqualBlockMaxWallets ≥8 门链最前（mapper 侧）②⑨one_wave_dump 判据换时间分界点（能否用一个时间点分开买期/卖期——存在性判读替换完成时态占比，不设占比线）③恶意砸盘单独落桶 malicious_dump=entry_shape 第五桶（与 crash 价格拱判轴分离；四腿联立+单鲸版+相邻两块臂+承接反锚）④题面零演进叙事铁律保持）；BP60=前代题面全面整理');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 4, `F: 恰 4 题=4 维度 0 质量（price_trend/price_level 两题随整理退役——纯参考零消费者，price_level 桶=currentVsLaunchPct 锚的确定性函数离线可复算；实际 ${ids.length}）`);
@@ -1189,35 +1326,52 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('「集团买入占比」是 famous+跟单的**合并口径**') && mp.includes('≥50% 判序线会被跟单顶上') && mp.includes('须并读痕迹行（只计 famous 本人）占买比：本人占买不高+吞吐厚=famous 之外多元参与已承接买入'), 'F: ③集团买入占比跟单合并口径注意（防跟单簇顶线误判——并读痕迹行只计本人占买比）');
   ok(mp.includes('**「火过」的判据是量不是价格形状**') && mp.includes('量不足的薄盘即使价格拉高过又回落（看似「火过」），仍是「薄盘被 famous 打完第一波就走」的形状，不构成厚度维度退出') && mp.includes('吞吐仅 3.5~3.7 BNB 薄+锚窗高点拉高约 +99~112% 后回落底部'), 'F: 厚度维度量不足回落反锚（「火过」判据是量不是价格形状——量不足的拉高回落照落③不退出）');
   ok(qs.market_pattern.criteria.famous_monopoly.includes('参考 ≥50%，famous+跟单合并口径须并读痕迹行只计本人'), 'F: criteria famous_monopoly 同步 ≥50% 线+口径注意');
-  // ═══ ⑨ 一波流 ═══
-  ok(mp.includes('⑨one_wave_dump（先买后卖一波流）') && mp.includes('此后再无第二波买入') && mp.includes('买入力量一次性用完、盘面只剩出货方向') && mp.includes('①**开盘段买入占锚窗总买入比例极高**（开盘段结构行「占全窗买入」参考 ≥80%') && mp.includes('②**开盘段后买入枯竭**') && mp.includes('③**后段已转卖**') && mp.includes('多例开盘段买入占比 92~100% 的票全部亏损'), 'F: ⑨三要件（开盘段占比 ≥80+开盘段后枯竭+后段已转卖；匿名例族=92~100% 全亏损）');
-  ok(mp.includes('**与②的区别**') && mp.includes('本桶开盘段**有**一波像样买盘') && mp.includes('像强开盘，实际买完就转卖'), 'F: ⑨与②区别（②开盘段也是散户单；⑨开盘段有像样买盘——像强开盘实际买完就转卖）');
-  ok(mp.includes('**反锚（不落本桶）**') && mp.includes('后段仍有像样买入承接') && mp.includes('持续纯拉无卖出转卖的不落本桶') && mp.includes('窗口 ≤30s 或开盘段结构行 ?'), 'F: ⑨反锚（后段有承接/纯拉无转卖/占比未达线/窗 ≤30s 或行 ? 均归 none）');
+  // ═══ ⑨ 一波流（BP77 判据=时间分界点——存在性判读替换完成时态占比） ═══
+  ok(mp.includes('⑨one_wave_dump（先买后卖一波流）') && mp.includes('判轴=**买入之前的交易能否用一个时间点，把窗口分成两段**') && mp.includes('前段**买期**') && mp.includes('后段**卖期**') && mp.includes('**分界点存在**（先集中买、买完转集中卖）=one_wave_dump') && mp.includes('**不要求明确的占比界限**'), 'F: ⑨判轴=时间分界点（能否用一个时间点分开买期/卖期——分界点存在=落桶；不设占比线）');
+  ok(mp.includes('**与②的区别**') && mp.includes('本桶买期**有**一波像样买盘') && mp.includes('像强开盘，实际买完就转卖'), 'F: ⑨与②区别（②(a) 从来无像样买单；⑨买期有像样买盘——像强开盘实际买完就转卖）');
+  ok(mp.includes('**反锚（不落本桶，一律从宽归 none）**') && mp.includes('全窗都是买期（尚无卖期出现') && mp.includes('买卖全程交织') && mp.includes('后段有像样买入承接（换手或对倒正常盘面）') && mp.includes('证据薄或窗极短'), 'F: ⑨反锚四条从宽归 none（全买期/交织/有承接/证据薄窗极短——拒买桶须证据坐实）');
   // ═══ 怎么算/反锚/收尾 ═══
   ok(mp.includes('怎么算：开盘段结构行'), 'F: mp 怎么算段在场（[PRECOMPUTED] 直供键算法段）');
   ok(mp.includes('**「多笔」是硬笔数且按单笔计**') && mp.includes('多笔累计到 0.2 级的钱包不算（读 [WALLETS]「最大单笔」不读累计）') && mp.includes('仅 1 个单笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②') && mp.includes('**前提是像样买方买点时刻仍在场**'), 'F: 反锚单笔口径（多笔硬笔数按单笔计；累计不算；在场前提）');
   ok(mp.includes('③要 famous/单一钱包**拿了太多筹码**（占比大且绝对额大）才落③——边缘参与（占比 <25）或大额多元并存不构成独食') && mp.includes('**复数 famous 形状**'), 'F: 反锚③门槛+复数形状（边缘参与不构成独食；复数合计达线同落③）');
-  ok(mp.includes('**⑨的从宽方向**') && mp.includes('证据薄时从宽 none（拒买类从严、拿不准从宽）') && mp.includes('材料不足（开盘段结构行 ? /钱包证据缺/窗极短）归 none 处理不硬归类到异常桶（拒买桶须证据坐实）'), 'F: 反锚从宽方向+材料不足兜底（拒买桶须证据坐实、拿不准从宽 none）');
+  ok(mp.includes('**⑨的判轴=时间分界点（能否用一个时间点分开买期与卖期），不设占比界限**') && mp.includes('证据薄/窗极短时从宽 none（拒买类从严、拿不准从宽）') && mp.includes('材料不足归 none 处理不硬归类到异常桶（拒买桶须证据坐实）'), 'F: 反锚⑨时间分界点复述+从宽方向+材料不足兜底（拒买桶须证据坐实、拿不准从宽 none）');
   ok(mp.includes('②③⑨由盘型门硬拒（不要参与）') && mp.includes('判型归 Jev、位置归代码') && mp.includes('none 统一位置门 ≤+28.5%（含破发）放行、已拉离（>+28.5%）拒') && mp.includes('锚缺失（发行价位置行 ?）宁拦不冒充一律拒') && mp.includes('拉高/砸盘形状的拦截由点位性质题 entry_shape+位置门接力'), 'F: 收尾分工+位置门（②③⑨门硬拒；none 统一门 ≤+28.5 含破发、锚缺失宁拦不冒充；判型归 Jev 位置归代码）');
   ok(!mp.includes('⑥ ≤+10% 起点段放行'), 'F: ⑥独立位置臂句绝迹（持续拉升归 none 统一门）');
   // criteria 四桶同步
   ok(qs.market_pattern.criteria.retail_pvp.includes('单笔 >0.3 BNB 买入在场、或同一 block 内捆绑买入汇总 >0.3 BNB（「同块捆绑买入」行直供——链上同时性的组织性买入）=盘面有 0.3 级买入力量，不落本桶归 none') && qs.market_pattern.criteria.retail_pvp.includes('量维度不在场再看大户参与（单笔 0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场——0.2 级按单笔计不累计、末笔后已清仓离场的历史大户不算在场）不满足直接落本桶、盘面活跃度（笔数/钱包数）不救') && qs.market_pattern.criteria.retail_pvp.includes('判据全文见题面②桶'), 'F: criteria retail_pvp 判序同步（量维度两口径前置+大户参与单笔计+在场加硬——桶描述与题面判序一致）');
   ok(qs.market_pattern.criteria.famous_monopoly.includes('这个盘子就是它的/它们的了') && qs.market_pattern.criteria.famous_monopoly.includes('吞吐厚/涨跌轮回走完的厚盘归 none') && qs.market_pattern.criteria.famous_monopoly.includes('famous 快进快出已清仓离场（收割完）或已卖出绝大部分只差微末（收割中）的残局同落本桶') && qs.market_pattern.criteria.famous_monopoly.includes('薄盘（锚窗买入 <5 BNB）famous 在场持有照落本桶——在场 ≠ 护盘') && qs.market_pattern.criteria.famous_monopoly.includes('**burst 重启盘（基本归零过+流量涌入）famous 仅剩尘埃残仓（在场净额合计 <0.05 级、已基本卖完）不算在场不落本桶；在场净额大的照落**'), 'F: criteria famous_monopoly 同步（适用域+收割两分支+厚薄分流+burst 残仓例外——桶级语义句）');
-  ok(qs.market_pattern.criteria.one_wave_dump.includes('三要件：①开盘段买入占锚窗总买入 ≥80%（开盘段结构行「占全窗买入」）②开盘段后买入枯竭（「开盘段后: 买入」尘埃级或 0、密度骤降）③后段已转卖') && qs.market_pattern.criteria.one_wave_dump.includes('与②的区别=开盘段有一波像样买盘') && qs.market_pattern.criteria.one_wave_dump.includes('判据全文见题面⑨桶'), 'F: criteria one_wave_dump 同步（三要件+区别+判据指针）');
+  ok(qs.market_pattern.criteria.one_wave_dump.includes('能否用一个时间点分成两段') && qs.market_pattern.criteria.one_wave_dump.includes('分界点存在=落本桶，不要求占比界限、不看开盘段与否（买期可能在窗内任何位置）') && qs.market_pattern.criteria.one_wave_dump.includes('全窗都是买期（买入还在进行/买后未转集中卖）/买卖交织无清晰分界/后段有像样承接/证据薄窗极短的从宽归 none') && qs.market_pattern.criteria.one_wave_dump.includes('与②的区别=买期有一波像样买盘') && qs.market_pattern.criteria.one_wave_dump.includes('判据全文见题面⑨桶'), 'F: criteria one_wave_dump 同步（时间分界点判轴+从宽四条+区别+判据指针）');
   ok(qs.market_pattern.criteria.none.includes('强庄盘/狙击衰竭/融合盘/回落重启/高活跃黄金点/持续拉升') && qs.market_pattern.criteria.none.includes('统一位置门 ≤+28.5% 含破发，已拉离（>+28.5%）或锚缺失=拒（宁拦不冒充）'), 'F: criteria none 兜底桶（正常形状清单+统一位置门+宁拦不冒充）');
   // ═══ entry_shape 点位性质（四桶+判序+判读线+形状样本） ═══
-  ok(JSON.stringify(q.ENTRY_SHAPE_LEVELS) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: ENTRY_SHAPE_LEVELS 同域（四桶 crash/spike/normal_dip/flat——ESM/CJS 双副本对锁）');
-  ok(JSON.stringify(Object.keys(qs.entry_shape.criteria)) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: entry_shape 桶===ENTRY_SHAPE_LEVELS（四桶判型桶域不变——spike 判型保留落档、拦截域收窄由 mapper 单独决定）');
-  ok(JSON.stringify(ENTRY_GATE_POOR_BUCKETS) === JSON.stringify(['crash']), 'F: ENTRY_GATE_POOR_BUCKETS 收 crash 单桶（统一位置门已控价域内 spike 判定冗余且易误伤正常额度买单贴顶；恢复拦截=把 spike 加回本数组）');
+  ok(JSON.stringify(q.ENTRY_SHAPE_LEVELS) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: ENTRY_SHAPE_LEVELS 同域（五桶 crash/malicious_dump/spike/normal_dip/flat——BP77 恶意砸盘单独落桶；ESM/CJS 双副本对锁）');
+  ok(JSON.stringify(Object.keys(qs.entry_shape.criteria)) === JSON.stringify(ENTRY_SHAPE_LEVELS), 'F: entry_shape 桶===ENTRY_SHAPE_LEVELS（五桶判型桶域——spike 判型保留落档、拦截域由 mapper 单独决定）');
+  ok(JSON.stringify(ENTRY_GATE_POOR_BUCKETS) === JSON.stringify(['crash', 'malicious_dump']), 'F: ENTRY_GATE_POOR_BUCKETS 双桶（crash+malicious_dump——恶意砸盘 BP77 单独落桶同走点位门拒买；spike 判型落档不拦（BP68），恢复拦截=把 spike 加回本数组）');
   const esIns = qs.entry_shape.instructions;
   ok(esIns.includes('判定**买点时刻价格走到当前位置的方式**') && esIns.includes('只买性价比高的点位、不追高') && esIns.includes('好点位只有两种') && esIns.includes('「对倒交易换手中的低点」') && esIns.includes('较长时间下跌后形成的低点（活跃度未失去）') && esIns.includes('不是庄家离场时的暴跌，也不是尖刺拉起的追高点'), 'F: entry_shape 题头=交易理念直译（好点位只有两种=对倒换手中的低点/较长时间下跌后形成的低点——非庄离场暴跌非尖刺追高）');
-  ok(esIns.includes('四桶判序：先看 crash 数值提示臂（命中进入**形态复核**——[PRICE] 价格拱无回调+近窗无换手对倒才落 crash，速度不设限）与**两臂**') && esIns.includes('再判 spike（尖刺拉起）各臂，都不命中按回落形态分 normal_dip/flat') && esIns.includes('crash/normal_dip 判的是价格拱形态、不是跌幅数值'), 'F: entry_shape 四桶判序（crash 提示臂+两臂→spike→normal_dip/flat；形态判读非数值判读）');
+  ok(esIns.includes('五桶判序：先看 malicious_dump（恶意砸盘——state「恶意砸块」行在场且四腿联立才落，判读见恶意砸盘桶）、再看 crash 数值提示臂（命中进入**形态复核**——[PRICE] 价格拱无回调+近窗无换手对倒才落 crash，速度不设限）与**两臂**（本地买方缺席的单边下跌段/近期暴跌后的余波小活跃——判读见 crash 桶两臂段）') && esIns.includes('再判 spike（尖刺拉起）各臂，都不命中按回落形态分 normal_dip/flat') && esIns.includes('crash/normal_dip 判的是价格拱形态、不是跌幅数值'), 'F: entry_shape 五桶判序（malicious_dump 独立桶最前（BP77 判轴分离）→crash 提示臂+两臂→spike→normal_dip/flat；形态判读非数值判读）');
   ok(esIns.includes('① 现价较锚窗最高价深跌：currentVsAthPct ≤ -25%') && esIns.includes('② 近 30s 动量深跌：chg30Pct ≤ -25%') && esIns.includes('③ 临近段单 5s 段急跌：nearMaxDn5Pct ≤ -15%') && esIns.includes('④ 现价贴着锚窗最低价：curVsMinGapPct ≤ 2 个百分点'), 'F: crash 四臂判读线（-25/-25/-15/2pp——数值臂只进复核不定桶）');
   ok(esIns.includes('**速度不是判轴**') && esIns.includes('急砸（连续两位数级 5s 段垂直下行）与缓砸（中等速率但一路向下、无回调无承接）都是庄离场砸盘') && esIns.includes('只要持续无回调、无换手对倒，同样落本桶') && esIns.includes('**判读序：数值臂只是进入复核的提示，定桶看 [PRICE] 价格拱形态+近窗买卖结构**') && qs.entry_shape.criteria.crash.startsWith('无回调、无换手对倒的砸盘：'), 'F: crash 判轴=无回调+无换手对倒双缺位（速度不设限——急砸缓砸都落；判读序=数值臂提示→形态复核定桶；criteria 头同步）');
   ok(esIns.includes('① 现价贴锚窗最高价：currentVsAthPct ≥ -5%（拉升进行时贴顶——单独成立，此刻买入=顶上接）') && esIns.includes('② 贴顶+近 30s 动量急涨：chg30Pct ≥ +20%（须与①联立）') && esIns.includes('③ 贴顶+临近段单 5s 段急拉：nearMaxUp5Pct ≥ +15%（须与①联立）') && esIns.includes('急拉但已从高点回落超过 5 个百分点（currentVsAthPct < -5）不判 spike'), 'F: spike 三臂=贴顶必要条件+联立（①贴顶 -5 单独成立；②③须联立；回落 >5pp 不判=对倒回升波段非追高点）');
   ok(esIns.includes('贴顶是必要条件') && esIns.includes('对倒回升波段'), 'F: 反锚回升波段（急拉数值轴无区分度——位置轴=现价在不在刺尖上）');
   ok(esIns.includes('**normal_dip 阶梯/震荡/阴跌回落（好点位）**') && esIns.includes('浅或深皆可') && esIns.includes('即便深跌+急跌数值双中') && esIns.includes('有回调节奏或买方换手承接'), 'F: normal_dip=目标形状（阶梯/震荡/阴跌皆好点位、深浅不是判据——判据=有回调节奏或买方换手承接）');
   ok(esIns.includes('flat 横盘/缓行'), 'F: flat 横盘桶（各臂不命中且无回落结构如实归本桶）');
+  // ═══ BP77 malicious_dump 独立桶（题面+criteria+形状样本三载体同步） ═══
+  ok(esIns.includes('**malicious_dump 恶意砸盘（拒买——单独桶）**——判轴=**卖方阵列的块级结构证据**（与 crash 的价格拱形态判轴分离：砸块在买点前任何时候——不限临近段，窗内其它地方有回调/换手不救本桶）')
+    && esIns.includes('①砸块卖额 ≥0.5 BNB（规模）') && esIns.includes('②块内跌幅 ≥10%（价格影响——卖出额与价格影响联合，单看卖额不落）')
+    && esIns.includes('③卖方 ≥4 钱包阵列（组织性——多钱包协同砸，剔路由口径）') && esIns.includes('④承接不足：砸后 60s 承接比 <0.5（承接不到砸卖额一半）')
+    && esIns.includes('**单鲸版**：卖额 ≥1.0 BNB ∧ 最大卖家占 ≥30% ∧ 承接比 <0.5（不要求卖方 ≥4）')
+    && esIns.includes('**连续两块臂**：「恶意砸块(相邻两block)」行同款四腿（合并口径）')
+    && esIns.includes('承接比 ≥0.5=承接在场——砸掉的货有人接走=活跃盘正常换手/出货（照 normal_dip/flat 正常评估）')
+    && esIns.includes('承接比 ?（观察窗不足）或砸块行缺席=证据不足不落') && esIns.includes('任一腿不过线=不落（四腿联立宁漏不误伤）')
+    && esIns.includes('本桶看砸完的余波结构（卖方组织性证据），crash 急跌进行时轴看此刻正在砸——两轴互补各自判'),
+    'F: BP77 malicious_dump 独立桶题面（判轴分离声明+四腿联立+单鲸版+相邻两块臂+承接反锚+宁漏不误伤+两轴互补）');
+  ok(qs.entry_shape.criteria.malicious_dump.startsWith('恶意砸盘（单独桶——判轴=卖方阵列的块级结构证据，与 crash 价格拱形态判轴分离、不限临近段）')
+    && qs.entry_shape.criteria.malicious_dump.includes('①砸块卖额 ≥0.5 BNB ②块内跌幅 ≥10% ③卖方 ≥4 钱包（剔路由，组织性阵列）④砸后 60s 承接比 <0.5')
+    && qs.entry_shape.criteria.malicious_dump.includes('单鲸版（卖额 ≥1.0 BNB ∧ 最大卖家占 ≥30% ∧ 承接 <0.5，不要求卖方数）')
+    && qs.entry_shape.criteria.malicious_dump.includes('不落时按判序继续 crash/两臂/spike 评估'),
+    'F: criteria.malicious_dump 同步（独立桶判轴+四腿+单鲸版+相邻两块臂+不落续判序）');
+  ok(esIns.includes('malicious_dump=**砸块行四腿全中（单块卖 0.8 BNB、块内 -12%、卖方 5 钱包、承接比 0.3——组织性阵列砸盘无承接）／相邻两块合并 1.5 BNB、-15%、承接 0.2（接力砸拆块形状）／砸块承接比 2.1 不落（砸掉的货有人接=正常换手）**'),
+    'F: malicious_dump 形状样本三例（四腿全中/相邻两块/承接 2.1 不落——匿名例）');
   ok(esIns.includes('形状样本（匿名）') && esIns.includes('拉顶后连续两个 5s 段 -16.9%/-16.1% 零反弹垂直砸落') && esIns.includes('尾 10s 零买纯卖可观推进的单边出货段（臂 A）') && esIns.includes('深段未收复 -42~-44 级深坑张着但尾 10s 买 0.12~2.0B 在场照放') && esIns.includes('深段距 16s 但 chg5/chg10 双 +14.3+未收复仅 -11.1 收复过半、离最低 +26.1 反弹进行时照放——臂 B 第一步反例') && esIns.includes('近窗 120s 双边巨量但尾 10s 零买'), 'F: entry_shape 形状样本（匿名例——crash 侧垂直砸落/单段直砸/臂 A 臂 B 样本+normal_dip 侧温和回踩/阶梯阴跌/买力在场照放/反弹进行时+spike 尖刺贴顶）');
   // ═══ 两臂判据全文（criteria.crash 承载）+急跌进行时+判例样本 ═══
   const esc = qs.entry_shape.criteria;
@@ -1231,7 +1385,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(esIns.includes('例：curVsAth -27.7 命中臂①+chg5 -22.3≈chg10 -20.3 同深差仅 2pp、买点前 1 秒 chg5 还是 +0.2（一秒内翻转 -22）') && esIns.includes('**幅度二十分级的接刀进行时照样砸：幅度浅不等于跌完了，同深无铺垫就是刚开始砸**'), 'F: 浅幅同深无铺垫判例（幅度二十分级的接刀进行时照样砸——一秒翻转是在场进行时的直接证据）');
   ok(esIns.includes('可接受的「跌」=已走完一段：chg5 收敛于 0 或为正、或 chg5 明显浅于 chg10（下跌主体在过去几秒而非眼下）') && esc.normal_dip.includes('前提=下跌已走完一段、此刻不在急跌进行中') && esc.crash.includes('买点时刻突发急跌进行时（chg5 深负+chg5≈chg10 同深无铺垫=刚开始砸）也落本桶'), 'F: 可接受的「跌」方向锚+两桶同步（chg5 收敛/为正或明显浅于 chg10；normal_dip 前提=跌完一段不在急跌进行中；criteria crash 急跌句同步）');
   ok(esIns.includes('**累计跌幅深也不等于砸盘、速度不急也不等于安全**') && esIns.includes('深坑张着的先查臂 B 第二步买入力在场性') && esIns.includes('反锚：①窗极短（各锚 ?/缺失）不判 crash/spike——判缺不猜'), 'F: 反锚段（窗极短判缺不猜；数值命中不等于 crash；累计深≠砸盘速度缓≠安全；深坑张着先查买力在场性）');
-  ok(esIns.includes('怎么算：[PRECOMPUTED] 现价较锚窗最高价行（currentVsAthPct）+ 近窗动量行（chg30Pct）+ 临近段 5s 段最大涨/跌行（nearMaxUp5Pct/nearMaxDn5Pct）+ 发行价位置行的 curVsMinGapPct') && esIns.includes('**锚前尾段买卖对比(最后10秒)行（臂 A 主锚：买笔数/买额/卖额直供）+ 近期暴跌段(锚前30秒内最深5秒段)行（臂 B 主锚：段深度/距今秒数/未收复幅度直供）**'), 'F: entry_shape 怎么算=四键+两臂主锚直供（nearMax 双队列+curVsMinGap+尾段买卖对比行+近期暴跌段行）');
+  ok(esIns.includes('怎么算：[PRECOMPUTED] 现价较锚窗最高价行（currentVsAthPct）+ 近窗动量行（chg30Pct）+ 临近段 5s 段最大涨/跌行（nearMaxUp5Pct/nearMaxDn5Pct）+ 发行价位置行的 curVsMinGapPct') && esIns.includes('**锚前尾段买卖对比(最后10秒)行（臂 A 主锚：买笔数/买额/卖额直供）+ 近期暴跌段(锚前30秒内最深5秒段)行（臂 B 主锚：段深度/距今秒数/未收复幅度直供）+ 恶意砸块行（malicious_dump 主锚：单 block/相邻两 block 卖额/块内跌幅/卖方数（剔路由）/最大卖家占比/砸后 60s 承接比直供）**'), 'F: entry_shape 怎么算=四键+三主锚直供（nearMax 双队列+curVsMinGap+尾段买卖对比行+近期暴跌段行+恶意砸块行（BP77））');
   // ═══ famous 轴补充锚（主述断言见上文 famous 轴前置/③桶块——此处锁前置段与③桶的缝合点） ═══
   ok(mp.includes('退出臂评估**须并读③桶在场持有的厚薄分流**') && mp.includes('（例：出生数十秒 ultra 吞吐大量成交的盘面，famous 占比高但不是 famous 收割形状）'), 'F: 退出臂并读指针+厚度维度匿名例（退出臂评估须并读③桶厚薄分流防两段判读脱节；ultra 大量成交厚盘=famous 占比是换手结果非收割形状）');
   // 旧桶名全量绝迹（字符串层面——criteria 键域即 Jev Choice options，桶名不在=Jev 无法产出=unknown-bucket throw 兜底）

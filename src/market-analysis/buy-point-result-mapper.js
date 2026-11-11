@@ -116,10 +116,17 @@ const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'one_wave_du
  * （rule=pattern_gate）。改制前各桶专属位置臂（①80→40/⑤40/⑦40/⑧40/④豁免
  * 臂 40）不再恢复，统一收口本线 */
 const NORMAL_ENTRY_LAUNCH_PCT = 28.5;
-/** 点位性质四桶（BP58 新题 entry_shape——用户理念「只买性价比高的点位，不追高」：
+/** BP77 塞单门钱包线：exactEqualBlockMaxWallets（锚窗内同 block 等额买入最大簇
+ * 去重钱包数）≥ 此值 → poor（rule=stuffing_gate）——「同一 block 内 8+ 笔完全
+ * 等额的多钱包买入」=组织性分仓/塞单阵列，意图机械无可争议，用户明裁的代码门
+ * 例外（BP37「判形状归 Jev」总则不适用于此）；7 值带（盈亏混杂）在线外不拦；
+ * 锚缺席（旧档重放）容缺不拦；全年龄无域（方案四 D 裁定） */
+const STUFFING_MAX_EQ_WALLETS = 8;
+/** 点位性质五桶（BP58 新题 entry_shape——用户理念「只买性价比高的点位，不追高」：
  * 好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌
- * （直线砸盘），也不是尖刺拉起的追高点） */
-const ENTRY_SHAPE_LEVELS = ['crash', 'spike', 'normal_dip', 'flat'];
+ * （直线砸盘），也不是尖刺拉起的追高点；BP77 恶意砸盘单独落桶 malicious_dump
+ * （与 crash 判轴分离：crash 判价格拱形态、砸盘判卖方阵列块级结构证据） */
+const ENTRY_SHAPE_LEVELS = ['crash', 'malicious_dump', 'spike', 'normal_dip', 'flat'];
 /** 点位性质门拒买桶（BP58）：crash 庄离场直线砸盘（curVsAth≤-25/chg30≤-25/
  * nearMaxDn5≤-15/curVsMinGap≤2pp 任一臂）→ poor（rule=entry_gate）；
  * normal_dip 正常回调低价=目标买入形状、flat 横盘缓行 → 放行。
@@ -129,8 +136,11 @@ const ENTRY_SHAPE_LEVELS = ['crash', 'spike', 'normal_dip', 'flat'];
  * 判定本身不正常（ea78 案实证：开盘 28s 薄票 curVs 27.8、贴顶臂 currentVsAthPct
  * -5.13 恰过 -5 线判 spike(0.49)、锚窗买盘中位仅 0.136/两笔 0.136+0.16——正常
  * 小单就能把薄票价格抬到新高附近贴「顶」）；spike 判型保留落档观察（题面桶域
- * 不变、Jev 照判），有真实追高亏损 case 再思考对策；恢复拦截=加回 'spike' */
-const ENTRY_GATE_POOR_BUCKETS = ['crash'];
+ * 不变、Jev 照判），有真实追高亏损 case 再思考对策；恢复拦截=加回 'spike'。
+ * **BP77 malicious_dump 进拦域**（用户补充裁定「恶意砸盘也可以单独落桶，你决策」
+ * ——落地=entry_shape 第五桶而非 crash 臂：判轴分离+综判可观测（砸盘拦截与
+ * 接刀拦截分开复盘）；同走本门 rule=entry_gate） */
+const ENTRY_GATE_POOR_BUCKETS = ['crash', 'malicious_dump'];
 /** 活跃度门拒买档（BP30：low=活跃度不够；activity_level=ultra=机器盘级极端密集
  * 「act 为 ultra 也不玩」——对齐 CD 侧 M 通道 hyper_activity 拒买级；**BP60 起
  * market_heat 臂删除**（题与 activity_level 重复整题退役，旧档 answers 带答案
@@ -247,6 +257,8 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   const rawVs = anchors ? anchors.currentVsLaunchPct : null;
   const vsLaunch = typeof rawVs === 'number' && Number.isFinite(rawVs) ? rawVs : null;
+  const rawEqWallets = anchors ? anchors.exactEqualBlockMaxWallets : null;
+  const eqWallets = typeof rawEqWallets === 'number' && Number.isFinite(rawEqWallets) ? rawEqWallets : null;
   // 纯门链（BP58——盘型门→点位性质门→活跃度门→筹码门（停用））
   // ①盘型门（BP30 前置预判断；BP59 三硬拒桶）：· retail_pvp/famous_monopoly/
   //   one_wave_dump 三异常桶硬拒（不要参与）；· none 统一位置臂：≤+28.5（BP69；
@@ -283,8 +295,13 @@ function buildBuyPointObservation(answers, anchors = null) {
     dimensions.holder_concentration && dimensions.holder_concentration.bucket === 'strong' ? dimensions.holder_concentration : null,
   ].filter(Boolean);
   const bestProb = (arr) => (arr.length ? Math.max(...arr.map((e) => e.prob)) : null);
+  // ⓪塞单门（BP77：同 block 等额买入最大簇钱包数 ≥8=组织性分仓/塞单阵列——
+  //   机械形状用户明裁代码门；门链最前（先于盘型门）；锚缺席容缺不拦；无域）
+  const stuffingHit = eqWallets !== null && eqWallets >= STUFFING_MAX_EQ_WALLETS;
   let bucket, prob, rule;
-  if (patternArms.length) {
+  if (stuffingHit) {
+    bucket = 'poor'; prob = null; rule = 'stuffing_gate';
+  } else if (patternArms.length) {
     bucket = 'poor'; prob = bestProb(patternArms); rule = 'pattern_gate';
   } else if (entryArms.length) {
     bucket = 'poor'; prob = bestProb(entryArms); rule = 'entry_gate';
@@ -307,6 +324,8 @@ function buildBuyPointObservation(answers, anchors = null) {
   const b = anchors || {};
   const burst = b.burst5In120;
   const bundled = b.bundledBlock;
+  const dump1 = b.dumpBlock;
+  const dump2 = b.dump2Block;
   return {
     // 维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
     dimensions,
@@ -380,6 +399,23 @@ function buildBuyPointObservation(answers, anchors = null) {
       bundledBlockWallets: bundled && typeof bundled.wallets === 'number' ? bundled.wallets : null,
       bundledBlockN: bundled && typeof bundled.n === 'number' ? bundled.n : null,
       bundledBlockDt: bundled && typeof bundled.dt === 'number' ? bundled.dt : null,
+      // BP77 塞单簇锚（同 block 等额买入最大簇去重钱包数；0=无簇有证据零值——
+      // 塞单门消费键；null=锚缺席旧档重放容缺）
+      exactEqualBlockMaxWallets: _num(b, 'exactEqualBlockMaxWallets'),
+      // BP77 恶意砸块族（dumpBlock/dump2Block——单块/相邻块对砸块结构锚：卖额/
+      // 块内跌幅（含 outlier 事实口径）/卖方数（剔 router）/最大卖家占比/砸后
+      // 60s 承接比；预筛线宽于题面判读线一档，判形状归 Jev；followBuyRatio
+      // null=观察窗不足不冒充；缺候选整键 null）
+      dumpBlockBnb: dump1 && typeof dump1.sellBnb === 'number' ? dump1.sellBnb : null,
+      dumpBlockDropPct: dump1 && typeof dump1.dropPct === 'number' ? dump1.dropPct : null,
+      dumpBlockSellers: dump1 && typeof dump1.sellers === 'number' ? dump1.sellers : null,
+      dumpBlockTopSellerPct: dump1 && typeof dump1.topSellerPct === 'number' ? dump1.topSellerPct : null,
+      dumpBlockFollowBuyRatio: dump1 && typeof dump1.followBuyRatio === 'number' ? dump1.followBuyRatio : null,
+      dump2BlockBnb: dump2 && typeof dump2.sellBnb === 'number' ? dump2.sellBnb : null,
+      dump2BlockDropPct: dump2 && typeof dump2.dropPct === 'number' ? dump2.dropPct : null,
+      dump2BlockSellers: dump2 && typeof dump2.sellers === 'number' ? dump2.sellers : null,
+      dump2BlockTopSellerPct: dump2 && typeof dump2.topSellerPct === 'number' ? dump2.topSellerPct : null,
+      dump2BlockFollowBuyRatio: dump2 && typeof dump2.followBuyRatio === 'number' ? dump2.followBuyRatio : null,
       // 卖压族
       bigHolderSellBnb60: _num(b, 'bigHolderSellBnb60'),
       exitSellerCount60: _num(b, 'exitSellerCount60'),
@@ -440,6 +476,7 @@ module.exports = {
   DIMENSION_IDS,
   PRICE_TREND_LEVELS,
   ACTIVITY_LEVELS,
+  STUFFING_MAX_EQ_WALLETS,
   HOLDER_CONCENTRATION_LEVELS,
   PRICE_LEVEL_LEVELS,
   MARKET_PATTERN_LEVELS,
