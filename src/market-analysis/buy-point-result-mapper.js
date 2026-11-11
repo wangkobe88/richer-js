@@ -316,6 +316,7 @@ function buildBuyPointObservation(answers, anchors = null) {
   }
   const b = anchors || {};
   const burst = b.burst5In120;
+  const bundled = b.bundledBlock;
   return {
     // 维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
     dimensions,
@@ -383,6 +384,12 @@ function buildBuyPointObservation(answers, anchors = null) {
       burst5N: burst && typeof burst.n === 'number' ? burst.n : null,
       burst5BuyBnb: burst && typeof burst.buyBnb === 'number' ? burst.buyBnb : null,
       burst5Wallets: burst && typeof burst.wallets === 'number' ? burst.wallets : null,
+      // BP73 同块捆绑买入锚（②桶量维度捆绑口径——锚窗单 block 买入合计最大块；
+      // 剔 router 伪钱包，无 BUY 行 null 缺证据不冒充）
+      bundledBlockBnb: bundled && typeof bundled.buyBnb === 'number' ? bundled.buyBnb : null,
+      bundledBlockWallets: bundled && typeof bundled.wallets === 'number' ? bundled.wallets : null,
+      bundledBlockN: bundled && typeof bundled.n === 'number' ? bundled.n : null,
+      bundledBlockDt: bundled && typeof bundled.dt === 'number' ? bundled.dt : null,
       // 卖压族
       bigHolderSellBnb60: _num(b, 'bigHolderSellBnb60'),
       exitSellerCount60: _num(b, 'exitSellerCount60'),

@@ -308,6 +308,11 @@ ok(dA.routerBuyPct60 === 0, `routerBuyPct60=0（win60 无 viaRouter 买，实际
 ok(dA.halfTpmEarly === 6 && dA.halfTpmLate === 5 && dA.rateTrend === 'flat', `half 6/5 → flat（实际 ${dA.halfTpmEarly}/${dA.halfTpmLate}/${dA.rateTrend}）`);
 ok(dA.burst5In120 && dA.burst5In120.n === 2 && near(dA.burst5In120.buyBnb, 0.7) && dA.burst5In120.wallets === 2,
   `burst5={2笔,0.7,2钱包}（110 同块 W_F+W_G，实际 ${JSON.stringify(dA.burst5In120)}）`);
+// BP73 同块捆绑买入：全窗单 block 买入合计最大块=W_B@20 单笔 1.0（block=1000+dt 各自
+// 唯一，110 两笔 0.7 次之——单笔大买本身就是最大块，多钱包捆绑形状由下方剔伪夹具锁）
+ok(dA.bundledBlock && dA.bundledBlock.block === 1020 && dA.bundledBlock.n === 1
+  && near(dA.bundledBlock.buyBnb, 1) && dA.bundledBlock.wallets === 1 && dA.bundledBlock.dt === 20,
+  `BP73 bundledBlock={块1020,1笔,1.0,1钱包,dt20}（实际 ${JSON.stringify(dA.bundledBlock)}）`);
 // 持仓 top5 = {W_B 1.43e9, creator 3.2e8, W_C 3.105e8, W_F 3.0e8, W_G 1.36e8}；win60 卖家只有 W_D（不在 top5）
 ok(dA.bigHolderSellBnb60 === 0, `bigHolderSellBnb60=0（top5 近60s 零卖出=有证据零值，实际 ${dA.bigHolderSellBnb60}）`);
 ok(dA.exitSellerCount60 === 1, `exitSellerCount60=1（W_D 清仓净=0，实际 ${dA.exitSellerCount60}）`);
@@ -513,6 +518,27 @@ ok(dC0.swingPoints === null && dC0.swingHighCount === null && dC0.swingLowCount 
 ok(dC0.currentVsAthPct === null && dC0.secSinceAth === null && dC0.madeHigh120 === null, 'C: priceArc 缺 → 位置族 null');
 ok(dC0.rateTrend === null && dC0.halfTpmEarly === null && dC0.halfTpmLate === null, 'C: 两半窗皆 0 → rateTrend=null');
 ok(dC0.burst5In120 === null, 'C: 窗内行 <2 → burst null');
+ok(dC0.bundledBlock === null, 'C: 无 BUY 行 → bundledBlock null（缺证据不冒充，BP73）');
+
+// BP73 bundledBlock 剔伪钱包+多钱包捆绑块胜出：块 500=ROUTER 两笔未解析行
+// （wallet=ROUTER 剔）0.2+0.15+正常 W_B 0.05 → 计后仅 0.05；块 501=W_C 单笔 0.1；
+// 块 502=W_F 0.18+W_G 0.16 两钱包捆绑 0.34 → 最大块=502（router 散单堆凑不出
+// 同块合计+真捆绑块按合计胜出——「只认组织性买入」的口径实现）
+{
+  const rowsRt = [
+    row(10, 'BUY', ROUTER, 0.2, 1.0 * E9, 2e8, { block: 500, trader: ROUTER }),
+    row(10, 'BUY', ROUTER, 0.15, 1.0 * E9, 1.5e8, { block: 500, trader: ROUTER, li: 1 }),
+    row(10, 'BUY', W_B, 0.05, 1.0 * E9, 5e7, { block: 500, li: 2 }),
+    row(20, 'BUY', W_C, 0.1, 1.05 * E9, 1e8, { block: 501 }),
+    row(30, 'BUY', W_F, 0.18, 1.1 * E9, 1.6e8, { block: 502 }),
+    row(30, 'BUY', W_G, 0.16, 1.1 * E9, 1.5e8, { block: 502, li: 1 }),
+  ];
+  // row() 缺省 sender=wallet=ROUTER → 未解析伪钱包行（isRouterWallet 剔）
+  const dRt = buildBuyPointSnapshot(rowsRt, metaA).buyDerived;
+  ok(dRt.bundledBlock && dRt.bundledBlock.block === 502 && dRt.bundledBlock.n === 2
+    && near(dRt.bundledBlock.buyBnb, 0.34) && dRt.bundledBlock.wallets === 2 && dRt.bundledBlock.dt === 30,
+    `BP73 bundledBlock 剔 router 伪钱包+多钱包捆绑块胜出（块500 计后仅 0.05、块501 单笔 0.1 < 块502 捆绑 0.34×2 钱包，实际 ${JSON.stringify(dRt.bundledBlock)}）`);
+}
 ok(dC0.tokenAgeSec === null && dC0.spanSec === null, 'C: 无 tick → tokenAge/span null');
 
 const rowsCOut = [row(5, 'BUY', W_B, 0.1, 99 * E9, 1e8, { outlier: true }), row(15, 'SELL', W_B, 0.05, 98 * E9, 5e7, { outlier: true })];
@@ -585,6 +611,8 @@ ok(stD.state.includes('近120s 买'), 'D: [WALLETS] 近端字段在场');
     'D: 直供行判序线句（≥2 个单笔 0.2 级且在场、不满足直接落②活跃度不救——BP26 判序前置语义随直供行重申）');
 }
 ok(stD.state.includes('近窗动量') && stD.state.includes('节奏趋势') && stD.state.includes('卖压') && stD.state.includes('参与结构') && stD.state.includes('时点位置'), 'D: PRECOMPUTED 七族行');
+ok(stD.state.includes('同块捆绑买入(锚窗单block买入合计最大块): 块 1020 / 买 1.000 BNB × 1 笔 / 1 钱包') && stD.state.includes('同一 block 内多钱包同时买入=链上同时性的组织性买入证据'),
+  'D: BP73 同块捆绑买入行渲染（块/买额/笔数/钱包数直供+组织性买入判读句——判据与 state 直供同构铁律，Jev 不从 tick 列表自算块聚合）');
 ok(stD.state.includes('近窗动量(涨跌%): 5s 6.67% / 10s 6.67% / 30s 14.29%'), 'D: chg 手算值渲染（BP6 短窗 5/10/30s）');
 ok(stD.state.includes('清仓式卖出钱包 1 个'), 'D: 卖压行 exitSellerCount60=1');
 ok(stD.state.includes('活跃度数值:') && stD.state.includes('买盘中位') && stD.state.includes('金额吞吐') && stD.state.includes('无交易期占比') && stD.state.includes('窗口时长'), 'D: 活跃度数值行扩容（BP13：中位/吞吐/静默占比/窗口两原料——CD 数值族搬运渲染）');
@@ -659,6 +687,8 @@ ok(Object.keys(obsE.dimensions).length === 6 && obsE.dimensions.price_trend.buck
 ok(!('tree_position' in obsE.dimensions) && !('qualities' in obsE), 'E: tree_position/qualities 键绝迹（BP30/BP48 退役反证）');
 ok(!('point_category' in obsE.dimensions) && JSON.stringify(obsE).indexOf('point_category') === -1 && JSON.stringify(obsE).indexOf('buy_point_assessment') === -1, 'E: point_category/buy_point_assessment 键绝迹（BP6 形态反证）');
 ok(obsE.assessment.bucket === 'neutral' && obsE.assessment.prob === null && obsE.assessment.rule === 'gates_passed', 'E: 纯门链全过 → neutral/gates_passed（prob=null——BP48 无质量层）');
+ok(obsE.anchors.bundledBlockBnb === 1 && obsE.anchors.bundledBlockWallets === 1 && obsE.anchors.bundledBlockN === 1 && obsE.anchors.bundledBlockDt === 20,
+  `E: BP73 同块捆绑锚四键透传（A fixture 最大块=W_B 单笔 1.0/dt20——digest 落档与审计读数；实际 ${obsE.anchors.bundledBlockBnb}/${obsE.anchors.bundledBlockWallets}/${obsE.anchors.bundledBlockN}/${obsE.anchors.bundledBlockDt}）`);
 const jsonE = JSON.stringify(obsE);
 ok(!jsonE.includes('"verdict"') && !jsonE.includes('"grade"') && !jsonE.includes('"score"') && !jsonE.includes('"recommendation"'), 'E: 观测记录无 verdict/grade/score/recommendation 键（纯透传反证——rule 是门来源留痕不在禁列）');
 // BP48 旧档重放兼容：带两质量题答案的旧 answers 不被消费不 throw（键忽略）
@@ -1072,7 +1102,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP52 七题=7 维度 0 质量/桶域对锁/market_pattern 异常盘面识别四桶+entry_shape 点位性质新题/统一位置门 28.5）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP56', 'F: 版本=BP56（**BP56=案号 BP72 两臂——v100 族二裁定「好点位=对倒交易换手中的低点（双边都在换）或较长时间下跌后形成的低点（活跃度未失去）」**：臂 A 本地买方缺席的单边下跌段（「先买入拉起、然后只有卖出」；主锚=锚前尾段买卖对比(最后10秒)行+尾 5s 行+近窗流量行——本地窗在跌∧尾 10s 买归零/纯尘∧卖可观推进∧近窗买方也缺席或仅纯小单才落（判例 0x1ac4/idx26：近 30s 买 0.66×6 全 0.1x 级小单、无一笔像样买——近窗纯小单=买方缺席的实质）；反例照放 c84a 尾段像样买单在场/米/施工鸭 近窗双边像样换手不落臂 A；a813 近 30s 买 0.04×3/卖 0.55×10 近窗买方整体缺席自 BP72 近窗延展收回正例；f485 近窗双边密集换手不落臂 A、深段未收复在场时走臂 B 判）+臂 B 近期暴跌后的余波小活跃（主锚=近期暴跌段(锚前30秒内最深5秒段)行：-18% 级深段距今 ≤30s+现价距段起点 -20% 级以上未收复；BP63 安全臂此域收窄——chg5 收敛/浅于 chg10 在未收复形状不构成安全证据，收复证据=curVsMinGapPct 双位数离开最低或 chg5 转正+尾段双边换手；反例照放 28ad V 形收复进行时；f485 正例照拒=深段未收复+近窗双边巨量的出货承接进行时（用户裁定「暴跌后的交易小活跃期……显然也不是正常的交易换手」——近窗量级再大不构成安全证据））同落 crash；snapshot 新键 recentDip5 三键（深度/距今/未收复）+nearTail10 买卖分解三键（BP 侧自算——CD394 nearTail10 是吞吐口径无买卖分解）；判例海水 0x3023/汤圆 0xeaeb/苹果SI 0xc9bf/币安之心 0x08aa/蝴蝶 0xb359+2ef6/258e 复发；**BP55=案号 BP71 ②桶大户参与 0.2 级判据单笔口径**——v100-R2 案用户裁定「买入仓位不累计，三笔买到 0.23 不算 0.2 以上」：判读读 [WALLETS]「最大单笔」不读累计，snapshot wallets 加 maxBuyBnb 键；BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场砸盘（BP72 措辞修正=「无回调，无换手对倒砸盘」——判轴双缺位速度不设限）、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）；**BP68=spike 出拦域（mapper-only 不 bump——桶域四桶不变）**：ENTRY_GATE_POOR_BUCKETS 收 crash 单桶、spike 判型保留落档观察（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——判例 ea78 开盘 28s 薄票两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike；恢复拦截=把 spike 加回数组一键还原）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP57', 'F: 版本=BP57（**BP57=案号 BP73 bt-v101 三票点名三改**：①臂 B 判序三步制——第一步先判「快速暴跌后的反弹阶段」（两件套：chg5 转正+未收复收窄到 -20 以内=收复过半 → 深段是遗迹直接照放 normal_dip，判例 28ad 07:15:58 深段 -29.4 距 16s 但未收复仅 -11.1+chg5/chg10 双 +14.3 从归零位拉起）；第二步未收复 ≥-20 级深坑张着才坐实臂 B（分离轴 28ad -11 放 vs c84a -42~-44 拒/f485 -39.8 拒——curVsMinGap 双位数在深坑张着时不单独构成收复证据）；BP63 安全臂此域收窄=收复证据只认两件套；用户明示「长时间阴跌的尾段没要求修复，要求修复的是快速暴跌后的反弹阶段」（c84a 三连 crash 拒保持现状=避亏）；②②桶 (a) 前加「盘面 0.3 级买入力量在场」量维度——只认组织性买入两口径：单笔 >0.3 BNB 或同 block 捆绑买入汇总 >0.3 BNB（snapshot 新键 bundledBlock 族 state 直供——锚窗单 block 买入合计最大块，剔 router 伪钱包，链上同时性=捆绑 bots/庄分仓硬证据）任一在场不落②(a)，判例 ba5e 07:40:45 开盘第三笔单笔 0.34+ 大额被误判 retail_pvp=漏走本步；散单堆凑的合计不豁免（用户裁定「近窗买入合计 ≥0.3 会大量漏放」「有捆绑买入且单个 block 汇总大于 0.3 BNB，有一些庄是这么干的」）；③量维度豁免只豁 (a) 臂——(b) 大户卖出/离场承接轴照旧（a8e70 买完清仓离场形状仍走 (b) 落②双防线））');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 6, `F: 恰 6 题=6 维度 0 质量（BP48 两质量题+BP49 两维度题退役+BP58 entry_shape 新题+BP60 market_heat 退役；实际 ${ids.length}）`);
@@ -1149,10 +1179,10 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp.includes('**①大户卖出仍在进行**（卖压行近 60s 大户卖出额 >0') && mp.includes('**②大户已卖完离场**') && mp.includes('**③大户在场持有未卖**') && mp.includes('→ **不落②（正常换手盘面归 none）**'), 'F: ②(b) 卖方在场性三分（BP26——①持续卖+持续接（身份不限）=正常换手归 none 不落②（VirusSI）/②卖完离场+散户一波接没下文=②(b)（T001）/③在场未卖看承接档位——BP60 四桶化后⑤桶退役归 none）');
   // BP26 案大户参与判序前置（2026-11-06 S045 谷谷② 灰区单误判案——题集 BP28）
   ok(mp.includes('从来无像样买单（判序前置）'), 'F: ②(a) 判序前置声明（BP28——先判大户参与再分类，S045 灰区单案）');
-  ok(mp.includes('先判「大户参与」') && mp.includes('或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足') && mp.includes('直接落②，不再看承接、不看盘面活跃度') && mp.includes('0.1~0.19 BNB 级灰区单不构成大户参与'), 'F: ②(a) 大户参与双臂+不满足直接落②（BP26 案立法核心——用户裁定原话「大户参与不满足是直接 pvp 盘的，满足之后根据承接再次分类」；灰区 0.1~0.19 单不构成大户参与=S045 前列 0.1568/0.1484/0.1090 三笔灰区单成因）');
-  ok(mp.includes('小散互捅的盘面再活跃（新买家多、吞吐高、笔密度大）也只是散户 PVP，不是融合盘') && mp.includes('满足大户参与之后才按承接分类'), 'F: ②(a) 活跃度不救+承接分类后置（BP28——S045 灰区单被 activity high 带走错放；小散互捅的活跃不是大户参与）');
+  ok(mp.includes('先判「盘面 0.3 级买入力量在场」') && mp.includes('单块买入合计 >0.3 BNB 即达标') && mp.includes('「同块捆绑买入」行直供') && mp.includes('才继续走「大户参与」判序') && mp.includes('或单笔 0.3+ BNB 级买入，且买点时刻在场=大户参与满足') && mp.includes('直接落②，不再看承接、不看盘面活跃度') && mp.includes('0.1~0.19 BNB 级灰区单不构成大户参与') && mp.includes('散单在不同 block 各自零散到达凑不出同块合计'), 'F: ②(a) 量维度→大户参与两步判序（BP26 大户参与双臂+BP73 量维度前置——先判组织性买入两口径：单笔 >0.3 或同 block 捆绑汇总 >0.3（同块捆绑买入行直供）任一在场不落②(a)；两口径都不在场才走大户参与双臂（0.2 级单笔 ×≥2 或单笔 0.3+ 在场），不满足直接落②不看活跃度；灰区 0.1~0.19 单不构成大户参与=S045 案；散单堆凑合计不豁免=用户「大量漏放」裁定）');
+  ok(mp.includes('活跃度/笔密度/新买家数/散单合计都不救——散单堆凑的合计正是散户 PVP 本身') && mp.includes('就仍是散户 PVP，不是融合盘') && mp.includes('满足大户参与之后才按承接分类'), 'F: ②(a) 活跃度不救+承接分类后置（BP28——S045 灰区单被 activity high 带走错放；小散互捅的活跃不是大户参与；BP73 措辞=活跃度/笔密度/新买家数/散单合计都不救）');
   ok(mp.includes('大户参与不满足（开盘段大额单 0 笔、[WALLETS] 前列最大单笔也就 0.1x 级灰区单或 0.0x 尘埃档') && mp.includes('卖方在场性三分见②桶 (b) 第三通道'), 'F: 反锚②判序回指（BP28——大户参与不满足直接落②活跃度不救；BP55 单笔化后「前列买入最大」改「前列最大单笔」；卖方三分回指②桶主述）');
-  ok(qs.market_pattern.criteria.retail_pvp.includes('大户参与判序前置（单笔 0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场——0.2 级按单笔计不累计、末笔后已清仓离场的历史大户不算在场）不满足直接落本桶、盘面活跃度不救') && qs.market_pattern.criteria.retail_pvp.includes('判据全文见题面②桶'), 'F: criteria retail_pvp 判序同步（BP28+BP58 二修在场加硬+BP55 单笔计不累计——桶描述与题面判序一致，Jev 选桶时同判序；末笔后已清仓离场的历史大户不算在场=a8e70 在场加硬语义核心；BP58 精简压缩版判据全文指针回②桶）');
+  ok(qs.market_pattern.criteria.retail_pvp.includes('单笔 >0.3 BNB 买入在场、或同一 block 内捆绑买入汇总 >0.3 BNB（「同块捆绑买入」行直供——链上同时性的组织性买入）=盘面有 0.3 级买入力量，不落本桶归 none（判例 ba5e）') && qs.market_pattern.criteria.retail_pvp.includes('量维度不在场再看大户参与（单笔 0.2 级钱包 ≥2 个或单笔 0.3+ 且买点时刻在场——0.2 级按单笔计不累计、末笔后已清仓离场的历史大户不算在场）不满足直接落本桶、盘面活跃度（笔数/钱包数）不救') && qs.market_pattern.criteria.retail_pvp.includes('判据全文见题面②桶'), 'F: criteria retail_pvp 判序同步（BP73 量维度两口径前置（单笔 0.3+/同 block 捆绑汇总 0.3+ 直供行锚定）+BP28+BP58 二修在场加硬+BP55 单笔计不累计——桶描述与题面判序一致，Jev 选桶时同判序；末笔后已清仓离场的历史大户不算在场=a8e70 在场加硬语义核心；BP58 精简压缩版判据全文指针回②桶）');
   ok(mp.includes('占比大且绝对额大') && mp.includes('不构成独食'), 'F: ③门槛锚=占比大且绝对额大（famous 边缘参与不构成独食）');
   // BP28 案改三（S064 FIGHT strong_backer 误放 -41.5%——复数 famous 扩句+roster 收录）
   ok(mp.includes('或两个及以上 famous 钱包极早入场（开盘段内/锚窗最早段首买）合计拿筹过多') && mp.includes('famous 抢筹建仓盘——famous 钱包入仓太早、拿的是最便宜的筹码，散户盘子起不来') && mp.includes('这个盘子就是它的/它们的了'), 'F: ③复数 famous 扩句（BP30/BP28 案 S064——用户裁定原话「他俩入仓太早了拿的太多，起不来」：0xfb4e/0x5506 两著名钱包 t+7s/t+13s 抢筹 0.252/0.343 合计 0.595 BNB，单个占比不及独食线的复数合计达线也落③；两址已收录 famous-copy-wallets.json）');
@@ -1174,7 +1204,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(esIns.includes('④急拉不贴顶不误判 spike（贴顶是必要条件——对倒回升波段 5s 段 +20~25% 但现价离顶 6~7pp 照 normal_dip）'), 'F: 反锚④回升波段反例（对拍修正案——急拉数值轴无区分度，位置轴才是判据）');
   ok(esIns.includes('normal_dip 阶梯/震荡/阴跌回落（好点位）') && esIns.includes('即便深跌+急跌数值双中、只要形态是阶梯/震荡/阴跌的照放本桶') && esIns.includes('对倒盘/正常换手造成的低价、回落有节奏盘面仍活跃'), 'F: normal_dip=目标形状（二修形态判读版——阶梯/震荡/阴跌皆好点位深浅不是判据；判例 f485 -62% 穿插反弹（BP72 起深段未收复改 crash）/28ad V 形收复/c84a 慢跌横盘企稳；a813 阶梯阴跌 -52% 形态样本保留但 BP72 近窗延展起近窗买方整体缺席按臂 A 落 crash）');
   ok(esIns.includes('flat 横盘/缓行'), 'F: flat 横盘桶（各臂不命中且无回落结构如实归本桶）');
-  ok(esIns.includes('crash=拉顶后连续两个 5s 段 -16.9%/-16.1% 零反弹垂直砸落（LOVE）/顶上 3s 单段 -22.3% 大单直砸（STOCKLESS）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩=目标形状）/90s 阶梯阴跌 -52% 段间企稳（a813——价格形态样本；该锚近窗买方整体缺席按 BP72 臂 A 落 crash）/+200% 拉高后 40 余秒中等速率阴跌') && esIns.includes('深段距 15s 但 chg5 已 +14、现价离最低 +25.9 的 V 形收复进行时（28ad——臂 B 反例）') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶——判型例）'), 'F: entry_shape 形状样本（二修版+BP72 方向修正——crash 两判例 LOVE 连续垂直砸落/STOCKLESS 单段直砸+normal_dip 判例 米温回踩/a813 阶梯阴跌/c84a 平缓换手/28ad V 形收复（臂 B 反例）+YiYi 尖刺；f485 震荡下行样本已随臂 B 方向修正移除——深段未收复时反弹腿不构成收复证据）；');
+  ok(esIns.includes('crash=拉顶后连续两个 5s 段 -16.9%/-16.1% 零反弹垂直砸落（LOVE）/顶上 3s 单段 -22.3% 大单直砸（STOCKLESS）') && esIns.includes('normal_dip=较最高 -7%+5s 段最大跌 -0.2%（对倒盘温和回踩=目标形状）/90s 阶梯阴跌 -52% 段间企稳（a813——价格形态样本；该锚近窗买方整体缺席按 BP72 臂 A 落 crash）/+200% 拉高后 40 余秒中等速率阴跌') && esIns.includes('深段 -29.4% 距 16s，但 chg5/chg10 双 +14.3、未收复仅 -11.1（收复过半）、现价离锚窗最低 +26.1、尾 5s 买 0.62 BNB×6 笔——从归零位（涨起后最低 +0.9%）拉起的反弹进行时') && esIns.includes('spike=chg30 +23%+现价贴最高 -0%（尖刺拉盘贴顶——判型例）'), 'F: entry_shape 形状样本（二修版+BP72 方向修正——crash 两判例 LOVE 连续垂直砸落/STOCKLESS 单段直砸+normal_dip 判例 米温回踩/a813 阶梯阴跌/c84a 平缓换手/28ad V 形收复（臂 B 反例）+YiYi 尖刺；f485 震荡下行样本已随臂 B 方向修正移除——深段未收复时反弹腿不构成收复证据）；');
   // BP59（案号同 BP58 二修续）crash 第三形态轴=急跌进行时（bt-v96 2ef6 判例——用户裁定「买入时刻突然下跌不是可以接受的点位」）
   ok(esIns.includes('突发砸落进行时同落本桶（BP59）') && esIns.includes('chg5Pct≈chg10Pct 同深=整个下跌就发生在眼下几秒') && esIns.includes('下跌刚开始，买点接在急跌进行中=接刀进行时') && esIns.includes('判例 2ef6：+81.6% 高位横盘后买点前 5s 突发 -32%'), 'F: BP59 crash 急跌进行时第三形态轴（2ef6——+81.6% 横盘后买点前 5s 突发 -32%、chg5=chg10 同深无铺垫=接刀进行时落 crash；可接受的「跌」=已走完一段的位置）');
   ok(esIns.includes('且下跌已走完一段、此刻不在急跌进行中（BP59：chg5 深负无铺垫的急跌进行时落 crash）') && qs.entry_shape.criteria.crash.includes('买点时刻突发急跌进行时（chg5 深负+chg5≈chg10 同深无铺垫=刚开始砸）也落本桶') && qs.entry_shape.criteria.normal_dip.includes('前提=下跌已走完一段、此刻不在急跌进行中'), 'F: BP59 normal_dip 前提+criteria 两桶同步（正例对照锚 28ad +14 已收复照放（a813 chg5 -0.8 温和——BP72 起还须过臂 A 买卖结构，该锚近窗买方整体缺席落 crash）；chg5 深负无铺垫急跌进行时归 crash）');
@@ -1229,7 +1259,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // BP53 九修/案号 BP66（版本内返工不 bump）：c84a v100 双误判（12:31:26 crash 0.5 贴线拒/
   // 12:31:32 act ultra 拒）引出两立法——①crash 必要条件=买点本身急跌；②act ultra 密度数值锚
   ok(esIns.includes('**判轴=「无回调+无换手」双缺位，与下跌速度、累计幅度无关（BP66 轴修正') && esIns.includes('急砸（判例 LOVE 连续 5s 段 -16.9/-16.1 垂直下行）与缓砸（中等速率但一路向下数十秒、无反弹台阶无买方接）都落本桶') && esIns.includes('急跌进行时（44d9 一秒翻转 -22、chg5≈chg10 同深无铺垫）也落本桶') && esIns.includes('放行侧=「有回调」或「有换手」任一在场') && esIns.includes('常见档换手节奏如俩 0.1 级买入接一笔 0.25 级卖出——**「平缓换手」指双边节奏：本地窗只有卖单推进、买单归零/纯尘的不是平缓换手，走 BP72 臂 A 判 crash**') && esIns.includes('（判例 c84a：开盘 2 秒拉到 +200% 后 40 余秒中等速率阴跌、买点前每秒 1~2 笔双边换手——放行依据是有换手有回调，不是速度缓') && esIns.includes('用户原话「它是比较长时间的中等速率下跌，但是在点位本身并不是急跌」在 BP72 框架下的准确读法=该锚有换手在场'), 'F: BP66 轴修正=判轴「无回调+无换手」双缺位（BP66 原裁定「必要条件=急跌」被 2026-11-11 用户裁定「无回调，无换手对倒砸盘」升级——速度不设限：急砸/缓砸/急跌进行时都落、有回调或有换手任一在场放行；c84a 放行归因=有换手有回调非速度缓；单边卖推进不是平缓换手走臂 A）');
-  ok(esIns.includes('累计跌幅深也不等于砸盘、速度不急也不等于安全（BP66 轴修正）') && esIns.includes('速度不急但持续无回调、无买方接的缓砸照样落 crash——判轴=无回调+无换手对倒，与下跌速度、累计幅度都无关') && qs.entry_shape.criteria.crash.includes('判轴=无回调+无换手对倒双缺位，与下跌速度、累计幅度无关（BP66 轴修正——急砸/缓砸/急跌进行时（44d9 一秒翻转）都落本桶）') && qs.entry_shape.criteria.normal_dip.includes('累计跌幅深而有换手承接/有回调节奏的照放本桶（BP66 轴修正：判轴=无回调+无换手，不看下跌速度与累计幅度，判例 c84a 长程中等速率阴跌有双边换手）') && esIns.includes('+200% 拉高后 40 余秒中等速率阴跌、买点前俩 0.1 级买入接一笔 0.25 级卖出平缓换手（c84a：跌得多不等于点位急）'), 'F: BP66 轴修正 反锚/形状样本/criteria 三处同步（判轴=无回调+无换手——急砸缓砸都落、有回调或有换手放行；normal_dip 判例 c84a 长程阴跌+双边换手立法锚保持）');
+  ok(esIns.includes('累计跌幅深也不等于砸盘、速度不急也不等于安全（BP66 轴修正）') && esIns.includes('速度不急但持续无回调、无买方接的缓砸照样落 crash——判轴=无回调+无换手对倒，与下跌速度、累计幅度都无关') && qs.entry_shape.criteria.crash.includes('判轴=无回调+无换手对倒双缺位，与下跌速度、累计幅度无关（BP66 轴修正——急砸/缓砸/急跌进行时（44d9 一秒翻转）都落本桶）') && qs.entry_shape.criteria.normal_dip.includes('累计跌幅深而有换手承接/有回调节奏的照放本桶（BP66 轴修正：判轴=无回调+无换手，不看下跌速度与累计幅度，判例 c84a 早期锚长程中等速率阴跌有双边换手）') && esIns.includes('+200% 拉高后 40 余秒中等速率阴跌、买点前俩 0.1 级买入接一笔 0.25 级卖出平缓换手（c84a 早期锚：跌得多不等于点位急'), 'F: BP66 轴修正 反锚/形状样本/criteria 三处同步（判轴=无回调+无换手——急砸缓砸都落、有回调或有换手放行；normal_dip 判例 c84a 长程阴跌+双边换手立法锚保持）');
   ok(!('famous_domination' in qs), 'F: BP47 控盘题厚盘判档语义已随题退役（BP49——厚盘不判拦截档/先看厚薄再谈切点等判档教学随题删除，厚度维度适用域主述在 market_pattern 前置检查②承接）');
   // BP58 二修——判型恢复：五桶桶名+判据全文在场（首版误删被用户裁定「简化而不是删除」推翻）
   // （识别能力全保留=Jev 判型落档留观察；处理统一=②③硬拒+⑥≤10+①④⑤⑦⑧统一门 28.5）

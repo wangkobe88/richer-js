@@ -147,6 +147,14 @@ function buildBuyPointState(snapshot) {
     // ④ 节奏趋势 + burst 波
     const burst = b.burst5In120;
     lines.push(`节奏趋势: 近 120s 前半 ${b.halfTpmEarly ?? '?'} 笔/分 / 后半 ${b.halfTpmLate ?? '?'} 笔/分${b.rateTrend ? `（代码倾向 ${b.rateTrend}——参考比值，你从 [TICKS] 末段密度自行校验）` : ''}；最密 5s 波（120s 内）: ${burst ? `${burst.n} 笔 / 买 ${fmtBnb(burst.buyBnb)} / ${burst.wallets} 钱包` : '?'}（? = 窗内行不足）`);
+    // BP73 同块捆绑买入——②桶量维度捆绑口径判读锚（「有捆绑买入且单个 block
+    // 汇总大于 0.3 BNB」不落②(a)；链上同时性=捆绑 bots/庄分仓的组织性买入证据；
+    // 剔路由伪钱包；null=锚窗无买入行缺证据不冒充；dt=块首行时刻，判读该块
+    // 属开盘段/近窗用时点对照）
+    const bundled = b.bundledBlock;
+    if (bundled) {
+      lines.push(`同块捆绑买入(锚窗单block买入合计最大块): 块 ${bundled.block} / 买 ${fmtBnb(bundled.buyBnb)} BNB × ${bundled.n} 笔 / ${bundled.wallets} 钱包（块首行时刻 t+${bundled.dt} 秒；同一 block 内多钱包同时买入=链上同时性的组织性买入证据——捆绑 bots/庄分仓形状；已剔聚合路由伪钱包，散单堆凑的合计不算）`);
+    }
     // ⑤ 参与结构（近 60s）
     lines.push(`参与结构(近60s): 笔/分 ${w60 ? w60.ticksPerMin : '?'}；买家 ${w60 ? w60.buyers : '?'} / 卖家 ${w60 ? w60.sellers : '?'} / 新进场 ${w60 ? w60.newBuyers : '?'}（全窗首见买入落在窗内）；top1 买集中度 ${fmtPct(b.top1BuyPct60)} / top1 卖 ${fmtPct(b.top1SellPct60)}（剔路由伪钱包）；路由买占比 ${fmtPct(b.routerBuyPct60)}（散户通道代理，纯事实）`);
     // ⑥ 卖压（近 60s）

@@ -362,6 +362,35 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     }
   }
 
+  // ── bundledBlock：锚窗内单 block 买入合计最大块（BP73 ②桶量维度捆绑口径——
+  //    「有捆绑买入且单个 block 汇总大于 0.3 BNB」；链上同时性=捆绑 bots/庄分仓
+  //    的组织性买入证据。剔 router 伪钱包（集中度/参与人数类口径总则——经聚合路由
+  //    的散单堆凑不算组织性买入，那正是散户 PVP 本身）；block 缺失行不进单块统计
+  //    （cheat sameBlockClusters 同款）；无 BUY 行 → null 缺证据不冒充）──
+  let bundledBlock = null;
+  {
+    const bb = new Map();
+    for (const t of ticks) {
+      if (t.side !== 'BUY' || t.block === null || t.block === undefined) continue;
+      if (!t.wallet || isRouterWallet(t.wallet)) continue;
+      let e = bb.get(t.block);
+      if (!e) { e = { block: t.block, n: 0, buyBnb: 0, wallets: new Set(), dt: t.dt }; bb.set(t.block, e); }
+      e.n++;
+      e.buyBnb += t.bnb || 0;
+      e.wallets.add(t.wallet);
+    }
+    let best = null;
+    for (const e of bb.values()) if (!best || e.buyBnb > best.buyBnb) best = e;
+    if (best) {
+      bundledBlock = {
+        block: best.block, n: best.n,
+        buyBnb: +best.buyBnb.toFixed(4),
+        wallets: best.wallets.size,
+        dt: best.dt, // 块内首行 dt（ticks 链上真序稳定——判读该块在开盘段/近窗的时点用）
+      };
+    }
+  }
+
   // ── 卖压族（token 域；token_amount 任一行缺失 → 全族 null fail-closed）──
   const tokMissing = ticks.some((t) => t.tok === null || t.tok === undefined);
   let bigHolderSellBnb60 = null, exitSellerCount60 = null;
@@ -744,7 +773,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     win,
     // 动能族
     top1BuyPct60, top1SellPct60, routerBuyPct60,
-    halfTpmEarly, halfTpmLate, rateTrend, burst5In120,
+    halfTpmEarly, halfTpmLate, rateTrend, burst5In120, bundledBlock,
     // 卖压族
     bigHolderSellBnb60, exitSellerCount60,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）
