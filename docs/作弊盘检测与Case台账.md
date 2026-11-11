@@ -187,6 +187,27 @@
 
 ## Case 倒序
 
+### CD397 族三 burst 深化——单段绑定波族十键+sbw 题重写四要素（无硬阈值）+G8/CD383 四腿/D3.66 第四腿全拆=判定权归 Jev（2026-11-11，题面+snapshot+grade 案·题集 D3.65→D3.67、grade G17→G18；v100 review 14 票 burst 问题票波形状取证驱动；用户四条裁定「动手」批准）
+
+**动机（v100 review 第 19-20 批 14 票 burst 问题票取证，四条裁定原文）**：
+1. **跨度不能太长**——burst 一般只是一个突然的流量涌入（快速+一定流量），例 19 案：波在窗早期、锚点已入下跌期，「到了这个点位已经不算 burst 了」；
+2. **尘埃入仓不算「一定流量」，涌入钱包数量也需要限制**——取证：81/96/170 案户均 0.016~0.021（全靠 wallets≥10 臂撑）vs 62/63/179 案 0.050~0.066；但 M4GA 正例 0.070 与 62 案 0.066 几乎相同=**户均硬门槛不可分，分布形状（规整尘埃档 vs 参差真实流量）交 Jev**；
+3. **「burst 的判定被代码魔改了，不要魔改，用 Jev 判断」**——CD383 豁免四腿+D3.63 ④数值判读锚（50/0.7/10）+D3.66 exitVs 第四腿=三层代码门全拆；
+4. **burst 是流量涌入而不是流出，售卖引发的流量不行**——19 案波钱包全窗回吐 82% 仍是「有力波」（对倒组拉盘腿）。
+
+**落法（A 锚重设计+B 判定权归 Jev+C 消费点统一）**：
+- **A. snapshot 单段绑定波族十键**（cheat-snapshot.js，`_lastGapIdx`=最后一个 gap≥`BURST_STALL_GAP_SEC`(50s) 行索引——绑定最近沉积非全窗最深）：`burstLastGapSec`（最后 ≥50s 静默段时长≠全窗 maxGap）/`burstExitWaveFromDt/EndDt`（波窗首行 dt/波末笔买 dt）/`burstExitWaveBuyBnb/Wallets`（出口后 `BURST_SEG_SEARCH_SEC`(60s) 内最密 5s `BURST_WAVE_SEC` 滑窗买额/钱包数）/`burstSecSinceWaveEnd`（窗末−波末买=**跨度轴主锚**）/`burstWaveWalletNetBnb`（波钱包全窗 Σ买−Σ卖**可负**=流向轴，`_anchorNum` 带符号投影）/`burstWaveSellBackPct`（Σ卖÷Σ买）/`burstWaveWalletAvgBnb/MedianBnb`（尘埃轴户均+中位）；无 ≥50s 静默段全族 null fail-closed（无沉积不冒充）。
+- **Option 2 两族并存（刻意决策）**：旧全窗波两键 `burstWaveBuyBnb/burstWaveWallets` 语义不动（strongbacker §七.5 `burstWaveBuyBnb≥2.2` 口径保护）+`burstMaxGapSec` 旧锚保留；**十新键刻意不进 FA 投影**（cheat-grade `levelsFromObservation` 显式白名单 37 键不动）——新键落 digest `snapshot_digest.anchors`（mapper `buildObservation` 全量 65 键）供 state 行/研究重放；state 补「停滞突发波事实」行（Jev 主锚直供）。
+- **B. sbw 题重写（D3.67）**：主锚切 state「停滞突发波事实」行（代码算好单段绑定口径直接采信；行缺席=无沉积前提不成立倾向 none）+**四要素判读（无任何硬阈值，形状判断全在本题）**：①跨度（快且近——波末距锚点太远=历史事件不算 burst）②流量真实（非尘埃堆波——户均无硬线 0.070 vs 0.066 重叠看分布形状、钱包数本身不构成资格）③流向（入非出——售卖引发不算/净额深负卖回率高=流出形状）④位置（**仅参考不作否决**——D3.66 exitVs 自硬线降参考）+14 票取证样本四组入题（有=58s/11户/0.77B/0.070；无·尘埃=0.016/0.021/2.59B 规整档；无·跨度+流向=回吐 82%；无·无沉积）。
+- **代码门三层全拆（裁定③）**：G8 弱波臂退役（E 通道=`act==='low' && sbw!=='burst'` 单条件=G18；`E_low_activity_weak_burst` 码不再产出历史行留档）；CD383 豁免四腿→`_isStallBurstExempt(levels) = levels.stallBurstWave === 1` 单条件（anchors 参数删除；**豁免臂改对 cheat AND unhealthy 两档生效**——与 `_applyActivityExempt` 出口同构）；D3.66 exitVs 第四腿退役（键保留纯观察）。黄金集 G18 重放=32/42 与 G17 逐位一致（G8 臂黄金集零行为差）。
+- **C. 消费点统一（BP67 additive）**：引擎 `_cheatBurstForBp` 扩 8 键（波窗 dt/跨度/净额/卖回/户均/中位+gapSec）透传 ctx.cheatBurst→buy-point-state-builder「作弊盘检测 burst 判定」行补第二行波族事实——BP act 题 burst 第五档判读原料同源；题面题集 BP55 不动（mapper-only）。
+
+**单测（六件全绿）**：lib 658（十键手算夹具三态：zone 恰界 t124 含入/窗外/区外+键数 55→65+sbw 题四要素/样本/criteria 断言组按 D3.67 改写+D3.13 ≥25% 硬线退役反证+版本史 D3.67 条目；**Z1d 教训=断言十新键必须查 digest 通道**——`r.anchors` 走 levelsFromObservation 白名单=FA 投影 37 键集，十新键 Option 2 刻意不进，误查 `r.anchors` 即假 FAIL）；service 153（Z1e 手算夹具全数值断言换 digest 通道+Option 2 双通道锁：digest 十新键在场 ∧ r.anchors 旧两键同值）；gate_engine 159/0（CD383 四腿退役 sbw 单条件+cheat∧unhealthy 两档豁免）；grade 133+黄金集 G18；mem_pull_ticks 109；buy_point_check_service 37。
+
+**182 对拍（19 票=14 burst 问题票+M4GA/ba5e/ad80+189/198）**：期望 19/62/63/69/72/96/170/198 翻 none（跨度/尘埃/流向各轴坐实）、191 翻 burst 豁免（exitVs 113.9 不再硬拒）、M4GA/ba5e 保持、123/174/179 按 Jev 判——读数后补。
+
+**余留**：对拍残差=sbw 题 run-to-run 方差（CD319/CD387/ba5e 同族第四例）攒批；户均/中位分布形状 Jev 采信率观察；`burstWaveWalletAvgBnb` 与正例重叠域（0.066~0.070）判读精度观察。
+
 ### CD396 burst 豁免第四腿判据源换锚——「起来起点价」=最后 ≥50s 静默段的出口首可靠价 vs launch 地板 ≤+40（2026-11-10，豁免资格案·服务层 mapper-only 题集 D3.65/grade G17 零改动；ba5e/ad80fb7a 双向否证案；用户裁定原话选项「改『起来起点价』（推荐）」；承接 CD392/D3.65）
 
 **动机（D3.65 部署前对拍取证双向否证旧源，ba5e `0xba5ed45b42479e0a75316de7bf990ec90a3e4444` 案驱动）**：用户裁定原话「我已经说了很多遍了，我们是做新发布 meme 快速交易的，一个涨幅这么大倍数的票（涨幅排名前几）不买你玩啥。肯定要修复，这是顶级的好票」——ba5e CD383 burst 臂立法正例在生产被拒，取证发现 D3.65 部署形状（startVs=全窗首个可靠价）双向缺陷：

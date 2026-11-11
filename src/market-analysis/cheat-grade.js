@@ -9,7 +9,17 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
- * 规则（G17=G16+N 通道聚合路由入口占比（2026-11-05 CD350 流量画像侦察立项
+ * 规则（G18=G17−G8 弱 burst 代码臂（2026-11-11 CD397 族三 14 票取证收官，
+ * 用户四条裁定第 3 条原话「burst 的判定被代码魔改了，我的建议依然是不要魔改，
+ * 用 Jev 判断」）：E 通道 burst 豁免的弱波承接前提（sbw=burst ∧ 最长停滞 ≥60s
+ * ∧ 波买入 <1.05 BNB ∧ 波内钱包 <13 → 维持 low 拦截）整臂退役，E 恢复
+ * sbw 单条件——sbw=burst 即跳过 E（「停滞后只涌入一点小流量」的排除教学移交
+ * sbw 题 D3.67 题面四判轴：跨度 secSinceWaveEnd/尘埃 户均+中位/流向 净额+卖回
+ * 率/位置参考 exitVs，锚 state 直供；Jev 判 none 的「假 burst」E 恢复拦截）。
+ * 同批：CD383 豁免四腿同退役为 sbw 单条件（资格判定收在 CheatCheckService 侧）
+ * +snapshot 单段绑定波族十键（旧全窗波两键语义不动=strongbacker §七.5 统计
+ * 口径保护）。E_low_activity_weak_burst 码随臂退役（历史行留档）。
+ * 此前 G17=G16+N 通道聚合路由入口占比（2026-11-05 CD350 流量画像侦察立项
  * ——用户提案原话「我觉得一个简单点的方法，就是把 GMGN 路由的流量占比给过去，
  * 如果太低就不行」+立法放行「门可以加」：锚窗买入笔走聚合路由
  * （AGGREGATOR_ROUTER_ADDRS，2026-11-05 扩录 9 址）占比 <10% 且买入 ≥15 笔
@@ -228,14 +238,13 @@
  *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null ∨ 组织买入占比 ≥80
  *        ∨ 组织买入锚 null）（G5 前纯 dom=high；跟单集中度豁免见头注②——分散形
  *        「聪明钱带散户」不触发；G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
- *     E. Jev activityLevel=low ∧（sbw≠burst ∨ 弱 burst）（G2 简化，2026-11-01
- *        用户裁定「活跃度这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中
- *        的不要判定为活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与
- *        卖笔≤1 对手盘豁免（CD107）撤销，改由题面 D3.27 burst 反锚在档位源头
- *        修正；sbw=burst 豁免保留为通道层双保险；G8 弱 burst 代码臂=sbw=burst
- *        ∧ burstMaxGapSec≥60 ∧ burstWaveBuyBnb<1.05 ∧ burstWaveWallets<13 →
- *        豁免不成立（长期停滞后只涌入一点小流量，头注①），留痕
- *        E_low_activity_weak_burst；三键任一 null 维持豁免）
+ *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定「活跃度
+ *        这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要判定为
+ *        活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1 对手盘
+ *        豁免（CD107）撤销，改由题面 D3.27 burst 反锚在档位源头修正；sbw=burst
+ *        豁免保留为通道层双保险；**G8 弱 burst 代码臂已随 G18 退役（CD397 判定
+ *        权归 Jev——弱波排除教学移交 sbw 题 D3.67 题面，E_low_activity_weak_burst
+ *        码随臂退役历史行留档）**）
  *     F. （G9 退役：sbHold≥50——纯数值门不经 Jev，头注 G9 段）
  *     （G11 退役：G. bd=high ∧ ¬簇买入占比<80——豁免前提 bundleBuyPct 的
  *      sb∪eq 并集圈定把 GMGN 前端默认档位散户整档吞入（用户裁定 CD133，
@@ -270,7 +279,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G17';
+const CHEAT_GRADE_RULES_VERSION = 'G18';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -363,13 +372,14 @@ function levelsFromObservation(observation, extras = {}) {
     top1Top2FirstBuyGapSec: _pct(an.top1Top2FirstBuyGapSec),
     clusterHoldSupplyPct: _pct(an.clusterHoldSupplyPct),
     t1PlusClusterSupplyPct: _pct(an.t1PlusClusterSupplyPct),
-    // G8（批次六）：E 通道弱 burst 三键（最密 5s 波 Σ买/钱包数+最长空窗秒——
-    // E_low_activity_weak_burst 同源数值）+ K/L 通道零买纯卖占比
+    // G8（批次六）burst 波强度三键（G18 起纯观察——弱波代码臂退役，锚照常产出
+    // 供 FA 投影/研究侧）+ K/L 通道零买纯卖占比
     burstMaxGapSec: _pct(an.burstMaxGapSec),
     burstWaveBuyBnb: _pct(an.burstWaveBuyBnb),
     burstWaveWallets: _pct(an.burstWaveWallets),
     // CD392 burst 波起点价锚（D3.66 起纯观察）+ D3.66 burst 起来起点价锚（最后
-    // ≥50s 静默段出口首可靠价 vs launch 地板 %；service 侧 burst 豁免第四腿判据源）
+    // ≥50s 静默段出口首可靠价 vs launch 地板 %；G18 起第四腿代码门退役=题面
+    // 「位置参考」事实）
     burstWaveStartVsLaunchPct: _pct(an.burstWaveStartVsLaunchPct),
     burstExitVsLaunchPct: _pct(an.burstExitVsLaunchPct),
     noBuySellPct: _pct(an.noBuySellPct),
@@ -505,10 +515,8 @@ function gradeObservation(observation, extras = {}) {
   //  （CD133），G 通道整体退役，头注 G11 段；bd 档位与锚照常产出供投影）
   const folTop3 = _pct(ex.famousFollowerTop3Pct);
   const famousBuyPct = _pct(ex.famousGroupBuyPct);
-  // G8（批次六）：E 通道弱 burst 三键 + K/L 通道零买纯卖占比（头注①②③）
-  const burstGap = _pct(anchors.burstMaxGapSec);
-  const waveBuy = _pct(anchors.burstWaveBuyBnb);
-  const waveWallets = _pct(anchors.burstWaveWallets);
+  // （G8 弱 burst 三键读取已随 G18 退役——CD397 判定权归 Jev，锚照常产出供投影；
+  //   K/L 通道零买纯卖占比保留）
   const noBuySell = _pct(anchors.noBuySellPct);
 
   const reasons = [];
@@ -572,17 +580,16 @@ function gradeObservation(observation, extras = {}) {
   // unhealthy，不过流量 burst 命中的不要判定为活跃度 low」——t1流<40 吃独食豁免
   // 与卖笔≤1 对手盘豁免撤销；sbw=burst 豁免保留为通道层双保险，主修正前移到
   // 题面 D3.27：burst 形状（长静默后集中涌入）Jev 不再产 low 档）
-  // G8 弱 burst 代码臂（2026-11-02 批次六 CD37/CD79 用户裁定，头注①）：
-  // sbw=burst ∧（最长停滞 ≥60s ∧ 波买入 <1.05 BNB ∧ 波内钱包 <13）→ 长期停滞
-  // 后只涌入一点小流量，弱波不构成推翻低活跃度的证据，豁免不成立；三键任一
-  // null（旧档断代/dt 缺失）→ 不算弱 burst 维持 G7 豁免（存档重放零变化）。
-  // 定线：17 票 sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low），
-  // 弱波线 CD79/CD108/CD70 转 unhealthy 全与人工一致、healthy 零误伤
-  const weakBurst = burstGap !== null && burstGap >= 60
-    && waveBuy !== null && waveBuy < 1.05
-    && waveWallets !== null && waveWallets < 13;
-  if (act === 'low' && (sbw !== 'burst' || weakBurst)) {
-    reasons.push({ level: 'unhealthy', code: sbw === 'burst' ? 'E_low_activity_weak_burst' : 'E_low_activity' });
+  // G8 弱 burst 代码臂已随 G18 退役（2026-11-11 CD397 用户裁定「burst 的判定被
+  // 代码魔改了，我的建议依然是不要魔改，用 Jev 判断」——代码硬线（≥60s/<1.05/
+  // <13）与豁免四腿同批拆除；「停滞后只涌入一点小流量」的排除教学移交 sbw 题
+  // D3.67 题面（尘埃=户均/中位锚判读），弱波判定权归 Jev。E 通道恢复 sbw 单条件
+  // ——sbw=burst 即跳过 E；sbw 题 D3.67 按单段绑定波族判（波不在沉积出口附近/
+  // 尘埃流量/卖出引发 → Jev 判 none，E 恢复拦截）。案史：G8 定线时 17 票
+  // sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）——退役后该防线
+  // 由 D3.67 题面四判轴接棒，E_low_activity_weak_burst 码随臂退役（历史行留档）
+  if (act === 'low' && sbw !== 'burst') {
+    reasons.push({ level: 'unhealthy', code: 'E_low_activity' });
   }
 
   // G：（G11 整体退役，2026-11-02 CD133 用户裁定——sb∪eq 并集圈定吞 GMGN 前端

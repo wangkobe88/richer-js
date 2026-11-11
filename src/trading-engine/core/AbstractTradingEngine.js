@@ -1495,6 +1495,16 @@ class AbstractTradingEngine extends ITradingEngine {
       waveBuyBnb: an.burstWaveBuyBnb ?? null,
       waveWallets: an.burstWaveWallets ?? null,
       exitVsLaunchPct: an.burstExitVsLaunchPct ?? null,
+      // D3.67/CD397 单段绑定十键 additive 透传（2026-11-11 用户四条裁定——跨度/
+      // 尘埃/流向/位置四判轴事实；旧全窗波两键语义不动=strongbacker 口径保护）
+      lastGapSec: an.burstLastGapSec ?? null,
+      exitWaveBuyBnb: an.burstExitWaveBuyBnb ?? null,
+      exitWaveWallets: an.burstExitWaveWallets ?? null,
+      secSinceWaveEnd: an.burstSecSinceWaveEnd ?? null,
+      waveWalletNetBnb: an.burstWaveWalletNetBnb ?? null,
+      waveSellBackPct: an.burstWaveSellBackPct ?? null,
+      waveWalletAvgBnb: an.burstWaveWalletAvgBnb ?? null,
+      waveWalletMedianBnb: an.burstWaveWalletMedianBnb ?? null,
     };
   }
 

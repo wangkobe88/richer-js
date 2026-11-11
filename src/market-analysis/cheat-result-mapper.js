@@ -260,6 +260,19 @@ function buildObservation(answers, anchors = null) {
       // 出口首可靠价 vs launch 地板 %；门侧第四腿判据源）
       burstWaveStartVsLaunchPct: _anchorPct(anchors, 'burstWaveStartVsLaunchPct'),
       burstExitVsLaunchPct: _anchorPct(anchors, 'burstExitVsLaunchPct'),
+      // D3.67/CD397 单段绑定波族十键（最后 ≥50s 静默段 → 出口后 60s 最密 5s 波：
+      // sbw 题 state 直供/引擎 cheatBurst 透传/BP67 观察原料；旧全窗波两键语义
+      // 不动=strongbacker §七.5 统计口径保护，两族并存。净额可负=带符号读取）
+      burstLastGapSec: _anchorPct(anchors, 'burstLastGapSec'),
+      burstExitWaveFromDt: _anchorPct(anchors, 'burstExitWaveFromDt'),
+      burstExitWaveEndDt: _anchorPct(anchors, 'burstExitWaveEndDt'),
+      burstExitWaveBuyBnb: _anchorPct(anchors, 'burstExitWaveBuyBnb'),
+      burstExitWaveWallets: _anchorPct(anchors, 'burstExitWaveWallets'),
+      burstSecSinceWaveEnd: _anchorPct(anchors, 'burstSecSinceWaveEnd'),
+      burstWaveWalletNetBnb: _anchorNum(anchors, 'burstWaveWalletNetBnb'),
+      burstWaveSellBackPct: _anchorPct(anchors, 'burstWaveSellBackPct'),
+      burstWaveWalletAvgBnb: _anchorPct(anchors, 'burstWaveWalletAvgBnb'),
+      burstWaveWalletMedianBnb: _anchorPct(anchors, 'burstWaveWalletMedianBnb'),
       noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),
       // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
       // 伤害量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）

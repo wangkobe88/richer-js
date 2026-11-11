@@ -48,6 +48,9 @@ const BP_OPEN_BIG_BUY_BNB = 0.3;
 const BP_TAIL_SEC = 5;
 /** 点位性质临近段宽度（秒）：锚前 120s 内 5 秒段最大涨/跌幅（BP58 entry_shape——很久以前的急拉/急砸不定义买点当下的点位性质） */
 const BP_NEAR_SPEED_SEC = 120;
+/** BP72 暴跌血缘域宽（秒）：锚前 30s 内最深 5 秒段三键的取值域——「近期暴跌」的时间界
+ * （v100 族二判例：目标票最深段距锚 0~17s、反例 a813 57s/CR 651s 都在域外） */
+const BP_RECENT_DIP_SEC = 30;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -166,6 +169,14 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // 尖刺/砸盘」）；起点可略早于段界（5 秒滑窗自身限界），终点须落在段内；<2 可靠价
   // 全族 null；纯事实（代码只组数据，形状判读归 Jev entry_shape 题）
   let maxDn5Pct = null, nearMaxUp5Pct = null, nearMaxDn5Pct = null;
+  // BP72 暴跌血缘三键：锚前 BP_RECENT_DIP_SEC（30s）域内最深 5 秒段——深度 /
+  // 距锚秒数 / 现价距该段起点的未收复幅度（v100 族二裁定「或者是暴跌后的交易
+  // 小活跃期（这个要识别近期的暴跌）」：idx195/idx5/idx206 形状=深 5s 段就在
+  // 近 20s 内、现价未收复 -25%~-50%、chg5 已收敛——BP63「chg5 浅于 chg10」
+  // 安全臂把这类票放行，三键给 Jev 直供「暴跌刚走完≠企稳」的判读原料；与
+  // nearMaxDn5（120s 临近段最深幅、无距今/未收复）同算法不同域不同产物）。
+  // 段起点价循环后才能算未收复（锚末价），先存最深段起点 idx。
+  let recentDip5Pct = null, recentDip5SecAgo = null, recentDip5UnrecoveredPct = null, recentDip5StartIdx = null;
   if (rel.length >= 2) {
     const dqLo = []; // 涨：队头=窗内最低
     const dqHi = []; // 跌：队头=窗内最高
@@ -189,11 +200,24 @@ function computeBuyPointDerived(snapshot, famousRoster) {
           const chg = (rel[j].priceBnb / rel[dqHi[0]].priceBnb - 1) * 100;
           if (nearMaxDn5Pct === null || chg < nearMaxDn5Pct) nearMaxDn5Pct = chg;
         }
+        // BP72：30s 子域三件套（段终点 j 落域内才计——段的「距今」以段终点计）
+        if (rel[j].dt >= tEnd - BP_RECENT_DIP_SEC && dqHi.length && dqHi[0] < j) {
+          const chg = (rel[j].priceBnb / rel[dqHi[0]].priceBnb - 1) * 100;
+          if (recentDip5Pct === null || chg < recentDip5Pct) {
+            recentDip5Pct = chg;
+            recentDip5SecAgo = +(tEnd - rel[j].dt).toFixed(0);
+            recentDip5StartIdx = dqHi[0];
+          }
+        }
       }
     }
     if (maxDn5Pct !== null) maxDn5Pct = +maxDn5Pct.toFixed(2);
     if (nearMaxUp5Pct !== null) nearMaxUp5Pct = +nearMaxUp5Pct.toFixed(2);
     if (nearMaxDn5Pct !== null) nearMaxDn5Pct = +nearMaxDn5Pct.toFixed(2);
+    if (recentDip5Pct !== null) {
+      recentDip5Pct = +recentDip5Pct.toFixed(2);
+      recentDip5UnrecoveredPct = +((rel[rel.length - 1].priceBnb / rel[recentDip5StartIdx].priceBnb - 1) * 100).toFixed(2);
+    }
   }
   // 价格轨迹：全窗可靠价等笔距 20 桶（桶价=桶内末笔可靠价；<20 行时空桶自然缺席）
   const priceBuckets = [];
@@ -524,6 +548,23 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     for (const t of ticks) if (t.side === 'BUY') winBuyBnb += t.bnb || 0;
     nearTail5BuySharePct = winBuyBnb > 0 ? +((bb5 / winBuyBnb) * 100).toFixed(1) : 0;
   }
+  // ── BP72 本地买方在场性三键（尾 10 秒买卖分解）——v100 族二裁定「买入前一段
+  // 时间（或者说一批交易），根本没有对倒换手，就是先买入，然后只有卖出（买入
+  // 很弱）」：nearTail5 只有买侧，卖侧推进 vs 双边换手 vs 量能枯竭三态判读需要
+  // 尾 10s 买卖对照（判例：idx19/idx98/idx175 尾 10s 买 0~0.06B 对卖 0.2~1B
+  // =单边出货；c84a 买 0.11~1.9B=双边换手；a813 买 0.03/卖 0.05=枯竭平静）。
+  // BP 侧自算（CD394 nearTail10 族是吞吐口径无买卖分解）；tEnd 缺失全族 null。
+  let nearTail10BuyN = null, nearTail10BuyBnb = null, nearTail10SellBnb = null;
+  if (tEnd !== null) {
+    let bn10 = 0, bb10 = 0, sb10 = 0;
+    for (const t of ticks) {
+      if (!bpInWin(t, tEnd, 10)) continue;
+      if (t.side === 'BUY') { bn10++; bb10 += t.bnb || 0; } else sb10 += t.bnb || 0;
+    }
+    nearTail10BuyN = bn10;
+    nearTail10BuyBnb = +bb10.toFixed(4);
+    nearTail10SellBnb = +sb10.toFixed(4);
+  }
   const activity = {
     spanSec: cd.spanSec ?? null,
     tickCount: cd.tickCount ?? null,
@@ -548,6 +589,10 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     nearTail5BuyN,
     nearTail5BuyBnb,
     nearTail5BuySharePct,
+    // BP72 本地买方在场性（尾 10s 买卖分解，BP 侧自算）
+    nearTail10BuyN,
+    nearTail10BuyBnb,
+    nearTail10SellBnb,
   };
 
   // ── 筹码结构锚族透传（BP14/案号 BP14：CD famous 控盘+持仓集中判法搬运——
@@ -670,8 +715,10 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
     // 价格（可靠价口径；BP6 短窗 5/10/30s；BP10 maxChg5=回看速度锚；BP58 跌方向
-    // 对称键 maxDn5 + 临近段速度双键——entry_shape 判读原料）
-    chg5Pct, chg10Pct, chg30Pct, maxChg5Pct, maxDn5Pct, nearMaxUp5Pct, nearMaxDn5Pct, priceBuckets,
+    // 对称键 maxDn5 + 临近段速度双键——entry_shape 判读原料；BP72 暴跌血缘三键
+    // recentDip5*=锚前 30s 最深 5s 段深度/距今/未收复幅度）
+    chg5Pct, chg10Pct, chg30Pct, maxChg5Pct, maxDn5Pct, nearMaxUp5Pct, nearMaxDn5Pct,
+    recentDip5Pct, recentDip5SecAgo, recentDip5UnrecoveredPct, priceBuckets,
     // 摆动结构族（BP8 圣诞树原料；<2 可靠价全族 null；points/legs=state 渲染原料）
     swingPoints: swing ? swing.points : null,
     swingLegs: swing ? swing.legs : null,

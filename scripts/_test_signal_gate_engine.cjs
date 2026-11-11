@@ -175,17 +175,17 @@ console.log('A. _cheatGateEvaluateBinary（二元版——grade 直接决策不�
     levels: null, buckets: null, anchors: null, strongbackerLike: 0, exempt: null, unblocked: false,
   });
 
-  // A4+ BP67 _cheatBurstForBp 四分支（cheat sbw → BP act burst 输入桶透传链起点）
+  // A4+ BP67 _cheatBurstForBp 四分支（cheat sbw → BP act burst 输入桶透传链起点；D3.67/CD397 起 12 键=旧 5+单段绑定波族 8 additive）
   const engBp = makeEngine({});
-  check('BP67 sbw=1 → burst 载体组装（anchors 波三键+exitVs 直取）',
-    engBp._cheatBurstForBp({ levels: { stallBurstWave: 1 }, anchors: { burstMaxGapSec: 58, burstWaveBuyBnb: 0.77, burstWaveWallets: 11, burstExitVsLaunchPct: 2.9 } }),
-    { source: 'cheat', sbw: 1, maxGapSec: 58, waveBuyBnb: 0.77, waveWallets: 11, exitVsLaunchPct: 2.9 });
+  check('BP67 sbw=1 → burst 载体组装（anchors 波三键+exitVs+D3.67 波族 8 键直取）',
+    engBp._cheatBurstForBp({ levels: { stallBurstWave: 1 }, anchors: { burstMaxGapSec: 58, burstWaveBuyBnb: 0.77, burstWaveWallets: 11, burstExitVsLaunchPct: 2.9, burstLastGapSec: 68, burstExitWaveBuyBnb: 2.04, burstExitWaveWallets: 55, burstSecSinceWaveEnd: 9, burstWaveWalletNetBnb: 1.83, burstWaveSellBackPct: 10.3, burstWaveWalletAvgBnb: 0.037, burstWaveWalletMedianBnb: 0.03 } }),
+    { source: 'cheat', sbw: 1, maxGapSec: 58, waveBuyBnb: 0.77, waveWallets: 11, exitVsLaunchPct: 2.9, lastGapSec: 68, exitWaveBuyBnb: 2.04, exitWaveWallets: 55, secSinceWaveEnd: 9, waveWalletNetBnb: 1.83, waveSellBackPct: 10.3, waveWalletAvgBnb: 0.037, waveWalletMedianBnb: 0.03 });
   ok('BP67 sbw=0 → null（非 burst 形状无输入桶）', engBp._cheatBurstForBp({ levels: { stallBurstWave: 0 }, anchors: {} }) === null);
   ok('BP67 info=null（cheat skipped/fail-open）→ null（BP act 照常判宁拦不冒充）', engBp._cheatBurstForBp(null) === null);
   ok('BP67 levels 缺席 → null（无 levels=无 burst 证据）', engBp._cheatBurstForBp({ anchors: { burstMaxGapSec: 58 } }) === null);
-  check('BP67 sbw=1 但 anchors 缺 → 波锚全 null 仍组装（sbw 是唯一资格键，锚缺失不冒充数值）',
+  check('BP67 sbw=1 但 anchors 缺 → 全 12 键 null 仍组装（sbw 是唯一资格键，锚缺失不冒充数值）',
     engBp._cheatBurstForBp({ levels: { stallBurstWave: 1 } }),
-    { source: 'cheat', sbw: 1, maxGapSec: null, waveBuyBnb: null, waveWallets: null, exitVsLaunchPct: null });
+    { source: 'cheat', sbw: 1, maxGapSec: null, waveBuyBnb: null, waveWallets: null, exitVsLaunchPct: null, lastGapSec: null, exitWaveBuyBnb: null, exitWaveWallets: null, secSinceWaveEnd: null, waveWalletNetBnb: null, waveSellBackPct: null, waveWalletAvgBnb: null, waveWalletMedianBnb: null });
 
   // A4b CD381 重锚：grade 路径 markCheatGateEvaluated（fire 时刻 vsLaunch 透传）
   const FA = require('../src/services/FourMemeFactorAggregator');

@@ -141,7 +141,10 @@ const GOOD_ANSWERS = {
   coordinated_sell_back: phAns('weak'),
   creator_front_run: phAns('strong'),
   sell_dispersion: phAns('none'),
-  stall_burst_wave: sbwAns('burst'),
+  // CD397（2026-11-11）起 sbw=none：burst 臂豁免收 sbw 单条件后 burst 桩会走
+  // 豁免翻 healthy（cheat 拉黑工作horse 不可带 burst 答案）；burst 豁免形状由
+  // PUMP_BURST 段单独锁
+  stall_burst_wave: sbwAns('none'),
   amount_tiering: phAns('strong'),
   same_block_buy_wave: phAns('strong'),
   activity_level: actAns('mid'),
@@ -178,13 +181,24 @@ const NONE_ANSWERS = {
   slow_grind_pump: phAns('none'), activity_level: actAns('mid'),
   bundled_trade_dominance: bdAns('low'),
 };
-/** A 降级形状（唯一 pump strong ∧ burst ∧ mod<3）→ unhealthy（Z2 连续真析用） */
+/** A 降级形状（唯一 pump strong ∧ burst ∧ mod<3）→ gradeObservation unhealthy；
+ * CD397 起 sbw=burst 触发 burst 臂豁免（单条件）→ 服务出口 healthy+exempt（豁免锁段用） */
 const PUMP_BURST = {
   equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
   creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
   stall_burst_wave: sbwAns('burst'), amount_tiering: phAns('none'),
   same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
   slow_grind_pump: phAns('strong'), activity_level: actAns('mid'),
+  bundled_trade_dominance: bdAns('low'),
+};
+/** E 通道 unhealthy 形状（act=low 其余全 none）——unhealthy 每买信号重判/计数
+ * 恢复类测试用（CD397 起不可带 sbw=burst：burst 臂单条件豁免会翻 healthy） */
+const UNHEALTHY_LOW = {
+  equal_amount_split: phAns('none'), coordinated_sell_back: phAns('none'),
+  creator_front_run: phAns('none'), sell_dispersion: phAns('none'),
+  stall_burst_wave: sbwAns('none'), amount_tiering: phAns('none'),
+  same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
+  slow_grind_pump: phAns('none'), activity_level: actAns('low'),
   bundled_trade_dominance: bdAns('low'),
 };
 function makeSvc(db, llm, config = {}, nowRef = { t: 1000000 }) {
@@ -221,7 +235,7 @@ async function main() {
       && row.pattern_type === null && row.retail_participation === undefined,
       `行字段：verdict='observed'/cheat_prob=null/pattern_type=null（D3.5 判定层停产；retail 列已停写=undefined；实际 ${row.verdict}/${row.cheat_prob}/${row.pattern_type}）`);
     ok(row.snapshot_digest.phenomena && row.snapshot_digest.phenomena.creator_front_run === 'strong'
-      && row.snapshot_digest.extLevels.stall_burst_wave === 'burst'
+      && row.snapshot_digest.extLevels.stall_burst_wave === 'none'
       && row.snapshot_digest.extLevels.amount_tiering === 'strong'
       && row.snapshot_digest.extLevels.same_block_buy_wave === 'strong'
       && row.snapshot_digest.extLevels.insider_supply_sell === 'strong'
@@ -297,7 +311,7 @@ async function main() {
 
     // D3 unhealthy 每买信号真判（连续 6 轮全真析永不拉黑——升级臂退役反证+无帽反证合一）
     const db4 = makeDb({ ticks: genTicks(20) });
-    const llm4 = makeLlm({ answers: PUMP_BURST });
+    const llm4 = makeLlm({ answers: UNHEALTHY_LOW });
     const svc4 = makeSvc(db4, llm4);
     for (let round = 1; round <= 6; round++) {
       if (round > 1) db4.holder.ticks = genTicks(20 + round * 10);
@@ -365,7 +379,7 @@ async function main() {
     const r6 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000, forceRecheck: true });
     ok(r6.cached !== true && llm.calls.ask >= 3, 'forceRecheck 绕 healthy 粘滞真调');
     const db6 = makeDb({ ticks: genTicks(20) });
-    const llm6 = makeLlm({ answers: PUMP_BURST });
+    const llm6 = makeLlm({ answers: UNHEALTHY_LOW });
     const svc6 = makeSvc(db6, llm6);
     await svc6.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }); // unhealthy 真析
     const ask6 = llm6.calls.ask;
@@ -376,6 +390,36 @@ async function main() {
       { awaitMs: 3000, recheckUnhealthy: false, forceRecheck: true });
     ok(r8.cached !== true && llm6.calls.ask === ask6 + 1,
       'forceRecheck 覆盖 recheckUnhealthy=false 绕粘滞真调');
+  }
+
+  // ═══════════════ D6. CD397 burst 臂服务级豁免锁（sbw 单条件） ═══════════════
+  console.log('D6. CD397 burst 臂豁免（sbw 单条件）');
+  {
+    // PUMP_BURST：gradeObservation A 降级豁免 → unhealthy（pump strong ∧ burst ∧
+    // mod<3）；服务出口 _applyActivityExempt burst 臂（CD383 四腿→CD397 sbw 单条件）
+    // → healthy+exempt{code:'stall_burst', originalGrade:'unhealthy'}——「长期沉积
+    // 一朝操盘豁免」判定权归 Jev（用户四条裁定第三条），代码不再验 gap≥50/买≥0.7/
+    // 户≥10（四腿退役，gate_engine F8 已锁单条件）；不拉黑+每买信号重判（豁免票
+    // 非粘滞：healthy 粘滞登记的是豁免后 grade……豁免票不写 _lastGrade？——行为
+    // 以断言为准：轮 2 再击真析 ask 递增，豁免可随 Jev 翻案解除）
+    const db = makeDb({ ticks: genTicks(20) });
+    const llm = makeLlm({ answers: PUMP_BURST });
+    const svc = makeSvc(db, llm);
+    const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.status === 'analyzed' && r1.grade === 'healthy'
+      && r1.exempt && r1.exempt.code === 'stall_burst' && r1.exempt.originalGrade === 'unhealthy'
+      && svc.stats.stallBurstExemptions === 1 && svc.isGateBlocked('0xtok') === false,
+      `unhealthy ∧ sbw=burst → burst 臂豁免 healthy（code=stall_burst/原判 unhealthy 留痕；不拉黑；实际 ${r1.grade}/${JSON.stringify(r1.exempt)}/sb=${svc.stats.stallBurstExemptions}）`);
+    const ask1 = llm.calls.ask;
+    const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(ask1 >= 1 && llm.calls.ask >= ask1 && r2.grade === 'healthy',
+      `豁免票后续信号行为（实际 ask=${llm.calls.ask}/${r2.grade}——豁免非拉黑非粘滞锁定，轮询真析或 unhealthy 重判机制承接）`);
+    // 反证：同形状去掉 sbw=burst（UNHEALTHY_LOW 同判 E unhealthy 无 burst）→ 不豁免
+    const db2 = makeDb({ ticks: genTicks(20) });
+    const svc2 = makeSvc(db2, makeLlm({ answers: UNHEALTHY_LOW }));
+    const r3 = await svc2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r3.grade === 'unhealthy' && !r3.exempt && svc2.stats.stallBurstExemptions === 0,
+      `sbw=none 同为 unhealthy → 不豁免（burst 臂单条件=Jev burst 判定是唯一资格；实际 ${r3.grade}/${JSON.stringify(r3.exempt)}）`);
   }
 
   // ═══════════════ E. 满帽拉数（capped） ═══════════════
@@ -450,7 +494,7 @@ async function main() {
   console.log('G. bootstrap 三态');
   {
     const digest = (grade) => ({
-      grade, gradeVersion: 'G17', capped: false, watermark: null,
+      grade, gradeVersion: 'G18', capped: false, watermark: null,
       phenomena: { equal_amount_split: 'strong', coordinated_sell_back: 'none', creator_front_run: 'none', sell_dispersion: 'none' },
       extLevels: { stall_burst_wave: 'none' },
       activityLevel: { bucket: 'mid' }, bundledDominance: { bucket: 'low' },
@@ -490,7 +534,7 @@ async function main() {
       ticks: genTicks(40),
       cheatLatest: [61000, 122000, 183000, 244000].map((ago) => row('unhealthy', ago)),
     });
-    const rU4 = await makeSvc(dbU4, makeLlm({ answers: PUMP_BURST }), {}).gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    const rU4 = await makeSvc(dbU4, makeLlm({ answers: UNHEALTHY_LOW }), {}).gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(rU4.status === 'analyzed' && rU4.grade === 'unhealthy' && rU4.unhealthyGrades === 5
       && rU4.blocked !== true,
       'unhealthy 4 行 bootstrap 恢复计数（=4）不拉黑，真析续接 unhealthyGrades=5（升级臂退役跨进程语义）');
@@ -601,19 +645,19 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G17'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G18'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串
-    // 原值）——GOOD 形状 tier/bw/rat strong=3、sbw burst=1、cr strong=3、
+    // 原值）——GOOD 形状 tier/bw/rat strong=3、sbw none=0（CD397 起 GOOD 不带 burst）、cr strong=3、
     // act mid=1、bd high=2、wash none=0（D3.28）
     ok(r1.levels && r1.levels.sameBlockBuyWave === 3 && r1.levels.amountTiering === 3
-      && r1.levels.insiderSupplySell === 3 && r1.levels.stallBurstWave === 1
+      && r1.levels.insiderSupplySell === 3 && r1.levels.stallBurstWave === 0
       && r1.levels.creatorFrontRun === 3 && r1.levels.activityLevel === 1
       && r1.levels.bundledDominance === 2 && r1.levels.equalAmountSplit === 0
       && r1.levels.washPair === 0,
       `analyzed 带 levels 数值档（实际 ${JSON.stringify(r1.levels)}）`);
-    ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'burst'
+    ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'none'
       && r1.buckets.activityLevel === 'mid',
       `analyzed 带 buckets 字符串原值（研究留档）`);
     // Z1c 数值锚：四持仓占比键真算数值（genTicks 全 0.1 同额 10 钱包买侧）+
@@ -662,6 +706,76 @@ async function main() {
       'GOOD 基底无 abnormal_behavior_ratio 答案（stub 题集未含新题）→ levels/buckets 容缺 null+旧键 realParticipation 不残留（<D3.39 断代重放零变化防线）');
     ok(r2.levels && r2.levels.sameBlockBuyWave === 3 && r2.anchors && 'sameBlockHoldPct' in r2.anchors,
       '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
+    // Z1d D3.67/CD397 单段绑定波族十键（genTicks 基底无 ≥50s 静默段——无沉积=无
+    // burst 前提，全族 null；旧全窗波两键语义不动照常产出）。⚠断言源=digest 行
+    // snapshot_digest.anchors（mapper buildObservation 全量锚集）：r.anchors 走
+    // levelsFromObservation 显式白名单=FA 投影 37 键集，Option 2 决策十新键
+    // 刻意不进 FA 投影（旧 burstWaveBuyBnb/Wallets 在场=SB1 口径保护）
+    const z1dAnc = db.state.inserts[0].snapshot_digest.anchors;
+    ok(['burstLastGapSec', 'burstExitWaveFromDt', 'burstExitWaveEndDt', 'burstExitWaveBuyBnb',
+      'burstExitWaveWallets', 'burstSecSinceWaveEnd', 'burstWaveWalletNetBnb', 'burstWaveSellBackPct',
+      'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb'].every((k) => k in z1dAnc),
+      'digest 带 D3.67 十新锚键（在场断言；实际 ' + JSON.stringify(Object.keys(z1dAnc)) + '）');
+    ok(['burstLastGapSec', 'burstExitWaveFromDt', 'burstExitWaveEndDt', 'burstSecSinceWaveEnd',
+      'burstWaveWalletNetBnb', 'burstWaveSellBackPct', 'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb']
+      .every((k) => z1dAnc[k] === null),
+      'genTicks 基底（全窗 2s 间隔无 ≥50s 段）→ 单段绑定八键 null（无沉积不冒充；旧 burstWaveBuyBnb/Wallets 照常=Option 2 语义不动）');
+  }
+  {
+    // Z1e. D3.67/CD397 单段绑定波族十键手算对拍（2026-11-11 用户四条裁定——
+    // 跨度不能太长/尘埃不算流量/流向=入非出/位置仅参考；绑定锚=最后 ≥50s 静默段
+    // 出口行，波=出口后 60s 内最密 5s 窗，旧全窗波两键保留（strongbacker SB1
+    // burstWaveBuyBnb≥2.2 口径保护）。
+    // 夹具（相对秒）：沉积前 B 买 0.10(t0)+C 卖 0.30(t2)+X 买 0.10(t4)——B/C 是
+    // 波钱包，早期买卖进全窗流向轴；60s 沉积（t4→t64）；出口后 A 买 0.05(t64)+
+    // B 买 0.10(t65)+C 买 0.20(t66)+B 买 0.10(t68)=最密 5s 窗（4 行，与 [65..70]
+    // 并列取先到）；B 卖回 0.05(t70)；D 买 0.30(t100)/E 买 0.10(t124)=区内窗外
+    // （124-64=60 恰界含入 zone 不入波）；F 买 0.10(t150)=区外尾锚（150-64=86>60
+    // 排除；124→150=26s<50 不构成新沉积段——绑定段仍是 t4→t64）
+    const segRow = (sec, blk, li, side, bnb, w) => ({
+      block_time: new Date(1700000000000 + sec * 1000).toISOString(), block_number: blk, log_index: li,
+      trade_type: side, bnb_amount: bnb, price_bnb: 1e-9, price_outlier: false,
+      trader_address: `0xseg${w}`.padEnd(42, '0'), sender_address: `0xseg${w}`.padEnd(42, '0'), quote_token: null });
+    const segRows = [
+      segRow(0, 100, 0, 'buy', 0.10, 'B'), segRow(2, 100, 1, 'sell', 0.30, 'C'), segRow(4, 101, 0, 'buy', 0.10, 'X'),
+      segRow(64, 132, 0, 'buy', 0.05, 'A'), segRow(65, 132, 1, 'buy', 0.10, 'B'), segRow(66, 133, 0, 'buy', 0.20, 'C'),
+      segRow(68, 134, 0, 'buy', 0.10, 'B'), segRow(70, 135, 0, 'sell', 0.05, 'B'),
+      segRow(100, 150, 0, 'buy', 0.30, 'D'), segRow(124, 162, 0, 'buy', 0.10, 'E'),
+      segRow(150, 175, 0, 'buy', 0.10, 'F'),
+    ];
+    const db = makeDb({ ticks: segRows });
+    const svc = makeSvc(db, makeLlm());
+    const r = await svc.gateBuyPoint('0xsegtok', META, {}, { awaitMs: 3000 });
+    // 断言源=digest 行（r.anchors=levelsFromObservation FA 投影白名单，Option 2
+    // 决策十新键刻意不进——同 Z1d 注）
+    const dAnc = db.state.inserts[0].snapshot_digest.anchors;
+    ok(r.status === 'analyzed' && dAnc,
+      `单段绑定基底 analyzed（实际 ${r.status}）`);
+    // 手算：gap=60；波窗 t64~t68（首行 dt/末笔买 dt）；波买 0.05+0.10+0.20+0.10=0.45；
+    // 波钱包 A 0.05/B 0.20/C 0.20=3 户；中位 0.20/户均 0.45÷3=0.15；
+    // 全窗流向：波钱包 Σ买=0.05+0.30+0.20=0.55、Σ卖=0.30(C t2)+0.05(B t70)=0.35
+    // → 净 +0.20/卖回 0.35÷0.55=63.6%；跨度=窗末 t150−波末买 t68=82s
+    ok(dAnc.burstLastGapSec === 60 && dAnc.burstExitWaveFromDt === 64
+      && dAnc.burstExitWaveEndDt === 68 && dAnc.burstExitWaveBuyBnb === 0.45
+      && dAnc.burstExitWaveWallets === 3,
+      `单段绑定五键手算（gap60/波窗 t64~68/买 0.45/3 户；实际 ${JSON.stringify({ g: dAnc.burstLastGapSec, f: dAnc.burstExitWaveFromDt, e: dAnc.burstExitWaveEndDt, b: dAnc.burstExitWaveBuyBnb, w: dAnc.burstExitWaveWallets })}）`);
+    ok(dAnc.burstWaveWalletMedianBnb === 0.2 && dAnc.burstWaveWalletAvgBnb === 0.15,
+      `尘埃轴两键手算（中位 0.20/户均 0.15——B 两笔并包同钱包；实际 ${dAnc.burstWaveWalletMedianBnb}/${dAnc.burstWaveWalletAvgBnb}）`);
+    ok(dAnc.burstWaveWalletNetBnb === 0.2 && dAnc.burstWaveSellBackPct === 63.6,
+      `流向轴两键手算（净 +0.20 含 C 沉积前卖 0.30 拉低/卖回 63.6=0.35÷0.55——波钱包全窗口径非波窗内；实际 ${dAnc.burstWaveWalletNetBnb}/${dAnc.burstWaveSellBackPct}）`);
+    ok(dAnc.burstSecSinceWaveEnd === 82,
+      `跨度轴手算（窗末 t150−波末买 t68=82s——「跨度不能太长」主锚原料；实际 ${dAnc.burstSecSinceWaveEnd}）`);
+    // Option 2 对照：旧全窗波两键同窗同值（本夹具最密 5s 窗恰=绑定段波）+旧 gap 锚
+    // ——旧两键在 r.anchors（FA 投影白名单）也在 digest，此处用 r.anchors 顺带锁
+    // 白名单内旧键照常（SB1 ≥2.2 消费源）
+    ok(dAnc.burstWaveBuyBnb === 0.45 && dAnc.burstWaveWallets === 3
+      && dAnc.burstMaxGapSec === 60 && r.anchors.burstWaveBuyBnb === 0.45
+      && r.anchors.burstWaveWallets === 3,
+      `旧全窗波两键语义不动（买 0.45/3 户=SB1 ≥2.2 口径保护；gap 60；实际 digest ${dAnc.burstWaveBuyBnb}/${dAnc.burstWaveWallets}/${dAnc.burstMaxGapSec} FA投影 ${r.anchors.burstWaveBuyBnb}/${r.anchors.burstWaveWallets}）`);
+    // zone 恰界反证：E(t124) 60s 恰界含入 zone 但不在最密 5s 波窗（波买不含 0.10）；
+    // F(t150) 区外不入 zone（若误含 F，波窗不变但 secSinceWaveEnd 会变 0）
+    ok(dAnc.burstExitWaveBuyBnb === 0.45 && dAnc.burstSecSinceWaveEnd === 82,
+      'zone 边界双反证（E 恰界含入不入波/F 区外不入 zone——数值已被上两条锁定此处冗余防回归）');
   }
   {
     // Z1.5 CD27 对倒形状（D3.28 锚+G9 退役反证）：10 块逐块等额卖↔买配对+尾部散买
@@ -739,7 +853,8 @@ async function main() {
     // 置位 strongbackerLike=1（手算：burst 5 钱包同块 0.6×5=3.0 ≥2.2 ∧
     // top2=6e8/1e9=60% ≥4.5 ∧ 同档 0.6000 档 5/35 钱包=14.3% <15 ∧ 零卖行=
     // washPairCount null 干净 ∧ tpm 32.3/avg 0.30 → act mid ≠low）；Jev 答案
-    // PUMP_BURST=unhealthy（每买信号重判=SB1 递增锚轮目标人群）；轮 2 换
+    // UNHEALTHY_LOW=unhealthy（每买信号重判=SB1 递增锚轮目标人群；CD397 起不可带
+    // sbw=burst——burst 臂单条件豁免会翻 healthy 中止重判）；轮 2 换
     // genTicks 基底（burst 0.2+无 token_amount=形状消失）重判 → 粘滞仍 1、
     // hits 不再增；grade 轨迹与 SB1 无关（零门效应）；未命中 token 恒 0
     const sbRows = [];
@@ -757,7 +872,7 @@ async function main() {
     }
     const META2 = { ...META, totalSupply: 1e9 };
     const db = makeDb({ ticks: sbRows });
-    const llm = makeLlm({ answers: PUMP_BURST });
+    const llm = makeLlm({ answers: UNHEALTHY_LOW });
     const svc = makeSvc(db, llm);
     const r1 = await svc.gateBuyPoint('0xsbtok', META2, {}, { awaitMs: 3000 });
     ok(r1.status === 'analyzed' && r1.grade === 'unhealthy' && r1.strongbackerLike === 1

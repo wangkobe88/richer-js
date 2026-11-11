@@ -351,67 +351,31 @@ class CheatCheckService {
   }
 
   /**
-   * CD383 burst 豁免资格臂（2026-11-08 用户裁定「burst 在作弊检测内部豁免
-   * activity low 的，所以外部豁免这里也加一下，将 burst 也豁免」+「高大上应该
-   * 是 长期沉积一朝开始操盘，这种情况豁免一下」——高大上 0x838657df t0a 触发
-   * 被 cheat 门拒复盘）：E 通道内部豁免口径（gradeObservation G2/G8：
-   * act=low ∧ sbw=burst ∧ 非弱 burst 不落 E）外移到门豁免——「长期沉积一朝
-   * 开始操盘」形状里长期静默压低 activity 档（全窗 idlePct 极高）不构成拒买
-   * 证据，爆发波才是盘面当下的真状态。
-   * 资格=sbw=burst ∧ **长期沉积前提** ∧ 波有力，两维键与 E 通道 G8 弱波线同源
-   * （**2026-11-08 二修放宽**，M4GA 0xba5ed45b 案用户裁定「这个币应该是 burst，
-   * 豁免 cheat」——t0a 首判窗仅 83s 时 gap 被窗长压住、波 0.77/11 户贴线，
-   * 60/1.05/13 三键全差一口气；降至 50/0.7/10）：
-   * ①沉积=burstMaxGapSec≥50（停滞深度是必要维度——G8 定线研究「人工 healthy
-   * 4 票中 3 票 maxGap 仅 19~43s=无停滞开盘密集正常形状」；**单测夹具反例
-   * gap=2s 开盘即密集 tier+同块+内幕三 strong 的 cheat 盘实证无沉积的 sbw=burst
-   * 不可授予**——E 通道内部豁免不限 gap 是因其语境恒 act=low（窗内必有大静默段），
-   * 本臂不限 act 档位必须自带沉积正证据）；②波有力=burstWaveBuyBnb≥0.7 ∨
-   * burstWaveWallets≥10 至少一键非 null 过线（G8 弱波线的否定侧；全 null/全
-   * 不过线=「停滞后只涌入一点小流量」弱波不授予）。
-   * **null 语义与 G8 刻意不同向**：G8 三键任一 null 维持（内部）豁免是「不扩大
-   * 收紧面」；本臂是**资格授予方向**——gap/buy/wallets null=沉积或波力无证据，
-   * 不授予 fail-closed（不冒充「长期沉积一朝操盘」）。sbw null/缺席（旧档断代/
-   * 题未答）→ 不豁免（与 _isActivityExempt bucket null 同哲学）。
-   * 与 activityExemptLevels **并列第二资格臂（∨）**，不限 activity 档位——
-   * 对齐 CD379 高活跃豁免不区分判定通道的语义；CD380 不豁免臂（wash_pair）
-   * 在出口统一优先（资格成立 ≠ 豁免生效）；豁免总开关（activityExemptLevels
-   * 显式 []=关）同盖本臂（豁免机制整体关）。键位：levels.stallBurstWave（sbw
-   * 二桶投影 burst=1）+ anchors 波三键数值锚（levelsFromObservation anchors 段，
-   * E 通道消费同源键）——对拍实证 levels 段只有档位投影，波三键必须从 anchors 读。
+   * CD383 burst 豁免资格臂 → **CD397 单条件化（2026-11-11 用户四条裁定）**：
+   * 「burst 的判定被代码魔改了，我的建议依然是**不要魔改，用 Jev 判断**」——
+   * 代码侧 gap≥50 / 波有力（buy≥0.7 ∨ wallets≥10）/ CD392 CD396 exitVs≤40
+   * 三道硬线全部退役，资格=**sbw=burst 单条件**（Jev 在 D3.67 题面按单段绑定
+   * 波族事实行判「停滞→紧跟的快速真实买入涌入」是否成立；跨度太长/尘埃流量/
+   * 卖出引发流量的排除教学全在题面，锚=burstSecSinceWaveEnd/户均+中位/
+   * 波钱包净额+卖回率，代码零硬线）。CD380 wash_pair 不豁免臂与 CD391
+   * ultra_cheat denied 照旧在出口/登记点统一优先（资格成立 ≠ 豁免生效）；
+   * 豁免总开关（activityExemptLevels 显式 []=关）同盖本臂。
+   *
+   * CD383 案史（四腿时代，2026-11-08 立 → CD392/D3.66 exitVs 第四腿 → CD397
+   * 退役）：高大上 0x838657df t0a 触发被拒引出「长期沉积一朝开始操盘豁免」；
+   * 二修 60/1.05/13→50/0.7/10（M4GA 0xba5ed45b 案贴线）；cd392 ad80fb7a 高位
+   * 横盘流量波拒；D3.66 判据源全窗首价/波起点价→沉积段出口价（ba5e 3/5 豁免
+   * 达成，残差=sbw run-to-run 方差）。v100 族三 14 票取证定案：三锚独立测量
+   * （全窗最深 gap+全窗最密波+最后段出口价互不绑定）是结构性病灶——波与静默
+   * 可相隔数分钟、全窗最密波可落在拉峰 frenzy；硬线堆叠治不了口径漂移，判读
+   * 权归还 Jev（单段绑定锚 D3.67：burstLastGapSec/出口后 60s 最密 5s 波族/
+   * secSinceWaveEnd/户均中位/净额卖回率，state 直供）。
+   * sbw null/缺席（旧档断代/题未答）→ 不豁免（与 _isActivityExempt bucket
+   * null 同哲学：资格授予方向 fail-closed）。
    */
-  _isStallBurstExempt(levels, anchors) {
+  _isStallBurstExempt(levels) {
     if (!levels) return false;
-    if (levels.stallBurstWave !== 1) return false; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
-    const an = anchors || {};
-    const gap = an.burstMaxGapSec;
-    // 长期沉积前提：无停滞（<50s/null）不授予。首版 60s（G8 同线）2026-11-08 二修
-    // 降至 50s（M4GA 0xba5ed45b 案用户裁定「这个币应该是 burst，豁免 cheat」：t0a
-    // 9 笔起步臂首判锚窗仅 83s——burstMaxGapSec 全窗口径被窗长天然压住，58s 实测
-    // 形状「沉积近一分钟一波点火」贴线未达；开盘密集反例（gap 2s 级夹具）仍拦）
-    if (gap == null || gap < 50) return false;
-    const buy = an.burstWaveBuyBnb;
-    const wallets = an.burstWaveWallets;
-    // 波有力：至少一键过线（同上二修 1.05→0.7 / 13→10——M4GA 波 0.7735 BNB/11 户
-    // 贴线形状授予；「停滞后只涌入一点小流量」的弱波（远低于线）仍不授予）
-    if (!((buy != null && buy >= 0.7) || (wallets != null && wallets >= 10))) return false;
-    // CD392（2026-11-09 ad80fb7a 案用户裁定「burst 是指 价格跌到很低再起来，不是
-    // 价格维持高位再一个流量拉升」）：**起来起点须在低域 ≤ +40%**（near_launch
-    // 上界同线）才授予。**D3.66（2026-11-10 用户裁定）判据源=burstExitVsLaunchPct
-    // （最后一个 ≥50s 静默段的出口首可靠价 vs launch 地板）**——D3.65 部署前对拍
-    // 取证推翻旧源（全窗首价/波起点价）：ba5e/M4GA 生产 1000 帽窗窗首 +294.9%/
-    // 最密波=拉峰 frenzy 波起点 +659.7% 仍拒（立法正例修不了），ad80fb7a 高开
-    // 全窗首价 +29.7%≤40 反例误放（D3.64 旧拒靠临近段首价 +152% 近似）；锚时刻
-    // 现价同被否（ad80 末段砸落 +17.5%——CD392「取最低会放行高位砸落再弹」防的
-    // 正是它）。沉积出口价三案全达成：ba5e 最后静默段出口 +35.4% 放（用户「涨幅
-    // 排名前几的顶级好票」裁定兑现；不受 1000 行帽影响）、ad80 高位横盘间歇静默
-    // 出口 +161.3% 拒、M4GA/CD383 原案 +2.9% 放。锚缺席（无 ≥50s 段= gap 腿本就
-    // 不过/段后无可靠价/gang 无常量）fail-closed 不授予——与 CD383 gap null 的
-    // 「不扩大收紧面」方向不同：本臂是资格授予方向，形状不可判宁不授予。
-    // 旧键 burstWaveStartVsLaunchPct 保留纯观察（历史档重放兼容，不再进本腿）。
-    const exitVs = an.burstExitVsLaunchPct;
-    if (exitVs == null || exitVs > 40) return false;
-    return true;
+    return levels.stallBurstWave === 1; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
   }
 
   /**
@@ -486,8 +450,8 @@ class CheatCheckService {
    * 子式「cheat 的豁免资格」：burst 臂在场 ∧ CD380 不豁免臂不在场。
    * gradeObservation 规则域/题集版本零改动（观测行照落原始 grade=研究原料）。
    */
-  _isCheatBurstExempt(levels, anchors) {
-    return this._isStallBurstExempt(levels, anchors) && !this._exemptDeniedReason(levels);
+  _isCheatBurstExempt(levels) {
+    return this._isStallBurstExempt(levels) && !this._exemptDeniedReason(levels);
   }
 
   /**
@@ -499,10 +463,10 @@ class CheatCheckService {
    * 在场=豁免。三点同构（出口/拉黑登记/bootstrap）防「门拒但不拉黑」分叉——
    * 出口另有 stats/留痕保留显式分支，本子式供后两点共用（与出口逐案等价）。
    */
-  _isCheatExemptEligible(bucket, levels, anchors) {
+  _isCheatExemptEligible(bucket, levels) {
     const actHit = this._isActivityExempt(bucket);
-    if (actHit && bucket === 'ultra' && !this._isCheatBurstExempt(levels, anchors)) return false;
-    return (actHit || this._isStallBurstExempt(levels, anchors)) && !this._exemptDeniedReason(levels);
+    if (actHit && bucket === 'ultra' && !this._isCheatBurstExempt(levels)) return false;
+    return (actHit || this._isStallBurstExempt(levels)) && !this._exemptDeniedReason(levels);
   }
 
   /**
@@ -527,7 +491,7 @@ class CheatCheckService {
     if (res.grade !== 'cheat' && res.grade !== 'unhealthy') return res;
     const act = res.buckets && res.buckets.activityLevel;
     const actHit = this._isActivityExempt(act);
-    const stallBurst = this._isStallBurstExempt(res.levels, res.anchors); // CD383 burst 豁免资格臂（∨ 并列）
+    const stallBurst = this._isStallBurstExempt(res.levels); // CD383/CD397 burst 豁免资格臂（sbw 单条件，∨ 并列）
     if (!actHit && !stallBurst) return res;
     const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
     if (denied) {
@@ -538,7 +502,7 @@ class CheatCheckService {
     // 收回 ultra 单档=CD388 形态恢复）：cheat ∧ activity=ultra ∧ burst 资格不在场
     // → 不豁免原判保持 cheat（拉黑+清仓联动照常，exemptDenied='ultra_cheat'）；
     // cheat ∧ high 恢复豁免（code=activity_high）；unhealthy 两桶照旧（CD379 原语义）
-    if (res.grade === 'cheat' && actHit && act === 'ultra' && !this._isCheatBurstExempt(res.levels, res.anchors)) {
+    if (res.grade === 'cheat' && actHit && act === 'ultra' && !this._isCheatBurstExempt(res.levels)) {
       this.stats.ultraCheatDenied++;
       return { ...res, exemptDenied: 'ultra_cheat' };
     }
@@ -707,16 +671,29 @@ class CheatCheckService {
           top3HoldCircPct: snapshot.derived.top3HoldCircPct,
           clusterHoldSupplyPct: snapshot.derived.clusterHoldSupplyPct,
           t1PlusClusterSupplyPct: snapshot.derived.t1PlusClusterSupplyPct,
-          // G8（批次六）burst 波强度三键（E 通道弱 burst 代码臂同源数值；
-          // burstMaxGapSec=derived.maxGapSec 同一度量换锚名，与波两键成组）
+          // G8（批次六）burst 波强度三键（D3.67/CD397 起 E 通道弱波臂与豁免四腿
+          // 均退役=纯观察；旧全窗口径刻意不动=strongbacker §七.5 统计口径保护）
           burstMaxGapSec: snapshot.derived.maxGapSec,
           burstWaveBuyBnb: snapshot.derived.burstWaveBuyBnb,
           burstWaveWallets: snapshot.derived.burstWaveWallets,
           // CD392 burst 波起点价锚（D3.66 起纯观察——第四腿判据源移交出口价锚）
           burstWaveStartVsLaunchPct: snapshot.derived.burstWaveStartVsLaunchPct,
-          // D3.66 burst 起来起点价锚（最后 ≥50s 静默段出口首可靠价 vs launch 地板
-          // %；_isStallBurstExempt 第四腿判据源，头注见 _isStallBurstExempt）
+          // D3.66 burst 起来起点价锚（D3.67/CD397 起第四腿代码门退役=题面
+          // 「位置参考」事实；头注见 cheat-snapshot 计算段）
           burstExitVsLaunchPct: snapshot.derived.burstExitVsLaunchPct,
+          // D3.67/CD397 单段绑定波族十键（最后 ≥50s 静默段 → 出口后 60s 最密 5s
+          // 波 → 波钱包全窗净值/卖回/户均/中位 → 波末距锚点；sbw 题 state 直供+
+          // 引擎 cheatBurst 透传原料，头注见 cheat-snapshot 计算段）
+          burstLastGapSec: snapshot.derived.burstLastGapSec,
+          burstExitWaveFromDt: snapshot.derived.burstExitWaveFromDt,
+          burstExitWaveEndDt: snapshot.derived.burstExitWaveEndDt,
+          burstExitWaveBuyBnb: snapshot.derived.burstExitWaveBuyBnb,
+          burstExitWaveWallets: snapshot.derived.burstExitWaveWallets,
+          burstSecSinceWaveEnd: snapshot.derived.burstSecSinceWaveEnd,
+          burstWaveWalletNetBnb: snapshot.derived.burstWaveWalletNetBnb,
+          burstWaveSellBackPct: snapshot.derived.burstWaveSellBackPct,
+          burstWaveWalletAvgBnb: snapshot.derived.burstWaveWalletAvgBnb,
+          burstWaveWalletMedianBnb: snapshot.derived.burstWaveWalletMedianBnb,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
@@ -822,9 +799,9 @@ class CheatCheckService {
       // 与出口/bootstrap 三点同构；unhealthy 照旧双通道（均受 CD380 约束）
       const _actBucket = obs.activityLevel ? obs.activityLevel.bucket : null;
       const activityExempt = graded.grade === 'cheat'
-        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过
+        ? this._isCheatExemptEligible(_actBucket, levels) // CD391：cheat 豁免登记拉黑跳过
         : ((this._isActivityExempt(_actBucket)
-            || this._isStallBurstExempt(levels, anchors)) // CD383 burst 资格臂
+            || this._isStallBurstExempt(levels)) // CD383/CD397 burst 资格臂
           && !this._exemptDeniedReason(levels));
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
@@ -854,7 +831,9 @@ class CheatCheckService {
         ` 组织买=${snapshot.derived.bundleBuyPct ?? '—'}%/${snapshot.derived.famousGroupBuyPct ?? '—'}%(簇/famous集团)` +
         ` 纯卖=${snapshot.derived.noBuySellPct ?? '—'}%/量${snapshot.derived.noBuySellVolumePct ?? '—'}%` +
         (obs.extLevels.stall_burst_wave === 'burst'
-          ? ` 波=买${snapshot.derived.burstWaveBuyBnb ?? '—'}/${snapshot.derived.burstWaveWallets ?? '—'}户/gap${snapshot.derived.maxGapSec ?? '—'}s`
+          ? ` 波=段买${snapshot.derived.burstExitWaveBuyBnb ?? '—'}/${snapshot.derived.burstExitWaveWallets ?? '—'}户/gap${snapshot.derived.burstLastGapSec ?? '—'}s` +
+            (snapshot.derived.burstSecSinceWaveEnd !== null && snapshot.derived.burstSecSinceWaveEnd !== undefined ? ` 距锚${snapshot.derived.burstSecSinceWaveEnd}s` : '') +
+            (snapshot.derived.burstWaveWalletNetBnb !== null && snapshot.derived.burstWaveWalletNetBnb !== undefined ? ` 净${snapshot.derived.burstWaveWalletNetBnb}回${snapshot.derived.burstWaveSellBackPct ?? '—'}%` : '')
           : '') +
         (snapshot.derived.spikeBuyBnb !== null && snapshot.derived.spikeBuyBnb !== undefined
           ? ` 尖刺=买${snapshot.derived.spikeBuyBnb}/${snapshot.derived.spikeWallets}户@t+${snapshot.derived.spikeFromDt}~${snapshot.derived.spikeToDt} 占簇${snapshot.derived.spikeBuyPctInBurst ?? '—'}%/持${snapshot.derived.spikeHoldPctAll ?? '—'}%`
@@ -993,7 +972,7 @@ class CheatCheckService {
         const cheatLevels = cheatLv ? cheatLv.levels : null;
         if (cheatSeen && !this._isCheatExemptEligible(
           cheatLv && cheatLv.buckets ? cheatLv.buckets.activityLevel : null,
-          cheatLevels, cheatLv ? cheatLv.anchors : null)) { // CD383/CD391：不豁免=恢复拉黑
+          cheatLevels)) { // CD383/CD391/CD397：不豁免=恢复拉黑
           this._gateBlocked.add(token);
         }
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/

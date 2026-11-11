@@ -155,12 +155,55 @@ ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删
   // 涨起后最低=行5@30 的 0.9（破发 −10%）→ minVs=-10；现价 1.3=+30% → gap=30−(−10)=40
   ok(dM.minVsLaunchPct === -10 && dM.curVsMinGapPct === 40,
     `BP58 curVsMinGapPct（minVs=-10（涨起后最低 0.9 破发）/gap=40（现价 +30 − 最低 −10），实际 ${dM.minVsLaunchPct}/${dM.curVsMinGapPct}）`);
+  // BP72 M fixture recentDip5 三键：tEnd=44 全窗在 30s 域内，最深 5s 段=40→42 的
+  // 1.3→1.0（-23.08%，dqHi 队首 40 差 2s）；未收复=末价 1.3/段起点 1.3=0（已收复形状）
+  ok(dM.recentDip5Pct === -23.08 && dM.recentDip5SecAgo === 2 && dM.recentDip5UnrecoveredPct === 0,
+    `BP72 M fixture recentDip5（-23.08%/距 2s/未收复 0——44s 行已回到段起点价，实际 ${dM.recentDip5Pct}/${dM.recentDip5SecAgo}/${dM.recentDip5UnrecoveredPct}）`);
+  // BP72 M fixture 尾 10s (34,44]=行 40/42/44 三笔买各 0.1 → 3 笔/0.3/卖 0
+  ok(dM.activity.nearTail10BuyN === 3 && near(dM.activity.nearTail10BuyBnb, 0.3) && dM.activity.nearTail10SellBnb === 0,
+    `BP72 M fixture 尾 10s=3 笔买 0.3/卖 0（实际 ${dM.activity.nearTail10BuyN}/${dM.activity.nearTail10BuyBnb}/${dM.activity.nearTail10SellBnb}）`);
+}
+{
+  // BP72 族二立法形状迷你 fixture（idx195 币安之心变体）：横盘 1.0 → 87s 买拉起
+  // → 92s 深砸 5s 段 -25%（0.75）→ 尾段零买纯卖小推进稳在 0.75~0.76——
+  // 臂 B（深段距 6s 未收复 -24%）+臂 A（尾 10s 零买纯卖 0.6）双主锚形状
+  const rowsB72 = [
+    row(10, 'BUY', W_B, 0.2, 1.0 * E9, 1e8),
+    row(40, 'BUY', W_C, 0.2, 1.0 * E9, 1e8),
+    row(70, 'SELL', W_B, 0.15, 0.98 * E9, 1e8),
+    row(87, 'BUY', W_D, 0.3, 1.0 * E9, 1e8),
+    row(92, 'SELL', W_E, 0.4, 0.75 * E9, 1e8),
+    row(95, 'SELL', W_C, 0.1, 0.75 * E9, 1e8),
+    row(98, 'SELL', W_B, 0.1, 0.76 * E9, 1e8),
+  ];
+  const dB = buildBuyPointSnapshot(rowsB72, metaA).buyDerived;
+  ok(dB.recentDip5Pct === -25 && dB.recentDip5SecAgo === 6 && dB.recentDip5UnrecoveredPct === -24,
+    `BP72 族二形状 recentDip5 三键（-25%/距 6s/未收复 -24%——深段就在近 30s 且现价未收复，实际 ${dB.recentDip5Pct}/${dB.recentDip5SecAgo}/${dB.recentDip5UnrecoveredPct}）`);
+  ok(dB.activity.nearTail10BuyN === 0 && dB.activity.nearTail10BuyBnb === 0 && dB.activity.nearTail10SellBnb === 0.6,
+    `BP72 族二形状尾 10s 零买纯卖 0.6（臂 A 主锚形状——「先买入、然后只有卖出」，实际 ${dB.activity.nearTail10BuyN}/${dB.activity.nearTail10BuyBnb}/${dB.activity.nearTail10SellBnb}）`);
+  // BP72 两行 state 直供行渲染（BP71 铁律：判据引入派生量必须 state 直供——题面
+  // 判读原料不能只落 digest）：族二形状双主锚行的渲染精确文本（chg=toFixed(2)）
+  const stB = buildBuyPointState(buildBuyPointSnapshot(rowsB72, metaA)).state;
+  ok(stB.includes('近期暴跌段(锚前30秒内最深5秒段): -25.00%、距今 6 秒、现价距该段起点 -24.00%'),
+    'BP72 state 暴跌血缘行渲染（-25.00%/距 6 秒/未收复 -24.00%——臂 B 主锚直供行在场）');
+  ok(stB.includes('锚前尾段买卖对比(最后10秒): 买 0 笔 / 0 BNB、卖 0.6 BNB'),
+    'BP72 state 尾段买卖对比行渲染（臂 A 主锚直供行——买 0 笔/0 BNB、卖 0.6 BNB）');
+  // A fixture recentDip5 null → 暴跌血缘行缺席（缺证据不渲染，宁缺不冒充）
+  const stB0 = buildBuyPointState(buildBuyPointSnapshot(rowsA, metaA)).state;
+  ok(!stB0.includes('近期暴跌段'), 'BP72 state 暴跌血缘行缺席（recentDip5 null 不渲染——守卫非 null 才出场）');
 }
 ok(dA.maxChg5Pct === null, `A fixture 无 ≤5s 跨行段（间隔≥10s、同块行队首==j 不计）→ maxChg5=null（实际 ${dA.maxChg5Pct}）`);
 // BP58 A fixture 三键：同块行 9→10（2.0→1.95）=-2.5% 计入（双单调队列同块两笔价格差真实）；
 // 临近段 dt>95 段内无 ≤5s 跨行涨段（110→125 已 15s 外）→ nearMaxUp5=null 有证据缺失
 ok(dA.maxDn5Pct === -2.5 && dA.nearMaxUp5Pct === null && dA.nearMaxDn5Pct === -2.5,
   `BP58 A fixture 速度三键（maxDn5=-2.5 同块段/nearMaxUp5=null 段内无涨段/nearMaxDn5=-2.5，实际 ${dA.maxDn5Pct}/${dA.nearMaxUp5Pct}/${dA.nearMaxDn5Pct}）`);
+// BP72 暴跌血缘三键（A fixture：30s 域 dt≥185 内无跨行 5s 段——185 两行同 dt 同价
+// 队首==j 不计、200/215 各自窗内无更早行）→ 全族 null（缺证据语义，宁缺不冒充）
+ok(dA.recentDip5Pct === null && dA.recentDip5SecAgo === null && dA.recentDip5UnrecoveredPct === null,
+  `BP72 A fixture recentDip5 三键 null（30s 域无跨行 5s 段，实际 ${dA.recentDip5Pct}/${dA.recentDip5SecAgo}/${dA.recentDip5UnrecoveredPct}）`);
+// BP72 尾 10s 买卖分解三键（半开窗 (205,215]=行18 一笔买 0.1；行17@200 窗外）
+ok(dA.activity.nearTail10BuyN === 1 && near(dA.activity.nearTail10BuyBnb, 0.1) && dA.activity.nearTail10SellBnb === 0,
+  `BP72 A fixture 尾 10s=1 笔买 0.1/卖 0（实际 ${dA.activity.nearTail10BuyN}/${dA.activity.nearTail10BuyBnb}/${dA.activity.nearTail10SellBnb}）`);
 // BP58 A fixture curVsMinGapPct：launch=首可靠价 1.0@5，首个突破 +10% 离开=行3@35 的 1.2，
 // 涨起后最低=离开笔自身 1.2（此后再未低于它）→ minVs=+20；现价 1.6=+60% → gap=40
 ok(dA.minVsLaunchPct === 20 && dA.curVsMinGapPct === 40,
@@ -418,8 +461,18 @@ console.log('A10. cheatBurst 透传（cheat 门 sbw 引擎组装 [ANCHOR] 渲染
   ok(stCb.includes('作弊盘检测 burst 判定') && stCb.includes('长期沉积后一朝放量操盘')
     && stCb.includes('activity_level 选 burst') && stCb.includes('本题不重复判定'),
     'A10: state [ANCHOR] burst 判定行（「作弊盘检测 burst 判定」+沉积前提语义+选 burst 指令+不重复判定声明——BP67 立法核心句）');
-  ok(stCb.includes('58s') && stCb.includes('0.77') && stCb.includes('11 钱包') && stCb.includes('2.9%'),
-    'A10: state burst 行波锚数值（maxGapSec 58/waveBuyBnb 0.77/wallets 11/exitVs 2.9——ba5e 07:52 案实值形状）');
+  ok(stCb.includes('58s') && stCb.includes('0.77') && stCb.includes('11 钱包'),
+    'A10: state burst 行波锚数值（maxGapSec 58/waveBuyBnb 0.77/wallets 11——ba5e 07:52 案实值形状；exitVs 2.9 已随 D3.67 ④「仅参考不作否决」退出渲染）');
+  // D3.67/CD397：新键在场时波族行补流向/跨度段（净额/卖回率/波末距锚点）；旧键回退兼容（?? 链）
+  const cbPayload67 = {
+    ...cbPayload,
+    lastGapSec: 68, exitWaveBuyBnb: 2.04, exitWaveWallets: 55,
+    waveWalletNetBnb: 1.83, waveSellBackPct: 10.3, secSinceWaveEnd: 9,
+  };
+  const stCb67 = buildBuyPointState(buildBuyPointSnapshot(rowsA, metaA, { cheatBurst: cbPayload67 })).state;
+  ok(stCb67.includes('最后静默段 68s') && stCb67.includes('2.04 BNB / 55 钱包')
+    && stCb67.includes('波钱包全窗净额 1.83 BNB（卖回 10.3%）') && stCb67.includes('波末距锚点 9s'),
+    'A10: D3.67 波族事实透传（新键优先：lastGapSec/exitWave 两键+流向段净额/卖回+跨度段波末距锚点——act 题头「沉积期低活跃是前提」语境核对原料）');
   // 缺席分支：null/不传 → state 不渲染（fail 方向=cheat 无结果时 BP 照常七要素判档宁拦）
   const snapCbNull = buildBuyPointSnapshot(rowsA, metaA, { cheatBurst: null });
   const snapCbNoOpt = buildBuyPointSnapshot(rowsA, metaA);
@@ -500,7 +553,7 @@ ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有
     && act.nearSegTickN === cd.nearSegTickN && act.nearSegBnbPerMin === cd.nearSegBnbPerMin && act.spanSec === cd.spanSec && act.tickCount === cd.tickCount,
     'C: activity 锚族=cheatDerived 同名同值透传（单点计算不重算——BP 锚窗=买点前窗口）');
   const keysAct = Object.keys(act).sort().join(',');
-  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearPre20BnbPerMin,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail10BnbPerMin,nearTail10SellWallets,nearTail10TickN,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 21 键（BP41 尾段占比锚 16→17+CD394 尾窗四键 17→21：nearTail10TickN/BnbPerMin+nearPre20BnbPerMin+nearTail10SellWallets 出货臂判读线，实际 ${keysAct}）`);
+  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearPre20BnbPerMin,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail10BnbPerMin,nearTail10BuyBnb,nearTail10BuyN,nearTail10SellBnb,nearTail10SellWallets,nearTail10TickN,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 24 键（BP41 尾段占比锚 16→17+CD394 尾窗四键 17→21+BP72 尾 10s 买卖分解三键 21→24：nearTail10BuyN/BuyBnb/SellBnb 臂 A 本地买方在场性主锚（BP 侧自算非 cheat 层），实际 ${keysAct}）`);
   ok(snapAct.buyDerived.activity.maxDrawdownPct === cd.maxDrawdownPct, 'C: maxDrawdownPct 透传（可靠价运行峰回撤）');
 }
 
@@ -1019,7 +1072,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP52 七题=7 维度 0 质量/桶域对锁/market_pattern 异常盘面识别四桶+entry_shape 点位性质新题/统一位置门 28.5）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP55', 'F: 版本=BP55（**BP55=案号 BP71 ②桶大户参与 0.2 级判据单笔口径**——v100-R2 案用户裁定「买入仓位不累计，三笔买到 0.23 不算 0.2 以上」：判读读 [WALLETS]「最大单笔」不读累计，snapshot wallets 加 maxBuyBnb 键；BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场直线砸盘、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）；**BP68=spike 出拦域（mapper-only 不 bump——桶域四桶不变）**：ENTRY_GATE_POOR_BUCKETS 收 crash 单桶、spike 判型保留落档观察（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——判例 ea78 开盘 28s 薄票两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike；恢复拦截=把 spike 加回数组一键还原）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP56', 'F: 版本=BP56（**BP56=案号 BP72 两臂——v100 族二裁定「好点位=对倒交易换手中的低点（双边都在换）或较长时间下跌后形成的低点（活跃度未失去）」**：臂 A 本地买方缺席的单边下跌段（「先买入拉起、然后只有卖出」；主锚=锚前尾段买卖对比(最后10秒)行+尾 5s 行+近窗流量行——本地窗在跌∧尾 10s 买归零/纯尘∧卖可观推进∧近窗买方也缺席才落；反例照放 c84a 尾段像样买单在场/a813 双边尘埃=枯竭非推进/f485 近窗双边密集换手）+臂 B 近期暴跌后的余波小活跃（主锚=近期暴跌段(锚前30秒内最深5秒段)行：-18% 级深段距今 ≤30s+现价距段起点 -20% 级以上未收复；BP63 安全臂此域收窄——chg5 收敛/浅于 chg10 在未收复形状不构成安全证据，收复证据=curVsMinGapPct 双位数离开最低或 chg5 转正+尾段双边换手；反例照放 28ad V 形收复进行时/f485 反弹腿）同落 crash；snapshot 新键 recentDip5 三键（深度/距今/未收复）+nearTail10 买卖分解三键（BP 侧自算——CD394 nearTail10 是吞吐口径无买卖分解）；判例海水 0x3023/汤圆 0xeaeb/苹果SI 0xc9bf/币安之心 0x08aa/蝴蝶 0xb359+2ef6/258e 复发；**BP55=案号 BP71 ②桶大户参与 0.2 级判据单笔口径**——v100-R2 案用户裁定「买入仓位不累计，三笔买到 0.23 不算 0.2 以上」：判读读 [WALLETS]「最大单笔」不读累计，snapshot wallets 加 maxBuyBnb 键；BP58 案 bt-v94 七票复盘两改制：①market_pattern 改制异常盘面识别——用户裁定「没必要费劲识别太多盘形，只需要把异常的找出来即可」：桶域收四桶 retail_pvp/famous_monopoly/sustained_climb/none，strong_backer/early_sniper_decay/blended_unremarkable/restart/golden_point 五桶退役归 LEGACY 并域（重放=none 语义）；②entry_shape 点位性质新题——用户裁定「只买性价比高的点位，不追高：买入活跃交易中对倒中的低价/正常下跌造成的低价，不接庄离场直线砸盘、不追尖刺拉起」crash/spike/normal_dip/flat 四桶；统一位置门 NORMAL_ENTRY_LAUNCH_PCT=27.5（用户裁定「现在买入点位已经不是小于 40，应该是小于 27.5」——none+LEGACY 统一放行上界，锚缺失宁拦不冒充拒）；五豁免臂随宿主桶退役全删（BP38 strong_backer ultra/BP46-47 ④高热近价/BP52 restart_chip/BP53-56 ④ultra router+价格腿）——ultra 臂恢复无条件拦、exempt 键绝迹；门链=pattern_gate→entry_gate→activity_gate→chip_gate(停用)→gates_passed；BP53=案号 BP61 famous 快进快出收割完残局臂+退出臂前提修正；**BP54=案号 BP67 act 加第五档 burst**（v100 ba5e 07:52 案 cheat sbw 豁免放行 vs BP act low 拒叙事矛盾——用户裁定「不要重复检测，把 burst 信息输入到买入检查模块，活跃度给新增一个选项：burst，这个选项不 block 买入」：cheat 侧 sbw 引擎透传 [ANCHOR] burst 判定行，行在场选 burst 不压档、缺席照常判；拦域仍 low/ultra）；**BP68=spike 出拦域（mapper-only 不 bump——桶域四桶不变）**：ENTRY_GATE_POOR_BUCKETS 收 crash 单桶、spike 判型保留落档观察（用户裁定「我们已经控制了价格，所以 spike 没有必要再存在……或者保留也可以，但是不 block 买入」——判例 ea78 开盘 28s 薄票两笔 0.136/0.16 正常额度买单贴顶臂 -5.13 恰过线误判 spike；恢复拦截=把 spike 加回数组一键还原）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 6, `F: 恰 6 题=6 维度 0 质量（BP48 两质量题+BP49 两维度题退役+BP58 entry_shape 新题+BP60 market_heat 退役；实际 ${ids.length}）`);
@@ -1113,7 +1166,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(JSON.stringify(ENTRY_GATE_POOR_BUCKETS) === JSON.stringify(['crash']), 'F: BP68 ENTRY_GATE_POOR_BUCKETS 收 crash 单桶（用户裁定「因为我们已经控制了价格，所以 spike 没有必要再存在，直接删除即可」+「或者保留也可以，但是不 block 买入」——判型保留落档观察、有 case 再思考对策；恢复拦截=把 spike 加回本数组）');
   const esIns = qs.entry_shape.instructions;
   ok(esIns.includes('判定**买点时刻价格走到当前位置的方式**') && esIns.includes('BP58 立法：只买性价比高的点位、不追高——好点位=活跃交易中对倒中的低价/正常下跌造成的低价，不是庄家离场时的暴跌，也不是尖刺拉起的追高点'), 'F: entry_shape 题头=交易理念直译（BP58 用户裁定——好点位=对倒中的低价/正常下跌的低价）');
-  ok(esIns.includes('四桶判序：先看 crash 数值提示臂（命中进入**形态复核**——[PRICE] 价格拱直线垂直砸落才落 crash），再判 spike（尖刺拉起）各臂，都不命中按回落形态分 normal_dip/flat') && esIns.includes('crash/normal_dip 判的是价格拱形态、不是跌幅数值'), 'F: entry_shape 四桶判序句（BP58 二修形态判读——crash 数值臂=复核提示、定桶看 [PRICE] 拱形态；判序 crash→spike→normal_dip/flat）');
+  ok(esIns.includes('四桶判序：先看 crash 数值提示臂（命中进入**形态复核**——[PRICE] 价格拱直线垂直砸落才落 crash）与 **BP72 两臂（本地买方缺席的单边下跌段/近期暴跌后的余波小活跃——判读见 crash 桶 BP72 段）**，再判 spike（尖刺拉起）各臂，都不命中按回落形态分 normal_dip/flat') && esIns.includes('crash/normal_dip 判的是价格拱形态、不是跌幅数值') && esIns.includes('好点位=「对倒交易换手中的低点」（买方卖方双边都在换）或「较长时间下跌后形成的低点（活跃度未失去）」'), 'F: entry_shape 四桶判序句（BP58 二修形态判读+BP72 两臂入判序与理念框定——crash 数值臂=复核提示、定桶看 [PRICE] 拱形态；判序 crash+BP72 两臂→spike→normal_dip/flat）');
   ok(esIns.includes('① 现价较锚窗最高价深跌：currentVsAthPct ≤ -25%') && esIns.includes('② 近 30s 动量深跌：chg30Pct ≤ -25%') && esIns.includes('③ 临近段单 5s 段急跌：nearMaxDn5Pct ≤ -15%') && esIns.includes('④ 现价贴着锚窗最低价：curVsMinGapPct ≤ 2 个百分点'), 'F: crash 四臂判读线（bt-v94 三砸盘 LOVE/STOCKLESS/币安之心 curVsAth -28~-37+chg30 深跌全中；对倒正例米/施工鸭 -6~-7 不中）');
   ok(!esIns.includes('砸盘后的反弹不救 crash') && esIns.includes('较最高深跌/急跌数值命中不等于 crash') && esIns.includes('f485/40a2 深跌+急跌数值双中、用户裁定「能接受的盘形」照放'), 'F: crash 反弹不救句已随二修删除（f485/40a2 实证推翻——反弹台阶是 normal_dip 证据非 crash 洗白；数值命中不等于 crash 反锚句在场）');
   ok(esIns.includes('① 现价贴锚窗最高价：currentVsAthPct ≥ -5%（拉升进行时贴顶——单独成立，此刻买入=顶上接）') && esIns.includes('② 贴顶+近 30s 动量急涨：chg30Pct ≥ +20%（须与①联立）') && esIns.includes('③ 贴顶+临近段单 5s 段急拉：nearMaxUp5Pct ≥ +15%（须与①联立）') && esIns.includes('急拉但已从高点回落超过 5 个百分点（currentVsAthPct < -5）不判 spike'), 'F: spike 三臂判读线=贴顶必要条件+联立（首版米/施工鸭误中急拉臂后修正：对倒回升波段 5s 段 +20~25 同样有急拉，区分轴=现价在不在刺尖上——YiYi curVsAth 0 贴顶中臂+统一门 38.8>27.5 双拦；米 -6.98/施工鸭 -6.38 已回落 6~7pp 不贴顶走 normal_dip）');
@@ -1174,7 +1227,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     'F: BP70 前置句指针+criteria 同步（651 前置段薄盘臂加「尘埃残仓除外」指针；criteria.famous_monopoly 桶级语义句同步——判型归 Jev 不搞代码门）');
   // BP53 九修/案号 BP66（版本内返工不 bump）：c84a v100 双误判（12:31:26 crash 0.5 贴线拒/
   // 12:31:32 act ultra 拒）引出两立法——①crash 必要条件=买点本身急跌；②act ultra 密度数值锚
-  ok(esIns.includes('**判 crash 的必要条件=买点本身处在急跌里（BP66）**') && esIns.includes('累计跌幅大不等于点位急') && esIns.includes('较长时间的中等速率下跌（阴跌/阶梯下行数十秒、累计幅度可以很深）在买点时刻本地窗平缓') && esIns.includes('俩 0.1 级买入接一笔 0.25 级卖出的节奏') && esIns.includes('不是 crash，落 normal_dip**（判例 c84a：开盘 2 秒拉到 +200% 后 40 余秒中等速率阴跌破 +27.5% 线、买点前每秒 1~2 笔平缓换手') && esIns.includes('急了幅度浅也砸（44d9：一秒翻转 -22）、不急跌得多也不砸（c84a：累计深但点位缓）——判桶只看买点本地窗的急缓，与累计幅度无关'), 'F: BP66 crash 必要条件=买点本身急跌（用户裁定「所谓 crash，至少在该点位本身是急跌的……比较长时间的中等速率下跌，但是在点位本身并不是急跌」——判桶看本地窗急缓不看累计幅度；与 44d9 幅度浅照样砸合成完整框架）');
+  ok(esIns.includes('**判 crash 的必要条件=买点本身处在急跌里（BP66）**') && esIns.includes('累计跌幅大不等于点位急') && esIns.includes('较长时间的中等速率下跌（阴跌/阶梯下行数十秒、累计幅度可以很深）在买点时刻本地窗平缓') && esIns.includes('俩 0.1 级买入接一笔 0.25 级卖出的节奏') && esIns.includes('不是 crash，落 normal_dip**') && esIns.includes('（**注意：此处的「平缓换手」指双边节奏——本地窗只有卖单推进、买单归零/纯尘的不是平缓换手，走 BP72 臂 A 判 crash**）') && esIns.includes('（判例 c84a：开盘 2 秒拉到 +200% 后 40 余秒中等速率阴跌破 +27.5% 线、买点前每秒 1~2 笔平缓换手') && esIns.includes('急了幅度浅也砸（44d9：一秒翻转 -22）、不急跌得多也不砸（c84a：累计深但点位缓）——判桶只看买点本地窗的急缓，与累计幅度无关'), 'F: BP66 crash 必要条件=买点本身急跌（用户裁定「所谓 crash，至少在该点位本身是急跌的……比较长时间的中等速率下跌，但是在点位本身并不是急跌」——判桶看本地窗急缓不看累计幅度；与 44d9 幅度浅照样砸合成完整框架；BP72 补双边节奏注意句——单边卖推进不是平缓换手走臂 A）');
   ok(esIns.includes('**累计跌幅深也不等于点位急（BP66）**') && qs.entry_shape.criteria.crash.includes('**判本桶的必要条件=买点本身处在急跌（BP66）**') && qs.entry_shape.criteria.normal_dip.includes('累计跌幅深而点位平缓的照放本桶（BP66：判桶看买点本地窗急缓不看累计幅度，判例 c84a 长程中等速率阴跌）') && esIns.includes('+200% 拉高后 40 余秒中等速率阴跌、买点前俩 0.1 级买入接一笔 0.25 级卖出平缓换手（c84a：跌得多不等于点位急）'), 'F: BP66 crash 反锚/形状样本/criteria 三处同步（normal_dip 判例 c84a 由「慢跌后横盘企稳」扩写为长程阴跌+点位平缓换手立法锚）');
   ok(!('famous_domination' in qs), 'F: BP47 控盘题厚盘判档语义已随题退役（BP49——厚盘不判拦截档/先看厚薄再谈切点等判档教学随题删除，厚度维度适用域主述在 market_pattern 前置检查②承接）');
   // BP58 二修——判型恢复：五桶桶名+判据全文在场（首版误删被用户裁定「简化而不是删除」推翻）

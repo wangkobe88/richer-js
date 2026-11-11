@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G17', '版本常量 G17（改规则必须 bump+同步台账+跑黄金集；G17=N 通道聚合路由入口占比（2026-11-05 CD350 侦察立项，CD374）：用户提案「把 GMGN 路由的流量占比给过去，如果太低就不行」+裁定「门可以加」——锚窗买入笔走聚合路由（AGGREGATOR_ROUTER_ADDRS 9 址全集，同日扩录）占比 <10% 且买 ≥15 笔（snapshot 层 ROUTER_ENTRY_MIN_BUYS 样本薄保护，<15 笔锚 null fail-open）→ unhealthy 拒买级留痕 N_no_retail_entry<值>；363 票分布定线 healthy 52 票 min 23.8/strongbacked 8 票 min 50、<10% 全在 cheat 17+unhealthy 4；与 2026-10-31 删 routerPct state 行裁定不冲突（彼判「高占比方向」无判别力，本轮判「低占比方向」=散户入口缺失）；独立通道不进 A 主判；G16=D 通道邻界联立臂（CD323 huh 案，2026-11-05 v72 终审）：dom=high ∧ top3≥35 ∧ 组织买≥70 双贴线豁免不显著 → 拦留痕 D_famous_near_band——豁免双臂须显著成立（分散 <35/承接 <70）；G15=D3.51 burst_spike_concentration 入 EXT 清单即被 A 主判自动吸收（strong→cheat 拉黑级）——CD157 가나/CD102 SAFU 两票裁定立项「burst 没有问题，但是这里的burst明显是一个尖刺……一算就知道这是作弊行为」+「这个裁定为 cheat」+「好，落吧」；25 票分离度实证占比硬门不可行（healthy CD104 54.6/CD98 48.8 与 cheat 群数值孪生）→结构判读交 Jev 新题、门侧零数值消费；G14=M 通道超高活跃度 ultra→unhealthy M_hyper_activity（CD138 sniper 两口径否证后活跃度档本身即载体，接受 Mamesuke 错杀））');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G18', '版本常量 G18（改规则必须 bump+同步台账+跑黄金集；G18=G17−G8 弱 burst 代码臂（2026-11-11 CD397 族三 14 票取证收官，用户四条裁定第三条「burst 的判定被代码魔改了，不要魔改，用 Jev 判断」）：E 通道恢复 sbw 单条件——act=low ∧ sbw≠burst 才拦，sbw=burst 即跳过；代码硬线（gap≥60s/买<1.05/户<13）与 CD383 豁免四腿同批拆除，「停滞后只涌入一点小流量」的排除教学移交 sbw 题 D3.67 题面四判轴（跨度 secSinceWaveEnd/尘埃 户均+中位/流向 净额+卖回率/位置仅参考）；E_low_activity_weak_burst 码随臂退役（历史行留档）；定线研究=17 票 sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）——弱波判定权归 Jev 后该防线由题面接棒；G17=N 通道聚合路由入口占比（CD374）<10% 且买 ≥15 笔 ROUTER_ENTRY_MIN_BUYS null fail-open → unhealthy N_no_retail_entry<值>，独立不进 A；G16=D 邻界联立臂（CD323）top3≥35∧组织买≥70 双贴线不显著 → 拦 D_famous_near_band；G15=burst_spike_concentration 入 EXT 清单被 A 自动吸收；G14=M 通道 ultra→unhealthy M_hyper_activity）');
   ok(MAIN_IDS.length === 9 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -370,7 +370,7 @@ function main() {
       'activityLevel null → E 不触发');
   }
 
-  console.log('E2. G8 弱 burst 代码臂（2026-11-02 批次六 CD37/CD79 用户裁定「长期停滞突然涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻 低活跃度 结论」——选「弱 burst 代码臂」落法）');
+  console.log('E2. G8 弱 burst 代码臂已随 G18 退役（2026-11-11 CD397 族三 14 票取证收官，用户四条裁定第三条「burst 的判定被代码魔改了，我的建议依然是不要魔改，用 Jev 判断」——E 通道恢复 sbw 单条件，弱波排除教学移交 sbw 题 D3.67 题面四判轴；定线研究=tmp-burst-strength@182 17 票 sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）：弱波判定权归 Jev 后「gap 60/买 1.04/户 12」这类形状由题面跨度/尘埃/流向轴拒掉 sbw=burst 本身，E 自然恢复拦截）');
   {
     const mk = (anchors, sbw = 'burst') => {
       const o = baseObs();
@@ -380,33 +380,28 @@ function main() {
       Object.assign(o.anchors, anchors);
       return o;
     };
-    // 三键全中 → 豁免不成立（长期停滞后只涌入一点小流量）
-    const r1 = grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.04, burstWaveWallets: 12 }), { famousLevel: null, anchorSellCount: 1 });
-    ok(r1.grade === 'unhealthy'
-      && r1.reasons.some((x) => x.code === 'E_low_activity_weak_burst'),
-      '弱 burst 三键全中（gap 60 恰界/买 1.04/钱包 12）→ unhealthy E_low_activity_weak_burst（CD79/CD108/CD70 定线形状）');
-    // 波买入恰界 1.05 → 不算弱 burst（豁免维持；定线「<1.05」严格）
-    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.05, burstWaveWallets: 12 }), { famousLevel: null }).grade === 'healthy',
-      '波买入 1.05 恰界 → 豁免维持（涌入流量足够=推翻低活跃度）');
-    // 强波（买 2.0/钱包 20）→ 豁免维持（G7 行为）
-    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 2.0, burstWaveWallets: 20 }), { famousLevel: null }).grade === 'healthy',
-      '强波（买 2.0/20 户）→ 豁免维持（真流量涌入）');
-    // 停滞不足 60s → 豁免维持（人工 healthy 4 票中 3 票 maxGap 19~43s=开盘密集正常形状）
-    ok(grade(mk({ burstMaxGapSec: 59, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy',
-      'gap 59 <60 → 豁免维持（停滞深度是必要第三维——无停滞不谈弱 burst）');
-    // 钱包恰界 13 → 豁免维持（「<13」严格）
-    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 0.2, burstWaveWallets: 13 }), { famousLevel: null }).grade === 'healthy',
-      '波钱包 13 恰界 → 豁免维持');
-    // 三键任一 null（<G8 旧档断代/dt 缺失）→ 维持 G7 豁免（黄金集重放零变化的机制保证）
+    // G8 退役反证一：原「弱 burst 三键全中」形状（gap 60/买 1.04/户 12）在 G18 下豁免维持
+    // ——代码不再以数值推翻 Jev 的 burst 判定（旧 G8 会产 E_low_activity_weak_burst 拦截）
+    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.04, burstWaveWallets: 12 }), { famousLevel: null, anchorSellCount: 1 }).grade === 'healthy',
+      'G18 反证：弱波三键全中（gap 60/买 1.04/户 12）∧ sbw=burst → 豁免维持（代码硬线退役——判定权归 Jev，弱波形状由 D3.67 题面拒 sbw 本身）');
+    // G8 退役反证二：波键极端小（买 0.2/户 3）∧ sbw=burst → 豁免照维持（无任何数值下限）
+    ok(grade(mk({ burstMaxGapSec: 59, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy'
+      && grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 0.01, burstWaveWallets: 1 }), { famousLevel: null }).grade === 'healthy',
+      'G18 反证：波键极端小 ∧ sbw=burst → 豁免照维持（零数值下限——「停滞后只涌入一点小流量」的排除教学移交题面）');
+    // 三键任一 null（<G8 旧档断代）→ 豁免维持（与 G8 时代同结果——黄金集重放零变化）
     ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: null, burstWaveWallets: 12 }), { famousLevel: null }).grade === 'healthy'
-      && grade(mk({ burstMaxGapSec: null, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy'
-      && grade(baseObs(), { famousLevel: null }).grade === 'healthy',
-      '三键任一 null（旧档断代）→ 维持 G7 豁免（新切口对存档重放零变化）');
-    // sbw≠burst 主路径带弱波键 → code 不带 weak_burst 后缀（sbw=none 主判定）
+      && grade(mk({ burstMaxGapSec: null, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy',
+      '三键任一 null（旧档断代）→ 豁免维持（G18 与 G8-null 同结果——存档重放零变化）');
+    // sbw≠burst 主路径 → E_low_activity 主 code，weak_burst 码全域不再产出
     const r2 = grade(mk({ burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5 }, 'none'), { famousLevel: null });
-    ok(r2.grade === 'unhealthy' && r2.reasons.some((x) => x.code === 'E_low_activity')
-      && !r2.reasons.some((x) => x.code === 'E_low_activity_weak_burst'),
-      'sbw≠burst → E_low_activity 主 code（弱波键在场不改变非 burst 主路径留痕）');
+    ok(r2.grade === 'unhealthy' && r2.reasons.some((x) => x.code === 'E_low_activity'),
+      'sbw≠burst → E_low_activity（弱波键在场不改变主路径——锚已纯观察）');
+    const fs = require('fs');
+    const gradeSrc = fs.readFileSync(require.resolve('../src/market-analysis/cheat-grade.js'), 'utf8');
+    // 剥注释后检查（头注/行注的案史留档不算产出）；再锁 reasons.push 无 weak_burst 形状
+    const gradeNoComments = gradeSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    ok(!gradeNoComments.includes('E_low_activity_weak_burst'),
+      '源码锁：cheat-grade.js 剥注释后零 E_low_activity_weak_burst（G8 臂整链退役——gradeObs 不再产出该码，头注案史留档不算）');
   }
 
   console.log('K/L. 零买入纯卖方通道+insider 联立臂（G8 双修，2026-11-02 批次六 CD5 用户裁定「创建者已经卖了，而且应该是通过代币转入的方式卖的，你检查下，这也是一个明显的作弊行为」——链上实锤=创建块同块 Transfer 分光 3.18 亿 token、6 接收户零买入同块卖出 Σ2.09 BNB 占总卖 45%；Transfer 不在采集域，swap 侧写=零买入纯卖方）');

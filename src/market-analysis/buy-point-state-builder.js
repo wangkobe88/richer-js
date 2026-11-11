@@ -91,9 +91,16 @@ function buildBuyPointState(snapshot) {
     // 模块，活跃度给新增一个选项：burst，这个选项不 block 买入」。行在场=上游
     // （作弊盘检测，同窗）已判定本票为 burst 形状；BP 不重复判定 burst，activity_level
     // 采信该结论选 burst 桶。缺席=无 burst 证据不渲染（act 照常判——宁拦不冒充）。
+    // D3.67/CD397（2026-11-11）起新增单段绑定波事实透传（跨度/流向轴——sbw 已按
+    // 四要素重判，行内补波末距锚点秒数与波钱包净额/卖回率供 act 题头「沉积期低
+    // 活跃是前提」语境核对）；state-only 文案不 bump BP 题集版本。
     const cb = snapshot.cheatBurst;
     if (cb) {
-      lines.push(`作弊盘检测 burst 判定: 本票在作弊盘检测（同窗）中已判定为 burst 形状（长期沉积后一朝放量操盘；波锚 最长静默 ${cb.maxGapSec ?? '?'}s、最密波买 ${cb.waveBuyBnb ?? '?'} BNB / ${cb.waveWallets ?? '?'} 钱包、波起点较发行价 ${cb.exitVsLaunchPct ?? '?'}%）——activity_level 判读采信该结论：沉积期低活跃度正是 burst 形状的前提而非拒买证据，activity_level 选 burst（不因全窗量级低压低档；本题不重复判定 burst 形状）`);
+      const flow = cb.waveWalletNetBnb === null || cb.waveWalletNetBnb === undefined ? '' :
+        `、波钱包全窗净额 ${cb.waveWalletNetBnb} BNB（卖回 ${cb.waveSellBackPct ?? '?'}%）`;
+      const span = cb.secSinceWaveEnd === null || cb.secSinceWaveEnd === undefined ? '' :
+        `、波末距锚点 ${cb.secSinceWaveEnd}s`;
+      lines.push(`作弊盘检测 burst 判定: 本票在作弊盘检测（同窗）中已判定为 burst 形状（长期沉积后一朝放量操盘；最后静默段 ${cb.lastGapSec ?? cb.maxGapSec ?? '?'}s、出口后最密波买 ${cb.exitWaveBuyBnb ?? cb.waveBuyBnb ?? '?'} BNB / ${cb.exitWaveWallets ?? cb.waveWallets ?? '?'} 钱包${flow}${span}）——activity_level 判读采信该结论：沉积期低活跃度正是 burst 形状的前提而非拒买证据，activity_level 选 burst（不因全窗量级低压低档；本题不重复判定 burst 形状）`);
     }
     parts.push(`[ANCHOR]\n${lines.join('\n')}`);
   }
@@ -123,6 +130,14 @@ function buildBuyPointState(snapshot) {
     // 最深 5s 段跌幅、nearMaxUp5/nearMaxDn5=锚前 120s 临近段最深 5s 段涨/跌——
     // crash 直线砸盘/spike 尖刺拉盘的速度证据）
     lines.push(`回看速度(5秒段): 全窗最大涨幅 ${chg(b.maxChg5Pct)} / 最大跌幅 ${chg(b.maxDn5Pct)}；临近段(锚前120s)最大涨幅 ${chg(b.nearMaxUp5Pct)} / 最大跌幅 ${chg(b.nearMaxDn5Pct)}（可靠价滚动 5s 窗最陡段；涨幅不是速度，判「前期暴涨/暴跌」以此为速锚而非累计涨幅；点位性质判读原料——临近段单段跌 ≥15%=直线砸盘进行时、单段涨 ≥15%=尖刺拉升；? = 可靠价不足）`);
+    // BP72 暴跌血缘行（v100 族二裁定「或者是暴跌后的交易小活跃期（这个要识别
+    // 近期的暴跌）」）：锚前 30s 内最深 5s 段三件套直供——深段距今+现价距段
+    // 起点的未收复幅度。idx195/idx5/idx206 形状=深段距 5~17s+未收复 -25%~-50%
+    // +chg5 已收敛（两波砸落之间的间歇平静）；28ad 反例=-31% 段距 15s 但未收复
+    // 仅 -18%+chg5 +14（收复进行时）。判读归题面（BP63 安全臂收窄的前提证据）。
+    if (b.recentDip5Pct !== null && b.recentDip5Pct !== undefined) {
+      lines.push(`近期暴跌段(锚前30秒内最深5秒段): ${chg(b.recentDip5Pct)}、距今 ${b.recentDip5SecAgo ?? '?'} 秒、现价距该段起点 ${chg(b.recentDip5UnrecoveredPct)}（未收复幅度——暴跌血缘直供：深段就在近 20 秒内且现价未收复=买点处于暴跌后的余波而非独立低点；已收复/距今远=跌势已走完；? = 可靠价不足或 30 秒内无 5 秒段）`);
+    }
     // （②a 摆动结构行已删——BP30/题集 BP33 tree_position 题退役：zigzag 锚照算
     //    落 digest 纯留档，state 不再渲染圣诞树原料行）
     // ③ 近窗流量
@@ -158,6 +173,14 @@ function buildBuyPointState(snapshot) {
       // 对比+短窗票照出；cheat-snapshot 单点计算 BP 透传）
       if (ta.nearTail10TickN !== null && ta.nearTail10TickN !== undefined) {
         lines.push(`临近尾窗(尾10秒/前20秒): 尾 10 秒 ${ta.nearTail10TickN} 笔、吞吐 ${ta.nearTail10BnbPerMin ?? '?'} BNB/分钟、卖侧独立钱包 ${ta.nearTail10SellWallets ?? '?'} 个；此前 20 秒吞吐 ${ta.nearPre20BnbPerMin ?? '?'} BNB/分钟（活跃度定档主锚=临近买点四臂判读：尾 10 秒多个独立钱包几乎纯卖（买入趋零/纯尘）=协同出货，档位照实落超高、不因买卖失衡降档；尾 10 秒吞吐较此前 20 秒断崖下降+尾 5 秒趋零/纯尘=临近衰减，全窗密集不救；尾 10 秒未断崖且尾 5 秒仍有真实买入（AMM 卖出恒被池子接走，买入方向才是买方需求在场）=临近仍活；前 20 秒死寂而尾段有真实流量=静默后涌入，全窗稀疏不抹——吞吐为固定窗归一，前 20 秒零流量=0 有证据零值）`);
+      }
+      // BP72 本地买方在场性行（尾 10s 买卖分解直供）——v100 族二裁定「买入前
+      // 一段时间根本没有对倒换手，就是先买入，然后只有卖出（买入很弱）」：
+      // 三态判读原料——买入归零/尘埃+卖出可观=单边出货推进（idx19/idx98/
+      // idx175）；买卖双边在场=换手（c84a 买 0.11~1.9B 对卖）；买卖都尘埃=
+      // 量能枯竭的平静（a813 0.03/0.05——安静阴跌非出货段）。判读归题面。
+      if (ta.nearTail10BuyN !== null && ta.nearTail10BuyN !== undefined) {
+        lines.push(`锚前尾段买卖对比(最后10秒): 买 ${ta.nearTail10BuyN} 笔 / ${ta.nearTail10BuyBnb ?? '?'} BNB、卖 ${ta.nearTail10SellBnb ?? '?'} BNB（本地买方在场性直供——「换手中的低点」要求双边：买入归零/纯尘而卖出可观=只有卖方在推进、不是对倒换手；双边都尘级=量能枯竭的平静，与卖方单边推进分开判读）`);
       }
     }
     // BP14（案号 BP14 BEM Miner 案）：筹码结构行——famous 控盘+持仓集中分层+
