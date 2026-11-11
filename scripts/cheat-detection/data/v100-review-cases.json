@@ -56,6 +56,14 @@
       "covered": "batch 18 全批 10 票（idx 171-180，全部有成交）",
       "outcome": "5 issue（174/175/177/179/180）+ 5 accept（171/172/173/176/178）",
       "resolutions": "全部先记录不动手修（用户确认「先记录，不需要处理」）。归族：burst 识别（174/179，案族第 9/10 例）；长期无回调阴跌（175，idx98 불개미同族）；持仓期卖侧枯竭异常盘应及卖全清（177，卖出侧新机制候选，与 T118/T133 撤离臂同族）；初始价格太低（180，idx143 我靠同族 T130 锚族第二例）"
+    },
+    {
+      "round": 1,
+      "date": "2026-11-11",
+      "time": "2026-11-11（UTC+8，第 20 批）",
+      "covered": "batch 20 全批 10 票（idx 191-200，重构后文件；混合形状：2 cheat 硬拒+1 BP ③桶拒+7 豁免/直过成交）",
+      "outcome": "4 issue（191/192/195/198）+ 6 accept（193/194/196/197/199/200）",
+      "resolutions": "全部先记录不动手修。归族：burst 识别两向（191=拒向首例：CD396 第四腿 exitVs=113.9>40 拒掉真 burst 与立法直接张力+live 双行 sbw 摆动 burst→none；198=放行向：98min 沉积+买点前 30s 零买纯卖+零散户入口锚仍豁免）；launch 基准线族（192 低开向：T130 地板已生效仍被点名，与 idx95 滚动基准/idx143 高开向三向同池）；crash 反弹段漏拦第 2 例（195，含 BP63「chg5 收敛=可接受」判读句反向张力）；199 famous_monopoly ③桶判对样本入 accept"
     }
   ],
   "batches": {
@@ -342,8 +350,18 @@
         191,
         200
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewedAt": "2026-11-11（UTC+8，第 20 批）",
+          "coveredIdx": [
+            191,
+            200
+          ],
+          "summary": "四案 issue（191 burst 拒向首例=CD396 第四腿 exitVs=113.9>40 拒掉用户判定真 burst/192 发布价太低低开票 T130 地板已生效/195 crash 后小反弹第 2 例含 BP63 收敛句张力/198 burst 放行向 98min 沉积+零买纯卖盘），六案 accept（193/194/196/197/199/200）；191/198 取证=bt-v100 信号元数据+live 双行 sbw 摆动"
+        }
+      ]
     },
     "21": {
       "range": [
@@ -16814,8 +16832,9 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "第20批 issue：burst 识别错误（拒向首例）——bt-v100 首判 sbw=burst+波有力全过（gap=314s/buy=2.43B≥0.7/wallets=9）但 CD396 第四腿 burstExitVsLaunchPct=113.9>40 拒豁免→cheat 拒（A强 pump+J_hold+L_insider_sell46，holdingsBalance=strong 同在）；用户判定应算 burst=与 CD396「起来起点价≤40」立法直接张力（高位横盘后流量波 vs 跌到很低再起来），攒批待裁；附 live 侧同票 09:14/09:16 两行 sbw 摆动 burst→none（CD319 同版方差族）",
       "signalId": "6ef037d6-5318-4d3e-846f-90fb08bfb160",
       "anchorIso": "2026-11-05T11:26:29+00:00",
       "anchorDate": "2026-11-05",
@@ -16846,8 +16865,9 @@
       "minVs": 6,
       "firstPointStatus": "executed",
       "pnl": -0.0032,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "第20批 issue：发布价格太低的代币——首笔 0.1923B@4.1271e-9=-8.2% vs FM 常量（低开票）；T130 地板已生效（bp launch=4.1271e-9=min(常量,首买价)）；58s 新票 secSinceAth=3/chg10=+16.2/spike·0.95 贴顶判型不拦，curVs=23.2 过 28.5 门成交 -0.0032；launch 基准线族低开向样本（idx95 滚动基准/idx143 高开向同池待裁）",
       "signalId": "0c7bdc4d-dd7f-463c-ab3e-9e19d2752fe3",
       "anchorIso": "2026-11-05T11:35:37+00:00",
       "anchorDate": "2026-11-05",
@@ -16987,8 +17007,9 @@
       "minVs": 12.4,
       "firstPointStatus": "executed",
       "pnl": -0.0081,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第20批 review 接受当前结果（healthy 直过、act=mid·0.48 不在拦域，-0.0081）",
       "signalId": "74fa21a7-69f4-4c6e-a42c-75fc7757e5b7",
       "anchorIso": "2026-11-05T12:00:00+00:00",
       "anchorDate": "2026-11-05",
@@ -17128,8 +17149,9 @@
       "minVs": 6.2,
       "firstPointStatus": "executed",
       "pnl": 0.0027,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第20批 review 接受当前结果（stall_burst 豁免放行 +0.0027 本批唯一正）",
       "signalId": "3fa2bb56-5344-4d3f-b90f-9d19bd50a6e2",
       "anchorIso": "2026-11-05T12:02:34+00:00",
       "anchorDate": "2026-11-05",
@@ -17269,8 +17291,9 @@
       "minVs": 13,
       "firstPointStatus": "executed",
       "pnl": -0.0071,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "第20批 issue：crash 之后的小反弹——chg10=-29.8/chg30=-29.7 暴跌后 17s（secSinceAth=17）chg5 已收敛 -3.9 的反弹段买入，BP normal_dip·0.71 放行成交 -0.0071；BP59/BP63 判例反弹段漏拦第 2 例（idx190 同族）；⚠BP63 判读句张力：chg5 明显浅于 chg10 的收敛形状本票成立仍不可接受=「收敛≠跌势已止」反向样本，攒批待裁",
       "signalId": "1eb56922-23dd-4f09-b184-cf55a63d3422",
       "anchorIso": "2026-11-05T12:11:26+00:00",
       "anchorDate": "2026-11-05",
@@ -17410,8 +17433,9 @@
       "minVs": 11,
       "firstPointStatus": "executed",
       "pnl": -0.0043,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第20批 review 接受当前结果（healthy 直过 -0.0043）",
       "signalId": "ee9b0fdf-b035-4bec-a71c-c55699e38d9d",
       "anchorIso": "2026-11-05T12:14:00+00:00",
       "anchorDate": "2026-11-05",
@@ -17551,8 +17575,9 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0046,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第20批 review 接受当前结果（cheat 硬拒 A强 spike+J_hold；flap 票 0x1417…ffff；后续点位小亏 -0.0046）",
       "signalId": "58c15489-bd86-4d3d-b080-12b457124f46",
       "anchorIso": "2026-11-05T12:17:48+00:00",
       "anchorDate": "2026-11-05",
@@ -17583,8 +17608,9 @@
       "minVs": 11.9,
       "firstPointStatus": "executed",
       "pnl": 0,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
+      "note": "第20批 issue：burst 识别错误（放行向）——stall_burst 豁免放行（A强 pump+J_hold+N_no_retail_entry0.0 零散户入口锚在场仍豁免）；98min 沉积盘（spanSec=5888/idlePct=74.5/maxChg5=+48.3 在 80min 前）+买点前 30s 零买纯卖（win30BuyN=0/win30SellN=2，idx189 同款纯卖盘）+routerBuyPct60=null；用户判定非 burst=对倒组拉盘族（19/72/81/96/185/189 同向）；burst 族放行向再+1",
       "signalId": "0a48c8fc-e222-4a44-93f7-16342b59c156",
       "anchorIso": "2026-11-05T12:26:00+00:00",
       "anchorDate": "2026-11-05",
@@ -17724,8 +17750,9 @@
       "minVs": 14,
       "firstPointStatus": "failed",
       "pnl": -0.004,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第20批 review 接受当前结果（BP ③桶 famous_monopoly·0.62 首点正确拒——cheat activity_high 豁免后 BP 门接力拦；后续点位小亏 -0.004）",
       "signalId": "210a1e63-2099-426e-9373-029ce4479778",
       "anchorIso": "2026-11-05T12:27:57+00:00",
       "anchorDate": "2026-11-05",
@@ -17865,8 +17892,9 @@
       "minVs": 19.9,
       "firstPointStatus": "executed",
       "pnl": -0.0027,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
+      "note": "第20批 review 接受当前结果（羊王 BP31 案本尊 0x5a8d94c6；L_insider_sell100 臂被 activity_high 豁免，-0.0027）",
       "signalId": "7864e568-121a-46d5-9ef3-495db678fac5",
       "anchorIso": "2026-11-05T12:30:54+00:00",
       "anchorDate": "2026-11-05",
@@ -19227,6 +19255,26 @@
         173,
         176,
         178
+      ]
+    },
+    {
+      "round": 1,
+      "batch": "20",
+      "date": "2026-11-11",
+      "idx": "191-200",
+      "issues": [
+        191,
+        192,
+        195,
+        198
+      ],
+      "accepts": [
+        193,
+        194,
+        196,
+        197,
+        199,
+        200
       ]
     }
   ]
