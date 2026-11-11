@@ -45,12 +45,13 @@ const CHEAT_IN_BATCH = 25; // .in() 批上限（红线 5：URL 8KB；25×~30 行
 const PAGE_ROWS = 1000;   // 点位源翻页页大小（对齐 PostgREST max-rows=1000，翻满即有下一页）
 
 function parseArgs(argv) {
-  const args = { name: '', source: 'trades', exps: [], liveExpCount: 3, dedupeSec: null, horizonMin: 15, limitExp: 5000, legsLib: 'signal-source-ladder-v1', excludeLegs: '', keepCheat: false };
+  const args = { name: '', source: 'trades', exps: [], liveExpCount: 3, dedupeSec: null, horizonMin: 15, limitExp: 5000, legsLib: 'signal-source-ladder-v1', excludeLegs: '', keepCheat: false, tickTimeFromMeta: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--name') args.name = String(argv[++i] || '');
     else if (a === '--source') args.source = String(argv[++i] || '');
     else if (a === '--keep-cheat') args.keepCheat = true;
+    else if (a === '--tick-time-from-meta') args.tickTimeFromMeta = true;
     else if (a === '--exps') args.exps = String(argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--live-exp-count') args.liveExpCount = Number(argv[++i]);
     else if (a === '--dedupe-sec') args.dedupeSec = Number(argv[++i]);
@@ -61,7 +62,7 @@ function parseArgs(argv) {
     else { console.error(`未知参数: ${a}`); process.exit(2); }
   }
   args.excludeLegSet = new Set(args.excludeLegs.split(',').map((s) => s.trim()).filter(Boolean));
-  if (!args.name) { console.error('用法: build-set.mjs --name <set> [--source trades|signals] [--exps id,...] [--live-exp-count 3] [--dedupe-sec N] [--horizon-min 15] [--legs-lib <name|none>] [--exclude-legs 腿名1,腿名2]'); process.exit(2); }
+  if (!args.name) { console.error('用法: build-set.mjs --name <set> [--source trades|signals] [--exps id,...] [--live-exp-count 3] [--dedupe-sec N] [--horizon-min 15] [--legs-lib <name|none>] [--exclude-legs 腿名1,腿名2] [--keep-cheat] [--tick-time-from-meta]'); process.exit(2); }
   if (args.source !== 'trades' && args.source !== 'signals') { console.error('--source 须 trades|signals'); process.exit(2); }
   if (args.dedupeSec === null) args.dedupeSec = args.source === 'trades' ? 0 : 60;
   if (!Number.isInteger(args.dedupeSec) || args.dedupeSec < 0) { console.error('--dedupe-sec 须为 ≥0 整数（0=不去重）'); process.exit(2); }
@@ -132,6 +133,40 @@ async function loadBuyTrades(expId, limitExp) {
   const rows = await fetchAllPaged('trades', 'id,token_address,input_currency,input_amount,output_amount,executed_at,created_at,signal_id',
     { experiment_id: expId, trade_direction: 'buy', success: true }, limitExp, `实验 ${expId} 成交买点`);
   return buildTradePoints(rows, expId);
+}
+
+/**
+ * 回测时间轴适配（--tick-time-from-meta，2026-11-11 bt-v103 第二轮复盘立）：回测实验
+ * 的 trades/signals.created_at=**回放进程墙钟**（回测引擎按链上 tick 单调回放但落库时刻
+ * 是墙钟），而 ticks/锚/前向收益全在链上时间轴——两轴断裂使锚=全窗、fwd 恒 null、
+ * ticks 窗末拉到 6 天后（85/85 全截断实测）。
+ *
+ * 修法：买点链上时刻 = signal metadata.tokenCreateTime + buyPoint.anchors.tokenAgeSec
+ * （FA age 口径=链上轴，signalId→signal 行批查）。打 anchorTimeIso 补丁；无 buyPoint
+ * （legacy 腿无 BP 门）或 age 缺失 → 回退 created_at 并计数（fail-open 不拒收）。
+ */
+async function patchTickTimeAxis(points) {
+  const sigIds = [...new Set(points.map((p) => p.signalId).filter(Boolean))];
+  const metaById = new Map();
+  for (let i = 0; i < sigIds.length; i += 100) {
+    const { data, error } = await sb().from('strategy_signals')
+      .select('id,metadata').in('id', sigIds.slice(i, i + 100));
+    if (error) throw new Error(`signal 批查失败（tick-time-from-meta）: ${error.message}`);
+    for (const s of data ?? []) metaById.set(s.id, s.metadata || {});
+  }
+  let patched = 0, fallback = 0, noSig = 0;
+  for (const p of points) {
+    const md = p.signalId ? metaById.get(p.signalId) : null;
+    const tokCreate = md && md.tokenCreateTime ? Date.parse(md.tokenCreateTime) : NaN;
+    const age = md && md.buyPoint && md.buyPoint.anchors ? md.buyPoint.anchors.tokenAgeSec : null;
+    if (Number.isFinite(tokCreate) && Number.isFinite(Number(age)) && age != null) {
+      p.anchorTimeIso = new Date(tokCreate + Number(age) * 1000).toISOString();
+      patched++;
+    } else if (!p.signalId) { p.anchorTimeIso = p.created_at; noSig++; }
+    else { p.anchorTimeIso = p.created_at; fallback++; }
+  }
+  console.log(`tick 时间轴补丁（--tick-time-from-meta）: 补 ${patched} / 回退（无 buyPoint/age）${fallback} / 无 signalId ${noSig}`);
+  return points;
 }
 
 /**
@@ -287,6 +322,7 @@ async function main() {
       console.log(`  剔除腿 [${[...args.excludeLegSet].join('、')}]：${before} → ${pts.length}`);
     }
     console.log(`  ${args.source === 'trades' ? '成交买点' : 'BUY 信号'} ${e.id}: ${pts.length} 条`);
+    if (args.tickTimeFromMeta && args.source === 'trades') await patchTickTimeAxis(pts);
     raw.push(...pts);
   }
   const allTokens = new Set(raw.map((s) => String(s.token_address).toLowerCase()));
@@ -328,11 +364,11 @@ async function main() {
     if (!/^0x[0-9a-f]{40}$/.test(token)) { console.error(`token 地址非法: ${token}`); process.exit(1); }
     const meta = await loadTokenMeta(token);
     tokenMetaMap.set(token, meta);
-    const firstSigMs = Math.min(...sigs.map((s) => Date.parse(s.created_at)));
+    const firstSigMs = Math.min(...sigs.map((s) => Date.parse(s.anchorTimeIso || s.created_at)));
     let startIso, startBasis;
     if (meta.createdAt) { startIso = meta.createdAt; startBasis = 'token_create'; }
     else { startIso = new Date(firstSigMs - 10 * 60000).toISOString(); startBasis = 'first_signal-10min'; windowStartBasisFallback++; }
-    const lastSigMs = Math.max(...sigs.map((s) => Date.parse(s.created_at)));
+    const lastSigMs = Math.max(...sigs.map((s) => Date.parse(s.anchorTimeIso || s.created_at)));
     const endIso = new Date(lastSigMs + args.horizonMin * 60000).toISOString();
     const { rows, capped } = await pullTicksWindow(token, startIso, endIso);
     tokenRows.set(token, rows);
@@ -361,7 +397,7 @@ async function main() {
   for (const s of kept) {
     const token = String(s.token_address).toLowerCase();
     const rows = tokenRows.get(token) || [];
-    const anchorN = anchorCountAt(rows, s.created_at);
+    const anchorN = anchorCountAt(rows, s.anchorTimeIso || s.created_at);
     const meta = tokenMetaMap.get(token);
     const p = {
       pointId: `${idPrefix}${String(++seq).padStart(3, '0')}`,
@@ -372,6 +408,7 @@ async function main() {
       tokenSymbol: s.token_symbol || meta.symbol || null,
       signalId: s.id,
       signalCreatedAt: s.created_at,
+      anchorTimeIso: s.anchorTimeIso || null, // 链上时间轴买点时刻（--tick-time-from-meta 补丁；null=live 同轴直用 signalCreatedAt）
       signalInfo: s.signalInfo,
       anchorTickCount: anchorN,
       thin: anchorN > 0 && anchorN < 8,
@@ -484,6 +521,7 @@ async function main() {
       excludeLegs: args.excludeLegs ? args.excludeLegs.split(',').map((s) => s.trim()).filter(Boolean) : [],
       pagination: '点位源 .range 翻页拉全（PAGE_ROWS=1000 对齐 PostgREST max-rows；v73 前 .limit 单查曾静默截 1000/1673）',
       cheatExclusion: args.keepCheat ? 'off（--keep-cheat：保留 cheat/unhealthy 票，grade 落 points 元数据供复盘）' : '收录前剔除当前判定 cheat/unhealthy 的 token 全部点位（cheat_detection 最新带 grade 行；healthy/无判定放行；构建时点快照语义）',
+      ...(args.tickTimeFromMeta ? { tickTimeFromMeta: '买点锚/窗/前向收益用链上时间轴（signal tokenCreateTime+tokenAgeSec；回测实验 created_at=进程墙钟与 ticks 轴断裂的适配）——points[].anchorTimeIso' } : {}),
       horizonsSec: [...FWD_HORIZONS_SEC],
       horizonMin: args.horizonMin,
       anchorBasis: 'anchorCountAt=block_time≤点位时刻 的行数（宁多勿少近似——引擎墙钟 vs 链钟偏差沿 cheat --experiment 同款）',
