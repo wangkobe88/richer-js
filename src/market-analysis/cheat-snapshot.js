@@ -999,13 +999,18 @@ function computeDerived(snapshot, famousRoster) {
       // T130 地板补丁同源（launch=min(常量, 首笔买入可靠价)，锚窗首笔 BUY 行）——
       // 低开票（67ad68e0/6efa11ce 案）以常量为分母会把波起点位置整体抬高，
       // 与 FA/BP 的 currentVsLaunchPct 同锚换（capped 满帽窗不含出生段时窗内
-      // 首买=可得最早，宁用不冒充缺锚 null）
+      // 首买=可得最早，宁用不冒充缺锚 null）；
+      // **T134 滚动地板（2026-11-11 族一 9/9 案，用户方案三）**：地板原料推广为
+      // 锚窗 waveTicksAll 全量最低可靠价（运行期新低同修、sell 低价也算；截窗窗内
+      // min ≥ 全局 min=锚只偏高不冒充）——与 FA `_minRelPriceBnb`/BP rel min 三点同源
       const _constLaunch = resolveLaunchPriceBnb(
         snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, _quoteTk);
+      let _minRel = 0;
+      for (const t of waveTicksAll) {
+        if (!t.outlier && t.priceBnb > 0 && (_minRel === 0 || t.priceBnb < _minRel)) _minRel = t.priceBnb;
+      }
       const _launch = _constLaunch !== null && _constLaunch > 0
-        ? floorLaunchPriceBnb(_constLaunch, (waveTicksAll.find(
-            (t) => t.side === 'BUY' && !t.outlier && t.priceBnb > 0,
-          ) || {}).priceBnb || 0)
+        ? floorLaunchPriceBnb(_constLaunch, _minRel)
         : null;
       if (_launch !== null && _launch > 0) {
         const _firstRel = waveTicks.find((t) => !t.outlier && t.priceBnb > 0);

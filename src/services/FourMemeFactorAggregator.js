@@ -1020,6 +1020,19 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state._firstBuyPriceBnb = priceBnb;
             }
 
+            // ── T134 滚动地板（2026-11-11 v100 族一 9/9 案 + launch 三方案调研，
+            //    用户方案三「出现价格更低以其为准」）：launch 锚地板原料从 T130 的
+            //    「首笔买入可靠价」推广为「≤t 滚动最低可靠价」——族一案主体是首买
+            //    后运行期跌出新低而锚不动（idx2 -29.3%/idx192 -31.7%/idx180 -27.9%
+            //    均 min 在首买后）。不限 BUY（sell 低价同样是真实成交价）；min 更新
+            //    幂等 → defer 双段喂食（价格段 WSS 到达即喂，链序）与任意序回放
+            //    均收敛；_minRelPriceBnb ≤ _firstBuyPriceBnb 恒成立（首买价也是
+            //    可靠价之一）。发射点=currentVsLaunchPct / famous near_launch 计数
+            //    （两处必须同锚，T133 立法）──
+            if (state._minRelPriceBnb === 0 || priceBnb < state._minRelPriceBnb) {
+                state._minRelPriceBnb = priceBnb;
+            }
+
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
             //    只累不减：卖出不清——"参与过"留痕；名单 null（未加载/失败）整段跳过=因子恒 0 fail-open）
@@ -1909,6 +1922,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
             _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
             _firstBuyPriceBnb: 0,       // T130 首笔买入可靠价 write-once（launch 锚 min(常量, 首买价) 地板补丁原料；0=未见首买）
+            _minRelPriceBnb: 0,         // T134 滚动最低可靠价（launch 地板原料：min(常量, 首买, ≤t 最低可靠价)；min 更新幂等=任意序回放收敛；0=未见可靠价）
             _famousNearLaunchBuys: 0,   // T133 famous near_launch 入场计数（全史单调计数器；写点=价格段/wallet 段补跑双段，见 _countFamousNearLaunchBuy）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
@@ -2338,9 +2352,12 @@ class FourMemeFactorAggregator extends EventEmitter {
      */
     _countFamousNearLaunchBuy(state, priceBnb) {
         if (!(priceBnb > 0)) return;
+        // T134：地板原料换滚动最低可靠价（与 currentVsLaunchPct 同锚立法不变）；
+        // `_minRelPriceBnb || _firstBuyPriceBnb` 后者实为 0 兜底（min 恒 ≤ 首买价），
+        // 价格段滚动更新先于本计数写点（同块序）→ 同 tick 锚已含本笔价
         const launch = _floorLaunchPriceBnb(
             _resolveLaunchPriceBnb(state.platform, state.quoteToken),
-            state._firstBuyPriceBnb,
+            state._minRelPriceBnb || state._firstBuyPriceBnb,
         ) ?? state._relFirstPriceBnb;
         if (!(launch > 0)) return;
         // toFixed(2) 与 currentVsLaunchPct 发射口径同源（裸浮点在边界 10% 处
@@ -3468,10 +3485,12 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (!(state._relPriceBnb > 0)) return null;
                 // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 低开票案）：常量锚先过
                 // floorLaunchPriceBnb=min(常量, 首笔买入可靠价)——首买价低于常量时
-                // 地板改为首买价（防低开票涨幅整体抬高位置门失真）
+                // 地板改为首买价（防低开票涨幅整体抬高位置门失真）；
+                // T134（2026-11-11 族一 9/9 案）：地板原料推广为滚动最低可靠价
+                // _minRelPriceBnb（运行期新低同修——sell 低价也算；min 恒 ≤ 首买价）
                 const launch = _floorLaunchPriceBnb(
                     _resolveLaunchPriceBnb(state.platform, state.quoteToken),
-                    state._firstBuyPriceBnb,
+                    state._minRelPriceBnb || state._firstBuyPriceBnb,
                 ) ?? state._relFirstPriceBnb;
                 return (launch > 0)
                     ? parseFloat((100 * (state._relPriceBnb / launch - 1)).toFixed(2)) : null;

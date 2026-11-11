@@ -592,6 +592,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'currentVsLaunchPct',
         // 2026-11-08 CD381 cheat 重检锚双键（详见 _test_cheat_gate_engine CD381 段）
         'preCheatResult', 'priceBackToAlmostLaunch',
+        // 2026-11-10 T133 批两键漏登补登（actTotalBnb 第 9 键+sinceEntryFamousNearLaunchBuys；
+        // 批次落码时白名单未同步——T134 落地时清点发现，非 T134 新键）
+        'actTotalBnb', 'sinceEntryFamousNearLaunchBuys',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

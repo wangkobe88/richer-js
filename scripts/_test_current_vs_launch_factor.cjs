@@ -122,13 +122,15 @@ console.log('H. 平台 curve 常量锚（four.meme 主流档/flap 主力档；qu
     check('fourmeme 分母=主流档常量（首价滑点 +35.2% 不抬锚：+50 非旧口径 10.95）', () =>
         assert.strictEqual(faFm.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 50));
 
-    // four.meme 破发臂：现价=0.8×常量 → -20（首可靠价口径会给出别的数，锁常量分母）
+    // four.meme 破发臂：1.1×FM → 0.8×FM。T134 起滚动地板=0.8×FM（运行期新低
+    // 下移锚）→ 现价恰为滚动 min → 0（T134 前常量口径 -20；「较发行价」语义在
+    // 锚下移后=「较历史最低」——地板只降不升）
     const faFmD = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
     faFmD.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
     faFmD.processTick(mkTick({ price_bnb: FM * 1.1, timestamp: T0 + 1000 }));
     faFmD.processTick(mkTick({ price_bnb: FM * 0.8, timestamp: T0 + 2000 }));
-    check('fourmeme 破发=现价/常量−1（-20 含破发）', () =>
-        assert.strictEqual(faFmD.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, -20));
+    check('fourmeme 破发新低=滚动地板（现价即 min → 0；T134 前 -20）', () =>
+        assert.strictEqual(faFmD.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 0));
 
     // flap BNB 盘：分母=主力档常量（无 quote_token 行）
     const faFl = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
@@ -185,15 +187,17 @@ console.log('I. T130 地板补丁（launch=min(常量, 首笔买入可靠价)）
     check('I2 高开票地板=常量原值（min 语义；1.2×FM → +20 非旧首可靠价口径 -20）', () =>
         assert.strictEqual(faHigh.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 20));
 
-    // I3 write-once 只认 BUY：首笔可靠价是 sell 0.7×FM（不冻结）→ 首笔 buy 0.9×FM
-    // 才是地板；现价 0.945×FM → +5
+    // I3 T134 起 sell 低价入地板：首笔可靠价 sell 0.7×FM 也是真实成交价 → 滚动
+    // min=0.7×FM=地板（T130 首 buy 0.9 口径给 +5 已退役——write-once
+    // _firstBuyPriceBnb 仍只认 BUY 但发射层原料已换 _minRelPriceBnb）；现价
+    // 0.945×FM → +35
     const faSellFirst = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
     faSellFirst.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
     faSellFirst.processTick(mkTick({ price_bnb: FM * 0.7, timestamp: T0 + 1000, trade_type: 'sell' }));
     faSellFirst.processTick(mkTick({ price_bnb: FM * 0.9, timestamp: T0 + 2000, trade_type: 'buy' }));
     faSellFirst.processTick(mkTick({ price_bnb: FM * 0.945, timestamp: T0 + 3000 }));
-    check('I3 write-once 只认 BUY（首 sell 0.7 不冻结 → 地板=首 buy 0.9；+5）', () =>
-        assert.strictEqual(faSellFirst.buildFactorMap('0xtoken', T0 + 3000).currentVsLaunchPct, 5));
+    check('I3 sell 低价入滚动地板（min=0.7×FM；0.945/0.7−1 → +35 非 T130 首 buy 口径 +5）', () =>
+        assert.strictEqual(faSellFirst.buildFactorMap('0xtoken', T0 + 3000).currentVsLaunchPct, 35));
 
     // I4 无常量平台（gang）不应用地板（floorLaunchPriceBnb 返回 null → 旧口径
     // 首可靠价；首笔 buy 0.8e-9 → 现价 1.6e-9 → +100）
@@ -205,12 +209,93 @@ console.log('I. T130 地板补丁（launch=min(常量, 首笔买入可靠价)）
         assert.strictEqual(faGang.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 100));
 
     // I5 源码锁：地板接线在 currentVsLaunchPct 发射（_floorLaunchPriceBnb 包
-    // _resolveLaunchPriceBnb；_firstBuyPriceBnb write-once 冻结点=priceReliable 块）
+    // _resolveLaunchPriceBnb；_firstBuyPriceBnb write-once 冻结点=priceReliable 块；
+    // T134 滚动 min 更新点同块、发射层两处原料=_minRelPriceBnb）
     const srcI = read('src/services/FourMemeFactorAggregator.js');
-    ok('I5 源码锁（发射=地板包裹常量锚 ?? 首可靠价；冻结点 isBuy write-once）',
+    ok('I5 源码锁（发射=地板包裹常量锚 ?? 首可靠价；冻结点 isBuy write-once；T134 滚动 min 更新+两发射点换参）',
         srcI.includes('_floorLaunchPriceBnb(')
         && srcI.includes('state._firstBuyPriceBnb === 0 && isBuy')
-        && srcI.includes('state._firstBuyPriceBnb = priceBnb'));
+        && srcI.includes('state._firstBuyPriceBnb = priceBnb')
+        && srcI.includes('state._minRelPriceBnb === 0 || priceBnb < state._minRelPriceBnb')
+        && srcI.includes('state._minRelPriceBnb || state._firstBuyPriceBnb')
+        // 滚动更新点必须在 famous 计数写点之前（同 tick 锚已含本笔价）——indexOf 序锁
+        && srcI.indexOf('state._minRelPriceBnb === 0 || priceBnb < state._minRelPriceBnb')
+            < srcI.indexOf('this._countFamousNearLaunchBuy(state, priceBnb)'));
+}
+
+// ═══════════════ J. T134 滚动地板（2026-11-11 v100 族一 9/9 案）═══════════════
+// 用户方案三「如果出现价格比首交易/配置价格更低，那么以其为准」——launch 锚=
+// min(常量, 首买价, ≤t 滚动最低可靠价)。族一案主体=首买后运行期跌出新低而锚不动
+//（idx2 -29.3%/idx192 -31.7%/idx180 -27.9% 均 min 在首买后）；不限 BUY（sell 低价
+// 同样是真实成交价）；锚只降不升（回升不回拨）。
+console.log('J. T134 滚动地板（launch=min(常量, 首买, ≤t 滚动最低可靠价)）');
+{
+    const FM = 4496173469e-18;
+    const newFm = () => {
+        const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+        fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+        return fa;
+    };
+
+    // J1 族一案主形状：首买 1.0×FM（常量域）→ 运行期新低 0.75×FM（sell，T134 前锚
+    // 不动）→ 回升 0.9×FM。滚动地板=0.75×FM → +20（T130/常量口径=−10）
+    const faJ1 = newFm();
+    faJ1.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faJ1.processTick(mkTick({ price_bnb: FM * 0.75, timestamp: T0 + 2000, trade_type: 'sell' }));
+    faJ1.processTick(mkTick({ price_bnb: FM * 0.9, timestamp: T0 + 3000 }));
+    check('J1 运行期新低下移锚（0.75×FM 地板；0.9/0.75−1=+20 非常量口径 −10）', () =>
+        assert.strictEqual(faJ1.buildFactorMap('0xtoken', T0 + 3000).currentVsLaunchPct, 20));
+
+    // J2 锚只降不升：J1 后再涨到 1.4×FM → 1.4/0.75−1≈+86.67（锚滞留新低不回拨）
+    faJ1.processTick(mkTick({ price_bnb: FM * 1.4, timestamp: T0 + 4000 }));
+    check('J2 回升不回拨（锚滞留 0.75×FM → +86.67）', () =>
+        assert.strictEqual(faJ1.buildFactorMap('0xtoken', T0 + 4000).currentVsLaunchPct, 86.67));
+
+    // J3 低开+运行期新低复合（idx2/-29.3% 形状）：首买 0.8×FM → 新低 0.7×FM →
+    // 回升 0.85×FM → 地板=0.7×FM（低开首买价被更深新低覆盖）
+    const faJ3 = newFm();
+    faJ3.processTick(mkTick({ price_bnb: FM * 0.8, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faJ3.processTick(mkTick({ price_bnb: FM * 0.7, timestamp: T0 + 2000, trade_type: 'sell' }));
+    faJ3.processTick(mkTick({ price_bnb: FM * 0.85, timestamp: T0 + 3000 }));
+    check('J3 低开+新低复合（地板=更深新低 0.7×FM → +21.43）', () =>
+        assert.strictEqual(faJ3.buildFactorMap('0xtoken', T0 + 3000).currentVsLaunchPct, 21.43));
+
+    // J4 乱序 min 收敛：同三笔价以不同顺序喂（defer 乱序回推形状），再补一笔统一
+    // 现价 0.9×FM——锚（min）是交换律统计量任意序一致；_relPriceBnb=最后到达价
+    // 依赖喂序（既有机制），故锚收敛用统一末笔观测
+    const mkJ4 = (order) => {
+        const fa = newFm();
+        const px = { a: FM * 0.9, b: FM * 0.7, c: FM * 1.2 };
+        order.forEach((k, i) => fa.processTick(mkTick({ price_bnb: px[k], timestamp: T0 + 1000 + i, block_number: 100 + i })));
+        fa.processTick(mkTick({ price_bnb: FM * 0.9, timestamp: T0 + 5000, block_number: 200 }));
+        return fa.buildFactorMap('0xtoken', T0 + 5000).currentVsLaunchPct;
+    };
+    check('J4 乱序 min 收敛（三序锚全=0.7×FM → 0.9/0.7−1≈+28.57）', () => {
+        const v1 = mkJ4(['a', 'b', 'c']), v2 = mkJ4(['c', 'b', 'a']), v3 = mkJ4(['b', 'a', 'c']);
+        assert.strictEqual(v1, 28.57);
+        assert.strictEqual(v1, v2);
+        assert.strictEqual(v1, v3);
+    });
+
+    // J5 min 高于常量不降锚：全程 1.2~1.5×FM（高开票）→ 地板=常量原值
+    const faJ5 = newFm();
+    faJ5.processTick(mkTick({ price_bnb: FM * 1.5, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faJ5.processTick(mkTick({ price_bnb: FM * 1.2, timestamp: T0 + 2000 }));
+    check('J5 min>常量不降锚（地板=常量 → 1.2×FM → +20）', () =>
+        assert.strictEqual(faJ5.buildFactorMap('0xtoken', T0 + 2000).currentVsLaunchPct, 20));
+
+    // J6 outlier/尘 tick 不进滚动 min（价格链同门：_acceptPrice 离群门与尘门都不入
+    // 可靠价链 → 假低点不砸锚）。FA 侧离群门=1000 倍粗门（OUTLIER_RATIO）且需
+    // recent≥3——先喂 3 笔常量域价填窗再喂 0.0005×FM 假低点（2000 倍偏离确定性拒收）
+    const faJ6 = newFm();
+    faJ6.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faJ6.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 1500 }));
+    faJ6.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 2000 }));
+    faJ6.processTick(mkTick({ price_bnb: FM * 0.0005, timestamp: T0 + 2500 })); // 1000 倍粗离群门拒收
+    faJ6.processTick(mkTick({ bnb_amount: 0.00001, price_bnb: FM * 0.2, timestamp: T0 + 3000 })); // 尘门拒收
+    faJ6.processTick(mkTick({ price_bnb: FM * 0.95, timestamp: T0 + 4000 }));
+    check('J6 outlier/尘假低点不砸锚（地板=0.95×FM → 0）', () =>
+        assert.strictEqual(faJ6.buildFactorMap('0xtoken', T0 + 4000).currentVsLaunchPct, 0));
 }
 
 

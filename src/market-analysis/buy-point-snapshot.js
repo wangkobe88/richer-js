@@ -448,11 +448,18 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     if (constLaunch !== null) {
       // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 低开票案）：首笔买入可靠价低于
       // 平台常量时地板改为首买价（launch 锚=min(常量, 首买价)，floorLaunchPriceBnb）。
-      // launchCovered 保护——窗不含出生段时窗内首买≠全局首买（截窗长票首买被裁，
-      // 窗内首笔 buy 冒充全局首买=错锚，宁用常量）；首买=窗内首笔可靠 BUY 行价
-      const firstBuyRel = launchCovered
-        ? (rel.find((t) => t.side === 'BUY') || {}).priceBnb || 0 : 0;
-      launchAnchor = floorLaunchPriceBnb(constLaunch, firstBuyRel); // 常量平台锚恒有效（不看 launchCovered）
+      // **T134 滚动地板（2026-11-11 v100 族一 9/9 案，用户方案三「出现价格更低以其
+      // 为准」）**：地板原料从「窗内首笔 BUY」推广为「锚窗 rel 全量最低可靠价」——
+      // 族一案主体=首买后运行期跌出新低而锚不动（idx2 -29.3%/idx192 -31.7%）；
+      // sell 低价同样是真实成交价（不限 BUY）；launchCovered 门随之退役（min 是窗内
+      // 因果统计量：截窗长票窗内 min ≥ 全局 min 恒成立=锚只会偏高不冒充低锚，
+      // as-of 因果天然干净；旧 launchCovered 保护针对 write-once「首买」冒充，对
+      // min 语义无意义）。与 FA `_minRelPriceBnb`/CD waveTicksAll min 三点同源。
+      let minRel = 0;
+      for (const t of rel) {
+        if (t.priceBnb > 0 && (minRel === 0 || t.priceBnb < minRel)) minRel = t.priceBnb;
+      }
+      launchAnchor = floorLaunchPriceBnb(constLaunch, minRel); // 常量平台锚恒有效（不看 launchCovered）
     } else if (launchCovered && rel[0].priceBnb > 0) {
       launchAnchor = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段时的首可靠价
     }
