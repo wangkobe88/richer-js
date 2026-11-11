@@ -55,6 +55,23 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T134 滚动地板：launch 锚推广为 min(常量, 首买, ≤t 滚动最低可靠价)——v100 族一 9/9 案方案三落地（2026-11-11，4e0f485a；用户裁定原话「第三，一个轻微的补丁，就是如果出现价格比首交易/配置价格更低，那么以其为准」+第 17 批 idx164 正式裁定「点位偏高，修正相对价格计算方式，如果出现了比配置价格/首买低的价格，以新价格为基准」）
+
+**机制**（三消费点同源换锚，前置调研=`scripts/cheat-detection/data/launch-price-three-options-research.md` bccd9dca）：
+- **T130 地板原料推广**：`floorLaunchPriceBnb(const, x)` 的第二参从「首笔 BUY 可靠价」推广为「≤t 滚动最低可靠价」——FA state 新增 `_minRelPriceBnb`（processTick priceReliable 块滚动更新；**min 幂等=defer 双段喂食/任意序回放收敛**，≤`_firstBuyPriceBnb` 恒成立）；**sell 低价同样入地板**（真实成交价，不限 BUY——FA `_firstBuyPriceBnb` write-once 仍只认 BUY，发射层已换）；锚只降不升（回升不回拨）；无下移速率上限（报告待裁细节 2 按缺省执行）
+- **三消费点**：①FA `currentVsLaunchPct`+T133 `sinceEntryFamousNearLaunchBuys` 区间门（锚与发射口径同源不变）；②BP snapshot 锚窗 `rel` 全量 min（**launchCovered 门退役**——min 是窗内因果统计量：截窗窗内 min≥全局 min 恒成立=锚只偏高不冒充低锚，旧门针对 write-once 首买的中途窗冒充形状对 min 语义无意义）；③CD snapshot burst 锚族（`burstExitVsLaunchPct` 等分母）waveTicksAll 全可靠价 min
+- **回测 as-of 防前视天然满足**（报告待裁细节 3）：三消费点全部按信号/锚时刻截窗计算（BP/CD 锚窗重算、FA 进程态滚动），绝不吃全史最低
+
+**182 对拍读数（bt-v100=11fc182a，族一 9 票信号锚，tmp-t134-launch-parity.cjs）**：
+- **复算旧==生产旧 9/9**（含同秒多笔按 (block_number,log_index) 链上真序——id 序≠链上序，idx192 首秒两笔 4.4905/4.1271 链上序 4.1271 在前）——对拍管线正确性验证
+- **信号锚处 T134 增量有限（诚实读数）**：idx182 +3.4pp（launch 5.4025→5.2582=sell 低价入地板、22.6→26.0 仍过门）/idx143 +0.9pp/idx95·164·165·2·192·180 六票不变——**族一 9 案的深跌大多发生在买点之后**（损失来自 crash 后市，as-of 锚修不了事后；idx192/180 的窗内低点 T130 首买地板已捕获）
+- **锚追踪语义验证达成**（末点全窗对照）：旧锚全程不动制造「破发/贴发行价」幻觉（idx2 -16.3/idx180 -16.0/idx182 -10.4/idx192 -8.2=almost_launch 域可买），新锚正确追到全窗 min（idx2 3.9229e-9=-29.3%/idx192 3.7868e-9=-31.7%/idx180 4.0015e-9=-27.9%，与调研全史 min 逐一吻合）——「深跌后反弹、现价距真实底部很远但 vs 发行价看着不高」的低价幻觉显性化=立法语义在机制层兑现；研究「9/9 命中」指机制域覆盖（min 是运行期新低非起点错），非 9 案历史 gate 决策翻转
+- idx167 memectuk bt-v100 无 BUY 信号无成交（review 票链路不在本实验，留档）
+
+**单测**：`_test_current_vs_launch_factor`（H/I1-I3 断言随语义更新+**新增 J 段六断言**：运行期新低下移/只降不升/低开+新低复合/乱序 min 收敛/min>常量不降锚/outlier 尘假低点不砸锚；I5 源码锁含滚动更新点先于 famous 计数写点的 indexOf 序锁）/`_test_cheat_market_reset`（B3 夹具改纯高开+**新增 B4 滚动地板段**+B4b launchCovered 门退役断言）；顺手补登 T133 批漏登 FA 键白名单两键（actTotalBnb/sinceEntryFamousNearLaunchBuys——`_test_fourmeme_fa_factors`）
+
+**影响面**（统一门 28.5/盘型位置门⑥≤10/BP priceLevel 六桶/ladder 十一臂 28.5/CD burst 第四腿/CD381 priceBackToAlmostLaunch/T133 famous 区间门全部随锚自动生效）；**余留**：方案二 four.meme 读 K（token_create 异步 `_tokenInfos` word10 闭式 P₀，修 21.8% 高开档锚错）待第二批落地；idx164/165「反弹可观即偏高」的门槛侧问题（minVs-aware 门）不在本案权限内攒批
+
 ### T133 四条批量：t0 6 笔+两次 Jev（maxTriggers 2）+actTotalBnb 低活跃门（买腿全腿+镜像卖臂）+famous near_launch 入场撤离臂；库 v17（2026-11-10，46d4d44d；用户裁定原话「再允许 tradeCount 为 6 的数据允许过两次Jev模块」「使用因子表达出"低活跃度"这个情况，请在买入条件中，也加入，毕竟买入是不接受低活跃度」「买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出」「代币在价格 low 区间（不包含 near_launch 区间），活跃度掉到 low，立即全部卖出」）
 
 **四条逐项**：
