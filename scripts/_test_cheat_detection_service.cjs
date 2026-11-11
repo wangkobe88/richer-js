@@ -413,8 +413,8 @@ async function main() {
     // CD398 流向腿容缺路径（服务级）：genTicks 基底无 ≥50s 沉积段 → 波族键 null
     // → 流向腿容缺照授予（本豁免达成即证 null 不误杀；D3.67 前旧行断代同语义）。
     // 净负拒向的单元级行为在 gate_engine F8（谷歌SI -0.590/TukTuk +0.460 直调锁）
-    ok(r1.anchors == null || r1.anchors.burstWaveWalletNetBnb == null,
-      `CD398 容缺路径：无沉积段 → anchors.burstWaveWalletNetBnb null → 流向腿容缺照豁免（实际 ${r1.anchors && r1.anchors.burstWaveWalletNetBnb}——豁免已达成即证 null 不拦）`);
+    ok(r1.anchors == null || (r1.anchors.burstWaveWalletNetBnb == null && r1.anchors.burstWaveWalletNetBnb == null),
+      `CD398 容缺路径：无沉积段 → anchors 双量 null → 流向腿容缺照豁免（实际 ${r1.anchors && r1.anchors.burstWaveNetBnb}/${r1.anchors && r1.anchors.burstWaveWalletNetBnb}——豁免已达成即证 null 不拦）`);
     const ask1 = llm.calls.ask;
     const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(ask1 >= 1 && llm.calls.ask >= ask1 && r2.grade === 'healthy',
@@ -719,12 +719,12 @@ async function main() {
     const z1dAnc = db.state.inserts[0].snapshot_digest.anchors;
     ok(['burstLastGapSec', 'burstExitWaveFromDt', 'burstExitWaveEndDt', 'burstExitWaveBuyBnb',
       'burstExitWaveWallets', 'burstSecSinceWaveEnd', 'burstWaveWalletNetBnb', 'burstWaveSellBackPct',
-      'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb'].every((k) => k in z1dAnc),
-      'digest 带 D3.67 十新锚键（在场断言；实际 ' + JSON.stringify(Object.keys(z1dAnc)) + '）');
+      'burstWaveNetBnb', 'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb'].every((k) => k in z1dAnc),
+      'digest 带 D3.67 十新锚键+CD398 波窗净流（在场断言；实际 ' + JSON.stringify(Object.keys(z1dAnc)) + '）');
     ok(['burstLastGapSec', 'burstExitWaveFromDt', 'burstExitWaveEndDt', 'burstSecSinceWaveEnd',
-      'burstWaveWalletNetBnb', 'burstWaveSellBackPct', 'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb']
+      'burstWaveWalletNetBnb', 'burstWaveSellBackPct', 'burstWaveNetBnb', 'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb']
       .every((k) => z1dAnc[k] === null),
-      'genTicks 基底（全窗 2s 间隔无 ≥50s 段）→ 单段绑定八键 null（无沉积不冒充；旧 burstWaveBuyBnb/Wallets 照常=Option 2 语义不动）');
+      'genTicks 基底（全窗 2s 间隔无 ≥50s 段）→ 单段绑定八键+波窗净流 null（无沉积不冒充；旧 burstWaveBuyBnb/Wallets 照常=Option 2 语义不动）');
   }
   {
     // Z1e. D3.67/CD397 单段绑定波族十键手算对拍（2026-11-11 用户四条裁定——
@@ -768,6 +768,11 @@ async function main() {
       `尘埃轴两键手算（中位 0.20/户均 0.15——B 两笔并包同钱包；实际 ${dAnc.burstWaveWalletMedianBnb}/${dAnc.burstWaveWalletAvgBnb}）`);
     ok(dAnc.burstWaveWalletNetBnb === 0.2 && dAnc.burstWaveSellBackPct === 63.6,
       `流向轴两键手算（净 +0.20 含 C 沉积前卖 0.30 拉低/卖回 63.6=0.35÷0.55——波钱包全窗口径非波窗内；实际 ${dAnc.burstWaveWalletNetBnb}/${dAnc.burstWaveSellBackPct}）`);
+    // CD398 二修主判量：波窗自身净流=窗内全行 Σ买−Σ卖（四笔全买 0.45；B 卖
+    // 0.05 在 t70=5s 窗外不进分子——与波钱包全窗口径的口径差即谷歌SI 失明根源：
+    // 卖家巨鲸只在波内卖不买 → 波钱包集不含它 → 其卖单只对波窗净流可见）
+    ok(dAnc.burstWaveNetBnb === 0.45,
+      `CD398 波窗自身净流手算（窗内 0.05+0.10+0.20+0.10 全买=+0.45、窗外卖不计；实际 ${dAnc.burstWaveNetBnb}）`);
     ok(dAnc.burstSecSinceWaveEnd === 82,
       `跨度轴手算（窗末 t150−波末买 t68=82s——「跨度不能太长」主锚原料；实际 ${dAnc.burstSecSinceWaveEnd}）`);
     // Option 2 对照：旧全窗波两键同窗同值（本夹具最密 5s 窗恰=绑定段波）+旧 gap 锚

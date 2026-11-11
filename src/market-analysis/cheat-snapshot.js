@@ -1015,6 +1015,7 @@ function computeDerived(snapshot, famousRoster) {
   let burstLastGapSec = null, burstExitWaveFromDt = null, burstExitWaveEndDt = null;
   let burstExitWaveBuyBnb = null, burstExitWaveWallets = null, burstSecSinceWaveEnd = null;
   let burstWaveWalletNetBnb = null, burstWaveSellBackPct = null;
+  let burstWaveNetBnb = null; // CD398 二修：波窗自身净流 Σ(买−卖)（主判量，头注见计算段）
   let burstWaveWalletAvgBnb = null, burstWaveWalletMedianBnb = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
   if (waveTicksAll.length >= 2) {
@@ -1120,6 +1121,13 @@ function computeDerived(snapshot, famousRoster) {
       if (bestR >= 0) {
         const _win = _zone.slice(bestL, bestR + 1);
         burstExitWaveFromDt = _win[0].dt;
+        // CD398 二修（2026-11-11 谷歌SI 对拍实锤）：波窗**自身**净流 Σ(买−卖)
+        // （全行参与，不挑边）——「卖家发起的波」只有这个量看得见：波钱包全窗
+        // 净额的分子只收波内买家（谷歌SI 巨鲸只在波内卖 → 不进买家集 → 首版
+        // 硬腿 +0.0367 放行=对立法案本身失明）；窗内零 BUY（纯卖窗）同样在此
+        // 可负（波钱包族那组键零买缺席，本键独立成立）。卖单直接进分子，符号
+        // 即「流量涌入 vs 流出」，CD398 `_isStallBurstExempt` 主判量。
+        burstWaveNetBnb = +_win.reduce((s, t) => s + (t.side === 'BUY' ? (t.bnb || 0) : -(t.bnb || 0)), 0).toFixed(4);
         // 波=买入方向的流量涌入：波窗位置=首行 dt，波结束=窗内末笔 BUY dt
         // （此后窗内只剩卖行=流出尾巴不算涌入的一部分）；窗内零 BUY=波值为
         // 有证据零值（0/0），位置/跨度/钱包族 null（无涌入可量）
@@ -1639,7 +1647,7 @@ function computeDerived(snapshot, famousRoster) {
     // 波两键语义刻意不动=strongbacker §七.5 统计口径保护，两族并存）
     burstLastGapSec, burstExitWaveFromDt, burstExitWaveEndDt,
     burstExitWaveBuyBnb, burstExitWaveWallets, burstSecSinceWaveEnd,
-    burstWaveWalletNetBnb, burstWaveSellBackPct,
+    burstWaveWalletNetBnb, burstWaveSellBackPct, burstWaveNetBnb,
     burstWaveWalletAvgBnb, burstWaveWalletMedianBnb,
     // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,

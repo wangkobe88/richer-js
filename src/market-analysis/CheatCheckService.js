@@ -374,13 +374,22 @@ class CheatCheckService {
    * null 同哲学：资格授予方向 fail-closed）。
    *
    * **CD398 流向硬腿（2026-11-11 bt-v103 复盘统一裁定③「burst 按分析调整=
-   * 流向键硬条件」）**：burst 波的流量必须是**买入主导**——`burstWaveWalletNetBnb`
-   * （D3.67 单段绑定波族：波钱包全窗 Σ(买−卖) BNB，可负）**净负 = 卖方主导
-   * burst，不授予豁免**。判例：谷歌SI 卖出波单笔 0.590B 净 -0.590 拒 / TukTuk
-   * 8 钱包同步买 +0.460 放。这是 CD397「判读权归还 Jev」后唯一的代码硬线：
-   * 流向是「流量涌入非流出」（裁定②原文维度）的机械可判事实（净额符号），
-   * 与跨度/流量真实度（需 Jev 权衡）不同档——符号无权衡空间，Jev run-to-run
-   * 方差（CD319/CD387/ba5e 族）在卖出波形状上会漏放，硬线兜底。
+   * 流向键硬条件」）**：burst 波的流量必须是**买入主导**——两个净额量任一
+   * **净负 = 卖方主导 burst，不授予豁免**：
+   * ①`burstWaveNetBnb`（**主判量**，2026-11-11 二修）：波窗自身 Σ(买−卖) BNB
+   *   （D3.67 单段绑定波：出口后 60s 最密 5s 窗内全行净流，可负）——卖家发起
+   *   的波（谷歌SI 观察 17 案：窗内买 0.007 vs 单笔巨鲸卖 0.590 → -0.583）只有
+   *   这个量看得见：首版只查波钱包全窗净额时，波内买家是两笔尘埃小散（净
+   * +0.0367/卖回 0）而卖家巨鲸不在波内买家集（只在波内卖）→ 硬腿对立法案
+   *   本身失明（对拍实锤：谷歌SI 豁免照旧成立）；波窗全行净流不挑边，卖单
+   *   直接进分子。纯卖窗（零 BUY）同样可负照拒。
+   * ②`burstWaveWalletNetBnb`（辅助量）：波内买家钱包全窗 Σ(买−卖)（可负）——
+   *   拦「波内买入、窗内他处已/后卖出」的卖回形状（与 burstWaveSellBackPct
+   *   同原料），TukTuk 8 钱包同步买 +0.455 放 / M4GA +0.491 / 海水#78 +0.304 放。
+   * 这是 CD397「判读权归还 Jev」后唯一的代码硬线：流向是「流量涌入非流出」
+   * （裁定②原文维度）的机械可判事实（净额符号），与跨度/流量真实度（需 Jev
+   * 权衡）不同档——符号无权衡空间，Jev run-to-run 方差（CD319/CD387/ba5e 族）
+   * 在卖出波形状上会漏放，硬线兜底。
    * null/undefined（无波/旧档断代/D3.67 前行）→ 容缺照常授予（不扩大收紧面，
    * _exemptDeniedReason 缺席=不触发同哲学）；净额恰 0 → 不拒（零净=无卖出
    * 证据，非卖方主导）。anchors 参数=levelsFromObservation 产物同源透传
@@ -389,8 +398,12 @@ class CheatCheckService {
   _isStallBurstExempt(levels, anchors) {
     if (!levels) return false;
     if (levels.stallBurstWave !== 1) return false; // sbw=burst（二桶 none=0/burst=1）；null/缺席不豁免
-    // CD398 流向硬腿：波钱包净额净负=卖方主导 burst 不豁免；null/undefined 容缺（旧档防误杀）
-    const net = anchors ? anchors.burstWaveWalletNetBnb : undefined;
+    // CD398 流向硬腿：①波窗自身净流 ②波钱包全窗净额——任一净负=卖方主导不豁免；
+    // null/undefined 容缺（旧档防误杀）
+    const an = anchors || {};
+    const winNet = an.burstWaveNetBnb;
+    if (typeof winNet === 'number' && winNet < 0) return false;
+    const net = an.burstWaveWalletNetBnb;
     if (typeof net === 'number' && net < 0) return false;
     return true;
   }
@@ -709,6 +722,9 @@ class CheatCheckService {
           burstSecSinceWaveEnd: snapshot.derived.burstSecSinceWaveEnd,
           burstWaveWalletNetBnb: snapshot.derived.burstWaveWalletNetBnb,
           burstWaveSellBackPct: snapshot.derived.burstWaveSellBackPct,
+          // CD398 二修：波窗自身净流（主判量——卖家发起的波只有此键可见，头注
+          // 见 cheat-snapshot 计算段；`_isStallBurstExempt` 硬腿消费）
+          burstWaveNetBnb: snapshot.derived.burstWaveNetBnb,
           burstWaveWalletAvgBnb: snapshot.derived.burstWaveWalletAvgBnb,
           burstWaveWalletMedianBnb: snapshot.derived.burstWaveWalletMedianBnb,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）

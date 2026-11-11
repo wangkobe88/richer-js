@@ -213,13 +213,17 @@ function buildCheatState(snapshot) {
         ? '（出口价位置锚缺失）' : `，出口价 ${d.burstExitVsLaunchPct >= 0 ? '+' : ''}${d.burstExitVsLaunchPct}% vs 发行价地板`;
       if (d.burstExitWaveBuyBnb !== null && d.burstExitWaveBuyBnb !== undefined && d.burstExitWaveBuyBnb > 0) {
         const win = `出口后 60 秒内最密 5 秒波: t+${d.burstExitWaveFromDt}s~t+${d.burstExitWaveEndDt}s，波内买入 ${fmtBnb(d.burstExitWaveBuyBnb)} BNB、${d.burstExitWaveWallets} 个钱包（户均 ${d.burstWaveWalletAvgBnb} / 中位 ${d.burstWaveWalletMedianBnb} BNB）`;
+        const wnet = d.burstWaveNetBnb === null || d.burstWaveNetBnb === undefined ? '' :
+          `；波窗自身净流 ${fmtBnb(d.burstWaveNetBnb)} BNB（窗内 Σ买−Σ卖，净负=该波由卖出带来）`;
         const flow = d.burstWaveWalletNetBnb === null || d.burstWaveWalletNetBnb === undefined ? '' :
           `；波钱包全窗净额 ${fmtBnb(d.burstWaveWalletNetBnb)} BNB（Σ买−Σ卖，可为负=已流出）/ 卖回率 ${d.burstWaveSellBackPct}%（Σ卖÷Σ买）`;
         const span = d.burstSecSinceWaveEnd === null || d.burstSecSinceWaveEnd === undefined ? '' :
           `；波末笔买入距锚点 ${d.burstSecSinceWaveEnd} 秒`;
-        lines.push(`停滞突发波事实: 最后一次 ≥50 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，${win}${flow}${span}（口径：静默=相邻 tick 间隔 ≥50 秒；波=该静默段出口后 60 秒内买入最密的 5 秒滑窗；波钱包全窗净额/卖回率=波窗买入钱包在整个窗口的买入卖出合计——「涌入的钱是否已反手流出」的度量。数值只是事实：波是否紧贴沉积出口、流量是否真实（尘埃单堆不出流量）、方向是买入还是卖出引发、波是否已距锚点太远成为历史事件，由你按 stall_burst_wave 题判读）`);
+        lines.push(`停滞突发波事实: 最后一次 ≥50 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，${win}${wnet}${flow}${span}（口径：静默=相邻 tick 间隔 ≥50 秒；波=该静默段出口后 60 秒内最密的 5 秒滑窗；波窗自身净流=该 5 秒窗内全部买卖合计（买卖双方都计入）；波钱包全窗净额/卖回率=波窗买入钱包在整个窗口的买入卖出合计——「涌入的钱是否已反手流出」的度量。数值只是事实：波是否紧贴沉积出口、流量是否真实（尘埃单堆不出流量）、方向是买入还是卖出引发、波是否已距锚点太远成为历史事件，由你按 stall_burst_wave 题判读）`);
       } else if (d.burstExitWaveBuyBnb === 0) {
-        lines.push(`停滞突发波事实: 最后一次 ≥50 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，出口后 60 秒内零买入（无涌入波——沉积后没有流量跟进）`);
+        const wnet0 = d.burstWaveNetBnb === null || d.burstWaveNetBnb === undefined ? '' :
+          (d.burstWaveNetBnb < 0 ? `，但波窗自身净流 ${fmtBnb(d.burstWaveNetBnb)} BNB（最密 5 秒窗内只有卖出——沉积后被用于出货）` : '');
+        lines.push(`停滞突发波事实: 最后一次 ≥50 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，出口后 60 秒内零买入（无涌入波——沉积后没有流量跟进）${wnet0}`);
       }
     }
     // D3.52 锚窗买压行（CD159 强庄币锚立项——**观察期**：档位与买卖比只进 FA

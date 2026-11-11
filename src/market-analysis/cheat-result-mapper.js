@@ -271,6 +271,10 @@ function buildObservation(answers, anchors = null) {
       burstSecSinceWaveEnd: _anchorPct(anchors, 'burstSecSinceWaveEnd'),
       burstWaveWalletNetBnb: _anchorNum(anchors, 'burstWaveWalletNetBnb'),
       burstWaveSellBackPct: _anchorPct(anchors, 'burstWaveSellBackPct'),
+      // CD398 二修：波窗自身净流 Σ(买−卖) BNB 可负=带符号读取（主判量——卖家
+      // 发起的波只有此键可见；service 侧 CD398 流向硬腿消费，头注见
+      // CheatCheckService._isStallBurstExempt）
+      burstWaveNetBnb: _anchorNum(anchors, 'burstWaveNetBnb'),
       burstWaveWalletAvgBnb: _anchorPct(anchors, 'burstWaveWalletAvgBnb'),
       burstWaveWalletMedianBnb: _anchorPct(anchors, 'burstWaveWalletMedianBnb'),
       noBuySellPct: _anchorPct(anchors, 'noBuySellPct'),

@@ -386,6 +386,12 @@ function levelsFromObservation(observation, extras = {}) {
     burstWaveWalletNetBnb: an.burstWaveWalletNetBnb === null || an.burstWaveWalletNetBnb === undefined
       ? null
       : Number(an.burstWaveWalletNetBnb),
+    // CD398 二修：波窗自身净流（主判量，BNB 原值域可负不 _pct 归一）——卖家
+    // 发起的波只有此键可见（谷歌SI 案波钱包全窗净额 +0.0367 误放、波窗净流
+    // -0.583 拒）；service 侧 CD398 流向硬腿消费
+    burstWaveNetBnb: an.burstWaveNetBnb === null || an.burstWaveNetBnb === undefined
+      ? null
+      : Number(an.burstWaveNetBnb),
     noBuySellPct: _pct(an.noBuySellPct),
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
