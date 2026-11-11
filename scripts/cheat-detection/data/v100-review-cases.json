@@ -64,6 +64,14 @@
       "covered": "batch 20 全批 10 票（idx 191-200，重构后文件；混合形状：2 cheat 硬拒+1 BP ③桶拒+7 豁免/直过成交）",
       "outcome": "4 issue（191/192/195/198）+ 6 accept（193/194/196/197/199/200）",
       "resolutions": "全部先记录不动手修。归族：burst 识别两向（191=拒向首例：CD396 第四腿 exitVs=113.9>40 拒掉真 burst 与立法直接张力+live 双行 sbw 摆动 burst→none；198=放行向：98min 沉积+买点前 30s 零买纯卖+零散户入口锚仍豁免）；launch 基准线族（192 低开向：T130 地板已生效仍被点名，与 idx95 滚动基准/idx143 高开向三向同池）；crash 反弹段漏拦第 2 例（195，含 BP63「chg5 收敛=可接受」判读句反向张力）；199 famous_monopoly ③桶判对样本入 accept"
+    },
+    {
+      "round": 1,
+      "date": "2026-11-11",
+      "time": "2026-11-11 09:05（UTC+8）",
+      "covered": "batch 21 全批 11 票（idx 201-211，最后一批，全部有成交）",
+      "outcome": "2 issue（206/210）+ 9 accept；净 +0.0468（6 正 5 负）全程少见净正批",
+      "resolutions": "全部先记录不动手修。归族：crash 后反弹段买入应拦（206/210——首点位 crash 拒正确、成交点位在 crash 后段翻过放行；168 判例生产漏拦族 190/195 后第 3/4 例）。本会话负责批次全部落盘完毕；批次 3/8/9/10/15（42 票）由并行会话处理中仍 pending，issue 统一处理池待全部批次完成后用户启动"
     }
   ],
   "batches": {
@@ -368,8 +376,10 @@
         201,
         211
       ],
-      "status": "pending",
-      "reviews": []
+      "status": "reviewed",
+      "reviews": [],
+      "reviewedAt": "2026-11-11 09:05（UTC+8）",
+      "coveredIdx": "201-211（原 idx 245/248/252/253/257/258/261/263/265/266/269）"
     }
   },
   "cases": [
@@ -18034,8 +18044,8 @@
       "minVs": 16.6,
       "firstPointStatus": "executed",
       "pnl": 0.042,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "96ed006f-d68b-418d-a11b-73073e6abcb1",
       "anchorIso": "2026-11-05T12:31:26+00:00",
       "anchorDate": "2026-11-05",
@@ -18150,7 +18160,8 @@
         "actNearTail10SellWallets": 20,
         "chipFamousFollowerTop3Pct": 26.9
       },
-      "origIdx": 245
+      "origIdx": 245,
+      "note": "第二十一批 review 接受（+0.042 全批最大正；A强 pump+D_famous activity_high 豁免首点位直过，curVs 27.3 贴统一门线内）"
     },
     {
       "idx": 202,
@@ -18175,14 +18186,15 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": 0.0106,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "2f0f173b-96ab-4d3a-8982-e01037f677b6",
       "anchorIso": "2026-11-05T12:32:31+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004567320319335128,
       "anchors": null,
-      "origIdx": 248
+      "origIdx": 248,
+      "note": "第二十一批 review 接受（cheat 五通道硬拒（A强 pump+D_famous+J_hold+R_abn+M_ultra）后翻过 +0.0106——cheat 硬拒后成交路径与 163 meem 同族留观察，本票结果为正）"
     },
     {
       "idx": 203,
@@ -18207,8 +18219,8 @@
       "minVs": 18.1,
       "firstPointStatus": "executed",
       "pnl": -0.0024,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "69aabe2d-939d-4d4f-89ea-0ef5881aae2e",
       "anchorIso": "2026-11-05T12:33:50+00:00",
       "anchorDate": "2026-11-05",
@@ -18323,7 +18335,8 @@
         "actNearTail10SellWallets": 8,
         "chipFamousFollowerTop3Pct": 15.3
       },
-      "origIdx": 252
+      "origIdx": 252,
+      "note": "第二十一批 review 接受（豁免首点位直过 -0.0024；与 202 同名两 CA 对照）"
     },
     {
       "idx": 204,
@@ -18348,14 +18361,15 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0052,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "271ed6a0-d850-4450-a504-d1d31f5fb23f",
       "anchorIso": "2026-11-05T12:34:21+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.000004360376504440558,
       "anchors": null,
-      "origIdx": 253
+      "origIdx": 253,
+      "note": "第二十一批 review 接受（cheat 硬拒（A强 equal+pump+E_low+J_hold+R_abn）后翻过 -0.0052）"
     },
     {
       "idx": 205,
@@ -18380,8 +18394,8 @@
       "minVs": 17.5,
       "firstPointStatus": "executed",
       "pnl": 0.0042,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "0f2555ff-33f8-4787-ad8d-b8e0f5347e6c",
       "anchorIso": "2026-11-05T12:42:08+00:00",
       "anchorDate": "2026-11-05",
@@ -18496,7 +18510,8 @@
         "actNearTail10SellWallets": 3,
         "chipFamousFollowerTop3Pct": 69
       },
-      "origIdx": 257
+      "origIdx": 257,
+      "note": "第二十一批 review 接受（全批唯一干净 healthy 无豁免首点位直过 +0.0042）"
     },
     {
       "idx": 206,
@@ -18521,8 +18536,8 @@
       "minVs": 11.7,
       "firstPointStatus": "failed",
       "pnl": -0.0044,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "04e9892d-7dcf-49bb-adba-7ef1ed413461",
       "anchorIso": "2026-11-05T12:43:05+00:00",
       "anchorDate": "2026-11-05",
@@ -18637,7 +18652,8 @@
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 258
+      "origIdx": 258,
+      "note": "第二十一批 review issue（用户裁定『买在 crash 后也算 crash』：首点位 crash(0.60) entry_gate 拒正确，但后续点位翻过成交 -0.0044——成交点位处于 crash 后段仍属 crash 范畴应拦；168 判例（急跌后小反弹仍算 crash）生产漏拦族 190/195 后第 3 例；先记录不动手修）"
     },
     {
       "idx": 207,
@@ -18662,8 +18678,8 @@
       "minVs": 4.7,
       "firstPointStatus": "executed",
       "pnl": 0.0104,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "dc435662-15d9-4d2a-a9f8-349d7c0c1e7d",
       "anchorIso": "2026-11-05T13:00:25+00:00",
       "anchorDate": "2026-11-05",
@@ -18778,7 +18794,8 @@
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 261
+      "origIdx": 261,
+      "note": "第二十一批 review 接受（豁免首点位直过 +0.0104；L_insider_sell48 unhealthy→activity_high 豁免）"
     },
     {
       "idx": 208,
@@ -18803,8 +18820,8 @@
       "minVs": 11,
       "firstPointStatus": "executed",
       "pnl": 0.0104,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "ae65d2e9-3537-4be6-a8e9-f9e13cc7ffa3",
       "anchorIso": "2026-11-05T13:08:13+00:00",
       "anchorDate": "2026-11-05",
@@ -18919,7 +18936,8 @@
         "actNearTail10SellWallets": 1,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 263
+      "origIdx": 263,
+      "note": "第二十一批 review 接受（豁免首点位直过 +0.0104；A强 equal+spike+J_hold+R_abn activity_high 豁免）"
     },
     {
       "idx": 209,
@@ -18944,14 +18962,15 @@
       "minVs": null,
       "firstPointStatus": "failed",
       "pnl": -0.0015,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "44191880-c3c6-4890-a629-a305295e1964",
       "anchorIso": "2026-11-05T13:20:16+00:00",
       "anchorDate": "2026-11-05",
       "priceBnb": 0.00000418527738854334,
       "anchors": null,
-      "origIdx": 265
+      "origIdx": 265,
+      "note": "第二十一批 review 接受（unhealthy（E_low弱+R_abn）拒后 trig=2 翻过 -0.0015；与 207 新语新言词序对调同名对照）"
     },
     {
       "idx": 210,
@@ -18976,8 +18995,8 @@
       "minVs": 13,
       "firstPointStatus": "failed",
       "pnl": -0.0065,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "issue",
+      "reviewedRound": 1,
       "signalId": "019f7e87-79be-4c39-beb9-e40b4750a571",
       "anchorIso": "2026-11-05T13:36:06+00:00",
       "anchorDate": "2026-11-05",
@@ -19092,7 +19111,8 @@
         "actNearTail10SellWallets": 2,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 266
+      "origIdx": 266,
+      "note": "第二十一批 review issue（用户裁定『买在 crash 后』：首点位 crash(0.74) entry_gate 拒正确，但后续点位翻过成交 -0.0065——成交点位处于 crash 后段仍应拦；与 206 同族=168 判例生产漏拦族第 4 例；先记录不动手修）"
     },
     {
       "idx": 211,
@@ -19117,8 +19137,8 @@
       "minVs": 10.9,
       "firstPointStatus": "failed",
       "pnl": -0.0108,
-      "verdict": null,
-      "reviewedRound": null,
+      "verdict": "accept",
+      "reviewedRound": 1,
       "signalId": "52154acd-28d2-492b-91c5-fff236bf9332",
       "anchorIso": "2026-11-05T13:44:00+00:00",
       "anchorDate": "2026-11-05",
@@ -19233,7 +19253,8 @@
         "actNearTail10SellWallets": 0,
         "chipFamousFollowerTop3Pct": null
       },
-      "origIdx": 269
+      "origIdx": 269,
+      "note": "第二十一批 review 接受（⑥sustained_climb(0.59) 位置门拒后 trig=2 翻过 -0.0108；与第 18 批 180 SAMSUNG 同族形状留观察）"
     }
   ],
   "reviews": [
@@ -19275,6 +19296,27 @@
         197,
         199,
         200
+      ]
+    },
+    {
+      "round": 1,
+      "batch": "21",
+      "date": "2026-11-11",
+      "idx": "201-211",
+      "issues": [
+        206,
+        210
+      ],
+      "accepts": [
+        201,
+        202,
+        203,
+        204,
+        205,
+        207,
+        208,
+        209,
+        211
       ]
     }
   ]
