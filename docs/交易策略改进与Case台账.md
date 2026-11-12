@@ -66,7 +66,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - 条件串形状（HOLD 臂，逐卡止盈腿 AND 链追加）：`profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2`——IS NULL 臂=无 famous 放行（**缺此臂则 null 裸比较恒 false=全部 pp≥100 卡被误 HOLD，致命**）；释放=停止（>120s 无大买）∨ 首大卖（窗内 ≥0.2）；peak-protect 腿不加 HOLD（兜底释放通道保持原样）
 - 单测 `_test_since_entry_factors` K 段 21 断言（精确值/贴线 0.1/防回拨/卖行不推 lastAt/窗边界/defer 双段恰一次/裁剪保窗内/HOLD 臂真值表五场景/源码锁/roster 空 fail-open）+ FA 键白名单 138→140（`_test_fourmeme_fa_factors`）+ FactorBuilder 快照透传两键（不落库即丢防线）
 
-**余留**：库逐卡止盈腿（P 系）条件加 HOLD 臂+克隆 V108 回测验证（进行中）；样本警告=正贡献集中 28ad+来财 两张大金狗 +2.54（「吃足大金狗」本意，无大金狗窗口零触发零伤害）；冲击成本未计（28ad 顶附近逐卡放 <10% 冲击估计仍 +1.2 量级）；单日窗口跨窗未验。
+**bt-v110 回测验证达成（2026-11-13，80e3867f；V108 克隆唯一增量=五条逐卡减仓腿 idx4(P7 pp>100)/idx6/idx7(P11 回撤-25)/idx12(P10 secSincePeak)/idx13(P10 回撤-15) 条件尾 AND 追加 HOLD 臂；全清族/拱形/保命/peak-protect 刻意不加=兜底通道）**：**54 票 +3.4854 vs V108 +2.7163 = 净增 +0.7691**（克隆噪声带 ±0.07），卖信号 70→67 行（28ad 三卡合并进全清）。归因分解：
+- **28ad Δ+0.7410 = HOLD 主战场兑现**：三卡（P7 pp=134/235+P10 pp=177）全部 HOLD（fire 时刻 fB=43/76/23s ∧ fS=0——famous 只买不卖），07:20:45 peak-protect pp=676 一次全清 4 卡 +1.5517B（V108 分卖只得 +0.81）——「吃到高点」教科书兑现
+- **谷谷 Δ-0.0329 = 预期内贴线小负**：pp=102 贴线触发 HOLD，释放后 pp=37 卖出（反事实预测 -0.02 同量级）
+- **来财/ba5e 零差异零伤害=首大卖释放臂精确工作（非失灵）**：182 FA 直喂重放对质（`tmp-t110-replay.mjs`，roster 加载后与实跑 bit 一致）——来财 12:32:18 fB=67 该 HOLD 但 **fS=0.2511≥0.2 释放臂当场放行**（12:31:14 起 famous 卖流 0.598+0.668+0.251+0.243=边买边卖对倒形状）；第二卡 fB=151>120 停止确认放行；ba5e 07:41:10 fB=null 放行、07:42:34 fB=19 但 **fS=0.6097 释放臂放行**（07:42:14 famous 首大卖=反事实 R2 救急信号点）——V2×R3「停止∨首大卖先到」的实跑版，ba5e 救急功能精确兑现
+- 其余 ±0.05=stallClose 票买没买差异（alwaysRecheck Jev run-to-run 方差）
+- **重放工具坑留档**：FA 模块级 roster 是 static async `loadFamousCopyWallets()` 外部调用填充（BacktestEngine:343/WssEngine:599 两引擎加载），裸 `new FA()` 重放必 fB=null——重放脚本必须先 await 加载
+- vs 反事实 R3 +1.87 差额=来财 +1.04 未兑现（释放臂 fS≥0.2 保守：famous 卖 0.25B 即放，反事实 HOLD 到 12:36:35 贴顶）——释放阈值/窗口为后续调参面
+
+**余留**：HOLD 臂是否入策略库正式条目+生产实验待用户裁定；释放臂调参面（fS 阈值 0.2/famousSellWinMs 60s）；样本警告=正贡献集中 28ad 一张（+0.74，「吃足大金狗」本意，无大金狗窗口零触发零伤害）；冲击成本未计（28ad 顶附近逐卡放 <10% 冲击估计仍 +0.5 量级）；单日窗口跨窗未验。
 
 ### T135 ladder v18：t0/t0a 最早臂加 tokenAgeSec >= 15 抢速门——bt-v102 买点因子分析立法（2026-11-11，abb70b81；用户裁定原话「好，加。然后回测」）
 
