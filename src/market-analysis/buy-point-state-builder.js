@@ -138,6 +138,26 @@ function buildBuyPointState(snapshot) {
     if (b.recentDip5Pct !== null && b.recentDip5Pct !== undefined) {
       lines.push(`近期暴跌段(锚前30秒内最深5秒段): ${chg(b.recentDip5Pct)}、距今 ${b.recentDip5SecAgo ?? '?'} 秒、现价距该段起点 ${chg(b.recentDip5UnrecoveredPct)}（未收复幅度——暴跌血缘直供：深段就在近 20 秒内且现价未收复=买点处于暴跌后的余波而非独立低点；已收复/距今远=跌势已走完；? = 可靠价不足或 30 秒内无 5 秒段）`);
     }
+    // BP79 趋势打断行（闪崩判读原料——bt-v104 R1 六票闪崩全放行复盘：BP59
+    // 急跌进行时判据在题面但 Jev 在「换手在场」豁免上失灵；swing 锚 BP30 起随
+    // tree 题退役退出 state 渲染=数据层缺口（锚在 digest 有值 Jev 看不到）。
+    // 双载体直供：摆点轴（已成型趋势被打断——刚确认的摆高点数秒~一分钟内
+    // 现价深跌距峰 ≥25%）+ chg 同深轴（无摆点新票——chg5 与 chg10 差值算好）。
+    // 渲染条件=摆点在场或 chg5 深负（≤-15）；两者都缺席不渲染（近窗动量行兜底）。
+    // 判读归题面 crash 桶（代码只组事实）。
+    {
+      const hasSwing = b.secSinceSwingHigh !== null && b.secSinceSwingHigh !== undefined;
+      const chgDeep = b.chg5Pct !== null && b.chg5Pct !== undefined && b.chg5Pct <= -15;
+      if (hasSwing || chgDeep) {
+        const sgn = (v) => (v === null || v === undefined ? '?' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%');
+        const swingPart = hasSwing
+          ? `最近确认摆高点距今 ${b.secSinceSwingHigh}s、现价距该摆高 ${sgn(b.currentVsSwingHighPct)}（≥20% 摆动确认的峰——峰刚确认数十秒内现价深跌距峰 ≥25%=涨段被垂直砸断：「涨着涨着一下子闪崩」）`
+          : '无确认摆点（新票/单边行情——摆动轴不适用，由 chg 同深轴判）';
+        const diff = (b.chg5Pct !== null && b.chg5Pct !== undefined && b.chg10Pct !== null && b.chg10Pct !== undefined)
+          ? (b.chg5Pct - b.chg10Pct).toFixed(1) : '?';
+        lines.push(`趋势打断: ${swingPart}；chg5 与 chg10 差 ${diff}pp（同深≈0=砸盘刚开始无铺垫、急跌进行时；chg5 明显浅于 chg10=下跌主体已过去几秒，非进行时）（crash 判轴直供——趋势打断/急跌进行时命中优先于「买入力在场」豁免评估：买入力还在也接不住刚被打断的趋势）`);
+      }
+    }
     // （②a 摆动结构行已删——BP30/题集 BP33 tree_position 题退役：zigzag 锚照算
     //    落 digest 纯留档，state 不再渲染圣诞树原料行）
     // ③ 近窗流量
@@ -154,6 +174,22 @@ function buildBuyPointState(snapshot) {
     const bundled = b.bundledBlock;
     if (bundled) {
       lines.push(`同块捆绑买入(锚窗单block买入合计最大块): 块 ${bundled.block} / 买 ${fmtBnb(bundled.buyBnb)} BNB × ${bundled.n} 笔 / ${bundled.wallets} 钱包（块首行时刻 t+${bundled.dt} 秒；同一 block 内多钱包同时买入=链上同时性的组织性买入证据——捆绑 bots/庄分仓形状；已剔聚合路由伪钱包，散单堆凑的合计不算）`);
+    }
+    // BP79 买期/卖期分界行（⑨先买后卖一波流判读原料——用户语义 2026-11-12：
+    // 「买入之前基本上只有买没有卖，买入的时候刚好是卖开始了；本质=没有对倒
+    // 换手，不符合交易理念」）。首卖=首笔像样卖（尘门 0.01，探路碎卖不算）；
+    // 买侧尘门 0.05。行缺席（零像样卖/行不足）=⑨轴不适用照常评估不渲染。
+    // 判读归题面⑨桶（代码只组事实——BP12 不搞代码门）。
+    if (b.phaseSplit) {
+      const p = b.phaseSplit;
+      const pb = p.postBundledBlock;
+      lines.push(
+        `买期/卖期分界(首笔像样卖@t+${p.firstSellDt ?? '?'}s): 首卖距今买点 ${p.secSinceFirstSell ?? '?'}s` +
+        `；首卖前（纯买期段）尘门后买入 ${fmtBnb(p.preBuyBnb)}×${p.preBuyN}${(p.preDustBuyN || p.preDustSellN) ? `（另有尘级买 ${p.preDustBuyN ?? 0} 笔/尘级卖 ${p.preDustSellN ?? 0} 笔不计）` : '、零卖出'}、占全窗尘门后买入 ${p.preBuySharePct ?? '?'}%` +
+        `；首卖后 买入 ${fmtBnb(p.postBuyBnb)}×${p.postBuyN} / 卖出 ${fmtBnb(p.postSellBnb)}×${p.postSellN}` +
+        `${pb ? `、最大同块买入合计 ${fmtBnb(pb.buyBnb)} BNB×${pb.n} 笔（同块捆绑=组织性分仓，不是换手承接）` : ''}` +
+        `（尘门=买 <0.05 / 卖 <0.01 不计；「先买后卖一波流」=首卖前基本只有买 ∧ 卖期在买点前夕刚启动 ∧ 无对倒换手——判读见盘面分类题⑨桶）`,
+      );
     }
     // BP77 塞单簇——同 block 等额买入（金额 toFixed(4) 全等 ∧ ≥2 钱包成簇、
     // 尘门 0.001；最大簇钱包数 ≥8 代码侧塞单门直接拒买；簇行=块号/钱包数/等额
@@ -312,19 +348,35 @@ function buildBuyPointState(snapshot) {
     if (truncated.wallets) lines.push(`（共 ${wallets.length} 个钱包，按买入额保留 top ${WALLET_SHOW_MAX}）`);
     // BP55 单笔口径判读直供（判据与 state 直供同构铁律——a8e70 对拍三连不翻②教训：
     // 题面判据已单笔化但 Jev 需从钱包行多步自算「单笔 0.2 级钱包数」，组好直供一行）
+    // BP79 在场三分（bt-v104 R1）：「在场」拆活跃在场/挂账在场/已清仓离场——
+    // 旧定义「未清仓即在场」把挂账沉默钱包也算在场（蝴蝶案 0.20/0.198 两钱包
+    // 末动距锚 452s/211s 因此不落②）；用户裁定「买入点位应该没有大户在场了」
+    // =沉默不算在场。活跃在场=净 >0.005 ∧ 末动距今 ≤120s（线值用户裁定）。
     {
       const bigSingles = wallets.filter((e) => e.maxBuyBnb >= 0.19);
       const arm30 = bigSingles.filter((e) => e.maxBuyBnb >= 0.3);
       const grayAccum = wallets.filter((e) => e.maxBuyBnb < 0.19 && e.buyBnb >= 0.19);
+      const clsOf = (e) => {
+        const net = e.buyBnb - e.sellBnb;
+        if (net <= 0.005) return '离场';
+        const idle = (tEnd !== null && e.lastActDt !== null && e.lastActDt !== undefined)
+          ? tEnd - e.lastActDt : null;
+        return (idle !== null && idle <= 120) ? '活跃在场' : '挂账在场';
+      };
+      const act2 = bigSingles.filter((e) => clsOf(e) === '活跃在场');
+      const act30 = arm30.filter((e) => clsOf(e) === '活跃在场');
       const fmtEntry = (e) => {
         const soldPct = e.buyBnb > 0 ? Math.round((e.sellBnb / e.buyBnb) * 100) : 0;
-        return `${shortWallet(e.w)} 单笔最大 ${fmtBnb(e.maxBuyBnb)}（累计 ${fmtBnb(e.buyBnb)}×${e.buyN}、已卖 ${fmtBnb(e.sellBnb)}≈${soldPct}% 净 ${fmtBnb(e.buyBnb - e.sellBnb)}、末动@${fmtDt(e.lastActDt)}）`;
+        const idle = (tEnd !== null && e.lastActDt !== null && e.lastActDt !== undefined)
+          ? tEnd - e.lastActDt : null;
+        return `${shortWallet(e.w)} 单笔最大 ${fmtBnb(e.maxBuyBnb)}（累计 ${fmtBnb(e.buyBnb)}×${e.buyN}、已卖 ${fmtBnb(e.sellBnb)}≈${soldPct}% 净 ${fmtBnb(e.buyBnb - e.sellBnb)}、末动@${fmtDt(e.lastActDt)}${idle !== null ? `距今${idle}s` : ''}）[${clsOf(e)}]`;
       };
       const capList = (arr, cap) => arr.length > cap ? arr.slice(0, cap).map(fmtEntry).join('；') + ` 等 ${arr.length} 个` : arr.map(fmtEntry).join('；');
       lines.push(
-        `大户参与判读（0.2 级按单笔计不累计/BP55）: 单笔 ≥0.19 的钱包 ${bigSingles.length} 个${bigSingles.length ? '——' + capList(bigSingles, 6) : ''}｜单笔 0.3+ 的钱包 ${arm30.length} 个` +
+        `大户参与判读（0.2 级按单笔计不累计/BP55；在场三分/BP79）: 单笔 ≥0.19 的钱包 ${bigSingles.length} 个${bigSingles.length ? '——' + capList(bigSingles, 6) : ''}｜单笔 0.3+ 的钱包 ${arm30.length} 个（其中活跃在场 ${act30.length} 个）` +
         `${grayAccum.length ? `｜累计到 0.2 级但单笔不到线的灰区单不计入（${capList(grayAccum, 3)}）` : ''}` +
-        '——判序线=单笔 0.2 级钱包 ≥2 个（或单笔 0.3+）且买点时刻在场（末笔后清仓式卖出离场的历史大户不算在场）；不满足=无大户参与直接落②散户 PVP，盘面活跃度不救',
+        `｜活跃在场（净 >0 且末动距今 ≤120s）的单笔 0.2 级钱包 ${act2.length} 个` +
+        '——判序线=活跃在场 ≥2 个（或单笔 0.3+ 活跃在场）才算大户参与；挂账在场（末动距今 >120s 的沉默持仓）与已清仓离场都不算在场——不满足=无大户参与直接落②散户 PVP，盘面活跃度不救',
       );
     }
     for (const e of shown) {

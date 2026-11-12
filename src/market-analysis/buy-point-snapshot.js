@@ -63,6 +63,11 @@ const BP_DUMP_MIN_DROP_PCT = 8;
 const BP_DUMP_FOLLOW_SEC = 60;
 /** BP77 承接观察窗下限（秒）：锚末距砸块末行不足此值=观察窗不足，承接比 null 不冒充 */
 const BP_DUMP_FOLLOW_MIN_OBS_SEC = 10;
+/** BP79 买期/卖期分界尘门（BNB）：买侧 <此值=尘级不计入买期（GNusmas 尾段
+ * 0.039/笔尘级买被当买期延续的误判源）；卖侧 <此值=探路碎卖不算卖期启动
+ * （防单笔尘卖打断轴致⑨漏判误放） */
+const BP_PHASE_BUY_DUST_BNB = 0.05;
+const BP_PHASE_SELL_DUST_BNB = 0.01;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -532,6 +537,71 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     dump2Block = best2;
   }
 
+  // ── BP79 买期/卖期分界（phaseSplit）：⑨先买后卖一波流直供行原料。用户语义
+  //    （2026-11-12 bt-v104 R1 裁定）：「买入之前基本上只有买没有卖，买入的
+  //    时候刚好是卖开始了；这种盘本质就是没有对倒换手（至少暂时尚未出现明显
+  //    的对倒换手），不符合我们的交易理念」。分界点=窗口内链上真序首笔像样卖
+  //    （卖尘门 0.01——bots 探路级碎卖不算卖期启动，防单笔尘卖打断轴致⑨漏判
+  //    误放）；首卖前买侧尘门 0.05（GNusmas 尾段 0.039/笔尘级买被当买期延续的
+  //    误判源）。postBundled=首卖后最大同块买入合计（≥2 笔 BUY 同块、剔路由
+  //    ——bundledBlock 同款口径限首卖后段：尾段捆绑=组织性分仓非换手承接，防
+  //    被读成「对倒换手在场」）。null=窗口零像样卖（无卖期可分，⑨轴不适用——
+  //    死盘归 activity low 域，宁缺不冒充）或行 <4。代码只组事实，判读归题面⑨桶。
+  let phaseSplit = null;
+  {
+    const BUY_DUST = BP_PHASE_BUY_DUST_BNB, SELL_DUST = BP_PHASE_SELL_DUST_BNB;
+    if (ticks.length >= 4) {
+      let firstSellIdx = -1;
+      for (let i = 0; i < ticks.length; i++) {
+        const t = ticks[i];
+        if (t.side === 'SELL' && (t.bnb || 0) >= SELL_DUST) { firstSellIdx = i; break; }
+      }
+      if (firstSellIdx >= 0) {
+        const firstSell = ticks[firstSellIdx];
+        let preBuyBnb = 0, preBuyN = 0, preDustBuyN = 0, preDustSellN = 0;
+        let postBuyBnb = 0, postBuyN = 0, postSellBnb = 0, postSellN = 0;
+        for (let i = 0; i < ticks.length; i++) {
+          const t = ticks[i];
+          const bnb = t.bnb || 0;
+          if (t.side === 'BUY') {
+            if (bnb >= BUY_DUST) {
+              if (i < firstSellIdx) { preBuyBnb += bnb; preBuyN++; }
+              else { postBuyBnb += bnb; postBuyN++; }
+            } else if (i < firstSellIdx) preDustBuyN++;
+          } else if (i >= firstSellIdx) {
+            postSellBnb += bnb; postSellN++;
+          } else preDustSellN++;
+        }
+        const pbb = new Map(); // 首卖后同块买入合计（组织性分仓识别）
+        for (let i = firstSellIdx; i < ticks.length; i++) {
+          const t = ticks[i];
+          if (t.side !== 'BUY' || t.block === null || t.block === undefined) continue;
+          if (!t.wallet || isRouterWallet(t.wallet)) continue;
+          const e = pbb.get(t.block) || { n: 0, buyBnb: 0 };
+          e.n++; e.buyBnb += t.bnb || 0;
+          pbb.set(t.block, e);
+        }
+        let postBundledBlock = null;
+        for (const [block, e] of pbb) {
+          if (e.n >= 2 && (!postBundledBlock || e.buyBnb > postBundledBlock.buyBnb)) {
+            postBundledBlock = { block, n: e.n, buyBnb: +e.buyBnb.toFixed(4) };
+          }
+        }
+        const totalSubBuy = preBuyBnb + postBuyBnb;
+        phaseSplit = {
+          firstSellDt: firstSell.dt,
+          secSinceFirstSell: (tEnd !== null && firstSell.dt !== null && firstSell.dt !== undefined)
+            ? tEnd - firstSell.dt : null,
+          preBuyBnb: +preBuyBnb.toFixed(4), preBuyN, preDustBuyN, preDustSellN,
+          preBuySharePct: totalSubBuy > 0 ? +((preBuyBnb / totalSubBuy) * 100).toFixed(1) : null,
+          postBuyBnb: +postBuyBnb.toFixed(4), postBuyN,
+          postSellBnb: +postSellBnb.toFixed(4), postSellN,
+          postBundledBlock,
+        };
+      }
+    }
+  }
+
   // ── 卖压族（token 域；token_amount 任一行缺失 → 全族 null fail-closed）──
   const tokMissing = ticks.some((t) => t.tok === null || t.tok === undefined);
   let bigHolderSellBnb60 = null, exitSellerCount60 = null;
@@ -931,6 +1001,9 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // 开盘段结构族（BP18 盘面分类锚：首 30s 买入占比/大额单/后段密度——判读归
     // Jev market_pattern 题，strong_backer/retail_pvp 桶判据直接原料）
     openSeg,
+    // BP79 买期/卖期分界族（⑨先买后卖一波流判读原料：首卖位置/首卖前纯买期/
+    // 首卖后买卖结构+捆绑分仓；零像样卖 null=⑨轴不适用不冒充）
+    phaseSplit,
     // famous 痕迹族（BP53 二修/案号 BP61：名单钱包时间线+在场性——③桶收割完臂/
     // 退出臂前提的证据行；roster 缺失整体 null）
     famousTraces,
@@ -978,5 +1051,7 @@ module.exports = {
   BP_OPEN_SEG_SEC,
   BP_OPEN_BIG_BUY_BNB,
   BP_TAIL_SEC,
+  BP_PHASE_BUY_DUST_BNB,
+  BP_PHASE_SELL_DUST_BNB,
   detectSwings,
 };

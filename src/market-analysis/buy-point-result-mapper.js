@@ -351,6 +351,7 @@ function buildBuyPointObservation(answers, anchors = null) {
   const bundled = b.bundledBlock;
   const dump1 = b.dumpBlock;
   const dump2 = b.dump2Block;
+  const ps = b.phaseSplit;
   return {
     // 维度档位（缺席 null=材料薄/Jev 拒答；在场 {bucket, prob} argmax）
     dimensions,
@@ -443,6 +444,19 @@ function buildBuyPointObservation(answers, anchors = null) {
       dump2BlockFollowBuyRatio: dump2 && typeof dump2.followBuyRatio === 'number' ? dump2.followBuyRatio : null,
       // BP78 全窗总成交额（锚窗买+卖合计 BNB；malicious_dump 豁免臂判据源+观测）
       totalVolumeBnb: _num(b, 'totalVolumeBnb'),
+      // BP79 买期/卖期分界锚（⑨ one_wave_dump 主锚——首笔像样卖（尘门 0.01）位置：
+      // 首卖距今买点秒数/首卖前纯买期尘门后买入（额/笔/占比）/首卖后买卖结构+
+      // 最大同块买入合计（组织性分仓识别）；null=零像样卖或行 <4=⑨轴不适用）
+      phaseSplitSecSinceFirstSell: ps && typeof ps.secSinceFirstSell === 'number' ? ps.secSinceFirstSell : null,
+      phaseSplitPreBuyBnb: ps && typeof ps.preBuyBnb === 'number' ? ps.preBuyBnb : null,
+      phaseSplitPreBuyN: ps && typeof ps.preBuyN === 'number' ? ps.preBuyN : null,
+      phaseSplitPreBuySharePct: ps && typeof ps.preBuySharePct === 'number' ? ps.preBuySharePct : null,
+      phaseSplitPostBuyBnb: ps && typeof ps.postBuyBnb === 'number' ? ps.postBuyBnb : null,
+      phaseSplitPostBuyN: ps && typeof ps.postBuyN === 'number' ? ps.postBuyN : null,
+      phaseSplitPostSellBnb: ps && typeof ps.postSellBnb === 'number' ? ps.postSellBnb : null,
+      phaseSplitPostSellN: ps && typeof ps.postSellN === 'number' ? ps.postSellN : null,
+      phaseSplitPostBundledBnb: ps && ps.postBundledBlock && typeof ps.postBundledBlock.buyBnb === 'number' ? ps.postBundledBlock.buyBnb : null,
+      phaseSplitPostBundledN: ps && ps.postBundledBlock && typeof ps.postBundledBlock.n === 'number' ? ps.postBundledBlock.n : null,
       // 卖压族
       bigHolderSellBnb60: _num(b, 'bigHolderSellBnb60'),
       exitSellerCount60: _num(b, 'exitSellerCount60'),
