@@ -151,11 +151,11 @@ function buildBuyPointState(snapshot) {
       if (hasSwing || chgDeep) {
         const sgn = (v) => (v === null || v === undefined ? '?' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%');
         const swingPart = hasSwing
-          ? `最近确认摆高点距今 ${b.secSinceSwingHigh}s、现价距该摆高 ${sgn(b.currentVsSwingHighPct)}（≥20% 摆动确认的峰——峰刚确认数十秒内现价深跌距峰 ≥25%=涨段被垂直砸断：「涨着涨着一下子闪崩」）`
+          ? `最近确认摆高点距今 ${b.secSinceSwingHigh}s、现价距该摆高 ${sgn(b.currentVsSwingHighPct)}、上升腿（前一确认摆低/序列起点→摆高）${sgn(b.swingRisePct)}/${b.swingRiseSec ?? '?'}s（≥20% 摆动确认的峰——峰刚确认数十秒内现价深跌距峰 ≥25%=涨段被垂直砸断：「涨着涨着一下子闪崩」；**形态前提=上升腿是有一定时长的持续上涨（参考 ≥60s 且涨幅 ≥20%）**——秒级开盘脉冲（如十几秒翻倍后回落）不算「涨着涨着」，不走摆点轴照数值臂评估；摆高距今可超 60s（峰后横盘无 20% 摆动确认=摆高停旧）时看打断余波口：上升腿 ≥60s∧≥20% 结束后锚前 30s 内 ≥15% 深段且未收复 ≤-20（近期暴跌段行）=打断刚落地的余波，同属打断家族）`
           : '无确认摆点（新票/单边行情——摆动轴不适用，由 chg 同深轴判）';
         const diff = (b.chg5Pct !== null && b.chg5Pct !== undefined && b.chg10Pct !== null && b.chg10Pct !== undefined)
           ? (b.chg5Pct - b.chg10Pct).toFixed(1) : '?';
-        lines.push(`趋势打断: ${swingPart}；chg5 与 chg10 差 ${diff}pp（同深≈0=砸盘刚开始无铺垫、急跌进行时；chg5 明显浅于 chg10=下跌主体已过去几秒，非进行时）（crash 判轴直供——趋势打断/急跌进行时命中优先于「买入力在场」豁免评估：买入力还在也接不住刚被打断的趋势）`);
+        lines.push(`趋势打断: ${swingPart}；chg5 与 chg10 差 ${diff}pp（同深≈0=砸盘刚开始无铺垫、急跌进行时；chg5 明显浅于 chg10=下跌主体已过去几秒，非进行时）（crash 判轴直供——打断家族（摆点轴/chg 同深/打断余波三口，均含上升腿形态前提）命中唯一放行出口=反弹两件套（chg5 转正∧未收复收窄 -20 内）；「买入力在场」豁免对打断家族不适用——砸穿途中/刚落地余波里的买力是接刀不是承接）`);
       }
     }
     // （②a 摆动结构行已删——BP30/题集 BP33 tree_position 题退役：zigzag 锚照算

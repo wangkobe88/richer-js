@@ -260,6 +260,14 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     const lastPrice = rel[rel.length - 1].priceBnb;
     const lastHigh = [...s.points].reverse().find((p) => p.kind === 'high') || null;
     const lastLow = [...s.points].reverse().find((p) => p.kind === 'low') || null;
+    // 上升腿（趋势打断轴形态前提）：最近确认 high 的前一个确认点（zigzag 高低交替
+    // 确认，前一点必为 low；无前点=序列起点）→ 该 high 的涨幅/时长。秒级开盘脉冲
+    // （如 7s 翻倍）与分钟级持续拉涨在 riseSec 上量级分离——「涨着涨着」判读原料
+    const highIdx = lastHigh !== null ? s.points.lastIndexOf(lastHigh) : -1;
+    // points 元素字段=price（{dt,price,kind}）、rel 元素=priceBnb——两形状归一后取腿
+    const legFromPt = highIdx > 0 ? s.points[highIdx - 1] : null;
+    const legFromPrice = legFromPt !== null ? legFromPt.price : (rel[0] ? rel[0].priceBnb : null);
+    const legFromDt = legFromPt !== null ? legFromPt.dt : (rel[0] ? rel[0].dt : null);
     swing = {
       points: s.points,
       legs: s.legs,
@@ -270,6 +278,9 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       secSinceLow: lastLow !== null && tEnd !== null ? tEnd - lastLow.dt : null,
       vsHighPct: lastHigh !== null && lastHigh.price > 0 ? +(((lastPrice / lastHigh.price) - 1) * 100).toFixed(2) : null,
       vsLowPct: lastLow !== null && lastLow.price > 0 ? +(((lastPrice / lastLow.price) - 1) * 100).toFixed(2) : null,
+      risePct: lastHigh !== null && lastHigh.price > 0 && legFromPrice !== null && legFromPrice > 0
+        ? +(((lastHigh.price / legFromPrice) - 1) * 100).toFixed(2) : null,
+      riseSec: lastHigh !== null && legFromDt !== null ? +((lastHigh.dt - legFromDt).toFixed(1)) : null,
       maxAmplPct: s.legs.length ? Math.max(...s.legs.map((l) => Math.abs(l.amplPct))) : null,
     };
   }
@@ -969,6 +980,8 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     secSinceSwingLow: swing ? swing.secSinceLow : null,
     currentVsSwingHighPct: swing ? swing.vsHighPct : null,
     currentVsSwingLowPct: swing ? swing.vsLowPct : null,
+    swingRisePct: swing ? swing.risePct : null,
+    swingRiseSec: swing ? swing.riseSec : null,
     swingMaxAmplPct: swing ? swing.maxAmplPct : null,
     // 发行价位置族（BP5：截窗未覆盖出生段 → null 不冒充；launchCovered=覆盖判据观测键；
     // athVsLaunchPct=锚窗最高可靠价较发行价 %，BP39「开盘拉高出货盘」度量锚；

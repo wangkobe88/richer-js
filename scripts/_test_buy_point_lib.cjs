@@ -188,9 +188,11 @@ ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删
     'BP72 state 暴跌血缘行渲染（-25.00%/距 6 秒/未收复 -24.00%——臂 B 主锚直供行在场）');
   ok(stB.includes('锚前尾段买卖对比(最后10秒): 买 0 笔 / 0 BNB、卖 0.6 BNB'),
     'BP72 state 尾段买卖对比行渲染（臂 A 主锚直供行——买 0 笔/0 BNB、卖 0.6 BNB）');
-  // A fixture recentDip5 null → 暴跌血缘行缺席（缺证据不渲染，宁缺不冒充）
+  // A fixture recentDip5 null → 暴跌血缘行缺席（缺证据不渲染，宁缺不冒充）。
+  // 锁数据行完整前缀而非裸子串：趋势打断行的打断余波口指引文提及「（近期暴跌段行）」
+  // 行名（R1 三修）——指引在场≠数据行在场。
   const stB0 = buildBuyPointState(buildBuyPointSnapshot(rowsA, metaA)).state;
-  ok(!stB0.includes('近期暴跌段'), 'BP72 state 暴跌血缘行缺席（recentDip5 null 不渲染——守卫非 null 才出场）');
+  ok(!stB0.includes('近期暴跌段(锚前30秒内最深5秒段):'), 'BP72 state 暴跌血缘行缺席（recentDip5 null 不渲染——守卫非 null 才出场；趋势打断行指引文提行名不算）');
 }
 ok(dA.maxChg5Pct === null, `A fixture 无 ≤5s 跨行段（间隔≥10s、同块行队首==j 不计）→ maxChg5=null（实际 ${dA.maxChg5Pct}）`);
 // BP58 A fixture 三键：同块行 9→10（2.0→1.95）=-2.5% 计入（双单调队列同块两笔价格差真实）；
@@ -1274,7 +1276,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP60 四题=4 维度 0 质量/桶域对锁/题面清洗——零编号零判例名，判例剥名留形状为匿名例）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP62', 'F: 版本=BP62（**BP62=bt-v104 R1 三件**：①②大户在场三分（活跃在场=净 >0 ∧ 末动 ≤120s；挂账沉默/清仓离场不算在场）②⑨先买后卖一波流判据=「买期/卖期分界」直供行（首笔像样卖尘门 0.01/买尘门 0.05/postBundled 分仓识别）③crash 加趋势打断轴（swing 摆点 ≤60s∧距摆高 ≤-25%+chg 同深轴双载体；优先于臂 B 买入力豁免））；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）；BP60=前代题面全面整理');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP62', 'F: 版本=BP62（**BP62=bt-v104 R1 三件+二修**：①②大户在场三分（活跃在场=净 >0 ∧ 末动 ≤120s；挂账沉默/清仓离场不算在场）②⑨先买后卖一波流判据=「买期/卖期分界」直供行（首笔像样卖尘门 0.01/买尘门 0.05/postBundled 分仓识别）③crash 加趋势打断轴（swing 摆点 ≤60s∧距摆高 ≤-25%∧**形态前提上升腿 ≥60s∧≥20%**+chg 同深轴双载体；秒级开盘脉冲不进轴——R1 二修=形态前提立法（c84a 7s/+92.8% 脉冲 vs 蝴蝶 286s/币安 149s 分钟腿分离，用户裁定「形态本身不一致不是买力问题」）；R1 三修=打断家族不豁免（用户裁定「打断家族不豁免，加吧」——三口=摆点轴/chg 同深轴/打断余波域（摆高停旧形状不看摆高距今看打断事实本身——苹果SI 375s 涨 70%→横盘 140s→22s 砸 -31% 盲区），打断家族唯一放行出口=臂 B 第一步反弹两件套、第二步买入力在场豁免对打断家族不适用——蝴蝶人生路摆点轴三腿全中仍被买力豁免吐出=判序失灵封口）））；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）；BP60=前代题面全面整理');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 4, `F: 恰 4 题=4 维度 0 质量（price_trend/price_level 两题随整理退役——纯参考零消费者，price_level 桶=currentVsLaunchPct 锚的确定性函数离线可复算；实际 ${ids.length}）`);
@@ -1415,7 +1417,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   const esc = qs.entry_shape.criteria;
   ok(esc.crash.includes('两臂同落本桶：臂 A 本地买方缺席的单边下跌段**') && esc.crash.includes('「先买入拉起、然后只有卖出」') && esc.crash.includes('尾 10s 买归零/纯尘+卖可观推进') && esc.crash.includes('近 30~120s 买归零/买中位 0.0x 级纯小单而卖 ≥0.4 级') && esc.crash.includes('判读看「买入前一段时间（一批交易）」不只尾 10s') && esc.crash.includes('反例照放：尾段像样买单在场、近窗双边像样换手的不落臂 A'), 'F: 臂 A=本地买方缺席的单边下跌段（先买拉起后只有卖；尾 10s 买归零/纯尘+卖可观+近窗买也缺席；判读看买入前一段时间不只尾 10s；反例照放句在场）');
   ok(esc.crash.includes('**臂 B 近期暴跌后的余波小活跃（判序四步）**') && esc.crash.includes('**第一步先判「快速暴跌后的反弹阶段」**') && esc.crash.includes('chg5 转正（双正更坚）+未收复收窄到 **-20% 以内**') && esc.crash.includes('直接照放 normal_dip 不落本臂'), 'F: 臂 B 第一步=反弹两件套照放（chg5 转正+未收复收窄 -20 内=收复过半——反弹确立直接照放）');
-  ok(esc.crash.includes('**第二步买入力在场豁免**') && esc.crash.includes('尾 10s 买入 ≥3 笔 ∧ 合计 ≥0.1 BNB 级') && esc.crash.includes('照放 normal_dip——买入力较拉盘期坍缩是下跌票的正常现象，判「还在不在」不判「比之前少多少」') && esc.crash.includes('急跌进行时（chg5≈chg10 同深无铺垫）不被豁免——砸穿途中的买力是接刀'), 'F: 臂 B 第二步=买入力在场豁免（尾 10s 买 ≥3 笔 ∧ ≥0.1 BNB 照放——判「还在不在」不判「比之前少多少」；急跌进行时不豁免=接刀非承接）');
+  ok(esc.crash.includes('**第二步买入力在场豁免**') && esc.crash.includes('尾 10s 买入 ≥3 笔 ∧ 合计 ≥0.1 BNB 级') && esc.crash.includes('照放 normal_dip——买入力较拉盘期坍缩是下跌票的正常现象，判「还在不在」不判「比之前少多少」') && esc.crash.includes('打断家族（急跌进行时 chg5≈chg10 同深无铺垫，或趋势打断轴三口任一命中——摆点轴三腿联立/chg 同深轴/打断余波域，均含上升腿 ≥60s 且 ≥20% 形态前提）不被豁免——砸穿途中的买力是接刀，打断刚落地余波里的买力同样是接刀，唯一放行出口=第一步反弹两件套（秒级开盘脉冲上升腿 <60s 不在打断家族、照本步正常评买入力）'), 'F: 臂 B 第二步=买入力在场豁免（尾 10s 买 ≥3 笔 ∧ ≥0.1 BNB 照放——判「还在不在」不判「比之前少多少」；打断家族（三口任一，均含上升腿形态前提）不被本步豁免——唯一放行出口=第一步反弹两件套，秒级脉冲照本步评）');
   ok(esc.crash.includes('**第三步深段未收复坐实+买入力不在场才落本桶**') && esc.crash.includes('锚前 30s 内深 5s 段（-18% 级）') && esc.crash.includes('-20% 级以上未收复') && esc.crash.includes('尾 10s 买 <3 笔或 <0.1 BNB') && esc.crash.includes('**收复证据认第一步两件套或第二步买入力在场**') && esc.crash.includes('curVsMinGap 双位数在深坑张着时不单独豁免') && esc.crash.includes('判在场性看尾 10s 本地窗'), 'F: 臂 B 第三步+收复证据口径（深段 -18% 级+未收复 -20% 级+买力不在场才坐实；curVsMinGap 双位数不单独豁免；判在场性看尾 10s 本地窗不看近窗遗迹）');
   ok(esc.normal_dip.includes('尾段买入力在场') || esIns.includes('尾段买入力在场'), 'F: normal_dip 前提句含三态（无深段/反弹两件套/尾段买入力在场——单边出货段与买力已走的余波归 crash）');
   ok(esIns.includes('**突发砸落进行时同落本桶**') && esIns.includes('chg5Pct≈chg10Pct 同深=整个下跌就发生在眼下几秒') && esIns.includes('接刀进行时') && esIns.includes('例：+81.6% 高位横盘后买点前 5s 突发 -32%、chg5=chg10=-32.4 无铺垫'), 'F: crash 急跌进行时轴（chg5 深负+chg5≈chg10 同深无铺垫=刚开始砸——买点接在急跌进行中=接刀进行时非「跌过的位置」）');
@@ -1423,7 +1425,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(esIns.includes('例：curVsAth -27.7 命中臂①+chg5 -22.3≈chg10 -20.3 同深差仅 2pp、买点前 1 秒 chg5 还是 +0.2（一秒内翻转 -22）') && esIns.includes('**幅度二十分级的接刀进行时照样砸：幅度浅不等于跌完了，同深无铺垫就是刚开始砸**'), 'F: 浅幅同深无铺垫判例（幅度二十分级的接刀进行时照样砸——一秒翻转是在场进行时的直接证据）');
   ok(esIns.includes('可接受的「跌」=已走完一段：chg5 收敛于 0 或为正、或 chg5 明显浅于 chg10（下跌主体在过去几秒而非眼下）') && esc.normal_dip.includes('前提=下跌已走完一段、此刻不在急跌进行中') && esc.crash.includes('买点时刻突发急跌进行时（chg5 深负+chg5≈chg10 同深无铺垫=刚开始砸）也落本桶'), 'F: 可接受的「跌」方向锚+两桶同步（chg5 收敛/为正或明显浅于 chg10；normal_dip 前提=跌完一段不在急跌进行中；criteria crash 急跌句同步）');
   ok(esIns.includes('**累计跌幅深也不等于砸盘、速度不急也不等于安全**') && esIns.includes('深坑张着的先查臂 B 第二步买入力在场性') && esIns.includes('反锚：①窗极短（各锚 ?/缺失）不判 crash/spike——判缺不猜'), 'F: 反锚段（窗极短判缺不猜；数值命中不等于 crash；累计深≠砸盘速度缓≠安全；深坑张着先查买力在场性）');
-  ok(esIns.includes('怎么算：[PRECOMPUTED] 现价较锚窗最高价行（currentVsAthPct）+ 近窗动量行（chg30Pct）+ 临近段 5s 段最大涨/跌行（nearMaxUp5Pct/nearMaxDn5Pct）+ 发行价位置行的 curVsMinGapPct') && esIns.includes('**锚前尾段买卖对比(最后10秒)行（臂 A 主锚：买笔数/买额/卖额直供）+ 近期暴跌段(锚前30秒内最深5秒段)行（臂 B 主锚：段深度/距今秒数/未收复幅度直供）+ 恶意砸块行（malicious_dump 主锚：单 block/相邻两 block 卖额/块内跌幅/卖方数（剔路由）/最大卖家占比/砸后 60s 承接比直供）+ 趋势打断行（趋势打断轴主锚：最近确认摆高点距今秒数/现价距摆高/chg5-chg10 差值直供——摆点轴与 chg 同深轴双载体）**'), 'F: entry_shape 怎么算=四键+四主锚直供（nearMax 双队列+curVsMinGap+尾段买卖对比行+近期暴跌段行+恶意砸块行（BP77）+趋势打断行（摆点/chg 同深双载体））');
+  ok(esIns.includes('怎么算：[PRECOMPUTED] 现价较锚窗最高价行（currentVsAthPct）+ 近窗动量行（chg30Pct）+ 临近段 5s 段最大涨/跌行（nearMaxUp5Pct/nearMaxDn5Pct）+ 发行价位置行的 curVsMinGapPct') && esIns.includes('**锚前尾段买卖对比(最后10秒)行（臂 A 主锚：买笔数/买额/卖额直供）+ 近期暴跌段(锚前30秒内最深5秒段)行（臂 B 主锚：段深度/距今秒数/未收复幅度直供）+ 恶意砸块行（malicious_dump 主锚：单 block/相邻两 block 卖额/块内跌幅/卖方数（剔路由）/最大卖家占比/砸后 60s 承接比直供）+ 趋势打断行（趋势打断轴主锚：最近确认摆高点距今秒数/现价距摆高/上升腿涨幅与时长/chg5-chg10 差值直供——摆点轴与 chg 同深轴双载体）**'), 'F: entry_shape 怎么算=四键+四主锚直供（nearMax 双队列+curVsMinGap+尾段买卖对比行+近期暴跌段行+恶意砸块行（BP77）+趋势打断行（摆点/chg 同深双载体+上升腿形态前提锚））');
   // ═══ famous 轴补充锚（主述断言见上文 famous 轴前置/③桶块——此处锁前置段与③桶的缝合点） ═══
   ok(mp.includes('退出臂评估**须并读③桶在场持有的厚薄分流**') && mp.includes('（例：出生数十秒 ultra 吞吐大量成交的盘面，famous 占比高但不是 famous 收割形状）'), 'F: 退出臂并读指针+厚度维度匿名例（退出臂评估须并读③桶厚薄分流防两段判读脱节；ultra 大量成交厚盘=famous 占比是换手结果非收割形状）');
   // 旧桶名全量绝迹（字符串层面——criteria 键域即 Jev Choice options，桶名不在=Jev 无法产出=unknown-bucket throw 兜底）
@@ -1562,11 +1564,30 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     row(12, 'SELL', W_D, 0.2, 1.05 * E9, 1.9e8),                  // -30% 砸落 → 摆高确认@dt5
     row(15, 'SELL', W_D, 0.2, 0.9 * E9, 2.2e8),                   // 现价 0.9=距摆高 -40%
   ];
-  const st79S = buildBuyPointState(buildBuyPointSnapshot(rows79S, metaA)).state;
+  const snap79S = buildBuyPointSnapshot(rows79S, metaA);
+  const st79S = buildBuyPointState(snap79S).state;
   ok(st79S.includes('趋势打断: 最近确认摆高点距今 10s、现价距该摆高 -40.0%'),
     'F2: 趋势打断行摆点轴渲染（刚确认摆高 10s 前现价距峰 -40%——「涨着涨着一下子闪崩」直供）');
-  ok(st79S.includes('趋势打断/急跌进行时命中优先于「买入力在场」豁免评估'),
-    'F2: 趋势打断行带判序句（优先于臂 B 第二步买入力豁免——BP74 赵公主先例延伸）');
+  ok(st79S.includes('上升腿（前一确认摆低/序列起点→摆高）+50.0%/5s') && st79S.includes('形态前提=上升腿是有一定时长的持续上涨（参考 ≥60s 且涨幅 ≥20%）'),
+    'F2: 趋势打断行上升腿直供+形态前提句（c84a 7s/+92.8% 秒级开盘脉冲≠「涨着涨着」——bt-v104 R1 二修：形态本身不一致，不是买力豁免拆层）');
+  ok(snap79S.buyDerived.swingRisePct === 50 && snap79S.buyDerived.swingRiseSec === 5,
+    'F2: swingRisePct/RiseSec digest 键（buyDerived 摆高上升腿涨幅/时长——series 起点→首个确认摆高）');
+  // 上升腿取「前一确认摆低」路径（事故现场反证：points 元素字段=price 非 priceBnb，
+  // 首版误读 priceBnb → risePct 恒 null → 蝴蝶人生路 286s 分钟腿涨幅显示 ? 不落摆点轴）
+  const rows79L = [
+    row(0, 'BUY', W_B, 0.3, 2.0 * E9, 3e8),
+    row(10, 'SELL', W_D, 0.2, 1.5 * E9, 4e8),                   // 跌 → runMin=1.5@dt10
+    row(20, 'BUY', W_C, 0.3, 1.9 * E9, 3.5e8),                  // 从低回升 +26.7% → 确认 low@dt10，dir=1
+    row(130, 'BUY', W_C, 0.3, 3.0 * E9, 3e8),                   // 持续拉涨 ext=3.0（+100% 上升腿）
+    row(140, 'SELL', W_D, 0.2, 2.1 * E9, 4.3e8),                // -30% → 确认 high@dt130，现价距峰 -30%
+  ];
+  const snap79L = buildBuyPointSnapshot(rows79L, metaA);
+  ok(snap79L.buyDerived.swingRisePct === 100 && snap79L.buyDerived.swingRiseSec === 120,
+    'F2: swingRise 前一确认摆低路径（legFrom=low point 取 price 字段——蝴蝶人生路 286s 分钟腿形状：+100%/120s）');
+  ok(st79S.includes('打断家族（摆点轴/chg 同深/打断余波三口，均含上升腿形态前提）命中唯一放行出口=反弹两件套（chg5 转正∧未收复收窄 -20 内）；「买入力在场」豁免对打断家族不适用——砸穿途中/刚落地余波里的买力是接刀不是承接'),
+    'F2: 趋势打断行带判序句（打断家族三口命中唯一放行出口=反弹两件套、买入力在场豁免不适用——R1 三修封口，BP74 赵公主先例延伸）');
+  ok(st79S.includes('摆高距今可超 60s（峰后横盘无 20% 摆动确认=摆高停旧）时看打断余波口：上升腿 ≥60s∧≥20% 结束后锚前 30s 内 ≥15% 深段且未收复 ≤-20（近期暴跌段行）=打断刚落地的余波，同属打断家族'),
+    'F2: 趋势打断行打断余波口指引（摆高停旧形状不看摆高距今看打断事实本身——苹果SI 375s 涨 70%→横盘 140s→22s 砸 -31% 摆高被横盘拉旧盲区）');
   const rows79C = [
     row(0, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
     row(1, 'BUY', W_C, 0.3, 1.0 * E9, 3e8),
@@ -1592,10 +1613,24 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(mp79.includes('**在场=活跃在场**：净持仓 >0 且末动距今 ≤120 秒') && mp79.includes('挂账在场（净 >0 但末动距今 >120s 的沉默持仓）与已清仓离场都不算在场') && mp79.includes('末动距今 452s/211s=挂账沉默，不算'),
     'F2: ②第二步题面=活跃在场口径（末动 452s/211s 挂账例句在场）');
   const es79 = qs.entry_shape.instructions;
-  ok(es79.includes('趋势打断轴（swing 摆点直供') && es79.includes('最近确认摆高点距今 ≤60 秒') && es79.includes('现价距该摆高 ≤-25%'),
-    'F2: crash 趋势打断轴题面（摆点轴双阈值+用户裁定维持 crash 桶——散卖/薄盘闪崩不需组织性证据、不受 BP78 交易额豁免误放）');
-  ok(es79.includes('优先于臂 B 第二步「买入力在场」豁免评估') && es79.includes('chg5 -44.7≈chg10 -41.7'),
-    'F2: 趋势打断优先于臂 B 豁免判序句（赵公主先例数值锚在场）');
+  ok(es79.includes('趋势打断轴（swing 摆点直供') && es79.includes('最近确认摆高点距今 ≤60 秒') && es79.includes('现价距该摆高 ≤-25%')
+    && es79.includes('形态前提——摆高前上升腿（前一确认摆低/序列起点→摆高，行内直供涨幅与时长）是有一定时长的持续上涨（参考 ≥60s 且涨幅 ≥20%）')
+    && es79.includes('秒级开盘脉冲（上升腿 <60s，如十几秒内翻倍后回落）不算「涨着涨着」'),
+    'F2: crash 趋势打断轴题面（摆点轴三腿联立含形态前提+用户裁定维持 crash 桶——散卖/薄盘闪崩不需组织性证据、不受 BP78 交易额豁免误放）');
+  ok(es79.includes('按三口互补判读') && es79.includes('打断余波域（摆高停旧形状——峰后横盘期无 20% 摆动确认，最近确认摆高被横盘拉旧、距今可超 60 秒）')
+    && es79.includes('改看打断事实本身——上升腿 ≥60s 且 ≥20%（行内直供）的持续上涨结束后，锚前 30s 内出现 ≥15% 深 5s 段且现价距段起点未收复 ≤-20'),
+    'F2: 趋势打断轴三口化（①摆点轴②chg 同深轴③打断余波域——摆高停旧不看摆高距今看打断事实本身，苹果SI 盲区立法）');
+  ok(es79.includes('打断家族（上述三口任一命中，均含上升腿形态前提）的唯一放行出口=臂 B 第一步反弹两件套（chg5 转正∧未收复收窄 -20 内）；臂 B 第二步「买入力在场」豁免对打断家族不适用')
+    && es79.includes('chg5 -44.7≈chg10 -41.7'),
+    'F2: 打断家族唯一放行出口题面句（第二步买入力豁免不适用——赵公主先例数值锚在场；R1 三修用户裁定「打断家族不豁免，加吧」）');
+  ok(es79.includes('不得以「盘面有换手/活跃度高」为由放行打断家族的票') && es79.includes('换手豁免只适用于下跌已走完的形状，不适用于正在被打断/刚被打断的趋势'),
+    'F2: 打断家族换手豁免封口句（换手豁免只适用于跌完的形状——蝴蝶人生路摆点轴三腿全中仍被买力豁免吐出案封口）');
+  ok(es79.includes('**打断家族不被本步豁免**——打断家族=急跌进行时（chg5 深负且 chg5≈chg10 同深无铺垫）∨ 趋势打断轴三口任一命中')
+    && es79.includes('**唯一放行出口=第一步反弹两件套**（秒级开盘脉冲上升腿 <60s 不在打断家族——照本步正常评买入力，在场照放）'),
+    'F2: 臂 B 第二步边界①打断家族段（打断刚落地余波里的买力是接刀；秒级脉冲不在打断家族照本步评买入力）');
+  ok(es79.includes('打断家族形状不在除外内——打断刚落地余波里的买力是接刀，见趋势打断轴')
+    && es79.includes('打断家族（急跌进行时/趋势打断三口任一）的照 crash 维持且第二步买入力在场不豁免'),
+    'F2: 安全臂除外句限定+反锚②打断家族维持句（两处同步封口——打断家族不被任何豁免出口吐出）');
   ok(qs.market_pattern.criteria.one_wave_dump.includes('买期/卖期分界') && qs.market_pattern.criteria.retail_pvp.includes('活跃在场'),
     'F2: criteria 两桶同步（one_wave_dump 分界行/retail_pvp 活跃在场口径）');
 

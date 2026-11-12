@@ -406,6 +406,8 @@ function buildBuyPointObservation(answers, anchors = null) {
       secSinceSwingLow: _num(b, 'secSinceSwingLow'),
       currentVsSwingHighPct: _num(b, 'currentVsSwingHighPct'),
       currentVsSwingLowPct: _num(b, 'currentVsSwingLowPct'),
+      swingRisePct: _num(b, 'swingRisePct'),
+      swingRiseSec: _num(b, 'swingRiseSec'),
       swingMaxAmplPct: _num(b, 'swingMaxAmplPct'),
       // 近窗族（W∈{30,60,120} 扁平 10 键/窗）
       ...flat,
