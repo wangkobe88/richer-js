@@ -153,6 +153,12 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
     activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
                                  //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
+    // ── T137 KOL HOLD 两键（2026-11-13 KOL 研究：pp≥100 ∧ famous 仍在入场 →
+    //    延缓该卡卖出吃到高点；V2 触发口径「120s 内有 ≥0.1B famous 买」+2.32）──
+    famousBigBuyBnb: 0.1,        // sinceLastFamousBigBuySec 的 famous 大买判定线（BNB）；
+                                 //   研究口径 fb 收集同线；factorParams 可覆盖
+    famousSellWinMs: 60000,      // recentFamousSellBnb 滑窗（释放臂「60s 内 famous 卖出
+                                 //   合计 ≥0.2」的原料窗）
     netBuyWinTrades: 20,        // tradesNetBuyRatioShortWin 净买短窗笔数（T87 2026-10-28
                                  //   0xdf7a 案用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内
                                  //   无行情」：T77 时间窗的 null fail-closed 对慢热票缺证据；
@@ -1056,6 +1062,16 @@ class FourMemeFactorAggregator extends EventEmitter {
                 this._countFamousNearLaunchBuy(state, priceBnb, bnbAmount);
             }
 
+            // ── T137 famous 大买/卖出流（KOL HOLD 两键原料，写点①）：famous roster
+            //    钱包买入 ≥famousBigBuyBnb 记最后时刻（sinceLastFamousBigBuySec——
+            //    HOLD 触发口径「120s 内有 ≥0.1B 买」的载体）；famous 卖行进事件环
+            //    （recentFamousSellBnb——释放臂「60s 内卖出合计 ≥0.2」原料）。
+            //    T133 同款双段：defer 行 walletAddr 假值跳过，wallet 段补跑恰一次 ──
+            if (!deferWallet && _famousCopyWallets && _famousCopyWallets.size > 0
+                && walletAddr && _famousCopyWallets.has(walletAddr)) {
+                this._noteFamousFlow(state, isBuy, bnbAmount, ts);
+            }
+
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
             // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
             // 峰 tick 缺 USD → 0，其后非峰 tick 不回填——保守方向与离线一致）
@@ -1324,6 +1340,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             && _famousCopyWallets && _famousCopyWallets.size > 0
             && walletAddr && _famousCopyWallets.has(walletAddr)) {
             this._countFamousNearLaunchBuy(state, tick.price_bnb || 0, bnbAmount);
+        }
+
+        // ── T137 famous 流写点②（defer 专属补跑，T133 同款防双计：smartBotEligible
+        //    仅 defer 路径置位；直推路径价格段已计，本段不跑）。买/卖都补（写点①同构，
+        //    isBuy 分支在 _noteFamousFlow 内部）──
+        if (vars.smartBotEligible === true
+            && _famousCopyWallets && _famousCopyWallets.size > 0
+            && walletAddr && _famousCopyWallets.has(walletAddr)) {
+            this._noteFamousFlow(state, isBuy, bnbAmount, tick.timestamp);
         }
 
         // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
@@ -1927,6 +1952,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             _minRelPriceBnb: 0,         // T134 滚动最低可靠价（launch 地板原料：min(常量, 首买, ≤t 最低可靠价)；min 更新幂等=任意序回放收敛；0=未见可靠价）
             _famousNearLaunchBuys: 0,   // T133 famous near_launch 入场计数（全史单调计数器；写点=价格段/wallet 段补跑双段，见 _countFamousNearLaunchBuy）
             _famousNearLaunchBuyBnb: 0, // T136 同判据金额累计（BNB；卖臂 v2 金额门原料，见 _countFamousNearLaunchBuy）
+            _famousBigBuyLastAt: null,  // T137 famous 大买（≥famousBigBuyBnb）最后时刻 ms（null=从未 → sinceLastFamousBigBuySec null → HOLD 不触发 fail-open；写点=价格段/wallet 段补跑双段，见 _noteFamousFlow）
+            _famousSellEvents: [],      // T137 famous 卖出事件环 [{ts,bnb}]（recentFamousSellBnb 原料；求和交换律=defer 乱序回推无害；摊销裁剪保 5×窗）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
 
@@ -2375,6 +2402,52 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 常见交易档不构成「famous 进场确认」；两笔像样单或一笔 0.5+ 大单才撤离）
             state._famousNearLaunchBuyBnb = (state._famousNearLaunchBuyBnb || 0) + (bnbAmount || 0);
         }
+    }
+
+    /**
+     * T137 famous 大买/卖出流登记（2026-11-13 KOL HOLD 研究）：famous roster 钱包
+     * 行为流原始登记，双段喂食（价格段 deferWallet 门 + wallet 段 smartBotEligible
+     * 补跑——T133 同款每 tick 恰计一次）。
+     *   买腿 bnb ≥ famousBigBuyBnb → 记 _famousBigBuyLastAt（Math.max 防回拨——
+     *     defer 乱序回推晚到行 ts 更小不回退；lastAt=null 语义=从未有大买）；
+     *   卖腿 bnb>0 全量进 _famousSellEvents 事件环（不设单笔阈值——释放臂是
+     *     「窗内合计 ≥0.2」，小额累计也是 famous 撤离证据；求和交换律=乱序无害）。
+     * 不依赖价格区间（与 _countFamousNearLaunchBuy 的 near_launch 门不同——
+     * HOLD 关心的是「还在入场」这个行为本身，任何价位的大买都构成 HOLD 依据）。
+     */
+    _noteFamousFlow(state, isBuy, bnbAmount, ts) {
+        if (isBuy) {
+            if (!(bnbAmount >= this._fp.famousBigBuyBnb)) return;
+            if (state._famousBigBuyLastAt === null || ts > state._famousBigBuyLastAt) {
+                state._famousBigBuyLastAt = ts;
+            }
+        } else {
+            if (!(bnbAmount > 0)) return;
+            const evs = state._famousSellEvents;
+            evs.push({ ts, bnb: bnbAmount });
+            // 摊销裁剪（_pruneActivityEvents 同式）：>64 条才批量裁头部，保 5×窗
+            // 余量（60s 窗 ×5=300s；famous 卖稀疏，>64 条=长命票极端态才触发）
+            if (evs.length > 64) {
+                const cutoff = ts - 5 * this._fp.famousSellWinMs;
+                let i = 0;
+                while (i < evs.length && evs[i].ts < cutoff) i++;
+                if (i > 0) evs.splice(0, i);
+            }
+        }
+    }
+
+    /**
+     * T137 recentFamousSellBnb 窗内合计（famousSellWinMs 窗，now 由
+     * buildFactorMap 传入——禁 Date.now 防前视红线）。空环/窗内无事件=0
+     * （有证据零值：「famous 没在卖」是有效证据，`>= 0.2` 恒 false 不误触发释放）。
+     */
+    _famousSellWindowBnb(state, now) {
+        const cutoff = now - this._fp.famousSellWinMs;
+        let s = 0;
+        for (const e of state._famousSellEvents) {
+            if (e.ts > cutoff) s += e.bnb;
+        }
+        return s;
     }
 
     /**
@@ -3564,6 +3637,16 @@ class FourMemeFactorAggregator extends EventEmitter {
             tradesNetBuyRatioShortWin: netBuyWin.tradesNetBuyRatioShortWin,
             tradesNetBuyShortWinBnb: netBuyWin.tradesNetBuyShortWinBnb,
             tradesNetBuyRatioLongWin: netBuyWin.tradesNetBuyRatioLongWin,
+
+            // ── T137 KOL HOLD 两键（2026-11-13 KOL 研究：pp≥100 ∧ famous 仍在
+            //    入场 → 延缓该卡卖出吃到高点）。token 级（未持仓也发射——观察用）：
+            //    sinceLastFamousBigBuySec=距最后 ≥famousBigBuyBnb famous 买的秒数
+            //    （null=从未有/roster 未加载 → 裸比较恒 false → HOLD 不触发 fail-open，
+            //    无 famous 的票零影响）；recentFamousSellBnb=famousSellWinMs 窗内
+            //    famous 卖出合计（释放臂原料；0=无卖出有证据零值非 null）──
+            sinceLastFamousBigBuySec: state._famousBigBuyLastAt === null ? null
+                : Number(((now - state._famousBigBuyLastAt) / 1000).toFixed(1)),
+            recentFamousSellBnb: Number(this._famousSellWindowBnb(state, now).toFixed(4)),
 
             // ── 交易活跃度滑窗 act* 9 键（2026-10-15；取代已删的 cycle 分桶路由。
             //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null；

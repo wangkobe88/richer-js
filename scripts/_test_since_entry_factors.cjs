@@ -443,5 +443,192 @@ console.log('J. T133 famous near_launch 计数（2026-11-10 用户立法「买�
     }
 }
 
+// ═══════════════ K. T137 KOL HOLD 两键（2026-11-13 KOL 研究）═══════════════
+// sinceLastFamousBigBuySec（HOLD 触发载体：卡 fire 时 pp≥100 ∧ ≤120 → 延缓该卡
+// 卖出到释放点——V2 反事实 +2.32）+ recentFamousSellBnb（释放臂载体：60s 窗 famous
+// 卖出合计 ≥0.2）。token 级键（未持仓也发射）；null/0 语义=无 famous 在场 →
+// HOLD 臂恒 false fail-open（无 famous 的票零影响）。
+console.log('K. T137 KOL HOLD 两键（sinceLastFamousBigBuySec / recentFamousSellBnb）');
+{
+    const FAMK = '0xfamousk111111111111111111111111111111111111';
+    const P0K = 0.00001;
+    let liK = 0;
+    const tK = (o) => mkTick(Object.assign({
+        sender_address: FAMK, price_bnb: P0K, bnb_amount: 0.3, timestamp: T0 + 3000,
+    }, o, { tx_hash: '0xk' + (++liK), log_index: liK }));
+    FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([FAMK]));
+    try {
+        // K1 大买记时刻：0.3B famous 买 → (now−lastAt)/1000 toFixed(1)
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ timestamp: T0 + 3000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000 + 123500);
+            check('K1 sinceLastFamousBigBuySec = 123.5（精确 (now−lastAt)/1000）', () =>
+                assert.strictEqual(f.sinceLastFamousBigBuySec, 123.5));
+        }
+        // K2 阈值门：0.1 贴线过（≥）= 研究口径大买线
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ bnb_amount: 0.1, timestamp: T0 + 2000 })); // 恰 0.1（闭界）
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+            check('K2a 0.1 贴线（≥famousBigBuyBnb）记时刻 → 1.0', () =>
+                assert.strictEqual(f.sinceLastFamousBigBuySec, 1));
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa2.processTick(tK({ bnb_amount: 0.05, timestamp: T0 + 2000 }));       // 低于线不记
+            fa2.processTick(tK({ sender_address: '0xzz', bnb_amount: 0.5, timestamp: T0 + 2500 })); // 非 famous 不记
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 3000);
+            check('K2b 0.05 低于线 + 非 famous 0.5B → null（从未有大买）', () =>
+                assert.strictEqual(f2.sinceLastFamousBigBuySec, null));
+        }
+        // K3 Math.max 防回拨（defer 乱序回推晚到行不回退 lastAt）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ timestamp: T0 + 5000 }));
+            fa.processTick(tK({ timestamp: T0 + 3000 })); // 乱序晚到行 ts 更小
+            const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+            check('K3 晚到行不回退 lastAt → since=1.0（按 T0+5000 非按 T0+3000）', () =>
+                assert.strictEqual(f.sinceLastFamousBigBuySec, 1));
+        }
+        // K4 卖行不推进 lastAt + recentFamousSellBnb 窗内合计
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ timestamp: T0 + 2000 }));                                       // famous 大买
+            fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.15, timestamp: T0 + 3000 })); // famous 卖①
+            fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.1, timestamp: T0 + 3500 }));  // famous 卖②
+            const f = fa.buildFactorMap('0xtoken', T0 + 3600);
+            check('K4a 卖行不推进 lastAt → since 按 T0+2000 算 = 1.6', () =>
+                assert.strictEqual(f.sinceLastFamousBigBuySec, 1.6));
+            check('K4b recentFamousSellBnb = 0.25（窗内两笔合计，小额也收——释放臂看合计）', () =>
+                assert.ok(Math.abs(f.recentFamousSellBnb - 0.25) < 1e-9, `got ${f.recentFamousSellBnb}`));
+        }
+        // K5 60s 窗边界 + 无事件零值
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.3, timestamp: T0 + 1000 }));   // 早于窗
+            fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.25, timestamp: T0 + 61000 })); // 窗内
+            const f = fa.buildFactorMap('0xtoken', T0 + 66000); // 窗 = (T0+6000, T0+66000]
+            check('K5a 窗外剔除（T0+1000 出窗）→ 0.25', () =>
+                assert.ok(Math.abs(f.recentFamousSellBnb - 0.25) < 1e-9, `got ${f.recentFamousSellBnb}`));
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 5000);
+            check('K5b 无任何 famous 事件 → since null + sell 0（有证据零值非 null）', () => {
+                assert.strictEqual(f2.sinceLastFamousBigBuySec, null);
+                assert.strictEqual(f2.recentFamousSellBnb, 0);
+            });
+        }
+        // K6 defer 双段恰一次（T133 同构：价格段假 wallet 跳过 + wallet 段补跑）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ timestamp: T0 + 3000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3100);
+            check('K6a 直推路径恰计一次 → since=0.1', () =>
+                assert.strictEqual(f.sinceLastFamousBigBuySec, 0.1));
+
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            const rawBuy = tK({ timestamp: T0 + 3000, sender_address: null });
+            const rawSell = tK({ trade_type: 'sell', bnb_amount: 0.2, timestamp: T0 + 3100, sender_address: null });
+            fa2.processTick(rawBuy, { deferWallet: true, emitFactors: false });
+            fa2.processTick(rawSell, { deferWallet: true, emitFactors: false });
+            const f2mid = fa2.buildFactorMap('0xtoken', T0 + 3200);
+            check('K6b defer 价格段（sender 未知假值）两键都不计 → null/0', () => {
+                assert.strictEqual(f2mid.sinceLastFamousBigBuySec, null);
+                assert.strictEqual(f2mid.recentFamousSellBnb, 0);
+            });
+            fa2.applyWalletTick({ ...rawBuy, sender_address: FAMK, price_accepted: true }, { emitFactors: false });
+            fa2.applyWalletTick({ ...rawSell, sender_address: FAMK, price_accepted: true }, { emitFactors: false });
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 3200);
+            check('K6c wallet 段补跑恰一次 → since=0.2 + sell=0.2（与直推 bit 一致）', () => {
+                assert.strictEqual(f2.sinceLastFamousBigBuySec, 0.2);
+                assert.ok(Math.abs(f2.recentFamousSellBnb - 0.2) < 1e-9, `got ${f2.recentFamousSellBnb}`);
+            });
+        }
+        // K7 摊销裁剪（>64 条触发；5×窗余量=窗内证据不丢）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            for (let i = 0; i < 65; i++) { // 间隔 10s 跨 640s：触发裁剪（头部 <尾部−300s 被裁）
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.01, timestamp: T0 + 2000 + i * 10000 }));
+            }
+            const f = fa.buildFactorMap('0xtoken', T0 + 645000); // 窗 = (T0+585000, …] → i≥59 共 6 笔
+            check('K7 裁剪只裁 5×窗外头部 → 窗内 6 笔保留合计 0.06', () =>
+                assert.ok(Math.abs(f.recentFamousSellBnb - 0.06) < 1e-9, `got ${f.recentFamousSellBnb}`));
+        }
+        // K8 HOLD 臂条件串真值表（释放四臂 OR 形状——null 侧放行 fail-open）
+        {
+            const se = new StrategyEngine({});
+            const HOLD = 'profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL'
+                + ' OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2';
+            check('K8a pp=150 ∧ famous 在场（since=45）→ false（HOLD 该卡）', () =>
+                assert.strictEqual(se.evaluateCondition(HOLD,
+                    { profitPercent: 150, sinceLastFamousBigBuySec: 45, recentFamousSellBnb: 0 }), false));
+            check('K8b pp=150 ∧ since=null（无 famous）→ true（放行——裸比较恒 false 由 IS NULL 臂兜住）', () =>
+                assert.strictEqual(se.evaluateCondition(HOLD,
+                    { profitPercent: 150, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0 }), true));
+            check('K8c pp=150 ∧ since=200（120s 无大买=停止）→ true（放行）', () =>
+                assert.strictEqual(se.evaluateCondition(HOLD,
+                    { profitPercent: 150, sinceLastFamousBigBuySec: 200, recentFamousSellBnb: 0 }), true));
+            check('K8d pp=150 ∧ sell=0.3（首大卖释放）→ true（放行）', () =>
+                assert.strictEqual(se.evaluateCondition(HOLD,
+                    { profitPercent: 150, sinceLastFamousBigBuySec: 30, recentFamousSellBnb: 0.3 }), true));
+            check('K8e pp=80（未达安全垫）→ true（不 HOLD——pp<100 卡照常卖）', () =>
+                assert.strictEqual(se.evaluateCondition(HOLD,
+                    { profitPercent: 80, sinceLastFamousBigBuySec: 10, recentFamousSellBnb: 0 }), true));
+        }
+        // K9 源码口径断言
+        {
+            const src = read('src/services/FourMemeFactorAggregator.js');
+            check('K9a 写点①双段字面量（价格段 deferWallet 门+_noteFamousFlow）', () => {
+                assert.ok(src.includes('this._noteFamousFlow(state, isBuy, bnbAmount, ts);'));
+            });
+            check('K9b 写点②补跑字面量（smartBotEligible 门+tick.timestamp）', () => {
+                assert.ok(src.includes('this._noteFamousFlow(state, isBuy, bnbAmount, tick.timestamp);'));
+            });
+            const fnStart = src.indexOf('_noteFamousFlow(state, isBuy, bnbAmount, ts) {');
+            const fnSeg = src.slice(fnStart, src.indexOf('\n    /**', fnStart));
+            check('K9c 函数体禁 Date.now + Math.max 防回拨字面量', () => {
+                assert.ok(!/Date\.now/.test(fnSeg), '_noteFamousFlow 出现 Date.now');
+                assert.ok(fnSeg.includes('ts > state._famousBigBuyLastAt'));
+            });
+            check('K9d 发射段 null 语义（lastAt==null → null）+ toFixed(1)', () => {
+                assert.ok(src.includes('sinceLastFamousBigBuySec: state._famousBigBuyLastAt === null ? null'));
+                assert.ok(src.includes("/ 1000).toFixed(1)"));
+            });
+            const fbSrc = read('src/trading-engine/core/FactorBuilder.js');
+            check('K9e FactorBuilder 快照透传两键（不落库即丢防线）', () => {
+                assert.ok(fbSrc.includes('sinceLastFamousBigBuySec: factorResults.sinceLastFamousBigBuySec ?? null'));
+                assert.ok(fbSrc.includes('recentFamousSellBnb: factorResults.recentFamousSellBnb ?? null'));
+            });
+            check('K9f getFactorKeys 探针含两键（未知因子三防线自动认得）', () => {
+                const keys = newFA().getFactorKeys();
+                assert.ok(keys.has('sinceLastFamousBigBuySec'), '探针缺 sinceLastFamousBigBuySec');
+                assert.ok(keys.has('recentFamousSellBnb'), '探针缺 recentFamousSellBnb');
+            });
+        }
+        // K10 roster 未加载 fail-open（K 段内置复位前置段）
+        {
+            FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ bnb_amount: 0.5, timestamp: T0 + 3000 })); // roster 空 → 不记
+            const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+            check('K10 roster 未加载恒 null/0（fail-open：HOLD 不触发，无 famous 票零影响）', () => {
+                assert.strictEqual(f.sinceLastFamousBigBuySec, null);
+                assert.strictEqual(f.recentFamousSellBnb, 0);
+            });
+        }
+    } finally {
+        FourMemeFactorAggregator.setFamousCopyWalletsForTest(null); // 复位未加载态
+    }
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);

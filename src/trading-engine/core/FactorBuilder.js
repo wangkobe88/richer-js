@@ -89,6 +89,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 立即清仓/为何没清）需 fire 时刻值，序列不可重建；旧 FA/未持仓 → null 不掩盖
     sinceEntryFamousNearLaunchBuys: factorResults.sinceEntryFamousNearLaunchBuys ?? null,
     sinceEntryFamousNearLaunchBuyBnb: factorResults.sinceEntryFamousNearLaunchBuyBnb ?? null,
+    // T137 KOL HOLD 两键（2026-11-13）：famous 大买最后时刻距今秒数（HOLD 触发
+    // 口径载体）+60s 窗 famous 卖出合计（释放臂载体）——HOLD 触发/释放复盘需
+    // fire 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖
+    sinceLastFamousBigBuySec: factorResults.sinceLastFamousBigBuySec ?? null,
+    recentFamousSellBnb: factorResults.recentFamousSellBnb ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,

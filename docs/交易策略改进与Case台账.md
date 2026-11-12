@@ -55,6 +55,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T137 KOL HOLD 两键：sinceLastFamousBigBuySec + recentFamousSellBnb——famous 高位入场延缓卖出（FA 观察键先行，2026-11-13；用户裁定原话「就是已经涨了比较大幅度，例如 100% 以上，的票，能不能用 famous 入场，进一步延缓卖出，吃到高点」→ 反事实成立（V2×R1 +2.32/V2×R3 +1.87）→「好，A。」=FA 立两键观察+克隆实验带完整 HOLD/释放机制回测验证）
+
+**研究脉络**（KOL/famous 高位入场与卖出时机，全档=auto-memory kol-famous-study；V107 53 票基底反事实）：原始思路「famous 高位持续买入→抑制卖出」终局否证（ba5e famous 高位买卖秒级交织=对倒拉抬，净额口径在对倒盘恒正无区分力）；反向发现 famous 大卖/买入停止事件剂量单调（停前 5min 买 ≥1B → 15m 中位 -50.2%）。用户精确口径收口=**卡 fire 时 pp≥100（安全垫：只动已翻倍卡，利润锁定大半，ea78/4b4a 等 pp<100 场景被排除换安全）∧ 120s 内有 ≥0.1B famous 买（V2）→ HOLD 该卡到释放点**：V2×R1（释放=停止确认）+2.32（11 卡：28ad 4 卡 +1.50 吃到贴 ATH +1101% 49s/来财 3 卡 +1.04 贴顶 6s/ba5e -0.20 唯大负/谷谷 -0.02）；V2×R3（释放=停止∨首大卖先到）+1.87 且 ba5e 三卡转正。**V1（60s 净买 ≥0.3）被否**：famous 买入是间歇大笔非连续流，净额窗口口径漏 28ad 前三卡——触发口径必须「120s 内出现过一笔 ≥0.1B 买」。peak-protect（peak≥80∧回撤-35 全清）在 HOLD 期间天然充当强制释放通道（V108 ba5e 07:42:37 +0.0902 恰在 R2 首卖点附近），无需新兜底。
+
+**实现（本条=FA 两键先行，条件串/库条目随回测验证跟进）**：
+- `sinceLastFamousBigBuySec`（HOLD 触发载体）=距最后 ≥`famousBigBuyBnb`（缺省 0.1，factorParams 可覆盖）famous 买的秒数（(now−lastAt)/1000 toFixed(1)；now 由 buildFactorMap 传入——禁 Date.now 红线）；`recentFamousSellBnb`（释放臂载体）=`famousSellWinMs`（缺省 60000）窗内 famous 卖出合计（0=无卖出有证据零值非 null——「famous 没在卖」是有效证据）。**token 级键未持仓也发射**（观察用）
+- 写点=T133 同款双段（价格段 deferWallet 门+wallet 段 smartBotEligible 补跑恰一次）；lastAt=Math.max 防回拨（defer 乱序晚到行不回退）；卖事件环求和交换律=乱序无害+摊销裁剪（>64 条裁 5×窗外头部）；挂 priceReliable 块（异常价行不构成在场证据）
+- **null 语义 fail-open**：从未有大买/roster 未加载 → 恒 null → 裸比较恒 false → HOLD 恒不触发（无 famous 的票零影响——与 T133 near_launch 计数同向）
+- 条件串形状（HOLD 臂，逐卡止盈腿 AND 链追加）：`profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2`——IS NULL 臂=无 famous 放行（**缺此臂则 null 裸比较恒 false=全部 pp≥100 卡被误 HOLD，致命**）；释放=停止（>120s 无大买）∨ 首大卖（窗内 ≥0.2）；peak-protect 腿不加 HOLD（兜底释放通道保持原样）
+- 单测 `_test_since_entry_factors` K 段 21 断言（精确值/贴线 0.1/防回拨/卖行不推 lastAt/窗边界/defer 双段恰一次/裁剪保窗内/HOLD 臂真值表五场景/源码锁/roster 空 fail-open）+ FA 键白名单 138→140（`_test_fourmeme_fa_factors`）+ FactorBuilder 快照透传两键（不落库即丢防线）
+
+**余留**：库逐卡止盈腿（P 系）条件加 HOLD 臂+克隆 V108 回测验证（进行中）；样本警告=正贡献集中 28ad+来财 两张大金狗 +2.54（「吃足大金狗」本意，无大金狗窗口零触发零伤害）；冲击成本未计（28ad 顶附近逐卡放 <10% 冲击估计仍 +1.2 量级）；单日窗口跨窗未验。
+
 ### T135 ladder v18：t0/t0a 最早臂加 tokenAgeSec >= 15 抢速门——bt-v102 买点因子分析立法（2026-11-11，abb70b81；用户裁定原话「好，加。然后回测」）
 
 **前置因子分析**（bt-v102=c961a49d，BP74 版 109 成交票/胜率 36.7%/净 +2.0922；三轮交叉 `/tmp/factor-v102*.cjs` 留档 182）：买点 `buyPoint.anchors` 115 锚+cheat levels 16 题档位+触发腿+首卖出路全量分桶，找胜率/收益提升方向。
