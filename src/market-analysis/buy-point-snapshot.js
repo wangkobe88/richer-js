@@ -708,11 +708,15 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // BP 侧 rel 自算零 CD 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
   let minVsLaunchPct = null, curVsMinGapPct = null;
-  // BP63（KOL 研究 2026-11-12）：famous 入场价锚=**未做 T134 滚动地板**的发行价锚
-  //（常量优先，否则覆盖出生段的首可靠价）——地板锚会被砸落段拖低，砸回发行价以下
-  // 的票 KOL「贴发行价买入」会被伪算成 +20~50%（小四 0xf057…4444 案：窗 min −20%
-  // 拖低锚 → 古月月 t+1s@+0% 买入伪算 +25%）→ 低价抢进速倒臂系统性漏判；研究口径
-  //（GMGN launch=首 tick 价无地板）同向。锚不可得 → entryVs null fail-closed 宁漏不冒充
+  // BP63（KOL 研究 2026-11-12）：famous 入场价锚=**未做 T134 滚动地板**的
+  // 票自身首可靠价（研究口径 GMGN launch=首 tick 价）——二修（2026-11-12 对拍实证）：
+  // 首版常量优先被 182 探针反证——六票首 tick 全部高开 +12~41%（常量 4.496e-9 上的
+  // 开盘 bot 抢筹溢价，小四首 tick +30.1%）→ KOL「首价买入」被伪算 +30~69% → 全员
+  // lowEntryN=0 臂失明；研究「低价 ≤+15%」的标定基准=票自身首 tick（KOL 拿到该票
+  // 生命周期的最低可得价=区间底部，判别力实证来源），翻转优先级=launchCovered 首可靠价
+  // 优先、常量仅在窗口未覆盖出生段时 fallback（fallback 高估方向=宁漏不误伤）。
+  // 滚动地板锚仍刻意不用（砸落段拖低锚同样抬高 entryVs）；锚不可得 → entryVs null
+  // fail-closed 宁漏不冒充
   let famousEntryLaunchBnb = null;
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
@@ -723,10 +727,10 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     const quoteToken = ticks.some((t) => t.quote) ? 'quote' : null;
     const constLaunch = resolveLaunchPriceBnb(
       snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, quoteToken);
-    if (constLaunch !== null) {
-      famousEntryLaunchBnb = constLaunch; // BP63：famous 入场价锚（未地板——见上注释）
-    } else if (launchCovered && rel[0].priceBnb > 0) {
-      famousEntryLaunchBnb = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段首可靠价
+    if (launchCovered && rel[0].priceBnb > 0) {
+      famousEntryLaunchBnb = rel[0].priceBnb; // BP63 二修：研究口径=票自身首可靠价（原值精度，toFixed(10) 对 e-9 量级只留 1 位有效数字不可用——同 toFixed 磨常量锚事故反证）
+    } else if (constLaunch !== null) {
+      famousEntryLaunchBnb = constLaunch; // fallback：窗口未覆盖出生段（高估方向=宁漏）
     }
     // 常量锚保原值精度（4.496173469e-9 量级 toFixed(10) 只剩 1 位有效数字不可磨）；
     // 旧口径锚保 toFixed(10) bit 不变
