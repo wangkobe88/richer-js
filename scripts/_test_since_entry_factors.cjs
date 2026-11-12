@@ -344,7 +344,7 @@ console.log('J. T133 famous near_launch 计数（2026-11-10 用户立法「买�
         // J7 源码口径断言
         {
             const src = read('src/services/FourMemeFactorAggregator.js');
-            const cntStart = src.indexOf('_countFamousNearLaunchBuy(state, priceBnb) {');
+            const cntStart = src.indexOf('_countFamousNearLaunchBuy(state, priceBnb, bnbAmount = 0) {');
             const cntSeg = src.slice(cntStart, src.indexOf('state._famousNearLaunchBuys++;', cntStart));
             check('J7a 计数器段禁 Date.now（单笔价+write-once 锚，回放任意序收敛）', () =>
                 assert.ok(!/Date\.now/.test(cntSeg), '计数器函数体出现 Date.now'));
@@ -363,6 +363,80 @@ console.log('J. T133 famous near_launch 计数（2026-11-10 用户立法「买�
                 assert.ok(src.includes('sinceEntryFamousNearLaunchBuys: null,'));
                 assert.ok(src.includes('sinceEntryFamousNearLaunchBuys: positionFactors.sinceEntryFamousNearLaunchBuys ?? null,'));
             });
+        }
+        // J8 T136 金额累计键 sinceEntryFamousNearLaunchBuyBnb（2026-11-12 bt-v106
+        //    来财 0xc84a0ff2 案：roster v2 扩面后新增址 0.276 BNB 一笔 near_launch
+        //    买入触发 v1 计数门 → 持仓 43s 全清 +0.51 仓位在第二波拉盘前 0 秒——
+        //    用户裁定金额门 0.5「像样的 famous 进场才撤离」，库条目 v2 换键）
+        //    注：J6 已把名单置 null 且靠外层 finally 复位 → 本段开头重挂名单
+        FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([FAM]));
+        {
+            // J8a 来财案形状反证：单笔 0.276（<0.5）计数 1 但金额不足 → v2 不触发
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+                fa.processTick(tickJ(mkTick({ sender_address: FAM, bnb_amount: 0.276, price_bnb: P0 * 1.2, timestamp: T0 + 3000 })));
+                const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+                check('J8a 来财案形状：计数 1 ∧ 金额 0.276 < 0.5（v1 误触发 / v2 金额门不触发）', () => {
+                    assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 1);
+                    assert.ok(Math.abs(f.sinceEntryFamousNearLaunchBuyBnb - 0.276) < 1e-9,
+                        `got ${f.sinceEntryFamousNearLaunchBuyBnb}`);
+                });
+            }
+            // J8b 两笔 0.3 累计 0.6 ≥ 0.5 → v2 触发（FIGHT 案 0.252+0.343=0.595 同族）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+                fa.processTick(tickJ(mkTick({ sender_address: FAM, bnb_amount: 0.3, price_bnb: P0 * 1.2, timestamp: T0 + 3000 })));
+                fa.processTick(tickJ(mkTick({ sender_address: FAM, bnb_amount: 0.3, price_bnb: P0 * 1.25, timestamp: T0 + 4000 })));
+                const f = fa.buildFactorMap('0xtoken', T0 + 5000);
+                check('J8b 两笔 0.3 累计 0.6 ≥ 0.5 → v2 金额门触发（FIGHT 0.595 同族）', () =>
+                    assert.ok(Math.abs(f.sinceEntryFamousNearLaunchBuyBnb - 0.6) < 1e-9,
+                        `got ${f.sinceEntryFamousNearLaunchBuyBnb}`));
+            }
+            // J8c 区间外/卖腿不计金额；差值 latch 与计数同构；未持仓 null fail-closed
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                let f = fa.buildFactorMap('0xtoken', T0 + 1500);
+                check('J8c 未持仓 → 金额键 null（fail-closed，`>= 0.5` 恒 false）', () =>
+                    assert.strictEqual(f.sinceEntryFamousNearLaunchBuyBnb, null));
+                fa.processTick(tickJ(famBuy(20, T0 + 1600)));  // 入场前 famous near_launch 买（0.3）
+                fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+                f = fa.buildFactorMap('0xtoken', T0 + 2500);
+                check('J8d 入场前 famous near_launch 买不进金额差值 → 0（latch 同构）', () =>
+                    assert.strictEqual(f.sinceEntryFamousNearLaunchBuyBnb, 0));
+                fa.processTick(tickJ(mkTick({ sender_address: FAM, trade_type: 'sell', bnb_amount: 0.9, price_bnb: P0 * 1.2, timestamp: T0 + 3000 })));
+                f = fa.buildFactorMap('0xtoken', T0 + 3500);
+                check('J8e 卖腿不计金额（isBuy 门同构）→ 仍 0', () =>
+                    assert.strictEqual(f.sinceEntryFamousNearLaunchBuyBnb, 0));
+            }
+            // J8f 源码锁：库条目 v2 金额门 + v1 计数门已替换 + 新键三防线透传
+            {
+                const src = read('src/services/FourMemeFactorAggregator.js');
+                check('J8f FA 金额累计字面量（_famousNearLaunchBuyBnb 累计+锚快照+差值）', () => {
+                    assert.ok(src.includes('state._famousNearLaunchBuyBnb = (state._famousNearLaunchBuyBnb || 0) + (bnbAmount || 0);'));
+                    assert.ok(src.includes('entryFamousNearLaunchBuyBnb: state._famousNearLaunchBuyBnb || 0,'));
+                    assert.ok(src.includes('(state._famousNearLaunchBuyBnb || 0) - (pos.entryFamousNearLaunchBuyBnb || 0)'));
+                });
+                const fbSrc = read('src/trading-engine/core/FactorBuilder.js');
+                check('J8g FactorBuilder 快照透传新键（不落库即丢防线）', () =>
+                    assert.ok(fbSrc.includes('sinceEntryFamousNearLaunchBuyBnb: factorResults.sinceEntryFamousNearLaunchBuyBnb ?? null')));
+                check('J8h 未持仓 null 域字面量+主表发射', () => {
+                    assert.ok(src.includes('sinceEntryFamousNearLaunchBuyBnb: null,'));
+                    assert.ok(src.includes('sinceEntryFamousNearLaunchBuyBnb: positionFactors.sinceEntryFamousNearLaunchBuyBnb ?? null,'));
+                });
+                const dep = read('scripts/deploy-signal-source-strategies.cjs');
+                const i = dep.indexOf("name: 'famous-entry-exit'");
+                check('J8i 库条目 v2 金额门源码锁：>= 0.5（计数门 v1 已替换）', () => {
+                    assert.ok(i > 0, '条目缺失');
+                    const seg = dep.slice(i, i + 900);
+                    assert.ok(seg.includes('sinceEntryFamousNearLaunchBuyBnb >= 0.5'), 'v2 金额门缺失');
+                    assert.ok(!seg.includes("'sinceEntryFamousNearLaunchBuys >= 1'"), 'v1 计数门残留');
+                });
+            }
         }
     } finally {
         FourMemeFactorAggregator.setFamousCopyWalletsForTest(null); // 复位未加载态（防污染其它段/测试）

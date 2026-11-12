@@ -283,13 +283,13 @@ const ENTRIES = [
         legs: [{
             action: 'sell',
             priority: 1,
-            condition: 'sinceEntryFamousNearLaunchBuys >= 1',
+            condition: 'sinceEntryFamousNearLaunchBuyBnb >= 0.5',
             maxExecutions: null,
             cards: 'all',
             bypassDebounce: true,
-            description: 'famous 进场撤离臂（T133 2026-11-10 用户裁定「买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出」）：FA 因子 sinceEntryFamousNearLaunchBuys=本仓入场锚以来 famous roster 钱包在 near_launch 区间（curVs ∈ (+10,+40]）的可靠价买入次数（T113 差值 latch 同构，FA _famousNearLaunchBuys 全史计数器）——≥1 即 famous 在 near_launch 窗口进场（BP61/65 案法：famous 在场/收割前兆），立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发',
+            description: 'famous 进场撤离臂 v2（T136 2026-11-12 bt-v106 来财案金额门）：FA 因子 sinceEntryFamousNearLaunchBuyBnb=本仓入场锚以来 famous roster 钱包在 near_launch 区间（curVs ∈ (+10,+40]）的可靠价买入 BNB 累计（T133 判据同源并行金额累计，T113 差值 latch 同构）——≥0.5 BNB 才算「像样的 famous 进场」（两笔 0.2~0.3 常见交易档或一笔 0.5+ 大单；v1 计数门 ≥1 笔被 roster v2 38 址扩面后 0.276 BNB 单笔触发误清 +0.51 仓位），立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发；v1 计数键 sinceEntryFamousNearLaunchBuys 降纯观察保留',
         }],
-        description: 'T133 famous 进场撤离臂 v1（2026-11-10）：sinceEntryFamousNearLaunchBuys >= 1 → 立即全清（bypassDebounce+cards:all）；FA 载体=famous-copy-wallets roster × near_launch 区间 (10,40] 可靠价买入 × 入场锚差值（setBuyState 快照/补买轮重锚）；回测同源（回放正序直计）',
+        description: 'T133 famous 进场撤离臂 v2（T136 2026-11-12 金额门 0.5 BNB）：sinceEntryFamousNearLaunchBuyBnb >= 0.5 → 立即全清（bypassDebounce+cards:all）；FA 载体=famous-copy-wallets roster × near_launch 区间 (10,40] 可靠价买入 × BNB 累计 × 入场锚差值（setBuyState 快照/补买轮重锚）；回测同源（回放正序直计）；v1（2026-11-10 计数门 ≥1）被 bt-v106 来财案否证换门',
     },
     {
         name: 'low-zone-stall-exit',

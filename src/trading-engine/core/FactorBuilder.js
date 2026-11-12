@@ -88,6 +88,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T133 famous near_launch 入场差值（2026-11-10 卖臂主键）：触发复盘（为何
     // 立即清仓/为何没清）需 fire 时刻值，序列不可重建；旧 FA/未持仓 → null 不掩盖
     sinceEntryFamousNearLaunchBuys: factorResults.sinceEntryFamousNearLaunchBuys ?? null,
+    sinceEntryFamousNearLaunchBuyBnb: factorResults.sinceEntryFamousNearLaunchBuyBnb ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
