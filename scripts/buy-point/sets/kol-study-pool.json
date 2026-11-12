@@ -1,0 +1,1121 @@
+{
+ "builtAt": "2026-11-12",
+ "nTokens": 95,
+ "tokens": [
+  {
+   "address": "0x459f1d098437fad48931372f9b16b6ad25297777",
+   "symbol": "施工鸭",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0969,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:15:11.798Z",
+   "fwd15LastAvg": -21.95
+  },
+  {
+   "address": "0x54117eb6d2481dc8d89ee377e00e683f882f7777",
+   "symbol": "SAMSUNG",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0967,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T10:21:26.256Z",
+   "fwd15LastAvg": -19.53
+  },
+  {
+   "address": "0x6862f5fd3d4efee4f9d4526665d907f845827777",
+   "symbol": "긴와",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0965,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T06:07:39.567Z",
+   "fwd15LastAvg": -12.3
+  },
+  {
+   "address": "0x6a1e456708e7fae6e44fe63b1f38c97ddd757777",
+   "symbol": "彪姐",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0934,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T06:49:17.855Z",
+   "fwd15LastAvg": -29.34
+  },
+  {
+   "address": "0x1c6be124ffe79abe2fd32adba76dd4f3d5567777",
+   "symbol": "GNusmas",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0861,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T13:44:15.946Z",
+   "fwd15LastAvg": -8.69
+  },
+  {
+   "address": "0xfc5d1a40d691f58a3b5cd37cd227dd0df4f47777",
+   "symbol": "ตุ๊กตุ๊ก",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0861,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:57:23.669Z",
+   "fwd15LastAvg": -14.0
+  },
+  {
+   "address": "0xe3d049c65cbbda6bf4a168c77132dc0712b64444",
+   "symbol": "作茧自缚",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0857,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:34:29.383Z",
+   "fwd15LastAvg": -17.59
+  },
+  {
+   "address": "0xc6abc6b66438e07fd1600c023ebfad0a09184444",
+   "symbol": "TRENCHER",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0841,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:33:01.958Z",
+   "fwd15LastAvg": -25.1
+  },
+  {
+   "address": "0x04323e04c5f48587951c2d974b7f1b007b6e7777",
+   "symbol": "苍蝇",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0826,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:09:34.058Z",
+   "fwd15LastAvg": -20.42
+  },
+  {
+   "address": "0x9f001e6ab28d82c3f4182618d0d72524db937777",
+   "symbol": "突突车",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0763,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:56:45.024Z",
+   "fwd15LastAvg": -28.45
+  },
+  {
+   "address": "0x98e18f33dfaad9272feaa960ac780af8c2e54444",
+   "symbol": "傻福",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.073,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:33:41.975Z",
+   "fwd15LastAvg": -23.46
+  },
+  {
+   "address": "0xe6c22c98a1519a2ed5341d08a0df8b705d7bffff",
+   "symbol": "MTGA",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0717,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:51:16.500Z",
+   "fwd15LastAvg": -14.33
+  },
+  {
+   "address": "0x258e485725b8d799b885b9f079241e2c812d7777",
+   "symbol": "赵公主",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0708,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T11:24:40.675Z",
+   "fwd15LastAvg": -36.3
+  },
+  {
+   "address": "0xbf602352828e39767a9d66c6f5f726fe60d34444",
+   "symbol": "不烧心",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0663,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:47:39.096Z",
+   "fwd15LastAvg": -21.12
+  },
+  {
+   "address": "0x2ef6c0e630d34b78ad36aabe04cd90f57e3c7777",
+   "symbol": "屎壳郎自拉",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0631,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T13:36:05.895Z",
+   "fwd15LastAvg": -29.86
+  },
+  {
+   "address": "0x9c08bd8e1f1e6e8564e378bab47ce76d98724444",
+   "symbol": "FOUR米米",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0599,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:26:29.015Z",
+   "fwd15LastAvg": -20.41
+  },
+  {
+   "address": "0x338a510c6c7abd4c714d74225086542270427777",
+   "symbol": "米",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": -0.0566,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T09:23:13.717Z",
+   "fwd15LastAvg": -31.41
+  },
+  {
+   "address": "0x08aa150d7d86c4a0dfa37f310c1380de9c187777",
+   "symbol": "币安之心",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0564,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:11:23.203Z",
+   "fwd15LastAvg": -14.52
+  },
+  {
+   "address": "0x9dfe83281eb66b74dd5c432395a3c14091967777",
+   "symbol": "memectuk",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0564,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:05:11.654Z",
+   "fwd15LastAvg": -10.31
+  },
+  {
+   "address": "0xb88113c98d5e33b15925edd635170e80a0fbffff",
+   "symbol": "海水过滤器",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0548,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T10:02:39.678Z",
+   "fwd15LastAvg": 163.48
+  },
+  {
+   "address": "0xe0f89920ef566521d26df3c7d14352dba59d4444",
+   "symbol": "我丢雷老某",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0533,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:43:01.718Z",
+   "fwd15LastAvg": -23.3
+  },
+  {
+   "address": "0xdc1910375c1c1c3d0c25c13ee6e5f2bec1887777",
+   "symbol": "29",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0524,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:00:09.364Z",
+   "fwd15LastAvg": -13.14
+  },
+  {
+   "address": "0x9d147fa0e447d98cf1a7ac32f114f6d0b9877777",
+   "symbol": "정책콕",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0442,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T04:45:14.355Z",
+   "fwd15LastAvg": -22.85
+  },
+  {
+   "address": "0x58a9eda641befb934d818998ba02605da5017777",
+   "symbol": "CZ",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0425,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T09:01:58.878Z",
+   "fwd15LastAvg": -31.18
+  },
+  {
+   "address": "0x68bb8cd436bdc8b178ab886b5a7abed5e6177777",
+   "symbol": "苍蝇",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0398,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T05:09:29.896Z",
+   "fwd15LastAvg": -22.53
+  },
+  {
+   "address": "0x5c930974cc56f0f2a77bc0e52390c014f0874444",
+   "symbol": "黎明",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0376,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T08:15:47.484Z",
+   "fwd15LastAvg": -17.63
+  },
+  {
+   "address": "0x13d7a62693e2860ba4bd51d6c9c75edc53427777",
+   "symbol": "DGAI",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.037,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T11:20:25.726Z",
+   "fwd15LastAvg": -26.8
+  },
+  {
+   "address": "0x1417a158d74cec617ff777661ee72009daa3ffff",
+   "symbol": "坟头蹦迪",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0368,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:17:53.472Z",
+   "fwd15LastAvg": -19.72
+  },
+  {
+   "address": "0x92aac04f03278ce7ac82ba0367dbaf9686437777",
+   "symbol": "SB",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0353,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:10:21.546Z",
+   "fwd15LastAvg": -29.32
+  },
+  {
+   "address": "0xa52a9366ac14efd7fd5ad0c711801765d6ceffff",
+   "symbol": "meme.jpg",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": -0.0348,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T08:25:13.295Z",
+   "fwd15LastAvg": -8.85
+  },
+  {
+   "address": "0x996e6d92f99d327d34febf0cd4a32c13ca097777",
+   "symbol": "刘家郡",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0342,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:13:59.550Z",
+   "fwd15LastAvg": -10.45
+  },
+  {
+   "address": "0xac0b530995e47794dd0b722497aa33873b8c7777",
+   "symbol": "蝴蝶",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0334,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:30:05.161Z",
+   "fwd15LastAvg": -8.95
+  },
+  {
+   "address": "0x1ac4a310874e29290720d2fb55300a91a23e7777",
+   "symbol": "LABU",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0314,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:54:09.212Z",
+   "fwd15LastAvg": -15.94
+  },
+  {
+   "address": "0xea7dc0825d4e6d90c026201ecc6aa8d82c577777",
+   "symbol": "SI",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0302,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:28:04.558Z",
+   "fwd15LastAvg": -31.09
+  },
+  {
+   "address": "0xb359716d1affde1fb9d351fec71a0f2e79257777",
+   "symbol": "蝴蝶人生路",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0298,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:43:10.109Z",
+   "fwd15LastAvg": -8.29
+  },
+  {
+   "address": "0x962ba5c2e9ff0edad32e336a956d4495d9f54444",
+   "symbol": "Dawn",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0297,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:22:09.864Z",
+   "fwd15LastAvg": -22.64
+  },
+  {
+   "address": "0xa8e70ca07b68a07683c963513a26f2fa91647777",
+   "symbol": "﷽﷽﷽﷽",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0282,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T04:46:51.268Z",
+   "fwd15LastAvg": -14.46
+  },
+  {
+   "address": "0x3ca2a09d2ac2155f46f0df2b4583936fd92e7777",
+   "symbol": "ZELDA",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0265,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:56:44.035Z",
+   "fwd15LastAvg": -28.86
+  },
+  {
+   "address": "0x1ff6da9856abf6d7869797f46468f5e883c57777",
+   "symbol": "팔꿈치 매수",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0254,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T11:35:36.580Z",
+   "fwd15LastAvg": -29.22
+  },
+  {
+   "address": "0x411c7a8ac2e791e9a9e1b9e21cd32a805b9d4444",
+   "symbol": "鸭灭蝶",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0224,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T08:01:56.404Z",
+   "fwd15LastAvg": -11.5
+  },
+  {
+   "address": "0x4ebef4c08386b2b4a37aa2d056f26160573b7777",
+   "symbol": "SI",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": -0.0208,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T12:34:58.310Z",
+   "fwd15LastAvg": -21.75
+  },
+  {
+   "address": "0x6af6cd7f35c1c1aa2392956938019a57c633ffff",
+   "symbol": "FFFF",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0197,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:06:27.831Z",
+   "fwd15LastAvg": -1.1
+  },
+  {
+   "address": "0x4aac4818c1f71a7dbe9967498e65ba60d3b17777",
+   "symbol": "吉祥",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0191,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:48:33.311Z",
+   "fwd15LastAvg": -4.08
+  },
+  {
+   "address": "0x08859f0fe2ea5d2ed611829f245974f3d6cf4444",
+   "symbol": "菲比",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0187,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:05:38.340Z",
+   "fwd15LastAvg": -20.24
+  },
+  {
+   "address": "0xa29fefb9922a761093a316e9f658c0f0ebc07777",
+   "symbol": "MBF",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0178,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:00:57.827Z",
+   "fwd15LastAvg": -16.76
+  },
+  {
+   "address": "0xfe97215027434804ca0a5ca1a7421763b0127777",
+   "symbol": "SI",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0152,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T11:18:31.556Z",
+   "fwd15LastAvg": -7.72
+  },
+  {
+   "address": "0x9ac2747955e5d027e50d155be92118492c814444",
+   "symbol": "4DOG",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0147,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:47:59.926Z",
+   "fwd15LastAvg": -11.27
+  },
+  {
+   "address": "0x4a9a469973b8bc8486a923490ecdc3cf249a7777",
+   "symbol": "CR",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0131,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T10:47:25.462Z",
+   "fwd15LastAvg": -19.26
+  },
+  {
+   "address": "0xc9bf4530033f6497002d228296fedb45036f7777",
+   "symbol": "苹果SI",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0124,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:11:40.475Z",
+   "fwd15LastAvg": -8.74
+  },
+  {
+   "address": "0x5793b7ead75851206529f98cfe89db54511a7777",
+   "symbol": "赵公主",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": -0.0085,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T11:19:26.278Z",
+   "fwd15LastAvg": -29.95
+  },
+  {
+   "address": "0x57d431ae0a47d57be9bae3623ce35fb805747777",
+   "symbol": "CR",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.008,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T10:59:11.982Z",
+   "fwd15LastAvg": 2.12
+  },
+  {
+   "address": "0x94ea754b80bbafd776accf85d0df7f92dd73ffff",
+   "symbol": "海水过滤器",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0075,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T10:08:00.841Z",
+   "fwd15LastAvg": -21.71
+  },
+  {
+   "address": "0x59f5ccb671f1651db2ca8aba4fd0254fcef87777",
+   "symbol": "徐苍蝇",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": -0.005,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T05:10:00.383Z",
+   "fwd15LastAvg": -0.72
+  },
+  {
+   "address": "0xb9dea15c7a92df7cae8657bcec876c2dc8ae4444",
+   "symbol": "股股嘎嘎",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": -0.0034,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T08:14:07.552Z",
+   "fwd15LastAvg": -4.9
+  },
+  {
+   "address": "0xf0b83df726bba9a8a01fcd5da0b2303e83ca7777",
+   "symbol": "LOVE",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.0025,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T09:05:59.542Z",
+   "fwd15LastAvg": -1.37
+  },
+  {
+   "address": "0xb714df9fec771df721e0576706a11246973d7777",
+   "symbol": "谷歌SI",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": -0.002,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T05:16:23.994Z",
+   "fwd15LastAvg": -24.5
+  },
+  {
+   "address": "0xcbfe6b2bceacfab7934c82513f568f4e31a04444",
+   "symbol": "我靠",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:30:02.376Z",
+   "fwd15LastAvg": -17.05
+  },
+  {
+   "address": "0x7f326b12269c36583f11e1b27f7cbf2f56b07777",
+   "symbol": "新言新语",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T13:14:50.695Z",
+   "fwd15LastAvg": 103.92
+  },
+  {
+   "address": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+   "symbol": "無為",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": 0.0001,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T08:13:33.723Z",
+   "fwd15LastAvg": -7.66
+  },
+  {
+   "address": "0x2711e159f3e9ff438ff2bb80456d19a6bd827777",
+   "symbol": "TukTuk",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0022,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:00:47.361Z",
+   "fwd15LastAvg": -12.29
+  },
+  {
+   "address": "0x9fcae3ef3348ee29011215052b764b5db5bc7777",
+   "symbol": "CORLADOG",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": 0.0034,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T06:45:33.033Z",
+   "fwd15LastAvg": 8.24
+  },
+  {
+   "address": "0x56c68cd0bab4cb83fa7e7f8b549b9de8d1f74444",
+   "symbol": "meme.jpg",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": 0.004,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T08:25:22.454Z",
+   "fwd15LastAvg": -15.61
+  },
+  {
+   "address": "0x367f70fd5d7962b6f5ba8973ffd3e7d891f17777",
+   "symbol": "BUILD",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0074,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T10:51:08.835Z",
+   "fwd15LastAvg": 27.11
+  },
+  {
+   "address": "0xea3ce510829b2b3c77dae374aad440e23be94444",
+   "symbol": "持械入宋",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0083,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:40:58.888Z",
+   "fwd15LastAvg": -9.36
+  },
+  {
+   "address": "0x2af2906211b24c6e8308eed6faa34f78944e7777",
+   "symbol": "量子蝴蝶",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": 0.0108,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T12:02:34.042Z",
+   "fwd15LastAvg": 3.27
+  },
+  {
+   "address": "0x5a8d94c69998daffcfdc365f1d333dc4ab087777",
+   "symbol": "羊王",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": 0.0113,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T12:32:12.904Z",
+   "fwd15LastAvg": 1.59
+  },
+  {
+   "address": "0x6fd1c4cb8f96e9855f168cf3df819095d5c54444",
+   "symbol": "SI",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": 0.0113,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T07:57:02.051Z",
+   "fwd15LastAvg": -17.71
+  },
+  {
+   "address": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
+   "symbol": "FlapGuy",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0179,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:02:01.561Z",
+   "fwd15LastAvg": -15.49
+  },
+  {
+   "address": "0xed38a34638854d20809432a43a616cbba34c7777",
+   "symbol": "Look At Coins",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0194,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:51:11.017Z",
+   "fwd15LastAvg": 31.23
+  },
+  {
+   "address": "0x69c3584316425705d1b32278f2ee63ee1b9c7777",
+   "symbol": "meem",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0203,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:15:08.132Z",
+   "fwd15LastAvg": -11.59
+  },
+  {
+   "address": "0xf0572e3b05961f4c73cad4986ed92d8739084444",
+   "symbol": "Dawn",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0233,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:18:40.505Z",
+   "fwd15LastAvg": 0.89
+  },
+  {
+   "address": "0xbfc8f025427ef4049b6d679c0506cdf2b4164444",
+   "symbol": "YiYi",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": 0.0251,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T09:18:36.967Z",
+   "fwd15LastAvg": -4.62
+  },
+  {
+   "address": "0x1bc5bca317dcc077f07ff339e5ce648237a77777",
+   "symbol": "Mei",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0431,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:21:20.335Z",
+   "fwd15LastAvg": 16.64
+  },
+  {
+   "address": "0xd5bf246c2e23e2e2f8c8557a0014fdd2eec17777",
+   "symbol": "YiYi",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": 0.0548,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T09:18:08.700Z",
+   "fwd15LastAvg": -17.55
+  },
+  {
+   "address": "0x6848b3a5fe21ca77e330c105cd6dcc35a9274444",
+   "symbol": "米",
+   "gens": [
+    "v103r2"
+   ],
+   "pnlBnb": 0.0548,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T09:26:03.139Z",
+   "fwd15LastAvg": -19.95
+  },
+  {
+   "address": "0x57cd898802d54f93140513bc420b8e37ee614444",
+   "symbol": "作茧自缚",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0686,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:32:12.680Z",
+   "fwd15LastAvg": -26.51
+  },
+  {
+   "address": "0x81ea78c13642362504618486158d07a5e0f24444",
+   "symbol": "汽茫",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.069,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:12:07.441Z",
+   "fwd15LastAvg": -20.04
+  },
+  {
+   "address": "0x3816a4abb3ea7ba613359e9ae54603aa06c14444",
+   "symbol": "我画地为牢",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0696,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:18:08.721Z",
+   "fwd15LastAvg": -14.38
+  },
+  {
+   "address": "0xf7860f0534a1769dbb77286df55222a41e714444",
+   "symbol": "FOM",
+   "gens": [
+    "v104"
+   ],
+   "pnlBnb": 0.0729,
+   "nPoints": 1,
+   "firstAnchor": "2026-11-05T07:46:00.186Z",
+   "fwd15LastAvg": -12.92
+  },
+  {
+   "address": "0xeaeb67c29c73d86da820265748e4f043871d7777",
+   "symbol": "汤圆",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0782,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T11:31:56.627Z",
+   "fwd15LastAvg": 12.93
+  },
+  {
+   "address": "0xd92913a0956ec41bea37752365cc9d9b92587777",
+   "symbol": "新语新言",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0832,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T13:00:24.616Z",
+   "fwd15LastAvg": -3.62
+  },
+  {
+   "address": "0xc62d2dffb9567746a5c883ede552d231e3967777",
+   "symbol": "钱来",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.0849,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:34:30.361Z",
+   "fwd15LastAvg": -17.43
+  },
+  {
+   "address": "0x68e45d60058077ee12e70ab094f1ad999ccf4444",
+   "symbol": "100",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.1001,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:20:48.843Z",
+   "fwd15LastAvg": -3.58
+  },
+  {
+   "address": "0x4b4a1364bfc28719f0ee928c59ddbeab81294444",
+   "symbol": "4",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.1033,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:17:41.358Z",
+   "fwd15LastAvg": 34.28
+  },
+  {
+   "address": "0xaa7c945ec05177b2b894a325318167d393f57777",
+   "symbol": "영복이",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.1257,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T08:35:16.565Z",
+   "fwd15LastAvg": -20.59
+  },
+  {
+   "address": "0xb20a8aab74e0064287f097f51345f0f093ee7777",
+   "symbol": "SPP",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.1595,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:53:46.113Z",
+   "fwd15LastAvg": -6.28
+  },
+  {
+   "address": "0x55c3992fd542f1a898898cdb010f71e2683f7777",
+   "symbol": "Flap",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.1766,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:24:56.445Z",
+   "fwd15LastAvg": 38.29
+  },
+  {
+   "address": "0x30238ffd6137cd0fa70e681d0d5585d413cbffff",
+   "symbol": "海水过滤器",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.1865,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T09:51:17.436Z",
+   "fwd15LastAvg": -6.9
+  },
+  {
+   "address": "0xea80d6bc3d39d7f328a5575326836db546767777",
+   "symbol": "PAYAI",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.2201,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T10:54:06.625Z",
+   "fwd15LastAvg": -39.51
+  },
+  {
+   "address": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+   "symbol": "吉祥",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.2544,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T05:48:29.127Z",
+   "fwd15LastAvg": 179.12
+  },
+  {
+   "address": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+   "symbol": "谷谷",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.2584,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:06:34.457Z",
+   "fwd15LastAvg": 2.57
+  },
+  {
+   "address": "0xf0576fc1267506123b0bb843b2a325e9010b4444",
+   "symbol": "小四",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 0.9858,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:47:55.852Z",
+   "fwd15LastAvg": 28.14
+  },
+  {
+   "address": "0xc84a0ff2e7bab3d32cb6426f07855b70694f7777",
+   "symbol": "来财",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 1.0288,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T12:31:26.341Z",
+   "fwd15LastAvg": 549.99
+  },
+  {
+   "address": "0xba5ed45b42479e0a75316de7bf990ec90a3e4444",
+   "symbol": "M4GA",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 1.2584,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:40:45.025Z",
+   "fwd15LastAvg": 119.54
+  },
+  {
+   "address": "0x28ad2c7d08d83a85467bd4afcfd673dfce564444",
+   "symbol": "memes",
+   "gens": [
+    "v103r2",
+    "v104"
+   ],
+   "pnlBnb": 1.3202,
+   "nPoints": 2,
+   "firstAnchor": "2026-11-05T07:15:57.727Z",
+   "fwd15LastAvg": 815.57
+  }
+ ]
+}
