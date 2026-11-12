@@ -996,11 +996,23 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       // BP63（KOL 研究 I 判据题面化——③桶低价抢进速倒臂三要件原料，纯计数无判定词）：
       // lowEntryN=低位入场（首买价较未地板发行价锚 ≤+15% 且合计买入 ≥0.05 BNB 尘门）；
       // fastFlipN=快进快出（首买→末卖 ≤60s 且已清仓）；holdingN=买点在场持有（净 >0.005
-      // 与 BP79 活跃在场线同向）——三要件判读（≥1 ∧ 全员速倒 ∧ 在场 0）归题面③桶
-      lowEntryN: wallets.filter((e) => e.entryVsLaunchPct !== null && e.entryVsLaunchPct <= 15
-        && e.buyBnb >= 0.05).length,
-      fastFlipN: wallets.filter((e) => e.fastFlip).length,
-      holdingN: wallets.filter((e) => e.netBnb > 0.005).length,
+      // 与 BP79 活跃在场线同向）——三要件判读（≥1 ∧ 全员速倒 ∧ 在场 0）归题面③桶；
+      // fastFlipArmReady=三要件组合布尔（痕迹钱包 >0 ∧ 低位 ≥1 ∧ 在场 0 ∧ 全员速倒）——
+      // BP63 三修（2026-11-12 对拍实证：股股嘎嘎/FOUR米米三要件全真 Jev 仍判 none
+      // 0.59-0.69，famous 占买仅 7.9~20% 时 Jev 被③桶主判据「占比/绝对额双大」带走
+      // ——判据拼装不可靠，state 须直供到判据粒度=BP61 三修同构铁律第三例）；
+      // 布尔只覆盖三要件主干，反锚（破发承接/二次进场在场）仍归 Jev
+      ...((() => {
+        const lowEntryN = wallets.filter((e) => e.entryVsLaunchPct !== null && e.entryVsLaunchPct <= 15
+          && e.buyBnb >= 0.05).length;
+        const fastFlipN = wallets.filter((e) => e.fastFlip).length;
+        const holdingN = wallets.filter((e) => e.netBnb > 0.005).length;
+        return {
+          lowEntryN, fastFlipN, holdingN,
+          fastFlipArmReady: wallets.length > 0 && lowEntryN >= 1 && holdingN === 0
+            && fastFlipN === wallets.length,
+        };
+      })()),
     };
   })();
 

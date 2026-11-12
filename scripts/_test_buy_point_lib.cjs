@@ -494,6 +494,8 @@ console.log('A9b. famousTraces BP63 三要件形状（臂成立/小四反锚/慢
     `形状一：K1 低价+速倒+清仓（entryVs 0.0 未被地板锚拖高/持 8s/fastFlip true，实际 ${JSON.stringify(k1)}）`);
   ok(ftArm.lowEntryN === 1 && ftArm.fastFlipN === 1 && ftArm.holdingN === 0,
     `形状一：三要件原料全真（1/1 低价∧1/1 速倒∧0 在场——臂成立态，实际 ${ftArm.lowEntryN}/${ftArm.fastFlipN}/${ftArm.holdingN}）`);
+  ok(ftArm.fastFlipArmReady === true,
+    `形状一：fastFlipArmReady 组合布尔（三修直供——钱包>0∧低位≥1∧在场0∧全员速倒，实际 ${ftArm.fastFlipArmReady}）`);
 
   // 形状二（小四反锚——名单钱包高位二次进场在场持有）：K2 t+150@+45% 买入不卖 → holdingN=1
   // 三要件之二（在场持有 0）不成立——小四 0xf057 案卷柏/Ed_x t+241s 高位二次进场同构
@@ -506,6 +508,8 @@ console.log('A9b. famousTraces BP63 三要件形状（臂成立/小四反锚/慢
     `形状二：K2 二次进场未卖（entryVs +45.0 高位/holdSec null/fastFlip false，实际 ${JSON.stringify(k2)}）`);
   ok(ftXs.holdingN === 1 && ftXs.fastFlipN === 1 && ftXs.fastFlipN !== ftXs.wallets.length,
     `形状二：在场持有 1 → 三要件之二不成立（小四反锚——高位二次进场 famous 在场=臂前提破，实际 holdingN ${ftXs.holdingN}）`);
+  ok(ftXs.fastFlipArmReady === false,
+    `形状二：fastFlipArmReady false（在场>0 破组合，实际 ${ftXs.fastFlipArmReady}）`);
 
   // 形状三（慢走不算速倒）：K3 t+5 买 → t+200 才卖（持 195s>60）→ fastFlip false
   const rowsSlow = rowsArm.concat([
@@ -516,6 +520,8 @@ console.log('A9b. famousTraces BP63 三要件形状（臂成立/小四反锚/慢
   const k3 = ftSlow.wallets.find((e) => e.w === W_K3);
   ok(k3.holdSec === 195 && k3.fastFlip === false,
     `形状三：K3 慢走（持 195s>60 不算速倒——有人慢走没走光的不是本形状，实际 ${JSON.stringify(k3)}）`);
+  ok(ftSlow.fastFlipArmReady === false,
+    `形状三：fastFlipArmReady false（K1 速倒但 K3 慢走 → 非全员速倒破组合，实际 ${ftSlow.fastFlipArmReady}）`);
 
   // 形状四（首买 outlier 价 → entryVs null fail-closed）：K4 首买行天价 outlier → 不冒充入场价
   const rowsOut = rowsArm.concat([
@@ -543,6 +549,8 @@ console.log('A9b. famousTraces BP63 三要件形状（臂成立/小四反锚/慢
   const k5 = ftHigh.wallets.find((e) => e.w === W_K5);
   ok(k5.entryVsLaunchPct === 0.0 && k5.fastFlip === true && ftHigh.lowEntryN === 1,
     `形状五：高开票 famous 锚=票自身首可靠价（K5 贴首价 entryVs 0.0 非常量伪算 +30.1；lowEntryN 1，实际 ${JSON.stringify(k5)}/${ftHigh.lowEntryN}）`);
+  ok(ftHigh.fastFlipArmReady === true,
+    `形状五：fastFlipArmReady true（三要件全真高开票形状，实际 ${ftHigh.fastFlipArmReady}）`);
 
   // 形状六（fallback·窗口未覆盖出生段）：首行 dt=300 > BP_LAUNCH_COVER_TOL=90 →
   // launchCovered=false → famous 锚=平台常量（4.496173469e-9）；K6@4.9458e-9（=1.1×常量）
