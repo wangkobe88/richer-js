@@ -448,6 +448,84 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   // 注入路径反证：不传 options.famousRoster → 读真实 config 名单（rowsFt 钱包不在册=0 命中）
   const ftDefault = buildBuyPointSnapshot(rowsFt, metaFt).buyDerived.famousTraces;
   ok(ftDefault && ftDefault.wallets.length === 0, '缺省名单加载路径（真实 config 名单——rowsFt 钱包不在册零命中）');
+  // BP63（KOL 研究 I 判据/asof-严 题面化）：per-wallet entryVsLaunchPct/holdSec/fastFlip
+  // 手算——锚=未地板发行价锚（rowsFt 无 platform → launchCovered dt0 首可靠价 1.0e-9）：
+  // W_FA 首买 t+0@1.0e-9 → entryVs 0.0%（低价）持 5s 但净 +0.01>0.005 未清仓 → fastFlip false；
+  // W_FB 首买 t+8@1.1e-9 → entryVs +10.0%（低价）持 3s 净 −0.01 已清仓 → fastFlip true
+  const faRow = ft.wallets.find((e) => e.w === W_FA);
+  const fbRow = ft.wallets.find((e) => e.w === W_FB);
+  ok(faRow.entryVsLaunchPct === 0.0 && faRow.holdSec === 5 && faRow.fastFlip === false
+    && fbRow.entryVsLaunchPct === 10.0 && fbRow.holdSec === 3 && fbRow.fastFlip === true,
+    `BP63 per-wallet 三键（FA entryVs 0.0%/持 5s/未清仓 fastFlip false；FB entryVs +10.0%/持 3s/已清仓 fastFlip true，实际 ${JSON.stringify({ fa: faRow, fb: fbRow })}）`);
+  ok(ft.lowEntryN === 2 && ft.fastFlipN === 1 && ft.holdingN === 1,
+    `BP63 顶层三计数（lowEntryN 2/fastFlipN 1/holdingN 1——FA 在场持有 0.01>0.005，实际 ${ft.lowEntryN}/${ft.fastFlipN}/${ft.holdingN}）`);
+  ok(buildBuyPointState(snapFt).state.includes('低价抢进速倒事实（BP63 纯计数，③桶低价抢进速倒臂三要件原料')
+    && buildBuyPointState(snapFt).state.includes('低位入场（首买价较发行价 ≤+15% 且合计买入 ≥0.05 BNB）2/2 个')
+    && buildBuyPointState(snapFt).state.includes('快进快出（首买→末卖 ≤60 秒且已清仓）1/2 个')
+    && buildBuyPointState(snapFt).state.includes('买点在场持有（净 >0.005）1/2 个')
+    && buildBuyPointState(snapFt).state.includes('价较发行价 10% 持有 3s（快进快出·已清仓）'),
+    'BP63 state 直供（痕迹行 per-wallet 三键+汇总事实计数——判据与直供同构铁律）');
+}
+
+// ═══════════════ A9b. BP63 低价抢进速倒臂三要件反证（小四形状/慢走/地板锚事故反证） ═══════════════
+console.log('A9b. famousTraces BP63 三要件形状（臂成立/小四反锚/慢走/未地板锚/outlier 首买）');
+{
+  // 形状一（臂三要件原料全真）：K1 t+2 贴发行价买 0.30 → t+10 全清（持 8s）；
+  // 价格中途拉高又砸回破发 0.82e-9 —— 研究口径 asof-严五张（股股嘎嘎/meme.jpg/100/FOUR米米/SI）形状
+  const W_K1 = '0x' + 'k1'.repeat(20).slice(0, 40); // 0x6b31…
+  const W_K2 = '0x' + 'k2'.repeat(20).slice(0, 40);
+  const W_K3 = '0x' + 'k3'.repeat(20).slice(0, 40);
+  const W_K4 = '0x' + 'k4'.repeat(20).slice(0, 40);
+  const roster63 = new Set([W_K1, W_K2, W_K3, W_K4]);
+  const rowsArm = [
+    row(0, 'BUY', W_B, 0.20, 1.0 * E9, 2e8),                    // 散户底子（launchCovered 首可靠价锚）
+    row(2, 'BUY', W_K1, 0.30, 1.0 * E9, 3e8),                    // K1 低价抢进（贴发行价）
+    row(6, 'BUY', W_C, 0.40, 1.5 * E9, 2.7e8),                   // 拉高
+    row(10, 'SELL', W_K1, 0.31, 1.4 * E9, 2.2e8),                // K1 速倒砸出（持 8s 净 −0.01 清仓）
+    row(200, 'SELL', W_D, 0.20, 0.82 * E9, 2.4e8),               // 砸回破发（窗 min=0.82e-9 拖地板锚）
+    row(202, 'BUY', W_E, 0.10, 0.84 * E9, 1.2e8),                // 承接（锚前尾段）
+  ];
+  const meta63 = { ...metaA, address: '0x' + 'ee'.repeat(20), createdAt: T0 };
+  const ftArm = buildBuyPointSnapshot(rowsArm, meta63, { famousRoster: roster63 }).buyDerived.famousTraces;
+  const k1 = ftArm.wallets[0];
+  // 未地板锚事故反证（小四 0xf057 案形状）：窗 min 0.82e-9 < 首可靠价 1.0e-9 —— T134 地板锚
+  // 会把 K1 入场伪算成 +22%（1.0/0.82−1）；BP63 famous 锚刻意未地板 → entryVs 0.0% 低价成立
+  ok(k1.entryVsLaunchPct === 0.0 && k1.holdSec === 8 && k1.fastFlip === true,
+    `形状一：K1 低价+速倒+清仓（entryVs 0.0 未被地板锚拖高/持 8s/fastFlip true，实际 ${JSON.stringify(k1)}）`);
+  ok(ftArm.lowEntryN === 1 && ftArm.fastFlipN === 1 && ftArm.holdingN === 0,
+    `形状一：三要件原料全真（1/1 低价∧1/1 速倒∧0 在场——臂成立态，实际 ${ftArm.lowEntryN}/${ftArm.fastFlipN}/${ftArm.holdingN}）`);
+
+  // 形状二（小四反锚——名单钱包高位二次进场在场持有）：K2 t+150@+45% 买入不卖 → holdingN=1
+  // 三要件之二（在场持有 0）不成立——小四 0xf057 案卷柏/Ed_x t+241s 高位二次进场同构
+  const rowsXs = rowsArm.concat([
+    row(150, 'BUY', W_K2, 0.25, 1.45 * E9, 1.7e8),
+  ]);
+  const ftXs = buildBuyPointSnapshot(rowsXs, meta63, { famousRoster: roster63 }).buyDerived.famousTraces;
+  const k2 = ftXs.wallets.find((e) => e.w === W_K2);
+  ok(k2.holdSec === null && k2.fastFlip === false && k2.entryVsLaunchPct === 45.0,
+    `形状二：K2 二次进场未卖（entryVs +45.0 高位/holdSec null/fastFlip false，实际 ${JSON.stringify(k2)}）`);
+  ok(ftXs.holdingN === 1 && ftXs.fastFlipN === 1 && ftXs.fastFlipN !== ftXs.wallets.length,
+    `形状二：在场持有 1 → 三要件之二不成立（小四反锚——高位二次进场 famous 在场=臂前提破，实际 holdingN ${ftXs.holdingN}）`);
+
+  // 形状三（慢走不算速倒）：K3 t+5 买 → t+200 才卖（持 195s>60）→ fastFlip false
+  const rowsSlow = rowsArm.concat([
+    row(5, 'BUY', W_K3, 0.25, 1.05 * E9, 2.4e8),
+    row(200, 'SELL', W_K3, 0.25, 0.85 * E9, 2.9e8),
+  ]);
+  const ftSlow = buildBuyPointSnapshot(rowsSlow, meta63, { famousRoster: roster63 }).buyDerived.famousTraces;
+  const k3 = ftSlow.wallets.find((e) => e.w === W_K3);
+  ok(k3.holdSec === 195 && k3.fastFlip === false,
+    `形状三：K3 慢走（持 195s>60 不算速倒——有人慢走没走光的不是本形状，实际 ${JSON.stringify(k3)}）`);
+
+  // 形状四（首买 outlier 价 → entryVs null fail-closed）：K4 首买行天价 outlier → 不冒充入场价
+  const rowsOut = rowsArm.concat([
+    row(3, 'BUY', W_K4, 0.25, 99 * E9, 2.5e5, { outlier: true }),
+    row(9, 'SELL', W_K4, 0.25, 1.2 * E9, 2.1e8),
+  ]);
+  const ftOut = buildBuyPointSnapshot(rowsOut, meta63, { famousRoster: roster63 }).buyDerived.famousTraces;
+  const k4 = ftOut.wallets.find((e) => e.w === W_K4);
+  ok(k4.entryVsLaunchPct === null && k4.holdSec === 6 && k4.fastFlip === true && ftOut.lowEntryN === 1,
+    `形状四：K4 outlier 首买价 entryVs null（宁漏不冒充不进低位计数；holdSec 6/fastFlip 照判，实际 ${JSON.stringify(k4)}）`);
 }
 
 // ═══════════════ A10. cheatBurst 透传（BP67——cheat 门 burst 判定输入桶） ═══════════════
@@ -1276,7 +1354,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP60 四题=4 维度 0 质量/桶域对锁/题面清洗——零编号零判例名，判例剥名留形状为匿名例）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP62', 'F: 版本=BP62（**BP62=bt-v104 R1 三件+二修**：①②大户在场三分（活跃在场=净 >0 ∧ 末动 ≤120s；挂账沉默/清仓离场不算在场）②⑨先买后卖一波流判据=「买期/卖期分界」直供行（首笔像样卖尘门 0.01/买尘门 0.05/postBundled 分仓识别）③crash 加趋势打断轴（swing 摆点 ≤60s∧距摆高 ≤-25%∧**形态前提上升腿 ≥60s∧≥20%**+chg 同深轴双载体；秒级开盘脉冲不进轴——R1 二修=形态前提立法（c84a 7s/+92.8% 脉冲 vs 蝴蝶 286s/币安 149s 分钟腿分离，用户裁定「形态本身不一致不是买力问题」）；R1 三修=打断家族不豁免（用户裁定「打断家族不豁免，加吧」——三口=摆点轴/chg 同深轴/打断余波域（摆高停旧形状不看摆高距今看打断事实本身——苹果SI 375s 涨 70%→横盘 140s→22s 砸 -31% 盲区），打断家族唯一放行出口=臂 B 第一步反弹两件套、第二步买入力在场豁免对打断家族不适用——蝴蝶人生路摆点轴三腿全中仍被买力豁免吐出=判序失灵封口）））；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）；BP60=前代题面全面整理');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP63', 'F: 版本=BP63（**BP63=③桶低价抢进速倒臂（KOL 研究 2026-11-12 立法——I 判据/asof-严题面化：famous 低价抢进（首买 ≤+15% 且 ≥0.05 BNB）∧买点在场持有 0（最后一个也走了）∧全部快进快出（≤60s 且已清仓）三要件；反锚=低位/破发位真实承接+名单钱包二次进场在场；痕迹行 per-wallet entryVsLaunchPct/holdSec/fastFlip+汇总三计数直供；famous 入场价锚=未做 T134 滚动地板的发行价锚（小四 0xf057 案：窗 min −20% 拖低地板锚会把贴发行价买入伪算 +25%）））；BP62=bt-v104 R1 三件+二修（②大户在场三分/⑨买期卖期分界直供行/crash 趋势打断轴三口+打断家族不豁免）；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 4, `F: 恰 4 题=4 维度 0 质量（price_trend/price_level 两题随整理退役——纯参考零消费者，price_level 桶=currentVsLaunchPct 锚的确定性函数离线可复算；实际 ${ids.length}）`);

@@ -708,6 +708,12 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // BP 侧 rel 自算零 CD 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
   let minVsLaunchPct = null, curVsMinGapPct = null;
+  // BP63（KOL 研究 2026-11-12）：famous 入场价锚=**未做 T134 滚动地板**的发行价锚
+  //（常量优先，否则覆盖出生段的首可靠价）——地板锚会被砸落段拖低，砸回发行价以下
+  // 的票 KOL「贴发行价买入」会被伪算成 +20~50%（小四 0xf057…4444 案：窗 min −20%
+  // 拖低锚 → 古月月 t+1s@+0% 买入伪算 +25%）→ 低价抢进速倒臂系统性漏判；研究口径
+  //（GMGN launch=首 tick 价无地板）同向。锚不可得 → entryVs null fail-closed 宁漏不冒充
+  let famousEntryLaunchBnb = null;
   if (rel.length >= 1) {
     const firstDt = dts.length ? Math.min(...dts) : null;
     launchCovered = tEnd !== null && firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL;
@@ -717,6 +723,11 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     const quoteToken = ticks.some((t) => t.quote) ? 'quote' : null;
     const constLaunch = resolveLaunchPriceBnb(
       snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, quoteToken);
+    if (constLaunch !== null) {
+      famousEntryLaunchBnb = constLaunch; // BP63：famous 入场价锚（未地板——见上注释）
+    } else if (launchCovered && rel[0].priceBnb > 0) {
+      famousEntryLaunchBnb = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段首可靠价
+    }
     // 常量锚保原值精度（4.496173469e-9 量级 toFixed(10) 只剩 1 位有效数字不可磨）；
     // 旧口径锚保 toFixed(10) bit 不变
     let launchAnchor = null;
@@ -929,23 +940,42 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       const w = t.wallet.toLowerCase();
       if (!rosterFt.has(w)) continue;
       const e = fam.get(w) || {
-        w, buyBnb: 0, buyN: 0, firstBuyDt: null, sellBnb: 0, sellN: 0, firstSellDt: null, netBnb: 0,
+        w, buyBnb: 0, buyN: 0, firstBuyDt: null, firstBuyPriceBnb: null, lastSellDt: null,
+        sellBnb: 0, sellN: 0, firstSellDt: null, netBnb: 0,
       };
       const bnb = t.bnb || 0;
       if (t.side === 'BUY') {
         e.buyBnb += bnb; e.buyN++; e.netBnb += bnb;
-        if (t.dt !== null && t.dt !== undefined && (e.firstBuyDt === null || t.dt < e.firstBuyDt)) e.firstBuyDt = t.dt;
+        if (t.dt !== null && t.dt !== undefined && (e.firstBuyDt === null || t.dt < e.firstBuyDt)) {
+          e.firstBuyDt = t.dt;
+          // 首买笔自身价（可靠价才记——outlier/零价行不冒充入场价，null fail-closed）
+          e.firstBuyPriceBnb = !t.outlier && t.priceBnb !== null && t.priceBnb !== undefined && t.priceBnb > 0
+            ? t.priceBnb : null;
+        }
       } else {
         e.sellBnb += bnb; e.sellN++; e.netBnb -= bnb;
         if (t.dt !== null && t.dt !== undefined && (e.firstSellDt === null || t.dt < e.firstSellDt)) e.firstSellDt = t.dt;
+        if (t.dt !== null && t.dt !== undefined && (e.lastSellDt === null || t.dt > e.lastSellDt)) e.lastSellDt = t.dt;
       }
       fam.set(w, e);
     }
     const wallets = [...fam.values()].sort((a, b) => b.buyBnb - a.buyBnb)
-      .map((e) => ({
-        ...e,
-        buyBnb: +e.buyBnb.toFixed(4), sellBnb: +e.sellBnb.toFixed(4), netBnb: +e.netBnb.toFixed(4),
-      }));
+      .map((e) => {
+        // BP63（KOL 研究 I 判据/asof-严 题面化）：per-wallet 入场价/持仓时长/速倒三键。
+        // entryVsLaunchPct=首买笔价较**未地板**发行价锚 %（锚=常量优先；null fail-closed
+        // 宁漏不冒充）；holdSec=首买→末卖时长（无卖/末卖早于首买=砸窗前底仓形状 → null
+        // 不冒充）；fastFlip=holdSec ≤60 ∧ 已清仓（netBnb ≤0.005 与 BP79 清仓线同线）
+        const entryVsLaunchPct = e.firstBuyPriceBnb !== null && famousEntryLaunchBnb !== null
+          ? +(((e.firstBuyPriceBnb / famousEntryLaunchBnb) - 1) * 100).toFixed(1) : null;
+        const holdSec = e.firstBuyDt !== null && e.lastSellDt !== null && e.lastSellDt > e.firstBuyDt
+          ? e.lastSellDt - e.firstBuyDt : null;
+        const netR = +e.netBnb.toFixed(4);
+        return {
+          ...e,
+          buyBnb: +e.buyBnb.toFixed(4), sellBnb: +e.sellBnb.toFixed(4), netBnb: netR,
+          entryVsLaunchPct, holdSec, fastFlip: holdSec !== null && holdSec <= 60 && netR <= 0.005,
+        };
+      });
     const groupBuyBnb = +wallets.reduce((s, e) => s + e.buyBnb, 0).toFixed(4);
     const groupSellBnb = +wallets.reduce((s, e) => s + e.sellBnb, 0).toFixed(4);
     return {
@@ -959,6 +989,14 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       // 在场净额是否尘埃量级；与 netSumBnb（含负钱包）刻意分开，判读归题面③桶）
       presenceNetBnb: +wallets.filter((e) => e.netBnb > 0).reduce((s, e) => s + e.netBnb, 0).toFixed(4),
       inCustodyCount: wallets.filter((e) => e.netBnb > 0).length,
+      // BP63（KOL 研究 I 判据题面化——③桶低价抢进速倒臂三要件原料，纯计数无判定词）：
+      // lowEntryN=低位入场（首买价较未地板发行价锚 ≤+15% 且合计买入 ≥0.05 BNB 尘门）；
+      // fastFlipN=快进快出（首买→末卖 ≤60s 且已清仓）；holdingN=买点在场持有（净 >0.005
+      // 与 BP79 活跃在场线同向）——三要件判读（≥1 ∧ 全员速倒 ∧ 在场 0）归题面③桶
+      lowEntryN: wallets.filter((e) => e.entryVsLaunchPct !== null && e.entryVsLaunchPct <= 15
+        && e.buyBnb >= 0.05).length,
+      fastFlipN: wallets.filter((e) => e.fastFlip).length,
+      holdingN: wallets.filter((e) => e.netBnb > 0.005).length,
     };
   })();
 
