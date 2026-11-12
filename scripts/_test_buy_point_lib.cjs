@@ -1394,7 +1394,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP60 四题=4 维度 0 质量/桶域对锁/题面清洗——零编号零判例名，判例剥名留形状为匿名例）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP63', 'F: 版本=BP63（**BP63=③桶低价抢进速倒臂（KOL 研究 2026-11-12 立法——I 判据/asof-严题面化：famous 低价抢进（首买 ≤+15% 且 ≥0.05 BNB）∧买点在场持有 0（最后一个也走了）∧全部快进快出（≤60s 且已清仓）三要件；反锚=低位/破发位真实承接+名单钱包二次进场在场；痕迹行 per-wallet entryVsLaunchPct/holdSec/fastFlip+汇总三计数直供；famous 入场价锚=未做 T134 滚动地板的票自身首可靠价（二修 2026-11-12：首版常量优先被 182 探针反证——六票首 tick 全部高开 +12~41%，常量锚把贴首价买入伪算 +30~69% 致全员 lowEntryN=0 臂失明；研究口径 launch=首 tick 价；小四 0xf057 案窗 min −20% 拖低地板锚伪算 +25% 同批反证）））；BP62=bt-v104 R1 三件+二修（②大户在场三分/⑨买期卖期分界直供行/crash 趋势打断轴三口+打断家族不豁免）；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP64', 'F: 版本=BP64（**BP64=③桶抢筹臂绝对额参考线（bt-v106 方差修复 2026-11-12：28ad/谷谷 famous_monopoly 贴线摆动 0.48~0.53 vs 0.56~0.61——锚窗 famous 合计买仅 0.384/0.202 BNB 被 Jev 判③拒，同点位生产放行；修复=抢筹臂「占比大且绝对额大」补量化参考线 ≥0.5 BNB（与 T136 famous 进场撤离卖臂金额门同线）——合计 <0.5 的零星 famous 买入不构成独食；题面三处（抢筹臂/反锚/criteria）+state 痕迹行「合计买 <0.5 零星量级」直供同构标注（BP61 三修铁律——判据与直供必须同构））**）；BP63=③桶低价抢进速倒臂（KOL 研究 I 判据/asof-严题面化：三要件=低位入场 ≥1∧在场持有 0∧全部快进快出，fastFlipArmReady 组合布尔直供独立成立不要求占比大；入场价锚=票自身首可靠价优先常量 fallback）；BP62=bt-v104 R1 三件+二修（②大户在场三分/⑨买期卖期分界直供行/crash 趋势打断轴三口+打断家族不豁免）；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 4, `F: 恰 4 题=4 维度 0 质量（price_trend/price_level 两题随整理退役——纯参考零消费者，price_level 桶=currentVsLaunchPct 锚的确定性函数离线可复算；实际 ${ids.length}）`);
@@ -1491,7 +1491,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══ 怎么算/反锚/收尾 ═══
   ok(mp.includes('怎么算：开盘段结构行'), 'F: mp 怎么算段在场（[PRECOMPUTED] 直供键算法段）');
   ok(mp.includes('**「多笔」是硬笔数且按单笔计**') && mp.includes('多笔累计到 0.2 级的钱包不算（读 [WALLETS]「最大单笔」不读累计）') && mp.includes('仅 1 个单笔 0.2 级+其余全 0.1 级及以下=凑不成多笔仍落②') && mp.includes('**前提是像样买方买点时刻仍在场**'), 'F: 反锚单笔口径（多笔硬笔数按单笔计；累计不算；在场前提）');
-  ok(mp.includes('③要 famous/单一钱包**拿了太多筹码**（占比大且绝对额大）才落③——边缘参与（占比 <25）或大额多元并存不构成独食') && mp.includes('**复数 famous 形状**'), 'F: 反锚③门槛+复数形状（边缘参与不构成独食；复数合计达线同落③）');
+  ok(mp.includes('③要 famous/单一钱包**拿了太多筹码**（占比大且绝对额大——**绝对额参考线：痕迹行合计买 ≥0.5 BNB**，合计 <0.5 的零星 famous 买入不构成独食）才落③——边缘参与（占比 <25）、绝对额不足（<0.5）或大额多元并存不构成独食') && mp.includes('**复数 famous 形状**'), 'F: 反锚③门槛+复数形状（边缘参与不构成独食；BP64 绝对额参考线 ≥0.5——零星 famous 买入 <0.5 不落③；复数合计达线同落③）');
   ok(mp.includes('**⑨的判轴=「买期/卖期分界」行（首笔像样卖）**') && mp.includes('首卖前纯买期（尘门后零卖出+像样买盘拉起）∧ 首卖距买点近（参考 ≤30s）∧ 无对倒换手') && mp.includes('证据薄/窗极短时从宽 none（拒买类从严、拿不准从宽）') && mp.includes('材料不足归 none 处理不硬归类到异常桶（拒买桶须证据坐实）'), 'F: 反锚⑨分界行三要件复述+从宽方向+材料不足兜底（拒买桶须证据坐实、拿不准从宽 none）');
   ok(mp.includes('②③⑨由盘型门硬拒（不要参与）') && mp.includes('判型归 Jev、位置归代码') && mp.includes('none 统一位置门 ≤+28.5%（含破发）放行、已拉离（>+28.5%）拒') && mp.includes('锚缺失（发行价位置行 ?）宁拦不冒充一律拒') && mp.includes('拉高/砸盘形状的拦截由点位性质题 entry_shape+位置门接力'), 'F: 收尾分工+位置门（②③⑨门硬拒；none 统一门 ≤+28.5 含破发、锚缺失宁拦不冒充；判型归 Jev 位置归代码）');
   ok(!mp.includes('⑥ ≤+10% 起点段放行'), 'F: ⑥独立位置臂句绝迹（持续拉升归 none 统一门）');
