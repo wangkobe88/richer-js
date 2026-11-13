@@ -350,6 +350,11 @@ function buildObservation(answers, anchors = null) {
       nearDumpWorstSellBnb: _anchorPct(anchors, 'nearDumpWorstSellBnb'),
       nearDumpWorstSecToAnchor: _anchorPct(anchors, 'nearDumpWorstSecToAnchor'),
       nearDumpWorstSameBlkBuyBnb: _anchorPct(anchors, 'nearDumpWorstSameBlkBuyBnb'),
+      // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源：最后 ≥50s
+      // 静默段出口→锚整窗 买/卖/卖%；无静默段→null=臂不触发不扩大收紧面）
+      burstExitSegBuyBnb: _anchorNum(anchors, 'burstExitSegBuyBnb'),
+      burstExitSegSellBnb: _anchorNum(anchors, 'burstExitSegSellBnb'),
+      burstExitSegSellPct: _anchorPct(anchors, 'burstExitSegSellPct'),
     },
   };
 }

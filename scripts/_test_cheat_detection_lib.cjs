@@ -439,7 +439,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 72, 'CD400 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+D3.60 持有者基数三键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键+D3.52 锚窗买卖比+D3.53 精确等额同块三键+D3.54 同块脉冲节拍三键+D3.57 pump 锚族六键+D3.58 断流重启段六键+D3.62 聚合路由入口一键+CD392 burst 波起点一键+D3.66 burst 起来起点价一键+D3.67 单段绑定波族十键+CD398 波窗净流一键+CD400 贴锚砸出六键=七十二数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键/D3.52 加 anchorBuySellRatio/D3.53 加 exactEqualBlock 三观察键/D3.54 加 pulseBlockCount/BuyPct/MaxGapBlocks 三观察键/D3.57 加 pumpStable 三键+perBnb+卖笔占比（斜率/perBnb 带符号）/D3.58 加 postStall 六键（占比分母=段内买入不被断流前流量稀释）/D3.60 加 posHolderCount+前二/前三流通合计三键（CD240 持有者基数分层——<2/<3 持有人 null=轴不适用）/D3.62 加 routerEntryBuyPct（CD374 G17 N 通道源锚：锚窗买入笔走聚合路由 %，<15 笔/零买入 null fail-open）/CD392 加 burstWaveStartVsLaunchPct（D3.66 起纯观察——第四腿判据源移交出口价锚）/D3.66 加 burstExitVsLaunchPct（最后 ≥50s 静默段出口首可靠价 vs launch 地板 %，service burst 豁免第四腿判据源）/D3.67 加 burstLastGapSec/出口波五键/净额卖回/户均中位十键（CD397 用户四条裁定：跨度/尘埃/流向轴原料——sbw 题 state 直供+BP67 透传，**不进 FA 投影**（levelsFromObservation 白名单 37 键不动=Option 2；净额 _anchorNum 带符号可负）——无门侧消费 FA 投影同源/CD398 加 burstWaveNetBnb（波窗自身净流 Σ买−Σ卖 带符号可负——service 侧 CD398 流向硬腿主判量）/CD400 加 nearDump 六键（qual/minAbsorb/worstSellers/worstSellBnb/worstSecToAnchor/worstSameBlkBuyBnb——dump_no_absorption 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（引擎投影显式挑键）——与 D3.67 十键差异=门侧消费需要）');
+ok(Object.keys(f1.anchors).length === 75, 'CD401 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+D3.60 持有者基数三键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键+D3.52 锚窗买卖比+D3.53 精确等额同块三键+D3.54 同块脉冲节拍三键+D3.57 pump 锚族六键+D3.58 断流重启段六键+D3.62 聚合路由入口一键+CD392 burst 波起点一键+D3.66 burst 起来起点价一键+D3.67 单段绑定波族十键+CD398 波窗净流一键+CD400 贴锚砸出六键+CD401 出口段卖压三键=七十五数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键/D3.52 加 anchorBuySellRatio/D3.53 加 exactEqualBlock 三观察键/D3.54 加 pulseBlockCount/BuyPct/MaxGapBlocks 三观察键/D3.57 加 pumpStable 三键+perBnb+卖笔占比（斜率/perBnb 带符号）/D3.58 加 postStall 六键（占比分母=段内买入不被断流前流量稀释）/D3.60 加 posHolderCount+前二/前三流通合计三键（CD240 持有者基数分层——<2/<3 持有人 null=轴不适用）/D3.62 加 routerEntryBuyPct（CD374 G17 N 通道源锚：锚窗买入笔走聚合路由 %，<15 笔/零买入 null fail-open）/CD392 加 burstWaveStartVsLaunchPct（D3.66 起纯观察——第四腿判据源移交出口价锚）/D3.66 加 burstExitVsLaunchPct（最后 ≥50s 静默段出口首可靠价 vs launch 地板 %，service burst 豁免第四腿判据源）/D3.67 加 burstLastGapSec/出口波五键/净额卖回/户均中位十键（CD397 用户四条裁定：跨度/尘埃/流向轴原料——sbw 题 state 直供+BP67 透传，**不进 FA 投影**（levelsFromObservation 白名单 37 键不动=Option 2；净额 _anchorNum 带符号可负）——无门侧消费 FA 投影同源/CD398 加 burstWaveNetBnb（波窗自身净流 Σ买−Σ卖 带符号可负——service 侧 CD398 流向硬腿主判量）/CD400 加 nearDump 六键（qual/minAbsorb/worstSellers/worstSellBnb/worstSecToAnchor/worstSameBlkBuyBnb——dump_no_absorption 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（引擎投影显式挑键）——与 D3.67 十键差异=门侧消费需要）/CD401 加 burstExitSeg 三键（buy/sell/sellPct——burst_exit_sell_pressure 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（CD400 同形）——burst 期望=纯流入驱动，出口段卖占比 ≥30 ∧ 卖额 ≥0.3 都不符合（先买后跟卖=涨不下去/先卖后买=卖出引买））');
 ok(f1.anchors.anchorBuySellRatio === null,
   'D3.52 锚窗买卖比未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
@@ -2794,6 +2794,62 @@ console.log('I. 著名钱包单极控盘锚');
     // rows10 中块 300 尾卖 sec58 与砸块同 dt——dt 排序无关紧要（dt 相同=距锚 0）；块 210 买 0.03 在块 200 之后
     ok(d10.nearDumpMinAbsorbBnb === 0.03 && d10.nearDumpQualBlocks === 1,
       `CD400 边界形状（承接 0.03 <0.05 仍命中——無為 blk131782767 判例复刻；实际 ${d10.nearDumpMinAbsorbBnb}）`);
+  }
+
+  // ═══════════════ CD401 出口段卖压三键（btv109 P3「burst 期望=纯流入驱动」） ═══════════════
+  console.log('CD401 出口段卖压（出口整窗=最后 ≥50s 静默段出口→锚：买/卖/卖%；无静默段→null）');
+  {
+    const meta401 = { address: '0xt', symbol: 'T', name: 'T', createdAt: at(0), platform: 'fourmeme', totalSupply: 1e9 };
+    const d401 = (rows) => buildSnapshotFromRows(rows, meta401).derived;
+
+    // ① 主形状（MBF 判例复刻：先卖后拉——出口行=卖，段内买拉起）：出口整窗 买0.5/卖0.4/44.4%
+    const d1 = d401([
+      mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: '0xp100000000000000000000000000000000000010' }),
+      mkRow(70, 200, 1, 'sell', 0.3, 1e-9, { sender: '0xd10000000000000000000000000000000000d1' }), // 出口行（gap 60s ≥50）
+      mkRow(75, 210, 1, 'buy', 0.5, 1e-9, { sender: '0xb10000000000000000000000000000000000b1' }),
+      mkRow(78, 220, 1, 'sell', 0.1, 1e-9, { sender: '0xd20000000000000000000000000000000000d2' }),
+    ]);
+    ok(d1.burstExitSegBuyBnb === 0.5 && d1.burstExitSegSellBnb === 0.4 && d1.burstExitSegSellPct === 44.4,
+      `CD401 主形状三键精确值（买0.5/卖0.4/44.4%——段前铺垫买 0.2 不计入；实际 ${d1.burstExitSegBuyBnb}/${d1.burstExitSegSellBnb}/${d1.burstExitSegSellPct}）`);
+
+    // ② 无 ≥50s 静默段 → 三键 null（无沉积=无出口段；denied 臂容缺不触发）
+    const d2 = d401([
+      mkRow(10, 100, 1, 'buy', 0.5, 1e-9, { sender: '0xp100000000000000000000000000000000000010' }),
+      mkRow(40, 110, 1, 'sell', 0.5, 1e-9, { sender: '0xd10000000000000000000000000000000000d1' }),
+      mkRow(70, 120, 1, 'buy', 0.5, 1e-9, { sender: '0xb10000000000000000000000000000000000b1' }),
+    ]);
+    ok(d2.burstExitSegBuyBnb === null && d2.burstExitSegSellBnb === null && d2.burstExitSegSellPct === null,
+      'CD401 无静默段全族 null（gap 30s <50 =无出口段，不冒充）');
+
+    // ③ 多静默段取最后一段（D3.67 同锚）：段1 后的买卖不计入出口段
+    const d3 = d401([
+      mkRow(5, 50, 1, 'buy', 0.1, 1e-9, { sender: '0xa0000000000000000000000000000000000000a' }),
+      mkRow(70, 100, 1, 'buy', 9, 1e-9, { sender: '0xa1000000000000000000000000000000000000a' }), // 段1 出口（gap 65s）
+      mkRow(100, 150, 1, 'sell', 9, 1e-9, { sender: '0xa2000000000000000000000000000000000000a' }), // 段1 后段2 前（不计入）
+      mkRow(170, 200, 1, 'sell', 0.4, 1e-9, { sender: '0xa3000000000000000000000000000000000000a' }), // 段2 出口（gap 70s）
+      mkRow(175, 210, 1, 'buy', 0.2, 1e-9, { sender: '0xa4000000000000000000000000000000000000a' }),
+    ]);
+    ok(d3.burstExitSegBuyBnb === 0.2 && d3.burstExitSegSellBnb === 0.4 && d3.burstExitSegSellPct === 66.7,
+      `CD401 多段取最后（段1 后 9/9 大额不计入；实际 ${d3.burstExitSegBuyBnb}/${d3.burstExitSegSellBnb}/${d3.burstExitSegSellPct}）`);
+
+    // ④ 赢家保护形状：出口段纯买零卖 → sellPct=0 有证据零值（T093/T064/T065 出口卖%=0）
+    const d4 = d401([
+      mkRow(10, 100, 1, 'buy', 0.1, 1e-9, { sender: '0xp100000000000000000000000000000000000010' }),
+      mkRow(70, 200, 1, 'buy', 0.3, 1e-9, { sender: '0xb10000000000000000000000000000000000b1' }),
+      mkRow(72, 210, 1, 'buy', 0.3, 1e-9, { sender: '0xb20000000000000000000000000000000000b2' }),
+    ]);
+    ok(d4.burstExitSegBuyBnb === 0.6 && d4.burstExitSegSellBnb === 0 && d4.burstExitSegSellPct === 0,
+      `CD401 出口段纯买零卖=有证据零值（卖%=0 三大赢家天然安全；实际 ${d4.burstExitSegSellBnb}/${d4.burstExitSegSellPct}）`);
+
+    // ⑤ 谷歌SI 判例复刻：出口段几乎纯卖（买 0.014/卖 0.588 → 97.7%）
+    const d5 = d401([
+      mkRow(10, 100, 1, 'buy', 0.1, 1e-9, { sender: '0xp100000000000000000000000000000000000010' }),
+      mkRow(80, 200, 1, 'sell', 0.5, 1e-9, { sender: '0xd10000000000000000000000000000000000d1' }),
+      mkRow(82, 210, 1, 'sell', 0.088, 1e-9, { sender: '0xd20000000000000000000000000000000000d2' }),
+      mkRow(84, 220, 1, 'buy', 0.014, 1e-9, { sender: '0xb10000000000000000000000000000000000b1' }),
+    ]);
+    ok(d5.burstExitSegSellPct === 97.7 && d5.burstExitSegSellBnb === 0.588,
+      `CD401 纯卖出口（谷歌SI 05:16 判例复刻 97.7%/0.588；实际 ${d5.burstExitSegSellPct}/${d5.burstExitSegSellBnb}）`);
   }
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);

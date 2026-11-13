@@ -191,6 +191,7 @@ class CheatCheckService {
       stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行 wash+CD400 dump 承接——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
       dumpAbsorbDenied: 0, // CD400 贴锚砸出零承接臂命中细分计数（dump_no_absorption；生产触发频率观察）
+      burstSellDenied: 0, // CD401 出口段卖压臂命中细分计数（burst_exit_sell_pressure；生产触发频率观察）
       ultraCheatDenied: 0, // CD388/CD391 ultra 档资格收紧命中计数（cheat∧ultra∧burst 不在场=不豁免原判保持；11-09 两度裁定：CD390 曾推广全档、CD391「交易活跃度热，cheat 继续豁免」收回 ultra 单档恢复 high 豁免）
       activityCheatDenied: 0, // CD390 全档资格收紧命中计数——CD391 收回 ultra 单档后本计数停用恒 0，保留键读数连续性
       marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
@@ -455,6 +456,23 @@ class CheatCheckService {
    *    反例处置留档（用户裁定「FOM 要具体情况具体看……这个case可以不救」）：
    *    btv104 T021 FOM +0.0729 的盈利来自 0xbf004bff64725914ee36d03b87d6965b0ced4903
    *    砸块后入场收割一波又撤——本臂拦下=接受。
+   * ⑤ 出口段卖压臂（CD401，2026-11-13 btv109 P3 立法——用户裁定原话「burst
+   *    的预期本身是上涨后继续涨，如果落下去了，那么就不算有 burst。如果是先卖
+   *    后买，两者隔着近，那就是卖出引来了一些买入，这也不符合 burst 的期望。
+   *    burst 的期望是用户突然发现了一个好票，或者某个好票开始传播，再或者庄
+   *    开始收筹码坐庄。这 burst 中卖出占比高，都不太好，虽然可能会有误伤」）：
+   *    出口段（最后 ≥50s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖占比 ≥30%
+   *    ∧ 卖额 ≥0.3 BNB = 卖驱动出口不豁免——两族形状都拦：先买后跟卖（涨不下
+   *    去，网上南宁/callcat 案）+ 先卖后买（卖出引来买入，MBF 案；burst 波
+   *    本身可纯买，卖在波前也算）。**作用域=限 sbw=1 资格**（2026-11-13 落地
+   *    对拍后用户二次裁定 A：全通道形状 11 票净 -0.107 转负——SPP×2/比格多栋
+   *    三张盈利票均为 activity_high 通道 sbw=0 误拦；sbw 靶面 5 票全止损票
+   *    [魔渊/callcat小写/MBF×2/谷歌SI] 净 +0.0377 零误伤=预演「8 票全非正」
+   *    口径的对拍定稿；三大赢家 T093/T064/T065 出口卖%=0 天然安全；meem
+   *    36%/0.12、小旺 31%/0.24 由卖额 0.3 门保住）。判据=anchors 数值锚
+   *    （burstExitSegSellPct/burstExitSegSellBnb，计算头注见 cheat-snapshot
+   *    CD401 段）；题集/grade 版本零改动（纯代码数值臂，CD400/G17 N 通道先例
+   *    第三例）。
    * 入参=levels 数值投影 + anchors 数值锚（levelsFromObservation 产物；秒回/
    * late/blocked 行同构）；levels null 或键缺席（旧档断代/题未答）→ 不触发=
    * 豁免照常（缺席不扩大收紧面，维持 CD379 原语义）。豁免与收紧全部收在本
@@ -474,6 +492,22 @@ class CheatCheckService {
     if (typeof an.nearDumpQualBlocks === 'number' && an.nearDumpQualBlocks >= 1
       && typeof an.nearDumpMinAbsorbBnb === 'number' && an.nearDumpMinAbsorbBnb < 0.05) {
       return 'dump_no_absorption';
+    }
+    // CD401 出口段卖压臂（burst 期望=纯流入驱动；卖占比 ≥30% ∧ 卖额 ≥0.3——
+    // 卖额门保护 meem 0.12/小旺 0.24 级小卖压、卖%门拦谷歌SI 99% 纯卖出口；
+    // 无静默段/旧档断代 null 容缺不触发；臂序在 dump 后=双中票留 dump 码更具体）。
+    // **作用域限 sbw=1 资格**（2026-11-13 对拍后用户裁定 A）：denied 只对 Jev
+    // 判了停滞突发波（stallBurstWave==1）的豁免票生效=忠实 burst 立法语境；
+    // 全通道形状（CD380/CD400 同构）对拍四基底 11 票净 -0.107——SPP×2/比格
+    // 多栋三张盈利票（activity_high 通道 sbw=0）误拦 -0.189 吃掉全部止损收益
+    // +0.082；sbw 靶面 5 票全止损票（魔渊/callcat小写/MBF×2/谷歌SI）净
+    // +0.0377 零误伤。activity_high 通道 sbw=0 的止损票（Q币安/Callcat大写/
+    // 蝴蝶2.0 合计 +0.044）一并放行=知情取舍（与 dump 臂刻意不同向：CD400
+    // 立法验证就是全通道且四基底净负 -0.27 全拦为正）
+    if (lv('stallBurstWave') === 1
+      && typeof an.burstExitSegSellPct === 'number' && an.burstExitSegSellPct >= 30
+      && typeof an.burstExitSegSellBnb === 'number' && an.burstExitSegSellBnb >= 0.3) {
+      return 'burst_exit_sell_pressure';
     }
     return null; // pump 臂已移除（2026-11-08 四修裁定，见头注①）；holdings 臂已移除（三修，头注③）
   }
@@ -547,6 +581,7 @@ class CheatCheckService {
     if (denied) {
       this.stats.exemptDenied++;
       if (denied === 'dump_no_absorption') this.stats.dumpAbsorbDenied++; // CD400 细分计数
+      if (denied === 'burst_exit_sell_pressure') this.stats.burstSellDenied++; // CD401 细分计数
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
     // CD391（2026-11-09 用户裁定「交易活跃度热，cheat 继续豁免」——CD390 全档
@@ -748,6 +783,11 @@ class CheatCheckService {
           burstWaveNetBnb: snapshot.derived.burstWaveNetBnb,
           burstWaveWalletAvgBnb: snapshot.derived.burstWaveWalletAvgBnb,
           burstWaveWalletMedianBnb: snapshot.derived.burstWaveWalletMedianBnb,
+          // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源——出口
+          // 整窗买/卖/卖%；头注见 cheat-snapshot 计算段）
+          burstExitSegBuyBnb: snapshot.derived.burstExitSegBuyBnb,
+          burstExitSegSellBnb: snapshot.derived.burstExitSegSellBnb,
+          burstExitSegSellPct: snapshot.derived.burstExitSegSellPct,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的

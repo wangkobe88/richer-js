@@ -1030,6 +1030,17 @@ function computeDerived(snapshot, famousRoster) {
   let burstWaveWalletNetBnb = null, burstWaveSellBackPct = null;
   let burstWaveNetBnb = null; // CD398 二修：波窗自身净流 Σ(买−卖)（主判量，头注见计算段）
   let burstWaveWalletAvgBnb = null, burstWaveWalletMedianBnb = null;
+  // CD401 出口段卖压三键（btv109 P3，2026-11-13 用户裁定立法）：burst 的期望=
+  // **纯流入驱动**（用户突然发现好票/好票开始传播/庄开始收筹码坐庄）——出口段
+  // （最后 ≥50s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖出占比高都不符合
+  // burst 期望：先买后跟着卖=涨不下去不算 burst；先卖后买两者隔得近=卖出引来
+  // 的买入非自发涌入（「这 burst 中卖出占比高，都不太好，虽然可能会有误伤」）。
+  // 门臂=卖占比 ≥30% ∧ 卖额 ≥0.3 BNB（denied 'burst_exit_sell_pressure'，阈值在
+  // CheatCheckService._exemptDeniedReason）；两族形状都拦（波前卖=MBF/我靠案、
+  // 波中后卖=网上南宁/callcat 案——四基底 8 票全非正零盈利误伤，三大赢家卖%=0
+  // 天然安全）。非 FA 投影消费（CD400 nearDump 同形：进 levelsFromObservation
+  // 白名单但不进 FA 投影/state/题面）；无 ≥50s 段/dt 缺失 → 全族 null 容缺不触发。
+  let burstExitSegBuyBnb = null, burstExitSegSellBnb = null, burstExitSegSellPct = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
   if (waveTicksAll.length >= 2) {
     const waveTicks = waveTicksAll; // D3.65：锚前全窗（D3.56 临近段过滤退役，见上头注）
@@ -1180,6 +1191,18 @@ function computeDerived(snapshot, famousRoster) {
         burstExitWaveBuyBnb = 0;
         burstExitWaveWallets = 0;
       }
+      // CD401 出口段卖压（头注见变量声明区）：出口整窗=出口行→窗末全行（不限于
+      // 60s 搜索域——与探针口径 bit 一致：MBF 出口→锚 58s、我靠 25s 全窗计入）；
+      // 资金不滤 outlier（CD 全窗买卖口径同款）；出口行自身在场故 buy+sell>0
+      // 恒成立，防御性 0 值 → sellPct=null（宁拦不冒充方向）
+      const _seg = waveTicksAll.slice(_lastGapIdx);
+      let _segBuy = 0, _segSell = 0;
+      for (const t of _seg) {
+        if (t.side === 'BUY') _segBuy += t.bnb || 0; else _segSell += t.bnb || 0;
+      }
+      burstExitSegBuyBnb = +_segBuy.toFixed(4);
+      burstExitSegSellBnb = +_segSell.toFixed(4);
+      if (_segBuy + _segSell > 0) burstExitSegSellPct = +((_segSell / (_segBuy + _segSell)) * 100).toFixed(1);
     }
   }
 
@@ -1719,6 +1742,9 @@ function computeDerived(snapshot, famousRoster) {
     burstExitWaveBuyBnb, burstExitWaveWallets, burstSecSinceWaveEnd,
     burstWaveWalletNetBnb, burstWaveSellBackPct, burstWaveNetBnb,
     burstWaveWalletAvgBnb, burstWaveWalletMedianBnb,
+    // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源——出口整窗
+    // 买/卖/卖%；头注见变量声明区；非 FA 投影消费）
+    burstExitSegBuyBnb, burstExitSegSellBnb, burstExitSegSellPct,
     // CD400 贴锚组织性砸出零承接锚族六键（CheatCheckService._exemptDeniedReason
     // dump_no_absorption 臂判据源；无达标块/dt 缺失全族 null 不冒充；头注见计算段）
     nearDumpQualBlocks, nearDumpMinAbsorbBnb,

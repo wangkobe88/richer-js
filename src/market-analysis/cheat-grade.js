@@ -401,6 +401,12 @@ function levelsFromObservation(observation, extras = {}) {
     nearDumpWorstSellBnb: _pct(an.nearDumpWorstSellBnb),
     nearDumpWorstSecToAnchor: _pct(an.nearDumpWorstSecToAnchor),
     nearDumpWorstSameBlkBuyBnb: _pct(an.nearDumpWorstSameBlkBuyBnb),
+    // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源——出口整窗
+    // 买/卖/卖%；非 FA 投影消费（CD400 同形）；无 ≥50s 静默段→null=臂不触发，
+    // 头注见 cheat-snapshot 计算段）
+    burstExitSegBuyBnb: _pct(an.burstExitSegBuyBnb),
+    burstExitSegSellBnb: _pct(an.burstExitSegSellBnb),
+    burstExitSegSellPct: _pct(an.burstExitSegSellPct),
     noBuySellPct: _pct(an.noBuySellPct),
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）

@@ -187,6 +187,22 @@
 
 ## Case 倒序
 
+### CD401 出口段卖压不豁免臂——burst_exit_sell_pressure（2026-11-13，豁免收紧案·snapshot 三键+service denied 臂，题集 D3.68/grade G18 零改动；btv109 P3 立法批准+同日作用域二次裁定 A「限 sbw=1 资格」）
+
+**动机（btv109 P3=CD397 burst 豁免资格复审的卖出流入子问题）**：用户观察「MBF 的 burst 是纯买入吧，没有卖。我靠 是低活跃度，不算 burst」引出——burst 豁免（CD383/CD397 sbw==1 单条件）放行的票里，出口段（burst 起来之前的静默段出口→锚）若卖出占比高，与 burst 期望相悖。**立法批准原话**：「我认为算说的通，可以落。首先先买后跟着卖的burst是要挡住的，因为burst的预期本身是上涨后继续涨，如果落下去了，那么就不算有burst。如果是先卖后买，两者隔着近，那就是卖出引来了一些买入，这也不符合burst的期望。burst的期望是用户突然发现了一个好票，或者某个好票开始传播，再或者庄开始收筹码坐庄。这burst中卖出占比高，都不太好，虽然可能会有误伤」。
+
+**判据**：`denied='burst_exit_sell_pressure'` ⟺ **出口段（最后 ≥50s 静默段（BURST_STALL_GAP_SEC 同锚）的出口行=段后首 tick → 锚整窗）卖占比 ≥30% ∧ 卖额 ≥0.3 BNB**（双门含等号）。**作用域=限 sbw=1 资格**：`levels.stallBurstWave === 1`（Jev 判了停滞突发波）才生效——denied 只拦「burst 判定在场但出口段卖驱动」的豁免票；sbw=0 的 activity_high 豁免票（无 burst 判定）不受本臂约束。臂语义 CD380 wash/CD400 dump 同构第三 denied 臂（豁免失效原判保持+metadata `exemptDenied` 留痕+stats `burstSellDenied` 计数）；「不加 Jev 题、纯代码数值门」G17 N 通道先例第三例；臂序在 dump 后=双中票留 dump 码（更具体）。
+
+**作用域二次裁定（同日落地对拍后，立法前提变化回呈）**：首版按 CD380/CD400 同构实现为**全通道作用域**（activity_high/ultra+stall_burst 全部豁免票）；对拍发现生效面（豁免在场∧命中线）按**成交信号（exec=true）精确分类**=11 票含三张盈利票，四基底净 **−0.107 转负**——SPP `0xb20a8aab`（出口段 50.6%/3.488，pnl +0.0797，btv104/btv103-r2 两基底同票）+比格多栋 `0x5fdb4835`（60.7%/0.76，+0.0298）均为 activity_high 通道 sbw=0；而 sbw=1 靶面 5 票全止损票（魔渊 53.4%/0.35 −0.0061、callcat小写 30.5%/0.38 −0.0118、MBF×2 34.7%/0.33 −0.0089×2、谷歌SI 98.8%/0.59 −0.0020）净 **+0.0377 零误伤**。呈报两方案用户裁定 **A（限 sbw=1）**：忠实 burst 立法语境；activity_high 通道 sbw=0 的止损票（Q币安 89.4%/−0.0073、Callcat大写 49.3%/−0.0367、蝴蝶2.0 84.7%/−0.0002 合计 +0.044 拦截收益）一并放行=知情取舍。**与 dump 臂刻意不同向**：CD400 立法验证就是全通道且四基底全拦为正（−0.27），本臂立法验证在 sbw 靶面。
+
+**落法**：snapshot 三键（cheat-snapshot computeDerived，与 D3.67 段定位同锚「最后 ≥50s 静默段」）`burstExitSegBuyBnb/burstExitSegSellBnb/burstExitSegSellPct`——出口行自身在场故 buy+sell>0 恒成立；纯买零卖 sellPct=0 **有证据零值**（三大赢家 T093/T064/T065 出口卖%=0 天然安全）；无静默段/dt 缺失三键 null fail-closed（denied 不触发=不扩大收紧面）。数据流同 CD400：service 传键→mapper `buildObservation` anchors→digest 持久化→cheat-grade `levelsFromObservation` 白名单→`_exemptDeniedReason` wash→dump→CD401 臂序；不进 FA 投影/不进 state 题面（判据全数值锚）；三点同构（出口/拉黑登记/bootstrap 共用 `_isCheatExemptEligible`）。
+
+**单测（六件全绿）**：lib **674**（出口段口径夹具：出口整窗=出口行→窗末全行、纯买零值、无静默段 null、卖额/卖%双门边界）；service **177**（D8 段：①主形状 sbw=1+44.4%/0.4 命中=cheat 保持+拉黑+burstSellDenied=1+digest 三键+r.anchors 两键 / ②meem 57.1%∧0.12 卖额门照豁免 / ③25%∧0.5 卖%门照豁免 / ④赢家纯买 sellPct=0 放行 / ⑤dumpBase+承接 1.6 稀释 26.5% 双臂放行正例 / ⑤b **sbw=0 全链反例**（同①形状照豁免=A 方案放行锁）/ ⑥直调锁：双门含等号+单门不拦+null 容缺+双中 dump 优先+**sbw 资格门反例**（SPP 50.6%/3.488 形状 sbw=0→null）+三点同构；D7 r2 answers 补 sbw=burst 资格在场）；gate_engine 172 / grade 133 / market_reset 20 / mem_pull_ticks 109。
+
+**182 对拍（tmp-cd401-parity.mjs 四基底 sets ticks 直调+tmp-cd401-final.mjs 成交信号精确分类）**：命中面 15 票（btv109 7/btv104 3/btv103-r2 5/v73 0；纯增量 14+双中 1 网上南宁归 CD400 dump 码）；sbw=1 生效 5 票全止损净 +0.0377；全通道生效 11 票净 −0.1074（上表）；不生效 3 票（我靠×2/屎壳郎 grade healthy 无豁免——命中线但零效果）。
+
+**余留**：生产 burstSellDenied 触发分布观察；activity_high 通道 sbw=0 止损票（Q币安/Callcat大写/蝴蝶2.0 +0.044）不拦的代价攒批（若生产分布坐实可再裁 activity 通道独立线）；SPP 形状（卖引买 sbw=0 盈利）留档为 A 方案边界形状。
+
 ### CD400 贴锚组织性砸出零承接不豁免臂——dump_no_absorption（2026-11-13，豁免收紧案·snapshot+mapper+grade+service 四投影，题集 D3.68/grade G18 零改动；btv109 P1「B 承接门」四基底验证立法批准；用户裁定原话「FOM 要具体情况具体看，实际上是 0xbf004bff64725914ee36d03b87d6965b0ced4903 之后入场了（可以记录一下）他收割了一波然后又撤了，这个case可以不救。 那就这么落吧」）
 
 **动机（btv109 六批复审 P1 组织性拉起→砸出三子形状，四基底验证）**：P1 核心规律=赢家在慢热/低位票、输家在组织性流量票而门链松紧反向往——38/42 亏损票经活跃度豁免放行。三子形状中 A 轮转分界（卖出为散户轮转）与 C 捆绑买入（砸盘是捆绑买入）经四基底（btv109/btv104/btv103-r2/v73）证伪放弃，**B 承接门=贴锚达标砸块后零新买承接唯一稳定负向信号**：15 票 −0.27（亏 12/盈 2），14/15 经 activity_high/stall_burst 豁免放行=靶面恰在豁免放行群。基底分解：btv109 7 票 −0.27（T003/T005/T079/T010/T025/T054/T096 承接全字面 0）/btv104 3 票 +0.06（SB −0.018/無為 +0.0001/FOM +0.0729）/btv103-r2 3 票 −0.06（苍蝇/SB/LOVE）/v73 2 票 0.00。
