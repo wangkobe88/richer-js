@@ -64,6 +64,19 @@ const NEAR_SEG_SEC = 30;
  */
 const ROUTER_ENTRY_MIN_BUYS = 15;
 /**
+ * CD400 贴锚组织性砸出零承接锚族门限（btv109 P1「B 承接门」四基底验证立法，
+ * 2026-11-13）：达标砸块=单块 ≥NEAR_DUMP_MIN_SELLERS 个独立卖方钱包（剔聚合
+ * 路由伪钱包，wallet=sender||trader）∧ 块卖额 ≥NEAR_DUMP_MIN_SELL_BNB ∧ 距
+ * 窗末 ≤NEAR_DUMP_NEAR_SEC；承接=该块之后（block_number 严格更大——同块买入
+ * =对倒痕迹不算承接）到锚的全部新买入 Σ。四基底（btv109 7票 −0.27 全亏 /
+ * btv104 3票 +0.06 / btv103-r2 3票 −0.06 / v73 2票 0.00）验证「贴锚达标砸块 ∧
+ * 承接 <0.05」为唯一稳定负向形状；臂阈值（承接 <0.05 BNB=不豁免）在
+ * CheatCheckService._exemptDeniedReason——锚只述数值事实不产结论。
+ */
+const NEAR_DUMP_MIN_SELLERS = 4;
+const NEAR_DUMP_MIN_SELL_BNB = 0.5;
+const NEAR_DUMP_NEAR_SEC = 60;
+/**
  * burst 波强度滑窗宽度（G8 弱 burst 代码臂，2026-11-02 批次六 CD37/CD79 用户裁定
  * 「长期停滞突然涌入一波小流量，依然应该算低活跃度，但是如果涌入流量大，才能推翻
  * 低活跃度 结论」）：最密 BURST_WAVE_SEC 秒滑窗（按笔数取最密）内 Σ买入/独立钱包
@@ -1603,6 +1616,63 @@ function computeDerived(snapshot, famousRoster) {
     }
   }
 
+  // ── CD400 贴锚组织性砸出零承接锚族（btv109 P1「B 承接门」，2026-11-13）：
+  // 锚窗末 ≤NEAR_DUMP_NEAR_SEC 内的达标砸块（头注见常量区）+ 块后到锚的新买入
+  // 承接——「组织性拉起→砸出后无人接盘」形状的数值事实（多达标块取承接最小者
+  // =最恶性块；块统计 wallet 小写去重、剔聚合路由（买卖两腿同剔——B 门验证
+  // 口径）；block_number 缺失行不进块统计（sameBlockClusters 同款）；无达标块/
+  // dt 缺失 → 全族 null 不冒充=denied 臂不触发不扩大收紧面）。距锚=窗末（最后
+  // 一个 dt 非空行——burstSecSinceWaveEnd 同约定：信号 per-tick 触发（T132）锚
+  // 窗末≈信号时刻）。门臂阈值在 CheatCheckService._exemptDeniedReason（dump_no_
+  // absorption），锚不进 state/题面（G17 N 通道「纯代码数值门」先例）──
+  let nearDumpQualBlocks = null, nearDumpMinAbsorbBnb = null;
+  let nearDumpWorstSellers = null, nearDumpWorstSellBnb = null;
+  let nearDumpWorstSecToAnchor = null, nearDumpWorstSameBlkBuyBnb = null;
+  {
+    let _anchorDt = null;
+    for (let i = ticks.length - 1; i >= 0; i--) {
+      if (ticks[i].dt !== null && ticks[i].dt !== undefined) { _anchorDt = ticks[i].dt; break; }
+    }
+    const _blockAgg = new Map(); // block → {lastDt, sellBnb, buyBnb, sellers:Set}
+    if (_anchorDt !== null) {
+      for (const t of ticks) {
+        if (t.block === null || t.block === undefined) continue;
+        if (!t.wallet) continue; // null wallet 行计量不计人（FA wallet 口径同款）
+        const _w = String(t.wallet).toLowerCase();
+        if (isRouterWallet(_w)) continue;
+        let b = _blockAgg.get(t.block);
+        if (!b) { b = { block: t.block, lastDt: null, sellBnb: 0, buyBnb: 0, sellers: new Set() }; _blockAgg.set(t.block, b); }
+        if (t.side === 'BUY') b.buyBnb += t.bnb || 0;
+        else { b.sellBnb += t.bnb || 0; b.sellers.add(_w); }
+        if (t.dt !== null && t.dt !== undefined && (b.lastDt === null || t.dt > b.lastDt)) b.lastDt = t.dt;
+      }
+    }
+    if (_blockAgg.size) {
+      const _bl = [..._blockAgg.values()].sort((a, b) => a.block - b.block);
+      // 后缀买入和（承接=该块之后全部 BUY——block 严格更大，同块买入只进观察键）
+      const _suffix = new Array(_bl.length + 1).fill(0);
+      for (let i = _bl.length - 1; i >= 0; i--) _suffix[i] = _suffix[i + 1] + _bl[i].buyBnb;
+      let _qualN = 0, _worst = null;
+      for (let i = 0; i < _bl.length; i++) {
+        const b = _bl[i];
+        if (b.sellers.size < NEAR_DUMP_MIN_SELLERS) continue;
+        if (b.sellBnb < NEAR_DUMP_MIN_SELL_BNB) continue;
+        if (b.lastDt === null || _anchorDt - b.lastDt > NEAR_DUMP_NEAR_SEC) continue; // 贴锚窗（dt 缺失不算 near）
+        _qualN++;
+        const _absorb = +_suffix[i + 1].toFixed(4);
+        if (!_worst || _absorb < _worst.absorb) _worst = { ...b, absorb: _absorb };
+      }
+      if (_qualN > 0 && _worst) {
+        nearDumpQualBlocks = _qualN;
+        nearDumpMinAbsorbBnb = _worst.absorb;
+        nearDumpWorstSellers = _worst.sellers.size;
+        nearDumpWorstSellBnb = +_worst.sellBnb.toFixed(4);
+        nearDumpWorstSecToAnchor = _anchorDt - _worst.lastDt;
+        nearDumpWorstSameBlkBuyBnb = +_worst.buyBnb.toFixed(4);
+      }
+    }
+  }
+
   return {
     totalBuyBnb, totalSellBnb, buyN, sellN,
     walletCount: wallets.length,
@@ -1649,6 +1719,11 @@ function computeDerived(snapshot, famousRoster) {
     burstExitWaveBuyBnb, burstExitWaveWallets, burstSecSinceWaveEnd,
     burstWaveWalletNetBnb, burstWaveSellBackPct, burstWaveNetBnb,
     burstWaveWalletAvgBnb, burstWaveWalletMedianBnb,
+    // CD400 贴锚组织性砸出零承接锚族六键（CheatCheckService._exemptDeniedReason
+    // dump_no_absorption 臂判据源；无达标块/dt 缺失全族 null 不冒充；头注见计算段）
+    nearDumpQualBlocks, nearDumpMinAbsorbBnb,
+    nearDumpWorstSellers, nearDumpWorstSellBnb,
+    nearDumpWorstSecToAnchor, nearDumpWorstSameBlkBuyBnb,
     // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,
     spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,

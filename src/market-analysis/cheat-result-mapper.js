@@ -342,6 +342,14 @@ function buildObservation(answers, anchors = null) {
       postStallFreshBuyerPct: _anchorPct(anchors, 'postStallFreshBuyerPct'),
       postStallEqualClusterPct: _anchorPct(anchors, 'postStallEqualClusterPct'),
       postStallMaxBlockBuyPct: _anchorPct(anchors, 'postStallMaxBlockBuyPct'),
+      // CD400 贴锚组织性砸出零承接锚族六键（dump_no_absorption 不豁免臂判据源：
+      // 达标块数+最小承接/最恶性块四键；无达标块→null=臂不触发不扩大收紧面）
+      nearDumpQualBlocks: _anchorPct(anchors, 'nearDumpQualBlocks'),
+      nearDumpMinAbsorbBnb: _anchorPct(anchors, 'nearDumpMinAbsorbBnb'),
+      nearDumpWorstSellers: _anchorPct(anchors, 'nearDumpWorstSellers'),
+      nearDumpWorstSellBnb: _anchorPct(anchors, 'nearDumpWorstSellBnb'),
+      nearDumpWorstSecToAnchor: _anchorPct(anchors, 'nearDumpWorstSecToAnchor'),
+      nearDumpWorstSameBlkBuyBnb: _anchorPct(anchors, 'nearDumpWorstSameBlkBuyBnb'),
     },
   };
 }

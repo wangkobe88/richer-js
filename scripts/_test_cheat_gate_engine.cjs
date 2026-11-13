@@ -714,9 +714,9 @@ async function testActivityExempt() {
   // F7 源码口径锁：拉黑登记点+bootstrap 恢复同款收紧（denied 票照拉黑/照恢复拉黑）
   // CD391 起 cheat 分支资格=_isCheatExemptEligible 单一子式（activity 桶 high 恢复/
   // ultra 单档拒 ∨ burst 臂）、unhealthy 分支照旧双通道 ∧ !denied
-  ok('F7 拉黑登记点收紧在场（cheat → _isCheatExemptEligible；unhealthy → (isExempt ∨ stallBurst) && !deniedReason(levels)；CD398 起 anchors 双参透传流向腿）',
-    svcSrc.includes("graded.grade === 'cheat'\n        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿同判）")
-      && svcSrc.includes('|| this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）\n          && !this._exemptDeniedReason(levels));'));
+  ok('F7 拉黑登记点收紧在场（cheat → _isCheatExemptEligible；unhealthy → (isExempt ∨ stallBurst) && !deniedReason(levels)；CD398 起 anchors 双参透传流向腿+CD400 dump 承接臂）',
+    svcSrc.includes("graded.grade === 'cheat'\n        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿+CD400 dump 承接臂同判）")
+      && svcSrc.includes('|| this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）\n          && !this._exemptDeniedReason(levels, anchors));'));
   ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂；CD391 起单一子式三点同构；CD398 三参透传 cheatLv.anchors）',
     svcSrc.includes('const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;')
       && svcSrc.includes('cheatLv ? cheatLv.anchors : null')

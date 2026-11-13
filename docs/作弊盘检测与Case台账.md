@@ -187,6 +187,28 @@
 
 ## Case 倒序
 
+### CD400 贴锚组织性砸出零承接不豁免臂——dump_no_absorption（2026-11-13，豁免收紧案·snapshot+mapper+grade+service 四投影，题集 D3.68/grade G18 零改动；btv109 P1「B 承接门」四基底验证立法批准；用户裁定原话「FOM 要具体情况具体看，实际上是 0xbf004bff64725914ee36d03b87d6965b0ced4903 之后入场了（可以记录一下）他收割了一波然后又撤了，这个case可以不救。 那就这么落吧」）
+
+**动机（btv109 六批复审 P1 组织性拉起→砸出三子形状，四基底验证）**：P1 核心规律=赢家在慢热/低位票、输家在组织性流量票而门链松紧反向往——38/42 亏损票经活跃度豁免放行。三子形状中 A 轮转分界（卖出为散户轮转）与 C 捆绑买入（砸盘是捆绑买入）经四基底（btv109/btv104/btv103-r2/v73）证伪放弃，**B 承接门=贴锚达标砸块后零新买承接唯一稳定负向信号**：15 票 −0.27（亏 12/盈 2），14/15 经 activity_high/stall_burst 豁免放行=靶面恰在豁免放行群。基底分解：btv109 7 票 −0.27（T003/T005/T079/T010/T025/T054/T096 承接全字面 0）/btv104 3 票 +0.06（SB −0.018/無為 +0.0001/FOM +0.0729）/btv103-r2 3 票 −0.06（苍蝇/SB/LOVE）/v73 2 票 0.00。
+
+**FOM 唯一实质盈利反例处置（用户裁定不救，本段即「记录一下」）**：btv104 T021 FOM +0.0729 盈利来源=钱包 `0xbf004bff64725914ee36d03b87d6965b0ced4903` 在砸块**之后**入场收割一波又撤——「别人砸、他进场咬一口就走」的食腐一次性获利；裁定「这个case可以不救」=本臂命中该票属设计内拦截，Service 头注④段同款留档。
+
+**判据**：`denied='dump_no_absorption'` ⟺ 锚窗末 **≤60s**（`NEAR_DUMP_NEAR_SEC`）存在达标砸块（单块 ≥4 独立卖方钱包（`NEAR_DUMP_MIN_SELLERS`；wallet=sender||trader 小写，买卖两腿同剔 `AGGREGATOR_ROUTER_ADDRS`）∧ 块卖额 ≥0.5 BNB（`NEAR_DUMP_MIN_SELL_BNB`））∧ 该块**之后**（block_number 严格更大——同块买入=对倒不算承接）到锚的新买入承接 **<0.05 BNB**（严格小于；0.05 边界不拦、0.03=無為边界票命中；多达标块取承接最小者=最恶性块）。砸出无承接=组织性离场且无人接盘的市场结构——活跃度/burst 豁免不该覆盖此形状；臂语义与 CD380 wash 臂同构（denied=豁免失效**原判保持**+metadata `exemptDenied` 留痕+stats 计数），「不加 Jev 题、纯代码数值门」G17 N 通道先例第二例。
+
+**落法（四投影+三点同构）**：
+- **snapshot 六键**（cheat-snapshot computeDerived）：`nearDumpQualBlocks`（达标砸块数）/`nearDumpMinAbsorbBnb`（达标块最小承接）/`nearDumpWorstSellers`/`nearDumpWorstSellBnb`/`nearDumpWorstSecToAnchor`（最恶性块三事实）/`nearDumpWorstSameBlkBuyBnb`（同块买入额纯观察）；无达标块/dt 缺失/block null 全族 **null fail-closed**（denied 臂不触发=不扩大收紧面）。
+- **数据流**：service `_chain` 传六键 → mapper `buildObservation` anchors 白名单（全 `_anchorPct` 非负域）→ digest 持久化 → cheat-grade `levelsFromObservation` anchors 白名单 → `_exemptDeniedReason(levels, anchors)` wash 臂后接 dump 臂。**与 D3.67 十键的投影差异**：D3.67 十键刻意不进 levelsFromObservation（纯观察）；CD400 六键**进白名单但不进 FA 投影**（FourMemeFactorAggregator 显式逐键挑不带本族）——门侧消费需要、条件串不需要。
+- **三点同构**：豁免出口 `_applyActivityExempt` / 拉黑登记 / bootstrap 恢复三消费点共用 `_isCheatExemptEligible`+`_exemptDeniedReason`；四出口（blocked/sticky/late/chain）全带 anchors。stats：`dumpAbsorbDenied`（细分计数）+`exemptDenied`（总）。
+- **锚不进 state/题面**（同 G17 N 通道）；不加 Jev 题（题集 D3.68/grade G18 零改动）。
+
+**单测（六件全绿）**：lib **669**（CD400 段十夹具：命中主形状六键精确值 qual=1/absorb=0/sellers=4/卖 0.6/距锚 12s/同块买 0.2 + 承接 0.3 不命中 + 路由卖方剔 + 路由承接买剔 + 61s 界外 null + 3 卖方/0.4 卖额不达标 null + 多块取最恶性 + block null + 0.03 边界命中；anchors 键数锁 66→72）；service **164**（D7 段：命中=cheat+exemptDenied+拉黑+dumpAbsorbDenied=1+digest 六键+r.anchors 两键+blocked 秒回同构 / 承接 0.3 照豁免 activity_high / genTicks 基底容缺照豁免 / 旧档无键 null+0.03 命中+0.05 边界不拦+三点同构直调锁）；gate_engine **172**（F7 源码锁匹配串+CD400 臂）；grade 133 / market_reset 20 / mem_pull_ticks 109。
+
+**182 对拍（tmp-cd400-parity.mjs，四基底 sets ticks 缓存直调 buildSnapshotFromRows，零 DB 零 Jev）**：命中名单四基底 **7/3/3/2** 与 P1 基准一致，btv109 7 票 pnlΣ **−0.2722** 与调研报告一致；已知基准票六键全部吻合——SB qual=4 worst=5户 0.5345BNB@0s 同块买 0.0694 / FOM qual=1 7户 0.59@2s 承接 0 / 無為 qual=3 minAbs=0.0294 worst=4户 0.7411@27s / 苍蝇 6户 0.6154@0s / LOVE qual=2 6户 0.6615@0s；v73 2 票万分级一致。**贴线票差异留档（17 vs 15）**：代码对拍 17 票，多出=P1 手工名单漏计的同一票 `0x68e45d60`「100」（btv104 T051+btv103-r2 T052 两基底都在场，承接 0.049<0.05 严格命中，pnl +0.05）——P1 手工统计因 0.049 与 0.05 线 1e-3 间隙漏计；代码口径（严格 <0.05）正确执行，该票与 FOM 同为让利代价票。
+
+**黄金集定向回归**：`run.mjs --only CD362,CD364,CD367,CD369,CD370` 五票全 PASS，grade 分布与生产首判一致（cheat=2/healthy=2/unhealthy=1）零漂移。
+
+**余留**：生产 dumpAbsorbDenied 触发分布观察；承接边界带样本积累（命中面两极分布——字面 0 多数 vs 0.049/0.03 贴线极少数，0.05 线敏感度待攒批）；代价票累计（FOM +0.0729+0x68e45d60 +0.05 ≈ −0.12 让利 vs 拦截面 15 票 −0.27 止血，用户知情）。
+
 ### CD399 cheat 题集 Prompt 全面整理（BP76 同型第二批）——头注释 866 行→27 行 jsdoc+题面剥标签/criteria 收缩/术语内联（2026-11-12，Prompt 整理案·题集 D3.67→D3.68、grade G18 零改动；commit `cbda4c37`；用户指令「好，那 cheat-questions.mjs 也按同样方式整理吧」+plan 批准）
 
 **动机**：BP76（buy-point-questions.mjs 五要求：改进史移出 Prompt／不陈述已删概念／不放 Case 名／删无消费模块／不删逻辑线）完成后同型第二批。两轮摸底结论：**CD 侧形势与 BP 侧不同——题面（发 Jev ~37k 字符）已相当干净**（判例全「某票」匿名 60 处、地址 0、叙事框 0），**污染大头在头注释 L1-866（台账镜像+23 处地址+判例昵称，占文件 61%）**；16 题全有下游消费（A 主判/EXT 观察通道/FA 投影/豁免链）不删题。因此本批=保守整理：剥标签+改写叙事句+criteria 收缩+术语内联+头注释压缩，**不做结构重组**（题面结构已接近目标形态，重组徒增对拍风险）。时机优势：无运行实验（等买入模块完善再开），版本 bump 使粘滞/拉黑失效一次无生产影响窗口。

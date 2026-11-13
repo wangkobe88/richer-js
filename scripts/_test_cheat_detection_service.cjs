@@ -427,6 +427,85 @@ async function main() {
       `sbw=none 同为 unhealthy → 不豁免（burst 臂单条件=Jev burst 判定是唯一资格；实际 ${r3.grade}/${JSON.stringify(r3.exempt)}）`);
   }
 
+  // ═══════════════ D7. CD400 贴锚砸出零承接不豁免臂（dump_no_absorption） ═══════════════
+  console.log('D7. CD400 贴锚砸出零承接臂');
+  {
+    // A 通道 cheat 原判 ∧ act=high（豁免集内）——臂行为三形状：命中 denied /
+    // 承接 0.3 照豁免 / 无达标块容缺照豁免；+ 直调锁（旧档 anchors 断代=不触发）
+    const T0 = 1700000000000;
+    const at = (sec) => new Date(T0 + sec * 1000).toISOString();
+    const row = (sec, block, log, type, bnb, wallet) => ({
+      block_time: at(sec), block_number: block, log_index: log, trade_type: type,
+      bnb_amount: bnb, price_bnb: 1e-9, price_outlier: false,
+      trader_address: wallet, sender_address: wallet, quote_token: null,
+    });
+    const w = (s) => s.padEnd(42, '0');
+    // 砸块零承接基底：铺买块 100 → 块 200 四卖方 0.6+同块买 0.2（对倒观察）→ 尾卖块 300（窗末）
+    const dumpBase = (absorbRow = null) => {
+      const rows = [
+        row(0, 100, 0, 'buy', 0.1, w('0xp1')), row(1, 100, 1, 'buy', 0.1, w('0xp2')),
+        row(56, 200, 0, 'sell', 0.15, w('0xd1')), row(56, 200, 1, 'sell', 0.15, w('0xd2')),
+        row(56, 200, 2, 'sell', 0.15, w('0xd3')), row(56, 200, 3, 'sell', 0.15, w('0xd4')),
+        row(56, 200, 4, 'buy', 0.2, w('0xd5')),
+      ];
+      if (absorbRow) rows.splice(7, 0, absorbRow);
+      rows.push(row(70, 300, 0, 'sell', 0.05, w('0xtail')));
+      return rows;
+    };
+    const CHEAT_HIGH = { ...GOOD_ANSWERS, activity_level: actAns('high') };
+
+    // ① 命中：原判 cheat ∧ act=high ∧ 达标砸块零承接 → denied 保持 cheat+拉黑+细分计数
+    const db1 = makeDb({ ticks: dumpBase() });
+    const svc1 = makeSvc(db1, makeLlm({ answers: CHEAT_HIGH }));
+    const r1 = await svc1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.grade === 'cheat' && r1.exemptDenied === 'dump_no_absorption' && svc1.isGateBlocked('0xtok') === true
+      && svc1.stats.dumpAbsorbDenied === 1 && svc1.stats.exemptDenied === 1,
+      `cheat∧high∧贴锚砸块零承接 → 豁免失效原判保持+拉黑（btv109 P1「B 承接门」四基底 7 票 −0.27 立法；实际 ${r1.grade}/${r1.exemptDenied}/blocked=${svc1.isGateBlocked('0xtok')}/d=${svc1.stats.dumpAbsorbDenied}）`);
+    const anc1 = db1.state.inserts[0].snapshot_digest.anchors;
+    ok(anc1.nearDumpQualBlocks === 1 && anc1.nearDumpMinAbsorbBnb === 0
+      && anc1.nearDumpWorstSellers === 4 && anc1.nearDumpWorstSellBnb === 0.6
+      && anc1.nearDumpWorstSecToAnchor === 14 && anc1.nearDumpWorstSameBlkBuyBnb === 0.2,
+      `digest 锚六键落库（buildObservation 全量；实际 ${anc1.nearDumpQualBlocks}/${anc1.nearDumpMinAbsorbBnb}/${anc1.nearDumpWorstSellers}/${anc1.nearDumpWorstSellBnb}/${anc1.nearDumpWorstSecToAnchor}/${anc1.nearDumpWorstSameBlkBuyBnb}）`);
+    ok(r1.anchors && r1.anchors.nearDumpQualBlocks === 1 && r1.anchors.nearDumpMinAbsorbBnb === 0,
+      'r.anchors（levelsFromObservation 白名单）带判据两键——门侧消费需要（与 D3.67 十键「不进白名单」差异）');
+    // 拉黑秒回出口同构：轮 2 blocked 也带 denied 保持 cheat（不因秒回豁免分叉）
+    const r1b = await svc1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1b.grade === 'cheat' && r1b.blocked === true && r1b.exemptDenied === 'dump_no_absorption',
+      `拉黑秒回出口同构（blocked 出口 denied 保持——「门拒但不拉黑」分叉防线；实际 ${r1b.grade}/${r1b.blocked}/${r1b.exemptDenied}）`);
+
+    // ② 反例：砸块后承接 0.3（≥0.05）→ 照豁免 healthy+activity_high 零细分
+    const db2 = makeDb({ ticks: dumpBase(row(66, 250, 0, 'buy', 0.3, w('0xabs'))) });
+    const svc2 = makeSvc(db2, makeLlm({ answers: CHEAT_HIGH }));
+    const r2 = await svc2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.grade === 'healthy' && r2.exempt && r2.exempt.code === 'activity_high'
+      && r2.exemptDenied === undefined && svc2.isGateBlocked('0xtok') === false
+      && svc2.stats.dumpAbsorbDenied === 0,
+      `承接 0.3 在场 → 照豁免（CD391 cheat∧high→activity_high；实际 ${r2.grade}/${JSON.stringify(r2.exempt)}/${r2.exemptDenied}）`);
+
+    // ③ 容缺：genTicks 基底（无达标砸块）act=high → 照豁免（旧档断代/普通票不扩大收紧面）
+    const db3 = makeDb({ ticks: genTicks(20) });
+    const svc3 = makeSvc(db3, makeLlm({ answers: CHEAT_HIGH }));
+    const r3 = await svc3.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r3.grade === 'healthy' && r3.exempt && r3.exempt.code === 'activity_high' && svc3.stats.dumpAbsorbDenied === 0,
+      `无达标块 → 锚 null 容缺照豁免（实际 ${r3.grade}/${JSON.stringify(r3.exempt)}）`);
+
+    // ④ 直调锁：_exemptDeniedReason 旧档 anchors（无键）=null；命中形状=码；
+    //    _isCheatExemptEligible 三点同构（出口/拉黑登记/bootstrap 共用子式）
+    const svc4 = makeSvc(makeDb(), makeLlm());
+    const lv = { washPair: 0 };
+    ok(svc4._exemptDeniedReason(lv, {}) === null && svc4._exemptDeniedReason(lv, null) === null,
+      '旧档 anchors 无键/断代 → 不触发（洗钱形状另走 washPair 键）');
+    ok(svc4._exemptDeniedReason(lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0 }) === 'dump_no_absorption'
+      && svc4._exemptDeniedReason(lv, { nearDumpQualBlocks: 2, nearDumpMinAbsorbBnb: 0.03 }) === 'dump_no_absorption'
+      && svc4._exemptDeniedReason(lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.05 }) === null
+      && svc4._exemptDeniedReason(lv, { nearDumpQualBlocks: 0, nearDumpMinAbsorbBnb: 0 }) === null,
+      '臂判据直调（qual≥1 ∧ absorb<0.05 严格小于；0.03=無為边界票命中；absorb=0.05 边界不拦）');
+    ok(svc4._isCheatExemptEligible('high', lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0 }) === false
+      && svc4._isCheatExemptEligible('high', lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.3 }) === true
+      && svc4._isCheatExemptEligible('ultra', lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0 }) === false,
+      '_isCheatExemptEligible 三点同构直调（denied 穿 anchors——拉黑登记/bootstrap 与出口同判）');
+  }
+
   // ═══════════════ E. 满帽拉数（capped） ═══════════════
   console.log('E. 满帽拉数');
   {

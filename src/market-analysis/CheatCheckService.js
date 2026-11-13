@@ -189,7 +189,8 @@ class CheatCheckService {
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       activityExemptions: 0, // CD379 活跃度豁免命中计数（每次门决策域变换+1）
       stallBurstExemptions: 0, // CD383 burst 豁免臂命中计数（activity 桶不在豁免集、经 sbw=burst 强形状获豁免的子集）
-      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行仅 wash——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
+      exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行 wash+CD400 dump 承接——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
+      dumpAbsorbDenied: 0, // CD400 贴锚砸出零承接臂命中细分计数（dump_no_absorption；生产触发频率观察）
       ultraCheatDenied: 0, // CD388/CD391 ultra 档资格收紧命中计数（cheat∧ultra∧burst 不在场=不豁免原判保持；11-09 两度裁定：CD390 曾推广全档、CD391「交易活跃度热，cheat 继续豁免」收回 ultra 单档恢复 high 豁免）
       activityCheatDenied: 0, // CD390 全档资格收紧命中计数——CD391 收回 ultra 单档后本计数停用恒 0，保留键读数连续性
       marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
@@ -441,20 +442,39 @@ class CheatCheckService {
    *    high 且豁免恰被 holdings 臂拦（重置窗内「同块背靠背+等额对组合垄断在场
    *    流通 57.3%」=接盘侧新阵列非刷量形状），holdingsBalance=strong 退出不豁
    *    免臂；J 通道保持 unhealthy 拒买级判定不受影响（0xb788e63b 判例留档为
-   *    臂移除前行为）。现行为两臂=pump/wash。
-   * 入参=levels 数值投影（levelsFromObservation 产物；秒回/late/blocked 行同构）；
-   * levels null 或键缺席（旧档断代/题未答）→ 不触发=豁免照常（缺席不扩大收紧面，
-   * 维持 CD379 原语义）。豁免与收紧全部收在本模块内部（用户裁定「这种豁免全部
-   * 在 cheat 检测模块内部进行」——引擎/BP 层零豁免逻辑；pump 臂移除后的价格
-   * 约束在 BP 门位置门=门链消费侧非本模块）。
+   *    臂移除前行为）。
+   * ④ dump 承接臂（CD400，2026-11-13 btv109 P1「B 承接门」四基底验证立法
+   *    批准落地）：锚窗末 ≤60s 存在达标砸块（单块 ≥4 独立卖方（剔聚合路由）
+   *    ∧ 块卖额 ≥0.5 BNB）且该块之后（block 严格更大——同块买入=对倒不算承接）
+   *    到锚的新买入承接 <0.05 BNB =「组织性拉起→砸出后无人接盘」形状不豁免
+   *    （四基底：btv109 7票 −0.27 全亏/btv104 3票 +0.06/btv103-r2 3票 −0.06/
+   *    v73 2票 0.00——唯一稳定负向；14/15 张命中票经 activity_high/stall_burst
+   *    豁免放行=本臂靶面，原生 healthy 票零影响）。判据=anchors 数值锚
+   *    （nearDumpQualBlocks/nearDumpMinAbsorbBnb，计算头注见 cheat-snapshot
+   *    CD400 段）；题集/grade 版本零改动（纯代码数值臂，G17 N 通道先例）。
+   *    反例处置留档（用户裁定「FOM 要具体情况具体看……这个case可以不救」）：
+   *    btv104 T021 FOM +0.0729 的盈利来自 0xbf004bff64725914ee36d03b87d6965b0ced4903
+   *    砸块后入场收割一波又撤——本臂拦下=接受。
+   * 入参=levels 数值投影 + anchors 数值锚（levelsFromObservation 产物；秒回/
+   * late/blocked 行同构）；levels null 或键缺席（旧档断代/题未答）→ 不触发=
+   * 豁免照常（缺席不扩大收紧面，维持 CD379 原语义）。豁免与收紧全部收在本
+   * 模块内部（用户裁定「这种豁免全部在 cheat 检测模块内部进行」——引擎/BP
+   * 层零豁免逻辑；pump 臂移除后的价格约束在 BP 门位置门=门链消费侧非本模块）。
    */
-  _exemptDeniedReason(levels) {
+  _exemptDeniedReason(levels, anchors) {
     if (!levels) return null;
     const lv = (k) => {
       const v = levels[k];
       return v === null || v === undefined ? 0 : v; // 缺席/断代=none 不触发
     };
     if (lv('washPair') >= 3) return 'wash_pair';
+    // CD400 贴锚砸出零承接臂（anchors 数值形状；无达标块/旧档断代 null 容缺=
+    // 不触发不扩大收紧面；阈值 0.05=四基底验证线）
+    const an = anchors || {};
+    if (typeof an.nearDumpQualBlocks === 'number' && an.nearDumpQualBlocks >= 1
+      && typeof an.nearDumpMinAbsorbBnb === 'number' && an.nearDumpMinAbsorbBnb < 0.05) {
+      return 'dump_no_absorption';
+    }
     return null; // pump 臂已移除（2026-11-08 四修裁定，见头注①）；holdings 臂已移除（三修，头注③）
   }
 
@@ -481,7 +501,7 @@ class CheatCheckService {
    * gradeObservation 规则域/题集版本零改动（观测行照落原始 grade=研究原料）。
    */
   _isCheatBurstExempt(levels, anchors) {
-    return this._isStallBurstExempt(levels, anchors) && !this._exemptDeniedReason(levels);
+    return this._isStallBurstExempt(levels, anchors) && !this._exemptDeniedReason(levels, anchors);
   }
 
   /**
@@ -496,7 +516,7 @@ class CheatCheckService {
   _isCheatExemptEligible(bucket, levels, anchors) {
     const actHit = this._isActivityExempt(bucket);
     if (actHit && bucket === 'ultra' && !this._isCheatBurstExempt(levels, anchors)) return false;
-    return (actHit || this._isStallBurstExempt(levels, anchors)) && !this._exemptDeniedReason(levels);
+    return (actHit || this._isStallBurstExempt(levels, anchors)) && !this._exemptDeniedReason(levels, anchors);
   }
 
   /**
@@ -523,9 +543,10 @@ class CheatCheckService {
     const actHit = this._isActivityExempt(act);
     const stallBurst = this._isStallBurstExempt(res.levels, res.anchors); // CD383/CD397 burst 豁免资格臂（sbw 单条件+CD398 流向硬腿，∨ 并列）
     if (!actHit && !stallBurst) return res;
-    const denied = this._exemptDeniedReason(res.levels); // CD380 不豁免臂
+    const denied = this._exemptDeniedReason(res.levels, res.anchors); // CD380 不豁免臂（CD400 dump 承接臂读 anchors）
     if (denied) {
       this.stats.exemptDenied++;
+      if (denied === 'dump_no_absorption') this.stats.dumpAbsorbDenied++; // CD400 细分计数
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
     // CD391（2026-11-09 用户裁定「交易活跃度热，cheat 继续豁免」——CD390 全档
@@ -781,6 +802,14 @@ class CheatCheckService {
           postStallFreshBuyerPct: snapshot.derived.postStallFreshBuyerPct,
           postStallEqualClusterPct: snapshot.derived.postStallEqualClusterPct,
           postStallMaxBlockBuyPct: snapshot.derived.postStallMaxBlockBuyPct,
+          // CD400 贴锚组织性砸出零承接锚族六键（dump_no_absorption 不豁免臂判据源，
+          // 头注见 cheat-snapshot 计算段）
+          nearDumpQualBlocks: snapshot.derived.nearDumpQualBlocks,
+          nearDumpMinAbsorbBnb: snapshot.derived.nearDumpMinAbsorbBnb,
+          nearDumpWorstSellers: snapshot.derived.nearDumpWorstSellers,
+          nearDumpWorstSellBnb: snapshot.derived.nearDumpWorstSellBnb,
+          nearDumpWorstSecToAnchor: snapshot.derived.nearDumpWorstSecToAnchor,
+          nearDumpWorstSameBlkBuyBnb: snapshot.derived.nearDumpWorstSameBlkBuyBnb,
         });
       } catch (e) {
         this.stats.errors++;
@@ -832,10 +861,10 @@ class CheatCheckService {
       // 与出口/bootstrap 三点同构；unhealthy 照旧双通道（均受 CD380 约束）
       const _actBucket = obs.activityLevel ? obs.activityLevel.bucket : null;
       const activityExempt = graded.grade === 'cheat'
-        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿同判）
+        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿+CD400 dump 承接臂同判）
         : ((this._isActivityExempt(_actBucket)
             || this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）
-          && !this._exemptDeniedReason(levels));
+          && !this._exemptDeniedReason(levels, anchors));
       if (graded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
       } else if (graded.grade === 'unhealthy') {
@@ -870,6 +899,9 @@ class CheatCheckService {
           : '') +
         (snapshot.derived.spikeBuyBnb !== null && snapshot.derived.spikeBuyBnb !== undefined
           ? ` 尖刺=买${snapshot.derived.spikeBuyBnb}/${snapshot.derived.spikeWallets}户@t+${snapshot.derived.spikeFromDt}~${snapshot.derived.spikeToDt} 占簇${snapshot.derived.spikeBuyPctInBurst ?? '—'}%/持${snapshot.derived.spikeHoldPctAll ?? '—'}%`
+          : '') +
+        (snapshot.derived.nearDumpQualBlocks !== null && snapshot.derived.nearDumpQualBlocks !== undefined
+          ? ` 贴锚砸=${snapshot.derived.nearDumpQualBlocks}块(最恶性${snapshot.derived.nearDumpWorstSellers}户${snapshot.derived.nearDumpWorstSellBnb}BNB@${snapshot.derived.nearDumpWorstSecToAnchor}s 承接${snapshot.derived.nearDumpMinAbsorbBnb})`
           : '') +
         // D3.52 观察期攒数据键：sbp 档位+锚窗买卖比（grade 零消费，分布数据
         // 采实验日志与 cheat_detection 行——豁免规则立法的原料）

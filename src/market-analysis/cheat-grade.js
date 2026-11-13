@@ -392,6 +392,15 @@ function levelsFromObservation(observation, extras = {}) {
     burstWaveNetBnb: an.burstWaveNetBnb === null || an.burstWaveNetBnb === undefined
       ? null
       : Number(an.burstWaveNetBnb),
+    // CD400 贴锚组织性砸出零承接锚族六键（CheatCheckService._exemptDeniedReason
+    // dump_no_absorption 臂判据源——非 FA 投影消费（引擎投影显式挑键不带本族）；
+    // 无达标块→null=臂不触发（不扩大收紧面），头注见 cheat-snapshot 计算段）
+    nearDumpQualBlocks: _pct(an.nearDumpQualBlocks),
+    nearDumpMinAbsorbBnb: _pct(an.nearDumpMinAbsorbBnb),
+    nearDumpWorstSellers: _pct(an.nearDumpWorstSellers),
+    nearDumpWorstSellBnb: _pct(an.nearDumpWorstSellBnb),
+    nearDumpWorstSecToAnchor: _pct(an.nearDumpWorstSecToAnchor),
+    nearDumpWorstSameBlkBuyBnb: _pct(an.nearDumpWorstSameBlkBuyBnb),
     noBuySellPct: _pct(an.noBuySellPct),
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
