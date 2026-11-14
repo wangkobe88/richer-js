@@ -60,20 +60,42 @@ function resolveLaunchPriceBnb(platform, quoteToken) {
 }
 
 /**
- * T130 首买地板+T134 滚动地板已于 **T138（2026-11-14）整体回退退役**——用户裁定
- * 原话「之前规定，价格的涨跌幅度，如果出现比配置价/发布价 更低的点位，则以更低
- * 点位为准，我想把这个机制回退为 以 配置价/发布价 最低点位为准。（原因是发现了
- * 一些误伤，价格略高一点买入不进来）」：min(常量, 首买, 滚动最低) 锚把低开/新低
- * 票的 currentVsLaunchPct 系统性抬高，28.5/40 价格门误拒；launch 锚回归恒取平台
- * 常量（本函数与 FA `_firstBuyPriceBnb`/`_minRelPriceBnb`、BP/CD 锚窗 min 原料
- * 全部删除）。案史留档：T130（2026-11-09，67ad68e0/6efa11ce 低开票案——常量锚把
- * 低开票涨幅系统性「低估」的反向裁定）→T134（2026-11-11，滚动最低推广）→T138
- * 回退（低锚抬涨幅误拒卡门，两案方向相反=锚下移的代价面在生产累计大于收益面）。
- * 全档=T 台账 T130/T134/T138 段。
+ * T130 地板补丁（2026-11-09 用户裁定，67ad68e0/6efa11ce 案）：「很多币的第一次购买
+ * 价格低于普遍代币的发布价格……如果代币首次购买价格低于我们配置的代币初始价格，
+ * 那么地板改为首次购买价」——launch 锚取 min(平台常量, 首笔买入价)。
+ *
+ * **T134 滚动地板推广（2026-11-11 v100 族一 9/9 案 + launch 三方案调研）**：用户
+ * 方案三「如果出现价格比首交易/配置价格更低，那么以其为准」——第二参从「首笔买入
+ * 可靠价」推广为「≤t 滚动最低可靠价」（FA `_minRelPriceBnb` / BP 锚窗 rel min /
+ * CD 锚窗 waveTicksAll min，三消费点同源）。调研实证：族一 9/9 的 min 发生在首买
+ * 之后（运行期新低，idx2 -29.3%/idx192 -31.7%/idx180 -27.9%）——T130 只修「起点
+ * 错」，运行期跌出新低而锚不动的主体形状由本推广覆盖；flap 11.6% 有首买票首买后
+ * 跌穿常量 -5%（quote 盘锚错的结构性兜底）。取值域=可靠价（outlier/chainLate 已滤；
+ * sell 低价同样是真实成交价，不限 BUY）；无下移速率上限（「回到 almost_launch」
+ * 判定基准随真实低位下移=restart 桶更灵敏，为修复非风险——全档论证见
+ * scripts/cheat-detection/data/launch-price-three-options-research.md）。
+ *
+ * 形状：flap quote 盘/低开票首笔成交价可显著低于常量（67ad68e0 -4.9%、6efa11ce
+ * -20.2%），以常量为地板会把这类票的 currentVsLaunchPct 整体抬高（首 tick 即 +20%
+ * =low 档），near_launch/almost_launch 位置判定系统性失真。
+ *
+ * @param {number|null} launchConstBnb resolveLaunchPriceBnb 结果（null=无常量锚，
+ *   返回 null=调用方保留旧口径首可靠价，不应用地板）
+ * @param {number} minRelPriceBnb T134 滚动最低可靠价（0/null=尚无可靠价，返回常量
+ *   原值；≤首买价恒成立=min(常量,首买,滚动最低) 三者合一单参表达）
+ * @returns {number|null} 地板修正后 launch 锚；null=无常量锚（透传，调用方走旧口径）
  */
+function floorLaunchPriceBnb(launchConstBnb, minRelPriceBnb) {
+  if (launchConstBnb === null || !(launchConstBnb > 0)) return null;
+  if (minRelPriceBnb != null && minRelPriceBnb > 0 && minRelPriceBnb < launchConstBnb) {
+    return minRelPriceBnb;
+  }
+  return launchConstBnb;
+}
 
 module.exports = {
   FOURMEME_LAUNCH_PRICE_BNB,
   FLAP_LAUNCH_PRICE_BNB,
   resolveLaunchPriceBnb,
+  floorLaunchPriceBnb,
 };

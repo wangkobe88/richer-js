@@ -26,7 +26,7 @@
  */
 
 const { buildSnapshotFromRows, isRouterWallet, loadFamousRoster } = require('./cheat-snapshot');
-const { resolveLaunchPriceBnb } = require('./launch-price');
+const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price');
 
 /** 近窗宽度族（秒）：30/60/120 */
 const BP_WINDOWS = [30, 60, 120];
@@ -723,8 +723,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // BP 侧 rel 自算零 CD 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
   let minVsLaunchPct = null, curVsMinGapPct = null;
-  // BP63（KOL 研究 2026-11-12）：famous 入场价锚=**独立于主 launch 锚体系**（T130/T134
-  // 地板从未适用、T138 回退后主锚恒常量但本锚不变）的
+  // BP63（KOL 研究 2026-11-12）：famous 入场价锚=**未做 T134 滚动地板**的
   // 票自身首可靠价（研究口径 GMGN launch=首 tick 价）——二修（2026-11-12 对拍实证）：
   // 首版常量优先被 182 探针反证——六票首 tick 全部高开 +12~41%（常量 4.496e-9 上的
   // 开盘 bot 抢筹溢价，小四首 tick +30.1%）→ KOL「首价买入」被伪算 +30~69% → 全员
@@ -752,11 +751,20 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // 旧口径锚保 toFixed(10) bit 不变
     let launchAnchor = null;
     if (constLaunch !== null) {
-      // T138（2026-11-14）：T130 首买地板+T134 滚动地板整体回退——launch 锚恒取
-      // 平台常量（窗内 rel 全量 min 原料删除；用户裁定回退原话「以 配置价/发布价
-      // 最低点位为准」，min 低锚把低开/新低票 curVs 系统性抬高 → 28.5 统一位置门
-      // 误拒「价格略高一点买入不进来」；案史 T130→T134→T138 全档=T 台账）
-      launchAnchor = constLaunch; // 常量平台锚恒有效（不看 launchCovered）
+      // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 低开票案）：首笔买入可靠价低于
+      // 平台常量时地板改为首买价（launch 锚=min(常量, 首买价)，floorLaunchPriceBnb）。
+      // **T134 滚动地板（2026-11-11 v100 族一 9/9 案，用户方案三「出现价格更低以其
+      // 为准」）**：地板原料从「窗内首笔 BUY」推广为「锚窗 rel 全量最低可靠价」——
+      // 族一案主体=首买后运行期跌出新低而锚不动（idx2 -29.3%/idx192 -31.7%）；
+      // sell 低价同样是真实成交价（不限 BUY）；launchCovered 门随之退役（min 是窗内
+      // 因果统计量：截窗长票窗内 min ≥ 全局 min 恒成立=锚只会偏高不冒充低锚，
+      // as-of 因果天然干净；旧 launchCovered 保护针对 write-once「首买」冒充，对
+      // min 语义无意义）。与 FA `_minRelPriceBnb`/CD waveTicksAll min 三点同源。
+      let minRel = 0;
+      for (const t of rel) {
+        if (t.priceBnb > 0 && (minRel === 0 || t.priceBnb < minRel)) minRel = t.priceBnb;
+      }
+      launchAnchor = floorLaunchPriceBnb(constLaunch, minRel); // 常量平台锚恒有效（不看 launchCovered）
     } else if (launchCovered && rel[0].priceBnb > 0) {
       launchAnchor = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段时的首可靠价
     }

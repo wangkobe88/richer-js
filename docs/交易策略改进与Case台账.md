@@ -55,22 +55,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
-### T138 launch 地板机制整体回退：T130 首买地板+T134 滚动地板退役，launch 锚恒=平台常量（2026-11-14；用户裁定原话「再做一下调整，之前规定，价格的涨跌幅度，如果出现比配置价/发布价 更低的点位，则以更低点位为准，我想把这个机制回退为 以 配置价/发布价 最低点位为准。（原因是发现了一些误伤，价格略高一点买入不进来）」）
+### T139 launch 地板返工：撤销 T138 恒常量回退，恢复 T134 完整滚动地板 min(常量, 首买, 滚动最低)（2026-11-14；用户裁定原话「T138 回退吧，还是改成 配置/初始价格/后续价格 的最低价」）
 
-**误伤机理（回退方向自洽）**：T130/T134 把 launch 锚降为 min(常量, 首买价, ≤t 滚动最低可靠价)——低开/新低票的分母被压低 → `currentVsLaunchPct` 系统性抬高（如 6efa11ce −20% 低开票全生命周期涨幅虚增 ~20pp）→ ladder v18 十四臂价格门 `currentVsLaunchPct <= 28.5`（T133）与 BP 统一位置门 28.5 误拒——「价格略高一点买入不进来」。回退后分母恒=常量（更大）→ curVs 回落 → 更易过门=修复误伤。**案史两度反向**：T127 立常量锚 → T130 首买地板（低开票低估反向误伤）→ T134 滚动地板 → T138 整体回退恒常量。
+**案史（launch 锚三度反向全链）**：T127（df9c7a6b）立平台 curve 常量 → T130（acf8835a）首买地板 min(常量, 首笔买入可靠价)，动机=67ad68e0/6efa11ce 低开票涨幅被常量口径系统性低估、27.5/40 价格门误拒 → T134（4e0f485a）滚动地板 min(常量, 首买, ≤t 滚动最低可靠价)，v100 族一 9/9 案方案三（idx2 −29.3%/idx192 −31.7% 首买后运行期新低而锚不动形状） → **T138（c37ab2ee，2026-11-14 早）整体回退恒常量**，据「低开票 curVs 被 min 低锚系统性抬高 ~20pp → ladder v18 十四臂 28.5 门+BP 统一位置门 28.5 误拒『价格略高一点买入不进来』」；**bt-v114（685c9518，132 票 +1.5848）即 T138 恒常量口径跑出的对照行** → **T139（本段，同日晚）用户复核后撤销 T138、恢复 T134 完整机制**——三要素地板：min(平台常量, 代币首笔买入价, ≤t 滚动最低可靠价)。
 
-**改动面（四模块，自动继承消费者零改动）**：
-- `src/market-analysis/launch-price.js`：`floorLaunchPriceBnb` 函数整段删除，导出只剩常量+`resolveLaunchPriceBnb`
-- `src/services/FourMemeFactorAggregator.js`：`currentVsLaunchPct` 与 `_countFamousNearLaunchBuy`（T133 famous 计数）两发射锚恒 `_resolveLaunchPriceBnb(state.platform, state.quoteToken) ?? state._relFirstPriceBnb`（?? 兜底=gang/未知平台回落旧口径首可靠价，刻意保留）；`_firstBuyPriceBnb`（T130）/`_minRelPriceBnb`（T134）两个 write-once state 字段**彻底删除**（无消费者的死字段掩盖问题）；processTick priceReliable 块内 T130/T134 冻结点整段删
-- `src/market-analysis/buy-point-snapshot.js`：`launchAnchor` 常量平台分支恒=constLaunch（T130 保护门+T134 窗内 min 循环删）；else 分支 launchCovered 首可靠价旧口径不动；**`famousEntryLaunchBnb`（BP63/BP80 KOL 臂独立锚）刻意不动**——票自身首可靠价优先+常量 fallback，与主 launch 锚体系无关
-- `src/market-analysis/cheat-snapshot.js`：D3.66 `burstExitVsLaunchPct` 分母恒常量（锚窗 waveTicksAll min 循环删）
-- **自动继承（零改动）**：`priceBackToAlmostLaunch`（CD381 重检因子）、T133/T136 famous near_launch 计数区间门、`athVsLaunchPct`/`minVsLaunchPct`/`launchPriceBnb` 族、TPA `TPAPre_asofRelFirst`（本就走旧首可靠价口径从未吃地板）
+**实现**：`git revert c37ab2ee` 干净回滚（T138 是单一主题 commit、其后仅 b0e556b6 克隆脚本不碰代码），四模块恢复 T134 形状：①`launch-price.js` `floorLaunchPriceBnb(launchConst, minRel)` 导出恢复；②FA `_firstBuyPriceBnb`（write-once，`===0 && isBuy` 只认 BUY）+`_minRelPriceBnb`（滚动最低，BUY/SELL 皆更、min 幂等=乱序回放收敛）两 state 字段恢复，`currentVsLaunchPct` 与 `_countFamousNearLaunchBuy`（T133 famous 计数）两发射锚恢复 `_floorLaunchPriceBnb(_resolveLaunchPriceBnb(平台,quote), state._minRelPriceBnb || state._firstBuyPriceBnb) ?? state._relFirstPriceBnb`；③BP snapshot 地板原料=锚窗 rel 全量最低（T134 后 launchCovered 门退役——min 是窗内因果统计量，截窗长票窗内 min ≥ 全局 min=锚只偏高不冒充低锚）；④CD D3.66 `burstExitVsLaunchPct` 分母=floorLaunchPriceBnb(常量, 锚窗 waveTicksAll min)。自动继承零改动面与 T138 commit 记录一致（priceBackToAlmostLaunch/T133·T136 famous 计数区间/athVsLaunchPct·minVsLaunchPct 族/TPA asofRelFirst）。
 
-**行为影响定量**：低开票 curVs 回落（6efa11ce 类 −20% 低开票全生命周期涨幅回落 ~20pp=恢复常量口径真值）；高开票（首买>常量）零变化——min 语义只降不升从未作用于高开票。**D3.66 三案定标兼容验证**：ba5e 生产对拍出口锚 +35.4→+20.1 仍在 ≤40 授予域、ad80 +122.4 不变、M4GA +2.9 不变——豁免资格判定方向保持。
+**顺带修一桩存量断言漂移**：`_test_current_vs_launch_factor` I5 源码序锁（滚动更新点须在 famous 计数写点之前——同 tick 锚已含本笔价）的匹配串是两参 `this._countFamousNearLaunchBuy(state, priceBnb)`，而 T136（0abbaa30）给该函数签名加 `bnbAmount` 第三参改了调用点为三参且**未同步本测试**（文件不在 T136 改动清单）→ I5 在 T136→T138 两日间实际恒红未被察觉；本次 revert 后重跑当场暴露，修正为三参匹配串（序锁语义不变），断言旁注明漂移案由。**教训：源码锁断言的匹配串必须随签名改动同 commit 更新，否则假红会训练出「跳过该测试」的坏习惯。**
 
-**单测（12 文件全绿）**：`_test_current_vs_launch_factor` 重写 I/J 段（I=回退锁：低开票回退常量口径/高开同值/sell 低价不再入锚/gang 零变化/**I5 回退源码锁**——`!includes('_floorLaunchPriceBnb(')`+`!includes('state._firstBuyPriceBnb')`+`!includes('state._minRelPriceBnb')`+`?? state._relFirstPriceBnb` 兜底在场；J=恒常量不变量：运行期新低不动锚/乱序三序全收敛，T134 时代期望值反证留档）32 断言；`_test_since_entry_factors` J7c 反转锁 72；`_test_cheat_market_reset` B2-B4b 重写（低开 launch=FM 常量 curVs=0（T130 时代 +25=事故反证）/高开同值/新低 minVs −10（T134 时代 0））20；`_test_cheat_detection_lib` D3.66 断言改常量口径（ba5e 缩样 +20.1/−11）701；另 fa_factors 35/buy_point_lib 589/cheat_gate 172/quote_passthrough 9/cheat_service 200/grade 133/bp_check_service 37/signal_source_factors 43/signal_gate 139 全过。
+**单测 13 件全绿**（revert 恢复 T134 期望值+I5 修正）：current_vs_launch_factor 32（I/J 段恢复 T130/T134 期望：运行期新低锚同修/乱序三序收敛）/ since_entry_factors 72（J7c 恢复）/ cheat_market_reset 20（B2-B4b 恢复 T130 期望：低开 curVs=+25 事故反证归位）/ cheat_detection_lib 701（D3.66 断言恢复地板口径 ba5e 出口 +35.4）/ fourmeme_fa_factors 35 / buy_point_lib 589 / cheat_gate_engine 172 / backtest_quote_token_passthrough 9 / cheat_detection_service 200 / cheat_grade 133 / buy_point_check_service 37 / signal_source_factors 43 / signal_gate_engine 139。
 
-**余留**：生产实验重启进程才生效（FA state 进程内存态）；T129 时代挂账的「价格门阈值重校」（27.5→28.5 后低开票门面变化）随回退自然缓和，28.5 域分布继续观察。
+**行为影响（知情恢复）**：T138 所据误伤形状随恢复重新在场——低开/新低票 currentVsLaunchPct 被低锚系统性抬高（6efa11ce −20% 低开票全生命周期涨幅虚增 ~20pp 量级），28.5 价格门对该族票的准入面重新收紧；用户在收到 T138 误伤分析后仍明确裁定恢复三要素地板=知情取舍，t0a/RL 等低位臂对该族票的覆盖预期由地板口径统一呈现。bt-v114（恒常量口径）与后续 T134 口径回测（bt-v115 计划）构成口径 A/B 对照。CLAUDE.md 主段已更新为 T134 完整口径+三度反向案史句；T133 段发射锚旧表述（`_floorLaunchPriceBnb(平台常量,首买价)`——T134 当年漏更）同步换滚动最低口径；CD cheat-snapshot D3.66 注释「T130 地板同分母」→「T134 同分母」。
+
+**余留**：①生产实验重启进程才生效（FA state 进程内存态，当前无运行实验）；②bt-v115（bt-v114 config 克隆+T139 代码）跑 T134 口径对照待用户指令；③28.5 域观察（T129 挂账）：地板口径下低开票 curVs 抬高回归，与 T138 时观察方向相反。
 
 ### T137 KOL HOLD 两键：sinceLastFamousBigBuySec + recentFamousSellBnb——famous 高位入场延缓卖出（FA 观察键先行，2026-11-13；用户裁定原话「就是已经涨了比较大幅度，例如 100% 以上，的票，能不能用 famous 入场，进一步延缓卖出，吃到高点」→ 反事实成立（V2×R1 +2.32/V2×R3 +1.87）→「好，A。」=FA 立两键观察+克隆实验带完整 HOLD/释放机制回测验证）
 
