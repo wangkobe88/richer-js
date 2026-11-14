@@ -1,0 +1,10 @@
+import { dbManager } from '../../src/services/dbManager.js';
+const c = await dbManager.getClient();
+const e = await c.from('experiments').select('id,name,status,platform,created_at').order('created_at',{ascending:false}).limit(15);
+for (const row of e.data ?? []) console.log(row.created_at, row.id, row.name, row.status, row.platform);
+const tok = '0x2591c5cbd66a0a532870f6ceef68f10d25bc7777';
+const et = await c.from('experiment_tokens').select('experiment_id,token_address,first_seen').ilike('token_address', tok).limit(10);
+console.log('experiment_tokens rows:', (et.data ?? []).length, JSON.stringify(et.data ?? []));
+const ev = await c.from('wss_events').select('kind,block_time,token_address').ilike('token_address', tok).limit(10);
+console.log('wss_events rows:', (ev.data ?? []).length);
+await dbManager.close?.();

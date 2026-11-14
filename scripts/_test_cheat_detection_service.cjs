@@ -410,7 +410,7 @@ async function main() {
       && r1.exempt && r1.exempt.code === 'stall_burst' && r1.exempt.originalGrade === 'unhealthy'
       && svc.stats.stallBurstExemptions === 1 && svc.isGateBlocked('0xtok') === false,
       `unhealthy ∧ sbw=burst → burst 臂豁免 healthy（code=stall_burst/原判 unhealthy 留痕；不拉黑；实际 ${r1.grade}/${JSON.stringify(r1.exempt)}/sb=${svc.stats.stallBurstExemptions}）`);
-    // CD398 流向腿容缺路径（服务级）：genTicks 基底无 ≥50s 沉积段 → 波族键 null
+    // CD398 流向腿容缺路径（服务级）：genTicks 基底无 ≥30s 沉积段 → 波族键 null
     // → 流向腿容缺照授予（本豁免达成即证 null 不误杀；D3.67 前旧行断代同语义）。
     // 净负拒向的单元级行为在 gate_engine F8（谷歌SI -0.590/TukTuk +0.460 直调锁）
     ok(r1.anchors == null || (r1.anchors.burstWaveWalletNetBnb == null && r1.anchors.burstWaveWalletNetBnb == null),
@@ -517,7 +517,7 @@ async function main() {
     // 预期本身是上涨后继续涨，如果落下去了，那么就不算有burst。如果是先卖后买，
     // 两者隔着近，那就是卖出引来了一些买入，这也不符合burst的期望。burst的期望
     // 是用户突然发现了一个好票，或者某个好票开始传播，再或者庄开始收筹码坐庄。
-    // 这burst中卖出占比高，都不太好，虽然可能会有误伤」——出口段（最后 ≥50s
+    // 这burst中卖出占比高，都不太好，虽然可能会有误伤」——出口段（最后 ≥30s
     // 静默段出口→锚整窗）卖占比 ≥30% ∧ 卖额 ≥0.3 → 豁免失效原判保持（CD380
     // wash/CD400 dump 同构第三 denied 臂）。**作用域二次裁定 A（同日对拍后）：
     // 限 sbw=1 资格**——全通道形状四基底 11 票净 -0.107（SPP×2/比格多栋三张
@@ -542,7 +542,7 @@ async function main() {
       row(1, 100, 1, 'buy', 0.1, w('0xb0')),
       row(2, 101, 0, 'buy', 0.1, w('0xb4')),
       row(5, 110, 0, 'buy', 0.3, w('0xb2')),
-      row(60, 200, 0, 'sell', 0.3, w('0xs1')),  // gap 55s ≥50：本行=出口行
+      row(60, 200, 0, 'sell', 0.3, w('0xs1')),  // gap 55s ≥30：本行=出口行
       row(60, 200, 1, 'buy', 0.5, w('0xb3')),
       row(70, 300, 0, 'sell', 0.1, w('0xs2')),  // 窗末
     ] });
@@ -944,7 +944,7 @@ async function main() {
       'GOOD 基底无 abnormal_behavior_ratio 答案（stub 题集未含新题）→ levels/buckets 容缺 null+旧键 realParticipation 不残留（<D3.39 断代重放零变化防线）');
     ok(r2.levels && r2.levels.sameBlockBuyWave === 3 && r2.anchors && 'sameBlockHoldPct' in r2.anchors,
       '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
-    // Z1d D3.67/CD397 单段绑定波族十键（genTicks 基底无 ≥50s 静默段——无沉积=无
+    // Z1d D3.67/CD397 单段绑定波族十键（genTicks 基底无 ≥30s 静默段——无沉积=无
     // burst 前提，全族 null；旧全窗波两键语义不动照常产出）。⚠断言源=digest 行
     // snapshot_digest.anchors（mapper buildObservation 全量锚集）：r.anchors 走
     // levelsFromObservation 显式白名单=FA 投影 37 键集，Option 2 决策十新键
@@ -957,19 +957,21 @@ async function main() {
     ok(['burstLastGapSec', 'burstExitWaveFromDt', 'burstExitWaveEndDt', 'burstSecSinceWaveEnd',
       'burstWaveWalletNetBnb', 'burstWaveSellBackPct', 'burstWaveNetBnb', 'burstWaveWalletAvgBnb', 'burstWaveWalletMedianBnb']
       .every((k) => z1dAnc[k] === null),
-      'genTicks 基底（全窗 2s 间隔无 ≥50s 段）→ 单段绑定八键+波窗净流 null（无沉积不冒充；旧 burstWaveBuyBnb/Wallets 照常=Option 2 语义不动）');
+      'genTicks 基底（全窗 2s 间隔无 ≥30s 段）→ 单段绑定八键+波窗净流 null（无沉积不冒充；旧 burstWaveBuyBnb/Wallets 照常=Option 2 语义不动）');
   }
   {
     // Z1e. D3.67/CD397 单段绑定波族十键手算对拍（2026-11-11 用户四条裁定——
-    // 跨度不能太长/尘埃不算流量/流向=入非出/位置仅参考；绑定锚=最后 ≥50s 静默段
+    // 跨度不能太长/尘埃不算流量/流向=入非出/位置仅参考；绑定锚=最后 ≥30s 静默段
     // 出口行，波=出口后 60s 内最密 5s 窗，旧全窗波两键保留（strongbacker SB1
     // burstWaveBuyBnb≥2.2 口径保护）。
     // 夹具（相对秒）：沉积前 B 买 0.10(t0)+C 卖 0.30(t2)+X 买 0.10(t4)——B/C 是
     // 波钱包，早期买卖进全窗流向轴；60s 沉积（t4→t64）；出口后 A 买 0.05(t64)+
     // B 买 0.10(t65)+C 买 0.20(t66)+B 买 0.10(t68)=最密 5s 窗（4 行，与 [65..70]
-    // 并列取先到）；B 卖回 0.05(t70)；D 买 0.30(t100)/E 买 0.10(t124)=区内窗外
+    // 并列取先到）；B 卖回 0.05(t70)；D 买 0.30(t95)/E 买 0.10(t124)=区内窗外
     // （124-64=60 恰界含入 zone 不入波）；F 买 0.10(t150)=区外尾锚（150-64=86>60
-    // 排除；124→150=26s<50 不构成新沉积段——绑定段仍是 t4→t64）
+    // 排除；CD406 30s 线下 t70→t95=25/95→124=29/124→150=26 全 <30 不构成新沉积段
+    // ——绑定段仍是 t4→t64；旧 50s 线时 D 在 t100 亦同——改 95 防 t70→t100=30s
+    // 恰成段篡位）
     const segRow = (sec, blk, li, side, bnb, w) => ({
       block_time: new Date(1700000000000 + sec * 1000).toISOString(), block_number: blk, log_index: li,
       trade_type: side, bnb_amount: bnb, price_bnb: 1e-9, price_outlier: false,
@@ -978,7 +980,7 @@ async function main() {
       segRow(0, 100, 0, 'buy', 0.10, 'B'), segRow(2, 100, 1, 'sell', 0.30, 'C'), segRow(4, 101, 0, 'buy', 0.10, 'X'),
       segRow(64, 132, 0, 'buy', 0.05, 'A'), segRow(65, 132, 1, 'buy', 0.10, 'B'), segRow(66, 133, 0, 'buy', 0.20, 'C'),
       segRow(68, 134, 0, 'buy', 0.10, 'B'), segRow(70, 135, 0, 'sell', 0.05, 'B'),
-      segRow(100, 150, 0, 'buy', 0.30, 'D'), segRow(124, 162, 0, 'buy', 0.10, 'E'),
+      segRow(95, 150, 0, 'buy', 0.30, 'D'), segRow(124, 162, 0, 'buy', 0.10, 'E'),
       segRow(150, 175, 0, 'buy', 0.10, 'F'),
     ];
     const db = makeDb({ ticks: segRows });
@@ -1312,7 +1314,7 @@ async function main() {
     // 不给任何人入场机会，收割的概率很高」+定线「只控制极端情况就好，触发 burst
     // 场景的流动性，去掉 dust，捆绑钱包大于等于 7 的挡住就好。T022 这种，如果是
     // 连续 2 个 slot 数量够了，也可以挡住（但是如果在买入区块看不到后续的买入，
-    // 挡不住就算了）」。判据=波窗（最后 ≥50s 静默段出口后 60s，D3.67 段定位同源）
+    // 挡不住就算了）」。判据=波窗（最后 ≥30s 静默段出口后 60s，D3.67 段定位同源）
     // 单块去尘捆绑钱包 ≥7 ∨ 相邻两 slot（block 差恰 1）去尘合计 ≥7；四基底命中
     // 面 4 票全负 Σ−0.0671 零误伤（Callcat 同块 13w −0.0367/Crypto Winter 2+6=8
     // +0.0121/网上南宁 6+3 −0.0307/callcat小 4+3=7 −0.0118——后两张 stall_burst

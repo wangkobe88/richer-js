@@ -84,11 +84,17 @@ const NEAR_DUMP_NEAR_SEC = 60;
  */
 const BURST_WAVE_SEC = 5;
 /**
- * burst 沉积静默段阈值（D3.66，2026-11-10）：「长期沉积」的操作化口径=相邻
- * tick 间隔 ≥此值算一段静默；与 CheatCheckService _isStallBurstExempt gap 腿
- * （burstMaxGapSec≥50，CD383 二修 60→50 M4GA 案）同线——两处同改。
+ * burst 沉积静默段阈值（D3.66，2026-11-10；CD406 二修 50→30，2026-11-14）：
+ * 「长期沉积」的操作化口径=相邻 tick 间隔 ≥此值算一段静默。CD397 起 burst
+ * 资格=sbw==1 单条件（gap≥50/波≥0.7∨≥10/exitVs≤40 三硬线已退役），本阈值
+ * 只服务段定位（sbw state 事实行 D3.67 十键/CD401 出口段三键/CD405 波窗两键
+ * /burstExitVsLaunchPct 出口定位四消费者同源）；CD406 用户裁定「这个主要还是
+ * 从 burst 语义上考虑，因为 burst 的质量我们控制了（CD402 量级参考线 ≥0.3
+ * BNB+≥2 钱包在 Jev 判读层把关），反而可以宽一些」——案 0x89e42b0b 第三信号
+ * 46s 沉积+2.21 BNB/14 钱包第二波被 50 线挡在段外。CD383 时代的 gap 腿
+ * （burstMaxGapSec≥50 同线）已随 CD397 退役，本常量不再与 service 层同线。
  */
-const BURST_STALL_GAP_SEC = 50;
+const BURST_STALL_GAP_SEC = 30;
 /**
  * burst 单段绑定波搜索窗宽度（D3.67/CD397，2026-11-11 用户裁定「burst 一般只是
  * 一个突然的流量涌入，快速+一定流量，那么 burst 的跨度不能太长」）：「快速」的
@@ -96,7 +102,7 @@ const BURST_STALL_GAP_SEC = 50;
  * 此值秒内搜索（出口后拖了几分钟才来的流量不是「一朝」涌入）；跨度的「另一头」
  * （波结束距锚点太长=波已是历史事件）由 burstSecSinceWaveEnd 锚交给 Jev 判读，
  * 代码不设硬线（同裁定第三条「不要魔改，用 Jev 判断」）。量级对标
- * BURST_STALL_GAP_SEC=50（沉积线同族），非校准值——首版待票池分布复采样。
+ * BURST_STALL_GAP_SEC（沉积线同族），非校准值——首版待票池分布复采样。
  */
 const BURST_SEG_SEARCH_SEC = 60;
 /**
@@ -1017,9 +1023,9 @@ function computeDerived(snapshot, famousRoster) {
   let burstWaveBuyBnb = null, burstWaveWallets = null, burstWaveStartVsLaunchPct = null;
   let burstExitVsLaunchPct = null;
   // D3.67/CD397 单段绑定波族（2026-11-11 用户四条裁定——跨度/尘埃/流向/判定权
-  // 归 Jev；波=最后 ≥50s 静默段出口 BURST_SEG_SEARCH_SEC 内最密 5s 窗，旧全窗
+  // 归 Jev；波=最后 ≥30s 静默段出口 BURST_SEG_SEARCH_SEC 内最密 5s 窗，旧全窗
   // 波两键语义不动=strongbacker §七.5 统计口径保护）：
-  //   burstLastGapSec        最后 ≥50s 静默段时长（≠全窗 maxGapSec：max 是最深、
+  //   burstLastGapSec        最后 ≥30s 静默段时长（≠全窗 maxGapSec：max 是最深、
   //                         last 是最近——沉积后又有更短间歇时两者分离）
   //   burstExitWaveFromDt/EndDt 波窗位置（首行 dt / 末笔买入 dt——供 [TICKS] 对照）
   //   burstExitWaveBuyBnb/Wallets  单段波 Σ买入/独立买入钱包数（出口后 60s 内
@@ -1032,7 +1038,7 @@ function computeDerived(snapshot, famousRoster) {
   //   burstWaveWalletAvgBnb/MedianBnb 波钱包户均/中位买入（「尘埃入仓不算一定
   //                         流量」主锚——idx81/96/170 户均 0.016~0.021 vs idx62/
   //                         63/179 0.050~0.066 硬线不可分=分布形状交 Jev）
-  // 无 ≥50s 静默段全族 null（无沉积=无 burst 前提，fail-open 语义：Jev 按 [TICKS]
+  // 无 ≥30s 静默段全族 null（无沉积=无 burst 前提，fail-open 语义：Jev 按 [TICKS]
   // 自行判 none）；dt 缺失全族 null（绝不冒充）。
   let burstLastGapSec = null, burstExitWaveFromDt = null, burstExitWaveEndDt = null;
   let burstExitWaveBuyBnb = null, burstExitWaveWallets = null, burstSecSinceWaveEnd = null;
@@ -1041,14 +1047,14 @@ function computeDerived(snapshot, famousRoster) {
   let burstWaveWalletAvgBnb = null, burstWaveWalletMedianBnb = null;
   // CD401 出口段卖压三键（btv109 P3，2026-11-13 用户裁定立法）：burst 的期望=
   // **纯流入驱动**（用户突然发现好票/好票开始传播/庄开始收筹码坐庄）——出口段
-  // （最后 ≥50s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖出占比高都不符合
+  // （最后 ≥30s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖出占比高都不符合
   // burst 期望：先买后跟着卖=涨不下去不算 burst；先卖后买两者隔得近=卖出引来
   // 的买入非自发涌入（「这 burst 中卖出占比高，都不太好，虽然可能会有误伤」）。
   // 门臂=卖占比 ≥30% ∧ 卖额 ≥0.3 BNB（denied 'burst_exit_sell_pressure'，阈值在
   // CheatCheckService._exemptDeniedReason）；两族形状都拦（波前卖=MBF/我靠案、
   // 波中后卖=网上南宁/callcat 案——四基底 8 票全非正零盈利误伤，三大赢家卖%=0
   // 天然安全）。非 FA 投影消费（CD400 nearDump 同形：进 levelsFromObservation
-  // 白名单但不进 FA 投影/state/题面）；无 ≥50s 段/dt 缺失 → 全族 null 容缺不触发。
+  // 白名单但不进 FA 投影/state/题面）；无 ≥30s 段/dt 缺失 → 全族 null 容缺不触发。
   let burstExitSegBuyBnb = null, burstExitSegSellBnb = null, burstExitSegSellPct = null;
   // CD405 burst 捆绑收割两键（2026-11-14 btv111 Request C，用户裁定「Burst 中
   // 出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了不给任何人
@@ -1062,7 +1068,7 @@ function computeDerived(snapshot, famousRoster) {
   //                             「连续 2 个 slot 数量够了」）
   // 去尘=块内单钱包买入合计 ≥BURST_BUNDLE_WALLET_DUST_BNB 才计数；剔聚合路由
   // 伪钱包（wallet=sender||trader 小写）；block 缺失行不进块统计（CD400 同款）。
-  // 无 ≥50s 静默段 → 全族 null（burst 语境缺席=臂不触发，不扩大收紧面）；有段
+  // 无 ≥30s 静默段 → 全族 null（burst 语境缺席=臂不触发，不扩大收紧面）；有段
   // 波窗无买块/无相邻对 → 0 有证据零值。阈值（≥7）在 CheatCheckService.
   // _exemptDeniedReason（burst_bundled_wave 臂）；非 FA 投影/题面消费（CD400/
   // CD401 同形）。
@@ -1112,9 +1118,9 @@ function computeDerived(snapshot, famousRoster) {
         // 出口在低域（ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放；M4GA/
         // CD383 原案 +2.9% 放）。刻意不取段内最低/锚时刻现价：CD392 台账「取
         // 最低会放行高位砸落再弹形状」（ad80 末段砸落 +17.5% 必须拒）。扫描域
-        // =waveTicksAll（dt 过滤序与 maxGapSec 的 dts 同源，静默段与 gap 腿
-        // ≥50 判据 bit 同口径：gap 腿过 ⟺ 至少一段 ≥50s 静默）。null 条件：
-        // 无 ≥50s 段（gap 腿本就不过）/段后无可靠价/launch 地板缺失（无常量
+        // =waveTicksAll（dt 过滤序与 maxGapSec 的 dts 同源；CD383 时代与 gap 腿
+        // bit 同口径，CD397 起 gap 腿退役、段定位为本阈值唯一消费）。null 条件：
+        // 无 ≥30s 段/段后无可靠价/launch 地板缺失（无常量
         // 平台）→ fail-closed 不授予（与 CD383 gap null「不扩大收紧面」不同向
         // ——本臂是资格授予方向，形状不可判宁不授予）。不受 PostgREST 1000 行
         // 帽影响（出口段在锚侧，帽窗内必含）。**D3.67/CD397 起第四腿代码门整体
@@ -1147,7 +1153,7 @@ function computeDerived(snapshot, famousRoster) {
       burstWaveWallets = bestWalletN;
     }
     // ── D3.67/CD397 单段绑定波（头注见 BURST_SEG_SEARCH_SEC 与本段变量声明注）：
-    // 绑定锚=「最近一次 ≥50s 沉积」的出口行（waveTicksAll[_lastGapIdx]）——三锚
+    // 绑定锚=「最近一次 ≥30s 沉积」的出口行（waveTicksAll[_lastGapIdx]）——三锚
     // （gap/波/出口价）从各自独立测量（全窗最深 gap + 全窗最密波 + 最后段出口价
     // 互不绑定，波与静默可相隔数分钟）收敛为单段绑定：波=出口后 60s 内最密 5s
     // 窗（与全窗波同款双指针按笔数取最密，钱包精确去重）；波钱包全窗买卖净值/
@@ -1803,7 +1809,7 @@ function computeDerived(snapshot, famousRoster) {
     // 买/卖/卖%；头注见变量声明区；非 FA 投影消费）
     burstExitSegBuyBnb, burstExitSegSellBnb, burstExitSegSellPct,
     // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗单块/
-    // 相邻两 slot 去尘捆绑钱包数；无 ≥50s 段全族 null 不冒充；头注见计算段）
+    // 相邻两 slot 去尘捆绑钱包数；无 ≥30s 段全族 null 不冒充；头注见计算段）
     burstWaveBundleMaxWallets, burstWaveBundleAdjPairSum,
     // CD400 贴锚组织性砸出零承接锚族六键（CheatCheckService._exemptDeniedReason
     // dump_no_absorption 臂判据源；无达标块/dt 缺失全族 null 不冒充；头注见计算段）

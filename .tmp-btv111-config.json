@@ -1,0 +1,545 @@
+{
+  "name": "bt-v111-kol-hold-v68base",
+  "backtest": {
+    "endTime": "2026-11-03T14:58:49Z",
+    "startTime": "2026-11-02T12:00:00Z",
+    "maxTickRows": 8000000,
+    "signalGateReal": true,
+    "sourceExperimentId": "67803108-485a-4f1e-b300-a24061849d7d"
+  },
+  "platform": "both",
+  "blockchain": "bsc",
+  "fourmemeWs": {
+    "live": {
+      "maxGasPrice": 10,
+      "reserveNative": 0.01,
+      "maxPositionTokens": 0,
+      "slippageTolerance": 20
+    },
+    "cheatCheck": {
+      "gate": {
+        "awaitMs": 60000,
+        "alwaysRecheck": true,
+        "activityExemptLevels": [
+          "high",
+          "ultra"
+        ]
+      },
+      "enabled": true,
+      "memSource": {
+        "enabled": false
+      },
+      "settleDelayMs": 0
+    },
+    "factorParams": {
+      "netBuyWinTrades": 12
+    },
+    "buyPointCheck": {
+      "gate": {
+        "awaitMs": 60000
+      },
+      "enabled": true,
+      "memSource": {
+        "enabled": false
+      },
+      "settleDelayMs": 0
+    },
+    "onlineProfile": {
+      "enabled": true
+    },
+    "gmgnEntryCheck": {
+      "enabled": true
+    },
+    "narrativeRetry": {
+      "enabled": true,
+      "intervalMs": 10000,
+      "maxAnalyses": 3
+    },
+    "accountHealthCheck": {
+      "enabled": true,
+      "firstWindowMin": 10,
+      "fastIntervalSec": 30,
+      "slowIntervalSec": 120
+    },
+    "observationSignals": {
+      "enabled": true,
+      "intervalMs": 60000,
+      "maxPerToken": 3,
+      "marketCapThreshold": 27
+    },
+    "buySignalCooldownMs": 3000,
+    "buySignalMaxPerToken": 15,
+    "sellDebounceMinTicks": 5,
+    "buySignalCooldownTicks": 0
+  },
+  "kline_type": "1m",
+  "stallClose": {
+    "stallMs": 30000,
+    "minTickBnb": 0.02
+  },
+  "description": "T137 KOL HOLD 臂跨基底验证：bt-v109（v68 长周期基底）克隆，策略增量=五条逐卡减仓腿（idx4/6/7/12/13）条件尾追加 HOLD 臂（profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2，同 bt-v110）；门链代码增量=CD400 承接门+CD401 出口段卖压臂+CD402 sbw D3.69 量级线（182 当前 10ccce74）。窗口 11-02T12:00→11-03T14:58:49，maxTickRows 800 万。基线 V109 109 票 +1.0282；bt-v110 vs V108 净增 +0.7691（HOLD 臂主导），克隆噪声带 ±0.07",
+  "tradeAmount": 0.1,
+  "strategiesConfig": {
+    "stats": {
+      "enabled": true,
+      "interval": 1800000
+    },
+    "libraryRefs": [
+      {
+        "name": "signal-source-ladder-v1",
+        "side": "buy",
+        "libId": "78836359-48f2-4e8b-ab5a-3e81cfcc7d6a",
+        "version": 17,
+        "legCount": 13,
+        "snapshotAt": "2026-11-09T11:50:35.472Z"
+      },
+      {
+        "name": "mcap-arc-fullclose",
+        "side": "sell",
+        "libId": "7d51d440-deda-4656-ab7e-1980ab0a4141",
+        "version": 1,
+        "legCount": 1,
+        "snapshotAt": "2026-10-29T14:33:20.944Z"
+      },
+      {
+        "name": "pump-imbalance-exit",
+        "side": "sell",
+        "libId": "49862cfe-4bc5-409e-8917-9d8079c9f2cb",
+        "version": 1,
+        "legCount": 1,
+        "snapshotAt": "2026-11-04T07:54:31.646Z"
+      },
+      {
+        "id": "8d773910-77a5-4b42-9b10-78ddb855fc61",
+        "name": "gmgn-entry-exit",
+        "side": "sell",
+        "version": 1
+      },
+      {
+        "name": "famous-entry-exit",
+        "version": 1
+      },
+      {
+        "name": "low-zone-stall-exit",
+        "version": 1
+      },
+      {
+        "id": "6649be58-e05b-483b-8092-c7d3361c9833",
+        "name": "peak-protect-exit",
+        "side": "sell",
+        "version": 1
+      }
+    ],
+    "buyStrategies": [
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 1,
+        "condition": "tradeCount >= 6 AND buyVolumeBnb >= 1 AND holdersExDust >= 4 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
+        "signalGate": {
+          "maxTriggers": 2,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "最早臂（v15/T131 新增——吉祥 ea78 开盘 25 秒窗差一笔错过全窗案；v17/T133：6 笔+两次 Jev——maxTriggers 2 首次门拒后再判一次，单仓语义防双买；cheat/BP minTicks 同线 7→6；v18/T135：加 tokenAgeSec >= 15——bt-v102 因子分析 age<15s 30 票胜率 27% 净 -0.37 开盘 bot 抢速盘，15s 内走完 6 笔=抢速非人气）：6 笔/1 BNB/4 真持有者；价格 ≤+28.5%；10s 窗买卖合计 ≥0.1 BNB（低活跃度不买）；年龄 ≥15s",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 2,
+        "condition": "tradeCount >= 9 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "更早人气臂（v12 新增，用户条件串原文——高大上零触发案：点火即拉飞形状 t0b 十二笔门槛差一笔错过全窗）：9 笔/1 BNB/6 真持有者；价格 ≤+80%（v14 收紧 ≤+27.5%；v17 微放宽 ≤+28.5+actTotalBnb 门；v18/T135 加 tokenAgeSec >= 15 同 t0 抢速门；v15 顺移 p2）",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 3,
+        "condition": "tradeCount >= 12 AND buyVolumeBnb >= 1 AND holdersExDust >= 6 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "人气臂 b（v5 新增，v12 前为最早臂——t0a 6 笔档 2026-11-07 首跑对照后用户裁定删除、v12 以 9 笔档重生）：12 笔/1 BNB/6 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p3",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 4,
+        "condition": "tradeCount >= 16 AND buyVolumeBnb >= 1 AND holdersExDust >= 9 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "阶梯 2（v4 原文）：16 笔/1 BNB/9 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p4",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 5,
+        "condition": "tradeCount >= 20 AND buyVolumeBnb >= 1.2 AND holdersExDust >= 12 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "阶梯 3（v4 原文）：20 笔/1.2 BNB/12 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p5",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 6,
+        "condition": "tradeCount >= 24 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "priceBackToAlmostLaunch == 1"
+        },
+        "description": "阶梯 4（v4 原文）：24 笔/1.5 BNB/12 真持有者；高热度 unhealthy 粘滞秒回省配额（v10=表达式化）；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p6",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 7,
+        "condition": "tradeCount >= 30 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "priceBackToAlmostLaunch == 1"
+        },
+        "description": "热度腿（T119 用户给定条件串原文，v4 原文）：30 笔/1.5 BNB/12 真持有者——阶梯接棒+节流下实际落点由步进节奏决定，慢热票里程碑摊开；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p7",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 8,
+        "condition": "tradeCount >= 36 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "priceBackToAlmostLaunch == 1"
+        },
+        "description": "热度腿（T119，v4 原文）：36 笔/1.5 BNB/12 真持有者；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p8",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 9,
+        "condition": "tradeCount >= 45 AND buyVolumeBnb >= 1.5 AND holdersExDust >= 12 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "priceBackToAlmostLaunch == 1"
+        },
+        "description": "热度腿（T119，v4 原文）：45 笔/1.5 BNB/12 真持有者——极高热度确认，任何节奏的票 45 笔=强活跃；v10 加价 ≤+80%、v14 收紧 ≤+27.5%、v17 微放宽 ≤+28.5+actTotalBnb 门、v15 顺移 p9",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 10,
+        "condition": "tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "接近发行价臂 a（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB——bt-v83 87 票小票放行实证；v14 价格门 50→27.5、v17 微放宽 ≤+28.5+actTotalBnb 门）：现价较发行价 ≤+28.5%（含破发）——热度够+价格贴发行价",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 11,
+        "condition": "tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "接近发行价臂 b（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 15 笔/2.5 BNB；v14 价格门 50→27.5、v17 微放宽 ≤+28.5+actTotalBnb 门）：现价较发行价 ≤+28.5%（含破发）",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 12,
+        "condition": "tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "接近发行价臂 c（v8 新增 T122；v9 加 tradeCount>=10；v13 量门提高 tradeCount 10→15，量 2.5 不变；v14 价格门 50→27.5、v17 微放宽 ≤+28.5+actTotalBnb 门）：现价较发行价 ≤+28.5%（含破发）——三档中最高热度确认",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 13,
+        "condition": "tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 20 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "重启臂（v10 新增；v13 量门提高 15 笔/2.5 BNB；v17 加 actTotalBnb 门）：现价较发行价 ≤+20%（含破发）——经历交易量后回到 almost_launch 的重启盘入场点",
+        "maxExecutions": null
+      },
+      {
+        "cards": 4,
+        "action": "buy",
+        "buyPhase": "first",
+        "priority": 14,
+        "condition": "tradeCount >= 15 AND buyVolumeBnb >= 2.5 AND currentVsLaunchPct <= 10 AND actTotalBnb >= 0.1",
+        "signalGate": {
+          "maxTriggers": 1,
+          "bpPassLevels": [
+            "good",
+            "neutral"
+          ],
+          "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1"
+        },
+        "description": "深重启臂（v11 新增；v13 量门提高 15 笔/2.5 BNB；v17 加 actTotalBnb 门）：现价较发行价 ≤+10%（含破发）——回到 almost_launch 深半区的更贴发行价入场点",
+        "maxExecutions": null
+      }
+    ],
+    "eventRecording": {
+      "enabled": true,
+      "sellSignals": "all",
+      "onlyExecuted": false,
+      "buySignalIndices": "1/3"
+    },
+    "sellStrategies": [
+      {
+        "cards": "all",
+        "priority": 2,
+        "condition": "profitPercent <= -40",
+        "cooldownSec": null,
+        "description": "止损臂-40（2026-11-04 用户指令：原 P0(-50)/P2(-35) 两臂阈值交叠——-35 恒先触发致 -50 成死腿，裁定两臂全删合并为单一 -40）：fire 时刻成本锚起算浮亏达 40% 全清；profitPercent null（无锚）→ 恒 false fail-closed 同 P0 口径；maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；minTicks 8 继承原 -35 主止损确认门；断流冻结票归 stallClose（30s，T104 复活）管",
+        "sellDebounce": {
+          "minTicks": 8
+        },
+        "bypassDebounce": false
+      },
+      {
+        "cards": 2,
+        "priority": 3,
+        "condition": "graduationProgress >= 0.9",
+        "cooldownSec": null,
+        "description": "毕业臂①（拱形v2 保留腿）：可靠价市值达毕业锚 90% 卖半（起步 0.9 留尘价余量）；迁移自 6f92e2f9 P3 原文，去 cycle==3 全周期可见（2026-10-06 裁定：17 腿唯 P3/P8 保留）；高价发行票 grad 超界（躺赢案 38.9）恒真触发秒卖——卖后 -49%~-74% 实证歪打正着",
+        "maxExecutions": 1,
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 5,
+        "condition": "realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90",
+        "cooldownSec": null,
+        "description": "T113 pump 失衡全清臂（2026-11-04）：成交后 30s 若盘面仍单边买（自入场累计净买比 >= 90 = 卖占比 <= 5%）→ 全部清仓——无真实对手盘的机器推盘趁推着走，等来的是 CD165/166/175/181/182 五 pump 案的 20 分钟 -50%+ 形状。v70 13 票探针实证：入场后 30s 仍 100% 单边买的 6 票中 4 票 -7%~-37%（比特币银行 -37/蝴蝶喊单 -32/蝴蝶池 -27/共建共赢 -7 全亏），仅 2 票 +4%/+7% 微利；滚动窗载体 tradesNetBuyRatioShortWin 被入场前买潮污染接不住 → 专用自入场语义（FA sinceEntryNetBuyRatio=setBuyState 锚快照全史累计差值，补买轮各自重锚；入场后零交易 null 恒 false fail-closed 死盘归断流扫描/止损管）。与 FLAP世界/MAX 型入场即反转刻意分轨（该形状 D3.57 买侧拦截管）。插位 T85 超买止盈前=同刻全清先赢；maxExecutions 不设（卖出失败每轮重试直到清仓）；bypass=false 走 3.5s+5tick 双门确认；回测差值口径 asOf 无关天然兼容。详档 docs/交易策略改进与Case台账.md T113",
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 6,
+        "condition": "realHoldDuration >= 180 AND gmgnEntryChecked == 1 AND gmgnEntryPresent == 0",
+        "cooldownSec": null,
+        "description": "T116 GMGN 进场验证卖臂（2026-11-04）：持仓 180s 查一次 GMGN getTokenInfo wallet_tags_stat 三类在场数（smart_wallets/whale_wallets/renowned_wallets），三类全零=无聪明钱/鲸鱼/KOL 接力 → 全部清仓。探针实证 GMGN 对 0.3-1.0min 票 tags 已完整填充（18 秒票也 populate）=无「数据滞后退化成无脑全清」风险。write-once per 持仓轮（单向判定不翻案）；unknown（API 失败/超时/未索引/key 缺失/冷却/tags 三键残缺）fail-open 不投影 → gmgnEntryChecked==1 恒 false 不误卖；清仓自清理+再买入重置双保险+st 实例同一性竞态防线；回测零接线（因子恒 null 天然不触发）。「在场口径」自洽：进过已走=计 0=该卖形状。插位 pump-imbalance-exit(5) 之后；maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；bypass=false 走 3.5s+5tick 双门确认。随 enabled 同开关带 T116b 买点观察帧（买入成功点另查一次落 signal metadata gmgnEntryObs 纯观察不进门，与 180s 检查点构成两帧对照）。详档 docs/交易策略改进与Case台账.md T116",
+        "bypassDebounce": false
+      },
+      {
+        "cards": "1",
+        "priority": 7,
+        "condition": "profitPercent > 100 AND (profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2)",
+        "cooldownSec": 80,
+        "description": "收益臂-100%（2026-10-14 用户指令「持有收益超过 100% 卖出一个卡，对应冷却时间40秒」）：fire 时刻成本锚起算收益超 100% 卖 1 张卡（4 卡票=25% 余仓），40s 冷却内不再触发本腿，持续 >100% 每 40s 逐张减仓直到清卡或回落；profitPercent null（无锚）→ 恒 false fail-closed 同 P0 口径；maxExecutions 刻意不设（冷却即节奏上限）",
+        "maxExecutions": 2,
+        "bypassDebounce": false
+      },
+      {
+        "cards": 2,
+        "priority": 8,
+        "condition": "graduationProgress >= 0.98",
+        "cooldownSec": null,
+        "description": "毕业臂②（拱形v2 保留腿）：≥0.98 再卖半（若①已触发余半仓的 50%）；迁移自 6f92e2f9 P8 原文，去 cycle==3 全周期可见",
+        "maxExecutions": 1,
+        "bypassDebounce": false
+      },
+      {
+        "cards": 1,
+        "priority": 11,
+        "condition": "peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap < 8.1 AND (profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2)",
+        "cooldownSec": 60,
+        "description": "T99 拱形回撤收紧·低市值档 -25（2026-10-29 用户指令加两臂+纠正「只是卖一个卡，不是全清」）：峰值利润 >=10% 武装 + 距峰回撤 25% 卖 1 卡（cards=1 max1 恰一次，dd 回升再落不重卖）。三层梯队：T80 -15 减 1 卡（13.4-27，p10 先评）→ 本腿 -25 减 1 卡（p11）→ 拱形 -35 全清（同 priority 数组序在后=深跌兜底）+ >=27 档 -25 全清。SPERM 案（0x0590…7777）动机：峰 +43.3% 回撤 -35 首真 05:05:31 → 3.5s+5tick 确认窗 fire 时已 -41.1%；-25 首真 05:05:27 早 4s=确认窗前移。低档 <7.4 段 P4 地板臂（p4 全清）同刻双真先评=直接全清，本腿在该段被压制（少卖余 2 卡，观察点）。dd null（未武装/无峰）→ 恒 false fail-closed；marketCap=fire 时刻实时市值（BNB 域，刻意非 peakMarketCapSinceLastBuy） | 2026-11-04 用户指令：maxExecutions 1→4、cooldownSec 60——持续/反复满足回撤条件最多减 4 张卡（4 卡票可打光），每 60s 一张；原 max1 恰一次语义退役；同批 P4 地板族退役，低档 <7.4 段 P4 同刻压制关系解除",
+        "maxExecutions": 4,
+        "bypassDebounce": false
+      },
+      {
+        "cards": 1,
+        "priority": 11,
+        "condition": "peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap >= 8.1 AND marketCap < 27 AND (profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2)",
+        "cooldownSec": 60,
+        "description": "T99 拱形回撤收紧·中市值档 -25（2026-10-29 用户指令加两臂+纠正「只是卖一个卡，不是全清」）：峰值利润 >=10% 武装 + 距峰回撤 25% 卖 1 卡（cards=1 max1 恰一次，dd 回升再落不重卖）。三层梯队：T80 -15 减 1 卡（13.4-27，p10 先评）→ 本腿 -25 减 1 卡（p11）→ 拱形 -35 全清（同 priority 数组序在后=深跌兜底）+ >=27 档 -25 全清。SPERM 案（0x0590…7777）动机：峰 +43.3% 回撤 -35 首真 05:05:31 → 3.5s+5tick 确认窗 fire 时已 -41.1%；-25 首真 05:05:27 早 4s=确认窗前移。低档 <7.4 段 P4 地板臂（p4 全清）同刻双真先评=直接全清，本腿在该段被压制（少卖余 2 卡，观察点）。dd null（未武装/无峰）→ 恒 false fail-closed；marketCap=fire 时刻实时市值（BNB 域，刻意非 peakMarketCapSinceLastBuy） | 2026-11-04 用户指令：maxExecutions 1→4、cooldownSec 60——持续/反复满足回撤条件最多减 4 张卡（4 卡票可打光），每 60s 一张；原 max1 恰一次语义退役；同批 P4 地板族退役，低档 <7.4 段 P4 同刻压制关系解除",
+        "maxExecutions": 4,
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 11,
+        "condition": "peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -45 AND marketCap < 8.1",
+        "cooldownSec": null,
+        "description": "拱形v2-A 纯兜底腿·市值三档（2026-10-16 用户指令，7cat 0xffa4aef3…db7777 案：48s 阴跌 -42.5% 触发后 60s 内 V 反 +97%，卖在 V 底前 1s）：峰值利润 >=10% 武装 + 按当前市值分档回撤容忍全清——marketCap<6000 容忍 -45（低市值波动噪声大）/6000-20000 保持 -35/>=20000 收紧 -25（高市值回撤 25% 更危险快跑）。marketCap=fire 时刻实时市值（USD，同买腿 15K 门因子）；刻意非 peakMarketCapSinceLastBuy（2026-10-06 砍档裁定针对的失真因子不复活）；marketCap=0（无价票）落 <6K 档但 dd null -> 恒 false 不触发（fail-closed 原语义保持）；dd null（未武装/无峰）-> 比较恒 false 不触发（fail-closed）；本臂=低市值档 -45 | 2026-11-04 用户指令：回撤阈值 -35→-45（低市值档噪声容忍回深，向本模板原文低档 -45 回归；中档 -35/高档 -25 不动）",
+        "maxExecutions": 1,
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 11,
+        "condition": "peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -35 AND marketCap >= 8.1 AND marketCap < 27",
+        "cooldownSec": null,
+        "description": "拱形v2-A 纯兜底腿·市值三档（2026-10-16 用户指令，7cat 0xffa4aef3…db7777 案：48s 阴跌 -42.5% 触发后 60s 内 V 反 +97%，卖在 V 底前 1s）：峰值利润 >=10% 武装 + 按当前市值分档回撤容忍全清——marketCap<6000 容忍 -45（低市值波动噪声大）/6000-20000 保持 -35/>=20000 收紧 -25（高市值回撤 25% 更危险快跑）。marketCap=fire 时刻实时市值（USD，同买腿 15K 门因子）；刻意非 peakMarketCapSinceLastBuy（2026-10-06 砍档裁定针对的失真因子不复活）；marketCap=0（无价票）落 <6K 档但 dd null -> 恒 false 不触发（fail-closed 原语义保持）；dd null（未武装/无峰）-> 比较恒 false 不触发（fail-closed）；本臂=中市值档 -35（原 2026-10-06 单臂口径）",
+        "maxExecutions": 1,
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 11,
+        "condition": "peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap >= 27",
+        "cooldownSec": null,
+        "description": "拱形v2-A 纯兜底腿·市值三档（2026-10-16 用户指令，7cat 0xffa4aef3…db7777 案：48s 阴跌 -42.5% 触发后 60s 内 V 反 +97%，卖在 V 底前 1s）：峰值利润 >=10% 武装 + 按当前市值分档回撤容忍全清——marketCap<6000 容忍 -45（低市值波动噪声大）/6000-20000 保持 -35/>=20000 收紧 -25（高市值回撤 25% 更危险快跑）。marketCap=fire 时刻实时市值（USD，同买腿 15K 门因子）；刻意非 peakMarketCapSinceLastBuy（2026-10-06 砍档裁定针对的失真因子不复活）；marketCap=0（无价票）落 <6K 档但 dd null -> 恒 false 不触发（fail-closed 原语义保持）；dd null（未武装/无峰）-> 比较恒 false 不触发（fail-closed）；本臂=高市值档 -25",
+        "maxExecutions": 1,
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 10,
+        "condition": "mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec",
+        "cooldownSec": null,
+        "description": "T107 市值拱形时间全清臂（2026-10-29 用户裁定）：X=首次交易→最高市值耗时（token 全生命口径，首 tick 锚 write-once）；峰值市值超 15K USD（=20.1 BNB，T84 换算率 745）后，距峰已流逝 ≥ X/2 秒且未再破新高 → 全部清仓——涨多久跌多久没新高=拱形走完，时间维度与 T99 回撤深度维度互补（浅回落阴跌票 -25/-35 永远够不着，本臂按「再等半个涨程还没新高」截断）。峰=任意接受价轨（outlier/chainLate 不推、尘价照推，与 drawdownFromHighest 同峰同价流）；再破高 → 峰推进=计时归零+X 变大（X/2 只会长不会缩）；无接受价/totalSupply 缺失 → null 恒 false fail-closed（marketCap 族惯例）；首峰即首 tick（开跌即峰）X=0 → 过门即清（忠实口径）；进程晚接管/回测窗口晚于真实首交易的票 X 低估 → 提前触发（保守出场方向）。maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；bypass=false 走 3.5s+5tick 双门确认。FA 三键 mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec（X/2 预计算——求值器无算术文法）。插位=T97 secSincePeak 腿前（p10 同档首中即赢：拱形完成全清 ⊃ T97/T80 减 1 卡）。详档 docs/交易策略改进与Case台账.md T107",
+        "bypassDebounce": false
+      },
+      {
+        "cards": 1,
+        "priority": 10,
+        "condition": "peakProfitPct >= 10 AND secSincePeak > 60 AND (profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2)",
+        "cooldownSec": 60,
+        "description": "T97 高点停滞减仓臂（2026-10-29 用户拍板：峰值利润>=10% 且距峰 >60s → 卖 1 卡，冷却 60s，最多 2 张）。定位=盈转亏主通道（P13 全清）前的时间停滞层先手减仓，与 T80 回撤锁盈（幅度层）同 priority 10 数组序在前=同 tick 双真先评时间层。secSincePeak 峰推进走任意接受价轨（outlier 不推峰、尘 tick 不卡尘门）与武装门 peakProfitPct 可靠价轨分轨。定标：5 天 113 episode 反事实 N=60 最优 +0.0109 BNB。",
+        "maxExecutions": 2,
+        "bypassDebounce": false
+      },
+      {
+        "cards": 1,
+        "priority": 10,
+        "condition": "peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -15 AND marketCap >= 13.4 AND marketCap < 27 AND (profitPercent < 100 OR sinceLastFamousBigBuySec IS NULL OR sinceLastFamousBigBuySec > 120 OR recentFamousSellBnb >= 0.2)",
+        "cooldownSec": 300,
+        "description": "回撤锁盈减仓臂·中档-15（2026-10-28 用户指令「增加 peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -15 AND marketCap >= 10000 AND marketCap < 20000 卖臂，冷却时间5分钟」）：峰值利润 >=10% 武装 + 从峰回撤 15% 在中高市值档（2026-10-28 用户修订 6K→10K）先减 1 张卡锁盈，持续满足每 5min 逐张减仓直到回落或清卡（P9 同款冷却节奏）；与拱形中档 -35 全清（priority 11）成梯队——本腿 priority 10 先评减仓保 V 反余仓，深跌 -35 由全清兜底；peakProfitPct=fire 价起算 running max（拱形臂同源）；dd null（未武装/无峰）→ 恒 false fail-closed；marketCap=fire 时刻实时市值同拱形臂口径（刻意非 peakMarketCapSinceLastBuy）；cards=1 为 P9 同款推断（带冷却的现役腿均为逐卡减仓；若意图为全清改本腿 cards）；maxExecutions 刻意不设（冷却即节奏上限）；bypass=false 走 3.5s+5tick 双门",
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "priority": 1,
+        "condition": "holdDuration > 3600 AND profitPercent <= 0",
+        "cooldownSec": null,
+        "description": "止损臂-时间（2026-10-13 迁自引擎级 stopLoss.timeStopMinutes=60）：持有超 60min 仍浮亏或持平全清（<=0 与引擎口径一致：断流冻结票 profit 恒 0 也要能触发）；断流票由 30s 持仓卖腿兜底扫描评估（同日上线）",
+        "bypassDebounce": false
+      },
+      {
+        "cards": "all",
+        "action": "sell",
+        "priority": 1,
+        "condition": "sinceEntryFamousNearLaunchBuyBnb >= 0.5",
+        "description": "famous 进场撤离臂 v2（T136 2026-11-12 bt-v106 来财案金额门）：FA 因子 sinceEntryFamousNearLaunchBuyBnb=本仓入场锚以来 famous roster 钱包在 near_launch 区间（curVs ∈ (+10,+40]）的可靠价买入 BNB 累计（T133 判据同源并行金额累计，T113 差值 latch 同构）——≥0.5 BNB 才算「像样的 famous 进场」（两笔 0.2~0.3 常见交易档或一笔 0.5+ 大单；v1 计数门 ≥1 笔被 roster v2 38 址扩面后 0.276 BNB 单笔触发误清 +0.51 仓位），立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发；v1 计数键 sinceEntryFamousNearLaunchBuys 降纯观察保留",
+        "maxExecutions": null,
+        "bypassDebounce": true
+      },
+      {
+        "cards": "all",
+        "action": "sell",
+        "priority": 1,
+        "condition": "currentVsLaunchPct > 40 AND currentVsLaunchPct <= 80 AND actTotalBnb < 0.1",
+        "description": "低位滞涨撤离臂（T133 2026-11-10 用户裁定「代币在价格 low 区间（不包含 near_launch 区间），活跃度掉到 low，立即全部卖出」）：currentVsLaunchPct ∈ (+40,+80]（BP43 六桶 low 档 +40~80，刻意不含 near_launch +10~40——贴发行价的低活跃是黄金点域非撤离域）AND actTotalBnb < 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「低活跃度」单一因子表达——CD act 题 1 BNB/min 死寂线 10s 折算）→ 已脱离发行价区+成交枯竭=滞涨死盘，立即全清 bypass 确认窗",
+        "maxExecutions": null,
+        "bypassDebounce": true
+      },
+      {
+        "cards": "all",
+        "action": "sell",
+        "priority": 1,
+        "condition": "peakProfitPct >= 80 AND drawdownFromHighestSinceLastBuy <= -35",
+        "cooldownSec": null,
+        "description": "高浮盈保护全清臂 v1（bt-v107 卖侧模拟立法 2026-11-12）：peakProfitPct >= 80 武装（期内可靠价轨峰浮盈曾达 80%+——大票专属资格）AND drawdownFromHighestSinceLastBuy <= -35（当前价距持仓期峰回撤 ≥35%，与峰同源离群剔除链负值）→ bypass 立即全清不等确认窗。bt-v107 52 轮 trailing 矩阵：无条件 15/20% 大负（洗掉拉升途中票）、25% 单票主导；G80/R35 Δ+0.86（+31%）误伤面最小——两波拉盘（来财）-0.014 零伤、慢拉（谷谷）未触发零伤、87%/92% 浮盈变亏票（b881/13d7）救回；28ad 锁利 +0.69。与 P11 族（10% 低武装+市值分桶+确认窗）分轨：P11 管低浮盈常态回撤分卡卖，本臂只管高浮盈大票快速锁利全清；未持仓两键恒 null fail-closed；maxExecutions 不设（卖出失败每轮重试直到清仓）",
+        "maxExecutions": null,
+        "bypassDebounce": true
+      }
+    ]
+  },
+  "positionManagement": {
+    "perCardBNB": 0.05
+  }
+}

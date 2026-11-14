@@ -202,12 +202,12 @@ function buildCheatState(snapshot) {
       lines.push(`burst 尖刺集中度: 窗内最大交易间隔 ${d.spikePreGapSec} 秒【${clTxt}】；簇内最密 3 秒买入尖刺: t+${d.spikeFromDt}~t+${d.spikeToDt} 共 ${d.spikeBuyN} 笔 ${fmtBnb(d.spikeBuyBnb)} BNB、${d.spikeWallets} 个钱包${avgPer !== null ? `（户均 ${avgPer.toFixed(3)} BNB）` : ''}${pos}；尖刺买入占簇买入 ${d.spikeBuyPctInBurst}% / 尖刺钱包当前正净持仓 ${fmtBnb(d.spikePosNetBnb)} BNB 占全窗正净持仓 ${d.spikeHoldPctAll !== null && d.spikeHoldPctAll !== undefined ? d.spikeHoldPctAll + '%' : '未知（全窗无正净持仓）'}（口径：簇=窗内最大交易间隔 ≥60 秒之后的全部行；尖刺=簇内买入最密的 3 秒滑窗；正净持仓域已剔聚合路由伪钱包。两占比是流量与筹码的集中度量——尖刺形状的判读是你的任务）`);
     }
     // D3.67/CD397 停滞突发波事实行（2026-11-11 用户四条裁定——跨度/尘埃/流向/
-    // 判定权归 Jev）：三锚单段绑定（最后 ≥50s 静默段 → 出口价 → 出口后 60s 内
-    // 最密 5s 波 → 波钱包全窗净值/卖回/户均/中位 → 波末距锚点秒数），全部由代码
-    // 按固定口径算好直供（Jev 心算滑窗/跨窗聚合不可靠——D3.29/D3.49/D3.51 先例），
-    // 四判轴（是否紧跟出口/流量真实/买入方向/是否已是历史事件）的判读全归
-    // stall_burst_wave 题面单一载体；无 ≥50s 静默段不渲染行（无沉积=无 burst
-    // 前提，缺席语义）。
+    // 判定权归 Jev）：三锚单段绑定（最后 ≥30s 静默段（CD406 50→30）→ 出口价 →
+    // 出口后 60s 内最密 5s 波 → 波钱包全窗净值/卖回/户均/中位 → 波末距锚点秒数），
+    // 全部由代码按固定口径算好直供（Jev 心算滑窗/跨窗聚合不可靠——D3.29/D3.49/
+    // D3.51 先例），四判轴（是否紧跟出口/流量真实/买入方向/是否已是历史事件）的
+    // 判读全归 stall_burst_wave 题面单一载体；无 ≥30s 静默段不渲染行（无沉积=无
+    // burst 前提，缺席语义）。
     if (d.burstLastGapSec !== null && d.burstLastGapSec !== undefined) {
       const exitVs = d.burstExitVsLaunchPct === null || d.burstExitVsLaunchPct === undefined
         ? '（出口价位置锚缺失）' : `，出口价 ${d.burstExitVsLaunchPct >= 0 ? '+' : ''}${d.burstExitVsLaunchPct}% vs 发行价地板`;
@@ -219,11 +219,11 @@ function buildCheatState(snapshot) {
           `；波钱包全窗净额 ${fmtBnb(d.burstWaveWalletNetBnb)} BNB（Σ买−Σ卖，可为负=已流出）/ 卖回率 ${d.burstWaveSellBackPct}%（Σ卖÷Σ买）`;
         const span = d.burstSecSinceWaveEnd === null || d.burstSecSinceWaveEnd === undefined ? '' :
           `；波末笔买入距锚点 ${d.burstSecSinceWaveEnd} 秒`;
-        lines.push(`停滞突发波事实: 最后一次 ≥50 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，${win}${wnet}${flow}${span}（口径：静默=相邻 tick 间隔 ≥50 秒；波=该静默段出口后 60 秒内最密的 5 秒滑窗；波窗自身净流=该 5 秒窗内全部买卖合计（买卖双方都计入）；波钱包全窗净额/卖回率=波窗买入钱包在整个窗口的买入卖出合计——「涌入的钱是否已反手流出」的度量。数值只是事实：波是否紧贴沉积出口、流量是否真实（尘埃单堆不出流量）、方向是买入还是卖出引发、波是否已距锚点太远成为历史事件，由你按 stall_burst_wave 题判读）`);
+        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，${win}${wnet}${flow}${span}（口径：静默=相邻 tick 间隔 ≥30 秒；波=该静默段出口后 60 秒内最密的 5 秒滑窗；波窗自身净流=该 5 秒窗内全部买卖合计（买卖双方都计入）；波钱包全窗净额/卖回率=波窗买入钱包在整个窗口的买入卖出合计——「涌入的钱是否已反手流出」的度量。数值只是事实：波是否紧贴沉积出口、流量是否真实（尘埃单堆不出流量）、方向是买入还是卖出引发、波是否已距锚点太远成为历史事件，由你按 stall_burst_wave 题判读）`);
       } else if (d.burstExitWaveBuyBnb === 0) {
         const wnet0 = d.burstWaveNetBnb === null || d.burstWaveNetBnb === undefined ? '' :
           (d.burstWaveNetBnb < 0 ? `，但波窗自身净流 ${fmtBnb(d.burstWaveNetBnb)} BNB（最密 5 秒窗内只有卖出——沉积后被用于出货）` : '');
-        lines.push(`停滞突发波事实: 最后一次 ≥50 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，出口后 60 秒内零买入（无涌入波——沉积后没有流量跟进）${wnet0}`);
+        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，出口后 60 秒内零买入（无涌入波——沉积后没有流量跟进）${wnet0}`);
       }
     }
     // D3.52 锚窗买压行（CD159 强庄币锚立项——**观察期**：档位与买卖比只进 FA

@@ -1,0 +1,273 @@
+✅ 数据库客户端已初始化（超时: 72 秒）
+# bt-v100 review 测试集 v2：270 代币（BUY 首点位，时间序）
+# idx|symbol|addr|时刻|腿|trig|BUY数|成交数|cheat|reasons码|盘形|点位|活跃度|筹码|价格档|BP综判|curVs|minVs|首点状态|净盈亏BNB
+1|英伟达SI|0x67ad68e06abb97572fe24c5c7b7c0fe47b8d7777|04:34:36|P1|2|2|1|healthy|-|none(0.68)|spike(0.97)|burst(0.98)|strong(0.95)|near_launch(1.00)|neutral/gates_passed|22.8|3.4|executed|+0
+2|정책콕|0x9d147fa0e447d98cf1a7ac32f114f6d0b9877777|04:45:14|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold|none(0.94)|spike(0.52)|high(0.81)|moderate(0.90)|near_launch(0.98)|neutral/gates_passed|13|10|executed|-0.0055
+3|﷽﷽﷽﷽|0xa8e70ca07b68a07683c963513a26f2fa91647777|04:46:51|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn|none(0.86)|normal_dip(0.63)|burst(0.98)|weak(0.71)|near_launch(1.00)|neutral/gates_passed|16.9|11.6|executed|-0.0071
+4|OCTO|0x45ec048990b80b70448cf352b7064fda47557777|04:52:17|P2|1|4|0|cheat|A强:equal+coordSell+sameBlock+pump+spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+5|苹果SI|0xc9bf4530033f6497002d228296fedb45036f7777|05:05:33|P1|2|8|1|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-0.0016
+6|苍蝇|0x04323e04c5f48587951c2d974b7f1b007b6e7777|05:09:30|P2|1|4|1|healthy(豁免←cheat,activity_high)|A强:equal+sameBlock D_famous J_hold R_abn|famous_monopoly(0.49)|normal_dip(0.73)|high(0.86)|strong(0.97)|near_launch(1.00)|poor/pattern_gate|27.2|8.4|failed|-0.0103
+7|苍蝇|0x68bb8cd436bdc8b178ab886b5a7abed5e6177777|05:09:33|P1|2|6|1|cheat|A强:equal+coordSell+sameBlock+pump+spike J_hold R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|+0
+8|SB|0xfc128b9c372bee1eb87e0edeff88dc0c64b27777|05:09:35|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold L_insider_sell95|none(0.98)|normal_dip(0.57)|high(0.94)|strong(0.87)|near_launch(1.00)|neutral/gates_passed|27.6|22.6|executed|-0.0011
+9|徐苍蝇|0x59f5ccb671f1651db2ca8aba4fd0254fcef87777|05:10:10|P11|1|7|0|unhealthy|D_famous E_low_activity J_hold|-|-|-|-|-|无段|?|?|failed|-
+10|SB|0x92aac04f03278ce7ac82ba0367dbaf9686437777|05:10:22|P1|1|2|1|healthy(豁免←cheat,activity_high)|A强:sameBlock+pump D_famous J_hold R_abn|none(0.74)|crash(0.52)|high(0.92)|strong(0.91)|near_launch(1.00)|poor/entry_gate|28.4|28.4|failed|-0.004
+11|SF|0x2a5fdaaff209c6e0c57ccfe21d946a35bb237777|05:10:32|P1|1|1|0|healthy(豁免←unhealthy,activity_high)|J_hold L_insider_sell39|none(0.55)|crash(0.60)|high(0.54)|strong(0.96)|near_launch(1.00)|poor/entry_gate|20.3|20.3|failed|-
+12|持币入安|0x7e9bea7c6a81d9061a6b727d2e4529ec1e018888|05:14:34|P1|1|3|0|unhealthy|E_low弱|-|-|-|-|-|无段|?|?|failed|-
+13|BIBIVAULT|0x98678041dc5ce7ac392850e6c2909800e4167777|05:17:17|P1|1|2|0|cheat|A强:pump E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+14|谷歌SI|0xb714df9fec771df721e0576706a11246973d7777|05:19:37|P4|1|10|0|unhealthy|E_low弱 J_hold|-|-|-|-|-|无段|?|?|failed|-
+15|Flap|0x55c3992fd542f1a898898cdb010f71e2683f7777|05:24:56|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike J_hold R_abn|none(0.86)|normal_dip(0.68)|burst(0.99)|moderate(0.66)|almost_launch(0.99)|neutral/gates_passed|7|-10|executed|+0.0396
+16|Flap|0xf36cf29a82eeffdd5a8c66667d5e7a7bda727777|05:26:56|P1|2|7|0|cheat|A强:spike D_famous E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+17|蝴蝶|0xac0b530995e47794dd0b722497aa33873b8c7777|05:30:05|P2|1|5|0|healthy|-|none(0.90)|crash(0.52)|high(0.77)|weak(0.57)|almost_launch(0.98)|poor/entry_gate|9.8|9.8|failed|-
+18|CATAGENT|0xaa5011877c3f0757700c5991feb2a86c5d8c7777|05:31:18|P1|1|2|0|unhealthy|E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+19|Flap|0xe622a0ec83546b63db65e9b9bf5c225aec417777|05:32:15|P1|1|1|1|healthy(豁免←cheat,stall_burst)|A强:coordSell+sameBlock E_low弱 R_abn|none(0.81)|normal_dip(0.71)|burst(0.97)|strong(0.71)|near_launch(1.00)|neutral/gates_passed|24.2|13.3|executed|-0.0071
+20|HAUL|0x48ce79731e040194fcfa71496a94090a28f57777|05:34:32|P1|1|1|0|cheat|A强:coordSell+pump M_ultra|-|-|-|-|-|无段|?|?|failed|-
+21|시룩|0x6efa11ceafb7af0b56b37e9140c0c39007707777|05:36:39|P1|1|6|0|cheat|A强:pump R_abn|-|-|-|-|-|无段|?|?|failed|-
+22|王座猫|0x1c107d701ef0a4f7a702ace7545521fecb647777|05:42:42|P1|2|2|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn|none(0.93)|normal_dip(0.47)|high(0.98)|none(0.56)|near_launch(1.00)|neutral/gates_passed|24.8|10.2|executed|+0.0167
+23|吉祥|0x4aac4818c1f71a7dbe9967498e65ba60d3b17777|05:47:50|P1|1|2|1|healthy|-|sustained_climb(0.63)|spike(0.93)|high(0.84)|moderate(0.91)|near_launch(1.00)|poor/pattern_gate|27|15.8|failed|-0.0019
+24|吉祥|0xea7886d590ba1d7d6d4e7761148ba26405c67777|05:48:29|P1|1|1|1|healthy|-|none(0.97)|normal_dip(0.70)|high(0.86)|moderate(0.97)|near_launch(0.98)|neutral/gates_passed|16.5|12.9|executed|+0.0449
+25|币股人生|0x80b30c98a6c3c534c08d7b4918af696f45987777|05:50:11|P4|1|9|0|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+26|LABU|0x1ac4a310874e29290720d2fb55300a91a23e7777|05:54:09|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike J_hold R_abn|none(0.94)|normal_dip(0.74)|high(0.84)|moderate(0.92)|near_launch(1.00)|neutral/gates_passed|19.3|9|executed|-0.0039
+27|ZELDA|0x3ca2a09d2ac2155f46f0df2b4583936fd92e7777|05:56:44|P1|1|1|1|healthy|-|none(0.93)|spike(0.93)|high(0.93)|strong(0.61)|near_launch(1.00)|neutral/gates_passed|25.7|10.4|executed|-0.0033
+28|긴와|0x6862f5fd3d4efee4f9d4526665d907f845827777|06:07:40|P1|1|1|1|healthy|-|none(0.98)|spike(0.99)|high(0.92)|moderate(0.97)|near_launch(1.00)|neutral/gates_passed|26.9|-0.2|executed|-0.0121
+29|GMGN喊单|0x658d313a468cf846a1887fbf0c2219aec87e7777|06:11:37|P4|1|5|0|cheat|A强:pump|-|-|-|-|-|无段|?|?|failed|-
+30|白猪AI|0x3e20887b57613e1ff37f857ac3766ca5b8877777|06:19:31|P1|1|2|0|cheat|A强:pump+spike D_famous E_low_activity J_hold L_insider_sell40 R_abn|-|-|-|-|-|无段|?|?|failed|-
+31|白猪AI|0x11e20998df0c514ae8c9e829f983bc2868a97777|06:19:46|P1|2|2|0|cheat|A强:pump E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+32|HODLERS|0x18cf6407884dddfa54442a6becea915f850c7777|06:20:04|P10|1|1|0|healthy(豁免←cheat,activity_high)|A强:insider_supply_sell+pump+spike J_hold L_insider_sell77 R_abn|none(0.65)|crash(0.78)|high(0.82)|moderate(0.92)|almost_launch(0.99)|poor/entry_gate|0|0|failed|-
+33|帕鲁家族|0x601b297e3a0e52e49f7bdff81b4fcf261f007777|06:20:05|P1|1|1|1|healthy|-|none(0.96)|normal_dip(0.55)|high(0.42)|strong(0.65)|near_launch(1.00)|neutral/gates_passed|27.9|10.1|executed|-0.006
+34|Hypermon|0x06810806709ae1082214624d447669e9014a7777|06:27:29|P1|1|2|0|cheat|A强:coordSell+pump+wash R_abn|-|-|-|-|-|无段|?|?|failed|-
+35|ARK100|0x193dc446faae1ef37c1328ea87ee032bbeac7777|06:30:07|P1|1|1|0|cheat|A强:pump E_low弱 J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+36|毛根女子|0x609b82e17c920642f2c0abcf62afd449af6e7777|06:40:46|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn|none(0.58)|spike(0.99)|high(0.71)|strong(0.88)|near_launch(1.00)|neutral/gates_passed|28.5|10.8|executed|+0.0036
+37|CORLADOG|0x9fcae3ef3348ee29011215052b764b5db5bc7777|06:45:33|P1|1|6|0|healthy(豁免←cheat,activity_high)|A强:pump D_famous J_hold R_abn|famous_monopoly(0.72)|crash(0.54)|high(0.55)|none(0.45)|near_launch(1.00)|poor/pattern_gate|20.4|13.7|failed|-
+38|彪姐|0x6a1e456708e7fae6e44fe63b1f38c97ddd757777|06:48:37|P1|2|2|1|healthy(豁免←unhealthy,activity_high)|D_famous J_hold R_abn|none(0.67)|normal_dip(0.55)|high(0.86)|strong(0.72)|near_launch(1.00)|neutral/gates_passed|25.1|12.5|executed|-0.0086
+39|7WALL|0x368b7074c73ebe09a625fb42a2a9cd04017e7777|06:51:33|P10|1|3|0|cheat|A强:pump+spike J_hold R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|-
+40|BEM Miner|0x75d5286d3ac478334fe098f015624486d7a77777|07:03:52|P1|2|2|0|cheat|A强:equal+coordSell+sameBlock+pump+spike D_famous R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|-
+41|谷谷|0x32f18a98e4fc3b33013f80454faae710a6367777|07:06:17|P1|1|2|1|healthy(豁免←unhealthy,activity_high)|J_hold|sustained_climb(0.60)|spike(0.91)|high(0.85)|strong(0.84)|near_launch(1.00)|poor/pattern_gate|27.6|10.5|failed|+0.0082
+42|谷谷|0x5dde1c6a6995965097d0e81d0d1d479e765e7777|07:12:02|P2|1|4|0|cheat|A强:pump D_famous J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+43|阿里美股|0x99144fb7a6dda0ed11020a03acd1b468d8797777|07:12:49|P1|1|1|1|healthy|-|none(0.82)|normal_dip(0.91)|mid(0.46)|weak(0.67)|near_launch(1.00)|neutral/gates_passed|25.7|13.2|executed|-0.0001
+44|施工鸭|0x459f1d098437fad48931372f9b16b6ad25297777|07:14:12|P1|2|2|1|healthy(豁免←cheat,activity_high)|A强:coordSell R_abn|none(0.97)|spike(0.66)|high(0.96)|moderate(0.68)|near_launch(1.00)|neutral/gates_passed|25.5|7.4|executed|-0.0002
+45|memes|0x28ad2c7d08d83a85467bd4afcfd673dfce564444|07:15:54|P1|2|3|0|healthy(豁免←cheat,activity_high)|A强:equal+coordSell D_famous J_hold R_abn N_no_retail_entry0.0|famous_monopoly(0.50)|normal_dip(0.56)|high(0.97)|strong(0.88)|near_launch(1.00)|poor/pattern_gate|30.3|0.9|failed|-
+46|恐龙抗狼|0x4ca92503abfe5a1ab6c9bde704009f9131c77777|07:17:49|P11|1|3|0|healthy(豁免←cheat,activity_ultra)|A强:coordSell+sameBlock+pump+spike J_hold R_abn M_ultra N_no_retail_entry5.1|none(0.63)|crash(0.68)|burst(0.93)|moderate(0.55)|almost_launch(1.00)|poor/entry_gate|4.2|4.2|failed|-
+47|BNBFATHER|0xaf7ee1418a51536b3c6da32fec678bc382197777|07:22:43|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:equal J_hold R_abn|none(0.85)|normal_dip(0.61)|high(0.97)|strong(0.30)|near_launch(0.99)|neutral/gates_passed|16.4|0|executed|+0.0183
+48|M4GA|0x13e900f6cbaea22fb07c1cdb7371fc652cdf4444|07:24:25|P1|1|2|0|unhealthy|E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+49|memes|0x460af740be2285fbcd96c0cca5c3d5247ce4ffff|07:25:11|P1|2|2|0|cheat|A强:equal+tier+sameBlock E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+50|MMGA|0xdc9a4ab7bffe3b97e177c24a73c76193ebe64444|07:25:33|P1|1|1|0|cheat|A强:coordSell+pump+spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+51|FourPool|0xad80fb7a03686a9a12952efa17312cf10e86ffff|07:28:52|P1|2|3|0|cheat|A强:equal+coordSell+pump J_hold R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+52|王涛|0x1cf8569749438a7bea491438383698040207ffff|07:30:36|P1|1|5|1|cheat|A强:pump D_famous J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-0.0099
+53|持械入宋|0xfb09ffea6b945a4f086d3e49fd42c77cd92fffff|07:33:06|P1|1|2|1|healthy(豁免←cheat,activity_high)|A强:pump|none(0.98)|crash(0.40)|high(0.96)|moderate(0.98)|near_launch(1.00)|poor/entry_gate|25.7|25.7|failed|-0.008
+54|KIBI|0x9fb45eaf04d40e96984b7c2f24aee07b4d357777|07:33:12|P10|1|2|0|cheat|A强:pump E_low弱 J_hold|-|-|-|-|-|无段|?|?|failed|-
+55|王涛|0xf6330705e51b6044062bfa1207a5ea9b7e777777|07:34:10|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:coordSell J_hold R_abn|none(0.86)|spike(0.97)|burst(0.99)|moderate(0.75)|near_launch(1.00)|neutral/gates_passed|26.5|-6.9|executed|+0.0049
+56|PSHIBA|0xdce405894a4e088bbfc5eceb6f1faa22c6f47777|07:34:37|P1|1|2|0|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+57|AGC|0xb1135352f3e13a897c54723d72ed164ef51e7777|07:34:40|P1|1|1|0|cheat|A强:equal+coordSell+spike E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+58|牛来|0xc2f6beab28e156c8c2c163d4a4887524775d4444|07:34:44|P1|1|1|0|cheat|A强:pump J_hold L_insider_sell75|-|-|-|-|-|无段|?|?|failed|-
+59|TAIGAN|0x9ff9b51184cd9a7e5253bdcb9ee8e193bfe04444|07:35:26|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike J_hold L_insider_sell90|none(0.98)|normal_dip(0.52)|high(0.90)|moderate(0.91)|near_launch(1.00)|neutral/gates_passed|21.3|12|executed|-0.0103
+60|蝴蝶股票|0x32ed54317447ad2e4ed4405a12d4e37ae1377777|07:35:35|P2|1|4|0|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+61|NoStock|0x73d03dacf51a7034026642a67b57271fa1d34444|07:36:11|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|R_abn N_no_retail_entry0.0|none(0.86)|spike(0.93)|high(0.96)|strong(0.54)|near_launch(1.00)|neutral/gates_passed|28.1|12|executed|+0.0485
+62|王涛|0x20be1895fc96ca4eeea49836003b7775eb0d4444|07:37:02|P1|2|3|1|cheat|A强:pump D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|+0
+63|memeful|0xa502f87f1ad276b22dda2dfbbf34446edaa74444|07:37:28|P1|1|2|1|cheat|A强:equal+coordSell+pump D_famous R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|+0
+64|FLAPLESS|0xd43ffe4fbb635e1cdd282627a5c18ee88c944444|07:38:13|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike J_hold R_abn|none(0.80)|normal_dip(0.75)|high(0.92)|none(0.42)|near_launch(1.00)|neutral/gates_passed|28.1|12|executed|-0.0112
+65|没股|0x17a9d2ca5b06ae290c2a4c50d7b71b1c43f54444|07:38:15|P11|1|5|0|cheat|A强:pump D_famous J_hold R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+66|STOCKLESS|0xb6f4e229d446747c41dc1c7eb631816f95f17777|07:38:27|P1|2|4|0|cheat|A强:equal+tier+sameBlock+pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+67|吉祥|0x057c2d67f8a02d430445593aa6c9ee0b47544444|07:38:31|P10|1|6|0|cheat|A强:equal+coordSell+tier+sameBlock+pump D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+68|Stockless|0x84ab873b93b55b84467ff483ce45bb25099d4444|07:38:37|P1|1|6|1|cheat|A强:pump D_famous J_hold R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-0.0082
+69|VirusSI|0x0e15f95d4df9d035a5d2742887a79e9526997777|07:38:47|P1|1|1|1|healthy|-|none(0.73)|normal_dip(0.86)|burst(0.99)|strong(0.95)|near_launch(1.00)|neutral/gates_passed|24.2|20.8|executed|-0.0024
+70|M4GA|0xba5ed45b42479e0a75316de7bf990ec90a3e4444|07:40:45|P1|1|1|1|healthy(豁免←cheat,stall_burst)|A强:equal+sameBlock J_hold R_abn|none(0.90)|spike(0.52)|burst(0.99)|strong(0.87)|near_launch(1.00)|neutral/gates_passed|22.4|0.9|executed|+0.0375
+71|George|0x44d93abb648b7d1d1d20a49002047fb588ccffff|07:41:20|P1|1|1|0|healthy(豁免←cheat,activity_high)|A强:pump D_famous J_hold R_abn|famous_monopoly(0.68)|crash(0.78)|high(0.59)|moderate(0.93)|near_launch(1.00)|poor/pattern_gate|21.1|20.6|failed|-
+72|持械入宋|0xea3ce510829b2b3c77dae374aad440e23be94444|07:41:31|P3|1|4|1|healthy(豁免←cheat,stall_burst)|A强:equal+coordSell+pump D_famous J_hold R_abn N_no_retail_entry0.0|none(0.48)|normal_dip(0.83)|burst(0.99)|strong(0.64)|near_launch(1.00)|neutral/gates_passed|24.4|12|executed|+0
+73|meme|0x5cae0e6cce2b9bb7685f9754961b4790b4074444|07:41:37|P1|2|2|0|cheat|A强:pump E_low_activity R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+74|我丢雷老某|0xe0f89920ef566521d26df3c7d14352dba59d4444|07:42:47|P1|1|1|1|healthy|-|none(0.98)|normal_dip(0.70)|high(0.91)|moderate(0.98)|near_launch(1.00)|neutral/gates_passed|23.4|20.9|executed|-0.0063
+75|meme|0xa819bca8a097dd9316bd5ad376bef70958398888|07:43:00|P12|1|5|0|cheat|A强:pump D_famous E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+76|MEMEGUY|0xf9aa8eaced863c294c25fa8b6d1f69d037964444|07:43:23|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold|none(0.98)|normal_dip(0.53)|high(0.96)|moderate(0.94)|near_launch(1.00)|neutral/gates_passed|25.7|12|executed|-0.0105
+77|毛根女子|0x6113659d0845809601dba51b161a6cadc97cffff|07:43:32|P1|1|1|0|cheat|A强:spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+78|George|0x40a2e8f5ceb8ee6aec025512596b9ffaaa954444|07:45:08|P2|1|7|0|cheat|A强:equal+coordSell+pump J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+79|FOM|0x147d75f133130713c803d35a046da9b7c19effff|07:46:13|P12|1|8|0|cheat|A强:equal+tier+sameBlock+pump D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+80|FOM|0xf7860f0534a1769dbb77286df55222a41e714444|07:46:57|P1|2|3|1|healthy(豁免←cheat,activity_high)|A强:pump D_famous J_hold R_abn N_no_retail_entry0.0|none(0.63)|normal_dip(0.61)|high(0.71)|weak(0.67)|near_launch(1.00)|neutral/gates_passed|21.4|13.2|executed|-0.0107
+81|小四|0xf0576fc1267506123b0bb843b2a325e9010b4444|07:48:14|P12|1|8|1|healthy(豁免←cheat,activity_high)|A强:pump D_famous R_abn N_no_retail_entry0.0|none(0.70)|normal_dip(0.54)|burst(0.99)|strong(0.90)|low(0.99)|poor/pattern_gate|54.9|-0.2|failed|+0
+82|4DOG|0x9ac2747955e5d027e50d155be92118492c814444|07:48:19|P1|2|2|0|cheat|A强:equal+coordSell+sameBlock E_low弱 J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+83|4444|0xb1b592b9048642d38bed59621b947c3860934444|07:50:48|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn|none(0.92)|normal_dip(0.59)|high(0.91)|strong(0.47)|near_launch(1.00)|neutral/gates_passed|26.9|20.6|executed|+0.0058
+84|MTGA|0xe6c22c98a1519a2ed5341d08a0df8b705d7bffff|07:51:19|P1|2|4|0|healthy(豁免←cheat,activity_high)|A强:coordSell+pump D_famous J_hold R_abn N_no_retail_entry0.0|famous_monopoly(0.77)|normal_dip(0.59)|high(0.58)|strong(0.84)|near_launch(1.00)|poor/pattern_gate|26.7|14.8|failed|-
+85|MTGA|0x60b8d5b5625c98a58b054a92505fbc3ded474444|07:51:29|P1|2|2|0|cheat|A强:spike D_famous J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+86|模因人生|0x5a843d3b63d416421e17e787a435a92564564444|07:53:30|P1|2|2|0|cheat|A强:equal+coordSell+sameBlock+pump D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+87|无税人生|0xfba95a4e00883f82f04a459b107bd4788e2c4444|07:53:49|P1|2|2|0|cheat|A强:pump D_famous N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+88|无蝴人生|0x732a1c6bcc51c71b14df62aef0579dceabbf4444|07:55:07|P1|1|1|0|cheat|A强:coordSell+pump D_famous J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+89|无税币|0xa85166d8a55e37c86cded33efa96a01063d24444|07:56:02|P1|2|2|0|cheat|A强:equal+coordSell+sameBlock+pump+spike D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+90|FIGHT|0x490da05a44bd886391d48f6cbfb1d7bbc7584444|07:56:06|P1|1|5|0|healthy(豁免←unhealthy,activity_high)|D_famous R_abn N_no_retail_entry0.0|famous_monopoly(0.65)|normal_dip(0.77)|mid(0.52)|strong(0.90)|near_launch(1.00)|poor/pattern_gate|28.4|11.4|failed|-
+91|SI|0x6fd1c4cb8f96e9855f168cf3df819095d5c54444|07:57:10|P1|2|2|0|cheat|A强:equal+coordSell+spike E_low弱 J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+92|扁头|0xbf4994bb880355cd9e5a31f3bf90e3856c2d4444|07:58:33|P1|2|2|0|cheat|A强:equal+pump J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+93|Cooksonia|0x8bc63a246bffb9259e39903ce4fcd41882bf4444|07:59:14|P1|1|2|0|cheat|A强:pump E_low_activity R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+94|链城|0xed67dddf1f8933e0252ee2c195e5e3a10a627777|07:59:52|P1|1|4|0|cheat|A强:pump J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+95|咪咪|0x3d11be20f94428d34fd21c9fae24aa6cfc5cffff|08:00:25|P1|1|2|1|healthy(豁免←cheat,activity_high)|A强:pump+spike J_hold R_abn|none(0.98)|spike(0.95)|high(0.96)|strong(0.62)|near_launch(1.00)|poor/pattern_gate|36.7|2.6|failed|-0.0104
+96|四|0x25c6fb6e7c9e72a30c45e2543c0859a2ddc04444|08:01:15|P2|1|3|1|healthy(豁免←cheat,stall_burst)|A强:pump D_famous邻 J_hold R_abn N_no_retail_entry0.0|none(0.64)|normal_dip(0.83)|burst(0.99)|strong(0.63)|near_launch(1.00)|neutral/gates_passed|25.3|18.2|executed|+0
+97|鸭灭蝶|0x411c7a8ac2e791e9a9e1b9e21cd32a805b9d4444|08:02:20|P2|1|3|0|cheat|A强:equal+coordSell+tier+sameBlock+pump+spike D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+98|불개미|0xb54e248fae36131958085f2ec5524de4c3524444|08:02:53|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn N_no_retail_entry0.0|none(0.90)|normal_dip(0.61)|mid(0.60)|strong(0.73)|near_launch(1.00)|neutral/gates_passed|27.2|13.3|executed|-0.0089
+99|MFGA|0x758c75868fbaa77d9a397e4934485bc2cecfffff|08:03:20|P1|1|1|0|cheat|A强:equal+coordSell+tier+sameBlock+pump+spike E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+100|FOURMAXXING|0x5dfe60e439ff36f5dff492ebb0f8f7cea1234444|08:04:05|P1|1|1|0|cheat|A强:spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+101|奶龙|0xd59f2c5feba268b0f5d94d26a640d6a2d32c4444|08:05:23|P1|1|2|0|cheat|A强:pump D_famous J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+102|菲比|0x08859f0fe2ea5d2ed611829f245974f3d6cf4444|08:05:52|P1|2|7|0|cheat|A强:equal+pump R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+103|4meme|0x165d20f5269de2708952249e42ee6ad04dc54444|08:06:10|P1|1|1|0|cheat|A强:equal+coordSell+sameBlock+pump D_famous E_low_activity R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+104|FFFF|0x6af6cd7f35c1c1aa2392956938019a57c633ffff|08:06:17|P10|1|4|1|unhealthy|E_low_activity J_hold N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-0.0025
+105|Binancians|0xb5a1a32862f775e2fe34e321f4339ce9667b4444|08:06:33|P1|1|2|0|cheat|A强:sameBlock+pump D_famous J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+106|时光机|0xb42751962fba6d90b3a1d073aa3a64f03b504444|08:07:15|P1|1|2|0|cheat|A强:equal J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+107|M7GA|0xff5f5a2229a10070a71d8023956cbc0e8ba37777|08:07:22|P3|1|4|0|healthy(豁免←unhealthy,activity_high)|D_famous J_hold L_insider_sell30|famous_monopoly(0.63)|normal_dip(0.73)|high(0.84)|strong(0.94)|near_launch(1.00)|poor/pattern_gate|18.2|4.3|failed|-
+108|股股嘎嘎|0xb9dea15c7a92df7cae8657bcec876c2dc8ae4444|08:09:22|P1|1|6|1|cheat|A强:sameBlock+pump J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-0.0008
+109|4meme|0x209e72f11b2efc92d2756ec699b611bd3cb84444|08:10:00|P1|1|3|0|cheat|A强:pump E_low_activity R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+110|4小将|0x19e13fdf685b2a543e7d78727348b9a256b74444|08:10:17|P12|1|5|0|cheat|A强:sameBlock+pump J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+111|4GUY|0xc2e6255a3c3b74f6350f3359d6ef4bff20724444|08:10:37|P10|1|1|0|cheat|A强:pump+spike J_hold L_insider_sell81 R_abn|-|-|-|-|-|无段|?|?|failed|-
+112|無為|0xb97d5772bf70814161d29243b0e39ec62f734444|08:13:26|P1|2|4|1|cheat|A强:pump D_famous J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|+0
+113|four系|0xaf0febe12028a5bd7041f3865f8916ed1b7a4444|08:14:12|P1|1|1|1|healthy|-|none(0.98)|normal_dip(0.45)|high(0.96)|moderate(0.94)|near_launch(1.00)|neutral/gates_passed|21.3|12.4|executed|-0.0091
+114|躺赢|0x9812e7d2e86d240ebf4b3b3e811ba84ad7564444|08:14:19|P1|2|4|0|cheat|A强:equal+coordSell+tier+sameBlock+pump D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+115|黎明|0x5c930974cc56f0f2a77bc0e52390c014f0874444|08:15:40|P1|1|1|1|healthy|-|none(0.92)|normal_dip(0.60)|high(0.92)|moderate(0.85)|near_launch(1.00)|neutral/gates_passed|28.3|12|executed|-0.0094
+116|Sun|0x68690152aaa5729f9f3145d0a910d738eb2d4444|08:16:19|P11|1|3|0|cheat|A强:pump E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+117|疯狂星期四|0xeefe9f2fcb5453d4d08f62c8b8a07b798b384444|08:17:13|P1|1|5|0|cheat|A强:pump D_famous J_hold N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+118|我画地为牢|0xc50521417b52017d2a0f36c27ef25fce45b04444|08:17:19|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold|none(0.86)|spike(1.00)|high(0.97)|moderate(0.94)|near_launch(1.00)|neutral/gates_passed|27.9|-0.7|executed|-0.0105
+119|4|0x4b4a1364bfc28719f0ee928c59ddbeab81294444|08:17:41|P12|1|5|1|healthy(豁免←cheat,activity_high)|A强:equal+sameBlock+pump D_famous J_hold R_abn N_no_retail_entry0.0|none(0.71)|normal_dip(0.76)|high(0.88)|strong(0.55)|near_launch(1.00)|neutral/gates_passed|18.3|6.5|executed|+0.0129
+120|我画地为牢|0x1dcca4d1d9148cd6b87154ffbba514271a214444|08:18:23|P1|1|7|0|cheat|A强:pump D_famous E_low_activity R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+121|Dawn|0xf0572e3b05961f4c73cad4986ed92d8739084444|08:18:29|P1|2|5|1|cheat|A强:pump D_famous J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|+0.0029
+122|小猴子🔥|0xd4ba35f5f1d178950409dc713113b918040e7777|08:19:44|P6|1|7|0|cheat|A强:pump E_low弱|-|-|-|-|-|无段|?|?|failed|-
+123|4cat|0xa1b513d5c9cdbd16f79c53c4c8cfe9a9aadb4444|08:20:11|P1|1|1|1|healthy(豁免←cheat,stall_burst)|A强:equal+coordSell+pump J_hold R_abn N_no_retail_entry0.0|none(0.62)|normal_dip(0.81)|burst(0.99)|weak(0.61)|near_launch(1.00)|neutral/gates_passed|20.3|20.3|executed|-0.0004
+124|汽茫|0x81ea78c13642362504618486158d07a5e0f24444|08:21:23|P2|1|9|1|cheat|A强:pump R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-0.0004
+125|MMGA|0xaf29bd2290c015a78a6190acc154de515ae84444|08:21:32|P1|2|2|0|cheat|A强:pump D_famous E_low_activity R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+126|Dawn|0x962ba5c2e9ff0edad32e336a956d4495d9f54444|08:22:10|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:pump D_famous R_abn N_no_retail_entry0.0|none(0.82)|normal_dip(0.77)|high(0.78)|weak(0.59)|near_launch(1.00)|neutral/gates_passed|18.5|18.5|executed|-0.0037
+127|我画地为牢|0x3816a4abb3ea7ba613359e9ae54603aa06c14444|08:22:32|P10|1|6|0|healthy(豁免←cheat,stall_burst)|A强:pump D_famous J_hold R_abn N_no_retail_entry0.0|famous_monopoly(0.42)|normal_dip(0.86)|burst(0.98)|moderate(0.78)|almost_launch(0.95)|poor/pattern_gate|10|10|failed|-
+128|FI|0x7fdf8052b4f47839217c17e5fec3b7e87a3c4444|08:23:11|P2|1|8|0|cheat|A强:pump E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+129|SAFU|0xc0935087d6a17ae47716af6e9403b55ff1094444|08:23:24|P1|2|3|0|cheat|A强:equal+coordSell+sameBlock+pump D_famous J_hold R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+130|MMGA|0x44441e413fc0caa465724ef12649ad63d5607777|08:23:25|P3|1|5|1|cheat|A强:pump D_famous E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|+0
+131|SAFU|0x8b26253a43e37d5f16ee969536ec2b6d39024444|08:24:52|P10|1|4|0|cheat|A强:sameBlock+pump J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+132|meme|0xb3c054f31b65b889fb40a59af3f8d2aa5777ffff|08:25:08|P1|1|1|0|healthy(豁免←unhealthy,activity_high)|D_famous J_hold|famous_monopoly(0.74)|normal_dip(0.51)|high(0.97)|strong(0.71)|near_launch(1.00)|poor/pattern_gate|19.9|11.8|failed|-
+133|meme.jpg|0x56c68cd0bab4cb83fa7e7f8b549b9de8d1f74444|08:25:12|P10|1|4|0|cheat|A强:pump D_famous J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+134|meme.jpg|0xa52a9366ac14efd7fd5ad0c711801765d6ceffff|08:25:13|P1|1|2|0|healthy(豁免←unhealthy,activity_high)|D_famous N_no_retail_entry0.0|famous_monopoly(0.73)|crash(0.64)|high(0.49)|moderate(0.65)|almost_launch(1.00)|poor/pattern_gate|8.9|8.9|failed|-
+135|苍蝇|0x4c41f7b08508598cce4385187cea0d998bc64444|08:25:32|P1|1|1|0|cheat|A强:equal+coordSell+tier+sameBlock+pump D_famous E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+136|SAFU|0xaa5cd2e1275bf3db7926d0e30b3059f29ea5ffff|08:25:57|P11|1|2|0|cheat|A强:pump E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+137|中囯人能飞|0x30ca7a42a78cd56c1f9f112fb0e31b5165c54444|08:26:25|P1|1|1|1|healthy|-|none(0.96)|normal_dip(0.66)|high(0.94)|moderate(0.97)|near_launch(1.00)|neutral/gates_passed|19.4|3.3|executed|-0.0069
+138|佛咪咪|0xe42e5479463176f9188d2900ea94ffa0af3c4444|08:26:44|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn|none(0.96)|spike(0.57)|high(0.94)|moderate(0.96)|near_launch(1.00)|neutral/gates_passed|27.3|11.9|executed|-0.011
+139|VirusSI|0x92e56dabe394a5fde578ab2f65f72cec9ff07777|08:26:57|P3|1|5|0|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+140|胖五|0x823f977a8c0c703d2ff6d55107e5360494d34444|08:27:06|P1|1|1|0|healthy(豁免←cheat,activity_high)|A强:coordSell D_famous J_hold R_abn|famous_monopoly(0.67)|normal_dip(0.66)|high(0.89)|moderate(0.55)|near_launch(1.00)|poor/pattern_gate|21|12|failed|-
+141|指指|0x0125ecb21c845cd750bcd5b46531e78524954444|08:29:10|P1|1|2|0|unhealthy|J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+142|我画地为牢|0x82039350835e1e15298958c72028f271f8a14444|08:29:37|P1|1|2|0|cheat|A强:equal+pump D_famous邻 R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+143|我靠|0xcbfe6b2bceacfab7934c82513f568f4e31a04444|08:30:02|P1|1|1|1|healthy|-|none(0.93)|normal_dip(0.89)|burst(0.98)|moderate(0.94)|near_launch(1.00)|neutral/gates_passed|19.7|-0.7|executed|+0
+144|PHANTAZIA|0x2dc1a51231536fd3884afe1eda07408610e67777|08:30:26|P1|1|1|0|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+145|AI矿工|0xfd89fa3a753434034a18c74dedf7a6062b557777|08:31:58|P1|1|6|0|cheat|A强:coordSell+sameBlock+pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+146|作茧自缚|0x57cd898802d54f93140513bc420b8e37ee614444|08:32:13|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold R_abn N_no_retail_entry0.0|none(0.82)|normal_dip(0.47)|high(0.97)|strong(0.95)|near_launch(1.00)|neutral/gates_passed|25.9|2.5|executed|+0.0396
+147|ASC|0xa63302a3c0de5a96a007edc888342ae3ccfe4444|08:32:40|P11|1|4|0|cheat|A强:pump E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+148|TRENCHER|0xc6abc6b66438e07fd1600c023ebfad0a09184444|08:32:50|P1|1|1|1|healthy|-|none(0.98)|normal_dip(0.63)|high(0.96)|moderate(0.98)|near_launch(1.00)|neutral/gates_passed|23.4|16.3|executed|-0.0097
+149|傻福|0x98e18f33dfaad9272feaa960ac780af8c2e54444|08:33:42|P1|1|1|0|healthy(豁免←unhealthy,activity_high)|J_hold R_abn N_no_retail_entry0.0|famous_monopoly(0.59)|normal_dip(0.53)|high(0.86)|strong(0.69)|near_launch(0.97)|poor/pattern_gate|11.2|11.2|failed|-
+150|作茧自缚|0xe3d049c65cbbda6bf4a168c77132dc0712b64444|08:34:29|P1|1|1|1|healthy|-|none(0.97)|normal_dip(0.85)|high(0.51)|moderate(0.98)|near_launch(1.00)|neutral/gates_passed|20.5|14.5|executed|-0.0107
+151|pool|0x266aea0f226771daa4759b8d9afad21e214e7777|08:35:07|P1|2|2|0|cheat|A强:pump J_hold M_ultra N_no_retail_entry5.1|-|-|-|-|-|无段|?|?|failed|-
+152|영복이|0xaa7c945ec05177b2b894a325318167d393f57777|08:35:37|P3|1|9|0|healthy(豁免←cheat,activity_high)|A强:pump D_famous R_abn|famous_monopoly(0.61)|normal_dip(0.77)|mid(0.43)|weak(0.76)|near_launch(1.00)|poor/pattern_gate|28.8|5|failed|-
+153|CZGM|0x4b3f1f7a70fbc09b54c4ca209749c5124055ffff|08:36:19|P1|1|4|0|cheat|A强:coordSell+pump J_hold R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+154|雪球SI|0x92a130f2dd01d2cc32bbd5d107ce6853bc427777|08:37:13|P4|1|9|0|unhealthy|E_low_activity R_abn|-|-|-|-|-|无段|?|?|failed|-
+155|顺宝|0x53d958b4803751a71276af4f0e13013ab2ff4444|08:38:39|P1|1|2|0|cheat|A强:sameBlock+spike D_famous E_low_activity J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+156|Poo Launch|0xde4951847adc51c546941a5f8600d74c39174444|08:38:52|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|R_abn|none(0.96)|normal_dip(0.45)|high(0.93)|strong(0.88)|near_launch(1.00)|neutral/gates_passed|21.2|3.4|executed|+0.0015
+157|芜湖人生|0xa359027de3df480c5ffa61feaab31d0e71f54444|08:39:31|P1|1|1|0|unhealthy|E_low_activity J_hold L_insider_sell64|-|-|-|-|-|无段|?|?|failed|-
+158|不烧心|0xbf602352828e39767a9d66c6f5f726fe60d34444|08:47:39|P1|1|1|1|healthy|-|none(0.93)|normal_dip(0.72)|mid(0.40)|moderate(0.96)|near_launch(1.00)|neutral/gates_passed|25.9|16.3|executed|-0.0083
+159|FlapInBKK|0xd0fbcc7be56f6e8eb1e9be01f456de0093ee7777|08:56:01|P1|1|1|0|cheat|A强:pump+spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+160|突突车|0xc0783ec50b216e364c290bb0b8606c3821c97777|08:56:42|P10|1|1|0|healthy(豁免←unhealthy,activity_high)|D_famous J_hold R_abn|famous_monopoly(0.77)|normal_dip(0.66)|high(0.80)|moderate(0.81)|almost_launch(1.00)|poor/pattern_gate|0.4|0|failed|-
+161|突突车|0x9f001e6ab28d82c3f4182618d0d72524db937777|08:56:45|P1|1|3|1|healthy(豁免←cheat,activity_high)|A强:sameBlock+pump D_famous J_hold R_abn|famous_monopoly(0.52)|crash(0.69)|ultra(0.54)|weak(0.71)|near_launch(1.00)|poor/pattern_gate|26.7|13.3|failed|-0.0092
+162|突突车|0xd9289dbf4fd6716d9d7f443cd07cc43a40ce7777|08:56:45|P12|1|7|0|cheat|A强:pump D_famous J_hold|-|-|-|-|-|无段|?|?|failed|-
+163|ตุ๊กตุ๊ก|0xfc5d1a40d691f58a3b5cd37cd227dd0df4f47777|08:57:24|P1|1|1|1|healthy|-|none(0.99)|normal_dip(0.86)|high(0.91)|moderate(0.96)|almost_launch(1.00)|neutral/gates_passed|5.7|1.7|executed|-0.0108
+164|突突车|0xba62d91056aca6a6a0e0bfc27b2a91f6a6747777|08:57:41|P1|1|1|0|cheat|A强:coordSell+pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+165|FLAP 突突车|0x600c9299c12bdc7c8c7c082ae552491590e57777|08:59:45|P12|1|7|0|unhealthy|D_famous E_low_activity J_hold|-|-|-|-|-|无段|?|?|failed|-
+166|meem|0x69c3584316425705d1b32278f2ee63ee1b9c7777|09:00:26|P1|2|3|1|cheat|A强:spike E_low_activity L_insider_sell27 R_abn|-|-|-|-|-|无段|?|?|failed|+0.001
+167|Shellbank|0x24436292ae46bb4f0bdc4389d7180eaa82747777|09:00:34|P10|1|3|0|cheat|A强:coordSell+pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+168|TukTuk|0x2711e159f3e9ff438ff2bb80456d19a6bd827777|09:00:47|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike R_abn|none(0.69)|spike(0.92)|burst(0.98)|strong(0.56)|near_launch(0.97)|neutral/gates_passed|15.1|0|executed|+0.0003
+169|MBF|0xa29fefb9922a761093a316e9f658c0f0ebc07777|09:00:58|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:equal+pump+spike J_hold R_abn|none(0.84)|spike(1.00)|burst(0.99)|strong(0.47)|near_launch(1.00)|neutral/gates_passed|22.5|0|executed|-0.0022
+170|CZ|0x58a9eda641befb934d818998ba02605da5017777|09:01:59|P1|1|1|0|healthy(豁免←cheat,activity_high)|A强:equal+coordSell+tier+sameBlock+pump+spike J_hold L_insider_sell27 R_abn|none(0.88)|crash(0.77)|high(0.86)|moderate(0.74)|almost_launch(1.00)|poor/entry_gate|4.7|4.7|failed|-
+171|FlapGuy|0x3acb26b17dabef7b12edfc57ab1145f32eee7777|09:01:59|P1|1|1|1|healthy|-|none(0.97)|normal_dip(0.66)|high(0.97)|moderate(0.91)|near_launch(1.00)|neutral/gates_passed|18.3|8.2|executed|-0.0021
+172|CZ|0x8b6b7248b8920f5db0f846d5f7bf1fd008df7777|09:03:18|P2|1|4|0|cheat|A强:equal D_famous J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+173|Duolingo|0xbb55a5ea1f00bc5f68b3f92fc3a37f85b4f47777|09:03:19|P1|1|1|0|cheat|A强:pump M_ultra|-|-|-|-|-|无段|?|?|failed|-
+174|memectuk|0x9dfe83281eb66b74dd5c432395a3c14091967777|09:05:12|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold|none(0.80)|spike(0.96)|high(0.92)|moderate(0.51)|near_launch(1.00)|neutral/gates_passed|19.5|1.1|executed|-0.007
+175|突突车|0x8d113eab5bf651a12f86f654291ed31fe03f7777|09:05:15|P1|1|1|0|cheat|A强:equal+coordSell+tier+sameBlock+pump+spike E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+176|LOVE|0xf0b83df726bba9a8a01fcd5da0b2303e83ca7777|09:06:00|P10|1|4|1|healthy(豁免←cheat,activity_high)|A强:equal+coordSell+pump J_hold R_abn|none(0.93)|normal_dip(0.68)|high(0.86)|strong(0.57)|almost_launch(1.00)|neutral/gates_passed|2.2|-9.5|executed|-0.0006
+177|memecar|0xefdeb4ad60d104a11550c419864633e03a4f8888|09:06:56|P1|2|2|0|cheat|A强:sameBlock+spike E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+178|SHLD|0x158e330fe1e2294dcb11ba70ba97e63df5ca7777|09:13:30|P11|1|5|0|cheat|A强:coordSell+sameBlock+pump+spike J_hold R_abn M_ultra N_no_retail_entry8.7|-|-|-|-|-|无段|?|?|failed|-
+179|FTT|0xc70a1cbe0b7e2320260ab406bd15af3a199e7777|09:13:41|P12|1|10|0|cheat|A强:equal+pump D_famous E_low_activity R_abn|-|-|-|-|-|无段|?|?|failed|-
+180|YiYi|0xd5bf246c2e23e2e2f8c8557a0014fdd2eec17777|09:17:56|P1|1|7|1|healthy(豁免←unhealthy,activity_high)|D_famous J_hold|famous_monopoly(0.80)|crash(0.47)|high(0.97)|strong(0.54)|near_launch(1.00)|poor/pattern_gate|17.9|16.2|failed|+0.0065
+181|YiYi|0x12f30defcb218ac1dcbbbe5cf1a9b45a8f737777|09:17:58|P1|1|4|0|healthy(豁免←cheat,activity_high)|A强:insider_supply_sell J_hold L_insider_sell70|none(0.98)|crash(0.71)|high(0.90)|strong(0.85)|near_launch(1.00)|poor/entry_gate|24.6|24.6|failed|-
+182|YiYi|0xbfc8f025427ef4049b6d679c0506cdf2b4164444|09:19:03|P3|1|4|0|cheat|A强:coordSell+pump D_famous J_hold R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+183|M7GA|0x276cd130463271b24c81790c5e9b35dd0d247777|09:19:04|P1|2|2|1|healthy(豁免←cheat,stall_burst)|A强:pump|none(0.72)|normal_dip(0.81)|burst(0.99)|weak(0.59)|near_launch(1.00)|neutral/gates_passed|23.6|10|executed|+0.0001
+184|汤圆|0x0e0e6317d83371818d26e427d2ded65a592f4444|09:20:08|P1|1|2|0|unhealthy|E_low弱|-|-|-|-|-|无段|?|?|failed|-
+185|100|0x68e45d60058077ee12e70ab094f1ad999ccf4444|09:21:07|P2|1|8|0|cheat|A强:equal+pump D_famous R_abn N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+186|Mei|0x1bc5bca317dcc077f07ff339e5ce648237a77777|09:21:08|P1|1|2|1|healthy(豁免←cheat,activity_high)|A强:sameBlock+pump+spike R_abn|none(0.63)|spike(0.95)|high(0.95)|strong(0.38)|near_launch(1.00)|poor/pattern_gate|35.2|10.3|failed|+0.0054
+187|米|0x338a510c6c7abd4c714d74225086542270427777|09:22:57|P1|1|9|0|healthy(豁免←unhealthy,activity_high)|D_famous|famous_monopoly(0.68)|spike(0.99)|high(0.92)|strong(0.53)|near_launch(1.00)|poor/pattern_gate|26.4|15.2|failed|-
+188|Taxcoin|0x16b371fb783b989617454a07ce8d947e4cb67777|09:24:09|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike J_hold L_insider_sell77 R_abn|none(0.98)|normal_dip(0.62)|high(0.95)|moderate(0.92)|near_launch(0.99)|neutral/gates_passed|16.1|10.5|executed|-0.0041
+189|米|0x6848b3a5fe21ca77e330c105cd6dcc35a9274444|09:26:03|P1|1|6|0|healthy(豁免←cheat,activity_high)|A强:equal+coordSell+tier+sameBlock+pump+spike D_famous J_hold R_abn|famous_monopoly(0.35)|normal_dip(0.64)|burst(0.99)|none(0.59)|near_launch(1.00)|poor/pattern_gate|25.2|12.8|failed|-
+190|FOUR米米|0x9c08bd8e1f1e6e8564e378bab47ce76d98724444|09:26:26|P1|1|2|0|unhealthy|E_low弱|-|-|-|-|-|无段|?|?|failed|-
+191|米|0xb788e63b15c2dfa508bb9c52b34d287d07f47777|09:27:21|P4|1|8|0|unhealthy|E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+192|米|0xa813cd684ce664d2dcde26797246e3b4ffd37777|09:27:56|P1|1|5|0|cheat|A强:pump E_low_activity R_abn|-|-|-|-|-|无段|?|?|failed|-
+193|米米|0xca1b2533e298858b7b0da12d5d841305fc654444|09:27:57|P1|1|3|0|healthy(豁免←cheat,activity_high)|A强:equal+tier+sameBlock+spike J_hold R_abn|none(0.95)|normal_dip(0.52)|burst(0.99)|strong(0.51)|near_launch(1.00)|poor/pattern_gate|31.9|12.5|failed|-
+194|蛙币|0x275c17eb37d8e5d4184d2f12565e4b4722727777|09:33:18|P1|1|2|1|healthy(豁免←unhealthy,activity_high)|R_abn|none(0.98)|spike(0.98)|high(0.97)|weak(0.81)|low(0.99)|poor/pattern_gate|44.5|-6.9|failed|-0.0035
+195|TukTuk|0x4ceddbf482c9486cee77270177c0163cd6647777|09:35:50|P1|1|2|0|cheat|A强:pump J_hold M_ultra N_no_retail_entry5.3|-|-|-|-|-|无段|?|?|failed|-
+196|memetuk|0xf485ec1d518185e73ca53164ddaa85dcfde77777|09:39:06|P9|1|10|1|healthy(豁免←cheat,stall_burst)|A强:pump D_famous J_hold R_abn|none(0.55)|normal_dip(0.79)|burst(0.99)|moderate(0.58)|almost_launch(0.99)|neutral/gates_passed|3.3|3.3|executed|-0.002
+197|tututu|0xa1b7083e407ac19cea6b47539c8cb1047bcb7777|09:43:37|P1|1|1|0|cheat|A强:equal+pump+spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+198|海水过滤器|0x30238ffd6137cd0fa70e681d0d5585d413cbffff|09:48:24|P11|1|7|1|unhealthy|A_downgrade_single_pump_burst E_low弱 N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-0.0095
+199|二师兄|0x4bc5f0dd9b748a7f073d8522223fec88f1267777|09:50:03|P10|1|4|0|healthy(豁免←cheat,stall_burst)|A强:coordSell+sameBlock+pump J_hold R_abn N_no_retail_entry9.3|none(0.69)|crash(0.77)|burst(0.98)|moderate(0.61)|almost_launch(1.00)|poor/entry_gate|6|6|failed|-
+200|SPP|0xb20a8aab74e0064287f097f51345f0f093ee7777|09:53:46|P1|1|2|1|healthy(豁免←cheat,activity_high)|A强:pump J_hold N_no_retail_entry0.0|none(0.93)|crash(0.66)|burst(0.98)|moderate(0.88)|near_launch(0.90)|poor/entry_gate|10.6|10.6|failed|+0.0164
+201|海水过滤器|0xb88113c98d5e33b15925edd635170e80a0fbffff|10:02:40|P2|1|6|1|healthy(豁免←cheat,activity_high)|A强:pump N_no_retail_entry0.0|none(0.93)|normal_dip(0.87)|high(0.76)|weak(0.47)|near_launch(1.00)|neutral/gates_passed|18.2|-0.6|executed|+0.0433
+202|FlapInBKK|0xe1a580f0112f62bcb2dae83ae322ef5ddfa67777|10:03:21|P10|1|5|0|cheat|A强:coordSell+pump R_abn M_ultra N_no_retail_entry6.1|-|-|-|-|-|无段|?|?|failed|-
+203|海水过滤器|0x94ea754b80bbafd776accf85d0df7f92dd73ffff|10:08:01|P3|1|4|1|healthy(豁免←cheat,activity_high)|A强:coordSell+pump N_no_retail_entry0.0|none(0.90)|normal_dip(0.79)|high(0.78)|weak(0.41)|near_launch(1.00)|neutral/gates_passed|26.4|9.2|executed|-0.0073
+204|Lily|0x71a333ca56d5b7462f87fe606d31302884f67777|10:11:34|P1|2|2|0|cheat|A强:equal+coordSell+pump R_abn M_ultra N_no_retail_entry8.2|-|-|-|-|-|无段|?|?|failed|-
+205|Look At Coins|0xed38a34638854d20809432a43a616cbba34c7777|10:11:49|P3|1|6|1|unhealthy|R_abn|-|-|-|-|-|无段|?|?|failed|-0.0106
+206|SAMSUNG|0x54117eb6d2481dc8d89ee377e00e683f882f7777|10:21:16|P1|1|2|1|healthy(豁免←cheat,activity_high)|A强:pump J_hold R_abn|sustained_climb(0.64)|spike(0.98)|low(0.40)|strong(0.93)|near_launch(1.00)|poor/pattern_gate|27.4|11.2|failed|-0.0121
+207|汤圆|0xeaeb67c29c73d86da820265748e4f043871d7777|10:27:53|P1|1|1|1|healthy(豁免←cheat,stall_burst)|A强:pump+spike E_low弱 R_abn|none(0.54)|normal_dip(0.40)|burst(0.99)|weak(0.73)|near_launch(0.99)|neutral/gates_passed|14.7|14.5|executed|-0.0067
+208|蝴蝶社区|0x2a4f58f52d8c16187fdfcfe28f737621dc4f7777|10:37:01|P2|1|6|0|cheat|A强:coordSell+sameBlock+pump R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|-
+209|Kyora|0xb5a73cd0e75ca003b244ac2afe6eac64f6897777|10:41:34|P10|1|2|0|cheat|A强:coordSell+pump J_hold R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|-
+210|CR|0x4a9a469973b8bc8486a923490ecdc3cf249a7777|10:47:25|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:equal+sameBlock+pump+spike J_hold R_abn|none(0.87)|spike(0.99)|high(0.89)|weak(0.84)|near_launch(1.00)|neutral/gates_passed|22.6|11|executed|-0.0033
+211|BUILD|0x367f70fd5d7962b6f5ba8973ffd3e7d891f17777|10:51:09|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:spike|none(0.94)|normal_dip(0.80)|burst(0.99)|moderate(0.97)|near_launch(0.99)|neutral/gates_passed|18.7|3|executed|+0.0009
+212|PAYAI|0xea80d6bc3d39d7f328a5575326836db546767777|10:54:07|P10|1|1|1|healthy(豁免←cheat,activity_high)|A强:pump J_hold|none(0.96)|normal_dip(0.55)|high(0.98)|moderate(0.95)|almost_launch(0.89)|neutral/gates_passed|9.2|9.2|executed|+0.0077
+213|CR|0x57d431ae0a47d57be9bae3623ce35fb805747777|10:59:29|P2|1|6|1|healthy(豁免←cheat,stall_burst)|A强:equal+coordSell+pump+spike J_hold R_abn|none(0.72)|normal_dip(0.80)|burst(0.99)|moderate(0.50)|near_launch(0.56)|neutral/gates_passed|10.8|0|executed|-0.0052
+214|7|0xf62bebcd5daf4e6c5cd4b3330ff9ff6c59b87777|11:09:21|P1|1|1|0|cheat|A强:equal+coordSell+tier+sameBlock+pump+spike E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+215|MSN|0x721e39611ed5f25af008dd3689dd7ff3dd267777|11:09:31|P10|1|5|0|cheat|A强:coordSell+pump J_hold R_abn M_ultra N_no_retail_entry7.4|-|-|-|-|-|无段|?|?|failed|-
+216|7|0x77777b63319b04f5bc7dfb5c4da3f8b3adf67777|11:15:27|P1|2|2|0|unhealthy|E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+217|TLSAFU|0xa994b16c8671af2a0a61a6d38d7df293c1377777|11:18:04|P10|1|2|0|cheat|A强:coordSell+sameBlock+pump J_hold R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|-
+218|SI|0xfe97215027434804ca0a5ca1a7421763b0127777|11:18:32|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|J_hold L_insider_sell60 R_abn|none(0.83)|spike(0.98)|high(0.93)|weak(0.61)|near_launch(1.00)|neutral/gates_passed|20.3|8.4|executed|-0.0019
+219|赵公主|0x5793b7ead75851206529f98cfe89db54511a7777|11:19:26|P3|1|4|1|healthy(豁免←cheat,activity_high)|A强:pump R_abn|none(0.87)|normal_dip(0.81)|high(0.90)|none(0.82)|near_launch(1.00)|neutral/gates_passed|27.8|14.8|executed|-0.0011
+220|DGAI|0x13d7a62693e2860ba4bd51d6c9c75edc53427777|11:20:30|P10|1|2|1|healthy(豁免←cheat,activity_high)|A强:pump J_hold|none(0.80)|normal_dip(0.64)|high(0.67)|moderate(0.73)|almost_launch(1.00)|neutral/gates_passed|0.3|0.2|executed|+0.0082
+221|AURVEN|0x8614876e509c18d7be305a39a4a8d9e69c5effff|11:21:04|P1|1|1|1|healthy(豁免←cheat,stall_burst)|A强:pump N_no_retail_entry0.0|none(0.62)|normal_dip(0.86)|burst(0.99)|weak(0.83)|near_launch(1.00)|neutral/gates_passed|26.6|10.9|executed|-0.004
+222|赵公主|0x258e485725b8d799b885b9f079241e2c812d7777|11:24:41|P1|1|3|1|healthy(豁免←cheat,activity_high)|A强:pump+spike J_hold R_abn|none(0.91)|crash(0.88)|high(0.96)|moderate(0.68)|almost_launch(1.00)|poor/entry_gate|6.1|6.1|failed|-0.0098
+223|壹刀剑|0x74a3c123b676806fba3ff723904c2fe8975a7777|11:26:29|P1|1|2|1|cheat|A强:pump J_hold L_insider_sell46|-|-|-|-|-|无段|?|?|failed|+0
+224|三人关系|0xa1b47d97784c2e12f5f893868466bd9de8ac7777|11:29:22|P1|1|2|0|cheat|A强:pump J_hold R_abn M_ultra N_no_retail_entry3.7|-|-|-|-|-|无段|?|?|failed|-
+225|蝴蝶慈善|0x6d20790e4220454c6d1929adb73d6cf138577777|11:30:42|P13|1|5|0|cheat|A强:coordSell+sameBlock+pump E_low_activity J_hold R_abn N_no_retail_entry9.1|-|-|-|-|-|无段|?|?|failed|-
+226|팔꿈치 매수|0x1ff6da9856abf6d7869797f46468f5e883c57777|11:35:37|P1|2|2|1|healthy|-|none(0.92)|spike(0.95)|high(0.86)|moderate(0.67)|near_launch(1.00)|neutral/gates_passed|23.2|6|executed|-0.0032
+227|GTA6M|0x6c77ff61fe0804d533a611b935b90aae52377777|11:43:14|P1|1|1|0|healthy(豁免←cheat,activity_high)|A强:coordSell+sameBlock+pump+spike J_hold R_abn|none(0.94)|crash(0.60)|high(0.87)|moderate(0.98)|almost_launch(1.00)|poor/entry_gate|1.8|1.8|failed|-
+228|29|0xdc1910375c1c1c3d0c25c13ee6e5f2bec1887777|12:00:00|P1|1|1|1|healthy|-|none(0.93)|normal_dip(0.80)|mid(0.48)|weak(0.68)|near_launch(1.00)|neutral/gates_passed|19.4|12.4|executed|-0.0081
+229|量子蝴蝶|0x2af2906211b24c6e8308eed6faa34f78944e7777|12:02:34|P2|1|3|1|healthy(豁免←unhealthy,stall_burst)|R_abn|none(0.83)|normal_dip(0.94)|burst(0.99)|moderate(0.82)|near_launch(0.99)|neutral/gates_passed|13|6.2|executed|+0.0027
+230|币安之心|0x08aa150d7d86c4a0dfa37f310c1380de9c187777|12:11:26|P2|1|3|1|healthy|-|none(0.88)|normal_dip(0.71)|high(0.71)|weak(0.55)|near_launch(1.00)|neutral/gates_passed|22.4|13|executed|-0.0071
+231|刘家郡|0x996e6d92f99d327d34febf0cd4a32c13ca097777|12:14:00|P1|1|1|1|healthy|-|none(0.98)|normal_dip(0.57)|high(0.92)|moderate(0.93)|near_launch(1.00)|neutral/gates_passed|23.2|11|executed|-0.0043
+232|坟头蹦迪|0x1417a158d74cec617ff777661ee72009daa3ffff|12:17:48|P1|1|2|1|cheat|A强:spike J_hold|-|-|-|-|-|无段|?|?|failed|-0.0046
+233|$SVP|0xfa67db11132e73a659a70fd7c2cdc71f0eab7777|12:17:54|P12|1|9|0|cheat|A强:pump E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+234|网约车|0x9fb139eca919a1cd44e02c6932f6f32704da7777|12:25:04|P2|1|3|0|unhealthy|D_famous E_low_activity R_abn|-|-|-|-|-|无段|?|?|failed|-
+235|CR|0xbcb27c14a0faec17461cb6101810aee9fb554444|12:26:00|P1|1|1|1|healthy(豁免←cheat,stall_burst)|A强:pump J_hold N_no_retail_entry0.0|none(0.75)|normal_dip(0.86)|burst(0.99)|weak(0.50)|near_launch(1.00)|neutral/gates_passed|23.5|11.9|executed|+0
+236|蝴蝶品牌|0x5c138d33770edf34755195b3c2d3955fd76d7777|12:26:06|P1|2|3|0|cheat|A强:pump|-|-|-|-|-|无段|?|?|failed|-
+237|SI|0xea7dc0825d4e6d90c026201ecc6aa8d82c577777|12:27:57|P1|1|3|1|healthy(豁免←cheat,activity_high)|A强:spike J_hold R_abn|famous_monopoly(0.62)|spike(0.40)|high(0.94)|moderate(0.56)|near_launch(1.00)|poor/pattern_gate|21.4|14|failed|-0.004
+238|币安公主🔥🔥🔥|0xd4e58562807b9aca91b4de87e7646a560c2d7777|12:28:11|P1|1|4|0|unhealthy|E_low弱|-|-|-|-|-|无段|?|?|failed|-
+239|SI|0x7be151a90d7267d28a17551f726897d4e3067777|12:29:23|P3|1|7|0|cheat|A强:pump D_famous E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+240|SI|0x1f24d0af8f1217df789fcb888636f253c93c4444|12:30:28|P1|1|6|0|healthy(豁免←cheat,stall_burst)|A强:equal+coordSell+pump D_famous J_hold R_abn N_no_retail_entry0.0|famous_monopoly(0.71)|crash(0.68)|burst(0.98)|strong(0.96)|near_launch(1.00)|poor/pattern_gate|25.1|-0.7|failed|-
+241|我对钱没有兴趣|0x06d944c4877cced2d60811c5b7cf8dfff06d7777|12:30:40|P10|1|3|0|cheat|A强:pump J_hold|-|-|-|-|-|无段|?|?|failed|-
+242|玩币归赵|0x6c06ee23e9d0ef14dba5f46fdb5c2c4f39d97777|12:30:44|P1|1|1|0|healthy(豁免←unhealthy,activity_high)|J_hold|none(0.94)|crash(0.66)|high(0.95)|moderate(0.93)|near_launch(0.98)|poor/entry_gate|11.6|11.6|failed|-
+243|钱来|0xd16d9ad9c08883aea9563de1b989ada449344444|12:30:51|P1|1|2|0|cheat|A强:pump+spike J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+244|羊王|0x5a8d94c69998daffcfdc365f1d333dc4ab087777|12:30:54|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|L_insider_sell100|none(0.99)|normal_dip(0.76)|high(0.92)|moderate(0.98)|near_launch(1.00)|neutral/gates_passed|24|19.9|executed|-0.0027
+245|来财|0xc84a0ff2e7bab3d32cb6426f07855b70694f7777|12:31:26|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:pump D_famous|none(0.69)|normal_dip(0.59)|high(0.90)|none(0.51)|near_launch(1.00)|neutral/gates_passed|27.3|16.6|executed|+0.042
+246|钱来|0xcb70708ebe85cd4de4735776feef20d9c3654444|12:31:31|P2|1|4|0|healthy(豁免←cheat,activity_high)|A强:equal+coordSell+tier+sameBlock+pump J_hold R_abn N_no_retail_entry0.0|none(0.96)|crash(0.56)|high(0.84)|strong(0.95)|near_launch(0.99)|poor/entry_gate|14.8|-0.7|failed|-
+247|钱从四面八方来|0x6f1d06df932e820aba9dc3419c69bf8ecbb84444|12:32:09|P1|2|2|0|cheat|A强:coordSell+pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+248|钱来|0xc62d2dffb9567746a5c883ede552d231e3967777|12:32:31|P3|1|7|1|cheat|A强:pump D_famous J_hold R_abn M_ultra|-|-|-|-|-|无段|?|?|failed|+0.0106
+249|钱来|0xf1dee04404a60b7ed118f413f46a18e272c94444|12:32:34|P10|1|3|0|cheat|A强:pump J_hold L_insider_sell31 R_abn M_ultra N_no_retail_entry0.0|-|-|-|-|-|无段|?|?|failed|-
+250|MFLY|0x6606dea0568a4eaacb7b5fc3b5914b82c7047777|12:33:18|P10|1|2|0|cheat|A强:coordSell+pump E_low_activity J_hold|-|-|-|-|-|无段|?|?|failed|-
+251|钱来|0x840facb07206671e8e029b8e052576afc3d94444|12:33:33|P11|1|6|0|healthy(豁免←cheat,activity_high)|A强:pump D_famous J_hold N_no_retail_entry0.0|famous_monopoly(0.75)|normal_dip(0.58)|high(0.82)|moderate(0.97)|almost_launch(1.00)|poor/pattern_gate|3.7|0|failed|-
+252|钱来|0x2edba01aef909eb2e21b007ae7be144ecf057777|12:33:50|P2|1|3|1|healthy(豁免←cheat,activity_high)|A强:pump D_famous R_abn|none(0.69)|normal_dip(0.67)|high(0.78)|weak(0.53)|near_launch(1.00)|neutral/gates_passed|18.1|18.1|executed|-0.0024
+253|SI|0x4ebef4c08386b2b4a37aa2d056f26160573b7777|12:34:21|P3|1|7|1|cheat|A强:equal+pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-0.0052
+254|FOR|0xa7cc61682207a3088fb2c22c33ded688ee447777|12:35:37|P1|1|1|0|cheat|A强:spike E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+255|来财|0xb8d342302af17fb2ef228f8e9b5f6b2b40104444|12:36:46|P1|2|2|0|healthy(豁免←cheat,stall_burst)|A强:equal+coordSell+sameBlock+pump+spike D_famous E_low弱 R_abn|famous_monopoly(0.42)|crash(0.61)|burst(0.99)|moderate(0.66)|almost_launch(1.00)|poor/pattern_gate|-0.7|-0.7|failed|-
+256|Elcoin|0x2b7738df288e084dac0e1473b0bf4ccf108a7777|12:39:43|P11|1|5|0|cheat|A强:pump E_low_activity J_hold R_abn|-|-|-|-|-|无段|?|?|failed|-
+257|热梗拼好歌|0xcba062de4ab930b1d2f7b47753c1b409c3907777|12:42:08|P1|1|1|1|healthy|-|none(0.61)|normal_dip(0.51)|mid(0.44)|weak(0.81)|near_launch(1.00)|neutral/gates_passed|24|17.5|executed|+0.0042
+258|蝴蝶人生路|0xb359716d1affde1fb9d351fec71a0f2e79257777|12:43:05|P2|1|5|1|healthy|-|none(0.78)|crash(0.60)|low(0.49)|weak(0.66)|near_launch(0.98)|poor/entry_gate|11.7|11.7|failed|-0.0044
+259|虎猫|0x1252847f1dcbf97e0d8b3330fa9c840d66217777|12:45:23|P1|1|1|0|cheat|A强:coordSell+pump J_hold R_abn M_ultra N_no_retail_entry3.3|-|-|-|-|-|无段|?|?|failed|-
+260|GOUT人生|0x3a2c276e156ceecf66554cb254f010ad30ac7777|12:45:29|P13|1|10|0|cheat|A强:pump E_low弱 J_hold|-|-|-|-|-|无段|?|?|failed|-
+261|新语新言|0xd92913a0956ec41bea37752365cc9d9b92587777|13:00:25|P1|1|1|1|healthy(豁免←unhealthy,activity_high)|L_insider_sell48|none(0.99)|spike(0.89)|high(0.56)|moderate(0.91)|near_launch(0.98)|neutral/gates_passed|15.2|4.7|executed|+0.0104
+262|火星蝴蝶|0x92e5b4019bd8a9b7d08963e2017bfddd06357777|13:03:03|P1|1|1|0|unhealthy|E_low_activity|-|-|-|-|-|无段|?|?|failed|-
+263|虎爷|0xaaca1cb732cab1be044fedcef52a11542a5a7777|13:08:13|P1|1|1|1|healthy(豁免←cheat,activity_high)|A强:equal+spike J_hold R_abn|none(0.94)|spike(0.97)|high(0.95)|strong(0.95)|near_launch(1.00)|neutral/gates_passed|19.5|11|executed|+0.0104
+264|后会无7|0x1ecac230aa5099095e0052622d7eba0e30b57777|13:09:05|P3|1|7|0|unhealthy|E_low弱|-|-|-|-|-|无段|?|?|failed|-
+265|新言新语|0x7f326b12269c36583f11e1b27f7cbf2f56b07777|13:20:16|P1|2|4|1|unhealthy|E_low弱 R_abn|-|-|-|-|-|无段|?|?|failed|-0.0015
+266|屎壳郎自拉|0x2ef6c0e630d34b78ad36aabe04cd90f57e3c7777|13:36:06|P1|1|2|1|healthy|-|none(0.96)|crash(0.74)|burst(0.98)|none(0.66)|near_launch(1.00)|poor/entry_gate|22.7|13|failed|-0.0065
+267|币安奇迹|0xf760043eab76a8b36aab5846936dfb3e36087777|13:39:17|P1|1|2|0|unhealthy|E_low_activity J_hold|-|-|-|-|-|无段|?|?|failed|-
+268|Agentic|0x98b9b24777d6adbb3af778a8cebe2a92feea7777|13:43:25|P1|1|1|0|cheat|A强:pump E_low弱 N_no_retail_entry3.8|-|-|-|-|-|无段|?|?|failed|-
+269|GNusmas|0x1c6be124ffe79abe2fd32adba76dd4f3d5567777|13:44:00|P1|2|3|1|healthy(豁免←cheat,activity_high)|A强:sameBlock+spike J_hold|sustained_climb(0.59)|spike(0.96)|high(0.93)|strong(0.85)|near_launch(1.00)|poor/pattern_gate|25|10.9|failed|-0.0108
+270|羊王|0xa0ac70f4b56ed1ff460c4bc9656771f3d1677777|13:44:46|P1|1|1|0|unhealthy|A_downgrade_single_pump_burst E_low弱|-|-|-|-|-|无段|?|?|failed|-
