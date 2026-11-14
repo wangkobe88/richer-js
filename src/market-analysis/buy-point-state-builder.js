@@ -183,12 +183,17 @@ function buildBuyPointState(snapshot) {
     if (b.phaseSplit) {
       const p = b.phaseSplit;
       const pb = p.postBundledBlock;
+      // BP83 卖期主导比直供：卖占首卖后成交（尘门口径与分界行一致）%——
+      // 「买期/卖期」对称定义（买期=买绝对主导/卖期=卖绝对主导），Jev 算术
+      // 不可靠（BP80 三要件拼装教训同族）——主导比在渲染层直供，判读归题面⑨。
+      const postSum = (p.postSellBnb || 0) + (p.postBuyBnb || 0);
+      const sellShare = postSum > 0 ? +((p.postSellBnb / postSum) * 100).toFixed(1) : null;
       lines.push(
         `买期/卖期分界(首笔像样卖@t+${p.firstSellDt ?? '?'}s): 首卖距今买点 ${p.secSinceFirstSell ?? '?'}s` +
         `；首卖前（纯买期段）尘门后买入 ${fmtBnb(p.preBuyBnb)}×${p.preBuyN}${(p.preDustBuyN || p.preDustSellN) ? `（另有尘级买 ${p.preDustBuyN ?? 0} 笔/尘级卖 ${p.preDustSellN ?? 0} 笔不计）` : '、零卖出'}、占全窗尘门后买入 ${p.preBuySharePct ?? '?'}%` +
-        `；首卖后 买入 ${fmtBnb(p.postBuyBnb)}×${p.postBuyN} / 卖出 ${fmtBnb(p.postSellBnb)}×${p.postSellN}` +
+        `；首卖后 买入 ${fmtBnb(p.postBuyBnb)}×${p.postBuyN} / 卖出 ${fmtBnb(p.postSellBnb)}×${p.postSellN}、卖占首卖后成交 ${sellShare ?? '?'}%` +
         `${pb ? `、最大同块买入合计 ${fmtBnb(pb.buyBnb)} BNB×${pb.n} 笔（同块捆绑=组织性分仓，不是换手承接）` : ''}` +
-        `（尘门=买 <0.05 / 卖 <0.01 不计；「先买后卖一波流」=首卖前基本只有买 ∧ 卖期在买点前夕刚启动 ∧ 无对倒换手——判读见盘面分类题⑨桶）`,
+        `（尘门=买 <0.05 / 卖 <0.01 不计；「先买后卖一波流」=首卖前基本只有买 ∧ 卖期在买点前夕刚启动 ∧ 卖期卖占绝对主导〔参考 ≥80%，买卖同量级交织（2:1 级）不算卖期〕——判读见盘面分类题⑨桶）`,
       );
     }
     // BP77 塞单簇——同 block 等额买入（金额 toFixed(4) 全等 ∧ ≥2 钱包成簇、
