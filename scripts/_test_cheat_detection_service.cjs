@@ -1221,6 +1221,89 @@ async function main() {
     ok(lteSrc === 2, `.lte('block_time', anchorIso) 源码恰两处 tail+head（实际 ${lteSrc}）`);
   }
 
+  // ═══════════════ D9. CD403 超大量捆绑砸盘承接比不豁免臂（dump_low_absorption） ═══════════════
+  console.log('D9. CD403 超大量捆绑砸盘承接比臂');
+  {
+    // 用户裁定（2026-11-14，btv111 T003 memes 0xf1fc8f44 归因）：「这个 case 有
+    // 非常非常明显的作弊异常（超大量捆绑砸盘），这种情况，建议直接堵死，不豁免」
+    // ——生产时序：cheat 首信号 ultra 拒 → 4s 后重判 act=high 豁免把 originalGrade=
+    // cheat 翻 healthy 买入（ep -0.0021）；缺口=CD400 绝对线（承接 <0.05）拦不住
+    // 「承接一成上下」形状（T003 MinAbsorb=0.2418/WorstSell=1.254=19.3%）。
+    // 本臂=规模线 WorstSellers ≥8（BP77 塞单门同线）∧ 承接比 <0.3（BP82「达三成
+    // =承接形成」同线）；四基底扫描 sellers ≥8 ∧ ratio<0.3 唯一命中 T003 双基底，
+    // sellers 4~6 六张盈利票（왹냥/我画地为牢/富个鸟/TRUMP/無為/trust）全在门外。
+    const T0 = 1800000000000;
+    const at = (sec) => new Date(T0 + sec * 1000).toISOString();
+    const row = (sec, block, log, type, bnb, wallet) => ({
+      block_time: at(sec), block_number: block, log_index: log, trade_type: type,
+      bnb_amount: bnb, price_bnb: 1e-9, price_outlier: false,
+      trader_address: wallet, sender_address: wallet, quote_token: null,
+    });
+    const w = (s) => s.padEnd(42, '0');
+    // T003 复刻基底：铺买 2 笔 → 块 200 八卖方捆绑砸出 8×0.08=0.64（sellers=8
+    // ≥8、卖额 ≥0.5=资格块双门全过、同块零买）→ 块 250 承接买入 absorbBnb →
+    // 尾卖行定锚（距砸块 14s ≤60s）。ratio=absorb/0.64。
+    const t003Base = (absorbBnb) => [
+      row(0, 100, 0, 'buy', 0.1, w('0xp1')), row(1, 100, 1, 'buy', 0.1, w('0xp2')),
+      row(56, 200, 0, 'sell', 0.08, w('0xd1')), row(56, 200, 1, 'sell', 0.08, w('0xd2')),
+      row(56, 200, 2, 'sell', 0.08, w('0xd3')), row(56, 200, 3, 'sell', 0.08, w('0xd4')),
+      row(56, 200, 4, 'sell', 0.08, w('0xd5')), row(56, 200, 5, 'sell', 0.08, w('0xd6')),
+      row(56, 200, 6, 'sell', 0.08, w('0xd7')), row(56, 200, 7, 'sell', 0.08, w('0xd8')),
+      row(60, 250, 0, 'buy', absorbBnb, w('0xabs')),
+      row(70, 300, 0, 'sell', 0.05, w('0xtail')),
+    ];
+    const CHEAT_HIGH = { ...GOOD_ANSWERS, activity_level: actAns('high') };
+
+    // ① 主形状（T003 复刻）：cheat ∧ act=high ∧ 8 卖方捆绑砸 0.64 ∧ 承接 0.12
+    //    （19.3% 同 T003）→ CD400 不拦（≥0.05）CD403 denied 保持 cheat+拉黑+细分计数
+    const db1 = makeDb({ ticks: t003Base(0.12) });
+    const svc1 = makeSvc(db1, makeLlm({ answers: CHEAT_HIGH }));
+    const r1 = await svc1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.grade === 'cheat' && r1.exemptDenied === 'dump_low_absorption' && svc1.isGateBlocked('0xtok') === true
+      && svc1.stats.dumpRatioDenied === 1 && svc1.stats.dumpAbsorbDenied === 0,
+      `cheat∧high∧8 卖方砸 0.64 承接 19.3% → 豁免失效原判保持+拉黑（T003 立法；实际 ${r1.grade}/${r1.exemptDenied}/blocked=${svc1.isGateBlocked('0xtok')}/r=${svc1.stats.dumpRatioDenied}/a=${svc1.stats.dumpAbsorbDenied}）`);
+    const anc1 = db1.state.inserts[0].snapshot_digest.anchors;
+    ok(anc1.nearDumpQualBlocks === 1 && anc1.nearDumpMinAbsorbBnb === 0.12
+      && anc1.nearDumpWorstSellers === 8 && anc1.nearDumpWorstSellBnb === 0.64,
+      `六键基底精确值（qual=1/absorb=0.12/sellers=8/卖=0.64；实际 ${anc1.nearDumpQualBlocks}/${anc1.nearDumpMinAbsorbBnb}/${anc1.nearDumpWorstSellers}/${anc1.nearDumpWorstSellBnb}）`);
+    ok(r1.anchors && r1.anchors.nearDumpWorstSellers === 8 && r1.anchors.nearDumpWorstSellBnb === 0.64,
+      'r.anchors 判据四键白名单透传（CD400 同形——门侧消费需要）');
+
+    // ② 承接达三成放行：absorb 0.2 → ratio 0.3125 ≥0.3 → 照豁免（healthy+exempt）
+    //    （四基底 C 带实证：POORNANCE 0.485/CZ 0.861/SI 1.498 承接真实形状全放）
+    const db2 = makeDb({ ticks: t003Base(0.2) });
+    const svc2 = makeSvc(db2, makeLlm({ answers: CHEAT_HIGH }));
+    const r2 = await svc2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2.grade === 'healthy' && r2.exempt && r2.exempt.code === 'activity_high'
+      && svc2.stats.dumpRatioDenied === 0,
+      `承接 31.25% 达三成 → 承接形成不拦照豁免（实际 ${r2.grade}/${JSON.stringify(r2.exempt)}/r=${svc2.stats.dumpRatioDenied}）`);
+
+    // ③ 直调锁：判据边界（T003 生产 metadata 精确形状 / 规模线 / 三成线 / 臂序 / 容缺）
+    const svc3 = makeSvc(makeDb(), makeLlm());
+    const lv = { washPair: 0 };
+    // T003 信号 2 生产锚精确复刻（cc.anchors 实测值）→ ratio 0.1929 命中
+    ok(svc3._exemptDeniedReason(lv, {
+      nearDumpQualBlocks: 2, nearDumpMinAbsorbBnb: 0.2418,
+      nearDumpWorstSellers: 23, nearDumpWorstSellBnb: 1.254,
+      nearDumpWorstSecToAnchor: 5, nearDumpWorstSameBlkBuyBnb: 0,
+    }) === 'dump_low_absorption',
+      'T003 信号 2 生产 anchors 精确形状命中（0.2418/1.254=19.3% ∧ 23 卖方）');
+    ok(svc3._exemptDeniedReason(lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.1135, nearDumpWorstSellers: 5, nearDumpWorstSellBnb: 0.5167 }) === null,
+      '왹냥 形状（sellers=5 ratio 0.22）→ 规模线门外（四基底六张 4~6 卖方票全放）');
+    ok(svc3._exemptDeniedReason(lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.1974, nearDumpWorstSellers: 8, nearDumpWorstSellBnb: 0.658 }) === null,
+      '三成线边界（8 卖方 ratio=0.3 恰好）→ 严格小于不拦');
+    ok(svc3._exemptDeniedReason(lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.045, nearDumpWorstSellers: 8, nearDumpWorstSellBnb: 0.64 }) === 'dump_no_absorption',
+      '臂序锁：承接 <0.05 优先落 CD400 更具体码（绝对线在前）');
+    ok(svc3._exemptDeniedReason(lv, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.12 }) === null
+      && svc3._exemptDeniedReason(lv, { nearDumpQualBlocks: 0, nearDumpMinAbsorbBnb: 0.12, nearDumpWorstSellers: 8, nearDumpWorstSellBnb: 0.64 }) === null,
+      '容缺锁：worstSell 缺席/qual=0 → 不触发（旧档断代不扩大收紧面）');
+    ok(svc3._isCheatExemptEligible('high', lv, {
+      nearDumpQualBlocks: 2, nearDumpMinAbsorbBnb: 0.2418,
+      nearDumpWorstSellers: 23, nearDumpWorstSellBnb: 1.254,
+    }) === false,
+      '_isCheatExemptEligible 三点同构直调（出口/拉黑登记/bootstrap 与出口同判）');
+  }
+
   // ═══════════════ Z2. CD393 截窗整链退役（判定窗=锚截窗全窗——回到 CD382 前口径）═══════════════
   console.log('Z2. CD393 截窗整链退役（全窗口径回归）');
   {

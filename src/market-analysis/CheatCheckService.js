@@ -93,6 +93,13 @@ const DEFAULTS = {
 
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
+// CD403 超大量捆绑砸盘承接比臂双线（2026-11-14，T003 memes 案；详见 _exemptDeniedReason 头注⑥）：
+// 卖方线 8=BP77 塞单门 STUFFING_MAX_EQ_WALLETS 同线（同块 8+ 钱包=组织性捆绑）；承接比线
+// 0.3=BP82 贴锚砸盘臂「达三成=承接形成」同线（严格小于）。定线依据=四基底扫描 sellers ≥8 ∧
+// ratio<0.3 唯一命中 T003 双基底、sellers 4~6 六张盈利票全在门外零误伤。
+const DUMP_RATIO_MIN_SELLERS = 8;
+const DUMP_LOW_ABSORPTION_RATIO = 0.3;
+
 // CD379 活跃度豁免合法域（2026-11-07 用户裁定）——与 llm/cheat-questions.mjs 的
 // ACTIVITY_LEVELS 同域（ESM 不能静态 require，单测 _test_cheat_gate_engine.cjs
 // dynamic import 锁两边一致防漂移）
@@ -192,6 +199,7 @@ class CheatCheckService {
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行 wash+CD400 dump 承接——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
       dumpAbsorbDenied: 0, // CD400 贴锚砸出零承接臂命中细分计数（dump_no_absorption；生产触发频率观察）
       burstSellDenied: 0, // CD401 出口段卖压臂命中细分计数（burst_exit_sell_pressure；生产触发频率观察）
+      dumpRatioDenied: 0, // CD403 超大量捆绑砸盘承接比臂命中细分计数（dump_low_absorption；生产触发频率观察）
       ultraCheatDenied: 0, // CD388/CD391 ultra 档资格收紧命中计数（cheat∧ultra∧burst 不在场=不豁免原判保持；11-09 两度裁定：CD390 曾推广全档、CD391「交易活跃度热，cheat 继续豁免」收回 ultra 单档恢复 high 豁免）
       activityCheatDenied: 0, // CD390 全档资格收紧命中计数——CD391 收回 ultra 单档后本计数停用恒 0，保留键读数连续性
       marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
@@ -473,6 +481,24 @@ class CheatCheckService {
    *    （burstExitSegSellPct/burstExitSegSellBnb，计算头注见 cheat-snapshot
    *    CD401 段）；题集/grade 版本零改动（纯代码数值臂，CD400/G17 N 通道先例
    *    第三例）。
+   * ⑥ 超大量捆绑砸盘承接比臂（CD403，2026-11-14 btv111 T003 memes
+   *    0xf1fc8f44 归因立法——用户裁定原话「这个 case 有非常非常明显的作弊异常
+   *    （超大量捆绑砸盘），这种情况，建议直接堵死，不豁免」）：达标砸块卖方
+   *    ≥8（DUMP_RATIO_MIN_SELLERS，与 BP77 塞单门 ≥8 同线=同块 8+ 钱包=组织
+   *    性捆绑，散户到不了这个同块规模）∧ 承接比（nearDumpMinAbsorbBnb÷
+   *    nearDumpWorstSellBnb）< 0.3（与 BP82 贴锚砸盘臂「达三成=承接形成」
+   *    同线同义）→ denied 'dump_low_absorption'。CD400 绝对线（承接 <0.05）
+   *    只拦承接≈零的形状；T003 形状（23/24 卖方双块 3.62 BNB 砸出、承接
+   *    0.2418=19.3%）承接非零但实质无人接——本臂按相对线接棒。**规模线 8 的
+   *    定线依据**=四基底（btv103-r2/btv104/btv109/btv111）成交点位全量扫描：
+   *    sellers ≥8 ∧ ratio <0.3 唯一命中 T003 双基底（btv109/btv111 同票），
+   *    sellers 4~6 的六张 B 带票（왹냥/我画地为牢/富个鸟/TRUMP/無為/trust，
+   *    净 +0.04~+0.043 区间=纯误伤成本）全在门外零误伤；C 带放行 26 点中
+   *    sellers ≥8 票（POORNANCE/CZ/SI）承接比 0.485~1.498 全 ≥0.3 不受影响
+   *    ——0.3 线分离面干净（0.30~0.379 之间无票）。trust（sellers=5 ratio
+   *    0.185 −0.045）等小规模砸块低承接票不落本臂=观察攒批。臂序在 CD400 后
+   *    =承接 <0.05 的形状留 dump_no_absorption 码更具体；题集/grade 版本零
+   *    改动（纯代码数值臂，CD400/CD401/G17 N 通道先例第四例）。
    * 入参=levels 数值投影 + anchors 数值锚（levelsFromObservation 产物；秒回/
    * late/blocked 行同构）；levels null 或键缺席（旧档断代/题未答）→ 不触发=
    * 豁免照常（缺席不扩大收紧面，维持 CD379 原语义）。豁免与收紧全部收在本
@@ -492,6 +518,18 @@ class CheatCheckService {
     if (typeof an.nearDumpQualBlocks === 'number' && an.nearDumpQualBlocks >= 1
       && typeof an.nearDumpMinAbsorbBnb === 'number' && an.nearDumpMinAbsorbBnb < 0.05) {
       return 'dump_no_absorption';
+    }
+    // CD403 超大量捆绑砸盘承接比臂（T003 归因立法，头注⑥）：同块 8+ 卖方捆绑砸出
+    // ∧ 承接比 <0.3（承接/砸卖额，与 BP82「达三成=承接形成」同线）→ 不豁免。
+    // 规模线 8=BP77 塞单门同线（四基底扫描唯一命中 T003、sellers 4~6 六票零误伤，
+    // 定线依据见头注⑥）；承接 <0.05 已被上一臂更具体地拦（本臂只接承接非零但
+    // 实质无人接的形状）；卖额门 ≥0.5 在 nearDump 资格块已含（六键前置条件）。
+    if (typeof an.nearDumpQualBlocks === 'number' && an.nearDumpQualBlocks >= 1
+      && typeof an.nearDumpWorstSellers === 'number' && an.nearDumpWorstSellers >= DUMP_RATIO_MIN_SELLERS
+      && typeof an.nearDumpMinAbsorbBnb === 'number'
+      && typeof an.nearDumpWorstSellBnb === 'number' && an.nearDumpWorstSellBnb > 0
+      && an.nearDumpMinAbsorbBnb / an.nearDumpWorstSellBnb < DUMP_LOW_ABSORPTION_RATIO) {
+      return 'dump_low_absorption';
     }
     // CD401 出口段卖压臂（burst 期望=纯流入驱动；卖占比 ≥30% ∧ 卖额 ≥0.3——
     // 卖额门保护 meem 0.12/小旺 0.24 级小卖压、卖%门拦谷歌SI 99% 纯卖出口；
@@ -581,6 +619,7 @@ class CheatCheckService {
     if (denied) {
       this.stats.exemptDenied++;
       if (denied === 'dump_no_absorption') this.stats.dumpAbsorbDenied++; // CD400 细分计数
+      if (denied === 'dump_low_absorption') this.stats.dumpRatioDenied++; // CD403 细分计数
       if (denied === 'burst_exit_sell_pressure') this.stats.burstSellDenied++; // CD401 细分计数
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }

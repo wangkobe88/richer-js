@@ -187,6 +187,18 @@
 
 ## Case 倒序
 
+### CD403 超大量捆绑砸盘承接比不豁免臂——dump_low_absorption（2026-11-14，豁免收紧案·service denied 臂纯 metadata 可算，题集 D3.69/grade G18/snapshot 零改动；btv111 T003 memes `0xf1fc8f441e224923f44fd45f3f5bc034ba887777` 归因立法；用户裁定原话「这个case 有非常非常明显的作弊异常（超大量捆绑砸盘），这种情况，建议直接堵死，不豁免」）
+
+**动机（btv111 分批复审 T003 归因）**：memes `0xf1fc8f44…` 实验 5390bbfa 16:52:56 块 131276215（**23 独立卖方**/1.254 BNB）+16:52:57 块 131276217（**24 卖方**/2.3651 BNB）双纯卖捆绑砸块 → 信号 1 @16:52:57 cheat/ultra 拒 → **4s 后信号 2 @16:53:01 重判 act=high，CD379 activity_high 豁免把 originalGrade=cheat（A 主判 coordinated_sell_back+slow_grind_pump strong）翻 healthy 买入**（ep −0.0021）。两砸块均在信号 2 锚窗内（4~5s）；CD400 nearDump 六键齐产出（qual=2/MinAbsorb=0.2418/WorstSell=1.254/WorstSellers=23）——**缺口=CD400 绝对线（承接 <0.05）拦不住「承接一成上下」形状**（0.2418 ≥0.05 → 豁免放行；承接比 19.3%）。BP 侧同票已由 BP82 贴锚砸盘臂拦（题集 BP65），但 cheat 侧豁免仍放行=双层防线缺一层。
+
+**定线数据（182 tmp-cd403-ratio-sweep.mjs 四基底 btv103-r2/btv104/btv109/btv111 成交点位全量扫描，2026-11-14）**：A_cd400 带（absorb<0.05）16 点 13 票全 activity_high orig=cheat pnlΣ −0.2711（CD400 设计内复现）；**B 带（absorb≥0.05 ∧ ratio<0.3）12 点 7 唯一票全靠豁免买入**——memes（sellers=23/ratio 0.193/−0.0021 目标票）、trust `0x373d5389…`（sellers=5/0.185/−0.0447）、왹냥 `0x40a58811…`（sellers=5/0.254/+0.0433）、我画地为牢 `0x3816a4ab…`（sellers=5/0.219/+0.0348）、富个鸟（sellers=6/0.155/+0.0070）、TRUMP（sellers=4/0.228/+0.0029）、無為 `0xb97d5772…`（sellers=4/0.238/+0.0001）——裸 ratio<0.3 臂净代价 ≈−0.041（六张盈利票纯误伤，与 BP 侧我画地为牢 famous_monopoly 误伤候选同票）；**C 带放行 26 点 pnlΣ +1.4811**（28ad ratio 1.282 +0.66/CALLCAT 0.379 +0.060/CZ 0.861 +0.111/SI 1.498 等赢家全保），**0.30~0.379 之间无票=0.3 线分离面干净**（POORNANCE sellers=20 ratio 0.485/CZ sellers=8 ratio 0.861 承接真实形状不受影响）。**加规模线 WorstSellers ≥8 后：四基底唯一命中=T003 双基底（btv109/btv111 同票）——sellers 4~6 六票全在门外零误伤**。规模线 8=BP77 塞单门 `STUFFING_MAX_EQ_WALLETS=8` 同线（同块 8+ 钱包=组织性捆绑，散户到不了这个同块规模；「超大量捆绑」语义的操作化）。
+
+**落法（service `_exemptDeniedReason` 插臂，CD400 后 CD401 前）**：`nearDumpQualBlocks ≥1 ∧ nearDumpWorstSellers ≥8 ∧ nearDumpMinAbsorbBnb/nearDumpWorstSellBnb < 0.3（严格小于）→ denied 'dump_low_absorption'`（承接比=承接÷砸卖额，与 BP82 贴锚臂「达三成=承接形成」同线同义）；臂序在 CD400 后=承接 <0.05 形状留 dump_no_absorption 更具体码；卖额门 ≥0.5 在 nearDump 资格块已含（六键前置条件）；worstSell 缺席/qual=0 容缺不触发（旧档断代不扩大收紧面）；stats 细分键 `dumpRatioDenied`；出口四点统一（_applyActivityExempt/拉黑登记/bootstrap/sticky）同 CD380 结构自动继承；三点同构单测锁 `_isCheatExemptEligible('high', lv, T003生产anchors) === false`；对 cheat/unhealthy 两档豁免同构生效（CD380 语义）。题集/grade 版本零改动（纯代码数值臂，CD400/CD401/G17 N 通道先例第四例）。
+
+**对拍/单测**：service D9 段全链 T003 复刻夹具（8 卖方砸 0.64 承接 0.12=19.3% → denied 保持 cheat+拉黑+dumpRatioDenied=1；承接 0.2=31.25% → 照豁免 healthy+exempt）+直调锁六断言（**T003 信号 2 生产 anchors 精确形状命中**（qual=2/0.2418/23/1.254）/왹냥 sellers=5 门外/三成线边界 0.3 恰好不拦/臂序锁 absorb<0.05 优先 CD400 码/容缺锁/T003 形状 `_isCheatExemptEligible` false）；四件全绿 **service 187（177+D9 十断言）/lib 679/grade 133/gate_engine 172**。182 四基底扫描见定线数据（同构=CD401「按 exec=true 成交信号精确分类」口径）。
+
+**余留**：生产 dumpRatioDenied 触发频率观察；trust（sellers=5/ratio 0.185/−0.045）等小规模砸块低承接票不落本臂=观察攒批（规模线外语义：非「超大量捆绑」）；我画地为牢 BP/CD 双侧误伤候选同票（+0.0348）由规模线 8 同时保住两侧。
+
 ### CD402 sbw②要素「一定流量」量级参考线——波买入 ≥0.3 BNB 级+≥2 钱包资格线（2026-11-13，题面立法案·题集 D3.68→D3.69（grade G18/snapshot/state/mapper 零改动）；btv109 burst 判线调查=用户点名三票「根本谈不上 burst，就是活跃度低」+参考线「0.3B 以上，至少 2 个钱包」109 票数据验证成立）
 
 **动机（btv109 复审 P4 派生调查）**：用户点名三票——T031 BNB时代 `0xea62a97f…`、T035 狼王共建 `0x6d5d4537…`、T032 币安logo `0xc1763b4c…`——「**根本谈不上 burst，就是活跃度低**」+定义澄清「**burst 是指买入时间点（之前数秒）的流量突然涌入，开盘怎么能算burst**」。调查三步归因：①生产 anchors 所见 0.44B 是 D3.65 旧「全窗最密 5s 窗」键（burstWaveBuyBnb 全窗口径）选中开盘第一波——**口径错误线索**，真出口波（burstExitWaveBuyBnb D3.67 单段绑定）仅 0.0991；②现行 D3.68 题集 182 真调三票仍判 burst 0.79~0.86（非旧版残留——排除项「开盘首波不属本题」对三票不适用：它们确有 ≥50s 静默段+出口后小波，只是量级极小）；③**根因=sbw 题②要素「流量真实」无任何数值线**——0.1 级小波（一两笔常见档买单＋零星尘单）也满足「非尘埃堆波」字面（户均 0.038 不落尘埃档）；排除项只排「波买入钱包不足 2 个」执行不严（기니휘기 `0xef2767d6…` 静默 821s 后出口 60s 内**零买入**、波窗净流 -0.0041 纯卖窗也判了 burst 0.79=执行失守实锤）。
