@@ -474,7 +474,7 @@ class CheatCheckService {
    *    后买，两者隔着近，那就是卖出引来了一些买入，这也不符合 burst 的期望。
    *    burst 的期望是用户突然发现了一个好票，或者某个好票开始传播，再或者庄
    *    开始收筹码坐庄。这 burst 中卖出占比高，都不太好，虽然可能会有误伤」）：
-   *    出口段（最后 ≥50s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖占比 ≥30%
+   *    出口段（最后 ≥30s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖占比 ≥30%
    *    ∧ 卖额 ≥0.3 BNB = 卖驱动出口不豁免——两族形状都拦：先买后跟卖（涨不下
    *    去，网上南宁/callcat 案）+ 先卖后买（卖出引来买入，MBF 案；burst 波
    *    本身可纯买，卖在波前也算）。**作用域=限 sbw=1 资格**（2026-11-13 落地
@@ -483,9 +483,11 @@ class CheatCheckService {
    *    [魔渊/callcat小写/MBF×2/谷歌SI] 净 +0.0377 零误伤=预演「8 票全非正」
    *    口径的对拍定稿；三大赢家 T093/T064/T065 出口卖%=0 天然安全；meem
    *    36%/0.12、小旺 31%/0.24 由卖额 0.3 门保住）。判据=anchors 数值锚
-   *    （burstExitSegSellPct/burstExitSegSellBnb，计算头注见 cheat-snapshot
-   *    CD401 段）；题集/grade 版本零改动（纯代码数值臂，CD400/G17 N 通道先例
-   *    第三例）。
+   *    （**CD407 起读 burstWaveSegSellPct/burstWaveSegSellBnb**=burst 流量簇
+   *    （段出口行起连续 gap<5s 活跃段），停止 ≥5s 后的卖出不计入——用户裁定
+   *    「只考量『这一波突然的流量』即可」；判例 btv113 Cashless 4 买波→9s 停
+   *    →卖=簇外不触发；计算头注见 cheat-snapshot CD407 段）；题集/grade 版本
+   *    零改动（纯代码数值臂，CD400/G17 N 通道先例第三例）。
    * ⑥ 超大量捆绑砸盘承接比臂（CD403，2026-11-14 btv111 T003 memes
    *    0xf1fc8f44 归因立法——用户裁定原话「这个 case 有非常非常明显的作弊异常
    *    （超大量捆绑砸盘），这种情况，建议直接堵死，不豁免」）：达标砸块卖方
@@ -509,7 +511,7 @@ class CheatCheckService {
  *    不给任何人入场机会，收割的概率很高」+定线「只控制极端情况就好，触发
  *    burst 场景的流动性，去掉 dust，捆绑钱包大于等于 7 的挡住就好。T022 这种，
  *    如果是连续 2 个 slot 数量够了，也可以挡住（但是如果在买入区块看不到
- *    后续的买入，挡不住就算了）」）：波窗（最后 ≥50s 静默段出口后 60s，D3.67
+ *    后续的买入，挡不住就算了）」）：波窗（最后 ≥30s 静默段出口后 60s，D3.67
  *    段定位同源）内 单块去尘捆绑钱包 ≥BURST_BUNDLE_MIN_WALLETS(7) ∨ 相邻两
  *    slot（block 差恰 1）去尘合计 ≥7 → denied 'burst_bundled_wave'。去尘=块内
  *    单钱包买入合计 ≥0.01 BNB 才计数（BURST_BUNDLE_WALLET_DUST_BNB，snapshot
@@ -561,6 +563,16 @@ class CheatCheckService {
     // CD401 出口段卖压臂（burst 期望=纯流入驱动；卖占比 ≥30% ∧ 卖额 ≥0.3——
     // 卖额门保护 meem 0.12/小旺 0.24 级小卖压、卖%门拦谷歌SI 99% 纯卖出口；
     // 无静默段/旧档断代 null 容缺不触发；臂序在 dump 后=双中票留 dump 码更具体）。
+    // **CD407 判据源改读 burst 流量簇三键**（2026-11-14 btv113 Cashless 案二修）：
+    // 审查对象从「出口段→锚整窗」收紧为「这一波突然的流量」——簇=段出口行起
+    // 连续 gap<5s 活跃段（BURST_WAVE_TAIL_GAP_SEC），停止一段时间（≥5s）后的
+    // 卖出不是 burst 的一部分、不计入卖压分子分母（用户裁定「只考量『这一波
+    // 突然的流量』即可……burst 只是让盘面通过了，但是它的反作弊审查，这几个
+    // 卖出不应该参与的」）；判例 Cashless 11:34:32-33 波 4 买 0.7412 → gap 9s
+    // 切断 → 簇内卖=0 臂不触发（旧口径出口整窗 30.3%/0.4082 贴线误拦 healthy
+    // 形态票）。**量线不动**（SellPct≥30 ∧ SellBnb≥0.3 ∧ sbw=1）：快买快卖
+    // （波后紧跟卖出在簇内）与簇内强卖压照拦=反作弊立法本旨不变；旧
+    // burstExitSeg 三键降纯观察（历史档重放兼容，D3.66 先例）。
     // **作用域限 sbw=1 资格**（2026-11-13 对拍后用户裁定 A）：denied 只对 Jev
     // 判了停滞突发波（stallBurstWave==1）的豁免票生效=忠实 burst 立法语境；
     // 全通道形状（CD380/CD400 同构）对拍四基底 11 票净 -0.107——SPP×2/比格
@@ -570,13 +582,13 @@ class CheatCheckService {
     // 蝴蝶2.0 合计 +0.044）一并放行=知情取舍（与 dump 臂刻意不同向：CD400
     // 立法验证就是全通道且四基底净负 -0.27 全拦为正）
     if (lv('stallBurstWave') === 1
-      && typeof an.burstExitSegSellPct === 'number' && an.burstExitSegSellPct >= 30
-      && typeof an.burstExitSegSellBnb === 'number' && an.burstExitSegSellBnb >= 0.3) {
+      && typeof an.burstWaveSegSellPct === 'number' && an.burstWaveSegSellPct >= 30
+      && typeof an.burstWaveSegSellBnb === 'number' && an.burstWaveSegSellBnb >= 0.3) {
       return 'burst_exit_sell_pressure';
     }
     // CD405 burst 捆绑收割臂（btv111 Request C，头注⑦）：波窗内单块去尘捆绑钱包
     // ≥7 ∨ 相邻两 slot 去尘合计 ≥7 → 不豁免（「拉高收割不给入场机会」极端形状；
-    // 无 ≥50s 静默段/旧档断代 null 容缺不触发；不限 sbw=统一出口，stall_burst
+    // 无 ≥30s 静默段/旧档断代 null 容缺不触发；不限 sbw=统一出口，stall_burst
     // 豁免票同拦——网上南宁/callcat小 两张 stall_burst 止损票在命中面内）
     if (typeof an.burstWaveBundleMaxWallets === 'number' && an.burstWaveBundleMaxWallets >= BURST_BUNDLE_MIN_WALLETS) {
       return 'burst_bundled_wave';
@@ -844,7 +856,7 @@ class CheatCheckService {
           // D3.66 burst 起来起点价锚（D3.67/CD397 起第四腿代码门退役=题面
           // 「位置参考」事实；头注见 cheat-snapshot 计算段）
           burstExitVsLaunchPct: snapshot.derived.burstExitVsLaunchPct,
-          // D3.67/CD397 单段绑定波族十键（最后 ≥50s 静默段 → 出口后 60s 最密 5s
+          // D3.67/CD397 单段绑定波族十键（最后 ≥30s 静默段 → 出口后 60s 最密 5s
           // 波 → 波钱包全窗净值/卖回/户均/中位 → 波末距锚点；sbw 题 state 直供+
           // 引擎 cheatBurst 透传原料，头注见 cheat-snapshot 计算段）
           burstLastGapSec: snapshot.derived.burstLastGapSec,
@@ -865,6 +877,12 @@ class CheatCheckService {
           burstExitSegBuyBnb: snapshot.derived.burstExitSegBuyBnb,
           burstExitSegSellBnb: snapshot.derived.burstExitSegSellBnb,
           burstExitSegSellPct: snapshot.derived.burstExitSegSellPct,
+          // CD407 burst 流量簇三键（burst_exit_sell_pressure 臂判据源 CD407 起改读
+          // 本族——「这一波突然的流量」簇内买/卖/卖%；挑键清单=CD405 投影链五点
+          // 教训防线：漏挑=mapper 白名单有键仍臂静默失效，单测集成段必配）
+          burstWaveSegBuyBnb: snapshot.derived.burstWaveSegBuyBnb,
+          burstWaveSegSellBnb: snapshot.derived.burstWaveSegSellBnb,
+          burstWaveSegSellPct: snapshot.derived.burstWaveSegSellPct,
           // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗
           // 单块/相邻两 slot 去尘捆绑钱包数；头注见 cheat-snapshot 计算段）
           burstWaveBundleMaxWallets: snapshot.derived.burstWaveBundleMaxWallets,

@@ -256,11 +256,11 @@ function buildObservation(answers, anchors = null) {
       burstWaveBuyBnb: _anchorPct(anchors, 'burstWaveBuyBnb'),
       burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
       // CD392 burst 波起点价锚（D3.66 起纯观察；题面不进——sbw 题判「停滞波现象」、
-      // 豁免资格价格域归代码臂分层）+ D3.66 burst 起来起点价锚（最后 ≥50s 静默段
+      // 豁免资格价格域归代码臂分层）+ D3.66 burst 起来起点价锚（最后 ≥30s 静默段
       // 出口首可靠价 vs launch 地板 %；门侧第四腿判据源）
       burstWaveStartVsLaunchPct: _anchorPct(anchors, 'burstWaveStartVsLaunchPct'),
       burstExitVsLaunchPct: _anchorPct(anchors, 'burstExitVsLaunchPct'),
-      // D3.67/CD397 单段绑定波族十键（最后 ≥50s 静默段 → 出口后 60s 最密 5s 波：
+      // D3.67/CD397 单段绑定波族十键（最后 ≥30s 静默段 → 出口后 60s 最密 5s 波：
       // sbw 题 state 直供/引擎 cheatBurst 透传/BP67 观察原料；旧全窗波两键语义
       // 不动=strongbacker §七.5 统计口径保护，两族并存。净额可负=带符号读取）
       burstLastGapSec: _anchorPct(anchors, 'burstLastGapSec'),
@@ -350,11 +350,19 @@ function buildObservation(answers, anchors = null) {
       nearDumpWorstSellBnb: _anchorPct(anchors, 'nearDumpWorstSellBnb'),
       nearDumpWorstSecToAnchor: _anchorPct(anchors, 'nearDumpWorstSecToAnchor'),
       nearDumpWorstSameBlkBuyBnb: _anchorPct(anchors, 'nearDumpWorstSameBlkBuyBnb'),
-      // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源：最后 ≥50s
+      // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源：最后 ≥30s
       // 静默段出口→锚整窗 买/卖/卖%；无静默段→null=臂不触发不扩大收紧面）
       burstExitSegBuyBnb: _anchorNum(anchors, 'burstExitSegBuyBnb'),
       burstExitSegSellBnb: _anchorNum(anchors, 'burstExitSegSellBnb'),
       burstExitSegSellPct: _anchorPct(anchors, 'burstExitSegSellPct'),
+      // CD407 burst 流量簇三键（burst_exit_sell_pressure 臂判据源 CD407 起改读本族：
+      // 出口行起连续 gap<5s 活跃簇 买/卖/卖%——停止 ≥5s 后的卖出不计入；无静默段
+      // →null=臂不触发。⚠mapper 内部 anchors 白名单=投影链第六点（CD405 五点
+      // 教训之后又一道显式清单——service 挑键加了 mapper 不加仍静默失效，D7②
+      // 集成断言当场抓住））
+      burstWaveSegBuyBnb: _anchorNum(anchors, 'burstWaveSegBuyBnb'),
+      burstWaveSegSellBnb: _anchorNum(anchors, 'burstWaveSegSellBnb'),
+      burstWaveSegSellPct: _anchorPct(anchors, 'burstWaveSegSellPct'),
       // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源：波窗（出口后
       // 60s）单块/相邻两 slot 去尘捆绑钱包数；无静默段→null=臂不触发不扩大收紧面）
       burstWaveBundleMaxWallets: _anchorPct(anchors, 'burstWaveBundleMaxWallets'),

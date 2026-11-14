@@ -604,20 +604,63 @@ async function main() {
       && ancW.burstExitSegBuyBnb === 0.6,
       `赢家纯买零卖 → sellPct=0 有证据零值放行（三大赢家 T093/T064/T065 同形状；实际 ${rW.grade}/${ancW.burstExitSegSellPct}/${ancW.burstExitSegBuyBnb}）`);
 
-    // ⑤ 强承接稀释（dumpBase+承接 1.6）：出口段 买 1.8/卖 0.65=26.5%<30 →
-    //    dump 臂承接放行 + CD401 买盘稀释 → 照豁免（两臂放行正例）
+    // ⑤ 强承接稀释（dumpBase+承接 1.6 在簇内 sec58 gap 2s）：簇 买 1.8/卖 0.6=
+    //    25%<30 → dump 臂承接放行 + CD401 簇内买盘稀释 → 照豁免（两臂放行正例；
+    //    **CD407 前承接在 sec66（gap 10s 簇外）靠出口整窗稀释 26.5%——CD407 起
+    //    簇外承接不再稀释簇内卖压**，形状改簇内保「稀释」正例语义）
     const dbS = makeDb({ ticks: [
       row(0, 100, 0, 'buy', 0.1, w('0xp1')), row(1, 100, 1, 'buy', 0.1, w('0xp2')),
       row(56, 200, 0, 'sell', 0.15, w('0xd1')), row(56, 200, 1, 'sell', 0.15, w('0xd2')),
       row(56, 200, 2, 'sell', 0.15, w('0xd3')), row(56, 200, 3, 'sell', 0.15, w('0xd4')),
       row(56, 200, 4, 'buy', 0.2, w('0xd5')),
-      row(66, 250, 0, 'buy', 1.6, w('0xabs')),
+      row(58, 250, 0, 'buy', 1.6, w('0xabs')), // gap 2s <5：簇内承接=稀释分子分母
+      row(70, 300, 0, 'sell', 0.05, w('0xtail')),
     ] });
     const svcS = makeSvc(dbS, makeLlm({ answers: CHEAT_HIGH_BURST }));
     const rS = await svcS.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(rS.grade === 'healthy' && rS.exempt && rS.exempt.code === 'activity_high'
       && rS.exemptDenied === undefined && svcS.stats.burstSellDenied === 0 && svcS.stats.dumpAbsorbDenied === 0,
-      `承接 1.6 稀释卖压至 26.5% → dump 臂放行+卖压臂不拦双正例照豁免（实际 ${rS.grade}/${rS.exemptDenied}）`);
+      `簇内承接 1.6 稀释卖压至 25% → dump 臂放行+卖压臂不拦双正例照豁免（实际 ${rS.grade}/${rS.exemptDenied}）`);
+
+    // ⑤b CD407 立法行为锁：承接仍在簇外（gap 10s ≥5 切断）→ 簇=sec56 砸块段
+    //    卖 0.6/0.8=75% ∧ 0.6 → 照 denied（**簇外大承接不再稀释簇内卖压**——
+    //    「停止一段时间后的买入不是 burst 的一部分」；旧口径出口整窗 26.5% 放行）
+    const dbS2 = makeDb({ ticks: [
+      row(0, 100, 0, 'buy', 0.1, w('0xp1')), row(1, 100, 1, 'buy', 0.1, w('0xp2')),
+      row(56, 200, 0, 'sell', 0.15, w('0xd1')), row(56, 200, 1, 'sell', 0.15, w('0xd2')),
+      row(56, 200, 2, 'sell', 0.15, w('0xd3')), row(56, 200, 3, 'sell', 0.15, w('0xd4')),
+      row(56, 200, 4, 'buy', 0.2, w('0xd5')),
+      row(66, 250, 0, 'buy', 1.6, w('0xabs')), // gap 10s ≥5：簇外
+      row(70, 300, 0, 'sell', 0.05, w('0xtail')),
+    ] });
+    const svcS2 = makeSvc(dbS2, makeLlm({ answers: CHEAT_HIGH_BURST }));
+    const rS2 = await svcS2.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    const ancS2 = dbS2.state.inserts[0].snapshot_digest.anchors;
+    ok(rS2.grade === 'cheat' && rS2.exemptDenied === 'burst_exit_sell_pressure'
+      && ancS2.burstWaveSegSellPct === 75 && ancS2.burstWaveSegSellBnb === 0.6,
+      `簇外承接不稀释（簇 75%/0.6 命中 denied——CD407 行为锁；实际 ${rS2.grade}/${rS2.exemptDenied}/${ancS2.burstWaveSegSellPct}/${ancS2.burstWaveSegSellBnb}）`);
+
+    // ⑤c CD407 主案集成（btv113 Cashless 11:34:32-33 判例）：静默后 4 买波 →
+    //    gap 9s ≥5 切断 → 簇外 2 卖 0.4082+又买 → 簇卖=0/0% 不触发 → 照豁免
+    //    healthy（旧口径出口整窗 30.3%/0.4082 贴线误拦；用户裁定「这几个卖出
+    //    不应该参与的」）
+    const dbC = makeDb({ ticks: [
+      row(0, 100, 0, 'buy', 0.2, w('0xb0')),
+      row(60, 200, 0, 'buy', 0.2, w('0xb1')),   // 出口行（gap 60s ≥30 成段）
+      row(61, 201, 0, 'buy', 0.2, w('0xb2')),
+      row(62, 202, 0, 'buy', 0.2, w('0xb3')),
+      row(63, 203, 0, 'buy', 0.1412, w('0xb4')),
+      row(72, 210, 0, 'sell', 0.2082, w('0xs1')), // gap 9s ≥5 切断——簇外
+      row(73, 211, 0, 'sell', 0.2, w('0xs2')),
+      row(75, 212, 0, 'buy', 0.15, w('0xb5')),
+    ] });
+    const svcC = makeSvc(dbC, makeLlm({ answers: CHEAT_HIGH_BURST }));
+    const rC = await svcC.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    const ancC = dbC.state.inserts[0].snapshot_digest.anchors;
+    ok(rC.grade === 'healthy' && rC.exempt && rC.exempt.code === 'activity_high' && rC.exemptDenied === undefined
+      && ancC.burstWaveSegBuyBnb === 0.7412 && ancC.burstWaveSegSellBnb === 0 && ancC.burstWaveSegSellPct === 0
+      && ancC.burstExitSegSellPct === 31.4 && ancC.burstExitSegSellBnb === 0.4082,
+      `CD407 主案：波 0.7412→9s 停→簇外卖 0.4082=簇 0/0% 照豁免（夹具旧口径 31.4%/0.4082 贴线误拦——生产票 30.3% 同形状 Cashless 判例；实际 ${rC.grade}/簇=${ancC.burstWaveSegBuyBnb}/${ancC.burstWaveSegSellBnb}/旧=${ancC.burstExitSegSellPct}/${ancC.burstExitSegSellBnb}）`);
 
     // ⑤b 作用域反例（全链）：同①出口段形状但 sbw=0（activity_high 通道、Jev
     //    未判停滞突发波）→ 命中线也照豁免——对拍 SPP 50.6%/3.488+比格多栋
@@ -643,20 +686,21 @@ async function main() {
     const lvD = { washPair: 0, stallBurstWave: 1 };
     ok(svcD._exemptDeniedReason(lvD, {}) === null && svcD._exemptDeniedReason(lvD, null) === null,
       '旧档 anchors 无键/断代 → 不触发（不扩大收紧面）');
-    ok(svcD._exemptDeniedReason(lvD, { burstExitSegSellPct: 30, burstExitSegSellBnb: 0.3 }) === 'burst_exit_sell_pressure'
-      && svcD._exemptDeniedReason(lvD, { burstExitSegSellPct: 29.9, burstExitSegSellBnb: 0.5 }) === null
-      && svcD._exemptDeniedReason(lvD, { burstExitSegSellPct: 44, burstExitSegSellBnb: 0.2 }) === null
-      && svcD._exemptDeniedReason(lvD, { burstExitSegSellPct: null, burstExitSegSellBnb: 0.5 }) === null
-      && svcD._exemptDeniedReason(lvD, { burstExitSegSellPct: 0, burstExitSegSellBnb: 0 }) === null,
-      '臂判据直调（双门含等号；单门命中不拦；null 容缺；赢家 0=有证据零值放行）');
-    ok(svcD._exemptDeniedReason(lvD, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0, burstExitSegSellPct: 76.5, burstExitSegSellBnb: 0.65 }) === 'dump_no_absorption',
-      '双中优先 dump 码（更具体——D7 dumpBase 实测出口段 76.5%/0.65 双命中，臂序在 dump 后；dump 臂无 sbw 资格门）');
+    ok(svcD._exemptDeniedReason(lvD, { burstWaveSegSellPct: 30, burstWaveSegSellBnb: 0.3 }) === 'burst_exit_sell_pressure'
+      && svcD._exemptDeniedReason(lvD, { burstWaveSegSellPct: 29.9, burstWaveSegSellBnb: 0.5 }) === null
+      && svcD._exemptDeniedReason(lvD, { burstWaveSegSellPct: 44, burstWaveSegSellBnb: 0.2 }) === null
+      && svcD._exemptDeniedReason(lvD, { burstWaveSegSellPct: null, burstWaveSegSellBnb: 0.5 }) === null
+      && svcD._exemptDeniedReason(lvD, { burstWaveSegSellPct: 0, burstWaveSegSellBnb: 0 }) === null
+      && svcD._exemptDeniedReason(lvD, { burstExitSegSellPct: 99, burstExitSegSellBnb: 9 }) === null,
+      '臂判据直调（**CD407 起读 burstWaveSeg 簇键**：双门含等号；单门命中不拦；null 容缺；赢家 0=有证据零值放行；旧 burstExitSeg 键纯观察不进臂）');
+    ok(svcD._exemptDeniedReason(lvD, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0, burstWaveSegSellPct: 76.5, burstWaveSegSellBnb: 0.65 }) === 'dump_no_absorption',
+      '双中优先 dump 码（更具体——D7 dumpBase 实测簇 76.5%/0.65 双命中，臂序在 dump 后；dump 臂无 sbw 资格门）');
     const lvD0 = { washPair: 0, stallBurstWave: 0 };
-    ok(svcD._exemptDeniedReason(lvD0, { burstExitSegSellPct: 50.6, burstExitSegSellBnb: 3.488 }) === null,
+    ok(svcD._exemptDeniedReason(lvD0, { burstWaveSegSellPct: 50.6, burstWaveSegSellBnb: 3.488 }) === null,
       'sbw 资格门反例：sbw=0 深命中线（SPP 50.6%/3.488 对拍形状）→ 不触发照豁免（A 方案放行）');
-    ok(svcD._isCheatExemptEligible('high', lvD, { burstExitSegSellPct: 44.4, burstExitSegSellBnb: 0.4 }) === false
-      && svcD._isCheatExemptEligible('high', lvD0, { burstExitSegSellPct: 44.4, burstExitSegSellBnb: 0.4 }) === true
-      && svcD._isCheatExemptEligible('high', lvD, { burstExitSegSellPct: 0, burstExitSegSellBnb: 0 }) === true,
+    ok(svcD._isCheatExemptEligible('high', lvD, { burstWaveSegSellPct: 44.4, burstWaveSegSellBnb: 0.4 }) === false
+      && svcD._isCheatExemptEligible('high', lvD0, { burstWaveSegSellPct: 44.4, burstWaveSegSellBnb: 0.4 }) === true
+      && svcD._isCheatExemptEligible('high', lvD, { burstWaveSegSellPct: 0, burstWaveSegSellBnb: 0 }) === true,
       '_isCheatExemptEligible 三点同构直调（denied 穿 anchors+sbw 资格——出口/拉黑登记/bootstrap 同判）');
   }
 

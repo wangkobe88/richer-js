@@ -378,7 +378,7 @@ function levelsFromObservation(observation, extras = {}) {
     burstWaveBuyBnb: _pct(an.burstWaveBuyBnb),
     burstWaveWallets: _pct(an.burstWaveWallets),
     // CD392 burst 波起点价锚（D3.66 起纯观察）+ D3.66 burst 起来起点价锚（最后
-    // ≥50s 静默段出口首可靠价 vs launch 地板 %；G18 起第四腿代码门退役=题面
+    // ≥30s 静默段出口首可靠价 vs launch 地板 %；G18 起第四腿代码门退役=题面
     // 「位置参考」事实）+ CD398 burst 波流向锚（波钱包全窗 Σ(买−卖) BNB 可负
     // ——净负=波是卖方主导（谷歌SI 单笔 -0.590 卖出），burst 豁免流向硬腿消费）
     burstWaveStartVsLaunchPct: _pct(an.burstWaveStartVsLaunchPct),
@@ -402,14 +402,23 @@ function levelsFromObservation(observation, extras = {}) {
     nearDumpWorstSecToAnchor: _pct(an.nearDumpWorstSecToAnchor),
     nearDumpWorstSameBlkBuyBnb: _pct(an.nearDumpWorstSameBlkBuyBnb),
     // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源——出口整窗
-    // 买/卖/卖%；非 FA 投影消费（CD400 同形）；无 ≥50s 静默段→null=臂不触发，
+    // 买/卖/卖%；非 FA 投影消费（CD400 同形）；无 ≥30s 静默段→null=臂不触发，
     // 头注见 cheat-snapshot 计算段）
     burstExitSegBuyBnb: _pct(an.burstExitSegBuyBnb),
     burstExitSegSellBnb: _pct(an.burstExitSegSellBnb),
     burstExitSegSellPct: _pct(an.burstExitSegSellPct),
+    // CD407 burst 流量簇三键（2026-11-14，btv113 Cashless 案）：burst 卖压审查
+    // 对象收紧为「这一波突然的流量」——簇=段出口行起连续 gap<5s 活跃段，停止
+    // 一段时间后的卖出不计入（用户裁定「只考量『这一波突然的流量』即可……
+    // 这几个卖出不应该参与的」）；burst_exit_sell_pressure 臂判据源改读本族
+    // （量线 30%/0.3/sbw=1 不动）；旧 burstExitSeg 三键降纯观察（D3.66 先例）。
+    // 非 FA 投影消费（CD400 同形）；无段 null=臂不触发，头注见 cheat-snapshot
+    burstWaveSegBuyBnb: _pct(an.burstWaveSegBuyBnb),
+    burstWaveSegSellBnb: _pct(an.burstWaveSegSellBnb),
+    burstWaveSegSellPct: _pct(an.burstWaveSegSellPct),
     // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗（最后
-    // ≥50s 静默段出口+60s）单块/相邻两 slot 去尘捆绑钱包数；非 FA 投影消费
-    // （CD400/CD401 同形）；无 ≥50s 静默段→null=臂不触发，头注见 cheat-snapshot）
+    // ≥30s 静默段出口+60s）单块/相邻两 slot 去尘捆绑钱包数；非 FA 投影消费
+    // （CD400/CD401 同形）；无 ≥30s 静默段→null=臂不触发，头注见 cheat-snapshot）
     burstWaveBundleMaxWallets: _pct(an.burstWaveBundleMaxWallets),
     burstWaveBundleAdjPairSum: _pct(an.burstWaveBundleAdjPairSum),
     noBuySellPct: _pct(an.noBuySellPct),

@@ -115,6 +115,21 @@ const BURST_SEG_SEARCH_SEC = 60;
  */
 const BURST_BUNDLE_WALLET_DUST_BNB = 0.01;
 /**
+ * CD407 burst 流量簇切分阈值（2026-11-14，btv113 Cashless 0xbcb72829 案——用户
+ * 裁定原话「我们考量 burst 的对象……只考量『这一波突然的流量』即可。这里四个
+ * 买入之后是停止一段时间才卖出的，这些卖出我认为不是 burst 的一部分。burst
+ * 只是让盘面通过了，但是它的反作弊审查，这几个卖出不应该参与的」）：burst
+ * 卖压审查（CD401 臂判据源 burstWaveSeg 三键）的对象从「出口段→锚整窗」收紧为
+ * **burst 流量簇**=段出口行起、行间 gap 连续 < 此值的活跃段（簇止于首次
+ * gap ≥此值或窗末）——波拉起后紧跟的卖出（无停止间隔）仍在簇内=快买快卖/
+ * 卖驱动形状照拦；**停止一段时间后的卖出脱离 burst 语境**（波外获利盘/新一段
+ * 换手），不计入卖压分子分母。量级对标 D3.67 波窗 5s 滑窗粒度；判例 Cashless
+ * 11:34:32-33 波 4 买 0.7412 → gap 9s（≥5 切断）→ 11:34:42/44 两笔卖 0.4082
+ * （锚窗卖占 30.3% 全部来自簇外获利盘，burst 波四钱包 burstWaveNetBnb=0.7411
+ * 一股未卖）→ 簇内卖=0 臂不触发。旧 burstExitSeg 三键保留纯观察（D3.66 先例）。
+ */
+const BURST_WAVE_TAIL_GAP_SEC = 5;
+/**
  * burst 波搜索段（D3.56→**D3.65 全窗化**）：D3.56（2026-11-04 用户裁定 0xc0a6…7777
  * 案「burst 是指临近购买点位的 burst，不是整体的，前面有不算」）曾收窄为锚前
  * BURST_NEAR_SEC(120s) 临近段；**D3.65（2026-11-10 用户裁定 ba5e/M4GA 案「一个
@@ -1056,6 +1071,16 @@ function computeDerived(snapshot, famousRoster) {
   // 天然安全）。非 FA 投影消费（CD400 nearDump 同形：进 levelsFromObservation
   // 白名单但不进 FA 投影/state/题面）；无 ≥30s 段/dt 缺失 → 全族 null 容缺不触发。
   let burstExitSegBuyBnb = null, burstExitSegSellBnb = null, burstExitSegSellPct = null;
+  // CD407 burst 流量簇三键（2026-11-14，btv113 Cashless 0xbcb72829 案；头注见
+  // BURST_WAVE_TAIL_GAP_SEC 常量段）——burst 卖压审查对象从「出口段→锚整窗」
+  // 收紧为「这一波突然的流量」：簇=段出口行起连续 gap<BURST_WAVE_TAIL_GAP_SEC
+  // 的活跃段；**停止一段时间后的卖出不是 burst 的一部分**（用户裁定），不计入
+  // 卖压分子分母。CD401 臂判据源移交本族三键（量线 30%/0.3/sbw=1 不动）；旧
+  // burstExitSeg 三键保留纯观察（历史档重放兼容+出口整窗留档，D3.66 先例）。
+  // 非 FA 投影消费（CD400/CD401 同形：进 levelsFromObservation 白名单不进 FA
+  // 投影/state/题面）；无静默段/dt 缺失 → null 容缺不触发；簇必含出口行故
+  // buy+sell>0 恒成立（防御性 0 值 → sellPct=null 宁拦不冒充）。
+  let burstWaveSegBuyBnb = null, burstWaveSegSellBnb = null, burstWaveSegSellPct = null;
   // CD405 burst 捆绑收割两键（2026-11-14 btv111 Request C，用户裁定「Burst 中
   // 出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了不给任何人
   // 入场机会，收割的概率很高」+定线「只控制极端情况就好……去掉 dust，捆绑钱包
@@ -1235,6 +1260,26 @@ function computeDerived(snapshot, famousRoster) {
       burstExitSegBuyBnb = +_segBuy.toFixed(4);
       burstExitSegSellBnb = +_segSell.toFixed(4);
       if (_segBuy + _segSell > 0) burstExitSegSellPct = +((_segSell / (_segBuy + _segSell)) * 100).toFixed(1);
+      // CD407 burst 流量簇三键（头注见 BURST_WAVE_TAIL_GAP_SEC 常量段+变量声明区）：
+      // 簇=出口行起、行间 gap 连续 <BURST_WAVE_TAIL_GAP_SEC 的活跃段——遇首个
+      // gap ≥ 阈值即截断（切断行不含入簇），其后一切行不计入（**停止一段时间
+      // 后的卖出不是 burst 的一部分**）。首行（出口行）无条件入簇。簇内累加
+      // buy/sell（资金不滤 outlier，CD 全窗买卖口径同款）；sellPct 同款防御性
+      // 0 值 → null。判例 Cashless 11:34:32-33：波 4 买 0.7412 → gap 9s ≥5 切断
+      // → 簇=纯 4 买、簇内卖=0 → CD401 臂 SellPct=0 不触发（旧口径出口整窗
+      // 30.3% 贴线误拦）。
+      {
+        let _cBuy = 0, _cSell = 0, _prev = null;
+        for (let i = _lastGapIdx; i < waveTicksAll.length; i++) {
+          const t = waveTicksAll[i];
+          if (_prev !== null && t.dt - _prev.dt >= BURST_WAVE_TAIL_GAP_SEC) break; // 停止≥阈值=簇终止，其后不计入
+          if (t.side === 'BUY') _cBuy += t.bnb || 0; else _cSell += t.bnb || 0;
+          _prev = t;
+        }
+        burstWaveSegBuyBnb = +_cBuy.toFixed(4);
+        burstWaveSegSellBnb = +_cSell.toFixed(4);
+        if (_cBuy + _cSell > 0) burstWaveSegSellPct = +((_cSell / (_cBuy + _cSell)) * 100).toFixed(1);
+      }
       // CD405 burst 捆绑收割两键（头注见变量声明区）：波窗=上方 _zone（出口后
       // 60s 搜索域整体，非其中最密 5s 子窗——捆绑结构看整个涌入段）；per-block
       // Map(钱包→块内 Σ买) → 去尘钱包数 → 单块最大值 + 相邻两 slot 合计最大值。
@@ -1808,6 +1853,9 @@ function computeDerived(snapshot, famousRoster) {
     // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源——出口整窗
     // 买/卖/卖%；头注见变量声明区；非 FA 投影消费）
     burstExitSegBuyBnb, burstExitSegSellBnb, burstExitSegSellPct,
+    // CD407 burst 流量簇三键（burst_exit_sell_pressure 臂判据源 CD401 起改读本族——
+    // 「这一波突然的流量」簇内买/卖/卖%；无段 null 容缺；头注见计算段）
+    burstWaveSegBuyBnb, burstWaveSegSellBnb, burstWaveSegSellPct,
     // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗单块/
     // 相邻两 slot 去尘捆绑钱包数；无 ≥30s 段全族 null 不冒充；头注见计算段）
     burstWaveBundleMaxWallets, burstWaveBundleAdjPairSum,
