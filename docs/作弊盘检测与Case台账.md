@@ -195,11 +195,19 @@
 
 **落法**：① `cheat-snapshot.js` `BURST_STALL_GAP_SEC` 50→30（段定位器 `_lastGapIdx`=锚窗内最后一个 gap ≥ 阈值的静默段）；② 题集 D3.70→D3.71（sbw 题「最后一个 ≥30 秒完全静默段」+样本「无 ≥30s 沉积」；版本 bump=healthy 粘滞按版本重判一次）；③ state-builder 渲染行同步「最后一次 ≥30 秒完全静默（口径：静默=相邻 tick 间隔 ≥30 秒）」；④ service/grade/mapper/snapshot 键集零改动（阈值常量单点，CD402 质量线/CD380~CD405 五个 denied 臂判据全部不动）。**影响面（四消费点系统性重锚，语义=「最后 ≥30s 静默段」）**：sbw state 事实行（D3.67 单段绑定波族十键——30~49s 尾部静默现在可成段、段出口后移）、`burstExitVsLaunchPct`（D3.66 纯观察第四腿判据源）、CD401 出口段三键 `burstExitSeg`、CD405 波窗两键 `burstWaveBundle`（波窗=出口+60s 不变）——原本无 ≥50s 段→null 的窗现在有值，原本段出口被更晚的 30~49s 静默重锚。
 
-**梗案 30s 线下预期**：沉积段重锚后 sbw 事实行在场（第二波流量进波窗）→ Jev 可判 burst → cheat 豁免（act=low 不再落 E）→ 放行进 BP 门——182 对拍验证（见余留）。
+**梗案 30s 线下预期**：沉积段重锚后 sbw 事实行在场（第二波流量进波窗）→ Jev 可判 burst → cheat 豁免（act=low 不再落 E）→ 放行进 BP 门——182 对拍已验证达成（见下）。
+
+**182 定向对拍（`tmp-cd406-parity.cjs`，push b60796ae+182 同步后跑）**：
+- **主案梗信号 3（16:54:07）3/3 翻案放行 ✓**——新 30s 定位下锚前最后段=36s 段（更近的第二波后沉积），出口波 0.495 BNB/2 户（CD402 质量线贴线双过）→ sbw=burst 3/3 稳定；run1 act=high→activity_high 豁免、run2/3 act=low→原判 unhealthy→**stall_burst 资格臂豁免**→healthy 放行 blocked=false——用户「第三个信号应该是 burst」在两条路径上都兑现（act 读档不影响结论）。
+- **梗信号 1/2 保持拒 3/3+3/3 ✓**——46s 段+2.21B/14 户大波在新阈值下成段（键直读 bundle=7/8 已达 CD405 线），但 Jev 判 sbw=none → A_strong 原判保持 cheat 拉黑（denied=dump_no_absorption 留痕，CD400 臂认领）。
+- **CD405 命中 4 票拒买保持 ✓**——Callcat13w（unhealthy/cheat 各一 run=CD319 run-to-run 方差族，拒结论不变）、CryptoWinter（cheat+denied=burst_bundled_wave 2/2）、网上南宁（cheat+denied=dump_no_absorption 更具体码认领 2/2）、callcat小（cheat 2/2）；两键直读 13/14、6/8、6/9、4/7 全部保持 ≥7（段重锚未破坏命中面）。
+- **CD401 靶面三键命中保持 ✓**——魔渊 53.4%/0.35、MBF 34.7%/0.33、谷歌SI 98.8%/0.59（gap 62~103s 段定位不受 30s 影响）。
+- **对照组零翻动 ✓**——比格多栋 3/0<7 照豁免放行（grade=healthy exempt=activity_high）；M4GA/TukTuk 键直读 4/0、4/6 门外。
+- **⚠CD406 代价面（1 票，攒批）**：**米 `0x6848b3a5fe21ca77e330c105cd6dcc35a9274444`**（btv103-r2 正票 +0.0548）——33s 段旧 50s 不成段、新成段带出 CD405 两键 bundle=7/0 达线；门链 2/2 grade=cheat（A_strong 六题）act=high 豁免档在场→denied=burst_bundled_wave 豁免失效拉黑拒——若无 CD406 段则 bundle 键 null→cheat∧act=high→豁免放行，**净代价=该票买不进（机会成本 -0.0548）**。另新成段面（段时长 ∈[30,50)）共 29 点位，其中 CD401 三键命中新面（蝴蝶/FFFF/蝴蝶人生路/屎壳郎自拉/趙信/TRUMP/Cashless/프론티어/米等）受 sbw=1 资格限定实际拦截面待生产分布观察（多数票 sbw=none 不触发）。
 
 **单测（四件全绿）**：lib **693**（692+CD406 边界节：gap 恰 30s 即成段（梗案 46s 沉积同向；出口段 0.3/0.7/70 段前铺垫买不计）+CD401 d2 夹具改 28s gap（<30 不成段全族 null 语义保持）+CD405 d5 改 29s gap+d8 双 filler 25/20/15s（防 30s 恰成段篡位）+D3.67 断言串 ≥30 秒同步）；service **198**（Z1e 夹具 D 行 t100→t95——t70→t100=30s 恰成段会篡位重锚出口行，改 95 后 25/29/26s 全 <30 绑定段保持 t4→t64 手算值不变；CD401 六夹具 gap 全 ≥55s 行为不变仅注释同步）；grade 133/gate 172 不动。
 
-**余留**：182 定向对拍（梗 `0x89e4` sbw 翻案→豁免→买 + CD405 命中 4 票/CD401 靶面保持拒 + 对照组比格多栋/M4GA/TukTuk/SPP 零翻动）待 push+同步后跑；生产 sbw 成段率上升（30~49s 段进入）与 burst 判定分布观察；全量 128 票回归待放行。
+**余留**：182 定向对拍已收官（见上，主案 3/3 达成+代价面米 1 票 -0.0548 攒批）；生产 sbw 成段率上升（30~49s 段进入）与 burst 判定分布观察；全量 128 票回归待放行。
 
 ### CD405 burst 捆绑收割不豁免臂——burst_bundled_wave（2026-11-14，豁免收紧案·snapshot 新两键+service denied 臂纯代码数值门，题集 D3.70/grade G18/题面/state/FA 投影零改动；btv111 `5390bbfa` 分批复审 Request C 归因立法——用户点名 T022 比格多栋 `0x5fdb483505a6654360191afac176e5ac91997777` 与 T034 Crypto Winter `0xa3efddca9d8a138ace3548b8f70118a1c4767777`；用户裁定原话「Burst 中出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了不给任何人入场机会，收割的概率很高」+定线「只控制极端情况就好，触发 burst 场景的流动性，去掉 dust，捆绑钱包大于等于7的挡住就好。T022 这种，如果是连续2个slot数量够了，也可以挡住（但是如果在买入区块看不到后续的买入，挡不住就算了）」→「好，搞吧」）
 
