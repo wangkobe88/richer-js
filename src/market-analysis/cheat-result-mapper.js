@@ -257,7 +257,7 @@ function buildObservation(answers, anchors = null) {
       burstWaveWallets: _anchorPct(anchors, 'burstWaveWallets'),
       // CD392 burst 波起点价锚（D3.66 起纯观察；题面不进——sbw 题判「停滞波现象」、
       // 豁免资格价格域归代码臂分层）+ D3.66 burst 起来起点价锚（最后 ≥30s 静默段
-      // 出口首可靠价 vs launch 地板 %；门侧第四腿判据源）
+      // 出口首可靠价 vs launch 锚（T138 回退后恒常量）%；门侧第四腿判据源）
       burstWaveStartVsLaunchPct: _anchorPct(anchors, 'burstWaveStartVsLaunchPct'),
       burstExitVsLaunchPct: _anchorPct(anchors, 'burstExitVsLaunchPct'),
       // D3.67/CD397 单段绑定波族十键（最后 ≥30s 静默段 → 出口后 60s 最密 5s 波：

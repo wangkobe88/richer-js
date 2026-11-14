@@ -55,6 +55,23 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T138 launch 地板机制整体回退：T130 首买地板+T134 滚动地板退役，launch 锚恒=平台常量（2026-11-14；用户裁定原话「再做一下调整，之前规定，价格的涨跌幅度，如果出现比配置价/发布价 更低的点位，则以更低点位为准，我想把这个机制回退为 以 配置价/发布价 最低点位为准。（原因是发现了一些误伤，价格略高一点买入不进来）」）
+
+**误伤机理（回退方向自洽）**：T130/T134 把 launch 锚降为 min(常量, 首买价, ≤t 滚动最低可靠价)——低开/新低票的分母被压低 → `currentVsLaunchPct` 系统性抬高（如 6efa11ce −20% 低开票全生命周期涨幅虚增 ~20pp）→ ladder v18 十四臂价格门 `currentVsLaunchPct <= 28.5`（T133）与 BP 统一位置门 28.5 误拒——「价格略高一点买入不进来」。回退后分母恒=常量（更大）→ curVs 回落 → 更易过门=修复误伤。**案史两度反向**：T127 立常量锚 → T130 首买地板（低开票低估反向误伤）→ T134 滚动地板 → T138 整体回退恒常量。
+
+**改动面（四模块，自动继承消费者零改动）**：
+- `src/market-analysis/launch-price.js`：`floorLaunchPriceBnb` 函数整段删除，导出只剩常量+`resolveLaunchPriceBnb`
+- `src/services/FourMemeFactorAggregator.js`：`currentVsLaunchPct` 与 `_countFamousNearLaunchBuy`（T133 famous 计数）两发射锚恒 `_resolveLaunchPriceBnb(state.platform, state.quoteToken) ?? state._relFirstPriceBnb`（?? 兜底=gang/未知平台回落旧口径首可靠价，刻意保留）；`_firstBuyPriceBnb`（T130）/`_minRelPriceBnb`（T134）两个 write-once state 字段**彻底删除**（无消费者的死字段掩盖问题）；processTick priceReliable 块内 T130/T134 冻结点整段删
+- `src/market-analysis/buy-point-snapshot.js`：`launchAnchor` 常量平台分支恒=constLaunch（T130 保护门+T134 窗内 min 循环删）；else 分支 launchCovered 首可靠价旧口径不动；**`famousEntryLaunchBnb`（BP63/BP80 KOL 臂独立锚）刻意不动**——票自身首可靠价优先+常量 fallback，与主 launch 锚体系无关
+- `src/market-analysis/cheat-snapshot.js`：D3.66 `burstExitVsLaunchPct` 分母恒常量（锚窗 waveTicksAll min 循环删）
+- **自动继承（零改动）**：`priceBackToAlmostLaunch`（CD381 重检因子）、T133/T136 famous near_launch 计数区间门、`athVsLaunchPct`/`minVsLaunchPct`/`launchPriceBnb` 族、TPA `TPAPre_asofRelFirst`（本就走旧首可靠价口径从未吃地板）
+
+**行为影响定量**：低开票 curVs 回落（6efa11ce 类 −20% 低开票全生命周期涨幅回落 ~20pp=恢复常量口径真值）；高开票（首买>常量）零变化——min 语义只降不升从未作用于高开票。**D3.66 三案定标兼容验证**：ba5e 生产对拍出口锚 +35.4→+20.1 仍在 ≤40 授予域、ad80 +122.4 不变、M4GA +2.9 不变——豁免资格判定方向保持。
+
+**单测（12 文件全绿）**：`_test_current_vs_launch_factor` 重写 I/J 段（I=回退锁：低开票回退常量口径/高开同值/sell 低价不再入锚/gang 零变化/**I5 回退源码锁**——`!includes('_floorLaunchPriceBnb(')`+`!includes('state._firstBuyPriceBnb')`+`!includes('state._minRelPriceBnb')`+`?? state._relFirstPriceBnb` 兜底在场；J=恒常量不变量：运行期新低不动锚/乱序三序全收敛，T134 时代期望值反证留档）32 断言；`_test_since_entry_factors` J7c 反转锁 72；`_test_cheat_market_reset` B2-B4b 重写（低开 launch=FM 常量 curVs=0（T130 时代 +25=事故反证）/高开同值/新低 minVs −10（T134 时代 0））20；`_test_cheat_detection_lib` D3.66 断言改常量口径（ba5e 缩样 +20.1/−11）701；另 fa_factors 35/buy_point_lib 589/cheat_gate 172/quote_passthrough 9/cheat_service 200/grade 133/bp_check_service 37/signal_source_factors 43/signal_gate 139 全过。
+
+**余留**：生产实验重启进程才生效（FA state 进程内存态）；T129 时代挂账的「价格门阈值重校」（27.5→28.5 后低开票门面变化）随回退自然缓和，28.5 域分布继续观察。
+
 ### T137 KOL HOLD 两键：sinceLastFamousBigBuySec + recentFamousSellBnb——famous 高位入场延缓卖出（FA 观察键先行，2026-11-13；用户裁定原话「就是已经涨了比较大幅度，例如 100% 以上，的票，能不能用 famous 入场，进一步延缓卖出，吃到高点」→ 反事实成立（V2×R1 +2.32/V2×R3 +1.87）→「好，A。」=FA 立两键观察+克隆实验带完整 HOLD/释放机制回测验证）
 
 **研究脉络**（KOL/famous 高位入场与卖出时机，全档=auto-memory kol-famous-study；V107 53 票基底反事实）：原始思路「famous 高位持续买入→抑制卖出」终局否证（ba5e famous 高位买卖秒级交织=对倒拉抬，净额口径在对倒盘恒正无区分力）；反向发现 famous 大卖/买入停止事件剂量单调（停前 5min 买 ≥1B → 15m 中位 -50.2%）。用户精确口径收口=**卡 fire 时 pp≥100（安全垫：只动已翻倍卡，利润锁定大半，ea78/4b4a 等 pp<100 场景被排除换安全）∧ 120s 内有 ≥0.1B famous 买（V2）→ HOLD 该卡到释放点**：V2×R1（释放=停止确认）+2.32（11 卡：28ad 4 卡 +1.50 吃到贴 ATH +1101% 49s/来财 3 卡 +1.04 贴顶 6s/ba5e -0.20 唯大负/谷谷 -0.02）；V2×R3（释放=停止∨首大卖先到）+1.87 且 ba5e 三卡转正。**V1（60s 净买 ≥0.3）被否**：famous 买入是间歇大笔非连续流，净额窗口口径漏 28ad 前三卡——触发口径必须「120s 内出现过一笔 ≥0.1B 买」。peak-protect（peak≥80∧回撤-35 全清）在 HOLD 期间天然充当强制释放通道（V108 ba5e 07:42:37 +0.0902 恰在 R2 首卖点附近），无需新兜底。

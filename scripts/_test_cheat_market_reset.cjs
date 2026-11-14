@@ -10,7 +10,7 @@
  * 全删，cheat 判定回到锚截窗全窗口径（天然 insufficient_ticks fail-open）。
  *
  * 本文件现锁 **BP 侧存量口径**（不受 CD393 影响）：BP 锚窗从不受 CD 截断影响，
- * minVsLaunchPct 仍是 restart 桶（⑦）判定源+常量锚行为+T130 地板补丁。失败 exit 非零。
+ * minVsLaunchPct 仍是 restart 桶（⑦）判定源+常量锚行为+T138 地板回退（T130/T134 退役）。失败 exit 非零。
  */
 
 const { buildBuyPointSnapshot } = require('../src/market-analysis/buy-point-snapshot');
@@ -88,49 +88,46 @@ console.log('B. 常量锚（four.meme 主流档 4.496173469e-9——恒有效不
   ok(bdC.currentVsLaunchPct === 30,
     `B1 BP currentVsLaunchPct=+30（1.3×FM；实际 ${bdC.currentVsLaunchPct}）`);
 
-  // B2 T130 地板补丁（2026-11-09 用户裁定，67ad68e0/6efa11ce 案）：「代币首次购买
-  // 价格低于我们配置的代币初始价格，那么地板改为首次购买价」——launch 锚=
-  // min(常量, 首笔买入可靠价)。夹具=低开 −20% 形状（6efa11ce 同款）：
-  // 首笔 buy 0.8×FM → launch=0.8×FM；现价 1.0×FM → currentVsLaunchPct=+25
-  //（常量锚下会显 0=发行价即视，near_launch 判定系统性失真——补丁消除）
+  // B2 T138 地板回退（2026-11-14 用户裁定「以 配置价/发布价 最低点位为准」）：
+  // T130 首买地板+T134 滚动地板整体退役——launch 锚恒=常量。夹具=低开 −20% 形状
+  //（6efa11ce 同款，T130 立法案形状）：首笔 buy 0.8×FM、现价 1.0×FM → 回退后
+  // currentVsLaunchPct=0 常量口径（T130/T134 时代曾显 +25——低锚抬涨幅的误伤面
+  // 反证：正是「价格略高一点买入不进来」的机理反向）
   const rowsLow = [0.8, 1.0, 0.9, 1.0].map((m, i) => row((i + 1) * 10, FM * m));
   const bdLow = buildBuyPointSnapshot(rowsLow, metaConst).buyDerived;
-  ok(bdLow.launchPriceBnb === FM * 0.8,
-    `B2 T130 低开票 launch=首买价 0.8×FM（min(常量,首买)；实际 ${bdLow.launchPriceBnb}）`);
-  ok(bdLow.currentVsLaunchPct === 25,
-    `B2 T130 低开票 currentVsLaunchPct=+25（1.0×FM ÷ 0.8×FM；实际 ${bdLow.currentVsLaunchPct}）`);
+  ok(bdLow.launchPriceBnb === FM,
+    `B2 T138 低开票 launch=常量原值（回退；实际 ${bdLow.launchPriceBnb}）`);
+  ok(bdLow.currentVsLaunchPct === 0,
+    `B2 T138 低开票 currentVsLaunchPct=0 常量口径（T130 地板时代曾 +25；实际 ${bdLow.currentVsLaunchPct}）`);
 
-  // B3 T130 高开票不降锚：全程 [1.5, 1.2, 1.3]×FM 均 > 常量 → launch=常量原值
-  //（地板=min 语义，高开不抬地板；T134 起窗内 min=1.2×FM 仍 >常量不触发滚动地板）
+  // B3 高开票：全程 [1.5, 1.2, 1.3]×FM 均 > 常量 → launch=常量原值（回退前后
+  // 同值——地板 min 语义只降不升从未作用于高开票）
   const rowsHigh = [1.5, 1.2, 1.3].map((m, i) => row((i + 1) * 10, FM * m));
   const bdHigh = buildBuyPointSnapshot(rowsHigh, metaConst).buyDerived;
   ok(bdHigh.launchPriceBnb === FM,
-    `B3 T130 高开票 launch=常量原值（实际 ${bdHigh.launchPriceBnb}）`);
+    `B3 高开票 launch=常量原值（回退前后同值；实际 ${bdHigh.launchPriceBnb}）`);
   ok(bdHigh.minVsLaunchPct === 20,
-    `B3 T130 高开票 minVsLaunchPct=+20（1.2×FM 段最低；实际 ${bdHigh.minVsLaunchPct}）`);
+    `B3 高开票 minVsLaunchPct=+20（1.2×FM 段最低 ÷ 常量；实际 ${bdHigh.minVsLaunchPct}）`);
 
-  // B4 T134 滚动地板（2026-11-11 v100 族一 9/9 案，用户方案三「出现价格更低以其
-  // 为准」）：高开后运行期跌出 0.9×FM 新低（<常量）→ 地板下移=0.9×FM（sell 低价
-  // 同样是真实成交价；锚只降不升）——族一案主体形状（idx2 -29.3%/idx192 -31.7%
-  // 均 min 在首买后）。minVs/currentVs 分母随锚换
+  // B4 T138 回退后运行期新低不动锚（T134 案主形状反向锁定）：[1.5, 0.9, 1.0]×FM
+  // 高开后跌出 0.9×FM 新低 → 回退后 launch 恒常量；minVsLaunchPct=涨起后最低
+  // 0.9×FM 较常量 −10（T134 滚动地板时代分母=0.9×FM 显 0）；currentVs=1.0×FM → 0
   const rowsFall = [1.5, 0.9, 1.0].map((m, i) => row((i + 1) * 10, FM * m));
   const bdFall = buildBuyPointSnapshot(rowsFall, metaConst).buyDerived;
-  ok(bdFall.launchPriceBnb === FM * 0.9,
-    `B4 T134 运行期新低下移锚 launch=0.9×FM（实际 ${bdFall.launchPriceBnb}）`);
-  ok(bdFall.minVsLaunchPct === 0,
-    `B4 T134 minVsLaunchPct=0（段最低=地板本身；实际 ${bdFall.minVsLaunchPct}）`);
-  ok(bdFall.currentVsLaunchPct === 11.1,
-    `B4 T134 currentVsLaunchPct=+11.1（1.0/0.9；实际 ${bdFall.currentVsLaunchPct}）`);
+  ok(bdFall.launchPriceBnb === FM,
+    `B4 T138 运行期新低不动锚 launch=常量（T134 时代曾 0.9×FM；实际 ${bdFall.launchPriceBnb}）`);
+  ok(bdFall.minVsLaunchPct === -10,
+    `B4 T138 minVsLaunchPct=-10（0.9×FM ÷ 常量；T134 时代曾 0；实际 ${bdFall.minVsLaunchPct}）`);
+  ok(bdFall.currentVsLaunchPct === 0,
+    `B4 T138 currentVsLaunchPct=0（1.0×FM ÷ 常量；T134 时代曾 +11.1；实际 ${bdFall.currentVsLaunchPct}）`);
 
-  // B4b 中途窗（launchCovered=false 截窗不含出生段）：T130 的 launchCovered 保护门
-  //（窗内首笔 BUY 冒充全局首买=错锚）已随 T134 退役——窗内 min 是因果统计量：
-  // 截窗长票窗内 min ≥ 全局 min 恒成立=锚只会偏高不冒充低锚，且锚窗本来就是
-  // per-锚窗 as-of 重算（BP 对拍口径）。夹具=低开形状首行 dt=100 → 窗内 min
-  // 0.8×FM 照应用为地板
+  // B4b 中途窗（launchCovered=false 截窗不含出生段）：常量锚恒有效不依赖
+  // launchCovered（T130 时代保护门+T134 窗内 min 已全随回退退役）——夹具=低开
+  // 形状首行 dt=100 → launch=常量原值
   const rowsLate = [0.8, 0.9, 1.0].map((m, i) => row(100 + i * 10, FM * m));
   const bdLate = buildBuyPointSnapshot(rowsLate, metaConst).buyDerived;
-  ok(bdLate.launchPriceBnb === FM * 0.8,
-    `B4b T134 中途窗窗内 min 照应用（launchCovered 门退役；实际 ${bdLate.launchPriceBnb}）`);
+  ok(bdLate.launchPriceBnb === FM,
+    `B4b T138 中途窗 launch=常量原值（实际 ${bdLate.launchPriceBnb}）`);
 
   // B5 flap quote 盘=FL 常量（2026-11-09 同常量裁定）；gang 无常量=旧口径
   const FL = 6.14 / (107036752 + 1e9);

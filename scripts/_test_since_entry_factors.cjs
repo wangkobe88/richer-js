@@ -350,10 +350,10 @@ console.log('J. T133 famous near_launch 计数（2026-11-10 用户立法「买�
                 assert.ok(!/Date\.now/.test(cntSeg), '计数器函数体出现 Date.now'));
             check('J7b 区间判据源码锁：curVs > 10 && curVs <= 40（near_launch 界）', () =>
                 assert.ok(cntSeg.includes('curVs > 10 && curVs <= 40')));
-            check('J7c 锚链与 currentVsLaunchPct 同源（_floorLaunchPriceBnb(_resolveLaunchPriceBnb…, _firstBuyPriceBnb)）', () => {
-                assert.ok(cntSeg.includes('_floorLaunchPriceBnb('));
+            check('J7c 锚链与 currentVsLaunchPct 同源（T138 回退后=恒常量锚 ?? 首可靠价；地板字段全删）', () => {
+                assert.ok(!cntSeg.includes('_floorLaunchPriceBnb'));
                 assert.ok(cntSeg.includes('_resolveLaunchPriceBnb(state.platform, state.quoteToken)'));
-                assert.ok(cntSeg.includes('state._firstBuyPriceBnb'));
+                assert.ok(!cntSeg.includes('state._firstBuyPriceBnb'));
                 assert.ok(cntSeg.includes('?? state._relFirstPriceBnb'));
             });
             const fbSrc = read('src/trading-engine/core/FactorBuilder.js');

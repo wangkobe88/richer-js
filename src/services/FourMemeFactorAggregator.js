@@ -82,7 +82,7 @@ const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 // G1 作弊盘因子化：grade 档位→数值出口映射（levelsFromObservation 同源表；无环——market-analysis 不反向 require FA）
 const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
-const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb, floorLaunchPriceBnb: _floorLaunchPriceBnb } = require('../market-analysis/launch-price');
+const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb } = require('../market-analysis/launch-price');
 // PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
 // 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
@@ -1015,29 +1015,11 @@ class FourMemeFactorAggregator extends EventEmitter {
                 }
             }
 
-            // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 案）：首笔买入可靠价
-            // write-once 冻结——currentVsLaunchPct 的 launch 锚取 min(平台常量, 首买价)
-            // （floorLaunchPriceBnb）。低开票首买价低于平台常量时以常量为地板会把
-            // 整票涨幅系统性抬高（首 tick 即 +20%=low 档），位置门/价格门失真。
-            // 只计 buy 腿；priceReliable 已滤尘/离群/chainLate——首买=首个过门可靠买价。
-            // defer 两段喂食价格段同步到达（WSS 到达即喂）无乱序竞态；回放任意序
-            // write-once 冻结收敛（与本块首可靠价同性质）。
-            if (state._firstBuyPriceBnb === 0 && isBuy) {
-                state._firstBuyPriceBnb = priceBnb;
-            }
-
-            // ── T134 滚动地板（2026-11-11 v100 族一 9/9 案 + launch 三方案调研，
-            //    用户方案三「出现价格更低以其为准」）：launch 锚地板原料从 T130 的
-            //    「首笔买入可靠价」推广为「≤t 滚动最低可靠价」——族一案主体是首买
-            //    后运行期跌出新低而锚不动（idx2 -29.3%/idx192 -31.7%/idx180 -27.9%
-            //    均 min 在首买后）。不限 BUY（sell 低价同样是真实成交价）；min 更新
-            //    幂等 → defer 双段喂食（价格段 WSS 到达即喂，链序）与任意序回放
-            //    均收敛；_minRelPriceBnb ≤ _firstBuyPriceBnb 恒成立（首买价也是
-            //    可靠价之一）。发射点=currentVsLaunchPct / famous near_launch 计数
-            //    （两处必须同锚，T133 立法）──
-            if (state._minRelPriceBnb === 0 || priceBnb < state._minRelPriceBnb) {
-                state._minRelPriceBnb = priceBnb;
-            }
+            // T138（2026-11-14）：T130 首买地板+T134 滚动地板整体回退退役——launch
+            // 锚恒取平台常量（_resolveLaunchPriceBnb），_firstBuyPriceBnb/
+            // _minRelPriceBnb 两个 state 字段随删（min 锚把低开/新低票 curVs 系统
+            // 性抬高，28.5/40 价格门误拒「价格略高一点买入不进来」——用户裁定回退；
+            // 案史 T130→T134→T138 两度反向，全档=T 台账）。
 
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
@@ -1948,8 +1930,8 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
             _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
-            _firstBuyPriceBnb: 0,       // T130 首笔买入可靠价 write-once（launch 锚 min(常量, 首买价) 地板补丁原料；0=未见首买）
-            _minRelPriceBnb: 0,         // T134 滚动最低可靠价（launch 地板原料：min(常量, 首买, ≤t 最低可靠价)；min 更新幂等=任意序回放收敛；0=未见可靠价）
+            // T138（2026-11-14）回退：_firstBuyPriceBnb（T130 首买地板）与
+            // _minRelPriceBnb（T134 滚动地板）两字段删除——launch 锚恒平台常量
             _famousNearLaunchBuys: 0,   // T133 famous near_launch 入场计数（全史单调计数器；写点=价格段/wallet 段补跑双段，见 _countFamousNearLaunchBuy）
             _famousNearLaunchBuyBnb: 0, // T136 同判据金额累计（BNB；卖臂 v2 金额门原料，见 _countFamousNearLaunchBuy）
             _famousBigBuyLastAt: null,  // T137 famous 大买（≥famousBigBuyBnb）最后时刻 ms（null=从未 → sinceLastFamousBigBuySec null → HOLD 不触发 fail-open；写点=价格段/wallet 段补跑双段，见 _noteFamousFlow）
@@ -2373,22 +2355,19 @@ class FourMemeFactorAggregator extends EventEmitter {
     /**
      * T133 famous near_launch 入场计数（2026-11-10 用户立法）：famous roster 钱包的
      * 可靠价买入逐笔过 near_launch 区间门（curVs ∈ (+10,+40]——BP43 六桶 near_launch
-     * 界，含 40 不含 10）计数。launch 锚与 currentVsLaunchPct 同源=_floorLaunchPriceBnb
-     * (平台常量, 首买价)（T130 地板）；锚不可得（gang/未知平台且无首可靠价兜底）→
-     * 不计数（宁漏不冒充——卖臂 `>=1` 恒 false 不触发）。单调递增全史计数器 →
-     * sinceEntryFamousNearLaunchBuys 差值天然事件 latch（入场后新出现才 >0）。
-     * 回放任意序：计数只依赖单笔 tick 价与 write-once 锚（锚冻结早于计数写点①
-     * 同块），乱序回推下晚到行各自独立判定收敛。
+     * 界，含 40 不含 10）计数。launch 锚与 currentVsLaunchPct 同源=平台 curve 常量
+     * （T138 回退后恒常量；gang/未知平台回落首可靠价）；锚不可得（gang/未知平台且
+     * 无首可靠价兜底）→ 不计数（宁漏不冒充——卖臂 `>=1` 恒 false 不触发）。单调递增
+     * 全史计数器 → sinceEntryFamousNearLaunchBuys 差值天然事件 latch（入场后新出现
+     * 才 >0）。回放任意序：计数只依赖单笔 tick 价与常量锚（任意序无关），乱序回推
+     * 下晚到行各自独立判定收敛。
      */
     _countFamousNearLaunchBuy(state, priceBnb, bnbAmount = 0) {
         if (!(priceBnb > 0)) return;
-        // T134：地板原料换滚动最低可靠价（与 currentVsLaunchPct 同锚立法不变）；
-        // `_minRelPriceBnb || _firstBuyPriceBnb` 后者实为 0 兜底（min 恒 ≤ 首买价），
-        // 价格段滚动更新先于本计数写点（同块序）→ 同 tick 锚已含本笔价
-        const launch = _floorLaunchPriceBnb(
-            _resolveLaunchPriceBnb(state.platform, state.quoteToken),
-            state._minRelPriceBnb || state._firstBuyPriceBnb,
-        ) ?? state._relFirstPriceBnb;
+        // T138（2026-11-14）：launch 锚回归恒平台常量（T130/T134 地板整体回退），
+        // 与 currentVsLaunchPct 发射点同锚立法不变
+        const launch = _resolveLaunchPriceBnb(state.platform, state.quoteToken)
+            ?? state._relFirstPriceBnb;
         if (!(launch > 0)) return;
         // toFixed(2) 与 currentVsLaunchPct 发射口径同源（裸浮点在边界 10% 处
         // P0*1.1/P0 残差 >10 会误计——区间判据必须吃系统统一呈现值）
@@ -3577,15 +3556,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             // TPA 审批时刻冻结快照，本键是买点时刻实时值——语义刻意分开
             currentVsLaunchPct: (() => {
                 if (!(state._relPriceBnb > 0)) return null;
-                // T130 地板补丁（2026-11-09，67ad68e0/6efa11ce 低开票案）：常量锚先过
-                // floorLaunchPriceBnb=min(常量, 首笔买入可靠价)——首买价低于常量时
-                // 地板改为首买价（防低开票涨幅整体抬高位置门失真）；
-                // T134（2026-11-11 族一 9/9 案）：地板原料推广为滚动最低可靠价
-                // _minRelPriceBnb（运行期新低同修——sell 低价也算；min 恒 ≤ 首买价）
-                const launch = _floorLaunchPriceBnb(
-                    _resolveLaunchPriceBnb(state.platform, state.quoteToken),
-                    state._minRelPriceBnb || state._firstBuyPriceBnb,
-                ) ?? state._relFirstPriceBnb;
+                // T138（2026-11-14）：T130 首买地板+T134 滚动地板整体回退——launch
+                // 锚恒取平台常量（gang/未知平台 null 回落旧口径首可靠价）。
+                // 案史：T130（低开票常量锚涨幅抬高反向裁定）→T134（滚动最低）→
+                // T138 回退（min 低锚把低开/新低票 curVs 抬高 → 28.5/40 价格门
+                // 误拒「价格略高一点买入不进来」，用户裁定回退恒常量）
+                const launch = _resolveLaunchPriceBnb(state.platform, state.quoteToken)
+                    ?? state._relFirstPriceBnb;
                 return (launch > 0)
                     ? parseFloat((100 * (state._relPriceBnb / launch - 1)).toFixed(2)) : null;
             })(),

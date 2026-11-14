@@ -1282,21 +1282,24 @@ console.log('I. 著名钱包单极控盘锚');
       `D3.65 窗 60s 全窗零变化：旧口径临近段退化全窗（末 tick dt=60-120<0）与新口径全窗同段 → 开盘四笔波 2.0/2 钱包照收（实际 ${dShort.burstWaveBuyBnb}/${dShort.burstWaveWallets}——短窗信号票开盘即锚前，g8 夹具 100s 窗现有断言天然同口径）`);
   }
   // ═══════════════ D3.66（2026-11-10）：burst 起来起点价锚（第四腿判据源换沉积段出口价） ═══════════════
-  console.log('D3.66 burstExitVsLaunchPct（最后 ≥30s 静默段出口首可靠价 vs launch 地板——CD392 判据源 D3.65 对拍双向缺陷修复）');
+  console.log('D3.66 burstExitVsLaunchPct（最后 ≥30s 静默段出口首可靠价 vs launch 锚——CD392 判据源 D3.65 对拍双向缺陷修复）');
   {
-    const fmMeta = { ...microMeta, platform: 'fourmeme' }; // FM 常量 4496173469e-18（T130 地板 launch=min(常量,首买价)）
-    // 缩样一（ba5e/M4GA 形状）：低开 +0%→拉高 +525%→崩回→两段 ≥30s 静默，最后段出口
-    // +35.0（≤40 低域=「跌下来沉积后再起来」）；旧键 startVs（全窗首可靠价）=+0 观察
+    const fmMeta = { ...microMeta, platform: 'fourmeme' }; // FM 常量 4496173469e-18（T138 回退后 launch 恒=常量）
+    // 缩样一（ba5e/M4GA 形状）：低开 −11%→拉高→崩回→两段 ≥30s 静默，最后段出口
+    // +20.1（≤40 低域=「跌下来沉积后再起来」）；旧键 startVs（全窗首可靠价）=−11 观察。
+    // T138 回退（2026-11-14）：launch 恒=常量 4.496e-9（T130 地板时代=低开首买 4.0e-9
+    // 给出口 +35/startVs 0——低锚抬涨幅的反向面；回退后 ba5e 生产对拍 +35.4→+20 段
+    // 仍在 ≤40 授予域=回退不破坏 D3.66 三案定标方向）
     const e66a = [
-      mkRow(0, 300, 0, 'buy', 0.5, 4.0e-9),        // 低开首买 → launch 地板=4.0e-9
+      mkRow(0, 300, 0, 'buy', 0.5, 4.0e-9),        // 低开首买 −11.0（launch=FM 常量不随首买下移）
       mkRow(10, 310, 0, 'buy', 0.3, 2.5e-8),       // 拉高（ba5e 3 分钟 +772% 缩样）
-      mkRow(100, 400, 0, 'buy', 0.4, 4.4e-9),      // 崩回（gap 90s 静默段①；出口 +10）
-      mkRow(300, 600, 0, 'buy', 0.5, 5.4e-9),      // 再起来（gap 200s 静默段②=最后段；出口 +35.0）
+      mkRow(100, 400, 0, 'buy', 0.4, 4.4e-9),      // 崩回（gap 90s 静默段①；出口 −2.1）
+      mkRow(300, 600, 0, 'buy', 0.5, 5.4e-9),      // 再起来（gap 200s 静默段②=最后段；出口 +20.1）
     ];
     const d66a = buildSnapshotFromRows(e66a, fmMeta).derived;
-    ok(d66a.burstExitVsLaunchPct === 35 && d66a.burstWaveStartVsLaunchPct === 0,
-      `D3.66 ba5e 形状：最后 ≥30s 静默段（t+100→t+300）出口价 +35.0 ≤40 授予域（实测出口 ${d66a.burstExitVsLaunchPct}/旧键窗首价观察值 ${d66a.burstWaveStartVsLaunchPct}——launch 地板=min(FM 常量, 低开首买 4.0e-9)；缩样对应实测 ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放）`);
-    // 缩样二（ad80fb7a 形状）：高开 +29.8%（>常量 → launch=常量地板）+高位横盘两段
+    ok(d66a.burstExitVsLaunchPct === 20.1 && d66a.burstWaveStartVsLaunchPct === -11,
+      `D3.66 ba5e 形状：最后 ≥30s 静默段（t+100→t+300）出口价 +20.1 ≤40 授予域（实测出口 ${d66a.burstExitVsLaunchPct}/旧键窗首价观察值 ${d66a.burstWaveStartVsLaunchPct}——launch 锚恒 FM 常量（T138 回退；T130 地板时代曾显 +35/0）；缩样对应实测 ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放（地板时代读数））`);
+    // 缩样二（ad80fb7a 形状）：高开 +29.8%（launch=常量）+高位横盘两段
     // 间歇静默，最后段出口 +122.4 高位（>40=「价格维持高位再一个流量拉升」拒）
     const e66b = [
       mkRow(0, 500, 0, 'buy', 0.3, 5.83e-9),       // 高开首买>常量 → launch=FM 常量（首价即 +29.8）

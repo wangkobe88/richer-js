@@ -210,7 +210,7 @@ function buildCheatState(snapshot) {
     // burst 前提，缺席语义）。
     if (d.burstLastGapSec !== null && d.burstLastGapSec !== undefined) {
       const exitVs = d.burstExitVsLaunchPct === null || d.burstExitVsLaunchPct === undefined
-        ? '（出口价位置锚缺失）' : `，出口价 ${d.burstExitVsLaunchPct >= 0 ? '+' : ''}${d.burstExitVsLaunchPct}% vs 发行价地板`;
+        ? '（出口价位置锚缺失）' : `，出口价 ${d.burstExitVsLaunchPct >= 0 ? '+' : ''}${d.burstExitVsLaunchPct}% vs 发行价`;
       if (d.burstExitWaveBuyBnb !== null && d.burstExitWaveBuyBnb !== undefined && d.burstExitWaveBuyBnb > 0) {
         const win = `出口后 60 秒内最密 5 秒波: t+${d.burstExitWaveFromDt}s~t+${d.burstExitWaveEndDt}s，波内买入 ${fmtBnb(d.burstExitWaveBuyBnb)} BNB、${d.burstExitWaveWallets} 个钱包（户均 ${d.burstWaveWalletAvgBnb} / 中位 ${d.burstWaveWalletMedianBnb} BNB）`;
         const wnet = d.burstWaveNetBnb === null || d.burstWaveNetBnb === undefined ? '' :

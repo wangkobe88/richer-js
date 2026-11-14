@@ -24,7 +24,7 @@
  */
 
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
-const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price');
+const { resolveLaunchPriceBnb } = require('./launch-price');
 
 /** 等额簇金额舍入粒度（0.0001 BNB，T74 口径） */
 const EQUAL_AMOUNT_ROUND = 10000;
@@ -1116,28 +1116,20 @@ function computeDerived(snapshot, famousRoster) {
       // （见文件头注 ⚠段——ba5e 全窗首价 +2.9% 但生产 1000 帽窗窗首 +294.9% 拒/
       // 最密波=拉峰 frenzy 波起点 +659.7%；ad80fb7a 高开全窗首价 +29.7% 误放）。
       const _quoteTk = waveTicks.some((t) => t.quote) ? 'quote' : null;
-      // T130 地板补丁同源（launch=min(常量, 首笔买入可靠价)，锚窗首笔 BUY 行）——
-      // 低开票（67ad68e0/6efa11ce 案）以常量为分母会把波起点位置整体抬高，
-      // 与 FA/BP 的 currentVsLaunchPct 同锚换（capped 满帽窗不含出生段时窗内
-      // 首买=可得最早，宁用不冒充缺锚 null）；
-      // **T134 滚动地板（2026-11-11 族一 9/9 案，用户方案三）**：地板原料推广为
-      // 锚窗 waveTicksAll 全量最低可靠价（运行期新低同修、sell 低价也算；截窗窗内
-      // min ≥ 全局 min=锚只偏高不冒充）——与 FA `_minRelPriceBnb`/BP rel min 三点同源
+      // T138（2026-11-14）：T130 首买地板+T134 滚动地板整体回退——launch 锚恒取
+      // 平台常量（锚窗 waveTicksAll 全量 min 原料删除；与 FA currentVsLaunchPct/
+      // BP launchAnchor 三点同锚回退，用户裁定「以 配置价/发布价 最低点位为准」
+      // ——min 低锚把低开/新低票涨幅系统性抬高致价格门误拒；案史 T130→T134→T138
+      // 全档=T 台账）。无常量平台（gang/未知）_launch=null → fail-closed 不授予
       const _constLaunch = resolveLaunchPriceBnb(
         snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, _quoteTk);
-      let _minRel = 0;
-      for (const t of waveTicksAll) {
-        if (!t.outlier && t.priceBnb > 0 && (_minRel === 0 || t.priceBnb < _minRel)) _minRel = t.priceBnb;
-      }
-      const _launch = _constLaunch !== null && _constLaunch > 0
-        ? floorLaunchPriceBnb(_constLaunch, _minRel)
-        : null;
+      const _launch = _constLaunch !== null && _constLaunch > 0 ? _constLaunch : null;
       if (_launch !== null && _launch > 0) {
         const _firstRel = waveTicks.find((t) => !t.outlier && t.priceBnb > 0);
         if (_firstRel) burstWaveStartVsLaunchPct = +(((_firstRel.priceBnb / _launch) - 1) * 100).toFixed(1);
         // D3.66（2026-11-10 用户裁定）：burst 豁免第四腿判据源=**起来起点价**
         // burstExitVsLaunchPct——最后一个 ≥BURST_STALL_GAP_SEC 静默段的出口首
-        // 可靠价 vs launch 地板（T130 地板同分母）。「价格跌到很低再起来」的
+        // 可靠价 vs launch 锚（T138 回退后恒平台常量）。「价格跌到很低再起来」的
         // 「起来」=沉积结束重新启动的那一刻，出口价即起来时的价格水平；高位
         // 横盘的间歇静默出口仍高位（ad80fb7a +161.3% 拒）、「跌下来沉积后再起」
         // 出口在低域（ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放；M4GA/
@@ -1145,7 +1137,7 @@ function computeDerived(snapshot, famousRoster) {
         // 最低会放行高位砸落再弹形状」（ad80 末段砸落 +17.5% 必须拒）。扫描域
         // =waveTicksAll（dt 过滤序与 maxGapSec 的 dts 同源；CD383 时代与 gap 腿
         // bit 同口径，CD397 起 gap 腿退役、段定位为本阈值唯一消费）。null 条件：
-        // 无 ≥30s 段/段后无可靠价/launch 地板缺失（无常量
+        // 无 ≥30s 段/段后无可靠价/launch 锚缺失（无常量
         // 平台）→ fail-closed 不授予（与 CD383 gap null「不扩大收紧面」不同向
         // ——本臂是资格授予方向，形状不可判宁不授予）。不受 PostgREST 1000 行
         // 帽影响（出口段在锚侧，帽窗内必含）。**D3.67/CD397 起第四腿代码门整体
@@ -1841,7 +1833,8 @@ function computeDerived(snapshot, famousRoster) {
     // CD392 burst 波起点价锚（D3.66 起纯观察——第四腿判据源移交 burstExitVsLaunchPct）
     burstWaveStartVsLaunchPct,
     // D3.66 burst 起来起点价锚（最后 ≥BURST_STALL_GAP_SEC 静默段出口首可靠价 vs
-    // launch 地板；D3.67/CD397 起第四腿代码门退役、保留为题面「位置参考」事实）
+    // launch 锚（T138 回退后恒平台常量）；D3.67/CD397 起第四腿代码门退役、保留为
+    // 题面「位置参考」事实）
     burstExitVsLaunchPct,
     // D3.67/CD397 单段绑定波族十键（sbw 题 state 直供原料——三判轴=跨度
     // secSinceWaveEnd/尘埃 户均+中位/流向 净额+卖回率；头注见计算段。旧全窗
