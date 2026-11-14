@@ -355,6 +355,10 @@ function buildObservation(answers, anchors = null) {
       burstExitSegBuyBnb: _anchorNum(anchors, 'burstExitSegBuyBnb'),
       burstExitSegSellBnb: _anchorNum(anchors, 'burstExitSegSellBnb'),
       burstExitSegSellPct: _anchorPct(anchors, 'burstExitSegSellPct'),
+      // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源：波窗（出口后
+      // 60s）单块/相邻两 slot 去尘捆绑钱包数；无静默段→null=臂不触发不扩大收紧面）
+      burstWaveBundleMaxWallets: _anchorPct(anchors, 'burstWaveBundleMaxWallets'),
+      burstWaveBundleAdjPairSum: _anchorPct(anchors, 'burstWaveBundleAdjPairSum'),
     },
   };
 }

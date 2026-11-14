@@ -439,7 +439,7 @@ ok(f1.phenomena.equal_amount_split === 'strong' && Object.keys(f1.phenomena).len
   'phenomena=4 现象键 argmax 档位');
 ok(f1.anchors.sameBlockHoldPct === 61.25 && f1.anchors.equalBandHoldPct === null,
   'anchors 回显输入锚（未传键=null）');
-ok(Object.keys(f1.anchors).length === 75, 'CD401 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+D3.60 持有者基数三键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键+D3.52 锚窗买卖比+D3.53 精确等额同块三键+D3.54 同块脉冲节拍三键+D3.57 pump 锚族六键+D3.58 断流重启段六键+D3.62 聚合路由入口一键+CD392 burst 波起点一键+D3.66 burst 起来起点价一键+D3.67 单段绑定波族十键+CD398 波窗净流一键+CD400 贴锚砸出六键+CD401 出口段卖压三键=七十五数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键/D3.52 加 anchorBuySellRatio/D3.53 加 exactEqualBlock 三观察键/D3.54 加 pulseBlockCount/BuyPct/MaxGapBlocks 三观察键/D3.57 加 pumpStable 三键+perBnb+卖笔占比（斜率/perBnb 带符号）/D3.58 加 postStall 六键（占比分母=段内买入不被断流前流量稀释）/D3.60 加 posHolderCount+前二/前三流通合计三键（CD240 持有者基数分层——<2/<3 持有人 null=轴不适用）/D3.62 加 routerEntryBuyPct（CD374 G17 N 通道源锚：锚窗买入笔走聚合路由 %，<15 笔/零买入 null fail-open）/CD392 加 burstWaveStartVsLaunchPct（D3.66 起纯观察——第四腿判据源移交出口价锚）/D3.66 加 burstExitVsLaunchPct（最后 ≥50s 静默段出口首可靠价 vs launch 地板 %，service burst 豁免第四腿判据源）/D3.67 加 burstLastGapSec/出口波五键/净额卖回/户均中位十键（CD397 用户四条裁定：跨度/尘埃/流向轴原料——sbw 题 state 直供+BP67 透传，**不进 FA 投影**（levelsFromObservation 白名单 37 键不动=Option 2；净额 _anchorNum 带符号可负）——无门侧消费 FA 投影同源/CD398 加 burstWaveNetBnb（波窗自身净流 Σ买−Σ卖 带符号可负——service 侧 CD398 流向硬腿主判量）/CD400 加 nearDump 六键（qual/minAbsorb/worstSellers/worstSellBnb/worstSecToAnchor/worstSameBlkBuyBnb——dump_no_absorption 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（引擎投影显式挑键）——与 D3.67 十键差异=门侧消费需要）/CD401 加 burstExitSeg 三键（buy/sell/sellPct——burst_exit_sell_pressure 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（CD400 同形）——burst 期望=纯流入驱动，出口段卖占比 ≥30 ∧ 卖额 ≥0.3 都不符合（先买后跟卖=涨不下去/先卖后买=卖出引买））');
+ok(Object.keys(f1.anchors).length === 77, 'CD405 后 anchors=sb/eq+bundleBuy+top1 供/流+washPair 三键+D3.32 持仓分布五键+D3.60 持有者基数三键+G8 burst 三键/纯卖+总量占比+D3.35 五键+D3.41 簇流通两键/簇闭环三键+D3.51 尖刺两键+D3.52 锚窗买卖比+D3.53 精确等额同块三键+D3.54 同块脉冲节拍三键+D3.57 pump 锚族六键+D3.58 断流重启段六键+D3.62 聚合路由入口一键+CD392 burst 波起点一键+D3.66 burst 起来起点价一键+D3.67 单段绑定波族十键+CD398 波窗净流一键+CD400 贴锚砸出六键+CD401 出口段卖压三键+CD405 burst 捆绑收割两键=七十七数值键（activity/participation 档位不投影；D3.50 加 noBuySellVolumePct/D3.51 加 spike 两观察键/D3.52 加 anchorBuySellRatio/D3.53 加 exactEqualBlock 三观察键/D3.54 加 pulseBlockCount/BuyPct/MaxGapBlocks 三观察键/D3.57 加 pumpStable 三键+perBnb+卖笔占比（斜率/perBnb 带符号）/D3.58 加 postStall 六键（占比分母=段内买入不被断流前流量稀释）/D3.60 加 posHolderCount+前二/前三流通合计三键（CD240 持有者基数分层——<2/<3 持有人 null=轴不适用）/D3.62 加 routerEntryBuyPct（CD374 G17 N 通道源锚：锚窗买入笔走聚合路由 %，<15 笔/零买入 null fail-open）/CD392 加 burstWaveStartVsLaunchPct（D3.66 起纯观察——第四腿判据源移交出口价锚）/D3.66 加 burstExitVsLaunchPct（最后 ≥50s 静默段出口首可靠价 vs launch 地板 %，service burst 豁免第四腿判据源）/D3.67 加 burstLastGapSec/出口波五键/净额卖回/户均中位十键（CD397 用户四条裁定：跨度/尘埃/流向轴原料——sbw 题 state 直供+BP67 透传，**不进 FA 投影**（levelsFromObservation 白名单 37 键不动=Option 2；净额 _anchorNum 带符号可负）——无门侧消费 FA 投影同源/CD398 加 burstWaveNetBnb（波窗自身净流 Σ买−Σ卖 带符号可负——service 侧 CD398 流向硬腿主判量）/CD400 加 nearDump 六键（qual/minAbsorb/worstSellers/worstSellBnb/worstSecToAnchor/worstSameBlkBuyBnb——dump_no_absorption 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（引擎投影显式挑键）——与 D3.67 十键差异=门侧消费需要）/CD401 加 burstExitSeg 三键（buy/sell/sellPct——burst_exit_sell_pressure 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（CD400 同形）——burst 期望=纯流入驱动，出口段卖占比 ≥30 ∧ 卖额 ≥0.3 都不符合（先买后跟卖=涨不下去/先卖后买=卖出引买）/CD405 加 burstWaveBundle 两键（maxWallets/adjPairSum——burst_bundled_wave 不豁免臂判据源+观察；**进 levelsFromObservation 白名单但不进 FA 投影**（CD400 同形）——波窗单块/相邻两 slot 去尘捆绑钱包数，拉高收割极端形状）');
 ok(f1.anchors.anchorBuySellRatio === null,
   'D3.52 锚窗买卖比未传→null 容缺（f1 只传 sb/eq）');
 ok(f1.anchors.top1HoldSupplyPct === null && f1.anchors.top1HoldCircPct === null,
@@ -2899,6 +2899,84 @@ console.log('I. 著名钱包单极控盘锚');
     ]);
     ok(d5.burstExitSegSellPct === 97.7 && d5.burstExitSegSellBnb === 0.588,
       `CD401 纯卖出口（谷歌SI 05:16 判例复刻 97.7%/0.588；实际 ${d5.burstExitSegSellPct}/${d5.burstExitSegSellBnb}）`);
+  }
+
+  // ═══════════════ CD405 burst 捆绑收割两键（btv111 Request C「拉高收割」） ═══════════════
+  console.log('CD405 burst 捆绑收割（波窗=出口后 60s 域：单块/相邻两 slot 去尘捆绑钱包数；无段→null）');
+  {
+    const meta405 = { address: '0xt', symbol: 'T', name: 'T', createdAt: at(0), platform: 'fourmeme', totalSupply: 1e9 };
+    const d405 = (rows) => buildSnapshotFromRows(rows, meta405).derived;
+    const w405 = (n) => '0x' + String(n).padStart(40, '0'); // 合成钱包 n 号（程序化生成防手敲）
+    // bundle(sec, block, 钱包号数组, 单笔额)：同块多钱包各买一笔（log 递增）
+    const bundle = (sec, block, wallets, perBnb, log0 = 1) =>
+      wallets.map((n, i) => mkRow(sec, block, log0 + i, 'buy', perBnb, 1e-9, { sender: w405(n) }));
+    // gap 前铺垫行（sec10 block100；与出口 sec70 gap=60s ≥50 成段）
+    const pre = mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: w405(90) });
+
+    // ① Callcat 复刻：出口行同块 13 钱包各 0.02（单块 ≥7 形状）→ Max=13/Adj=0
+    const d1 = d405([pre, ...bundle(70, 200, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 0.02)]);
+    ok(d1.burstWaveBundleMaxWallets === 13 && d1.burstWaveBundleAdjPairSum === 0,
+      `CD405 单块 13 钱包（Callcat 复刻——出口行自身同块全数计入；实际 ${d1.burstWaveBundleMaxWallets}/${d1.burstWaveBundleAdjPairSum}）`);
+
+    // ② Crypto Winter 复刻：相邻 slot 200(2w)+201(6w) 连续分批 → Max=6/Adj=2+6=8
+    const d2 = d405([
+      pre,
+      ...bundle(70, 200, [1, 2], 0.02),
+      ...bundle(71, 201, [3, 4, 5, 6, 7, 8], 0.03),
+    ]);
+    ok(d2.burstWaveBundleMaxWallets === 6 && d2.burstWaveBundleAdjPairSum === 8,
+      `CD405 相邻两 slot 合计（Crypto Winter 复刻 2+6=8 连续 slot 拆分形状；实际 ${d2.burstWaveBundleMaxWallets}/${d2.burstWaveBundleAdjPairSum}）`);
+
+    // ③ M4GA 复刻：4 钱包 0.02 + 1 尘埃钱包 0.001 同块 → 去尘 Max=4；单买块无相邻对 Adj=0（有证据零值）
+    const d3 = d405([pre, ...bundle(70, 200, [1, 2, 3, 4], 0.02), ...bundle(70, 200, [99], 0.001, 10)]);
+    ok(d3.burstWaveBundleMaxWallets === 4 && d3.burstWaveBundleAdjPairSum === 0,
+      `CD405 尘埃钱包不计（M4GA 复刻 0.001 <0.01 去尘线；实际 ${d3.burstWaveBundleMaxWallets}/${d3.burstWaveBundleAdjPairSum}）`);
+
+    // ④ TukTuk 门外最近形状：2+4=6 → 6/6（阈值 ≥7 在 service——lib 锁精确值）
+    const d4 = d405([pre, ...bundle(70, 200, [1, 2], 0.02), ...bundle(71, 201, [3, 4, 5, 6], 0.02)]);
+    ok(d4.burstWaveBundleMaxWallets === 4 && d4.burstWaveBundleAdjPairSum === 6,
+      `CD405 门外最近形状（TukTuk 2+4=6 复刻——零误伤带边界；实际 ${d4.burstWaveBundleMaxWallets}/${d4.burstWaveBundleAdjPairSum}）`);
+
+    // ⑤ 无 ≥50s 静默段 → 两键 null（无沉积=burst 语境缺席，同块 8 捆绑钱包也不评）
+    const d5 = d405([
+      mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: w405(90) }),
+      ...bundle(40, 200, [1, 2, 3, 4, 5, 6, 7, 8], 0.02), // gap 30s <50 无段
+    ]);
+    ok(d5.burstWaveBundleMaxWallets === null && d5.burstWaveBundleAdjPairSum === null,
+      'CD405 无静默段全族 null（臂不触发，不扩大收紧面）');
+
+    // ⑥ 去尘边界+同钱包同块多笔合并：0.009 不计/0.01 恰计/两笔 0.005+0.005 合并 0.01 计 → 2
+    const d6 = d405([
+      pre,
+      mkRow(70, 200, 1, 'buy', 0.009, 1e-9, { sender: w405(1) }),
+      mkRow(70, 200, 2, 'buy', 0.01, 1e-9, { sender: w405(2) }),
+      mkRow(70, 200, 3, 'buy', 0.005, 1e-9, { sender: w405(3) }),
+      mkRow(70, 200, 4, 'buy', 0.005, 1e-9, { sender: w405(3) }),
+    ]);
+    ok(d6.burstWaveBundleMaxWallets === 2,
+      `CD405 去尘边界（per-wallet 块内 Σ买 ≥0.01：0.009 不计/0.01 恰计/同钱包两笔合并计；实际 ${d6.burstWaveBundleMaxWallets}）`);
+
+    // ⑦ 路由伪钱包与卖行不计：GMGN 路由行（sender null→wallet null）+卖行只计买腿
+    const d7 = d405([
+      pre,
+      ...bundle(70, 200, [1, 2], 0.02),
+      mkRow(70, 200, 5, 'buy', 0.05, 1e-9, { trader: ROUTER, sender: null }),
+      mkRow(70, 200, 6, 'sell', 0.5, 1e-9, { sender: w405(50) }),
+    ]);
+    ok(d7.burstWaveBundleMaxWallets === 2 && d7.burstWaveBundleAdjPairSum === 0,
+      `CD405 路由/卖行剔（wallet=sender||trader 口径同 FA——router 行不计人、只计买腿；实际 ${d7.burstWaveBundleMaxWallets}）`);
+
+    // ⑧ 波窗 60s 硬界：出口 sec70 → +60s（sec130 块）恰在窗内、+61s（sec131 块）界外不计
+    //（sec100 填充行防 sec70→sec130 自身构成第二段 ≥50s 静默把出口挪到 sec130）
+    const d8 = d405([
+      pre,
+      ...bundle(70, 200, [1], 0.02),
+      ...bundle(100, 250, [20], 0.02), // 填充行（gap 30s/30s 均 <50，出口保持 sec70）
+      ...bundle(130, 300, [2, 3, 4, 5, 6, 7, 8], 0.02), // +60s 恰达界=计入（>60 才 break）
+      ...bundle(131, 301, [10, 11, 12, 13, 14, 15, 16, 17], 0.02), // +61s 界外不计
+    ]);
+    ok(d8.burstWaveBundleMaxWallets === 7 && d8.burstWaveBundleAdjPairSum === 0,
+      `CD405 波窗 60s 硬界（+60s 块 7 钱包计入/+61s 块 8 钱包界外不计；实际 ${d8.burstWaveBundleMaxWallets}/${d8.burstWaveBundleAdjPairSum}）`);
   }
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);

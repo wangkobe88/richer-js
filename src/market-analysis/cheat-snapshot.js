@@ -100,6 +100,15 @@ const BURST_STALL_GAP_SEC = 50;
  */
 const BURST_SEG_SEARCH_SEC = 60;
 /**
+ * CD405 burst 捆绑收割去尘线（2026-11-14 btv111 Request C，用户裁定「触发
+ * burst 场景的流动性，去掉 dust，捆绑钱包大于等于 7 的挡住」）：波窗（最后
+ * ≥BURST_STALL_GAP_SEC 静默段出口后 BURST_SEG_SEARCH_SEC，D3.67 段定位同源）
+ * 内 per-block 捆绑买入的钱包计数=块内单钱包买入合计 ≥此值才计入——尘单堆凑
+ * 的钱包数不算组织性捆绑（M4GA 案第 5 钱包 0.0010 尘埃单天然门外）。规模线
+ * （≥7）在 CheatCheckService._exemptDeniedReason（burst_bundled_wave 臂）。
+ */
+const BURST_BUNDLE_WALLET_DUST_BNB = 0.01;
+/**
  * burst 波搜索段（D3.56→**D3.65 全窗化**）：D3.56（2026-11-04 用户裁定 0xc0a6…7777
  * 案「burst 是指临近购买点位的 burst，不是整体的，前面有不算」）曾收窄为锚前
  * BURST_NEAR_SEC(120s) 临近段；**D3.65（2026-11-10 用户裁定 ba5e/M4GA 案「一个
@@ -1041,6 +1050,23 @@ function computeDerived(snapshot, famousRoster) {
   // 天然安全）。非 FA 投影消费（CD400 nearDump 同形：进 levelsFromObservation
   // 白名单但不进 FA 投影/state/题面）；无 ≥50s 段/dt 缺失 → 全族 null 容缺不触发。
   let burstExitSegBuyBnb = null, burstExitSegSellBnb = null, burstExitSegSellPct = null;
+  // CD405 burst 捆绑收割两键（2026-11-14 btv111 Request C，用户裁定「Burst 中
+  // 出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了不给任何人
+  // 入场机会，收割的概率很高」+定线「只控制极端情况就好……去掉 dust，捆绑钱包
+  // 大于等于 7 的挡住；T022 这种如果是连续 2 个 slot 数量够了，也可以挡住」）：
+  //   burstWaveBundleMaxWallets  波窗（出口后 60s=_zone，D3.67 段定位同源）单块
+  //                             去尘捆绑钱包数最大值（Callcat 案同块 13 钱包）
+  //   burstWaveBundleAdjPairSum  相邻两 slot（block 差恰 1）去尘钱包数合计最大值
+  //                             （Crypto Winter 案 2+6=8——连续 slot 分批=同批
+  //                             bundler 跨块拆分的组织性形状；合计口径=用户裁定
+  //                             「连续 2 个 slot 数量够了」）
+  // 去尘=块内单钱包买入合计 ≥BURST_BUNDLE_WALLET_DUST_BNB 才计数；剔聚合路由
+  // 伪钱包（wallet=sender||trader 小写）；block 缺失行不进块统计（CD400 同款）。
+  // 无 ≥50s 静默段 → 全族 null（burst 语境缺席=臂不触发，不扩大收紧面）；有段
+  // 波窗无买块/无相邻对 → 0 有证据零值。阈值（≥7）在 CheatCheckService.
+  // _exemptDeniedReason（burst_bundled_wave 臂）；非 FA 投影/题面消费（CD400/
+  // CD401 同形）。
+  let burstWaveBundleMaxWallets = null, burstWaveBundleAdjPairSum = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
   if (waveTicksAll.length >= 2) {
     const waveTicks = waveTicksAll; // D3.65：锚前全窗（D3.56 临近段过滤退役，见上头注）
@@ -1203,6 +1229,37 @@ function computeDerived(snapshot, famousRoster) {
       burstExitSegBuyBnb = +_segBuy.toFixed(4);
       burstExitSegSellBnb = +_segSell.toFixed(4);
       if (_segBuy + _segSell > 0) burstExitSegSellPct = +((_segSell / (_segBuy + _segSell)) * 100).toFixed(1);
+      // CD405 burst 捆绑收割两键（头注见变量声明区）：波窗=上方 _zone（出口后
+      // 60s 搜索域整体，非其中最密 5s 子窗——捆绑结构看整个涌入段）；per-block
+      // Map(钱包→块内 Σ买) → 去尘钱包数 → 单块最大值 + 相邻两 slot 合计最大值。
+      // 有段即置 0/0 基线（波窗无买块/无相邻对=有证据零值，与 burstExitWaveBuyBnb
+      // =0 同款语义）；无段保持 null=臂不触发
+      {
+        burstWaveBundleMaxWallets = 0;
+        burstWaveBundleAdjPairSum = 0;
+        const _blockBuys = new Map(); // block → Map(wallet → 块内 Σ买)
+        for (const t of _zone) {
+          if (t.side !== 'BUY' || t.block === null || t.block === undefined) continue;
+          if (!t.wallet) continue; // null wallet 行计量不计人（FA wallet 口径同款）
+          const _bw2 = String(t.wallet).toLowerCase();
+          if (isRouterWallet(_bw2)) continue;
+          let _per = _blockBuys.get(t.block);
+          if (!_per) { _per = new Map(); _blockBuys.set(t.block, _per); }
+          _per.set(_bw2, (_per.get(_bw2) || 0) + (t.bnb || 0));
+        }
+        const _bl2 = [..._blockBuys.entries()]
+          .map(([block, perWallet]) => ({
+            block,
+            n: [...perWallet.values()].filter((v) => v >= BURST_BUNDLE_WALLET_DUST_BNB).length,
+          }))
+          .sort((a, b) => a.block - b.block);
+        for (const b of _bl2) if (b.n > burstWaveBundleMaxWallets) burstWaveBundleMaxWallets = b.n;
+        for (let i = 1; i < _bl2.length; i++) {
+          if (_bl2[i].block - _bl2[i - 1].block !== 1) continue; // 相邻 slot=block 差恰 1
+          const _s = _bl2[i].n + _bl2[i - 1].n;
+          if (_s > burstWaveBundleAdjPairSum) burstWaveBundleAdjPairSum = _s;
+        }
+      }
     }
   }
 
@@ -1745,6 +1802,9 @@ function computeDerived(snapshot, famousRoster) {
     // CD401 出口段卖压三键（burst_exit_sell_pressure 不豁免臂判据源——出口整窗
     // 买/卖/卖%；头注见变量声明区；非 FA 投影消费）
     burstExitSegBuyBnb, burstExitSegSellBnb, burstExitSegSellPct,
+    // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗单块/
+    // 相邻两 slot 去尘捆绑钱包数；无 ≥50s 段全族 null 不冒充；头注见计算段）
+    burstWaveBundleMaxWallets, burstWaveBundleAdjPairSum,
     // CD400 贴锚组织性砸出零承接锚族六键（CheatCheckService._exemptDeniedReason
     // dump_no_absorption 臂判据源；无达标块/dt 缺失全族 null 不冒充；头注见计算段）
     nearDumpQualBlocks, nearDumpMinAbsorbBnb,

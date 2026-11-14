@@ -1304,6 +1304,84 @@ async function main() {
       '_isCheatExemptEligible 三点同构直调（出口/拉黑登记/bootstrap 与出口同判）');
   }
 
+  // ═══════════════ D10. CD405 burst 捆绑收割不豁免臂（burst_bundled_wave） ═══════════════
+  console.log('D10. CD405 burst 捆绑收割臂');
+  {
+    // 用户裁定（2026-11-14，btv111 Request C——T022 比格多栋/T034 Crypto Winter 归因）：
+    // 「Burst 中出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了
+    // 不给任何人入场机会，收割的概率很高」+定线「只控制极端情况就好，触发 burst
+    // 场景的流动性，去掉 dust，捆绑钱包大于等于 7 的挡住就好。T022 这种，如果是
+    // 连续 2 个 slot 数量够了，也可以挡住（但是如果在买入区块看不到后续的买入，
+    // 挡不住就算了）」。判据=波窗（最后 ≥50s 静默段出口后 60s，D3.67 段定位同源）
+    // 单块去尘捆绑钱包 ≥7 ∨ 相邻两 slot（block 差恰 1）去尘合计 ≥7；四基底命中
+    // 面 4 票全负 Σ−0.0671 零误伤（Callcat 同块 13w −0.0367/Crypto Winter 2+6=8
+    // +0.0121/网上南宁 6+3 −0.0307/callcat小 4+3=7 −0.0118——后两张 stall_burst
+    // 豁免票=不限 sbw 统一出口与 CD401 刻意不同向）；门外最近 TukTuk 2+4=6、
+    // MBF 5+1=6；M4GA 波内 4w+1 尘埃钱包天然门外；T022 锚后 +1s 捆绑 as-of
+    // 不可见=用户预接受留档（「在买入区块看不到后续的买入，挡不住就算了」）。
+    const T0 = 1800000000000;
+    const at = (sec) => new Date(T0 + sec * 1000).toISOString();
+    const row = (sec, block, log, type, bnb, wallet) => ({
+      block_time: at(sec), block_number: block, log_index: log, trade_type: type,
+      bnb_amount: bnb, price_bnb: 1e-9, price_outlier: false,
+      trader_address: wallet, sender_address: wallet, quote_token: null,
+    });
+    const w = (s) => s.padEnd(42, '0');
+    // 波窗基底：铺买 2 笔（block 100）→ 69s 静默（sec1→sec70）→ 出口 sec70 起波窗
+    // [70,130]；blocks=[[sec, block, 钱包号数组, 单笔额], …] 每钱包一笔（≥0.01 过尘线）
+    const waveBase = (blocks) => [
+      row(0, 100, 0, 'buy', 0.1, w('0xp1')),
+      row(1, 100, 1, 'buy', 0.1, w('0xp2')),
+      ...blocks.flatMap(([sec, block, wallets, perBnb], bi) =>
+        wallets.map((n, i) => row(sec, block, i, 'buy', perBnb, w(`0xw${bi}${String(n).padStart(3, '0')}`)))), // 钱包号补零定宽防 1/10 padEnd 同串碰撞
+    ];
+    const CHEAT_HIGH = { ...GOOD_ANSWERS, activity_level: actAns('high') };
+
+    // ① 主形状（Callcat 复刻）：cheat ∧ act=high ∧ 出口同块 13 钱包各 0.02
+    //    → denied 保持 cheat+拉黑+细分计数+digest/r 两键精确透传
+    const db1 = makeDb({ ticks: waveBase([[70, 200, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 0.02]]) });
+    const svc1 = makeSvc(db1, makeLlm({ answers: CHEAT_HIGH }));
+    const r1 = await svc1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r1.grade === 'cheat' && r1.exemptDenied === 'burst_bundled_wave' && svc1.isGateBlocked('0xtok') === true
+      && svc1.stats.burstBundleDenied === 1,
+      `cheat∧high∧波窗同块 13 捆绑 → 豁免失效原判保持+拉黑（Callcat 复刻；实际 ${r1.grade}/${r1.exemptDenied}/blocked=${svc1.isGateBlocked('0xtok')}/n=${svc1.stats.burstBundleDenied}）`);
+    const anc1 = db1.state.inserts[0].snapshot_digest.anchors;
+    ok(anc1.burstWaveBundleMaxWallets === 13 && anc1.burstWaveBundleAdjPairSum === 0,
+      `两键 digest 精确值（13/0；实际 ${anc1.burstWaveBundleMaxWallets}/${anc1.burstWaveBundleAdjPairSum}）`);
+    ok(r1.anchors && r1.anchors.burstWaveBundleMaxWallets === 13 && r1.anchors.burstWaveBundleAdjPairSum === 0,
+      'r.anchors 判据键白名单透传（CD400 同形——门侧消费需要）');
+
+    // ② 相邻 slot 合计线（Crypto Winter 复刻）：2+6=8 → denied；门外最近 2+4=6（TukTuk）→ 照豁免
+    const db2a = makeDb({ ticks: waveBase([[70, 200, [1, 2], 0.02], [71, 201, [1, 2, 3, 4, 5, 6], 0.03]]) });
+    const svc2a = makeSvc(db2a, makeLlm({ answers: CHEAT_HIGH }));
+    const r2a = await svc2a.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2a.grade === 'cheat' && r2a.exemptDenied === 'burst_bundled_wave' && svc2a.stats.burstBundleDenied === 1,
+      `相邻 slot 2+6=8 合计命中（Crypto Winter 复刻连续 slot 拆分形状；实际 ${r2a.grade}/${r2a.exemptDenied}）`);
+    const db2b = makeDb({ ticks: waveBase([[70, 200, [1, 2], 0.02], [71, 201, [1, 2, 3, 4], 0.02]]) });
+    const svc2b = makeSvc(db2b, makeLlm({ answers: CHEAT_HIGH }));
+    const r2b = await svc2b.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+    ok(r2b.grade === 'healthy' && r2b.exempt && r2b.exempt.code === 'activity_high' && svc2b.stats.burstBundleDenied === 0,
+      `门外最近形状 2+4=6 不拦照豁免（TukTuk 复刻零误伤带边界；实际 ${r2b.grade}/${JSON.stringify(r2b.exempt)}/n=${svc2b.stats.burstBundleDenied}）`);
+
+    // ③ 直调锁：判据边界（7 恰命中/6 门外/相邻 7 命中/容缺/臂序/三点同构）
+    const svc3 = makeSvc(makeDb(), makeLlm());
+    const lv = { washPair: 0 };
+    ok(svc3._exemptDeniedReason(lv, { burstWaveBundleMaxWallets: 7 }) === 'burst_bundled_wave',
+      '单块 7 恰达线命中（用户定线「大于等于 7」）');
+    ok(svc3._exemptDeniedReason(lv, { burstWaveBundleMaxWallets: 6 }) === null,
+      '单块 6 门外（门外最近带=6）');
+    ok(svc3._exemptDeniedReason(lv, { burstWaveBundleMaxWallets: 3, burstWaveBundleAdjPairSum: 7 }) === 'burst_bundled_wave',
+      '相邻两 slot 合计 7 命中（连续 slot 拆分形状——单块不达线仍拦）');
+    ok(svc3._exemptDeniedReason(lv, { burstWaveBundleMaxWallets: 6, burstWaveBundleAdjPairSum: 6 }) === null
+      && svc3._exemptDeniedReason(lv, {}) === null
+      && svc3._exemptDeniedReason(lv, { burstWaveBundleMaxWallets: null, burstWaveBundleAdjPairSum: null }) === null,
+      '容缺锁：合计 6/键缺席/两键 null（无静默段旧档）→ 不触发（缺席不扩大收紧面）');
+    ok(svc3._exemptDeniedReason({ washPair: 3 }, { burstWaveBundleMaxWallets: 13 }) === 'wash_pair',
+      '臂序锁：wash 同块对敲 strong 优先（CD380 在前）');
+    ok(svc3._isCheatExemptEligible('high', lv, { burstWaveBundleMaxWallets: 13 }) === false,
+      '_isCheatExemptEligible 三点同构直调（出口/拉黑登记/bootstrap 同判 false）');
+  }
+
   // ═══════════════ Z2. CD393 截窗整链退役（判定窗=锚截窗全窗——回到 CD382 前口径）═══════════════
   console.log('Z2. CD393 截窗整链退役（全窗口径回归）');
   {

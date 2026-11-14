@@ -99,6 +99,10 @@ const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_typ
 // ratio<0.3 唯一命中 T003 双基底、sellers 4~6 六张盈利票全在门外零误伤。
 const DUMP_RATIO_MIN_SELLERS = 8;
 const DUMP_LOW_ABSORPTION_RATIO = 0.3;
+// CD405 burst 捆绑收割臂规模线（2026-11-14 btv111 Request C；详见 _exemptDeniedReason 头注⑦）：
+// 去尘捆绑钱包 ≥7=挡（单块或相邻两 slot 合计）——同族线=BP77 塞单门 ≥8/CD403 卖方
+// ≥8 的买侧对偶（同块 7+ 独立钱包=组织性捆绑，散户到不了同块规模）
+const BURST_BUNDLE_MIN_WALLETS = 7;
 
 // CD379 活跃度豁免合法域（2026-11-07 用户裁定）——与 llm/cheat-questions.mjs 的
 // ACTIVITY_LEVELS 同域（ESM 不能静态 require，单测 _test_cheat_gate_engine.cjs
@@ -200,6 +204,7 @@ class CheatCheckService {
       dumpAbsorbDenied: 0, // CD400 贴锚砸出零承接臂命中细分计数（dump_no_absorption；生产触发频率观察）
       burstSellDenied: 0, // CD401 出口段卖压臂命中细分计数（burst_exit_sell_pressure；生产触发频率观察）
       dumpRatioDenied: 0, // CD403 超大量捆绑砸盘承接比臂命中细分计数（dump_low_absorption；生产触发频率观察）
+      burstBundleDenied: 0, // CD405 burst 捆绑收割臂命中细分计数（burst_bundled_wave；生产触发频率观察）
       ultraCheatDenied: 0, // CD388/CD391 ultra 档资格收紧命中计数（cheat∧ultra∧burst 不在场=不豁免原判保持；11-09 两度裁定：CD390 曾推广全档、CD391「交易活跃度热，cheat 继续豁免」收回 ultra 单档恢复 high 豁免）
       activityCheatDenied: 0, // CD390 全档资格收紧命中计数——CD391 收回 ultra 单档后本计数停用恒 0，保留键读数连续性
       marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
@@ -499,6 +504,28 @@ class CheatCheckService {
    *    0.185 −0.045）等小规模砸块低承接票不落本臂=观察攒批。臂序在 CD400 后
    *    =承接 <0.05 的形状留 dump_no_absorption 码更具体；题集/grade 版本零
    *    改动（纯代码数值臂，CD400/CD401/G17 N 通道先例第四例）。
+ * ⑦ burst 捆绑收割臂（CD405，2026-11-14 btv111 Request C——用户裁定原话
+ *    「Burst 中出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了
+ *    不给任何人入场机会，收割的概率很高」+定线「只控制极端情况就好，触发
+ *    burst 场景的流动性，去掉 dust，捆绑钱包大于等于 7 的挡住就好。T022 这种，
+ *    如果是连续 2 个 slot 数量够了，也可以挡住（但是如果在买入区块看不到
+ *    后续的买入，挡不住就算了）」）：波窗（最后 ≥50s 静默段出口后 60s，D3.67
+ *    段定位同源）内 单块去尘捆绑钱包 ≥BURST_BUNDLE_MIN_WALLETS(7) ∨ 相邻两
+ *    slot（block 差恰 1）去尘合计 ≥7 → denied 'burst_bundled_wave'。去尘=块内
+ *    单钱包买入合计 ≥0.01 BNB 才计数（BURST_BUNDLE_WALLET_DUST_BNB，snapshot
+ *    计算侧——尘单堆凑的钱包数不算组织性捆绑）+ 剔聚合路由伪钱包。同块 7+
+ *    钱包=组织性捆绑拉高（散户到不了同块规模；BP77 塞单门 ≥8/CD403 卖方 ≥8
+ *    买侧对偶）；连续 slot 分批=同批 bundler 跨块拆分。**四基底命中面=4 票
+ *    全负 Σ−0.0671 零误伤**（Callcat 同块 13w −0.0367 / Crypto Winter 2+6=8
+ *    +0.0121 / 网上南宁 6+3 −0.0307 / callcat小 4+3=7 −0.0118）；门外最近
+ *    TukTuk 2+4=6、MBF 5+1=6；M4GA 波内 4w+1 尘埃钱包（0.0010）天然门外。
+ *    **不限 sbw**（与 CD401 限 sbw=1 刻意不同向：stall_burst 豁免票同拦——
+ *    网上南宁/callcat小 两张 stall_burst 止损票在命中面内；user 定线无豁免臂
+ *    限定语=统一出口）。T022 后续捆绑在锚后 1s（as-of 锚不可见）挡不住=用户
+ *    预接受（「在买入区块看不到后续的买入，挡不住就算了」）留档。判据=
+ *    anchors 数值锚（burstWaveBundleMaxWallets/AdjPairSum，计算头注见
+ *    cheat-snapshot CD405 段）；题集/grade 版本零改动（纯代码数值臂，
+ *    CD400/CD401/CD403/G17 N 通道先例第五例）。
    * 入参=levels 数值投影 + anchors 数值锚（levelsFromObservation 产物；秒回/
    * late/blocked 行同构）；levels null 或键缺席（旧档断代/题未答）→ 不触发=
    * 豁免照常（缺席不扩大收紧面，维持 CD379 原语义）。豁免与收紧全部收在本
@@ -546,6 +573,16 @@ class CheatCheckService {
       && typeof an.burstExitSegSellPct === 'number' && an.burstExitSegSellPct >= 30
       && typeof an.burstExitSegSellBnb === 'number' && an.burstExitSegSellBnb >= 0.3) {
       return 'burst_exit_sell_pressure';
+    }
+    // CD405 burst 捆绑收割臂（btv111 Request C，头注⑦）：波窗内单块去尘捆绑钱包
+    // ≥7 ∨ 相邻两 slot 去尘合计 ≥7 → 不豁免（「拉高收割不给入场机会」极端形状；
+    // 无 ≥50s 静默段/旧档断代 null 容缺不触发；不限 sbw=统一出口，stall_burst
+    // 豁免票同拦——网上南宁/callcat小 两张 stall_burst 止损票在命中面内）
+    if (typeof an.burstWaveBundleMaxWallets === 'number' && an.burstWaveBundleMaxWallets >= BURST_BUNDLE_MIN_WALLETS) {
+      return 'burst_bundled_wave';
+    }
+    if (typeof an.burstWaveBundleAdjPairSum === 'number' && an.burstWaveBundleAdjPairSum >= BURST_BUNDLE_MIN_WALLETS) {
+      return 'burst_bundled_wave';
     }
     return null; // pump 臂已移除（2026-11-08 四修裁定，见头注①）；holdings 臂已移除（三修，头注③）
   }
@@ -621,6 +658,7 @@ class CheatCheckService {
       if (denied === 'dump_no_absorption') this.stats.dumpAbsorbDenied++; // CD400 细分计数
       if (denied === 'dump_low_absorption') this.stats.dumpRatioDenied++; // CD403 细分计数
       if (denied === 'burst_exit_sell_pressure') this.stats.burstSellDenied++; // CD401 细分计数
+      if (denied === 'burst_bundled_wave') this.stats.burstBundleDenied++; // CD405 细分计数
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
     // CD391（2026-11-09 用户裁定「交易活跃度热，cheat 继续豁免」——CD390 全档
@@ -827,6 +865,10 @@ class CheatCheckService {
           burstExitSegBuyBnb: snapshot.derived.burstExitSegBuyBnb,
           burstExitSegSellBnb: snapshot.derived.burstExitSegSellBnb,
           burstExitSegSellPct: snapshot.derived.burstExitSegSellPct,
+          // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗
+          // 单块/相邻两 slot 去尘捆绑钱包数；头注见 cheat-snapshot 计算段）
+          burstWaveBundleMaxWallets: snapshot.derived.burstWaveBundleMaxWallets,
+          burstWaveBundleAdjPairSum: snapshot.derived.burstWaveBundleAdjPairSum,
           // G8 K/L 通道零买纯卖占比（零买入纯卖出钱包合计÷全窗总卖%）
           noBuySellPct: snapshot.derived.noBuySellPct,
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的

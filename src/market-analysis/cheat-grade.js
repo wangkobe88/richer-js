@@ -407,6 +407,11 @@ function levelsFromObservation(observation, extras = {}) {
     burstExitSegBuyBnb: _pct(an.burstExitSegBuyBnb),
     burstExitSegSellBnb: _pct(an.burstExitSegSellBnb),
     burstExitSegSellPct: _pct(an.burstExitSegSellPct),
+    // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗（最后
+    // ≥50s 静默段出口+60s）单块/相邻两 slot 去尘捆绑钱包数；非 FA 投影消费
+    // （CD400/CD401 同形）；无 ≥50s 静默段→null=臂不触发，头注见 cheat-snapshot）
+    burstWaveBundleMaxWallets: _pct(an.burstWaveBundleMaxWallets),
+    burstWaveBundleAdjPairSum: _pct(an.burstWaveBundleAdjPairSum),
     noBuySellPct: _pct(an.noBuySellPct),
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
