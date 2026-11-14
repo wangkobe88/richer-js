@@ -1,0 +1,5892 @@
+{
+ "exp": "18db4a3e-b25d-44f3-9fc6-32d3c2f2857b",
+ "rows": [
+  {
+   "pointId": "BP-T001",
+   "symbol": "정책콕",
+   "token": "0x9d147fa0e447d98cf1a7ac32f114f6d0b9877777",
+   "anchor": "04:45:14",
+   "leg": "买入策略 P1·首买",
+   "age": 33,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 1,
+     "holdingsBalance": 3,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.67,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.79,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.94,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.86,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.022111,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 159,
+   "profitPct": -11.055530681829879
+  },
+  {
+   "pointId": "BP-T002",
+   "symbol": "苍蝇",
+   "token": "0x04323e04c5f48587951c2d974b7f1b007b6e7777",
+   "anchor": "05:09:34",
+   "leg": "买入策略 P1·首买",
+   "age": 16,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+same_block_buy_wave",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 3,
+     "insiderSupplySell": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.91,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.53,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.04132,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 52,
+   "profitPct": -20.659963948415477
+  },
+  {
+   "pointId": "BP-T003",
+   "symbol": "徐苍蝇",
+   "token": "0x59f5ccb671f1651db2ca8aba4fd0254fcef87777",
+   "anchor": "05:10:00",
+   "leg": "买入策略 P1·首买",
+   "age": 18,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 2,
+     "coordinatedSellBack": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.83,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.94,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.48,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.75,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.004955,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 31,
+   "profitPct": -2.4774526661443828
+  },
+  {
+   "pointId": "BP-T004",
+   "symbol": "SB",
+   "token": "0x92aac04f03278ce7ac82ba0367dbaf9686437777",
+   "anchor": "05:10:21",
+   "leg": "买入策略 P1·首买",
+   "age": 32,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 3,
+     "insiderSupplySell": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.84,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.95,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.65,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.017671,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 73,
+   "profitPct": -8.835330012605594
+  },
+  {
+   "pointId": "BP-T005",
+   "symbol": "苹果SI",
+   "token": "0xc9bf4530033f6497002d228296fedb45036f7777",
+   "anchor": "05:11:40",
+   "leg": "买入策略 P7·首买",
+   "age": 509,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 1,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.66,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.61,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.85,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.68,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": -0.0062,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 46,
+   "profitPct": -3.1001302027773967
+  },
+  {
+   "pointId": "BP-T006",
+   "symbol": "Flap",
+   "token": "0x55c3992fd542f1a898898cdb010f71e2683f7777",
+   "anchor": "05:24:56",
+   "leg": "买入策略 P1·首买",
+   "age": 152,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.82,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.89,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.66,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.088287,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 78,
+   "profitPct": 44.143516730330376
+  },
+  {
+   "pointId": "BP-T007",
+   "symbol": "蝴蝶",
+   "token": "0xac0b530995e47794dd0b722497aa33873b8c7777",
+   "anchor": "05:30:05",
+   "leg": "买入策略 P2·首买",
+   "age": 467,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 2,
+     "sellDispersion": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.65,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.8,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.84,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.59,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.01669,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 67,
+   "profitPct": -8.345170128212066
+  },
+  {
+   "pointId": "BP-T008",
+   "symbol": "吉祥",
+   "token": "0xea7886d590ba1d7d6d4e7761148ba26405c67777",
+   "anchor": "05:48:29",
+   "leg": "买入策略 P1·首买",
+   "age": 24,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "equalAmountSplit": 1,
+     "insiderSupplySell": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.71,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.89,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.89,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.99,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.127215,
+   "sellN": 3,
+   "sellWhy": "卖出策略 P7",
+   "holdSec": 19,
+   "profitPct": 101.75708254419501
+  },
+  {
+   "pointId": "BP-T009",
+   "symbol": "吉祥",
+   "token": "0x4aac4818c1f71a7dbe9967498e65ba60d3b17777",
+   "anchor": "05:48:33",
+   "leg": "买入策略 P1·首买",
+   "age": 44,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.72,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.94,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.42,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.85,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.009527,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 84,
+   "profitPct": -4.763658331533139
+  },
+  {
+   "pointId": "BP-T010",
+   "symbol": "LABU",
+   "token": "0x1ac4a310874e29290720d2fb55300a91a23e7777",
+   "anchor": "05:54:09",
+   "leg": "买入策略 P1·首买",
+   "age": 96,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "slowGrindPump": 2,
+     "sellDispersion": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.82,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.91,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.94,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.68,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.015687,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 35,
+   "profitPct": -7.843353671565517
+  },
+  {
+   "pointId": "BP-T011",
+   "symbol": "ZELDA",
+   "token": "0x3ca2a09d2ac2155f46f0df2b4583936fd92e7777",
+   "anchor": "05:56:44",
+   "leg": "买入策略 P1·首买",
+   "age": 24,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "holdingsBalance": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.93,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.98,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.82,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.01327,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 59,
+   "profitPct": -6.635080322601807
+  },
+  {
+   "pointId": "BP-T012",
+   "symbol": "긴와",
+   "token": "0x6862f5fd3d4efee4f9d4526665d907f845827777",
+   "anchor": "06:07:39",
+   "leg": "买入策略 P1·首买",
+   "age": 18,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "equalAmountSplit": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.98,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.96,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.99,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.048249,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 44,
+   "profitPct": -24.124733953086167
+  },
+  {
+   "pointId": "BP-T013",
+   "symbol": "CORLADOG",
+   "token": "0x9fcae3ef3348ee29011215052b764b5db5bc7777",
+   "anchor": "06:45:33",
+   "leg": "买入策略 P1·首买",
+   "age": 23,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.83,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.72,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.49,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.51,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": 0.003405,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 90,
+   "profitPct": 1.7027120120421317
+  },
+  {
+   "pointId": "BP-T014",
+   "symbol": "彪姐",
+   "token": "0x6a1e456708e7fae6e44fe63b1f38c97ddd757777",
+   "anchor": "06:49:17",
+   "leg": "买入策略 P2·首买",
+   "age": 129,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.67,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.9,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.83,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.52,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.046718,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 69,
+   "profitPct": -23.35911794016949
+  },
+  {
+   "pointId": "BP-T015",
+   "symbol": "谷谷",
+   "token": "0x32f18a98e4fc3b33013f80454faae710a6367777",
+   "anchor": "07:06:34",
+   "leg": "买入策略 P1·首买",
+   "age": 18,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.93,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.56,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.8,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": 0.129217,
+   "sellN": 4,
+   "sellWhy": "卖出策略 P10",
+   "holdSec": 269,
+   "profitPct": 53.896208969714046
+  },
+  {
+   "pointId": "BP-T016",
+   "symbol": "施工鸭",
+   "token": "0x459f1d098437fad48931372f9b16b6ad25297777",
+   "anchor": "07:15:11",
+   "leg": "买入策略 P2·首买",
+   "age": 71,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.73,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.89,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.8,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.68,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.048427,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 105,
+   "profitPct": -24.213675593336667
+  },
+  {
+   "pointId": "BP-T017",
+   "symbol": "memes",
+   "token": "0x28ad2c7d08d83a85467bd4afcfd673dfce564444",
+   "anchor": "07:15:57",
+   "leg": "买入策略 P2·首买",
+   "age": 112,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+coordinated_sell_back",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 3,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.97,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.63,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.96,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.66011,
+   "sellN": 4,
+   "sellWhy": "卖出策略 P7",
+   "holdSec": 59,
+   "profitPct": 134.1181542233426
+  },
+  {
+   "pointId": "BP-T018",
+   "symbol": "M4GA",
+   "token": "0xba5ed45b42479e0a75316de7bf990ec90a3e4444",
+   "anchor": "07:40:45",
+   "leg": "买入策略 P1·首买",
+   "age": 80,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+same_block_buy_wave",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 3,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.6,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.85,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.94,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.629195,
+   "sellN": 4,
+   "sellWhy": "卖出策略 P7",
+   "holdSec": 109,
+   "profitPct": 492.62257982787503
+  },
+  {
+   "pointId": "BP-T019",
+   "symbol": "持械入宋",
+   "token": "0xea3ce510829b2b3c77dae374aad440e23be94444",
+   "anchor": "07:41:30",
+   "leg": "买入策略 P3·首买",
+   "age": 498,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+coordinated_sell_back+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 3,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.44,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.51,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.64,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 31,
+   "profitPct": 0
+  },
+  {
+   "pointId": "BP-T020",
+   "symbol": "我丢雷老某",
+   "token": "0xe0f89920ef566521d26df3c7d14352dba59d4444",
+   "anchor": "07:43:01",
+   "leg": "买入策略 P1·首买",
+   "age": 25,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.76,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.53,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.93,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.98,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.026631,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 45,
+   "profitPct": -13.31562029651331
+  },
+  {
+   "pointId": "BP-T021",
+   "symbol": "FOM",
+   "token": "0xf7860f0534a1769dbb77286df55222a41e714444",
+   "anchor": "07:46:00",
+   "leg": "买入策略 P1·首买",
+   "age": 23,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.88,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.53,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.91,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.072877,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 38,
+   "profitPct": 36.438630809694345
+  },
+  {
+   "pointId": "BP-T022",
+   "symbol": "小四",
+   "token": "0xf0576fc1267506123b0bb843b2a325e9010b4444",
+   "anchor": "07:47:55",
+   "leg": "买入策略 P11·首买",
+   "age": 198,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.72,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.72,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.54,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.492912,
+   "sellN": 4,
+   "sellWhy": "卖出策略 P10",
+   "holdSec": 66,
+   "profitPct": 319.77358130490296
+  },
+  {
+   "pointId": "BP-T023",
+   "symbol": "4DOG",
+   "token": "0x9ac2747955e5d027e50d155be92118492c814444",
+   "anchor": "07:47:59",
+   "leg": "买入策略 P1·首买",
+   "age": 356,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+coordinated_sell_back+same_block_buy_wave+burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 2,
+     "stallBurstWave": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 3,
+     "coordinatedSellBack": 3,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.75,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.89,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.95,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.007349,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 50,
+   "profitPct": -3.6742740663990645
+  },
+  {
+   "pointId": "BP-T024",
+   "symbol": "MTGA",
+   "token": "0xe6c22c98a1519a2ed5341d08a0df8b705d7bffff",
+   "anchor": "07:51:16",
+   "leg": "买入策略 P1·首买",
+   "age": 26,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 3,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.78,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.8,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.44,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.89,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.035863,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 52,
+   "profitPct": -17.931465740130275
+  },
+  {
+   "pointId": "BP-T025",
+   "symbol": "菲比",
+   "token": "0x08859f0fe2ea5d2ed611829f245974f3d6cf4444",
+   "anchor": "08:05:38",
+   "leg": "买入策略 P1·首买",
+   "age": 19,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.82,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.72,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.95,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.009367,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 72,
+   "profitPct": -4.683578958067792
+  },
+  {
+   "pointId": "BP-T026",
+   "symbol": "FFFF",
+   "token": "0x6af6cd7f35c1c1aa2392956938019a57c633ffff",
+   "anchor": "08:06:27",
+   "leg": "买入策略 P12·首买",
+   "age": 136,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "insiderSupplySell": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.93,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.95,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.91,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.81,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.009861,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 42,
+   "profitPct": -4.930527046674729
+  },
+  {
+   "pointId": "BP-T027",
+   "symbol": "汽茫",
+   "token": "0x81ea78c13642362504618486158d07a5e0f24444",
+   "anchor": "08:12:07",
+   "leg": "买入策略 P1·首买",
+   "age": 50,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.89,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.91,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.64,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.76,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": 0.034477,
+   "sellN": 2,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 55,
+   "profitPct": 21.35452727350379
+  },
+  {
+   "pointId": "BP-T028",
+   "symbol": "無為",
+   "token": "0xb97d5772bf70814161d29243b0e39ec62f734444",
+   "anchor": "08:13:33",
+   "leg": "买入策略 P11·首买",
+   "age": 103,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null,
+     "exempt": {
+      "code": "dump_total_volume",
+      "totalVolumeBnb": 28.9155
+     }
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.67,
+      "bucket": "malicious_dump"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.91,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.74,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.00011,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 63,
+   "profitPct": 0.05497768546763695
+  },
+  {
+   "pointId": "BP-T029",
+   "symbol": "股股嘎嘎",
+   "token": "0xb9dea15c7a92df7cae8657bcec876c2dc8ae4444",
+   "anchor": "08:14:07",
+   "leg": "买入策略 P13·首买",
+   "age": 319,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.89,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.44,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.86,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.96,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.003366,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 39,
+   "profitPct": -1.6828715665751128
+  },
+  {
+   "pointId": "BP-T030",
+   "symbol": "4",
+   "token": "0x4b4a1364bfc28719f0ee928c59ddbeab81294444",
+   "anchor": "08:17:41",
+   "leg": "买入策略 P12·首买",
+   "age": 297,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 3,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null,
+     "exempt": {
+      "code": "dump_total_volume",
+      "totalVolumeBnb": 46.8455
+     }
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.6,
+      "bucket": "malicious_dump"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.85,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.66,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.55,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": 0.051637,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P5",
+   "holdSec": 46,
+   "profitPct": 25.81856350327373
+  },
+  {
+   "pointId": "BP-T031",
+   "symbol": "我画地为牢",
+   "token": "0x3816a4abb3ea7ba613359e9ae54603aa06c14444",
+   "anchor": "08:18:08",
+   "leg": "买入策略 P1·首买",
+   "age": 62,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+coordinated_sell_back+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 3,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.91,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.87,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.55,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.84,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.034795,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 1,
+   "profitPct": 17.39729331156907
+  },
+  {
+   "pointId": "BP-T032",
+   "symbol": "Dawn",
+   "token": "0xf0572e3b05961f4c73cad4986ed92d8739084444",
+   "anchor": "08:18:40",
+   "leg": "买入策略 P4·首买",
+   "age": 218,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 3,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.88,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.76,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.88,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.011673,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 50,
+   "profitPct": 5.836617594706514
+  },
+  {
+   "pointId": "BP-T033",
+   "symbol": "Dawn",
+   "token": "0x962ba5c2e9ff0edad32e336a956d4495d9f54444",
+   "anchor": "08:22:09",
+   "leg": "买入策略 P1·首买",
+   "age": 381,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:coordinated_sell_back+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 3,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.62,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.7,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.78,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.44,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.014869,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 59,
+   "profitPct": -7.4347338741324736
+  },
+  {
+   "pointId": "BP-T034",
+   "symbol": "meme.jpg",
+   "token": "0xa52a9366ac14efd7fd5ad0c711801765d6ceffff",
+   "anchor": "08:25:13",
+   "leg": "买入策略 P1·首买",
+   "age": 23,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "equalAmountSplit": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.72,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.83,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.43,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.62,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.034792,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 44,
+   "profitPct": -17.396064928810873
+  },
+  {
+   "pointId": "BP-T035",
+   "symbol": "我靠",
+   "token": "0xcbfe6b2bceacfab7934c82513f568f4e31a04444",
+   "anchor": "08:30:02",
+   "leg": "买入策略 P1·首买",
+   "age": 1259,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.94,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.85,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.95,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 31,
+   "profitPct": 0
+  },
+  {
+   "pointId": "BP-T036",
+   "symbol": "作茧自缚",
+   "token": "0x57cd898802d54f93140513bc420b8e37ee614444",
+   "anchor": "08:32:12",
+   "leg": "买入策略 P1·首买",
+   "age": 23,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.88,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.9,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.034291,
+   "sellN": 3,
+   "sellWhy": "卖出策略 P10",
+   "holdSec": 73,
+   "profitPct": 56.25829970881576
+  },
+  {
+   "pointId": "BP-T037",
+   "symbol": "TRENCHER",
+   "token": "0xc6abc6b66438e07fd1600c023ebfad0a09184444",
+   "anchor": "08:33:01",
+   "leg": "买入策略 P1·首买",
+   "age": 16,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.79,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.84,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.71,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.47,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.042064,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 71,
+   "profitPct": -21.03205644497976
+  },
+  {
+   "pointId": "BP-T038",
+   "symbol": "傻福",
+   "token": "0x98e18f33dfaad9272feaa960ac780af8c2e54444",
+   "anchor": "08:33:41",
+   "leg": "买入策略 P1·首买",
+   "age": 20,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.85,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.97,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.61,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.79,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.036486,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 59,
+   "profitPct": -18.242860979571976
+  },
+  {
+   "pointId": "BP-T039",
+   "symbol": "作茧自缚",
+   "token": "0xe3d049c65cbbda6bf4a168c77132dc0712b64444",
+   "anchor": "08:34:29",
+   "leg": "买入策略 P1·首买",
+   "age": 31,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "equalAmountSplit": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.92,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.7,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.76,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.99,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.042828,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 92,
+   "profitPct": -21.413777200505667
+  },
+  {
+   "pointId": "BP-T040",
+   "symbol": "영복이",
+   "token": "0xaa7c945ec05177b2b894a325318167d393f57777",
+   "anchor": "08:35:20",
+   "leg": "买入策略 P1·首买",
+   "age": 39,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.92,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.92,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.47,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.66,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.05403,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 35,
+   "profitPct": 27.0147975479742
+  },
+  {
+   "pointId": "BP-T041",
+   "symbol": "不烧心",
+   "token": "0xbf602352828e39767a9d66c6f5f726fe60d34444",
+   "anchor": "08:47:39",
+   "leg": "买入策略 P1·首买",
+   "age": 21,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 1,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.83,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.75,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.89,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.95,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.033145,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 92,
+   "profitPct": -16.572664883499495
+  },
+  {
+   "pointId": "BP-T042",
+   "symbol": "突突车",
+   "token": "0x9f001e6ab28d82c3f4182618d0d72524db937777",
+   "anchor": "08:56:48",
+   "leg": "买入策略 P1·首买",
+   "age": 21,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 3,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.65,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.9,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.53,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.53,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.035898,
+   "sellN": 2,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 60,
+   "profitPct": -17.9487880324598
+  },
+  {
+   "pointId": "BP-T043",
+   "symbol": "ตุ๊กตุ๊ก",
+   "token": "0xfc5d1a40d691f58a3b5cd37cd227dd0df4f47777",
+   "anchor": "08:57:23",
+   "leg": "买入策略 P1·首买",
+   "age": 17,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.94,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.91,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.98,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.043036,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 65,
+   "profitPct": -21.51824659444638
+  },
+  {
+   "pointId": "BP-T044",
+   "symbol": "TukTuk",
+   "token": "0x2711e159f3e9ff438ff2bb80456d19a6bd827777",
+   "anchor": "09:00:47",
+   "leg": "买入策略 P1·首买",
+   "age": 268,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.91,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.92,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.59,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.001089,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 55,
+   "profitPct": 0.5443548976066017
+  },
+  {
+   "pointId": "BP-T045",
+   "symbol": "MBF",
+   "token": "0xa29fefb9922a761093a316e9f658c0f0ebc07777",
+   "anchor": "09:00:57",
+   "leg": "买入策略 P1·首买",
+   "age": 161,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+same_block_buy_wave+burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 3,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.99,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.93,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.36,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.0089,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 64,
+   "profitPct": -4.449907290577056
+  },
+  {
+   "pointId": "BP-T046",
+   "symbol": "FlapGuy",
+   "token": "0x3acb26b17dabef7b12edfc57ab1145f32eee7777",
+   "anchor": "09:02:01",
+   "leg": "买入策略 P1·首买",
+   "age": 15,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.91,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.97,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.92,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.92,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.008946,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 41,
+   "profitPct": 4.472817479682278
+  },
+  {
+   "pointId": "BP-T047",
+   "symbol": "memectuk",
+   "token": "0x9dfe83281eb66b74dd5c432395a3c14091967777",
+   "anchor": "09:05:11",
+   "leg": "买入策略 P1·首买",
+   "age": 31,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.91,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.76,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.56,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.028183,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 45,
+   "profitPct": -14.091544736114223
+  },
+  {
+   "pointId": "BP-T048",
+   "symbol": "meem",
+   "token": "0x69c3584316425705d1b32278f2ee63ee1b9c7777",
+   "anchor": "09:15:08",
+   "leg": "买入策略 P13·首买",
+   "age": 910,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 2,
+     "coordinatedSellBack": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.92,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 1,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.91,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.010158,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 32,
+   "profitPct": 5.078813977818245
+  },
+  {
+   "pointId": "BP-T049",
+   "symbol": "YiYi",
+   "token": "0xd5bf246c2e23e2e2f8c8557a0014fdd2eec17777",
+   "anchor": "09:18:08",
+   "leg": "买入策略 P2·首买",
+   "age": 25,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.95,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.5,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.45,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.054802,
+   "sellN": 2,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 98,
+   "profitPct": 32.84694962971729
+  },
+  {
+   "pointId": "BP-T050",
+   "symbol": "YiYi",
+   "token": "0xbfc8f025427ef4049b6d679c0506cdf2b4164444",
+   "anchor": "09:18:36",
+   "leg": "买入策略 P1·首买",
+   "age": 42,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.81,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.71,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.55,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.93,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.025074,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 3,
+   "profitPct": 12.536931608248638
+  },
+  {
+   "pointId": "BP-T051",
+   "symbol": "100",
+   "token": "0x68e45d60058077ee12e70ab094f1ad999ccf4444",
+   "anchor": "09:20:48",
+   "leg": "买入策略 P1·首买",
+   "age": 29,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.72,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.45,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.78,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": 0.05004,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 61,
+   "profitPct": 25.01984846103594
+  },
+  {
+   "pointId": "BP-T052",
+   "symbol": "Mei",
+   "token": "0x1bc5bca317dcc077f07ff339e5ce648237a77777",
+   "anchor": "09:21:20",
+   "leg": "买入策略 P1·首买",
+   "age": 19,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.7,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.78,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.82,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": 0.02154,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 36,
+   "profitPct": 10.769860221364343
+  },
+  {
+   "pointId": "BP-T053",
+   "symbol": "米",
+   "token": "0x338a510c6c7abd4c714d74225086542270427777",
+   "anchor": "09:23:13",
+   "leg": "买入策略 P1·首买",
+   "age": 24,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.79,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.97,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.6,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.77,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.056599,
+   "sellN": 2,
+   "sellWhy": "卖出策略 P10",
+   "holdSec": 79,
+   "profitPct": -27.885773344178205
+  },
+  {
+   "pointId": "BP-T054",
+   "symbol": "FOUR米米",
+   "token": "0x9c08bd8e1f1e6e8564e378bab47ce76d98724444",
+   "anchor": "09:26:29",
+   "leg": "买入策略 P1·首买",
+   "age": 186,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "amountTiering": 1,
+     "slowGrindPump": 1,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.89,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.93,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.76,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.029965,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 54,
+   "profitPct": -14.982471382233257
+  },
+  {
+   "pointId": "BP-T055",
+   "symbol": "Look At Coins",
+   "token": "0xed38a34638854d20809432a43a616cbba34c7777",
+   "anchor": "09:51:11",
+   "leg": "买入策略 P1·首买",
+   "age": 673,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "holdingsBalance": 3,
+     "bundledDominance": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.72,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.78,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.52,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.009714,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 32,
+   "profitPct": 4.85680732166824
+  },
+  {
+   "pointId": "BP-T056",
+   "symbol": "海水过滤器",
+   "token": "0x30238ffd6137cd0fa70e681d0d5585d413cbffff",
+   "anchor": "09:51:17",
+   "leg": "买入策略 P13·首买",
+   "age": 4684,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "A_downgrade_single_pump_burst",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 1,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "equalAmountSplit": 1,
+     "coordinatedSellBack": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.85,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.82,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.56,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.093248,
+   "sellN": 4,
+   "sellWhy": "卖出策略 P7",
+   "holdSec": 37,
+   "profitPct": 137.55902166718116
+  },
+  {
+   "pointId": "BP-T057",
+   "symbol": "SPP",
+   "token": "0xb20a8aab74e0064287f097f51345f0f093ee7777",
+   "anchor": "09:53:46",
+   "leg": "买入策略 P1·首买",
+   "age": 937,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.84,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.87,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.85,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.92,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.079732,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 43,
+   "profitPct": 39.86609007312129
+  },
+  {
+   "pointId": "BP-T058",
+   "symbol": "海水过滤器",
+   "token": "0xb88113c98d5e33b15925edd635170e80a0fbffff",
+   "anchor": "10:02:39",
+   "leg": "买入策略 P2·首买",
+   "age": 720,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "N_no_retail_entry0.0",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.87,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.79,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.85,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.51,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": -0.027378,
+   "sellN": 2,
+   "sellWhy": "卖出策略 P11",
+   "holdSec": 30,
+   "profitPct": -7.165809246221874
+  },
+  {
+   "pointId": "BP-T059",
+   "symbol": "SAMSUNG",
+   "token": "0x54117eb6d2481dc8d89ee377e00e683f882f7777",
+   "anchor": "10:21:26",
+   "leg": "买入策略 P1·首买",
+   "age": 22,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+coordinated_sell_back+same_block_buy_wave+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 3,
+     "coordinatedSellBack": 3,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.82,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.8,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.69,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.95,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.048352,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 55,
+   "profitPct": -24.17578881412539
+  },
+  {
+   "pointId": "BP-T060",
+   "symbol": "BUILD",
+   "token": "0x367f70fd5d7962b6f5ba8973ffd3e7d891f17777",
+   "anchor": "10:51:08",
+   "leg": "买入策略 P1·首买",
+   "age": 269,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "stallBurstWave": 1,
+     "holdingsBalance": 3,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.9,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.93,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.98,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.003702,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 34,
+   "profitPct": 1.8508312814269314
+  },
+  {
+   "pointId": "BP-T061",
+   "symbol": "PAYAI",
+   "token": "0xea80d6bc3d39d7f328a5575326836db546767777",
+   "anchor": "10:54:06",
+   "leg": "买入策略 P10·首买",
+   "age": 44,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "insiderSupplySell": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.91,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.83,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.11004,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 45,
+   "profitPct": 55.02022077641886
+  },
+  {
+   "pointId": "BP-T062",
+   "symbol": "SI",
+   "token": "0xfe97215027434804ca0a5ca1a7421763b0127777",
+   "anchor": "11:18:31",
+   "leg": "买入策略 P1·首买",
+   "age": 17,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "L_insider_sell60",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.93,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.96,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.86,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.56,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.007577,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 43,
+   "profitPct": -3.7883694361655245
+  },
+  {
+   "pointId": "BP-T063",
+   "symbol": "赵公主",
+   "token": "0x5793b7ead75851206529f98cfe89db54511a7777",
+   "anchor": "11:19:26",
+   "leg": "买入策略 P3·首买",
+   "age": 146,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.78,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.81,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.89,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.82,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": -0.004233,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 62,
+   "profitPct": -2.1166314843318
+  },
+  {
+   "pointId": "BP-T064",
+   "symbol": "DGAI",
+   "token": "0x13d7a62693e2860ba4bd51d6c9c75edc53427777",
+   "anchor": "11:20:25",
+   "leg": "买入策略 P1·首买",
+   "age": 43,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "equalAmountSplit": 1,
+     "sameBlockBuyWave": 1,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.87,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.82,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.81,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.68,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.018507,
+   "sellN": 3,
+   "sellWhy": "卖出策略 P10",
+   "holdSec": 138,
+   "profitPct": -12.717937740280917
+  },
+  {
+   "pointId": "BP-T065",
+   "symbol": "赵公主",
+   "token": "0x258e485725b8d799b885b9f079241e2c812d7777",
+   "anchor": "11:24:40",
+   "leg": "买入策略 P1·首买",
+   "age": 20,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump+burst_spike_concentration",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "slowGrindPump": 3,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 3
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.65,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.94,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.66,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.5,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.032731,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 104,
+   "profitPct": -16.36535971127613
+  },
+  {
+   "pointId": "BP-T066",
+   "symbol": "汤圆",
+   "token": "0xeaeb67c29c73d86da820265748e4f043871d7777",
+   "anchor": "11:31:56",
+   "leg": "买入策略 P13·首买",
+   "age": 5082,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "stallBurstWave": 1,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.92,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.99,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.82,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.98,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.039113,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 38,
+   "profitPct": 19.556687023882354
+  },
+  {
+   "pointId": "BP-T067",
+   "symbol": "팔꿈치 매수",
+   "token": "0x1ff6da9856abf6d7869797f46468f5e883c57777",
+   "anchor": "11:35:36",
+   "leg": "买入策略 P1·首买",
+   "age": 58,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.86,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.88,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.97,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.7,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.012723,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 88,
+   "profitPct": -6.36171289931938
+  },
+  {
+   "pointId": "BP-T068",
+   "symbol": "29",
+   "token": "0xdc1910375c1c1c3d0c25c13ee6e5f2bec1887777",
+   "anchor": "12:00:09",
+   "leg": "买入策略 P2·首买",
+   "age": 44,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 1,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.85,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.94,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.71,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.8,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.026217,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 75,
+   "profitPct": -13.108636235245804
+  },
+  {
+   "pointId": "BP-T069",
+   "symbol": "币安之心",
+   "token": "0x08aa150d7d86c4a0dfa37f310c1380de9c187777",
+   "anchor": "12:11:23",
+   "leg": "买入策略 P1·首买",
+   "age": 163,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.69,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.85,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.91,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.49,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": -0.027786,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 74,
+   "profitPct": -13.892809140424022
+  },
+  {
+   "pointId": "BP-T070",
+   "symbol": "刘家郡",
+   "token": "0x996e6d92f99d327d34febf0cd4a32c13ca097777",
+   "anchor": "12:13:59",
+   "leg": "买入策略 P1·首买",
+   "age": 30,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.8,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.92,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.96,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.017103,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 75,
+   "profitPct": -8.551482448481892
+  },
+  {
+   "pointId": "BP-T071",
+   "symbol": "坟头蹦迪",
+   "token": "0x1417a158d74cec617ff777661ee72009daa3ffff",
+   "anchor": "12:17:53",
+   "leg": "买入策略 P1·首买",
+   "age": 20,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.85,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.93,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.81,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.98,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.018423,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 44,
+   "profitPct": -9.211338930208916
+  },
+  {
+   "pointId": "BP-T072",
+   "symbol": "SI",
+   "token": "0xea7dc0825d4e6d90c026201ecc6aa8d82c577777",
+   "anchor": "12:28:04",
+   "leg": "买入策略 P1·首买",
+   "age": 15,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.87,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.98,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.73,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.85,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": -0.015083,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 91,
+   "profitPct": -7.541722186395426
+  },
+  {
+   "pointId": "BP-T073",
+   "symbol": "来财",
+   "token": "0xc84a0ff2e7bab3d32cb6426f07855b70694f7777",
+   "anchor": "12:31:26",
+   "leg": "买入策略 P1·首买",
+   "age": 16,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 2,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.93,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.88,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.76,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.51,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": 0.514378,
+   "sellN": 4,
+   "sellWhy": "卖出策略 P7",
+   "holdSec": 52,
+   "profitPct": 152.2769649781322
+  },
+  {
+   "pointId": "BP-T074",
+   "symbol": "钱来",
+   "token": "0xc62d2dffb9567746a5c883ede552d231e3967777",
+   "anchor": "12:34:30",
+   "leg": "买入策略 P12·首买",
+   "age": 191,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "D_famous_dominance",
+      "level": "unhealthy"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.95,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.74,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.72,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.65,
+      "bucket": "strong"
+     }
+    }
+   },
+   "pnl": 0.042429,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 76,
+   "profitPct": 21.214442650764358
+  },
+  {
+   "pointId": "BP-T075",
+   "symbol": "SI",
+   "token": "0x4ebef4c08386b2b4a37aa2d056f26160573b7777",
+   "anchor": "12:34:58",
+   "leg": "买入策略 P5·首买",
+   "age": 486,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:equal_amount_split+slow_grind_pump",
+      "level": "cheat"
+     },
+     {
+      "code": "J_holdings_strong",
+      "level": "unhealthy"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 3,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 3,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 3,
+     "sameBlockBuyWave": 2,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.63,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.89,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.83,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.82,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.020761,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 31,
+   "profitPct": -10.380442849620767
+  },
+  {
+   "pointId": "BP-T076",
+   "symbol": "蝴蝶人生路",
+   "token": "0xb359716d1affde1fb9d351fec71a0f2e79257777",
+   "anchor": "12:43:10",
+   "leg": "买入策略 P3·首买",
+   "age": 308,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 2,
+     "sellDispersion": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.93,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.62,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.94,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.78,
+      "bucket": "weak"
+     }
+    }
+   },
+   "pnl": -0.014883,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 39,
+   "profitPct": -7.4417249648724715
+  },
+  {
+   "pointId": "BP-T077",
+   "symbol": "新语新言",
+   "token": "0xd92913a0956ec41bea37752365cc9d9b92587777",
+   "anchor": "13:00:24",
+   "leg": "买入策略 P1·首买",
+   "age": 30,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "L_insider_sell48",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 1,
+     "creatorFrontRun": 2,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "insiderSupplySell": 2,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.76,
+      "bucket": "spike"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.67,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.96,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.65,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0.041602,
+   "sellN": 1,
+   "sellWhy": "卖出策略 P1",
+   "holdSec": 17,
+   "profitPct": 20.801032205989745
+  },
+  {
+   "pointId": "BP-T078",
+   "symbol": "新言新语",
+   "token": "0x7f326b12269c36583f11e1b27f7cbf2f56b07777",
+   "anchor": "13:14:50",
+   "leg": "买入策略 P1·首买",
+   "age": 1841,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "stall_burst",
+     "originalGrade": "unhealthy"
+    },
+    "reasons": [
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "amountTiering": 1,
+     "sellDispersion": 1,
+     "stallBurstWave": 1,
+     "creatorFrontRun": 1,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.92,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 1,
+      "bucket": "burst"
+     },
+     "market_pattern": {
+      "prob": 0.92,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.97,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": 0,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 33,
+   "profitPct": 0
+  },
+  {
+   "pointId": "BP-T079",
+   "symbol": "屎壳郎自拉",
+   "token": "0x2ef6c0e630d34b78ad36aabe04cd90f57e3c7777",
+   "anchor": "13:36:05",
+   "leg": "买入策略 P1·首买",
+   "age": 829,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": null,
+    "reasons": [],
+    "levels": {
+     "washPair": 1,
+     "activityLevel": 2,
+     "amountTiering": 2,
+     "slowGrindPump": 2,
+     "sellDispersion": 2,
+     "abnormalBehavior": 1,
+     "bundledDominance": 1,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 1,
+     "coordinatedSellBack": 1,
+     "strongBackerPressure": 1,
+     "burstSpikeConcentration": 1
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.61,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.7,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.93,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.67,
+      "bucket": "none"
+     }
+    }
+   },
+   "pnl": -0.036955,
+   "sellN": 1,
+   "sellWhy": "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "holdSec": 93,
+   "profitPct": -18.47733105205655
+  },
+  {
+   "pointId": "BP-T080",
+   "symbol": "GNusmas",
+   "token": "0x1c6be124ffe79abe2fd32adba76dd4f3d5567777",
+   "anchor": "13:44:15",
+   "leg": "买入策略 P1·首买",
+   "age": 19,
+   "curVs": null,
+   "cheat": {
+    "status": "analyzed",
+    "grade": "healthy",
+    "exempt": {
+     "code": "activity_high",
+     "originalGrade": "cheat"
+    },
+    "reasons": [
+     {
+      "code": "A_strong:same_block_buy_wave",
+      "level": "cheat"
+     },
+     {
+      "code": "R_abnormal_dominant",
+      "level": "unhealthy"
+     }
+    ],
+    "levels": {
+     "activityLevel": 2,
+     "amountTiering": 1,
+     "sellDispersion": 2,
+     "creatorFrontRun": 3,
+     "holdingsBalance": 2,
+     "abnormalBehavior": 2,
+     "bundledDominance": 2,
+     "equalAmountSplit": 2,
+     "sameBlockBuyWave": 3,
+     "insiderSupplySell": 1,
+     "coordinatedSellBack": 2,
+     "burstSpikeConcentration": 2
+    }
+   },
+   "bp": {
+    "status": "assessed",
+    "passed": true,
+    "assessment": {
+     "bucket": "neutral",
+     "rule": "gates_passed",
+     "prob": null
+    },
+    "dims": {
+     "entry_shape": {
+      "prob": 0.73,
+      "bucket": "normal_dip"
+     },
+     "price_level": null,
+     "price_trend": null,
+     "activity_level": {
+      "prob": 0.94,
+      "bucket": "high"
+     },
+     "market_pattern": {
+      "prob": 0.61,
+      "bucket": "none"
+     },
+     "holder_concentration": {
+      "prob": 0.69,
+      "bucket": "moderate"
+     }
+    }
+   },
+   "pnl": -0.043055,
+   "sellN": 1,
+   "sellWhy": "回放结束强平",
+   "holdSec": 32,
+   "profitPct": -21.52748299218004
+  }
+ ]
+}

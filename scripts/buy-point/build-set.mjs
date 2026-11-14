@@ -144,6 +144,14 @@ async function loadBuyTrades(expId, limitExp) {
  * 修法：买点链上时刻 = signal metadata.tokenCreateTime + buyPoint.anchors.tokenAgeSec
  * （FA age 口径=链上轴，signalId→signal 行批查）。打 anchorTimeIso 补丁；无 buyPoint
  * （legacy 腿无 BP 门）或 age 缺失 → 回退 created_at 并计数（fail-open 不拒收）。
+ *
+ * 锚行数精确化（2026-11-14 bt-v111 复审立）：tokenAgeSec 为整数秒（floor），回构锚比
+ * fire tick 的 block_time 早 ≤1s——anchorCountAt 的 `block_time≤锚` 行计数会把 fire tick
+ * 本行排除；断流 gap / 快拉段票该行价差巨大（btv111 实测 34/91 curVs 漂 >5pp，T007 跨
+ * 11s gap 差 15pp、T001 差 21pp 反向）。修法=直接采生产 metadata.buyPoint.anchors.
+ * actTickCount（fire 窗精确行数）为 anchorTickHint，主循环有 hint 且 ≤rows.length 时
+ * 用 hint 当锚（与生产窗 bit 对齐）；hint>rows.length=回放缓存与 DB 行缺失异常，loud warn
+ * 回退时间计数。
  */
 async function patchTickTimeAxis(points) {
   const sigIds = [...new Set(points.map((p) => p.signalId).filter(Boolean))];
@@ -154,21 +162,25 @@ async function patchTickTimeAxis(points) {
     if (error) throw new Error(`signal 批查失败（tick-time-from-meta）: ${error.message}`);
     for (const s of data ?? []) metaById.set(s.id, s.metadata || {});
   }
-  let patched = 0, fallback = 0, noSig = 0;
+  let patched = 0, hint = 0, fallback = 0, noSig = 0;
   for (const p of points) {
     const md = p.signalId ? metaById.get(p.signalId) : null;
     // tokenCreateTime 双形状：Unix 秒时间戳（number，如 1793868979.361）或 ISO 串
     const rawCreate = md ? md.tokenCreateTime : null;
     const tokCreateMs = typeof rawCreate === 'number' && Number.isFinite(rawCreate) ? rawCreate * 1000
       : typeof rawCreate === 'string' && rawCreate ? Date.parse(rawCreate) : NaN;
-    const age = md && md.buyPoint && md.buyPoint.anchors ? md.buyPoint.anchors.tokenAgeSec : null;
+    const anchors = md && md.buyPoint && md.buyPoint.anchors ? md.buyPoint.anchors : null;
+    const age = anchors ? anchors.tokenAgeSec : null;
     if (Number.isFinite(tokCreateMs) && age != null && Number.isFinite(Number(age))) {
       p.anchorTimeIso = new Date(tokCreateMs + Number(age) * 1000).toISOString();
       patched++;
     } else if (!p.signalId) { p.anchorTimeIso = p.created_at; noSig++; }
     else { p.anchorTimeIso = p.created_at; fallback++; }
+    // 锚行数 hint：生产 fire 窗精确行数（actTickCount）——优先于时间计数（见函数头注释）
+    const atc = anchors ? anchors.actTickCount : null;
+    if (Number.isInteger(atc) && atc >= 0) { p.anchorTickHint = atc; hint++; }
   }
-  console.log(`tick 时间轴补丁（--tick-time-from-meta）: 补 ${patched} / 回退（无 buyPoint/age）${fallback} / 无 signalId ${noSig}`);
+  console.log(`tick 时间轴补丁（--tick-time-from-meta）: 时刻补 ${patched} / 锚行数 hint ${hint} / 回退（无 buyPoint/age）${fallback} / 无 signalId ${noSig}`);
   return points;
 }
 
@@ -400,7 +412,16 @@ async function main() {
   for (const s of kept) {
     const token = String(s.token_address).toLowerCase();
     const rows = tokenRows.get(token) || [];
-    const anchorN = anchorCountAt(rows, s.anchorTimeIso || s.created_at);
+    // 锚行数：生产 actTickCount hint 优先（fire 窗精确行数）；hint 超出 DB 行数=回放缓存
+    // 与 DB 行缺失异常（loud warn 后回退时间计数，不静默）
+    let anchorN;
+    if (Number.isInteger(s.anchorTickHint) && s.anchorTickHint >= 0) {
+      if (s.anchorTickHint <= rows.length) anchorN = s.anchorTickHint;
+      else {
+        console.warn(`⚠ ${s.token_symbol || token} anchorTickHint=${s.anchorTickHint} > DB 行数 ${rows.length}（回放缓存/DB 行缺失）——回退时间计数`);
+        anchorN = anchorCountAt(rows, s.anchorTimeIso || s.created_at);
+      }
+    } else anchorN = anchorCountAt(rows, s.anchorTimeIso || s.created_at);
     const meta = tokenMetaMap.get(token);
     const p = {
       pointId: `${idPrefix}${String(++seq).padStart(3, '0')}`,
@@ -524,7 +545,7 @@ async function main() {
       excludeLegs: args.excludeLegs ? args.excludeLegs.split(',').map((s) => s.trim()).filter(Boolean) : [],
       pagination: '点位源 .range 翻页拉全（PAGE_ROWS=1000 对齐 PostgREST max-rows；v73 前 .limit 单查曾静默截 1000/1673）',
       cheatExclusion: args.keepCheat ? 'off（--keep-cheat：保留 cheat/unhealthy 票，grade 落 points 元数据供复盘）' : '收录前剔除当前判定 cheat/unhealthy 的 token 全部点位（cheat_detection 最新带 grade 行；healthy/无判定放行；构建时点快照语义）',
-      ...(args.tickTimeFromMeta ? { tickTimeFromMeta: '买点锚/窗/前向收益用链上时间轴（signal tokenCreateTime+tokenAgeSec；回测实验 created_at=进程墙钟与 ticks 轴断裂的适配）——points[].anchorTimeIso' } : {}),
+      ...(args.tickTimeFromMeta ? { tickTimeFromMeta: '买点锚/窗/前向收益用链上时间轴（signal tokenCreateTime+tokenAgeSec；回测实验 created_at=进程墙钟与 ticks 轴断裂的适配）——points[].anchorTimeIso；锚行数优先采生产 anchors.actTickCount（fire 窗精确行数，整数 ageSec 回构早 ≤1s 会把 fire tick 行排除——btv111 实测 34/91 curVs 漂 >5pp）' } : {}),
       horizonsSec: [...FWD_HORIZONS_SEC],
       horizonMin: args.horizonMin,
       anchorBasis: 'anchorCountAt=block_time≤点位时刻 的行数（宁多勿少近似——引擎墙钟 vs 链钟偏差沿 cheat --experiment 同款）',

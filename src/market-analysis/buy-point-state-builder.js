@@ -203,14 +203,16 @@ function buildBuyPointState(snapshot) {
     // BP77 恶意砸块族——单块/相邻两块砸盘结构锚（预筛=块内跌幅 ≤-8% ∧ 卖
     // ≥0.3 BNB 取卖额最大；跌幅=块首行价→末行价含离群价行=价格影响事实口径；
     // 卖方剔路由、卖额含全部卖行；承接比=砸块末行后 60s 买入额÷砸卖额、任何
-    // 买方都算，? =观察窗不足——判读（四腿联立）归 entry_shape 恶意砸盘臂）
+    // 买方都算，? =观察窗不足——判读（四腿联立）归 entry_shape 恶意砸盘臂；
+    // BP82 贴锚臂补「距锚秒数/砸后已见买入」（承接窗部分和）直供——贴锚砸盘
+    // （砸完立刻到买点）形状承接比恒 ?≠无承接证据，Jev 按已见买入 vs 砸卖额判）
     const db1 = b.dumpBlock;
     if (db1) {
-      lines.push(`恶意砸块(单block): 块 ${db1.block} 卖 ${fmtBnb(db1.sellBnb)} BNB、块内 ${db1.dropPct}%、卖方 ${db1.sellers} 钱包（剔路由）、最大卖家占 ${db1.topSellerPct !== null && db1.topSellerPct !== undefined ? db1.topSellerPct + '%' : '?'}、砸后60s承接比 ${db1.followBuyRatio ?? '?'}（块首行时刻 t+${db1.dt} 秒；承接比=砸块末行后 60 秒买入额÷砸卖额——砸掉的货有没有人接的直接度量，承接 ≥0.5=有承接的正常出货/换手；? =观察窗不足不冒充）`);
+      lines.push(`恶意砸块(单block): 块 ${db1.block} 卖 ${fmtBnb(db1.sellBnb)} BNB、块内 ${db1.dropPct}%、卖方 ${db1.sellers} 钱包（剔路由）、最大卖家占 ${db1.topSellerPct !== null && db1.topSellerPct !== undefined ? db1.topSellerPct + '%' : '?'}、砸后60s承接比 ${db1.followBuyRatio ?? '?'}、距锚 ${db1.secToAnchor ?? '?'} 秒、砸后已见买入 ${db1.followBuyBnb != null ? fmtBnb(db1.followBuyBnb) : '?'} BNB（块首行时刻 t+${db1.dt} 秒；承接比=砸块末行后 60 秒买入额÷砸卖额——砸掉的货有没有人接的直接度量，承接 ≥0.5=有承接的正常出货/换手；? =砸块距锚 <10 秒观察窗未启——**贴锚砸盘臂判读：已见买入占砸卖额可忽略（参考 <30%）=砸完立刻把价格按到买点、尚无人接，同落恶意砸盘；已见买入达砸卖额三成上下=承接正在形成不落**）`);
     }
     const db2 = b.dump2Block;
     if (db2) {
-      lines.push(`恶意砸块(相邻两block): 块 ${db2.block}→${db2.block2} 合并卖 ${fmtBnb(db2.sellBnb)} BNB、首块首价→末块末价 ${db2.dropPct}%、卖方并集 ${db2.sellers} 钱包（剔路由）、最大卖家占 ${db2.topSellerPct !== null && db2.topSellerPct !== undefined ? db2.topSellerPct + '%' : '?'}、砸后60s承接比 ${db2.followBuyRatio ?? '?'}（连续两块接力砸=把巨量拆成相邻两块的形状；判读口径同单块行）`);
+      lines.push(`恶意砸块(相邻两block): 块 ${db2.block}→${db2.block2} 合并卖 ${fmtBnb(db2.sellBnb)} BNB、首块首价→末块末价 ${db2.dropPct}%、卖方并集 ${db2.sellers} 钱包（剔路由）、最大卖家占 ${db2.topSellerPct !== null && db2.topSellerPct !== undefined ? db2.topSellerPct + '%' : '?'}、砸后60s承接比 ${db2.followBuyRatio ?? '?'}、距锚 ${db2.secToAnchor ?? '?'} 秒、砸后已见买入 ${db2.followBuyBnb != null ? fmtBnb(db2.followBuyBnb) : '?'} BNB（连续两块接力砸=把巨量拆成相邻两块的形状；判读口径同单块行——贴锚砸盘臂同款）`);
     }
     // ⑤ 参与结构（近 60s）
     lines.push(`参与结构(近60s): 笔/分 ${w60 ? w60.ticksPerMin : '?'}；买家 ${w60 ? w60.buyers : '?'} / 卖家 ${w60 ? w60.sellers : '?'} / 新进场 ${w60 ? w60.newBuyers : '?'}（全窗首见买入落在窗内）；top1 买集中度 ${fmtPct(b.top1BuyPct60)} / top1 卖 ${fmtPct(b.top1SellPct60)}（剔路由伪钱包）；路由买占比 ${fmtPct(b.routerBuyPct60)}（散户通道代理，纯事实）`);

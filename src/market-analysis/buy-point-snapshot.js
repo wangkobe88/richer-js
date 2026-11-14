@@ -477,8 +477,11 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   //    末行价（含 outlier=价格影响事实口径，非可靠价口径）；sellers/topSellerPct
   //    剔 router 伪钱包（组织性判读）÷ 块全卖额（规模量全口径）；followBuyRatio=
   //    砸块末行 dt 后 60s 买入额（含 router——任何承接都算）÷ 砸卖额，锚末距砸块
-  //    <10s 观察窗不足 → null 不冒充。dump2Block=相邻 block 对（b+1）合并同款
-  //    （接力砸拆块形状）──
+  //    <10s 观察窗不足 → null 不冒充。BP82 贴锚臂补两键：followBuyBnb=承接窗买入
+  //    部分和（ratio 的分子，<10s 时为已见部分）、secToAnchor=砸块末行距锚秒数
+  //    ——贴锚砸盘（砸完立刻到买点）形状 ratio 恒 null≠无承接证据，Jev 按已见
+  //    买入/砸卖额判「贴锚砸盘无人接」（题面四腿④承接腿 BP82 臂）。dump2Block=
+  //    相邻 block 对（b+1）合并同款（接力砸拆块形状）──
   let dumpBlock = null, dump2Block = null;
   {
     const blocks = new Map(); // block -> {firstDt,endDt,firstPx,lastPx,sells,sellBnb}
@@ -500,25 +503,37 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       }
     }
     const dropOf = (a, b) => (a && b ? +(((b / a) - 1) * 100).toFixed(2) : null);
-    const followRatio = (endDt, sellBnb) => {
-      if (tEnd === null || endDt === null || endDt === undefined) return null;
-      if (tEnd - endDt < BP_DUMP_FOLLOW_MIN_OBS_SEC) return null;
+    // followObs（BP82 承接观察部分和口径）：buy=砸块末行后 (endDt, endDt+60s] 买入
+    // 合计（行集=锚窗内，天然截至锚时刻——距砸块 ≥60s 即完整窗分子、<60s 为已见
+    // 部分和）；ratio 仅锚末距砸块 ≥10s 才给（<10s 观察窗未启 null 不冒充——现状
+    // bit 不变）；secToAnchor/followBuyBnb 恒直供——贴锚砸盘（砸完立刻到买点）
+    // 的形状 ratio 恒 null≠无承接证据：已见买入绝对额+距锚秒数让 Jev 可判「贴锚
+    // 砸盘无人接」（BP82 贴锚臂判读原料，题面四腿④承接腿）
+    const followObs = (endDt, sellBnb) => {
+      if (tEnd === null || endDt === null || endDt === undefined) return { buyBnb: null, ratio: null, sec: null };
       let buy = 0;
       for (const t of ticks) {
         if (t.side !== 'BUY' || t.dt === null || t.dt === undefined) continue;
         if (t.dt > endDt && t.dt <= endDt + BP_DUMP_FOLLOW_SEC) buy += t.bnb || 0;
       }
-      return sellBnb > 0 ? +(buy / sellBnb).toFixed(3) : null;
+      const ratio = tEnd - endDt >= BP_DUMP_FOLLOW_MIN_OBS_SEC && sellBnb > 0
+        ? +(buy / sellBnb).toFixed(3) : null;
+      return { buyBnb: +buy.toFixed(4), ratio, sec: +(tEnd - endDt).toFixed(1) };
     };
-    const mkDump = (block, block2, sellBnb, dropPct, sells, firstDt, endDt) => ({
-      block, block2, sellBnb: +sellBnb.toFixed(4), dropPct,
-      sellers: sells.size,
-      topSellerPct: sellBnb > 0
-        ? +((Math.max(0, ...sells.values()) / sellBnb) * 100).toFixed(1)
-        : null,
-      dt: firstDt, endDt,
-      followBuyRatio: followRatio(endDt, sellBnb),
-    });
+    const mkDump = (block, block2, sellBnb, dropPct, sells, firstDt, endDt) => {
+      const fo = followObs(endDt, sellBnb);
+      return {
+        block, block2, sellBnb: +sellBnb.toFixed(4), dropPct,
+        sellers: sells.size,
+        topSellerPct: sellBnb > 0
+          ? +((Math.max(0, ...sells.values()) / sellBnb) * 100).toFixed(1)
+          : null,
+        dt: firstDt, endDt,
+        followBuyRatio: fo.ratio,
+        followBuyBnb: fo.buyBnb,
+        secToAnchor: fo.sec,
+      };
+    };
     let best1 = null, best1Bnb = -1;
     for (const [block, e] of blocks) {
       const d = dropOf(e.firstPx, e.lastPx);

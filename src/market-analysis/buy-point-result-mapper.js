@@ -302,7 +302,21 @@ function buildBuyPointObservation(answers, anchors = null) {
   let entryExempt = null;
   if (entryArms.length && dimensions.entry_shape.bucket === 'malicious_dump') {
     const tv = _num(anchors, 'totalVolumeBnb');
-    if (tv !== null && tv >= DUMP_EXEMPT_TOTAL_VOLUME_BNB) {
+    // BP82 豁免资格收紧（贴锚砸盘臂落桶的形状不吃本豁免——否则 20 BNB 线把贴锚
+    // 臂全部豁免=BP82 立法无效；T003 案 33s 窗 20.5 BNB 机器盘吞吐即贴线反例）：
+    // 砸块行在场 ∧ 两条承接腿（followBuyRatio）均 null（<10s 观察窗未启）=贴锚
+    // 形状，「砸完立刻把价格按到买点」的脉冲砸盘不是「交易了比较久」的市场化
+    // 恐慌抛售；任一 ratio 非 null（完整窗/≥10s 部分比值）=Jev 在承接证据在场
+    // 下仍判 dump → 大成交额豁免照常（BP78 原语义）。砸块行缺席（旧档重放/
+    // Jev 越题形状）保持存量豁免行为 bit 不变——mapper 不为越题形状加码。
+    // ⚠本段读的是**嵌套 dumpBlock/dump2Block 对象**（输入=buyDerived 原始形状，
+    // 扁平 14 键在 return 段才提取——此处读扁平键恒 null=收紧永不生效的首版坑）
+    const _fin = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+    const d1 = anchors ? anchors.dumpBlock : null, d2 = anchors ? anchors.dump2Block : null;
+    const r1 = d1 ? _fin(d1.followBuyRatio) : null, r2 = d2 ? _fin(d2.followBuyRatio) : null;
+    const hasDumpRow = !!d1 || !!d2;
+    const obsBlocked = hasDumpRow && r1 === null && r2 === null;
+    if (tv !== null && tv >= DUMP_EXEMPT_TOTAL_VOLUME_BNB && !obsBlocked) {
       entryArms = [];
       entryExempt = { code: 'dump_total_volume', totalVolumeBnb: tv };
     }
@@ -433,17 +447,23 @@ function buildBuyPointObservation(answers, anchors = null) {
       // BP77 恶意砸块族（dumpBlock/dump2Block——单块/相邻块对砸块结构锚：卖额/
       // 块内跌幅（含 outlier 事实口径）/卖方数（剔 router）/最大卖家占比/砸后
       // 60s 承接比；预筛线宽于题面判读线一档，判形状归 Jev；followBuyRatio
-      // null=观察窗不足不冒充；缺候选整键 null）
+      // null=观察窗不足不冒充；缺候选整键 null）；BP82 贴锚臂两键 followBuyBnb
+      // （承接窗买入部分和=ratio 分子）+secToAnchor（砸块末行距锚秒数）——贴锚
+      // 砸盘形状判读原料（旧档重放缺键 null 容缺）
       dumpBlockBnb: dump1 && typeof dump1.sellBnb === 'number' ? dump1.sellBnb : null,
       dumpBlockDropPct: dump1 && typeof dump1.dropPct === 'number' ? dump1.dropPct : null,
       dumpBlockSellers: dump1 && typeof dump1.sellers === 'number' ? dump1.sellers : null,
       dumpBlockTopSellerPct: dump1 && typeof dump1.topSellerPct === 'number' ? dump1.topSellerPct : null,
       dumpBlockFollowBuyRatio: dump1 && typeof dump1.followBuyRatio === 'number' ? dump1.followBuyRatio : null,
+      dumpBlockFollowBuyBnb: dump1 && typeof dump1.followBuyBnb === 'number' ? dump1.followBuyBnb : null,
+      dumpBlockSecToAnchor: dump1 && typeof dump1.secToAnchor === 'number' ? dump1.secToAnchor : null,
       dump2BlockBnb: dump2 && typeof dump2.sellBnb === 'number' ? dump2.sellBnb : null,
       dump2BlockDropPct: dump2 && typeof dump2.dropPct === 'number' ? dump2.dropPct : null,
       dump2BlockSellers: dump2 && typeof dump2.sellers === 'number' ? dump2.sellers : null,
       dump2BlockTopSellerPct: dump2 && typeof dump2.topSellerPct === 'number' ? dump2.topSellerPct : null,
       dump2BlockFollowBuyRatio: dump2 && typeof dump2.followBuyRatio === 'number' ? dump2.followBuyRatio : null,
+      dump2BlockFollowBuyBnb: dump2 && typeof dump2.followBuyBnb === 'number' ? dump2.followBuyBnb : null,
+      dump2BlockSecToAnchor: dump2 && typeof dump2.secToAnchor === 'number' ? dump2.secToAnchor : null,
       // BP78 全窗总成交额（锚窗买+卖合计 BNB；malicious_dump 豁免臂判据源+观测）
       totalVolumeBnb: _num(b, 'totalVolumeBnb'),
       // BP79 买期/卖期分界锚（⑨ one_wave_dump 主锚——首笔像样卖（尘门 0.01）位置：
