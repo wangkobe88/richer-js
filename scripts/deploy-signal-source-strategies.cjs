@@ -164,6 +164,28 @@
 //     误伤 11 正票 +0.93 含小四/吉祥/海水三张 stall_burst 大肉票=打平还杀肉票
 //     弃；CZ 盲区「尾10 卖>买」被来财（×20 卖钱包 +257%）反证弃。
 //
+//   v19（2026-11-15 T140 开盘簇×早入口袋门立法，用户裁定「接受误伤，再创建一个
+//     文档，维护当前最优的买卖策略」）：全 14 腿 condition 尾加
+//     ` AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)`——开盘段同块捆绑簇
+//     （出生窗 90s 内最大「同 block 首买簇」钱包数，FA launch* 族 2026-10-17 出生
+//     锚键，此前纯观察）≥3 ∧ 早入场（age≤60s）= bots/分仓钱包组织性进场，簇在场
+//     时买入=接刀；60s 后簇筹码已换手、价格已消化（60s 界=块分析 41-80 块段两窗
+//     胜率最低与 >80 块利润主导的分界，与 90s 出生窗恒在活值域）。双窗回测证据
+//     （同码同策略集，唯一变量=本门）：A 窗 bt-v116 77 票 +2.1568（53.2%）vs
+//     bt-v115 103 票 +1.5532（41.7%）净增 +0.60（硬止血 +0.22+晚入路径 +0.50 单
+//     跑值——被挡触发不消耗 maxTriggers，60s 后条件恢复可再触发）；B 窗 bt-v120
+//     40 票 +3.0193（42.5%）vs bt-v119 51 票 +3.0454（39.2%）Δ−0.03 中性（止血
+//     +0.151 与误伤 −0.169 相抵）。两窗合并直接命中 31 张（A 22+B 9）实现
+//     −0.203=止血净 +0.203 真实同向，胜率两窗均升；晚入路径仅 A 窗兑现。误伤面
+//     （知情接受）：A 元宝王 +0.122/万梗捏 +0.092/Insidejob/Carl；B 谷谷 +0.096
+//     （cluster=3 age=17.5）/100 +0.073（cluster=6 age=39）。机理=结构非热度：
+//     簇是组织性签名（与 act regime 代理跨窗翻转相反：符号一致/零肥尾/网格稳定
+//     ——簇 3~6 × age 30~60 全组合两窗皆负无刀锋）。门在 condition 层 fire 前
+//     拦=被挡不消耗触发配额；与 v18 15s 抢速门部分重叠（口袋主体 age 17~44s 在
+//     15s 门外）。null 语义=回测窗未盖出生段的票簇键 null 恒 false 宁拦不冒充
+//     （生产实时首 tick 起算无此问题）。档位依据：组织性下限 3=evenCluster
+//     size≥3 同款先例；60s 界两窗网格定标。
+//
 //   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 15（t0 两次 +
 //   其余十三腿各 1 次触发上限；T110 默认帽 5 会截断阶梯）；并配
 //   cheatCheck.enabled=true + buyPointCheck.enabled=true（两门 disabled 时：
@@ -265,12 +287,23 @@ const LEGS = [
         '深重启臂（v11 新增；v13 量门提高 15 笔/2.5 BNB；v17 加 actTotalBnb 门）：现价较发行价 ≤+10%（含破发）——回到 almost_launch 深半区的更贴发行价入场点'),
 ];
 
+// v19（2026-11-15 T140，用户裁定「接受误伤」）：全 14 腿 condition 尾加开盘簇×
+// 早入口袋门——launchBundleClusterSize（出生窗 90s 内最大同 block 首买簇钱包数，
+// FA launch* 出生锚键）≥3 ∧ age≤60s = 组织性进场接刀，60s 后筹码已换手。单点
+// 后处理追加（防 14 处手写漂移；与 bt-v116/bt-v120 回测门串逐字一致）。双窗证据
+// 与误伤面详头部 v19 块；被挡触发不消耗 maxTriggers（condition 层 fire 前拦）。
+const CLUSTER_GATE = ' AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)';
+for (const l of LEGS) {
+    l.condition += CLUSTER_GATE;
+    l.description += '；v19/T140 加开盘簇门（launchBundleClusterSize < 3 OR tokenAgeSec > 60——开盘同块捆绑簇 ≥3 时不接刀，60s 后放行）';
+}
+
 const ENTRIES = [
     {
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v18（2026-11-11 v18=T135 bt-v102 因子分析案：t0/t0a 两条最早臂加 tokenAgeSec >= 15——买点年龄分桶单调（age<15s 开盘 bot 抢速盘 30 票胜率 27% 净 -0.37 / >25s 全正），拦截面净增量 +0.25（止血 24 票 -0.70 vs 误伤 12 票 +0.45），大正票与 t0 立法案票吉祥 ea78（age=24）零影响；2026-11-10 v17=T133 用户四条批量：t0 笔数门 7→6 + signalGate.maxTriggers 1→2（「允许过两次 Jev 模块」——首次门拒后再判一次；单仓语义 status=bought 阻断=无双买）+ 全 14 腿加 actTotalBnb >= 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「买入不接受低活跃度」——CD 1 BNB/min 死寂线 10s 折算）+ t/N/NL 十一臂价格门 27.5→28.5（BP69 统一门同车「只稍微宽一点，再继续观察」；RL15 ≤20/RL10 ≤10 已低于上界不动）+ cheat/BP 双门 minTicks 7→6 同线；v15=T131 吉祥 ea78 开盘 25 秒窗差一笔案：t0 最早臂新增 + 双门 minTicks 8→7 配套——「之后的买入点位肯定远不如早期的」，最早入场点由 t0 接住；2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：14 买腿 condition=初始买入信号源（t0/t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers t0=2 其余 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 15 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v19（2026-11-15 v19=T140 开盘簇×早入口袋门立法，用户裁定「接受误伤」：全 14 腿 condition 尾加 AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)——开盘段同块捆绑簇（出生窗 90s 内最大同 block 首买簇钱包数，FA launch* 出生锚键此前纯观察）≥3 ∧ 早入场 ≤60s = bots/分仓组织性进场接刀，60s 后筹码已换手放行；双窗回测 A +0.60（止血 0.22+晚入 0.50 单跑值）/B −0.03（止血 0.151 vs 误伤 0.169 谷谷/100 相抵=知情接受），合并直接命中 31 张止血净 +0.203，胜率两窗均升；被挡触发不消耗 maxTriggers；2026-11-11 v18=T135 bt-v102 因子分析案：t0/t0a 两条最早臂加 tokenAgeSec >= 15——买点年龄分桶单调（age<15s 开盘 bot 抢速盘 30 票胜率 27% 净 -0.37 / >25s 全正），拦截面净增量 +0.25（止血 24 票 -0.70 vs 误伤 12 票 +0.45），大正票与 t0 立法案票吉祥 ea78（age=24）零影响；2026-11-10 v17=T133 用户四条批量：t0 笔数门 7→6 + signalGate.maxTriggers 1→2（「允许过两次 Jev 模块」——首次门拒后再判一次；单仓语义 status=bought 阻断=无双买）+ 全 14 腿加 actTotalBnb >= 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「买入不接受低活跃度」——CD 1 BNB/min 死寂线 10s 折算）+ t/N/NL 十一臂价格门 27.5→28.5（BP69 统一门同车「只稍微宽一点，再继续观察」；RL15 ≤20/RL10 ≤10 已低于上界不动）+ cheat/BP 双门 minTicks 7→6 同线；v15=T131 吉祥 ea78 开盘 25 秒窗差一笔案：t0 最早臂新增 + 双门 minTicks 8→7 配套——「之后的买入点位肯定远不如早期的」，最早入场点由 t0 接住；2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：14 买腿 condition=初始买入信号源（t0/t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers t0=2 其余 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 15 + cheatCheck.enabled + buyPointCheck.enabled',
     },
     // ── T133 两条卖出臂（2026-11-10 用户裁定「3. 卖出方面，也做一下更改：
     //    买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出，代币在
@@ -291,20 +324,10 @@ const ENTRIES = [
         }],
         description: 'T133 famous 进场撤离臂 v2（T136 2026-11-12 金额门 0.5 BNB）：sinceEntryFamousNearLaunchBuyBnb >= 0.5 → 立即全清（bypassDebounce+cards:all）；FA 载体=famous-copy-wallets roster × near_launch 区间 (10,40] 可靠价买入 × BNB 累计 × 入场锚差值（setBuyState 快照/补买轮重锚）；回测同源（回放正序直计）；v1（2026-11-10 计数门 ≥1）被 bt-v106 来财案否证换门',
     },
-    {
-        name: 'low-zone-stall-exit',
-        side: 'sell',
-        legs: [{
-            action: 'sell',
-            priority: 1,
-            condition: 'currentVsLaunchPct > 40 AND currentVsLaunchPct <= 80 AND actTotalBnb < 0.1',
-            maxExecutions: null,
-            cards: 'all',
-            bypassDebounce: true,
-            description: '低位滞涨撤离臂（T133 2026-11-10 用户裁定「代币在价格 low 区间（不包含 near_launch 区间），活跃度掉到 low，立即全部卖出」）：currentVsLaunchPct ∈ (+40,+80]（BP43 六桶 low 档 +40~80，刻意不含 near_launch +10~40——贴发行价的低活跃是黄金点域非撤离域）AND actTotalBnb < 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「低活跃度」单一因子表达——CD act 题 1 BNB/min 死寂线 10s 折算）→ 已脱离发行价区+成交枯竭=滞涨死盘，立即全清 bypass 确认窗',
-        }],
-        description: 'T133 低位滞涨撤离臂 v1（2026-11-10）：low 区间 (+40,+80] × actTotalBnb < 0.1 → 立即全清（bypassDebounce+cards:all）；与买入侧 actTotalBnb >= 0.1 门（T133 指令④）互为镜像——买不进低活跃、持有遇低活跃（且已脱离 near_launch）即撤',
-    },
+    // ── low-zone-stall-exit（T133 低位滞涨撤离臂）已随 v115 系卖腿集弃用（2026-11-12
+    //    bt-v113 起当前最优 16 卖腿不含本臂）且库中无条目——本脚本不再维护，防 --commit
+    //    复活弃用臂入库。历史形状见 git 历史与本注释；famous-entry-exit v2 为 v115 系
+    //    现役卖臂继续维护。
 ];
 
 async function main() {
