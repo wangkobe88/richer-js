@@ -55,6 +55,20 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T142 破发豁免臂立法：ladder v21 门串加放行臂 `OR launchConstVsPct <= 0`——FA 新键=现价 vs 平台常量发行价（纯常量不吃地板），ASTER 0x31e20378…7777 案（2026-11-15；用户裁定原话「最前面一波已经过了，前面的所有狙击也罢什么也罢都已经离场了，价格已经完全破发，这种情况理应豁免」+豁免形状裁定「A 或 B 我觉得就行」→A 常量锚破发；commit 22c1b28c，库 version 20→21）
+
+**案源=C 窗第三窗验证抓到 v20 反例**：C 窗（v72 源 edbd5b38，11-04T14:00→23:59:59 ≈10h，与 A/B 零重叠，用户指令「再找一个合适的虚拟实验作为数据源，再次测试这个策略」）三臂：bt-v124 基线 24 票 +0.4169（50.0%）/bt-v125 簇臂 23 票 +0.3641（43.5%）/bt-v126 v20 20 票 +0.0675（45.0%），v20−v19=−0.2966。「新增挡 4 票 +0.3384 误伤主导」细拆后性质大变——**4 张全部 chainRejected（有信号行），零 gateBlocked**；FA 快照（基线首信号 trendFactors）拆解：BEAGLE（f0=1/wave=2/clu=1）与 ZCASHERS（f0=1/wave=1/clu=1）门串因子根本不达标=触发被门串放行、没买是门链 Jev run-to-run 方差拒的（同刻同票 v124 门链过/v126 cheat 拒，CD319 族）；**唯 ASTER（f0=2∧wave=3∧age=21.2s）是首两波臂真拦**——首触发 17:08:44 被拦（无信号行）→91s 后晚入触发→cheat 门拒→整票错过。
+
+**ASTER 全形状（用户 web 端 signals 页发现）**：17:08:22 首块 `0x319555bc` 买 1.202 BNB @+31.3%+`0xa0edc434` 买 0.299 @+47.5%（f0=2）→17:08:24 wave 块 `0xbae73f5a` 买 0.198 @+58.6%（wave=3）→17:08:28-43 **首两波钱包收割离场**（0x319555bc 分三笔清仓 1.213，末笔 0.632B 砸穿 **−24.0% 完全破发**）→17:08:44（age=22s）v124/v125 买入 @常量锚 −16.8%~−3.1%→17:08:44→54 **10 秒拉到 +131.3%**，v124 12s 后 P7 卖出 +0.1721。语义缺陷=f0/wave 是出生窗历史事实锚（首两波「曾经」组织性进场，age≤60 恒定），把「组织进场→立刻收割→清仓→砸破发→换手完毕的重启位」也当「接开盘刀」挡——正是 BP43 restart「盘面重新计算」的 FA 侧形状，60s 时间界对 22 秒走完一轮的快票不够。簇门无涉（ASTER clu=2）；现有 `priceBackToAlmostLaunch` 救不了（地板锚被砸穿后反弹 +19%>10）。
+
+**豁免选型对拍（A vs B，用户裁定「A 或 B 我觉得就行」→A）**：A=常量锚破发豁免（新键 launchConstVsPct<=0）；B=首两波钱包净持仓豁免（语义更贴但实现重+ASTER 主导钱包已清仓仍有 0.299B 次钱包在场，绝对尘门口径不满足需比例口径）。**A 臂漏放面验证=三窗 20 张首两波臂新增挡票逐张取基线首信号 fire 价算常量锚相对价：A 窗 9 票全 +24~+48%/B 窗 7 票全 +7.7~+49.2%（止血 13 票零漏放）/C 窗唯 ASTER −13.0% ≤0**——精确只放 ASTER，分离带 20pp（最近邻 YiYi +7.7%）。实现注意：metadata.price 是 **USD 计价**（常量换算须 ×745 T84 率或同域相除）；首版验证脚本两层错（USD 误按 BNB 常量算出 +80000%+口径把晚入触发过的票排除成 0 票）。
+
+**实现（ladder v20→v21，22c1b28c）**：门串=` AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60 OR launchConstVsPct <= 0)`，挡=age≤60 ∧（簇≥3 ∨（f0≥2 ∧ wave≥3））∧ constVs>0（**豁免臂对簇门部分同放**——同「开盘组织性进场」历史锚语义：破发=换手完成）。FA 新键 launchConstVsPct=现价/`_resolveLaunchPriceBnb(platform,quote)`−1（**纯常量、刻意不吃 `_floorLaunchPriceBnb`**——地板被砸穿后反弹掩盖破发），null=未知平台/未见可靠价恒 false 不豁免宁拦不冒充；FactorBuilder 快照透传。单测 R 段七分支+S 段 ASTER 形状反证（S1/S2 两键分离 −16.8 vs +9.47）+源码锁（发射块不吃地板）；launch_bundle_factors 54/validate_legs 46/signal_gate 139 全绿。182 --commit UPDATE version 20→21。
+
+**C 窗 v21 验证（bt-v128，用户指令「只测试 8eddeb38（bt-v126）对应的数据集合即可，暂时不要测试之前的 A/B 窗」）**：bt-v128=bt-v126 config+门串尾 v20→v21（窗口/源逐位同 v126），**22 票 +0.3446（45.5%）vs v126 Δ+0.2771**，零 bp_gate_fail。归因：**ASTER +0.1721 精确救回**（实现与基线逐位一致）+BEAGLE +0.1487（门链方差利好回归，v125 簇臂同样买过，非豁免臂效应）−FIGHT −0.0394（豁免臂新进代价，买点破发票）−川腐 −0.0053（首触发被豁免提前 fire→消耗 maxTriggers+门链拒→晚入窗口消失的时序微变）+漂移 +0.0011——**剔除方差后豁免臂真实增量 ≈+0.127**。四行终局：v124 基线 +0.4169/v125 簇臂 +0.3641/v126 v20 +0.0675/v128 v21 +0.3446——v21 vs v19 −0.0195 打平、vs 基线 −0.0723 近打平，v20 的 ASTER 反噬修复。
+
+**附带留档**：bt-v127（v65 源 aed2091d 23.8h 长窗 v21 首跑）跑至装载后被用户改指令中止，引擎优雅停 status=stopped **行保留**；v65 长窗（10-29T14:33→10-30T14:22，8218 token，与三窗零重叠的最长单一源）备将来测试用。归因方法论教训两条：①「新增挡票」分类必须先分 gateBlocked（无信号行=门串真拦）/chainRejected（有信号行 exec=false=门链方差嫌疑）再下结论——C 窗 4 张「误伤」里 3 张是方差；②信号 metadata.price 为 USD 计价，跨域常量换算须同域。
+
 ### T141 首两波扩展门立法：ladder v20 全 14 腿门串改 `AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60)`——v19 簇门补「先头在首块+同波续单在下一块」形状（2026-11-15；用户拍板形状原话「X=2s ∧ f0≥2 这个策略吧，最符合我们理念了」+立法裁定原话「落吧，我觉得能接受」）
 
 **案史链（同日三段）**：①T140 立法（v19 簇门）后口径扩展调研——「扩展为首块+下一有交易块合并首买 ≥3」会多挡 30 票（现门 42 基础 +71%）、止血型净 −0.207（B 窗全绿但 A 窗打平）、放走 5 张止血票，替换口径不可取未立法；②用户在候选形状中拍板「X=2s ∧ f0≥2」→ FA 两键立法（commit `6ba4562e`，回测载体未立法）+等价性单测（`_test_launch_bundle_factors.cjs` 40 例：出生窗入 map 不入首买/P 源码口径反证/Q v20 门串求值挡/放全分支+装载）→ 门控回测 A 窗 bt-v121 干净有效；③B 窗 bt-v122 撞 **TypeSafe 402 billing_error**（余额耗尽）判无效 → 用户「充值了」→ Jev 真调用探针确认恢复（`scripts/tmp-jev-probe.mjs`：静态方法 `JevClient.ask`+criteria dict 两修后 339ms answer=ok）→ 克隆重跑 bt-v123 → 双窗证据闭合 → 立法 v20。
@@ -69,7 +83,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **实现（ladder v19→v20，`scripts/deploy-signal-source-strategies.cjs`）**：CLUSTER_GATE 常量换 v20 串（单点后处理循环追加防 14 处漂移，与 bt-v121/bt-v123 回测门串逐字一致）；头部 v20 版本史块+全腿 description 追加「v20/T141 首两波扩展门」；条目 description 前置 v20 段。本地 dry-run validateLegs 零错误（FA 两键 6ba4562e 已发射+P/Q 单测先证）→ 182 `--commit` UPDATE version 19→20（腿形/描述双变化）；单测三件全绿（launch_bundle_factors 40/validate_legs 46/signal_gate 139）。同步《当前最优买卖策略》v20 全文+CLAUDE.md 四处。被挡触发不消耗 maxTriggers（condition 层 fire 前拦）；回测窗未盖出生段的票两键 null 恒 false 宁拦不冒充（生产实时首 tick 起算无此问题）。
 
-**引用注意（v20 生效面）**：库 copy-in 语义=改库不回溯已建实验，bt-v115~v123 回测行买腿仍是 v18 口径（v116/v120=v19 簇门手工等价载体、v121/v123=v20 门手工等价载体）；生产引用与下一轮回测自动吃 v20。已运行实验重启进程才见新库（当前无运行实验）。
+**引用注意（v21 生效面）**：库 copy-in 语义=改库不回溯已建实验，bt-v115~v128 回测行买腿仍是 v18 口径（v116/v120=v19、v121/v123=v20、v126/v128=v21 手工等价载体）；生产引用与下一轮回测自动吃 v21。已运行实验重启进程才见新库（当前无运行实验）。
 
 ### T140 开盘簇×早入口袋门立法：ladder v19 全 14 腿加 `AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)` + 创建《当前最优买卖策略》维护文档（2026-11-15；用户裁定原话「接受误伤，再创建一个文档，维护当前最优的买卖策略（因子配置信息）。」+门串确认「ladder 14 买腿 condition 尾加 AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60) 没问题」）
 
