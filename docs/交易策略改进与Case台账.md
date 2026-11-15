@@ -55,6 +55,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T144 活跃度门迁因子购买前检查门（FP2）+ BP68 act 题整题退役：judgeActivityLevel low 四臂+ultra 两臂+双豁免（2026-11-15；用户裁定「活跃度低可以全部通过因子表达」+预扫描校准追裁定「只过滤极端的拿得准的情况，不要误伤；如果无论如何都很难拿得准那就不要搞了」+「Jev 的检测保持不变」；commit d2f1a0b1）
+
+**立法动机**：act=low/ultra 的票终局不交易（cheat E 通道 unhealthy / BP activity_gate 拒）——烧 cheat 16 题+BP 4 题 Jev 才得「不交易」结论；纯代码前置判定省 Jev。**预期校准**：因子门在信号落库后评估拒不返还触发计数（省 Jev ✓省信号配额 ✗——与 Jev 拒等价无恶化）。
+
+**judgeActivityLevel 判据树**（BP act 题七要素+⑦四臂+burst 档的机械翻译，锚=buyDerived.activity 嵌套 24 键+cheatDerived 扁平+burst 语境族）——**收紧版**（预扫描校准后）：L1 大比例无交易期=idlePct ≥60 ∧ 吞吐 <0.5 **极端联立**；L2 尘埃假活跃=中位 <0.05 ∧ 吞吐 <1；L3 单向死水=笔比 ≥5:1 ∧ 额比 ≥3:1 ∧ 回撤 <5%（极早窗 <60s∧<30 笔反锚豁免）；L4 临近死寂=中位尘埃 ∧ 吞吐死寂**两腿联立**；L5 结构性被 L2 遮蔽删除（L5 四腿含 L2 两腿=严格子集，臂序重排后确认）；U1 协同出货=末 10s ≥10 卖钱包 ∧ 买入趋零（≤2 笔 <0.1B）两腿；U2 极端密度 ≥150tpm ∧ idle<5。B1 burst 语境豁免（出口簇买 ≥0.3+背景冷——T143 同源）；B2 尾段激活豁免（尾 5s 买 ≥3 笔 ≥0.3B——题面⑥三段形状明线）。
+
+**预扫描两轮校准**（v132 全量 1070 信号重放）：首版（题面参考线直译：idle ≥50 单臂/near_dead 单腿）low 809 行 **Newly-blocked 19 票 +0.4520 纯误伤**触发 gate 条款（Go Brrrrr 08:41:44 蓄势静默窗 near_dead 误拦 +0.2783 主源、BOSS +0.103 等 13 张正票）→ 用户裁定「只过滤极端的拿得准的」→ 收紧版 **low 460/ultra 76 行 Newly-blocked 5 票 +0.0170 近零**（Go Brrr +0.013/胖五 +0.006/唐爷爷 −0.002 止血/낚시광 0/凯恩 0）——Go Brrrrr/duanju 双豁免（tail_active）✓。**机械线 vs Jev 判读的差距根源**：Jev 有「背景校验只压不抬+判读权衡」弹性（临近段有真实买入就不判 low），机械单臂线抓不到——收缩到「全窗口径都死」的极端形状后两面对齐。
+
+**BP68**：activity_level 题整题删除（题集 3 题）；mapper ACTIVITY_GATE_POOR_BUCKETS 删除+DIMENSION_IDS 出域；旧档 act 答案整体忽略不 throw。**cheat 侧零改动**（用户裁定「Jev 的检测保持不变」）：16 题同名题照判（activityExemptLevels=['high','ultra'] 豁免链 mid 不豁免照旧/E 通道 act low∧sbw≠burst 兜底照旧/sbw 题照判——因子门机械线漏判的 Jev 权衡面由 E 通道兜底）。reason 码 act_low/act_ultra 七分支+signals 页中文映射（JS 4.48）。单测 factor 47（F 组含题面六个低档正例+协同出货 72 笔 71 卖正例+主入口臂序）/lib 523/svc 41/cheat 三件/sg 139 全绿。
+
+**余留**：灰度生产常开待放行（回测 config factorCheck.enabled 显式 true）；回测对拍 v133（预期 cheat Jev 调用显著下降+净额变化可归因）待用户指令。
+
 ### T143 因子购买前检查门（FP1，门链最前纯代码零 Jev）+ BP84 retail_pvp 迁出 Jev（0.29 视同 0.3+「只要买入过即可」追裁定）+ CD408 四臂升格独立门——duanju 0x65aebe91…7777 案三件同车（2026-11-15；commit 38576966+77dc156f）
 
 **案源**：bt-v129 时间窗回测中 duanju `0x65aebe91…7777` 首笔买入 0.2994 BNB（一笔 0.3B 交易扣 gas）差 0.0006 没过「单笔 0.3+」线 → Jev BP 题 market_pattern 判 retail_pvp 0.54（贴线方差）→ pattern_gate 拒；买点后 20~90s 两笔 0.2469 大单进场拉到 +95%。用户据此前两问（「首买不就是 0.3BNB 吗怎么给个 pvp 盘」+「而且是个 burst 为何页面显示活跃度 low」——后者实为 cheat 侧 act 题 low 与 BP 侧 act 题 burst 两道题两个口径，页面并列易误读，拒因实为 pattern_gate 非活跃度门）立法。
