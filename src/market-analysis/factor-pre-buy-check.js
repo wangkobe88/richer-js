@@ -28,7 +28,44 @@
 
 // ═══════════════ 常量（单源导出） ═══════════════
 
-const FACTOR_PREBUY_VERSION = 'FP1';
+// ── T144 活跃度门（BP act 题整题迁入：low+ultra 五桶全代码化，2026-11-15 用户
+//    裁定「活跃度低可以全部通过因子表达」——省 cheat 16 题+BP 4 题 Jev/信号；
+//    题面七要素+四臂+burst 档的机械翻译，线值=题面明线/代码常量先例） ──
+/** L1 大比例无交易期（题面①参考 ≥50；T144 预扫描校准收紧=**极端档联立**：
+ * idle ≥60 ∧ 吞吐 <0.5 BNB/min 同时成立才拦——单臂 50 时 Go Brrrrr 39s 蓄势窗
+ * 等高 idle 票大量误伤（Newly-blocked +0.45 主源），用户裁定「只过滤极端的
+ * 拿得准的情况，不要误伤」） */
+const ACT_LOW_IDLE_PCT = 60;
+const ACT_LOW_IDLE_THROUGHPUT = 0.5;
+/** L2/L5 尘埃线（题面③：买盘中位常见交易档参照 0.05） */
+const ACT_DUST_MEDIAN_BNB = 0.05;
+/** L2/L4/L5 吞吐死寂线（题面⑤：<1 BNB/分钟=金额死寂） */
+const ACT_DEAD_THROUGHPUT_BNB_MIN = 1;
+/** L3 单向死水：笔比 ≥5:1 ∧ 额比 ≥3:1 ∧ 回撤 <5% */
+const ACT_ONESIDED_BUY_SELL_N = 5;
+const ACT_ONESIDED_BUY_SELL_BNB = 3;
+const ACT_ONESIDED_MAX_DD_PCT = 5;
+/** L3 极早窗反锚：窗 <60s ∧ <30 笔 两腿同时（价格发现期常态） */
+const ACT_EARLYWIN_SEC = 60;
+const ACT_EARLYWIN_TICKS = 30;
+/** L5 全窗四腿联立：密度 <10 笔/分 ∧（idlePct ≥25 或最长空窗 ≥40s） */
+const ACT_SPARSE_TPM = 10;
+const ACT_SPARSE_IDLE_PCT = 25;
+const ACT_SPARSE_MAX_GAP_SEC = 40;
+/** B2 尾段激活豁免（题面⑥三段形状明线：尾 5s 买 ≥3 笔 ∧ ≥0.3 BNB） */
+const ACT_TAIL5_ACTIVATE_N = 3;
+const ACT_TAIL5_ACTIVATE_BNB = 0.3;
+/** B1 burst 语境豁免：出口簇买 ≥0.3（CD402 波质量线；背景冷同 T143） */
+const ACT_BURST_WAVE_BUY_BNB = 0.3;
+/** U1 协同出货臂：末 10s 独立卖钱包 ≥10 ∧ 买入趋零（≤2 笔 ∧ <0.1 BNB——c84a 双边在场防线） */
+const ACT_ULTRA_SELL_WALLETS = 10;
+const ACT_ULTRA_BUY_N_MAX = 2;
+const ACT_ULTRA_BUY_BNB_MAX = 0.1;
+/** U2 极端密度臂：≥150 笔/分 ∧ idlePct<5（题面「每秒十笔级」下界；常量 ULTRA_TPM=140 参照） */
+const ACT_ULTRA_TPM = 150;
+const ACT_ULTRA_IDLE_PCT = 5;
+
+const FACTOR_PREBUY_VERSION = 'FP2';
 
 // ── PVP（BP84 迁入；BP19/BP26/BP55/BP71/BP73/BP79 判据谱系） ──
 /** 0.3 视同线（≥0.29；duanju 0.2994 案——±0.01 与 0.19↔0.2 对齐） */
@@ -79,6 +116,92 @@ function judgeRetailPvp(snapshot) {
     || (volBundledBnb !== null && volBundledBnb > PVP_BUNDLE_BNB);
   if (pass) return { hit: 0, branch: 'big_buyers_present', reason: null, trace };
   return { hit: 1, branch: 'pvp_no_big_participation', reason: 'pvp_no_big_participation', trace };
+}
+
+// ═══════════════ 活跃度门（T144：BP act 题整题迁入——low+ultra 全代码化） ═══════════════
+
+/**
+ * 活跃度判定（BP act 题五桶的机械翻译：low/ultra 拦，null=正常域不拦）。
+ * 键源：buyDerived.activity 嵌套 24 键（含 BP 自算 nearTail10BuyN/BuyBnb）+
+ * cheatDerived 扁平（totalBuyBnb/totalSellBnb/buyN/sellN/burstWaveSegBuyBnb）。
+ * 判序：先 B1/B2 豁免（burst 语境/尾段激活）再评 low；ultra 独立评（两臂）。
+ * null 容缺：关键锚缺失该臂不触发（宁不拦——拒方向证据缺席，T143 同哲学）。
+ * 题面判读谱系：①idlePct≥50 ③⑤尘埃+死寂 ④单向死水（极早窗反锚）⑦临近死寂臂
+ * 综合锚四腿联立 ⑥反锚（尾段行明线）burst 输入桶（T143 机械化替代）。
+ */
+function judgeActivityLevel(snapshot) {
+  const act = (snapshot.buyDerived && snapshot.buyDerived.activity) || {};
+  const cd = snapshot.cheatDerived || {};
+  const trace = {
+    idlePct: act.idlePct ?? null, ticksPerMin: act.ticksPerMin ?? null,
+    buyMedianBnb: act.buyMedianBnb ?? null, throughputBnbPerMin: act.throughputBnbPerMin ?? null,
+    maxDrawdownPct: act.maxDrawdownPct ?? null, spanSec: act.spanSec ?? null, tickCount: act.tickCount ?? null,
+    nearSegBuyMedianBnb: act.nearSegBuyMedianBnb ?? null, nearSegBnbPerMin: act.nearSegBnbPerMin ?? null,
+    nearTail5BuyN: act.nearTail5BuyN ?? null, nearTail5BuyBnb: act.nearTail5BuyBnb ?? null,
+    nearTail10SellWallets: act.nearTail10SellWallets ?? null,
+    nearTail10BuyN: act.nearTail10BuyN ?? null, nearTail10BuyBnb: act.nearTail10BuyBnb ?? null,
+  };
+
+  // ── B1 burst 语境豁免（替代原 cheat sbw 输入桶：沉积前提+出口簇真实买入，T143 同源） ──
+  const burstCtx = typeof cd.burstWaveSegBuyBnb === 'number' && cd.burstWaveSegBuyBnb >= ACT_BURST_WAVE_BUY_BNB
+    && burstContextBackgroundCold(cd);
+  // ── B2 尾段激活豁免（题面⑥三段形状：锚前尾段买 ≥3 笔 ∧ ≥0.3 BNB=正被流量激活） ──
+  const tailActive = trace.nearTail5BuyN !== null && trace.nearTail5BuyBnb !== null
+    && trace.nearTail5BuyN >= ACT_TAIL5_ACTIVATE_N && trace.nearTail5BuyBnb >= ACT_TAIL5_ACTIVATE_BNB;
+
+  // ── low 五臂（豁免后任一成立） ──
+  if (!burstCtx && !tailActive) {
+    // L1 大比例无交易期（极端联立：静默 ≥60% ∧ 吞吐近死寂——预扫描校准）
+    if (typeof trace.idlePct === 'number' && trace.idlePct >= ACT_LOW_IDLE_PCT
+      && typeof trace.throughputBnbPerMin === 'number' && trace.throughputBnbPerMin < ACT_LOW_IDLE_THROUGHPUT) {
+      return { level: 'low', branch: 'act_low_idle', trace: { ...trace, burstCtx, tailActive } };
+    }
+    // L5 全窗四腿联立（间歇死水：密度/吞吐/中位/静默可观）
+    if (typeof trace.ticksPerMin === 'number' && trace.ticksPerMin < ACT_SPARSE_TPM
+      && typeof trace.throughputBnbPerMin === 'number' && trace.throughputBnbPerMin < ACT_DEAD_THROUGHPUT_BNB_MIN
+      && typeof trace.buyMedianBnb === 'number' && trace.buyMedianBnb < ACT_DUST_MEDIAN_BNB
+      && ((typeof trace.idlePct === 'number' && trace.idlePct >= ACT_SPARSE_IDLE_PCT)
+        || (typeof act.maxGapSec === 'number' && act.maxGapSec >= ACT_SPARSE_MAX_GAP_SEC))) {
+      return { level: 'low', branch: 'act_low_sparse_quad', trace: { ...trace, burstCtx, tailActive } };
+    }
+    // L2 尘埃假活跃（中位尘埃 ∧ 吞吐死寂两腿）
+    if (typeof trace.buyMedianBnb === 'number' && trace.buyMedianBnb < ACT_DUST_MEDIAN_BNB
+      && typeof trace.throughputBnbPerMin === 'number' && trace.throughputBnbPerMin < ACT_DEAD_THROUGHPUT_BNB_MIN) {
+      return { level: 'low', branch: 'act_low_dust_dead', trace: { ...trace, burstCtx, tailActive } };
+    }
+    // L3 单向死水推进（笔比+额比+浅回撤三腿；极早窗反锚两腿同时则不适用）
+    const earlyWin = (trace.spanSec !== null && trace.tickCount !== null
+      && trace.spanSec < ACT_EARLYWIN_SEC && trace.tickCount < ACT_EARLYWIN_TICKS);
+    if (!earlyWin && typeof cd.buyN === 'number' && typeof cd.sellN === 'number' && cd.sellN > 0
+      && cd.buyN / cd.sellN >= ACT_ONESIDED_BUY_SELL_N
+      && typeof cd.totalBuyBnb === 'number' && typeof cd.totalSellBnb === 'number' && cd.totalSellBnb > 0
+      && cd.totalBuyBnb / cd.totalSellBnb >= ACT_ONESIDED_BUY_SELL_BNB
+      && typeof trace.maxDrawdownPct === 'number' && trace.maxDrawdownPct < ACT_ONESIDED_MAX_DD_PCT) {
+      return { level: 'low', branch: 'act_low_onesided', trace: { ...trace, burstCtx, tailActive, earlyWin } };
+    }
+    // L4 临近死寂臂（⑦主锚；预扫描校准=**两腿联立**：中位尘埃 ∧ 吞吐死寂同时
+    // 成立才拦——单腿时近窗偶发空档即拦，321 行主误伤源）
+    const nearDead = (typeof trace.nearSegBuyMedianBnb === 'number' && trace.nearSegBuyMedianBnb < ACT_DUST_MEDIAN_BNB)
+      && (typeof trace.nearSegBnbPerMin === 'number' && trace.nearSegBnbPerMin < ACT_DEAD_THROUGHPUT_BNB_MIN);
+    if (nearDead) {
+      return { level: 'low', branch: 'act_low_near_dead', trace: { ...trace, burstCtx, tailActive } };
+    }
+  }
+
+  // ── ultra 两臂（独立于豁免——协同出货/极端密度是当下事实非沉积语境） ──
+  // U1 协同出货臂（末 10s ≥10 独立卖钱包 ∧ 买入趋零；c84a 双边在场不落）
+  if (typeof trace.nearTail10SellWallets === 'number' && trace.nearTail10SellWallets >= ACT_ULTRA_SELL_WALLETS
+    && typeof trace.nearTail10BuyN === 'number' && trace.nearTail10BuyN <= ACT_ULTRA_BUY_N_MAX
+    && typeof trace.nearTail10BuyBnb === 'number' && trace.nearTail10BuyBnb < ACT_ULTRA_BUY_BNB_MAX) {
+    return { level: 'ultra', branch: 'act_ultra_coordinated_selling', trace: { ...trace, burstCtx, tailActive } };
+  }
+  // U2 极端密度臂（几乎无空窗每秒十笔级下界）
+  if (typeof trace.ticksPerMin === 'number' && trace.ticksPerMin >= ACT_ULTRA_TPM
+    && typeof trace.idlePct === 'number' && trace.idlePct < ACT_ULTRA_IDLE_PCT) {
+    return { level: 'ultra', branch: 'act_ultra_density', trace: { ...trace, burstCtx, tailActive } };
+  }
+
+  return { level: null, branch: burstCtx ? 'burst_ctx' : (tailActive ? 'tail_active' : 'normal'), reason: null, trace: { ...trace, burstCtx, tailActive } };
 }
 
 // ═══════════════ CD 四臂升格（CD408；判据=cheat 侧 _exemptDeniedReason 数值照抄） ═══════════════
@@ -152,6 +275,7 @@ function armBurstBundledWave(cd) {
 function evaluateFactorPreBuy(snapshot, opts = {}) {
   const enableCheatArms = opts.enableCheatArms !== false;
   const enablePvp = opts.enablePvp !== false;
+  const enableActivity = opts.enableActivity !== false;
   const pvp = enablePvp
     ? judgeRetailPvp(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
@@ -163,18 +287,30 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
   }
-  const reason = pvp.reason || (arms.length ? arms[0] : null);
-  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, arms,
-    trace: { ...pvp.trace } };
+  // T144 活跃度门（BP act 题整题迁入）：PVP 后、CD 臂前
+  const activity = enableActivity
+    ? judgeActivityLevel(snapshot)
+    : { level: null, branch: 'disabled', trace: {} };
+  if (activity.level === 'low') arms.push('act_low');
+  else if (activity.level === 'ultra') arms.push('act_ultra');
+  const reason = activity.level === 'low' ? 'act_low'
+    : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || (arms.length ? arms[0] : null)));
+  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, arms,
+    trace: { ...pvp.trace, act: activity.branch } };
 }
 
 module.exports = {
   FACTOR_PREBUY_VERSION,
   PVP_TREAT03_BNB, PVP_LEVEL02_BNB, PVP_BUNDLE_BNB,
+  ACT_LOW_IDLE_PCT, ACT_DUST_MEDIAN_BNB, ACT_DEAD_THROUGHPUT_BNB_MIN,
+  ACT_ONESIDED_BUY_SELL_N, ACT_ONESIDED_BUY_SELL_BNB, ACT_ONESIDED_MAX_DD_PCT,
+  ACT_EARLYWIN_SEC, ACT_EARLYWIN_TICKS, ACT_SPARSE_TPM, ACT_SPARSE_IDLE_PCT, ACT_SPARSE_MAX_GAP_SEC,
+  ACT_TAIL5_ACTIVATE_N, ACT_TAIL5_ACTIVATE_BNB, ACT_BURST_WAVE_BUY_BNB,
+  ACT_ULTRA_SELL_WALLETS, ACT_ULTRA_BUY_N_MAX, ACT_ULTRA_BUY_BNB_MAX, ACT_ULTRA_TPM, ACT_ULTRA_IDLE_PCT,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
   BURST_CONTEXT_PRESEG_MIN_BNB, BURST_CONTEXT_PRESEG_MIN_TICKS, burstContextBackgroundCold,
-  judgeRetailPvp,
+  judgeRetailPvp, judgeActivityLevel,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   evaluateFactorPreBuy,
 };

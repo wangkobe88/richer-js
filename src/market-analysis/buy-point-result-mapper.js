@@ -73,10 +73,14 @@
  * 锁两域逐桶相等（改任一侧须同步——版本 bump 纪律兜底）。
  */
 
-/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增 market_pattern；BP30 删 tree_position；BP49 删 famous_domination/entry_position；BP58 增 entry_shape；BP60 删 market_heat） */
+/** 维度题 id 清单（与题集对齐——漂移由未知桶名 throw 兜住；BP9 删 sell_pressure；
+ * BP13 增 activity_level；BP14 增 famous_domination/holder_concentration；BP18 增
+ * market_pattern；BP30 删 tree_position；BP49 删 famous_domination/entry_position；
+ * BP58 增 entry_shape；BP60 删 market_heat；**BP68/T144 删 activity_level（low/ultra
+ * 迁代码侧因子购买前检查门 judgeActivityLevel）**；price_trend/price_level 保留=
+ * 旧档答案域校验（题已删但清单域校验靠它们兜 throw） */
 const DIMENSION_IDS = [
   'price_trend',
-  'activity_level',
   'holder_concentration',
   'price_level',
   'market_pattern',
@@ -164,7 +168,8 @@ const ENTRY_GATE_POOR_BUCKETS = ['crash', 'malicious_dump'];
  * 删除；**BP67 burst 桶不在拦域**（cheat 门 burst 判定输入桶——上游判 burst=
  * 沉积期低活跃度前提语义，不拦买入；cheat 侧 sbw 与 BP act low 的活跃度叙事
  * 矛盾由引擎透传+burst 桶解决，不在门上加臂） */
-const ACTIVITY_GATE_POOR_BUCKETS = { activity_level: ['low', 'ultra'] };
+// T144/BP68：活跃度门整门删除（low+ultra 迁代码侧因子购买前检查门
+// judgeActivityLevel——BP act 题整题退役）；ACTIVITY_GATE_POOR_BUCKETS 常量随之删除。
 /** BP54 筹码门停用（2026-11-09 用户裁定「筹码门可以去掉（改为先不激活），看看
  * 效果」）：CHIP_GATE_ENABLED=false 筹码门拦截臂不激活——holder strong 不再拒
  * （rule=chip_gate 不产出），holder 维度答案原样透传 digest 照落（观察材料
@@ -178,8 +183,7 @@ const ASSESSMENT_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
 /** 维度 id → 桶域（题面/桶域增改须同步题集并 bump 版本） */
 const DIMENSION_LEVELS = {
   price_trend: PRICE_TREND_LEVELS,
-  activity_level: ACTIVITY_LEVELS,
-  holder_concentration: HOLDER_CONCENTRATION_LEVELS,
+    holder_concentration: HOLDER_CONCENTRATION_LEVELS,
   price_level: PRICE_LEVEL_LEVELS,
   market_pattern: MARKET_PATTERN_LEVELS,
   entry_shape: ENTRY_SHAPE_LEVELS,
@@ -331,7 +335,6 @@ function buildBuyPointObservation(answers, anchors = null) {
   //   形状）, ultra（机器盘级极端密集——「act 为 ultra 也不玩」）}→ poor
   //   （rule=activity_gate；旧档带 market_heat 答案不被消费不 throw）
   const gateArms = [
-    dimensions.activity_level && ACTIVITY_GATE_POOR_BUCKETS.activity_level.includes(dimensions.activity_level.bucket) ? dimensions.activity_level : null,
   ].filter(Boolean);
   // ④筹码门（BP14 holder 单臂；BP54 停用 CHIP_GATE_ENABLED=false 不产出——
   //   chipArms 照算留档观察，恢复=true 一键还原；BP52 restart 豁免已随⑦桶退役删）
@@ -554,6 +557,5 @@ module.exports = {
   ENTRY_SHAPE_LEVELS,
   ENTRY_GATE_POOR_BUCKETS,
   CHIP_GATE_ENABLED,
-  ACTIVITY_GATE_POOR_BUCKETS,
   ASSESSMENT_LEVELS,
 };

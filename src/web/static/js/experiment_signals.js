@@ -64,7 +64,7 @@ const CHEAT_CODE_LABELS = [
 ];
 const BP_DIMENSION_LABELS = {
   market_heat: '市场热度',
-  activity_level: '活跃度', market_pattern: '盘面类型', entry_shape: '点位性质',
+  market_pattern: '盘面类型', entry_shape: '点位性质',
   holder_concentration: '持仓集中度',
   // entry_position/famous_domination 已随维度题退役（BP49）——仅历史 signal 行
   // （metadata.dimensions 带旧维度）展示用，新行无该两键
@@ -73,7 +73,7 @@ const BP_DIMENSION_LABELS = {
 // price_level（价格位置）/price_trend（价格趋势）已随 BP60/BP76 退役（纯参考零
 // 消费维度题）——展示删除（历史行带答案不再渲染，2026-11-15 用户指令「几个
 // 维度已经不用可以删除」）；维度过滤集：
-const BP_DIMENSION_HIDDEN = new Set(['price_level', 'price_trend']);
+const BP_DIMENSION_HIDDEN = new Set(['price_level', 'price_trend', 'activity_level']);
 // 盘型门硬拒桶（与 mapper PATTERN_GATE_POOR_BUCKETS 同源；②retail_pvp 已迁代码
 // 因子门不在 Jev 域）——market_pattern 落硬拒桶=「不符合通过要求的盘面类型」
 // 标红展示（2026-11-15 用户指令）
@@ -2778,6 +2778,11 @@ class ExperimentSignals {
       if (!gateLabel && executionReason.startsWith('factor_gate_')) {
         const hit = FACTOR_GATE_REASON_LABELS.find(([re]) => re.test(executionReason));
         if (hit) gateLabel = hit[1];
+        // T144 act 域（factor_gate_act_low_<branch>/factor_gate_act_ultra_<branch>——branch 后缀查 ACT 表）
+        const am = executionReason.match(/^factor_gate_(act_(?:low|ultra))_([a-z_]+)$/);
+        if (!gateLabel && am && FACTOR_GATE_ACT_LABELS[am[0].replace('factor_gate_', '')]) {
+          gateLabel = '活跃度 ' + (am[1] === 'act_low' ? '低' : '超高') + '：' + FACTOR_GATE_ACT_LABELS[am[0].replace('factor_gate_', '')];
+        }
       }
       let cheatDetailHtml = '';
       const cc = (metadata || {}).cheatCheck;

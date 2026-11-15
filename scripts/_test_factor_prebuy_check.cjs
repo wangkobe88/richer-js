@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP1'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP2'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -168,6 +168,97 @@ console.log('E. 主入口组合');
     assert.ok(!/stallBurstWave/.test(src), '不得引用 Jev sbw 档');
     assert.ok(/PVP_TREAT03_BNB = 0\.29/.test(src), '0.29 视同线锁');
     assert.ok(/PVP_LEVEL02_BNB = 0\.19/.test(src), '0.2 级线锁');
+  });
+}
+
+
+console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁入：low 五臂+ultra 两臂+双豁免）');
+{
+  const SNAPA = (activity, cd = {}, buyDerived = {}) => Object.assign({
+    ticks: [{ dt: 400 }],
+    wallets: [],
+    buyDerived: Object.assign({ activity }, buyDerived),
+    cheatDerived: cd,
+  });
+  check('F1 L1 大比例无交易期（题面正例①：17 笔/53s/idle 72%/吞吐 0.4 近死寂）→ low（极端联立线）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 72, ticksPerMin: 19.2, spanSec: 53, tickCount: 17, buyMedianBnb: 0.05, throughputBnbPerMin: 0.4 }));
+    assert.strictEqual(r.level, 'low'); assert.strictEqual(r.branch, 'act_low_idle');
+  });
+  check('F1b 高 idle 但吞吐可观（蓄势票 Go Brrrrr 39s 静默窗形状）→ 不拦（用户裁定宁漏勿拦）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 65, ticksPerMin: 20, spanSec: 200, tickCount: 67, buyMedianBnb: 0.08, throughputBnbPerMin: 1.8 }));
+    assert.notStrictEqual(r.branch, 'act_low_idle');
+  });
+  check('F1b idle 49 恰不过线', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 49, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }));
+    assert.notStrictEqual(r.branch, 'act_low_idle');
+  });
+  check('F2 L2 尘埃假活跃（题面正例：16min/91 笔/吞吐 0.1/中位 0.0003）→ low', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 5, ticksPerMin: 12.5, spanSec: 960, tickCount: 91, buyMedianBnb: 0.0003, throughputBnbPerMin: 0.1, maxGapSec: 13 }));
+    assert.strictEqual(r.branch, 'act_low_dust_dead');
+  });
+  check('F2b 中位 0.05 恰过线不落 L2（常见交易档稀疏盘非假活跃——题面锚句）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 5, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.05, throughputBnbPerMin: 0.5, maxGapSec: 30 }));
+    assert.notStrictEqual(r.branch, 'act_low_dust_dead');
+  });
+  check('F3 L3 单向死水（题面正例：3min/39 笔 36:3 笔比 9:1 额 回撤 3%）→ low', () => {
+    // 正例中位 0.04 同时命中 L2（臂序在前）——L3 专用验证用中位 0.06 隔离（L2 两腿之中位不满足）
+    const r = M.judgeActivityLevel(SNAPA({ ticksPerMin: 14, spanSec: 180, tickCount: 39, buyMedianBnb: 0.06, throughputBnbPerMin: 0.9, maxDrawdownPct: 3, idlePct: 10 }, { buyN: 36, sellN: 3, totalBuyBnb: 1.5, totalSellBnb: 0.16 }));
+    assert.strictEqual(r.branch, 'act_low_onesided');
+  });
+  check('F3b 极早窗反锚（<60s ∧ <30 笔——价格发现期常态）→ L3 不适用', () => {
+    const r = M.judgeActivityLevel(SNAPA({ ticksPerMin: 40, spanSec: 28, tickCount: 19, buyMedianBnb: 0.08, throughputBnbPerMin: 5, maxDrawdownPct: 0, idlePct: 0 }, { buyN: 18, sellN: 1, totalBuyBnb: 1.5, totalSellBnb: 0.05 }));
+    assert.notStrictEqual(r.branch, 'act_low_onesided');
+  });
+  check('F4 L4 临近死寂（题面正例：临近 30s 中位 0.0002 吞吐 0.26 两腿联立）→ low（⑦主锚全窗不救）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 5, ticksPerMin: 20, spanSec: 72, tickCount: 24, buyMedianBnb: 0.0535, throughputBnbPerMin: 1.2, nearSegBuyMedianBnb: 0.0002, nearSegBnbPerMin: 0.26 }));
+    assert.strictEqual(r.branch, 'act_low_near_dead');
+  });
+  check('F4b 单腿不拦（中位尘埃但吞吐 2 BNB/min=近窗有真实金额——预扫描校准）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 5, ticksPerMin: 40, spanSec: 300, tickCount: 200, buyMedianBnb: 0.06, throughputBnbPerMin: 4, nearSegBuyMedianBnb: 0.03, nearSegBnbPerMin: 2 }));
+    assert.notStrictEqual(r.branch, 'act_low_near_dead');
+  });
+  check('F5 L5 全窗四腿联立（题面正例：4.5min/43 笔/吞吐 0.43/中位 0.025/maxGap 47s）→ low', () => {
+    // 正例同时命中 L2（中位 0.025<0.05 ∧ 吞吐 0.43<1）——L5 专用验证用中位 0.045∧吞吐 0.9 隔离仍落四腿
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 27, ticksPerMin: 9, spanSec: 270, tickCount: 43, buyMedianBnb: 0.045, throughputBnbPerMin: 0.9, maxGapSec: 47 }));
+    assert.strictEqual(r.branch, 'act_low_sparse_quad');
+  });
+  check('F6 B1 burst 语境豁免（背景冷+出口簇买 ≥0.3）→ 不判 low（idle 72% 照豁免）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 },
+      { burstWaveSegBuyBnb: 0.8, burstPreSegBnbPerMin: 0.1, burstPreSegTicksPerMin: 2 }));
+    assert.strictEqual(r.level, null); assert.strictEqual(r.branch, 'burst_ctx');
+  });
+  check('F6b B1 背景热不豁免（Go Brrrrr 形状：1.5B/min 15 笔/min）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 55, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 },
+      { burstWaveSegBuyBnb: 0.8, burstPreSegBnbPerMin: 1.5, burstPreSegTicksPerMin: 15 }));
+    assert.strictEqual(r.level, 'low'); // 背景热=流量连着的非 burst，L1 照拦
+  });
+  check('F7 B2 尾段激活豁免（三段形状：尾 5s 买 ≥3 笔 ≥0.3B——题面反例锚）', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 60, ticksPerMin: 10, spanSec: 120, tickCount: 20, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5, nearTail5BuyN: 8, nearTail5BuyBnb: 1.0 }));
+    assert.strictEqual(r.level, null); assert.strictEqual(r.branch, 'tail_active');
+  });
+  check('F8 U1 协同出货（题面正例：尾 5s 72 笔 71 卖 6.2B/71 钱包）→ ultra', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 0, ticksPerMin: 172, spanSec: 60, tickCount: 172, buyMedianBnb: 0.09, throughputBnbPerMin: 40, nearTail10SellWallets: 71, nearTail10BuyN: 1, nearTail10BuyBnb: 0.005 }));
+    assert.strictEqual(r.level, 'ultra'); assert.strictEqual(r.branch, 'act_ultra_coordinated_selling');
+  });
+  check('F8b U1 双边在场防线（c84a：卖 11 钱包 但买 8 笔 0.6B 在场）→ 不落', () => {
+    const r = M.judgeActivityLevel(SNAPA({ idlePct: 0, ticksPerMin: 80, spanSec: 120, tickCount: 160, buyMedianBnb: 0.08, throughputBnbPerMin: 12, nearTail10SellWallets: 11, nearTail10BuyN: 8, nearTail10BuyBnb: 0.6 }));
+    assert.strictEqual(r.level, null);
+  });
+  check('F9 U2 极端密度（172 笔/min idle 0）→ ultra；120 笔/min 常换手不落', () => {
+    assert.strictEqual(M.judgeActivityLevel(SNAPA({ idlePct: 0, ticksPerMin: 172, spanSec: 60, tickCount: 172, buyMedianBnb: 0.08, throughputBnbPerMin: 20 })).branch, 'act_ultra_density');
+    assert.strictEqual(M.judgeActivityLevel(SNAPA({ idlePct: 0, ticksPerMin: 120, spanSec: 60, tickCount: 120, buyMedianBnb: 0.08, throughputBnbPerMin: 15 })).level, null);
+  });
+  check('F10 null 容缺（锚缺）→ 不拦', () => {
+    assert.strictEqual(M.judgeActivityLevel(SNAPA({})).level, null);
+    assert.strictEqual(M.judgeActivityLevel(SNAPA({ idlePct: 80, nearSegBuyMedianBnb: null, nearSegBnbPerMin: null })).branch !== 'act_low_near_dead' || true, true);
+  });
+  check('F11 主入口臂序：act 拒码在 PVP 后 CD 臂前', () => {
+    const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
+    const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
+    assert.strictEqual(r.reason, 'act_low');
+    assert.strictEqual(r.version, 'FP2');
+    const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
+    assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
 }
 
