@@ -63,13 +63,21 @@ const CHEAT_CODE_LABELS = [
   [/^N_no_retail_entry/, 'N 无散户入场（聚合路由入口占比 <10%，拒买级）'],
 ];
 const BP_DIMENSION_LABELS = {
-  market_heat: '市场热度', price_level: '价格位置', price_trend: '价格趋势',
+  market_heat: '市场热度',
   activity_level: '活跃度', market_pattern: '盘面类型', entry_shape: '点位性质',
   holder_concentration: '持仓集中度',
   // entry_position/famous_domination 已随维度题退役（BP49）——仅历史 signal 行
   // （metadata.dimensions 带旧维度）展示用，新行无该两键
   entry_position: '入场位置', famous_domination: '跟单控盘',
 };
+// price_level（价格位置）/price_trend（价格趋势）已随 BP60/BP76 退役（纯参考零
+// 消费维度题）——展示删除（历史行带答案不再渲染，2026-11-15 用户指令「几个
+// 维度已经不用可以删除」）；维度过滤集：
+const BP_DIMENSION_HIDDEN = new Set(['price_level', 'price_trend']);
+// 盘型门硬拒桶（与 mapper PATTERN_GATE_POOR_BUCKETS 同源；②retail_pvp 已迁代码
+// 因子门不在 Jev 域）——market_pattern 落硬拒桶=「不符合通过要求的盘面类型」
+// 标红展示（2026-11-15 用户指令）
+const BP_MARKET_PATTERN_POOR_BUCKETS = new Set(['famous_monopoly', 'one_wave_dump']);
 const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题' }; // BP48 两质量题退役——仅历史 signal 行（metadata 带 qualities）展示用，新行无该段
 // 档位词 → 配色（none/mid 灰 · weak/noticeable/low 浅黄 · moderate/high amber · strong/dominant/ultra 红）
 function gateBucketClass(bucket) {
@@ -3060,14 +3068,21 @@ class ExperimentSignals {
             </div>`;
             }).join('');
           const dimRows = Object.entries(buyPointInfo.dimensions || {})
+            .filter(([dk]) => !BP_DIMENSION_HIDDEN.has(dk)) // price_level/price_trend 退役维度展示删除（2026-11-15 用户指令）
             .map(([dk, d]) => {
               // 维度缺席 null=题退役（BP60 起 price_trend/price_level 不再问）/材料薄/Jev 拒答——容缺渲染 '—'
               const dBucket = d ? String(d.bucket ?? '—') : '—';
+              // 盘面类型落硬拒桶（famous_monopoly/one_wave_dump）=不符合通过要求——整行标红（2026-11-15 用户指令）
+              const isPoorPattern = dk === 'market_pattern' && BP_MARKET_PATTERN_POOR_BUCKETS.has(dBucket);
+              const rowBorder = isPoorPattern ? 'border-red-400 bg-red-50' : 'border-blue-400 bg-gray-900';
+              const bucketClass = isPoorPattern
+                ? 'px-1.5 py-0.5 rounded border bg-red-200 text-red-900 border-red-500 font-bold'
+                : 'px-1.5 py-0.5 rounded border bg-gray-200 text-gray-800 border-gray-400';
               return `
-            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 rounded border border-blue-400">
-              <span class="text-gray-800">${this._escapeHtml(BP_DIMENSION_LABELS[dk] || dk)}</span>
+            <div class="flex items-center justify-between gap-2 px-2 py-1 rounded border ${rowBorder}">
+              <span class="${isPoorPattern ? 'text-red-900 font-semibold' : 'text-gray-800'}">${this._escapeHtml(BP_DIMENSION_LABELS[dk] || dk)}${isPoorPattern ? '（拒买盘形）' : ''}</span>
               <span class="flex items-center gap-1">
-                <span class="px-1.5 py-0.5 rounded border bg-gray-200 text-gray-800 border-gray-400">${this._escapeHtml(dBucket)}</span>
+                <span class="${bucketClass}">${this._escapeHtml(dBucket)}</span>
                 ${d && d.prob != null ? `<span class="text-gray-700">p=${Number(d.prob).toFixed(2)}</span>` : ''}
               </span>
             </div>`;
