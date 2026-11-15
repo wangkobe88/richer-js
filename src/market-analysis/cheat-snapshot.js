@@ -1071,6 +1071,13 @@ function computeDerived(snapshot, famousRoster) {
   // 天然安全）。非 FA 投影消费（CD400 nearDump 同形：进 levelsFromObservation
   // 白名单但不进 FA 投影/state/题面）；无 ≥30s 段/dt 缺失 → 全族 null 容缺不触发。
   let burstExitSegBuyBnb = null, burstExitSegSellBnb = null, burstExitSegSellPct = null;
+  // T143-CD401 背景活跃度两键（2026-11-15 用户裁定「这个活跃度本来就高，不属于
+  // 突然涌入是连在一起的，那就活跃度直接就是 high 就行了」——burst 语义前提=
+  // 背景活跃度低/中：高活跃盘的 30s+ 喘息只是节奏间隙非沉积）：
+  // burstPreSegTicksPerMin/burstPreSegBnbPerMin=静默段起点（静默前最后一行）
+  // 往前 60s 窗的笔数/成交额（60s 窗即每分钟值）；无段全族 null 同步；
+  // 消费=因子门 CD401 背景腿（低/中背景才构成 burst 语境）；非 FA 投影/题面。
+  let burstPreSegTicksPerMin = null, burstPreSegBnbPerMin = null;
   // CD407 burst 流量簇三键（2026-11-14，btv113 Cashless 0xbcb72829 案；头注见
   // BURST_WAVE_TAIL_GAP_SEC 常量段）——burst 卖压审查对象从「出口段→锚整窗」
   // 收紧为「这一波突然的流量」：簇=段出口行起连续 gap<BURST_WAVE_TAIL_GAP_SEC
@@ -1279,6 +1286,21 @@ function computeDerived(snapshot, famousRoster) {
         burstWaveSegBuyBnb = +_cBuy.toFixed(4);
         burstWaveSegSellBnb = +_cSell.toFixed(4);
         if (_cBuy + _cSell > 0) burstWaveSegSellPct = +((_cSell / (_cBuy + _cSell)) * 100).toFixed(1);
+      }
+      // T143-CD401 背景活跃度两键：背景窗=静默段起点（静默前最后一行=出口行
+      // 前一行）往前 60s——「静默之前盘面是否本来就热」；Go Brrrrr 案 39s 喘息
+      // 前 60s ~1.5 BNB/min 15 笔/min=连着的（高活跃背景，非沉积语境）。
+      if (_lastGapIdx > 0) {
+        const _preEnd = waveTicksAll[_lastGapIdx - 1].dt;
+        const _preStart = _preEnd - 60;
+        let _pn = 0, _pb = 0;
+        for (let i = _lastGapIdx - 1; i >= 0; i--) {
+          const t = waveTicksAll[i];
+          if (t.dt < _preStart || t.dt > _preEnd) break;
+          _pn++; _pb += t.bnb || 0;
+        }
+        burstPreSegTicksPerMin = _pn;
+        burstPreSegBnbPerMin = +_pb.toFixed(4);
       }
       // CD405 burst 捆绑收割两键（头注见变量声明区）：波窗=上方 _zone（出口后
       // 60s 搜索域整体，非其中最密 5s 子窗——捆绑结构看整个涌入段）；per-block
@@ -1856,6 +1878,8 @@ function computeDerived(snapshot, famousRoster) {
     // CD407 burst 流量簇三键（burst_exit_sell_pressure 臂判据源 CD401 起改读本族——
     // 「这一波突然的流量」簇内买/卖/卖%；无段 null 容缺；头注见计算段）
     burstWaveSegBuyBnb, burstWaveSegSellBnb, burstWaveSegSellPct,
+    // T143-CD401 背景活跃度两键（静默前 60s 窗——低/中背景才构成 burst 语境）
+    burstPreSegTicksPerMin, burstPreSegBnbPerMin,
     // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗单块/
     // 相邻两 slot 去尘捆绑钱包数；无 ≥30s 段全族 null 不冒充；头注见计算段）
     burstWaveBundleMaxWallets, burstWaveBundleAdjPairSum,

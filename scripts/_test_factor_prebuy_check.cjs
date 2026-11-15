@@ -110,10 +110,17 @@ console.log('D. CD 四臂升格门（CD408）');
     assert.strictEqual(M.armDumpLowAbsorption(cd({ nearDumpQualBlocks: 1, nearDumpWorstSellers: 9, nearDumpMinAbsorbBnb: 0.4, nearDumpWorstSellBnb: 1 })), false);
     assert.strictEqual(M.armDumpLowAbsorption(cd({})), false);
   });
-  // CD401 代理线逐腿（基座=卖压两线达标）
-  const cd401Base = { burstWaveSegSellPct: 35, burstWaveSegSellBnb: 0.5, burstSecSinceWaveEnd: 10, burstWaveWalletMedianBnb: 0.02, burstWaveWalletNetBnb: 0.5 };
-  check('D5 CD401 代理全腿命中 → true', () =>
+  // CD401 代理线逐腿（基座=卖压两线达标+冷背景——T143 追裁定背景腿：低/中背景才构成 burst 语境）
+  const cd401Base = { burstWaveSegSellPct: 35, burstWaveSegSellBnb: 0.5, burstSecSinceWaveEnd: 10, burstWaveWalletMedianBnb: 0.02, burstWaveWalletNetBnb: 0.5, burstPreSegBnbPerMin: 0.1, burstPreSegTicksPerMin: 2 };
+  check('D5 CD401 代理全腿命中（冷背景）→ true', () =>
     assert.strictEqual(M.armBurstExitSellPressure(cd(cd401Base)), true));
+  check('D5b 背景腿：高活跃背景（Go Brrrrr 形状 1.5B/min 15 笔/min）→ 不触发', () => {
+    assert.strictEqual(M.armBurstExitSellPressure(cd({ ...cd401Base, burstPreSegBnbPerMin: 1.5, burstPreSegTicksPerMin: 15 })), false);
+    assert.strictEqual(M.armBurstExitSellPressure(cd({ ...cd401Base, burstPreSegBnbPerMin: 0.6 })), false); // 额超线
+    assert.strictEqual(M.armBurstExitSellPressure(cd({ ...cd401Base, burstPreSegTicksPerMin: 7 })), false); // 笔超线
+  });
+  check('D5c 背景腿：锚缺失（无段）→ 不触发（宁不拦）', () =>
+    assert.strictEqual(M.armBurstExitSellPressure(cd({ ...cd401Base, burstPreSegBnbPerMin: null })), false));
   check('D6 CD401 波远离锚（>60s 历史遗迹）→ 不拦', () =>
     assert.strictEqual(M.armBurstExitSellPressure(cd({ ...cd401Base, burstSecSinceWaveEnd: 120 })), false));
   check('D7 CD401 波钱包中位非尘埃（≥0.05 大户波）→ 不拦', () =>
@@ -122,12 +129,15 @@ console.log('D. CD 四臂升格门（CD408）');
     assert.strictEqual(M.armBurstExitSellPressure(cd({ ...cd401Base, burstWaveWalletNetBnb: -0.1 })), false));
   check('D9 CD401 无段（SellPct null）→ 不拦（拒方向证据缺席）', () =>
     assert.strictEqual(M.armBurstExitSellPressure(cd({})), false));
-  check('D10 CD405 命中：单块 7 钱包 / 相邻两 slot 合计 7', () => {
-    assert.strictEqual(M.armBurstBundledWave(cd({ burstWaveBundleMaxWallets: 7 })), true);
-    assert.strictEqual(M.armBurstBundledWave(cd({ burstWaveBundleAdjPairSum: 8 })), true);
+  const bg = { burstPreSegBnbPerMin: 0.1, burstPreSegTicksPerMin: 2 }; // 冷背景基座（背景腿两臂同加）
+  check('D10 CD405 命中（冷背景）：单块 7 钱包 / 相邻两 slot 合计 7', () => {
+    assert.strictEqual(M.armBurstBundledWave(cd({ ...bg, burstWaveBundleMaxWallets: 7 })), true);
+    assert.strictEqual(M.armBurstBundledWave(cd({ ...bg, burstWaveBundleAdjPairSum: 8 })), true);
   });
+  check('D10b CD405 背景腿：高活跃背景 7 钱包捆绑也不触发（两臂同加裁定）', () =>
+    assert.strictEqual(M.armBurstBundledWave(cd({ burstPreSegBnbPerMin: 1.5, burstPreSegTicksPerMin: 15, burstWaveBundleMaxWallets: 9 })), false));
   check('D11 CD405 不命中：6 钱包（TukTuk 门外先例）', () =>
-    assert.strictEqual(M.armBurstBundledWave(cd({ burstWaveBundleMaxWallets: 6, burstWaveBundleAdjPairSum: 5 })), false));
+    assert.strictEqual(M.armBurstBundledWave(cd({ ...bg, burstWaveBundleMaxWallets: 6, burstWaveBundleAdjPairSum: 5 })), false));
 }
 
 console.log('E. 主入口组合');

@@ -105,6 +105,7 @@ function armDumpLowAbsorption(cd) {
  * 无段/锚缺失全族 null → 代理不成立（宁不拦——拒方向证据缺席不拒）。
  */
 function armBurstExitSellPressure(cd) {
+  if (!burstContextBackgroundCold(cd)) return false; // 背景腿（T143 追裁定）：高活跃背景不构成 burst 语境
   if (typeof cd.burstWaveSegSellPct !== 'number' || cd.burstWaveSegSellPct < 30) return false;
   if (typeof cd.burstWaveSegSellBnb !== 'number' || cd.burstWaveSegSellBnb < 0.3) return false;
   if (typeof cd.burstSecSinceWaveEnd !== 'number' || cd.burstSecSinceWaveEnd > SBW_PROXY_WAVE_NEAR_SEC) return false;
@@ -113,8 +114,28 @@ function armBurstExitSellPressure(cd) {
   return true;
 }
 
+/**
+ * CD401 背景腿线（T143 追裁定 2026-11-15，Go Brrrrr 0xdae106c8…7777 案）：
+ * burst 语义前提=**背景活跃度低/中**（用户裁定「这个活跃度本来就高，不属于
+ * 突然涌入是连着的，那就活跃度直接就是 high 就行了」）——静默段前 60s 背景
+ * 窗 ≥0.5 BNB/min 或 ≥6 笔/min=高活跃背景（流量连着的，30s+ 喘息只是节奏
+ * 间隙非沉积）→ 不构成 burst 语境，臂不触发。锚缺失（无段）null=语境缺席
+ * 不触发（宁不拦——拒方向证据缺席）。
+ */
+const BURST_CONTEXT_PRESEG_MIN_BNB = 0.5;
+const BURST_CONTEXT_PRESEG_MIN_TICKS = 6;
+/** 背景腿（CD401/CD405 两臂共用，用户裁定两臂同加）：true=低/中背景（burst
+ * 语境成立）；false=高活跃背景或缺锚（不触发——宁不拦） */
+function burstContextBackgroundCold(cd) {
+  if (typeof cd.burstPreSegBnbPerMin !== 'number' || typeof cd.burstPreSegTicksPerMin !== 'number') return false;
+  return cd.burstPreSegBnbPerMin < BURST_CONTEXT_PRESEG_MIN_BNB && cd.burstPreSegTicksPerMin < BURST_CONTEXT_PRESEG_MIN_TICKS;
+}
+
 /** CD405 burst 捆绑收割：单块或相邻两 slot 去尘捆绑钱包 ≥7 */
 function armBurstBundledWave(cd) {
+  // 背景腿（用户裁定两臂同加）：高活跃背景不构成 burst 语境——捆绑收割臂
+  // 同为 ≥30s 段波窗绑定，高活跃盘喘息误触发同病（bt-v131 拒 24 行零实伤预防性收紧）
+  if (!burstContextBackgroundCold(cd)) return false;
   if (typeof cd.burstWaveBundleMaxWallets === 'number' && cd.burstWaveBundleMaxWallets >= BURST_BUNDLE_MIN_WALLETS) return true;
   if (typeof cd.burstWaveBundleAdjPairSum === 'number' && cd.burstWaveBundleAdjPairSum >= BURST_BUNDLE_MIN_WALLETS) return true;
   return false;
@@ -152,6 +173,7 @@ module.exports = {
   PVP_TREAT03_BNB, PVP_LEVEL02_BNB, PVP_BUNDLE_BNB,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
+  BURST_CONTEXT_PRESEG_MIN_BNB, BURST_CONTEXT_PRESEG_MIN_TICKS, burstContextBackgroundCold,
   judgeRetailPvp,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   evaluateFactorPreBuy,
