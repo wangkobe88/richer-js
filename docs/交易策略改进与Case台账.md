@@ -55,6 +55,22 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T141 首两波扩展门立法：ladder v20 全 14 腿门串改 `AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60)`——v19 簇门补「先头在首块+同波续单在下一块」形状（2026-11-15；用户拍板形状原话「X=2s ∧ f0≥2 这个策略吧，最符合我们理念了」+立法裁定原话「落吧，我觉得能接受」）
+
+**案史链（同日三段）**：①T140 立法（v19 簇门）后口径扩展调研——「扩展为首块+下一有交易块合并首买 ≥3」会多挡 30 票（现门 42 基础 +71%）、止血型净 −0.207（B 窗全绿但 A 窗打平）、放走 5 张止血票，替换口径不可取未立法；②用户在候选形状中拍板「X=2s ∧ f0≥2」→ FA 两键立法（commit `6ba4562e`，回测载体未立法）+等价性单测（`_test_launch_bundle_factors.cjs` 40 例：出生窗入 map 不入首买/P 源码口径反证/Q v20 门串求值挡/放全分支+装载）→ 门控回测 A 窗 bt-v121 干净有效；③B 窗 bt-v122 撞 **TypeSafe 402 billing_error**（余额耗尽）判无效 → 用户「充值了」→ Jev 真调用探针确认恢复（`scripts/tmp-jev-probe.mjs`：静态方法 `JevClient.ask`+criteria dict 两修后 339ms answer=ok）→ 克隆重跑 bt-v123 → 双窗证据闭合 → 立法 v20。
+
+**FA 两键（出生窗 90s 出生锚族，实时/回测同源）**：`launchFirstBlockWallets`=f0 首块首买钱包数；`launchFirstWaveWallets`=f0+**首块后 ≤2s 内第一个有交易块**（buy/sell 都算活跃，块首行时间差口径）首买钱包数之和——「狙击小队先头在首块+同波续单在下一块」合并计数；两键纯事实计数，f0≥2 ∧ wave≥3 提纯由门串组合表达。v19 簇键（同 block ≥3）只抓「整簇同块」形状，漏两波分布形状——v20=簇门 ∧ 首两波门联合：**挡=age≤60s ∧（簇≥3 ∨（f0≥2 ∧ wave≥3））**。
+
+**双窗证据（同码同策略集，唯一变量=v20 门 vs v19 簇门；对照基线=簇臂，用户指正「基线应该是 aa8fb3b3」）**：
+- **A 窗**（11-02→11-03，源 67803108）：bt-v121（54dac9c5）71 票 +1.9382（53.5%）vs bt-v116 77 票 +2.1568（53.2%），Δ−0.2186——**门串直接效应为正**：首两波臂新增挡 9 票止血 +0.1227（门串真拦 6 票 −0.0765+门链拒 3 票 −0.0462；正票 2 张 +0.0995=噜噜 `0x0d21b86a…7777` +0.0987 主导）；晚入路径 3 票 −0.0597（SI/POORNANCE，60s 后再触发入场照样亏）；共同票漂移 **−0.28 为门链 Jev run-to-run 方差**（CD319 同族，克隆对照噪声带 ±0.07 之外的主导项）拖累总 Δ
+- **B 窗（干净重跑）**：bt-v123（f454a704）33 票 **+3.2098（54.5%）** vs bt-v120 40 票 +3.0193（42.5%），Δ**+0.1905**——分解近乎完美：首两波臂新增挡 7 票止血 −0.1902 **零误伤**（门串真拦 4 票：刘家郡/memectuk/傻福/TRENCHER −0.1238+门链拒 3 票：Dawn/YiYi/Mei −0.0664）+漂移 +0.0058（0 张 |Δ|≥0.03）；晚入 0 票
+- **两窗合并**：首两波臂新增挡 16 票 −0.3129 全止血（正票 2/16），与 v19 直接命中 31 张止血同构叠加；vs 无门基线合并 +0.5494（A +0.3850/B +0.1644）；胜率两窗齐升（B 42.5%→54.5% 显著）
+- **bt-v122（631bd2c2）无效跑留档**：跑于 TypeSafe 402 billing_error 窗口——cheat 门 jev_error **fail-open 放行**进 BP 门、BP 门 jev_error **fail-closed 硬拒**（`bp_gate_fail`），458/889 信号（51.5%）被拒、executed 仅 17（vs v119 51/v120 40/v123 33），拒因分布对照六实验（v115/116/121/119/120/123 全零 bp_gate_fail）坐实污染；行保留删否由用户裁定。**事故教训**：两门故障语义分裂（cheat 放行/BP 拒）=计费耗尽时买入被结构性压低而非全拒，回测有效性核验=先看 `metadata.execution_reason` 分布里 bp_gate_fail 是否为 0；Jev 402 不可重试直接抛。曾据 v122 得出「B 窗 +0.55 误伤/两窗 −0.77」错误结论（20 票 +0.68 是 402 拒出来的假象，门串真拦仅 4 票 −0.12），作废留档。
+
+**实现（ladder v19→v20，`scripts/deploy-signal-source-strategies.cjs`）**：CLUSTER_GATE 常量换 v20 串（单点后处理循环追加防 14 处漂移，与 bt-v121/bt-v123 回测门串逐字一致）；头部 v20 版本史块+全腿 description 追加「v20/T141 首两波扩展门」；条目 description 前置 v20 段。本地 dry-run validateLegs 零错误（FA 两键 6ba4562e 已发射+P/Q 单测先证）→ 182 `--commit` UPDATE version 19→20（腿形/描述双变化）；单测三件全绿（launch_bundle_factors 40/validate_legs 46/signal_gate 139）。同步《当前最优买卖策略》v20 全文+CLAUDE.md 四处。被挡触发不消耗 maxTriggers（condition 层 fire 前拦）；回测窗未盖出生段的票两键 null 恒 false 宁拦不冒充（生产实时首 tick 起算无此问题）。
+
+**引用注意（v20 生效面）**：库 copy-in 语义=改库不回溯已建实验，bt-v115~v123 回测行买腿仍是 v18 口径（v116/v120=v19 簇门手工等价载体、v121/v123=v20 门手工等价载体）；生产引用与下一轮回测自动吃 v20。已运行实验重启进程才见新库（当前无运行实验）。
+
 ### T140 开盘簇×早入口袋门立法：ladder v19 全 14 腿加 `AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)` + 创建《当前最优买卖策略》维护文档（2026-11-15；用户裁定原话「接受误伤，再创建一个文档，维护当前最优的买卖策略（因子配置信息）。」+门串确认「ladder 14 买腿 condition 尾加 AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60) 没问题」）
 
 **发现与双窗验证（2026-11-14，全档=auto-memory launch-bundle-cluster-early-entry-pocket）**：开盘段同块捆绑簇（`launchBundleClusterSize`=出生窗 90s 内最大「同 block 首买簇」钱包数，FA launch* 出生锚键 2026-10-17 立、此前纯观察）≥3 ∧ 早入场（age≤60s）= bots/分仓钱包组织性进场，「簇在场时买入」=接刀；60s 后簇筹码已换手价格已消化。双窗回测（同码 f9ee93d2 同策略集，唯一变量=14 买腿 condition 尾加簇门）：
