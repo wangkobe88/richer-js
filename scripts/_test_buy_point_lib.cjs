@@ -1722,13 +1722,12 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   ok(!st79W.includes('单笔 ≥0.19 的钱包'),
     'F2: 在场三分行已迁代码（BP67——classifyWallet 在 factor-pre-buy-check.js 全分支锁，state 不再渲染）');
   {
-    // 同夹具改走因子门纯函数验证在场三分（挂账/离场不算活跃）
+    // BP84 二修：PVP=纯买入侧（不看持有/在场/承接），classifyWallet 已随承接轴整体删除
     const FPC = require('../src/market-analysis/factor-pre-buy-check.js');
     const snap79W = buildBuyPointSnapshot(rows79W, metaA);
-    const tEnd79 = require('../src/market-analysis/buy-point-snapshot').bpTEndOf(snap79W.ticks);
-    const cls79 = new Map(snap79W.wallets.map((w) => [w.w, FPC.classifyWallet(w, tEnd79)]));
-    ok(cls79.get(W_Q) === '挂账在场' && cls79.get(W_R) === '离场' && cls79.get(W_P) === '活跃在场',
-      'F2: 在场三分=classifyWallet（蝴蝶案夹具三分逐钱包锁——挂账 205s/清仓净 0/活跃 15s）');
+    const r79 = FPC.judgeRetailPvp(snap79W);
+    ok(typeof FPC.classifyWallet === 'undefined' && r79.trace.act20 === 3 && r79.hit === 0,
+      'F2: 在场三分删除锁+蝴蝶案夹具纯买入侧判定（3 个 0.2 级买入过=像样买方不落 PVP——BP84 二修「只看买入侧不看持有」）');
   }
   ok(!st79W.includes('[挂账在场]') && !st79W.includes('判序线=活跃在场'),
     'F2: 分类标签/判序线句 state 绝迹（BP67——大户参与判读行整体迁 factor-pre-buy-check，Jev state 零呈现）');

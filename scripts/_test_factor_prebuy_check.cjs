@@ -34,120 +34,64 @@ const SNAP = (over) => Object.assign({
   cheatDerived: {},
 }, over);
 
-console.log('A. 在场三分（BP79）');
+console.log('B. PVP 判定（BP84 二修：纯买入侧极简口径）');
 {
-  check('A1 净 ≤0.005=离场', () => assert.strictEqual(M.classifyWallet(W(0.3, 0.3, 0.3, 10), TEND), '离场'));
-  check('A2 净 >0.005 ∧ 末动 ≤120s=活跃在场', () => assert.strictEqual(M.classifyWallet(W(0.3, 0.1, 0.3, 100), TEND), '活跃在场'));
-  check('A3 净 >0.005 ∧ 末动 >120s=挂账在场', () => assert.strictEqual(M.classifyWallet(W(0.3, 0.1, 0.3, 200), TEND), '挂账在场'));
-  check('A4 末动不可算=挂账（宁拦方向）', () => assert.strictEqual(M.classifyWallet(W(0.3, 0, 0.3, null), TEND), '挂账在场'));
-}
-
-console.log('B. PVP 判定树');
-{
-  check('B1 无大户参与（零 0.2 级单）→ 拒 pvp_no_big_participation', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.1, 0, 0.1, 10), W(0.08, 0, 0.08, 10)] }), TEND);
-    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'pvp_no_big_participation');
-    assert.strictEqual(r.branch, 'pvp_a_no_participation'); // 无量在场=②(a) 形状
-  });
-  check('B2 灰区单不救（三笔累计 0.23 单笔 0.1x=不算 0.2 级，BP55）', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.23, 0, 0.11, 10)] }), TEND);
+  check('B1 无 0.2 级单笔（全 0.1x）→ 拒 pvp_no_big_participation', () => {
+    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.1, 0, 0.1, 10), W(0.08, 0, 0.08, 10)] }));
     assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'pvp_no_big_participation');
   });
-  check('B3 单笔 0.2994（≥0.29 视同 0.3）活跃在场 → act30≥1 参与满足', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }), TEND);
-    assert.strictEqual(r.trace.act30, 1);
+  check('B2 灰区单不救（三笔累计 0.23 单笔 0.1x=不算 0.2 级，BP55 单笔口径）', () => {
+    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.23, 0, 0.11, 10)] }));
+    assert.strictEqual(r.hit, 1);
+  });
+  check('B3 单笔 0.2994（≥0.29 视同 0.3）→ 像样买方在场不落 PVP（duanju 案）', () => {
+    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.2994, 0.2994, 0.2994, 10)] }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.trace.act30, 1);
   });
   check('B4 0.29 边界：0.29 恰过 / 0.2899 不过', () => {
-    assert.strictEqual(M.judgeRetailPvp(SNAP({ wallets: [W(0.29, 0, 0.29, 100)] }), TEND).trace.act30, 1);
-    assert.strictEqual(M.judgeRetailPvp(SNAP({ wallets: [W(0.2899, 0, 0.2899, 100)] }), TEND).trace.act30, 0);
+    assert.strictEqual(M.judgeRetailPvp(SNAP({ wallets: [W(0.29, 0, 0.29, 100)] })).trace.act30, 1);
+    const r2 = M.judgeRetailPvp(SNAP({ wallets: [W(0.2899, 0, 0.2899, 100)] }));
+    assert.strictEqual(r2.trace.act30, 0); assert.strictEqual(r2.hit, 1);
   });
-  check('B5 挂账/离场 0.3+ 也算买入过（BP84 追裁定：不要求在场）→ participation 满足', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.3, 0, 0.3, 200)] }), TEND);
-    assert.strictEqual(r.trace.act30, 1); assert.strictEqual(r.trace.act30Active, 0);
-    assert.notStrictEqual(r.reason, 'pvp_no_big_participation');
+  check('B5 买完立刻清仓也放（不看持有——Go Brrrrr/好似喵案语义内建）', () => {
+    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.5, 0.533, 0.5, 0)] }));
+    assert.strictEqual(r.hit, 0); // 买入过就算
   });
-  check('B6 两个 0.2 级（≥0.19）活跃在场 → participation 满足不落②', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.2, 0, 0.2, 50), W(0.19, 0, 0.19, 100)] }), TEND);
+  check('B6 两个 0.2 级（≥0.19）→ 不落 PVP', () => {
+    const r = M.judgeRetailPvp(SNAP({ wallets: [W(0.2, 0, 0.2, 50), W(0.19, 0, 0.19, 100)] }));
     assert.strictEqual(r.trace.act20, 2); assert.strictEqual(r.hit, 0);
   });
-  check('B7 同块捆绑合计 >0.3（严格大于）→ 量在场', () => {
-    const s = SNAP({ wallets: [], buyDerived: { bundledBlock: { buyBnb: 0.31 }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: {} } });
-    assert.strictEqual(M.judgeRetailPvp(s, TEND).trace.volBundledBnb, 0.31);
-    const s2 = SNAP({ wallets: [], buyDerived: { bundledBlock: { buyBnb: 0.3 }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: {} } });
-    const r2 = M.judgeRetailPvp(s2, TEND);
-    assert.strictEqual(r2.trace.volSingle, 0); assert.strictEqual(r2.reason, 'pvp_no_big_participation');
+  check('B7 同块捆绑合计 >0.3（严格大于）→ 组织性买入在场不落', () => {
+    const s = SNAP({ wallets: [], buyDerived: { bundledBlock: { buyBnb: 0.31 }, activity: {} } });
+    assert.strictEqual(M.judgeRetailPvp(s).hit, 0);
+    const s2 = SNAP({ wallets: [], buyDerived: { bundledBlock: { buyBnb: 0.3 }, activity: {} } });
+    assert.strictEqual(M.judgeRetailPvp(s2).hit, 1); // 恰 0.3 不过
   });
-  // 承接轴
-  const bigActive = W(0.2994, 0.1, 0.2994, 100); // 参与满足基座（在场持有+未卖）
-  check('B8 承接轴① 大户持续卖+承接在场 → 放行', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [bigActive],
-      buyDerived: { bigHolderSellBnb60: 0.2, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: {} } }), TEND);
-    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'big_selling_absorbed');
-  });
-  check('B9 承接轴① 大户持续卖+承接不在场（win30 买 1 笔 0.02）→ 拒 pvp_absorption_dust', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [bigActive],
-      buyDerived: { bigHolderSellBnb60: 0.2, win: { 30: { buyBnb: 0.02, buyN: 1 } }, activity: { nearTail10BuyN: 0 } } }), TEND);
-    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'pvp_absorption_dust');
-  });
-  check('B10 卖完离场+散户尘埃承接（买入过即参与）→ 承接轴落 pvp_zero_absorption', () => {
-    const exited = W(0.2994, 0.2994, 0.2994, 100); // 卖完净≈0——买入过=参与满足（BP84 追裁定）
-    const r = M.judgeRetailPvp(SNAP({ wallets: [exited],
-      buyDerived: { bundledBlock: { buyBnb: 0.4 }, bigHolderSellBnb60: 0, win: { 30: { buyBnb: 0.02, buyN: 1 } }, activity: { nearTail10BuyN: 0 } } }), TEND);
-    assert.strictEqual(r.hit, 1);
-    assert.strictEqual(r.reason, 'pvp_zero_absorption'); // sell60 归零+承接尘埃=②(b) 死盘语义
-  });
-  check('B11 承接轴③ 在场持有未卖+承接归零（win30 ≤0.03 ∧ 尾10s ≤1 笔）→ 拒 pvp_zero_absorption', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [bigActive],
-      buyDerived: { bigHolderSellBnb60: 0, win: { 30: { buyBnb: 0.02, buyN: 1 } }, activity: { nearTail10BuyN: 1 } } }), TEND);
-    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'pvp_zero_absorption');
-  });
-  check('B12 承接轴③ 在场持有未卖+承接在场 → 放行 holding_absorbed', () => {
-    const r = M.judgeRetailPvp(SNAP({ wallets: [bigActive],
-      buyDerived: { bigHolderSellBnb60: 0, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: {} } }), TEND);
-    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'holding_absorbed');
-  });
-  check('B13 sell60 null（quote 盘锚缺）：双证据（持有+承接归零）才拒，否则放行', () => {
-    const r1 = M.judgeRetailPvp(SNAP({ wallets: [bigActive],
-      buyDerived: { bigHolderSellBnb60: null, win: { 30: { buyBnb: 0.02, buyN: 1 } }, activity: { nearTail10BuyN: 0 } } }), TEND);
-    assert.strictEqual(r1.hit, 1); assert.strictEqual(r1.reason, 'pvp_zero_absorption');
-    const r2 = M.judgeRetailPvp(SNAP({ wallets: [bigActive],
-      buyDerived: { bigHolderSellBnb60: null, win: { 30: { buyBnb: 0.02, buyN: 1 } }, activity: { nearTail10BuyN: 3 } } }), TEND);
-    assert.strictEqual(r2.hit, 0); assert.strictEqual(r2.branch, 'sell_anchor_null');
-  });
-  check('B14 量在场只杀 (a) 标签不救 participation（branch= pvp_b_no_participation）', () => {
-    const s = SNAP({ wallets: [], buyDerived: { bundledBlock: { buyBnb: 0.4 }, win: { 30: { buyBnb: 0.02, buyN: 0 } }, bigHolderSellBnb60: null, activity: {} } });
-    const r = M.judgeRetailPvp(s, TEND);
-    assert.strictEqual(r.reason, 'pvp_no_big_participation');
-    assert.strictEqual(r.branch, 'pvp_b_no_participation');
+  check('B8 蓄势静默不误伤（无持有/承接维度——Go Brrrrr 39s 静默形状：买入侧 12 个 0.2 级在场即过）', () => {
+    const wallets = Array.from({ length: 12 }, (_, i) => W(0.21, 0.05, 0.21, 30 + i));
+    const r = M.judgeRetailPvp(SNAP({ wallets, buyDerived: { bundledBlock: null, activity: {} } }));
+    assert.strictEqual(r.hit, 0);
   });
 }
 
-console.log('C. duanju 0x65aebe91…7777 反证夹具（0.2994 首买+部分兑现 57% 后买点）');
+console.log('C. duanju 0x65aebe91…7777 反证夹具（0.2994 首买，BP84 二修口径）');
 {
-  // 现场形状：0x5ba6b91a 买 0.2994（00:57:31）卖 0.1692（01:03:19，距买点 39s=活跃）
-  // → 净 0.1302>0.005 在场持有；volSingle=1；act30=1 → 参与满足 → 承接轴③
-  // buyDerived.win30 买点秒三笔 0.3175/5 笔 → 承接在场 → 放行
   const duanju = SNAP({
-    wallets: [W(0.2994, 0.1692, 0.2994, 39)], // 末动距锚末 39s=活跃在场
-    buyDerived: { bundledBlock: null, bigHolderSellBnb60: 0, activity: { nearTail10BuyN: 3 },
-      win: { 30: { buyBnb: 0.3175, buyN: 3 } } },
+    wallets: [W(0.2994, 0.1692, 0.2994, 39)], // 买 0.2994 卖 0.1692（57% 兑现）——买入过即像样买方
+    buyDerived: { bundledBlock: null, activity: {} },
   });
-  const r = M.judgeRetailPvp(duanju, TEND);
-  check('C1 0.2994≥0.29 在场持有 → volSingle=1（量在场，(a) 臂死）', () =>
-    assert.strictEqual(r.trace.volSingle, 1));
-  check('C2 act30=1（活跃在场）→ 参与满足不落 PVP', () => {
-    assert.strictEqual(r.trace.act30, 1); assert.strictEqual(r.hit, 0);
+  const r = M.judgeRetailPvp(duanju);
+  check('C1 0.2994 ≥0.29 → act30=1 像样买方在场不落 PVP（不看兑现/持有）', () => {
+    assert.strictEqual(r.trace.act30, 1); assert.strictEqual(r.hit, 0); assert.strictEqual(r.reason, null);
   });
-  check('C3 终局放行（无论走③承接在场或①分支）', () =>
-    assert.strictEqual(r.reason, null));
-  // 同形状若买点后无承接（承接归零）→ 落 pvp_zero_absorption（对倒停摆死盘语义）
-  const dead = SNAP({
-    wallets: [W(0.2994, 0.1692, 0.2994, 39)],
-    buyDerived: { bundledBlock: null, bigHolderSellBnb60: 0, activity: { nearTail10BuyN: 0 },
-      win: { 30: { buyBnb: 0.01, buyN: 1 } } },
+  check('C2 死盘/承接形状不再属 PVP 域（承接语义归盘面其它门——首版承接轴删除锁）', () => {
+    const fs = require('fs');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');
+    // 锁代码形状非注释（jsdoc 提及历史合法）：函数体/trace 键/常量绝迹
+    assert.ok(!/function classifyWallet/.test(src), '在场三分函数残留');
+    assert.ok(!/trace\.absorb|trace\.sell60|trace\.holdersHolding/.test(src), '承接轴 trace 键残留');
+    assert.ok(!/PVP_ABSORB|PVP_NET_EPS|PVP_ACTIVE_IDLE_SEC|PVP_SELL_ZERO|PVP_UNSOLD/.test(src), '承接轴/在场常量残留');
   });
-  check('C4 同形状买方归零 → 拒 pvp_zero_absorption（死盘语义保持）', () =>
-    assert.strictEqual(M.judgeRetailPvp(dead, TEND).reason, 'pvp_zero_absorption'));
 }
 
 console.log('D. CD 四臂升格门（CD408）');
