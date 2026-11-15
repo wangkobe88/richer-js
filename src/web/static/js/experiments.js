@@ -403,13 +403,17 @@ class ExperimentMonitor {
           </span>
         </td>
 
-        <!-- 源实验 -->
+        <!-- 源实验/时间范围（回测 token 宇宙双通道：旧=源实验链接，新=数据时间窗口） -->
         <td class="px-2 py-2">
           ${exp.tradingMode === 'backtest' && exp.config?.backtest?.sourceExperimentId ? `
-            <a href="/experiment/${exp.config.backtest.sourceExperimentId}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs truncate block max-w-[100px]" title="${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || ''}">
+            <a href="/experiment/${exp.config.backtest.sourceExperimentId}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs truncate block max-w-[120px]" title="${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || ''}">
               ${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || this._formatExperimentId(exp.config.backtest.sourceExperimentId)}
             </a>
-          ` : '<span class="text-gray-500 text-xs">-</span>'}
+          ` : (exp.tradingMode === 'backtest' && exp.config?.backtest?.startTime && exp.config?.backtest?.endTime ? `
+            <div class="text-gray-300 text-xs leading-tight font-mono" title="数据时间范围（token 集=窗口内新创建代币）">
+              ${this._formatWindowTime(exp.config.backtest.startTime)}<br>~ ${this._formatWindowTime(exp.config.backtest.endTime)}
+            </div>
+          ` : '<span class="text-gray-500 text-xs">-</span>')}
         </td>
 
         <!-- 操作按钮 -->
@@ -468,6 +472,28 @@ class ExperimentMonitor {
    * @param {Date|string} date - 日期对象或ISO字符串
    * @returns {string} 格式化后的时间字符串
    */
+  /**
+   * 回测数据窗口时间紧凑格式（UTC+8，与 _formatBeijingTime 同时区口径）
+   * 输出 MM-DD HH:mm——用于列表「源实验/时间范围」列双行显示
+   */
+  _formatWindowTime(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '-';
+    let h = d.getUTCHours() + 8;
+    let date = d.getUTCDate();
+    let month = d.getUTCMonth() + 1;
+    const year = d.getUTCFullYear();
+    if (h >= 24) {
+      h -= 24;
+      const t = new Date(Date.UTC(year, month - 1, date + 1));
+      date = t.getUTCDate();
+      month = t.getUTCMonth() + 1;
+    }
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(month)}-${pad(date)} ${pad(h)}:${pad(d.getUTCMinutes())}`;
+  }
+
   _formatBeijingTime(date) {
     if (!date) return '-';
 
